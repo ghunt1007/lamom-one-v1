@@ -495,6 +495,8 @@ export function Sidebar(container) {
     el.querySelectorAll('.nav-item[data-path]').forEach(item => {
       item.addEventListener('click', () => navigate(item.dataset.path))
     })
+    // LAMI widget → ผู้ช่วยส่วนตัว
+    el.querySelector('#lami-widget')?.addEventListener('click', () => navigate('/ai/personal'))
     // เมนูผู้ใช้: บัญชีของฉัน / ออกจากระบบ
     el.querySelector('#user-mini')?.addEventListener('click', (e) => {
       e.stopPropagation()

@@ -85,7 +85,7 @@ export default async function DashboardPage(container) {
           <div style="font-size:0.72rem;color:var(--primary);font-weight:700;margin-bottom:3px">LAMI — AI Assistant</div>
           <div style="font-size:0.875rem;color:var(--text-2)">${tip}</div>
         </div>
-        <button class="btn btn-ghost btn-sm" style="margin-left:auto;flex-shrink:0" data-nav="/ai">คุยกับ LAMI →</button>
+        <button class="btn btn-ghost btn-sm" style="margin-left:auto;flex-shrink:0" data-nav="/ai/personal">คุยกับ LAMI →</button>
       </div>
 
       <!-- KPI Grid -->
