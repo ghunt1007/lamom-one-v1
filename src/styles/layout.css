@@ -85,6 +85,23 @@
 }
 .sidebar.collapsed .nav-group-label { opacity: 0; }
 
+/* Accordion group toggle */
+.nav-group-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  border-radius: var(--radius-sm);
+  padding: 10px 14px 4px;
+  margin: 0 6px;
+}
+.nav-group-toggle:hover { color: var(--text); background: var(--surface-2); border-radius: var(--radius-sm); }
+.nav-group-toggle.has-active { color: var(--primary); }
+.nav-grp-arrow { font-size: 0.65rem; opacity: 0.6; margin-left: 4px; }
+.nav-group-items { overflow: hidden; transition: all 0.2s ease; }
+.nav-group-items.grp-hidden { display: none; }
+
 .nav-item {
   display: flex;
   align-items: center;

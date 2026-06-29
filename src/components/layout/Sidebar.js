@@ -377,6 +377,15 @@ const NAV = [
   },
 ]
 
+// ── Group collapse state (localStorage) ─────────────────────────────────────
+const GRP_KEY = 'lamom_sidebar_groups'
+function loadGroupState() {
+  try { return JSON.parse(localStorage.getItem(GRP_KEY)) || {} } catch { return {} }
+}
+function saveGroupState(s) {
+  try { localStorage.setItem(GRP_KEY, JSON.stringify(s)) } catch {}
+}
+
 export function Sidebar(container) {
   let el = null
   const unsubs = []
@@ -385,6 +394,14 @@ export function Sidebar(container) {
     const collapsed = getState('sidebarCollapsed')
     const route = getState('currentRoute')
     const user = getState('user')
+    const grpState = loadGroupState()
+
+    // Auto-expand the group containing the active route
+    NAV.forEach(g => {
+      if (g.items.some(i => i.path === route) && !(g.group in grpState)) {
+        grpState[g.group] = false // false = expanded
+      }
+    })
 
     const html = `
       <aside class="sidebar ${collapsed ? 'collapsed' : ''}" id="sidebar">
@@ -395,19 +412,29 @@ export function Sidebar(container) {
         </div>
 
         <nav class="sidebar-nav">
-          ${NAV.map(group => `
+          ${NAV.map(group => {
+            const isGroupCollapsed = !collapsed && !!grpState[group.group]
+            const hasActive = group.items.some(i => i.path === route)
+            return `
             <div class="nav-group">
-              <div class="nav-group-label">${group.group}</div>
-              ${group.items.map(item => `
-                <div class="nav-item ${route === item.path ? 'active' : ''}"
-                     data-path="${item.path}"
-                     title="${collapsed ? item.label : ''}">
-                  <span class="nav-icon">${item.icon}</span>
-                  ${!collapsed ? `<span class="nav-label">${item.label}</span>` : ''}
+              ${!collapsed ? `
+                <div class="nav-group-label nav-group-toggle ${hasActive ? 'has-active' : ''}" data-grp="${escHtml(group.group)}">
+                  <span>${group.group}</span>
+                  <span class="nav-grp-arrow">${isGroupCollapsed ? '▸' : '▾'}</span>
                 </div>
-              `).join('')}
+              ` : ''}
+              <div class="nav-group-items ${isGroupCollapsed ? 'grp-hidden' : ''}">
+                ${group.items.map(item => `
+                  <div class="nav-item ${route === item.path ? 'active' : ''}"
+                       data-path="${item.path}"
+                       title="${item.label}">
+                    <span class="nav-icon">${item.icon}</span>
+                    ${!collapsed ? `<span class="nav-label">${item.label}</span>` : ''}
+                  </div>
+                `).join('')}
+              </div>
             </div>
-          `).join('')}
+          `}).join('')}
         </nav>
 
         <div class="sidebar-footer">
@@ -452,6 +479,18 @@ export function Sidebar(container) {
 
   function bindEvents() {
     el.querySelector('#sidebar-toggle')?.addEventListener('click', () => toggleSidebar())
+
+    // Group toggle
+    el.querySelectorAll('.nav-group-toggle[data-grp]').forEach(label => {
+      label.addEventListener('click', () => {
+        const grp = label.dataset.grp
+        const s = loadGroupState()
+        s[grp] = !s[grp]
+        saveGroupState(s)
+        render()
+      })
+    })
+
     el.querySelectorAll('.nav-item[data-path]').forEach(item => {
       item.addEventListener('click', () => navigate(item.dataset.path))
     })

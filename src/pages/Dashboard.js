@@ -70,7 +70,7 @@ export default async function DashboardPage(container) {
       <div class="page-header">
         <div>
           <div class="page-title">${greeting} 👋 ${escHtml(user?.displayName || user?.email?.split('@')[0] || 'ยินดีต้อนรับ')}</div>
-          <div class="page-subtitle">${formatThaiDate()} · LAMOM ONE V1</div>
+          <div class="page-subtitle">${formatThaiDate()} · LAMOM ONE</div>
         </div>
         <div class="page-actions">
           <button class="btn btn-secondary btn-sm" data-nav="/analytics">📊 Analytics</button>
