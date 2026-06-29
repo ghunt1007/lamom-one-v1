@@ -54,7 +54,8 @@ service cloud.firestore {
     // ── Users ─────────────────────────────────────────────────────────────────
     match /users/{userId} {
       allow read: if isSignedIn() && (uid() == userId || isAdmin());
-      allow create: if isAdmin();
+      // Allow self-create: first-login bootstrap
+      allow create: if isAdmin() || (isSignedIn() && uid() == userId);
       allow update: if isSignedIn() && (uid() == userId || isAdmin());
       allow delete: if isOwner();
     }
