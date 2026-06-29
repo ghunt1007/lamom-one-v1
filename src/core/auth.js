@@ -9,6 +9,21 @@ import { doc, getDoc, setDoc, serverTimestamp, collection, query, limit as fsLim
 import { setUser, setCompany, setState, showToast, getState } from './store.js'
 import { navigate } from './router.js'
 
+export async function register(email, password) {
+  try {
+    setState('loading', true)
+    const cred = await createUserWithEmailAndPassword(auth, email, password)
+    await loadUserProfile(cred.user)
+    showToast('สร้างบัญชีสำเร็จ!', 'success')
+    navigate('/')
+  } catch (e) {
+    setState('loading', false)
+    const msg = authErrorMessage(e.code)
+    showToast(msg, 'error', 6000)
+    throw e
+  }
+}
+
 export async function login(email, password) {
   try {
     setState('loading', true)

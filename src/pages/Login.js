@@ -1,4 +1,4 @@
-import { login } from '../core/auth.js'
+import { login, register } from '../core/auth.js'
 import { getState, on } from '../core/store.js'
 import { verifyLogin, requestReset, changeOwnPassword, ROLES } from '../core/userDb.js'
 import { openModal } from '../utils/modal.js'
@@ -52,8 +52,32 @@ export default function LoginPage(container) {
         </form>
 
         <div style="text-align:center;margin-top:16px">
-          <span style="font-size:0.8rem;color:var(--text-muted)">LAMOM ONE V1 © 2569</span>
+          <span style="font-size:0.8rem;color:var(--text-muted)">LAMOM ONE V1 © 2569 · </span>
+          <a href="#" id="show-register" style="font-size:0.8rem;color:var(--primary);text-decoration:none">สร้างบัญชีใหม่</a>
         </div>
+      </div>
+
+      <div class="login-card" id="register-card" style="display:none;margin-top:16px">
+        <div style="font-size:1rem;font-weight:700;margin-bottom:18px">สร้างบัญชีผู้ใช้ใหม่</div>
+        <form id="register-form" novalidate>
+          <div class="input-group">
+            <label class="input-label">อีเมล <span class="required">*</span></label>
+            <input type="email" class="input" id="reg-email" placeholder="example@email.com">
+            <span class="input-error" id="reg-email-error"></span>
+          </div>
+          <div class="input-group" style="margin-top:12px">
+            <label class="input-label">รหัสผ่าน (อย่างน้อย 8 ตัว) <span class="required">*</span></label>
+            <input type="password" class="input" id="reg-pw" placeholder="รหัสผ่าน">
+          </div>
+          <div class="input-group" style="margin-top:12px">
+            <label class="input-label">ยืนยันรหัสผ่าน <span class="required">*</span></label>
+            <input type="password" class="input" id="reg-pw2" placeholder="รหัสผ่านอีกครั้ง">
+            <span class="input-error" id="reg-pw-error"></span>
+          </div>
+          <button type="submit" class="btn btn-primary" id="reg-btn" style="width:100%;justify-content:center;padding:11px;margin-top:16px">
+            <span id="reg-btn-text">สร้างบัญชี</span>
+          </button>
+        </form>
       </div>
     </div>
   `
@@ -205,6 +229,38 @@ export default function LoginPage(container) {
     } catch {
       btn.disabled = false
       btnText.textContent = 'เข้าสู่ระบบ'
+    }
+  })
+
+  // สลับแสดง register card
+  document.getElementById('show-register').addEventListener('click', (e) => {
+    e.preventDefault()
+    const card = document.getElementById('register-card')
+    card.style.display = card.style.display === 'none' ? 'block' : 'none'
+  })
+
+  // Register form
+  document.getElementById('register-form').addEventListener('submit', async (e) => {
+    e.preventDefault()
+    const email = document.getElementById('reg-email').value.trim()
+    const pw = document.getElementById('reg-pw').value
+    const pw2 = document.getElementById('reg-pw2').value
+    const emailErr = document.getElementById('reg-email-error')
+    const pwErr = document.getElementById('reg-pw-error')
+    const regBtn = document.getElementById('reg-btn')
+    const regBtnText = document.getElementById('reg-btn-text')
+    emailErr.textContent = ''
+    pwErr.textContent = ''
+    if (!email) { emailErr.textContent = 'กรุณาระบุอีเมล'; return }
+    if (pw.length < 8) { pwErr.textContent = 'รหัสผ่านอย่างน้อย 8 ตัว'; return }
+    if (pw !== pw2) { pwErr.textContent = 'รหัสผ่านไม่ตรงกัน'; return }
+    regBtn.disabled = true
+    regBtnText.innerHTML = '<span class="spinner spinner-sm"></span> กำลังสร้างบัญชี...'
+    try {
+      await register(email, pw)
+    } catch {
+      regBtn.disabled = false
+      regBtnText.textContent = 'สร้างบัญชี'
     }
   })
 
