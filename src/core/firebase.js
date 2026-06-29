@@ -1,8 +1,8 @@
 import { initializeApp } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
-import { getStorage } from 'firebase/storage'
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check'
+// Firebase Storage ไม่ได้ใช้ — ใช้ Cloudflare R2 แทน (src/utils/storage.js)
 
 const firebaseConfig = {
   apiKey:            import.meta.env.VITE_FIREBASE_API_KEY        || 'AIzaSyPlaceholderKeyReplaceWithReal',
@@ -27,5 +27,4 @@ if (appCheckKey) {
 
 export const auth = getAuth(app)
 export const db = getFirestore(app)
-export const storage = getStorage(app)
 export default app
