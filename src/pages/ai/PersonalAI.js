@@ -136,7 +136,7 @@ export default async function PersonalAIPage(container) {
 /* ── Bottom controls ── */
 .aos-ctrl {
   flex-shrink:0;display:flex;align-items:center;justify-content:center;
-  gap:16px;padding:12px 20px 20px;position:relative;z-index:2;
+  gap:10px;padding:12px 16px 20px;position:relative;z-index:2;
 }
 .aos-btn {
   width:50px;height:50px;border-radius:50%;
@@ -192,7 +192,7 @@ export default async function PersonalAIPage(container) {
 <div class="aos-hdr">
   <div class="aos-brand">
     <div class="aos-title">◈ LAMI AGENTIC OS</div>
-    <div class="aos-sub">PERSONAL AI · ${esc(displayName.toUpperCase())}</div>
+    <div class="aos-sub">PERSONAL AI · ${esc(displayName.toUpperCase())} · MEM:${memories.length}</div>
   </div>
   <div class="aos-hdr-btns">
     <button class="aos-hbtn" id="aos-mb" title="ความจำ">🧠</button>
@@ -220,11 +220,13 @@ export default async function PersonalAIPage(container) {
 
 <div class="aos-ctrl">
   <button class="aos-btn" id="aos-cb" title="กล้อง">📷</button>
+  <button class="aos-btn" id="aos-ob" title="พูดครั้งเดียว">🎤</button>
   <button class="aos-main" id="aos-mn">
     <span class="aos-main-ico" id="aos-mni">🎙</span>
     <span class="aos-main-lbl" id="aos-mnl">เริ่มสนทนา</span>
   </button>
   <button class="aos-btn" id="aos-tb" title="พิมพ์">⌨️</button>
+  <button class="aos-btn" id="aos-mb2" title="ความจำ">🧠</button>
 </div>
 
 <div class="aos-typepad" id="aos-tp" style="display:none">
@@ -548,23 +550,22 @@ export default async function PersonalAIPage(container) {
     if (!cameraStream) await openCamera()
     logEl.style.display = 'flex'
     sizeCanvas()
-    startListening()
 
-    // welcome greeting
     const greet = `สวัสดีครับ ${displayName}! LAMI พร้อมรับใช้แล้ว จะถามอะไรก็ได้เลยครับ`
-    setTimeout(() => {
-      if (autoSpeak && !isThinking) {
-        setAIState('speaking')
-        speak(greet, {
-          onEnd: () => {
-            isSpeaking = false
-            addLog('lami', greet)
-            if (convMode) { setAIState('listening'); setTimeout(startListening, 500) }
-          }
-        })
-        isSpeaking = true
-      }
-    }, 300)
+    addLog('lami', greet)
+    if (autoSpeak) {
+      // speak welcome FIRST, then start listening after done
+      isSpeaking = true
+      setAIState('speaking')
+      speak(greet, {
+        onEnd: () => {
+          isSpeaking = false
+          if (convMode) { setAIState('listening'); setTimeout(startListening, 500) }
+        }
+      })
+    } else {
+      startListening()
+    }
   }
   function exitConvMode() {
     convMode = false
@@ -580,6 +581,34 @@ export default async function PersonalAIPage(container) {
 
   // camera
   overlay.querySelector('#aos-cb').addEventListener('click', () => cameraStream ? closeCamera() : openCamera())
+
+  // one-shot mic (fills type box)
+  overlay.querySelector('#aos-ob').addEventListener('click', e => {
+    if (!canSTT) return
+    if (isListening && !convMode) { recognition?.stop(); return }
+    const btn = e.currentTarget
+    stopSpeaking()
+    const rec = createSTT({
+      onInterim: t => { itEl.textContent = '🎤 ' + t },
+      onFinal: t => {
+        itEl.textContent = ''
+        btn.classList.remove('on')
+        typePanel.style.display = 'flex'
+        overlay.querySelector('#aos-tb').classList.add('on')
+        showType = true
+        typeIn.value = t
+        sizeCanvas()
+      },
+      onEnd: () => { itEl.textContent = ''; btn.classList.remove('on') },
+      onError: () => { itEl.textContent = ''; btn.classList.remove('on') },
+    })
+    try { rec.start(); btn.classList.add('on') } catch {}
+  })
+
+  // bottom memory shortcut
+  overlay.querySelector('#aos-mb2').addEventListener('click', () => {
+    overlay.querySelector('#aos-mb').click()
+  })
 
   // type toggle
   const typePanel = overlay.querySelector('#aos-tp')
@@ -636,7 +665,7 @@ export default async function PersonalAIPage(container) {
 
   // ── Cleanup ────────────────────────────────────────────────────────────────
   container.innerHTML = ''
-  container.__cleanup = () => {
+  const cleanup = () => {
     exitConvMode()
     closeCamera()
     cancelAnimationFrame(animReq)
@@ -644,4 +673,6 @@ export default async function PersonalAIPage(container) {
     document.getElementById('aos-css')?.remove()
     overlay.remove()
   }
+  container.__cleanup = cleanup  // sidebar/app-shell compat
+  return cleanup                 // router currentCleanup
 }
