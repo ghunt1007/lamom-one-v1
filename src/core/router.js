@@ -15,7 +15,7 @@ const routes = {
   '/dms':           () => import('../pages/dms/DmsDashboard.js'),
   '/dms/stock':     () => import('../pages/dms/Stock.js'),
   '/dms/orders':    () => import('../pages/dms/VehicleOrders.js'),
-  '/dms/pdi':       () => import('../pages/dms/Pdi.js'),
+  '/dms/pdi':       () => import('../pages/dms/PDI.js'),
   // M3 Service
   '/service':       () => import('../pages/service/ServiceDashboard.js'),
   '/service/jobs':  () => import('../pages/service/JobCards.js'),
