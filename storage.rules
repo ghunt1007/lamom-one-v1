@@ -1,0 +1,81 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ── Helper functions ───────────────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+
+    function isPDF() {
+      return request.resource.contentType == 'application/pdf';
+    }
+
+    function isAllowedType() {
+      return isImage() || isPDF() ||
+             request.resource.contentType in [
+               'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+               'application/vnd.ms-excel',
+               'text/csv'
+             ];
+    }
+
+    function isUnder10MB() {
+      return request.resource.size < 10 * 1024 * 1024;
+    }
+
+    function isUnder50MB() {
+      return request.resource.size < 50 * 1024 * 1024;
+    }
+
+    // ── Profile photos — authenticated users ──────────────────────────────
+    match /profiles/{userId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn()
+                   && request.auth.uid == userId
+                   && isImage()
+                   && isUnder10MB();
+    }
+
+    // ── Vehicle photos — any staff ────────────────────────────────────────
+    match /vehicles/{vehicleId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isImage() && isUnder10MB();
+      allow delete: if isSignedIn();
+    }
+
+    // ── Documents (contracts, invoices, PDFs) ─────────────────────────────
+    match /documents/{docId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isAllowedType() && isUnder50MB();
+      allow delete: if isSignedIn();
+    }
+
+    // ── Staff documents ───────────────────────────────────────────────────
+    match /staff/{staffId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isAllowedType() && isUnder10MB();
+      allow delete: if isSignedIn();
+    }
+
+    // ── Exports (Excel, CSV) ──────────────────────────────────────────────
+    match /exports/{userId}/{fileName} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow write: if isSignedIn()
+                   && request.auth.uid == userId
+                   && isUnder50MB();
+      allow delete: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // ── Default: deny all ─────────────────────────────────────────────────
+    match /{allPaths=**} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+  }
+}

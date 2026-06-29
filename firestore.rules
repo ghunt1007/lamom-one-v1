@@ -1,0 +1,276 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper Functions ─────────────────────────────────────────────────────
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function uid() {
+      return request.auth.uid;
+    }
+
+    function userRole() {
+      return isSignedIn()
+        ? get(/databases/$(database)/documents/users/$(uid())).data.get('role', 'viewer')
+        : 'anonymous';
+    }
+
+    function isOwner() {
+      return isSignedIn() && userRole() == 'owner';
+    }
+
+    function isAdmin() {
+      return isSignedIn() && userRole() in ['owner', 'admin'];
+    }
+
+    function isManager() {
+      return isSignedIn() && userRole() in ['owner', 'admin', 'manager'];
+    }
+
+    function isStaff() {
+      return isSignedIn() && userRole() in ['owner', 'admin', 'manager', 'sales', 'service', 'finance', 'hr', 'staff'];
+    }
+
+    function isFinance() {
+      return isSignedIn() && userRole() in ['owner', 'admin', 'manager', 'finance'];
+    }
+
+    function isHR() {
+      return isSignedIn() && userRole() in ['owner', 'admin', 'manager', 'hr'];
+    }
+
+    function isService() {
+      return isSignedIn() && userRole() in ['owner', 'admin', 'manager', 'service'];
+    }
+
+    function isSales() {
+      return isSignedIn() && userRole() in ['owner', 'admin', 'manager', 'sales'];
+    }
+
+    // ── Users ─────────────────────────────────────────────────────────────────
+    match /users/{userId} {
+      allow read: if isSignedIn() && (uid() == userId || isAdmin());
+      allow create: if isAdmin();
+      allow update: if isSignedIn() && (uid() == userId || isAdmin());
+      allow delete: if isOwner();
+    }
+
+    // ── Roles & Permissions — owner only ─────────────────────────────────────
+    match /roles/{docId} {
+      allow read: if isStaff();
+      allow write: if isOwner();
+    }
+
+    // ── Audit Logs — immutable once written ──────────────────────────────────
+    match /auditLogs/{docId} {
+      allow read: if isAdmin();
+      allow create: if isStaff();
+      allow update, delete: if false;
+    }
+
+    // ── Branches & Settings — admin manages ──────────────────────────────────
+    match /settings/{docId} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    match /branches/{docId} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    // ── CRM & Sales ──────────────────────────────────────────────────────────
+    match /customers/{docId} {
+      allow read, write: if isStaff();
+    }
+
+    match /leads/{docId} {
+      allow read, write: if isStaff();
+    }
+
+    match /bookings/{docId} {
+      allow read, write: if isStaff();
+    }
+
+    match /sales/{docId} {
+      allow read, write: if isStaff();
+    }
+
+    match /comm_logs/{docId} {
+      allow read, write: if isStaff();
+    }
+
+    match /tasks/{docId} {
+      allow read, write: if isStaff();
+    }
+
+    match /quotations/{docId} {
+      allow read, write: if isStaff();
+    }
+
+    match /follow_ups/{docId} {
+      allow read, write: if isStaff();
+    }
+
+    match /test_drives/{docId} {
+      allow read, write: if isStaff();
+    }
+
+    match /appointments/{docId} {
+      allow read, write: if isStaff();
+    }
+
+    // ── Stock & Vehicles ─────────────────────────────────────────────────────
+    match /vehicles/{docId} {
+      allow read, write: if isStaff();
+    }
+
+    match /vehicle_orders/{docId} {
+      allow read, write: if isStaff();
+    }
+
+    match /parts/{docId} {
+      allow read, write: if isStaff();
+    }
+
+    match /pdi/{docId} {
+      allow read, write: if isStaff();
+    }
+
+    match /job_cards/{docId} {
+      allow read, write: if isStaff();
+    }
+
+    match /service_appointments/{docId} {
+      allow read, write: if isStaff();
+    }
+
+    // ── Finance — finance role & above ────────────────────────────────────────
+    match /commissions/{docId} {
+      allow read: if isFinance() || isManager();
+      allow write: if isFinance();
+    }
+
+    match /payroll/{docId} {
+      allow read: if isFinance() || isManager();
+      allow write: if isFinance();
+    }
+
+    match /petty_cash/{docId} {
+      allow read, write: if isFinance();
+    }
+
+    match /expenses/{docId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update, delete: if isFinance() || isManager();
+    }
+
+    match /expense_approvals/{docId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update, delete: if isManager();
+    }
+
+    match /cash_flow/{docId} {
+      allow read: if isFinance() || isManager();
+      allow write: if isFinance();
+    }
+
+    match /bank_reconciliation/{docId} {
+      allow read, write: if isFinance();
+    }
+
+    // ── HR — HR role & above ──────────────────────────────────────────────────
+    match /staff/{docId} {
+      allow read: if isStaff();
+      allow write: if isHR();
+    }
+
+    match /staff_loans/{docId} {
+      allow read: if isHR() || isManager();
+      allow create: if isStaff();
+      allow update, delete: if isHR();
+    }
+
+    match /leave_requests/{docId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update, delete: if isHR() || isManager();
+    }
+
+    match /attendance/{docId} {
+      allow read: if isStaff();
+      allow write: if isHR() || isManager();
+    }
+
+    match /performance_reviews/{docId} {
+      allow read: if isStaff();
+      allow write: if isManager();
+    }
+
+    match /disciplinary/{docId} {
+      allow read: if isHR() || isManager();
+      allow write: if isHR() || isManager();
+    }
+
+    match /recruitment/{docId} {
+      allow read, write: if isHR() || isManager();
+    }
+
+    // ── Insurance ─────────────────────────────────────────────────────────────
+    match /insurance_policies/{docId} {
+      allow read, write: if isStaff();
+    }
+
+    match /insurance_claims/{docId} {
+      allow read, write: if isStaff();
+    }
+
+    // ── Notifications ─────────────────────────────────────────────────────────
+    match /notifications/{docId} {
+      allow read: if isSignedIn() &&
+        (resource.data.get('userId', '') == uid() || isAdmin());
+      allow create: if isStaff();
+      allow update: if isSignedIn() &&
+        (resource.data.get('userId', '') == uid() || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // ── Marketing & Events ────────────────────────────────────────────────────
+    match /campaigns/{docId} {
+      allow read, write: if isStaff();
+    }
+
+    match /events/{docId} {
+      allow read, write: if isStaff();
+    }
+
+    match /promotions/{docId} {
+      allow read, write: if isStaff();
+    }
+
+    // ── Quality & Compliance ─────────────────────────────────────────────────
+    match /complaints/{docId} {
+      allow read, write: if isStaff();
+    }
+
+    match /inspections/{docId} {
+      allow read, write: if isService() || isManager();
+    }
+
+    match /sop/{docId} {
+      allow read: if isStaff();
+      allow write: if isManager();
+    }
+
+    // ── Default: any other collection requires staff auth ────────────────────
+    match /{collection}/{docId} {
+      allow read, write: if isStaff();
+    }
+  }
+}

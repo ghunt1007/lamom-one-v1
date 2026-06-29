@@ -1,0 +1,101 @@
+import { auth, db } from './firebase.js'
+import {
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  createUserWithEmailAndPassword,
+} from 'firebase/auth'
+import { doc, getDoc, setDoc, serverTimestamp, collection, query, limit as fsLimit, getDocs } from 'firebase/firestore'
+import { setUser, setCompany, setState, showToast, getState } from './store.js'
+import { navigate } from './router.js'
+
+export async function login(email, password) {
+  try {
+    setState('loading', true)
+    const cred = await signInWithEmailAndPassword(auth, email, password)
+    await loadUserProfile(cred.user)
+    showToast('เข้าสู่ระบบสำเร็จ', 'success')
+    navigate('/')
+  } catch (e) {
+    setState('loading', false)
+    const msg = authErrorMessage(e.code)
+    showToast(msg, 'error', 6000)
+    throw e
+  }
+}
+
+export async function logout() {
+  await signOut(auth)
+  setUser(null)
+  setCompany(null)
+  setState('permissions', [])
+  navigate('/login')
+}
+
+export function initAuth(onReady) {
+  let initialized = false
+  return onAuthStateChanged(auth, async (firebaseUser) => {
+    if (firebaseUser) {
+      await loadUserProfile(firebaseUser)
+    } else {
+      setUser(null)
+    }
+    if (!initialized) {
+      initialized = true
+      onReady()
+    }
+  })
+}
+
+async function loadUserProfile(firebaseUser) {
+  try {
+    const snap = await getDoc(doc(db, 'users', firebaseUser.uid))
+    if (snap.exists()) {
+      const profile = { uid: firebaseUser.uid, email: firebaseUser.email, ...snap.data() }
+      setUser(profile)
+      setState('role', profile.role || 'staff')
+      setState('permissions', profile.permissions || [])
+      if (profile.companyId) {
+        const compSnap = await getDoc(doc(db, 'companies', profile.companyId))
+        if (compSnap.exists()) setCompany({ id: compSnap.id, ...compSnap.data() })
+      }
+    } else {
+      // สร้าง profile ใหม่ — ถ้ายังไม่มี users ใดเลยในระบบ → เป็น owner คนแรก
+      const existingSnap = await getDocs(query(collection(db, 'users'), fsLimit(1)))
+      const isFirstUser = existingSnap.empty
+      const role = isFirstUser ? 'owner' : 'staff'
+      const permissions = isFirstUser ? ['*'] : []
+      const newProfile = {
+        uid: firebaseUser.uid,
+        email: firebaseUser.email,
+        displayName: firebaseUser.displayName || firebaseUser.email,
+        role,
+        permissions,
+        createdAt: serverTimestamp(),
+      }
+      await setDoc(doc(db, 'users', firebaseUser.uid), newProfile)
+      setUser(newProfile)
+      setState('role', role)
+      setState('permissions', permissions)
+    }
+  } catch (e) {
+    console.error('loadUserProfile error:', e)
+  }
+}
+
+export function hasPermission(perm) {
+  const permissions = getState('permissions') || []
+  return permissions.includes('*') || permissions.includes(perm)
+}
+
+function authErrorMessage(code) {
+  const map = {
+    'auth/user-not-found': 'ไม่พบบัญชีผู้ใช้นี้',
+    'auth/wrong-password': 'รหัสผ่านไม่ถูกต้อง',
+    'auth/invalid-email': 'รูปแบบอีเมลไม่ถูกต้อง',
+    'auth/too-many-requests': 'ลองเข้าสู่ระบบหลายครั้งเกินไป กรุณารอสักครู่',
+    'auth/network-request-failed': 'ไม่สามารถเชื่อมต่ออินเทอร์เน็ตได้',
+    'auth/invalid-credential': 'อีเมลหรือรหัสผ่านไม่ถูกต้อง',
+  }
+  return map[code] || 'เกิดข้อผิดพลาด กรุณาลองใหม่'
+}

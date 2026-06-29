@@ -1,0 +1,210 @@
+/**
+ * Corporate Quote — ใบเสนอราคา B2B
+ * Route: /b2b/quotes
+ */
+import { formatCurrency, formatDate, timeAgo } from '../../utils/format.js'
+import { openModal } from '../../utils/modal.js'
+import { showToast } from '../../core/store.js'
+import { listDocs } from '../../core/db.js'
+
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+const QUOTE_STATUS = {
+  draft:    { label: 'ร่าง', color: 'secondary' },
+  sent:     { label: 'ส่งแล้ว', color: 'primary' },
+  reviewed: { label: 'อยู่ระหว่างพิจารณา', color: 'warning' },
+  won:      { label: 'ได้งาน', color: 'success' },
+  lost:     { label: 'เสียงาน', color: 'danger' },
+}
+
+function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
+function addHours(n) { const d = new Date(); d.setHours(d.getHours() - n); return d.toISOString() }
+
+const DEMO_QUOTES = [
+  { id: 'CQ001', company: 'บริษัท ABC จำกัด', contact: 'คุณสมชาย ใหญ่โต', model: 'BYD Atto 3', qty: 10, unitPrice: 1050000, discount: 5, status: 'reviewed', createDate: addHours(72), validUntil: addDays(30) },
+  { id: 'CQ002', company: 'XYZ Corporation', contact: 'คุณมานี บริษัท', model: 'BYD Dolphin', qty: 20, unitPrice: 669000, discount: 8, status: 'won', createDate: addHours(168), validUntil: addDays(-5) },
+  { id: 'CQ003', company: 'DEF Holdings', contact: 'คุณชัย ผู้บริหาร', model: 'MG ZS EV', qty: 5, unitPrice: 840000, discount: 3, status: 'draft', createDate: addHours(24), validUntil: addDays(45) },
+  { id: 'CQ004', company: 'GHI Group', contact: 'คุณวิภา ผจก.', model: 'BYD Seal AWD', qty: 3, unitPrice: 1450000, discount: 2, status: 'sent', createDate: addHours(48), validUntil: addDays(21) },
+  { id: 'CQ005', company: 'JKL Logistics', contact: 'คุณธนา Fleet Manager', model: 'BYD Atto 3', qty: 15, unitPrice: 1040000, discount: 6, status: 'lost', createDate: addHours(240), validUntil: addDays(-10) },
+]
+
+function calcTotal(q) {
+  const gross = q.qty * q.unitPrice
+  const discountAmt = gross * q.discount / 100
+  return gross - discountAmt
+}
+
+export default async function CorporateQuotePage(container) {
+  const myGen = container.__routerGen
+  let quotes = DEMO_QUOTES.map(q => ({ ...q }))
+  let dataSource = 'demo'
+  let statusFilter = 'all'
+
+  try {
+    const docs = await listDocs('corporate_quotes', [], 'createDate', 'desc', 200).catch(() => [])
+    if (container.__routerGen !== myGen) return
+    if (docs.length >= 2) {
+      const mapped = docs.map((d, i) => ({
+        id: d.id || `CQ${i+1}`,
+        company: d.company || d.companyName || 'บริษัท',
+        contact: d.contact || d.contactName || '',
+        model: d.model || '',
+        qty: d.qty || d.quantity || 1,
+        unitPrice: d.unitPrice || d.price || 0,
+        discount: d.discount || 0,
+        status: d.status || 'draft',
+        createDate: d.createDate || d.createdAt || new Date().toISOString(),
+        validUntil: d.validUntil || addDays(30),
+      }))
+      quotes = [...mapped, ...DEMO_QUOTES]
+      dataSource = 'live'
+    }
+  } catch {}
+
+  function renderPage() {
+    const list = quotes.filter(q => statusFilter === 'all' || q.status === statusFilter)
+    const totalValue = quotes.filter(q => q.status !== 'lost').reduce((a, q) => a + calcTotal(q), 0)
+    const wonValue = quotes.filter(q => q.status === 'won').reduce((a, q) => a + calcTotal(q), 0)
+    const wonRate = Math.round(quotes.filter(q => q.status === 'won').length / quotes.filter(q => ['won','lost'].includes(q.status)).length * 100) || 0
+
+    container.innerHTML = `
+      <div class="page-content animate-slide">
+        <div class="page-header">
+          <div>
+            <div class="page-title">📄 Corporate Quotes</div>
+            <div class="page-subtitle">ใบเสนอราคา B2B — Fleet & Corporate${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-primary" id="create-quote-btn">+ สร้าง Quote</button>
+          </div>
+        </div>
+
+        <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
+          ${kpi('📄 Quote ทั้งหมด', quotes.length, 'primary')}
+          ${kpi('💰 มูลค่ารวม', formatCurrency(totalValue), 'primary')}
+          ${kpi('✅ ได้งานรวม', formatCurrency(wonValue), 'success')}
+          ${kpi('🎯 Win Rate', wonRate + '%', wonRate >= 50 ? 'success' : 'warning')}
+        </div>
+
+        <div style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap">
+          <button class="btn btn-xs ${statusFilter==='all'?'btn-primary':'btn-secondary'} sf-btn" data-s="all">ทั้งหมด</button>
+          ${Object.entries(QUOTE_STATUS).map(([k,v]) => `<button class="btn btn-xs ${statusFilter===k?'btn-'+v.color:'btn-secondary'} sf-btn" data-s="${k}">${v.label}</button>`).join('')}
+        </div>
+
+        <div class="card" style="overflow:hidden">
+          <table style="width:100%;border-collapse:collapse">
+            <thead>
+              <tr style="border-bottom:1px solid var(--border);font-size:0.75rem;color:var(--text-muted)">
+                <th style="padding:10px 14px;text-align:left">บริษัท</th>
+                <th style="padding:10px 10px;text-align:center">รุ่น/จำนวน</th>
+                <th style="padding:10px 10px;text-align:right">ส่วนลด</th>
+                <th style="padding:10px 10px;text-align:right">มูลค่ารวม</th>
+                <th style="padding:10px 14px;text-align:center">สถานะ</th>
+                <th style="padding:10px 14px;text-align:center">หมดอายุ</th>
+                <th style="padding:10px 14px;text-align:center">จัดการ</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${list.map(q => {
+                const st = QUOTE_STATUS[q.status]
+                const total = calcTotal(q)
+                const expired = new Date(q.validUntil) < new Date()
+                return `<tr style="border-bottom:1px solid var(--border)">
+                  <td style="padding:10px 14px">
+                    <div style="font-weight:600;font-size:0.85rem">${escHtml(q.company)}</div>
+                    <div style="font-size:0.7rem;color:var(--text-muted)">${q.id} · ${escHtml(q.contact)}</div>
+                  </td>
+                  <td style="padding:10px 10px;text-align:center;font-size:0.8rem">🚗 ${q.model}<br><span style="font-size:0.72rem">${q.qty} คัน</span></td>
+                  <td style="padding:10px 10px;text-align:right;font-size:0.82rem;color:var(--danger)">${q.discount > 0 ? '-' + q.discount + '%' : '-'}</td>
+                  <td style="padding:10px 10px;text-align:right;font-weight:700;font-size:0.85rem;color:var(--success)">${formatCurrency(total)}</td>
+                  <td style="padding:10px 14px;text-align:center"><span class="badge badge-${st?.color}" style="font-size:0.62rem">${st?.label}</span></td>
+                  <td style="padding:10px 14px;text-align:center;font-size:0.75rem;color:${expired?'var(--danger)':'var(--text-muted)'}">${formatDate(q.validUntil)}${expired?' ⚠️':''}</td>
+                  <td style="padding:10px 14px;text-align:center">
+                    <div style="display:flex;gap:4px;justify-content:center">
+                      <button class="btn btn-xs btn-secondary view-btn" data-id="${q.id}">ดู</button>
+                      ${q.status === 'draft' ? `<button class="btn btn-xs btn-primary send-btn" data-id="${q.id}">ส่ง</button>` : ''}
+                      ${q.status === 'sent' || q.status === 'reviewed' ? `<button class="btn btn-xs btn-success won-btn" data-id="${q.id}">ได้</button>` : ''}
+                    </div>
+                  </td>
+                </tr>`
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `
+
+    container.querySelectorAll('.sf-btn').forEach(b => b.addEventListener('click', () => { statusFilter = b.dataset.s; renderPage() }))
+    document.getElementById('create-quote-btn')?.addEventListener('click', openCreateForm)
+    container.querySelectorAll('.view-btn').forEach(b => b.addEventListener('click', () => {
+      const q = quotes.find(x => x.id === b.dataset.id); if (q) openDetail(q)
+    }))
+    container.querySelectorAll('.send-btn').forEach(b => b.addEventListener('click', () => {
+      const q = quotes.find(x => x.id === b.dataset.id)
+      if (q) { q.status = 'sent'; showToast(`📤 ส่ง Quote ${q.id} ถึง ${q.company} แล้ว`, 'success'); renderPage() }
+    }))
+    container.querySelectorAll('.won-btn').forEach(b => b.addEventListener('click', () => {
+      const q = quotes.find(x => x.id === b.dataset.id)
+      if (q) { q.status = 'won'; showToast(`🎉 ได้งาน ${q.company}! ${formatCurrency(calcTotal(q))}`, 'success'); renderPage() }
+    }))
+  }
+
+  function openDetail(q) {
+    const st = QUOTE_STATUS[q.status]
+    const total = calcTotal(q)
+    openModal({
+      title: `📄 ${q.id} — ${escHtml(q.company)}`,
+      size: 'sm',
+      body: `
+        <span class="badge badge-${st?.color}" style="margin-bottom:12px">${st?.label}</span>
+        ${row('ผู้ติดต่อ', escHtml(q.contact))}
+        ${row('รุ่นรถ', '🚗 ' + q.model)}
+        ${row('จำนวน', q.qty + ' คัน')}
+        ${row('ราคาต่อคัน', formatCurrency(q.unitPrice))}
+        ${row('ส่วนลด', q.discount + '%')}
+        ${row('มูลค่ารวม', `<strong style="color:var(--success)">${formatCurrency(total)}</strong>`)}
+        ${row('หมดอายุ', formatDate(q.validUntil))}
+      `
+    })
+  }
+
+  function openCreateForm() {
+    openModal({
+      title: '+ สร้าง Corporate Quote',
+      size: 'md',
+      body: `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="input-group"><label class="input-label">บริษัท *</label><input class="input" id="cq-company"></div>
+          <div class="input-group"><label class="input-label">ผู้ติดต่อ *</label><input class="input" id="cq-contact"></div>
+          <div class="input-group"><label class="input-label">รุ่นรถ</label><input class="input" id="cq-model" value="BYD Atto 3"></div>
+          <div class="input-group"><label class="input-label">จำนวน (คัน)</label><input type="number" class="input" id="cq-qty" value="5"></div>
+          <div class="input-group"><label class="input-label">ราคาต่อคัน (บาท)</label><input type="number" class="input" id="cq-price" value="1050000"></div>
+          <div class="input-group"><label class="input-label">ส่วนลด (%)</label><input type="number" class="input" id="cq-disc" value="5" min="0" max="30"></div>
+          <div class="input-group"><label class="input-label">วันหมดอายุ</label><input type="date" class="input" id="cq-valid" value="${addDays(30)}"></div>
+        </div>
+      `,
+      onConfirm() {
+        const company = document.getElementById('cq-company')?.value?.trim()
+        const contact = document.getElementById('cq-contact')?.value?.trim()
+        if (!company || !contact) { showToast('❗ กรุณากรอกข้อมูล', 'error'); return }
+        quotes.unshift({
+          id: `CQ${String(quotes.length+1).padStart(3,'0')}`, company, contact,
+          model: document.getElementById('cq-model')?.value || 'BYD Atto 3',
+          qty: +document.getElementById('cq-qty')?.value || 5,
+          unitPrice: +document.getElementById('cq-price')?.value || 1000000,
+          discount: +document.getElementById('cq-disc')?.value || 0,
+          status: 'draft', createDate: new Date().toISOString(),
+          validUntil: document.getElementById('cq-valid')?.value || addDays(30)
+        })
+        showToast('✅ สร้าง Quote แล้ว!', 'success'); renderPage()
+      }
+    })
+  }
+
+  renderPage()
+}
+
+function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
+function row(l, v) { return `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:0.83rem"><span style="color:var(--text-muted)">${l}</span><span>${v}</span></div>` }

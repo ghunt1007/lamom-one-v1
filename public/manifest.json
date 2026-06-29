@@ -1,0 +1,49 @@
+{
+  "name": "LAMOM ONE — ระบบปฏิบัติการธุรกิจยานยนต์",
+  "short_name": "LAMOM ONE",
+  "description": "ระบบปฏิบัติการธุรกิจยานยนต์ครบวงจร CRM DMS Service Finance HR AI",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f1117",
+  "theme_color": "#6c63ff",
+  "orientation": "portrait-primary",
+  "lang": "th",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Home",
+      "description": "ภาพรวมธุรกิจ",
+      "url": "/",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "ลูกค้า",
+      "short_name": "CRM",
+      "description": "จัดการลูกค้า",
+      "url": "/crm/customers",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Job Cards",
+      "short_name": "Service",
+      "description": "งานซ่อม",
+      "url": "/service/jobs",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    }
+  ]
+}

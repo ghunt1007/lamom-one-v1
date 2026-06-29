@@ -1,0 +1,116 @@
+/**
+ * Event Check-in — เช็คอินงานอีเวนต์ + เก็บ Lead
+ * Route: /marketing/event-checkin
+ */
+import { timeAgo } from '../../utils/format.js'
+import { openModal } from '../../utils/modal.js'
+import { showToast } from '../../core/store.js'
+
+function addMinutes(n) { const d = new Date(); d.setMinutes(d.getMinutes() - n); return d.toISOString() }
+
+const INTEREST = {
+  hot:    { label: 'Hot 🔥', color: 'danger' },
+  warm:   { label: 'Warm ☀️', color: 'warning' },
+  browse: { label: 'เดินดู 👀', color: 'secondary' },
+}
+
+const EVENT_INFO = { name: 'Motor Show บางนา 2569', booth: 'Booth A12', target: 150, staff: ['วิชัย', 'สุดา', 'ธนา'] }
+
+const DEMO_VISITORS = [
+  { id: 'EV001', name: 'ประยุทธ์ สนใจ', phone: '081-111', model: 'BYD Seal AWD', interest: 'hot', staff: 'วิชัย', time: addMinutes(10), gift: true, testDrive: true },
+  { id: 'EV002', name: 'สมหญิง ดูรถ', phone: '082-222', model: 'BYD Dolphin', interest: 'warm', staff: 'สุดา', time: addMinutes(35), gift: true, testDrive: false },
+  { id: 'EV003', name: 'อนันต์ ผ่านมา', phone: '', model: 'ยังไม่แน่ใจ', interest: 'browse', staff: 'ธนา', time: addMinutes(50), gift: false, testDrive: false },
+  { id: 'EV004', name: 'กানดา อยากได้', phone: '084-444', model: 'BYD Atto 3', interest: 'hot', staff: 'วิชัย', time: addMinutes(80), gift: true, testDrive: true },
+  { id: 'EV005', name: 'วีระ เปรียบเทียบ', phone: '085-555', model: 'MG4', interest: 'warm', staff: 'สุดา', time: addMinutes(120), gift: true, testDrive: false },
+]
+
+export default async function EventCheckinPage(container) {
+  let visitors = DEMO_VISITORS.map(v => ({ ...v }))
+
+  function renderPage() {
+    const total = visitors.length
+    const hot = visitors.filter(v => v.interest === 'hot').length
+    const withPhone = visitors.filter(v => v.phone).length
+    const tdCount = visitors.filter(v => v.testDrive).length
+    const targetPct = Math.round(total / EVENT_INFO.target * 100)
+
+    container.innerHTML = `
+      <div class="page-content animate-slide">
+        <div class="page-header">
+          <div>
+            <div class="page-title">🎪 Event Check-in</div>
+            <div class="page-subtitle">${EVENT_INFO.name} — ${EVENT_INFO.booth}</div>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-primary" id="checkin-btn" style="font-size:1rem;padding:10px 20px">+ ลงทะเบียนผู้เยี่ยมชม</button>
+          </div>
+        </div>
+
+        <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
+          ${kpi('🎪 ผู้เยี่ยมชม', total + '/' + EVENT_INFO.target + ' (' + targetPct + '%)', targetPct >= 50 ? 'success' : 'primary')}
+          ${kpi('🔥 Hot Leads', hot, hot > 0 ? 'danger' : 'secondary')}
+          ${kpi('📞 ได้เบอร์ติดต่อ', withPhone + ' (' + Math.round(withPhone/total*100) + '%)', 'warning')}
+          ${kpi('🚗 จอง Test Drive', tdCount, 'success')}
+        </div>
+
+        <!-- Target progress -->
+        <div style="margin-bottom:16px">
+          <div style="display:flex;justify-content:space-between;font-size:0.73rem;margin-bottom:4px">
+            <span style="color:var(--text-muted)">เป้า Lead ทั้งงาน</span><span>${total}/${EVENT_INFO.target}</span>
+          </div>
+          <div style="background:var(--surface-2);border-radius:4px;height:10px">
+            <div style="width:${Math.min(100,targetPct)}%;background:var(--primary);height:10px;border-radius:4px"></div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:8px">
+          ${[...visitors].reverse().map(v => {
+            const it = INTEREST[v.interest]
+            return `<div class="card" style="padding:11px 14px;border-left:3px solid var(--${it?.color});display:flex;justify-content:space-between;align-items:center">
+              <div>
+                <div style="font-weight:700;font-size:0.84rem">${v.name} ${v.phone ? `<span style="font-size:0.7rem;color:var(--text-muted)">📞 ${v.phone}</span>` : '<span style="font-size:0.68rem;color:var(--danger)">ไม่มีเบอร์</span>'}</div>
+                <div style="font-size:0.7rem;color:var(--text-muted)">🚗 ${v.model} · 👤 ${v.staff} · ${timeAgo(v.time)}${v.gift?' · 🎁':''}${v.testDrive?' · 🚗 TD':''}</div>
+              </div>
+              <span class="badge badge-${it?.color}" style="font-size:0.65rem">${it?.label}</span>
+            </div>`
+          }).join('')}
+        </div>
+      </div>
+    `
+
+    document.getElementById('checkin-btn')?.addEventListener('click', () => {
+      openModal({
+        title: '🎪 ลงทะเบียนผู้เยี่ยมชมบูธ',
+        size: 'md',
+        body: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="input-group"><label class="input-label">ชื่อ *</label><input class="input" id="ec-name" autofocus></div>
+          <div class="input-group"><label class="input-label">เบอร์โทร (สำคัญ!)</label><input class="input" id="ec-phone" type="tel"></div>
+          <div class="input-group"><label class="input-label">รุ่นที่สนใจ</label>
+            <select class="input" id="ec-model"><option>BYD Dolphin</option><option>BYD Atto 3</option><option>BYD Seal AWD</option><option>MG4</option><option>BYD Han</option><option>ยังไม่แน่ใจ</option></select>
+          </div>
+          <div class="input-group"><label class="input-label">ระดับความสนใจ</label>
+            <select class="input" id="ec-interest">${Object.entries(INTEREST).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('')}</select>
+          </div>
+          <div class="input-group"><label class="input-label">เซลส์ที่คุย</label>
+            <select class="input" id="ec-staff">${EVENT_INFO.staff.map(s=>`<option>${s}</option>`).join('')}</select>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;justify-content:flex-end">
+            <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;cursor:pointer"><input type="checkbox" id="ec-gift" checked style="accent-color:var(--primary)"> 🎁 รับของที่ระลึก</label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;cursor:pointer"><input type="checkbox" id="ec-td" style="accent-color:var(--primary)"> 🚗 จอง Test Drive ที่โชว์รูม</label>
+          </div>
+        </div>`,
+        confirmText: '✅ ลงทะเบียน',
+        onConfirm() {
+          const name = document.getElementById('ec-name')?.value?.trim()
+          if (!name) { showToast('❗ กรอกชื่อ', 'error'); return }
+          visitors.push({ id:`EV${String(visitors.length+1).padStart(3,'0')}`, name, phone:document.getElementById('ec-phone')?.value||'', model:document.getElementById('ec-model')?.value||'—', interest:document.getElementById('ec-interest')?.value||'browse', staff:document.getElementById('ec-staff')?.value||'—', time:new Date().toISOString(), gift:document.getElementById('ec-gift')?.checked||false, testDrive:document.getElementById('ec-td')?.checked||false })
+          showToast('✅ ลงทะเบียนแล้ว — sync เข้า CRM อัตโนมัติ', 'success'); renderPage()
+        }
+      })
+    })
+  }
+
+  renderPage()
+}
+
+function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

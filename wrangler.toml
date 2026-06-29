@@ -1,0 +1,11 @@
+name = "r2-upload"
+main = "workers/r2-upload.js"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "lamom-files"
+
+[vars]
+REQUIRE_AUTH = "false"
