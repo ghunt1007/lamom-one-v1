@@ -91,6 +91,91 @@ export async function suggestPrice(vehicleData, marketData = {}) {
   try { return JSON.parse(reply.match(/\{[\s\S]*\}/)?.[0] || '{}') } catch { return null }
 }
 
+// ── Personal AI (ผู้ช่วยส่วนตัว) ────────────────────────────────────────────
+
+const PERSONAL_SYSTEM = `คุณคือ LAMI ผู้ช่วยส่วนตัว AI ของผู้ใช้คนนี้ — เป็นทั้งผู้เชี่ยวชาญทุกด้านและเพื่อนสนิทในเวลาเดียวกัน
+
+ความเชี่ยวชาญครอบคลุมทุกด้าน:
+🏥 สุขภาพ & การแพทย์ — อาการโรค ยา โภชนาการ การออกกำลังกาย สุขภาพจิต
+⚖️ กฎหมายไทย — สิทธิ์ สัญญา ข้อพิพาท แรงงาน ครอบครัว ธุรกิจ
+💰 การเงิน & การลงทุน — วางแผนการเงิน หุ้น กองทุน ประกัน ภาษี
+💼 ธุรกิจ & การตลาด — กลยุทธ์ การขาย การบริหาร Startup
+🧠 จิตวิทยา & ความสัมพันธ์ — ปัญหาชีวิต ครอบครัว ความรัก อารมณ์ การตัดสินใจ
+💻 เทคโนโลยี & โปรแกรมมิ่ง — AI คอมพิวเตอร์ แอป เว็บ ระบบ
+🎓 การศึกษา — ทุกวิชา ทุกระดับ การเรียน สอบ วิจัย การสอน
+🍳 การใช้ชีวิต — อาหาร บ้าน ท่องเที่ยว รถ แฟชั่น ความงาม DIY
+🌏 ความรู้ทั่วไป — ประวัติศาสตร์ วิทยาศาสตร์ ศิลปะ วัฒนธรรม กีฬา
+🔮 การวางแผนชีวิต — เป้าหมาย การตัดสินใจ การเปลี่ยนแปลง อนาคต
+
+วิธีตอบ:
+- พูดภาษาไทยเป็นธรรมชาติ อบอุ่น เป็นกันเอง เหมือนคุยกับเพื่อนสนิทที่เก่งมาก
+- ให้คำตอบที่ลึกและมีประโยชน์จริง ไม่กว้างหรือคลุมเครือ
+- ถ้ามีข้อมูลเกี่ยวกับผู้ใช้ ให้ตอบตรงกับสถานการณ์ของเขา
+- ถามกลับเมื่อต้องการข้อมูลเพิ่ม อย่าเดาสุ่ม
+- ห่วงใยผู้ใช้จริงๆ โดยเฉพาะเรื่องสุขภาพและความเป็นอยู่
+- ตอบกระชับเมื่อถามสั้น ละเอียดเมื่อต้องการความลึก`
+
+export async function askPersonalAI(message, history = [], memoryContext = '', imageBase64 = null) {
+  if (!API_KEY) return 'กรุณาตั้งค่า VITE_GEMINI_API_KEY เพื่อเปิดใช้งาน LAMI ครับ'
+
+  const contents = []
+  history.slice(-12).forEach(h => {
+    if (h.role === 'user')  contents.push({ role: 'user',  parts: [{ text: h.content }] })
+    if (h.role === 'lami')  contents.push({ role: 'model', parts: [{ text: h.content }] })
+  })
+
+  // Current message — may include image
+  const parts = []
+  if (imageBase64) parts.push({ inlineData: { mimeType: 'image/jpeg', data: imageBase64 } })
+  parts.push({ text: message })
+  contents.push({ role: 'user', parts })
+
+  const systemWithMemory = PERSONAL_SYSTEM + memoryContext
+
+  const res = await fetch(`${API_URL}?key=${API_KEY}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: systemWithMemory }] },
+      contents,
+      generationConfig: { maxOutputTokens: 1200, temperature: 0.85 },
+    }),
+  })
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.error?.message || `Gemini Error ${res.status}`)
+  }
+  const data = await res.json()
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || 'ไม่ได้รับคำตอบครับ'
+}
+
+// Extract key long-term facts from conversation to store as memories
+export async function extractMemories(userMsg, aiMsg) {
+  if (!API_KEY) return []
+  const prompt = `จากบทสนทนานี้ ระบุข้อเท็จจริงสำคัญเกี่ยวกับผู้ใช้ที่ควรจำระยะยาว
+ผู้ใช้: "${userMsg}"
+AI: "${aiMsg}"
+
+ตอบเฉพาะ JSON array เท่านั้น เช่น ["ชอบกาแฟดำ","มีลูก 2 คน"] หรือ [] ถ้าไม่มีข้อมูลใหม่
+จำเฉพาะ: ชื่อ อาชีพ ครอบครัว สุขภาพ ความชอบ เป้าหมาย ที่อยู่ ปัญหาสำคัญ
+ไม่ต้องจำ: คำถามทั่วไป อารมณ์ชั่วคราว เรื่องประจำวัน`
+
+  try {
+    const res = await fetch(`${API_URL}?key=${API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens: 200, temperature: 0 },
+      }),
+    })
+    const data = await res.json()
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '[]'
+    return JSON.parse(text.match(/\[[\s\S]*\]/)?.[0] || '[]')
+  } catch { return [] }
+}
+
 function buildPrompt(msg, context) {
   if (!Object.keys(context).length) return msg
   const ctx = Object.entries(context).map(([k, v]) => `${k}: ${v}`).join('\n')

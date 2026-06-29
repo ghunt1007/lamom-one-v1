@@ -52,6 +52,14 @@ service cloud.firestore {
     }
 
     // ── Users ─────────────────────────────────────────────────────────────────
+    // AI personal data — subcollections (private per user)
+    match /users/{userId}/ai_memories/{docId} {
+      allow read, write: if isSignedIn() && uid() == userId;
+    }
+    match /users/{userId}/ai_conversations/{docId} {
+      allow read, write: if isSignedIn() && uid() == userId;
+    }
+
     match /users/{userId} {
       allow read: if isSignedIn() && (uid() == userId || isAdmin());
       // Allow self-create: first-login bootstrap

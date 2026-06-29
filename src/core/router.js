@@ -41,6 +41,7 @@ const routes = {
   // M12 Documents
   '/documents':  () => import('../pages/documents/DocumentStudio.js'),
   // M13 AI Officers
+  '/ai/personal': () => import('../pages/ai/PersonalAI.js'),
   '/ai':         () => import('../pages/ai/AiOfficers.js'),
   // M14 Communication Hub
   '/tasks':      () => import('../pages/tasks/Tasks.js'),

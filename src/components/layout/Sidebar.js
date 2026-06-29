@@ -295,6 +295,7 @@ const NAV = [
   {
     group: 'AI & งาน',
     items: [
+      { icon: '💫', label: 'ผู้ช่วยส่วนตัว', path: '/ai/personal' },
       { icon: '🤖', label: 'AI Officers', path: '/ai' },
       { icon: '🧠', label: 'LAMI Brain', path: '/ai/lami' },
       { icon: '🎯', label: 'Sales Coach', path: '/ai/sales-coach' },
