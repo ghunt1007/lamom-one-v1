@@ -21,33 +21,98 @@ export function createSTT({ onInterim, onFinal, onEnd, onError } = {}) {
   return rec
 }
 
-export function speak(text, { onEnd } = {}) {
+// ── TTS helpers ──────────────────────────────────────────────────────────────
+
+function getThaiVoice() {
+  const voices = window.speechSynthesis?.getVoices() || []
+  return voices.find(v =>
+    v.lang === 'th-TH' || v.lang === 'th' ||
+    v.name.toLowerCase().includes('thai') ||
+    v.name.includes('Pattara') || v.name.includes('Niwat') || v.name.includes('Premwadee')
+  ) || null
+}
+
+// Split text at natural boundaries, max chunkSize chars each
+function splitText(text, chunkSize = 180) {
+  const chunks = []
+  const parts = text.split(/(?<=[.!?।。\n])\s*/)
+  let current = ''
+  for (const p of parts) {
+    if ((current + p).length > chunkSize && current) {
+      chunks.push(current.trim())
+      current = p
+    } else {
+      current += (current ? ' ' : '') + p
+    }
+  }
+  if (current.trim()) chunks.push(current.trim())
+  return chunks.length ? chunks : [text]
+}
+
+// Google Translate TTS — free, works without OS Thai voice installed
+async function speakGoogleTTS(text, onEnd) {
+  const chunks = splitText(text, 180)
+  for (const chunk of chunks) {
+    if (!chunk) continue
+    const url = `https://translate.googleapis.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=th&client=gtx&ttsspeed=0.9`
+    await new Promise((resolve) => {
+      const audio = new Audio(url)
+      audio.onended = resolve
+      audio.onerror = resolve // skip on error, don't hang
+      audio.play().catch(resolve)
+    })
+  }
+  onEnd?.()
+}
+
+// Native Web Speech TTS with specific voice
+function speakNative(text, voice, onEnd) {
   const synth = window.speechSynthesis
-  if (!synth || !text) return
   synth.cancel()
-  // Split long text into chunks to avoid browser cutoff bug
-  const chunks = text.match(/.{1,200}[.!?。\s]|.{1,200}/g) || [text]
+  const chunks = splitText(text, 200)
   let idx = 0
   const sayNext = () => {
     if (idx >= chunks.length) { onEnd?.(); return }
     const utt = new SpeechSynthesisUtterance(chunks[idx++])
     utt.lang = 'th-TH'
-    utt.rate = 1.05
+    utt.rate = 1.0
     utt.pitch = 1.0
-    const voices = synth.getVoices()
-    const thVoice = voices.find(v => v.lang.startsWith('th'))
-    if (thVoice) utt.voice = thVoice
+    if (voice) utt.voice = voice
     utt.onend = sayNext
+    utt.onerror = sayNext
     synth.speak(utt)
   }
-  // Ensure voices loaded
-  if (speechSynthesis.getVoices().length === 0) {
-    speechSynthesis.onvoiceschanged = () => { speechSynthesis.onvoiceschanged = null; sayNext() }
+  sayNext()
+}
+
+// Main speak — tries native Thai voice first, falls back to Google TTS
+export function speak(text, { onEnd } = {}) {
+  if (!text) { onEnd?.(); return }
+
+  const synth = window.speechSynthesis
+
+  const trySpeak = () => {
+    const thVoice = getThaiVoice()
+    if (thVoice) {
+      speakNative(text, thVoice, onEnd)
+    } else {
+      if (synth) synth.cancel()
+      speakGoogleTTS(text, onEnd)
+    }
+  }
+
+  // Wait for voice list to load (async in some browsers)
+  if (synth && synth.getVoices().length === 0) {
+    synth.onvoiceschanged = () => { synth.onvoiceschanged = null; trySpeak() }
+    setTimeout(() => { if (synth.onvoiceschanged) { synth.onvoiceschanged = null; trySpeak() } }, 500)
   } else {
-    sayNext()
+    trySpeak()
   }
 }
 
-export const stopSpeaking = () => window.speechSynthesis?.cancel()
+export function stopSpeaking() {
+  window.speechSynthesis?.cancel()
+}
+
 export const canSTT = !!(window.SpeechRecognition || window.webkitSpeechRecognition)
-export const canTTS = !!window.speechSynthesis
+export const canTTS = true // Google TTS always available as fallback
