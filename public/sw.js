@@ -1,5 +1,5 @@
 // LAMOM ONE Service Worker v1.0
-const CACHE_NAME = 'lamom-one-v1.0.68'
+const CACHE_NAME = 'lamom-one-v1.0.69'
 const STATIC_ASSETS = [
   '/',
 ]

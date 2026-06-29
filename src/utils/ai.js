@@ -3,7 +3,7 @@
 // ตั้งค่า VITE_GEMINI_API_KEY ใน .env.local เพื่อเปิดใช้งาน AI จริง
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY
-const MODEL   = 'gemini-1.5-flash'
+const MODEL   = 'gemini-2.5-flash'
 const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`
 
 const SYSTEM_PROMPT = `คุณคือ LAMI ผู้ช่วย AI อัจฉริยะของโชว์รูมยานยนต์ไฟฟ้า LAMOM ONE
