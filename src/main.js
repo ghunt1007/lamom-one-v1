@@ -5,6 +5,7 @@ import './styles/layout.css'
 import { initAuth, logout } from './core/auth.js'
 import { initRouter, navigate } from './core/router.js'
 import { getState, on, setTheme } from './core/store.js'
+import { seedDemoData } from './core/db.js'
 import { initSessionTimeout, destroySessionTimeout } from './utils/sessionTimeout.js'
 import { Sidebar } from './components/layout/Sidebar.js'
 import { Topbar } from './components/layout/Topbar.js'
@@ -48,6 +49,7 @@ initAuth(() => {
 })
 
 function bootstrapShell() {
+  seedDemoData()
   app.innerHTML = ''
   app.className = 'app-layout'
 

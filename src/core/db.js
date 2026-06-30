@@ -16,7 +16,8 @@ function deepSanitize(v) {
 }
 
 // ── Demo store (in-memory when no Firebase) ─────────────────
-const demoStore = {}
+// Pinned to window so all Vite module instances share the same object across HMR reloads
+const demoStore = window.__lamomDemoStore || (window.__lamomDemoStore = {})
 
 function isDemoMode() {
   const user = getState('user')
