@@ -1,22 +1,22 @@
 import { showToast } from '../../core/store.js'
 
 const MODULES = [
-  { icon:'👥', name:'CRM & การขาย', pages:24, color:'primary' },
-  { icon:'🚗', name:'DMS / โชว์รูม', pages:22, color:'accent' },
-  { icon:'🔧', name:'ศูนย์บริการ', pages:22, color:'warning' },
-  { icon:'💰', name:'การเงิน', pages:26, color:'success' },
-  { icon:'📣', name:'การตลาด', pages:11, color:'primary' },
-  { icon:'👤', name:'HR & องค์กร', pages:23, color:'accent' },
-  { icon:'📈', name:'Analytics', pages:17, color:'success' },
-  { icon:'🤖', name:'AI Officers', pages:7, color:'warning' },
-  { icon:'🛡', name:'ประกัน', pages:4, color:'danger' },
-  { icon:'🎓', name:'Training', pages:6, color:'primary' },
-  { icon:'🎮', name:'Gamification', pages:5, color:'accent' },
-  { icon:'💬', name:'สื่อสาร', pages:7, color:'success' },
-  { icon:'📋', name:'Quality & PDPA', pages:8, color:'warning' },
-  { icon:'🤝', name:'B2B & Partner', pages:6, color:'primary' },
-  { icon:'📄', name:'เอกสาร', pages:3, color:'accent' },
-  { icon:'⚙️', name:'ระบบ & ตั้งค่า', pages:9, color:'primary' },
+  { icon:'👥', name:'CRM & การขาย', pages:37, color:'primary' },
+  { icon:'🚗', name:'DMS / โชว์รูม', pages:39, color:'accent' },
+  { icon:'🔧', name:'ศูนย์บริการ', pages:33, color:'warning' },
+  { icon:'💰', name:'การเงิน', pages:40, color:'success' },
+  { icon:'📣', name:'การตลาด', pages:18, color:'primary' },
+  { icon:'👤', name:'HR & องค์กร', pages:28, color:'accent' },
+  { icon:'📈', name:'Analytics', pages:23, color:'success' },
+  { icon:'🤖', name:'AI Officers', pages:9, color:'warning' },
+  { icon:'🛡', name:'ประกัน', pages:6, color:'danger' },
+  { icon:'🎓', name:'Training', pages:9, color:'primary' },
+  { icon:'🎮', name:'Gamification', pages:6, color:'accent' },
+  { icon:'💬', name:'สื่อสาร', pages:8, color:'success' },
+  { icon:'📋', name:'Quality & PDPA', pages:9, color:'warning' },
+  { icon:'🤝', name:'B2B & Partner', pages:9, color:'primary' },
+  { icon:'📄', name:'เอกสาร', pages:5, color:'accent' },
+  { icon:'⚙️', name:'ระบบ & ตั้งค่า', pages:21, color:'primary' },
 ]
 
 const CHANGELOG = [
@@ -95,12 +95,12 @@ const CHANGELOG = [
 ]
 
 const TECH_STACK = [
-  { icon:'⚡', name:'Vite 5', desc:'Build < 1 วินาที, HMR instant' },
+  { icon:'⚡', name:'Vite 8', desc:'Build < 1 วินาที, HMR instant' },
   { icon:'🟨', name:'Vanilla JS ES6+', desc:'ไม่มี framework, เบา & เร็ว' },
-  { icon:'🔥', name:'Firebase 10', desc:'Firestore + Auth + Storage' },
+  { icon:'🔥', name:'Firebase 12', desc:'Firestore + Auth + Cloudflare R2' },
   { icon:'🎨', name:'CSS Custom Properties', desc:'Dark mode + 6 ธีมสี' },
   { icon:'🎮', name:'Demo Mode', desc:'ทดลองโดยไม่ต้องสมัคร' },
-  { icon:'📦', name:'Modular Architecture', desc:'~120+ ระบบย่อย, 17 โมดูล' },
+  { icon:'📦', name:'Modular Architecture', desc:'300+ หน้า, 16 โมดูล' },
 ]
 
 export default function AboutPage(container) {
@@ -120,10 +120,10 @@ export default function AboutPage(container) {
           <div style="font-size:1.5rem;font-weight:900;letter-spacing:-0.02em">LAMOM ONE</div>
           <div style="font-size:0.85rem;color:var(--text-muted);margin:4px 0 12px">ระบบปฏิบัติการธุรกิจยานยนต์ครบวงจร</div>
           <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
-            <span class="badge badge-primary">Version 1.0.23</span>
+            <span class="badge badge-primary">Version 1.0.73</span>
             <span class="badge badge-success">${totalPages}+ ระบบย่อย</span>
             <span class="badge badge-accent">${MODULES.length} โมดูล</span>
-            <span class="badge badge-warning">Vite + ES6 + Firebase</span>
+            <span class="badge badge-warning">Vite 8 + ES6 + Firebase 12</span>
           </div>
         </div>
 
