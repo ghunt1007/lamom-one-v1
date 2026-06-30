@@ -654,8 +654,8 @@ export default async function PersonalAIPage(container) {
   })
 
   overlay.querySelector('#aos-xb').addEventListener('click', () => {
+    exitConvMode(); closeCamera(); overlay.remove()
     if (window.navigate) window.navigate('/')
-    else { exitConvMode(); closeCamera(); overlay.remove() }
   })
 
   overlay.querySelector('#aos-sb').addEventListener('click', e => {

@@ -327,8 +327,8 @@ export function seedDemoData() {
   assets.forEach(a => { if (!demoCol('assets')[a.id]) demoCol('assets')[a.id] = a })
 
   const deposits = [
-    { id:'dep1', bookingId:'bk1', custName:'ธีรพงศ์ แสงทอง', amount:50000, method:'โอน', refNo:'REF-001', status:'received', receivedAt:'2025-06-01', notes:'มัดจำจอง BYD Seal AWD', createdAt:'2025-06-01' },
-    { id:'dep2', bookingId:'bk2', custName:'กิตติพงษ์ วรรณศิลป์', amount:30000, method:'โอน', refNo:'REF-002', status:'received', receivedAt:'2025-06-05', notes:'มัดจำจอง DEEPAL S07', createdAt:'2025-06-05' },
+    { id:'dep1', bookingId:'bk1', customer:'ธีรพงศ์ แสงทอง', model:'BYD Seal AWD', amount:50000, method:'โอน', refNo:'REF-001', status:'held', date:'2025-06-01', booking:'BK-0001', notes:'มัดจำจอง BYD Seal AWD', createdAt:'2025-06-01' },
+    { id:'dep2', bookingId:'bk2', customer:'กิตติพงษ์ วรรณศิลป์', model:'DEEPAL S07', amount:30000, method:'โอน', refNo:'REF-002', status:'applied', date:'2025-06-05', booking:'BK-0002', notes:'มัดจำจอง DEEPAL S07', createdAt:'2025-06-05' },
   ]
   deposits.forEach(d => { if (!demoCol('deposits')[d.id]) demoCol('deposits')[d.id] = d })
 
@@ -385,8 +385,8 @@ export function seedDemoData() {
   escalationRules.forEach(r => { if (!demoCol('escalation_rules')[r.id]) demoCol('escalation_rules')[r.id] = r })
 
   const meetingMinutes = [
-    { id:'mm1', title:'ประชุมทีมขายประจำสัปดาห์', date:'2025-06-23', attendees:'ทวีศักดิ์, อรนุช, วิชัย', agenda:'ทบทวนยอดขาย + แผนสัปดาห์หน้า', decisions:'เพิ่มเป้า Test Drive 20% + ดันโปรโมชั่น EV', actionItems:'วิชัย: ส่งใบเสนอราคา DEEPAL ก่อน ศุกร์', status:'done', createdBy:'ทวีศักดิ์ สุขสมบัติเสถียร', createdAt: new Date(Date.now()-86400000*6).toISOString() },
-    { id:'mm2', title:'ประชุมฝ่ายบริการ — คุณภาพงานซ่อม', date:'2025-06-26', attendees:'ทวีศักดิ์, สมชาย, วิชัยช่าง', agenda:'ลด TAT + ลูกค้า Complaint', decisions:'ตั้ง SLA งานซ่อม 1 วัน ยกเว้นอะไหล่นำเข้า', actionItems:'สมชาย: ทำ checklist ประจำวัน', status:'done', createdBy:'ทวีศักดิ์ สุขสมบัติเสถียร', createdAt: new Date(Date.now()-86400000*3).toISOString() },
+    { id:'mm1', title:'ประชุมทีมขายประจำสัปดาห์', date:'2025-06-23', time:'09:00', dept:'ขาย', attendees:['ทวีศักดิ์','อรนุช','วิชัย'], agenda:['ทบทวนยอดขาย','แผนสัปดาห์หน้า'], minutes:'เพิ่มเป้า Test Drive 20% + ดันโปรโมชั่น EV', actions:[{ task:'ส่งใบเสนอราคา DEEPAL', owner:'วิชัย', due:'2025-06-28', done:true }], status:'completed', createdAt: new Date(Date.now()-86400000*6).toISOString() },
+    { id:'mm2', title:'ประชุมฝ่ายบริการ — คุณภาพงานซ่อม', date:'2025-06-26', time:'14:00', dept:'บริการ', attendees:['ทวีศักดิ์','สมชาย','วิชัยช่าง'], agenda:['ลด TAT','ลูกค้า Complaint'], minutes:'ตั้ง SLA งานซ่อม 1 วัน ยกเว้นอะไหล่นำเข้า', actions:[{ task:'ทำ checklist ประจำวัน', owner:'สมชาย', due:'2025-06-30', done:false }], status:'completed', createdAt: new Date(Date.now()-86400000*3).toISOString() },
   ]
   meetingMinutes.forEach(m => { if (!demoCol('meeting_minutes')[m.id]) demoCol('meeting_minutes')[m.id] = m })
 
