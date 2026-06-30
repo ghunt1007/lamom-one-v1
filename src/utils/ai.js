@@ -134,21 +134,29 @@ export async function askPersonalAI(message, history = [], memoryContext = '', i
 
   const systemWithMemory = PERSONAL_SYSTEM + memoryContext
 
-  // Stream via SSE — first token arrives within ~1s instead of waiting for full response
-  const res = await fetch(`${STREAM_URL}?key=${API_KEY}&alt=sse`, {
+  const body = JSON.stringify({
+    systemInstruction: { parts: [{ text: systemWithMemory }] },
+    contents,
+    generationConfig: { maxOutputTokens: 500, temperature: 0.85 },
+  })
+  const fetchStream = () => fetch(`${STREAM_URL}?key=${API_KEY}&alt=sse`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: systemWithMemory }] },
-      contents,
-      generationConfig: {
-        maxOutputTokens: 500,
-        temperature: 0.85,
-      },
-    }),
+    body,
   })
 
+  // Stream via SSE — first token arrives within ~1s instead of waiting for full response
+  let res = await fetchStream()
+
+  // Retry once on 429 (rate limit) after 8 seconds
+  if (res.status === 429) {
+    onChunk?.(null, null)  // signal caller to show wait message
+    await new Promise(r => setTimeout(r, 8000))
+    res = await fetchStream()
+  }
+
   if (!res.ok) {
+    if (res.status === 429) throw new Error('โควต้า API เกินครับ กรุณารอสักครู่แล้วพูดใหม่')
     const err = await res.json().catch(() => ({}))
     throw new Error(err.error?.message || `Gemini Error ${res.status}`)
   }

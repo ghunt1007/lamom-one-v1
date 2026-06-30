@@ -15,6 +15,7 @@ export default async function PersonalAIPage(container) {
   let convMode = false, autoSpeak = true
   let aiState = 'idle'
   let animReq = null, animT = 0, lastTS = 0
+  let sendCount = 0   // tracks messages sent; extractMemories runs every 3rd
 
   memories = await loadMemories()
   history  = await loadRecentMessages(16)
@@ -505,9 +506,13 @@ export default async function PersonalAIPage(container) {
     try {
       const memCtx = memoriesToContext(memories)
       // onChunk updates the bubble progressively — feels instant
+      // null chunk = 429 retry waiting signal
       const reply = await askPersonalAI(
         text || 'อธิบายรูปภาพนี้', history, memCtx, imageB64,
-        (_chunk, full) => showReply('lami', full + '▌')
+        (_chunk, full) => {
+          if (full === null) { stEl.textContent = 'โควต้าเกิน รอสักครู่...'; return }
+          showReply('lami', full + '▌')
+        }
       )
       showReply('lami', reply)
       saveMessage('lami', reply)
@@ -528,7 +533,8 @@ export default async function PersonalAIPage(container) {
         else setAIState('idle')
       }
 
-      if (text) extractMemories(text, reply).then(async facts => {
+      sendCount++
+      if (text && sendCount % 3 === 0) extractMemories(text, reply).then(async facts => {
         for (const f of facts) await addMemory(f, 5)
         if (facts.length) {
           memories = await loadMemories()
