@@ -504,7 +504,11 @@ export default async function PersonalAIPage(container) {
 
     try {
       const memCtx = memoriesToContext(memories)
-      const reply  = await askPersonalAI(text || 'อธิบายรูปภาพนี้', history, memCtx, imageB64)
+      // onChunk updates the bubble progressively — feels instant
+      const reply = await askPersonalAI(
+        text || 'อธิบายรูปภาพนี้', history, memCtx, imageB64,
+        (_chunk, full) => showReply('lami', full + '▌')
+      )
       showReply('lami', reply)
       saveMessage('lami', reply)
       history.push({ role:'user', content:text||'[รูป]' }, { role:'lami', content:reply })
@@ -570,10 +574,12 @@ export default async function PersonalAIPage(container) {
   // ── Conv mode ──────────────────────────────────────────────────────────────
   async function enterConvMode() {
     convMode = true
-    if (!cameraStream) await openCamera()
     sizeCanvas()
     const greet = `สวัสดีครับ ${displayName}! ผมคือ LAMI พร้อมรับใช้แล้วครับ จะถามอะไรก็ได้เลยครับ`
     showReply('lami', greet)
+    // Open camera WITHOUT await — camera permission must not delay speaking
+    // (browser autoplay requires direct user gesture; await breaks that chain)
+    if (!cameraStream) openCamera().catch(() => {})
     if (autoSpeak) {
       isSpeaking = true; setAIState('speaking')
       speak(greet, {

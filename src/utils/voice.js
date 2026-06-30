@@ -21,9 +21,41 @@ export function createSTT({ onInterim, onFinal, onEnd, onError } = {}) {
   return rec
 }
 
-// ── TTS helpers ──────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-function getThaiVoice() {
+// Strip emojis and decorative symbols that confuse TTS
+function stripEmoji(text) {
+  return text
+    .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')
+    .replace(/[\u{2600}-\u{27BF}]/gu, '')
+    .replace(/[\u{1F300}-\u{1F9FF}]/gu, '')
+    .replace(/[◈★☆•·]/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
+// Split at sentence boundaries to keep TTS natural
+function splitText(text, maxLen = 150) {
+  const chunks = []
+  const parts = text.split(/(?<=[.!?।。\n])\s*/)
+  let cur = ''
+  for (const p of parts) {
+    if ((cur + p).length > maxLen && cur) {
+      chunks.push(cur.trim())
+      cur = p
+    } else {
+      cur += (cur ? ' ' : '') + p
+    }
+  }
+  if (cur.trim()) chunks.push(cur.trim())
+  return chunks.length ? chunks : [text]
+}
+
+// ── TTS — Web Speech API primary (works on all browsers, no autoplay issue) ──
+// speechSynthesis.speak() does NOT need user-gesture timing like Audio.play()
+// Chrome uses Google's online Thai TTS when no local voice is installed
+
+function findThaiVoice() {
   const voices = window.speechSynthesis?.getVoices() || []
   return voices.find(v =>
     v.lang === 'th-TH' || v.lang === 'th' ||
@@ -32,95 +64,51 @@ function getThaiVoice() {
   ) || null
 }
 
-// Split text at natural boundaries, max chunkSize chars each
-function splitText(text, chunkSize = 180) {
-  const chunks = []
-  const parts = text.split(/(?<=[.!?।。\n])\s*/)
-  let current = ''
-  for (const p of parts) {
-    if ((current + p).length > chunkSize && current) {
-      chunks.push(current.trim())
-      current = p
-    } else {
-      current += (current ? ' ' : '') + p
-    }
-  }
-  if (current.trim()) chunks.push(current.trim())
-  return chunks.length ? chunks : [text]
-}
-
-// Strip emojis / special symbols that confuse TTS engines
-function stripEmoji(text) {
-  return text
-    .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')   // emoji blocks
-    .replace(/[\u{2600}-\u{27BF}]/gu, '')       // misc symbols
-    .replace(/[\u{1F300}-\u{1F9FF}]/gu, '')
-    .replace(/[◈✕]/g, '')
-    .replace(/\s{2,}/g, ' ')
-    .trim()
-}
-
-// Google Translate TTS — free, works without OS Thai voice installed
-// client=tw-ob is more reliable than gtx for Thai language output
-async function speakGoogleTTS(text, onEnd) {
-  const clean = stripEmoji(text)
-  if (!clean) { onEnd?.(); return }
-  const chunks = splitText(clean, 100)
-  for (const chunk of chunks) {
-    if (!chunk.trim()) continue
-    const url = `https://translate.googleapis.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk.trim())}&tl=th&client=tw-ob&total=1&idx=0&prev=input`
-    await new Promise((resolve) => {
-      const audio = new Audio(url)
-      audio.onended = resolve
-      audio.onerror = resolve // skip on error, don't hang
-      audio.play().catch(resolve)
-    })
-  }
-  onEnd?.()
-}
-
-// Native Web Speech TTS with specific voice
-function speakNative(text, voice, onEnd) {
+function speakWithSynth(text, onEnd) {
   const synth = window.speechSynthesis
   synth.cancel()
-  const chunks = splitText(text, 200)
+  const chunks = splitText(text, 150)
   let idx = 0
   const sayNext = () => {
     if (idx >= chunks.length) { onEnd?.(); return }
-    const utt = new SpeechSynthesisUtterance(chunks[idx++])
-    utt.lang = 'th-TH'
-    utt.rate = 1.0
+    const chunk = chunks[idx++]
+    if (!chunk.trim()) { sayNext(); return }
+    const utt = new SpeechSynthesisUtterance(chunk)
+    utt.lang  = 'th-TH'
+    utt.rate  = 0.92
     utt.pitch = 1.0
-    if (voice) utt.voice = voice
-    utt.onend = sayNext
-    utt.onerror = sayNext
+    const thVoice = findThaiVoice()
+    if (thVoice) utt.voice = thVoice
+    utt.onend  = sayNext
+    utt.onerror = () => sayNext()
     synth.speak(utt)
   }
   sayNext()
 }
 
-// Main speak — tries native Thai voice first, falls back to Google TTS
 export function speak(text, { onEnd } = {}) {
   if (!text) { onEnd?.(); return }
+  const clean = stripEmoji(text)
+  if (!clean) { onEnd?.(); return }
 
   const synth = window.speechSynthesis
+  if (!synth) { onEnd?.(); return }
 
-  const trySpeak = () => {
-    const thVoice = getThaiVoice()
-    if (thVoice) {
-      speakNative(text, thVoice, onEnd)
-    } else {
-      if (synth) synth.cancel()
-      speakGoogleTTS(text, onEnd)
+  // Wait for voice list (async in some browsers), then speak
+  if (synth.getVoices().length === 0) {
+    synth.onvoiceschanged = () => {
+      synth.onvoiceschanged = null
+      speakWithSynth(clean, onEnd)
     }
-  }
-
-  // Wait for voice list to load (async in some browsers)
-  if (synth && synth.getVoices().length === 0) {
-    synth.onvoiceschanged = () => { synth.onvoiceschanged = null; trySpeak() }
-    setTimeout(() => { if (synth.onvoiceschanged) { synth.onvoiceschanged = null; trySpeak() } }, 500)
+    // Fallback if onvoiceschanged never fires
+    setTimeout(() => {
+      if (synth.onvoiceschanged) {
+        synth.onvoiceschanged = null
+        speakWithSynth(clean, onEnd)
+      }
+    }, 1000)
   } else {
-    trySpeak()
+    speakWithSynth(clean, onEnd)
   }
 }
 
@@ -129,4 +117,4 @@ export function stopSpeaking() {
 }
 
 export const canSTT = !!(window.SpeechRecognition || window.webkitSpeechRecognition)
-export const canTTS = true // Google TTS always available as fallback
+export const canTTS = typeof window !== 'undefined' && !!window.speechSynthesis
