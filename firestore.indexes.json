@@ -40,7 +40,9 @@
     { "collectionGroup": "broadcasts", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "status", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] },
     { "collectionGroup": "surveys", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "staffId", "order": "ASCENDING" }, { "fieldPath": "date", "order": "DESCENDING" }] },
     { "collectionGroup": "comm_messages", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "status", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] },
-    { "collectionGroup": "comm_messages", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "channel", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] }
+    { "collectionGroup": "comm_messages", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "channel", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] },
+    { "collectionGroup": "bookings", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "status", "order": "ASCENDING" }, { "fieldPath": "deliveryDate", "order": "ASCENDING" }] },
+    { "collectionGroup": "custom_fields", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "module", "order": "ASCENDING" }, { "fieldPath": "order", "order": "ASCENDING" }] }
   ],
   "fieldOverrides": []
 }
