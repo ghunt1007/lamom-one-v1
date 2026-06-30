@@ -5,7 +5,7 @@ import {
   onAuthStateChanged,
   createUserWithEmailAndPassword,
 } from 'firebase/auth'
-import { doc, getDoc, setDoc, serverTimestamp, collection, query, limit as fsLimit, getDocs } from 'firebase/firestore'
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { setUser, setCompany, setState, showToast, getState } from './store.js'
 import { navigate } from './router.js'
 
@@ -75,9 +75,15 @@ async function loadUserProfile(firebaseUser) {
         if (compSnap.exists()) setCompany({ id: compSnap.id, ...compSnap.data() })
       }
     } else {
-      // สร้าง profile ใหม่ — ถ้ายังไม่มี users ใดเลยในระบบ → เป็น owner คนแรก
-      const existingSnap = await getDocs(query(collection(db, 'users'), fsLimit(1)))
-      const isFirstUser = existingSnap.empty
+      // สร้าง profile ใหม่ — ใช้ meta/init เช็คว่าระบบถูก initialize ไปแล้วหรือยัง
+      // (หลีกเลี่ยง collection query ที่ Firestore rules บล็อก)
+      let isFirstUser = false
+      try {
+        const metaSnap = await getDoc(doc(db, 'meta', 'init'))
+        isFirstUser = !metaSnap.exists()
+      } catch {
+        // meta read failed — default to staff
+      }
       const role = isFirstUser ? 'owner' : 'staff'
       const permissions = isFirstUser ? ['*'] : []
       const newProfile = {
@@ -89,6 +95,13 @@ async function loadUserProfile(firebaseUser) {
         createdAt: serverTimestamp(),
       }
       await setDoc(doc(db, 'users', firebaseUser.uid), newProfile)
+      if (isFirstUser) {
+        await setDoc(doc(db, 'meta', 'init'), {
+          ownerUid: firebaseUser.uid,
+          ownerEmail: firebaseUser.email,
+          createdAt: serverTimestamp(),
+        })
+      }
       setUser(newProfile)
       setState('role', role)
       setState('permissions', permissions)

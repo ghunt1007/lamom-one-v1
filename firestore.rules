@@ -51,6 +51,16 @@ service cloud.firestore {
       return isSignedIn() && userRole() in ['owner', 'admin', 'manager', 'sales'];
     }
 
+    // ── Meta / System Init ────────────────────────────────────────────────────
+    // Any signed-in user can read (to detect first-user scenario)
+    // Any signed-in user can create init doc (first-time bootstrap)
+    // Only admin can update/delete
+    match /meta/{docId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
+    }
+
     // ── Users ─────────────────────────────────────────────────────────────────
     // AI personal data — subcollections (private per user)
     match /users/{userId}/ai_memories/{docId} {
