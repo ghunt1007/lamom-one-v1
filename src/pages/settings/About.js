@@ -20,7 +20,8 @@ const MODULES = [
 ]
 
 const CHANGELOG = [
-  { ver:'1.0.73', date:'2026-06-30', label:'ล่าสุด', changes:['modal.js: แก้ async onConfirm bug — confirm handler เป็น sync เดิม ทำให้ async onConfirm() คืน Promise (truthy) → modal ปิดทันทีโดยไม่รอ validation; แก้เป็น async handler + await + loading state + error recovery', 'router.js: แก้ silent .catch(()=>{}) → .catch(e => console.error) เพื่อให้เห็น error ของ page ทุกหน้า', 'firestore.indexes.json: เพิ่ม 2 composite indexes (bookings+deliveryDate, custom_fields+order) + firebase deploy --only firestore:indexes'] },
+  { ver:'1.0.74', date:'2026-06-30', label:'ล่าสุด', changes:['db.js seedDemoData: เพิ่ม 16 collections ที่ขาดหาย — walk_ins, appointments, referrals, referrers, quotations, car_photos, price_history, model_year_changeovers, parts_inventory, petty_cash (fix cat values), finance_banks, monthly_close_items, vat_invoices, purchase_orders, documents, fleet_deals → ทุก 309 หน้าแสดงข้อมูล demo ครบ', 'About.js: แก้ module page counts (CRM 37, DMS 39, Finance 40 ฯลฯ), version badge 1.0.73→1.0.74, Vite 8 + Firebase 12'] },
+  { ver:'1.0.73', date:'2026-06-30', label:'', changes:['modal.js: แก้ async onConfirm bug — confirm handler เป็น sync เดิม ทำให้ async onConfirm() คืน Promise (truthy) → modal ปิดทันทีโดยไม่รอ validation; แก้เป็น async handler + await + loading state + error recovery', 'router.js: แก้ silent .catch(()=>{}) → .catch(e => console.error) เพื่อให้เห็น error ของ page ทุกหน้า', 'firestore.indexes.json: เพิ่ม 2 composite indexes (bookings+deliveryDate, custom_fields+order) + firebase deploy --only firestore:indexes'] },
   { ver:'1.0.72', date:'2026-06-30', label:'', changes:['PersonalAI.js: Agentic OS redesign — fullscreen overlay, orbital animation, one-shot mic, 5-button layout, camera cleanup, TTS streaming', 'ai.js: SSE streaming Gemini 2.5 Flash, 429 retry wait 8s, extractMemories ทุก 3 message, TTS Google Translate fallback สำหรับ Thai', 'voice.js: TTS Thai voice selection + chunk splitting 150 chars, STT SpeechRecognition API'] },
   { ver:'1.0.71', date:'2026-06-29', label:'', changes:['Login.js: แก้ meta/init doc check สำหรับ first-user detection, แก้ Firestore collection query permission', 'auth.js: initAuth — initialized flag ป้องกัน bootstrapShell ซ้อน, hasPermission แก้ CJS→ESM import getState'] },
   { ver:'1.0.70', date:'2026-06-29', label:'', changes:['First-user setup — เพิ่มฟอร์ม "สร้างบัญชีใหม่" บนหน้า Login สำหรับเจ้าของระบบ (owner คนแรก), Firebase Auth authorized domain: lamom-one-v1.pages.dev ✓, Firebase Storage ลบออก — ใช้ Cloudflare R2 แทน (Spark plan ฟรี)'] },
@@ -120,7 +121,7 @@ export default function AboutPage(container) {
           <div style="font-size:1.5rem;font-weight:900;letter-spacing:-0.02em">LAMOM ONE</div>
           <div style="font-size:0.85rem;color:var(--text-muted);margin:4px 0 12px">ระบบปฏิบัติการธุรกิจยานยนต์ครบวงจร</div>
           <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
-            <span class="badge badge-primary">Version 1.0.73</span>
+            <span class="badge badge-primary">Version 1.0.74</span>
             <span class="badge badge-success">${totalPages}+ ระบบย่อย</span>
             <span class="badge badge-accent">${MODULES.length} โมดูล</span>
             <span class="badge badge-warning">Vite 8 + ES6 + Firebase 12</span>
