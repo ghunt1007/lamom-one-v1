@@ -49,12 +49,26 @@ function splitText(text, chunkSize = 180) {
   return chunks.length ? chunks : [text]
 }
 
+// Strip emojis / special symbols that confuse TTS engines
+function stripEmoji(text) {
+  return text
+    .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')   // emoji blocks
+    .replace(/[\u{2600}-\u{27BF}]/gu, '')       // misc symbols
+    .replace(/[\u{1F300}-\u{1F9FF}]/gu, '')
+    .replace(/[◈✕]/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
 // Google Translate TTS — free, works without OS Thai voice installed
+// client=tw-ob is more reliable than gtx for Thai language output
 async function speakGoogleTTS(text, onEnd) {
-  const chunks = splitText(text, 180)
+  const clean = stripEmoji(text)
+  if (!clean) { onEnd?.(); return }
+  const chunks = splitText(clean, 100)
   for (const chunk of chunks) {
-    if (!chunk) continue
-    const url = `https://translate.googleapis.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=th&client=gtx&ttsspeed=0.9`
+    if (!chunk.trim()) continue
+    const url = `https://translate.googleapis.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk.trim())}&tl=th&client=tw-ob&total=1&idx=0&prev=input`
     await new Promise((resolve) => {
       const audio = new Audio(url)
       audio.onended = resolve
