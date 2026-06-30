@@ -572,7 +572,7 @@ async function render(appEl) {
       appEl.__routerGen = gen
       const result = page(appEl)
       if (result && typeof result.then === 'function') {
-        result.then(cleanup => { if (gen === renderGen) currentCleanup = cleanup || null }).catch(() => {})
+        result.then(cleanup => { if (gen === renderGen) currentCleanup = cleanup || null }).catch(e => { if (gen === renderGen) console.error('[router] page async error:', e) })
       } else {
         currentCleanup = result || null
       }

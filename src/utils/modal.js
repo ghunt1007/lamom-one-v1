@@ -23,9 +23,17 @@ export function openModal({ title, body, footer = '', size = 'md', onClose, onCo
   div.querySelector(`#${id}-close`).addEventListener('click', () => { div.remove(); onClose?.() })
   div.addEventListener('click', e => { if (e.target === div) { div.remove(); onClose?.() } })
   div.querySelector(`#${id}-cancel`)?.addEventListener('click', () => { div.remove(); onClose?.() })
-  div.querySelector(`#${id}-confirm`)?.addEventListener('click', () => {
-    const result = onConfirm?.()
-    if (result !== false) div.remove() // คืน false จาก onConfirm = ไม่ปิด modal (เช่น validation ไม่ผ่าน)
+  div.querySelector(`#${id}-confirm`)?.addEventListener('click', async () => {
+    const btn = div.querySelector(`#${id}-confirm`)
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ ...' }
+    try {
+      const result = await onConfirm?.()
+      if (result !== false) div.remove()
+    } catch (e) {
+      // onConfirm threw — keep modal open so user can retry
+    } finally {
+      if (btn && document.body.contains(btn)) { btn.disabled = false; btn.textContent = confirmText }
+    }
   })
   document.body.appendChild(div)
   return { id, el: div, close: () => div.remove() }
