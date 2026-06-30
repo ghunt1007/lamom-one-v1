@@ -636,6 +636,142 @@ export function seedDemoData() {
     { id:'utm2', name:'Google BYD Atto', source:'google', medium:'cpc', campaign:'byd-atto-search', clicks:520, leads:42, cost:8000, cpl:190, createdAt:'2025-06-01' },
   ]
   utmLinks.forEach(u => { if (!demoCol('utm_links')[u.id]) demoCol('utm_links')[u.id] = u })
+
+  // Walk-ins (Showroom walk-in traffic log)
+  const walkIns = [
+    { id:'wi1', name:'สมศักดิ์ เที่ยวดี', phone:'0811110001', interestedIn:'BYD Seal', staff:'อรนุช เซลส์ดี', visitTime: new Date(Date.now()-3600000*2).toISOString(), source:'ผ่านมาเอง', notes:'สนใจสีขาว งบ 1.3M', status:'interested' },
+    { id:'wi2', name:'กนกวรรณ สวยงาม', phone:'0822220002', interestedIn:'MG4', staff:'วิชัย ขายเก่ง', visitTime: new Date(Date.now()-86400000).toISOString(), source:'Google Maps', notes:'ดูรุ่นที่ต่ำกว่า 1M', status:'cold' },
+    { id:'wi3', name:'ประยุทธ์ ทำงานดี', phone:'0833330003', interestedIn:'NETA V II', staff:'อรนุช เซลส์ดี', visitTime: new Date(Date.now()-86400000*2).toISOString(), source:'Facebook Ad', notes:'', status:'testdrive' },
+  ]
+  walkIns.forEach(w => { if (!demoCol('walk_ins')[w.id]) demoCol('walk_ins')[w.id] = w })
+
+  // Showroom appointments
+  const appointments = [
+    { id:'apt1', custName:'ธีรพงศ์ แสงทอง', phone:'0812340001', purpose:'ทดลองขับ', interestedIn:'BYD Seal AWD', salesperson:'อรนุช เซลส์ดี', date: new Date(Date.now()+86400000).toISOString().slice(0,10), time:'10:00', status:'confirmed', source:'LINE', notes:'' },
+    { id:'apt2', custName:'อรนุช พรหมมา', phone:'0812340002', purpose:'ดูรถ', interestedIn:'MG4', salesperson:'วิชัย ขายเก่ง', date: new Date(Date.now()+86400000*2).toISOString().slice(0,10), time:'14:00', status:'pending', source:'โทรศัพท์', notes:'มากับสามี' },
+    { id:'apt3', custName:'สมบัติ ยิ่งใหญ่', phone:'0812340005', purpose:'เซ็นสัญญา', interestedIn:'BYD Seal AWD', salesperson:'อรนุช เซลส์ดี', date: new Date(Date.now()).toISOString().slice(0,10), time:'11:00', status:'arrived', source:'Referral', notes:'' },
+  ]
+  appointments.forEach(a => { if (!demoCol('appointments')[a.id]) demoCol('appointments')[a.id] = a })
+
+  // Referral program
+  const referrals = [
+    { id:'ref1', referrer:'ธีรพงศ์ แสงทอง', referee:'สมชาย มีทรัพย์', phone:'0812340003', model:'BYD Seal', submitDate: new Date(Date.now()-86400000*5).toISOString().slice(0,10), status:'converted', reward:5000, salesName:'อรนุช เซลส์ดี' },
+    { id:'ref2', referrer:'วิชัย สุขใจ', referee:'กนกวรรณ สวยงาม', phone:'0822220002', model:'MG4', submitDate: new Date(Date.now()-86400000*2).toISOString().slice(0,10), status:'pending', reward:0, salesName:'วิชัย ขายเก่ง' },
+    { id:'ref3', referrer:'สุภาพร ใจดี', referee:'ประยุทธ์ ทำงานดี', phone:'0833330003', model:'NETA V II', submitDate: new Date(Date.now()-86400000).toISOString().slice(0,10), status:'test_drive', reward:0, salesName:'อรนุช เซลส์ดี' },
+  ]
+  referrals.forEach(r => { if (!demoCol('referrals')[r.id]) demoCol('referrals')[r.id] = r })
+
+  // Referrers (QR referral agents)
+  const referrers = [
+    { id:'rfr1', name:'ธีรพงศ์ แสงทอง', phone:'0812345678', code:'REF-TS001', qrUrl:'', sales:1, commission:5000, totalReferrals:3, lastReferral: new Date(Date.now()-86400000*5).toISOString().slice(0,10) },
+    { id:'rfr2', name:'วิชัย สุขใจ', phone:'0822222222', code:'REF-WS002', qrUrl:'', sales:0, commission:0, totalReferrals:1, lastReferral: new Date(Date.now()-86400000*2).toISOString().slice(0,10) },
+  ]
+  referrers.forEach(r => { if (!demoCol('referrers')[r.id]) demoCol('referrers')[r.id] = r })
+
+  // Quotations
+  const quotations = [
+    { id:'qt1', quoteNo:'QT-2025-001', customerName:'สมชาย มีทรัพย์', phone:'0812345678', vehicleLabel:'BYD Seal AWD Performance', color:'ขาว Pearl', price:1299000, down:200000, financeCo:'BAY', monthly:19800, status:'sent', createdDate:'2025-06-01', salesName:'อรนุช เซลส์ดี' },
+    { id:'qt2', quoteNo:'QT-2025-002', customerName:'กิตติพงษ์ วรรณศิลป์', phone:'0876543210', vehicleLabel:'DEEPAL S07 New Standard', color:'ดำ', price:1099000, down:150000, financeCo:'TTB', monthly:15200, status:'accepted', createdDate:'2025-06-03', salesName:'วิชัย ขายเก่ง' },
+    { id:'qt3', quoteNo:'QT-2025-003', customerName:'พิมพ์ชนก ทองสุข', phone:'0812340004', vehicleLabel:'BYD Seal RWD', color:'เทา Ink', price:1199000, down:180000, financeCo:'KBANK', monthly:17500, status:'draft', createdDate:'2025-06-08', salesName:'อรนุช เซลส์ดี' },
+  ]
+  quotations.forEach(q => { if (!demoCol('quotations')[q.id]) demoCol('quotations')[q.id] = q })
+
+  // Car photos
+  const carPhotos = [
+    { id:'cp1', model:'BYD Seal AWD', vin:'LGXCE4C10PA000001', color:'ขาว Pearl', photoCount:12, lastShoot:'2025-03-02', status:'complete', photographer:'ทีม Digital' },
+    { id:'cp2', model:'MG4 X-Power', vin:'SDUZZZEF5PA000003', color:'แดง Dragon', photoCount:8, lastShoot:'2025-03-12', status:'complete', photographer:'ทีม Digital' },
+    { id:'cp3', model:'DEEPAL S7 Pro', vin:'LZEZ1EBA0PA000004', color:'ดำ Obsidian', photoCount:0, lastShoot:'', status:'pending', photographer:'' },
+  ]
+  carPhotos.forEach(c => { if (!demoCol('car_photos')[c.id]) demoCol('car_photos')[c.id] = c })
+
+  // Price history
+  const priceHistory = [
+    { id:'ph1', brand:'BYD', model:'Seal', variant:'AWD Performance', date:'2025-01-01', price:1349000, prevPrice:1399000, changeType:'reduce', notes:'ปรับราคาต้นปี' },
+    { id:'ph2', brand:'BYD', model:'Seal', variant:'AWD Performance', date:'2025-04-01', price:1299000, prevPrice:1349000, changeType:'reduce', notes:'โปรโมชั่น Q2' },
+    { id:'ph3', brand:'MG', model:'MG4', variant:'X-Power', date:'2025-02-01', price:949000, prevPrice:989000, changeType:'reduce', notes:'ลดราคาแข่งตลาด' },
+    { id:'ph4', brand:'NETA', model:'V II', variant:'Pro 400', date:'2025-03-15', price:769000, prevPrice:799000, changeType:'reduce', notes:'กระตุ้นยอดขาย Q1' },
+  ]
+  priceHistory.forEach(p => { if (!demoCol('price_history')[p.id]) demoCol('price_history')[p.id] = p })
+
+  // Model year changeovers
+  const modelYearChangeovers = [
+    { id:'myc1', model:'BYD Seal', year:'2026', effectiveDate:'2025-09-01', changes:'เพิ่มระบบ ADAS Level 2+ / อัพเดต OTA V3.0 / เปลี่ยนสีใหม่ 2 สี', status:'upcoming' },
+    { id:'myc2', model:'MG4', year:'2026', effectiveDate:'2025-10-01', changes:'รุ่น Trophy ใหม่ 435 HP / แบตเตอรี่ 77 kWh / รีดีไซน์กระจังหน้า', status:'upcoming' },
+    { id:'myc3', model:'NETA V II', year:'2025', effectiveDate:'2025-01-15', changes:'เพิ่มรุ่น Pro 400km / ปรับราคา / สีใหม่ Sunrise Orange', status:'active' },
+  ]
+  modelYearChangeovers.forEach(m => { if (!demoCol('model_year_changeovers')[m.id]) demoCol('model_year_changeovers')[m.id] = m })
+
+  // Parts inventory (for analytics)
+  const partsInventory = [
+    { id:'pi1', sku:'BYD-SEAL-BF001', name:'น้ำมันเบรก DOT4 BYD Original', brand:'BYD', category:'น้ำมันและของเหลว', qty:24, minQty:5, unitCost:280, unitPrice:450, turnover:8.2, lastSold:'2025-06-10' },
+    { id:'pi2', sku:'BYD-SEAL-BP002', name:'ผ้าเบรกหน้า BYD Seal', brand:'BYD', category:'ระบบเบรก', qty:8, minQty:2, unitCost:1800, unitPrice:3200, turnover:3.1, lastSold:'2025-05-28' },
+    { id:'pi3', sku:'MG-MG4-TY001', name:'ยางหน้า Michelin 235/45R18', brand:'Michelin', category:'ยางและล้อ', qty:12, minQty:4, unitCost:3200, unitPrice:4800, turnover:5.4, lastSold:'2025-06-05' },
+    { id:'pi4', sku:'NETA-V-AC001', name:'คอมเพรสเซอร์แอร์ NETA V II', brand:'NETA', category:'ระบบไฟฟ้า', qty:2, minQty:1, unitCost:12000, unitPrice:18500, turnover:1.8, lastSold:'2025-04-20' },
+    { id:'pi5', sku:'UNI-FL001', name:'น้ำหล่อเย็น EV Coolant', brand:'Universal', category:'น้ำมันและของเหลว', qty:3, minQty:10, unitCost:450, unitPrice:700, turnover:0.9, lastSold:'2025-03-15' },
+  ]
+  partsInventory.forEach(p => { if (!demoCol('parts_inventory')[p.id]) demoCol('parts_inventory')[p.id] = p })
+
+  // Petty cash
+  const pettyCash = [
+    { id:'pc1', type:'out', cat:'refresh', amount:850, desc:'ซื้อกาแฟ-น้ำดื่มสำหรับโชว์รูม', by:'อรนุช เซลส์ดี', time: new Date(Date.now()-3600000*3).toISOString(), receipt:true },
+    { id:'pc2', type:'out', cat:'supplies', amount:1200, desc:'ค่าน้ำยาทำความสะอาดรถ', by:'สมชาย ช่างดี', time: new Date(Date.now()-86400000).toISOString(), receipt:true },
+    { id:'pc3', type:'in', cat:'other', amount:5000, desc:'เติมเงินสดย่อย ประจำสัปดาห์', by:'ทวีศักดิ์ สุขสมบัติเสถียร', time: new Date(Date.now()-86400000*2).toISOString(), receipt:false },
+    { id:'pc4', type:'out', cat:'transport', amount:450, desc:'ค่าน้ำมันรถส่งเอกสาร', by:'วิชัย ขายเก่ง', time: new Date(Date.now()-86400000*3).toISOString(), receipt:true },
+  ]
+  pettyCash.forEach(p => { if (!demoCol('petty_cash')[p.id]) demoCol('petty_cash')[p.id] = p })
+
+  // Finance banks (for loan calculator)
+  const financeBanks = [
+    { id:'fb1', name:'กรุงเทพ (BAY)', minRate:1.99, maxRate:3.49, minDown:10, maxTenure:84, logo:'BAY', popular:true },
+    { id:'fb2', name:'ไทยพาณิชย์ (SCB)', minRate:2.09, maxRate:3.59, minDown:10, maxTenure:84, logo:'SCB', popular:true },
+    { id:'fb3', name:'กสิกรไทย (KBANK)', minRate:2.19, maxRate:3.79, minDown:15, maxTenure:72, logo:'KBANK', popular:true },
+    { id:'fb4', name:'ทหารไทยธนชาต (TTB)', minRate:2.29, maxRate:3.99, minDown:10, maxTenure:84, logo:'TTB', popular:false },
+    { id:'fb5', name:'ออมสิน (GSB)', minRate:1.89, maxRate:2.99, minDown:20, maxTenure:72, logo:'GSB', popular:false },
+  ]
+  financeBanks.forEach(b => { if (!demoCol('finance_banks')[b.id]) demoCol('finance_banks')[b.id] = b })
+
+  // Monthly close items
+  const monthlyCloseItems = [
+    { id:'mc1', category:'รายได้', name:'ยอดขายรถ', amount:3297000, responsible:'อรนุช เซลส์ดี', status:'confirmed', date:'2025-06-30' },
+    { id:'mc2', category:'รายได้', name:'ค่าบริการศูนย์', amount:48500, responsible:'สมชาย ช่างดี', status:'confirmed', date:'2025-06-30' },
+    { id:'mc3', category:'รายได้', name:'ค่าคอมมิชชั่นประกัน', amount:22000, responsible:'วิชัย ขายเก่ง', status:'pending', date:'2025-06-30' },
+    { id:'mc4', category:'ค่าใช้จ่าย', name:'เงินเดือนพนักงาน', amount:121000, responsible:'ทวีศักดิ์ สุขสมบัติเสถียร', status:'confirmed', date:'2025-06-30' },
+    { id:'mc5', category:'ค่าใช้จ่าย', name:'ค่าเช่าโชว์รูม', amount:85000, responsible:'ทวีศักดิ์ สุขสมบัติเสถียร', status:'confirmed', date:'2025-06-30' },
+  ]
+  monthlyCloseItems.forEach(m => { if (!demoCol('monthly_close_items')[m.id]) demoCol('monthly_close_items')[m.id] = m })
+
+  // VAT invoices
+  const vatInvoices = [
+    { id:'vi1', date:'2025-06-20', invoiceNo:'INV-2025-001', buyer:'ธีรพงศ์ แสงทอง', amount:1299000, vatAmount:90930, type:'sale', status:'issued' },
+    { id:'vi2', date:'2025-05-28', invoiceNo:'INV-2025-002', buyer:'สุภาพร ใจดี', amount:899000, vatAmount:62930, type:'sale', status:'issued' },
+    { id:'vi3', date:'2025-06-10', invoiceNo:'TAX-2025-001', buyer:'วิชัย สุขใจ', amount:15200, vatAmount:1064, type:'service', status:'issued' },
+    { id:'vi4', date:'2025-06-15', invoiceNo:'INV-2025-003', buyer:'สมชาย ช่างดี (Purchase)', amount:48000, vatAmount:3360, type:'purchase', status:'issued' },
+  ]
+  vatInvoices.forEach(v => { if (!demoCol('vat_invoices')[v.id]) demoCol('vat_invoices')[v.id] = v })
+
+  // Purchase orders
+  const purchaseOrders = [
+    { id:'po1', poNo:'PO-2025-001', title:'สั่งซื้ออะไหล่ BYD Seal', supplier:'BYD Auto Thailand', requestDate:'2025-06-01', status:'approved', amount:48000, items:[{name:'ผ้าเบรกหน้า',qty:4,unitPrice:3200},{name:'น้ำมันเบรก',qty:10,unitPrice:450}], approvedBy:'ทวีศักดิ์ สุขสมบัติเสถียร' },
+    { id:'po2', poNo:'PO-2025-002', title:'สั่งซื้ออุปกรณ์ทำความสะอาด', supplier:'บริษัท ซัพพลายโปร จำกัด', requestDate:'2025-06-10', status:'pending', amount:12500, items:[{name:'น้ำยาล้างรถ',qty:20,unitPrice:350},{name:'ผ้าไมโครไฟเบอร์',qty:50,unitPrice:85}], approvedBy:'' },
+    { id:'po3', poNo:'PO-2025-003', title:'ยาง Michelin สต็อก', supplier:'Michelin Thailand', requestDate:'2025-05-20', status:'received', amount:128000, items:[{name:'ยาง 235/45R18',qty:40,unitPrice:3200}], approvedBy:'ทวีศักดิ์ สุขสมบัติเสถียร' },
+  ]
+  purchaseOrders.forEach(p => { if (!demoCol('purchase_orders')[p.id]) demoCol('purchase_orders')[p.id] = p })
+
+  // Documents (Document Studio)
+  const documents = [
+    { id:'doc1', title:'ใบจองรถ SK2506001 — ธีรพงศ์ แสงทอง', type:'booking', status:'final', createdAt:'2025-06-01', createdBy:'อรนุช เซลส์ดี', size:1 },
+    { id:'doc2', title:'สัญญาจะซื้อจะขาย BYD Seal AWD', type:'contract', status:'signed', createdAt:'2025-06-05', createdBy:'อรนุช เซลส์ดี', size:3 },
+    { id:'doc3', title:'ใบส่งมอบรถ GWM ORA Good Cat', type:'delivery', status:'final', createdAt:'2025-05-28', createdBy:'อรนุช เซลส์ดี', size:2 },
+    { id:'doc4', title:'ใบเสนอราคา DEEPAL S7 Pro', type:'quotation', status:'draft', createdAt:'2025-06-08', createdBy:'วิชัย ขายเก่ง', size:1 },
+  ]
+  documents.forEach(d => { if (!demoCol('documents')[d.id]) demoCol('documents')[d.id] = d })
+
+  // Fleet deals (Fleet & Corporate)
+  const fleetDeals = [
+    { id:'fd1', company:'บริษัท ไทยพัฒนา จำกัด', contact:'คุณสมศักดิ์ ผู้จัดการ', phone:'0211112222', sales:'อรนุช เซลส์ดี', model:'BYD Seal AWD x5', qty:5, amount:6495000, status:'negotiation', delivery:'2025-08-01', notes:'ต้องการสีเดียวกันทุกคัน' },
+    { id:'fd2', company:'ราชการ — กรมทางหลวง', contact:'คุณวิชัย ข้าราชการ', phone:'0222223333', sales:'วิชัย ขายเก่ง', model:'MG4 X-Power x3', qty:3, amount:2847000, status:'closed', delivery:'2025-05-15', notes:'ผ่านการประมูลแล้ว' },
+  ]
+  fleetDeals.forEach(f => { if (!demoCol('fleet_deals')[f.id]) demoCol('fleet_deals')[f.id] = f })
 }
 
 // ── แหล่งข้อมูลการขายกลาง: แปลงจาก "ใบจอง" (bookings) → รูปแบบ sales ──────────────
