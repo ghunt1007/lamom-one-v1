@@ -142,9 +142,8 @@ export async function askPersonalAI(message, history = [], memoryContext = '', i
       systemInstruction: { parts: [{ text: systemWithMemory }] },
       contents,
       generationConfig: {
-        maxOutputTokens: 500,   // conversational length — faster than 1200
+        maxOutputTokens: 500,
         temperature: 0.85,
-        thinkingConfig: { thinkingBudget: 0 },  // disable internal chain-of-thought (major speedup)
       },
     }),
   })
@@ -171,7 +170,9 @@ export async function askPersonalAI(message, history = [], memoryContext = '', i
       if (!jsonStr || jsonStr === '[DONE]') continue
       try {
         const data = JSON.parse(jsonStr)
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
+        // Filter out thought parts (Gemini 2.5 thinking tokens — not for display)
+        const parts = data.candidates?.[0]?.content?.parts || []
+        const text = parts.filter(p => !p.thought).map(p => p.text || '').join('')
         if (text) {
           fullText += text
           onChunk?.(text, fullText)
@@ -200,7 +201,7 @@ AI: "${aiMsg}"
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 200, temperature: 0, thinkingConfig: { thinkingBudget: 0 } },
+        generationConfig: { maxOutputTokens: 200, temperature: 0 },
       }),
     })
     const data = await res.json()

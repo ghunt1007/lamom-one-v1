@@ -23,18 +23,16 @@ export function createSTT({ onInterim, onFinal, onEnd, onError } = {}) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-// Strip emojis and decorative symbols that confuse TTS
 function stripEmoji(text) {
   return text
     .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')
     .replace(/[\u{2600}-\u{27BF}]/gu, '')
     .replace(/[\u{1F300}-\u{1F9FF}]/gu, '')
-    .replace(/[◈★☆•·]/g, '')
+    .replace(/[◈★☆•·▌]/g, '')
     .replace(/\s{2,}/g, ' ')
     .trim()
 }
 
-// Split at sentence boundaries to keep TTS natural
 function splitText(text, maxLen = 150) {
   const chunks = []
   const parts = text.split(/(?<=[.!?।。\n])\s*/)
@@ -51,20 +49,11 @@ function splitText(text, maxLen = 150) {
   return chunks.length ? chunks : [text]
 }
 
-// ── TTS — Web Speech API primary (works on all browsers, no autoplay issue) ──
-// speechSynthesis.speak() does NOT need user-gesture timing like Audio.play()
-// Chrome uses Google's online Thai TTS when no local voice is installed
+// ── TTS — Web Speech API ──────────────────────────────────────────────────────
+// speechSynthesis.speak() does NOT require fresh user-gesture context like Audio.play()
+// Chrome picks the best available Thai voice when lang='th-TH' is set without forcing a voice
 
-function findThaiVoice() {
-  const voices = window.speechSynthesis?.getVoices() || []
-  return voices.find(v =>
-    v.lang === 'th-TH' || v.lang === 'th' ||
-    v.name.toLowerCase().includes('thai') ||
-    v.name.includes('Pattara') || v.name.includes('Niwat') || v.name.includes('Premwadee')
-  ) || null
-}
-
-function speakWithSynth(text, onEnd) {
+function doSpeak(text, onEnd) {
   const synth = window.speechSynthesis
   synth.cancel()
   const chunks = splitText(text, 150)
@@ -74,11 +63,9 @@ function speakWithSynth(text, onEnd) {
     const chunk = chunks[idx++]
     if (!chunk.trim()) { sayNext(); return }
     const utt = new SpeechSynthesisUtterance(chunk)
-    utt.lang  = 'th-TH'
+    utt.lang  = 'th-TH'   // let browser auto-select best Thai voice (online or local)
     utt.rate  = 0.92
     utt.pitch = 1.0
-    const thVoice = findThaiVoice()
-    if (thVoice) utt.voice = thVoice
     utt.onend  = sayNext
     utt.onerror = () => sayNext()
     synth.speak(utt)
@@ -94,21 +81,23 @@ export function speak(text, { onEnd } = {}) {
   const synth = window.speechSynthesis
   if (!synth) { onEnd?.(); return }
 
-  // Wait for voice list (async in some browsers), then speak
-  if (synth.getVoices().length === 0) {
-    synth.onvoiceschanged = () => {
-      synth.onvoiceschanged = null
-      speakWithSynth(clean, onEnd)
-    }
-    // Fallback if onvoiceschanged never fires
-    setTimeout(() => {
-      if (synth.onvoiceschanged) {
-        synth.onvoiceschanged = null
-        speakWithSynth(clean, onEnd)
-      }
-    }, 1000)
+  // Trigger voice list load (Chrome lazy-loads voices on first getVoices() call)
+  synth.getVoices()
+
+  let fired = false
+  const fire = () => {
+    if (fired) return
+    fired = true
+    synth.onvoiceschanged = null
+    doSpeak(clean, onEnd)
+  }
+
+  if (synth.getVoices().length > 0) {
+    fire()
   } else {
-    speakWithSynth(clean, onEnd)
+    // Wait for voices to load, fall back after 1.2s
+    synth.onvoiceschanged = fire
+    setTimeout(fire, 1200)
   }
 }
 
