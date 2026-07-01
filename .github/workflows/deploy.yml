@@ -37,4 +37,4 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: 8e526fad63ca65975137a980925e409f
-          command: pages deploy dist --project-name lamom-one-v1
+          command: pages deploy dist --project-name lamom-one
