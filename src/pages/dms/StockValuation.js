@@ -183,7 +183,7 @@ export default async function StockValuationPage(container) {
               const margin = s.listPrice - s.cost
               const marginPct = (margin / s.cost * 100).toFixed(1)
               const age = getAge(s.stockDate)
-              const st = STATUS_MAP[s.status]
+              const st = STATUS_MAP[s.status] || STATUS_MAP.available
               const ageColor = age >= 90 ? 'var(--danger)' : age >= 60 ? 'var(--warning)' : 'var(--text-muted)'
               return `<tr>
                 <td style="font-family:monospace;font-size:0.78rem">${escHtml(s.id)}</td>

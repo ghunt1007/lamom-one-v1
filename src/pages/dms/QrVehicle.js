@@ -112,7 +112,7 @@ export default async function QrVehiclePage(container) {
   }
 
   function vehicleCard(v) {
-    const s = ST[v.status]
+    const s = ST[v.status] || ST.available
     const short = v.vin.slice(-8)
     return `
       <div class="card" style="padding:14px">
@@ -141,7 +141,7 @@ export default async function QrVehiclePage(container) {
   }
 
   function openVehicleDetail(v) {
-    const s = ST[v.status]
+    const s = ST[v.status] || ST.available
     openModal({
       title: '📱 ' + escHtml(v.model) + ' · ' + escHtml(v.vin.slice(-8)),
       size: 'sm',

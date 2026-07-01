@@ -184,7 +184,7 @@ export default async function SupplierManagementPage(container) {
           <tbody>
             ${list.map(s => {
               const cat = SUPPLIER_CATS[s.category]
-              const st = SUPPLIER_STATUS[s.status]
+              const st = SUPPLIER_STATUS[s.status] || SUPPLIER_STATUS.active
               const stars = '⭐'.repeat(Math.round(s.rating))
               return `<tr>
                 <td>
@@ -282,7 +282,7 @@ export default async function SupplierManagementPage(container) {
 
   function openSupplierDetail(s) {
     const cat = SUPPLIER_CATS[s.category]
-    const st = SUPPLIER_STATUS[s.status]
+    const st = SUPPLIER_STATUS[s.status] || SUPPLIER_STATUS.active
     const sPOs = pos.filter(p => p.supplierId === s.id)
     openModal({
       title: '🤝 ' + escHtml(s.shortName) + ' — ' + escHtml(s.name),

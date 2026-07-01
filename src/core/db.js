@@ -649,7 +649,7 @@ export function seedDemoData() {
   // Showroom appointments
   const appointments = [
     { id:'apt1', custName:'ธีรพงศ์ แสงทอง', phone:'0812340001', purpose:'ทดลองขับ', interestedIn:'BYD Seal AWD', salesperson:'อรนุช เซลส์ดี', date: new Date(Date.now()+86400000).toISOString().slice(0,10), time:'10:00', status:'confirmed', source:'LINE', notes:'' },
-    { id:'apt2', custName:'อรนุช พรหมมา', phone:'0812340002', purpose:'ดูรถ', interestedIn:'MG4', salesperson:'วิชัย ขายเก่ง', date: new Date(Date.now()+86400000*2).toISOString().slice(0,10), time:'14:00', status:'pending', source:'โทรศัพท์', notes:'มากับสามี' },
+    { id:'apt2', custName:'อรนุช พรหมมา', phone:'0812340002', purpose:'ดูรถ', interestedIn:'MG4', salesperson:'วิชัย ขายเก่ง', date: new Date(Date.now()+86400000*2).toISOString().slice(0,10), time:'14:00', status:'scheduled', source:'โทรศัพท์', notes:'มากับสามี' },
     { id:'apt3', custName:'สมบัติ ยิ่งใหญ่', phone:'0812340005', purpose:'เซ็นสัญญา', interestedIn:'BYD Seal AWD', salesperson:'อรนุช เซลส์ดี', date: new Date(Date.now()).toISOString().slice(0,10), time:'11:00', status:'arrived', source:'Referral', notes:'' },
   ]
   appointments.forEach(a => { if (!demoCol('appointments')[a.id]) demoCol('appointments')[a.id] = a })

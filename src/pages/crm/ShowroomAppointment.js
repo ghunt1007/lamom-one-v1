@@ -175,7 +175,7 @@ export default async function ShowroomAppointmentPage(container) {
   }
 
   function renderApptCard(a) {
-    const st = APPT_STATUS[a.status]
+    const st = APPT_STATUS[a.status] || APPT_STATUS.scheduled
     const isToday = a.date === new Date().toISOString().slice(0, 10)
     return `<div class="appt-card-click" data-id="${a.id}" style="
       padding:12px 16px;background:var(--surface);border:1px solid var(--border);
@@ -207,7 +207,7 @@ export default async function ShowroomAppointmentPage(container) {
         <thead><tr><th>วันที่/เวลา</th><th>ลูกค้า</th><th>วัตถุประสงค์</th><th>รุ่นที่สนใจ</th><th>เซลส์</th><th>สถานะ</th><th></th></tr></thead>
         <tbody>
           ${list.map(a => {
-            const st = APPT_STATUS[a.status]
+            const st = APPT_STATUS[a.status] || APPT_STATUS.scheduled
             return `<tr class="appt-row" data-id="${a.id}" style="cursor:pointer">
               <td style="font-size:0.8rem;white-space:nowrap">${escHtml(a.date)}<br><span style="color:var(--primary);font-weight:700">${escHtml(a.time)}</span></td>
               <td><div style="font-weight:600;font-size:0.85rem">${escHtml(a.custName)}</div><div style="font-size:0.72rem;color:var(--text-muted)">${escHtml(a.phone)}</div></td>
@@ -283,7 +283,7 @@ export default async function ShowroomAppointmentPage(container) {
   }
 
   function openDetail(a) {
-    const st = APPT_STATUS[a.status]
+    const st = APPT_STATUS[a.status] || APPT_STATUS.scheduled
     openModal({
       title: '🏪 ' + escHtml(a.custName), size: 'sm',
       body: `<div style="display:flex;flex-direction:column;gap:10px;font-size:0.85rem">

@@ -138,14 +138,14 @@ export default async function ComplaintsPage(container) {
     document.querySelectorAll('.sf-btn').forEach(b => b.addEventListener('click', () => { statusFilter = b.dataset.s; renderPage() }))
     document.querySelectorAll('.pf-btn').forEach(b => b.addEventListener('click', () => { priorityFilter = b.dataset.p; renderPage() }))
     document.getElementById('new-cp-btn')?.addEventListener('click', () => openComplaintForm())
-    document.getElementById('cp-export')?.addEventListener('click', () => exportToExcel(filtered.map(c => ({ วันที่:c.openDate, ลูกค้า:c.custName, หมวด:CATEGORIES[c.category]||c.category, ความเร่งด่วน:PRIORITY[c.priority].label, หัวเรื่อง:c.subject, สถานะ:STATUS[c.status].label })), 'Complaints'))
+    document.getElementById('cp-export')?.addEventListener('click', () => exportToExcel(filtered.map(c => ({ วันที่:c.openDate, ลูกค้า:c.custName, หมวด:CATEGORIES[c.category]||c.category, ความเร่งด่วน:(PRIORITY[c.priority]||PRIORITY.medium).label, หัวเรื่อง:c.subject, สถานะ:(STATUS[c.status]||STATUS.open).label })), 'Complaints'))
     document.querySelectorAll('.cp-card').forEach(card => {
       card.addEventListener('click', () => { const c = complaints.find(x => x.id === card.dataset.id); if (c) openComplaintDetail(c) })
     })
   }
 
   function renderComplaintCard(c) {
-    const pr = PRIORITY[c.priority]; const st = STATUS[c.status]
+    const pr = PRIORITY[c.priority] || PRIORITY.medium; const st = STATUS[c.status] || STATUS.open
     const isOverdue = ['open','investigating'].includes(c.status) && new Date(c.openDate).getTime() + pr.sla * 3600000 < Date.now()
     return `
       <div class="cp-card" data-id="${c.id}" style="
@@ -216,7 +216,7 @@ export default async function ComplaintsPage(container) {
   }
 
   function openComplaintDetail(c) {
-    const pr = PRIORITY[c.priority]; const st = STATUS[c.status]
+    const pr = PRIORITY[c.priority] || PRIORITY.medium; const st = STATUS[c.status] || STATUS.open
     const { el, close } = openModal({
       title: '📢 ' + escHtml(c.subject), size: 'md',
       body: `<div style="display:flex;flex-direction:column;gap:12px">
