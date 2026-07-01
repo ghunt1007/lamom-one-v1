@@ -90,7 +90,7 @@ export default async function OrgChartPage(container) {
           ${depts.map(d => `<button class="btn btn-xs ${selectedDept===d?'btn-primary':'btn-secondary'} dept-btn" data-d="${d}" style="${selectedDept===d?'':''}color:${DEPT_COLORS[d]||'inherit'}">${d}</button>`).join('')}
         </div>
 
-        ${viewMode === 'tree' ? renderTree(ORG_DATA) : renderList(allNodes, depts)}
+        <div style="overflow-x:auto">${viewMode === 'tree' ? renderTree(ORG_DATA) : renderList(allNodes, depts)}</div>
       </div>
     `
 
