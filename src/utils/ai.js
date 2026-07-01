@@ -66,6 +66,64 @@ export async function analyzeCustomer(customer) {
   try { return JSON.parse(reply.match(/\{[\s\S]*\}/)?.[0] || '{}') } catch { return null }
 }
 
+// ── Finance Rate Sheet — วิเคราะห์ตารางดอกเบี้ยไฟแนนซ์จากรูปภาพ ─────────────────
+const RATE_SHEET_PROMPT = `คุณคือผู้เชี่ยวชาญวิเคราะห์ตารางโปรโมชั่นดอกเบี้ยไฟแนนซ์รถยนต์ของไทย
+วิเคราะห์รูปภาพตารางดอกเบี้ย/โปรโมชั่นไฟแนนซ์ที่แนบมา แล้วดึงข้อมูลทุกแถว/ทุกรายการที่พบในตาราง
+
+สำหรับแต่ละรายการ ให้ระบุฟิลด์เหล่านี้ (ใส่ "" หรือ 0 ถ้าไม่มีข้อมูลในภาพ ห้ามเดาข้อมูลที่ไม่มี):
+- bank: ชื่อธนาคาร/ไฟแนนซ์ (เช่น "SCB", "KBANK", "TISCO", "BAY", "ttb")
+- campaign: ชื่อแคมเปญ/โปรโมชั่น
+- brand: ยี่ห้อรถ
+- model: รุ่นรถ (ถ้าระบุ)
+- year: ปีรถ (ตัวเลข ค.ศ. หรือ พ.ศ. ตามที่ระบุในภาพ)
+- month: เดือนที่โปรโมชั่นมีผล (ชื่อเดือนภาษาไทยหรือเลขเดือน)
+- dateFrom: วันที่เริ่มโปรโมชั่น รูปแบบ YYYY-MM-DD (แปลงจาก พ.ศ. เป็น ค.ศ. โดยลบ 543)
+- dateTo: วันที่สิ้นสุดโปรโมชั่น รูปแบบ YYYY-MM-DD (แปลงจาก พ.ศ. เป็น ค.ศ. โดยลบ 543)
+- conditions: เงื่อนไขแคมเปญ (สรุปสั้นๆ เช่น ดาวน์ขั้นต่ำ, งวดผ่อน, เงื่อนไขพิเศษ)
+- financeCommission: ค่าคอมมิชชั่นไฟแนนซ์ (ตัวเลข บาท หรือ % ถ้าระบุเป็น % ให้ใส่ตัวเลขแล้วเติม % ต่อท้ายใน conditions แทน และใส่ตัวเลขเปล่าใน field นี้)
+- extraPayment: ค่า Extra ที่จ่ายเพิ่ม (ตัวเลข บาท)
+- subsidy: เงิน Subsidy ที่ไฟแนนซ์ช่วยสนับสนุน (ตัวเลข บาท)
+
+ตอบเป็น JSON array เท่านั้น ไม่ต้องมีคำอธิบายอื่น เช่น:
+[{"bank":"SCB","campaign":"ดอกเบี้ยพิเศษ 2.99%","brand":"DEEPAL","model":"S07","year":2026,"month":"กรกฎาคม","dateFrom":"2026-07-01","dateTo":"2026-07-31","conditions":"ดาวน์ 20% ผ่อน 60 งวด","financeCommission":8000,"extraPayment":2000,"subsidy":15000}]
+
+ถ้าอ่านภาพไม่ออกหรือไม่ใช่ตารางดอกเบี้ยไฟแนนซ์ ให้ตอบ [] เท่านั้น`
+
+export async function analyzeFinanceRateSheet(imageBase64, mimeType = 'image/jpeg') {
+  if (!API_KEY) {
+    // Demo mode — ตัวอย่างผลลัพธ์เพื่อให้ทดสอบ flow การยืนยันได้โดยไม่ต้องมี API key
+    return {
+      demo: true,
+      rows: [
+        { bank: 'SCB', campaign: 'ดอกเบี้ยพิเศษหน้าฝน', brand: 'DEEPAL', model: 'S07', year: 2026, month: 'กรกฎาคม', dateFrom: '2026-07-01', dateTo: '2026-07-31', conditions: 'ดาวน์ขั้นต่ำ 20% ผ่อนสูงสุด 60 งวด (ตัวอย่าง demo mode)', financeCommission: 8000, extraPayment: 2000, subsidy: 15000 },
+      ],
+    }
+  }
+  const res = await fetch(`${API_URL}?key=${API_KEY}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{
+        role: 'user',
+        parts: [
+          { inlineData: { mimeType, data: imageBase64 } },
+          { text: RATE_SHEET_PROMPT },
+        ],
+      }],
+      generationConfig: { maxOutputTokens: 2000, temperature: 0.1 },
+    }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.error?.message || `Gemini Error ${res.status}`)
+  }
+  const data = await res.json()
+  const text = data.candidates?.[0]?.content?.parts?.filter(p => !p.thought).map(p => p.text || '').join('') || '[]'
+  let rows = []
+  try { rows = JSON.parse(text.match(/\[[\s\S]*\]/)?.[0] || '[]') } catch { rows = [] }
+  return { demo: false, rows }
+}
+
 export async function generateDailySummary(data) {
   if (!API_KEY) return null
   const prompt = `สรุปประจำวันโชว์รูม:

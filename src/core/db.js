@@ -809,6 +809,23 @@ export function seedDemoData() {
   ]
   financeBanks.forEach(b => { if (!demoCol('finance_banks')[b.id]) demoCol('finance_banks')[b.id] = b })
 
+  // Finance rate sheets — ตารางดอกเบี้ยไฟแนนซ์ (จากอัปโหลดรูปภาพ + ยืนยันโดยผู้ใช้ หรือกรอกเอง)
+  const financeRateSheets = [
+    { id:'frs1', bank:'SCB', campaign:'ดอกเบี้ยพิเศษ Q3', brand:'DEEPAL', model:'S07', year:2026, month:'กรกฎาคม',
+      dateFrom:'2026-07-01', dateTo:'2026-07-31', conditions:'ดาวน์ขั้นต่ำ 20% ผ่อนสูงสุด 60 งวด ดอกเบี้ย 2.99%/ปี',
+      financeCommission:8000, extraPayment:2000, subsidy:15000, imageUrl:'', status:'confirmed', createdAt: new Date(Date.now()-86400000*3).toISOString() },
+    { id:'frs2', bank:'KBANK', campaign:'ฟรีดาวน์ EV', brand:'AION', model:'Y Plus', year:2026, month:'กรกฎาคม',
+      dateFrom:'2026-07-01', dateTo:'2026-08-15', conditions:'ฟรีดาวน์ ผ่อนสูงสุด 72 งวด ดอกเบี้ย 3.25%/ปี ต้องมีสลิปเงินเดือน',
+      financeCommission:6500, extraPayment:0, subsidy:20000, imageUrl:'', status:'confirmed', createdAt: new Date(Date.now()-86400000*5).toISOString() },
+    { id:'frs3', bank:'TISCO', campaign:'ดอกเบี้ย 0% 24 เดือนแรก', brand:'OMODA & JAECOO', model:'Jaecoo J7', year:2026, month:'มิถุนายน',
+      dateFrom:'2026-06-01', dateTo:'2026-06-30', conditions:'ดอกเบี้ย 0% 24 เดือนแรก จากนั้น 3.5%/ปี ดาวน์ 25%',
+      financeCommission:7000, extraPayment:1500, subsidy:10000, imageUrl:'', status:'confirmed', createdAt: new Date(Date.now()-86400000*10).toISOString() },
+    { id:'frs4', bank:'BAY', campaign:'โปรฤดูฝน', brand:'SUZUKI', model:'Swift', year:2026, month:'กรกฎาคม',
+      dateFrom:'2026-07-01', dateTo:'2026-07-31', conditions:'ดาวน์ 15% ผ่อน 60 งวด ดอกเบี้ย 2.49%/ปี รอตรวจสอบยอด Extra จากภาพ',
+      financeCommission:0, extraPayment:0, subsidy:0, imageUrl:'', status:'pending', createdAt: new Date(Date.now()-3600000*6).toISOString() },
+  ]
+  financeRateSheets.forEach(r => { if (!demoCol('finance_rate_sheets')[r.id]) demoCol('finance_rate_sheets')[r.id] = r })
+
   // Monthly close items
   const monthlyCloseItems = [
     { id:'mc1', category:'รายได้', name:'ยอดขายรถ', amount:3297000, responsible:'อรนุช เซลส์ดี', status:'confirmed', date:'2025-06-30' },

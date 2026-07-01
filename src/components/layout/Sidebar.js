@@ -167,6 +167,7 @@ const NAV = [
       { icon: '⚡', label: 'Charging Revenue', path: '/finance/charging-revenue' },
       { icon: '💱', label: 'Multi-Currency', path: '/finance/multi-currency' },
       { icon: '🏦', label: 'Bank Partners', path: '/finance/bank-partners' },
+      { icon: '📈', label: 'ดอกเบี้ยไฟแนนซ์', path: '/finance/rate-sheets' },
       { icon: '💵', label: 'Deposit (มัดจำ)', path: '/finance/deposit' },
       { icon: '⚖️', label: 'Break-even', path: '/finance/breakeven' },
       { icon: '💸', label: 'Refund', path: '/finance/refund' },

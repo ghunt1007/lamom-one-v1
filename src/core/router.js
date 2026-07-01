@@ -457,6 +457,7 @@ const routes = {
   '/dms/td-cert':              () => import('../pages/dms/TdCert.js'),
   '/service/tech-kpi':         () => import('../pages/service/TechKpi.js'),
   '/finance/bank-partners':    () => import('../pages/finance/BankPartners.js'),
+  '/finance/rate-sheets':      () => import('../pages/finance/FinanceRateSheets.js'),
   '/crm/anniversary':          () => import('../pages/crm/Anniversary.js'),
   '/dms/reserve-lock':         () => import('../pages/dms/ReserveLock.js'),
   // Vehicle Database
