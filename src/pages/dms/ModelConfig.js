@@ -56,8 +56,10 @@ export default async function ModelConfigPage(container) {
         id: d.id || `MC${String(i+1).padStart(3,'0')}`,
         brand: d.brand || '',
         model: d.model || '',
-        variants: Array.isArray(d.variants) ? d.variants.map(v => ({ ...v })) : [],
-        options: Array.isArray(d.options) ? [...d.options] : [],
+        variants: Array.isArray(d.variants) && d.variants.length ? d.variants.map(v => ({ ...v })) : [{
+          name: d.variant || 'Standard', battery: d.batteryWarranty || '-', range: d.range ? d.range + ' km' : '-', price: d.basePrice || 0, active: true,
+        }],
+        options: Array.isArray(d.options) ? [...d.options] : (Array.isArray(d.accessories) ? [...d.accessories] : []),
         colors: Array.isArray(d.colors) ? [...d.colors] : [],
       }))
       modelsCfg = [...mapped, ...DEMO_MODELS_CFG]
@@ -69,7 +71,7 @@ export default async function ModelConfigPage(container) {
 
   function modelCard(m) {
     const isSelected = m.id===selModelId
-    const activeVariant = m.variants.find(v=>v.active)||m.variants[0]
+    const activeVariant = m.variants.find(v=>v.active)||m.variants[0]||{ price: 0 }
     const colorDots = m.colors.map(c=>'<span style="font-size:0.68rem;background:var(--surface-2);padding:2px 6px;border-radius:6px">'+escHtml(c)+'</span>').join('')
     return '<div class="card model-cfg-card" data-id="'+m.id+'" style="padding:14px;cursor:pointer;border:2px solid '+(isSelected?'var(--primary)':'transparent')+'">' +
       '<div style="display:flex;align-items:flex-start;gap:10px">' +

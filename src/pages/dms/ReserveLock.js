@@ -35,7 +35,7 @@ function daysLeft(expiry) {
 
 export default async function ReserveLockPage(container) {
   const myGen = container.__routerGen
-  let stock = DEMO_stock.map(s => ({ ...s }))
+  let stock = DEMO_STOCK.map(s => ({ ...s }))
   let dataSource = 'demo'
 
   try {
@@ -172,7 +172,7 @@ export default async function ReserveLockPage(container) {
   }
 
   function stockCard(v) {
-    const cfg = STATUS_CFG[v.status]
+    const cfg = STATUS_CFG[v.status] || STATUS_CFG.available
     const dl  = v.expiry ? daysLeft(v.expiry) : null
     let expiryStr = ''
     if (v.expiry) {
