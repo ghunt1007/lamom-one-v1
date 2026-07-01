@@ -263,7 +263,7 @@ export function seedDemoData() {
 
   const complaints = [
     { id:'cp1', ticketNo:'CMP-001', customer:'สมชาย มีทรัพย์', phone:'0812345678', type:'service', subject:'งานซ่อมล่าช้ากว่าที่นัดไว้', status:'open', priority:'high', assignedTo:'สมชาย ช่างดี', createdAt: new Date(Date.now()-86400000*2).toISOString(), notes:'ลูกค้าไม่พอใจที่รอรถนาน 3 วัน' },
-    { id:'cp2', ticketNo:'CMP-002', customer:'อรนุช พรหมมา', phone:'0898765432', type:'product', subject:'แอร์ไม่เย็น หลังซ่อมครั้งก่อน', status:'inprogress', priority:'medium', assignedTo:'วิชัย ช่างเก่ง', createdAt: new Date(Date.now()-86400000*5).toISOString(), notes:'ส่งช่างไปตรวจที่บ้านแล้ว' },
+    { id:'cp2', ticketNo:'CMP-002', customer:'อรนุช พรหมมา', phone:'0898765432', type:'product', subject:'แอร์ไม่เย็น หลังซ่อมครั้งก่อน', status:'investigating', priority:'medium', assignedTo:'วิชัย ช่างเก่ง', createdAt: new Date(Date.now()-86400000*5).toISOString(), notes:'ส่งช่างไปตรวจที่บ้านแล้ว' },
     { id:'cp3', ticketNo:'CMP-003', customer:'วิชัย สุขใจ', phone:'0822222222', type:'sales', subject:'ราคารถไม่ตรงกับที่ตกลงไว้', status:'resolved', priority:'high', assignedTo:'อรนุช เซลส์ดี', createdAt: new Date(Date.now()-86400000*10).toISOString(), notes:'คืนเงินส่วนต่างแล้ว' },
   ]
   complaints.forEach(c => { if (!demoCol('complaints')[c.id]) demoCol('complaints')[c.id] = c })
@@ -457,7 +457,7 @@ export function seedDemoData() {
   vehicleReservations.forEach(r => { if (!demoCol('vehicle_reservations')[r.id]) demoCol('vehicle_reservations')[r.id] = r })
 
   const consignments = [
-    { id:'con1', consignNo:'CSG-001', ownerName:'นายสมชาย รักรถ', phone:'0834567890', brand:'Toyota', model:'Camry', year:2022, vin:'JT2BF3EK7C0123456', color:'ขาว', plate:'กก-1234 กทม.', km:45000, askPrice:750000, agentPrice:700000, commission:25000, status:'active', note:'สภาพดีมาก ไม่เคยชน', createdAt: new Date(Date.now()-86400000*20).toISOString() },
+    { id:'con1', consignNo:'CSG-001', ownerName:'นายสมชาย รักรถ', phone:'0834567890', brand:'Toyota', model:'Camry', year:2022, vin:'JT2BF3EK7C0123456', color:'ขาว', plate:'กก-1234 กทม.', km:45000, askPrice:750000, agentPrice:700000, commission:25000, status:'selling', note:'สภาพดีมาก ไม่เคยชน', createdAt: new Date(Date.now()-86400000*20).toISOString() },
     { id:'con2', consignNo:'CSG-002', ownerName:'นางสาวจิราวรรณ ดีใจ', phone:'0876543210', brand:'Honda', model:'Accord', year:2021, vin:'1HGCR2F34GA123456', color:'เงิน', plate:'ขข-5678 กทม.', km:62000, askPrice:600000, agentPrice:560000, commission:20000, status:'sold', note:'ขายได้แล้ว', createdAt: new Date(Date.now()-86400000*45).toISOString() },
   ]
   consignments.forEach(c => { if (!demoCol('consignments')[c.id]) demoCol('consignments')[c.id] = c })
@@ -770,7 +770,7 @@ export function seedDemoData() {
   // Fleet deals (Fleet & Corporate)
   const fleetDeals = [
     { id:'fd1', company:'บริษัท ไทยพัฒนา จำกัด', contact:'คุณสมศักดิ์ ผู้จัดการ', phone:'0211112222', sales:'อรนุช เซลส์ดี', model:'BYD Seal AWD x5', qty:5, amount:6495000, status:'negotiation', delivery:'2025-08-01', notes:'ต้องการสีเดียวกันทุกคัน' },
-    { id:'fd2', company:'ราชการ — กรมทางหลวง', contact:'คุณวิชัย ข้าราชการ', phone:'0222223333', sales:'วิชัย ขายเก่ง', model:'MG4 X-Power x3', qty:3, amount:2847000, status:'closed', delivery:'2025-05-15', notes:'ผ่านการประมูลแล้ว' },
+    { id:'fd2', company:'ราชการ — กรมทางหลวง', contact:'คุณวิชัย ข้าราชการ', phone:'0222223333', sales:'วิชัย ขายเก่ง', model:'MG4 X-Power x3', qty:3, amount:2847000, status:'won', delivery:'2025-05-15', notes:'ผ่านการประมูลแล้ว' },
   ]
   fleetDeals.forEach(f => { if (!demoCol('fleet_deals')[f.id]) demoCol('fleet_deals')[f.id] = f })
 }
