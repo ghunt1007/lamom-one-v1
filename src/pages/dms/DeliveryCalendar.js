@@ -38,7 +38,7 @@ export default async function DeliveryCalendarPage(container) {
   try {
     const docs = await listDocs('bookings', [], 'deliveryDate', 'asc', 200).catch(() => [])
     if (container.__routerGen !== myGen) return
-    const pending = docs.filter(d => d.deliveryDate && ['จองแล้ว','รอส่งมอบ','ส่งมอบแล้ว'].includes(d.status))
+    const pending = docs.filter(d => d.deliveryDate && ['จองแล้ว','รอส่งมอบ','ตัดตัวเลขรอส่งมอบ','ส่งมอบแล้ว'].includes(d.status))
     if (pending.length >= 2) {
       const mapped = pending.map((d, i) => ({
         id: d.id || `DL${i+1}`,
@@ -49,7 +49,7 @@ export default async function DeliveryCalendarPage(container) {
         vin: d.vin || d.chassisNo || '',
         date: d.deliveryDate || d.bookingDate || '',
         time: d.deliveryTime || '10:00',
-        status: d.status === 'ส่งมอบแล้ว' ? 'delivered' : d.status === 'รอส่งมอบ' ? 'ready' : 'preparing',
+        status: d.status === 'ส่งมอบแล้ว' ? 'delivered' : (d.status === 'รอส่งมอบ' || d.status === 'ตัดตัวเลขรอส่งมอบ') ? 'ready' : 'preparing',
         staff: d.salesName || d.salesPerson || '',
         prep: [false, false, false, false, false],
       }))

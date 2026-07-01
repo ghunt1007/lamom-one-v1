@@ -86,7 +86,7 @@ export default async function WarrantyManagementPage(container) {
     if (container.__routerGen !== myGen) return
     const delivered = bookings.filter(b => b.status === 'ส่งมอบแล้ว')
     if (delivered.length) {
-      const EV_BRANDS = ['BYD', 'MG', 'Neta', 'ORA', 'AION', 'Tesla', 'Ora']
+      const EV_BRANDS = ['BYD', 'MG', 'Neta', 'ORA', 'AION', 'Tesla', 'Ora', 'DEEPAL']
       const addYears = (d, y) => { const dt = new Date(d); dt.setFullYear(dt.getFullYear() + y); return dt.toISOString().slice(0, 10) }
       const live = delivered.map(b => {
         const startDate = (b.actualDeliveryDate || b.updatedAt?.toDate?.()?.toISOString() || '').slice(0, 10)

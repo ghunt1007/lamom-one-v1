@@ -37,7 +37,7 @@ export default async function CreditControlPage(container) {
   try {
     const bookings = await listDocs('bookings', [], 'createdAt', 'desc', 300).catch(() => [])
     if (container.__routerGen !== myGen) return
-    const outstanding = bookings.filter(b => ['ยืนยัน', 'รอส่งมอบ'].includes(b.status))
+    const outstanding = bookings.filter(b => ['ยืนยัน', 'รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ'].includes(b.status))
     if (outstanding.length) {
       const live = outstanding.map(b => {
         const bookDate = (b.bookingDate || b.createdAt?.toDate?.()?.toISOString() || '').slice(0, 10)

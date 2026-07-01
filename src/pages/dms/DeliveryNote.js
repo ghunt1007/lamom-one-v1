@@ -11,6 +11,7 @@ function escHtml(s) {
 
 const BOOKING_TO_DN = {
   'รอส่งมอบ': 'pending',
+  'ตัดตัวเลขรอส่งมอบ': 'scheduled',
   'ส่งมอบแล้ว': 'done',
   'ถอนจอง': 'cancelled',
   'รอผลไฟแนนซ์': 'pending',
@@ -71,7 +72,7 @@ export default async function DeliveryNotePage(container) {
   try {
     const bookings = await listDocs('bookings', [], 'createdAt', 'desc', 500)
     if (container.__routerGen !== myGen) return
-    const relevant = bookings.filter(b => ['รอส่งมอบ', 'ส่งมอบแล้ว', 'ถอนจอง'].includes(b.status))
+    const relevant = bookings.filter(b => ['รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ', 'ส่งมอบแล้ว', 'ถอนจอง'].includes(b.status))
     if (relevant.length) {
       notes = relevant.map(b => {
         const ol = loadOL(b.id)
