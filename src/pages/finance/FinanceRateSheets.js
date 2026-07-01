@@ -244,7 +244,7 @@ export default async function FinanceRateSheetsPage(container) {
         bank, campaign: g('rf-campaign').value.trim(), brand: g('rf-brand').value.trim(), model: g('rf-model').value.trim(),
         year: num('rf-year'), month: g('rf-month').value, dateFrom: g('rf-from').value, dateTo: g('rf-to').value,
         conditions: g('rf-conditions').value.trim(), financeCommission: num('rf-comm'), extraPayment: num('rf-extra'), subsidy: num('rf-subsidy'),
-        status: 'confirmed',
+        status: isEdit ? existing.status : 'confirmed',
       }
       const btn = g('rfs'); btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
       try {
