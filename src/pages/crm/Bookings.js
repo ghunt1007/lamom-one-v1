@@ -146,7 +146,7 @@ export default async function BookingsPage(container) {
     const deliveredAll = bookings.filter(b => b.status === 'ส่งมอบแล้ว')
     const activeNonTerminal = bookings.filter(b => !['ถอนจอง', 'ยกเลิก', 'ส่งมอบแล้ว'].includes(b.status))
 
-    const statusActs = ['ทั้งหมด'].concat(getBookingStatus().filter(s => (statusCounts[s] || 0) > 0))
+    const statusActs = ['ทั้งหมด'].concat(getBookingStatus())
     const stChips = `<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
       <span style="font-size:0.68rem;font-weight:600;color:var(--text-muted);white-space:nowrap;margin-right:2px">📊 สถานะ:</span>
       ${statusActs.map(s => {
@@ -168,7 +168,8 @@ export default async function BookingsPage(container) {
       ${urgentCount > 0 ? `<span>🔥 ด่วน <b style="color:var(--danger)">${urgentCount}</b></span>` : ''}
     </div>`
 
-    const brandKpi = BRANDS.map(br => {
+    const brandsWithBookings = BRANDS.filter(br => bookings.some(b => detectBrand(b.brand, b.model) === br))
+    const brandKpi = brandsWithBookings.map(br => {
       const c = BRAND_COLORS[br]
       const ic = BRAND_ICONS[br]
       const del = deliveredAll.filter(b => detectBrand(b.brand, b.model) === br).length

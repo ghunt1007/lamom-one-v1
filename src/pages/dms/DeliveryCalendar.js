@@ -61,6 +61,7 @@ export default async function DeliveryCalendarPage(container) {
   function renderPage() {
     const today = addDays(0)
     const todayList = deliveries.filter(d => d.date === today && d.status !== 'delivered')
+    const overdue = deliveries.filter(d => d.date < today && d.status !== 'delivered')
     const upcoming = deliveries.filter(d => d.date > today)
     const done = deliveries.filter(d => d.status === 'delivered')
     const notReady = todayList.filter(d => d.status === 'preparing').length
@@ -77,13 +78,15 @@ export default async function DeliveryCalendarPage(container) {
           </div>
         </div>
 
-        <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
+        <div class="kpi-grid" style="grid-template-columns:repeat(5,1fr);margin-bottom:16px">
+          ${kpi('⚠️ เลยกำหนด', overdue.length + ' คัน', overdue.length > 0 ? 'danger' : 'success')}
           ${kpi('🎉 ส่งมอบวันนี้', todayList.length + ' คัน', 'primary')}
           ${kpi('⚠️ ยังไม่พร้อม', notReady, notReady > 0 ? 'danger' : 'success')}
           ${kpi('📅 คิวถัดไป', upcoming.length + ' คัน', 'secondary')}
           ${kpi('✅ เดือนนี้', done.length + ' คัน', 'success')}
         </div>
 
+        ${section('⚠️ เลยกำหนด', overdue)}
         ${section('🎉 วันนี้', deliveries.filter(d => d.date === today))}
         ${section('📅 กำลังจะถึง', upcoming)}
         ${section('✅ ส่งมอบแล้ว', done.filter(d => d.date !== today))}

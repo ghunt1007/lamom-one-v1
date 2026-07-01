@@ -469,12 +469,15 @@ export function Sidebar(container) {
       container.appendChild(el)
       bindEvents()
     } else {
+      const scrollTop = el.querySelector('.sidebar-nav')?.scrollTop || 0
       const wrapper = document.createElement('div')
       wrapper.innerHTML = html
       const newEl = wrapper.firstElementChild
       el.replaceWith(newEl)
       el = newEl
       bindEvents()
+      const nav = el.querySelector('.sidebar-nav')
+      if (nav) nav.scrollTop = scrollTop
     }
   }
 

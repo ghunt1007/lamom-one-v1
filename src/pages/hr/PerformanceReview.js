@@ -93,7 +93,7 @@ export default async function PerformanceReviewPage(container) {
           ${kpi('👥 พนักงานทั้งหมด', reviews.length, 'primary')}
           ${kpi('⏳ รอประเมิน', pending, pending > 0 ? 'warning' : 'secondary')}
           ${kpi('✅ เสร็จสิ้น', completed, 'success')}
-          ${kpi('📊 คะแนนเฉลี่ย', (avgScore*10).toFixed(0) + '/100', 'primary')}
+          ${kpi('📊 คะแนนเฉลี่ย', avgScore.toFixed(0) + '/100', 'primary')}
         </div>
 
         <div style="display:flex;gap:4px;margin-bottom:12px">
@@ -104,8 +104,8 @@ export default async function PerformanceReviewPage(container) {
         <div style="display:flex;flex-direction:column;gap:10px">
           ${list.map(r => {
             const st = REVIEW_STATUS[r.status]
-            const selfTotal = r.selfScores ? +calcScore(r.selfScores) * 10 : null
-            const mgmtTotal = r.mgmtScores ? +calcScore(r.mgmtScores) * 10 : null
+            const selfTotal = r.selfScores ? +calcScore(r.selfScores) : null
+            const mgmtTotal = r.mgmtScores ? +calcScore(r.mgmtScores) : null
             return `<div class="card" style="padding:14px;border-left:3px solid var(--${st?.color})">
               <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px">
                 <div>
@@ -195,11 +195,11 @@ export default async function PerformanceReviewPage(container) {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px">
           ${r.selfScores ? `<div><div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">👤 ประเมินตัวเอง</div>
             ${CRITERIA.map(c => `<div style="display:flex;justify-content:space-between;font-size:0.78rem;padding:4px 0">${c.label} <strong>${r.selfScores[c.key]}/5</strong></div>`).join('')}
-            <div style="margin-top:8px;font-weight:700">รวม: ${(+calcScore(r.selfScores)*10).toFixed(0)}/100</div>
+            <div style="margin-top:8px;font-weight:700">รวม: ${(+calcScore(r.selfScores)).toFixed(0)}/100</div>
           </div>` : '<div style="color:var(--text-muted);font-size:0.8rem">ยังไม่ประเมินตัวเอง</div>'}
           ${r.mgmtScores ? `<div><div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">👔 ผู้จัดการประเมิน</div>
             ${CRITERIA.map(c => `<div style="display:flex;justify-content:space-between;font-size:0.78rem;padding:4px 0">${c.label} <strong>${r.mgmtScores[c.key]}/5</strong></div>`).join('')}
-            <div style="margin-top:8px;font-weight:700">รวม: ${(+calcScore(r.mgmtScores)*10).toFixed(0)}/100 · ${r.grade}</div>
+            <div style="margin-top:8px;font-weight:700">รวม: ${(+calcScore(r.mgmtScores)).toFixed(0)}/100 · ${r.grade}</div>
           </div>` : '<div style="color:var(--text-muted);font-size:0.8rem">ผู้จัดการยังไม่ประเมิน</div>'}
         </div>
         ${r.comment ? `<div style="margin-top:12px;padding:10px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:0.83rem;font-style:italic">"${r.comment}"</div>` : ''}
@@ -231,7 +231,7 @@ export default async function PerformanceReviewPage(container) {
         r.mgmtScores = scores
         r.comment = document.getElementById('mgmt-comment')?.value || ''
         r.status = 'reviewed'
-        const total = +calcScore(scores) * 10
+        const total = +calcScore(scores)
         r.grade = gradeFromScore(total)
         showToast(`✅ ประเมิน ${r.staff} เสร็จแล้ว! เกรด ${r.grade}`, 'success'); renderPage()
       }

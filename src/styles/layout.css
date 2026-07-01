@@ -298,6 +298,7 @@
   min-height: calc(100vh - var(--topbar-height));
   transition: margin-left var(--transition);
   flex: 1;
+  min-width: 0;
 }
 .main-wrap.sidebar-collapsed { margin-left: var(--sidebar-collapsed); }
 

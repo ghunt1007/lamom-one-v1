@@ -81,7 +81,7 @@ export default async function BranchComparisonPage(container) {
         <!-- Comparison bars -->
         <div class="card" style="padding:16px;margin-bottom:14px">
           <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:14px">${m?.label} — แยกตามสาขา</div>
-          ${[...BRANCHES].sort((a,b) => b[metric] - a[metric]).map((b, i) => {
+          ${[...liveBranches].sort((a,b) => b[metric] - a[metric]).map((b, i) => {
             const pct = Math.round(b[metric] / maxV * 100)
             return `<div style="margin-bottom:12px">
               <div style="display:flex;justify-content:space-between;font-size:0.78rem;margin-bottom:4px">

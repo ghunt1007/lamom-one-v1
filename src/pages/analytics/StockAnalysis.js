@@ -63,7 +63,7 @@ export default async function StockAnalysisPage(container) {
     const totalReserved = liveModels.reduce((a, m) => a + m.reserved, 0)
     const totalValue = liveModels.reduce((a, m) => a + m.stock * m.price, 0)
     const lowStock = liveModels.filter(m => m.stock < m.targetStock).length
-    const maxStock = Math.max(...liveModels.map(m => m.stock))
+    const maxStock = Math.max(1, ...liveModels.map(m => Math.max(m.stock, m.targetStock)))
 
     container.innerHTML = `
       <div class="page-content animate-slide">

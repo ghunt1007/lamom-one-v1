@@ -245,7 +245,7 @@ tbody tr:hover { background: var(--surface-2); }
 /* ── Page Wrapper ── */
 .page-content {
   padding: 24px;
-  max-width: 1600px;
+  width: 100%;
 }
 
 .page-header {

@@ -45,8 +45,9 @@ export default async function CreditControlPage(container) {
         const daysPast = dueDate ? Math.max(0, Math.round((Date.now() - new Date(dueDate)) / 86400000)) : 0
         return {
           id: 'CR-' + b.id, customerId: b.id,
-          name: b.custName || 'ลูกค้า', phone: b.custPhone || '',
-          limit: b.salePrice || 0, used: b.salePrice || 0,
+          customer: b.custName || 'ลูกค้า', contact: b.custName || '', phone: b.phone || '',
+          type: 'retail', invoices: 1, oldest: dueDate,
+          creditLimit: b.price || 0, used: b.price || 0,
           status: daysPast > 30 ? 'overdue' : daysPast > 0 ? 'warning' : 'current',
           dueDate, daysPast, salesperson: b.salesName || '',
           notes: `${b.brand || ''} ${b.model || ''}`.trim(), _live: true,
