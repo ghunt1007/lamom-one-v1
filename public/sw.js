@@ -1,5 +1,7 @@
-// LAMOM ONE Service Worker v1.0
-const CACHE_NAME = 'lamom-one-v1.0.70'
+// LAMOM ONE Service Worker
+// __SW_VERSION__ ถูกแทนด้วยเวอร์ชันจาก package.json ตอน build (scripts/stamp-sw.js)
+// ทำให้ cache เก่าถูกล้างทุกครั้งที่ deploy เวอร์ชันใหม่ — ไม่สะสม hashed assets เก่าไม่จำกัด
+const CACHE_NAME = 'lamom-one-__SW_VERSION__'
 const STATIC_ASSETS = [
   '/',
 ]
