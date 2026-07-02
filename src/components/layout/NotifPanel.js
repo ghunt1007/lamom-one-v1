@@ -1,6 +1,7 @@
 import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 import { timeAgo } from '../../utils/format.js'
 import { setState } from '../../core/store.js'
+import { navigate } from '../../core/router.js'
 
 const NOTIF_ICONS = { lead: '🧲', reminder: '⏰', system: '⚙️', finance: '💰', service: '🔧', warning: '⚠️' }
 
@@ -85,6 +86,8 @@ export async function openNotifPanel(anchorEl) {
         setState('unreadCount', Math.max(0, panel.querySelectorAll('.unread').length))
       }
       panel.remove()
+      const n = notifs.find(x => x.id === item.dataset.id)
+      if (n?.link) navigate(n.link)
     })
   })
 

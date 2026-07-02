@@ -351,7 +351,7 @@ export default async function FinanceRateSheetsPage(container) {
             type: 'finance',
             title: 'มีตารางดอกเบี้ยไฟแนนซ์รอตรวจสอบ',
             body: `AI วิเคราะห์ได้ ${toSave.length} รายการ (${toSave.map(r => r.bank).filter(Boolean).join(', ')}) — กรุณายืนยันก่อนใช้งานจริง`,
-            read: false, createdAt: new Date().toISOString(),
+            read: false, link: '/finance/rate-sheets', createdAt: new Date().toISOString(),
           })
           setState('unreadCount', (getState('unreadCount') || 0) + 1)
         } catch { /* แจ้งเตือนพลาดได้ ไม่กระทบข้อมูลตารางดอกเบี้ยที่บันทึกไปแล้ว */ }
