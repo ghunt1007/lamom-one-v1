@@ -89,7 +89,7 @@ export default async function FleetGpsPage(container) {
           <!-- Map placeholder -->
           <div>
             <div class="card" style="padding:0;overflow:hidden">
-              <div style="background:linear-gradient(135deg,var(--surface-2) 0%,var(--surface) 100%);aspect-ratio:16/9;position:relative;display:flex;align-items:center;justify-content:center;min-height:320px">
+              <div style="background:linear-gradient(135deg,var(--surface-2) 0%,var(--surface) 100%);aspect-ratio:16/9;position:relative;display:flex;align-items:center;justify-content:center;min-width:0">
                 <!-- Map background grid -->
                 <svg style="position:absolute;inset:0;width:100%;height:100%;opacity:0.1" viewBox="0 0 400 280">
                   ${Array.from({length:8},(_,i)=>`<line x1="${i*57}" y1="0" x2="${i*57}" y2="280" stroke="var(--text-muted)" stroke-width="1"/>`).join('')}

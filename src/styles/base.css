@@ -194,12 +194,27 @@ tbody tr:hover { background: var(--surface-2); }
 .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
 .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+/* ให้ grid item หดต่ำกว่า min-content ได้ (default คือ min-width:auto) — ไม่งั้นตาราง/เนื้อหากว้าง
+   ข้างในจะดัน track 1fr ให้กว้างกว่าจอ แทนที่จะปล่อยให้ .table-wrap เลื่อนแนวนอนเอง
+   (ใช้ทุกขนาดจอ: ช่วง tablet 640–1000px ก็เจอปัญหาเดียวกัน) */
+.page-content div[style*="grid-template-columns"] > * { min-width: 0; }
 @media (max-width: 1024px) {
   .grid-4 { grid-template-columns: repeat(2, 1fr); }
   .grid-3 { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 640px) {
   .grid-4, .grid-3, .grid-2 { grid-template-columns: 1fr; }
+  /* จอแคบ: ยุบ grid ที่กำหนดคอลัมน์ผ่าน inline style (รวมพวกคอลัมน์ fix-px เช่น "1fr 340px")
+     ให้เหลือคอลัมน์เดียว — !important ใน stylesheet ชนะ inline style จึงคุมได้จากจุดเดียว */
+  .page-content div[style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
+  /* จอแคบ: บังคับแถบปุ่ม/filter แบบ flex ให้ขึ้นบรรทัดใหม่แทนที่จะดันหน้าให้กว้าง
+     ยกเว้นแถวที่ตั้งใจเลื่อนแนวนอน (kanban/timeline ที่มี overflow-x กำกับไว้) */
+  /* หมายเหตุ: ต้อง exclude flex-direction:column — ถ้าบังคับ wrap กับ column ที่ความสูงถูกจำกัด
+     รายการจะแตกออกเป็นคอลัมน์ใหม่ด้านข้าง กลายเป็นดันความกว้างแทน */
+  .page-content div[style*="display:flex"]:not([style*="overflow-x"]):not([style*="flex-direction:column"]) { flex-wrap: wrap !important; }
+  .page-actions { flex-wrap: wrap; }
+  /* token ยาวไม่มีจุดตัด (path โค้ด, URL, VIN) ให้ตัดขึ้นบรรทัดใหม่ได้ ไม่ดันหน้าให้กว้าง */
+  .page-content { overflow-wrap: anywhere; }
 }
 
 /* ── Flex Utilities ── */
