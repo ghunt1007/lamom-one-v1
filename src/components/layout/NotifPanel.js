@@ -1,5 +1,6 @@
 import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 import { timeAgo } from '../../utils/format.js'
+import { setState } from '../../core/store.js'
 
 const NOTIF_ICONS = { lead: '🧲', reminder: '⏰', system: '⚙️', finance: '💰', service: '🔧', warning: '⚠️' }
 
@@ -14,6 +15,7 @@ export async function openNotifPanel(anchorEl) {
   seedDemoData()
   const notifs = await listDocs('notifications', [], 'createdAt', 'desc', 20)
   const unread = notifs.filter(n => !n.read)
+  setState('unreadCount', unread.length)
 
   const panel = document.createElement('div')
   panel.id = 'notif-panel'
@@ -67,8 +69,7 @@ export async function openNotifPanel(anchorEl) {
       el.querySelector('[style*="border-radius:50%"]')?.remove()
     })
     panel.querySelector('.badge-danger')?.remove()
-    // Update bell dot
-    document.querySelector('.topbar-notif-dot')?.remove()
+    setState('unreadCount', 0)
   })
 
   // Mark single read on click
@@ -81,6 +82,7 @@ export async function openNotifPanel(anchorEl) {
         item.style.background = ''
         item.classList.remove('unread')
         item.querySelector('[style*="border-radius:50%"]')?.remove()
+        setState('unreadCount', Math.max(0, panel.querySelectorAll('.unread').length))
       }
       panel.remove()
     })

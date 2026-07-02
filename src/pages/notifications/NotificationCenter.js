@@ -1,5 +1,5 @@
 import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
-import { showToast } from '../../core/store.js'
+import { showToast, setState } from '../../core/store.js'
 import { timeAgo } from '../../utils/format.js'
 import { navigate } from '../../core/router.js'
 
@@ -50,6 +50,7 @@ export default async function NotificationCenterPage(container) {
   }
 
   if (container.__routerGen !== myGen) return
+  setState('unreadCount', notifs.filter(n => !n.read).length)
 
   let filterType = 'all'
   let showUnread = false
@@ -64,11 +65,13 @@ export default async function NotificationCenterPage(container) {
     const n = notifs.find(x => x.id === id)
     if (n) n.read = true
     updateDocData('notifications', id, { read: true }).catch(() => {})
+    setState('unreadCount', notifs.filter(n => !n.read).length)
   }
 
   function markAllRead() {
     notifs.forEach(n => n.read = true)
     notifs.forEach(n => updateDocData('notifications', n.id, { read: true }).catch(() => {}))
+    setState('unreadCount', 0)
     showToast('✅ อ่านทั้งหมดแล้ว', 'success')
     renderPage()
   }

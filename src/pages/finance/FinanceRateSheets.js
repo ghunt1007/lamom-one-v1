@@ -4,7 +4,7 @@
  * Route: /finance/rate-sheets
  */
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState, setState } from '../../core/store.js'
 import { formatDate, formatCurrency } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -353,6 +353,7 @@ export default async function FinanceRateSheetsPage(container) {
             body: `AI วิเคราะห์ได้ ${toSave.length} รายการ (${toSave.map(r => r.bank).filter(Boolean).join(', ')}) — กรุณายืนยันก่อนใช้งานจริง`,
             read: false, createdAt: new Date().toISOString(),
           })
+          setState('unreadCount', (getState('unreadCount') || 0) + 1)
         } catch { /* แจ้งเตือนพลาดได้ ไม่กระทบข้อมูลตารางดอกเบี้ยที่บันทึกไปแล้ว */ }
         close()
         showToast(`✅ บันทึก ${toSave.length} รายการแล้ว (รอตรวจสอบ)`, 'success')

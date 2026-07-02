@@ -1,7 +1,16 @@
-import { getState, on } from '../../core/store.js'
+import { getState, setState, on } from '../../core/store.js'
 import { navigate } from '../../core/router.js'
 import { openNotifPanel } from './NotifPanel.js'
 import { openGlobalSearch } from './GlobalSearch.js'
+import { listDocs, seedDemoData } from '../../core/db.js'
+
+export async function refreshUnreadCount() {
+  try {
+    seedDemoData()
+    const notifs = await listDocs('notifications', [], 'createdAt', 'desc', 50)
+    setState('unreadCount', notifs.filter(n => !n.read).length)
+  } catch { /* เงียบไว้ — จุดแจ้งเตือนแค่ไม่อัปเดต ไม่กระทบส่วนอื่น */ }
+}
 
 const BREADCRUMBS = {
   '/': 'Dashboard',
@@ -57,7 +66,7 @@ export function Topbar(container) {
           <button class="topbar-btn" id="theme-btn" title="เปลี่ยน Theme">🎨</button>
           <button class="topbar-btn" id="notif-btn" title="การแจ้งเตือน">
             🔔
-            <span class="topbar-notif-dot"></span>
+            ${getState('unreadCount') > 0 ? '<span class="topbar-notif-dot"></span>' : ''}
           </button>
           <button class="topbar-btn" id="lami-chat-btn" title="คุยกับ LAMI">🤖</button>
         </div>
@@ -87,8 +96,10 @@ export function Topbar(container) {
   }
 
   render()
+  refreshUnreadCount()
   unsubs.push(on('sidebarCollapsed', render))
   unsubs.push(on('currentRoute', render))
+  unsubs.push(on('unreadCount', render))
 
   // Keyboard shortcut
   const keyHandler = (e) => {
