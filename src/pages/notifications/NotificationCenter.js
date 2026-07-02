@@ -18,6 +18,9 @@ const NOTIF_TYPES = {
   finance:    { icon: '💳', color: 'success', label: 'การเงิน' },
   task:       { icon: '✅', color: 'primary', label: 'งาน' },
   alert:      { icon: '🚨', color: 'danger', label: 'แจ้งเตือน' },
+  reminder:   { icon: '⏰', color: 'warning', label: 'เตือนความจำ' },
+  stock:      { icon: '📦', color: 'primary', label: 'สต็อก' },
+  warning:    { icon: '⚠️', color: 'danger', label: 'คำเตือน' },
 }
 
 const DEMO_NOTIFS = [
@@ -93,8 +96,8 @@ export default async function NotificationCenterPage(container) {
           <div style="display:flex;gap:4px">
             <button class="btn btn-sm ${filterType==='all'?'btn-primary':'btn-secondary'} nf-type-btn" data-t="all">ทั้งหมด</button>
             ${types.map(t => {
-              const nt = NOTIF_TYPES[t]
-              return `<button class="btn btn-sm ${filterType===t?'btn-primary':'btn-secondary'} nf-type-btn" data-t="${t}">${nt?.icon} ${nt?.label||t}</button>`
+              const nt = NOTIF_TYPES[t] || NOTIF_TYPES.system
+              return `<button class="btn btn-sm ${filterType===t?'btn-primary':'btn-secondary'} nf-type-btn" data-t="${t}">${nt.icon} ${nt.label}</button>`
             }).join('')}
           </div>
           <label style="display:flex;align-items:center;gap:6px;font-size:0.83rem;cursor:pointer;margin-left:auto">

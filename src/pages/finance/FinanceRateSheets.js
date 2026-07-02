@@ -346,6 +346,14 @@ export default async function FinanceRateSheetsPage(container) {
           const id = await createDoc('finance_rate_sheets', record)
           sheets.unshift({ ...record, id })
         }
+        try {
+          await createDoc('notifications', {
+            type: 'finance',
+            title: 'มีตารางดอกเบี้ยไฟแนนซ์รอตรวจสอบ',
+            body: `AI วิเคราะห์ได้ ${toSave.length} รายการ (${toSave.map(r => r.bank).filter(Boolean).join(', ')}) — กรุณายืนยันก่อนใช้งานจริง`,
+            read: false, createdAt: new Date().toISOString(),
+          })
+        } catch { /* แจ้งเตือนพลาดได้ ไม่กระทบข้อมูลตารางดอกเบี้ยที่บันทึกไปแล้ว */ }
         close()
         showToast(`✅ บันทึก ${toSave.length} รายการแล้ว (รอตรวจสอบ)`, 'success')
         render()
