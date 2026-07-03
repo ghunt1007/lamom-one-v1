@@ -1,6 +1,6 @@
 import { formatDate } from '../../utils/format.js'
 import { showToast, getState, setState } from '../../core/store.js'
-import { ROLES, findUser, changeOwnPassword, getUsers } from '../../core/userDb.js'
+import { ROLES, findUser, changeOwnPassword, checkPassword, getUsers } from '../../core/userDb.js'
 
 const AVATAR_COLORS = [
   { name:'blue',    val:'#2563eb' },
@@ -200,16 +200,16 @@ export default function MyAccountPage(container) {
       el.innerHTML = `ความแข็งแกร่ง: <strong style="color:${colors[score]}">${levels[score]||''}</strong>`
     })
 
-    document.getElementById('cp-btn')?.addEventListener('click', () => {
+    document.getElementById('cp-btn')?.addEventListener('click', async () => {
       const oldPw = document.getElementById('cp-old')?.value || ''
       const p1 = document.getElementById('cp-new1')?.value || ''
       const p2 = document.getElementById('cp-new2')?.value || ''
       const err = document.getElementById('cp-error')
       if (err) err.textContent = ''
-      if (internal.password !== oldPw) { if (err) err.textContent = 'รหัสผ่านปัจจุบันไม่ถูกต้อง'; return }
+      if (!(await checkPassword(internal.email, oldPw))) { if (err) err.textContent = 'รหัสผ่านปัจจุบันไม่ถูกต้อง'; return }
       if (p1.length < 8) { if (err) err.textContent = 'รหัสผ่านใหม่อย่างน้อย 8 ตัว'; return }
       if (p1 !== p2) { if (err) err.textContent = 'รหัสผ่านใหม่ไม่ตรงกัน'; return }
-      const r = changeOwnPassword(internal.email, p1)
+      const r = await changeOwnPassword(internal.email, p1)
       if (!r.ok) { if (err) err.textContent = r.error; return }
       showToast('🔑 เปลี่ยนรหัสผ่านสำเร็จ', 'success')
       ;['cp-old','cp-new1','cp-new2'].forEach(id => { const el = document.getElementById(id); if (el) el.value = '' })

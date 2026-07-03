@@ -164,7 +164,7 @@ export default function LoginPage(container) {
     btnText.innerHTML = '<span class="spinner spinner-sm"></span> กำลังเข้าสู่ระบบ...'
 
     // 1) เช็คผู้ใช้ภายใน (สร้างจาก User Management) ก่อน
-    const internal = verifyLogin(email, pw)
+    const internal = await verifyLogin(email, pw)
     if (internal.ok) {
       const u = internal.user
       const enter = async () => {
@@ -199,13 +199,13 @@ export default function LoginPage(container) {
             <span class="input-error" id="fc-error"></span>
           `,
           confirmText: '🔑 ตั้งรหัส + เข้าสู่ระบบ',
-          onConfirm() {
+          async onConfirm() {
             const p1 = document.getElementById('fc-pw1')?.value || ''
             const p2 = document.getElementById('fc-pw2')?.value || ''
             const err = document.getElementById('fc-error')
             if (p1.length < 8) { if (err) err.textContent = 'รหัสผ่านอย่างน้อย 8 ตัว'; return false }
             if (p1 !== p2) { if (err) err.textContent = 'รหัสผ่านไม่ตรงกัน'; return false }
-            const r = changeOwnPassword(u.email, p1)
+            const r = await changeOwnPassword(u.email, p1)
             if (!r.ok) { if (err) err.textContent = r.error; return false }
             enter()
           }

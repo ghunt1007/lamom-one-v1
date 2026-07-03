@@ -192,7 +192,7 @@ export default async function UserManagementPage(container) {
         </div>
       </div>`,
       confirmText: '✅ สร้างผู้ใช้',
-      onConfirm() {
+      async onConfirm() {
         const name = document.getElementById('nu-name')?.value?.trim()
         const email = document.getElementById('nu-email')?.value?.trim()
         const role = document.getElementById('nu-role')?.value
@@ -201,7 +201,7 @@ export default async function UserManagementPage(container) {
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showToast('❗ รูปแบบอีเมลไม่ถูกต้อง', 'error'); return }
         if (password.length < 8) { showToast('❗ รหัสผ่านอย่างน้อย 8 ตัว', 'error'); return }
         if (!canCreate(myRole, role)) { showToast('❗ คุณไม่มีสิทธิ์สร้างระดับนี้', 'error'); return }
-        const result = createUser({ name, email, password, role, supervisorEmail: document.getElementById('nu-supervisor')?.value || '', createdBy: me.displayName || me.email || 'ระบบ' })
+        const result = await createUser({ name, email, password, role, supervisorEmail: document.getElementById('nu-supervisor')?.value || '', createdBy: me.displayName || me.email || 'ระบบ' })
         if (!result.ok) { showToast('❗ ' + result.error, 'error'); return }
         showToast(`✅ สร้าง ${name} (${ROLES[role]?.label}) แล้ว — ส่งรหัสชั่วคราวให้ผู้ใช้`, 'success')
         renderPage()
@@ -226,10 +226,10 @@ export default async function UserManagementPage(container) {
         <div style="font-size:0.72rem;color:var(--warning)">⚠️ แจ้งรหัสนี้ให้ผู้ใช้ทางช่องทางปลอดภัย (โทร/พบตัว) — ห้ามส่งในแชทกลุ่ม · ผู้ใช้ต้องเปลี่ยนรหัสเองเมื่อเข้าระบบ</div>
       </div>`,
       confirmText: '🔑 ตั้งรหัสใหม่',
-      onConfirm() {
+      async onConfirm() {
         const pw = document.getElementById('rp-password')?.value
         if (!pw || pw.length < 8) { showToast('❗ รหัสผ่านอย่างน้อย 8 ตัว', 'error'); return }
-        const r = setPassword(email, pw, me.displayName || me.email || 'ระบบ')
+        const r = await setPassword(email, pw, me.displayName || me.email || 'ระบบ')
         if (!r.ok) { showToast('❗ ' + r.error, 'error'); return }
         showToast('🔑 ตั้งรหัสใหม่แล้ว — ปิดคำขอรีเซ็ต + บันทึก log', 'success')
         renderPage()

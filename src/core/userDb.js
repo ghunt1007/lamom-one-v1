@@ -24,6 +24,29 @@ const LOG_KEY = 'lamom_auth_log'
 function load(key) { try { return JSON.parse(localStorage.getItem(key)) || [] } catch { return [] } }
 function save(key, data) { try { localStorage.setItem(key, JSON.stringify(data)) } catch {} }
 
+// ---------- Password hashing (SHA-256 + per-user salt) ----------
+// ไม่เก็บรหัสผ่าน plaintext อีกต่อไป — user เดิมที่ยังเป็น plaintext จะถูก
+// อัปเกรดเป็น hash โดยอัตโนมัติเมื่อ login สำเร็จครั้งถัดไป (ดู verifyLogin)
+async function hashPw(password, salt) {
+  const data = new TextEncoder().encode(salt + ':' + password)
+  const digest = await crypto.subtle.digest('SHA-256', data)
+  return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('')
+}
+function newSalt() {
+  const bytes = crypto.getRandomValues(new Uint8Array(16))
+  return [...bytes].map(b => b.toString(16).padStart(2, '0')).join('')
+}
+async function setUserPassword(u, password) {
+  u.pwSalt = newSalt()
+  u.pwHash = await hashPw(password, u.pwSalt)
+  delete u.password // ลบ plaintext เดิมถ้ามี
+}
+// เทียบรหัสผ่านกับ record — รองรับทั้งแบบ hash ใหม่ และ plaintext เดิม (legacy)
+async function matchesPassword(u, password) {
+  if (u.pwHash) return (await hashPw(password, u.pwSalt || '')) === u.pwHash
+  return u.password === password // legacy record ก่อนมีระบบ hash
+}
+
 // ---------- Audit log ----------
 export function getAuthLog() { return load(LOG_KEY) }
 
@@ -48,26 +71,28 @@ export function canCreate(creatorRole, targetRole) {
   return t.level < c.level // สร้างได้เฉพาะระดับต่ำกว่าตัวเองเท่านั้น
 }
 
-export function createUser({ name, email, password, role, supervisorEmail, createdBy }) {
+export async function createUser({ name, email, password, role, supervisorEmail, createdBy }) {
   if (findUser(email)) return { ok: false, error: 'อีเมลนี้มีผู้ใช้แล้ว' }
   const users = getUsers()
-  users.push({
+  const u = {
     id: 'U' + Date.now().toString(36),
-    name, email: email.toLowerCase(), password, role,
+    name, email: email.toLowerCase(), role,
     supervisorEmail: (supervisorEmail || '').toLowerCase(),
     createdBy, createdAt: new Date().toISOString(),
     active: true, mustChangePw: true,
-  })
+  }
+  await setUserPassword(u, password)
+  users.push(u)
   save(USERS_KEY, users)
   logEvent('create', `${createdBy} สร้างผู้ใช้ ${name} (${email}) ระดับ ${ROLES[role]?.label || role}`)
   return { ok: true }
 }
 
-export function setPassword(email, newPassword, by) {
+export async function setPassword(email, newPassword, by) {
   const users = getUsers()
   const u = users.find(x => x.email === email.toLowerCase())
   if (!u) return { ok: false, error: 'ไม่พบผู้ใช้' }
-  u.password = newPassword
+  await setUserPassword(u, newPassword)
   u.mustChangePw = true
   u.pwResetBy = by
   u.pwResetAt = new Date().toISOString()
@@ -90,28 +115,45 @@ export function toggleActive(email, by) {
   return u?.active
 }
 
-export function verifyLogin(email, password) {
+export async function verifyLogin(email, password) {
   const u = findUser(email)
   if (!u) return { ok: false, error: 'not_found' }
   if (!u.active) {
     logEvent('login_blocked', `พยายาม login ด้วยบัญชีที่ถูกระงับ: ${u.email}`)
     return { ok: false, error: 'บัญชีถูกระงับ — ติดต่อผู้บังคับบัญชา' }
   }
-  if (u.password !== password) {
+  if (!(await matchesPassword(u, password))) {
     logEvent('login_fail', `login ผิดรหัสผ่าน: ${u.email}`)
     return { ok: false, error: 'รหัสผ่านไม่ถูกต้อง' }
+  }
+  // migration: record เก่าที่ยังเป็น plaintext → อัปเกรดเป็น hash ทันทีที่ login สำเร็จ
+  if (!u.pwHash) {
+    const users = getUsers()
+    const stored = users.find(x => x.email === u.email)
+    if (stored) {
+      await setUserPassword(stored, password)
+      save(USERS_KEY, users)
+      logEvent('pw_migrate', `อัปเกรดรหัสผ่านเป็น hash: ${u.email}`)
+    }
   }
   logEvent('login', `${u.name} (${u.email}) เข้าสู่ระบบ`)
   return { ok: true, user: u }
 }
 
-export function changeOwnPassword(email, newPassword) {
+// เทียบรหัสผ่านปัจจุบัน (ใช้ตอนผู้ใช้เปลี่ยนรหัสเองจากหน้าบัญชี — ไม่ log เป็น login attempt)
+export async function checkPassword(email, password) {
+  const u = findUser(email)
+  if (!u) return false
+  return matchesPassword(u, password)
+}
+
+export async function changeOwnPassword(email, newPassword) {
   const users = getUsers()
   const u = users.find(x => x.email === email.toLowerCase())
   if (!u) return { ok: false, error: 'ไม่พบผู้ใช้' }
   if (newPassword.length < 8) return { ok: false, error: 'รหัสผ่านอย่างน้อย 8 ตัว' }
-  if (newPassword === u.password) return { ok: false, error: 'รหัสใหม่ต้องไม่ซ้ำรหัสเดิม' }
-  u.password = newPassword
+  if (await matchesPassword(u, newPassword)) return { ok: false, error: 'รหัสใหม่ต้องไม่ซ้ำรหัสเดิม' }
+  await setUserPassword(u, newPassword)
   u.mustChangePw = false
   u.pwChangedAt = new Date().toISOString()
   save(USERS_KEY, users)
