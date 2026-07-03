@@ -6,6 +6,10 @@ import { formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
 const COMPLIANCE_CATS = {
   pdpa:     { label: 'PDPA', color: 'danger', icon: '🛡' },
   labor:    { label: 'แรงงาน', color: 'warning', icon: '👥' },
@@ -112,7 +116,7 @@ export default async function ComplianceCheckPage(container) {
                       ${cat?.icon} ${cat?.label} · รับผิดชอบ: ${c.owner}
                       · ตรวจถัดไป: <span style="color:${isOverdue?'var(--danger)':'inherit'}">${formatDate(c.nextCheck)}${isOverdue?' (เลยกำหนด!)':''}</span>
                     </div>
-                    ${c.notes ? `<div style="font-size:0.75rem;color:var(--warning);margin-top:3px">⚠️ ${c.notes}</div>` : ''}
+                    ${c.notes ? `<div style="font-size:0.75rem;color:var(--warning);margin-top:3px">⚠️ ${escHtml(c.notes)}</div>` : ''}
                   </div>
                 </div>
                 <div style="display:flex;gap:6px;align-items:center">
@@ -152,7 +156,7 @@ export default async function ComplianceCheckPage(container) {
           </select>
         </div>
         <div class="input-group"><label class="input-label">หมายเหตุ</label>
-          <textarea class="input" id="cu-notes" rows="3">${c.notes}</textarea>
+          <textarea class="input" id="cu-notes" rows="3">${escHtml(c.notes || '')}</textarea>
         </div>
         <div class="input-group"><label class="input-label">ตรวจถัดไป</label>
           <input type="date" class="input" id="cu-next" value="${c.nextCheck}">

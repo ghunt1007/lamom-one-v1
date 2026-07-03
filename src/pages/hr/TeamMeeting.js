@@ -7,6 +7,9 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
 
 const MEETING_TYPES = {
   daily:    { label: 'Morning Brief', color: 'primary', icon: '☀️' },
@@ -71,7 +74,7 @@ export default async function TeamMeetingPage(container) {
                   ${m.done ? '<span class="badge badge-success" style="font-size:0.6rem">✅ จบแล้ว</span>' : ''}
                 </div>
               </div>
-              ${m.notes ? `<div style="font-size:0.76rem;color:var(--text-muted);background:var(--surface-2);padding:8px 10px;border-radius:var(--radius-sm);margin-bottom:8px">📝 ${m.notes}</div>` : ''}
+              ${m.notes ? `<div style="font-size:0.76rem;color:var(--text-muted);background:var(--surface-2);padding:8px 10px;border-radius:var(--radius-sm);margin-bottom:8px">📝 ${escHtml(m.notes)}</div>` : ''}
               ${m.actions.length > 0 ? `
                 <div style="font-size:0.72rem;font-weight:700;color:var(--text-muted);margin-bottom:4px">📋 Action Items ${openCount > 0 ? `(ค้าง ${openCount})` : '(ครบแล้ว ✅)'}</div>
                 ${m.actions.map((a, i) => `
@@ -119,7 +122,7 @@ export default async function TeamMeetingPage(container) {
       if (m) openModal({
         title: '📝 บันทึกการประชุม',
         size: 'sm',
-        body: `<div class="input-group"><label class="input-label">บันทึก</label><textarea class="input" id="mn-notes" rows="4">${m.notes}</textarea></div>`,
+        body: `<div class="input-group"><label class="input-label">บันทึก</label><textarea class="input" id="mn-notes" rows="4">${escHtml(m.notes || '')}</textarea></div>`,
         onConfirm() { m.notes = document.getElementById('mn-notes')?.value || ''; showToast('📝 บันทึกแล้ว', 'success'); renderPage() }
       })
     }))

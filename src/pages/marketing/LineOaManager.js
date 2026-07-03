@@ -7,6 +7,9 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString() }
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
 
 const MSG_TYPES = {
   broadcast: { label: 'Broadcast', color: 'primary', icon: '📢' },
@@ -151,7 +154,7 @@ export default async function LineOaManagerPage(container) {
       size: 'sm',
       body: `<div style="display:grid;gap:10px">
         <div class="input-group"><label class="input-label">Keywords (คั่นด้วย ,) *</label><input class="input" id="ar-kw" value="${a?.keyword||''}"></div>
-        <div class="input-group"><label class="input-label">ข้อความตอบ *</label><textarea class="input" id="ar-reply" rows="3">${a?.reply||''}</textarea></div>
+        <div class="input-group"><label class="input-label">ข้อความตอบ *</label><textarea class="input" id="ar-reply" rows="3">${escHtml(a?.reply||'')}</textarea></div>
       </div>`,
       onConfirm() {
         const kw = document.getElementById('ar-kw')?.value?.trim()

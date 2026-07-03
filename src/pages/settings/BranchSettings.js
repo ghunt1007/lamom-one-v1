@@ -1,6 +1,10 @@
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
 const DEMO_BRANCHES = [
   { id:'B001', name:'สาขาหลัก — กรุงเทพ', code:'BKK-MAIN', address:'123/45 ถ.พระราม 9 เขตห้วยขวาง กทม.', phone:'02-123-4567', email:'bkk@lamomone.com', lat:13.7563, lng:100.5018, brands:['BYD','MG'], status:'active', manager:'สมชาย ใจดี', staff:12, isMain:true },
   { id:'B002', name:'สาขาชลบุรี', code:'CBI-001', address:'88/99 ถ.สุขุมวิท ชลบุรี', phone:'038-789-0123', email:'chon@lamomone.com', lat:13.3611, lng:100.9847, brands:['BYD'], status:'active', manager:'วิชัย เดินดี', staff:6, isMain:false },
@@ -152,7 +156,7 @@ export default async function BranchSettingsPage(container) {
           <div class="input-group"><label class="input-label">ชื่อสาขา *</label><input class="input" id="br-name" value="${branch?.name||''}" placeholder="ชื่อสาขา"></div>
           <div class="input-group"><label class="input-label">รหัสสาขา</label><input class="input" id="br-code" value="${branch?.code||''}" placeholder="BKK-001"></div>
         </div>
-        <div class="input-group"><label class="input-label">ที่อยู่</label><textarea class="input" id="br-addr" rows="2">${branch?.address||''}</textarea></div>
+        <div class="input-group"><label class="input-label">ที่อยู่</label><textarea class="input" id="br-addr" rows="2">${escHtml(branch?.address||'')}</textarea></div>
         <div class="grid-2">
           <div class="input-group"><label class="input-label">โทรศัพท์</label><input class="input" id="br-phone" value="${branch?.phone||''}" placeholder="0x-xxx-xxxx"></div>
           <div class="input-group"><label class="input-label">อีเมล</label><input class="input" id="br-email" value="${branch?.email||''}" placeholder="branch@email.com"></div>
@@ -178,7 +182,7 @@ export default async function BranchSettingsPage(container) {
       body: `<div style="display:flex;flex-direction:column;gap:12px">
         <div class="input-group"><label class="input-label">ชื่อบริษัท *</label><input class="input" id="co-name" value="${c?.name||''}"></div>
         <div class="input-group"><label class="input-label">เลขที่ผู้เสียภาษี</label><input class="input" id="co-tax" value="${c?.taxId||''}"></div>
-        <div class="input-group"><label class="input-label">ที่อยู่</label><textarea class="input" id="co-addr" rows="2">${c?.address||''}</textarea></div>
+        <div class="input-group"><label class="input-label">ที่อยู่</label><textarea class="input" id="co-addr" rows="2">${escHtml(c?.address||'')}</textarea></div>
         <div class="grid-2">
           <div class="input-group"><label class="input-label">โทรศัพท์</label><input class="input" id="co-phone" value="${c?.phone||''}"></div>
           <div class="input-group"><label class="input-label">อีเมล</label><input class="input" id="co-email" value="${c?.email||''}"></div>

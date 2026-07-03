@@ -3,6 +3,10 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
 const CAMPAIGN_TYPES = {
   social:   { label: 'Social Media', icon: '📱', color: 'primary' },
   line:     { label: 'LINE Broadcast', icon: '💚', color: 'success' },
@@ -173,7 +177,7 @@ export default async function CampaignBuilderPage(container) {
           <div class="input-group"><label class="input-label">งบประมาณ (฿)</label><input class="input" type="number" id="cn-budget" value="${camp?.budget||0}"></div>
           <div class="input-group"><label class="input-label">กลุ่มเป้าหมาย</label><input class="input" id="cn-target" value="${camp?.target||''}" placeholder="เช่น EV ใน กทม."></div>
         </div>
-        <div class="input-group"><label class="input-label">หมายเหตุ</label><textarea class="input" id="cn-note" rows="2">${camp?.note||''}</textarea></div>
+        <div class="input-group"><label class="input-label">หมายเหตุ</label><textarea class="input" id="cn-note" rows="2">${escHtml(camp?.note||'')}</textarea></div>
       </div>`,
       footer: `<button class="btn btn-secondary" id="cn-c">ยกเลิก</button><button class="btn btn-primary" id="cn-s">💾 บันทึก</button>`
     })
@@ -210,7 +214,7 @@ export default async function CampaignBuilderPage(container) {
           ${bigMetric('💵 CPL', c.leads>0?formatCurrency(c.spent/c.leads):'-')}
           ${bigMetric('📅 ระยะเวลา', c.startDate + ' → ' + c.endDate)}
         </div>
-        ${c.note ? `<div style="background:var(--surface-2);padding:10px;border-radius:var(--radius-sm);font-size:0.83rem">📝 ${c.note}</div>` : ''}
+        ${c.note ? `<div style="background:var(--surface-2);padding:10px;border-radius:var(--radius-sm);font-size:0.83rem">📝 ${escHtml(c.note)}</div>` : ''}
         <div style="display:flex;gap:6px;padding-top:8px;border-top:1px solid var(--border)">
           <button class="btn btn-sm btn-primary" id="edit-camp-btn">✏️ แก้ไข</button>
           <button class="btn btn-sm btn-danger" id="del-camp-btn">🗑 ลบ</button>

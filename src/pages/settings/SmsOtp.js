@@ -5,6 +5,10 @@
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
 const PROVIDERS = [
   { id:'twilio', name:'Twilio', logo:'📱', status:'active', price:'฿1.50/SMS', latency:'< 5 วิ', coverage:'190+ ประเทศ' },
   { id:'dtac', name:'DTAC Business SMS', logo:'📡', status:'inactive', price:'฿0.65/SMS', latency:'< 3 วิ', coverage:'ไทย' },
@@ -95,7 +99,7 @@ export default async function SmsOtpPage(container) {
             <!-- Template -->
             <div class="card" style="padding:14px">
               <div style="font-size:0.76rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">📝 SMS Template</div>
-              <textarea class="input" id="otp-tmpl" style="width:100%;height:70px;font-size:0.76rem;resize:none">${OTP_SETTINGS.template}</textarea>
+              <textarea class="input" id="otp-tmpl" style="width:100%;height:70px;font-size:0.76rem;resize:none">${escHtml(OTP_SETTINGS.template)}</textarea>
               <div style="font-size:0.64rem;color:var(--text-muted);margin-top:4px">ตัวแปร: {otp} = รหัส OTP · {exp} = เวลาหมดอายุ</div>
             </div>
           </div>

@@ -1,6 +1,10 @@
 import { showToast } from '../../core/store.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
 const COMPANY_DEFAULTS = {
   name: 'LAMOM ออโต้ จำกัด',
   nameTh: 'บริษัท ลาม่อม ออโต้ จำกัด',
@@ -93,7 +97,7 @@ export default function CompanyPage(container) {
           <div class="card" style="padding:18px">
             <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">📍 ที่อยู่และติดต่อ</div>
             <div style="display:flex;flex-direction:column;gap:10px">
-              <div class="input-group"><label class="input-label">ที่อยู่</label><textarea class="input" id="co-addr" rows="2">${data.address}</textarea></div>
+              <div class="input-group"><label class="input-label">ที่อยู่</label><textarea class="input" id="co-addr" rows="2">${escHtml(data.address || '')}</textarea></div>
               <div class="input-group"><label class="input-label">โทรศัพท์</label><input class="input" id="co-phone" value="${data.phone}"></div>
               <div class="input-group"><label class="input-label">อีเมล</label><input class="input" type="email" id="co-email" value="${data.email}"></div>
             </div>
@@ -113,11 +117,11 @@ export default function CompanyPage(container) {
           <!-- Summary card -->
           <div class="card" style="padding:18px;border-left:3px solid var(--primary)">
             <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">📊 สรุป</div>
-            <div style="font-size:0.84rem;font-weight:700">${data.nameTh}</div>
-            <div style="font-size:0.75rem;color:var(--text-muted);margin:3px 0">${data.taxId}</div>
-            <div style="font-size:0.75rem;color:var(--text-muted)">${data.address}</div>
+            <div style="font-size:0.84rem;font-weight:700">${escHtml(data.nameTh)}</div>
+            <div style="font-size:0.75rem;color:var(--text-muted);margin:3px 0">${escHtml(data.taxId)}</div>
+            <div style="font-size:0.75rem;color:var(--text-muted)">${escHtml(data.address)}</div>
             <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
-              ${data.brand.split(',').map(b => `<span class="badge badge-primary" style="font-size:0.65rem">${b.trim()}</span>`).join('')}
+              ${data.brand.split(',').map(b => `<span class="badge badge-primary" style="font-size:0.65rem">${escHtml(b.trim())}</span>`).join('')}
             </div>
             <div style="margin-top:12px">
               <button class="btn btn-primary" id="save-info-btn" style="width:100%">💾 บันทึกข้อมูลบริษัท</button>
@@ -197,7 +201,7 @@ export default function CompanyPage(container) {
         <div style="display:flex;flex-direction:column;gap:10px">
           <div class="input-group"><label class="input-label">ชื่อสาขา</label><input class="input" id="br-name" value="${br?.name||''}" placeholder="เช่น สาขากรุงเทพ"></div>
           <div class="input-group"><label class="input-label">โทรศัพท์</label><input class="input" id="br-phone" value="${br?.phone||''}"></div>
-          <div class="input-group"><label class="input-label">ที่อยู่</label><textarea class="input" id="br-addr" rows="2">${br?.address||''}</textarea></div>
+          <div class="input-group"><label class="input-label">ที่อยู่</label><textarea class="input" id="br-addr" rows="2">${escHtml(br?.address||'')}</textarea></div>
           <div class="input-group"><label class="input-label">ผู้จัดการสาขา</label><input class="input" id="br-mgr" value="${br?.manager||''}"></div>
         </div>
       `,
@@ -250,18 +254,18 @@ export default function CompanyPage(container) {
           <div id="doc-preview" style="border:1px solid var(--border);border-radius:8px;padding:16px 20px;background:#fff;color:#111">
             <div style="display:flex;justify-content:space-between;align-items:flex-start">
               <div>
-                <div style="font-weight:900;font-size:1.4rem;color:${data.logoColor||'#2563eb'};letter-spacing:0.04em">${data.logoText||'LAMOM'}</div>
-                <div style="font-size:0.9rem;font-weight:700;color:#111">${data.nameTh}</div>
-                <div style="font-size:0.72rem;color:#666;margin-top:2px">${data.name}</div>
+                <div style="font-weight:900;font-size:1.4rem;color:${data.logoColor||'#2563eb'};letter-spacing:0.04em">${escHtml(data.logoText||'LAMOM')}</div>
+                <div style="font-size:0.9rem;font-weight:700;color:#111">${escHtml(data.nameTh)}</div>
+                <div style="font-size:0.72rem;color:#666;margin-top:2px">${escHtml(data.name)}</div>
               </div>
               <div style="text-align:right;font-size:0.72rem;color:#444;line-height:1.7">
-                <div>เลขทะเบียน: ${data.taxId}</div>
-                <div>☎️ ${data.phone}</div>
-                <div>✉️ ${data.email}</div>
+                <div>เลขทะเบียน: ${escHtml(data.taxId)}</div>
+                <div>☎️ ${escHtml(data.phone)}</div>
+                <div>✉️ ${escHtml(data.email)}</div>
               </div>
             </div>
-            <div style="margin-top:8px;font-size:0.7rem;color:#666;border-top:1px solid #ddd;padding-top:6px">${data.address}</div>
-            <div style="margin-top:6px;font-size:0.68rem;color:#888;text-align:center;border-top:1px solid #ddd;padding-top:6px">${data.footerNote||''}</div>
+            <div style="margin-top:8px;font-size:0.7rem;color:#666;border-top:1px solid #ddd;padding-top:6px">${escHtml(data.address)}</div>
+            <div style="margin-top:6px;font-size:0.68rem;color:#888;text-align:center;border-top:1px solid #ddd;padding-top:6px">${escHtml(data.footerNote||'')}</div>
           </div>
         </div>
       </div>
