@@ -259,7 +259,11 @@ function escHtml(s) {
 
 function escapeCSV(val) {
   if (val == null) return ''
-  const s = String(val)
+  let s = String(val)
+  // ป้องกัน CSV/Formula Injection (CWE-1236) — ค่าที่ขึ้นต้นด้วย =, +, -, @ หรือ tab/CR
+  // จะถูก Excel/Sheets ตีความเป็นสูตรทันทีที่เปิดไฟล์ (เช่น =HYPERLINK ขโมยข้อมูล)
+  // เติม ' นำหน้าตามคำแนะนำ OWASP เพื่อบังคับให้อ่านเป็น text ธรรมดา
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s
   return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s
 }
 
