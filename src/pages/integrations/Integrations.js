@@ -190,6 +190,10 @@ export default async function IntegrationsPage(container) {
       title: `${intg.icon} ตั้งค่า ${intg.name}`, size: 'md',
       body: `
         <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="font-size:0.78rem;background:var(--warning-bg,rgba(234,179,8,.1));border:1px solid var(--warning);border-radius:8px;padding:10px 12px;color:var(--text)">
+            ⚠️ <strong>หน้านี้ยังไม่เชื่อมต่อ API จริง</strong> — เป็นเพียง UI จำลองสำหรับสาธิต ระบบไม่ได้ส่งข้อมูลไปยัง ${intg.name} จริง และไม่ได้รับ Lead/ข้อมูลใดๆ จากภายนอก<br>
+            <strong>อย่ากรอก Secret/Token ของจริง</strong> — ข้อมูลที่กรอกจะถูกบันทึกไว้ในเบราว์เซอร์แบบไม่เข้ารหัส
+          </div>
           ${intg.docs !== '#' ? `<div style="font-size:0.78rem;color:var(--text-muted)">📖 Docs: <a href="${intg.docs}" target="_blank" style="color:var(--primary)">${intg.docs}</a></div>` : ''}
           ${intg.fields.map(f => `
             <div class="input-group">
