@@ -14,6 +14,11 @@ import { initAutoTableTools } from './utils/tableTools.js'
 
 const app = document.getElementById('app')
 
+// Toast ต้อง mount ครั้งเดียวที่ระดับ app ไม่ใช่ใน bootstrapShell —
+// (1) หน้า login ต้องเห็น toast error จาก auth ด้วย (เดิม showToast ก่อน login ล่องหน)
+// (2) bootstrapShell ถูกเรียกซ้ำเมื่อ login ใหม่หลัง logout → container ซ้อน → toast เด้งซ้ำ
+ToastContainer(document.body)
+
 // Apply saved theme immediately
 const savedTheme = localStorage.getItem('lamom_theme') || 'midnight'
 document.documentElement.setAttribute('data-theme', savedTheme)
@@ -66,8 +71,6 @@ function bootstrapShell() {
   main.className = `main-wrap ${collapsed ? 'sidebar-collapsed' : ''}`
   main.id = 'main-content'
   app.appendChild(main)
-
-  ToastContainer(document.body)
 
   on('sidebarCollapsed', (v) => {
     main.className = `main-wrap ${v ? 'sidebar-collapsed' : ''}`
