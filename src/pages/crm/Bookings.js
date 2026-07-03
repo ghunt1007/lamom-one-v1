@@ -506,9 +506,10 @@ export default async function BookingsPage(container) {
       }
       if (step === 3) {
         return `<div class="grid-2">
-            <div class="input-group"><label class="input-label">เงินดาวน์ (บาท)</label><input class="input" type="number" id="wz-down" value="${w.down}"></div>
+            <div class="input-group"><label class="input-label">เงินจอง / เงินดาวน์ (บาท) *</label><input class="input" type="number" id="wz-down" value="${w.down || ''}"></div>
             <div class="input-group"><label class="input-label">ระยะผ่อน</label><select class="input" id="wz-install">${[24, 36, 48, 60, 72, 84].map(m => `<option value="${m}" ${m === w.installments ? 'selected' : ''}>${m} เดือน</option>`).join('')}</select></div>
           </div>
+          <span class="input-error" id="wz-down-e"></span>
           <div class="input-group"><label class="input-label">ดอกเบี้ย (%/ปี)</label><input class="input" type="number" step="0.01" id="wz-rate" value="${w.interestRate}"></div>
           <div style="background:var(--surface-2);border-radius:8px;padding:12px;margin-top:8px">
             <div style="font-size:0.7rem;color:var(--text-muted)">ยอดจัดไฟแนนซ์: ${formatCurrency(Math.max(total() - w.down, 0))}</div>
@@ -550,10 +551,12 @@ export default async function BookingsPage(container) {
         readStep()
         if (step === 1 && !w.custName) { showToast('กรุณาใส่ชื่อลูกค้า', 'error'); return }
         if (step === 2 && !w.model) { showToast('กรุณาเลือกรุ่นรถ', 'error'); return }
+        if (step === 3 && !w.down) { const e = m.el.querySelector('#wz-down-e'); if (e) e.textContent = '⚠️ กรุณาระบุจำนวนเงินจอง'; return }
         step++; rerender()
       })
       m.el.querySelector('#wz-back')?.addEventListener('click', () => { readStep(); step--; rerender() })
       m.el.querySelector('#wz-save')?.addEventListener('click', async () => {
+        if (!w.down) { showToast('กรุณาระบุจำนวนเงินจอง', 'error'); return }
         const t = total()
         const data = {
           bookingNo: bkNo, custName: w.custName, phone: w.phone, salesName: w.salesName,
@@ -647,7 +650,8 @@ export default async function BookingsPage(container) {
         '<div class="grid-2">' + inp('bf-redplate', 'เลขป้ายแดง (ชั่วคราว)', e.redPlate) + inp('bf-whiteplate', 'เลขป้ายขาว (ทะเบียนถาวร)', e.whitePlate) + '</div>' +
         sec('💰 การเงิน / ไฟแนนซ์') +
         '<div class="grid-2">' + selOf('bf-finco', 'บริษัทไฟแนนซ์', getFinanceCompanies(), e.financeCo) + selOf('bf-finstatus', 'สถานะไฟแนนซ์', getFinanceStatus(), e.finStatus) + '</div>' +
-        '<div class="grid-2">' + inp('bf-down', 'เงินดาวน์', e.down, 'number') + inp('bf-finamount', 'ยอดจัดไฟแนนซ์', e.financeAmount, 'number') + '</div>' +
+        '<div class="grid-2">' + inp('bf-down', 'เงินจอง / เงินดาวน์ (บาท) *', e.down, 'number') + inp('bf-finamount', 'ยอดจัดไฟแนนซ์', e.financeAmount, 'number') + '</div>' +
+        '<span class="input-error" id="bf-down-e"></span>' +
         '<div class="grid-2">' + inp('bf-install', 'จำนวนงวด', e.installments, 'number') + inp('bf-rate', 'ดอกเบี้ย (%/ปี)', e.interestRate, 'number') + '</div>' +
         '<div class="grid-2">' + selOf('bf-campaign', 'แคมเปญ', getCampaigns(), e.campaign) + inp('bf-cost', 'ต้นทุนรถ (บาท)', e.cost, 'number') + '</div>' +
         '<div style="font-size:0.72rem;color:var(--text-muted)">💡 ค่างวด/เดือน คำนวณอัตโนมัติจาก ยอดจัด × งวด × ดอกเบี้ย</div>' +
@@ -680,6 +684,7 @@ export default async function BookingsPage(container) {
       if (!cust) { el.querySelector('#bf-cust-e').textContent = '⚠️ กรุณาระบุชื่อลูกค้า'; return }
       const g = id => el.querySelector('#' + id)
       const num = id => Number(g(id).value) || 0
+      if (!num('bf-down')) { el.querySelector('#bf-down-e').textContent = '⚠️ กรุณาระบุจำนวนเงินจอง'; return }
       const financeAmount = num('bf-finamount'), installments = num('bf-install'), rate = num('bf-rate')
       const data = {
         bookingNo: bkNo,
