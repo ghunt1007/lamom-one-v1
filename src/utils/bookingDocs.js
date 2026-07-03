@@ -8,6 +8,16 @@ function kv(label, value) {
 
 function sec(t) { return '<h3 class="sec">' + esc(t) + '</h3>' }
 
+function approvalCell(role) {
+  return '<td style="vertical-align:top;height:36mm;padding:8px">' +
+    '<div style="font-size:11px;color:#64748b;text-decoration:underline;margin-bottom:4px">ความเห็น</div>' +
+    '<div style="border-bottom:1px dotted #cbd5e1;height:8mm"></div>' +
+    '<div style="border-bottom:1px dotted #cbd5e1;height:8mm;margin-bottom:6px"></div>' +
+    '<div style="font-size:11px;color:#64748b">ลงชื่อ...........................................</div>' +
+    '<div style="text-align:center;font-size:11px;color:#64748b;margin-top:2px">(' + esc(role) + ')</div>' +
+  '</td>'
+}
+
 // ── ใบจองรถ ───────────────────────────────────────────────
 export function printBooking(b) {
   if (!b) return
@@ -34,6 +44,8 @@ export function printBooking(b) {
       kv('เลขตัวถัง (VIN)', b.vin) +
       kv('เลขมอเตอร์', b.motorNo) +
       kv('เลขแบตเตอรี่', b.batNo) +
+      (b.engineNo ? kv('เลขเครื่องยนต์', b.engineNo) : '') +
+      (b.redPlate || b.whitePlate ? kv('ป้ายแดง / ป้ายขาว', (b.redPlate || '-') + ' / ' + (b.whitePlate || '-')) : '') +
     '</tbody></table>' +
 
     sec('💰 เงื่อนไขการชำระเงิน') +
@@ -113,7 +125,19 @@ export function printCancellation(b, info = {}) {
 
     '<div class="sign-row">' +
       '<div class="sign-box"><div class="sign-line"></div><div class="sign-cap">ผู้ถอนจอง</div><div class="sign-cap">(' + esc(b.custName || '..............................') + ')</div></div>' +
-      '<div class="sign-box"><div class="sign-line"></div><div class="sign-cap">ผู้รับเรื่อง / อนุมัติ</div><div class="sign-cap">(..............................)</div></div>' +
+      '<div class="sign-box"><div class="sign-line"></div><div class="sign-cap">ที่ปรึกษาการขาย</div><div class="sign-cap">(' + esc(b.salesName || '..............................') + ')</div></div>' +
+    '</div>' +
+
+    sec('✅ การอนุมัติ') +
+    '<table class="grid" style="table-layout:fixed"><tbody><tr>' +
+      approvalCell('เจ้าหน้าที่การเงิน') +
+      approvalCell('ผู้จัดการฝ่ายขาย') +
+      approvalCell('ผู้อนุมัติ') +
+    '</tr></tbody></table>' +
+
+    '<div class="note-box" style="font-size:11px;color:#64748b;margin-top:10px">' +
+      '<b>หมายเหตุ:</b> บริษัทฯ จะรับเรื่องไว้เพื่อพิจารณา และขอสงวนสิทธิ์ในการคืนเงินมัดจำ ' +
+      'หากตรวจสอบแล้วพบว่าไม่มีเหตุอันควร หรือข้อมูล/เอกสารอ้างอิงประกอบการพิจารณาไม่ถูกต้องครบถ้วน' +
     '</div>' +
 
     docFooter() +

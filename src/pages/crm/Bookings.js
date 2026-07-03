@@ -252,7 +252,8 @@ export default async function BookingsPage(container) {
       กำหนดส่งมอบ: formatDate(b.deliveryDate), วันตัดตัวเลข: formatDate(b.cutDate), ส่งมอบจริง: formatDate(b.actualDeliveryDate),
       ลูกค้า: b.custName, เบอร์: b.phone, แบรนด์: detectBrand(b.brand, b.model), รุ่น: b.model + ' ' + (b.variant || ''),
       สีนอก: b.colorOut, สีใน: b.colorIn, แหล่งที่มา: b.source, ราคา: b.price, ไฟแนนซ์: b.financeCo, ยอดจัด: b.financeAmount,
-      ค่างวด: b.monthly, ต้นทุน: b.cost, กำไรขั้นต้น: b.margin, รายได้รวม: b.totalIncome, หมายเหตุ: b.notes,
+      ค่างวด: b.monthly, ต้นทุน: b.cost, กำไรขั้นต้น: b.margin, รายได้รวม: b.totalIncome,
+      เลขเครื่องยนต์: b.engineNo, ป้ายแดง: b.redPlate, ป้ายขาว: b.whitePlate, หมายเหตุ: b.notes,
     })), fileTag + '-' + new Date().toISOString().slice(0, 10) + '.xlsx', 'ใบจอง')
     showToast('📥 Export แล้ว', 'success')
   }
@@ -372,6 +373,38 @@ export default async function BookingsPage(container) {
       b.notes ? `📝 หมายเหตุ: ${b.notes}` : '',
     ].filter(Boolean).join('\n')
     navigator.clipboard?.writeText(lines).then(() => showToast('📋 คัดลอกสรุปการจองแล้ว!', 'success')).catch(() => showToast('คัดลอกไม่สำเร็จ', 'error'))
+  }
+
+  // ── modal กรอกเหตุผล + ยอดหักก่อนพิมพ์ใบถอนจอง ────────────────────────────
+  function openCancelPrintModal(b) {
+    if (!b) return
+    const downAmt = Number(b.down) || 0
+    const { el, close } = openModal({
+      title: '🖨 พิมพ์ใบถอนจอง ' + escHtml(b.bookingNo),
+      size: 'sm',
+      body: `
+        <div class="input-group"><label class="input-label">เหตุผลในการถอนจอง</label>
+          <textarea class="input" id="cp-reason" rows="3" placeholder="ระบุเหตุผลที่ลูกค้าขอถอนจอง...">${escHtml(b.cancelReason || b.notes || '')}</textarea>
+        </div>
+        <div class="input-group"><label class="input-label">หักค่าดำเนินการ (บาท)</label>
+          <input class="input" type="number" id="cp-deduct" value="0" min="0">
+        </div>
+        <div style="font-size:0.76rem;color:var(--text-muted);background:var(--surface-2);padding:8px 10px;border-radius:8px">
+          เงินจอง/ดาวน์ที่ชำระไว้ <b>${formatCurrency(downAmt)}</b> บาท — ยอดคืนสุทธิจะคำนวณจากค่าที่หักด้านบน
+        </div>
+      `,
+      footer: '<button class="btn btn-secondary" id="cp-c">ยกเลิก</button><button class="btn btn-primary" id="cp-p">🖨 พิมพ์เอกสาร</button>',
+    })
+    el.querySelector('#cp-c').addEventListener('click', close)
+    el.querySelector('#cp-p').addEventListener('click', async () => {
+      const reason = el.querySelector('#cp-reason').value.trim()
+      const deduct = Number(el.querySelector('#cp-deduct').value) || 0
+      if (reason && reason !== b.cancelReason) {
+        try { await updateDocData('bookings', b.id, { cancelReason: reason }); b.cancelReason = reason } catch {}
+      }
+      close()
+      printCancellation(b, { reason, deduct })
+    })
   }
 
   // ── EOD summary (สรุปยอดประจำวัน) ────────────────────────────────────────
@@ -559,7 +592,7 @@ export default async function BookingsPage(container) {
         sec('👤 ลูกค้า') +
         dRow('ชื่อ', b.custName) + dRow('เลขบัตร ปชช.', b.nid || '-') + dRow('โทร', b.phone || '-') + dRow('ที่อยู่', (b.address || '-') + ' ' + (b.province || '')) + dRow('แหล่งที่มา', b.source || '-') +
         sec('🚗 รถ') +
-        dRow('รุ่น', (detectBrand(b.brand, b.model) || b.brand || '') + ' ' + b.model + ' ' + (b.variant || '')) + dRow('สีนอก / ใน', (b.colorOut || '-') + ' / ' + (b.colorIn || '-')) + dRow('เลขตัวถัง (VIN)', b.vin || '-') + dRow('เลขมอเตอร์', b.motorNo || '-') + dRow('เลขแบต', b.batNo || '-') +
+        dRow('รุ่น', (detectBrand(b.brand, b.model) || b.brand || '') + ' ' + b.model + ' ' + (b.variant || '')) + dRow('สีนอก / ใน', (b.colorOut || '-') + ' / ' + (b.colorIn || '-')) + dRow('เลขตัวถัง (VIN)', b.vin || '-') + dRow('เลขมอเตอร์', b.motorNo || '-') + dRow('เลขแบต', b.batNo || '-') + dRow('เลขเครื่องยนต์', b.engineNo || '-') + dRow('ป้ายแดง / ป้ายขาว', (b.redPlate || '-') + ' / ' + (b.whitePlate || '-')) +
         sec('💰 การเงิน / ไฟแนนซ์') +
         dRow('ราคารถ', formatCurrency(b.price)) + dRow('เงินดาวน์', formatCurrency(b.down)) +
         (isCash ? dRow('การชำระ', 'ซื้อเงินสด') :
@@ -584,7 +617,7 @@ export default async function BookingsPage(container) {
     })
     document.getElementById('bk-edit2')?.addEventListener('click', () => { document.querySelectorAll('.modal-overlay').forEach(m => m.remove()); openForm(b) })
     document.getElementById('bk-print')?.addEventListener('click', () => printBooking(b))
-    document.getElementById('bk-print-cancel')?.addEventListener('click', () => printCancellation(b))
+    document.getElementById('bk-print-cancel')?.addEventListener('click', () => openCancelPrintModal(b))
     document.getElementById('bk-to-doc')?.addEventListener('click', () => { document.querySelector('.modal-overlay')?.remove(); navigate('/documents') })
   }
 
@@ -610,7 +643,8 @@ export default async function BookingsPage(container) {
         '<div class="grid-2">' + inp('bf-variant', 'รุ่นย่อย', e.variant) + inp('bf-price', 'ราคารถ (บาท)', e.price, 'number') + '</div>' +
         '<div class="grid-2">' + datalist('bf-colorout', 'สีภายนอก', getColors(), e.colorOut) + datalist('bf-colorin', 'สีภายใน', getColors(), e.colorIn) + '</div>' +
         '<div class="grid-2">' + inp('bf-vin', 'เลขตัวถัง (VIN)', e.vin) + inp('bf-motor', 'เลขมอเตอร์', e.motorNo) + '</div>' +
-        inp('bf-bat', 'เลขแบตเตอรี่', e.batNo) +
+        '<div class="grid-2">' + inp('bf-bat', 'เลขแบตเตอรี่', e.batNo) + inp('bf-engineno', 'เลขเครื่องยนต์ (รถสันดาป)', e.engineNo) + '</div>' +
+        '<div class="grid-2">' + inp('bf-redplate', 'เลขป้ายแดง (ชั่วคราว)', e.redPlate) + inp('bf-whiteplate', 'เลขป้ายขาว (ทะเบียนถาวร)', e.whitePlate) + '</div>' +
         sec('💰 การเงิน / ไฟแนนซ์') +
         '<div class="grid-2">' + selOf('bf-finco', 'บริษัทไฟแนนซ์', getFinanceCompanies(), e.financeCo) + selOf('bf-finstatus', 'สถานะไฟแนนซ์', getFinanceStatus(), e.finStatus) + '</div>' +
         '<div class="grid-2">' + inp('bf-down', 'เงินดาวน์', e.down, 'number') + inp('bf-finamount', 'ยอดจัดไฟแนนซ์', e.financeAmount, 'number') + '</div>' +
@@ -652,6 +686,7 @@ export default async function BookingsPage(container) {
         custName: cust, nid: g('bf-nid').value.trim(), phone: g('bf-phone').value.trim(), address: g('bf-address').value.trim(), province: g('bf-province').value.trim(), source: g('bf-source').value.trim(),
         brand: g('bf-brand').value.trim(), model: g('bf-model').value.trim(), variant: g('bf-variant').value.trim(),
         colorOut: g('bf-colorout').value.trim(), colorIn: g('bf-colorin').value.trim(), vin: g('bf-vin').value.trim(), motorNo: g('bf-motor').value.trim(), batNo: g('bf-bat').value.trim(),
+        engineNo: g('bf-engineno').value.trim(), redPlate: g('bf-redplate').value.trim(), whitePlate: g('bf-whiteplate').value.trim(),
         price: num('bf-price'), cost: num('bf-cost'), down: num('bf-down'), financeCo: g('bf-finco').value, financeAmount, finStatus: g('bf-finstatus').value,
         installments, interestRate: rate, monthly: calcMonthly(financeAmount, installments, rate), campaign: g('bf-campaign').value,
         margin: num('bf-margin'), budgetUsed: num('bf-budget'), com70: num('bf-com70'), comFinance: num('bf-comfin'),
