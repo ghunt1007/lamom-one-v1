@@ -555,6 +555,17 @@ export function seedDemoData() {
   ]
   trainingCourses.forEach(c => { if (!demoCol('training_courses')[c.id]) demoCol('training_courses')[c.id] = c })
 
+  // Staff certifications (หน้า /training/certification)
+  const staffCertifications = [
+    { id:'sc1', staffId:'S001', staff:'วิชัย ยอดขาย', certId:'C001', issueDate:addDaysISO(-180), expDate:addDaysISO(185), score:92, status:'active' },
+    { id:'sc2', staffId:'S001', staff:'วิชัย ยอดขาย', certId:'C003', issueDate:addDaysISO(-90), expDate:addDaysISO(450), score:88, status:'active' },
+    { id:'sc3', staffId:'S002', staff:'สุดา มาดี', certId:'C001', issueDate:addDaysISO(-400), expDate:addDaysISO(-35), score:95, status:'expired' },
+    { id:'sc4', staffId:'S002', staff:'สุดา มาดี', certId:'C002', issueDate:addDaysISO(-60), expDate:addDaysISO(660), score:90, status:'active' },
+    { id:'sc5', staffId:'S003', staff:'ธนา เก่ง', certId:'C003', issueDate:null, expDate:null, score:null, status:'pending' },
+    { id:'sc6', staffId:'S004', staff:'วิทยา ช่าง', certId:'C002', issueDate:addDaysISO(-100), expDate:addDaysISO(620), score:85, status:'active' },
+  ]
+  staffCertifications.forEach(c => { if (!demoCol('staff_certifications')[c.id]) demoCol('staff_certifications')[c.id] = c })
+
   const demoFleet = [
     { id:'df1', brand:'BYD', model:'Seal RWD', vin:'LGXCE4C10PA000006', plate:'กข-0001', color:'เทา Ink', year:2025, mileage:3520, status:'available', condition:'good', lastService:'2025-05-01', notes:'รถทดลองขับหลัก', createdAt:'2025-01-10' },
     { id:'df2', brand:'MG', model:'MG4 X', vin:'SDUZZZEF5PA000020', plate:'กข-0002', color:'แดง', year:2025, mileage:5200, status:'in_use', condition:'good', lastService:'2025-04-15', notes:'ให้ลูกค้า VIP ยืม', createdAt:'2025-01-15' },

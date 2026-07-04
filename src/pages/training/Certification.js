@@ -5,6 +5,7 @@
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 const CERT_STATUS = {
   active:  { label: 'ใช้งาน', color: 'success' },
@@ -21,20 +22,26 @@ const CERTS = [
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
 
-const STAFF_CERTS = [
-  { staffId: 'S001', staff: 'วิชัย ยอดขาย', certId: 'C001', issueDate: addDays(-180), expDate: addDays(185), score: 92, status: 'active' },
-  { staffId: 'S001', staff: 'วิชัย ยอดขาย', certId: 'C003', issueDate: addDays(-90), expDate: addDays(450), score: 88, status: 'active' },
-  { staffId: 'S002', staff: 'สุดา มาดี', certId: 'C001', issueDate: addDays(-400), expDate: addDays(-35), score: 95, status: 'expired' },
-  { staffId: 'S002', staff: 'สุดา มาดี', certId: 'C002', issueDate: addDays(-60), expDate: addDays(660), score: 90, status: 'active' },
-  { staffId: 'S003', staff: 'ธนา เก่ง', certId: 'C003', issueDate: null, expDate: null, score: null, status: 'pending' },
-  { staffId: 'S004', staff: 'วิทยา ช่าง', certId: 'C002', issueDate: addDays(-100), expDate: addDays(620), score: 85, status: 'active' },
-]
-
 export default async function CertificationPage(container) {
-  let staffCerts = STAFF_CERTS.map(c => ({ ...c }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let staffCerts = []
   let statusFilter = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { staffCerts = await listDocs('staff_certifications', [], 'expDate', 'asc', 300) } catch (e) { staffCerts = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = staffCerts.filter(c => statusFilter === 'all' || c.status === statusFilter)
     const active = staffCerts.filter(c => c.status === 'active').length
     const expired = staffCerts.filter(c => c.status === 'expired').length
@@ -93,12 +100,13 @@ export default async function CertificationPage(container) {
                   </td>
                   <td style="padding:10px 14px;text-align:center"><span class="badge badge-${st?.color}" style="font-size:0.62rem">${st?.label}</span></td>
                   <td style="padding:10px 14px;text-align:center">
-                    ${sc.status === 'expired' ? `<button class="btn btn-xs btn-warning renew-btn" data-sid="${sc.staffId}" data-cid="${sc.certId}">🔄 ต่ออายุ</button>` : ''}
-                    ${sc.status === 'pending' ? `<button class="btn btn-xs btn-primary exam-btn" data-sid="${sc.staffId}" data-cid="${sc.certId}">📝 บันทึกผล</button>` : ''}
-                    ${sc.status === 'active' ? `<button class="btn btn-xs btn-secondary view-btn" data-sid="${sc.staffId}" data-cid="${sc.certId}">ดู</button>` : ''}
+                    ${sc.status === 'expired' ? `<button class="btn btn-xs btn-warning renew-btn" data-id="${sc.id}">🔄 ต่ออายุ</button>` : ''}
+                    ${sc.status === 'pending' ? `<button class="btn btn-xs btn-primary exam-btn" data-id="${sc.id}">📝 บันทึกผล</button>` : ''}
+                    ${sc.status === 'active' ? `<button class="btn btn-xs btn-secondary view-btn" data-id="${sc.id}">ดู</button>` : ''}
                   </td>
                 </tr>`
               }).join('')}
+              ${!list.length ? `<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted)">ไม่มีรายการ</td></tr>` : ''}
             </tbody>
           </table>
         </div>
@@ -119,30 +127,30 @@ export default async function CertificationPage(container) {
 
     container.querySelectorAll('.sf-btn').forEach(b => b.addEventListener('click', () => { statusFilter = b.dataset.s; renderPage() }))
     document.getElementById('issue-cert-btn')?.addEventListener('click', openIssueCert)
-    container.querySelectorAll('.renew-btn').forEach(b => b.addEventListener('click', () => {
-      const sc = staffCerts.find(x => x.staffId === b.dataset.sid && x.certId === b.dataset.cid)
-      if (sc) { sc.status = 'pending'; sc.issueDate = null; sc.expDate = null; sc.score = null; showToast('✅ ส่งแจ้งเตือนต่ออายุแล้ว', 'success'); renderPage() }
+    container.querySelectorAll('.renew-btn').forEach(b => b.addEventListener('click', async () => {
+      await updateDocData('staff_certifications', b.dataset.id, { status: 'pending', issueDate: null, expDate: null, score: null })
+      showToast('✅ ส่งแจ้งเตือนต่ออายุแล้ว', 'success'); await loadData()
     }))
     container.querySelectorAll('.exam-btn').forEach(b => b.addEventListener('click', () => {
-      const sc = staffCerts.find(x => x.staffId === b.dataset.sid && x.certId === b.dataset.cid)
+      const sc = staffCerts.find(x => x.id === b.dataset.id)
       if (!sc) return
       openModal({
         title: '📝 บันทึกผลสอบ',
         size: 'sm',
         body: `<div class="input-group"><label class="input-label">คะแนน (0-100) *</label><input type="number" class="input" id="exam-score" min="0" max="100" value="85"></div>`,
-        onConfirm() {
+        async onConfirm() {
           const score = +document.getElementById('exam-score')?.value
-          if (score < 0 || score > 100) { showToast('❗ คะแนน 0-100', 'error'); return }
+          if (score < 0 || score > 100) { showToast('❗ คะแนน 0-100', 'error'); return false }
           if (score >= 70) {
-            sc.score = score; sc.status = 'active'
-            sc.issueDate = addDays(0)
             const cert = CERTS.find(c => c.id === sc.certId)
-            sc.expDate = addDays((cert?.validMonths || 12) * 30)
+            await updateDocData('staff_certifications', sc.id, {
+              score, status: 'active', issueDate: addDays(0), expDate: addDays((cert?.validMonths || 12) * 30),
+            })
             showToast(`🎉 ผ่าน! ${sc.staff} ได้รับใบรับรองแล้ว`, 'success')
           } else {
             showToast(`❌ ไม่ผ่าน คะแนน ${score}% (ต้องการ 70%+)`, 'error')
           }
-          renderPage()
+          await loadData()
         }
       })
     }))
@@ -168,24 +176,24 @@ export default async function CertificationPage(container) {
           <div class="input-group"><label class="input-label">คะแนน (%)</label><input type="number" class="input" id="ic-score" value="85" min="0" max="100"></div>
         </div>
       `,
-      onConfirm() {
+      async onConfirm() {
         const staffId = document.getElementById('ic-staff')?.value
         const certId = document.getElementById('ic-cert')?.value
         const score = +document.getElementById('ic-score')?.value || 0
         const cert = CERTS.find(c => c.id === certId)
         const existing = staffCerts.find(sc => sc.staffId === staffId && sc.certId === certId)
-        if (existing) { showToast('⚠️ มีใบรับรองนี้แล้ว', 'warning'); return }
+        if (existing) { showToast('⚠️ มีใบรับรองนี้แล้ว', 'warning'); return false }
         const staffName = document.getElementById('ic-staff')?.selectedOptions[0]?.text || ''
-        staffCerts.push({
+        await createDoc('staff_certifications', {
           staffId, staff: staffName, certId, issueDate: addDays(0),
           expDate: addDays((cert?.validMonths||12)*30), score, status: 'active'
         })
-        showToast('✅ ออกใบรับรองแล้ว!', 'success'); renderPage()
+        showToast('✅ ออกใบรับรองแล้ว!', 'success'); await loadData()
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
