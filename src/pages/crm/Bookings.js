@@ -1,4 +1,4 @@
-import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { showToast } from '../../core/store.js'
 import { formatDate, formatCurrency } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
@@ -286,13 +286,28 @@ export default async function BookingsPage(container) {
       render()
     }))
     wrap.querySelectorAll('.bk-row').forEach(row => row.addEventListener('click', e => {
-      if (e.target.closest('.bk-status-cell') || e.target.closest('input') || e.target.closest('.edit-bk') || e.target.closest('.print-bk') || e.target.closest('.copy-bk')) return
+      if (e.target.closest('.bk-status-cell') || e.target.closest('input') || e.target.closest('.edit-bk') || e.target.closest('.print-bk') || e.target.closest('.copy-bk') || e.target.closest('.del-bk')) return
       openDetail(bookings.find(b => b.id === row.dataset.id))
     }))
     wrap.querySelectorAll('.bk-status-cell').forEach(cell => cell.addEventListener('click', e => openQuickStatus(cell.dataset.id, e)))
     wrap.querySelectorAll('.edit-bk').forEach(btn => btn.addEventListener('click', e => { e.stopPropagation(); openForm(bookings.find(b => b.id === btn.dataset.id)) }))
     wrap.querySelectorAll('.print-bk').forEach(btn => btn.addEventListener('click', e => { e.stopPropagation(); printBooking(bookings.find(b => b.id === btn.dataset.id)) }))
     wrap.querySelectorAll('.copy-bk').forEach(btn => btn.addEventListener('click', e => { e.stopPropagation(); copySummary(bookings.find(b => b.id === btn.dataset.id)) }))
+    wrap.querySelectorAll('.del-bk').forEach(btn => btn.addEventListener('click', async e => {
+      e.stopPropagation()
+      const b = bookings.find(x => x.id === btn.dataset.id)
+      if (!b) return
+      await deleteBooking(b)
+    }))
+  }
+
+  async function deleteBooking(b) {
+    const ok = await confirmDialog({ title: '🗑️ ลบใบจอง', message: `ยืนยันลบใบจอง "${escHtml(b.bookingNo)}" — ${escHtml(b.custName || '')}? การลบนี้ไม่สามารถย้อนกลับได้ ข้อมูลจะไม่ปรากฏในระบบอีกต่อไป (รวมถึงหน้า Dashboard/รายงานอื่นๆ)`, confirmText: 'ลบถาวร', danger: true })
+    if (!ok) return
+    await softDelete('bookings', b.id)
+    showToast('🗑️ ลบใบจองแล้ว', 'success')
+    document.querySelectorAll('.modal-overlay').forEach(m => m.remove())
+    await loadData()
   }
 
   function tableRow(b) {
@@ -315,6 +330,7 @@ export default async function BookingsPage(container) {
         <button class="btn btn-ghost btn-xs edit-bk" data-id="${b.id}" title="แก้ไข">✏️</button>
         <button class="btn btn-ghost btn-xs print-bk" data-id="${b.id}" title="พิมพ์ใบจอง">🖨</button>
         <button class="btn btn-ghost btn-xs copy-bk" data-id="${b.id}" title="คัดลอกสรุป">📋</button>
+        <button class="btn btn-ghost btn-xs del-bk" data-id="${b.id}" title="ลบ">🗑️</button>
       </td>
     </tr>`
   }
@@ -616,12 +632,14 @@ export default async function BookingsPage(container) {
               '<button class="btn btn-secondary" id="bk-print">🖨 พิมพ์ใบจอง</button>' +
               (b.status === 'ถอนจอง'
                 ? '<button class="btn btn-danger" id="bk-print-cancel">🖨 พิมพ์ใบถอนจอง</button>'
-                : '<button class="btn btn-primary" id="bk-to-doc">📄 สร้างเอกสาร</button>')
+                : '<button class="btn btn-primary" id="bk-to-doc">📄 สร้างเอกสาร</button>') +
+              '<button class="btn btn-danger" id="bk-delete2">🗑️ ลบใบจอง</button>'
     })
     document.getElementById('bk-edit2')?.addEventListener('click', () => { document.querySelectorAll('.modal-overlay').forEach(m => m.remove()); openForm(b) })
     document.getElementById('bk-print')?.addEventListener('click', () => printBooking(b))
     document.getElementById('bk-print-cancel')?.addEventListener('click', () => openCancelPrintModal(b))
     document.getElementById('bk-to-doc')?.addEventListener('click', () => { document.querySelector('.modal-overlay')?.remove(); navigate('/documents') })
+    document.getElementById('bk-delete2')?.addEventListener('click', () => deleteBooking(b))
   }
 
   function openForm(existing = null) {
