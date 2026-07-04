@@ -7,6 +7,48 @@ function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
+const TH_MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
+function ymLabel(ym) {
+  const [y, m] = ym.split('-').map(Number)
+  return TH_MONTHS[m - 1] + ' ' + (y + 543)
+}
+function shiftMonth(ym, delta) {
+  const [y, m] = ym.split('-').map(Number)
+  const d = new Date(y, m - 1 + delta, 1)
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
+}
+
+const BOOKING_STATUS_META = {
+  'ส่งมอบแล้ว':          { label: 'ส่งมอบแล้ว', icon: '✅', color: 'success' },
+  'รอส่งมอบ':            { label: 'รอส่งมอบ', icon: '📦', color: 'warning' },
+  'ตัดตัวเลขรอส่งมอบ':    { label: 'ตัดตัวเลขรอส่งมอบ', icon: '🧮', color: 'warning' },
+  'รอรถ':                { label: 'รอรถ', icon: '🚗', color: 'accent' },
+  'รอผลไฟแนนซ์':         { label: 'รอผลไฟแนนซ์', icon: '🏦', color: 'primary' },
+  'จัดไฟแนนซ์ก่อนจอง':   { label: 'จัดไฟแนนซ์ก่อนจอง', icon: '📄', color: 'primary' },
+  'ยอดจองคงค้าง':        { label: 'ยอดจองคงค้าง', icon: '⏳', color: 'secondary' },
+  'ถอนจอง':              { label: 'ถอนจอง', icon: '❌', color: 'danger' },
+}
+
+const JOB_STATUS_META = {
+  waiting:       { label: 'รอรับรถ', color: 'primary' },
+  checkin:       { label: 'รับรถแล้ว', color: 'accent' },
+  diagnosing:    { label: 'วินิจฉัย', color: 'primary' },
+  inprogress:    { label: 'กำลังซ่อม', color: 'warning' },
+  waiting_parts: { label: 'รออะไหล่', color: 'danger' },
+  qc:            { label: 'QC ตรวจสอบ', color: 'success' },
+  done:          { label: 'เสร็จแล้ว', color: 'success' },
+  delivered:     { label: 'ส่งคืนแล้ว', color: 'primary' },
+}
+
+const FIN_STATUS_META = {
+  'ผ่าน':        { label: 'ผ่าน', color: 'success' },
+  'รอผล':        { label: 'รอผล', color: 'warning' },
+  'รอเซ็นสัญญา':  { label: 'รอเซ็นสัญญา', color: 'primary' },
+  'ไม่ผ่าน':      { label: 'ไม่ผ่าน', color: 'danger' },
+  'รอส่ง':        { label: 'รอส่ง', color: 'secondary' },
+  'ซื้อสด':       { label: 'ซื้อสด', color: 'accent' },
+}
+
 const QUICK_LINKS = [
   { icon:'👥', label:'ลูกค้า', path:'/crm/customers', color:'primary' },
   { icon:'🧲', label:'Leads', path:'/crm/leads', color:'accent' },
@@ -88,9 +130,28 @@ export default async function DashboardPage(container) {
         <button class="btn btn-ghost btn-sm" style="margin-left:auto;flex-shrink:0" data-nav="/ai/personal">คุยกับ LAMI →</button>
       </div>
 
-      <!-- KPI Grid -->
-      <div id="kpi-grid" class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
-        ${[1,2,3,4].map(() => `<div class="kpi-card"><div class="skeleton" style="height:14px;width:60%;margin-bottom:10px"></div><div class="skeleton" style="height:28px;width:80%"></div></div>`).join('')}
+      <!-- Sales/Booking Pipeline Detail -->
+      <div class="card mb-4" style="padding:16px" id="pipeline-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+          <div style="font-weight:700">🚗 ยอดจอง/ยอดขาย — รายละเอียดรายเดือน</div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <button class="btn btn-ghost btn-sm" id="pm-prev">◀</button>
+            <span id="pm-label" style="font-size:0.85rem;font-weight:700;min-width:90px;text-align:center">...</span>
+            <button class="btn btn-ghost btn-sm" id="pm-next">▶</button>
+            <button class="btn btn-secondary btn-sm" data-nav="/crm/bookings" style="margin-left:6px">ดูใบจอง →</button>
+          </div>
+        </div>
+        <div id="pipeline-body">
+          ${[1,2,3,4,5].map(() => `<div class="skeleton" style="height:60px;border-radius:var(--radius-md);margin-bottom:8px"></div>`).join('')}
+        </div>
+      </div>
+
+      <!-- Other Departments Detail -->
+      <div class="card mb-4" style="padding:16px" id="dept-detail-card">
+        <div style="font-weight:700;margin-bottom:14px">🏭 แผนกอื่น — รายละเอียดเดือนเดียวกัน</div>
+        <div id="dept-detail-body" style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          ${[1,2].map(() => `<div class="skeleton" style="height:140px;border-radius:var(--radius-md)"></div>`).join('')}
+        </div>
       </div>
 
       <!-- Main 2-col layout -->
@@ -151,14 +212,15 @@ export default async function DashboardPage(container) {
         </div>
       </div>
 
-      <!-- Monthly bar chart -->
+      <!-- Booking trend (real data, stacked by status) -->
       <div class="card" style="padding:20px" id="monthly-chart-card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-          <div style="font-weight:700" id="monthly-chart-title">📊 ยอดขายรายเดือน</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <div style="font-weight:700" id="monthly-chart-title">📊 แนวโน้มยอดจอง 6 เดือนล่าสุด</div>
           <button class="btn btn-secondary btn-sm" data-nav="/analytics">ดู Analytics →</button>
         </div>
-        <div id="monthly-chart" style="display:flex;align-items:flex-end;gap:6px;height:120px;border-bottom:1px solid var(--border);padding-bottom:8px">
-          ${Array.from({length:12},(_,i)=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px"><div style="width:100%;height:${20+Math.random()*60}px;background:var(--surface-3);border-radius:3px 3px 0 0;animation:pulse 1.5s ease-in-out infinite"></div><div style="font-size:0.6rem;color:var(--text-muted)">${['ม.ค','ก.พ','มี.ค','เม.ย','พ.ค','มิ.ย','ก.ค','ส.ค','ก.ย','ต.ค','พ.ย','ธ.ค'][i]}</div></div>`).join('')}
+        <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:12px">แท่งสีเขียว = ส่งมอบแล้ว · แท่งสีเหลือง/ส้ม = อยู่ระหว่างดำเนินการ · แท่งสีแดง = ถอนจอง</div>
+        <div id="monthly-chart" style="display:flex;align-items:flex-end;gap:10px;height:140px;border-bottom:1px solid var(--border);padding-bottom:8px">
+          ${[1,2,3,4,5,6].map(() => `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px"><div class="skeleton" style="width:100%;height:80px"></div></div>`).join('')}
         </div>
       </div>
     </div>
@@ -172,6 +234,7 @@ export default async function DashboardPage(container) {
 
   // Load async data
   seedDemoData()
+  let selectedMonth = new Date().toISOString().slice(0, 7)
   try {
     const today = new Date().toISOString().slice(0, 10)
     const thisMonth = new Date().toISOString().slice(0, 7)
@@ -179,25 +242,133 @@ export default async function DashboardPage(container) {
       listDocs('customers', [], 'createdAt', 'desc', 5).catch(() => []),
       listDocs('tasks', [], 'createdAt', 'desc', 100).catch(() => []),
       getSalesData().catch(() => []),
-      listDocs('job_cards', [], 'createdAt', 'desc', 200).catch(() => []),
-      listDocs('bookings', [], 'createdAt', 'desc', 50).catch(() => []),
+      listDocs('job_cards', [], 'createdAt', 'desc', 500).catch(() => []),
+      listDocs('bookings', [], 'createdAt', 'desc', 500).catch(() => []),
       listDocs('pdi', [], 'createdAt', 'desc', 50).catch(() => []),
     ])
     if (container.__routerGen !== myGen) return
 
-    // KPI
-    const hotLeads = customers.filter(c => c.status === 'hot').length
     const pendingTasks = tasks.filter(t => t.status !== 'done' && t.status !== 'cancelled').length
-    const monthSales = sales.filter(s => (s.date || '').startsWith(thisMonth)).reduce((t, s) => t + (s.salePrice || 0), 0)
-    const salesValue = monthSales || sales.reduce((t, s) => t + (s.salePrice || 0), 0)
     const openJobs = jobs.filter(j => j.status !== 'done' && j.status !== 'completed' && j.status !== 'delivered').length
-    const kpiGrid = document.getElementById('kpi-grid')
-    if (kpiGrid) kpiGrid.innerHTML = `
-      ${kpi('💰', 'ยอดขายเดือนนี้', formatCurrency(salesValue), `${sales.length} ใบจอง`, 'success')}
-      ${kpi('👥', 'ลูกค้า', customers.length || 143, `${hotLeads || 3} Hot`, 'primary')}
-      ${kpi('🔧', 'งานซ่อมเปิด', `${openJobs} งาน`, '', 'warning')}
-      ${kpi('✅', 'Tasks ค้าง', pendingTasks || 5, '', pendingTasks > 3 ? 'danger' : 'accent')}
-    `
+
+    // ── ยอดจอง/ยอดขาย รายละเอียดรายเดือน (คลิกดูเดือนก่อนหน้าได้) ──────────────
+    function renderPipeline() {
+      const label = document.getElementById('pm-label')
+      if (label) label.textContent = ymLabel(selectedMonth)
+
+      const inMonth = bookings.filter(b => (b.bookingDate || '').startsWith(selectedMonth))
+      const deliveredInMonth = bookings.filter(b => b.status === 'ส่งมอบแล้ว' && (b.actualDeliveryDate || '').startsWith(selectedMonth))
+      const byStatus = {}
+      inMonth.forEach(b => { byStatus[b.status] = (byStatus[b.status] || 0) + 1 })
+      const revenue = inMonth.reduce((s, b) => s + (b.price || 0), 0)
+
+      const body = document.getElementById('pipeline-body')
+      if (!body) return
+      body.innerHTML = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:14px">
+          ${pCard('📝', 'จองมาเดือนนี้', inMonth.length, 'primary', '/crm/bookings')}
+          ${pCard('✅', 'ส่งมอบไปแล้ว', deliveredInMonth.length, 'success', '/crm/bookings')}
+          ${pCard('📦', 'รอส่งมอบ', (byStatus['รอส่งมอบ'] || 0) + (byStatus['ตัดตัวเลขรอส่งมอบ'] || 0), 'warning', '/crm/bookings')}
+          ${pCard('🚗', 'รอรถ', byStatus['รอรถ'] || 0, 'accent', '/crm/bookings')}
+          ${pCard('🏦', 'รอผลไฟแนนซ์', byStatus['รอผลไฟแนนซ์'] || 0, 'primary', '/crm/bookings')}
+          ${pCard('❌', 'ถอนจอง', byStatus['ถอนจอง'] || 0, 'danger', '/crm/bookings')}
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--surface-2);border-radius:8px;font-size:0.8rem">
+          <span>💰 มูลค่ารวมใบจองเดือนนี้</span>
+          <b style="color:var(--success);font-size:0.95rem">${formatCurrency(revenue)}</b>
+        </div>
+        <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px">
+          ${Object.entries(BOOKING_STATUS_META).filter(([k]) => byStatus[k]).map(([k, v]) =>
+            `<span class="badge badge-${v.color}" style="font-size:0.68rem">${v.icon} ${v.label}: ${byStatus[k]}</span>`
+          ).join('')}
+        </div>
+      `
+    }
+
+    // ── แผนกอื่น: ศูนย์บริการ (Job Cards) + สรุปไฟแนนซ์ (จาก booking.finStatus) เดือนเดียวกัน ──
+    function renderDeptDetail() {
+      const jobsInMonth = jobs.filter(j => (j.createdAt || '').startsWith(selectedMonth))
+      const jobByStatus = {}
+      jobsInMonth.forEach(j => { jobByStatus[j.status] = (jobByStatus[j.status] || 0) + 1 })
+
+      const bookingsInMonth = bookings.filter(b => (b.bookingDate || '').startsWith(selectedMonth) && b.finStatus)
+      const finByStatus = {}
+      bookingsInMonth.forEach(b => { finByStatus[b.finStatus] = (finByStatus[b.finStatus] || 0) + 1 })
+
+      const body = document.getElementById('dept-detail-body')
+      if (!body) return
+      body.innerHTML = `
+        <div style="background:var(--surface-2);border-radius:10px;padding:14px;cursor:pointer" data-nav="/service/jobs">
+          <div style="font-weight:700;font-size:0.85rem;margin-bottom:10px">🔧 ศูนย์บริการ — Job Card เดือนนี้ (${jobsInMonth.length})</div>
+          ${jobsInMonth.length ? Object.entries(JOB_STATUS_META).filter(([k]) => jobByStatus[k]).map(([k, v]) => `
+            <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:0.78rem">
+              <span>${v.label}</span><b style="color:var(--${v.color})">${jobByStatus[k]}</b>
+            </div>`).join('') : `<div style="font-size:0.76rem;color:var(--text-muted)">ไม่มี Job Card เดือนนี้</div>`}
+        </div>
+        <div style="background:var(--surface-2);border-radius:10px;padding:14px;cursor:pointer" data-nav="/crm/bookings">
+          <div style="font-weight:700;font-size:0.85rem;margin-bottom:10px">💰 สรุปไฟแนนซ์ — จากใบจองเดือนนี้ (${bookingsInMonth.length})</div>
+          ${bookingsInMonth.length ? Object.entries(FIN_STATUS_META).filter(([k]) => finByStatus[k]).map(([k, v]) => `
+            <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:0.78rem">
+              <span>${v.label}</span><b style="color:var(--${v.color})">${finByStatus[k]}</b>
+            </div>`).join('') : `<div style="font-size:0.76rem;color:var(--text-muted)">ไม่มีข้อมูลไฟแนนซ์เดือนนี้</div>`}
+        </div>
+      `
+    }
+
+    function pCard(icon, label, value, color, nav) {
+      return `<div style="background:var(--surface-2);border-radius:10px;padding:12px;cursor:pointer;border-left:3px solid var(--${color})" data-nav="${nav}">
+        <div style="font-size:0.68rem;color:var(--text-muted);margin-bottom:4px">${icon} ${label}</div>
+        <div style="font-size:1.3rem;font-weight:800;color:var(--${color})">${value}</div>
+      </div>`
+    }
+
+    // ── กราฟแนวโน้ม 6 เดือนล่าสุด (stacked แบบง่าย: ส่งมอบแล้ว / กำลังดำเนินการ / ถอนจอง) ──
+    function renderTrendChart() {
+      const chartEl = document.getElementById('monthly-chart')
+      if (!chartEl) return
+      const months = []
+      let ym = selectedMonth
+      for (let i = 5; i >= 0; i--) months.push(shiftMonth(selectedMonth, -i))
+      const maxTotal = Math.max(...months.map(m => bookings.filter(b => (b.bookingDate || '').startsWith(m)).length), 1)
+      chartEl.innerHTML = months.map(m => {
+        const inM = bookings.filter(b => (b.bookingDate || '').startsWith(m))
+        const delivered = inM.filter(b => b.status === 'ส่งมอบแล้ว').length
+        const withdrawn = inM.filter(b => b.status === 'ถอนจอง').length
+        const inProgress = inM.length - delivered - withdrawn
+        const total = inM.length
+        const h = Math.max(6, Math.round(total / maxTotal * 110))
+        const isSelected = m === selectedMonth
+        const dH = total ? Math.round(h * delivered / total) : 0
+        const wH = total ? Math.round(h * withdrawn / total) : 0
+        const pH = Math.max(0, h - dH - wH)
+        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer" data-month="${m}">
+          <div style="font-size:0.62rem;color:var(--text-muted)">${total || ''}</div>
+          <div style="width:100%;display:flex;flex-direction:column-reverse;border-radius:3px 3px 0 0;overflow:hidden;${isSelected ? 'box-shadow:0 0 0 2px var(--primary)' : ''}">
+            <div style="width:100%;height:${dH}px;background:var(--success)"></div>
+            <div style="width:100%;height:${pH}px;background:var(--warning)"></div>
+            <div style="width:100%;height:${wH}px;background:var(--danger)"></div>
+          </div>
+          <div style="font-size:0.64rem;color:${isSelected ? 'var(--primary)' : 'var(--text-muted)'};font-weight:${isSelected ? '700' : '400'}">${ymLabel(m).split(' ')[0]}</div>
+        </div>`
+      }).join('')
+      chartEl.querySelectorAll('[data-month]').forEach(el => el.addEventListener('click', () => {
+        selectedMonth = el.dataset.month
+        renderPipeline(); renderDeptDetail(); renderTrendChart()
+      }))
+    }
+
+    document.getElementById('pm-prev')?.addEventListener('click', () => {
+      selectedMonth = shiftMonth(selectedMonth, -1)
+      renderPipeline(); renderDeptDetail(); renderTrendChart()
+    })
+    document.getElementById('pm-next')?.addEventListener('click', () => {
+      selectedMonth = shiftMonth(selectedMonth, 1)
+      renderPipeline(); renderDeptDetail(); renderTrendChart()
+    })
+
+    renderPipeline()
+    renderDeptDetail()
+    renderTrendChart()
 
     // Today panel — ใช้ข้อมูลจริง
     const todayBookings = bookings.filter(b => (b.pickupDate || b.appointmentDate || b.createdAt || '').startsWith(today))
@@ -241,37 +412,6 @@ export default async function DashboardPage(container) {
       `).join('')
     }
 
-    // Monthly bar chart — compute per-month counts from sales
-    const chartYear = new Date().getFullYear()
-    const MONTH_LABELS = ['ม.ค','ก.พ','มี.ค','เม.ย','พ.ค','มิ.ย','ก.ค','ส.ค','ก.ย','ต.ค','พ.ย','ธ.ค']
-    const monthlyCounts = Array(12).fill(0)
-    sales.forEach(s => {
-      const d = s.date || ''
-      if (d.startsWith(chartYear + '') || d.startsWith((chartYear-1) + '')) {
-        const m = parseInt(d.slice(5, 7), 10) - 1
-        if (m >= 0 && m < 12) monthlyCounts[m]++
-      }
-    })
-    // If all zero (no data for current year), try previous year
-    const totalSales = monthlyCounts.reduce((a, b) => a + b, 0)
-    const maxCount = Math.max(...monthlyCounts, 1)
-    const currentMonth = new Date().getMonth()
-    const chartEl = document.getElementById('monthly-chart')
-    const chartTitle = document.getElementById('monthly-chart-title')
-    if (chartEl) {
-      chartEl.innerHTML = monthlyCounts.map((v, i) => {
-        const h = Math.max(4, Math.round(v / maxCount * 100))
-        const isCurrent = i === currentMonth
-        const label = totalSales > 0 ? (v > 0 ? `${v}` : '') : `${Math.round((i+1)*8.3)}k`
-        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
-          <div style="font-size:0.6rem;color:var(--text-muted)">${label}</div>
-          <div style="width:100%;height:${h}px;background:${isCurrent?'var(--primary)':'var(--surface-3)'};border-radius:3px 3px 0 0;transition:height .3s;${isCurrent?'box-shadow:0 0 8px var(--primary)':''}"></div>
-          <div style="font-size:0.6rem;color:${isCurrent?'var(--primary)':'var(--text-muted)'};font-weight:${isCurrent?'700':'400'}">${MONTH_LABELS[i]}</div>
-        </div>`
-      }).join('')
-    }
-    if (chartTitle) chartTitle.textContent = `📊 ยอดขายรายเดือน ${chartYear + 543}`
-
     // Customer list
     const STATUS_COLORS = { hot:'danger', warm:'warning', cold:'primary', vip:'accent', lost:'secondary' }
     const STATUS_LABELS = { hot:'🔥 Hot', warm:'☀️ Warm', cold:'❄️ Cold', vip:'⭐ VIP', lost:'💨 Lost' }
@@ -291,15 +431,4 @@ export default async function DashboardPage(container) {
       `).join('')
     }
   } catch {}
-}
-
-function kpi(icon, label, value, sub, color) {
-  return `<div class="kpi-card card-lift" style="cursor:default">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
-      <div class="kpi-title">${label}</div>
-      <span style="font-size:1.2rem">${icon}</span>
-    </div>
-    <div class="kpi-value" style="color:var(--${color})">${value}</div>
-    ${sub ? `<div class="kpi-sub" style="color:var(--${color});opacity:0.7">${sub}</div>` : ''}
-  </div>`
 }
