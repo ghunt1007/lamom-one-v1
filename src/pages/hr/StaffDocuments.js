@@ -4,7 +4,7 @@
  */
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState, setState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData } from '../../core/db.js'
 import { uploadFile } from '../../utils/storage.js'
 
@@ -197,6 +197,15 @@ export default async function StaffDocumentsPage(container) {
       try {
         const id = await createDoc('staff_documents', data)
         docs.unshift({ id, ...data, _persisted: true })
+        try {
+          await createDoc('notifications', {
+            type: 'hr',
+            title: 'มีเอกสารพนักงานรอตรวจสอบ',
+            body: `${staff} อัปโหลด "${name}" (${DOC_TYPES[type]?.label || type}) — กรุณาตรวจสอบ`,
+            read: false, link: '/hr/documents', createdAt: new Date().toISOString(),
+          })
+          setState('unreadCount', (getState('unreadCount') || 0) + 1)
+        } catch { /* แจ้งเตือนพลาดได้ ไม่กระทบเอกสารที่บันทึกไปแล้ว */ }
       } catch {
         docs.unshift({ id: `D${String(docs.length + 1).padStart(3, '0')}`, ...data, _persisted: false })
       }

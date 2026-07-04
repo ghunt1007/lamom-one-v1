@@ -4,7 +4,7 @@
  */
 import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
-import { showToast, getState } from '../../core/store.js'
+import { showToast, getState, setState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData } from '../../core/db.js'
 import { uploadFile } from '../../utils/storage.js'
 import { analyzeExpenseReceipt } from '../../utils/ai.js'
@@ -205,6 +205,15 @@ export default async function ExpenseOcrPage(container) {
         try {
           const id = await createDoc('expense_receipts', data)
           RECEIPTS.unshift({ id, ...data, _persisted: true })
+          try {
+            await createDoc('notifications', {
+              type: 'expense',
+              title: 'มีใบเสร็จค่าใช้จ่ายรออนุมัติ',
+              body: `${data.staff} ส่งใบเสร็จ ${data.vendor} (${formatCurrency(data.amount)}) — กรุณาตรวจสอบ`,
+              read: false, link: '/hr/expense-ocr', createdAt: new Date().toISOString(),
+            })
+            setState('unreadCount', (getState('unreadCount') || 0) + 1)
+          } catch { /* แจ้งเตือนพลาดได้ ไม่กระทบใบเสร็จที่บันทึกไปแล้ว */ }
         } catch {
           RECEIPTS.unshift({ id: 'R' + Date.now(), ...data, _persisted: false })
         }
