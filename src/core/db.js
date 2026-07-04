@@ -470,6 +470,35 @@ export function seedDemoData() {
   ]
   staffLoans.forEach(l => { if (!demoCol('staff_loans')[l.id]) demoCol('staff_loans')[l.id] = l })
 
+  // Reward store (หน้า /gamification/rewards) — ร้านแลกของรางวัลด้วยแต้มพนักงาน
+  const gamificationRewards = [
+    { id:'RW001', name:'บัตรกำนัล Central 1,000 บาท', cat:'cash', points:1000, stock:10, redeemed30:6, popular:true },
+    { id:'RW002', name:'ลาพิเศษ 1 วัน (ไม่หักโควต้า)', cat:'time', points:2000, stock:99, redeemed30:4, popular:true },
+    { id:'RW003', name:'หูฟัง Bluetooth', cat:'item', points:1500, stock:5, redeemed30:2, popular:false },
+    { id:'RW004', name:'เลือกที่จอดรถ VIP 1 เดือน', cat:'perk', points:800, stock:2, redeemed30:2, popular:true },
+    { id:'RW005', name:'บัตรน้ำมัน 500 บาท', cat:'cash', points:500, stock:20, redeemed30:8, popular:true },
+    { id:'RW006', name:'Voucher ร้านอาหาร 2 ที่นั่ง', cat:'item', points:1200, stock:6, redeemed30:3, popular:false },
+    { id:'RW007', name:'ออกก่อนเวลา 2 ชม. (ศุกร์)', cat:'time', points:600, stock:99, redeemed30:9, popular:true },
+    { id:'RW008', name:'มื้อกลางวันกับ MD', cat:'perk', points:3000, stock:1, redeemed30:0, popular:false },
+  ]
+  gamificationRewards.forEach(r => { if (!demoCol('gamification_rewards')[r.id]) demoCol('gamification_rewards')[r.id] = r })
+
+  const staffPointsSeed = [
+    { id:'sp1', name:'วิชัย ยอดขาย', points:3450 },
+    { id:'sp2', name:'สุดา มาดี', points:2890 },
+    { id:'sp3', name:'วิทยา ช่างใหญ่', points:2640 },
+    { id:'sp4', name:'ธนา เก่ง', points:1820 },
+    { id:'sp5', name:'มานะ ขยัน', points:1100 },
+  ]
+  staffPointsSeed.forEach(s => { if (!demoCol('staff_points')[s.id]) demoCol('staff_points')[s.id] = s })
+
+  const rewardRedemptions = [
+    { id:'rr1', staff:'สุดา มาดี', reward:'บัตรน้ำมัน 500 บาท', points:500, createdAt: new Date(Date.now()-3600000*5).toISOString() },
+    { id:'rr2', staff:'วิชัย ยอดขาย', reward:'ลาพิเศษ 1 วัน', points:2000, createdAt: new Date(Date.now()-86400000).toISOString() },
+    { id:'rr3', staff:'มานะ ขยัน', reward:'ออกก่อนเวลา 2 ชม.', points:600, createdAt: new Date(Date.now()-86400000*3).toISOString() },
+  ]
+  rewardRedemptions.forEach(r => { if (!demoCol('reward_redemptions')[r.id]) demoCol('reward_redemptions')[r.id] = r })
+
   const demoFleet = [
     { id:'df1', brand:'BYD', model:'Seal RWD', vin:'LGXCE4C10PA000006', plate:'กข-0001', color:'เทา Ink', year:2025, mileage:3520, status:'available', condition:'good', lastService:'2025-05-01', notes:'รถทดลองขับหลัก', createdAt:'2025-01-10' },
     { id:'df2', brand:'MG', model:'MG4 X', vin:'SDUZZZEF5PA000020', plate:'กข-0002', color:'แดง', year:2025, mileage:5200, status:'in_use', condition:'good', lastService:'2025-04-15', notes:'ให้ลูกค้า VIP ยืม', createdAt:'2025-01-15' },

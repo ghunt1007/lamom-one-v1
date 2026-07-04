@@ -4,6 +4,8 @@
  */
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { timeAgo } from '../../utils/format.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 const REWARD_CATS = {
   cash:    { label: 'เงิน/บัตรกำนัล', icon: '💰' },
@@ -12,40 +14,35 @@ const REWARD_CATS = {
   perk:    { label: 'สิทธิพิเศษ', icon: '✨' },
 }
 
-const DEMO_REWARDS = [
-  { id: 'RW001', name: 'บัตรกำนัล Central 1,000 บาท', cat: 'cash', points: 1000, stock: 10, redeemed30: 6, popular: true },
-  { id: 'RW002', name: 'ลาพิเศษ 1 วัน (ไม่หักโควต้า)', cat: 'time', points: 2000, stock: 99, redeemed30: 4, popular: true },
-  { id: 'RW003', name: 'หูฟัง Bluetooth', cat: 'item', points: 1500, stock: 5, redeemed30: 2, popular: false },
-  { id: 'RW004', name: 'เลือกที่จอดรถ VIP 1 เดือน', cat: 'perk', points: 800, stock: 2, redeemed30: 2, popular: true },
-  { id: 'RW005', name: 'บัตรน้ำมัน 500 บาท', cat: 'cash', points: 500, stock: 20, redeemed30: 8, popular: true },
-  { id: 'RW006', name: 'Voucher ร้านอาหาร 2 ที่นั่ง', cat: 'item', points: 1200, stock: 6, redeemed30: 3, popular: false },
-  { id: 'RW007', name: 'ออกก่อนเวลา 2 ชม. (ศุกร์)', cat: 'time', points: 600, stock: 99, redeemed30: 9, popular: true },
-  { id: 'RW008', name: 'มื้อกลางวันกับ MD', cat: 'perk', points: 3000, stock: 1, redeemed30: 0, popular: false },
-]
-
-const STAFF_POINTS = [
-  { name: 'วิชัย ยอดขาย', points: 3450 },
-  { name: 'สุดา มาดี', points: 2890 },
-  { name: 'วิทยา ช่างใหญ่', points: 2640 },
-  { name: 'ธนา เก่ง', points: 1820 },
-  { name: 'มานะ ขยัน', points: 1100 },
-]
-
-const RECENT_REDEMPTIONS = [
-  { staff: 'สุดา มาดี', reward: 'บัตรน้ำมัน 500 บาท', points: 500, when: 'วันนี้' },
-  { staff: 'วิชัย ยอดขาย', reward: 'ลาพิเศษ 1 วัน', points: 2000, when: 'เมื่อวาน' },
-  { staff: 'มานะ ขยัน', reward: 'ออกก่อนเวลา 2 ชม.', points: 600, when: '3 วันก่อน' },
-]
-
 export default async function RewardStorePage(container) {
-  let rewards = DEMO_REWARDS.map(r => ({ ...r }))
-  let staffPoints = STAFF_POINTS.map(s => ({ ...s }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let rewards = []
+  let staffPoints = []
+  let redemptions = []
   let catFilter = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try {
+      rewards = await listDocs('gamification_rewards', [], 'points', 'asc', 100)
+      staffPoints = await listDocs('staff_points', [], 'points', 'desc', 100)
+      redemptions = await listDocs('reward_redemptions', [], 'createdAt', 'desc', 10)
+    } catch (e) { /* keep whatever loaded */ }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = rewards.filter(r => catFilter === 'all' || r.cat === catFilter)
-    const totalRedeemed = rewards.reduce((a, r) => a + r.redeemed30, 0)
-    const totalPoints = staffPoints.reduce((a, s) => a + s.points, 0)
+    const totalRedeemed = rewards.reduce((a, r) => a + (r.redeemed30||0), 0)
+    const totalPoints = staffPoints.reduce((a, s) => a + (s.points||0), 0)
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -80,11 +77,12 @@ export default async function RewardStorePage(container) {
                     ${r.popular ? '<span class="badge badge-danger" style="font-size:0.55rem">🔥 ฮิต</span>' : ''}
                   </div>
                   <div style="font-weight:700;font-size:0.8rem;flex:1;margin-bottom:6px">${r.name}</div>
-                  <div style="font-size:0.95rem;font-weight:900;color:var(--warning);margin-bottom:4px">⭐ ${r.points.toLocaleString()}</div>
-                  <div style="font-size:0.63rem;color:var(--text-muted);margin-bottom:8px">${r.stock >= 99 ? 'ไม่จำกัด' : 'เหลือ ' + r.stock} · แลกแล้ว ${r.redeemed30}/เดือน</div>
+                  <div style="font-size:0.95rem;font-weight:900;color:var(--warning);margin-bottom:4px">⭐ ${(r.points||0).toLocaleString()}</div>
+                  <div style="font-size:0.63rem;color:var(--text-muted);margin-bottom:8px">${r.stock >= 99 ? 'ไม่จำกัด' : 'เหลือ ' + r.stock} · แลกแล้ว ${r.redeemed30||0}/เดือน</div>
                   <button class="btn btn-xs btn-primary redeem-btn" data-id="${r.id}" ${out?'disabled':''}>${out?'หมด':'🎁 แลก'}</button>
                 </div>`
               }).join('')}
+              ${!list.length ? `<div class="empty-state"><div class="empty-icon">🎁</div><div class="empty-title">ไม่มีของรางวัล</div></div>` : ''}
             </div>
           </div>
 
@@ -92,10 +90,10 @@ export default async function RewardStorePage(container) {
             <!-- Staff points -->
             <div class="card" style="padding:14px;margin-bottom:12px">
               <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">⭐ แต้มสะสมพนักงาน</div>
-              ${staffPoints.sort((a,b)=>b.points-a.points).map((s, i) => `
+              ${staffPoints.map((s, i) => `
                 <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:0.78rem">
-                  <span>${['🥇','🥈','🥉','4.','5.'][i]} ${s.name}</span>
-                  <strong style="color:var(--warning)">⭐ ${s.points.toLocaleString()}</strong>
+                  <span>${['🥇','🥈','🥉'][i] || (i+1)+'.'} ${s.name}</span>
+                  <strong style="color:var(--warning)">⭐ ${(s.points||0).toLocaleString()}</strong>
                 </div>
               `).join('')}
             </div>
@@ -103,12 +101,13 @@ export default async function RewardStorePage(container) {
             <!-- Recent redemptions -->
             <div class="card" style="padding:14px">
               <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">🔄 แลกล่าสุด</div>
-              ${RECENT_REDEMPTIONS.map(r => `
+              ${redemptions.map(r => `
                 <div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:0.73rem">
                   <div><strong>${r.staff}</strong> แลก ${r.reward}</div>
-                  <div style="color:var(--text-muted);font-size:0.65rem">−${r.points} แต้ม · ${r.when}</div>
+                  <div style="color:var(--text-muted);font-size:0.65rem">−${r.points} แต้ม · ${timeAgo(r.createdAt)}</div>
                 </div>
               `).join('')}
+              ${!redemptions.length ? `<div style="font-size:0.73rem;color:var(--text-muted)">ยังไม่มีการแลกของรางวัล</div>` : ''}
             </div>
           </div>
         </div>
@@ -124,24 +123,24 @@ export default async function RewardStorePage(container) {
         body: `<div style="display:grid;gap:10px">
           <div style="font-size:0.85rem">ใช้ <strong style="color:var(--warning)">⭐ ${r.points.toLocaleString()}</strong> แต้ม</div>
           <div class="input-group"><label class="input-label">พนักงานที่แลก</label>
-            <select class="input" id="rd-staff">${staffPoints.map(s=>`<option value="${s.name}" ${s.points<r.points?'disabled':''}>${s.name} (⭐ ${s.points.toLocaleString()})${s.points<r.points?' — แต้มไม่พอ':''}</option>`).join('')}</select>
+            <select class="input" id="rd-staff">${staffPoints.map(s=>`<option value="${s.id}" ${s.points<r.points?'disabled':''}>${s.name} (⭐ ${s.points.toLocaleString()})${s.points<r.points?' — แต้มไม่พอ':''}</option>`).join('')}</select>
           </div>
         </div>`,
         confirmText: '🎁 ยืนยันแลก',
-        onConfirm() {
-          const name = document.getElementById('rd-staff')?.value
-          const s = staffPoints.find(x => x.name === name)
-          if (!s || s.points < r.points) { showToast('❗ แต้มไม่พอ', 'error'); return }
-          s.points -= r.points
-          if (r.stock < 99) r.stock--
-          r.redeemed30++
-          showToast(`🎉 ${s.name} แลก "${r.name}" สำเร็จ!`, 'success'); renderPage()
+        async onConfirm() {
+          const staffId = document.getElementById('rd-staff')?.value
+          const s = staffPoints.find(x => x.id === staffId)
+          if (!s || s.points < r.points) { showToast('❗ แต้มไม่พอ', 'error'); return false }
+          await updateDocData('staff_points', s.id, { points: s.points - r.points })
+          await updateDocData('gamification_rewards', r.id, { stock: r.stock < 99 ? r.stock - 1 : r.stock, redeemed30: (r.redeemed30||0) + 1 })
+          await createDoc('reward_redemptions', { staff: s.name, reward: r.name, points: r.points })
+          showToast(`🎉 ${s.name} แลก "${r.name}" สำเร็จ!`, 'success'); await loadData()
         }
       })
     }))
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
