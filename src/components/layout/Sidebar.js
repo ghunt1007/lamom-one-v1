@@ -287,6 +287,7 @@ const NAV = [
     group: 'เอกสาร',
     items: [
       { icon: '📄', label: 'Document Studio', path: '/documents' },
+      { icon: '🗂️', label: 'คลังเอกสาร', path: '/documents/library' },
       { icon: '📜', label: 'Contracts', path: '/documents/contracts' },
       { icon: '📑', label: 'Templates', path: '/documents/templates' },
       { icon: '📝', label: 'Form Builder', path: '/documents/form-builder' },

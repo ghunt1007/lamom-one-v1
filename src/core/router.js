@@ -40,6 +40,7 @@ const routes = {
   '/insurance':     () => import('../pages/insurance/Insurance.js'),
   // M12 Documents
   '/documents':  () => import('../pages/documents/DocumentStudio.js'),
+  '/documents/library': () => import('../pages/documents/FileLibrary.js'),
   // M13 AI Officers
   '/ai/personal': () => import('../pages/ai/PersonalAI.js'),
   '/ai':         () => import('../pages/ai/AiOfficers.js'),
