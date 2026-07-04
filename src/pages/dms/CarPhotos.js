@@ -5,7 +5,8 @@
 import { timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData } from '../../core/db.js'
+import { uploadFile } from '../../utils/storage.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -16,16 +17,16 @@ function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d
 const PHOTO_ANGLES = ['หน้าตรง', 'หน้าเฉียงซ้าย', 'หน้าเฉียงขวา', 'ข้างซ้าย', 'ข้างขวา', 'หลังตรง', 'ภายใน-คอนโซล', 'ภายใน-เบาะหน้า', 'ภายใน-เบาะหลัง', 'ห้องเก็บของ', 'ล้อ/แม็กซ์', 'จอ/ระบบ Infotainment']
 
 const DEMO_CARS = [
-  { id: 'CP01', model: 'BYD Dolphin สีน้ำเงิน', vin: '...1122', photos: 12, posted: { fb: true, line: true, web: true }, lastShoot: addDays(-5) },
-  { id: 'CP02', model: 'BYD Atto 3 สีขาว', vin: '...3344', photos: 8, posted: { fb: true, line: false, web: true }, lastShoot: addDays(-10) },
-  { id: 'CP03', model: 'BYD Seal AWD สีดำ', vin: '...5566', photos: 0, posted: { fb: false, line: false, web: false }, lastShoot: null },
-  { id: 'CP04', model: 'MG4 Electric สีแดง', vin: '...7788', photos: 12, posted: { fb: true, line: true, web: false }, lastShoot: addDays(-2) },
-  { id: 'CP05', model: 'BYD Han สีขาว', vin: '...9900', photos: 5, posted: { fb: false, line: false, web: false }, lastShoot: addDays(-20) },
+  { id: 'CP01', model: 'BYD Dolphin สีน้ำเงิน', vin: '...1122', photos: 12, photoUrls: {}, posted: { fb: true, line: true, web: true }, lastShoot: addDays(-5), _persisted: false },
+  { id: 'CP02', model: 'BYD Atto 3 สีขาว', vin: '...3344', photos: 8, photoUrls: {}, posted: { fb: true, line: false, web: true }, lastShoot: addDays(-10), _persisted: false },
+  { id: 'CP03', model: 'BYD Seal AWD สีดำ', vin: '...5566', photos: 0, photoUrls: {}, posted: { fb: false, line: false, web: false }, lastShoot: null, _persisted: false },
+  { id: 'CP04', model: 'MG4 Electric สีแดง', vin: '...7788', photos: 12, photoUrls: {}, posted: { fb: true, line: true, web: false }, lastShoot: addDays(-2), _persisted: false },
+  { id: 'CP05', model: 'BYD Han สีขาว', vin: '...9900', photos: 5, photoUrls: {}, posted: { fb: false, line: false, web: false }, lastShoot: addDays(-20), _persisted: false },
 ]
 
 export default async function CarPhotosPage(container) {
   const myGen = container.__routerGen
-  let cars = DEMO_CARS.map(c => ({ ...c, posted: { ...c.posted } }))
+  let cars = DEMO_CARS.map(c => ({ ...c, posted: { ...c.posted }, photoUrls: { ...c.photoUrls } }))
   let dataSource = 'demo'
 
   try {
@@ -37,10 +38,12 @@ export default async function CarPhotosPage(container) {
         model: d.model || '',
         vin: d.vin || '',
         photos: d.photos || 0,
+        photoUrls: d.photoUrls || {},
         posted: { fb: d.posted?.fb || false, line: d.posted?.line || false, web: d.posted?.web || false },
         lastShoot: d.lastShoot || null,
+        _persisted: true,
       }))
-      cars = [...mapped, ...DEMO_CARS]
+      cars = [...mapped, ...DEMO_CARS.map(c => ({ ...c, posted: { ...c.posted }, photoUrls: { ...c.photoUrls } }))]
       dataSource = 'live'
     }
   } catch {}
@@ -107,24 +110,7 @@ export default async function CarPhotosPage(container) {
 
     container.querySelectorAll('.shoot-btn').forEach(b => b.addEventListener('click', () => {
       const c = cars.find(x => x.id === b.dataset.id)
-      if (c) openModal({
-        title: '📸 ถ่ายรูป: ' + escHtml(c.model),
-        size: 'md',
-        body: `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
-          ${PHOTO_ANGLES.map((a, i) => `
-            <div style="padding:10px;background:var(--surface-2);border-radius:var(--radius-sm);text-align:center;border:2px solid ${i < c.photos ? 'var(--success)' : 'var(--border)'}">
-              <div style="font-size:1.2rem">${i < c.photos ? '✅' : '📷'}</div>
-              <div style="font-size:0.62rem;color:var(--text-muted)">${i+1}. ${a}</div>
-            </div>
-          `).join('')}
-        </div>
-        <p style="font-size:0.7rem;color:var(--text-muted);margin-top:10px">💡 ถ่ายตอนเช้า/เย็นแสงสวย · เช็ดรถก่อนถ่าย · พื้นหลังโล่ง</p>`,
-        confirmText: '📸 อัปโหลดรูปครบชุด',
-        onConfirm() {
-          c.photos = 12; c.lastShoot = new Date().toISOString()
-          showToast('📸 อัปโหลดรูปครบ 12 มุมแล้ว — พร้อมโพสต์!', 'success'); renderPage()
-        }
-      })
+      if (c) openShootModal(c)
     }))
     container.querySelectorAll('.post-btn:not([disabled])').forEach(b => b.addEventListener('click', () => {
       const c = cars.find(x => x.id === b.dataset.id)
@@ -135,6 +121,70 @@ export default async function CarPhotosPage(container) {
         renderPage()
       }
     }))
+  }
+
+  async function persistCar(c) {
+    const data = { model: c.model, vin: c.vin, photos: c.photos, photoUrls: c.photoUrls, posted: c.posted, lastShoot: c.lastShoot }
+    try {
+      if (c._persisted) { await updateDocData('car_photos', c.id, data) }
+      else { const id = await createDoc('car_photos', data); c.id = id; c._persisted = true }
+    } catch { showToast('⚠️ บันทึกข้อมูลรูปไม่สำเร็จ (รูปอัปโหลดแล้วแต่ยังไม่บันทึกสถานะ)', 'warning') }
+  }
+
+  function openShootModal(c) {
+    const { el } = openModal({
+      title: '📸 ถ่ายรูป: ' + escHtml(c.model),
+      size: 'md',
+      body: shootBody(c),
+      footer: '<button class="btn btn-primary" id="shoot-done">✅ เสร็จสิ้น</button>',
+    })
+    bindShootSlots(el, c)
+    el.querySelector('#shoot-done').addEventListener('click', () => { el.remove(); renderPage() })
+  }
+
+  function shootBody(c) {
+    return `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+        ${PHOTO_ANGLES.map((a, i) => {
+          const url = c.photoUrls[a]
+          return `<div class="shoot-slot" data-angle="${escHtml(a)}" style="padding:8px;background:var(--surface-2);border-radius:var(--radius-sm);text-align:center;border:2px solid ${url ? 'var(--success)' : 'var(--border)'};cursor:pointer;overflow:hidden">
+            ${url
+              ? `<img src="${escHtml(url)}" style="width:100%;height:44px;object-fit:cover;border-radius:4px;margin-bottom:2px">`
+              : `<div style="font-size:1.2rem">📷</div>`}
+            <div style="font-size:0.62rem;color:var(--text-muted)">${i + 1}. ${escHtml(a)}</div>
+          </div>`
+        }).join('')}
+      </div>
+      <p style="font-size:0.7rem;color:var(--text-muted);margin-top:10px">💡 คลิกช่องเพื่ออัปโหลดรูปแต่ละมุม · ถ่ายตอนเช้า/เย็นแสงสวย · เช็ดรถก่อนถ่าย · พื้นหลังโล่ง</p>`
+  }
+
+  function bindShootSlots(el, c) {
+    el.querySelectorAll('.shoot-slot').forEach(slot => {
+      slot.addEventListener('click', () => {
+        const angle = slot.dataset.angle
+        const input = document.createElement('input')
+        input.type = 'file'
+        input.accept = 'image/*'
+        input.addEventListener('change', async () => {
+          const file = input.files?.[0]
+          if (!file) return
+          slot.style.opacity = '0.5'
+          try {
+            const up = await uploadFile(file, 'vehicles/' + (c.vin || c.id).replace(/\W+/g, ''))
+            c.photoUrls[angle] = up.url
+            c.photos = PHOTO_ANGLES.filter(a => c.photoUrls[a]).length
+            c.lastShoot = new Date().toISOString()
+            await persistCar(c)
+            el.querySelector('.modal-body').innerHTML = shootBody(c)
+            bindShootSlots(el, c)
+            showToast(`📸 อัปโหลด "${angle}" แล้ว (${c.photos}/12)`, 'success')
+          } catch (err) {
+            slot.style.opacity = '1'
+            showToast(`❗ อัปโหลดไม่สำเร็จ: ${err.message || 'ไม่ทราบสาเหตุ'}`, 'error')
+          }
+        })
+        input.click()
+      })
+    })
   }
 
   renderPage()

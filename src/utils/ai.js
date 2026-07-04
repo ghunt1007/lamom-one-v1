@@ -124,6 +124,52 @@ export async function analyzeFinanceRateSheet(imageBase64, mimeType = 'image/jpe
   return { demo: false, rows }
 }
 
+// ── Expense Receipt OCR — อ่านใบเสร็จค่าใช้จ่ายจากรูปภาพ ─────────────────────
+const RECEIPT_PROMPT = `คุณคือผู้เชี่ยวชาญอ่านใบเสร็จ/ใบกำกับภาษีค่าใช้จ่ายของไทย
+วิเคราะห์รูปภาพใบเสร็จที่แนบมา แล้วดึงข้อมูลตามฟิลด์นี้ (ใส่ "" หรือ 0 ถ้าไม่มีข้อมูลในภาพ ห้ามเดา):
+- vendor: ชื่อร้าน/บริษัทที่ออกใบเสร็จ
+- date: วันที่ในใบเสร็จ รูปแบบ YYYY-MM-DD (แปลงจาก พ.ศ. เป็น ค.ศ. โดยลบ 543 ถ้าจำเป็น)
+- amount: ยอดเงินรวมสุทธิ (ตัวเลข ไม่มีเครื่องหมายจุลภาค)
+- category: หมวดหมู่ค่าใช้จ่ายที่เหมาะสมที่สุดจากลิสต์นี้เท่านั้น: "เลี้ยงรับรองลูกค้า","ค่าน้ำมัน","ค่าเดินทาง","ค่าที่พัก","เครื่องเขียน/อุปกรณ์สำนักงาน","ค่าอาหารพนักงาน","ค่าขนส่ง","อื่นๆ"
+
+ตอบเป็น JSON object เดียวเท่านั้น ไม่ต้องมีคำอธิบายอื่น เช่น:
+{"vendor":"ร้านอาหาร MK","date":"2026-07-04","amount":1240,"category":"เลี้ยงรับรองลูกค้า"}
+
+ถ้าอ่านภาพไม่ออกหรือไม่ใช่ใบเสร็จ ให้ตอบ {"vendor":"","date":"","amount":0,"category":"อื่นๆ"}`
+
+export async function analyzeExpenseReceipt(imageBase64, mimeType = 'image/jpeg') {
+  if (!API_KEY) {
+    // Demo mode — ตัวอย่างผลลัพธ์เพื่อให้ทดสอบ flow การยืนยันได้โดยไม่ต้องมี API key
+    return { demo: true, vendor: 'ร้านค้าตัวอย่าง (Demo Mode)', date: new Date().toISOString().slice(0, 10), amount: 1000, category: 'อื่นๆ', confidence: 85 }
+  }
+  const res = await fetch(`${API_URL}?key=${API_KEY}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{
+        role: 'user',
+        parts: [
+          { inlineData: { mimeType, data: imageBase64 } },
+          { text: RECEIPT_PROMPT },
+        ],
+      }],
+      // maxOutputTokens ต้องเผื่อสูงกว่า output จริงมาก — gemini-2.5-flash ใช้ "thinking"
+      // tokens แย่งโควต้าเดียวกันนี้ก่อนถึงคำตอบจริง เจอจริงว่า 400 ตัดคำตอบกลางคันบ่อย
+      // (thoughtsTokenCount กิน 381/400 จนคำตอบขาดกลาง JSON) จึงตั้งสูงเหมือน analyzeFinanceRateSheet
+      generationConfig: { maxOutputTokens: 2000, temperature: 0.1 },
+    }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.error?.message || `Gemini Error ${res.status}`)
+  }
+  const data = await res.json()
+  const text = data.candidates?.[0]?.content?.parts?.filter(p => !p.thought).map(p => p.text || '').join('') || '{}'
+  let result = {}
+  try { result = JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] || '{}') } catch { result = {} }
+  return { demo: false, vendor: result.vendor || '', date: result.date || '', amount: Number(result.amount) || 0, category: result.category || 'อื่นๆ', confidence: 95 }
+}
+
 export async function generateDailySummary(data) {
   if (!API_KEY) return null
   const prompt = `สรุปประจำวันโชว์รูม:

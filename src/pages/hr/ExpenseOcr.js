@@ -4,7 +4,10 @@
  */
 import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData } from '../../core/db.js'
+import { uploadFile } from '../../utils/storage.js'
+import { analyzeExpenseReceipt } from '../../utils/ai.js'
 
 let RECEIPTS = [
   { id:'R001', staff:'นภา มีสุข', dept:'ฝ่ายขาย', date:'2026-06-12', vendor:'ร้านอาหาร MK Suki', amount:1240, cat:'เลี้ยงรับรองลูกค้า', status:'approved', note:'', confidence:97 },
@@ -23,7 +26,17 @@ const ST = {
 }
 
 export default async function ExpenseOcrPage(container) {
+  const myGen = container.__routerGen
   let filterStatus = 'all'
+
+  if (!RECEIPTS.some(r => r._persisted)) {
+    try {
+      const real = await listDocs('expense_receipts', [], 'date', 'desc', 200).catch(() => [])
+      if (container.__routerGen === myGen && real.length) {
+        RECEIPTS = [...real.map(r => ({ ...r, _persisted: true })), ...RECEIPTS]
+      }
+    } catch {}
+  }
 
   function render() {
     const rows = filterStatus === 'all' ? RECEIPTS : RECEIPTS.filter(r => r.status === filterStatus)
@@ -65,18 +78,24 @@ export default async function ExpenseOcrPage(container) {
 
     document.getElementById('scan-btn')?.addEventListener('click', () => openScanModal())
     document.getElementById('approve-all-btn')?.addEventListener('click', () => {
-      const n = RECEIPTS.filter(r=>r.status==='pending').length
-      RECEIPTS.forEach(r => { if (r.status==='pending') r.status='approved' })
-      render(); showToast(`✅ อนุมัติ ${n} ใบเสร็จแล้ว`, 'success')
+      const toApprove = RECEIPTS.filter(r=>r.status==='pending')
+      toApprove.forEach(r => { r.status='approved'; if (r._persisted) updateDocData('expense_receipts', r.id, { status: 'approved' }).catch(() => {}) })
+      render(); showToast(`✅ อนุมัติ ${toApprove.length} ใบเสร็จแล้ว`, 'success')
     })
     container.querySelectorAll('.sf-btn').forEach(b => b.addEventListener('click', () => { filterStatus=b.dataset.s; render() }))
     container.querySelectorAll('.approve-btn').forEach(b => b.addEventListener('click', () => {
       const r = RECEIPTS.find(x=>x.id===b.dataset.id)
-      if (r) { r.status='approved'; render(); showToast(`✅ อนุมัติใบเสร็จ ${r.vendor} แล้ว`, 'success') }
+      if (!r) return
+      r.status='approved'
+      if (r._persisted) updateDocData('expense_receipts', r.id, { status: 'approved' }).catch(() => {})
+      render(); showToast(`✅ อนุมัติใบเสร็จ ${r.vendor} แล้ว`, 'success')
     }))
     container.querySelectorAll('.reject-btn').forEach(b => b.addEventListener('click', () => {
       const r = RECEIPTS.find(x=>x.id===b.dataset.id)
-      if (r) { r.status='rejected'; r.note='ผู้อนุมัติปฏิเสธ'; render(); showToast(`❌ ปฏิเสธใบเสร็จ ${r.vendor}`, 'warning') }
+      if (!r) return
+      r.status='rejected'; r.note='ผู้อนุมัติปฏิเสธ'
+      if (r._persisted) updateDocData('expense_receipts', r.id, { status: 'rejected', note: r.note }).catch(() => {})
+      render(); showToast(`❌ ปฏิเสธใบเสร็จ ${r.vendor}`, 'warning')
     }))
     container.querySelectorAll('.detail-btn').forEach(b => b.addEventListener('click', () => {
       const r = RECEIPTS.find(x=>x.id===b.dataset.id)
@@ -134,33 +153,76 @@ export default async function ExpenseOcrPage(container) {
             </div>`).join('')}
         </div>
         <div style="background:var(--surface-2);border-radius:var(--radius-sm);padding:10px;text-align:center;font-size:0.72rem;color:var(--text-muted);margin-bottom:10px">
-          📷 ภาพใบเสร็จ (OCR preview)<br>
-          <span style="font-size:1.5rem">🧾</span>
+          ${r.imageUrl
+            ? `<img src="${r.imageUrl}" style="max-width:100%;max-height:180px;border-radius:6px;cursor:pointer" onclick="window.open('${r.imageUrl}','_blank')">`
+            : `📷 ไม่มีภาพแนบ<br><span style="font-size:1.5rem">🧾</span>`}
         </div>
         <div style="font-size:0.72rem"><b>สถานะ:</b> <span style="background:${s.color};color:#fff;padding:1px 8px;border-radius:8px">${s.label}</span></div>
         ${r.note ? `<div style="font-size:0.72rem;color:var(--danger);margin-top:6px">⚠️ ${r.note}</div>` : ''}`,
       confirmText: r.status==='pending' ? '✅ อนุมัติ' : '💾 OK',
       onConfirm() {
-        if (r.status==='pending') { r.status='approved'; render(); showToast(`✅ อนุมัติ ${r.vendor} แล้ว`,'success') }
+        if (r.status==='pending') {
+          r.status='approved'
+          if (r._persisted) updateDocData('expense_receipts', r.id, { status: 'approved' }).catch(() => {})
+          render(); showToast(`✅ อนุมัติ ${r.vendor} แล้ว`,'success')
+        }
       }
     })
   }
 
   function openScanModal() {
-    openModal({
+    const { el, close } = openModal({
       title:'📷 สแกนใบเสร็จใหม่', size:'sm',
-      body:`<div style="text-align:center;padding:20px 0;font-size:0.82rem">
+      body:`<div style="text-align:center;padding:12px 0;font-size:0.82rem">
         <div style="font-size:3rem;margin-bottom:10px">📷</div>
         <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:16px">อัปโหลดรูปใบเสร็จ — AI จะอ่านและกรอกข้อมูลอัตโนมัติ</div>
-        <div style="border:2px dashed var(--border);padding:20px;border-radius:var(--radius-sm);margin-bottom:12px;cursor:pointer">📎 ลากไฟล์มาวาง หรือคลิกเพื่อเลือกไฟล์</div>
-        <div style="font-size:0.68rem;color:var(--text-muted)">รองรับ JPG, PNG, PDF · ขนาดไม่เกิน 10 MB</div>
+        <input class="input" type="file" id="rc-file" accept="image/*" style="margin-bottom:8px">
+        <div style="font-size:0.68rem;color:var(--text-muted)">รองรับ JPG, PNG · ขนาดไม่เกิน 10 MB</div>
+        <span class="input-error" id="rc-err"></span>
       </div>`,
-      confirmText:'🤖 ประมวลผล OCR',
-      onConfirm() {
-        const id = 'R' + Date.now()
-        RECEIPTS.unshift({ id, staff:'ผู้ใช้ปัจจุบัน', dept:'—', date:'2026-06-14', vendor:'ร้านค้า (OCR)', amount:Math.floor(Math.random()*3000+200), cat:'อื่นๆ', status:'pending', note:'', confidence:Math.floor(Math.random()*10+88) })
-        render(); showToast('🤖 OCR อ่านใบเสร็จสำเร็จ · ส่งขออนุมัติแล้ว', 'success')
+      footer: '<button class="btn btn-secondary" id="rc-c">ยกเลิก</button><button class="btn btn-primary" id="rc-s">🤖 ประมวลผล OCR</button>',
+    })
+    el.querySelector('#rc-c').addEventListener('click', close)
+    el.querySelector('#rc-s').addEventListener('click', async () => {
+      const file = el.querySelector('#rc-file')?.files?.[0]
+      if (!file) { el.querySelector('#rc-err').textContent = '⚠️ กรุณาเลือกรูปใบเสร็จ'; return }
+      if (file.size > 10 * 1024 * 1024) { el.querySelector('#rc-err').textContent = '⚠️ ไฟล์ใหญ่เกิน 10 MB'; return }
+
+      const btn = el.querySelector('#rc-s'); btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span> AI กำลังอ่านใบเสร็จ...'
+      try {
+        const base64 = await fileToBase64(file)
+        const [ocr, up] = await Promise.all([
+          analyzeExpenseReceipt(base64, file.type || 'image/jpeg'),
+          uploadFile(file, 'expense-receipts').catch(() => ({ url: '' })),
+        ])
+        const me = getState('user') || {}
+        const data = {
+          staff: me.displayName || me.email || 'ผู้ใช้ปัจจุบัน', dept: '—',
+          date: ocr.date || new Date().toISOString().slice(0, 10),
+          vendor: ocr.vendor || 'ไม่ทราบชื่อร้าน', amount: ocr.amount || 0, cat: ocr.category || 'อื่นๆ',
+          status: 'pending', note: '', confidence: ocr.confidence || 90, imageUrl: up.url || '',
+        }
+        try {
+          const id = await createDoc('expense_receipts', data)
+          RECEIPTS.unshift({ id, ...data, _persisted: true })
+        } catch {
+          RECEIPTS.unshift({ id: 'R' + Date.now(), ...data, _persisted: false })
+        }
+        close(); render()
+        showToast(ocr.demo ? '🤖 Demo mode — ตั้งค่า VITE_GEMINI_API_KEY เพื่ออ่านใบเสร็จจริง' : '🤖 AI อ่านใบเสร็จสำเร็จ · ส่งขออนุมัติแล้ว', ocr.demo ? 'info' : 'success')
+      } catch (err) {
+        btn.disabled = false; btn.textContent = '🤖 ประมวลผล OCR'
+        showToast(`❗ ประมวลผลไม่สำเร็จ: ${err.message || 'ไม่ทราบสาเหตุ'}`, 'error')
       }
+    })
+  }
+
+  function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result.split(',')[1])
+      reader.onerror = reject
+      reader.readAsDataURL(file)
     })
   }
 

@@ -5,6 +5,8 @@
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData } from '../../core/db.js'
+import { uploadFile } from '../../utils/storage.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -32,9 +34,17 @@ const DEMO_DOCS = [
 ]
 
 export default async function StaffDocumentsPage(container) {
-  let docs = DEMO_DOCS.map(d => ({ ...d }))
+  const myGen = container.__routerGen
+  let docs = DEMO_DOCS.map(d => ({ ...d, _persisted: false }))
   let typeFilter = 'all'
   let search = ''
+
+  try {
+    const real = await listDocs('staff_documents', [], 'uploaded', 'desc', 200).catch(() => [])
+    if (container.__routerGen === myGen && real.length) {
+      docs = [...real.map(d => ({ ...d, _persisted: true })), ...docs]
+    }
+  } catch {}
 
   function expiryState(d) {
     if (!d.expiry) return 'none'
@@ -111,7 +121,7 @@ export default async function StaffDocumentsPage(container) {
                     ${d.verified ? '<span class="badge badge-success" style="font-size:0.6rem">✅ ตรวจแล้ว</span>' : `<button class="btn btn-xs btn-warning verify-btn" data-id="${d.id}">🔍 ตรวจสอบ</button>`}
                   </td>
                   <td style="padding:8px 14px;text-align:right;white-space:nowrap">
-                    <button class="btn btn-xs btn-secondary">⬇️</button>
+                    ${d.fileUrl ? `<button class="btn btn-xs btn-secondary view-btn" data-id="${d.id}" title="เปิดไฟล์">⬇️</button>` : `<button class="btn btn-xs btn-secondary" disabled title="ยังไม่มีไฟล์แนบ" style="opacity:.4">⬇️</button>`}
                     ${es === 'expired' || es === 'expiring' ? `<button class="btn btn-xs btn-primary renew-btn" data-id="${d.id}">🔄 ต่ออายุ</button>` : ''}
                   </td>
                 </tr>`
@@ -124,18 +134,29 @@ export default async function StaffDocumentsPage(container) {
 
     document.getElementById('search-input')?.addEventListener('input', e => { search = e.target.value.toLowerCase(); renderPage() })
     container.querySelectorAll('.tf-btn').forEach(b => b.addEventListener('click', () => { typeFilter = b.dataset.t; renderPage() }))
-    container.querySelectorAll('.verify-btn').forEach(b => b.addEventListener('click', () => {
-      const d = docs.find(x => x.id === b.dataset.id); if (d) { d.verified = true; showToast('✅ ตรวจสอบเอกสารแล้ว', 'success'); renderPage() }
-    }))
-    container.querySelectorAll('.renew-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.view-btn').forEach(b => b.addEventListener('click', () => {
       const d = docs.find(x => x.id === b.dataset.id)
-      if (d) { d.expiry = addDays(365); d.uploaded = addDays(0); showToast('🔄 ต่ออายุเอกสารแล้ว (+1 ปี)', 'success'); renderPage() }
+      if (d?.fileUrl) window.open(d.fileUrl, '_blank', 'noopener,noreferrer')
+    }))
+    container.querySelectorAll('.verify-btn').forEach(b => b.addEventListener('click', async () => {
+      const d = docs.find(x => x.id === b.dataset.id)
+      if (!d) return
+      d.verified = true
+      if (d._persisted) { try { await updateDocData('staff_documents', d.id, { verified: true }) } catch {} }
+      showToast('✅ ตรวจสอบเอกสารแล้ว', 'success'); renderPage()
+    }))
+    container.querySelectorAll('.renew-btn').forEach(b => b.addEventListener('click', async () => {
+      const d = docs.find(x => x.id === b.dataset.id)
+      if (!d) return
+      d.expiry = addDays(365); d.uploaded = addDays(0)
+      if (d._persisted) { try { await updateDocData('staff_documents', d.id, { expiry: d.expiry, uploaded: d.uploaded }) } catch {} }
+      showToast('🔄 ต่ออายุเอกสารแล้ว (+1 ปี)', 'success'); renderPage()
     }))
     document.getElementById('upload-btn')?.addEventListener('click', openUploadForm)
   }
 
   function openUploadForm() {
-    openModal({
+    const { el, close } = openModal({
       title: '+ อัปโหลดเอกสาร',
       size: 'sm',
       body: `<div style="display:grid;gap:10px">
@@ -150,16 +171,36 @@ export default async function StaffDocumentsPage(container) {
           <select class="input" id="doc-type">${Object.entries(DOC_TYPES).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
         </div>
         <div class="input-group"><label class="input-label">วันหมดอายุ (ถ้ามี)</label><input class="input" type="date" id="doc-expiry"></div>
-        <div style="padding:14px;border:2px dashed var(--border);border-radius:var(--radius-sm);text-align:center;color:var(--text-muted);font-size:0.78rem;cursor:pointer">
-          📎 คลิกเพื่อเลือกไฟล์ (PDF, JPG, PNG)
+        <div class="input-group"><label class="input-label">ไฟล์เอกสาร</label>
+          <input class="input" type="file" id="doc-file" accept="image/*,.pdf">
         </div>
+        <span class="input-error" id="doc-err"></span>
       </div>`,
-      onConfirm() {
-        const name = document.getElementById('doc-name')?.value?.trim()
-        if (!name) { showToast('❗ กรุณากรอกชื่อเอกสาร', 'error'); return }
-        docs.unshift({ id:`D${String(docs.length+1).padStart(3,'0')}`, staff:document.getElementById('doc-staff')?.value||'—', type:document.getElementById('doc-type')?.value||'other', name, uploaded:addDays(0), expiry:document.getElementById('doc-expiry')?.value||null, verified:false })
-        showToast('✅ อัปโหลดเอกสารแล้ว — รอตรวจสอบ', 'success'); renderPage()
+      footer: '<button class="btn btn-secondary" id="doc-c">ยกเลิก</button><button class="btn btn-primary" id="doc-s">✅ อัปโหลด</button>',
+    })
+    el.querySelector('#doc-c').addEventListener('click', close)
+    el.querySelector('#doc-s').addEventListener('click', async () => {
+      const name = el.querySelector('#doc-name')?.value?.trim()
+      if (!name) { el.querySelector('#doc-err').textContent = '❗ กรุณากรอกชื่อเอกสาร'; return }
+      const staff = el.querySelector('#doc-staff')?.value || '—'
+      const type = el.querySelector('#doc-type')?.value || 'other'
+      const expiry = el.querySelector('#doc-expiry')?.value || null
+      const file = el.querySelector('#doc-file')?.files?.[0]
+
+      const btn = el.querySelector('#doc-s'); btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span> กำลังอัปโหลด...'
+      let fileUrl = ''
+      if (file) {
+        try { const up = await uploadFile(file, 'staff/' + staff.replace(/\W+/g, '')); fileUrl = up.url }
+        catch (e) { showToast(`⚠️ อัปโหลดไฟล์ไม่สำเร็จ (${e.message || 'ไม่ทราบสาเหตุ'}) — บันทึกข้อมูลไว้ก่อนได้`, 'warning') }
       }
+      const data = { staff, type, name, uploaded: addDays(0), expiry, verified: false, fileUrl }
+      try {
+        const id = await createDoc('staff_documents', data)
+        docs.unshift({ id, ...data, _persisted: true })
+      } catch {
+        docs.unshift({ id: `D${String(docs.length + 1).padStart(3, '0')}`, ...data, _persisted: false })
+      }
+      showToast('✅ อัปโหลดเอกสารแล้ว — รอตรวจสอบ', 'success'); close(); renderPage()
     })
   }
 
