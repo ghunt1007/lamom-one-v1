@@ -1,7 +1,18 @@
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState, setState } from '../../core/store.js'
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
+
+const DEPARTMENTS = {
+  sales:     { label: 'ฝ่ายขาย', icon: '🚗' },
+  finance:   { label: 'การเงิน/ไฟแนนซ์', icon: '💰' },
+  service:   { label: 'ศูนย์บริการ', icon: '🔧' },
+  dms:       { label: 'คลังรถ/สต็อก', icon: '📦' },
+  marketing: { label: 'การตลาด', icon: '📣' },
+  hr:        { label: 'HR', icon: '👤' },
+  quality:   { label: 'คุณภาพ/QA', icon: '✅' },
+  general:   { label: 'ทั่วไป', icon: '📋' },
+}
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -28,6 +39,7 @@ export default async function TasksPage(container) {
   let tasks = []
   let viewFilter = 'active' // active | all | done
   let priorityFilter = 'all'
+  let deptFilter = 'all'
 
   async function loadData() {
     try { tasks = await listDocs('tasks', [], 'dueDate', 'asc', 500) } catch {}
@@ -41,6 +53,7 @@ export default async function TasksPage(container) {
       return true
     })
     if (priorityFilter !== 'all') t = t.filter(x => x.priority === priorityFilter)
+    if (deptFilter !== 'all') t = t.filter(x => (x.department || 'general') === deptFilter)
     return t.sort((a, b) => (PRIORITY[a.priority]?.order ?? 9) - (PRIORITY[b.priority]?.order ?? 9))
   }
 
@@ -48,6 +61,20 @@ export default async function TasksPage(container) {
     const wrap = document.getElementById('tasks-board')
     if (!wrap) return
     const filtered = getFiltered()
+
+    // Department filter row
+    const deptRow = document.getElementById('dept-filter-row')
+    if (deptRow) {
+      const deptsInUse = Object.keys(DEPARTMENTS).filter(k => tasks.some(t => (t.department || 'general') === k))
+      deptRow.innerHTML =
+        `<button class="btn btn-sm df-btn ${deptFilter==='all'?'btn-primary':'btn-secondary'}" data-df="all">ทุกแผนก</button>` +
+        deptsInUse.map(k => {
+          const v = DEPARTMENTS[k]
+          const n = tasks.filter(t => (t.department || 'general') === k && t.status !== 'done' && t.status !== 'cancelled').length
+          return `<button class="btn btn-sm df-btn ${deptFilter===k?'btn-primary':'btn-secondary'}" data-df="${k}">${v.icon} ${v.label} (${n})</button>`
+        }).join('')
+      deptRow.querySelectorAll('.df-btn').forEach(b => b.addEventListener('click', () => { deptFilter = b.dataset.df; renderBoard() }))
+    }
 
     // Stats
     const statEl = document.getElementById('tasks-stat')
@@ -102,22 +129,29 @@ export default async function TasksPage(container) {
     document.querySelectorAll('.task-edit').forEach(btn => btn.addEventListener('click', e => {
       e.stopPropagation(); openForm(tasks.find(x => x.id === btn.dataset.id))
     }))
+    document.querySelectorAll('.task-route').forEach(btn => btn.addEventListener('click', e => {
+      e.stopPropagation(); openRouteModal(tasks.find(x => x.id === btn.dataset.id))
+    }))
   }
 
   function taskCard(t) {
     const pr = PRIORITY[t.priority] || PRIORITY.medium
     const st = STATUS[t.status] || STATUS.todo
+    const dept = DEPARTMENTS[t.department] || DEPARTMENTS.general
     const isOverdue = t.status !== 'done' && t.status !== 'cancelled' && t.dueDate && t.dueDate < new Date().toISOString().slice(0,10)
     const isDone = t.status === 'done' || t.status === 'cancelled'
+    const wasRouted = t.originDept && t.originDept !== t.department
     const nextLabel = { todo:'▶ เริ่ม', inprogress:'✅ เสร็จ' }[t.status]
     return `
       <div class="card task-card" data-id="${t.id}" style="padding:14px;cursor:pointer;margin-bottom:10px;border-left:3px solid var(--${pr.badge});${isDone?'opacity:0.6':''}">
         <div style="display:flex;align-items:flex-start;gap:10px">
           <div style="flex:1">
-            <div style="display:flex;gap:6px;align-items:center;margin-bottom:5px">
+            <div style="display:flex;gap:6px;align-items:center;margin-bottom:5px;flex-wrap:wrap">
+              <span class="badge badge-secondary" style="font-size:0.68rem">${dept.icon} ${dept.label}</span>
               <span class="badge badge-${pr.badge}" style="font-size:0.68rem">${pr.label}</span>
               <span class="badge badge-${st.badge}" style="font-size:0.68rem">${st.label}</span>
               ${isOverdue ? `<span class="badge badge-danger" style="font-size:0.68rem">⏰ เกินกำหนด</span>` : ''}
+              ${wasRouted ? `<span class="badge badge-accent" style="font-size:0.68rem">🔀 ส่งต่อจาก ${DEPARTMENTS[t.originDept]?.icon || ''} ${DEPARTMENTS[t.originDept]?.label || t.originDept}</span>` : ''}
             </div>
             <div style="font-weight:600;${isDone?'text-decoration:line-through;color:var(--text-muted)':''}">${escHtml(t.title)}</div>
             ${t.desc ? `<div style="font-size:0.78rem;color:var(--text-muted);margin-top:3px">${escHtml(t.desc)}</div>` : ''}
@@ -129,6 +163,7 @@ export default async function TasksPage(container) {
           </div>
           <div style="display:flex;gap:3px;flex-shrink:0">
             ${nextLabel && !isDone ? `<button class="btn btn-primary btn-sm task-status-btn" data-id="${t.id}">${nextLabel}</button>` : ''}
+            ${!isDone ? `<button class="btn btn-ghost btn-sm task-route" data-id="${t.id}" title="ส่งต่อแผนกอื่น">🔀</button>` : ''}
             <button class="btn btn-ghost btn-sm task-edit" data-id="${t.id}">✏️</button>
             <button class="btn btn-ghost btn-sm task-del" data-id="${t.id}" style="color:var(--danger)">🗑</button>
           </div>
@@ -160,6 +195,52 @@ export default async function TasksPage(container) {
     document.getElementById('t-edit')?.addEventListener('click', () => { document.querySelector('.modal-overlay')?.remove(); openForm(t) })
   }
 
+  function openRouteModal(t) {
+    if (!t) return
+    const curDept = DEPARTMENTS[t.department] || DEPARTMENTS.general
+    const { el, close } = openModal({
+      title: '🔀 ส่งต่องานข้ามแผนก',
+      size: 'sm',
+      body: `
+        <div style="font-size:0.82rem;margin-bottom:10px">"<b>${escHtml(t.title)}</b>" — ขณะนี้อยู่ที่ ${curDept.icon} <b>${curDept.label}</b></div>
+        <div class="input-group"><label class="input-label">ส่งต่อไปยังแผนก *</label>
+          <select class="input" id="rt-dept">${Object.entries(DEPARTMENTS).filter(([k]) => k !== (t.department || 'general')).map(([k, v]) => `<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+        </div>
+        <div class="input-group"><label class="input-label">มอบหมายให้ (ถ้าทราบ)</label><input class="input" id="rt-assign" placeholder="ชื่อผู้รับผิดชอบ"></div>
+        <div class="input-group"><label class="input-label">หมายเหตุถึงแผนกรับ</label><textarea class="input" id="rt-note" rows="2"></textarea></div>
+      `,
+      footer: `<button class="btn btn-secondary" id="rt-c">ยกเลิก</button><button class="btn btn-primary" id="rt-s">🔀 ส่งต่อ</button>`
+    })
+    el.querySelector('#rt-c').addEventListener('click', close)
+    el.querySelector('#rt-s').addEventListener('click', async () => {
+      const toDept = el.querySelector('#rt-dept').value
+      const assignedTo = el.querySelector('#rt-assign').value.trim()
+      const note = el.querySelector('#rt-note').value.trim()
+      const data = {
+        department: toDept,
+        originDept: t.originDept || t.department || 'general',
+        assignedTo: assignedTo || t.assignedTo || '',
+        desc: note ? (t.desc ? t.desc + '\n\n🔀 ' + note : '🔀 ' + note) : t.desc,
+        status: 'todo',
+      }
+      try {
+        await updateDocData('tasks', t.id, data)
+        Object.assign(t, data)
+        try {
+          await createDoc('notifications', {
+            type: 'task',
+            title: 'มีงานถูกส่งต่อมาที่แผนกคุณ',
+            body: `"${t.title}" ถูกส่งต่อมาจาก ${curDept.label} → ${DEPARTMENTS[toDept]?.label}`,
+            read: false, link: '/tasks', createdAt: new Date().toISOString(),
+          })
+          setState('unreadCount', (getState('unreadCount') || 0) + 1)
+        } catch {}
+        showToast(`🔀 ส่งต่อไปยัง ${DEPARTMENTS[toDept]?.label} แล้ว`, 'success')
+        close(); renderBoard()
+      } catch { showToast('ส่งต่อไม่สำเร็จ', 'error') }
+    })
+  }
+
   function openForm(existing = null) {
     const isEdit = !!existing
     const today = new Date().toISOString().slice(0,10)
@@ -170,6 +251,11 @@ export default async function TasksPage(container) {
         <div style="display:flex;flex-direction:column;gap:12px">
           <div class="input-group"><label class="input-label">ชื่องาน *</label><input class="input" id="tf-title" value="${escHtml(existing?.title||'')}"><span class="input-error" id="tf-title-e"></span></div>
           <div class="input-group"><label class="input-label">รายละเอียด</label><textarea class="input" id="tf-desc" rows="2">${escHtml(existing?.desc||'')}</textarea></div>
+          <div class="input-group"><label class="input-label">แผนกที่รับผิดชอบ</label>
+            <select class="input" id="tf-dept">
+              ${Object.entries(DEPARTMENTS).map(([k,v]) => `<option value="${k}" ${(existing?.department||'general')===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}
+            </select>
+          </div>
           <div class="grid-2">
             <div class="input-group"><label class="input-label">ความสำคัญ</label>
               <select class="input" id="tf-prio">
@@ -195,8 +281,10 @@ export default async function TasksPage(container) {
       const title = el.querySelector('#tf-title').value.trim()
       if (!title) { el.querySelector('#tf-title-e').textContent = 'กรุณาระบุ'; return }
       const btn = el.querySelector('#tfs'); btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
+      const dept = el.querySelector('#tf-dept').value
       const data = {
         title, desc: el.querySelector('#tf-desc').value.trim(),
+        department: dept, originDept: existing?.originDept || dept,
         priority: el.querySelector('#tf-prio').value,
         status: el.querySelector('#tf-status').value,
         dueDate: el.querySelector('#tf-due').value,
@@ -235,6 +323,7 @@ export default async function TasksPage(container) {
           <button class="btn btn-sm pf-btn btn-secondary" data-pf="all">ทุกระดับ</button>
           ${Object.entries(PRIORITY).map(([k,v]) => `<button class="btn btn-sm pf-btn btn-secondary" data-pf="${k}">${v.label}</button>`).join('')}
         </div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap" id="dept-filter-row"></div>
       </div>
 
       <div id="tasks-board">
