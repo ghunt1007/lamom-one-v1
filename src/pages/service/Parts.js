@@ -1,4 +1,4 @@
-import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { showToast } from '../../core/store.js'
 
 function escHtml(s) {
@@ -78,7 +78,7 @@ export default async function PartsPage(container) {
     </div>`
 
     document.querySelectorAll('.part-row').forEach(row => {
-      row.addEventListener('click', e => { if (e.target.closest('.edit-p,.adj-p')) return; openDetail(parts.find(x => x.id === row.dataset.id)) })
+      row.addEventListener('click', e => { if (e.target.closest('.edit-p,.adj-p,.del-p')) return; openDetail(parts.find(x => x.id === row.dataset.id)) })
     })
     document.querySelectorAll('.edit-p').forEach(btn => btn.addEventListener('click', e => {
       e.stopPropagation(); openForm(parts.find(x => x.id === btn.dataset.id))
@@ -86,6 +86,19 @@ export default async function PartsPage(container) {
     document.querySelectorAll('.adj-p').forEach(btn => btn.addEventListener('click', e => {
       e.stopPropagation(); openAdjust(parts.find(x => x.id === btn.dataset.id))
     }))
+    document.querySelectorAll('.del-p').forEach(btn => btn.addEventListener('click', e => {
+      e.stopPropagation(); const p = parts.find(x => x.id === btn.dataset.id); if (p) deletePart(p)
+    }))
+  }
+
+  async function deletePart(p) {
+    const ok = await confirmDialog({ title: '🗑️ ลบอะไหล่', message: `ยืนยันลบ "${escHtml(p.name)}" (${escHtml(p.sku)}) ออกจากคลัง? การลบนี้ไม่สามารถย้อนกลับได้`, confirmText: 'ลบถาวร', danger: true })
+    if (!ok) return
+    await softDelete('parts', p.id)
+    parts = parts.filter(x => x.id !== p.id)
+    showToast('🗑️ ลบอะไหล่แล้ว', 'success')
+    document.querySelectorAll('.modal-overlay').forEach(m => m.remove())
+    updateStats(); applyFilter()
   }
 
   function tableRow(p) {
@@ -111,6 +124,7 @@ export default async function PartsPage(container) {
           <div style="display:flex;gap:3px">
             <button class="btn btn-ghost btn-sm adj-p" data-id="${p.id}" title="ปรับสต็อก">📦</button>
             <button class="btn btn-ghost btn-sm edit-p" data-id="${p.id}" title="แก้ไข">✏️</button>
+            <button class="btn btn-ghost btn-sm del-p" data-id="${p.id}" title="ลบ">🗑️</button>
           </div>
         </td>
       </tr>`
@@ -139,9 +153,11 @@ export default async function PartsPage(container) {
         </div>
       `,
       footer: `<button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">ปิด</button>
-               <button class="btn btn-primary" id="p-adj">📦 ปรับสต็อก</button>`
+               <button class="btn btn-primary" id="p-adj">📦 ปรับสต็อก</button>
+               <button class="btn btn-danger" id="p-del">🗑️ ลบ</button>`
     })
     document.getElementById('p-adj')?.addEventListener('click', () => { document.querySelector('.modal-overlay')?.remove(); openAdjust(p) })
+    document.getElementById('p-del')?.addEventListener('click', () => deletePart(p))
   }
 
   function openAdjust(p) {
