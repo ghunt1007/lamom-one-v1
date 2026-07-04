@@ -401,16 +401,41 @@ export function seedDemoData() {
   financeTracker.forEach(a => { if (!demoCol('finance_tracker')[a.id]) demoCol('finance_tracker')[a.id] = a })
 
   // Maintenance schedule (หน้า /service/maintenance-schedule) — ตารางบำรุงรักษาเช็คระยะตามยี่ห้อ/รุ่น
+  // items: {name, partPrice, laborPrice} ต่อรายการ — ยอดรวมคำนวณจากผลรวมของแต่ละรายการ
   const maintenanceSchedules = [
-    { id:'ms1', brand:'DEEPAL', model:'S07', intervalKm:10000, intervalMonths:6, items:['น้ำมันเครื่อง','ไส้กรองอากาศ','ตรวจสายพาน','ตรวจเบรก'], estLaborHours:1, estCost:2200, notes:'' },
-    { id:'ms2', brand:'DEEPAL', model:'S07', intervalKm:20000, intervalMonths:12, items:['น้ำมันเครื่อง','ไส้กรองน้ำมัน','ตรวจช่วงล่าง','ตรวจระบบไฟฟ้า EV'], estLaborHours:2, estCost:4500, notes:'' },
-    { id:'ms3', brand:'DEEPAL', model:'S07', intervalKm:40000, intervalMonths:24, items:['น้ำมันเบรก','หัวเทียน/ระบบมอเตอร์','ตรวจ Battery SOH','ตรวจ BMS'], estLaborHours:3, estCost:8500, notes:'ตรวจแบตเตอรี่ตามรอบประกัน EV' },
-    { id:'ms4', brand:'AION', model:'Y Plus', intervalKm:10000, intervalMonths:6, items:['ตรวจระบบเบรก','ตรวจยาง','ตรวจ Cooling System'], estLaborHours:1, estCost:1800, notes:'' },
-    { id:'ms5', brand:'AION', model:'Y Plus', intervalKm:20000, intervalMonths:12, items:['ตรวจ SOH แบตเตอรี่','ตรวจ Inverter','Software Update','ตรวจช่วงล่าง'], estLaborHours:2.5, estCost:5200, notes:'' },
-    { id:'ms6', brand:'OMODA & JAECOO', model:'Omoda 5', intervalKm:10000, intervalMonths:6, items:['น้ำมันเครื่อง','ไส้กรองอากาศ','ตรวจเบรก','ตรวจแอร์'], estLaborHours:1, estCost:2000, notes:'' },
-    { id:'ms7', brand:'OMODA & JAECOO', model:'Omoda 5', intervalKm:40000, intervalMonths:24, items:['เปลี่ยนสายพานไทม์มิ่ง','น้ำมันเกียร์','ตรวจช่วงล่างเต็มระบบ'], estLaborHours:4, estCost:9800, notes:'' },
-    { id:'ms8', brand:'SUZUKI', model:'Swift', intervalKm:10000, intervalMonths:6, items:['น้ำมันเครื่อง','ไส้กรองอากาศ','ตรวจเบรก'], estLaborHours:1, estCost:1500, notes:'' },
-    { id:'ms9', brand:'NISSAN', model:'Almera', intervalKm:10000, intervalMonths:6, items:['น้ำมันเครื่อง','ไส้กรองน้ำมัน','ตรวจเบรก','ตรวจระบบไฟ'], estLaborHours:1, estCost:1600, notes:'' },
+    { id:'ms1', brand:'DEEPAL', model:'S07', intervalKm:10000, intervalMonths:6, items:[
+      { name:'น้ำมันเครื่อง', partPrice:1200, laborPrice:300 }, { name:'ไส้กรองอากาศ', partPrice:350, laborPrice:150 },
+      { name:'ตรวจสายพาน', partPrice:0, laborPrice:200 }, { name:'ตรวจเบรก', partPrice:0, laborPrice:200 },
+    ], notes:'' },
+    { id:'ms2', brand:'DEEPAL', model:'S07', intervalKm:20000, intervalMonths:12, items:[
+      { name:'น้ำมันเครื่อง', partPrice:1200, laborPrice:300 }, { name:'ไส้กรองน้ำมัน', partPrice:450, laborPrice:150 },
+      { name:'ตรวจช่วงล่าง', partPrice:0, laborPrice:400 }, { name:'ตรวจระบบไฟฟ้า EV', partPrice:0, laborPrice:800 },
+    ], notes:'' },
+    { id:'ms3', brand:'DEEPAL', model:'S07', intervalKm:40000, intervalMonths:24, items:[
+      { name:'น้ำมันเบรก', partPrice:600, laborPrice:400 }, { name:'หัวเทียน/ระบบมอเตอร์', partPrice:1800, laborPrice:600 },
+      { name:'ตรวจ Battery SOH', partPrice:0, laborPrice:1200 }, { name:'ตรวจ BMS', partPrice:0, laborPrice:800 },
+    ], notes:'ตรวจแบตเตอรี่ตามรอบประกัน EV' },
+    { id:'ms4', brand:'AION', model:'Y Plus', intervalKm:10000, intervalMonths:6, items:[
+      { name:'ตรวจระบบเบรก', partPrice:0, laborPrice:300 }, { name:'ตรวจยาง', partPrice:0, laborPrice:150 }, { name:'ตรวจ Cooling System', partPrice:200, laborPrice:250 },
+    ], notes:'' },
+    { id:'ms5', brand:'AION', model:'Y Plus', intervalKm:20000, intervalMonths:12, items:[
+      { name:'ตรวจ SOH แบตเตอรี่', partPrice:0, laborPrice:1200 }, { name:'ตรวจ Inverter', partPrice:0, laborPrice:800 },
+      { name:'Software Update', partPrice:0, laborPrice:500 }, { name:'ตรวจช่วงล่าง', partPrice:0, laborPrice:400 },
+    ], notes:'' },
+    { id:'ms6', brand:'OMODA & JAECOO', model:'Omoda 5', intervalKm:10000, intervalMonths:6, items:[
+      { name:'น้ำมันเครื่อง', partPrice:1000, laborPrice:300 }, { name:'ไส้กรองอากาศ', partPrice:300, laborPrice:150 },
+      { name:'ตรวจเบรก', partPrice:0, laborPrice:200 }, { name:'ตรวจแอร์', partPrice:0, laborPrice:250 },
+    ], notes:'' },
+    { id:'ms7', brand:'OMODA & JAECOO', model:'Omoda 5', intervalKm:40000, intervalMonths:24, items:[
+      { name:'เปลี่ยนสายพานไทม์มิ่ง', partPrice:3500, laborPrice:1500 }, { name:'น้ำมันเกียร์', partPrice:1200, laborPrice:400 }, { name:'ตรวจช่วงล่างเต็มระบบ', partPrice:0, laborPrice:1200 },
+    ], notes:'' },
+    { id:'ms8', brand:'SUZUKI', model:'Swift', intervalKm:10000, intervalMonths:6, items:[
+      { name:'น้ำมันเครื่อง', partPrice:800, laborPrice:250 }, { name:'ไส้กรองอากาศ', partPrice:250, laborPrice:100 }, { name:'ตรวจเบรก', partPrice:0, laborPrice:150 },
+    ], notes:'' },
+    { id:'ms9', brand:'NISSAN', model:'Almera', intervalKm:10000, intervalMonths:6, items:[
+      { name:'น้ำมันเครื่อง', partPrice:850, laborPrice:250 }, { name:'ไส้กรองน้ำมัน', partPrice:280, laborPrice:100 },
+      { name:'ตรวจเบรก', partPrice:0, laborPrice:150 }, { name:'ตรวจระบบไฟ', partPrice:0, laborPrice:100 },
+    ], notes:'' },
   ]
   maintenanceSchedules.forEach(m => { if (!demoCol('maintenance_schedules')[m.id]) demoCol('maintenance_schedules')[m.id] = m })
 
