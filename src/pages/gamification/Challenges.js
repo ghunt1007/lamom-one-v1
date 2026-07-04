@@ -5,6 +5,7 @@
 import { formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
 
@@ -15,28 +16,28 @@ const CHALLENGE_TYPES = {
   team:    { label: 'ทีม', color: 'secondary', icon: '🤝' },
 }
 
-const DEMO_CHALLENGES = [
-  { id: 'CH001', name: 'ปิด 5 ดีลภายในสัปดาห์', type: 'sales', reward: '🏆 โบนัส 5,000 บาท', target: 5, participants: [
-    { name: 'วิชัย ยอดขาย', progress: 4 }, { name: 'สุดา มาดี', progress: 3 }, { name: 'ธนา เก่ง', progress: 2 },
-  ], endDate: addDays(3), status: 'active' },
-  { id: 'CH002', name: 'Test Drive 10 ครั้งในเดือนนี้', type: 'lead', reward: '🎖 Badge "Test Drive Master" + 2,000 บาท', target: 10, participants: [
-    { name: 'วิชัย ยอดขาย', progress: 8 }, { name: 'ธนา เก่ง', progress: 10 }, { name: 'สุดา มาดี', progress: 6 },
-  ], endDate: addDays(12), status: 'active' },
-  { id: 'CH003', name: 'CSAT 4.8+ ทั้งสัปดาห์ (ทีมบริการ)', type: 'service', reward: '🍕 เลี้ยงอาหารทีม', target: 1, participants: [
-    { name: 'ทีมบริการ', progress: 1 },
-  ], endDate: addDays(-1), status: 'completed' },
-  { id: 'CH004', name: 'แข่งระหว่างสาขา — ยอดขายรวมสูงสุด', type: 'team', reward: '🏆 ถ้วยรางวัล + ทริปทีม', target: 30, participants: [
-    { name: 'สาขาบางนา', progress: 22 }, { name: 'สาขารามอินทรา', progress: 18 },
-  ], endDate: addDays(20), status: 'active' },
-]
-
 export default async function ChallengesPage(container) {
-  let challenges = DEMO_CHALLENGES.map(c => ({ ...c, participants: c.participants.map(p => ({ ...p })) }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let challenges = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { challenges = await listDocs('gamification_challenges', [], 'endDate', 'asc', 100) } catch (e) { challenges = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const active = challenges.filter(c => c.status === 'active').length
     const completed = challenges.filter(c => c.status === 'completed').length
-    const totalParticipants = new Set(challenges.flatMap(c => c.participants.map(p => p.name))).size
+    const totalParticipants = new Set(challenges.flatMap(c => (c.participants||[]).map(p => p.name))).size
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -61,7 +62,7 @@ export default async function ChallengesPage(container) {
             const ct = CHALLENGE_TYPES[c.type]
             const isDone = c.status === 'completed'
             const daysLeft = Math.ceil((new Date(c.endDate) - new Date()) / 86400000)
-            const sorted = [...c.participants].sort((a, b) => b.progress - a.progress)
+            const sorted = [...(c.participants||[])].sort((a, b) => b.progress - a.progress)
             return `<div class="card" style="padding:14px;border-left:3px solid var(--${ct?.color})${isDone?';opacity:0.7':''}">
               <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
                 <div>
@@ -94,6 +95,7 @@ export default async function ChallengesPage(container) {
               ${!isDone ? `<button class="btn btn-xs btn-secondary update-btn" data-id="${c.id}" style="margin-top:10px">📊 อัปเดตคะแนน</button>` : ''}
             </div>`
           }).join('')}
+          ${!challenges.length ? `<div class="empty-state"><div class="empty-icon">🎯</div><div class="empty-title">ยังไม่มี Challenge</div></div>` : ''}
         </div>
       </div>
     `
@@ -109,20 +111,22 @@ export default async function ChallengesPage(container) {
       title: '📊 อัปเดตคะแนน: ' + c.name,
       size: 'sm',
       body: `<div style="display:grid;gap:10px">
-        ${c.participants.map((p, i) => `
+        ${(c.participants||[]).map((p, i) => `
           <div class="input-group"><label class="input-label">${p.name}</label>
             <input class="input" type="number" min="0" class="prog-input" id="prog-${i}" value="${p.progress}">
           </div>
         `).join('')}
       </div>`,
-      onConfirm() {
-        c.participants.forEach((p, i) => {
+      async onConfirm() {
+        const participants = (c.participants||[]).map((p, i) => {
           const v = parseInt(document.getElementById(`prog-${i}`)?.value)
-          if (!isNaN(v)) p.progress = v
+          return { ...p, progress: isNaN(v) ? p.progress : v }
         })
-        if (c.participants.some(p => p.progress >= c.target)) showToast('🎉 มีผู้พิชิต Challenge แล้ว!', 'success')
+        const status = participants.some(p => p.progress >= c.target) ? 'completed' : c.status
+        await updateDocData('gamification_challenges', c.id, { participants, status })
+        if (participants.some(p => p.progress >= c.target)) showToast('🎉 มีผู้พิชิต Challenge แล้ว!', 'success')
         else showToast('✅ อัปเดตคะแนนแล้ว', 'success')
-        renderPage()
+        await loadData()
       }
     })
   }
@@ -140,16 +144,22 @@ export default async function ChallengesPage(container) {
         <div class="input-group"><label class="input-label">วันสิ้นสุด</label><input class="input" type="date" id="ch-end" value="${addDays(7)}"></div>
         <div class="input-group"><label class="input-label">รางวัล</label><input class="input" id="ch-reward" placeholder="🏆 โบนัส..."></div>
       </div>`,
-      onConfirm() {
+      async onConfirm() {
         const name = document.getElementById('ch-name')?.value?.trim()
-        if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return }
-        challenges.unshift({ id:`CH${String(challenges.length+1).padStart(3,'0')}`, name, type:document.getElementById('ch-type')?.value||'sales', reward:document.getElementById('ch-reward')?.value||'🏆 รางวัล', target:parseInt(document.getElementById('ch-target')?.value)||5, participants:[ {name:'วิชัย ยอดขาย',progress:0},{name:'สุดา มาดี',progress:0},{name:'ธนา เก่ง',progress:0} ], endDate:document.getElementById('ch-end')?.value||addDays(7), status:'active' })
-        showToast('🎯 สร้าง Challenge แล้ว!', 'success'); renderPage()
+        if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return false }
+        await createDoc('gamification_challenges', {
+          name, type: document.getElementById('ch-type')?.value || 'sales',
+          reward: document.getElementById('ch-reward')?.value || '🏆 รางวัล',
+          target: parseInt(document.getElementById('ch-target')?.value) || 5,
+          participants: [ {name:'วิชัย ยอดขาย',progress:0}, {name:'สุดา มาดี',progress:0}, {name:'ธนา เก่ง',progress:0} ],
+          endDate: document.getElementById('ch-end')?.value || addDays(7), status: 'active',
+        })
+        showToast('🎯 สร้าง Challenge แล้ว!', 'success'); await loadData()
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

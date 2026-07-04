@@ -499,6 +499,25 @@ export function seedDemoData() {
   ]
   rewardRedemptions.forEach(r => { if (!demoCol('reward_redemptions')[r.id]) demoCol('reward_redemptions')[r.id] = r })
 
+  // Gamification challenges (หน้า /gamification/challenges) — ภารกิจท้าทายทีม
+  const now = new Date()
+  const addDaysISO = n => { const d = new Date(now); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
+  const gamificationChallenges = [
+    { id:'CH001', name:'ปิด 5 ดีลภายในสัปดาห์', type:'sales', reward:'🏆 โบนัส 5,000 บาท', target:5, participants:[
+      { name:'วิชัย ยอดขาย', progress:4 }, { name:'สุดา มาดี', progress:3 }, { name:'ธนา เก่ง', progress:2 },
+    ], endDate:addDaysISO(3), status:'active' },
+    { id:'CH002', name:'Test Drive 10 ครั้งในเดือนนี้', type:'lead', reward:'🎖 Badge "Test Drive Master" + 2,000 บาท', target:10, participants:[
+      { name:'วิชัย ยอดขาย', progress:8 }, { name:'ธนา เก่ง', progress:10 }, { name:'สุดา มาดี', progress:6 },
+    ], endDate:addDaysISO(12), status:'active' },
+    { id:'CH003', name:'CSAT 4.8+ ทั้งสัปดาห์ (ทีมบริการ)', type:'service', reward:'🍕 เลี้ยงอาหารทีม', target:1, participants:[
+      { name:'ทีมบริการ', progress:1 },
+    ], endDate:addDaysISO(-1), status:'completed' },
+    { id:'CH004', name:'แข่งระหว่างสาขา — ยอดขายรวมสูงสุด', type:'team', reward:'🏆 ถ้วยรางวัล + ทริปทีม', target:30, participants:[
+      { name:'สาขาบางนา', progress:22 }, { name:'สาขารามอินทรา', progress:18 },
+    ], endDate:addDaysISO(20), status:'active' },
+  ]
+  gamificationChallenges.forEach(c => { if (!demoCol('gamification_challenges')[c.id]) demoCol('gamification_challenges')[c.id] = c })
+
   const demoFleet = [
     { id:'df1', brand:'BYD', model:'Seal RWD', vin:'LGXCE4C10PA000006', plate:'กข-0001', color:'เทา Ink', year:2025, mileage:3520, status:'available', condition:'good', lastService:'2025-05-01', notes:'รถทดลองขับหลัก', createdAt:'2025-01-10' },
     { id:'df2', brand:'MG', model:'MG4 X', vin:'SDUZZZEF5PA000020', plate:'กข-0002', color:'แดง', year:2025, mileage:5200, status:'in_use', condition:'good', lastService:'2025-04-15', notes:'ให้ลูกค้า VIP ยืม', createdAt:'2025-01-15' },
