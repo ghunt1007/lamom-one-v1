@@ -518,6 +518,43 @@ export function seedDemoData() {
   ]
   gamificationChallenges.forEach(c => { if (!demoCol('gamification_challenges')[c.id]) demoCol('gamification_challenges')[c.id] = c })
 
+  // Training courses (หน้า /training/courses)
+  const trainingCourses = [
+    { id:'C001', title:'BYD EV Technology Deep Dive', type:'product', instructor:'BYD Thailand',
+      duration:'8 ชั่วโมง', format:'Classroom', maxEnroll:20,
+      startDate:addDaysISO(7), endDate:addDaysISO(7), passScore:80,
+      enrolled:[
+        { name:'อรนุช สายใจ', dept:'ฝ่ายขาย', score:null, status:'enrolled' },
+        { name:'วิชาญ มีโชค', dept:'ฝ่ายขาย', score:null, status:'enrolled' },
+      ],
+      description:'เรียนรู้เทคโนโลยี BYD Blade Battery, EV Powertrain, OTA Update' },
+    { id:'C002', title:'Sales Technique & Negotiation', type:'sales', instructor:'อ.ธีรศักดิ์',
+      duration:'6 ชั่วโมง', format:'Workshop', maxEnroll:15,
+      startDate:addDaysISO(-7), endDate:addDaysISO(-7), passScore:75,
+      enrolled:[
+        { name:'อรนุช สายใจ', dept:'ฝ่ายขาย', score:88, status:'completed' },
+        { name:'วิชาญ มีโชค', dept:'ฝ่ายขาย', score:72, status:'failed' },
+        { name:'สมใจ รักรถ', dept:'ฝ่ายขาย', score:91, status:'completed' },
+      ],
+      description:'เทคนิคปิดการขาย การต่อรอง การจัดการ Objection' },
+    { id:'C003', title:'EV Battery Diagnostics', type:'service', instructor:'ทีมช่าง BYD',
+      duration:'16 ชั่วโมง', format:'Hands-on Lab', maxEnroll:8,
+      startDate:addDaysISO(14), endDate:addDaysISO(15), passScore:85,
+      enrolled:[
+        { name:'วิชาญ ช่างซ่อม', dept:'ศูนย์บริการ', score:null, status:'enrolled' },
+        { name:'วิทยา ช่างไฟ', dept:'ศูนย์บริการ', score:null, status:'enrolled' },
+      ],
+      description:'วิเคราะห์ปัญหาแบตเตอรี่ EV, ใช้ BYD Diagnostic Tool' },
+    { id:'C004', title:'PDPA สำหรับธุรกิจรถยนต์', type:'compliance', instructor:'ที่ปรึกษากฎหมาย',
+      duration:'3 ชั่วโมง', format:'Online', maxEnroll:50,
+      startDate:addDaysISO(-14), endDate:addDaysISO(-14), passScore:70,
+      enrolled:[
+        { name:'ทุกคน', dept:'All', score:85, status:'completed' },
+      ],
+      description:'กฎหมาย PDPA, การจัดเก็บข้อมูลลูกค้า, สิทธิ์ข้อมูลส่วนบุคคล' },
+  ]
+  trainingCourses.forEach(c => { if (!demoCol('training_courses')[c.id]) demoCol('training_courses')[c.id] = c })
+
   const demoFleet = [
     { id:'df1', brand:'BYD', model:'Seal RWD', vin:'LGXCE4C10PA000006', plate:'กข-0001', color:'เทา Ink', year:2025, mileage:3520, status:'available', condition:'good', lastService:'2025-05-01', notes:'รถทดลองขับหลัก', createdAt:'2025-01-10' },
     { id:'df2', brand:'MG', model:'MG4 X', vin:'SDUZZZEF5PA000020', plate:'กข-0002', color:'แดง', year:2025, mileage:5200, status:'in_use', condition:'good', lastService:'2025-04-15', notes:'ให้ลูกค้า VIP ยืม', createdAt:'2025-01-15' },
