@@ -1,4 +1,4 @@
-import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { showToast } from '../../core/store.js'
 import { formatDate, formatCurrency, timeAgo } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
@@ -96,7 +96,7 @@ export default async function JobCardsPage(container) {
 
     document.querySelectorAll('.job-row').forEach(row => {
       row.addEventListener('click', e => {
-        if (e.target.closest('.edit-j,.adv-j')) return
+        if (e.target.closest('.edit-j,.adv-j,.del-j')) return
         openDetail(jobs.find(j => j.id === row.dataset.id))
       })
     })
@@ -112,6 +112,21 @@ export default async function JobCardsPage(container) {
         showToast(`→ ${JOB_STATUS[next]?.label}`, 'success'); updateStats(); applyFilter()
       } catch { showToast('เกิดข้อผิดพลาด','error') }
     }))
+    document.querySelectorAll('.del-j').forEach(btn => btn.addEventListener('click', async e => {
+      e.stopPropagation()
+      const j = jobs.find(x => x.id === btn.dataset.id)
+      if (j) await deleteJob(j)
+    }))
+  }
+
+  async function deleteJob(j) {
+    const ok = await confirmDialog({ title: '🗑️ ลบ Job Card', message: `ยืนยันลบ "${escHtml(j.jobNo)}" — ${escHtml(j.custName)}? การลบนี้ไม่สามารถย้อนกลับได้`, confirmText: 'ลบถาวร', danger: true })
+    if (!ok) return
+    await softDelete('job_cards', j.id)
+    jobs = jobs.filter(x => x.id !== j.id)
+    showToast('🗑️ ลบ Job Card แล้ว', 'success')
+    document.querySelectorAll('.modal-overlay').forEach(m => m.remove())
+    updateStats(); applyFilter()
   }
 
   function tableRow(j) {
@@ -134,8 +149,9 @@ export default async function JobCardsPage(container) {
         <td style="font-size:0.8rem;color:var(--text-2)">${escHtml(j.bay||'-')}</td>
         <td style="font-size:0.8rem;color:var(--text-muted)">${escHtml(j.techName||'-')}</td>
         <td style="font-size:0.75rem;color:var(--text-muted)">${timeAgo(j.createdAt)}</td>
-        <td>
+        <td style="white-space:nowrap">
           ${next ? `<button class="btn btn-primary btn-sm adv-j" data-id="${j.id}" title="เลื่อนสถานะ">→</button>` : '<span style="font-size:0.75rem;color:var(--success)">✅</span>'}
+          <button class="btn btn-ghost btn-xs del-j" data-id="${j.id}" title="ลบ">🗑️</button>
         </td>
       </tr>`
   }
@@ -183,7 +199,8 @@ export default async function JobCardsPage(container) {
         </div>
       `,
       footer: `<button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">ปิด</button>
-               <button class="btn btn-secondary" id="j-edit">✏️ แก้ไข</button>`
+               <button class="btn btn-secondary" id="j-edit">✏️ แก้ไข</button>
+               <button class="btn btn-danger" id="j-delete">🗑️ ลบ</button>`
     })
     document.getElementById('j-advance')?.addEventListener('click', async () => {
       if (!next) return
@@ -194,6 +211,7 @@ export default async function JobCardsPage(container) {
       } catch { showToast('เกิดข้อผิดพลาด','error') }
     })
     document.getElementById('j-edit')?.addEventListener('click', () => { document.querySelector('.modal-overlay')?.remove(); openForm(j) })
+    document.getElementById('j-delete')?.addEventListener('click', () => deleteJob(j))
   }
 
   function openForm(existing = null) {
