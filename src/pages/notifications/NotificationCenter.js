@@ -17,6 +17,7 @@ const NOTIF_TYPES = {
   system:     { icon: '⚙️', color: 'primary', label: 'ระบบ' },
   finance:    { icon: '💳', color: 'success', label: 'การเงิน' },
   expense:    { icon: '🧾', color: 'warning', label: 'ค่าใช้จ่าย' },
+  marketing:  { icon: '🎪', color: 'primary', label: 'แคมเปญ' },
   task:       { icon: '✅', color: 'primary', label: 'งาน' },
   alert:      { icon: '🚨', color: 'danger', label: 'แจ้งเตือน' },
   reminder:   { icon: '⏰', color: 'warning', label: 'เตือนความจำ' },

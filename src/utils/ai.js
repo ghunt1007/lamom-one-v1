@@ -170,6 +170,60 @@ export async function analyzeExpenseReceipt(imageBase64, mimeType = 'image/jpeg'
   return { demo: false, vendor: result.vendor || '', date: result.date || '', amount: Number(result.amount) || 0, category: result.category || 'อื่นๆ', confidence: 95 }
 }
 
+// ── Campaign Bulletin — วิเคราะห์ประกาศแคมเปญส่งเสริมการขายจากรูปภาพ/ข้อความ ────
+const CAMPAIGN_PROMPT = `คุณคือผู้เชี่ยวชาญวิเคราะห์ประกาศแคมเปญส่งเสริมการขายรถยนต์ของไทย
+วิเคราะห์เนื้อหาที่แนบมา (อาจเป็นรูปภาพโปสเตอร์/เอกสาร หรือข้อความ) แล้วดึงแคมเปญทุกรายการที่พบ
+(1 ประกาศอาจมีหลายรุ่น/หลายเงื่อนไข ให้แยกเป็นหลายรายการ)
+
+สำหรับแต่ละรายการ ให้ระบุฟิลด์เหล่านี้ (ใส่ "" หรือ 0 ถ้าไม่มีข้อมูล ห้ามเดา):
+- brand: ยี่ห้อรถ (เช่น "BYD", "MG", "DEEPAL", "NETA")
+- model: รุ่นรถ (ถ้าระบุ "ทุกรุ่น" ถ้าใช้กับทุกรุ่น)
+- title: ชื่อแคมเปญ/หัวข้อประกาศ
+- type: ประเภทจากลิสต์นี้เท่านั้น "discount"(ส่วนลด),"cashback","free_acc"(ของแถม),"free_service"(บริการฟรี),"trade_in","finance"(ดอกเบี้ยพิเศษ)
+- value: มูลค่า/จำนวนเงินของสิทธิประโยชน์ (ตัวเลข บาท)
+- startDate: วันเริ่มแคมเปญ YYYY-MM-DD (แปลง พ.ศ.→ค.ศ. ลบ 543 ถ้าจำเป็น)
+- endDate: วันสิ้นสุดแคมเปญ YYYY-MM-DD
+- conditions: เงื่อนไขสรุปสั้นๆ
+- budget: งบประมาณรวมของแคมเปญถ้าระบุ (ตัวเลข บาท)
+- limit: จำนวนสิทธิ์/คันที่จำกัดถ้าระบุ (ตัวเลข)
+
+ตอบเป็น JSON array เท่านั้น เช่น:
+[{"brand":"BYD","model":"Dolphin","title":"ลดพิเศษปลายปี","type":"discount","value":20000,"startDate":"2026-07-01","endDate":"2026-07-31","conditions":"เฉพาะสีขาว-ดำ","budget":1000000,"limit":50}]
+
+ถ้าอ่านไม่ออกหรือไม่ใช่ประกาศแคมเปญส่งเสริมการขาย ให้ตอบ [] เท่านั้น`
+
+export async function analyzeCampaignAnnouncement({ text = '', imageBase64 = null, mimeType = 'image/jpeg' } = {}) {
+  if (!API_KEY) {
+    return {
+      demo: true,
+      rows: [
+        { brand: 'BYD', model: 'Dolphin', title: 'ตัวอย่าง Demo Mode — ตั้งค่า VITE_GEMINI_API_KEY เพื่อวิเคราะห์จริง', type: 'discount', value: 20000, startDate: new Date().toISOString().slice(0, 10), endDate: '', conditions: '', budget: 0, limit: 0 },
+      ],
+    }
+  }
+  const parts = []
+  if (imageBase64) parts.push({ inlineData: { mimeType, data: imageBase64 } })
+  parts.push({ text: (text ? `ข้อความประกาศ:\n${text}\n\n` : '') + CAMPAIGN_PROMPT })
+
+  const res = await fetch(`${API_URL}?key=${API_KEY}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts }],
+      generationConfig: { maxOutputTokens: 2000, temperature: 0.1 },
+    }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.error?.message || `Gemini Error ${res.status}`)
+  }
+  const data = await res.json()
+  const respText = data.candidates?.[0]?.content?.parts?.filter(p => !p.thought).map(p => p.text || '').join('') || '[]'
+  let rows = []
+  try { rows = JSON.parse(respText.match(/\[[\s\S]*\]/)?.[0] || '[]') } catch { rows = [] }
+  return { demo: false, rows }
+}
+
 export async function generateDailySummary(data) {
   if (!API_KEY) return null
   const prompt = `สรุปประจำวันโชว์รูม:
