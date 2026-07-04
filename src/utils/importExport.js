@@ -66,13 +66,12 @@ export function importFromCSV(file) {
     const reader = new FileReader()
     reader.onload = e => {
       try {
-        const text  = e.target.result
-        const lines = text.replace(/\r/g, '').split('\n').filter(l => l.trim())
-        if (lines.length < 2) { reject(new Error('ไฟล์ว่างหรือไม่มีข้อมูล')); return }
-        const headers = parseCSVLine(lines[0])
-        const rows    = lines.slice(1).map(line => {
-          const vals = parseCSVLine(line)
-          const obj  = {}
+        const text  = e.target.result.replace(/\r\n?/g, '\n')
+        const table = parseCSV(text)
+        if (table.length < 2) { reject(new Error('ไฟล์ว่างหรือไม่มีข้อมูล')); return }
+        const headers = table[0]
+        const rows    = table.slice(1).map(vals => {
+          const obj = {}
           headers.forEach((h, i) => { obj[h.trim()] = vals[i]?.trim() || '' })
           return obj
         }).filter(r => Object.values(r).some(v => v))
@@ -267,19 +266,29 @@ function escapeCSV(val) {
   return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s
 }
 
-function parseCSVLine(line) {
-  const result = []
-  let cur = '', inQuote = false
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i]
+// parseCSV — อ่านทั้งไฟล์เป็น state machine เดียว (ไม่ใช้ split('\n') ก่อน)
+// เพื่อรองรับฟิลด์ที่มีขึ้นบรรทัดใหม่จริงอยู่ภายในเครื่องหมายคำพูด (มาตรฐาน CSV RFC 4180)
+// เช่น ที่อยู่/หมายเหตุหลายบรรทัดที่ export มาจาก Excel — เดิม split บรรทัดก่อน parse
+// ทำให้ฟิลด์แบบนี้ขาดกลางคันกลายเป็น 2 แถวที่ผิดทั้งคู่
+function parseCSV(text) {
+  const rows = []
+  let row = [], cur = '', inQuote = false
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
     if (ch === '"') {
-      if (inQuote && line[i + 1] === '"') { cur += '"'; i++ }
+      if (inQuote && text[i + 1] === '"') { cur += '"'; i++ }
       else inQuote = !inQuote
-    } else if (ch === ',' && !inQuote) { result.push(cur); cur = '' }
-    else cur += ch
+    } else if (ch === ',' && !inQuote) {
+      row.push(cur); cur = ''
+    } else if (ch === '\n' && !inQuote) {
+      row.push(cur); cur = ''
+      rows.push(row); row = []
+    } else {
+      cur += ch
+    }
   }
-  result.push(cur)
-  return result
+  if (cur !== '' || row.length) { row.push(cur); rows.push(row) }
+  return rows.filter(r => r.some(v => v.trim()))
 }
 
 function downloadBlob(blob, filename) {
