@@ -566,6 +566,16 @@ export function seedDemoData() {
   ]
   staffCertifications.forEach(c => { if (!demoCol('staff_certifications')[c.id]) demoCol('staff_certifications')[c.id] = c })
 
+  // Quality incidents (หน้า /quality/incidents)
+  const qualityIncidents = [
+    { id:'INC001', title:'รถลูกค้าถูกขีดข่วนระหว่างล้าง', cat:'vehicle', severity:'major', status:'action', reporter:'หัวหน้าทีมล้างรถ', date:new Date(Date.now()-86400000*2).toISOString(), rootCause:'อุปกรณ์ล้างเก่า มีเศษทราย', action:'เปลี่ยนผ้าไมโครไฟเบอร์ใหม่ทั้งชุด + ชดเชยลูกค้า' },
+    { id:'INC002', title:'ช่างเกือบโดนไฟแรงสูงขณะถอดแบต', cat:'safety', severity:'critical', status:'investigating', reporter:'วิทยา ช่างใหญ่', date:new Date(Date.now()-86400000).toISOString(), rootCause:'', action:'' },
+    { id:'INC003', title:'ส่งใบเสนอราคาผิดอีเมล (ข้อมูลลูกค้ารั่ว)', cat:'data', severity:'major', status:'closed', reporter:'Admin', date:new Date(Date.now()-86400000*10).toISOString(), rootCause:'Autocomplete อีเมลผิด', action:'แจ้งลูกค้าทั้ง 2 ฝ่าย + เพิ่มขั้นตอน double-check' },
+    { id:'INC004', title:'ลิฟต์ยกรถเสียงดังผิดปกติ', cat:'facility', severity:'minor', status:'action', reporter:'มานะ ขยัน', date:new Date(Date.now()-86400000*3).toISOString(), rootCause:'ขาดการหล่อลื่นตามรอบ', action:'เรียกช่างซ่อมบำรุง — นัดพรุ่งนี้' },
+    { id:'INC005', title:'พื้นเปียกหน้าห้องน้ำ ไม่มีป้ายเตือน', cat:'safety', severity:'near_miss', status:'closed', reporter:'สุดา มาดี', date:new Date(Date.now()-86400000*7).toISOString(), rootCause:'แม่บ้านลืมวางป้าย', action:'อบรมซ้ำ + ติดป้ายถาวร' },
+  ]
+  qualityIncidents.forEach(i => { if (!demoCol('quality_incidents')[i.id]) demoCol('quality_incidents')[i.id] = i })
+
   const demoFleet = [
     { id:'df1', brand:'BYD', model:'Seal RWD', vin:'LGXCE4C10PA000006', plate:'กข-0001', color:'เทา Ink', year:2025, mileage:3520, status:'available', condition:'good', lastService:'2025-05-01', notes:'รถทดลองขับหลัก', createdAt:'2025-01-10' },
     { id:'df2', brand:'MG', model:'MG4 X', vin:'SDUZZZEF5PA000020', plate:'กข-0002', color:'แดง', year:2025, mileage:5200, status:'in_use', condition:'good', lastService:'2025-04-15', notes:'ให้ลูกค้า VIP ยืม', createdAt:'2025-01-15' },

@@ -5,12 +5,11 @@
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
-
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString() }
 
 const SEVERITY = {
   critical: { label: 'วิกฤต', color: 'danger', icon: '🔴' },
@@ -34,19 +33,26 @@ const INC_CATS = {
   facility: { label: 'อาคาร/อุปกรณ์', icon: '🏢' },
 }
 
-const DEMO_INCIDENTS = [
-  { id: 'INC001', title: 'รถลูกค้าถูกขีดข่วนระหว่างล้าง', cat: 'vehicle', severity: 'major', status: 'action', reporter: 'หัวหน้าทีมล้างรถ', date: addDays(-2), rootCause: 'อุปกรณ์ล้างเก่า มีเศษทราย', action: 'เปลี่ยนผ้าไมโครไฟเบอร์ใหม่ทั้งชุด + ชดเชยลูกค้า' },
-  { id: 'INC002', title: 'ช่างเกือบโดนไฟแรงสูงขณะถอดแบต', cat: 'safety', severity: 'critical', status: 'investigating', reporter: 'วิทยา ช่างใหญ่', date: addDays(-1), rootCause: '', action: '' },
-  { id: 'INC003', title: 'ส่งใบเสนอราคาผิดอีเมล (ข้อมูลลูกค้ารั่ว)', cat: 'data', severity: 'major', status: 'closed', reporter: 'Admin', date: addDays(-10), rootCause: 'Autocomplete อีเมลผิด', action: 'แจ้งลูกค้าทั้ง 2 ฝ่าย + เพิ่มขั้นตอน double-check' },
-  { id: 'INC004', title: 'ลิฟต์ยกรถเสียงดังผิดปกติ', cat: 'facility', severity: 'minor', status: 'action', reporter: 'มานะ ขยัน', date: addDays(-3), rootCause: 'ขาดการหล่อลื่นตามรอบ', action: 'เรียกช่างซ่อมบำรุง — นัดพรุ่งนี้' },
-  { id: 'INC005', title: 'พื้นเปียกหน้าห้องน้ำ ไม่มีป้ายเตือน', cat: 'safety', severity: 'near_miss', status: 'closed', reporter: 'สุดา มาดี', date: addDays(-7), rootCause: 'แม่บ้านลืมวางป้าย', action: 'อบรมซ้ำ + ติดป้ายถาวร' },
-]
-
 export default async function IncidentReportPage(container) {
-  let incidents = DEMO_INCIDENTS.map(i => ({ ...i }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let incidents = []
   let sevFilter = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { incidents = await listDocs('quality_incidents', [], 'date', 'desc', 300) } catch (e) { incidents = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = incidents.filter(i => sevFilter === 'all' || i.severity === sevFilter)
     const open = incidents.filter(i => i.status !== 'closed').length
     const critical = incidents.filter(i => i.severity === 'critical' && i.status !== 'closed').length
@@ -108,13 +114,15 @@ export default async function IncidentReportPage(container) {
               </div>
             </div>`
           }).join('')}
+          ${!list.length ? `<div class="empty-state"><div class="empty-icon">🚨</div><div class="empty-title">ไม่มีรายงานเหตุการณ์</div></div>` : ''}
         </div>
       </div>
     `
 
     container.querySelectorAll('.sv-btn').forEach(b => b.addEventListener('click', () => { sevFilter = b.dataset.s; renderPage() }))
-    container.querySelectorAll('.investigate-btn').forEach(b => b.addEventListener('click', () => {
-      const i = incidents.find(x => x.id === b.dataset.id); if (i) { i.status = 'investigating'; renderPage() }
+    container.querySelectorAll('.investigate-btn').forEach(b => b.addEventListener('click', async () => {
+      await updateDocData('quality_incidents', b.dataset.id, { status: 'investigating' })
+      await loadData()
     }))
     container.querySelectorAll('.rca-btn').forEach(b => b.addEventListener('click', () => {
       const i = incidents.find(x => x.id === b.dataset.id)
@@ -125,17 +133,18 @@ export default async function IncidentReportPage(container) {
           <div class="input-group"><label class="input-label">สาเหตุที่แท้จริง *</label><input class="input" id="inc-cause"></div>
           <div class="input-group"><label class="input-label">แผนแก้ไข/ป้องกัน *</label><input class="input" id="inc-action"></div>
         </div>`,
-        onConfirm() {
+        async onConfirm() {
           const cause = document.getElementById('inc-cause')?.value?.trim()
           const action = document.getElementById('inc-action')?.value?.trim()
-          if (!cause || !action) { showToast('❗ กรอกให้ครบ', 'error'); return }
-          i.rootCause = cause; i.action = action; i.status = 'action'
-          showToast('📋 บันทึกแล้ว — เริ่มแก้ไข', 'success'); renderPage()
+          if (!cause || !action) { showToast('❗ กรอกให้ครบ', 'error'); return false }
+          await updateDocData('quality_incidents', i.id, { rootCause: cause, action, status: 'action' })
+          showToast('📋 บันทึกแล้ว — เริ่มแก้ไข', 'success'); await loadData()
         }
       })
     }))
-    container.querySelectorAll('.close-btn').forEach(b => b.addEventListener('click', () => {
-      const i = incidents.find(x => x.id === b.dataset.id); if (i) { i.status = 'closed'; showToast('✅ ปิดเคสแล้ว', 'success'); renderPage() }
+    container.querySelectorAll('.close-btn').forEach(b => b.addEventListener('click', async () => {
+      await updateDocData('quality_incidents', b.dataset.id, { status: 'closed' })
+      showToast('✅ ปิดเคสแล้ว', 'success'); await loadData()
     }))
     document.getElementById('report-btn')?.addEventListener('click', () => {
       openModal({
@@ -151,17 +160,22 @@ export default async function IncidentReportPage(container) {
           </div>
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">ผู้รายงาน</label><input class="input" id="inc-reporter"></div>
         </div>`,
-        onConfirm() {
+        async onConfirm() {
           const title = document.getElementById('inc-title')?.value?.trim()
-          if (!title) { showToast('❗ กรุณากรอกเหตุการณ์', 'error'); return }
-          incidents.unshift({ id:`INC${String(incidents.length+1).padStart(3,'0')}`, title, cat:document.getElementById('inc-cat')?.value||'safety', severity:document.getElementById('inc-sev')?.value||'minor', status:'open', reporter:document.getElementById('inc-reporter')?.value||'—', date:new Date().toISOString(), rootCause:'', action:'' })
-          showToast('🚨 บันทึกเหตุการณ์แล้ว', 'warning'); renderPage()
+          if (!title) { showToast('❗ กรุณากรอกเหตุการณ์', 'error'); return false }
+          await createDoc('quality_incidents', {
+            title, cat: document.getElementById('inc-cat')?.value||'safety',
+            severity: document.getElementById('inc-sev')?.value||'minor', status: 'open',
+            reporter: document.getElementById('inc-reporter')?.value||'—',
+            date: new Date().toISOString(), rootCause: '', action: '',
+          })
+          showToast('🚨 บันทึกเหตุการณ์แล้ว', 'warning'); await loadData()
         }
       })
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
