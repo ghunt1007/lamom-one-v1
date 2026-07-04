@@ -28,6 +28,12 @@ export default async function SalesChannelComparisonPage(container) {
   const staffChannel = {}
   staff.forEach(s => { staffChannel[s] = getSalesChannel(s) })
 
+  // ── พารามิเตอร์จำลองแผนการขาย (what-if) — ปรับได้อิสระต่อช่องทาง ──────────────
+  const sim = {
+    showroom: { staffDelta: 0, dealsPerStaffPct: 0, avgDealSizePct: 0 },
+    online:   { staffDelta: 0, dealsPerStaffPct: 0, avgDealSizePct: 0 },
+  }
+
   function channelStats(channel) {
     const staffInChannel = staff.filter(s => staffChannel[s] === channel)
     const deals = sales.filter(s => staffInChannel.includes(s.salesName))
@@ -47,9 +53,26 @@ export default async function SalesChannelComparisonPage(container) {
     }
   }
 
+  // ฉายภาพผลลัพธ์ถ้าปรับพารามิเตอร์จำลอง — ไม่กระทบข้อมูลจริง เป็นการคำนวณชั่วคราวเท่านั้น
+  function projectedStats(channel, base) {
+    const p = sim[channel]
+    const newStaffCount = Math.max(0, base.staffCount + p.staffDelta)
+    const newDealsPerStaff = base.dealsPerStaff * (1 + p.dealsPerStaffPct / 100)
+    const newAvgDealSize = base.avgDealSize * (1 + p.avgDealSizePct / 100)
+    const newDealCount = Math.round(newStaffCount * newDealsPerStaff)
+    const newRevenue = Math.round(newDealCount * newAvgDealSize)
+    return {
+      staffCount: newStaffCount, dealCount: newDealCount, revenue: newRevenue,
+      dealsPerStaff: +newDealsPerStaff.toFixed(1), avgDealSize: Math.round(newAvgDealSize),
+      revenuePerStaff: newStaffCount ? Math.round(newRevenue / newStaffCount) : 0,
+    }
+  }
+
   function render() {
     const showroomStats = channelStats('showroom')
     const onlineStats = channelStats('online')
+    const showroomProj = projectedStats('showroom', showroomStats)
+    const onlineProj = projectedStats('online', onlineStats)
     const noChannelSet = staff.length > 0 && staff.every(s => staffChannel[s] === 'showroom') // ยังไม่มีใครถูกตั้งเป็นออนไลน์เลย
 
     container.innerHTML = `
@@ -94,6 +117,22 @@ export default async function SalesChannelComparisonPage(container) {
             </tbody>
           </table></div>
         </div>
+
+        <div class="card mt-4" style="padding:16px">
+          <div style="font-weight:700;font-size:0.88rem;margin-bottom:4px">🧪 จำลองแผนการขาย (What-if)</div>
+          <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:14px">ปรับสมมติฐานเพื่อดูผลลัพธ์ที่คาดการณ์ — ไม่กระทบข้อมูลจริง เป็นการคำนวณชั่วคราวเพื่อวางแผนเท่านั้น</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            ${simPanel('showroom', showroomStats, showroomProj)}
+            ${simPanel('online', onlineStats, onlineProj)}
+          </div>
+          <div style="margin-top:14px;padding:12px;background:var(--primary-dim);border-radius:8px">
+            <div style="font-size:0.78rem;font-weight:700;color:var(--primary);margin-bottom:6px">📊 สรุปผลจำลองรวมทั้งสองช่องทาง</div>
+            <div style="display:flex;gap:20px;flex-wrap:wrap;font-size:0.8rem">
+              <span>🚗 ดีลรวม: <b>${showroomStats.dealCount + onlineStats.dealCount}</b> → <b style="color:var(--primary)">${showroomProj.dealCount + onlineProj.dealCount}</b></span>
+              <span>💰 รายได้รวม: <b>${formatCurrency(showroomStats.revenue + onlineStats.revenue)}</b> → <b style="color:var(--primary)">${formatCurrency(showroomProj.revenue + onlineProj.revenue)}</b></span>
+            </div>
+          </div>
+        </div>
       </div>
     `
 
@@ -108,6 +147,44 @@ export default async function SalesChannelComparisonPage(container) {
       e.preventDefault()
       navigate('/settings/master-data')
     })
+
+    container.querySelectorAll('.sim-input').forEach(inp => inp.addEventListener('input', () => {
+      const ch = inp.dataset.ch, key = inp.dataset.key
+      sim[ch][key] = Number(inp.value) || 0
+      render()
+    }))
+    container.querySelectorAll('.sim-reset').forEach(btn => btn.addEventListener('click', () => {
+      const ch = btn.dataset.ch
+      sim[ch] = { staffDelta: 0, dealsPerStaffPct: 0, avgDealSizePct: 0 }
+      render()
+    }))
+  }
+
+  function simPanel(channel, base, proj) {
+    const c = CHANNELS[channel]
+    const p = sim[channel]
+    const dealDiff = proj.dealCount - base.dealCount
+    const revDiff = proj.revenue - base.revenue
+    return `<div style="background:var(--surface-2);border-radius:10px;padding:12px">
+      <div style="font-weight:700;font-size:0.82rem;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
+        ${c.label}
+        <button class="btn btn-ghost btn-xs sim-reset" data-ch="${channel}">↩️ รีเซ็ต</button>
+      </div>
+      <div class="input-group" style="margin-bottom:8px"><label class="input-label" style="font-size:0.7rem">➕ เพิ่ม/ลด จำนวนพนักงาน</label>
+        <input class="input sim-input" data-ch="${channel}" data-key="staffDelta" type="number" value="${p.staffDelta}" style="font-size:0.78rem">
+      </div>
+      <div class="input-group" style="margin-bottom:8px"><label class="input-label" style="font-size:0.7rem">📈 ปรับดีล/พนักงาน (%)</label>
+        <input class="input sim-input" data-ch="${channel}" data-key="dealsPerStaffPct" type="number" value="${p.dealsPerStaffPct}" style="font-size:0.78rem">
+      </div>
+      <div class="input-group" style="margin-bottom:10px"><label class="input-label" style="font-size:0.7rem">💵 ปรับมูลค่าดีลเฉลี่ย (%)</label>
+        <input class="input sim-input" data-ch="${channel}" data-key="avgDealSizePct" type="number" value="${p.avgDealSizePct}" style="font-size:0.78rem">
+      </div>
+      <div style="border-top:1px solid var(--border-subtle);padding-top:8px;font-size:0.78rem">
+        <div style="display:flex;justify-content:space-between"><span>พนักงาน</span><b>${base.staffCount} → ${proj.staffCount}</b></div>
+        <div style="display:flex;justify-content:space-between"><span>ดีลคาดการณ์</span><b style="color:${dealDiff>=0?'var(--success)':'var(--danger)'}">${proj.dealCount} (${dealDiff>=0?'+':''}${dealDiff})</b></div>
+        <div style="display:flex;justify-content:space-between"><span>รายได้คาดการณ์</span><b style="color:${revDiff>=0?'var(--success)':'var(--danger)'}">${formatCurrency(proj.revenue)}</b></div>
+      </div>
+    </div>`
   }
 
   function flattenStats(s) {
