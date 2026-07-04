@@ -2,21 +2,13 @@
  * Policy Management — ติดตามกรมธรรม์ประกันภัย แจ้งเตือนต่ออายุ
  * Route: /insurance/policy
  */
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
-
-const POLICIES = [
-  { id:'POL001', plate:'กก 1234 กทม', customer:'คุณวรพจน์ สุขใจ', model:'BYD Atto 3', insurer:'วิริยะประกัน', type:'ชั้น 1', premium:28000, startDate:'2025-06-15', endDate:'2026-06-15', status:'expiring', sum:1549000 },
-  { id:'POL002', plate:'บบ 5678 ชลบุรี', customer:'บริษัท ทรัพย์สิน จก.', model:'MG ZS EV', insurer:'เมืองไทยประกัน', type:'ชั้น 1', premium:32000, startDate:'2025-08-01', endDate:'2026-08-01', status:'active', sum:1099000 },
-  { id:'POL003', plate:'คค 9012 นนทบุรี', customer:'คุณนภา ชื่นดี', model:'BYD Seal AWD', insurer:'AXA', type:'ชั้น 1', premium:35000, startDate:'2025-09-20', endDate:'2026-09-20', status:'active', sum:1399000 },
-  { id:'POL004', plate:'งง 3456 ปทุม', customer:'คุณสมชาย ดีใจ', model:'BYD Dolphin', insurer:'ทิพยประกัน', type:'ชั้น 2+', premium:15000, startDate:'2025-06-01', endDate:'2026-06-01', status:'expired', sum:899000 },
-  { id:'POL005', plate:'จจ 7890 สมุทรปราการ', customer:'คุณพรทิพย์ มั่นคง', model:'MG4 EV', insurer:'กรุงเทพประกัน', type:'ชั้น 1', premium:29000, startDate:'2026-01-15', endDate:'2027-01-15', status:'active', sum:1099000 },
-  { id:'POL006', plate:'ฉฉ 2345 ระยอง', customer:'คุณวิชัย สุดยอด', model:'BYD Atto 3', insurer:'ไทยวิวัฒน์', type:'ชั้น 3+', premium:8000, startDate:'2025-12-01', endDate:'2026-12-01', status:'active', sum:1549000 },
-]
 
 function daysLeft(endDate) {
   return Math.round((new Date(endDate) - new Date()) / 86400000)
@@ -42,28 +34,44 @@ function policyRow(p) {
       '<div style="font-size:0.74rem;font-weight:600">' + escHtml(p.insurer) + '</div>' +
       '<div style="font-size:0.62rem;color:var(--text-muted)">' + escHtml(p.type) + '</div>' +
     '</td>' +
-    '<td style="padding:8px 10px;font-weight:700;font-size:0.8rem;color:var(--success)">฿' + p.premium.toLocaleString() + '</td>' +
+    '<td style="padding:8px 10px;font-weight:700;font-size:0.8rem;color:var(--success)">฿' + (p.premium||0).toLocaleString() + '</td>' +
     '<td style="padding:8px 10px">' +
       '<div style="font-size:0.72rem">' + p.endDate + '</div>' +
       '<div style="font-size:0.64rem;font-weight:700;color:' + daysColor + '">' + daysLabel + '</div>' +
     '</td>' +
     '<td style="padding:8px 10px">' + statusBadge(p.status) + '</td>' +
-    '<td style="padding:8px 10px">' +
-      '<button class="btn btn-sm btn-secondary renew-btn" data-id="' + p.id + '">ต่ออายุ</button>' +
+    '<td style="padding:8px 10px;white-space:nowrap">' +
+      '<button class="btn btn-sm btn-secondary renew-btn" data-id="' + p.id + '">ต่ออายุ</button> ' +
+      '<button class="btn btn-sm btn-ghost del-btn" data-id="' + p.id + '" title="ลบ">🗑️</button>' +
     '</td>' +
   '</tr>'
 }
 
 export default async function PolicyManagementPage(container) {
-  let policies = POLICIES.map(p => ({ ...p }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let policies = []
   let filter = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { policies = await listDocs('policy_renewals', [], 'endDate', 'asc', 500) } catch (e) { policies = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const filtered = filter === 'all' ? policies : policies.filter(p => p.status === filter)
     const active = policies.filter(p => p.status === 'active').length
     const expiring = policies.filter(p => p.status === 'expiring').length
     const expired = policies.filter(p => p.status === 'expired').length
-    const totalPremium = policies.filter(p => p.status !== 'expired').reduce((s, p) => s + p.premium, 0)
+    const totalPremium = policies.filter(p => p.status !== 'expired').reduce((s, p) => s + (p.premium||0), 0)
 
     const filterBtns = [['all','ทั้งหมด'],['active','มีผล'],['expiring','ใกล้หมด'],['expired','หมดอายุ']].map(([k, l]) =>
       '<button class="btn btn-sm ' + (filter === k ? 'btn-primary' : 'btn-secondary') + ' filter-btn" data-f="' + k + '">' + l + '</button>'
@@ -106,6 +114,7 @@ export default async function PolicyManagementPage(container) {
               </thead>
               <tbody>${filtered.map(p => policyRow(p)).join('')}</tbody>
             </table>
+            ${!filtered.length ? '<div class="empty-state" style="padding:32px"><div class="empty-icon">📋</div><div class="empty-title">ไม่มีกรมธรรม์</div></div>' : ''}
           </div>
         </div>
       </div>`
@@ -122,19 +131,28 @@ export default async function PolicyManagementPage(container) {
           '<div style="margin-bottom:8px"><span style="color:var(--text-muted)">รุ่น:</span> ' + escHtml(p.model) + '</div>' +
           '<div style="margin-bottom:8px"><span style="color:var(--text-muted)">บริษัทประกัน:</span> ' + escHtml(p.insurer) + '</div>' +
           '<div style="margin-bottom:8px"><span style="color:var(--text-muted)">ประเภท:</span> ' + escHtml(p.type) + '</div>' +
-          '<div style="margin-bottom:8px"><span style="color:var(--text-muted)">เบี้ยปีที่แล้ว:</span> <span style="font-weight:700;color:var(--success)">฿' + p.premium.toLocaleString() + '</span></div>' +
+          '<div style="margin-bottom:8px"><span style="color:var(--text-muted)">เบี้ยปีที่แล้ว:</span> <span style="font-weight:700;color:var(--success)">฿' + (p.premium||0).toLocaleString() + '</span></div>' +
         '</div>',
         confirmText: 'ยืนยันต่ออายุ',
-        onConfirm: () => {
-          p.status = 'active'
+        onConfirm: async () => {
           const newEnd = new Date(p.endDate)
           newEnd.setFullYear(newEnd.getFullYear() + 1)
-          p.startDate = p.endDate
-          p.endDate = newEnd.toISOString().slice(0, 10)
+          const patch = { status: 'active', startDate: p.endDate, endDate: newEnd.toISOString().slice(0, 10) }
+          await updateDocData('policy_renewals', p.id, patch)
+          Object.assign(p, patch)
           showToast('✅ ต่ออายุกรมธรรม์ ' + p.plate + ' เรียบร้อย', 'success')
           render()
         }
       })
+    }))
+    container.querySelectorAll('.del-btn').forEach(b => b.addEventListener('click', async () => {
+      const p = policies.find(x => x.id === b.dataset.id)
+      if (!p) return
+      const ok = await confirmDialog({ title: '🗑️ ลบกรมธรรม์', message: `ยืนยันลบกรมธรรม์ทะเบียน "${escHtml(p.plate)}" — ${escHtml(p.customer)}?`, confirmText: 'ลบ', danger: true })
+      if (!ok) return
+      await softDelete('policy_renewals', p.id)
+      showToast('🗑️ ลบแล้ว', 'success')
+      await loadData()
     }))
     document.getElementById('add-policy-btn')?.addEventListener('click', openAddPolicyModal)
   }
@@ -178,13 +196,12 @@ export default async function PolicyManagementPage(container) {
         </div>
       `
     })
-    document.getElementById('p-save')?.addEventListener('click', () => {
+    document.getElementById('p-save')?.addEventListener('click', async () => {
       const plate = document.getElementById('p-plate')?.value.trim()
       const customer = document.getElementById('p-customer')?.value.trim()
       const insurer = document.getElementById('p-insurer')?.value.trim()
       if (!plate || !customer || !insurer) { showToast('⚠️ กรุณากรอกข้อมูลที่จำเป็น', 'warning'); return }
-      policies.push({
-        id: 'POL' + String(policies.length + 1).padStart(3,'0'),
+      await createDoc('policy_renewals', {
         plate, customer, insurer,
         model: document.getElementById('p-model')?.value.trim() || 'EV',
         type: document.getElementById('p-type')?.value || 'ชั้น 1',
@@ -196,7 +213,7 @@ export default async function PolicyManagementPage(container) {
       })
       document.querySelector('.modal-overlay')?.remove()
       showToast('✅ เพิ่มกรมธรรม์แล้ว', 'success')
-      render()
+      await loadData()
     })
   }
 
@@ -204,5 +221,5 @@ export default async function PolicyManagementPage(container) {
     return `<div class="card" style="padding:14px 16px"><div style="font-size:0.72rem;color:var(--text-muted)">${l}</div><div style="font-size:1.1rem;font-weight:900;color:${c};margin-top:2px">${v}</div></div>`
   }
 
-  render()
+  await loadData()
 }

@@ -439,6 +439,17 @@ export function seedDemoData() {
   ]
   maintenanceSchedules.forEach(m => { if (!demoCol('maintenance_schedules')[m.id]) demoCol('maintenance_schedules')[m.id] = m })
 
+  // Policy renewals (หน้า /insurance/policy) — แยกจาก insurance_policies (โครงสร้างข้อมูลคนละแบบ ใช้โดยหน้า /insurance)
+  const policyRenewals = [
+    { id:'POL001', plate:'กก 1234 กทม', customer:'คุณวรพจน์ สุขใจ', model:'BYD Atto 3', insurer:'วิริยะประกัน', type:'ชั้น 1', premium:28000, startDate:'2025-06-15', endDate:'2026-06-15', status:'expiring', sum:1549000 },
+    { id:'POL002', plate:'บบ 5678 ชลบุรี', customer:'บริษัท ทรัพย์สิน จก.', model:'MG ZS EV', insurer:'เมืองไทยประกัน', type:'ชั้น 1', premium:32000, startDate:'2025-08-01', endDate:'2026-08-01', status:'active', sum:1099000 },
+    { id:'POL003', plate:'คค 9012 นนทบุรี', customer:'คุณนภา ชื่นดี', model:'BYD Seal AWD', insurer:'AXA', type:'ชั้น 1', premium:35000, startDate:'2025-09-20', endDate:'2026-09-20', status:'active', sum:1399000 },
+    { id:'POL004', plate:'งง 3456 ปทุม', customer:'คุณสมชาย ดีใจ', model:'BYD Dolphin', insurer:'ทิพยประกัน', type:'ชั้น 2+', premium:15000, startDate:'2025-06-01', endDate:'2026-06-01', status:'expired', sum:899000 },
+    { id:'POL005', plate:'จจ 7890 สมุทรปราการ', customer:'คุณพรทิพย์ มั่นคง', model:'MG4 EV', insurer:'กรุงเทพประกัน', type:'ชั้น 1', premium:29000, startDate:'2026-01-15', endDate:'2027-01-15', status:'active', sum:1099000 },
+    { id:'POL006', plate:'ฉฉ 2345 ระยอง', customer:'คุณวิชัย สุดยอด', model:'BYD Atto 3', insurer:'ไทยวิวัฒน์', type:'ชั้น 3+', premium:8000, startDate:'2025-12-01', endDate:'2026-12-01', status:'active', sum:1549000 },
+  ]
+  policyRenewals.forEach(p => { if (!demoCol('policy_renewals')[p.id]) demoCol('policy_renewals')[p.id] = p })
+
   const demoFleet = [
     { id:'df1', brand:'BYD', model:'Seal RWD', vin:'LGXCE4C10PA000006', plate:'กข-0001', color:'เทา Ink', year:2025, mileage:3520, status:'available', condition:'good', lastService:'2025-05-01', notes:'รถทดลองขับหลัก', createdAt:'2025-01-10' },
     { id:'df2', brand:'MG', model:'MG4 X', vin:'SDUZZZEF5PA000020', plate:'กข-0002', color:'แดง', year:2025, mileage:5200, status:'in_use', condition:'good', lastService:'2025-04-15', notes:'ให้ลูกค้า VIP ยืม', createdAt:'2025-01-15' },
