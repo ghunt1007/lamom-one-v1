@@ -3,8 +3,9 @@
  * Route: /hr/loans
  */
 import { formatCurrency, formatDate } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -25,17 +26,25 @@ const LOAN_STATUS = {
   rejected: { label: 'ไม่อนุมัติ', color: 'danger', icon: '❌' },
 }
 
-const DEMO_LOANS = [
-  { id: 'SL001', staff: 'มานะ ขยัน', salary: 18000, type: 'advance', amount: 8000, installments: 1, paidInstallments: 0, status: 'pending', date: addDays(-1), reason: 'ค่าเทอมลูก' },
-  { id: 'SL002', staff: 'ธนา เก่ง', salary: 24000, type: 'emergency', amount: 30000, installments: 6, paidInstallments: 2, status: 'approved', date: addDays(-70), reason: 'ซ่อมบ้านน้ำท่วม' },
-  { id: 'SL003', staff: 'วิทยา ช่างใหญ่', salary: 35000, type: 'education', amount: 60000, installments: 12, paidInstallments: 12, status: 'paid', date: addDays(-400), reason: 'ค่าเทอมมหาวิทยาลัยลูก' },
-  { id: 'SL004', staff: 'สมบัติ ขับดี', salary: 15000, type: 'emergency', amount: 40000, installments: 6, paidInstallments: 0, status: 'rejected', date: addDays(-10), reason: 'เกินวงเงิน (ขอ 2.7 เท่า)' },
-]
-
 export default async function StaffLoanPage(container) {
-  let loans = DEMO_LOANS.map(l => ({ ...l }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let loans = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { loans = await listDocs('staff_loans', [], 'date', 'desc', 300) } catch (e) { loans = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const pending = loans.filter(l => l.status === 'pending')
     const activeLoans = loans.filter(l => l.status === 'approved')
     const outstanding = activeLoans.reduce((a, l) => a + l.amount * (1 - l.paidInstallments / l.installments), 0)
@@ -103,27 +112,42 @@ export default async function StaffLoanPage(container) {
                   <button class="btn btn-xs btn-danger reject-btn" data-id="${l.id}">❌ ไม่อนุมัติ</button>
                 </div>
               ` : ''}
+              <button class="btn btn-xs btn-ghost del-loan-btn" data-id="${l.id}" style="margin-top:6px" title="ลบ">🗑️ ลบ</button>
             </div>`
           }).join('')}
+          ${!loans.length ? `<div class="empty-state"><div class="empty-icon">💸</div><div class="empty-title">ไม่มีคำขอกู้/เบิก</div></div>` : ''}
         </div>
       </div>
     `
 
-    container.querySelectorAll('.approve-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.approve-btn').forEach(b => b.addEventListener('click', async () => {
       const l = loans.find(x => x.id === b.dataset.id)
-      if (l) { l.status = 'approved'; showToast(`✅ อนุมัติ ${formatCurrency(l.amount)} — โอนพร้อมรอบเงินเดือน`, 'success'); renderPage() }
+      if (!l) return
+      await updateDocData('staff_loans', l.id, { status: 'approved' })
+      showToast(`✅ อนุมัติ ${formatCurrency(l.amount)} — โอนพร้อมรอบเงินเดือน`, 'success'); await loadData()
     }))
-    container.querySelectorAll('.reject-btn').forEach(b => b.addEventListener('click', () => {
-      const l = loans.find(x => x.id === b.dataset.id); if (l) { l.status = 'rejected'; renderPage() }
-    }))
-    container.querySelectorAll('.pay-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.reject-btn').forEach(b => b.addEventListener('click', async () => {
       const l = loans.find(x => x.id === b.dataset.id)
-      if (l) {
-        l.paidInstallments++
-        if (l.paidInstallments >= l.installments) { l.status = 'paid'; showToast('🎉 ผ่อนครบแล้ว — ปิดสัญญา', 'success') }
-        else showToast(`💵 หักงวดที่ ${l.paidInstallments} แล้ว`, 'primary')
-        renderPage()
-      }
+      if (!l) return
+      await updateDocData('staff_loans', l.id, { status: 'rejected' })
+      await loadData()
+    }))
+    container.querySelectorAll('.pay-btn').forEach(b => b.addEventListener('click', async () => {
+      const l = loans.find(x => x.id === b.dataset.id)
+      if (!l) return
+      const paidInstallments = l.paidInstallments + 1
+      const status = paidInstallments >= l.installments ? 'paid' : l.status
+      await updateDocData('staff_loans', l.id, { paidInstallments, status })
+      showToast(paidInstallments >= l.installments ? '🎉 ผ่อนครบแล้ว — ปิดสัญญา' : `💵 หักงวดที่ ${paidInstallments} แล้ว`, paidInstallments >= l.installments ? 'success' : 'primary')
+      await loadData()
+    }))
+    container.querySelectorAll('.del-loan-btn').forEach(b => b.addEventListener('click', async () => {
+      const l = loans.find(x => x.id === b.dataset.id)
+      if (!l) return
+      const ok = await confirmDialog({ title: '🗑️ ลบรายการกู้/เบิก', message: `ยืนยันลบรายการของ "${escHtml(l.staff)}" — ${formatCurrency(l.amount)}?`, confirmText: 'ลบ', danger: true })
+      if (!ok) return
+      await softDelete('staff_loans', l.id)
+      showToast('🗑️ ลบแล้ว', 'success'); await loadData()
     }))
     document.getElementById('add-loan-btn')?.addEventListener('click', () => {
       openModal({
@@ -144,24 +168,24 @@ export default async function StaffLoanPage(container) {
           <div class="input-group"><label class="input-label">จำนวนเงิน (บาท) *</label><input class="input" type="number" id="ln-amount"></div>
           <div class="input-group"><label class="input-label">เหตุผล</label><input class="input" id="ln-reason"></div>
         </div>`,
-        onConfirm() {
+        async onConfirm() {
           const sel = document.getElementById('ln-staff')
           const staffName = sel?.value?.split(' (')[0] || '—'
           const salary = parseInt(sel?.selectedOptions[0]?.dataset.sal) || 15000
           const type = document.getElementById('ln-type')?.value || 'advance'
           const amount = parseInt(document.getElementById('ln-amount')?.value) || 0
           const maxAmount = Math.round(salary * LOAN_TYPES[type].maxPct / 100)
-          if (amount <= 0) { showToast('❗ กรอกจำนวนเงิน', 'error'); return }
-          if (amount > maxAmount) { showToast(`❗ เกินวงเงิน — ${LOAN_TYPES[type].label} สูงสุด ${formatCurrency(maxAmount)}`, 'error'); return }
+          if (amount <= 0) { showToast('❗ กรอกจำนวนเงิน', 'error'); return false }
+          if (amount > maxAmount) { showToast(`❗ เกินวงเงิน — ${LOAN_TYPES[type].label} สูงสุด ${formatCurrency(maxAmount)}`, 'error'); return false }
           const installments = type === 'advance' ? 1 : type === 'emergency' ? 6 : 12
-          loans.unshift({ id:`SL${String(loans.length+1).padStart(3,'0')}`, staff:staffName, salary, type, amount, installments, paidInstallments:0, status:'pending', date:addDays(0), reason:document.getElementById('ln-reason')?.value||'—' })
-          showToast('✅ ยื่นคำขอแล้ว — รอผู้จัดการอนุมัติ', 'success'); renderPage()
+          await createDoc('staff_loans', { staff: staffName, salary, type, amount, installments, paidInstallments: 0, status: 'pending', date: addDays(0), reason: document.getElementById('ln-reason')?.value || '—' })
+          showToast('✅ ยื่นคำขอแล้ว — รอผู้จัดการอนุมัติ', 'success'); await loadData()
         }
       })
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

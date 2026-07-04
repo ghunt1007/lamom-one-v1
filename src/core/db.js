@@ -461,6 +461,15 @@ export function seedDemoData() {
   ]
   expenseClaims.forEach(c => { if (!demoCol('expense_claims')[c.id]) demoCol('expense_claims')[c.id] = c })
 
+  // Staff loans (หน้า /hr/loans) — เงินกู้/เบิกล่วงหน้าพนักงาน
+  const staffLoans = [
+    { id:'SL001', staff:'มานะ ขยัน', salary:18000, type:'advance', amount:8000, installments:1, paidInstallments:0, status:'pending', date:'2026-07-03', reason:'ค่าเทอมลูก' },
+    { id:'SL002', staff:'ธนา เก่ง', salary:24000, type:'emergency', amount:30000, installments:6, paidInstallments:2, status:'approved', date:'2026-04-25', reason:'ซ่อมบ้านน้ำท่วม' },
+    { id:'SL003', staff:'วิทยา ช่างใหญ่', salary:35000, type:'education', amount:60000, installments:12, paidInstallments:12, status:'paid', date:'2025-05-30', reason:'ค่าเทอมมหาวิทยาลัยลูก' },
+    { id:'SL004', staff:'สมบัติ ขับดี', salary:15000, type:'emergency', amount:40000, installments:6, paidInstallments:0, status:'rejected', date:'2026-06-24', reason:'เกินวงเงิน (ขอ 2.7 เท่า)' },
+  ]
+  staffLoans.forEach(l => { if (!demoCol('staff_loans')[l.id]) demoCol('staff_loans')[l.id] = l })
+
   const demoFleet = [
     { id:'df1', brand:'BYD', model:'Seal RWD', vin:'LGXCE4C10PA000006', plate:'กข-0001', color:'เทา Ink', year:2025, mileage:3520, status:'available', condition:'good', lastService:'2025-05-01', notes:'รถทดลองขับหลัก', createdAt:'2025-01-10' },
     { id:'df2', brand:'MG', model:'MG4 X', vin:'SDUZZZEF5PA000020', plate:'กข-0002', color:'แดง', year:2025, mileage:5200, status:'in_use', condition:'good', lastService:'2025-04-15', notes:'ให้ลูกค้า VIP ยืม', createdAt:'2025-01-15' },
