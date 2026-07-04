@@ -3,10 +3,10 @@
  * Route: /hr/documents
  */
 import { formatDate, timeAgo } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState, setState } from '../../core/store.js'
-import { listDocs, createDoc, updateDocData } from '../../core/db.js'
-import { uploadFile } from '../../utils/storage.js'
+import { listDocs, createDoc, updateDocData, softDelete } from '../../core/db.js'
+import { uploadFile, deleteFile } from '../../utils/storage.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -123,6 +123,7 @@ export default async function StaffDocumentsPage(container) {
                   <td style="padding:8px 14px;text-align:right;white-space:nowrap">
                     ${d.fileUrl ? `<button class="btn btn-xs btn-secondary view-btn" data-id="${d.id}" title="เปิดไฟล์">⬇️</button>` : `<button class="btn btn-xs btn-secondary" disabled title="ยังไม่มีไฟล์แนบ" style="opacity:.4">⬇️</button>`}
                     ${es === 'expired' || es === 'expiring' ? `<button class="btn btn-xs btn-primary renew-btn" data-id="${d.id}">🔄 ต่ออายุ</button>` : ''}
+                    <button class="btn btn-xs btn-secondary del-btn" data-id="${d.id}" title="ลบ" style="color:var(--danger)">🗑</button>
                   </td>
                 </tr>`
               }).join('')}
@@ -151,6 +152,16 @@ export default async function StaffDocumentsPage(container) {
       d.expiry = addDays(365); d.uploaded = addDays(0)
       if (d._persisted) { try { await updateDocData('staff_documents', d.id, { expiry: d.expiry, uploaded: d.uploaded }) } catch {} }
       showToast('🔄 ต่ออายุเอกสารแล้ว (+1 ปี)', 'success'); renderPage()
+    }))
+    container.querySelectorAll('.del-btn').forEach(b => b.addEventListener('click', async () => {
+      const d = docs.find(x => x.id === b.dataset.id)
+      if (!d) return
+      const ok = await confirmDialog({ title: 'ลบเอกสาร', message: `ลบ "${d.name}" ของ ${d.staff}?`, confirmText: 'ลบ', danger: true })
+      if (!ok) return
+      if (d.fileKey) await deleteFile(d.fileKey).catch(() => {})
+      if (d._persisted) { try { await softDelete('staff_documents', d.id) } catch {} }
+      docs = docs.filter(x => x.id !== d.id)
+      showToast('🗑 ลบเอกสารแล้ว', 'success'); renderPage()
     }))
     document.getElementById('upload-btn')?.addEventListener('click', openUploadForm)
   }
@@ -188,12 +199,12 @@ export default async function StaffDocumentsPage(container) {
       const file = el.querySelector('#doc-file')?.files?.[0]
 
       const btn = el.querySelector('#doc-s'); btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span> กำลังอัปโหลด...'
-      let fileUrl = ''
+      let fileUrl = '', fileKey = ''
       if (file) {
-        try { const up = await uploadFile(file, 'staff/' + staff.replace(/\W+/g, '')); fileUrl = up.url }
+        try { const up = await uploadFile(file, 'staff/' + staff.replace(/\W+/g, '')); fileUrl = up.url; fileKey = up.key }
         catch (e) { showToast(`⚠️ อัปโหลดไฟล์ไม่สำเร็จ (${e.message || 'ไม่ทราบสาเหตุ'}) — บันทึกข้อมูลไว้ก่อนได้`, 'warning') }
       }
-      const data = { staff, type, name, uploaded: addDays(0), expiry, verified: false, fileUrl }
+      const data = { staff, type, name, uploaded: addDays(0), expiry, verified: false, fileUrl, fileKey }
       try {
         const id = await createDoc('staff_documents', data)
         docs.unshift({ id, ...data, _persisted: true })

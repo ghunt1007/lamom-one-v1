@@ -3,10 +3,10 @@
  * Route: /hr/expense-ocr
  */
 import { formatCurrency, formatDate } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState, setState } from '../../core/store.js'
-import { listDocs, createDoc, updateDocData } from '../../core/db.js'
-import { uploadFile } from '../../utils/storage.js'
+import { listDocs, createDoc, updateDocData, softDelete } from '../../core/db.js'
+import { uploadFile, deleteFile } from '../../utils/storage.js'
 import { analyzeExpenseReceipt } from '../../utils/ai.js'
 
 let RECEIPTS = [
@@ -97,6 +97,16 @@ export default async function ExpenseOcrPage(container) {
       if (r._persisted) updateDocData('expense_receipts', r.id, { status: 'rejected', note: r.note }).catch(() => {})
       render(); showToast(`❌ ปฏิเสธใบเสร็จ ${r.vendor}`, 'warning')
     }))
+    container.querySelectorAll('.del-receipt-btn').forEach(b => b.addEventListener('click', async () => {
+      const r = RECEIPTS.find(x=>x.id===b.dataset.id)
+      if (!r) return
+      const ok = await confirmDialog({ title: 'ลบใบเสร็จ', message: `ลบใบเสร็จ ${r.vendor} (${formatCurrency(r.amount)})?`, confirmText: 'ลบ', danger: true })
+      if (!ok) return
+      if (r.imageKey) await deleteFile(r.imageKey).catch(() => {})
+      if (r._persisted) { try { await softDelete('expense_receipts', r.id) } catch {} }
+      RECEIPTS = RECEIPTS.filter(x => x.id !== r.id)
+      render(); showToast('🗑 ลบใบเสร็จแล้ว', 'success')
+    }))
     container.querySelectorAll('.detail-btn').forEach(b => b.addEventListener('click', () => {
       const r = RECEIPTS.find(x=>x.id===b.dataset.id)
       if (r) openDetailModal(r)
@@ -133,6 +143,7 @@ export default async function ExpenseOcrPage(container) {
               ${r.status==='pending' ? `
                 <button class="btn btn-xs btn-primary approve-btn" data-id="${r.id}">✅ อนุมัติ</button>
                 <button class="btn btn-xs btn-secondary reject-btn" data-id="${r.id}" style="color:var(--danger)">✕ ปฏิเสธ</button>` : ''}
+              <button class="btn btn-xs btn-secondary del-receipt-btn" data-id="${r.id}" title="ลบใบเสร็จ" style="color:var(--danger);margin-left:auto">🗑</button>
             </div>
           </div>
         </div>
@@ -200,7 +211,7 @@ export default async function ExpenseOcrPage(container) {
           staff: me.displayName || me.email || 'ผู้ใช้ปัจจุบัน', dept: '—',
           date: ocr.date || new Date().toISOString().slice(0, 10),
           vendor: ocr.vendor || 'ไม่ทราบชื่อร้าน', amount: ocr.amount || 0, cat: ocr.category || 'อื่นๆ',
-          status: 'pending', note: '', confidence: ocr.confidence || 90, imageUrl: up.url || '',
+          status: 'pending', note: '', confidence: ocr.confidence || 90, imageUrl: up.url || '', imageKey: up.key || '',
         }
         try {
           const id = await createDoc('expense_receipts', data)

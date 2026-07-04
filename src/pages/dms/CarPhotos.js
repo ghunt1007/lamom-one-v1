@@ -3,10 +3,10 @@
  * Route: /dms/photos
  */
 import { timeAgo } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData } from '../../core/db.js'
-import { uploadFile } from '../../utils/storage.js'
+import { uploadFile, deleteFile } from '../../utils/storage.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -17,16 +17,16 @@ function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d
 const PHOTO_ANGLES = ['หน้าตรง', 'หน้าเฉียงซ้าย', 'หน้าเฉียงขวา', 'ข้างซ้าย', 'ข้างขวา', 'หลังตรง', 'ภายใน-คอนโซล', 'ภายใน-เบาะหน้า', 'ภายใน-เบาะหลัง', 'ห้องเก็บของ', 'ล้อ/แม็กซ์', 'จอ/ระบบ Infotainment']
 
 const DEMO_CARS = [
-  { id: 'CP01', model: 'BYD Dolphin สีน้ำเงิน', vin: '...1122', photos: 12, photoUrls: {}, posted: { fb: true, line: true, web: true }, lastShoot: addDays(-5), _persisted: false },
-  { id: 'CP02', model: 'BYD Atto 3 สีขาว', vin: '...3344', photos: 8, photoUrls: {}, posted: { fb: true, line: false, web: true }, lastShoot: addDays(-10), _persisted: false },
-  { id: 'CP03', model: 'BYD Seal AWD สีดำ', vin: '...5566', photos: 0, photoUrls: {}, posted: { fb: false, line: false, web: false }, lastShoot: null, _persisted: false },
-  { id: 'CP04', model: 'MG4 Electric สีแดง', vin: '...7788', photos: 12, photoUrls: {}, posted: { fb: true, line: true, web: false }, lastShoot: addDays(-2), _persisted: false },
-  { id: 'CP05', model: 'BYD Han สีขาว', vin: '...9900', photos: 5, photoUrls: {}, posted: { fb: false, line: false, web: false }, lastShoot: addDays(-20), _persisted: false },
+  { id: 'CP01', model: 'BYD Dolphin สีน้ำเงิน', vin: '...1122', photos: 12, photoUrls: {}, photoKeys: {}, posted: { fb: true, line: true, web: true }, lastShoot: addDays(-5), _persisted: false },
+  { id: 'CP02', model: 'BYD Atto 3 สีขาว', vin: '...3344', photos: 8, photoUrls: {}, photoKeys: {}, posted: { fb: true, line: false, web: true }, lastShoot: addDays(-10), _persisted: false },
+  { id: 'CP03', model: 'BYD Seal AWD สีดำ', vin: '...5566', photos: 0, photoUrls: {}, photoKeys: {}, posted: { fb: false, line: false, web: false }, lastShoot: null, _persisted: false },
+  { id: 'CP04', model: 'MG4 Electric สีแดง', vin: '...7788', photos: 12, photoUrls: {}, photoKeys: {}, posted: { fb: true, line: true, web: false }, lastShoot: addDays(-2), _persisted: false },
+  { id: 'CP05', model: 'BYD Han สีขาว', vin: '...9900', photos: 5, photoUrls: {}, photoKeys: {}, posted: { fb: false, line: false, web: false }, lastShoot: addDays(-20), _persisted: false },
 ]
 
 export default async function CarPhotosPage(container) {
   const myGen = container.__routerGen
-  let cars = DEMO_CARS.map(c => ({ ...c, posted: { ...c.posted }, photoUrls: { ...c.photoUrls } }))
+  let cars = DEMO_CARS.map(c => ({ ...c, posted: { ...c.posted }, photoUrls: { ...c.photoUrls }, photoKeys: { ...c.photoKeys } }))
   let dataSource = 'demo'
 
   try {
@@ -39,11 +39,12 @@ export default async function CarPhotosPage(container) {
         vin: d.vin || '',
         photos: d.photos || 0,
         photoUrls: d.photoUrls || {},
+        photoKeys: d.photoKeys || {},
         posted: { fb: d.posted?.fb || false, line: d.posted?.line || false, web: d.posted?.web || false },
         lastShoot: d.lastShoot || null,
         _persisted: true,
       }))
-      cars = [...mapped, ...DEMO_CARS.map(c => ({ ...c, posted: { ...c.posted }, photoUrls: { ...c.photoUrls } }))]
+      cars = [...mapped, ...DEMO_CARS.map(c => ({ ...c, posted: { ...c.posted }, photoUrls: { ...c.photoUrls }, photoKeys: { ...c.photoKeys } }))]
       dataSource = 'live'
     }
   } catch {}
@@ -124,7 +125,7 @@ export default async function CarPhotosPage(container) {
   }
 
   async function persistCar(c) {
-    const data = { model: c.model, vin: c.vin, photos: c.photos, photoUrls: c.photoUrls, posted: c.posted, lastShoot: c.lastShoot }
+    const data = { model: c.model, vin: c.vin, photos: c.photos, photoUrls: c.photoUrls, photoKeys: c.photoKeys, posted: c.posted, lastShoot: c.lastShoot }
     try {
       if (c._persisted) { await updateDocData('car_photos', c.id, data) }
       else { const id = await createDoc('car_photos', data); c.id = id; c._persisted = true }
@@ -146,7 +147,8 @@ export default async function CarPhotosPage(container) {
     return `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
         ${PHOTO_ANGLES.map((a, i) => {
           const url = c.photoUrls[a]
-          return `<div class="shoot-slot" data-angle="${escHtml(a)}" style="padding:8px;background:var(--surface-2);border-radius:var(--radius-sm);text-align:center;border:2px solid ${url ? 'var(--success)' : 'var(--border)'};cursor:pointer;overflow:hidden">
+          return `<div class="shoot-slot" data-angle="${escHtml(a)}" style="position:relative;padding:8px;background:var(--surface-2);border-radius:var(--radius-sm);text-align:center;border:2px solid ${url ? 'var(--success)' : 'var(--border)'};cursor:pointer;overflow:hidden">
+            ${url ? `<button class="btn btn-xs remove-slot-btn" data-angle="${escHtml(a)}" title="ลบรูปนี้" style="position:absolute;top:2px;right:2px;padding:1px 5px;font-size:0.6rem;color:var(--danger);background:var(--surface);border-radius:50%;z-index:1">✕</button>` : ''}
             ${url
               ? `<img src="${escHtml(url)}" style="width:100%;height:44px;object-fit:cover;border-radius:4px;margin-bottom:2px">`
               : `<div style="font-size:1.2rem">📷</div>`}
@@ -154,10 +156,26 @@ export default async function CarPhotosPage(container) {
           </div>`
         }).join('')}
       </div>
-      <p style="font-size:0.7rem;color:var(--text-muted);margin-top:10px">💡 คลิกช่องเพื่ออัปโหลดรูปแต่ละมุม · ถ่ายตอนเช้า/เย็นแสงสวย · เช็ดรถก่อนถ่าย · พื้นหลังโล่ง</p>`
+      <p style="font-size:0.7rem;color:var(--text-muted);margin-top:10px">💡 คลิกช่องเพื่ออัปโหลดรูปแต่ละมุม (มีรูปแล้วคลิกใหม่จะเปลี่ยนรูป) · กด ✕ เพื่อลบรูป · ถ่ายตอนเช้า/เย็นแสงสวย · เช็ดรถก่อนถ่าย · พื้นหลังโล่ง</p>`
   }
 
   function bindShootSlots(el, c) {
+    el.querySelectorAll('.remove-slot-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation()
+        const angle = btn.dataset.angle
+        const ok = await confirmDialog({ title: 'ลบรูป', message: `ลบรูปมุม "${angle}"?`, confirmText: 'ลบ', danger: true })
+        if (!ok) return
+        const key = c.photoKeys[angle]
+        if (key) await deleteFile(key).catch(() => {})
+        delete c.photoUrls[angle]; delete c.photoKeys[angle]
+        c.photos = PHOTO_ANGLES.filter(a => c.photoUrls[a]).length
+        await persistCar(c)
+        el.querySelector('.modal-body').innerHTML = shootBody(c)
+        bindShootSlots(el, c)
+        showToast(`🗑 ลบรูป "${angle}" แล้ว (${c.photos}/12)`, 'success')
+      })
+    })
     el.querySelectorAll('.shoot-slot').forEach(slot => {
       slot.addEventListener('click', () => {
         const angle = slot.dataset.angle
@@ -169,8 +187,11 @@ export default async function CarPhotosPage(container) {
           if (!file) return
           slot.style.opacity = '0.5'
           try {
+            const oldKey = c.photoKeys[angle]
             const up = await uploadFile(file, 'vehicles/' + (c.vin || c.id).replace(/\W+/g, ''))
+            if (oldKey) deleteFile(oldKey).catch(() => {}) // แทนที่รูปเดิม — ลบไฟล์เก่าทิ้งแบบ best-effort
             c.photoUrls[angle] = up.url
+            c.photoKeys[angle] = up.key
             c.photos = PHOTO_ANGLES.filter(a => c.photoUrls[a]).length
             c.lastShoot = new Date().toISOString()
             await persistCar(c)
