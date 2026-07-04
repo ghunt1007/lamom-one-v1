@@ -11,8 +11,11 @@
 const ALLOWED_TYPES = [
   'image/jpeg', 'image/png', 'image/webp', 'image/gif',
   'application/pdf',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+  'application/msword', // .doc (เอกสารเก่า)
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+  'application/vnd.ms-excel', // .xls (เอกสารเก่า)
+  'text/csv',
   'video/mp4',
 ]
 const MAX_SIZE = 50 * 1024 * 1024 // 50 MB

@@ -31,6 +31,8 @@ function fileIcon(name) {
   return '📄'
 }
 
+const MAX_UPLOAD_SIZE = 50 * 1024 * 1024 // ตรงกับ MAX_SIZE ใน workers/r2-upload.js
+
 function formatBytes(n) {
   if (!n) return '-'
   const units = ['B', 'KB', 'MB', 'GB']
@@ -185,6 +187,12 @@ export default async function FileLibraryPage(container) {
       const linkedBooking = el.querySelector('#fu-booking').value.trim()
       const note = el.querySelector('#fu-note').value.trim()
 
+      const oversized = selected.filter(f => f.size > MAX_UPLOAD_SIZE)
+      if (oversized.length) {
+        el.querySelector('#fu-file-e').textContent = `⚠️ ${oversized.map(f => f.name).join(', ')} ใหญ่เกิน 50MB`
+        return
+      }
+
       const btn = el.querySelector('#fu-s'); btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span> กำลังอัปโหลด...'
       let okCount = 0
       for (const file of selected) {
@@ -197,7 +205,7 @@ export default async function FileLibraryPage(container) {
             uploadedAt: new Date().toISOString(),
           })
           okCount++
-        } catch (e) { showToast(`❗ อัปโหลด ${file.name} ไม่สำเร็จ`, 'error') }
+        } catch (e) { showToast(`❗ ${file.name}: ${e.message || 'อัปโหลดไม่สำเร็จ'}`, 'error') }
       }
       close()
       if (okCount) { showToast(`✅ อัปโหลดสำเร็จ ${okCount}/${selected.length} ไฟล์`, 'success'); await loadData() }
