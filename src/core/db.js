@@ -450,6 +450,17 @@ export function seedDemoData() {
   ]
   policyRenewals.forEach(p => { if (!demoCol('policy_renewals')[p.id]) demoCol('policy_renewals')[p.id] = p })
 
+  // Expense claims (หน้า /hr/expense-claims) — การเบิกค่าใช้จ่ายพนักงาน
+  const expenseClaims = [
+    { id:'EX001', staffName:'วิชาญ มีโชค', dept:'sales', cat:'fuel', desc:'น้ำมันเยี่ยมลูกค้า ชลบุรี', amount:850, date:'2026-06-05', status:'approved', approvedBy:'ผู้จัดการ', paidDate:null, receipt:true },
+    { id:'EX002', staffName:'อรนุช สายใจ', dept:'sales', cat:'meals', desc:'ค่าอาหารลูกค้า 3 คน', amount:1200, date:'2026-06-06', status:'pending', approvedBy:null, paidDate:null, receipt:true },
+    { id:'EX003', staffName:'ธีรยุทธ เก่งกาจ', dept:'service', cat:'transport', desc:'BTS/MRT ไปอบรม', amount:180, date:'2026-06-07', status:'approved', approvedBy:'ผู้จัดการ', paidDate:null, receipt:false },
+    { id:'EX004', staffName:'นภา จิตดี', dept:'admin', cat:'office', desc:'กระดาษ A4 + ปากกา', amount:450, date:'2026-06-08', status:'paid', approvedBy:'ผู้จัดการ', paidDate:'2026-06-09', receipt:true },
+    { id:'EX005', staffName:'วิชาญ มีโชค', dept:'sales', cat:'marketing', desc:'พิมพ์โบรชัวร์ 100 แผ่น', amount:3500, date:'2026-06-09', status:'pending', approvedBy:null, paidDate:null, receipt:true },
+    { id:'EX006', staffName:'พิมพ์ใจ ตั้งมั่น', dept:'service', cat:'phone', desc:'ค่าโทรศัพท์ มิ.ย.', amount:299, date:'2026-06-01', status:'rejected', approvedBy:'ผู้จัดการ', paidDate:null, receipt:false, rejectReason:'เกินวงเงิน' },
+  ]
+  expenseClaims.forEach(c => { if (!demoCol('expense_claims')[c.id]) demoCol('expense_claims')[c.id] = c })
+
   const demoFleet = [
     { id:'df1', brand:'BYD', model:'Seal RWD', vin:'LGXCE4C10PA000006', plate:'กข-0001', color:'เทา Ink', year:2025, mileage:3520, status:'available', condition:'good', lastService:'2025-05-01', notes:'รถทดลองขับหลัก', createdAt:'2025-01-10' },
     { id:'df2', brand:'MG', model:'MG4 X', vin:'SDUZZZEF5PA000020', plate:'กข-0002', color:'แดง', year:2025, mileage:5200, status:'in_use', condition:'good', lastService:'2025-04-15', notes:'ให้ลูกค้า VIP ยืม', createdAt:'2025-01-15' },

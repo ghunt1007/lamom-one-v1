@@ -1,7 +1,8 @@
 import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState, setState } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -25,26 +26,28 @@ const CLAIM_STATUS = {
   rejected: { label: 'ไม่อนุมัติ', color: 'danger' },
 }
 
-const DEMO_CLAIMS = [
-  { id:'EX001', staffName:'วิชาญ มีโชค', dept:'sales', cat:'fuel', desc:'น้ำมันเยี่ยมลูกค้า ชลบุรี', amount:850, date:'2025-06-05', status:'approved', approvedBy:'ผู้จัดการ', paidDate:null, receipt:true },
-  { id:'EX002', staffName:'อรนุช สายใจ', dept:'sales', cat:'meals', desc:'ค่าอาหารลูกค้า 3 คน', amount:1200, date:'2025-06-06', status:'pending', approvedBy:null, paidDate:null, receipt:true },
-  { id:'EX003', staffName:'ธีรยุทธ เก่งกาจ', dept:'service', cat:'transport', desc:'BTS/MRT ไปอบรม', amount:180, date:'2025-06-07', status:'approved', approvedBy:'ผู้จัดการ', paidDate:null, receipt:false },
-  { id:'EX004', staffName:'นภา จิตดี', dept:'admin', cat:'office', desc:'กระดาษ A4 + ปากกา', amount:450, date:'2025-06-08', status:'paid', approvedBy:'ผู้จัดการ', paidDate:'2025-06-09', receipt:true },
-  { id:'EX005', staffName:'วิชาญ มีโชค', dept:'sales', cat:'marketing', desc:'พิมพ์โบรชัวร์ 100 แผ่น', amount:3500, date:'2025-06-09', status:'pending', approvedBy:null, paidDate:null, receipt:true },
-  { id:'EX006', staffName:'พิมพ์ใจ ตั้งมั่น', dept:'service', cat:'phone', desc:'ค่าโทรศัพท์ มิ.ย.', amount:299, date:'2025-06-01', status:'rejected', approvedBy:'ผู้จัดการ', paidDate:null, receipt:false, rejectReason:'เกินวงเงิน' },
-]
-
 export default async function ExpenseClaimsPage(container) {
-  let claims = DEMO_CLAIMS.map(c => ({ ...c }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let claims = []
   let statusFilter = 'all'
   let deptFilter = 'all'
   let tab = 'claims' // claims | summary
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { claims = await listDocs('expense_claims', [], 'date', 'desc', 500) } catch (e) { claims = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function getFiltered() {
     let list = claims
     if (statusFilter !== 'all') list = list.filter(c => c.status === statusFilter)
     if (deptFilter !== 'all') list = list.filter(c => c.dept === deptFilter)
-    return list.sort((a, b) => b.date.localeCompare(a.date))
+    return list
   }
 
   function getSummary() {
@@ -57,6 +60,10 @@ export default async function ExpenseClaimsPage(container) {
   }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const s = getSummary()
     const filtered = getFiltered()
 
@@ -97,23 +104,51 @@ export default async function ExpenseClaimsPage(container) {
     document.querySelectorAll('.sf-btn').forEach(b => b.addEventListener('click', () => { statusFilter = b.dataset.s; renderPage() }))
     document.querySelectorAll('.df-btn').forEach(b => b.addEventListener('click', () => { deptFilter = b.dataset.d; renderPage() }))
     document.querySelectorAll('.approve-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const c = claims.find(x => x.id === btn.dataset.id)
-        if (c) { c.status = 'approved'; c.approvedBy = 'ผู้จัดการ'; showToast('✅ อนุมัติแล้ว', 'success'); renderPage() }
+        if (!c) return
+        await updateDocData('expense_claims', c.id, { status: 'approved', approvedBy: 'ผู้จัดการ' })
+        await notify(c, 'อนุมัติคำขอเบิกค่าใช้จ่ายแล้ว')
+        showToast('✅ อนุมัติแล้ว', 'success'); await loadData()
       })
     })
     document.querySelectorAll('.reject-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const c = claims.find(x => x.id === btn.dataset.id)
-        if (c) { c.status = 'rejected'; c.rejectReason = 'ไม่อนุมัติ'; showToast('❌ ไม่อนุมัติ', 'danger'); renderPage() }
+        if (!c) return
+        await updateDocData('expense_claims', c.id, { status: 'rejected', rejectReason: 'ไม่อนุมัติ' })
+        await notify(c, 'ไม่อนุมัติคำขอเบิกค่าใช้จ่าย')
+        showToast('❌ ไม่อนุมัติ', 'danger'); await loadData()
       })
     })
     document.querySelectorAll('.pay-claim-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const c = claims.find(x => x.id === btn.dataset.id)
-        if (c) { c.status = 'paid'; c.paidDate = new Date().toISOString().slice(0,10); showToast('💳 จ่ายแล้ว', 'success'); renderPage() }
+        if (!c) return
+        await updateDocData('expense_claims', c.id, { status: 'paid', paidDate: new Date().toISOString().slice(0,10) })
+        showToast('💳 จ่ายแล้ว', 'success'); await loadData()
       })
     })
+    document.querySelectorAll('.del-claim-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const c = claims.find(x => x.id === btn.dataset.id)
+        if (!c) return
+        const ok = await confirmDialog({ title: '🗑️ ลบรายการเบิก', message: `ยืนยันลบรายการเบิกของ "${escHtml(c.staffName)}" — ${escHtml(c.desc)}?`, confirmText: 'ลบ', danger: true })
+        if (!ok) return
+        await softDelete('expense_claims', c.id)
+        showToast('🗑️ ลบแล้ว', 'success'); await loadData()
+      })
+    })
+  }
+
+  async function notify(c, title) {
+    try {
+      await createDoc('notifications', {
+        type: 'finance', title, body: `${c.staffName} — ${c.desc} (${formatCurrency(c.amount)})`,
+        read: false, link: '/hr/expense', createdAt: new Date().toISOString(),
+      })
+      setState('unreadCount', (getState('unreadCount') || 0) + 1)
+    } catch { /* แจ้งเตือนพลาดได้ ไม่กระทบสถานะที่บันทึกไปแล้ว */ }
   }
 
   function renderClaims(filtered) {
@@ -145,6 +180,7 @@ export default async function ExpenseClaimsPage(container) {
                   <div style="display:flex;gap:4px">
                     ${c.status === 'pending' ? `<button class="btn btn-xs btn-success approve-btn" data-id="${c.id}">อนุมัติ</button><button class="btn btn-xs btn-danger reject-btn" data-id="${c.id}">ปฏิเสธ</button>` : ''}
                     ${c.status === 'approved' ? `<button class="btn btn-xs btn-primary pay-claim-btn" data-id="${c.id}">จ่าย</button>` : ''}
+                    <button class="btn btn-xs btn-ghost del-claim-btn" data-id="${c.id}" title="ลบ">🗑️</button>
                   </div>
                 </td>
               </tr>`
@@ -206,23 +242,23 @@ export default async function ExpenseClaimsPage(container) {
       footer: `<button class="btn btn-secondary" id="ex-c">ยกเลิก</button><button class="btn btn-primary" id="ex-s">📩 ยื่นเบิก</button>`
     })
     el.querySelector('#ex-c').addEventListener('click', close)
-    el.querySelector('#ex-s').addEventListener('click', () => {
+    el.querySelector('#ex-s').addEventListener('click', async () => {
       const staffName = el.querySelector('#ex-name').value.trim()
       const desc = el.querySelector('#ex-desc').value.trim()
       const amount = +el.querySelector('#ex-amount').value
       if (!staffName || !desc || !amount) return showToast('❗ กรุณากรอกข้อมูลให้ครบ', 'warning')
-      claims.unshift({
-        id: 'EX' + Date.now(), staffName, dept: 'other',
+      await createDoc('expense_claims', {
+        staffName, dept: 'other',
         cat: el.querySelector('#ex-cat').value,
         desc, amount, date: el.querySelector('#ex-date').value,
         status: 'pending', approvedBy: null, paidDate: null,
         receipt: el.querySelector('#ex-receipt').value === '1'
       })
-      showToast('📩 ยื่นเบิกแล้ว', 'success'); close(); renderPage()
+      showToast('📩 ยื่นเบิกแล้ว', 'success'); close(); await loadData()
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(title, value, color) {
