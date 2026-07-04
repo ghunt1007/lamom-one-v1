@@ -1,7 +1,7 @@
-import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { showToast } from '../../core/store.js'
 import { formatDate } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
 
 function escHtml(s) {
@@ -70,13 +70,26 @@ export default async function StaffPage(container) {
 
     document.querySelectorAll('.staff-card').forEach(card => {
       card.addEventListener('click', e => {
-        if (e.target.closest('.edit-staff')) return
+        if (e.target.closest('.edit-staff,.del-staff')) return
         openDetail(staff.find(x => x.id === card.dataset.id))
       })
     })
     document.querySelectorAll('.edit-staff').forEach(btn => btn.addEventListener('click', e => {
       e.stopPropagation(); openForm(staff.find(x => x.id === btn.dataset.id))
     }))
+    document.querySelectorAll('.del-staff').forEach(btn => btn.addEventListener('click', e => {
+      e.stopPropagation(); const s = staff.find(x => x.id === btn.dataset.id); if (s) deleteStaff(s)
+    }))
+  }
+
+  async function deleteStaff(s) {
+    const ok = await confirmDialog({ title: '🗑️ ลบพนักงาน', message: `ยืนยันลบข้อมูลพนักงาน "${escHtml(s.firstName)} ${escHtml(s.lastName)}"? การลบนี้ไม่สามารถย้อนกลับได้`, confirmText: 'ลบถาวร', danger: true })
+    if (!ok) return
+    await softDelete('staff', s.id)
+    staff = staff.filter(x => x.id !== s.id)
+    showToast('🗑️ ลบข้อมูลพนักงานแล้ว', 'success')
+    document.querySelectorAll('.modal-overlay').forEach(m => m.remove())
+    updateStats(); applyFilter()
   }
 
   function staffCard(s) {
@@ -95,7 +108,10 @@ export default async function StaffPage(container) {
               <div style="font-size:0.78rem;color:var(--text-muted)">${s.nickname ? `"${escHtml(s.nickname)}"` : ''}</div>
             </div>
           </div>
-          <button class="btn btn-ghost btn-sm edit-staff" data-id="${s.id}" style="padding:4px">✏️</button>
+          <div style="display:flex;gap:2px">
+            <button class="btn btn-ghost btn-sm edit-staff" data-id="${s.id}" style="padding:4px">✏️</button>
+            <button class="btn btn-ghost btn-sm del-staff" data-id="${s.id}" style="padding:4px" title="ลบ">🗑️</button>
+          </div>
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;font-size:0.82rem">
           <div><span class="badge badge-${color}" style="font-size:0.72rem">${role}</span> <span style="color:var(--text-muted);font-size:0.78rem">${escHtml(s.dept)}</span></div>
@@ -126,9 +142,11 @@ export default async function StaffPage(container) {
         </div>
       `,
       footer: `<button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">ปิด</button>
-               <button class="btn btn-primary" id="s-edit">✏️ แก้ไข</button>`
+               <button class="btn btn-primary" id="s-edit">✏️ แก้ไข</button>
+               <button class="btn btn-danger" id="s-del">🗑️ ลบ</button>`
     })
     document.getElementById('s-edit')?.addEventListener('click', () => { document.querySelector('.modal-overlay')?.remove(); openForm(s) })
+    document.getElementById('s-del')?.addEventListener('click', () => deleteStaff(s))
   }
 
   function openForm(existing = null) {
