@@ -293,6 +293,7 @@ const routes = {
   '/ai/lead-scoring': () => import('../pages/ai/LeadScoring.js'),
   // Analytics extras
   '/analytics/branches': () => import('../pages/analytics/BranchComparison.js'),
+  '/analytics/sales-channel': () => import('../pages/analytics/SalesChannelComparison.js'),
   // Comms extras
   '/comms/templates': () => import('../pages/comms/ChatTemplates.js'),
   // DMS extras

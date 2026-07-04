@@ -1,4 +1,4 @@
-import { MASTER_LISTS, getList, addItem, removeItem, resetMaster } from '../../data/masterData.js'
+import { MASTER_LISTS, getList, addItem, removeItem, resetMaster, getSalesChannel, setSalesChannel } from '../../data/masterData.js'
 import { showToast } from '../../core/store.js'
 import { confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -49,9 +49,19 @@ export default async function MasterDataPage(container) {
       const label = m.type === 'priced'
         ? `<span style="font-weight:600">${it.name}</span> <span style="color:var(--text-muted);font-size:0.76rem">฿${(it.price||0).toLocaleString()}</span>`
         : `<span>${it}</span>`
+      const channelToggle = active === 'salesStaff' ? (() => {
+        const ch = getSalesChannel(it)
+        const isShowroom = ch === 'showroom'
+        return `<button class="btn btn-xs channel-toggle" data-name="${it}" style="margin-right:8px;background:${isShowroom?'var(--primary-dim)':'var(--success-dim)'};color:${isShowroom?'var(--primary)':'var(--success)'};border:1px solid ${isShowroom?'var(--primary)':'var(--success)'}">
+          ${isShowroom ? '🏢 หน้าร้าน' : '💻 ออนไลน์'}
+        </button>`
+      })() : ''
       return `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 14px;border-bottom:1px solid var(--border-subtle)">
         <div style="font-size:0.82rem">${label}</div>
-        <button class="btn btn-sm btn-danger md-del" data-i="${realIdx}" title="ลบ">🗑</button>
+        <div style="display:flex;align-items:center">
+          ${channelToggle}
+          <button class="btn btn-sm btn-danger md-del" data-i="${realIdx}" title="ลบ">🗑</button>
+        </div>
       </div>`
     }).join('')
   }
@@ -125,6 +135,14 @@ export default async function MasterDataPage(container) {
       removeItem(active, parseInt(b.dataset.i))
       showToast('🗑 ลบแล้ว', 'warning')
       render()
+    }))
+
+    container.querySelectorAll('.channel-toggle').forEach(b => b.addEventListener('click', () => {
+      const name = b.dataset.name
+      const next = getSalesChannel(name) === 'showroom' ? 'online' : 'showroom'
+      setSalesChannel(name, next)
+      showToast(`${next === 'showroom' ? '🏢' : '💻'} ${name} → ${next === 'showroom' ? 'ทีมหน้าร้าน' : 'ทีมออนไลน์'}`, 'success')
+      relistOnly()
     }))
 
     document.getElementById('md-add')?.addEventListener('click', () => {

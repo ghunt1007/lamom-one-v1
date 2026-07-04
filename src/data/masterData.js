@@ -28,6 +28,9 @@ const DEFAULTS = {
   insurers: ['เมืองไทยประกันภัย', 'วิริยะประกันภัย', 'กรุงเทพประกันภัย', 'ทิพยประกันภัย', 'สินมั่นคงประกันภัย', 'อาคเนย์ประกันภัย', 'MSIG', 'AXA'],
   insuranceTypes: ['ชั้น 1', 'ชั้น 2+', 'ชั้น 2', 'ชั้น 3+', 'ชั้น 3', 'พ.ร.บ.'],
   leadSources: ['facebook', 'line', 'walk-in', 'website', 'referral', 'tiktok', 'google', 'event'],
+  // ช่องทางขายของพนักงานแต่ละคน — 'showroom' (หน้าร้าน) หรือ 'online' (ออนไลน์ ไม่รับหน้าร้าน)
+  // เก็บเป็น map ชื่อ→ช่องทาง แยกจาก salesStaff list เพื่อไม่กระทบหน้าอื่นที่ใช้ getSalesStaff() แบบ array ชื่อเดิม
+  salesStaffChannel: {},
 }
 
 function load() {
@@ -68,3 +71,18 @@ export const getBookingStatus = () => getList('bookingStatus')
 export const getInsurers = () => getList('insurers')
 export const getInsuranceTypes = () => getList('insuranceTypes')
 export const getLeadSources = () => getList('leadSources')
+
+// ── ช่องทางขาย (หน้าร้าน/ออนไลน์) ต่อพนักงาน ────────────────────────────────────
+export function getSalesChannel(name) {
+  const d = load()
+  return (d.salesStaffChannel || {})[name] || 'showroom'
+}
+export function setSalesChannel(name, channel) {
+  const d = load()
+  d.salesStaffChannel = d.salesStaffChannel || {}
+  d.salesStaffChannel[name] = channel
+  save(d)
+}
+export function getSalesStaffByChannel(channel) {
+  return getSalesStaff().filter(name => getSalesChannel(name) === channel)
+}
