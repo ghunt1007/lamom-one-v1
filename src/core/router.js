@@ -294,6 +294,7 @@ const routes = {
   // Analytics extras
   '/analytics/branches': () => import('../pages/analytics/BranchComparison.js'),
   '/analytics/sales-channel': () => import('../pages/analytics/SalesChannelComparison.js'),
+  '/analytics/dept-ops': () => import('../pages/analytics/DeptOperationsDashboard.js'),
   // Comms extras
   '/comms/templates': () => import('../pages/comms/ChatTemplates.js'),
   // DMS extras

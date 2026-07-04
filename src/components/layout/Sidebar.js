@@ -272,6 +272,7 @@ const NAV = [
       { icon: '📈', label: 'Monthly Trend', path: '/analytics/monthly' },
       { icon: '🏢', label: 'Branch Comparison', path: '/analytics/branches' },
       { icon: '⚖️', label: 'ทีมหน้าร้าน vs ออนไลน์', path: '/analytics/sales-channel' },
+      { icon: '🏭', label: 'ภาพรวมประสิทธิภาพแผนก', path: '/analytics/dept-ops' },
       { icon: '🔻', label: 'Conversion Funnel', path: '/analytics/funnel' },
       { icon: '🔧', label: 'Service Analytics', path: '/analytics/service' },
       { icon: '📋', label: 'Executive Summary', path: '/analytics/executive' },
