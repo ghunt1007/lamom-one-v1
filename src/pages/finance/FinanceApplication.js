@@ -1,8 +1,9 @@
 import { formatCurrency } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState, setState } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getBanks } from '../../data/masterData.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -15,13 +16,6 @@ const APP_STATUS = {
   cancelled: { label: 'ยกเลิก', color: 'danger' },
 }
 
-const DEMO_APPS = [
-  { id:'FA001', custName:'สมศักดิ์ เจริญสุข', phone:'0812345678', vehicle:'BYD Seal AWD', vehiclePrice:1299000, downPayment:200000, loanAmount:1099000, tenure:60, bank:'KBank', monthlyPayment:20420, status:'approved', submittedDate:'2025-06-01', approvedDate:'2025-06-02', rate:2.79, note:'', documents:['บัตรประชาชน','สลิปเงินเดือน','Statement 3 เดือน'] },
-  { id:'FA002', custName:'วิชัย เดินดี', phone:'0834567890', vehicle:'MG4 X', vehiclePrice:1199000, downPayment:150000, loanAmount:1049000, tenure:72, bank:'SCB', monthlyPayment:17500, status:'pending', submittedDate:'2025-06-09', approvedDate:null, rate:2.89, note:'รอเอกสารเพิ่มเติม', documents:['บัตรประชาชน','สลิปเงินเดือน'] },
-  { id:'FA003', custName:'ประภา สวยงาม', phone:'0845678901', vehicle:'BYD Atto3', vehiclePrice:899000, downPayment:100000, loanAmount:799000, tenure:84, bank:'Krungsri', monthlyPayment:11200, status:'submitted', submittedDate:'2025-06-09', approvedDate:null, rate:3.15, note:'', documents:['บัตรประชาชน'] },
-  { id:'FA004', custName:'อนุชา รวยมาก', phone:'0856789012', vehicle:'MG ZS EV', vehiclePrice:1049000, downPayment:300000, loanAmount:749000, tenure:48, bank:'BBL', monthlyPayment:18000, status:'rejected', submittedDate:'2025-05-25', approvedDate:null, rate:0, note:'รายได้ไม่ผ่านเกณฑ์', documents:['บัตรประชาชน','สลิปเงินเดือน'] },
-]
-
 // ดอกเบี้ยคงที่ (flat rate) — สูตรเดียวกับที่ใช้ทั่วทั้งระบบ (Bookings.js, LoanCalculator.js)
 // เพื่อให้ยอดผ่อน/เดือนตรงกันไม่ว่าจะคำนวณจากหน้าไหน (เดิมหน้านี้ใช้สูตร reducing-balance
 // ซึ่งให้ตัวเลขต่ำกว่าจริงเมื่อเทียบกับที่ไฟแนนซ์รถยนต์ในไทยคิดจริง)
@@ -33,15 +27,26 @@ function calcMonthly(amount, rate, months) {
 }
 
 export default async function FinanceApplicationPage(container) {
-  let apps = DEMO_APPS.map(a => ({ ...a }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let apps = []
   let statusFilter = 'all'
   let search = ''
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { apps = await listDocs('finance_applications', [], 'submittedDate', 'desc', 300) } catch (e) { apps = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function getFiltered() {
     let list = apps
     if (statusFilter !== 'all') list = list.filter(a => a.status === statusFilter)
     if (search) list = list.filter(a => a.custName.includes(search) || a.vehicle.includes(search))
-    return list.sort((a, b) => b.submittedDate.localeCompare(a.submittedDate))
+    return list
   }
 
   function getSummary() {
@@ -54,6 +59,10 @@ export default async function FinanceApplicationPage(container) {
   }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const s = getSummary()
     const filtered = getFiltered()
 
@@ -103,10 +112,37 @@ export default async function FinanceApplicationPage(container) {
       card.addEventListener('click', () => { const a = apps.find(x => x.id === card.dataset.id); if (a) openAppDetail(a) })
     })
     document.querySelectorAll('.app-status-btn').forEach(btn => {
-      btn.addEventListener('click', e => {
+      btn.addEventListener('click', async e => {
         e.stopPropagation()
         const a = apps.find(x => x.id === btn.dataset.id)
-        if (a) { a.status = btn.dataset.s; if (btn.dataset.s === 'approved') a.approvedDate = new Date().toISOString().slice(0,10); showToast('✅ อัพเดตสถานะแล้ว', 'success'); renderPage() }
+        if (!a) return
+        const newStatus = btn.dataset.s
+        const patch = { status: newStatus }
+        if (newStatus === 'approved') patch.approvedDate = new Date().toISOString().slice(0,10)
+        await updateDocData('finance_applications', a.id, patch)
+        try {
+          await createDoc('notifications', {
+            type: 'finance',
+            title: newStatus === 'approved' ? 'ไฟแนนซ์อนุมัติแล้ว' : 'ไฟแนนซ์ไม่อนุมัติ',
+            body: `${a.custName} — ${a.vehicle} (${a.bank})`,
+            read: false, link: '/finance/application', createdAt: new Date().toISOString(),
+          })
+          setState('unreadCount', (getState('unreadCount') || 0) + 1)
+        } catch { /* แจ้งเตือนพลาดได้ ไม่กระทบสถานะที่บันทึกไปแล้ว */ }
+        showToast('✅ อัพเดตสถานะแล้ว', 'success')
+        await loadData()
+      })
+    })
+    document.querySelectorAll('.app-del-btn').forEach(btn => {
+      btn.addEventListener('click', async e => {
+        e.stopPropagation()
+        const a = apps.find(x => x.id === btn.dataset.id)
+        if (!a) return
+        const ok = await confirmDialog({ title: '🗑️ ลบรายการยื่นไฟแนนซ์', message: `ยืนยันลบรายการของ "${escHtml(a.custName)}" — ${escHtml(a.vehicle)}? การลบนี้ไม่สามารถย้อนกลับได้`, confirmText: 'ลบ', danger: true })
+        if (!ok) return
+        await softDelete('finance_applications', a.id)
+        showToast('🗑️ ลบรายการแล้ว', 'success')
+        await loadData()
       })
     })
   }
@@ -132,13 +168,16 @@ export default async function FinanceApplicationPage(container) {
       </div>
       <!-- Documents checklist mini -->
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-        ${['บัตรประชาชน','สลิปเงินเดือน','Statement 3 เดือน','ทะเบียนบ้าน'].map(doc => `<span style="font-size:0.7rem;padding:2px 6px;border-radius:99px;background:${a.documents.includes(doc)?'var(--success-dim)':'var(--surface-3)'};color:${a.documents.includes(doc)?'var(--success)':'var(--text-muted)'}">${a.documents.includes(doc)?'✅':''} ${doc}</span>`).join('')}
+        ${['บัตรประชาชน','สลิปเงินเดือน','Statement 3 เดือน','ทะเบียนบ้าน'].map(doc => `<span style="font-size:0.7rem;padding:2px 6px;border-radius:99px;background:${(a.documents||[]).includes(doc)?'var(--success-dim)':'var(--surface-3)'};color:${(a.documents||[]).includes(doc)?'var(--success)':'var(--text-muted)'}">${(a.documents||[]).includes(doc)?'✅':''} ${doc}</span>`).join('')}
       </div>
-      ${['submitted','pending'].includes(a.status) ? `<div style="display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)" onclick="event.stopPropagation()">
-        <button class="btn btn-xs btn-success app-status-btn" data-id="${a.id}" data-s="approved">✅ อนุมัติ</button>
-        <button class="btn btn-xs btn-danger app-status-btn" data-id="${a.id}" data-s="rejected">❌ ไม่อนุมัติ</button>
-        ${a.status === 'draft' ? `<button class="btn btn-xs btn-primary app-status-btn" data-id="${a.id}" data-s="submitted">📤 ส่งธนาคาร</button>` : ''}
-      </div>` : ''}
+      <div style="display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)" onclick="event.stopPropagation()">
+        ${['submitted','pending'].includes(a.status) ? `
+          <button class="btn btn-xs btn-success app-status-btn" data-id="${a.id}" data-s="approved">✅ อนุมัติ</button>
+          <button class="btn btn-xs btn-danger app-status-btn" data-id="${a.id}" data-s="rejected">❌ ไม่อนุมัติ</button>
+          ${a.status === 'draft' ? `<button class="btn btn-xs btn-primary app-status-btn" data-id="${a.id}" data-s="submitted">📤 ส่งธนาคาร</button>` : ''}
+        ` : ''}
+        <button class="btn btn-xs btn-secondary app-del-btn" data-id="${a.id}" style="margin-left:auto">🗑️ ลบ</button>
+      </div>
     </div>`
   }
 
@@ -180,7 +219,7 @@ export default async function FinanceApplicationPage(container) {
       footer: `<button class="btn btn-secondary" id="fa-c">ยกเลิก</button><button class="btn btn-primary" id="fa-s">📤 ส่งขอสินเชื่อ</button>`
     })
     el.querySelector('#fa-c').addEventListener('click', close)
-    el.querySelector('#fa-s').addEventListener('click', () => {
+    el.querySelector('#fa-s').addEventListener('click', async () => {
       const custName = el.querySelector('#fa-cust').value.trim()
       const vehicle = el.querySelector('#fa-vehicle').value.trim()
       if (!custName || !vehicle) return showToast('❗ กรุณากรอกข้อมูลให้ครบ', 'warning')
@@ -190,8 +229,8 @@ export default async function FinanceApplicationPage(container) {
       const tenure = +el.querySelector('#fa-tenure').value
       const rate = +el.querySelector('#fa-rate').value
       const monthly = calcMonthly(loanAmount, rate, tenure)
-      apps.unshift({ id:'FA'+Date.now(), custName, phone: el.querySelector('#fa-phone').value, vehicle, vehiclePrice:price, downPayment:down, loanAmount, tenure, bank: el.querySelector('#fa-bank').value, monthlyPayment:monthly, rate, status:'submitted', submittedDate:new Date().toISOString().slice(0,10), approvedDate:null, note: el.querySelector('#fa-note').value, documents:[] })
-      showToast('📤 ส่งขอสินเชื่อแล้ว', 'success'); close(); renderPage()
+      await createDoc('finance_applications', { custName, phone: el.querySelector('#fa-phone').value, vehicle, vehiclePrice:price, downPayment:down, loanAmount, tenure, bank: el.querySelector('#fa-bank').value, monthlyPayment:monthly, rate, status:'submitted', submittedDate:new Date().toISOString().slice(0,10), approvedDate:null, note: el.querySelector('#fa-note').value, documents:[] })
+      showToast('📤 ส่งขอสินเชื่อแล้ว', 'success'); close(); await loadData()
     })
   }
 
@@ -217,7 +256,7 @@ export default async function FinanceApplicationPage(container) {
         <div>
           <div style="font-size:0.8rem;font-weight:600;margin-bottom:8px">เอกสารที่มี</div>
           <div style="display:flex;flex-wrap:wrap;gap:6px">
-            ${['บัตรประชาชน','สลิปเงินเดือน','Statement 3 เดือน','ทะเบียนบ้าน'].map(doc => `<span style="font-size:0.75rem;padding:4px 10px;border-radius:99px;border:1px solid var(--border);background:${a.documents.includes(doc)?'var(--success-dim)':'transparent'};color:${a.documents.includes(doc)?'var(--success)':'var(--text-muted)'};cursor:pointer" class="doc-toggle" data-doc="${doc}">${a.documents.includes(doc)?'✅ ':''} ${doc}</span>`).join('')}
+            ${['บัตรประชาชน','สลิปเงินเดือน','Statement 3 เดือน','ทะเบียนบ้าน'].map(doc => `<span style="font-size:0.75rem;padding:4px 10px;border-radius:99px;border:1px solid var(--border);background:${(a.documents||[]).includes(doc)?'var(--success-dim)':'transparent'};color:${(a.documents||[]).includes(doc)?'var(--success)':'var(--text-muted)'};cursor:pointer" class="doc-toggle" data-doc="${doc}">${(a.documents||[]).includes(doc)?'✅ ':''} ${doc}</span>`).join('')}
           </div>
         </div>
         ${a.note ? `<div style="background:var(--surface-2);padding:10px;border-radius:var(--radius-sm);font-size:0.82rem">📝 ${escHtml(a.note)}</div>` : ''}
@@ -225,16 +264,19 @@ export default async function FinanceApplicationPage(container) {
       footer: ''
     })
     document.querySelectorAll('.doc-toggle').forEach(tog => {
-      tog.addEventListener('click', () => {
+      tog.addEventListener('click', async () => {
         const doc = tog.dataset.doc
-        const idx = a.documents.indexOf(doc)
-        if (idx >= 0) a.documents.splice(idx, 1); else a.documents.push(doc)
+        const documents = [...(a.documents || [])]
+        const idx = documents.indexOf(doc)
+        if (idx >= 0) documents.splice(idx, 1); else documents.push(doc)
+        a.documents = documents
+        await updateDocData('finance_applications', a.id, { documents })
         document.querySelector('.modal-overlay')?.remove(); openAppDetail(a)
       })
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(title, value, color) {

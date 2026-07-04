@@ -3,9 +3,10 @@
  * Route: /finance/tracker
  */
 import { formatCurrency, formatDate, timeAgo } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
+import { showToast, getState, setState } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -23,40 +24,30 @@ const BANKS = ['Krungthai LEASE','Ayudhya Capital','TISCO Financial','BBL Hire P
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
 
-const DEMO_APPS = [
-  { id: 'FA001', customerId: 'C001', customerName: 'วิชาญ มีโชค', phone: '081-234-5678',
-    vehicleModel: 'BYD Seal AWD', vehiclePrice: 1449000, downPayment: 290000, loanAmount: 1159000,
-    bank: 'Krungthai LEASE', term: 60, monthlyPayment: 22800, interestRate: 2.75,
-    status: 'approved', submittedDate: addDays(-14), approvedDate: addDays(-7), conditions: '',
-    salesperson: 'อรนุช สายใจ', notes: 'อนุมัติเต็มจำนวน' },
-  { id: 'FA002', customerId: 'C002', customerName: 'อรนุช สาวสวย', phone: '082-345-6789',
-    vehicleModel: 'MG ZS EV Grand', vehiclePrice: 1059000, downPayment: 200000, loanAmount: 859000,
-    bank: 'Ayudhya Capital', term: 60, monthlyPayment: 16500, interestRate: 2.99,
-    status: 'reviewing', submittedDate: addDays(-5), approvedDate: null, conditions: '',
-    salesperson: 'วิชาญ มีโชค', notes: 'รอผล 3-5 วันทำการ' },
-  { id: 'FA003', customerId: 'C003', customerName: 'ธีรยุทธ เก่งกาจ', phone: '083-456-7890',
-    vehicleModel: 'BYD Atto 3', vehiclePrice: 1099000, downPayment: 110000, loanAmount: 989000,
-    bank: 'TISCO Financial', term: 72, monthlyPayment: 16200, interestRate: 3.15,
-    status: 'conditional', submittedDate: addDays(-8), approvedDate: null,
-    conditions: 'ต้องมีผู้ค้ำประกัน หรือเพิ่มดาวน์เป็น 220,000 บาท',
-    salesperson: 'อรนุช สายใจ', notes: '' },
-  { id: 'FA004', customerId: 'C004', customerName: 'สมใจ รักรถ', phone: '084-567-8901',
-    vehicleModel: 'BYD Seal SR', vehiclePrice: 1199000, downPayment: 240000, loanAmount: 959000,
-    bank: 'BBL Hire Purchase', term: 60, monthlyPayment: 18800, interestRate: 2.85,
-    status: 'preparing', submittedDate: null, approvedDate: null, conditions: '',
-    salesperson: 'วิชาญ มีโชค', notes: 'รอเอกสารบัตรประชาชน + สลิปเงินเดือน' },
-]
-
 export default async function FinanceTrackerPage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+
   let statusFilter = 'all'
-  let apps = DEMO_APPS.map(a => ({ ...a }))
+  let apps = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { apps = await listDocs('finance_tracker', [], 'createdAt', 'desc', 300) } catch (e) { apps = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function filtered() {
     return apps.filter(a => statusFilter === 'all' || a.status === statusFilter)
-      .sort((a, b) => (b.submittedDate || b.id).localeCompare(a.submittedDate || a.id))
   }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-state-icon">⏳</div><div>กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = filtered()
     const pending = apps.filter(a => ['preparing','submitted','reviewing','conditional'].includes(a.status)).length
     const approved = apps.filter(a => a.status === 'approved').length
@@ -108,6 +99,14 @@ export default async function FinanceTrackerPage(container) {
     container.querySelectorAll('.update-status-btn').forEach(b => b.addEventListener('click', () => {
       const a = apps.find(x => x.id === b.dataset.id); if (a) openStatusUpdate(a)
     }))
+    container.querySelectorAll('.del-app-btn').forEach(b => b.addEventListener('click', async () => {
+      const a = apps.find(x => x.id === b.dataset.id); if (!a) return
+      const ok = await confirmDialog({ title: '🗑️ ลบรายการ', message: `ยืนยันลบรายการของ "${escHtml(a.customerName)}"? การลบนี้ไม่สามารถย้อนกลับได้`, confirmText: 'ลบ', danger: true })
+      if (!ok) return
+      await softDelete('finance_tracker', a.id)
+      showToast('🗑️ ลบรายการแล้ว', 'success')
+      await loadData()
+    }))
   }
 
   function renderAppCard(a) {
@@ -127,7 +126,6 @@ export default async function FinanceTrackerPage(container) {
           <div style="display:flex;align-items:center;gap:0;margin-bottom:8px">
             ${steps.map((s, i) => {
               const done = i <= currentStep && a.status !== 'rejected' && a.status !== 'cancelled'
-              const isCurrent = i === currentStep && !['rejected','cancelled'].includes(a.status)
               return `<div style="display:flex;align-items:center;flex:1">
                 <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${done?'var(--success)':'var(--border)'};background:${done?'var(--success)':'transparent'};display:flex;align-items:center;justify-content:center;font-size:0.6rem;color:${done?'white':'var(--text-muted)'};flex-shrink:0">${done?'✓':i+1}</div>
                 ${i < steps.length-1 ? `<div style="flex:1;height:2px;background:${i<currentStep&&!['rejected','cancelled'].includes(a.status)?'var(--success)':'var(--border)'}"></div>` : ''}
@@ -145,6 +143,7 @@ export default async function FinanceTrackerPage(container) {
         <div style="display:flex;flex-direction:column;gap:4px">
           <button class="btn btn-xs btn-secondary open-app-btn" data-id="${a.id}">ดู</button>
           ${!['approved','rejected','cancelled'].includes(a.status) ? `<button class="btn btn-xs btn-primary update-status-btn" data-id="${a.id}">อัพเดท</button>` : ''}
+          <button class="btn btn-xs btn-secondary del-app-btn" data-id="${a.id}">🗑️</button>
         </div>
       </div>
     </div>`
@@ -192,16 +191,24 @@ export default async function FinanceTrackerPage(container) {
         </div>
       `,
       confirmLabel: 'บันทึก',
-      onConfirm() {
+      async onConfirm() {
         const newStatus = document.getElementById('su-status')?.value
-        if (newStatus) {
-          a.status = newStatus
-          a.notes = document.getElementById('su-notes')?.value || a.notes
-          if (newStatus === 'approved') a.approvedDate = addDays(0)
-          if (newStatus === 'submitted') a.submittedDate = addDays(0)
-          showToast(`✅ อัพเดทสถานะ ${a.id} เป็น "${APP_STATUS[newStatus]?.label}" แล้ว`, 'success')
-          renderPage()
-        }
+        if (!newStatus) return
+        const patch = { status: newStatus, notes: document.getElementById('su-notes')?.value || a.notes }
+        if (newStatus === 'approved') patch.approvedDate = addDays(0)
+        if (newStatus === 'submitted') patch.submittedDate = addDays(0)
+        await updateDocData('finance_tracker', a.id, patch)
+        try {
+          await createDoc('notifications', {
+            type: 'finance',
+            title: newStatus === 'approved' ? 'ไฟแนนซ์อนุมัติแล้ว' : `สถานะไฟแนนซ์: ${APP_STATUS[newStatus]?.label}`,
+            body: `${a.customerName} — ${a.vehicleModel} (${a.bank})`,
+            read: false, link: '/finance/tracker', createdAt: new Date().toISOString(),
+          })
+          setState('unreadCount', (getState('unreadCount') || 0) + 1)
+        } catch { /* แจ้งเตือนพลาดได้ ไม่กระทบสถานะที่บันทึกไปแล้ว */ }
+        showToast(`✅ อัพเดทสถานะ ${a.id} เป็น "${APP_STATUS[newStatus]?.label}" แล้ว`, 'success')
+        await loadData()
       }
     })
   }
@@ -224,7 +231,7 @@ export default async function FinanceTrackerPage(container) {
           <div class="input-group"><label class="input-label">หมายเหตุ</label><input class="input" id="af-notes" placeholder="บันทึก..."></div>
         </div>
       `,
-      onConfirm() {
+      async onConfirm() {
         const name = document.getElementById('af-name')?.value?.trim()
         if (!name) { showToast('❗ กรุณากรอกชื่อลูกค้า', 'error'); return }
         const price = +document.getElementById('af-price')?.value || 0
@@ -233,8 +240,7 @@ export default async function FinanceTrackerPage(container) {
         const term = +document.getElementById('af-term')?.value || 60
         const rate = +document.getElementById('af-rate')?.value || 2.99
         const monthly = Math.round(loan * (1 + rate / 100 * term / 12) / term)
-        apps.unshift({
-          id: `FA${String(apps.length+1).padStart(3,'0')}`,
+        await createDoc('finance_tracker', {
           customerId: '', customerName: name, phone: document.getElementById('af-phone')?.value||'',
           vehicleModel: document.getElementById('af-model')?.value||'',
           vehiclePrice: price, downPayment: down, loanAmount: loan,
@@ -245,12 +251,12 @@ export default async function FinanceTrackerPage(container) {
           notes: document.getElementById('af-notes')?.value||''
         })
         showToast('✅ บันทึกการยื่นไฟแนนซ์แล้ว!', 'success')
-        renderPage()
+        await loadData()
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

@@ -382,6 +382,24 @@ export function seedDemoData() {
   ]
   accessories.forEach(a => { if (!demoCol('accessories')[a.id]) demoCol('accessories')[a.id] = a })
 
+  // Finance applications (หน้า /finance/application)
+  const financeApps = [
+    { id:'FA001', custName:'สมศักดิ์ เจริญสุข', phone:'0812345678', vehicle:'DEEPAL S07', vehiclePrice:1299000, downPayment:200000, loanAmount:1099000, tenure:60, bank:'KBank', monthlyPayment:20420, status:'approved', submittedDate:'2026-06-01', approvedDate:'2026-06-02', rate:2.79, note:'', documents:['บัตรประชาชน','สลิปเงินเดือน','Statement 3 เดือน'] },
+    { id:'FA002', custName:'วิชัย เดินดี', phone:'0834567890', vehicle:'AION Y Plus', vehiclePrice:1069000, downPayment:150000, loanAmount:919000, tenure:72, bank:'SCB', monthlyPayment:15700, status:'pending', submittedDate:'2026-06-09', approvedDate:null, rate:2.89, note:'รอเอกสารเพิ่มเติม', documents:['บัตรประชาชน','สลิปเงินเดือน'] },
+    { id:'FA003', custName:'ประภา สวยงาม', phone:'0845678901', vehicle:'OMODA 5', vehiclePrice:899000, downPayment:100000, loanAmount:799000, tenure:84, bank:'Krungsri', monthlyPayment:11200, status:'submitted', submittedDate:'2026-06-09', approvedDate:null, rate:3.15, note:'', documents:['บัตรประชาชน'] },
+    { id:'FA004', custName:'อนุชา รวยมาก', phone:'0856789012', vehicle:'NISSAN Almera', vehiclePrice:649000, downPayment:150000, loanAmount:499000, tenure:48, bank:'BBL', monthlyPayment:11800, status:'rejected', submittedDate:'2026-05-25', approvedDate:null, rate:0, note:'รายได้ไม่ผ่านเกณฑ์', documents:['บัตรประชาชน','สลิปเงินเดือน'] },
+  ]
+  financeApps.forEach(a => { if (!demoCol('finance_applications')[a.id]) demoCol('finance_applications')[a.id] = a })
+
+  // Finance/insurance tracker (หน้า /finance/tracker)
+  const financeTracker = [
+    { id:'FT001', customerId:'', customerName:'วิชาญ มีโชค', phone:'081-234-5678', vehicleModel:'DEEPAL S07', vehiclePrice:1299000, downPayment:260000, loanAmount:1039000, bank:'Krungthai LEASE', term:60, monthlyPayment:20500, interestRate:2.75, status:'approved', submittedDate:'2026-06-08', approvedDate:'2026-06-15', conditions:'', salesperson:'อรนุช เซลส์ดี', notes:'อนุมัติเต็มจำนวน' },
+    { id:'FT002', customerId:'', customerName:'อรนุช สาวสวย', phone:'082-345-6789', vehicleModel:'AION Y Plus', vehiclePrice:1069000, downPayment:200000, loanAmount:869000, bank:'Ayudhya Capital', term:60, monthlyPayment:16700, interestRate:2.99, status:'reviewing', submittedDate:'2026-06-20', approvedDate:null, conditions:'', salesperson:'วิชัย ขายเก่ง', notes:'รอผล 3-5 วันทำการ' },
+    { id:'FT003', customerId:'', customerName:'ธีรยุทธ เก่งกาจ', phone:'083-456-7890', vehicleModel:'OMODA 5', vehiclePrice:899000, downPayment:90000, loanAmount:809000, bank:'TISCO Financial', term:72, monthlyPayment:13300, interestRate:3.15, status:'conditional', submittedDate:'2026-06-17', approvedDate:null, conditions:'ต้องมีผู้ค้ำประกัน หรือเพิ่มดาวน์เป็น 180,000 บาท', salesperson:'อรนุช เซลส์ดี', notes:'' },
+    { id:'FT004', customerId:'', customerName:'สมใจ รักรถ', phone:'084-567-8901', vehicleModel:'NISSAN Almera', vehiclePrice:649000, downPayment:130000, loanAmount:519000, bank:'BBL Hire Purchase', term:60, monthlyPayment:10200, interestRate:2.85, status:'preparing', submittedDate:null, approvedDate:null, conditions:'', salesperson:'วิชัย ขายเก่ง', notes:'รอเอกสารบัตรประชาชน + สลิปเงินเดือน' },
+  ]
+  financeTracker.forEach(a => { if (!demoCol('finance_tracker')[a.id]) demoCol('finance_tracker')[a.id] = a })
+
   const demoFleet = [
     { id:'df1', brand:'BYD', model:'Seal RWD', vin:'LGXCE4C10PA000006', plate:'กข-0001', color:'เทา Ink', year:2025, mileage:3520, status:'available', condition:'good', lastService:'2025-05-01', notes:'รถทดลองขับหลัก', createdAt:'2025-01-10' },
     { id:'df2', brand:'MG', model:'MG4 X', vin:'SDUZZZEF5PA000020', plate:'กข-0002', color:'แดง', year:2025, mileage:5200, status:'in_use', condition:'good', lastService:'2025-04-15', notes:'ให้ลูกค้า VIP ยืม', createdAt:'2025-01-15' },
