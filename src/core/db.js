@@ -400,6 +400,20 @@ export function seedDemoData() {
   ]
   financeTracker.forEach(a => { if (!demoCol('finance_tracker')[a.id]) demoCol('finance_tracker')[a.id] = a })
 
+  // Maintenance schedule (หน้า /service/maintenance-schedule) — ตารางบำรุงรักษาเช็คระยะตามยี่ห้อ/รุ่น
+  const maintenanceSchedules = [
+    { id:'ms1', brand:'DEEPAL', model:'S07', intervalKm:10000, intervalMonths:6, items:['น้ำมันเครื่อง','ไส้กรองอากาศ','ตรวจสายพาน','ตรวจเบรก'], estLaborHours:1, estCost:2200, notes:'' },
+    { id:'ms2', brand:'DEEPAL', model:'S07', intervalKm:20000, intervalMonths:12, items:['น้ำมันเครื่อง','ไส้กรองน้ำมัน','ตรวจช่วงล่าง','ตรวจระบบไฟฟ้า EV'], estLaborHours:2, estCost:4500, notes:'' },
+    { id:'ms3', brand:'DEEPAL', model:'S07', intervalKm:40000, intervalMonths:24, items:['น้ำมันเบรก','หัวเทียน/ระบบมอเตอร์','ตรวจ Battery SOH','ตรวจ BMS'], estLaborHours:3, estCost:8500, notes:'ตรวจแบตเตอรี่ตามรอบประกัน EV' },
+    { id:'ms4', brand:'AION', model:'Y Plus', intervalKm:10000, intervalMonths:6, items:['ตรวจระบบเบรก','ตรวจยาง','ตรวจ Cooling System'], estLaborHours:1, estCost:1800, notes:'' },
+    { id:'ms5', brand:'AION', model:'Y Plus', intervalKm:20000, intervalMonths:12, items:['ตรวจ SOH แบตเตอรี่','ตรวจ Inverter','Software Update','ตรวจช่วงล่าง'], estLaborHours:2.5, estCost:5200, notes:'' },
+    { id:'ms6', brand:'OMODA & JAECOO', model:'Omoda 5', intervalKm:10000, intervalMonths:6, items:['น้ำมันเครื่อง','ไส้กรองอากาศ','ตรวจเบรก','ตรวจแอร์'], estLaborHours:1, estCost:2000, notes:'' },
+    { id:'ms7', brand:'OMODA & JAECOO', model:'Omoda 5', intervalKm:40000, intervalMonths:24, items:['เปลี่ยนสายพานไทม์มิ่ง','น้ำมันเกียร์','ตรวจช่วงล่างเต็มระบบ'], estLaborHours:4, estCost:9800, notes:'' },
+    { id:'ms8', brand:'SUZUKI', model:'Swift', intervalKm:10000, intervalMonths:6, items:['น้ำมันเครื่อง','ไส้กรองอากาศ','ตรวจเบรก'], estLaborHours:1, estCost:1500, notes:'' },
+    { id:'ms9', brand:'NISSAN', model:'Almera', intervalKm:10000, intervalMonths:6, items:['น้ำมันเครื่อง','ไส้กรองน้ำมัน','ตรวจเบรก','ตรวจระบบไฟ'], estLaborHours:1, estCost:1600, notes:'' },
+  ]
+  maintenanceSchedules.forEach(m => { if (!demoCol('maintenance_schedules')[m.id]) demoCol('maintenance_schedules')[m.id] = m })
+
   const demoFleet = [
     { id:'df1', brand:'BYD', model:'Seal RWD', vin:'LGXCE4C10PA000006', plate:'กข-0001', color:'เทา Ink', year:2025, mileage:3520, status:'available', condition:'good', lastService:'2025-05-01', notes:'รถทดลองขับหลัก', createdAt:'2025-01-10' },
     { id:'df2', brand:'MG', model:'MG4 X', vin:'SDUZZZEF5PA000020', plate:'กข-0002', color:'แดง', year:2025, mileage:5200, status:'in_use', condition:'good', lastService:'2025-04-15', notes:'ให้ลูกค้า VIP ยืม', createdAt:'2025-01-15' },

@@ -110,6 +110,7 @@ const NAV = [
       { icon: '⚡', label: 'EV Diagnostic', path: '/service/ev-diagnostic' },
       { icon: '🔔', label: 'Recall', path: '/service/recall' },
       { icon: '📦', label: 'Service Packages', path: '/service/packages' },
+      { icon: '🗓️', label: 'ตารางบำรุงรักษาเช็คระยะ', path: '/service/maintenance-schedule' },
       { icon: '⚡', label: 'Charging Station', path: '/service/charging' },
       { icon: '👷', label: 'Technician Schedule', path: '/service/technicians' },
       { icon: '🔋', label: 'EV Battery Health', path: '/service/ev-battery' },

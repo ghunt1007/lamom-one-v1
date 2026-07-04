@@ -197,6 +197,7 @@ const routes = {
   '/finance/expenses': () => import('../pages/finance/ExpenseApproval.js'),
   // Service extras
   '/service/packages': () => import('../pages/service/ServicePackage.js'),
+  '/service/maintenance-schedule': () => import('../pages/service/MaintenanceSchedule.js'),
   // CRM extras
   '/crm/referral': () => import('../pages/crm/ReferralProgram.js'),
   // Analytics extras
