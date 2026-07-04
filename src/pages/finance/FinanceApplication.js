@@ -22,10 +22,14 @@ const DEMO_APPS = [
   { id:'FA004', custName:'อนุชา รวยมาก', phone:'0856789012', vehicle:'MG ZS EV', vehiclePrice:1049000, downPayment:300000, loanAmount:749000, tenure:48, bank:'BBL', monthlyPayment:18000, status:'rejected', submittedDate:'2025-05-25', approvedDate:null, rate:0, note:'รายได้ไม่ผ่านเกณฑ์', documents:['บัตรประชาชน','สลิปเงินเดือน'] },
 ]
 
+// ดอกเบี้ยคงที่ (flat rate) — สูตรเดียวกับที่ใช้ทั่วทั้งระบบ (Bookings.js, LoanCalculator.js)
+// เพื่อให้ยอดผ่อน/เดือนตรงกันไม่ว่าจะคำนวณจากหน้าไหน (เดิมหน้านี้ใช้สูตร reducing-balance
+// ซึ่งให้ตัวเลขต่ำกว่าจริงเมื่อเทียบกับที่ไฟแนนซ์รถยนต์ในไทยคิดจริง)
 function calcMonthly(amount, rate, months) {
-  if (!rate) return 0
-  const r = rate / 100 / 12
-  return Math.round(amount * r / (1 - Math.pow(1 + r, -months)))
+  if (!amount || !months) return 0
+  const years = months / 12
+  const total = amount * (1 + (rate / 100) * years)
+  return Math.round(total / months)
 }
 
 export default async function FinanceApplicationPage(container) {
