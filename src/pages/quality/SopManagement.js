@@ -5,6 +5,7 @@
 import { formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 const SOP_CATS = {
   sales:    { label: 'การขาย', color: 'primary', icon: '🎯' },
@@ -25,30 +26,22 @@ const SOP_STATUS = {
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
 
-const DEMO_SOPS = [
-  { id: 'SOP001', title: 'ขั้นตอนการรับลูกค้าเข้าโชว์รูม', category: 'sales', version: '1.2',
-    status: 'approved', owner: 'ผู้จัดการขาย', updatedDate: addDays(-30), reviewDate: addDays(335),
-    steps: ['ต้อนรับลูกค้าด้วยรอยยิ้มภายใน 30 วินาที','เชิญนั่งพักและเสนอเครื่องดื่ม','ถามความต้องการและงบประมาณ','นำเสนอรุ่นที่เหมาะสม','เสนอทดลองขับ'],
-    tags: ['customer', 'showroom', 'greeting'] },
-  { id: 'SOP002', title: 'ขั้นตอน PDI (Pre-Delivery Inspection)', category: 'delivery', version: '2.0',
-    status: 'approved', owner: 'หัวหน้าช่าง', updatedDate: addDays(-14), reviewDate: addDays(351),
-    steps: ['ตรวจสอบสภาพภายนอก - ขีดข่วน รอยเว้า','ตรวจภายใน - เบาะ แผงหน้าปัด','ตรวจระบบ EV - แบต ชาร์จ','ตรวจเอกสาร - สมุดคู่มือ ใบจดทะเบียน','ทดสอบการขับขี่ 5 กม.','บันทึกผลใน Checklist'],
-    tags: ['pdi', 'delivery', 'quality'] },
-  { id: 'SOP003', title: 'นโยบายคุ้มครองข้อมูลส่วนบุคคล (PDPA)', category: 'pdpa', version: '1.0',
-    status: 'approved', owner: 'ฝ่ายกฎหมาย', updatedDate: addDays(-90), reviewDate: addDays(275),
-    steps: ['ขอความยินยอมก่อนเก็บข้อมูล','ใช้ข้อมูลตามวัตถุประสงค์ที่แจ้ง','ไม่เปิดเผยข้อมูลโดยไม่ได้รับอนุญาต','ลูกค้ามีสิทธิ์ขอลบข้อมูล','เก็บรักษาข้อมูลอย่างปลอดภัย'],
-    tags: ['pdpa', 'privacy', 'legal'] },
-  { id: 'SOP004', title: 'ขั้นตอนการรับ Job Card และการซ่อม', category: 'service', version: '1.5',
-    status: 'review', owner: 'หัวหน้าช่าง', updatedDate: addDays(-3), reviewDate: addDays(362),
-    steps: ['รับรถจากลูกค้า ตรวจสอบสภาพเบื้องต้น','เปิด Job Card ในระบบ','วิเคราะห์ปัญหาและประเมินค่าใช้จ่าย','แจ้งลูกค้าก่อนดำเนินการ','ดำเนินการซ่อม','ตรวจงานหลังซ่อม','ส่งคืนรถลูกค้า'],
-    tags: ['service', 'jobcard', 'repair'] },
-]
-
 export default async function SopManagementPage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+
   let catFilter = 'all'
   let statusFilter = 'all'
   let search = ''
-  let sops = DEMO_SOPS.map(s => ({ ...s }))
+  let sops = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { sops = await listDocs('sop_documents', [], 'updatedDate', 'desc', 300) } catch (e) { sops = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function filtered() {
     return sops.filter(s => {
@@ -60,6 +53,10 @@ export default async function SopManagementPage(container) {
   }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = filtered()
     const approved = sops.filter(s => s.status === 'approved').length
     const pending = sops.filter(s => s.status === 'review').length
@@ -110,9 +107,9 @@ export default async function SopManagementPage(container) {
               </div>
               <div style="font-weight:700;font-size:0.87rem;margin-bottom:4px">${s.title}</div>
               <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:8px">${sc?.label} · ${s.owner}</div>
-              <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:10px">${s.steps.length} ขั้นตอน · อัพเดท ${formatDate(s.updatedDate)}</div>
+              <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:10px">${(s.steps||[]).length} ขั้นตอน · อัพเดท ${formatDate(s.updatedDate)}</div>
               <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px">
-                ${s.tags.map(t => `<span style="font-size:0.65rem;padding:2px 6px;background:var(--surface-2);border-radius:10px;color:var(--text-muted)">#${t}</span>`).join('')}
+                ${(s.tags||[]).map(t => `<span style="font-size:0.65rem;padding:2px 6px;background:var(--surface-2);border-radius:10px;color:var(--text-muted)">#${t}</span>`).join('')}
               </div>
               <div style="display:flex;gap:6px">
                 <button class="btn btn-xs btn-secondary view-sop-btn" data-id="${s.id}" style="flex:1">📖 ดู SOP</button>
@@ -132,9 +129,11 @@ export default async function SopManagementPage(container) {
     container.querySelectorAll('.view-sop-btn').forEach(b => b.addEventListener('click', () => {
       const s = sops.find(x => x.id === b.dataset.id); if (s) openSopDetail(s)
     }))
-    container.querySelectorAll('.approve-sop-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.approve-sop-btn').forEach(b => b.addEventListener('click', async () => {
       const s = sops.find(x => x.id === b.dataset.id)
-      if (s) { s.status = 'approved'; showToast(`✅ อนุมัติ "${s.title}" แล้ว`, 'success'); renderPage() }
+      if (!s) return
+      await updateDocData('sop_documents', s.id, { status: 'approved' })
+      showToast(`✅ อนุมัติ "${s.title}" แล้ว`, 'success'); await loadData()
     }))
   }
 
@@ -154,7 +153,7 @@ export default async function SopManagementPage(container) {
         </div>
         <div style="font-size:0.8rem;font-weight:700;margin-bottom:10px">📝 ขั้นตอน</div>
         <div>
-          ${s.steps.map((step, i) => `
+          ${(s.steps||[]).map((step, i) => `
             <div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
               <div style="width:24px;height:24px;border-radius:50%;background:var(--primary);color:white;display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;flex-shrink:0">${i+1}</div>
               <div style="font-size:0.85rem;padding-top:3px">${step}</div>
@@ -162,7 +161,7 @@ export default async function SopManagementPage(container) {
           `).join('')}
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px">
-          ${s.tags.map(t => `<span style="font-size:0.72rem;padding:3px 8px;background:var(--surface-2);border-radius:10px;color:var(--text-muted)">#${t}</span>`).join('')}
+          ${(s.tags||[]).map(t => `<span style="font-size:0.72rem;padding:3px 8px;background:var(--surface-2);border-radius:10px;color:var(--text-muted)">#${t}</span>`).join('')}
         </div>
       `
     })
@@ -184,25 +183,23 @@ export default async function SopManagementPage(container) {
           </div>
         </div>
       `,
-      onConfirm() {
+      async onConfirm() {
         const title = document.getElementById('sf-title')?.value?.trim()
-        if (!title) { showToast('❗ กรุณากรอกชื่อ SOP', 'error'); return }
+        if (!title) { showToast('❗ กรุณากรอกชื่อ SOP', 'error'); return false }
         const steps = (document.getElementById('sf-steps')?.value || '').split('\n').map(s => s.trim()).filter(Boolean)
-        sops.unshift({
-          id: `SOP${String(sops.length+1).padStart(3,'0')}`, title,
-          category: document.getElementById('sf-cat')?.value||'sales', version: '1.0',
+        await createDoc('sop_documents', {
+          title, category: document.getElementById('sf-cat')?.value||'sales', version: '1.0',
           status: 'draft', owner: document.getElementById('sf-owner')?.value||'',
           updatedDate: addDays(0), reviewDate: addDays(365),
           steps: steps.length ? steps : ['ขั้นตอนที่ยังไม่ได้กำหนด'],
-          tags: []
+          tags: [],
         })
-        showToast('✅ สร้าง SOP แล้ว!', 'success')
-        renderPage()
+        showToast('✅ สร้าง SOP แล้ว!', 'success'); await loadData()
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

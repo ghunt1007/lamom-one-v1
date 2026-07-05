@@ -647,6 +647,27 @@ export function seedDemoData() {
   ]
   fiveSAreas.forEach(a => { if (!demoCol('five_s_areas')[a.id]) demoCol('five_s_areas')[a.id] = a })
 
+  // SOP documents (หน้า /quality/sop)
+  const sopDocuments = [
+    { id:'SOP001', title:'ขั้นตอนการรับลูกค้าเข้าโชว์รูม', category:'sales', version:'1.2',
+      status:'approved', owner:'ผู้จัดการขาย', updatedDate:addDaysISO(-30), reviewDate:addDaysISO(335),
+      steps:['ต้อนรับลูกค้าด้วยรอยยิ้มภายใน 30 วินาที','เชิญนั่งพักและเสนอเครื่องดื่ม','ถามความต้องการและงบประมาณ','นำเสนอรุ่นที่เหมาะสม','เสนอทดลองขับ'],
+      tags:['customer', 'showroom', 'greeting'] },
+    { id:'SOP002', title:'ขั้นตอน PDI (Pre-Delivery Inspection)', category:'delivery', version:'2.0',
+      status:'approved', owner:'หัวหน้าช่าง', updatedDate:addDaysISO(-14), reviewDate:addDaysISO(351),
+      steps:['ตรวจสอบสภาพภายนอก - ขีดข่วน รอยเว้า','ตรวจภายใน - เบาะ แผงหน้าปัด','ตรวจระบบ EV - แบต ชาร์จ','ตรวจเอกสาร - สมุดคู่มือ ใบจดทะเบียน','ทดสอบการขับขี่ 5 กม.','บันทึกผลใน Checklist'],
+      tags:['pdi', 'delivery', 'quality'] },
+    { id:'SOP003', title:'นโยบายคุ้มครองข้อมูลส่วนบุคคล (PDPA)', category:'pdpa', version:'1.0',
+      status:'approved', owner:'ฝ่ายกฎหมาย', updatedDate:addDaysISO(-90), reviewDate:addDaysISO(275),
+      steps:['ขอความยินยอมก่อนเก็บข้อมูล','ใช้ข้อมูลตามวัตถุประสงค์ที่แจ้ง','ไม่เปิดเผยข้อมูลโดยไม่ได้รับอนุญาต','ลูกค้ามีสิทธิ์ขอลบข้อมูล','เก็บรักษาข้อมูลอย่างปลอดภัย'],
+      tags:['pdpa', 'privacy', 'legal'] },
+    { id:'SOP004', title:'ขั้นตอนการรับ Job Card และการซ่อม', category:'service', version:'1.5',
+      status:'review', owner:'หัวหน้าช่าง', updatedDate:addDaysISO(-3), reviewDate:addDaysISO(362),
+      steps:['รับรถจากลูกค้า ตรวจสอบสภาพเบื้องต้น','เปิด Job Card ในระบบ','วิเคราะห์ปัญหาและประเมินค่าใช้จ่าย','แจ้งลูกค้าก่อนดำเนินการ','ดำเนินการซ่อม','ตรวจงานหลังซ่อม','ส่งคืนรถลูกค้า'],
+      tags:['service', 'jobcard', 'repair'] },
+  ]
+  sopDocuments.forEach(s => { if (!demoCol('sop_documents')[s.id]) demoCol('sop_documents')[s.id] = s })
+
   const demoFleet = [
     { id:'df1', brand:'BYD', model:'Seal RWD', vin:'LGXCE4C10PA000006', plate:'กข-0001', color:'เทา Ink', year:2025, mileage:3520, status:'available', condition:'good', lastService:'2025-05-01', notes:'รถทดลองขับหลัก', createdAt:'2025-01-10' },
     { id:'df2', brand:'MG', model:'MG4 X', vin:'SDUZZZEF5PA000020', plate:'กข-0002', color:'แดง', year:2025, mileage:5200, status:'in_use', condition:'good', lastService:'2025-04-15', notes:'ให้ลูกค้า VIP ยืม', createdAt:'2025-01-15' },
