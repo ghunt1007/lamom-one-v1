@@ -587,6 +587,19 @@ export function seedDemoData() {
   ]
   qualityAudits.forEach(a => { if (!demoCol('quality_audits')[a.id]) demoCol('quality_audits')[a.id] = a })
 
+  // Compliance checklist (หน้า /quality/compliance)
+  const complianceChecklist = [
+    { id:'C001', title:'การเก็บข้อมูลส่วนบุคคลมีใบยินยอม', cat:'pdpa', status:'pass', lastCheck:addDaysISO(-7), nextCheck:addDaysISO(358), owner:'ฝ่าย IT', notes:'', criticality:'high' },
+    { id:'C002', title:'ระบบมีนโยบาย Privacy Policy เป็นปัจจุบัน', cat:'pdpa', status:'partial', lastCheck:addDaysISO(-14), nextCheck:addDaysISO(351), owner:'ฝ่ายกฎหมาย', notes:'ต้องอัพเดตส่วน Data Retention Policy', criticality:'high' },
+    { id:'C003', title:'สัญญาจ้างพนักงานครบทุกคน', cat:'labor', status:'pass', lastCheck:addDaysISO(-30), nextCheck:addDaysISO(335), owner:'HR', notes:'', criticality:'high' },
+    { id:'C004', title:'ยื่น ภพ.30 ตรงเวลาทุกเดือน', cat:'tax', status:'pass', lastCheck:addDaysISO(-5), nextCheck:addDaysISO(25), owner:'การเงิน', notes:'', criticality:'high' },
+    { id:'C005', title:'ใบอนุญาตขายรถยนต์ยังไม่หมดอายุ', cat:'dealer', status:'pass', lastCheck:addDaysISO(-60), nextCheck:addDaysISO(305), owner:'ผู้บริหาร', notes:'', criticality:'critical' },
+    { id:'C006', title:'ถังดับเพลิงครบและอยู่ในกำหนด', cat:'safety', status:'fail', lastCheck:addDaysISO(-90), nextCheck:addDaysISO(-30), owner:'แม่บ้าน', notes:'ถังดับเพลิง 2 ถังหมดอายุ — ต้องเปลี่ยน', criticality:'high' },
+    { id:'C007', title:'รายงาน EV Battery Disposal ตามกฎ', cat:'ev_reg', status:'partial', lastCheck:addDaysISO(-45), nextCheck:addDaysISO(320), owner:'ฝ่ายบริการ', notes:'มีแบตที่ยังไม่ได้ส่ง Recycle 2 ลูก', criticality:'medium' },
+    { id:'C008', title:'งบการเงินผ่านการตรวจสอบ', cat:'finance', status:'pass', lastCheck:addDaysISO(-180), nextCheck:addDaysISO(185), owner:'ผู้สอบบัญชี', notes:'', criticality:'high' },
+  ]
+  complianceChecklist.forEach(c => { if (!demoCol('compliance_checklist')[c.id]) demoCol('compliance_checklist')[c.id] = c })
+
   const demoFleet = [
     { id:'df1', brand:'BYD', model:'Seal RWD', vin:'LGXCE4C10PA000006', plate:'กข-0001', color:'เทา Ink', year:2025, mileage:3520, status:'available', condition:'good', lastService:'2025-05-01', notes:'รถทดลองขับหลัก', createdAt:'2025-01-10' },
     { id:'df2', brand:'MG', model:'MG4 X', vin:'SDUZZZEF5PA000020', plate:'กข-0002', color:'แดง', year:2025, mileage:5200, status:'in_use', condition:'good', lastService:'2025-04-15', notes:'ให้ลูกค้า VIP ยืม', createdAt:'2025-01-15' },

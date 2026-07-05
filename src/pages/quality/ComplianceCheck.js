@@ -5,6 +5,7 @@
 import { formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -29,23 +30,27 @@ const CHECK_STATUS = {
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
 
-const CHECKLIST = [
-  { id: 'C001', title: 'การเก็บข้อมูลส่วนบุคคลมีใบยินยอม', cat: 'pdpa', status: 'pass', lastCheck: addDays(-7), nextCheck: addDays(358), owner: 'ฝ่าย IT', notes: '', criticality: 'high' },
-  { id: 'C002', title: 'ระบบมีนโยบาย Privacy Policy เป็นปัจจุบัน', cat: 'pdpa', status: 'partial', lastCheck: addDays(-14), nextCheck: addDays(351), owner: 'ฝ่ายกฎหมาย', notes: 'ต้องอัพเดตส่วน Data Retention Policy', criticality: 'high' },
-  { id: 'C003', title: 'สัญญาจ้างพนักงานครบทุกคน', cat: 'labor', status: 'pass', lastCheck: addDays(-30), nextCheck: addDays(335), owner: 'HR', notes: '', criticality: 'high' },
-  { id: 'C004', title: 'ยื่น ภพ.30 ตรงเวลาทุกเดือน', cat: 'tax', status: 'pass', lastCheck: addDays(-5), nextCheck: addDays(25), owner: 'การเงิน', notes: '', criticality: 'high' },
-  { id: 'C005', title: 'ใบอนุญาตขายรถยนต์ยังไม่หมดอายุ', cat: 'dealer', status: 'pass', lastCheck: addDays(-60), nextCheck: addDays(305), owner: 'ผู้บริหาร', notes: '', criticality: 'critical' },
-  { id: 'C006', title: 'ถังดับเพลิงครบและอยู่ในกำหนด', cat: 'safety', status: 'fail', lastCheck: addDays(-90), nextCheck: addDays(-30), owner: 'แม่บ้าน', notes: 'ถังดับเพลิง 2 ถังหมดอายุ — ต้องเปลี่ยน', criticality: 'high' },
-  { id: 'C007', title: 'รายงาน EV Battery Disposal ตามกฎ', cat: 'ev_reg', status: 'partial', lastCheck: addDays(-45), nextCheck: addDays(320), owner: 'ฝ่ายบริการ', notes: 'มีแบตที่ยังไม่ได้ส่ง Recycle 2 ลูก', criticality: 'medium' },
-  { id: 'C008', title: 'งบการเงินผ่านการตรวจสอบ', cat: 'finance', status: 'pass', lastCheck: addDays(-180), nextCheck: addDays(185), owner: 'ผู้สอบบัญชี', notes: '', criticality: 'high' },
-]
-
 export default async function ComplianceCheckPage(container) {
-  let items = CHECKLIST.map(c => ({ ...c }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let items = []
   let catFilter = 'all'
   let statusFilter = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { items = await listDocs('compliance_checklist', [], 'nextCheck', 'asc', 200) } catch (e) { items = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = items.filter(c => {
       if (catFilter !== 'all' && c.cat !== catFilter) return false
       if (statusFilter !== 'all' && c.status !== statusFilter) return false
@@ -54,7 +59,7 @@ export default async function ComplianceCheckPage(container) {
     const passed = items.filter(c => c.status === 'pass').length
     const failed = items.filter(c => c.status === 'fail').length
     const partial = items.filter(c => c.status === 'partial').length
-    const score = Math.round((passed + partial * 0.5) / items.length * 100)
+    const score = items.length ? Math.round((passed + partial * 0.5) / items.length * 100) : 0
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -62,9 +67,6 @@ export default async function ComplianceCheckPage(container) {
           <div>
             <div class="page-title">✅ Compliance Check</div>
             <div class="page-subtitle">ตรวจสอบการปฏิบัติตามกฎหมายและมาตรฐาน</div>
-          </div>
-          <div class="page-actions">
-            <button class="btn btn-primary" id="run-check-btn">🔍 Run Full Check</button>
           </div>
         </div>
 
@@ -126,17 +128,13 @@ export default async function ComplianceCheckPage(container) {
               </div>
             </div>`
           }).join('')}
+          ${!list.length ? `<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-title">ไม่มีรายการ</div></div>` : ''}
         </div>
       </div>
     `
 
     container.querySelectorAll('.cf-btn').forEach(b => b.addEventListener('click', () => { catFilter = b.dataset.c; renderPage() }))
     container.querySelectorAll('.sf-btn').forEach(b => b.addEventListener('click', () => { statusFilter = b.dataset.s; renderPage() }))
-    document.getElementById('run-check-btn')?.addEventListener('click', () => {
-      showToast('🔍 กำลังตรวจสอบ... เสร็จแล้ว!', 'success')
-      items.forEach(c => { if (c.status === 'fail' && c.notes) { /* keep fail */ } })
-      renderPage()
-    })
     container.querySelectorAll('.update-btn').forEach(b => b.addEventListener('click', () => {
       const c = items.find(x => x.id === b.dataset.id); if (c) openUpdateModal(c)
     }))
@@ -162,17 +160,17 @@ export default async function ComplianceCheckPage(container) {
           <input type="date" class="input" id="cu-next" value="${c.nextCheck}">
         </div>
       `,
-      onConfirm() {
-        c.status = document.getElementById('cu-status')?.value || c.status
-        c.notes = document.getElementById('cu-notes')?.value || ''
-        c.nextCheck = document.getElementById('cu-next')?.value || c.nextCheck
-        c.lastCheck = addDays(0)
-        showToast('✅ อัพเดตแล้ว!', 'success'); renderPage()
+      async onConfirm() {
+        const status = document.getElementById('cu-status')?.value || c.status
+        const notes = document.getElementById('cu-notes')?.value || ''
+        const nextCheck = document.getElementById('cu-next')?.value || c.nextCheck
+        await updateDocData('compliance_checklist', c.id, { status, notes, nextCheck, lastCheck: addDays(0) })
+        showToast('✅ อัพเดตแล้ว!', 'success'); await loadData()
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
