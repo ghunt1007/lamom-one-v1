@@ -736,6 +736,13 @@ export function seedDemoData() {
   ]
   onboardingStaff.forEach(s => { if (!demoCol('onboarding_staff')[s.id]) demoCol('onboarding_staff')[s.id] = s })
 
+  // Offboarding staff (หน้า /hr/offboarding)
+  const offboardingStaff = [
+    { id:'OB001', name:'ประสิทธิ์ ดีเด่น', role:'ช่างเทคนิค', dept:'บริการ', lastDay:addDaysISO(14), reason:'ได้งานใกล้บ้าน', successor:'มานะ ขยัน', tasks:{ T01:true, T02:false, T03:false, T04:false, T05:false, T06:false, T07:false, T08:false, T09:true, T10:false } },
+    { id:'OB002', name:'กมล ขายเก่ง', role:'เซลส์', dept:'ขาย', lastDay:addDaysISO(-5), reason:'ย้ายจังหวัด', successor:'ธนา เก่ง', tasks:{ T01:true, T02:true, T03:true, T04:true, T05:true, T06:true, T07:true, T08:true, T09:true, T10:true } },
+  ]
+  offboardingStaff.forEach(o => { if (!demoCol('offboarding_staff')[o.id]) demoCol('offboarding_staff')[o.id] = o })
+
   const demoFleet = [
     { id:'df1', brand:'BYD', model:'Seal RWD', vin:'LGXCE4C10PA000006', plate:'กข-0001', color:'เทา Ink', year:2025, mileage:3520, status:'available', condition:'good', lastService:'2025-05-01', notes:'รถทดลองขับหลัก', createdAt:'2025-01-10' },
     { id:'df2', brand:'MG', model:'MG4 X', vin:'SDUZZZEF5PA000020', plate:'กข-0002', color:'แดง', year:2025, mileage:5200, status:'in_use', condition:'good', lastService:'2025-04-15', notes:'ให้ลูกค้า VIP ยืม', createdAt:'2025-01-15' },

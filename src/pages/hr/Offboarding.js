@@ -5,6 +5,7 @@
 import { formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
 
@@ -21,22 +22,33 @@ const OFFBOARD_TASKS = [
   { id: 'T10', cat: '🤝 ส่งมอบงาน', task: 'Exit interview — เก็บ feedback' },
 ]
 
-const DEMO_OFFBOARDING = [
-  { id: 'OB001', name: 'ประสิทธิ์ ดีเด่น', role: 'ช่างเทคนิค', dept: 'บริการ', lastDay: addDays(14), reason: 'ได้งานใกล้บ้าน', successor: 'มานะ ขยัน', tasks: { T01: true, T02: false, T03: false, T04: false, T05: false, T06: false, T07: false, T08: false, T09: true, T10: false } },
-  { id: 'OB002', name: 'กมล ขายเก่ง', role: 'เซลส์', dept: 'ขาย', lastDay: addDays(-5), reason: 'ย้ายจังหวัด', successor: 'ธนา เก่ง', tasks: { T01: true, T02: true, T03: true, T04: true, T05: true, T06: true, T07: true, T08: true, T09: true, T10: true } },
-]
-
 export default async function OffboardingPage(container) {
-  let list = DEMO_OFFBOARDING.map(o => ({ ...o, tasks: { ...o.tasks } }))
-  let selected = list[0]?.id
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let list = []
+  let selected = null
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { list = await listDocs('offboarding_staff', [], 'lastDay', 'desc', 200) } catch (e) { list = [] }
+    if (!selected || !list.find(x => x.id === selected)) selected = list[0]?.id
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const o = list.find(x => x.id === selected) || list[0]
-    const done = o ? Object.values(o.tasks).filter(Boolean).length : 0
+    const done = o ? Object.values(o.tasks||{}).filter(Boolean).length : 0
     const total = OFFBOARD_TASKS.length
-    const pct = Math.round(done / total * 100)
+    const pct = total ? Math.round(done / total * 100) : 0
     const cats = [...new Set(OFFBOARD_TASKS.map(t => t.cat))]
-    const active = list.filter(x => Object.values(x.tasks).some(v => !v)).length
+    const active = list.filter(x => Object.values(x.tasks||{}).some(v => !v)).length
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -60,8 +72,8 @@ export default async function OffboardingPage(container) {
           <!-- Staff tabs -->
           <div style="display:flex;flex-direction:column;gap:6px">
             ${list.map(x => {
-              const xDone = Object.values(x.tasks).filter(Boolean).length
-              const xPct = Math.round(xDone / total * 100)
+              const xDone = Object.values(x.tasks||{}).filter(Boolean).length
+              const xPct = total ? Math.round(xDone / total * 100) : 0
               return `<div class="card ob-tab" data-id="${x.id}" style="padding:10px 12px;cursor:pointer;border:2px solid ${x.id===selected?'var(--primary)':'transparent'}">
                 <div style="font-weight:600;font-size:0.82rem">${x.name}</div>
                 <div style="font-size:0.66rem;color:var(--text-muted)">${x.role} · วันสุดท้าย ${formatDate(x.lastDay)}</div>
@@ -70,6 +82,7 @@ export default async function OffboardingPage(container) {
                 </div>
               </div>`
             }).join('')}
+            ${!list.length ? `<div style="color:var(--text-muted);font-size:0.8rem;padding:10px">ยังไม่มีรายการ</div>` : ''}
           </div>
 
           <!-- Checklist -->
@@ -87,8 +100,8 @@ export default async function OffboardingPage(container) {
                 <div style="font-size:0.72rem;font-weight:700;color:var(--text-muted);margin-bottom:4px">${cat}</div>
                 ${OFFBOARD_TASKS.filter(t => t.cat === cat).map(t => `
                   <label style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);cursor:pointer;font-size:0.8rem">
-                    <input type="checkbox" class="ob-check" data-oid="${o.id}" data-t="${t.id}" ${o.tasks[t.id]?'checked':''} style="accent-color:var(--primary)">
-                    <span style="${o.tasks[t.id]?'text-decoration:line-through;color:var(--text-muted)':''}">${t.task}</span>
+                    <input type="checkbox" class="ob-check" data-oid="${o.id}" data-t="${t.id}" ${o.tasks?.[t.id]?'checked':''} style="accent-color:var(--primary)">
+                    <span style="${o.tasks?.[t.id]?'text-decoration:line-through;color:var(--text-muted)':''}">${t.task}</span>
                   </label>
                 `).join('')}
               </div>
@@ -100,9 +113,12 @@ export default async function OffboardingPage(container) {
     `
 
     container.querySelectorAll('.ob-tab').forEach(b => b.addEventListener('click', () => { selected = b.dataset.id; renderPage() }))
-    container.querySelectorAll('.ob-check').forEach(cb => cb.addEventListener('change', () => {
+    container.querySelectorAll('.ob-check').forEach(cb => cb.addEventListener('change', async () => {
       const x = list.find(z => z.id === cb.dataset.oid)
-      if (x) { x.tasks[cb.dataset.t] = cb.checked; renderPage() }
+      if (!x) return
+      const tasks = { ...(x.tasks||{}), [cb.dataset.t]: cb.checked }
+      await updateDocData('offboarding_staff', x.id, { tasks })
+      await loadData()
     }))
     document.getElementById('add-ob-btn')?.addEventListener('click', () => {
       openModal({
@@ -115,19 +131,24 @@ export default async function OffboardingPage(container) {
           <div class="input-group"><label class="input-label">เหตุผล</label><input class="input" id="ob-reason"></div>
           <div class="input-group"><label class="input-label">ผู้รับช่วงงาน</label><input class="input" id="ob-successor"></div>
         </div>`,
-        onConfirm() {
+        async onConfirm() {
           const name = document.getElementById('ob-name')?.value?.trim()
-          if (!name) { showToast('❗ กรอกชื่อ', 'error'); return }
+          if (!name) { showToast('❗ กรอกชื่อ', 'error'); return false }
           const tasks = {}; OFFBOARD_TASKS.forEach(t => tasks[t.id] = false)
-          const nu = { id:`OB${String(list.length+1).padStart(3,'0')}`, name, role:document.getElementById('ob-role')?.value||'—', dept:'—', lastDay:document.getElementById('ob-lastday')?.value||addDays(30), reason:document.getElementById('ob-reason')?.value||'—', successor:document.getElementById('ob-successor')?.value||'—', tasks }
-          list.push(nu); selected = nu.id
-          showToast('👋 เริ่ม Offboarding แล้ว', 'primary'); renderPage()
+          const newId = await createDoc('offboarding_staff', {
+            name, role: document.getElementById('ob-role')?.value||'—', dept: '—',
+            lastDay: document.getElementById('ob-lastday')?.value||addDays(30),
+            reason: document.getElementById('ob-reason')?.value||'—',
+            successor: document.getElementById('ob-successor')?.value||'—', tasks,
+          })
+          selected = newId
+          showToast('👋 เริ่ม Offboarding แล้ว', 'primary'); await loadData()
         }
       })
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
