@@ -627,6 +627,16 @@ export function seedDemoData() {
   ]
   insuranceClaims.forEach(c => { if (!demoCol('insurance_claims')[c.id]) demoCol('insurance_claims')[c.id] = c })
 
+  // Customer reviews (หน้า /quality/satisfaction)
+  const customerReviews = [
+    { id:'R001', customer:'วิชัย มีโชค', model:'BYD Seal AWD', score:5, comment:'บริการดีมาก เซลส์อธิบายละเอียด คุ้มค่า!', channel:'Google', date:new Date(Date.now()-86400000*2).toISOString(), replied:false, tags:['บริการขาย','ความรู้เซลส์'] },
+    { id:'R002', customer:'สุดา อารมณ์ดี', model:'BYD Atto 3', score:4, comment:'โดยรวมดี แต่รอนานไปหน่อย', channel:'Facebook', date:new Date(Date.now()-86400000*5).toISOString(), replied:true, tags:['บริการขาย','เวลารอคอย'] },
+    { id:'R003', customer:'ธนา ลูกค้าใหม่', model:'MG ZS EV', score:3, comment:'ศูนย์บริการรอนาน 3 ชั่วโมง ไม่ค่อยพอใจ', channel:'LINE OA', date:new Date(Date.now()-86400000*8).toISOString(), replied:false, tags:['บริการหลังขาย','เวลารอคอย'] },
+    { id:'R004', customer:'มานี ดีใจ', model:'BYD Dolphin', score:5, comment:'ประทับใจมากๆ คุ้มค่า แนะนำเพื่อนมาแน่นอน', channel:'Google', date:new Date(Date.now()-86400000*10).toISOString(), replied:true, tags:['ราคา/คุณภาพ','บริการขาย'] },
+    { id:'R005', customer:'ชัย ไม่ค่อยพอใจ', model:'MG EP', score:2, comment:'ซ่อมแล้วยังมีปัญหาเดิม ต้องกลับมาซ่อมซ้ำ', channel:'รีวิวหน้าร้าน', date:new Date(Date.now()-86400000*12).toISOString(), replied:false, tags:['บริการหลังขาย'] },
+  ]
+  customerReviews.forEach(r => { if (!demoCol('customer_reviews')[r.id]) demoCol('customer_reviews')[r.id] = r })
+
   const demoFleet = [
     { id:'df1', brand:'BYD', model:'Seal RWD', vin:'LGXCE4C10PA000006', plate:'กข-0001', color:'เทา Ink', year:2025, mileage:3520, status:'available', condition:'good', lastService:'2025-05-01', notes:'รถทดลองขับหลัก', createdAt:'2025-01-10' },
     { id:'df2', brand:'MG', model:'MG4 X', vin:'SDUZZZEF5PA000020', plate:'กข-0002', color:'แดง', year:2025, mileage:5200, status:'in_use', condition:'good', lastService:'2025-04-15', notes:'ให้ลูกค้า VIP ยืม', createdAt:'2025-01-15' },

@@ -5,18 +5,7 @@
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-
-const CATEGORIES = ['บริการขาย', 'บริการหลังขาย', 'ความรู้เซลส์', 'ความสะอาด', 'เวลารอคอย', 'ราคา/คุณภาพ']
-
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString() }
-
-const DEMO_REVIEWS = [
-  { id: 'R001', customer: 'วิชัย มีโชค', model: 'BYD Seal AWD', score: 5, comment: 'บริการดีมาก เซลส์อธิบายละเอียด คุ้มค่า!', channel: 'Google', date: addDays(-2), replied: false, tags: ['บริการขาย','ความรู้เซลส์'] },
-  { id: 'R002', customer: 'สุดา อารมณ์ดี', model: 'BYD Atto 3', score: 4, comment: 'โดยรวมดี แต่รอนานไปหน่อย', channel: 'Facebook', date: addDays(-5), replied: true, tags: ['บริการขาย','เวลารอคอย'] },
-  { id: 'R003', customer: 'ธนา ลูกค้าใหม่', model: 'MG ZS EV', score: 3, comment: 'ศูนย์บริการรอนาน 3 ชั่วโมง ไม่ค่อยพอใจ', channel: 'LINE OA', date: addDays(-8), replied: false, tags: ['บริการหลังขาย','เวลารอคอย'] },
-  { id: 'R004', customer: 'มานี ดีใจ', model: 'BYD Dolphin', score: 5, comment: 'ประทับใจมากๆ คุ้มค่า แนะนำเพื่อนมาแน่นอน', channel: 'Google', date: addDays(-10), replied: true, tags: ['ราคา/คุณภาพ','บริการขาย'] },
-  { id: 'R005', customer: 'ชัย ไม่ค่อยพอใจ', model: 'MG EP', score: 2, comment: 'ซ่อมแล้วยังมีปัญหาเดิม ต้องกลับมาซ่อมซ้ำ', channel: 'รีวิวหน้าร้าน', date: addDays(-12), replied: false, tags: ['บริการหลังขาย'] },
-]
+import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 
 const MONTHLY_SCORES = [4.1, 4.3, 4.2, 4.5, 4.4, 4.6]
 const MONTHS_SHORT = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.']
@@ -26,19 +15,34 @@ function stars(score) {
 }
 
 export default async function CustomerSatisfactionPage(container) {
-  let reviews = DEMO_REVIEWS.map(r => ({ ...r }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let reviews = []
   let scoreFilter = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { reviews = await listDocs('customer_reviews', [], 'date', 'desc', 300) } catch (e) { reviews = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = reviews.filter(r => scoreFilter === 'all' || +scoreFilter === r.score)
-    const avgScore = (reviews.reduce((a, r) => a + r.score, 0) / reviews.length).toFixed(1)
+    const avgScore = reviews.length ? (reviews.reduce((a, r) => a + r.score, 0) / reviews.length).toFixed(1) : '0.0'
     const excellent = reviews.filter(r => r.score >= 4).length
     const poor = reviews.filter(r => r.score <= 2).length
     const unreplied = reviews.filter(r => !r.replied).length
 
     const scoreDist = [5,4,3,2,1].map(s => ({
       s, count: reviews.filter(r => r.score === s).length,
-      pct: Math.round(reviews.filter(r => r.score === s).length / reviews.length * 100)
+      pct: reviews.length ? Math.round(reviews.filter(r => r.score === s).length / reviews.length * 100) : 0
     }))
 
     container.innerHTML = `
@@ -113,11 +117,12 @@ export default async function CustomerSatisfactionPage(container) {
               </div>
               <div style="font-size:0.83rem;font-style:italic;color:var(--text-muted);margin-bottom:10px">"${r.comment}"</div>
               <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap">
-                ${r.tags.map(t => `<span class="badge badge-secondary" style="font-size:0.62rem">${t}</span>`).join('')}
+                ${(r.tags||[]).map(t => `<span class="badge badge-secondary" style="font-size:0.62rem">${t}</span>`).join('')}
               </div>
               ${!r.replied ? `<button class="btn btn-xs btn-primary reply-btn" data-id="${r.id}">💬 ตอบรีวิว</button>` : ''}
             </div>
           `).join('')}
+          ${!list.length ? `<div class="empty-state"><div class="empty-icon">⭐</div><div class="empty-title">ไม่มีรีวิว</div></div>` : ''}
         </div>
       </div>
     `
@@ -141,16 +146,16 @@ export default async function CustomerSatisfactionPage(container) {
           <textarea class="input" id="reply-text" rows="4" placeholder="ขอบคุณที่ใช้บริการ..."></textarea>
         </div>
       `,
-      onConfirm() {
+      async onConfirm() {
         const text = document.getElementById('reply-text')?.value?.trim()
-        if (!text) { showToast('❗ กรุณากรอกข้อความ', 'error'); return }
-        r.replied = true
-        showToast(`✅ ตอบรีวิว ${r.customer} แล้ว!`, 'success'); renderPage()
+        if (!text) { showToast('❗ กรุณากรอกข้อความ', 'error'); return false }
+        await updateDocData('customer_reviews', r.id, { replied: true, replyText: text })
+        showToast(`✅ ตอบรีวิว ${r.customer} แล้ว!`, 'success'); await loadData()
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
