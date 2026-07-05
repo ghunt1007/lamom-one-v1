@@ -780,6 +780,16 @@ export function seedDemoData() {
   ]
   recruitmentApplicants.forEach(a => { if (!demoCol('recruitment_applicants')[a.id]) demoCol('recruitment_applicants')[a.id] = a })
 
+  // Overtime records (หน้า /hr/overtime)
+  const overtimeRecords = [
+    { id:'OT001', staff:'วิทยา ช่างใหญ่', dept:'บริการ', date:addDaysISO(-1), hours:3, hourlyRate:219, reason:'ซ่อมรถลูกค้าด่วน — ต้องส่งมอบพรุ่งนี้', status:'pending' },
+    { id:'OT002', staff:'สุรชัย มือดี', dept:'บริการ', date:addDaysISO(-1), hours:2, hourlyRate:200, reason:'EV Diagnostic เคสซับซ้อน', status:'pending' },
+    { id:'OT003', staff:'วิชัย ยอดขาย', dept:'ขาย', date:addDaysISO(-3), hours:4, hourlyRate:188, reason:'งาน Motor Show — บูธถึง 22:00', status:'approved' },
+    { id:'OT004', staff:'สมศรี การเงิน', dept:'การเงิน', date:addDaysISO(-5), hours:3, hourlyRate:263, reason:'ปิดงบเดือน', status:'paid' },
+    { id:'OT005', staff:'มานะ ขยัน', dept:'บริการ', date:addDaysISO(-7), hours:5, hourlyRate:156, reason:'ค้างงานซ่อมสีตัวถัง', status:'rejected' },
+  ]
+  overtimeRecords.forEach(o => { if (!demoCol('overtime_records')[o.id]) demoCol('overtime_records')[o.id] = o })
+
   const demoFleet = [
     { id:'df1', brand:'BYD', model:'Seal RWD', vin:'LGXCE4C10PA000006', plate:'กข-0001', color:'เทา Ink', year:2025, mileage:3520, status:'available', condition:'good', lastService:'2025-05-01', notes:'รถทดลองขับหลัก', createdAt:'2025-01-10' },
     { id:'df2', brand:'MG', model:'MG4 X', vin:'SDUZZZEF5PA000020', plate:'กข-0002', color:'แดง', year:2025, mileage:5200, status:'in_use', condition:'good', lastService:'2025-04-15', notes:'ให้ลูกค้า VIP ยืม', createdAt:'2025-01-15' },

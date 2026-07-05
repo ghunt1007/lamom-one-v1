@@ -5,6 +5,7 @@
 import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -21,14 +22,6 @@ const OT_STATUS = {
 
 const OT_RATE = 1.5 // เท่าของค่าจ้างปกติ
 
-const DEMO_OT = [
-  { id: 'OT001', staff: 'วิทยา ช่างใหญ่', dept: 'บริการ', date: addDays(-1), hours: 3, hourlyRate: 219, reason: 'ซ่อมรถลูกค้าด่วน — ต้องส่งมอบพรุ่งนี้', status: 'pending' },
-  { id: 'OT002', staff: 'สุรชัย มือดี', dept: 'บริการ', date: addDays(-1), hours: 2, hourlyRate: 200, reason: 'EV Diagnostic เคสซับซ้อน', status: 'pending' },
-  { id: 'OT003', staff: 'วิชัย ยอดขาย', dept: 'ขาย', date: addDays(-3), hours: 4, hourlyRate: 188, reason: 'งาน Motor Show — บูธถึง 22:00', status: 'approved' },
-  { id: 'OT004', staff: 'สมศรี การเงิน', dept: 'การเงิน', date: addDays(-5), hours: 3, hourlyRate: 263, reason: 'ปิดงบเดือน', status: 'paid' },
-  { id: 'OT005', staff: 'มานะ ขยัน', dept: 'บริการ', date: addDays(-7), hours: 5, hourlyRate: 156, reason: 'ค้างงานซ่อมสีตัวถัง', status: 'rejected' },
-]
-
 const MONTHLY_BY_STAFF = [
   { name: 'วิทยา ช่างใหญ่', hours: 18, limit: 36 },
   { name: 'สุรชัย มือดี', hours: 14, limit: 36 },
@@ -40,10 +33,25 @@ const MONTHLY_BY_STAFF = [
 function otPay(o) { return Math.round(o.hours * o.hourlyRate * OT_RATE) }
 
 export default async function OvertimeTrackingPage(container) {
-  let records = DEMO_OT.map(o => ({ ...o }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let records = []
   let statusFilter = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { records = await listDocs('overtime_records', [], 'date', 'desc', 300) } catch (e) { records = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = records.filter(o => statusFilter === 'all' || o.status === statusFilter)
     const pending = records.filter(o => o.status === 'pending')
     const monthHours = records.filter(o => o.status !== 'rejected').reduce((a, o) => a + o.hours, 0)
@@ -118,23 +126,28 @@ export default async function OvertimeTrackingPage(container) {
               ${o.status === 'approved' ? `<button class="btn btn-xs btn-secondary pay-btn" data-id="${o.id}">💸 จ่ายพร้อมเงินเดือน</button>` : ''}
             </div>`
           }).join('')}
+          ${!list.length ? `<div class="empty-state"><div class="empty-icon">⏱</div><div class="empty-title">ไม่มีรายการ OT</div></div>` : ''}
         </div>
       </div>
     `
 
     container.querySelectorAll('.sf-btn').forEach(b => b.addEventListener('click', () => { statusFilter = b.dataset.s; renderPage() }))
-    container.querySelectorAll('.approve-btn').forEach(b => b.addEventListener('click', () => {
-      const o = records.find(x => x.id === b.dataset.id); if (o) { o.status = 'approved'; showToast('✅ อนุมัติ OT แล้ว', 'success'); renderPage() }
+    container.querySelectorAll('.approve-btn').forEach(b => b.addEventListener('click', async () => {
+      await updateDocData('overtime_records', b.dataset.id, { status: 'approved' })
+      showToast('✅ อนุมัติ OT แล้ว', 'success'); await loadData()
     }))
-    container.querySelectorAll('.reject-btn').forEach(b => b.addEventListener('click', () => {
-      const o = records.find(x => x.id === b.dataset.id); if (o) { o.status = 'rejected'; renderPage() }
+    container.querySelectorAll('.reject-btn').forEach(b => b.addEventListener('click', async () => {
+      await updateDocData('overtime_records', b.dataset.id, { status: 'rejected' })
+      await loadData()
     }))
-    container.querySelectorAll('.pay-btn').forEach(b => b.addEventListener('click', () => {
-      const o = records.find(x => x.id === b.dataset.id); if (o) { o.status = 'paid'; showToast('💸 ส่งเข้ารอบเงินเดือนแล้ว', 'success'); renderPage() }
+    container.querySelectorAll('.pay-btn').forEach(b => b.addEventListener('click', async () => {
+      await updateDocData('overtime_records', b.dataset.id, { status: 'paid' })
+      showToast('💸 ส่งเข้ารอบเงินเดือนแล้ว', 'success'); await loadData()
     }))
-    document.getElementById('approve-all-btn')?.addEventListener('click', () => {
-      records.filter(o => o.status === 'pending').forEach(o => { o.status = 'approved' })
-      showToast('✅ อนุมัติ OT ทั้งหมดแล้ว', 'success'); renderPage()
+    document.getElementById('approve-all-btn')?.addEventListener('click', async () => {
+      const toApprove = records.filter(o => o.status === 'pending')
+      for (const o of toApprove) { await updateDocData('overtime_records', o.id, { status: 'approved' }) }
+      showToast('✅ อนุมัติ OT ทั้งหมดแล้ว', 'success'); await loadData()
     })
     document.getElementById('add-ot-btn')?.addEventListener('click', () => {
       openModal({
@@ -148,17 +161,21 @@ export default async function OvertimeTrackingPage(container) {
           <div class="input-group"><label class="input-label">จำนวนชั่วโมง</label><input class="input" type="number" min="0.5" max="8" step="0.5" id="ot-hours" value="2"></div>
           <div class="input-group"><label class="input-label">เหตุผล *</label><input class="input" id="ot-reason"></div>
         </div>`,
-        onConfirm() {
+        async onConfirm() {
           const reason = document.getElementById('ot-reason')?.value?.trim()
-          if (!reason) { showToast('❗ กรุณากรอกเหตุผล', 'error'); return }
-          records.unshift({ id:`OT${String(records.length+1).padStart(3,'0')}`, staff:document.getElementById('ot-staff')?.value||'—', dept:'—', date:document.getElementById('ot-date')?.value||addDays(0), hours:parseFloat(document.getElementById('ot-hours')?.value)||1, hourlyRate:200, reason, status:'pending' })
-          showToast('✅ บันทึก OT แล้ว — รออนุมัติ', 'success'); renderPage()
+          if (!reason) { showToast('❗ กรุณากรอกเหตุผล', 'error'); return false }
+          await createDoc('overtime_records', {
+            staff: document.getElementById('ot-staff')?.value||'—', dept: '—',
+            date: document.getElementById('ot-date')?.value||addDays(0),
+            hours: parseFloat(document.getElementById('ot-hours')?.value)||1, hourlyRate: 200, reason, status: 'pending',
+          })
+          showToast('✅ บันทึก OT แล้ว — รออนุมัติ', 'success'); await loadData()
         }
       })
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
