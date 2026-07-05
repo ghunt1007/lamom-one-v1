@@ -706,6 +706,14 @@ export function seedDemoData() {
   ]
   ncbPolicies.forEach(p => { if (!demoCol('ncb_policies')[p.id]) demoCol('ncb_policies')[p.id] = p })
 
+  // Disciplinary records (หน้า /hr/disciplinary) — บันทึกตักเตือน/ใบเตือนพนักงาน
+  const disciplinaryRecords = [
+    { id:'DR-001', caseNo:'DR-001', staff:'สมชาย ใจดี', dept:'ช่าง', level:'verbal', reason:'มาสายเกิน 3 ครั้ง/เดือน', by:'หัวหน้าช่าง', date:'2026-05-18', ack:true },
+    { id:'DR-002', caseNo:'DR-002', staff:'นิภา สวยงาม', dept:'เซลส์', level:'written', reason:'ไม่บันทึก Lead ตามขั้นตอน ทำให้เสียลูกค้า', by:'ผจก.ขาย', date:'2026-06-01', ack:true },
+    { id:'DR-003', caseNo:'DR-003', staff:'สมชาย ใจดี', dept:'ช่าง', level:'written', reason:'มาสายซ้ำหลังตักเตือนวาจา', by:'หัวหน้าช่าง', date:'2026-06-08', ack:false },
+  ]
+  disciplinaryRecords.forEach(r => { if (!demoCol('disciplinary_records')[r.id]) demoCol('disciplinary_records')[r.id] = r })
+
   const demoFleet = [
     { id:'df1', brand:'BYD', model:'Seal RWD', vin:'LGXCE4C10PA000006', plate:'กข-0001', color:'เทา Ink', year:2025, mileage:3520, status:'available', condition:'good', lastService:'2025-05-01', notes:'รถทดลองขับหลัก', createdAt:'2025-01-10' },
     { id:'df2', brand:'MG', model:'MG4 X', vin:'SDUZZZEF5PA000020', plate:'กข-0002', color:'แดง', year:2025, mileage:5200, status:'in_use', condition:'good', lastService:'2025-04-15', notes:'ให้ลูกค้า VIP ยืม', createdAt:'2025-01-15' },

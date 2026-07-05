@@ -5,6 +5,7 @@
 import { formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -18,19 +19,30 @@ const LEVELS = {
   suspend: { label: 'พักงาน', color: 'var(--danger)', score: 5 },
 }
 
-let RECORDS = [
-  { id: 'DR-001', staff: 'สมชาย ใจดี', dept: 'ช่าง', level: 'verbal', reason: 'มาสายเกิน 3 ครั้ง/เดือน', by: 'หัวหน้าช่าง', date: '2026-05-18', ack: true },
-  { id: 'DR-002', staff: 'นิภา สวยงาม', dept: 'เซลส์', level: 'written', reason: 'ไม่บันทึก Lead ตามขั้นตอน ทำให้เสียลูกค้า', by: 'ผจก.ขาย', date: '2026-06-01', ack: true },
-  { id: 'DR-003', staff: 'สมชาย ใจดี', dept: 'ช่าง', level: 'written', reason: 'มาสายซ้ำหลังตักเตือนวาจา', by: 'หัวหน้าช่าง', date: '2026-06-08', ack: false },
-]
-
 export default async function DisciplinaryRecordsPage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let records = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { records = await listDocs('disciplinary_records', [], 'date', 'desc', 300) } catch (e) { records = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
+
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     // นับสะสมรายคน
     const byStaff = {}
-    RECORDS.forEach(r => { byStaff[r.staff] = (byStaff[r.staff] || 0) + LEVELS[r.level].score })
+    records.forEach(r => { byStaff[r.staff] = (byStaff[r.staff] || 0) + LEVELS[r.level].score })
     const watchlist = Object.entries(byStaff).filter(([, s]) => s >= 4)
-    const pendingAck = RECORDS.filter(r => !r.ack).length
+    const pendingAck = records.filter(r => !r.ack).length
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -43,7 +55,7 @@ export default async function DisciplinaryRecordsPage(container) {
         </div>
 
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
-          ${stat('📋 บันทึกทั้งหมด', RECORDS.length, 'var(--primary)')}
+          ${stat('📋 บันทึกทั้งหมด', records.length, 'var(--primary)')}
           ${stat('✍️ รอลงนามรับทราบ', pendingAck, pendingAck>0?'var(--warning)':'var(--success)')}
           ${stat('🚩 Watchlist', watchlist.length + ' คน', watchlist.length>0?'var(--danger)':'var(--success)')}
         </div>
@@ -61,9 +73,9 @@ export default async function DisciplinaryRecordsPage(container) {
               <th>สาเหตุ</th><th>ผู้ออก</th><th style="text-align:center">วันที่</th><th style="text-align:center">รับทราบ</th>
             </tr></thead>
             <tbody>
-              ${RECORDS.map(r => `
+              ${records.map(r => `
                 <tr style="border-bottom:1px solid var(--border);font-size:0.8rem">
-                  <td style="padding:9px 12px;font-weight:600">${escHtml(r.id)}</td>
+                  <td style="padding:9px 12px;font-weight:600">${escHtml(r.caseNo || r.id)}</td>
                   <td>${escHtml(r.staff)}<div style="font-size:0.7rem;color:var(--text-muted)">${escHtml(r.dept)}</div></td>
                   <td style="text-align:center"><span style="font-size:0.66rem;background:${LEVELS[r.level].color};color:#fff;padding:2px 8px;border-radius:10px">${LEVELS[r.level].label}</span></td>
                   <td style="font-size:0.76rem;max-width:240px">${escHtml(r.reason)}</td>
@@ -73,6 +85,7 @@ export default async function DisciplinaryRecordsPage(container) {
                     ? '<span style="color:var(--success);font-size:0.74rem">✓ แล้ว</span>'
                     : `<button class="btn btn-xs btn-secondary ack-btn" data-id="${r.id}">ให้ลงนาม</button>`}</td>
                 </tr>`).join('')}
+              ${!records.length ? `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted)">ไม่มีบันทึก</td></tr>` : ''}
             </tbody>
           </table>
         </div>
@@ -80,11 +93,11 @@ export default async function DisciplinaryRecordsPage(container) {
       </div>
     `
 
-    container.querySelectorAll('.ack-btn').forEach(b => b.addEventListener('click', () => {
-      const r = RECORDS.find(x => x.id === b.dataset.id)
-      r.ack = true
-      showToast(`บันทึกการลงนามรับทราบของ ${r.staff} แล้ว`, 'success')
-      render()
+    container.querySelectorAll('.ack-btn').forEach(b => b.addEventListener('click', async () => {
+      await updateDocData('disciplinary_records', b.dataset.id, { ack: true })
+      const r = records.find(x => x.id === b.dataset.id)
+      showToast(`บันทึกการลงนามรับทราบของ ${r?.staff} แล้ว`, 'success')
+      await loadData()
     }))
     document.getElementById('add-btn')?.addEventListener('click', openAdd)
   }
@@ -103,17 +116,18 @@ export default async function DisciplinaryRecordsPage(container) {
         <div class="input-group"><label class="input-label">ผู้ออกใบเตือน</label><input class="input" id="dr-by" placeholder="ตำแหน่ง/ชื่อ"></div>
       </div>`,
       confirmText: '📄 ออกใบเตือน',
-      onConfirm() {
+      async onConfirm() {
         const staff = document.getElementById('dr-staff').value.trim()
         const reason = document.getElementById('dr-reason').value.trim()
         if (!staff || !reason) { showToast('❗ กรอกชื่อพนักงานและสาเหตุ', 'error'); return false }
-        const id = 'DR-' + String(RECORDS.length + 1).padStart(3, '0')
-        RECORDS.unshift({ id, staff, dept: document.getElementById('dr-dept').value.trim() || '-',
+        await createDoc('disciplinary_records', {
+          caseNo: 'DR-' + Date.now(), staff, dept: document.getElementById('dr-dept').value.trim() || '-',
           level: document.getElementById('dr-level').value, reason,
           by: document.getElementById('dr-by').value.trim() || 'หัวหน้างาน',
-          date: new Date().toISOString().slice(0,10), ack: false })
-        showToast(`ออกใบเตือน ${id} ให้ ${staff} แล้ว — รอลงนามรับทราบ`, 'success')
-        render()
+          date: new Date().toISOString().slice(0,10), ack: false,
+        })
+        showToast(`ออกใบเตือน ให้ ${staff} แล้ว — รอลงนามรับทราบ`, 'success')
+        await loadData()
       }
     })
   }
@@ -122,5 +136,5 @@ export default async function DisciplinaryRecordsPage(container) {
     return `<div class="card" style="padding:14px 16px"><div style="font-size:0.72rem;color:var(--text-muted)">${label}</div><div style="font-size:1.5rem;font-weight:900;color:${color};margin-top:2px">${value}</div></div>`
   }
 
-  render()
+  await loadData()
 }
