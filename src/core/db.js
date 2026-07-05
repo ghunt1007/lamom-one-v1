@@ -617,6 +617,16 @@ export function seedDemoData() {
   ]
   pdpaDsrRequests.forEach(r => { if (!demoCol('pdpa_dsr_requests')[r.id]) demoCol('pdpa_dsr_requests')[r.id] = r })
 
+  // Insurance claims (หน้า /insurance/claims)
+  const insuranceClaims = [
+    { id:'CLM001', customer:'สมชาย ใจดี', plate:'1กข-1234', model:'BYD Seal', type:'collision', insurer:'วิริยะประกันภัย', status:'repairing', estimate:45000, approved:42000, reported:addDaysISO(-10), note:'ชนท้ายที่แยกอโศก คู่กรณีรับผิด' },
+    { id:'CLM002', customer:'มาลี สุขใจ', plate:'2ขค-5678', model:'BYD Dolphin', type:'glass', insurer:'กรุงเทพประกันภัย', status:'completed', estimate:12000, approved:12000, reported:addDaysISO(-25), note:'กระจกหน้าร้าวจากหินกระเด็น' },
+    { id:'CLM003', customer:'ธนพล เที่ยงตรง', plate:'3คง-9012', model:'MG ZS EV', type:'object', insurer:'ทิพยประกันภัย', status:'surveying', estimate:28000, approved:0, reported:addDaysISO(-3), note:'เฉี่ยวเสาในลานจอด' },
+    { id:'CLM004', customer:'อรทัย ตั้งใจ', plate:'4งจ-3456', model:'BYD Atto 3', type:'flood', insurer:'วิริยะประกันภัย', status:'reported', estimate:0, approved:0, reported:addDaysISO(-1), note:'น้ำท่วมถึงพื้นรถ รอสำรวจ' },
+    { id:'CLM005', customer:'วิรัช เก่งมาก', plate:'5จฉ-7890', model:'BYD Han', type:'collision', insurer:'เมืองไทยประกันภัย', status:'rejected', estimate:95000, approved:0, reported:addDaysISO(-30), note:'เมาแล้วขับ — ประกันไม่คุ้มครอง' },
+  ]
+  insuranceClaims.forEach(c => { if (!demoCol('insurance_claims')[c.id]) demoCol('insurance_claims')[c.id] = c })
+
   const demoFleet = [
     { id:'df1', brand:'BYD', model:'Seal RWD', vin:'LGXCE4C10PA000006', plate:'กข-0001', color:'เทา Ink', year:2025, mileage:3520, status:'available', condition:'good', lastService:'2025-05-01', notes:'รถทดลองขับหลัก', createdAt:'2025-01-10' },
     { id:'df2', brand:'MG', model:'MG4 X', vin:'SDUZZZEF5PA000020', plate:'กข-0002', color:'แดง', year:2025, mileage:5200, status:'in_use', condition:'good', lastService:'2025-04-15', notes:'ให้ลูกค้า VIP ยืม', createdAt:'2025-01-15' },

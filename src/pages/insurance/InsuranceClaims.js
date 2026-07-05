@@ -5,6 +5,7 @@
 import { formatCurrency, formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -30,21 +31,28 @@ const CLAIM_TYPES = {
   other:     { label: 'อื่นๆ', icon: '📌' },
 }
 
-const DEMO_CLAIMS = [
-  { id: 'CLM001', customer: 'สมชาย ใจดี', plate: '1กข-1234', model: 'BYD Seal', type: 'collision', insurer: 'วิริยะประกันภัย', status: 'repairing', estimate: 45000, approved: 42000, reported: addDays(-10), note: 'ชนท้ายที่แยกอโศก คู่กรณีรับผิด' },
-  { id: 'CLM002', customer: 'มาลี สุขใจ', plate: '2ขค-5678', model: 'BYD Dolphin', type: 'glass', insurer: 'กรุงเทพประกันภัย', status: 'completed', estimate: 12000, approved: 12000, reported: addDays(-25), note: 'กระจกหน้าร้าวจากหินกระเด็น' },
-  { id: 'CLM003', customer: 'ธนพล เที่ยงตรง', plate: '3คง-9012', model: 'MG ZS EV', type: 'object', insurer: 'ทิพยประกันภัย', status: 'surveying', estimate: 28000, approved: 0, reported: addDays(-3), note: 'เฉี่ยวเสาในลานจอด' },
-  { id: 'CLM004', customer: 'อรทัย ตั้งใจ', plate: '4งจ-3456', model: 'BYD Atto 3', type: 'flood', insurer: 'วิริยะประกันภัย', status: 'reported', estimate: 0, approved: 0, reported: addDays(-1), note: 'น้ำท่วมถึงพื้นรถ รอสำรวจ' },
-  { id: 'CLM005', customer: 'วิรัช เก่งมาก', plate: '5จฉ-7890', model: 'BYD Han', type: 'collision', insurer: 'เมืองไทยประกันภัย', status: 'rejected', estimate: 95000, approved: 0, reported: addDays(-30), note: 'เมาแล้วขับ — ประกันไม่คุ้มครอง' },
-]
-
 const NEXT_STATUS = { reported: 'surveying', surveying: 'approved', approved: 'repairing', repairing: 'completed' }
 
 export default async function InsuranceClaimsPage(container) {
-  let claims = DEMO_CLAIMS.map(c => ({ ...c }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let claims = []
   let statusFilter = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { claims = await listDocs('insurance_claims', [], 'reported', 'desc', 300) } catch (e) { claims = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = claims.filter(c => statusFilter === 'all' || c.status === statusFilter)
     const active = claims.filter(c => !['completed','rejected'].includes(c.status)).length
     const totalApproved = claims.reduce((a, c) => a + c.approved, 0)
@@ -101,6 +109,7 @@ export default async function InsuranceClaimsPage(container) {
               </div>
             </div>`
           }).join('')}
+          ${!list.length ? `<div class="empty-state"><div class="empty-icon">🛡</div><div class="empty-title">ไม่มีเคลมประกัน</div></div>` : ''}
         </div>
       </div>
     `
@@ -108,23 +117,28 @@ export default async function InsuranceClaimsPage(container) {
     container.querySelectorAll('.sf-btn').forEach(b => b.addEventListener('click', () => { statusFilter = b.dataset.s; renderPage() }))
     container.querySelectorAll('.next-btn').forEach(b => b.addEventListener('click', () => {
       const c = claims.find(x => x.id === b.dataset.id)
-      if (c) {
-        const next = NEXT_STATUS[c.status]
-        if (next === 'approved' && c.approved === 0) {
-          openModal({
-            title: '✅ อนุมัติเคลม ' + c.id,
-            size: 'sm',
-            body: `<div class="input-group"><label class="input-label">วงเงินอนุมัติ (บาท)</label><input class="input" type="number" id="clm-approved" value="${c.estimate}"></div>`,
-            onConfirm() {
-              c.approved = parseInt(document.getElementById('clm-approved')?.value) || c.estimate
-              c.status = 'approved'; showToast('✅ อนุมัติเคลมแล้ว', 'success'); renderPage()
-            }
-          })
-        } else { c.status = next; showToast(`${CLAIM_STATUS[next]?.icon} เปลี่ยนสถานะแล้ว`, 'success'); renderPage() }
+      if (!c) return
+      const next = NEXT_STATUS[c.status]
+      if (next === 'approved' && c.approved === 0) {
+        openModal({
+          title: '✅ อนุมัติเคลม ' + c.id,
+          size: 'sm',
+          body: `<div class="input-group"><label class="input-label">วงเงินอนุมัติ (บาท)</label><input class="input" type="number" id="clm-approved" value="${c.estimate}"></div>`,
+          async onConfirm() {
+            const approved = parseInt(document.getElementById('clm-approved')?.value) || c.estimate
+            await updateDocData('insurance_claims', c.id, { approved, status: 'approved' })
+            showToast('✅ อนุมัติเคลมแล้ว', 'success'); await loadData()
+          }
+        })
+      } else {
+        updateDocData('insurance_claims', c.id, { status: next }).then(() => {
+          showToast(`${CLAIM_STATUS[next]?.icon} เปลี่ยนสถานะแล้ว`, 'success'); loadData()
+        })
       }
     }))
-    container.querySelectorAll('.reject-btn').forEach(b => b.addEventListener('click', () => {
-      const c = claims.find(x => x.id === b.dataset.id); if (c) { c.status = 'rejected'; showToast('❌ ปฏิเสธเคลมแล้ว', 'secondary'); renderPage() }
+    container.querySelectorAll('.reject-btn').forEach(b => b.addEventListener('click', async () => {
+      await updateDocData('insurance_claims', b.dataset.id, { status: 'rejected' })
+      showToast('❌ ปฏิเสธเคลมแล้ว', 'secondary'); await loadData()
     }))
     document.getElementById('add-claim-btn')?.addEventListener('click', openAddForm)
   }
@@ -146,16 +160,21 @@ export default async function InsuranceClaimsPage(container) {
         <div class="input-group"><label class="input-label">ประเมินเบื้องต้น (บาท)</label><input class="input" type="number" id="cl-estimate" value="0"></div>
         <div class="input-group" style="grid-column:1/-1"><label class="input-label">รายละเอียดเหตุการณ์</label><input class="input" id="cl-note"></div>
       </div>`,
-      onConfirm() {
+      async onConfirm() {
         const name = document.getElementById('cl-name')?.value?.trim()
-        if (!name) { showToast('❗ กรุณากรอกชื่อลูกค้า', 'error'); return }
-        claims.unshift({ id:`CLM${String(claims.length+1).padStart(3,'0')}`, customer:name, plate:document.getElementById('cl-plate')?.value||'—', model:document.getElementById('cl-model')?.value||'—', type:document.getElementById('cl-type')?.value||'other', insurer:document.getElementById('cl-insurer')?.value||'—', status:'reported', estimate:parseInt(document.getElementById('cl-estimate')?.value)||0, approved:0, reported:addDays(0), note:document.getElementById('cl-note')?.value||'' })
-        showToast('✅ แจ้งเคลมแล้ว', 'success'); renderPage()
+        if (!name) { showToast('❗ กรุณากรอกชื่อลูกค้า', 'error'); return false }
+        await createDoc('insurance_claims', {
+          customer: name, plate: document.getElementById('cl-plate')?.value||'—', model: document.getElementById('cl-model')?.value||'—',
+          type: document.getElementById('cl-type')?.value||'other', insurer: document.getElementById('cl-insurer')?.value||'—',
+          status: 'reported', estimate: parseInt(document.getElementById('cl-estimate')?.value)||0, approved: 0,
+          reported: addDays(0), note: document.getElementById('cl-note')?.value||'',
+        })
+        showToast('✅ แจ้งเคลมแล้ว', 'success'); await loadData()
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
