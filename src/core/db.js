@@ -600,6 +600,23 @@ export function seedDemoData() {
   ]
   complianceChecklist.forEach(c => { if (!demoCol('compliance_checklist')[c.id]) demoCol('compliance_checklist')[c.id] = c })
 
+  // PDPA consents + DSR requests (หน้า /quality/pdpa)
+  const pdpaConsents = [
+    { id:'PD001', customer:'สมชาย ใจดี', phone:'085-111', consents:{ marketing:true, analytics:true, third_party:true, service:true }, updatedAt:new Date(Date.now()-86400000*30).toISOString(), channel:'เซ็นเอกสาร' },
+    { id:'PD002', customer:'มาลี สุขใจ', phone:'086-222', consents:{ marketing:true, analytics:false, third_party:false, service:true }, updatedAt:new Date(Date.now()-86400000*60).toISOString(), channel:'LINE' },
+    { id:'PD003', customer:'ธนพล เที่ยงตรง', phone:'087-333', consents:{ marketing:false, analytics:false, third_party:false, service:true }, updatedAt:new Date(Date.now()-86400000*10).toISOString(), channel:'เว็บไซต์' },
+    { id:'PD004', customer:'อรทัย ตั้งใจ', phone:'088-444', consents:{ marketing:true, analytics:true, third_party:false, service:true }, updatedAt:new Date(Date.now()-86400000*90).toISOString(), channel:'เซ็นเอกสาร' },
+  ]
+  pdpaConsents.forEach(c => { if (!demoCol('pdpa_consents')[c.id]) demoCol('pdpa_consents')[c.id] = c })
+
+  const addDaysFullISO = n => { const d = new Date(now); d.setDate(d.getDate() + n); return d.toISOString() }
+  const pdpaDsrRequests = [
+    { id:'DSR01', customer:'วิรัช เก่งมาก', type:'ขอสำเนาข้อมูล', status:'pending', received:addDaysFullISO(-2), deadline:addDaysFullISO(28) },
+    { id:'DSR02', customer:'ชาตรี เข้มแข็ง', type:'ขอลบข้อมูล', status:'processing', received:addDaysFullISO(-10), deadline:addDaysFullISO(20) },
+    { id:'DSR03', customer:'นภา ห่างหาย', type:'ถอนความยินยอมการตลาด', status:'done', received:addDaysFullISO(-40), deadline:addDaysFullISO(-10) },
+  ]
+  pdpaDsrRequests.forEach(r => { if (!demoCol('pdpa_dsr_requests')[r.id]) demoCol('pdpa_dsr_requests')[r.id] = r })
+
   const demoFleet = [
     { id:'df1', brand:'BYD', model:'Seal RWD', vin:'LGXCE4C10PA000006', plate:'กข-0001', color:'เทา Ink', year:2025, mileage:3520, status:'available', condition:'good', lastService:'2025-05-01', notes:'รถทดลองขับหลัก', createdAt:'2025-01-10' },
     { id:'df2', brand:'MG', model:'MG4 X', vin:'SDUZZZEF5PA000020', plate:'กข-0002', color:'แดง', year:2025, mileage:5200, status:'in_use', condition:'good', lastService:'2025-04-15', notes:'ให้ลูกค้า VIP ยืม', createdAt:'2025-01-15' },
