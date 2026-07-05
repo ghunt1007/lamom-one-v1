@@ -5,6 +5,7 @@
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
 
@@ -24,21 +25,27 @@ const AUDIT_STATUS = {
   cancelled:  { label: 'ยกเลิก', color: 'secondary', icon: '❌' },
 }
 
-const DEMO_AUDITS = [
-  { id: 'A001', name: 'ตรวจ SOP ฝ่ายขาย', type: 'process', status: 'in_progress', auditor: 'ผู้จัดการ QA', area: 'ฝ่ายขาย', scheduledDate: addDays(-2), completedDate: null, findings: 3, score: null },
-  { id: 'A002', name: 'Safety Check ศูนย์บริการ', type: 'safety', status: 'scheduled', auditor: 'เจ้าหน้าที่ความปลอดภัย', area: 'บริการ', scheduledDate: addDays(3), completedDate: null, findings: 0, score: null },
-  { id: 'A003', name: 'Financial Audit Q2', type: 'financial', status: 'completed', auditor: 'บริษัทตรวจสอบบัญชี', area: 'การเงิน', scheduledDate: addDays(-30), completedDate: addDays(-28), findings: 2, score: 87 },
-  { id: 'A004', name: 'ตรวจ ISO 9001 ประจำปี', type: 'external', status: 'scheduled', auditor: 'TÜV Rheinland', area: 'ทุกแผนก', scheduledDate: addDays(14), completedDate: null, findings: 0, score: null },
-  { id: 'A005', name: 'Internal Audit HR', type: 'internal', status: 'overdue', auditor: 'ผู้จัดการ HR', area: 'HR', scheduledDate: addDays(-7), completedDate: null, findings: 0, score: null },
-  { id: 'A006', name: 'ตรวจขั้นตอน PDI', type: 'process', status: 'completed', auditor: 'หัวหน้าทีม DMS', area: 'DMS', scheduledDate: addDays(-14), completedDate: addDays(-13), findings: 1, score: 92 },
-]
-
 export default async function AuditSchedulePage(container) {
-  let audits = DEMO_AUDITS.map(a => ({ ...a }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let audits = []
   let typeFilter = 'all'
   let statusFilter = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { audits = await listDocs('quality_audits', [], 'scheduledDate', 'asc', 300) } catch (e) { audits = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = audits.filter(a =>
       (typeFilter === 'all' || a.type === typeFilter) &&
       (statusFilter === 'all' || a.status === statusFilter)
@@ -104,29 +111,47 @@ export default async function AuditSchedulePage(container) {
                 ${a.status === 'scheduled' ? `<button class="btn btn-xs btn-warning start-btn" data-id="${a.id}">▶️ เริ่ม</button>` : ''}
                 ${a.status === 'in_progress' ? `<button class="btn btn-xs btn-success complete-btn" data-id="${a.id}">✅ เสร็จ</button>` : ''}
                 ${a.status === 'overdue' ? `<button class="btn btn-xs btn-danger reschedule-btn" data-id="${a.id}">📅 เลื่อน</button>` : ''}
-                <button class="btn btn-xs btn-secondary detail-btn" data-id="${a.id}">รายละเอียด</button>
               </div>
             </div>`
           }).join('')}
+          ${!list.length ? `<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">ไม่มี Audit</div></div>` : ''}
         </div>
       </div>
     `
 
     container.querySelectorAll('.tf-btn').forEach(b => b.addEventListener('click', () => { typeFilter = b.dataset.t; renderPage() }))
     container.querySelectorAll('.sf-btn').forEach(b => b.addEventListener('click', () => { statusFilter = b.dataset.s === statusFilter ? 'all' : b.dataset.s; renderPage() }))
-    container.querySelectorAll('.start-btn').forEach(b => b.addEventListener('click', () => {
-      const a = audits.find(x => x.id === b.dataset.id); if (a) { a.status = 'in_progress'; showToast('🔄 เริ่มตรวจสอบแล้ว', 'warning'); renderPage() }
+    container.querySelectorAll('.start-btn').forEach(b => b.addEventListener('click', async () => {
+      await updateDocData('quality_audits', b.dataset.id, { status: 'in_progress' })
+      showToast('🔄 เริ่มตรวจสอบแล้ว', 'warning'); await loadData()
     }))
     container.querySelectorAll('.complete-btn').forEach(b => b.addEventListener('click', () => {
-      const a = audits.find(x => x.id === b.dataset.id); if (a) {
-        a.status = 'completed'; a.completedDate = addDays(0); a.score = Math.floor(Math.random() * 15) + 80
-        showToast('✅ ปิด Audit แล้ว', 'success'); renderPage()
-      }
+      const a = audits.find(x => x.id === b.dataset.id)
+      if (a) openCompleteForm(a)
     }))
-    container.querySelectorAll('.reschedule-btn').forEach(b => b.addEventListener('click', () => {
-      const a = audits.find(x => x.id === b.dataset.id); if (a) { a.scheduledDate = addDays(7); a.status = 'scheduled'; showToast('📅 เลื่อนกำหนดแล้ว', 'primary'); renderPage() }
+    container.querySelectorAll('.reschedule-btn').forEach(b => b.addEventListener('click', async () => {
+      await updateDocData('quality_audits', b.dataset.id, { scheduledDate: addDays(7), status: 'scheduled' })
+      showToast('📅 เลื่อนกำหนดแล้ว', 'primary'); await loadData()
     }))
     document.getElementById('add-audit-btn')?.addEventListener('click', openAddForm)
+  }
+
+  function openCompleteForm(a) {
+    openModal({
+      title: '✅ บันทึกผลตรวจ — ' + a.name,
+      size: 'sm',
+      body: `<div style="display:grid;gap:10px">
+        <div class="input-group"><label class="input-label">คะแนน (0-100) *</label><input class="input" type="number" id="cp-score" min="0" max="100" value="85"></div>
+        <div class="input-group"><label class="input-label">จำนวนข้อสังเกต (findings)</label><input class="input" type="number" id="cp-findings" min="0" value="0"></div>
+      </div>`,
+      async onConfirm() {
+        const score = +document.getElementById('cp-score')?.value
+        const findings = +document.getElementById('cp-findings')?.value || 0
+        if (isNaN(score) || score < 0 || score > 100) { showToast('❗ คะแนนต้อง 0-100', 'error'); return false }
+        await updateDocData('quality_audits', a.id, { status: 'completed', completedDate: addDays(0), score, findings })
+        showToast('✅ ปิด Audit แล้ว', 'success'); await loadData()
+      }
+    })
   }
 
   function openAddForm() {
@@ -142,16 +167,22 @@ export default async function AuditSchedulePage(container) {
         <div class="input-group"><label class="input-label">ผู้ตรวจสอบ</label><input class="input" id="au-auditor"></div>
         <div class="input-group"><label class="input-label">พื้นที่/แผนก</label><input class="input" id="au-area"></div>
       </div>`,
-      onConfirm() {
+      async onConfirm() {
         const name = document.getElementById('au-name')?.value?.trim()
-        if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return }
-        audits.push({ id: `A${String(audits.length+1).padStart(3,'0')}`, name, type: document.getElementById('au-type')?.value || 'internal', status: 'scheduled', auditor: document.getElementById('au-auditor')?.value || '—', area: document.getElementById('au-area')?.value || '—', scheduledDate: document.getElementById('au-date')?.value || addDays(7), completedDate: null, findings: 0, score: null })
-        showToast('✅ สร้าง Audit แล้ว', 'success'); renderPage()
+        if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return false }
+        await createDoc('quality_audits', {
+          name, type: document.getElementById('au-type')?.value || 'internal', status: 'scheduled',
+          auditor: document.getElementById('au-auditor')?.value || '—',
+          area: document.getElementById('au-area')?.value || '—',
+          scheduledDate: document.getElementById('au-date')?.value || addDays(7),
+          completedDate: null, findings: 0, score: null,
+        })
+        showToast('✅ สร้าง Audit แล้ว', 'success'); await loadData()
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

@@ -576,6 +576,17 @@ export function seedDemoData() {
   ]
   qualityIncidents.forEach(i => { if (!demoCol('quality_incidents')[i.id]) demoCol('quality_incidents')[i.id] = i })
 
+  // Quality audits (หน้า /quality/audit-schedule)
+  const qualityAudits = [
+    { id:'A001', name:'ตรวจ SOP ฝ่ายขาย', type:'process', status:'in_progress', auditor:'ผู้จัดการ QA', area:'ฝ่ายขาย', scheduledDate:addDaysISO(-2), completedDate:null, findings:3, score:null },
+    { id:'A002', name:'Safety Check ศูนย์บริการ', type:'safety', status:'scheduled', auditor:'เจ้าหน้าที่ความปลอดภัย', area:'บริการ', scheduledDate:addDaysISO(3), completedDate:null, findings:0, score:null },
+    { id:'A003', name:'Financial Audit Q2', type:'financial', status:'completed', auditor:'บริษัทตรวจสอบบัญชี', area:'การเงิน', scheduledDate:addDaysISO(-30), completedDate:addDaysISO(-28), findings:2, score:87 },
+    { id:'A004', name:'ตรวจ ISO 9001 ประจำปี', type:'external', status:'scheduled', auditor:'TÜV Rheinland', area:'ทุกแผนก', scheduledDate:addDaysISO(14), completedDate:null, findings:0, score:null },
+    { id:'A005', name:'Internal Audit HR', type:'internal', status:'overdue', auditor:'ผู้จัดการ HR', area:'HR', scheduledDate:addDaysISO(-7), completedDate:null, findings:0, score:null },
+    { id:'A006', name:'ตรวจขั้นตอน PDI', type:'process', status:'completed', auditor:'หัวหน้าทีม DMS', area:'DMS', scheduledDate:addDaysISO(-14), completedDate:addDaysISO(-13), findings:1, score:92 },
+  ]
+  qualityAudits.forEach(a => { if (!demoCol('quality_audits')[a.id]) demoCol('quality_audits')[a.id] = a })
+
   const demoFleet = [
     { id:'df1', brand:'BYD', model:'Seal RWD', vin:'LGXCE4C10PA000006', plate:'กข-0001', color:'เทา Ink', year:2025, mileage:3520, status:'available', condition:'good', lastService:'2025-05-01', notes:'รถทดลองขับหลัก', createdAt:'2025-01-10' },
     { id:'df2', brand:'MG', model:'MG4 X', vin:'SDUZZZEF5PA000020', plate:'กข-0002', color:'แดง', year:2025, mileage:5200, status:'in_use', condition:'good', lastService:'2025-04-15', notes:'ให้ลูกค้า VIP ยืม', createdAt:'2025-01-15' },
