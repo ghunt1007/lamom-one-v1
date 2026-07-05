@@ -812,6 +812,18 @@ export function seedDemoData() {
   ]
   payrollRecords.forEach(s => { if (!demoCol('payroll_records')[s.id]) demoCol('payroll_records')[s.id] = s })
 
+  // Welfare items (หน้า /hr/welfare)
+  const welfareItems = [
+    { id:'WF001', category:'ประกัน', name:'ประกันชีวิตกลุ่ม', provider:'AIA', coverage:'500,000', eligible:28, enrolled:26, cost:1200, period:'รายปี', active:true },
+    { id:'WF002', category:'ประกัน', name:'ประกันสุขภาพ OPD/IPD', provider:'Cigna', coverage:'150,000', eligible:28, enrolled:28, cost:3500, period:'รายปี', active:true },
+    { id:'WF003', category:'กองทุน', name:'กองทุนสำรองเลี้ยงชีพ', provider:'กองทุน TMB', coverage:'5%', eligible:20, enrolled:18, cost:0, period:'รายเดือน', active:true },
+    { id:'WF004', category:'สิทธิพิเศษ', name:'ส่วนลดซื้อรถพนักงาน', provider:'LAMOM', coverage:'2%', eligible:28, enrolled:28, cost:0, period:'ครั้งเดียว', active:true },
+    { id:'WF005', category:'สุขภาพ', name:'ตรวจสุขภาพประจำปี', provider:'รพ.บำรุงราษฎร์', coverage:'ครบชุด', eligible:28, enrolled:25, cost:2800, period:'รายปี', active:true },
+    { id:'WF006', category:'สิทธิพิเศษ', name:'โบนัสวันเกิด', provider:'LAMOM', coverage:'500 บ.', eligible:28, enrolled:28, cost:500, period:'รายปี', active:true },
+    { id:'WF007', category:'กองทุน', name:'กองทุน EV เงินกู้รถ', provider:'LAMOM', coverage:'500,000', eligible:15, enrolled:8, cost:0, period:'ครั้งเดียว', active:false },
+  ]
+  welfareItems.forEach(w => { if (!demoCol('welfare_items')[w.id]) demoCol('welfare_items')[w.id] = w })
+
   const demoFleet = [
     { id:'df1', brand:'BYD', model:'Seal RWD', vin:'LGXCE4C10PA000006', plate:'กข-0001', color:'เทา Ink', year:2025, mileage:3520, status:'available', condition:'good', lastService:'2025-05-01', notes:'รถทดลองขับหลัก', createdAt:'2025-01-10' },
     { id:'df2', brand:'MG', model:'MG4 X', vin:'SDUZZZEF5PA000020', plate:'กข-0002', color:'แดง', year:2025, mileage:5200, status:'in_use', condition:'good', lastService:'2025-04-15', notes:'ให้ลูกค้า VIP ยืม', createdAt:'2025-01-15' },

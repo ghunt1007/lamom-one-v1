@@ -1,15 +1,6 @@
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-
-let WELFARE_ITEMS = [
-  { id:'WF001', category:'ประกัน',      name:'ประกันชีวิตกลุ่ม',       provider:'AIA',           coverage:'500,000',  eligible:28, enrolled:26, cost:1200,   period:'รายปี',    active:true  },
-  { id:'WF002', category:'ประกัน',      name:'ประกันสุขภาพ OPD/IPD',   provider:'Cigna',         coverage:'150,000',  eligible:28, enrolled:28, cost:3500,   period:'รายปี',    active:true  },
-  { id:'WF003', category:'กองทุน',      name:'กองทุนสำรองเลี้ยงชีพ',  provider:'กองทุน TMB',    coverage:'5%',       eligible:20, enrolled:18, cost:0,      period:'รายเดือน', active:true  },
-  { id:'WF004', category:'สิทธิพิเศษ', name:'ส่วนลดซื้อรถพนักงาน',   provider:'LAMOM',         coverage:'2%',       eligible:28, enrolled:28, cost:0,      period:'ครั้งเดียว',active:true },
-  { id:'WF005', category:'สุขภาพ',      name:'ตรวจสุขภาพประจำปี',      provider:'รพ.บำรุงราษฎร์',coverage:'ครบชุด',  eligible:28, enrolled:25, cost:2800,   period:'รายปี',    active:true  },
-  { id:'WF006', category:'สิทธิพิเศษ', name:'โบนัสวันเกิด',           provider:'LAMOM',         coverage:'500 บ.',   eligible:28, enrolled:28, cost:500,    period:'รายปี',    active:true  },
-  { id:'WF007', category:'กองทุน',      name:'กองทุน EV เงินกู้รถ',    provider:'LAMOM',         coverage:'500,000',  eligible:15, enrolled:8,  cost:0,      period:'ครั้งเดียว',active:false},
-]
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
 const CATEGORIES = ['ประกัน','กองทุน','สุขภาพ','สิทธิพิเศษ']
 const CAT_ICONS = { 'ประกัน':'🛡','กองทุน':'🏦','สุขภาพ':'🏥','สิทธิพิเศษ':'⭐' }
@@ -17,8 +8,18 @@ const CAT_COLORS = { 'ประกัน':'danger','กองทุน':'primary
 
 export default async function WelfarePage(container) {
   const myGen = container.__routerGen
+  seedDemoData()
+
+  let items = []
   let filterCat = 'all'
-  let view = 'cards'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { items = await listDocs('welfare_items', [], 'name', 'asc', 200) } catch (e) { items = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function welfareCard(w) {
     const enrollPct = Math.round(w.enrolled / w.eligible * 100)
@@ -59,10 +60,14 @@ export default async function WelfarePage(container) {
   }
 
   function render() {
-    const rows = filterCat === 'all' ? WELFARE_ITEMS : WELFARE_ITEMS.filter(w => w.category === filterCat)
-    const totalItems    = WELFARE_ITEMS.filter(w => w.active).length
-    const totalCostYear = WELFARE_ITEMS.filter(w => w.active && w.cost > 0).reduce((s, w) => s + w.cost * w.enrolled, 0)
-    const avgEnroll     = Math.round(WELFARE_ITEMS.reduce((s, w) => s + (w.enrolled / w.eligible * 100), 0) / WELFARE_ITEMS.length)
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
+    const rows = filterCat === 'all' ? items : items.filter(w => w.category === filterCat)
+    const totalItems    = items.filter(w => w.active).length
+    const totalCostYear = items.filter(w => w.active && w.cost > 0).reduce((s, w) => s + w.cost * w.enrolled, 0)
+    const avgEnroll     = items.length ? Math.round(items.reduce((s, w) => s + (w.enrolled / w.eligible * 100), 0) / items.length) : 0
 
     const catBtns = ['all', ...CATEGORIES].map(c => {
       const lbl = c === 'all' ? 'ทั้งหมด' : (CAT_ICONS[c] || '') + ' ' + c
@@ -74,7 +79,7 @@ export default async function WelfarePage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🎁 Employee Welfare</div>
-            <div class="page-subtitle">สวัสดิการพนักงาน · ${WELFARE_ITEMS.length} รายการ</div>
+            <div class="page-subtitle">สวัสดิการพนักงาน · ${items.length} รายการ</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="add-welfare-btn">➕ เพิ่มสวัสดิการ</button>
@@ -105,25 +110,24 @@ export default async function WelfarePage(container) {
 
     container.querySelectorAll('.edit-welfare').forEach(b => b.addEventListener('click', e => {
       e.stopPropagation()
-      openWelfareModal(WELFARE_ITEMS.find(w => w.id === b.dataset.wid))
+      openWelfareModal(items.find(w => w.id === b.dataset.wid))
     }))
 
     container.querySelectorAll('.del-welfare').forEach(b => b.addEventListener('click', async e => {
       e.stopPropagation()
-      const w = WELFARE_ITEMS.find(x => x.id === b.dataset.wid)
+      const w = items.find(x => x.id === b.dataset.wid)
       const ok = await confirmDialog({ title: '🗑 ลบสวัสดิการ', message: `ลบ "${w.name}" ออกจากระบบ?`, confirmText: 'ลบ', danger: true })
       if (!ok) return
-      WELFARE_ITEMS = WELFARE_ITEMS.filter(x => x.id !== b.dataset.wid)
+      await softDelete('welfare_items', b.dataset.wid)
       showToast('🗑 ลบแล้ว', 'warning')
-      if (container.__routerGen !== myGen) return
-      render()
+      await loadData()
     }))
 
     document.getElementById('add-welfare-btn')?.addEventListener('click', () => openWelfareModal(null))
   }
 
   function openDetailModal(id) {
-    const w = WELFARE_ITEMS.find(x => x.id === id)
+    const w = items.find(x => x.id === id)
     if (!w) return
     const catColor = CAT_COLORS[w.category] || 'primary'
     const enrollPct = Math.round(w.enrolled / w.eligible * 100)
@@ -204,11 +208,10 @@ export default async function WelfarePage(container) {
       footer: `<button class="btn btn-secondary" onclick="document.querySelector('.modal-overlay')?.remove()">ยกเลิก</button>
                <button class="btn btn-primary" id="wf-save">💾 บันทึก</button>`
     })
-    document.getElementById('wf-save')?.addEventListener('click', () => {
+    document.getElementById('wf-save')?.addEventListener('click', async () => {
       const name = document.getElementById('wf-name').value.trim()
       if (!name) { showToast('⚠️ กรุณากรอกชื่อสวัสดิการ', 'warning'); return }
-      const updated = {
-        id: w?.id || 'WF' + Date.now(),
+      const data = {
         name,
         category: document.getElementById('wf-cat').value,
         provider:  document.getElementById('wf-provider').value.trim(),
@@ -219,11 +222,11 @@ export default async function WelfarePage(container) {
         enrolled:  parseInt(document.getElementById('wf-enrolled').value) || 0,
         active:    document.getElementById('wf-active').checked,
       }
-      if (isEdit) WELFARE_ITEMS = WELFARE_ITEMS.map(x => x.id === updated.id ? updated : x)
-      else WELFARE_ITEMS.push(updated)
+      if (isEdit) await updateDocData('welfare_items', w.id, data)
+      else await createDoc('welfare_items', data)
       document.querySelector('.modal-overlay')?.remove()
       showToast(isEdit ? '✅ แก้ไขสวัสดิการแล้ว' : '✅ เพิ่มสวัสดิการแล้ว', 'success')
-      render()
+      await loadData()
     })
   }
 
@@ -235,5 +238,5 @@ export default async function WelfarePage(container) {
     return `<div><div style="font-size:0.68rem;color:var(--text-muted)">${l}</div><div style="font-size:0.8rem;font-weight:600">${v}</div></div>`
   }
 
-  render()
+  await loadData()
 }
