@@ -5,6 +5,7 @@
 import { formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
 
@@ -16,21 +17,28 @@ const FIVE_S = [
   { key: 's5', label: 'สร้างนิสัย', icon: '🔄', desc: 'ทำจนเป็นนิสัย มีวินัยในตนเอง' },
 ]
 
-const AREAS = [
-  { id: 'A1', name: 'โชว์รูม', owner: 'ทีมขาย', scores: { s1: 5, s2: 4, s3: 5, s4: 4, s5: 4 }, lastAudit: addDays(-3), photos: 4 },
-  { id: 'A2', name: 'ศูนย์บริการ (Bay 1-4)', owner: 'ทีมช่าง', scores: { s1: 4, s2: 3, s3: 3, s4: 3, s5: 4 }, lastAudit: addDays(-3), photos: 6 },
-  { id: 'A3', name: 'คลังอะไหล่', owner: 'ฝ่ายอะไหล่', scores: { s1: 3, s2: 3, s3: 4, s4: 3, s5: 3 }, lastAudit: addDays(-10), photos: 3 },
-  { id: 'A4', name: 'ห้องรับรองลูกค้า', owner: 'แอดมิน', scores: { s1: 5, s2: 5, s3: 5, s4: 5, s5: 4 }, lastAudit: addDays(-3), photos: 2 },
-  { id: 'A5', name: 'ออฟฟิศหลังบ้าน', owner: 'ทุกฝ่าย', scores: { s1: 2, s2: 3, s3: 3, s4: 2, s5: 3 }, lastAudit: addDays(-17), photos: 0 },
-]
-
 function avgScore(scores) { return Math.round(Object.values(scores).reduce((a, v) => a + v, 0) / 5 * 10) / 10 }
 
 export default async function FiveSPage(container) {
-  let areas = AREAS.map(a => ({ ...a, scores: { ...a.scores } }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let areas = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { areas = await listDocs('five_s_areas', [], 'name', 'asc', 100) } catch (e) { areas = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
-    const overallAvg = Math.round(areas.reduce((a, x) => a + avgScore(x.scores), 0) / areas.length * 10) / 10
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
+    const overallAvg = areas.length ? Math.round(areas.reduce((a, x) => a + avgScore(x.scores), 0) / areas.length * 10) / 10 : 0
     const needAttention = areas.filter(a => avgScore(a.scores) < 3.5)
     const overdueAudit = areas.filter(a => a.lastAudit <= addDays(-14))
 
@@ -89,13 +97,16 @@ export default async function FiveSPage(container) {
               <button class="btn btn-xs btn-primary audit-btn" data-id="${a.id}">📋 ตรวจรอบใหม่</button>
             </div>`
           }).join('')}
+          ${!areas.length ? `<div class="empty-state"><div class="empty-icon">🧹</div><div class="empty-title">ไม่มีพื้นที่ตรวจ</div></div>` : ''}
         </div>
       </div>
     `
 
     container.querySelectorAll('.audit-btn').forEach(b => b.addEventListener('click', () => {
       const a = areas.find(x => x.id === b.dataset.id)
-      if (a) openModal({
+      if (!a) return
+      const scores = { ...a.scores }
+      openModal({
         title: '📋 ตรวจ 5ส: ' + a.name,
         size: 'md',
         body: `<div style="display:grid;gap:12px">
@@ -103,22 +114,22 @@ export default async function FiveSPage(container) {
             <div>
               <div style="font-size:0.8rem;font-weight:600;margin-bottom:4px">${s.icon} ${s.label} <span style="font-size:0.65rem;color:var(--text-muted)">— ${s.desc}</span></div>
               <div style="display:flex;gap:4px">
-                ${[1,2,3,4,5].map(n => `<button class="btn btn-xs score-pick ${a.scores[s.key]===n?'btn-primary':'btn-secondary'}" data-s="${s.key}" data-n="${n}" style="flex:1">${n}</button>`).join('')}
+                ${[1,2,3,4,5].map(n => `<button class="btn btn-xs score-pick ${scores[s.key]===n?'btn-primary':'btn-secondary'}" data-s="${s.key}" data-n="${n}" style="flex:1">${n}</button>`).join('')}
               </div>
             </div>
           `).join('')}
           <div class="input-group"><label class="input-label">หมายเหตุ/จุดที่ต้องแก้</label><input class="input" id="fs-note"></div>
         </div>`,
         confirmText: '💾 บันทึกผลตรวจ',
-        onConfirm() {
-          a.lastAudit = addDays(0); a.photos += 2
-          showToast(`✅ บันทึกผลตรวจ ${a.name} แล้ว — คะแนน ${avgScore(a.scores)}/5`, 'success'); renderPage()
+        async onConfirm() {
+          await updateDocData('five_s_areas', a.id, { scores, lastAudit: addDays(0), photos: (a.photos||0) + 2 })
+          showToast(`✅ บันทึกผลตรวจ ${a.name} แล้ว — คะแนน ${avgScore(scores)}/5`, 'success'); await loadData()
         }
       })
       // wire score buttons after modal renders
       setTimeout(() => {
         document.querySelectorAll('.score-pick').forEach(sb => sb.addEventListener('click', () => {
-          a.scores[sb.dataset.s] = parseInt(sb.dataset.n)
+          scores[sb.dataset.s] = parseInt(sb.dataset.n)
           document.querySelectorAll(`.score-pick[data-s="${sb.dataset.s}"]`).forEach(x => x.classList.replace('btn-primary','btn-secondary'))
           sb.classList.replace('btn-secondary','btn-primary')
         }))
@@ -126,7 +137,7 @@ export default async function FiveSPage(container) {
     }))
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

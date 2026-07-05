@@ -637,6 +637,16 @@ export function seedDemoData() {
   ]
   customerReviews.forEach(r => { if (!demoCol('customer_reviews')[r.id]) demoCol('customer_reviews')[r.id] = r })
 
+  // 5S audit areas (หน้า /quality/5s)
+  const fiveSAreas = [
+    { id:'A1', name:'โชว์รูม', owner:'ทีมขาย', scores:{ s1:5, s2:4, s3:5, s4:4, s5:4 }, lastAudit:addDaysISO(-3), photos:4 },
+    { id:'A2', name:'ศูนย์บริการ (Bay 1-4)', owner:'ทีมช่าง', scores:{ s1:4, s2:3, s3:3, s4:3, s5:4 }, lastAudit:addDaysISO(-3), photos:6 },
+    { id:'A3', name:'คลังอะไหล่', owner:'ฝ่ายอะไหล่', scores:{ s1:3, s2:3, s3:4, s4:3, s5:3 }, lastAudit:addDaysISO(-10), photos:3 },
+    { id:'A4', name:'ห้องรับรองลูกค้า', owner:'แอดมิน', scores:{ s1:5, s2:5, s3:5, s4:5, s5:4 }, lastAudit:addDaysISO(-3), photos:2 },
+    { id:'A5', name:'ออฟฟิศหลังบ้าน', owner:'ทุกฝ่าย', scores:{ s1:2, s2:3, s3:3, s4:2, s5:3 }, lastAudit:addDaysISO(-17), photos:0 },
+  ]
+  fiveSAreas.forEach(a => { if (!demoCol('five_s_areas')[a.id]) demoCol('five_s_areas')[a.id] = a })
+
   const demoFleet = [
     { id:'df1', brand:'BYD', model:'Seal RWD', vin:'LGXCE4C10PA000006', plate:'กข-0001', color:'เทา Ink', year:2025, mileage:3520, status:'available', condition:'good', lastService:'2025-05-01', notes:'รถทดลองขับหลัก', createdAt:'2025-01-10' },
     { id:'df2', brand:'MG', model:'MG4 X', vin:'SDUZZZEF5PA000020', plate:'กข-0002', color:'แดง', year:2025, mileage:5200, status:'in_use', condition:'good', lastService:'2025-04-15', notes:'ให้ลูกค้า VIP ยืม', createdAt:'2025-01-15' },
