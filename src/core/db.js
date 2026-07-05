@@ -801,6 +801,17 @@ export function seedDemoData() {
   ]
   bonusPoolStaff.forEach(s => { if (!demoCol('bonus_pool_staff')[s.id]) demoCol('bonus_pool_staff')[s.id] = s })
 
+  // Payroll records (หน้า /finance/payroll-detail)
+  const payrollRecords = [
+    { id:'S001', name:'วิชัย ยอดขาย', dept:'ฝ่ายขาย', base:25000, commission:18500, bonus:5000, ot:0, tax:2180, sso:750, deductions:500, status:'paid' },
+    { id:'S002', name:'สุดา มาดี', dept:'ฝ่ายขาย', base:22000, commission:12000, bonus:0, ot:1500, tax:1680, sso:750, deductions:0, status:'paid' },
+    { id:'S003', name:'ธนา เก่ง', dept:'ฝ่ายขาย', base:22000, commission:8500, bonus:0, ot:0, tax:1360, sso:750, deductions:0, status:'approved' },
+    { id:'S004', name:'มานี HR', dept:'HR', base:28000, commission:0, bonus:3000, ot:0, tax:1550, sso:750, deductions:0, status:'approved' },
+    { id:'S005', name:'วิทยา ช่าง', dept:'บริการ', base:20000, commission:0, bonus:2500, ot:3200, tax:1270, sso:750, deductions:300, status:'draft' },
+    { id:'S006', name:'ปทิตา Marketing', dept:'การตลาด', base:26000, commission:0, bonus:4000, ot:0, tax:1500, sso:750, deductions:0, status:'draft' },
+  ]
+  payrollRecords.forEach(s => { if (!demoCol('payroll_records')[s.id]) demoCol('payroll_records')[s.id] = s })
+
   const demoFleet = [
     { id:'df1', brand:'BYD', model:'Seal RWD', vin:'LGXCE4C10PA000006', plate:'กข-0001', color:'เทา Ink', year:2025, mileage:3520, status:'available', condition:'good', lastService:'2025-05-01', notes:'รถทดลองขับหลัก', createdAt:'2025-01-10' },
     { id:'df2', brand:'MG', model:'MG4 X', vin:'SDUZZZEF5PA000020', plate:'กข-0002', color:'แดง', year:2025, mileage:5200, status:'in_use', condition:'good', lastService:'2025-04-15', notes:'ให้ลูกค้า VIP ยืม', createdAt:'2025-01-15' },

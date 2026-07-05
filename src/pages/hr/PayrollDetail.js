@@ -6,6 +6,7 @@ import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { printPayslip } from '../../utils/payrollDocs.js'
+import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -19,26 +20,32 @@ const PAYROLL_STATUS = {
 
 const MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน']
 
-const DEMO_STAFF_PAYROLL = [
-  { id: 'S001', name: 'วิชัย ยอดขาย', dept: 'ฝ่ายขาย', base: 25000, commission: 18500, bonus: 5000, ot: 0, tax: 2180, sso: 750, deductions: 500, status: 'paid' },
-  { id: 'S002', name: 'สุดา มาดี', dept: 'ฝ่ายขาย', base: 22000, commission: 12000, bonus: 0, ot: 1500, tax: 1680, sso: 750, deductions: 0, status: 'paid' },
-  { id: 'S003', name: 'ธนา เก่ง', dept: 'ฝ่ายขาย', base: 22000, commission: 8500, bonus: 0, ot: 0, tax: 1360, sso: 750, deductions: 0, status: 'approved' },
-  { id: 'S004', name: 'มานี HR', dept: 'HR', base: 28000, commission: 0, bonus: 3000, ot: 0, tax: 1550, sso: 750, deductions: 0, status: 'approved' },
-  { id: 'S005', name: 'วิทยา ช่าง', dept: 'บริการ', base: 20000, commission: 0, bonus: 2500, ot: 3200, tax: 1270, sso: 750, deductions: 300, status: 'draft' },
-  { id: 'S006', name: 'ปทิตา Marketing', dept: 'การตลาด', base: 26000, commission: 0, bonus: 4000, ot: 0, tax: 1500, sso: 750, deductions: 0, status: 'draft' },
-]
-
 function netPay(s) {
   return s.base + s.commission + s.bonus + s.ot - s.tax - s.sso - s.deductions
 }
 
 export default async function PayrollDetailPage(container) {
-  let staff = DEMO_STAFF_PAYROLL.map(s => ({ ...s }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let staff = []
   let monthIdx = 5
   let deptFilter = 'all'
   let statusFilter = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { staff = await listDocs('payroll_records', [], 'name', 'asc', 300) } catch (e) { staff = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const depts = [...new Set(staff.map(s => s.dept))]
     const list = staff.filter(s =>
       (deptFilter === 'all' || s.dept === deptFilter) &&
@@ -124,6 +131,7 @@ export default async function PayrollDetailPage(container) {
                     </td>
                   </tr>`
                 }).join('')}
+                ${!list.length ? `<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text-muted)">ไม่มีรายการ</td></tr>` : ''}
               </tbody>
               <tfoot>
                 <tr style="border-top:2px solid var(--border);font-weight:700">
@@ -146,19 +154,20 @@ export default async function PayrollDetailPage(container) {
     container.querySelectorAll('.month-btn').forEach(b => b.addEventListener('click', () => { monthIdx = +b.dataset.i; renderPage() }))
     container.querySelectorAll('.st-btn').forEach(b => b.addEventListener('click', () => { statusFilter = b.dataset.s; renderPage() }))
     document.getElementById('dept-filter')?.addEventListener('change', e => { deptFilter = e.target.value; renderPage() })
-    document.getElementById('pay-all-btn')?.addEventListener('click', () => {
-      const cnt = staff.filter(s => s.status === 'approved').length
-      if (!cnt) { showToast('ไม่มีรายการที่อนุมัติ', 'warning'); return }
-      staff.forEach(s => { if (s.status === 'approved') s.status = 'paid' })
-      showToast(`✅ จ่ายเงินเดือน ${cnt} คนแล้ว!`, 'success'); renderPage()
+    document.getElementById('pay-all-btn')?.addEventListener('click', async () => {
+      const toPay = staff.filter(s => s.status === 'approved')
+      if (!toPay.length) { showToast('ไม่มีรายการที่อนุมัติ', 'warning'); return }
+      for (const s of toPay) { await updateDocData('payroll_records', s.id, { status: 'paid' }) }
+      showToast(`✅ จ่ายเงินเดือน ${toPay.length} คนแล้ว!`, 'success'); await loadData()
     })
-    container.querySelectorAll('.approve-btn').forEach(b => b.addEventListener('click', () => {
-      const s = staff.find(x => x.id === b.dataset.id)
-      if (s) { s.status = 'approved'; showToast('✅ อนุมัติแล้ว', 'success'); renderPage() }
+    container.querySelectorAll('.approve-btn').forEach(b => b.addEventListener('click', async () => {
+      await updateDocData('payroll_records', b.dataset.id, { status: 'approved' })
+      showToast('✅ อนุมัติแล้ว', 'success'); await loadData()
     }))
-    container.querySelectorAll('.pay-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.pay-btn').forEach(b => b.addEventListener('click', async () => {
       const s = staff.find(x => x.id === b.dataset.id)
-      if (s) { s.status = 'paid'; showToast(`✅ จ่ายเงินเดือน ${s.name} แล้ว`, 'success'); renderPage() }
+      await updateDocData('payroll_records', b.dataset.id, { status: 'paid' })
+      showToast(`✅ จ่ายเงินเดือน ${s?.name} แล้ว`, 'success'); await loadData()
     }))
     container.querySelectorAll('.slip-btn').forEach(b => b.addEventListener('click', () => {
       const s = staff.find(x => x.id === b.dataset.id); if (s) openSlip(s)
@@ -198,7 +207,7 @@ export default async function PayrollDetailPage(container) {
     document.getElementById('payslip-print')?.addEventListener('click', () => printPayslip(s, MONTHS[monthIdx] + ' 2568'))
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
