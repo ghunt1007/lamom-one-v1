@@ -5,6 +5,7 @@
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
 
@@ -31,21 +32,31 @@ const ONBOARDING_TEMPLATE = [
   { id: 'T12', cat: 'docs', task: 'เซ็นสัญญาจ้างงาน', dueDay: 3 },
 ]
 
-const DEMO_NEW_STAFF = [
-  { id: 'NS001', name: 'ปิยะ ดีงาม', role: 'เซลส์ที่ปรึกษา', dept: 'ฝ่ายขาย', startDate: addDays(-3), tasks: ONBOARDING_TEMPLATE.map(t => ({ ...t, done: t.dueDay <= 2 })) },
-  { id: 'NS002', name: 'วรรณา สวยงาม', role: 'ช่างบริการ', dept: 'บริการ', startDate: addDays(-1), tasks: ONBOARDING_TEMPLATE.map(t => ({ ...t, done: t.dueDay <= 1 })) },
-  { id: 'NS003', name: 'กิตติศักดิ์ เก่งกาจ', role: 'เจ้าหน้าที่การเงิน', dept: 'การเงิน', startDate: addDays(1), tasks: ONBOARDING_TEMPLATE.map(t => ({ ...t, done: false })) },
-]
-
 export default async function OnboardingPage(container) {
-  let staff = DEMO_NEW_STAFF.map(s => ({ ...s, tasks: s.tasks.map(t => ({ ...t })) }))
-  let selected = staff[0]?.id
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let staff = []
+  let selected = null
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { staff = await listDocs('onboarding_staff', [], 'startDate', 'desc', 200) } catch (e) { staff = [] }
+    if (!selected || !staff.find(x => x.id === selected)) selected = staff[0]?.id
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const s = staff.find(x => x.id === selected) || staff[0]
-    const doneTasks = s ? s.tasks.filter(t => t.done).length : 0
+    const doneTasks = s ? (s.tasks||[]).filter(t => t.done).length : 0
     const totalTasks = ONBOARDING_TEMPLATE.length
-    const pct = Math.round(doneTasks / totalTasks * 100)
+    const pct = totalTasks ? Math.round(doneTasks / totalTasks * 100) : 0
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -63,8 +74,8 @@ export default async function OnboardingPage(container) {
           <!-- Staff list -->
           <div style="display:flex;flex-direction:column;gap:6px">
             ${staff.map(x => {
-              const xDone = x.tasks.filter(t => t.done).length
-              const xPct = Math.round(xDone / totalTasks * 100)
+              const xDone = (x.tasks||[]).filter(t => t.done).length
+              const xPct = totalTasks ? Math.round(xDone / totalTasks * 100) : 0
               return `<div class="card staff-tab" data-id="${x.id}" style="padding:10px 12px;cursor:pointer;border:2px solid ${x.id===selected?'var(--primary)':'transparent'}">
                 <div style="font-weight:600;font-size:0.83rem">${x.name}</div>
                 <div style="font-size:0.68rem;color:var(--text-muted)">${x.role} · ${x.dept}</div>
@@ -75,6 +86,7 @@ export default async function OnboardingPage(container) {
                 <div style="font-size:0.65rem;color:var(--text-muted);text-align:right;margin-top:2px">${xPct}%</div>
               </div>`
             }).join('')}
+            ${!staff.length ? `<div style="color:var(--text-muted);font-size:0.8rem;padding:10px">ยังไม่มีพนักงานใหม่</div>` : ''}
           </div>
 
           <!-- Checklist -->
@@ -92,7 +104,7 @@ export default async function OnboardingPage(container) {
                   <div style="width:${pct}%;background:var(--${pct===100?'success':pct>=50?'warning':'primary'});height:8px;border-radius:4px"></div>
                 </div>
                 ${Object.entries(TASK_CATS).map(([catKey, catVal]) => {
-                  const catTasks = s.tasks.filter(t => t.cat === catKey)
+                  const catTasks = (s.tasks||[]).filter(t => t.cat === catKey)
                   return `<div style="margin-bottom:12px">
                     <div style="font-size:0.73rem;font-weight:700;color:var(--text-muted);margin-bottom:6px">${catVal.icon} ${catVal.label}</div>
                     ${catTasks.map(t => `
@@ -112,13 +124,13 @@ export default async function OnboardingPage(container) {
     `
 
     container.querySelectorAll('.staff-tab').forEach(b => b.addEventListener('click', () => { selected = b.dataset.id; renderPage() }))
-    container.querySelectorAll('.task-check').forEach(cb => cb.addEventListener('change', () => {
+    container.querySelectorAll('.task-check').forEach(cb => cb.addEventListener('change', async () => {
       const sid = cb.dataset.sid; const tid = cb.dataset.tid
       const staffMember = staff.find(x => x.id === sid)
-      if (staffMember) {
-        const task = staffMember.tasks.find(t => t.id === tid)
-        if (task) { task.done = cb.checked; renderPage() }
-      }
+      if (!staffMember) return
+      const tasks = (staffMember.tasks||[]).map(t => t.id === tid ? { ...t, done: cb.checked } : t)
+      await updateDocData('onboarding_staff', sid, { tasks })
+      await loadData()
     }))
     document.getElementById('add-staff-btn')?.addEventListener('click', openAddForm)
   }
@@ -135,15 +147,19 @@ export default async function OnboardingPage(container) {
         </div>
         <div class="input-group"><label class="input-label">วันเริ่มงาน</label><input class="input" type="date" id="ob-start" value="${addDays(0)}"></div>
       </div>`,
-      onConfirm() {
+      async onConfirm() {
         const name = document.getElementById('ob-name')?.value?.trim()
-        if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return }
-        const newStaff = { id: `NS${String(staff.length+1).padStart(3,'0')}`, name, role: document.getElementById('ob-role')?.value||'—', dept: document.getElementById('ob-dept')?.value||'—', startDate: document.getElementById('ob-start')?.value||addDays(0), tasks: ONBOARDING_TEMPLATE.map(t => ({ ...t, done: false })) }
-        staff.push(newStaff); selected = newStaff.id
-        showToast('✅ เพิ่มพนักงาน Onboarding แล้ว', 'success'); renderPage()
+        if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return false }
+        const newId = await createDoc('onboarding_staff', {
+          name, role: document.getElementById('ob-role')?.value||'—', dept: document.getElementById('ob-dept')?.value||'—',
+          startDate: document.getElementById('ob-start')?.value||addDays(0),
+          tasks: ONBOARDING_TEMPLATE.map(t => ({ ...t, done: false })),
+        })
+        selected = newId
+        showToast('✅ เพิ่มพนักงาน Onboarding แล้ว', 'success'); await loadData()
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }

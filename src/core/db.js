@@ -714,6 +714,28 @@ export function seedDemoData() {
   ]
   disciplinaryRecords.forEach(r => { if (!demoCol('disciplinary_records')[r.id]) demoCol('disciplinary_records')[r.id] = r })
 
+  // Onboarding staff (หน้า /hr/onboarding)
+  const onboardingTemplate = [
+    { id:'T01', cat:'docs', task:'กรอกแบบฟอร์มข้อมูลส่วนตัว', dueDay:1 },
+    { id:'T02', cat:'docs', task:'ส่งสำเนาเอกสาร (บัตร ทะเบียนบ้าน ฯลฯ)', dueDay:1 },
+    { id:'T03', cat:'system', task:'สร้าง account อีเมลบริษัท', dueDay:1 },
+    { id:'T04', cat:'system', task:'เข้าถึงระบบ LAMOM ONE', dueDay:2 },
+    { id:'T05', cat:'equip', task:'รับอุปกรณ์ทำงาน (คอม/โทรศัพท์)', dueDay:1 },
+    { id:'T06', cat:'meeting', task:'พบผู้บังคับบัญชาโดยตรง', dueDay:1 },
+    { id:'T07', cat:'meeting', task:'Tour ทั่วบริษัท + แนะนำทีม', dueDay:2 },
+    { id:'T08', cat:'training', task:'อบรม Product Knowledge (EV)', dueDay:3 },
+    { id:'T09', cat:'training', task:'อบรม SOP ฝ่ายที่สังกัด', dueDay:5 },
+    { id:'T10', cat:'training', task:'อบรม LAMOM ONE — ใช้งานระบบ', dueDay:5 },
+    { id:'T11', cat:'meeting', task:'ประชุม 1:1 กับหัวหน้า — เซ็ตเป้าหมาย', dueDay:7 },
+    { id:'T12', cat:'docs', task:'เซ็นสัญญาจ้างงาน', dueDay:3 },
+  ]
+  const onboardingStaff = [
+    { id:'NS001', name:'ปิยะ ดีงาม', role:'เซลส์ที่ปรึกษา', dept:'ฝ่ายขาย', startDate:addDaysISO(-3), tasks:onboardingTemplate.map(t => ({ ...t, done: t.dueDay <= 2 })) },
+    { id:'NS002', name:'วรรณา สวยงาม', role:'ช่างบริการ', dept:'บริการ', startDate:addDaysISO(-1), tasks:onboardingTemplate.map(t => ({ ...t, done: t.dueDay <= 1 })) },
+    { id:'NS003', name:'กิตติศักดิ์ เก่งกาจ', role:'เจ้าหน้าที่การเงิน', dept:'การเงิน', startDate:addDaysISO(1), tasks:onboardingTemplate.map(t => ({ ...t, done: false })) },
+  ]
+  onboardingStaff.forEach(s => { if (!demoCol('onboarding_staff')[s.id]) demoCol('onboarding_staff')[s.id] = s })
+
   const demoFleet = [
     { id:'df1', brand:'BYD', model:'Seal RWD', vin:'LGXCE4C10PA000006', plate:'กข-0001', color:'เทา Ink', year:2025, mileage:3520, status:'available', condition:'good', lastService:'2025-05-01', notes:'รถทดลองขับหลัก', createdAt:'2025-01-10' },
     { id:'df2', brand:'MG', model:'MG4 X', vin:'SDUZZZEF5PA000020', plate:'กข-0002', color:'แดง', year:2025, mileage:5200, status:'in_use', condition:'good', lastService:'2025-04-15', notes:'ให้ลูกค้า VIP ยืม', createdAt:'2025-01-15' },
