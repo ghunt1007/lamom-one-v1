@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getInsurers } from '../../data/masterData.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -32,38 +33,22 @@ const INSURERS = getInsurers()
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
 
-const DEMO_POLICIES = [
-  { id: 'INS001', customerId: 'C001', customerName: 'วิชาญ มีโชค', phone: '081-234-5678',
-    vehiclePlate: 'กก 1234', vehicleModel: 'BYD Seal AWD', vehicleYear: 2024,
-    insurer: 'เมืองไทยประกันภัย', policyNo: 'MTI-2024-123456', type: 'class1',
-    premium: 28500, coverAmount: 1449000, expiryDate: addDays(30),
-    startDate: addDays(-335), status: 'upcoming', lastRenewedDate: addDays(-335), salesperson: 'อรนุช สายใจ',
-    notes: 'ลูกค้าสนใจต่อกับ insurer เดิม' },
-  { id: 'INS002', customerId: 'C002', customerName: 'อรนุช สาวสวย', phone: '082-345-6789',
-    vehiclePlate: 'ขข 5678', vehicleModel: 'MG ZS EV', vehicleYear: 2024,
-    insurer: 'กรุงเทพประกันภัย', policyNo: 'BKK-2024-789012', type: 'class1',
-    premium: 22000, coverAmount: 1059000, expiryDate: addDays(-5),
-    startDate: addDays(-370), status: 'expired', lastRenewedDate: addDays(-370), salesperson: 'วิชาญ มีโชค',
-    notes: 'ต้องรีบต่อด่วน' },
-  { id: 'INS003', customerId: 'C003', customerName: 'ธีรยุทธ เก่งกาจ', phone: '083-456-7890',
-    vehiclePlate: 'คค 9012', vehicleModel: 'BYD Atto 3', vehicleYear: 2024,
-    insurer: 'วิริยะประกันภัย', policyNo: 'VIR-2024-345678', type: 'class2plus',
-    premium: 15800, coverAmount: 1099000, expiryDate: addDays(65),
-    startDate: addDays(-300), status: 'upcoming', lastRenewedDate: addDays(-300), salesperson: 'อรนุช สายใจ',
-    notes: '' },
-  { id: 'INS004', customerId: 'C004', customerName: 'สมใจ รักรถ', phone: '084-567-8901',
-    vehiclePlate: 'งง 3456', vehicleModel: 'BYD Seal SR', vehicleYear: 2024,
-    insurer: 'ทิพยประกันภัย', policyNo: 'TIP-2024-567890', type: 'class1',
-    premium: 26000, coverAmount: 1199000, expiryDate: addDays(180),
-    startDate: addDays(-185), status: 'renewed', lastRenewedDate: addDays(-185), salesperson: 'อรนุช สายใจ',
-    notes: '' },
-]
-
 export default async function InsuranceRenewalPage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+
   let statusFilter = 'all'
-  let policies = DEMO_POLICIES.map(p => ({ ...p }))
+  let policies = []
+  let loading = true
 
   const today = addDays(0)
+
+  async function loadData() {
+    loading = true
+    try { policies = await listDocs('insurance_renewals', [], 'expiryDate', 'asc', 300) } catch (e) { policies = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function daysUntilExpiry(p) {
     return Math.ceil((new Date(p.expiryDate) - new Date(today)) / 86400000)
@@ -71,10 +56,13 @@ export default async function InsuranceRenewalPage(container) {
 
   function filtered() {
     return policies.filter(p => statusFilter === 'all' || p.status === statusFilter)
-      .sort((a, b) => a.expiryDate.localeCompare(b.expiryDate))
   }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = filtered()
     const expired = policies.filter(p => p.status === 'expired').length
     const upcoming30 = policies.filter(p => p.status === 'upcoming' && daysUntilExpiry(p) <= 30).length
@@ -212,20 +200,22 @@ export default async function InsuranceRenewalPage(container) {
           <div class="input-group"><label class="input-label">วันเริ่มกรมธรรม์ใหม่</label><input type="date" class="input" id="rn-start" value="${today}"></div>
         </div>
       `,
-      confirmLabel: '✅ บันทึกการต่อประกัน',
-      confirmClass: 'btn-success',
-      onConfirm() {
+      confirmText: '✅ บันทึกการต่อประกัน',
+      async onConfirm() {
         const newStart = document.getElementById('rn-start')?.value || today
         const expiry = new Date(newStart); expiry.setFullYear(expiry.getFullYear() + 1)
-        p.status = 'renewed'
-        p.insurer = document.getElementById('rn-insurer')?.value || p.insurer
-        p.type = document.getElementById('rn-type')?.value || p.type
-        p.premium = +document.getElementById('rn-premium')?.value || p.premium
-        p.startDate = newStart
-        p.expiryDate = expiry.toISOString().slice(0, 10)
-        p.lastRenewedDate = today
+        const patch = {
+          status: 'renewed',
+          insurer: document.getElementById('rn-insurer')?.value || p.insurer,
+          type: document.getElementById('rn-type')?.value || p.type,
+          premium: +document.getElementById('rn-premium')?.value || p.premium,
+          startDate: newStart,
+          expiryDate: expiry.toISOString().slice(0, 10),
+          lastRenewedDate: today,
+        }
+        await updateDocData('insurance_renewals', p.id, patch)
         showToast(`✅ ต่อประกัน ${p.customerName} เรียบร้อย!`, 'success')
-        renderPage()
+        await loadData()
       }
     })
   }
@@ -252,13 +242,12 @@ export default async function InsuranceRenewalPage(container) {
           <div class="input-group"><label class="input-label">เซลส์</label><input class="input" id="inf-sales" placeholder="ชื่อเซลส์"></div>
         </div>
       `,
-      onConfirm() {
+      async onConfirm() {
         const name = document.getElementById('inf-name')?.value?.trim()
-        if (!name) { showToast('❗ กรุณากรอกชื่อลูกค้า', 'error'); return }
+        if (!name) { showToast('❗ กรุณากรอกชื่อลูกค้า', 'error'); return false }
         const start = document.getElementById('inf-start')?.value || today
         const expiry = new Date(start); expiry.setFullYear(expiry.getFullYear() + 1)
-        policies.unshift({
-          id: `INS${String(policies.length+1).padStart(3,'0')}`,
+        await createDoc('insurance_renewals', {
           customerId: '', customerName: name, phone: document.getElementById('inf-phone')?.value||'',
           vehiclePlate: document.getElementById('inf-plate')?.value||'',
           vehicleModel: document.getElementById('inf-model')?.value||'', vehicleYear: 2024,
@@ -268,15 +257,15 @@ export default async function InsuranceRenewalPage(container) {
           premium: +document.getElementById('inf-premium')?.value||0,
           coverAmount: 0, expiryDate: expiry.toISOString().slice(0,10),
           startDate: start, status: 'renewed', lastRenewedDate: start,
-          salesperson: document.getElementById('inf-sales')?.value||'', notes: ''
+          salesperson: document.getElementById('inf-sales')?.value||'', notes: '',
         })
         showToast('✅ เพิ่มกรมธรรม์แล้ว!', 'success')
-        renderPage()
+        await loadData()
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

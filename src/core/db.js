@@ -668,6 +668,35 @@ export function seedDemoData() {
   ]
   sopDocuments.forEach(s => { if (!demoCol('sop_documents')[s.id]) demoCol('sop_documents')[s.id] = s })
 
+  // Insurance renewals (หน้า /insurance/renewal) — แยกจาก insurance_policies/policy_renewals (โครงสร้างข้อมูลคนละแบบ)
+  const insuranceRenewals = [
+    { id:'INS001', customerId:'C001', customerName:'วิชาญ มีโชค', phone:'081-234-5678',
+      vehiclePlate:'กก 1234', vehicleModel:'BYD Seal AWD', vehicleYear:2024,
+      insurer:'เมืองไทยประกันภัย', policyNo:'MTI-2024-123456', type:'class1',
+      premium:28500, coverAmount:1449000, expiryDate:addDaysISO(30),
+      startDate:addDaysISO(-335), status:'upcoming', lastRenewedDate:addDaysISO(-335), salesperson:'อรนุช สายใจ',
+      notes:'ลูกค้าสนใจต่อกับ insurer เดิม' },
+    { id:'INS002', customerId:'C002', customerName:'อรนุช สาวสวย', phone:'082-345-6789',
+      vehiclePlate:'ขข 5678', vehicleModel:'MG ZS EV', vehicleYear:2024,
+      insurer:'กรุงเทพประกันภัย', policyNo:'BKK-2024-789012', type:'class1',
+      premium:22000, coverAmount:1059000, expiryDate:addDaysISO(-5),
+      startDate:addDaysISO(-370), status:'expired', lastRenewedDate:addDaysISO(-370), salesperson:'วิชาญ มีโชค',
+      notes:'ต้องรีบต่อด่วน' },
+    { id:'INS003', customerId:'C003', customerName:'ธีรยุทธ เก่งกาจ', phone:'083-456-7890',
+      vehiclePlate:'คค 9012', vehicleModel:'BYD Atto 3', vehicleYear:2024,
+      insurer:'วิริยะประกันภัย', policyNo:'VIR-2024-345678', type:'class2plus',
+      premium:15800, coverAmount:1099000, expiryDate:addDaysISO(65),
+      startDate:addDaysISO(-300), status:'upcoming', lastRenewedDate:addDaysISO(-300), salesperson:'อรนุช สายใจ',
+      notes:'' },
+    { id:'INS004', customerId:'C004', customerName:'สมใจ รักรถ', phone:'084-567-8901',
+      vehiclePlate:'งง 3456', vehicleModel:'BYD Seal SR', vehicleYear:2024,
+      insurer:'ทิพยประกันภัย', policyNo:'TIP-2024-567890', type:'class1',
+      premium:26000, coverAmount:1199000, expiryDate:addDaysISO(180),
+      startDate:addDaysISO(-185), status:'renewed', lastRenewedDate:addDaysISO(-185), salesperson:'อรนุช สายใจ',
+      notes:'' },
+  ]
+  insuranceRenewals.forEach(p => { if (!demoCol('insurance_renewals')[p.id]) demoCol('insurance_renewals')[p.id] = p })
+
   const demoFleet = [
     { id:'df1', brand:'BYD', model:'Seal RWD', vin:'LGXCE4C10PA000006', plate:'กข-0001', color:'เทา Ink', year:2025, mileage:3520, status:'available', condition:'good', lastService:'2025-05-01', notes:'รถทดลองขับหลัก', createdAt:'2025-01-10' },
     { id:'df2', brand:'MG', model:'MG4 X', vin:'SDUZZZEF5PA000020', plate:'กข-0002', color:'แดง', year:2025, mileage:5200, status:'in_use', condition:'good', lastService:'2025-04-15', notes:'ให้ลูกค้า VIP ยืม', createdAt:'2025-01-15' },
