@@ -697,6 +697,15 @@ export function seedDemoData() {
   ]
   insuranceRenewals.forEach(p => { if (!demoCol('insurance_renewals')[p.id]) demoCol('insurance_renewals')[p.id] = p })
 
+  // NCB policies (หน้า /insurance/ncb)
+  const ncbPolicies = [
+    { id:'POL-001', customer:'คุณอนันต์ รักดี', plate:'กข-1234', model:'BYD Atto 3', insurer:'กรุงเทพประกันภัย', renewDate:'2026-08-01', ncbYears:3, basePremium:18500, claimed:false },
+    { id:'POL-002', customer:'คุณมาลี วงศ์ดี', plate:'1กก-5678', model:'MG ZS EV', insurer:'เมืองไทยประกันภัย', renewDate:'2026-07-15', ncbYears:0, basePremium:14200, claimed:true },
+    { id:'POL-003', customer:'คุณวีระ สมบัติ', plate:'2ขข-9999', model:'BYD Seal AWD', insurer:'วิริยะประกันภัย', renewDate:'2026-09-30', ncbYears:5, basePremium:22000, claimed:false },
+    { id:'POL-004', customer:'คุณสุดา ใจดี', plate:'3กค-1111', model:'BYD Dolphin', insurer:'อาคเนย์ประกันภัย', renewDate:'2026-06-25', ncbYears:2, basePremium:12800, claimed:false },
+  ]
+  ncbPolicies.forEach(p => { if (!demoCol('ncb_policies')[p.id]) demoCol('ncb_policies')[p.id] = p })
+
   const demoFleet = [
     { id:'df1', brand:'BYD', model:'Seal RWD', vin:'LGXCE4C10PA000006', plate:'กข-0001', color:'เทา Ink', year:2025, mileage:3520, status:'available', condition:'good', lastService:'2025-05-01', notes:'รถทดลองขับหลัก', createdAt:'2025-01-10' },
     { id:'df2', brand:'MG', model:'MG4 X', vin:'SDUZZZEF5PA000020', plate:'กข-0002', color:'แดง', year:2025, mileage:5200, status:'in_use', condition:'good', lastService:'2025-04-15', notes:'ให้ลูกค้า VIP ยืม', createdAt:'2025-01-15' },

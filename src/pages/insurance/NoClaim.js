@@ -5,6 +5,7 @@
 import { formatDate, formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -20,15 +21,8 @@ const NCB_TABLE = [
   { year: 5, pct: 50, label: '50% (5 ปี+)' },
 ]
 
-let POLICIES = [
-  { id: 'POL-001', customer: 'คุณอนันต์ รักดี', plate: 'กข-1234', model: 'BYD Atto 3', insurer: 'กรุงเทพประกันภัย', renewDate: '2026-08-01', ncbYears: 3, basePremium: 18500, claimed: false },
-  { id: 'POL-002', customer: 'คุณมาลี วงศ์ดี', plate: '1กก-5678', model: 'MG ZS EV', insurer: 'เมืองไทยประกันภัย', renewDate: '2026-07-15', ncbYears: 0, basePremium: 14200, claimed: true },
-  { id: 'POL-003', customer: 'คุณวีระ สมบัติ', plate: '2ขข-9999', model: 'BYD Seal AWD', insurer: 'วิริยะประกันภัย', renewDate: '2026-09-30', ncbYears: 5, basePremium: 22000, claimed: false },
-  { id: 'POL-004', customer: 'คุณสุดา ใจดี', plate: '3กค-1111', model: 'BYD Dolphin', insurer: 'อาคเนย์ประกันภัย', renewDate: '2026-06-25', ncbYears: 2, basePremium: 12800, claimed: false },
-]
-
 function ncbOf(p) {
-  const yrs = p.claimed ? 0 : Math.min(p.ncbYears + (p.claimed ? 0 : 0), 5)
+  const yrs = p.claimed ? 0 : Math.min(p.ncbYears, 5)
   return NCB_TABLE.find(r => r.year === yrs) || NCB_TABLE[0]
 }
 function daysUntil(d) { return Math.ceil((new Date(d) - Date.now()) / 86400000) }
@@ -38,9 +32,26 @@ function effectivePremium(p) {
 }
 
 export default async function NoClaimPage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let policies = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { policies = await listDocs('ncb_policies', [], 'renewDate', 'asc', 300) } catch (e) { policies = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
+
   function render() {
-    const expiringSoon = POLICIES.filter(p => daysUntil(p.renewDate) <= 30 && daysUntil(p.renewDate) > 0)
-    const totalSaving = POLICIES.reduce((s, p) => s + (p.basePremium - effectivePremium(p)), 0)
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
+    const expiringSoon = policies.filter(p => daysUntil(p.renewDate) <= 30 && daysUntil(p.renewDate) > 0)
+    const totalSaving = policies.reduce((s, p) => s + (p.basePremium - effectivePremium(p)), 0)
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -55,9 +66,9 @@ export default async function NoClaimPage(container) {
         </div>
 
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
-          ${sc('📋 กรมธรรม์ทั้งหมด', POLICIES.length, 'var(--primary)')}
+          ${sc('📋 กรมธรรม์ทั้งหมด', policies.length, 'var(--primary)')}
           ${sc('⚠️ ต่อใน 30 วัน', expiringSoon.length, expiringSoon.length > 0 ? 'var(--danger)' : 'var(--success)')}
-          ${sc('🏅 NCB 50% (สูงสุด)', POLICIES.filter(p=>ncbOf(p).pct===50).length, 'var(--success)')}
+          ${sc('🏅 NCB 50% (สูงสุด)', policies.filter(p=>ncbOf(p).pct===50).length, 'var(--success)')}
           ${sc('💰 ส่วนลด NCB รวม', formatCurrency(totalSaving), 'var(--success)')}
         </div>
 
@@ -77,7 +88,7 @@ export default async function NoClaimPage(container) {
                 <th style="text-align:right">เบี้ยหลัง NCB</th><th style="text-align:center">ต่ออายุ</th><th></th>
               </tr></thead>
               <tbody>
-                ${POLICIES.map(p => {
+                ${policies.map(p => {
                   const ncb = ncbOf(p); const eff = effectivePremium(p); const days = daysUntil(p.renewDate)
                   const urgent = days <= 30 && days > 0
                   return `<tr style="border-bottom:1px solid var(--border);font-size:0.8rem">
@@ -93,6 +104,7 @@ export default async function NoClaimPage(container) {
                     <td style="padding-right:10px">${urgent?`<button class="btn btn-xs btn-primary notify-btn" data-id="${p.id}">แจ้งลูกค้า</button>`:''}</td>
                   </tr>`
                 }).join('')}
+                ${!policies.length ? `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted)">ไม่มีกรมธรรม์</td></tr>` : ''}
               </tbody>
             </table>
           </div>
@@ -111,7 +123,7 @@ export default async function NoClaimPage(container) {
     `
 
     container.querySelectorAll('.notify-btn').forEach(b => b.addEventListener('click', () => {
-      const p = POLICIES.find(x => x.id === b.dataset.id)
+      const p = policies.find(x => x.id === b.dataset.id)
       showToast(`📱 แจ้ง ${p.customer} ผ่าน LINE ว่าประกัน ${p.plate} จะหมดใน ${daysUntil(p.renewDate)} วัน · NCB ${ncbOf(p).pct}% แล้ว`, 'success')
     }))
     document.getElementById('add-btn')?.addEventListener('click', () => {
@@ -144,7 +156,7 @@ export default async function NoClaimPage(container) {
           </div>
         `,
         confirmText: '💾 บันทึกกรมธรรม์',
-        onConfirm() {
+        async onConfirm() {
           const customer  = document.getElementById('nc-customer')?.value?.trim()
           const plate     = document.getElementById('nc-plate')?.value?.trim()
           const model     = document.getElementById('nc-model')?.value?.trim()
@@ -154,9 +166,9 @@ export default async function NoClaimPage(container) {
           const basePremium = parseInt(document.getElementById('nc-premium')?.value) || 0
           const claimed   = document.getElementById('nc-claimed')?.checked || false
           if (!customer || !plate || !basePremium) { showToast('กรอกข้อมูลให้ครบ', 'warning'); return false }
-          POLICIES.push({ id: 'POL-'+Date.now(), customer, plate, model: model||'ไม่ระบุ', insurer: insurer||'ไม่ระบุ', renewDate, ncbYears, basePremium, claimed })
-          render()
+          await createDoc('ncb_policies', { customer, plate, model: model||'ไม่ระบุ', insurer: insurer||'ไม่ระบุ', renewDate, ncbYears, basePremium, claimed })
           showToast(`✅ เพิ่มกรมธรรม์ ${plate} (${customer}) แล้ว`, 'success')
+          await loadData()
         }
       })
     })
@@ -166,5 +178,5 @@ export default async function NoClaimPage(container) {
     return `<div class="card" style="padding:14px 16px"><div style="font-size:0.72rem;color:var(--text-muted)">${l}</div><div style="font-size:1.4rem;font-weight:900;color:${c};margin-top:2px">${v}</div></div>`
   }
 
-  render()
+  await loadData()
 }
