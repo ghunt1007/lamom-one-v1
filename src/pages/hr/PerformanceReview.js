@@ -5,6 +5,7 @@
 import { formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 const REVIEW_STATUS = {
   pending:    { label: 'รอประเมิน', color: 'warning' },
@@ -19,30 +20,6 @@ const CRITERIA = [
   { key: 'teamwork', label: 'การทำงานทีม', weight: 20 },
   { key: 'initiative', label: 'ความคิดริเริ่ม', weight: 15 },
   { key: 'development', label: 'การพัฒนาตนเอง', weight: 10 },
-]
-
-const DEMO_REVIEWS = [
-  {
-    id: 'PR001', staff: 'วิชัย ยอดขาย', dept: 'ฝ่ายขาย', period: 'H1/2568',
-    status: 'reviewed', selfScores: { kpi: 4, quality: 4, teamwork: 5, initiative: 4, development: 3 },
-    mgmtScores: { kpi: 4, quality: 4, teamwork: 4, initiative: 3, development: 4 },
-    comment: 'ยอดขายดีเยี่ยม แต่ต้องพัฒนาด้านความคิดริเริ่ม', grade: 'B+'
-  },
-  {
-    id: 'PR002', staff: 'สุดา มาดี', dept: 'ฝ่ายขาย', period: 'H1/2568',
-    status: 'completed', selfScores: { kpi: 5, quality: 5, teamwork: 5, initiative: 5, development: 4 },
-    mgmtScores: { kpi: 5, quality: 4, teamwork: 5, initiative: 4, development: 4 },
-    comment: 'ผลงานดีเยี่ยม ยอดขายสูงสุดในทีม', grade: 'A'
-  },
-  {
-    id: 'PR003', staff: 'ธนา เก่ง', dept: 'ฝ่ายขาย', period: 'H1/2568',
-    status: 'self_done', selfScores: { kpi: 3, quality: 4, teamwork: 4, initiative: 3, development: 4 },
-    mgmtScores: null, comment: '', grade: null
-  },
-  {
-    id: 'PR004', staff: 'วิทยา ช่าง', dept: 'บริการ', period: 'H1/2568',
-    status: 'pending', selfScores: null, mgmtScores: null, comment: '', grade: null
-  },
 ]
 
 function calcScore(scores) {
@@ -68,14 +45,30 @@ function scoreBar(score, max = 5) {
 }
 
 export default async function PerformanceReviewPage(container) {
-  let reviews = DEMO_REVIEWS.map(r => ({ ...r, selfScores: r.selfScores ? {...r.selfScores} : null, mgmtScores: r.mgmtScores ? {...r.mgmtScores} : null }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let reviews = []
   let statusFilter = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { reviews = await listDocs('performance_reviews', [], 'period', 'desc', 300) } catch (e) { reviews = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = reviews.filter(r => statusFilter === 'all' || r.status === statusFilter)
     const completed = reviews.filter(r => r.status === 'completed').length
     const pending = reviews.filter(r => r.status === 'pending').length
-    const avgScore = reviews.filter(r => r.mgmtScores).map(r => +calcScore(r.mgmtScores)).reduce((a, s, _, arr) => a + s/arr.length, 0)
+    const withMgmt = reviews.filter(r => r.mgmtScores)
+    const avgScore = withMgmt.length ? withMgmt.map(r => +calcScore(r.mgmtScores)).reduce((a, s) => a + s/withMgmt.length, 0) : 0
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -138,6 +131,7 @@ export default async function PerformanceReviewPage(container) {
               </div>
             </div>`
           }).join('')}
+          ${!list.length ? `<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-title">ไม่มีรายการประเมิน</div></div>` : ''}
         </div>
       </div>
     `
@@ -160,16 +154,15 @@ export default async function PerformanceReviewPage(container) {
           </div>
         `,
         confirmText: '🚀 เริ่มรอบประเมิน',
-        onConfirm() {
+        async onConfirm() {
           const selfDl = document.getElementById('pr-self-deadline')?.value
           const mgmtDl = document.getElementById('pr-mgmt-deadline')?.value
-          reviews.forEach(r => {
-            if (r.period !== 'H2/2568') {
-              reviews.push({ ...r, id: `PR${Date.now()}-${r.id}`, period: 'H2/2568', status: 'pending', selfScores: {}, mgmtScores: {}, comment: '', grade: '' })
-            }
-          })
-          renderPage()
+          const toCreate = reviews.filter(r => r.period !== 'H2/2568')
+          for (const r of toCreate) {
+            await createDoc('performance_reviews', { staff: r.staff, dept: r.dept, period: 'H2/2568', status: 'pending', selfScores: null, mgmtScores: null, comment: '', grade: null })
+          }
           showToast(`🔄 เริ่มรอบประเมิน H2/2568 แล้ว · ส่งตัวเอง: ${selfDl} · ผู้จัดการ: ${mgmtDl}`, 'success')
+          await loadData()
         }
       })
     })
@@ -225,15 +218,14 @@ export default async function PerformanceReviewPage(container) {
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">ความคิดเห็น</label><textarea class="input" id="mgmt-comment" rows="3"></textarea></div>
         </div>
       `,
-      onConfirm() {
+      async onConfirm() {
         const scores = {}
         CRITERIA.forEach(c => { scores[c.key] = +document.getElementById(`mgmt-${c.key}`)?.value || 3 })
-        r.mgmtScores = scores
-        r.comment = document.getElementById('mgmt-comment')?.value || ''
-        r.status = 'reviewed'
+        const comment = document.getElementById('mgmt-comment')?.value || ''
         const total = +calcScore(scores)
-        r.grade = gradeFromScore(total)
-        showToast(`✅ ประเมิน ${r.staff} เสร็จแล้ว! เกรด ${r.grade}`, 'success'); renderPage()
+        const grade = gradeFromScore(total)
+        await updateDocData('performance_reviews', r.id, { mgmtScores: scores, comment, status: 'reviewed', grade })
+        showToast(`✅ ประเมิน ${r.staff} เสร็จแล้ว! เกรด ${grade}`, 'success'); await loadData()
       }
     })
 
@@ -247,7 +239,7 @@ export default async function PerformanceReviewPage(container) {
     }, 100)
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

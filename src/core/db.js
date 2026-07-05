@@ -743,6 +743,24 @@ export function seedDemoData() {
   ]
   offboardingStaff.forEach(o => { if (!demoCol('offboarding_staff')[o.id]) demoCol('offboarding_staff')[o.id] = o })
 
+  // Performance reviews (หน้า /hr/performance-review)
+  const performanceReviews = [
+    { id:'PR001', staff:'วิชัย ยอดขาย', dept:'ฝ่ายขาย', period:'H1/2568',
+      status:'reviewed', selfScores:{ kpi:4, quality:4, teamwork:5, initiative:4, development:3 },
+      mgmtScores:{ kpi:4, quality:4, teamwork:4, initiative:3, development:4 },
+      comment:'ยอดขายดีเยี่ยม แต่ต้องพัฒนาด้านความคิดริเริ่ม', grade:'B+' },
+    { id:'PR002', staff:'สุดา มาดี', dept:'ฝ่ายขาย', period:'H1/2568',
+      status:'completed', selfScores:{ kpi:5, quality:5, teamwork:5, initiative:5, development:4 },
+      mgmtScores:{ kpi:5, quality:4, teamwork:5, initiative:4, development:4 },
+      comment:'ผลงานดีเยี่ยม ยอดขายสูงสุดในทีม', grade:'A' },
+    { id:'PR003', staff:'ธนา เก่ง', dept:'ฝ่ายขาย', period:'H1/2568',
+      status:'self_done', selfScores:{ kpi:3, quality:4, teamwork:4, initiative:3, development:4 },
+      mgmtScores:null, comment:'', grade:null },
+    { id:'PR004', staff:'วิทยา ช่าง', dept:'บริการ', period:'H1/2568',
+      status:'pending', selfScores:null, mgmtScores:null, comment:'', grade:null },
+  ]
+  performanceReviews.forEach(r => { if (!demoCol('performance_reviews')[r.id]) demoCol('performance_reviews')[r.id] = r })
+
   const demoFleet = [
     { id:'df1', brand:'BYD', model:'Seal RWD', vin:'LGXCE4C10PA000006', plate:'กข-0001', color:'เทา Ink', year:2025, mileage:3520, status:'available', condition:'good', lastService:'2025-05-01', notes:'รถทดลองขับหลัก', createdAt:'2025-01-10' },
     { id:'df2', brand:'MG', model:'MG4 X', vin:'SDUZZZEF5PA000020', plate:'กข-0002', color:'แดง', year:2025, mileage:5200, status:'in_use', condition:'good', lastService:'2025-04-15', notes:'ให้ลูกค้า VIP ยืม', createdAt:'2025-01-15' },
