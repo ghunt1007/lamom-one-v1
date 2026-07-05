@@ -790,6 +790,17 @@ export function seedDemoData() {
   ]
   overtimeRecords.forEach(o => { if (!demoCol('overtime_records')[o.id]) demoCol('overtime_records')[o.id] = o })
 
+  // Bonus pool staff (หน้า /hr/bonus-pool)
+  const bonusPoolStaff = [
+    { id:'BP001', name:'นภา มีสุข', dept:'ฝ่ายขาย', role:'Sales Manager', kpi:98, base:55000, multiplier:3.0, paid:false },
+    { id:'BP002', name:'สมชาย วิเศษ', dept:'ฝ่ายบริการ', role:'SA Lead', kpi:85, base:42000, multiplier:2.0, paid:false },
+    { id:'BP003', name:'มาลี จันทร์ดี', dept:'ฝ่ายการตลาด', role:'Marketing Mgr', kpi:91, base:50000, multiplier:2.5, paid:false },
+    { id:'BP004', name:'วิชัย รุ่งเรือง', dept:'ฝ่ายขาย', role:'Sales Exec', kpi:72, base:35000, multiplier:1.5, paid:false },
+    { id:'BP005', name:'รัชนี สุขใจ', dept:'ฝ่าย HR', role:'HR Specialist', kpi:88, base:40000, multiplier:2.0, paid:false },
+    { id:'BP006', name:'อรุณ วิชิต', dept:'ฝ่ายการเงิน', role:'Accountant', kpi:94, base:45000, multiplier:2.5, paid:false },
+  ]
+  bonusPoolStaff.forEach(s => { if (!demoCol('bonus_pool_staff')[s.id]) demoCol('bonus_pool_staff')[s.id] = s })
+
   const demoFleet = [
     { id:'df1', brand:'BYD', model:'Seal RWD', vin:'LGXCE4C10PA000006', plate:'กข-0001', color:'เทา Ink', year:2025, mileage:3520, status:'available', condition:'good', lastService:'2025-05-01', notes:'รถทดลองขับหลัก', createdAt:'2025-01-10' },
     { id:'df2', brand:'MG', model:'MG4 X', vin:'SDUZZZEF5PA000020', plate:'กข-0002', color:'แดง', year:2025, mileage:5200, status:'in_use', condition:'good', lastService:'2025-04-15', notes:'ให้ลูกค้า VIP ยืม', createdAt:'2025-01-15' },

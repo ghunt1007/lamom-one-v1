@@ -5,15 +5,7 @@
 import { formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-
-let STAFF = [
-  { id:'BP001', name:'นภา มีสุข',    dept:'ฝ่ายขาย',     role:'Sales Manager', kpi:98, base:55000, multiplier:3.0, bonus:0, paid:false },
-  { id:'BP002', name:'สมชาย วิเศษ',  dept:'ฝ่ายบริการ',  role:'SA Lead',       kpi:85, base:42000, multiplier:2.0, bonus:0, paid:false },
-  { id:'BP003', name:'มาลี จันทร์ดี', dept:'ฝ่ายการตลาด',role:'Marketing Mgr', kpi:91, base:50000, multiplier:2.5, bonus:0, paid:false },
-  { id:'BP004', name:'วิชัย รุ่งเรือง',dept:'ฝ่ายขาย',   role:'Sales Exec',    kpi:72, base:35000, multiplier:1.5, bonus:0, paid:false },
-  { id:'BP005', name:'รัชนี สุขใจ',  dept:'ฝ่าย HR',     role:'HR Specialist', kpi:88, base:40000, multiplier:2.0, bonus:0, paid:false },
-  { id:'BP006', name:'อรุณ วิชิต',   dept:'ฝ่ายการเงิน', role:'Accountant',    kpi:94, base:45000, multiplier:2.5, bonus:0, paid:false },
-]
+import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 
 const POOL_BUDGET = 1200000
 
@@ -31,22 +23,38 @@ function kpiGrade(kpi) {
 }
 
 export default async function BonusPoolPage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let staff = []
   let filter = 'all'
-  STAFF.forEach(s => s.bonus = calcBonus(s))
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { staff = await listDocs('bonus_pool_staff', [], 'name', 'asc', 200) } catch (e) { staff = [] }
+    staff.forEach(s => s.bonus = calcBonus(s))
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function render() {
-    const rows = filter === 'all' ? STAFF : STAFF.filter(s => s.dept === filter)
-    const totalBonus = STAFF.reduce((sum, s) => sum + s.bonus, 0)
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
+    const rows = filter === 'all' ? staff : staff.filter(s => s.dept === filter)
+    const totalBonus = staff.reduce((sum, s) => sum + s.bonus, 0)
     const remaining  = POOL_BUDGET - totalBonus
-    const paidCount  = STAFF.filter(s => s.paid).length
-    const depts = [...new Set(STAFF.map(s => s.dept))]
+    const paidCount  = staff.filter(s => s.paid).length
+    const depts = [...new Set(staff.map(s => s.dept))]
 
     container.innerHTML = `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
             <div class="page-title">🎁 Staff Bonus Pool</div>
-            <div class="page-subtitle">คำนวณ Bonus ตาม KPI · งบประมาณ ${formatCurrency(POOL_BUDGET)} · ${STAFF.length} คน</div>
+            <div class="page-subtitle">คำนวณ Bonus ตาม KPI · งบประมาณ ${formatCurrency(POOL_BUDGET)} · ${staff.length} คน</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="recalc-btn">🔄 คำนวณใหม่</button>
@@ -58,7 +66,7 @@ export default async function BonusPoolPage(container) {
           ${sc('💰 งบ Bonus รวม', formatCurrency(POOL_BUDGET), 'var(--text)')}
           ${sc('🎁 Bonus ทั้งหมด', formatCurrency(totalBonus), 'var(--primary)')}
           ${sc('💵 งบคงเหลือ', formatCurrency(remaining), remaining>=0?'var(--success)':'var(--danger)')}
-          ${sc('✅ จ่ายแล้ว', paidCount+'/'+STAFF.length+' คน', 'var(--success)')}
+          ${sc('✅ จ่ายแล้ว', paidCount+'/'+staff.length+' คน', 'var(--success)')}
         </div>
 
         <!-- Budget bar -->
@@ -121,24 +129,30 @@ export default async function BonusPoolPage(container) {
                 </div>
               </div>
             </div>`).join('')}
+          ${!rows.length ? `<div class="empty-state"><div class="empty-icon">🎁</div><div class="empty-title">ไม่มีรายการ</div></div>` : ''}
         </div>
       </div>`
 
     container.querySelectorAll('.dept-btn').forEach(b => b.addEventListener('click', () => { filter = b.dataset.d; render() }))
-    document.getElementById('recalc-btn')?.addEventListener('click', () => { STAFF.forEach(s => s.bonus = calcBonus(s)); render(); showToast('🔄 คำนวณ Bonus ใหม่แล้ว', 'success') })
+    document.getElementById('recalc-btn')?.addEventListener('click', () => { staff.forEach(s => s.bonus = calcBonus(s)); render(); showToast('🔄 คำนวณ Bonus ใหม่แล้ว', 'success') })
     document.getElementById('approve-all-btn')?.addEventListener('click', () => {
       openModal({ title:'✅ อนุมัติ Bonus ทั้งหมด', size:'xs',
-        body:`<div style="font-size:0.8rem">อนุมัติ Bonus รวม <b>${formatCurrency(totalBonus)}</b> สำหรับพนักงาน ${STAFF.length} คน ใช่ไหม?</div>`,
+        body:`<div style="font-size:0.8rem">อนุมัติ Bonus รวม <b>${formatCurrency(totalBonus)}</b> สำหรับพนักงาน ${staff.length} คน ใช่ไหม?</div>`,
         confirmText:'✅ ยืนยันอนุมัติ',
-        onConfirm() { STAFF.forEach(s => s.paid = true); render(); showToast('✅ อนุมัติ Bonus ทั้งหมดแล้ว', 'success') }
+        async onConfirm() {
+          for (const s of staff) { if (!s.paid) await updateDocData('bonus_pool_staff', s.id, { paid: true }) }
+          showToast('✅ อนุมัติ Bonus ทั้งหมดแล้ว', 'success'); await loadData()
+        }
       })
     })
-    container.querySelectorAll('.pay-btn').forEach(b => b.addEventListener('click', () => {
-      const s = STAFF.find(x => x.id === b.dataset.id)
-      if (s) { s.paid = true; render(); showToast(`💸 จ่าย Bonus ${s.name} ${formatCurrency(s.bonus)} แล้ว`, 'success') }
+    container.querySelectorAll('.pay-btn').forEach(b => b.addEventListener('click', async () => {
+      const s = staff.find(x => x.id === b.dataset.id)
+      if (!s) return
+      await updateDocData('bonus_pool_staff', s.id, { paid: true })
+      showToast(`💸 จ่าย Bonus ${s.name} ${formatCurrency(s.bonus)} แล้ว`, 'success'); await loadData()
     }))
     container.querySelectorAll('.edit-btn').forEach(b => b.addEventListener('click', () => {
-      const s = STAFF.find(x => x.id === b.dataset.id)
+      const s = staff.find(x => x.id === b.dataset.id)
       if (s) openEditModal(s)
     }))
   }
@@ -154,11 +168,13 @@ export default async function BonusPoolPage(container) {
         <div style="font-size:0.72rem;color:var(--text-muted)">Bonus จะถูกคำนวณใหม่อัตโนมัติ</div>
       </div>`,
       confirmText:'💾 บันทึก',
-      onConfirm() {
-        s.kpi = Math.max(0, Math.min(100, parseInt(document.getElementById('kpi-val')?.value) || s.kpi))
-        s.multiplier = parseFloat(document.getElementById('mult-val')?.value) || s.multiplier
-        s.bonus = calcBonus(s)
-        render(); showToast(`💾 ปรับ Bonus ${s.name} เป็น ${formatCurrency(s.bonus)} แล้ว`, 'success')
+      async onConfirm() {
+        const kpi = Math.max(0, Math.min(100, parseInt(document.getElementById('kpi-val')?.value) || s.kpi))
+        const multiplier = parseFloat(document.getElementById('mult-val')?.value) || s.multiplier
+        const bonus = calcBonus({ ...s, kpi, multiplier })
+        await updateDocData('bonus_pool_staff', s.id, { kpi, multiplier })
+        showToast(`💾 ปรับ Bonus ${s.name} เป็น ${formatCurrency(bonus)} แล้ว`, 'success')
+        await loadData()
       }
     })
   }
@@ -170,5 +186,5 @@ export default async function BonusPoolPage(container) {
     </div>`
   }
 
-  render()
+  await loadData()
 }
