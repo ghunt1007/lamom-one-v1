@@ -761,6 +761,25 @@ export function seedDemoData() {
   ]
   performanceReviews.forEach(r => { if (!demoCol('performance_reviews')[r.id]) demoCol('performance_reviews')[r.id] = r })
 
+  // Recruitment jobs + applicants (หน้า /hr/recruitment)
+  const recruitmentJobs = [
+    { id:'JB001', title:'Sales Executive (รถยนต์ไฟฟ้า)', dept:'ฝ่ายขาย', location:'กรุงเทพฯ', type:'fulltime', salaryMin:25000, salaryMax:50000, status:'open', openDate:'2026-05-01', deadline:'2026-07-01', filled:0, description:'ขายรถยนต์ไฟฟ้า BYD / MG / Neta / ORA ต้องมีประสบการณ์ขายรถยนต์อย่างน้อย 1 ปี', requirements:['มีใบขับขี่', 'มีทักษะการเจรจาต่อรอง', 'มีรถส่วนตัวจะพิจารณาเป็นพิเศษ'] },
+    { id:'JB002', title:'Service Advisor', dept:'ฝ่ายบริการ', location:'กรุงเทพฯ', type:'fulltime', salaryMin:18000, salaryMax:30000, status:'open', openDate:'2026-05-15', deadline:'2026-06-30', filled:0, description:'รับลูกค้าเข้าศูนย์บริการ ประสานงานช่าง แจ้งสถานะงาน', requirements:['ปริญญาตรีขึ้นไป', 'มีทักษะสื่อสารดี', 'ภาษาอังกฤษพื้นฐาน'] },
+    { id:'JB003', title:'Digital Marketing Specialist', dept:'ฝ่ายการตลาด', location:'กรุงเทพฯ', type:'fulltime', salaryMin:22000, salaryMax:40000, status:'hold', openDate:'2026-04-01', deadline:'2026-05-31', filled:0, description:'ดูแล Social Media Facebook/TikTok/Instagram ทำ Content และวิเคราะห์ผล', requirements:['ประสบการณ์ด้าน Digital Marketing 2 ปี', 'รู้จัก Meta Ads / Google Ads'] },
+    { id:'JB004', title:'Automotive Technician (EV)', dept:'ฝ่ายบริการ', location:'กรุงเทพฯ', type:'fulltime', salaryMin:20000, salaryMax:40000, status:'filled', openDate:'2026-03-01', deadline:'2026-04-30', filled:1, description:'ช่างซ่อมรถยนต์ไฟฟ้า มีประกาศนียบัตรวิชาชีพ', requirements:['ปวช./ปวส. ช่างยนต์', 'ผ่านการอบรม EV จะพิจารณาพิเศษ'] },
+  ]
+  recruitmentJobs.forEach(j => { if (!demoCol('recruitment_jobs')[j.id]) demoCol('recruitment_jobs')[j.id] = j })
+
+  const recruitmentApplicants = [
+    { id:'AP001', jobId:'JB001', name:'สมศักดิ์ ใจดี', phone:'081-234-5678', email:'somsak@mail.com', appliedDate:'2026-05-10', status:'interview1', score:78, note:'มีประสบการณ์ขายรถ Honda 2 ปี', resumeUrl:'#' },
+    { id:'AP002', jobId:'JB001', name:'สาวิตรี มีทาง', phone:'082-345-6789', email:'sawit@mail.com', appliedDate:'2026-05-12', status:'screening', score:65, note:'จบสาขาการตลาด', resumeUrl:'#' },
+    { id:'AP003', jobId:'JB001', name:'อาทิตย์ รักงาน', phone:'083-456-7890', email:'adit@mail.com', appliedDate:'2026-05-15', status:'offer', score:88, note:'ขายรถ Toyota 3 ปี เป้าหมาย top 10%', resumeUrl:'#' },
+    { id:'AP004', jobId:'JB002', name:'วรรณา สุขใจ', phone:'084-567-8901', email:'wanna@mail.com', appliedDate:'2026-05-20', status:'new', score:null, note:'', resumeUrl:'#' },
+    { id:'AP005', jobId:'JB002', name:'ณัฐพล เก่งกาจ', phone:'085-678-9012', email:'nattapon@mail.com', appliedDate:'2026-05-18', status:'interview1', score:72, note:'มีประสบการณ์ SA Honda 1.5 ปี', resumeUrl:'#' },
+    { id:'AP006', jobId:'JB003', name:'ปิยะ โซเชียล', phone:'086-789-0123', email:'piya@mail.com', appliedDate:'2026-04-15', status:'rejected', score:40, note:'ไม่มีประสบการณ์ Paid Ads', resumeUrl:'#' },
+  ]
+  recruitmentApplicants.forEach(a => { if (!demoCol('recruitment_applicants')[a.id]) demoCol('recruitment_applicants')[a.id] = a })
+
   const demoFleet = [
     { id:'df1', brand:'BYD', model:'Seal RWD', vin:'LGXCE4C10PA000006', plate:'กข-0001', color:'เทา Ink', year:2025, mileage:3520, status:'available', condition:'good', lastService:'2025-05-01', notes:'รถทดลองขับหลัก', createdAt:'2025-01-10' },
     { id:'df2', brand:'MG', model:'MG4 X', vin:'SDUZZZEF5PA000020', plate:'กข-0002', color:'แดง', year:2025, mileage:5200, status:'in_use', condition:'good', lastService:'2025-04-15', notes:'ให้ลูกค้า VIP ยืม', createdAt:'2025-01-15' },

@@ -2,6 +2,7 @@ import { formatDate } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -27,30 +28,31 @@ const APP_STATUS = {
 
 const DEPARTMENTS = ['ฝ่ายขาย', 'ฝ่ายบริการ', 'ฝ่ายการตลาด', 'ฝ่ายการเงิน', 'ฝ่าย HR', 'ฝ่าย IT', 'ฝ่ายบริหาร']
 
-const DEMO_JOBS = [
-  { id: 'JB001', title: 'Sales Executive (รถยนต์ไฟฟ้า)', dept: 'ฝ่ายขาย', location: 'กรุงเทพฯ', type: 'fulltime', salaryMin: 25000, salaryMax: 50000, status: 'open', openDate: '2025-05-01', deadline: '2025-07-01', applicants: 8, filled: 0, description: 'ขายรถยนต์ไฟฟ้า BYD / MG / Neta / ORA ต้องมีประสบการณ์ขายรถยนต์อย่างน้อย 1 ปี', requirements: ['มีใบขับขี่', 'มีทักษะการเจรจาต่อรอง', 'มีรถส่วนตัวจะพิจารณาเป็นพิเศษ'] },
-  { id: 'JB002', title: 'Service Advisor', dept: 'ฝ่ายบริการ', location: 'กรุงเทพฯ', type: 'fulltime', salaryMin: 18000, salaryMax: 30000, status: 'open', openDate: '2025-05-15', deadline: '2025-06-30', applicants: 5, filled: 0, description: 'รับลูกค้าเข้าศูนย์บริการ ประสานงานช่าง แจ้งสถานะงาน', requirements: ['ปริญญาตรีขึ้นไป', 'มีทักษะสื่อสารดี', 'ภาษาอังกฤษพื้นฐาน'] },
-  { id: 'JB003', title: 'Digital Marketing Specialist', dept: 'ฝ่ายการตลาด', location: 'กรุงเทพฯ', type: 'fulltime', salaryMin: 22000, salaryMax: 40000, status: 'hold', openDate: '2025-04-01', deadline: '2025-05-31', applicants: 12, filled: 0, description: 'ดูแล Social Media Facebook/TikTok/Instagram ทำ Content และวิเคราะห์ผล', requirements: ['ประสบการณ์ด้าน Digital Marketing 2 ปี', 'รู้จัก Meta Ads / Google Ads'] },
-  { id: 'JB004', title: 'Automotive Technician (EV)', dept: 'ฝ่ายบริการ', location: 'กรุงเทพฯ', type: 'fulltime', salaryMin: 20000, salaryMax: 40000, status: 'filled', openDate: '2025-03-01', deadline: '2025-04-30', applicants: 6, filled: 1, description: 'ช่างซ่อมรถยนต์ไฟฟ้า มีประกาศนียบัตรวิชาชีพ', requirements: ['ปวช./ปวส. ช่างยนต์', 'ผ่านการอบรม EV จะพิจารณาพิเศษ'] },
-]
-
-const DEMO_APPLICANTS = [
-  { id: 'AP001', jobId: 'JB001', name: 'สมศักดิ์ ใจดี', phone: '081-234-5678', email: 'somsak@mail.com', appliedDate: '2025-05-10', status: 'interview1', score: 78, note: 'มีประสบการณ์ขายรถ Honda 2 ปี', resumeUrl: '#' },
-  { id: 'AP002', jobId: 'JB001', name: 'สาวิตรี มีทาง', phone: '082-345-6789', email: 'sawit@mail.com', appliedDate: '2025-05-12', status: 'screening', score: 65, note: 'จบสาขาการตลาด', resumeUrl: '#' },
-  { id: 'AP003', jobId: 'JB001', name: 'อาทิตย์ รักงาน', phone: '083-456-7890', email: 'adit@mail.com', appliedDate: '2025-05-15', status: 'offer', score: 88, note: 'ขายรถ Toyota 3 ปี เป้าหมาย top 10%', resumeUrl: '#' },
-  { id: 'AP004', jobId: 'JB002', name: 'วรรณา สุขใจ', phone: '084-567-8901', email: 'wanna@mail.com', appliedDate: '2025-05-20', status: 'new', score: null, note: '', resumeUrl: '#' },
-  { id: 'AP005', jobId: 'JB002', name: 'ณัฐพล เก่งกาจ', phone: '085-678-9012', email: 'nattapon@mail.com', appliedDate: '2025-05-18', status: 'interview1', score: 72, note: 'มีประสบการณ์ SA Honda 1.5 ปี', resumeUrl: '#' },
-  { id: 'AP006', jobId: 'JB003', name: 'ปิยะ โซเชียล', phone: '086-789-0123', email: 'piya@mail.com', appliedDate: '2025-04-15', status: 'rejected', score: 40, note: 'ไม่มีประสบการณ์ Paid Ads', resumeUrl: '#' },
-]
-
 export default async function RecruitmentPage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+
   let tab = 'jobs'
   let jobFilter = 'all'
-  let selectedJobId = null
-  let jobs = [...DEMO_JOBS]
-  let applicants = [...DEMO_APPLICANTS]
+  let jobs = []
+  let applicants = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try {
+      jobs = await listDocs('recruitment_jobs', [], 'openDate', 'desc', 200)
+      applicants = await listDocs('recruitment_applicants', [], 'appliedDate', 'desc', 500)
+    } catch (e) { /* keep whatever loaded */ }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const openJobs = jobs.filter(j => j.status === 'open').length
     const totalApps = applicants.length
     const inProcess = applicants.filter(a => !['rejected','withdrew','hired'].includes(a.status)).length
@@ -92,15 +94,25 @@ export default async function RecruitmentPage(container) {
     document.getElementById('job-status-filter')?.addEventListener('change', e => { jobFilter = e.target.value; renderPage() })
     document.querySelectorAll('.open-job-btn').forEach(b => b.addEventListener('click', () => { const j = jobs.find(x => x.id === b.dataset.id); if (j) openJobDetail(j) }))
     document.querySelectorAll('.open-app-btn').forEach(b => b.addEventListener('click', () => { const a = applicants.find(x => x.id === b.dataset.id); if (a) openApplicantDetail(a) }))
-    document.querySelectorAll('.app-status-btn').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('.app-status-btn').forEach(b => b.addEventListener('click', async () => {
       const a = applicants.find(x => x.id === b.dataset.id)
       if (!a) return
-      a.status = b.dataset.status
-      if (b.dataset.status === 'hired') { const j = jobs.find(x => x.id === a.jobId); if (j) { j.filled++; if (j.filled >= 1) j.status = 'filled' } }
-      showToast(`✅ อัปเดตสถานะ ${a.name} แล้ว`, 'success')
-      renderPage()
+      await moveApplicant(a, b.dataset.status)
     }))
     document.querySelectorAll('.add-app-btn').forEach(b => b.addEventListener('click', () => { openApplicantForm(b.dataset.id) }))
+  }
+
+  async function moveApplicant(a, newStatus) {
+    await updateDocData('recruitment_applicants', a.id, { status: newStatus })
+    if (newStatus === 'hired') {
+      const j = jobs.find(x => x.id === a.jobId)
+      if (j) {
+        const filled = (j.filled||0) + 1
+        await updateDocData('recruitment_jobs', j.id, { filled, status: filled >= 1 ? 'filled' : j.status })
+      }
+    }
+    showToast(`✅ อัปเดตสถานะ ${a.name} แล้ว`, 'success')
+    await loadData()
   }
 
   function renderJobs() {
@@ -176,6 +188,7 @@ export default async function RecruitmentPage(container) {
                 </td>
               </tr>`
             }).join('')}
+            ${!applicants.length ? `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted)">ไม่มีใบสมัคร</td></tr>` : ''}
           </tbody>
         </table>
       </div>
@@ -239,7 +252,7 @@ export default async function RecruitmentPage(container) {
           <div>${row('เปิดรับ', formatDate(j.openDate))}${row('ปิดรับ', formatDate(j.deadline))}${row('สถานะ', `<span class="badge badge-${st.color}">${st.label}</span>`)}${row('ผู้สมัคร', `${jApps.length} คน`)}</div>
         </div>
         <div style="font-size:0.83rem;line-height:1.6;margin-bottom:10px">${escHtml(j.description)}</div>
-        <div style="font-size:0.8rem"><strong>คุณสมบัติ:</strong><ul style="margin:6px 0 0 16px;color:var(--text-muted)">${j.requirements.map(r=>`<li>${escHtml(r)}</li>`).join('')}</ul></div>
+        <div style="font-size:0.8rem"><strong>คุณสมบัติ:</strong><ul style="margin:6px 0 0 16px;color:var(--text-muted)">${(j.requirements||[]).map(r=>`<li>${escHtml(r)}</li>`).join('')}</ul></div>
       `,
       footer: `<button class="btn btn-primary add-app-job-btn">+ เพิ่มใบสมัคร</button>`
     })
@@ -271,12 +284,9 @@ export default async function RecruitmentPage(container) {
       footer: ''
     })
     setTimeout(() => {
-      document.querySelectorAll('.modal .move-btn').forEach(b => b.addEventListener('click', () => {
-        a.status = b.dataset.status
-        if (b.dataset.status === 'hired') { const j = jobs.find(x => x.id === a.jobId); if (j) { j.filled++; if (j.filled >= 1) j.status = 'filled' } }
-        showToast(`✅ อัปเดตสถานะ ${a.name} เป็น ${APP_STATUS[a.status].label} แล้ว`, 'success')
+      document.querySelectorAll('.modal .move-btn').forEach(b => b.addEventListener('click', async () => {
         document.querySelector('.modal-close-btn')?.click()
-        renderPage()
+        await moveApplicant(a, b.dataset.status)
       }))
     }, 50)
   }
@@ -292,14 +302,17 @@ export default async function RecruitmentPage(container) {
         <div class="input-group"><label class="input-label">อีเมล</label><input class="input" id="af-email" placeholder="email@example.com"></div>
         <div class="input-group"><label class="input-label">หมายเหตุ / ประวัติย่อ</label><textarea class="input" id="af-note" rows="2" placeholder="สรุปประวัติ..."></textarea></div>
       </div>`,
-      onConfirm() {
+      async onConfirm() {
         const name = document.getElementById('af-name')?.value?.trim()
-        if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return }
+        if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return false }
         const jid = jobId || document.getElementById('af-job')?.value
-        applicants.unshift({ id: `AP${String(applicants.length+1).padStart(3,'0')}`, jobId: jid, name, phone: document.getElementById('af-phone')?.value||'', email: document.getElementById('af-email')?.value||'', appliedDate: new Date().toISOString().slice(0,10), status: 'new', score: null, note: document.getElementById('af-note')?.value||'', resumeUrl: '#' })
-        const j = jobs.find(x => x.id === jid); if (j) j.applicants++
+        await createDoc('recruitment_applicants', {
+          jobId: jid, name, phone: document.getElementById('af-phone')?.value||'', email: document.getElementById('af-email')?.value||'',
+          appliedDate: new Date().toISOString().slice(0,10), status: 'new', score: null,
+          note: document.getElementById('af-note')?.value||'', resumeUrl: '#',
+        })
         showToast('✅ เพิ่มใบสมัครแล้ว', 'success')
-        renderPage()
+        await loadData()
       }
     })
   }
@@ -318,21 +331,22 @@ export default async function RecruitmentPage(container) {
         <div class="input-group"><label class="input-label">สถานะ</label><select class="input" id="jf-status">${Object.entries(JOB_STATUS).map(([k,v])=>`<option value="${k}" ${j?.status===k?'selected':''}>${v.label}</option>`).join('')}</select></div>
         <div class="input-group" style="grid-column:1/-1"><label class="input-label">รายละเอียดงาน</label><textarea class="input" id="jf-desc" rows="3">${escHtml(j?.description||'')}</textarea></div>
       </div>`,
-      onConfirm() {
+      async onConfirm() {
         const title = document.getElementById('jf-title')?.value?.trim()
-        if (!title) { showToast('❗ กรุณากรอกชื่อตำแหน่ง', 'error'); return }
+        if (!title) { showToast('❗ กรุณากรอกชื่อตำแหน่ง', 'error'); return false }
+        const data = { title, dept: document.getElementById('jf-dept').value, location: document.getElementById('jf-loc').value, salaryMin: +document.getElementById('jf-min').value, salaryMax: +document.getElementById('jf-max').value, deadline: document.getElementById('jf-dead').value, status: document.getElementById('jf-status').value, description: document.getElementById('jf-desc').value }
         if (j) {
-          Object.assign(j, { title, dept: document.getElementById('jf-dept').value, location: document.getElementById('jf-loc').value, salaryMin: +document.getElementById('jf-min').value, salaryMax: +document.getElementById('jf-max').value, deadline: document.getElementById('jf-dead').value, status: document.getElementById('jf-status').value, description: document.getElementById('jf-desc').value })
+          await updateDocData('recruitment_jobs', j.id, data)
         } else {
-          jobs.unshift({ id: `JB${String(jobs.length+1).padStart(3,'0')}`, title, dept: document.getElementById('jf-dept').value, location: document.getElementById('jf-loc').value, type: 'fulltime', salaryMin: +document.getElementById('jf-min').value, salaryMax: +document.getElementById('jf-max').value, status: 'open', openDate: new Date().toISOString().slice(0,10), deadline: document.getElementById('jf-dead').value, applicants: 0, filled: 0, description: document.getElementById('jf-desc').value, requirements: [] })
+          await createDoc('recruitment_jobs', { ...data, type: 'fulltime', openDate: new Date().toISOString().slice(0,10), filled: 0, requirements: [] })
         }
         showToast('✅ บันทึกตำแหน่งงานแล้ว', 'success')
-        renderPage()
+        await loadData()
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(title, value, color) {
