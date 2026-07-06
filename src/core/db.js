@@ -834,6 +834,23 @@ export function seedDemoData() {
   ]
   hrAnnouncements.forEach(a => { if (!demoCol('announcements_hr')[a.id]) demoCol('announcements_hr')[a.id] = a })
 
+  // Team meetings (หน้า /hr/meetings)
+  const teamMeetings = [
+    { id:'M001', title:'Morning Brief — ทีมขาย', type:'daily', date:addDaysISO(0), time:'08:45', attendees:'ทีมขายทั้งหมด', notes:'เป้าวันนี้ 2 คัน · มีนัด Test Drive 4 ราย', done:false,
+      actions:[
+        { task:'โทร follow-up ลูกค้า Hot 3 ราย', owner:'วิชัย', done:true },
+        { task:'เตรียมรถ Demo ให้พร้อม 10:00', owner:'ธนา', done:false },
+      ] },
+    { id:'M002', title:'ประชุมสัปดาห์ — ทุกแผนก', type:'weekly', date:addDaysISO(-2), time:'17:00', attendees:'หัวหน้าทุกแผนก', notes:'ยอดสัปดาห์ที่แล้ว 5 คัน ต่ำกว่าเป้า 2 · Service ทำได้ดี CSAT 4.7', done:true,
+      actions:[
+        { task:'วิเคราะห์ Lost Deals สัปดาห์ที่แล้ว', owner:'ผจก.ขาย', done:true },
+        { task:'จัดโปรกระตุ้นปลายเดือน', owner:'การตลาด', done:false },
+        { task:'ขอใบเสนอราคาผ้าไมโครไฟเบอร์ใหม่', owner:'บริการ', done:false },
+      ] },
+    { id:'M003', title:'รีวิวงบเดือน + วางแผนเดือนหน้า', type:'monthly', date:addDaysISO(3), time:'14:00', attendees:'เจ้าของ + ผู้จัดการ', notes:'', done:false, actions:[] },
+  ]
+  teamMeetings.forEach(m => { if (!demoCol('team_meetings')[m.id]) demoCol('team_meetings')[m.id] = m })
+
   const demoFleet = [
     { id:'df1', brand:'BYD', model:'Seal RWD', vin:'LGXCE4C10PA000006', plate:'กข-0001', color:'เทา Ink', year:2025, mileage:3520, status:'available', condition:'good', lastService:'2025-05-01', notes:'รถทดลองขับหลัก', createdAt:'2025-01-10' },
     { id:'df2', brand:'MG', model:'MG4 X', vin:'SDUZZZEF5PA000020', plate:'กข-0002', color:'แดง', year:2025, mileage:5200, status:'in_use', condition:'good', lastService:'2025-04-15', notes:'ให้ลูกค้า VIP ยืม', createdAt:'2025-01-15' },

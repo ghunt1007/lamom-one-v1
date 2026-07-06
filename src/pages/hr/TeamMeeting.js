@@ -5,6 +5,7 @@
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
 function escHtml(s) {
@@ -18,27 +19,27 @@ const MEETING_TYPES = {
   adhoc:    { label: 'ประชุมด่วน', color: 'danger', icon: '🚨' },
 }
 
-const DEMO_MEETINGS = [
-  { id: 'M001', title: 'Morning Brief — ทีมขาย', type: 'daily', date: addDays(0), time: '08:45', attendees: 'ทีมขายทั้งหมด', notes: 'เป้าวันนี้ 2 คัน · มีนัด Test Drive 4 ราย', done: false,
-    actions: [
-      { task: 'โทร follow-up ลูกค้า Hot 3 ราย', owner: 'วิชัย', done: true },
-      { task: 'เตรียมรถ Demo ให้พร้อม 10:00', owner: 'ธนา', done: false },
-    ] },
-  { id: 'M002', title: 'ประชุมสัปดาห์ — ทุกแผนก', type: 'weekly', date: addDays(-2), time: '17:00', attendees: 'หัวหน้าทุกแผนก', notes: 'ยอดสัปดาห์ที่แล้ว 5 คัน ต่ำกว่าเป้า 2 · Service ทำได้ดี CSAT 4.7', done: true,
-    actions: [
-      { task: 'วิเคราะห์ Lost Deals สัปดาห์ที่แล้ว', owner: 'ผจก.ขาย', done: true },
-      { task: 'จัดโปรกระตุ้นปลายเดือน', owner: 'การตลาด', done: false },
-      { task: 'ขอใบเสนอราคาผ้าไมโครไฟเบอร์ใหม่', owner: 'บริการ', done: false },
-    ] },
-  { id: 'M003', title: 'รีวิวงบเดือน + วางแผนเดือนหน้า', type: 'monthly', date: addDays(3), time: '14:00', attendees: 'เจ้าของ + ผู้จัดการ', notes: '', done: false, actions: [] },
-]
-
 export default async function TeamMeetingPage(container) {
-  let meetings = DEMO_MEETINGS.map(m => ({ ...m, actions: m.actions.map(a => ({ ...a })) }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let meetings = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { meetings = await listDocs('team_meetings', [], 'date', 'desc', 200) } catch (e) { meetings = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const sorted = [...meetings].sort((a, b) => b.date.localeCompare(a.date))
-    const openActions = meetings.flatMap(m => m.actions).filter(a => !a.done).length
+    const openActions = meetings.flatMap(m => m.actions||[]).filter(a => !a.done).length
     const upcoming = meetings.filter(m => !m.done && m.date >= addDays(0)).length
 
     container.innerHTML = `
@@ -62,7 +63,8 @@ export default async function TeamMeetingPage(container) {
         <div style="display:flex;flex-direction:column;gap:12px">
           ${sorted.map(m => {
             const mt = MEETING_TYPES[m.type]
-            const openCount = m.actions.filter(a => !a.done).length
+            const actions = m.actions || []
+            const openCount = actions.filter(a => !a.done).length
             return `<div class="card" style="padding:14px;border-left:3px solid var(--${mt?.color})">
               <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
                 <div>
@@ -75,13 +77,13 @@ export default async function TeamMeetingPage(container) {
                 </div>
               </div>
               ${m.notes ? `<div style="font-size:0.76rem;color:var(--text-muted);background:var(--surface-2);padding:8px 10px;border-radius:var(--radius-sm);margin-bottom:8px">📝 ${escHtml(m.notes)}</div>` : ''}
-              ${m.actions.length > 0 ? `
+              ${actions.length > 0 ? `
                 <div style="font-size:0.72rem;font-weight:700;color:var(--text-muted);margin-bottom:4px">📋 Action Items ${openCount > 0 ? `(ค้าง ${openCount})` : '(ครบแล้ว ✅)'}</div>
-                ${m.actions.map((a, i) => `
+                ${actions.map((a, i) => `
                   <label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:0.78rem;cursor:pointer;border-bottom:1px solid var(--border)">
                     <input type="checkbox" class="action-check" data-mid="${m.id}" data-i="${i}" ${a.done?'checked':''} style="accent-color:var(--primary)">
-                    <span style="${a.done?'text-decoration:line-through;color:var(--text-muted)':''}">${a.task}</span>
-                    <span style="margin-left:auto;font-size:0.65rem;color:var(--text-muted)">👤 ${a.owner}</span>
+                    <span style="${a.done?'text-decoration:line-through;color:var(--text-muted)':''}">${escHtml(a.task)}</span>
+                    <span style="margin-left:auto;font-size:0.65rem;color:var(--text-muted)">👤 ${escHtml(a.owner)}</span>
                   </label>
                 `).join('')}
               ` : ''}
@@ -92,13 +94,17 @@ export default async function TeamMeetingPage(container) {
               </div>
             </div>`
           }).join('')}
+          ${!sorted.length ? `<div class="empty-state"><div class="empty-icon">👥</div><div class="empty-title">ไม่มีนัดประชุม</div></div>` : ''}
         </div>
       </div>
     `
 
-    container.querySelectorAll('.action-check').forEach(cb => cb.addEventListener('change', () => {
+    container.querySelectorAll('.action-check').forEach(cb => cb.addEventListener('change', async () => {
       const m = meetings.find(x => x.id === cb.dataset.mid)
-      if (m) { m.actions[parseInt(cb.dataset.i)].done = cb.checked; renderPage() }
+      if (!m) return
+      const actions = (m.actions||[]).map((a, i) => i === parseInt(cb.dataset.i) ? { ...a, done: cb.checked } : a)
+      await updateDocData('team_meetings', m.id, { actions })
+      await loadData()
     }))
     container.querySelectorAll('.add-action-btn').forEach(b => b.addEventListener('click', () => {
       const m = meetings.find(x => x.id === b.dataset.id)
@@ -109,11 +115,12 @@ export default async function TeamMeetingPage(container) {
           <div class="input-group"><label class="input-label">งาน *</label><input class="input" id="ai-task"></div>
           <div class="input-group"><label class="input-label">ผู้รับผิดชอบ</label><input class="input" id="ai-owner"></div>
         </div>`,
-        onConfirm() {
+        async onConfirm() {
           const task = document.getElementById('ai-task')?.value?.trim()
-          if (!task) { showToast('❗ กรุณากรอกงาน', 'error'); return }
-          m.actions.push({ task, owner: document.getElementById('ai-owner')?.value || '—', done: false })
-          showToast('✅ เพิ่ม Action แล้ว', 'success'); renderPage()
+          if (!task) { showToast('❗ กรุณากรอกงาน', 'error'); return false }
+          const actions = [...(m.actions||[]), { task, owner: document.getElementById('ai-owner')?.value || '—', done: false }]
+          await updateDocData('team_meetings', m.id, { actions })
+          showToast('✅ เพิ่ม Action แล้ว', 'success'); await loadData()
         }
       })
     }))
@@ -123,11 +130,15 @@ export default async function TeamMeetingPage(container) {
         title: '📝 บันทึกการประชุม',
         size: 'sm',
         body: `<div class="input-group"><label class="input-label">บันทึก</label><textarea class="input" id="mn-notes" rows="4">${escHtml(m.notes || '')}</textarea></div>`,
-        onConfirm() { m.notes = document.getElementById('mn-notes')?.value || ''; showToast('📝 บันทึกแล้ว', 'success'); renderPage() }
+        async onConfirm() {
+          await updateDocData('team_meetings', m.id, { notes: document.getElementById('mn-notes')?.value || '' })
+          showToast('📝 บันทึกแล้ว', 'success'); await loadData()
+        }
       })
     }))
-    container.querySelectorAll('.end-btn').forEach(b => b.addEventListener('click', () => {
-      const m = meetings.find(x => x.id === b.dataset.id); if (m) { m.done = true; showToast('✅ จบประชุม — Action Items ถูกติดตามต่อ', 'success'); renderPage() }
+    container.querySelectorAll('.end-btn').forEach(b => b.addEventListener('click', async () => {
+      await updateDocData('team_meetings', b.dataset.id, { done: true })
+      showToast('✅ จบประชุม — Action Items ถูกติดตามต่อ', 'success'); await loadData()
     }))
     document.getElementById('add-meeting-btn')?.addEventListener('click', () => {
       openModal({
@@ -142,17 +153,21 @@ export default async function TeamMeetingPage(container) {
           <div class="input-group"><label class="input-label">เวลา</label><input class="input" type="time" id="mt-time" value="09:00"></div>
           <div class="input-group"><label class="input-label">ผู้เข้าร่วม</label><input class="input" id="mt-attendees"></div>
         </div>`,
-        onConfirm() {
+        async onConfirm() {
           const title = document.getElementById('mt-title')?.value?.trim()
-          if (!title) { showToast('❗ กรุณากรอกหัวข้อ', 'error'); return }
-          meetings.unshift({ id:`M${String(meetings.length+1).padStart(3,'0')}`, title, type:document.getElementById('mt-type')?.value||'adhoc', date:document.getElementById('mt-date')?.value||addDays(1), time:document.getElementById('mt-time')?.value||'09:00', attendees:document.getElementById('mt-attendees')?.value||'—', notes:'', done:false, actions:[] })
-          showToast('📅 นัดประชุมแล้ว', 'success'); renderPage()
+          if (!title) { showToast('❗ กรุณากรอกหัวข้อ', 'error'); return false }
+          await createDoc('team_meetings', {
+            title, type: document.getElementById('mt-type')?.value||'adhoc',
+            date: document.getElementById('mt-date')?.value||addDays(1), time: document.getElementById('mt-time')?.value||'09:00',
+            attendees: document.getElementById('mt-attendees')?.value||'—', notes: '', done: false, actions: [],
+          })
+          showToast('📅 นัดประชุมแล้ว', 'success'); await loadData()
         }
       })
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
