@@ -222,7 +222,8 @@ export function seedDemoData() {
       price:1299000, cost:1150000, down:0, financeCo:'', financeAmount:0, finStatus:'', installments:0, interestRate:0, monthly:0, campaign:'',
       margin:0, budgetUsed:0, com70:0, comFinance:0, marginLeft:0, totalIncome:0,
       bookingDate:'2026-03-20', submitDate:'', approveDate:'', signDate:'', cutDate:'', deliveryDate:'', actualDeliveryDate:'',
-      salesName:'อรนุช เซลส์ดี', status:'ถอนจอง', notes:'ลูกค้าเปลี่ยนใจ', createdAt:'2026-03-20' },
+      salesName:'อรนุช เซลส์ดี', status:'ถอนจอง', notes:'ลูกค้าเปลี่ยนใจ', createdAt:'2026-03-20',
+      cancelDate:'2026-03-22', cancelReason:'ลูกค้าเปลี่ยนใจ ได้รถจากที่อื่น', refundAmount:0, refundStatus:'ไม่ต้องคืน' },
     { id:'bk13', bookingNo:'SK2506008', custName:'กัลยา ศรีสมบูรณ์', nid:'', phone:'0854443332', address:'', province:'ชลบุรี', source:'Walk-in',
       brand:'DEEPAL', model:'S07', variant:'New Standard', colorOut:'ขาว', colorIn:'', vin:'', motorNo:'', batNo:'',
       price:1299000, cost:1150000, down:0, financeCo:'', financeAmount:0, finStatus:'', installments:0, interestRate:0, monthly:0, campaign:'',
@@ -850,6 +851,14 @@ export function seedDemoData() {
     { id:'M003', title:'รีวิวงบเดือน + วางแผนเดือนหน้า', type:'monthly', date:addDaysISO(3), time:'14:00', attendees:'เจ้าของ + ผู้จัดการ', notes:'', done:false, actions:[] },
   ]
   teamMeetings.forEach(m => { if (!demoCol('team_meetings')[m.id]) demoCol('team_meetings')[m.id] = m })
+
+  // Refund requests (หน้า /finance/refund — คำขอคืนเงินทั่วไป นอกเหนือจากคืนเงินจองที่ลิงค์จากใบจอง)
+  const refundRequests = [
+    { id:'RF001', customer:'สุดา ภักดี', type:'คืนส่วนเกิน', amount:8500, reason:'จ่ายเกิน ค่าซ่อม', status:'pending', date:addDaysISO(-2), approvedBy:'', txDate:'' },
+    { id:'RF002', customer:'พิมพ์ สวัสดี', type:'คืนมัดจำป้ายแดง', amount:3000, reason:'คืนป้ายแดงหลังได้ป้ายขาว', status:'approved', date:addDaysISO(-4), approvedBy:'ผู้จัดการ A', txDate:'' },
+    { id:'RF003', customer:'สมชาย ใจดี', type:'คืนส่วนเกิน', amount:12000, reason:'คำนวณค่าซ่อมผิด', status:'transferred', date:addDaysISO(-8), approvedBy:'ผู้จัดการ B', txDate:addDaysISO(-6) },
+  ]
+  refundRequests.forEach(r => { if (!demoCol('refund_requests')[r.id]) demoCol('refund_requests')[r.id] = r })
 
   const demoFleet = [
     { id:'df1', brand:'BYD', model:'Seal RWD', vin:'LGXCE4C10PA000006', plate:'กข-0001', color:'เทา Ink', year:2025, mileage:3520, status:'available', condition:'good', lastService:'2025-05-01', notes:'รถทดลองขับหลัก', createdAt:'2025-01-10' },

@@ -1,5 +1,5 @@
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState, setState } from '../../core/store.js'
 import { formatDate, formatCurrency } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -168,10 +168,12 @@ export default async function BookingsPage(container) {
       ${urgentCount > 0 ? `<span>🔥 ด่วน <b style="color:var(--danger)">${urgentCount}</b></span>` : ''}
     </div>`
 
-    const brandsWithBookings = BRANDS.filter(br => bookings.some(b => detectBrand(b.brand, b.model) === br))
+    // ทุกยี่ห้อที่มีการคีย์จองเข้ามาต้องขึ้นการ์ด — ยี่ห้อหลักเรียงก่อน ยี่ห้ออื่น (เช่น Toyota) ต่อท้าย
+    const detectedBrands = [...new Set(bookings.map(b => detectBrand(b.brand, b.model)).filter(Boolean))]
+    const brandsWithBookings = [...BRANDS.filter(br => detectedBrands.includes(br)), ...detectedBrands.filter(br => !BRANDS.includes(br))]
     const brandKpi = brandsWithBookings.map(br => {
-      const c = BRAND_COLORS[br]
-      const ic = BRAND_ICONS[br]
+      const c = BRAND_COLORS[br] || '#94a3b8'
+      const ic = BRAND_ICONS[br] || '🏷️'
       const del = deliveredAll.filter(b => detectBrand(b.brand, b.model) === br).length
       const act = activeNonTerminal.filter(b => detectBrand(b.brand, b.model) === br).length
       const isActive = brandFilter === br
@@ -189,7 +191,7 @@ export default async function BookingsPage(container) {
     </div>` : ''
 
     const sellerOpts = `<option value="">ทุกเซลล์</option>` + getSalesStaff().map(s => `<option value="${escHtml(s)}" ${s === sellerFilter ? 'selected' : ''}>${escHtml(s)}</option>`).join('')
-    const brandOpts = `<option value="">🏷️ ทุกแบรนด์</option>` + BRANDS.map(br => `<option value="${escHtml(br)}" ${br === brandFilter ? 'selected' : ''}>${BRAND_ICONS[br]} ${escHtml(br)}</option>`).join('')
+    const brandOpts = `<option value="">🏷️ ทุกแบรนด์</option>` + [...new Set([...BRANDS, ...detectedBrands])].map(br => `<option value="${escHtml(br)}" ${br === brandFilter ? 'selected' : ''}>${BRAND_ICONS[br] || '🏷️'} ${escHtml(br)}</option>`).join('')
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -315,13 +317,13 @@ export default async function BookingsPage(container) {
     return `<tr class="bk-row" data-id="${b.id}" style="${rowStyle(b)}cursor:pointer">
       <td><input type="checkbox" class="bk-row-check" data-id="${b.id}" ${selectedIds.has(b.id) ? 'checked' : ''}></td>
       <td><span style="font-weight:700;color:var(--primary);font-size:0.76rem">${escHtml(b.bookingNo)}</span></td>
-      <td class="bk-status-cell" data-id="${b.id}" style="cursor:pointer">${statusBadge(b.status)}<span style="font-size:0.6rem;opacity:.4;margin-left:2px">▼</span></td>
+      <td class="bk-status-cell" data-id="${b.id}" style="cursor:pointer">${statusBadge(b.status)}<span style="font-size:0.6rem;opacity:.4;margin-left:2px">▼</span>${b.status === 'ถอนจอง' ? `<div style="font-size:0.6rem;font-weight:700;margin-top:2px;color:${(b.refundStatus || (Number(b.down) > 0 ? 'รอคืนเงิน' : 'ไม่ต้องคืน')) === 'คืนเงินแล้ว' ? 'var(--success)' : (b.refundStatus || (Number(b.down) > 0 ? 'รอคืนเงิน' : '')) === 'รอคืนเงิน' ? 'var(--warning)' : 'var(--text-muted)'}">💸 ${escHtml(b.refundStatus || (Number(b.down) > 0 ? 'รอคืนเงิน' : 'ไม่ต้องคืน'))}</div>` : ''}</td>
       <td><span class="badge badge-primary" style="font-size:0.66rem">${escHtml(b.salesName || '')}</span></td>
       <td style="font-size:0.72rem;white-space:nowrap">${formatDate(b.bookingDate)}</td>
       <td style="font-size:0.72rem;white-space:nowrap">${deliveryCell(b)}</td>
       <td style="font-size:0.72rem;white-space:nowrap">${b.cutDate ? `<span style="color:var(--warning);font-weight:600">${formatDate(b.cutDate)}</span>` : '<span style="color:var(--text-muted)">—</span>'}</td>
       <td style="font-size:0.72rem;white-space:nowrap">${b.actualDeliveryDate ? `<span style="color:var(--success);font-weight:600">${formatDate(b.actualDeliveryDate)}</span>` : '<span style="color:var(--text-muted)">—</span>'}</td>
-      <td style="font-weight:600;font-size:0.8rem">${escHtml(b.custName || '—')}</td>
+      <td style="font-weight:600;font-size:0.8rem">${escHtml(b.custName || '—')}${b.rightsOnly ? '<div style="font-size:0.6rem;color:var(--accent);font-weight:700">🎫 จองสิทธิ์</div>' : ''}</td>
       <td style="font-size:0.78rem">${br ? brandBadge(br) + '<br>' : ''}${escHtml(b.model || '—')}</td>
       <td style="font-size:0.76rem">${b.colorOut ? escHtml(b.colorOut) : '<span style="color:var(--text-muted)">—</span>'}</td>
       <td style="font-size:0.76rem">${b.colorIn ? escHtml(b.colorIn) : '<span style="color:var(--text-muted)">—</span>'}</td>
@@ -362,6 +364,7 @@ export default async function BookingsPage(container) {
       const newStatus = opt.dataset.s
       pop.remove()
       if (newStatus === b.status) return
+      if (newStatus === 'ถอนจอง') { openWithdrawModal(b); return }
       try {
         await updateDocData('bookings', b.id, { status: newStatus, updatedAt: new Date().toISOString() })
         b.status = newStatus
@@ -389,6 +392,70 @@ export default async function BookingsPage(container) {
       b.notes ? `📝 หมายเหตุ: ${b.notes}` : '',
     ].filter(Boolean).join('\n')
     navigator.clipboard?.writeText(lines).then(() => showToast('📋 คัดลอกสรุปการจองแล้ว!', 'success')).catch(() => showToast('คัดลอกไม่สำเร็จ', 'error'))
+  }
+
+  // ── แจ้งเตือนข้ามฝ่าย (การเงิน/เซลส์) ────────────────────────────────────
+  async function notifyDept(title, body, link) {
+    try {
+      await createDoc('notifications', { type: 'finance', title, body, read: false, link, createdAt: new Date().toISOString() })
+      setState('unreadCount', (getState('unreadCount') || 0) + 1)
+    } catch { /* แจ้งเตือนพลาดได้ ไม่กระทบข้อมูลหลักที่บันทึกไปแล้ว */ }
+  }
+
+  // ── ถอนจอง: บันทึกวันที่ เหตุผล และเปิดเรื่องคืนเงินจองให้การเงิน ─────────
+  function openWithdrawModal(b) {
+    if (!b) return
+    const downAmt = Number(b.down) || 0
+    const hasMoney = downAmt > 0 && !b.rightsOnly
+    const today = new Date().toISOString().slice(0, 10)
+    const { el, close } = openModal({
+      title: '❌ ถอนจอง ' + escHtml(b.bookingNo),
+      size: 'sm',
+      body: `
+        <div class="input-group"><label class="input-label">วันที่ถอนจอง *</label>
+          <input class="input" type="date" id="wd-date" value="${escHtml(b.cancelDate || today)}">
+        </div>
+        <div class="input-group"><label class="input-label">เหตุผลที่ถอนจอง *</label>
+          <textarea class="input" id="wd-reason" rows="3" placeholder="ระบุเหตุผลที่ลูกค้าขอถอนจอง...">${escHtml(b.cancelReason || '')}</textarea>
+        </div>
+        ${hasMoney ? `
+          <div class="input-group"><label class="input-label">ยอดเงินจองที่ต้องคืน (บาท)</label>
+            <input class="input" type="number" id="wd-refund" value="${downAmt}" min="0">
+          </div>
+          <div style="font-size:0.74rem;color:var(--warning);background:var(--surface-2);padding:8px 10px;border-radius:8px">
+            💸 ระบบจะเปิดเรื่อง "รอคืนเงิน" และแจ้งฝ่ายการเงินอัตโนมัติ — ติดตามสถานะได้จนการเงินโอนคืนลูกค้าแล้ว
+          </div>` : `
+          <div style="font-size:0.74rem;color:var(--text-muted);background:var(--surface-2);padding:8px 10px;border-radius:8px">
+            ${b.rightsOnly ? '🎫 ใบจองนี้เป็นการจองสิทธิ์ (ไม่มีเงินจอง)' : 'ไม่มีเงินจองที่ชำระไว้'} — ไม่ต้องคืนเงิน
+          </div>`}
+      `,
+      footer: '<button class="btn btn-secondary" id="wd-c">ยกเลิก</button><button class="btn btn-danger" id="wd-s">❌ ยืนยันถอนจอง</button>',
+    })
+    el.querySelector('#wd-c').addEventListener('click', close)
+    el.querySelector('#wd-s').addEventListener('click', async () => {
+      const reason = el.querySelector('#wd-reason').value.trim()
+      if (!reason) { showToast('⚠️ กรุณาระบุเหตุผลที่ถอนจอง', 'warning'); return }
+      const cancelDate = el.querySelector('#wd-date').value || today
+      const refundAmount = hasMoney ? (Number(el.querySelector('#wd-refund').value) || 0) : 0
+      const patch = {
+        status: 'ถอนจอง', cancelDate, cancelReason: reason,
+        refundAmount, refundStatus: refundAmount > 0 ? 'รอคืนเงิน' : 'ไม่ต้องคืน',
+        updatedAt: new Date().toISOString(),
+      }
+      const btn = el.querySelector('#wd-s'); btn.disabled = true
+      try {
+        await updateDocData('bookings', b.id, patch)
+        Object.assign(b, patch)
+        if (refundAmount > 0) {
+          await notifyDept('💸 ถอนจอง — รอคืนเงินจองลูกค้า',
+            `${b.custName || b.bookingNo} ถอนจอง ${b.bookingNo} · ยอดคืน ${formatCurrency(refundAmount)} · เหตุผล: ${reason}`,
+            '/finance/refund')
+        }
+        close()
+        showToast(refundAmount > 0 ? '❌ ถอนจองแล้ว — เปิดเรื่องคืนเงินให้ฝ่ายการเงินแล้ว' : '❌ ถอนจองแล้ว', 'success')
+        render()
+      } catch { btn.disabled = false; showToast('บันทึกไม่สำเร็จ', 'error') }
+    })
   }
 
   // ── modal กรอกเหตุผล + ยอดหักก่อนพิมพ์ใบถอนจอง ────────────────────────────
@@ -525,6 +592,7 @@ export default async function BookingsPage(container) {
             <div class="input-group"><label class="input-label">เงินจอง / เงินดาวน์ (บาท) *</label><input class="input" type="number" id="wz-down" value="${w.down || ''}"></div>
             <div class="input-group"><label class="input-label">ระยะผ่อน</label><select class="input" id="wz-install">${[24, 36, 48, 60, 72, 84].map(m => `<option value="${m}" ${m === w.installments ? 'selected' : ''}>${m} เดือน</option>`).join('')}</select></div>
           </div>
+          <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;cursor:pointer;padding:2px 0"><input type="checkbox" id="wz-rights" ${w.rightsOnly ? 'checked' : ''} style="accent-color:var(--accent);width:15px;height:15px"> 🎫 จองสิทธิ์ — ยังไม่จ่ายเงินจอง (ไม่บังคับกรอกเงินจอง)</label>
           <span class="input-error" id="wz-down-e"></span>
           <div class="input-group"><label class="input-label">ดอกเบี้ย (%/ปี)</label><input class="input" type="number" step="0.01" id="wz-rate" value="${w.interestRate}"></div>
           <div style="background:var(--surface-2);border-radius:8px;padding:12px;margin-top:8px">
@@ -555,7 +623,7 @@ export default async function BookingsPage(container) {
       const g = id => m.el.querySelector('#' + id)
       if (step === 1) { w.custName = g('wz-cust')?.value.trim() || ''; w.phone = g('wz-phone')?.value.trim() || ''; w.salesName = g('wz-sales')?.value || w.salesName }
       else if (step === 2) { w.price = Number(g('wz-price')?.value) || 0; w.discount = Number(g('wz-disc')?.value) || 0; w.accessories = Number(g('wz-acc')?.value) || 0 }
-      else if (step === 3) { w.down = Number(g('wz-down')?.value) || 0; w.installments = Number(g('wz-install')?.value) || 60; w.interestRate = Number(g('wz-rate')?.value) || 0 }
+      else if (step === 3) { w.down = Number(g('wz-down')?.value) || 0; w.rightsOnly = g('wz-rights')?.checked || false; w.installments = Number(g('wz-install')?.value) || 60; w.interestRate = Number(g('wz-rate')?.value) || 0 }
     }
     function bind() {
       m.el.querySelector('#wz-pick')?.addEventListener('click', () => pickVehicle(v => {
@@ -567,16 +635,16 @@ export default async function BookingsPage(container) {
         readStep()
         if (step === 1 && !w.custName) { showToast('กรุณาใส่ชื่อลูกค้า', 'error'); return }
         if (step === 2 && !w.model) { showToast('กรุณาเลือกรุ่นรถ', 'error'); return }
-        if (step === 3 && !w.down) { const e = m.el.querySelector('#wz-down-e'); if (e) e.textContent = '⚠️ กรุณาระบุจำนวนเงินจอง'; return }
+        if (step === 3 && !w.down && !w.rightsOnly) { const e = m.el.querySelector('#wz-down-e'); if (e) e.textContent = '⚠️ กรุณาระบุจำนวนเงินจอง (หรือติ๊ก "จองสิทธิ์" หากยังไม่จ่าย)'; return }
         step++; rerender()
       })
       m.el.querySelector('#wz-back')?.addEventListener('click', () => { readStep(); step--; rerender() })
       m.el.querySelector('#wz-save')?.addEventListener('click', async () => {
-        if (!w.down) { showToast('กรุณาระบุจำนวนเงินจอง', 'error'); return }
+        if (!w.down && !w.rightsOnly) { showToast('กรุณาระบุจำนวนเงินจอง (หรือติ๊ก "จองสิทธิ์")', 'error'); return }
         const t = total()
         const data = {
           bookingNo: bkNo, custName: w.custName, phone: w.phone, salesName: w.salesName,
-          brand: w.brand, model: w.model, variant: w.variant,
+          brand: w.brand, model: w.model, variant: w.variant, rightsOnly: w.rightsOnly || false,
           price: w.price, down: w.down, financeAmount: Math.max(t - w.down, 0), installments: w.installments, interestRate: w.interestRate, monthly: monthly(),
           margin: 0, budgetUsed: 0, com70: commission(), comFinance: 0, marginLeft: 0, totalIncome: commission(),
           bookingDate: new Date().toISOString().slice(0, 10), status: 'ยอดจองคงค้าง', notes: '',
@@ -625,10 +693,33 @@ export default async function BookingsPage(container) {
         sec('📅 ไทม์ไลน์') +
         dRow('วันจอง', formatDate(b.bookingDate)) + dRow('ยื่นไฟแนนซ์', formatDate(b.submitDate)) + dRow('อนุมัติ', formatDate(b.approveDate)) + dRow('เซ็นสัญญา', formatDate(b.signDate)) + dRow('วันตัดรถ', formatDate(b.cutDate)) + dRow('นัดส่งมอบ', formatDate(b.deliveryDate)) + dRow('ส่งมอบจริง', formatDate(b.actualDeliveryDate)) +
         dRow('เซลส์', b.salesName || '-') +
+        (b.rightsOnly ? '<div style="background:var(--accent)11;border:1px solid var(--accent)44;padding:8px 10px;border-radius:8px;font-size:0.78rem;margin-top:6px;color:var(--accent);font-weight:700">🎫 จองสิทธิ์ — ยังไม่ชำระเงินจอง</div>' : '') +
+        (b.status === 'ถอนจอง' ? (function () {
+          const rs = b.refundStatus || ((Number(b.down) > 0 && !b.rightsOnly) ? 'รอคืนเงิน' : 'ไม่ต้องคืน')
+          const rc = rs === 'คืนเงินแล้ว' ? 'var(--success)' : rs === 'รอคืนเงิน' ? 'var(--warning)' : 'var(--text-muted)'
+          return sec('❌ ข้อมูลถอนจอง / การคืนเงินจอง') +
+            dRow('วันที่ถอนจอง', formatDate(b.cancelDate) || '-') +
+            dRow('เหตุผล', b.cancelReason || '-') +
+            dRow('ยอดคืนเงินจอง', formatCurrency(b.refundAmount || 0)) +
+            '<div style="display:flex;gap:6px;padding:4px 0;align-items:center"><span style="color:var(--text-muted);min-width:110px;flex-shrink:0;font-size:0.82rem">สถานะคืนเงิน</span>' +
+            '<span style="font-size:0.74rem;font-weight:700;padding:2px 10px;border-radius:10px;background:' + rc + '22;color:' + rc + ';border:1px solid ' + rc + '55">💸 ' + escHtml(rs) + '</span></div>' +
+            (b.refundedAt ? dRow('การเงินโอนคืนเมื่อ', formatDate(b.refundedAt)) : (rs === 'รอคืนเงิน' ? '<div style="font-size:0.72rem;color:var(--text-muted);padding:2px 0">⏳ รอฝ่ายการเงินโอนคืน — ติดตามที่หน้า การเงิน → คืนเงิน</div>' : ''))
+        })() : '') +
+        (Number(b.down) > 0 && !b.rightsOnly && b.status !== 'ถอนจอง' ? (function () {
+          const ps = b.paymentVerifyStatus
+          return sec('💸 การตรวจสอบยอดโอน (เงินจอง/ดาวน์)') + (
+            ps === 'ยืนยันแล้ว' ? '<div style="font-size:0.78rem;color:var(--success);font-weight:700">✅ การเงินยืนยันแล้วว่ามีเงินโอนเข้ามาจริง' + (b.paymentVerifiedAt ? ' (' + formatDate(b.paymentVerifiedAt) + ')' : '') + '</div>' :
+            ps === 'รอการเงินยืนยัน' ? '<div style="font-size:0.78rem;color:var(--warning);font-weight:700">⏳ แจ้งการเงินแล้ว — รอตรวจสอบยอดโอน' + (b.paymentVerifyRequestedAt ? ' (แจ้งเมื่อ ' + formatDate(b.paymentVerifyRequestedAt) + ')' : '') + '</div>' :
+            '<div style="font-size:0.78rem;color:var(--text-muted)">ยังไม่ได้แจ้งการเงินตรวจสอบยอดโอน — กดปุ่ม "💸 แจ้งการเงินตรวจยอด" ด้านล่าง</div>'
+          )
+        })() : '') +
         (b.notes ? '<div style="background:var(--surface-2);padding:10px;border-radius:8px;font-size:0.82rem;margin-top:8px">📝 ' + escHtml(b.notes) + '</div>' : '') +
       '</div>',
       footer: '<button class="btn btn-secondary" onclick="this.closest(\'.modal-overlay\').remove()">ปิด</button>' +
               '<button class="btn btn-secondary" id="bk-edit2">✏️ แก้ไข</button>' +
+              '<button class="btn btn-secondary" id="bk-note2">📝 โน๊ต</button>' +
+              (Number(b.down) > 0 && !b.rightsOnly && b.status !== 'ถอนจอง' && b.paymentVerifyStatus !== 'ยืนยันแล้ว' && b.paymentVerifyStatus !== 'รอการเงินยืนยัน'
+                ? '<button class="btn btn-secondary" id="bk-verify-pay" style="color:var(--warning)">💸 แจ้งการเงินตรวจยอด</button>' : '') +
               '<button class="btn btn-secondary" id="bk-print">🖨 พิมพ์ใบจอง</button>' +
               (b.status === 'ถอนจอง'
                 ? '<button class="btn btn-danger" id="bk-print-cancel">🖨 พิมพ์ใบถอนจอง</button>'
@@ -636,10 +727,43 @@ export default async function BookingsPage(container) {
               '<button class="btn btn-danger" id="bk-delete2">🗑️ ลบใบจอง</button>'
     })
     document.getElementById('bk-edit2')?.addEventListener('click', () => { document.querySelectorAll('.modal-overlay').forEach(m => m.remove()); openForm(b) })
+    document.getElementById('bk-note2')?.addEventListener('click', () => { document.querySelectorAll('.modal-overlay').forEach(m => m.remove()); openNoteModal(b) })
+    document.getElementById('bk-verify-pay')?.addEventListener('click', async () => {
+      const patch = { paymentVerifyStatus: 'รอการเงินยืนยัน', paymentVerifyRequestedAt: new Date().toISOString().slice(0, 10) }
+      try {
+        await updateDocData('bookings', b.id, patch)
+        Object.assign(b, patch)
+        await notifyDept('💸 เซลส์แจ้งตรวจสอบยอดโอน (เงินจอง/ดาวน์)',
+          `${b.custName || b.bookingNo} ใบจอง ${b.bookingNo} · ยอด ${formatCurrency(b.down)} — กรุณาตรวจสอบว่ามีเงินโอนเข้าบัญชีจริงแล้วยืนยันให้เซลส์`,
+          '/finance/refund')
+        document.querySelectorAll('.modal-overlay').forEach(m => m.remove())
+        showToast('💸 แจ้งฝ่ายการเงินตรวจสอบยอดโอนแล้ว', 'success')
+        render()
+      } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
+    })
     document.getElementById('bk-print')?.addEventListener('click', () => printBooking(b))
     document.getElementById('bk-print-cancel')?.addEventListener('click', () => openCancelPrintModal(b))
     document.getElementById('bk-to-doc')?.addEventListener('click', () => { document.querySelector('.modal-overlay')?.remove(); navigate('/documents') })
     document.getElementById('bk-delete2')?.addEventListener('click', () => deleteBooking(b))
+  }
+
+  // ── โน๊ตด่วน — เพิ่ม/แก้ไขหมายเหตุโดยไม่ต้องเปิดฟอร์มเต็ม ─────────────────
+  function openNoteModal(b) {
+    const { el, close } = openModal({
+      title: '📝 โน๊ตใบจอง ' + escHtml(b.bookingNo), size: 'sm',
+      body: '<div class="input-group"><label class="input-label">ข้อมูลเพิ่มเติมของการจองนี้</label>' +
+        '<textarea class="input" id="qn-notes" rows="5" placeholder="บันทึกข้อมูลเพิ่มเติม เช่น ความต้องการพิเศษของลูกค้า, นัดหมาย, สิ่งที่ต้องติดตาม...">' + escHtml(b.notes || '') + '</textarea></div>',
+      footer: '<button class="btn btn-secondary" id="qn-c">ยกเลิก</button><button class="btn btn-primary" id="qn-s">💾 บันทึกโน๊ต</button>',
+    })
+    el.querySelector('#qn-c').addEventListener('click', close)
+    el.querySelector('#qn-s').addEventListener('click', async () => {
+      const notes = el.querySelector('#qn-notes').value.trim()
+      try {
+        await updateDocData('bookings', b.id, { notes, updatedAt: new Date().toISOString() })
+        b.notes = notes
+        close(); showToast('📝 บันทึกโน๊ตแล้ว', 'success'); render()
+      } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
+    })
   }
 
   function openForm(existing = null) {
@@ -654,6 +778,7 @@ export default async function BookingsPage(container) {
     const { el, close } = openModal({
       title: isEdit ? '✏️ แก้ไขใบจอง ' + escHtml(bkNo) : '➕ ใบจองใหม่', size: 'lg',
       body: '<div style="display:flex;flex-direction:column;gap:8px;max-height:66vh;overflow:auto;padding-right:4px">' +
+        inp('bf-bkno', '📋 เลขที่ใบจอง (แก้ไขได้)', bkNo) +
         sec('👤 ข้อมูลลูกค้า') +
         '<div class="grid-2">' + inp('bf-cust', 'ชื่อลูกค้า *', e.custName) + inp('bf-nid', 'เลขบัตรประชาชน', e.nid) + '</div>' +
         '<div class="grid-2">' + inp('bf-phone', 'โทรศัพท์', e.phone) + datalist('bf-source', 'แหล่งที่มา', getLeadSources(), e.source) + '</div>' +
@@ -669,6 +794,7 @@ export default async function BookingsPage(container) {
         sec('💰 การเงิน / ไฟแนนซ์') +
         '<div class="grid-2">' + selOf('bf-finco', 'บริษัทไฟแนนซ์', getFinanceCompanies(), e.financeCo) + selOf('bf-finstatus', 'สถานะไฟแนนซ์', getFinanceStatus(), e.finStatus) + '</div>' +
         '<div class="grid-2">' + inp('bf-down', 'เงินจอง / เงินดาวน์ (บาท) *', e.down, 'number') + inp('bf-finamount', 'ยอดจัดไฟแนนซ์', e.financeAmount, 'number') + '</div>' +
+        '<label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;cursor:pointer;padding:2px 0"><input type="checkbox" id="bf-rights" ' + (e.rightsOnly ? 'checked' : '') + ' style="accent-color:var(--accent);width:15px;height:15px"> 🎫 จองสิทธิ์ — ยังไม่จ่ายเงินจอง (ไม่บังคับกรอกเงินจอง)</label>' +
         '<span class="input-error" id="bf-down-e"></span>' +
         '<div class="grid-2">' + inp('bf-install', 'จำนวนงวด', e.installments, 'number') + inp('bf-rate', 'ดอกเบี้ย (%/ปี)', e.interestRate, 'number') + '</div>' +
         '<div class="grid-2">' + selOf('bf-campaign', 'แคมเปญ', getCampaigns(), e.campaign) + inp('bf-cost', 'ต้นทุนรถ (บาท)', e.cost, 'number') + '</div>' +
@@ -684,7 +810,7 @@ export default async function BookingsPage(container) {
         inp('bf-actual', 'วันส่งมอบจริง', e.actualDeliveryDate, 'date') +
         sec('📌 สรุป') +
         '<div class="grid-2">' + selOf('bf-sales', 'เซลส์', getSalesStaff(), e.salesName) + selOf('bf-status', 'สถานะใบจอง', getBookingStatus(), e.status || 'ยอดจองคงค้าง') + '</div>' +
-        inp('bf-notes', 'หมายเหตุ', e.notes) +
+        '<div class="input-group"><label class="input-label">📝 โน๊ต / หมายเหตุเพิ่มเติม</label><textarea class="input" id="bf-notes" rows="3" placeholder="บันทึกข้อมูลเพิ่มเติมของการจองนี้ เช่น ความต้องการพิเศษ, ของแถม, นัดหมาย...">' + escHtml(e.notes || '') + '</textarea></div>' +
         '<span class="input-error" id="bf-cust-e"></span>' +
       '</div>',
       footer: '<button class="btn btn-secondary" id="bfc">ยกเลิก</button><button class="btn btn-primary" id="bfs">💾 บันทึก</button>'
@@ -702,10 +828,12 @@ export default async function BookingsPage(container) {
       if (!cust) { el.querySelector('#bf-cust-e').textContent = '⚠️ กรุณาระบุชื่อลูกค้า'; return }
       const g = id => el.querySelector('#' + id)
       const num = id => Number(g(id).value) || 0
-      if (!num('bf-down')) { el.querySelector('#bf-down-e').textContent = '⚠️ กรุณาระบุจำนวนเงินจอง'; return }
+      const rightsOnly = g('bf-rights').checked
+      if (!rightsOnly && !num('bf-down')) { el.querySelector('#bf-down-e').textContent = '⚠️ กรุณาระบุจำนวนเงินจอง (หรือติ๊ก "จองสิทธิ์" หากยังไม่จ่าย)'; return }
       const financeAmount = num('bf-finamount'), installments = num('bf-install'), rate = num('bf-rate')
       const data = {
-        bookingNo: bkNo,
+        bookingNo: g('bf-bkno').value.trim() || bkNo,
+        rightsOnly,
         custName: cust, nid: g('bf-nid').value.trim(), phone: g('bf-phone').value.trim(), address: g('bf-address').value.trim(), province: g('bf-province').value.trim(), source: g('bf-source').value.trim(),
         brand: g('bf-brand').value.trim(), model: g('bf-model').value.trim(), variant: g('bf-variant').value.trim(),
         colorOut: g('bf-colorout').value.trim(), colorIn: g('bf-colorin').value.trim(), vin: g('bf-vin').value.trim(), motorNo: g('bf-motor').value.trim(), batNo: g('bf-bat').value.trim(),
