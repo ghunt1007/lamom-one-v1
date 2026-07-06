@@ -4,9 +4,8 @@
  */
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
-
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString() }
+import { showToast, getState, setState } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 const ANN_TYPES = {
   urgent:  { label: 'ด่วน', color: 'danger', icon: '🚨' },
@@ -15,19 +14,26 @@ const ANN_TYPES = {
   general: { label: 'ทั่วไป', color: 'primary', icon: '📢' },
 }
 
-const DEMO_ANNOUNCEMENTS = [
-  { id: 'AN001', title: 'ปิดระบบ LAMOM ONE อัปเกรด คืนวันเสาร์ 23:00–01:00', type: 'urgent', author: 'Admin', time: addDays(-1), pinned: true, readBy: 12, totalStaff: 16, body: 'ระบบจะใช้งานไม่ได้ชั่วคราว กรุณาบันทึกงานค้างก่อนเวลา' },
-  { id: 'AN002', title: 'งานเลี้ยงกลางปี ศุกร์ 26 มิ.ย. 18:00 — ร้านครัวริมน้ำ', type: 'event', author: 'HR', time: addDays(-3), pinned: true, readBy: 15, totalStaff: 16, body: 'ลงชื่อร่วมงานที่ HR ภายในพุธนี้ มีรถรับ-ส่งจากโชว์รูม' },
-  { id: 'AN003', title: 'ปรับระเบียบเบิกค่าน้ำมัน — ใช้แอปบันทึกแทนกระดาษ', type: 'policy', author: 'การเงิน', time: addDays(-7), pinned: false, readBy: 11, totalStaff: 16, body: 'เริ่ม 1 ก.ค. เบิกผ่าน LAMOM ONE → Expense Claims เท่านั้น แนบรูปใบเสร็จในแอป' },
-  { id: 'AN004', title: 'ยินดีต้อนรับพนักงานใหม่ — ปิยะ (เซลส์) และ วรรณา (ช่าง)', type: 'general', author: 'HR', time: addDays(-10), pinned: false, readBy: 16, totalStaff: 16, body: 'ฝากดูแลน้องใหม่ทั้ง 2 ท่านด้วยครับ' },
-  { id: 'AN005', title: 'BYD ปรับราคา Atto 3 มีผล 1 ก.ค. — รอประกาศราคาใหม่', type: 'urgent', author: 'ผจก.ขาย', time: addDays(-2), pinned: false, readBy: 9, totalStaff: 16, body: 'ระหว่างนี้ห้ามยืนยันราคากับลูกค้าที่จองหลัง 1 ก.ค. จนกว่าจะมีประกาศ' },
-]
-
 export default async function AnnouncementsPage(container) {
-  let anns = DEMO_ANNOUNCEMENTS.map(a => ({ ...a }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let anns = []
   let typeFilter = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { anns = await listDocs('announcements_hr', [], 'time', 'desc', 200) } catch (e) { anns = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = anns
       .filter(a => typeFilter === 'all' || a.type === typeFilter)
       .sort((a, b) => (b.pinned - a.pinned) || b.time.localeCompare(a.time))
@@ -84,13 +90,17 @@ export default async function AnnouncementsPage(container) {
               </div>
             </div>`
           }).join('')}
+          ${!list.length ? `<div class="empty-state"><div class="empty-icon">📢</div><div class="empty-title">ไม่มีประกาศ</div></div>` : ''}
         </div>
       </div>
     `
 
     container.querySelectorAll('.tf-btn').forEach(b => b.addEventListener('click', () => { typeFilter = b.dataset.t; renderPage() }))
-    container.querySelectorAll('.pin-btn').forEach(b => b.addEventListener('click', () => {
-      const a = anns.find(x => x.id === b.dataset.id); if (a) { a.pinned = !a.pinned; renderPage() }
+    container.querySelectorAll('.pin-btn').forEach(b => b.addEventListener('click', async () => {
+      const a = anns.find(x => x.id === b.dataset.id)
+      if (!a) return
+      await updateDocData('announcements_hr', a.id, { pinned: !a.pinned })
+      await loadData()
     }))
     container.querySelectorAll('.remind-btn').forEach(b => b.addEventListener('click', () => {
       const a = anns.find(x => x.id === b.dataset.id)
@@ -111,18 +121,29 @@ export default async function AnnouncementsPage(container) {
           </label>
         </div>`,
         confirmText: '📢 ประกาศ',
-        onConfirm() {
+        async onConfirm() {
           const title = document.getElementById('an-title')?.value?.trim()
           const body = document.getElementById('an-body')?.value?.trim()
-          if (!title || !body) { showToast('❗ กรอกหัวข้อและเนื้อหา', 'error'); return }
-          anns.unshift({ id:`AN${String(anns.length+1).padStart(3,'0')}`, title, type:document.getElementById('an-type')?.value||'general', author:'คุณ (Demo)', time:new Date().toISOString(), pinned:document.getElementById('an-pin')?.checked||false, readBy:0, totalStaff:16, body })
-          showToast('📢 ประกาศแล้ว — แจ้งเตือนทุกคนทาง LINE + ระบบ', 'success'); renderPage()
+          if (!title || !body) { showToast('❗ กรอกหัวข้อและเนื้อหา', 'error'); return false }
+          const type = document.getElementById('an-type')?.value || 'general'
+          await createDoc('announcements_hr', {
+            title, type, author: 'คุณ (Demo)', time: new Date().toISOString(),
+            pinned: document.getElementById('an-pin')?.checked || false, readBy: 0, totalStaff: 16, body,
+          })
+          try {
+            await createDoc('notifications', {
+              type: 'system', title: `📢 ประกาศใหม่: ${title}`,
+              body: body.slice(0, 100), read: false, link: '/hr/announcements', createdAt: new Date().toISOString(),
+            })
+            setState('unreadCount', (getState('unreadCount') || 0) + 1)
+          } catch { /* แจ้งเตือนพลาดได้ ไม่กระทบประกาศที่บันทึกไปแล้ว */ }
+          showToast('📢 ประกาศแล้ว — แจ้งเตือนทุกคนในระบบ', 'success'); await loadData()
         }
       })
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

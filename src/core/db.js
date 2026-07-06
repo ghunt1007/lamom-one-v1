@@ -824,6 +824,16 @@ export function seedDemoData() {
   ]
   welfareItems.forEach(w => { if (!demoCol('welfare_items')[w.id]) demoCol('welfare_items')[w.id] = w })
 
+  // HR announcements (หน้า /hr/announcements)
+  const hrAnnouncements = [
+    { id:'AN001', title:'ปิดระบบ LAMOM ONE อัปเกรด คืนวันเสาร์ 23:00–01:00', type:'urgent', author:'Admin', time:addDaysFullISO(-1), pinned:true, readBy:12, totalStaff:16, body:'ระบบจะใช้งานไม่ได้ชั่วคราว กรุณาบันทึกงานค้างก่อนเวลา' },
+    { id:'AN002', title:'งานเลี้ยงกลางปี ศุกร์ 26 มิ.ย. 18:00 — ร้านครัวริมน้ำ', type:'event', author:'HR', time:addDaysFullISO(-3), pinned:true, readBy:15, totalStaff:16, body:'ลงชื่อร่วมงานที่ HR ภายในพุธนี้ มีรถรับ-ส่งจากโชว์รูม' },
+    { id:'AN003', title:'ปรับระเบียบเบิกค่าน้ำมัน — ใช้แอปบันทึกแทนกระดาษ', type:'policy', author:'การเงิน', time:addDaysFullISO(-7), pinned:false, readBy:11, totalStaff:16, body:'เริ่ม 1 ก.ค. เบิกผ่าน LAMOM ONE → Expense Claims เท่านั้น แนบรูปใบเสร็จในแอป' },
+    { id:'AN004', title:'ยินดีต้อนรับพนักงานใหม่ — ปิยะ (เซลส์) และ วรรณา (ช่าง)', type:'general', author:'HR', time:addDaysFullISO(-10), pinned:false, readBy:16, totalStaff:16, body:'ฝากดูแลน้องใหม่ทั้ง 2 ท่านด้วยครับ' },
+    { id:'AN005', title:'BYD ปรับราคา Atto 3 มีผล 1 ก.ค. — รอประกาศราคาใหม่', type:'urgent', author:'ผจก.ขาย', time:addDaysFullISO(-2), pinned:false, readBy:9, totalStaff:16, body:'ระหว่างนี้ห้ามยืนยันราคากับลูกค้าที่จองหลัง 1 ก.ค. จนกว่าจะมีประกาศ' },
+  ]
+  hrAnnouncements.forEach(a => { if (!demoCol('announcements_hr')[a.id]) demoCol('announcements_hr')[a.id] = a })
+
   const demoFleet = [
     { id:'df1', brand:'BYD', model:'Seal RWD', vin:'LGXCE4C10PA000006', plate:'กข-0001', color:'เทา Ink', year:2025, mileage:3520, status:'available', condition:'good', lastService:'2025-05-01', notes:'รถทดลองขับหลัก', createdAt:'2025-01-10' },
     { id:'df2', brand:'MG', model:'MG4 X', vin:'SDUZZZEF5PA000020', plate:'กข-0002', color:'แดง', year:2025, mileage:5200, status:'in_use', condition:'good', lastService:'2025-04-15', notes:'ให้ลูกค้า VIP ยืม', createdAt:'2025-01-15' },
