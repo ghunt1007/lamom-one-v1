@@ -2,6 +2,7 @@ import { formatCurrency, formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
+import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 
 const CHANNEL_MAP = {
   facebook:  { label: 'Facebook Ads', color: 'primary', icon: '📘' },
@@ -22,25 +23,6 @@ const CAMPAIGN_STATUS = {
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
 
-const DEMO_CAMPAIGNS = [
-  { id: 'LG001', name: 'BYD Seal Summer 2025', channel: 'facebook', status: 'active',
-    budget: 50000, spent: 38500, impressions: 285000, clicks: 4200, leads: 89, qualified: 34, closed: 8,
-    cpc: 9.2, cpl: 432, cpa: 4800, startDate: addDays(-30), endDate: addDays(15),
-    targetModel: 'BYD Seal', audience: 'อายุ 28-45 มีรถ' },
-  { id: 'LG002', name: 'EV Test Drive June', channel: 'line', status: 'active',
-    budget: 20000, spent: 14200, impressions: 45000, clicks: 1850, leads: 42, qualified: 18, closed: 5,
-    cpc: 7.7, cpl: 338, cpa: 2840, startDate: addDays(-14), endDate: addDays(16),
-    targetModel: 'ทุกรุ่น', audience: 'ผู้ติดตาม LINE OA' },
-  { id: 'LG003', name: 'Google Search EV', channel: 'google', status: 'active',
-    budget: 35000, spent: 29800, impressions: 62000, clicks: 2100, leads: 38, qualified: 22, closed: 6,
-    cpc: 14.2, cpl: 784, cpa: 4967, startDate: addDays(-21), endDate: addDays(9),
-    targetModel: 'ทุกรุ่น', audience: 'ค้นหา EV Car' },
-  { id: 'LG004', name: 'Motor Expo 2024', channel: 'event', status: 'ended',
-    budget: 120000, spent: 115000, impressions: 0, clicks: 0, leads: 215, qualified: 88, closed: 24,
-    cpc: 0, cpl: 535, cpa: 4792, startDate: addDays(-180), endDate: addDays(-150),
-    targetModel: 'ทุกรุ่น', audience: 'ผู้เข้าชมงาน' },
-]
-
 const DEMO_LEADS_RECENT = [
   { name: 'ประยุทธ ดีใจ', phone: '085-xxx-xxxx', campaign: 'LG001', channel: 'facebook', date: addDays(-1), model: 'BYD Seal', status: 'qualified', score: 85 },
   { name: 'มาลี สุขสันต์', phone: '086-xxx-xxxx', campaign: 'LG002', channel: 'line', date: addDays(-2), model: 'MG ZS EV', status: 'new', score: 62 },
@@ -49,15 +31,31 @@ const DEMO_LEADS_RECENT = [
 ]
 
 export default async function LeadGenerationPage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+
   let tab = 'campaigns'
   let statusFilter = 'all'
+  let campaigns = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { campaigns = await listDocs('lead_gen_campaigns', [], 'startDate', 'desc', 500) } catch (e) { campaigns = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function filtered() {
-    return DEMO_CAMPAIGNS.filter(c => statusFilter === 'all' || c.status === statusFilter)
+    return campaigns.filter(c => statusFilter === 'all' || c.status === statusFilter)
   }
 
   function renderPage() {
-    const cps = DEMO_CAMPAIGNS
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
+    const cps = campaigns
     const totalSpent = cps.reduce((a, c) => a + c.spent, 0)
     const totalLeads = cps.reduce((a, c) => a + c.leads, 0)
     const totalClosed = cps.reduce((a, c) => a + c.closed, 0)
@@ -97,11 +95,11 @@ export default async function LeadGenerationPage(container) {
     container.querySelectorAll('.sf-btn').forEach(b => b.addEventListener('click', () => { statusFilter = b.dataset.s; renderPage() }))
     document.getElementById('add-campaign-btn')?.addEventListener('click', openCampaignForm)
     document.getElementById('export-btn')?.addEventListener('click', () => {
-      exportToExcel(DEMO_CAMPAIGNS.map(c => ({ ID: c.id, ชื่อ: c.name, ช่องทาง: CHANNEL_MAP[c.channel]?.label, งบ: c.budget, ใช้ไป: c.spent, Leads: c.leads, ปิดได้: c.closed, CPL: c.cpl, CPA: c.cpa })), 'lead_generation')
+      exportToExcel(campaigns.map(c => ({ ID: c.id, ชื่อ: c.name, ช่องทาง: CHANNEL_MAP[c.channel]?.label, งบ: c.budget, ใช้ไป: c.spent, Leads: c.leads, ปิดได้: c.closed, CPL: c.cpl, CPA: c.cpa })), 'lead_generation')
       showToast('📥 Export แล้ว!', 'success')
     })
     container.querySelectorAll('.open-camp-btn').forEach(b => b.addEventListener('click', () => {
-      const c = DEMO_CAMPAIGNS.find(x => x.id === b.dataset.id); if (c) openCampaignDetail(c)
+      const c = campaigns.find(x => x.id === b.dataset.id); if (c) openCampaignDetail(c)
     }))
   }
 
@@ -148,13 +146,13 @@ export default async function LeadGenerationPage(container) {
 
   function renderFunnel() {
     const stages = [
-      { label: '📣 Impressions', value: DEMO_CAMPAIGNS.reduce((a,c)=>a+c.impressions,0).toLocaleString(), pct: 100 },
-      { label: '👆 Clicks', value: DEMO_CAMPAIGNS.reduce((a,c)=>a+c.clicks,0).toLocaleString(), pct: 2.1 },
-      { label: '🧲 Leads', value: DEMO_CAMPAIGNS.reduce((a,c)=>a+c.leads,0), pct: 100 },
-      { label: '✅ Qualified', value: DEMO_CAMPAIGNS.reduce((a,c)=>a+c.qualified,0), pct: Math.round(DEMO_CAMPAIGNS.reduce((a,c)=>a+c.qualified,0)/DEMO_CAMPAIGNS.reduce((a,c)=>a+c.leads,0)*100) },
-      { label: '💰 Closed Won', value: DEMO_CAMPAIGNS.reduce((a,c)=>a+c.closed,0), pct: Math.round(DEMO_CAMPAIGNS.reduce((a,c)=>a+c.closed,0)/DEMO_CAMPAIGNS.reduce((a,c)=>a+c.leads,0)*100) },
+      { label: '📣 Impressions', value: campaigns.reduce((a,c)=>a+c.impressions,0).toLocaleString(), pct: 100 },
+      { label: '👆 Clicks', value: campaigns.reduce((a,c)=>a+c.clicks,0).toLocaleString(), pct: 2.1 },
+      { label: '🧲 Leads', value: campaigns.reduce((a,c)=>a+c.leads,0), pct: 100 },
+      { label: '✅ Qualified', value: campaigns.reduce((a,c)=>a+c.qualified,0), pct: Math.round(campaigns.reduce((a,c)=>a+c.qualified,0)/campaigns.reduce((a,c)=>a+c.leads,0)*100) },
+      { label: '💰 Closed Won', value: campaigns.reduce((a,c)=>a+c.closed,0), pct: Math.round(campaigns.reduce((a,c)=>a+c.closed,0)/campaigns.reduce((a,c)=>a+c.leads,0)*100) },
     ]
-    const maxVal = DEMO_CAMPAIGNS.reduce((a,c)=>a+c.impressions,0)
+    const maxVal = campaigns.reduce((a,c)=>a+c.impressions,0)
     return `
       <div class="card" style="padding:20px;max-width:560px;margin:0 auto">
         <div style="font-weight:700;font-size:0.88rem;margin-bottom:16px">🔽 Marketing Funnel</div>
@@ -251,27 +249,29 @@ export default async function LeadGenerationPage(container) {
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">กลุ่มเป้าหมาย</label><input class="input" id="cf-audience" placeholder="อายุ 28-45 สนใจรถยนต์ EV"></div>
         </div>
       `,
-      onConfirm() {
+      async onConfirm() {
         const name = document.getElementById('cf-name')?.value?.trim()
-        if (!name) { showToast('❗ กรุณากรอกชื่อแคมเปญ', 'error'); return }
-        DEMO_CAMPAIGNS.unshift({
-          id: `LG${String(DEMO_CAMPAIGNS.length+1).padStart(3,'0')}`, name,
-          channel: document.getElementById('cf-channel')?.value||'facebook',
-          status: 'draft', budget: +document.getElementById('cf-budget')?.value||0, spent: 0,
-          impressions: 0, clicks: 0, leads: 0, qualified: 0, closed: 0,
-          cpc: 0, cpl: 0, cpa: 0,
-          startDate: document.getElementById('cf-start')?.value||addDays(0),
-          endDate: document.getElementById('cf-end')?.value||addDays(30),
-          targetModel: document.getElementById('cf-model')?.value||'ทุกรุ่น',
-          audience: document.getElementById('cf-audience')?.value||''
-        })
-        showToast('✅ สร้างแคมเปญแล้ว!', 'success')
-        renderPage()
+        if (!name) { showToast('❗ กรุณากรอกชื่อแคมเปญ', 'error'); return false }
+        try {
+          await createDoc('lead_gen_campaigns', {
+            name,
+            channel: document.getElementById('cf-channel')?.value||'facebook',
+            status: 'draft', budget: +document.getElementById('cf-budget')?.value||0, spent: 0,
+            impressions: 0, clicks: 0, leads: 0, qualified: 0, closed: 0,
+            cpc: 0, cpl: 0, cpa: 0,
+            startDate: document.getElementById('cf-start')?.value||addDays(0),
+            endDate: document.getElementById('cf-end')?.value||addDays(30),
+            targetModel: document.getElementById('cf-model')?.value||'ทุกรุ่น',
+            audience: document.getElementById('cf-audience')?.value||''
+          })
+          showToast('✅ สร้างแคมเปญแล้ว!', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

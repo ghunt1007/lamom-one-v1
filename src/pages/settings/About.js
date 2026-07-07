@@ -20,7 +20,8 @@ const MODULES = [
 ]
 
 const CHANGELOG = [
-  { ver:'1.0.141', date:'2026-07-07', label:'ล่าสุด', changes:['🐛 แก้บั๊กข้อมูลหาย 3 หน้าฝ่ายการตลาดเพิ่มเติม — เดิมเก็บในตัวแปรระดับโมดูลไม่บันทึกจริง ตอนนี้บันทึกจริงลง Firestore แล้วทั้งหมด: (1) Customer Reviews (/marketing/reviews) — ตอบกลับรีวิว + ขอ Review (2) Digital Showroom (/marketing/digital-showroom) — เพิ่มรุ่นรถ + Feature/Unfeature (3) Event Check-in (/marketing/event-checkin) — ลงทะเบียนผู้เยี่ยมชมงานอีเวนต์ (แก้คำโฆษณาเกินจริง "sync เข้า CRM อัตโนมัติ" ที่ไม่มีจริงออกด้วย) ทดสอบยืนยันครบทุกหน้า: ทำรายการแล้วสลับหน้าไปมา ข้อมูลยังถูกต้องครบ'] },
+  { ver:'1.0.142', date:'2026-07-07', label:'ล่าสุด', changes:['🐛 แก้บั๊กข้อมูลหาย 3 หน้าฝ่ายการตลาดเพิ่มเติม — เดิมเก็บในตัวแปรระดับโมดูลไม่บันทึกจริง ตอนนี้บันทึกจริงลง Firestore แล้วทั้งหมด: (1) Event Management (/marketing/events) — สร้าง/แก้ไข Event (2) Landing Pages (/marketing/landing-pages) — สร้าง/แก้ไข/ทำสำเนาหน้า (3) Lead Generation (/marketing/leads) — สร้างแคมเปญ ทดสอบยืนยันครบทุกหน้า: ทำรายการแล้วสลับหน้าไปมา ข้อมูลยังถูกต้องครบ'] },
+  { ver:'1.0.141', date:'2026-07-07', label:'', changes:['🐛 แก้บั๊กข้อมูลหาย 3 หน้าฝ่ายการตลาดเพิ่มเติม — เดิมเก็บในตัวแปรระดับโมดูลไม่บันทึกจริง ตอนนี้บันทึกจริงลง Firestore แล้วทั้งหมด: (1) Customer Reviews (/marketing/reviews) — ตอบกลับรีวิว + ขอ Review (2) Digital Showroom (/marketing/digital-showroom) — เพิ่มรุ่นรถ + Feature/Unfeature (3) Event Check-in (/marketing/event-checkin) — ลงทะเบียนผู้เยี่ยมชมงานอีเวนต์ (แก้คำโฆษณาเกินจริง "sync เข้า CRM อัตโนมัติ" ที่ไม่มีจริงออกด้วย) ทดสอบยืนยันครบทุกหน้า: ทำรายการแล้วสลับหน้าไปมา ข้อมูลยังถูกต้องครบ'] },
   { ver:'1.0.140', date:'2026-07-07', label:'', changes:['🐛 แก้บั๊กข้อมูลหาย 3 หน้าฝ่ายการตลาด — เดิมเก็บในตัวแปรระดับโมดูลไม่บันทึกจริง ตอนนี้บันทึกจริงลง Firestore แล้วทั้งหมด: (1) AI Content Factory (/marketing/ai-content) — ประวัติ Content ที่สร้าง/Schedule (2) Campaign Builder (/marketing/campaigns) — สร้าง/แก้ไข/ลบแคมเปญ (3) Content Calendar (/marketing/content) — สร้าง Content ใหม่ + กดเผยแพร่ ทดสอบยืนยันครบทุกหน้า: ทำรายการแล้วสลับหน้าไปมา ข้อมูลยังถูกต้องครบ'] },
   { ver:'1.0.139', date:'2026-07-07', label:'', changes:['🐛 แก้บั๊กข้อมูลหาย: Staff Profiles (/hr/profile) — โปรไฟล์พนักงาน เดิมเก็บในตัวแปรระดับโมดูลไม่บันทึกจริง เพิ่มพนักงานใหม่แล้ว ออกจากหน้าไปกลับมาข้อมูลหายรีเซ็ตทุกครั้ง ตอนนี้บันทึกจริงลง Firestore แล้ว ทดสอบยืนยัน: เพิ่มพนักงานใหม่แล้วสลับหน้าไปมา ยังอยู่ครบ'] },
   { ver:'1.0.138', date:'2026-07-07', label:'', changes:['🐛 แก้บั๊กข้อมูลหาย: Salary Scale (/hr/salary-scale) — โครงสร้างเงินเดือน เดิมเก็บในตัวแปรระดับโมดูลไม่บันทึกจริง ปรับเงินเดือนแล้ว ออกจากหน้าไปกลับมาข้อมูลหายรีเซ็ตทุกครั้ง ตอนนี้บันทึกจริงลง Firestore แล้ว', '🐛 พบและแก้บั๊กปนมา: ปุ่ม "ทบทวนเงินเดือน" อ่านข้อมูลจากค่าคงที่ตั้งต้นเสมอ ไม่ใช่ข้อมูลล่าสุดหลังปรับเงินเดือน ทำให้รายชื่อ "ต่ำกว่าตลาด" ผิดพลาดแม้ปรับเงินเดือนไปแล้ว — แก้ให้อ่านข้อมูลปัจจุบันจริง'] },
@@ -187,7 +188,7 @@ export default function AboutPage(container) {
           <div style="font-size:1.5rem;font-weight:900;letter-spacing:-0.02em">LAMOM ONE</div>
           <div style="font-size:0.85rem;color:var(--text-muted);margin:4px 0 12px">ระบบปฏิบัติการธุรกิจยานยนต์ครบวงจร</div>
           <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
-            <span class="badge badge-primary">Version 1.0.141</span>
+            <span class="badge badge-primary">Version 1.0.142</span>
             <span class="badge badge-success">${totalPages}+ ระบบย่อย</span>
             <span class="badge badge-accent">${MODULES.length} โมดูล</span>
             <span class="badge badge-warning">Vite 8 + ES6 + Firebase 12</span>

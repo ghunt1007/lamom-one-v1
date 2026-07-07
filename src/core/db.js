@@ -655,6 +655,40 @@ export function seedDemoData() {
   ]
   eventVisitors.forEach(v => { if (!demoCol('event_visitors')[v.id]) demoCol('event_visitors')[v.id] = v })
 
+  // Marketing events (หน้า /marketing/events)
+  const evAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
+  const marketingEvents = [
+    { id:'MEV001', title:'BYD Seal AWD Launch Party', type:'launch', status:'done', startDate:'2025-04-20', endDate:'2025-04-20', venue:'โชว์รูม LAMOM สาขาหลัก', budget:150000, spent:142000, attendees:85, leads:12, sales:3, description:'งาน Launch BYD Seal AWD รุ่นใหม่ มีการแสดง Performance ของรถ', tasks:['จัดเตรียมสถานที่ ✅','ติดต่อ Influencer 2 คน ✅','เตรียมอาหารเครื่องดื่ม ✅','นำเสนอราคาและโปรโมชัน ✅'] },
+    { id:'MEV002', title:'EV Test Drive Weekend', type:'testdrive', status:'confirmed', startDate:evAddDays(5), endDate:evAddDays(6), venue:'ลานจอดรถ LAMOM ONE BKK', budget:80000, spent:35000, attendees:0, leads:0, sales:0, description:'เปิดโอกาสให้ลูกค้าทดลองขับรถ EV ทุกรุ่น', tasks:['จองพื้นที่ ✅','เตรียมรถสาธิต 5 คัน','ประกาศ Social Media','รับลงทะเบียน'] },
+    { id:'MEV003', title:'Motor Expo 2025', type:'expo', status:'planning', startDate:'2025-11-28', endDate:'2025-12-09', venue:'Impact Arena เมืองทองธานี', budget:2000000, spent:500000, attendees:0, leads:0, sales:0, description:'เข้าร่วม Motor Expo 2025 บูธใหญ่ 200 ตร.ม.', tasks:['จองบูธ ✅','ออกแบบบูธ','สั่งซื้อสื่อ','เตรียมทีม 15 คน','วางแผนโปรโมชัน'] },
+    { id:'MEV004', title:'VIP Customer Appreciation', type:'vip', status:'confirmed', startDate:evAddDays(20), endDate:evAddDays(20), venue:'โรงแรม Centara Grand', budget:200000, spent:80000, attendees:0, leads:0, sales:0, description:'งานเลี้ยงขอบคุณลูกค้า VIP ประจำปี 2025', tasks:['Book ห้องจัดงาน ✅','เตรียมของที่ระลึก','เชิญลูกค้า 50 ท่าน','เตรียมโปรโมชัน Renewal'] },
+    { id:'MEV005', title:'EV Ownership Workshop', type:'workshop', status:'done', startDate:'2025-05-10', endDate:'2025-05-10', venue:'โชว์รูม LAMOM สาขาหลัก', budget:30000, spent:28500, attendees:25, leads:5, sales:1, description:'สอนการดูแลรักษารถ EV การชาร์จที่บ้าน และการใช้งาน', tasks:['เตรียมสไลด์ ✅','จัดเตรียมอาหาร ✅','เชิญวิทยากร ✅','ดำเนินการ ✅'] },
+    { id:'MEV006', title:'Social Media Live: BYD กับชีวิตประจำวัน', type:'online', status:'done', startDate:'2025-03-15', endDate:'2025-03-15', venue:'Online / Facebook Live', budget:15000, spent:12000, attendees:320, leads:18, sales:2, description:'Live ขายรถผ่าน Facebook ร่วมกับ Influencer EV', tasks:['ประสาน Influencer ✅','เตรียมสคริปต์ ✅','Live 2 ชั่วโมง ✅','Follow up leads ✅'] },
+  ]
+  marketingEvents.forEach(e => { if (!demoCol('marketing_events')[e.id]) demoCol('marketing_events')[e.id] = e })
+
+  // Lead generation campaigns (หน้า /marketing/lead-generation)
+  const lgAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
+  const leadGenCampaigns = [
+    { id:'LG001', name:'BYD Seal Summer 2025', channel:'facebook', status:'active',
+      budget:50000, spent:38500, impressions:285000, clicks:4200, leads:89, qualified:34, closed:8,
+      cpc:9.2, cpl:432, cpa:4800, startDate:lgAddDays(-30), endDate:lgAddDays(15),
+      targetModel:'BYD Seal', audience:'อายุ 28-45 มีรถ' },
+    { id:'LG002', name:'EV Test Drive June', channel:'line', status:'active',
+      budget:20000, spent:14200, impressions:45000, clicks:1850, leads:42, qualified:18, closed:5,
+      cpc:7.7, cpl:338, cpa:2840, startDate:lgAddDays(-14), endDate:lgAddDays(16),
+      targetModel:'ทุกรุ่น', audience:'ผู้ติดตาม LINE OA' },
+    { id:'LG003', name:'Google Search EV', channel:'google', status:'active',
+      budget:35000, spent:29800, impressions:62000, clicks:2100, leads:38, qualified:22, closed:6,
+      cpc:14.2, cpl:784, cpa:4967, startDate:lgAddDays(-21), endDate:lgAddDays(9),
+      targetModel:'ทุกรุ่น', audience:'ค้นหา EV Car' },
+    { id:'LG004', name:'Motor Expo 2024', channel:'event', status:'ended',
+      budget:120000, spent:115000, impressions:0, clicks:0, leads:215, qualified:88, closed:24,
+      cpc:0, cpl:535, cpa:4792, startDate:lgAddDays(-180), endDate:lgAddDays(-150),
+      targetModel:'ทุกรุ่น', audience:'ผู้เข้าชมงาน' },
+  ]
+  leadGenCampaigns.forEach(c => { if (!demoCol('lead_gen_campaigns')[c.id]) demoCol('lead_gen_campaigns')[c.id] = c })
+
   // Quality incidents (หน้า /quality/incidents)
   const qualityIncidents = [
     { id:'INC001', title:'รถลูกค้าถูกขีดข่วนระหว่างล้าง', cat:'vehicle', severity:'major', status:'action', reporter:'หัวหน้าทีมล้างรถ', date:new Date(Date.now()-86400000*2).toISOString(), rootCause:'อุปกรณ์ล้างเก่า มีเศษทราย', action:'เปลี่ยนผ้าไมโครไฟเบอร์ใหม่ทั้งชุด + ชดเชยลูกค้า' },
@@ -1300,8 +1334,11 @@ export function seedDemoData() {
 
   // ── Marketing Extras ──
   const landingPages = [
-    { id:'lp1', name:'BYD Seal Launch 2025', url:'/campaign/byd-seal', status:'active', views:1250, leads:45, conversions:8, createdAt:'2025-06-01' },
-    { id:'lp2', name:'โปรกลางปี BYD', url:'/campaign/mid-year', status:'active', views:890, leads:32, conversions:5, createdAt:'2025-06-15' },
+    { id:'lp1', title:'BYD Atto 3 โปรพิเศษ มิ.ย.',  campaign:'BYD June',    visits:1240, leads:87,  conv:7.0, status:'active', created:'2026-06-01' },
+    { id:'lp2', title:'BYD Seal AWD Launch Event',   campaign:'Seal Launch', visits:890,  leads:62,  conv:7.0, status:'active', created:'2026-05-15' },
+    { id:'lp3', title:'ทดลองขับ BYD Dolphin ฟรี',    campaign:'Test Drive',  visits:2100, leads:145, conv:6.9, status:'active', created:'2026-05-01' },
+    { id:'lp4', title:'มอเตอร์โชว์ 2026',             campaign:'Motor Show',  visits:5600, leads:312, conv:5.6, status:'ended',  created:'2026-03-20' },
+    { id:'lp5', title:'โปรต้นปี 2569',                campaign:'New Year',    visits:3200, leads:198, conv:6.2, status:'ended',  created:'2026-01-01' },
   ]
   landingPages.forEach(l => { if (!demoCol('landing_pages')[l.id]) demoCol('landing_pages')[l.id] = l })
 

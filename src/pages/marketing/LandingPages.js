@@ -4,14 +4,7 @@
  */
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-
-let PAGES = [
-  { id:'LP001', title:'BYD Atto 3 โปรพิเศษ มิ.ย.',  campaign:'BYD June',    visits:1240, leads:87,  conv:7.0, status:'active', created:'2026-06-01' },
-  { id:'LP002', title:'BYD Seal AWD Launch Event',   campaign:'Seal Launch', visits:890,  leads:62,  conv:7.0, status:'active', created:'2026-05-15' },
-  { id:'LP003', title:'ทดลองขับ BYD Dolphin ฟรี',    campaign:'Test Drive',  visits:2100, leads:145, conv:6.9, status:'active', created:'2026-05-01' },
-  { id:'LP004', title:'มอเตอร์โชว์ 2026',             campaign:'Motor Show',  visits:5600, leads:312, conv:5.6, status:'ended',  created:'2026-03-20' },
-  { id:'LP005', title:'โปรต้นปี 2569',                campaign:'New Year',    visits:3200, leads:198, conv:6.2, status:'ended',  created:'2026-01-01' },
-]
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 const TEMPLATES = [
   { id:'t1', name:'Test Drive Form',    icon:'🚗' },
@@ -21,7 +14,19 @@ const TEMPLATES = [
 ]
 
 export default async function LandingPagesPage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let PAGES = []
   let filterStatus = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { PAGES = await listDocs('landing_pages', [], 'created', 'desc', 500) } catch (e) { PAGES = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function pageRow(p) {
     const isActive  = p.status === 'active'
@@ -54,6 +59,10 @@ export default async function LandingPagesPage(container) {
   }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     let rows = PAGES
     if (filterStatus !== 'all') rows = rows.filter(p=>p.status===filterStatus)
 
@@ -100,12 +109,14 @@ export default async function LandingPagesPage(container) {
       const p=PAGES.find(x=>x.id===b.dataset.id)
       if(p) openEditModal(p)
     }))
-    container.querySelectorAll('.dup-btn').forEach(b=>b.addEventListener('click',()=>{
+    container.querySelectorAll('.dup-btn').forEach(b=>b.addEventListener('click',async ()=>{
       const p=PAGES.find(x=>x.id===b.dataset.id)
-      if(p){
-        PAGES.push({...p,id:'LP'+Date.now(),title:'[Copy] '+p.title,visits:0,leads:0,conv:0,status:'active',created:'2026-06-14'})
-        render(); showToast('📋 Duplicate: '+p.title,'success')
-      }
+      if(!p) return
+      try {
+        await createDoc('landing_pages', { title:'[Copy] '+p.title, campaign:p.campaign, visits:0, leads:0, conv:0, status:'active', created:new Date().toISOString().slice(0,10) })
+        showToast('📋 Duplicate: '+p.title,'success')
+        await loadData()
+      } catch (e) { showToast('ทำสำเนาไม่สำเร็จ', 'error') }
     }))
     document.getElementById('new-page-btn')?.addEventListener('click',()=>openNewModal())
   }
@@ -180,15 +191,17 @@ export default async function LandingPagesPage(container) {
         </div>
       `
     })
-    document.getElementById('ep-save')?.addEventListener('click', () => {
+    document.getElementById('ep-save')?.addEventListener('click', async () => {
       const title = document.getElementById('ep-title')?.value.trim()
       if (!title) { showToast('⚠️ กรุณากรอกชื่อหน้า', 'warning'); return }
-      p.title    = title
-      p.campaign = document.getElementById('ep-camp')?.value.trim() || p.campaign
-      p.status   = document.getElementById('ep-status')?.value || p.status
-      document.querySelector('.modal-overlay')?.remove()
-      showToast('✅ อัปเดต Landing Page: ' + title, 'success')
-      render()
+      const campaign = document.getElementById('ep-camp')?.value.trim() || p.campaign
+      const status = document.getElementById('ep-status')?.value || p.status
+      try {
+        await updateDocData('landing_pages', p.id, { title, campaign, status })
+        document.querySelector('.modal-overlay')?.remove()
+        showToast('✅ อัปเดต Landing Page: ' + title, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
@@ -204,12 +217,15 @@ export default async function LandingPagesPage(container) {
         </div>
       </div>`,
       confirmText:'🌐 สร้างหน้า',
-      onConfirm() {
+      async onConfirm() {
         const title=document.getElementById('lp-title')?.value?.trim()
         const camp=document.getElementById('lp-camp')?.value?.trim()
         if(!title||!camp){showToast('ใส่ชื่อหน้าและ Campaign','warning');return false}
-        PAGES.push({id:'LP'+Date.now(),title,campaign:camp,visits:0,leads:0,conv:0,status:'active',created:'2026-06-14'})
-        render(); showToast('🌐 สร้าง Landing Page: '+title,'success')
+        try {
+          await createDoc('landing_pages', { title, campaign:camp, visits:0, leads:0, conv:0, status:'active', created:new Date().toISOString().slice(0,10) })
+          showToast('🌐 สร้าง Landing Page: '+title,'success')
+          await loadData()
+        } catch (e) { showToast('สร้างไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -221,5 +237,5 @@ export default async function LandingPagesPage(container) {
     </div>`
   }
 
-  render()
+  await loadData()
 }

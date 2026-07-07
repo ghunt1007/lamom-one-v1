@@ -2,7 +2,7 @@ import { formatDate, formatCurrency } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
-import { getSalesData } from '../../core/db.js'
+import { getSalesData, listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 const EVENT_TYPES = {
   launch:     { label: 'Launch Event', icon: '🚀', color: 'primary' },
@@ -24,17 +24,6 @@ const EVENT_STATUS = {
 
 const AVG_DEAL_SIZE = 1100000  // ราคาเฉลี่ยต่อคัน (ใช้คำนวณ ROI)
 
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
-
-const DEMO_EVENTS = [
-  { id: 'EV001', title: 'BYD Seal AWD Launch Party', type: 'launch', status: 'done', startDate: '2025-04-20', endDate: '2025-04-20', venue: 'โชว์รูม LAMOM สาขาหลัก', budget: 150000, spent: 142000, attendees: 85, leads: 12, sales: 3, description: 'งาน Launch BYD Seal AWD รุ่นใหม่ มีการแสดง Performance ของรถ', tasks: ['จัดเตรียมสถานที่ ✅', 'ติดต่อ Influencer 2 คน ✅', 'เตรียมอาหารเครื่องดื่ม ✅', 'นำเสนอราคาและโปรโมชัน ✅'] },
-  { id: 'EV002', title: 'EV Test Drive Weekend', type: 'testdrive', status: 'confirmed', startDate: addDays(5), endDate: addDays(6), venue: 'ลานจอดรถ LAMOM ONE BKK', budget: 80000, spent: 35000, attendees: 0, leads: 0, sales: 0, description: 'เปิดโอกาสให้ลูกค้าทดลองขับรถ EV ทุกรุ่น', tasks: ['จองพื้นที่ ✅', 'เตรียมรถสาธิต 5 คัน', 'ประกาศ Social Media', 'รับลงทะเบียน'] },
-  { id: 'EV003', title: 'Motor Expo 2025', type: 'expo', status: 'planning', startDate: '2025-11-28', endDate: '2025-12-09', venue: 'Impact Arena เมืองทองธานี', budget: 2000000, spent: 500000, attendees: 0, leads: 0, sales: 0, description: 'เข้าร่วม Motor Expo 2025 บูธใหญ่ 200 ตร.ม.', tasks: ['จองบูธ ✅', 'ออกแบบบูธ', 'สั่งซื้อสื่อ', 'เตรียมทีม 15 คน', 'วางแผนโปรโมชัน'] },
-  { id: 'EV004', title: 'VIP Customer Appreciation', type: 'vip', status: 'confirmed', startDate: addDays(20), endDate: addDays(20), venue: 'โรงแรม Centara Grand', budget: 200000, spent: 80000, attendees: 0, leads: 0, sales: 0, description: 'งานเลี้ยงขอบคุณลูกค้า VIP ประจำปี 2025', tasks: ['Book ห้องจัดงาน ✅', 'เตรียมของที่ระลึก', 'เชิญลูกค้า 50 ท่าน', 'เตรียมโปรโมชัน Renewal'] },
-  { id: 'EV005', title: 'EV Ownership Workshop', type: 'workshop', status: 'done', startDate: '2025-05-10', endDate: '2025-05-10', venue: 'โชว์รูม LAMOM สาขาหลัก', budget: 30000, spent: 28500, attendees: 25, leads: 5, sales: 1, description: 'สอนการดูแลรักษารถ EV การชาร์จที่บ้าน และการใช้งาน', tasks: ['เตรียมสไลด์ ✅', 'จัดเตรียมอาหาร ✅', 'เชิญวิทยากร ✅', 'ดำเนินการ ✅'] },
-  { id: 'EV006', title: 'Social Media Live: BYD กับชีวิตประจำวัน', type: 'online', status: 'done', startDate: '2025-03-15', endDate: '2025-03-15', venue: 'Online / Facebook Live', budget: 15000, spent: 12000, attendees: 320, leads: 18, sales: 2, description: 'Live ขายรถผ่าน Facebook ร่วมกับ Influencer EV', tasks: ['ประสาน Influencer ✅', 'เตรียมสคริปต์ ✅', 'Live 2 ชั่วโมง ✅', 'Follow up leads ✅'] },
-]
-
 // คำนวณ metrics ของ event
 function calcEventMetrics(e, avgDeal) {
   const dealSize = avgDeal || AVG_DEAL_SIZE
@@ -50,32 +39,41 @@ function calcEventMetrics(e, avgDeal) {
 
 export default async function EventManagementPage(container) {
   const myGen = container.__routerGen
+  seedDemoData()
+
   let typeFilter = 'all'
   let statusFilter = 'all'
   let viewMode = 'cards'
-  let events = [...DEMO_EVENTS]
+  let events = []
   let liveAvgDeal = AVG_DEAL_SIZE
   let dataSource = 'demo'
+  let loading = true
 
   const today = new Date().toISOString().slice(0, 10)
 
-  try {
-    const sales = await getSalesData()
-    if (container.__routerGen !== myGen) return
-    if (sales.length >= 2) {
-      const totalRev = sales.reduce((a, s) => a + (s.salePrice || 0), 0)
-      liveAvgDeal = totalRev > 0 ? Math.round(totalRev / sales.length) : AVG_DEAL_SIZE
-      events.forEach(e => {
-        if (e.status !== 'done') return
-        const cnt = sales.filter(s => {
-          const d = s.date || s.bookingDate || ''
-          return d >= e.startDate && d <= (e.endDate || e.startDate)
-        }).length
-        if (cnt > 0) e.sales = cnt
-      })
-      dataSource = 'live'
-    }
-  } catch {}
+  async function loadData() {
+    loading = true
+    try { events = await listDocs('marketing_events', [], 'startDate', 'asc', 500) } catch (e) { events = [] }
+    try {
+      const sales = await getSalesData()
+      if (container.__routerGen !== myGen) return
+      if (sales.length >= 2) {
+        const totalRev = sales.reduce((a, s) => a + (s.salePrice || 0), 0)
+        liveAvgDeal = totalRev > 0 ? Math.round(totalRev / sales.length) : AVG_DEAL_SIZE
+        events.forEach(e => {
+          if (e.status !== 'done') return
+          const cnt = sales.filter(s => {
+            const d = s.date || s.bookingDate || ''
+            return d >= e.startDate && d <= (e.endDate || e.startDate)
+          }).length
+          if (cnt > 0) e.sales = cnt
+        })
+        dataSource = 'live'
+      }
+    } catch {}
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function isUpcoming(e) { return e.startDate >= today && e.status !== 'cancelled' }
 
@@ -88,6 +86,10 @@ export default async function EventManagementPage(container) {
   }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = '<div class="page-content"><div class="empty-state"><div class="empty-state-icon">⏳</div><div>กำลังโหลด...</div></div></div>'
+      return
+    }
     const list = filtered()
     const upcoming = events.filter(isUpcoming).length
     const totalBudget = events.reduce((a, e) => a + e.budget, 0)
@@ -352,7 +354,7 @@ export default async function EventManagementPage(container) {
     })
 
     el.querySelector('#ef-cancel').addEventListener('click', close)
-    el.querySelector('#ef-save').addEventListener('click', () => {
+    el.querySelector('#ef-save').addEventListener('click', async () => {
       const title = el.querySelector('#ef-title').value.trim()
       if (!title) { showToast('❗ กรุณากรอกชื่อ Event', 'error'); return }
       const data = {
@@ -363,15 +365,17 @@ export default async function EventManagementPage(container) {
         leads: +el.querySelector('#ef-leads').value, sales: +el.querySelector('#ef-sales').value,
         modelsStr: el.querySelector('#ef-models').value, description: el.querySelector('#ef-desc').value,
       }
-      if (e) { Object.assign(e, data) }
-      else { events.unshift({ id: 'EV' + String(events.length+1).padStart(3,'0'), tasks: [], ...data }) }
-      showToast('✅ บันทึก Event แล้ว!', 'success')
-      close()
-      renderPage()
+      try {
+        if (e) await updateDocData('marketing_events', e.id, data)
+        else await createDoc('marketing_events', { tasks: [], ...data })
+        showToast('✅ บันทึก Event แล้ว!', 'success')
+        close()
+        await loadData()
+      } catch (err) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(title, value, color) {
