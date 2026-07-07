@@ -5,6 +5,7 @@
 import { formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 
 const MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.']
 
@@ -40,11 +41,29 @@ function grade(score) {
 }
 
 export default async function TechKpiPage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+
   let selMonth = 5
   let selTech  = null
-  const approvedBonusMonths = new Set()
+  let approvedBonusMonths = new Set()
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try {
+      const rows = await listDocs('tech_kpi_bonus_approvals', [], 'month', 'asc', 200)
+      approvedBonusMonths = new Set(rows.map(r => r.month))
+    } catch (e) { approvedBonusMonths = new Set() }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const techStats = TECHS.map(t => {
       const d = MONTHLY_DATA[t.id][selMonth]
       const score = kpiScore(d)
@@ -186,10 +205,12 @@ export default async function TechKpiPage(container) {
           <div style="font-size:0.68rem;color:var(--text-muted);margin-top:8px">เกณฑ์: A+ ฿3,000 · A ฿2,000 · B ฿1,000 · C ฿500 · D ฿0</div>
         </div>`,
         confirmText:'✅ อนุมัติ Bonus',
-        onConfirm(){
-          approvedBonusMonths.add(selMonth)
-          render()
-          showToast(`✅ อนุมัติ Bonus Pool ฿${totalBonus.toLocaleString()} — ${bonusRows.length} คน (${MONTHS[selMonth]})`, 'success')
+        async onConfirm(){
+          try {
+            await createDoc('tech_kpi_bonus_approvals', { month: selMonth, monthLabel: MONTHS[selMonth], totalBonus, approvedCount: bonusRows.length })
+            showToast(`✅ อนุมัติ Bonus Pool ฿${totalBonus.toLocaleString()} — ${bonusRows.length} คน (${MONTHS[selMonth]})`, 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     })
@@ -202,5 +223,5 @@ export default async function TechKpiPage(container) {
     </div>`
   }
 
-  render()
+  await loadData()
 }

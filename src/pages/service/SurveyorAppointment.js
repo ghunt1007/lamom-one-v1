@@ -5,14 +5,9 @@
 import { formatDate, formatDateTime } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 const INSURERS = ['กรุงเทพประกันภัย','เมืองไทยประกันภัย','วิริยะประกันภัย','อาคเนย์ประกันภัย','คุ้มภัยโตเกียวมารีน']
-
-let APPTS = [
-  { id: 'SA-001', claimNo: 'CLM-2401', customer: 'คุณสมชาย', plate: 'กข-1234', model: 'BYD Atto 3', insurer: 'กรุงเทพประกันภัย', surveyor: 'คุณสมศักดิ์', date: '2026-06-16', time: '10:00', status: 'confirmed', damage: 'กันชนหน้า ฝากระโปรง' },
-  { id: 'SA-002', claimNo: 'CLM-2398', customer: 'คุณวันดี', plate: '1กก-5678', model: 'MG ZS EV', insurer: 'วิริยะประกันภัย', surveyor: '', date: '2026-06-17', time: '13:30', status: 'pending', damage: 'ประตูซ้ายบุบ กระจกแตก' },
-  { id: 'SA-003', claimNo: 'CLM-2390', customer: 'บ.รุ่งเรือง', plate: '2ขข-9999', model: 'BYD Seal AWD', insurer: 'เมืองไทยประกันภัย', surveyor: 'คุณสมหมาย', date: '2026-06-14', time: '09:00', status: 'done', damage: 'หลังคาบุบ หน้าต่างร้าว', estimateApproved: 85000 },
-]
 
 const ST = {
   pending:   { label: 'รอยืนยัน', color: 'var(--warning)' },
@@ -22,7 +17,24 @@ const ST = {
 }
 
 export default async function SurveyorAppointmentPage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let APPTS = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { APPTS = await listDocs('surveyor_appointments', [], 'date', 'desc', 500) } catch (e) { APPTS = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
+
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const today = new Date().toISOString().slice(0,10)
     const todayAppts = APPTS.filter(a => a.date === today)
     const pending = APPTS.filter(a => a.status === 'pending')
@@ -63,7 +75,7 @@ export default async function SurveyorAppointmentPage(container) {
             <tbody>
               ${APPTS.map(a => `
                 <tr style="border-bottom:1px solid var(--border);font-size:0.8rem">
-                  <td style="padding:9px 12px;font-weight:600">${a.id}<div style="font-size:0.68rem;color:var(--text-muted)">${a.claimNo}</div></td>
+                  <td style="padding:9px 12px;font-weight:600">${a.apptNo || a.id}<div style="font-size:0.68rem;color:var(--text-muted)">${a.claimNo}</div></td>
                   <td>${a.customer}<div style="font-size:0.7rem;color:var(--text-muted)">${a.model} · ${a.plate}</div></td>
                   <td style="font-size:0.76rem">${a.insurer}${a.surveyor?`<div style="font-size:0.68rem;color:var(--text-muted)">ช่าง: ${a.surveyor}</div>`:''}</td>
                   <td style="font-size:0.74rem;max-width:180px">${a.damage}${a.estimateApproved?`<div style="color:var(--success);font-weight:700">อนุมัติ ฿${a.estimateApproved.toLocaleString()}</div>`:''}</td>
@@ -88,17 +100,19 @@ export default async function SurveyorAppointmentPage(container) {
   function confirmAppt(id) {
     const a = APPTS.find(x => x.id === id)
     openModal({
-      title: `✅ ยืนยันนัด ${id}`,
+      title: `✅ ยืนยันนัด ${a.apptNo || id}`,
       size: 'sm',
       body: `<div class="input-group" style="margin-bottom:10px"><label class="input-label">ชื่อช่างประกัน *</label><input class="input" id="sa-surv" value="${a.surveyor}"></div>
         <div class="input-group"><label class="input-label">หมายเหตุ</label><input class="input" id="sa-note" placeholder="ข้อมูลเพิ่มเติม"></div>`,
       confirmText: '✅ ยืนยันนัด',
-      onConfirm() {
+      async onConfirm() {
         const surv = document.getElementById('sa-surv').value.trim()
         if (!surv) { showToast('❗ ระบุชื่อช่างประกัน', 'error'); return false }
-        a.surveyor = surv; a.status = 'confirmed'
-        showToast(`ยืนยันนัด ${id} กับช่าง ${surv} แล้ว · แจ้งลูกค้า ${a.customer}`, 'success')
-        render()
+        try {
+          await updateDocData('surveyor_appointments', a.id, { surveyor: surv, status: 'confirmed' })
+          showToast(`ยืนยันนัดกับช่าง ${surv} แล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -106,16 +120,20 @@ export default async function SurveyorAppointmentPage(container) {
   function doneAppt(id) {
     const a = APPTS.find(x => x.id === id)
     openModal({
-      title: `📋 บันทึกผลการตรวจ ${id}`,
+      title: `📋 บันทึกผลการตรวจ ${a.apptNo || id}`,
       size: 'sm',
       body: `<div class="input-group" style="margin-bottom:10px"><label class="input-label">วงเงินที่อนุมัติ (บาท)</label><input class="input" type="number" id="sa-amt" placeholder="0 = รอผล"></div>
         <div class="input-group"><label class="input-label">หมายเหตุจากช่าง</label><textarea class="input" id="sa-remark" rows="2"></textarea></div>`,
       confirmText: '💾 บันทึกผล',
-      onConfirm() {
+      async onConfirm() {
         const amt = parseInt(document.getElementById('sa-amt').value) || 0
-        a.status = 'done'; if (amt) a.estimateApproved = amt
-        showToast(`บันทึกผลการตรวจ ${id}${amt ? ` · อนุมัติ ฿${amt.toLocaleString()}` : ''} แล้ว`, 'success')
-        render()
+        const patch = { status: 'done' }
+        if (amt) patch.estimateApproved = amt
+        try {
+          await updateDocData('surveyor_appointments', a.id, patch)
+          showToast(`บันทึกผลการตรวจแล้ว${amt ? ` · อนุมัติ ฿${amt.toLocaleString()}` : ''}`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -139,18 +157,20 @@ export default async function SurveyorAppointmentPage(container) {
         <div class="input-group"><label class="input-label">ความเสียหาย</label><input class="input" id="sa-dmg"></div>
       </div>`,
       confirmText: '📅 สร้างนัด',
-      onConfirm() {
+      async onConfirm() {
         const claimNo = document.getElementById('sa-claim').value.trim()
         const customer = document.getElementById('sa-cust').value.trim()
         const date = document.getElementById('sa-date').value
         if (!claimNo || !customer || !date) { showToast('❗ กรอกข้อมูลที่จำเป็น', 'error'); return false }
-        const id = 'SA-' + String(APPTS.length + 1).padStart(3,'0')
-        APPTS.unshift({ id, claimNo, customer, plate: document.getElementById('sa-plate').value.trim(),
-          model: document.getElementById('sa-model').value.trim(), insurer: document.getElementById('sa-ins').value,
-          surveyor: '', date, time: document.getElementById('sa-time').value,
-          status: 'pending', damage: document.getElementById('sa-dmg').value.trim() })
-        showToast(`สร้างนัดช่างประกัน ${id} แล้ว · แจ้งบริษัทประกัน`, 'success')
-        render()
+        const apptNo = 'SA-' + Date.now().toString().slice(-6)
+        try {
+          await createDoc('surveyor_appointments', { apptNo, claimNo, customer, plate: document.getElementById('sa-plate').value.trim(),
+            model: document.getElementById('sa-model').value.trim(), insurer: document.getElementById('sa-ins').value,
+            surveyor: '', date, time: document.getElementById('sa-time').value,
+            status: 'pending', damage: document.getElementById('sa-dmg').value.trim() })
+          showToast(`สร้างนัดช่างประกัน ${apptNo} แล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -159,5 +179,5 @@ export default async function SurveyorAppointmentPage(container) {
     return `<div class="card" style="padding:14px 16px"><div style="font-size:0.72rem;color:var(--text-muted)">${l}</div><div style="font-size:1.4rem;font-weight:900;color:${c};margin-top:2px">${v}</div></div>`
   }
 
-  render()
+  await loadData()
 }

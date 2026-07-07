@@ -5,6 +5,7 @@
 import { formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 
 const TECH_SKILLS = {
   general: { label: 'ทั่วไป', color: 'secondary', icon: '🔧' },
@@ -20,14 +21,6 @@ const SHIFT_COLORS = {
   leave: '#94a3b8',
 }
 
-const TECHNICIANS = [
-  { id: 'T001', name: 'วิทยา ช่างใหญ่', skills: ['general','ev'], level: 'Senior', efficiency: 94, jobsToday: 3 },
-  { id: 'T002', name: 'สุรชัย มือดี', skills: ['ev','electric'], level: 'Specialist', efficiency: 88, jobsToday: 4 },
-  { id: 'T003', name: 'มานะ ขยัน', skills: ['general','body'], level: 'Junior', efficiency: 76, jobsToday: 2 },
-  { id: 'T004', name: 'ชาตรี แข็งแกร่ง', skills: ['aircon','general'], level: 'Senior', efficiency: 91, jobsToday: 3 },
-  { id: 'T005', name: 'ประสิทธิ์ ดีเด่น', skills: ['general'], level: 'Technician', efficiency: 82, jobsToday: 5 },
-]
-
 const WEEK_DAYS = ['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา']
 const SCHEDULE = {
   T001: ['morning','morning','morning','afternoon','morning','leave','leave'],
@@ -38,10 +31,25 @@ const SCHEDULE = {
 }
 
 export default async function TechnicianSchedulePage(container) {
-  let techs = TECHNICIANS.map(t => ({ ...t }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let techs = []
   let skillFilter = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { techs = await listDocs('technician_schedule', [], 'name', 'asc', 200) } catch (e) { techs = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = techs.filter(t =>
       skillFilter === 'all' || t.skills.includes(skillFilter)
     )
@@ -163,15 +171,20 @@ export default async function TechnicianSchedulePage(container) {
           <div class="input-group"><label class="input-label">ทะเบียนรถ</label><input class="input" id="as-plate" placeholder="1กข-1234"></div>
         </div>
       `,
-      onConfirm() {
+      async onConfirm() {
         const techId = document.getElementById('as-tech')?.value
         const t = techs.find(x => x.id === techId)
-        if (t) { t.jobsToday++; showToast(`✅ มอบงานให้ ${t.name} แล้ว`, 'success'); renderPage() }
+        if (!t) return
+        try {
+          await updateDocData('technician_schedule', t.id, { jobsToday: t.jobsToday + 1 })
+          showToast(`✅ มอบงานให้ ${t.name} แล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

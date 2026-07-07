@@ -400,6 +400,24 @@ export function seedDemoData() {
   ]
   serviceReminders.forEach(r => { if (!demoCol('service_reminders')[r.id]) demoCol('service_reminders')[r.id] = r })
 
+  // Surveyor appointments (หน้า /service/surveyor)
+  const surveyorAppointments = [
+    { id:'SA-001', claimNo:'CLM-2401', customer:'คุณสมชาย', plate:'กข-1234', model:'BYD Atto 3', insurer:'กรุงเทพประกันภัย', surveyor:'คุณสมศักดิ์', date:'2026-06-16', time:'10:00', status:'confirmed', damage:'กันชนหน้า ฝากระโปรง' },
+    { id:'SA-002', claimNo:'CLM-2398', customer:'คุณวันดี', plate:'1กก-5678', model:'MG ZS EV', insurer:'วิริยะประกันภัย', surveyor:'', date:'2026-06-17', time:'13:30', status:'pending', damage:'ประตูซ้ายบุบ กระจกแตก' },
+    { id:'SA-003', claimNo:'CLM-2390', customer:'บ.รุ่งเรือง', plate:'2ขข-9999', model:'BYD Seal AWD', insurer:'เมืองไทยประกันภัย', surveyor:'คุณสมหมาย', date:'2026-06-14', time:'09:00', status:'done', damage:'หลังคาบุบ หน้าต่างร้าว', estimateApproved:85000 },
+  ]
+  surveyorAppointments.forEach(a => { if (!demoCol('surveyor_appointments')[a.id]) demoCol('surveyor_appointments')[a.id] = a })
+
+  // Technician schedule (หน้า /service/technicians)
+  const technicianSchedule = [
+    { id:'T001', name:'วิทยา ช่างใหญ่', skills:['general','ev'], level:'Senior', efficiency:94, jobsToday:3 },
+    { id:'T002', name:'สุรชัย มือดี', skills:['ev','electric'], level:'Specialist', efficiency:88, jobsToday:4 },
+    { id:'T003', name:'มานะ ขยัน', skills:['general','body'], level:'Junior', efficiency:76, jobsToday:2 },
+    { id:'T004', name:'ชาตรี แข็งแกร่ง', skills:['aircon','general'], level:'Senior', efficiency:91, jobsToday:3 },
+    { id:'T005', name:'ประสิทธิ์ ดีเด่น', skills:['general'], level:'Technician', efficiency:82, jobsToday:5 },
+  ]
+  technicianSchedule.forEach(t => { if (!demoCol('technician_schedule')[t.id]) demoCol('technician_schedule')[t.id] = t })
+
   const accessories = [
     { id:'acc1', name:'ฟิล์มกรองแสง 3M Crystalline', sku:'ACC-3M-001', category:'ฟิล์ม', price:18000, cost:10000, stock:5, unit:'ชุด', brand:'3M', createdAt:'2025-01-10' },
     { id:'acc2', name:'พรมรถ BYD Seal OEM', sku:'ACC-BYD-002', category:'ตกแต่งภายใน', price:3500, cost:1800, stock:12, unit:'ชุด', brand:'BYD', createdAt:'2025-01-15' },
