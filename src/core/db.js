@@ -689,6 +689,33 @@ export function seedDemoData() {
   ]
   leadGenCampaigns.forEach(c => { if (!demoCol('lead_gen_campaigns')[c.id]) demoCol('lead_gen_campaigns')[c.id] = c })
 
+  // LINE OA broadcasts + auto-replies (หน้า /marketing/line-oa)
+  const loAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString() }
+  const lineOaBroadcasts = [
+    { id:'LB001', name:'โปรเดือนมิ.ย. — BYD Dolphin ลด 50K', type:'rich', sent:4500, opened:2890, clicked:645, status:'sent', time:loAddDays(-5) },
+    { id:'LB002', name:'คูปองส่วนลดบริการ 20%', type:'coupon', sent:4480, opened:3120, clicked:890, status:'sent', time:loAddDays(-12) },
+    { id:'LB003', name:'เชิญงาน Open House เสาร์นี้', type:'broadcast', sent:0, opened:0, clicked:0, status:'scheduled', time:loAddDays(2) },
+  ]
+  lineOaBroadcasts.forEach(b => { if (!demoCol('line_oa_broadcasts')[b.id]) demoCol('line_oa_broadcasts')[b.id] = b })
+
+  const lineOaAutoReplies = [
+    { id:'AR01', keyword:'ราคา, เท่าไหร่, กี่บาท', reply:'ดูราคาทุกรุ่นได้ที่ lamom.one/price หรือพิมพ์ชื่อรุ่นที่สนใจได้เลยค่ะ 😊', active:true, triggers30d:234 },
+    { id:'AR02', keyword:'ทดลองขับ, test drive', reply:'นัดทดลองขับฟรี! แจ้งวัน-เวลาที่สะดวก หรือโทร 02-xxx-xxxx ค่ะ 🚗', active:true, triggers30d:156 },
+    { id:'AR03', keyword:'เช็คระยะ, นัดซ่อม, ศูนย์', reply:'นัดเช็คระยะ: แจ้งทะเบียนรถ + วันที่สะดวกได้เลยค่ะ มีบริการรับ-ส่งฟรี 10 กม. 🔧', active:true, triggers30d:189 },
+    { id:'AR04', keyword:'ที่อยู่, แผนที่, พิกัด', reply:'โชว์รูม LAMOM: ถนนบางนา-ตราด กม.5 เปิดทุกวัน 8:30-18:00 📍 maps.app/lamom', active:true, triggers30d:98 },
+    { id:'AR05', keyword:'ผ่อน, ไฟแนนซ์, ดาวน์', reply:'คำนวณค่างวดเบื้องต้น: แจ้งรุ่น + เงินดาวน์ที่ต้องการ เดี๋ยวทีมงานคำนวณให้ค่ะ 🏦', active:false, triggers30d:0 },
+  ]
+  lineOaAutoReplies.forEach(a => { if (!demoCol('line_oa_auto_replies')[a.id]) demoCol('line_oa_auto_replies')[a.id] = a })
+
+  // Social Hub posts (หน้า /marketing/social-hub)
+  const socialPosts = [
+    { id:'P001', content:'🔥 BYD Seal AWD ราคาพิเศษ 1,299,000 บาท\n✅ ดอกเบี้ย 2.79% ผ่อน 20,420 บาท/เดือน\n📞 ติดต่อ: 02-123-4567\n#EV #BYD #LAMOMONE', platforms:['facebook','instagram'], status:'published', scheduledAt:'2025-06-05 09:00', publishedAt:'2025-06-05 09:01', likes:234, comments:18, shares:45, reach:12400, image:null },
+    { id:'P002', content:'🎯 ทดลองขับฟรี MG4 X\n📅 10 มิ.ย. 2025 เวลา 10:00-17:00\n📍 โชว์รูม LAMOM ONE สาขาหลัก\n#TestDrive #MG4', platforms:['facebook','line','tiktok'], status:'scheduled', scheduledAt:'2025-06-09 08:00', publishedAt:null, likes:0, comments:0, shares:0, reach:0, image:null },
+    { id:'P003', content:'💬 ขอบคุณรีวิวจาก คุณสมชาย ใจดี\n"ประทับใจมาก ทีมงานดูแลดีมาก"\n🚗 BYD Seal AWD\n#CustomerReview', platforms:['facebook','instagram'], status:'draft', scheduledAt:null, publishedAt:null, likes:0, comments:0, shares:0, reach:0, image:null },
+    { id:'P004', content:'🥳 ยินดีต้อนรับสู่ครอบครัว EV!\nคุณวิชัย เดินดี รับรถ MG4 X สีดำ 🚗✨\n#NewCarDay #MG4 #LAMOMONE', platforms:['facebook','tiktok'], status:'published', scheduledAt:'2025-06-02 10:00', publishedAt:'2025-06-02 10:01', likes:567, comments:42, shares:88, reach:28900, image:null },
+  ]
+  socialPosts.forEach(p => { if (!demoCol('social_posts')[p.id]) demoCol('social_posts')[p.id] = p })
+
   // Quality incidents (หน้า /quality/incidents)
   const qualityIncidents = [
     { id:'INC001', title:'รถลูกค้าถูกขีดข่วนระหว่างล้าง', cat:'vehicle', severity:'major', status:'action', reporter:'หัวหน้าทีมล้างรถ', date:new Date(Date.now()-86400000*2).toISOString(), rootCause:'อุปกรณ์ล้างเก่า มีเศษทราย', action:'เปลี่ยนผ้าไมโครไฟเบอร์ใหม่ทั้งชุด + ชดเชยลูกค้า' },
@@ -1343,8 +1370,11 @@ export function seedDemoData() {
   landingPages.forEach(l => { if (!demoCol('landing_pages')[l.id]) demoCol('landing_pages')[l.id] = l })
 
   const utmLinks = [
-    { id:'utm1', name:'Facebook BYD Seal', source:'facebook', medium:'social', campaign:'byd-seal-launch', clicks:342, leads:28, cost:5000, cpl:178, createdAt:'2025-06-01' },
-    { id:'utm2', name:'Google BYD Atto', source:'google', medium:'cpc', campaign:'byd-atto-search', clicks:520, leads:42, cost:8000, cpl:190, createdAt:'2025-06-01' },
+    { id:'utm1', name:'Facebook June Promo', url:'https://lamom.one/atto3',  source:'facebook', medium:'paid',   campaign:'june_promo',  clicks:1240, leads:87,  conv:7.0, created:'2026-06-01' },
+    { id:'utm2', name:'Google Search BYD',   url:'https://lamom.one/byd',    source:'google',   medium:'cpc',    campaign:'byd_search',  clicks:890,  leads:54,  conv:6.1, created:'2026-05-15' },
+    { id:'utm3', name:'LINE Official June',  url:'https://lamom.one/line',   source:'line',     medium:'social', campaign:'line_june',   clicks:2100, leads:89,  conv:4.2, created:'2026-06-01' },
+    { id:'utm4', name:'TikTok Viral Clip',   url:'https://lamom.one/tiktok', source:'tiktok',   medium:'video',  campaign:'viral_q2',    clicks:5600, leads:145, conv:2.6, created:'2026-05-20' },
+    { id:'utm5', name:'Email Newsletter',    url:'https://lamom.one/email',  source:'email',    medium:'email',  campaign:'newsletter',  clicks:320,  leads:38,  conv:11.9,created:'2026-06-10' },
   ]
   utmLinks.forEach(u => { if (!demoCol('utm_links')[u.id]) demoCol('utm_links')[u.id] = u })
 

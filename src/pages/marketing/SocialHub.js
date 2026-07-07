@@ -1,5 +1,6 @@
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 
 const PLATFORMS = {
   facebook: { label: 'Facebook', icon: '📘', color: 'primary' },
@@ -25,17 +26,21 @@ const CONTENT_TEMPLATES = [
   { id:'T005', name:'🎉 Delivery Congratulations', body:'🥳 ยินดีต้อนรับสู่ครอบครัว EV!\nคุณ[ชื่อ] รับรถ [รุ่นรถ] สีสวยงาม 🚗✨\n#NewCarDay #EV #Congratulations #LAMOMONE', type:'delivery' },
 ]
 
-const DEMO_POSTS = [
-  { id:'P001', content:'🔥 BYD Seal AWD ราคาพิเศษ 1,299,000 บาท\n✅ ดอกเบี้ย 2.79% ผ่อน 20,420 บาท/เดือน\n📞 ติดต่อ: 02-123-4567\n#EV #BYD #LAMOMONE', platforms:['facebook','instagram'], status:'published', scheduledAt:'2025-06-05 09:00', publishedAt:'2025-06-05 09:01', likes:234, comments:18, shares:45, reach:12400, image:null },
-  { id:'P002', content:'🎯 ทดลองขับฟรี MG4 X\n📅 10 มิ.ย. 2025 เวลา 10:00-17:00\n📍 โชว์รูม LAMOM ONE สาขาหลัก\n#TestDrive #MG4', platforms:['facebook','line','tiktok'], status:'scheduled', scheduledAt:'2025-06-09 08:00', publishedAt:null, likes:0, comments:0, shares:0, reach:0, image:null },
-  { id:'P003', content:'💬 ขอบคุณรีวิวจาก คุณสมชาย ใจดี\n"ประทับใจมาก ทีมงานดูแลดีมาก"\n🚗 BYD Seal AWD\n#CustomerReview', platforms:['facebook','instagram'], status:'draft', scheduledAt:null, publishedAt:null, likes:0, comments:0, shares:0, reach:0, image:null },
-  { id:'P004', content:'🥳 ยินดีต้อนรับสู่ครอบครัว EV!\nคุณวิชัย เดินดี รับรถ MG4 X สีดำ 🚗✨\n#NewCarDay #MG4 #LAMOMONE', platforms:['facebook','tiktok'], status:'published', scheduledAt:'2025-06-02 10:00', publishedAt:'2025-06-02 10:01', likes:567, comments:42, shares:88, reach:28900, image:null },
-]
-
 export default async function SocialHubPage(container) {
-  let posts = DEMO_POSTS.map(p => ({ ...p }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let posts = []
   let tab = 'calendar' // calendar | composer | templates | analytics
   let statusFilter = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { posts = await listDocs('social_posts', [], 'createdAt', 'desc', 500) } catch (e) { posts = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function getFiltered() {
     let list = posts
@@ -54,6 +59,10 @@ export default async function SocialHubPage(container) {
   }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const s = getOverallStats()
 
     container.innerHTML = `
@@ -321,28 +330,34 @@ export default async function SocialHubPage(container) {
       return [...document.querySelectorAll('.platform-cb:checked')].map(cb => cb.dataset.p)
     }
 
-    document.getElementById('save-draft-btn')?.addEventListener('click', () => {
+    document.getElementById('save-draft-btn')?.addEventListener('click', async () => {
       const content = ta.value.trim()
       if (!content) return showToast('❗ กรุณาเขียนเนื้อหา', 'warning')
-      posts.unshift({ id:'P'+Date.now(), content, platforms: getSelectedPlatforms(), status:'draft', scheduledAt:null, publishedAt:null, likes:0, comments:0, shares:0, reach:0 })
-      showToast('💾 บันทึก Draft แล้ว', 'success'); tab = 'calendar'; renderPage()
+      try {
+        await createDoc('social_posts', { content, platforms: getSelectedPlatforms(), status:'draft', scheduledAt:null, publishedAt:null, likes:0, comments:0, shares:0, reach:0 })
+        showToast('💾 บันทึก Draft แล้ว', 'success'); tab = 'calendar'; await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
 
-    document.getElementById('schedule-post-btn')?.addEventListener('click', () => {
+    document.getElementById('schedule-post-btn')?.addEventListener('click', async () => {
       const content = ta.value.trim()
       const dt = document.getElementById('post-schedule')?.value
       if (!content) return showToast('❗ กรุณาเขียนเนื้อหา', 'warning')
       if (!dt) return showToast('❗ เลือกวันเวลาเผยแพร่', 'warning')
-      posts.unshift({ id:'P'+Date.now(), content, platforms: getSelectedPlatforms(), status:'scheduled', scheduledAt:dt, publishedAt:null, likes:0, comments:0, shares:0, reach:0 })
-      showToast('📅 Schedule Post แล้ว!', 'success'); tab = 'calendar'; renderPage()
+      try {
+        await createDoc('social_posts', { content, platforms: getSelectedPlatforms(), status:'scheduled', scheduledAt:dt, publishedAt:null, likes:0, comments:0, shares:0, reach:0 })
+        showToast('📅 Schedule Post แล้ว!', 'success'); tab = 'calendar'; await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
 
-    document.getElementById('publish-now-btn')?.addEventListener('click', () => {
+    document.getElementById('publish-now-btn')?.addEventListener('click', async () => {
       const content = ta.value.trim()
       if (!content) return showToast('❗ กรุณาเขียนเนื้อหา', 'warning')
       const now = new Date().toISOString().slice(0,16).replace('T',' ')
-      posts.unshift({ id:'P'+Date.now(), content, platforms: getSelectedPlatforms(), status:'published', scheduledAt:now, publishedAt:now, likes:0, comments:0, shares:0, reach:Math.floor(Math.random()*5000)+500 })
-      showToast('🚀 เผยแพร่แล้ว!', 'success'); tab = 'calendar'; renderPage()
+      try {
+        await createDoc('social_posts', { content, platforms: getSelectedPlatforms(), status:'published', scheduledAt:now, publishedAt:now, likes:0, comments:0, shares:0, reach:Math.floor(Math.random()*5000)+500 })
+        showToast('🚀 เผยแพร่แล้ว!', 'success'); tab = 'calendar'; await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
@@ -373,7 +388,7 @@ export default async function SocialHubPage(container) {
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(title, value, color) {

@@ -4,17 +4,22 @@
  */
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-
-let UTM_LINKS = [
-  { id:'U001', name:'Facebook June Promo', url:'https://lamom.one/atto3',  source:'facebook', medium:'paid',   campaign:'june_promo',  clicks:1240, leads:87,  conv:7.0, created:'2026-06-01' },
-  { id:'U002', name:'Google Search BYD',   url:'https://lamom.one/byd',    source:'google',   medium:'cpc',    campaign:'byd_search',  clicks:890,  leads:54,  conv:6.1, created:'2026-05-15' },
-  { id:'U003', name:'LINE Official June',  url:'https://lamom.one/line',   source:'line',     medium:'social', campaign:'line_june',   clicks:2100, leads:89,  conv:4.2, created:'2026-06-01' },
-  { id:'U004', name:'TikTok Viral Clip',   url:'https://lamom.one/tiktok', source:'tiktok',   medium:'video',  campaign:'viral_q2',    clicks:5600, leads:145, conv:2.6, created:'2026-05-20' },
-  { id:'U005', name:'Email Newsletter',    url:'https://lamom.one/email',  source:'email',    medium:'email',  campaign:'newsletter',  clicks:320,  leads:38,  conv:11.9,created:'2026-06-10' },
-]
+import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 
 export default async function UtmTrackerPage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let UTM_LINKS = []
   let filterSrc = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { UTM_LINKS = await listDocs('utm_links', [], 'created', 'desc', 500) } catch (e) { UTM_LINKS = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function linkRow(u) {
     const convColor = u.conv >= 7 ? 'var(--success)' : u.conv >= 4 ? 'var(--warning)' : 'var(--danger)'
@@ -41,6 +46,10 @@ export default async function UtmTrackerPage(container) {
   }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const sources = [...new Set(UTM_LINKS.map(u=>u.source))]
     let rows = filterSrc === 'all' ? UTM_LINKS : UTM_LINKS.filter(u=>u.source===filterSrc)
 
@@ -112,15 +121,18 @@ export default async function UtmTrackerPage(container) {
         <div><label style="font-size:0.72rem;color:var(--text-muted)">utm_campaign</label><input class="input" id="utm-camp" style="width:100%;margin-top:3px" placeholder="june_promo_2026..."></div>
       </div>`,
       confirmText:'🔗 สร้าง Link',
-      onConfirm() {
+      async onConfirm() {
         const name=document.getElementById('utm-name')?.value?.trim()
         const url=document.getElementById('utm-url')?.value?.trim()
         const camp=document.getElementById('utm-camp')?.value?.trim()
         if(!name||!url||!camp){showToast('กรอกข้อมูลให้ครบ','warning');return false}
         const src=document.getElementById('utm-src')?.value||'facebook'
         const med=document.getElementById('utm-med')?.value||'paid'
-        UTM_LINKS.push({id:'U'+Date.now(),name,url,source:src,medium:med,campaign:camp,clicks:0,leads:0,conv:0,created:'2026-06-15'})
-        render(); showToast('🔗 สร้าง UTM Link: '+name,'success')
+        try {
+          await createDoc('utm_links', { name, url, source:src, medium:med, campaign:camp, clicks:0, leads:0, conv:0, created:new Date().toISOString().slice(0,10) })
+          showToast('🔗 สร้าง UTM Link: '+name,'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -132,5 +144,5 @@ export default async function UtmTrackerPage(container) {
     </div>`
   }
 
-  render()
+  await loadData()
 }

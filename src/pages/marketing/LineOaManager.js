@@ -5,6 +5,7 @@
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString() }
 function escHtml(s) {
@@ -20,26 +21,33 @@ const MSG_TYPES = {
 
 const OA_STATS = { followers: 4820, blocked: 312, monthlyGrowth: 156, replyRate: 92 }
 
-const DEMO_BROADCASTS = [
-  { id: 'LB001', name: 'โปรเดือนมิ.ย. — BYD Dolphin ลด 50K', type: 'rich', sent: 4500, opened: 2890, clicked: 645, status: 'sent', time: addDays(-5) },
-  { id: 'LB002', name: 'คูปองส่วนลดบริการ 20%', type: 'coupon', sent: 4480, opened: 3120, clicked: 890, status: 'sent', time: addDays(-12) },
-  { id: 'LB003', name: 'เชิญงาน Open House เสาร์นี้', type: 'broadcast', sent: 0, opened: 0, clicked: 0, status: 'scheduled', time: addDays(2) },
-]
-
-const AUTO_REPLIES = [
-  { id: 'AR01', keyword: 'ราคา, เท่าไหร่, กี่บาท', reply: 'ดูราคาทุกรุ่นได้ที่ lamom.one/price หรือพิมพ์ชื่อรุ่นที่สนใจได้เลยค่ะ 😊', active: true, triggers30d: 234 },
-  { id: 'AR02', keyword: 'ทดลองขับ, test drive', reply: 'นัดทดลองขับฟรี! แจ้งวัน-เวลาที่สะดวก หรือโทร 02-xxx-xxxx ค่ะ 🚗', active: true, triggers30d: 156 },
-  { id: 'AR03', keyword: 'เช็คระยะ, นัดซ่อม, ศูนย์', reply: 'นัดเช็คระยะ: แจ้งทะเบียนรถ + วันที่สะดวกได้เลยค่ะ มีบริการรับ-ส่งฟรี 10 กม. 🔧', active: true, triggers30d: 189 },
-  { id: 'AR04', keyword: 'ที่อยู่, แผนที่, พิกัด', reply: 'โชว์รูม LAMOM: ถนนบางนา-ตราด กม.5 เปิดทุกวัน 8:30-18:00 📍 maps.app/lamom', active: true, triggers30d: 98 },
-  { id: 'AR05', keyword: 'ผ่อน, ไฟแนนซ์, ดาวน์', reply: 'คำนวณค่างวดเบื้องต้น: แจ้งรุ่น + เงินดาวน์ที่ต้องการ เดี๋ยวทีมงานคำนวณให้ค่ะ 🏦', active: false, triggers30d: 0 },
-]
-
 export default async function LineOaManagerPage(container) {
-  let broadcasts = DEMO_BROADCASTS.map(b => ({ ...b }))
-  let autoReplies = AUTO_REPLIES.map(a => ({ ...a }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let broadcasts = []
+  let autoReplies = []
   let activeTab = 'broadcast'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try {
+      const [b, a] = await Promise.all([
+        listDocs('line_oa_broadcasts', [], 'time', 'desc', 200),
+        listDocs('line_oa_auto_replies', [], 'keyword', 'asc', 200),
+      ])
+      broadcasts = b; autoReplies = a
+    } catch (e) { broadcasts = []; autoReplies = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     container.innerHTML = `
       <div class="page-content animate-slide">
         <div class="page-header">
@@ -116,14 +124,22 @@ export default async function LineOaManagerPage(container) {
     `
 
     container.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => { activeTab = b.dataset.t; renderPage() }))
-    container.querySelectorAll('.toggle-ar-btn').forEach(b => b.addEventListener('click', () => {
-      const a = autoReplies.find(x => x.id === b.dataset.id); if (a) { a.active = !a.active; renderPage() }
+    container.querySelectorAll('.toggle-ar-btn').forEach(b => b.addEventListener('click', async () => {
+      const a = autoReplies.find(x => x.id === b.dataset.id)
+      if (!a) return
+      a.active = !a.active
+      renderPage()
+      try { await updateDocData('line_oa_auto_replies', a.id, { active: a.active }) } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.edit-ar-btn').forEach(b => b.addEventListener('click', () => {
       const a = autoReplies.find(x => x.id === b.dataset.id); if (a) openArForm(a)
     }))
-    container.querySelectorAll('.cancel-bc-btn').forEach(b => b.addEventListener('click', () => {
-      broadcasts = broadcasts.filter(x => x.id !== b.dataset.id); showToast('🚫 ยกเลิกแล้ว', 'secondary'); renderPage()
+    container.querySelectorAll('.cancel-bc-btn').forEach(b => b.addEventListener('click', async () => {
+      try {
+        await softDelete('line_oa_broadcasts', b.dataset.id)
+        showToast('🚫 ยกเลิกแล้ว', 'secondary')
+        await loadData()
+      } catch (e) { showToast('ยกเลิกไม่สำเร็จ', 'error') }
     }))
     document.getElementById('add-ar-btn')?.addEventListener('click', () => openArForm())
     document.getElementById('new-broadcast-btn')?.addEventListener('click', () => {
@@ -138,11 +154,14 @@ export default async function LineOaManagerPage(container) {
           <div class="input-group"><label class="input-label">กำหนดส่ง</label><input class="input" type="date" id="bc-date" value="${addDays(1).slice(0,10)}"></div>
           <div style="font-size:0.7rem;color:var(--text-muted)">💚 จะส่งถึง followers ทั้งหมด ~${(OA_STATS.followers - OA_STATS.blocked).toLocaleString()} คน</div>
         </div>`,
-        onConfirm() {
+        async onConfirm() {
           const name = document.getElementById('bc-name')?.value?.trim()
-          if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return }
-          broadcasts.unshift({ id:`LB${String(broadcasts.length+1).padStart(3,'0')}`, name, type:document.getElementById('bc-type')?.value||'broadcast', sent:0, opened:0, clicked:0, status:'scheduled', time:document.getElementById('bc-date')?.value||addDays(1) })
-          showToast('📢 สร้าง Broadcast แล้ว', 'success'); renderPage()
+          if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return false }
+          try {
+            await createDoc('line_oa_broadcasts', { name, type:document.getElementById('bc-type')?.value||'broadcast', sent:0, opened:0, clicked:0, status:'scheduled', time:document.getElementById('bc-date')?.value||addDays(1) })
+            showToast('📢 สร้าง Broadcast แล้ว', 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     })
@@ -156,18 +175,21 @@ export default async function LineOaManagerPage(container) {
         <div class="input-group"><label class="input-label">Keywords (คั่นด้วย ,) *</label><input class="input" id="ar-kw" value="${a?.keyword||''}"></div>
         <div class="input-group"><label class="input-label">ข้อความตอบ *</label><textarea class="input" id="ar-reply" rows="3">${escHtml(a?.reply||'')}</textarea></div>
       </div>`,
-      onConfirm() {
+      async onConfirm() {
         const kw = document.getElementById('ar-kw')?.value?.trim()
         const reply = document.getElementById('ar-reply')?.value?.trim()
-        if (!kw || !reply) { showToast('❗ กรอกให้ครบ', 'error'); return }
-        if (a) { a.keyword = kw; a.reply = reply }
-        else autoReplies.push({ id:`AR${String(autoReplies.length+1).padStart(2,'0')}`, keyword:kw, reply, active:true, triggers30d:0 })
-        showToast('✅ บันทึกกฎแล้ว', 'success'); renderPage()
+        if (!kw || !reply) { showToast('❗ กรอกให้ครบ', 'error'); return false }
+        try {
+          if (a) await updateDocData('line_oa_auto_replies', a.id, { keyword: kw, reply })
+          else await createDoc('line_oa_auto_replies', { keyword: kw, reply, active: true, triggers30d: 0 })
+          showToast('✅ บันทึกกฎแล้ว', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
