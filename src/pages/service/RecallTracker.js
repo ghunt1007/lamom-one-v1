@@ -6,6 +6,7 @@ import { formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
+import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 
 const RECALLS = [
   { id:'RC001', campaign:'BYD-TH-2025-001', model:'BYD Atto 3 (MY2024)', issue:'อัปเดต Software BMS ป้องกันการชาร์จเกิน', severity:'medium', announced:'2025-08-15', deadline:'2026-02-15', parts:'Software update only', labor:0 },
@@ -13,22 +14,30 @@ const RECALLS = [
   { id:'RC003', campaign:'MG-TH-2024-005', model:'MG ZS EV (MY2023)', issue:'อัปเดต Firmware ระบบเบรก ABS', severity:'critical', announced:'2024-12-01', deadline:'2025-12-01', parts:'Software update', labor:0 },
 ]
 
-let VEHICLES = [
-  { vin:'LGXC4EBA5PA000101', plate:'กข-1234', model:'BYD Atto 3', owner:'นภา มีสุข', phone:'081-234-5678', recalls:['RC001'], status:{ RC001:'pending' } },
-  { vin:'LGXC5EBA6PA000202', plate:'กข-5678', model:'BYD Seal AWD', owner:'สมชาย วิเศษ', phone:'089-876-5432', recalls:['RC002'], status:{ RC002:'notified' } },
-  { vin:'LGXC4EBA5PA000303', plate:'กก-0009', model:'BYD Atto 3', owner:'รัชนี สุขใจ', phone:'062-222-3333', recalls:['RC001'], status:{ RC001:'completed' } },
-  { vin:'LSGBC54C5PA000404', plate:'กก-1234', model:'MG ZS EV', owner:'มาลี จันทร์ดี', phone:'076-111-2222', recalls:['RC003'], status:{ RC003:'pending' } },
-  { vin:'LGXC5EBA6PA000505', plate:'กก-5678', model:'BYD Seal AWD', owner:'วิชัย รุ่งเรือง', phone:'095-555-6666', recalls:['RC002'], status:{ RC002:'completed' } },
-]
-
 const SEV = { critical:{ label:'วิกฤต', color:'var(--danger)' }, high:{ label:'สูง', color:'#FF6F00' }, medium:{ label:'กลาง', color:'var(--warning)' }, low:{ label:'ต่ำ', color:'var(--text-muted)' } }
 const WST = { pending:{ label:'ยังไม่ดำเนินการ', color:'var(--danger)' }, notified:{ label:'แจ้งแล้ว', color:'var(--warning)' }, completed:{ label:'เสร็จแล้ว', color:'var(--success)' } }
 
 export default async function RecallTrackerPage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+
   let filterRecall = 'all'
   let filterWst = 'all'
+  let VEHICLES = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { VEHICLES = await listDocs('recall_tracker_vehicles', [], 'plate', 'asc', 500) } catch (e) { VEHICLES = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const pending = VEHICLES.filter(v => Object.values(v.status).some(s => s === 'pending')).length
     const notified = VEHICLES.filter(v => Object.values(v.status).some(s => s === 'notified')).length
     const completed = VEHICLES.filter(v => Object.values(v.status).every(s => s === 'completed')).length
@@ -133,10 +142,17 @@ export default async function RecallTrackerPage(container) {
 
     document.getElementById('sel-recall')?.addEventListener('change', e => { filterRecall=e.target.value; render() })
     document.getElementById('sel-wst')?.addEventListener('change', e => { filterWst=e.target.value; render() })
-    document.getElementById('notify-pending-btn')?.addEventListener('click', () => {
-      const n = VEHICLES.filter(v=>Object.values(v.status).some(s=>s==='pending')).length
-      VEHICLES.forEach(v => { Object.keys(v.status).forEach(k => { if(v.status[k]==='pending') v.status[k]='notified' }) })
-      render(); showToast(`📢 แจ้ง ${n} เจ้าของรถทาง SMS+LINE แล้ว`, 'success')
+    document.getElementById('notify-pending-btn')?.addEventListener('click', async () => {
+      const toNotify = VEHICLES.filter(v=>Object.values(v.status).some(s=>s==='pending'))
+      try {
+        await Promise.all(toNotify.map(v => {
+          const newStatus = { ...v.status }
+          Object.keys(newStatus).forEach(k => { if (newStatus[k]==='pending') newStatus[k]='notified' })
+          return updateDocData('recall_tracker_vehicles', v.id, { status: newStatus })
+        }))
+        showToast(`📢 แจ้ง ${toNotify.length} เจ้าของรถแล้ว`, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
     document.getElementById('report-btn')?.addEventListener('click', () => {
       const rows = VEHICLES.flatMap(v => v.recalls.map(rid => {
@@ -157,21 +173,35 @@ export default async function RecallTrackerPage(container) {
       exportToExcel(rows, 'Recall_Tracker_Report.xlsx', 'Recall')
       showToast(`📊 Export รายงาน Recall ${rows.length} รายการแล้ว`, 'success')
     })
-    container.querySelectorAll('.notify-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.notify-btn').forEach(b => b.addEventListener('click', async () => {
       const v = VEHICLES.find(x=>x.vin===b.dataset.vin)
-      if (v) { Object.keys(v.status).forEach(k=>{if(v.status[k]==='pending')v.status[k]='notified'}); render(); showToast(`📢 แจ้ง ${v.owner} แล้ว`, 'success') }
+      if (!v) return
+      const newStatus = { ...v.status }
+      Object.keys(newStatus).forEach(k=>{if(newStatus[k]==='pending')newStatus[k]='notified'})
+      try {
+        await updateDocData('recall_tracker_vehicles', v.id, { status: newStatus })
+        showToast(`📢 แจ้ง ${v.owner} แล้ว`, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.done-btn').forEach(b => b.addEventListener('click', () => {
       openModal({ title:'✅ บันทึกงาน Recall', size:'xs',
         body:`<div style="font-size:0.8rem;display:flex;flex-direction:column;gap:8px">
-          <div><label style="font-size:0.72rem;color:var(--text-muted)">วันที่เข้ารับบริการ</label><input class="input" id="rc-date" type="date" value="2026-06-14" style="width:100%;margin-top:4px"></div>
+          <div><label style="font-size:0.72rem;color:var(--text-muted)">วันที่เข้ารับบริการ</label><input class="input" id="rc-date" type="date" value="${new Date().toISOString().slice(0,10)}" style="width:100%;margin-top:4px"></div>
           <div><label style="font-size:0.72rem;color:var(--text-muted)">ช่างผู้รับผิดชอบ</label><input class="input" id="rc-tech" placeholder="ชื่อช่าง" style="width:100%;margin-top:4px"></div>
           <div><label style="font-size:0.72rem;color:var(--text-muted)">หมายเหตุ</label><input class="input" id="rc-note" placeholder="ผลการซ่อม..." style="width:100%;margin-top:4px"></div>
         </div>`,
         confirmText:'✅ บันทึก',
-        onConfirm() {
+        async onConfirm() {
           const v = VEHICLES.find(x=>x.vin===b.dataset.vin)
-          if (v) { Object.keys(v.status).forEach(k=>{v.status[k]='completed'}); render(); showToast(`✅ บันทึก Recall เสร็จสมบูรณ์`, 'success') }
+          if (!v) return
+          const newStatus = { ...v.status }
+          Object.keys(newStatus).forEach(k=>{newStatus[k]='completed'})
+          try {
+            await updateDocData('recall_tracker_vehicles', v.id, { status: newStatus })
+            showToast(`✅ บันทึก Recall เสร็จสมบูรณ์`, 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     }))
@@ -184,5 +214,5 @@ export default async function RecallTrackerPage(container) {
     </div>`
   }
 
-  render()
+  await loadData()
 }

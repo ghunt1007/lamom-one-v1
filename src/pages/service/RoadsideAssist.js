@@ -5,8 +5,7 @@
 import { timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-
-function addMinutes(n) { const d = new Date(); d.setMinutes(d.getMinutes() - n); return d.toISOString() }
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 const CASE_TYPES = {
   battery_dead: { label: 'แบต 12V หมด', icon: '🔋' },
@@ -25,17 +24,25 @@ const CASE_STATUS = {
   towing:    { label: 'ลากเข้าศูนย์', color: 'warning', icon: '🚛' },
 }
 
-const DEMO_CASES = [
-  { id: 'RA001', customer: 'สมชาย ใจดี', phone: '085-111', plate: '1กข-1234', model: 'BYD Seal', type: 'out_of_charge', location: 'มอเตอร์เวย์ กม.32 ขาออก', status: 'dispatched', reported: addMinutes(18), team: 'ทีมกู้ภัย A (มีตู้ชาร์จเคลื่อนที่)', eta: 15 },
-  { id: 'RA002', customer: 'มาลี สุขใจ', phone: '086-222', plate: '2ขค-5678', model: 'BYD Dolphin', type: 'flat_tire', location: 'ห้าง Mega บางนา ลานจอด B2', status: 'onsite', reported: addMinutes(45), team: 'ทีมกู้ภัย B', eta: 0 },
-  { id: 'RA003', customer: 'วิรัช เก่งมาก', phone: '089-555', plate: '5จฉ-7890', model: 'BYD Han', type: 'battery_dead', location: 'บ้านลูกค้า ซ.ลาซาล 24', status: 'resolved', reported: addMinutes(150), team: 'ทีมกู้ภัย A', eta: 0 },
-  { id: 'RA004', customer: 'ธนพล เที่ยงตรง', phone: '087-333', plate: '3คง-9012', model: 'MG ZS EV', type: 'accident', location: 'แยกบางนา — ชนท้าย', status: 'towing', reported: addMinutes(90), team: 'รถลาก + ประสานประกัน', eta: 20 },
-]
-
 export default async function RoadsideAssistPage(container) {
-  let cases = DEMO_CASES.map(c => ({ ...c }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let cases = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { cases = await listDocs('roadside_cases', [], 'reported', 'desc', 500) } catch (e) { cases = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const active = cases.filter(c => !['resolved'].includes(c.status))
     const newCases = cases.filter(c => c.status === 'new')
     const avgResponse = 22 // นาที
@@ -103,34 +110,54 @@ export default async function RoadsideAssistPage(container) {
           </div>
           <div class="input-group"><label class="input-label">ETA (นาที)</label><input class="input" type="number" id="ra-eta" value="30"></div>
         </div>`,
-        onConfirm() {
-          c.team = document.getElementById('ra-team')?.value || '—'
-          c.eta = parseInt(document.getElementById('ra-eta')?.value) || 30
-          c.status = 'dispatched'
-          showToast(`🚐 ส่งทีมแล้ว — SMS แจ้งลูกค้า ETA ${c.eta} นาที`, 'warning'); renderPage()
+        async onConfirm() {
+          const team = document.getElementById('ra-team')?.value || '—'
+          const eta = parseInt(document.getElementById('ra-eta')?.value) || 30
+          try {
+            await updateDocData('roadside_cases', c.id, { team, eta, status: 'dispatched' })
+            showToast(`🚐 ส่งทีมแล้ว — ETA ${eta} นาที`, 'warning')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     }))
-    container.querySelectorAll('.onsite-btn').forEach(b => b.addEventListener('click', () => {
-      const c = cases.find(x => x.id === b.dataset.id); if (c) { c.status = 'onsite'; c.eta = 0; renderPage() }
-    }))
-    container.querySelectorAll('.resolve-btn').forEach(b => b.addEventListener('click', () => {
-      const c = cases.find(x => x.id === b.dataset.id)
-      if (c) { c.status = 'resolved'; showToast('✅ ปิดเคส — ส่งแบบประเมินความพอใจให้ลูกค้า', 'success'); renderPage() }
-    }))
-    container.querySelectorAll('.tow-btn').forEach(b => b.addEventListener('click', () => {
-      const c = cases.find(x => x.id === b.dataset.id); if (c) { c.status = 'towing'; c.eta = 45; renderPage() }
-    }))
-    container.querySelectorAll('.arrive-btn').forEach(b => b.addEventListener('click', () => {
-      const c = cases.find(x => x.id === b.dataset.id)
-      if (c) { c.status = 'resolved'; showToast('🏁 รถถึงศูนย์ — เปิด Job Card อัตโนมัติ + จัด Loaner Car ให้ลูกค้า', 'success'); renderPage() }
-    }))
-    container.querySelectorAll('.call-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.onsite-btn').forEach(b => b.addEventListener('click', async () => {
       const c = cases.find(x => x.id === b.dataset.id)
       if (!c) return
-      c.callLog = (c.callLog || 0) + 1
-      showToast(`📞 โทรหา ${c.customer} · ${c.phone} (ครั้งที่ ${c.callLog}) บันทึกแล้ว`, 'success')
-      renderPage()
+      try { await updateDocData('roadside_cases', c.id, { status: 'onsite', eta: 0 }); await loadData() } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+    }))
+    container.querySelectorAll('.resolve-btn').forEach(b => b.addEventListener('click', async () => {
+      const c = cases.find(x => x.id === b.dataset.id)
+      if (!c) return
+      try {
+        await updateDocData('roadside_cases', c.id, { status: 'resolved' })
+        showToast('✅ ปิดเคสแล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+    }))
+    container.querySelectorAll('.tow-btn').forEach(b => b.addEventListener('click', async () => {
+      const c = cases.find(x => x.id === b.dataset.id)
+      if (!c) return
+      try { await updateDocData('roadside_cases', c.id, { status: 'towing', eta: 45 }); await loadData() } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+    }))
+    container.querySelectorAll('.arrive-btn').forEach(b => b.addEventListener('click', async () => {
+      const c = cases.find(x => x.id === b.dataset.id)
+      if (!c) return
+      try {
+        await updateDocData('roadside_cases', c.id, { status: 'resolved' })
+        showToast('🏁 รถถึงศูนย์แล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+    }))
+    container.querySelectorAll('.call-btn').forEach(b => b.addEventListener('click', async () => {
+      const c = cases.find(x => x.id === b.dataset.id)
+      if (!c) return
+      const callLog = (c.callLog || 0) + 1
+      try {
+        await updateDocData('roadside_cases', c.id, { callLog })
+        showToast(`📞 โทรหา ${c.customer} · ${c.phone} (ครั้งที่ ${callLog}) บันทึกแล้ว`, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     document.getElementById('new-case-btn')?.addEventListener('click', () => {
       openModal({
@@ -145,18 +172,21 @@ export default async function RoadsideAssistPage(container) {
           <div class="input-group"><label class="input-label">จุดเกิดเหตุ *</label><input class="input" id="ra-location" placeholder="ถนน/กม./จุดสังเกต"></div>
         </div>`,
         confirmText: '🆘 รับแจ้ง',
-        onConfirm() {
+        async onConfirm() {
           const plate = document.getElementById('ra-plate')?.value?.trim()
           const location = document.getElementById('ra-location')?.value?.trim()
-          if (!plate || !location) { showToast('❗ กรอกทะเบียนและจุดเกิดเหตุ', 'error'); return }
-          cases.unshift({ id:`RA${String(cases.length+1).padStart(3,'0')}`, customer:'(ค้นจากทะเบียน)', phone:document.getElementById('ra-phone')?.value||'—', plate, model:'—', type:document.getElementById('ra-type')?.value||'breakdown', location, status:'new', reported:new Date().toISOString(), team:null, eta:0 })
-          showToast('🆘 รับแจ้งแล้ว — เร่งส่งทีมภายใน 5 นาที!', 'error'); renderPage()
+          if (!plate || !location) { showToast('❗ กรอกทะเบียนและจุดเกิดเหตุ', 'error'); return false }
+          try {
+            await createDoc('roadside_cases', { customer:'(ค้นจากทะเบียน)', phone:document.getElementById('ra-phone')?.value||'—', plate, model:'—', type:document.getElementById('ra-type')?.value||'breakdown', location, status:'new', reported:new Date().toISOString(), team:null, eta:0 })
+            showToast('🆘 รับแจ้งแล้ว — เร่งส่งทีมภายใน 5 นาที!', 'error')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

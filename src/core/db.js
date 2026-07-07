@@ -908,6 +908,36 @@ export function seedDemoData() {
   ]
   recallCampaignVehicles.forEach(v => { if (!demoCol('recall_campaign_vehicles')[v.id]) demoCol('recall_campaign_vehicles')[v.id] = v })
 
+  // Recall tracker vehicles by VIN (หน้า /service/recall-tracker)
+  const recallTrackerVehicles = [
+    { id:'RTV1', vin:'LGXC4EBA5PA000101', plate:'กข-1234', model:'BYD Atto 3', owner:'นภา มีสุข', phone:'081-234-5678', recalls:['RC001'], status:{ RC001:'pending' } },
+    { id:'RTV2', vin:'LGXC5EBA6PA000202', plate:'กข-5678', model:'BYD Seal AWD', owner:'สมชาย วิเศษ', phone:'089-876-5432', recalls:['RC002'], status:{ RC002:'notified' } },
+    { id:'RTV3', vin:'LGXC4EBA5PA000303', plate:'กก-0009', model:'BYD Atto 3', owner:'รัชนี สุขใจ', phone:'062-222-3333', recalls:['RC001'], status:{ RC001:'completed' } },
+    { id:'RTV4', vin:'LSGBC54C5PA000404', plate:'กก-1234', model:'MG ZS EV', owner:'มาลี จันทร์ดี', phone:'076-111-2222', recalls:['RC003'], status:{ RC003:'pending' } },
+    { id:'RTV5', vin:'LGXC5EBA6PA000505', plate:'กก-5678', model:'BYD Seal AWD', owner:'วิชัย รุ่งเรือง', phone:'095-555-6666', recalls:['RC002'], status:{ RC002:'completed' } },
+  ]
+  recallTrackerVehicles.forEach(v => { if (!demoCol('recall_tracker_vehicles')[v.id]) demoCol('recall_tracker_vehicles')[v.id] = v })
+
+  // Reschedule AI appointments (หน้า /service/reschedule-ai)
+  const rescheduleAppointments = [
+    { id:'A001', customer:'นภา มีสุข', phone:'081-234-5678', model:'BYD Atto 3', service:'เช็คระยะ 10,000 km', date:'2026-06-15', slot:'09:00', bay:1, status:'confirmed', aiSuggested:false },
+    { id:'A002', customer:'สมชาย วิเศษ', phone:'089-876-5432', model:'BYD Seal AWD', service:'เปลี่ยนยาง 4 เส้น', date:'2026-06-15', slot:'10:00', bay:2, status:'cancelled', aiSuggested:false },
+    { id:'A003', customer:'มาลี จันทร์ดี', phone:'076-111-2222', model:'MG ZS EV', service:'PDI ก่อนส่งมอบ', date:'2026-06-16', slot:'09:30', bay:1, status:'confirmed', aiSuggested:false },
+    { id:'A004', customer:'วิชัย รุ่งเรือง', phone:'095-555-6666', model:'BYD Atto 3', service:'เช็คระยะ 20,000 km', date:'2026-06-16', slot:'13:00', bay:3, status:'waitlist', aiSuggested:false },
+    { id:'A005', customer:'รัชนี สุขใจ', phone:'062-222-3333', model:'BYD Dolphin', service:'Battery Health Check', date:'2026-06-17', slot:'11:00', bay:2, status:'confirmed', aiSuggested:false },
+  ]
+  rescheduleAppointments.forEach(a => { if (!demoCol('reschedule_appointments')[a.id]) demoCol('reschedule_appointments')[a.id] = a })
+
+  // Roadside assist cases (หน้า /service/roadside)
+  const raAddMinutes = n => { const d = new Date(); d.setMinutes(d.getMinutes() - n); return d.toISOString() }
+  const roadsideCases = [
+    { id:'RA001', customer:'สมชาย ใจดี', phone:'085-111', plate:'1กข-1234', model:'BYD Seal', type:'out_of_charge', location:'มอเตอร์เวย์ กม.32 ขาออก', status:'dispatched', reported:raAddMinutes(18), team:'ทีมกู้ภัย A (มีตู้ชาร์จเคลื่อนที่)', eta:15 },
+    { id:'RA002', customer:'มาลี สุขใจ', phone:'086-222', plate:'2ขค-5678', model:'BYD Dolphin', type:'flat_tire', location:'ห้าง Mega บางนา ลานจอด B2', status:'onsite', reported:raAddMinutes(45), team:'ทีมกู้ภัย B', eta:0 },
+    { id:'RA003', customer:'วิรัช เก่งมาก', phone:'089-555', plate:'5จฉ-7890', model:'BYD Han', type:'battery_dead', location:'บ้านลูกค้า ซ.ลาซาล 24', status:'resolved', reported:raAddMinutes(150), team:'ทีมกู้ภัย A', eta:0 },
+    { id:'RA004', customer:'ธนพล เที่ยงตรง', phone:'087-333', plate:'3คง-9012', model:'MG ZS EV', type:'accident', location:'แยกบางนา — ชนท้าย', status:'towing', reported:raAddMinutes(90), team:'รถลาก + ประสานประกัน', eta:20 },
+  ]
+  roadsideCases.forEach(c => { if (!demoCol('roadside_cases')[c.id]) demoCol('roadside_cases')[c.id] = c })
+
   // Quality incidents (หน้า /quality/incidents)
   const qualityIncidents = [
     { id:'INC001', title:'รถลูกค้าถูกขีดข่วนระหว่างล้าง', cat:'vehicle', severity:'major', status:'action', reporter:'หัวหน้าทีมล้างรถ', date:new Date(Date.now()-86400000*2).toISOString(), rootCause:'อุปกรณ์ล้างเก่า มีเศษทราย', action:'เปลี่ยนผ้าไมโครไฟเบอร์ใหม่ทั้งชุด + ชดเชยลูกค้า' },
