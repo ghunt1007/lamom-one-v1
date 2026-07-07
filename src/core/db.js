@@ -762,6 +762,48 @@ export function seedDemoData() {
   ]
   chargingStations.forEach(c => { if (!demoCol('charging_stations')[c.id]) demoCol('charging_stations')[c.id] = c })
 
+  // Pickup & Delivery jobs (หน้า /service/pickup)
+  const pdAddHours = n => { const d = new Date(); d.setHours(d.getHours() + n); return d.toISOString() }
+  const courtesyCarJobs = [
+    { id:'PD001', customer:'สมชาย ใจดี', phone:'085-111', plate:'1กข-1234', address:'คอนโด Ideo สุขุมวิท 93', distance:8, type:'both', status:'servicing', driver:'สมบัติ ขับดี', scheduledAt:pdAddHours(-3), service:'เช็คระยะ 20,000 km' },
+    { id:'PD002', customer:'มาลี สุขใจ', phone:'086-222', plate:'2ขค-5678', address:'หมู่บ้านพฤกษา บางนา', distance:5, type:'pickup', status:'enroute', driver:'อนันต์ ปลอดภัย', scheduledAt:pdAddHours(0), service:'เปลี่ยนยาง 4 เส้น' },
+    { id:'PD003', customer:'ธนพล เที่ยงตรง', phone:'087-333', plate:'3คง-9012', address:'ออฟฟิศ Empire Tower สาทร', distance:15, type:'delivery', status:'scheduled', driver:null, scheduledAt:pdAddHours(4), service:'ซ่อมเสร็จแล้ว — รอส่งคืน' },
+    { id:'PD004', customer:'อรทัย ตั้งใจ', phone:'088-444', plate:'4งจ-3456', address:'บ้านเดี่ยว ลาดกระบัง', distance:12, type:'both', status:'completed', driver:'สมบัติ ขับดี', scheduledAt:pdAddHours(-26), service:'ตรวจแบตเตอรี่' },
+  ]
+  courtesyCarJobs.forEach(j => { if (!demoCol('courtesy_car_jobs')[j.id]) demoCol('courtesy_car_jobs')[j.id] = j })
+
+  // EV Battery health (หน้า /service/ev-battery)
+  const evAddDays2 = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
+  const evBatteryVehicles = [
+    { id:'V001', plate:'1กข-1234', model:'BYD Seal AWD', year:2023, owner:'สมชาย ใจดี', soh:94, soc:78, cycles:180, capacity:82.56, originalCapacity:87.9, lastCheck:evAddDays2(-30), range:498, nextCheck:evAddDays2(60) },
+    { id:'V002', plate:'2ขค-5678', model:'BYD Dolphin', year:2022, owner:'มาลี สุขใจ', soh:87, soc:45, cycles:340, capacity:42.0, originalCapacity:44.9, lastCheck:evAddDays2(-15), range:310, nextCheck:evAddDays2(75) },
+    { id:'V003', plate:'3คง-9012', model:'MG ZS EV', year:2021, owner:'ธนพล เที่ยงตรง', soh:74, soc:62, cycles:520, capacity:39.5, originalCapacity:50.3, lastCheck:evAddDays2(-7), range:268, nextCheck:evAddDays2(23) },
+    { id:'V004', plate:'4งจ-3456', model:'BYD Atto 3', year:2023, owner:'อรทัย ตั้งใจ', soh:92, soc:91, cycles:90, capacity:58.7, originalCapacity:60.5, lastCheck:evAddDays2(-45), range:412, nextCheck:evAddDays2(15) },
+    { id:'V005', plate:'5จฉ-7890', model:'BYD Han', year:2022, owner:'วิรัช เก่งมาก', soh:68, soc:33, cycles:680, capacity:64.6, originalCapacity:85.4, lastCheck:evAddDays2(-90), range:380, nextCheck:evAddDays2(-15) },
+  ]
+  evBatteryVehicles.forEach(v => { if (!demoCol('ev_battery_vehicles')[v.id]) demoCol('ev_battery_vehicles')[v.id] = v })
+
+  // EV diagnostic scans (หน้า /service/ev-diagnostic)
+  const evdAddMins = n => { const d = new Date(); d.setMinutes(d.getMinutes() - n); return d.toISOString() }
+  const evDiagnosticScans = [
+    { id:'EV001', vehiclePlate:'กก 1234', vehicleModel:'BYD Seal AWD', vin:'LBWAB2EB7PD001002',
+      mileage:12500, customerId:'C001', customerName:'วิชาญ มีโชค', technicianName:'วิทยา ช่างไฟ',
+      scanDate:evdAddMins(30), status:'normal', faultCodes:[],
+      data:{ battSOC:78, battSOH:97, cellMinV:3.26, cellMaxV:3.28, battTemp:28, range:425, odometer:12500, chargeCount:48, dcFastCount:8, motorTemp:42, motorEfficiency:96 },
+      notes:'แบตอยู่ในสภาพดีมาก' },
+    { id:'EV002', vehiclePlate:'ขข 5678', vehicleModel:'MG ZS EV', vin:'LSJWSRAR7NE001008',
+      mileage:31200, customerId:'C002', customerName:'อรนุช สาวสวย', technicianName:'วิทยา ช่างไฟ',
+      scanDate:evdAddMins(120), status:'warning', faultCodes:['P0A80','P0562'],
+      data:{ battSOC:65, battSOH:88, cellMinV:3.18, cellMaxV:3.31, battTemp:35, range:320, odometer:31200, chargeCount:142, dcFastCount:45, motorTemp:55, motorEfficiency:91 },
+      notes:'SOH ต่ำลง — ควรตรวจเช็ก DC fast charge' },
+    { id:'EV003', vehiclePlate:'คค 9012', vehicleModel:'BYD Atto 3', vin:'LBWAB2EB7PD001003',
+      mileage:3100, customerId:'C003', customerName:'ธีรยุทธ เก่งกาจ', technicianName:'สมชาย ช่างฝีมือ',
+      scanDate:evdAddMins(60), status:'critical', faultCodes:['P1A0D'],
+      data:{ battSOC:55, battSOH:99, cellMinV:3.22, cellMaxV:3.24, battTemp:29, range:380, odometer:3100, chargeCount:12, dcFastCount:2, motorTemp:38, motorEfficiency:97 },
+      notes:'OBC fault — ชาร์จไม่ได้ AC ต้องซ่อม' },
+  ]
+  evDiagnosticScans.forEach(s => { if (!demoCol('ev_diagnostic_scans')[s.id]) demoCol('ev_diagnostic_scans')[s.id] = s })
+
   // Quality incidents (หน้า /quality/incidents)
   const qualityIncidents = [
     { id:'INC001', title:'รถลูกค้าถูกขีดข่วนระหว่างล้าง', cat:'vehicle', severity:'major', status:'action', reporter:'หัวหน้าทีมล้างรถ', date:new Date(Date.now()-86400000*2).toISOString(), rootCause:'อุปกรณ์ล้างเก่า มีเศษทราย', action:'เปลี่ยนผ้าไมโครไฟเบอร์ใหม่ทั้งชุด + ชดเชยลูกค้า' },

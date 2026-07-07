@@ -5,6 +5,7 @@
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -29,35 +30,26 @@ const FAULT_CODES = {
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
 function addMins(n) { const d = new Date(); d.setMinutes(d.getMinutes() - n); return d.toISOString() }
 
-const DEMO_SCANS = [
-  {
-    id: 'EV001', vehiclePlate: 'กก 1234', vehicleModel: 'BYD Seal AWD', vin: 'LBWAB2EB7PD001002',
-    mileage: 12500, customerId: 'C001', customerName: 'วิชาญ มีโชค', technicianName: 'วิทยา ช่างไฟ',
-    scanDate: addMins(30), status: 'normal', faultCodes: [],
-    data: { battSOC: 78, battSOH: 97, cellMinV: 3.26, cellMaxV: 3.28, battTemp: 28, range: 425, odometer: 12500, chargeCount: 48, dcFastCount: 8, motorTemp: 42, motorEfficiency: 96 },
-    notes: 'แบตอยู่ในสภาพดีมาก'
-  },
-  {
-    id: 'EV002', vehiclePlate: 'ขข 5678', vehicleModel: 'MG ZS EV', vin: 'LSJWSRAR7NE001008',
-    mileage: 31200, customerId: 'C002', customerName: 'อรนุช สาวสวย', technicianName: 'วิทยา ช่างไฟ',
-    scanDate: addMins(120), status: 'warning', faultCodes: ['P0A80', 'P0562'],
-    data: { battSOC: 65, battSOH: 88, cellMinV: 3.18, cellMaxV: 3.31, battTemp: 35, range: 320, odometer: 31200, chargeCount: 142, dcFastCount: 45, motorTemp: 55, motorEfficiency: 91 },
-    notes: 'SOH ต่ำลง — ควรตรวจเช็ก DC fast charge'
-  },
-  {
-    id: 'EV003', vehiclePlate: 'คค 9012', vehicleModel: 'BYD Atto 3', vin: 'LBWAB2EB7PD001003',
-    mileage: 3100, customerId: 'C003', customerName: 'ธีรยุทธ เก่งกาจ', technicianName: 'สมชาย ช่างฝีมือ',
-    scanDate: addMins(60), status: 'critical', faultCodes: ['P1A0D'],
-    data: { battSOC: 55, battSOH: 99, cellMinV: 3.22, cellMaxV: 3.24, battTemp: 29, range: 380, odometer: 3100, chargeCount: 12, dcFastCount: 2, motorTemp: 38, motorEfficiency: 97 },
-    notes: 'OBC fault — ชาร์จไม่ได้ AC ต้องซ่อม'
-  },
-]
-
 export default async function EVDiagnosticPage(container) {
-  let scans = DEMO_SCANS.map(s => ({ ...s }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let scans = []
   let statusFilter = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { scans = await listDocs('ev_diagnostic_scans', [], 'scanDate', 'desc', 500) } catch (e) { scans = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = scans.filter(s => statusFilter === 'all' || s.status === statusFilter)
     const critical = scans.filter(s => s.status === 'critical').length
     const warnings = scans.filter(s => s.status === 'warning').length
@@ -197,30 +189,31 @@ export default async function EVDiagnosticPage(container) {
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">Fault Codes (คั่นด้วยเครื่องหมายจุลภาค)</label><input class="input" id="ef-faults" placeholder="P0A80, P0562 (ถ้าไม่มีให้เว้นว่าง)"></div>
         </div>
       `,
-      onConfirm() {
+      async onConfirm() {
         const plate = document.getElementById('ef-plate')?.value?.trim()
-        if (!plate) { showToast('❗ กรุณากรอกทะเบียน', 'error'); return }
+        if (!plate) { showToast('❗ กรุณากรอกทะเบียน', 'error'); return false }
         const soc = +document.getElementById('ef-soc')?.value || 80
         const soh = +document.getElementById('ef-soh')?.value || 98
         const faults = (document.getElementById('ef-faults')?.value || '').split(',').map(f => f.trim()).filter(f => f && FAULT_CODES[f])
         const status = faults.some(f => FAULT_CODES[f]?.severity === 'critical') ? 'critical' : faults.length > 0 ? 'warning' : 'normal'
-        scans.unshift({
-          id: `EV${String(scans.length+1).padStart(3,'0')}`,
-          vehiclePlate: plate, vehicleModel: document.getElementById('ef-model')?.value||'',
-          vin: '', mileage: +document.getElementById('ef-odo')?.value||0,
-          customerId: '', customerName: document.getElementById('ef-customer')?.value||'',
-          technicianName: document.getElementById('ef-tech')?.value||'',
-          scanDate: new Date().toISOString(), status, faultCodes: faults,
-          data: { battSOC: soc, battSOH: soh, cellMinV: 3.24, cellMaxV: 3.26, battTemp: 29, range: +document.getElementById('ef-range')?.value||400, odometer: +document.getElementById('ef-odo')?.value||0, chargeCount: 0, dcFastCount: 0, motorTemp: 40, motorEfficiency: 95 },
-          notes: ''
-        })
-        showToast('✅ สแกน EV เรียบร้อย!', status === 'critical' ? 'error' : status === 'warning' ? 'warning' : 'success')
-        renderPage()
+        try {
+          await createDoc('ev_diagnostic_scans', {
+            vehiclePlate: plate, vehicleModel: document.getElementById('ef-model')?.value||'',
+            vin: '', mileage: +document.getElementById('ef-odo')?.value||0,
+            customerId: '', customerName: document.getElementById('ef-customer')?.value||'',
+            technicianName: document.getElementById('ef-tech')?.value||'',
+            scanDate: new Date().toISOString(), status, faultCodes: faults,
+            data: { battSOC: soc, battSOH: soh, cellMinV: 3.24, cellMaxV: 3.26, battTemp: 29, range: +document.getElementById('ef-range')?.value||400, odometer: +document.getElementById('ef-odo')?.value||0, chargeCount: 0, dcFastCount: 0, motorTemp: 40, motorEfficiency: 95 },
+            notes: ''
+          })
+          showToast('✅ สแกน EV เรียบร้อย!', status === 'critical' ? 'error' : status === 'warning' ? 'warning' : 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

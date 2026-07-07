@@ -5,12 +5,11 @@
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
-
-function addHours(n) { const d = new Date(); d.setHours(d.getHours() + n); return d.toISOString() }
 
 const PD_STATUS = {
   scheduled: { label: 'นัดแล้ว', color: 'secondary', icon: '📅' },
@@ -29,19 +28,27 @@ const PD_TYPE = {
 
 const DRIVERS = ['สมบัติ ขับดี', 'อนันต์ ปลอดภัย']
 
-const DEMO_JOBS = [
-  { id: 'PD001', customer: 'สมชาย ใจดี', phone: '085-111', plate: '1กข-1234', address: 'คอนโด Ideo สุขุมวิท 93', distance: 8, type: 'both', status: 'servicing', driver: 'สมบัติ ขับดี', scheduledAt: addHours(-3), service: 'เช็คระยะ 20,000 km' },
-  { id: 'PD002', customer: 'มาลี สุขใจ', phone: '086-222', plate: '2ขค-5678', address: 'หมู่บ้านพฤกษา บางนา', distance: 5, type: 'pickup', status: 'enroute', driver: 'อนันต์ ปลอดภัย', scheduledAt: addHours(0), service: 'เปลี่ยนยาง 4 เส้น' },
-  { id: 'PD003', customer: 'ธนพล เที่ยงตรง', phone: '087-333', plate: '3คง-9012', address: 'ออฟฟิศ Empire Tower สาทร', distance: 15, type: 'delivery', status: 'scheduled', driver: null, scheduledAt: addHours(4), service: 'ซ่อมเสร็จแล้ว — รอส่งคืน' },
-  { id: 'PD004', customer: 'อรทัย ตั้งใจ', phone: '088-444', plate: '4งจ-3456', address: 'บ้านเดี่ยว ลาดกระบัง', distance: 12, type: 'both', status: 'completed', driver: 'สมบัติ ขับดี', scheduledAt: addHours(-26), service: 'ตรวจแบตเตอรี่' },
-]
-
 const NEXT = { scheduled: 'enroute', enroute: 'picked', picked: 'servicing', servicing: 'returning', returning: 'completed' }
 
 export default async function CourtesyCarPage(container) {
-  let jobs = DEMO_JOBS.map(j => ({ ...j }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let jobs = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { jobs = await listDocs('courtesy_car_jobs', [], 'scheduledAt', 'desc', 500) } catch (e) { jobs = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const active = jobs.filter(j => j.status !== 'completed').length
     const todayJobs = jobs.length
     const totalKm = jobs.reduce((a, j) => a + j.distance * (j.type === 'both' ? 2 : 1), 0)
@@ -102,16 +109,25 @@ export default async function CourtesyCarPage(container) {
         size: 'sm',
         body: `<div class="input-group"><label class="input-label">คนขับ</label>
           <select class="input" id="pd-driver">${DRIVERS.map(d=>`<option>${d}</option>`).join('')}</select></div>`,
-        onConfirm() { j.driver = document.getElementById('pd-driver')?.value || DRIVERS[0]; showToast('👷 มอบหมายแล้ว', 'success'); renderPage() }
+        async onConfirm() {
+          const driver = document.getElementById('pd-driver')?.value || DRIVERS[0]
+          try {
+            await updateDocData('courtesy_car_jobs', j.id, { driver })
+            showToast('👷 มอบหมายแล้ว', 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+        }
       })
     }))
-    container.querySelectorAll('.next-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.next-btn').forEach(b => b.addEventListener('click', async () => {
       const j = jobs.find(x => x.id === b.dataset.id)
-      if (j) {
-        j.status = NEXT[j.status]
-        if (j.status === 'completed') showToast('🏁 ส่งรถคืนเรียบร้อย — ส่ง SMS ขอบคุณลูกค้าแล้ว', 'success')
-        renderPage()
-      }
+      if (!j) return
+      const nextStatus = NEXT[j.status]
+      try {
+        await updateDocData('courtesy_car_jobs', j.id, { status: nextStatus })
+        if (nextStatus === 'completed') showToast('🏁 ส่งรถคืนเรียบร้อย', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     document.getElementById('add-pd-btn')?.addEventListener('click', () => {
       openModal({
@@ -127,17 +143,20 @@ export default async function CourtesyCarPage(container) {
           </div>
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">งานบริการ</label><input class="input" id="pd-service"></div>
         </div>`,
-        onConfirm() {
+        async onConfirm() {
           const name = document.getElementById('pd-name')?.value?.trim()
-          if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return }
-          jobs.unshift({ id:`PD${String(jobs.length+1).padStart(3,'0')}`, customer:name, phone:'—', plate:document.getElementById('pd-plate')?.value||'—', address:document.getElementById('pd-address')?.value||'—', distance:parseInt(document.getElementById('pd-distance')?.value)||5, type:document.getElementById('pd-type')?.value||'pickup', status:'scheduled', driver:null, scheduledAt:new Date().toISOString(), service:document.getElementById('pd-service')?.value||'—' })
-          showToast('✅ นัดรับ-ส่งแล้ว', 'success'); renderPage()
+          if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return false }
+          try {
+            await createDoc('courtesy_car_jobs', { customer:name, phone:'—', plate:document.getElementById('pd-plate')?.value||'—', address:document.getElementById('pd-address')?.value||'—', distance:parseInt(document.getElementById('pd-distance')?.value)||5, type:document.getElementById('pd-type')?.value||'pickup', status:'scheduled', driver:null, scheduledAt:new Date().toISOString(), service:document.getElementById('pd-service')?.value||'—' })
+            showToast('✅ นัดรับ-ส่งแล้ว', 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

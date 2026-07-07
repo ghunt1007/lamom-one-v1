@@ -5,6 +5,7 @@
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 
 const BATTERY_STATUS = {
   excellent: { label: 'ดีมาก', color: 'success', icon: '🟢', threshold: 90 },
@@ -15,14 +16,6 @@ const BATTERY_STATUS = {
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
 
-const DEMO_VEHICLES = [
-  { id: 'V001', plate: '1กข-1234', model: 'BYD Seal AWD', year: 2023, owner: 'สมชาย ใจดี', soh: 94, soc: 78, cycles: 180, capacity: 82.56, originalCapacity: 87.9, lastCheck: addDays(-30), range: 498, nextCheck: addDays(60) },
-  { id: 'V002', plate: '2ขค-5678', model: 'BYD Dolphin', year: 2022, owner: 'มาลี สุขใจ', soh: 87, soc: 45, cycles: 340, capacity: 42.0, originalCapacity: 44.9, lastCheck: addDays(-15), range: 310, nextCheck: addDays(75) },
-  { id: 'V003', plate: '3คง-9012', model: 'MG ZS EV', year: 2021, owner: 'ธนพล เที่ยงตรง', soh: 74, soc: 62, cycles: 520, capacity: 39.5, originalCapacity: 50.3, lastCheck: addDays(-7), range: 268, nextCheck: addDays(23) },
-  { id: 'V004', plate: '4งจ-3456', model: 'BYD Atto 3', year: 2023, owner: 'อรทัย ตั้งใจ', soh: 92, soc: 91, cycles: 90, capacity: 58.7, originalCapacity: 60.5, lastCheck: addDays(-45), range: 412, nextCheck: addDays(15) },
-  { id: 'V005', plate: '5จฉ-7890', model: 'BYD Han', year: 2022, owner: 'วิรัช เก่งมาก', soh: 68, soc: 33, cycles: 680, capacity: 64.6, originalCapacity: 85.4, lastCheck: addDays(-90), range: 380, nextCheck: addDays(-15) },
-]
-
 function getBatteryStatus(soh) {
   if (soh >= 90) return 'excellent'
   if (soh >= 80) return 'good'
@@ -31,10 +24,25 @@ function getBatteryStatus(soh) {
 }
 
 export default async function EVBatteryPage(container) {
-  let vehicles = DEMO_VEHICLES.map(v => ({ ...v }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let vehicles = []
   let statusFilter = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { vehicles = await listDocs('ev_battery_vehicles', [], 'plate', 'asc', 500) } catch (e) { vehicles = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = vehicles.filter(v => statusFilter === 'all' || getBatteryStatus(v.soh) === statusFilter)
     const avgSoh = Math.round(vehicles.reduce((a, v) => a + v.soh, 0) / vehicles.length)
     const needAttention = vehicles.filter(v => getBatteryStatus(v.soh) === 'poor' || getBatteryStatus(v.soh) === 'fair').length
@@ -138,20 +146,25 @@ export default async function EVBatteryPage(container) {
         <div class="input-group"><label class="input-label">จำนวนรอบชาร์จ</label><input class="input" id="bat-cycles" type="number" value="${v?.cycles||0}"></div>
         <div class="input-group"><label class="input-label">หมายเหตุ</label><input class="input" id="bat-note" placeholder="ผลการตรวจ..."></div>
       </div>`,
-      onConfirm() {
-        if (v) {
-          v.soh = parseInt(document.getElementById('bat-soh')?.value) || v.soh
-          v.soc = parseInt(document.getElementById('bat-soc')?.value) || v.soc
-          v.cycles = parseInt(document.getElementById('bat-cycles')?.value) || v.cycles
-          v.lastCheck = addDays(0)
-          v.nextCheck = addDays(90)
+      async onConfirm() {
+        if (!v) { showToast('❗ กรุณาเลือกรถจากรายการ', 'error'); return false }
+        const patch = {
+          soh: parseInt(document.getElementById('bat-soh')?.value) || v.soh,
+          soc: parseInt(document.getElementById('bat-soc')?.value) || v.soc,
+          cycles: parseInt(document.getElementById('bat-cycles')?.value) || v.cycles,
+          lastCheck: addDays(0),
+          nextCheck: addDays(90),
         }
-        showToast('✅ บันทึกผลตรวจแบตเตอรี่แล้ว', 'success'); renderPage()
+        try {
+          await updateDocData('ev_battery_vehicles', v.id, patch)
+          showToast('✅ บันทึกผลตรวจแบตเตอรี่แล้ว', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
