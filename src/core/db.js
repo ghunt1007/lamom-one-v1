@@ -589,6 +589,16 @@ export function seedDemoData() {
   ]
   salaryScaleStaff.forEach(s => { if (!demoCol('salary_scale_staff')[s.id]) demoCol('salary_scale_staff')[s.id] = s })
 
+  // Staff profiles (หน้า /hr/profile)
+  const staffProfiles = [
+    { id:'STF001', name:'วิชัย ยอดขาย', nameEn:'Wichai Yodsai', avatar:'👨', dept:'ฝ่ายขาย', role:'เซลส์อาวุโส', empType:'fulltime', status:'active', startDate:addDaysISO(-730), salary:35000, phone:'085-xxx', email:'wichai@lamom.one', skills:['EV','Negotiation','CRM'], kpiScore:94, leaveBalance:8 },
+    { id:'STF002', name:'สุดา มาดี', nameEn:'Suda Madee', avatar:'👩', dept:'ฝ่ายขาย', role:'เซลส์', empType:'fulltime', status:'active', startDate:addDaysISO(-365), salary:28000, phone:'086-xxx', email:'suda@lamom.one', skills:['Customer Service','EV'], kpiScore:87, leaveBalance:10 },
+    { id:'STF003', name:'วิทยา ช่างดี', nameEn:'Witthaya Chandee', avatar:'🧑', dept:'ศูนย์บริการ', role:'ช่างอาวุโส', empType:'fulltime', status:'active', startDate:addDaysISO(-1095), salary:32000, phone:'087-xxx', email:'witthaya@lamom.one', skills:['EV Diagnostic','BYD','MG'], kpiScore:91, leaveBalance:5 },
+    { id:'STF004', name:'ปทิตา การเงิน', nameEn:'Patita Finance', avatar:'👩', dept:'การเงิน', role:'ผู้จัดการการเงิน', empType:'fulltime', status:'active', startDate:addDaysISO(-548), salary:45000, phone:'088-xxx', email:'patita@lamom.one', skills:['Accounting','Excel','QuickBooks'], kpiScore:96, leaveBalance:12 },
+    { id:'STF005', name:'ธนา เก่งกว่า', nameEn:'Tana Kengkwa', avatar:'👨', dept:'ฝ่ายขาย', role:'เซลส์', empType:'probation', status:'active', startDate:addDaysISO(-60), salary:22000, phone:'089-xxx', email:'tana@lamom.one', skills:['Communication'], kpiScore:72, leaveBalance:0 },
+  ]
+  staffProfiles.forEach(s => { if (!demoCol('staff_profiles')[s.id]) demoCol('staff_profiles')[s.id] = s })
+
   // Quality incidents (หน้า /quality/incidents)
   const qualityIncidents = [
     { id:'INC001', title:'รถลูกค้าถูกขีดข่วนระหว่างล้าง', cat:'vehicle', severity:'major', status:'action', reporter:'หัวหน้าทีมล้างรถ', date:new Date(Date.now()-86400000*2).toISOString(), rootCause:'อุปกรณ์ล้างเก่า มีเศษทราย', action:'เปลี่ยนผ้าไมโครไฟเบอร์ใหม่ทั้งชุด + ชดเชยลูกค้า' },

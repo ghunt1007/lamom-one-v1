@@ -5,6 +5,7 @@
 import { formatDate, formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -27,19 +28,22 @@ const STAFF_STATUS = {
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
 function addYears(n) { const d = new Date(); d.setFullYear(d.getFullYear() + n); return d.toISOString().slice(0, 10) }
 
-const DEMO_STAFF = [
-  { id: 'STF001', name: 'วิชัย ยอดขาย', nameEn: 'Wichai Yodsai', avatar: '👨', dept: 'ฝ่ายขาย', role: 'เซลส์อาวุโส', empType: 'fulltime', status: 'active', startDate: addDays(-730), salary: 35000, phone: '085-xxx', email: 'wichai@lamom.one', skills: ['EV', 'Negotiation', 'CRM'], kpiScore: 94, leaveBalance: 8 },
-  { id: 'STF002', name: 'สุดา มาดี', nameEn: 'Suda Madee', avatar: '👩', dept: 'ฝ่ายขาย', role: 'เซลส์', empType: 'fulltime', status: 'active', startDate: addDays(-365), salary: 28000, phone: '086-xxx', email: 'suda@lamom.one', skills: ['Customer Service', 'EV'], kpiScore: 87, leaveBalance: 10 },
-  { id: 'STF003', name: 'วิทยา ช่างดี', nameEn: 'Witthaya Chandee', avatar: '🧑', dept: 'ศูนย์บริการ', role: 'ช่างอาวุโส', empType: 'fulltime', status: 'active', startDate: addDays(-1095), salary: 32000, phone: '087-xxx', email: 'witthaya@lamom.one', skills: ['EV Diagnostic', 'BYD', 'MG'], kpiScore: 91, leaveBalance: 5 },
-  { id: 'STF004', name: 'ปทิตา การเงิน', nameEn: 'Patita Finance', avatar: '👩', dept: 'การเงิน', role: 'ผู้จัดการการเงิน', empType: 'fulltime', status: 'active', startDate: addDays(-548), salary: 45000, phone: '088-xxx', email: 'patita@lamom.one', skills: ['Accounting', 'Excel', 'QuickBooks'], kpiScore: 96, leaveBalance: 12 },
-  { id: 'STF005', name: 'ธนา เก่งกว่า', nameEn: 'Tana Kengkwa', avatar: '👨', dept: 'ฝ่ายขาย', role: 'เซลส์', empType: 'probation', status: 'active', startDate: addDays(-60), salary: 22000, phone: '089-xxx', email: 'tana@lamom.one', skills: ['Communication'], kpiScore: 72, leaveBalance: 0 },
-]
-
 export default async function StaffProfilePage(container) {
-  let staff = DEMO_STAFF.map(s => ({ ...s }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let staff = []
   let deptFilter = 'all'
   let search = ''
   let selected = null
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { staff = await listDocs('staff_profiles', [], 'name', 'asc', 500) } catch (e) { staff = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function filtered() {
     return staff.filter(s => {
@@ -50,6 +54,10 @@ export default async function StaffProfilePage(container) {
   }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = filtered()
     const depts = [...new Set(staff.map(s => s.dept))]
 
@@ -197,26 +205,29 @@ export default async function StaffProfilePage(container) {
           <div class="input-group"><label class="input-label">โทรศัพท์</label><input class="input" id="sf-phone"></div>
         </div>
       `,
-      onConfirm() {
+      async onConfirm() {
         const name = document.getElementById('sf-name')?.value?.trim()
-        if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return }
-        staff.unshift({
-          id: `STF${String(staff.length+1).padStart(3,'0')}`, name,
-          nameEn: document.getElementById('sf-nameEn')?.value||'', avatar: '👤',
-          dept: document.getElementById('sf-dept')?.value||'ฝ่ายขาย',
-          role: document.getElementById('sf-role')?.value||'พนักงาน',
-          empType: document.getElementById('sf-type')?.value||'fulltime', status: 'active',
-          startDate: document.getElementById('sf-start')?.value||addDays(0),
-          salary: +document.getElementById('sf-salary')?.value||0,
-          phone: document.getElementById('sf-phone')?.value||'', email: '',
-          skills: [], kpiScore: 0, leaveBalance: 10
-        })
-        showToast('✅ เพิ่มพนักงานแล้ว!', 'success'); renderPage()
+        if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return false }
+        try {
+          await createDoc('staff_profiles', {
+            name,
+            nameEn: document.getElementById('sf-nameEn')?.value||'', avatar: '👤',
+            dept: document.getElementById('sf-dept')?.value||'ฝ่ายขาย',
+            role: document.getElementById('sf-role')?.value||'พนักงาน',
+            empType: document.getElementById('sf-type')?.value||'fulltime', status: 'active',
+            startDate: document.getElementById('sf-start')?.value||addDays(0),
+            salary: +document.getElementById('sf-salary')?.value||0,
+            phone: document.getElementById('sf-phone')?.value||'', email: '',
+            skills: [], kpiScore: 0, leaveBalance: 10
+          })
+          showToast('✅ เพิ่มพนักงานแล้ว!', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
