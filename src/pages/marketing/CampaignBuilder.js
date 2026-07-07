@@ -2,6 +2,7 @@ import { formatCurrency } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -24,19 +25,21 @@ const CAMPAIGN_STATUS = {
   ended:    { label: 'สิ้นสุดแล้ว', color: 'danger' },
 }
 
-const DEMO_CAMPAIGNS = [
-  { id:'C001', name:'BYD Seal Launch Sale มิ.ย.', type:'social', status:'active', budget:50000, spent:32000, reach:45200, clicks:1230, leads:87, sales:5, startDate:'2025-06-01', endDate:'2025-06-30', target:'EV Enthusiast 25-45', channels:['Facebook','TikTok'], note:'Boost ทุกวันจันทร์-ศุกร์' },
-  { id:'C002', name:'LINE OA Broadcast – ลูกค้าเก่า', type:'line', status:'active', budget:5000, spent:4800, reach:3200, clicks:340, leads:28, sales:2, startDate:'2025-06-05', endDate:'2025-06-30', target:'ลูกค้าเก่าทุกคน', channels:['LINE OA'], note:'' },
-  { id:'C003', name:'Mid-Year Sale Google Ads', type:'google', status:'planned', budget:80000, spent:0, reach:0, clicks:0, leads:0, sales:0, startDate:'2025-07-01', endDate:'2025-07-31', target:'Search: EV ราคา', channels:['Google Search','Google Display'], note:'ใช้ keyword EV ราคาถูก' },
-  { id:'C004', name:'Motor Expo Thailand', type:'event', status:'ended', budget:200000, spent:185000, reach:12000, clicks:0, leads:245, sales:18, startDate:'2025-05-15', endDate:'2025-05-25', target:'งานแสดงรถ', channels:['Offline'], note:'บูธ B12 ฮอลล์ 3' },
-  { id:'C005', name:'Email Newsletter มิ.ย.', type:'email', status:'draft', budget:2000, spent:0, reach:0, clicks:0, leads:0, sales:0, startDate:'2025-06-15', endDate:'2025-06-15', target:'รายชื่อ Email ทั้งหมด', channels:['Email'], note:'' },
-]
-
 export default async function CampaignBuilderPage(container) {
   const myGen = container.__routerGen
-  let campaigns = DEMO_CAMPAIGNS.map(c => ({ ...c }))
+  seedDemoData()
+
+  let campaigns = []
   let statusFilter = 'all'
   let typeFilter = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { campaigns = await listDocs('marketing_campaigns', [], 'startDate', 'desc', 500) } catch (e) { campaigns = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function getFiltered() {
     let list = campaigns
@@ -56,6 +59,10 @@ export default async function CampaignBuilderPage(container) {
   }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const s = getOverall()
     const filtered = getFiltered()
 
@@ -182,13 +189,15 @@ export default async function CampaignBuilderPage(container) {
       footer: `<button class="btn btn-secondary" id="cn-c">ยกเลิก</button><button class="btn btn-primary" id="cn-s">💾 บันทึก</button>`
     })
     el.querySelector('#cn-c').addEventListener('click', close)
-    el.querySelector('#cn-s').addEventListener('click', () => {
+    el.querySelector('#cn-s').addEventListener('click', async () => {
       const name = el.querySelector('#cn-name').value.trim()
       if (!name) return showToast('❗ กรุณาใส่ชื่อแคมเปญ', 'warning')
       const data = { name, type: el.querySelector('#cn-type').value, status: el.querySelector('#cn-status').value, budget: +el.querySelector('#cn-budget').value, startDate: el.querySelector('#cn-start').value, endDate: el.querySelector('#cn-end').value, target: el.querySelector('#cn-target').value, note: el.querySelector('#cn-note').value }
-      if (camp) Object.assign(camp, data)
-      else campaigns.push({ id:'C'+Date.now(), spent:0, reach:0, clicks:0, leads:0, sales:0, channels:[], ...data })
-      showToast('💾 บันทึกแคมเปญแล้ว', 'success'); close(); renderPage()
+      try {
+        if (camp) await updateDocData('marketing_campaigns', camp.id, data)
+        else await createDoc('marketing_campaigns', { spent:0, reach:0, clicks:0, leads:0, sales:0, channels:[], ...data })
+        showToast('💾 บันทึกแคมเปญแล้ว', 'success'); close(); await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
@@ -226,11 +235,11 @@ export default async function CampaignBuilderPage(container) {
     document.getElementById('del-camp-btn')?.addEventListener('click', async () => {
       const ok = await confirmDialog({ title:'🗑 ลบแคมเปญ', message:`ลบ "${c.name}" ออกจากระบบ?`, confirmText:'ลบ', danger:true })
       if (!ok) return
-      campaigns = campaigns.filter(x => x.id !== c.id)
+      try { await softDelete('marketing_campaigns', c.id) } catch (e) { showToast('ลบไม่สำเร็จ', 'error'); return }
       document.querySelector('.modal-overlay')?.remove()
       showToast('🗑 ลบแล้ว', 'success')
       if (container.__routerGen !== myGen) return
-      renderPage()
+      await loadData()
     })
   }
 
@@ -241,7 +250,7 @@ export default async function CampaignBuilderPage(container) {
     </div>`
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(title, value, color) {

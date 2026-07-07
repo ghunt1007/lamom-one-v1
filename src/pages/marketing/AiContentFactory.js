@@ -4,6 +4,7 @@
  */
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 
 const TEMPLATES = [
   { id:'T1', name:'โปรโมชั่นรถใหม่', icon:'🚗', fields:['รุ่นรถ','ราคา','โปรโมชั่น'] },
@@ -62,10 +63,17 @@ function platformChip(p, sel) {
 }
 
 export default async function AiContentFactoryPage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+
   let selectedTemplate = TEMPLATES[0]
   let selectedPlatforms = ['Facebook']
   let generated = null
   let contentHistory = []
+
+  async function loadHistory() {
+    try { contentHistory = await listDocs('content_history', [], 'createdAt', 'desc', 200) } catch (e) { contentHistory = [] }
+  }
 
   function render() {
     const ex = generated || EXAMPLES[selectedTemplate.id] || EXAMPLES['T1']
@@ -144,18 +152,20 @@ export default async function AiContentFactoryPage(container) {
     }))
     document.getElementById('gen-btn')?.addEventListener('click', () => {
       showToast('✨ AI กำลังสร้าง Content...', 'success')
-      setTimeout(() => {
+      setTimeout(async () => {
         generated = EXAMPLES[selectedTemplate.id] || EXAMPLES['T1']
-        contentHistory.unshift({
-          id: 'H' + (contentHistory.length + 1),
-          template: selectedTemplate.name,
-          icon: selectedTemplate.icon,
-          platforms: [...selectedPlatforms],
-          content: generated,
-          createdAt: new Date().toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit' }),
-        })
         render()
         showToast('✅ สร้าง Content สำเร็จ!', 'success')
+        try {
+          await createDoc('content_history', {
+            template: selectedTemplate.name,
+            icon: selectedTemplate.icon,
+            platforms: [...selectedPlatforms],
+            content: generated,
+            displayTime: new Date().toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit' }),
+          })
+          await loadHistory()
+        } catch (e) { /* ประวัติบันทึกไม่สำเร็จ ไม่กระทบการสร้าง content */ }
       }, 1000)
     })
     document.getElementById('copy-btn')?.addEventListener('click', () => {
@@ -189,12 +199,19 @@ export default async function AiContentFactoryPage(container) {
           <div style="background:var(--surface-2);border-radius:6px;padding:8px;font-size:0.7rem;color:var(--text-muted)">${preview}</div>
         </div>`,
         confirmText: '📅 ยืนยัน Schedule',
-        onConfirm() {
+        async onConfirm() {
           const dt = document.getElementById('sch-date')?.value
           const tm = document.getElementById('sch-time')?.value
-          contentHistory.unshift({ template: selectedTemplate.name, platforms: [...selectedPlatforms], generated, scheduledAt: `${dt} ${tm}`, createdAt: new Date().toISOString() })
-          render()
-          showToast(`📅 Schedule โพสต์ ${dt} ${tm} (${selectedPlatforms.join('+')}) แล้ว`, 'success')
+          try {
+            await createDoc('content_history', {
+              template: selectedTemplate.name, icon: selectedTemplate.icon,
+              platforms: [...selectedPlatforms], content: generated,
+              scheduledAt: `${dt} ${tm}`,
+              displayTime: new Date().toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit' }),
+            })
+            await loadHistory()
+            showToast(`📅 Schedule โพสต์ ${dt} ${tm} (${selectedPlatforms.join('+')}) แล้ว`, 'success')
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     })
@@ -215,7 +232,7 @@ export default async function AiContentFactoryPage(container) {
             <div class="card" style="padding:12px">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
                 <span style="font-weight:700;font-size:0.82rem">${h.icon} ${h.template}</span>
-                <span style="font-size:0.68rem;color:var(--text-muted)">${h.createdAt}</span>
+                <span style="font-size:0.68rem;color:var(--text-muted)">${h.displayTime || ''}</span>
               </div>
               <div style="font-size:0.68rem;color:var(--text-muted);margin-bottom:6px">
                 📱 ${h.platforms.join(' · ')}
@@ -230,5 +247,6 @@ export default async function AiContentFactoryPage(container) {
     })
   }
 
+  await loadHistory()
   render()
 }

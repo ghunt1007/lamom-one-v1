@@ -599,6 +599,28 @@ export function seedDemoData() {
   ]
   staffProfiles.forEach(s => { if (!demoCol('staff_profiles')[s.id]) demoCol('staff_profiles')[s.id] = s })
 
+  // Marketing campaigns (หน้า /marketing/campaigns)
+  const marketingCampaigns = [
+    { id:'C001', name:'BYD Seal Launch Sale มิ.ย.', type:'social', status:'active', budget:50000, spent:32000, reach:45200, clicks:1230, leads:87, sales:5, startDate:'2025-06-01', endDate:'2025-06-30', target:'EV Enthusiast 25-45', channels:['Facebook','TikTok'], note:'Boost ทุกวันจันทร์-ศุกร์' },
+    { id:'C002', name:'LINE OA Broadcast – ลูกค้าเก่า', type:'line', status:'active', budget:5000, spent:4800, reach:3200, clicks:340, leads:28, sales:2, startDate:'2025-06-05', endDate:'2025-06-30', target:'ลูกค้าเก่าทุกคน', channels:['LINE OA'], note:'' },
+    { id:'C003', name:'Mid-Year Sale Google Ads', type:'google', status:'planned', budget:80000, spent:0, reach:0, clicks:0, leads:0, sales:0, startDate:'2025-07-01', endDate:'2025-07-31', target:'Search: EV ราคา', channels:['Google Search','Google Display'], note:'ใช้ keyword EV ราคาถูก' },
+    { id:'C004', name:'Motor Expo Thailand', type:'event', status:'ended', budget:200000, spent:185000, reach:12000, clicks:0, leads:245, sales:18, startDate:'2025-05-15', endDate:'2025-05-25', target:'งานแสดงรถ', channels:['Offline'], note:'บูธ B12 ฮอลล์ 3' },
+    { id:'C005', name:'Email Newsletter มิ.ย.', type:'email', status:'draft', budget:2000, spent:0, reach:0, clicks:0, leads:0, sales:0, startDate:'2025-06-15', endDate:'2025-06-15', target:'รายชื่อ Email ทั้งหมด', channels:['Email'], note:'' },
+  ]
+  marketingCampaigns.forEach(c => { if (!demoCol('marketing_campaigns')[c.id]) demoCol('marketing_campaigns')[c.id] = c })
+
+  // Content calendar (หน้า /marketing/content)
+  const contentCalendar = [
+    { id:'CT001', title:'รีวิว BYD Seal: ขับแล้วเป็นยังไง?', type:'reel', platforms:['facebook','instagram','tiktok'], status:'published', publishDate:addDaysISO(-3), author:'ทีมคอนเทนต์', tags:['review','byd','ev'], views:12400, likes:856, shares:123 },
+    { id:'CT002', title:'5 เหตุผลที่ควรเปลี่ยนมาใช้ EV', type:'blog', platforms:['website','facebook'], status:'published', publishDate:addDaysISO(-7), author:'สมชาย Content', tags:['ev','education'], views:3280, likes:142, shares:89 },
+    { id:'CT003', title:'โปรโมชันพิเศษเดือนนี้', type:'post', platforms:['facebook','instagram','line'], status:'scheduled', publishDate:addDaysISO(1), author:'ทีมการตลาด', tags:['promotion','sale'], views:0, likes:0, shares:0 },
+    { id:'CT004', title:'Behind the Scene: การส่งมอบรถ', type:'story', platforms:['instagram','facebook'], status:'in_progress', publishDate:addDaysISO(3), author:'ทีมคอนเทนต์', tags:['delivery','story'], views:0, likes:0, shares:0 },
+    { id:'CT005', title:'Newsletter: ข่าว EV ประจำเดือน', type:'email', platforms:['website'], status:'review', publishDate:addDaysISO(5), author:'สุดา Marketing', tags:['newsletter','monthly'], views:0, likes:0, shares:0 },
+    { id:'CT006', title:'TikTok: ชาร์จรถไฟฟ้าแบบไหนคุ้มสุด?', type:'reel', platforms:['tiktok','youtube'], status:'planned', publishDate:addDaysISO(7), author:'ทีมคอนเทนต์', tags:['ev','tips','charging'], views:0, likes:0, shares:0 },
+    { id:'CT007', title:'Google Ads: BYD Atto 3 Test Drive', type:'ads', platforms:['website'], status:'published', publishDate:addDaysISO(-14), author:'ปทิตา SEM', tags:['ads','testdrive'], views:28000, likes:0, shares:0 },
+  ]
+  contentCalendar.forEach(c => { if (!demoCol('content_calendar')[c.id]) demoCol('content_calendar')[c.id] = c })
+
   // Quality incidents (หน้า /quality/incidents)
   const qualityIncidents = [
     { id:'INC001', title:'รถลูกค้าถูกขีดข่วนระหว่างล้าง', cat:'vehicle', severity:'major', status:'action', reporter:'หัวหน้าทีมล้างรถ', date:new Date(Date.now()-86400000*2).toISOString(), rootCause:'อุปกรณ์ล้างเก่า มีเศษทราย', action:'เปลี่ยนผ้าไมโครไฟเบอร์ใหม่ทั้งชุด + ชดเชยลูกค้า' },

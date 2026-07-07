@@ -5,6 +5,7 @@
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 const CONTENT_TYPES = {
   post:    { label: 'Post', color: 'primary', icon: '📝' },
@@ -35,23 +36,28 @@ const CONTENT_STATUS = {
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
 
-const DEMO_CONTENT = [
-  { id: 'CT001', title: 'รีวิว BYD Seal: ขับแล้วเป็นยังไง?', type: 'reel', platforms: ['facebook', 'instagram', 'tiktok'], status: 'published', publishDate: addDays(-3), author: 'ทีมคอนเทนต์', tags: ['review', 'byd', 'ev'], views: 12400, likes: 856, shares: 123 },
-  { id: 'CT002', title: '5 เหตุผลที่ควรเปลี่ยนมาใช้ EV', type: 'blog', platforms: ['website', 'facebook'], status: 'published', publishDate: addDays(-7), author: 'สมชาย Content', tags: ['ev', 'education'], views: 3280, likes: 142, shares: 89 },
-  { id: 'CT003', title: 'โปรโมชันพิเศษเดือนนี้', type: 'post', platforms: ['facebook', 'instagram', 'line'], status: 'scheduled', publishDate: addDays(1), author: 'ทีมการตลาด', tags: ['promotion', 'sale'], views: 0, likes: 0, shares: 0 },
-  { id: 'CT004', title: 'Behind the Scene: การส่งมอบรถ', type: 'story', platforms: ['instagram', 'facebook'], status: 'in_progress', publishDate: addDays(3), author: 'ทีมคอนเทนต์', tags: ['delivery', 'story'], views: 0, likes: 0, shares: 0 },
-  { id: 'CT005', title: 'Newsletter: ข่าว EV ประจำเดือน', type: 'email', platforms: ['website'], status: 'review', publishDate: addDays(5), author: 'สุดา Marketing', tags: ['newsletter', 'monthly'], views: 0, likes: 0, shares: 0 },
-  { id: 'CT006', title: 'TikTok: ชาร์จรถไฟฟ้าแบบไหนคุ้มสุด?', type: 'reel', platforms: ['tiktok', 'youtube'], status: 'planned', publishDate: addDays(7), author: 'ทีมคอนเทนต์', tags: ['ev', 'tips', 'charging'], views: 0, likes: 0, shares: 0 },
-  { id: 'CT007', title: 'Google Ads: BYD Atto 3 Test Drive', type: 'ads', platforms: ['website'], status: 'published', publishDate: addDays(-14), author: 'ปทิตา SEM', tags: ['ads', 'testdrive'], views: 28000, likes: 0, shares: 0 },
-]
-
 export default async function ContentCalendarPage(container) {
-  let content = DEMO_CONTENT.map(c => ({ ...c }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let content = []
   let typeFilter = 'all'
   let statusFilter = 'all'
   let viewMode = 'list'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { content = await listDocs('content_calendar', [], 'publishDate', 'desc', 500) } catch (e) { content = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = content.filter(c => {
       if (typeFilter !== 'all' && c.type !== typeFilter) return false
       if (statusFilter !== 'all' && c.status !== statusFilter) return false
@@ -145,9 +151,14 @@ export default async function ContentCalendarPage(container) {
     container.querySelectorAll('.view-ct-btn').forEach(b => b.addEventListener('click', () => {
       const c = content.find(x => x.id === b.dataset.id); if (c) openDetail(c)
     }))
-    container.querySelectorAll('.pub-ct-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.pub-ct-btn').forEach(b => b.addEventListener('click', async () => {
       const c = content.find(x => x.id === b.dataset.id)
-      if (c) { c.status = 'published'; c.publishDate = addDays(0); showToast(`✅ เผยแพร่ "${c.title}" แล้ว!`, 'success'); renderPage() }
+      if (!c) return
+      const newDate = addDays(0)
+      c.status = 'published'; c.publishDate = newDate
+      renderPage()
+      showToast(`✅ เผยแพร่ "${c.title}" แล้ว!`, 'success')
+      try { await updateDocData('content_calendar', c.id, { status: 'published', publishDate: newDate }) } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
   }
 
@@ -194,24 +205,27 @@ export default async function ContentCalendarPage(container) {
           <div class="input-group"><label class="input-label">ผู้รับผิดชอบ</label><input class="input" id="cc-author" placeholder="ชื่อผู้สร้าง"></div>
         </div>
       `,
-      onConfirm() {
+      async onConfirm() {
         const title = document.getElementById('cc-title')?.value?.trim()
-        if (!title) { showToast('❗ กรุณากรอกชื่อ Content', 'error'); return }
+        if (!title) { showToast('❗ กรุณากรอกชื่อ Content', 'error'); return false }
         const plats = [...document.querySelectorAll('input[name="plat"]:checked')].map(el => el.value)
-        content.unshift({
-          id: `CT${String(content.length+1).padStart(3,'0')}`, title,
-          type: document.getElementById('cc-type')?.value||'post',
-          platforms: plats.length ? plats : ['facebook'],
-          status: 'planned', publishDate: document.getElementById('cc-date')?.value||addDays(7),
-          author: document.getElementById('cc-author')?.value||'ทีมการตลาด',
-          tags: [], views: 0, likes: 0, shares: 0
-        })
-        showToast('✅ สร้าง Content แล้ว!', 'success'); renderPage()
+        try {
+          await createDoc('content_calendar', {
+            title,
+            type: document.getElementById('cc-type')?.value||'post',
+            platforms: plats.length ? plats : ['facebook'],
+            status: 'planned', publishDate: document.getElementById('cc-date')?.value||addDays(7),
+            author: document.getElementById('cc-author')?.value||'ทีมการตลาด',
+            tags: [], views: 0, likes: 0, shares: 0
+          })
+          showToast('✅ สร้าง Content แล้ว!', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
