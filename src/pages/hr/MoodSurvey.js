@@ -5,6 +5,7 @@
 import { formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 
 const MOODS = [
   { score:5, emoji:'😄', label:'ดีมาก',  color:'#00C853' },
@@ -16,16 +17,6 @@ const MOODS = [
 
 const DEPT = ['ฝ่ายขาย','ฝ่ายบริการ','ฝ่ายการตลาด','ฝ่าย HR','ฝ่ายการเงิน']
 
-let RESPONSES = [
-  { id:'R001', staff:'นภา มีสุข', dept:'ฝ่ายขาย', date:'2026-06-14', score:4, note:'ยอดขายดี แต่งานเอกสารเยอะ' },
-  { id:'R002', staff:'สมชาย วิเศษ', dept:'ฝ่ายบริการ', date:'2026-06-14', score:3, note:'ช่างขาดวันนี้ งานหนักขึ้น' },
-  { id:'R003', staff:'มาลี จันทร์ดี', dept:'ฝ่ายการตลาด', date:'2026-06-14', score:5, note:'แคมเปญสำเร็จ ทีมสนุก!' },
-  { id:'R004', staff:'วิชัย รุ่งเรือง', dept:'ฝ่ายขาย', date:'2026-06-14', score:2, note:'เป้าสูงมาก กดดัน' },
-  { id:'R005', staff:'รัชนี สุขใจ', dept:'ฝ่าย HR', date:'2026-06-14', score:4, note:'' },
-  { id:'R006', staff:'อรุณ วิชิต', dept:'ฝ่ายการเงิน', date:'2026-06-13', score:3, note:'ปิดงบล่าช้า' },
-  { id:'R007', staff:'สุดา ภักดี', dept:'ฝ่ายขาย', date:'2026-06-13', score:5, note:'ปิดดีลใหม่ 3 คัน' },
-]
-
 const QUESTIONS = [
   'วันนี้คุณรู้สึกอย่างไรกับการทำงาน?',
   'ทีมงานช่วยเหลือคุณเพียงพอไหม?',
@@ -33,17 +24,33 @@ const QUESTIONS = [
 ]
 
 export default async function MoodSurveyPage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let responses = []
   let filterDept = 'all'
-  let filterDate = '2026-06-14'
+  let filterDate = new Date().toISOString().slice(0, 10)
   let surveySentAt = null
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { responses = await listDocs('mood_responses', [], 'date', 'desc', 500) } catch (e) { responses = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function render() {
-    const todayRows = RESPONSES.filter(r => r.date === filterDate && (filterDept==='all'||r.dept===filterDept))
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
+    const todayRows = responses.filter(r => r.date === filterDate && (filterDept==='all'||r.dept===filterDept))
     const avgScore  = todayRows.length ? (todayRows.reduce((s,r)=>s+r.score,0)/todayRows.length).toFixed(1) : '—'
     const avgMood   = MOODS.find(m=>m.score===Math.round(parseFloat(avgScore)))||MOODS[2]
-    const low       = RESPONSES.filter(r=>r.date===filterDate&&r.score<=2)
+    const low       = responses.filter(r=>r.date===filterDate&&r.score<=2)
     const deptAvg   = DEPT.map(d => {
-      const dr = RESPONSES.filter(r=>r.date===filterDate&&r.dept===d)
+      const dr = responses.filter(r=>r.date===filterDate&&r.dept===d)
       return { dept:d, avg:dr.length?(dr.reduce((s,r)=>s+r.score,0)/dr.length).toFixed(1):'—', count:dr.length }
     })
 
@@ -65,7 +72,7 @@ export default async function MoodSurveyPage(container) {
           <div class="card" style="padding:20px;text-align:center;min-width:140px">
             <div style="font-size:3rem;margin-bottom:4px">${avgMood.emoji}</div>
             <div style="font-size:2rem;font-weight:900;color:${avgMood.color}">${avgScore}</div>
-            <div style="font-size:0.72rem;color:var(--text-muted)">${avgMood.label} · ${todayRows.length}/${RESPONSES.filter(r=>r.dept===filterDept||filterDept==='all').length} คน</div>
+            <div style="font-size:0.72rem;color:var(--text-muted)">${avgMood.label} · ${todayRows.length} คนตอบ</div>
           </div>
           <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">
             ${MOODS.map(m => {
@@ -137,13 +144,13 @@ export default async function MoodSurveyPage(container) {
     document.getElementById('date-pick')?.addEventListener('change', e => { filterDate=e.target.value; render() })
     document.getElementById('dept-sel')?.addEventListener('change', e => { filterDept=e.target.value; render() })
     document.getElementById('send-survey-btn')?.addEventListener('click', () => {
-      const uniqueStaff = [...new Set(RESPONSES.map(r => r.staff))]
+      const uniqueStaff = [...new Set(responses.map(r => r.staff))]
       openModal({
         title: '📤 ส่งแบบสำรวจ Mood',
         size: 'sm',
         body: `<div style="font-size:0.8rem;display:flex;flex-direction:column;gap:10px">
           <div>
-            <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:2px">ช่องทาง: 💚 LINE Notify</div>
+            <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:2px">ช่องทาง: 🔔 แจ้งเตือนในระบบ</div>
             <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:4px">พนักงาน ${uniqueStaff.length} คน (${DEPT.join(', ')})</div>
             <div style="background:var(--surface-2);border-radius:6px;padding:8px;font-size:0.72rem;max-height:70px;overflow-y:auto">
               ${uniqueStaff.join(', ')}
@@ -151,14 +158,20 @@ export default async function MoodSurveyPage(container) {
           </div>
           <div>
             <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:4px">ตัวอย่างข้อความ</div>
-            <div style="background:var(--surface-2);border-radius:6px;padding:8px;font-size:0.72rem;color:var(--text-muted)">🌟 สวัสดี! กรุณากรอกแบบสำรวจ Mood วันนี้ เพื่อช่วยให้ HR ดูแลคุณได้ดีขึ้น ✏️ ใช้เวลาแค่ 1 นาที [ลิงก์แบบสำรวจ]</div>
+            <div style="background:var(--surface-2);border-radius:6px;padding:8px;font-size:0.72rem;color:var(--text-muted)">🌟 สวัสดี! กรุณากรอกแบบสำรวจ Mood วันนี้ เพื่อช่วยให้ HR ดูแลคุณได้ดีขึ้น ✏️ ใช้เวลาแค่ 1 นาที</div>
           </div>
         </div>`,
-        confirmText: '📤 ส่ง LINE',
-        onConfirm() {
+        confirmText: '📤 ส่งแจ้งเตือน',
+        async onConfirm() {
+          try {
+            await createDoc('notifications', {
+              type: 'system', title: '😊 กรุณากรอกแบบสำรวจ Mood วันนี้',
+              body: 'ใช้เวลาแค่ 1 นาที เพื่อช่วยให้ HR ดูแลทีมได้ดีขึ้น', read: false, link: '/hr/mood-survey', createdAt: new Date().toISOString(),
+            })
+          } catch { /* แจ้งเตือนพลาดได้ */ }
           surveySentAt = new Date().toISOString()
           render()
-          showToast(`📤 ส่ง LINE แบบสำรวจให้พนักงาน ${uniqueStaff.length} คน แล้ว`, 'success')
+          showToast(`📤 ส่งแบบสำรวจให้พนักงาน ${uniqueStaff.length} คน แล้ว`, 'success')
         }
       })
     })
@@ -179,10 +192,16 @@ export default async function MoodSurveyPage(container) {
           <input class="input" id="mood-note" placeholder="รู้สึกอย่างไร..." style="width:100%;margin-top:4px"></div>
       </div>`,
       confirmText:'✅ ส่งแบบสำรวจ',
-      onConfirm() {
+      async onConfirm() {
         if (!picked) { showToast('เลือก Mood ก่อน', 'warning'); return false }
-        RESPONSES.unshift({ id:'R'+Date.now(), staff:'ผู้ใช้ปัจจุบัน', dept:'ฝ่ายขาย', date:'2026-06-14', score:picked, note:document.getElementById('mood-note')?.value||'' })
-        render(); showToast('✅ ส่ง Mood Survey แล้ว ขอบคุณ!', 'success')
+        await createDoc('mood_responses', {
+          staff: 'ผู้ใช้ปัจจุบัน', dept: 'ฝ่ายขาย',
+          date: new Date().toISOString().slice(0, 10),
+          score: picked, note: document.getElementById('mood-note')?.value || '',
+        })
+        filterDate = new Date().toISOString().slice(0, 10)
+        showToast('✅ ส่ง Mood Survey แล้ว ขอบคุณ!', 'success')
+        await loadData()
       }
     })
     setTimeout(() => {
@@ -194,5 +213,5 @@ export default async function MoodSurveyPage(container) {
     }, 100)
   }
 
-  render()
+  await loadData()
 }

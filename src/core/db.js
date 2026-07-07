@@ -860,6 +860,18 @@ export function seedDemoData() {
   ]
   refundRequests.forEach(r => { if (!demoCol('refund_requests')[r.id]) demoCol('refund_requests')[r.id] = r })
 
+  // Mood survey responses (หน้า /hr/mood-survey) — วันที่อิงวันปัจจุบันเพื่อให้หน้าแสดงข้อมูลสดเสมอ
+  const moodResponses = [
+    { id:'MR001', staff:'นภา มีสุข', dept:'ฝ่ายขาย', date:addDaysISO(0), score:4, note:'ยอดขายดี แต่งานเอกสารเยอะ' },
+    { id:'MR002', staff:'สมชาย วิเศษ', dept:'ฝ่ายบริการ', date:addDaysISO(0), score:3, note:'ช่างขาดวันนี้ งานหนักขึ้น' },
+    { id:'MR003', staff:'มาลี จันทร์ดี', dept:'ฝ่ายการตลาด', date:addDaysISO(0), score:5, note:'แคมเปญสำเร็จ ทีมสนุก!' },
+    { id:'MR004', staff:'วิชัย รุ่งเรือง', dept:'ฝ่ายขาย', date:addDaysISO(0), score:2, note:'เป้าสูงมาก กดดัน' },
+    { id:'MR005', staff:'รัชนี สุขใจ', dept:'ฝ่าย HR', date:addDaysISO(0), score:4, note:'' },
+    { id:'MR006', staff:'อรุณ วิชิต', dept:'ฝ่ายการเงิน', date:addDaysISO(-1), score:3, note:'ปิดงบล่าช้า' },
+    { id:'MR007', staff:'สุดา ภักดี', dept:'ฝ่ายขาย', date:addDaysISO(-1), score:5, note:'ปิดดีลใหม่ 3 คัน' },
+  ]
+  moodResponses.forEach(r => { if (!demoCol('mood_responses')[r.id]) demoCol('mood_responses')[r.id] = r })
+
   const demoFleet = [
     { id:'df1', brand:'BYD', model:'Seal RWD', vin:'LGXCE4C10PA000006', plate:'กข-0001', color:'เทา Ink', year:2025, mileage:3520, status:'available', condition:'good', lastService:'2025-05-01', notes:'รถทดลองขับหลัก', createdAt:'2025-01-10' },
     { id:'df2', brand:'MG', model:'MG4 X', vin:'SDUZZZEF5PA000020', plate:'กข-0002', color:'แดง', year:2025, mileage:5200, status:'in_use', condition:'good', lastService:'2025-04-15', notes:'ให้ลูกค้า VIP ยืม', createdAt:'2025-01-15' },
