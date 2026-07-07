@@ -861,6 +861,53 @@ export function seedDemoData() {
   ]
   partsOrders.forEach(o => { if (!demoCol('parts_orders')[o.id]) demoCol('parts_orders')[o.id] = o })
 
+  // Parts RMA (หน้า /service/parts-rma)
+  const partsRma = [
+    { id:'RMA001', partNo:'BYD-BRAKE-F01', partName:'ผ้าเบรคหน้า BYD Atto 3', qty:4, unit:'ชุด', reason:'ชิ้นส่วนชำรุด', supplier:'BYD Thailand', date:'2026-06-01', cost:2800, status:'approved', refNo:'BYD-RET-2026-0041' },
+    { id:'RMA002', partNo:'MG-FILTER-001',  partName:'กรองอากาศ MG ZS EV',    qty:6, unit:'ชิ้น', reason:'ผิดรุ่น',          supplier:'MG Sales',    date:'2026-06-03', cost:1200, status:'pending',  refNo:'' },
+    { id:'RMA003', partNo:'BYD-LAMP-R02',   partName:'ไฟท้าย BYD Seal',       qty:2, unit:'ชิ้น', reason:'แตกระหว่างขนส่ง',  supplier:'BYD Thailand', date:'2026-06-05', cost:8400, status:'shipped', refNo:'BYD-RET-2026-0042' },
+    { id:'RMA004', partNo:'BOSCH-WIPER-S',  partName:'ใบปัดน้ำฝน Bosch',      qty:10,unit:'คู่',  reason:'ผลิตภัณฑ์ชำรุด',   supplier:'Bosch Thai',  date:'2026-06-08', cost:3500, status:'pending',  refNo:'' },
+    { id:'RMA005', partNo:'BYD-TYRE-195',   partName:'ยาง BYD 195/60R16',     qty:8, unit:'เส้น', reason:'ผิดสเปก',           supplier:'BYD Thailand', date:'2026-06-10', cost:16000,status:'approved', refNo:'BYD-RET-2026-0043' },
+  ]
+  partsRma.forEach(r => { if (!demoCol('parts_rma')[r.id]) demoCol('parts_rma')[r.id] = r })
+
+  // Quick Lane jobs (หน้า /service/quick-lane)
+  const quickLaneJobs = [
+    { id:'QL001', plate:'กก-1234', customer:'สมชาย ใจดี',    service:'เปลี่ยนถ่ายน้ำมัน',    bay:1, started:'09:10', estimated:30, status:'done',       price:1200 },
+    { id:'QL002', plate:'ขข-5678', customer:'นภา สุขสม',     service:'เติมลม / ตรวจยาง',      bay:2, started:'09:30', estimated:15, status:'in_progress', price:0    },
+    { id:'QL003', plate:'คค-9012', customer:'วิชัย ศรีดี',   service:'เปลี่ยนไส้กรองอากาศ',   bay:1, started:'09:45', estimated:20, status:'waiting',     price:800  },
+    { id:'QL004', plate:'งง-3456', customer:'กาญจนา ทอง',   service:'ตรวจเช็ก EV Battery',   bay:3, started:'10:00', estimated:45, status:'in_progress', price:500  },
+    { id:'QL005', plate:'จจ-7890', customer:'ประเสริฐ มั่น', service:'เปลี่ยนถ่ายน้ำมัน',    bay:2, started:'10:15', estimated:30, status:'waiting',     price:1200 },
+  ]
+  quickLaneJobs.forEach(j => { if (!demoCol('quick_lane_jobs')[j.id]) demoCol('quick_lane_jobs')[j.id] = j })
+
+  // Recall management (หน้า /service/recall)
+  const rcAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
+  const recallCampaigns = [
+    { id:'RC001', title:'BYD Seal: Software Update v3.2.1 (BMS Fix)', brand:'BYD', model:'Seal AWD',
+      recallNo:'BYD-TH-2025-001', status:'in_progress', severity:'high',
+      issueDate:rcAddDays(-30), deadline:rcAddDays(90), fixDescription:'อัพเดต Firmware BMS แก้ปัญหาการชาร์จในอุณหภูมิสูง',
+      totalVehicles:18, fixed:12, pending:6, declined:0, laborHours:0.5, partsCost:0 },
+    { id:'RC002', title:'MG ZS EV: เปลี่ยนสายไฟ On-Board Charger', brand:'MG', model:'ZS EV',
+      recallNo:'MGT-2025-EV-002', status:'open', severity:'critical',
+      issueDate:rcAddDays(-14), deadline:rcAddDays(60), fixDescription:'เปลี่ยนชุดสายไฟ OBC ป้องกันความร้อนสูงเกิน',
+      totalVehicles:8, fixed:0, pending:8, declined:0, laborHours:2, partsCost:4500 },
+    { id:'RC003', title:'BYD Atto 3: Airbag Module Replacement', brand:'BYD', model:'Atto 3',
+      recallNo:'BYD-TH-2024-012', status:'completed', severity:'critical',
+      issueDate:rcAddDays(-180), deadline:rcAddDays(-10), fixDescription:'เปลี่ยน Airbag Module ทั้งหมด',
+      totalVehicles:15, fixed:14, pending:0, declined:1, laborHours:3, partsCost:12000 },
+  ]
+  recallCampaigns.forEach(r => { if (!demoCol('recall_campaigns')[r.id]) demoCol('recall_campaigns')[r.id] = r })
+
+  const recallCampaignVehicles = [
+    { id:'RCV1', vin:'LBWAB2EB7PD001001', plate:'กก 1234', owner:'วิชัย มีโชค', phone:'085-xxx', recallId:'RC001', vStatus:'fixed', appointDate:rcAddDays(-5) },
+    { id:'RCV2', vin:'LBWAB2EB7PD001002', plate:'กก 5678', owner:'สุดา ขยัน', phone:'086-xxx', recallId:'RC001', vStatus:'scheduled', appointDate:rcAddDays(3) },
+    { id:'RCV3', vin:'LBWAB2EB7PD001003', plate:'กก 9012', owner:'ธนา เก่ง', phone:'087-xxx', recallId:'RC001', vStatus:'contacted', appointDate:null },
+    { id:'RCV4', vin:'LSJWSRAR7NE001001', plate:'ขข 1234', owner:'อรวรรณ ดี', phone:'088-xxx', recallId:'RC002', vStatus:'pending_contact', appointDate:null },
+    { id:'RCV5', vin:'LSJWSRAR7NE001002', plate:'ขข 5678', owner:'ปทิตา สาวสวย', phone:'089-xxx', recallId:'RC002', vStatus:'pending_contact', appointDate:null },
+  ]
+  recallCampaignVehicles.forEach(v => { if (!demoCol('recall_campaign_vehicles')[v.id]) demoCol('recall_campaign_vehicles')[v.id] = v })
+
   // Quality incidents (หน้า /quality/incidents)
   const qualityIncidents = [
     { id:'INC001', title:'รถลูกค้าถูกขีดข่วนระหว่างล้าง', cat:'vehicle', severity:'major', status:'action', reporter:'หัวหน้าทีมล้างรถ', date:new Date(Date.now()-86400000*2).toISOString(), rootCause:'อุปกรณ์ล้างเก่า มีเศษทราย', action:'เปลี่ยนผ้าไมโครไฟเบอร์ใหม่ทั้งชุด + ชดเชยลูกค้า' },

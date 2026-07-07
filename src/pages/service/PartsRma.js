@@ -5,14 +5,7 @@
 import { formatDate, formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-
-let RMAS = [
-  { id:'RMA001', partNo:'BYD-BRAKE-F01', partName:'ผ้าเบรคหน้า BYD Atto 3', qty:4, unit:'ชุด', reason:'ชิ้นส่วนชำรุด', supplier:'BYD Thailand', date:'2026-06-01', cost:2800, status:'approved', refNo:'BYD-RET-2026-0041' },
-  { id:'RMA002', partNo:'MG-FILTER-001',  partName:'กรองอากาศ MG ZS EV',    qty:6, unit:'ชิ้น', reason:'ผิดรุ่น',          supplier:'MG Sales',    date:'2026-06-03', cost:1200, status:'pending',  refNo:'' },
-  { id:'RMA003', partNo:'BYD-LAMP-R02',   partName:'ไฟท้าย BYD Seal',       qty:2, unit:'ชิ้น', reason:'แตกระหว่างขนส่ง',  supplier:'BYD Thailand', date:'2026-06-05', cost:8400, status:'shipped', refNo:'BYD-RET-2026-0042' },
-  { id:'RMA004', partNo:'BOSCH-WIPER-S',  partName:'ใบปัดน้ำฝน Bosch',      qty:10,unit:'คู่',  reason:'ผลิตภัณฑ์ชำรุด',   supplier:'Bosch Thai',  date:'2026-06-08', cost:3500, status:'pending',  refNo:'' },
-  { id:'RMA005', partNo:'BYD-TYRE-195',   partName:'ยาง BYD 195/60R16',     qty:8, unit:'เส้น', reason:'ผิดสเปก',           supplier:'BYD Thailand', date:'2026-06-10', cost:16000,status:'approved', refNo:'BYD-RET-2026-0043' },
-]
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 const STATUS_CONFIG = {
   pending:  { label:'รอดำเนินการ', bg:'var(--warning)',  fg:'#fff' },
@@ -22,9 +15,25 @@ const STATUS_CONFIG = {
 }
 
 export default async function PartsRmaPage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+
   let filterStatus = 'all'
+  let RMAS = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { RMAS = await listDocs('parts_rma', [], 'date', 'desc', 500) } catch (e) { RMAS = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const rows = filterStatus === 'all' ? RMAS : RMAS.filter(r => r.status === filterStatus)
     const totalCost = RMAS.reduce((s, r) => s + r.cost, 0)
     const pending   = RMAS.filter(r => r.status === 'pending').length
@@ -90,15 +99,16 @@ export default async function PartsRmaPage(container) {
 
     container.querySelectorAll('.stat-btn').forEach(b => b.addEventListener('click', () => { filterStatus = b.dataset.s; render() }))
     document.getElementById('new-rma-btn')?.addEventListener('click', () => openNewModal())
-    container.querySelectorAll('.approve-btn').forEach(b => b.addEventListener('click', e => {
+    container.querySelectorAll('.approve-btn').forEach(b => b.addEventListener('click', async e => {
       e.stopPropagation()
       const rma = RMAS.find(r => r.id === b.dataset.id)
-      if (rma) {
-        rma.status = 'approved'
-        rma.refNo = 'REF-'+Date.now().toString().slice(-6)
-        render()
+      if (!rma) return
+      const refNo = 'REF-'+Date.now().toString().slice(-6)
+      try {
+        await updateDocData('parts_rma', rma.id, { status: 'approved', refNo })
         showToast(`✅ อนุมัติ RMA ${rma.partName} แล้ว`, 'success')
-      }
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.rma-card').forEach(el => el.addEventListener('click', () => {
       const rma = RMAS.find(r => r.id === el.dataset.id)
@@ -127,9 +137,13 @@ export default async function PartsRmaPage(container) {
         </select>
       </div>`,
       confirmText:'💾 บันทึก',
-      onConfirm() {
-        r.status = document.getElementById('status-upd')?.value || r.status
-        render(); showToast(`💾 อัปเดตสถานะ RMA แล้ว`, 'success')
+      async onConfirm() {
+        const status = document.getElementById('status-upd')?.value || r.status
+        try {
+          await updateDocData('parts_rma', r.id, { status })
+          showToast(`💾 อัปเดตสถานะ RMA แล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -151,19 +165,22 @@ export default async function PartsRmaPage(container) {
             <option>ชิ้นส่วนชำรุด</option><option>ผิดรุ่น</option><option>แตกระหว่างขนส่ง</option><option>ผลิตภัณฑ์ชำรุด</option><option>ผิดสเปก</option></select></div>
       </div>`,
       confirmText:'📋 สร้าง RMA',
-      onConfirm() {
+      async onConfirm() {
         const no = document.getElementById('rma-no')?.value?.trim()
         const name = document.getElementById('rma-name')?.value?.trim()
         if (!no || !name) { showToast('กรอกข้อมูลให้ครบ', 'warning'); return false }
-        RMAS.unshift({
-          id:'RMA'+Date.now(), partNo:no, partName:name,
-          qty:parseInt(document.getElementById('rma-qty')?.value)||1,
-          unit:'ชิ้น', reason:document.getElementById('rma-reason')?.value||'',
-          supplier:document.getElementById('rma-sup')?.value||'',
-          date:'2026-06-14', cost:parseInt(document.getElementById('rma-cost')?.value)||0,
-          status:'pending', refNo:''
-        })
-        render(); showToast(`📋 สร้าง RMA ${name} แล้ว`, 'success')
+        try {
+          await createDoc('parts_rma', {
+            partNo:no, partName:name,
+            qty:parseInt(document.getElementById('rma-qty')?.value)||1,
+            unit:'ชิ้น', reason:document.getElementById('rma-reason')?.value||'',
+            supplier:document.getElementById('rma-sup')?.value||'',
+            date:new Date().toISOString().slice(0,10), cost:parseInt(document.getElementById('rma-cost')?.value)||0,
+            status:'pending', refNo:''
+          })
+          showToast(`📋 สร้าง RMA ${name} แล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -179,5 +196,5 @@ export default async function PartsRmaPage(container) {
     </div>`
   }
 
-  render()
+  await loadData()
 }

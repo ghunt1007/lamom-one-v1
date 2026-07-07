@@ -5,6 +5,7 @@
 import { formatDate, formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 
 const RECALL_STATUS = {
   open:       { label: 'เปิดอยู่', color: 'danger' },
@@ -23,41 +24,34 @@ const VEHICLE_STATUS = {
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
 
-const DEMO_RECALLS = [
-  {
-    id: 'RC001', title: 'BYD Seal: Software Update v3.2.1 (BMS Fix)', brand: 'BYD', model: 'Seal AWD',
-    recallNo: 'BYD-TH-2025-001', status: 'in_progress', severity: 'high',
-    issueDate: addDays(-30), deadline: addDays(90), fixDescription: 'อัพเดต Firmware BMS แก้ปัญหาการชาร์จในอุณหภูมิสูง',
-    totalVehicles: 18, fixed: 12, pending: 6, declined: 0, laborHours: 0.5, partsCost: 0
-  },
-  {
-    id: 'RC002', title: 'MG ZS EV: เปลี่ยนสายไฟ On-Board Charger', brand: 'MG', model: 'ZS EV',
-    recallNo: 'MGT-2025-EV-002', status: 'open', severity: 'critical',
-    issueDate: addDays(-14), deadline: addDays(60), fixDescription: 'เปลี่ยนชุดสายไฟ OBC ป้องกันความร้อนสูงเกิน',
-    totalVehicles: 8, fixed: 0, pending: 8, declined: 0, laborHours: 2, partsCost: 4500
-  },
-  {
-    id: 'RC003', title: 'BYD Atto 3: Airbag Module Replacement', brand: 'BYD', model: 'Atto 3',
-    recallNo: 'BYD-TH-2024-012', status: 'completed', severity: 'critical',
-    issueDate: addDays(-180), deadline: addDays(-10), fixDescription: 'เปลี่ยน Airbag Module ทั้งหมด',
-    totalVehicles: 15, fixed: 14, pending: 0, declined: 1, laborHours: 3, partsCost: 12000
-  },
-]
-
-const DEMO_VEHICLES = [
-  { vin: 'LBWAB2EB7PD001001', plate: 'กก 1234', owner: 'วิชัย มีโชค', phone: '085-xxx', recallId: 'RC001', vStatus: 'fixed', appointDate: addDays(-5) },
-  { vin: 'LBWAB2EB7PD001002', plate: 'กก 5678', owner: 'สุดา ขยัน', phone: '086-xxx', recallId: 'RC001', vStatus: 'scheduled', appointDate: addDays(3) },
-  { vin: 'LBWAB2EB7PD001003', plate: 'กก 9012', owner: 'ธนา เก่ง', phone: '087-xxx', recallId: 'RC001', vStatus: 'contacted', appointDate: null },
-  { vin: 'LSJWSRAR7NE001001', plate: 'ขข 1234', owner: 'อรวรรณ ดี', phone: '088-xxx', recallId: 'RC002', vStatus: 'pending_contact', appointDate: null },
-  { vin: 'LSJWSRAR7NE001002', plate: 'ขข 5678', owner: 'ปทิตา สาวสวย', phone: '089-xxx', recallId: 'RC002', vStatus: 'pending_contact', appointDate: null },
-]
-
 export default async function RecallManagementPage(container) {
-  let recalls = DEMO_RECALLS.map(r => ({ ...r }))
-  let vehicles = DEMO_VEHICLES.map(v => ({ ...v }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let recalls = []
+  let vehicles = []
   let selectedRecall = null
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try {
+      const [r, v] = await Promise.all([
+        listDocs('recall_campaigns', [], 'issueDate', 'desc', 200),
+        listDocs('recall_campaign_vehicles', [], 'plate', 'asc', 500),
+      ])
+      recalls = r; vehicles = v
+      if (selectedRecall) selectedRecall = recalls.find(x => x.id === selectedRecall.id) || null
+    } catch (e) { recalls = []; vehicles = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const open = recalls.filter(r => r.status === 'open').length
     const critical = recalls.filter(r => r.severity === 'critical').length
     const totalPending = recalls.reduce((a, r) => a + r.pending, 0)
@@ -147,26 +141,38 @@ export default async function RecallManagementPage(container) {
       renderPage()
     }))
 
-    container.querySelectorAll('.contact-veh-btn').forEach(b => b.addEventListener('click', e => { e.stopPropagation()
+    container.querySelectorAll('.contact-veh-btn').forEach(b => b.addEventListener('click', async e => { e.stopPropagation()
       const v = vehicles.find(x => x.vin === b.dataset.vin)
-      if (v) { v.vStatus = 'contacted'; showToast('📞 ติดต่อลูกค้าแล้ว', 'success'); renderPage() }
+      if (!v) return
+      try {
+        await updateDocData('recall_campaign_vehicles', v.id, { vStatus: 'contacted' })
+        showToast('📞 ติดต่อลูกค้าแล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.schedule-veh-btn').forEach(b => b.addEventListener('click', e => { e.stopPropagation()
+    container.querySelectorAll('.schedule-veh-btn').forEach(b => b.addEventListener('click', async e => { e.stopPropagation()
       const v = vehicles.find(x => x.vin === b.dataset.vin)
-      if (v) { v.vStatus = 'scheduled'; v.appointDate = addDays(5); showToast('📅 นัดหมายแล้ว', 'success'); renderPage() }
+      if (!v) return
+      try {
+        await updateDocData('recall_campaign_vehicles', v.id, { vStatus: 'scheduled', appointDate: addDays(5) })
+        showToast('📅 นัดหมายแล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.fix-veh-btn').forEach(b => b.addEventListener('click', e => { e.stopPropagation()
+    container.querySelectorAll('.fix-veh-btn').forEach(b => b.addEventListener('click', async e => { e.stopPropagation()
       const v = vehicles.find(x => x.vin === b.dataset.vin)
-      if (v) {
-        v.vStatus = 'fixed'
-        const recall = recalls.find(r => r.id === v.recallId)
-        if (recall) { recall.fixed++; recall.pending-- }
-        showToast('✅ บันทึกการแก้ไขแล้ว!', 'success'); renderPage()
-      }
+      if (!v) return
+      const recall = recalls.find(r => r.id === v.recallId)
+      try {
+        await updateDocData('recall_campaign_vehicles', v.id, { vStatus: 'fixed' })
+        if (recall) await updateDocData('recall_campaigns', recall.id, { fixed: recall.fixed + 1, pending: Math.max(0, recall.pending - 1) })
+        showToast('✅ บันทึกการแก้ไขแล้ว!', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

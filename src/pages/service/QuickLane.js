@@ -5,14 +5,7 @@
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { formatDate } from '../../utils/format.js'
-
-let JOBS = [
-  { id:'QL001', plate:'กก-1234', customer:'สมชาย ใจดี',    service:'เปลี่ยนถ่ายน้ำมัน',    bay:1, started:'09:10', estimated:30, status:'done',       price:1200 },
-  { id:'QL002', plate:'ขข-5678', customer:'นภา สุขสม',     service:'เติมลม / ตรวจยาง',      bay:2, started:'09:30', estimated:15, status:'in_progress', price:0    },
-  { id:'QL003', plate:'คค-9012', customer:'วิชัย ศรีดี',   service:'เปลี่ยนไส้กรองอากาศ',   bay:1, started:'09:45', estimated:20, status:'waiting',     price:800  },
-  { id:'QL004', plate:'งง-3456', customer:'กาญจนา ทอง',   service:'ตรวจเช็ก EV Battery',   bay:3, started:'10:00', estimated:45, status:'in_progress', price:500  },
-  { id:'QL005', plate:'จจ-7890', customer:'ประเสริฐ มั่น', service:'เปลี่ยนถ่ายน้ำมัน',    bay:2, started:'10:15', estimated:30, status:'waiting',     price:1200 },
-]
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 const STATUS_CFG = {
   waiting:     { label:'รอคิว',      bg:'var(--surface-2)',  icon:'⏳', textColor:'var(--text-muted)' },
@@ -23,7 +16,19 @@ const STATUS_CFG = {
 const SERVICES = ['เปลี่ยนถ่ายน้ำมัน','เติมลม / ตรวจยาง','เปลี่ยนไส้กรองอากาศ','ตรวจเช็ก EV Battery','เปลี่ยนน้ำกลั่น','ตรวจสภาพรวดเร็ว 30 จุด','เปลี่ยนหลอดไฟ','ล้างหัวฉีด']
 
 export default async function QuickLanePage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+
   let filterStatus = 'all'
+  let JOBS = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { JOBS = await listDocs('quick_lane_jobs', [], 'started', 'asc', 500) } catch (e) { JOBS = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function jobCard(j) {
     const cfg = STATUS_CFG[j.status]
@@ -51,6 +56,10 @@ export default async function QuickLanePage(container) {
   }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     let rows = filterStatus==='all' ? JOBS : JOBS.filter(j=>j.status===filterStatus)
 
     const waiting    = JOBS.filter(j=>j.status==='waiting').length
@@ -88,13 +97,19 @@ export default async function QuickLanePage(container) {
       </div>`
 
     container.querySelectorAll('.stat-btn').forEach(b=>b.addEventListener('click',()=>{filterStatus=b.dataset.s;render()}))
-    container.querySelectorAll('.start-btn').forEach(b=>b.addEventListener('click',()=>{
+    container.querySelectorAll('.start-btn').forEach(b=>b.addEventListener('click',async ()=>{
       const j=JOBS.find(x=>x.id===b.dataset.id)
-      if(j){j.status='in_progress';render();showToast('🔧 เริ่มงาน: '+j.customer+' '+j.service,'success')}
+      if(!j) return
+      j.status='in_progress'; render()
+      showToast('🔧 เริ่มงาน: '+j.customer+' '+j.service,'success')
+      try { await updateDocData('quick_lane_jobs', j.id, { status: 'in_progress' }) } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.done-btn').forEach(b=>b.addEventListener('click',()=>{
+    container.querySelectorAll('.done-btn').forEach(b=>b.addEventListener('click',async ()=>{
       const j=JOBS.find(x=>x.id===b.dataset.id)
-      if(j){j.status='done';render();showToast('✅ เสร็จ: '+j.customer+' · '+j.service,'success')}
+      if(!j) return
+      j.status='done'; render()
+      showToast('✅ เสร็จ: '+j.customer+' · '+j.service,'success')
+      try { await updateDocData('quick_lane_jobs', j.id, { status: 'done' }) } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     document.getElementById('walkin-btn')?.addEventListener('click',()=>openWalkInModal())
   }
@@ -118,7 +133,7 @@ export default async function QuickLanePage(container) {
         </div>
       </div>`,
       confirmText:'⚡ เปิดคิว',
-      onConfirm() {
+      async onConfirm() {
         const cust=document.getElementById('ql-cust')?.value?.trim()
         const plate=document.getElementById('ql-plate')?.value?.trim()
         if(!cust||!plate){showToast('กรอกชื่อและทะเบียน','warning');return false}
@@ -127,8 +142,11 @@ export default async function QuickLanePage(container) {
         const price=parseInt(document.getElementById('ql-price')?.value)||0
         const now=new Date()
         const timeStr=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0')
-        JOBS.push({id:'QL'+Date.now(),plate,customer:cust,service:svc,bay,started:timeStr,estimated:30,status:'waiting',price})
-        render(); showToast('⚡ รับคิว '+cust+' เรียบร้อย','success')
+        try {
+          await createDoc('quick_lane_jobs', {plate,customer:cust,service:svc,bay,started:timeStr,estimated:30,status:'waiting',price})
+          showToast('⚡ รับคิว '+cust+' เรียบร้อย','success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -137,5 +155,5 @@ export default async function QuickLanePage(container) {
     return `<div class="card" style="padding:14px 16px"><div style="font-size:0.72rem;color:var(--text-muted)">${l}</div><div style="font-size:1.1rem;font-weight:900;color:${c};margin-top:2px">${v}</div></div>`
   }
 
-  render()
+  await loadData()
 }
