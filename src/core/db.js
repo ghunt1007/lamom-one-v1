@@ -716,6 +716,52 @@ export function seedDemoData() {
   ]
   socialPosts.forEach(p => { if (!demoCol('social_posts')[p.id]) demoCol('social_posts')[p.id] = p })
 
+  // Bay management (หน้า /service/bay)
+  const serviceBays = [
+    { id:'B1', type:'ทั่วไป',   status:'busy',     job:'JC-2401', car:'BYD Atto 3 · กข-1234', tech:'สมชาย', etaMin:45 },
+    { id:'B2', type:'ทั่วไป',   status:'busy',     job:'JC-2398', car:'MG ZS · 1กก-5678',     tech:'วิชัย',  etaMin:90 },
+    { id:'B3', type:'ทั่วไป',   status:'free',     job:'', car:'', tech:'', etaMin:0 },
+    { id:'B4', type:'ช่วงล่าง', status:'waiting',  job:'JC-2390', car:'BYD Seal · ขข-9999',   tech:'ประเสริฐ', etaMin:0 },
+    { id:'B5', type:'ช่วงล่าง', status:'free',     job:'', car:'', tech:'', etaMin:0 },
+    { id:'B6', type:'BP/สี',    status:'busy',     job:'BP-1102', car:'BYD Dolphin · 2กข-3456', tech:'อนุชา',  etaMin:240 },
+    { id:'B7', type:'BP/สี',    status:'cleaning', job:'', car:'', tech:'ทีมล้าง', etaMin:15 },
+    { id:'B8', type:'EV',       status:'busy',     job:'JC-2405', car:'BYD Han · 3ขค-7788',    tech:'ธนพล',  etaMin:60 },
+  ]
+  serviceBays.forEach(b => { if (!demoCol('service_bays')[b.id]) demoCol('service_bays')[b.id] = b })
+
+  const serviceBayQueue = [
+    { id:'q1', job:'JC-2410', car:'MG4 · 4กค-1100', service:'เช็คระยะ 20,000', need:'ทั่วไป' },
+    { id:'q2', job:'JC-2411', car:'BYD Atto 3 · 5ขข-2200', service:'เปลี่ยนยาง+ตั้งศูนย์', need:'ช่วงล่าง' },
+    { id:'q3', job:'JC-2412', car:'BYD Seal · 6กก-3300', service:'อัปเดตซอฟต์แวร์', need:'EV' },
+  ]
+  serviceBayQueue.forEach(q => { if (!demoCol('service_bay_queue')[q.id]) demoCol('service_bay_queue')[q.id] = q })
+
+  // Body & Paint jobs (หน้า /service/bp)
+  const bodyRepairJobs = [
+    { id:'BP001', plate:'กก 1234 กทม', model:'BYD Atto 3', customer:'คุณวรพจน์ สุขใจ', damage:'ชนหน้า ไฟหน้าแตก กันชนยุบ', estimate:45000, status:'estimate', tech:'ช่างเพ็ชร', daysIn:2, insurer:'วิริยะประกัน', claim:'VIR-2026-4521' },
+    { id:'BP002', plate:'บบ 5678 ชลบุรี', model:'MG ZS EV', customer:'บริษัท ทรัพย์สิน จก.', damage:'ข้างซ้ายถลอก กระโปรงหลังบุบ', estimate:28000, status:'approved', tech:'ช่างแดน', daysIn:5, insurer:'เมืองไทยประกัน', claim:'MTI-2026-1102' },
+    { id:'BP003', plate:'คค 9012 นนทบุรี', model:'BYD Seal AWD', customer:'คุณนภา ชื่นดี', damage:'สีซีดทั้งคัน เคลือบสีใหม่', estimate:35000, status:'in_progress', tech:'ช่างโอ', daysIn:8, insurer:'AXA', claim:'AXA-2026-7788' },
+    { id:'BP004', plate:'งง 3456 ปทุม', model:'BYD Dolphin', customer:'คุณสมชาย ดีใจ', damage:'กระจกบังลมหน้าแตก', estimate:12000, status:'ready', tech:'ช่างเพ็ชร', daysIn:3, insurer:'ทิพยประกัน', claim:'TIP-2026-3344' },
+    { id:'BP005', plate:'จจ 7890 สมุทรปราการ', model:'MG4 EV', customer:'คุณพรทิพย์ มั่นคง', damage:'ท้ายชนหนักมาก โครงสร้างเสียหาย', estimate:120000, status:'estimate', tech:'ช่างแดน', daysIn:1, insurer:'กรุงเทพประกัน', claim:'BKI-2026-9900' },
+    { id:'BP006', plate:'ฉฉ 2345 ระยอง', model:'BYD Atto 3', customer:'คุณวิชัย สุดยอด', damage:'ประตูซ้ายหลังบุบ', estimate:18000, status:'completed', tech:'ช่างโอ', daysIn:12, insurer:'ไทยวิวัฒน์', claim:'TVV-2026-5566' },
+  ]
+  bodyRepairJobs.forEach(j => { if (!demoCol('body_repair_jobs')[j.id]) demoCol('body_repair_jobs')[j.id] = j })
+
+  // Charging stations (หน้า /service/charging)
+  const csAddMins = n => { const d = new Date(); d.setMinutes(d.getMinutes() + n); return d.toISOString() }
+  const csSubMins = n => { const d = new Date(); d.setMinutes(d.getMinutes() - n); return d.toISOString() }
+  const chargingStations = [
+    { id:'CS01', name:'Charger A1', type:'dc_150', status:'in_use', power:150, soc:62, vehicle:'BYD Seal AWD · 1กข-1234', startTime:csSubMins(45), estFinish:csAddMins(25), energy:28.5 },
+    { id:'CS02', name:'Charger A2', type:'dc_150', status:'available', power:150, soc:0, vehicle:null, startTime:null, estFinish:null, energy:0 },
+    { id:'CS03', name:'Charger B1', type:'dc_50', status:'reserved', power:50, soc:0, vehicle:'BYD Atto 3 · 2ขค-5678', startTime:null, estFinish:csAddMins(15), energy:0 },
+    { id:'CS04', name:'Charger B2', type:'dc_50', status:'in_use', power:50, soc:78, vehicle:'MG ZS EV · 3คง-9012', startTime:csSubMins(80), estFinish:csAddMins(10), energy:42.1 },
+    { id:'CS05', name:'Charger C1', type:'ac_22', status:'available', power:22, soc:0, vehicle:null, startTime:null, estFinish:null, energy:0 },
+    { id:'CS06', name:'Charger C2', type:'ac_22', status:'offline', power:22, soc:0, vehicle:null, startTime:null, estFinish:null, energy:0 },
+    { id:'CS07', name:'Charger D1', type:'ac_7', status:'maintenance', power:7, soc:0, vehicle:null, startTime:null, estFinish:null, energy:0 },
+    { id:'CS08', name:'Charger D2', type:'ac_7', status:'available', power:7, soc:0, vehicle:null, startTime:null, estFinish:null, energy:0 },
+  ]
+  chargingStations.forEach(c => { if (!demoCol('charging_stations')[c.id]) demoCol('charging_stations')[c.id] = c })
+
   // Quality incidents (หน้า /quality/incidents)
   const qualityIncidents = [
     { id:'INC001', title:'รถลูกค้าถูกขีดข่วนระหว่างล้าง', cat:'vehicle', severity:'major', status:'action', reporter:'หัวหน้าทีมล้างรถ', date:new Date(Date.now()-86400000*2).toISOString(), rootCause:'อุปกรณ์ล้างเก่า มีเศษทราย', action:'เปลี่ยนผ้าไมโครไฟเบอร์ใหม่ทั้งชุด + ชดเชยลูกค้า' },

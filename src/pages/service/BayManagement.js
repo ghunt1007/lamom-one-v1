@@ -4,6 +4,7 @@
  */
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -16,25 +17,32 @@ const STATUS = {
   cleaning: { label: 'ทำความสะอาด', color: 'var(--text-muted)' },
 }
 
-let BAYS = [
-  { id: 'B1', type: 'ทั่วไป',   status: 'busy',     job: 'JC-2401', car: 'BYD Atto 3 · กข-1234', tech: 'สมชาย', etaMin: 45 },
-  { id: 'B2', type: 'ทั่วไป',   status: 'busy',     job: 'JC-2398', car: 'MG ZS · 1กก-5678',     tech: 'วิชัย',  etaMin: 90 },
-  { id: 'B3', type: 'ทั่วไป',   status: 'free',     job: '', car: '', tech: '', etaMin: 0 },
-  { id: 'B4', type: 'ช่วงล่าง', status: 'waiting',  job: 'JC-2390', car: 'BYD Seal · ขข-9999',   tech: 'ประเสริฐ', etaMin: 0 },
-  { id: 'B5', type: 'ช่วงล่าง', status: 'free',     job: '', car: '', tech: '', etaMin: 0 },
-  { id: 'B6', type: 'BP/สี',    status: 'busy',     job: 'BP-1102', car: 'BYD Dolphin · 2กข-3456', tech: 'อนุชา',  etaMin: 240 },
-  { id: 'B7', type: 'BP/สี',    status: 'cleaning', job: '', car: '', tech: 'ทีมล้าง', etaMin: 15 },
-  { id: 'B8', type: 'EV',       status: 'busy',     job: 'JC-2405', car: 'BYD Han · 3ขค-7788',    tech: 'ธนพล',  etaMin: 60 },
-]
-
-const QUEUE = [
-  { job: 'JC-2410', car: 'MG4 · 4กค-1100', service: 'เช็คระยะ 20,000', need: 'ทั่วไป' },
-  { job: 'JC-2411', car: 'BYD Atto 3 · 5ขข-2200', service: 'เปลี่ยนยาง+ตั้งศูนย์', need: 'ช่วงล่าง' },
-  { job: 'JC-2412', car: 'BYD Seal · 6กก-3300', service: 'อัปเดตซอฟต์แวร์', need: 'EV' },
-]
-
 export default async function BayManagementPage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let BAYS = []
+  let QUEUE = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try {
+      const [bays, queue] = await Promise.all([
+        listDocs('service_bays', [], 'id', 'asc', 200),
+        listDocs('service_bay_queue', [], 'job', 'asc', 200),
+      ])
+      BAYS = bays; QUEUE = queue
+    } catch (e) { BAYS = []; QUEUE = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
+
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const free = BAYS.filter(b => b.status === 'free').length
     const busy = BAYS.filter(b => b.status === 'busy').length
     const util = Math.round(busy / BAYS.length * 100)
@@ -121,12 +129,15 @@ export default async function BayManagementPage(container) {
           <div>ช่าง: ${escHtml(b.tech)}</div>
         </div>` : '<div style="color:var(--text-muted);font-size:0.8rem">ช่องนี้ว่าง</div>'}`,
       confirmText: '💾 บันทึก',
-      onConfirm() {
+      async onConfirm() {
         const ns = document.getElementById('bm-status').value
-        b.status = ns
-        if (ns === 'free') { b.job = ''; b.car = ''; b.tech = ''; b.etaMin = 0 }
-        showToast(`อัปเดตช่อง ${b.id} → ${STATUS[ns].label}`, 'success')
-        render()
+        const patch = { status: ns }
+        if (ns === 'free') { patch.job = ''; patch.car = ''; patch.tech = ''; patch.etaMin = 0 }
+        try {
+          await updateDocData('service_bays', b.id, patch)
+          showToast(`อัปเดตช่อง ${b.id} → ${STATUS[ns].label}`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -149,17 +160,19 @@ export default async function BayManagementPage(container) {
           <input class="input" id="bm-tech" placeholder="ชื่อช่าง">
         </div>`,
       confirmText: '✅ จ่ายงาน',
-      onConfirm() {
+      async onConfirm() {
         const qi = parseInt(document.getElementById('bm-job').value)
         const bid = document.getElementById('bm-bay').value
         const tech = document.getElementById('bm-tech').value.trim()
         if (!tech) { showToast('❗ ระบุชื่อช่าง', 'error'); return false }
         const q = QUEUE[qi]; const b = BAYS.find(x => x.id === bid)
         if (!q || !b) { showToast('❗ ไม่พบข้อมูลงานหรือช่อง', 'error'); return false }
-        b.status = 'busy'; b.job = q.job; b.car = q.car; b.tech = tech; b.etaMin = 60
-        QUEUE.splice(qi, 1)
-        showToast(`จ่าย ${q.job} เข้าช่อง ${bid} (${tech}) แล้ว`, 'success')
-        render()
+        try {
+          await updateDocData('service_bays', b.id, { status: 'busy', job: q.job, car: q.car, tech, etaMin: 60 })
+          await softDelete('service_bay_queue', q.id)
+          showToast(`จ่าย ${q.job} เข้าช่อง ${bid} (${tech}) แล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -171,5 +184,5 @@ export default async function BayManagementPage(container) {
     </div>`
   }
 
-  render()
+  await loadData()
 }

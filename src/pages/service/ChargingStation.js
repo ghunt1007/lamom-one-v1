@@ -5,6 +5,7 @@
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 
 const CHARGER_STATUS = {
   available: { label: 'ว่าง', color: 'success', icon: '🟢' },
@@ -24,17 +25,6 @@ const CHARGER_TYPES = {
 function addMins(n) { const d = new Date(); d.setMinutes(d.getMinutes() + n); return d.toISOString() }
 function subMins(n) { const d = new Date(); d.setMinutes(d.getMinutes() - n); return d.toISOString() }
 
-const DEMO_CHARGERS = [
-  { id: 'CS01', name: 'Charger A1', type: 'dc_150', status: 'in_use', power: 150, soc: 62, vehicle: 'BYD Seal AWD · 1กข-1234', startTime: subMins(45), estFinish: addMins(25), energy: 28.5 },
-  { id: 'CS02', name: 'Charger A2', type: 'dc_150', status: 'available', power: 150, soc: 0, vehicle: null, startTime: null, estFinish: null, energy: 0 },
-  { id: 'CS03', name: 'Charger B1', type: 'dc_50', status: 'reserved', power: 50, soc: 0, vehicle: 'BYD Atto 3 · 2ขค-5678', startTime: null, estFinish: addMins(15), energy: 0 },
-  { id: 'CS04', name: 'Charger B2', type: 'dc_50', status: 'in_use', power: 50, soc: 78, vehicle: 'MG ZS EV · 3คง-9012', startTime: subMins(80), estFinish: addMins(10), energy: 42.1 },
-  { id: 'CS05', name: 'Charger C1', type: 'ac_22', status: 'available', power: 22, soc: 0, vehicle: null, startTime: null, estFinish: null, energy: 0 },
-  { id: 'CS06', name: 'Charger C2', type: 'ac_22', status: 'offline', power: 22, soc: 0, vehicle: null, startTime: null, estFinish: null, energy: 0 },
-  { id: 'CS07', name: 'Charger D1', type: 'ac_7', status: 'maintenance', power: 7, soc: 0, vehicle: null, startTime: null, estFinish: null, energy: 0 },
-  { id: 'CS08', name: 'Charger D2', type: 'ac_7', status: 'available', power: 7, soc: 0, vehicle: null, startTime: null, estFinish: null, energy: 0 },
-]
-
 const SESSION_HISTORY = [
   { charger: 'CS01', vehicle: 'BYD Dolphin', duration: 62, energy: 35.2, cost: 176, date: subMins(120) },
   { charger: 'CS04', vehicle: 'Tesla Model 3', duration: 95, energy: 48.5, cost: 242.5, date: subMins(200) },
@@ -42,9 +32,24 @@ const SESSION_HISTORY = [
 ]
 
 export default async function ChargingStationPage(container) {
-  let chargers = DEMO_CHARGERS.map(c => ({ ...c }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let chargers = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { chargers = await listDocs('charging_stations', [], 'name', 'asc', 200) } catch (e) { chargers = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const available = chargers.filter(c => c.status === 'available').length
     const inUse = chargers.filter(c => c.status === 'in_use').length
     const offline = chargers.filter(c => ['offline','maintenance'].includes(c.status)).length
@@ -146,13 +151,22 @@ export default async function ChargingStationPage(container) {
       const c = chargers.find(x => x.id === b.dataset.id)
       if (c) openStartSessionFor(c)
     }))
-    container.querySelectorAll('.stop-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.stop-btn').forEach(b => b.addEventListener('click', async () => {
       const c = chargers.find(x => x.id === b.dataset.id)
-      if (c) { c.status = 'available'; c.vehicle = null; c.soc = 0; c.energy = 0; c.startTime = null; c.estFinish = null; showToast(`⏹ หยุดชาร์จ ${c.name} แล้ว`, 'success'); renderPage() }
+      if (!c) return
+      const patch = { status: 'available', vehicle: null, soc: 0, energy: 0, startTime: null, estFinish: null }
+      Object.assign(c, patch)
+      renderPage()
+      showToast(`⏹ หยุดชาร์จ ${c.name} แล้ว`, 'success')
+      try { await updateDocData('charging_stations', c.id, patch) } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.restart-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.restart-btn').forEach(b => b.addEventListener('click', async () => {
       const c = chargers.find(x => x.id === b.dataset.id)
-      if (c) { c.status = 'available'; showToast(`🔄 Restart ${c.name} สำเร็จ`, 'success'); renderPage() }
+      if (!c) return
+      c.status = 'available'
+      renderPage()
+      showToast(`🔄 Restart ${c.name} สำเร็จ`, 'success')
+      try { await updateDocData('charging_stations', c.id, { status: 'available' }) } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
   }
 
@@ -177,23 +191,24 @@ export default async function ChargingStationPage(container) {
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">รุ่นรถ</label><input class="input" id="cs-model" value="BYD Seal AWD"></div>
         </div>
       `,
-      onConfirm() {
+      async onConfirm() {
         const cid = document.getElementById('cs-charger')?.value
         const plate = document.getElementById('cs-plate')?.value?.trim()
         const model = document.getElementById('cs-model')?.value?.trim() || 'EV'
-        if (!plate) { showToast('❗ กรุณากรอกทะเบียนรถ', 'error'); return }
+        if (!plate) { showToast('❗ กรุณากรอกทะเบียนรถ', 'error'); return false }
         const c = chargers.find(x => x.id === cid)
-        if (c) {
-          c.status = 'in_use'; c.vehicle = `${model} · ${plate}`;
-          c.soc = 30; c.energy = 0; c.startTime = new Date().toISOString()
-          c.estFinish = addMins(60)
-          showToast(`⚡ เริ่มชาร์จ ${c.name} แล้ว!`, 'success'); renderPage()
-        }
+        if (!c) return
+        const patch = { status: 'in_use', vehicle: `${model} · ${plate}`, soc: 30, energy: 0, startTime: new Date().toISOString(), estFinish: addMins(60) }
+        try {
+          await updateDocData('charging_stations', c.id, patch)
+          showToast(`⚡ เริ่มชาร์จ ${c.name} แล้ว!`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

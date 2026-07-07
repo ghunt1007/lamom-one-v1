@@ -4,19 +4,11 @@
  */
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
-
-const JOBS = [
-  { id:'BP001', plate:'กก 1234 กทม', model:'BYD Atto 3', customer:'คุณวรพจน์ สุขใจ', damage:'ชนหน้า ไฟหน้าแตก กันชนยุบ', estimate:45000, status:'estimate', tech:'ช่างเพ็ชร', daysIn:2, insurer:'วิริยะประกัน', claim:'VIR-2026-4521' },
-  { id:'BP002', plate:'บบ 5678 ชลบุรี', model:'MG ZS EV', customer:'บริษัท ทรัพย์สิน จก.', damage:'ข้างซ้ายถลอก กระโปรงหลังบุบ', estimate:28000, status:'approved', tech:'ช่างแดน', daysIn:5, insurer:'เมืองไทยประกัน', claim:'MTI-2026-1102' },
-  { id:'BP003', plate:'คค 9012 นนทบุรี', model:'BYD Seal AWD', customer:'คุณนภา ชื่นดี', damage:'สีซีดทั้งคัน เคลือบสีใหม่', estimate:35000, status:'in_progress', tech:'ช่างโอ', daysIn:8, insurer:'AXA', claim:'AXA-2026-7788' },
-  { id:'BP004', plate:'งง 3456 ปทุม', model:'BYD Dolphin', customer:'คุณสมชาย ดีใจ', damage:'กระจกบังลมหน้าแตก', estimate:12000, status:'ready', tech:'ช่างเพ็ชร', daysIn:3, insurer:'ทิพยประกัน', claim:'TIP-2026-3344' },
-  { id:'BP005', plate:'จจ 7890 สมุทรปราการ', model:'MG4 EV', customer:'คุณพรทิพย์ มั่นคง', damage:'ท้ายชนหนักมาก โครงสร้างเสียหาย', estimate:120000, status:'estimate', tech:'ช่างแดน', daysIn:1, insurer:'กรุงเทพประกัน', claim:'BKI-2026-9900' },
-  { id:'BP006', plate:'ฉฉ 2345 ระยอง', model:'BYD Atto 3', customer:'คุณวิชัย สุดยอด', damage:'ประตูซ้ายหลังบุบ', estimate:18000, status:'completed', tech:'ช่างโอ', daysIn:12, insurer:'ไทยวิวัฒน์', claim:'TVV-2026-5566' },
-]
 
 const ST = {
   estimate:    { label:'รอประเมิน', color:'var(--warning)' },
@@ -27,8 +19,19 @@ const ST = {
 }
 
 export default async function BodyRepairPage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+
   let filter = 'all'
-  let jobs = JOBS.map(j => ({ ...j }))
+  let jobs = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { jobs = await listDocs('body_repair_jobs', [], 'daysIn', 'desc', 500) } catch (e) { jobs = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function badge(s) {
     const m = ST[s] || { label: s, color: 'var(--text-muted)' }
@@ -57,6 +60,10 @@ export default async function BodyRepairPage(container) {
   }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const filtered = filter === 'all' ? jobs : jobs.filter(j => j.status === filter)
     const total = jobs.length
     const inProg = jobs.filter(j => j.status === 'in_progress').length
@@ -119,9 +126,14 @@ export default async function BodyRepairPage(container) {
         size: 'md',
         body,
         confirmText,
-        onConfirm: () => {
-          if (j.status === 'estimate') { j.status = 'approved'; showToast('✅ อนุมัติซ่อม BP ' + j.id, 'success'); render() }
-          else if (j.status === 'ready') { j.status = 'completed'; showToast('🚗 ส่งมอบรถ BP ' + j.id, 'success'); render() }
+        onConfirm: async () => {
+          const next = j.status === 'estimate' ? 'approved' : j.status === 'ready' ? 'completed' : null
+          if (!next) return
+          try {
+            await updateDocData('body_repair_jobs', j.id, { status: next })
+            showToast(next === 'approved' ? '✅ อนุมัติซ่อม BP ' + j.id : '🚗 ส่งมอบรถ BP ' + j.id, 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     }))
@@ -164,25 +176,26 @@ export default async function BodyRepairPage(container) {
         </div>
       `
     })
-    document.getElementById('bp-save')?.addEventListener('click', () => {
+    document.getElementById('bp-save')?.addEventListener('click', async () => {
       const plate = document.getElementById('bp-plate')?.value.trim()
       const customer = document.getElementById('bp-customer')?.value.trim()
       const damage = document.getElementById('bp-damage')?.value.trim()
       if (!plate || !customer || !damage) { showToast('⚠️ กรุณากรอกข้อมูลที่จำเป็น', 'warning'); return }
-      const id = 'BP' + String(jobs.length + 1).padStart(3,'0')
-      jobs.push({
-        id, plate, customer, damage,
-        model: document.getElementById('bp-model')?.value.trim() || 'EV',
-        estimate: parseFloat(document.getElementById('bp-estimate')?.value) || 0,
-        status: 'estimate',
-        tech: document.getElementById('bp-tech')?.value || 'ช่างเพ็ชร',
-        daysIn: 0,
-        insurer: document.getElementById('bp-insurer')?.value.trim() || '-',
-        claim: document.getElementById('bp-claim')?.value.trim() || '-',
-      })
-      document.querySelector('.modal-overlay')?.remove()
-      showToast('✅ รับงาน ' + id + ' แล้ว', 'success')
-      render()
+      try {
+        await createDoc('body_repair_jobs', {
+          plate, customer, damage,
+          model: document.getElementById('bp-model')?.value.trim() || 'EV',
+          estimate: parseFloat(document.getElementById('bp-estimate')?.value) || 0,
+          status: 'estimate',
+          tech: document.getElementById('bp-tech')?.value || 'ช่างเพ็ชร',
+          daysIn: 0,
+          insurer: document.getElementById('bp-insurer')?.value.trim() || '-',
+          claim: document.getElementById('bp-claim')?.value.trim() || '-',
+        })
+        document.querySelector('.modal-overlay')?.remove()
+        showToast('✅ รับงานแล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
@@ -190,5 +203,5 @@ export default async function BodyRepairPage(container) {
     return `<div class="card" style="padding:14px 16px"><div style="font-size:0.72rem;color:var(--text-muted)">${l}</div><div style="font-size:1.1rem;font-weight:900;color:${c};margin-top:2px">${v}</div></div>`
   }
 
-  render()
+  await loadData()
 }
