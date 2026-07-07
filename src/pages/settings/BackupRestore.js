@@ -5,6 +5,7 @@
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { formatDate, timeAgo } from '../../utils/format.js'
+import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString() }
 function addHours(n) { const d = new Date(); d.setHours(d.getHours() - n); return d.toISOString() }
@@ -21,14 +22,6 @@ const BACKUP_TYPES = {
   incremental:  { label: 'Incremental', color: 'secondary', icon: '📊' },
   config:       { label: 'Config Only', color: 'secondary', icon: '⚙️' },
 }
-
-const DEMO_BACKUPS = [
-  { id: 'BK001', type: 'full', status: 'success', size: '2.4 GB', duration: '18 นาที', time: addHours(1), note: 'Auto backup' },
-  { id: 'BK002', type: 'incremental', status: 'success', size: '145 MB', duration: '3 นาที', time: addHours(13), note: 'Auto backup' },
-  { id: 'BK003', type: 'incremental', status: 'success', size: '98 MB', duration: '2 นาที', time: addHours(25), note: 'Auto backup' },
-  { id: 'BK004', type: 'full', status: 'failed', size: '—', duration: '—', time: addHours(49), note: 'Error: disk quota exceeded' },
-  { id: 'BK005', type: 'config', status: 'success', size: '12 KB', duration: '< 1 นาที', time: addHours(73), note: 'Manual — before upgrade' },
-]
 
 const MODULES_TO_BACKUP = [
   { id: 'crm', label: 'CRM / ลูกค้า', checked: true },
@@ -48,12 +41,27 @@ const SCHEDULE_OPTIONS = [
 ]
 
 export default async function BackupRestorePage(container) {
-  let backups = DEMO_BACKUPS.map(b => ({ ...b }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let backups = []
   let schedule = 'daily'
   let retention = 30
   let isRunning = false
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { backups = await listDocs('system_backups', [], 'time', 'desc', 200) } catch (e) { backups = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const lastOk = backups.find(b => b.status === 'success')
     const successCount = backups.filter(b => b.status === 'success').length
     const failCount = backups.filter(b => b.status === 'failed').length
@@ -161,11 +169,13 @@ export default async function BackupRestorePage(container) {
       isRunning = true
       showToast('🔄 เริ่ม Backup ทันที...', 'primary')
       renderPage()
-      setTimeout(() => {
-        backups.unshift({ id: `BK${String(backups.length+1).padStart(3,'0')}`, type: 'full', status: 'success', size: '2.6 GB', duration: '20 นาที', time: new Date().toISOString(), note: 'Manual backup' })
+      setTimeout(async () => {
+        try {
+          await createDoc('system_backups', { type: 'full', status: 'success', size: '2.6 GB', duration: '20 นาที', time: new Date().toISOString(), note: 'Manual backup' })
+          showToast('✅ Backup สำเร็จ!', 'success')
+        } catch (e) { showToast('Backup ไม่สำเร็จ', 'error') }
         isRunning = false
-        showToast('✅ Backup สำเร็จ!', 'success')
-        renderPage()
+        await loadData()
       }, 3000)
     })
     document.getElementById('save-schedule-btn')?.addEventListener('click', () => {
@@ -190,11 +200,13 @@ export default async function BackupRestorePage(container) {
         <p>📦 ขนาด: <strong>${backup.size}</strong></p>
       </div>`,
       confirmText: '♻️ ยืนยันกู้คืน',
-      onConfirm() {
+      async onConfirm() {
         const label = timeAgo(backup.time)
-        backups.unshift({ id:'BK'+Date.now(), type:'full', status:'success', size:backup.size, duration:'< 1 นาที', time:new Date().toISOString(), note:`✅ กู้คืนจาก Backup ${label}` })
-        renderPage()
-        showToast(`♻️ กู้คืนข้อมูลจาก Backup ${label} เสร็จแล้ว`, 'success')
+        try {
+          await createDoc('system_backups', { type:'full', status:'success', size:backup.size, duration:'< 1 นาที', time:new Date().toISOString(), note:`✅ กู้คืนจาก Backup ${label}` })
+          showToast(`♻️ กู้คืนข้อมูลจาก Backup ${label} เสร็จแล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('กู้คืนไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -212,19 +224,21 @@ export default async function BackupRestorePage(container) {
         </div>
       </div>`,
       confirmText: '♻️ กู้คืน',
-      onConfirm() {
+      async onConfirm() {
         const selId = document.getElementById('restore-sel')?.value
         const src = backups.find(b => b.id === selId) || backups.find(b => b.status === 'success')
-        if (!src) { showToast('ไม่พบ Backup', 'warning'); return }
+        if (!src) { showToast('ไม่พบ Backup', 'warning'); return false }
         const label = timeAgo(src.time)
-        backups.unshift({ id:'BK'+Date.now(), type:'full', status:'success', size:src.size, duration:'< 1 นาที', time:new Date().toISOString(), note:`✅ กู้คืนจาก Backup ${label}` })
-        renderPage()
-        showToast(`♻️ กู้คืนข้อมูลจาก Backup ${label} เสร็จแล้ว`, 'success')
+        try {
+          await createDoc('system_backups', { type:'full', status:'success', size:src.size, duration:'< 1 นาที', time:new Date().toISOString(), note:`✅ กู้คืนจาก Backup ${label}` })
+          showToast(`♻️ กู้คืนข้อมูลจาก Backup ${label} เสร็จแล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('กู้คืนไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

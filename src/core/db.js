@@ -469,6 +469,40 @@ export function seedDemoData() {
   ]
   washQueue.forEach(q => { if (!demoCol('wash_queue')[q.id]) demoCol('wash_queue')[q.id] = q })
 
+  // API Keys (หน้า /settings/api-keys)
+  const akAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString() }
+  const apiKeys = [
+    { id:'K001', name:'LINE Webhook Integration', prefix:'lmm_live_a1b2', scope:'write', created:akAddDays(-90), lastUsed:akAddDays(0), requests30d:12420, active:true },
+    { id:'K002', name:'Mobile App (Production)', prefix:'lmm_live_c3d4', scope:'write', created:akAddDays(-120), lastUsed:akAddDays(0), requests30d:89540, active:true },
+    { id:'K003', name:'Accounting Sync (read)', prefix:'lmm_live_e5f6', scope:'read', created:akAddDays(-60), lastUsed:akAddDays(-2), requests30d:3200, active:true },
+    { id:'K004', name:'Dev Testing', prefix:'lmm_test_g7h8', scope:'admin', created:akAddDays(-200), lastUsed:akAddDays(-45), requests30d:0, active:false },
+  ]
+  apiKeys.forEach(k => { if (!demoCol('api_keys')[k.id]) demoCol('api_keys')[k.id] = k })
+
+  // System backups (หน้า /settings/backup)
+  const brAddHours = n => { const d = new Date(); d.setHours(d.getHours() - n); return d.toISOString() }
+  const systemBackups = [
+    { id:'BK001', type:'full', status:'success', size:'2.4 GB', duration:'18 นาที', time:brAddHours(1), note:'Auto backup' },
+    { id:'BK002', type:'incremental', status:'success', size:'145 MB', duration:'3 นาที', time:brAddHours(13), note:'Auto backup' },
+    { id:'BK003', type:'incremental', status:'success', size:'98 MB', duration:'2 นาที', time:brAddHours(25), note:'Auto backup' },
+    { id:'BK004', type:'full', status:'failed', size:'—', duration:'—', time:brAddHours(49), note:'Error: disk quota exceeded' },
+    { id:'BK005', type:'config', status:'success', size:'12 KB', duration:'< 1 นาที', time:brAddHours(73), note:'Manual — before upgrade' },
+  ]
+  systemBackups.forEach(b => { if (!demoCol('system_backups')[b.id]) demoCol('system_backups')[b.id] = b })
+
+  // Branches + Company (หน้า /settings/branches)
+  const settingsBranches = [
+    { id:'B001', name:'สาขาหลัก — กรุงเทพ', code:'BKK-MAIN', address:'123/45 ถ.พระราม 9 เขตห้วยขวาง กทม.', phone:'02-123-4567', email:'bkk@lamomone.com', lat:13.7563, lng:100.5018, brands:['BYD','MG'], status:'active', manager:'สมชาย ใจดี', staff:12, isMain:true },
+    { id:'B002', name:'สาขาชลบุรี', code:'CBI-001', address:'88/99 ถ.สุขุมวิท ชลบุรี', phone:'038-789-0123', email:'chon@lamomone.com', lat:13.3611, lng:100.9847, brands:['BYD'], status:'active', manager:'วิชัย เดินดี', staff:6, isMain:false },
+    { id:'B003', name:'สาขาเชียงใหม่', code:'CNX-001', address:'99/1 ถ.นิมมานเหมินทร์ เชียงใหม่', phone:'053-456-7890', email:'cnx@lamomone.com', lat:18.7883, lng:98.9853, brands:['MG'], status:'planned', manager:'', staff:0, isMain:false },
+  ]
+  settingsBranches.forEach(b => { if (!demoCol('branches')[b.id]) demoCol('branches')[b.id] = b })
+
+  const settingsCompanies = [
+    { id:'CO001', name:'บริษัท ลามอม จำกัด', taxId:'0105567012345', address:'123/45 ถ.พระราม 9 กทม. 10310', phone:'02-123-4567', email:'info@lamomone.com', logo:null },
+  ]
+  settingsCompanies.forEach(c => { if (!demoCol('companies')[c.id]) demoCol('companies')[c.id] = c })
+
   const accessories = [
     { id:'acc1', name:'ฟิล์มกรองแสง 3M Crystalline', sku:'ACC-3M-001', category:'ฟิล์ม', price:18000, cost:10000, stock:5, unit:'ชุด', brand:'3M', createdAt:'2025-01-10' },
     { id:'acc2', name:'พรมรถ BYD Seal OEM', sku:'ACC-BYD-002', category:'ตกแต่งภายใน', price:3500, cost:1800, stock:12, unit:'ชุด', brand:'BYD', createdAt:'2025-01-15' },

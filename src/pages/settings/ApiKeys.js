@@ -5,21 +5,13 @@
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString() }
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 const KEY_SCOPES = {
   read:  { label: 'อ่านอย่างเดียว', color: 'success', icon: '👁' },
   write: { label: 'อ่าน + เขียน', color: 'warning', icon: '✏️' },
   admin: { label: 'Admin เต็มสิทธิ์', color: 'danger', icon: '🔑' },
 }
-
-const DEMO_KEYS = [
-  { id: 'K001', name: 'LINE Webhook Integration', prefix: 'lmm_live_a1b2', scope: 'write', created: addDays(-90), lastUsed: addDays(0), requests30d: 12420, active: true },
-  { id: 'K002', name: 'Mobile App (Production)', prefix: 'lmm_live_c3d4', scope: 'write', created: addDays(-120), lastUsed: addDays(0), requests30d: 89540, active: true },
-  { id: 'K003', name: 'Accounting Sync (read)', prefix: 'lmm_live_e5f6', scope: 'read', created: addDays(-60), lastUsed: addDays(-2), requests30d: 3200, active: true },
-  { id: 'K004', name: 'Dev Testing', prefix: 'lmm_test_g7h8', scope: 'admin', created: addDays(-200), lastUsed: addDays(-45), requests30d: 0, active: false },
-]
 
 function genKey() {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
@@ -30,9 +22,23 @@ function genKey() {
 
 export default async function ApiKeysPage(container) {
   const myGen = container.__routerGen
-  let keys = DEMO_KEYS.map(k => ({ ...k }))
+  seedDemoData()
+
+  let keys = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { keys = await listDocs('api_keys', [], 'created', 'desc', 200) } catch (e) { keys = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const active = keys.filter(k => k.active).length
     const totalReq = keys.reduce((a, k) => a + k.requests30d, 0)
     const stale = keys.filter(k => k.active && new Date(k.lastUsed) < new Date(Date.now() - 30 * 86400000)).length
@@ -99,14 +105,15 @@ export default async function ApiKeysPage(container) {
 
     container.querySelectorAll('.revoke-btn').forEach(b => b.addEventListener('click', async () => {
       const k = keys.find(x => x.id === b.dataset.id)
-      if (k) {
-        const ok = await confirmDialog({ title:`🚫 Revoke "${k.name}"?`, message:'Integration ที่ใช้ Key นี้จะหยุดทำงานทันที', confirmText:'Revoke', danger:true })
-        if (!ok) return
-        k.active = false
+      if (!k) return
+      const ok = await confirmDialog({ title:`🚫 Revoke "${k.name}"?`, message:'Integration ที่ใช้ Key นี้จะหยุดทำงานทันที', confirmText:'Revoke', danger:true })
+      if (!ok) return
+      try {
+        await updateDocData('api_keys', k.id, { active: false })
         showToast('🚫 Revoke Key แล้ว', 'warning')
         if (container.__routerGen !== myGen) return
-        renderPage()
-      }
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     document.getElementById('create-key-btn')?.addEventListener('click', openCreateForm)
   }
@@ -122,12 +129,14 @@ export default async function ApiKeysPage(container) {
         </div>
       </div>`,
       confirmText: '🔑 สร้าง',
-      onConfirm() {
+      async onConfirm() {
         const name = document.getElementById('key-name')?.value?.trim()
-        if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return }
+        if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return false }
         const fullKey = genKey()
-        keys.unshift({ id:`K${String(keys.length+1).padStart(3,'0')}`, name, prefix: fullKey.slice(0, 13), scope: document.getElementById('key-scope')?.value||'read', created:new Date().toISOString(), lastUsed:new Date().toISOString(), requests30d:0, active:true })
-        renderPage()
+        try {
+          await createDoc('api_keys', { name, prefix: fullKey.slice(0, 13), scope: document.getElementById('key-scope')?.value||'read', created:new Date().toISOString(), lastUsed:new Date().toISOString(), requests30d:0, active:true })
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return }
+        await loadData()
         setTimeout(() => openModal({
           title: '🔑 Key ของคุณ (แสดงครั้งเดียว!)',
           size: 'sm',
@@ -144,7 +153,7 @@ export default async function ApiKeysPage(container) {
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

@@ -1,27 +1,38 @@
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-const DEMO_BRANCHES = [
-  { id:'B001', name:'สาขาหลัก — กรุงเทพ', code:'BKK-MAIN', address:'123/45 ถ.พระราม 9 เขตห้วยขวาง กทม.', phone:'02-123-4567', email:'bkk@lamomone.com', lat:13.7563, lng:100.5018, brands:['BYD','MG'], status:'active', manager:'สมชาย ใจดี', staff:12, isMain:true },
-  { id:'B002', name:'สาขาชลบุรี', code:'CBI-001', address:'88/99 ถ.สุขุมวิท ชลบุรี', phone:'038-789-0123', email:'chon@lamomone.com', lat:13.3611, lng:100.9847, brands:['BYD'], status:'active', manager:'วิชัย เดินดี', staff:6, isMain:false },
-  { id:'B003', name:'สาขาเชียงใหม่', code:'CNX-001', address:'99/1 ถ.นิมมานเหมินทร์ เชียงใหม่', phone:'053-456-7890', email:'cnx@lamomone.com', lat:18.7883, lng:98.9853, brands:['MG'], status:'planned', manager:'', staff:0, isMain:false },
-]
-
-const DEMO_COMPANIES = [
-  { id:'CO001', name:'บริษัท ลามอม จำกัด', taxId:'0105567012345', address:'123/45 ถ.พระราม 9 กทม. 10310', phone:'02-123-4567', email:'info@lamomone.com', logo:null },
-]
-
 export default async function BranchSettingsPage(container) {
   const myGen = container.__routerGen
-  let branches = DEMO_BRANCHES.map(b => ({ ...b }))
-  let companies = DEMO_COMPANIES.map(c => ({ ...c }))
+  seedDemoData()
+
+  let branches = []
+  let companies = []
   let tab = 'branches'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try {
+      const [b, c] = await Promise.all([
+        listDocs('branches', [], 'name', 'asc', 200),
+        listDocs('companies', [], 'name', 'asc', 20),
+      ])
+      branches = b; companies = c
+    } catch (e) { branches = []; companies = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     container.innerHTML = `
       <div class="page-content animate-slide">
         <div class="page-header">
@@ -59,10 +70,10 @@ export default async function BranchSettingsPage(container) {
         if (b?.isMain) return showToast('❗ ไม่สามารถลบสาขาหลักได้', 'warning')
         const ok = await confirmDialog({ title:'🗑 ลบสาขา', message:`ลบ "${b?.name}" ออกจากระบบ?`, confirmText:'ลบ', danger:true })
         if (!ok) return
-        branches = branches.filter(x => x.id !== btn.dataset.id)
+        try { await softDelete('branches', btn.dataset.id) } catch (e) { showToast('ลบไม่สำเร็จ', 'error'); return }
         showToast('🗑 ลบแล้ว', 'success')
         if (container.__routerGen !== myGen) return
-        renderPage()
+        await loadData()
       })
     })
   }
@@ -166,13 +177,15 @@ export default async function BranchSettingsPage(container) {
       footer: `<button class="btn btn-secondary" id="br-c">ยกเลิก</button><button class="btn btn-primary" id="br-s">💾 บันทึก</button>`
     })
     el.querySelector('#br-c').addEventListener('click', close)
-    el.querySelector('#br-s').addEventListener('click', () => {
+    el.querySelector('#br-s').addEventListener('click', async () => {
       const name = el.querySelector('#br-name').value.trim()
       if (!name) return showToast('❗ กรุณาใส่ชื่อสาขา', 'warning')
       const data = { name, code: el.querySelector('#br-code').value, address: el.querySelector('#br-addr').value, phone: el.querySelector('#br-phone').value, email: el.querySelector('#br-email').value, manager: el.querySelector('#br-mgr').value }
-      if (branch) Object.assign(branch, data)
-      else branches.push({ id:'B'+Date.now(), ...data, brands:[], status:'active', staff:0, isMain:false })
-      showToast('💾 บันทึกแล้ว', 'success'); close(); renderPage()
+      try {
+        if (branch) await updateDocData('branches', branch.id, data)
+        else await createDoc('branches', { ...data, brands:[], status:'active', staff:0, isMain:false })
+        showToast('💾 บันทึกแล้ว', 'success'); close(); await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
@@ -191,11 +204,15 @@ export default async function BranchSettingsPage(container) {
       footer: `<button class="btn btn-secondary" id="co-c">ยกเลิก</button><button class="btn btn-primary" id="co-s">💾 บันทึก</button>`
     })
     el.querySelector('#co-c').addEventListener('click', close)
-    el.querySelector('#co-s').addEventListener('click', () => {
-      if (c) { c.name = el.querySelector('#co-name').value; c.taxId = el.querySelector('#co-tax').value; c.address = el.querySelector('#co-addr').value; c.phone = el.querySelector('#co-phone').value; c.email = el.querySelector('#co-email').value }
-      showToast('💾 บันทึกแล้ว', 'success'); close(); renderPage()
+    el.querySelector('#co-s').addEventListener('click', async () => {
+      if (!c) { close(); return }
+      const data = { name: el.querySelector('#co-name').value, taxId: el.querySelector('#co-tax').value, address: el.querySelector('#co-addr').value, phone: el.querySelector('#co-phone').value, email: el.querySelector('#co-email').value }
+      try {
+        await updateDocData('companies', c.id, data)
+        showToast('💾 บันทึกแล้ว', 'success'); close(); await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
-  renderPage()
+  await loadData()
 }
