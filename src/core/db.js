@@ -578,6 +578,17 @@ export function seedDemoData() {
   ]
   staffSkills.forEach(s => { if (!demoCol('staff_skills')[s.id]) demoCol('staff_skills')[s.id] = s })
 
+  // Salary scale (หน้า /hr/salary-scale)
+  const salaryScaleStaff = [
+    { id:'S001', name:'วิชัย ยอดขาย', dept:'ขาย', grade:'G3', salary:32000, market:34000 },
+    { id:'S002', name:'สุดา มาดี', dept:'ขาย', grade:'G3', salary:30000, market:34000 },
+    { id:'S003', name:'ธนา เก่ง', dept:'ขาย', grade:'G2', salary:24000, market:25000 },
+    { id:'S004', name:'วิทยา ช่างใหญ่', dept:'บริการ', grade:'G3', salary:35000, market:36000 },
+    { id:'S005', name:'สมศรี การเงิน', dept:'การเงิน', grade:'G4', salary:42000, market:45000 },
+    { id:'S006', name:'ประพันธ์ ผู้จัดการ', dept:'บริหาร', grade:'G5', salary:58000, market:62000 },
+  ]
+  salaryScaleStaff.forEach(s => { if (!demoCol('salary_scale_staff')[s.id]) demoCol('salary_scale_staff')[s.id] = s })
+
   // Quality incidents (หน้า /quality/incidents)
   const qualityIncidents = [
     { id:'INC001', title:'รถลูกค้าถูกขีดข่วนระหว่างล้าง', cat:'vehicle', severity:'major', status:'action', reporter:'หัวหน้าทีมล้างรถ', date:new Date(Date.now()-86400000*2).toISOString(), rootCause:'อุปกรณ์ล้างเก่า มีเศษทราย', action:'เปลี่ยนผ้าไมโครไฟเบอร์ใหม่ทั้งชุด + ชดเชยลูกค้า' },

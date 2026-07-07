@@ -5,6 +5,7 @@
 import { formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 
 const SALARY_GRADES = [
   { grade: 'G1', title: 'พนักงานใหม่', min: 15000, max: 20000, midpoint: 17500, headcount: 4 },
@@ -13,15 +14,6 @@ const SALARY_GRADES = [
   { grade: 'G4', title: 'หัวหน้างาน', min: 38000, max: 50000, midpoint: 44000, headcount: 4 },
   { grade: 'G5', title: 'ผู้จัดการ', min: 50000, max: 70000, midpoint: 60000, headcount: 3 },
   { grade: 'G6', title: 'ผู้จัดการอาวุโส', min: 70000, max: 95000, midpoint: 82500, headcount: 1 },
-]
-
-const DEMO_STAFF_SALARY = [
-  { id: 'S001', name: 'วิชัย ยอดขาย', dept: 'ขาย', grade: 'G3', salary: 32000, market: 34000 },
-  { id: 'S002', name: 'สุดา มาดี', dept: 'ขาย', grade: 'G3', salary: 30000, market: 34000 },
-  { id: 'S003', name: 'ธนา เก่ง', dept: 'ขาย', grade: 'G2', salary: 24000, market: 25000 },
-  { id: 'S004', name: 'วิทยา ช่างใหญ่', dept: 'บริการ', grade: 'G3', salary: 35000, market: 36000 },
-  { id: 'S005', name: 'สมศรี การเงิน', dept: 'การเงิน', grade: 'G4', salary: 42000, market: 45000 },
-  { id: 'S006', name: 'ประพันธ์ ผู้จัดการ', dept: 'บริหาร', grade: 'G5', salary: 58000, market: 62000 },
 ]
 
 function compaRatio(salary, grade) {
@@ -34,10 +26,25 @@ function marketRatio(salary, market) {
 }
 
 export default async function SalaryScalePage(container) {
-  let staff = DEMO_STAFF_SALARY.map(s => ({ ...s }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let staff = []
   let activeTab = 'structure'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { staff = await listDocs('salary_scale_staff', [], 'name', 'asc', 200) } catch (e) { staff = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const totalPayroll = staff.reduce((a, s) => a + s.salary, 0)
     const underpaid = staff.filter(s => marketRatio(s.salary, s.market) < 95).length
     const avgCompa = Math.round(staff.reduce((a, s) => a + compaRatio(s.salary, s.grade), 0) / staff.length)
@@ -144,14 +151,19 @@ export default async function SalaryScalePage(container) {
           ${row('อ้างอิงตลาด', formatCurrency(s.market))}
           <div class="input-group"><label class="input-label">เงินเดือนใหม่</label><input class="input" type="number" id="new-sal" value="${s.salary}"></div>
         </div>`,
-        onConfirm() {
-          s.salary = parseInt(document.getElementById('new-sal')?.value)||s.salary
-          showToast('✅ อัปเดตเงินเดือนแล้ว','success'); renderPage()
+        async onConfirm() {
+          const newSalary = parseInt(document.getElementById('new-sal')?.value)||s.salary
+          s.salary = newSalary
+          renderPage()
+          try {
+            await updateDocData('salary_scale_staff', s.id, { salary: newSalary })
+            showToast('✅ อัปเดตเงินเดือนแล้ว','success')
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     }))
     document.getElementById('review-btn')?.addEventListener('click', () => {
-      const belowMkt = DEMO_STAFF_SALARY.filter(s => marketRatio(s.salary, s.market) < 95)
+      const belowMkt = staff.filter(s => marketRatio(s.salary, s.market) < 95)
       openModal({
         title: '📋 รอบทบทวนเงินเดือน H2/2569',
         size: 'md',
@@ -194,7 +206,7 @@ export default async function SalaryScalePage(container) {
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
