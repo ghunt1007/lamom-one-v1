@@ -5,6 +5,7 @@
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 const READINESS = {
   ready:    { label: 'พร้อมแล้ว', color: 'var(--success)' },
@@ -13,37 +14,6 @@ const READINESS = {
   develop:  { label: 'ต้องพัฒนา', color: 'var(--text-muted)' },
 }
 
-let PLANS = [
-  {
-    role: 'ผู้จัดการฝ่ายขาย',
-    current: { name: 'คุณสมชาย วงศ์ดี', tenure: '8 ปี', risk: 'medium' },
-    successors: [
-      { name: 'คุณวิชัย ใจดี', readiness: 'ready', dept: 'เซลส์', gaps: 'ทักษะบริหารทีม' },
-      { name: 'คุณนิภา สมบัติ', readiness: '1yr', dept: 'เซลส์', gaps: 'ประสบการณ์จัดการ Fleet' },
-    ]
-  },
-  {
-    role: 'หัวหน้าช่าง',
-    current: { name: 'คุณประเสริฐ ดีมาก', tenure: '12 ปี', risk: 'high' },
-    successors: [
-      { name: 'คุณธนพล ช่างเก่ง', readiness: '1yr', dept: 'ช่าง', gaps: 'ใบรับรอง EV, ทักษะบริหาร' },
-      { name: 'คุณอนุชา ซ่อมดี', readiness: '2yr', dept: 'ช่าง', gaps: 'ประสบการณ์ BP, การจัดการงบ' },
-    ]
-  },
-  {
-    role: 'ผู้จัดการการเงิน',
-    current: { name: 'คุณมาลี บัญชีดี', tenure: '5 ปี', risk: 'low' },
-    successors: [
-      { name: 'คุณสุดา เลขสวย', readiness: '2yr', dept: 'บัญชี', gaps: 'ระบบ ERP, การรายงานผู้บริหาร' },
-    ]
-  },
-  {
-    role: 'ผู้จัดการการตลาด',
-    current: { name: 'คุณวิไล สวยงาม', tenure: '3 ปี', risk: 'medium' },
-    successors: []
-  },
-]
-
 const RISK = {
   high:   { label: 'เสี่ยงสูง (อาจลาออก/เกษียณ)', color: 'var(--danger)' },
   medium: { label: 'เสี่ยงปานกลาง', color: 'var(--warning)' },
@@ -51,10 +21,27 @@ const RISK = {
 }
 
 export default async function SuccessionPlanningPage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let plans = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { plans = await listDocs('succession_plans', [], 'role', 'asc', 100) } catch (e) { plans = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
+
   function render() {
-    const criticalGaps = PLANS.filter(p => p.successors.length === 0)
-    const highRisk = PLANS.filter(p => p.current.risk === 'high')
-    const readyNow = PLANS.reduce((s, p) => s + p.successors.filter(x => x.readiness === 'ready').length, 0)
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
+    const criticalGaps = plans.filter(p => !(p.successors||[]).length)
+    const highRisk = plans.filter(p => p.current.risk === 'high')
+    const readyNow = plans.reduce((s, p) => s + (p.successors||[]).filter(x => x.readiness === 'ready').length, 0)
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -70,7 +57,7 @@ export default async function SuccessionPlanningPage(container) {
         </div>
 
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
-          ${sc('🎭 ตำแหน่งสำคัญ', PLANS.length, 'var(--primary)')}
+          ${sc('🎭 ตำแหน่งสำคัญ', plans.length, 'var(--primary)')}
           ${sc('🚨 ไม่มีผู้สืบทอด', criticalGaps.length, criticalGaps.length > 0 ? 'var(--danger)' : 'var(--success)')}
           ${sc('⚡ ความเสี่ยงสูง', highRisk.length, highRisk.length > 0 ? 'var(--danger)' : 'var(--success)')}
           ${sc('✅ พร้อมรับตำแหน่งทันที', readyNow, 'var(--success)')}
@@ -83,16 +70,17 @@ export default async function SuccessionPlanningPage(container) {
           </div>` : ''}
 
         <div style="display:flex;flex-direction:column;gap:12px">
-          ${PLANS.map(p => planCard(p)).join('')}
+          ${plans.map(p => planCard(p)).join('')}
+          ${!plans.length ? `<div class="empty-state"><div class="empty-icon">🎯</div><div class="empty-title">ยังไม่มีแผนสืบทอด</div></div>` : ''}
         </div>
       </div>
     `
 
-    container.querySelectorAll('.add-successor-btn').forEach(b => b.addEventListener('click', () => addSuccessor(b.dataset.role)))
+    container.querySelectorAll('.add-successor-btn').forEach(b => b.addEventListener('click', () => addSuccessor(b.dataset.id)))
     document.getElementById('add-btn')?.addEventListener('click', addRole)
     document.getElementById('report-btn')?.addEventListener('click', () => {
-      const rows = PLANS.flatMap(p => {
-        if (!p.successors.length) return [{ 'ตำแหน่ง': p.role, 'ผู้ดำรง': p.current.name, 'อายุงาน': p.current.tenure, 'ความเสี่ยง': RISK[p.current.risk]?.label || p.current.risk, 'ผู้สืบทอด': 'ยังไม่ระบุ', 'แผนก': '', 'ความพร้อม': '', 'ช่องว่างทักษะ': '' }]
+      const rows = plans.flatMap(p => {
+        if (!(p.successors||[]).length) return [{ 'ตำแหน่ง': p.role, 'ผู้ดำรง': p.current.name, 'อายุงาน': p.current.tenure, 'ความเสี่ยง': RISK[p.current.risk]?.label || p.current.risk, 'ผู้สืบทอด': 'ยังไม่ระบุ', 'แผนก': '', 'ความพร้อม': '', 'ช่องว่างทักษะ': '' }]
         return p.successors.map(s => ({
           'ตำแหน่ง': p.role,
           'ผู้ดำรง': p.current.name,
@@ -111,6 +99,7 @@ export default async function SuccessionPlanningPage(container) {
 
   function planCard(p) {
     const r = RISK[p.current.risk]
+    const successors = p.successors || []
     return `
       <div class="card" style="padding:14px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -120,15 +109,15 @@ export default async function SuccessionPlanningPage(container) {
               <span style="font-size:0.64rem;background:${r.color};color:#fff;padding:1px 7px;border-radius:10px;margin-left:6px">${r.label}</span>
             </div>
           </div>
-          <button class="btn btn-xs btn-secondary add-successor-btn" data-role="${p.role}">➕ เพิ่มผู้สืบทอด</button>
+          <button class="btn btn-xs btn-secondary add-successor-btn" data-id="${p.id}">➕ เพิ่มผู้สืบทอด</button>
         </div>
 
-        ${p.successors.length === 0 ? `
+        ${successors.length === 0 ? `
           <div style="background:var(--surface-2);padding:10px 12px;border-radius:var(--radius-sm);text-align:center;font-size:0.78rem;color:var(--danger)">
             ⚠️ ยังไม่มีผู้สืบทอด — ความเสี่ยงด้านความต่อเนื่องขององค์กร
           </div>` : `
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px">
-            ${p.successors.map((s, i) => {
+            ${successors.map((s, i) => {
               const rd = READINESS[s.readiness]
               return `<div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px">
                 <div style="display:flex;justify-content:space-between;align-items:center">
@@ -143,10 +132,11 @@ export default async function SuccessionPlanningPage(container) {
       </div>`
   }
 
-  function addSuccessor(role) {
-    const plan = PLANS.find(p => p.role === role)
+  function addSuccessor(planId) {
+    const plan = plans.find(p => p.id === planId)
+    if (!plan) return
     openModal({
-      title: `➕ เพิ่มผู้สืบทอด — ${role}`,
+      title: `➕ เพิ่มผู้สืบทอด — ${plan.role}`,
       size: 'sm',
       body: `<div style="display:grid;gap:10px">
         <div class="input-group"><label class="input-label">ชื่อพนักงาน *</label><input class="input" id="sp-name"></div>
@@ -159,12 +149,13 @@ export default async function SuccessionPlanningPage(container) {
         <div class="input-group"><label class="input-label">ช่องว่างที่ต้องพัฒนา</label><input class="input" id="sp-gaps" placeholder="เช่น ทักษะ X, ประสบการณ์ Y"></div>
       </div>`,
       confirmText: '💾 บันทึก',
-      onConfirm() {
+      async onConfirm() {
         const name = document.getElementById('sp-name').value.trim()
         if (!name) { showToast('❗ ระบุชื่อ', 'error'); return false }
-        plan.successors.push({ name, dept: document.getElementById('sp-dept').value.trim(), readiness: document.getElementById('sp-ready').value, gaps: document.getElementById('sp-gaps').value.trim() })
-        showToast(`เพิ่ม ${name} เป็นผู้สืบทอด "${role}" แล้ว`, 'success')
-        render()
+        const successors = [...(plan.successors||[]), { name, dept: document.getElementById('sp-dept').value.trim(), readiness: document.getElementById('sp-ready').value, gaps: document.getElementById('sp-gaps').value.trim() }]
+        await updateDocData('succession_plans', plan.id, { successors })
+        showToast(`เพิ่ม ${name} เป็นผู้สืบทอด "${plan.role}" แล้ว`, 'success')
+        await loadData()
       }
     })
   }
@@ -184,13 +175,13 @@ export default async function SuccessionPlanningPage(container) {
         </div>
       </div>`,
       confirmText: '💾 เพิ่มตำแหน่ง',
-      onConfirm() {
+      async onConfirm() {
         const role = document.getElementById('sp-role').value.trim()
         const curr = document.getElementById('sp-current').value.trim()
         if (!role || !curr) { showToast('❗ กรอกข้อมูลที่จำเป็น', 'error'); return false }
-        PLANS.push({ role, current: { name: curr, tenure: document.getElementById('sp-tenure').value.trim() || '-', risk: document.getElementById('sp-risk').value }, successors: [] })
+        await createDoc('succession_plans', { role, current: { name: curr, tenure: document.getElementById('sp-tenure').value.trim() || '-', risk: document.getElementById('sp-risk').value }, successors: [] })
         showToast(`เพิ่มตำแหน่ง "${role}" เข้า Succession Plan แล้ว`, 'success')
-        render()
+        await loadData()
       }
     })
   }
@@ -199,5 +190,5 @@ export default async function SuccessionPlanningPage(container) {
     return `<div class="card" style="padding:14px 16px"><div style="font-size:0.72rem;color:var(--text-muted)">${l}</div><div style="font-size:1.4rem;font-weight:900;color:${c};margin-top:2px">${v}</div></div>`
   }
 
-  render()
+  await loadData()
 }

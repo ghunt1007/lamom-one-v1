@@ -872,6 +872,23 @@ export function seedDemoData() {
   ]
   moodResponses.forEach(r => { if (!demoCol('mood_responses')[r.id]) demoCol('mood_responses')[r.id] = r })
 
+  // Succession plans (หน้า /hr/succession)
+  const successionPlans = [
+    { id:'SP001', role:'ผู้จัดการฝ่ายขาย', current:{ name:'คุณสมชาย วงศ์ดี', tenure:'8 ปี', risk:'medium' }, successors:[
+      { name:'คุณวิชัย ใจดี', readiness:'ready', dept:'เซลส์', gaps:'ทักษะบริหารทีม' },
+      { name:'คุณนิภา สมบัติ', readiness:'1yr', dept:'เซลส์', gaps:'ประสบการณ์จัดการ Fleet' },
+    ] },
+    { id:'SP002', role:'หัวหน้าช่าง', current:{ name:'คุณประเสริฐ ดีมาก', tenure:'12 ปี', risk:'high' }, successors:[
+      { name:'คุณธนพล ช่างเก่ง', readiness:'1yr', dept:'ช่าง', gaps:'ใบรับรอง EV, ทักษะบริหาร' },
+      { name:'คุณอนุชา ซ่อมดี', readiness:'2yr', dept:'ช่าง', gaps:'ประสบการณ์ BP, การจัดการงบ' },
+    ] },
+    { id:'SP003', role:'ผู้จัดการการเงิน', current:{ name:'คุณมาลี บัญชีดี', tenure:'5 ปี', risk:'low' }, successors:[
+      { name:'คุณสุดา เลขสวย', readiness:'2yr', dept:'บัญชี', gaps:'ระบบ ERP, การรายงานผู้บริหาร' },
+    ] },
+    { id:'SP004', role:'ผู้จัดการการตลาด', current:{ name:'คุณวิไล สวยงาม', tenure:'3 ปี', risk:'medium' }, successors:[] },
+  ]
+  successionPlans.forEach(p => { if (!demoCol('succession_plans')[p.id]) demoCol('succession_plans')[p.id] = p })
+
   const demoFleet = [
     { id:'df1', brand:'BYD', model:'Seal RWD', vin:'LGXCE4C10PA000006', plate:'กข-0001', color:'เทา Ink', year:2025, mileage:3520, status:'available', condition:'good', lastService:'2025-05-01', notes:'รถทดลองขับหลัก', createdAt:'2025-01-10' },
     { id:'df2', brand:'MG', model:'MG4 X', vin:'SDUZZZEF5PA000020', plate:'กข-0002', color:'แดง', year:2025, mileage:5200, status:'in_use', condition:'good', lastService:'2025-04-15', notes:'ให้ลูกค้า VIP ยืม', createdAt:'2025-01-15' },
