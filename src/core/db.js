@@ -367,13 +367,38 @@ export function seedDemoData() {
   ]
   deals.forEach(d => { if (!demoCol('deals')[d.id]) demoCol('deals')[d.id] = d })
 
-  // Service extras
+  // Service appointments (หน้า /service/appointment)
   const serviceAppts = [
-    { id:'sa1', custName:'วิชัย สุขใจ', phone:'0822222222', brand:'BYD', model:'Seal', plate:'กข-1234', type:'maintenance', date: new Date(Date.now()+86400000).toISOString().slice(0,10), time:'09:00', bay:'เบย์ 1', techName:'สมชาย ช่างดี', status:'confirmed', notes:'เปลี่ยนน้ำมัน + ตรวจ 10k', createdAt: new Date(Date.now()-86400000).toISOString() },
-    { id:'sa2', custName:'อรนุช พรหมมา', phone:'0898765432', brand:'MG', model:'MG4', plate:'คง-5678', type:'warranty', date: new Date(Date.now()+86400000*2).toISOString().slice(0,10), time:'13:00', bay:'เบย์ 2', techName:'วิชัย ช่างเก่ง', status:'pending', notes:'ตรวจสอบ AC', createdAt: new Date(Date.now()-3600000*3).toISOString() },
-    { id:'sa3', custName:'กิตติพงษ์ วรรณศิลป์', phone:'0876543210', brand:'NETA', model:'V II', plate:'งจ-9012', type:'repair', date: new Date(Date.now()).toISOString().slice(0,10), time:'10:30', bay:'เบย์ 3', techName:'สมชาย ช่างดี', status:'inprogress', notes:'เปลี่ยนยาง + firmware', createdAt: new Date(Date.now()-86400000*2).toISOString() },
+    { id:'SA001', custName:'สมชาย ใจดี', phone:'0812345678', plate:'กข-1234 กทม.', model:'BYD Seal AWD', type:'เช็กระยะ 10,000 km', date:'2025-06-09', time:'09:00', tech:'วิชัย ช่างดี', status:'confirmed', note:'นำน้ำมันเครื่องสำรองด้วย', km:10200 },
+    { id:'SA002', custName:'สมศรี มั่งมี', phone:'0823456789', plate:'คง-5678 กทม.', model:'MG4 X', type:'แก้ไขปัญหา / ซ่อม', date:'2025-06-09', time:'10:30', tech:'ธนา ซ่อมเก่ง', status:'inservice', note:'ระบบ A/C ไม่เย็น', km:25400 },
+    { id:'SA003', custName:'วิชัย เดินดี', phone:'0834567890', plate:'งจ-9012 ชบ.', model:'DEEPAL S07', type:'เปลี่ยนถ่ายน้ำมัน', date:'2025-06-10', time:'08:00', tech:'วิชัย ช่างดี', status:'scheduled', note:'', km:15000 },
+    { id:'SA004', custName:'ประภา สวยงาม', phone:'0845678901', plate:'ฉก-3456 นบ.', model:'BYD Atto3', type:'ตรวจสภาพรถ', date:'2025-06-10', time:'14:00', tech:'', status:'scheduled', note:'ต้องการใบตรวจสภาพ', km:45000 },
+    { id:'SA005', custName:'อนุชา รวยมาก', phone:'0856789012', plate:'ชด-7890 กทม.', model:'MG ZS EV', type:'รับประกัน (Warranty)', date:'2025-06-11', time:'09:00', tech:'ธนา ซ่อมเก่ง', status:'scheduled', note:'เตือน warning ที่ dashboard', km:8900 },
   ]
   serviceAppts.forEach(a => { if (!demoCol('service_appointments')[a.id]) demoCol('service_appointments')[a.id] = a })
+
+  // Service packages (หน้า /service/packages)
+  const servicePackages = [
+    { id:'PKG001', name:'เปลี่ยนถ่ายน้ำมันเครื่อง', type:'basic', price:1200, duration:60, items:['น้ำมันเครื่อง 4L','ไส้กรองน้ำมัน'], soldCount:142, active:true },
+    { id:'PKG002', name:'ตรวจเช็คระยะ 10,000 km', type:'standard', price:3500, duration:120, items:['น้ำมันเครื่อง','ไส้กรองอากาศ','ตรวจสายพาน','ตรวจเบรก'], soldCount:88, active:true },
+    { id:'PKG003', name:'Premium Service Package', type:'premium', price:6800, duration:180, items:['Full Service','เปลี่ยนหัวเทียน','ล้างห้องเครื่อง','ตรวจช่วงล่าง','ล้างแอร์'], soldCount:34, active:true },
+    { id:'PKG004', name:'EV Battery Health Check', type:'ev', price:1800, duration:90, items:['ตรวจ SOH','ตรวจ BMS','ทดสอบ Cell Balance','Report'], soldCount:56, active:true },
+    { id:'PKG005', name:'ล้างรถ + เคลือบแว็กซ์', type:'basic', price:800, duration:90, items:['ล้างรถภายนอก','ดูดฝุ่นภายใน','เคลือบแว็กซ์'], soldCount:211, active:true },
+    { id:'PKG006', name:'EV Annual Service', type:'ev', price:4200, duration:150, items:['ตรวจ Full EV System','ตรวจชาร์จเจอร์','ตรวจ Inverter','Software Update'], soldCount:29, active:false },
+  ]
+  servicePackages.forEach(p => { if (!demoCol('service_packages')[p.id]) demoCol('service_packages')[p.id] = p })
+
+  // Service reminders (หน้า /service/reminders)
+  const srAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
+  const serviceReminders = [
+    { id:'RM001', customer:'สมชาย ใจดี', phone:'085-111', plate:'1กข-1234', model:'BYD Seal', type:'mileage', detail:'ครบ 20,000 km', dueDate:srAddDays(5), contacted:false, booked:false },
+    { id:'RM002', customer:'มาลี สุขใจ', phone:'086-222', plate:'2ขค-5678', model:'BYD Dolphin', type:'time', detail:'ครบ 12 เดือน', dueDate:srAddDays(2), contacted:true, booked:true },
+    { id:'RM003', customer:'ธนพล เที่ยงตรง', phone:'087-333', plate:'3คง-9012', model:'MG ZS EV', type:'warranty', detail:'ประกันหมด 30 วัน', dueDate:srAddDays(30), contacted:false, booked:false },
+    { id:'RM004', customer:'อรทัย ตั้งใจ', phone:'088-444', plate:'4งจ-3456', model:'BYD Atto 3', type:'battery', detail:'ตรวจแบตประจำปี', dueDate:srAddDays(-3), contacted:true, booked:false },
+    { id:'RM005', customer:'วิรัช เก่งมาก', phone:'089-555', plate:'5จฉ-7890', model:'BYD Han', type:'mileage', detail:'ครบ 40,000 km', dueDate:srAddDays(10), contacted:false, booked:false },
+    { id:'RM006', customer:'ชาตรี เข้มแข็ง', phone:'084-666', plate:'6ฉช-1122', model:'MG4', type:'time', detail:'ครบ 6 เดือน', dueDate:srAddDays(14), contacted:false, booked:false },
+  ]
+  serviceReminders.forEach(r => { if (!demoCol('service_reminders')[r.id]) demoCol('service_reminders')[r.id] = r })
 
   const accessories = [
     { id:'acc1', name:'ฟิล์มกรองแสง 3M Crystalline', sku:'ACC-3M-001', category:'ฟิล์ม', price:18000, cost:10000, stock:5, unit:'ชุด', brand:'3M', createdAt:'2025-01-10' },

@@ -1,6 +1,7 @@
 import { formatDate } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -20,21 +21,24 @@ const SERVICE_TYPES = [
   'แก้ไขปัญหา / ซ่อม', 'ติดตั้งอุปกรณ์', 'รับประกัน (Warranty)', 'อื่นๆ'
 ]
 
-const DEMO_APPTS = [
-  { id:'SA001', custName:'สมชาย ใจดี', phone:'0812345678', plate:'กข-1234 กทม.', model:'BYD Seal AWD', type:'เช็กระยะ 10,000 km', date:'2025-06-09', time:'09:00', tech:'วิชัย ช่างดี', status:'confirmed', note:'นำน้ำมันเครื่องสำรองด้วย', km:10200 },
-  { id:'SA002', custName:'สมศรี มั่งมี', phone:'0823456789', plate:'คง-5678 กทม.', model:'MG4 X', type:'แก้ไขปัญหา / ซ่อม', date:'2025-06-09', time:'10:30', tech:'ธนา ซ่อมเก่ง', status:'inservice', note:'ระบบ A/C ไม่เย็น', km:25400 },
-  { id:'SA003', custName:'วิชัย เดินดี', phone:'0834567890', plate:'งจ-9012 ชบ.', model:'DEEPAL S07', type:'เปลี่ยนถ่ายน้ำมัน', date:'2025-06-10', time:'08:00', tech:'วิชัย ช่างดี', status:'scheduled', note:'', km:15000 },
-  { id:'SA004', custName:'ประภา สวยงาม', phone:'0845678901', plate:'ฉก-3456 นบ.', model:'BYD Atto3', type:'ตรวจสภาพรถ', date:'2025-06-10', time:'14:00', tech:'', status:'scheduled', note:'ต้องการใบตรวจสภาพ', km:45000 },
-  { id:'SA005', custName:'อนุชา รวยมาก', phone:'0856789012', plate:'ชด-7890 กทม.', model:'MG ZS EV', type:'รับประกัน (Warranty)', date:'2025-06-11', time:'09:00', tech:'ธนา ซ่อมเก่ง', status:'scheduled', note:'เตือน warning ที่ dashboard', km:8900 },
-]
-
 const TECHS = ['วิชัย ช่างดี', 'ธนา ซ่อมเก่ง', 'สมศักดิ์ ช่างใหม่', 'อรุณ ช่างเก่า']
 
 export default async function ServiceAppointmentPage(container) {
-  let appts = DEMO_APPTS.map(a => ({ ...a }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let appts = []
   let viewDate = new Date().toISOString().slice(0, 10)
   let viewMode = 'day' // day | week | list
   let statusFilter = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { appts = await listDocs('service_appointments', [], 'date', 'desc', 500) } catch (e) { appts = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function getFiltered() {
     let list = appts
@@ -61,6 +65,10 @@ export default async function ServiceAppointmentPage(container) {
   }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const s = getStats()
     const filtered = getFiltered()
     const today = new Date().toISOString().slice(0,10)
@@ -113,12 +121,16 @@ export default async function ServiceAppointmentPage(container) {
     document.querySelectorAll('.sf-btn').forEach(b => b.addEventListener('click', () => { statusFilter = b.dataset.s; renderPage() }))
     document.getElementById('view-date')?.addEventListener('change', e => { viewDate = e.target.value; renderPage() })
     document.querySelectorAll('.appt-status-btn').forEach(btn => {
-      btn.addEventListener('click', e => {
+      btn.addEventListener('click', async e => {
         e.stopPropagation()
         const id = btn.dataset.id; const status = btn.dataset.status
-        const a = appts.find(x => x.id === id); if (a) a.status = status
-        showToast(`✅ อัพเดตสถานะเป็น "${APPT_STATUS[status].label}"`, 'success')
-        renderPage()
+        const a = appts.find(x => x.id === id)
+        if (!a) return
+        try {
+          await updateDocData('service_appointments', a.id, { status })
+          showToast(`✅ อัพเดตสถานะเป็น "${APPT_STATUS[status].label}"`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       })
     })
     document.querySelectorAll('.appt-card').forEach(card => {
@@ -201,17 +213,17 @@ export default async function ServiceAppointmentPage(container) {
       footer: `<button class="btn btn-secondary" id="ap-c">ยกเลิก</button><button class="btn btn-primary" id="ap-s">💾 บันทึก</button>`
     })
     el.querySelector('#ap-c').addEventListener('click', close)
-    el.querySelector('#ap-s').addEventListener('click', () => {
+    el.querySelector('#ap-s').addEventListener('click', async () => {
       const custName = el.querySelector('#ap-cust').value.trim()
       const date = el.querySelector('#ap-date').value
       const time = el.querySelector('#ap-time').value
       if (!custName || !date || !time) return showToast('❗ กรุณากรอกข้อมูลที่จำเป็น', 'warning')
-      if (appt) {
-        Object.assign(appt, { custName, date, time, phone: el.querySelector('#ap-phone').value, model: el.querySelector('#ap-model').value, plate: el.querySelector('#ap-plate').value, type: el.querySelector('#ap-type').value, tech: el.querySelector('#ap-tech').value, km: +el.querySelector('#ap-km').value||0, note: el.querySelector('#ap-note').value })
-      } else {
-        appts.push({ id:'SA'+Date.now(), custName, date, time, phone: el.querySelector('#ap-phone').value, model: el.querySelector('#ap-model').value, plate: el.querySelector('#ap-plate').value, type: el.querySelector('#ap-type').value, tech: el.querySelector('#ap-tech').value, km: +el.querySelector('#ap-km').value||0, note: el.querySelector('#ap-note').value, status:'scheduled' })
-      }
-      showToast('📅 บันทึกนัดหมายแล้ว', 'success'); close(); renderPage()
+      const data = { custName, date, time, phone: el.querySelector('#ap-phone').value, model: el.querySelector('#ap-model').value, plate: el.querySelector('#ap-plate').value, type: el.querySelector('#ap-type').value, tech: el.querySelector('#ap-tech').value, km: +el.querySelector('#ap-km').value||0, note: el.querySelector('#ap-note').value }
+      try {
+        if (appt) await updateDocData('service_appointments', appt.id, data)
+        else await createDoc('service_appointments', { ...data, status:'scheduled' })
+        showToast('📅 บันทึกนัดหมายแล้ว', 'success'); close(); await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
@@ -241,12 +253,19 @@ export default async function ServiceAppointmentPage(container) {
       footer: ''
     })
     document.querySelectorAll('.status-change-btn').forEach(btn => {
-      btn.addEventListener('click', () => { a.status = btn.dataset.s; showToast('✅ อัพเดตแล้ว', 'success'); document.querySelector('.modal-overlay')?.remove(); renderPage() })
+      btn.addEventListener('click', async () => {
+        try {
+          await updateDocData('service_appointments', a.id, { status: btn.dataset.s })
+          showToast('✅ อัพเดตแล้ว', 'success')
+          document.querySelector('.modal-overlay')?.remove()
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      })
     })
     document.querySelector('.edit-btn')?.addEventListener('click', () => { document.querySelector('.modal-overlay')?.remove(); openApptForm(a) })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(title, value, color) {

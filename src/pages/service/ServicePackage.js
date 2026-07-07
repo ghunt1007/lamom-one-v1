@@ -5,6 +5,7 @@
 import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 const PKG_TYPES = {
   basic:    { label: 'Basic', color: 'secondary', icon: '🔧' },
@@ -13,20 +14,26 @@ const PKG_TYPES = {
   ev:       { label: 'EV Special', color: 'success', icon: '⚡' },
 }
 
-const DEMO_PACKAGES = [
-  { id: 'PKG001', name: 'เปลี่ยนถ่ายน้ำมันเครื่อง', type: 'basic', price: 1200, duration: 60, items: ['น้ำมันเครื่อง 4L','ไส้กรองน้ำมัน'], soldCount: 142, active: true },
-  { id: 'PKG002', name: 'ตรวจเช็คระยะ 10,000 km', type: 'standard', price: 3500, duration: 120, items: ['น้ำมันเครื่อง','ไส้กรองอากาศ','ตรวจสายพาน','ตรวจเบรก'], soldCount: 88, active: true },
-  { id: 'PKG003', name: 'Premium Service Package', type: 'premium', price: 6800, duration: 180, items: ['Full Service','เปลี่ยนหัวเทียน','ล้างห้องเครื่อง','ตรวจช่วงล่าง','ล้างแอร์'], soldCount: 34, active: true },
-  { id: 'PKG004', name: 'EV Battery Health Check', type: 'ev', price: 1800, duration: 90, items: ['ตรวจ SOH','ตรวจ BMS','ทดสอบ Cell Balance','Report'], soldCount: 56, active: true },
-  { id: 'PKG005', name: 'ล้างรถ + เคลือบแว็กซ์', type: 'basic', price: 800, duration: 90, items: ['ล้างรถภายนอก','ดูดฝุ่นภายใน','เคลือบแว็กซ์'], soldCount: 211, active: true },
-  { id: 'PKG006', name: 'EV Annual Service', type: 'ev', price: 4200, duration: 150, items: ['ตรวจ Full EV System','ตรวจชาร์จเจอร์','ตรวจ Inverter','Software Update'], soldCount: 29, active: false },
-]
-
 export default async function ServicePackagePage(container) {
-  let packages = DEMO_PACKAGES.map(p => ({ ...p }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let packages = []
   let typeFilter = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { packages = await listDocs('service_packages', [], 'name', 'asc', 500) } catch (e) { packages = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = packages.filter(p => typeFilter === 'all' || p.type === typeFilter)
     const totalRevenue = packages.reduce((a, p) => a + p.price * p.soldCount, 0)
     const topPkg = packages.reduce((top, p) => p.soldCount > top.soldCount ? p : top, packages[0])
@@ -88,9 +95,15 @@ export default async function ServicePackagePage(container) {
     container.querySelectorAll('.view-pkg-btn').forEach(b => b.addEventListener('click', () => {
       const p = packages.find(x => x.id === b.dataset.id); if (p) openDetail(p)
     }))
-    container.querySelectorAll('.toggle-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.toggle-btn').forEach(b => b.addEventListener('click', async () => {
       const p = packages.find(x => x.id === b.dataset.id)
-      if (p) { p.active = !p.active; showToast(p.active ? '✅ เปิดใช้แพ็กเกจ' : '❌ ปิดใช้แพ็กเกจ', 'success'); renderPage() }
+      if (!p) return
+      const active = !p.active
+      try {
+        await updateDocData('service_packages', p.id, { active })
+        showToast(active ? '✅ เปิดใช้แพ็กเกจ' : '❌ ปิดใช้แพ็กเกจ', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
   }
 
@@ -131,24 +144,27 @@ export default async function ServicePackagePage(container) {
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">รายการ (คั่นด้วย comma)</label><input class="input" id="pg-items" placeholder="น้ำมันเครื่อง, ไส้กรอง, ..."></div>
         </div>
       `,
-      onConfirm() {
+      async onConfirm() {
         const name = document.getElementById('pg-name')?.value?.trim()
         const price = +document.getElementById('pg-price')?.value || 0
-        if (!name) { showToast('❗ กรุณากรอกชื่อแพ็กเกจ', 'error'); return }
-        if (price <= 0) { showToast('❗ กรุณากรอกราคา', 'error'); return }
-        packages.unshift({
-          id: `PKG${String(packages.length+1).padStart(3,'0')}`, name,
-          type: document.getElementById('pg-type')?.value || 'basic',
-          price, duration: +document.getElementById('pg-duration')?.value || 60,
-          items: (document.getElementById('pg-items')?.value||'').split(',').map(s=>s.trim()).filter(Boolean),
-          soldCount: 0, active: true
-        })
-        showToast('✅ สร้างแพ็กเกจแล้ว!', 'success'); renderPage()
+        if (!name) { showToast('❗ กรุณากรอกชื่อแพ็กเกจ', 'error'); return false }
+        if (price <= 0) { showToast('❗ กรุณากรอกราคา', 'error'); return false }
+        try {
+          await createDoc('service_packages', {
+            name,
+            type: document.getElementById('pg-type')?.value || 'basic',
+            price, duration: +document.getElementById('pg-duration')?.value || 60,
+            items: (document.getElementById('pg-items')?.value||'').split(',').map(s=>s.trim()).filter(Boolean),
+            soldCount: 0, active: true
+          })
+          showToast('✅ สร้างแพ็กเกจแล้ว!', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

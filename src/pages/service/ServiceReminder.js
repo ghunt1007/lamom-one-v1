@@ -5,6 +5,7 @@
 import { formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
 
@@ -15,20 +16,26 @@ const REMINDER_TYPES = {
   battery:  { label: 'ตรวจแบตประจำปี', color: 'success', icon: '🔋' },
 }
 
-const DEMO_REMINDERS = [
-  { id: 'RM001', customer: 'สมชาย ใจดี', phone: '085-111', plate: '1กข-1234', model: 'BYD Seal', type: 'mileage', detail: 'ครบ 20,000 km', dueDate: addDays(5), contacted: false, booked: false },
-  { id: 'RM002', customer: 'มาลี สุขใจ', phone: '086-222', plate: '2ขค-5678', model: 'BYD Dolphin', type: 'time', detail: 'ครบ 12 เดือน', dueDate: addDays(2), contacted: true, booked: true },
-  { id: 'RM003', customer: 'ธนพล เที่ยงตรง', phone: '087-333', plate: '3คง-9012', model: 'MG ZS EV', type: 'warranty', detail: 'ประกันหมด 30 วัน', dueDate: addDays(30), contacted: false, booked: false },
-  { id: 'RM004', customer: 'อรทัย ตั้งใจ', phone: '088-444', plate: '4งจ-3456', model: 'BYD Atto 3', type: 'battery', detail: 'ตรวจแบตประจำปี', dueDate: addDays(-3), contacted: true, booked: false },
-  { id: 'RM005', customer: 'วิรัช เก่งมาก', phone: '089-555', plate: '5จฉ-7890', model: 'BYD Han', type: 'mileage', detail: 'ครบ 40,000 km', dueDate: addDays(10), contacted: false, booked: false },
-  { id: 'RM006', customer: 'ชาตรี เข้มแข็ง', phone: '084-666', plate: '6ฉช-1122', model: 'MG4', type: 'time', detail: 'ครบ 6 เดือน', dueDate: addDays(14), contacted: false, booked: false },
-]
-
 export default async function ServiceReminderPage(container) {
-  let reminders = DEMO_REMINDERS.map(r => ({ ...r }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let reminders = []
   let typeFilter = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { reminders = await listDocs('service_reminders', [], 'dueDate', 'asc', 500) } catch (e) { reminders = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = reminders.filter(r => typeFilter === 'all' || r.type === typeFilter)
       .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
     const overdue = reminders.filter(r => r.dueDate < addDays(0) && !r.booked).length
@@ -90,16 +97,25 @@ export default async function ServiceReminderPage(container) {
     `
 
     container.querySelectorAll('.tf-btn').forEach(b => b.addEventListener('click', () => { typeFilter = b.dataset.t; renderPage() }))
-    container.querySelectorAll('.contact-btn').forEach(b => b.addEventListener('click', () => {
-      const r = reminders.find(x => x.id === b.dataset.id); if (r) { r.contacted = true; showToast(`📤 ส่งแจ้งเตือนถึง ${r.customer} แล้ว`, 'success'); renderPage() }
-    }))
-    container.querySelectorAll('.recontact-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.contact-btn').forEach(b => b.addEventListener('click', async () => {
       const r = reminders.find(x => x.id === b.dataset.id)
       if (!r) return
-      r.contactCount = (r.contactCount || 1) + 1
-      r.lastContactAt = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
-      showToast(`📞 ติดตามครั้งที่ ${r.contactCount} — ${r.customer} (${r.phone}) บันทึกแล้ว`, 'success')
-      renderPage()
+      try {
+        await updateDocData('service_reminders', r.id, { contacted: true })
+        showToast(`📤 ส่งแจ้งเตือนถึง ${r.customer} แล้ว`, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+    }))
+    container.querySelectorAll('.recontact-btn').forEach(b => b.addEventListener('click', async () => {
+      const r = reminders.find(x => x.id === b.dataset.id)
+      if (!r) return
+      const contactCount = (r.contactCount || 1) + 1
+      const lastContactAt = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+      try {
+        await updateDocData('service_reminders', r.id, { contactCount, lastContactAt })
+        showToast(`📞 ติดตามครั้งที่ ${contactCount} — ${r.customer} (${r.phone}) บันทึกแล้ว`, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.book-btn').forEach(b => b.addEventListener('click', () => {
       const r = reminders.find(x => x.id === b.dataset.id)
@@ -112,16 +128,26 @@ export default async function ServiceReminderPage(container) {
             <select class="input" id="bk-time"><option>09:00</option><option>10:00</option><option>11:00</option><option>13:00</option><option>14:00</option><option>15:00</option></select>
           </div>
         </div>`,
-        onConfirm() { r.booked = true; showToast('📅 จองคิวสำเร็จ!', 'success'); renderPage() }
+        async onConfirm() {
+          try {
+            await updateDocData('service_reminders', r.id, { booked: true })
+            showToast('📅 จองคิวสำเร็จ!', 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+        }
       })
     }))
-    document.getElementById('notify-all-btn')?.addEventListener('click', () => {
-      reminders.filter(r => !r.contacted).forEach(r => { r.contacted = true })
-      showToast('📤 ส่งแจ้งเตือนทั้งหมดแล้ว (LINE + SMS)', 'success'); renderPage()
+    document.getElementById('notify-all-btn')?.addEventListener('click', async () => {
+      const toNotify = reminders.filter(r => !r.contacted)
+      try {
+        await Promise.all(toNotify.map(r => updateDocData('service_reminders', r.id, { contacted: true })))
+        showToast('📤 ส่งแจ้งเตือนทั้งหมดแล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
