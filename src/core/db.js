@@ -447,6 +447,28 @@ export function seedDemoData() {
   ]
   warrantyClaims.forEach(c => { if (!demoCol('warranty_claims')[c.id]) demoCol('warranty_claims')[c.id] = c })
 
+  // Warranty expiry tracker (หน้า /service/warranty-expiry)
+  const warrantyExpiryVehicles = [
+    { id:'WE001', vin:'LBV5A2B10P0001234', model:'BYD Atto 3', plate:'กข-1234', owner:'สมชาย ใจดี',    phone:'081-111-2222', sale:'2024-06-10', warrantyEnd:'2027-06-10', kmWarranty:100000, kmCurrent:28400, status:'active' },
+    { id:'WE002', vin:'LBV5A2B10P0005678', model:'BYD Seal AWD', plate:'คง-5678', owner:'นภา สุขใจ',  phone:'089-333-4444', sale:'2023-03-01', warrantyEnd:'2026-03-01', kmWarranty:100000, kmCurrent:62100, status:'expired' },
+    { id:'WE003', vin:'LBV5A2B10P0009012', model:'BYD Han',     plate:'จฉ-9012', owner:'วิชัย ดีมาก',  phone:'076-555-6666', sale:'2024-01-15', warrantyEnd:'2027-01-15', kmWarranty:100000, kmCurrent:41200, status:'active' },
+    { id:'WE004', vin:'LBV5A2B10P0003456', model:'MG ZS EV',    plate:'ชซ-3456', owner:'มาลี รุ่งเรือง',phone:'095-777-8888', sale:'2025-01-20', warrantyEnd:'2028-01-20', kmWarranty:100000, kmCurrent:8900,  status:'active' },
+    { id:'WE005', vin:'LBV5A2B10P0007890', model:'BYD Dolphin', plate:'ฌญ-7890', owner:'อรุณ วิชิต',   phone:'081-999-0000', sale:'2023-09-05', warrantyEnd:'2026-07-14', kmWarranty:100000, kmCurrent:58300, status:'expiring' },
+    { id:'WE006', vin:'LBV5A2B10P0002345', model:'BYD Atto 3',  plate:'ฎฏ-2345', owner:'สุดา ภักดี',   phone:'089-111-3333', sale:'2023-12-01', warrantyEnd:'2026-08-01', kmWarranty:100000, kmCurrent:51000, status:'expiring' },
+  ]
+  warrantyExpiryVehicles.forEach(v => { if (!demoCol('warranty_expiry_vehicles')[v.id]) demoCol('warranty_expiry_vehicles')[v.id] = v })
+
+  // Wash & Detailing queue (หน้า /service/wash)
+  const wqAddMinutes = n => { const d = new Date(); d.setMinutes(d.getMinutes() - n); return d.toISOString() }
+  const washQueue = [
+    { id:'W01', plate:'1กข-1234', model:'BYD Seal', service:'premium', status:'washing', startTime:wqAddMinutes(25), customer:'สมชาย ใจดี', staff:'ทีม A', isFree:false },
+    { id:'W02', plate:'2ขค-5678', model:'BYD Dolphin', service:'basic', status:'waiting', startTime:null, customer:'มาลี สุขใจ', staff:null, isFree:true },
+    { id:'W03', plate:'3คง-9012', model:'MG ZS EV', service:'detail', status:'washing', startTime:wqAddMinutes(120), customer:'ธนพล เที่ยงตรง', staff:'ทีม B', isFree:false },
+    { id:'W04', plate:'4งจ-3456', model:'BYD Atto 3', service:'basic', status:'done', startTime:wqAddMinutes(90), customer:'อรทัย ตั้งใจ', staff:'ทีม A', isFree:true },
+    { id:'W05', plate:'5จฉ-7890', model:'BYD Han', service:'coating', status:'waiting', startTime:null, customer:'วิรัช เก่งมาก', staff:null, isFree:false },
+  ]
+  washQueue.forEach(q => { if (!demoCol('wash_queue')[q.id]) demoCol('wash_queue')[q.id] = q })
+
   const accessories = [
     { id:'acc1', name:'ฟิล์มกรองแสง 3M Crystalline', sku:'ACC-3M-001', category:'ฟิล์ม', price:18000, cost:10000, stock:5, unit:'ชุด', brand:'3M', createdAt:'2025-01-10' },
     { id:'acc2', name:'พรมรถ BYD Seal OEM', sku:'ACC-BYD-002', category:'ตกแต่งภายใน', price:3500, cost:1800, stock:12, unit:'ชุด', brand:'BYD', createdAt:'2025-01-15' },

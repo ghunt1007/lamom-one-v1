@@ -5,20 +5,10 @@
 import { formatDate, formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-
-const TODAY = '2026-06-14'
-
-let VEHICLES = [
-  { id:'WE001', vin:'LBV5A2B10P0001234', model:'BYD Atto 3', plate:'กข-1234', owner:'สมชาย ใจดี',    phone:'081-111-2222', sale:'2024-06-10', warrantyEnd:'2027-06-10', kmWarranty:100000, kmCurrent:28400, status:'active' },
-  { id:'WE002', vin:'LBV5A2B10P0005678', model:'BYD Seal AWD', plate:'คง-5678', owner:'นภา สุขใจ',  phone:'089-333-4444', sale:'2023-03-01', warrantyEnd:'2026-03-01', kmWarranty:100000, kmCurrent:62100, status:'expired' },
-  { id:'WE003', vin:'LBV5A2B10P0009012', model:'BYD Han',     plate:'จฉ-9012', owner:'วิชัย ดีมาก',  phone:'076-555-6666', sale:'2024-01-15', warrantyEnd:'2027-01-15', kmWarranty:100000, kmCurrent:41200, status:'active' },
-  { id:'WE004', vin:'LBV5A2B10P0003456', model:'MG ZS EV',    plate:'ชซ-3456', owner:'มาลี รุ่งเรือง',phone:'095-777-8888', sale:'2025-01-20', warrantyEnd:'2028-01-20', kmWarranty:100000, kmCurrent:8900,  status:'active' },
-  { id:'WE005', vin:'LBV5A2B10P0007890', model:'BYD Dolphin', plate:'ฌญ-7890', owner:'อรุณ วิชิต',   phone:'081-999-0000', sale:'2023-09-05', warrantyEnd:'2026-07-14', kmWarranty:100000, kmCurrent:58300, status:'expiring' },
-  { id:'WE006', vin:'LBV5A2B10P0002345', model:'BYD Atto 3',  plate:'ฎฏ-2345', owner:'สุดา ภักดี',   phone:'089-111-3333', sale:'2023-12-01', warrantyEnd:'2026-08-01', kmWarranty:100000, kmCurrent:51000, status:'expiring' },
-]
+import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 
 function daysLeft(endDate) {
-  return Math.round((new Date(endDate) - new Date(TODAY)) / 86400000)
+  return Math.round((new Date(endDate) - new Date()) / 86400000)
 }
 
 function statusBadge(s, d) {
@@ -28,10 +18,26 @@ function statusBadge(s, d) {
 }
 
 export default async function WarrantyExpiryPage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+
   let filter = 'all'
   let search = ''
+  let VEHICLES = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { VEHICLES = await listDocs('warranty_expiry_vehicles', [], 'warrantyEnd', 'asc', 500) } catch (e) { VEHICLES = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     let rows = VEHICLES
     if (filter === 'expired')  rows = rows.filter(v => v.status === 'expired')
     if (filter === 'expiring') rows = rows.filter(v => v.status === 'expiring')
@@ -122,16 +128,23 @@ export default async function WarrantyExpiryPage(container) {
 
     container.querySelectorAll('.fil-btn').forEach(b => b.addEventListener('click', () => { filter = b.dataset.f; render() }))
     document.getElementById('search-box')?.addEventListener('input', e => { search = e.target.value; render() })
-    document.getElementById('notify-all-btn')?.addEventListener('click', () => {
+    document.getElementById('notify-all-btn')?.addEventListener('click', async () => {
       const targets = VEHICLES.filter(v => v.status === 'expiring' || v.status === 'expired')
-      targets.forEach(v => { v.notified = true })
-      render()
-      showToast(`📨 ส่ง SMS แจ้งเตือนประกัน ${targets.length} คันแล้ว`, 'success')
+      try {
+        await Promise.all(targets.map(v => updateDocData('warranty_expiry_vehicles', v.id, { notified: true })))
+        showToast(`📨 แจ้งเตือนประกัน ${targets.length} คันแล้ว`, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
-    container.querySelectorAll('.notify-btn').forEach(b => b.addEventListener('click', e => {
+    container.querySelectorAll('.notify-btn').forEach(b => b.addEventListener('click', async e => {
       e.stopPropagation()
       const v = VEHICLES.find(x => x.id === b.dataset.id)
-      if (v) { v.notified = true; render(); showToast(`📱 ส่ง SMS ให้ ${v.owner} แจ้งประกัน ${v.model} แล้ว`, 'success') }
+      if (!v) return
+      try {
+        await updateDocData('warranty_expiry_vehicles', v.id, { notified: true })
+        showToast(`📱 แจ้ง ${v.owner} เรื่องประกัน ${v.model} แล้ว`, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.warranty-row').forEach(tr => tr.addEventListener('click', () => {
       const v = VEHICLES.find(x => x.id === tr.dataset.id)
@@ -161,14 +174,16 @@ export default async function WarrantyExpiryPage(container) {
         </select>
       </div>`,
       confirmText:'📋 บันทึกต่อประกัน',
-      onConfirm() {
+      async onConfirm() {
         const ext = parseInt(document.getElementById('warranty-ext')?.value) || 1
         const cur = new Date(v.warrantyEnd)
         cur.setFullYear(cur.getFullYear() + ext)
-        v.warrantyEnd = cur.toISOString().slice(0, 10)
-        v.status = 'active'
-        render()
-        showToast(`✅ ต่อประกัน ${v.model} +${ext} ปี — หมดอายุใหม่ ${v.warrantyEnd}`, 'success')
+        const warrantyEnd = cur.toISOString().slice(0, 10)
+        try {
+          await updateDocData('warranty_expiry_vehicles', v.id, { warrantyEnd, status: 'active' })
+          showToast(`✅ ต่อประกัน ${v.model} +${ext} ปี — หมดอายุใหม่ ${warrantyEnd}`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -184,5 +199,5 @@ export default async function WarrantyExpiryPage(container) {
     </div>`
   }
 
-  render()
+  await loadData()
 }

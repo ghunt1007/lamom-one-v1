@@ -5,8 +5,7 @@
 import { formatCurrency, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-
-function addMinutes(n) { const d = new Date(); d.setMinutes(d.getMinutes() - n); return d.toISOString() }
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 const WASH_SERVICES = {
   basic:   { label: 'ล้างธรรมดา', price: 200, mins: 30, icon: '🚿' },
@@ -23,18 +22,25 @@ const Q_STATUS = {
   delivered:{ label: 'ส่งมอบแล้ว', color: 'secondary', icon: '🏁' },
 }
 
-const DEMO_QUEUE = [
-  { id: 'W01', plate: '1กข-1234', model: 'BYD Seal', service: 'premium', status: 'washing', startTime: addMinutes(25), customer: 'สมชาย ใจดี', staff: 'ทีม A', isFree: false },
-  { id: 'W02', plate: '2ขค-5678', model: 'BYD Dolphin', service: 'basic', status: 'waiting', startTime: null, customer: 'มาลี สุขใจ', staff: null, isFree: true },
-  { id: 'W03', plate: '3คง-9012', model: 'MG ZS EV', service: 'detail', status: 'washing', startTime: addMinutes(120), customer: 'ธนพล เที่ยงตรง', staff: 'ทีม B', isFree: false },
-  { id: 'W04', plate: '4งจ-3456', model: 'BYD Atto 3', service: 'basic', status: 'done', startTime: addMinutes(90), customer: 'อรทัย ตั้งใจ', staff: 'ทีม A', isFree: true },
-  { id: 'W05', plate: '5จฉ-7890', model: 'BYD Han', service: 'coating', status: 'waiting', startTime: null, customer: 'วิรัช เก่งมาก', staff: null, isFree: false },
-]
-
 export default async function WashQueuePage(container) {
-  let queue = DEMO_QUEUE.map(q => ({ ...q }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let queue = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { queue = await listDocs('wash_queue', [], 'startTime', 'desc', 500) } catch (e) { queue = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const waiting = queue.filter(q => q.status === 'waiting')
     const washing = queue.filter(q => q.status === 'washing')
     const revenue = queue.filter(q => !q.isFree && ['done','delivered'].includes(q.status)).reduce((a, q) => a + WASH_SERVICES[q.service].price, 0)
@@ -100,16 +106,32 @@ export default async function WashQueuePage(container) {
       </div>
     `
 
-    container.querySelectorAll('.start-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.start-btn').forEach(b => b.addEventListener('click', async () => {
       const q = queue.find(x => x.id === b.dataset.id)
-      if (q) { q.status = 'washing'; q.startTime = new Date().toISOString(); q.staff = 'ทีม ' + (Math.random() > 0.5 ? 'A' : 'B'); renderPage() }
+      if (!q) return
+      const staff = 'ทีม ' + (Math.random() > 0.5 ? 'A' : 'B')
+      try {
+        await updateDocData('wash_queue', q.id, { status: 'washing', startTime: new Date().toISOString(), staff })
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.finish-btn').forEach(b => b.addEventListener('click', () => {
-      const q = queue.find(x => x.id === b.dataset.id); if (q) { q.status = 'done'; showToast('✅ ' + q.plate + ' เสร็จแล้ว', 'success'); renderPage() }
-    }))
-    container.querySelectorAll('.deliver-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.finish-btn').forEach(b => b.addEventListener('click', async () => {
       const q = queue.find(x => x.id === b.dataset.id)
-      if (q) { q.status = 'delivered'; showToast('📱 แจ้งลูกค้า ' + q.customer + ' มารับรถแล้ว', 'success'); renderPage() }
+      if (!q) return
+      try {
+        await updateDocData('wash_queue', q.id, { status: 'done' })
+        showToast('✅ ' + q.plate + ' เสร็จแล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+    }))
+    container.querySelectorAll('.deliver-btn').forEach(b => b.addEventListener('click', async () => {
+      const q = queue.find(x => x.id === b.dataset.id)
+      if (!q) return
+      try {
+        await updateDocData('wash_queue', q.id, { status: 'delivered' })
+        showToast('📱 แจ้งลูกค้า ' + q.customer + ' มารับรถแล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     document.getElementById('add-queue-btn')?.addEventListener('click', () => {
       openModal({
@@ -126,17 +148,20 @@ export default async function WashQueuePage(container) {
             <input type="checkbox" id="wq-free" style="accent-color:var(--primary)"> ฟรี (ลูกค้าหลังบริการซ่อม)
           </label>
         </div>`,
-        onConfirm() {
+        async onConfirm() {
           const plate = document.getElementById('wq-plate')?.value?.trim()
-          if (!plate) { showToast('❗ กรุณากรอกทะเบียน', 'error'); return }
-          queue.push({ id:`W${String(queue.length+1).padStart(2,'0')}`, plate, model:document.getElementById('wq-model')?.value||'—', service:document.getElementById('wq-service')?.value||'basic', status:'waiting', startTime:null, customer:document.getElementById('wq-customer')?.value||'—', staff:null, isFree:document.getElementById('wq-free')?.checked||false })
-          showToast('✅ เพิ่มคิวแล้ว', 'success'); renderPage()
+          if (!plate) { showToast('❗ กรุณากรอกทะเบียน', 'error'); return false }
+          try {
+            await createDoc('wash_queue', { plate, model:document.getElementById('wq-model')?.value||'—', service:document.getElementById('wq-service')?.value||'basic', status:'waiting', startTime:null, customer:document.getElementById('wq-customer')?.value||'—', staff:null, isFree:document.getElementById('wq-free')?.checked||false })
+            showToast('✅ เพิ่มคิวแล้ว', 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
