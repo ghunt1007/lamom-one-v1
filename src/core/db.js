@@ -418,6 +418,35 @@ export function seedDemoData() {
   ]
   technicianSchedule.forEach(t => { if (!demoCol('technician_schedule')[t.id]) demoCol('technician_schedule')[t.id] = t })
 
+  // Vehicle inspections (หน้า /service/inspection)
+  const vehicleInspections = [
+    { id:'INS001', type:'pdi', vehiclePlate:'กก 1234 BKK', brand:'BYD', model:'Seal AWD', vin:'LBWAB2EB7PD001001', customerId:'C001', customerName:'วิชาญ มีโชค', techId:'T001', techName:'ธีรยุทธ เก่งกาจ', date:'2025-06-05', status:'done', mileage:12, overallResult:'pass', notes:'รถสภาพดีพร้อมส่งมอบ', items:null },
+    { id:'INS002', type:'periodic', vehiclePlate:'ขข 5678 BKK', brand:'MG', model:'ZS EV', vin:'LSJWSRAR7NE001007', customerId:'C003', customerName:'ธีรยุทธ เก่งกาจ', techId:'T002', techName:'สมชาย ช่างดี', date:'2025-06-08', status:'inprog', mileage:25000, overallResult:null, notes:'', items:null },
+    { id:'INS003', type:'pdi', vehiclePlate:'คค 9012 BKK', brand:'BYD', model:'Atto 3', vin:'LBWAB2EB7PD001003', customerId:'C004', customerName:'สมหญิง รักรถ', techId:'T001', techName:'ธีรยุทธ เก่งกาจ', date: new Date().toISOString().slice(0,10), status:'pending', mileage:8, overallResult:null, notes:'', items:null },
+  ]
+  vehicleInspections.forEach(i => { if (!demoCol('vehicle_inspections')[i.id]) demoCol('vehicle_inspections')[i.id] = i })
+
+  // Waiting lounge queue (หน้า /service/lounge)
+  const wlAddMinutes = n => { const d = new Date(); d.setMinutes(d.getMinutes() - n); return d.toISOString() }
+  const waitingLoungeQueue = [
+    { id:'Q01', customer:'สมชาย ใจดี', plate:'1กข-1234', service:'เช็คระยะ 20,000 km', stage:'working', checkin:wlAddMinutes(45), estMins:90, drinks:2, notified:false },
+    { id:'Q02', customer:'มาลี สุขใจ', plate:'2ขค-5678', service:'เปลี่ยนยาง 4 เส้น', stage:'qc', checkin:wlAddMinutes(80), estMins:100, drinks:1, notified:false },
+    { id:'Q03', customer:'ธนพล เที่ยงตรง', plate:'3คง-9012', service:'ตรวจแบตเตอรี่', stage:'ready', checkin:wlAddMinutes(60), estMins:45, drinks:1, notified:true },
+    { id:'Q04', customer:'อรทัย ตั้งใจ', plate:'4งจ-3456', service:'ติดฟิล์มกรองแสง', stage:'diagnosing', checkin:wlAddMinutes(15), estMins:180, drinks:0, notified:false },
+  ]
+  waitingLoungeQueue.forEach(q => { if (!demoCol('waiting_lounge_queue')[q.id]) demoCol('waiting_lounge_queue')[q.id] = q })
+
+  // Warranty claims (หน้า /service/warranty-claim)
+  const wcAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
+  const warrantyClaims = [
+    { id:'WC001', plate:'1กข-1234', model:'BYD Seal', vin:'...3456', issue:'มอเตอร์มีเสียงผิดปกติ', parts:'Motor Assembly', laborHrs:4, partCost:45000, status:'approved', submitted:wcAddDays(-8), warrantyType:'Powertrain 8 ปี' },
+    { id:'WC002', plate:'2ขค-5678', model:'BYD Dolphin', vin:'...9012', issue:'จอ infotainment ค้าง', parts:'Head Unit', laborHrs:1.5, partCost:18000, status:'submitted', submitted:wcAddDays(-3), warrantyType:'ทั่วไป 3 ปี' },
+    { id:'WC003', plate:'3คง-9012', model:'MG ZS EV', vin:'...7788', issue:'แบตเสื่อมเร็วผิดปกติ (SOH 72%)', parts:'Battery Pack', laborHrs:6, partCost:280000, status:'submitted', submitted:wcAddDays(-1), warrantyType:'Battery 8 ปี/160k km' },
+    { id:'WC004', plate:'4งจ-3456', model:'BYD Atto 3', vin:'...5566', issue:'ที่ปัดน้ำฝนไม่ทำงาน', parts:'Wiper Motor', laborHrs:1, partCost:3200, status:'reimbursed', submitted:wcAddDays(-30), warrantyType:'ทั่วไป 3 ปี' },
+    { id:'WC005', plate:'5จฉ-7890', model:'BYD Han', vin:'...2233', issue:'ระบบเบรกเตือน error (ลูกค้าใช้ผิดวิธี)', parts:'—', laborHrs:0.5, partCost:0, status:'rejected', submitted:wcAddDays(-15), warrantyType:'ทั่วไป 3 ปี' },
+  ]
+  warrantyClaims.forEach(c => { if (!demoCol('warranty_claims')[c.id]) demoCol('warranty_claims')[c.id] = c })
+
   const accessories = [
     { id:'acc1', name:'ฟิล์มกรองแสง 3M Crystalline', sku:'ACC-3M-001', category:'ฟิล์ม', price:18000, cost:10000, stock:5, unit:'ชุด', brand:'3M', createdAt:'2025-01-10' },
     { id:'acc2', name:'พรมรถ BYD Seal OEM', sku:'ACC-BYD-002', category:'ตกแต่งภายใน', price:3500, cost:1800, stock:12, unit:'ชุด', brand:'BYD', createdAt:'2025-01-15' },

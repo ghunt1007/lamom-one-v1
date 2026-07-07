@@ -5,12 +5,11 @@
 import { timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
-
-function addMinutes(n) { const d = new Date(); d.setMinutes(d.getMinutes() - n); return d.toISOString() }
 
 const JOB_STAGES = {
   received:   { label: 'รับรถแล้ว', pct: 10, icon: '📥' },
@@ -23,17 +22,25 @@ const JOB_STAGES = {
 
 const STAGE_ORDER = ['received', 'diagnosing', 'working', 'qc', 'washing', 'ready']
 
-const DEMO_LOUNGE = [
-  { id: 'Q01', customer: 'สมชาย ใจดี', plate: '1กข-1234', service: 'เช็คระยะ 20,000 km', stage: 'working', checkin: addMinutes(45), estMins: 90, drinks: 2, notified: false },
-  { id: 'Q02', customer: 'มาลี สุขใจ', plate: '2ขค-5678', service: 'เปลี่ยนยาง 4 เส้น', stage: 'qc', checkin: addMinutes(80), estMins: 100, drinks: 1, notified: false },
-  { id: 'Q03', customer: 'ธนพล เที่ยงตรง', plate: '3คง-9012', service: 'ตรวจแบตเตอรี่', stage: 'ready', checkin: addMinutes(60), estMins: 45, drinks: 1, notified: true },
-  { id: 'Q04', customer: 'อรทัย ตั้งใจ', plate: '4งจ-3456', service: 'ติดฟิล์มกรองแสง', stage: 'diagnosing', checkin: addMinutes(15), estMins: 180, drinks: 0, notified: false },
-]
-
 export default async function WaitingLoungePage(container) {
-  let queue = DEMO_LOUNGE.map(q => ({ ...q }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let queue = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { queue = await listDocs('waiting_lounge_queue', [], 'checkin', 'asc', 500) } catch (e) { queue = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const waiting = queue.filter(q => q.stage !== 'ready').length
     const ready = queue.filter(q => q.stage === 'ready' && !q.notified).length
     const avgWait = Math.round(queue.reduce((a, q) => a + (Date.now() - new Date(q.checkin)) / 60000, 0) / queue.length)
@@ -100,23 +107,40 @@ export default async function WaitingLoungePage(container) {
       </div>
     `
 
-    container.querySelectorAll('.next-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.next-btn').forEach(b => b.addEventListener('click', async () => {
       const q = queue.find(x => x.id === b.dataset.id)
-      if (q) {
-        q.stage = STAGE_ORDER[STAGE_ORDER.indexOf(q.stage) + 1]
-        if (q.stage === 'ready') showToast('🎉 งานเสร็จ — อย่าลืมแจ้งลูกค้า!', 'success')
-        renderPage()
-      }
+      if (!q) return
+      const stage = STAGE_ORDER[STAGE_ORDER.indexOf(q.stage) + 1]
+      try {
+        await updateDocData('waiting_lounge_queue', q.id, { stage })
+        if (stage === 'ready') showToast('🎉 งานเสร็จ — อย่าลืมแจ้งลูกค้า!', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.notify-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.notify-btn').forEach(b => b.addEventListener('click', async () => {
       const q = queue.find(x => x.id === b.dataset.id)
-      if (q) { q.notified = true; showToast(`📱 แจ้ง ${q.customer} ทาง LINE + ขึ้นจอ "${q.plate} พร้อมรับรถ"`, 'success'); renderPage() }
+      if (!q) return
+      try {
+        await updateDocData('waiting_lounge_queue', q.id, { notified: true })
+        showToast(`📱 แจ้ง ${q.customer} + ขึ้นจอ "${q.plate} พร้อมรับรถ"`, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.done-btn').forEach(b => b.addEventListener('click', () => {
-      queue = queue.filter(x => x.id !== b.dataset.id); showToast('🏁 ปิดคิวแล้ว', 'primary'); renderPage()
+    container.querySelectorAll('.done-btn').forEach(b => b.addEventListener('click', async () => {
+      try {
+        await softDelete('waiting_lounge_queue', b.dataset.id)
+        showToast('🏁 ปิดคิวแล้ว', 'primary')
+        await loadData()
+      } catch (e) { showToast('ปิดคิวไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.drink-btn').forEach(b => b.addEventListener('click', () => {
-      const q = queue.find(x => x.id === b.dataset.id); if (q) { q.drinks++; showToast('☕ เสิร์ฟเครื่องดื่มแล้ว', 'secondary'); renderPage() }
+    container.querySelectorAll('.drink-btn').forEach(b => b.addEventListener('click', async () => {
+      const q = queue.find(x => x.id === b.dataset.id)
+      if (!q) return
+      try {
+        await updateDocData('waiting_lounge_queue', q.id, { drinks: q.drinks + 1 })
+        showToast('☕ เสิร์ฟเครื่องดื่มแล้ว', 'secondary')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     document.getElementById('tv-btn')?.addEventListener('click', () => {
       openModal({
@@ -145,17 +169,20 @@ export default async function WaitingLoungePage(container) {
           <div class="input-group"><label class="input-label">งานบริการ</label><input class="input" id="lg-service"></div>
           <div class="input-group"><label class="input-label">เวลาประเมิน (นาที)</label><input class="input" type="number" id="lg-est" value="60"></div>
         </div>`,
-        onConfirm() {
+        async onConfirm() {
           const plate = document.getElementById('lg-plate')?.value?.trim()
-          if (!plate) { showToast('❗ กรอกทะเบียน', 'error'); return }
-          queue.push({ id:`Q${String(queue.length+1).padStart(2,'0')}`, customer:document.getElementById('lg-name')?.value||'—', plate, service:document.getElementById('lg-service')?.value||'—', stage:'received', checkin:new Date().toISOString(), estMins:parseInt(document.getElementById('lg-est')?.value)||60, drinks:0, notified:false })
-          showToast('✅ Check-in แล้ว — เชิญนั่งรอ เสิร์ฟเครื่องดื่ม', 'success'); renderPage()
+          if (!plate) { showToast('❗ กรอกทะเบียน', 'error'); return false }
+          try {
+            await createDoc('waiting_lounge_queue', { customer:document.getElementById('lg-name')?.value||'—', plate, service:document.getElementById('lg-service')?.value||'—', stage:'received', checkin:new Date().toISOString(), estMins:parseInt(document.getElementById('lg-est')?.value)||60, drinks:0, notified:false })
+            showToast('✅ Check-in แล้ว — เชิญนั่งรอ เสิร์ฟเครื่องดื่ม', 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

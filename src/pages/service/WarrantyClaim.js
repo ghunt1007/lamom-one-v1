@@ -5,6 +5,7 @@
 import { formatCurrency, formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
 
@@ -16,25 +17,32 @@ const WC_STATUS = {
   reimbursed: { label: 'รับเงินคืนแล้ว', color: 'success', icon: '💰' },
 }
 
-const DEMO_CLAIMS = [
-  { id: 'WC001', plate: '1กข-1234', model: 'BYD Seal', vin: '...3456', issue: 'มอเตอร์มีเสียงผิดปกติ', parts: 'Motor Assembly', laborHrs: 4, partCost: 45000, status: 'approved', submitted: addDays(-8), warrantyType: 'Powertrain 8 ปี' },
-  { id: 'WC002', plate: '2ขค-5678', model: 'BYD Dolphin', vin: '...9012', issue: 'จอ infotainment ค้าง', parts: 'Head Unit', laborHrs: 1.5, partCost: 18000, status: 'submitted', submitted: addDays(-3), warrantyType: 'ทั่วไป 3 ปี' },
-  { id: 'WC003', plate: '3คง-9012', model: 'MG ZS EV', vin: '...7788', issue: 'แบตเสื่อมเร็วผิดปกติ (SOH 72%)', parts: 'Battery Pack', laborHrs: 6, partCost: 280000, status: 'submitted', submitted: addDays(-1), warrantyType: 'Battery 8 ปี/160k km' },
-  { id: 'WC004', plate: '4งจ-3456', model: 'BYD Atto 3', vin: '...5566', issue: 'ที่ปัดน้ำฝนไม่ทำงาน', parts: 'Wiper Motor', laborHrs: 1, partCost: 3200, status: 'reimbursed', submitted: addDays(-30), warrantyType: 'ทั่วไป 3 ปี' },
-  { id: 'WC005', plate: '5จฉ-7890', model: 'BYD Han', vin: '...2233', issue: 'ระบบเบรกเตือน error (ลูกค้าใช้ผิดวิธี)', parts: '—', laborHrs: 0.5, partCost: 0, status: 'rejected', submitted: addDays(-15), warrantyType: 'ทั่วไป 3 ปี' },
-]
-
 const LABOR_RATE = 500
 
 const NEXT = { draft: 'submitted', submitted: 'approved', approved: 'reimbursed' }
 
 export default async function WarrantyClaimPage(container) {
-  let claims = DEMO_CLAIMS.map(c => ({ ...c }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let claims = []
   let statusFilter = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { claims = await listDocs('warranty_claims', [], 'submitted', 'desc', 500) } catch (e) { claims = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function claimValue(c) { return c.partCost + Math.round(c.laborHrs * LABOR_RATE) }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = claims.filter(c => statusFilter === 'all' || c.status === statusFilter)
     const pending = claims.filter(c => c.status === 'submitted')
     const pendingValue = pending.reduce((a, c) => a + claimValue(c), 0)
@@ -92,12 +100,20 @@ export default async function WarrantyClaimPage(container) {
     `
 
     container.querySelectorAll('.sf-btn').forEach(b => b.addEventListener('click', () => { statusFilter = b.dataset.s; renderPage() }))
-    container.querySelectorAll('.next-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.next-btn').forEach(b => b.addEventListener('click', async () => {
       const c = claims.find(x => x.id === b.dataset.id)
-      if (c) { c.status = NEXT[c.status]; showToast(`${WC_STATUS[c.status]?.icon} ${WC_STATUS[c.status]?.label}`, 'success'); renderPage() }
+      if (!c) return
+      const status = NEXT[c.status]
+      try {
+        await updateDocData('warranty_claims', c.id, { status })
+        showToast(`${WC_STATUS[status]?.icon} ${WC_STATUS[status]?.label}`, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.reject-btn').forEach(b => b.addEventListener('click', () => {
-      const c = claims.find(x => x.id === b.dataset.id); if (c) { c.status = 'rejected'; renderPage() }
+    container.querySelectorAll('.reject-btn').forEach(b => b.addEventListener('click', async () => {
+      const c = claims.find(x => x.id === b.dataset.id)
+      if (!c) return
+      try { await updateDocData('warranty_claims', c.id, { status: 'rejected' }); await loadData() } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     document.getElementById('add-wc-btn')?.addEventListener('click', () => {
       openModal({
@@ -115,18 +131,21 @@ export default async function WarrantyClaimPage(container) {
           </div>
         </div>`,
         confirmText: '📤 เปิดเคลม + ส่งค่าย',
-        onConfirm() {
+        async onConfirm() {
           const plate = document.getElementById('wc-plate')?.value?.trim()
           const issue = document.getElementById('wc-issue')?.value?.trim()
           if (!plate || !issue) { showToast('❗ กรอกทะเบียนและอาการ', 'error'); return false }
-          claims.unshift({ id:`WC${String(claims.length+1).padStart(3,'0')}`, plate, model:document.getElementById('wc-model')?.value||'—', vin:'...ใหม่', issue, parts:document.getElementById('wc-parts')?.value||'—', laborHrs:parseFloat(document.getElementById('wc-hrs')?.value)||1, partCost:parseInt(document.getElementById('wc-cost')?.value)||0, status:'submitted', submitted:addDays(0), warrantyType:document.getElementById('wc-type')?.value||'ทั่วไป 3 ปี' })
-          showToast('📤 เปิดเคลม + ส่งค่ายแล้ว', 'success'); renderPage()
+          try {
+            await createDoc('warranty_claims', { plate, model:document.getElementById('wc-model')?.value||'—', vin:'...ใหม่', issue, parts:document.getElementById('wc-parts')?.value||'—', laborHrs:parseFloat(document.getElementById('wc-hrs')?.value)||1, partCost:parseInt(document.getElementById('wc-cost')?.value)||0, status:'submitted', submitted:addDays(0), warrantyType:document.getElementById('wc-type')?.value||'ทั่วไป 3 ปี' })
+            showToast('📤 เปิดเคลม + ส่งค่ายแล้ว', 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

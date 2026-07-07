@@ -2,6 +2,7 @@ import { formatDate } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -52,20 +53,26 @@ const CHECKLIST_TEMPLATE = {
   }
 }
 
-const DEMO_INSPECTIONS = [
-  { id: 'INS001', type: 'pdi', vehiclePlate: 'กก 1234 BKK', brand: 'BYD', model: 'Seal AWD', vin: 'LBWAB2EB7PD001001', customerId: 'C001', customerName: 'วิชาญ มีโชค', techId: 'T001', techName: 'ธีรยุทธ เก่งกาจ', date: '2025-06-05', status: 'done', mileage: 12, overallResult: 'pass', notes: 'รถสภาพดีพร้อมส่งมอบ', items: null },
-  { id: 'INS002', type: 'periodic', vehiclePlate: 'ขข 5678 BKK', brand: 'MG', model: 'ZS EV', vin: 'LSJWSRAR7NE001007', customerId: 'C003', customerName: 'ธีรยุทธ เก่งกาจ', techId: 'T002', techName: 'สมชาย ช่างดี', date: '2025-06-08', status: 'inprog', mileage: 25000, overallResult: null, notes: '', items: null },
-  { id: 'INS003', type: 'pdi', vehiclePlate: 'คค 9012 BKK', brand: 'BYD', model: 'Atto 3', vin: 'LBWAB2EB7PD001003', customerId: 'C004', customerName: 'สมหญิง รักรถ', techId: 'T001', techName: 'ธีรยุทธ เก่งกาจ', date: formatDate_(new Date()), status: 'pending', mileage: 8, overallResult: null, notes: '', items: null },
-]
-
-function formatDate_(d) { return d.toISOString().slice(0, 10) }
-
 export default async function VehicleInspectionPage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+
   let tab = 'list'
   let statusFilter = 'all'
   let typeFilter = 'all'
-  let inspections = DEMO_INSPECTIONS.map(ins => ({ ...ins, items: ins.items || buildDefaultItems() }))
+  let inspections = []
   let activeInspection = null
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try {
+      const rows = await listDocs('vehicle_inspections', [], 'date', 'desc', 500)
+      inspections = rows.map(ins => ({ ...ins, items: ins.items || buildDefaultItems() }))
+    } catch (e) { inspections = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function buildDefaultItems() {
     const result = {}
@@ -84,6 +91,10 @@ export default async function VehicleInspectionPage(container) {
   }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const pending = inspections.filter(i => i.status === 'pending').length
     const inprog = inspections.filter(i => i.status === 'inprog').length
     const done = inspections.filter(i => i.status === 'done').length
@@ -135,7 +146,15 @@ export default async function VehicleInspectionPage(container) {
       showToast('📥 Export แล้ว!', 'success')
     })
     document.querySelectorAll('.open-ins-btn').forEach(b => b.addEventListener('click', () => { const ins = inspections.find(x => x.id === b.dataset.id); if (ins) openChecklist(ins) }))
-    document.querySelectorAll('.start-ins-btn').forEach(b => b.addEventListener('click', () => { const ins = inspections.find(x => x.id === b.dataset.id); if (!ins) return; ins.status = 'inprog'; showToast('🔍 เริ่มการตรวจแล้ว', 'success'); renderPage() }))
+    document.querySelectorAll('.start-ins-btn').forEach(b => b.addEventListener('click', async () => {
+      const ins = inspections.find(x => x.id === b.dataset.id)
+      if (!ins) return
+      try {
+        await updateDocData('vehicle_inspections', ins.id, { status: 'inprog' })
+        showToast('🔍 เริ่มการตรวจแล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+    }))
   }
 
   function renderCard(ins) {
@@ -246,23 +265,26 @@ export default async function VehicleInspectionPage(container) {
         })
       }
 
-      function saveIns(result) {
-        ins.notes = document.getElementById('ins-overall-note')?.value || ''
-        ins.overallResult = result
-        ins.status = 'done'
-        document.querySelector('.modal-close-btn')?.click()
-        showToast(result === 'pass' ? '✅ ตรวจผ่านแล้ว!' : '❌ บันทึกผลไม่ผ่านแล้ว', result === 'pass' ? 'success' : 'warning')
-        renderPage()
+      async function saveIns(result) {
+        const notes = document.getElementById('ins-overall-note')?.value || ''
+        try {
+          await updateDocData('vehicle_inspections', ins.id, { notes, overallResult: result, status: 'done', items: ins.items })
+          document.querySelector('.modal-close-btn')?.click()
+          showToast(result === 'pass' ? '✅ ตรวจผ่านแล้ว!' : '❌ บันทึกผลไม่ผ่านแล้ว', result === 'pass' ? 'success' : 'warning')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
 
       document.getElementById('ins-pass-btn')?.addEventListener('click', () => saveIns('pass'))
       document.getElementById('ins-fail-btn')?.addEventListener('click', () => saveIns('fail'))
-      document.getElementById('ins-save-btn')?.addEventListener('click', () => {
-        ins.notes = document.getElementById('ins-overall-note')?.value || ''
-        ins.status = 'inprog'
-        document.querySelector('.modal-close-btn')?.click()
-        showToast('💾 บันทึกร่างแล้ว', 'success')
-        renderPage()
+      document.getElementById('ins-save-btn')?.addEventListener('click', async () => {
+        const notes = document.getElementById('ins-overall-note')?.value || ''
+        try {
+          await updateDocData('vehicle_inspections', ins.id, { notes, status: 'inprog', items: ins.items })
+          document.querySelector('.modal-close-btn')?.click()
+          showToast('💾 บันทึกร่างแล้ว', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       })
     }, 80)
   }
@@ -282,27 +304,27 @@ export default async function VehicleInspectionPage(container) {
         <div class="input-group"><label class="input-label">วันที่ตรวจ</label><input type="date" class="input" id="if-date" value="${today}"></div>
         <div class="input-group"><label class="input-label">เลขไมล์ (กม.)</label><input type="number" class="input" id="if-km" placeholder="0"></div>
       </div>`,
-      onConfirm() {
+      async onConfirm() {
         const plate = document.getElementById('if-plate')?.value?.trim()
-        if (!plate) { showToast('❗ กรุณากรอกทะเบียน', 'error'); return }
-        const newIns = {
-          id: `INS${String(inspections.length+1).padStart(3,'0')}`,
-          type: document.getElementById('if-type')?.value,
-          vehiclePlate: plate, brand: '', model: document.getElementById('if-model')?.value||'',
-          vin: '', customerId: '', customerName: document.getElementById('if-cname')?.value||'',
-          techId: 'T001', techName: 'ธีรยุทธ เก่งกาจ',
-          date: document.getElementById('if-date')?.value||today,
-          status: 'pending', mileage: +document.getElementById('if-km')?.value||0,
-          overallResult: null, notes: '', items: buildDefaultItems()
-        }
-        inspections.unshift(newIns)
-        showToast('✅ สร้างการตรวจแล้ว', 'success')
-        renderPage()
+        if (!plate) { showToast('❗ กรุณากรอกทะเบียน', 'error'); return false }
+        try {
+          await createDoc('vehicle_inspections', {
+            type: document.getElementById('if-type')?.value,
+            vehiclePlate: plate, brand: '', model: document.getElementById('if-model')?.value||'',
+            vin: '', customerId: '', customerName: document.getElementById('if-cname')?.value||'',
+            techId: 'T001', techName: 'ธีรยุทธ เก่งกาจ',
+            date: document.getElementById('if-date')?.value||today,
+            status: 'pending', mileage: +document.getElementById('if-km')?.value||0,
+            overallResult: null, notes: '', items: buildDefaultItems()
+          })
+          showToast('✅ สร้างการตรวจแล้ว', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(title, value, color) {
