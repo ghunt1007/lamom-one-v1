@@ -1,6 +1,7 @@
 import { formatDate } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -13,24 +14,33 @@ const CAR_STATUS = {
   cleaning:  { label: 'ทำความสะอาด', color: 'primary' },
 }
 
-const DEMO_CARS = [
-  { id:'LC001', plate:'กท-9001 กทม.', model:'Toyota Yaris 2022', color:'ขาว', fuel:'เบนซิน', fuelLevel:80, km:45200, status:'available', note:'' },
-  { id:'LC002', plate:'กท-9002 กทม.', model:'Honda City 2023', color:'เงิน', fuel:'เบนซิน', fuelLevel:60, km:32100, status:'loaned', loanedTo:'สมชาย ใจดี', loanDate:'2025-06-07', returnDate:'2025-06-10', note:'คืนด้วยน้ำมันเต็มถัง' },
-  { id:'LC003', plate:'กท-9003 กทม.', model:'Isuzu D-Max 2021', color:'เทา', fuel:'ดีเซล', fuelLevel:40, km:68900, status:'service', note:'เช็กระยะตามกำหนด' },
-  { id:'LC004', plate:'กท-9004 กทม.', model:'Toyota Yaris 2023', color:'ดำ', fuel:'เบนซิน', fuelLevel:100, km:12000, status:'cleaning', note:'' },
-]
-
-const DEMO_LOANS = [
-  { id:'LL001', carId:'LC002', carPlate:'กท-9002 กทม.', carModel:'Honda City 2023', custName:'สมชาย ใจดี', phone:'0812345678', jobCard:'JOB-2025-001', loanDate:'2025-06-07', returnDate:'2025-06-10', actualReturn:null, fuelOut:60, fuelIn:null, kmOut:32100, kmIn:null, status:'active', deposit:5000 },
-  { id:'LL002', carId:'LC001', carPlate:'กท-9001 กทม.', carModel:'Toyota Yaris 2022', custName:'วิชัย เดินดี', phone:'0834567890', jobCard:'JOB-2025-002', loanDate:'2025-06-01', returnDate:'2025-06-05', actualReturn:'2025-06-05', fuelOut:80, fuelIn:75, kmOut:44800, kmIn:45200, status:'returned', deposit:5000 },
-]
-
 export default async function LoanerCarPage(container) {
-  let cars = DEMO_CARS.map(c => ({ ...c }))
-  let loans = DEMO_LOANS.map(l => ({ ...l }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let cars = []
+  let loans = []
   let tab = 'fleet' // fleet | loans
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try {
+      const [c, l] = await Promise.all([
+        listDocs('loaner_cars', [], 'plate', 'asc', 200),
+        listDocs('loaner_loans', [], 'loanDate', 'desc', 500),
+      ])
+      cars = c; loans = l
+    } catch (e) { cars = []; loans = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const avail = cars.filter(c => c.status === 'available').length
     const loaned = cars.filter(c => c.status === 'loaned').length
     const activeLoans = loans.filter(l => l.status === 'active')
@@ -70,10 +80,14 @@ export default async function LoanerCarPage(container) {
     document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => { tab = b.dataset.t; renderPage() }))
     document.getElementById('new-loan-btn')?.addEventListener('click', () => openLoanForm())
     document.querySelectorAll('.car-status-btn').forEach(btn => {
-      btn.addEventListener('click', e => {
+      btn.addEventListener('click', async e => {
         e.stopPropagation()
         const car = cars.find(c => c.id === btn.dataset.id)
-        if (car) { car.status = btn.dataset.s; showToast('✅ อัพเดตแล้ว', 'success'); renderPage() }
+        if (!car) return
+        car.status = btn.dataset.s
+        renderPage()
+        showToast('✅ อัพเดตแล้ว', 'success')
+        try { await updateDocData('loaner_cars', car.id, { status: car.status }) } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       })
     })
     document.querySelectorAll('.return-btn').forEach(btn => {
@@ -173,24 +187,27 @@ export default async function LoanerCarPage(container) {
       footer: `<button class="btn btn-secondary" id="ll-c">ยกเลิก</button><button class="btn btn-primary" id="ll-s">💾 บันทึก</button>`
     })
     el.querySelector('#ll-c').addEventListener('click', close)
-    el.querySelector('#ll-s').addEventListener('click', () => {
+    el.querySelector('#ll-s').addEventListener('click', async () => {
       const custName = el.querySelector('#ll-cust').value.trim()
       const carId = el.querySelector('#ll-car').value
       const loanDate = el.querySelector('#ll-loan').value
       const returnDate = el.querySelector('#ll-ret').value
       if (!custName || !carId || !loanDate || !returnDate) return showToast('❗ กรุณากรอกข้อมูลให้ครบ', 'warning')
       const car = cars.find(c => c.id === carId)
-      car.status = 'loaned'; car.loanedTo = custName
-      loans.push({
-        id: 'LL' + Date.now(), carId, carPlate: car.plate, carModel: car.model,
-        custName, phone: el.querySelector('#ll-phone').value,
-        jobCard: el.querySelector('#ll-job').value,
-        loanDate, returnDate, actualReturn: null,
-        fuelOut: +el.querySelector('#ll-fuel').value, fuelIn: null,
-        kmOut: car.km, kmIn: null, status: 'active',
-        deposit: +el.querySelector('#ll-dep').value
-      })
-      showToast('🚙 บันทึกการยืมแล้ว', 'success'); close(); renderPage()
+      if (!car) return
+      try {
+        await updateDocData('loaner_cars', car.id, { status: 'loaned', loanedTo: custName })
+        await createDoc('loaner_loans', {
+          carId, carPlate: car.plate, carModel: car.model,
+          custName, phone: el.querySelector('#ll-phone').value,
+          jobCard: el.querySelector('#ll-job').value,
+          loanDate, returnDate, actualReturn: null,
+          fuelOut: +el.querySelector('#ll-fuel').value, fuelIn: null,
+          kmOut: car.km, kmIn: null, status: 'active',
+          deposit: +el.querySelector('#ll-dep').value
+        })
+        showToast('🚙 บันทึกการยืมแล้ว', 'success'); close(); await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
@@ -209,17 +226,19 @@ export default async function LoanerCarPage(container) {
       footer: `<button class="btn btn-secondary" id="ret-c">ยกเลิก</button><button class="btn btn-success" id="ret-s">✅ รับคืน</button>`
     })
     el.querySelector('#ret-c').addEventListener('click', close)
-    el.querySelector('#ret-s').addEventListener('click', () => {
-      loan.actualReturn = el.querySelector('#ret-date').value
-      loan.fuelIn = +el.querySelector('#ret-fuel').value
-      loan.kmIn = +el.querySelector('#ret-km').value
-      loan.status = 'returned'
-      if (car) { car.status = 'cleaning'; car.km = loan.kmIn; delete car.loanedTo }
-      showToast('✅ รับรถคืนแล้ว', 'success'); close(); renderPage()
+    el.querySelector('#ret-s').addEventListener('click', async () => {
+      const actualReturn = el.querySelector('#ret-date').value
+      const fuelIn = +el.querySelector('#ret-fuel').value
+      const kmIn = +el.querySelector('#ret-km').value
+      try {
+        await updateDocData('loaner_loans', loan.id, { actualReturn, fuelIn, kmIn, status: 'returned' })
+        if (car) await updateDocData('loaner_cars', car.id, { status: 'cleaning', km: kmIn, loanedTo: null })
+        showToast('✅ รับรถคืนแล้ว', 'success'); close(); await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(title, value, color) {

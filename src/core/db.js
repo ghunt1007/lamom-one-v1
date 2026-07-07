@@ -804,6 +804,63 @@ export function seedDemoData() {
   ]
   evDiagnosticScans.forEach(s => { if (!demoCol('ev_diagnostic_scans')[s.id]) demoCol('ev_diagnostic_scans')[s.id] = s })
 
+  // Loaner car fleet + loans (หน้า /service/loaner)
+  const loanerCars = [
+    { id:'LC001', plate:'กท-9001 กทม.', model:'Toyota Yaris 2022', color:'ขาว', fuel:'เบนซิน', fuelLevel:80, km:45200, status:'available', note:'' },
+    { id:'LC002', plate:'กท-9002 กทม.', model:'Honda City 2023', color:'เงิน', fuel:'เบนซิน', fuelLevel:60, km:32100, status:'loaned', loanedTo:'สมชาย ใจดี', loanDate:'2025-06-07', returnDate:'2025-06-10', note:'คืนด้วยน้ำมันเต็มถัง' },
+    { id:'LC003', plate:'กท-9003 กทม.', model:'Isuzu D-Max 2021', color:'เทา', fuel:'ดีเซล', fuelLevel:40, km:68900, status:'service', note:'เช็กระยะตามกำหนด' },
+    { id:'LC004', plate:'กท-9004 กทม.', model:'Toyota Yaris 2023', color:'ดำ', fuel:'เบนซิน', fuelLevel:100, km:12000, status:'cleaning', note:'' },
+  ]
+  loanerCars.forEach(c => { if (!demoCol('loaner_cars')[c.id]) demoCol('loaner_cars')[c.id] = c })
+
+  const loanerLoans = [
+    { id:'LL001', carId:'LC002', carPlate:'กท-9002 กทม.', carModel:'Honda City 2023', custName:'สมชาย ใจดี', phone:'0812345678', jobCard:'JOB-2025-001', loanDate:'2025-06-07', returnDate:'2025-06-10', actualReturn:null, fuelOut:60, fuelIn:null, kmOut:32100, kmIn:null, status:'active', deposit:5000 },
+    { id:'LL002', carId:'LC001', carPlate:'กท-9001 กทม.', carModel:'Toyota Yaris 2022', custName:'วิชัย เดินดี', phone:'0834567890', jobCard:'JOB-2025-002', loanDate:'2025-06-01', returnDate:'2025-06-05', actualReturn:'2025-06-05', fuelOut:80, fuelIn:75, kmOut:44800, kmIn:45200, status:'returned', deposit:5000 },
+  ]
+  loanerLoans.forEach(l => { if (!demoCol('loaner_loans')[l.id]) demoCol('loaner_loans')[l.id] = l })
+
+  // Service parts inventory (หน้า /service/parts-inventory) — คนละหน้ากับ parts_inventory ที่ใช้ใน PartsAnalytics
+  const servicePartsInventory = [
+    { id:'SP001', name:'ผ้าเบรกหน้า BYD', sku:'BRK-F-001', cat:'brake', qty:12, minQty:6, unitCost:850, unitPrice:1500, location:'A1-01', compatible:['BYD Seal','BYD Atto 3'] },
+    { id:'SP002', name:'ผ้าเบรกหลัง BYD', sku:'BRK-R-001', cat:'brake', qty:4, minQty:6, unitCost:720, unitPrice:1200, location:'A1-02', compatible:['BYD Seal'] },
+    { id:'SP003', name:'ไส้กรองอากาศ', sku:'FLT-AIR-01', cat:'filter', qty:20, minQty:8, unitCost:250, unitPrice:450, location:'B2-01', compatible:['All'] },
+    { id:'SP004', name:'น้ำยาล้างกระจก', sku:'FLD-WSH-01', cat:'fluid', qty:35, minQty:10, unitCost:80, unitPrice:150, location:'C1-01', compatible:['All'] },
+    { id:'SP005', name:'Battery Module BYD', sku:'EV-BAT-001', cat:'electrical', qty:2, minQty:2, unitCost:45000, unitPrice:75000, location:'D1-01', compatible:['BYD Dolphin'] },
+    { id:'SP006', name:'ยาง Bridgestone 215/55R17', sku:'TYR-BS-001', cat:'tyre', qty:8, minQty:4, unitCost:2800, unitPrice:4500, location:'E1-01', compatible:['BYD Atto 3','BYD Seal'] },
+    { id:'SP007', name:'ไฟหน้า LED Assembly', sku:'BODY-HL-01', cat:'body', qty:3, minQty:2, unitCost:8500, unitPrice:14000, location:'A2-01', compatible:['BYD Dolphin'] },
+  ]
+  servicePartsInventory.forEach(p => { if (!demoCol('service_parts_inventory')[p.id]) demoCol('service_parts_inventory')[p.id] = p })
+
+  // Parts purchase orders (หน้า /service/parts-order)
+  const poAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
+  const partsOrders = [
+    { id:'PO001', supplier:'BYD Parts Thailand', status:'received',
+      createdDate:poAddDays(-14), orderDate:poAddDays(-12), expectedDate:poAddDays(-5), receivedDate:poAddDays(-3),
+      total:87500, notes:'สต็อกอะไหล่ประจำเดือน', createdBy:'วิชาญ ช่างซ่อม',
+      items:[
+        { partNo:'BYD-BR-001', name:'ผ้าเบรกหน้า BYD Seal', cat:'brake', qty:10, unit:'ชุด', unitCost:2800, received:10 },
+        { partNo:'BYD-FL-002', name:'กรองน้ำมันเครื่อง', cat:'filter', qty:20, unit:'ชิ้น', unitCost:450, received:20 },
+        { partNo:'BYD-EV-003', name:'น้ำยาระบายความร้อน EV', cat:'ev', qty:15, unit:'ลิตร', unitCost:380, received:15 },
+      ] },
+    { id:'PO002', supplier:'MG Parts Center', status:'ordered',
+      createdDate:poAddDays(-3), orderDate:poAddDays(-2), expectedDate:poAddDays(5), receivedDate:null,
+      total:34200, notes:'', createdBy:'วิชาญ ช่างซ่อม',
+      items:[
+        { partNo:'MG-BR-001', name:'ผ้าเบรกหลัง MG ZS EV', cat:'brake', qty:6, unit:'ชุด', unitCost:2100, received:0 },
+        { partNo:'MG-FL-003', name:'กรองอากาศ MG ZS', cat:'filter', qty:8, unit:'ชิ้น', unitCost:890, received:0 },
+        { partNo:'MG-TY-001', name:'ยาง Michelin 215/50R17', cat:'tyre', qty:4, unit:'เส้น', unitCost:3200, received:0 },
+      ] },
+    { id:'PO003', supplier:'EV Supply Co.', status:'pending',
+      createdDate:poAddDays(-1), orderDate:null, expectedDate:poAddDays(10), receivedDate:null,
+      total:62000, notes:'เร่งด่วน — อะไหล่ EV', createdBy:'นิภา คลังสินค้า',
+      items:[
+        { partNo:'EV-CH-001', name:'OBC Charger Module', cat:'ev', qty:2, unit:'ชิ้น', unitCost:18500, received:0 },
+        { partNo:'EV-CA-002', name:'สาย CAN Bus', cat:'ev', qty:5, unit:'เส้น', unitCost:1200, received:0 },
+        { partNo:'EV-SE-003', name:'Temp Sensor Battery', cat:'ev', qty:10, unit:'ชิ้น', unitCost:2300, received:0 },
+      ] },
+  ]
+  partsOrders.forEach(o => { if (!demoCol('parts_orders')[o.id]) demoCol('parts_orders')[o.id] = o })
+
   // Quality incidents (หน้า /quality/incidents)
   const qualityIncidents = [
     { id:'INC001', title:'รถลูกค้าถูกขีดข่วนระหว่างล้าง', cat:'vehicle', severity:'major', status:'action', reporter:'หัวหน้าทีมล้างรถ', date:new Date(Date.now()-86400000*2).toISOString(), rootCause:'อุปกรณ์ล้างเก่า มีเศษทราย', action:'เปลี่ยนผ้าไมโครไฟเบอร์ใหม่ทั้งชุด + ชดเชยลูกค้า' },

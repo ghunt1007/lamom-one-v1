@@ -5,6 +5,7 @@
 import { formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 const PART_CATS = {
   brake:    { label: 'เบรก', color: 'danger', icon: '🔴' },
@@ -15,23 +16,28 @@ const PART_CATS = {
   tyre:     { label: 'ยาง', color: 'secondary', icon: '⭕' },
 }
 
-const DEMO_PARTS = [
-  { id: 'P001', name: 'ผ้าเบรกหน้า BYD', sku: 'BRK-F-001', cat: 'brake', qty: 12, minQty: 6, unitCost: 850, unitPrice: 1500, location: 'A1-01', compatible: ['BYD Seal', 'BYD Atto 3'] },
-  { id: 'P002', name: 'ผ้าเบรกหลัง BYD', sku: 'BRK-R-001', cat: 'brake', qty: 4, minQty: 6, unitCost: 720, unitPrice: 1200, location: 'A1-02', compatible: ['BYD Seal'] },
-  { id: 'P003', name: 'ไส้กรองอากาศ', sku: 'FLT-AIR-01', cat: 'filter', qty: 20, minQty: 8, unitCost: 250, unitPrice: 450, location: 'B2-01', compatible: ['All'] },
-  { id: 'P004', name: 'น้ำยาล้างกระจก', sku: 'FLD-WSH-01', cat: 'fluid', qty: 35, minQty: 10, unitCost: 80, unitPrice: 150, location: 'C1-01', compatible: ['All'] },
-  { id: 'P005', name: 'Battery Module BYD', sku: 'EV-BAT-001', cat: 'electrical', qty: 2, minQty: 2, unitCost: 45000, unitPrice: 75000, location: 'D1-01', compatible: ['BYD Dolphin'] },
-  { id: 'P006', name: 'ยาง Bridgestone 215/55R17', sku: 'TYR-BS-001', cat: 'tyre', qty: 8, minQty: 4, unitCost: 2800, unitPrice: 4500, location: 'E1-01', compatible: ['BYD Atto 3', 'BYD Seal'] },
-  { id: 'P007', name: 'ไฟหน้า LED Assembly', sku: 'BODY-HL-01', cat: 'body', qty: 3, minQty: 2, unitCost: 8500, unitPrice: 14000, location: 'A2-01', compatible: ['BYD Dolphin'] },
-]
-
 export default async function PartsInventoryPage(container) {
-  let parts = DEMO_PARTS.map(p => ({ ...p }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let parts = []
   let catFilter = 'all'
   let search = ''
   let sortBy = 'name'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { parts = await listDocs('service_parts_inventory', [], 'name', 'asc', 500) } catch (e) { parts = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = parts.filter(p =>
       (catFilter === 'all' || p.cat === catFilter) &&
       (search === '' || p.name.toLowerCase().includes(search) || p.sku.toLowerCase().includes(search))
@@ -136,10 +142,14 @@ export default async function PartsInventoryPage(container) {
         <div class="input-group"><label class="input-label">รับเข้า / จ่ายออก (+/-)</label><input class="input" type="number" id="adj-qty" value="0"></div>
         <div class="input-group"><label class="input-label">หมายเหตุ</label><input class="input" id="adj-note" placeholder="รับของจากซัพพลายเออร์ / ใช้งาน"></div>
       </div>`,
-      onConfirm() {
+      async onConfirm() {
         const adj = parseInt(document.getElementById('adj-qty')?.value) || 0
-        p.qty = Math.max(0, p.qty + adj)
-        showToast(`✅ ปรับสต็อก ${p.name}: ${adj > 0 ? '+' : ''}${adj} → ${p.qty} ชิ้น`, 'success'); renderPage()
+        const newQty = Math.max(0, p.qty + adj)
+        try {
+          await updateDocData('service_parts_inventory', p.id, { qty: newQty })
+          showToast(`✅ ปรับสต็อก ${p.name}: ${adj > 0 ? '+' : ''}${adj} → ${newQty} ชิ้น`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -160,16 +170,19 @@ export default async function PartsInventoryPage(container) {
         <div class="input-group"><label class="input-label">ราคาขาย (บาท)</label><input class="input" type="number" id="pn-price" value="0"></div>
         <div class="input-group"><label class="input-label">ตำแหน่ง</label><input class="input" id="pn-loc" placeholder="A1-01"></div>
       </div>`,
-      onConfirm() {
+      async onConfirm() {
         const name = document.getElementById('pn-name')?.value?.trim()
-        if (!name) { showToast('❗ กรุณากรอกชื่ออะไหล่','error'); return }
-        parts.push({ id:`P${String(parts.length+1).padStart(3,'0')}`, name, sku:document.getElementById('pn-sku')?.value||'—', cat:document.getElementById('pn-cat')?.value||'body', qty:parseInt(document.getElementById('pn-qty')?.value)||0, minQty:parseInt(document.getElementById('pn-min')?.value)||2, unitCost:parseInt(document.getElementById('pn-cost')?.value)||0, unitPrice:parseInt(document.getElementById('pn-price')?.value)||0, location:document.getElementById('pn-loc')?.value||'—', compatible:['All'] })
-        showToast('✅ เพิ่มอะไหล่แล้ว','success'); renderPage()
+        if (!name) { showToast('❗ กรุณากรอกชื่ออะไหล่','error'); return false }
+        try {
+          await createDoc('service_parts_inventory', { name, sku:document.getElementById('pn-sku')?.value||'—', cat:document.getElementById('pn-cat')?.value||'body', qty:parseInt(document.getElementById('pn-qty')?.value)||0, minQty:parseInt(document.getElementById('pn-min')?.value)||2, unitCost:parseInt(document.getElementById('pn-cost')?.value)||0, unitPrice:parseInt(document.getElementById('pn-price')?.value)||0, location:document.getElementById('pn-loc')?.value||'—', compatible:['All'] })
+          showToast('✅ เพิ่มอะไหล่แล้ว','success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

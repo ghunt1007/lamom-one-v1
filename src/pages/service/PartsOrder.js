@@ -2,6 +2,7 @@ import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 const PO_STATUS = {
   draft:     { label: 'ร่าง', color: 'secondary' },
@@ -19,42 +20,20 @@ const SUPPLIERS = ['BYD Parts Thailand', 'Thai Auto Parts', 'MG Parts Center', '
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
 
-const DEMO_POS = [
-  {
-    id: 'PO001', supplier: 'BYD Parts Thailand', status: 'received',
-    createdDate: addDays(-14), orderDate: addDays(-12), expectedDate: addDays(-5), receivedDate: addDays(-3),
-    total: 87500, notes: 'สต็อกอะไหล่ประจำเดือน', createdBy: 'วิชาญ ช่างซ่อม',
-    items: [
-      { partNo: 'BYD-BR-001', name: 'ผ้าเบรกหน้า BYD Seal', cat: 'brake', qty: 10, unit: 'ชุด', unitCost: 2800, received: 10 },
-      { partNo: 'BYD-FL-002', name: 'กรองน้ำมันเครื่อง', cat: 'filter', qty: 20, unit: 'ชิ้น', unitCost: 450, received: 20 },
-      { partNo: 'BYD-EV-003', name: 'น้ำยาระบายความร้อน EV', cat: 'ev', qty: 15, unit: 'ลิตร', unitCost: 380, received: 15 },
-    ]
-  },
-  {
-    id: 'PO002', supplier: 'MG Parts Center', status: 'ordered',
-    createdDate: addDays(-3), orderDate: addDays(-2), expectedDate: addDays(5), receivedDate: null,
-    total: 34200, notes: '', createdBy: 'วิชาญ ช่างซ่อม',
-    items: [
-      { partNo: 'MG-BR-001', name: 'ผ้าเบรกหลัง MG ZS EV', cat: 'brake', qty: 6, unit: 'ชุด', unitCost: 2100, received: 0 },
-      { partNo: 'MG-FL-003', name: 'กรองอากาศ MG ZS', cat: 'filter', qty: 8, unit: 'ชิ้น', unitCost: 890, received: 0 },
-      { partNo: 'MG-TY-001', name: 'ยาง Michelin 215/50R17', cat: 'tyre', qty: 4, unit: 'เส้น', unitCost: 3200, received: 0 },
-    ]
-  },
-  {
-    id: 'PO003', supplier: 'EV Supply Co.', status: 'pending',
-    createdDate: addDays(-1), orderDate: null, expectedDate: addDays(10), receivedDate: null,
-    total: 62000, notes: 'เร่งด่วน — อะไหล่ EV', createdBy: 'นิภา คลังสินค้า',
-    items: [
-      { partNo: 'EV-CH-001', name: 'OBC Charger Module', cat: 'ev', qty: 2, unit: 'ชิ้น', unitCost: 18500, received: 0 },
-      { partNo: 'EV-CA-002', name: 'สาย CAN Bus', cat: 'ev', qty: 5, unit: 'เส้น', unitCost: 1200, received: 0 },
-      { partNo: 'EV-SE-003', name: 'Temp Sensor Battery', cat: 'ev', qty: 10, unit: 'ชิ้น', unitCost: 2300, received: 0 },
-    ]
-  },
-]
-
 export default async function PartsOrderPage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+
   let statusFilter = 'all'
-  let orders = DEMO_POS.map(po => ({ ...po, items: po.items.map(i => ({ ...i })) }))
+  let orders = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { orders = await listDocs('parts_orders', [], 'createdDate', 'desc', 500) } catch (e) { orders = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function filtered() {
     return orders.filter(o => statusFilter === 'all' || o.status === statusFilter)
@@ -64,6 +43,10 @@ export default async function PartsOrderPage(container) {
   const today = new Date().toISOString().slice(0, 10)
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = filtered()
     const pending = orders.filter(o => o.status === 'pending').length
     const ordered = orders.filter(o => o.status === 'ordered' || o.status === 'partial').length
@@ -139,11 +122,23 @@ export default async function PartsOrderPage(container) {
     container.querySelectorAll('.open-po-btn').forEach(b => b.addEventListener('click', () => {
       const o = orders.find(x => x.id === b.dataset.id); if (o) openPODetail(o)
     }))
-    container.querySelectorAll('.approve-po-btn').forEach(b => b.addEventListener('click', () => {
-      const o = orders.find(x => x.id === b.dataset.id); if (o) { o.status = 'approved'; showToast(`✅ อนุมัติ ${o.id} แล้ว`, 'success'); renderPage() }
+    container.querySelectorAll('.approve-po-btn').forEach(b => b.addEventListener('click', async () => {
+      const o = orders.find(x => x.id === b.dataset.id)
+      if (!o) return
+      try {
+        await updateDocData('parts_orders', o.id, { status: 'approved' })
+        showToast(`✅ อนุมัติ ${o.id} แล้ว`, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.order-po-btn').forEach(b => b.addEventListener('click', () => {
-      const o = orders.find(x => x.id === b.dataset.id); if (o) { o.status = 'ordered'; o.orderDate = today; showToast(`📋 ส่งคำสั่งซื้อ ${o.id} แล้ว`, 'success'); renderPage() }
+    container.querySelectorAll('.order-po-btn').forEach(b => b.addEventListener('click', async () => {
+      const o = orders.find(x => x.id === b.dataset.id)
+      if (!o) return
+      try {
+        await updateDocData('parts_orders', o.id, { status: 'ordered', orderDate: today })
+        showToast(`📋 ส่งคำสั่งซื้อ ${o.id} แล้ว`, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.receive-po-btn').forEach(b => b.addEventListener('click', () => {
       const o = orders.find(x => x.id === b.dataset.id); if (o) openReceiveModal(o)
@@ -198,11 +193,13 @@ export default async function PartsOrderPage(container) {
         document.querySelector('.modal-close-btn')?.click()
         openReceiveModal(o)
       })
-      document.querySelector('.modal .approve-modal-btn')?.addEventListener('click', () => {
-        o.status = 'approved'
+      document.querySelector('.modal .approve-modal-btn')?.addEventListener('click', async () => {
         document.querySelector('.modal-close-btn')?.click()
-        showToast(`✅ อนุมัติ ${o.id} แล้ว`, 'success')
-        renderPage()
+        try {
+          await updateDocData('parts_orders', o.id, { status: 'approved' })
+          showToast(`✅ อนุมัติ ${o.id} แล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       })
     }, 50)
   }
@@ -221,20 +218,22 @@ export default async function PartsOrderPage(container) {
           </div>
         `).join('')}
       `,
-      confirmLabel: '✅ ยืนยันรับสินค้า',
-      confirmClass: 'btn-success',
-      onConfirm() {
+      confirmText: '✅ ยืนยันรับสินค้า',
+      async onConfirm() {
+        const items = o.items.map(i => ({ ...i }))
         document.querySelectorAll('.modal .recv-qty').forEach(inp => {
           const idx = +inp.dataset.idx
           const qty = +inp.value || 0
-          if (o.items[idx]) o.items[idx].received = Math.min(o.items[idx].received + qty, o.items[idx].qty)
+          if (items[idx]) items[idx].received = Math.min(items[idx].received + qty, items[idx].qty)
         })
-        const allReceived = o.items.every(i => i.received >= i.qty)
-        const anyReceived = o.items.some(i => i.received > 0)
-        o.status = allReceived ? 'received' : anyReceived ? 'partial' : o.status
-        if (allReceived) o.receivedDate = today
-        showToast(allReceived ? `✅ รับสินค้า ${o.id} ครบแล้ว!` : `📦 รับสินค้าบางส่วน ${o.id}`, 'success')
-        renderPage()
+        const allReceived = items.every(i => i.received >= i.qty)
+        const anyReceived = items.some(i => i.received > 0)
+        const status = allReceived ? 'received' : anyReceived ? 'partial' : o.status
+        try {
+          await updateDocData('parts_orders', o.id, { items, status, receivedDate: allReceived ? today : (o.receivedDate || null) })
+          showToast(allReceived ? `✅ รับสินค้า ${o.id} ครบแล้ว!` : `📦 รับสินค้าบางส่วน ${o.id}`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -266,24 +265,26 @@ export default async function PartsOrderPage(container) {
         </div>
         <button class="btn btn-sm btn-secondary" id="add-line-btn" style="margin-top:6px">+ เพิ่มรายการ</button>
       `,
-      onConfirm() {
+      async onConfirm() {
         const supplier = document.getElementById('pof-supplier')?.value
-        if (!supplier) { showToast('❗ กรุณาเลือกซัพพลายเออร์', 'error'); return }
+        if (!supplier) { showToast('❗ กรุณาเลือกซัพพลายเออร์', 'error'); return false }
         const names = [...document.querySelectorAll('.modal .po-name')].map(i => i.value.trim())
         const cats = [...document.querySelectorAll('.modal .po-cat')].map(i => i.value)
         const qtys = [...document.querySelectorAll('.modal .po-qty')].map(i => +i.value || 1)
         const prices = [...document.querySelectorAll('.modal .po-price')].map(i => +i.value || 0)
         const items = names.map((n, idx) => ({ partNo: `NEW-${idx+1}`, name: n || `อะไหล่ ${idx+1}`, cat: cats[idx], qty: qtys[idx], unit: 'ชิ้น', unitCost: prices[idx], received: 0 })).filter(i => i.name)
         const total = items.reduce((a, i) => a + i.qty * i.unitCost, 0)
-        orders.unshift({
-          id: `PO${String(orders.length+1).padStart(3,'0')}`, supplier,
-          status: 'pending', createdDate: today, orderDate: null,
-          expectedDate: document.getElementById('pof-expected')?.value || addDays(7),
-          receivedDate: null, total, notes: document.getElementById('pof-notes')?.value || '',
-          createdBy: 'พนักงาน', items
-        })
-        showToast('✅ สร้าง PO แล้ว!', 'success')
-        renderPage()
+        try {
+          await createDoc('parts_orders', {
+            supplier,
+            status: 'pending', createdDate: today, orderDate: null,
+            expectedDate: document.getElementById('pof-expected')?.value || addDays(7),
+            receivedDate: null, total, notes: document.getElementById('pof-notes')?.value || '',
+            createdBy: 'พนักงาน', items
+          })
+          showToast('✅ สร้าง PO แล้ว!', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
     setTimeout(() => {
@@ -296,7 +297,7 @@ export default async function PartsOrderPage(container) {
     }, 50)
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
