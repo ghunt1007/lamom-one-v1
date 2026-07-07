@@ -4,18 +4,22 @@
  */
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-
-let SHOWROOM_CARS = [
-  { id:'DS001', model:'BYD Atto 3', badge:'EV', colors:['#1565c0','#212121','#f5f5f5','#c62828'], views360:true, video:true,  views:4820, leads:142, conv:2.9, featured:true  },
-  { id:'DS002', model:'BYD Seal AWD', badge:'EV', colors:['#212121','#b0bec5','#1b5e20'],       views360:true, video:true,  views:3210, leads:98,  conv:3.1, featured:true  },
-  { id:'DS003', model:'BYD Dolphin', badge:'EV', colors:['#f5f5f5','#1565c0','#e91e63'],        views360:true, video:false, views:2880, leads:76,  conv:2.6, featured:false },
-  { id:'DS004', model:'BYD Han', badge:'EV', colors:['#212121','#1b5e20'],                      views360:false,video:true,  views:1640, leads:44,  conv:2.7, featured:false },
-  { id:'DS005', model:'MG ZS EV', badge:'EV', colors:['#f5f5f5','#c62828','#9e9e9e'],           views360:true, video:true,  views:2100, leads:58,  conv:2.8, featured:false },
-  { id:'DS006', model:'BYD Atto 3 Pro', badge:'NEW', colors:['#1565c0','#212121','#ffd600'],    views360:true, video:false, views:980,  leads:31,  conv:3.2, featured:true  },
-]
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 export default async function DigitalShowroomPage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let SHOWROOM_CARS = []
   let filterBadge = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { SHOWROOM_CARS = await listDocs('digital_showroom', [], 'views', 'desc', 500) } catch (e) { SHOWROOM_CARS = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function colorDots(colors) {
     return colors.map(c => {
@@ -55,6 +59,10 @@ export default async function DigitalShowroomPage(container) {
   }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     let rows = filterBadge === 'all' ? SHOWROOM_CARS : SHOWROOM_CARS.filter(c=>c.badge===filterBadge)
 
     const totViews  = SHOWROOM_CARS.reduce((s,c)=>s+c.views,0)
@@ -100,9 +108,13 @@ export default async function DigitalShowroomPage(container) {
       const car=SHOWROOM_CARS.find(c=>c.id===b.dataset.id)
       if(car) openDetailModal(car)
     }))
-    container.querySelectorAll('.feat-btn').forEach(b=>b.addEventListener('click',()=>{
+    container.querySelectorAll('.feat-btn').forEach(b=>b.addEventListener('click',async ()=>{
       const car=SHOWROOM_CARS.find(c=>c.id===b.dataset.id)
-      if(car){car.featured=!car.featured;render();showToast((car.featured?'⭐ Featured: ':'⭐ Unfeatured: ')+car.model,'success')}
+      if(!car) return
+      car.featured=!car.featured
+      render()
+      showToast((car.featured?'⭐ Featured: ':'⭐ Unfeatured: ')+car.model,'success')
+      try { await updateDocData('digital_showroom', car.id, { featured: car.featured }) } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     document.getElementById('add-car-btn')?.addEventListener('click', openAddCarModal)
   }
@@ -143,24 +155,25 @@ export default async function DigitalShowroomPage(container) {
         </div>
       `
     })
-    document.getElementById('ds-save')?.addEventListener('click', () => {
+    document.getElementById('ds-save')?.addEventListener('click', async () => {
       const model = document.getElementById('ds-model')?.value.trim()
       if (!model) { showToast('⚠️ กรุณากรอกชื่อรุ่น', 'warning'); return }
       const colorsRaw = document.getElementById('ds-colors')?.value.trim()
-      SHOWROOM_CARS.push({
-        id: 'DS' + String(SHOWROOM_CARS.length + 1).padStart(3,'0'),
-        model,
-        badge:    document.getElementById('ds-badge')?.value || 'EV',
-        colors:   colorsRaw ? colorsRaw.split(',').map(s=>s.trim()).filter(Boolean) : ['#212121'],
-        views360: document.getElementById('ds-360')?.value === 'true',
-        video:    document.getElementById('ds-vid')?.value === 'true',
-        views: 0, leads: 0,
-        conv:     parseFloat(document.getElementById('ds-conv')?.value) || 2.5,
-        featured: document.getElementById('ds-feat')?.value === 'true',
-      })
-      document.querySelector('.modal-overlay')?.remove()
-      showToast('✅ เพิ่ม ' + model + ' ใน Showroom แล้ว', 'success')
-      render()
+      try {
+        await createDoc('digital_showroom', {
+          model,
+          badge:    document.getElementById('ds-badge')?.value || 'EV',
+          colors:   colorsRaw ? colorsRaw.split(',').map(s=>s.trim()).filter(Boolean) : ['#212121'],
+          views360: document.getElementById('ds-360')?.value === 'true',
+          video:    document.getElementById('ds-vid')?.value === 'true',
+          views: 0, leads: 0,
+          conv:     parseFloat(document.getElementById('ds-conv')?.value) || 2.5,
+          featured: document.getElementById('ds-feat')?.value === 'true',
+        })
+        document.querySelector('.modal-overlay')?.remove()
+        showToast('✅ เพิ่ม ' + model + ' ใน Showroom แล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
@@ -206,5 +219,5 @@ export default async function DigitalShowroomPage(container) {
     </div>`
   }
 
-  render()
+  await loadData()
 }

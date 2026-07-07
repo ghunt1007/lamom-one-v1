@@ -621,6 +621,40 @@ export function seedDemoData() {
   ]
   contentCalendar.forEach(c => { if (!demoCol('content_calendar')[c.id]) demoCol('content_calendar')[c.id] = c })
 
+  // Marketing platform reviews (หน้า /marketing/reviews) — คนละหน้ากับ /quality/satisfaction ด้านล่าง
+  const daysAgoISO = n => new Date(Date.now() - n * 86400000).toISOString()
+  const marketingReviews = [
+    { id:'MR001', author:'สมชาย ใจดี', platform:'google', rating:5, text:'บริการดีมาก พนักงานเป็นมิตร ขอบคุณมากครับ', status:'pending', time:daysAgoISO(1), reply:'' },
+    { id:'MR002', author:'มาลี สุขใจ', platform:'facebook', rating:4, text:'ชอบรถมากค่ะ แต่รอนานหน่อย', status:'replied', time:daysAgoISO(2), reply:'ขอบคุณมากค่ะ เราจะปรับปรุงเวลาบริการให้ดีขึ้น' },
+    { id:'MR003', author:'ธนพล เที่ยงตรง', platform:'google', rating:3, text:'โชว์รูมสวย แต่ราคาค่อนข้างแพง', status:'pending', time:daysAgoISO(3), reply:'' },
+    { id:'MR004', author:'อรทัย ตั้งใจ', platform:'tiktok', rating:5, text:'ประทับใจมากเลยค่ะ เซลส์ใจดีมาก แนะนำเลย!', status:'replied', time:daysAgoISO(4), reply:'ขอบคุณมากๆ เลยค่ะ 🙏' },
+    { id:'MR005', author:'ไม่ระบุชื่อ', platform:'google', rating:1, text:'บริการแย่มาก รออยู่นานมากแต่ไม่มีใครสนใจ', status:'flagged', time:daysAgoISO(5), reply:'' },
+    { id:'MR006', author:'วิชัย มาดี', platform:'internal', rating:5, text:'ซื้อรถคุ้มมาก battery ดี ขับสนุก ชาร์จง่าย', status:'replied', time:daysAgoISO(7), reply:'ขอบคุณครับ ยินดีดูแลตลอดนะครับ' },
+  ]
+  marketingReviews.forEach(r => { if (!demoCol('marketing_reviews')[r.id]) demoCol('marketing_reviews')[r.id] = r })
+
+  // Digital showroom (หน้า /marketing/digital-showroom)
+  const showroomCars = [
+    { id:'DS001', model:'BYD Atto 3', badge:'EV', colors:['#1565c0','#212121','#f5f5f5','#c62828'], views360:true, video:true,  views:4820, leads:142, conv:2.9, featured:true  },
+    { id:'DS002', model:'BYD Seal AWD', badge:'EV', colors:['#212121','#b0bec5','#1b5e20'],       views360:true, video:true,  views:3210, leads:98,  conv:3.1, featured:true  },
+    { id:'DS003', model:'BYD Dolphin', badge:'EV', colors:['#f5f5f5','#1565c0','#e91e63'],        views360:true, video:false, views:2880, leads:76,  conv:2.6, featured:false },
+    { id:'DS004', model:'BYD Han', badge:'EV', colors:['#212121','#1b5e20'],                      views360:false,video:true,  views:1640, leads:44,  conv:2.7, featured:false },
+    { id:'DS005', model:'MG ZS EV', badge:'EV', colors:['#f5f5f5','#c62828','#9e9e9e'],           views360:true, video:true,  views:2100, leads:58,  conv:2.8, featured:false },
+    { id:'DS006', model:'BYD Atto 3 Pro', badge:'NEW', colors:['#1565c0','#212121','#ffd600'],    views360:true, video:false, views:980,  leads:31,  conv:3.2, featured:true  },
+  ]
+  showroomCars.forEach(c => { if (!demoCol('digital_showroom')[c.id]) demoCol('digital_showroom')[c.id] = c })
+
+  // Event check-in visitors (หน้า /marketing/event-checkin)
+  const minutesAgoISO = n => new Date(Date.now() - n * 60000).toISOString()
+  const eventVisitors = [
+    { id:'EV001', name:'ประยุทธ์ สนใจ', phone:'081-111', model:'BYD Seal AWD', interest:'hot', staff:'วิชัย', time:minutesAgoISO(10), gift:true, testDrive:true },
+    { id:'EV002', name:'สมหญิง ดูรถ', phone:'082-222', model:'BYD Dolphin', interest:'warm', staff:'สุดา', time:minutesAgoISO(35), gift:true, testDrive:false },
+    { id:'EV003', name:'อนันต์ ผ่านมา', phone:'', model:'ยังไม่แน่ใจ', interest:'browse', staff:'ธนา', time:minutesAgoISO(50), gift:false, testDrive:false },
+    { id:'EV004', name:'กานดา อยากได้', phone:'084-444', model:'BYD Atto 3', interest:'hot', staff:'วิชัย', time:minutesAgoISO(80), gift:true, testDrive:true },
+    { id:'EV005', name:'วีระ เปรียบเทียบ', phone:'085-555', model:'MG4', interest:'warm', staff:'สุดา', time:minutesAgoISO(120), gift:true, testDrive:false },
+  ]
+  eventVisitors.forEach(v => { if (!demoCol('event_visitors')[v.id]) demoCol('event_visitors')[v.id] = v })
+
   // Quality incidents (หน้า /quality/incidents)
   const qualityIncidents = [
     { id:'INC001', title:'รถลูกค้าถูกขีดข่วนระหว่างล้าง', cat:'vehicle', severity:'major', status:'action', reporter:'หัวหน้าทีมล้างรถ', date:new Date(Date.now()-86400000*2).toISOString(), rootCause:'อุปกรณ์ล้างเก่า มีเศษทราย', action:'เปลี่ยนผ้าไมโครไฟเบอร์ใหม่ทั้งชุด + ชดเชยลูกค้า' },

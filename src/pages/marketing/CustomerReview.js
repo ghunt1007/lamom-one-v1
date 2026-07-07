@@ -5,8 +5,7 @@
 import { timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString() }
+import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 
 const PLATFORMS = {
   google:    { label: 'Google', color: 'primary', icon: '🔵' },
@@ -23,22 +22,28 @@ const REVIEW_STATUS = {
 
 function stars(n) { return '⭐'.repeat(n) + '☆'.repeat(5-n) }
 
-const DEMO_REVIEWS = [
-  { id: 'R001', author: 'สมชาย ใจดี', platform: 'google', rating: 5, text: 'บริการดีมาก พนักงานเป็นมิตร ขอบคุณมากครับ', status: 'pending', time: addDays(-1), reply: '' },
-  { id: 'R002', author: 'มาลี สุขใจ', platform: 'facebook', rating: 4, text: 'ชอบรถมากค่ะ แต่รอนานหน่อย', status: 'replied', time: addDays(-2), reply: 'ขอบคุณมากค่ะ เราจะปรับปรุงเวลาบริการให้ดีขึ้น' },
-  { id: 'R003', author: 'ธนพล เที่ยงตรง', platform: 'google', rating: 3, text: 'โชว์รูมสวย แต่ราคาค่อนข้างแพง', status: 'pending', time: addDays(-3), reply: '' },
-  { id: 'R004', author: 'อรทัย ตั้งใจ', platform: 'tiktok', rating: 5, text: 'ประทับใจมากเลยค่ะ เซลส์ใจดีมาก แนะนำเลย!', status: 'replied', time: addDays(-4), reply: 'ขอบคุณมากๆ เลยค่ะ 🙏' },
-  { id: 'R005', author: 'ไม่ระบุชื่อ', platform: 'google', rating: 1, text: 'บริการแย่มาก รออยู่นานมากแต่ไม่มีใครสนใจ', status: 'flagged', time: addDays(-5), reply: '' },
-  { id: 'R006', author: 'วิชัย มาดี', platform: 'internal', rating: 5, text: 'ซื้อรถคุ้มมาก battery ดี ขับสนุก ชาร์จง่าย', status: 'replied', time: addDays(-7), reply: 'ขอบคุณครับ ยินดีดูแลตลอดนะครับ' },
-]
-
 export default async function CustomerReviewPage(container) {
-  let reviews = DEMO_REVIEWS.map(r => ({ ...r }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let reviews = []
   let platformFilter = 'all'
   let statusFilter = 'all'
   let ratingFilter = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { reviews = await listDocs('marketing_reviews', [], 'time', 'desc', 500) } catch (e) { reviews = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = reviews.filter(r =>
       (platformFilter === 'all' || r.platform === platformFilter) &&
       (statusFilter === 'all' || r.status === statusFilter) &&
@@ -151,12 +156,14 @@ export default async function CustomerReviewPage(container) {
           </div>
         </div>`,
         confirmText: '📤 ส่งคำขอ',
-        onConfirm() {
+        async onConfirm() {
           const useGoogle = document.getElementById('rv-google')?.checked
           const useFb = document.getElementById('rv-fb')?.checked
           const platforms = [useGoogle && 'Google', useFb && 'Facebook'].filter(Boolean).join(' + ') || 'Google'
-          pending.forEach(r => { r.sentRequest = true })
-          renderPage()
+          try {
+            await Promise.all(pending.map(r => updateDocData('marketing_reviews', r.id, { sentRequest: true })))
+            await loadData()
+          } catch (e) { /* ไม่กระทบข้อความแจ้งเตือน */ }
           showToast(`📤 ส่งคำขอ Review (${platforms}) ให้ลูกค้า ${pending.length || reviews.length} ราย แล้ว`, 'success')
         }
       })
@@ -169,16 +176,19 @@ export default async function CustomerReviewPage(container) {
       size: 'sm',
       body: `<div style="margin-bottom:10px;font-size:0.82rem;font-style:italic;color:var(--text-muted)">"${review.text}"</div>
         <div class="input-group"><label class="input-label">ข้อความตอบกลับ</label><textarea class="input" id="reply-text" rows="3" placeholder="ขอบคุณสำหรับรีวิว..."></textarea></div>`,
-      onConfirm() {
+      async onConfirm() {
         const txt = document.getElementById('reply-text')?.value?.trim()
-        if (!txt) { showToast('❗ กรุณากรอกข้อความ', 'error'); return }
-        review.reply = txt; review.status = 'replied'
-        showToast('✅ ตอบกลับแล้ว', 'success'); renderPage()
+        if (!txt) { showToast('❗ กรุณากรอกข้อความ', 'error'); return false }
+        try {
+          await updateDocData('marketing_reviews', review.id, { reply: txt, status: 'replied' })
+          showToast('✅ ตอบกลับแล้ว', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

@@ -5,8 +5,7 @@
 import { timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-
-function addMinutes(n) { const d = new Date(); d.setMinutes(d.getMinutes() - n); return d.toISOString() }
+import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 
 const INTEREST = {
   hot:    { label: 'Hot 🔥', color: 'danger' },
@@ -16,18 +15,25 @@ const INTEREST = {
 
 const EVENT_INFO = { name: 'Motor Show บางนา 2569', booth: 'Booth A12', target: 150, staff: ['วิชัย', 'สุดา', 'ธนา'] }
 
-const DEMO_VISITORS = [
-  { id: 'EV001', name: 'ประยุทธ์ สนใจ', phone: '081-111', model: 'BYD Seal AWD', interest: 'hot', staff: 'วิชัย', time: addMinutes(10), gift: true, testDrive: true },
-  { id: 'EV002', name: 'สมหญิง ดูรถ', phone: '082-222', model: 'BYD Dolphin', interest: 'warm', staff: 'สุดา', time: addMinutes(35), gift: true, testDrive: false },
-  { id: 'EV003', name: 'อนันต์ ผ่านมา', phone: '', model: 'ยังไม่แน่ใจ', interest: 'browse', staff: 'ธนา', time: addMinutes(50), gift: false, testDrive: false },
-  { id: 'EV004', name: 'กানดา อยากได้', phone: '084-444', model: 'BYD Atto 3', interest: 'hot', staff: 'วิชัย', time: addMinutes(80), gift: true, testDrive: true },
-  { id: 'EV005', name: 'วีระ เปรียบเทียบ', phone: '085-555', model: 'MG4', interest: 'warm', staff: 'สุดา', time: addMinutes(120), gift: true, testDrive: false },
-]
-
 export default async function EventCheckinPage(container) {
-  let visitors = DEMO_VISITORS.map(v => ({ ...v }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let visitors = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { visitors = await listDocs('event_visitors', [], 'time', 'asc', 500) } catch (e) { visitors = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const total = visitors.length
     const hot = visitors.filter(v => v.interest === 'hot').length
     const withPhone = visitors.filter(v => v.phone).length
@@ -100,17 +106,20 @@ export default async function EventCheckinPage(container) {
           </div>
         </div>`,
         confirmText: '✅ ลงทะเบียน',
-        onConfirm() {
+        async onConfirm() {
           const name = document.getElementById('ec-name')?.value?.trim()
-          if (!name) { showToast('❗ กรอกชื่อ', 'error'); return }
-          visitors.push({ id:`EV${String(visitors.length+1).padStart(3,'0')}`, name, phone:document.getElementById('ec-phone')?.value||'', model:document.getElementById('ec-model')?.value||'—', interest:document.getElementById('ec-interest')?.value||'browse', staff:document.getElementById('ec-staff')?.value||'—', time:new Date().toISOString(), gift:document.getElementById('ec-gift')?.checked||false, testDrive:document.getElementById('ec-td')?.checked||false })
-          showToast('✅ ลงทะเบียนแล้ว — sync เข้า CRM อัตโนมัติ', 'success'); renderPage()
+          if (!name) { showToast('❗ กรอกชื่อ', 'error'); return false }
+          try {
+            await createDoc('event_visitors', { name, phone:document.getElementById('ec-phone')?.value||'', model:document.getElementById('ec-model')?.value||'—', interest:document.getElementById('ec-interest')?.value||'browse', staff:document.getElementById('ec-staff')?.value||'—', time:new Date().toISOString(), gift:document.getElementById('ec-gift')?.checked||false, testDrive:document.getElementById('ec-td')?.checked||false })
+            showToast('✅ ลงทะเบียนแล้ว', 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
