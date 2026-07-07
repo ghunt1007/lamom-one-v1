@@ -567,6 +567,17 @@ export function seedDemoData() {
   ]
   staffCertifications.forEach(c => { if (!demoCol('staff_certifications')[c.id]) demoCol('staff_certifications')[c.id] = c })
 
+  // Skill matrix (หน้า /hr/skills)
+  const staffSkills = [
+    { id:'S01', name:'วิชัย ยอดขาย', role:'Senior Sales', skills:{ sales:4, product:4, finance:3, ev_repair:0, general_repair:0, crm_system:3, english:2 } },
+    { id:'S02', name:'สุดา มาดี', role:'Sales', skills:{ sales:3, product:3, finance:4, ev_repair:0, general_repair:0, crm_system:4, english:3 } },
+    { id:'S03', name:'ธนา เก่ง', role:'Junior Sales', skills:{ sales:2, product:2, finance:1, ev_repair:0, general_repair:0, crm_system:2, english:1 } },
+    { id:'S04', name:'วิทยา ช่างใหญ่', role:'Senior Tech', skills:{ sales:0, product:3, finance:0, ev_repair:4, general_repair:4, crm_system:2, english:1 } },
+    { id:'S05', name:'สุรชัย มือดี', role:'EV Specialist', skills:{ sales:0, product:4, finance:0, ev_repair:4, general_repair:3, crm_system:3, english:2 } },
+    { id:'S06', name:'มานะ ขยัน', role:'Junior Tech', skills:{ sales:0, product:1, finance:0, ev_repair:1, general_repair:2, crm_system:1, english:0 } },
+  ]
+  staffSkills.forEach(s => { if (!demoCol('staff_skills')[s.id]) demoCol('staff_skills')[s.id] = s })
+
   // Quality incidents (หน้า /quality/incidents)
   const qualityIncidents = [
     { id:'INC001', title:'รถลูกค้าถูกขีดข่วนระหว่างล้าง', cat:'vehicle', severity:'major', status:'action', reporter:'หัวหน้าทีมล้างรถ', date:new Date(Date.now()-86400000*2).toISOString(), rootCause:'อุปกรณ์ล้างเก่า มีเศษทราย', action:'เปลี่ยนผ้าไมโครไฟเบอร์ใหม่ทั้งชุด + ชดเชยลูกค้า' },
