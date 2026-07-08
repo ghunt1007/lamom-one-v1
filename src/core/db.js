@@ -704,6 +704,47 @@ export function seedDemoData() {
   ]
   financialGoalsDemo.forEach(g => { if (!demoCol('financial_goals')[g.id]) demoCol('financial_goals')[g.id] = g })
 
+  // Custom Vehicle Order — ระบบสั่งแต่งรถ (หน้า /dms/custom-orders)
+  const coAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
+  const coAddHours = n => { const d = new Date(); d.setHours(d.getHours() - n); return d.toISOString() }
+  const customOrdersDemo = [
+    { id:'CO001', orderNo:'CO-2026-001', customerName:'ประเสริฐ วงศ์ทอง', phone:'081-234-5678', vehicleModel:'BYD Atto 3', plate:'', vin:'LC0C4CFF1P0012345', salesName:'สมชาย เซลส์',
+      items:[{name:'ฟิล์มกรองแสง 3M Crystalline', qty:1, unitPrice:18000},{name:'กล้องถอยหลัง 360°', qty:1, unitPrice:8500}],
+      discount:2000, discountNote:'โปรโมชั่นลูกค้าใหม่', freebies:[{name:'พรมยางกันลื่น', qty:1}],
+      status:'new', routedDepts:[], history:[{ts:coAddHours(2), action:'สร้างคำสั่งแต่งรถ', note:''}] },
+    { id:'CO002', orderNo:'CO-2026-002', customerName:'มาลี ศรีสุข', phone:'089-111-2222', vehicleModel:'BYD Seal AWD', plate:'', vin:'LC0C4CFF1P0054321', salesName:'วิชัย ยอดขาย',
+      items:[{name:'ชุดแต่งสปอยเลอร์', qty:1, unitPrice:12000},{name:'ล้อแม็กลาย Sport 19"', qty:4, unitPrice:6500}],
+      discount:0, discountNote:'', freebies:[],
+      status:'routed', routedDepts:['warehouse','accounting'],
+      history:[{ts:coAddHours(30), action:'สร้างคำสั่งแต่งรถ', note:''},{ts:coAddHours(28), action:'ส่งต่อแผนก: คลังอะไหล่/อุปกรณ์', note:''},{ts:coAddHours(27), action:'ส่งต่อแผนก: บัญชี-การเงิน', note:''}] },
+    { id:'CO003', orderNo:'CO-2026-003', customerName:'ธนพล เที่ยงตรง', phone:'062-333-4444', vehicleModel:'MG4 Electric', plate:'กท 1234', vin:'LSJW1425XN0098765', salesName:'ปทิตา เซลส์',
+      items:[{name:'เคลือบแก้วตัวถัง Nano Ceramic', qty:1, unitPrice:15000}],
+      discount:0, discountNote:'', freebies:[{name:'น้ำยาล้างรถ', qty:2}],
+      status:'po_issued', routedDepts:['warehouse','accounting','service'],
+      poNo:'PO-202607-003', supplier:'ร้านเซรามิคโค้ทติ้ง โปร', supplierContact:'คุณสมบัติ 089-777-8888', poIssuedDate:coAddDays(-3),
+      history:[{ts:coAddHours(72), action:'สร้างคำสั่งแต่งรถ', note:''},{ts:coAddHours(60), action:'ส่งต่อแผนก: คลังอะไหล่/อุปกรณ์', note:''},{ts:coAddHours(50), action:'ออก PO ส่งซัพพลายเออร์', note:'ร้านเซรามิคโค้ทติ้ง โปร'}] },
+    { id:'CO004', orderNo:'CO-2026-004', customerName:'อรวรรณ สาวสวย', phone:'095-555-6666', vehicleModel:'BYD Dolphin', plate:'', vin:'LC0C4CFF1P0011223', salesName:'สมชาย เซลส์',
+      items:[{name:'ระบบเสียง Subwoofer + แอมป์', qty:1, unitPrice:22000},{name:'ฟิล์มกันรอยกันชน', qty:1, unitPrice:4500}],
+      discount:1500, discountNote:'', freebies:[],
+      status:'installing', routedDepts:['warehouse','accounting','service','salesAdmin'],
+      poNo:'PO-202606-004', supplier:'บ. ซาวด์โปร ออดิโอ', supplierContact:'คุณกิตติ 081-999-0000', poIssuedDate:coAddDays(-6), installDate:coAddDays(-1),
+      history:[{ts:coAddHours(150), action:'สร้างคำสั่งแต่งรถ', note:''},{ts:coAddHours(140), action:'ออก PO ส่งซัพพลายเออร์', note:'บ. ซาวด์โปร ออดิโอ'},{ts:coAddHours(48), action:'กำหนดวันติดตั้ง', note:''},{ts:coAddHours(20), action:'อัปเดตสถานะติดตั้ง: กำลังติดตั้ง', note:''}] },
+    { id:'CO005', orderNo:'CO-2026-005', customerName:'ชัยวัฒน์ มั่งมี', phone:'086-777-1111', vehicleModel:'BYD Han', plate:'ขข 5678', vin:'LC0C4CFF1P0099887', salesName:'วิชัย ยอดขาย',
+      items:[{name:'ชุดไฟ LED Daytime Running Light', qty:1, unitPrice:9500}],
+      discount:0, discountNote:'', freebies:[],
+      status:'issue_found', routedDepts:['warehouse','accounting','service'],
+      poNo:'PO-202606-005', supplier:'ร้าน LED Custom Design', supplierContact:'คุณอนันต์ 084-222-3333', poIssuedDate:coAddDays(-8), installDate:coAddDays(-2),
+      defectNotes:'ไฟ LED ข้างซ้ายกะพริบผิดปกติ ต้องเปลี่ยนชุดใหม่จากซัพพลายเออร์',
+      history:[{ts:coAddHours(200), action:'สร้างคำสั่งแต่งรถ', note:''},{ts:coAddHours(190), action:'ออก PO ส่งซัพพลายเออร์', note:'ร้าน LED Custom Design'},{ts:coAddHours(60), action:'กำหนดวันติดตั้ง', note:''},{ts:coAddHours(10), action:'อัปเดตสถานะติดตั้ง: พบปัญหา', note:'ไฟ LED ข้างซ้ายกะพริบผิดปกติ'}] },
+    { id:'CO006', orderNo:'CO-2026-006', customerName:'นภา สุขสม', phone:'091-444-5555', vehicleModel:'BYD Atto 3 Pro', plate:'', vin:'LC0C4CFF1P0077665', salesName:'ปทิตา เซลส์',
+      items:[{name:'ฟิล์มกรองแสง Ceramic Pro', qty:1, unitPrice:16000},{name:'พรมยาง 6 ชิ้น All-Weather', qty:1, unitPrice:2800}],
+      discount:0, discountNote:'', freebies:[],
+      status:'ready', routedDepts:['warehouse','accounting','service','salesAdmin'],
+      poNo:'PO-202606-006', supplier:'บริษัท ออโต้ พาร์ท จก.', supplierContact:'คุณสมศักดิ์ 089-111-2233', poIssuedDate:coAddDays(-10), installDate:coAddDays(-4), readyAt:coAddHours(6),
+      history:[{ts:coAddHours(250), action:'สร้างคำสั่งแต่งรถ', note:''},{ts:coAddHours(230), action:'ออก PO ส่งซัพพลายเออร์', note:'บริษัท ออโต้ พาร์ท จก.'},{ts:coAddHours(100), action:'กำหนดวันติดตั้ง', note:''},{ts:coAddHours(30), action:'อัปเดตสถานะติดตั้ง: ตรวจสอบคุณภาพ', note:''},{ts:coAddHours(6), action:'ยืนยันพร้อมส่งมอบ', note:''}] },
+  ]
+  customOrdersDemo.forEach(o => { if (!demoCol('custom_orders')[o.id]) demoCol('custom_orders')[o.id] = o })
+
   // Receipt Automation (หน้า /finance/receipt-auto)
   const autoReceiptsDemo = [
     { id:'AR001', number:'REC-2026-0541', customer:'สมชาย ใจดี', amount:1290000, type:'purchase', sent:true, channel:'email', date:'2026-06-14', status:'sent' },

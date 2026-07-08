@@ -70,6 +70,7 @@ const NAV = [
       { icon: '🔄', label: 'Trade-In', path: '/dms/tradein' },
       { icon: '🔎', label: 'Vehicle Lookup', path: '/dms/vin-lookup' },
       { icon: '🛍', label: 'Accessory Shop', path: '/dms/accessories' },
+      { icon: '🎨', label: 'สั่งแต่งรถ', path: '/dms/custom-orders' },
       { icon: '🎉', label: 'Delivery Calendar', path: '/dms/delivery-calendar' },
       { icon: '🚙', label: 'Plate Tracking', path: '/dms/plates' },
       { icon: '🚗', label: 'Demo Fleet', path: '/dms/demo-fleet' },

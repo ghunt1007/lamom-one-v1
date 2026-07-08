@@ -2,7 +2,7 @@ import { showToast } from '../../core/store.js'
 
 const MODULES = [
   { icon:'👥', name:'CRM & การขาย', pages:37, color:'primary' },
-  { icon:'🚗', name:'DMS / โชว์รูม', pages:39, color:'accent' },
+  { icon:'🚗', name:'DMS / โชว์รูม', pages:40, color:'accent' },
   { icon:'🔧', name:'ศูนย์บริการ', pages:34, color:'warning' },
   { icon:'💰', name:'การเงิน', pages:40, color:'success' },
   { icon:'📣', name:'การตลาด', pages:18, color:'primary' },
@@ -20,7 +20,8 @@ const MODULES = [
 ]
 
 const CHANGELOG = [
-  { ver:'1.0.160', date:'2026-07-08', label:'ล่าสุด', changes:['🐛 แก้บั๊กข้อมูลหายกลุ่มแชท AI — เดิมประวัติแชทหายทุกครั้งที่รีเฟรช ตอนนี้บันทึกจริงลง Firestore แล้วทั้งหมด: (1) LAMI AI Chat (/ai/ask) — ประวัติแชทถาม-ตอบ + ล้างแชท (2) LAMI Brain (/ai/lami) — ประวัติสนทนากับ AI Officer (3) TrainingBot AI (/training/bot) — ประวัติการเรียนแยกตามหัวข้อ (4) Personal AI (/ai/personal) — แก้บั๊กสำคัญ: โหมด Demo เคยพยายามเขียน Firestore จริงแล้วเงียบล้มเหลว ทำให้ความจำ (Memory) และประวัติแชทหายทุกครั้ง ตอนนี้รองรับโหมด Demo แล้ว ทดสอบยืนยันครบทุกหน้า: ทำรายการแล้วสลับหน้าไปมา ข้อมูลยังถูกต้องครบ'] },
+  { ver:'1.0.161', date:'2026-07-08', label:'ล่าสุด', changes:['🆕 เพิ่มระบบใหม่: ระบบสั่งแต่งรถครบวงจร (/dms/custom-orders) — เซลล์คีย์สั่งแต่งรถ (อุปกรณ์/ส่วนลด/ของแถม) → ส่งต่อแผนกที่เกี่ยวข้อง (คลัง/บัญชี/ศูนย์บริการ/ธุรการขาย) → ธุรการออก PO ส่งซัพพลายเออร์ → กำหนด/อัปเดตวันติดตั้ง → ติดตามสถานะทุกขั้นตอน (กำลังติดตั้ง/ตรวจสอบคุณภาพ/พบปัญหา/พร้อมส่งมอบ) → ออกเอกสาร 6 ประเภท (ใบเสร็จรับเงิน, ใบกำกับภาษี, ใบเสร็จรับเงินชั่วคราว, ใบลดหนี้, หนังสือสอบถามการจดทะเบียน, หนังสือแจ้งเลขรับแจ้งประกันภัย) พิมพ์เอกสารจริงแบบ A4 พร้อมประวัติการดำเนินการครบทุกขั้นตอน ทดสอบยืนยันแล้ว: สร้างคำสั่ง/ส่งต่อแผนก/ออก PO/นัดติดตั้ง/อัปเดตสถานะ/ออกเอกสาร ทำงานถูกต้องและบันทึกจริงลง Firestore'] },
+  { ver:'1.0.160', date:'2026-07-08', label:'', changes:['🐛 แก้บั๊กข้อมูลหายกลุ่มแชท AI — เดิมประวัติแชทหายทุกครั้งที่รีเฟรช ตอนนี้บันทึกจริงลง Firestore แล้วทั้งหมด: (1) LAMI AI Chat (/ai/ask) — ประวัติแชทถาม-ตอบ + ล้างแชท (2) LAMI Brain (/ai/lami) — ประวัติสนทนากับ AI Officer (3) TrainingBot AI (/training/bot) — ประวัติการเรียนแยกตามหัวข้อ (4) Personal AI (/ai/personal) — แก้บั๊กสำคัญ: โหมด Demo เคยพยายามเขียน Firestore จริงแล้วเงียบล้มเหลว ทำให้ความจำ (Memory) และประวัติแชทหายทุกครั้ง ตอนนี้รองรับโหมด Demo แล้ว ทดสอบยืนยันครบทุกหน้า: ทำรายการแล้วสลับหน้าไปมา ข้อมูลยังถูกต้องครบ'] },
   { ver:'1.0.159', date:'2026-07-08', label:'', changes:['🐛 แก้บั๊กข้อมูลหายชุดสุดท้าย — เดิมเก็บในตัวแปรระดับโมดูลไม่บันทึกจริง ตอนนี้บันทึกจริงลง Firestore แล้วทั้งหมด: (1) Daily Missions (/gamification/missions) — ทำภารกิจสำเร็จ (2) Webhook Builder (/integrations/webhooks) — สร้าง/แก้ไข/เปิด-ปิด/ลบ Webhook (3) Equipment Maintenance (/quality/maintenance) — เพิ่มอุปกรณ์ + บันทึกบำรุงรักษา (แก้บั๊กปนมา: วันที่อ้างอิงคำนวณกำหนดบำรุง hardcode ไว้หลายจุด) (4) Knowledge Base (/training/knowledge) — เขียนบทความ + นับยอดอ่าน/โหวตมีประโยชน์ (5) Product Knowledge DB (/training/product-knowledge) — เพิ่มรุ่นรถ + คะแนน Quiz อัปเดต Mastered % ทดสอบยืนยันครบทุกหน้า: ทำรายการแล้วสลับหน้าไปมา ข้อมูลยังถูกต้องครบ'] },
   { ver:'1.0.158', date:'2026-07-08', label:'', changes:['🐛 แก้บั๊กข้อมูลหายโฟลเดอร์ Finance — เดิมเก็บในตัวแปรระดับโมดูลไม่บันทึกจริง ตอนนี้บันทึกจริงลง Firestore แล้วทั้งหมด: (1) Cashier Desk (/finance/cashier) — รับชำระเงิน + ตัดบิลค้าง (2) Compliance Calendar (/finance/compliance-calendar) — เพิ่มรายการ + ทำเสร็จ (แก้บั๊กปนมา: วันที่อ้างอิงคำนวณกำหนดวัน hardcode ไว้ 15 มิ.ย. 2569) (3) Energy & Utility (/finance/energy) — บันทึกมิเตอร์รายเดือน (4) Financial Goals (/finance/goals) — ตั้งเป้าหมาย + อัปเดตความคืบหน้า (5) Receipt Automation (/finance/receipt-auto) — ออกใบเสร็จ + ส่ง/Retry + เปิด-ปิด Auto Rule (6) Vendor Management (/finance/vendor) — เพิ่ม/แก้ไข/ลบผู้จัดจำหน่าย ทดสอบยืนยันครบทุกหน้า: ทำรายการแล้วสลับหน้าไปมา ข้อมูลยังถูกต้องครบ'] },
   { ver:'1.0.157', date:'2026-07-08', label:'', changes:['🐛 แก้บั๊กข้อมูลหายโฟลเดอร์ Documents — เดิมเก็บในตัวแปรระดับโมดูลไม่บันทึกจริง ตอนนี้บันทึกจริงลง Firestore แล้วทั้งหมด: (1) Checklist Engine (/documents/checklist) — ใช้ Checklist + บันทึกผล + สร้าง Checklist ใหม่ (2) Contract Manager (/documents/contracts) — สร้างสัญญา + ลงนาม (3) Document Templates (/documents/templates) — สร้าง Template + เปิด-ปิดใช้งาน + นับการใช้งาน (4) Form Builder (/documents/form-builder) — สร้างฟอร์ม + แก้ไขช่อง + เปิด-ปิดใช้งาน ทดสอบยืนยันครบทุกหน้า: ทำรายการแล้วสลับหน้าไปมา ข้อมูลยังถูกต้องครบ'] },
@@ -206,7 +207,7 @@ export default function AboutPage(container) {
           <div style="font-size:1.5rem;font-weight:900;letter-spacing:-0.02em">LAMOM ONE</div>
           <div style="font-size:0.85rem;color:var(--text-muted);margin:4px 0 12px">ระบบปฏิบัติการธุรกิจยานยนต์ครบวงจร</div>
           <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
-            <span class="badge badge-primary">Version 1.0.160</span>
+            <span class="badge badge-primary">Version 1.0.161</span>
             <span class="badge badge-success">${totalPages}+ ระบบย่อย</span>
             <span class="badge badge-accent">${MODULES.length} โมดูล</span>
             <span class="badge badge-warning">Vite 8 + ES6 + Firebase 12</span>

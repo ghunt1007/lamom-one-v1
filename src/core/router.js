@@ -316,6 +316,7 @@ const routes = {
   '/quality/incidents': () => import('../pages/quality/IncidentReport.js'),
   // DMS extras
   '/dms/accessories': () => import('../pages/dms/AccessoryShop.js'),
+  '/dms/custom-orders': () => import('../pages/dms/CustomOrder.js'),
   // HR extras
   '/hr/meetings': () => import('../pages/hr/TeamMeeting.js'),
   // Analytics extras
