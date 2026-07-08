@@ -5,6 +5,7 @@
 import { formatDate, formatCurrency } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 const CONTRACT_TYPES = {
   sale:       { label: 'สัญญาซื้อขาย', color: 'primary', icon: '🚗' },
@@ -26,20 +27,22 @@ const CONTRACT_STATUS = {
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
 
-const DEMO_CONTRACTS = [
-  { id: 'CTR001', title: 'สัญญาซื้อขาย BYD Seal AWD', type: 'sale', status: 'active', party: 'วิชัย มีโชค', value: 1590000, startDate: addDays(-30), endDate: addDays(335), createdBy: 'สมชาย เซลส์', signedDate: addDays(-28), tags: ['EV', 'retail'] },
-  { id: 'CTR002', title: 'สัญญาบำรุงรักษา MG ZS EV Fleet', type: 'service', status: 'active', party: 'บริษัท ABC จำกัด', value: 360000, startDate: addDays(-60), endDate: addDays(305), createdBy: 'วิทยา บริการ', signedDate: addDays(-55), tags: ['fleet', 'B2B'] },
-  { id: 'CTR003', title: 'NDA กับ BYD Thailand', type: 'nda', status: 'signed', party: 'BYD Thailand Co., Ltd.', value: 0, startDate: addDays(-90), endDate: addDays(275), createdBy: 'ทีมกฎหมาย', signedDate: addDays(-85), tags: ['confidential'] },
-  { id: 'CTR004', title: 'สัญญาซื้อขาย BYD Atto 3', type: 'sale', status: 'review', party: 'อรวรรณ สาวสวย', value: 1290000, startDate: addDays(0), endDate: addDays(30), createdBy: 'ปทิตา เซลส์', signedDate: null, tags: ['EV', 'retail'] },
-  { id: 'CTR005', title: 'สัญญาเช่ารถยนต์ระยะยาว', type: 'lease', status: 'draft', party: 'บริษัท XYZ จำกัด', value: 720000, startDate: addDays(7), endDate: addDays(372), createdBy: 'สมชาย เซลส์', signedDate: null, tags: ['fleet', 'leasing'] },
-  { id: 'CTR006', title: 'สัญญาซัพพลายเออร์ อะไหล่', type: 'supplier', status: 'active', party: 'บ. อะไหล่ไทย จำกัด', value: 240000, startDate: addDays(-180), endDate: addDays(185), createdBy: 'หัวหน้าคลัง', signedDate: addDays(-175), tags: ['parts', 'supply'] },
-]
-
 export default async function ContractManagerPage(container) {
-  let contracts = DEMO_CONTRACTS.map(c => ({ ...c }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let contracts = []
   let typeFilter = 'all'
   let statusFilter = 'all'
   let search = ''
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { contracts = await listDocs('contracts', [], 'startDate', 'desc', 500) } catch (e) { contracts = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function filtered() {
     return contracts.filter(c => {
@@ -51,6 +54,10 @@ export default async function ContractManagerPage(container) {
   }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = filtered()
     const active = contracts.filter(c => c.status === 'active' || c.status === 'signed').length
     const pending = contracts.filter(c => c.status === 'review' || c.status === 'draft').length
@@ -137,9 +144,14 @@ export default async function ContractManagerPage(container) {
     document.getElementById('status-sel')?.addEventListener('change', e => { statusFilter = e.target.value; renderPage() })
     document.getElementById('add-contract-btn')?.addEventListener('click', openAddForm)
     container.querySelectorAll('.view-btn').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); const c = contracts.find(x => x.id === b.dataset.id); if (c) openDetail(c) }))
-    container.querySelectorAll('.sign-btn').forEach(b => b.addEventListener('click', e => { e.stopPropagation()
+    container.querySelectorAll('.sign-btn').forEach(b => b.addEventListener('click', async e => { e.stopPropagation()
       const c = contracts.find(x => x.id === b.dataset.id)
-      if (c) { c.status = 'signed'; c.signedDate = new Date().toISOString().slice(0, 10); showToast('✅ ลงนามสัญญาแล้ว!', 'success'); renderPage() }
+      if (!c) return
+      try {
+        await updateDocData('contracts', c.id, { status: 'signed', signedDate: new Date().toISOString().slice(0, 10) })
+        showToast('✅ ลงนามสัญญาแล้ว!', 'success')
+        await loadData()
+      } catch (err) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
   }
 
@@ -183,24 +195,27 @@ export default async function ContractManagerPage(container) {
           <div class="input-group"><label class="input-label">วันหมดอายุ</label><input type="date" class="input" id="cf-end"></div>
         </div>
       `,
-      onConfirm() {
+      async onConfirm() {
         const title = document.getElementById('cf-title')?.value?.trim()
         const party = document.getElementById('cf-party')?.value?.trim()
-        if (!title || !party) { showToast('❗ กรุณากรอกชื่อสัญญาและคู่สัญญา', 'error'); return }
-        contracts.unshift({
-          id: `CTR${String(contracts.length+1).padStart(3,'0')}`, title,
-          type: document.getElementById('cf-type')?.value||'sale', status: 'draft', party,
-          value: +document.getElementById('cf-value')?.value||0,
-          startDate: document.getElementById('cf-start')?.value||addDays(0),
-          endDate: document.getElementById('cf-end')?.value||addDays(365),
-          createdBy: 'ผู้ใช้ปัจจุบัน', signedDate: null, tags: []
-        })
-        showToast('✅ สร้างสัญญาแล้ว!', 'success'); renderPage()
+        if (!title || !party) { showToast('❗ กรุณากรอกชื่อสัญญาและคู่สัญญา', 'error'); return false }
+        try {
+          await createDoc('contracts', {
+            title,
+            type: document.getElementById('cf-type')?.value||'sale', status: 'draft', party,
+            value: +document.getElementById('cf-value')?.value||0,
+            startDate: document.getElementById('cf-start')?.value||addDays(0),
+            endDate: document.getElementById('cf-end')?.value||addDays(365),
+            createdBy: 'ผู้ใช้ปัจจุบัน', signedDate: null, tags: []
+          })
+          showToast('✅ สร้างสัญญาแล้ว!', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

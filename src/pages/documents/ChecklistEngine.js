@@ -4,29 +4,7 @@
  */
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-
-const CHECKLISTS = [
-  {
-    id:'CL001', name:'PDI Checklist (BYD)', category:'DMS', usedCount:42, lastUsed:'2026-06-14',
-    items:['ตรวจสอบรอยขีดข่วนภายนอก','ตรวจระบบไฟทั้งหมด','ทดสอบ AC','ชาร์จแบตเตอรี่ครบ','ตรวจ Software Version','ทดสอบ ADAS Systems','ทดสอบ Drive Mode','ตั้งค่า HomeLink','ผูก VIN ในระบบ'],
-  },
-  {
-    id:'CL002', name:'Delivery Checklist', category:'DMS', usedCount:38, lastUsed:'2026-06-15',
-    items:['เตรียมเอกสารครบ (สัญญา ใบส่งมอบ ทะเบียน)','ชี้แจงฟีเจอร์รถให้ลูกค้า','Demo App/Connectivity','แจก Accessory Kit','ถ่ายรูปส่งมอบ','ลายเซ็นดิจิทัล'],
-  },
-  {
-    id:'CL003', name:'Service Job Card', category:'บริการ', usedCount:156, lastUsed:'2026-06-15',
-    items:['รับรถ ตรวจสภาพรอบคัน','เช็คระดับน้ำมัน/Coolant','อ่าน Fault Codes','ดำเนินการซ่อมตามใบงาน','ทดสอบหลังซ่อม','ล้างรถ/ดูแลความสะอาด','แจ้งลูกค้ารถพร้อม'],
-  },
-  {
-    id:'CL004', name:'5S สำนักงาน', category:'คุณภาพ', usedCount:8, lastUsed:'2026-06-08',
-    items:['Sort: คัดแยกของที่ไม่จำเป็น','Set: จัดวางให้เป็นระเบียบ','Shine: ทำความสะอาด','Standardize: กำหนดมาตรฐาน','Sustain: รักษาและปรับปรุงอย่างต่อเนื่อง'],
-  },
-  {
-    id:'CL005', name:'Safety Inspection Workshop', category:'คุณภาพ', usedCount:4, lastUsed:'2026-06-01',
-    items:['ตรวจลิฟต์ยกรถ','ตรวจระบบดับเพลิง','ตรวจอุปกรณ์ป้องกันส่วนบุคคล (PPE)','ตรวจระบบไฟฟ้า','ตรวจทางหนีไฟ'],
-  },
-]
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 const CAT_COLORS = { DMS:'var(--primary)', บริการ:'var(--warning)', คุณภาพ:'var(--success)', HR:'var(--danger)' }
 
@@ -36,8 +14,22 @@ function catBadge(cat) {
 }
 
 export default async function ChecklistEnginePage(container) {
-  let checklists = CHECKLISTS.map(cl => ({ ...cl, progress: new Array(cl.items.length).fill(false) }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let checklists = []
   let activeId = null
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try {
+      const docs = await listDocs('checklists', [], 'name', 'asc', 500)
+      checklists = docs.map(cl => ({ ...cl, progress: new Array(cl.items.length).fill(false) }))
+    } catch (e) { checklists = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function checklistCard(cl) {
     const done = cl.progress.filter(Boolean).length
@@ -100,18 +92,22 @@ export default async function ChecklistEnginePage(container) {
       renderActive(cl)
     }))
     document.getElementById('back-btn')?.addEventListener('click', () => { activeId = null; render() })
-    document.getElementById('save-cl-btn')?.addEventListener('click', () => {
+    document.getElementById('save-cl-btn')?.addEventListener('click', async () => {
       const doneCount = cl.progress.filter(Boolean).length
-      cl.usedCount++
-      cl.lastUsed = new Date().toISOString().slice(0, 10)
-      cl.progress.fill(false)
-      showToast('✅ บันทึก ' + cl.name + ' (' + doneCount + '/' + cl.items.length + ' รายการ)', 'success')
-      activeId = null
-      render()
+      try {
+        await updateDocData('checklists', cl.id, { usedCount: cl.usedCount + 1, lastUsed: new Date().toISOString().slice(0, 10) })
+        showToast('✅ บันทึก ' + cl.name + ' (' + doneCount + '/' + cl.items.length + ' รายการ)', 'success')
+        activeId = null
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     if (activeId) {
       const cl = checklists.find(c => c.id === activeId)
       if (cl) { renderActive(cl); return }
@@ -173,24 +169,23 @@ export default async function ChecklistEnginePage(container) {
         </div>
       `
     })
-    document.getElementById('cl-save')?.addEventListener('click', () => {
+    document.getElementById('cl-save')?.addEventListener('click', async () => {
       const name = document.getElementById('cl-name')?.value.trim()
       const itemsRaw = document.getElementById('cl-items')?.value.trim()
       if (!name || !itemsRaw) { showToast('⚠️ กรุณากรอกชื่อและรายการ', 'warning'); return }
       const items = itemsRaw.split('\n').map(s=>s.trim()).filter(Boolean)
-      const newCl = {
-        id: 'CL' + String(checklists.length + 1).padStart(3,'0'),
-        name,
-        category: document.getElementById('cl-cat')?.value || 'DMS',
-        usedCount: 0,
-        lastUsed: new Date().toISOString().slice(0,10),
-        items,
-        progress: new Array(items.length).fill(false),
-      }
-      checklists.push(newCl)
-      document.querySelector('.modal-overlay')?.remove()
-      showToast('✅ สร้าง Checklist: ' + name + ' (' + items.length + ' รายการ)', 'success')
-      render()
+      try {
+        await createDoc('checklists', {
+          name,
+          category: document.getElementById('cl-cat')?.value || 'DMS',
+          usedCount: 0,
+          lastUsed: new Date().toISOString().slice(0,10),
+          items,
+        })
+        document.querySelector('.modal-overlay')?.remove()
+        showToast('✅ สร้าง Checklist: ' + name + ' (' + items.length + ' รายการ)', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
@@ -198,5 +193,5 @@ export default async function ChecklistEnginePage(container) {
     return `<div class="card" style="padding:14px 16px"><div style="font-size:0.72rem;color:var(--text-muted)">${l}</div><div style="font-size:1.1rem;font-weight:900;color:${c};margin-top:2px">${v}</div></div>`
   }
 
-  render()
+  await loadData()
 }

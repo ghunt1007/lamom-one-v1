@@ -5,8 +5,7 @@
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString() }
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 const TPL_CATS = {
   sales:    { label: 'งานขาย', color: 'success', icon: '💰' },
@@ -16,22 +15,26 @@ const TPL_CATS = {
   legal:    { label: 'กฎหมาย', color: 'danger', icon: '⚖️' },
 }
 
-const DEMO_TEMPLATES = [
-  { id: 'TPL001', name: 'ใบเสนอราคา (Quotation)', cat: 'sales', usage: 245, lastUsed: addDays(-1), fields: ['ชื่อลูกค้า','รุ่นรถ','ราคา','ส่วนลด','ของแถม'], active: true },
-  { id: 'TPL002', name: 'สัญญาจองรถ', cat: 'sales', usage: 128, lastUsed: addDays(-2), fields: ['ชื่อลูกค้า','รุ่นรถ','สี','มัดจำ','วันส่งมอบ'], active: true },
-  { id: 'TPL003', name: 'ใบส่งมอบรถ (Delivery Note)', cat: 'sales', usage: 96, lastUsed: addDays(-3), fields: ['ชื่อลูกค้า','VIN','ทะเบียน','เลขไมล์','อุปกรณ์'], active: true },
-  { id: 'TPL004', name: 'ใบแจ้งซ่อม (Job Card)', cat: 'service', usage: 412, lastUsed: addDays(0), fields: ['ทะเบียน','อาการ','ช่าง','ประเมินราคา'], active: true },
-  { id: 'TPL005', name: 'ใบกำกับภาษี / ใบเสร็จ', cat: 'finance', usage: 587, lastUsed: addDays(0), fields: ['เลขที่','ลูกค้า','รายการ','VAT','รวม'], active: true },
-  { id: 'TPL006', name: 'สัญญาจ้างงาน', cat: 'hr', usage: 8, lastUsed: addDays(-30), fields: ['ชื่อพนักงาน','ตำแหน่ง','เงินเดือน','วันเริ่มงาน'], active: true },
-  { id: 'TPL007', name: 'หนังสือมอบอำนาจ', cat: 'legal', usage: 23, lastUsed: addDays(-14), fields: ['ผู้มอบ','ผู้รับมอบ','เรื่อง','วันที่'], active: true },
-  { id: 'TPL008', name: 'แบบฟอร์มเทิร์นรถเก่า', cat: 'sales', usage: 4, lastUsed: addDays(-60), fields: ['ทะเบียนเดิม','ราคาประเมิน','สภาพรถ'], active: false },
-]
-
 export default async function DocumentTemplatesPage(container) {
-  let templates = DEMO_TEMPLATES.map(t => ({ ...t, fields: [...t.fields] }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let templates = []
   let catFilter = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { templates = await listDocs('document_templates', [], 'name', 'asc', 500) } catch (e) { templates = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = templates.filter(t => catFilter === 'all' || t.cat === catFilter)
     const totalUsage = templates.reduce((a, t) => a + t.usage, 0)
     const activeCount = templates.filter(t => t.active).length
@@ -86,9 +89,14 @@ export default async function DocumentTemplatesPage(container) {
     `
 
     container.querySelectorAll('.cf-btn').forEach(b => b.addEventListener('click', () => { catFilter = b.dataset.c; renderPage() }))
-    container.querySelectorAll('.toggle-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.toggle-btn').forEach(b => b.addEventListener('click', async () => {
       const t = templates.find(x => x.id === b.dataset.id)
-      if (t) { t.active = !t.active; showToast(t.active ? '▶️ เปิดใช้งาน Template' : '⏸ พัก Template', 'primary'); renderPage() }
+      if (!t) return
+      try {
+        await updateDocData('document_templates', t.id, { active: !t.active })
+        showToast(!t.active ? '▶️ เปิดใช้งาน Template' : '⏸ พัก Template', 'primary')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.use-btn').forEach(b => b.addEventListener('click', () => {
       const t = templates.find(x => x.id === b.dataset.id); if (t) openUseModal(t)
@@ -104,9 +112,12 @@ export default async function DocumentTemplatesPage(container) {
         ${t.fields.map((f, i) => `<div class="input-group"><label class="input-label">${f}</label><input class="input" id="doc-f-${i}"></div>`).join('')}
       </div>`,
       confirmText: '📄 สร้าง PDF',
-      onConfirm() {
-        t.usage++; t.lastUsed = new Date().toISOString()
-        showToast('✅ สร้างเอกสารแล้ว — กำลังดาวน์โหลด PDF...', 'success'); renderPage()
+      async onConfirm() {
+        try {
+          await updateDocData('document_templates', t.id, { usage: t.usage + 1, lastUsed: new Date().toISOString() })
+          showToast('✅ สร้างเอกสารแล้ว — กำลังดาวน์โหลด PDF...', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -122,17 +133,20 @@ export default async function DocumentTemplatesPage(container) {
         </div>
         <div class="input-group"><label class="input-label">Fields (คั่นด้วย ,)</label><input class="input" id="tp-fields" placeholder="ชื่อลูกค้า, รุ่นรถ, ราคา"></div>
       </div>`,
-      onConfirm() {
+      async onConfirm() {
         const name = document.getElementById('tp-name')?.value?.trim()
-        if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return }
+        if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return false }
         const fields = (document.getElementById('tp-fields')?.value || '').split(',').map(s => s.trim()).filter(Boolean)
-        templates.push({ id:`TPL${String(templates.length+1).padStart(3,'0')}`, name, cat:document.getElementById('tp-cat')?.value||'sales', usage:0, lastUsed:new Date().toISOString(), fields: fields.length ? fields : ['ข้อมูล'], active:true })
-        showToast('✅ สร้าง Template แล้ว', 'success'); renderPage()
+        try {
+          await createDoc('document_templates', { name, cat:document.getElementById('tp-cat')?.value||'sales', usage:0, lastUsed:new Date().toISOString(), fields: fields.length ? fields : ['ข้อมูล'], active:true })
+          showToast('✅ สร้าง Template แล้ว', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

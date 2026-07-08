@@ -4,6 +4,7 @@
  */
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 const FIELD_TYPES = [
   { type:'text',     icon:'✏️', label:'Text' },
@@ -18,24 +19,29 @@ const FIELD_TYPES = [
   { type:'file',     icon:'📎', label:'File Upload' },
 ]
 
-let forms = [
-  { id:'f001', name:'ฟอร์มจองรถ', desc:'ลูกค้าจองรถออนไลน์', fields:['ชื่อ-นามสกุล','เบอร์โทร','รุ่นที่สนใจ','วันนัดหมาย'], submissions:28, active:true },
-  { id:'f002', name:'แบบสอบถามความพึงพอใจ', desc:'ประเมินหลังรับรถ', fields:['คะแนนโชว์รูม','คะแนนพนักงาน','คะแนนกระบวนการ','ข้อเสนอแนะ'], submissions:156, active:true },
-  { id:'f003', name:'ฟอร์มรับรถเข้าซ่อม', desc:'ลูกค้าแจ้งอาการก่อนเข้าศูนย์', fields:['ทะเบียนรถ','อาการที่พบ','เลขไมล์','วันนัดเข้าซ่อม'], submissions:94, active:false },
-]
-
-let activeFields = [
-  { id:'fx1', type:'text',   label:'ชื่อ-นามสกุล',  required:true  },
-  { id:'fx2', type:'phone',  label:'เบอร์โทร',      required:true  },
-  { id:'fx3', type:'select', label:'รุ่นที่สนใจ',   required:true  },
-  { id:'fx4', type:'date',   label:'วันนัดหมาย',    required:false },
-]
+let activeFields = []
 let editingFormId = null
 
 export default async function FormBuilderPage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let forms = []
   let view = 'list' // list | editor
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { forms = await listDocs('forms', [], 'name', 'asc', 500) } catch (e) { forms = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     if (view === 'list') renderList()
     else renderEditor()
   }
@@ -69,9 +75,14 @@ export default async function FormBuilderPage(container) {
         .then(() => showToast('🔗 Copy Link แล้ว · ' + url, 'success'))
         .catch(() => showToast('🔗 Link: ' + url, 'success'))
     }))
-    container.querySelectorAll('.toggle-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.toggle-btn').forEach(b => b.addEventListener('click', async () => {
       const f = forms.find(x => x.id === b.dataset.id)
-      if (f) { f.active = !f.active; render(); showToast(`${f.active?'✅ เปิด':'⏸ ปิด'} "${f.name}" แล้ว`, 'success') }
+      if (!f) return
+      try {
+        await updateDocData('forms', f.id, { active: !f.active })
+        showToast(`${!f.active?'✅ เปิด':'⏸ ปิด'} "${f.name}" แล้ว`, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
   }
 
@@ -117,9 +128,15 @@ export default async function FormBuilderPage(container) {
       </div>`
 
     document.getElementById('back-btn')?.addEventListener('click', () => { view='list'; render() })
-    document.getElementById('save-btn')?.addEventListener('click', () => {
+    document.getElementById('save-btn')?.addEventListener('click', async () => {
       const f = forms.find(x => x.id === editingFormId)
-      if (f) { f.fields = activeFields.map(f=>f.label); view='list'; render(); showToast('💾 บันทึกฟอร์มแล้ว', 'success') }
+      if (!f) return
+      try {
+        await updateDocData('forms', f.id, { fields: activeFields.map(f=>f.label) })
+        view='list'
+        showToast('💾 บันทึกฟอร์มแล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
     document.getElementById('preview-btn')?.addEventListener('click', () => openPreviewModal())
     container.querySelectorAll('.add-field-btn').forEach(b => b.addEventListener('click', () => {
@@ -192,14 +209,16 @@ export default async function FormBuilderPage(container) {
         <div><label style="font-size:0.72rem;color:var(--text-muted)">คำอธิบาย</label><input class="input" id="nf-desc" placeholder="คำอธิบายสั้นๆ" style="width:100%;margin-top:4px"></div>
       </div>`,
       confirmText:'สร้าง',
-      onConfirm() {
+      async onConfirm() {
         const name = document.getElementById('nf-name')?.value.trim()
         const desc = document.getElementById('nf-desc')?.value.trim()
         if (!name) { showToast('ใส่ชื่อฟอร์ม', 'warning'); return false }
-        const id = 'f'+Date.now()
-        forms.push({ id, name, desc, fields:[], submissions:0, active:true })
-        editingFormId = id; activeFields = []; view = 'editor'; render()
-        showToast(`✅ สร้าง "${name}" แล้ว — เพิ่มช่องได้เลย`, 'success')
+        try {
+          const id = await createDoc('forms', { name, desc, fields:[], submissions:0, active:true })
+          editingFormId = id; activeFields = []; view = 'editor'
+          showToast(`✅ สร้าง "${name}" แล้ว — เพิ่มช่องได้เลย`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -219,13 +238,17 @@ export default async function FormBuilderPage(container) {
           </div>`
         }).join('')}`,
       confirmText: '✉ ส่งฟอร์ม (ทดสอบ)',
-      onConfirm() {
+      async onConfirm() {
         const f = forms.find(x => x.id === editingFormId)
-        if (f) f.submissions++
-        showToast(`📨 ส่งฟอร์มทดสอบแล้ว · ${f ? f.name + ' (' + f.submissions + ' การตอบ)' : 'ฟอร์มใหม่'}`, 'success')
+        if (!f) { showToast('📨 ส่งฟอร์มทดสอบแล้ว · ฟอร์มใหม่', 'success'); return }
+        try {
+          await updateDocData('forms', f.id, { submissions: f.submissions + 1 })
+          showToast(`📨 ส่งฟอร์มทดสอบแล้ว · ${f.name} (${f.submissions + 1} การตอบ)`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  render()
+  await loadData()
 }

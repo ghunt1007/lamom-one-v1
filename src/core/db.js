@@ -610,6 +610,50 @@ export function seedDemoData() {
   ]
   b2bPartners.forEach(p => { if (!demoCol('b2b_partners')[p.id]) demoCol('b2b_partners')[p.id] = p })
 
+  // Checklists (หน้า /documents/checklist)
+  const checklistsDemo = [
+    { id:'CL001', name:'PDI Checklist (BYD)', category:'DMS', usedCount:42, lastUsed:'2026-06-14', items:['ตรวจสอบรอยขีดข่วนภายนอก','ตรวจระบบไฟทั้งหมด','ทดสอบ AC','ชาร์จแบตเตอรี่ครบ','ตรวจ Software Version','ทดสอบ ADAS Systems','ทดสอบ Drive Mode','ตั้งค่า HomeLink','ผูก VIN ในระบบ'], progress:[] },
+    { id:'CL002', name:'Delivery Checklist', category:'DMS', usedCount:38, lastUsed:'2026-06-15', items:['เตรียมเอกสารครบ (สัญญา ใบส่งมอบ ทะเบียน)','ชี้แจงฟีเจอร์รถให้ลูกค้า','Demo App/Connectivity','แจก Accessory Kit','ถ่ายรูปส่งมอบ','ลายเซ็นดิจิทัล'], progress:[] },
+    { id:'CL003', name:'Service Job Card', category:'บริการ', usedCount:156, lastUsed:'2026-06-15', items:['รับรถ ตรวจสภาพรอบคัน','เช็คระดับน้ำมัน/Coolant','อ่าน Fault Codes','ดำเนินการซ่อมตามใบงาน','ทดสอบหลังซ่อม','ล้างรถ/ดูแลความสะอาด','แจ้งลูกค้ารถพร้อม'], progress:[] },
+    { id:'CL004', name:'5S สำนักงาน', category:'คุณภาพ', usedCount:8, lastUsed:'2026-06-08', items:['Sort: คัดแยกของที่ไม่จำเป็น','Set: จัดวางให้เป็นระเบียบ','Shine: ทำความสะอาด','Standardize: กำหนดมาตรฐาน','Sustain: รักษาและปรับปรุงอย่างต่อเนื่อง'], progress:[] },
+    { id:'CL005', name:'Safety Inspection Workshop', category:'คุณภาพ', usedCount:4, lastUsed:'2026-06-01', items:['ตรวจลิฟต์ยกรถ','ตรวจระบบดับเพลิง','ตรวจอุปกรณ์ป้องกันส่วนบุคคล (PPE)','ตรวจระบบไฟฟ้า','ตรวจทางหนีไฟ'], progress:[] },
+  ]
+  checklistsDemo.forEach(c => { if (!demoCol('checklists')[c.id]) demoCol('checklists')[c.id] = c })
+
+  // Contracts (หน้า /documents/contracts)
+  const ctrAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
+  const contractsDemo = [
+    { id:'CTR001', title:'สัญญาซื้อขาย BYD Seal AWD', type:'sale', status:'active', party:'วิชัย มีโชค', value:1590000, startDate:ctrAddDays(-30), endDate:ctrAddDays(335), createdBy:'สมชาย เซลส์', signedDate:ctrAddDays(-28), tags:['EV','retail'] },
+    { id:'CTR002', title:'สัญญาบำรุงรักษา MG ZS EV Fleet', type:'service', status:'active', party:'บริษัท ABC จำกัด', value:360000, startDate:ctrAddDays(-60), endDate:ctrAddDays(305), createdBy:'วิทยา บริการ', signedDate:ctrAddDays(-55), tags:['fleet','B2B'] },
+    { id:'CTR003', title:'NDA กับ BYD Thailand', type:'nda', status:'signed', party:'BYD Thailand Co., Ltd.', value:0, startDate:ctrAddDays(-90), endDate:ctrAddDays(275), createdBy:'ทีมกฎหมาย', signedDate:ctrAddDays(-85), tags:['confidential'] },
+    { id:'CTR004', title:'สัญญาซื้อขาย BYD Atto 3', type:'sale', status:'review', party:'อรวรรณ สาวสวย', value:1290000, startDate:ctrAddDays(0), endDate:ctrAddDays(30), createdBy:'ปทิตา เซลส์', signedDate:null, tags:['EV','retail'] },
+    { id:'CTR005', title:'สัญญาเช่ารถยนต์ระยะยาว', type:'lease', status:'draft', party:'บริษัท XYZ จำกัด', value:720000, startDate:ctrAddDays(7), endDate:ctrAddDays(372), createdBy:'สมชาย เซลส์', signedDate:null, tags:['fleet','leasing'] },
+    { id:'CTR006', title:'สัญญาซัพพลายเออร์ อะไหล่', type:'supplier', status:'active', party:'บ. อะไหล่ไทย จำกัด', value:240000, startDate:ctrAddDays(-180), endDate:ctrAddDays(185), createdBy:'หัวหน้าคลัง', signedDate:ctrAddDays(-175), tags:['parts','supply'] },
+  ]
+  contractsDemo.forEach(c => { if (!demoCol('contracts')[c.id]) demoCol('contracts')[c.id] = c })
+
+  // Document Templates (หน้า /documents/templates)
+  const dtAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString() }
+  const documentTemplatesDemo = [
+    { id:'TPL001', name:'ใบเสนอราคา (Quotation)', cat:'sales', usage:245, lastUsed:dtAddDays(-1), fields:['ชื่อลูกค้า','รุ่นรถ','ราคา','ส่วนลด','ของแถม'], active:true },
+    { id:'TPL002', name:'สัญญาจองรถ', cat:'sales', usage:128, lastUsed:dtAddDays(-2), fields:['ชื่อลูกค้า','รุ่นรถ','สี','มัดจำ','วันส่งมอบ'], active:true },
+    { id:'TPL003', name:'ใบส่งมอบรถ (Delivery Note)', cat:'sales', usage:96, lastUsed:dtAddDays(-3), fields:['ชื่อลูกค้า','VIN','ทะเบียน','เลขไมล์','อุปกรณ์'], active:true },
+    { id:'TPL004', name:'ใบแจ้งซ่อม (Job Card)', cat:'service', usage:412, lastUsed:dtAddDays(0), fields:['ทะเบียน','อาการ','ช่าง','ประเมินราคา'], active:true },
+    { id:'TPL005', name:'ใบกำกับภาษี / ใบเสร็จ', cat:'finance', usage:587, lastUsed:dtAddDays(0), fields:['เลขที่','ลูกค้า','รายการ','VAT','รวม'], active:true },
+    { id:'TPL006', name:'สัญญาจ้างงาน', cat:'hr', usage:8, lastUsed:dtAddDays(-30), fields:['ชื่อพนักงาน','ตำแหน่ง','เงินเดือน','วันเริ่มงาน'], active:true },
+    { id:'TPL007', name:'หนังสือมอบอำนาจ', cat:'legal', usage:23, lastUsed:dtAddDays(-14), fields:['ผู้มอบ','ผู้รับมอบ','เรื่อง','วันที่'], active:true },
+    { id:'TPL008', name:'แบบฟอร์มเทิร์นรถเก่า', cat:'sales', usage:4, lastUsed:dtAddDays(-60), fields:['ทะเบียนเดิม','ราคาประเมิน','สภาพรถ'], active:false },
+  ]
+  documentTemplatesDemo.forEach(t => { if (!demoCol('document_templates')[t.id]) demoCol('document_templates')[t.id] = t })
+
+  // Forms (หน้า /documents/form-builder)
+  const formsDemo = [
+    { id:'f001', name:'ฟอร์มจองรถ', desc:'ลูกค้าจองรถออนไลน์', fields:['ชื่อ-นามสกุล','เบอร์โทร','รุ่นที่สนใจ','วันนัดหมาย'], submissions:28, active:true },
+    { id:'f002', name:'แบบสอบถามความพึงพอใจ', desc:'ประเมินหลังรับรถ', fields:['คะแนนโชว์รูม','คะแนนพนักงาน','คะแนนกระบวนการ','ข้อเสนอแนะ'], submissions:156, active:true },
+    { id:'f003', name:'ฟอร์มรับรถเข้าซ่อม', desc:'ลูกค้าแจ้งอาการก่อนเข้าศูนย์', fields:['ทะเบียนรถ','อาการที่พบ','เลขไมล์','วันนัดเข้าซ่อม'], submissions:94, active:false },
+  ]
+  formsDemo.forEach(f => { if (!demoCol('forms')[f.id]) demoCol('forms')[f.id] = f })
+
   const accessories = [
     { id:'acc1', name:'ฟิล์มกรองแสง 3M Crystalline', sku:'ACC-3M-001', category:'ฟิล์ม', price:18000, cost:10000, stock:5, unit:'ชุด', brand:'3M', createdAt:'2025-01-10' },
     { id:'acc2', name:'พรมรถ BYD Seal OEM', sku:'ACC-BYD-002', category:'ตกแต่งภายใน', price:3500, cost:1800, stock:12, unit:'ชุด', brand:'BYD', createdAt:'2025-01-15' },
