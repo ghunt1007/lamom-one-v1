@@ -553,6 +553,42 @@ export function seedDemoData() {
   ]
   systemIntegrations.forEach(i => { if (!demoCol('system_integrations')[i.id]) demoCol('system_integrations')[i.id] = i })
 
+  // Security policies + sessions (หน้า /settings/security)
+  const ssAddMinutes = n => { const d = new Date(); d.setMinutes(d.getMinutes() - n); return d.toISOString() }
+  const securityPolicies = [
+    { id:'P1', name:'บังคับ 2FA สำหรับ Admin/Manager', enabled:true, critical:true },
+    { id:'P2', name:'บังคับ 2FA สำหรับพนักงานทุกคน', enabled:false, critical:false },
+    { id:'P3', name:'รหัสผ่านขั้นต่ำ 10 ตัว + ตัวเลข + อักขระพิเศษ', enabled:true, critical:true },
+    { id:'P4', name:'บังคับเปลี่ยนรหัสทุก 90 วัน', enabled:false, critical:false },
+    { id:'P5', name:'Auto-logout เมื่อไม่ใช้งาน 30 นาที', enabled:true, critical:false },
+    { id:'P6', name:'จำกัด login จาก IP ในไทยเท่านั้น', enabled:true, critical:false },
+    { id:'P7', name:'แจ้งเตือน Owner เมื่อมี login จากอุปกรณ์ใหม่', enabled:true, critical:true },
+    { id:'P8', name:'ห้าม export ข้อมูลลูกค้าโดยไม่มีการอนุมัติ', enabled:true, critical:true },
+  ]
+  securityPolicies.forEach(p => { if (!demoCol('security_policies')[p.id]) demoCol('security_policies')[p.id] = p })
+
+  const securitySessions = [
+    { id:'S1', user:'ทวีศักดิ์ (Owner)', device:'Windows — Chrome', ip:'49.228.x.x (กรุงเทพ)', lastActive:ssAddMinutes(0), current:true },
+    { id:'S2', user:'สมศรี การเงิน', device:'Windows — Edge', ip:'49.228.x.x (กรุงเทพ)', lastActive:ssAddMinutes(8), current:false },
+    { id:'S3', user:'วิชัย ยอดขาย', device:'iPhone — Safari', ip:'184.22.x.x (มือถือ)', lastActive:ssAddMinutes(25), current:false },
+    { id:'S4', user:'วิชัย ยอดขาย', device:'Android — Chrome', ip:'27.55.x.x (มือถือ)', lastActive:ssAddMinutes(2880), current:false },
+  ]
+  securitySessions.forEach(s => { if (!demoCol('security_sessions')[s.id]) demoCol('security_sessions')[s.id] = s })
+
+  // Settings > Users demo list (หน้า /settings/users)
+  const settingsUsersDemo = [
+    { id:'owner-001', email:'owner@lamom.co.th', displayName:'ทวีศักดิ์ สุขสมบัติเสถียร', role:'owner', status:'active', lastLogin:'2025-06-09', branch:'สาขาหลัก' },
+    { id:'demo-user', email:'demo@lamom.co.th', displayName:'Demo User', role:'admin', status:'active', lastLogin:'2025-06-09', branch:'สาขาหลัก' },
+    { id:'sales-001', email:'nun@lamom.co.th', displayName:'อรนุช เซลส์ดี', role:'sales', status:'active', lastLogin:'2025-06-08', branch:'สาขาหลัก' },
+    { id:'sales-002', email:'wichai@lamom.co.th', displayName:'วิชัย ขายเก่ง', role:'sales', status:'active', lastLogin:'2025-06-07', branch:'สาขาหลัก' },
+    { id:'sales-003', email:'pim@lamom.co.th', displayName:'พิมพ์ ใจดี', role:'sales', status:'active', lastLogin:'2025-06-06', branch:'สาขาชลบุรี' },
+    { id:'mgr-001', email:'manager@lamom.co.th', displayName:'สมศักดิ์ ผู้จัดการ', role:'manager', status:'active', lastLogin:'2025-06-09', branch:'สาขาหลัก' },
+    { id:'tech-001', email:'somchai@lamom.co.th', displayName:'สมชาย ช่างดี', role:'service', status:'active', lastLogin:'2025-06-09', branch:'สาขาหลัก' },
+    { id:'tech-002', email:'wut@lamom.co.th', displayName:'วุฒิ เทคนิค', role:'service', status:'active', lastLogin:'2025-06-05', branch:'สาขาชลบุรี' },
+    { id:'staff-001', email:'nok@lamom.co.th', displayName:'นก สำนักงาน', role:'staff', status:'inactive', lastLogin:'2025-05-20', branch:'สาขาหลัก' },
+  ]
+  settingsUsersDemo.forEach(u => { if (!demoCol('settings_users_demo')[u.id]) demoCol('settings_users_demo')[u.id] = u })
+
   const accessories = [
     { id:'acc1', name:'ฟิล์มกรองแสง 3M Crystalline', sku:'ACC-3M-001', category:'ฟิล์ม', price:18000, cost:10000, stock:5, unit:'ชุด', brand:'3M', createdAt:'2025-01-10' },
     { id:'acc2', name:'พรมรถ BYD Seal OEM', sku:'ACC-BYD-002', category:'ตกแต่งภายใน', price:3500, cost:1800, stock:12, unit:'ชุด', brand:'BYD', createdAt:'2025-01-15' },

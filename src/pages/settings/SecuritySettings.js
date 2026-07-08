@@ -5,26 +5,9 @@
 import { timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
 function addMinutes(n) { const d = new Date(); d.setMinutes(d.getMinutes() - n); return d.toISOString() }
-
-const SECURITY_POLICIES = [
-  { id: 'P1', name: 'บังคับ 2FA สำหรับ Admin/Manager', enabled: true, critical: true },
-  { id: 'P2', name: 'บังคับ 2FA สำหรับพนักงานทุกคน', enabled: false, critical: false },
-  { id: 'P3', name: 'รหัสผ่านขั้นต่ำ 10 ตัว + ตัวเลข + อักขระพิเศษ', enabled: true, critical: true },
-  { id: 'P4', name: 'บังคับเปลี่ยนรหัสทุก 90 วัน', enabled: false, critical: false },
-  { id: 'P5', name: 'Auto-logout เมื่อไม่ใช้งาน 30 นาที', enabled: true, critical: false },
-  { id: 'P6', name: 'จำกัด login จาก IP ในไทยเท่านั้น', enabled: true, critical: false },
-  { id: 'P7', name: 'แจ้งเตือน Owner เมื่อมี login จากอุปกรณ์ใหม่', enabled: true, critical: true },
-  { id: 'P8', name: 'ห้าม export ข้อมูลลูกค้าโดยไม่มีการอนุมัติ', enabled: true, critical: true },
-]
-
-const ACTIVE_SESSIONS = [
-  { id: 'S1', user: 'ทวีศักดิ์ (Owner)', device: 'Windows — Chrome', ip: '49.228.x.x (กรุงเทพ)', lastActive: addMinutes(0), current: true },
-  { id: 'S2', user: 'สมศรี การเงิน', device: 'Windows — Edge', ip: '49.228.x.x (กรุงเทพ)', lastActive: addMinutes(8), current: false },
-  { id: 'S3', user: 'วิชัย ยอดขาย', device: 'iPhone — Safari', ip: '184.22.x.x (มือถือ)', lastActive: addMinutes(25), current: false },
-  { id: 'S4', user: 'วิชัย ยอดขาย', device: 'Android — Chrome', ip: '27.55.x.x (มือถือ)', lastActive: addMinutes(2880), current: false },
-]
 
 const RECENT_ALERTS = [
   { time: addMinutes(360), level: 'warn', msg: 'Login ผิดรหัส 3 ครั้งติด — บัญชี thana@lamom (ล็อค 15 นาทีแล้ว)' },
@@ -33,10 +16,31 @@ const RECENT_ALERTS = [
 ]
 
 export default async function SecuritySettingsPage(container) {
-  let policies = SECURITY_POLICIES.map(p => ({ ...p }))
-  let sessions = ACTIVE_SESSIONS.map(s => ({ ...s }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let policies = []
+  let sessions = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try {
+      const [p, s] = await Promise.all([
+        listDocs('security_policies', [], 'id', 'asc', 50),
+        listDocs('security_sessions', [], 'lastActive', 'desc', 200),
+      ])
+      policies = p; sessions = s
+    } catch (e) { policies = []; sessions = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const enabledCount = policies.filter(p => p.enabled).length
     const criticalOff = policies.filter(p => p.critical && !p.enabled).length
     const score = Math.round(enabledCount / policies.length * 100)
@@ -105,32 +109,46 @@ export default async function SecuritySettingsPage(container) {
 
     container.querySelectorAll('.pol-btn').forEach(b => b.addEventListener('click', () => {
       const p = policies.find(x => x.id === b.dataset.id)
-      if (p) {
-        if (p.enabled && p.critical) {
-          openModal({
-            title: '⚠️ ปิดนโยบายสำคัญ?',
-            size: 'sm',
-            body: `<p style="font-size:0.82rem">"${p.name}" เป็นนโยบายสำคัญ — การปิดจะลดความปลอดภัยของระบบ</p>`,
-            confirmText: '⚠️ ยืนยันปิด',
-            onConfirm() { p.enabled = false; showToast('⚠️ ปิดนโยบายแล้ว — บันทึก log', 'warning'); renderPage() }
-          })
-        } else {
-          p.enabled = !p.enabled
-          showToast(p.enabled ? '✅ เปิดนโยบายแล้ว' : '⏸ ปิดนโยบายแล้ว', 'primary'); renderPage()
-        }
+      if (!p) return
+      if (p.enabled && p.critical) {
+        openModal({
+          title: '⚠️ ปิดนโยบายสำคัญ?',
+          size: 'sm',
+          body: `<p style="font-size:0.82rem">"${p.name}" เป็นนโยบายสำคัญ — การปิดจะลดความปลอดภัยของระบบ</p>`,
+          confirmText: '⚠️ ยืนยันปิด',
+          async onConfirm() {
+            try {
+              await updateDocData('security_policies', p.id, { enabled: false })
+              showToast('⚠️ ปิดนโยบายแล้ว — บันทึก log', 'warning')
+              await loadData()
+            } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+          }
+        })
+      } else {
+        const enabled = !p.enabled
+        updateDocData('security_policies', p.id, { enabled })
+          .then(() => { showToast(enabled ? '✅ เปิดนโยบายแล้ว' : '⏸ ปิดนโยบายแล้ว', 'primary'); return loadData() })
+          .catch(() => showToast('บันทึกไม่สำเร็จ', 'error'))
       }
     }))
-    container.querySelectorAll('.kick-btn').forEach(b => b.addEventListener('click', () => {
-      sessions = sessions.filter(x => x.id !== b.dataset.id)
-      showToast('🚪 Logout session แล้ว', 'warning'); renderPage()
+    container.querySelectorAll('.kick-btn').forEach(b => b.addEventListener('click', async () => {
+      try {
+        await softDelete('security_sessions', b.dataset.id)
+        showToast('🚪 Logout session แล้ว', 'warning')
+        await loadData()
+      } catch (e) { showToast('ไม่สำเร็จ', 'error') }
     }))
-    document.getElementById('logout-all-btn')?.addEventListener('click', () => {
-      sessions = sessions.filter(s => s.current)
-      showToast('🚪 Logout ทุก session แล้ว (ยกเว้นเครื่องนี้)', 'warning'); renderPage()
+    document.getElementById('logout-all-btn')?.addEventListener('click', async () => {
+      const targets = sessions.filter(s => !s.current)
+      try {
+        await Promise.all(targets.map(s => softDelete('security_sessions', s.id)))
+        showToast('🚪 Logout ทุก session แล้ว (ยกเว้นเครื่องนี้)', 'warning')
+        await loadData()
+      } catch (e) { showToast('ไม่สำเร็จ', 'error') }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

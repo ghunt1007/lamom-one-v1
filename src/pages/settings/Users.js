@@ -1,24 +1,25 @@
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 const ROLE_LABELS = { owner:'เจ้าของ', admin:'แอดมิน', manager:'ผู้จัดการ', sales:'เซลส์', service:'ช่าง', staff:'พนักงาน' }
 const ROLE_COLORS = { owner:'warning', admin:'primary', manager:'accent', sales:'success', service:'accent', staff:'primary' }
 
-let DEMO_USERS = [
-  { uid:'owner-001', email:'owner@lamom.co.th', displayName:'ทวีศักดิ์ สุขสมบัติเสถียร', role:'owner', status:'active', lastLogin:'2025-06-09', branch:'สาขาหลัก' },
-  { uid:'demo-user', email:'demo@lamom.co.th', displayName:'Demo User', role:'admin', status:'active', lastLogin:'2025-06-09', branch:'สาขาหลัก' },
-  { uid:'sales-001', email:'nun@lamom.co.th', displayName:'อรนุช เซลส์ดี', role:'sales', status:'active', lastLogin:'2025-06-08', branch:'สาขาหลัก' },
-  { uid:'sales-002', email:'wichai@lamom.co.th', displayName:'วิชัย ขายเก่ง', role:'sales', status:'active', lastLogin:'2025-06-07', branch:'สาขาหลัก' },
-  { uid:'sales-003', email:'pim@lamom.co.th', displayName:'พิมพ์ ใจดี', role:'sales', status:'active', lastLogin:'2025-06-06', branch:'สาขาชลบุรี' },
-  { uid:'mgr-001', email:'manager@lamom.co.th', displayName:'สมศักดิ์ ผู้จัดการ', role:'manager', status:'active', lastLogin:'2025-06-09', branch:'สาขาหลัก' },
-  { uid:'tech-001', email:'somchai@lamom.co.th', displayName:'สมชาย ช่างดี', role:'service', status:'active', lastLogin:'2025-06-09', branch:'สาขาหลัก' },
-  { uid:'tech-002', email:'wut@lamom.co.th', displayName:'วุฒิ เทคนิค', role:'service', status:'active', lastLogin:'2025-06-05', branch:'สาขาชลบุรี' },
-  { uid:'staff-001', email:'nok@lamom.co.th', displayName:'นก สำนักงาน', role:'staff', status:'inactive', lastLogin:'2025-05-20', branch:'สาขาหลัก' },
-]
+export default async function UsersPage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
 
-export default function UsersPage(container) {
   let filterRole = 'all'
   let filterStatus = 'all'
+  let DEMO_USERS = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { DEMO_USERS = await listDocs('settings_users_demo', [], 'displayName', 'asc', 500) } catch (e) { DEMO_USERS = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function getFiltered() {
     return DEMO_USERS.filter(u =>
@@ -28,6 +29,10 @@ export default function UsersPage(container) {
   }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const filtered = getFiltered()
     const activeCount = DEMO_USERS.filter(u => u.status === 'active').length
     const roleBreakdown = Object.entries(ROLE_LABELS).map(([k, v]) => {
@@ -107,10 +112,10 @@ export default function UsersPage(container) {
                       <td><span class="badge badge-${u.status==='active'?'success':'danger'}">${u.status==='active'?'✅ Active':'❌ Inactive'}</span></td>
                       <td style="font-size:0.78rem;color:var(--text-muted)">${u.lastLogin}</td>
                       <td style="text-align:center">
-                        ${u.uid === 'owner-001' ? `<span style="font-size:0.72rem;color:var(--warning)">🔒 เจ้าของ</span>` : `
+                        ${u.id === 'owner-001' ? `<span style="font-size:0.72rem;color:var(--warning)">🔒 เจ้าของ</span>` : `
                           <div style="display:flex;gap:4px;justify-content:center">
-                            <button class="btn btn-xs btn-secondary edit-user-btn" data-uid="${u.uid}">✏️</button>
-                            <button class="btn btn-xs ${u.status==='active'?'btn-warning':'btn-success'} toggle-status-btn" data-uid="${u.uid}">${u.status==='active'?'🚫':'✅'}</button>
+                            <button class="btn btn-xs btn-secondary edit-user-btn" data-id="${u.id}">✏️</button>
+                            <button class="btn btn-xs ${u.status==='active'?'btn-warning':'btn-success'} toggle-status-btn" data-id="${u.id}">${u.status==='active'?'🚫':'✅'}</button>
                           </div>
                         `}
                       </td>
@@ -133,19 +138,20 @@ export default function UsersPage(container) {
     document.getElementById('filter-status').addEventListener('change', e => { filterStatus = e.target.value; renderPage() })
 
     container.querySelectorAll('.edit-user-btn').forEach(btn => btn.addEventListener('click', () => {
-      const u = DEMO_USERS.find(x => x.uid === btn.dataset.uid)
+      const u = DEMO_USERS.find(x => x.id === btn.dataset.id)
       if (u) openEditModal(u)
     }))
 
     container.querySelectorAll('.toggle-status-btn').forEach(btn => btn.addEventListener('click', async () => {
-      const u = DEMO_USERS.find(x => x.uid === btn.dataset.uid)
+      const u = DEMO_USERS.find(x => x.id === btn.dataset.id)
       if (!u) return
       const action = u.status === 'active' ? 'ระงับ' : 'เปิดใช้งาน'
       const ok = await confirmDialog({ title: `${action}ผู้ใช้?`, message: `${action} "${u.displayName}" ใช่ไหม?`, confirmText: action, danger: u.status === 'active' })
       if (!ok) return
-      u.status = u.status === 'active' ? 'inactive' : 'active'
-      showToast(`${u.status==='active'?'✅ เปิดใช้':'🚫 ระงับ'}ผู้ใช้ ${u.displayName} แล้ว`, u.status==='active'?'success':'warning')
-      renderPage()
+      const status = u.status === 'active' ? 'inactive' : 'active'
+      try { await updateDocData('settings_users_demo', u.id, { status }) } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return }
+      showToast(`${status==='active'?'✅ เปิดใช้':'🚫 ระงับ'}ผู้ใช้ ${u.displayName} แล้ว`, status==='active'?'success':'warning')
+      await loadData()
     }))
   }
 
@@ -171,15 +177,17 @@ export default function UsersPage(container) {
       footer: `<button class="btn btn-secondary" id="inv-c">ยกเลิก</button><button class="btn btn-primary" id="inv-s">✉️ ส่งคำเชิญ</button>`
     })
     el.querySelector('#inv-c').addEventListener('click', close)
-    el.querySelector('#inv-s').addEventListener('click', () => {
+    el.querySelector('#inv-s').addEventListener('click', async () => {
       const name = el.querySelector('#inv-name').value.trim()
       const email = el.querySelector('#inv-email').value.trim()
       if (!name || !email) return showToast('⚠️ กรุณากรอกชื่อและอีเมล', 'warning')
       const role = el.querySelector('#inv-role').value
       const branch = el.querySelector('#inv-branch').value
-      DEMO_USERS.push({ uid: 'u'+Date.now(), email, displayName: name, role, status: 'active', lastLogin: '-', branch })
-      showToast(`✉️ ส่งคำเชิญให้ ${email} แล้ว (Demo mode)`, 'success')
-      close(); renderPage()
+      try {
+        await createDoc('settings_users_demo', { email, displayName: name, role, status: 'active', lastLogin: '-', branch })
+        showToast(`✉️ ส่งคำเชิญให้ ${email} แล้ว (Demo mode)`, 'success')
+        close(); await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
@@ -204,14 +212,19 @@ export default function UsersPage(container) {
       footer: `<button class="btn btn-secondary" id="ed-c">ยกเลิก</button><button class="btn btn-primary" id="ed-s">💾 บันทึก</button>`
     })
     el.querySelector('#ed-c').addEventListener('click', close)
-    el.querySelector('#ed-s').addEventListener('click', () => {
-      u.displayName = el.querySelector('#ed-name').value.trim() || u.displayName
-      u.role = el.querySelector('#ed-role').value
-      u.branch = el.querySelector('#ed-branch').value
-      showToast('💾 บันทึกแล้ว', 'success')
-      close(); renderPage()
+    el.querySelector('#ed-s').addEventListener('click', async () => {
+      const data = {
+        displayName: el.querySelector('#ed-name').value.trim() || u.displayName,
+        role: el.querySelector('#ed-role').value,
+        branch: el.querySelector('#ed-branch').value,
+      }
+      try {
+        await updateDocData('settings_users_demo', u.id, data)
+        showToast('💾 บันทึกแล้ว', 'success')
+        close(); await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
-  renderPage()
+  await loadData()
 }
