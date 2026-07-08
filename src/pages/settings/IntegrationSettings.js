@@ -5,6 +5,7 @@
 import { timeAgo } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 
 const INTEGRATION_CATS = {
   payment:   { label: 'การชำระเงิน', icon: '💳' },
@@ -15,24 +16,26 @@ const INTEGRATION_CATS = {
   logistics: { label: 'โลจิสติกส์', icon: '🚚' },
 }
 
-const INTEGRATIONS = [
-  { id: 'INT001', name: 'LINE Official Account', cat: 'messaging', icon: '💬', status: 'connected', desc: 'รับส่งข้อความ LINE ลูกค้า', lastSync: new Date(Date.now() - 600000).toISOString(), webhookUrl: 'https://api.lamom.one/webhook/line', config: { channelId: 'xxxxx', secretKey: '****' } },
-  { id: 'INT002', name: 'Facebook Messenger', cat: 'messaging', icon: '📘', status: 'connected', desc: 'ตอบ Chat Facebook Page', lastSync: new Date(Date.now() - 1800000).toISOString(), webhookUrl: 'https://api.lamom.one/webhook/fb', config: { pageId: 'xxxxx', token: '****' } },
-  { id: 'INT003', name: 'SCB Easy Payment', cat: 'payment', icon: '💳', status: 'connected', desc: 'รับชำระผ่าน SCB Easy', lastSync: new Date(Date.now() - 3600000).toISOString(), webhookUrl: '', config: { merchantId: 'xxxxx', apiKey: '****' } },
-  { id: 'INT004', name: 'KBank Payment Gateway', cat: 'payment', icon: '💰', status: 'disconnected', desc: 'รับชำระผ่าน KBank', lastSync: null, webhookUrl: '', config: {} },
-  { id: 'INT005', name: 'QuickBooks', cat: 'accounting', icon: '📊', status: 'error', desc: 'ส่งข้อมูลบัญชีอัตโนมัติ', lastSync: new Date(Date.now() - 86400000).toISOString(), webhookUrl: '', config: { companyId: 'xxxxx', token: '****' } },
-  { id: 'INT006', name: 'OpenAI GPT-4', cat: 'ai', icon: '🤖', status: 'connected', desc: 'AI สำหรับ LAMI Brain', lastSync: new Date(Date.now() - 300000).toISOString(), webhookUrl: '', config: { apiKey: '****', model: 'gpt-4o' } },
-  { id: 'INT007', name: 'Google Analytics 4', cat: 'ai', icon: '📈', status: 'connected', desc: 'วิเคราะห์ traffic เว็บไซต์', lastSync: new Date(Date.now() - 7200000).toISOString(), webhookUrl: '', config: { measurementId: 'G-xxxxx' } },
-  { id: 'INT008', name: 'Salesforce CRM', cat: 'crm', icon: '☁️', status: 'disconnected', desc: 'Sync ข้อมูล Lead กับ Salesforce', lastSync: null, webhookUrl: '', config: {} },
-  { id: 'INT009', name: 'BYD Dealer Portal', cat: 'logistics', icon: '🚗', status: 'connected', desc: 'ดึงข้อมูลสั่งรถและสต็อก', lastSync: new Date(Date.now() - 14400000).toISOString(), webhookUrl: '', config: { dealerCode: 'BYD-TH-001' } },
-  { id: 'INT010', name: 'SendGrid Email', cat: 'messaging', icon: '📧', status: 'connected', desc: 'ส่ง Email อัตโนมัติ', lastSync: new Date(Date.now() - 900000).toISOString(), webhookUrl: '', config: { apiKey: '****', fromEmail: 'noreply@lamom.one' } },
-]
-
 export default async function IntegrationSettingsPage(container) {
-  let integrations = INTEGRATIONS.map(i => ({ ...i }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let integrations = []
   let catFilter = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { integrations = await listDocs('system_integrations', [], 'name', 'asc', 200) } catch (e) { integrations = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const connected = integrations.filter(i => i.status === 'connected').length
     const errors = integrations.filter(i => i.status === 'error').length
     const list = catFilter === 'all' ? integrations : integrations.filter(i => i.cat === catFilter)
@@ -98,13 +101,23 @@ export default async function IntegrationSettingsPage(container) {
     container.querySelectorAll('.config-btn').forEach(b => b.addEventListener('click', () => {
       const int = integrations.find(x => x.id === b.dataset.id); if (int) openConfig(int)
     }))
-    container.querySelectorAll('.sync-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.sync-btn').forEach(b => b.addEventListener('click', async () => {
       const int = integrations.find(x => x.id === b.dataset.id)
-      if (int) { int.lastSync = new Date().toISOString(); showToast(`🔄 Sync ${int.name} แล้ว`, 'success'); renderPage() }
+      if (!int) return
+      try {
+        await updateDocData('system_integrations', int.id, { lastSync: new Date().toISOString() })
+        showToast(`🔄 Sync ${int.name} แล้ว`, 'success')
+        await loadData()
+      } catch (e) { showToast('Sync ไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.disconnect-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.disconnect-btn').forEach(b => b.addEventListener('click', async () => {
       const int = integrations.find(x => x.id === b.dataset.id)
-      if (int) { int.status = 'disconnected'; int.lastSync = null; showToast(`❌ ตัดการเชื่อมต่อ ${int.name} แล้ว`, 'warning'); renderPage() }
+      if (!int) return
+      try {
+        await updateDocData('system_integrations', int.id, { status: 'disconnected', lastSync: null })
+        showToast(`❌ ตัดการเชื่อมต่อ ${int.name} แล้ว`, 'warning')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.connect-btn, .reconnect-btn').forEach(b => b.addEventListener('click', () => {
       const int = integrations.find(x => x.id === b.dataset.id); if (int) openConnectModal(int)
@@ -146,19 +159,19 @@ export default async function IntegrationSettingsPage(container) {
         <div class="input-group"><label class="input-label">API Key / Token *</label><input class="input" id="conn-apikey" type="password" placeholder="กรอก API Key"></div>
         <div class="input-group"><label class="input-label">Client ID / Merchant ID</label><input class="input" id="conn-clientid" placeholder="กรอก ID (ถ้ามี)"></div>
       `,
-      onConfirm() {
+      async onConfirm() {
         const apiKey = document.getElementById('conn-apikey')?.value?.trim()
-        if (!apiKey) { showToast('❗ กรุณากรอก API Key', 'error'); return }
-        int.status = 'connected'
-        int.lastSync = new Date().toISOString()
-        int.config = { apiKey: '****', clientId: document.getElementById('conn-clientid')?.value || '' }
-        showToast(`✅ เชื่อมต่อ ${int.name} สำเร็จ!`, 'success')
-        renderPage()
+        if (!apiKey) { showToast('❗ กรุณากรอก API Key', 'error'); return false }
+        try {
+          await updateDocData('system_integrations', int.id, { status: 'connected', lastSync: new Date().toISOString(), config: { apiKey: '****', clientId: document.getElementById('conn-clientid')?.value || '' } })
+          showToast(`✅ เชื่อมต่อ ${int.name} สำเร็จ!`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

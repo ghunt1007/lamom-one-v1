@@ -5,25 +5,35 @@
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { formatCurrency } from '../../utils/format.js'
-
-let slides = [
-  { id:'s001', type:'promo',   title:'BYD Seal AWD', desc:'ดาวน์พิเศษ เพียง 150,000 บาท', price:1699000, bg:'#1565C0', textColor:'#fff', duration:10, active:true  },
-  { id:'s002', type:'model',   title:'BYD Atto 3',   desc:'ฟรีชาร์จเจอร์บ้าน 7.4kW มูลค่า 25,000 บาท', price:1099000, bg:'#00897B', textColor:'#fff', duration:8,  active:true  },
-  { id:'s003', type:'service', title:'ศูนย์บริการ',   desc:'เช็คระยะฟรี เดือน มิ.ย. นี้ · นัดออนไลน์ได้', price:0, bg:'#FF8F00', textColor:'#fff', duration:7,  active:true  },
-  { id:'s004', type:'queue',   title:'คิวบริการวันนี้', desc:'คิว 1-15 กำลังรับรถ · คิว 16-20 รอตรวจ', price:0, bg:'#4A148C', textColor:'#fff', duration:5,  active:false },
-]
-
-let screens = [
-  { id:'sc01', name:'จอหน้าโชว์รูม', location:'ล็อบบี้', status:'online', currentSlide:'s001', resolution:'1920x1080' },
-  { id:'sc02', name:'จอห้องรับรถ', location:'Service Bay', status:'online', currentSlide:'s003', resolution:'1920x1080' },
-  { id:'sc03', name:'จอโต๊ะเจรจา', location:'ห้องประชุมลูกค้า', status:'offline', currentSlide:null, resolution:'1280x720' },
-]
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
 export default async function DigitalSignagePage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let slides = []
+  let screens = []
   let previewSlide = 0
-  let previewInterval = null
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try {
+      const [sl, sc] = await Promise.all([
+        listDocs('signage_slides', [], 'title', 'asc', 200),
+        listDocs('signage_screens', [], 'name', 'asc', 200),
+      ])
+      slides = sl; screens = sc
+    } catch (e) { slides = []; screens = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const activeSl = slides.filter(s => s.active)
     const cur = activeSl[previewSlide % Math.max(activeSl.length,1)]
 
@@ -90,25 +100,43 @@ export default async function DigitalSignagePage(container) {
       </div>`
 
     document.getElementById('add-slide-btn')?.addEventListener('click', () => openAddModal())
-    document.getElementById('push-all-btn')?.addEventListener('click', () => {
-      const onlineCount = screens.filter(s => s.status === 'online').length
-      screens.forEach(s => { if (s.status === 'online') s.currentSlide = activeSl[0]?.id || s.currentSlide })
-      render()
-      showToast(`📡 Push Playlist ${activeSl.length} slides ไปยัง ${onlineCount} จอ Online แล้ว`, 'success')
+    document.getElementById('push-all-btn')?.addEventListener('click', async () => {
+      const onlineScreens = screens.filter(s => s.status === 'online')
+      try {
+        await Promise.all(onlineScreens.map(s => updateDocData('signage_screens', s.id, { currentSlide: activeSl[0]?.id || s.currentSlide })))
+        showToast(`📡 Push Playlist ${activeSl.length} slides ไปยัง ${onlineScreens.length} จอ Online แล้ว`, 'success')
+        await loadData()
+      } catch (e) { showToast('Push ไม่สำเร็จ', 'error') }
     })
     document.getElementById('prev-slide-btn')?.addEventListener('click', () => { previewSlide = Math.max(0, previewSlide-1); render() })
     document.getElementById('next-slide-btn')?.addEventListener('click', () => { previewSlide = (previewSlide+1) % Math.max(activeSl.length,1); render() })
-    container.querySelectorAll('.toggle-slide-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.toggle-slide-btn').forEach(b => b.addEventListener('click', async () => {
       const s = slides.find(x => x.id === b.dataset.id)
-      if (s) { s.active = !s.active; previewSlide=0; render(); showToast(`${s.active?'✅':'⏸'} "${s.title}" แล้ว`, 'success') }
+      if (!s) return
+      const active = !s.active
+      try {
+        await updateDocData('signage_slides', s.id, { active })
+        previewSlide = 0
+        showToast(`${active?'✅':'⏸'} "${s.title}" แล้ว`, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.del-slide-btn').forEach(b => b.addEventListener('click', () => {
-      slides = slides.filter(x => x.id !== b.dataset.id); previewSlide=0; render(); showToast('🗑 ลบ Slide แล้ว', 'success')
+    container.querySelectorAll('.del-slide-btn').forEach(b => b.addEventListener('click', async () => {
+      try {
+        await softDelete('signage_slides', b.dataset.id)
+        previewSlide = 0
+        showToast('🗑 ลบ Slide แล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('ลบไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.push-sc-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.push-sc-btn').forEach(b => b.addEventListener('click', async () => {
       const sc = screens.find(s => s.id === b.dataset.id)
-      if (sc) { sc.currentSlide = activeSl[0]?.id || sc.currentSlide; render() }
-      showToast(`📡 Push Playlist ${activeSl.length} slides ไปยัง ${sc?.name} แล้ว`, 'success')
+      if (!sc) return
+      try {
+        await updateDocData('signage_screens', sc.id, { currentSlide: activeSl[0]?.id || sc.currentSlide })
+        showToast(`📡 Push Playlist ${activeSl.length} slides ไปยัง ${sc.name} แล้ว`, 'success')
+        await loadData()
+      } catch (e) { showToast('Push ไม่สำเร็จ', 'error') }
     }))
   }
 
@@ -152,21 +180,23 @@ export default async function DigitalSignagePage(container) {
         <div><label style="font-size:0.72rem;color:var(--text-muted)">แสดง (วินาที)</label><input class="input" id="sl-dur" type="number" value="8" style="width:80px;margin-top:4px"></div>
       </div>`,
       confirmText: 'สร้าง Slide',
-      onConfirm() {
+      async onConfirm() {
         const title = document.getElementById('sl-title')?.value.trim()
         if (!title) { showToast('ใส่หัวข้อ Slide', 'warning'); return false }
-        slides.push({
-          id: 's'+Date.now(),
-          type: document.getElementById('sl-type')?.value||'promo',
-          title,
-          desc: document.getElementById('sl-desc')?.value||'',
-          price: parseFloat(document.getElementById('sl-price')?.value||0),
-          bg: document.getElementById('sl-bg')?.value||'#1565C0',
-          textColor:'#fff',
-          duration: parseInt(document.getElementById('sl-dur')?.value||8),
-          active: true
-        })
-        render(); showToast(`✅ สร้าง Slide "${title}" แล้ว`, 'success')
+        try {
+          await createDoc('signage_slides', {
+            type: document.getElementById('sl-type')?.value||'promo',
+            title,
+            desc: document.getElementById('sl-desc')?.value||'',
+            price: parseFloat(document.getElementById('sl-price')?.value||0),
+            bg: document.getElementById('sl-bg')?.value||'#1565C0',
+            textColor:'#fff',
+            duration: parseInt(document.getElementById('sl-dur')?.value||8),
+            active: true
+          })
+          showToast(`✅ สร้าง Slide "${title}" แล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
     setTimeout(() => {
@@ -178,5 +208,5 @@ export default async function DigitalSignagePage(container) {
     }, 100)
   }
 
-  render()
+  await loadData()
 }

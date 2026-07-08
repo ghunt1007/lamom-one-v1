@@ -5,6 +5,7 @@
 import { formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
 const HOLIDAY_TYPES = {
   national: { label: 'วันหยุดราชการ', color: 'danger', icon: '🇹🇭' },
@@ -14,26 +15,26 @@ const HOLIDAY_TYPES = {
 
 const YEAR = new Date().getFullYear()
 
-const DEMO_HOLIDAYS = [
-  { id: 'H01', name: 'วันขึ้นปีใหม่', date: `${YEAR}-01-01`, type: 'national', showroomOpen: false },
-  { id: 'H02', name: 'วันมาฆบูชา', date: `${YEAR}-03-03`, type: 'national', showroomOpen: true },
-  { id: 'H03', name: 'วันจักรี', date: `${YEAR}-04-06`, type: 'national', showroomOpen: true },
-  { id: 'H04', name: 'สงกรานต์', date: `${YEAR}-04-13`, type: 'national', showroomOpen: false },
-  { id: 'H05', name: 'สงกรานต์', date: `${YEAR}-04-14`, type: 'national', showroomOpen: false },
-  { id: 'H06', name: 'สงกรานต์', date: `${YEAR}-04-15`, type: 'national', showroomOpen: false },
-  { id: 'H07', name: 'วันแรงงาน', date: `${YEAR}-05-01`, type: 'national', showroomOpen: true },
-  { id: 'H08', name: 'วันวิสาขบูชา', date: `${YEAR}-05-31`, type: 'national', showroomOpen: true },
-  { id: 'H09', name: 'งานเลี้ยงประจำปีบริษัท', date: `${YEAR}-12-25`, type: 'company', showroomOpen: false },
-  { id: 'H10', name: 'วันสิ้นปี', date: `${YEAR}-12-31`, type: 'national', showroomOpen: false },
-  { id: 'H11', name: 'Motor Show (ทีมขายออกบูธ)', date: `${YEAR}-06-25`, type: 'special', showroomOpen: true },
-  { id: 'H12', name: 'อบรมประจำปีทั้งบริษัท', date: `${YEAR}-07-15`, type: 'company', showroomOpen: false },
-]
-
 export default async function HolidayCalendarPage(container) {
-  let holidays = DEMO_HOLIDAYS.map(h => ({ ...h }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let holidays = []
   let typeFilter = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { holidays = await listDocs('holidays', [], 'date', 'asc', 200) } catch (e) { holidays = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const today = new Date().toISOString().slice(0,10)
     const list = holidays
       .filter(h => typeFilter === 'all' || h.type === typeFilter)
@@ -102,12 +103,22 @@ export default async function HolidayCalendarPage(container) {
     `
 
     container.querySelectorAll('.tf-btn').forEach(b => b.addEventListener('click', () => { typeFilter = b.dataset.t; renderPage() }))
-    container.querySelectorAll('.open-toggle').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.open-toggle').forEach(b => b.addEventListener('click', async () => {
       const h = holidays.find(x => x.id === b.dataset.id)
-      if (h) { h.showroomOpen = !h.showroomOpen; showToast(h.showroomOpen ? '🟢 โชว์รูมเปิดวันนี้' : '🔴 โชว์รูมปิดวันนี้', 'primary'); renderPage() }
+      if (!h) return
+      const showroomOpen = !h.showroomOpen
+      try {
+        await updateDocData('holidays', h.id, { showroomOpen })
+        showToast(showroomOpen ? '🟢 โชว์รูมเปิดวันนี้' : '🔴 โชว์รูมปิดวันนี้', 'primary')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.del-btn').forEach(b => b.addEventListener('click', () => {
-      holidays = holidays.filter(x => x.id !== b.dataset.id); showToast('🗑 ลบวันหยุดแล้ว', 'secondary'); renderPage()
+    container.querySelectorAll('.del-btn').forEach(b => b.addEventListener('click', async () => {
+      try {
+        await softDelete('holidays', b.dataset.id)
+        showToast('🗑 ลบวันหยุดแล้ว', 'secondary')
+        await loadData()
+      } catch (e) { showToast('ลบไม่สำเร็จ', 'error') }
     }))
     document.getElementById('add-holiday-btn')?.addEventListener('click', () => {
       openModal({
@@ -123,17 +134,20 @@ export default async function HolidayCalendarPage(container) {
             <input type="checkbox" id="hd-open" checked style="accent-color:var(--primary)"> โชว์รูมยังเปิดทำการ
           </label>
         </div>`,
-        onConfirm() {
+        async onConfirm() {
           const name = document.getElementById('hd-name')?.value?.trim()
-          if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return }
-          holidays.push({ id:`H${String(holidays.length+1).padStart(2,'0')}`, name, date:document.getElementById('hd-date')?.value||today, type:document.getElementById('hd-type')?.value||'company', showroomOpen:document.getElementById('hd-open')?.checked??true })
-          showToast('✅ เพิ่มวันหยุดแล้ว', 'success'); renderPage()
+          if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return false }
+          try {
+            await createDoc('holidays', { name, date:document.getElementById('hd-date')?.value||today, type:document.getElementById('hd-type')?.value||'company', showroomOpen:document.getElementById('hd-open')?.checked??true })
+            showToast('✅ เพิ่มวันหยุดแล้ว', 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

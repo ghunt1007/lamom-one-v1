@@ -20,7 +20,8 @@ const MODULES = [
 ]
 
 const CHANGELOG = [
-  { ver:'1.0.153', date:'2026-07-08', label:'ล่าสุด', changes:['🐛 เริ่มกวาดบั๊กโฟลเดอร์ Settings — แก้ 3 หน้าแรก เดิมเก็บในตัวแปรระดับโมดูลไม่บันทึกจริง ตอนนี้บันทึกจริงลง Firestore แล้วทั้งหมด: (1) API Keys (/settings/api-keys) — สร้าง/Revoke Key (2) Backup & Restore (/settings/backup) — ประวัติ Backup + กู้คืน (3) Multi-Branch Settings (/settings/branches) — เพิ่ม/แก้ไข/ลบสาขา + แก้ไขข้อมูลบริษัท ทดสอบยืนยันครบทุกหน้า: ทำรายการแล้วสลับหน้าไปมา ข้อมูลยังถูกต้องครบ'] },
+  { ver:'1.0.154', date:'2026-07-08', label:'ล่าสุด', changes:['🐛 กวาดบั๊กโฟลเดอร์ Settings ต่อ — แก้อีก 3 หน้า เดิมเก็บในตัวแปรระดับโมดูลไม่บันทึกจริง ตอนนี้บันทึกจริงลง Firestore แล้วทั้งหมด: (1) Digital Signage (/settings/digital-signage) — สร้าง/เปิด-ปิด/ลบ Slide + Push จอ (2) Holiday Calendar (/settings/holidays) — เพิ่มวันหยุด + เปิด-ปิดโชว์รูม (3) Integrations (/integrations/settings) — เชื่อมต่อ/ตัดการเชื่อมต่อ/Sync ทดสอบยืนยันครบทุกหน้า: ทำรายการแล้วสลับหน้าไปมา ข้อมูลยังถูกต้องครบ'] },
+  { ver:'1.0.153', date:'2026-07-08', label:'', changes:['🐛 เริ่มกวาดบั๊กโฟลเดอร์ Settings — แก้ 3 หน้าแรก เดิมเก็บในตัวแปรระดับโมดูลไม่บันทึกจริง ตอนนี้บันทึกจริงลง Firestore แล้วทั้งหมด: (1) API Keys (/settings/api-keys) — สร้าง/Revoke Key (2) Backup & Restore (/settings/backup) — ประวัติ Backup + กู้คืน (3) Multi-Branch Settings (/settings/branches) — เพิ่ม/แก้ไข/ลบสาขา + แก้ไขข้อมูลบริษัท ทดสอบยืนยันครบทุกหน้า: ทำรายการแล้วสลับหน้าไปมา ข้อมูลยังถูกต้องครบ'] },
   { ver:'1.0.152', date:'2026-07-08', label:'', changes:['🐛 แก้บั๊กข้อมูลหาย 2 หน้าสุดท้ายของ Service (ครบทั้งหมด 26 หน้าแล้ว) — เดิมเก็บในตัวแปรระดับโมดูลไม่บันทึกจริง ตอนนี้บันทึกจริงลง Firestore แล้วทั้งหมด: (1) Warranty Expiry Tracker (/service/warranty-expiry) — แจ้งเตือน + ต่อประกัน (แก้บั๊กปนมา: วันที่อ้างอิงคำนวณวันหมดประกัน hardcode ไว้ 14 มิ.ย. 2569) (2) Wash & Detailing Queue (/service/wash) — เริ่ม/เสร็จ/ส่งมอบ/เพิ่มคิว ทดสอบยืนยันครบทุกหน้า: ทำรายการแล้วสลับหน้าไปมา ข้อมูลยังถูกต้องครบ', '✅ กวาดบั๊กครบทั้งโฟลเดอร์ service/ — 26 หน้า ไม่มีข้อมูลหายอีกต่อไป'] },
   { ver:'1.0.151', date:'2026-07-08', label:'', changes:['🐛 กวาดบั๊กโฟลเดอร์ Service ต่อ — แก้อีก 3 หน้า เดิมเก็บในตัวแปรระดับโมดูลไม่บันทึกจริง ตอนนี้บันทึกจริงลง Firestore แล้วทั้งหมด: (1) Vehicle Inspection (/service/inspection) — Checklist ตรวจสภาพรถ + บันทึกผล (2) Waiting Lounge (/service/lounge) — Check-in/สถานะคิว/เครื่องดื่ม/ปิดคิว (3) Warranty Claim (/service/warranty-claim) — เปิดเคลม + อัปเดตสถานะ ทดสอบยืนยันครบทุกหน้า: ทำรายการแล้วสลับหน้าไปมา ข้อมูลยังถูกต้องครบ'] },
   { ver:'1.0.150', date:'2026-07-08', label:'', changes:['🐛 กวาดบั๊กโฟลเดอร์ Service ต่อ — แก้อีก 3 หน้า เดิมเก็บในตัวแปรระดับโมดูลไม่บันทึกจริง ตอนนี้บันทึกจริงลง Firestore แล้วทั้งหมด: (1) Surveyor Appointment (/service/surveyor) — นัดช่างประกัน + ยืนยัน + บันทึกผลตรวจ (2) Technician KPI (/service/tech-kpi) — อนุมัติ Bonus Pool รายเดือน (3) Technician Schedule (/service/technicians) — มอบหมายงาน ทดสอบยืนยันครบทุกหน้า: ทำรายการแล้วสลับหน้าไปมา ข้อมูลยังถูกต้องครบ'] },
@@ -199,7 +200,7 @@ export default function AboutPage(container) {
           <div style="font-size:1.5rem;font-weight:900;letter-spacing:-0.02em">LAMOM ONE</div>
           <div style="font-size:0.85rem;color:var(--text-muted);margin:4px 0 12px">ระบบปฏิบัติการธุรกิจยานยนต์ครบวงจร</div>
           <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
-            <span class="badge badge-primary">Version 1.0.153</span>
+            <span class="badge badge-primary">Version 1.0.154</span>
             <span class="badge badge-success">${totalPages}+ ระบบย่อย</span>
             <span class="badge badge-accent">${MODULES.length} โมดูล</span>
             <span class="badge badge-warning">Vite 8 + ES6 + Firebase 12</span>

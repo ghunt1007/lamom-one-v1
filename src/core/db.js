@@ -503,6 +503,56 @@ export function seedDemoData() {
   ]
   settingsCompanies.forEach(c => { if (!demoCol('companies')[c.id]) demoCol('companies')[c.id] = c })
 
+  // Digital signage (หน้า /settings/digital-signage)
+  const signageSlides = [
+    { id:'s001', type:'promo',   title:'BYD Seal AWD', desc:'ดาวน์พิเศษ เพียง 150,000 บาท', price:1699000, bg:'#1565C0', textColor:'#fff', duration:10, active:true  },
+    { id:'s002', type:'model',   title:'BYD Atto 3',   desc:'ฟรีชาร์จเจอร์บ้าน 7.4kW มูลค่า 25,000 บาท', price:1099000, bg:'#00897B', textColor:'#fff', duration:8,  active:true  },
+    { id:'s003', type:'service', title:'ศูนย์บริการ',   desc:'เช็คระยะฟรี เดือน มิ.ย. นี้ · นัดออนไลน์ได้', price:0, bg:'#FF8F00', textColor:'#fff', duration:7,  active:true  },
+    { id:'s004', type:'queue',   title:'คิวบริการวันนี้', desc:'คิว 1-15 กำลังรับรถ · คิว 16-20 รอตรวจ', price:0, bg:'#4A148C', textColor:'#fff', duration:5,  active:false },
+  ]
+  signageSlides.forEach(s => { if (!demoCol('signage_slides')[s.id]) demoCol('signage_slides')[s.id] = s })
+
+  const signageScreens = [
+    { id:'sc01', name:'จอหน้าโชว์รูม', location:'ล็อบบี้', status:'online', currentSlide:'s001', resolution:'1920x1080' },
+    { id:'sc02', name:'จอห้องรับรถ', location:'Service Bay', status:'online', currentSlide:'s003', resolution:'1920x1080' },
+    { id:'sc03', name:'จอโต๊ะเจรจา', location:'ห้องประชุมลูกค้า', status:'offline', currentSlide:null, resolution:'1280x720' },
+  ]
+  signageScreens.forEach(s => { if (!demoCol('signage_screens')[s.id]) demoCol('signage_screens')[s.id] = s })
+
+  // Holiday calendar (หน้า /settings/holidays)
+  const HOL_YEAR = new Date().getFullYear()
+  const holidays = [
+    { id:'H01', name:'วันขึ้นปีใหม่', date:`${HOL_YEAR}-01-01`, type:'national', showroomOpen:false },
+    { id:'H02', name:'วันมาฆบูชา', date:`${HOL_YEAR}-03-03`, type:'national', showroomOpen:true },
+    { id:'H03', name:'วันจักรี', date:`${HOL_YEAR}-04-06`, type:'national', showroomOpen:true },
+    { id:'H04', name:'สงกรานต์', date:`${HOL_YEAR}-04-13`, type:'national', showroomOpen:false },
+    { id:'H05', name:'สงกรานต์', date:`${HOL_YEAR}-04-14`, type:'national', showroomOpen:false },
+    { id:'H06', name:'สงกรานต์', date:`${HOL_YEAR}-04-15`, type:'national', showroomOpen:false },
+    { id:'H07', name:'วันแรงงาน', date:`${HOL_YEAR}-05-01`, type:'national', showroomOpen:true },
+    { id:'H08', name:'วันวิสาขบูชา', date:`${HOL_YEAR}-05-31`, type:'national', showroomOpen:true },
+    { id:'H09', name:'งานเลี้ยงประจำปีบริษัท', date:`${HOL_YEAR}-12-25`, type:'company', showroomOpen:false },
+    { id:'H10', name:'วันสิ้นปี', date:`${HOL_YEAR}-12-31`, type:'national', showroomOpen:false },
+    { id:'H11', name:'Motor Show (ทีมขายออกบูธ)', date:`${HOL_YEAR}-06-25`, type:'special', showroomOpen:true },
+    { id:'H12', name:'อบรมประจำปีทั้งบริษัท', date:`${HOL_YEAR}-07-15`, type:'company', showroomOpen:false },
+  ]
+  holidays.forEach(h => { if (!demoCol('holidays')[h.id]) demoCol('holidays')[h.id] = h })
+
+  // Integration settings (หน้า /integrations/settings)
+  const isNow = Date.now()
+  const systemIntegrations = [
+    { id:'INT001', name:'LINE Official Account', cat:'messaging', icon:'💬', status:'connected', desc:'รับส่งข้อความ LINE ลูกค้า', lastSync:new Date(isNow-600000).toISOString(), webhookUrl:'https://api.lamom.one/webhook/line', config:{ channelId:'xxxxx', secretKey:'****' } },
+    { id:'INT002', name:'Facebook Messenger', cat:'messaging', icon:'📘', status:'connected', desc:'ตอบ Chat Facebook Page', lastSync:new Date(isNow-1800000).toISOString(), webhookUrl:'https://api.lamom.one/webhook/fb', config:{ pageId:'xxxxx', token:'****' } },
+    { id:'INT003', name:'SCB Easy Payment', cat:'payment', icon:'💳', status:'connected', desc:'รับชำระผ่าน SCB Easy', lastSync:new Date(isNow-3600000).toISOString(), webhookUrl:'', config:{ merchantId:'xxxxx', apiKey:'****' } },
+    { id:'INT004', name:'KBank Payment Gateway', cat:'payment', icon:'💰', status:'disconnected', desc:'รับชำระผ่าน KBank', lastSync:null, webhookUrl:'', config:{} },
+    { id:'INT005', name:'QuickBooks', cat:'accounting', icon:'📊', status:'error', desc:'ส่งข้อมูลบัญชีอัตโนมัติ', lastSync:new Date(isNow-86400000).toISOString(), webhookUrl:'', config:{ companyId:'xxxxx', token:'****' } },
+    { id:'INT006', name:'OpenAI GPT-4', cat:'ai', icon:'🤖', status:'connected', desc:'AI สำหรับ LAMI Brain', lastSync:new Date(isNow-300000).toISOString(), webhookUrl:'', config:{ apiKey:'****', model:'gpt-4o' } },
+    { id:'INT007', name:'Google Analytics 4', cat:'ai', icon:'📈', status:'connected', desc:'วิเคราะห์ traffic เว็บไซต์', lastSync:new Date(isNow-7200000).toISOString(), webhookUrl:'', config:{ measurementId:'G-xxxxx' } },
+    { id:'INT008', name:'Salesforce CRM', cat:'crm', icon:'☁️', status:'disconnected', desc:'Sync ข้อมูล Lead กับ Salesforce', lastSync:null, webhookUrl:'', config:{} },
+    { id:'INT009', name:'BYD Dealer Portal', cat:'logistics', icon:'🚗', status:'connected', desc:'ดึงข้อมูลสั่งรถและสต็อก', lastSync:new Date(isNow-14400000).toISOString(), webhookUrl:'', config:{ dealerCode:'BYD-TH-001' } },
+    { id:'INT010', name:'SendGrid Email', cat:'messaging', icon:'📧', status:'connected', desc:'ส่ง Email อัตโนมัติ', lastSync:new Date(isNow-900000).toISOString(), webhookUrl:'', config:{ apiKey:'****', fromEmail:'noreply@lamom.one' } },
+  ]
+  systemIntegrations.forEach(i => { if (!demoCol('system_integrations')[i.id]) demoCol('system_integrations')[i.id] = i })
+
   const accessories = [
     { id:'acc1', name:'ฟิล์มกรองแสง 3M Crystalline', sku:'ACC-3M-001', category:'ฟิล์ม', price:18000, cost:10000, stock:5, unit:'ชุด', brand:'3M', createdAt:'2025-01-10' },
     { id:'acc2', name:'พรมรถ BYD Seal OEM', sku:'ACC-BYD-002', category:'ตกแต่งภายใน', price:3500, cost:1800, stock:12, unit:'ชุด', brand:'BYD', createdAt:'2025-01-15' },
