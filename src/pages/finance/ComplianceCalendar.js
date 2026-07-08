@@ -4,24 +4,25 @@
  */
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-
-const TODAY = new Date('2026-06-15')
-
-let EVENTS = [
-  { id:'CC001', title:'ต่ออายุใบอนุญาตจำหน่ายรถยนต์', category:'ใบอนุญาต', dueDate:'2026-07-01', responsible:'ผู้จัดการโชว์รูม', status:'pending', desc:'ใบอนุญาตค้าขายรถยนต์ กรมการขนส่งทางบก — ต้องต่อทุกปี' },
-  { id:'CC002', title:'ยื่นภาษีมูลค่าเพิ่ม (VAT) ประจำเดือน พ.ค.', category:'ภาษี', dueDate:'2026-06-17', responsible:'ฝ่ายบัญชี', status:'pending', desc:'ยื่น ภพ.30 ผ่านระบบ e-Filing สรรพากร' },
-  { id:'CC003', title:'ประกันสังคม มิ.ย. 2569', category:'แรงงาน', dueDate:'2026-06-15', responsible:'HR', status:'done', desc:'นำส่งเงินสมทบประกันสังคมพนักงาน 28 คน' },
-  { id:'CC004', title:'ต่ออายุใบอนุญาตสถานที่จอดรถ', category:'ใบอนุญาต', dueDate:'2026-08-01', responsible:'ผู้จัดการโชว์รูม', status:'pending', desc:'ใบอนุญาตจากเทศบาลสำหรับที่จอดรถลูกค้า' },
-  { id:'CC005', title:'ยื่นภาษีนิติบุคคล (PND51)', category:'ภาษี', dueDate:'2026-08-31', responsible:'ฝ่ายบัญชี', status:'pending', desc:'ภ.ง.ด. 51 ภาษีนิติบุคคลครึ่งปีแรก' },
-  { id:'CC006', title:'ต่อใบอนุญาตติดตั้งป้ายโฆษณา', category:'ใบอนุญาต', dueDate:'2026-09-15', responsible:'Admin', status:'pending', desc:'ป้ายหน้าโชว์รูมและป้าย LED ฝ่าย Marketing' },
-  { id:'CC007', title:'ต่อสัญญาเช่าอาคาร', category:'สัญญา', dueDate:'2026-12-31', responsible:'ผู้จัดการโชว์รูม', status:'pending', desc:'สัญญาเช่าอาคารโชว์รูม 3 ปี ครบกำหนดสิ้นปี' },
-  { id:'CC008', title:'ยื่น ภ.ง.ด. 3, 53 เดือน พ.ค.', category:'ภาษี', dueDate:'2026-06-07', responsible:'ฝ่ายบัญชี', status:'done', desc:'ภาษีหัก ณ ที่จ่ายค่าบริการและเงินเดือนพนักงาน' },
-]
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 const CATEGORIES = ['ใบอนุญาต','ภาษี','แรงงาน','สัญญา']
 
 export default async function ComplianceCalendarPage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+  const TODAY = new Date()
+
+  let EVENTS = []
   let filterCat = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { EVENTS = await listDocs('compliance_events', [], 'dueDate', 'asc', 500) } catch (e) { EVENTS = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function urgencyColor(dueDate, status) {
     if(status==='done') return 'var(--success)'
@@ -61,6 +62,10 @@ export default async function ComplianceCalendarPage(container) {
   }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     let list = filterCat==='all' ? EVENTS : EVENTS.filter(e=>e.category===filterCat)
     list = [...list].sort((a,b)=>new Date(a.dueDate)-new Date(b.dueDate))
 
@@ -113,9 +118,14 @@ export default async function ComplianceCalendarPage(container) {
       </div>`
 
     container.querySelectorAll('.cat-btn').forEach(b=>b.addEventListener('click',()=>{filterCat=b.dataset.c;render()}))
-    container.querySelectorAll('.done-btn').forEach(b=>b.addEventListener('click',()=>{
+    container.querySelectorAll('.done-btn').forEach(b=>b.addEventListener('click', async ()=>{
       const e = EVENTS.find(x=>x.id===b.dataset.id)
-      if(e){ e.status='done'; showToast('✅ บันทึกเสร็จสิ้น: '+e.title,'success'); render() }
+      if(!e) return
+      try {
+        await updateDocData('compliance_events', e.id, { status: 'done' })
+        showToast('✅ บันทึกเสร็จสิ้น: '+e.title,'success')
+        await loadData()
+      } catch (err) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.event-row').forEach(r=>r.addEventListener('click',(ev)=>{
       if(ev.target.tagName==='BUTTON') return
@@ -160,21 +170,22 @@ export default async function ComplianceCalendarPage(container) {
         </div>
       `
     })
-    document.getElementById('cc-save')?.addEventListener('click', () => {
+    document.getElementById('cc-save')?.addEventListener('click', async () => {
       const title = document.getElementById('cc-title')?.value.trim()
       if (!title) { showToast('⚠️ กรุณากรอกชื่อรายการ', 'warning'); return }
-      EVENTS.push({
-        id: 'CC' + String(EVENTS.length + 1).padStart(3, '0'),
-        title,
-        category: document.getElementById('cc-cat')?.value || 'ใบอนุญาต',
-        dueDate: document.getElementById('cc-due')?.value || todayStr,
-        responsible: document.getElementById('cc-resp')?.value.trim() || '-',
-        status: 'pending',
-        desc: document.getElementById('cc-desc')?.value.trim() || '',
-      })
-      document.querySelector('.modal-overlay')?.remove()
-      showToast('✅ เพิ่มรายการแล้ว', 'success')
-      render()
+      try {
+        await createDoc('compliance_events', {
+          title,
+          category: document.getElementById('cc-cat')?.value || 'ใบอนุญาต',
+          dueDate: document.getElementById('cc-due')?.value || todayStr,
+          responsible: document.getElementById('cc-resp')?.value.trim() || '-',
+          status: 'pending',
+          desc: document.getElementById('cc-desc')?.value.trim() || '',
+        })
+        document.querySelector('.modal-overlay')?.remove()
+        showToast('✅ เพิ่มรายการแล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
@@ -182,5 +193,5 @@ export default async function ComplianceCalendarPage(container) {
     return `<div class="card" style="padding:14px 16px"><div style="font-size:0.72rem;color:var(--text-muted)">${l}</div><div style="font-size:1.1rem;font-weight:900;color:${c};margin-top:2px">${v}</div></div>`
   }
 
-  render()
+  await loadData()
 }

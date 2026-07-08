@@ -4,24 +4,31 @@
  */
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 const MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.']
-
-const READINGS = [
-  { month:'ม.ค.', elec:42800, water:3200, net:2900, zone:{showroom:18000,service:14000,office:7200,parking:3600} },
-  { month:'ก.พ.', elec:39600, water:2900, net:2900, zone:{showroom:16500,service:13200,office:6800,parking:3100} },
-  { month:'มี.ค.', elec:44200, water:3400, net:2900, zone:{showroom:18800,service:14500,office:7100,parking:3800} },
-  { month:'เม.ย.', elec:51000, water:3800, net:2900, zone:{showroom:21200,service:16800,office:8200,parking:4800} },
-  { month:'พ.ค.', elec:53400, water:3900, net:3200, zone:{showroom:22100,service:17600,office:8700,parking:5000} },
-  { month:'มิ.ย.', elec:49800, water:3600, net:3200, zone:{showroom:20500,service:16200,office:8100,parking:5000} },
-]
 
 const ZONES = ['showroom','service','office','parking']
 const ZONE_LABELS = { showroom:'โชว์รูม', service:'ศูนย์บริการ', office:'สำนักงาน', parking:'ลานจอด' }
 const ZONE_ICONS  = { showroom:'🚗', service:'🔧', office:'🏢', parking:'🅿️' }
 
 export default async function EnergyUtilityPage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let READINGS = []
   let selMonth = 'มิ.ย.'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try {
+      READINGS = await listDocs('energy_readings', [], 'createdAt', 'asc', 500)
+      READINGS.sort((a, b) => MONTHS.indexOf(a.month) - MONTHS.indexOf(b.month))
+    } catch (e) { READINGS = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function barW(val, max) { return Math.round(val/max*100) }
 
@@ -54,6 +61,10 @@ export default async function EnergyUtilityPage(container) {
   }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const cur = READINGS.find(r=>r.month===selMonth) || READINGS[READINGS.length-1]
     const prev = READINGS[READINGS.indexOf(cur)-1]
     const totalUtil = cur.elec + cur.water + cur.net
@@ -142,16 +153,20 @@ export default async function EnergyUtilityPage(container) {
         </div>
       </div>`,
       confirmText:'💾 บันทึก',
-      onConfirm() {
+      async onConfirm() {
         const month = document.getElementById('em-month')?.value
         const elec  = parseInt(document.getElementById('em-elec')?.value)||0
         const water = parseInt(document.getElementById('em-water')?.value)||0
         const net   = parseInt(document.getElementById('em-net')?.value)||0
         if(!elec){showToast('กรอกค่าไฟด้วย','warning');return false}
         const exist = READINGS.find(r=>r.month===month)
-        if(exist){ exist.elec=elec;exist.water=water;exist.net=net }
-        else { READINGS.push({month,elec,water,net,zone:{showroom:0,service:0,office:0,parking:0}}) }
-        selMonth=month; render(); showToast('⚡ บันทึกมิเตอร์เดือน '+month+' แล้ว','success')
+        try {
+          if(exist) await updateDocData('energy_readings', exist.id, { elec, water, net })
+          else await createDoc('energy_readings', { month, elec, water, net, zone:{showroom:0,service:0,office:0,parking:0} })
+          selMonth=month
+          showToast('⚡ บันทึกมิเตอร์เดือน '+month+' แล้ว','success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -163,5 +178,5 @@ export default async function EnergyUtilityPage(container) {
     </div>`
   }
 
-  render()
+  await loadData()
 }

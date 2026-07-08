@@ -5,6 +5,7 @@
 import { formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -17,23 +18,29 @@ const GOAL_CATS = {
   cashflow: { label: 'Cash Flow', icon: '💸', color: 'primary' },
 }
 
-const DEMO_GOALS = [
-  { id: 'G001', title: 'ยอดขายรถเดือนมิถุนายน', cat: 'units', period: 'รายเดือน', target: 50, current: 43, unit: 'คัน' },
-  { id: 'G002', title: 'รายได้รวมเดือนมิถุนายน', cat: 'revenue', period: 'รายเดือน', target: 45000000, current: 38500000, unit: 'บาท' },
-  { id: 'G003', title: 'กำไรสุทธิ Q2/2568', cat: 'profit', period: 'รายไตรมาส', target: 8000000, current: 6200000, unit: 'บาท' },
-  { id: 'G004', title: 'รายได้บริการ Q2/2568', cat: 'service', period: 'รายไตรมาส', target: 3000000, current: 2850000, unit: 'บาท' },
-  { id: 'G005', title: 'ยอดขายรวมปี 2568', cat: 'units', period: 'รายปี', target: 600, current: 241, unit: 'คัน' },
-  { id: 'G006', title: 'รายได้รวมปี 2568', cat: 'revenue', period: 'รายปี', target: 500000000, current: 212000000, unit: 'บาท' },
-]
-
 function pct(g) { return Math.min(100, Math.round(g.current / g.target * 100)) }
 
 export default async function FinancialGoalsPage(container) {
-  let goals = DEMO_GOALS.map(g => ({ ...g }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let goals = []
   let periodFilter = 'all'
   let catFilter = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { goals = await listDocs('financial_goals', [], 'title', 'asc', 500) } catch (e) { goals = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = goals.filter(g =>
       (periodFilter === 'all' || g.period === periodFilter) &&
       (catFilter === 'all' || g.cat === catFilter)
@@ -128,10 +135,13 @@ export default async function FinancialGoalsPage(container) {
           <input type="number" class="input" id="update-val" value="${g.current}">
         </div>
       `,
-      onConfirm() {
+      async onConfirm() {
         const v = +document.getElementById('update-val')?.value
-        g.current = v
-        showToast(`✅ อัปเดต "${g.title}" แล้ว — ${pct(g)}%`, 'success'); renderPage()
+        try {
+          await updateDocData('financial_goals', g.id, { current: v })
+          showToast(`✅ อัปเดต "${g.title}" แล้ว — ${pct({ ...g, current: v })}%`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -153,22 +163,25 @@ export default async function FinancialGoalsPage(container) {
           <div class="input-group"><label class="input-label">หน่วย</label><input class="input" id="ng-unit" value="บาท"></div>
         </div>
       `,
-      onConfirm() {
+      async onConfirm() {
         const title = document.getElementById('ng-title')?.value?.trim()
         const target = +document.getElementById('ng-target')?.value || 0
-        if (!title) { showToast('❗ กรุณากรอกชื่อ', 'error'); return }
-        goals.push({
-          id: `G${String(goals.length+1).padStart(3,'0')}`, title,
-          cat: document.getElementById('ng-cat')?.value || 'revenue',
-          period: document.getElementById('ng-period')?.value || 'รายเดือน',
-          target, current: 0, unit: document.getElementById('ng-unit')?.value || 'บาท'
-        })
-        showToast('✅ ตั้งเป้าหมายแล้ว!', 'success'); renderPage()
+        if (!title) { showToast('❗ กรุณากรอกชื่อ', 'error'); return false }
+        try {
+          await createDoc('financial_goals', {
+            title,
+            cat: document.getElementById('ng-cat')?.value || 'revenue',
+            period: document.getElementById('ng-period')?.value || 'รายเดือน',
+            target, current: 0, unit: document.getElementById('ng-unit')?.value || 'บาท'
+          })
+          showToast('✅ ตั้งเป้าหมายแล้ว!', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

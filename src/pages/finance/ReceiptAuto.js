@@ -5,23 +5,9 @@
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { formatDate } from '../../utils/format.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
-
-let RECEIPTS = [
-  { id:'R001', number:'REC-2026-0541', customer:'สมชาย ใจดี',    amount:1290000, type:'purchase', sent:true,  channel:'email', date:'2026-06-14', status:'sent'    },
-  { id:'R002', number:'REC-2026-0542', customer:'นภา สุขสม',     amount:4500,    type:'service',  sent:true,  channel:'line',  date:'2026-06-14', status:'sent'    },
-  { id:'R003', number:'REC-2026-0543', customer:'วิชัย ศรีดี',   amount:8900,    type:'service',  sent:false, channel:'email', date:'2026-06-15', status:'pending' },
-  { id:'R004', number:'REC-2026-0544', customer:'กาญจนา ทอง',   amount:15600,   type:'insurance',sent:false, channel:'sms',   date:'2026-06-15', status:'failed'  },
-  { id:'R005', number:'REC-2026-0545', customer:'ประเสริฐ มั่น', amount:2100,    type:'parts',    sent:true,  channel:'line',  date:'2026-06-15', status:'sent'    },
-]
-
-const AUTO_RULES = [
-  { id:'AR1', name:'รถใหม่ — ส่ง Email', trigger:'purchase', channel:'email', active:true  },
-  { id:'AR2', name:'ซ่อม — ส่ง LINE',    trigger:'service',  channel:'line',  active:true  },
-  { id:'AR3', name:'ประกัน — ส่ง SMS',   trigger:'insurance',channel:'sms',   active:true  },
-  { id:'AR4', name:'อะไหล่ — ส่ง LINE',  trigger:'parts',    channel:'line',  active:false },
-]
 
 const STATUS_CFG = {
   sent:    { label:'ส่งแล้ว',    bg:'var(--success)',     icon:'✅' },
@@ -30,8 +16,24 @@ const STATUS_CFG = {
 }
 
 export default async function ReceiptAutoPage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let RECEIPTS = []
+  let AUTO_RULES = []
   let tab = 'receipts'
   let filterStatus = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try {
+      RECEIPTS = await listDocs('auto_receipts', [], 'date', 'desc', 500)
+      AUTO_RULES = await listDocs('auto_send_rules', [], 'name', 'asc', 500)
+    } catch (e) { RECEIPTS = []; AUTO_RULES = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function receiptRow(r) {
     const cfg     = STATUS_CFG[r.status]
@@ -72,6 +74,10 @@ export default async function ReceiptAutoPage(container) {
   }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     let rows = RECEIPTS
     if (filterStatus !== 'all') rows = rows.filter(r=>r.status===filterStatus)
 
@@ -124,17 +130,32 @@ export default async function ReceiptAutoPage(container) {
 
     container.querySelectorAll('.tab-btn').forEach(b=>b.addEventListener('click',()=>{tab=b.dataset.t;render()}))
     container.querySelectorAll('.stat-btn').forEach(b=>b.addEventListener('click',()=>{filterStatus=b.dataset.s;render()}))
-    container.querySelectorAll('.retry-btn').forEach(b=>b.addEventListener('click',()=>{
+    container.querySelectorAll('.retry-btn').forEach(b=>b.addEventListener('click', async ()=>{
       const r=RECEIPTS.find(x=>x.id===b.dataset.id)
-      if(r){r.status='sent';r.sent=true;render();showToast('🔄 Retry ส่งใบเสร็จ '+r.number+' แล้ว','success')}
+      if(!r) return
+      try {
+        await updateDocData('auto_receipts', r.id, { status:'sent', sent:true })
+        showToast('🔄 Retry ส่งใบเสร็จ '+r.number+' แล้ว','success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.send-btn').forEach(b=>b.addEventListener('click',()=>{
+    container.querySelectorAll('.send-btn').forEach(b=>b.addEventListener('click', async ()=>{
       const r=RECEIPTS.find(x=>x.id===b.dataset.id)
-      if(r){r.status='sent';r.sent=true;render();showToast('📤 ส่งใบเสร็จ '+r.number+' แล้ว','success')}
+      if(!r) return
+      try {
+        await updateDocData('auto_receipts', r.id, { status:'sent', sent:true })
+        showToast('📤 ส่งใบเสร็จ '+r.number+' แล้ว','success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.rule-toggle').forEach(cb=>cb.addEventListener('change',()=>{
+    container.querySelectorAll('.rule-toggle').forEach(cb=>cb.addEventListener('change', async ()=>{
       const rule=AUTO_RULES.find(x=>x.id===cb.dataset.id)
-      if(rule){rule.active=cb.checked;render();showToast((rule.active?'✅ เปิด':'❌ ปิด')+' Rule: '+rule.name,'info')}
+      if(!rule) return
+      try {
+        await updateDocData('auto_send_rules', rule.id, { active: cb.checked })
+        showToast((cb.checked?'✅ เปิด':'❌ ปิด')+' Rule: '+rule.name,'info')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     document.getElementById('gen-btn')?.addEventListener('click', openGenReceiptModal)
   }
@@ -182,23 +203,24 @@ export default async function ReceiptAutoPage(container) {
         </div>
       `
     })
-    document.getElementById('rc-save')?.addEventListener('click', () => {
+    document.getElementById('rc-save')?.addEventListener('click', async () => {
       const customer = document.getElementById('rc-cust')?.value.trim()
       const amount   = parseFloat(document.getElementById('rc-amt')?.value) || 0
       if (!customer || !amount) { showToast('⚠️ กรุณากรอกชื่อและยอดเงิน', 'warning'); return }
-      RECEIPTS.push({
-        id: 'R' + String(RECEIPTS.length + 1).padStart(3,'0'),
-        number: nextNum,
-        customer, amount,
-        type:    document.getElementById('rc-type')?.value || 'service',
-        channel: document.getElementById('rc-ch')?.value || 'email',
-        date: today,
-        sent: false,
-        status: 'pending',
-      })
-      document.querySelector('.modal-overlay')?.remove()
-      showToast('✅ ออกใบเสร็จ ' + nextNum + ' ให้ ' + customer + ' แล้ว', 'success')
-      render()
+      try {
+        await createDoc('auto_receipts', {
+          number: nextNum,
+          customer, amount,
+          type:    document.getElementById('rc-type')?.value || 'service',
+          channel: document.getElementById('rc-ch')?.value || 'email',
+          date: today,
+          sent: false,
+          status: 'pending',
+        })
+        document.querySelector('.modal-overlay')?.remove()
+        showToast('✅ ออกใบเสร็จ ' + nextNum + ' ให้ ' + customer + ' แล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
@@ -209,5 +231,5 @@ export default async function ReceiptAutoPage(container) {
     </div>`
   }
 
-  render()
+  await loadData()
 }

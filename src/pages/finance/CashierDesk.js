@@ -5,10 +5,9 @@
 import { formatCurrency, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, softDelete, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
-
-function addMinutes(n) { const d = new Date(); d.setMinutes(d.getMinutes() - n); return d.toISOString() }
 
 const PAY_METHODS = {
   cash:     { label: 'เงินสด', icon: '💵' },
@@ -17,23 +16,29 @@ const PAY_METHODS = {
   cheque:   { label: 'เช็ค', icon: '🏦' },
 }
 
-const DEMO_PAYMENTS = [
-  { id: 'PM001', customer: 'สมชาย ใจดี', ref: 'IV2406-042', desc: 'ค่าเช็คระยะ 20,000 km', amount: 3745, method: 'transfer', time: addMinutes(15), cashier: 'สมศรี การเงิน' },
-  { id: 'PM002', customer: 'มาลี สุขใจ', ref: 'IV2406-041', desc: 'ค่าอะไหล่ + ฟิล์ม', amount: 13375, method: 'card', time: addMinutes(95), cashier: 'สมศรี การเงิน' },
-  { id: 'PM003', customer: 'อรทัย ตั้งใจ', ref: 'BK2406-008', desc: 'มัดจำจองรถ MG4', amount: 10000, method: 'transfer', time: addMinutes(180), cashier: 'สมศรี การเงิน' },
-  { id: 'PM004', customer: 'วิรัช เก่งมาก', ref: 'IV2406-040', desc: 'ค่าล้าง + Detailing', amount: 2675, method: 'cash', time: addMinutes(260), cashier: 'สมศรี การเงิน' },
-]
-
-const PENDING_BILLS = [
-  { id: 'IV2406-043', customer: 'ธนพล เที่ยงตรง', desc: 'ค่าซ่อมเบรก (Job J002)', amount: 9095 },
-  { id: 'IV2406-044', customer: 'ชาตรี เข้มแข็ง', desc: 'ค่าอะไหล่ใบปัดน้ำฝน', amount: 696 },
-]
-
 export default async function CashierDeskPage(container) {
-  let payments = DEMO_PAYMENTS.map(p => ({ ...p }))
-  let pending = PENDING_BILLS.map(b => ({ ...b }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let payments = []
+  let pending = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try {
+      payments = await listDocs('cashier_payments', [], 'time', 'desc', 500)
+      pending = await listDocs('cashier_pending_bills', [], 'customer', 'asc', 500)
+    } catch (e) { payments = []; pending = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const todayTotal = payments.reduce((a, p) => a + p.amount, 0)
     const byMethod = Object.keys(PAY_METHODS).map(k => ({ k, total: payments.filter(p => p.method === k).reduce((a, p) => a + p.amount, 0) }))
     const cashInDrawer = byMethod.find(m => m.k === 'cash')?.total || 0
@@ -155,18 +160,21 @@ export default async function CashierDeskPage(container) {
         </div>
       </div>`,
       confirmText: '💵 รับเงิน + พิมพ์ใบเสร็จ',
-      onConfirm() {
+      async onConfirm() {
         const customer = document.getElementById('py-customer')?.value?.trim()
         const amount = parseInt(document.getElementById('py-amount')?.value) || 0
-        if (!customer || amount <= 0) { showToast('❗ กรอกชื่อและจำนวนเงิน', 'error'); return }
-        payments.unshift({ id:`PM${String(payments.length+1).padStart(3,'0')}`, customer, ref:bill?.id||'MISC', desc:document.getElementById('py-desc')?.value||'—', amount, method:document.getElementById('py-method')?.value||'cash', time:new Date().toISOString(), cashier:'คุณ (Demo)' })
-        if (bill) pending = pending.filter(x => x.id !== bill.id)
-        showToast(`✅ รับชำระ ${formatCurrency(amount)} — พิมพ์ใบเสร็จแล้ว`, 'success'); renderPage()
+        if (!customer || amount <= 0) { showToast('❗ กรอกชื่อและจำนวนเงิน', 'error'); return false }
+        try {
+          await createDoc('cashier_payments', { customer, ref:bill?.id||'MISC', desc:document.getElementById('py-desc')?.value||'—', amount, method:document.getElementById('py-method')?.value||'cash', time:new Date().toISOString(), cashier:'คุณ (Demo)' })
+          if (bill) await softDelete('cashier_pending_bills', bill.id)
+          showToast(`✅ รับชำระ ${formatCurrency(amount)} — พิมพ์ใบเสร็จแล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

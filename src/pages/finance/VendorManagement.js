@@ -5,25 +5,28 @@
 import { formatCurrency } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
-
-let VENDORS = [
-  { id:'V001', name:'บริษัท ออโต้ พาร์ท จก.', category:'อะไหล่', contact:'คุณสมศักดิ์ 089-111-2233', payTerms:'30 วัน', ytdSpend:485000, rating:4.5, status:'active', lastOrder:'2026-06-10' },
-  { id:'V002', name:'3M Thailand', category:'วัสดุซ่อมสี', contact:'คุณกมล 02-333-4455', payTerms:'15 วัน', ytdSpend:124000, rating:4.8, status:'active', lastOrder:'2026-06-08' },
-  { id:'V003', name:'การไฟฟ้านครหลวง', category:'สาธารณูปโภค', contact:'-', payTerms:'ทันที', ytdSpend:38400, rating:5, status:'active', lastOrder:'2026-06-01' },
-  { id:'V004', name:'ร้านเครื่องมือช่างครบครัน', category:'เครื่องมือ', contact:'คุณวิชัย 081-555-6677', payTerms:'15 วัน', ytdSpend:67500, rating:3.8, status:'active', lastOrder:'2026-05-20' },
-  { id:'V005', name:'PTT น้ำมันหล่อลื่น', category:'น้ำมัน/สารหล่อลื่น', contact:'คุณปิยะ 02-666-7788', payTerms:'30 วัน', ytdSpend:95000, rating:4.2, status:'active', lastOrder:'2026-06-12' },
-  { id:'V006', name:'บจก. ไทยทำความสะอาด', category:'บริการ', contact:'คุณอรุณ 086-999-0011', payTerms:'30 วัน', ytdSpend:24000, rating:4.0, status:'inactive', lastOrder:'2026-04-01' },
-]
 
 const CATEGORIES = ['อะไหล่','วัสดุซ่อมสี','สาธารณูปโภค','เครื่องมือ','น้ำมัน/สารหล่อลื่น','บริการ']
 const PAY_TERMS = ['ทันที','15 วัน','30 วัน','45 วัน','60 วัน']
 
 export default async function VendorManagementPage(container) {
   const myGen = container.__routerGen
+  seedDemoData()
+
+  let VENDORS = []
   let filterCat = 'all'
   let selVendorId = null
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { VENDORS = await listDocs('vendors', [], 'name', 'asc', 500) } catch (e) { VENDORS = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function stars(r) {
     return '★'.repeat(Math.round(r)) + '☆'.repeat(5 - Math.round(r))
@@ -83,11 +86,10 @@ export default async function VendorManagementPage(container) {
       `
     })
 
-    document.getElementById('vm-save')?.addEventListener('click', () => {
+    document.getElementById('vm-save')?.addEventListener('click', async () => {
       const name = document.getElementById('vm-name')?.value.trim()
       if (!name) { showToast('⚠️ กรุณากรอกชื่อ', 'warning'); return }
       const data = {
-        id: v?.id || 'V' + Date.now(),
         name,
         category: document.getElementById('vm-cat')?.value || CATEGORIES[0],
         contact: document.getElementById('vm-contact')?.value.trim() || '-',
@@ -97,29 +99,32 @@ export default async function VendorManagementPage(container) {
         status: document.getElementById('vm-active')?.checked ? 'active' : 'inactive',
         lastOrder: v?.lastOrder || new Date().toISOString().slice(0, 10)
       }
-      if (isEdit) {
-        const idx = VENDORS.findIndex(x => x.id === v.id)
-        if (idx >= 0) VENDORS[idx] = data
-        showToast('✅ แก้ไขข้อมูลแล้ว', 'success')
-      } else {
-        VENDORS.push(data)
-        showToast('✅ เพิ่มผู้จัดจำหน่ายแล้ว', 'success')
-      }
-      document.querySelector('.modal-overlay')?.remove()
-      selVendorId = data.id
-      render()
+      try {
+        if (isEdit) {
+          await updateDocData('vendors', v.id, data)
+          showToast('✅ แก้ไขข้อมูลแล้ว', 'success')
+          selVendorId = v.id
+        } else {
+          selVendorId = await createDoc('vendors', data)
+          showToast('✅ เพิ่มผู้จัดจำหน่ายแล้ว', 'success')
+        }
+        document.querySelector('.modal-overlay')?.remove()
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
 
     if (isEdit) {
       document.getElementById('vm-del')?.addEventListener('click', async () => {
         const ok = await confirmDialog({ title:'🗑 ลบผู้จัดจำหน่าย', message:`ลบ "${v.name}" ออกจากระบบ?`, confirmText:'ลบ', danger:true })
         if (!ok) return
-        VENDORS = VENDORS.filter(x => x.id !== v.id)
-        document.querySelector('.modal-overlay')?.remove()
-        selVendorId = null
-        showToast('🗑 ลบแล้ว', 'warning')
-        if (container.__routerGen !== myGen) return
-        render()
+        try {
+          await softDelete('vendors', v.id)
+          document.querySelector('.modal-overlay')?.remove()
+          selVendorId = null
+          showToast('🗑 ลบแล้ว', 'warning')
+          if (container.__routerGen !== myGen) return
+          await loadData()
+        } catch (e) { showToast('ลบไม่สำเร็จ', 'error') }
       })
     }
   }
@@ -224,6 +229,10 @@ export default async function VendorManagementPage(container) {
   }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     let list = filterCat === 'all' ? VENDORS : VENDORS.filter(v => v.category === filterCat)
     const totalSpend = VENDORS.reduce((s,v) => s + v.ytdSpend, 0)
     const active = VENDORS.filter(v => v.status === 'active').length
@@ -278,5 +287,5 @@ export default async function VendorManagementPage(container) {
     return `<div class="card" style="padding:14px 16px"><div style="font-size:0.72rem;color:var(--text-muted)">${l}</div><div style="font-size:1.1rem;font-weight:900;color:${c};margin-top:2px">${v}</div></div>`
   }
 
-  render()
+  await loadData()
 }

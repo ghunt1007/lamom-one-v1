@@ -654,6 +654,84 @@ export function seedDemoData() {
   ]
   formsDemo.forEach(f => { if (!demoCol('forms')[f.id]) demoCol('forms')[f.id] = f })
 
+  // Cashier Desk (หน้า /finance/cashier)
+  const cdAddMinutes = n => { const d = new Date(); d.setMinutes(d.getMinutes() - n); return d.toISOString() }
+  const cashierPaymentsDemo = [
+    { id:'PM001', customer:'สมชาย ใจดี', ref:'IV2406-042', desc:'ค่าเช็คระยะ 20,000 km', amount:3745, method:'transfer', time:cdAddMinutes(15), cashier:'สมศรี การเงิน' },
+    { id:'PM002', customer:'มาลี สุขใจ', ref:'IV2406-041', desc:'ค่าอะไหล่ + ฟิล์ม', amount:13375, method:'card', time:cdAddMinutes(95), cashier:'สมศรี การเงิน' },
+    { id:'PM003', customer:'อรทัย ตั้งใจ', ref:'BK2406-008', desc:'มัดจำจองรถ MG4', amount:10000, method:'transfer', time:cdAddMinutes(180), cashier:'สมศรี การเงิน' },
+    { id:'PM004', customer:'วิรัช เก่งมาก', ref:'IV2406-040', desc:'ค่าล้าง + Detailing', amount:2675, method:'cash', time:cdAddMinutes(260), cashier:'สมศรี การเงิน' },
+  ]
+  cashierPaymentsDemo.forEach(p => { if (!demoCol('cashier_payments')[p.id]) demoCol('cashier_payments')[p.id] = p })
+  const cashierPendingBillsDemo = [
+    { id:'IV2406-043', customer:'ธนพล เที่ยงตรง', desc:'ค่าซ่อมเบรก (Job J002)', amount:9095 },
+    { id:'IV2406-044', customer:'ชาตรี เข้มแข็ง', desc:'ค่าอะไหล่ใบปัดน้ำฝน', amount:696 },
+  ]
+  cashierPendingBillsDemo.forEach(b => { if (!demoCol('cashier_pending_bills')[b.id]) demoCol('cashier_pending_bills')[b.id] = b })
+
+  // Compliance Calendar (หน้า /finance/compliance-calendar)
+  const complianceEventsDemo = [
+    { id:'CC001', title:'ต่ออายุใบอนุญาตจำหน่ายรถยนต์', category:'ใบอนุญาต', dueDate:'2026-07-01', responsible:'ผู้จัดการโชว์รูม', status:'pending', desc:'ใบอนุญาตค้าขายรถยนต์ กรมการขนส่งทางบก — ต้องต่อทุกปี' },
+    { id:'CC002', title:'ยื่นภาษีมูลค่าเพิ่ม (VAT) ประจำเดือน พ.ค.', category:'ภาษี', dueDate:'2026-06-17', responsible:'ฝ่ายบัญชี', status:'pending', desc:'ยื่น ภพ.30 ผ่านระบบ e-Filing สรรพากร' },
+    { id:'CC003', title:'ประกันสังคม มิ.ย. 2569', category:'แรงงาน', dueDate:'2026-06-15', responsible:'HR', status:'done', desc:'นำส่งเงินสมทบประกันสังคมพนักงาน 28 คน' },
+    { id:'CC004', title:'ต่ออายุใบอนุญาตสถานที่จอดรถ', category:'ใบอนุญาต', dueDate:'2026-08-01', responsible:'ผู้จัดการโชว์รูม', status:'pending', desc:'ใบอนุญาตจากเทศบาลสำหรับที่จอดรถลูกค้า' },
+    { id:'CC005', title:'ยื่นภาษีนิติบุคคล (PND51)', category:'ภาษี', dueDate:'2026-08-31', responsible:'ฝ่ายบัญชี', status:'pending', desc:'ภ.ง.ด. 51 ภาษีนิติบุคคลครึ่งปีแรก' },
+    { id:'CC006', title:'ต่อใบอนุญาตติดตั้งป้ายโฆษณา', category:'ใบอนุญาต', dueDate:'2026-09-15', responsible:'Admin', status:'pending', desc:'ป้ายหน้าโชว์รูมและป้าย LED ฝ่าย Marketing' },
+    { id:'CC007', title:'ต่อสัญญาเช่าอาคาร', category:'สัญญา', dueDate:'2026-12-31', responsible:'ผู้จัดการโชว์รูม', status:'pending', desc:'สัญญาเช่าอาคารโชว์รูม 3 ปี ครบกำหนดสิ้นปี' },
+    { id:'CC008', title:'ยื่น ภ.ง.ด. 3, 53 เดือน พ.ค.', category:'ภาษี', dueDate:'2026-06-07', responsible:'ฝ่ายบัญชี', status:'done', desc:'ภาษีหัก ณ ที่จ่ายค่าบริการและเงินเดือนพนักงาน' },
+  ]
+  complianceEventsDemo.forEach(e => { if (!demoCol('compliance_events')[e.id]) demoCol('compliance_events')[e.id] = e })
+
+  // Energy & Utility (หน้า /finance/energy)
+  const energyReadingsDemo = [
+    { id:'ER001', month:'ม.ค.', elec:42800, water:3200, net:2900, zone:{showroom:18000,service:14000,office:7200,parking:3600} },
+    { id:'ER002', month:'ก.พ.', elec:39600, water:2900, net:2900, zone:{showroom:16500,service:13200,office:6800,parking:3100} },
+    { id:'ER003', month:'มี.ค.', elec:44200, water:3400, net:2900, zone:{showroom:18800,service:14500,office:7100,parking:3800} },
+    { id:'ER004', month:'เม.ย.', elec:51000, water:3800, net:2900, zone:{showroom:21200,service:16800,office:8200,parking:4800} },
+    { id:'ER005', month:'พ.ค.', elec:53400, water:3900, net:3200, zone:{showroom:22100,service:17600,office:8700,parking:5000} },
+    { id:'ER006', month:'มิ.ย.', elec:49800, water:3600, net:3200, zone:{showroom:20500,service:16200,office:8100,parking:5000} },
+  ]
+  energyReadingsDemo.forEach(r => { if (!demoCol('energy_readings')[r.id]) demoCol('energy_readings')[r.id] = r })
+
+  // Financial Goals (หน้า /finance/goals)
+  const financialGoalsDemo = [
+    { id:'G001', title:'ยอดขายรถเดือนมิถุนายน', cat:'units', period:'รายเดือน', target:50, current:43, unit:'คัน' },
+    { id:'G002', title:'รายได้รวมเดือนมิถุนายน', cat:'revenue', period:'รายเดือน', target:45000000, current:38500000, unit:'บาท' },
+    { id:'G003', title:'กำไรสุทธิ Q2/2568', cat:'profit', period:'รายไตรมาส', target:8000000, current:6200000, unit:'บาท' },
+    { id:'G004', title:'รายได้บริการ Q2/2568', cat:'service', period:'รายไตรมาส', target:3000000, current:2850000, unit:'บาท' },
+    { id:'G005', title:'ยอดขายรวมปี 2568', cat:'units', period:'รายปี', target:600, current:241, unit:'คัน' },
+    { id:'G006', title:'รายได้รวมปี 2568', cat:'revenue', period:'รายปี', target:500000000, current:212000000, unit:'บาท' },
+  ]
+  financialGoalsDemo.forEach(g => { if (!demoCol('financial_goals')[g.id]) demoCol('financial_goals')[g.id] = g })
+
+  // Receipt Automation (หน้า /finance/receipt-auto)
+  const autoReceiptsDemo = [
+    { id:'AR001', number:'REC-2026-0541', customer:'สมชาย ใจดี', amount:1290000, type:'purchase', sent:true, channel:'email', date:'2026-06-14', status:'sent' },
+    { id:'AR002', number:'REC-2026-0542', customer:'นภา สุขสม', amount:4500, type:'service', sent:true, channel:'line', date:'2026-06-14', status:'sent' },
+    { id:'AR003', number:'REC-2026-0543', customer:'วิชัย ศรีดี', amount:8900, type:'service', sent:false, channel:'email', date:'2026-06-15', status:'pending' },
+    { id:'AR004', number:'REC-2026-0544', customer:'กาญจนา ทอง', amount:15600, type:'insurance', sent:false, channel:'sms', date:'2026-06-15', status:'failed' },
+    { id:'AR005', number:'REC-2026-0545', customer:'ประเสริฐ มั่น', amount:2100, type:'parts', sent:true, channel:'line', date:'2026-06-15', status:'sent' },
+  ]
+  autoReceiptsDemo.forEach(r => { if (!demoCol('auto_receipts')[r.id]) demoCol('auto_receipts')[r.id] = r })
+  const autoSendRulesDemo = [
+    { id:'ASR1', name:'รถใหม่ — ส่ง Email', trigger:'purchase', channel:'email', active:true },
+    { id:'ASR2', name:'ซ่อม — ส่ง LINE', trigger:'service', channel:'line', active:true },
+    { id:'ASR3', name:'ประกัน — ส่ง SMS', trigger:'insurance', channel:'sms', active:true },
+    { id:'ASR4', name:'อะไหล่ — ส่ง LINE', trigger:'parts', channel:'line', active:false },
+  ]
+  autoSendRulesDemo.forEach(r => { if (!demoCol('auto_send_rules')[r.id]) demoCol('auto_send_rules')[r.id] = r })
+
+  // Vendor Management (หน้า /finance/vendor)
+  const vendorsDemo = [
+    { id:'V001', name:'บริษัท ออโต้ พาร์ท จก.', category:'อะไหล่', contact:'คุณสมศักดิ์ 089-111-2233', payTerms:'30 วัน', ytdSpend:485000, rating:4.5, status:'active', lastOrder:'2026-06-10' },
+    { id:'V002', name:'3M Thailand', category:'วัสดุซ่อมสี', contact:'คุณกมล 02-333-4455', payTerms:'15 วัน', ytdSpend:124000, rating:4.8, status:'active', lastOrder:'2026-06-08' },
+    { id:'V003', name:'การไฟฟ้านครหลวง', category:'สาธารณูปโภค', contact:'-', payTerms:'ทันที', ytdSpend:38400, rating:5, status:'active', lastOrder:'2026-06-01' },
+    { id:'V004', name:'ร้านเครื่องมือช่างครบครัน', category:'เครื่องมือ', contact:'คุณวิชัย 081-555-6677', payTerms:'15 วัน', ytdSpend:67500, rating:3.8, status:'active', lastOrder:'2026-05-20' },
+    { id:'V005', name:'PTT น้ำมันหล่อลื่น', category:'น้ำมัน/สารหล่อลื่น', contact:'คุณปิยะ 02-666-7788', payTerms:'30 วัน', ytdSpend:95000, rating:4.2, status:'active', lastOrder:'2026-06-12' },
+    { id:'V006', name:'บจก. ไทยทำความสะอาด', category:'บริการ', contact:'คุณอรุณ 086-999-0011', payTerms:'30 วัน', ytdSpend:24000, rating:4.0, status:'inactive', lastOrder:'2026-04-01' },
+  ]
+  vendorsDemo.forEach(v => { if (!demoCol('vendors')[v.id]) demoCol('vendors')[v.id] = v })
+
   const accessories = [
     { id:'acc1', name:'ฟิล์มกรองแสง 3M Crystalline', sku:'ACC-3M-001', category:'ฟิล์ม', price:18000, cost:10000, stock:5, unit:'ชุด', brand:'3M', createdAt:'2025-01-10' },
     { id:'acc2', name:'พรมรถ BYD Seal OEM', sku:'ACC-BYD-002', category:'ตกแต่งภายใน', price:3500, cost:1800, stock:12, unit:'ชุด', brand:'BYD', createdAt:'2025-01-15' },
