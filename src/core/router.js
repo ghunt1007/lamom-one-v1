@@ -1,4 +1,5 @@
-import { setState, getState } from './store.js'
+import { setState, getState, showToast } from './store.js'
+import { getModuleForPath, hasModuleAccess, loadRolePermissions } from './permissions.js'
 
 const routes = {
   '/':              () => import('../pages/Dashboard.js'),
@@ -566,6 +567,16 @@ async function render(appEl) {
   if (user && path === '/login') {
     navigate('/')
     return
+  }
+
+  if (user) {
+    await loadRolePermissions()
+    const moduleKey = getModuleForPath(path)?.key
+    if (moduleKey && !hasModuleAccess(user.role, moduleKey)) {
+      showToast('🚫 คุณไม่มีสิทธิ์เข้าถึงหน้านี้', 'error')
+      navigate('/')
+      return
+    }
   }
 
   if (currentCleanup) { currentCleanup(); currentCleanup = null }

@@ -821,6 +821,17 @@ export function seedDemoData() {
   ]
   teamTargetsDemo.forEach(t => { if (!demoCol('team_targets')[t.id]) demoCol('team_targets')[t.id] = t })
 
+  // Role Permissions — สิทธิ์การเข้าถึงแต่ละโมดูลตาม Role (หน้า /settings/roles)
+  const rolePermissionsDemo = [
+    { id:'owner',   roleName:'🏆 เจ้าของ',    modules:['*'] },
+    { id:'admin',   roleName:'🔑 แอดมิน',     modules:['*'] },
+    { id:'manager', roleName:'🎯 ผู้จัดการ',  modules:['sales','dms','service','finance','insurance','marketing','hr','documents','ai','comms','quality','b2b'] },
+    { id:'sales',   roleName:'💼 เซลส์',      modules:['sales','dms','documents','marketing','comms','ai'] },
+    { id:'service', roleName:'🔧 ช่าง/บริการ', modules:['dms','service','quality','ai'] },
+    { id:'staff',   roleName:'👤 พนักงาน',    modules:['ai'] },
+  ]
+  rolePermissionsDemo.forEach(r => { if (!demoCol('role_permissions')[r.id]) demoCol('role_permissions')[r.id] = r })
+
   // Invoices — ใบแจ้งหนี้/ใบเสร็จ/ใบกำกับภาษี (หน้า /finance/invoice)
   const invoicesDemo = [
     { id:'D001', type:'invoice', no:'INV-2026-001', custName:'สมศักดิ์ เจริญสุข', custTax:'0105567012345', date:'2026-06-02', dueDate:'2026-06-17', items:[ { desc:'BYD Seal AWD', qty:1, unit:'คัน', price:1299000, vat:7 } ], status:'paid', paidDate:'2026-06-05', note:'' },

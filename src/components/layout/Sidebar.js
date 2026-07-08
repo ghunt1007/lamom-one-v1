@@ -1,6 +1,7 @@
 import { getState, on, toggleSidebar } from '../../core/store.js'
 import { navigate } from '../../core/router.js'
 import { logout } from '../../core/auth.js'
+import { getModuleForPath, hasModuleAccess, loadRolePermissions } from '../../core/permissions.js'
 
 const NAV = [
   {
@@ -401,14 +402,23 @@ export function Sidebar(container) {
   let el = null
   const unsubs = []
 
+  loadRolePermissions().then(() => render())
+
+  function visibleNav(role) {
+    return NAV
+      .map(g => ({ ...g, items: g.items.filter(i => hasModuleAccess(role, getModuleForPath(i.path)?.key)) }))
+      .filter(g => g.items.length > 0)
+  }
+
   function render() {
     const collapsed = getState('sidebarCollapsed')
     const route = getState('currentRoute')
     const user = getState('user')
     const grpState = loadGroupState()
+    const nav = visibleNav(user?.role)
 
     // Auto-expand the group containing the active route
-    NAV.forEach(g => {
+    nav.forEach(g => {
       if (g.items.some(i => i.path === route) && !(g.group in grpState)) {
         grpState[g.group] = false // false = expanded
       }
@@ -423,7 +433,7 @@ export function Sidebar(container) {
         </div>
 
         <nav class="sidebar-nav">
-          ${NAV.map(group => {
+          ${nav.map(group => {
             const isGroupCollapsed = !collapsed && !!grpState[group.group]
             const hasActive = group.items.some(i => i.path === route)
             return `
