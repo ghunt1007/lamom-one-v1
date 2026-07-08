@@ -1,4 +1,4 @@
-import { initializeApp } from 'firebase/app'
+import { initializeApp, getApps } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check'
@@ -28,3 +28,11 @@ if (appCheckKey) {
 export const auth = getAuth(app)
 export const db = getFirestore(app)
 export default app
+
+// Secondary app instance — used to create staff accounts from an admin session without
+// signing the admin out (Firebase Auth client SDK signs in as whichever user was just created).
+export function getSecondaryAuth() {
+  const existing = getApps().find(a => a.name === 'secondary')
+  const secondaryApp = existing || initializeApp(firebaseConfig, 'secondary')
+  return getAuth(secondaryApp)
+}

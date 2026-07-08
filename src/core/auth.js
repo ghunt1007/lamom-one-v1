@@ -1,9 +1,10 @@
-import { auth, db } from './firebase.js'
+import { auth, db, getSecondaryAuth } from './firebase.js'
 import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
   createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
 } from 'firebase/auth'
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { setUser, setCompany, setState, showToast, getState } from './store.js'
@@ -67,6 +68,13 @@ async function loadUserProfile(firebaseUser) {
     const snap = await getDoc(doc(db, 'users', firebaseUser.uid))
     if (snap.exists()) {
       const profile = { uid: firebaseUser.uid, email: firebaseUser.email, ...snap.data() }
+      if (profile.active === false) {
+        await signOut(auth)
+        setUser(null)
+        showToast('บัญชีนี้ถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ', 'error', 8000)
+        navigate('/login')
+        return
+      }
       setUser(profile)
       setState('role', profile.role || 'staff')
       setState('permissions', profile.permissions || [])
@@ -114,6 +122,40 @@ async function loadUserProfile(firebaseUser) {
 export function hasPermission(perm) {
   const permissions = getState('permissions') || []
   return permissions.includes('*') || permissions.includes(perm)
+}
+
+// ── Admin: manage staff accounts ────────────────────────────────────────────
+// Uses a secondary Firebase Auth app instance so creating a new account doesn't
+// sign the admin out of their own session (the client SDK signs in as whichever
+// user was just created via createUserWithEmailAndPassword).
+export async function createStaffAccount({ name, email, password, role }) {
+  const secondaryAuth = getSecondaryAuth()
+  try {
+    const cred = await createUserWithEmailAndPassword(secondaryAuth, email, password)
+    const uid = cred.user.uid
+    await setDoc(doc(db, 'users', uid), {
+      uid, email, displayName: name || email,
+      role: role || 'staff',
+      permissions: [],
+      active: true,
+      createdBy: getState('user')?.uid || null,
+      createdAt: serverTimestamp(),
+    })
+    await signOut(secondaryAuth)
+    return { ok: true, uid }
+  } catch (e) {
+    try { await signOut(secondaryAuth) } catch {}
+    return { ok: false, error: authErrorMessage(e.code) }
+  }
+}
+
+export async function sendStaffPasswordReset(email) {
+  try {
+    await sendPasswordResetEmail(auth, email)
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: authErrorMessage(e.code) }
+  }
 }
 
 function authErrorMessage(code) {
