@@ -4,55 +4,23 @@
  */
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-
-let PRODUCTS = [
-  {
-    id:'PK001', brand:'BYD', model:'Atto 3', badge:'EV', year:2024,
-    mastered:78, staffTotal:12,
-    specs:{ battery:'60.5 kWh', range:'420 km', power:'204 hp', torque:'310 Nm', charge:'50 kW DC', price:'1,199,900' },
-    selling:['ระบบ Blade Battery ปลอดภัยสูง','ระบบ NFC เปิด-ปิดรถ','หน้าจอหมุน 15.6 นิ้ว','การันตีแบต 8 ปี / 160,000 กม.'],
-    competitors:[{name:'MG ZS EV',pro:'ราคาถูกกว่า',con:'พิสัยน้อยกว่า'},{name:'Tesla Model Y',pro:'Software ดีกว่า',con:'ราคาแพงกว่ามาก'}],
-  },
-  {
-    id:'PK002', brand:'BYD', model:'Seal AWD', badge:'EV', year:2024,
-    mastered:65, staffTotal:12,
-    specs:{ battery:'82.5 kWh', range:'520 km', power:'530 hp', torque:'670 Nm', charge:'150 kW DC', price:'1,999,900' },
-    selling:['All-Wheel Drive ขับ 4 ล้อ','0-100 ใน 3.8 วินาที','Cell-to-Body เทคโนโลยีใหม่','Suspension อัจฉริยะ'],
-    competitors:[{name:'Tesla Model 3',pro:'แบรนด์แข็งแกร่ง',con:'ราคาเท่ากันแต่ขนาดเล็กกว่า'},{name:'BMW i4',pro:'Premium มากกว่า',con:'ราคาแพงกว่า 30%'}],
-  },
-  {
-    id:'PK003', brand:'BYD', model:'Dolphin', badge:'EV', year:2024,
-    mastered:82, staffTotal:12,
-    specs:{ battery:'44.9 kWh', range:'340 km', power:'95 hp', torque:'180 Nm', charge:'40 kW DC', price:'799,900' },
-    selling:['ราคาเริ่มต้นต่ำสุด','เหมาะสำหรับในเมือง','ขนาดกระทัดรัด','ค่าบำรุงรักษาต่ำ'],
-    competitors:[{name:'Ora Good Cat',pro:'ราคาใกล้เคียง',con:'พิสัยน้อยกว่า'},{name:'Neta V',pro:'ราคาถูกกว่า',con:'แบรนด์ไม่แข็งแกร่ง'}],
-  },
-  {
-    id:'PK004', brand:'BYD', model:'Han', badge:'EV', year:2024,
-    mastered:54, staffTotal:12,
-    specs:{ battery:'100 kWh', range:'605 km', power:'517 hp', torque:'700 Nm', charge:'120 kW DC', price:'2,599,900' },
-    selling:['Luxury EV Sedan','พิสัยไกลที่สุดในไลน์อัพ','หน้าจอ 15.6 นิ้ว','ระบบเสียง 12 ลำโพง Dynaudio'],
-    competitors:[{name:'Tesla Model S',pro:'Software OTA ดีกว่า',con:'ราคาแพงกว่ามาก'},{name:'Mercedes EQS',pro:'Premium มากกว่า',con:'ราคา 3 เท่า'}],
-  },
-  {
-    id:'PK005', brand:'MG', model:'ZS EV', badge:'EV', year:2024,
-    mastered:71, staffTotal:12,
-    specs:{ battery:'50.3 kWh', range:'357 km', power:'177 hp', torque:'280 Nm', charge:'76 kW DC', price:'999,900' },
-    selling:['ราคา/คุณสมบัติดี','ประกัน 5 ปี','MG iSmart Connected','ฟรีชาร์จที่ MG Super Charge'],
-    competitors:[{name:'BYD Atto 3',pro:'Blade Battery ปลอดภัยกว่า',con:'ราคาแพงกว่า'},{name:'Neta S',pro:'ทันสมัยกว่า',con:'บริการหลังขายน้อยกว่า'}],
-  },
-  {
-    id:'PK006', brand:'BYD', model:'Atto 3 Pro', badge:'NEW', year:2025,
-    mastered:42, staffTotal:12,
-    specs:{ battery:'60.5 kWh', range:'460 km', power:'204 hp', torque:'310 Nm', charge:'80 kW DC', price:'1,299,900' },
-    selling:['รุ่นอัพเกรด Pro','ชาร์จเร็วขึ้น','พิสัยเพิ่มขึ้น 40 กม.','ฟีเจอร์ ADAS เพิ่มขึ้น'],
-    competitors:[{name:'Atto 3 (เดิม)',pro:'ราคาถูกกว่า',con:'ฟีเจอร์น้อยกว่า'},{name:'MG 4',pro:'Design ทันสมัยกว่า',con:'พิสัยน้อยกว่า'}],
-  },
-]
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 export default async function ProductKnowledgePage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let PRODUCTS = []
   let filterBrand = 'all'
   let selectedId  = null
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { PRODUCTS = await listDocs('product_knowledge', [], 'model', 'asc', 500) } catch (e) { PRODUCTS = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function masteredColor(pct) {
     return pct >= 80 ? 'var(--success)' : pct >= 60 ? 'var(--warning)' : 'var(--danger)'
@@ -119,6 +87,10 @@ export default async function ProductKnowledgePage(container) {
   }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     let rows = filterBrand === 'all' ? PRODUCTS : PRODUCTS.filter(p=>p.brand===filterBrand)
     const brands = [...new Set(PRODUCTS.map(p=>p.brand))]
     const avgMastered = Math.round(PRODUCTS.reduce((s,p)=>s+p.mastered,0)/PRODUCTS.length)
@@ -269,7 +241,8 @@ export default async function ProductKnowledgePage(container) {
                 </div>
               </div>
             `
-            p.mastered = Math.min(100, Math.round((p.mastered + pct) / 2))
+            const newMastered = Math.min(100, Math.round((p.mastered + pct) / 2))
+            updateDocData('product_knowledge', p.id, { mastered: newMastered }).then(loadData).catch(() => showToast('บันทึกไม่สำเร็จ', 'error'))
             showToast(`🎯 Quiz เสร็จ! ${score}/${questions.length} คะแนน`, pct >= 75 ? 'success' : 'warning')
           }
         }, 900)
@@ -316,31 +289,32 @@ export default async function ProductKnowledgePage(container) {
         </div>
       `
     })
-    document.getElementById('pk-save')?.addEventListener('click', () => {
+    document.getElementById('pk-save')?.addEventListener('click', async () => {
       const brand = document.getElementById('pk-brand')?.value.trim()
       const model = document.getElementById('pk-model')?.value.trim()
       if (!brand || !model) { showToast('⚠️ กรุณากรอกแบรนด์และรุ่น', 'warning'); return }
       const sellingRaw = document.getElementById('pk-selling')?.value.trim()
-      PRODUCTS.push({
-        id: 'PK' + String(PRODUCTS.length + 1).padStart(3,'0'),
-        brand, model,
-        badge: document.getElementById('pk-badge')?.value || 'EV',
-        year: parseInt(document.getElementById('pk-year')?.value) || 2025,
-        mastered: 0,
-        staffTotal: 12,
-        specs: {
-          battery: document.getElementById('pk-bat')?.value.trim() || '-',
-          range:   document.getElementById('pk-range')?.value.trim() || '-',
-          power:   document.getElementById('pk-power')?.value.trim() || '-',
-          torque: '-', charge: '-',
-          price:   document.getElementById('pk-price')?.value.trim() || '0',
-        },
-        selling: sellingRaw ? sellingRaw.split('\n').filter(Boolean) : [],
-        competitors: [],
-      })
-      document.querySelector('.modal-overlay')?.remove()
-      showToast('✅ เพิ่ม ' + brand + ' ' + model + ' แล้ว', 'success')
-      render()
+      try {
+        await createDoc('product_knowledge', {
+          brand, model,
+          badge: document.getElementById('pk-badge')?.value || 'EV',
+          year: parseInt(document.getElementById('pk-year')?.value) || 2025,
+          mastered: 0,
+          staffTotal: 12,
+          specs: {
+            battery: document.getElementById('pk-bat')?.value.trim() || '-',
+            range:   document.getElementById('pk-range')?.value.trim() || '-',
+            power:   document.getElementById('pk-power')?.value.trim() || '-',
+            torque: '-', charge: '-',
+            price:   document.getElementById('pk-price')?.value.trim() || '0',
+          },
+          selling: sellingRaw ? sellingRaw.split('\n').filter(Boolean) : [],
+          competitors: [],
+        })
+        document.querySelector('.modal-overlay')?.remove()
+        showToast('✅ เพิ่ม ' + brand + ' ' + model + ' แล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
@@ -351,5 +325,5 @@ export default async function ProductKnowledgePage(container) {
     </div>`
   }
 
-  render()
+  await loadData()
 }

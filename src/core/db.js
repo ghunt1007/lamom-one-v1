@@ -732,6 +732,80 @@ export function seedDemoData() {
   ]
   vendorsDemo.forEach(v => { if (!demoCol('vendors')[v.id]) demoCol('vendors')[v.id] = v })
 
+  // Daily Missions (หน้า /gamification/missions)
+  const dailyMissionsDemo = [
+    { id:'D1', period:'daily', title:'บันทึก Follow-up 3 ราย', xp:50, icon:'📞', done:true, progress:3, target:3 },
+    { id:'D2', period:'daily', title:'ส่งใบเสนอราคา 1 ใบ', xp:80, icon:'📄', done:true, progress:1, target:1 },
+    { id:'D3', period:'daily', title:'อัปเดต Pipeline 5 ดีล', xp:60, icon:'📋', done:false, progress:3, target:5 },
+    { id:'D4', period:'daily', title:'ตอบแชทลูกค้าภายใน 30 นาที', xp:40, icon:'💬', done:false, progress:2, target:3 },
+    { id:'D5', period:'daily', title:'บันทึก Voice Note 1 ครั้ง', xp:30, icon:'🎙', done:false, progress:0, target:1 },
+    { id:'W1', period:'weekly', title:'ปิดดีล 2 คันขึ้นไป', xp:500, icon:'🏆', done:false, progress:1, target:2 },
+    { id:'W2', period:'weekly', title:'รับ NPS ≥ 4.5 จาก 3 ลูกค้า', xp:300, icon:'⭐', done:false, progress:2, target:3 },
+    { id:'W3', period:'weekly', title:'เรียน Training ครบ 1 หลักสูตร', xp:200, icon:'📚', done:true, progress:1, target:1 },
+    { id:'W4', period:'weekly', title:'ไม่มี Lead หลุด 7 วัน', xp:400, icon:'🎯', done:false, progress:5, target:7 },
+  ]
+  dailyMissionsDemo.forEach(m => { if (!demoCol('daily_missions')[m.id]) demoCol('daily_missions')[m.id] = m })
+
+  // Webhook Builder (หน้า /integrations/webhooks)
+  const webhooksDemo = [
+    { id:'wh001', name:'LINE Notify – ยอดขาย', url:'https://notify-api.line.me/api/notify', events:['sale.created','sale.updated'], method:'POST', active:true, lastFired:'2026-06-14T09:32:00', fires:142, fails:0, secret:'sk_ln_xxxx' },
+    { id:'wh002', name:'Google Sheets – Lead', url:'https://script.google.com/macros/s/xxxxx/exec', events:['lead.created','lead.converted'], method:'POST', active:true, lastFired:'2026-06-13T17:05:00', fires:67, fails:2, secret:'' },
+    { id:'wh003', name:'Slack – บริการแจ้งเตือน', url:'https://hooks.slack.com/services/T00/B00/xxx', events:['service.completed'], method:'POST', active:false, lastFired:'2026-05-30T12:00:00', fires:23, fails:0, secret:'' },
+  ]
+  webhooksDemo.forEach(w => { if (!demoCol('webhooks')[w.id]) demoCol('webhooks')[w.id] = w })
+
+  // Equipment Maintenance (หน้า /quality/maintenance)
+  const maintenanceEquipmentDemo = [
+    { id:'EQ001', name:'Lift A', category:'service', lastService:'2026-04-10', nextService:'2026-07-10', cycle:90, status:'ok', technician:'ช่าง วิชัย' },
+    { id:'EQ002', name:'Lift B', category:'service', lastService:'2026-05-01', nextService:'2026-08-01', cycle:90, status:'ok', technician:'ช่าง วิชัย' },
+    { id:'EQ003', name:'Compressor', category:'service', lastService:'2026-03-15', nextService:'2026-06-15', cycle:90, status:'overdue', technician:'ช่าง สมพงษ์' },
+    { id:'EQ004', name:'Air Conditioner', category:'office', lastService:'2026-04-20', nextService:'2026-07-20', cycle:90, status:'due_soon', technician:'บริษัทภายนอก' },
+    { id:'EQ005', name:'CCTV System', category:'office', lastService:'2026-01-10', nextService:'2026-07-10', cycle:180, status:'due_soon', technician:'บริษัทภายนอก' },
+    { id:'EQ006', name:'EV Charger DC', category:'service', lastService:'2026-06-01', nextService:'2026-09-01', cycle:90, status:'ok', technician:'ช่าง สมพงษ์' },
+  ]
+  maintenanceEquipmentDemo.forEach(e => { if (!demoCol('maintenance_equipment')[e.id]) demoCol('maintenance_equipment')[e.id] = e })
+
+  // Knowledge Base (หน้า /training/knowledge)
+  const kbAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString() }
+  const kbArticlesDemo = [
+    { id:'KB001', title:'สเปคเต็ม BYD Seal AWD + จุดขายเทียบคู่แข่ง', cat:'product', author:'ผจก.ขาย', views:234, helpful:41, updated:kbAddDays(-10), excerpt:'มอเตอร์คู่ 390kW, 0-100 ใน 3.8 วิ, แบต 82.56 kWh — จุดขายหลักเทียบ Tesla Model 3...' },
+    { id:'KB002', title:'วิธีตอบเมื่อลูกค้าถาม "แบตเสื่อมไหม เปลี่ยนแพงไหม"', cat:'sales', author:'วิชัย ยอดขาย', views:189, helpful:38, updated:kbAddDays(-5), excerpt:'ใช้ข้อมูลจริง: รับประกันแบต 8 ปี/160,000 km + SOH เฉลี่ยหลัง 3 ปียังเกิน 88%...' },
+    { id:'KB003', title:'SOP ทำงานกับระบบไฟแรงสูง (HV) — บังคับอ่าน', cat:'service', author:'วิทยา ช่างใหญ่', views:156, helpful:52, updated:kbAddDays(-30), excerpt:'ก่อนแตะระบบ HV ทุกครั้ง: ปิดระบบ → ถอด service plug → รอ 10 นาที → วัดไฟยืนยัน 0V...' },
+    { id:'KB004', title:'วิธีสร้างใบเสนอราคาใน LAMOM ONE', cat:'system', author:'Admin', views:98, helpful:22, updated:kbAddDays(-15), excerpt:'ไปที่ การขาย → ใบเสนอราคา → เลือกลูกค้า → เลือกรุ่น/สี/ของแถม → ระบบคำนวณให้...' },
+    { id:'KB005', title:'ระเบียบการลา + วิธียื่นในระบบ', cat:'policy', author:'HR', views:145, helpful:30, updated:kbAddDays(-60), excerpt:'ลาป่วยแจ้งก่อน 9:00 / ลากิจล่วงหน้า 3 วัน / ลาพักร้อนล่วงหน้า 7 วัน — ยื่นผ่าน HR → ลาพนักงาน...' },
+    { id:'KB006', title:'Troubleshooting: ลูกค้าชาร์จไฟไม่เข้า เช็คอะไรบ้าง', cat:'service', author:'สุรชัย มือดี', views:121, helpful:35, updated:kbAddDays(-7), excerpt:'1) เช็คสาย/หัวชาร์จ 2) ดู error code บนจอ 3) ทดสอบกับตู้ชาร์จศูนย์ 4) อ่านค่า OBC...' },
+  ]
+  kbArticlesDemo.forEach(a => { if (!demoCol('kb_articles')[a.id]) demoCol('kb_articles')[a.id] = a })
+
+  // Product Knowledge DB (หน้า /training/product-knowledge)
+  const productKnowledgeDemo = [
+    { id:'PK001', brand:'BYD', model:'Atto 3', badge:'EV', year:2024, mastered:78, staffTotal:12,
+      specs:{ battery:'60.5 kWh', range:'420 km', power:'204 hp', torque:'310 Nm', charge:'50 kW DC', price:'1,199,900' },
+      selling:['ระบบ Blade Battery ปลอดภัยสูง','ระบบ NFC เปิด-ปิดรถ','หน้าจอหมุน 15.6 นิ้ว','การันตีแบต 8 ปี / 160,000 กม.'],
+      competitors:[{name:'MG ZS EV',pro:'ราคาถูกกว่า',con:'พิสัยน้อยกว่า'},{name:'Tesla Model Y',pro:'Software ดีกว่า',con:'ราคาแพงกว่ามาก'}] },
+    { id:'PK002', brand:'BYD', model:'Seal AWD', badge:'EV', year:2024, mastered:65, staffTotal:12,
+      specs:{ battery:'82.5 kWh', range:'520 km', power:'530 hp', torque:'670 Nm', charge:'150 kW DC', price:'1,999,900' },
+      selling:['All-Wheel Drive ขับ 4 ล้อ','0-100 ใน 3.8 วินาที','Cell-to-Body เทคโนโลยีใหม่','Suspension อัจฉริยะ'],
+      competitors:[{name:'Tesla Model 3',pro:'แบรนด์แข็งแกร่ง',con:'ราคาเท่ากันแต่ขนาดเล็กกว่า'},{name:'BMW i4',pro:'Premium มากกว่า',con:'ราคาแพงกว่า 30%'}] },
+    { id:'PK003', brand:'BYD', model:'Dolphin', badge:'EV', year:2024, mastered:82, staffTotal:12,
+      specs:{ battery:'44.9 kWh', range:'340 km', power:'95 hp', torque:'180 Nm', charge:'40 kW DC', price:'799,900' },
+      selling:['ราคาเริ่มต้นต่ำสุด','เหมาะสำหรับในเมือง','ขนาดกระทัดรัด','ค่าบำรุงรักษาต่ำ'],
+      competitors:[{name:'Ora Good Cat',pro:'ราคาใกล้เคียง',con:'พิสัยน้อยกว่า'},{name:'Neta V',pro:'ราคาถูกกว่า',con:'แบรนด์ไม่แข็งแกร่ง'}] },
+    { id:'PK004', brand:'BYD', model:'Han', badge:'EV', year:2024, mastered:54, staffTotal:12,
+      specs:{ battery:'100 kWh', range:'605 km', power:'517 hp', torque:'700 Nm', charge:'120 kW DC', price:'2,599,900' },
+      selling:['Luxury EV Sedan','พิสัยไกลที่สุดในไลน์อัพ','หน้าจอ 15.6 นิ้ว','ระบบเสียง 12 ลำโพง Dynaudio'],
+      competitors:[{name:'Tesla Model S',pro:'Software OTA ดีกว่า',con:'ราคาแพงกว่ามาก'},{name:'Mercedes EQS',pro:'Premium มากกว่า',con:'ราคา 3 เท่า'}] },
+    { id:'PK005', brand:'MG', model:'ZS EV', badge:'EV', year:2024, mastered:71, staffTotal:12,
+      specs:{ battery:'50.3 kWh', range:'357 km', power:'177 hp', torque:'280 Nm', charge:'76 kW DC', price:'999,900' },
+      selling:['ราคา/คุณสมบัติดี','ประกัน 5 ปี','MG iSmart Connected','ฟรีชาร์จที่ MG Super Charge'],
+      competitors:[{name:'BYD Atto 3',pro:'Blade Battery ปลอดภัยกว่า',con:'ราคาแพงกว่า'},{name:'Neta S',pro:'ทันสมัยกว่า',con:'บริการหลังขายน้อยกว่า'}] },
+    { id:'PK006', brand:'BYD', model:'Atto 3 Pro', badge:'NEW', year:2025, mastered:42, staffTotal:12,
+      specs:{ battery:'60.5 kWh', range:'460 km', power:'204 hp', torque:'310 Nm', charge:'80 kW DC', price:'1,299,900' },
+      selling:['รุ่นอัพเกรด Pro','ชาร์จเร็วขึ้น','พิสัยเพิ่มขึ้น 40 กม.','ฟีเจอร์ ADAS เพิ่มขึ้น'],
+      competitors:[{name:'Atto 3 (เดิม)',pro:'ราคาถูกกว่า',con:'ฟีเจอร์น้อยกว่า'},{name:'MG 4',pro:'Design ทันสมัยกว่า',con:'พิสัยน้อยกว่า'}] },
+  ]
+  productKnowledgeDemo.forEach(p => { if (!demoCol('product_knowledge')[p.id]) demoCol('product_knowledge')[p.id] = p })
+
   const accessories = [
     { id:'acc1', name:'ฟิล์มกรองแสง 3M Crystalline', sku:'ACC-3M-001', category:'ฟิล์ม', price:18000, cost:10000, stock:5, unit:'ชุด', brand:'3M', createdAt:'2025-01-10' },
     { id:'acc2', name:'พรมรถ BYD Seal OEM', sku:'ACC-BYD-002', category:'ตกแต่งภายใน', price:3500, cost:1800, stock:12, unit:'ชุด', brand:'BYD', createdAt:'2025-01-15' },

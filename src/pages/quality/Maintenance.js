@@ -5,15 +5,7 @@
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { formatDate } from '../../utils/format.js'
-
-let EQUIPMENT = [
-  { id:'EQ001', name:'Lift A',         category:'service', lastService:'2026-04-10', nextService:'2026-07-10', cycle:90,  status:'ok',        technician:'ช่าง วิชัย'  },
-  { id:'EQ002', name:'Lift B',         category:'service', lastService:'2026-05-01', nextService:'2026-08-01', cycle:90,  status:'ok',        technician:'ช่าง วิชัย'  },
-  { id:'EQ003', name:'Compressor',     category:'service', lastService:'2026-03-15', nextService:'2026-06-15', cycle:90,  status:'overdue',   technician:'ช่าง สมพงษ์' },
-  { id:'EQ004', name:'Air Conditioner',category:'office',  lastService:'2026-04-20', nextService:'2026-07-20', cycle:90,  status:'due_soon',  technician:'บริษัทภายนอก' },
-  { id:'EQ005', name:'CCTV System',    category:'office',  lastService:'2026-01-10', nextService:'2026-07-10', cycle:180, status:'due_soon',  technician:'บริษัทภายนอก' },
-  { id:'EQ006', name:'EV Charger DC',  category:'service', lastService:'2026-06-01', nextService:'2026-09-01', cycle:90,  status:'ok',        technician:'ช่าง สมพงษ์' },
-]
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 const STATUS_CFG = {
   ok:       { label:'ปกติ',       bg:'var(--success)',    icon:'✅' },
@@ -24,11 +16,23 @@ const STATUS_CFG = {
 const CAT_LABELS = { service:'ศูนย์บริการ', office:'สำนักงาน' }
 
 export default async function MaintenancePage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let EQUIPMENT = []
   let filterStatus = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { EQUIPMENT = await listDocs('maintenance_equipment', [], 'name', 'asc', 500) } catch (e) { EQUIPMENT = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function daysUntil(dateStr) {
     const d = new Date(dateStr)
-    const today = new Date('2026-06-15')
+    const today = new Date()
     return Math.ceil((d-today)/(1000*60*60*24))
   }
 
@@ -61,6 +65,10 @@ export default async function MaintenancePage(container) {
   }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     let rows = EQUIPMENT
     if (filterStatus !== 'all') rows = rows.filter(e=>e.status===filterStatus)
 
@@ -109,7 +117,7 @@ export default async function MaintenancePage(container) {
   }
 
   function openAddEquipmentModal() {
-    const today = '2026-06-22'
+    const today = new Date().toISOString().slice(0, 10)
     openModal({
       title: '🔧 เพิ่มอุปกรณ์ใหม่',
       size: 'md',
@@ -146,7 +154,7 @@ export default async function MaintenancePage(container) {
         </div>
       `
     })
-    document.getElementById('eq-save')?.addEventListener('click', () => {
+    document.getElementById('eq-save')?.addEventListener('click', async () => {
       const name = document.getElementById('eq-name')?.value.trim()
       if (!name) { showToast('⚠️ กรุณากรอกชื่ออุปกรณ์', 'warning'); return }
       const cycle = parseInt(document.getElementById('eq-cycle')?.value) || 90
@@ -156,16 +164,17 @@ export default async function MaintenancePage(container) {
       const nextService = nextDate.toISOString().slice(0, 10)
       const daysLeft = Math.ceil((nextDate - new Date(today)) / (1000 * 60 * 60 * 24))
       const status = daysLeft < 0 ? 'overdue' : daysLeft <= 7 ? 'due_soon' : 'ok'
-      EQUIPMENT.push({
-        id: 'EQ' + String(EQUIPMENT.length + 1).padStart(3, '0'),
-        name,
-        category: document.getElementById('eq-cat')?.value || 'service',
-        lastService, nextService, cycle, status,
-        technician: document.getElementById('eq-tech')?.value.trim() || '-',
-      })
-      document.querySelector('.modal-overlay')?.remove()
-      showToast('✅ เพิ่มอุปกรณ์ ' + name + ' แล้ว', 'success')
-      render()
+      try {
+        await createDoc('maintenance_equipment', {
+          name,
+          category: document.getElementById('eq-cat')?.value || 'service',
+          lastService, nextService, cycle, status,
+          technician: document.getElementById('eq-tech')?.value.trim() || '-',
+        })
+        document.querySelector('.modal-overlay')?.remove()
+        showToast('✅ เพิ่มอุปกรณ์ ' + name + ' แล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
@@ -176,21 +185,21 @@ export default async function MaintenancePage(container) {
         <div style="background:var(--surface-2);border-radius:8px;padding:10px;font-size:0.76rem">
           <div>📋 รอบบำรุงรักษา: ทุก <strong>${eq.cycle} วัน</strong></div>
           <div style="margin-top:4px">👷 ช่างผู้รับผิดชอบ: <strong>${eq.technician}</strong></div>
-          <div style="margin-top:4px">📅 ครั้งถัดไปจะเป็น: <strong>${new Date('2026-06-15').toLocaleDateString('th-TH')}</strong></div>
+          <div style="margin-top:4px">📅 ครั้งถัดไปจะเป็น: <strong>${new Date().toLocaleDateString('th-TH')}</strong></div>
         </div>
         <div><label style="font-size:0.72rem;color:var(--text-muted)">หมายเหตุการบำรุงรักษา</label>
           <textarea class="input" id="maint-note" style="width:100%;margin-top:3px;height:60px;resize:vertical" placeholder="รายละเอียดการซ่อมบำรุง..."></textarea></div>
       </div>`,
       confirmText: '✅ บันทึกการบำรุงรักษา',
-      onConfirm() {
-        const today  = '2026-06-15'
+      async onConfirm() {
+        const today  = new Date().toISOString().slice(0, 10)
         const nextD  = new Date(today)
         nextD.setDate(nextD.getDate() + eq.cycle)
-        eq.lastService = today
-        eq.nextService = nextD.toISOString().slice(0,10)
-        eq.status = 'ok'
-        render()
-        showToast('✅ บันทึกการบำรุงรักษา: ' + eq.name + ' แล้ว', 'success')
+        try {
+          await updateDocData('maintenance_equipment', eq.id, { lastService: today, nextService: nextD.toISOString().slice(0,10), status: 'ok' })
+          showToast('✅ บันทึกการบำรุงรักษา: ' + eq.name + ' แล้ว', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -202,5 +211,5 @@ export default async function MaintenancePage(container) {
     </div>`
   }
 
-  render()
+  await loadData()
 }

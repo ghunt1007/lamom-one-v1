@@ -3,21 +3,7 @@
  * Route: /gamification/missions
  */
 import { showToast } from '../../core/store.js'
-
-const DAILY = [
-  { id:'D1', title:'บันทึก Follow-up 3 ราย', xp:50, icon:'📞', done:true, progress:3, target:3 },
-  { id:'D2', title:'ส่งใบเสนอราคา 1 ใบ', xp:80, icon:'📄', done:true, progress:1, target:1 },
-  { id:'D3', title:'อัปเดต Pipeline 5 ดีล', xp:60, icon:'📋', done:false, progress:3, target:5 },
-  { id:'D4', title:'ตอบแชทลูกค้าภายใน 30 นาที', xp:40, icon:'💬', done:false, progress:2, target:3 },
-  { id:'D5', title:'บันทึก Voice Note 1 ครั้ง', xp:30, icon:'🎙', done:false, progress:0, target:1 },
-]
-
-const WEEKLY = [
-  { id:'W1', title:'ปิดดีล 2 คันขึ้นไป', xp:500, icon:'🏆', done:false, progress:1, target:2 },
-  { id:'W2', title:'รับ NPS ≥ 4.5 จาก 3 ลูกค้า', xp:300, icon:'⭐', done:false, progress:2, target:3 },
-  { id:'W3', title:'เรียน Training ครบ 1 หลักสูตร', xp:200, icon:'📚', done:true, progress:1, target:1 },
-  { id:'W4', title:'ไม่มี Lead หลุด 7 วัน', xp:400, icon:'🎯', done:false, progress:5, target:7 },
-]
+import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 
 const SPECIAL = [
   { id:'S1', title:'🔥 Hot Streak! ปิด 3 ดีลติดกัน', xp:1000, icon:'🔥', unlocked:false, desc:'ปิดดีล 3 ดีลติดต่อกันโดยไม่มี Lost Deal' },
@@ -28,8 +14,22 @@ const SPECIAL = [
 const PLAYER = { name:'กิตติ สุขใจ', level:14, xp:8450, xpNext:10000, todayXp:130, streak:5 }
 
 export default async function DailyMissionsPage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+
   let tab = 'daily'
-  let missions = { daily: DAILY.map(m=>({...m})), weekly: WEEKLY.map(m=>({...m})) }
+  let missions = { daily: [], weekly: [] }
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try {
+      const all = await listDocs('daily_missions', [], 'title', 'asc', 500)
+      missions = { daily: all.filter(m => m.period === 'daily'), weekly: all.filter(m => m.period === 'weekly') }
+    } catch (e) { missions = { daily: [], weekly: [] } }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function xpBar(current, max) {
     const pct = Math.round(current/max*100)
@@ -85,6 +85,10 @@ export default async function DailyMissionsPage(container) {
   }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = tab==='special' ? [] : missions[tab]
     const doneTodayCount = missions.daily.filter(m=>m.done).length
     const todayXpEarned = missions.daily.filter(m=>m.done).reduce((s,m)=>s+m.xp,0)
@@ -126,10 +130,15 @@ export default async function DailyMissionsPage(container) {
       </div>`
 
     container.querySelectorAll('.tab-btn').forEach(b=>b.addEventListener('click',()=>{tab=b.dataset.t;render()}))
-    container.querySelectorAll('.complete-btn').forEach(b=>b.addEventListener('click',()=>{
+    container.querySelectorAll('.complete-btn').forEach(b=>b.addEventListener('click', async ()=>{
       const type = b.dataset.type
       const m = missions[type].find(x=>x.id===b.dataset.id)
-      if(m){ m.done=true; m.progress=m.target; showToast('✅ +'+m.xp+' XP! ภารกิจสำเร็จ','success'); render() }
+      if(!m) return
+      try {
+        await updateDocData('daily_missions', m.id, { done: true, progress: m.target })
+        showToast('✅ +'+m.xp+' XP! ภารกิจสำเร็จ','success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
   }
 
@@ -137,5 +146,5 @@ export default async function DailyMissionsPage(container) {
     return `<div class="card" style="padding:14px 16px"><div style="font-size:0.72rem;color:var(--text-muted)">${l}</div><div style="font-size:1.1rem;font-weight:900;color:${c};margin-top:2px">${v}</div></div>`
   }
 
-  render()
+  await loadData()
 }

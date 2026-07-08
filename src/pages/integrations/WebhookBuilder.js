@@ -4,17 +4,29 @@
  */
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
 const EVENTS = ['sale.created','sale.updated','service.booked','service.completed','lead.created','lead.converted','payment.received','invoice.issued','customer.created','stock.updated']
 
-let webhooks = [
-  { id:'wh001', name:'LINE Notify – ยอดขาย', url:'https://notify-api.line.me/api/notify', events:['sale.created','sale.updated'], method:'POST', active:true, lastFired:'2026-06-14T09:32:00', fires:142, fails:0, secret:'sk_ln_xxxx' },
-  { id:'wh002', name:'Google Sheets – Lead', url:'https://script.google.com/macros/s/xxxxx/exec', events:['lead.created','lead.converted'], method:'POST', active:true, lastFired:'2026-06-13T17:05:00', fires:67, fails:2, secret:'' },
-  { id:'wh003', name:'Slack – บริการแจ้งเตือน', url:'https://hooks.slack.com/services/T00/B00/xxx', events:['service.completed'], method:'POST', active:false, lastFired:'2026-05-30T12:00:00', fires:23, fails:0, secret:'' },
-]
-
 export default async function WebhookBuilderPage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let webhooks = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { webhooks = await listDocs('webhooks', [], 'name', 'asc', 500) } catch (e) { webhooks = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
+
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const active = webhooks.filter(w => w.active).length
 
     container.innerHTML = `
@@ -54,9 +66,14 @@ export default async function WebhookBuilderPage(container) {
     document.getElementById('test-all-btn')?.addEventListener('click', () => {
       showToast(`⚡ ส่ง Test Payload ไปยัง ${active} Webhooks แล้ว`, 'success')
     })
-    container.querySelectorAll('.toggle-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.toggle-btn').forEach(b => b.addEventListener('click', async () => {
       const w = webhooks.find(x => x.id === b.dataset.id)
-      if (w) { w.active = !w.active; render(); showToast(`${w.active?'✅ เปิด':'⏸ ปิด'} ${w.name} แล้ว`, 'success') }
+      if (!w) return
+      try {
+        await updateDocData('webhooks', w.id, { active: !w.active })
+        showToast(`${!w.active?'✅ เปิด':'⏸ ปิด'} ${w.name} แล้ว`, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.test-btn').forEach(b => b.addEventListener('click', () => {
       const w = webhooks.find(x => x.id === b.dataset.id)
@@ -64,9 +81,12 @@ export default async function WebhookBuilderPage(container) {
     }))
     container.querySelectorAll('.del-btn').forEach(b => b.addEventListener('click', () => {
       openModal({ title:'ลบ Webhook?', size:'xs', body:`<p style="font-size:0.82rem">ลบ Webhook นี้จะไม่สามารถย้อนกลับได้</p>`,
-        confirmText:'ลบ', onConfirm() {
-          webhooks = webhooks.filter(x => x.id !== b.dataset.id)
-          render(); showToast('🗑 ลบ Webhook แล้ว', 'success')
+        confirmText:'ลบ', async onConfirm() {
+          try {
+            await softDelete('webhooks', b.dataset.id)
+            showToast('🗑 ลบ Webhook แล้ว', 'success')
+            await loadData()
+          } catch (e) { showToast('ลบไม่สำเร็จ', 'error') }
         }})
     }))
     container.querySelectorAll('.detail-btn').forEach(b => b.addEventListener('click', () => {
@@ -121,13 +141,16 @@ export default async function WebhookBuilderPage(container) {
             <input class="input" id="wh-secret" placeholder="HMAC SHA-256 signing secret" style="width:100%;margin-top:4px"></div>
         </div>`,
       confirmText: 'สร้าง Webhook',
-      onConfirm() {
+      async onConfirm() {
         const name = document.getElementById('wh-name')?.value.trim()
         const url  = document.getElementById('wh-url')?.value.trim()
         const evs  = [...document.querySelectorAll('.wh-ev:checked')].map(c=>c.value)
         if (!name || !url || !evs.length) { showToast('กรอกข้อมูลให้ครบ', 'warning'); return false }
-        webhooks.push({ id:'wh'+Date.now(), name, url, events:evs, method:'POST', active:true, lastFired:null, fires:0, fails:0, secret:document.getElementById('wh-secret')?.value||'' })
-        render(); showToast(`✅ สร้าง Webhook "${name}" แล้ว`, 'success')
+        try {
+          await createDoc('webhooks', { name, url, events:evs, method:'POST', active:true, lastFired:null, fires:0, fails:0, secret:document.getElementById('wh-secret')?.value||'' })
+          showToast(`✅ สร้าง Webhook "${name}" แล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -152,14 +175,16 @@ export default async function WebhookBuilderPage(container) {
           <div style="font-size:0.7rem;color:var(--text-muted)">Fires: <b>${w.fires}</b> · Fails: <b>${w.fails}</b> · Last: ${w.lastFired ? new Date(w.lastFired).toLocaleString('th-TH') : '-'}</div>
         </div>`,
       confirmText: '💾 บันทึก',
-      onConfirm() {
+      async onConfirm() {
         const name = document.getElementById('ed-name')?.value.trim()
         const url  = document.getElementById('ed-url')?.value.trim()
         const evs  = [...document.querySelectorAll('.ed-ev:checked')].map(c => c.value)
         if (!name || !url || !evs.length) { showToast('กรอกข้อมูลให้ครบ', 'warning'); return false }
-        w.name = name; w.url = url; w.events = evs; w.secret = document.getElementById('ed-secret')?.value || ''
-        render()
-        showToast(`💾 อัปเดต "${name}" แล้ว`, 'success')
+        try {
+          await updateDocData('webhooks', w.id, { name, url, events: evs, secret: document.getElementById('ed-secret')?.value || '' })
+          showToast(`💾 อัปเดต "${name}" แล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -171,5 +196,5 @@ export default async function WebhookBuilderPage(container) {
     </div>`
   }
 
-  render()
+  await loadData()
 }

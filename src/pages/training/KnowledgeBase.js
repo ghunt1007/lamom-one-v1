@@ -5,8 +5,7 @@
 import { timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString() }
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 const KB_CATS = {
   product: { label: 'ผลิตภัณฑ์/รถ', color: 'primary', icon: '🚗' },
@@ -16,21 +15,27 @@ const KB_CATS = {
   policy:  { label: 'นโยบาย/HR', color: 'danger', icon: '📜' },
 }
 
-const DEMO_ARTICLES = [
-  { id: 'KB001', title: 'สเปคเต็ม BYD Seal AWD + จุดขายเทียบคู่แข่ง', cat: 'product', author: 'ผจก.ขาย', views: 234, helpful: 41, updated: addDays(-10), excerpt: 'มอเตอร์คู่ 390kW, 0-100 ใน 3.8 วิ, แบต 82.56 kWh — จุดขายหลักเทียบ Tesla Model 3...' },
-  { id: 'KB002', title: 'วิธีตอบเมื่อลูกค้าถาม "แบตเสื่อมไหม เปลี่ยนแพงไหม"', cat: 'sales', author: 'วิชัย ยอดขาย', views: 189, helpful: 38, updated: addDays(-5), excerpt: 'ใช้ข้อมูลจริง: รับประกันแบต 8 ปี/160,000 km + SOH เฉลี่ยหลัง 3 ปียังเกิน 88%...' },
-  { id: 'KB003', title: 'SOP ทำงานกับระบบไฟแรงสูง (HV) — บังคับอ่าน', cat: 'service', author: 'วิทยา ช่างใหญ่', views: 156, helpful: 52, updated: addDays(-30), excerpt: 'ก่อนแตะระบบ HV ทุกครั้ง: ปิดระบบ → ถอด service plug → รอ 10 นาที → วัดไฟยืนยัน 0V...' },
-  { id: 'KB004', title: 'วิธีสร้างใบเสนอราคาใน LAMOM ONE', cat: 'system', author: 'Admin', views: 98, helpful: 22, updated: addDays(-15), excerpt: 'ไปที่ การขาย → ใบเสนอราคา → เลือกลูกค้า → เลือกรุ่น/สี/ของแถม → ระบบคำนวณให้...' },
-  { id: 'KB005', title: 'ระเบียบการลา + วิธียื่นในระบบ', cat: 'policy', author: 'HR', views: 145, helpful: 30, updated: addDays(-60), excerpt: 'ลาป่วยแจ้งก่อน 9:00 / ลากิจล่วงหน้า 3 วัน / ลาพักร้อนล่วงหน้า 7 วัน — ยื่นผ่าน HR → ลาพนักงาน...' },
-  { id: 'KB006', title: 'Troubleshooting: ลูกค้าชาร์จไฟไม่เข้า เช็คอะไรบ้าง', cat: 'service', author: 'สุรชัย มือดี', views: 121, helpful: 35, updated: addDays(-7), excerpt: '1) เช็คสาย/หัวชาร์จ 2) ดู error code บนจอ 3) ทดสอบกับตู้ชาร์จศูนย์ 4) อ่านค่า OBC...' },
-]
-
 export default async function KnowledgeBasePage(container) {
-  let articles = DEMO_ARTICLES.map(a => ({ ...a }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let articles = []
   let catFilter = 'all'
   let search = ''
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { articles = await listDocs('kb_articles', [], 'views', 'desc', 500) } catch (e) { articles = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = articles
       .filter(a => (catFilter === 'all' || a.cat === catFilter) && (search === '' || a.title.toLowerCase().includes(search) || a.excerpt.toLowerCase().includes(search)))
       .sort((a, b) => b.views - a.views)
@@ -85,25 +90,31 @@ export default async function KnowledgeBasePage(container) {
 
     document.getElementById('search-input')?.addEventListener('input', e => { search = e.target.value.toLowerCase(); renderPage() })
     container.querySelectorAll('.cf-btn').forEach(b => b.addEventListener('click', () => { catFilter = b.dataset.c; renderPage() }))
-    container.querySelectorAll('.kb-card').forEach(c => c.addEventListener('click', () => {
+    container.querySelectorAll('.kb-card').forEach(c => c.addEventListener('click', async () => {
       const a = articles.find(x => x.id === c.dataset.id)
-      if (a) {
-        a.views++
-        openModal({
-          title: a.title,
-          size: 'md',
-          body: `<div style="font-size:0.85rem;line-height:1.7">
-            <p>${a.excerpt}</p>
-            <p style="color:var(--text-muted)">— (เนื้อหาเต็มของบทความ — Demo)</p>
-            <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border);font-size:0.72rem;color:var(--text-muted)">
-              ✍️ ${a.author} · 👁 ${a.views} ครั้ง · 👍 ${a.helpful} คนบอกว่ามีประโยชน์
-            </div>
-          </div>`,
-          confirmText: '👍 มีประโยชน์',
-          onConfirm() { a.helpful++; showToast('👍 ขอบคุณสำหรับ feedback!', 'success'); renderPage() }
-        })
-        renderPage()
-      }
+      if (!a) return
+      a.views++
+      try { await updateDocData('kb_articles', a.id, { views: a.views }) } catch (e) {}
+      openModal({
+        title: a.title,
+        size: 'md',
+        body: `<div style="font-size:0.85rem;line-height:1.7">
+          <p>${a.excerpt}</p>
+          <p style="color:var(--text-muted)">— (เนื้อหาเต็มของบทความ — Demo)</p>
+          <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border);font-size:0.72rem;color:var(--text-muted)">
+            ✍️ ${a.author} · 👁 ${a.views} ครั้ง · 👍 ${a.helpful} คนบอกว่ามีประโยชน์
+          </div>
+        </div>`,
+        confirmText: '👍 มีประโยชน์',
+        async onConfirm() {
+          try {
+            await updateDocData('kb_articles', a.id, { helpful: a.helpful + 1 })
+            showToast('👍 ขอบคุณสำหรับ feedback!', 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+        }
+      })
+      renderPage()
     }))
     document.getElementById('add-kb-btn')?.addEventListener('click', () => {
       openModal({
@@ -116,18 +127,21 @@ export default async function KnowledgeBasePage(container) {
           </div>
           <div class="input-group"><label class="input-label">เนื้อหา *</label><textarea class="input" id="kb-content" rows="5"></textarea></div>
         </div>`,
-        onConfirm() {
+        async onConfirm() {
           const title = document.getElementById('kb-title')?.value?.trim()
           const content = document.getElementById('kb-content')?.value?.trim()
           if (!title || !content) { showToast('❗ กรอกหัวข้อและเนื้อหา', 'error'); return }
-          articles.unshift({ id:`KB${String(articles.length+1).padStart(3,'0')}`, title, cat:document.getElementById('kb-cat')?.value||'system', author:'คุณ (Demo)', views:0, helpful:0, updated:new Date().toISOString(), excerpt:content.slice(0,120)+(content.length>120?'…':'') })
-          showToast('📚 เผยแพร่บทความแล้ว', 'success'); renderPage()
+          try {
+            await createDoc('kb_articles', { title, cat:document.getElementById('kb-cat')?.value||'system', author:'คุณ (Demo)', views:0, helpful:0, updated:new Date().toISOString(), excerpt:content.slice(0,120)+(content.length>120?'…':'') })
+            showToast('📚 เผยแพร่บทความแล้ว', 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
