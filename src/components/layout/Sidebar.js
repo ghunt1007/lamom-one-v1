@@ -334,6 +334,7 @@ const NAV = [
       { icon: '📋', label: 'Quality & PDPA', path: '/quality' },
       { icon: '📖', label: 'SOP', path: '/quality/sop' },
       { icon: '✅', label: 'Compliance', path: '/quality/compliance' },
+      { icon: '⚖️', label: 'กฎหมายที่เกี่ยวข้อง', path: '/quality/legal-reference' },
       { icon: '⭐', label: 'Satisfaction', path: '/quality/satisfaction' },
       { icon: '🔍', label: 'Audit Schedule', path: '/quality/audit-schedule' },
       { icon: '🚨', label: 'Incident Report', path: '/quality/incidents' },

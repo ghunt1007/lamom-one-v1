@@ -166,6 +166,7 @@ const routes = {
   '/hr/orgchart': () => import('../pages/hr/OrgChart.js'),
   // Quality extras
   '/quality/compliance': () => import('../pages/quality/ComplianceCheck.js'),
+  '/quality/legal-reference': () => import('../pages/quality/LegalReference.js'),
   // Analytics extras
   '/analytics/profit': () => import('../pages/analytics/ProfitAnalysis.js'),
   // DMS extras
