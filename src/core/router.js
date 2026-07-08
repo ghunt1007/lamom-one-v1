@@ -63,6 +63,7 @@ const routes = {
   '/hr/leave':          () => import('../pages/hr/Leave.js'),
   '/hr/attendance':     () => import('../pages/hr/Attendance.js'),
   '/hr/kpi':            () => import('../pages/hr/KpiManagement.js'),
+  '/hr/targets':        () => import('../pages/hr/TeamTargets.js'),
   '/hr/expense':        () => import('../pages/hr/ExpenseClaims.js'),
   // Service extras
   '/service/appointment': () => import('../pages/service/ServiceAppointment.js'),

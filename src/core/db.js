@@ -808,6 +808,19 @@ export function seedDemoData() {
   ]
   legalRefDemo.forEach(l => { if (!demoCol('legal_references')[l.id]) demoCol('legal_references')[l.id] = l })
 
+  // Team/Department Targets — เป้าหมายทีม/ฝ่าย + KPI (หน้า /hr/targets)
+  const ttPeriod = new Date().toISOString().slice(0, 7)
+  const teamTargetsDemo = [
+    { id:'TT001', department:'ฝ่ายขาย', team:'ทีม A', metric:'units', period:ttPeriod, target:20, actual:18 },
+    { id:'TT002', department:'ฝ่ายขาย', team:'ทีม B', metric:'units', period:ttPeriod, target:18, actual:12 },
+    { id:'TT003', department:'ฝ่ายขาย', team:'', metric:'revenue', period:ttPeriod, target:45000000, actual:38500000 },
+    { id:'TT004', department:'ฝ่ายบริการ', team:'', metric:'service', period:ttPeriod, target:350, actual:312 },
+    { id:'TT005', department:'ฝ่ายบริการ', team:'', metric:'csat', period:ttPeriod, target:90, actual:94 },
+    { id:'TT006', department:'ฝ่ายการเงิน', team:'', metric:'other', period:ttPeriod, target:100, actual:96 },
+    { id:'TT007', department:'ฝ่าย HR', team:'', metric:'leads', period:ttPeriod, target:12, actual:5 },
+  ]
+  teamTargetsDemo.forEach(t => { if (!demoCol('team_targets')[t.id]) demoCol('team_targets')[t.id] = t })
+
   // Invoices — ใบแจ้งหนี้/ใบเสร็จ/ใบกำกับภาษี (หน้า /finance/invoice)
   const invoicesDemo = [
     { id:'D001', type:'invoice', no:'INV-2026-001', custName:'สมศักดิ์ เจริญสุข', custTax:'0105567012345', date:'2026-06-02', dueDate:'2026-06-17', items:[ { desc:'BYD Seal AWD', qty:1, unit:'คัน', price:1299000, vat:7 } ], status:'paid', paidDate:'2026-06-05', note:'' },

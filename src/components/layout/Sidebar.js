@@ -228,6 +228,7 @@ const NAV = [
       { icon: '🕐', label: 'Attendance', path: '/hr/attendance' },
       { icon: '📆', label: 'Shift & Schedule', path: '/hr/shift' },
       { icon: '🎯', label: 'KPI', path: '/hr/kpi' },
+      { icon: '🎯', label: 'เป้าหมายทีม/ฝ่าย', path: '/hr/targets' },
       { icon: '💳', label: 'Expense Claims', path: '/hr/expense' },
       { icon: '👔', label: 'Recruitment', path: '/hr/recruitment' },
       { icon: '📊', label: 'Performance', path: '/hr/performance' },
