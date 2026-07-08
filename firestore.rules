@@ -180,6 +180,20 @@ service cloud.firestore {
     }
 
     match /petty_cash/{docId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update, delete: if isFinance() || isManager();
+    }
+
+    match /withholding_tax_certs/{docId} {
+      allow read, write: if isFinance();
+    }
+
+    match /billing_runs/{docId} {
+      allow read, write: if isFinance();
+    }
+
+    match /custom_order_docs/{docId} {
       allow read, write: if isFinance();
     }
 
@@ -228,6 +242,16 @@ service cloud.firestore {
     }
 
     match /performance_reviews/{docId} {
+      allow read: if isStaff();
+      allow write: if isManager();
+    }
+
+    match /team_targets/{docId} {
+      allow read: if isStaff();
+      allow write: if isManager();
+    }
+
+    match /employee_evaluations/{docId} {
       allow read: if isStaff();
       allow write: if isManager();
     }
@@ -283,6 +307,11 @@ service cloud.firestore {
     }
 
     match /sop/{docId} {
+      allow read: if isStaff();
+      allow write: if isManager();
+    }
+
+    match /legal_references/{docId} {
       allow read: if isStaff();
       allow write: if isManager();
     }

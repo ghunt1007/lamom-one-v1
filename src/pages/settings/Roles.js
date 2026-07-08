@@ -20,7 +20,7 @@ export default async function RolesPage(container) {
 
   async function loadData() {
     loading = true
-    try { roles = await listDocs('role_permissions', [], 'id', 'asc', 100) } catch (e) { roles = [] }
+    try { roles = await listDocs('roles', [], 'id', 'asc', 100) } catch (e) { roles = [] }
     loading = false
     if (container.__routerGen === myGen) render()
   }
@@ -98,7 +98,7 @@ export default async function RolesPage(container) {
         const full = document.getElementById('re-full')?.checked
         const modules = full ? ['*'] : [...document.querySelectorAll('.re-mod-check:checked')].map(c => c.value)
         try {
-          await updateDocData('role_permissions', r.id, { modules })
+          await updateDocData('roles', r.id, { modules })
           invalidateRolePermissionsCache()
           showToast(`✅ อัปเดตสิทธิ์ ${r.roleName} แล้ว`, 'success')
           await loadData()

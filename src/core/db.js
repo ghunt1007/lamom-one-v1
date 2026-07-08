@@ -821,16 +821,19 @@ export function seedDemoData() {
   ]
   teamTargetsDemo.forEach(t => { if (!demoCol('team_targets')[t.id]) demoCol('team_targets')[t.id] = t })
 
-  // Role Permissions — สิทธิ์การเข้าถึงแต่ละโมดูลตาม Role (หน้า /settings/roles)
+  // Roles — สิทธิ์การเข้าถึงแต่ละโมดูลตาม Role (หน้า /settings/roles)
+  // Role set matches firestore.rules exactly (owner/admin/manager/sales/service/finance/hr/staff) — write-locked to owner in prod
   const rolePermissionsDemo = [
-    { id:'owner',   roleName:'🏆 เจ้าของ',    modules:['*'] },
-    { id:'admin',   roleName:'🔑 แอดมิน',     modules:['*'] },
-    { id:'manager', roleName:'🎯 ผู้จัดการ',  modules:['sales','dms','service','finance','insurance','marketing','hr','documents','ai','comms','quality','b2b'] },
-    { id:'sales',   roleName:'💼 เซลส์',      modules:['sales','dms','documents','marketing','comms','ai'] },
-    { id:'service', roleName:'🔧 ช่าง/บริการ', modules:['dms','service','quality','ai'] },
-    { id:'staff',   roleName:'👤 พนักงาน',    modules:['ai'] },
+    { id:'owner',   roleName:'🏆 เจ้าของ',       modules:['*'] },
+    { id:'admin',   roleName:'🔑 แอดมิน',        modules:['*'] },
+    { id:'manager', roleName:'🎯 ผู้จัดการ',     modules:['sales','dms','service','finance','insurance','marketing','hr','documents','ai','comms','quality','b2b'] },
+    { id:'sales',   roleName:'💼 เซลส์',         modules:['sales','dms','documents','marketing','comms','ai'] },
+    { id:'service', roleName:'🔧 ช่าง/บริการ',    modules:['dms','service','quality','ai'] },
+    { id:'finance', roleName:'💰 การเงิน',       modules:['finance','documents','ai'] },
+    { id:'hr',      roleName:'👨‍💼 HR',          modules:['hr','documents','ai'] },
+    { id:'staff',   roleName:'👤 พนักงาน',       modules:['ai'] },
   ]
-  rolePermissionsDemo.forEach(r => { if (!demoCol('role_permissions')[r.id]) demoCol('role_permissions')[r.id] = r })
+  rolePermissionsDemo.forEach(r => { if (!demoCol('roles')[r.id]) demoCol('roles')[r.id] = r })
 
   // Invoices — ใบแจ้งหนี้/ใบเสร็จ/ใบกำกับภาษี (หน้า /finance/invoice)
   const invoicesDemo = [

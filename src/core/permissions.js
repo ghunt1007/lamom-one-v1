@@ -30,7 +30,7 @@ export async function loadRolePermissions(force = false) {
   if (cachePromise && !force) return cachePromise
   cachePromise = (async () => {
     try {
-      const docs = await listDocs('role_permissions', [], 'id', 'asc', 100)
+      const docs = await listDocs('roles', [], 'id', 'asc', 100)
       cache = {}
       docs.forEach(d => { cache[d.id] = d.modules || [] })
     } catch (e) { cache = {} }
