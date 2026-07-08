@@ -835,6 +835,17 @@ export function seedDemoData() {
   ]
   rolePermissionsDemo.forEach(r => { if (!demoCol('roles')[r.id]) demoCol('roles')[r.id] = r })
 
+  // Employee KPI Evaluations — ประเมินผลงานรายบุคคล (หน้า /hr/employee-kpi)
+  const ekAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString() }
+  const employeeEvaluationsDemo = [
+    { id:'EK001', staffId:'st2', periodType:'daily', periodValue:new Date().toISOString().slice(0,10), criteriaScores:{quality:85,quantity:80,punctual:95,attitude:90,initiative:75}, overallScore:85, strengths:'ปิดยอดขายได้ตามเป้าทุกวัน', improvements:'ควรติดตามลูกค้าหลังขายให้เร็วขึ้น', reviewer:'ผู้จัดการขาย', createdAt:ekAddDays(-1) },
+    { id:'EK002', staffId:'st3', periodType:'weekly', periodValue:(() => { const d = new Date(); const jan1 = new Date(d.getFullYear(),0,1); const days = Math.floor((d-jan1)/86400000); const week = Math.ceil((days+jan1.getDay()+1)/7); return d.getFullYear()+'-W'+String(week).padStart(2,'0') })(), criteriaScores:{quality:70,quantity:65,punctual:80,attitude:75,initiative:60}, overallScore:70, strengths:'ขยัน ตั้งใจ', improvements:'ต้องพัฒนาเทคนิคปิดการขาย', reviewer:'ผู้จัดการขาย', createdAt:ekAddDays(-3) },
+    { id:'EK003', staffId:'st4', periodType:'monthly', periodValue:new Date().toISOString().slice(0,7), criteriaScores:{quality:90,quantity:88,punctual:100,attitude:92,initiative:80}, overallScore:90, strengths:'งานซ่อมแม่นยำ รวดเร็ว ลูกค้าพึงพอใจสูง', improvements:'ทักษะ EV Battery ขั้นสูงต้องพัฒนาเพิ่ม', reviewer:'หัวหน้าช่าง', createdAt:ekAddDays(-5) },
+    { id:'EK004', staffId:'st5', periodType:'monthly', periodValue:new Date().toISOString().slice(0,7), criteriaScores:{quality:55,quantity:50,punctual:60,attitude:65,initiative:45}, overallScore:55, strengths:'ตั้งใจเรียนรู้งานใหม่', improvements:'ความเร็วในการทำงานและความแม่นยำต้องพัฒนาอีกมาก อยู่ระหว่างทดลองงาน', reviewer:'หัวหน้าช่าง', createdAt:ekAddDays(-5) },
+    { id:'EK005', staffId:'st2', periodType:'yearly', periodValue:String(new Date().getFullYear()), criteriaScores:{quality:88,quantity:85,punctual:92,attitude:90,initiative:82}, overallScore:87, strengths:'พนักงานขายดีเด่นประจำปี ยอดขายเกินเป้าต่อเนื่อง', improvements:'พัฒนาทักษะการขายลูกค้าองค์กร (B2B) เพิ่มเติม', reviewer:'ผู้บริหาร', createdAt:ekAddDays(-20) },
+  ]
+  employeeEvaluationsDemo.forEach(e => { if (!demoCol('employee_evaluations')[e.id]) demoCol('employee_evaluations')[e.id] = e })
+
   // Invoices — ใบแจ้งหนี้/ใบเสร็จ/ใบกำกับภาษี (หน้า /finance/invoice)
   const invoicesDemo = [
     { id:'D001', type:'invoice', no:'INV-2026-001', custName:'สมศักดิ์ เจริญสุข', custTax:'0105567012345', date:'2026-06-02', dueDate:'2026-06-17', items:[ { desc:'BYD Seal AWD', qty:1, unit:'คัน', price:1299000, vat:7 } ], status:'paid', paidDate:'2026-06-05', note:'' },

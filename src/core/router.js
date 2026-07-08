@@ -66,6 +66,7 @@ const routes = {
   '/hr/attendance':     () => import('../pages/hr/Attendance.js'),
   '/hr/kpi':            () => import('../pages/hr/KpiManagement.js'),
   '/hr/targets':        () => import('../pages/hr/TeamTargets.js'),
+  '/hr/employee-kpi':   () => import('../pages/hr/EmployeeKpi.js'),
   '/hr/expense':        () => import('../pages/hr/ExpenseClaims.js'),
   // Service extras
   '/service/appointment': () => import('../pages/service/ServiceAppointment.js'),
