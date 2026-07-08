@@ -151,6 +151,8 @@ const NAV = [
       { icon: '📋', label: 'Finance Tracker', path: '/finance/tracker' },
       { icon: '📊', label: 'Budget Planning', path: '/finance/budget' },
       { icon: '🧾', label: 'Tax Report', path: '/finance/tax' },
+      { icon: '📝', label: 'หัก ณ ที่จ่าย (ใบ 50 ทวิ)', path: '/finance/withholding-tax' },
+      { icon: '📑', label: 'วางบิล', path: '/finance/billing-run' },
       { icon: '🏦', label: 'Credit Control', path: '/finance/credit' },
       { icon: '🏭', label: 'Assets', path: '/finance/assets' },
       { icon: '💸', label: 'Expense Approval', path: '/finance/expenses' },

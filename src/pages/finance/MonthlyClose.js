@@ -5,25 +5,11 @@
 import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
 function addMonths(n) { const d = new Date(); d.setMonth(d.getMonth() + n); return d.toISOString().slice(0, 7) }
-
-const CLOSE_ITEMS = [
-  { id: 'CI01', category: 'รายรับ', name: 'รายรับขายรถ', status: 'done', amount: 12987000, responsible: 'การเงิน' },
-  { id: 'CI02', category: 'รายรับ', name: 'รายรับบริการ', status: 'done', amount: 524000, responsible: 'บริการ' },
-  { id: 'CI03', category: 'รายรับ', name: 'รายรับประกัน', status: 'done', amount: 187000, responsible: 'ประกัน' },
-  { id: 'CI04', category: 'ต้นทุน', name: 'ต้นทุนรถ (COGS)', status: 'done', amount: -10389600, responsible: 'การเงิน' },
-  { id: 'CI05', category: 'ต้นทุน', name: 'ต้นทุนอะไหล่', status: 'done', amount: -198000, responsible: 'บริการ' },
-  { id: 'CI06', category: 'ค่าใช้จ่าย', name: 'เงินเดือนพนักงาน', status: 'pending', amount: -680000, responsible: 'HR' },
-  { id: 'CI07', category: 'ค่าใช้จ่าย', name: 'ค่าเช่า + สาธารณูปโภค', status: 'done', amount: -120000, responsible: 'การเงิน' },
-  { id: 'CI08', category: 'ค่าใช้จ่าย', name: 'ค่าการตลาด', status: 'pending', amount: -85000, responsible: 'การตลาด' },
-  { id: 'CI09', category: 'ค่าใช้จ่าย', name: 'ค่า Commission', status: 'pending', amount: -259740, responsible: 'การเงิน' },
-  { id: 'CI10', category: 'ปรับปรุง', name: 'ค่าเสื่อมราคา', status: 'review', amount: -45000, responsible: 'การเงิน' },
-  { id: 'CI11', category: 'ปรับปรุง', name: 'ปรับมูลค่าสต็อก', status: 'review', amount: -12000, responsible: 'DMS' },
-]
 
 const STATUS_MAP = {
   done:    { label: 'เสร็จ', color: 'success', icon: '✅' },
@@ -34,34 +20,35 @@ const STATUS_MAP = {
 
 export default async function MonthlyClosePage(container) {
   const myGen = container.__routerGen
-  let items = CLOSE_ITEMS.map(i => ({ ...i }))
-  let currentMonth = addMonths(0)
-  let isClosed = false
-  let dataSource = 'demo'
+  seedDemoData()
 
-  try {
-    const docs = await listDocs('monthly_close_items', [], 'id', 'asc', 100).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `CI${String(i+1).padStart(2,'0')}`,
-        category: d.category || 'ค่าใช้จ่าย',
-        name: d.name || d.title || 'รายการ',
-        status: d.status || 'pending',
-        amount: d.amount || 0,
-        responsible: d.responsible || d.dept || '',
-      }))
-      items = [...mapped, ...CLOSE_ITEMS]
-      dataSource = 'live'
-    }
-  } catch {}
+  let allItems = []
+  let closings = []
+  let currentMonth = addMonths(0)
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try {
+      allItems = await listDocs('monthly_close_items', [], 'category', 'asc', 500)
+      closings = await listDocs('financial_closings', [], 'period', 'desc', 100)
+    } catch (e) { allItems = []; closings = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
+    const items = allItems.filter(i => (i.period || addMonths(0)) === currentMonth)
+    const isClosed = closings.some(c => c.period === currentMonth)
     const revenue = items.filter(i => i.amount > 0).reduce((a, i) => a + i.amount, 0)
     const costs = items.filter(i => i.amount < 0).reduce((a, i) => a + i.amount, 0)
     const netProfit = revenue + costs
     const margin = revenue > 0 ? Math.round(netProfit / revenue * 100) : 0
-    const donePct = Math.round(items.filter(i => i.status === 'done').length / items.length * 100)
+    const donePct = items.length ? Math.round(items.filter(i => i.status === 'done').length / items.length * 100) : 100
     const pendingCount = items.filter(i => ['pending', 'review'].includes(i.status)).length
     const cats = [...new Set(items.map(i => i.category))]
 
@@ -70,7 +57,7 @@ export default async function MonthlyClosePage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">📅 Monthly Close</div>
-            <div class="page-subtitle">ปิดงบประจำเดือน — ${currentMonth}${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">ปิดงบประจำเดือน — ${currentMonth}</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary btn-xs" id="prev-month-btn">◀ เดือนก่อน</button>
@@ -127,11 +114,14 @@ export default async function MonthlyClosePage(container) {
       </div>
     `
 
-    container.querySelectorAll('.mark-done-btn').forEach(b => b.addEventListener('click', () => {
-      const it = items.find(x => x.id === b.dataset.id); if (it) { it.status = 'done'; renderPage() }
+    container.querySelectorAll('.mark-done-btn').forEach(b => b.addEventListener('click', async () => {
+      try {
+        await updateDocData('monthly_close_items', b.dataset.id, { status: 'done' })
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     document.getElementById('prev-month-btn')?.addEventListener('click', () => { const d = new Date(currentMonth + '-01'); d.setMonth(d.getMonth()-1); currentMonth = d.toISOString().slice(0,7); renderPage() })
-    document.getElementById('curr-month-btn')?.addEventListener('click', () => { currentMonth = addMonths(0); isClosed = false; renderPage() })
+    document.getElementById('curr-month-btn')?.addEventListener('click', () => { currentMonth = addMonths(0); renderPage() })
     document.getElementById('close-btn')?.addEventListener('click', () => {
       openModal({
         title: '🔒 ปิดงบเดือน ' + currentMonth,
@@ -139,12 +129,18 @@ export default async function MonthlyClosePage(container) {
         body: `<p style="font-size:0.85rem">ยืนยันปิดงบ? ข้อมูลจะถูกล็อคและไม่สามารถแก้ไขได้</p>
                <p style="font-size:0.85rem;color:var(--success)">กำไรสุทธิ: <strong>${formatCurrency(netProfit)}</strong></p>`,
         confirmText: '🔒 ปิดงบ',
-        onConfirm() { isClosed = true; showToast('✅ ปิดงบเดือน ' + currentMonth + ' แล้ว', 'success'); renderPage() }
+        async onConfirm() {
+          try {
+            await createDoc('financial_closings', { period: currentMonth, closedAt: new Date().toISOString(), closedBy: 'พนักงาน', revenue, costs, netProfit, margin })
+            showToast('✅ ปิดงบเดือน ' + currentMonth + ' แล้ว', 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+        }
       })
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

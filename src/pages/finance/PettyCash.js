@@ -5,13 +5,11 @@
 import { formatCurrency, formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
-
-function addHours(n) { const d = new Date(); d.setHours(d.getHours() - n); return d.toISOString() }
 
 const PC_CATS = {
   supplies: { label: 'ของใช้สำนักงาน', icon: '📎' },
@@ -24,53 +22,41 @@ const PC_CATS = {
 
 const FLOAT_AMOUNT = 20000 // วงเงินตั้งต้น
 
-const DEMO_TRANSACTIONS = [
-  { id: 'PT001', type: 'out', cat: 'refresh', amount: 850, desc: 'กาแฟ+ขนมรับลูกค้า (Makro)', by: 'สุดา มาดี', time: addHours(3), receipt: true },
-  { id: 'PT002', type: 'out', cat: 'transport', amount: 500, desc: 'ค่าน้ำมันรถรับ-ส่งเอกสารขนส่ง', by: 'สมบัติ ขับดี', time: addHours(8), receipt: true },
-  { id: 'PT003', type: 'out', cat: 'supplies', amount: 1240, desc: 'กระดาษ A4 + หมึกพิมพ์', by: 'Admin', time: addHours(26), receipt: true },
-  { id: 'PT004', type: 'out', cat: 'postage', amount: 120, desc: 'EMS ส่งเล่มทะเบียนให้ลูกค้า', by: 'Admin', time: addHours(30), receipt: false },
-  { id: 'PT005', type: 'in', cat: 'other', amount: 10000, desc: 'เติมเงินสดย่อย (เบิกจากบัญชีหลัก)', by: 'สมศรี การเงิน', time: addHours(72), receipt: true },
-  { id: 'PT006', type: 'out', cat: 'repair', amount: 350, desc: 'เปลี่ยนหลอดไฟห้องน้ำลูกค้า', by: 'มานะ ขยัน', time: addHours(96), receipt: true },
-]
-
 export default async function PettyCashPage(container) {
   const myGen = container.__routerGen
-  let txns = DEMO_TRANSACTIONS.map(t => ({ ...t }))
-  let dataSource = 'demo'
+  seedDemoData()
 
-  try {
-    const docs = await listDocs('petty_cash', [], 'time', 'desc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `PT${String(i+1).padStart(3,'0')}`,
-        type: d.type || (d.amount > 0 ? 'out' : 'in'),
-        cat: d.cat || d.category || 'other',
-        amount: Math.abs(d.amount || 0),
-        desc: d.desc || d.description || d.title || '',
-        by: d.by || d.staffName || '',
-        time: d.time || d.createdAt || new Date().toISOString(),
-        receipt: d.receipt !== undefined ? d.receipt : false,
-      }))
-      txns = [...mapped, ...DEMO_TRANSACTIONS]
-      dataSource = 'live'
-    }
-  } catch {}
+  let txns = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { txns = await listDocs('petty_cash', [], 'time', 'desc', 500) } catch (e) { txns = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function balance() {
-    return FLOAT_AMOUNT + txns.reduce((a, t) => a + (t.type === 'in' ? t.amount : -t.amount), 0) - 10000
+    const settled = txns.filter(t => t.status !== 'pending' && t.status !== 'rejected')
+    return FLOAT_AMOUNT + settled.reduce((a, t) => a + (t.type === 'in' ? t.amount : -t.amount), 0) - 10000
   }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const bal = balance()
-    const spentMonth = txns.filter(t => t.type === 'out').reduce((a, t) => a + t.amount, 0)
-    const noReceipt = txns.filter(t => t.type === 'out' && !t.receipt).length
+    const settled = txns.filter(t => t.status !== 'pending' && t.status !== 'rejected')
+    const pending = txns.filter(t => t.status === 'pending')
+    const spentMonth = settled.filter(t => t.type === 'out').reduce((a, t) => a + t.amount, 0)
+    const noReceipt = settled.filter(t => t.type === 'out' && !t.receipt).length
     const lowBalance = bal < FLOAT_AMOUNT * 0.25
-    const sorted = [...txns].sort((a, b) => b.time.localeCompare(a.time))
+    const sorted = [...settled].sort((a, b) => b.time.localeCompare(a.time))
 
     // spending by category
     const byCat = Object.keys(PC_CATS).map(k => ({
-      cat: k, total: txns.filter(t => t.type === 'out' && t.cat === k).reduce((a, t) => a + t.amount, 0)
+      cat: k, total: settled.filter(t => t.type === 'out' && t.cat === k).reduce((a, t) => a + t.amount, 0)
     })).filter(c => c.total > 0).sort((a, b) => b.total - a.total)
     const maxCat = Math.max(...byCat.map(c => c.total), 1)
 
@@ -79,11 +65,11 @@ export default async function PettyCashPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">💵 Petty Cash</div>
-            <div class="page-subtitle">เงินสดย่อย — วงเงิน ${formatCurrency(FLOAT_AMOUNT)}${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">เงินสดย่อย — วงเงิน ${formatCurrency(FLOAT_AMOUNT)}</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="refill-btn">💰 เติมเงิน</button>
-            <button class="btn btn-primary" id="add-txn-btn">+ จ่ายเงิน</button>
+            <button class="btn btn-primary" id="add-txn-btn">+ ขอเบิกเงิน</button>
           </div>
         </div>
 
@@ -91,7 +77,7 @@ export default async function PettyCashPage(container) {
           ${kpi('💵 คงเหลือ', formatCurrency(bal), lowBalance ? 'danger' : 'success')}
           ${kpi('📉 ใช้ไปเดือนนี้', formatCurrency(spentMonth), 'warning')}
           ${kpi('🧾 ไม่มีใบเสร็จ', noReceipt + ' รายการ', noReceipt > 0 ? 'danger' : 'success')}
-          ${kpi('📋 รายการ', txns.length, 'secondary')}
+          ${kpi('⏳ รออนุมัติ', pending.length, pending.length > 0 ? 'warning' : 'secondary')}
         </div>
 
         ${lowBalance ? `
@@ -99,6 +85,24 @@ export default async function PettyCashPage(container) {
             ⚠️ <strong>เงินสดย่อยเหลือน้อย</strong> (${formatCurrency(bal)}) — ควรเบิกเติมจากบัญชีหลัก
           </div>
         ` : ''}
+
+        ${pending.length ? `
+        <div class="card" style="padding:14px;margin-bottom:12px;border:1px solid var(--warning)">
+          <div style="font-size:0.8rem;font-weight:700;margin-bottom:8px">⏳ รายการรออนุมัติ (${pending.length})</div>
+          ${pending.map(t => {
+            const pc = PC_CATS[t.cat]
+            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
+              <div>
+                <div style="font-size:0.8rem;font-weight:600">${pc?.icon} ${escHtml(t.desc)}</div>
+                <div style="font-size:0.68rem;color:var(--text-muted)">${escHtml(t.by)} · ${timeAgo(t.time)} · ${formatCurrency(t.amount)}</div>
+              </div>
+              <div style="display:flex;gap:4px">
+                <button class="btn btn-xs btn-success approve-btn" data-id="${t.id}">✓ อนุมัติ</button>
+                <button class="btn btn-xs btn-danger reject-btn" data-id="${t.id}">✕ ปฏิเสธ</button>
+              </div>
+            </div>`
+          }).join('')}
+        </div>` : ''}
 
         <div style="display:grid;grid-template-columns:2fr 1fr;gap:14px">
           <!-- Transactions -->
@@ -138,7 +142,7 @@ export default async function PettyCashPage(container) {
 
     document.getElementById('add-txn-btn')?.addEventListener('click', () => {
       openModal({
-        title: '+ จ่ายเงินสดย่อย',
+        title: '+ ขอเบิกเงินสดย่อย',
         size: 'sm',
         body: `<div style="display:grid;gap:10px">
           <div class="input-group"><label class="input-label">รายการ *</label><input class="input" id="pt-desc"></div>
@@ -151,13 +155,17 @@ export default async function PettyCashPage(container) {
             <input type="checkbox" id="pt-receipt" checked style="accent-color:var(--primary)"> มีใบเสร็จ
           </label>
         </div>`,
-        onConfirm() {
+        confirmText: '📝 ส่งขออนุมัติ',
+        async onConfirm() {
           const desc = document.getElementById('pt-desc')?.value?.trim()
           const amount = parseInt(document.getElementById('pt-amount')?.value) || 0
-          if (!desc || amount <= 0) { showToast('❗ กรอกรายการและจำนวนเงิน', 'error'); return }
-          if (amount > balance()) { showToast('❗ เงินสดย่อยไม่พอ', 'error'); return }
-          txns.unshift({ id:`PT${String(txns.length+1).padStart(3,'0')}`, type:'out', cat:document.getElementById('pt-cat')?.value||'other', amount, desc, by:document.getElementById('pt-by')?.value||'—', time:new Date().toISOString(), receipt:document.getElementById('pt-receipt')?.checked||false })
-          showToast(`✅ จ่าย ${formatCurrency(amount)} แล้ว`, 'success'); renderPage()
+          if (!desc || amount <= 0) { showToast('❗ กรอกรายการและจำนวนเงิน', 'error'); return false }
+          if (amount > balance()) { showToast('❗ เงินสดย่อยไม่พอ', 'error'); return false }
+          try {
+            await createDoc('petty_cash', { type:'out', cat:document.getElementById('pt-cat')?.value||'other', amount, desc, by:document.getElementById('pt-by')?.value||'—', time:new Date().toISOString(), receipt:document.getElementById('pt-receipt')?.checked||false, status:'pending' })
+            showToast(`📝 ส่งคำขอเบิก ${formatCurrency(amount)} รออนุมัติแล้ว`, 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     })
@@ -170,17 +178,34 @@ export default async function PettyCashPage(container) {
           <div style="font-size:0.8rem">คงเหลือ: <strong>${formatCurrency(balance())}</strong> / วงเงิน ${formatCurrency(FLOAT_AMOUNT)}</div>
           <div class="input-group"><label class="input-label">จำนวนที่เติม</label><input class="input" type="number" id="rf-amount" value="${Math.max(need, 0)}"></div>
         </div>`,
-        onConfirm() {
+        async onConfirm() {
           const amount = parseInt(document.getElementById('rf-amount')?.value) || 0
-          if (amount <= 0) return
-          txns.unshift({ id:`PT${String(txns.length+1).padStart(3,'0')}`, type:'in', cat:'other', amount, desc:'เติมเงินสดย่อย (เบิกจากบัญชีหลัก)', by:'การเงิน', time:new Date().toISOString(), receipt:true })
-          showToast(`💰 เติม ${formatCurrency(amount)} แล้ว`, 'success'); renderPage()
+          if (amount <= 0) return false
+          try {
+            await createDoc('petty_cash', { type:'in', cat:'other', amount, desc:'เติมเงินสดย่อย (เบิกจากบัญชีหลัก)', by:'การเงิน', time:new Date().toISOString(), receipt:true, status:'approved' })
+            showToast(`💰 เติม ${formatCurrency(amount)} แล้ว`, 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     })
+    container.querySelectorAll('.approve-btn').forEach(b => b.addEventListener('click', async () => {
+      try {
+        await updateDocData('petty_cash', b.dataset.id, { status: 'approved' })
+        showToast('✓ อนุมัติแล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+    }))
+    container.querySelectorAll('.reject-btn').forEach(b => b.addEventListener('click', async () => {
+      try {
+        await updateDocData('petty_cash', b.dataset.id, { status: 'rejected' })
+        showToast('✕ ปฏิเสธคำขอแล้ว', 'warning')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+    }))
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

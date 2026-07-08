@@ -2,7 +2,7 @@ import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -24,14 +24,6 @@ const DOC_STATUS = {
   cancelled:{ label: 'ยกเลิก', color: 'danger' },
 }
 
-const DEMO_DOCS = [
-  { id:'D001', type:'invoice', no:'INV-2025-001', custName:'สมศักดิ์ เจริญสุข', custTax:'0105567012345', date:'2025-06-02', dueDate:'2025-06-17', items:[ { desc:'BYD Seal AWD', qty:1, unit:'คัน', price:1299000, vat:7 } ], status:'paid', paidDate:'2025-06-05', note:'' },
-  { id:'D002', type:'invoice', no:'INV-2025-002', custName:'วิชัย เดินดี', custTax:'0105567098765', date:'2025-06-09', dueDate:'2025-06-24', items:[ { desc:'MG4 X', qty:1, unit:'คัน', price:1199000, vat:7 } ], status:'sent', note:'' },
-  { id:'D003', type:'quotation', no:'QT-2025-005', custName:'ประภา สวยงาม', custTax:'', date:'2025-06-09', dueDate:'2025-06-23', items:[ { desc:'BYD Atto3 Standard', qty:1, unit:'คัน', price:899000, vat:7 }, { desc:'ฟิล์มกรองแสง', qty:1, unit:'ชุด', price:12000, vat:7 } ], status:'draft', note:'ขอใบเสนอราคาเพื่อขออนุมัติ' },
-  { id:'D004', type:'receipt', no:'REC-2025-001', custName:'สมศักดิ์ เจริญสุข', custTax:'0105567012345', date:'2025-06-05', dueDate:'2025-06-05', items:[ { desc:'BYD Seal AWD', qty:1, unit:'คัน', price:1299000, vat:7 } ], status:'paid', paidDate:'2025-06-05', note:'' },
-  { id:'D005', type:'invoice', no:'INV-2025-003', custName:'อนุชา รวยมาก', custTax:'', date:'2025-05-20', dueDate:'2025-06-04', items:[ { desc:'MG ZS EV', qty:1, unit:'คัน', price:1049000, vat:7 } ], status:'overdue', note:'' },
-]
-
 function calcDoc(doc) {
   const subtotal = doc.items.reduce((a, i) => a + i.qty * i.price, 0)
   const vat = doc.items.reduce((a, i) => a + i.qty * i.price * (i.vat / 100), 0)
@@ -40,24 +32,27 @@ function calcDoc(doc) {
 
 export default async function InvoicePage(container) {
   const myGen = container.__routerGen
-  let docs = DEMO_DOCS.map(d => ({ ...d, items: d.items.map(i => ({ ...i })) }))
+  seedDemoData()
+
+  let docs = []
+  let bookingDocs = []
   let typeFilter = 'all'
   let statusFilter = 'all'
   let search = ''
-  let dataSource = 'demo'
+  let loading = true
 
-  try {
-    const bookings = await listDocs('bookings', [], 'createdAt', 'desc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-
-    const billable = bookings.filter(b => ['ยืนยัน', 'รอส่งมอบ', 'ส่งมอบแล้ว'].includes(b.status))
-    if (billable.length) {
-      const liveDocs = billable.map((b, i) => {
+  async function loadData() {
+    loading = true
+    try {
+      docs = await listDocs('invoices', [], 'date', 'desc', 500)
+      const bookings = await listDocs('bookings', [], 'createdAt', 'desc', 200)
+      const billable = bookings.filter(b => ['ยืนยัน', 'รอส่งมอบ', 'ส่งมอบแล้ว'].includes(b.status))
+      bookingDocs = billable.map((b, i) => {
         const no = 'INV-' + (b.bookingNo || (new Date().getFullYear() + '-' + String(i + 1).padStart(3, '0')))
         const price = b.salePrice || b.price || 0
         const status = b.status === 'ส่งมอบแล้ว' ? 'paid' : 'sent'
         return {
-          id: b.id, type: 'invoice', no,
+          id: 'bk-' + b.id, type: 'invoice', no,
           custName: b.custName || 'ลูกค้า', custTax: b.custTax || '',
           date: b.bookingDate || b.createdAt?.toDate?.().toISOString().slice(0, 10) || '',
           dueDate: (() => { const d = new Date(b.bookingDate || new Date()); d.setDate(d.getDate() + 15); return d.toISOString().slice(0, 10) })(),
@@ -65,12 +60,15 @@ export default async function InvoicePage(container) {
           status, paidDate: b.actualDeliveryDate || '', note: b.note || '', _live: true,
         }
       })
-      docs = [...liveDocs, ...DEMO_DOCS]
-      dataSource = 'live'
-    }
-  } catch {}
+    } catch (e) { docs = []; bookingDocs = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
+
+  function allDocs() { return [...docs, ...bookingDocs] }
 
   function getFiltered() {
+    const docsSrc = allDocs()
     let list = docs
     if (typeFilter !== 'all') list = list.filter(d => d.type === typeFilter)
     if (statusFilter !== 'all') list = list.filter(d => d.status === statusFilter)
@@ -79,21 +77,22 @@ export default async function InvoicePage(container) {
   }
 
   function getSummary() {
-    const invoices = docs.filter(d => d.type === 'invoice')
+    const today = new Date().toISOString().slice(0, 10)
+    const invoices = allDocs().filter(d => d.type === 'invoice')
     return {
-      outstanding: invoices.filter(d => d.status === 'sent').reduce((a, d) => a + calcDoc(d).total, 0),
-      overdue: invoices.filter(d => d.status === 'overdue').reduce((a, d) => a + calcDoc(d).total, 0),
+      outstanding: invoices.filter(d => d.status === 'sent' && d.dueDate >= today).reduce((a, d) => a + calcDoc(d).total, 0),
+      overdue: invoices.filter(d => d.status === 'sent' && d.dueDate < today).reduce((a, d) => a + calcDoc(d).total, 0),
       paid: invoices.filter(d => d.status === 'paid').reduce((a, d) => a + calcDoc(d).total, 0),
     }
   }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const s = getSummary()
     const filtered = getFiltered()
-    const today = new Date().toISOString().slice(0, 10)
-
-    // Check overdue
-    docs.forEach(d => { if (d.type === 'invoice' && d.status === 'sent' && d.dueDate < today) d.status = 'overdue' })
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -101,7 +100,7 @@ export default async function InvoicePage(container) {
           <div>
             <div class="page-title">🧾 Invoice & Documents</div>
             <div class="page-subtitle">ใบแจ้งหนี้ / ใบเสร็จ / ใบกำกับภาษี
-              ${dataSource === 'live' ? '<span style="font-size:0.72rem;color:var(--success);margin-left:8px">● รวมจากใบจองจริง</span>' : '<span style="font-size:0.72rem;color:var(--text-muted);margin-left:8px">Demo</span>'}
+              <span style="font-size:0.72rem;color:var(--success);margin-left:8px">● รวมจากใบจองจริง</span>
             </div>
           </div>
           <div class="page-actions">
@@ -135,9 +134,12 @@ export default async function InvoicePage(container) {
             <thead><tr><th>เลขที่</th><th>ประเภท</th><th>ลูกค้า</th><th>วันที่</th><th>ครบกำหนด</th><th class="text-right">มูลค่า</th><th>สถานะ</th><th></th></tr></thead>
             <tbody>
               ${filtered.map(d => {
-                const dt = DOC_TYPES[d.type]; const st = DOC_STATUS[d.status]
+                const dt = DOC_TYPES[d.type]
+                const today = new Date().toISOString().slice(0, 10)
+                const effStatus = d.status === 'sent' && d.dueDate < today ? 'overdue' : d.status
+                const st = DOC_STATUS[effStatus]
                 const { total } = calcDoc(d)
-                const isOverdue = d.status === 'overdue'
+                const isOverdue = effStatus === 'overdue'
                 return `<tr class="doc-row" data-id="${d.id}" style="cursor:pointer">
                   <td style="font-family:monospace;font-size:0.8rem">${escHtml(d.no)}</td>
                   <td><span class="badge badge-${dt.color}" style="font-size:0.68rem">${dt.label}</span></td>
@@ -147,7 +149,7 @@ export default async function InvoicePage(container) {
                   <td class="text-right" style="font-weight:700">${formatCurrency(total)}</td>
                   <td><span class="badge badge-${st.color}">${st.label}</span></td>
                   <td>
-                    ${d.status !== 'paid' && d.status !== 'cancelled' && d.type === 'invoice' ? `<button class="btn btn-xs btn-success pay-btn" data-id="${d.id}">รับชำระ</button>` : ''}
+                    ${!d._live && d.status !== 'paid' && d.status !== 'cancelled' && d.type === 'invoice' ? `<button class="btn btn-xs btn-success pay-btn" data-id="${d.id}">รับชำระ</button>` : ''}
                   </td>
                 </tr>`
               }).join('')}
@@ -164,13 +166,18 @@ export default async function InvoicePage(container) {
     document.getElementById('new-inv-btn')?.addEventListener('click', () => openDocForm())
     document.getElementById('inv-export')?.addEventListener('click', () => exportToExcel(filtered.map(d => { const {total,vat,subtotal}=calcDoc(d); return { เลขที่:d.no, ประเภท:DOC_TYPES[d.type].label, ลูกค้า:d.custName, วันที่:d.date, ครบกำหนด:d.dueDate, ก่อนVAT:subtotal, VAT:vat, รวม:total, สถานะ:DOC_STATUS[d.status].label } }), 'Invoices'))
     document.querySelectorAll('.doc-row').forEach(row => {
-      row.addEventListener('click', e => { if (e.target.tagName === 'BUTTON') return; const d = docs.find(x => x.id === row.dataset.id); if (d) openDocDetail(d) })
+      row.addEventListener('click', e => { if (e.target.tagName === 'BUTTON') return; const d = allDocs().find(x => x.id === row.dataset.id); if (d) openDocDetail(d) })
     })
     document.querySelectorAll('.pay-btn').forEach(btn => {
-      btn.addEventListener('click', e => {
+      btn.addEventListener('click', async e => {
         e.stopPropagation()
-        const d = docs.find(x => x.id === btn.dataset.id)
-        if (d) { d.status = 'paid'; d.paidDate = new Date().toISOString().slice(0,10); showToast('✅ บันทึกการชำระแล้ว', 'success'); renderPage() }
+        const d = allDocs().find(x => x.id === btn.dataset.id)
+        if (!d || d._live) return
+        try {
+          await updateDocData('invoices', d.id, { status: 'paid', paidDate: new Date().toISOString().slice(0,10) })
+          showToast('✅ บันทึกการชำระแล้ว', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       })
     })
   }
@@ -208,16 +215,18 @@ export default async function InvoicePage(container) {
       footer: `<button class="btn btn-secondary" id="dc-c">ยกเลิก</button><button class="btn btn-primary" id="dc-s">💾 บันทึก</button>`
     })
     el.querySelector('#dc-c').addEventListener('click', close)
-    el.querySelector('#dc-s').addEventListener('click', () => {
+    el.querySelector('#dc-s').addEventListener('click', async () => {
       const custName = el.querySelector('#dc-cust').value.trim()
       if (!custName) return showToast('❗ ระบุชื่อลูกค้า', 'warning')
       const type = el.querySelector('#dc-type').value
       const types = { quotation:'QT', invoice:'INV', receipt:'REC', tax_invoice:'TAX', credit_note:'CN' }
-      const no = types[type] + '-2025-' + String(docs.length + 1).padStart(3, '0')
+      const no = types[type] + '-' + new Date().getFullYear() + '-' + String(docs.length + 1).padStart(3, '0')
       const items = [{ desc: el.querySelector('#item-desc-0').value||'รายการ', qty: +el.querySelector('#item-qty-0').value||1, unit:'ชิ้น', price: +el.querySelector('#item-price-0').value||0, vat: +el.querySelector('#item-vat-0').value }]
-      const newDoc = { id:'D'+Date.now(), type, no, custName, custTax:'', date: el.querySelector('#dc-date').value, dueDate: el.querySelector('#dc-due').value, items, status:'draft', note: el.querySelector('#dc-note').value }
-      docs.unshift(newDoc)
-      showToast('🧾 สร้างเอกสารแล้ว', 'success'); close(); renderPage()
+      try {
+        await createDoc('invoices', { type, no, custName, custTax:'', date: el.querySelector('#dc-date').value, dueDate: el.querySelector('#dc-due').value, items, status:'draft', note: el.querySelector('#dc-note').value })
+        showToast('🧾 สร้างเอกสารแล้ว', 'success'); close()
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
@@ -240,16 +249,19 @@ export default async function InvoicePage(container) {
         </table>
         ${d.note?`<div style="color:var(--text-muted)">📝 ${escHtml(d.note)}</div>`:''}
       </div>`,
-      footer: `${d.status!=='paid'&&d.type==='invoice'?`<button class="btn btn-success" id="detail-pay-btn">✅ บันทึกรับชำระ</button>`:''}
+      footer: `${!d._live&&d.status!=='paid'&&d.type==='invoice'?`<button class="btn btn-success" id="detail-pay-btn">✅ บันทึกรับชำระ</button>`:''}
                <button class="btn btn-primary" onclick="window.print()">🖨 พิมพ์</button>`
     })
-    document.getElementById('detail-pay-btn')?.addEventListener('click', () => {
-      d.status = 'paid'; d.paidDate = new Date().toISOString().slice(0,10)
-      document.querySelector('.modal-overlay')?.remove(); showToast('✅ บันทึกการชำระแล้ว', 'success'); renderPage()
+    document.getElementById('detail-pay-btn')?.addEventListener('click', async () => {
+      try {
+        await updateDocData('invoices', d.id, { status: 'paid', paidDate: new Date().toISOString().slice(0,10) })
+        document.querySelector('.modal-overlay')?.remove(); showToast('✅ บันทึกการชำระแล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(title, value, color) {

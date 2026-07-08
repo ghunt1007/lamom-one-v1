@@ -745,6 +745,34 @@ export function seedDemoData() {
   ]
   customOrdersDemo.forEach(o => { if (!demoCol('custom_orders')[o.id]) demoCol('custom_orders')[o.id] = o })
 
+  // Withholding Tax Certificates — ใบ 50 ทวิ (หน้า /finance/withholding-tax)
+  const wtAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
+  const withholdingTaxDemo = [
+    { id:'WHT001', certNo:'WHT-2026-0001', payeeName:'บริษัท ออโต้ พาร์ท จก.', payeeTaxId:'0105561001234', payeeAddress:'123 ถ.สุขุมวิท กรุงเทพฯ', incomeType:'service', incomeTypeLabel:'ค่าจ้างทำของ/บริการ (มาตรา 40(8))', paymentDate:wtAddDays(-20), amountPaid:45000, taxRate:3, taxWithheld:1350, issuedBy:'สมศรี การเงิน' },
+    { id:'WHT002', certNo:'WHT-2026-0002', payeeName:'คุณสมชาย ใจดี', payeeTaxId:'1103700123456', payeeAddress:'88 ถ.พระราม 4 กรุงเทพฯ', incomeType:'rent', incomeTypeLabel:'ค่าเช่าทรัพย์สิน (มาตรา 40(5))', paymentDate:wtAddDays(-15), amountPaid:25000, taxRate:5, taxWithheld:1250, issuedBy:'สมศรี การเงิน' },
+    { id:'WHT003', certNo:'WHT-2026-0003', payeeName:'บจก. ไทยทำความสะอาด', payeeTaxId:'0105562009876', payeeAddress:'45 ถ.รัชดาภิเษก กรุงเทพฯ', incomeType:'service', incomeTypeLabel:'ค่าจ้างทำของ/บริการ (มาตรา 40(8))', paymentDate:wtAddDays(-8), amountPaid:24000, taxRate:3, taxWithheld:720, issuedBy:'สมศรี การเงิน' },
+    { id:'WHT004', certNo:'WHT-2026-0004', payeeName:'ขนส่งไทยเซ็นทรัล', payeeTaxId:'0105563004567', payeeAddress:'99 ถ.บางนา-ตราด กรุงเทพฯ', incomeType:'transport', incomeTypeLabel:'ค่าขนส่ง', paymentDate:wtAddDays(-3), amountPaid:18000, taxRate:1, taxWithheld:180, issuedBy:'สมศรี การเงิน' },
+  ]
+  withholdingTaxDemo.forEach(c => { if (!demoCol('withholding_tax_certs')[c.id]) demoCol('withholding_tax_certs')[c.id] = c })
+
+  // Invoices — ใบแจ้งหนี้/ใบเสร็จ/ใบกำกับภาษี (หน้า /finance/invoice)
+  const invoicesDemo = [
+    { id:'D001', type:'invoice', no:'INV-2026-001', custName:'สมศักดิ์ เจริญสุข', custTax:'0105567012345', date:'2026-06-02', dueDate:'2026-06-17', items:[ { desc:'BYD Seal AWD', qty:1, unit:'คัน', price:1299000, vat:7 } ], status:'paid', paidDate:'2026-06-05', note:'' },
+    { id:'D002', type:'invoice', no:'INV-2026-002', custName:'วิชัย เดินดี', custTax:'0105567098765', date:'2026-06-09', dueDate:'2026-06-24', items:[ { desc:'MG4 X', qty:1, unit:'คัน', price:1199000, vat:7 } ], status:'sent', note:'' },
+    { id:'D003', type:'quotation', no:'QT-2026-005', custName:'ประภา สวยงาม', custTax:'', date:'2026-06-09', dueDate:'2026-06-23', items:[ { desc:'BYD Atto3 Standard', qty:1, unit:'คัน', price:899000, vat:7 }, { desc:'ฟิล์มกรองแสง', qty:1, unit:'ชุด', price:12000, vat:7 } ], status:'draft', note:'ขอใบเสนอราคาเพื่อขออนุมัติ' },
+    { id:'D004', type:'receipt', no:'REC-2026-001', custName:'สมศักดิ์ เจริญสุข', custTax:'0105567012345', date:'2026-06-05', dueDate:'2026-06-05', items:[ { desc:'BYD Seal AWD', qty:1, unit:'คัน', price:1299000, vat:7 } ], status:'paid', paidDate:'2026-06-05', note:'' },
+    { id:'D005', type:'invoice', no:'INV-2026-003', custName:'อนุชา รวยมาก', custTax:'', date:'2026-05-20', dueDate:'2026-06-04', items:[ { desc:'MG ZS EV', qty:1, unit:'คัน', price:1049000, vat:7 } ], status:'sent', note:'' },
+  ]
+  invoicesDemo.forEach(d => { if (!demoCol('invoices')[d.id]) demoCol('invoices')[d.id] = d })
+
+  // Billing Runs — ระบบวางบิล (หน้า /finance/billing-run)
+  const brAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
+  const billingRunsDemo = [
+    { id:'BR001', runNo:'BR-2026-0001', customerName:'วิชัย เดินดี', invoiceIds:['D002'], totalAmount:1282930, submittedDate:brAddDays(-10), dueDate:brAddDays(5), status:'submitted' },
+    { id:'BR002', runNo:'BR-2026-0002', customerName:'อนุชา รวยมาก', invoiceIds:['D005'], totalAmount:1122430, submittedDate:brAddDays(-30), dueDate:brAddDays(-15), status:'submitted' },
+  ]
+  billingRunsDemo.forEach(r => { if (!demoCol('billing_runs')[r.id]) demoCol('billing_runs')[r.id] = r })
+
   // Receipt Automation (หน้า /finance/receipt-auto)
   const autoReceiptsDemo = [
     { id:'AR001', number:'REC-2026-0541', customer:'สมชาย ใจดี', amount:1290000, type:'purchase', sent:true, channel:'email', date:'2026-06-14', status:'sent' },
@@ -2148,10 +2176,11 @@ export function seedDemoData() {
 
   // Petty cash
   const pettyCash = [
-    { id:'pc1', type:'out', cat:'refresh', amount:850, desc:'ซื้อกาแฟ-น้ำดื่มสำหรับโชว์รูม', by:'อรนุช เซลส์ดี', time: new Date(Date.now()-3600000*3).toISOString(), receipt:true },
-    { id:'pc2', type:'out', cat:'supplies', amount:1200, desc:'ค่าน้ำยาทำความสะอาดรถ', by:'สมชาย ช่างดี', time: new Date(Date.now()-86400000).toISOString(), receipt:true },
-    { id:'pc3', type:'in', cat:'other', amount:5000, desc:'เติมเงินสดย่อย ประจำสัปดาห์', by:'ทวีศักดิ์ สุขสมบัติเสถียร', time: new Date(Date.now()-86400000*2).toISOString(), receipt:false },
-    { id:'pc4', type:'out', cat:'transport', amount:450, desc:'ค่าน้ำมันรถส่งเอกสาร', by:'วิชัย ขายเก่ง', time: new Date(Date.now()-86400000*3).toISOString(), receipt:true },
+    { id:'pc1', type:'out', cat:'refresh', amount:850, desc:'ซื้อกาแฟ-น้ำดื่มสำหรับโชว์รูม', by:'อรนุช เซลส์ดี', time: new Date(Date.now()-3600000*3).toISOString(), receipt:true, status:'approved' },
+    { id:'pc2', type:'out', cat:'supplies', amount:1200, desc:'ค่าน้ำยาทำความสะอาดรถ', by:'สมชาย ช่างดี', time: new Date(Date.now()-86400000).toISOString(), receipt:true, status:'approved' },
+    { id:'pc3', type:'in', cat:'other', amount:5000, desc:'เติมเงินสดย่อย ประจำสัปดาห์', by:'ทวีศักดิ์ สุขสมบัติเสถียร', time: new Date(Date.now()-86400000*2).toISOString(), receipt:false, status:'approved' },
+    { id:'pc4', type:'out', cat:'transport', amount:450, desc:'ค่าน้ำมันรถส่งเอกสาร', by:'วิชัย ขายเก่ง', time: new Date(Date.now()-86400000*3).toISOString(), receipt:true, status:'approved' },
+    { id:'pc5', type:'out', cat:'repair', amount:600, desc:'ซ่อมประตูห้องน้ำพนักงาน', by:'มานะ ขยัน', time: new Date(Date.now()-3600000*5).toISOString(), receipt:false, status:'pending' },
   ]
   pettyCash.forEach(p => { if (!demoCol('petty_cash')[p.id]) demoCol('petty_cash')[p.id] = p })
 
@@ -2183,12 +2212,19 @@ export function seedDemoData() {
   financeRateSheets.forEach(r => { if (!demoCol('finance_rate_sheets')[r.id]) demoCol('finance_rate_sheets')[r.id] = r })
 
   // Monthly close items
+  const mcPeriod = new Date().toISOString().slice(0, 7)
   const monthlyCloseItems = [
-    { id:'mc1', category:'รายได้', name:'ยอดขายรถ', amount:3297000, responsible:'อรนุช เซลส์ดี', status:'confirmed', date:'2025-06-30' },
-    { id:'mc2', category:'รายได้', name:'ค่าบริการศูนย์', amount:48500, responsible:'สมชาย ช่างดี', status:'confirmed', date:'2025-06-30' },
-    { id:'mc3', category:'รายได้', name:'ค่าคอมมิชชั่นประกัน', amount:22000, responsible:'วิชัย ขายเก่ง', status:'pending', date:'2025-06-30' },
-    { id:'mc4', category:'ค่าใช้จ่าย', name:'เงินเดือนพนักงาน', amount:121000, responsible:'ทวีศักดิ์ สุขสมบัติเสถียร', status:'confirmed', date:'2025-06-30' },
-    { id:'mc5', category:'ค่าใช้จ่าย', name:'ค่าเช่าโชว์รูม', amount:85000, responsible:'ทวีศักดิ์ สุขสมบัติเสถียร', status:'confirmed', date:'2025-06-30' },
+    { id:'mc1', period:mcPeriod, category:'รายรับ', name:'รายรับขายรถ', amount:12987000, responsible:'การเงิน', status:'done' },
+    { id:'mc2', period:mcPeriod, category:'รายรับ', name:'รายรับบริการ', amount:524000, responsible:'บริการ', status:'done' },
+    { id:'mc3', period:mcPeriod, category:'รายรับ', name:'รายรับประกัน', amount:187000, responsible:'ประกัน', status:'done' },
+    { id:'mc4', period:mcPeriod, category:'ต้นทุน', name:'ต้นทุนรถ (COGS)', amount:-10389600, responsible:'การเงิน', status:'done' },
+    { id:'mc5', period:mcPeriod, category:'ต้นทุน', name:'ต้นทุนอะไหล่', amount:-198000, responsible:'บริการ', status:'done' },
+    { id:'mc6', period:mcPeriod, category:'ค่าใช้จ่าย', name:'เงินเดือนพนักงาน', amount:-680000, responsible:'HR', status:'pending' },
+    { id:'mc7', period:mcPeriod, category:'ค่าใช้จ่าย', name:'ค่าเช่า + สาธารณูปโภค', amount:-120000, responsible:'การเงิน', status:'done' },
+    { id:'mc8', period:mcPeriod, category:'ค่าใช้จ่าย', name:'ค่าการตลาด', amount:-85000, responsible:'การตลาด', status:'pending' },
+    { id:'mc9', period:mcPeriod, category:'ค่าใช้จ่าย', name:'ค่า Commission', amount:-259740, responsible:'การเงิน', status:'pending' },
+    { id:'mc10', period:mcPeriod, category:'ปรับปรุง', name:'ค่าเสื่อมราคา', amount:-45000, responsible:'การเงิน', status:'review' },
+    { id:'mc11', period:mcPeriod, category:'ปรับปรุง', name:'ปรับมูลค่าสต็อก', amount:-12000, responsible:'DMS', status:'review' },
   ]
   monthlyCloseItems.forEach(m => { if (!demoCol('monthly_close_items')[m.id]) demoCol('monthly_close_items')[m.id] = m })
 

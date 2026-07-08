@@ -115,6 +115,8 @@ const routes = {
   '/analytics/forecast':  () => import('../pages/analytics/SalesForecast.js'),
   // Finance extras
   '/finance/tax':         () => import('../pages/finance/TaxReport.js'),
+  '/finance/withholding-tax': () => import('../pages/finance/WithholdingTax.js'),
+  '/finance/billing-run':     () => import('../pages/finance/BillingRun.js'),
   // Service extras
   '/service/parts-order': () => import('../pages/service/PartsOrder.js'),
   '/service/history':     () => import('../pages/service/ServiceHistory.js'),
