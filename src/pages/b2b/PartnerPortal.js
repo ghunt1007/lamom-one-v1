@@ -5,6 +5,7 @@
 import { formatCurrency, formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 const PARTNER_TYPES = {
   reseller:  { label: 'Reseller', color: 'primary', icon: '🤝' },
@@ -23,19 +24,26 @@ const PARTNER_STATUS = {
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
 
-const DEMO_PARTNERS = [
-  { id: 'PRT001', name: 'บ. Thai EV Leasing', type: 'finance', status: 'active', contact: 'สมหมาย ผู้จัดการ', email: 'partner@evlease.co.th', phone: '02-xxx-xxxx', commissionRate: 1.5, totalLeads: 42, closedDeals: 28, revenue: 44520000, joinDate: addDays(-180) },
-  { id: 'PRT002', name: 'บ. กรุงเทพประกันภัย', type: 'insurance', status: 'active', contact: 'วิชัย ตัวแทน', email: 'ev@bki.co.th', phone: '02-yyy-yyyy', commissionRate: 8.0, totalLeads: 85, closedDeals: 71, revenue: 2840000, joinDate: addDays(-365) },
-  { id: 'PRT003', name: 'EV Connect Thailand', type: 'ev_infra', status: 'active', contact: 'ปทิตา CEO', email: 'info@evconnect.th', phone: '081-xxx-xxxx', commissionRate: 2.0, totalLeads: 15, closedDeals: 12, revenue: 480000, joinDate: addDays(-90) },
-  { id: 'PRT004', name: 'รีวิวเวอร์ YT: TheEVGuruTH', type: 'referral', status: 'active', contact: 'ธนา Youtuber', email: 'theevguru@gmail.com', phone: '086-xxx-xxxx', commissionRate: 3.0, totalLeads: 28, closedDeals: 8, revenue: 1272000, joinDate: addDays(-60) },
-  { id: 'PRT005', name: 'บ. Fast Charge Plus', type: 'ev_infra', status: 'pending', contact: 'ชัยวัฒน์ COO', email: 'biz@fastcharge.th', phone: '089-xxx-xxxx', commissionRate: 1.5, totalLeads: 0, closedDeals: 0, revenue: 0, joinDate: addDays(-7) },
-]
-
 export default async function PartnerPortalPage(container) {
-  let partners = DEMO_PARTNERS.map(p => ({ ...p }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let partners = []
   let typeFilter = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { partners = await listDocs('b2b_partners', [], 'name', 'asc', 500) } catch (e) { partners = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = typeFilter === 'all' ? partners : partners.filter(p => p.type === typeFilter)
     const active = partners.filter(p => p.status === 'active').length
     const totalRevenue = partners.reduce((a, p) => a + p.revenue, 0)
@@ -109,9 +117,14 @@ export default async function PartnerPortalPage(container) {
     container.querySelectorAll('.view-btn').forEach(b => b.addEventListener('click', () => {
       const p = partners.find(x => x.id === b.dataset.id); if (p) openDetail(p)
     }))
-    container.querySelectorAll('.approve-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.approve-btn').forEach(b => b.addEventListener('click', async () => {
       const p = partners.find(x => x.id === b.dataset.id)
-      if (p) { p.status = 'active'; showToast(`✅ อนุมัติ ${p.name} แล้ว`, 'success'); renderPage() }
+      if (!p) return
+      try {
+        await updateDocData('b2b_partners', p.id, { status: 'active' })
+        showToast(`✅ อนุมัติ ${p.name} แล้ว`, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
   }
 
@@ -153,22 +166,25 @@ export default async function PartnerPortalPage(container) {
           <div class="input-group"><label class="input-label">Email</label><input type="email" class="input" id="pf-email"></div>
         </div>
       `,
-      onConfirm() {
+      async onConfirm() {
         const name = document.getElementById('pf-name')?.value?.trim()
-        if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return }
-        partners.unshift({
-          id: `PRT${String(partners.length+1).padStart(3,'0')}`, name,
-          type: document.getElementById('pf-type')?.value||'referral', status: 'pending',
-          contact: document.getElementById('pf-contact')?.value||'', email: document.getElementById('pf-email')?.value||'', phone: '',
-          commissionRate: +document.getElementById('pf-comm')?.value||2.0,
-          totalLeads: 0, closedDeals: 0, revenue: 0, joinDate: addDays(0)
-        })
-        showToast('✅ เพิ่มพาร์ทเนอร์แล้ว!', 'success'); renderPage()
+        if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return false }
+        try {
+          await createDoc('b2b_partners', {
+            name,
+            type: document.getElementById('pf-type')?.value||'referral', status: 'pending',
+            contact: document.getElementById('pf-contact')?.value||'', email: document.getElementById('pf-email')?.value||'', phone: '',
+            commissionRate: +document.getElementById('pf-comm')?.value||2.0,
+            totalLeads: 0, closedDeals: 0, revenue: 0, joinDate: addDays(0)
+          })
+          showToast('✅ เพิ่มพาร์ทเนอร์แล้ว!', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

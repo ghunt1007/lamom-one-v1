@@ -5,6 +5,7 @@
 import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
 
@@ -16,23 +17,31 @@ const FLEET_STATUS = {
   rejected:  { label: 'ปฏิเสธ', color: 'danger', icon: '❌' },
 }
 
-const DEMO_FLEET_QUOTES = [
-  { id: 'FQ001', company: 'บริษัท ABC จำกัด', contact: 'คุณประเสริฐ', units: 15, model: 'BYD Atto 3', unitPrice: 1050000, discount: 5, status: 'negotiate', created: addDays(-10), expiry: addDays(20), note: 'ต้องการรถสีขาว 10 คำ เทา 5 คัน' },
-  { id: 'FQ002', company: 'ธนาคารแห่งชาติ', contact: 'คุณศักดา', units: 30, model: 'BYD Dolphin', unitPrice: 860000, discount: 8, status: 'approved', created: addDays(-20), expiry: addDays(10), note: 'สัญญา 3 ปี พร้อมบริการซ่อม' },
-  { id: 'FQ003', company: 'โรงพยาบาลกรุงเทพ', contact: 'ฝ่ายจัดซื้อ', units: 8, model: 'BYD Seal AWD', unitPrice: 1620000, discount: 3, status: 'sent', created: addDays(-5), expiry: addDays(25), note: '' },
-  { id: 'FQ004', company: 'SCG Group', contact: 'คุณวิชัย', units: 50, model: 'BYD Atto 3', unitPrice: 1020000, discount: 10, status: 'draft', created: addDays(-2), expiry: addDays(28), note: 'ต้องการ charging station ด้วย' },
-]
-
 const MODELS = ['BYD Dolphin', 'BYD Atto 3', 'BYD Seal AWD', 'MG ZS EV', 'BYD Han', 'BYD Atto 3 Pro']
 const MSRP = { 'BYD Dolphin': 899000, 'BYD Atto 3': 1099000, 'BYD Seal AWD': 1699000, 'MG ZS EV': 799000, 'BYD Han': 2099000, 'BYD Atto 3 Pro': 1299000 }
 
 function calcTotal(q) { return q.units * q.unitPrice * (1 - q.discount/100) }
 
 export default async function FleetQuotePage(container) {
-  let quotes = DEMO_FLEET_QUOTES.map(q => ({ ...q }))
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let quotes = []
   let statusFilter = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { quotes = await listDocs('fleet_quotes', [], 'created', 'desc', 500) } catch (e) { quotes = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = quotes.filter(q => statusFilter === 'all' || q.status === statusFilter)
     const totalValue = quotes.reduce((a, q) => a + calcTotal(q), 0)
     const approved = quotes.filter(q => q.status === 'approved')
@@ -97,10 +106,17 @@ export default async function FleetQuotePage(container) {
     `
 
     container.querySelectorAll('.sf-btn').forEach(b => b.addEventListener('click', () => { statusFilter = b.dataset.s; renderPage() }))
-    container.querySelectorAll('.send-btn').forEach(b => b.addEventListener('click', () => { const q = quotes.find(x=>x.id===b.dataset.id); if(q){q.status='sent'; showToast('📤 ส่ง Quote แล้ว','primary'); renderPage()} }))
-    container.querySelectorAll('.negotiate-btn').forEach(b => b.addEventListener('click', () => { const q = quotes.find(x=>x.id===b.dataset.id); if(q){q.status='negotiate'; showToast('🤝 เปลี่ยนสถานะเป็นเจรจา','warning'); renderPage()} }))
-    container.querySelectorAll('.approve-btn').forEach(b => b.addEventListener('click', () => { const q = quotes.find(x=>x.id===b.dataset.id); if(q){q.status='approved'; showToast('✅ อนุมัติ Fleet Quote!','success'); renderPage()} }))
-    container.querySelectorAll('.reject-btn').forEach(b => b.addEventListener('click', () => { const q = quotes.find(x=>x.id===b.dataset.id); if(q){q.status='rejected'; renderPage()} }))
+    const setStatus = async (id, status, msg, type) => {
+      try {
+        await updateDocData('fleet_quotes', id, { status })
+        if (msg) showToast(msg, type)
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+    }
+    container.querySelectorAll('.send-btn').forEach(b => b.addEventListener('click', () => setStatus(b.dataset.id, 'sent', '📤 ส่ง Quote แล้ว', 'primary')))
+    container.querySelectorAll('.negotiate-btn').forEach(b => b.addEventListener('click', () => setStatus(b.dataset.id, 'negotiate', '🤝 เปลี่ยนสถานะเป็นเจรจา', 'warning')))
+    container.querySelectorAll('.approve-btn').forEach(b => b.addEventListener('click', () => setStatus(b.dataset.id, 'approved', '✅ อนุมัติ Fleet Quote!', 'success')))
+    container.querySelectorAll('.reject-btn').forEach(b => b.addEventListener('click', () => setStatus(b.dataset.id, 'rejected')))
     container.querySelectorAll('.edit-btn').forEach(b => b.addEventListener('click', () => { const q = quotes.find(x=>x.id===b.dataset.id); if(q) openEditModal(q) }))
     document.getElementById('create-quote-btn')?.addEventListener('click', () => openEditModal())
   }
@@ -121,26 +137,29 @@ export default async function FleetQuotePage(container) {
         <div class="input-group"><label class="input-label">วันหมดอายุ</label><input class="input" type="date" id="fq-expiry" value="${q?.expiry||addDays(30)}"></div>
         <div class="input-group" style="grid-column:1/-1"><label class="input-label">หมายเหตุ</label><input class="input" id="fq-note" value="${q?.note||''}"></div>
       </div>`,
-      onConfirm() {
+      async onConfirm() {
         const company = document.getElementById('fq-company')?.value?.trim()
-        if (!company) { showToast('❗ กรุณากรอกชื่อบริษัท','error'); return }
-        if (q) {
-          q.company = company; q.contact = document.getElementById('fq-contact')?.value||''
-          q.model = document.getElementById('fq-model')?.value||q.model
-          q.units = parseInt(document.getElementById('fq-units')?.value)||q.units
-          q.unitPrice = parseInt(document.getElementById('fq-price')?.value)||q.unitPrice
-          q.discount = parseInt(document.getElementById('fq-discount')?.value)||0
-          q.expiry = document.getElementById('fq-expiry')?.value||q.expiry
-          q.note = document.getElementById('fq-note')?.value||''
-        } else {
-          quotes.unshift({ id:`FQ${String(quotes.length+1).padStart(3,'0')}`, company, contact: document.getElementById('fq-contact')?.value||'', model: document.getElementById('fq-model')?.value||MODELS[0], units: parseInt(document.getElementById('fq-units')?.value)||1, unitPrice: parseInt(document.getElementById('fq-price')?.value)||1000000, discount: parseInt(document.getElementById('fq-discount')?.value)||0, status:'draft', created: addDays(0), expiry: document.getElementById('fq-expiry')?.value||addDays(30), note: document.getElementById('fq-note')?.value||'' })
+        if (!company) { showToast('❗ กรุณากรอกชื่อบริษัท','error'); return false }
+        const data = {
+          company, contact: document.getElementById('fq-contact')?.value||'',
+          model: document.getElementById('fq-model')?.value||(q?.model||MODELS[0]),
+          units: parseInt(document.getElementById('fq-units')?.value)||1,
+          unitPrice: parseInt(document.getElementById('fq-price')?.value)||1000000,
+          discount: parseInt(document.getElementById('fq-discount')?.value)||0,
+          expiry: document.getElementById('fq-expiry')?.value||addDays(30),
+          note: document.getElementById('fq-note')?.value||'',
         }
-        showToast('✅ บันทึก Quote แล้ว','success'); renderPage()
+        try {
+          if (q) await updateDocData('fleet_quotes', q.id, data)
+          else await createDoc('fleet_quotes', { ...data, status:'draft', created: addDays(0) })
+          showToast('✅ บันทึก Quote แล้ว','success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

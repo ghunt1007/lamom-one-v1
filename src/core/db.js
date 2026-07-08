@@ -589,6 +589,27 @@ export function seedDemoData() {
   ]
   settingsUsersDemo.forEach(u => { if (!demoCol('settings_users_demo')[u.id]) demoCol('settings_users_demo')[u.id] = u })
 
+  // Fleet quotes (หน้า /b2b/fleet-quote)
+  const fqAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
+  const fleetQuotes = [
+    { id:'FQ001', company:'บริษัท ABC จำกัด', contact:'คุณประเสริฐ', units:15, model:'BYD Atto 3', unitPrice:1050000, discount:5, status:'negotiate', created:fqAddDays(-10), expiry:fqAddDays(20), note:'ต้องการรถสีขาว 10 คำ เทา 5 คัน' },
+    { id:'FQ002', company:'ธนาคารแห่งชาติ', contact:'คุณศักดา', units:30, model:'BYD Dolphin', unitPrice:860000, discount:8, status:'approved', created:fqAddDays(-20), expiry:fqAddDays(10), note:'สัญญา 3 ปี พร้อมบริการซ่อม' },
+    { id:'FQ003', company:'โรงพยาบาลกรุงเทพ', contact:'ฝ่ายจัดซื้อ', units:8, model:'BYD Seal AWD', unitPrice:1620000, discount:3, status:'sent', created:fqAddDays(-5), expiry:fqAddDays(25), note:'' },
+    { id:'FQ004', company:'SCG Group', contact:'คุณวิชัย', units:50, model:'BYD Atto 3', unitPrice:1020000, discount:10, status:'draft', created:fqAddDays(-2), expiry:fqAddDays(28), note:'ต้องการ charging station ด้วย' },
+  ]
+  fleetQuotes.forEach(q => { if (!demoCol('fleet_quotes')[q.id]) demoCol('fleet_quotes')[q.id] = q })
+
+  // B2B Partners (หน้า /b2b/partners)
+  const ppAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
+  const b2bPartners = [
+    { id:'PRT001', name:'บ. Thai EV Leasing', type:'finance', status:'active', contact:'สมหมาย ผู้จัดการ', email:'partner@evlease.co.th', phone:'02-xxx-xxxx', commissionRate:1.5, totalLeads:42, closedDeals:28, revenue:44520000, joinDate:ppAddDays(-180) },
+    { id:'PRT002', name:'บ. กรุงเทพประกันภัย', type:'insurance', status:'active', contact:'วิชัย ตัวแทน', email:'ev@bki.co.th', phone:'02-yyy-yyyy', commissionRate:8.0, totalLeads:85, closedDeals:71, revenue:2840000, joinDate:ppAddDays(-365) },
+    { id:'PRT003', name:'EV Connect Thailand', type:'ev_infra', status:'active', contact:'ปทิตา CEO', email:'info@evconnect.th', phone:'081-xxx-xxxx', commissionRate:2.0, totalLeads:15, closedDeals:12, revenue:480000, joinDate:ppAddDays(-90) },
+    { id:'PRT004', name:'รีวิวเวอร์ YT: TheEVGuruTH', type:'referral', status:'active', contact:'ธนา Youtuber', email:'theevguru@gmail.com', phone:'086-xxx-xxxx', commissionRate:3.0, totalLeads:28, closedDeals:8, revenue:1272000, joinDate:ppAddDays(-60) },
+    { id:'PRT005', name:'บ. Fast Charge Plus', type:'ev_infra', status:'pending', contact:'ชัยวัฒน์ COO', email:'biz@fastcharge.th', phone:'089-xxx-xxxx', commissionRate:1.5, totalLeads:0, closedDeals:0, revenue:0, joinDate:ppAddDays(-7) },
+  ]
+  b2bPartners.forEach(p => { if (!demoCol('b2b_partners')[p.id]) demoCol('b2b_partners')[p.id] = p })
+
   const accessories = [
     { id:'acc1', name:'ฟิล์มกรองแสง 3M Crystalline', sku:'ACC-3M-001', category:'ฟิล์ม', price:18000, cost:10000, stock:5, unit:'ชุด', brand:'3M', createdAt:'2025-01-10' },
     { id:'acc2', name:'พรมรถ BYD Seal OEM', sku:'ACC-BYD-002', category:'ตกแต่งภายใน', price:3500, cost:1800, stock:12, unit:'ชุด', brand:'BYD', createdAt:'2025-01-15' },
