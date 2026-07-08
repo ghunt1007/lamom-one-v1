@@ -377,6 +377,7 @@ const NAV = [
       { icon: '👥', label: 'User Management', path: '/settings/users-manage' },
       { icon: '👤', label: 'บัญชีของฉัน', path: '/settings/my-account' },
       { icon: 'ℹ️', label: 'About', path: '/settings/about' },
+      { icon: '📖', label: 'คู่มือการใช้งาน', path: '/help' },
       { icon: '🔗', label: 'Integrations', path: '/integrations' },
       { icon: '⚙️', label: 'Integration Config', path: '/integrations/settings' },
       { icon: '🔗', label: 'Webhook Builder', path: '/integrations/webhooks' },

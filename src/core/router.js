@@ -4,6 +4,7 @@ import { getModuleForPath, hasModuleAccess, loadRolePermissions } from './permis
 const routes = {
   '/':              () => import('../pages/Dashboard.js'),
   '/login':         () => import('../pages/Login.js'),
+  '/help':          () => import('../pages/settings/UserManual.js'),
   // M1 CRM
   '/crm':           () => import('../pages/crm/CrmDashboard.js'),
   '/crm/leads':     () => import('../pages/crm/Leads.js'),
