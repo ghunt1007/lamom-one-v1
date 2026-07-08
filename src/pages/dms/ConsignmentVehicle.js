@@ -5,17 +5,11 @@
 import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
-
-const DEMO_ITEMS = [
-  { id: 'CS-001', owner: 'คุณสมศักดิ์', phone: '081-234-5678', model: 'BYD Atto 3 (2023)', plate: 'กข-1122', ask: 850000, floor: 800000, commPct: 5, start: '2026-05-10', status: 'selling' },
-  { id: 'CS-002', owner: 'คุณวันดี', phone: '089-555-7788', model: 'MG ZS EV (2022)', plate: '1กก-3344', ask: 620000, floor: 590000, commPct: 5, start: '2026-04-22', status: 'selling' },
-  { id: 'CS-003', owner: 'บ.รุ่งเรือง', phone: '02-111-2222', model: 'BYD Seal (2023)', plate: 'ขค-9090', ask: 1450000, floor: 1380000, commPct: 4, start: '2026-03-15', status: 'sold', soldAt: 1420000 },
-]
 
 const ST = {
   selling: { label: 'กำลังขาย', color: 'var(--primary)' },
@@ -25,34 +19,25 @@ const ST = {
 
 export default async function ConsignmentVehiclePage(container) {
   const myGen = container.__routerGen
-  let items = DEMO_ITEMS.map(i => ({ ...i }))
-  let dataSource = 'demo'
+  seedDemoData()
 
-  try {
-    const docs = await listDocs('consignments', [], 'start', 'desc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `CS-${String(i+1).padStart(3,'0')}`,
-        owner: d.owner || d.ownerName || '',
-        phone: d.phone || '',
-        model: d.model || '',
-        plate: d.plate || '',
-        ask: d.ask || d.askPrice || 0,
-        floor: d.floor || d.floorPrice || 0,
-        commPct: d.commPct || d.commissionPct || 5,
-        start: d.start || d.startDate || new Date().toISOString().slice(0,10),
-        status: d.status || 'selling',
-        ...(d.soldAt ? { soldAt: d.soldAt } : {}),
-      }))
-      items = [...mapped, ...DEMO_ITEMS]
-      dataSource = 'live'
-    }
-  } catch {}
+  let items = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { items = await listDocs('consignments', [], 'start', 'desc', 200) } catch (e) { items = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function daysOn(s) { return Math.floor((Date.now() - new Date(s).getTime()) / 86400000) }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const selling = items.filter(i => i.status === 'selling')
     const totalAsk = selling.reduce((s, i) => s + i.ask, 0)
     const soldComm = items.filter(i => i.status === 'sold').reduce((s, i) => s + Math.round(i.soldAt * i.commPct / 100), 0)
@@ -62,7 +47,7 @@ export default async function ConsignmentVehiclePage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🤝 รถฝากขาย (Consignment)</div>
-            <div class="page-subtitle">รับรถจากผู้ฝากมาขาย รับค่าคอมมิชชั่นเมื่อปิดการขาย${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">รับรถจากผู้ฝากมาขาย รับค่าคอมมิชชั่นเมื่อปิดการขาย</div>
           </div>
           <div class="page-actions"><button class="btn btn-primary" id="add-btn">➕ รับรถฝากขาย</button></div>
         </div>
@@ -110,13 +95,15 @@ export default async function ConsignmentVehiclePage(container) {
       body: `<div class="input-group" style="margin-bottom:10px"><label class="input-label">ราคาขายจริง</label><input class="input" type="number" id="cs-price" value="${i.ask}"></div>
         <div style="background:var(--surface-2);padding:10px 12px;border-radius:var(--radius-sm);font-size:0.78rem">ค่าคอม ${i.commPct}% · ผู้ฝากได้รับ = ราคาขาย − ค่าคอม</div>`,
       confirmText: '✅ ปิดการขาย',
-      onConfirm() {
+      async onConfirm() {
         const price = parseInt(document.getElementById('cs-price').value)
         if (!price || price < i.floor) { showToast(`❗ ราคาต่ำกว่าขั้นต่ำ ${formatCurrency(i.floor)}`, 'error'); return false }
-        i.status = 'sold'; i.soldAt = price
         const comm = Math.round(price * i.commPct / 100)
-        showToast(`ขาย ${i.model} ที่ ${formatCurrency(price)} · ค่าคอม ${formatCurrency(comm)} · จ่ายผู้ฝาก ${formatCurrency(price-comm)}`, 'success')
-        render()
+        try {
+          await updateDocData('consignments', i.id, { status: 'sold', soldAt: price })
+          showToast(`ขาย ${i.model} ที่ ${formatCurrency(price)} · ค่าคอม ${formatCurrency(comm)} · จ่ายผู้ฝาก ${formatCurrency(price-comm)}`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -136,18 +123,21 @@ export default async function ConsignmentVehiclePage(container) {
         </div>
       </div>`,
       confirmText: '💾 บันทึก',
-      onConfirm() {
+      async onConfirm() {
         const owner = document.getElementById('cs-owner').value.trim()
         const model = document.getElementById('cs-model').value.trim()
         const ask = parseInt(document.getElementById('cs-ask').value)
         if (!owner || !model || !ask) { showToast('❗ กรอกข้อมูลที่จำเป็น', 'error'); return false }
-        const id = 'CS-' + String(items.length + 1).padStart(3, '0')
-        items.unshift({ id, owner, phone: document.getElementById('cs-phone').value.trim(), model,
-          plate: document.getElementById('cs-plate').value.trim(), ask, floor: Math.round(ask*0.94),
-          commPct: parseInt(document.getElementById('cs-comm').value) || 5,
-          start: new Date().toISOString().slice(0,10), status: 'selling' })
-        showToast(`รับรถฝากขาย ${model} จาก ${owner} แล้ว`, 'success')
-        render()
+        try {
+          await createDoc('consignments', {
+            owner, phone: document.getElementById('cs-phone').value.trim(), model,
+            plate: document.getElementById('cs-plate').value.trim(), ask, floor: Math.round(ask*0.94),
+            commPct: parseInt(document.getElementById('cs-comm').value) || 5,
+            start: new Date().toISOString().slice(0,10), status: 'selling',
+          })
+          showToast(`รับรถฝากขาย ${model} จาก ${owner} แล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -156,5 +146,5 @@ export default async function ConsignmentVehiclePage(container) {
     return `<div class="card" style="padding:14px 16px"><div style="font-size:0.72rem;color:var(--text-muted)">${label}</div><div style="font-size:1.4rem;font-weight:900;color:${color};margin-top:2px">${value}</div></div>`
   }
 
-  render()
+  await loadData()
 }

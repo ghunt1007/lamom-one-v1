@@ -5,7 +5,7 @@
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -20,41 +20,25 @@ const DEMO_STATUS = {
   maintenance:{ label: 'ซ่อมบำรุง', color: 'danger', icon: '🔧' },
 }
 
-const DEMO_CARS = [
-  { id: 'DM01', model: 'BYD Dolphin', plate: 'ทด-001', soc: 85, mileage: 8420, status: 'available', tdCount30: 18, lastClean: addDays(-1), insuranceExp: addDays(120), note: '' },
-  { id: 'DM02', model: 'BYD Atto 3', plate: 'ทด-002', soc: 42, mileage: 12150, status: 'charging', tdCount30: 24, lastClean: addDays(0), insuranceExp: addDays(85), note: '' },
-  { id: 'DM03', model: 'BYD Seal AWD', plate: 'ทด-003', soc: 91, mileage: 6890, status: 'in_use', tdCount30: 31, lastClean: addDays(-2), insuranceExp: addDays(200), note: 'ลูกค้า: ประพันธ์ มั่งมี · เซลส์: วิชัย · ออก 14:20' },
-  { id: 'DM04', model: 'MG4 Electric', plate: 'ทด-004', soc: 12, mileage: 15600, status: 'maintenance', tdCount30: 9, lastClean: addDays(-5), insuranceExp: addDays(25), note: 'ยางหน้าซ้ายรั่ว — รออะไหล่' },
-  { id: 'DM05', model: 'BYD Han', plate: 'ทด-005', soc: 78, mileage: 4200, status: 'available', tdCount30: 12, lastClean: addDays(0), insuranceExp: addDays(310), note: '' },
-]
-
 export default async function DemoFleetPage(container) {
   const myGen = container.__routerGen
-  let cars = DEMO_CARS.map(c => ({ ...c }))
-  let dataSource = 'demo'
+  seedDemoData()
 
-  try {
-    const docs = await listDocs('demo_fleet', [], 'model', 'asc', 100).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `DM${String(i+1).padStart(2,'0')}`,
-        model: d.model || '',
-        plate: d.plate || '',
-        soc: d.soc || 0,
-        mileage: d.mileage || 0,
-        status: d.status || 'available',
-        tdCount30: d.tdCount30 || 0,
-        lastClean: d.lastClean || addDays(0),
-        insuranceExp: d.insuranceExp || addDays(90),
-        note: d.note || '',
-      }))
-      cars = [...mapped, ...DEMO_CARS]
-      dataSource = 'live'
-    }
-  } catch {}
+  let cars = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { cars = await listDocs('demo_fleet', [], 'model', 'asc', 100) } catch (e) { cars = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const available = cars.filter(c => c.status === 'available').length
     const lowBattery = cars.filter(c => c.soc < 30).length
     const totalTd = cars.reduce((a, c) => a + c.tdCount30, 0)
@@ -65,7 +49,7 @@ export default async function DemoFleetPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🚗 Demo Fleet</div>
-            <div class="page-subtitle">จัดการรถทดลองขับ — ${cars.length} คัน${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">จัดการรถทดลองขับ — ${cars.length} คัน</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="add-car-btn">+ เพิ่มรถ Demo</button>
@@ -139,29 +123,46 @@ export default async function DemoFleetPage(container) {
           </div>
           <div style="font-size:0.72rem;color:var(--text-muted)">📋 เช็คก่อนออก: ใบขับขี่ลูกค้า + ถ่ายรูปรอบคัน</div>
         </div>`,
-        onConfirm() {
+        async onConfirm() {
           const name = document.getElementById('td-customer')?.value?.trim()
-          if (!name) { showToast('❗ กรอกชื่อลูกค้า', 'error'); return }
-          c.status = 'in_use'
-          c.note = `ลูกค้า: ${name} · เซลส์: ${document.getElementById('td-staff')?.value} · ออก ${new Date().toTimeString().slice(0,5)}`
-          showToast('🚗 บันทึกออก Test Drive แล้ว', 'warning'); renderPage()
+          if (!name) { showToast('❗ กรอกชื่อลูกค้า', 'error'); return false }
+          const note = `ลูกค้า: ${name} · เซลส์: ${document.getElementById('td-staff')?.value} · ออก ${new Date().toTimeString().slice(0,5)}`
+          try {
+            await updateDocData('demo_fleet', c.id, { status: 'in_use', note })
+            showToast('🚗 บันทึกออก Test Drive แล้ว', 'warning')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     }))
-    container.querySelectorAll('.return-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.return-btn').forEach(b => b.addEventListener('click', async () => {
       const c = cars.find(x => x.id === b.dataset.id)
       if (c) {
-        c.tdCount30++; c.soc = Math.max(5, c.soc - 8); c.mileage += 15; c.note = ''
-        c.status = c.soc < 30 ? 'charging' : 'available'
-        showToast('✅ รับรถคืนแล้ว' + (c.soc < 30 ? ' — แบตต่ำ ส่งชาร์จอัตโนมัติ' : ''), 'success'); renderPage()
+        const soc = Math.max(5, c.soc - 8)
+        const status = soc < 30 ? 'charging' : 'available'
+        try {
+          await updateDocData('demo_fleet', c.id, { tdCount30: c.tdCount30 + 1, soc, mileage: c.mileage + 15, note: '', status })
+          showToast('✅ รับรถคืนแล้ว' + (soc < 30 ? ' — แบตต่ำ ส่งชาร์จอัตโนมัติ' : ''), 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     }))
-    container.querySelectorAll('.charge-btn').forEach(b => b.addEventListener('click', () => {
-      const c = cars.find(x => x.id === b.dataset.id); if (c) { c.status = 'charging'; renderPage() }
-    }))
-    container.querySelectorAll('.ready-btn, .fixed-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.charge-btn').forEach(b => b.addEventListener('click', async () => {
       const c = cars.find(x => x.id === b.dataset.id)
-      if (c) { c.status = 'available'; if (c.soc < 80) c.soc = 100; c.note = ''; showToast('✅ ' + c.plate + ' พร้อมใช้', 'success'); renderPage() }
+      if (c) {
+        try { await updateDocData('demo_fleet', c.id, { status: 'charging' }); await loadData() }
+        catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      }
+    }))
+    container.querySelectorAll('.ready-btn, .fixed-btn').forEach(b => b.addEventListener('click', async () => {
+      const c = cars.find(x => x.id === b.dataset.id)
+      if (c) {
+        try {
+          await updateDocData('demo_fleet', c.id, { status: 'available', soc: c.soc < 80 ? 100 : c.soc, note: '' })
+          showToast('✅ ' + c.plate + ' พร้อมใช้', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      }
     }))
     document.getElementById('add-car-btn')?.addEventListener('click', () => {
       openModal({
@@ -171,17 +172,20 @@ export default async function DemoFleetPage(container) {
           <div class="input-group"><label class="input-label">รุ่น *</label><input class="input" id="dm-model"></div>
           <div class="input-group"><label class="input-label">ทะเบียน</label><input class="input" id="dm-plate" placeholder="ทด-006"></div>
         </div>`,
-        onConfirm() {
+        async onConfirm() {
           const model = document.getElementById('dm-model')?.value?.trim()
-          if (!model) { showToast('❗ กรอกรุ่น', 'error'); return }
-          cars.push({ id:`DM${String(cars.length+1).padStart(2,'0')}`, model, plate:document.getElementById('dm-plate')?.value||'ทด-ใหม่', soc:100, mileage:0, status:'available', tdCount30:0, lastClean:addDays(0), insuranceExp:addDays(365), note:'' })
-          showToast('✅ เพิ่มรถ Demo แล้ว', 'success'); renderPage()
+          if (!model) { showToast('❗ กรอกรุ่น', 'error'); return false }
+          try {
+            await createDoc('demo_fleet', { model, plate: document.getElementById('dm-plate')?.value || 'ทด-ใหม่', soc: 100, mileage: 0, status: 'available', tdCount30: 0, lastClean: addDays(0), insuranceExp: addDays(365), note: '' })
+            showToast('✅ เพิ่มรถ Demo แล้ว', 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

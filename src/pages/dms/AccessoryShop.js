@@ -5,7 +5,7 @@
 import { formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -18,44 +18,27 @@ const ACC_CATS = {
   exterior: { label: 'ภายนอก', color: 'secondary', icon: '✨' },
 }
 
-const DEMO_ACCESSORIES = [
-  { id: 'AC001', name: 'Wallbox Charger 7kW + ติดตั้ง', cat: 'charging', price: 35000, cost: 24000, stock: 6, sold30: 8, popular: true },
-  { id: 'AC002', name: 'สายชาร์จพกพา Type 2 (5m)', cat: 'charging', price: 8500, cost: 5200, stock: 12, sold30: 5, popular: false },
-  { id: 'AC003', name: 'ฟิล์มกันรอย PPF เต็มคัน', cat: 'protect', price: 45000, cost: 28000, stock: 99, sold30: 4, popular: true },
-  { id: 'AC004', name: 'ฟิล์มกรองแสง Ceramic เต็มคัน', cat: 'protect', price: 12000, cost: 6500, stock: 99, sold30: 11, popular: true },
-  { id: 'AC005', name: 'พรมปูพื้น 5D เข้ารูป', cat: 'comfort', price: 3500, cost: 1800, stock: 24, sold30: 15, popular: true },
-  { id: 'AC006', name: 'กล้องติดรถหน้า-หลัง 4K', cat: 'comfort', price: 6900, cost: 4100, stock: 9, sold30: 7, popular: false },
-  { id: 'AC007', name: 'สปอยเลอร์หลัง Carbon', cat: 'exterior', price: 15000, cost: 9000, stock: 3, sold30: 2, popular: false },
-  { id: 'AC008', name: 'ล้อแม็กซ์ 19" ชุด 4 วง', cat: 'exterior', price: 48000, cost: 32000, stock: 2, sold30: 1, popular: false },
-]
-
 export default async function AccessoryShopPage(container) {
   const myGen = container.__routerGen
-  let items = DEMO_ACCESSORIES.map(a => ({ ...a }))
+  seedDemoData()
+
+  let items = []
   let cart = []
   let catFilter = 'all'
-  let dataSource = 'demo'
+  let loading = true
 
-  try {
-    const docs = await listDocs('accessories', [], 'sold30', 'desc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `AC${String(i+1).padStart(3,'0')}`,
-        name: d.name || d.productName || 'อุปกรณ์',
-        cat: d.cat || d.category || 'comfort',
-        price: d.price || 0,
-        cost: d.cost || 0,
-        stock: d.stock || 0,
-        sold30: d.sold30 || d.salesCount || 0,
-        popular: d.popular || false,
-      }))
-      items = [...mapped, ...DEMO_ACCESSORIES]
-      dataSource = 'live'
-    }
-  } catch {}
+  async function loadData() {
+    loading = true
+    try { items = await listDocs('accessories', [], 'sold30', 'desc', 200) } catch (e) { items = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = items.filter(a => catFilter === 'all' || a.cat === catFilter)
     const revenue30 = items.reduce((a, x) => a + x.sold30 * x.price, 0)
     const margin30 = items.reduce((a, x) => a + x.sold30 * (x.price - x.cost), 0)
@@ -66,7 +49,7 @@ export default async function AccessoryShopPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🛍 Accessory Shop</div>
-            <div class="page-subtitle">ขายอุปกรณ์เสริม — Upsell ตอนส่งมอบรถ${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">ขายอุปกรณ์เสริม — Upsell ตอนส่งมอบรถ</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="cart-btn">🛒 ตะกร้า (${cart.length}) ${cartTotal > 0 ? '— ' + formatCurrency(cartTotal) : ''}</button>
@@ -139,15 +122,22 @@ export default async function AccessoryShopPage(container) {
         <div class="input-group" style="margin-top:8px"><label class="input-label">ลูกค้า</label><input class="input" id="cart-customer" placeholder="ชื่อลูกค้า / ทะเบียนรถ"></div>
       </div>`,
       confirmText: '💳 ออกบิล',
-      onConfirm() {
-        cart.forEach(c => { const a = items.find(x => x.id === c.id); if (a && a.stock < 99) a.stock = Math.max(0, a.stock - c.qty); if (a) a.sold30 += c.qty })
-        showToast(`✅ ออกบิล ${formatCurrency(total)} แล้ว!`, 'success')
-        cart = []; renderPage()
+      async onConfirm() {
+        try {
+          for (const c of cart) {
+            const a = items.find(x => x.id === c.id)
+            if (!a) continue
+            await updateDocData('accessories', a.id, { stock: a.stock < 99 ? Math.max(0, a.stock - c.qty) : a.stock, sold30: a.sold30 + c.qty })
+          }
+          showToast(`✅ ออกบิล ${formatCurrency(total)} แล้ว!`, 'success')
+          cart = []
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

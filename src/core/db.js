@@ -846,6 +846,16 @@ export function seedDemoData() {
   ]
   employeeEvaluationsDemo.forEach(e => { if (!demoCol('employee_evaluations')[e.id]) demoCol('employee_evaluations')[e.id] = e })
 
+  // EV Charging Stations (หน้า /dms/ev-station)
+  const evStationsDemo = [
+    { id:'EV01', name:'Charger A1 (โชว์รูมหน้า)', type:'DC Fast', power:'60 kW', status:'available', connectors:['CCS2','CHAdeMO'], rate:4, todaySessions:8, todayKwh:240, revenue:960 },
+    { id:'EV02', name:'Charger A2 (โชว์รูมหน้า)', type:'DC Fast', power:'60 kW', status:'charging', connectors:['CCS2'], rate:4, todaySessions:6, todayKwh:198, revenue:792 },
+    { id:'EV03', name:'Charger B1 (ที่จอดรถ)', type:'AC Level 2', power:'22 kW', status:'available', connectors:['Type2'], rate:4, todaySessions:4, todayKwh:88, revenue:352 },
+    { id:'EV04', name:'Charger B2 (ที่จอดรถ)', type:'AC Level 2', power:'22 kW', status:'offline', connectors:['Type2'], rate:4, todaySessions:0, todayKwh:0, revenue:0 },
+    { id:'EV05', name:'Charger C1 (บริการ)', type:'DC Fast', power:'120 kW', status:'charging', connectors:['CCS2','GB/T'], rate:0, todaySessions:12, todayKwh:480, revenue:0 },
+  ]
+  evStationsDemo.forEach(s => { if (!demoCol('ev_charging_stations')[s.id]) demoCol('ev_charging_stations')[s.id] = s })
+
   // Invoices — ใบแจ้งหนี้/ใบเสร็จ/ใบกำกับภาษี (หน้า /finance/invoice)
   const invoicesDemo = [
     { id:'D001', type:'invoice', no:'INV-2026-001', custName:'สมศักดิ์ เจริญสุข', custTax:'0105567012345', date:'2026-06-02', dueDate:'2026-06-17', items:[ { desc:'BYD Seal AWD', qty:1, unit:'คัน', price:1299000, vat:7 } ], status:'paid', paidDate:'2026-06-05', note:'' },
@@ -966,11 +976,16 @@ export function seedDemoData() {
   ]
   productKnowledgeDemo.forEach(p => { if (!demoCol('product_knowledge')[p.id]) demoCol('product_knowledge')[p.id] = p })
 
+  // Accessory Shop (หน้า /dms/accessories) — schema matches AccessoryShop.js exactly
   const accessories = [
-    { id:'acc1', name:'ฟิล์มกรองแสง 3M Crystalline', sku:'ACC-3M-001', category:'ฟิล์ม', price:18000, cost:10000, stock:5, unit:'ชุด', brand:'3M', createdAt:'2025-01-10' },
-    { id:'acc2', name:'พรมรถ BYD Seal OEM', sku:'ACC-BYD-002', category:'ตกแต่งภายใน', price:3500, cost:1800, stock:12, unit:'ชุด', brand:'BYD', createdAt:'2025-01-15' },
-    { id:'acc3', name:'กล้องถอยหลัง 360° HD', sku:'ACC-CAM-003', category:'อิเล็กทรอนิกส์', price:8500, cost:4200, stock:8, unit:'ชุด', brand:'Generic', createdAt:'2025-02-01' },
-    { id:'acc4', name:'ถาดรองท้ายรถ All-Weather', sku:'ACC-TWY-004', category:'ตกแต่งภายใน', price:2200, cost:900, stock:20, unit:'ชิ้น', brand:'WeatherTech', createdAt:'2025-02-10' },
+    { id: 'AC001', name: 'Wallbox Charger 7kW + ติดตั้ง', cat: 'charging', price: 35000, cost: 24000, stock: 6, sold30: 8, popular: true },
+    { id: 'AC002', name: 'สายชาร์จพกพา Type 2 (5m)', cat: 'charging', price: 8500, cost: 5200, stock: 12, sold30: 5, popular: false },
+    { id: 'AC003', name: 'ฟิล์มกันรอย PPF เต็มคัน', cat: 'protect', price: 45000, cost: 28000, stock: 99, sold30: 4, popular: true },
+    { id: 'AC004', name: 'ฟิล์มกรองแสง Ceramic เต็มคัน', cat: 'protect', price: 12000, cost: 6500, stock: 99, sold30: 11, popular: true },
+    { id: 'AC005', name: 'พรมปูพื้น 5D เข้ารูป', cat: 'comfort', price: 3500, cost: 1800, stock: 24, sold30: 15, popular: true },
+    { id: 'AC006', name: 'กล้องติดรถหน้า-หลัง 4K', cat: 'comfort', price: 6900, cost: 4100, stock: 9, sold30: 7, popular: false },
+    { id: 'AC007', name: 'สปอยเลอร์หลัง Carbon', cat: 'exterior', price: 15000, cost: 9000, stock: 3, sold30: 2, popular: false },
+    { id: 'AC008', name: 'ล้อแม็กซ์ 19" ชุด 4 วง', cat: 'exterior', price: 48000, cost: 32000, stock: 2, sold30: 1, popular: false },
   ]
   accessories.forEach(a => { if (!demoCol('accessories')[a.id]) demoCol('accessories')[a.id] = a })
 
@@ -1851,10 +1866,13 @@ export function seedDemoData() {
   ]
   successionPlans.forEach(p => { if (!demoCol('succession_plans')[p.id]) demoCol('succession_plans')[p.id] = p })
 
+  const fleetAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
   const demoFleet = [
-    { id:'df1', brand:'BYD', model:'Seal RWD', vin:'LGXCE4C10PA000006', plate:'กข-0001', color:'เทา Ink', year:2025, mileage:3520, status:'available', condition:'good', lastService:'2025-05-01', notes:'รถทดลองขับหลัก', createdAt:'2025-01-10' },
-    { id:'df2', brand:'MG', model:'MG4 X', vin:'SDUZZZEF5PA000020', plate:'กข-0002', color:'แดง', year:2025, mileage:5200, status:'in_use', condition:'good', lastService:'2025-04-15', notes:'ให้ลูกค้า VIP ยืม', createdAt:'2025-01-15' },
-    { id:'df3', brand:'DEEPAL', model:'S7', vin:'LZEZ1EBA0PA000030', plate:'กข-0003', color:'ขาว', year:2025, mileage:8900, status:'maintenance', condition:'fair', lastService:'2025-03-01', notes:'ส่งซ่อม — ยางสึก', createdAt:'2025-02-01' },
+    { id: 'DM01', model: 'BYD Dolphin', plate: 'ทด-001', soc: 85, mileage: 8420, status: 'available', tdCount30: 18, lastClean: fleetAddDays(-1), insuranceExp: fleetAddDays(120), note: '' },
+    { id: 'DM02', model: 'BYD Atto 3', plate: 'ทด-002', soc: 42, mileage: 12150, status: 'charging', tdCount30: 24, lastClean: fleetAddDays(0), insuranceExp: fleetAddDays(85), note: '' },
+    { id: 'DM03', model: 'BYD Seal AWD', plate: 'ทด-003', soc: 91, mileage: 6890, status: 'in_use', tdCount30: 31, lastClean: fleetAddDays(-2), insuranceExp: fleetAddDays(200), note: 'ลูกค้า: ประพันธ์ มั่งมี · เซลส์: วิชัย · ออก 14:20' },
+    { id: 'DM04', model: 'MG4 Electric', plate: 'ทด-004', soc: 12, mileage: 15600, status: 'maintenance', tdCount30: 9, lastClean: fleetAddDays(-5), insuranceExp: fleetAddDays(25), note: 'ยางหน้าซ้ายรั่ว — รออะไหล่' },
+    { id: 'DM05', model: 'BYD Han', plate: 'ทด-005', soc: 78, mileage: 4200, status: 'available', tdCount30: 12, lastClean: fleetAddDays(0), insuranceExp: fleetAddDays(310), note: '' },
   ]
   demoFleet.forEach(d => { if (!demoCol('demo_fleet')[d.id]) demoCol('demo_fleet')[d.id] = d })
 
@@ -2003,9 +2021,11 @@ export function seedDemoData() {
   const vehicleReservations = reservations  // alias used by VehicleReservation.js
   vehicleReservations.forEach(r => { if (!demoCol('vehicle_reservations')[r.id]) demoCol('vehicle_reservations')[r.id] = r })
 
+  // Consignment Vehicles (หน้า /dms/consignment) — schema matches ConsignmentVehicle.js exactly
   const consignments = [
-    { id:'con1', consignNo:'CSG-001', ownerName:'นายสมชาย รักรถ', phone:'0834567890', brand:'Toyota', model:'Camry', year:2022, vin:'JT2BF3EK7C0123456', color:'ขาว', plate:'กก-1234 กทม.', km:45000, askPrice:750000, agentPrice:700000, commission:25000, status:'selling', note:'สภาพดีมาก ไม่เคยชน', createdAt: new Date(Date.now()-86400000*20).toISOString() },
-    { id:'con2', consignNo:'CSG-002', ownerName:'นางสาวจิราวรรณ ดีใจ', phone:'0876543210', brand:'Honda', model:'Accord', year:2021, vin:'1HGCR2F34GA123456', color:'เงิน', plate:'ขข-5678 กทม.', km:62000, askPrice:600000, agentPrice:560000, commission:20000, status:'sold', note:'ขายได้แล้ว', createdAt: new Date(Date.now()-86400000*45).toISOString() },
+    { id: 'CS-001', owner: 'คุณสมศักดิ์', phone: '081-234-5678', model: 'BYD Atto 3 (2023)', plate: 'กข-1122', ask: 850000, floor: 800000, commPct: 5, start: '2026-05-10', status: 'selling' },
+    { id: 'CS-002', owner: 'คุณวันดี', phone: '089-555-7788', model: 'MG ZS EV (2022)', plate: '1กก-3344', ask: 620000, floor: 590000, commPct: 5, start: '2026-04-22', status: 'selling' },
+    { id: 'CS-003', owner: 'บ.รุ่งเรือง', phone: '02-111-2222', model: 'BYD Seal (2023)', plate: 'ขค-9090', ask: 1450000, floor: 1380000, commPct: 4, start: '2026-03-15', status: 'sold', soldAt: 1420000 },
   ]
   consignments.forEach(c => { if (!demoCol('consignments')[c.id]) demoCol('consignments')[c.id] = c })
 
@@ -2098,8 +2118,13 @@ export function seedDemoData() {
   govDocs.forEach(g => { if (!demoCol('gov_docs')[g.id]) demoCol('gov_docs')[g.id] = g })
 
   const homologations = [
-    { id:'hom1', brand:'BYD', model:'Seal', year:2025, docNo:'HOM-2025-001', authority:'กรมขนส่งทางบก', status:'approved', approvedDate:'2024-11-01', expireDate:'2027-10-31', note:'ผ่านมาตรฐาน มอก.', createdAt:'2025-01-01' },
-    { id:'hom2', brand:'BYD', model:'Atto 3', year:2025, docNo:'HOM-2025-002', authority:'กรมขนส่งทางบก', status:'approved', approvedDate:'2024-10-01', expireDate:'2027-09-30', note:'ผ่านมาตรฐาน มอก.', createdAt:'2025-01-01' },
+    { id:'HM001', model:'BYD Atto 3', vin_prefix:'LGXC4', standard:'มอก.2718 / ECE R100', category:'Battery Safety', status:'valid', issueDate:'2024-06-01', expDate:'2029-06-01', certNo:'TISI-2024-00412', agency:'สมอ.', note:'แบตฯ Blade LFP ผ่านทุกรายการ' },
+    { id:'HM002', model:'BYD Atto 3', vin_prefix:'LGXC4', standard:'ECE R94 / R95', category:'Crash Test', status:'valid', issueDate:'2024-06-01', expDate:'2029-06-01', certNo:'ECE-R94-2024-0872', agency:'TUV SUD', note:'Frontal & Side Impact' },
+    { id:'HM003', model:'BYD Seal AWD', vin_prefix:'LGXC5', standard:'มอก.2718 / ECE R100', category:'Battery Safety', status:'valid', issueDate:'2024-09-15', expDate:'2029-09-15', certNo:'TISI-2024-00631', agency:'สมอ.', note:'' },
+    { id:'HM004', model:'BYD Seal AWD', vin_prefix:'LGXC5', standard:'ECE R48', category:'Lighting', status:'valid', issueDate:'2024-09-15', expDate:'2029-09-15', certNo:'ECE-R48-2024-0991', agency:'TUV Rheinland', note:'DRL + Matrix LED' },
+    { id:'HM005', model:'MG ZS EV', vin_prefix:'LSGBC', standard:'มอก.2718 / ECE R100', category:'Battery Safety', status:'expiring', issueDate:'2021-01-10', expDate:'2026-07-10', certNo:'TISI-2021-00109', agency:'สมอ.', note:'ต้องต่ออายุภายใน 30 วัน' },
+    { id:'HM006', model:'MG ZS EV', vin_prefix:'LSGBC', standard:'ECE R12', category:'Steering', status:'valid', issueDate:'2021-01-10', expDate:'2026-01-10', certNo:'ECE-R12-2021-0223', agency:'Bureau Veritas', note:'' },
+    { id:'HM007', model:'BYD Han', vin_prefix:'LGXC7', standard:'ECE R100 Amend.3', category:'Battery Safety', status:'valid', issueDate:'2025-02-20', expDate:'2030-02-20', certNo:'TISI-2025-00041', agency:'สมอ.', note:'รุ่นใหม่ล่าสุด' },
   ]
   homologations.forEach(h => { if (!demoCol('homologations')[h.id]) demoCol('homologations')[h.id] = h })
 
