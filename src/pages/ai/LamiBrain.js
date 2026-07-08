@@ -6,6 +6,7 @@ import { timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { askLami, AI_ENABLED } from '../../utils/ai.js'
+import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 
 const LAMI_SKILLS = [
   { id: 'lead_scoring',  label: 'Lead Scoring', icon: '🎯', desc: 'วิเคราะห์และให้คะแนน Lead ตาม Behavior', status: 'active', accuracy: 87 },
@@ -28,13 +29,7 @@ const LAMI_INSIGHTS = [
   { id: 'I005', type: 'complaint', icon: '⚠️', priority: 'high',   time: addMins(90), message: 'ลูกค้า ชัยวัฒน์ ร้องเรียนเรื่องงานซ่อม — ต้องตอบสนองภายใน 24 ชม.', action: 'ดู Complaint' },
 ]
 
-const CHAT_HISTORY = [
-  { role: 'lami', text: 'สวัสดีครับ! ผม LAMI ที่ปรึกษา AI ของ LAMOM ONE พร้อมช่วยเหลือด้านการขาย การบริการ และการวิเคราะห์ข้อมูลครับ', time: addMins(60) },
-  { role: 'user', text: 'วันนี้มี Lead ใหม่กี่คน?', time: addMins(30) },
-  { role: 'lami', text: 'วันนี้มี Lead ใหม่ 8 คน แบ่งเป็น Facebook 4 คน LINE 3 คน Walk-in 1 คน Lead ที่ Hot score สูงสุดคือ วิชัย มีโชค (Score 87%) แนะนำให้โทรหาเลยครับ', time: addMins(30) },
-  { role: 'user', text: 'ยอดขายสัปดาห์นี้เป็นยังไง?', time: addMins(5) },
-  { role: 'lami', text: 'สัปดาห์นี้ปิดได้ 4 คัน เทียบกับเป้า 6 คัน (67%) ยังขาดอีก 2 คัน มี Lead ที่ใกล้ปิดอยู่ 3 ราย คาดว่าจะถึงเป้าภายในวันศุกร์ครับ', time: addMins(5) },
-]
+const GREETING = 'สวัสดีครับ! ผม LAMI ที่ปรึกษา AI ของ LAMOM ONE พร้อมช่วยเหลือด้านการขาย การบริการ และการวิเคราะห์ข้อมูลครับ'
 
 const QUICK_QUESTIONS = [
   'Lead ร้อนวันนี้มีใครบ้าง?',
@@ -45,12 +40,33 @@ const QUICK_QUESTIONS = [
 ]
 
 export default async function LamiBrainPage(container) {
-  let chatHistory = [...CHAT_HISTORY]
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let chatHistory = []
   let activeTab = 'chat'
   let isTyping = false
+  let loading = true
   const aiMode = AI_ENABLED ? '🟢 Gemini AI' : '🟡 Demo Mode'
 
+  async function loadData() {
+    loading = true
+    try {
+      chatHistory = await listDocs('chat_lami_brain', [], 'createdAt', 'asc', 500)
+      if (!chatHistory.length) {
+        await createDoc('chat_lami_brain', { role:'lami', text: GREETING, time: new Date().toISOString() })
+        chatHistory = await listDocs('chat_lami_brain', [], 'createdAt', 'asc', 500)
+      }
+    } catch (e) { chatHistory = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
+
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const totalInsights = LAMI_INSIGHTS.length
     const highPriority = LAMI_INSIGHTS.filter(i => i.priority === 'high').length
     const activeSkills = LAMI_SKILLS.filter(s => s.status === 'active').length
@@ -175,21 +191,22 @@ export default async function LamiBrainPage(container) {
     const text = inp?.value?.trim()
     if (!text || isTyping) return
     inp.value = ''
+    try { await createDoc('chat_lami_brain', { role: 'user', text, time: new Date().toISOString() }) } catch (e) {}
     chatHistory.push({ role: 'user', text, time: new Date().toISOString() })
     isTyping = true
     renderPage()
     try {
       const reply = await askLami(text, chatHistory)
-      chatHistory.push({ role: 'lami', text: reply, time: new Date().toISOString() })
+      try { await createDoc('chat_lami_brain', { role: 'lami', text: reply, time: new Date().toISOString() }) } catch (e) {}
     } catch (err) {
-      chatHistory.push({ role: 'lami', text: '⚠️ เกิดข้อผิดพลาด: ' + err.message, time: new Date().toISOString() })
+      try { await createDoc('chat_lami_brain', { role: 'lami', text: '⚠️ เกิดข้อผิดพลาด: ' + err.message, time: new Date().toISOString() }) } catch (e) {}
     } finally {
       isTyping = false
-      renderPage()
+      await loadData()
     }
   }
 
-  renderPage()
+  await loadData()
 }
 
 function renderBubble(m) {

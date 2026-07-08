@@ -1,4 +1,5 @@
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, softDelete, seedDemoData } from '../../core/db.js'
 
 const CANNED = [
   { kw:['ยอดขาย','ขายได้','เดือนนี้','ยอด'], ans:'📊 ยอดขายเดือนนี้: <strong>41 คัน</strong> รายได้ ฿51.96M — เกินเป้า 5% 🎉<br>Top model: BYD Dolphin (12 คัน) · Top เซลส์: วิชัย (9 คัน)' },
@@ -38,11 +39,28 @@ function now() {
   return new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})
 }
 
-export default function AiAssistantChatPage(container) {
-  let messages = [
-    { role:'ai', text:'สวัสดีค่ะ! 🤖 ฉัน <strong>LAMI</strong> — ผู้ช่วย AI ของ LAMOM ONE<br>ถามได้ทุกอย่างเรื่องธุรกิจ: ยอดขาย สต็อก Lead กำไร ช่าง HR ประกัน ฯลฯ', time:now() },
-  ]
+const GREETING = 'สวัสดีค่ะ! 🤖 ฉัน <strong>LAMI</strong> — ผู้ช่วย AI ของ LAMOM ONE<br>ถามได้ทุกอย่างเรื่องธุรกิจ: ยอดขาย สต็อก Lead กำไร ช่าง HR ประกัน ฯลฯ'
+
+export default async function AiAssistantChatPage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+
+  let messages = []
   let waiting = false
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try {
+      messages = await listDocs('chat_ai_assistant', [], 'createdAt', 'asc', 500)
+      if (!messages.length) {
+        await createDoc('chat_ai_assistant', { role:'ai', text: GREETING, time: now() })
+        messages = await listDocs('chat_ai_assistant', [], 'createdAt', 'asc', 500)
+      }
+    } catch (e) { messages = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function msgHtml(m) {
     const isUser = m.role === 'user'
@@ -69,6 +87,10 @@ export default function AiAssistantChatPage(container) {
   }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     container.innerHTML = `
       <style>@keyframes pulse{0%,80%,100%{opacity:.25}40%{opacity:1}}</style>
       <div class="page-content animate-slide" style="display:flex;flex-direction:column;height:calc(100vh - 56px);padding-bottom:0">
@@ -107,30 +129,35 @@ export default function AiAssistantChatPage(container) {
     const chatArea = document.getElementById('chat-area')
     if (chatArea) chatArea.scrollTop = chatArea.scrollHeight
 
-    function send(q) {
+    async function send(q) {
       const text = q.trim()
       if (!text || waiting) return
       document.getElementById('chat-input').value = ''
-      messages.push({ role:'user', text, time:now() })
       waiting = true
+      try { await createDoc('chat_ai_assistant', { role:'user', text, time:now() }) } catch (e) {}
+      messages.push({ role:'user', text, time:now() })
       renderPage()
-      setTimeout(() => {
-        messages.push({ role:'ai', text:findAnswer(text), time:now() })
+      setTimeout(async () => {
+        const answer = findAnswer(text)
+        try { await createDoc('chat_ai_assistant', { role:'ai', text: answer, time:now() }) } catch (e) {}
         waiting = false
-        renderPage()
+        await loadData()
       }, 600 + Math.random()*400)
     }
 
     document.getElementById('send-btn')?.addEventListener('click', () => send(document.getElementById('chat-input')?.value || ''))
     document.getElementById('chat-input')?.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(e.target.value) } })
     container.querySelectorAll('.cat-btn').forEach(b => b.addEventListener('click', () => send(b.dataset.q)))
-    document.getElementById('clear-chat')?.addEventListener('click', () => {
-      messages = [{ role:'ai', text:'🗑 ล้างแชทแล้วค่ะ — ถามใหม่ได้เลย!', time:now() }]
-      waiting = false
-      renderPage()
+    document.getElementById('clear-chat')?.addEventListener('click', async () => {
+      try {
+        for (const m of messages) await softDelete('chat_ai_assistant', m.id)
+        await createDoc('chat_ai_assistant', { role:'ai', text:'🗑 ล้างแชทแล้วค่ะ — ถามใหม่ได้เลย!', time:now() })
+        waiting = false
+        await loadData()
+      } catch (e) { showToast('ล้างแชทไม่สำเร็จ', 'error') }
     })
     if (!waiting) document.getElementById('chat-input')?.focus()
   }
 
-  renderPage()
+  await loadData()
 }

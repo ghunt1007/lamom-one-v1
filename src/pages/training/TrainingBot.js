@@ -3,6 +3,7 @@
  * Route: /training/bot
  */
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, softDelete, seedDemoData } from '../../core/db.js'
 
 const TOPICS = [
   { id:'product', label:'🚗 Product Knowledge', icon:'🚗' },
@@ -33,9 +34,17 @@ const BOT_RESPONSES = {
 }
 
 export default async function TrainingBotPage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+
   let selTopic = null
   let messages = []
   let qIndex = 0
+  let loading = false
+
+  async function loadTopicMessages(topicId) {
+    try { return await listDocs('chat_training_bot', [['topic', '==', topicId]], 'createdAt', 'asc', 200) } catch (e) { return [] }
+  }
 
   function msgBubble(msg) {
     const isBot = msg.role==='bot'
@@ -48,21 +57,34 @@ export default async function TrainingBotPage(container) {
     '</div>'
   }
 
-  function startTopic(topicId) {
+  async function startTopic(topicId) {
     selTopic = topicId
-    qIndex = 0
-    messages = [{ role:'bot', text:'สวัสดีครับ! ผม LEARN ผู้ช่วย AI ฝึกอบรม 🤖\nวันนี้เราจะเรียน '+(TOPICS.find(t=>t.id===topicId)?.label||topicId)+' ด้วยกันนะครับ\n\nมี '+(BOT_RESPONSES[topicId]?.length||0)+' หัวข้อย่อย กดปุ่มด้านล่างเพื่อเริ่มต้นเลยครับ!' }]
+    loading = true
+    render()
+    let existing = await loadTopicMessages(topicId)
+    if (!existing.length) {
+      try {
+        await createDoc('chat_training_bot', { topic: topicId, role:'bot', text:'สวัสดีครับ! ผม LEARN ผู้ช่วย AI ฝึกอบรม 🤖\nวันนี้เราจะเรียน '+(TOPICS.find(t=>t.id===topicId)?.label||topicId)+' ด้วยกันนะครับ\n\nมี '+(BOT_RESPONSES[topicId]?.length||0)+' หัวข้อย่อย กดปุ่มด้านล่างเพื่อเริ่มต้นเลยครับ!' })
+      } catch (e) {}
+      existing = await loadTopicMessages(topicId)
+    }
+    messages = existing
+    qIndex = Math.max(0, Math.floor((messages.length - 1) / 2))
+    loading = false
     render()
   }
 
-  function askQuestion(qId) {
+  async function askQuestion(qId) {
     const topic = selTopic
     const responses = BOT_RESPONSES[topic]||[]
     const item = responses[qId]
     if(!item) return
-    messages.push({ role:'user', text:item.q })
-    messages.push({ role:'bot', text:item.a })
-    qIndex++
+    try {
+      await createDoc('chat_training_bot', { topic, role:'user', text:item.q })
+      await createDoc('chat_training_bot', { topic, role:'bot', text:item.a })
+      messages = await loadTopicMessages(topic)
+      qIndex = Math.max(0, Math.floor((messages.length - 1) / 2))
+    } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     render()
     // scroll chat to bottom
     setTimeout(()=>{
@@ -73,6 +95,11 @@ export default async function TrainingBotPage(container) {
 
   function render() {
     const topicBtns = TOPICS.map(t=>'<button class="btn btn-sm '+(selTopic===t.id?'btn-primary':'btn-secondary')+' topic-btn" data-t="'+t.id+'">'+t.icon+' '+t.label.split(' ').slice(1).join(' ')+'</button>').join('')
+
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
 
     if(!selTopic) {
       container.innerHTML = `
