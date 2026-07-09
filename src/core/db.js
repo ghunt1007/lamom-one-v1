@@ -2020,7 +2020,14 @@ export function seedDemoData() {
   ]
   reservations.forEach(r => { if (!demoCol('reservations')[r.id]) demoCol('reservations')[r.id] = r })
 
-  const vehicleReservations = reservations  // alias used by VehicleReservation.js
+  const vrAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
+  const vrAddHours = n => { const d = new Date(); d.setHours(d.getHours() - n); return d.toISOString() }
+  const vehicleReservations = [
+    { id: 'RES001', customer: 'สมชาย ใจดี', phone: '085-111', model: 'BYD Atto 3', color: 'น้ำเงิน', deposit: 10000, staff: 'วิชัย ยอดขาย', status: 'deposit', created: vrAddHours(2), expiry: vrAddDays(14), stockId: 'STK-0042' },
+    { id: 'RES002', customer: 'มาลี สุขใจ', phone: '086-222', model: 'BYD Dolphin', color: 'ขาว', deposit: 5000, staff: 'สุดา มาดี', status: 'confirmed', created: vrAddHours(24), expiry: vrAddDays(7), stockId: 'STK-0031' },
+    { id: 'RES003', customer: 'ธนพล เที่ยงตรง', phone: '087-333', model: 'BYD Seal AWD', color: 'ดำ', deposit: 0, staff: 'ธนา เก่ง', status: 'active', created: vrAddHours(48), expiry: vrAddDays(10), stockId: null },
+    { id: 'RES004', customer: 'อรทัย ตั้งใจ', phone: '088-444', model: 'MG ZS EV', color: 'แดง', deposit: 10000, staff: 'วิชัย ยอดขาย', status: 'expired', created: vrAddHours(240), expiry: vrAddDays(-2), stockId: 'STK-0015' },
+  ]
   vehicleReservations.forEach(r => { if (!demoCol('vehicle_reservations')[r.id]) demoCol('vehicle_reservations')[r.id] = r })
 
   // Consignment Vehicles (หน้า /dms/consignment) — schema matches ConsignmentVehicle.js exactly
@@ -2043,9 +2050,14 @@ export function seedDemoData() {
   ]
   usedCars.forEach(u => { if (!demoCol('used_cars')[u.id]) demoCol('used_cars')[u.id] = u })
 
+  const tdAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
   const testDrives = [
-    { id:'td1', tdNo:'TD-001', custName:'นพดล สุขใส', phone:'0812223333', email:'noppadol@email.com', model:'BYD Seal AWD', vehicleId:'st1', date:'2025-06-28', time:'10:00', duration:60, route:'ถนนราชพฤกษ์ กลับ', salesName:'อรนุช เซลส์ดี', status:'completed', feedback:'ชอบมาก เร็วดี เงียบ', interest:'high', createdAt: new Date(Date.now()-86400000*1).toISOString() },
-    { id:'td2', tdNo:'TD-002', custName:'สุภาพร ใจดี', phone:'0823334444', email:'supaporn@email.com', model:'BYD Atto 3', vehicleId:'st2', date:'2025-06-30', time:'14:00', duration:45, route:'ถนนพหลโยธิน', salesName:'วิชัย ขายเก่ง', status:'scheduled', feedback:'', interest:'medium', createdAt: new Date(Date.now()).toISOString() },
+    { id: 'TD001', customerName: 'วิชัย มีโชค', phone: '085-xxx', model: 'BYD Seal AWD', date: tdAddDays(0), time: '10:00', staff: 'วิชัย ยอดขาย', status: 'confirmed', notes: 'สนใจจริงจัง' },
+    { id: 'TD002', customerName: 'สุดา อารมณ์ดี', phone: '086-xxx', model: 'BYD Atto 3', date: tdAddDays(0), time: '14:00', staff: 'สุดา มาดี', status: 'scheduled', notes: '' },
+    { id: 'TD003', customerName: 'ธนา เก่งกว่า', phone: '087-xxx', model: 'MG ZS EV', date: tdAddDays(1), time: '11:00', staff: 'ธนา เก่ง', status: 'scheduled', notes: 'มากับครอบครัว' },
+    { id: 'TD004', customerName: 'อรวรรณ ขยัน', phone: '088-xxx', model: 'BYD Dolphin', date: tdAddDays(1), time: '15:00', staff: 'ปทิตา ที่ปรึกษา', status: 'confirmed', notes: '' },
+    { id: 'TD005', customerName: 'ปทิตา สาวสวย', phone: '089-xxx', model: 'BYD Seal AWD', date: tdAddDays(-1), time: '13:00', staff: 'วิชัย ยอดขาย', status: 'done', notes: 'สนใจซื้อ — ส่ง quote แล้ว' },
+    { id: 'TD006', customerName: 'ชัยวัฒน์ ลูกค้า', phone: '090-xxx', model: 'MG ZS EV', date: tdAddDays(-1), time: '16:00', staff: 'สุดา มาดี', status: 'no_show', notes: '' },
   ]
   testDrives.forEach(t => { if (!demoCol('test_drives')[t.id]) demoCol('test_drives')[t.id] = t })
 

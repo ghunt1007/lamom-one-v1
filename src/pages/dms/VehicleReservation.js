@@ -5,14 +5,13 @@
 import { formatDate, formatCurrency, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
-function addHours(n) { const d = new Date(); d.setHours(d.getHours() - n); return d.toISOString() }
 
 const RESERVATION_STATUS = {
   active:   { label: 'จองแล้ว', color: 'primary', icon: '📋' },
@@ -23,51 +22,27 @@ const RESERVATION_STATUS = {
 }
 
 const MODELS = ['BYD Dolphin', 'BYD Atto 3', 'BYD Seal AWD', 'MG ZS EV', 'BYD Han', 'BYD Atto 3 Pro']
-const COLORS_MAP = {
-  'BYD Dolphin': ['ขาว', 'น้ำเงิน', 'เทา'],
-  'BYD Atto 3': ['ขาว', 'น้ำเงิน', 'เทา', 'แดง'],
-  'BYD Seal AWD': ['ขาว', 'ดำ', 'น้ำเงิน'],
-  'MG ZS EV': ['ขาว', 'แดง', 'เทา'],
-  'BYD Han': ['ขาว', 'ดำ'],
-  'BYD Atto 3 Pro': ['ขาว', 'เงิน'],
-}
-
-const DEMO_RESERVATIONS = [
-  { id: 'RES001', customer: 'สมชาย ใจดี', phone: '085-111', model: 'BYD Atto 3', color: 'น้ำเงิน', deposit: 10000, staff: 'วิชัย ยอดขาย', status: 'deposit', created: addHours(2), expiry: addDays(14), stockId: 'STK-0042' },
-  { id: 'RES002', customer: 'มาลี สุขใจ', phone: '086-222', model: 'BYD Dolphin', color: 'ขาว', deposit: 5000, staff: 'สุดา มาดี', status: 'confirmed', created: addHours(24), expiry: addDays(7), stockId: 'STK-0031' },
-  { id: 'RES003', customer: 'ธนพล เที่ยงตรง', phone: '087-333', model: 'BYD Seal AWD', color: 'ดำ', deposit: 0, staff: 'ธนา เก่ง', status: 'active', created: addHours(48), expiry: addDays(10), stockId: null },
-  { id: 'RES004', customer: 'อรทัย ตั้งใจ', phone: '088-444', model: 'MG ZS EV', color: 'แดง', deposit: 10000, staff: 'วิชัย ยอดขาย', status: 'expired', created: addHours(240), expiry: addDays(-2), stockId: 'STK-0015' },
-]
 
 export default async function VehicleReservationPage(container) {
   const myGen = container.__routerGen
-  let reservations = DEMO_RESERVATIONS.map(r => ({ ...r }))
-  let statusFilter = 'all'
-  let dataSource = 'demo'
+  seedDemoData()
 
-  try {
-    const docs = await listDocs('vehicle_reservations', [], 'created', 'desc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `RES${String(i+1).padStart(3,'0')}`,
-        customer: d.customer || d.customerName || 'ลูกค้า',
-        phone: d.phone || '',
-        model: d.model || d.vehicleModel || '',
-        color: d.color || '',
-        deposit: d.deposit || 0,
-        staff: d.staff || d.staffName || '',
-        status: d.status || 'active',
-        created: d.created || d.createdAt || new Date().toISOString(),
-        expiry: d.expiry || d.expiryDate || addDays(14),
-        stockId: d.stockId || null,
-      }))
-      reservations = [...mapped, ...DEMO_RESERVATIONS]
-      dataSource = 'live'
-    }
-  } catch {}
+  let reservations = []
+  let statusFilter = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { reservations = await listDocs('vehicle_reservations', [], 'created', 'desc', 200) } catch (e) { reservations = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = reservations.filter(r => statusFilter === 'all' || r.status === statusFilter)
     const active = reservations.filter(r => ['active','deposit','confirmed'].includes(r.status)).length
     const deposit = reservations.filter(r => r.deposit > 0).reduce((a, r) => a + r.deposit, 0)
@@ -78,7 +53,7 @@ export default async function VehicleReservationPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">📋 Vehicle Reservation</div>
-            <div class="page-subtitle">จองคิวรถ — ติดตามการจองและมัดจำ${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">จองคิวรถ — ติดตามการจองและมัดจำ</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="add-res-btn">+ สร้างการจอง</button>
@@ -130,9 +105,21 @@ export default async function VehicleReservationPage(container) {
     `
 
     container.querySelectorAll('.sf-btn').forEach(b => b.addEventListener('click', () => { statusFilter = b.dataset.s; renderPage() }))
-    container.querySelectorAll('.deposit-btn').forEach(b => b.addEventListener('click', () => { const r = reservations.find(x=>x.id===b.dataset.id); if(r){r.status='deposit';r.deposit=10000;showToast('💰 บันทึกมัดจำแล้ว','warning');renderPage()} }))
-    container.querySelectorAll('.confirm-btn').forEach(b => b.addEventListener('click', () => { const r = reservations.find(x=>x.id===b.dataset.id); if(r){r.status='confirmed';showToast('✅ ยืนยันการจองแล้ว','success');renderPage()} }))
-    container.querySelectorAll('.cancel-btn').forEach(b => b.addEventListener('click', () => { const r = reservations.find(x=>x.id===b.dataset.id); if(r){r.status='cancelled';showToast('❌ ยกเลิกการจองแล้ว','secondary');renderPage()} }))
+    container.querySelectorAll('.deposit-btn').forEach(b => b.addEventListener('click', async () => {
+      const r = reservations.find(x=>x.id===b.dataset.id); if (!r) return
+      try { await updateDocData('vehicle_reservations', r.id, { status: 'deposit', deposit: 10000 }); showToast('💰 บันทึกมัดจำแล้ว','warning'); await loadData() }
+      catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+    }))
+    container.querySelectorAll('.confirm-btn').forEach(b => b.addEventListener('click', async () => {
+      const r = reservations.find(x=>x.id===b.dataset.id); if (!r) return
+      try { await updateDocData('vehicle_reservations', r.id, { status: 'confirmed' }); showToast('✅ ยืนยันการจองแล้ว','success'); await loadData() }
+      catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+    }))
+    container.querySelectorAll('.cancel-btn').forEach(b => b.addEventListener('click', async () => {
+      const r = reservations.find(x=>x.id===b.dataset.id); if (!r) return
+      try { await updateDocData('vehicle_reservations', r.id, { status: 'cancelled' }); showToast('❌ ยกเลิกการจองแล้ว','secondary'); await loadData() }
+      catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+    }))
     document.getElementById('add-res-btn')?.addEventListener('click', () => openAddForm())
   }
 
@@ -150,17 +137,26 @@ export default async function VehicleReservationPage(container) {
         <div class="input-group"><label class="input-label">มัดจำ (บาท)</label><input class="input" type="number" id="rs-deposit" value="0"></div>
         <div class="input-group"><label class="input-label">วันหมดอายุจอง</label><input class="input" type="date" id="rs-expiry" value="${addDays(14)}"></div>
       </div>`,
-      onConfirm() {
+      async onConfirm() {
         const name = document.getElementById('rs-name')?.value?.trim()
-        if (!name) { showToast('❗ กรุณากรอกชื่อ','error'); return }
+        if (!name) { showToast('❗ กรุณากรอกชื่อ','error'); return false }
         const dep = parseInt(document.getElementById('rs-deposit')?.value)||0
-        reservations.unshift({ id:`RES${String(reservations.length+1).padStart(3,'0')}`, customer:name, phone:document.getElementById('rs-phone')?.value||'', model:document.getElementById('rs-model')?.value||MODELS[0], color:document.getElementById('rs-color')?.value||'ขาว', deposit:dep, staff:'วิชัย ยอดขาย', status:dep>0?'deposit':'active', created:new Date().toISOString(), expiry:document.getElementById('rs-expiry')?.value||addDays(14), stockId:null })
-        showToast('✅ สร้างการจองแล้ว','success'); renderPage()
+        try {
+          await createDoc('vehicle_reservations', {
+            customer:name, phone:document.getElementById('rs-phone')?.value||'',
+            model:document.getElementById('rs-model')?.value||MODELS[0],
+            color:document.getElementById('rs-color')?.value||'ขาว', deposit:dep,
+            staff:'วิชัย ยอดขาย', status:dep>0?'deposit':'active', created:new Date().toISOString(),
+            expiry:document.getElementById('rs-expiry')?.value||addDays(14), stockId:null
+          })
+          showToast('✅ สร้างการจองแล้ว','success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

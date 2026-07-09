@@ -5,22 +5,11 @@
 import { formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
-
-const STOCK = [
-  { vin: 'LGXC1', model: 'BYD Dolphin', color: 'ขาว', cost: 820000, arrived: '2026-05-28' },
-  { vin: 'LGXC2', model: 'BYD Atto 3',  color: 'ฟ้า',  cost: 1010000, arrived: '2026-05-05' },
-  { vin: 'LGXC3', model: 'MG ZS EV',    color: 'แดง',  cost: 720000, arrived: '2026-04-12' },
-  { vin: 'LGXC4', model: 'BYD Seal',    color: 'เทา',  cost: 1550000, arrived: '2026-03-20' },
-  { vin: 'LGXC5', model: 'BYD Han',     color: 'ดำ',   cost: 1900000, arrived: '2026-02-08' },
-  { vin: 'LGXC6', model: 'MG4 Electric',color: 'เหลือง',cost: 870000, arrived: '2026-01-15' },
-  { vin: 'LGXC7', model: 'BYD Atto 3',  color: 'ดำ',   cost: 1010000, arrived: '2026-05-30' },
-  { vin: 'LGXC8', model: 'BYD Dolphin', color: 'แดง',  cost: 820000, arrived: '2025-12-10' },
-]
 
 // ต้นทุนเงินทุนต่อวัน (floor plan ~6.5%/ปี)
 const DAILY_RATE = 0.065 / 365
@@ -34,43 +23,54 @@ function bucket(days) {
 
 export default async function VehicleAgingPage(container) {
   const myGen = container.__routerGen
-  let stock = STOCK.map(s => ({ ...s }))
-  let dataSource = 'demo'
+  seedDemoData()
 
-  try {
-    const docs = await listDocs('stock', [], 'arrived', 'asc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
+  let stock = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try {
+      const docs = await listDocs('stock', [], 'model', 'asc', 200)
+      stock = docs.map((d, i) => ({
+        id: d.id,
         vin: d.vin || `VIN-${i+1}`,
         model: d.model || '',
         color: d.color || '',
         cost: d.cost || d.purchasePrice || 0,
-        arrived: d.arrived || d.arrivedDate || new Date().toISOString().slice(0,10),
+        arrived: d.arrived || d.arrivedDate || d.receivedAt || new Date().toISOString().slice(0,10),
+        promoDisc: d.promoDisc || 0,
+        campaign: d.campaign || '',
+        pushed: d.pushed || false,
       }))
-      stock = [...mapped, ...STOCK]
-      dataSource = 'live'
+    } catch (e) { stock = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
+
+  function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
     }
-  } catch {}
+    const rows = stock.map(s => {
+      const days = Math.floor((Date.now() - new Date(s.arrived).getTime()) / 86400000)
+      return { ...s, days, b: bucket(days), carry: Math.round(s.cost * DAILY_RATE * days) }
+    }).sort((a, b) => b.days - a.days)
 
-  const rows = stock.map(s => {
-    const days = Math.floor((Date.now() - new Date(s.arrived).getTime()) / 86400000)
-    return { ...s, days, b: bucket(days), carry: Math.round(s.cost * DAILY_RATE * days) }
-  }).sort((a, b) => b.days - a.days)
+    const totalCarry = rows.reduce((s, r) => s + r.carry, 0)
+    const aged = rows.filter(r => r.days > 90)
+    const buckets = ['fresh', 'ok', 'warn', 'aged'].map(k => ({
+      k, items: rows.filter(r => r.b.key === k), color: rows.find(r => r.b.key === k)?.b.color || 'var(--border)',
+      label: { fresh: '0-30 วัน', ok: '31-60 วัน', warn: '61-90 วัน', aged: '90+ วัน' }[k]
+    }))
 
-  const totalCarry = rows.reduce((s, r) => s + r.carry, 0)
-  const aged = rows.filter(r => r.days > 90)
-  const buckets = ['fresh', 'ok', 'warn', 'aged'].map(k => ({
-    k, items: rows.filter(r => r.b.key === k), color: rows.find(r => r.b.key === k)?.b.color || 'var(--border)',
-    label: { fresh: '0-30 วัน', ok: '31-60 วัน', warn: '61-90 วัน', aged: '90+ วัน' }[k]
-  }))
-
-  container.innerHTML = `
+    container.innerHTML = `
     <div class="page-content animate-slide">
       <div class="page-header">
         <div>
           <div class="page-title">⏳ Vehicle Aging Report</div>
-          <div class="page-subtitle">รถค้างสต็อก ${rows.length} คัน · ติดตามต้นทุนจม + เร่งระบาย${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+          <div class="page-subtitle">รถค้างสต็อก ${rows.length} คัน · ติดตามต้นทุนจม + เร่งระบาย</div>
         </div>
         <div class="page-actions"><button class="btn btn-primary" id="push-btn">📣 ส่งรายการเร่งขายให้เซลส์</button></div>
       </div>
@@ -111,36 +111,42 @@ export default async function VehicleAgingPage(container) {
           </tbody>
         </table>
       </div>
-    </div>
-  `
+    `
 
-  container.querySelectorAll('.promo-btn').forEach(b => b.addEventListener('click', () => {
-    const r = rows.find(x => x.vin === b.dataset.vin)
-    openModal({
-      title: '🎁 จัดโปรเร่งระบาย ' + escHtml(b.dataset.model) + ' (' + escHtml(b.dataset.vin) + ')',
-      size: 'sm',
-      body: `<div style="font-size:0.82rem;display:flex;flex-direction:column;gap:10px">
-        <div>ค้างสต็อก <strong>${r?.days || 0} วัน</strong> · ต้นทุนจม <strong style="color:var(--danger)">${formatCurrency(r?.carry || 0)}</strong></div>
-        <div class="input-group"><label class="input-label">ส่วนลดโปรโมชั่น (บาท)</label>
-          <input class="input" type="number" id="promo-disc" value="20000"></div>
-        <div class="input-group"><label class="input-label">ชื่อแคมเปญ</label>
-          <input class="input" id="promo-camp" value="Flash Deal — ${escHtml(b.dataset.model)}"></div>
-      </div>`,
-      confirmText: '🎁 สร้างโปร',
-      onConfirm() {
-        const disc = parseInt(document.getElementById('promo-disc')?.value) || 0
-        const camp = document.getElementById('promo-camp')?.value.trim() || `Flash Deal — ${b.dataset.model}`
-        if (r) { r.promoDisc = disc; r.campaign = camp }
-        b.textContent = '✅ จัดโปรแล้ว'; b.disabled = true
-        showToast(`🎁 สร้างโปร "${camp}" ลด ${formatCurrency(disc)} สำหรับ ${b.dataset.model} แล้ว`, 'success')
-      }
+    container.querySelectorAll('.promo-btn').forEach(b => b.addEventListener('click', () => {
+      const r = rows.find(x => x.vin === b.dataset.vin)
+      openModal({
+        title: '🎁 จัดโปรเร่งระบาย ' + escHtml(b.dataset.model) + ' (' + escHtml(b.dataset.vin) + ')',
+        size: 'sm',
+        body: `<div style="font-size:0.82rem;display:flex;flex-direction:column;gap:10px">
+          <div>ค้างสต็อก <strong>${r?.days || 0} วัน</strong> · ต้นทุนจม <strong style="color:var(--danger)">${formatCurrency(r?.carry || 0)}</strong></div>
+          <div class="input-group"><label class="input-label">ส่วนลดโปรโมชั่น (บาท)</label>
+            <input class="input" type="number" id="promo-disc" value="20000"></div>
+          <div class="input-group"><label class="input-label">ชื่อแคมเปญ</label>
+            <input class="input" id="promo-camp" value="Flash Deal — ${escHtml(b.dataset.model)}"></div>
+        </div>`,
+        confirmText: '🎁 สร้างโปร',
+        async onConfirm() {
+          const disc = parseInt(document.getElementById('promo-disc')?.value) || 0
+          const camp = document.getElementById('promo-camp')?.value.trim() || `Flash Deal — ${b.dataset.model}`
+          if (!r) return
+          try {
+            await updateDocData('stock', r.id, { promoDisc: disc, campaign: camp })
+            showToast(`🎁 สร้างโปร "${camp}" ลด ${formatCurrency(disc)} สำหรับ ${b.dataset.model} แล้ว`, 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+        }
+      })
+    }))
+    document.getElementById('push-btn')?.addEventListener('click', async e => {
+      const targets = rows.filter(r => r.days > 60)
+      try {
+        await Promise.all(targets.map(r => updateDocData('stock', r.id, { pushed: true })))
+        showToast(`📣 ส่งรายการรถค้างเกิน 60 วัน (${targets.length} คัน) ให้ทีมเซลส์ทาง LINE แล้ว`, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
-  }))
-  document.getElementById('push-btn')?.addEventListener('click', e => {
-    const targets = rows.filter(r => r.days > 60)
-    targets.forEach(r => { r.pushed = true })
-    const btn = e.currentTarget
-    btn.textContent = '✅ ส่งแล้ว'; btn.disabled = true
-    showToast(`📣 ส่งรายการรถค้างเกิน 60 วัน (${targets.length} คัน) ให้ทีมเซลส์ทาง LINE แล้ว`, 'success')
-  })
+  }
+
+  await loadData()
 }

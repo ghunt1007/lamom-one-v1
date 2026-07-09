@@ -5,7 +5,7 @@
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -28,43 +28,26 @@ function timeSlot(h) { return `${String(h).padStart(2,'0')}:00` }
 
 const TIME_SLOTS = [9,10,11,13,14,15,16,17].map(timeSlot)
 
-const DEMO_BOOKINGS = [
-  { id: 'TD001', customerName: 'วิชัย มีโชค', phone: '085-xxx', model: 'BYD Seal AWD', date: addDays(0), time: '10:00', staff: 'วิชัย ยอดขาย', status: 'confirmed', notes: 'สนใจจริงจัง' },
-  { id: 'TD002', customerName: 'สุดา อารมณ์ดี', phone: '086-xxx', model: 'BYD Atto 3', date: addDays(0), time: '14:00', staff: 'สุดา มาดี', status: 'scheduled', notes: '' },
-  { id: 'TD003', customerName: 'ธนา เก่งกว่า', phone: '087-xxx', model: 'MG ZS EV', date: addDays(1), time: '11:00', staff: 'ธนา เก่ง', status: 'scheduled', notes: 'มากับครอบครัว' },
-  { id: 'TD004', customerName: 'อรวรรณ ขยัน', phone: '088-xxx', model: 'BYD Dolphin', date: addDays(1), time: '15:00', staff: 'ปทิตา ที่ปรึกษา', status: 'confirmed', notes: '' },
-  { id: 'TD005', customerName: 'ปทิตา สาวสวย', phone: '089-xxx', model: 'BYD Seal AWD', date: addDays(-1), time: '13:00', staff: 'วิชัย ยอดขาย', status: 'done', notes: 'สนใจซื้อ — ส่ง quote แล้ว' },
-  { id: 'TD006', customerName: 'ชัยวัฒน์ ลูกค้า', phone: '090-xxx', model: 'MG ZS EV', date: addDays(-1), time: '16:00', staff: 'สุดา มาดี', status: 'no_show', notes: '' },
-]
-
 export default async function TestDriveSchedulerPage(container) {
   const myGen = container.__routerGen
-  let bookings = DEMO_BOOKINGS.map(b => ({ ...b }))
-  let dataSource = 'demo'
-  let viewDate = addDays(0)
-  let statusFilter = 'all'
+  seedDemoData()
 
-  try {
-    const docs = await listDocs('test_drives', [], 'date', 'asc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `TD${String(i+1).padStart(3,'0')}`,
-        customerName: d.customerName || d.customer || 'ลูกค้า',
-        phone: d.phone || '',
-        model: d.model || d.vehicleModel || '',
-        date: d.date || d.bookingDate || '',
-        time: d.time || d.bookingTime || '10:00',
-        staff: d.staff || d.salesName || '',
-        status: d.status || 'scheduled',
-        notes: d.notes || '',
-      }))
-      bookings = [...mapped, ...DEMO_BOOKINGS]
-      dataSource = 'live'
-    }
-  } catch {}
+  let bookings = []
+  let viewDate = addDays(0)
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { bookings = await listDocs('test_drives', [], 'date', 'asc', 200) } catch (e) { bookings = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const todayList = bookings.filter(b => b.date === viewDate)
     const scheduled = bookings.filter(b => b.status === 'scheduled' || b.status === 'confirmed').length
     const doneToday = bookings.filter(b => b.date === addDays(0) && b.status === 'done').length
@@ -75,7 +58,7 @@ export default async function TestDriveSchedulerPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🚗 Test Drive Scheduler</div>
-            <div class="page-subtitle">ตารางนัดทดลองขับ — จัดการ Time Slot${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">ตารางนัดทดลองขับ — จัดการ Time Slot</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="book-td-btn">+ นัดทดลองขับ</button>
@@ -172,13 +155,17 @@ export default async function TestDriveSchedulerPage(container) {
       const b = bookings.find(x => x.id === el.dataset.id); if (b) openDetail(b)
     }))
     container.querySelectorAll('.empty-slot').forEach(el => el.addEventListener('click', () => openBookForm(el.dataset.time)))
-    container.querySelectorAll('.confirm-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.confirm-btn').forEach(b => b.addEventListener('click', async () => {
       const bk = bookings.find(x => x.id === b.dataset.id)
-      if (bk) { bk.status = 'confirmed'; showToast('✅ ยืนยันนัดแล้ว', 'success'); renderPage() }
+      if (!bk) return
+      try { await updateDocData('test_drives', bk.id, { status: 'confirmed' }); showToast('✅ ยืนยันนัดแล้ว', 'success'); await loadData() }
+      catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.done-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.done-btn').forEach(b => b.addEventListener('click', async () => {
       const bk = bookings.find(x => x.id === b.dataset.id)
-      if (bk) { bk.status = 'done'; showToast('✅ บันทึกเสร็จสิ้น', 'success'); renderPage() }
+      if (!bk) return
+      try { await updateDocData('test_drives', bk.id, { status: 'done' }); showToast('✅ บันทึกเสร็จสิ้น', 'success'); await loadData() }
+      catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
   }
 
@@ -219,24 +206,27 @@ export default async function TestDriveSchedulerPage(container) {
           </div>
         </div>
       `,
-      onConfirm() {
+      async onConfirm() {
         const name = document.getElementById('tf-name')?.value?.trim()
-        if (!name) { showToast('❗ กรุณากรอกชื่อลูกค้า', 'error'); return }
-        bookings.unshift({
-          id: `TD${String(bookings.length+1).padStart(3,'0')}`, customerName: name,
-          phone: document.getElementById('tf-phone')?.value||'',
-          model: document.getElementById('tf-model')?.value||DEMO_VEHICLES[0],
-          date: document.getElementById('tf-date')?.value||viewDate,
-          time: document.getElementById('tf-time')?.value||'10:00',
-          staff: document.getElementById('tf-staff')?.value||STAFF_LIST[0],
-          status: 'scheduled', notes: ''
-        })
-        showToast('✅ นัดทดลองขับแล้ว!', 'success'); renderPage()
+        if (!name) { showToast('❗ กรุณากรอกชื่อลูกค้า', 'error'); return false }
+        try {
+          await createDoc('test_drives', {
+            customerName: name,
+            phone: document.getElementById('tf-phone')?.value||'',
+            model: document.getElementById('tf-model')?.value||DEMO_VEHICLES[0],
+            date: document.getElementById('tf-date')?.value||viewDate,
+            time: document.getElementById('tf-time')?.value||'10:00',
+            staff: document.getElementById('tf-staff')?.value||STAFF_LIST[0],
+            status: 'scheduled', notes: ''
+          })
+          showToast('✅ นัดทดลองขับแล้ว!', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
