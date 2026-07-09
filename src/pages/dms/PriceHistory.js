@@ -5,52 +5,34 @@
 import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 import { exportToExcel } from '../../utils/importExport.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
 const MODELS = ['BYD Atto 3','BYD Seal AWD','BYD Han','BYD Dolphin','MG ZS EV']
 
-const DEMO_HISTORY = [
-  { id:'PH001', model:'BYD Atto 3', date:'2026-06-01', oldPrice:1129000, newPrice:1099000, change:-30000, reason:'โปรโมชั่น Mid-Year', by:'Manager', approved:true },
-  { id:'PH002', model:'BYD Seal AWD', date:'2026-05-15', oldPrice:1749000, newPrice:1699000, change:-50000, reason:'ลดราคาเพื่อแข่ง Tesla Model 3', by:'Director', approved:true },
-  { id:'PH003', model:'BYD Han', date:'2026-05-01', oldPrice:2199000, newPrice:2099000, change:-100000, reason:'เปิดตัวรุ่น 2026 ใหม่', by:'Director', approved:true },
-  { id:'PH004', model:'BYD Dolphin', date:'2026-04-10', oldPrice:849000, newPrice:899000, change:50000, reason:'ต้นทุนแบตฯ เพิ่ม MY2026', by:'Manager', approved:true },
-  { id:'PH005', model:'MG ZS EV', date:'2026-04-01', oldPrice:829000, newPrice:799000, change:-30000, reason:'ยกระดับการแข่งขัน Atto 3', by:'Manager', approved:true },
-  { id:'PH006', model:'BYD Atto 3', date:'2026-03-01', oldPrice:1149000, newPrice:1129000, change:-20000, reason:'Q1 Sales Drive', by:'Manager', approved:true },
-  { id:'PH007', model:'BYD Seal AWD', date:'2026-02-14', oldPrice:1799000, newPrice:1749000, change:-50000, reason:'Valentine Campaign', by:'Manager', approved:true },
-]
-
 export default async function PriceHistoryPage(container) {
   const myGen = container.__routerGen
-  let priceHistory = [...DEMO_HISTORY].map(h => ({ ...h }))
-  let dataSource = 'demo'
+  seedDemoData()
 
-  try {
-    const docs = await listDocs('price_history', [], 'date', 'desc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `PH${String(i+1).padStart(3,'0')}`,
-        model: d.model || '',
-        date: d.date || '',
-        oldPrice: d.oldPrice || 0,
-        newPrice: d.newPrice || 0,
-        change: d.change !== undefined ? d.change : (d.newPrice - d.oldPrice) || 0,
-        reason: d.reason || '',
-        by: d.by || d.approvedBy || '',
-        approved: d.approved !== undefined ? d.approved : true,
-      }))
-      priceHistory = [...mapped, ...DEMO_HISTORY]
-      dataSource = 'live'
-    }
-  } catch {}
+  let priceHistory = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { priceHistory = await listDocs('price_history', [], 'date', 'desc', 200) } catch (e) { priceHistory = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   let filterModel = 'all'
-  let showAddForm = false
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const rows = filterModel === 'all' ? priceHistory : priceHistory.filter(h => h.model === filterModel)
     const selModel = filterModel !== 'all' ? priceHistory.filter(h=>h.model===filterModel) : []
     const currentPrice = selModel.length ? selModel[0].newPrice : null
@@ -61,7 +43,7 @@ export default async function PriceHistoryPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">📈 Price History Log</div>
-            <div class="page-subtitle">ประวัติการเปลี่ยนราคาต่อรุ่น · Audit Trail · ${priceHistory.length} รายการ${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">ประวัติการเปลี่ยนราคาต่อรุ่น · Audit Trail · ${priceHistory.length} รายการ</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="export-btn">📥 Export</button>
@@ -167,12 +149,12 @@ export default async function PriceHistoryPage(container) {
         <div><label style="font-size:0.72rem;color:var(--text-muted)">ราคาใหม่ (บาท)</label>
           <input class="input" id="ph-price" type="number" placeholder="1099000" style="width:100%;margin-top:4px"></div>
         <div><label style="font-size:0.72rem;color:var(--text-muted)">วันที่มีผล</label>
-          <input class="input" id="ph-date" type="date" value="2026-06-14" style="width:100%;margin-top:4px"></div>
+          <input class="input" id="ph-date" type="date" value="${new Date().toISOString().slice(0,10)}" style="width:100%;margin-top:4px"></div>
         <div><label style="font-size:0.72rem;color:var(--text-muted)">เหตุผล</label>
           <input class="input" id="ph-reason" placeholder="โปรโมชั่น / ต้นทุน..." style="width:100%;margin-top:4px"></div>
       </div>`,
       confirmText: '💾 บันทึกราคา',
-      onConfirm() {
+      async onConfirm() {
         const model  = document.getElementById('ph-model')?.value
         const price  = parseInt(document.getElementById('ph-price')?.value)
         const date   = document.getElementById('ph-date')?.value
@@ -180,8 +162,11 @@ export default async function PriceHistoryPage(container) {
         if (!price || !reason) { showToast('กรอกข้อมูลให้ครบ', 'warning'); return false }
         const prev = priceHistory.find(h => h.model === model)
         const oldPrice = prev ? prev.newPrice : price
-        priceHistory.unshift({ id:'PH'+Date.now(), model, date, oldPrice, newPrice:price, change:price-oldPrice, reason, by:'Manager', approved:false })
-        render(); showToast(`✅ บันทึกราคา ${model} = ${formatCurrency(price)} แล้ว · รอ Director อนุมัติ`, 'success')
+        try {
+          await createDoc('price_history', { model, date, oldPrice, newPrice:price, change:price-oldPrice, reason, by:'Manager', approved:false })
+          showToast(`✅ บันทึกราคา ${model} = ${formatCurrency(price)} แล้ว · รอ Director อนุมัติ`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -193,5 +178,5 @@ export default async function PriceHistoryPage(container) {
     </div>`
   }
 
-  render()
+  await loadData()
 }

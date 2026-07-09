@@ -2045,8 +2045,11 @@ export function seedDemoData() {
   tradeIns.forEach(t => { if (!demoCol('trade_ins')[t.id]) demoCol('trade_ins')[t.id] = t })
 
   const usedCars = [
-    { id:'uc1', vin:'JT2BF3EK7C0123456', brand:'Toyota', model:'Camry', year:2022, color:'ขาว', plate:'กก-1234 กทม.', km:45000, buyPrice:700000, sellPrice:780000, status:'for_sale', source:'consignment', consignId:'con1', note:'', createdAt: new Date(Date.now()-86400000*20).toISOString() },
-    { id:'uc2', vin:'MRHFB1650LY123456', brand:'Honda', model:'City', year:2020, color:'เงิน', plate:'คค-1111 กทม.', km:55000, buyPrice:340000, sellPrice:390000, status:'for_sale', source:'trade_in', tradeId:'ti1', note:'', createdAt: new Date(Date.now()-86400000*5).toISOString() },
+    { id:'UC001', plate:'กก-1234 กทม.',  brand:'Toyota', model:'Camry',       year:2022, km:28000, appraisal:750000, asking:820000, sold:0,      status:'for_sale',   date:'2026-05-20', buyer:''          },
+    { id:'UC002', plate:'ขข-5678 นทบ.',  brand:'Honda',  model:'City',        year:2021, km:45000, appraisal:430000, asking:489000, sold:489000, status:'sold',       date:'2026-06-01', buyer:'สมชาย ใจดี' },
+    { id:'UC003', plate:'คค-9012 กทม.',  brand:'Mazda',  model:'CX-5',        year:2023, km:15000, appraisal:920000, asking:980000, sold:0,      status:'inspection', date:'2026-06-12', buyer:''          },
+    { id:'UC004', plate:'งง-3456 สมทบ.', brand:'BYD',    model:'Atto 3 2024', year:2024, km:8000,  appraisal:880000, asking:950000, sold:0,      status:'for_sale',   date:'2026-06-10', buyer:''          },
+    { id:'UC005', plate:'จจ-7890 กทม.',  brand:'Honda',  model:'HR-V',        year:2022, km:32000, appraisal:610000, asking:660000, sold:0,      status:'reserved',   date:'2026-06-13', buyer:'นภา สุขใจ' },
   ]
   usedCars.forEach(u => { if (!demoCol('used_cars')[u.id]) demoCol('used_cars')[u.id] = u })
 
@@ -2162,8 +2165,12 @@ export function seedDemoData() {
   licenses.forEach(l => { if (!demoCol('licenses')[l.id]) demoCol('licenses')[l.id] = l })
 
   const govDocs = [
-    { id:'gd1', docType:'ใบอนุญาตค้าปลีกรถยนต์', docNo:'GD-2025-001', issuedBy:'กรมพัฒนาธุรกิจการค้า', issuedDate:'2025-01-01', expireDate:'2026-01-01', status:'valid', filePath:'', note:'', createdAt:'2025-01-01' },
-    { id:'gd2', docType:'หนังสือรับรองบริษัท', docNo:'GD-2025-002', issuedBy:'กระทรวงพาณิชย์', issuedDate:'2025-01-01', expireDate:'2025-12-31', status:'valid', filePath:'', note:'', createdAt:'2025-01-01' },
+    { id:'GD001', type:'โอนกรรมสิทธิ์', customer:'คุณวรพจน์ แก้วมณี', vin:'LVVDBCAE1PD123456', status:'กำลังดำเนินการ', dueDate:'2026-06-20', officer:'ฝ่ายทะเบียน', note:'ยื่นกรมขนส่งสาขาบึงกุ่ม' },
+    { id:'GD002', type:'ภาษีป้าย', customer:'บริษัท ทรัพย์สมบูรณ์', vin:'LVVDBCAE1PD234567', status:'รอดำเนินการ', dueDate:'2026-07-01', officer:'ฝ่ายทะเบียน', note:'ต่อภาษีประจำปี 2569' },
+    { id:'GD003', type:'ตรวจสภาพ (ตรอ.)', customer:'คุณนภา รุ่งเรือง', vin:'LVVDBCAE1PD345678', status:'เสร็จสิ้น', dueDate:'2026-06-15', officer:'ช่างตรวจ', note:'ผ่านเรียบร้อย' },
+    { id:'GD004', type:'หนังสือมอบอำนาจ', customer:'คุณพรทิพย์ วงษ์ทอง', vin:'LVVDBCAE1PD456789', status:'รอดำเนินการ', dueDate:'2026-06-25', officer:'Admin', note:'รอลายเซ็นเจ้าของ' },
+    { id:'GD005', type:'ทะเบียนรถใหม่', customer:'คุณเกรียงไกร สมศักดิ์', vin:'LVVDBCAE1PD567890', status:'กำลังดำเนินการ', dueDate:'2026-06-22', officer:'ฝ่ายทะเบียน', note:'ยื่นขอหมายเลขทะเบียนแล้ว' },
+    { id:'GD006', type:'ประกันภัย', customer:'คุณสมชาย ดีมาก', vin:'LVVDBCAE1PD678901', status:'เสร็จสิ้น', dueDate:'2026-06-10', officer:'ฝ่ายประกัน', note:'คุ้มครองเริ่ม 2026-06-10' },
   ]
   govDocs.forEach(g => { if (!demoCol('gov_docs')[g.id]) demoCol('gov_docs')[g.id] = g })
 
@@ -2315,10 +2322,13 @@ export function seedDemoData() {
 
   // Price history
   const priceHistory = [
-    { id:'ph1', brand:'BYD', model:'Seal', variant:'AWD Performance', date:'2025-01-01', price:1349000, prevPrice:1399000, changeType:'reduce', notes:'ปรับราคาต้นปี' },
-    { id:'ph2', brand:'BYD', model:'Seal', variant:'AWD Performance', date:'2025-04-01', price:1299000, prevPrice:1349000, changeType:'reduce', notes:'โปรโมชั่น Q2' },
-    { id:'ph3', brand:'MG', model:'MG4', variant:'X-Power', date:'2025-02-01', price:949000, prevPrice:989000, changeType:'reduce', notes:'ลดราคาแข่งตลาด' },
-    { id:'ph4', brand:'NETA', model:'V II', variant:'Pro 400', date:'2025-03-15', price:769000, prevPrice:799000, changeType:'reduce', notes:'กระตุ้นยอดขาย Q1' },
+    { id:'PH001', model:'BYD Atto 3', date:'2026-06-01', oldPrice:1129000, newPrice:1099000, change:-30000, reason:'โปรโมชั่น Mid-Year', by:'Manager', approved:true },
+    { id:'PH002', model:'BYD Seal AWD', date:'2026-05-15', oldPrice:1749000, newPrice:1699000, change:-50000, reason:'ลดราคาเพื่อแข่ง Tesla Model 3', by:'Director', approved:true },
+    { id:'PH003', model:'BYD Han', date:'2026-05-01', oldPrice:2199000, newPrice:2099000, change:-100000, reason:'เปิดตัวรุ่น 2026 ใหม่', by:'Director', approved:true },
+    { id:'PH004', model:'BYD Dolphin', date:'2026-04-10', oldPrice:849000, newPrice:899000, change:50000, reason:'ต้นทุนแบตฯ เพิ่ม MY2026', by:'Manager', approved:true },
+    { id:'PH005', model:'MG ZS EV', date:'2026-04-01', oldPrice:829000, newPrice:799000, change:-30000, reason:'ยกระดับการแข่งขัน Atto 3', by:'Manager', approved:true },
+    { id:'PH006', model:'BYD Atto 3', date:'2026-03-01', oldPrice:1149000, newPrice:1129000, change:-20000, reason:'Q1 Sales Drive', by:'Manager', approved:true },
+    { id:'PH007', model:'BYD Seal AWD', date:'2026-02-14', oldPrice:1799000, newPrice:1749000, change:-50000, reason:'Valentine Campaign', by:'Manager', approved:true },
   ]
   priceHistory.forEach(p => { if (!demoCol('price_history')[p.id]) demoCol('price_history')[p.id] = p })
 

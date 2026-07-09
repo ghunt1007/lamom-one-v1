@@ -5,19 +5,11 @@
 import { formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
-
-const DEMO_USED_CARS = [
-  { id:'UC001', plate:'กก-1234 กทม.',  brand:'Toyota', model:'Camry',       year:2022, km:28000, appraisal:750000, asking:820000, sold:0,      status:'for_sale',   date:'2026-05-20', buyer:''          },
-  { id:'UC002', plate:'ขข-5678 นทบ.',  brand:'Honda',  model:'City',        year:2021, km:45000, appraisal:430000, asking:489000, sold:489000, status:'sold',       date:'2026-06-01', buyer:'สมชาย ใจดี' },
-  { id:'UC003', plate:'คค-9012 กทม.',  brand:'Mazda',  model:'CX-5',        year:2023, km:15000, appraisal:920000, asking:980000, sold:0,      status:'inspection', date:'2026-06-12', buyer:''          },
-  { id:'UC004', plate:'งง-3456 สมทบ.', brand:'BYD',    model:'Atto 3 2024', year:2024, km:8000,  appraisal:880000, asking:950000, sold:0,      status:'for_sale',   date:'2026-06-10', buyer:''          },
-  { id:'UC005', plate:'จจ-7890 กทม.',  brand:'Honda',  model:'HR-V',        year:2022, km:32000, appraisal:610000, asking:660000, sold:0,      status:'reserved',   date:'2026-06-13', buyer:'นภา สุขใจ' },
-]
 
 const STATUS_CFG = {
   for_sale:   { label:'ขายอยู่',     bg:'var(--success)',     icon:'🏷️' },
@@ -28,31 +20,17 @@ const STATUS_CFG = {
 
 export default async function UsedCarPage(container) {
   const myGen = container.__routerGen
-  let usedCars = DEMO_USED_CARS.map(c => ({ ...c }))
-  let dataSource = 'demo'
+  seedDemoData()
 
-  try {
-    const docs = await listDocs('used_cars', [], 'date', 'desc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `UC${String(i+1).padStart(3,'0')}`,
-        plate: d.plate || '',
-        brand: d.brand || '',
-        model: d.model || '',
-        year: d.year || new Date().getFullYear(),
-        km: d.km || 0,
-        appraisal: d.appraisal || 0,
-        asking: d.asking || d.askingPrice || 0,
-        sold: d.sold || d.soldPrice || 0,
-        status: d.status || 'inspection',
-        date: d.date || '',
-        buyer: d.buyer || '',
-      }))
-      usedCars = [...mapped, ...DEMO_USED_CARS]
-      dataSource = 'live'
-    }
-  } catch {}
+  let usedCars = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { usedCars = await listDocs('used_cars', [], 'date', 'desc', 200) } catch (e) { usedCars = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   let filterStatus = 'all'
 
@@ -91,6 +69,10 @@ export default async function UsedCarPage(container) {
   }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     let rows = usedCars
     if (filterStatus !== 'all') rows = rows.filter(c=>c.status===filterStatus)
 
@@ -109,7 +91,7 @@ export default async function UsedCarPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🚗 Used Car Management</div>
-            <div class="page-subtitle">ซื้อ-ขายรถมือสอง ประเมิน ตั้งราคา · ${usedCars.length} คัน${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">ซื้อ-ขายรถมือสอง ประเมิน ตั้งราคา · ${usedCars.length} คัน</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="add-car-btn">+ รับรถมือสองเข้า</button>
@@ -132,13 +114,23 @@ export default async function UsedCarPage(container) {
       </div>`
 
     container.querySelectorAll('.stat-btn').forEach(b=>b.addEventListener('click',()=>{filterStatus=b.dataset.s;render()}))
-    container.querySelectorAll('.sell-btn').forEach(b=>b.addEventListener('click',()=>{
+    container.querySelectorAll('.sell-btn').forEach(b=>b.addEventListener('click', async ()=>{
       const c=usedCars.find(x=>x.id===b.dataset.id)
-      if(c){c.status='sold';c.sold=c.asking;c.buyer='ลูกค้าใหม่';render();showToast('🏁 บันทึกขาย '+c.brand+' '+c.model+' แล้ว','success')}
+      if (!c) return
+      try {
+        await updateDocData('used_cars', c.id, { status:'sold', sold:c.asking, buyer:'ลูกค้าใหม่' })
+        showToast('🏁 บันทึกขาย '+c.brand+' '+c.model+' แล้ว','success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.approve-btn').forEach(b=>b.addEventListener('click',()=>{
+    container.querySelectorAll('.approve-btn').forEach(b=>b.addEventListener('click', async ()=>{
       const c=usedCars.find(x=>x.id===b.dataset.id)
-      if(c){c.status='for_sale';render();showToast('✅ อนุมัติ '+c.brand+' '+c.model+' ตั้งขายแล้ว','success')}
+      if (!c) return
+      try {
+        await updateDocData('used_cars', c.id, { status:'for_sale' })
+        showToast('✅ อนุมัติ '+c.brand+' '+c.model+' ตั้งขายแล้ว','success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.edit-btn').forEach(b=>b.addEventListener('click',()=>{
       const c=usedCars.find(x=>x.id===b.dataset.id)
@@ -171,15 +163,16 @@ export default async function UsedCarPage(container) {
         </div>
       `
     })
-    document.getElementById('ep-save')?.addEventListener('click', () => {
+    document.getElementById('ep-save')?.addEventListener('click', async () => {
       const appraisal = parseInt(document.getElementById('ep-appr')?.value) || c.appraisal
       const asking    = parseInt(document.getElementById('ep-ask')?.value)  || c.asking
       if (asking < appraisal) { showToast('⚠️ ราคาขายต่ำกว่าราคาประเมิน', 'warning'); return }
-      c.appraisal = appraisal
-      c.asking    = asking
-      document.querySelector('.modal-overlay')?.remove()
-      showToast('✅ อัปเดตราคา ' + c.brand + ' ' + c.model + ' แล้ว', 'success')
-      render()
+      try {
+        await updateDocData('used_cars', c.id, { appraisal, asking })
+        document.querySelector('.modal-overlay')?.remove()
+        showToast('✅ อัปเดตราคา ' + c.brand + ' ' + c.model + ' แล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
@@ -202,7 +195,7 @@ export default async function UsedCarPage(container) {
         </div>
       </div>`,
       confirmText:'🚗 รับรถเข้า',
-      onConfirm() {
+      async onConfirm() {
         const brand=document.getElementById('uc-brand')?.value?.trim()
         const model=document.getElementById('uc-model')?.value?.trim()
         if(!brand||!model){showToast('ใส่ยี่ห้อและรุ่น','warning');return false}
@@ -211,8 +204,11 @@ export default async function UsedCarPage(container) {
         const plate=document.getElementById('uc-plate')?.value?.trim()||'-'
         const appraisal=parseInt(document.getElementById('uc-appr')?.value)||0
         const asking=parseInt(document.getElementById('uc-ask')?.value)||0
-        usedCars.push({id:'UC'+Date.now(),plate,brand,model,year,km,appraisal,asking,sold:0,status:'inspection',date:'2026-06-14',buyer:''})
-        render(); showToast('🚗 รับ '+brand+' '+model+' เข้าสต็อก (รอประเมิน)','success')
+        try {
+          await createDoc('used_cars', { plate,brand,model,year,km,appraisal,asking,sold:0,status:'inspection',date:new Date().toISOString().slice(0,10),buyer:'' })
+          showToast('🚗 รับ '+brand+' '+model+' เข้าสต็อก (รอประเมิน)','success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -224,5 +220,5 @@ export default async function UsedCarPage(container) {
     </div>`
   }
 
-  render()
+  await loadData()
 }

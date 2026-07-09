@@ -4,44 +4,25 @@
  */
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
 const DOC_TYPES = ['โอนกรรมสิทธิ์','ภาษีป้าย','หนังสือมอบอำนาจ','ตรวจสภาพ (ตรอ.)','ประกันภัย','ทะเบียนรถใหม่']
 
-const DEMO_DOCS = [
-  { id:'GD001', type:'โอนกรรมสิทธิ์', customer:'คุณวรพจน์ แก้วมณี', vin:'LVVDBCAE1PD123456', status:'กำลังดำเนินการ', dueDate:'2026-06-20', officer:'ฝ่ายทะเบียน', note:'ยื่นกรมขนส่งสาขาบึงกุ่ม' },
-  { id:'GD002', type:'ภาษีป้าย', customer:'บริษัท ทรัพย์สมบูรณ์', vin:'LVVDBCAE1PD234567', status:'รอดำเนินการ', dueDate:'2026-07-01', officer:'ฝ่ายทะเบียน', note:'ต่อภาษีประจำปี 2569' },
-  { id:'GD003', type:'ตรวจสภาพ (ตรอ.)', customer:'คุณนภา รุ่งเรือง', vin:'LVVDBCAE1PD345678', status:'เสร็จสิ้น', dueDate:'2026-06-15', officer:'ช่างตรวจ', note:'ผ่านเรียบร้อย' },
-  { id:'GD004', type:'หนังสือมอบอำนาจ', customer:'คุณพรทิพย์ วงษ์ทอง', vin:'LVVDBCAE1PD456789', status:'รอดำเนินการ', dueDate:'2026-06-25', officer:'Admin', note:'รอลายเซ็นเจ้าของ' },
-  { id:'GD005', type:'ทะเบียนรถใหม่', customer:'คุณเกรียงไกร สมศักดิ์', vin:'LVVDBCAE1PD567890', status:'กำลังดำเนินการ', dueDate:'2026-06-22', officer:'ฝ่ายทะเบียน', note:'ยื่นขอหมายเลขทะเบียนแล้ว' },
-  { id:'GD006', type:'ประกันภัย', customer:'คุณสมชาย ดีมาก', vin:'LVVDBCAE1PD678901', status:'เสร็จสิ้น', dueDate:'2026-06-10', officer:'ฝ่ายประกัน', note:'คุ้มครองเริ่ม 2026-06-10' },
-]
-
 export default async function GovDocsPage(container) {
   const myGen = container.__routerGen
-  let govDocs = DEMO_DOCS.map(d => ({ ...d }))
-  let dataSource = 'demo'
+  seedDemoData()
 
-  try {
-    const docs = await listDocs('gov_docs', [], 'dueDate', 'asc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `GD${String(i+1).padStart(3,'0')}`,
-        type: d.type || '',
-        customer: d.customer || '',
-        vin: d.vin || '',
-        status: d.status || 'รอดำเนินการ',
-        dueDate: d.dueDate || '',
-        officer: d.officer || '',
-        note: d.note || '',
-      }))
-      govDocs = [...mapped, ...DEMO_DOCS]
-      dataSource = 'live'
-    }
-  } catch {}
+  let govDocs = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { govDocs = await listDocs('gov_docs', [], 'dueDate', 'asc', 200) } catch (e) { govDocs = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   let filterStatus = 'all'
   let filterType = 'all'
@@ -69,6 +50,10 @@ export default async function GovDocsPage(container) {
   }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     let list = govDocs
     if(filterStatus!=='all') list = list.filter(d=>d.status===filterStatus)
     if(filterType!=='all') list = list.filter(d=>d.type===filterType)
@@ -85,7 +70,7 @@ export default async function GovDocsPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">📋 เอกสารราชการ</div>
-            <div class="page-subtitle">โอนกรรมสิทธิ์ · ภาษีป้าย · หนังสือมอบอำนาจ · ตรวจสภาพ · ทะเบียน${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">โอนกรรมสิทธิ์ · ภาษีป้าย · หนังสือมอบอำนาจ · ตรวจสภาพ · ทะเบียน</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="add-doc-btn">+ เพิ่มเอกสาร</button>
@@ -178,22 +163,23 @@ export default async function GovDocsPage(container) {
         </div>
       `
     })
-    document.getElementById('gd-save')?.addEventListener('click', () => {
+    document.getElementById('gd-save')?.addEventListener('click', async () => {
       const customer = document.getElementById('gd-cust')?.value.trim()
       if (!customer) { showToast('⚠️ กรุณากรอกชื่อลูกค้า', 'warning'); return }
-      govDocs.push({
-        id: 'GD' + String(govDocs.length + 1).padStart(3,'0'),
-        type: document.getElementById('gd-type')?.value || DOC_TYPES[0],
-        customer,
-        vin: document.getElementById('gd-vin')?.value.trim() || '-',
-        status: 'รอดำเนินการ',
-        dueDate: document.getElementById('gd-due')?.value || today,
-        officer: document.getElementById('gd-off')?.value.trim() || 'ฝ่ายทะเบียน',
-        note: document.getElementById('gd-note')?.value.trim() || '',
-      })
-      document.querySelector('.modal-overlay')?.remove()
-      showToast('✅ เพิ่มงานเอกสารแล้ว', 'success')
-      render()
+      try {
+        await createDoc('gov_docs', {
+          type: document.getElementById('gd-type')?.value || DOC_TYPES[0],
+          customer,
+          vin: document.getElementById('gd-vin')?.value.trim() || '-',
+          status: 'รอดำเนินการ',
+          dueDate: document.getElementById('gd-due')?.value || today,
+          officer: document.getElementById('gd-off')?.value.trim() || 'ฝ่ายทะเบียน',
+          note: document.getElementById('gd-note')?.value.trim() || '',
+        })
+        document.querySelector('.modal-overlay')?.remove()
+        showToast('✅ เพิ่มงานเอกสารแล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
@@ -201,5 +187,5 @@ export default async function GovDocsPage(container) {
     return `<div class="card" style="padding:14px 16px"><div style="font-size:0.72rem;color:var(--text-muted)">${l}</div><div style="font-size:1.1rem;font-weight:900;color:${c};margin-top:2px">${v}</div></div>`
   }
 
-  render()
+  await loadData()
 }
