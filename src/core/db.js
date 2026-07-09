@@ -1995,11 +1995,13 @@ export function seedDemoData() {
 
   // ── DMS: Vehicles & Inventory ──
   const vehicleModels = [
-    { id:'vm1', brand:'BYD', model:'Seal', variant:'AWD Premium', year:2025, price:1299000, cost:1150000, color:'พอร์เซลิน ไวท์', stock:3, status:'active', imgUrl:'', createdAt:'2025-01-01' },
-    { id:'vm2', brand:'BYD', model:'Atto 3', variant:'Extended Range', year:2025, price:1099000, cost:980000, color:'สีน้ำเงิน', stock:5, status:'active', imgUrl:'', createdAt:'2025-01-01' },
-    { id:'vm3', brand:'BYD', model:'Dolphin', variant:'Premium', year:2025, price:799000, cost:700000, color:'หลายสี', stock:8, status:'active', imgUrl:'', createdAt:'2025-01-01' },
-    { id:'vm4', brand:'DEEPAL', model:'S7', variant:'AWD', year:2025, price:1199000, cost:1050000, color:'ขาว/ดำ', stock:2, status:'active', imgUrl:'', createdAt:'2025-02-01' },
-    { id:'vm5', brand:'GWM', model:'ORA Good Cat', variant:'GT', year:2025, price:899000, cost:790000, color:'หลายสี', stock:4, status:'active', imgUrl:'', createdAt:'2025-01-15' },
+    { id: 'M001', brand: 'BYD', model: 'BYD Dolphin', type: 'EV', basePrice: 699000, promotionPrice: 679000, range: 340, battery: 44.9, power: 70, color: '#8b5cf6', colors: ['ขาว','ฟ้า','เขียว','ส้ม'], active: true, stock: 12 },
+    { id: 'M002', brand: 'BYD', model: 'BYD Atto 3', type: 'EV', basePrice: 1099000, promotionPrice: 1069000, range: 420, battery: 60.5, power: 150, color: '#3b82f6', colors: ['ขาว','ดำ','ฟ้า','แดง'], active: true, stock: 8 },
+    { id: 'M003', brand: 'BYD', model: 'BYD Seal AWD', type: 'EV', basePrice: 1499000, promotionPrice: null, range: 520, battery: 82.5, power: 390, color: '#10b981', colors: ['ขาว','ดำ','เทา'], active: true, stock: 5 },
+    { id: 'M004', brand: 'BYD', model: 'BYD Han EV', type: 'EV', basePrice: 1999000, promotionPrice: null, range: 560, battery: 85.4, power: 380, color: '#f59e0b', colors: ['ดำ','ขาว'], active: true, stock: 2 },
+    { id: 'M005', brand: 'MG', model: 'MG ZS EV', type: 'EV', basePrice: 879000, promotionPrice: 849000, range: 350, battery: 50.3, power: 115, color: '#ef4444', colors: ['ขาว','แดง','ดำ','น้ำเงิน'], active: true, stock: 15 },
+    { id: 'M006', brand: 'MG', model: 'MG EP', type: 'PHEV', basePrice: 749000, promotionPrice: null, range: 60, battery: 17.0, power: 130, color: '#06b6d4', colors: ['ขาว','ดำ'], active: true, stock: 6 },
+    { id: 'M007', brand: 'Neta', model: 'Neta V', type: 'EV', basePrice: 549000, promotionPrice: 529000, range: 280, battery: 38.5, power: 55, color: '#ec4899', colors: ['ขาว','แดง','เขียว'], active: false, stock: 0 },
   ]
   vehicleModels.forEach(v => { if (!demoCol('vehicle_models')[v.id]) demoCol('vehicle_models')[v.id] = v })
 
@@ -2083,9 +2085,13 @@ export function seedDemoData() {
   ]
   bankTransactions.forEach(b => { if (!demoCol('bank_transactions')[b.id]) demoCol('bank_transactions')[b.id] = b })
 
+  const plateAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
   const plateTracking = [
-    { id:'pt1', bookingRef:'BK-001', custName:'ธีรพงศ์ แสงทอง', vin:'LGXCE4C10PA000001', model:'BYD Seal AWD', submittedAt:'2025-06-20', status:'processing', estimatedPlate:'2025-07-10', plate:'', note:'ยื่นจดทะเบียนแล้ว', createdAt:'2025-06-20' },
-    { id:'pt2', bookingRef:'BK-002', custName:'สุภาพร ใจดี', vin:'LGXCE4C10PA000002', model:'BYD Atto 3', submittedAt:'2025-06-15', status:'ready', estimatedPlate:'2025-07-01', plate:'กจ-9999 กทม.', note:'ป้ายออกแล้ว รอมอบ', createdAt:'2025-06-15' },
+    { id: 'RG001', customer: 'สมชาย ใจดี', model: 'BYD Seal AWD', vin: '...3456', redPlate: 'ก-0042', deliveredDate: plateAddDays(-25), status: 'approved', newPlate: '9กข 1122', note: 'รอนัดติดป้าย' },
+    { id: 'RG002', customer: 'มาลี สุขใจ', model: 'BYD Dolphin', vin: '...9012', redPlate: 'ก-0043', deliveredDate: plateAddDays(-40), status: 'plated', newPlate: '8ขค 3344', note: '' },
+    { id: 'RG003', customer: 'อรทัย ตั้งใจ', model: 'MG ZS EV', vin: '...7788', redPlate: 'ก-0044', deliveredDate: plateAddDays(-10), status: 'submitted', newPlate: null, note: 'ยื่นเอกสารแล้ว รอขนส่งออกเลข' },
+    { id: 'RG004', customer: 'วิรัช เก่งมาก', model: 'BYD Han', vin: '...2233', redPlate: 'ก-0045', deliveredDate: plateAddDays(-3), status: 'red_plate', newPlate: null, note: 'รอเล่มจากไฟแนนซ์' },
+    { id: 'RG005', customer: 'ชาตรี เข้มแข็ง', model: 'BYD Atto 3', vin: '...5566', redPlate: 'ก-0041', deliveredDate: plateAddDays(-50), status: 'red_plate', newPlate: null, note: '⚠️ ใช้ป้ายแดงนานเกิน — เร่งดำเนินการ' },
   ]
   plateTracking.forEach(p => { if (!demoCol('plate_tracking')[p.id]) demoCol('plate_tracking')[p.id] = p })
 
@@ -2274,9 +2280,9 @@ export function seedDemoData() {
 
   // Model year changeovers
   const modelYearChangeovers = [
-    { id:'myc1', model:'BYD Seal', year:'2026', effectiveDate:'2025-09-01', changes:'เพิ่มระบบ ADAS Level 2+ / อัพเดต OTA V3.0 / เปลี่ยนสีใหม่ 2 สี', status:'upcoming' },
-    { id:'myc2', model:'MG4', year:'2026', effectiveDate:'2025-10-01', changes:'รุ่น Trophy ใหม่ 435 HP / แบตเตอรี่ 77 kWh / รีดีไซน์กระจังหน้า', status:'upcoming' },
-    { id:'myc3', model:'NETA V II', year:'2025', effectiveDate:'2025-01-15', changes:'เพิ่มรุ่น Pro 400km / ปรับราคา / สีใหม่ Sunrise Orange', status:'active' },
+    { id:'myc1', model:'BYD Atto 3', oldYear:2024, newYear:2025, announcedDate:'2026-06-01', effectiveDate:'2026-08-01', oldStockLeft:3, oldPrice:1099000, newPrice:1149000, changes:['ระบบเสียง ซอฟต์แวร์ใหม่', 'สี Jade Green เพิ่ม', 'แบตฯ เพิ่ม 5 km range'], status:'announced' },
+    { id:'myc2', model:'BYD Dolphin', oldYear:2023, newYear:2024, announcedDate:'2026-04-10', effectiveDate:'2026-06-01', oldStockLeft:0, oldPrice:899000, newPrice:899000, changes:['ปรับแต่ง Firmware OTA', 'เพิ่ม Warranty 1 ปี'], status:'active' },
+    { id:'myc3', model:'MG4 Electric', oldYear:2024, newYear:2025, announcedDate:'2026-07-01', effectiveDate:'2026-09-01', oldStockLeft:5, oldPrice:949000, newPrice:979000, changes:['Power เพิ่ม 15kW', 'จอ 12.3" ใหม่', 'ระบบ AR HUD'], status:'upcoming' },
   ]
   modelYearChangeovers.forEach(m => { if (!demoCol('model_year_changeovers')[m.id]) demoCol('model_year_changeovers')[m.id] = m })
 

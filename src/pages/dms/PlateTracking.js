@@ -5,7 +5,7 @@
 import { formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -20,14 +20,6 @@ const REG_STATUS = {
   plated:     { label: 'ติดป้ายขาวแล้ว', color: 'success', icon: '✅' },
 }
 
-const DEMO_REGS = [
-  { id: 'RG001', customer: 'สมชาย ใจดี', model: 'BYD Seal AWD', vin: '...3456', redPlate: 'ก-0042', deliveredDate: addDays(-25), status: 'approved', newPlate: '9กข 1122', note: 'รอนัดติดป้าย' },
-  { id: 'RG002', customer: 'มาลี สุขใจ', model: 'BYD Dolphin', vin: '...9012', redPlate: 'ก-0043', deliveredDate: addDays(-40), status: 'plated', newPlate: '8ขค 3344', note: '' },
-  { id: 'RG003', customer: 'อรทัย ตั้งใจ', model: 'MG ZS EV', vin: '...7788', redPlate: 'ก-0044', deliveredDate: addDays(-10), status: 'submitted', newPlate: null, note: 'ยื่นเอกสารแล้ว รอขนส่งออกเลข' },
-  { id: 'RG004', customer: 'วิรัช เก่งมาก', model: 'BYD Han', vin: '...2233', redPlate: 'ก-0045', deliveredDate: addDays(-3), status: 'red_plate', newPlate: null, note: 'รอเล่มจากไฟแนนซ์' },
-  { id: 'RG005', customer: 'ชาตรี เข้มแข็ง', model: 'BYD Atto 3', vin: '...5566', redPlate: 'ก-0041', deliveredDate: addDays(-50), status: 'red_plate', newPlate: null, note: '⚠️ ใช้ป้ายแดงนานเกิน — เร่งดำเนินการ' },
-]
-
 const RED_PLATE_POOL = [
   { plate: 'ก-0041', inUse: true }, { plate: 'ก-0042', inUse: true }, { plate: 'ก-0043', inUse: false },
   { plate: 'ก-0044', inUse: true }, { plate: 'ก-0045', inUse: true }, { plate: 'ก-0046', inUse: false },
@@ -37,30 +29,23 @@ const NEXT = { red_plate: 'submitted', submitted: 'approved', approved: 'plated'
 
 export default async function PlateTrackingPage(container) {
   const myGen = container.__routerGen
-  let regs = DEMO_REGS.map(r => ({ ...r }))
-  let dataSource = 'demo'
+  seedDemoData()
 
-  try {
-    const docs = await listDocs('plate_tracking', [], 'deliveredDate', 'desc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `RG${String(i+1).padStart(3,'0')}`,
-        customer: d.customer || d.customerName || 'ลูกค้า',
-        model: d.model || d.vehicleModel || '',
-        vin: d.vin || '',
-        redPlate: d.redPlate || d.plate || '',
-        deliveredDate: d.deliveredDate || new Date().toISOString().slice(0,10),
-        status: d.status || 'red_plate',
-        newPlate: d.newPlate || null,
-        note: d.note || '',
-      }))
-      regs = [...mapped, ...DEMO_REGS]
-      dataSource = 'live'
-    }
-  } catch {}
+  let regs = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { regs = await listDocs('plate_tracking', [], 'deliveredDate', 'desc', 200) } catch (e) { regs = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const pending = regs.filter(r => r.status !== 'plated')
     const overdue = regs.filter(r => r.status === 'red_plate' && r.deliveredDate <= addDays(-45))
     const freePlates = RED_PLATE_POOL.filter(p => !regs.some(r => r.redPlate === p.plate && r.status !== 'plated')).length
@@ -70,7 +55,7 @@ export default async function PlateTrackingPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🚙 Plate Tracking</div>
-            <div class="page-subtitle">ติดตามป้ายแดง → จดทะเบียน → ป้ายขาว${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">ติดตามป้ายแดง → จดทะเบียน → ป้ายขาว</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="add-reg-btn">+ รถส่งมอบใหม่</button>
@@ -125,18 +110,25 @@ export default async function PlateTrackingPage(container) {
           title: '🔢 บันทึกเลขทะเบียน',
           size: 'sm',
           body: `<div class="input-group"><label class="input-label">เลขทะเบียนใหม่ *</label><input class="input" id="rg-plate" placeholder="9กข 1234"></div>`,
-          onConfirm() {
+          async onConfirm() {
             const p = document.getElementById('rg-plate')?.value?.trim()
-            if (!p) { showToast('❗ กรอกเลขทะเบียน', 'error'); return }
-            r.newPlate = p; r.status = 'approved'; r.note = 'รอนัดติดป้าย'
-            showToast('🔢 บันทึกเลขทะเบียน + แจ้งลูกค้าแล้ว', 'success'); renderPage()
+            if (!p) { showToast('❗ กรอกเลขทะเบียน', 'error'); return false }
+            try {
+              await updateDocData('plate_tracking', r.id, { newPlate: p, status: 'approved', note: 'รอนัดติดป้าย' })
+              showToast('🔢 บันทึกเลขทะเบียน + แจ้งลูกค้าแล้ว', 'success')
+              await loadData()
+            } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
           }
         })
       } else {
-        r.status = next
-        if (next === 'plated') { r.note = ''; showToast('✅ ติดป้ายขาวแล้ว — คืนป้ายแดงเข้า pool', 'success') }
-        else showToast(`${REG_STATUS[next]?.icon} ${REG_STATUS[next]?.label}`, 'primary')
-        renderPage()
+        (async () => {
+          try {
+            await updateDocData('plate_tracking', r.id, { status: next, note: next === 'plated' ? '' : r.note })
+            if (next === 'plated') showToast('✅ ติดป้ายขาวแล้ว — คืนป้ายแดงเข้า pool', 'success')
+            else showToast(`${REG_STATUS[next]?.icon} ${REG_STATUS[next]?.label}`, 'primary')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+        })()
       }
     }))
     document.getElementById('add-reg-btn')?.addEventListener('click', () => {
@@ -150,17 +142,20 @@ export default async function PlateTrackingPage(container) {
             <select class="input" id="rg-red">${RED_PLATE_POOL.map(p=>`<option>${p.plate}</option>`).join('')}</select>
           </div>
         </div>`,
-        onConfirm() {
+        async onConfirm() {
           const name = document.getElementById('rg-name')?.value?.trim()
-          if (!name) { showToast('❗ กรอกชื่อ', 'error'); return }
-          regs.unshift({ id:`RG${String(regs.length+1).padStart(3,'0')}`, customer:name, model:document.getElementById('rg-model')?.value||'—', vin:'...ใหม่', redPlate:document.getElementById('rg-red')?.value||'—', deliveredDate:addDays(0), status:'red_plate', newPlate:null, note:'' })
-          showToast('✅ เริ่มติดตามแล้ว', 'success'); renderPage()
+          if (!name) { showToast('❗ กรอกชื่อ', 'error'); return false }
+          try {
+            await createDoc('plate_tracking', { customer: name, model: document.getElementById('rg-model')?.value || '—', vin: '...ใหม่', redPlate: document.getElementById('rg-red')?.value || '—', deliveredDate: addDays(0), status: 'red_plate', newPlate: null, note: '' })
+            showToast('✅ เริ่มติดตามแล้ว', 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

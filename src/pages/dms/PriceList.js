@@ -5,7 +5,7 @@
 import { formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -14,49 +14,28 @@ function escHtml(s) {
 const BRANDS = ['BYD', 'MG', 'Neta']
 const TYPES = { EV: 'EV', PHEV: 'PHEV', HEV: 'HEV' }
 
-const MODELS_DATA = [
-  { id: 'M001', brand: 'BYD', model: 'BYD Dolphin', type: 'EV', basePrice: 699000, promotionPrice: 679000, range: 340, battery: 44.9, power: 70, color: '#8b5cf6', colors: ['ขาว','ฟ้า','เขียว','ส้ม'], active: true, stock: 12 },
-  { id: 'M002', brand: 'BYD', model: 'BYD Atto 3', type: 'EV', basePrice: 1099000, promotionPrice: 1069000, range: 420, battery: 60.5, power: 150, color: '#3b82f6', colors: ['ขาว','ดำ','ฟ้า','แดง'], active: true, stock: 8 },
-  { id: 'M003', brand: 'BYD', model: 'BYD Seal AWD', type: 'EV', basePrice: 1499000, promotionPrice: null, range: 520, battery: 82.5, power: 390, color: '#10b981', colors: ['ขาว','ดำ','เทา'], active: true, stock: 5 },
-  { id: 'M004', brand: 'BYD', model: 'BYD Han EV', type: 'EV', basePrice: 1999000, promotionPrice: null, range: 560, battery: 85.4, power: 380, color: '#f59e0b', colors: ['ดำ','ขาว'], active: true, stock: 2 },
-  { id: 'M005', brand: 'MG', model: 'MG ZS EV', type: 'EV', basePrice: 879000, promotionPrice: 849000, range: 350, battery: 50.3, power: 115, color: '#ef4444', colors: ['ขาว','แดง','ดำ','น้ำเงิน'], active: true, stock: 15 },
-  { id: 'M006', brand: 'MG', model: 'MG EP', type: 'PHEV', basePrice: 749000, promotionPrice: null, range: 60, battery: 17.0, power: 130, color: '#06b6d4', colors: ['ขาว','ดำ'], active: true, stock: 6 },
-  { id: 'M007', brand: 'Neta', model: 'Neta V', type: 'EV', basePrice: 549000, promotionPrice: 529000, range: 280, battery: 38.5, power: 55, color: '#ec4899', colors: ['ขาว','แดง','เขียว'], active: false, stock: 0 },
-]
-
 export default async function PriceListPage(container) {
   const myGen = container.__routerGen
-  let models = MODELS_DATA.map(m => ({ ...m, colors: [...m.colors] }))
+  seedDemoData()
+
+  let models = []
   let brandFilter = 'all'
   let typeFilter = 'all'
   let compareList = []
-  let dataSource = 'demo'
+  let loading = true
 
-  try {
-    const docs = await listDocs('vehicle_models', [], 'basePrice', 'asc', 100).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.filter(d => d.model && d.basePrice > 0).map((d, i) => ({
-        id: d.id || `M${String(i+1).padStart(3,'0')}`,
-        brand: d.brand || 'BYD',
-        model: d.model || '',
-        type: d.type || 'EV',
-        basePrice: d.basePrice || 0,
-        promotionPrice: d.promotionPrice || null,
-        range: d.range || 0,
-        battery: d.battery || 0,
-        power: d.power || 0,
-        color: d.color || '#3b82f6',
-        colors: d.colors || [],
-        active: d.active !== undefined ? d.active : true,
-        stock: d.stock || 0,
-      }))
-      models = [...mapped, ...MODELS_DATA]
-      dataSource = 'live'
-    }
-  } catch {}
+  async function loadData() {
+    loading = true
+    try { models = await listDocs('vehicle_models', [], 'basePrice', 'asc', 100) } catch (e) { models = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = models.filter(m =>
       (brandFilter === 'all' || m.brand === brandFilter) &&
       (typeFilter === 'all' || m.type === typeFilter)
@@ -67,7 +46,7 @@ export default async function PriceListPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">💰 Price List</div>
-            <div class="page-subtitle">รายการราคารถ — จัดการโปรโมชั่นและราคา${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">รายการราคารถ — จัดการโปรโมชั่นและราคา</div>
           </div>
           <div class="page-actions">
             ${compareList.length >= 2 ? `<button class="btn btn-warning" id="compare-now-btn">⚖️ เปรียบเทียบ (${compareList.length})</button>` : ''}
@@ -205,31 +184,32 @@ export default async function PriceListPage(container) {
         </div>
       `
     })
-    document.getElementById('am-save')?.addEventListener('click', () => {
+    document.getElementById('am-save')?.addEventListener('click', async () => {
       const modelName = document.getElementById('am-model')?.value.trim()
       const basePrice = parseFloat(document.getElementById('am-base')?.value) || 0
       if (!modelName || !basePrice) { showToast('⚠️ กรุณากรอกชื่อรุ่นและราคา', 'warning'); return }
       const promo = parseFloat(document.getElementById('am-promo')?.value) || 0
       const colorsRaw = document.getElementById('am-colors')?.value.trim()
       const brand = document.getElementById('am-brand')?.value || BRANDS[0]
-      models.push({
-        id: 'M' + String(models.length + 1).padStart(3,'0'),
-        brand,
-        model: modelName,
-        type:   document.getElementById('am-type')?.value || 'EV',
-        basePrice,
-        promotionPrice: promo > 0 ? promo : null,
-        range:   parseInt(document.getElementById('am-range')?.value) || 0,
-        battery: parseFloat(document.getElementById('am-bat')?.value) || 0,
-        power:   parseInt(document.getElementById('am-pwr')?.value) || 0,
-        color: '#3b82f6',
-        colors: colorsRaw ? colorsRaw.split(',').map(s=>s.trim()).filter(Boolean) : [],
-        active: true,
-        stock: parseInt(document.getElementById('am-stock')?.value) || 0,
-      })
-      document.querySelector('.modal-overlay')?.remove()
-      showToast('✅ เพิ่ม ' + brand + ' ' + modelName + ' ใน Price List แล้ว', 'success')
-      renderPage()
+      try {
+        await createDoc('vehicle_models', {
+          brand,
+          model: modelName,
+          type:   document.getElementById('am-type')?.value || 'EV',
+          basePrice,
+          promotionPrice: promo > 0 ? promo : null,
+          range:   parseInt(document.getElementById('am-range')?.value) || 0,
+          battery: parseFloat(document.getElementById('am-bat')?.value) || 0,
+          power:   parseInt(document.getElementById('am-pwr')?.value) || 0,
+          color: '#3b82f6',
+          colors: colorsRaw ? colorsRaw.split(',').map(s=>s.trim()).filter(Boolean) : [],
+          active: true,
+          stock: parseInt(document.getElementById('am-stock')?.value) || 0,
+        })
+        document.querySelector('.modal-overlay')?.remove()
+        showToast('✅ เพิ่ม ' + brand + ' ' + modelName + ' ใน Price List แล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
@@ -260,11 +240,14 @@ export default async function PriceListPage(container) {
           <div class="input-group"><label class="input-label">ราคาโปรโมชั่น (0 = ไม่มีโปร)</label><input type="number" class="input" id="ep-promo" value="${m.promotionPrice||0}"></div>
         </div>
       `,
-      onConfirm() {
-        m.basePrice = +document.getElementById('ep-base')?.value || m.basePrice
+      async onConfirm() {
+        const basePrice = +document.getElementById('ep-base')?.value || m.basePrice
         const promo = +document.getElementById('ep-promo')?.value || 0
-        m.promotionPrice = promo > 0 ? promo : null
-        showToast(`✅ อัปเดตราคา ${m.model} แล้ว`, 'success'); renderPage()
+        try {
+          await updateDocData('vehicle_models', m.id, { basePrice, promotionPrice: promo > 0 ? promo : null })
+          showToast(`✅ อัปเดตราคา ${m.model} แล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -304,7 +287,7 @@ export default async function PriceListPage(container) {
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

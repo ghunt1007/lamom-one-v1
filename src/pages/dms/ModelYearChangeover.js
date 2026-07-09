@@ -5,41 +5,11 @@
 import { formatDate, formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
-
-const DEMO_CHANGEOVERS = [
-  {
-    model: 'BYD Atto 3',
-    oldYear: 2024, newYear: 2025,
-    announcedDate: '2026-06-01',
-    effectiveDate: '2026-08-01',
-    oldStockLeft: 3, oldPrice: 1099000, newPrice: 1149000,
-    changes: ['ระบบเสียง ซอฟต์แวร์ใหม่', 'สี Jade Green เพิ่ม', 'แบตฯ เพิ่ม 5 km range'],
-    status: 'announced',
-  },
-  {
-    model: 'BYD Dolphin',
-    oldYear: 2023, newYear: 2024,
-    announcedDate: '2026-04-10',
-    effectiveDate: '2026-06-01',
-    oldStockLeft: 0, oldPrice: 899000, newPrice: 899000,
-    changes: ['ปรับแต่ง Firmware OTA', 'เพิ่ม Warranty 1 ปี'],
-    status: 'active',
-  },
-  {
-    model: 'MG4 Electric',
-    oldYear: 2024, newYear: 2025,
-    announcedDate: '2026-07-01',
-    effectiveDate: '2026-09-01',
-    oldStockLeft: 5, oldPrice: 949000, newPrice: 979000,
-    changes: ['Power เพิ่ม 15kW', 'จอ 12.3" ใหม่', 'ระบบ AR HUD'],
-    status: 'upcoming',
-  },
-]
 
 const ST = {
   upcoming:  { label: 'กำลังจะมา', color: 'var(--text-muted)' },
@@ -49,31 +19,23 @@ const ST = {
 
 export default async function ModelYearChangeoverPage(container) {
   const myGen = container.__routerGen
-  let changeovers = [...DEMO_CHANGEOVERS].map(c => ({ ...c, changes: [...c.changes] }))
-  let dataSource = 'demo'
+  seedDemoData()
 
-  try {
-    const docs = await listDocs('model_year_changeovers', [], 'effectiveDate', 'desc', 50).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        model: d.model || '',
-        oldYear: d.oldYear || new Date().getFullYear() - 1,
-        newYear: d.newYear || new Date().getFullYear(),
-        announcedDate: d.announcedDate || '',
-        effectiveDate: d.effectiveDate || '',
-        oldStockLeft: d.oldStockLeft || 0,
-        oldPrice: d.oldPrice || 0,
-        newPrice: d.newPrice || 0,
-        changes: Array.isArray(d.changes) ? [...d.changes] : [],
-        status: d.status || 'upcoming',
-      }))
-      changeovers = [...mapped, ...DEMO_CHANGEOVERS]
-      dataSource = 'live'
-    }
-  } catch {}
+  let changeovers = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { changeovers = await listDocs('model_year_changeovers', [], 'effectiveDate', 'desc', 50) } catch (e) { changeovers = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const oldStockTotal = changeovers.reduce((s, c) => s + c.oldStockLeft, 0)
     const announced = changeovers.filter(c => c.status === 'announced')
 
@@ -82,7 +44,7 @@ export default async function ModelYearChangeoverPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🔄 Model Year Changeover</div>
-            <div class="page-subtitle">บริหารการเปลี่ยน MY · ระบายสต็อกเก่า · แจ้งลูกค้าและเซลส์${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">บริหารการเปลี่ยน MY · ระบายสต็อกเก่า · แจ้งลูกค้าและเซลส์</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="notify-btn">📣 แจ้งทีมขาย</button>
@@ -117,21 +79,24 @@ export default async function ModelYearChangeoverPage(container) {
           <div class="input-group"><label class="input-label">ราคาโปรโมชั่น (ลดจาก MY ใหม่)</label><input class="input" type="number" id="my-promo" value="${c.newPrice - 30000}"></div>
           <div class="input-group" style="margin-top:8px"><label class="input-label">แคมเปญ</label><input class="input" id="my-camp" value="Last Stock MY${c.oldYear} - ราคาพิเศษ"></div>`,
         confirmText: '🎁 สร้างแคมเปญระบาย',
-        onConfirm() {
+        async onConfirm() {
           const promo = parseInt(document.getElementById('my-promo').value) || c.oldPrice
           const camp = document.getElementById('my-camp')?.value.trim() || `Last Stock MY${c.oldYear}`
-          c.oldPrice = promo
-          c.campaign = camp
-          render()
-          showToast(`🎁 สร้างแคมเปญระบาย ${c.model} MY${c.oldYear} ที่ ${formatCurrency(promo)} (${c.oldStockLeft} คัน) แล้ว`, 'success')
+          try {
+            await updateDocData('model_year_changeovers', c.id, { oldPrice: promo, campaign: camp })
+            showToast(`🎁 สร้างแคมเปญระบาย ${c.model} MY${c.oldYear} ที่ ${formatCurrency(promo)} (${c.oldStockLeft} คัน) แล้ว`, 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     }))
-    document.getElementById('notify-btn')?.addEventListener('click', () => {
+    document.getElementById('notify-btn')?.addEventListener('click', async () => {
       const targets = changeovers.filter(c => c.status === 'announced' || c.status === 'upcoming')
-      targets.forEach(c => { c.notified = true })
-      render()
-      showToast(`📣 ส่งสรุป MY Changeover ${targets.length} รุ่น ให้ทีมขายและผู้จัดการทาง LINE แล้ว`, 'success')
+      try {
+        await Promise.all(targets.map(c => updateDocData('model_year_changeovers', c.id, { notified: true })))
+        showToast(`📣 ส่งสรุป MY Changeover ${targets.length} รุ่น ให้ทีมขายและผู้จัดการทาง LINE แล้ว`, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
@@ -173,5 +138,5 @@ export default async function ModelYearChangeoverPage(container) {
     return `<div class="card" style="padding:14px 16px"><div style="font-size:0.72rem;color:var(--text-muted)">${l}</div><div style="font-size:1.3rem;font-weight:900;color:${c};margin-top:2px">${v}</div></div>`
   }
 
-  render()
+  await loadData()
 }
