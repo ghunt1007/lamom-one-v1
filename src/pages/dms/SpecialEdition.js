@@ -5,36 +5,11 @@
 import { formatDate, formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
-
-const DEMO_EDITIONS = [
-  {
-    id: 'SE-001', name: 'BYD Seal Performance Edition', model: 'BYD Seal', totalAlloc: 3, arrived: 2,
-    price: 1899000, color: 'Midnight Black', launch: '2026-07-01',
-    units: [
-      { no: 1, vin: 'SEAL-PE-001', status: 'reserved', customer: 'คุณอนันต์', date: '2026-06-10' },
-      { no: 2, vin: 'SEAL-PE-002', status: 'available', customer: '', date: '' },
-      { no: 3, vin: '', status: 'incoming', customer: '', date: '', eta: '2026-06-20' },
-    ]
-  },
-  {
-    id: 'SE-002', name: 'BYD Han Dynasty Edition', model: 'BYD Han', totalAlloc: 2, arrived: 2,
-    price: 2299000, color: 'Dynasty Red',  launch: '2026-05-15',
-    units: [
-      { no: 1, vin: 'HAN-DY-001', status: 'delivered', customer: 'คุณมาลี', date: '2026-06-01' },
-      { no: 2, vin: 'HAN-DY-002', status: 'reserved', customer: 'คุณวีระ', date: '2026-06-08' },
-    ]
-  },
-  {
-    id: 'SE-003', name: 'MG4 XPOWER Limited', model: 'MG4 Electric', totalAlloc: 5, arrived: 0,
-    price: 1299000, color: 'Storm Grey', launch: '2026-08-15',
-    units: Array.from({length:5}, (_,i) => ({ no: i+1, vin: '', status: 'incoming', customer: '', date: '', eta: '2026-08-10' }))
-  },
-]
 
 const UST = {
   available: { label: 'ว่าง',     color: 'var(--success)' },
@@ -45,30 +20,23 @@ const UST = {
 
 export default async function SpecialEditionPage(container) {
   const myGen = container.__routerGen
-  let editions = DEMO_EDITIONS.map(e => ({ ...e, units: e.units.map(u => ({ ...u })) }))
-  let dataSource = 'demo'
+  seedDemoData()
 
-  try {
-    const docs = await listDocs('special_editions', [], 'launch', 'desc', 50).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `SE-${String(i+1).padStart(3,'0')}`,
-        name: d.name || '',
-        model: d.model || '',
-        totalAlloc: d.totalAlloc || 0,
-        arrived: d.arrived || 0,
-        price: d.price || 0,
-        color: d.color || '',
-        launch: d.launch || '',
-        units: Array.isArray(d.units) ? d.units.map(u => ({ ...u })) : [],
-      }))
-      editions = [...mapped, ...DEMO_EDITIONS]
-      dataSource = 'live'
-    }
-  } catch {}
+  let editions = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { editions = await listDocs('special_editions', [], 'launch', 'desc', 50) } catch (e) { editions = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const totalAvail = editions.reduce((s,e) => s + e.units.filter(u=>u.status==='available').length, 0)
     const totalRes = editions.reduce((s,e) => s + e.units.filter(u=>u.status==='reserved').length, 0)
 
@@ -77,7 +45,7 @@ export default async function SpecialEditionPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">⭐ Special Edition Allocation</div>
-            <div class="page-subtitle">จัดสรรรุ่นพิเศษ/Limited Edition ไม่ให้ซ้อนกัน${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">จัดสรรรุ่นพิเศษ/Limited Edition ไม่ให้ซ้อนกัน</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="add-btn">➕ เพิ่มรุ่นพิเศษ</button>
@@ -148,12 +116,15 @@ export default async function SpecialEditionPage(container) {
       size: 'sm',
       body: `<div class="input-group"><label class="input-label">ชื่อลูกค้า *</label><input class="input" id="se-cust"></div>`,
       confirmText: '✅ ยืนยันจอง',
-      onConfirm() {
+      async onConfirm() {
         const cust = document.getElementById('se-cust').value.trim()
         if (!cust) { showToast('❗ ระบุชื่อลูกค้า', 'error'); return false }
-        u.status = 'reserved'; u.customer = cust; u.date = new Date().toISOString().slice(0,10)
-        showToast(`จอง ${e.name} คันที่ ${no} ให้ ${cust} แล้ว`, 'success')
-        render()
+        const units = e.units.map(x => x.no === no ? { ...x, status: 'reserved', customer: cust, date: new Date().toISOString().slice(0,10) } : x)
+        try {
+          await updateDocData('special_editions', e.id, { units })
+          showToast(`จอง ${e.name} คันที่ ${no} ให้ ${cust} แล้ว`, 'success')
+          await loadData()
+        } catch (err) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -195,7 +166,7 @@ export default async function SpecialEditionPage(container) {
         </div>
       `
     })
-    document.getElementById('se-save')?.addEventListener('click', () => {
+    document.getElementById('se-save')?.addEventListener('click', async () => {
       const name  = document.getElementById('se-name')?.value.trim()
       const model = document.getElementById('se-model')?.value.trim()
       const alloc = parseInt(document.getElementById('se-alloc')?.value) || 0
@@ -204,21 +175,22 @@ export default async function SpecialEditionPage(container) {
         showToast('⚠️ กรุณากรอกข้อมูลที่จำเป็นให้ครบ', 'warning'); return
       }
       const eta = document.getElementById('se-eta')?.value || today
-      editions.push({
-        id: 'SE-' + String(editions.length + 1).padStart(3,'0'),
-        name, model,
-        totalAlloc: alloc,
-        arrived: 0,
-        price,
-        color: document.getElementById('se-color')?.value.trim() || '-',
-        launch: document.getElementById('se-launch')?.value || today,
-        units: Array.from({length: alloc}, (_, i) => ({
-          no: i + 1, vin: '', status: 'incoming', customer: '', date: '', eta
-        }))
-      })
-      document.querySelector('.modal-overlay')?.remove()
-      showToast('⭐ เพิ่ม ' + name + ' (' + alloc + ' คัน) แล้ว', 'success')
-      render()
+      try {
+        await createDoc('special_editions', {
+          name, model,
+          totalAlloc: alloc,
+          arrived: 0,
+          price,
+          color: document.getElementById('se-color')?.value.trim() || '-',
+          launch: document.getElementById('se-launch')?.value || today,
+          units: Array.from({length: alloc}, (_, i) => ({
+            no: i + 1, vin: '', status: 'incoming', customer: '', date: '', eta
+          }))
+        })
+        document.querySelector('.modal-overlay')?.remove()
+        showToast('⭐ เพิ่ม ' + name + ' (' + alloc + ' คัน) แล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
@@ -226,5 +198,5 @@ export default async function SpecialEditionPage(container) {
     return `<div class="card" style="padding:14px 16px"><div style="font-size:0.72rem;color:var(--text-muted)">${l}</div><div style="font-size:1.4rem;font-weight:900;color:${c};margin-top:2px">${v}</div></div>`
   }
 
-  render()
+  await loadData()
 }

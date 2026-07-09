@@ -2049,8 +2049,13 @@ export function seedDemoData() {
   ]
   testDrives.forEach(t => { if (!demoCol('test_drives')[t.id]) demoCol('test_drives')[t.id] = t })
 
+  const tdcAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
   const testDriveCerts = [
-    { id:'tdc1', certNo:'TDC-2025-001', custName:'นพดล สุขใส', idCard:'1234567890123', model:'BYD Seal AWD', vin:'LGXCE4C10PA000001', plate:'ทดสอบ', date:'2025-06-28', salesName:'อรนุช เซลส์ดี', issuedAt:'2025-06-28T10:00:00', status:'issued' },
+    { id:'TDC001', customer:'สมชาย ใจดี',    phone:'081-111-2222', model:'BYD Atto 3',  plate:'กข-1234 (ทดสอบ)', date:tdcAddDays(0),  time:'10:30', km:45.2, staff:'พนักงาน A', fuel:'100%', damage:'ไม่มี', signed:true  },
+    { id:'TDC002', customer:'นภา สุขใจ',      phone:'089-333-4444', model:'BYD Seal AWD',plate:'คง-5678 (ทดสอบ)', date:tdcAddDays(0),  time:'13:00', km:38.7, staff:'พนักงาน B', fuel:'95%',  damage:'ไม่มี', signed:true  },
+    { id:'TDC003', customer:'วิชัย ดีมาก',    phone:'076-555-6666', model:'BYD Han',     plate:'จฉ-9012 (ทดสอบ)', date:tdcAddDays(-1), time:'11:15', km:52.1, staff:'พนักงาน A', fuel:'90%',  damage:'ไม่มี', signed:true  },
+    { id:'TDC004', customer:'มาลี รุ่งเรือง', phone:'095-777-8888', model:'MG ZS EV',    plate:'ชซ-3456 (ทดสอบ)', date:tdcAddDays(-1), time:'14:30', km:41.0, staff:'พนักงาน C', fuel:'98%',  damage:'ไม่มี', signed:false },
+    { id:'TDC005', customer:'อรุณ วิชิต',     phone:'081-999-0000', model:'BYD Dolphin', plate:'ฌญ-7890 (ทดสอบ)', date:tdcAddDays(-2), time:'09:45', km:29.5, staff:'พนักงาน B', fuel:'100%', damage:'ไม่มี', signed:true  },
   ]
   testDriveCerts.forEach(c => { if (!demoCol('test_drive_certs')[c.id]) demoCol('test_drive_certs')[c.id] = c })
 
@@ -2066,7 +2071,13 @@ export function seedDemoData() {
   vehicleReceiving.forEach(v => { if (!demoCol('vehicle_receiving')[v.id]) demoCol('vehicle_receiving')[v.id] = v })
 
   const stockAudit = [
-    { id:'sa1', auditNo:'AUD-001', date:'2025-06-01', auditor:'ผู้จัดการคลัง', totalStock:12, counted:12, discrepancies:0, status:'completed', notes:'ตรวจนับครบทุกคัน', createdAt:'2025-06-01' },
+    { id: 'SA01', model: 'BYD Dolphin สีน้ำเงิน', vin: '...1122', systemLoc: 'โชว์รูม', foundLoc: null, checked: false },
+    { id: 'SA02', model: 'BYD Atto 3 สีขาว', vin: '...3344', systemLoc: 'โชว์รูม', foundLoc: null, checked: false },
+    { id: 'SA03', model: 'BYD Seal AWD สีดำ', vin: '...5566', systemLoc: 'ลานหลัง A', foundLoc: null, checked: false },
+    { id: 'SA04', model: 'MG4 Electric สีแดง', vin: '...7788', systemLoc: 'ลานหลัง A', foundLoc: null, checked: false },
+    { id: 'SA05', model: 'BYD Han สีขาว', vin: '...9900', systemLoc: 'ลานหลัง B', foundLoc: null, checked: false },
+    { id: 'SA06', model: 'BYD Dolphin สีเทา', vin: '...2233', systemLoc: 'ลานหลัง B', foundLoc: null, checked: false },
+    { id: 'SA07', model: 'BYD Atto 3 Pro สีเงิน', vin: '...4455', systemLoc: 'ศูนย์บริการ', foundLoc: null, checked: false },
   ]
   stockAudit.forEach(s => { if (!demoCol('stock_audit')[s.id]) demoCol('stock_audit')[s.id] = s })
 
@@ -2107,7 +2118,28 @@ export function seedDemoData() {
   modelConfigs.forEach(m => { if (!demoCol('model_configs')[m.id]) demoCol('model_configs')[m.id] = m })
 
   const specialEditions = [
-    { id:'se1', name:'BYD Seal Limited Edition 2025', model:'Seal', variant:'AWD Premium SE', description:'Edition พิเศษ ตกแต่งภายนอกสีพิเศษ + ชุดแต่งครบ', limitedQty:50, price:1399000, status:'available', launchDate:'2025-07-01', createdAt:'2025-06-01' },
+    {
+      id: 'SE-001', name: 'BYD Seal Performance Edition', model: 'BYD Seal', totalAlloc: 3, arrived: 2,
+      price: 1899000, color: 'Midnight Black', launch: '2026-07-01',
+      units: [
+        { no: 1, vin: 'SEAL-PE-001', status: 'reserved', customer: 'คุณอนันต์', date: '2026-06-10' },
+        { no: 2, vin: 'SEAL-PE-002', status: 'available', customer: '', date: '' },
+        { no: 3, vin: '', status: 'incoming', customer: '', date: '', eta: '2026-06-20' },
+      ]
+    },
+    {
+      id: 'SE-002', name: 'BYD Han Dynasty Edition', model: 'BYD Han', totalAlloc: 2, arrived: 2,
+      price: 2299000, color: 'Dynasty Red', launch: '2026-05-15',
+      units: [
+        { no: 1, vin: 'HAN-DY-001', status: 'delivered', customer: 'คุณมาลี', date: '2026-06-01' },
+        { no: 2, vin: 'HAN-DY-002', status: 'reserved', customer: 'คุณวีระ', date: '2026-06-08' },
+      ]
+    },
+    {
+      id: 'SE-003', name: 'MG4 XPOWER Limited', model: 'MG4 Electric', totalAlloc: 5, arrived: 0,
+      price: 1299000, color: 'Storm Grey', launch: '2026-08-15',
+      units: Array.from({ length: 5 }, (_, i) => ({ no: i + 1, vin: '', status: 'incoming', customer: '', date: '', eta: '2026-08-10' }))
+    },
   ]
   specialEditions.forEach(s => { if (!demoCol('special_editions')[s.id]) demoCol('special_editions')[s.id] = s })
 

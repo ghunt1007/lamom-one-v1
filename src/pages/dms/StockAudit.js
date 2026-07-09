@@ -5,7 +5,7 @@
 import { formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
 
@@ -15,42 +15,28 @@ function escHtml(s) {
 
 const LOCATIONS = ['โชว์รูม', 'ลานหลัง A', 'ลานหลัง B', 'ศูนย์บริการ', 'อื่นๆ']
 
-const DEMO_STOCK = [
-  { id: 'SA01', model: 'BYD Dolphin สีน้ำเงิน', vin: '...1122', systemLoc: 'โชว์รูม', foundLoc: null, checked: false },
-  { id: 'SA02', model: 'BYD Atto 3 สีขาว', vin: '...3344', systemLoc: 'โชว์รูม', foundLoc: null, checked: false },
-  { id: 'SA03', model: 'BYD Seal AWD สีดำ', vin: '...5566', systemLoc: 'ลานหลัง A', foundLoc: null, checked: false },
-  { id: 'SA04', model: 'MG4 Electric สีแดง', vin: '...7788', systemLoc: 'ลานหลัง A', foundLoc: null, checked: false },
-  { id: 'SA05', model: 'BYD Han สีขาว', vin: '...9900', systemLoc: 'ลานหลัง B', foundLoc: null, checked: false },
-  { id: 'SA06', model: 'BYD Dolphin สีเทา', vin: '...2233', systemLoc: 'ลานหลัง B', foundLoc: null, checked: false },
-  { id: 'SA07', model: 'BYD Atto 3 Pro สีเงิน', vin: '...4455', systemLoc: 'ศูนย์บริการ', foundLoc: null, checked: false },
-]
-
 const LAST_AUDIT = { date: addDays(-30), result: 'ครบ 100% (ผิดตำแหน่ง 1 คัน)' }
 
 export default async function StockAuditPage(container) {
   const myGen = container.__routerGen
-  let stock = DEMO_STOCK.map(s => ({ ...s }))
-  let auditStarted = false
-  let dataSource = 'demo'
+  seedDemoData()
 
-  try {
-    const docs = await listDocs('stock_audit', [], 'model', 'asc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `SA${String(i+1).padStart(2,'0')}`,
-        model: d.model || '',
-        vin: d.vin || '',
-        systemLoc: d.systemLoc || d.location || '',
-        foundLoc: d.foundLoc || null,
-        checked: d.checked || false,
-      }))
-      stock = [...mapped, ...DEMO_STOCK]
-      dataSource = 'live'
-    }
-  } catch {}
+  let stock = []
+  let auditStarted = false
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { stock = await listDocs('stock_audit', [], 'model', 'asc', 200) } catch (e) { stock = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const checked = stock.filter(s => s.checked)
     const pct = Math.round(checked.length / stock.length * 100)
     const mismatched = checked.filter(s => s.foundLoc && s.foundLoc !== s.systemLoc)
@@ -62,7 +48,7 @@ export default async function StockAuditPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">📋 Stock Audit</div>
-            <div class="page-subtitle">ตรวจนับรถจริง vs ระบบ — ทำทุกเดือน${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">ตรวจนับรถจริง vs ระบบ — ทำทุกเดือน</div>
           </div>
           <div class="page-actions">
             ${!auditStarted ? `<button class="btn btn-primary" id="start-btn">▶️ เริ่มตรวจนับรอบใหม่</button>` :
@@ -123,22 +109,33 @@ export default async function StockAuditPage(container) {
     `
 
     document.getElementById('start-btn')?.addEventListener('click', () => { auditStarted = true; showToast('▶️ เริ่มตรวจนับ — เดินเช็คทีละคัน', 'primary'); renderPage() })
-    document.getElementById('finish-btn')?.addEventListener('click', () => {
-      showToast(`✅ ปิดรอบ — ครบ ${stock.length - missing.length}/${stock.length} คัน${mismatched.length > 0 ? ' อัปเดตตำแหน่ง ' + mismatched.length + ' คัน' : ''} — บันทึกรายงาน`, 'success')
-      auditStarted = false
-      stock.forEach(s => { if (s.foundLoc && s.foundLoc !== 'ไม่พบ!') s.systemLoc = s.foundLoc; s.checked = false; s.foundLoc = null })
-      renderPage()
+    document.getElementById('finish-btn')?.addEventListener('click', async () => {
+      try {
+        await Promise.all(stock.map(s => updateDocData('stock_audit', s.id, {
+          systemLoc: (s.foundLoc && s.foundLoc !== 'ไม่พบ!') ? s.foundLoc : s.systemLoc,
+          checked: false,
+          foundLoc: null,
+        })))
+        showToast(`✅ ปิดรอบ — ครบ ${stock.length - missing.length}/${stock.length} คัน${mismatched.length > 0 ? ' อัปเดตตำแหน่ง ' + mismatched.length + ' คัน' : ''} — บันทึกรายงาน`, 'success')
+        auditStarted = false
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
-    container.querySelectorAll('.found-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.found-btn').forEach(b => b.addEventListener('click', async () => {
       const s = stock.find(x => x.id === b.dataset.id)
-      if (s) { s.checked = true; s.foundLoc = b.dataset.loc; renderPage() }
+      if (!s) return
+      try { await updateDocData('stock_audit', s.id, { checked: true, foundLoc: b.dataset.loc }); await loadData() }
+      catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.recheck-btn').forEach(b => b.addEventListener('click', () => {
-      const s = stock.find(x => x.id === b.dataset.id); if (s) { s.checked = false; s.foundLoc = null; renderPage() }
+    container.querySelectorAll('.recheck-btn').forEach(b => b.addEventListener('click', async () => {
+      const s = stock.find(x => x.id === b.dataset.id)
+      if (!s) return
+      try { await updateDocData('stock_audit', s.id, { checked: false, foundLoc: null }); await loadData() }
+      catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

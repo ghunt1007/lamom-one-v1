@@ -5,51 +5,33 @@
 import { formatDate, formatDateTime } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-const DEMO_CERTS = [
-  { id:'TDC001', customer:'สมชาย ใจดี',    phone:'081-111-2222', model:'BYD Atto 3',  plate:'กข-1234 (ทดสอบ)', date:'2026-06-14', time:'10:30', km:45.2, staff:'พนักงาน A', fuel:'100%', damage:'ไม่มี', signed:true  },
-  { id:'TDC002', customer:'นภา สุขใจ',      phone:'089-333-4444', model:'BYD Seal AWD',plate:'คง-5678 (ทดสอบ)', date:'2026-06-14', time:'13:00', km:38.7, staff:'พนักงาน B', fuel:'95%',  damage:'ไม่มี', signed:true  },
-  { id:'TDC003', customer:'วิชัย ดีมาก',    phone:'076-555-6666', model:'BYD Han',     plate:'จฉ-9012 (ทดสอบ)', date:'2026-06-13', time:'11:15', km:52.1, staff:'พนักงาน A', fuel:'90%',  damage:'ไม่มี', signed:true  },
-  { id:'TDC004', customer:'มาลี รุ่งเรือง', phone:'095-777-8888', model:'MG ZS EV',    plate:'ชซ-3456 (ทดสอบ)', date:'2026-06-13', time:'14:30', km:41.0, staff:'พนักงาน C', fuel:'98%',  damage:'ไม่มี', signed:false },
-  { id:'TDC005', customer:'อรุณ วิชิต',     phone:'081-999-0000', model:'BYD Dolphin', plate:'ฌญ-7890 (ทดสอบ)', date:'2026-06-12', time:'09:45', km:29.5, staff:'พนักงาน B', fuel:'100%', damage:'ไม่มี', signed:true  },
-]
-
 export default async function TdCertPage(container) {
   const myGen = container.__routerGen
-  let certs = DEMO_CERTS.map(c => ({ ...c }))
-  let dataSource = 'demo'
+  seedDemoData()
 
-  try {
-    const docs = await listDocs('test_drive_certs', [], 'date', 'desc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `TDC${String(i+1).padStart(3,'0')}`,
-        customer: d.customer || '',
-        phone: d.phone || '',
-        model: d.model || '',
-        plate: d.plate || '',
-        date: d.date || '',
-        time: d.time || '',
-        km: d.km || 0,
-        staff: d.staff || '',
-        fuel: d.fuel || '100%',
-        damage: d.damage || 'ไม่มี',
-        signed: d.signed !== undefined ? d.signed : false,
-      }))
-      certs = [...mapped, ...DEMO_CERTS]
-      dataSource = 'live'
-    }
-  } catch {}
+  let certs = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { certs = await listDocs('test_drive_certs', [], 'date', 'desc', 200) } catch (e) { certs = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   let selDate = ''
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const rows = selDate ? certs.filter(c => c.date === selDate) : certs
     const signed   = certs.filter(c => c.signed).length
     const unsigned = certs.filter(c => !c.signed).length
@@ -59,7 +41,7 @@ export default async function TdCertPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">📋 Test Drive Certificate</div>
-            <div class="page-subtitle">ใบรับรองการทดลองขับ · บันทึกก่อน-หลัง · ${certs.length} ใบ${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">ใบรับรองการทดลองขับ · บันทึกก่อน-หลัง · ${certs.length} ใบ</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="print-all-btn">🖨 พิมพ์ทั้งหมด</button>
@@ -71,7 +53,7 @@ export default async function TdCertPage(container) {
           ${sc('📋 ทั้งหมด', certs.length+' ใบ', 'var(--primary)')}
           ${sc('✅ เซ็นแล้ว', signed+' ใบ', 'var(--success)')}
           ${sc('⏳ รอเซ็น', unsigned+' ใบ', 'var(--warning)')}
-          ${sc('🚗 วันนี้', certs.filter(c=>c.date==='2026-06-14').length+' ใบ', 'var(--text)')}
+          ${sc('🚗 วันนี้', certs.filter(c=>c.date===new Date().toISOString().slice(0,10)).length+' ใบ', 'var(--text)')}
         </div>
 
         <div style="display:flex;gap:8px;margin-bottom:14px">
@@ -126,10 +108,15 @@ export default async function TdCertPage(container) {
       showToast(`🖨 พิมพ์ใบรับรอง ${printRows.length} รายการแล้ว`, 'success')
     })
     document.getElementById('new-cert-btn')?.addEventListener('click', () => openNewModal())
-    container.querySelectorAll('.sign-btn').forEach(b => b.addEventListener('click', e => {
+    container.querySelectorAll('.sign-btn').forEach(b => b.addEventListener('click', async e => {
       e.stopPropagation()
       const c = certs.find(x=>x.id===b.dataset.id)
-      if(c){ c.signed=true; render(); showToast('✅ บันทึกลายเซ็นแล้ว','success') }
+      if (!c) return
+      try {
+        await updateDocData('test_drive_certs', c.id, { signed: true })
+        showToast('✅ บันทึกลายเซ็นแล้ว','success')
+        await loadData()
+      } catch (err) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.print-btn').forEach(b => b.addEventListener('click', e => {
       e.stopPropagation()
@@ -160,10 +147,12 @@ export default async function TdCertPage(container) {
         </div>
       </div>`,
       confirmText:'🖨 พิมพ์ / ยืนยันเซ็น',
-      onConfirm(){
-        c.signed = true
-        render()
-        showToast(`🖨 พิมพ์ใบ ${c.id} — ${c.customer} (${c.model}) เซ็นรับแล้ว`, 'success')
+      async onConfirm(){
+        try {
+          await updateDocData('test_drive_certs', c.id, { signed: true })
+          showToast(`🖨 พิมพ์ใบ ${c.id} — ${c.customer} (${c.model}) เซ็นรับแล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -181,7 +170,7 @@ export default async function TdCertPage(container) {
             <option>BYD Atto 3</option><option>BYD Seal AWD</option><option>BYD Han</option><option>BYD Dolphin</option><option>MG ZS EV</option>
           </select></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <div><label style="font-size:0.72rem;color:var(--text-muted)">วันที่</label><input class="input" id="td-date" type="date" value="2026-06-14" style="width:100%;margin-top:3px"></div>
+          <div><label style="font-size:0.72rem;color:var(--text-muted)">วันที่</label><input class="input" id="td-date" type="date" value="${new Date().toISOString().slice(0,10)}" style="width:100%;margin-top:3px"></div>
           <div><label style="font-size:0.72rem;color:var(--text-muted)">เวลา</label><input class="input" id="td-time" type="time" value="10:00" style="width:100%;margin-top:3px"></div>
         </div>
         <div><label style="font-size:0.72rem;color:var(--text-muted)">พนักงานดูแล</label>
@@ -190,19 +179,21 @@ export default async function TdCertPage(container) {
           </select></div>
       </div>`,
       confirmText:'📋 สร้างใบ',
-      onConfirm(){
+      async onConfirm(){
         const name = document.getElementById('td-name')?.value?.trim()
         if(!name){ showToast('ใส่ชื่อลูกค้า','warning'); return false }
-        certs.unshift({
-          id:'TDC'+Date.now().toString().slice(-4),
-          customer:name, phone:document.getElementById('td-phone')?.value||'-',
-          model:document.getElementById('td-model')?.value||'BYD Atto 3',
-          plate:'รอกำหนด', date:document.getElementById('td-date')?.value||'2026-06-14',
-          time:document.getElementById('td-time')?.value||'10:00', km:0,
-          staff:document.getElementById('td-staff')?.value||'พนักงาน A',
-          fuel:'100%', damage:'ไม่มี', signed:false
-        })
-        render(); showToast('📋 สร้างใบรับรองทดลองขับแล้ว','success')
+        try {
+          await createDoc('test_drive_certs', {
+            customer:name, phone:document.getElementById('td-phone')?.value||'-',
+            model:document.getElementById('td-model')?.value||'BYD Atto 3',
+            plate:'รอกำหนด', date:document.getElementById('td-date')?.value||new Date().toISOString().slice(0,10),
+            time:document.getElementById('td-time')?.value||'10:00', km:0,
+            staff:document.getElementById('td-staff')?.value||'พนักงาน A',
+            fuel:'100%', damage:'ไม่มี', signed:false
+          })
+          showToast('📋 สร้างใบรับรองทดลองขับแล้ว','success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -214,5 +205,5 @@ export default async function TdCertPage(container) {
     </div>`
   }
 
-  render()
+  await loadData()
 }
