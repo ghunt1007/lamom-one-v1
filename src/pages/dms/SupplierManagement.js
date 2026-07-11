@@ -2,7 +2,7 @@ import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -33,71 +33,31 @@ const PO_STATUS = {
   cancelled: { label: 'ยกเลิก', color: 'danger' },
 }
 
-const DEMO_SUPPLIERS = [
-  { id: 'S001', name: 'บริษัท อะไหล่ยนต์ ไทย จำกัด', shortName: 'ATJ', category: 'parts',
-    contact: 'คุณสมชาย ใจดี', phone: '02-234-5678', email: 'somchai@atj.co.th', address: 'กรุงเทพฯ',
-    taxId: '1234567890123', paymentTerms: 30, creditLimit: 500000, status: 'active',
-    rating: 4.5, totalPO: 45, totalAmount: 1850000, notes: '' },
-  { id: 'S002', name: 'บริษัท ยางไทย กู๊ดเยียร์ จำกัด', shortName: 'TGY', category: 'tires',
-    contact: 'คุณวิไล รักงาน', phone: '02-345-6789', email: 'wilai@tgy.co.th', address: 'นนทบุรี',
-    taxId: '2345678901234', paymentTerms: 45, creditLimit: 300000, status: 'active',
-    rating: 4.2, totalPO: 28, totalAmount: 720000, notes: '' },
-  { id: 'S003', name: 'บริษัท น้ำมัน และ ไขข้อ จำกัด', shortName: 'NOI', category: 'lubricant',
-    contact: 'คุณประยุทธ์ ขยัน', phone: '02-456-7890', email: 'prayuth@noi.co.th', address: 'สมุทรปราการ',
-    taxId: '3456789012345', paymentTerms: 30, creditLimit: 200000, status: 'active',
-    rating: 3.8, totalPO: 60, totalAmount: 420000, notes: 'ส่งทุกวันจันทร์' },
-  { id: 'S004', name: 'บริษัท แบตเตอรี่ EV ยุคใหม่ จำกัด', shortName: 'BEV', category: 'battery',
-    contact: 'คุณสุภาพร ฉลาด', phone: '02-567-8901', email: 'supaporn@bev.co.th', address: 'บางนา',
-    taxId: '4567890123456', paymentTerms: 60, creditLimit: 1000000, status: 'active',
-    rating: 4.8, totalPO: 12, totalAmount: 3200000, notes: 'เฉพาะรถ EV' },
-  { id: 'S005', name: 'ห้างหุ้นส่วน อุปกรณ์เก่า', shortName: 'OLD', category: 'other',
-    contact: 'คุณมาลี เก่า', phone: '02-678-9012', email: '', address: 'ลาดพร้าว',
-    taxId: '5678901234567', paymentTerms: 15, creditLimit: 50000, status: 'blacklist',
-    rating: 1.5, totalPO: 3, totalAmount: 28000, notes: 'ของไม่ได้คุณภาพ สินค้าไม่ตรงปก' },
-]
-
-const DEMO_POS = [
-  { id: 'PO001', supplierId: 'S001', supplierName: 'บริษัท อะไหล่ยนต์ ไทย จำกัด', date: '2025-06-01', expectedDate: '2025-06-08', status: 'received', items: [{ name: 'ผ้าเบรก BYD Seal (คู่หน้า)', qty: 10, unit: 'ชุด', price: 1200 }, { name: 'กรองอากาศ BYD', qty: 20, unit: 'ชิ้น', price: 350 }], total: 19000, notes: 'รับของครบ' },
-  { id: 'PO002', supplierId: 'S002', supplierName: 'บริษัท ยางไทย กู๊ดเยียร์ จำกัด', date: '2025-06-05', expectedDate: '2025-06-12', status: 'confirmed', items: [{ name: 'ยาง 205/55R16', qty: 16, unit: 'เส้น', price: 2800 }], total: 44800, notes: '' },
-  { id: 'PO003', supplierId: 'S003', supplierName: 'บริษัท น้ำมัน และ ไขข้อ จำกัด', date: '2025-06-08', expectedDate: '2025-06-09', status: 'pending', items: [{ name: 'น้ำมันเครื่อง 5W-30 (4L)', qty: 30, unit: 'ขวด', price: 450 }], total: 13500, notes: 'ด่วน' },
-]
-
 export default async function SupplierManagementPage(container) {
   const myGen = container.__routerGen
+  seedDemoData()
+
   let tab = 'suppliers'
   let catFilter = 'all'
   let statusFilter = 'all'
   let searchQ = ''
-  let suppliers = DEMO_SUPPLIERS.map(s => ({ ...s }))
-  let pos = DEMO_POS.map(p => ({ ...p, items: p.items.map(i => ({ ...i })) }))
-  let dataSource = 'demo'
+  let suppliers = []
+  let pos = []
+  let loading = true
 
-  try {
-    const docs = await listDocs('suppliers', [], 'name', 'asc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `S${String(i+1).padStart(3,'0')}`,
-        name: d.name || d.supplierName || 'ซัพพลายเออร์',
-        shortName: d.shortName || d.name?.slice(0,3).toUpperCase() || 'SUP',
-        category: d.category || 'other',
-        contact: d.contact || d.contactName || '',
-        phone: d.phone || '',
-        email: d.email || '',
-        address: d.address || '',
-        taxId: d.taxId || '',
-        paymentTerms: d.paymentTerms || 30,
-        creditLimit: d.creditLimit || 0,
-        status: d.status || 'active',
-        rating: d.rating || 3,
-        totalPO: d.totalPO || 0,
-        totalAmount: d.totalAmount || 0,
-        notes: d.notes || '',
-      }))
-      suppliers = [...mapped, ...DEMO_SUPPLIERS]
-      dataSource = 'live'
-    }
-  } catch {}
+  async function loadData() {
+    loading = true
+    try {
+      const [s, p] = await Promise.all([
+        listDocs('suppliers', [], 'name', 'asc', 200),
+        listDocs('supplier_pos', [], 'date', 'desc', 200),
+      ])
+      suppliers = s
+      pos = p
+    } catch (e) { suppliers = []; pos = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function filtered() {
     return suppliers.filter(s => {
@@ -109,6 +69,10 @@ export default async function SupplierManagementPage(container) {
   }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = filtered()
     const totalSuppliers = suppliers.filter(s => s.status === 'active').length
     const totalSpend = suppliers.reduce((a, s) => a + s.totalAmount, 0)
@@ -120,7 +84,7 @@ export default async function SupplierManagementPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🤝 Supplier Management</div>
-            <div class="page-subtitle">จัดการซัพพลายเออร์และใบสั่งซื้อ${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">จัดการซัพพลายเออร์และใบสั่งซื้อ</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="export-btn">📥 Export</button>
@@ -155,12 +119,14 @@ export default async function SupplierManagementPage(container) {
     document.querySelectorAll('.open-s-btn').forEach(b => b.addEventListener('click', () => { const s = suppliers.find(x => x.id === b.dataset.id); if (s) openSupplierDetail(s) }))
     document.querySelectorAll('.edit-s-btn').forEach(b => b.addEventListener('click', () => { const s = suppliers.find(x => x.id === b.dataset.id); if (s) openSupplierForm(s) }))
     document.querySelectorAll('.open-po-btn').forEach(b => b.addEventListener('click', () => { const p = pos.find(x => x.id === b.dataset.id); if (p) openPODetail(p) }))
-    document.querySelectorAll('.po-status-btn').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('.po-status-btn').forEach(b => b.addEventListener('click', async () => {
       const p = pos.find(x => x.id === b.dataset.id)
       if (!p) return
-      p.status = b.dataset.status
-      showToast(`✅ อัปเดต PO ${p.id} แล้ว`, 'success')
-      renderPage()
+      try {
+        await updateDocData('supplier_pos', p.id, { status: b.dataset.status })
+        showToast(`✅ อัปเดต PO ${p.id} แล้ว`, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
   }
 
@@ -333,17 +299,20 @@ export default async function SupplierManagementPage(container) {
         <div class="input-group" style="grid-column:1/-1"><label class="input-label">ที่อยู่</label><input class="input" id="sf-addr" value="${escHtml(s?.address||'')}"></div>
         <div class="input-group" style="grid-column:1/-1"><label class="input-label">หมายเหตุ</label><input class="input" id="sf-notes" value="${escHtml(s?.notes||'')}"></div>
       </div>`,
-      onConfirm() {
+      async onConfirm() {
         const name = document.getElementById('sf-name')?.value?.trim()
-        if (!name) { showToast('❗ กรุณากรอกชื่อบริษัท', 'error'); return }
-        if (s) {
-          Object.assign(s, { name, shortName: document.getElementById('sf-short').value, category: document.getElementById('sf-cat').value, contact: document.getElementById('sf-contact').value, phone: document.getElementById('sf-phone').value, email: document.getElementById('sf-email').value, taxId: document.getElementById('sf-tax').value, paymentTerms: +document.getElementById('sf-terms').value, creditLimit: +document.getElementById('sf-credit').value, address: document.getElementById('sf-addr').value, notes: document.getElementById('sf-notes').value })
-          showToast('✅ แก้ไขซัพพลายเออร์แล้ว', 'success')
-        } else {
-          suppliers.unshift({ id: `S${String(suppliers.length+1).padStart(3,'0')}`, name, shortName: document.getElementById('sf-short').value, category: document.getElementById('sf-cat').value, contact: document.getElementById('sf-contact').value, phone: document.getElementById('sf-phone').value, email: document.getElementById('sf-email').value, taxId: document.getElementById('sf-tax').value, paymentTerms: +document.getElementById('sf-terms').value, creditLimit: +document.getElementById('sf-credit').value, address: document.getElementById('sf-addr').value, notes: document.getElementById('sf-notes').value, status: 'active', rating: 5.0, totalPO: 0, totalAmount: 0 })
-          showToast('✅ เพิ่มซัพพลายเออร์แล้ว', 'success')
-        }
-        renderPage()
+        if (!name) { showToast('❗ กรุณากรอกชื่อบริษัท', 'error'); return false }
+        const fields = { name, shortName: document.getElementById('sf-short').value, category: document.getElementById('sf-cat').value, contact: document.getElementById('sf-contact').value, phone: document.getElementById('sf-phone').value, email: document.getElementById('sf-email').value, taxId: document.getElementById('sf-tax').value, paymentTerms: +document.getElementById('sf-terms').value, creditLimit: +document.getElementById('sf-credit').value, address: document.getElementById('sf-addr').value, notes: document.getElementById('sf-notes').value }
+        try {
+          if (s) {
+            await updateDocData('suppliers', s.id, fields)
+            showToast('✅ แก้ไขซัพพลายเออร์แล้ว', 'success')
+          } else {
+            await createDoc('suppliers', { ...fields, status: 'active', rating: 5.0, totalPO: 0, totalAmount: 0 })
+            showToast('✅ เพิ่มซัพพลายเออร์แล้ว', 'success')
+          }
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -396,24 +365,26 @@ export default async function SupplierManagementPage(container) {
         </div>
         <div class="input-group"><label class="input-label">หมายเหตุ</label><input class="input" id="po-notes" placeholder="หมายเหตุ..."></div>
       </div>`,
-      onConfirm() {
+      async onConfirm() {
         const supId = document.getElementById('po-supplier')?.value
         const sup = suppliers.find(x => x.id === supId)
         const itemName = document.getElementById('po-item-name')?.value?.trim()
         const qty = +document.getElementById('po-qty')?.value || 1
         const price = +document.getElementById('po-price')?.value || 0
-        if (!itemName) { showToast('❗ กรุณากรอกรายการสินค้า', 'error'); return }
-        pos.unshift({ id: `PO${String(pos.length+1).padStart(3,'0')}`, supplierId: supId, supplierName: sup?.name || '', date: new Date().toISOString().slice(0,10), expectedDate: document.getElementById('po-exp')?.value, status: 'pending', items: [{ name: itemName, qty, unit: document.getElementById('po-unit')?.value||'ชิ้น', price }], total: qty * price, notes: document.getElementById('po-notes')?.value||'' })
-        showToast('📋 สร้าง PO แล้ว!', 'success')
-        tab = 'po'
-        renderPage()
+        if (!itemName) { showToast('❗ กรุณากรอกรายการสินค้า', 'error'); return false }
+        try {
+          await createDoc('supplier_pos', { supplierId: supId, supplierName: sup?.name || '', date: new Date().toISOString().slice(0,10), expectedDate: document.getElementById('po-exp')?.value, status: 'pending', items: [{ name: itemName, qty, unit: document.getElementById('po-unit')?.value||'ชิ้น', price }], total: qty * price, notes: document.getElementById('po-notes')?.value||'' })
+          showToast('📋 สร้าง PO แล้ว!', 'success')
+          tab = 'po'
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
   function addDays(d, n) { const dt = new Date(d); dt.setDate(dt.getDate()+n); return dt }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(title, value, color) {

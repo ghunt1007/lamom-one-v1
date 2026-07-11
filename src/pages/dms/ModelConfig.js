@@ -4,68 +4,23 @@
  */
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
-const DEMO_MODELS_CFG = [
-  {
-    id:'MC001', brand:'BYD', model:'Atto 3', variants:[
-      { name:'Standard Range', battery:'49.92 kWh', range:'345 km', price:1099900, active:false },
-      { name:'Extended Range', battery:'60.48 kWh', range:'420 km', price:1199900, active:true  },
-    ],
-    options:['NFC Key Card','Solar Roof','Premium Sound System (Dynaudio)','Wireless Charger'],
-    colors:['Arctic Blue','Cosmos Black','Ski White','Flame Red'],
-  },
-  {
-    id:'MC002', brand:'BYD', model:'Seal AWD', variants:[
-      { name:'Dynamic AWD',   battery:'82.56 kWh', range:'520 km', price:1799900, active:false },
-      { name:'Performance',   battery:'82.56 kWh', range:'510 km', price:1999900, active:true  },
-    ],
-    options:['Carbon Fiber Trim','ADAS Pro Pack','Head-Up Display','Air Suspension'],
-    colors:['Cosmos Black','Aurora Silver','Jade Green'],
-  },
-  {
-    id:'MC003', brand:'BYD', model:'Dolphin', variants:[
-      { name:'Standard',  battery:'44.9 kWh', range:'340 km', price:699900,  active:false },
-      { name:'Boost',     battery:'44.9 kWh', range:'340 km', price:799900,  active:true  },
-    ],
-    options:['Apple CarPlay','Android Auto','Dash Cam','EV Charger Cable Type 2'],
-    colors:['Pearl White','Ocean Blue','Sakura Pink'],
-  },
-  {
-    id:'MC004', brand:'MG', model:'ZS EV', variants:[
-      { name:'Luxury',       battery:'50.3 kWh', range:'357 km', price:899900,  active:false },
-      { name:'Luxury Plus',  battery:'50.3 kWh', range:'357 km', price:999900,  active:true  },
-    ],
-    options:['MG iSmart App','360 Camera','Panoramic Sunroof','Premium Leather'],
-    colors:['Pearl White','Passion Red','Sterling Grey'],
-  },
-]
-
 export default async function ModelConfigPage(container) {
   const myGen = container.__routerGen
-  let modelsCfg = DEMO_MODELS_CFG.map(m => ({ ...m, variants: m.variants.map(v => ({ ...v })), options: [...m.options], colors: [...m.colors] }))
-  let dataSource = 'demo'
+  seedDemoData()
 
-  try {
-    const docs = await listDocs('model_configs', [], 'model', 'asc', 50).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `MC${String(i+1).padStart(3,'0')}`,
-        brand: d.brand || '',
-        model: d.model || '',
-        variants: Array.isArray(d.variants) && d.variants.length ? d.variants.map(v => ({ ...v })) : [{
-          name: d.variant || 'Standard', battery: d.batteryWarranty || '-', range: d.range ? d.range + ' km' : '-', price: d.basePrice || 0, active: true,
-        }],
-        options: Array.isArray(d.options) ? [...d.options] : (Array.isArray(d.accessories) ? [...d.accessories] : []),
-        colors: Array.isArray(d.colors) ? [...d.colors] : [],
-      }))
-      modelsCfg = [...mapped, ...DEMO_MODELS_CFG]
-      dataSource = 'live'
-    }
-  } catch {}
+  let modelsCfg = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { modelsCfg = await listDocs('model_configs', [], 'model', 'asc', 50) } catch (e) { modelsCfg = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   let selModelId = null
 
@@ -116,6 +71,10 @@ export default async function ModelConfigPage(container) {
   }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const totalVariants = modelsCfg.reduce((s,m)=>s+m.variants.length,0)
     const totalColors   = modelsCfg.reduce((s,m)=>s+m.colors.length,0)
     const activeVariants = modelsCfg.reduce((s,m)=>s+m.variants.filter(v=>v.active).length,0)
@@ -127,7 +86,7 @@ export default async function ModelConfigPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">⚙️ Model Configuration</div>
-            <div class="page-subtitle">ตัวเลือก Spec / Option ทุกรุ่น · ${modelsCfg.length} รุ่น${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">ตัวเลือก Spec / Option ทุกรุ่น · ${modelsCfg.length} รุ่น</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="add-model-btn">+ เพิ่มรุ่น</button>
@@ -196,28 +155,29 @@ export default async function ModelConfigPage(container) {
         </div>
       `
     })
-    document.getElementById('mc-save')?.addEventListener('click', () => {
+    document.getElementById('mc-save')?.addEventListener('click', async () => {
       const brand = document.getElementById('mc-brand')?.value.trim()
       const model = document.getElementById('mc-model')?.value.trim()
       if (!brand || !model) { showToast('⚠️ กรุณากรอกแบรนด์และรุ่น', 'warning'); return }
       const colorsRaw = document.getElementById('mc-colors')?.value.trim()
       const optsRaw   = document.getElementById('mc-opts')?.value.trim()
-      modelsCfg.push({
-        id: 'MC' + String(modelsCfg.length + 1).padStart(3,'0'),
-        brand, model,
-        variants: [{
-          name: document.getElementById('mc-vname')?.value.trim() || 'Standard',
-          battery: document.getElementById('mc-bat')?.value.trim() || '-',
-          range: document.getElementById('mc-range')?.value.trim() || '-',
-          price: parseFloat(document.getElementById('mc-price')?.value) || 0,
-          active: true,
-        }],
-        options: optsRaw ? optsRaw.split(',').map(s=>s.trim()).filter(Boolean) : [],
-        colors: colorsRaw ? colorsRaw.split(',').map(s=>s.trim()).filter(Boolean) : [],
-      })
-      document.querySelector('.modal-overlay')?.remove()
-      showToast('✅ เพิ่ม ' + brand + ' ' + model + ' แล้ว', 'success')
-      render()
+      try {
+        await createDoc('model_configs', {
+          brand, model,
+          variants: [{
+            name: document.getElementById('mc-vname')?.value.trim() || 'Standard',
+            battery: document.getElementById('mc-bat')?.value.trim() || '-',
+            range: document.getElementById('mc-range')?.value.trim() || '-',
+            price: parseFloat(document.getElementById('mc-price')?.value) || 0,
+            active: true,
+          }],
+          options: optsRaw ? optsRaw.split(',').map(s=>s.trim()).filter(Boolean) : [],
+          colors: colorsRaw ? colorsRaw.split(',').map(s=>s.trim()).filter(Boolean) : [],
+        })
+        document.querySelector('.modal-overlay')?.remove()
+        showToast('✅ เพิ่ม ' + brand + ' ' + model + ' แล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
@@ -231,13 +191,17 @@ export default async function ModelConfigPage(container) {
           <input id="em-opts" class="input" value="${escHtml(m.options.join(', '))}"></div>
       </div>`,
       confirmText: '💾 บันทึก',
-      onConfirm: () => {
+      onConfirm: async () => {
         const c = document.getElementById('em-colors')?.value.trim()
         const o = document.getElementById('em-opts')?.value.trim()
-        if (c) m.colors = c.split(',').map(s=>s.trim()).filter(Boolean)
-        if (o) m.options = o.split(',').map(s=>s.trim()).filter(Boolean)
-        showToast('✅ อัปเดต ' + m.brand + ' ' + m.model, 'success')
-        render()
+        const fields = {}
+        if (c) fields.colors = c.split(',').map(s=>s.trim()).filter(Boolean)
+        if (o) fields.options = o.split(',').map(s=>s.trim()).filter(Boolean)
+        try {
+          await updateDocData('model_configs', m.id, fields)
+          showToast('✅ อัปเดต ' + m.brand + ' ' + m.model, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -246,5 +210,5 @@ export default async function ModelConfigPage(container) {
     return `<div class="card" style="padding:14px 16px"><div style="font-size:0.72rem;color:var(--text-muted)">${l}</div><div style="font-size:1.1rem;font-weight:900;color:${c};margin-top:2px">${v}</div></div>`
   }
 
-  render()
+  await loadData()
 }

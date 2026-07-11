@@ -5,42 +5,27 @@
 import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-const DEMO_VEHICLES = [
-  { vin: 'LGXC4EBA5PA000101', model: 'BYD Atto 3', color: 'ฟ้า', year: 2025, plate: 'กข-1234', price: 1099000, status: 'available',
-    spec: { battery: '60.5 kWh', range: '480 km', power: '150 kW', charge: 'CCS2 + AC 7kW', seats: 5, warranty: '8 ปี / 160,000 km' },
-    service: [{ date:'2026-05-10', type:'PDI ก่อนส่งมอบ', by:'ช่างสมชาย', note:'ผ่านทุกรายการ' }],
-    promo: '🎁 แถมฟรี: ประกันชั้น 1 ปีแรก + ชาร์จเจอร์บ้าน 7.4kW',
-  },
-  { vin: 'LGXC5EBA6PA000202', model: 'BYD Seal AWD', color: 'ดำ', year: 2025, plate: '', price: 1699000, status: 'reserved',
-    spec: { battery: '82.6 kWh', range: '520 km', power: '390 kW', charge: 'CCS2 + AC 11kW', seats: 5, warranty: '8 ปี / 160,000 km' },
-    service: [],
-    promo: '🎁 แถมฟรี: ประกันชั้น 1 ปีแรก + Floor Mat พรีเมียม',
-  },
-  { vin: 'LSGBC54C5PA000303', model: 'MG ZS EV', color: 'ขาว', year: 2025, plate: '1กก-5678', price: 799000, status: 'sold',
-    spec: { battery: '51 kWh', range: '440 km', power: '130 kW', charge: 'CCS2 + AC 7kW', seats: 5, warranty: '5 ปี / 150,000 km' },
-    service: [{ date:'2026-03-01', type:'ส่งมอบรถ', by:'นิภา', note:'ลูกค้ารับรถเรียบร้อย' }],
-    promo: '',
-  },
-]
-
 const ST = { available: { label: 'มีสต็อก', color: 'var(--success)' }, reserved: { label: 'จองแล้ว', color: 'var(--primary)' }, sold: { label: 'ขายแล้ว', color: 'var(--text-muted)' } }
 
 export default async function QrVehiclePage(container) {
   const myGen = container.__routerGen
-  let vehicles = [...DEMO_VEHICLES].map(v => ({ ...v, spec: { ...v.spec }, service: v.service.map(s => ({ ...s })) }))
-  let dataSource = 'demo'
+  seedDemoData()
 
-  try {
-    const docs = await listDocs('stock', [], 'model', 'asc', 100).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
+  let vehicles = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try {
+      const docs = await listDocs('stock', [], 'model', 'asc', 100)
+      vehicles = docs.map((d, i) => ({
+        id: d.id,
         vin: d.vin || `VIN-${i+1}`,
         model: d.model || '',
         color: d.color || '',
@@ -51,21 +36,26 @@ export default async function QrVehiclePage(container) {
         spec: d.spec ? { ...d.spec } : { battery: '', range: '', power: '', charge: '', seats: 5, warranty: '' },
         service: Array.isArray(d.service) ? d.service.map(s => ({ ...s })) : [],
         promo: d.promo || '',
+        printed: d.printed || false,
       }))
-      vehicles = [...mapped, ...DEMO_VEHICLES]
-      dataSource = 'live'
-    }
-  } catch {}
+    } catch (e) { vehicles = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   let scanInput = ''
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     container.innerHTML = `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
             <div class="page-title">📱 QR Code per Vehicle</div>
-            <div class="page-subtitle">สแกน QR → ดูสเปค ประวัติ โปรโมชั่น ต่อคัน · พิมพ์ติด Windshield${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">สแกน QR → ดูสเปค ประวัติ โปรโมชั่น ต่อคัน · พิมพ์ติด Windshield</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="print-all-btn">🖨 พิมพ์ QR ทุกคัน</button>
@@ -94,20 +84,26 @@ export default async function QrVehiclePage(container) {
       if (v) openVehicleDetail(v)
       else showToast('❌ ไม่พบ VIN นี้ในระบบ', 'error')
     })
-    document.getElementById('print-all-btn')?.addEventListener('click', () => {
+    document.getElementById('print-all-btn')?.addEventListener('click', async () => {
       const targets = vehicles.filter(v => v.status !== 'sold')
-      targets.forEach(v => { v.printed = true })
-      render()
-      showToast(`🖨 สั่งพิมพ์ QR Code ${targets.length} แผ่น (${targets.map(v=>v.model).join(', ')}) แล้ว`, 'success')
+      try {
+        await Promise.all(targets.map(v => updateDocData('stock', v.id, { printed: true })))
+        showToast(`🖨 สั่งพิมพ์ QR Code ${targets.length} แผ่น (${targets.map(v=>v.model).join(', ')}) แล้ว`, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
     container.querySelectorAll('.view-qr-btn').forEach(b => b.addEventListener('click', () => {
       const v = vehicles.find(x => x.vin === b.dataset.vin)
       if (v) openVehicleDetail(v)
     }))
-    container.querySelectorAll('.print-qr-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.print-qr-btn').forEach(b => b.addEventListener('click', async () => {
       const v = vehicles.find(x => x.vin === b.dataset.vin)
-      if (v) { v.printed = true; render() }
-      showToast(`🖨 พิมพ์ QR ของ ${b.dataset.model} แล้ว`, 'success')
+      if (!v) return
+      try {
+        await updateDocData('stock', v.id, { printed: true })
+        showToast(`🖨 พิมพ์ QR ของ ${b.dataset.model} แล้ว`, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
   }
 
@@ -169,13 +165,15 @@ export default async function QrVehiclePage(container) {
         ${v.promo ? `<div style="background:var(--success)22;padding:8px 10px;border-radius:var(--radius-sm);font-size:0.76rem;margin-top:10px">${escHtml(v.promo)}</div>` : ''}
         <div style="font-size:0.62rem;color:var(--text-muted);margin-top:8px">VIN: ${escHtml(v.vin)}</div>`,
       confirmText: '📤 ส่งให้ลูกค้า',
-      onConfirm() {
-        v.sentToCustomer = true; v.sentAt = new Date().toISOString()
-        render()
-        showToast(`📤 ส่งข้อมูล ${v.model} · VIN ${v.vin.slice(-6)} ให้ลูกค้าทาง LINE แล้ว`, 'success')
+      async onConfirm() {
+        try {
+          await updateDocData('stock', v.id, { sentToCustomer: true, sentAt: new Date().toISOString() })
+          showToast(`📤 ส่งข้อมูล ${v.model} · VIN ${v.vin.slice(-6)} ให้ลูกค้าทาง LINE แล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  render()
+  await loadData()
 }

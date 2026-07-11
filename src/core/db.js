@@ -2128,11 +2128,35 @@ export function seedDemoData() {
   stockAudit.forEach(s => { if (!demoCol('stock_audit')[s.id]) demoCol('stock_audit')[s.id] = s })
 
   const suppliers = [
-    { id:'sup1', name:'BYD Thailand Co., Ltd.', type:'manufacturer', contact:'Mr. Li Wei', phone:'028890001', email:'sales@byd.co.th', address:'เขตพระโขนง กทม.', paymentTerms:'30 วัน', leadTime:14, status:'active', rating:5, createdAt:'2025-01-01' },
-    { id:'sup2', name:'อีวี อุปกรณ์ไทย จำกัด', type:'accessories', contact:'คุณสุชาติ แก้วมณี', phone:'0821234567', email:'ev-parts@thai.com', address:'บางนา กทม.', paymentTerms:'15 วัน', leadTime:7, status:'active', rating:4, createdAt:'2025-02-01' },
-    { id:'sup3', name:'สยาม อีวี ชาร์จเจอร์', type:'equipment', contact:'คุณปิยะ ช่างไฟ', phone:'0834567890', email:'charger@siamev.com', address:'ลาดพร้าว กทม.', paymentTerms:'45 วัน', leadTime:21, status:'active', rating:4, createdAt:'2025-03-01' },
+    { id: 'S001', name: 'บริษัท อะไหล่ยนต์ ไทย จำกัด', shortName: 'ATJ', category: 'parts',
+      contact: 'คุณสมชาย ใจดี', phone: '02-234-5678', email: 'somchai@atj.co.th', address: 'กรุงเทพฯ',
+      taxId: '1234567890123', paymentTerms: 30, creditLimit: 500000, status: 'active',
+      rating: 4.5, totalPO: 45, totalAmount: 1850000, notes: '' },
+    { id: 'S002', name: 'บริษัท ยางไทย กู๊ดเยียร์ จำกัด', shortName: 'TGY', category: 'tires',
+      contact: 'คุณวิไล รักงาน', phone: '02-345-6789', email: 'wilai@tgy.co.th', address: 'นนทบุรี',
+      taxId: '2345678901234', paymentTerms: 45, creditLimit: 300000, status: 'active',
+      rating: 4.2, totalPO: 28, totalAmount: 720000, notes: '' },
+    { id: 'S003', name: 'บริษัท น้ำมัน และ ไขข้อ จำกัด', shortName: 'NOI', category: 'lubricant',
+      contact: 'คุณประยุทธ์ ขยัน', phone: '02-456-7890', email: 'prayuth@noi.co.th', address: 'สมุทรปราการ',
+      taxId: '3456789012345', paymentTerms: 30, creditLimit: 200000, status: 'active',
+      rating: 3.8, totalPO: 60, totalAmount: 420000, notes: 'ส่งทุกวันจันทร์' },
+    { id: 'S004', name: 'บริษัท แบตเตอรี่ EV ยุคใหม่ จำกัด', shortName: 'BEV', category: 'battery',
+      contact: 'คุณสุภาพร ฉลาด', phone: '02-567-8901', email: 'supaporn@bev.co.th', address: 'บางนา',
+      taxId: '4567890123456', paymentTerms: 60, creditLimit: 1000000, status: 'active',
+      rating: 4.8, totalPO: 12, totalAmount: 3200000, notes: 'เฉพาะรถ EV' },
+    { id: 'S005', name: 'ห้างหุ้นส่วน อุปกรณ์เก่า', shortName: 'OLD', category: 'other',
+      contact: 'คุณมาลี เก่า', phone: '02-678-9012', email: '', address: 'ลาดพร้าว',
+      taxId: '5678901234567', paymentTerms: 15, creditLimit: 50000, status: 'blacklist',
+      rating: 1.5, totalPO: 3, totalAmount: 28000, notes: 'ของไม่ได้คุณภาพ สินค้าไม่ตรงปก' },
   ]
   suppliers.forEach(s => { if (!demoCol('suppliers')[s.id]) demoCol('suppliers')[s.id] = s })
+
+  const supplierPOs = [
+    { id: 'PO001', supplierId: 'S001', supplierName: 'บริษัท อะไหล่ยนต์ ไทย จำกัด', date: '2025-06-01', expectedDate: '2025-06-08', status: 'received', items: [{ name: 'ผ้าเบรก BYD Seal (คู่หน้า)', qty: 10, unit: 'ชุด', price: 1200 }, { name: 'กรองอากาศ BYD', qty: 20, unit: 'ชิ้น', price: 350 }], total: 19000, notes: 'รับของครบ' },
+    { id: 'PO002', supplierId: 'S002', supplierName: 'บริษัท ยางไทย กู๊ดเยียร์ จำกัด', date: '2025-06-05', expectedDate: '2025-06-12', status: 'confirmed', items: [{ name: 'ยาง 205/55R16', qty: 16, unit: 'เส้น', price: 2800 }], total: 44800, notes: '' },
+    { id: 'PO003', supplierId: 'S003', supplierName: 'บริษัท น้ำมัน และ ไขข้อ จำกัด', date: '2025-06-08', expectedDate: '2025-06-09', status: 'pending', items: [{ name: 'น้ำมันเครื่อง 5W-30 (4L)', qty: 30, unit: 'ขวด', price: 450 }], total: 13500, notes: 'ด่วน' },
+  ]
+  supplierPOs.forEach(p => { if (!demoCol('supplier_pos')[p.id]) demoCol('supplier_pos')[p.id] = p })
 
   // ── DMS: Finance / Compliance ──
   const bankTransactions = [
@@ -2164,8 +2188,38 @@ export function seedDemoData() {
   floorPlan.forEach(f => { if (!demoCol('floor_plan')[f.id]) demoCol('floor_plan')[f.id] = f })
 
   const modelConfigs = [
-    { id:'mc1', brand:'BYD', model:'Seal', variant:'AWD Premium', year:2025, basePrice:1299000, accessories:['ฟิล์มกันรอย','ยางอะไหล่'], warranty:'4 ปี 100,000 กม.', batteryWarranty:'8 ปี', range:580, power:360, torque:640, weight:2150, note:'', createdAt:'2025-01-01' },
-    { id:'mc2', brand:'BYD', model:'Atto 3', variant:'Extended Range', year:2025, basePrice:1099000, accessories:['ฟิล์มกันรอย'], warranty:'4 ปี 100,000 กม.', batteryWarranty:'8 ปี', range:480, power:150, torque:310, weight:1750, note:'', createdAt:'2025-01-01' },
+    {
+      id:'MC001', brand:'BYD', model:'Atto 3', variants:[
+        { name:'Standard Range', battery:'49.92 kWh', range:'345 km', price:1099900, active:false },
+        { name:'Extended Range', battery:'60.48 kWh', range:'420 km', price:1199900, active:true  },
+      ],
+      options:['NFC Key Card','Solar Roof','Premium Sound System (Dynaudio)','Wireless Charger'],
+      colors:['Arctic Blue','Cosmos Black','Ski White','Flame Red'],
+    },
+    {
+      id:'MC002', brand:'BYD', model:'Seal AWD', variants:[
+        { name:'Dynamic AWD',   battery:'82.56 kWh', range:'520 km', price:1799900, active:false },
+        { name:'Performance',   battery:'82.56 kWh', range:'510 km', price:1999900, active:true  },
+      ],
+      options:['Carbon Fiber Trim','ADAS Pro Pack','Head-Up Display','Air Suspension'],
+      colors:['Cosmos Black','Aurora Silver','Jade Green'],
+    },
+    {
+      id:'MC003', brand:'BYD', model:'Dolphin', variants:[
+        { name:'Standard',  battery:'44.9 kWh', range:'340 km', price:699900,  active:false },
+        { name:'Boost',     battery:'44.9 kWh', range:'340 km', price:799900,  active:true  },
+      ],
+      options:['Apple CarPlay','Android Auto','Dash Cam','EV Charger Cable Type 2'],
+      colors:['Pearl White','Ocean Blue','Sakura Pink'],
+    },
+    {
+      id:'MC004', brand:'MG', model:'ZS EV', variants:[
+        { name:'Luxury',       battery:'50.3 kWh', range:'357 km', price:899900,  active:false },
+        { name:'Luxury Plus',  battery:'50.3 kWh', range:'357 km', price:999900,  active:true  },
+      ],
+      options:['MG iSmart App','360 Camera','Panoramic Sunroof','Premium Leather'],
+      colors:['Pearl White','Passion Red','Sterling Grey'],
+    },
   ]
   modelConfigs.forEach(m => { if (!demoCol('model_configs')[m.id]) demoCol('model_configs')[m.id] = m })
 
