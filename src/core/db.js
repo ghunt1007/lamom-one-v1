@@ -1876,10 +1876,15 @@ export function seedDemoData() {
   ]
   demoFleet.forEach(d => { if (!demoCol('demo_fleet')[d.id]) demoCol('demo_fleet')[d.id] = d })
 
+  const kyAddHours = n => { const d = new Date(); d.setHours(d.getHours() - n); return d.toISOString() }
   const keys = [
-    { id:'k1', vehicleId:'v1', vin:'LGXCE4C10PA000001', brand:'BYD', model:'Seal', plate:'(ยังไม่จด)', keySet:1, spare:1, status:'in_stock', location:'ตู้กุญแจ A1', handedTo:'', createdAt:'2025-03-01' },
-    { id:'k2', vehicleId:'v2', vin:'LGXCE4C10PA000002', brand:'BYD', model:'Atto 3', plate:'', keySet:1, spare:1, status:'with_sales', location:'', handedTo:'อรนุช เซลส์ดี', createdAt:'2025-02-15' },
-    { id:'k3', vehicleId:'v6', vin:'LGXCE4C10PA000006', brand:'BYD', model:'Seal Demo', plate:'กข-0001', keySet:1, spare:1, status:'in_stock', location:'ตู้กุญแจ A2', handedTo:'', createdAt:'2025-01-10' },
+    { id: 'K-A01', slot: 'A01', vehicle: 'BYD Dolphin (สต็อก)', vin: '...1122', status: 'in_cabinet', holder: null, since: kyAddHours(20), purpose: null },
+    { id: 'K-A02', slot: 'A02', vehicle: 'BYD Atto 3 (สต็อก)', vin: '...3344', status: 'checked_out', holder: 'วิชัย ยอดขาย', since: kyAddHours(1), purpose: 'พาลูกค้าดูรถ' },
+    { id: 'K-A03', slot: 'A03', vehicle: 'BYD Seal AWD (สต็อก)', vin: '...5566', status: 'in_cabinet', holder: null, since: kyAddHours(5), purpose: null },
+    { id: 'K-B01', slot: 'B01', vehicle: 'รถ Demo ทด-001', vin: '...7788', status: 'checked_out', holder: 'ธนา เก่ง', since: kyAddHours(3), purpose: 'Test Drive ลูกค้า' },
+    { id: 'K-B02', slot: 'B02', vehicle: 'รถ Demo ทด-003', vin: '...9900', status: 'checked_out', holder: 'สมบัติ ขับดี', since: kyAddHours(26), purpose: 'รับ-ส่งเอกสารขนส่ง' },
+    { id: 'K-C01', slot: 'C01', vehicle: 'รถลูกค้า 1กข-1234 (ซ่อม)', vin: '...3456', status: 'in_cabinet', holder: null, since: kyAddHours(2), purpose: null },
+    { id: 'K-C02', slot: 'C02', vehicle: 'รถลูกค้า 2ขค-5678 (ซ่อม)', vin: '...9012', status: 'missing', holder: 'มานะ ขยัน (ล่าสุด)', since: kyAddHours(50), purpose: 'ย้ายรถเข้า Bay' },
   ]
   keys.forEach(k => { if (!demoCol('keys')[k.id]) demoCol('keys')[k.id] = k })
 
@@ -2078,14 +2083,36 @@ export function seedDemoData() {
   ]
   testDriveCerts.forEach(c => { if (!demoCol('test_drive_certs')[c.id]) demoCol('test_drive_certs')[c.id] = c })
 
+  const vtAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
   const vehicleTransfers = [
-    { id:'vt1', transferNo:'VT-001', fromBranch:'สาขาหลัก', toBranch:'สาขาเชียงใหม่', vin:'LGXCE4C10PA000003', model:'BYD Dolphin', color:'ชมพู', requestedBy:'วิชัย ขายเก่ง', approvedBy:'ผู้จัดการ', status:'in_transit', requestedAt: new Date(Date.now()-86400000*2).toISOString(), estimatedArrival: new Date(Date.now()+86400000*1).toISOString() },
+    { id: 'TRF001', vehiclePlate: 'กก 1234', vehicleModel: 'BYD Seal AWD', color: 'Pearl White', vin: 'LBWAB2EB7PD001', fromBranch: 'สาขากรุงเทพ', toBranch: 'สาขาเชียงใหม่', requestedBy: 'สมชาย ผู้จัดการ', approvedBy: 'วิชัย MD', status: 'in_transit', requestDate: vtAddDays(-3), transferDate: vtAddDays(-1), eta: vtAddDays(1), reason: 'ลูกค้าต้องการเร่งด่วน', trackingNo: 'TH1234567890' },
+    { id: 'TRF002', vehiclePlate: 'ขข 5678', vehicleModel: 'MG ZS EV', color: 'Galaxy Black', vin: 'LSJWSRAR7NE002', fromBranch: 'สาขาภูเก็ต', toBranch: 'สาขากรุงเทพ', requestedBy: 'อรวรรณ สาขาภูเก็ต', approvedBy: null, status: 'pending', requestDate: vtAddDays(-1), transferDate: null, eta: null, reason: 'สต็อกส่วนเกิน', trackingNo: null },
+    { id: 'TRF003', vehiclePlate: 'คค 9012', vehicleModel: 'BYD Atto 3', color: 'Surf Blue', vin: 'LBWAB2EB7PD003', fromBranch: 'สาขากรุงเทพ', toBranch: 'สาขาพัทยา', requestedBy: 'ปทิตา พัทยา', approvedBy: 'สมชาย ผู้จัดการ', status: 'completed', requestDate: vtAddDays(-14), transferDate: vtAddDays(-12), eta: vtAddDays(-10), reason: 'ลูกค้าจองที่พัทยา', trackingNo: 'TH9876543210' },
   ]
   vehicleTransfers.forEach(v => { if (!demoCol('vehicle_transfers')[v.id]) demoCol('vehicle_transfers')[v.id] = v })
 
+  const rvAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
   const vehicleReceiving = [
-    { id:'vr1', receiveNo:'RCV-001', vin:'LGXCE4C10PA000001', model:'BYD Seal AWD', color:'ขาว', deliveryDate:'2025-05-15', supplier:'BYD Thailand', invoiceNo:'INV-2025-001', invoiceValue:1150000, receivedBy:'ผู้จัดการคลัง', condition:'ปกติ', photos:[], note:'', createdAt:'2025-05-15' },
-    { id:'vr2', receiveNo:'RCV-002', vin:'LGXCE4C10PA000002', model:'BYD Atto 3', color:'น้ำเงิน', deliveryDate:'2025-05-30', supplier:'BYD Thailand', invoiceNo:'INV-2025-002', invoiceValue:980000, receivedBy:'ผู้จัดการคลัง', condition:'ปกติ', photos:[], note:'', createdAt:'2025-05-30' },
+    { id: 'RV001', orderId: 'VO001', brand: 'BYD', model: 'Seal AWD', variant: 'AWD Performance',
+      color: 'Cosmos Black', year: 2024, vin: 'LBWAB2EB7PD001009', cost: 1280000,
+      supplier: 'BYD Thailand', status: 'arrived', eta: rvAddDays(-2), arrivedDate: rvAddDays(-2),
+      stockedDate: null, pdiStatus: 'pending', branch: 'สาขาหลัก',
+      checklist: { exterior: false, interior: false, mechanical: false, documents: false, keys: false } },
+    { id: 'RV002', orderId: 'VO001', brand: 'BYD', model: 'Seal SR', variant: 'Standard Range',
+      color: 'Aurora White', year: 2024, vin: 'LBWAB2EB7PD001010', cost: 1080000,
+      supplier: 'BYD Thailand', status: 'stocked', eta: rvAddDays(-7), arrivedDate: rvAddDays(-7),
+      stockedDate: rvAddDays(-6), pdiStatus: 'passed', branch: 'สาขาหลัก',
+      checklist: { exterior: true, interior: true, mechanical: true, documents: true, keys: true } },
+    { id: 'RV003', orderId: 'VO002', brand: 'MG', model: 'ZS EV', variant: 'Grand Luxury',
+      color: 'Starry Silver', year: 2024, vin: 'LSJWSRAR7NE001012', cost: 935000,
+      supplier: 'SAIC-MG Thailand', status: 'transit', eta: rvAddDays(3), arrivedDate: null,
+      stockedDate: null, pdiStatus: 'pending', branch: 'สาขาหลัก',
+      checklist: { exterior: false, interior: false, mechanical: false, documents: false, keys: false } },
+    { id: 'RV004', orderId: 'VO003', brand: 'Neta', model: 'V', variant: 'Standard',
+      color: 'Lemon Yellow', year: 2024, vin: 'LNA2B4EV9NE001001', cost: 550000,
+      supplier: 'Neta Auto Thailand', status: 'inspecting', eta: rvAddDays(-1), arrivedDate: rvAddDays(-1),
+      stockedDate: null, pdiStatus: 'in_progress', branch: 'สาขาหลัก',
+      checklist: { exterior: true, interior: true, mechanical: false, documents: false, keys: false } },
   ]
   vehicleReceiving.forEach(v => { if (!demoCol('vehicle_receiving')[v.id]) demoCol('vehicle_receiving')[v.id] = v })
 

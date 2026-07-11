@@ -5,7 +5,7 @@
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -21,47 +21,27 @@ const TRANSFER_STATUS = {
 const BRANCHES = ['สาขากรุงเทพ', 'สาขาเชียงใหม่', 'สาขาภูเก็ต', 'สาขาขอนแก่น', 'สาขาพัทยา']
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
-function addHours(n) { const d = new Date(); d.setHours(d.getHours() - n); return d.toISOString() }
-
-const DEMO_TRANSFERS = [
-  { id: 'TRF001', vehiclePlate: 'กก 1234', vehicleModel: 'BYD Seal AWD', color: 'Pearl White', vin: 'LBWAB2EB7PD001', fromBranch: 'สาขากรุงเทพ', toBranch: 'สาขาเชียงใหม่', requestedBy: 'สมชาย ผู้จัดการ', approvedBy: 'วิชัย MD', status: 'in_transit', requestDate: addDays(-3), transferDate: addDays(-1), eta: addDays(1), reason: 'ลูกค้าต้องการเร่งด่วน', trackingNo: 'TH1234567890' },
-  { id: 'TRF002', vehiclePlate: 'ขข 5678', vehicleModel: 'MG ZS EV', color: 'Galaxy Black', vin: 'LSJWSRAR7NE002', fromBranch: 'สาขาภูเก็ต', toBranch: 'สาขากรุงเทพ', requestedBy: 'อรวรรณ สาขาภูเก็ต', approvedBy: null, status: 'pending', requestDate: addDays(-1), transferDate: null, eta: null, reason: 'สต็อกส่วนเกิน', trackingNo: null },
-  { id: 'TRF003', vehiclePlate: 'คค 9012', vehicleModel: 'BYD Atto 3', color: 'Surf Blue', vin: 'LBWAB2EB7PD003', fromBranch: 'สาขากรุงเทพ', toBranch: 'สาขาพัทยา', requestedBy: 'ปทิตา พัทยา', approvedBy: 'สมชาย ผู้จัดการ', status: 'completed', requestDate: addDays(-14), transferDate: addDays(-12), eta: addDays(-10), reason: 'ลูกค้าจองที่พัทยา', trackingNo: 'TH9876543210' },
-]
 
 export default async function VehicleTransferPage(container) {
   const myGen = container.__routerGen
-  let transfers = DEMO_TRANSFERS.map(t => ({ ...t }))
-  let statusFilter = 'all'
-  let dataSource = 'demo'
+  seedDemoData()
 
-  try {
-    const docs = await listDocs('vehicle_transfers', [], 'requestDate', 'desc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `TRF${String(i+1).padStart(3,'0')}`,
-        vehiclePlate: d.vehiclePlate || d.plate || '',
-        vehicleModel: d.vehicleModel || d.model || '',
-        color: d.color || '',
-        vin: d.vin || '',
-        fromBranch: d.fromBranch || d.from || '',
-        toBranch: d.toBranch || d.to || '',
-        requestedBy: d.requestedBy || '',
-        approvedBy: d.approvedBy || null,
-        status: d.status || 'pending',
-        requestDate: d.requestDate || d.createdAt?.slice(0,10) || '',
-        transferDate: d.transferDate || null,
-        eta: d.eta || null,
-        reason: d.reason || '',
-        trackingNo: d.trackingNo || null,
-      }))
-      transfers = [...mapped, ...DEMO_TRANSFERS]
-      dataSource = 'live'
-    }
-  } catch {}
+  let transfers = []
+  let statusFilter = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { transfers = await listDocs('vehicle_transfers', [], 'requestDate', 'desc', 200) } catch (e) { transfers = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = transfers.filter(t => statusFilter === 'all' || t.status === statusFilter)
     const inTransit = transfers.filter(t => t.status === 'in_transit').length
     const pending = transfers.filter(t => t.status === 'pending').length
@@ -71,7 +51,7 @@ export default async function VehicleTransferPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🚛 Vehicle Transfer</div>
-            <div class="page-subtitle">โอนรถระหว่างสาขา — ติดตามสถานะการขนส่ง${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">โอนรถระหว่างสาขา — ติดตามสถานะการขนส่ง</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="add-transfer-btn">+ ขอโอนรถ</button>
@@ -139,17 +119,26 @@ export default async function VehicleTransferPage(container) {
     container.querySelectorAll('.view-btn').forEach(b => b.addEventListener('click', () => {
       const t = transfers.find(x => x.id === b.dataset.id); if (t) openDetail(t)
     }))
-    container.querySelectorAll('.approve-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.approve-btn').forEach(b => b.addEventListener('click', async () => {
       const t = transfers.find(x => x.id === b.dataset.id)
-      if (t) { t.status = 'approved'; t.approvedBy = 'ผู้จัดการ'; showToast('✅ อนุมัติโอนรถแล้ว', 'success'); renderPage() }
+      if (!t) return
+      try { await updateDocData('vehicle_transfers', t.id, { status: 'approved', approvedBy: 'ผู้จัดการ' }); showToast('✅ อนุมัติโอนรถแล้ว', 'success'); await loadData() }
+      catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.transit-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.transit-btn').forEach(b => b.addEventListener('click', async () => {
       const t = transfers.find(x => x.id === b.dataset.id)
-      if (t) { t.status = 'in_transit'; t.transferDate = addDays(0); t.eta = addDays(2); t.trackingNo = 'TH' + Math.floor(Math.random()*9000000000+1000000000); showToast('🚚 เริ่มขนส่งแล้ว', 'success'); renderPage() }
+      if (!t) return
+      try {
+        await updateDocData('vehicle_transfers', t.id, { status: 'in_transit', transferDate: addDays(0), eta: addDays(2), trackingNo: 'TH' + Math.floor(Math.random()*9000000000+1000000000) })
+        showToast('🚚 เริ่มขนส่งแล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.arrived-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.arrived-btn').forEach(b => b.addEventListener('click', async () => {
       const t = transfers.find(x => x.id === b.dataset.id)
-      if (t) { t.status = 'completed'; showToast('📍 บันทึกถึงปลายทางแล้ว!', 'success'); renderPage() }
+      if (!t) return
+      try { await updateDocData('vehicle_transfers', t.id, { status: 'completed' }); showToast('📍 บันทึกถึงปลายทางแล้ว!', 'success'); await loadData() }
+      catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
   }
 
@@ -190,25 +179,27 @@ export default async function VehicleTransferPage(container) {
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">เหตุผล</label><input class="input" id="tf-reason" placeholder="เหตุผลที่ขอโอน"></div>
         </div>
       `,
-      onConfirm() {
+      async onConfirm() {
         const plate = document.getElementById('tf-plate')?.value?.trim()
-        if (!plate) { showToast('❗ กรุณากรอกทะเบียน', 'error'); return }
+        if (!plate) { showToast('❗ กรุณากรอกทะเบียน', 'error'); return false }
         const from = document.getElementById('tf-from')?.value
         const to = document.getElementById('tf-to')?.value
-        if (from === to) { showToast('❗ ต้นทางและปลายทางต้องต่างกัน', 'error'); return }
-        transfers.unshift({
-          id: `TRF${String(transfers.length+1).padStart(3,'0')}`,
-          vehiclePlate: plate, vehicleModel: document.getElementById('tf-model')?.value||'', color: '',
-          vin: '', fromBranch: from, toBranch: to, requestedBy: 'ผู้ใช้ปัจจุบัน',
-          approvedBy: null, status: 'pending', requestDate: addDays(0),
-          transferDate: null, eta: null, reason: document.getElementById('tf-reason')?.value||'', trackingNo: null
-        })
-        showToast('✅ ส่งคำขอโอนรถแล้ว!', 'success'); renderPage()
+        if (from === to) { showToast('❗ ต้นทางและปลายทางต้องต่างกัน', 'error'); return false }
+        try {
+          await createDoc('vehicle_transfers', {
+            vehiclePlate: plate, vehicleModel: document.getElementById('tf-model')?.value||'', color: '',
+            vin: '', fromBranch: from, toBranch: to, requestedBy: 'ผู้ใช้ปัจจุบัน',
+            approvedBy: null, status: 'pending', requestDate: addDays(0),
+            transferDate: null, eta: null, reason: document.getElementById('tf-reason')?.value||'', trackingNo: null
+          })
+          showToast('✅ ส่งคำขอโอนรถแล้ว!', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

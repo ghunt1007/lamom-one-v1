@@ -5,11 +5,9 @@
 import { timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
-
-function addHours(n) { const d = new Date(); d.setHours(d.getHours() - n); return d.toISOString() }
 
 const KEY_STATUS = {
   in_cabinet: { label: 'อยู่ในตู้', color: 'success', icon: '🔐' },
@@ -17,41 +15,25 @@ const KEY_STATUS = {
   missing:    { label: 'หาไม่เจอ!', color: 'danger', icon: '🚨' },
 }
 
-const DEMO_KEYS = [
-  { id: 'K-A01', slot: 'A01', vehicle: 'BYD Dolphin (สต็อก)', vin: '...1122', status: 'in_cabinet', holder: null, since: addHours(20), purpose: null },
-  { id: 'K-A02', slot: 'A02', vehicle: 'BYD Atto 3 (สต็อก)', vin: '...3344', status: 'checked_out', holder: 'วิชัย ยอดขาย', since: addHours(1), purpose: 'พาลูกค้าดูรถ' },
-  { id: 'K-A03', slot: 'A03', vehicle: 'BYD Seal AWD (สต็อก)', vin: '...5566', status: 'in_cabinet', holder: null, since: addHours(5), purpose: null },
-  { id: 'K-B01', slot: 'B01', vehicle: 'รถ Demo ทด-001', vin: '...7788', status: 'checked_out', holder: 'ธนา เก่ง', since: addHours(3), purpose: 'Test Drive ลูกค้า' },
-  { id: 'K-B02', slot: 'B02', vehicle: 'รถ Demo ทด-003', vin: '...9900', status: 'checked_out', holder: 'สมบัติ ขับดี', since: addHours(26), purpose: 'รับ-ส่งเอกสารขนส่ง' },
-  { id: 'K-C01', slot: 'C01', vehicle: 'รถลูกค้า 1กข-1234 (ซ่อม)', vin: '...3456', status: 'in_cabinet', holder: null, since: addHours(2), purpose: null },
-  { id: 'K-C02', slot: 'C02', vehicle: 'รถลูกค้า 2ขค-5678 (ซ่อม)', vin: '...9012', status: 'missing', holder: 'มานะ ขยัน (ล่าสุด)', since: addHours(50), purpose: 'ย้ายรถเข้า Bay' },
-]
-
 export default async function KeyManagementPage(container) {
   const myGen = container.__routerGen
-  let keys = DEMO_KEYS.map(k => ({ ...k }))
-  let dataSource = 'demo'
+  seedDemoData()
 
-  try {
-    const docs = await listDocs('keys', [], 'slot', 'asc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `K-${String(i+1).padStart(3,'0')}`,
-        slot: d.slot || '',
-        vehicle: d.vehicle || d.vehicleName || '',
-        vin: d.vin || '',
-        status: d.status || 'in_cabinet',
-        holder: d.holder || null,
-        since: d.since || new Date().toISOString(),
-        purpose: d.purpose || null,
-      }))
-      keys = [...mapped, ...DEMO_KEYS]
-      dataSource = 'live'
-    }
-  } catch {}
+  let keys = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { keys = await listDocs('keys', [], 'slot', 'asc', 200) } catch (e) { keys = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const out = keys.filter(k => k.status === 'checked_out')
     const missing = keys.filter(k => k.status === 'missing')
     const longHeld = out.filter(k => new Date(k.since) < new Date(Date.now() - 24 * 3600000))
@@ -61,7 +43,7 @@ export default async function KeyManagementPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🔑 Key Management</div>
-            <div class="page-subtitle">ตู้กุญแจ — รู้เสมอว่ากุญแจอยู่ไหน ใครถือ${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">ตู้กุญแจ — รู้เสมอว่ากุญแจอยู่ไหน ใครถือ</div>
           </div>
         </div>
 
@@ -119,30 +101,47 @@ export default async function KeyManagementPage(container) {
             <select class="input" id="ky-purpose"><option>พาลูกค้าดูรถ</option><option>Test Drive ลูกค้า</option><option>ย้ายรถเข้า Bay</option><option>นำรถไปล้าง</option><option>รับ-ส่งเอกสาร</option></select>
           </div>
         </div>`,
-        onConfirm() {
-          k.status = 'checked_out'
-          k.holder = document.getElementById('ky-holder')?.value || '—'
-          k.purpose = document.getElementById('ky-purpose')?.value || '—'
-          k.since = new Date().toISOString()
-          showToast(`🔑 ${k.holder} เบิกกุญแจ ${k.slot} แล้ว — บันทึก log`, 'warning'); renderPage()
+        async onConfirm() {
+          const holder = document.getElementById('ky-holder')?.value || '—'
+          const purpose = document.getElementById('ky-purpose')?.value || '—'
+          try {
+            await updateDocData('keys', k.id, { status: 'checked_out', holder, purpose, since: new Date().toISOString() })
+            showToast(`🔑 ${holder} เบิกกุญแจ ${k.slot} แล้ว — บันทึก log`, 'warning')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     }))
-    container.querySelectorAll('.in-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.in-btn').forEach(b => b.addEventListener('click', async () => {
       const k = keys.find(x => x.id === b.dataset.id)
-      if (k) { k.status = 'in_cabinet'; k.holder = null; k.purpose = null; k.since = new Date().toISOString(); showToast('🔐 คืนกุญแจเข้าตู้แล้ว', 'success'); renderPage() }
+      if (!k) return
+      try {
+        await updateDocData('keys', k.id, { status: 'in_cabinet', holder: null, purpose: null, since: new Date().toISOString() })
+        showToast('🔐 คืนกุญแจเข้าตู้แล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.lost-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.lost-btn').forEach(b => b.addEventListener('click', async () => {
       const k = keys.find(x => x.id === b.dataset.id)
-      if (k) { k.status = 'missing'; k.holder = (k.holder||'') + ' (ล่าสุด)'; showToast('🚨 แจ้งกุญแจหาย — เปิด Incident อัตโนมัติ', 'error'); renderPage() }
+      if (!k) return
+      try {
+        await updateDocData('keys', k.id, { status: 'missing', holder: (k.holder||'') + ' (ล่าสุด)' })
+        showToast('🚨 แจ้งกุญแจหาย — เปิด Incident อัตโนมัติ', 'error')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.found-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.found-btn').forEach(b => b.addEventListener('click', async () => {
       const k = keys.find(x => x.id === b.dataset.id)
-      if (k) { k.status = 'in_cabinet'; k.holder = null; k.purpose = null; k.since = new Date().toISOString(); showToast('✅ เจอกุญแจแล้ว — คืนเข้าตู้', 'success'); renderPage() }
+      if (!k) return
+      try {
+        await updateDocData('keys', k.id, { status: 'in_cabinet', holder: null, purpose: null, since: new Date().toISOString() })
+        showToast('✅ เจอกุญแจแล้ว — คืนเข้าตู้', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

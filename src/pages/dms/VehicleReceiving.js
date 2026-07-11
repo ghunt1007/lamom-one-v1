@@ -6,7 +6,7 @@ import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -22,34 +22,13 @@ const RECV_STATUS = {
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
 
-const DEMO_VEHICLES = [
-  { id: 'RV001', orderId: 'VO001', brand: 'BYD', model: 'Seal AWD', variant: 'AWD Performance',
-    color: 'Cosmos Black', year: 2024, vin: 'LBWAB2EB7PD001009', cost: 1280000,
-    supplier: 'BYD Thailand', status: 'arrived', eta: addDays(-2), arrivedDate: addDays(-2),
-    stockedDate: null, pdiStatus: 'pending', branch: 'สาขาหลัก',
-    checklist: { exterior: false, interior: false, mechanical: false, documents: false, keys: false } },
-  { id: 'RV002', orderId: 'VO001', brand: 'BYD', model: 'Seal SR', variant: 'Standard Range',
-    color: 'Aurora White', year: 2024, vin: 'LBWAB2EB7PD001010', cost: 1080000,
-    supplier: 'BYD Thailand', status: 'stocked', eta: addDays(-7), arrivedDate: addDays(-7),
-    stockedDate: addDays(-6), pdiStatus: 'passed', branch: 'สาขาหลัก',
-    checklist: { exterior: true, interior: true, mechanical: true, documents: true, keys: true } },
-  { id: 'RV003', orderId: 'VO002', brand: 'MG', model: 'ZS EV', variant: 'Grand Luxury',
-    color: 'Starry Silver', year: 2024, vin: 'LSJWSRAR7NE001012', cost: 935000,
-    supplier: 'SAIC-MG Thailand', status: 'transit', eta: addDays(3), arrivedDate: null,
-    stockedDate: null, pdiStatus: 'pending', branch: 'สาขาหลัก',
-    checklist: { exterior: false, interior: false, mechanical: false, documents: false, keys: false } },
-  { id: 'RV004', orderId: 'VO003', brand: 'Neta', model: 'V', variant: 'Standard',
-    color: 'Lemon Yellow', year: 2024, vin: 'LNA2B4EV9NE001001', cost: 550000,
-    supplier: 'Neta Auto Thailand', status: 'inspecting', eta: addDays(-1), arrivedDate: addDays(-1),
-    stockedDate: null, pdiStatus: 'in_progress', branch: 'สาขาหลัก',
-    checklist: { exterior: true, interior: true, mechanical: false, documents: false, keys: false } },
-]
-
 export default async function VehicleReceivingPage(container) {
   const myGen = container.__routerGen
+  seedDemoData()
+
   let statusFilter = 'all'
-  let vehicles = DEMO_VEHICLES.map(v => ({ ...v, checklist: { ...v.checklist } }))
-  let dataSource = 'demo'
+  let vehicles = []
+  let loading = true
 
   function filtered() {
     return vehicles.filter(v => statusFilter === 'all' || v.status === statusFilter)
@@ -58,35 +37,18 @@ export default async function VehicleReceivingPage(container) {
 
   const today = addDays(0)
 
-  try {
-    const docs = await listDocs('vehicle_receiving', [], 'eta', 'asc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `RV${String(i+1).padStart(3,'0')}`,
-        orderId: d.orderId || '',
-        brand: d.brand || '',
-        model: d.model || '',
-        variant: d.variant || '',
-        color: d.color || '',
-        year: d.year || new Date().getFullYear(),
-        vin: d.vin || '',
-        cost: d.cost || 0,
-        supplier: d.supplier || '',
-        status: d.status || 'transit',
-        eta: d.eta || '',
-        arrivedDate: d.arrivedDate || null,
-        stockedDate: d.stockedDate || null,
-        pdiStatus: d.pdiStatus || 'pending',
-        branch: d.branch || '',
-        checklist: d.checklist || { exterior: false, interior: false, mechanical: false, documents: false, keys: false },
-      }))
-      vehicles = [...mapped, ...DEMO_VEHICLES]
-      dataSource = 'live'
-    }
-  } catch {}
+  async function loadData() {
+    loading = true
+    try { vehicles = await listDocs('vehicle_receiving', [], 'eta', 'asc', 200) } catch (e) { vehicles = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = filtered()
     const transit = vehicles.filter(v => v.status === 'transit').length
     const arrived = vehicles.filter(v => v.status === 'arrived').length
@@ -98,7 +60,7 @@ export default async function VehicleReceivingPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">📦 รับรถเข้าสต็อก</div>
-            <div class="page-subtitle">Vehicle Receiving — ติดตามการขนส่งและ PDI${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">Vehicle Receiving — ติดตามการขนส่งและ PDI</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="export-btn">📥 Export</button>
@@ -137,9 +99,14 @@ export default async function VehicleReceivingPage(container) {
     container.querySelectorAll('.pdi-btn').forEach(b => b.addEventListener('click', () => {
       const v = vehicles.find(x => x.id === b.dataset.id); if (v) openPDIModal(v)
     }))
-    container.querySelectorAll('.arrived-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.arrived-btn').forEach(b => b.addEventListener('click', async () => {
       const v = vehicles.find(x => x.id === b.dataset.id)
-      if (v) { v.status = 'arrived'; v.arrivedDate = today; showToast(`✅ ${v.brand} ${v.model} ถึงโชว์รูมแล้ว!`, 'success'); renderPage() }
+      if (!v) return
+      try {
+        await updateDocData('vehicle_receiving', v.id, { status: 'arrived', arrivedDate: today })
+        showToast(`✅ ${v.brand} ${v.model} ถึงโชว์รูมแล้ว!`, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
   }
 
@@ -200,19 +167,22 @@ export default async function VehicleReceivingPage(container) {
       `,
       confirmLabel: '✅ บันทึก PDI',
       confirmClass: 'btn-primary',
-      onConfirm() {
+      async onConfirm() {
+        const checklist = { ...v.checklist }
         checkItems.forEach(([key]) => {
-          v.checklist[key] = !!document.querySelector(`.modal .pdi-check[data-k="${key}"]`)?.checked
+          checklist[key] = !!document.querySelector(`.modal .pdi-check[data-k="${key}"]`)?.checked
         })
-        const allPassed = Object.values(v.checklist).every(Boolean)
-        if (allPassed) {
-          v.status = 'stocked'; v.stockedDate = today; v.pdiStatus = 'passed'
-          showToast(`✅ PDI ผ่าน! รับ ${v.brand} ${v.model} เข้าสต็อกแล้ว`, 'success')
-        } else {
-          v.status = 'inspecting'; v.pdiStatus = 'in_progress'
-          showToast('📋 บันทึก PDI บางส่วน', 'warning')
-        }
-        renderPage()
+        const allPassed = Object.values(checklist).every(Boolean)
+        try {
+          if (allPassed) {
+            await updateDocData('vehicle_receiving', v.id, { checklist, status: 'stocked', stockedDate: today, pdiStatus: 'passed' })
+            showToast(`✅ PDI ผ่าน! รับ ${v.brand} ${v.model} เข้าสต็อกแล้ว`, 'success')
+          } else {
+            await updateDocData('vehicle_receiving', v.id, { checklist, status: 'inspecting', pdiStatus: 'in_progress' })
+            showToast('📋 บันทึก PDI บางส่วน', 'warning')
+          }
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -258,28 +228,30 @@ export default async function VehicleReceivingPage(container) {
           <div class="input-group"><label class="input-label">สาขา</label><input class="input" id="rvf-branch" value="สาขาหลัก"></div>
         </div>
       `,
-      onConfirm() {
+      async onConfirm() {
         const brand = document.getElementById('rvf-brand')?.value?.trim()
         const model = document.getElementById('rvf-model')?.value?.trim()
-        if (!brand || !model) { showToast('❗ กรุณากรอกแบรนด์และรุ่น', 'error'); return }
-        vehicles.unshift({
-          id: `RV${String(vehicles.length+1).padStart(3,'0')}`, orderId: '',
-          brand, model, variant: '', color: document.getElementById('rvf-color')?.value||'',
-          year: 2024, vin: document.getElementById('rvf-vin')?.value||'',
-          cost: +document.getElementById('rvf-cost')?.value||0,
-          supplier: document.getElementById('rvf-supplier')?.value||'',
-          status: 'transit', eta: document.getElementById('rvf-eta')?.value||addDays(7),
-          arrivedDate: null, stockedDate: null, pdiStatus: 'pending',
-          branch: document.getElementById('rvf-branch')?.value||'สาขาหลัก',
-          checklist: { exterior: false, interior: false, mechanical: false, documents: false, keys: false }
-        })
-        showToast('✅ บันทึกรถรับเข้าแล้ว!', 'success')
-        renderPage()
+        if (!brand || !model) { showToast('❗ กรุณากรอกแบรนด์และรุ่น', 'error'); return false }
+        try {
+          await createDoc('vehicle_receiving', {
+            orderId: '',
+            brand, model, variant: '', color: document.getElementById('rvf-color')?.value||'',
+            year: 2024, vin: document.getElementById('rvf-vin')?.value||'',
+            cost: +document.getElementById('rvf-cost')?.value||0,
+            supplier: document.getElementById('rvf-supplier')?.value||'',
+            status: 'transit', eta: document.getElementById('rvf-eta')?.value||addDays(7),
+            arrivedDate: null, stockedDate: null, pdiStatus: 'pending',
+            branch: document.getElementById('rvf-branch')?.value||'สาขาหลัก',
+            checklist: { exterior: false, interior: false, mechanical: false, documents: false, keys: false }
+          })
+          showToast('✅ บันทึกรถรับเข้าแล้ว!', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
