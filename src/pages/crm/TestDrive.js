@@ -24,26 +24,21 @@ const TD_RESULT = {
   booked:      { label: '📝 จองแล้ว!', badge: 'success' },
 }
 
-const DEMO_VEHICLES = ['BYD Seal AWD (ขาว)', 'BYD Atto 3 (เงิน)', 'MG4 X (แดง)', 'DEEPAL S7 (ดำ)', 'NETA V II (น้ำเงิน)']
-const DEMO_STAFF = ['อรนุช สายใจ', 'วิชาญ มีโชค', 'น.ส.ปวีณา']
-
-const DEMO_TDS = [
-  { id:'TD001', custName:'สมศักดิ์ เจริญสุข', phone:'081-234-5678', vehicle:'BYD Seal AWD (ขาว)', staff:'อรนุช สายใจ', date:'2025-06-09', time:'10:00', status:'done', result:'booked', note:'ลูกค้าชอบมาก ขับสนุก จองเลย!', km:0, duration:45, createdAt:'2025-06-08T14:00:00Z' },
-  { id:'TD002', custName:'วิภา ดอกไม้', phone:'089-876-5432', vehicle:'MG4 X (แดง)', staff:'วิชาญ มีโชค', date:'2025-06-09', time:'14:00', status:'scheduled', result:null, note:'', km:0, duration:30, createdAt:'2025-06-09T08:00:00Z' },
-  { id:'TD003', custName:'นายสุรชัย พลศักดิ์', phone:'062-345-6789', vehicle:'DEEPAL S7 (ดำ)', staff:'อรนุช สายใจ', date:'2025-06-10', time:'11:00', status:'scheduled', result:null, note:'', km:0, duration:45, createdAt:'2025-06-09T09:30:00Z' },
-  { id:'TD004', custName:'ดวงพร สายรุ้ง', phone:'090-111-2222', vehicle:'BYD Atto 3 (เงิน)', staff:'น.ส.ปวีณา', date:'2025-06-07', time:'10:00', status:'done', result:'maybe', note:'ยังลังเล เรื่องราคา', km:12, duration:40, createdAt:'2025-06-06T15:00:00Z' },
-  { id:'TD005', custName:'ณัฐวุฒิ หาญกล้า', phone:'083-222-3333', vehicle:'NETA V II (น้ำเงิน)', staff:'วิชาญ มีโชค', date:'2025-06-06', time:'15:00', status:'noshow', result:null, note:'โทรไม่รับ', km:0, duration:0, createdAt:'2025-06-05T10:00:00Z' },
-]
-
 export default async function TestDrivePage(container) {
   const myGen = container.__routerGen
   seedDemoData()
 
-  let testdrives = DEMO_TDS.map(t => ({ ...t }))
+  let testdrives = []
   let filterStatus = 'all'
   let viewMode = 'list' // list | calendar
+  let loading = true
 
-  if (container.__routerGen !== myGen) return
+  async function loadData() {
+    loading = true
+    try { testdrives = await listDocs('test_drive_records', [], 'date', 'desc', 200) } catch (e) { testdrives = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function getStats() {
     return {
@@ -56,6 +51,10 @@ export default async function TestDrivePage(container) {
   }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const s = getStats()
     const filtered = filterStatus === 'all' ? testdrives : testdrives.filter(t => t.status === filterStatus)
     const today = new Date().toISOString().slice(0, 10)
@@ -194,13 +193,19 @@ export default async function TestDrivePage(container) {
       footer: `<button class="btn btn-secondary" id="trc">ยกเลิก</button><button class="btn btn-primary" id="trs">💾 บันทึก</button>`
     })
     el.querySelector('#trc').addEventListener('click', close)
-    el.querySelector('#trs').addEventListener('click', () => {
-      t.status = el.querySelector('#tr-status').value
-      t.result = el.querySelector('#tr-result').value || null
-      t.km = +el.querySelector('#tr-km').value
-      t.duration = +el.querySelector('#tr-dur').value
-      t.note = el.querySelector('#tr-note').value.trim()
-      showToast('✅ บันทึกผล Test Drive แล้ว', 'success'); close(); renderPage()
+    el.querySelector('#trs').addEventListener('click', async () => {
+      const fields = {
+        status: el.querySelector('#tr-status').value,
+        result: el.querySelector('#tr-result').value || null,
+        km: +el.querySelector('#tr-km').value,
+        duration: +el.querySelector('#tr-dur').value,
+        note: el.querySelector('#tr-note').value.trim(),
+      }
+      try {
+        await updateDocData('test_drive_records', t.id, fields)
+        showToast('✅ บันทึกผล Test Drive แล้ว', 'success'); close()
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
@@ -227,24 +232,27 @@ export default async function TestDrivePage(container) {
       footer: `<button class="btn btn-secondary" id="nfc">ยกเลิก</button><button class="btn btn-primary" id="nfs">📅 นัดหมาย</button>`
     })
     el.querySelector('#nfc').addEventListener('click', close)
-    el.querySelector('#nfs').addEventListener('click', () => {
+    el.querySelector('#nfs').addEventListener('click', async () => {
       const name = el.querySelector('#nf-name').value.trim()
       if (!name) return
-      testdrives.unshift({
-        id: 'TD' + Date.now(), custName: name,
-        phone: el.querySelector('#nf-phone').value,
-        vehicle: el.querySelector('#nf-vehicle').value,
-        date: el.querySelector('#nf-date').value,
-        time: el.querySelector('#nf-time').value,
-        staff: el.querySelector('#nf-staff').value,
-        status: 'scheduled', result: null, note: '',
-        km: 0, duration: 30, createdAt: new Date().toISOString()
-      })
-      showToast('📅 นัด Test Drive แล้ว', 'success'); close(); renderPage()
+      try {
+        await createDoc('test_drive_records', {
+          custName: name,
+          phone: el.querySelector('#nf-phone').value,
+          vehicle: el.querySelector('#nf-vehicle').value,
+          date: el.querySelector('#nf-date').value,
+          time: el.querySelector('#nf-time').value,
+          staff: el.querySelector('#nf-staff').value,
+          status: 'scheduled', result: null, note: '',
+          km: 0, duration: 30,
+        })
+        showToast('📅 นัด Test Drive แล้ว', 'success'); close()
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(title, value, color) {

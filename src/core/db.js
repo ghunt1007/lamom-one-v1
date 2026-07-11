@@ -2106,6 +2106,17 @@ export function seedDemoData() {
   ]
   testDrives.forEach(t => { if (!demoCol('test_drives')[t.id]) demoCol('test_drives')[t.id] = t })
 
+  // CRM Test Drive records (distinct from DMS test_drives — different schema, own collection)
+  const tdrAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
+  const testDriveRecords = [
+    { id:'TD001', custName:'สมศักดิ์ เจริญสุข', phone:'081-234-5678', vehicle:'BYD Seal AWD (ขาว)', staff:'อรนุช สายใจ', date:tdrAddDays(0), time:'10:00', status:'done', result:'booked', note:'ลูกค้าชอบมาก ขับสนุก จองเลย!', km:0, duration:45 },
+    { id:'TD002', custName:'วิภา ดอกไม้', phone:'089-876-5432', vehicle:'MG4 X (แดง)', staff:'วิชาญ มีโชค', date:tdrAddDays(0), time:'14:00', status:'scheduled', result:null, note:'', km:0, duration:30 },
+    { id:'TD003', custName:'นายสุรชัย พลศักดิ์', phone:'062-345-6789', vehicle:'DEEPAL S7 (ดำ)', staff:'อรนุช สายใจ', date:tdrAddDays(1), time:'11:00', status:'scheduled', result:null, note:'', km:0, duration:45 },
+    { id:'TD004', custName:'ดวงพร สายรุ้ง', phone:'090-111-2222', vehicle:'BYD Atto 3 (เงิน)', staff:'น.ส.ปวีณา', date:tdrAddDays(-2), time:'10:00', status:'done', result:'maybe', note:'ยังลังเล เรื่องราคา', km:12, duration:40 },
+    { id:'TD005', custName:'ณัฐวุฒิ หาญกล้า', phone:'083-222-3333', vehicle:'NETA V II (น้ำเงิน)', staff:'วิชาญ มีโชค', date:tdrAddDays(-3), time:'15:00', status:'noshow', result:null, note:'โทรไม่รับ', km:0, duration:0 },
+  ]
+  testDriveRecords.forEach(t => { if (!demoCol('test_drive_records')[t.id]) demoCol('test_drive_records')[t.id] = t })
+
   const tdcAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
   const testDriveCerts = [
     { id:'TDC001', customer:'สมชาย ใจดี',    phone:'081-111-2222', model:'BYD Atto 3',  plate:'กข-1234 (ทดสอบ)', date:tdcAddDays(0),  time:'10:30', km:45.2, staff:'พนักงาน A', fuel:'100%', damage:'ไม่มี', signed:true  },
@@ -2410,10 +2421,13 @@ export function seedDemoData() {
   walkIns.forEach(w => { if (!demoCol('walk_ins')[w.id]) demoCol('walk_ins')[w.id] = w })
 
   // Showroom appointments
+  const apAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
   const appointments = [
-    { id:'apt1', custName:'ธีรพงศ์ แสงทอง', phone:'0812340001', purpose:'ทดลองขับ', interestedIn:'BYD Seal AWD', salesperson:'อรนุช เซลส์ดี', date: new Date(Date.now()+86400000).toISOString().slice(0,10), time:'10:00', status:'confirmed', source:'LINE', notes:'' },
-    { id:'apt2', custName:'อรนุช พรหมมา', phone:'0812340002', purpose:'ดูรถ', interestedIn:'MG4', salesperson:'วิชัย ขายเก่ง', date: new Date(Date.now()+86400000*2).toISOString().slice(0,10), time:'14:00', status:'scheduled', source:'โทรศัพท์', notes:'มากับสามี' },
-    { id:'apt3', custName:'สมบัติ ยิ่งใหญ่', phone:'0812340005', purpose:'เซ็นสัญญา', interestedIn:'BYD Seal AWD', salesperson:'อรนุช เซลส์ดี', date: new Date(Date.now()).toISOString().slice(0,10), time:'11:00', status:'arrived', source:'Referral', notes:'' },
+    { id:'SRA001', custName:'สมหมาย หมายดี', phone:'0811111111', email:'', purpose:'ทดลองขับ', interestedIn:'BYD Seal AWD', date:apAddDays(0), time:'10:00', salesperson:'วิชาญ มีโชค', status:'confirmed', note:'ลูกค้า LINE ถาม EV สีขาว', source:'LINE OA', budget:1300000 },
+    { id:'SRA002', custName:'มานี มีศรี', phone:'0822222222', email:'manee@email.com', purpose:'ดูรถ / สอบถาม', interestedIn:'MG4 X', date:apAddDays(0), time:'14:00', salesperson:'อรนุช สายใจ', status:'arrived', note:'', source:'Facebook', budget:1000000 },
+    { id:'SRA003', custName:'วันดี อยู่เย็น', phone:'0833333333', email:'', purpose:'รับใบเสนอราคา', interestedIn:'BYD Atto3', date:apAddDays(1), time:'09:30', salesperson:'วิชาญ มีโชค', status:'scheduled', note:'ต้องการ 2 ใบเสนอราคา เปรียบเทียบ 2 รุ่น', source:'Walk-in', budget:900000 },
+    { id:'SRA004', custName:'ประเสริฐ ดีเสมอ', phone:'0844444444', email:'', purpose:'ปิดดีล / เซ็นสัญญา', interestedIn:'BYD Seal AWD', date:apAddDays(1), time:'13:00', salesperson:'อรนุช สายใจ', status:'scheduled', note:'ตกลงราคาแล้ว มาเซ็น', source:'Referral', budget:1299000 },
+    { id:'SRA005', custName:'สุรีย์ แสนดี', phone:'0855555555', email:'', purpose:'รับรถ (Delivery)', interestedIn:'MG ZS EV', date:apAddDays(2), time:'10:00', salesperson:'วิชาญ มีโชค', status:'scheduled', note:'เตรียม Delivery Kit + ถ่ายรูป', source:'Sale Team', budget:1049000 },
   ]
   appointments.forEach(a => { if (!demoCol('appointments')[a.id]) demoCol('appointments')[a.id] = a })
 
@@ -2430,8 +2444,10 @@ export function seedDemoData() {
 
   // Referrers (QR referral agents)
   const referrers = [
-    { id:'rfr1', name:'ธีรพงศ์ แสงทอง', phone:'0812345678', code:'REF-TS001', qrUrl:'', sales:1, commission:5000, totalReferrals:3, lastReferral: new Date(Date.now()-86400000*5).toISOString().slice(0,10) },
-    { id:'rfr2', name:'วิชัย สุขใจ', phone:'0822222222', code:'REF-WS002', qrUrl:'', sales:0, commission:0, totalReferrals:1, lastReferral: new Date(Date.now()-86400000*2).toISOString().slice(0,10) },
+    { id:'RF001', name:'นภา มีสุข', phone:'081-234-5678', code:'NAPA001', qrUrl:'lamom.app/ref/NAPA001', clicks:28, leads:8, sales:3, commission:15000, paid:10000, createdAt:'2026-01-15' },
+    { id:'RF002', name:'สมชาย วิเศษ', phone:'089-876-5432', code:'SOMC002', qrUrl:'lamom.app/ref/SOMC002', clicks:45, leads:12, sales:5, commission:25000, paid:25000, createdAt:'2026-01-20' },
+    { id:'RF003', name:'มาลี จันทร์ดี', phone:'076-111-2222', code:'MALI003', qrUrl:'lamom.app/ref/MALI003', clicks:12, leads:3, sales:1, commission:5000, paid:0, createdAt:'2026-03-01' },
+    { id:'RF004', name:'วิชัย รุ่งเรือง', phone:'095-555-6666', code:'WICH004', qrUrl:'lamom.app/ref/WICH004', clicks:8, leads:2, sales:0, commission:0, paid:0, createdAt:'2026-05-10' },
   ]
   referrers.forEach(r => { if (!demoCol('referrers')[r.id]) demoCol('referrers')[r.id] = r })
 

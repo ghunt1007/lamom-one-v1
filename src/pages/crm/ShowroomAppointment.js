@@ -2,7 +2,7 @@ import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -24,46 +24,23 @@ const APPT_PURPOSE = [
 
 const SALESPERSONS = ['วิชาญ มีโชค', 'อรนุช สายใจ', 'ยังไม่ระบุ']
 
-const DEMO_APPTS = [
-  { id:'SRA001', custName:'สมหมาย หมายดี', phone:'0811111111', email:'', purpose:'ทดลองขับ', interestedIn:'BYD Seal AWD', date:'2025-06-09', time:'10:00', salesperson:'วิชาญ มีโชค', status:'confirmed', note:'ลูกค้า LINE ถาม EV สีขาว', source:'LINE OA', budget:1300000 },
-  { id:'SRA002', custName:'มานี มีศรี', phone:'0822222222', email:'manee@email.com', purpose:'ดูรถ / สอบถาม', interestedIn:'MG4 X', date:'2025-06-09', time:'14:00', salesperson:'อรนุช สายใจ', status:'arrived', note:'', source:'Facebook', budget:1000000 },
-  { id:'SRA003', custName:'วันดี อยู่เย็น', phone:'0833333333', email:'', purpose:'รับใบเสนอราคา', interestedIn:'BYD Atto3', date:'2025-06-10', time:'09:30', salesperson:'วิชาญ มีโชค', status:'scheduled', note:'ต้องการ 2 ใบเสนอราคา เปรียบเทียบ 2 รุ่น', source:'Walk-in', budget:900000 },
-  { id:'SRA004', custName:'ประเสริฐ ดีเสมอ', phone:'0844444444', email:'', purpose:'ปิดดีล / เซ็นสัญญา', interestedIn:'BYD Seal AWD', date:'2025-06-10', time:'13:00', salesperson:'อรนุช สายใจ', status:'scheduled', note:'ตกลงราคาแล้ว มาเซ็น', source:'Referral', budget:1299000 },
-  { id:'SRA005', custName:'สุรีย์ แสนดี', phone:'0855555555', email:'', purpose:'รับรถ (Delivery)', interestedIn:'MG ZS EV', date:'2025-06-11', time:'10:00', salesperson:'วิชาญ มีโชค', status:'scheduled', note:'เตรียม Delivery Kit + ถ่ายรูป', source:'Sale Team', budget:1049000 },
-]
-
 export default async function ShowroomAppointmentPage(container) {
   const myGen = container.__routerGen
-  let appts = DEMO_APPTS.map(a => ({ ...a }))
+  seedDemoData()
+
+  let appts = []
   let viewDate = new Date().toISOString().slice(0, 10)
   let statusFilter = 'all'
   let salesFilter = 'all'
   let tab = 'today' // today | upcoming | all
-  let dataSource = 'demo'
+  let loading = true
 
-  try {
-    const live = await listDocs('appointments', [], 'date', 'desc', 300).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (live.length >= 2) {
-      const mapped = live.map(a => ({
-        id: a.id || a.docId,
-        custName: a.custName || a.customerName || 'ลูกค้า',
-        phone: a.phone || '',
-        email: a.email || '',
-        purpose: a.purpose || a.type || 'ดูรถ / สอบถาม',
-        interestedIn: a.interestedIn || a.model || '',
-        date: a.date || a.apptDate || '',
-        time: a.time || '10:00',
-        salesperson: a.salesperson || a.salesName || '',
-        status: a.status || 'scheduled',
-        note: a.note || a.notes || '',
-        source: a.source || '',
-        budget: a.budget || 0,
-      }))
-      appts = [...mapped, ...DEMO_APPTS]
-      dataSource = 'live'
-    }
-  } catch {}
+  async function loadData() {
+    loading = true
+    try { appts = await listDocs('appointments', [], 'date', 'desc', 300) } catch (e) { appts = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function getFiltered() {
     let list = appts
@@ -89,6 +66,10 @@ export default async function ShowroomAppointmentPage(container) {
   }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const s = getStats()
     const filtered = getFiltered()
 
@@ -97,7 +78,7 @@ export default async function ShowroomAppointmentPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🏪 Showroom Appointment</div>
-            <div class="page-subtitle">จัดการนัดหมายลูกค้าเข้าโชว์รูม${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">จัดการนัดหมายลูกค้าเข้าโชว์รูม</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="sa-export">📥 Export</button>
@@ -144,10 +125,15 @@ export default async function ShowroomAppointmentPage(container) {
     document.getElementById('new-sa-btn')?.addEventListener('click', () => openForm())
     document.getElementById('sa-export')?.addEventListener('click', () => exportToExcel(filtered.map(a => ({ วันที่:a.date, เวลา:a.time, ลูกค้า:a.custName, วัตถุประสงค์:a.purpose, รุ่นที่สนใจ:a.interestedIn, เซลส์:a.salesperson, สถานะ:APPT_STATUS[a.status].label })), 'ShowroomAppts'))
     document.querySelectorAll('.status-quick-btn').forEach(btn => {
-      btn.addEventListener('click', e => {
+      btn.addEventListener('click', async e => {
         e.stopPropagation()
         const a = appts.find(x => x.id === btn.dataset.id)
-        if (a) { a.status = btn.dataset.s; showToast('✅ อัพเดตแล้ว', 'success'); renderPage() }
+        if (!a) return
+        try {
+          await updateDocData('appointments', a.id, { status: btn.dataset.s })
+          showToast('✅ อัพเดตแล้ว', 'success')
+          await loadData()
+        } catch (err) { showToast('บันทึกไม่สำเร็จ', 'error') }
       })
     })
     document.querySelectorAll('.appt-row, .appt-card-click').forEach(el => {
@@ -269,16 +255,19 @@ export default async function ShowroomAppointmentPage(container) {
       footer: `<button class="btn btn-secondary" id="sa-c">ยกเลิก</button><button class="btn btn-primary" id="sa-s">💾 บันทึก</button>`
     })
     el.querySelector('#sa-c').addEventListener('click', close)
-    el.querySelector('#sa-s').addEventListener('click', () => {
+    el.querySelector('#sa-s').addEventListener('click', async () => {
       const custName = el.querySelector('#sa-name').value.trim()
       const phone = el.querySelector('#sa-phone').value.trim()
       const date = el.querySelector('#sa-date').value
       const time = el.querySelector('#sa-time').value
       if (!custName || !phone || !date || !time) return showToast('❗ กรอกข้อมูลที่จำเป็น', 'warning')
       const data = { custName, phone, date, time, purpose: el.querySelector('#sa-purpose').value, interestedIn: el.querySelector('#sa-interest').value, salesperson: el.querySelector('#sa-sales').value, source: el.querySelector('#sa-source').value, budget: +el.querySelector('#sa-budget').value || 0, note: el.querySelector('#sa-note').value }
-      if (appt) Object.assign(appt, data)
-      else appts.unshift({ id: 'SRA' + Date.now(), ...data, status: 'scheduled', email: '' })
-      showToast('📅 บันทึกนัดหมายแล้ว', 'success'); close(); renderPage()
+      try {
+        if (appt) await updateDocData('appointments', appt.id, data)
+        else await createDoc('appointments', { ...data, status: 'scheduled', email: '' })
+        showToast('📅 บันทึกนัดหมายแล้ว', 'success'); close()
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
@@ -300,11 +289,18 @@ export default async function ShowroomAppointmentPage(container) {
         </div>
       </div>`, footer: ''
     })
-    document.querySelectorAll('.det-status-btn').forEach(btn => { btn.addEventListener('click', () => { a.status = btn.dataset.s; document.querySelector('.modal-overlay')?.remove(); showToast('✅ อัพเดตแล้ว', 'success'); renderPage() }) })
+    document.querySelectorAll('.det-status-btn').forEach(btn => { btn.addEventListener('click', async () => {
+      try {
+        await updateDocData('appointments', a.id, { status: btn.dataset.s })
+        document.querySelector('.modal-overlay')?.remove()
+        showToast('✅ อัพเดตแล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+    }) })
     document.querySelector('.edit-det-btn')?.addEventListener('click', () => { document.querySelector('.modal-overlay')?.remove(); openForm(a) })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(title, value, color) {

@@ -5,50 +5,34 @@
 import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-const DEMO_REFERRERS = [
-  { id:'RF001', name:'นภา มีสุข', phone:'081-234-5678', code:'NAPA001', qrUrl:'lamom.app/ref/NAPA001', clicks:28, leads:8, sales:3, commission:15000, paid:10000, createdAt:'2026-01-15' },
-  { id:'RF002', name:'สมชาย วิเศษ', phone:'089-876-5432', code:'SOMC002', qrUrl:'lamom.app/ref/SOMC002', clicks:45, leads:12, sales:5, commission:25000, paid:25000, createdAt:'2026-01-20' },
-  { id:'RF003', name:'มาลี จันทร์ดี', phone:'076-111-2222', code:'MALI003', qrUrl:'lamom.app/ref/MALI003', clicks:12, leads:3, sales:1, commission:5000, paid:0, createdAt:'2026-03-01' },
-  { id:'RF004', name:'วิชัย รุ่งเรือง', phone:'095-555-6666', code:'WICH004', qrUrl:'lamom.app/ref/WICH004', clicks:8, leads:2, sales:0, commission:0, paid:0, createdAt:'2026-05-10' },
-]
-
 const COMMISSION_RATE = 5000 // บาทต่อคันที่ขายได้
 
 export default async function ReferralQrPage(container) {
   const myGen = container.__routerGen
-  let REFERRERS = DEMO_REFERRERS.map(r => ({ ...r }))
-  let dataSource = 'demo'
-  let selId = null
+  seedDemoData()
 
-  try {
-    const docs = await listDocs('referrers', [], 'sales', 'desc', 100).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `RF${String(i+1).padStart(3,'0')}`,
-        name: d.name || d.referrerName || 'ผู้แนะนำ',
-        phone: d.phone || '',
-        code: d.code || d.referralCode || `REF${i+1}`,
-        qrUrl: d.qrUrl || `lamom.app/ref/${d.code || `REF${i+1}`}`,
-        clicks: d.clicks || 0,
-        leads: d.leads || 0,
-        sales: d.sales || d.referredSales || 0,
-        commission: d.commission || (d.sales || 0) * COMMISSION_RATE,
-        paid: d.paid || d.paidCommission || 0,
-        createdAt: d.createdAt || d.date || '',
-      }))
-      REFERRERS = [...mapped, ...DEMO_REFERRERS]
-      dataSource = 'live'
-    }
-  } catch {}
+  let REFERRERS = []
+  let selId = null
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { REFERRERS = await listDocs('referrers', [], 'sales', 'desc', 100) } catch (e) { REFERRERS = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const totalSales = REFERRERS.reduce((s,r)=>s+r.sales,0)
     const totalComm  = REFERRERS.reduce((s,r)=>s+r.commission,0)
     const unpaid     = REFERRERS.reduce((s,r)=>s+(r.commission-r.paid),0)
@@ -59,7 +43,7 @@ export default async function ReferralQrPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🔗 Referral QR Generator</div>
-            <div class="page-subtitle">QR แนะนำเพื่อน ✕ Commission ${formatCurrency(COMMISSION_RATE)}/คัน · ${REFERRERS.length} ผู้แนะนำ${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">QR แนะนำเพื่อน ✕ Commission ${formatCurrency(COMMISSION_RATE)}/คัน · ${REFERRERS.length} ผู้แนะนำ</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="new-ref-btn">+ สร้าง QR ใหม่</button>
@@ -142,8 +126,13 @@ export default async function ReferralQrPage(container) {
           <select class="input" style="width:100%"><option>โอนธนาคาร</option><option>พร้อมเพย์</option><option>เงินสด</option></select>
         </div>`,
         confirmText:'💸 ยืนยันจ่าย',
-        onConfirm() {
-          if (sel) { sel.paid = sel.commission; render(); showToast(`💸 จ่าย Commission ${sel.name} แล้ว`, 'success') }
+        async onConfirm() {
+          if (!sel) return
+          try {
+            await updateDocData('referrers', sel.id, { paid: sel.commission })
+            showToast(`💸 จ่าย Commission ${sel.name} แล้ว`, 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     })
@@ -181,13 +170,17 @@ export default async function ReferralQrPage(container) {
         <div><label style="font-size:0.72rem;color:var(--text-muted)">เบอร์โทร</label><input class="input" id="rf-phone" placeholder="08x-xxx-xxxx" style="width:100%;margin-top:4px"></div>
         <div style="font-size:0.7rem;color:var(--text-muted)">Commission: ${formatCurrency(COMMISSION_RATE)}/คัน · หมดอายุ 1 ปี</div>`,
       confirmText:'🔗 สร้าง QR',
-      onConfirm() {
+      async onConfirm() {
         const name = document.getElementById('rf-name')?.value?.trim()
         const phone = document.getElementById('rf-phone')?.value?.trim()
         if (!name) { showToast('ใส่ชื่อ', 'warning'); return false }
         const code = name.replace(/\s/g,'').toUpperCase().slice(0,4)+(REFERRERS.length+1).toString().padStart(3,'0')
-        REFERRERS.unshift({ id:'RF'+Date.now(), name, phone, code, qrUrl:`lamom.app/ref/${code}`, clicks:0, leads:0, sales:0, commission:0, paid:0, createdAt:'2026-06-14' })
-        selId = REFERRERS[0].id; render(); showToast(`🔗 สร้าง QR ของ ${name} แล้ว · Code: ${code}`, 'success')
+        try {
+          const newId = await createDoc('referrers', { name, phone, code, qrUrl:`lamom.app/ref/${code}`, clicks:0, leads:0, sales:0, commission:0, paid:0, createdAt: new Date().toISOString().slice(0,10) })
+          selId = newId
+          showToast(`🔗 สร้าง QR ของ ${name} แล้ว · Code: ${code}`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -199,5 +192,5 @@ export default async function ReferralQrPage(container) {
     </div>`
   }
 
-  render()
+  await loadData()
 }
