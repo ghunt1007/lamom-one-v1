@@ -5,7 +5,7 @@
 import { formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc } from '../../core/db.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -183,11 +183,19 @@ export default async function StockAnalysisPage(container) {
             <span>${escHtml(m.name)}</span><span style="color:var(--danger)">ขาด ${m.targetStock - m.stock} คัน</span>
           </div>`).join('')}
         </div>`,
-        onConfirm() {
+        async onConfirm() {
           const totalCars = lowModels.reduce((s, m) => s + (m.targetStock - m.stock), 0)
-          lowModels.forEach(m => { m.stock = m.targetStock })
-          renderPage()
-          showToast(`📋 ส่งคำสั่งซื้อ ${lowModels.length} รุ่น รวม ${totalCars} คันแล้ว`, 'success')
+          try {
+            for (const m of lowModels) {
+              await createDoc('stock_orders', {
+                model: m.name,
+                qty: m.targetStock - m.stock,
+                status: 'pending',
+                orderedAt: new Date().toISOString(),
+              })
+            }
+            showToast(`📋 ส่งคำสั่งซื้อ ${lowModels.length} รุ่น รวม ${totalCars} คันแล้ว`, 'success')
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     })

@@ -3,6 +3,7 @@
  * Route: /analytics/report-builder
  */
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData } from '../../core/db.js'
 
 const FIELD_GROUPS = [
   { group:'CRM', fields:['ชื่อลูกค้า','รุ่นที่สนใจ','สถานะดีล','วันที่ติดต่อ','พนักงานขาย','แหล่งที่มา Lead'] },
@@ -27,12 +28,22 @@ const CHART_TYPES = [
 ]
 
 export default async function ReportBuilderPage(container) {
+  const myGen = container.__routerGen
   let selectedFields = ['พนักงานขาย','ยอดขาย (คัน)','รายได้','Margin %']
   let chartType = 'bar'
   let reportName = 'My Custom Report'
   let lastRun = null
   let isRunning = false
-  const savedReports = []
+  let currentReportId = null
+  let savedReports = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { savedReports = await listDocs('custom_reports', [], 'savedAt', 'desc', 100) } catch (e) { savedReports = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function fieldChip(f, selected) {
     return '<span class="field-chip'+(selected?' chip-selected':'')+'" data-f="'+f+'" style="display:inline-flex;align-items:center;gap:4px;font-size:0.7rem;padding:4px 10px;border-radius:8px;cursor:pointer;margin:3px;background:'+(selected?'var(--primary)':'var(--surface-2)')+';color:'+(selected?'#fff':'var(--text)')+';border:1px solid '+(selected?'var(--primary)':'var(--border)')+'">' +
@@ -50,6 +61,10 @@ export default async function ReportBuilderPage(container) {
   }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const presetBtns = PRESETS.map(p=>'<button class="btn btn-sm btn-secondary preset-btn" data-name="'+p.name+'" data-fields="'+encodeURIComponent(JSON.stringify(p.fields))+'" data-chart="'+p.chart+'">'+p.name+'</button>').join('')
     const chartBtns = CHART_TYPES.map(c=>'<button class="btn btn-sm '+(chartType===c.key?'btn-primary':'btn-secondary')+' chart-btn" data-c="'+c.key+'">'+c.icon+' '+c.label+'</button>').join('')
     const allFields = FIELD_GROUPS.flatMap(g=>g.fields)
@@ -81,10 +96,16 @@ export default async function ReportBuilderPage(container) {
               <div style="font-size:0.8rem;font-weight:700;margin-bottom:8px">📊 Chart Type</div>
               <div style="display:flex;flex-wrap:wrap;gap:4px">${chartBtns}</div>
             </div>
-            <div class="card" style="padding:14px">
+            <div class="card" style="padding:14px;margin-bottom:10px">
               <div style="font-size:0.8rem;font-weight:700;margin-bottom:8px">📌 เลือก Fields (${selectedFields.length})</div>
               ${fieldPicker}
             </div>
+            ${savedReports.length > 0 ? `<div class="card" style="padding:14px">
+              <div style="font-size:0.8rem;font-weight:700;margin-bottom:8px">📁 Report ที่บันทึกไว้ (${savedReports.length})</div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                ${savedReports.map(r => `<button class="btn btn-sm btn-secondary saved-report-btn" data-id="${r.id}" style="text-align:left;justify-content:flex-start">📄 ${r.name}</button>`).join('')}
+              </div>
+            </div>` : ''}
           </div>
           <div>
             <div class="card" style="padding:14px;margin-bottom:10px">
@@ -121,14 +142,28 @@ export default async function ReportBuilderPage(container) {
       chartType = b.dataset.chart
       render()
     }))
-    document.getElementById('save-btn')?.addEventListener('click',()=>{
+    document.getElementById('save-btn')?.addEventListener('click', async ()=>{
       if (selectedFields.length === 0) { showToast('⚠️ เลือก Field อย่างน้อย 1 อย่าง', 'warning'); return }
-      const existing = savedReports.findIndex(r => r.name === reportName)
-      const entry = { name: reportName, fields: [...selectedFields], chart: chartType, savedAt: new Date().toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit' }) }
-      if (existing >= 0) savedReports[existing] = entry
-      else savedReports.push(entry)
-      showToast(`💾 บันทึก "${reportName}" (${selectedFields.length} fields · ${CHART_TYPES.find(c=>c.key===chartType)?.label}) แล้ว`, 'success')
+      try {
+        const entry = { name: reportName, fields: [...selectedFields], chart: chartType, savedAt: new Date().toISOString() }
+        const existing = currentReportId ? savedReports.find(r => r.id === currentReportId) : savedReports.find(r => r.name === reportName)
+        if (existing) { await updateDocData('custom_reports', existing.id, entry); currentReportId = existing.id }
+        else { currentReportId = await createDoc('custom_reports', entry) }
+        showToast(`💾 บันทึก "${reportName}" (${selectedFields.length} fields · ${CHART_TYPES.find(c=>c.key===chartType)?.label}) แล้ว`, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
+    container.querySelectorAll('.saved-report-btn').forEach(b=>b.addEventListener('click',()=>{
+      const r = savedReports.find(x => x.id === b.dataset.id)
+      if (!r) return
+      currentReportId = r.id
+      reportName = r.name
+      selectedFields = [...r.fields]
+      chartType = r.chart
+      lastRun = null
+      showToast(`📂 โหลด "${r.name}" แล้ว`, 'success')
+      render()
+    }))
     document.getElementById('run-btn')?.addEventListener('click',()=>{
       if (isRunning) return
       if (selectedFields.length === 0) { showToast('⚠️ เลือกอย่างน้อย 1 Field', 'warning'); return }
@@ -144,5 +179,5 @@ export default async function ReportBuilderPage(container) {
     document.getElementById('report-name')?.addEventListener('change',(e)=>{ reportName=e.target.value })
   }
 
-  render()
+  await loadData()
 }

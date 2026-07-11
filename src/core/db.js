@@ -2142,6 +2142,12 @@ export function seedDemoData() {
   ]
   winbackTargets.forEach(w => { if (!demoCol('winback_targets')[w.id]) demoCol('winback_targets')[w.id] = w })
 
+  const carbonCredits = [
+    { id: 'CC001', project: 'ป่าโกงกางเขาใหญ่', tons: 50, cost: 25000, cert: 'VCS-2025-0812' },
+    { id: 'CC002', project: 'Solar Farm สุพรรณบุรี', tons: 30, cost: 18000, cert: 'GS-2025-0341' },
+  ]
+  carbonCredits.forEach(c => { if (!demoCol('carbon_credits')[c.id]) demoCol('carbon_credits')[c.id] = c })
+
   const tdcAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
   const testDriveCerts = [
     { id:'TDC001', customer:'สมชาย ใจดี',    phone:'081-111-2222', model:'BYD Atto 3',  plate:'กข-1234 (ทดสอบ)', date:tdcAddDays(0),  time:'10:30', km:45.2, staff:'พนักงาน A', fuel:'100%', damage:'ไม่มี', signed:true  },

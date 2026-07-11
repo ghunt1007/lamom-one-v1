@@ -4,7 +4,7 @@
  */
 import { showToast } from '../../core/store.js'
 import { openModal } from '../../utils/modal.js'
-import { getSalesData } from '../../core/db.js'
+import { getSalesData, listDocs, createDoc, seedDemoData } from '../../core/db.js'
 import { exportToExcel } from '../../utils/importExport.js'
 
 const MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.']
@@ -16,45 +16,54 @@ const DATA = {
   kmDriven:[142000,161000,187000,152000,205000,241000],
 }
 
-const CERT_OFFSET = [
-  { project:'ป่าโกงกางเขาใหญ่', tons:50, cost:25000, cert:'VCS-2025-0812' },
-  { project:'Solar Farm สุพรรณบุรี', tons:30, cost:18000, cert:'GS-2025-0341' },
-]
-
 export default async function CarbonFootprintPage(container) {
   const myGen = container.__routerGen
+  seedDemoData()
   let liveData = { evFleet: [...DATA.evFleet], iceEqv: [...DATA.iceEqv], carsSold: [...DATA.carsSold], kmDriven: [...DATA.kmDriven] }
   let dataSource = 'demo'
   let selMonth = 5
+  let CERT_OFFSET = []
+  let loading = true
 
-  try {
-    const sales = await getSalesData().catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (sales.length >= 2) {
-      const now = new Date()
-      const byMonth = Array(6).fill(0)
-      for (const s of sales) {
-        const d = s.bookingDate || s.deliveryDate || ''
-        if (!d) continue
-        const yr = parseInt(d.slice(0,4)), mo = parseInt(d.slice(5,7))-1
-        for (let i = 0; i < 6; i++) {
-          const tgt = new Date(now); tgt.setMonth(tgt.getMonth()-(5-i))
-          if (yr === tgt.getFullYear() && mo === tgt.getMonth()) { byMonth[i]++; break }
+  async function loadData() {
+    loading = true
+    try {
+      CERT_OFFSET = await listDocs('carbon_credits', [], 'cost', 'desc', 200)
+    } catch (e) { CERT_OFFSET = [] }
+    try {
+      const sales = await getSalesData().catch(() => [])
+      if (sales.length >= 2) {
+        const now = new Date()
+        const byMonth = Array(6).fill(0)
+        for (const s of sales) {
+          const d = s.bookingDate || s.deliveryDate || ''
+          if (!d) continue
+          const yr = parseInt(d.slice(0,4)), mo = parseInt(d.slice(5,7))-1
+          for (let i = 0; i < 6; i++) {
+            const tgt = new Date(now); tgt.setMonth(tgt.getMonth()-(5-i))
+            if (yr === tgt.getFullYear() && mo === tgt.getMonth()) { byMonth[i]++; break }
+          }
+        }
+        if (byMonth.some(v => v > 0)) {
+          liveData = {
+            carsSold: byMonth,
+            kmDriven: byMonth.map(n => n * 15000),
+            evFleet: byMonth.map(n => parseFloat((n * 0.075).toFixed(1))),
+            iceEqv: byMonth.map(n => parseFloat((n * 0.5).toFixed(1))),
+          }
+          dataSource = 'live'
         }
       }
-      if (byMonth.some(v => v > 0)) {
-        liveData = {
-          carsSold: byMonth,
-          kmDriven: byMonth.map(n => n * 15000),
-          evFleet: byMonth.map(n => parseFloat((n * 0.075).toFixed(1))),
-          iceEqv: byMonth.map(n => parseFloat((n * 0.5).toFixed(1))),
-        }
-        dataSource = 'live'
-      }
-    }
-  } catch {}
+    } catch {}
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const evTon = liveData.evFleet[selMonth]
     const iceTon = liveData.iceEqv[selMonth]
     const saved = iceTon - evTon
@@ -199,16 +208,18 @@ export default async function CarbonFootprintPage(container) {
           </div>
         `,
         confirmText: '💳 ยืนยันซื้อ Credit',
-        onConfirm() {
+        async onConfirm() {
           const sel = document.getElementById('cc-prog')
           const prog = PROGRAMS.find(p => p.id === sel?.value) || PROGRAMS[0]
           const tons = parseInt(document.getElementById('cc-tons')?.value) || 0
           if (tons < 1) { showToast('ระบุจำนวน ton', 'warning'); return false }
           const cost = tons * prog.price
           const certId = `${prog.cert}-${String(CERT_OFFSET.length + 1).padStart(3,'0')}`
-          CERT_OFFSET.push({ project: prog.name, tons, cost, cert: certId })
-          render()
-          showToast(`✅ ซื้อ Carbon Credit ${tons} ton (${prog.name}) ฿${cost.toLocaleString()} แล้ว`, 'success')
+          try {
+            await createDoc('carbon_credits', { project: prog.name, tons, cost, cert: certId })
+            showToast(`✅ ซื้อ Carbon Credit ${tons} ton (${prog.name}) ฿${cost.toLocaleString()} แล้ว`, 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
       setTimeout(() => {
@@ -233,5 +244,5 @@ export default async function CarbonFootprintPage(container) {
     </div>`
   }
 
-  render()
+  await loadData()
 }
