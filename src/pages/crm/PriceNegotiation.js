@@ -5,17 +5,9 @@
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { formatDate } from '../../utils/format.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
-
-const DEMO_NEGOTIATIONS = [
-  { id:'PN001', customer:'สมชาย ใจดี',    model:'BYD Atto 3',   listPrice:1199900, offerPrice:1150000, discount:49900, discPct:4.2, status:'approved', sales:'นาย กิตติ',  date:'2026-06-14', approver:'ผจก. วิชัย' },
-  { id:'PN002', customer:'นภา สุขสม',     model:'BYD Seal AWD',  listPrice:1999900, offerPrice:1900000, discount:99900, discPct:5.0, status:'pending',  sales:'นางสาว ปิยะ', date:'2026-06-15', approver:''           },
-  { id:'PN003', customer:'วิชัย ศรีดี',   model:'BYD Dolphin',   listPrice:799900,  offerPrice:770000,  discount:29900, discPct:3.7, status:'rejected', sales:'นาย กิตติ',  date:'2026-06-13', approver:'ผจก. วิชัย' },
-  { id:'PN004', customer:'กาญจนา ทอง',   model:'MG ZS EV',      listPrice:999900,  offerPrice:960000,  discount:39900, discPct:4.0, status:'approved', sales:'นาย สมพงษ์', date:'2026-06-12', approver:'ผจก. วิชัย' },
-  { id:'PN005', customer:'ประเสริฐ มั่น', model:'BYD Han',       listPrice:2599900, offerPrice:2500000, discount:99900, discPct:3.8, status:'pending',  sales:'นางสาว ปิยะ', date:'2026-06-15', approver:''           },
-]
 
 const STATUS_CFG = {
   approved: { label:'อนุมัติแล้ว', bg:'var(--success)',    icon:'✅' },
@@ -25,31 +17,18 @@ const STATUS_CFG = {
 
 export default async function PriceNegotiationPage(container) {
   const myGen = container.__routerGen
-  let NEGOTIATIONS = DEMO_NEGOTIATIONS.map(n => ({ ...n }))
-  let dataSource = 'demo'
-  let filterStatus = 'all'
+  seedDemoData()
 
-  try {
-    const docs = await listDocs('price_negotiations', [], 'date', 'desc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `PN${String(i+1).padStart(3,'0')}`,
-        customer: d.customer || d.customerName || 'ลูกค้า',
-        model: d.model || d.vehicleModel || '',
-        listPrice: d.listPrice || d.price || 0,
-        offerPrice: d.offerPrice || d.offer || 0,
-        discount: d.discount || (d.listPrice - d.offerPrice) || 0,
-        discPct: d.discPct || (d.listPrice > 0 ? +((d.discount / d.listPrice) * 100).toFixed(1) : 0),
-        status: d.status || 'pending',
-        sales: d.sales || d.salesName || '',
-        date: d.date || d.createdAt?.slice(0, 10) || '',
-        approver: d.approver || '',
-      }))
-      NEGOTIATIONS = [...mapped, ...DEMO_NEGOTIATIONS]
-      dataSource = 'live'
-    }
-  } catch {}
+  let NEGOTIATIONS = []
+  let filterStatus = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { NEGOTIATIONS = await listDocs('price_negotiations', [], 'date', 'desc', 200) } catch (e) { NEGOTIATIONS = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function negRow(n) {
     const cfg        = STATUS_CFG[n.status]
@@ -78,6 +57,10 @@ export default async function PriceNegotiationPage(container) {
   }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     let rows = filterStatus==='all' ? NEGOTIATIONS : NEGOTIATIONS.filter(n=>n.status===filterStatus)
 
     const approved  = NEGOTIATIONS.filter(n=>n.status==='approved').length
@@ -96,7 +79,7 @@ export default async function PriceNegotiationPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">💬 Price Negotiation Log</div>
-            <div class="page-subtitle">บันทึกประวัติการต่อราคา · ${NEGOTIATIONS.length} รายการ${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">บันทึกประวัติการต่อราคา · ${NEGOTIATIONS.length} รายการ</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="new-neg-btn">+ ขอส่วนลด</button>
@@ -116,13 +99,23 @@ export default async function PriceNegotiationPage(container) {
       </div>`
 
     container.querySelectorAll('.stat-btn').forEach(b=>b.addEventListener('click',()=>{filterStatus=b.dataset.s;render()}))
-    container.querySelectorAll('.appr-btn').forEach(b=>b.addEventListener('click',()=>{
+    container.querySelectorAll('.appr-btn').forEach(b=>b.addEventListener('click', async ()=>{
       const n=NEGOTIATIONS.find(x=>x.id===b.dataset.id)
-      if(n){n.status='approved';n.approver='ผจก. วิชัย';render();showToast('✅ อนุมัติส่วนลด '+n.customer+' ฿'+n.discount.toLocaleString(),'success')}
+      if (!n) return
+      try {
+        await updateDocData('price_negotiations', n.id, { status:'approved', approver:'ผจก. วิชัย' })
+        showToast('✅ อนุมัติส่วนลด '+n.customer+' ฿'+n.discount.toLocaleString(),'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.rej-btn').forEach(b=>b.addEventListener('click',()=>{
+    container.querySelectorAll('.rej-btn').forEach(b=>b.addEventListener('click', async ()=>{
       const n=NEGOTIATIONS.find(x=>x.id===b.dataset.id)
-      if(n){n.status='rejected';n.approver='ผจก. วิชัย';render();showToast('❌ ปฏิเสธส่วนลด '+n.customer,'warning')}
+      if (!n) return
+      try {
+        await updateDocData('price_negotiations', n.id, { status:'rejected', approver:'ผจก. วิชัย' })
+        showToast('❌ ปฏิเสธส่วนลด '+n.customer,'warning')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     document.getElementById('new-neg-btn')?.addEventListener('click',()=>openNewModal())
   }
@@ -142,7 +135,7 @@ export default async function PriceNegotiationPage(container) {
         </div>
       </div>`,
       confirmText:'📤 ส่งขออนุมัติ',
-      onConfirm() {
+      async onConfirm() {
         const cust=document.getElementById('pn-cust')?.value?.trim()
         const list=parseInt(document.getElementById('pn-list')?.value)||0
         const offer=parseInt(document.getElementById('pn-offer')?.value)||0
@@ -150,8 +143,11 @@ export default async function PriceNegotiationPage(container) {
         const disc=list-offer
         const discPct=+(disc/list*100).toFixed(1)
         const model=document.getElementById('pn-model')?.value||'BYD Atto 3'
-        NEGOTIATIONS.unshift({id:'PN'+Date.now(),customer:cust,model,listPrice:list,offerPrice:offer,discount:disc,discPct,status:'pending',sales:'เซลส์ Demo',date:'2026-06-15',approver:''})
-        render(); showToast('📤 ส่งขออนุมัติส่วนลด ฿'+disc.toLocaleString()+' แล้ว','success')
+        try {
+          await createDoc('price_negotiations', {customer:cust,model,listPrice:list,offerPrice:offer,discount:disc,discPct,status:'pending',sales:'เซลส์ Demo',date:new Date().toISOString().slice(0,10),approver:''})
+          showToast('📤 ส่งขออนุมัติส่วนลด ฿'+disc.toLocaleString()+' แล้ว','success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -160,5 +156,5 @@ export default async function PriceNegotiationPage(container) {
     return `<div class="card" style="padding:14px 16px"><div style="font-size:0.72rem;color:var(--text-muted)">${l}</div><div style="font-size:1.1rem;font-weight:900;color:${c};margin-top:2px">${v}</div></div>`
   }
 
-  render()
+  await loadData()
 }

@@ -2418,10 +2418,13 @@ export function seedDemoData() {
   appointments.forEach(a => { if (!demoCol('appointments')[a.id]) demoCol('appointments')[a.id] = a })
 
   // Referral program
+  const refAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString() }
   const referrals = [
-    { id:'ref1', referrer:'ธีรพงศ์ แสงทอง', referee:'สมชาย มีทรัพย์', phone:'0812340003', model:'BYD Seal', submitDate: new Date(Date.now()-86400000*5).toISOString().slice(0,10), status:'converted', reward:5000, salesName:'อรนุช เซลส์ดี' },
-    { id:'ref2', referrer:'วิชัย สุขใจ', referee:'กนกวรรณ สวยงาม', phone:'0822220002', model:'MG4', submitDate: new Date(Date.now()-86400000*2).toISOString().slice(0,10), status:'pending', reward:0, salesName:'วิชัย ขายเก่ง' },
-    { id:'ref3', referrer:'สุภาพร ใจดี', referee:'ประยุทธ์ ทำงานดี', phone:'0833330003', model:'NETA V II', submitDate: new Date(Date.now()-86400000).toISOString().slice(0,10), status:'test_drive', reward:0, salesName:'อรนุช เซลส์ดี' },
+    { id: 'REF001', referrer: 'วิชัย มีโชค', referrerPhone: '085-xxx', referee: 'สมหมาย ดีใจ', refereePhone: '088-xxx', model: 'BYD Seal AWD', status: 'paid', reward: 3000, submitDate: refAddDays(-30) },
+    { id: 'REF002', referrer: 'สุดา อารมณ์ดี', referrerPhone: '086-xxx', referee: 'มานี สุขใจ', refereePhone: '089-xxx', model: 'BYD Atto 3', status: 'qualified', reward: 3000, submitDate: refAddDays(-15) },
+    { id: 'REF003', referrer: 'วิชัย มีโชค', referrerPhone: '085-xxx', referee: 'บุญมา ยิ้มแย้ม', refereePhone: '090-xxx', model: 'MG ZS EV', status: 'qualified', reward: 3000, submitDate: refAddDays(-8) },
+    { id: 'REF004', referrer: 'ธนา เก่งกว่า', referrerPhone: '087-xxx', referee: 'ชัย ซื้อรถใหม่', refereePhone: '091-xxx', model: 'BYD Dolphin', status: 'pending', reward: 2500, submitDate: refAddDays(-3) },
+    { id: 'REF005', referrer: 'สุดา อารมณ์ดี', referrerPhone: '086-xxx', referee: 'อรวรรณ คิดนาน', refereePhone: '092-xxx', model: 'BYD Seal AWD', status: 'rejected', reward: 0, submitDate: refAddDays(-20) },
   ]
   referrals.forEach(r => { if (!demoCol('referrals')[r.id]) demoCol('referrals')[r.id] = r })
 
@@ -2433,10 +2436,35 @@ export function seedDemoData() {
   referrers.forEach(r => { if (!demoCol('referrers')[r.id]) demoCol('referrers')[r.id] = r })
 
   // Quotations
+  const qtAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
   const quotations = [
-    { id:'qt1', quoteNo:'QT-2025-001', customerName:'สมชาย มีทรัพย์', phone:'0812345678', vehicleLabel:'BYD Seal AWD Performance', color:'ขาว Pearl', price:1299000, down:200000, financeCo:'BAY', monthly:19800, status:'sent', createdDate:'2025-06-01', salesName:'อรนุช เซลส์ดี' },
-    { id:'qt2', quoteNo:'QT-2025-002', customerName:'กิตติพงษ์ วรรณศิลป์', phone:'0876543210', vehicleLabel:'DEEPAL S07 New Standard', color:'ดำ', price:1099000, down:150000, financeCo:'TTB', monthly:15200, status:'accepted', createdDate:'2025-06-03', salesName:'วิชัย ขายเก่ง' },
-    { id:'qt3', quoteNo:'QT-2025-003', customerName:'พิมพ์ชนก ทองสุข', phone:'0812340004', vehicleLabel:'BYD Seal RWD', color:'เทา Ink', price:1199000, down:180000, financeCo:'KBANK', monthly:17500, status:'draft', createdDate:'2025-06-08', salesName:'อรนุช เซลส์ดี' },
+    {
+      id: 'QT001', customerName: 'วิชาญ มีโชค', phone: '081-234-5678',
+      vehicleLabel: 'BYD Seal AWD Performance', basePrice: 1449000,
+      color: 'Cosmos Black', downPayment: 290000, term: 60, rate: 2.75,
+      accessories: ['A001', 'A003', 'A004'],
+      discount: 20000, tradeIn: 0, finalPrice: 1429000, monthlyPayment: 22500,
+      status: 'accepted', createdDate: qtAddDays(-14), validUntil: qtAddDays(16), salesperson: 'อรนุช สายใจ',
+      notes: 'ลูกค้าตัดสินใจซื้อ'
+    },
+    {
+      id: 'QT002', customerName: 'ประยุทธ ดีใจ', phone: '085-678-9012',
+      vehicleLabel: 'BYD Seal Standard Range', basePrice: 1199000,
+      color: 'Sky Blue', downPayment: 200000, term: 60, rate: 2.99,
+      accessories: ['A001', 'A007'],
+      discount: 10000, tradeIn: 150000, finalPrice: 1039000, monthlyPayment: 16800,
+      status: 'sent', createdDate: qtAddDays(-3), validUntil: qtAddDays(27), salesperson: 'อรนุช สายใจ',
+      notes: 'รอลูกค้าตัดสินใจ'
+    },
+    {
+      id: 'QT003', customerName: 'มาลี สุขสันต์', phone: '086-789-0123',
+      vehicleLabel: 'MG ZS EV Grand Luxury', basePrice: 1059000,
+      color: 'Pearl White', downPayment: 150000, term: 72, rate: 3.15,
+      accessories: ['A001', 'A003'],
+      discount: 0, tradeIn: 0, finalPrice: 1059000, monthlyPayment: 17200,
+      status: 'draft', createdDate: qtAddDays(-1), validUntil: qtAddDays(29), salesperson: 'วิชาญ มีโชค',
+      notes: ''
+    },
   ]
   quotations.forEach(q => { if (!demoCol('quotations')[q.id]) demoCol('quotations')[q.id] = q })
 

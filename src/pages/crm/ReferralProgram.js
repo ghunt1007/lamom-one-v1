@@ -5,7 +5,7 @@
 import { formatCurrency, formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -27,14 +27,6 @@ const REWARD_TIERS = [
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString() }
 
-const DEMO_REFERRALS = [
-  { id: 'REF001', referrer: 'วิชัย มีโชค', referrerPhone: '085-xxx', referee: 'สมหมาย ดีใจ', refereePhone: '088-xxx', model: 'BYD Seal AWD', status: 'paid', reward: 3000, submitDate: addDays(-30) },
-  { id: 'REF002', referrer: 'สุดา อารมณ์ดี', referrerPhone: '086-xxx', referee: 'มานี สุขใจ', refereePhone: '089-xxx', model: 'BYD Atto 3', status: 'qualified', reward: 3000, submitDate: addDays(-15) },
-  { id: 'REF003', referrer: 'วิชัย มีโชค', referrerPhone: '085-xxx', referee: 'บุญมา ยิ้มแย้ม', refereePhone: '090-xxx', model: 'MG ZS EV', status: 'qualified', reward: 3000, submitDate: addDays(-8) },
-  { id: 'REF004', referrer: 'ธนา เก่งกว่า', referrerPhone: '087-xxx', referee: 'ชัย ซื้อรถใหม่', refereePhone: '091-xxx', model: 'BYD Dolphin', status: 'pending', reward: 2500, submitDate: addDays(-3) },
-  { id: 'REF005', referrer: 'สุดา อารมณ์ดี', referrerPhone: '086-xxx', referee: 'อรวรรณ คิดนาน', refereePhone: '092-xxx', model: 'BYD Seal AWD', status: 'rejected', reward: 0, submitDate: addDays(-20) },
-]
-
 const TOP_REFERRERS = [
   { name: 'วิชัย มีโชค', count: 5, earned: 12000, tier: 'Gold' },
   { name: 'สุดา อารมณ์ดี', count: 3, earned: 7500, tier: 'Silver' },
@@ -43,31 +35,24 @@ const TOP_REFERRERS = [
 
 export default async function ReferralProgramPage(container) {
   const myGen = container.__routerGen
-  let referrals = DEMO_REFERRALS.map(r => ({ ...r }))
-  let dataSource = 'demo'
-  let statusFilter = 'all'
+  seedDemoData()
 
-  try {
-    const docs = await listDocs('referrals', [], 'submitDate', 'desc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `REF${i+1}`,
-        referrer: d.referrer || d.referrerName || 'ผู้แนะนำ',
-        referrerPhone: d.referrerPhone || '',
-        referee: d.referee || d.refereeName || 'ผู้ถูกแนะนำ',
-        refereePhone: d.refereePhone || '',
-        model: d.model || d.vehicleModel || '',
-        status: d.status || 'pending',
-        reward: d.reward || 0,
-        submitDate: d.submitDate || d.createdAt || new Date().toISOString(),
-      }))
-      referrals = [...mapped, ...DEMO_REFERRALS]
-      dataSource = 'live'
-    }
-  } catch {}
+  let referrals = []
+  let statusFilter = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { referrals = await listDocs('referrals', [], 'submitDate', 'desc', 200) } catch (e) { referrals = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = referrals.filter(r => statusFilter === 'all' || r.status === statusFilter)
     const totalPaid = referrals.filter(r => r.status === 'paid').reduce((a,r) => a + r.reward, 0)
     const pending = referrals.filter(r => r.status === 'pending' || r.status === 'qualified').length
@@ -77,7 +62,7 @@ export default async function ReferralProgramPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🤝 Referral Program</div>
-            <div class="page-subtitle">โปรแกรมแนะนำเพื่อน — ติดตามและจ่ายรางวัล${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">โปรแกรมแนะนำเพื่อน — ติดตามและจ่ายรางวัล</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="add-ref-btn">+ บันทึกการแนะนำ</button>
@@ -161,17 +146,26 @@ export default async function ReferralProgramPage(container) {
 
     container.querySelectorAll('.sf-btn').forEach(b => b.addEventListener('click', () => { statusFilter = b.dataset.s; renderPage() }))
     document.getElementById('add-ref-btn')?.addEventListener('click', openAddForm)
-    container.querySelectorAll('.qualify-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.qualify-btn').forEach(b => b.addEventListener('click', async () => {
       const r = referrals.find(x => x.id === b.dataset.id)
-      if (r) { r.status = 'qualified'; showToast('✅ ผ่านเกณฑ์แล้ว', 'success'); renderPage() }
+      if (!r) return
+      try { await updateDocData('referrals', r.id, { status: 'qualified' }); showToast('✅ ผ่านเกณฑ์แล้ว', 'success'); await loadData() }
+      catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.reject-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.reject-btn').forEach(b => b.addEventListener('click', async () => {
       const r = referrals.find(x => x.id === b.dataset.id)
-      if (r) { r.status = 'rejected'; showToast('❌ ไม่ผ่านเกณฑ์', 'warning'); renderPage() }
+      if (!r) return
+      try { await updateDocData('referrals', r.id, { status: 'rejected' }); showToast('❌ ไม่ผ่านเกณฑ์', 'warning'); await loadData() }
+      catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.pay-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.pay-btn').forEach(b => b.addEventListener('click', async () => {
       const r = referrals.find(x => x.id === b.dataset.id)
-      if (r) { r.status = 'paid'; showToast(`💰 จ่ายรางวัล ${formatCurrency(r.reward)} ให้ ${r.referrer} แล้ว!`, 'success'); renderPage() }
+      if (!r) return
+      try {
+        await updateDocData('referrals', r.id, { status: 'paid' })
+        showToast(`💰 จ่ายรางวัล ${formatCurrency(r.reward)} ให้ ${r.referrer} แล้ว!`, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
   }
 
@@ -189,24 +183,26 @@ export default async function ReferralProgramPage(container) {
           <div class="input-group"><label class="input-label">รางวัล (บาท)</label><input type="number" class="input" id="rf-reward" value="3000"></div>
         </div>
       `,
-      onConfirm() {
+      async onConfirm() {
         const referrer = document.getElementById('rf-referrer')?.value?.trim()
         const referee = document.getElementById('rf-referee')?.value?.trim()
-        if (!referrer || !referee) { showToast('❗ กรุณากรอกชื่อ', 'error'); return }
-        referrals.unshift({
-          id: `REF${String(referrals.length+1).padStart(3,'0')}`,
-          referrer, referrerPhone: document.getElementById('rf-ref-phone')?.value||'',
-          referee, refereePhone: document.getElementById('rf-ree-phone')?.value||'',
-          model: document.getElementById('rf-model')?.value||'BYD Seal AWD',
-          status: 'pending', reward: +document.getElementById('rf-reward')?.value||3000,
-          submitDate: new Date().toISOString()
-        })
-        showToast('✅ บันทึกการแนะนำแล้ว!', 'success'); renderPage()
+        if (!referrer || !referee) { showToast('❗ กรุณากรอกชื่อ', 'error'); return false }
+        try {
+          await createDoc('referrals', {
+            referrer, referrerPhone: document.getElementById('rf-ref-phone')?.value||'',
+            referee, refereePhone: document.getElementById('rf-ree-phone')?.value||'',
+            model: document.getElementById('rf-model')?.value||'BYD Seal AWD',
+            status: 'pending', reward: +document.getElementById('rf-reward')?.value||3000,
+            submitDate: new Date().toISOString()
+          })
+          showToast('✅ บันทึกการแนะนำแล้ว!', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

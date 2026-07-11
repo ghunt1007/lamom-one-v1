@@ -8,7 +8,7 @@ import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 import { getAccessories, getSalesStaff } from '../../data/masterData.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -42,71 +42,20 @@ const ACCESSORIES_CATALOG = [
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
 
-const DEMO_QUOTES = [
-  {
-    id: 'QT001', customerId: 'C001', customerName: 'วิชาญ มีโชค', phone: '081-234-5678',
-    vehicleId: 'M002', vehicleLabel: 'BYD Seal AWD Performance', basePrice: 1449000,
-    color: 'Cosmos Black', downPayment: 290000, term: 60, rate: 2.75,
-    accessories: ['A001', 'A003', 'A004'],
-    discount: 20000, tradeIn: 0, finalPrice: 1429000, monthlyPayment: 22500,
-    status: 'accepted', createdDate: addDays(-14), validUntil: addDays(16), salesperson: 'อรนุช สายใจ',
-    notes: 'ลูกค้าตัดสินใจซื้อ'
-  },
-  {
-    id: 'QT002', customerId: 'C005', customerName: 'ประยุทธ ดีใจ', phone: '085-678-9012',
-    vehicleId: 'M001', vehicleLabel: 'BYD Seal Standard Range', basePrice: 1199000,
-    color: 'Sky Blue', downPayment: 200000, term: 60, rate: 2.99,
-    accessories: ['A001', 'A007'],
-    discount: 10000, tradeIn: 150000, finalPrice: 1039000, monthlyPayment: 16800,
-    status: 'sent', createdDate: addDays(-3), validUntil: addDays(27), salesperson: 'อรนุช สายใจ',
-    notes: 'รอลูกค้าตัดสินใจ'
-  },
-  {
-    id: 'QT003', customerId: 'C006', customerName: 'มาลี สุขสันต์', phone: '086-789-0123',
-    vehicleId: 'M004', vehicleLabel: 'MG ZS EV Grand Luxury', basePrice: 1059000,
-    color: 'Pearl White', downPayment: 150000, term: 72, rate: 3.15,
-    accessories: ['A001', 'A003'],
-    discount: 0, tradeIn: 0, finalPrice: 1059000, monthlyPayment: 17200,
-    status: 'draft', createdDate: addDays(-1), validUntil: addDays(29), salesperson: 'วิชาญ มีโชค',
-    notes: ''
-  },
-]
-
 export default async function QuotationBuilderPage(container) {
   const myGen = container.__routerGen
-  let quotes = DEMO_QUOTES.map(q => ({ ...q }))
-  let dataSource = 'demo'
-  let statusFilter = 'all'
+  seedDemoData()
 
-  try {
-    const docs = await listDocs('quotations', [], 'createdDate', 'desc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `QT${i+1}`,
-        customerName: d.customerName || d.customer || 'ลูกค้า',
-        phone: d.phone || '',
-        vehicleLabel: d.vehicleLabel || d.model || '',
-        basePrice: d.basePrice || 0,
-        color: d.color || '',
-        downPayment: d.downPayment || 0,
-        term: d.term || 60,
-        rate: d.rate || 2.99,
-        accessories: d.accessories || [],
-        discount: d.discount || 0,
-        tradeIn: d.tradeIn || 0,
-        finalPrice: d.finalPrice || d.basePrice || 0,
-        monthlyPayment: d.monthlyPayment || 0,
-        status: d.status || 'draft',
-        createdDate: d.createdDate || new Date().toISOString().slice(0, 10),
-        validUntil: d.validUntil || addDays(30),
-        salesperson: d.salesperson || '',
-        notes: d.notes || '',
-      }))
-      quotes = [...mapped, ...DEMO_QUOTES]
-      dataSource = 'live'
-    }
-  } catch {}
+  let quotes = []
+  let statusFilter = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { quotes = await listDocs('quotations', [], 'createdDate', 'desc', 200) } catch (e) { quotes = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function filtered() {
     return quotes.filter(q => statusFilter === 'all' || q.status === statusFilter)
@@ -114,6 +63,10 @@ export default async function QuotationBuilderPage(container) {
   }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = filtered()
     const totalValue = quotes.filter(q => q.status === 'accepted').reduce((a, q) => a + q.finalPrice, 0)
     const convRate = quotes.length ? Math.round(quotes.filter(q => q.status === 'accepted').length / quotes.filter(q => q.status !== 'draft').length * 100) : 0
@@ -123,7 +76,7 @@ export default async function QuotationBuilderPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">📄 ใบเสนอราคา</div>
-            <div class="page-subtitle">Quotation Builder — สร้างและส่งใบเสนอราคา${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">Quotation Builder — สร้างและส่งใบเสนอราคา</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="export-btn">📥 Export</button>
@@ -190,13 +143,17 @@ export default async function QuotationBuilderPage(container) {
     container.querySelectorAll('.open-qt-btn').forEach(b => b.addEventListener('click', () => {
       const q = quotes.find(x => x.id === b.dataset.id); if (q) openQuoteDetail(q)
     }))
-    container.querySelectorAll('.send-qt-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.send-qt-btn').forEach(b => b.addEventListener('click', async () => {
       const q = quotes.find(x => x.id === b.dataset.id)
-      if (q) { q.status = 'sent'; showToast(`📤 ส่งใบเสนอราคา ${q.id} แล้ว!`, 'success'); renderPage() }
+      if (!q) return
+      try { await updateDocData('quotations', q.id, { status: 'sent' }); showToast(`📤 ส่งใบเสนอราคา ${q.id} แล้ว!`, 'success'); await loadData() }
+      catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.accept-qt-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.accept-qt-btn').forEach(b => b.addEventListener('click', async () => {
       const q = quotes.find(x => x.id === b.dataset.id)
-      if (q) { q.status = 'accepted'; showToast(`✅ ${q.customerName} ยอมรับใบเสนอราคาแล้ว!`, 'success'); renderPage() }
+      if (!q) return
+      try { await updateDocData('quotations', q.id, { status: 'accepted' }); showToast(`✅ ${q.customerName} ยอมรับใบเสนอราคาแล้ว!`, 'success'); await loadData() }
+      catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
   }
 
@@ -267,9 +224,9 @@ export default async function QuotationBuilderPage(container) {
           <div class="input-group"><label class="input-label">หมายเหตุ</label><input class="input" id="qf-notes" placeholder="บันทึก..."></div>
         </div>
       `,
-      onConfirm() {
+      async onConfirm() {
         const name = document.getElementById('qf-name')?.value?.trim()
-        if (!name) { showToast('❗ กรุณากรอกชื่อลูกค้า', 'error'); return }
+        if (!name) { showToast('❗ กรุณากรอกชื่อลูกค้า', 'error'); return false }
         const vehicleId = document.getElementById('qf-vehicle')?.value
         const vehicle = getVehicles().find(m => m.id === vehicleId)
         const discount = +document.getElementById('qf-discount')?.value || 0
@@ -283,24 +240,25 @@ export default async function QuotationBuilderPage(container) {
         const finalPrice = (vehicle?.price || 0) + accTotal - discount - tradeIn
         const loanAmount = finalPrice - downPayment
         const monthly = Math.round(loanAmount * (1 + rate / 100 * term / 12) / term)
-        quotes.unshift({
-          id: `QT${String(quotes.length+1).padStart(3,'0')}`,
-          customerId: '', customerName: name, phone: document.getElementById('qf-phone')?.value||'',
-          vehicleId, vehicleLabel: `${vehicle?.brand} ${vehicle?.model} ${vehicle?.variant}`,
-          basePrice: vehicle?.price || 0, color: document.getElementById('qf-color')?.value||'',
-          downPayment, term, rate, accessories: accIds,
-          discount, tradeIn, finalPrice, monthlyPayment: monthly,
-          status: 'draft', createdDate: addDays(0), validUntil: addDays(30),
-          salesperson: document.getElementById('qf-sales')?.value||'',
-          notes: document.getElementById('qf-notes')?.value||''
-        })
-        showToast('✅ สร้างใบเสนอราคาแล้ว!', 'success')
-        renderPage()
+        try {
+          await createDoc('quotations', {
+            customerName: name, phone: document.getElementById('qf-phone')?.value||'',
+            vehicleLabel: `${vehicle?.brand} ${vehicle?.model} ${vehicle?.variant}`,
+            basePrice: vehicle?.price || 0, color: document.getElementById('qf-color')?.value||'',
+            downPayment, term, rate, accessories: accIds,
+            discount, tradeIn, finalPrice, monthlyPayment: monthly,
+            status: 'draft', createdDate: addDays(0), validUntil: addDays(30),
+            salesperson: document.getElementById('qf-sales')?.value||'',
+            notes: document.getElementById('qf-notes')?.value||''
+          })
+          showToast('✅ สร้างใบเสนอราคาแล้ว!', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
