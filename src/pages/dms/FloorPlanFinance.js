@@ -5,7 +5,7 @@
 import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -14,42 +14,28 @@ function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d
 const FP_RATE = 6.5 // % ต่อปี
 const CREDIT_LINE = 50000000
 
-const DEMO_UNITS = [
-  { id: 'FP001', model: 'BYD Seal AWD', vin: '...5566', principal: 1450000, drawDate: addDays(-95), status: 'active', sold: false },
-  { id: 'FP002', model: 'BYD Dolphin', vin: '...1122', principal: 760000, drawDate: addDays(-30), status: 'active', sold: false },
-  { id: 'FP003', model: 'BYD Atto 3', vin: '...3344', principal: 930000, drawDate: addDays(-60), status: 'active', sold: false },
-  { id: 'FP004', model: 'BYD Han', vin: '...9900', principal: 1780000, drawDate: addDays(-130), status: 'active', sold: false },
-  { id: 'FP005', model: 'MG4 Electric', vin: '...7788', principal: 800000, drawDate: addDays(-15), status: 'active', sold: false },
-  { id: 'FP006', model: 'BYD Dolphin (ขายแล้ว)', vin: '...4455', principal: 760000, drawDate: addDays(-50), status: 'paid', sold: true },
-]
-
 function daysHeld(u) { return Math.round((new Date() - new Date(u.drawDate)) / 86400000) }
 function interestAccrued(u) { return Math.round(u.principal * (FP_RATE / 100) * daysHeld(u) / 365) }
 
 export default async function FloorPlanFinancePage(container) {
   const myGen = container.__routerGen
-  let units = DEMO_UNITS.map(u => ({ ...u }))
-  let dataSource = 'demo'
+  seedDemoData()
 
-  try {
-    const docs = await listDocs('floor_plan', [], 'drawDate', 'desc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `FP${String(i+1).padStart(3,'0')}`,
-        model: d.model || d.vehicleModel || '',
-        vin: d.vin || '',
-        principal: d.principal || d.amount || 0,
-        drawDate: d.drawDate || d.date || addDays(0),
-        status: d.status || 'active',
-        sold: d.sold || false,
-      }))
-      units = [...mapped, ...DEMO_UNITS]
-      dataSource = 'live'
-    }
-  } catch {}
+  let units = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { units = await listDocs('floor_plan', [], 'drawDate', 'desc', 200) } catch (e) { units = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const active = units.filter(u => u.status === 'active')
     const outstanding = active.reduce((a, u) => a + u.principal, 0)
     const totalInterest = active.reduce((a, u) => a + interestAccrued(u), 0)
@@ -63,7 +49,7 @@ export default async function FloorPlanFinancePage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🏦 Floor Plan Finance</div>
-            <div class="page-subtitle">สินเชื่อสต็อกรถ — วงเงิน ${formatCurrency(CREDIT_LINE)} @ ${FP_RATE}%/ปี${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">สินเชื่อสต็อกรถ — วงเงิน ${formatCurrency(CREDIT_LINE)} @ ${FP_RATE}%/ปี</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="draw-btn">+ เบิกวงเงิน (รถเข้าใหม่)</button>
@@ -145,9 +131,12 @@ export default async function FloorPlanFinancePage(container) {
           <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:6px;margin-top:6px"><span>ยอดปิดรวม</span><strong style="color:var(--primary)">${formatCurrency(u.principal + interestAccrued(u))}</strong></div>
         </div>`,
         confirmText: '💵 โอนปิดยอด',
-        onConfirm() {
-          u.status = 'paid'; u.sold = true
-          showToast(`✅ ปิดยอด ${formatCurrency(u.principal + interestAccrued(u))} แล้ว — วงเงินคืนกลับ`, 'success'); renderPage()
+        async onConfirm() {
+          try {
+            await updateDocData('floor_plan', u.id, { status: 'paid', sold: true })
+            showToast(`✅ ปิดยอด ${formatCurrency(u.principal + interestAccrued(u))} แล้ว — วงเงินคืนกลับ`, 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     }))
@@ -160,19 +149,22 @@ export default async function FloorPlanFinancePage(container) {
           <div class="input-group"><label class="input-label">ราคาทุน (บาท)</label><input class="input" type="number" id="fp-amount"></div>
           <div style="font-size:0.72rem;color:var(--text-muted)">วงเงินคงเหลือ: <strong>${formatCurrency(available)}</strong></div>
         </div>`,
-        onConfirm() {
+        async onConfirm() {
           const model = document.getElementById('fp-model')?.value?.trim()
           const amount = parseInt(document.getElementById('fp-amount')?.value) || 0
-          if (!model || amount <= 0) { showToast('❗ กรอกข้อมูลให้ครบ', 'error'); return }
-          if (amount > available) { showToast('❗ เกินวงเงินคงเหลือ', 'error'); return }
-          units.unshift({ id:`FP${String(units.length+1).padStart(3,'0')}`, model, vin:'...ใหม่', principal:amount, drawDate:addDays(0), status:'active', sold:false })
-          showToast(`✅ เบิก ${formatCurrency(amount)} แล้ว — ดอกเบี้ยเริ่มเดินวันนี้`, 'warning'); renderPage()
+          if (!model || amount <= 0) { showToast('❗ กรอกข้อมูลให้ครบ', 'error'); return false }
+          if (amount > available) { showToast('❗ เกินวงเงินคงเหลือ', 'error'); return false }
+          try {
+            await createDoc('floor_plan', { model, vin:'...ใหม่', principal:amount, drawDate:addDays(0), status:'active', sold:false })
+            showToast(`✅ เบิก ${formatCurrency(amount)} แล้ว — ดอกเบี้ยเริ่มเดินวันนี้`, 'warning')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

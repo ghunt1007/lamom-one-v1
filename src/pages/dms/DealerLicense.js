@@ -5,18 +5,9 @@
 import { formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
-
-const DEMO_LICENSES = [
-  { id: 'LIC-001', name: 'ใบอนุญาตตัวแทนจำหน่ายรถยนต์', issuer: 'กรมการขนส่งทางบก', no: 'ขย.65-001234', issue: '2023-07-01', expiry: '2026-06-30', renewDays: 60, status: 'expiring', dept: 'บริหาร' },
-  { id: 'LIC-002', name: 'ใบอนุญาตประกอบธุรกิจนายหน้าประกันวินาศภัย', issuer: 'คปภ.', no: 'NJ-2023-789012', issue: '2023-04-01', expiry: '2026-09-30', renewDays: 90, status: 'ok', dept: 'ประกัน' },
-  { id: 'LIC-003', name: 'ใบอนุญาตประกอบธุรกิจสินเชื่อ (พรบ.)', issuer: 'ธปท.', no: 'FIN-2022-456', issue: '2022-01-15', expiry: '2026-07-15', renewDays: 60, status: 'expiring', dept: 'การเงิน' },
-  { id: 'LIC-004', name: 'ใบอนุญาตซ่อมบำรุงรถยนต์ไฟฟ้า (EV)', issuer: 'กพร.', no: 'EV-CERT-2024-001', issue: '2024-03-01', expiry: '2027-02-28', renewDays: 90, status: 'ok', dept: 'บริการ' },
-  { id: 'LIC-005', name: 'ป้ายทะเบียนประมูล (Dealer Plate)', issuer: 'กรมการขนส่งทางบก', no: 'DP-99-1234', issue: '2025-01-01', expiry: '2026-12-31', renewDays: 30, status: 'ok', dept: 'โชว์รูม' },
-  { id: 'LIC-006', name: 'ใบรับรองมาตรฐาน ISO 9001', issuer: 'สมอ.', no: 'ISO-9001-2024-TH', issue: '2024-06-01', expiry: '2027-05-31', renewDays: 180, status: 'ok', dept: 'คุณภาพ' },
-]
 
 function daysLeft(expiry) { return Math.ceil((new Date(expiry) - Date.now()) / 86400000) }
 function calcStatus(l) {
@@ -34,30 +25,23 @@ const SMAP = {
 
 export default async function DealerLicensePage(container) {
   const myGen = container.__routerGen
-  let licenses = [...DEMO_LICENSES].map(l => ({ ...l }))
-  let dataSource = 'demo'
+  seedDemoData()
 
-  try {
-    const docs = await listDocs('licenses', [], 'expiry', 'asc', 100).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `LIC-${String(i+1).padStart(3,'0')}`,
-        name: d.name || '',
-        issuer: d.issuer || '',
-        no: d.no || d.licenseNo || '',
-        issue: d.issue || d.issueDate || '',
-        expiry: d.expiry || d.expiryDate || '',
-        renewDays: d.renewDays || 60,
-        status: 'ok',
-        dept: d.dept || d.department || '-',
-      }))
-      licenses = [...mapped, ...DEMO_LICENSES]
-      dataSource = 'live'
-    }
-  } catch {}
+  let licenses = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { licenses = await listDocs('licenses', [], 'expiry', 'asc', 100) } catch (e) { licenses = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     // คำนวณสถานะจริงทุก render
     licenses.forEach(l => { l.status = calcStatus(l) })
     const expiring = licenses.filter(l => l.status === 'expiring')
@@ -68,7 +52,7 @@ export default async function DealerLicensePage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">📋 Dealer License Tracking</div>
-            <div class="page-subtitle">ติดตามใบอนุญาตทั้งหมด · แจ้งเตือนล่วงหน้าก่อนหมดอายุ${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">ติดตามใบอนุญาตทั้งหมด · แจ้งเตือนล่วงหน้าก่อนหมดอายุ</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="add-btn">➕ เพิ่มใบอนุญาต</button>
@@ -139,12 +123,15 @@ export default async function DealerLicensePage(container) {
         <div class="input-group"><label class="input-label">วันที่ต่ออายุ (ออกใหม่)</label><input class="input" type="date" id="lic-new" value="${l.expiry ? new Date(new Date(l.expiry).setFullYear(new Date(l.expiry).getFullYear()+3)).toISOString().slice(0,10) : ''}"></div>
         <div class="input-group" style="margin-top:8px"><label class="input-label">เลขที่ใบใหม่</label><input class="input" id="lic-no" value="${escHtml(l.no)}"></div>`,
       confirmText: '✅ บันทึกการต่ออายุ',
-      onConfirm() {
+      async onConfirm() {
         const newDate = document.getElementById('lic-new').value
         if (!newDate) { showToast('❗ ระบุวันที่หมดอายุใหม่', 'error'); return false }
-        l.expiry = newDate; l.no = document.getElementById('lic-no').value.trim(); l.issue = new Date().toISOString().slice(0,10)
-        showToast(`✅ ต่ออายุ "${l.name}" ถึง ${formatDate(newDate)} แล้ว`, 'success')
-        render()
+        const no = document.getElementById('lic-no').value.trim()
+        try {
+          await updateDocData('licenses', l.id, { expiry: newDate, no, issue: new Date().toISOString().slice(0,10) })
+          showToast(`✅ ต่ออายุ "${l.name}" ถึง ${formatDate(newDate)} แล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -166,16 +153,17 @@ export default async function DealerLicensePage(container) {
         </div>
       </div>`,
       confirmText: '💾 บันทึก',
-      onConfirm() {
+      async onConfirm() {
         const name = document.getElementById('nl-name').value.trim()
         const expiry = document.getElementById('nl-expiry').value
         if (!name || !expiry) { showToast('❗ กรอกชื่อและวันหมดอายุ', 'error'); return false }
-        const id = 'LIC-' + String(licenses.length + 1).padStart(3,'0')
-        licenses.push({ id, name, issuer: document.getElementById('nl-issuer').value.trim(), no: document.getElementById('nl-no').value.trim(),
-          issue: document.getElementById('nl-issue').value || new Date().toISOString().slice(0,10),
-          expiry, renewDays: 60, status: 'ok', dept: document.getElementById('nl-dept').value.trim() || '-' })
-        showToast(`เพิ่มใบอนุญาต "${name}" แล้ว`, 'success')
-        render()
+        try {
+          await createDoc('licenses', { name, issuer: document.getElementById('nl-issuer').value.trim(), no: document.getElementById('nl-no').value.trim(),
+            issue: document.getElementById('nl-issue').value || new Date().toISOString().slice(0,10),
+            expiry, renewDays: 60, status: 'ok', dept: document.getElementById('nl-dept').value.trim() || '-' })
+          showToast(`เพิ่มใบอนุญาต "${name}" แล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -184,5 +172,5 @@ export default async function DealerLicensePage(container) {
     return `<div class="card" style="padding:14px 16px"><div style="font-size:0.72rem;color:var(--text-muted)">${l}</div><div style="font-size:1.4rem;font-weight:900;color:${c};margin-top:2px">${v}</div></div>`
   }
 
-  render()
+  await loadData()
 }

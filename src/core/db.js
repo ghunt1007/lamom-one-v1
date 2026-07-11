@@ -2038,9 +2038,13 @@ export function seedDemoData() {
   ]
   consignments.forEach(c => { if (!demoCol('consignments')[c.id]) demoCol('consignments')[c.id] = c })
 
+  const tiAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
   const tradeIns = [
-    { id:'ti1', tradeNo:'TI-001', custName:'ธีรพงศ์ แสงทอง', brand:'Honda', model:'City', year:2020, vin:'MRHFB1650LY123456', plate:'คค-1111 กทม.', km:55000, condition:'ดี', appraisedValue:350000, acceptedValue:340000, status:'accepted', bookingRef:'BK-001', createdAt: new Date(Date.now()-86400000*5).toISOString() },
-    { id:'ti2', tradeNo:'TI-002', custName:'สมศักดิ์ วงศ์มา', brand:'Toyota', model:'Yaris', year:2019, vin:'MHR50BEB5JA123456', plate:'งง-2222 กทม.', km:70000, condition:'พอใช้', appraisedValue:250000, acceptedValue:230000, status:'pending', bookingRef:'', createdAt: new Date(Date.now()-86400000*2).toISOString() },
+    { id: 'TI001', customer: 'สมชาย ใจดี', oldCar: 'Toyota Camry 2018', plate: '1กข-1111', mileage: 85000, grade: 'B', marketPrice: 650000, offerPrice: 598000, status: 'accepted', newCar: 'BYD Seal AWD', date: tiAddDays(-5) },
+    { id: 'TI002', customer: 'มาลี สุขใจ', oldCar: 'Honda City 2020', plate: '2ขค-2222', mileage: 42000, grade: 'A', marketPrice: 420000, offerPrice: 420000, status: 'received', newCar: 'BYD Dolphin', date: tiAddDays(-12) },
+    { id: 'TI003', customer: 'ธนพล เที่ยงตรง', oldCar: 'Mazda 2 2017', plate: '3คง-3333', mileage: 120000, grade: 'C', marketPrice: 280000, offerPrice: 229600, status: 'offered', newCar: 'MG4 Electric', date: tiAddDays(-2) },
+    { id: 'TI004', customer: 'อรทัย ตั้งใจ', oldCar: 'Nissan Almera 2019', plate: '4งจ-4444', mileage: 65000, grade: 'B', marketPrice: 310000, offerPrice: 285200, status: 'appraisal', newCar: 'BYD Atto 3', date: tiAddDays(0) },
+    { id: 'TI005', customer: 'วิรัช เก่งมาก', oldCar: 'Toyota Vios 2015', plate: '5จฉ-5555', mileage: 180000, grade: 'D', marketPrice: 180000, offerPrice: 126000, status: 'declined', newCar: '—', date: tiAddDays(-20) },
   ]
   tradeIns.forEach(t => { if (!demoCol('trade_ins')[t.id]) demoCol('trade_ins')[t.id] = t })
 
@@ -2121,8 +2125,14 @@ export function seedDemoData() {
   ]
   plateTracking.forEach(p => { if (!demoCol('plate_tracking')[p.id]) demoCol('plate_tracking')[p.id] = p })
 
+  const fpAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
   const floorPlan = [
-    { id:'fp1', bank:'กรุงไทย', facilityLimit:20000000, used:14000000, available:6000000, interestRate:5.5, vehicles:['st1','st2'], dueDate:'2025-09-30', status:'active', createdAt:'2025-01-01' },
+    { id: 'FP001', model: 'BYD Seal AWD', vin: '...5566', principal: 1450000, drawDate: fpAddDays(-95), status: 'active', sold: false },
+    { id: 'FP002', model: 'BYD Dolphin', vin: '...1122', principal: 760000, drawDate: fpAddDays(-30), status: 'active', sold: false },
+    { id: 'FP003', model: 'BYD Atto 3', vin: '...3344', principal: 930000, drawDate: fpAddDays(-60), status: 'active', sold: false },
+    { id: 'FP004', model: 'BYD Han', vin: '...9900', principal: 1780000, drawDate: fpAddDays(-130), status: 'active', sold: false },
+    { id: 'FP005', model: 'MG4 Electric', vin: '...7788', principal: 800000, drawDate: fpAddDays(-15), status: 'active', sold: false },
+    { id: 'FP006', model: 'BYD Dolphin (ขายแล้ว)', vin: '...4455', principal: 760000, drawDate: fpAddDays(-50), status: 'paid', sold: true },
   ]
   floorPlan.forEach(f => { if (!demoCol('floor_plan')[f.id]) demoCol('floor_plan')[f.id] = f })
 
@@ -2159,8 +2169,12 @@ export function seedDemoData() {
   specialEditions.forEach(s => { if (!demoCol('special_editions')[s.id]) demoCol('special_editions')[s.id] = s })
 
   const licenses = [
-    { id:'lic1', type:'dealer', licenseNo:'DLR-2025-001', issuedBy:'กรมการขนส่งทางบก', issuedDate:'2025-01-01', expireDate:'2025-12-31', status:'active', renewalReminder:30, note:'', createdAt:'2025-01-01' },
-    { id:'lic2', type:'finance', licenseNo:'FIN-2025-001', issuedBy:'ธนาคารแห่งประเทศไทย', issuedDate:'2025-01-01', expireDate:'2026-01-01', status:'active', renewalReminder:60, note:'ใบอนุญาตประกอบธุรกิจสินเชื่อ', createdAt:'2025-01-01' },
+    { id: 'LIC-001', name: 'ใบอนุญาตตัวแทนจำหน่ายรถยนต์', issuer: 'กรมการขนส่งทางบก', no: 'ขย.65-001234', issue: '2023-07-01', expiry: '2026-06-30', renewDays: 60, status: 'expiring', dept: 'บริหาร' },
+    { id: 'LIC-002', name: 'ใบอนุญาตประกอบธุรกิจนายหน้าประกันวินาศภัย', issuer: 'คปภ.', no: 'NJ-2023-789012', issue: '2023-04-01', expiry: '2026-09-30', renewDays: 90, status: 'ok', dept: 'ประกัน' },
+    { id: 'LIC-003', name: 'ใบอนุญาตประกอบธุรกิจสินเชื่อ (พรบ.)', issuer: 'ธปท.', no: 'FIN-2022-456', issue: '2022-01-15', expiry: '2026-07-15', renewDays: 60, status: 'expiring', dept: 'การเงิน' },
+    { id: 'LIC-004', name: 'ใบอนุญาตซ่อมบำรุงรถยนต์ไฟฟ้า (EV)', issuer: 'กพร.', no: 'EV-CERT-2024-001', issue: '2024-03-01', expiry: '2027-02-28', renewDays: 90, status: 'ok', dept: 'บริการ' },
+    { id: 'LIC-005', name: 'ป้ายทะเบียนประมูล (Dealer Plate)', issuer: 'กรมการขนส่งทางบก', no: 'DP-99-1234', issue: '2025-01-01', expiry: '2026-12-31', renewDays: 30, status: 'ok', dept: 'โชว์รูม' },
+    { id: 'LIC-006', name: 'ใบรับรองมาตรฐาน ISO 9001', issuer: 'สมอ.', no: 'ISO-9001-2024-TH', issue: '2024-06-01', expiry: '2027-05-31', renewDays: 180, status: 'ok', dept: 'คุณภาพ' },
   ]
   licenses.forEach(l => { if (!demoCol('licenses')[l.id]) demoCol('licenses')[l.id] = l })
 

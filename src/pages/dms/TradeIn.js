@@ -5,7 +5,7 @@
 import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -27,45 +27,28 @@ const CONDITION_GRADES = {
   D: { label: 'D — ต้องซ่อมเยอะ', adj: 0.70 },
 }
 
-const DEMO_TRADEINS = [
-  { id: 'TI001', customer: 'สมชาย ใจดี', oldCar: 'Toyota Camry 2018', plate: '1กข-1111', mileage: 85000, grade: 'B', marketPrice: 650000, offerPrice: 598000, status: 'accepted', newCar: 'BYD Seal AWD', date: addDays(-5) },
-  { id: 'TI002', customer: 'มาลี สุขใจ', oldCar: 'Honda City 2020', plate: '2ขค-2222', mileage: 42000, grade: 'A', marketPrice: 420000, offerPrice: 420000, status: 'received', newCar: 'BYD Dolphin', date: addDays(-12) },
-  { id: 'TI003', customer: 'ธนพล เที่ยงตรง', oldCar: 'Mazda 2 2017', plate: '3คง-3333', mileage: 120000, grade: 'C', marketPrice: 280000, offerPrice: 229600, status: 'offered', newCar: 'MG4 Electric', date: addDays(-2) },
-  { id: 'TI004', customer: 'อรทัย ตั้งใจ', oldCar: 'Nissan Almera 2019', plate: '4งจ-4444', mileage: 65000, grade: 'B', marketPrice: 310000, offerPrice: 285200, status: 'appraisal', newCar: 'BYD Atto 3', date: addDays(0) },
-  { id: 'TI005', customer: 'วิรัช เก่งมาก', oldCar: 'Toyota Vios 2015', plate: '5จฉ-5555', mileage: 180000, grade: 'D', marketPrice: 180000, offerPrice: 126000, status: 'declined', newCar: '—', date: addDays(-20) },
-]
-
 const NEXT = { appraisal: 'offered', offered: 'accepted', accepted: 'received', received: 'sold' }
 
 export default async function TradeInPage(container) {
   const myGen = container.__routerGen
-  let items = DEMO_TRADEINS.map(t => ({ ...t }))
-  let dataSource = 'demo'
-  let statusFilter = 'all'
+  seedDemoData()
 
-  try {
-    const docs = await listDocs('trade_ins', [], 'date', 'desc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `TI${String(i+1).padStart(3,'0')}`,
-        customer: d.customer || d.customerName || 'ลูกค้า',
-        oldCar: d.oldCar || d.vehicleName || '',
-        plate: d.plate || d.licensePlate || '',
-        mileage: d.mileage || 0,
-        grade: d.grade || 'B',
-        marketPrice: d.marketPrice || 0,
-        offerPrice: d.offerPrice || 0,
-        status: d.status || 'appraisal',
-        newCar: d.newCar || '',
-        date: d.date || d.createdAt?.slice(0, 10) || '',
-      }))
-      items = [...mapped, ...DEMO_TRADEINS]
-      dataSource = 'live'
-    }
-  } catch {}
+  let items = []
+  let statusFilter = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { items = await listDocs('trade_ins', [], 'date', 'desc', 200) } catch (e) { items = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = items.filter(t => statusFilter === 'all' || t.status === statusFilter)
     const active = items.filter(t => !['sold','declined'].includes(t.status)).length
     const totalOffered = items.filter(t => ['accepted','received','sold'].includes(t.status)).reduce((a, t) => a + t.offerPrice, 0)
@@ -76,7 +59,7 @@ export default async function TradeInPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🔄 Trade-In</div>
-            <div class="page-subtitle">รับเทิร์นรถเก่า — ประเมิน เสนอราคา รับรถ${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">รับเทิร์นรถเก่า — ประเมิน เสนอราคา รับรถ</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="add-ti-btn">+ ประเมินรถเทิร์น</button>
@@ -125,12 +108,21 @@ export default async function TradeInPage(container) {
     `
 
     container.querySelectorAll('.sf-btn').forEach(b => b.addEventListener('click', () => { statusFilter = b.dataset.s; renderPage() }))
-    container.querySelectorAll('.next-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.next-btn').forEach(b => b.addEventListener('click', async () => {
       const t = items.find(x => x.id === b.dataset.id)
-      if (t) { t.status = NEXT[t.status]; showToast(`${TRADEIN_STATUS[t.status]?.icon} ${TRADEIN_STATUS[t.status]?.label}`, 'success'); renderPage() }
+      if (!t) return
+      const newStatus = NEXT[t.status]
+      try {
+        await updateDocData('trade_ins', t.id, { status: newStatus })
+        showToast(`${TRADEIN_STATUS[newStatus]?.icon} ${TRADEIN_STATUS[newStatus]?.label}`, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.decline-btn').forEach(b => b.addEventListener('click', () => {
-      const t = items.find(x => x.id === b.dataset.id); if (t) { t.status = 'declined'; renderPage() }
+    container.querySelectorAll('.decline-btn').forEach(b => b.addEventListener('click', async () => {
+      const t = items.find(x => x.id === b.dataset.id)
+      if (!t) return
+      try { await updateDocData('trade_ins', t.id, { status: 'declined' }); await loadData() }
+      catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.regrade-btn').forEach(b => b.addEventListener('click', () => {
       const t = items.find(x => x.id === b.dataset.id); if (t) openAppraisalModal(t)
@@ -154,24 +146,27 @@ export default async function TradeInPage(container) {
         <div class="input-group" style="grid-column:1/-1"><label class="input-label">รถใหม่ที่สนใจ</label><input class="input" id="ti-newcar" value="${escHtml(t?.newCar||'')}"></div>
       </div>
       <p style="font-size:0.72rem;color:var(--text-muted);margin-top:8px">💡 ราคาเสนอ = ราคาตลาด × ตัวคูณเกรด</p>`,
-      onConfirm() {
+      async onConfirm() {
         const name = document.getElementById('ti-name')?.value?.trim()
-        if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return }
+        if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return false }
         const market = parseInt(document.getElementById('ti-market')?.value) || 0
         const grade = document.getElementById('ti-grade')?.value || 'B'
         const offer = Math.round(market * CONDITION_GRADES[grade].adj)
-        if (t) {
-          t.grade = grade; t.marketPrice = market; t.offerPrice = offer; t.mileage = parseInt(document.getElementById('ti-mileage')?.value) || t.mileage
-          t.status = 'offered'
-        } else {
-          items.unshift({ id:`TI${String(items.length+1).padStart(3,'0')}`, customer:name, oldCar:document.getElementById('ti-car')?.value||'—', plate:document.getElementById('ti-plate')?.value||'—', mileage:parseInt(document.getElementById('ti-mileage')?.value)||0, grade, marketPrice:market, offerPrice:offer, status:'appraisal', newCar:document.getElementById('ti-newcar')?.value||'—', date:addDays(0) })
-        }
-        showToast(`✅ ประเมินแล้ว — เสนอ ${formatCurrency(offer)}`, 'success'); renderPage()
+        const mileage = parseInt(document.getElementById('ti-mileage')?.value) || (t?.mileage || 0)
+        try {
+          if (t) {
+            await updateDocData('trade_ins', t.id, { grade, marketPrice: market, offerPrice: offer, mileage, status: 'offered' })
+          } else {
+            await createDoc('trade_ins', { customer:name, oldCar:document.getElementById('ti-car')?.value||'—', plate:document.getElementById('ti-plate')?.value||'—', mileage, grade, marketPrice:market, offerPrice:offer, status:'appraisal', newCar:document.getElementById('ti-newcar')?.value||'—', date:addDays(0) })
+          }
+          showToast(`✅ ประเมินแล้ว — เสนอ ${formatCurrency(offer)}`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
