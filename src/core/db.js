@@ -340,30 +340,57 @@ export function seedDemoData() {
   ]
   actionPlans.forEach(a => { if (!demoCol('action_plans')[a.id]) demoCol('action_plans')[a.id] = a })
 
+  const cpAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
   const complaints = [
-    { id:'cp1', ticketNo:'CMP-001', customer:'สมชาย มีทรัพย์', phone:'0812345678', type:'service', subject:'งานซ่อมล่าช้ากว่าที่นัดไว้', status:'open', priority:'high', assignedTo:'สมชาย ช่างดี', createdAt: new Date(Date.now()-86400000*2).toISOString(), notes:'ลูกค้าไม่พอใจที่รอรถนาน 3 วัน' },
-    { id:'cp2', ticketNo:'CMP-002', customer:'อรนุช พรหมมา', phone:'0898765432', type:'product', subject:'แอร์ไม่เย็น หลังซ่อมครั้งก่อน', status:'investigating', priority:'medium', assignedTo:'วิชัย ช่างเก่ง', createdAt: new Date(Date.now()-86400000*5).toISOString(), notes:'ส่งช่างไปตรวจที่บ้านแล้ว' },
-    { id:'cp3', ticketNo:'CMP-003', customer:'วิชัย สุขใจ', phone:'0822222222', type:'sales', subject:'ราคารถไม่ตรงกับที่ตกลงไว้', status:'resolved', priority:'high', assignedTo:'อรนุช เซลส์ดี', createdAt: new Date(Date.now()-86400000*10).toISOString(), notes:'คืนเงินส่วนต่างแล้ว' },
+    { id:'CP001', custName:'สมชาย ใจดี', phone:'0812345678', vehicle:'BYD Seal AWD กข-1234', category:'product', priority:'high', subject:'เครื่องยนต์สั่นผิดปกติ', detail:'หลังจากซื้อรถได้ 2 อาทิตย์ มีเสียงสั่นที่พวงมาลัยตอนความเร็ว 80+ กม./ชม.', status:'investigating', openDate:cpAddDays(-6), closedDate:null, assignedTo:'ธีรยุทธ เก่งกาจ', response:'กำลังตรวจสอบ wheel balance', createdAt:cpAddDays(-6) },
+    { id:'CP002', custName:'วิชัย เดินดี', phone:'0834567890', vehicle:'MG4 X คง-5678', category:'service', priority:'medium', subject:'ซ่อมซ้ำปัญหาเดิม', detail:'เข้าซ่อม A/C ครั้งที่ 2 ปัญหาเดิมยังมีอยู่', status:'open', openDate:cpAddDays(-3), closedDate:null, assignedTo:'', response:'', createdAt:cpAddDays(-3) },
+    { id:'CP003', custName:'ประภา สวยงาม', phone:'0845678901', vehicle:'BYD Atto3 งจ-9012', category:'sales', priority:'low', subject:'เซลส์ไม่ติดต่อกลับ', detail:'นัดทดลองขับแล้วแต่เซลส์ไม่โทรกลับ 3 วัน', status:'resolved', openDate:cpAddDays(-10), closedDate:cpAddDays(-8), assignedTo:'ผู้จัดการ', response:'ขอโทษและส่งทีมขายพร้อม offer พิเศษ', createdAt:cpAddDays(-10) },
+    { id:'CP004', custName:'อนุชา รวยมาก', phone:'0856789012', vehicle:'MG ZS EV ชด-7890', category:'billing', priority:'critical', subject:'ถูกเก็บเงินเกิน', detail:'ใบแจ้งหนี้ระบุยอด 1,200,000 แต่ตกลงกันไว้ 1,049,000', status:'escalated', openDate:cpAddDays(-4), closedDate:null, assignedTo:'ผู้จัดการ', response:'กำลังตรวจสอบกับฝ่ายการเงิน', createdAt:cpAddDays(-4) },
   ]
   complaints.forEach(c => { if (!demoCol('complaints')[c.id]) demoCol('complaints')[c.id] = c })
 
+  const csAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
   const csat = [
-    { id:'cs1', bookingId:'bk3', customer:'สุภาพร ใจดี', model:'GWM ORA Good Cat', salesName:'อรนุช เซลส์ดี', score:5, nps:9, comment:'บริการดีมาก เซลส์ให้ข้อมูลครบถ้วน', category:'sales', createdAt: new Date(Date.now()-86400000*3).toISOString() },
-    { id:'cs2', jobId:'j1', customer:'วิชัย สุขใจ', model:'BYD Seal', serviceType:'service', score:4, nps:8, comment:'งานเสร็จตามเวลา สะอาด', category:'service', createdAt: new Date(Date.now()-86400000*7).toISOString() },
+    { id:'CS001', customer:'สมชาย ใจดี',  model:'BYD Atto 3', date:csAddDays(-1), csat:5, nps:9, comment:'บริการดีมาก ช่างอธิบายละเอียด', surveyed:false, createdAt:csAddDays(-1) },
+    { id:'CS002', customer:'นภา สุขใจ',   model:'MG ZS EV',   date:csAddDays(-2), csat:4, nps:7, comment:'รอนานนิดหน่อย แต่งานเรียบร้อย', surveyed:false, createdAt:csAddDays(-2) },
+    { id:'CS003', customer:'วิชัย ดีมาก', model:'BYD Seal',   date:csAddDays(-2), csat:2, nps:3, comment:'อะไหล่ไม่มีต้องรอนาน 3 วัน', surveyed:false, createdAt:csAddDays(-2) },
+    { id:'CS004', customer:'มาลี รุ่งเรือง',model:'BYD Han',   date:csAddDays(-3), csat:5, nps:10,comment:'ประทับใจมากครับ จะแนะนำเพื่อน', surveyed:false, createdAt:csAddDays(-3) },
+    { id:'CS005', customer:'อรุณ วิชิต',  model:'BYD Dolphin',date:csAddDays(-4), csat:3, nps:6, comment:'', surveyed:false, createdAt:csAddDays(-4) },
   ]
   csat.forEach(c => { if (!demoCol('csat')[c.id]) demoCol('csat')[c.id] = c })
 
+  const cnAddHours = n => { const d = new Date(); d.setHours(d.getHours() - n); return d.toISOString() }
   const customerNotes = [
-    { id:'cn1', customerId:'c1', note:'ลูกค้าชอบสีขาว มีงบ 1.3 ล้าน ต้องการผ่อน 72 งวด', createdBy:'อรนุช เซลส์ดี', createdAt: new Date(Date.now()-86400000).toISOString() },
-    { id:'cn2', customerId:'c1', note:'โทรยืนยันนัด Test Drive วันศุกร์ 10:00', createdBy:'อรนุช เซลส์ดี', createdAt: new Date(Date.now()-3600000*6).toISOString() },
-    { id:'cn3', customerId:'c4', note:'VIP — เคยซื้อรถมาแล้ว 3 คัน ให้ส่วนลดพิเศษได้', createdBy:'วิชัย ขายเก่ง', createdAt: new Date(Date.now()-86400000*5).toISOString() },
+    { id: 'N001', customer: 'สมชาย ใจดี', type: 'call', text: 'โทรสอบถามโปรเดือนนี้ — สนใจ BYD Seal สีดำ บอกว่าจะมาดูเสาร์นี้', staff: 'วิชัย ยอดขาย', time: cnAddHours(2), pinned: true },
+    { id: 'N002', customer: 'สมชาย ใจดี', type: 'internal', text: 'ลูกค้าเคยขอส่วนลดเกิน floor — ระวังตอนต่อรอง ให้เน้นของแถมแทน', staff: 'ผจก.ขาย', time: cnAddHours(26), pinned: true },
+    { id: 'N003', customer: 'มาลี สุขใจ', type: 'visit', text: 'มารับรถหลังเช็คระยะ พอใจมาก ฝากถามเรื่อง Wallbox สำหรับบ้าน', staff: 'วิทยา ช่างใหญ่', time: cnAddHours(5), pinned: false },
+    { id: 'N004', customer: 'ธนพล เที่ยงตรง', type: 'chat', text: 'ทัก LINE ถามค่างวดไฟแนนซ์ 48 vs 60 เดือน — ส่งตารางเทียบให้แล้ว', staff: 'สุดา มาดี', time: cnAddHours(8), pinned: false },
+    { id: 'N005', customer: 'อรทัย ตั้งใจ', type: 'email', text: 'ส่งใบเสนอราคา MG4 + อุปกรณ์เสริมตามที่ขอ', staff: 'ธนา เก่ง', time: cnAddHours(30), pinned: false },
+    { id: 'N006', customer: 'มาลี สุขใจ', type: 'internal', text: 'ลูกค้า VIP — ซื้อ 2 คันแล้ว แนะนำเพื่อนมาอีก 1 ดูแลพิเศษ', staff: 'ผจก.ขาย', time: cnAddHours(100), pinned: true },
   ]
   customerNotes.forEach(n => { if (!demoCol('customer_notes')[n.id]) demoCol('customer_notes')[n.id] = n })
 
   const deals = [
-    { id:'dl1', custName:'สมชาย มีทรัพย์', model:'BYD Seal AWD', price:1299000, stage:'negotiation', probability:70, nextStep:'รอผลไฟแนนซ์ BAY', salesName:'อรนุช เซลส์ดี', createdAt: new Date(Date.now()-86400000*3).toISOString() },
-    { id:'dl2', custName:'กิตติพงษ์ วรรณศิลป์', model:'DEEPAL S7 Pro', price:1479000, stage:'proposal', probability:50, nextStep:'ส่งใบเสนอราคา', salesName:'วิชัย ขายเก่ง', createdAt: new Date(Date.now()-86400000*5).toISOString() },
-    { id:'dl3', custName:'สุภาพร ใจดี', model:'GWM ORA Good Cat', price:899000, stage:'closed_won', probability:100, nextStep:'ส่งมอบแล้ว', salesName:'อรนุช เซลส์ดี', createdAt: new Date(Date.now()-86400000*12).toISOString() },
+    { id:'DC001', customer:'คุณวรพจน์ แก้วมณี', model:'BYD Atto 3 Extended', price:1199900, stage:'ไฟแนนซ์', winPct:78, salesperson:'กิตติ', days:12,
+      advice:['ลูกค้าสนใจแต่ยังลังเล เรื่องค่างวด — เสนอดาวน์เพิ่มขึ้นเพื่อลดงวด','ส่ง LINE video รีวิวจากลูกค้าจริงที่ใช้รุ่นนี้อยู่','นัดทดลองขับอีกครั้ง เน้นโหมด EV เปรียบกับรถเก่า'],
+      objections:['ค่างวดสูงไป','กลัวแบตเสื่อม'],
+      competitors:['MG ZS EV','Neta V'] },
+    { id:'DC002', customer:'บริษัท ทรัพย์สมบูรณ์ จก.', model:'BYD Seal AWD x3', price:5399700, stage:'เจรจา', winPct:55, salesperson:'ปิยะ', days:8,
+      advice:['ดีลฝูงรถ — ขอนัดประชุม MD ให้ได้ภายในสัปดาห์นี้','เสนอแพ็กเกจ service ฟรี 3 ปีเป็น sweetener','คำนวณ TCO เทียบรถน้ำมันให้เห็นประหยัดชัดเจน'],
+      objections:['ต้องการ 3 สีต่างกัน','งบอนุมัติช้า'],
+      competitors:['Tesla Model 3','Volvo EX30'] },
+    { id:'DC003', customer:'คุณนภา รุ่งเรือง', model:'BYD Dolphin Boost', price:799900, stage:'จอง', winPct:92, salesperson:'สมพงษ์', days:3,
+      advice:['ใกล้ปิดดีลแล้ว — รีบยืนยันวันส่งมอบ','ส่งใบจองให้เซ็น ไม่ให้เปลี่ยนใจ','แนะนำอุปกรณ์เสริมก่อนส่งมอบ'],
+      objections:[],
+      competitors:[] },
+    { id:'DC004', customer:'คุณเกรียงไกร สมศักดิ์', model:'MG ZS EV Luxury Plus', price:999900, stage:'สนใจ', winPct:35, salesperson:'กิตติ', days:21,
+      advice:['Win rate ต่ำ — ระบุเหตุผลที่ยังไม่ตัดสินใจ','ลองเสนอ Test Drive ที่บ้านลูกค้า','ตรวจสอบว่าคู่แข่งเสนออะไรอยู่'],
+      objections:['ยังเปรียบเทียบอยู่','รอรุ่นใหม่'],
+      competitors:['Honda e:N1','BYD Atto 3'] },
+    { id:'DC005', customer:'คุณพรทิพย์ วงษ์ทอง', model:'BYD Han EV', price:1899900, stage:'เจรจา', winPct:61, salesperson:'ปิยะ', days:6,
+      advice:['ลูกค้า VIP — ให้ผู้จัดการโทรหาโดยตรงสัปดาห์นี้','เสนอ Priority Delivery ก่อนใคร','ให้สิทธิ์ Club Membership พิเศษ'],
+      objections:['ราคายังสูง','อยากได้ของแถม'],
+      competitors:['BMW iX3','Mercedes EQB'] },
   ]
   deals.forEach(d => { if (!demoCol('deals')[d.id]) demoCol('deals')[d.id] = d })
 
@@ -2533,8 +2560,10 @@ export function seedDemoData() {
 
   // Fleet deals (Fleet & Corporate)
   const fleetDeals = [
-    { id:'fd1', company:'บริษัท ไทยพัฒนา จำกัด', contact:'คุณสมศักดิ์ ผู้จัดการ', phone:'0211112222', sales:'อรนุช เซลส์ดี', model:'BYD Seal AWD x5', qty:5, amount:6495000, status:'negotiation', delivery:'2025-08-01', notes:'ต้องการสีเดียวกันทุกคัน' },
-    { id:'fd2', company:'ราชการ — กรมทางหลวง', contact:'คุณวิชัย ข้าราชการ', phone:'0222223333', sales:'วิชัย ขายเก่ง', model:'MG4 X-Power x3', qty:3, amount:2847000, status:'won', delivery:'2025-05-15', notes:'ผ่านการประมูลแล้ว' },
+    { id: 'FL-001', company: 'บ.รุ่งเรือง จำกัด', contact: 'คุณสมชาย', phone: '089-111-2222', units: 5, model: 'BYD Atto 3 Pro', unitPrice: 1299000, discount: 3, status: 'negotiation', delivery: '2026-09-30', sales: 'นิภา', notes: 'ต้องการสีดำทั้งหมด ผ่อนบริษัท 60 งวด' },
+    { id: 'FL-002', company: 'โรงพยาบาลสุขใจ', contact: 'คุณวิไล', phone: '02-222-3333', units: 3, model: 'BYD Seal', unitPrice: 1550000, discount: 2.5, status: 'proposal', delivery: '2026-10-15', sales: 'วิชัย', notes: 'รถผู้บริหาร สีขาว' },
+    { id: 'FL-003', company: 'บ.สร้างดี จำกัด', contact: 'คุณอนุชา', phone: '081-333-4444', units: 10, model: 'BYD Dolphin', unitPrice: 899000, discount: 5, status: 'won', delivery: '2026-07-01', sales: 'สมชาย', notes: 'แล้วเสร็จ ส่งมอบ Q3' },
+    { id: 'FL-004', company: 'หน่วยงานราชการ ก.', contact: 'คุณประเสริฐ', phone: '02-444-5555', units: 8, model: 'BYD Atto 3', unitPrice: 1099000, discount: 4, status: 'prospect', delivery: '', sales: 'มาลี', notes: 'งบประมาณปี 2027 รอกระบวนการจัดซื้อ' },
   ]
   fleetDeals.forEach(f => { if (!demoCol('fleet_deals')[f.id]) demoCol('fleet_deals')[f.id] = f })
 }

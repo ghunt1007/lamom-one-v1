@@ -5,7 +5,7 @@
 import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -19,45 +19,28 @@ const ST = {
   lost: { label: 'เสียดีล', color: 'var(--danger)' },
 }
 
-const DEMO_FLEET_DEALS = [
-  { id: 'FL-001', company: 'บ.รุ่งเรือง จำกัด', contact: 'คุณสมชาย', phone: '089-111-2222', units: 5, model: 'BYD Atto 3 Pro', unitPrice: 1299000, discount: 3, status: 'negotiation', delivery: '2026-09-30', sales: 'นิภา', notes: 'ต้องการสีดำทั้งหมด ผ่อนบริษัท 60 งวด' },
-  { id: 'FL-002', company: 'โรงพยาบาลสุขใจ', contact: 'คุณวิไล', phone: '02-222-3333', units: 3, model: 'BYD Seal', unitPrice: 1550000, discount: 2.5, status: 'proposal', delivery: '2026-10-15', sales: 'วิชัย', notes: 'รถผู้บริหาร สีขาว' },
-  { id: 'FL-003', company: 'บ.สร้างดี จำกัด', contact: 'คุณอนุชา', phone: '081-333-4444', units: 10, model: 'BYD Dolphin', unitPrice: 899000, discount: 5, status: 'won', delivery: '2026-07-01', sales: 'สมชาย', notes: 'แล้วเสร็จ ส่งมอบ Q3' },
-  { id: 'FL-004', company: 'หน่วยงานราชการ ก.', contact: 'คุณประเสริฐ', phone: '02-444-5555', units: 8, model: 'BYD Atto 3', unitPrice: 1099000, discount: 4, status: 'prospect', delivery: '', sales: 'มาลี', notes: 'งบประมาณปี 2027 รอกระบวนการจัดซื้อ' },
-]
-
 function dealValue(d) { return d.units * d.unitPrice * (1 - d.discount / 100) }
 function discountAmt(d) { return d.units * d.unitPrice * (d.discount / 100) }
 
 export default async function FleetCorporatePage(container) {
   const myGen = container.__routerGen
-  let DEALS = DEMO_FLEET_DEALS.map(d => ({ ...d }))
-  let dataSource = 'demo'
+  seedDemoData()
 
-  try {
-    const docs = await listDocs('fleet_deals', [], 'delivery', 'asc', 100).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `FL-${String(i+1).padStart(3,'0')}`,
-        company: d.company || d.companyName || 'บริษัท',
-        contact: d.contact || d.contactName || '',
-        phone: d.phone || '',
-        units: d.units || d.quantity || 1,
-        model: d.model || d.vehicleModel || '',
-        unitPrice: d.unitPrice || d.price || 0,
-        discount: d.discount || 0,
-        status: d.status || 'prospect',
-        delivery: d.delivery || d.deliveryDate || '',
-        sales: d.sales || d.salesName || '',
-        notes: d.notes || '',
-      }))
-      DEALS = [...mapped, ...DEMO_FLEET_DEALS]
-      dataSource = 'live'
-    }
-  } catch {}
+  let DEALS = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { DEALS = await listDocs('fleet_deals', [], 'delivery', 'asc', 100) } catch (e) { DEALS = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const pipeline = DEALS.filter(d => !['won','lost'].includes(d.status))
     const pipelineValue = pipeline.reduce((s, d) => s + dealValue(d), 0)
     const wonValue = DEALS.filter(d => d.status === 'won').reduce((s, d) => s + dealValue(d), 0)
@@ -68,7 +51,7 @@ export default async function FleetCorporatePage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🏢 Fleet & Corporate Sales</div>
-            <div class="page-subtitle">ดีลองค์กร/หน่วยงาน · บริหารราคาพิเศษ เงื่อนไขพิเศษ${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">ดีลองค์กร/หน่วยงาน · บริหารราคาพิเศษ เงื่อนไขพิเศษ</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="add-btn">➕ สร้างดีล Fleet</button>
@@ -128,13 +111,15 @@ export default async function FleetCorporatePage(container) {
       </div>`
   }
 
-  function moveStage(id) {
+  async function moveStage(id) {
     const d = DEALS.find(x => x.id === id)
     const next = { prospect: 'proposal', proposal: 'negotiation', negotiation: 'won' }[d.status]
     if (!next) return
-    d.status = next
-    showToast(`ดีล ${d.id} (${d.company}) → ${ST[next].label}`, 'success')
-    render()
+    try {
+      await updateDocData('fleet_deals', d.id, { status: next })
+      showToast(`ดีล ${d.id} (${d.company}) → ${ST[next].label}`, 'success')
+      await loadData()
+    } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
   }
 
   function viewDeal(id) {
@@ -152,10 +137,12 @@ export default async function FleetCorporatePage(container) {
         ${d.notes ? `<div style="background:var(--surface-2);padding:8px 10px;border-radius:var(--radius-sm);color:var(--text-muted)">💬 ${escHtml(d.notes)}</div>` : ''}
       </div>`,
       confirmText: '📄 ส่ง Quotation',
-      onConfirm() {
-        if (d.status === 'prospect') d.status = 'proposal'
-        render()
-        showToast(`📄 ส่ง Fleet Quotation ให้ ${d.company} แล้ว · สถานะ → ส่ง Proposal`, 'success')
+      async onConfirm() {
+        try {
+          if (d.status === 'prospect') await updateDocData('fleet_deals', d.id, { status: 'proposal' })
+          showToast(`📄 ส่ง Fleet Quotation ให้ ${d.company} แล้ว · สถานะ → ส่ง Proposal`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -180,18 +167,19 @@ export default async function FleetCorporatePage(container) {
         </div>
       </div>`,
       confirmText: '💾 สร้างดีล',
-      onConfirm() {
+      async onConfirm() {
         const company = document.getElementById('fl-co').value.trim()
         const model = document.getElementById('fl-model').value.trim()
         const units = parseInt(document.getElementById('fl-units').value) || 1
         const unitPrice = parseInt(document.getElementById('fl-price').value) || 0
         if (!company || !model) { showToast('❗ กรอกข้อมูลที่จำเป็น', 'error'); return false }
-        const id = 'FL-' + String(DEALS.length + 1).padStart(3,'0')
-        DEALS.unshift({ id, company, contact: document.getElementById('fl-contact').value.trim(), phone: document.getElementById('fl-phone').value.trim(),
-          units, model, unitPrice, discount: parseFloat(document.getElementById('fl-disc').value) || 0,
-          status: 'prospect', delivery: '', sales: 'ทีมขาย', notes: '' })
-        showToast(`สร้างดีล Fleet ${id} (${company} · ${units} คัน) แล้ว`, 'success')
-        render()
+        try {
+          await createDoc('fleet_deals', { company, contact: document.getElementById('fl-contact').value.trim(), phone: document.getElementById('fl-phone').value.trim(),
+            units, model, unitPrice, discount: parseFloat(document.getElementById('fl-disc').value) || 0,
+            status: 'prospect', delivery: '', sales: 'ทีมขาย', notes: '' })
+          showToast(`สร้างดีล Fleet (${company} · ${units} คัน) แล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -200,5 +188,5 @@ export default async function FleetCorporatePage(container) {
     return `<div class="card" style="padding:14px 16px"><div style="font-size:0.72rem;color:var(--text-muted)">${l}</div><div style="font-size:1.4rem;font-weight:900;color:${c};margin-top:2px">${v}</div></div>`
   }
 
-  render()
+  await loadData()
 }

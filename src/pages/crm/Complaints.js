@@ -2,7 +2,7 @@ import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -33,44 +33,21 @@ const STATUS = {
   escalated:   { label: 'Escalate', color: 'danger' },
 }
 
-const DEMO_COMPLAINTS = [
-  { id:'CP001', custName:'สมชาย ใจดี', phone:'0812345678', vehicle:'BYD Seal AWD กข-1234', category:'product', priority:'high', subject:'เครื่องยนต์สั่นผิดปกติ', detail:'หลังจากซื้อรถได้ 2 อาทิตย์ มีเสียงสั่นที่พวงมาลัยตอนความเร็ว 80+ กม./ชม.', status:'investigating', openDate:'2025-06-05', closedDate:null, assignedTo:'ธีรยุทธ เก่งกาจ', response:'กำลังตรวจสอบ wheel balance' },
-  { id:'CP002', custName:'วิชัย เดินดี', phone:'0834567890', vehicle:'MG4 X คง-5678', category:'service', priority:'medium', subject:'ซ่อมซ้ำปัญหาเดิม', detail:'เข้าซ่อม A/C ครั้งที่ 2 ปัญหาเดิมยังมีอยู่', status:'open', openDate:'2025-06-08', closedDate:null, assignedTo:'', response:'' },
-  { id:'CP003', custName:'ประภา สวยงาม', phone:'0845678901', vehicle:'BYD Atto3 งจ-9012', category:'sales', priority:'low', subject:'เซลส์ไม่ติดต่อกลับ', detail:'นัดทดลองขับแล้วแต่เซลส์ไม่โทรกลับ 3 วัน', status:'resolved', openDate:'2025-06-01', closedDate:'2025-06-03', assignedTo:'ผู้จัดการ', response:'ขอโทษและส่งทีมขายพร้อม offer พิเศษ' },
-  { id:'CP004', custName:'อนุชา รวยมาก', phone:'0856789012', vehicle:'MG ZS EV ชด-7890', category:'billing', priority:'critical', subject:'ถูกเก็บเงินเกิน', detail:'ใบแจ้งหนี้ระบุยอด 1,200,000 แต่ตกลงกันไว้ 1,049,000', status:'escalated', openDate:'2025-06-07', closedDate:null, assignedTo:'ผู้จัดการ', response:'กำลังตรวจสอบกับฝ่ายการเงิน' },
-]
-
 export default async function ComplaintsPage(container) {
   const myGen = container.__routerGen
-  let complaints = DEMO_COMPLAINTS.map(c => ({ ...c }))
+  seedDemoData()
+
+  let complaints = []
   let statusFilter = 'all'
   let priorityFilter = 'all'
-  let tab = 'list'
-  let dataSource = 'demo'
+  let loading = true
 
-  try {
-    const live = await listDocs('complaints', [], 'createdAt', 'desc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (live.length >= 2) {
-      const mapped = live.map(c => ({
-        id: c.id || c.docId,
-        custName: c.custName || c.customerName || 'ลูกค้า',
-        phone: c.phone || '',
-        vehicle: c.vehicle || `${c.brand || ''} ${c.model || ''}`.trim() || '-',
-        category: c.category || 'other',
-        priority: c.priority || 'medium',
-        subject: c.subject || c.title || '',
-        detail: c.detail || c.description || '',
-        status: c.status || 'open',
-        openDate: (c.openDate || c.createdAt?.toDate?.()?.toISOString() || '').slice(0, 10),
-        closedDate: c.closedDate || null,
-        assignedTo: c.assignedTo || '',
-        response: c.response || '',
-      }))
-      complaints = [...mapped, ...DEMO_COMPLAINTS]
-      dataSource = 'live'
-    }
-  } catch {}
+  async function loadData() {
+    loading = true
+    try { complaints = await listDocs('complaints', [], 'createdAt', 'desc', 200) } catch (e) { complaints = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function getFiltered() {
     let list = complaints
@@ -92,6 +69,10 @@ export default async function ComplaintsPage(container) {
   }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const s = getStats()
     const filtered = getFiltered()
 
@@ -100,7 +81,7 @@ export default async function ComplaintsPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">📢 Complaint Management</div>
-            <div class="page-subtitle">จัดการเรื่องร้องเรียนและ Case ลูกค้า${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">จัดการเรื่องร้องเรียนและ Case ลูกค้า</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="cp-export">📥 Export</button>
@@ -204,14 +185,17 @@ export default async function ComplaintsPage(container) {
       footer: `<button class="btn btn-secondary" id="cp-c">ยกเลิก</button><button class="btn btn-primary" id="cp-s">💾 บันทึก</button>`
     })
     el.querySelector('#cp-c').addEventListener('click', close)
-    el.querySelector('#cp-s').addEventListener('click', () => {
+    el.querySelector('#cp-s').addEventListener('click', async () => {
       const custName = el.querySelector('#cp-cust').value.trim()
       const subject = el.querySelector('#cp-sub').value.trim()
       if (!custName || !subject) return showToast('❗ กรอกข้อมูลให้ครบ', 'warning')
       const data = { custName, phone:el.querySelector('#cp-phone').value, vehicle:el.querySelector('#cp-vehicle').value, category:el.querySelector('#cp-cat').value, priority:el.querySelector('#cp-pri').value, subject, detail:el.querySelector('#cp-detail').value, assignedTo:el.querySelector('#cp-assign').value }
-      if (comp) Object.assign(comp, data)
-      else complaints.unshift({ id:'CP'+Date.now(), ...data, status:'open', openDate:today, closedDate:null, response:'' })
-      showToast('📢 บันทึกแล้ว', 'success'); close(); renderPage()
+      try {
+        if (comp) await updateDocData('complaints', comp.id, data)
+        else await createDoc('complaints', { ...data, status:'open', openDate:today, closedDate:null, response:'', createdAt:today })
+        showToast('📢 บันทึกแล้ว', 'success'); close()
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
@@ -236,16 +220,27 @@ export default async function ComplaintsPage(container) {
       footer: `<button class="btn btn-secondary" id="det-c">ปิด</button><button class="btn btn-primary" id="det-s">💾 บันทึกการตอบ</button>`
     })
     el.querySelector('#det-c').addEventListener('click', close)
-    el.querySelector('#det-s').addEventListener('click', () => {
-      c.response = el.querySelector('#cp-resp').value
-      showToast('💾 บันทึกแล้ว', 'success'); close(); renderPage()
+    el.querySelector('#det-s').addEventListener('click', async () => {
+      try {
+        await updateDocData('complaints', c.id, { response: el.querySelector('#cp-resp').value })
+        showToast('💾 บันทึกแล้ว', 'success'); close()
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
     el.querySelectorAll('.status-change').forEach(btn => {
-      btn.addEventListener('click', () => { c.status = btn.dataset.s; if (btn.dataset.s === 'closed' || btn.dataset.s === 'resolved') c.closedDate = new Date().toISOString().slice(0,10); c.response = el.querySelector('#cp-resp').value; showToast('✅ อัพเดตสถานะแล้ว','success'); close(); renderPage() })
+      btn.addEventListener('click', async () => {
+        const fields = { status: btn.dataset.s, response: el.querySelector('#cp-resp').value }
+        if (btn.dataset.s === 'closed' || btn.dataset.s === 'resolved') fields.closedDate = new Date().toISOString().slice(0,10)
+        try {
+          await updateDocData('complaints', c.id, fields)
+          showToast('✅ อัพเดตสถานะแล้ว','success'); close()
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      })
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(title, value, color) {

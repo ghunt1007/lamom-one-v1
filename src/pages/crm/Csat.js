@@ -4,7 +4,7 @@
  */
 import { formatDate } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 import { openModal } from '../../utils/modal.js'
 
 function escHtml(s) {
@@ -31,14 +31,6 @@ const CATEGORIES = [
   { cat:'คุณภาพงาน',       score:93 },
 ]
 
-const RECENT = [
-  { id:'CS001', customer:'สมชาย ใจดี',  model:'BYD Atto 3', date:'2026-06-13', csat:5, nps:9, comment:'บริการดีมาก ช่างอธิบายละเอียด' },
-  { id:'CS002', customer:'นภา สุขใจ',   model:'MG ZS EV',   date:'2026-06-12', csat:4, nps:7, comment:'รอนานนิดหน่อย แต่งานเรียบร้อย' },
-  { id:'CS003', customer:'วิชัย ดีมาก', model:'BYD Seal',   date:'2026-06-12', csat:2, nps:3, comment:'อะไหล่ไม่มีต้องรอนาน 3 วัน' },
-  { id:'CS004', customer:'มาลี รุ่งเรือง',model:'BYD Han',   date:'2026-06-11', csat:5, nps:10,comment:'ประทับใจมากครับ จะแนะนำเพื่อน' },
-  { id:'CS005', customer:'อรุณ วิชิต',  model:'BYD Dolphin',date:'2026-06-10', csat:3, nps:6, comment:'' },
-]
-
 function npsType(score) {
   if (score >= 9) return { label:'Promoter', c:'var(--success)' }
   if (score >= 7) return { label:'Passive',  c:'var(--warning)' }
@@ -51,28 +43,36 @@ function starStr(score, max=5) {
 
 export default async function CsatPage(container) {
   const myGen = container.__routerGen
-  let liveRecent = [...RECENT]
-  let dataSource = 'demo'
-  let selMonth = 5
+  seedDemoData()
 
-  try {
-    const feedback = await listDocs('csat', [], 'createdAt', 'desc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (feedback.length >= 2) {
+  let liveRecent = []
+  let selMonth = 5
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try {
+      const feedback = await listDocs('csat', [], 'createdAt', 'desc', 200)
       liveRecent = feedback.map(f => ({
-        id: f.id || f.docId,
-        customer: f.customerName || f.custName || 'ลูกค้า',
+        id: f.id,
+        customer: f.customer || f.customerName || f.custName || 'ลูกค้า',
         model: f.model || '',
-        date: (f.createdAt?.toDate?.()?.toISOString() || f.date || '').slice(0, 10),
+        date: (f.date || f.createdAt || '').slice(0, 10),
         csat: f.csat || f.csatScore || 4,
-        nps: f.nps || f.npsScore || 7,
+        nps: f.nps ?? f.npsScore ?? 7,
         comment: f.comment || f.feedback || '',
+        surveyed: f.surveyed || false,
       }))
-      dataSource = 'live'
-    }
-  } catch {}
+    } catch (e) { liveRecent = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const m = MONTHLY_CSAT[selMonth]
     const promoters  = liveRecent.filter(r => r.nps >= 9).length
     const detractors = liveRecent.filter(r => r.nps <= 6).length
@@ -83,7 +83,7 @@ export default async function CsatPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">⭐ CSAT / NPS Dashboard</div>
-            <div class="page-subtitle">ความพึงพอใจลูกค้า · Net Promoter Score · ปรับปรุงบริการ${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">ความพึงพอใจลูกค้า · Net Promoter Score · ปรับปรุงบริการ</div>
           </div>
           <div class="page-actions">
             <div style="display:flex;gap:4px">
@@ -203,11 +203,13 @@ export default async function CsatPage(container) {
           </div>
         </div>`,
         confirmText: '📤 ส่งแบบสำรวจ',
-        onConfirm() {
+        async onConfirm() {
           const ch = document.querySelector('input[name="csat-ch"]:checked')?.value || 'sms'
-          liveRecent.forEach(r => { r.surveyed = true })
-          render()
-          showToast(`📤 ส่งแบบสำรวจ CSAT ทาง ${ch === 'line' ? 'LINE' : 'SMS'} ให้ลูกค้า ${liveRecent.length} ราย แล้ว`, 'success')
+          try {
+            await Promise.all(liveRecent.map(r => updateDocData('csat', r.id, { surveyed: true })))
+            showToast(`📤 ส่งแบบสำรวจ CSAT ทาง ${ch === 'line' ? 'LINE' : 'SMS'} ให้ลูกค้า ${liveRecent.length} ราย แล้ว`, 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     })
@@ -220,5 +222,5 @@ export default async function CsatPage(container) {
     </div>`
   }
 
-  render()
+  await loadData()
 }

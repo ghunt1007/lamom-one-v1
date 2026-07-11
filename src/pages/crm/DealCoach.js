@@ -4,32 +4,9 @@
  */
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
-
-const DEMO_DEALS = [
-  { id:'DC001', customer:'คุณวรพจน์ แก้วมณี', model:'BYD Atto 3 Extended', price:1199900, stage:'ไฟแนนซ์', winPct:78, salesperson:'กิตติ', days:12,
-    advice:['ลูกค้าสนใจแต่ยังลังเล เรื่องค่างวด — เสนอดาวน์เพิ่มขึ้นเพื่อลดงวด','ส่ง LINE video รีวิวจากลูกค้าจริงที่ใช้รุ่นนี้อยู่','นัดทดลองขับอีกครั้ง เน้นโหมด EV เปรียบกับรถเก่า'],
-    objections:['ค่างวดสูงไป','กลัวแบตเสื่อม'],
-    competitors:['MG ZS EV','Neta V'] },
-  { id:'DC002', customer:'บริษัท ทรัพย์สมบูรณ์ จก.', model:'BYD Seal AWD x3', price:5399700, stage:'เจรจา', winPct:55, salesperson:'ปิยะ', days:8,
-    advice:['ดีลฝูงรถ — ขอนัดประชุม MD ให้ได้ภายในสัปดาห์นี้','เสนอแพ็กเกจ service ฟรี 3 ปีเป็น sweetener','คำนวณ TCO เทียบรถน้ำมันให้เห็นประหยัดชัดเจน'],
-    objections:['ต้องการ 3 สีต่างกัน','งบอนุมัติช้า'],
-    competitors:['Tesla Model 3','Volvo EX30'] },
-  { id:'DC003', customer:'คุณนภา รุ่งเรือง', model:'BYD Dolphin Boost', price:799900, stage:'จอง', winPct:92, salesperson:'สมพงษ์', days:3,
-    advice:['ใกล้ปิดดีลแล้ว — รีบยืนยันวันส่งมอบ','ส่งใบจองให้เซ็น ไม่ให้เปลี่ยนใจ','แนะนำอุปกรณ์เสริมก่อนส่งมอบ'],
-    objections:[],
-    competitors:[] },
-  { id:'DC004', customer:'คุณเกรียงไกร สมศักดิ์', model:'MG ZS EV Luxury Plus', price:999900, stage:'สนใจ', winPct:35, salesperson:'กิตติ', days:21,
-    advice:['Win rate ต่ำ — ระบุเหตุผลที่ยังไม่ตัดสินใจ','ลองเสนอ Test Drive ที่บ้านลูกค้า','ตรวจสอบว่าคู่แข่งเสนออะไรอยู่'],
-    objections:['ยังเปรียบเทียบอยู่','รอรุ่นใหม่'],
-    competitors:['Honda e:N1','BYD Atto 3'] },
-  { id:'DC005', customer:'คุณพรทิพย์ วงษ์ทอง', model:'BYD Han EV', price:1899900, stage:'เจรจา', winPct:61, salesperson:'ปิยะ', days:6,
-    advice:['ลูกค้า VIP — ให้ผู้จัดการโทรหาโดยตรงสัปดาห์นี้','เสนอ Priority Delivery ก่อนใคร','ให้สิทธิ์ Club Membership พิเศษ'],
-    objections:['ราคายังสูง','อยากได้ของแถม'],
-    competitors:['BMW iX3','Mercedes EQB'] },
-]
 
 const TIPS = [
   'ตอบ objection "ราคาสูง" ด้วยการเปรียบ TCO 5 ปี — ลูกค้ามักประหลาดใจ',
@@ -41,32 +18,19 @@ const TIPS = [
 
 export default async function DealCoachPage(container) {
   const myGen = container.__routerGen
-  let DEALS = DEMO_DEALS.map(d => ({ ...d, advice: [...d.advice], objections: [...d.objections], competitors: [...d.competitors] }))
-  let dataSource = 'demo'
+  seedDemoData()
+
+  let DEALS = []
   let filterSales = 'all'
   let selDealId = null
+  let loading = true
 
-  try {
-    const docs = await listDocs('deals', [], 'winPct', 'desc', 100).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `DC${i+1}`,
-        customer: d.customer || d.customerName || 'ลูกค้า',
-        model: d.model || d.vehicleModel || '',
-        price: d.price || d.finalPrice || 0,
-        stage: d.stage || 'สนใจ',
-        winPct: d.winPct || d.probability || 50,
-        salesperson: d.salesperson || d.salesName || '',
-        days: d.days || 0,
-        advice: d.advice || [],
-        objections: d.objections || [],
-        competitors: d.competitors || [],
-      }))
-      DEALS = [...mapped, ...DEMO_DEALS]
-      dataSource = 'live'
-    }
-  } catch {}
+  async function loadData() {
+    loading = true
+    try { DEALS = await listDocs('deals', [], 'winPct', 'desc', 100) } catch (e) { DEALS = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function winColor(pct) {
     return pct>=80?'var(--success)':pct>=50?'var(--warning)':'var(--danger)'
@@ -115,6 +79,10 @@ export default async function DealCoachPage(container) {
   }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = filterSales==='all' ? DEALS : DEALS.filter(d=>d.salesperson===filterSales)
     const avgWin = Math.round(list.reduce((s,d)=>s+d.winPct,0)/Math.max(list.length,1))
     const hot = list.filter(d=>d.winPct>=80).length
@@ -128,7 +96,7 @@ export default async function DealCoachPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🤖 AI Deal Coach</div>
-            <div class="page-subtitle">แนะนำ Sales Real-time · ${list.length} ดีลที่กำลังดำเนินการ${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">แนะนำ Sales Real-time · ${list.length} ดีลที่กำลังดำเนินการ</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="train-btn">🎯 Training Mode</button>
@@ -199,17 +167,20 @@ export default async function DealCoachPage(container) {
         </div>
       `
     })
-    document.getElementById('la-save')?.addEventListener('click', () => {
+    document.getElementById('la-save')?.addEventListener('click', async () => {
       const action = document.getElementById('la-action')?.value.trim()
       if (!action) { showToast('⚠️ กรุณากรอกสิ่งที่ทำไป', 'warning'); return }
       const newWin = parseInt(document.getElementById('la-win')?.value)
       const next   = document.getElementById('la-next')?.value.trim()
-      if (!isNaN(newWin) && newWin >= 0 && newWin <= 100) deal.winPct = newWin
-      if (next) deal.advice = [next, ...deal.advice.slice(0, 2)]
-      deal.days = 0
-      document.querySelector('.modal-overlay')?.remove()
-      showToast('✅ บันทึกการดำเนินการ: ' + action, 'success')
-      render()
+      const fields = { days: 0 }
+      if (!isNaN(newWin) && newWin >= 0 && newWin <= 100) fields.winPct = newWin
+      if (next) fields.advice = [next, ...deal.advice.slice(0, 2)]
+      try {
+        await updateDocData('deals', deal.id, fields)
+        document.querySelector('.modal-overlay')?.remove()
+        showToast('✅ บันทึกการดำเนินการ: ' + action, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
@@ -255,5 +226,5 @@ export default async function DealCoachPage(container) {
     return `<div class="card" style="padding:14px 16px"><div style="font-size:0.72rem;color:var(--text-muted)">${l}</div><div style="font-size:1.1rem;font-weight:900;color:${c};margin-top:2px">${v}</div></div>`
   }
 
-  render()
+  await loadData()
 }

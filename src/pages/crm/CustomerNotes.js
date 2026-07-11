@@ -5,13 +5,11 @@
 import { timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
-
-function addHours(n) { const d = new Date(); d.setHours(d.getHours() - n); return d.toISOString() }
 
 const NOTE_TYPES = {
   call:    { label: 'โทรศัพท์', color: 'primary', icon: '📞' },
@@ -23,41 +21,27 @@ const NOTE_TYPES = {
 
 const DEMO_CUSTOMERS = ['สมชาย ใจดี', 'มาลี สุขใจ', 'ธนพล เที่ยงตรง', 'อรทัย ตั้งใจ']
 
-const DEMO_NOTES = [
-  { id: 'N001', customer: 'สมชาย ใจดี', type: 'call', text: 'โทรสอบถามโปรเดือนนี้ — สนใจ BYD Seal สีดำ บอกว่าจะมาดูเสาร์นี้', staff: 'วิชัย ยอดขาย', time: addHours(2), pinned: true },
-  { id: 'N002', customer: 'สมชาย ใจดี', type: 'internal', text: 'ลูกค้าเคยขอส่วนลดเกิน floor — ระวังตอนต่อรอง ให้เน้นของแถมแทน', staff: 'ผจก.ขาย', time: addHours(26), pinned: true },
-  { id: 'N003', customer: 'มาลี สุขใจ', type: 'visit', text: 'มารับรถหลังเช็คระยะ พอใจมาก ฝากถามเรื่อง Wallbox สำหรับบ้าน', staff: 'วิทยา ช่างใหญ่', time: addHours(5), pinned: false },
-  { id: 'N004', customer: 'ธนพล เที่ยงตรง', type: 'chat', text: 'ทัก LINE ถามค่างวดไฟแนนซ์ 48 vs 60 เดือน — ส่งตารางเทียบให้แล้ว', staff: 'สุดา มาดี', time: addHours(8), pinned: false },
-  { id: 'N005', customer: 'อรทัย ตั้งใจ', type: 'email', text: 'ส่งใบเสนอราคา MG4 + อุปกรณ์เสริมตามที่ขอ', staff: 'ธนา เก่ง', time: addHours(30), pinned: false },
-  { id: 'N006', customer: 'มาลี สุขใจ', type: 'internal', text: 'ลูกค้า VIP — ซื้อ 2 คันแล้ว แนะนำเพื่อนมาอีก 1 ดูแลพิเศษ', staff: 'ผจก.ขาย', time: addHours(100), pinned: true },
-]
-
 export default async function CustomerNotesPage(container) {
   const myGen = container.__routerGen
-  let notes = DEMO_NOTES.map(n => ({ ...n }))
-  let dataSource = 'demo'
+  seedDemoData()
+
+  let notes = []
   let customerFilter = 'all'
   let typeFilter = 'all'
+  let loading = true
 
-  try {
-    const docs = await listDocs('customer_notes', [], 'time', 'desc', 500).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `N${i+1}`,
-        customer: d.customer || d.customerName || 'ลูกค้า',
-        type: d.type || 'internal',
-        text: d.text || d.note || d.content || '',
-        staff: d.staff || d.staffName || '',
-        time: d.time || d.createdAt || new Date().toISOString(),
-        pinned: d.pinned || false,
-      }))
-      notes = [...mapped, ...DEMO_NOTES]
-      dataSource = 'live'
-    }
-  } catch {}
+  async function loadData() {
+    loading = true
+    try { notes = await listDocs('customer_notes', [], 'time', 'desc', 500) } catch (e) { notes = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = notes
       .filter(n => (customerFilter === 'all' || n.customer === customerFilter) && (typeFilter === 'all' || n.type === typeFilter))
       .sort((a, b) => (b.pinned - a.pinned) || b.time.localeCompare(a.time))
@@ -68,7 +52,7 @@ export default async function CustomerNotesPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">📒 Customer Notes</div>
-            <div class="page-subtitle">สมุดบันทึกลูกค้า — ทุกการติดต่อในที่เดียว${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">สมุดบันทึกลูกค้า — ทุกการติดต่อในที่เดียว</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="add-note-btn">+ บันทึกใหม่</button>
@@ -121,8 +105,11 @@ export default async function CustomerNotesPage(container) {
 
     document.getElementById('cust-filter')?.addEventListener('change', e => { customerFilter = e.target.value; renderPage() })
     container.querySelectorAll('.tf-btn').forEach(b => b.addEventListener('click', () => { typeFilter = b.dataset.t; renderPage() }))
-    container.querySelectorAll('.pin-btn').forEach(b => b.addEventListener('click', () => {
-      const n = notes.find(x => x.id === b.dataset.id); if (n) { n.pinned = !n.pinned; renderPage() }
+    container.querySelectorAll('.pin-btn').forEach(b => b.addEventListener('click', async () => {
+      const n = notes.find(x => x.id === b.dataset.id)
+      if (!n) return
+      try { await updateDocData('customer_notes', n.id, { pinned: !n.pinned }); await loadData() }
+      catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     document.getElementById('add-note-btn')?.addEventListener('click', () => {
       openModal({
@@ -137,17 +124,20 @@ export default async function CustomerNotesPage(container) {
           </div>
           <div class="input-group"><label class="input-label">บันทึก *</label><textarea class="input" id="nt-text" rows="3"></textarea></div>
         </div>`,
-        onConfirm() {
+        async onConfirm() {
           const text = document.getElementById('nt-text')?.value?.trim()
-          if (!text) { showToast('❗ กรุณากรอกบันทึก', 'error'); return }
-          notes.unshift({ id:`N${String(notes.length+1).padStart(3,'0')}`, customer:document.getElementById('nt-customer')?.value||DEMO_CUSTOMERS[0], type:document.getElementById('nt-type')?.value||'call', text, staff:'คุณ (Demo)', time:new Date().toISOString(), pinned:false })
-          showToast('✅ บันทึกแล้ว', 'success'); renderPage()
+          if (!text) { showToast('❗ กรุณากรอกบันทึก', 'error'); return false }
+          try {
+            await createDoc('customer_notes', { customer:document.getElementById('nt-customer')?.value||DEMO_CUSTOMERS[0], type:document.getElementById('nt-type')?.value||'call', text, staff:'คุณ (Demo)', time:new Date().toISOString(), pinned:false })
+            showToast('✅ บันทึกแล้ว', 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
