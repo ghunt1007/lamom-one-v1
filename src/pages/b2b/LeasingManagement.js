@@ -4,47 +4,25 @@
  */
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-const DEMO_LEASES = [
-  { id:'LS001', company:'บริษัท เทคไทย จก.', model:'BYD Atto 3 Extended', qty:3, monthlyRate:28500, term:36, startDate:'2025-01-01', endDate:'2027-12-31', paid:18, status:'active', contact:'คุณอภิชาต 089-111-2222' },
-  { id:'LS002', company:'โรงพยาบาล เซนต์หลุยส์', model:'BYD Dolphin Boost', qty:5, monthlyRate:19800, term:24, startDate:'2025-06-01', endDate:'2027-05-31', paid:13, status:'active', contact:'คุณนันทิดา 02-333-4444' },
-  { id:'LS003', company:'บริษัท ลอจิสติกส์ไทย จก.', model:'MG ZS EV Luxury', qty:8, monthlyRate:24000, term:48, startDate:'2024-03-01', endDate:'2028-02-28', paid:28, status:'active', contact:'คุณสมชาย 081-555-6666' },
-  { id:'LS004', company:'สำนักงาน ก.พ.', model:'BYD Han EV', qty:2, monthlyRate:45000, term:36, startDate:'2025-09-01', endDate:'2028-08-31', paid:10, status:'active', contact:'คุณพิชัย 02-777-8888' },
-  { id:'LS005', company:'บริษัท กรีนเนอร์จี จก.', model:'BYD Seal AWD', qty:4, monthlyRate:38000, term:36, startDate:'2023-01-01', endDate:'2025-12-31', paid:36, status:'expired', contact:'คุณวีรชัย 084-999-0000' },
-]
-
 export default async function LeasingManagementPage(container) {
   const myGen = container.__routerGen
-  let leases = DEMO_LEASES.map(l => ({ ...l }))
-  let dataSource = 'demo'
+  seedDemoData()
+  let leases = []
+  let loading = true
   let filterStatus = 'all'
 
-  try {
-    const docs = await listDocs('leasing_contracts', [], 'startDate', 'desc', 100).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `LS${i+1}`,
-        company: d.company || d.companyName || 'บริษัท',
-        model: d.model || d.vehicleModel || '',
-        qty: d.qty || d.quantity || 1,
-        monthlyRate: d.monthlyRate || d.rate || 0,
-        term: d.term || 36,
-        startDate: d.startDate || '',
-        endDate: d.endDate || '',
-        paid: d.paid || d.paidMonths || 0,
-        status: d.status || 'active',
-        contact: d.contact || d.contactName || '',
-      }))
-      leases = [...mapped, ...DEMO_LEASES]
-      dataSource = 'live'
-    }
-  } catch {}
+  async function loadData() {
+    loading = true
+    try { leases = await listDocs('leasing_contracts', [], 'startDate', 'desc', 100) } catch (e) { leases = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function progress(paid, term) {
     const pct = Math.round(paid/term*100)
@@ -83,6 +61,10 @@ export default async function LeasingManagementPage(container) {
   }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     let list = filterStatus==='all' ? leases : leases.filter(l=>l.status===filterStatus)
     const active = leases.filter(l=>l.status==='active')
     const totalMonthly = active.reduce((s,l)=>s+l.qty*l.monthlyRate,0)
@@ -96,7 +78,7 @@ export default async function LeasingManagementPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🚙 Leasing Management</div>
-            <div class="page-subtitle">Operational Lease สัญญาเช่ารถระยะยาว · ${leases.length} สัญญา${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">Operational Lease สัญญาเช่ารถระยะยาว · ${leases.length} สัญญา</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="new-lease-btn">+ สัญญาใหม่</button>
@@ -127,15 +109,16 @@ export default async function LeasingManagementPage(container) {
           '<div><b>วันสิ้นสุด:</b> '+l.endDate+'</div>' +
           '<div><b>ผู้ติดต่อ:</b> '+escHtml(l.contact)+'</div>' +
         '</div>',
-        confirmText:'ต่อสัญญา', onConfirm:()=>{
+        confirmText:'ต่อสัญญา',
+        async onConfirm() {
           const endD = new Date(l.endDate)
           endD.setMonth(endD.getMonth() + l.term)
-          l.endDate = endD.toISOString().slice(0,10)
-          l.paid = 0
-          l.status = 'active'
-          showToast(`✅ ต่อสัญญา ${l.company} อีก ${l.term} เดือน — สิ้นสุด ${l.endDate}`, 'success')
-          renderPage()
-          return true
+          const endDate = endD.toISOString().slice(0,10)
+          try {
+            await updateDocData('leasing_contracts', l.id, { endDate, paid: 0, status: 'active' })
+            showToast(`✅ ต่อสัญญา ${l.company} อีก ${l.term} เดือน — สิ้นสุด ${endDate}`, 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     }))
@@ -180,7 +163,7 @@ export default async function LeasingManagementPage(container) {
         </div>
       `
     })
-    document.getElementById('ls-save')?.addEventListener('click', () => {
+    document.getElementById('ls-save')?.addEventListener('click', async () => {
       const company = document.getElementById('ls-co')?.value.trim()
       const model   = document.getElementById('ls-model')?.value.trim()
       if (!company || !model) { showToast('⚠️ กรุณากรอกบริษัทและรุ่นรถ', 'warning'); return }
@@ -188,20 +171,21 @@ export default async function LeasingManagementPage(container) {
       const startDate = document.getElementById('ls-start')?.value || today
       const endD      = new Date(startDate)
       endD.setMonth(endD.getMonth() + term)
-      leases.push({
-        id: 'LS' + String(leases.length + 1).padStart(3,'0'),
-        company, model,
-        qty: parseInt(document.getElementById('ls-qty')?.value) || 1,
-        monthlyRate: parseFloat(document.getElementById('ls-rate')?.value) || 0,
-        term, startDate,
-        endDate: endD.toISOString().slice(0,10),
-        paid: 0,
-        status: 'active',
-        contact: document.getElementById('ls-contact')?.value.trim() || '-',
-      })
-      document.querySelector('.modal-overlay')?.remove()
-      showToast('✅ สร้างสัญญา Lease ให้ ' + company + ' แล้ว', 'success')
-      render()
+      try {
+        await createDoc('leasing_contracts', {
+          company, model,
+          qty: parseInt(document.getElementById('ls-qty')?.value) || 1,
+          monthlyRate: parseFloat(document.getElementById('ls-rate')?.value) || 0,
+          term, startDate,
+          endDate: endD.toISOString().slice(0,10),
+          paid: 0,
+          status: 'active',
+          contact: document.getElementById('ls-contact')?.value.trim() || '-',
+        })
+        document.querySelector('.modal-overlay')?.remove()
+        showToast('✅ สร้างสัญญา Lease ให้ ' + company + ' แล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
@@ -209,5 +193,5 @@ export default async function LeasingManagementPage(container) {
     return `<div class="card" style="padding:14px 16px"><div style="font-size:0.72rem;color:var(--text-muted)">${l}</div><div style="font-size:1.1rem;font-weight:900;color:${c};margin-top:2px">${v}</div></div>`
   }
 
-  render()
+  await loadData()
 }

@@ -4,54 +4,11 @@
  */
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
-
-const DEMO_MEETINGS = [
-  {
-    id:'M001', title:'ประชุมรายสัปดาห์ทีมขาย', date:'2026-06-13', time:'09:00', dept:'ขาย',
-    attendees:['ทวีศักดิ์','กิตติ','ปิยะ','สมพงษ์'],
-    agenda:['ทบทวนยอดขายสัปดาห์ที่แล้ว','วางแผนโปรโมชั่นใหม่','ติดตาม Pipeline'],
-    minutes:'ยอดขายสัปดาห์ที่แล้ว 12 คัน ต่ำกว่าเป้า 3 คัน ต้องเร่ง Follow-up ลูกค้าที่ทดลองขับ',
-    actions:[
-      { task:'ติดต่อลูกค้า Test Drive ทุกราย', owner:'กิตติ', due:'2026-06-15', done:false },
-      { task:'อัปเดตราคาโปรโมชั่น Q3', owner:'ปิยะ', due:'2026-06-17', done:true },
-    ],
-    status:'completed',
-  },
-  {
-    id:'M002', title:'ประชุมบอร์ดบริหาร Q2 Review', date:'2026-06-10', time:'14:00', dept:'บริหาร',
-    attendees:['ทวีศักดิ์','ผู้จัดการทั่วไป','CFO','หัวหน้าฝ่ายขาย'],
-    agenda:['สรุป P&L Q2','แผนการตลาด H2','HR Update'],
-    minutes:'Q2 กำไรสุทธิ ฿4.2M ต่ำกว่าเป้า 8% สาเหตุหลักจากต้นทุนค่าแรงเพิ่มขึ้น',
-    actions:[
-      { task:'จัดทำแผนลดต้นทุน Q3', owner:'CFO', due:'2026-06-20', done:false },
-      { task:'เพิ่มทีม Outbound 2 คน', owner:'หัวหน้าฝ่ายขาย', due:'2026-06-30', done:false },
-    ],
-    status:'completed',
-  },
-  {
-    id:'M003', title:'Stand-up รายวันทีม Service', date:'2026-06-15', time:'08:00', dept:'บริการ',
-    attendees:['หัวหน้าช่าง','ช่างเพ็ชร','ช่างแดน','ช่างโอ'],
-    agenda:['สถานะงานประจำวัน','งานเร่งด่วน','ปัญหาอะไหล่'],
-    minutes:'งานค้างอยู่ 8 ใบ มีอะไหล่ 2 ชิ้นที่ยังรอจากซัพพลายเออร์',
-    actions:[
-      { task:'ติดตามอะไหล่จาก LAMOM Parts', owner:'ช่างเพ็ชร', due:'2026-06-15', done:false },
-    ],
-    status:'in_progress',
-  },
-  {
-    id:'M004', title:'ประชุมทีม Marketing ประจำเดือน', date:'2026-06-20', time:'10:00', dept:'การตลาด',
-    attendees:['หัวหน้าการตลาด','ทีม Digital','ทีม Event'],
-    agenda:['Campaign H2 2569','Event Motor Expo','Budget Review'],
-    minutes:'',
-    actions:[],
-    status:'upcoming',
-  },
-]
 
 function statusBadge(s) {
   const m = { upcoming:{l:'กำหนดการ',c:'var(--primary)'}, in_progress:{l:'กำลังประชุม',c:'var(--warning)'}, completed:{l:'เสร็จแล้ว',c:'var(--success)'} }
@@ -89,32 +46,23 @@ function actionRow(a) {
 
 export default async function MeetingMinutesPage(container) {
   const myGen = container.__routerGen
-  let meetings = DEMO_MEETINGS.map(m => ({ ...m, actions: m.actions.map(a => ({ ...a })) }))
-  let dataSource = 'demo'
+  seedDemoData()
+  let meetings = []
+  let loading = true
   let filter = 'all'
 
-  try {
-    const docs = await listDocs('meeting_minutes', [], 'date', 'desc', 100).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `M${i+1}`,
-        title: d.title || d.name || 'การประชุม',
-        date: d.date || '',
-        time: d.time || '09:00',
-        dept: d.dept || d.department || '',
-        attendees: d.attendees || [],
-        agenda: d.agenda || [],
-        minutes: d.minutes || d.summary || '',
-        actions: (d.actions || []).map(a => ({ task: a.task || '', owner: a.owner || '', due: a.due || '', done: a.done || false })),
-        status: d.status || 'completed',
-      }))
-      meetings = [...mapped, ...DEMO_MEETINGS]
-      dataSource = 'live'
-    }
-  } catch {}
+  async function loadData() {
+    loading = true
+    try { meetings = await listDocs('meeting_minutes', [], 'date', 'desc', 100) } catch (e) { meetings = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const filtered = filter === 'all' ? meetings : meetings.filter(m => m.status === filter)
     const upcoming = meetings.filter(m => m.status === 'upcoming').length
     const completed = meetings.filter(m => m.status === 'completed').length
@@ -129,7 +77,7 @@ export default async function MeetingMinutesPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">📋 Meeting Minutes</div>
-            <div class="page-subtitle">บันทึกประชุม มติ และ Action Items${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">บันทึกประชุม มติ และ Action Items</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="new-meeting-btn">+ สร้างการประชุม</button>
@@ -204,26 +152,27 @@ export default async function MeetingMinutesPage(container) {
         </div>
       `
     })
-    document.getElementById('mt-save')?.addEventListener('click', () => {
+    document.getElementById('mt-save')?.addEventListener('click', async () => {
       const title = document.getElementById('mt-title')?.value.trim()
       if (!title) { showToast('⚠️ กรุณากรอกชื่อการประชุม', 'warning'); return }
       const agendaRaw = document.getElementById('mt-agenda')?.value.trim()
       const attendeesRaw = document.getElementById('mt-attendees')?.value.trim()
-      meetings.push({
-        id: 'M' + String(meetings.length + 1).padStart(3,'0'),
-        title,
-        date: document.getElementById('mt-date')?.value || today,
-        time: document.getElementById('mt-time')?.value || '09:00',
-        dept: document.getElementById('mt-dept')?.value.trim() || '-',
-        attendees: attendeesRaw ? attendeesRaw.split(',').map(s => s.trim()).filter(Boolean) : [],
-        agenda: agendaRaw ? agendaRaw.split('\n').filter(Boolean) : [],
-        minutes: '',
-        actions: [],
-        status: document.getElementById('mt-status')?.value || 'upcoming',
-      })
-      document.querySelector('.modal-overlay')?.remove()
-      showToast('✅ สร้างการประชุมแล้ว', 'success')
-      render()
+      try {
+        await createDoc('meeting_minutes', {
+          title,
+          date: document.getElementById('mt-date')?.value || today,
+          time: document.getElementById('mt-time')?.value || '09:00',
+          dept: document.getElementById('mt-dept')?.value.trim() || '-',
+          attendees: attendeesRaw ? attendeesRaw.split(',').map(s => s.trim()).filter(Boolean) : [],
+          agenda: agendaRaw ? agendaRaw.split('\n').filter(Boolean) : [],
+          minutes: '',
+          actions: [],
+          status: document.getElementById('mt-status')?.value || 'upcoming',
+        })
+        document.querySelector('.modal-overlay')?.remove()
+        showToast('✅ สร้างการประชุมแล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
@@ -231,5 +180,5 @@ export default async function MeetingMinutesPage(container) {
     return `<div class="card" style="padding:14px 16px"><div style="font-size:0.72rem;color:var(--text-muted)">${l}</div><div style="font-size:1.1rem;font-weight:900;color:${c};margin-top:2px">${v}</div></div>`
   }
 
-  render()
+  await loadData()
 }

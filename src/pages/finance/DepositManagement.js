@@ -5,16 +5,9 @@
 import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
-
-const DEMO_DEPOSITS = [
-  { id: 'DP-2401', customer: 'คุณอนันต์', model: 'BYD Atto 3', amount: 20000, method: 'โอน', date: '2026-06-02', status: 'held', booking: 'BK-1180' },
-  { id: 'DP-2402', customer: 'คุณมาลี', model: 'BYD Seal AWD', amount: 50000, method: 'บัตรเครดิต', date: '2026-06-05', status: 'held', booking: 'BK-1185' },
-  { id: 'DP-2403', customer: 'คุณวีระ', model: 'MG4 Electric', amount: 10000, method: 'เงินสด', date: '2026-05-20', status: 'applied', booking: 'BK-1170' },
-  { id: 'DP-2404', customer: 'คุณสุดา', model: 'BYD Dolphin', amount: 15000, method: 'โอน', date: '2026-05-12', status: 'refunded', booking: 'BK-1165' },
-]
 
 const ST = {
   held:     { label: 'ถือไว้',   color: 'var(--primary)' },
@@ -24,40 +17,33 @@ const ST = {
 
 export default async function DepositManagementPage(container) {
   const myGen = container.__routerGen
-  let DEPOSITS = DEMO_DEPOSITS.map(d => ({ ...d }))
-  let dataSource = 'demo'
+  seedDemoData()
+  let deposits = []
+  let loading = true
 
-  try {
-    const docs = await listDocs('deposits', [], 'date', 'desc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `DP-${2400+i}`,
-        customer: d.customer || d.customerName || 'ลูกค้า',
-        model: d.model || d.vehicleModel || '',
-        amount: d.amount || 0,
-        method: d.method || d.paymentMethod || 'โอน',
-        date: d.date || d.createdAt?.slice(0,10) || '',
-        status: d.status || 'held',
-        booking: d.booking || d.bookingId || '',
-      }))
-      DEPOSITS = [...mapped, ...DEMO_DEPOSITS]
-      dataSource = 'live'
-    }
-  } catch {}
+  async function loadData() {
+    loading = true
+    try { deposits = await listDocs('deposits', [], 'date', 'desc', 200) } catch (e) { deposits = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function render() {
-    const held = DEPOSITS.filter(d => d.status === 'held')
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
+    const held = deposits.filter(d => d.status === 'held')
     const heldTotal = held.reduce((s, d) => s + d.amount, 0)
-    const appliedTotal = DEPOSITS.filter(d => d.status === 'applied').reduce((s, d) => s + d.amount, 0)
-    const refundTotal = DEPOSITS.filter(d => d.status === 'refunded').reduce((s, d) => s + d.amount, 0)
+    const appliedTotal = deposits.filter(d => d.status === 'applied').reduce((s, d) => s + d.amount, 0)
+    const refundTotal = deposits.filter(d => d.status === 'refunded').reduce((s, d) => s + d.amount, 0)
 
     container.innerHTML = `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
             <div class="page-title">💵 Deposit Management</div>
-            <div class="page-subtitle">บริหารเงินมัดจำ — รับ / ตัดเข้าค่ารถ / คืนเงิน${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">บริหารเงินมัดจำ — รับ / ตัดเข้าค่ารถ / คืนเงิน</div>
           </div>
           <div class="page-actions"><button class="btn btn-primary" id="add-btn">➕ รับมัดจำ</button></div>
         </div>
@@ -76,7 +62,7 @@ export default async function DepositManagementPage(container) {
               <th style="text-align:center">วันที่รับ</th><th style="text-align:center">สถานะ</th><th></th>
             </tr></thead>
             <tbody>
-              ${DEPOSITS.map(d => `
+              ${deposits.map(d => `
                 <tr style="border-bottom:1px solid var(--border);font-size:0.8rem">
                   <td style="padding:9px 12px;font-weight:600">${escHtml(d.id)}</td>
                   <td>${escHtml(d.customer)}<div style="font-size:0.7rem;color:var(--text-muted)">${escHtml(d.model)}</div></td>
@@ -102,19 +88,22 @@ export default async function DepositManagementPage(container) {
   }
 
   function act(id, status) {
-    const d = DEPOSITS.find(x => x.id === id)
+    const d = deposits.find(x => x.id === id)
+    if (!d) return
     openModal({
       title: status === 'applied' ? '✅ ตัดมัดจำเข้าค่ารถ ' + escHtml(d.id) : '↩️ คืนมัดจำ ' + escHtml(d.id),
       size: 'sm',
       body: `<div style="font-size:0.84rem">ลูกค้า: <strong>${escHtml(d.customer)}</strong><br>รถ: ${escHtml(d.model)}<br>จำนวน: <strong style="color:var(--primary)">${formatCurrency(d.amount)}</strong></div>
         ${status === 'refunded' ? `<div class="input-group" style="margin-top:10px"><label class="input-label">เหตุผลการคืน</label><input class="input" id="dp-reason" placeholder="เช่น ลูกค้ายกเลิกจอง"></div>` : ''}`,
       confirmText: status === 'applied' ? '✅ ยืนยันตัดยอด' : '↩️ ยืนยันคืนเงิน',
-      onConfirm() {
-        d.status = status
-        showToast(status === 'applied'
-          ? `ตัดมัดจำ ${formatCurrency(d.amount)} เข้าค่ารถ ${d.model} แล้ว`
-          : `บันทึกคืนมัดจำ ${formatCurrency(d.amount)} ให้ ${d.customer} แล้ว`, 'success')
-        render()
+      async onConfirm() {
+        try {
+          await updateDocData('deposits', d.id, { status })
+          showToast(status === 'applied'
+            ? `ตัดมัดจำ ${formatCurrency(d.amount)} เข้าค่ารถ ${d.model} แล้ว`
+            : `บันทึกคืนมัดจำ ${formatCurrency(d.amount)} ให้ ${d.customer} แล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -133,17 +122,20 @@ export default async function DepositManagementPage(container) {
         <div class="input-group"><label class="input-label">เลขที่ใบจอง</label><input class="input" id="dp-bk" placeholder="BK-xxxx"></div>
       </div>`,
       confirmText: '💾 รับมัดจำ',
-      onConfirm() {
+      async onConfirm() {
         const customer = document.getElementById('dp-cust').value.trim()
         const model = document.getElementById('dp-model').value.trim()
         const amount = parseInt(document.getElementById('dp-amt').value)
         if (!customer || !model || !amount) { showToast('❗ กรอกข้อมูลที่จำเป็น', 'error'); return false }
-        const id = 'DP-' + (2404 + DEPOSITS.length + 1)
-        DEPOSITS.unshift({ id, customer, model, amount, method: document.getElementById('dp-method').value,
-          date: new Date().toISOString().slice(0,10), status: 'held',
-          booking: document.getElementById('dp-bk').value.trim() || '-' })
-        showToast(`รับมัดจำ ${formatCurrency(amount)} จาก ${customer} แล้ว · ออกใบรับมัดจำ ${id}`, 'success')
-        render()
+        try {
+          await createDoc('deposits', {
+            customer, model, amount, method: document.getElementById('dp-method').value,
+            date: new Date().toISOString().slice(0,10), status: 'held',
+            booking: document.getElementById('dp-bk').value.trim() || '-'
+          })
+          showToast(`รับมัดจำ ${formatCurrency(amount)} จาก ${customer} แล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -154,5 +146,5 @@ export default async function DepositManagementPage(container) {
       ${sub ? `<div style="font-size:0.66rem;color:var(--text-muted)">${sub}</div>` : ''}</div>`
   }
 
-  render()
+  await loadData()
 }

@@ -1916,23 +1916,33 @@ export function seedDemoData() {
   keys.forEach(k => { if (!demoCol('keys')[k.id]) demoCol('keys')[k.id] = k })
 
   // Finance extras
+  const amAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
   const assets = [
-    { id:'ast1', name:'ลิฟต์ยกรถ', code:'AST-001', category:'เครื่องมือ', cost:280000, currentValue:196000, depreciation:20, purchaseDate:'2022-01-15', location:'ศูนย์บริการ', status:'active', notes:'', createdAt:'2022-01-15' },
-    { id:'ast2', name:'คอมพิวเตอร์ Showroom x5', code:'AST-002', category:'IT', cost:150000, currentValue:90000, depreciation:25, purchaseDate:'2022-06-01', location:'โชว์รูม', status:'active', notes:'', createdAt:'2022-06-01' },
-    { id:'ast3', name:'รถตู้บริษัท Toyota Hiace', code:'AST-003', category:'ยานพาหนะ', cost:1200000, currentValue:840000, depreciation:15, purchaseDate:'2021-03-01', location:'ที่จอดรถ', status:'active', notes:'TH-2021-001', createdAt:'2021-03-01' },
+    { id:'AST001', name:'EV Charger DC Fast 50kW หน้าโชว์รูม', cat:'charger', cost:450000, depMethod:'sl', usefulLife:10, purchaseDate:amAddDays(-365), location:'สาขากรุงเทพ', status:'active', condition:'good', lastMaint:amAddDays(-30) },
+    { id:'AST002', name:'รถทดสอบ BYD Seal AWD', cat:'vehicle', cost:1590000, depMethod:'sl', usefulLife:5, purchaseDate:amAddDays(-180), location:'สาขากรุงเทพ', status:'active', condition:'good', lastMaint:amAddDays(-60) },
+    { id:'AST003', name:'ลิฟต์ยกรถ 4 ตัน', cat:'equipment', cost:280000, depMethod:'sl', usefulLife:15, purchaseDate:amAddDays(-730), location:'ศูนย์บริการ', status:'active', condition:'fair', lastMaint:amAddDays(-90) },
+    { id:'AST004', name:'Server & Network Infrastructure', cat:'it', cost:180000, depMethod:'db', usefulLife:5, purchaseDate:amAddDays(-540), location:'สาขากรุงเทพ', status:'active', condition:'good', lastMaint:amAddDays(-45) },
+    { id:'AST005', name:'โซฟาและเฟอร์นิเจอร์ Showroom', cat:'furniture', cost:320000, depMethod:'sl', usefulLife:10, purchaseDate:amAddDays(-730), location:'สาขากรุงเทพ', status:'active', condition:'fair', lastMaint:null },
+    { id:'AST006', name:'EV Charger AC 7kW x 5 ที่', cat:'charger', cost:175000, depMethod:'sl', usefulLife:8, purchaseDate:amAddDays(-270), location:'สาขาเชียงใหม่', status:'active', condition:'good', lastMaint:amAddDays(-15) },
   ]
   assets.forEach(a => { if (!demoCol('assets')[a.id]) demoCol('assets')[a.id] = a })
 
   const deposits = [
-    { id:'dep1', bookingId:'bk1', customer:'ธีรพงศ์ แสงทอง', model:'BYD Seal AWD', amount:50000, method:'โอน', refNo:'REF-001', status:'held', date:'2025-06-01', booking:'BK-0001', notes:'มัดจำจอง BYD Seal AWD', createdAt:'2025-06-01' },
-    { id:'dep2', bookingId:'bk2', customer:'กิตติพงษ์ วรรณศิลป์', model:'DEEPAL S07', amount:30000, method:'โอน', refNo:'REF-002', status:'applied', date:'2025-06-05', booking:'BK-0002', notes:'มัดจำจอง DEEPAL S07', createdAt:'2025-06-05' },
+    { id:'DP-2401', customer:'คุณอนันต์', model:'BYD Atto 3', amount:20000, method:'โอน', date:'2026-06-02', status:'held', booking:'BK-1180' },
+    { id:'DP-2402', customer:'คุณมาลี', model:'BYD Seal AWD', amount:50000, method:'บัตรเครดิต', date:'2026-06-05', status:'held', booking:'BK-1185' },
+    { id:'DP-2403', customer:'คุณวีระ', model:'MG4 Electric', amount:10000, method:'เงินสด', date:'2026-05-20', status:'applied', booking:'BK-1170' },
+    { id:'DP-2404', customer:'คุณสุดา', model:'BYD Dolphin', amount:15000, method:'โอน', date:'2026-05-12', status:'refunded', booking:'BK-1165' },
   ]
   deposits.forEach(d => { if (!demoCol('deposits')[d.id]) demoCol('deposits')[d.id] = d })
 
+  const eaAddHours = n => { const d = new Date(); d.setHours(d.getHours() - n); return d.toISOString() }
   const expenseApprovals = [
-    { id:'ea1', title:'ค่าน้ำมันเดินทางพบลูกค้า', amount:1500, category:'เดินทาง', submittedBy:'อรนุช เซลส์ดี', date:'2025-06-01', status:'approved', approvedBy:'ทวีศักดิ์ สุขสมบัติเสถียร', receipt:true, notes:'', createdAt: new Date(Date.now()-86400000*5).toISOString() },
-    { id:'ea2', title:'ค่าอาหารจัดเลี้ยงลูกค้า VIP', amount:3200, category:'การตลาด', submittedBy:'วิชัย ขายเก่ง', date:'2025-06-10', status:'pending', approvedBy:'', receipt:true, notes:'รอผู้จัดการอนุมัติ', createdAt: new Date(Date.now()-86400000*2).toISOString() },
-    { id:'ea3', title:'ค่าของขวัญส่งมอบรถ', amount:800, category:'ลูกค้าสัมพันธ์', submittedBy:'อรนุช เซลส์ดี', date:'2025-05-28', status:'approved', approvedBy:'ทวีศักดิ์ สุขสมบัติเสถียร', receipt:true, notes:'', createdAt: new Date(Date.now()-86400000*15).toISOString() },
+    { id:'EXP001', title:'ค่าเดินทาง — BYD Training Bangkok', cat:'travel', amount:4800, status:'pending', submittedBy:'วิชัย ยอดขาย', dept:'ฝ่ายขาย', submitDate:eaAddHours(6), approvedBy:null, receipt:true, notes:'อบรมผลิตภัณฑ์ BYD 2025' },
+    { id:'EXP002', title:'ค่าอาหารลูกค้า — Business Lunch', cat:'meal', amount:2200, status:'pending', submittedBy:'สุดา มาดี', dept:'ฝ่ายขาย', submitDate:eaAddHours(12), approvedBy:null, receipt:true, notes:'นัดลูกค้า B2B' },
+    { id:'EXP003', title:'ซื้อหมึกพริ้นเตอร์ + กระดาษ A4', cat:'supplies', amount:1850, status:'approved', submittedBy:'มานี HR', dept:'HR', submitDate:eaAddHours(48), approvedBy:'สมชาย ผู้จัดการ', receipt:true, notes:'' },
+    { id:'EXP004', title:'ค่าโฆษณา Facebook Ads เดือนนี้', cat:'marketing', amount:15000, status:'approved', submittedBy:'ปทิตา Marketing', dept:'การตลาด', submitDate:eaAddHours(72), approvedBy:'สมชาย ผู้จัดการ', receipt:false, notes:'Campaign BYD Atto3' },
+    { id:'EXP005', title:'ซ่อมแอร์ศูนย์บริการ', cat:'repair', amount:8500, status:'pending', submittedBy:'วิทยา ช่าง', dept:'บริการ', submitDate:eaAddHours(3), approvedBy:null, receipt:true, notes:'แอร์ตัวที่ 2 คอมเพรสเซอร์เสีย' },
+    { id:'EXP006', title:'ค่าเดินทางงาน Motor Expo', cat:'travel', amount:3600, status:'rejected', submittedBy:'ธนา เก่ง', dept:'ฝ่ายขาย', submitDate:eaAddHours(120), approvedBy:'สมชาย ผู้จัดการ', receipt:true, notes:'เกินวงเงิน Budget' },
   ]
   expenseApprovals.forEach(e => { if (!demoCol('expense_approvals')[e.id]) demoCol('expense_approvals')[e.id] = e })
 
@@ -1944,84 +1954,173 @@ export function seedDemoData() {
   ]
   commissionRules.forEach(r => { if (!demoCol('commission_rules')[r.id]) demoCol('commission_rules')[r.id] = r })
 
+  const dcAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
   const debts = [
-    { id:'debt1', custName:'นภา ฟ้าใส', phone:'0833333333', amount:50000, reason:'ค่างวดรถค้างชำระ', dueDate:'2025-05-01', status:'overdue', lastContact:'2025-06-01', notes:'โทร 3 ครั้งแล้ว ไม่รับ', createdAt:'2025-05-01' },
-    { id:'debt2', custName:'สมบัติ ยิ่งใหญ่', phone:'0812340005', amount:15000, reason:'ค่าซ่อมบำรุง', dueDate:'2025-06-15', status:'pending', lastContact:'', notes:'', createdAt:'2025-06-10' },
+    { id:'DB001', customer:'บริษัท ABC จำกัด', type:'B2B Fleet', amount:450000, dueDate:dcAddDays(-45), status:'overdue60', lastContact:dcAddDays(-5), contacts:3, note:'สัญญาว่าจะจ่ายสิ้นเดือน' },
+    { id:'DB002', customer:'สมชาย ใจดี', type:'ค่าซ่อม', amount:28500, dueDate:dcAddDays(-12), status:'overdue30', lastContact:dcAddDays(-2), contacts:1, note:'' },
+    { id:'DB003', customer:'ร้านเช่ารถ XYZ', type:'B2B Service', amount:86000, dueDate:dcAddDays(-70), status:'overdue90', lastContact:dcAddDays(-1), contacts:6, note:'เริ่มกระบวนการทางกฎหมาย?' },
+    { id:'DB004', customer:'มาลี สุขใจ', type:'ค่าอะไหล่', amount:12400, dueDate:dcAddDays(10), status:'current', lastContact:null, contacts:0, note:'' },
+    { id:'DB005', customer:'ธนพล เที่ยงตรง', type:'ค่าซ่อม', amount:8900, dueDate:dcAddDays(-8), status:'overdue30', lastContact:dcAddDays(-3), contacts:2, note:'ขอผ่อน 2 งวด' },
+    { id:'DB006', customer:'โรงแรมสยาม', type:'B2B Fleet', amount:156000, dueDate:dcAddDays(-20), status:'paid', lastContact:dcAddDays(-1), contacts:2, note:'จ่ายครบแล้ว' },
   ]
   debts.forEach(d => { if (!demoCol('debts')[d.id]) demoCol('debts')[d.id] = d })
 
-  // HR extras
+  const dsAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
+  const debtSettlements = [
+    { id:'DBT001', customer:'บ. ABC Transport จำกัด', type:'b2b', creditLimit:5000000, used:3200000, invoices:4, oldest:dsAddDays(-45), status:'overdue_30', contact:'สมหมาย ทรัพย์', phone:'086-xxx-xxxx', notes:'ขอผ่อนผันเนื่องจากสภาพคล่อง' },
+    { id:'DBT002', customer:'วิชัย มีโชค', type:'retail', creditLimit:500000, used:120000, invoices:1, oldest:dsAddDays(-8), status:'overdue_7', contact:'วิชัย มีโชค', phone:'085-xxx-xxxx', notes:'' },
+    { id:'DBT003', customer:'บ. XYZ Logistics', type:'b2b', creditLimit:3000000, used:2800000, invoices:6, oldest:dsAddDays(-70), status:'bad_debt', contact:'ปทิตา เจ้าของ', phone:'082-xxx-xxxx', notes:'ส่งหนังสือเตือนครั้งที่ 3 แล้ว' },
+    { id:'DBT004', customer:'สุดา อารมณ์ดี', type:'retail', creditLimit:300000, used:90000, invoices:1, oldest:dsAddDays(-3), status:'overdue_7', contact:'สุดา อารมณ์ดี', phone:'083-xxx-xxxx', notes:'' },
+    { id:'DBT005', customer:'หน่วยงาน ก. ราชการ', type:'gov', creditLimit:10000000, used:4500000, invoices:3, oldest:dsAddDays(-25), status:'overdue_30', contact:'จนท.การเงิน', phone:'02-xxx-xxxx', notes:'กระบวนการจัดซื้อภาครัฐ ใช้เวลาปกติ' },
+  ]
+  debtSettlements.forEach(d => { if (!demoCol('debt_settlements')[d.id]) demoCol('debt_settlements')[d.id] = d })
+
+  // HR extras — Leave requests (หน้า /hr/leave) — fields match Leave.js exactly
   const leaveRequests = [
-    { id:'lr1', staffId:'st2', staffName:'อรนุช เซลส์ดี', type:'annual', startDate:'2025-07-01', endDate:'2025-07-03', days:3, reason:'พักผ่อนประจำปี', status:'approved', approvedBy:'ทวีศักดิ์ สุขสมบัติเสถียร', createdAt: new Date(Date.now()-86400000*10).toISOString() },
-    { id:'lr2', staffId:'st4', staffName:'สมชาย ช่างดี', type:'sick', startDate: new Date().toISOString().slice(0,10), endDate: new Date().toISOString().slice(0,10), days:1, reason:'ไม่สบาย มีใบรับรองแพทย์', status:'pending', approvedBy:'', createdAt: new Date(Date.now()-3600000*2).toISOString() },
-    { id:'lr3', staffId:'st3', staffName:'วิชัย ขายเก่ง', type:'personal', startDate:'2025-06-20', endDate:'2025-06-20', days:1, reason:'ธุระส่วนตัว', status:'approved', approvedBy:'ทวีศักดิ์ สุขสมบัติเสถียร', createdAt: new Date(Date.now()-86400000*20).toISOString() },
+    { id:'L001', staff:'อรนุช สายใจ', type:'annual', from:'2025-06-20', to:'2025-06-22', days:3, reason:'ท่องเที่ยวต่างจังหวัด', status:'approved', approvedBy:'ทวีศักดิ์', createdAt: new Date(Date.now()-86400000*10).toISOString() },
+    { id:'L002', staff:'วิชาญ มีโชค', type:'sick', from: new Date().toISOString().slice(0,10), to: new Date().toISOString().slice(0,10), days:1, reason:'มีไข้ไปพบแพทย์', status:'pending', approvedBy:null, createdAt: new Date(Date.now()-3600000*2).toISOString() },
+    { id:'L003', staff:'ธีรยุทธ เก่งกาจ', type:'personal', from:'2025-06-15', to:'2025-06-15', days:1, reason:'ต่อใบอนุญาตขับขี่', status:'pending', approvedBy:null, createdAt: new Date(Date.now()-86400000*5).toISOString() },
+    { id:'L004', staff:'สมหมาย รักงาน', type:'personal', from:'2025-07-01', to:'2025-07-03', days:3, reason:'งานแต่งงานของญาติ', status:'pending', approvedBy:null, createdAt: new Date(Date.now()-86400000*7).toISOString() },
+    { id:'L005', staff:'นภา จันทร์งาม', type:'annual', from:'2025-05-26', to:'2025-05-30', days:5, reason:'วันหยุดยาว', status:'approved', approvedBy:'ทวีศักดิ์', createdAt: new Date(Date.now()-86400000*20).toISOString() },
   ]
   leaveRequests.forEach(l => { if (!demoCol('leave_requests')[l.id]) demoCol('leave_requests')[l.id] = l })
 
   // Comms extras
+  const clAddMinutes = n => { const d = new Date(); d.setMinutes(d.getMinutes() - n); return d.toISOString() }
   const callLogs = [
-    { id:'cl1', customerId:'c1', custName:'สมชาย มีทรัพย์', phone:'0812345678', type:'outbound', duration:'3:42', result:'interested', notes:'ลูกค้าสนใจ BYD Seal ขาว — นัดวันศุกร์', createdBy:'อรนุช เซลส์ดี', createdAt: new Date(Date.now()-3600000*3).toISOString() },
-    { id:'cl2', customerId:'c2', custName:'สมหญิง ดีมาก', phone:'0898765432', type:'inbound', duration:'1:15', result:'callback', notes:'โทรมาถามเรื่อง MG4 — ขอเวลาคิด', createdBy:'วิชัย ขายเก่ง', createdAt: new Date(Date.now()-86400000).toISOString() },
-    { id:'cl3', customerId:'c4', custName:'วิชัย สุขใจ', phone:'0822222222', type:'outbound', duration:'5:20', result:'booked', notes:'นัดส่งมอบรถ BYD Atto 3', createdBy:'อรนุช เซลส์ดี', createdAt: new Date(Date.now()-86400000*2).toISOString() },
+    { id:'C001', type:'inbound', topic:'sales', caller:'สมหญิง รักรถ', phone:'081-234-5678', duration:420, staff:'สุดา มาดี', time: clAddMinutes(15), note:'ถามโปร Dolphin — นัดเข้ามาดูพรุ่งนี้ 14:00', followUp:true, followed:false },
+    { id:'C002', type:'missed', topic:'other', caller:'ไม่ทราบ', phone:'02-987-6543', duration:0, staff:null, time: clAddMinutes(35), note:'', followUp:true, followed:false },
+    { id:'C003', type:'outbound', topic:'service', caller:'สมชาย ใจดี', phone:'085-111-2222', duration:180, staff:'วิทยา ช่างใหญ่', time: clAddMinutes(60), note:'แจ้งรถซ่อมเสร็จแล้ว นัดรับพรุ่งนี้', followUp:false, followed:false },
+    { id:'C004', type:'inbound', topic:'complaint', caller:'ประยุทธ ไม่พอใจ', phone:'089-333-4444', duration:660, staff:'ผจก.บริการ', time: clAddMinutes(120), note:'ไม่พอใจรอนาน — ผจก.รับเรื่องแล้ว เปิดเคสร้องเรียน', followUp:true, followed:true },
+    { id:'C005', type:'inbound', topic:'finance', caller:'มาลี สุขใจ', phone:'086-222-3333', duration:240, staff:'สมศรี การเงิน', time: clAddMinutes(200), note:'ถามยอดค้างค่าอะไหล่ — แจ้งยอดแล้ว จะโอนพรุ่งนี้', followUp:false, followed:false },
+    { id:'C006', type:'outbound', topic:'sales', caller:'ประพันธ์ มั่งมี', phone:'081-111-9999', duration:540, staff:'วิชัย ยอดขาย', time: clAddMinutes(300), note:'Follow-up หลัง Test Drive — ขอคิดถึงศุกร์นี้', followUp:true, followed:false },
   ]
   callLogs.forEach(c => { if (!demoCol('call_logs')[c.id]) demoCol('call_logs')[c.id] = c })
 
   const chatTemplates = [
-    { id:'ct1', title:'ทักทายลูกค้าใหม่', category:'ทักทาย', text:'สวัสดีครับ/ค่ะ ยินดีต้อนรับสู่ LAMOM AUTO ผมชื่อ{{name}} มีอะไรให้ช่วยได้บ้างครับ?', usage:127, active:true, createdAt:'2025-01-01' },
-    { id:'ct2', title:'แจ้งราคาและโปรโมชั่น', category:'ขาย', text:'ขอบคุณที่สนใจรถรุ่น{{model}} ราคาปัจจุบัน {{price}} บาท พร้อมโปรพิเศษดอกเบี้ย 0% 12 เดือน ต้องการข้อมูลเพิ่มเติมครับ?', usage:89, active:true, createdAt:'2025-01-15' },
-    { id:'ct3', title:'นัด Test Drive', category:'บริการ', text:'ขอบคุณครับ! ยืนยันนัด Test Drive {{model}} วันที่ {{date}} เวลา {{time}} ที่โชว์รูมของเราครับ 🚗', usage:45, active:true, createdAt:'2025-02-01' },
-    { id:'ct4', title:'แจ้งรถพร้อมส่งมอบ', category:'ส่งมอบ', text:'ข่าวดีครับ! รถ {{model}} ของคุณ{{customer}} พร้อมส่งมอบแล้วครับ 🎉 นัดรับวันไหนสะดวกครับ?', usage:32, active:true, createdAt:'2025-02-15' },
+    { id:'CT001', cat:'greeting', title:'ทักทายลูกค้าใหม่', text:'สวัสดีค่ะ ยินดีต้อนรับสู่ LAMOM 🙏 สนใจรถรุ่นไหนเป็นพิเศษไหมคะ หรือให้แนะนำรุ่นที่เหมาะกับการใช้งานของคุณลูกค้าดีคะ?', usage:342 },
+    { id:'CT002', cat:'greeting', title:'ตอบนอกเวลาทำการ', text:'ขอบคุณที่ติดต่อ LAMOM ค่ะ ขณะนี้นอกเวลาทำการ (เปิด 8:30-18:00 ทุกวัน) ทีมงานจะรีบติดต่อกลับทันทีในเวลาทำการนะคะ 🙏', usage:156 },
+    { id:'CT003', cat:'product', title:'แนะนำ BYD Dolphin', text:'BYD Dolphin 🐬 เริ่มต้น 899,000 บาท วิ่งไกล 410 km/ชาร์จ แบต Blade Battery ปลอดภัยสูง รับประกันแบต 8 ปี สนใจนัดทดลองขับไหมคะ?', usage:218 },
+    { id:'CT004', cat:'price', title:'ขอใบเสนอราคา', text:'ยินดีค่ะ 😊 รบกวนขอข้อมูลเพื่อทำใบเสนอราคา: 1) รุ่น/สีที่สนใจ 2) ชื่อ-นามสกุล 3) เบอร์โทร — เดี๋ยวทีมงานส่งใบเสนอราคาพร้อมโปรล่าสุดให้เลยค่ะ', usage:187 },
+    { id:'CT005', cat:'booking', title:'นัด Test Drive', text:'นัดทดลองขับได้เลยค่ะ 🚗 สะดวกวันไหน-กี่โมงคะ? (เปิดทุกวัน 8:30-18:00) ใช้แค่ใบขับขี่ใบเดียว ใช้เวลาประมาณ 30 นาทีค่ะ', usage:264 },
+    { id:'CT006', cat:'after', title:'นัดเช็คระยะ', text:'แจ้งนัดเช็คระยะค่ะ 🔧 รบกวนแจ้ง: 1) ทะเบียนรถ 2) เลขไมล์ปัจจุบัน 3) วันเวลาที่สะดวก — มีบริการรถรับ-ส่งฟรีในรัศมี 10 กม. ค่ะ', usage:143 },
+    { id:'CT007', cat:'after', title:'ติดตามความพอใจหลังซ่อม', text:'สอบถามความพอใจค่ะ 😊 หลังจากรับรถไปแล้ว ทุกอย่างเรียบร้อยดีไหมคะ? หากมีปัญหาใดๆ แจ้งได้เลยนะคะ ยินดีดูแลค่ะ 🙏', usage:98 },
   ]
   chatTemplates.forEach(t => { if (!demoCol('chat_templates')[t.id]) demoCol('chat_templates')[t.id] = t })
 
   const escalationRules = [
-    { id:'er1', name:'Lead ไม่มีการติดต่อ 3 วัน', dept:'ฝ่ายขาย', level1:'หัวหน้าทีมขาย', level2:'ผู้จัดการโชว์รูม', channel:'LINE', triggerHours:72, active:true, createdAt:'2025-01-01' },
-    { id:'er2', name:'Complaint ไม่ได้รับการแก้ไขใน 24 ชม.', dept:'ทุกฝ่าย', level1:'หัวหน้าฝ่ายบริการ', level2:'เจ้าของ', channel:'LINE+Email', triggerHours:24, active:true, createdAt:'2025-01-01' },
-    { id:'er3', name:'PDI ล่าช้าเกิน 2 วัน', dept:'บริการ', level1:'หัวหน้าช่าง', level2:'ผู้จัดการโชว์รูม', channel:'LINE', triggerHours:48, active:true, createdAt:'2025-01-15' },
+    { id:'ESC001', name:'Job Card เกิน SLA', dept:'บริการ', triggerHours:4, level1:'หัวหน้าช่าง', level2:'ผู้จัดการบริการ', channel:'LINE', active:true, triggered:3 },
+    { id:'ESC002', name:'Lead ไม่ติดต่อ 24 ชม.', dept:'ขาย', triggerHours:24, level1:'Supervisor ขาย', level2:'ผู้จัดการโชว์รูม', channel:'LINE+Email', active:true, triggered:7 },
+    { id:'ESC003', name:'ร้องเรียนไม่แก้ใน 48 ชม.', dept:'CRM', triggerHours:48, level1:'ผู้จัดการ CRM', level2:'เจ้าของ', channel:'LINE+SMS', active:true, triggered:1 },
+    { id:'ESC004', name:'ไฟแนนซ์รอเอกสาร > 3 วัน', dept:'การเงิน', triggerHours:72, level1:'ผู้จัดการการเงิน', level2:'ผู้จัดการโชว์รูม', channel:'Email', active:true, triggered:2 },
+    { id:'ESC005', name:'อะไหล่หมดสต็อก', dept:'อะไหล่', triggerHours:1, level1:'ผู้จัดการอะไหล่', level2:'ผู้อำนวยการ', channel:'LINE', active:false, triggered:0 },
+    { id:'ESC006', name:'KPI ต่ำกว่า 70% ต้นเดือน', dept:'ขาย', triggerHours:168, level1:'Supervisor ขาย', level2:'ผู้จัดการโชว์รูม', channel:'Email', active:true, triggered:4 },
   ]
   escalationRules.forEach(r => { if (!demoCol('escalation_rules')[r.id]) demoCol('escalation_rules')[r.id] = r })
 
   const meetingMinutes = [
-    { id:'mm1', title:'ประชุมทีมขายประจำสัปดาห์', date:'2025-06-23', time:'09:00', dept:'ขาย', attendees:['ทวีศักดิ์','อรนุช','วิชัย'], agenda:['ทบทวนยอดขาย','แผนสัปดาห์หน้า'], minutes:'เพิ่มเป้า Test Drive 20% + ดันโปรโมชั่น EV', actions:[{ task:'ส่งใบเสนอราคา DEEPAL', owner:'วิชัย', due:'2025-06-28', done:true }], status:'completed', createdAt: new Date(Date.now()-86400000*6).toISOString() },
-    { id:'mm2', title:'ประชุมฝ่ายบริการ — คุณภาพงานซ่อม', date:'2025-06-26', time:'14:00', dept:'บริการ', attendees:['ทวีศักดิ์','สมชาย','วิชัยช่าง'], agenda:['ลด TAT','ลูกค้า Complaint'], minutes:'ตั้ง SLA งานซ่อม 1 วัน ยกเว้นอะไหล่นำเข้า', actions:[{ task:'ทำ checklist ประจำวัน', owner:'สมชาย', due:'2025-06-30', done:false }], status:'completed', createdAt: new Date(Date.now()-86400000*3).toISOString() },
+    { id:'M001', title:'ประชุมรายสัปดาห์ทีมขาย', date:'2026-06-13', time:'09:00', dept:'ขาย',
+      attendees:['ทวีศักดิ์','กิตติ','ปิยะ','สมพงษ์'],
+      agenda:['ทบทวนยอดขายสัปดาห์ที่แล้ว','วางแผนโปรโมชั่นใหม่','ติดตาม Pipeline'],
+      minutes:'ยอดขายสัปดาห์ที่แล้ว 12 คัน ต่ำกว่าเป้า 3 คัน ต้องเร่ง Follow-up ลูกค้าที่ทดลองขับ',
+      actions:[
+        { task:'ติดต่อลูกค้า Test Drive ทุกราย', owner:'กิตติ', due:'2026-06-15', done:false },
+        { task:'อัปเดตราคาโปรโมชั่น Q3', owner:'ปิยะ', due:'2026-06-17', done:true },
+      ],
+      status:'completed' },
+    { id:'M002', title:'ประชุมบอร์ดบริหาร Q2 Review', date:'2026-06-10', time:'14:00', dept:'บริหาร',
+      attendees:['ทวีศักดิ์','ผู้จัดการทั่วไป','CFO','หัวหน้าฝ่ายขาย'],
+      agenda:['สรุป P&L Q2','แผนการตลาด H2','HR Update'],
+      minutes:'Q2 กำไรสุทธิ ฿4.2M ต่ำกว่าเป้า 8% สาเหตุหลักจากต้นทุนค่าแรงเพิ่มขึ้น',
+      actions:[
+        { task:'จัดทำแผนลดต้นทุน Q3', owner:'CFO', due:'2026-06-20', done:false },
+        { task:'เพิ่มทีม Outbound 2 คน', owner:'หัวหน้าฝ่ายขาย', due:'2026-06-30', done:false },
+      ],
+      status:'completed' },
+    { id:'M003', title:'Stand-up รายวันทีม Service', date:'2026-06-15', time:'08:00', dept:'บริการ',
+      attendees:['หัวหน้าช่าง','ช่างเพ็ชร','ช่างแดน','ช่างโอ'],
+      agenda:['สถานะงานประจำวัน','งานเร่งด่วน','ปัญหาอะไหล่'],
+      minutes:'งานค้างอยู่ 8 ใบ มีอะไหล่ 2 ชิ้นที่ยังรอจากซัพพลายเออร์',
+      actions:[
+        { task:'ติดตามอะไหล่จาก LAMOM Parts', owner:'ช่างเพ็ชร', due:'2026-06-15', done:false },
+      ],
+      status:'in_progress' },
+    { id:'M004', title:'ประชุมทีม Marketing ประจำเดือน', date:'2026-06-20', time:'10:00', dept:'การตลาด',
+      attendees:['หัวหน้าการตลาด','ทีม Digital','ทีม Event'],
+      agenda:['Campaign H2 2569','Event Motor Expo','Budget Review'],
+      minutes:'',
+      actions:[],
+      status:'upcoming' },
   ]
   meetingMinutes.forEach(m => { if (!demoCol('meeting_minutes')[m.id]) demoCol('meeting_minutes')[m.id] = m })
 
   // B2B extras
+  const fmAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
   const fleetAccounts = [
-    { id:'fa1', company:'บริษัท ไทยอุตสาหกรรม จำกัด', industry:'การผลิต', contact:'คุณสมศักดิ์ วงศ์มา', phone:'0812300001', email:'fleet@thai-industry.com', vehicles:[], notes:'ลูกค้าองค์กร fleet 10+ คัน/ปี', salesperson:'อรนุช เซลส์ดี', status:'active', totalPurchase:12000000, createdAt: new Date(Date.now()-86400000*90).toISOString() },
-    { id:'fa2', company:'ห้างหุ้นส่วน จำกัด โลจิสติกส์ไทย', industry:'โลจิสติกส์', contact:'คุณพิชัย ใจดี', phone:'0823400002', email:'logisthai@email.com', vehicles:[], notes:'ต้องการรถ Van/SUV เพื่อส่งของ', salesperson:'วิชัย ขายเก่ง', status:'prospect', totalPurchase:0, createdAt: new Date(Date.now()-86400000*30).toISOString() },
+    {
+      id:'fa1', company:'บริษัท ไทยอุตสาหกรรม จำกัด', industry:'การผลิต',
+      contact:'คุณสมศักดิ์ วงศ์มา', phone:'0812300001', email:'fleet@thai-industry.com',
+      status:'active', fleetSize:12, evCount:5, targetFleet:20,
+      totalRevenue:12000000, lastOrderDate: fmAddDays(-45),
+      vehicles:[
+        { model:'BYD Seal AWD', qty:3, unitPrice:1449000 },
+        { model:'BYD Atto 3', qty:2, unitPrice:1099000 },
+      ],
+      discount:3, creditTerms:30, salesperson:'อรนุช เซลส์ดี',
+      notes:'ลูกค้าองค์กร fleet 10+ คัน/ปี ต้องการเพิ่มกองรถ Q3 2025',
+    },
+    {
+      id:'fa2', company:'ห้างหุ้นส่วน จำกัด โลจิสติกส์ไทย', industry:'โลจิสติกส์และขนส่ง',
+      contact:'คุณพิชัย ใจดี', phone:'0823400002', email:'logisthai@email.com',
+      status:'prospect', fleetSize:0, evCount:0, targetFleet:15,
+      totalRevenue:0, lastOrderDate:null,
+      vehicles:[],
+      discount:2, creditTerms:45, salesperson:'วิชัย ขายเก่ง',
+      notes:'ต้องการรถ Van/SUV เพื่อส่งของ',
+    },
   ]
   fleetAccounts.forEach(f => { if (!demoCol('fleet_accounts')[f.id]) demoCol('fleet_accounts')[f.id] = f })
 
   const fleetVehicles = [
-    { id:'fv1', plate:'กข-1111', model:'BYD Seal AWD', driver:'สมชาย ขับดี', company:'บริษัท ไทยอุตสาหกรรม', status:'moving', lat:13.756, lng:100.502, location:'สุขุมวิท 25', speed:45, fuel:80, trip:'รับ VIP — สนามบิน', createdAt:'2025-01-01' },
-    { id:'fv2', plate:'กข-2222', model:'BYD Atto 3', driver:'วิชัย คนขับ', company:'บริษัท ไทยอุตสาหกรรม', status:'parked', lat:13.721, lng:100.523, location:'บางนา', speed:0, fuel:45, trip:'จอดส่งสินค้า', createdAt:'2025-01-01' },
-    { id:'fv3', plate:'กข-3333', model:'DEEPAL S7', driver:'อรนุช คนขับ', company:'บริษัท ไทยอุตสาหกรรม', status:'charging', lat:13.744, lng:100.532, location:'EV Station CPN', speed:0, fuel:20, trip:'ชาร์จไฟ — รอ 45 นาที', createdAt:'2025-01-01' },
+    { id:'fv1', plate:'กข-1234', model:'BYD Atto 3', driver:'สมชาย ก.', status:'moving', speed:62, soc:74, lat:13.756, lng:100.502, location:'ถ.สุขุมวิท ซ.22', lastUpdate:'11:42', odometer:18500, trip:'ส่งเอกสาร ลาดพร้าว' },
+    { id:'fv2', plate:'กข-5678', model:'BYD Seal AWD', driver:'นภา ม.', status:'parked', speed:0, soc:42, lat:13.729, lng:100.523, location:'ลานจอด CentralWorld', lastUpdate:'11:38', odometer:32000, trip:'ประชุมลูกค้า Fleet' },
+    { id:'fv3', plate:'กก-0001', model:'MG ZS EV', driver:'มาลี จ.', status:'idle', speed:0, soc:88, lat:13.740, lng:100.560, location:'สำนักงาน LAMOM ONE', lastUpdate:'11:45', odometer:5200, trip:'รอผู้ขับ' },
   ]
   fleetVehicles.forEach(v => { if (!demoCol('fleet_vehicles')[v.id]) demoCol('fleet_vehicles')[v.id] = v })
 
+  const fleetAlerts = [
+    { id:'default', soc:'20%', speed:'120 km/h', geofence:'10 km', idle:'2 ชม' },
+  ]
+  fleetAlerts.forEach(a => { if (!demoCol('fleet_alerts')[a.id]) demoCol('fleet_alerts')[a.id] = a })
+
+  const cqAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
+  const cqAddHours = n => { const d = new Date(); d.setHours(d.getHours() - n); return d.toISOString() }
   const corporateQuotes = [
-    { id:'cq1', quoteNo:'CQ-001', company:'บริษัท ไทยอุตสาหกรรม', contact:'คุณสมศักดิ์', model:'BYD Seal AWD x 5', qty:5, unitPrice:1299000, totalPrice:6495000, discount:5, status:'sent', validUntil:'2025-07-31', salesperson:'อรนุช เซลส์ดี', createdAt: new Date(Date.now()-86400000*5).toISOString() },
-    { id:'cq2', quoteNo:'CQ-002', company:'โลจิสติกส์ไทย', contact:'คุณพิชัย', model:'BYD Atto 3 x 3', qty:3, unitPrice:1099000, totalPrice:3297000, discount:3, status:'draft', validUntil:'2025-08-15', salesperson:'วิชัย ขายเก่ง', createdAt: new Date(Date.now()-86400000*2).toISOString() },
+    { id:'CQ001', company: 'บริษัท ABC จำกัด', contact: 'คุณสมชาย ใหญ่โต', model: 'BYD Atto 3', qty: 10, unitPrice: 1050000, discount: 5, status: 'reviewed', createDate: cqAddHours(72), validUntil: cqAddDays(30) },
+    { id:'CQ002', company: 'XYZ Corporation', contact: 'คุณมานี บริษัท', model: 'BYD Dolphin', qty: 20, unitPrice: 669000, discount: 8, status: 'won', createDate: cqAddHours(168), validUntil: cqAddDays(-5) },
+    { id:'CQ003', company: 'DEF Holdings', contact: 'คุณชัย ผู้บริหาร', model: 'MG ZS EV', qty: 5, unitPrice: 840000, discount: 3, status: 'draft', createDate: cqAddHours(24), validUntil: cqAddDays(45) },
+    { id:'CQ004', company: 'GHI Group', contact: 'คุณวิภา ผจก.', model: 'BYD Seal AWD', qty: 3, unitPrice: 1450000, discount: 2, status: 'sent', createDate: cqAddHours(48), validUntil: cqAddDays(21) },
+    { id:'CQ005', company: 'JKL Logistics', contact: 'คุณธนา Fleet Manager', model: 'BYD Atto 3', qty: 15, unitPrice: 1040000, discount: 6, status: 'lost', createDate: cqAddHours(240), validUntil: cqAddDays(-10) },
   ]
   corporateQuotes.forEach(q => { if (!demoCol('corporate_quotes')[q.id]) demoCol('corporate_quotes')[q.id] = q })
 
   const leasingContracts = [
-    { id:'lc1', company:'ห้างหุ้นส่วน เดลิเวอรี่ไทย', model:'BYD Atto 3', vin:'LGXCE4C10PA000010', plate:'กข-4444', monthlyFee:25000, term:36, startDate:'2025-01-01', endDate:'2027-12-31', mileageLimit:3000, contact:'คุณนิธิ', status:'active', createdAt:'2025-01-01' },
-    { id:'lc2', company:'บริษัท ท่องเที่ยวสยาม', model:'BYD Seal AWD', vin:'LGXCE4C10PA000011', plate:'กข-5555', monthlyFee:35000, term:24, startDate:'2025-03-01', endDate:'2027-02-28', mileageLimit:2500, contact:'คุณวรรณ', status:'active', createdAt:'2025-03-01' },
+    { id:'lc1', company:'ห้างหุ้นส่วน เดลิเวอรี่ไทย', model:'BYD Atto 3', qty:1, monthlyRate:25000, term:36, startDate:'2025-01-01', endDate:'2027-12-31', paid:6, status:'active', contact:'คุณนิธิ 081-234-5000' },
+    { id:'lc2', company:'บริษัท ท่องเที่ยวสยาม', model:'BYD Seal AWD', qty:1, monthlyRate:35000, term:24, startDate:'2025-03-01', endDate:'2027-02-28', paid:4, status:'active', contact:'คุณวรรณ 081-234-5001' },
   ]
   leasingContracts.forEach(l => { if (!demoCol('leasing_contracts')[l.id]) demoCol('leasing_contracts')[l.id] = l })
 
+  const gbAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
   const govBids = [
-    { id:'gb1', project:'จัดซื้อรถยนต์ไฟฟ้า 10 คัน — กรมขนส่งทางบก', org:'กรมขนส่งทางบก', budget:12000000, deadline:'2025-08-01', status:'submitted', bidAmount:11500000, note:'ยื่นประมูลแล้ว รอผล', createdAt: new Date(Date.now()-86400000*15).toISOString() },
-    { id:'gb2', project:'รถยนต์ราชการ 5 คัน — สำนักงานเทศบาล', org:'เทศบาลนครเชียงใหม่', budget:5000000, deadline:'2025-09-15', status:'preparing', bidAmount:0, note:'เตรียมเอกสาร TOR', createdAt: new Date(Date.now()-86400000*5).toISOString() },
+    { id:'gb1', project:'จัดซื้อรถยนต์ไฟฟ้า 10 คัน — กรมขนส่งทางบก', budget:12000000, deadline: gbAddDays(20), status:'submitted', docs:[true,true,true,true,true,true], ourBid:11500000, note:'ยื่นประมูลแล้ว รอผล' },
+    { id:'gb2', project:'รถยนต์ราชการ 5 คัน — สำนักงานเทศบาล', budget:5000000, deadline: gbAddDays(65), status:'preparing', docs:[true,true,true,false,false,false], ourBid:0, note:'เตรียมเอกสาร TOR' },
   ]
   govBids.forEach(g => { if (!demoCol('gov_bids')[g.id]) demoCol('gov_bids')[g.id] = g })
 
+  const pcAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
   const partnerCommissions = [
-    { id:'pc1', partner:'บริษัท นายหน้าอีวี จำกัด', type:'broker', deal:'BYD Seal AWD — ธีรพงศ์ แสงทอง', dealValue:1299000, commPct:1.5, amount:19485, status:'paid', paidAt:'2025-07-01', createdAt:'2025-06-20' },
-    { id:'pc2', partner:'คุณสุรชัย นายหน้าอิสระ', type:'agent', deal:'GWM ORA — สุภาพร ใจดี', dealValue:899000, commPct:1.0, amount:8990, status:'pending', paidAt:'', createdAt:'2025-06-05' },
+    { id:'pc1', partner:'บริษัท นายหน้าอีวี จำกัด', type:'broker', deal:'BYD Seal AWD — ธีรพงศ์ แสงทอง', dealValue:1299000, rate:1.5, status:'paid', date: pcAddDays(-11) },
+    { id:'pc2', partner:'คุณสุรชัย นายหน้าอิสระ', type:'broker', deal:'GWM ORA — สุภาพร ใจดี', dealValue:899000, rate:1.0, status:'pending', date: pcAddDays(-26) },
   ]
   partnerCommissions.forEach(p => { if (!demoCol('partner_commissions')[p.id]) demoCol('partner_commissions')[p.id] = p })
 
@@ -2234,10 +2333,15 @@ export function seedDemoData() {
   supplierPOs.forEach(p => { if (!demoCol('supplier_pos')[p.id]) demoCol('supplier_pos')[p.id] = p })
 
   // ── DMS: Finance / Compliance ──
+  const bmAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
   const bankTransactions = [
-    { id:'bt1', txDate:'2025-06-25', bank:'กสิกรไทย', account:'xxx-x-xxx01', ref:'BK250625001', type:'deposit', amount:1299000, custName:'ธีรพงศ์ แสงทอง', note:'ค่ารถ BYD Seal', matched:true, bookingRef:'BK-001', createdAt:'2025-06-25' },
-    { id:'bt2', txDate:'2025-06-26', bank:'ไทยพาณิชย์', account:'xxx-x-xxx02', ref:'BK250626001', type:'deposit', amount:50000, custName:'สุภาพร ใจดี', note:'มัดจำ BYD Atto 3', matched:false, bookingRef:'', createdAt:'2025-06-26' },
-    { id:'bt3', txDate:'2025-06-27', bank:'กรุงเทพ', account:'xxx-x-xxx03', ref:'BK250627001', type:'transfer_in', amount:1099000, custName:'บริษัท ไทยลิสซิ่ง จำกัด', note:'ค่าเช่าซื้อ Atto 3', matched:true, bookingRef:'BK-002', createdAt:'2025-06-27' },
+    { id:'BT001', date:bmAddDays(-1), desc:'TRF จาก สมชาย ใจดี', amount:1299000, matched:'IV001', type:'in' },
+    { id:'BT002', date:bmAddDays(-1), desc:'TRF จาก มาลี สุขใจ', amount:28500, matched:'IV002', type:'in' },
+    { id:'BT003', date:bmAddDays(-2), desc:'เงินโอนเข้า ไม่ระบุชื่อ', amount:12400, matched:null, type:'in' },
+    { id:'BT004', date:bmAddDays(-2), desc:'จ่าย BYD Auto Thailand', amount:-8990000, matched:'PO001', type:'out' },
+    { id:'BT005', date:bmAddDays(-3), desc:'จ่ายเงินเดือน (Batch)', amount:-680000, matched:'PAY-06', type:'out' },
+    { id:'BT006', date:bmAddDays(-3), desc:'ค่าธรรมเนียมธนาคาร', amount:-350, matched:null, type:'out' },
+    { id:'BT007', date:bmAddDays(-4), desc:'TRF เข้า 086-xxx-1122', amount:8900, matched:null, type:'in' },
   ]
   bankTransactions.forEach(b => { if (!demoCol('bank_transactions')[b.id]) demoCol('bank_transactions')[b.id] = b })
 
@@ -2356,23 +2460,36 @@ export function seedDemoData() {
   homologations.forEach(h => { if (!demoCol('homologations')[h.id]) demoCol('homologations')[h.id] = h })
 
   // ── Comms ──
+  const ciAddMins = n => { const d = new Date(); d.setMinutes(d.getMinutes() - n); return d.toISOString() }
   const commMessages = [
-    { id:'cm1', threadId:'t1', from:'0891234567', to:'line:lamom_official', channel:'line', direction:'inbound', body:'สนใจ BYD Seal ราคาเท่าไหร่คะ', readAt:'', custId:'c1', custName:'ธีรพงศ์ แสงทอง', assignedTo:'อรนุช เซลส์ดี', status:'replied', createdAt: new Date(Date.now()-86400000*1).toISOString() },
-    { id:'cm2', threadId:'t2', from:'fb:user_2345', to:'page:lamom', channel:'facebook', direction:'inbound', body:'มีสีดำไหมครับ BYD Dolphin', readAt:'', custId:'', custName:'นายสมหมาย', assignedTo:'วิชัย ขายเก่ง', status:'unread', createdAt: new Date(Date.now()-3600000).toISOString() },
-    { id:'cm3', threadId:'t3', from:'ig:user_333', to:'ig:lamom_ev', channel:'instagram', direction:'inbound', body:'test drive ได้ที่ไหนคะ?', readAt:'', custId:'', custName:'น้องอิ๊ก', assignedTo:'', status:'unread', createdAt: new Date(Date.now()-1800000).toISOString() },
+    { id:'M001', channel:'line',     sender:'วิชัย มีโชค',     avatar:'👨', subject:'สอบถามราคา BYD Seal',       preview:'ขอโบรชัวร์และราคา BYD Seal AWD ด้วยครับ', time: ciAddMins(5),   status:'unread', tags:['lead', 'pricing'] },
+    { id:'M002', channel:'facebook', sender:'สุดา อารมณ์ดี',   avatar:'👩', subject:'ถามเรื่องโปรโมชัน',         preview:'มีโปรโมชันดาวน์ 0% ไหมคะ', time: ciAddMins(12),  status:'unread', tags:['promotion'] },
+    { id:'M003', channel:'email',    sender:'ธนา เก่งกว่า',    avatar:'👨', subject:'ขอใบเสนอราคา MG ZS EV',    preview:'ต้องการใบเสนอราคา MG ZS EV สำหรับองค์กร 5 คัน', time: ciAddMins(30),  status:'pending', tags:['b2b', 'quote'] },
+    { id:'M004', channel:'line',     sender:'อรวรรณ ขยัน',     avatar:'👩', subject:'นัดทดลองขับ',               preview:'อยากนัดทดลองขับ BYD Atto 3 วันเสาร์นี้ได้ไหมคะ', time: ciAddMins(45),  status:'replied', tags:['test-drive'] },
+    { id:'M005', channel:'internal', sender:'สมชาย ผู้จัดการ', avatar:'👤', subject:'ประชุมทีมขาย 14:00',        preview:'ขอให้ทุกคนเตรียมรายงานยอดขายมาด้วย', time: ciAddMins(60),  status:'read', tags:['meeting'] },
+    { id:'M006', channel:'sms',      sender:'+66891234567',     avatar:'📱', subject:'แจ้งเตือนต่ออายุประกัน',  preview:'ประกันรถของท่านจะหมดอายุใน 7 วัน กรุณาต่ออายุ', time: ciAddMins(90),  status:'read', tags:['insurance'] },
+    { id:'M007', channel:'facebook', sender:'ปทิตา สาวสวย',    avatar:'👩', subject:'สอบถามการผ่อนชำระ',        preview:'ดอกเบี้ยไฟแนนซ์คิดยังไงครับ มีดาวน์ขั้นต่ำเท่าไร', time: ciAddMins(120), status:'unread', tags:['finance'] },
+    { id:'M008', channel:'line',     sender:'ชัยวัฒน์ ลูกค้า', avatar:'👨', subject:'ร้องเรียนงานซ่อม',         preview:'ส่งรถมาซ่อมแล้ว 3 วัน ยังไม่เสร็จ ทำไมนานมาก', time: ciAddMins(180), status:'pending', tags:['complaint', 'urgent'] },
   ]
   commMessages.forEach(m => { if (!demoCol('comm_messages')[m.id]) demoCol('comm_messages')[m.id] = m })
 
+  const bcAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
+  const bcAddHours = n => { const d = new Date(); d.setHours(d.getHours() - n); return d.toISOString() }
   const broadcasts = [
-    { id:'brd1', title:'โปรโมชั่นต้อนรับปีใหม่ 2568', channel:'line', segment:'all', message:'🎉 LAMOM ONE ขอส่งความสุข! โปรโมชั่นพิเศษ BYD ลดสูงสุด 50,000 บาท สั่งจองภายในเดือนนี้', sentTo:1250, opened:890, clicked:234, status:'sent', sentAt:'2025-01-01T09:00:00', createdAt:'2024-12-28' },
-    { id:'brd2', title:'แจ้งเตือนบริการครบ 6 เดือน', channel:'sms', segment:'owners', message:'LAMOM: รถของท่านครบ 6 เดือนแล้ว นัดเช็คสภาพฟรี โทร 02-xxx-xxxx', sentTo:450, opened:0, clicked:0, status:'sent', sentAt:'2025-06-01T10:00:00', createdAt:'2025-05-28' },
-    { id:'brd3', title:'โปรโมชั่นกลางปี 2568', channel:'line', segment:'leads', message:'⚡ Flash Sale BYD Dolphin เริ่มต้น 799,000 บาท ดาวน์ 0% 36 เดือน จองด่วน!', sentTo:0, opened:0, clicked:0, status:'scheduled', scheduledAt:'2025-07-01T08:00:00', createdAt: new Date(Date.now()).toISOString() },
+    { id:'BC001', title:'โปรโมชันพิเศษ BYD Seal — ดาวน์ 0%', channel:'line', status:'sent', target:'prospects', recipients:342, delivered:338, opened:156, clicked:42, sentAt: bcAddHours(48), scheduledAt: null, message:'สวัสดีค่ะ! LAMOM EV มีโปรโมชันพิเศษ BYD Seal สุดคุ้ม ดาวน์ 0% ฟรีประกันชั้น 1 ปีแรก สนใจติดต่อ 02-xxx-xxxx' },
+    { id:'BC002', title:'แจ้งเตือนต่ออายุประกัน', channel:'sms', status:'sent', target:'expiring', recipients:28, delivered:27, opened:27, clicked:18, sentAt: bcAddHours(24), scheduledAt: null, message:'เรียนคุณลูกค้า ประกันรถของท่านจะหมดอายุใน 7 วัน กรุณาต่ออายุได้ที่ 02-xxx-xxxx' },
+    { id:'BC003', title:'นัดเช็คระยะ 10,000 กม.', channel:'line', status:'scheduled', target:'service_due', recipients:45, delivered:0, opened:0, clicked:0, sentAt: null, scheduledAt: bcAddDays(1) + 'T09:00:00', message:'ถึงเวลาเช็คระยะ 10,000 กม. แล้วครับ! นัดเข้ามาที่ศูนย์บริการได้เลยครับ' },
+    { id:'BC004', title:'Happy New Year 2025', channel:'email', status:'sent', target:'all', recipients:1250, delivered:1198, opened:445, clicked:87, sentAt: bcAddHours(720), scheduledAt: null, message:'สวัสดีปีใหม่ 2025 จาก LAMOM EV ขอบคุณที่ไว้วางใจเราตลอดมา' },
+    { id:'BC005', title:'Flash Sale — อุปกรณ์ EV ลด 20%', channel:'push', status:'draft', target:'owners', recipients:0, delivered:0, opened:0, clicked:0, sentAt: null, scheduledAt: null, message:'Flash Sale! อุปกรณ์เสริม EV ลด 20% วันนี้เท่านั้น!' },
   ]
   broadcasts.forEach(b => { if (!demoCol('broadcasts')[b.id]) demoCol('broadcasts')[b.id] = b })
 
+  const smsAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString() }
   const smsCampaigns = [
-    { id:'sms1', name:'แคมเปญแจ้งบริการ Q2', message:'LAMOM: รถของคุณถึงเวลาบริการแล้ว นัดหมายได้ที่ 02-xxx-xxxx หรือ Reply SMS นี้', segment:'owners_6mo', sentCount:320, deliveredCount:315, status:'completed', sentAt:'2025-04-01', createdAt:'2025-03-28' },
-    { id:'sms2', name:'โปร Test Drive June', message:'LAMOM: ลองขับ BYD Seal ฟรีวันนี้ โทร 02-xxx-xxxx', segment:'warm_leads', sentCount:180, deliveredCount:175, status:'completed', sentAt:'2025-06-05', createdAt:'2025-06-03' },
+    { id:'SMS001', name:'แจ้งโปรโมชั่นเดือนมิ.ย.', recipients:542, sent:542, failed:8, status:'sent', cost:542, time: smsAddDays(-5), message:'LAMOM: โปรพิเศษเดือนนี้! ซื้อ BYD Dolphin รับส่วนลด 50,000 บาท สอบถาม 02-xxx-xxxx' },
+    { id:'SMS002', name:'แจ้งเช็คระยะตามนัด', recipients:87, sent:85, failed:2, status:'sent', cost:87, time: smsAddDays(-3), message:'LAMOM: รถของคุณถึงกำหนดเช็คระยะ กรุณานัดหมายได้ที่ 02-xxx-xxxx' },
+    { id:'SMS003', name:'Welcome ลูกค้าใหม่ (สัปดาห์นี้)', recipients:12, sent:0, failed:0, status:'scheduled', cost:0, time: smsAddDays(1), message:'ยินดีต้อนรับสู่ครอบครัว LAMOM! หากมีคำถามติดต่อ 02-xxx-xxxx' },
+    { id:'SMS004', name:'Win-back ลูกค้า at risk', recipients:32, sent:0, failed:0, status:'draft', cost:0, time: null, message:'LAMOM: เราคิดถึงคุณ! มาเยี่ยมชมโปรแกรมใหม่ได้ที่โชว์รูม รับส่วนลดพิเศษสำหรับลูกค้าเก่า' },
   ]
   smsCampaigns.forEach(s => { if (!demoCol('sms_campaigns')[s.id]) demoCol('sms_campaigns')[s.id] = s })
 
@@ -2621,10 +2738,14 @@ export function seedDemoData() {
   vatInvoices.forEach(v => { if (!demoCol('vat_invoices')[v.id]) demoCol('vat_invoices')[v.id] = v })
 
   // Purchase orders
+  const pordAddHours = n => { const d = new Date(); d.setHours(d.getHours() - n); return d.toISOString() }
+  const pordAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
   const purchaseOrders = [
-    { id:'po1', poNo:'PO-2025-001', title:'สั่งซื้ออะไหล่ BYD Seal', supplier:'BYD Auto Thailand', requestDate:'2025-06-01', status:'approved', amount:48000, items:[{name:'ผ้าเบรกหน้า',qty:4,unitPrice:3200},{name:'น้ำมันเบรก',qty:10,unitPrice:450}], approvedBy:'ทวีศักดิ์ สุขสมบัติเสถียร' },
-    { id:'po2', poNo:'PO-2025-002', title:'สั่งซื้ออุปกรณ์ทำความสะอาด', supplier:'บริษัท ซัพพลายโปร จำกัด', requestDate:'2025-06-10', status:'pending', amount:12500, items:[{name:'น้ำยาล้างรถ',qty:20,unitPrice:350},{name:'ผ้าไมโครไฟเบอร์',qty:50,unitPrice:85}], approvedBy:'' },
-    { id:'po3', poNo:'PO-2025-003', title:'ยาง Michelin สต็อก', supplier:'Michelin Thailand', requestDate:'2025-05-20', status:'received', amount:128000, items:[{name:'ยาง 235/45R18',qty:40,unitPrice:3200}], approvedBy:'ทวีศักดิ์ สุขสมบัติเสถียร' },
+    { id:'PO001', title:'สั่งรถ BYD Atto 3 จำนวน 5 คัน', cat:'vehicle', supplier:'BYD Thailand', amount:5495000, status:'approved', requestDate:pordAddHours(48), approvedBy:'สมชาย ผจก.', expectedDate:pordAddDays(14) },
+    { id:'PO002', title:'อะไหล่ชุดเบรก MG 20 ชุด', cat:'parts', supplier:'MG Parts Thailand', amount:85000, status:'received', requestDate:pordAddHours(120), approvedBy:'สมชาย ผจก.', expectedDate:pordAddDays(-3) },
+    { id:'PO003', title:'น้ำมันเครื่อง Shell 5W-30 x 50 ถัง', cat:'supplies', supplier:'Shell Thailand', amount:48500, status:'pending', requestDate:pordAddHours(8), approvedBy:null, expectedDate:pordAddDays(7) },
+    { id:'PO004', title:'สั่งรถ BYD Dolphin 3 คัน', cat:'vehicle', supplier:'BYD Thailand', amount:2097000, status:'ordered', requestDate:pordAddHours(72), approvedBy:'สมชาย ผจก.', expectedDate:pordAddDays(21) },
+    { id:'PO005', title:'ซ่อม Lift ช่าง 2 ตัว', cat:'service', supplier:'TA Tech', amount:32000, status:'draft', requestDate:pordAddHours(2), approvedBy:null, expectedDate:pordAddDays(5) },
   ]
   purchaseOrders.forEach(p => { if (!demoCol('purchase_orders')[p.id]) demoCol('purchase_orders')[p.id] = p })
 
@@ -2645,6 +2766,122 @@ export function seedDemoData() {
     { id: 'FL-004', company: 'หน่วยงานราชการ ก.', contact: 'คุณประเสริฐ', phone: '02-444-5555', units: 8, model: 'BYD Atto 3', unitPrice: 1099000, discount: 4, status: 'prospect', delivery: '', sales: 'มาลี', notes: 'งบประมาณปี 2027 รอกระบวนการจัดซื้อ' },
   ]
   fleetDeals.forEach(f => { if (!demoCol('fleet_deals')[f.id]) demoCol('fleet_deals')[f.id] = f })
+
+  // Performance scorecards (หน้า /hr/performance) — distinct from performance_reviews (used by /hr/performance-review)
+  const performanceScorecards = [
+    { id:'PS001', name:'อรนุช สายใจ', dept:'ฝ่ายขาย', role:'เซลส์', period:'Q2/2025',
+      kpiScore:92, behaviorScore:88, attendanceScore:95, overallScore:91.7, rating:5,
+      reviewer:'ผู้จัดการขาย', reviewDate:'2025-06-01', goals:'ปิดยอด 15 คัน/เดือน', nextGoals:'เป้า 18 คัน/เดือน Q3',
+      strengths:'ทักษะการนำเสนอดีเยี่ยม ลูกค้าชอบมาก', improvements:'ต้องพัฒนาการติดตามลูกค้าหลังการขาย',
+      salary_adjustment:8, bonus_multiplier:1.5 },
+    { id:'PS002', name:'วิชาญ ช่างซ่อม', dept:'ศูนย์บริการ', role:'ช่างอาวุโส', period:'Q2/2025',
+      kpiScore:85, behaviorScore:90, attendanceScore:100, overallScore:87.5, rating:4,
+      reviewer:'หัวหน้าช่าง', reviewDate:'2025-06-02', goals:'จำนวนงาน 120 job/เดือน',
+      nextGoals:'เป้า 140 job/เดือน', strengths:'แม่นยำ รวดเร็ว', improvements:'ทักษะ EV Battery ต้องพัฒนา',
+      salary_adjustment:5, bonus_multiplier:1.2 },
+    { id:'PS003', name:'นิภา บัญชีดี', dept:'การเงิน', role:'นักบัญชี', period:'Q2/2025',
+      kpiScore:78, behaviorScore:82, attendanceScore:90, overallScore:80.5, rating:3,
+      reviewer:'CFO', reviewDate:'2025-06-03', goals:'ปิดงบเดือนภายใน 5 วัน',
+      nextGoals:'ระบบ automated report', strengths:'ละเอียดรอบคอบ', improvements:'ความเร็วการทำงาน',
+      salary_adjustment:3, bonus_multiplier:1.0 },
+    { id:'PS004', name:'สมชาย คลังสินค้า', dept:'คลังสินค้า', role:'คลังสินค้า', period:'Q2/2025',
+      kpiScore:70, behaviorScore:75, attendanceScore:85, overallScore:73.3, rating:2,
+      reviewer:'ผู้จัดการ', reviewDate:'2025-06-04', goals:'stock accuracy 99%',
+      nextGoals:'ใช้ระบบ Barcode scan ครบ', strengths:'ขยันทำงาน', improvements:'ความถูกต้องในการนับสต็อก',
+      salary_adjustment:2, bonus_multiplier:0.8 },
+  ]
+  performanceScorecards.forEach(p => { if (!demoCol('performance_scorecards')[p.id]) demoCol('performance_scorecards')[p.id] = p })
+
+  // Shift schedules (หน้า /hr/shift-schedule) — one doc per staff+date assignment, seeded for the current week
+  const ssWeekStart = (() => { const d = new Date(); d.setDate(d.getDate() - d.getDay() + 1); return d })()
+  const ssStaffDefaults = [
+    { id:'ST001', dept:'sales' }, { id:'ST002', dept:'sales' }, { id:'ST003', dept:'service' },
+    { id:'ST004', dept:'service' }, { id:'ST005', dept:'admin' }, { id:'ST006', dept:'service' },
+  ]
+  const shiftSchedules = []
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(ssWeekStart); d.setDate(ssWeekStart.getDate() + i)
+    const dateStr = d.toISOString().slice(0, 10)
+    const dow = d.getDay()
+    ssStaffDefaults.forEach(s => {
+      let shift = 'day'
+      if (dow === 0) shift = 'off'
+      else if (dow === 6 && s.dept === 'admin') shift = 'off'
+      else if (dow !== 6 && s.dept === 'service') shift = 'morning'
+      shiftSchedules.push({ id:`SS-${dateStr}-${s.id}`, staffId:s.id, date:dateStr, shift })
+    })
+  }
+  shiftSchedules.forEach(s => { if (!demoCol('shift_schedules')[s.id]) demoCol('shift_schedules')[s.id] = s })
+
+  // Service history records (หน้า /service/history) — distinct concept from job_cards (active repair jobs);
+  // this is a completed-service log with its own cost breakdown & next-service-due tracking.
+  const shAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
+  const serviceHistoryRecords = [
+    { id:'SH001', vehicleId:'VH001', customerName:'วิชาญ มีโชค', phone:'081-234-5678',
+      brand:'BYD', model:'Seal AWD', plate:'กก 1234', vin:'LBWAB2EB7PD001002', mileage:12500,
+      type:'periodic', technicianName:'สมชาย ช่างฝีมือ', date:shAddDays(-30), completedDate:shAddDays(-30),
+      status:'delivered', laborCost:1800, partsCost:3200, totalCost:5000, nextServiceDate:shAddDays(150), nextServiceMileage:22500,
+      services:['เปลี่ยนน้ำมันเครื่อง', 'เปลี่ยนกรองอากาศ', 'ตรวจระบบเบรก', 'ตรวจระดับน้ำยาระบายความร้อน EV'],
+      notes:'รถอยู่ในสภาพดี ยางหน้าเริ่มสึก แนะนำเปลี่ยนใน 5000 กม.' },
+    { id:'SH002', vehicleId:'VH002', customerName:'อรนุช สาวสวย', phone:'082-345-6789',
+      brand:'MG', model:'ZS EV', plate:'ขข 5678', vin:'LSJWSRAR7NE001008', mileage:8200,
+      type:'repair', technicianName:'วิทยา ช่างไฟ', date:shAddDays(-7), completedDate:shAddDays(-5),
+      status:'delivered', laborCost:2500, partsCost:1200, totalCost:3700, nextServiceDate:shAddDays(120), nextServiceMileage:18200,
+      services:['ซ่อมระบบ AC ไม่เย็น', 'เติมน้ำยา AC', 'ตรวจสอบ Compressor'],
+      notes:'น้ำยา AC รั่วที่ข้อต่อ ซ่อมและเติมน้ำยาใหม่แล้ว' },
+    { id:'SH003', vehicleId:'VH003', customerName:'ธีรยุทธ เก่งกาจ', phone:'083-456-7890',
+      brand:'BYD', model:'Atto 3', plate:'คค 9012', vin:'LBWAB2EB7PD001003', mileage:3100,
+      type:'warranty', technicianName:'สมชาย ช่างฝีมือ', date:shAddDays(-2), completedDate:null,
+      status:'in_progress', laborCost:0, partsCost:0, totalCost:0, nextServiceDate:null, nextServiceMileage:null,
+      services:['ตรวจสอบเสียงดังจากช่วงล่าง', 'ตรวจสอบระบบ OTA'],
+      notes:'รอผลตรวจ — อาจต้องรออะไหล่' },
+    { id:'SH004', vehicleId:'VH004', customerName:'สมใจ รักรถ', phone:'084-567-8901',
+      brand:'BYD', model:'Seal SR', plate:'งง 3456', vin:'LBWAB2EB7PD001004', mileage:5800,
+      type:'periodic', technicianName:'วิทยา ช่างไฟ', date:shAddDays(2), completedDate:null,
+      status:'pending', laborCost:1200, partsCost:900, totalCost:2100, nextServiceDate:null, nextServiceMileage:null,
+      services:['ตรวจตามระยะ 6,000 กม.'],
+      notes:'' },
+  ]
+  serviceHistoryRecords.forEach(r => { if (!demoCol('service_history_records')[r.id]) demoCol('service_history_records')[r.id] = r })
+
+  // Vehicle warranties (หน้า /service/warranty-management) — distinct from warranty_claims (OEM reimbursement claims, used by /service/warranty-claim)
+  const vehicleWarranties = [
+    { id:'W001', customerId:'C001', customerName:'วิชาญ มีโชค', phone:'081-234-5678',
+      vehiclePlate:'กก 1234 BKK', brand:'BYD', model:'Seal', year:2024, vin:'LBWAB2EB7PD002345',
+      type:'factory', startDate:'2024-01-15', endDate:'2027-01-14', km:100000,
+      status:'active', notes:'รับประกัน 3 ปี หรือ 100,000 กม.' },
+    { id:'W002', customerId:'C002', customerName:'อรนุช สายใจ', phone:'082-345-6789',
+      vehiclePlate:'ขข 5678 BKK', brand:'BYD', model:'Atto 3', year:2023, vin:'LBWAB2EB7PD003456',
+      type:'battery', startDate:'2023-03-10', endDate:'2031-03-09', km:160000,
+      status:'active', notes:'รับประกันแบตเตอรี่ EV 8 ปี หรือ 160,000 กม.' },
+    { id:'W003', customerId:'C003', customerName:'ธีรยุทธ เก่งกาจ', phone:'083-456-7890',
+      vehiclePlate:'คค 9012 BKK', brand:'MG', model:'ZS EV', year:2022, vin:'LSJWSRAR7NE012345',
+      type:'factory', startDate:'2022-06-01', endDate:'2025-05-31', km:100000,
+      status:'expiring', notes:'ใกล้หมดอายุ — เสนอต่ออายุ' },
+    { id:'W004', customerId:'C004', customerName:'สมหญิง รักรถ', phone:'084-567-8901',
+      vehiclePlate:'งง 3456 BKK', brand:'Neta', model:'V', year:2022, vin:'LNBSDBEB9PA001234',
+      type:'factory', startDate:'2022-01-01', endDate:'2024-12-31', km:80000,
+      status:'expired', notes:'หมดอายุแล้ว' },
+    { id:'W005', customerId:'C001', customerName:'วิชาญ มีโชค', phone:'081-234-5678',
+      vehiclePlate:'กก 1234 BKK', brand:'BYD', model:'Seal', year:2024, vin:'LBWAB2EB7PD002345',
+      type:'extended', startDate:'2027-01-15', endDate:'2029-01-14', km:200000,
+      status:'active', notes:'รับประกันเพิ่มเติม 2 ปี' },
+  ]
+  vehicleWarranties.forEach(w => { if (!demoCol('vehicle_warranties')[w.id]) demoCol('vehicle_warranties')[w.id] = w })
+
+  // Warranty service claims (หน้า /service/warranty-management) — customer-facing warranty claims, linked to vehicle_warranties by warrantyId
+  const warrantyServiceClaims = [
+    { id:'CL001', warrantyId:'W003', customerName:'ธีรยุทธ เก่งกาจ', vehiclePlate:'คค 9012 BKK',
+      type:'factory', date:'2025-03-15', issue:'ระบบ AC ขัดข้อง — เสียงดังผิดปกติ',
+      status:'closed', techNote:'เปลี่ยนคอมเพรสเซอร์ AC ใหม่', cost:15000, covered:true },
+    { id:'CL002', warrantyId:'W003', customerName:'ธีรยุทธ เก่งกาจ', vehiclePlate:'คค 9012 BKK',
+      type:'factory', date:'2024-11-10', issue:'จอ Infotainment ค้าง รีสตาร์ทเองบ่อยครั้ง',
+      status:'closed', techNote:'Update firmware และเปลี่ยนแผงวงจร', cost:8000, covered:true },
+    { id:'CL003', warrantyId:'W004', customerName:'สมหญิง รักรถ', vehiclePlate:'งง 3456 BKK',
+      type:'factory', date:'2025-05-20', issue:'ประตูหลังซ้าย – บานพับหลวม',
+      status:'pending', techNote:'', cost:0, covered:null },
+  ]
+  warrantyServiceClaims.forEach(c => { if (!demoCol('warranty_service_claims')[c.id]) demoCol('warranty_service_claims')[c.id] = c })
 }
 
 // ── แหล่งข้อมูลการขายกลาง: แปลงจาก "ใบจอง" (bookings) → รูปแบบ sales ──────────────

@@ -5,13 +5,11 @@
 import { timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
-
-function addMinutes(n) { const d = new Date(); d.setMinutes(d.getMinutes() - n); return d.toISOString() }
 
 const CALL_TYPES = {
   inbound:  { label: 'สายเข้า', color: 'primary', icon: '📥' },
@@ -27,15 +25,6 @@ const CALL_TOPICS = {
   other:    { label: 'อื่นๆ', icon: '📌' },
 }
 
-const DEMO_CALLS = [
-  { id: 'C001', type: 'inbound', topic: 'sales', caller: 'สมหญิง รักรถ', phone: '081-234-5678', duration: 420, staff: 'สุดา มาดี', time: addMinutes(15), note: 'ถามโปร Dolphin — นัดเข้ามาดูพรุ่งนี้ 14:00', followUp: true, followed: false },
-  { id: 'C002', type: 'missed', topic: 'other', caller: 'ไม่ทราบ', phone: '02-987-6543', duration: 0, staff: null, time: addMinutes(35), note: '', followUp: true, followed: false },
-  { id: 'C003', type: 'outbound', topic: 'service', caller: 'สมชาย ใจดี', phone: '085-111-2222', duration: 180, staff: 'วิทยา ช่างใหญ่', time: addMinutes(60), note: 'แจ้งรถซ่อมเสร็จแล้ว นัดรับพรุ่งนี้', followUp: false, followed: false },
-  { id: 'C004', type: 'inbound', topic: 'complaint', caller: 'ประยุทธ ไม่พอใจ', phone: '089-333-4444', duration: 660, staff: 'ผจก.บริการ', time: addMinutes(120), note: 'ไม่พอใจรอนาน — ผจก.รับเรื่องแล้ว เปิดเคสร้องเรียน', followUp: true, followed: true },
-  { id: 'C005', type: 'inbound', topic: 'finance', caller: 'มาลี สุขใจ', phone: '086-222-3333', duration: 240, staff: 'สมศรี การเงิน', time: addMinutes(200), note: 'ถามยอดค้างค่าอะไหล่ — แจ้งยอดแล้ว จะโอนพรุ่งนี้', followUp: false, followed: false },
-  { id: 'C006', type: 'outbound', topic: 'sales', caller: 'ประพันธ์ มั่งมี', phone: '081-111-9999', duration: 540, staff: 'วิชัย ยอดขาย', time: addMinutes(300), note: 'Follow-up หลัง Test Drive — ขอคิดถึงศุกร์นี้', followUp: true, followed: false },
-]
-
 function fmtDur(sec) {
   if (!sec) return '—'
   const m = Math.floor(sec / 60), s = sec % 60
@@ -44,33 +33,23 @@ function fmtDur(sec) {
 
 export default async function CallLogPage(container) {
   const myGen = container.__routerGen
-  let calls = DEMO_CALLS.map(c => ({ ...c }))
-  let dataSource = 'demo'
+  seedDemoData()
+  let calls = []
+  let loading = true
   let typeFilter = 'all'
 
-  try {
-    const docs = await listDocs('call_logs', [], 'time', 'desc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `CL${i+1}`,
-        type: d.type || 'inbound',
-        topic: d.topic || 'other',
-        caller: d.caller || d.customerName || 'ไม่ทราบ',
-        phone: d.phone || '',
-        duration: d.duration || 0,
-        staff: d.staff || d.staffName || null,
-        time: d.time || d.createdAt || new Date().toISOString(),
-        note: d.note || d.notes || '',
-        followUp: d.followUp || false,
-        followed: d.followed || false,
-      }))
-      calls = [...mapped, ...DEMO_CALLS]
-      dataSource = 'live'
-    }
-  } catch {}
+  async function loadData() {
+    loading = true
+    try { calls = await listDocs('call_logs', [], 'time', 'desc', 200) } catch (e) { calls = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = calls.filter(c => typeFilter === 'all' || c.type === typeFilter)
     const missed = calls.filter(c => c.type === 'missed').length
     const needFollow = calls.filter(c => c.followUp && !c.followed).length
@@ -81,7 +60,7 @@ export default async function CallLogPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">☎️ Call Log</div>
-            <div class="page-subtitle">บันทึกสายโทรเข้า-ออก — วันนี้${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">บันทึกสายโทรเข้า-ออก — วันนี้</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="add-call-btn">+ บันทึกสาย</button>
@@ -136,12 +115,22 @@ export default async function CallLogPage(container) {
     `
 
     container.querySelectorAll('.tf-btn').forEach(b => b.addEventListener('click', () => { typeFilter = b.dataset.t; renderPage() }))
-    container.querySelectorAll('.callback-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.callback-btn').forEach(b => b.addEventListener('click', async () => {
       const c = calls.find(x => x.id === b.dataset.id)
-      if (c) { c.type = 'outbound'; c.followed = true; c.staff = 'คุณ (Demo)'; c.note = 'โทรกลับแล้ว'; showToast('📞 บันทึกการโทรกลับ ' + c.phone, 'success'); renderPage() }
+      if (!c) return
+      try {
+        await updateDocData('call_logs', c.id, { type: 'outbound', followed: true, staff: 'คุณ (Demo)', note: 'โทรกลับแล้ว' })
+        showToast('📞 บันทึกการโทรกลับ ' + c.phone, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.follow-btn').forEach(b => b.addEventListener('click', () => {
-      const c = calls.find(x => x.id === b.dataset.id); if (c) { c.followed = true; renderPage() }
+    container.querySelectorAll('.follow-btn').forEach(b => b.addEventListener('click', async () => {
+      const c = calls.find(x => x.id === b.dataset.id)
+      if (!c) return
+      try {
+        await updateDocData('call_logs', c.id, { followed: true })
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     document.getElementById('add-call-btn')?.addEventListener('click', () => {
       openModal({
@@ -161,17 +150,27 @@ export default async function CallLogPage(container) {
             <input type="checkbox" id="cl-follow" style="accent-color:var(--primary)"> ต้องติดตามต่อ
           </label>
         </div>`,
-        onConfirm() {
+        async onConfirm() {
           const caller = document.getElementById('cl-caller')?.value?.trim()
-          if (!caller) { showToast('❗ กรุณากรอกชื่อ', 'error'); return }
-          calls.unshift({ id:`C${String(calls.length+1).padStart(3,'0')}`, type:document.getElementById('cl-type')?.value||'inbound', topic:document.getElementById('cl-topic')?.value||'other', caller, phone:document.getElementById('cl-phone')?.value||'—', duration:0, staff:'คุณ (Demo)', time:new Date().toISOString(), note:document.getElementById('cl-note')?.value||'', followUp:document.getElementById('cl-follow')?.checked||false, followed:false })
-          showToast('✅ บันทึกสายแล้ว', 'success'); renderPage()
+          if (!caller) { showToast('❗ กรุณากรอกชื่อ', 'error'); return false }
+          try {
+            await createDoc('call_logs', {
+              type: document.getElementById('cl-type')?.value||'inbound',
+              topic: document.getElementById('cl-topic')?.value||'other',
+              caller, phone: document.getElementById('cl-phone')?.value||'—', duration: 0,
+              staff: 'คุณ (Demo)', time: new Date().toISOString(),
+              note: document.getElementById('cl-note')?.value||'',
+              followUp: document.getElementById('cl-follow')?.checked||false, followed: false
+            })
+            showToast('✅ บันทึกสายแล้ว', 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

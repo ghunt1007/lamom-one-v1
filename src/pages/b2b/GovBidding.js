@@ -5,7 +5,7 @@
 import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -23,40 +23,25 @@ const BID_STATUS = {
 
 const DOC_CHECKLIST = ['หนังสือรับรองบริษัท', 'งบการเงิน 3 ปี', 'ผลงานที่ผ่านมา', 'หนังสือค้ำประกัน (Bid Bond)', 'สเปครถ + ใบเสนอราคา', 'ลงทะเบียน e-GP']
 
-const DEMO_BIDS = [
-  { id: 'GB001', project: 'จัดซื้อรถยนต์ไฟฟ้า 15 คัน — เทศบาลนครสมุทรปราการ', budget: 16500000, deadline: addDays(12), status: 'preparing', docs: [true, true, true, false, true, true], ourBid: 15800000, note: 'รอ Bid Bond จากธนาคาร' },
-  { id: 'GB002', project: 'เช่ารถ EV พร้อมคนขับ 5 คัน 3 ปี — สำนักงานเขตบางนา', budget: 9000000, deadline: addDays(25), status: 'watching', docs: [false, false, false, false, false, false], ourBid: 0, note: 'รอประกาศ TOR ฉบับจริง' },
-  { id: 'GB003', project: 'จัดซื้อรถตรวจการณ์ EV 8 คัน — กรมศุลกากร', budget: 11200000, deadline: addDays(-10), status: 'submitted', docs: [true, true, true, true, true, true], ourBid: 10650000, note: 'ประกาศผล 25 มิ.ย.' },
-  { id: 'GB004', project: 'จัดซื้อรถผู้บริหาร 3 คัน — อบจ.สมุทรปราการ', budget: 6300000, deadline: addDays(-45), status: 'won', docs: [true, true, true, true, true, true], ourBid: 5990000, note: 'เซ็นสัญญาแล้ว ส่งมอบ ส.ค.' },
-  { id: 'GB005', project: 'จัดซื้อรถ EV 10 คัน — การไฟฟ้านครหลวง', budget: 12000000, deadline: addDays(-60), status: 'lost', docs: [true, true, true, true, true, true], ourBid: 11500000, note: 'แพ้ราคา — คู่แข่งเสนอ 11.2M' },
-]
-
 export default async function GovBiddingPage(container) {
   const myGen = container.__routerGen
-  let bids = DEMO_BIDS.map(b => ({ ...b, docs: [...b.docs] }))
-  let dataSource = 'demo'
+  seedDemoData()
+  let bids = []
+  let loading = true
   let statusFilter = 'all'
 
-  try {
-    const docs = await listDocs('gov_bids', [], 'deadline', 'asc', 100).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `GB${i+1}`,
-        project: d.project || d.title || d.name || 'โครงการ',
-        budget: d.budget || 0,
-        deadline: d.deadline || d.dueDate || '',
-        status: d.status || 'watching',
-        docs: d.docs || [false, false, false, false, false, false],
-        ourBid: d.ourBid || d.bidAmount || 0,
-        note: d.note || d.notes || '',
-      }))
-      bids = [...mapped, ...DEMO_BIDS]
-      dataSource = 'live'
-    }
-  } catch {}
+  async function loadData() {
+    loading = true
+    try { bids = await listDocs('gov_bids', [], 'deadline', 'asc', 100) } catch (e) { bids = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = bids.filter(b => statusFilter === 'all' || b.status === statusFilter)
     const active = bids.filter(b => ['watching','preparing','submitted'].includes(b.status))
     const pipeline = active.reduce((a, b) => a + b.budget, 0)
@@ -68,7 +53,7 @@ export default async function GovBiddingPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🏛 Government Bidding</div>
-            <div class="page-subtitle">งานประมูลภาครัฐ — e-bidding / e-GP${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">งานประมูลภาครัฐ — e-bidding / e-GP</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="add-bid-btn">+ เพิ่มงานประมูล</button>
@@ -133,12 +118,23 @@ export default async function GovBiddingPage(container) {
     `
 
     container.querySelectorAll('.sf-btn').forEach(b => b.addEventListener('click', () => { statusFilter = b.dataset.s; renderPage() }))
-    container.querySelectorAll('.doc-check').forEach(cb => cb.addEventListener('change', () => {
+    container.querySelectorAll('.doc-check').forEach(cb => cb.addEventListener('change', async () => {
       const b = bids.find(x => x.id === cb.dataset.id)
-      if (b) { b.docs[parseInt(cb.dataset.i)] = cb.checked; renderPage() }
+      if (!b) return
+      const docs = [...b.docs]
+      docs[parseInt(cb.dataset.i)] = cb.checked
+      try {
+        await updateDocData('gov_bids', b.id, { docs })
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.prep-btn').forEach(b => b.addEventListener('click', () => {
-      const x = bids.find(z => z.id === b.dataset.id); if (x) { x.status = 'preparing'; renderPage() }
+    container.querySelectorAll('.prep-btn').forEach(b => b.addEventListener('click', async () => {
+      const x = bids.find(z => z.id === b.dataset.id)
+      if (!x) return
+      try {
+        await updateDocData('gov_bids', x.id, { status: 'preparing' })
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.submit-btn').forEach(b => b.addEventListener('click', () => {
       const x = bids.find(z => z.id === b.dataset.id)
@@ -147,18 +143,32 @@ export default async function GovBiddingPage(container) {
         size: 'sm',
         body: `<div class="input-group"><label class="input-label">ราคาที่เสนอ (บาท) — งบ ${formatCurrency(x.budget)}</label><input class="input" type="number" id="gb-bid" value="${Math.round(x.budget * 0.95)}"></div>`,
         confirmText: '📤 ยืนยันยื่น',
-        onConfirm() {
-          x.ourBid = parseInt(document.getElementById('gb-bid')?.value) || 0
-          x.status = 'submitted'; x.note = 'รอประกาศผล'
-          showToast('📤 ยื่นประมูลในระบบ e-GP แล้ว', 'success'); renderPage()
+        async onConfirm() {
+          const ourBid = parseInt(document.getElementById('gb-bid')?.value) || 0
+          try {
+            await updateDocData('gov_bids', x.id, { ourBid, status: 'submitted', note: 'รอประกาศผล' })
+            showToast('📤 ยื่นประมูลในระบบ e-GP แล้ว', 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     }))
-    container.querySelectorAll('.won-btn').forEach(b => b.addEventListener('click', () => {
-      const x = bids.find(z => z.id === b.dataset.id); if (x) { x.status = 'won'; x.note = 'รอเซ็นสัญญา'; showToast('🏆 ชนะประมูล! ' + formatCurrency(x.ourBid), 'success'); renderPage() }
+    container.querySelectorAll('.won-btn').forEach(b => b.addEventListener('click', async () => {
+      const x = bids.find(z => z.id === b.dataset.id)
+      if (!x) return
+      try {
+        await updateDocData('gov_bids', x.id, { status: 'won', note: 'รอเซ็นสัญญา' })
+        showToast('🏆 ชนะประมูล! ' + formatCurrency(x.ourBid), 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.lost-btn').forEach(b => b.addEventListener('click', () => {
-      const x = bids.find(z => z.id === b.dataset.id); if (x) { x.status = 'lost'; renderPage() }
+    container.querySelectorAll('.lost-btn').forEach(b => b.addEventListener('click', async () => {
+      const x = bids.find(z => z.id === b.dataset.id)
+      if (!x) return
+      try {
+        await updateDocData('gov_bids', x.id, { status: 'lost' })
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     document.getElementById('add-bid-btn')?.addEventListener('click', () => {
       openModal({
@@ -169,17 +179,27 @@ export default async function GovBiddingPage(container) {
           <div class="input-group"><label class="input-label">งบประมาณ (บาท)</label><input class="input" type="number" id="gb-budget"></div>
           <div class="input-group"><label class="input-label">วันปิดรับ</label><input class="input" type="date" id="gb-deadline" value="${addDays(30)}"></div>
         </div>`,
-        onConfirm() {
+        async onConfirm() {
           const project = document.getElementById('gb-project')?.value?.trim()
-          if (!project) { showToast('❗ กรอกชื่อโครงการ', 'error'); return }
-          bids.unshift({ id:`GB${String(bids.length+1).padStart(3,'0')}`, project, budget:parseInt(document.getElementById('gb-budget')?.value)||0, deadline:document.getElementById('gb-deadline')?.value||addDays(30), status:'watching', docs:[false,false,false,false,false,false], ourBid:0, note:'' })
-          showToast('✅ เพิ่มงานประมูลแล้ว', 'success'); renderPage()
+          if (!project) { showToast('❗ กรอกชื่อโครงการ', 'error'); return false }
+          try {
+            await createDoc('gov_bids', {
+              project,
+              budget: parseInt(document.getElementById('gb-budget')?.value) || 0,
+              deadline: document.getElementById('gb-deadline')?.value || addDays(30),
+              status: 'watching',
+              docs: [false,false,false,false,false,false],
+              ourBid: 0, note: ''
+            })
+            showToast('✅ เพิ่มงานประมูลแล้ว', 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

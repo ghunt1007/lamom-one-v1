@@ -5,7 +5,7 @@
 import { timeAgo, initials } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -27,47 +27,22 @@ const MSG_STATUS = {
   archived: { label: 'เก็บแล้ว', color: 'secondary' },
 }
 
-function addMins(n) { const d = new Date(); d.setMinutes(d.getMinutes() - n); return d.toISOString() }
-
-const DEMO_MESSAGES = [
-  { id: 'M001', channel: 'line',     sender: 'วิชัย มีโชค',     avatar: '👨', subject: 'สอบถามราคา BYD Seal',       preview: 'ขอโบรชัวร์และราคา BYD Seal AWD ด้วยครับ', time: addMins(5),   status: 'unread', tags: ['lead', 'pricing'] },
-  { id: 'M002', channel: 'facebook', sender: 'สุดา อารมณ์ดี',   avatar: '👩', subject: 'ถามเรื่องโปรโมชัน',         preview: 'มีโปรโมชันดาวน์ 0% ไหมคะ', time: addMins(12),  status: 'unread', tags: ['promotion'] },
-  { id: 'M003', channel: 'email',    sender: 'ธนา เก่งกว่า',    avatar: '👨', subject: 'ขอใบเสนอราคา MG ZS EV',    preview: 'ต้องการใบเสนอราคา MG ZS EV สำหรับองค์กร 5 คัน', time: addMins(30),  status: 'pending', tags: ['b2b', 'quote'] },
-  { id: 'M004', channel: 'line',     sender: 'อรวรรณ ขยัน',     avatar: '👩', subject: 'นัดทดลองขับ',               preview: 'อยากนัดทดลองขับ BYD Atto 3 วันเสาร์นี้ได้ไหมคะ', time: addMins(45),  status: 'replied', tags: ['test-drive'] },
-  { id: 'M005', channel: 'internal', sender: 'สมชาย ผู้จัดการ', avatar: '👤', subject: 'ประชุมทีมขาย 14:00',        preview: 'ขอให้ทุกคนเตรียมรายงานยอดขายมาด้วย', time: addMins(60),  status: 'read', tags: ['meeting'] },
-  { id: 'M006', channel: 'sms',      sender: '+66891234567',     avatar: '📱', subject: 'แจ้งเตือนต่ออายุประกัน',  preview: 'ประกันรถของท่านจะหมดอายุใน 7 วัน กรุณาต่ออายุ', time: addMins(90),  status: 'read', tags: ['insurance'] },
-  { id: 'M007', channel: 'facebook', sender: 'ปทิตา สาวสวย',    avatar: '👩', subject: 'สอบถามการผ่อนชำระ',        preview: 'ดอกเบี้ยไฟแนนซ์คิดยังไงครับ มีดาวน์ขั้นต่ำเท่าไร', time: addMins(120), status: 'unread', tags: ['finance'] },
-  { id: 'M008', channel: 'line',     sender: 'ชัยวัฒน์ ลูกค้า', avatar: '👨', subject: 'ร้องเรียนงานซ่อม',         preview: 'ส่งรถมาซ่อมแล้ว 3 วัน ยังไม่เสร็จ ทำไมนานมาก', time: addMins(180), status: 'pending', tags: ['complaint', 'urgent'] },
-]
-
 export default async function CommInboxPage(container) {
   const myGen = container.__routerGen
-  let messages = DEMO_MESSAGES.map(m => ({ ...m }))
-  let dataSource = 'demo'
+  seedDemoData()
+  let messages = []
+  let loading = true
   let activeChannel = 'all'
   let activeStatus = 'all'
-
-  try {
-    const docs = await listDocs('comm_messages', [], 'time', 'desc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `M${i+1}`,
-        channel: d.channel || 'line',
-        sender: d.sender || d.customerName || 'ลูกค้า',
-        avatar: d.avatar || '👤',
-        subject: d.subject || d.title || '',
-        preview: d.preview || d.message || '',
-        time: d.time || d.createdAt || new Date().toISOString(),
-        status: d.status || 'unread',
-        tags: d.tags || [],
-      }))
-      messages = [...mapped, ...DEMO_MESSAGES]
-      dataSource = 'live'
-    }
-  } catch {}
-  let selected = null
+  let selectedId = null
   let search = ''
+
+  async function loadData() {
+    loading = true
+    try { messages = await listDocs('comm_messages', [], 'time', 'desc', 200) } catch (e) { messages = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function filtered() {
     return messages.filter(m => {
@@ -79,6 +54,11 @@ export default async function CommInboxPage(container) {
   }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
+    const selected = selectedId ? messages.find(m => m.id === selectedId) || null : null
     const list = filtered()
     const unread = messages.filter(m => m.status === 'unread').length
     const pending = messages.filter(m => m.status === 'pending').length
@@ -88,7 +68,7 @@ export default async function CommInboxPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">💬 Comm Inbox</div>
-            <div class="page-subtitle">กล่องข้อความรวม — LINE, Facebook, Email, SMS${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">กล่องข้อความรวม — LINE, Facebook, Email, SMS</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="compose-btn">✏️ เขียนข้อความ</button>
@@ -152,15 +132,27 @@ export default async function CommInboxPage(container) {
     document.getElementById('compose-btn')?.addEventListener('click', openCompose)
     document.getElementById('msg-search')?.addEventListener('input', e => { search = e.target.value; renderPage() })
     container.querySelectorAll('.ch-btn').forEach(b => b.addEventListener('click', () => { activeChannel = b.dataset.ch; renderPage() }))
-    container.querySelectorAll('.msg-item').forEach(el => el.addEventListener('click', () => {
+    container.querySelectorAll('.msg-item').forEach(el => el.addEventListener('click', async () => {
       const m = messages.find(x => x.id === el.dataset.id)
-      if (m) { if (m.status === 'unread') m.status = 'read'; selected = m; renderPage() }
+      if (!m) return
+      selectedId = m.id
+      if (m.status === 'unread') {
+        try { await updateDocData('comm_messages', m.id, { status: 'read' }) } catch (e) {}
+        await loadData()
+      } else {
+        renderPage()
+      }
     }))
 
     if (selected) {
       document.getElementById('reply-btn')?.addEventListener('click', () => openReply(selected))
-      document.getElementById('archive-btn')?.addEventListener('click', () => {
-        selected.status = 'archived'; showToast('📦 เก็บข้อความแล้ว', 'success'); selected = null; renderPage()
+      document.getElementById('archive-btn')?.addEventListener('click', async () => {
+        try {
+          await updateDocData('comm_messages', selected.id, { status: 'archived' })
+          showToast('📦 เก็บข้อความแล้ว', 'success')
+          selectedId = null
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       })
     }
   }
@@ -197,12 +189,14 @@ export default async function CommInboxPage(container) {
           <textarea class="input" id="reply-text" rows="5" placeholder="พิมพ์ข้อความ..."></textarea>
         </div>
       `,
-      onConfirm() {
+      async onConfirm() {
         const txt = document.getElementById('reply-text')?.value?.trim()
-        if (!txt) { showToast('❗ กรุณาพิมพ์ข้อความ', 'error'); return }
-        m.status = 'replied'
-        showToast(`✅ ตอบกลับ ${m.sender} แล้ว`, 'success')
-        renderPage()
+        if (!txt) { showToast('❗ กรุณาพิมพ์ข้อความ', 'error'); return false }
+        try {
+          await updateDocData('comm_messages', m.id, { status: 'replied' })
+          showToast(`✅ ตอบกลับ ${m.sender} แล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -221,24 +215,25 @@ export default async function CommInboxPage(container) {
           <div class="input-group"><label class="input-label">ข้อความ</label><textarea class="input" id="comp-body" rows="5" placeholder="พิมพ์ข้อความ..."></textarea></div>
         </div>
       `,
-      onConfirm() {
+      async onConfirm() {
         const to = document.getElementById('comp-to')?.value?.trim()
-        if (!to) { showToast('❗ กรุณากรอกผู้รับ', 'error'); return }
-        messages.unshift({
-          id: `M${String(messages.length+1).padStart(3,'0')}`,
-          channel: document.getElementById('comp-ch')?.value||'internal',
-          sender: to, avatar: '👤',
-          subject: document.getElementById('comp-subj')?.value||'(ไม่มีหัวข้อ)',
-          preview: document.getElementById('comp-body')?.value||'',
-          time: new Date().toISOString(), status: 'read', tags: ['outbound']
-        })
-        showToast('✅ ส่งข้อความแล้ว!', 'success')
-        renderPage()
+        if (!to) { showToast('❗ กรุณากรอกผู้รับ', 'error'); return false }
+        try {
+          await createDoc('comm_messages', {
+            channel: document.getElementById('comp-ch')?.value||'internal',
+            sender: to, avatar: '👤',
+            subject: document.getElementById('comp-subj')?.value||'(ไม่มีหัวข้อ)',
+            preview: document.getElementById('comp-body')?.value||'',
+            time: new Date().toISOString(), status: 'read', tags: ['outbound']
+          })
+          showToast('✅ ส่งข้อความแล้ว!', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

@@ -4,45 +4,24 @@
  */
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-const DEMO_RULES = [
-  { id:'ESC001', name:'Job Card เกิน SLA', dept:'บริการ', triggerHours:4, level1:'หัวหน้าช่าง', level2:'ผู้จัดการบริการ', channel:'LINE', active:true, triggered:3 },
-  { id:'ESC002', name:'Lead ไม่ติดต่อ 24 ชม.', dept:'ขาย', triggerHours:24, level1:'Supervisor ขาย', level2:'ผู้จัดการโชว์รูม', channel:'LINE+Email', active:true, triggered:7 },
-  { id:'ESC003', name:'ร้องเรียนไม่แก้ใน 48 ชม.', dept:'CRM', triggerHours:48, level1:'ผู้จัดการ CRM', level2:'เจ้าของ', channel:'LINE+SMS', active:true, triggered:1 },
-  { id:'ESC004', name:'ไฟแนนซ์รอเอกสาร > 3 วัน', dept:'การเงิน', triggerHours:72, level1:'ผู้จัดการการเงิน', level2:'ผู้จัดการโชว์รูม', channel:'Email', active:true, triggered:2 },
-  { id:'ESC005', name:'อะไหล่หมดสต็อก', dept:'อะไหล่', triggerHours:1, level1:'ผู้จัดการอะไหล่', level2:'ผู้อำนวยการ', channel:'LINE', active:false, triggered:0 },
-  { id:'ESC006', name:'KPI ต่ำกว่า 70% ต้นเดือน', dept:'ขาย', triggerHours:168, level1:'Supervisor ขาย', level2:'ผู้จัดการโชว์รูม', channel:'Email', active:true, triggered:4 },
-]
-
 export default async function EscalationRulesPage(container) {
   const myGen = container.__routerGen
-  let rules = DEMO_RULES.map(r => ({ ...r }))
-  let dataSource = 'demo'
+  seedDemoData()
+  let rules = []
+  let loading = true
 
-  try {
-    const docs = await listDocs('escalation_rules', [], 'name', 'asc', 100).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `ESC${i+1}`,
-        name: d.name || d.title || 'กฎ',
-        dept: d.dept || d.department || '',
-        triggerHours: d.triggerHours || d.hours || 24,
-        level1: d.level1 || '',
-        level2: d.level2 || '',
-        channel: d.channel || 'LINE',
-        active: d.active !== undefined ? d.active : true,
-        triggered: d.triggered || d.triggerCount || 0,
-      }))
-      rules = [...mapped, ...DEMO_RULES]
-      dataSource = 'live'
-    }
-  } catch {}
+  async function loadData() {
+    loading = true
+    try { rules = await listDocs('escalation_rules', [], 'name', 'asc', 100) } catch (e) { rules = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function ruleRow(r) {
     const channelColor = r.channel.includes('SMS')?'var(--danger)':r.channel.includes('LINE')?'var(--success)':'var(--primary)'
@@ -72,6 +51,10 @@ export default async function EscalationRulesPage(container) {
   }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const active = rules.filter(r=>r.active).length
     const totalTriggered = rules.reduce((s,r)=>s+r.triggered,0)
 
@@ -80,7 +63,7 @@ export default async function EscalationRulesPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">⚡ Escalation Rules</div>
-            <div class="page-subtitle">แจ้งเตือนอัตโนมัติเมื่องานเกิน SLA · ${rules.length} กฎ${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">แจ้งเตือนอัตโนมัติเมื่องานเกิน SLA · ${rules.length} กฎ</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="add-rule-btn">+ เพิ่มกฎใหม่</button>
@@ -123,9 +106,14 @@ export default async function EscalationRulesPage(container) {
         </div>
       </div>`
 
-    container.querySelectorAll('.toggle-rule').forEach(cb=>cb.addEventListener('change',()=>{
+    container.querySelectorAll('.toggle-rule').forEach(cb=>cb.addEventListener('change', async ()=>{
       const r = rules.find(x=>x.id===cb.dataset.id)
-      if(r){ r.active=cb.checked; showToast((r.active?'✅ เปิด':'⛔ ปิด')+' กฎ: '+r.name, r.active?'success':'info'); render() }
+      if (!r) return
+      try {
+        await updateDocData('escalation_rules', r.id, { active: cb.checked })
+        showToast((cb.checked?'✅ เปิด':'⛔ ปิด')+' กฎ: '+r.name, cb.checked?'success':'info')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.edit-btn').forEach(b=>b.addEventListener('click',()=>{
       const r = rules.find(x=>x.id===b.dataset.id)
@@ -175,32 +163,35 @@ export default async function EscalationRulesPage(container) {
         </div>
       `
     })
-    document.getElementById('esc-save')?.addEventListener('click', () => {
+    document.getElementById('esc-save')?.addEventListener('click', async () => {
       const name = document.getElementById('esc-name')?.value.trim()
       if (!name) { showToast('⚠️ กรุณากรอกชื่อกฎ', 'warning'); return }
-      if (isEdit) {
-        r.name         = name
-        r.dept         = document.getElementById('esc-dept')?.value
-        r.triggerHours = parseInt(document.getElementById('esc-hrs')?.value) || 24
-        r.level1       = document.getElementById('esc-l1')?.value.trim()
-        r.level2       = document.getElementById('esc-l2')?.value.trim()
-        r.channel      = document.getElementById('esc-ch')?.value
-        showToast('✅ อัปเดตกฎ: ' + name, 'success')
-      } else {
-        rules.push({
-          id: 'ESC' + String(rules.length + 1).padStart(3,'0'),
-          name,
-          dept:         document.getElementById('esc-dept')?.value || 'บริการ',
-          triggerHours: parseInt(document.getElementById('esc-hrs')?.value) || 24,
-          level1:       document.getElementById('esc-l1')?.value.trim() || '-',
-          level2:       document.getElementById('esc-l2')?.value.trim() || '-',
-          channel:      document.getElementById('esc-ch')?.value || 'LINE',
-          active: true, triggered: 0,
-        })
-        showToast('✅ เพิ่มกฎ: ' + name, 'success')
-      }
-      document.querySelector('.modal-overlay')?.remove()
-      render()
+      try {
+        if (isEdit) {
+          await updateDocData('escalation_rules', r.id, {
+            name,
+            dept:         document.getElementById('esc-dept')?.value,
+            triggerHours: parseInt(document.getElementById('esc-hrs')?.value) || 24,
+            level1:       document.getElementById('esc-l1')?.value.trim(),
+            level2:       document.getElementById('esc-l2')?.value.trim(),
+            channel:      document.getElementById('esc-ch')?.value,
+          })
+          showToast('✅ อัปเดตกฎ: ' + name, 'success')
+        } else {
+          await createDoc('escalation_rules', {
+            name,
+            dept:         document.getElementById('esc-dept')?.value || 'บริการ',
+            triggerHours: parseInt(document.getElementById('esc-hrs')?.value) || 24,
+            level1:       document.getElementById('esc-l1')?.value.trim() || '-',
+            level2:       document.getElementById('esc-l2')?.value.trim() || '-',
+            channel:      document.getElementById('esc-ch')?.value || 'LINE',
+            active: true, triggered: 0,
+          })
+          showToast('✅ เพิ่มกฎ: ' + name, 'success')
+        }
+        document.querySelector('.modal-overlay')?.remove()
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
@@ -208,5 +199,5 @@ export default async function EscalationRulesPage(container) {
     return `<div class="card" style="padding:14px 16px"><div style="font-size:0.72rem;color:var(--text-muted)">${l}</div><div style="font-size:1.1rem;font-weight:900;color:${c};margin-top:2px">${v}</div></div>`
   }
 
-  render()
+  await loadData()
 }

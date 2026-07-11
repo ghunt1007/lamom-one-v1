@@ -2,7 +2,7 @@ import { formatCurrency, formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -20,75 +20,21 @@ const SERVICE_TYPES = { periodic: 'ตรวจตามระยะ', repair: '
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
 
-const DEMO_HISTORY = [
-  { id: 'SH001', vehicleId: 'VH001', customerName: 'วิชาญ มีโชค', phone: '081-234-5678',
-    brand: 'BYD', model: 'Seal AWD', plate: 'กก 1234', vin: 'LBWAB2EB7PD001002', mileage: 12500,
-    type: 'periodic', technicianName: 'สมชาย ช่างฝีมือ', date: addDays(-30), completedDate: addDays(-30),
-    status: 'delivered', laborCost: 1800, partsCost: 3200, totalCost: 5000, nextServiceDate: addDays(150), nextServiceMileage: 22500,
-    services: ['เปลี่ยนน้ำมันเครื่อง', 'เปลี่ยนกรองอากาศ', 'ตรวจระบบเบรก', 'ตรวจระดับน้ำยาระบายความร้อน EV'],
-    notes: 'รถอยู่ในสภาพดี ยางหน้าเริ่มสึก แนะนำเปลี่ยนใน 5000 กม.' },
-  { id: 'SH002', vehicleId: 'VH002', customerName: 'อรนุช สาวสวย', phone: '082-345-6789',
-    brand: 'MG', model: 'ZS EV', plate: 'ขข 5678', vin: 'LSJWSRAR7NE001008', mileage: 8200,
-    type: 'repair', technicianName: 'วิทยา ช่างไฟ', date: addDays(-7), completedDate: addDays(-5),
-    status: 'delivered', laborCost: 2500, partsCost: 1200, totalCost: 3700, nextServiceDate: addDays(120), nextServiceMileage: 18200,
-    services: ['ซ่อมระบบ AC ไม่เย็น', 'เติมน้ำยา AC', 'ตรวจสอบ Compressor'],
-    notes: 'น้ำยา AC รั่วที่ข้อต่อ ซ่อมและเติมน้ำยาใหม่แล้ว' },
-  { id: 'SH003', vehicleId: 'VH003', customerName: 'ธีรยุทธ เก่งกาจ', phone: '083-456-7890',
-    brand: 'BYD', model: 'Atto 3', plate: 'คค 9012', vin: 'LBWAB2EB7PD001003', mileage: 3100,
-    type: 'warranty', technicianName: 'สมชาย ช่างฝีมือ', date: addDays(-2), completedDate: null,
-    status: 'in_progress', laborCost: 0, partsCost: 0, totalCost: 0, nextServiceDate: null, nextServiceMileage: null,
-    services: ['ตรวจสอบเสียงดังจากช่วงล่าง', 'ตรวจสอบระบบ OTA'],
-    notes: 'รอผลตรวจ — อาจต้องรออะไหล่' },
-  { id: 'SH004', vehicleId: 'VH004', customerName: 'สมใจ รักรถ', phone: '084-567-8901',
-    brand: 'BYD', model: 'Seal SR', plate: 'งง 3456', vin: 'LBWAB2EB7PD001004', mileage: 5800,
-    type: 'periodic', technicianName: 'วิทยา ช่างไฟ', date: addDays(2), completedDate: null,
-    status: 'pending', laborCost: 1200, partsCost: 900, totalCost: 2100, nextServiceDate: null, nextServiceMileage: null,
-    services: ['ตรวจตามระยะ 6,000 กม.'],
-    notes: '' },
-]
-
 export default async function ServiceHistoryPage(container) {
   const myGen = container.__routerGen
+  seedDemoData()
   let statusFilter = 'all'
   let typeFilter = 'all'
   let search = ''
-  let records = DEMO_HISTORY.map(r => ({ ...r }))
-  let dataSource = 'demo'
+  let records = []
+  let loading = true
 
-  try {
-    const jobs = await listDocs('job_cards', [], 'createdAt', 'desc', 300).catch(() => [])
-    if (container.__routerGen !== myGen) return
-
-    if (jobs.length) {
-      const STATUS_MAP = { completed: 'delivered', done: 'delivered', in_progress: 'in_progress', กำลังซ่อม: 'in_progress', เสร็จแล้ว: 'delivered', รอรับ: 'pending', รออะไหล่: 'waiting_parts' }
-      const live = jobs.map(j => ({
-        id: j.id,
-        vehicleId: j.vehicleId || '',
-        customerName: j.custName || j.customerName || 'ลูกค้า',
-        phone: j.custPhone || j.phone || '',
-        brand: j.brand || '',
-        model: j.model || '',
-        plate: j.plate || j.licensePlate || '',
-        vin: j.vin || '',
-        mileage: j.mileage || 0,
-        type: j.serviceType || j.type || 'repair',
-        technicianName: j.techName || j.technicianName || '',
-        date: j.dateIn ? j.dateIn.slice(0, 10) : (j.createdAt?.toDate ? j.createdAt.toDate().toISOString().slice(0, 10) : ''),
-        completedDate: j.dateOut ? j.dateOut.slice(0, 10) : null,
-        status: STATUS_MAP[j.status] || j.status || 'pending',
-        laborCost: j.laborCost || 0,
-        partsCost: j.partsCost || 0,
-        totalCost: j.totalCost || (j.laborCost || 0) + (j.partsCost || 0),
-        nextServiceDate: j.nextServiceDate || null,
-        nextServiceMileage: j.nextServiceMileage || null,
-        services: j.services || (j.description ? [j.description] : []),
-        notes: j.notes || j.remark || '',
-        _live: true,
-      }))
-      records = [...live, ...DEMO_HISTORY]
-      dataSource = 'live'
-    }
-  } catch {}
+  async function loadData() {
+    loading = true
+    try { records = await listDocs('service_history_records', [], 'date', 'desc', 300) } catch (e) { records = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function filtered() {
     return records.filter(r => {
@@ -103,6 +49,10 @@ export default async function ServiceHistoryPage(container) {
   }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = filtered()
     const total = records.length
     const inProgress = records.filter(r => r.status === 'in_progress').length
@@ -113,9 +63,7 @@ export default async function ServiceHistoryPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🔧 ประวัติการซ่อม</div>
-            <div class="page-subtitle">Service History — บันทึกการซ่อมและบริการทั้งหมด
-              ${dataSource === 'live' ? '<span style="font-size:0.72rem;color:var(--success);margin-left:8px">● ข้อมูลจริง</span>' : '<span style="font-size:0.72rem;color:var(--text-muted);margin-left:8px">Demo</span>'}
-            </div>
+            <div class="page-subtitle">Service History — บันทึกการซ่อมและบริการทั้งหมด</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="export-btn">📥 Export</button>
@@ -192,13 +140,23 @@ export default async function ServiceHistoryPage(container) {
     container.querySelectorAll('.open-sh-btn').forEach(b => b.addEventListener('click', () => {
       const r = records.find(x => x.id === b.dataset.id); if (r) openDetail(r)
     }))
-    container.querySelectorAll('.complete-sh-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.complete-sh-btn').forEach(b => b.addEventListener('click', async () => {
       const r = records.find(x => x.id === b.dataset.id)
-      if (r) { r.status = 'done'; r.completedDate = addDays(0); showToast(`✅ งาน ${r.id} เสร็จแล้ว!`, 'success'); renderPage() }
+      if (!r) return
+      try {
+        await updateDocData('service_history_records', r.id, { status: 'done', completedDate: addDays(0) })
+        showToast(`✅ งาน ${r.id} เสร็จแล้ว!`, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.close-sh-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.close-sh-btn').forEach(b => b.addEventListener('click', async () => {
       const r = records.find(x => x.id === b.dataset.id)
-      if (r) { r.status = 'delivered'; showToast(`🚗 ส่งคืนรถ ${r.plate} แล้ว!`, 'success'); renderPage() }
+      if (!r) return
+      try {
+        await updateDocData('service_history_records', r.id, { status: 'delivered' })
+        showToast(`🚗 ส่งคืนรถ ${r.plate} แล้ว!`, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
   }
 
@@ -252,30 +210,31 @@ export default async function ServiceHistoryPage(container) {
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">รายการงาน</label><textarea class="input" id="shf-services" rows="2" placeholder="รายการงานที่ต้องทำ (แต่ละรายการขึ้นบรรทัดใหม่)"></textarea></div>
         </div>
       `,
-      onConfirm() {
+      async onConfirm() {
         const name = document.getElementById('shf-name')?.value?.trim()
-        if (!name) { showToast('❗ กรุณากรอกชื่อลูกค้า', 'error'); return }
+        if (!name) { showToast('❗ กรุณากรอกชื่อลูกค้า', 'error'); return false }
         const model = document.getElementById('shf-model')?.value || ''
         const [brand, ...rest] = model.split(' ')
         const services = (document.getElementById('shf-services')?.value || '').split('\n').map(s => s.trim()).filter(Boolean)
-        records.unshift({
-          id: `SH${String(records.length+1).padStart(3,'0')}`,
-          vehicleId: '', customerName: name, phone: document.getElementById('shf-phone')?.value||'',
-          brand: brand||'', model: rest.join(' ')||model, plate: document.getElementById('shf-plate')?.value||'', vin: '',
-          mileage: +document.getElementById('shf-mileage')?.value||0,
-          type: document.getElementById('shf-type')?.value||'periodic',
-          technicianName: document.getElementById('shf-tech')?.value||'',
-          date: document.getElementById('shf-date')?.value||addDays(0), completedDate: null,
-          status: 'pending', laborCost: 0, partsCost: 0, totalCost: 0, nextServiceDate: null, nextServiceMileage: null,
-          services: services.length ? services : ['งานบริการทั่วไป'], notes: ''
-        })
-        showToast('✅ บันทึกงานบริการแล้ว!', 'success')
-        renderPage()
+        try {
+          await createDoc('service_history_records', {
+            vehicleId: '', customerName: name, phone: document.getElementById('shf-phone')?.value||'',
+            brand: brand||'', model: rest.join(' ')||model, plate: document.getElementById('shf-plate')?.value||'', vin: '',
+            mileage: +document.getElementById('shf-mileage')?.value||0,
+            type: document.getElementById('shf-type')?.value||'periodic',
+            technicianName: document.getElementById('shf-tech')?.value||'',
+            date: document.getElementById('shf-date')?.value||addDays(0), completedDate: null,
+            status: 'pending', laborCost: 0, partsCost: 0, totalCost: 0, nextServiceDate: null, nextServiceMileage: null,
+            services: services.length ? services : ['งานบริการทั่วไป'], notes: ''
+          })
+          showToast('✅ บันทึกงานบริการแล้ว!', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

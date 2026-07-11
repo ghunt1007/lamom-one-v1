@@ -5,7 +5,7 @@
 import { formatCurrency, formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -19,42 +19,25 @@ const DEBT_STATUS = {
   paid:      { label: 'ชำระแล้ว', color: 'success', icon: '✅' },
 }
 
-const DEMO_DEBTS = [
-  { id: 'DB001', customer: 'บริษัท ABC จำกัด', type: 'B2B Fleet', amount: 450000, dueDate: addDays(-45), status: 'overdue60', lastContact: addDays(-5), contacts: 3, note: 'สัญญาว่าจะจ่ายสิ้นเดือน' },
-  { id: 'DB002', customer: 'สมชาย ใจดี', type: 'ค่าซ่อม', amount: 28500, dueDate: addDays(-12), status: 'overdue30', lastContact: addDays(-2), contacts: 1, note: '' },
-  { id: 'DB003', customer: 'ร้านเช่ารถ XYZ', type: 'B2B Service', amount: 86000, dueDate: addDays(-70), status: 'overdue90', lastContact: addDays(-1), contacts: 6, note: 'เริ่มกระบวนการทางกฎหมาย?' },
-  { id: 'DB004', customer: 'มาลี สุขใจ', type: 'ค่าอะไหล่', amount: 12400, dueDate: addDays(10), status: 'current', lastContact: null, contacts: 0, note: '' },
-  { id: 'DB005', customer: 'ธนพล เที่ยงตรง', type: 'ค่าซ่อม', amount: 8900, dueDate: addDays(-8), status: 'overdue30', lastContact: addDays(-3), contacts: 2, note: 'ขอผ่อน 2 งวด' },
-  { id: 'DB006', customer: 'โรงแรมสยาม', type: 'B2B Fleet', amount: 156000, dueDate: addDays(-20), status: 'paid', lastContact: addDays(-1), contacts: 2, note: 'จ่ายครบแล้ว' },
-]
-
 export default async function DebtCollectionPage(container) {
   const myGen = container.__routerGen
-  let debts = DEMO_DEBTS.map(d => ({ ...d }))
+  seedDemoData()
+  let debts = []
   let statusFilter = 'all'
-  let dataSource = 'demo'
+  let loading = true
 
-  try {
-    const docs = await listDocs('debts', [], 'dueDate', 'asc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `DB${String(i+1).padStart(3,'0')}`,
-        customer: d.customer || d.customerName || 'ลูกค้า',
-        type: d.type || 'ค้างชำระ',
-        amount: d.amount || 0,
-        dueDate: d.dueDate || addDays(0),
-        status: d.status || 'current',
-        lastContact: d.lastContact || null,
-        contacts: d.contacts || 0,
-        note: d.note || d.notes || '',
-      }))
-      debts = [...mapped, ...DEMO_DEBTS]
-      dataSource = 'live'
-    }
-  } catch {}
+  async function loadData() {
+    loading = true
+    try { debts = await listDocs('debts', [], 'dueDate', 'asc', 200) } catch (e) { debts = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = debts.filter(d => statusFilter === 'all' || d.status === statusFilter)
       .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
     const outstanding = debts.filter(d => d.status !== 'paid').reduce((a, d) => a + d.amount, 0)
@@ -67,7 +50,7 @@ export default async function DebtCollectionPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">💳 Debt Collection</div>
-            <div class="page-subtitle">ติดตามหนี้ค้างชำระ — AR Aging${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">ติดตามหนี้ค้างชำระ — AR Aging</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="add-debt-btn">+ บันทึกหนี้</button>
@@ -135,15 +118,24 @@ export default async function DebtCollectionPage(container) {
           </div>
           <div class="input-group"><label class="input-label">หมายเหตุ</label><input class="input" id="ct-note" value="${escHtml(d.note)}"></div>
         </div>`,
-        onConfirm() {
-          d.contacts++; d.lastContact = addDays(0); d.note = document.getElementById('ct-note')?.value || d.note
-          showToast('📞 บันทึกการติดตามแล้ว', 'success'); renderPage()
+        async onConfirm() {
+          const note = document.getElementById('ct-note')?.value || d.note
+          try {
+            await updateDocData('debts', d.id, { contacts: (d.contacts||0) + 1, lastContact: addDays(0), note })
+            showToast('📞 บันทึกการติดตามแล้ว', 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     }))
-    container.querySelectorAll('.paid-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.paid-btn').forEach(b => b.addEventListener('click', async () => {
       const d = debts.find(x => x.id === b.dataset.id)
-      if (d) { d.status = 'paid'; d.note = 'จ่ายครบแล้ว'; showToast(`✅ รับชำระ ${formatCurrency(d.amount)} แล้ว`, 'success'); renderPage() }
+      if (!d) return
+      try {
+        await updateDocData('debts', d.id, { status: 'paid', note: 'จ่ายครบแล้ว' })
+        showToast(`✅ รับชำระ ${formatCurrency(d.amount)} แล้ว`, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.partial-btn').forEach(b => b.addEventListener('click', () => {
       const d = debts.find(x => x.id === b.dataset.id)
@@ -154,12 +146,15 @@ export default async function DebtCollectionPage(container) {
           <div style="font-size:0.82rem">ยอดค้าง: <strong style="color:var(--danger)">${formatCurrency(d.amount)}</strong></div>
           <div class="input-group"><label class="input-label">จำนวนที่ชำระ (บาท)</label><input class="input" type="number" id="pp-amt" max="${d.amount}"></div>
         </div>`,
-        onConfirm() {
+        async onConfirm() {
           const amt = parseInt(document.getElementById('pp-amt')?.value) || 0
-          if (amt <= 0 || amt > d.amount) { showToast('❗ จำนวนไม่ถูกต้อง', 'error'); return }
-          d.amount -= amt
-          if (d.amount === 0) d.status = 'paid'
-          showToast(`💸 รับชำระ ${formatCurrency(amt)} — คงเหลือ ${formatCurrency(d.amount)}`, 'success'); renderPage()
+          if (amt <= 0 || amt > d.amount) { showToast('❗ จำนวนไม่ถูกต้อง', 'error'); return false }
+          const newAmount = d.amount - amt
+          try {
+            await updateDocData('debts', d.id, { amount: newAmount, status: newAmount === 0 ? 'paid' : d.status })
+            showToast(`💸 รับชำระ ${formatCurrency(amt)} — คงเหลือ ${formatCurrency(newAmount)}`, 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     }))
@@ -175,17 +170,25 @@ export default async function DebtCollectionPage(container) {
           <div class="input-group"><label class="input-label">จำนวนเงิน (บาท)</label><input class="input" type="number" id="db-amt"></div>
           <div class="input-group"><label class="input-label">ครบกำหนด</label><input class="input" type="date" id="db-due" value="${addDays(30)}"></div>
         </div>`,
-        onConfirm() {
+        async onConfirm() {
           const name = document.getElementById('db-name')?.value?.trim()
-          if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return }
-          debts.unshift({ id:`DB${String(debts.length+1).padStart(3,'0')}`, customer:name, type:document.getElementById('db-type')?.value||'อื่นๆ', amount:parseInt(document.getElementById('db-amt')?.value)||0, dueDate:document.getElementById('db-due')?.value||addDays(30), status:'current', lastContact:null, contacts:0, note:'' })
-          showToast('✅ บันทึกหนี้แล้ว', 'success'); renderPage()
+          if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return false }
+          try {
+            await createDoc('debts', {
+              customer: name, type: document.getElementById('db-type')?.value||'อื่นๆ',
+              amount: parseInt(document.getElementById('db-amt')?.value)||0,
+              dueDate: document.getElementById('db-due')?.value||addDays(30),
+              status: 'current', lastContact: null, contacts: 0, note: ''
+            })
+            showToast('✅ บันทึกหนี้แล้ว', 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

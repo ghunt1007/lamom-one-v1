@@ -4,7 +4,7 @@
  */
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -18,40 +18,26 @@ const TPL_CATS = {
   after:    { label: 'หลังการขาย', color: 'danger', icon: '🔧' },
 }
 
-const DEMO_TEMPLATES = [
-  { id: 'CT001', cat: 'greeting', title: 'ทักทายลูกค้าใหม่', text: 'สวัสดีค่ะ ยินดีต้อนรับสู่ LAMOM 🙏 สนใจรถรุ่นไหนเป็นพิเศษไหมคะ หรือให้แนะนำรุ่นที่เหมาะกับการใช้งานของคุณลูกค้าดีคะ?', usage: 342 },
-  { id: 'CT002', cat: 'greeting', title: 'ตอบนอกเวลาทำการ', text: 'ขอบคุณที่ติดต่อ LAMOM ค่ะ ขณะนี้นอกเวลาทำการ (เปิด 8:30-18:00 ทุกวัน) ทีมงานจะรีบติดต่อกลับทันทีในเวลาทำการนะคะ 🙏', usage: 156 },
-  { id: 'CT003', cat: 'product', title: 'แนะนำ BYD Dolphin', text: 'BYD Dolphin 🐬 เริ่มต้น 899,000 บาท วิ่งไกล 410 km/ชาร์จ แบต Blade Battery ปลอดภัยสูง รับประกันแบต 8 ปี สนใจนัดทดลองขับไหมคะ?', usage: 218 },
-  { id: 'CT004', cat: 'price', title: 'ขอใบเสนอราคา', text: 'ยินดีค่ะ 😊 รบกวนขอข้อมูลเพื่อทำใบเสนอราคา: 1) รุ่น/สีที่สนใจ 2) ชื่อ-นามสกุล 3) เบอร์โทร — เดี๋ยวทีมงานส่งใบเสนอราคาพร้อมโปรล่าสุดให้เลยค่ะ', usage: 187 },
-  { id: 'CT005', cat: 'booking', title: 'นัด Test Drive', text: 'นัดทดลองขับได้เลยค่ะ 🚗 สะดวกวันไหน-กี่โมงคะ? (เปิดทุกวัน 8:30-18:00) ใช้แค่ใบขับขี่ใบเดียว ใช้เวลาประมาณ 30 นาทีค่ะ', usage: 264 },
-  { id: 'CT006', cat: 'after', title: 'นัดเช็คระยะ', text: 'แจ้งนัดเช็คระยะค่ะ 🔧 รบกวนแจ้ง: 1) ทะเบียนรถ 2) เลขไมล์ปัจจุบัน 3) วันเวลาที่สะดวก — มีบริการรถรับ-ส่งฟรีในรัศมี 10 กม. ค่ะ', usage: 143 },
-  { id: 'CT007', cat: 'after', title: 'ติดตามความพอใจหลังซ่อม', text: 'สอบถามความพอใจค่ะ 😊 หลังจากรับรถไปแล้ว ทุกอย่างเรียบร้อยดีไหมคะ? หากมีปัญหาใดๆ แจ้งได้เลยนะคะ ยินดีดูแลค่ะ 🙏', usage: 98 },
-]
-
 export default async function ChatTemplatesPage(container) {
   const myGen = container.__routerGen
-  let templates = DEMO_TEMPLATES.map(t => ({ ...t }))
-  let dataSource = 'demo'
+  seedDemoData()
+  let templates = []
+  let loading = true
   let catFilter = 'all'
   let search = ''
 
-  try {
-    const docs = await listDocs('chat_templates', [], 'usage', 'desc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `CT${i+1}`,
-        cat: d.cat || d.category || 'greeting',
-        title: d.title || d.name || 'Template',
-        text: d.text || d.message || d.content || '',
-        usage: d.usage || d.useCount || 0,
-      }))
-      templates = [...mapped, ...DEMO_TEMPLATES]
-      dataSource = 'live'
-    }
-  } catch {}
+  async function loadData() {
+    loading = true
+    try { templates = await listDocs('chat_templates', [], 'usage', 'desc', 200) } catch (e) { templates = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = templates.filter(t =>
       (catFilter === 'all' || t.cat === catFilter) &&
       (search === '' || t.title.toLowerCase().includes(search) || t.text.toLowerCase().includes(search))
@@ -63,7 +49,7 @@ export default async function ChatTemplatesPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">💬 Chat Templates</div>
-            <div class="page-subtitle">ข้อความตอบกลับสำเร็จรูป — LINE / Facebook / SMS${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">ข้อความตอบกลับสำเร็จรูป — LINE / Facebook / SMS</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="add-tpl-btn">+ สร้าง Template</button>
@@ -109,13 +95,15 @@ export default async function ChatTemplatesPage(container) {
 
     document.getElementById('search-input')?.addEventListener('input', e => { search = e.target.value.toLowerCase(); renderPage() })
     container.querySelectorAll('.cf-btn').forEach(b => b.addEventListener('click', () => { catFilter = b.dataset.c; renderPage() }))
-    container.querySelectorAll('.copy-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.copy-btn').forEach(b => b.addEventListener('click', async () => {
       const t = templates.find(x => x.id === b.dataset.id)
-      if (t) {
-        navigator.clipboard?.writeText(t.text).catch(() => {})
-        t.usage++
-        showToast('📋 คัดลอกข้อความแล้ว — วางในแชทได้เลย', 'success'); renderPage()
-      }
+      if (!t) return
+      navigator.clipboard?.writeText(t.text).catch(() => {})
+      try {
+        await updateDocData('chat_templates', t.id, { usage: t.usage + 1 })
+        showToast('📋 คัดลอกข้อความแล้ว — วางในแชทได้เลย', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.edit-btn').forEach(b => b.addEventListener('click', () => {
       const t = templates.find(x => x.id === b.dataset.id); if (t) openEditForm(t)
@@ -134,19 +122,22 @@ export default async function ChatTemplatesPage(container) {
         </div>
         <div class="input-group"><label class="input-label">ข้อความ</label><textarea class="input" id="ct-text" rows="4">${escHtml(t?.text||'')}</textarea></div>
       </div>`,
-      onConfirm() {
+      async onConfirm() {
         const title = document.getElementById('ct-title')?.value?.trim()
-        if (!title) { showToast('❗ กรุณากรอกชื่อ', 'error'); return }
+        if (!title) { showToast('❗ กรุณากรอกชื่อ', 'error'); return false }
         const text = document.getElementById('ct-text')?.value || ''
         const cat = document.getElementById('ct-cat')?.value || 'greeting'
-        if (t) { t.title = title; t.text = text; t.cat = cat }
-        else templates.push({ id:`CT${String(templates.length+1).padStart(3,'0')}`, cat, title, text, usage:0 })
-        showToast('✅ บันทึก Template แล้ว', 'success'); renderPage()
+        try {
+          if (t) await updateDocData('chat_templates', t.id, { title, text, cat })
+          else await createDoc('chat_templates', { cat, title, text, usage: 0 })
+          showToast('✅ บันทึก Template แล้ว', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

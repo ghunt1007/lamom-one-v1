@@ -2,7 +2,7 @@ import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -36,76 +36,60 @@ const today = new Date()
 function addDays(d, n) { const dt = new Date(d); dt.setDate(dt.getDate() + n); return dt }
 function daysLeft(endDate) { return Math.round((new Date(endDate) - today) / 86400000) }
 
-const DEMO_WARRANTIES = [
-  { id: 'W001', customerId: 'C001', customerName: 'วิชาญ มีโชค', phone: '081-234-5678',
-    vehiclePlate: 'กก 1234 BKK', brand: 'BYD', model: 'Seal', year: 2024, vin: 'LBWAB2EB7PD002345',
-    type: 'factory', startDate: '2024-01-15', endDate: '2027-01-14', km: 100000,
-    status: 'active', notes: 'รับประกัน 3 ปี หรือ 100,000 กม.', claims: 0 },
-  { id: 'W002', customerId: 'C002', customerName: 'อรนุช สายใจ', phone: '082-345-6789',
-    vehiclePlate: 'ขข 5678 BKK', brand: 'BYD', model: 'Atto 3', year: 2023, vin: 'LBWAB2EB7PD003456',
-    type: 'battery', startDate: '2023-03-10', endDate: '2031-03-09', km: 160000,
-    status: 'active', notes: 'รับประกันแบตเตอรี่ EV 8 ปี หรือ 160,000 กม.', claims: 0 },
-  { id: 'W003', customerId: 'C003', customerName: 'ธีรยุทธ เก่งกาจ', phone: '083-456-7890',
-    vehiclePlate: 'คค 9012 BKK', brand: 'MG', model: 'ZS EV', year: 2022, vin: 'LSJWSRAR7NE012345',
-    type: 'factory', startDate: '2022-06-01', endDate: '2025-05-31', km: 100000,
-    status: 'expiring', notes: 'ใกล้หมดอายุ — เสนอต่ออายุ', claims: 2 },
-  { id: 'W004', customerId: 'C004', customerName: 'สมหญิง รักรถ', phone: '084-567-8901',
-    vehiclePlate: 'งง 3456 BKK', brand: 'Neta', model: 'V', year: 2022, vin: 'LNBSDBEB9PA001234',
-    type: 'factory', startDate: '2022-01-01', endDate: '2024-12-31', km: 80000,
-    status: 'expired', notes: 'หมดอายุแล้ว', claims: 1 },
-  { id: 'W005', customerId: 'C001', customerName: 'วิชาญ มีโชค', phone: '081-234-5678',
-    vehiclePlate: 'กก 1234 BKK', brand: 'BYD', model: 'Seal', year: 2024, vin: 'LBWAB2EB7PD002345',
-    type: 'extended', startDate: '2027-01-15', endDate: '2029-01-14', km: 200000,
-    status: 'active', notes: 'รับประกันเพิ่มเติม 2 ปี', claims: 0 },
-]
-
-const DEMO_CLAIMS = [
-  { id: 'CL001', warrantyId: 'W003', customerName: 'ธีรยุทธ เก่งกาจ', vehiclePlate: 'คค 9012 BKK',
-    type: 'factory', date: '2025-03-15', issue: 'ระบบ AC ขัดข้อง — เสียงดังผิดปกติ',
-    status: 'closed', techNote: 'เปลี่ยนคอมเพรสเซอร์ AC ใหม่', cost: 15000, covered: true },
-  { id: 'CL002', warrantyId: 'W003', customerName: 'ธีรยุทธ เก่งกาจ', vehiclePlate: 'คค 9012 BKK',
-    type: 'factory', date: '2024-11-10', issue: 'จอ Infotainment ค้าง รีสตาร์ทเองบ่อยครั้ง',
-    status: 'closed', techNote: 'Update firmware และเปลี่ยนแผงวงจร', cost: 8000, covered: true },
-  { id: 'CL003', warrantyId: 'W004', customerName: 'สมหญิง รักรถ', vehiclePlate: 'งง 3456 BKK',
-    type: 'factory', date: '2025-05-20', issue: 'ประตูหลังซ้าย – บานพับหลวม',
-    status: 'pending', techNote: '', cost: 0, covered: null },
-]
+const EV_BRANDS = ['BYD', 'MG', 'Neta', 'ORA', 'AION', 'Tesla', 'Ora', 'DEEPAL']
+function addYears(d, y) { const dt = new Date(d); dt.setFullYear(dt.getFullYear() + y); return dt.toISOString().slice(0, 10) }
 
 export default async function WarrantyManagementPage(container) {
   const myGen = container.__routerGen
+  seedDemoData()
   let tab = 'warranties'
   let statusFilter = 'all'
   let typeFilter = 'all'
   let searchQ = ''
-  let warranties = [...DEMO_WARRANTIES]
-  let claims = [...DEMO_CLAIMS]
-  let dataSource = 'demo'
+  let warranties = []
+  let claims = []
+  let loading = true
 
-  try {
-    const bookings = await listDocs('bookings', [], 'createdAt', 'desc', 500).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    const delivered = bookings.filter(b => b.status === 'ส่งมอบแล้ว')
-    if (delivered.length) {
-      const EV_BRANDS = ['BYD', 'MG', 'Neta', 'ORA', 'AION', 'Tesla', 'Ora', 'DEEPAL']
-      const addYears = (d, y) => { const dt = new Date(d); dt.setFullYear(dt.getFullYear() + y); return dt.toISOString().slice(0, 10) }
-      const live = delivered.map(b => {
-        const startDate = (b.actualDeliveryDate || b.updatedAt?.toDate?.()?.toISOString() || '').slice(0, 10)
-        const isEV = EV_BRANDS.some(br => (b.brand || '').includes(br))
-        return {
-          id: 'W-' + b.id, customerId: b.id,
-          customerName: b.custName || 'ลูกค้า', phone: b.custPhone || '',
-          vehiclePlate: b.plate || '', brand: b.brand || '', model: b.model || '',
-          year: new Date(startDate || new Date()).getFullYear(), vin: b.vin || '',
-          type: 'factory', startDate, endDate: startDate ? addYears(startDate, 3) : '',
-          km: 100000, status: 'active',
-          notes: 'รับประกันโรงงาน 3 ปี' + (isEV ? ' / แบตเตอรี่ 8 ปี' : ''),
-          claims: 0, _live: true,
-        }
-      })
-      warranties = [...live, ...DEMO_WARRANTIES]
-      dataSource = 'live'
+  async function loadData() {
+    loading = true
+    try {
+      const stored = await listDocs('vehicle_warranties', [], 'endDate', 'asc', 500)
+      let virtual = []
+      try {
+        const bookings = await listDocs('bookings', [['status', '==', 'ส่งมอบแล้ว']], 'createdAt', 'desc', 500)
+        virtual = bookings.filter(b => !stored.some(s => s.sourceBookingId === b.id)).map(b => {
+          const startDate = (b.actualDeliveryDate || b.deliveryDate || b.updatedAt?.toDate?.()?.toISOString() || '').slice(0, 10)
+          const isEV = EV_BRANDS.some(br => (b.brand || '').includes(br))
+          return {
+            id: 'W-' + b.id, customerId: b.id, sourceBookingId: b.id,
+            customerName: b.custName || 'ลูกค้า', phone: b.phone || '',
+            vehiclePlate: b.plate || '', brand: b.brand || '', model: b.model || '',
+            year: new Date(startDate || new Date()).getFullYear(), vin: b.vin || '',
+            type: 'factory', startDate, endDate: startDate ? addYears(startDate, 3) : '',
+            km: 100000, status: 'active',
+            notes: 'รับประกันโรงงาน 3 ปี' + (isEV ? ' / แบตเตอรี่ 8 ปี' : ''),
+            _source: 'booking',
+          }
+        })
+      } catch (e) {}
+      warranties = [...stored, ...virtual]
+      claims = await listDocs('warranty_service_claims', [], 'date', 'desc', 500)
+    } catch (e) { warranties = []; claims = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
+
+  function claimCount(warrantyId) { return claims.filter(c => c.warrantyId === warrantyId).length }
+
+  async function persistWarranty(w, fields) {
+    if (w._source === 'booking') {
+      const { _source, id, ...rest } = w
+      const newId = await createDoc('vehicle_warranties', { ...rest, sourceBookingId: w.sourceBookingId, ...fields })
+      return newId
     }
-  } catch {}
+    if (Object.keys(fields).length) await updateDocData('vehicle_warranties', w.id, fields)
+    return w.id
+  }
 
   function getWarrantyStatus(w) {
     const days = daysLeft(w.endDate)
@@ -128,6 +112,10 @@ export default async function WarrantyManagementPage(container) {
   }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = filtered()
     const activeCount = warranties.filter(w => getWarrantyStatus(w) === 'active').length
     const expiringCount = warranties.filter(w => getWarrantyStatus(w) === 'expiring').length
@@ -139,7 +127,7 @@ export default async function WarrantyManagementPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🛡 Warranty Management</div>
-            <div class="page-subtitle">จัดการรับประกันและการเคลมสินค้า${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">จัดการรับประกันและการเคลมสินค้า</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="export-btn">📥 Export</button>
@@ -172,12 +160,14 @@ export default async function WarrantyManagementPage(container) {
     document.getElementById('type-filter')?.addEventListener('change', e => { typeFilter = e.target.value; renderPage() })
     document.querySelectorAll('.open-w-btn').forEach(b => b.addEventListener('click', () => { const w = warranties.find(x => x.id === b.dataset.id); if (w) openWarrantyDetail(w) }))
     document.querySelectorAll('.claim-btn').forEach(b => b.addEventListener('click', () => { const w = warranties.find(x => x.id === b.dataset.id); if (w) openClaimForm(w) }))
-    document.querySelectorAll('.claim-action-btn').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('.claim-action-btn').forEach(b => b.addEventListener('click', async () => {
       const c = claims.find(x => x.id === b.dataset.id)
       if (!c) return
-      c.status = b.dataset.action
-      showToast(`✅ อัปเดตสถานะเคลมแล้ว`, 'success')
-      renderPage()
+      try {
+        await updateDocData('warranty_service_claims', c.id, { status: b.dataset.action })
+        showToast(`✅ อัปเดตสถานะเคลมแล้ว`, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
   }
 
@@ -223,7 +213,7 @@ export default async function WarrantyManagementPage(container) {
                 <td style="font-size:0.83rem;color:${days < 0 ? 'var(--danger)' : days <= 90 ? 'var(--warning)' : 'var(--success)'}">
                   ${days < 0 ? `หมดแล้ว ${Math.abs(days)} วัน` : `${days} วัน`}
                 </td>
-                <td style="text-align:center">${w.claims > 0 ? `<span class="badge badge-warning">${w.claims}</span>` : '<span style="color:var(--text-muted);font-size:0.8rem">-</span>'}</td>
+                <td style="text-align:center">${claimCount(w.id) > 0 ? `<span class="badge badge-warning">${claimCount(w.id)}</span>` : '<span style="color:var(--text-muted);font-size:0.8rem">-</span>'}</td>
                 <td><span class="badge badge-${st.color}">${st.label}</span></td>
                 <td>
                   <div style="display:flex;gap:4px">
@@ -339,15 +329,19 @@ export default async function WarrantyManagementPage(container) {
         <div class="input-group"><label class="input-label">วันที่พบปัญหา</label><input type="date" class="input" id="claim-date" value="${new Date().toISOString().slice(0,10)}"></div>
         <div class="input-group"><label class="input-label">เลขกิโลปัจจุบัน</label><input type="number" class="input" id="claim-km" placeholder="กม."></div>
       </div>`,
-      onConfirm() {
+      async onConfirm() {
         const issue = document.getElementById('claim-issue')?.value?.trim()
-        if (!issue) { showToast('❗ กรุณาระบุปัญหา', 'error'); return }
-        const newClaim = { id: `CL${String(claims.length + 1).padStart(3,'0')}`, warrantyId: w.id, customerName: w.customerName, vehiclePlate: w.vehiclePlate, type: w.type, date: document.getElementById('claim-date')?.value, issue, status: 'pending', techNote: '', cost: 0, covered: null }
-        claims.unshift(newClaim)
-        w.claims++
-        showToast('📋 ยื่นเคลมแล้ว รอการอนุมัติ', 'success')
-        tab = 'claims'
-        renderPage()
+        if (!issue) { showToast('❗ กรุณาระบุปัญหา', 'error'); return false }
+        try {
+          const warrantyId = await persistWarranty(w, {})
+          await createDoc('warranty_service_claims', {
+            warrantyId, customerName: w.customerName, vehiclePlate: w.vehiclePlate, type: w.type,
+            date: document.getElementById('claim-date')?.value, issue, status: 'pending', techNote: '', cost: 0, covered: null
+          })
+          showToast('📋 ยื่นเคลมแล้ว รอการอนุมัติ', 'success')
+          tab = 'claims'
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -369,23 +363,31 @@ export default async function WarrantyManagementPage(container) {
         <div class="input-group"><label class="input-label">วันหมดอายุ</label><input type="date" class="input" id="wf-end" value="${w?.endDate||''}"></div>
         <div class="input-group" style="grid-column:1/-1"><label class="input-label">หมายเหตุ</label><input class="input" id="wf-notes" value="${escHtml(w?.notes||'')}"></div>
       </div>`,
-      onConfirm() {
+      async onConfirm() {
         const name = document.getElementById('wf-name')?.value?.trim()
         const plate = document.getElementById('wf-plate')?.value?.trim()
-        if (!name || !plate) { showToast('❗ กรุณากรอกข้อมูลที่จำเป็น', 'error'); return }
-        if (w) {
-          Object.assign(w, { customerName: name, vehiclePlate: plate, type: document.getElementById('wf-type').value, startDate: document.getElementById('wf-start').value, endDate: document.getElementById('wf-end').value, notes: document.getElementById('wf-notes').value })
-          showToast('✅ แก้ไขรับประกันแล้ว', 'success')
-        } else {
-          warranties.unshift({ id: `W${String(warranties.length+1).padStart(3,'0')}`, customerName: name, phone: document.getElementById('wf-phone').value, vehiclePlate: plate, model: document.getElementById('wf-model').value, type: document.getElementById('wf-type').value, startDate: document.getElementById('wf-start').value, endDate: document.getElementById('wf-end').value, km: +document.getElementById('wf-km').value||100000, status: 'active', notes: document.getElementById('wf-notes').value, claims: 0 })
-          showToast('✅ เพิ่มรับประกันแล้ว', 'success')
+        if (!name || !plate) { showToast('❗ กรุณากรอกข้อมูลที่จำเป็น', 'error'); return false }
+        const fields = {
+          customerName: name, phone: document.getElementById('wf-phone').value, vehiclePlate: plate,
+          model: document.getElementById('wf-model').value, type: document.getElementById('wf-type').value,
+          startDate: document.getElementById('wf-start').value, endDate: document.getElementById('wf-end').value,
+          km: +document.getElementById('wf-km').value||100000, notes: document.getElementById('wf-notes').value,
         }
-        renderPage()
+        try {
+          if (w) {
+            await persistWarranty(w, fields)
+            showToast('✅ แก้ไขรับประกันแล้ว', 'success')
+          } else {
+            await createDoc('vehicle_warranties', { ...fields, status: 'active' })
+            showToast('✅ เพิ่มรับประกันแล้ว', 'success')
+          }
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(title, value, color) {

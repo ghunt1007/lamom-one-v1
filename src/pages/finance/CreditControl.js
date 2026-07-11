@@ -5,7 +5,7 @@
 import { formatCurrency, formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -20,45 +20,59 @@ const DEBT_STATUS = {
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
 
-const DEMO_DEBTORS = [
-  { id: 'DBT001', customer: 'บ. ABC Transport จำกัด', type: 'b2b', creditLimit: 5000000, used: 3200000, invoices: 4, oldest: addDays(-45), status: 'overdue_30', contact: 'สมหมาย ทรัพย์', phone: '086-xxx-xxxx', notes: 'ขอผ่อนผันเนื่องจากสภาพคล่อง' },
-  { id: 'DBT002', customer: 'วิชัย มีโชค',            type: 'retail', creditLimit: 500000,  used: 120000, invoices: 1, oldest: addDays(-8),  status: 'overdue_7',  contact: 'วิชัย มีโชค', phone: '085-xxx-xxxx', notes: '' },
-  { id: 'DBT003', customer: 'บ. XYZ Logistics',       type: 'b2b', creditLimit: 3000000, used: 2800000, invoices: 6, oldest: addDays(-70), status: 'bad_debt',    contact: 'ปทิตา เจ้าของ', phone: '082-xxx-xxxx', notes: 'ส่งหนังสือเตือนครั้งที่ 3 แล้ว' },
-  { id: 'DBT004', customer: 'สุดา อารมณ์ดี',          type: 'retail', creditLimit: 300000,  used: 90000,  invoices: 1, oldest: addDays(-3),  status: 'overdue_7',  contact: 'สุดา อารมณ์ดี', phone: '083-xxx-xxxx', notes: '' },
-  { id: 'DBT005', customer: 'หน่วยงาน ก. ราชการ',    type: 'gov',   creditLimit: 10000000, used: 4500000, invoices: 3, oldest: addDays(-25), status: 'overdue_30', contact: 'จนท.การเงิน', phone: '02-xxx-xxxx', notes: 'กระบวนการจัดซื้อภาครัฐ ใช้เวลาปกติ' },
-]
-
 export default async function CreditControlPage(container) {
   const myGen = container.__routerGen
-  let debtors = DEMO_DEBTORS.map(d => ({ ...d }))
+  seedDemoData()
+  let debtors = []
   let statusFilter = 'all'
-  let dataSource = 'demo'
+  let loading = true
 
-  try {
-    const bookings = await listDocs('bookings', [], 'createdAt', 'desc', 300).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    const outstanding = bookings.filter(b => ['ยืนยัน', 'รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ'].includes(b.status))
-    if (outstanding.length) {
-      const live = outstanding.map(b => {
-        const bookDate = (b.bookingDate || b.createdAt?.toDate?.()?.toISOString() || '').slice(0, 10)
-        const dueDate = bookDate ? new Date(new Date(bookDate).getTime() + 30 * 86400000).toISOString().slice(0, 10) : ''
-        const daysPast = dueDate ? Math.max(0, Math.round((Date.now() - new Date(dueDate)) / 86400000)) : 0
-        return {
-          id: 'CR-' + b.id, customerId: b.id,
-          customer: b.custName || 'ลูกค้า', contact: b.custName || '', phone: b.phone || '',
-          type: 'retail', invoices: 1, oldest: dueDate,
-          creditLimit: b.price || 0, used: b.price || 0,
-          status: daysPast > 30 ? 'overdue' : daysPast > 0 ? 'warning' : 'current',
-          dueDate, daysPast, salesperson: b.salesName || '',
-          notes: `${b.brand || ''} ${b.model || ''}`.trim(), _live: true,
-        }
-      })
-      debtors = [...live, ...DEMO_DEBTORS]
-      dataSource = 'live'
+  // Derived from the shared `bookings` collection (owned by DMS/CRM booking flows — never
+  // written to here). Outstanding bookings become "virtual" debtor rows; once the user acts
+  // on one (e.g. settles it), a real record is materialized into `debt_settlements` carrying
+  // sourceBookingId, and the matching virtual row is filtered out on the next load.
+  async function loadData() {
+    loading = true
+    try {
+      const stored = await listDocs('debt_settlements', [], 'oldest', 'asc', 300)
+      let virtual = []
+      try {
+        const bookings = await listDocs('bookings', [], 'createdAt', 'desc', 300)
+        const outstanding = bookings.filter(b => ['ยืนยัน', 'รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ'].includes(b.status))
+        virtual = outstanding.filter(b => !stored.some(s => s.sourceBookingId === b.id)).map(b => {
+          const bookDate = (b.bookingDate || b.createdAt?.toDate?.()?.toISOString() || '').slice(0, 10)
+          const dueDate = bookDate ? new Date(new Date(bookDate).getTime() + 30 * 86400000).toISOString().slice(0, 10) : ''
+          const daysPast = dueDate ? Math.max(0, Math.round((Date.now() - new Date(dueDate)) / 86400000)) : 0
+          return {
+            id: 'CR-' + b.id, customerId: b.id, sourceBookingId: b.id,
+            customer: b.custName || 'ลูกค้า', contact: b.custName || '', phone: b.phone || '',
+            type: 'retail', invoices: 1, oldest: dueDate,
+            creditLimit: b.price || 0, used: b.price || 0,
+            status: daysPast > 30 ? 'overdue_30' : daysPast > 0 ? 'overdue_7' : 'current',
+            notes: `${b.brand || ''} ${b.model || ''}`.trim(), _source: 'booking',
+          }
+        })
+      } catch (e) {}
+      debtors = [...stored, ...virtual]
+    } catch (e) { debtors = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
+
+  async function persistDebtor(d, fields) {
+    if (d._source === 'booking') {
+      const { _source, id, ...rest } = d
+      await createDoc('debt_settlements', { ...rest, sourceBookingId: d.sourceBookingId, ...fields })
+    } else {
+      await updateDocData('debt_settlements', d.id, fields)
     }
-  } catch {}
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = debtors.filter(d => statusFilter === 'all' || d.status === statusFilter)
     const totalOutstanding = debtors.reduce((a, d) => a + d.used, 0)
     const overdue = debtors.filter(d => d.status !== 'current' && d.status !== 'settled')
@@ -70,7 +84,7 @@ export default async function CreditControlPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🏦 Credit Control</div>
-            <div class="page-subtitle">ติดตามลูกหนี้และควบคุมเครดิต${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● รวมจากใบจองจริง</span>' : ''}</div>
+            <div class="page-subtitle">ติดตามลูกหนี้และควบคุมเครดิต</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="add-debtor-btn">+ เพิ่มลูกหนี้</button>
@@ -92,7 +106,7 @@ export default async function CreditControlPage(container) {
         <div style="display:flex;flex-direction:column;gap:10px">
           ${list.map(d => {
             const st = DEBT_STATUS[d.status]
-            const utilPct = Math.round(d.used / d.creditLimit * 100)
+            const utilPct = d.creditLimit ? Math.round(d.used / d.creditLimit * 100) : 0
             return `<div class="card" style="padding:14px;border-left:3px solid var(--${st?.color})">
               <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
                 <div>
@@ -138,9 +152,14 @@ export default async function CreditControlPage(container) {
     container.querySelectorAll('.call-btn').forEach(b => b.addEventListener('click', () => {
       showToast(`📞 บันทึกการติดตาม ${debtors.find(x=>x.id===b.dataset.id)?.customer} แล้ว`, 'success')
     }))
-    container.querySelectorAll('.settle-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.settle-btn').forEach(b => b.addEventListener('click', async () => {
       const d = debtors.find(x => x.id === b.dataset.id)
-      if (d) { d.status = 'settled'; d.used = 0; showToast(`✅ ชำระหนี้ ${d.customer} แล้ว!`, 'success'); renderPage() }
+      if (!d) return
+      try {
+        await persistDebtor(d, { status: 'settled', used: 0 })
+        showToast(`✅ ชำระหนี้ ${d.customer} แล้ว!`, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
   }
 
@@ -177,24 +196,27 @@ export default async function CreditControlPage(container) {
           <div class="input-group"><label class="input-label">ผู้ติดต่อ</label><input class="input" id="df-contact" placeholder="ชื่อผู้ติดต่อ"></div>
         </div>
       `,
-      onConfirm() {
+      async onConfirm() {
         const name = document.getElementById('df-name')?.value?.trim()
-        if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return }
+        if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return false }
         const used = +document.getElementById('df-used')?.value || 0
         const limit = +document.getElementById('df-limit')?.value || 500000
-        debtors.unshift({
-          id: `DBT${String(debtors.length+1).padStart(3,'0')}`, customer: name,
-          type: document.getElementById('df-type')?.value||'retail',
-          creditLimit: limit, used, invoices: used > 0 ? 1 : 0,
-          oldest: addDays(0), status: used > 0 ? 'overdue_7' : 'current',
-          contact: document.getElementById('df-contact')?.value||'', phone: '', notes: ''
-        })
-        showToast('✅ เพิ่มลูกหนี้แล้ว!', 'success'); renderPage()
+        try {
+          await createDoc('debt_settlements', {
+            customer: name,
+            type: document.getElementById('df-type')?.value||'retail',
+            creditLimit: limit, used, invoices: used > 0 ? 1 : 0,
+            oldest: addDays(0), status: used > 0 ? 'overdue_7' : 'current',
+            contact: document.getElementById('df-contact')?.value||'', phone: '', notes: ''
+          })
+          showToast('✅ เพิ่มลูกหนี้แล้ว!', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

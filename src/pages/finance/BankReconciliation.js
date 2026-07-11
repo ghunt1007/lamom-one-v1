@@ -5,22 +5,12 @@
 import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
-
-const DEMO_BANK_TXNS = [
-  { id: 'BT001', date: addDays(-1), desc: 'TRF จาก สมชาย ใจดี', amount: 1299000, matched: 'IV001', type: 'in' },
-  { id: 'BT002', date: addDays(-1), desc: 'TRF จาก มาลี สุขใจ', amount: 28500, matched: 'IV002', type: 'in' },
-  { id: 'BT003', date: addDays(-2), desc: 'เงินโอนเข้า ไม่ระบุชื่อ', amount: 12400, matched: null, type: 'in' },
-  { id: 'BT004', date: addDays(-2), desc: 'จ่าย BYD Auto Thailand', amount: -8990000, matched: 'PO001', type: 'out' },
-  { id: 'BT005', date: addDays(-3), desc: 'จ่ายเงินเดือน (Batch)', amount: -680000, matched: 'PAY-06', type: 'out' },
-  { id: 'BT006', date: addDays(-3), desc: 'ค่าธรรมเนียมธนาคาร', amount: -350, matched: null, type: 'out' },
-  { id: 'BT007', date: addDays(-4), desc: 'TRF เข้า 086-xxx-1122', amount: 8900, matched: null, type: 'in' },
-]
-
+// Book entries side has no dedicated Firestore collection — reconciling only marks the
+// matching bank_transactions doc as matched, so this list stays a fixed reference set.
 const DEMO_BOOK_ENTRIES = [
   { id: 'IV001', desc: 'Invoice — สมชาย ใจดี (BYD Dolphin)', amount: 1299000 },
   { id: 'IV002', desc: 'Invoice — มาลี สุขใจ (ค่าซ่อม)', amount: 28500 },
@@ -32,39 +22,33 @@ const DEMO_BOOK_ENTRIES = [
 
 export default async function BankReconciliationPage(container) {
   const myGen = container.__routerGen
-  let txns = DEMO_BANK_TXNS.map(t => ({ ...t }))
-  let bookEntries = DEMO_BOOK_ENTRIES.map(b => ({ ...b }))
-  let dataSource = 'demo'
+  seedDemoData()
+  let txns = []
+  let loading = true
 
-  try {
-    const docs = await listDocs('bank_transactions', [], 'date', 'desc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `BT${String(i+1).padStart(3,'0')}`,
-        date: d.date || d.createdAt?.slice(0,10) || '',
-        desc: d.desc || d.description || d.reference || '',
-        amount: d.amount || 0,
-        matched: d.matched || null,
-        type: d.type || (d.amount > 0 ? 'in' : 'out'),
-      }))
-      txns = [...mapped, ...DEMO_BANK_TXNS]
-      dataSource = 'live'
-    }
-  } catch {}
+  async function loadData() {
+    loading = true
+    try { txns = await listDocs('bank_transactions', [], 'date', 'desc', 200) } catch (e) { txns = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const unmatched = txns.filter(t => !t.matched)
     const matchedAmt = txns.filter(t => t.matched).reduce((a, t) => a + Math.abs(t.amount), 0)
-    const unmatchedBooks = bookEntries.filter(b => !txns.some(t => t.matched === b.id))
-    const reconPct = Math.round(txns.filter(t => t.matched).length / txns.length * 100)
+    const unmatchedBooks = DEMO_BOOK_ENTRIES.filter(b => !txns.some(t => t.matched === b.id))
+    const reconPct = Math.round(txns.filter(t => t.matched).length / txns.length * 100) || 0
 
     container.innerHTML = `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
             <div class="page-title">🏦 Bank Reconciliation</div>
-            <div class="page-subtitle">กระทบยอดธนาคาร vs บัญชีในระบบ${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">กระทบยอดธนาคาร vs บัญชีในระบบ</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="import-btn">📥 Import Statement</button>
@@ -127,14 +111,18 @@ export default async function BankReconciliationPage(container) {
       </div>
     `
 
-    document.getElementById('auto-match-btn')?.addEventListener('click', () => {
-      let matched = 0
+    document.getElementById('auto-match-btn')?.addEventListener('click', async () => {
+      const toMatch = []
       txns.filter(t => !t.matched).forEach(t => {
-        const candidate = DEMO_BOOK_ENTRIES.find(b => b.amount === t.amount && !txns.some(x => x.matched === b.id))
-        if (candidate) { t.matched = candidate.id; matched++ }
+        const candidate = DEMO_BOOK_ENTRIES.find(b => b.amount === t.amount && !txns.some(x => x.matched === b.id) && !toMatch.some(x => x.matchId === b.id))
+        if (candidate) toMatch.push({ txnId: t.id, matchId: candidate.id })
       })
-      showToast(matched > 0 ? `🤖 Auto-Match จับคู่ได้ ${matched} รายการ!` : '🤖 ไม่พบรายการที่จับคู่ได้เพิ่ม', matched > 0 ? 'success' : 'secondary')
-      renderPage()
+      if (!toMatch.length) { showToast('🤖 ไม่พบรายการที่จับคู่ได้เพิ่ม', 'secondary'); return }
+      try {
+        for (const m of toMatch) await updateDocData('bank_transactions', m.txnId, { matched: m.matchId })
+        showToast(`🤖 Auto-Match จับคู่ได้ ${toMatch.length} รายการ!`, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
     container.querySelectorAll('.match-btn').forEach(b => b.addEventListener('click', () => {
       const t = txns.find(x => x.id === b.dataset.id)
@@ -146,11 +134,13 @@ export default async function BankReconciliationPage(container) {
             <option value="">— ไม่จับคู่ (บันทึกเป็นรายการอื่น) —</option>
             ${DEMO_BOOK_ENTRIES.filter(bk => !txns.some(x => x.matched === bk.id)).map(bk => `<option value="${escHtml(bk.id)}" ${bk.amount===t.amount?'selected':''}>${escHtml(bk.id)} — ${escHtml(bk.desc)} (${formatCurrency(bk.amount)})</option>`).join('')}
           </select></div>`,
-        onConfirm() {
+        async onConfirm() {
           const id = document.getElementById('mt-book')?.value
-          if (id) { t.matched = id; showToast('🔗 จับคู่แล้ว', 'success') }
-          else { t.matched = 'MISC'; showToast('📝 บันทึกเป็นรายการอื่น (ค่าธรรมเนียม/ปรับปรุง)', 'primary') }
-          renderPage()
+          try {
+            await updateDocData('bank_transactions', t.id, { matched: id || 'MISC' })
+            showToast(id ? '🔗 จับคู่แล้ว' : '📝 บันทึกเป็นรายการอื่น (ค่าธรรมเนียม/ปรับปรุง)', id ? 'success' : 'primary')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     }))
@@ -175,25 +165,26 @@ export default async function BankReconciliationPage(container) {
           </div>
         `,
         confirmText: '📥 Import',
-        onConfirm() {
+        async onConfirm() {
           const file = document.getElementById('stmt-file')?.files[0]
           if (!file) { showToast('กรุณาเลือกไฟล์ก่อน', 'error'); return false }
-          txns.unshift({
-            id: 'BT-IMP-' + Date.now(),
-            date: new Date().toISOString().slice(0,10),
-            desc: `[Import] ${file.name}`,
-            amount: 0,
-            matched: null,
-            type: 'in',
-          })
-          showToast(`📥 Import ${file.name} สำเร็จ — พบรายการใหม่ (Demo)`, 'success')
-          renderPage()
+          try {
+            await createDoc('bank_transactions', {
+              date: new Date().toISOString().slice(0,10),
+              desc: `[Import] ${file.name}`,
+              amount: 0,
+              matched: null,
+              type: 'in',
+            })
+            showToast(`📥 Import ${file.name} สำเร็จ — พบรายการใหม่ (Demo)`, 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

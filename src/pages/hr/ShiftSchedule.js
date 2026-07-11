@@ -1,7 +1,7 @@
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -14,15 +14,6 @@ const SHIFTS = {
   off:       { label: 'หยุด', time: '-', color: 'primary', icon: '🏖' },
 }
 
-const DEMO_STAFF = [
-  { id:'S001', name:'วิชาญ มีโชค', dept:'sales', position:'Sales Executive' },
-  { id:'S002', name:'อรนุช สายใจ', dept:'sales', position:'Sales Executive' },
-  { id:'S003', name:'ธีรยุทธ เก่งกาจ', dept:'service', position:'Service Advisor' },
-  { id:'S004', name:'พิมพ์ใจ ตั้งมั่น', dept:'service', position:'Technician' },
-  { id:'S005', name:'นภา จิตดี', dept:'admin', position:'Admin' },
-  { id:'S006', name:'สุทธิพงษ์ ขยัน', dept:'service', position:'Technician' },
-]
-
 function getWeekDates(weekOffset = 0) {
   const today = new Date()
   const mon = new Date(today)
@@ -33,59 +24,58 @@ function getWeekDates(weekOffset = 0) {
   })
 }
 
-function generateDefaultSchedule(dates) {
-  const sch = {}
-  dates.forEach(d => {
-    const dow = new Date(d).getDay() // 0=Sun, 6=Sat
-    sch[d] = {}
-    DEMO_STAFF.forEach(s => {
-      if (dow === 0) sch[d][s.id] = 'off'
-      else if (dow === 6 && s.dept === 'admin') sch[d][s.id] = 'off'
-      else if (dow === 6) sch[d][s.id] = 'day'
-      else sch[d][s.id] = s.dept === 'service' ? (s.id === 'S003' ? 'morning' : 'day') : 'day'
-    })
-  })
-  return sch
+function roleToDeptKey(role) {
+  if (role === 'sales') return 'sales'
+  if (role === 'service') return 'service'
+  return 'admin'
+}
+
+function defaultShiftFor(s, dow) {
+  if (dow === 0) return 'off'
+  if (dow === 6 && s.dept === 'admin') return 'off'
+  if (dow === 6) return 'day'
+  return s.dept === 'service' ? 'morning' : 'day'
 }
 
 export default async function ShiftSchedulePage(container) {
   const myGen = container.__routerGen
-  let activeStaff = [...DEMO_STAFF]
-  let dataSource = 'demo'
+  seedDemoData()
+  let activeStaff = []
   let weekOffset = 0
-  let schedule = {}
+  let schedule = {}        // schedule[date][staffId] = shift — persisted assignments only
+  let scheduleDocs = []     // raw shift_schedules docs, for id lookup on save
   let deptFilter = 'all'
+  let loading = true
 
-  try {
-    const staff = await listDocs('staff', [], 'name', 'asc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (staff.length >= 2) {
-      activeStaff = staff.map((s, i) => ({
-        id: s.id || s.docId || `ST${i+1}`,
-        name: s.name || s.displayName || 'พนักงาน',
-        dept: s.dept || s.department || 'admin',
-        position: s.position || s.role || '',
+  async function loadData() {
+    loading = true
+    try {
+      const [staff, shifts] = await Promise.all([
+        listDocs('staff', [], 'firstName', 'asc', 200),
+        listDocs('shift_schedules', [], 'date', 'asc', 2000),
+      ])
+      activeStaff = staff.map(s => ({
+        id: s.id,
+        name: `${s.firstName || ''} ${s.lastName || ''}`.trim() || s.name || 'พนักงาน',
+        dept: roleToDeptKey(s.role || s.dept),
+        position: s.role || s.position || '',
       }))
-      dataSource = 'live'
-    }
-  } catch {}
+      scheduleDocs = shifts
+      schedule = {}
+      shifts.forEach(s => {
+        if (!schedule[s.date]) schedule[s.date] = {}
+        schedule[s.date][s.staffId] = s.shift
+      })
+    } catch (e) { activeStaff = []; scheduleDocs = []; schedule = {} }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function getWeek() { return getWeekDates(weekOffset) }
 
-  function ensureSchedule(dates) {
-    dates.forEach(d => {
-      if (!schedule[d]) {
-        const sch = {}
-        const dow = new Date(d).getDay()
-        activeStaff.forEach(s => {
-          if (dow === 0) sch[s.id] = 'off'
-          else if (dow === 6 && s.dept === 'admin') sch[s.id] = 'off'
-          else if (dow === 6) sch[s.id] = 'day'
-          else sch[s.id] = s.dept === 'service' ? 'morning' : 'day'
-        })
-        schedule[d] = sch
-      }
-    })
+  function getShift(date, staffId, s) {
+    if (schedule[date]?.[staffId]) return schedule[date][staffId]
+    return defaultShiftFor(s, new Date(date).getDay())
   }
 
   function getFilteredStaff() {
@@ -94,8 +84,11 @@ export default async function ShiftSchedulePage(container) {
   }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const dates = getWeek()
-    ensureSchedule(dates)
     const staff = getFilteredStaff()
     const today = new Date().toISOString().slice(0, 10)
 
@@ -107,7 +100,7 @@ export default async function ShiftSchedulePage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">📆 Shift & Schedule</div>
-            <div class="page-subtitle">ตารางกะและจัดการเวลาทำงาน${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● พนักงานจากระบบจริง</span>' : ''}</div>
+            <div class="page-subtitle">ตารางกะและจัดการเวลาทำงาน</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="prev-week">◀ สัปดาห์ก่อน</button>
@@ -147,7 +140,7 @@ export default async function ShiftSchedulePage(container) {
                 <div style="font-size:0.68rem;color:var(--text-muted)">${escHtml(s.position)}</div>
               </div>
               ${dates.map(d => {
-                const shiftKey = schedule[d]?.[s.id] || 'off'
+                const shiftKey = getShift(d, s.id, s)
                 const shift = SHIFTS[shiftKey]
                 return `<div class="shift-cell" data-date="${d}" data-sid="${s.id}" style="
                   text-align:center;padding:6px 2px;border-radius:var(--radius-sm);
@@ -166,7 +159,7 @@ export default async function ShiftSchedulePage(container) {
         <div style="display:grid;grid-template-columns:180px repeat(7,1fr);gap:4px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
           <div style="font-size:0.72rem;color:var(--text-muted);padding:4px 8px">รวมคน (ไม่นับหยุด)</div>
           ${dates.map(d => {
-            const working = staff.filter(s => schedule[d]?.[s.id] !== 'off').length
+            const working = staff.filter(s => getShift(d, s.id, s) !== 'off').length
             return `<div style="text-align:center;font-size:0.8rem;font-weight:700;color:${working<2?'var(--danger)':'var(--success)'}">${working}</div>`
           }).join('')}
         </div>
@@ -179,7 +172,7 @@ export default async function ShiftSchedulePage(container) {
     document.querySelectorAll('.dept-btn').forEach(b => b.addEventListener('click', () => { deptFilter = b.dataset.d; renderPage() }))
     document.getElementById('sch-export')?.addEventListener('click', () => {
       const rows = []
-      dates.forEach(d => staff.forEach(s => { const sh = SHIFTS[schedule[d]?.[s.id]||'off']; rows.push({ วันที่:d, พนักงาน:s.name, แผนก:s.dept, กะ:sh.label, เวลา:sh.time }) }))
+      dates.forEach(d => staff.forEach(s => { const sh = SHIFTS[getShift(d, s.id, s)]; rows.push({ วันที่:d, พนักงาน:s.name, แผนก:s.dept, กะ:sh.label, เวลา:sh.time }) }))
       exportToExcel(rows, 'ShiftSchedule')
     })
 
@@ -193,7 +186,7 @@ export default async function ShiftSchedulePage(container) {
 
   function openShiftEditor(date, staffId) {
     const s = activeStaff.find(x => x.id === staffId)
-    const current = schedule[date]?.[staffId] || 'off'
+    const current = getShift(date, staffId, s)
     const { el, close } = openModal({
       title: `📆 กำหนดกะ — ${escHtml(s?.name || '')}`, size: 'sm',
       body: `<div>
@@ -214,16 +207,19 @@ export default async function ShiftSchedulePage(container) {
       footer: `<button class="btn btn-secondary" id="se-c">ยกเลิก</button><button class="btn btn-primary" id="se-s">💾 บันทึก</button>`
     })
     el.querySelector('#se-c').addEventListener('click', close)
-    el.querySelector('#se-s').addEventListener('click', () => {
+    el.querySelector('#se-s').addEventListener('click', async () => {
       const selected = el.querySelector('input[name="shift-opt"]:checked')?.value
-      if (selected) {
-        if (!schedule[date]) schedule[date] = {}
-        schedule[date][staffId] = selected
+      if (!selected) { close(); return }
+      try {
+        const existing = scheduleDocs.find(x => x.date === date && x.staffId === staffId)
+        if (existing) await updateDocData('shift_schedules', existing.id, { shift: selected })
+        else await createDoc('shift_schedules', { staffId, date, shift: selected })
         showToast(`✅ กำหนดกะ ${SHIFTS[selected].label} แล้ว`, 'success')
-      }
-      close(); renderPage()
+        close()
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
-  renderPage()
+  await loadData()
 }

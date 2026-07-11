@@ -5,7 +5,7 @@
 import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -25,15 +25,6 @@ const DEPRECIATION_METHODS = {
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
 
-const DEMO_ASSETS = [
-  { id: 'AST001', name: 'EV Charger DC Fast 50kW หน้าโชว์รูม', cat: 'charger', cost: 450000, depMethod: 'sl', usefulLife: 10, purchaseDate: addDays(-365), location: 'สาขากรุงเทพ', status: 'active', condition: 'good', lastMaint: addDays(-30) },
-  { id: 'AST002', name: 'รถทดสอบ BYD Seal AWD', cat: 'vehicle', cost: 1590000, depMethod: 'sl', usefulLife: 5, purchaseDate: addDays(-180), location: 'สาขากรุงเทพ', status: 'active', condition: 'good', lastMaint: addDays(-60) },
-  { id: 'AST003', name: 'ลิฟต์ยกรถ 4 ตัน', cat: 'equipment', cost: 280000, depMethod: 'sl', usefulLife: 15, purchaseDate: addDays(-730), location: 'ศูนย์บริการ', status: 'active', condition: 'fair', lastMaint: addDays(-90) },
-  { id: 'AST004', name: 'Server & Network Infrastructure', cat: 'it', cost: 180000, depMethod: 'db', usefulLife: 5, purchaseDate: addDays(-540), location: 'สาขากรุงเทพ', status: 'active', condition: 'good', lastMaint: addDays(-45) },
-  { id: 'AST005', name: 'โซฟาและเฟอร์นิเจอร์ Showroom', cat: 'furniture', cost: 320000, depMethod: 'sl', usefulLife: 10, purchaseDate: addDays(-730), location: 'สาขากรุงเทพ', status: 'active', condition: 'fair', lastMaint: null },
-  { id: 'AST006', name: 'EV Charger AC 7kW x 5 ที่', cat: 'charger', cost: 175000, depMethod: 'sl', usefulLife: 8, purchaseDate: addDays(-270), location: 'สาขาเชียงใหม่', status: 'active', condition: 'good', lastMaint: addDays(-15) },
-]
-
 function calcBookValue(asset) {
   const years = (new Date() - new Date(asset.purchaseDate)) / (365.25 * 86400 * 1000)
   const annualDep = asset.cost / asset.usefulLife
@@ -43,33 +34,23 @@ function calcBookValue(asset) {
 
 export default async function AssetManagementPage(container) {
   const myGen = container.__routerGen
-  let assets = DEMO_ASSETS.map(a => ({ ...a }))
+  seedDemoData()
+  let assets = []
   let catFilter = 'all'
-  let dataSource = 'demo'
+  let loading = true
 
-  try {
-    const docs = await listDocs('assets', [], 'purchaseDate', 'desc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `AST${String(i+1).padStart(3,'0')}`,
-        name: d.name || d.assetName || 'สินทรัพย์',
-        cat: d.cat || d.category || 'equipment',
-        cost: d.cost || d.value || 0,
-        depMethod: d.depMethod || 'sl',
-        usefulLife: d.usefulLife || 5,
-        purchaseDate: d.purchaseDate || d.date || addDays(0),
-        location: d.location || '',
-        status: d.status || 'active',
-        condition: d.condition || 'good',
-        lastMaint: d.lastMaint || null,
-      }))
-      assets = [...mapped, ...DEMO_ASSETS]
-      dataSource = 'live'
-    }
-  } catch {}
+  async function loadData() {
+    loading = true
+    try { assets = await listDocs('assets', [], 'purchaseDate', 'desc', 200) } catch (e) { assets = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = catFilter === 'all' ? assets : assets.filter(a => a.cat === catFilter)
     const totalCost = assets.reduce((a, x) => a + x.cost, 0)
     const totalBookValue = assets.reduce((a, x) => a + calcBookValue(x), 0)
@@ -80,7 +61,7 @@ export default async function AssetManagementPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🏭 Asset Management</div>
-            <div class="page-subtitle">จัดการสินทรัพย์และค่าเสื่อมราคา${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">จัดการสินทรัพย์และค่าเสื่อมราคา</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="add-asset-btn">+ เพิ่มสินทรัพย์</button>
@@ -190,24 +171,27 @@ export default async function AssetManagementPage(container) {
           <div class="input-group"><label class="input-label">วันที่ซื้อ</label><input type="date" class="input" id="af-date" value="${new Date().toISOString().slice(0,10)}"></div>
         </div>
       `,
-      onConfirm() {
+      async onConfirm() {
         const name = document.getElementById('af-name')?.value?.trim()
-        if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return }
-        assets.unshift({
-          id: `AST${String(assets.length+1).padStart(3,'0')}`, name,
-          cat: document.getElementById('af-cat')?.value||'equipment',
-          cost: +document.getElementById('af-cost')?.value||0,
-          depMethod: 'sl',
-          usefulLife: +document.getElementById('af-life')?.value||5,
-          purchaseDate: document.getElementById('af-date')?.value||addDays(0),
-          location: document.getElementById('af-loc')?.value||'', status: 'active', condition: 'good', lastMaint: null
-        })
-        showToast('✅ เพิ่มสินทรัพย์แล้ว!', 'success'); renderPage()
+        if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return false }
+        try {
+          await createDoc('assets', {
+            name,
+            cat: document.getElementById('af-cat')?.value||'equipment',
+            cost: +document.getElementById('af-cost')?.value||0,
+            depMethod: 'sl',
+            usefulLife: +document.getElementById('af-life')?.value||5,
+            purchaseDate: document.getElementById('af-date')?.value||addDays(0),
+            location: document.getElementById('af-loc')?.value||'', status: 'active', condition: 'good', lastMaint: null
+          })
+          showToast('✅ เพิ่มสินทรัพย์แล้ว!', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

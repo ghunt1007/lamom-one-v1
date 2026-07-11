@@ -2,7 +2,7 @@ import { showToast } from '../../core/store.js'
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -29,14 +29,6 @@ const DEMO_QUOTA = {
   annual: { used: 4, total: 10 },
 }
 
-const DEMO_LEAVES = [
-  { id:'L001', staff:'อรนุช สายใจ', type:'annual', from:'2025-06-20', to:'2025-06-22', days:3, reason:'ท่องเที่ยวต่างจังหวัด', status:'approved', approvedBy:'ทวีศักดิ์', createdAt:'2025-06-10T09:00:00Z' },
-  { id:'L002', staff:'วิชาญ มีโชค', type:'sick', from:'2025-06-09', to:'2025-06-09', days:1, reason:'มีไข้ไปพบแพทย์', status:'approved', approvedBy:'อรนุช สายใจ', createdAt:'2025-06-09T07:30:00Z' },
-  { id:'L003', staff:'ธีรยุทธ เก่งกาจ', type:'personal', from:'2025-06-15', to:'2025-06-15', days:1, reason:'ต่อใบอนุญาตขับขี่', status:'pending', approvedBy:null, createdAt:'2025-06-08T14:00:00Z' },
-  { id:'L004', staff:'สมหมาย รักงาน', type:'personal', from:'2025-07-01', to:'2025-07-03', days:3, reason:'งานแต่งงานของญาติ', status:'pending', approvedBy:null, createdAt:'2025-06-07T10:00:00Z' },
-  { id:'L005', staff:'นภา จันทร์งาม', type:'annual', from:'2025-05-26', to:'2025-05-30', days:5, reason:'วันหยุดยาว', status:'approved', approvedBy:'ทวีศักดิ์', createdAt:'2025-05-20T09:00:00Z' },
-]
-
 function calcDays(from, to) {
   const d1 = new Date(from), d2 = new Date(to)
   return Math.max(1, Math.round((d2 - d1) / 86400000) + 1)
@@ -44,39 +36,31 @@ function calcDays(from, to) {
 
 export default async function LeavePage(container) {
   const myGen = container.__routerGen
-  let leaves = DEMO_LEAVES.map(l => ({ ...l }))
+  seedDemoData()
+  let leaves = []
   let activeTab = 'requests' // requests | quota | calendar
   let filterStatus = 'all'
-  let dataSource = 'demo'
+  let loading = true
 
-  try {
-    const liveLeaves = await listDocs('leave_requests', [], 'createdAt', 'desc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (liveLeaves.length >= 2) {
-      const mapped = liveLeaves.map(l => ({
-        id: l.id, staff: l.staffName || l.staff || 'พนักงาน',
-        type: l.leaveType || l.type || 'personal',
-        from: (l.fromDate || l.from || '').slice(0, 10),
-        to: (l.toDate || l.to || '').slice(0, 10),
-        days: l.days || calcDays(l.fromDate || l.from || '', l.toDate || l.to || ''),
-        reason: l.reason || '', status: l.status || 'pending',
-        approvedBy: l.approvedBy || null,
-        createdAt: (l.createdAt?.toDate?.()?.toISOString() || l.createdAt || new Date().toISOString()),
-        _live: true,
-      }))
-      leaves = [...mapped, ...DEMO_LEAVES]
-      dataSource = 'live'
-    }
-  } catch {}
+  async function loadData() {
+    loading = true
+    try { leaves = await listDocs('leave_requests', [], 'createdAt', 'desc', 200) } catch (e) { leaves = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const pending = leaves.filter(l => l.status === 'pending').length
     container.innerHTML = `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
             <div class="page-title">🏖 Leave Management</div>
-            <div class="page-subtitle">บริหารการลาพนักงาน${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">บริหารการลาพนักงาน</div>
           </div>
           <div class="page-actions">
             ${pending > 0 ? `<span class="badge badge-warning">⏳ รออนุมัติ ${pending}</span>` : ''}
@@ -238,19 +222,24 @@ export default async function LeavePage(container) {
       btn.addEventListener('click', async () => {
         const l = leaves.find(x => x.id === btn.dataset.id)
         if (!l) return
-        l.status = 'approved'; l.approvedBy = 'ผู้จัดการ'
-        showToast(`✅ อนุมัติการลา ${l.staff}`, 'success'); renderPage()
+        try {
+          await updateDocData('leave_requests', l.id, { status: 'approved', approvedBy: 'ผู้จัดการ' })
+          showToast(`✅ อนุมัติการลา ${l.staff}`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       })
     })
     document.querySelectorAll('.reject-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
         if (!await confirmDialog({ title:'ไม่อนุมัติ', message:'ยืนยันไม่อนุมัติการลา?', confirmText:'ไม่อนุมัติ', danger:true })) return
         const l = leaves.find(x => x.id === btn.dataset.id)
-        if (l) {
-          l.status = 'rejected'; showToast('ไม่อนุมัติการลา', 'warning')
+        if (!l) return
+        try {
+          await updateDocData('leave_requests', l.id, { status: 'rejected' })
+          showToast('ไม่อนุมัติการลา', 'warning')
           if (container.__routerGen !== myGen) return
-          renderPage()
-        }
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       })
     })
   }
@@ -279,22 +268,22 @@ export default async function LeavePage(container) {
       footer: `<button class="btn btn-secondary" id="lfc">ยกเลิก</button><button class="btn btn-primary" id="lfs">📤 ยื่นคำขอ</button>`
     })
     el.querySelector('#lfc').addEventListener('click', close)
-    el.querySelector('#lfs').addEventListener('click', () => {
+    el.querySelector('#lfs').addEventListener('click', async () => {
       const reason = el.querySelector('#lf-reason').value.trim()
       if (!reason) return
       const from = el.querySelector('#lf-from').value
       const to = el.querySelector('#lf-to').value
-      leaves.unshift({
-        id: 'L' + Date.now(),
-        staff: el.querySelector('#lf-staff').value,
-        type: el.querySelector('#lf-type').value,
-        from, to, days: calcDays(from, to),
-        reason, status: 'pending', approvedBy: null,
-        createdAt: new Date().toISOString()
-      })
-      showToast('📤 ยื่นคำขอลาแล้ว', 'success'); close(); renderPage()
+      try {
+        await createDoc('leave_requests', {
+          staff: el.querySelector('#lf-staff').value,
+          type: el.querySelector('#lf-type').value,
+          from, to, days: calcDays(from, to),
+          reason, status: 'pending', approvedBy: null,
+        })
+        showToast('📤 ยื่นคำขอลาแล้ว', 'success'); close(); await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
-  renderPage()
+  await loadData()
 }

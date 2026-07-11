@@ -4,19 +4,11 @@
  */
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
-
-const DEMO_FLEET = [
-  { id:'F001', plate:'กข-1234', model:'BYD Atto 3', driver:'สมชาย ก.', status:'moving', speed:62, soc:74, lat:13.756, lng:100.502, location:'ถ.สุขุมวิท ซ.22', lastUpdate:'11:42', odometer:18500, trip:'ส่งเอกสาร ลาดพร้าว' },
-  { id:'F002', plate:'กข-5678', model:'BYD Seal AWD', driver:'นภา ม.', status:'parked', speed:0, soc:42, lat:13.729, lng:100.523, location:'ลานจอด CentralWorld', lastUpdate:'11:38', odometer:32000, trip:'ประชุมลูกค้า Fleet' },
-  { id:'F003', plate:'กก-0001', model:'MG ZS EV', driver:'มาลี จ.', status:'idle', speed:0, soc:88, lat:13.740, lng:100.560, location:'สำนักงาน LAMOM ONE', lastUpdate:'11:45', odometer:5200, trip:'รอผู้ขับ' },
-  { id:'F004', plate:'กก-1122', model:'BYD Atto 3', driver:'วิชัย ร.', status:'moving', speed:45, soc:56, lat:13.761, lng:100.537, location:'ถ.รัชดาภิเษก', lastUpdate:'11:43', odometer:9800, trip:'รับลูกค้า Test Drive' },
-  { id:'F005', plate:'กก-3344', model:'BYD Dolphin', driver:'รัชนี ส.', status:'charging', speed:0, soc:23, lat:13.748, lng:100.495, location:'PEA VOLTA ชิดลม', lastUpdate:'11:40', odometer:12600, trip:'ชาร์จระหว่างวัน' },
-]
 
 const STATUS_MAP = {
   moving:   { label:'กำลังขับ', color:'var(--success)', icon:'🚗' },
@@ -27,38 +19,38 @@ const STATUS_MAP = {
 
 export default async function FleetGpsPage(container) {
   const myGen = container.__routerGen
-  let FLEET = DEMO_FLEET.map(f => ({ ...f }))
-  let dataSource = 'demo'
+  seedDemoData()
+  let FLEET = []
+  let loading = true
   let selectedId = null
   let filterStatus = 'all'
-  let tick = 0
   let alerts = { soc: '20%', speed: '120 km/h', geofence: '10 km', idle: '2 ชม' }
+  let alertsDocId = null
 
-  try {
-    const docs = await listDocs('fleet_vehicles', [], 'plate', 'asc', 100).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `F${i+1}`,
-        plate: d.plate || d.licensePlate || '',
-        model: d.model || d.vehicleModel || '',
-        driver: d.driver || d.driverName || '',
-        status: d.status || 'parked',
-        speed: d.speed || 0,
-        soc: d.soc || d.battery || 0,
-        lat: d.lat || 13.75,
-        lng: d.lng || 100.50,
-        location: d.location || d.address || '',
-        lastUpdate: d.lastUpdate || d.updatedAt || '',
-        odometer: d.odometer || 0,
-        trip: d.trip || d.tripNote || '',
-      }))
-      FLEET = [...mapped, ...DEMO_FLEET]
-      dataSource = 'live'
-    }
-  } catch {}
+  async function loadData() {
+    loading = true
+    try { FLEET = await listDocs('fleet_vehicles', [], 'plate', 'asc', 100) } catch (e) { FLEET = [] }
+    try {
+      const alertDocs = await listDocs('fleet_alerts', [], 'createdAt', 'desc', 1)
+      if (alertDocs.length) {
+        alertsDocId = alertDocs[0].id
+        alerts = {
+          soc: alertDocs[0].soc || alerts.soc,
+          speed: alertDocs[0].speed || alerts.speed,
+          geofence: alertDocs[0].geofence || alerts.geofence,
+          idle: alertDocs[0].idle || alerts.idle,
+        }
+      }
+    } catch (e) {}
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const rows = filterStatus==='all' ? FLEET : FLEET.filter(f=>f.status===filterStatus)
     const moving = FLEET.filter(f=>f.status==='moving').length
     const sel = selectedId ? FLEET.find(f=>f.id===selectedId) : null
@@ -68,7 +60,7 @@ export default async function FleetGpsPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🛰 Fleet GPS Tracker</div>
-            <div class="page-subtitle">ติดตามรถ ${FLEET.length} คัน แบบ Real-time · ${moving} คันกำลังขับ${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">ติดตามรถ ${FLEET.length} คัน แบบ Real-time · ${moving} คันกำลังขับ</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="refresh-btn">🔄 Refresh</button>
@@ -127,7 +119,7 @@ export default async function FleetGpsPage(container) {
         <div class="card" style="padding:14px;margin-top:14px">
           <div style="font-size:0.76rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">📍 ${escHtml(sel.plate)} · ${escHtml(sel.model)} · ${escHtml(sel.driver)}</div>
           <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;font-size:0.74rem">
-            ${[['📍 ตำแหน่ง',escHtml(sel.location)],['🚀 ความเร็ว',sel.speed+'km/h'],['🔋 SOC',sel.soc+'%'],['📏 ไมล์',sel.odometer.toLocaleString()+' km'],['🎯 ภารกิจ',escHtml(sel.trip)]].map(([k,v])=>`
+            ${[['📍 ตำแหน่ง',escHtml(sel.location)],['🚀 ความเร็ว',sel.speed+'km/h'],['🔋 SOC',sel.soc+'%'],['📏 ไมล์',(sel.odometer||0).toLocaleString()+' km'],['🎯 ภารกิจ',escHtml(sel.trip)]].map(([k,v])=>`
               <div style="background:var(--surface-2);padding:8px;border-radius:var(--radius-sm)">
                 <div style="font-size:0.62rem;color:var(--text-muted)">${k}</div>
                 <div style="font-weight:700;font-size:0.78rem">${v}</div>
@@ -149,12 +141,20 @@ export default async function FleetGpsPage(container) {
           <label style="display:flex;justify-content:space-between;align-items:center"><span>⏰ จอดนานเกิน</span><input class="input" id="al-idle" value="${alerts.idle}" style="width:80px;text-align:center"></label>
         </div>`,
         confirmText:'💾 บันทึก Alert',
-        onConfirm() {
-          alerts.soc      = document.getElementById('al-soc')?.value.trim()   || alerts.soc
-          alerts.speed    = document.getElementById('al-speed')?.value.trim() || alerts.speed
-          alerts.geofence = document.getElementById('al-geo')?.value.trim()   || alerts.geofence
-          alerts.idle     = document.getElementById('al-idle')?.value.trim()  || alerts.idle
-          showToast(`🔔 บันทึก Alert GPS แล้ว · SOC<${alerts.soc} · >${alerts.speed} · >${alerts.geofence}`, 'success')
+        async onConfirm() {
+          const soc      = document.getElementById('al-soc')?.value.trim()   || alerts.soc
+          const speed    = document.getElementById('al-speed')?.value.trim() || alerts.speed
+          const geofence = document.getElementById('al-geo')?.value.trim()   || alerts.geofence
+          const idle     = document.getElementById('al-idle')?.value.trim()  || alerts.idle
+          try {
+            if (alertsDocId) {
+              await updateDocData('fleet_alerts', alertsDocId, { soc, speed, geofence, idle })
+            } else {
+              alertsDocId = await createDoc('fleet_alerts', { soc, speed, geofence, idle })
+            }
+            alerts = { soc, speed, geofence, idle }
+            showToast(`🔔 บันทึก Alert GPS แล้ว · SOC<${soc} · >${speed} · >${geofence}`, 'success')
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     })
@@ -182,5 +182,5 @@ export default async function FleetGpsPage(container) {
     </div>`
   }
 
-  render()
+  await loadData()
 }

@@ -5,7 +5,7 @@
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -35,66 +35,24 @@ const TARGET_SEGS = {
   inactive:   'ไม่ซื้อ > 6 เดือน',
 }
 
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
-function addHours(n) { const d = new Date(); d.setHours(d.getHours() - n); return d.toISOString() }
-
-const DEMO_BROADCASTS = [
-  {
-    id: 'BC001', title: 'โปรโมชันพิเศษ BYD Seal — ดาวน์ 0%', channel: 'line',
-    status: 'sent', target: 'prospects', recipients: 342, delivered: 338, opened: 156, clicked: 42,
-    sentAt: addHours(48), scheduledAt: null, message: 'สวัสดีค่ะ! LAMOM EV มีโปรโมชันพิเศษ BYD Seal สุดคุ้ม ดาวน์ 0% ฟรีประกันชั้น 1 ปีแรก สนใจติดต่อ 02-xxx-xxxx'
-  },
-  {
-    id: 'BC002', title: 'แจ้งเตือนต่ออายุประกัน', channel: 'sms',
-    status: 'sent', target: 'expiring', recipients: 28, delivered: 27, opened: 27, clicked: 18,
-    sentAt: addHours(24), scheduledAt: null, message: 'เรียนคุณลูกค้า ประกันรถของท่านจะหมดอายุใน 7 วัน กรุณาต่ออายุได้ที่ 02-xxx-xxxx'
-  },
-  {
-    id: 'BC003', title: 'นัดเช็คระยะ 10,000 กม.', channel: 'line',
-    status: 'scheduled', target: 'service_due', recipients: 45, delivered: 0, opened: 0, clicked: 0,
-    sentAt: null, scheduledAt: addDays(1) + 'T09:00:00', message: 'ถึงเวลาเช็คระยะ 10,000 กม. แล้วครับ! นัดเข้ามาที่ศูนย์บริการได้เลยครับ'
-  },
-  {
-    id: 'BC004', title: 'Happy New Year 2025', channel: 'email',
-    status: 'sent', target: 'all', recipients: 1250, delivered: 1198, opened: 445, clicked: 87,
-    sentAt: addHours(720), scheduledAt: null, message: 'สวัสดีปีใหม่ 2025 จาก LAMOM EV ขอบคุณที่ไว้วางใจเราตลอดมา'
-  },
-  {
-    id: 'BC005', title: 'Flash Sale — อุปกรณ์ EV ลด 20%', channel: 'push',
-    status: 'draft', target: 'owners', recipients: 0, delivered: 0, opened: 0, clicked: 0,
-    sentAt: null, scheduledAt: null, message: 'Flash Sale! อุปกรณ์เสริม EV ลด 20% วันนี้เท่านั้น!'
-  },
-]
-
 export default async function BroadcastPage(container) {
   const myGen = container.__routerGen
-  let broadcasts = DEMO_BROADCASTS.map(b => ({ ...b }))
-  let dataSource = 'demo'
+  seedDemoData()
+  let broadcasts = []
+  let loading = true
 
-  try {
-    const docs = await listDocs('broadcasts', [], 'sentAt', 'desc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `BC${i+1}`,
-        title: d.title || d.name || 'Broadcast',
-        channel: d.channel || 'line',
-        status: d.status || 'sent',
-        target: d.target || 'all',
-        recipients: d.recipients || 0,
-        delivered: d.delivered || 0,
-        opened: d.opened || 0,
-        clicked: d.clicked || 0,
-        sentAt: d.sentAt || d.createdAt || null,
-        scheduledAt: d.scheduledAt || null,
-        message: d.message || '',
-      }))
-      broadcasts = [...mapped, ...DEMO_BROADCASTS]
-      dataSource = 'live'
-    }
-  } catch {}
+  async function loadData() {
+    loading = true
+    try { broadcasts = await listDocs('broadcasts', [], 'sentAt', 'desc', 200) } catch (e) { broadcasts = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const sent = broadcasts.filter(b => b.status === 'sent').length
     const totalReach = broadcasts.filter(b => b.status === 'sent').reduce((a, b) => a + b.delivered, 0)
     const avgOpen = (() => {
@@ -108,7 +66,7 @@ export default async function BroadcastPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">📢 Broadcast</div>
-            <div class="page-subtitle">ส่งข้อความหาลูกค้าจำนวนมาก — LINE, SMS, Email, Push${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">ส่งข้อความหาลูกค้าจำนวนมาก — LINE, SMS, Email, Push</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="create-bc-btn">+ สร้าง Broadcast</button>
@@ -180,16 +138,18 @@ export default async function BroadcastPage(container) {
     container.querySelectorAll('.view-bc-btn').forEach(b => b.addEventListener('click', () => {
       const bc = broadcasts.find(x => x.id === b.dataset.id); if (bc) openDetail(bc)
     }))
-    container.querySelectorAll('.send-bc-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.send-bc-btn').forEach(b => b.addEventListener('click', async () => {
       const bc = broadcasts.find(x => x.id === b.dataset.id)
-      if (bc) {
-        bc.status = 'sent'; bc.sentAt = new Date().toISOString()
-        bc.recipients = Math.floor(Math.random() * 200) + 50
-        bc.delivered = Math.floor(bc.recipients * 0.97)
-        bc.opened = Math.floor(bc.delivered * 0.3)
-        bc.clicked = Math.floor(bc.opened * 0.25)
-        showToast('📤 ส่ง Broadcast แล้ว!', 'success'); renderPage()
-      }
+      if (!bc) return
+      const recipients = Math.floor(Math.random() * 200) + 50
+      const delivered = Math.floor(recipients * 0.97)
+      const opened = Math.floor(delivered * 0.3)
+      const clicked = Math.floor(opened * 0.25)
+      try {
+        await updateDocData('broadcasts', bc.id, { status: 'sent', sentAt: new Date().toISOString(), recipients, delivered, opened, clicked })
+        showToast('📤 ส่ง Broadcast แล้ว!', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
   }
 
@@ -232,23 +192,26 @@ export default async function BroadcastPage(container) {
           </div>
         </div>
       `,
-      onConfirm() {
+      async onConfirm() {
         const title = document.getElementById('bc-title')?.value?.trim()
         const msg = document.getElementById('bc-msg')?.value?.trim()
-        if (!title || !msg) { showToast('❗ กรุณากรอกชื่อและข้อความ', 'error'); return }
-        broadcasts.unshift({
-          id: `BC${String(broadcasts.length+1).padStart(3,'0')}`, title,
-          channel: document.getElementById('bc-channel')?.value||'line', status: 'draft',
-          target: document.getElementById('bc-target')?.value||'all',
-          recipients: 0, delivered: 0, opened: 0, clicked: 0,
-          sentAt: null, scheduledAt: null, message: msg
-        })
-        showToast('✅ สร้าง Broadcast แล้ว!', 'success'); renderPage()
+        if (!title || !msg) { showToast('❗ กรุณากรอกชื่อและข้อความ', 'error'); return false }
+        try {
+          await createDoc('broadcasts', {
+            title,
+            channel: document.getElementById('bc-channel')?.value||'line', status: 'draft',
+            target: document.getElementById('bc-target')?.value||'all',
+            recipients: 0, delivered: 0, opened: 0, clicked: 0,
+            sentAt: null, scheduledAt: null, message: msg
+          })
+          showToast('✅ สร้าง Broadcast แล้ว!', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

@@ -5,7 +5,7 @@
 import { formatCurrency, formatDate, timeAgo } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -27,48 +27,26 @@ const EXP_STATUS = {
   paid:     { label: 'จ่ายแล้ว', color: 'secondary' },
 }
 
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
-function addHours(n) { const d = new Date(); d.setHours(d.getHours() - n); return d.toISOString() }
-
-const DEMO_EXPENSES = [
-  { id: 'EXP001', title: 'ค่าเดินทาง — BYD Training Bangkok', cat: 'travel', amount: 4800, status: 'pending', submittedBy: 'วิชัย ยอดขาย', dept: 'ฝ่ายขาย', submitDate: addHours(6), approvedBy: null, receipt: true, notes: 'อบรมผลิตภัณฑ์ BYD 2025' },
-  { id: 'EXP002', title: 'ค่าอาหารลูกค้า — Business Lunch', cat: 'meal', amount: 2200, status: 'pending', submittedBy: 'สุดา มาดี', dept: 'ฝ่ายขาย', submitDate: addHours(12), approvedBy: null, receipt: true, notes: 'นัดลูกค้า B2B' },
-  { id: 'EXP003', title: 'ซื้อหมึกพริ้นเตอร์ + กระดาษ A4', cat: 'supplies', amount: 1850, status: 'approved', submittedBy: 'มานี HR', dept: 'HR', submitDate: addHours(48), approvedBy: 'สมชาย ผู้จัดการ', receipt: true, notes: '' },
-  { id: 'EXP004', title: 'ค่าโฆษณา Facebook Ads เดือนนี้', cat: 'marketing', amount: 15000, status: 'approved', submittedBy: 'ปทิตา Marketing', dept: 'การตลาด', submitDate: addHours(72), approvedBy: 'สมชาย ผู้จัดการ', receipt: false, notes: 'Campaign BYD Atto3' },
-  { id: 'EXP005', title: 'ซ่อมแอร์ศูนย์บริการ', cat: 'repair', amount: 8500, status: 'pending', submittedBy: 'วิทยา ช่าง', dept: 'บริการ', submitDate: addHours(3), approvedBy: null, receipt: true, notes: 'แอร์ตัวที่ 2 คอมเพรสเซอร์เสีย' },
-  { id: 'EXP006', title: 'ค่าเดินทางงาน Motor Expo', cat: 'travel', amount: 3600, status: 'rejected', submittedBy: 'ธนา เก่ง', dept: 'ฝ่ายขาย', submitDate: addHours(120), approvedBy: 'สมชาย ผู้จัดการ', receipt: true, notes: 'เกินวงเงิน Budget' },
-]
-
 export default async function ExpenseApprovalPage(container) {
   const myGen = container.__routerGen
-  let expenses = DEMO_EXPENSES.map(e => ({ ...e }))
-  let dataSource = 'demo'
+  seedDemoData()
+  let expenses = []
   let statusFilter = 'all'
   let catFilter = 'all'
+  let loading = true
 
-  try {
-    const docs = await listDocs('expense_approvals', [], 'submitDate', 'desc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `EXP${String(i+1).padStart(3,'0')}`,
-        title: d.title || d.description || d.desc || 'ค่าใช้จ่าย',
-        cat: d.cat || d.category || 'other',
-        amount: d.amount || 0,
-        status: d.status || 'pending',
-        submittedBy: d.submittedBy || d.staffName || '',
-        dept: d.dept || d.department || '',
-        submitDate: d.submitDate || d.createdAt || new Date().toISOString(),
-        approvedBy: d.approvedBy || null,
-        receipt: d.receipt !== undefined ? d.receipt : false,
-        notes: d.notes || '',
-      }))
-      expenses = [...mapped, ...DEMO_EXPENSES]
-      dataSource = 'live'
-    }
-  } catch {}
+  async function loadData() {
+    loading = true
+    try { expenses = await listDocs('expense_approvals', [], 'submitDate', 'desc', 200) } catch (e) { expenses = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = expenses.filter(e => {
       if (statusFilter !== 'all' && e.status !== statusFilter) return false
       if (catFilter !== 'all' && e.cat !== catFilter) return false
@@ -83,7 +61,7 @@ export default async function ExpenseApprovalPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">💸 Expense Approval</div>
-            <div class="page-subtitle">อนุมัติค่าใช้จ่ายพนักงาน${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">อนุมัติค่าใช้จ่ายพนักงาน</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="add-exp-btn">+ ยื่นค่าใช้จ่าย</button>
@@ -150,13 +128,23 @@ export default async function ExpenseApprovalPage(container) {
     container.querySelectorAll('.view-btn').forEach(b => b.addEventListener('click', () => {
       const e = expenses.find(x => x.id === b.dataset.id); if (e) openDetail(e)
     }))
-    container.querySelectorAll('.approve-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.approve-btn').forEach(b => b.addEventListener('click', async () => {
       const e = expenses.find(x => x.id === b.dataset.id)
-      if (e) { e.status = 'approved'; e.approvedBy = 'ผู้จัดการ'; showToast(`✅ อนุมัติ "${e.title}" แล้ว`, 'success'); renderPage() }
+      if (!e) return
+      try {
+        await updateDocData('expense_approvals', e.id, { status: 'approved', approvedBy: 'ผู้จัดการ' })
+        showToast(`✅ อนุมัติ "${e.title}" แล้ว`, 'success')
+        await loadData()
+      } catch (err) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.reject-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.reject-btn').forEach(b => b.addEventListener('click', async () => {
       const e = expenses.find(x => x.id === b.dataset.id)
-      if (e) { e.status = 'rejected'; e.approvedBy = 'ผู้จัดการ'; showToast(`❌ ปฏิเสธ "${e.title}"`, 'warning'); renderPage() }
+      if (!e) return
+      try {
+        await updateDocData('expense_approvals', e.id, { status: 'rejected', approvedBy: 'ผู้จัดการ' })
+        showToast(`❌ ปฏิเสธ "${e.title}"`, 'warning')
+        await loadData()
+      } catch (err) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
   }
 
@@ -196,24 +184,27 @@ export default async function ExpenseApprovalPage(container) {
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">หมายเหตุ</label><input class="input" id="ef-notes" placeholder="รายละเอียดเพิ่มเติม"></div>
         </div>
       `,
-      onConfirm() {
+      async onConfirm() {
         const title = document.getElementById('ef-title')?.value?.trim()
         const amount = +document.getElementById('ef-amount')?.value || 0
-        if (!title) { showToast('❗ กรุณากรอกรายละเอียด', 'error'); return }
-        if (amount <= 0) { showToast('❗ กรุณากรอกจำนวนเงิน', 'error'); return }
-        expenses.unshift({
-          id: `EXP${String(expenses.length+1).padStart(3,'0')}`, title,
-          cat: document.getElementById('ef-cat')?.value||'other', amount,
-          status: 'pending', submittedBy: 'ผู้ใช้ปัจจุบัน', dept: 'ทั่วไป',
-          submitDate: new Date().toISOString(), approvedBy: null, receipt: false,
-          notes: document.getElementById('ef-notes')?.value||''
-        })
-        showToast('✅ ยื่นค่าใช้จ่ายแล้ว!', 'success'); renderPage()
+        if (!title) { showToast('❗ กรุณากรอกรายละเอียด', 'error'); return false }
+        if (amount <= 0) { showToast('❗ กรุณากรอกจำนวนเงิน', 'error'); return false }
+        try {
+          await createDoc('expense_approvals', {
+            title,
+            cat: document.getElementById('ef-cat')?.value||'other', amount,
+            status: 'pending', submittedBy: 'ผู้ใช้ปัจจุบัน', dept: 'ทั่วไป',
+            submitDate: new Date().toISOString(), approvedBy: null, receipt: false,
+            notes: document.getElementById('ef-notes')?.value||''
+          })
+          showToast('✅ ยื่นค่าใช้จ่ายแล้ว!', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

@@ -5,13 +5,11 @@
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
-
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString() }
 
 const SMS_STATUS = {
   draft:     { label: 'ร่าง', color: 'secondary', icon: '📝' },
@@ -20,13 +18,6 @@ const SMS_STATUS = {
   sent:      { label: 'ส่งแล้ว', color: 'success', icon: '✅' },
   failed:    { label: 'ล้มเหลว', color: 'danger', icon: '❌' },
 }
-
-const DEMO_CAMPAIGNS = [
-  { id: 'SMS001', name: 'แจ้งโปรโมชั่นเดือนมิ.ย.', recipients: 542, sent: 542, failed: 8, status: 'sent', cost: 542, time: addDays(-5), message: 'LAMOM: โปรพิเศษเดือนนี้! ซื้อ BYD Dolphin รับส่วนลด 50,000 บาท สอบถาม 02-xxx-xxxx' },
-  { id: 'SMS002', name: 'แจ้งเช็คระยะตามนัด', recipients: 87, sent: 85, failed: 2, status: 'sent', cost: 87, time: addDays(-3), message: 'LAMOM: รถของคุณถึงกำหนดเช็คระยะ กรุณานัดหมายได้ที่ 02-xxx-xxxx' },
-  { id: 'SMS003', name: 'Welcome ลูกค้าใหม่ (สัปดาห์นี้)', recipients: 12, sent: 0, failed: 0, status: 'scheduled', cost: 0, time: addDays(1), message: 'ยินดีต้อนรับสู่ครอบครัว LAMOM! หากมีคำถามติดต่อ 02-xxx-xxxx' },
-  { id: 'SMS004', name: 'Win-back ลูกค้า at risk', recipients: 32, sent: 0, failed: 0, status: 'draft', cost: 0, time: null, message: 'LAMOM: เราคิดถึงคุณ! มาเยี่ยมชมโปรแกรมใหม่ได้ที่โชว์รูม รับส่วนลดพิเศษสำหรับลูกค้าเก่า' },
-]
 
 const SMS_TEMPLATES = [
   'LAMOM: [ชื่อ] รถของคุณครบ [กำหนด] กรุณานัดเช็คระยะ 02-xxx-xxxx',
@@ -37,31 +28,23 @@ const SMS_TEMPLATES = [
 
 export default async function SMSMarketingPage(container) {
   const myGen = container.__routerGen
-  let campaigns = DEMO_CAMPAIGNS.map(c => ({ ...c }))
-  let dataSource = 'demo'
+  seedDemoData()
+  let campaigns = []
+  let loading = true
   let credits = 1500
 
-  try {
-    const docs = await listDocs('sms_campaigns', [], 'time', 'desc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `SMS${i+1}`,
-        name: d.name || d.campaignName || 'แคมเปญ',
-        recipients: d.recipients || 0,
-        sent: d.sent || 0,
-        failed: d.failed || 0,
-        status: d.status || 'draft',
-        cost: d.cost || 0,
-        time: d.time || d.createdAt || null,
-        message: d.message || '',
-      }))
-      campaigns = [...mapped, ...DEMO_CAMPAIGNS]
-      dataSource = 'live'
-    }
-  } catch {}
+  async function loadData() {
+    loading = true
+    try { campaigns = await listDocs('sms_campaigns', [], 'time', 'desc', 200) } catch (e) { campaigns = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const totalSent = campaigns.reduce((a, c) => a + c.sent, 0)
     const active = campaigns.filter(c => c.status === 'scheduled').length
 
@@ -70,7 +53,7 @@ export default async function SMSMarketingPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">📱 SMS Marketing</div>
-            <div class="page-subtitle">ส่ง SMS — แจ้งเตือน โปรโมชั่น ติดตาม${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">ส่ง SMS — แจ้งเตือน โปรโมชั่น ติดตาม</div>
           </div>
           <div class="page-actions">
             <div style="font-size:0.78rem;color:var(--text-muted);padding:6px 10px;background:var(--surface-2);border-radius:var(--radius-sm)">📊 เครดิตคงเหลือ: <strong>${credits.toLocaleString()}</strong></div>
@@ -116,15 +99,25 @@ export default async function SMSMarketingPage(container) {
       </div>
     `
 
-    container.querySelectorAll('.send-now-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.send-now-btn').forEach(b => b.addEventListener('click', async () => {
       const c = campaigns.find(x => x.id === b.dataset.id)
-      if (c && credits >= c.recipients) {
-        c.status = 'sent'; c.sent = c.recipients - Math.floor(Math.random()*5); c.time = new Date().toISOString()
-        credits -= c.recipients; showToast('📱 ส่ง SMS แล้ว!','success'); renderPage()
-      } else showToast('❗ เครดิตไม่พอ','error')
+      if (!c) return
+      if (credits < c.recipients) { showToast('❗ เครดิตไม่พอ','error'); return }
+      const sent = c.recipients - Math.floor(Math.random()*5)
+      try {
+        await updateDocData('sms_campaigns', c.id, { status: 'sent', sent, time: new Date().toISOString() })
+        credits -= c.recipients
+        showToast('📱 ส่ง SMS แล้ว!','success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.cancel-schedule-btn').forEach(b => b.addEventListener('click', () => {
-      const c = campaigns.find(x => x.id === b.dataset.id); if(c){c.status='draft'; renderPage()}
+    container.querySelectorAll('.cancel-schedule-btn').forEach(b => b.addEventListener('click', async () => {
+      const c = campaigns.find(x => x.id === b.dataset.id)
+      if (!c) return
+      try {
+        await updateDocData('sms_campaigns', c.id, { status: 'draft' })
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     document.getElementById('create-btn')?.addEventListener('click', openCreateForm)
   }
@@ -154,14 +147,17 @@ export default async function SMSMarketingPage(container) {
           </select>
         </div>
       </div>`,
-      onConfirm() {
+      async onConfirm() {
         const name = document.getElementById('sms-name')?.value?.trim()
-        if (!name) { showToast('❗ กรุณากรอกชื่อ','error'); return }
+        if (!name) { showToast('❗ กรุณากรอกชื่อ','error'); return false }
         const msg = document.getElementById('sms-msg')?.value || ''
         const target = document.getElementById('sms-target')?.value || ''
         const recip = parseInt(target.match(/\d+/)?.[0]) || 50
-        campaigns.unshift({ id:`SMS${String(campaigns.length+1).padStart(3,'0')}`, name, recipients: recip, sent:0, failed:0, status:'draft', cost:0, time:null, message:msg })
-        showToast('✅ สร้าง Campaign แล้ว','success'); renderPage()
+        try {
+          await createDoc('sms_campaigns', { name, recipients: recip, sent:0, failed:0, status:'draft', cost:0, time:null, message:msg })
+          showToast('✅ สร้าง Campaign แล้ว','success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
     setTimeout(() => {
@@ -172,7 +168,7 @@ export default async function SMSMarketingPage(container) {
     }, 100)
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
