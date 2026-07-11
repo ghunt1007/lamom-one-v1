@@ -2019,9 +2019,15 @@ export function seedDemoData() {
   ]
   stockItems.forEach(s => { if (!demoCol('stock')[s.id]) demoCol('stock')[s.id] = s })
 
+  const rlAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
   const reservations = [
-    { id:'res1', reserveNo:'RSV-001', vehicleId:'st1', vin:'LGXCE4C10PA000001', model:'BYD Seal AWD', custName:'ธีรพงศ์ แสงทอง', phone:'0891234567', salesName:'อรนุช เซลส์ดี', deposit:10000, status:'active', reservedAt: new Date(Date.now()-86400000*3).toISOString(), expiresAt: new Date(Date.now()+86400000*4).toISOString() },
-    { id:'res2', reserveNo:'RSV-002', vehicleId:'st2', vin:'LGXCE4C10PA000002', model:'BYD Atto 3', custName:'สุภาพร ใจดี', phone:'0812345678', salesName:'วิชัย ขายเก่ง', deposit:5000, status:'active', reservedAt: new Date(Date.now()-86400000*1).toISOString(), expiresAt: new Date(Date.now()+86400000*6).toISOString() },
+    { id:'SV001', vin:'LBV5A2B10P0001111', model:'BYD Atto 3',   color:'Arctic Blue',  year:'2026', price:1099000, status:'reserved', customer:'สมชาย ใจดี',   agent:'พนักงาน A', lockedAt:rlAddDays(-2), expiry:rlAddDays(5), deposit:50000 },
+    { id:'SV002', vin:'LBV5A2B10P0002222', model:'BYD Seal AWD', color:'Cosmos Black', year:'2026', price:1699000, status:'reserved', customer:'นภา สุขใจ',    agent:'พนักงาน B', lockedAt:rlAddDays(-1), expiry:rlAddDays(6), deposit:100000},
+    { id:'SV003', vin:'LBV5A2B10P0003333', model:'BYD Han',      color:'Jade Green',   year:'2026', price:2099000, status:'available',customer:'',              agent:'',           lockedAt:'',           expiry:'',            deposit:0    },
+    { id:'SV004', vin:'LBV5A2B10P0004444', model:'BYD Dolphin',  color:'Snow White',   year:'2026', price:899000,  status:'locked',   customer:'วิชัย ดีมาก',  agent:'พนักงาน A', lockedAt:rlAddDays(0), expiry:rlAddDays(3), deposit:30000},
+    { id:'SV005', vin:'LBV5A2B10P0005555', model:'MG ZS EV',     color:'Pearl White',  year:'2026', price:799000,  status:'available',customer:'',              agent:'',           lockedAt:'',           expiry:'',            deposit:0    },
+    { id:'SV006', vin:'LBV5A2B10P0006666', model:'BYD Atto 3',   color:'Ski White',    year:'2026', price:1099000, status:'sold',     customer:'มาลี รุ่งเรือง',agent:'พนักงาน C', lockedAt:rlAddDays(-4), expiry:'',            deposit:0    },
+    { id:'SV007', vin:'LBV5A2B10P0007777', model:'BYD Seal AWD', color:'Aurora Silver',year:'2026', price:1699000, status:'available',customer:'',              agent:'',           lockedAt:'',           expiry:'',            deposit:0    },
   ]
   reservations.forEach(r => { if (!demoCol('reservations')[r.id]) demoCol('reservations')[r.id] = r })
 

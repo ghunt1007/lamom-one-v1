@@ -113,11 +113,12 @@ export default async function CarPhotosPage(container) {
       const c = cars.find(x => x.id === b.dataset.id)
       if (c) openShootModal(c)
     }))
-    container.querySelectorAll('.post-btn:not([disabled])').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.post-btn:not([disabled])').forEach(b => b.addEventListener('click', async () => {
       const c = cars.find(x => x.id === b.dataset.id)
       if (c) {
         const ch = b.dataset.ch
         c.posted[ch] = !c.posted[ch]
+        await persistCar(c)
         if (c.posted[ch]) showToast(`📤 โพสต์ ${c.model} แล้ว`, 'success')
         renderPage()
       }

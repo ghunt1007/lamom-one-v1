@@ -5,21 +5,11 @@
 import { formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
-
-const DEMO_STOCK = [
-  { id:'SV001', vin:'LBV5A2B10P0001111', model:'BYD Atto 3',   color:'Arctic Blue',  year:'2026', price:1099000, status:'reserved', customer:'สมชาย ใจดี',   agent:'พนักงาน A', lockedAt:'2026-06-12', expiry:'2026-06-19', deposit:50000 },
-  { id:'SV002', vin:'LBV5A2B10P0002222', model:'BYD Seal AWD', color:'Cosmos Black', year:'2026', price:1699000, status:'reserved', customer:'นภา สุขใจ',    agent:'พนักงาน B', lockedAt:'2026-06-13', expiry:'2026-06-20', deposit:100000},
-  { id:'SV003', vin:'LBV5A2B10P0003333', model:'BYD Han',      color:'Jade Green',   year:'2026', price:2099000, status:'available',customer:'',              agent:'',           lockedAt:'',           expiry:'',            deposit:0    },
-  { id:'SV004', vin:'LBV5A2B10P0004444', model:'BYD Dolphin',  color:'Snow White',   year:'2026', price:899000,  status:'locked',   customer:'วิชัย ดีมาก',  agent:'พนักงาน A', lockedAt:'2026-06-14', expiry:'2026-06-17', deposit:30000},
-  { id:'SV005', vin:'LBV5A2B10P0005555', model:'MG ZS EV',     color:'Pearl White',  year:'2026', price:799000,  status:'available',customer:'',              agent:'',           lockedAt:'',           expiry:'',            deposit:0    },
-  { id:'SV006', vin:'LBV5A2B10P0006666', model:'BYD Atto 3',   color:'Ski White',    year:'2026', price:1099000, status:'sold',     customer:'มาลี รุ่งเรือง',agent:'พนักงาน C', lockedAt:'2026-06-10', expiry:'',            deposit:0    },
-  { id:'SV007', vin:'LBV5A2B10P0007777', model:'BYD Seal AWD', color:'Aurora Silver',year:'2026', price:1699000, status:'available',customer:'',              agent:'',           lockedAt:'',           expiry:'',            deposit:0    },
-]
 
 const STATUS_CFG = {
   available: { label:'ว่าง',       bg:'var(--success)', icon:'✅' },
@@ -30,41 +20,31 @@ const STATUS_CFG = {
 
 function daysLeft(expiry) {
   if(!expiry) return null
-  return Math.round((new Date(expiry)-new Date('2026-06-14'))/86400000)
+  return Math.round((new Date(expiry)-new Date())/86400000)
 }
 
 export default async function ReserveLockPage(container) {
   const myGen = container.__routerGen
-  let stock = DEMO_STOCK.map(s => ({ ...s }))
-  let dataSource = 'demo'
+  seedDemoData()
 
-  try {
-    const docs = await listDocs('reservations', [], 'lockedAt', 'desc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `SV${String(i+1).padStart(3,'0')}`,
-        vin: d.vin || '',
-        model: d.model || '',
-        color: d.color || '',
-        year: d.year || '2026',
-        price: d.price || 0,
-        status: d.status || 'available',
-        customer: d.customer || '',
-        agent: d.agent || '',
-        lockedAt: d.lockedAt || '',
-        expiry: d.expiry || '',
-        deposit: d.deposit || 0,
-      }))
-      stock = [...mapped, ...DEMO_STOCK]
-      dataSource = 'live'
-    }
-  } catch {}
+  let stock = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { stock = await listDocs('reservations', [], 'lockedAt', 'desc', 200) } catch (e) { stock = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   let filterStatus = 'all'
   let filterModel  = 'all'
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     let rows = stock
     if(filterStatus !== 'all') rows = rows.filter(v=>v.status===filterStatus)
     if(filterModel !== 'all')  rows = rows.filter(v=>v.model===filterModel)
@@ -80,7 +60,7 @@ export default async function ReserveLockPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🔐 Stock Reservation Lock</div>
-            <div class="page-subtitle">ล็อคสต็อกรอโอน · ป้องกันซ้ำซ้อน · ${stock.length} คัน${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">ล็อคสต็อกรอโอน · ป้องกันซ้ำซ้อน · ${stock.length} คัน</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="release-exp-btn">🔓 ปลดล็อคหมดอายุ</button>
@@ -116,10 +96,13 @@ export default async function ReserveLockPage(container) {
 
     container.querySelectorAll('.stat-btn').forEach(b=>b.addEventListener('click',()=>{filterStatus=b.dataset.s;render()}))
     document.getElementById('model-filter')?.addEventListener('change',e=>{filterModel=e.target.value;render()})
-    document.getElementById('release-exp-btn')?.addEventListener('click',()=>{
+    document.getElementById('release-exp-btn')?.addEventListener('click', async ()=>{
       const expired=stock.filter(v=>v.expiry&&daysLeft(v.expiry)<=0&&v.status!=='sold')
-      expired.forEach(v=>{v.status='available';v.customer='';v.agent='';v.lockedAt='';v.expiry='';v.deposit=0})
-      render(); showToast(`🔓 ปลดล็อค ${expired.length} คันที่หมดอายุแล้ว`,'success')
+      try {
+        await Promise.all(expired.map(v => updateDocData('reservations', v.id, { status:'available', customer:'', agent:'', lockedAt:'', expiry:'', deposit:0 })))
+        showToast(`🔓 ปลดล็อค ${expired.length} คันที่หมดอายุแล้ว`,'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
     document.getElementById('lock-btn')?.addEventListener('click',()=>openLockModal())
     container.querySelectorAll('.lock-now-btn').forEach(b=>b.addEventListener('click',()=>{
@@ -131,7 +114,13 @@ export default async function ReserveLockPage(container) {
         openModal({title:'🔓 ปลดล็อค — ' + escHtml(v.model),size:'xs',
           body:`<div style="font-size:0.8rem">ปลดล็อค <b>${escHtml(v.model)}</b> คืนเป็นว่าง?${v.deposit?`<br>มัดจำ ฿${v.deposit.toLocaleString()} จะต้องคืน`:''}`,
           confirmText:'🔓 ปลดล็อค',
-          onConfirm(){v.status='available';v.customer='';v.agent='';v.lockedAt='';v.expiry='';v.deposit=0;render();showToast('🔓 ปลดล็อคแล้ว','success')}
+          async onConfirm(){
+            try {
+              await updateDocData('reservations', v.id, { status:'available', customer:'', agent:'', lockedAt:'', expiry:'', deposit:0 })
+              showToast('🔓 ปลดล็อคแล้ว','success')
+              await loadData()
+            } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+          }
         })
       }
     }))
@@ -150,23 +139,27 @@ export default async function ReserveLockPage(container) {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           <div><label style="font-size:0.72rem;color:var(--text-muted)">ประเภท</label>
             <select class="input" id="lock-type" style="width:100%;margin-top:3px"><option value="reserved">จอง</option><option value="locked">ล็อคชั่วคราว</option></select></div>
-          <div><label style="font-size:0.72rem;color:var(--text-muted)">หมดอายุ</label><input class="input" id="lock-exp" type="date" value="2026-06-21" style="width:100%;margin-top:3px"></div>
+          <div><label style="font-size:0.72rem;color:var(--text-muted)">หมดอายุ</label><input class="input" id="lock-exp" type="date" value="${new Date(Date.now()+7*86400000).toISOString().slice(0,10)}" style="width:100%;margin-top:3px"></div>
         </div>
         <div><label style="font-size:0.72rem;color:var(--text-muted)">มัดจำ (บาท)</label><input class="input" id="lock-dep" type="number" placeholder="0" style="width:100%;margin-top:3px"></div>
       </div>`,
       confirmText:'🔒 ล็อคสต็อก',
-      onConfirm(){
+      async onConfirm(){
         const vinId=document.getElementById('lock-vin')?.value
         const cust=document.getElementById('lock-cust')?.value?.trim()
         if(!cust){showToast('ใส่ชื่อลูกค้า','warning');return false}
         const v=stock.find(x=>x.id===vinId)
-        if(v){
-          v.status=document.getElementById('lock-type')?.value||'reserved'
-          v.customer=cust; v.agent='พนักงาน A'; v.lockedAt='2026-06-14'
-          v.expiry=document.getElementById('lock-exp')?.value||''
-          v.deposit=parseInt(document.getElementById('lock-dep')?.value)||0
-          render(); showToast(`🔒 ล็อค ${v.model} ให้ ${cust} แล้ว`,'success')
-        }
+        if(!v) return
+        try {
+          await updateDocData('reservations', v.id, {
+            status: document.getElementById('lock-type')?.value||'reserved',
+            customer: cust, agent:'พนักงาน A', lockedAt: new Date().toISOString().slice(0,10),
+            expiry: document.getElementById('lock-exp')?.value||'',
+            deposit: parseInt(document.getElementById('lock-dep')?.value)||0,
+          })
+          showToast(`🔒 ล็อค ${v.model} ให้ ${cust} แล้ว`,'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -209,5 +202,5 @@ export default async function ReserveLockPage(container) {
     </div>`
   }
 
-  render()
+  await loadData()
 }

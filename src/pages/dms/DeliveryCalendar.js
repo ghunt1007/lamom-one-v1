@@ -5,7 +5,7 @@
 import { formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -22,43 +22,44 @@ const DLV_STATUS = {
 
 const PREP_CHECKLIST = ['PDI ผ่านแล้ว', 'ติดฟิล์ม/อุปกรณ์ครบ', 'ล้างรถ + เติมไฟ 100%', 'เอกสาร/ป้ายแดงพร้อม', 'ของแถมจัดครบ']
 
-const DEMO_DELIVERIES = [
-  { id: 'DL001', customer: 'สมชาย ใจดี', phone: '085-111', model: 'BYD Seal AWD', color: 'ดำ', vin: '...3456', date: addDays(0), time: '10:00', status: 'ready', staff: 'วิชัย ยอดขาย', prep: [true, true, true, true, true] },
-  { id: 'DL002', customer: 'มาลี สุขใจ', phone: '086-222', model: 'BYD Dolphin', color: 'ขาว', vin: '...9012', date: addDays(0), time: '14:00', status: 'preparing', staff: 'สุดา มาดี', prep: [true, true, false, true, false] },
-  { id: 'DL003', customer: 'อรทัย ตั้งใจ', phone: '088-444', model: 'MG ZS EV', color: 'แดง', vin: '...7788', date: addDays(1), time: '11:00', status: 'preparing', staff: 'ธนา เก่ง', prep: [true, false, false, false, false] },
-  { id: 'DL004', customer: 'วิรัช เก่งมาก', phone: '089-555', model: 'BYD Han', color: 'ขาว', vin: '...2233', date: addDays(2), time: '15:00', status: 'preparing', staff: 'วิชัย ยอดขาย', prep: [false, false, false, false, false] },
-  { id: 'DL005', customer: 'ชาตรี เข้มแข็ง', phone: '084-666', model: 'BYD Atto 3', color: 'น้ำเงิน', vin: '...5566', date: addDays(-1), time: '13:00', status: 'delivered', staff: 'สุดา มาดี', prep: [true, true, true, true, true] },
-]
+// Local status -> real 'bookings' collection status string (shared with CRM/Bookings.js)
+const LOCAL_TO_BOOKING_STATUS = { preparing: 'รอส่งมอบ', ready: 'ตัดตัวเลขรอส่งมอบ', delivered: 'ส่งมอบแล้ว' }
 
 export default async function DeliveryCalendarPage(container) {
   const myGen = container.__routerGen
-  let deliveries = DEMO_DELIVERIES.map(d => ({ ...d, prep: [...d.prep] }))
-  let dataSource = 'demo'
+  seedDemoData()
 
-  try {
-    const docs = await listDocs('bookings', [], 'deliveryDate', 'asc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    const pending = docs.filter(d => d.deliveryDate && ['จองแล้ว','รอส่งมอบ','ตัดตัวเลขรอส่งมอบ','ส่งมอบแล้ว'].includes(d.status))
-    if (pending.length >= 2) {
-      const mapped = pending.map((d, i) => ({
-        id: d.id || `DL${i+1}`,
+  let deliveries = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try {
+      const docs = await listDocs('bookings', [], 'deliveryDate', 'asc', 200)
+      const pending = docs.filter(d => d.deliveryDate && ['จองแล้ว','รอส่งมอบ','ตัดตัวเลขรอส่งมอบ','ส่งมอบแล้ว'].includes(d.status))
+      deliveries = pending.map(d => ({
+        id: d.id,
         customer: d.customerName || d.custName || 'ลูกค้า',
         phone: d.phone || '',
         model: d.model || d.vehicleModel || '',
-        color: d.color || '',
+        color: d.colorOut || d.color || '',
         vin: d.vin || d.chassisNo || '',
         date: d.deliveryDate || d.bookingDate || '',
         time: d.deliveryTime || '10:00',
         status: d.status === 'ส่งมอบแล้ว' ? 'delivered' : (d.status === 'รอส่งมอบ' || d.status === 'ตัดตัวเลขรอส่งมอบ') ? 'ready' : 'preparing',
         staff: d.salesName || d.salesPerson || '',
-        prep: [false, false, false, false, false],
+        prep: Array.isArray(d.prep) ? d.prep : [false, false, false, false, false],
       }))
-      deliveries = [...mapped, ...DEMO_DELIVERIES]
-      dataSource = 'live'
-    }
-  } catch {}
+    } catch (e) { deliveries = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const today = addDays(0)
     const todayList = deliveries.filter(d => d.date === today && d.status !== 'delivered')
     const overdue = deliveries.filter(d => d.date < today && d.status !== 'delivered')
@@ -71,7 +72,7 @@ export default async function DeliveryCalendarPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🎉 Delivery Calendar</div>
-            <div class="page-subtitle">ปฏิทินส่งมอบรถ — เตรียมความพร้อมทุกคัน${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">ปฏิทินส่งมอบรถ — เตรียมความพร้อมทุกคัน</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="add-dlv-btn">+ นัดส่งมอบ</button>
@@ -140,16 +141,31 @@ export default async function DeliveryCalendarPage(container) {
       `
     }
 
-    container.querySelectorAll('.prep-check').forEach(cb => cb.addEventListener('change', () => {
+    container.querySelectorAll('.prep-check').forEach(cb => cb.addEventListener('change', async () => {
       const d = deliveries.find(x => x.id === cb.dataset.id)
-      if (d) { d.prep[parseInt(cb.dataset.i)] = cb.checked; renderPage() }
+      if (!d) return
+      const prep = [...d.prep]
+      prep[parseInt(cb.dataset.i)] = cb.checked
+      try { await updateDocData('bookings', d.id, { prep }); await loadData() }
+      catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.ready-btn').forEach(b => b.addEventListener('click', () => {
-      const d = deliveries.find(x => x.id === b.dataset.id); if (d) { d.status = 'ready'; showToast('✅ พร้อมส่งมอบ — แจ้งลูกค้าแล้ว', 'success'); renderPage() }
-    }))
-    container.querySelectorAll('.deliver-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.ready-btn').forEach(b => b.addEventListener('click', async () => {
       const d = deliveries.find(x => x.id === b.dataset.id)
-      if (d) { d.status = 'delivered'; showToast('🎉 ส่งมอบสำเร็จ! ระบบนัดเช็คระยะแรกอัตโนมัติ', 'success'); renderPage() }
+      if (!d) return
+      try {
+        await updateDocData('bookings', d.id, { status: LOCAL_TO_BOOKING_STATUS.ready })
+        showToast('✅ พร้อมส่งมอบ — แจ้งลูกค้าแล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+    }))
+    container.querySelectorAll('.deliver-btn').forEach(b => b.addEventListener('click', async () => {
+      const d = deliveries.find(x => x.id === b.dataset.id)
+      if (!d) return
+      try {
+        await updateDocData('bookings', d.id, { status: LOCAL_TO_BOOKING_STATUS.delivered, actualDeliveryDate: addDays(0) })
+        showToast('🎉 ส่งมอบสำเร็จ! ระบบนัดเช็คระยะแรกอัตโนมัติ', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.postpone-btn').forEach(b => b.addEventListener('click', () => {
       const d = deliveries.find(x => x.id === b.dataset.id)
@@ -160,10 +176,14 @@ export default async function DeliveryCalendarPage(container) {
           <div class="input-group"><label class="input-label">วันใหม่</label><input class="input" type="date" id="pp-date" value="${addDays(3)}"></div>
           <div class="input-group"><label class="input-label">เวลา</label><input class="input" type="time" id="pp-time" value="${d.time}"></div>
         </div>`,
-        onConfirm() {
-          d.date = document.getElementById('pp-date')?.value || d.date
-          d.time = document.getElementById('pp-time')?.value || d.time
-          showToast('📅 เลื่อนนัดแล้ว — แจ้งลูกค้าทาง LINE', 'primary'); renderPage()
+        async onConfirm() {
+          const deliveryDate = document.getElementById('pp-date')?.value || d.date
+          const deliveryTime = document.getElementById('pp-time')?.value || d.time
+          try {
+            await updateDocData('bookings', d.id, { deliveryDate, deliveryTime })
+            showToast('📅 เลื่อนนัดแล้ว — แจ้งลูกค้าทาง LINE', 'primary')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     }))
@@ -179,17 +199,30 @@ export default async function DeliveryCalendarPage(container) {
           <div class="input-group"><label class="input-label">วันส่งมอบ</label><input class="input" type="date" id="dl-date" value="${addDays(3)}"></div>
           <div class="input-group"><label class="input-label">เวลา</label><input class="input" type="time" id="dl-time" value="10:00"></div>
         </div>`,
-        onConfirm() {
+        async onConfirm() {
           const name = document.getElementById('dl-name')?.value?.trim()
-          if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return }
-          deliveries.push({ id:`DL${String(deliveries.length+1).padStart(3,'0')}`, customer:name, phone:document.getElementById('dl-phone')?.value||'—', model:document.getElementById('dl-model')?.value||'—', color:document.getElementById('dl-color')?.value||'—', vin:'...ใหม่', date:document.getElementById('dl-date')?.value||addDays(3), time:document.getElementById('dl-time')?.value||'10:00', status:'preparing', staff:'คุณ (Demo)', prep:[false,false,false,false,false] })
-          showToast('✅ นัดส่งมอบแล้ว', 'success'); renderPage()
+          if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return false }
+          try {
+            await createDoc('bookings', {
+              custName: name, phone: document.getElementById('dl-phone')?.value||'—',
+              model: document.getElementById('dl-model')?.value||'—', colorOut: document.getElementById('dl-color')?.value||'—',
+              vin: '', deliveryDate: document.getElementById('dl-date')?.value||addDays(3), deliveryTime: document.getElementById('dl-time')?.value||'10:00',
+              status: LOCAL_TO_BOOKING_STATUS.preparing, salesName: 'คุณ (Demo)', prep: [false,false,false,false,false],
+              bookingNo: '', nid: '', address: '', province: '', source: 'Walk-in',
+              brand: '', variant: '', colorIn: '', motorNo: '', batNo: '',
+              price: 0, cost: 0, down: 0, financeCo: '', financeAmount: 0, finStatus: '', installments: 0, interestRate: 0, monthly: 0, campaign: '',
+              margin: 0, budgetUsed: 0, com70: 0, comFinance: 0, marginLeft: 0, totalIncome: 0,
+              bookingDate: addDays(0), submitDate: '', approveDate: '', signDate: '', cutDate: '', actualDeliveryDate: '', notes: '',
+            })
+            showToast('✅ นัดส่งมอบแล้ว', 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
