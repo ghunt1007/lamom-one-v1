@@ -2117,6 +2117,31 @@ export function seedDemoData() {
   ]
   testDriveRecords.forEach(t => { if (!demoCol('test_drive_records')[t.id]) demoCol('test_drive_records')[t.id] = t })
 
+  // After-Sales Follow-ups (some are manually added, some materialize from delivered bookings)
+  const fuAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
+  const followups = [
+    { id: 'FU001', customerId: 'C001', customerName: 'วิชาญ มีโชค', phone: '081-234-5678', vehicleModel: 'BYD Seal AWD', salesperson: 'อรนุช สายใจ', type: 'call', purpose: 'หลังส่งมอบรถ', dueDate: fuAddDays(-1), status: 'pending', note: 'ส่งมอบรถเมื่อ 7 วันก่อน ถามความพอใจ', result: '' },
+    { id: 'FU002', customerId: 'C002', customerName: 'อรนุช สาวสวย', phone: '082-345-6789', vehicleModel: 'MG ZS EV', salesperson: 'วิชาญ มีโชค', type: 'line', purpose: 'แจ้งบริการถึงกำหนด', dueDate: fuAddDays(2), status: 'pending', note: 'ครบ 10,000 กม. ต้องทำ First Service', result: '' },
+    { id: 'FU003', customerId: 'C003', customerName: 'ธีรยุทธ เก่งกาจ', phone: '083-456-7890', vehicleModel: 'Neta V', salesperson: 'วิชาญ มีโชค', type: 'call', purpose: 'เสนอต่ออายุประกัน', dueDate: fuAddDays(5), status: 'pending', note: 'ประกันหมดอีก 30 วัน เสนอแพ็คเกจต่ออายุ', result: '' },
+    { id: 'FU004', customerId: 'C004', customerName: 'สมหญิง รักรถ', phone: '084-567-8901', vehicleModel: 'ORA Good Cat', salesperson: 'อรนุช สายใจ', type: 'call', purpose: 'ตรวจสอบความพึงพอใจ', dueDate: fuAddDays(-5), status: 'done', note: '', result: 'ลูกค้าพอใจมาก ให้ระดับ 5/5 บอกต่อให้เพื่อน' },
+    { id: 'FU005', customerId: 'C005', customerName: 'มานะ กล้าหาญ', phone: '085-678-9012', vehicleModel: 'BYD Atto 3', salesperson: 'วิชาญ มีโชค', type: 'sms', purpose: 'วันเกิด/เทศกาล', dueDate: fuAddDays(0), status: 'pending', note: 'วันนี้วันเกิดลูกค้า ส่งของขวัญ', result: '' },
+    { id: 'FU006', customerId: 'C006', customerName: 'สาวิตรี มีเงิน', phone: '086-789-0123', vehicleModel: 'BYD Seal Standard', salesperson: 'อรนุช สายใจ', type: 'visit', purpose: 'แนะนำรุ่นใหม่', dueDate: fuAddDays(10), status: 'pending', note: 'ลูกค้าสนใจ BYD Tang EV รุ่นใหม่', result: '' },
+    { id: 'FU007', customerId: 'C007', customerName: 'ประยุทธ์ มั่นใจ', phone: '087-890-1234', vehicleModel: 'MG ZS EV', salesperson: 'วิชาญ มีโชค', type: 'call', purpose: 'ทั่วไป', dueDate: fuAddDays(-10), status: 'skipped', note: '', result: 'โทรไม่ติด 3 ครั้ง' },
+  ]
+  followups.forEach(f => { if (!demoCol('followups')[f.id]) demoCol('followups')[f.id] = f })
+
+  // Win-Back campaign targets (churned customers)
+  const wbAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
+  const winbackTargets = [
+    { id: 'WB001', customer: 'ชาตรี เข้มแข็ง', phone: '084-666', lastVisit: wbAddDays(-380), reason: 'service', value: 45000, status: 'contacted', offer: 'ส่วนลดบริการ 20% + ตรวจฟรี 30 รายการ', attempts: 2 },
+    { id: 'WB002', customer: 'นภา ห่างหาย', phone: '083-777', lastVisit: wbAddDays(-420), reason: 'distance', value: 38000, status: 'interested', offer: 'บริการรถรับ-ส่งฟรี + ส่วนลด 15%', attempts: 3 },
+    { id: 'WB003', customer: 'พิชัย จากไป', phone: '082-888', lastVisit: wbAddDays(-300), reason: 'price', value: 62000, status: 'target', offer: '', attempts: 0 },
+    { id: 'WB004', customer: 'รัตนา คืนมา', phone: '081-999', lastVisit: wbAddDays(-350), reason: 'unknown', value: 28000, status: 'returned', offer: 'แพ็กเกจเช็คระยะ 50% ครั้งแรก', attempts: 2 },
+    { id: 'WB005', customer: 'สมพงษ์ ลาก่อน', phone: '080-000', lastVisit: wbAddDays(-500), reason: 'sold_car', value: 15000, status: 'lost', offer: 'ส่วนลดรถใหม่ 30,000 บาท', attempts: 4 },
+    { id: 'WB006', customer: 'อัมพร เงียบไป', phone: '089-123', lastVisit: wbAddDays(-310), reason: 'unknown', value: 52000, status: 'target', offer: '', attempts: 0 },
+  ]
+  winbackTargets.forEach(w => { if (!demoCol('winback_targets')[w.id]) demoCol('winback_targets')[w.id] = w })
+
   const tdcAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
   const testDriveCerts = [
     { id:'TDC001', customer:'สมชาย ใจดี',    phone:'081-111-2222', model:'BYD Atto 3',  plate:'กข-1234 (ทดสอบ)', date:tdcAddDays(0),  time:'10:30', km:45.2, staff:'พนักงาน A', fuel:'100%', damage:'ไม่มี', signed:true  },
@@ -2362,8 +2387,9 @@ export function seedDemoData() {
   priceNegotiations.forEach(p => { if (!demoCol('price_negotiations')[p.id]) demoCol('price_negotiations')[p.id] = p })
 
   const voiceNotes = [
-    { id:'vn1', customer:'คุณอนันต์ รักดี', duration:'3:42', date: new Date(Date.now()-86400000*1).toISOString(), summary:'ลูกค้าสนใจ BYD Atto 3 สีฟ้า เงินดาวน์ได้ 30% ผ่อน 60 งวด ต้องการ Test Drive เสาร์นี้', followUps:['นัด Test Drive เสาร์นี้','เตรียมใบเสนอราคา 3 รุ่น'], sentiment:'hot', tags:['test-drive','atto3'], createdAt: new Date(Date.now()-86400000*1).toISOString() },
-    { id:'vn2', customer:'คุณมาลี วงศ์ดี', duration:'1:55', date: new Date(Date.now()-86400000*2).toISOString(), summary:'ลูกค้าโทรถามราคา BYD Dolphin ยังไม่ตัดสินใจ รอคุยกับสามี', followUps:['โทรติดตาม 7 วัน'], sentiment:'warm', tags:['dolphin'], createdAt: new Date(Date.now()-86400000*2).toISOString() },
+    { id: 'VN-001', customer: 'คุณอนันต์ รักดี', duration: '3:42', date: new Date(Date.now()-86400000*1).toISOString(), summary: 'ลูกค้าสนใจ BYD Atto 3 สีฟ้า เงินดาวน์ได้ 30% ผ่อน 60 งวด ต้องการ Test Drive เสาร์นี้', followUps: ['นัด Test Drive เสาร์นี้', 'เตรียมใบเสนอราคา 3 รุ่น'], sentiment: 'hot', tags: ['test-drive','atto3'] },
+    { id: 'VN-002', customer: 'คุณมาลี วงศ์ดี', duration: '1:55', date: new Date(Date.now()-86400000*2).toISOString(), summary: 'ลูกค้าโทรถามราคา BYD Dolphin ยังไม่ได้ตัดสินใจ รอคุยกับสามี บอกจะโทรกลับสัปดาห์หน้า', followUps: ['โทรติดตาม 7 วัน'], sentiment: 'warm', tags: ['dolphin'] },
+    { id: 'VN-003', customer: 'บ.รุ่งเรือง (คุณสมชาย)', duration: '8:10', date: new Date(Date.now()-86400000*3).toISOString(), summary: 'Fleet deal 5 คัน BYD Atto 3 Pro ต้องการราคาพิเศษ ส่งมอบได้ภายใน Q3 เงื่อนไขผ่อนบริษัท ต้องการ quotation ภายใน 2 วัน', followUps: ['ส่ง Fleet Quotation ภายใน 2 วัน', 'ประสาน Finance เรื่องสัญญาลีสซิ่ง'], sentiment: 'hot', tags: ['fleet','atto3-pro'] },
   ]
   voiceNotes.forEach(v => { if (!demoCol('voice_notes')[v.id]) demoCol('voice_notes')[v.id] = v })
 
@@ -2413,10 +2439,13 @@ export function seedDemoData() {
   utmLinks.forEach(u => { if (!demoCol('utm_links')[u.id]) demoCol('utm_links')[u.id] = u })
 
   // Walk-ins (Showroom walk-in traffic log)
+  const wiAddHours = n => { const d = new Date(); d.setHours(d.getHours() - n); return d.toISOString() }
   const walkIns = [
-    { id:'wi1', name:'สมศักดิ์ เที่ยวดี', phone:'0811110001', interestedIn:'BYD Seal', staff:'อรนุช เซลส์ดี', visitTime: new Date(Date.now()-3600000*2).toISOString(), source:'ผ่านมาเอง', notes:'สนใจสีขาว งบ 1.3M', status:'interested' },
-    { id:'wi2', name:'กนกวรรณ สวยงาม', phone:'0822220002', interestedIn:'MG4', staff:'วิชัย ขายเก่ง', visitTime: new Date(Date.now()-86400000).toISOString(), source:'Google Maps', notes:'ดูรุ่นที่ต่ำกว่า 1M', status:'cold' },
-    { id:'wi3', name:'ประยุทธ์ ทำงานดี', phone:'0833330003', interestedIn:'NETA V II', staff:'อรนุช เซลส์ดี', visitTime: new Date(Date.now()-86400000*2).toISOString(), source:'Facebook Ad', notes:'', status:'testdrive' },
+    { id: 'W001', name: 'สมชาย ใจดี', phone: '085-xxx', interestedIn: 'BYD Atto 3', interest: 'hot', staff: 'วิชัย ยอดขาย', outcome: 'test_drive', visitTime: wiAddHours(1), notes: 'มาแล้ว 2 ครั้ง สนใจมาก' },
+    { id: 'W002', name: 'มาลี สุขใจ', phone: '086-xxx', interestedIn: 'BYD Dolphin', interest: 'warm', staff: 'สุดา มาดี', outcome: 'quotation', visitTime: wiAddHours(2), notes: '' },
+    { id: 'W003', name: 'ธนพล เที่ยงตรง', phone: '087-xxx', interestedIn: 'ยังไม่แน่ใจ', interest: 'browse', staff: 'ธนา เก่ง', outcome: 'leave', visitTime: wiAddHours(3), notes: 'สนใจ EV ทั่วไป' },
+    { id: 'W004', name: 'อรทัย ตั้งใจ', phone: '088-xxx', interestedIn: 'MG ZS EV', interest: 'hot', staff: 'วิชัย ยอดขาย', outcome: 'book', visitTime: wiAddHours(4), notes: 'วางมัดจำ 10,000 บาทแล้ว' },
+    { id: 'W005', name: 'ชัยชนะ ดีเสมอ', phone: '089-xxx', interestedIn: 'BYD Seal AWD', interest: 'warm', staff: 'สุดา มาดี', outcome: 'follow_up', visitTime: wiAddHours(6), notes: 'นัดอีกครั้งพรุ่งนี้' },
   ]
   walkIns.forEach(w => { if (!demoCol('walk_ins')[w.id]) demoCol('walk_ins')[w.id] = w })
 

@@ -5,7 +5,7 @@
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -26,48 +26,30 @@ const VISIT_OUTCOMES = {
   leave:      { label: 'กลับโดยไม่ตัดสินใจ', color: 'secondary' },
 }
 
-function addHours(n) { const d = new Date(); d.setHours(d.getHours() - n); return d.toISOString() }
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
-
 const MODELS = ['BYD Dolphin', 'BYD Atto 3', 'BYD Seal AWD', 'MG ZS EV', 'BYD Han', 'ยังไม่แน่ใจ']
-
-const DEMO_WALKINS = [
-  { id: 'W001', name: 'สมชาย ใจดี', phone: '085-xxx', interestedIn: 'BYD Atto 3', interest: 'hot', staff: 'วิชัย ยอดขาย', outcome: 'test_drive', visitTime: addHours(1), notes: 'มาแล้ว 2 ครั้ง สนใจมาก' },
-  { id: 'W002', name: 'มาลี สุขใจ', phone: '086-xxx', interestedIn: 'BYD Dolphin', interest: 'warm', staff: 'สุดา มาดี', outcome: 'quotation', visitTime: addHours(2), notes: '' },
-  { id: 'W003', name: 'ธนพล เที่ยงตรง', phone: '087-xxx', interestedIn: 'ยังไม่แน่ใจ', interest: 'browse', staff: 'ธนา เก่ง', outcome: 'leave', visitTime: addHours(3), notes: 'สนใจ EV ทั่วไป' },
-  { id: 'W004', name: 'อรทัย ตั้งใจ', phone: '088-xxx', interestedIn: 'MG ZS EV', interest: 'hot', staff: 'วิชัย ยอดขาย', outcome: 'book', visitTime: addHours(4), notes: 'วางมัดจำ 10,000 บาทแล้ว' },
-  { id: 'W005', name: 'ชัยชนะ ดีเสมอ', phone: '089-xxx', interestedIn: 'BYD Seal AWD', interest: 'warm', staff: 'สุดา มาดี', outcome: 'follow_up', visitTime: addHours(6), notes: 'นัดอีกครั้งพรุ่งนี้' },
-]
 
 const HOURLY_TRAFFIC = [2, 3, 8, 12, 15, 18, 14, 10, 7, 3] // 9-18
 
 export default async function WalkInPage(container) {
   const myGen = container.__routerGen
-  let walkins = DEMO_WALKINS.map(w => ({ ...w }))
-  let interestFilter = 'all'
-  let dataSource = 'demo'
+  seedDemoData()
 
-  try {
-    const live = await listDocs('walk_ins', [], 'visitTime', 'desc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (live.length >= 2) {
-      const mapped = live.map(w => ({
-        id: w.id || w.docId,
-        name: w.name || w.custName || 'ลูกค้า',
-        phone: w.phone || '',
-        interestedIn: w.interestedIn || w.model || 'ยังไม่แน่ใจ',
-        interest: w.interest || w.interestLevel || 'browse',
-        staff: w.staff || w.salesName || '',
-        outcome: w.outcome || 'leave',
-        visitTime: w.visitTime?.toDate?.()?.toISOString() || w.visitTime || new Date().toISOString(),
-        notes: w.notes || w.note || '',
-      }))
-      walkins = [...mapped, ...DEMO_WALKINS]
-      dataSource = 'live'
-    }
-  } catch {}
+  let walkins = []
+  let interestFilter = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { walkins = await listDocs('walk_ins', [], 'visitTime', 'desc', 200) } catch (e) { walkins = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = walkins.filter(w => interestFilter === 'all' || w.interest === interestFilter)
     const hot = walkins.filter(w => w.interest === 'hot').length
     const booked = walkins.filter(w => w.outcome === 'book').length
@@ -78,7 +60,7 @@ export default async function WalkInPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🚶 Walk-In Traffic</div>
-            <div class="page-subtitle">บันทึกลูกค้าเดินเข้าโชว์รูม — วันนี้${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">บันทึกลูกค้าเดินเข้าโชว์รูม — วันนี้</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="add-walkin-btn">+ บันทึกลูกค้า</button>
@@ -166,25 +148,28 @@ export default async function WalkInPage(container) {
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">หมายเหตุ</label><input class="input" id="wi-notes"></div>
         </div>
       `,
-      onConfirm() {
+      async onConfirm() {
         const name = document.getElementById('wi-name')?.value?.trim()
-        if (!name) { showToast('❗ กรุณากรอกชื่อลูกค้า', 'error'); return }
-        walkins.unshift({
-          id: `W${String(walkins.length+1).padStart(3,'0')}`, name,
-          phone: document.getElementById('wi-phone')?.value||'',
-          interestedIn: document.getElementById('wi-model')?.value||'ยังไม่แน่ใจ',
-          interest: document.getElementById('wi-interest')?.value||'warm',
-          staff: document.getElementById('wi-staff')?.value||'',
-          outcome: document.getElementById('wi-outcome')?.value||'leave',
-          visitTime: new Date().toISOString(),
-          notes: document.getElementById('wi-notes')?.value||''
-        })
-        showToast('✅ บันทึกลูกค้า Walk-In แล้ว!', 'success'); renderPage()
+        if (!name) { showToast('❗ กรุณากรอกชื่อลูกค้า', 'error'); return false }
+        try {
+          await createDoc('walk_ins', {
+            name,
+            phone: document.getElementById('wi-phone')?.value||'',
+            interestedIn: document.getElementById('wi-model')?.value||'ยังไม่แน่ใจ',
+            interest: document.getElementById('wi-interest')?.value||'warm',
+            staff: document.getElementById('wi-staff')?.value||'',
+            outcome: document.getElementById('wi-outcome')?.value||'leave',
+            visitTime: new Date().toISOString(),
+            notes: document.getElementById('wi-notes')?.value||''
+          })
+          showToast('✅ บันทึกลูกค้า Walk-In แล้ว!', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

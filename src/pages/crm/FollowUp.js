@@ -2,7 +2,7 @@ import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -26,58 +26,55 @@ const FU_STATUS = {
 const PURPOSES = ['หลังส่งมอบรถ', 'ตรวจสอบความพึงพอใจ', 'แจ้งบริการถึงกำหนด', 'เสนอต่ออายุประกัน', 'แนะนำรุ่นใหม่', 'กิจกรรม/โปรโมชัน', 'วันเกิด/เทศกาล', 'ทั่วไป']
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
-function subDays(n) { return addDays(-n) }
-
-const DEMO_FOLLOWUPS = [
-  { id: 'FU001', customerId: 'C001', customerName: 'วิชาญ มีโชค', phone: '081-234-5678', vehicleModel: 'BYD Seal AWD', salesperson: 'อรนุช สายใจ', type: 'call', purpose: 'หลังส่งมอบรถ', dueDate: addDays(-1), status: 'pending', note: 'ส่งมอบรถเมื่อ 7 วันก่อน ถามความพอใจ', result: '' },
-  { id: 'FU002', customerId: 'C002', customerName: 'อรนุช สาวสวย', phone: '082-345-6789', vehicleModel: 'MG ZS EV', salesperson: 'วิชาญ มีโชค', type: 'line', purpose: 'แจ้งบริการถึงกำหนด', dueDate: addDays(2), status: 'pending', note: 'ครบ 10,000 กม. ต้องทำ First Service', result: '' },
-  { id: 'FU003', customerId: 'C003', customerName: 'ธีรยุทธ เก่งกาจ', phone: '083-456-7890', vehicleModel: 'Neta V', salesperson: 'วิชาญ มีโชค', type: 'call', purpose: 'เสนอต่ออายุประกัน', dueDate: addDays(5), status: 'pending', note: 'ประกันหมดอีก 30 วัน เสนอแพ็คเกจต่ออายุ', result: '' },
-  { id: 'FU004', customerId: 'C004', customerName: 'สมหญิง รักรถ', phone: '084-567-8901', vehicleModel: 'ORA Good Cat', salesperson: 'อรนุช สายใจ', type: 'call', purpose: 'ตรวจสอบความพึงพอใจ', dueDate: subDays(5), status: 'done', note: '', result: 'ลูกค้าพอใจมาก ให้ระดับ 5/5 บอกต่อให้เพื่อน' },
-  { id: 'FU005', customerId: 'C005', customerName: 'มานะ กล้าหาญ', phone: '085-678-9012', vehicleModel: 'BYD Atto 3', salesperson: 'วิชาญ มีโชค', type: 'sms', purpose: 'วันเกิด/เทศกาล', dueDate: addDays(0), status: 'pending', note: 'วันนี้วันเกิดลูกค้า ส่งของขวัญ', result: '' },
-  { id: 'FU006', customerId: 'C006', customerName: 'สาวิตรี มีเงิน', phone: '086-789-0123', vehicleModel: 'BYD Seal Standard', salesperson: 'อรนุช สายใจ', type: 'visit', purpose: 'แนะนำรุ่นใหม่', dueDate: addDays(10), status: 'pending', note: 'ลูกค้าสนใจ BYD Tang EV รุ่นใหม่', result: '' },
-  { id: 'FU007', customerId: 'C007', customerName: 'ประยุทธ์ มั่นใจ', phone: '087-890-1234', vehicleModel: 'MG ZS EV', salesperson: 'วิชาญ มีโชค', type: 'call', purpose: 'ทั่วไป', dueDate: subDays(10), status: 'skipped', note: '', result: 'โทรไม่ติด 3 ครั้ง' },
-]
 
 const today = new Date().toISOString().slice(0, 10)
 
 export default async function FollowUpPage(container) {
   const myGen = container.__routerGen
+  seedDemoData()
+
   let tab = 'today'
   let typeFilter = 'all'
   let salespersonFilter = 'all'
-  let followups = [...DEMO_FOLLOWUPS]
-  let dataSource = 'demo'
+  let followups = []
+  let salespersons = []
+  let loading = true
 
-  try {
-    const bookings = await listDocs('bookings', [], 'createdAt', 'desc', 200).catch(() => [])
-    if (container.__routerGen !== myGen) return
-
-    const delivered = bookings.filter(b => b.status === 'ส่งมอบแล้ว')
-    if (delivered.length) {
-      const liveFollowups = delivered.map(b => {
-        const deliveryDate = b.actualDeliveryDate
-          || (b.updatedAt?.toDate ? b.updatedAt.toDate().toISOString().slice(0, 10) : null)
-          || today
-        const dueDate = (() => {
-          const d = new Date(deliveryDate); d.setDate(d.getDate() + 7); return d.toISOString().slice(0, 10)
-        })()
-        return {
-          id: 'FU-' + b.id, customerId: b.id,
-          customerName: b.custName || 'ลูกค้า', phone: b.custPhone || '',
-          vehicleModel: ((b.brand || '') + ' ' + (b.model || '')).trim() || 'รถ',
-          salesperson: b.salesName || '', type: 'call',
-          purpose: 'หลังส่งมอบรถ', dueDate,
-          status: 'pending',
-          note: 'ส่งมอบแล้ว ' + (deliveryDate || '') + ' — ตรวจสอบความพึงพอใจ 7 วัน',
-          result: '', _source: 'booking',
-        }
-      })
-      followups = [...liveFollowups, ...DEMO_FOLLOWUPS]
-      dataSource = 'live'
-    }
-  } catch {}
-
-  const salespersons = [...new Set(followups.map(f => f.salesperson).filter(Boolean))]
+  async function loadData() {
+    loading = true
+    try {
+      const stored = await listDocs('followups', [], 'dueDate', 'asc', 300)
+      let virtual = []
+      try {
+        const bookings = await listDocs('bookings', [], 'createdAt', 'desc', 200)
+        const delivered = bookings.filter(b => b.status === 'ส่งมอบแล้ว')
+        virtual = delivered
+          .filter(b => !stored.some(s => s.sourceBookingId === b.id))
+          .map(b => {
+            const deliveryDate = b.actualDeliveryDate
+              || (b.updatedAt?.toDate ? b.updatedAt.toDate().toISOString().slice(0, 10) : null)
+              || today
+            const dueDate = (() => {
+              const d = new Date(deliveryDate); d.setDate(d.getDate() + 7); return d.toISOString().slice(0, 10)
+            })()
+            return {
+              id: 'FU-' + b.id, customerId: b.id, sourceBookingId: b.id,
+              customerName: b.custName || 'ลูกค้า', phone: b.custPhone || '',
+              vehicleModel: ((b.brand || '') + ' ' + (b.model || '')).trim() || 'รถ',
+              salesperson: b.salesName || '', type: 'call',
+              purpose: 'หลังส่งมอบรถ', dueDate,
+              status: 'pending',
+              note: 'ส่งมอบแล้ว ' + (deliveryDate || '') + ' — ตรวจสอบความพึงพอใจ 7 วัน',
+              result: '', _source: 'booking',
+            }
+          })
+      } catch (e) {}
+      followups = [...stored, ...virtual]
+    } catch (e) { followups = [] }
+    salespersons = [...new Set(followups.map(f => f.salesperson).filter(Boolean))]
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function isOverdue(f) { return f.status === 'pending' && f.dueDate < today }
   function isToday(f) { return f.dueDate === today }
@@ -92,6 +89,10 @@ export default async function FollowUpPage(container) {
   }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const overdueList = followups.filter(f => isOverdue(f))
     const todayList = followups.filter(f => isToday(f) && f.status === 'pending')
     const upcomingList = followups.filter(f => isUpcoming(f))
@@ -108,9 +109,7 @@ export default async function FollowUpPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">📞 After-Sales Follow-up</div>
-            <div class="page-subtitle">ติดตามหลังการขาย — รักษาความสัมพันธ์ลูกค้า
-              ${dataSource === 'live' ? '<span style="font-size:0.72rem;color:var(--success);margin-left:8px">● รวมงานจากใบจองจริง</span>' : '<span style="font-size:0.72rem;color:var(--text-muted);margin-left:8px">Demo</span>'}
-            </div>
+            <div class="page-subtitle">ติดตามหลังการขาย — รักษาความสัมพันธ์ลูกค้า</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="export-btn">📥 Export</button>
@@ -161,7 +160,20 @@ export default async function FollowUpPage(container) {
     document.getElementById('add-fu-btn')?.addEventListener('click', () => openFUForm(null))
     document.getElementById('export-btn')?.addEventListener('click', () => { exportToExcel(subset.map(f => ({ ID: f.id, ลูกค้า: f.customerName, รถ: f.vehicleModel, เซลส์: f.salesperson, ประเภท: FOLLOWUP_TYPES[f.type]?.label, วัตถุประสงค์: f.purpose, กำหนด: f.dueDate, สถานะ: FU_STATUS[f.status]?.label, ผลลัพธ์: f.result })), 'followup'); showToast('📥 Export แล้ว!', 'success') })
     document.querySelectorAll('.fu-done-btn').forEach(b => b.addEventListener('click', () => { const f = followups.find(x => x.id === b.dataset.id); if (f) openResultForm(f) }))
-    document.querySelectorAll('.fu-skip-btn').forEach(b => b.addEventListener('click', () => { const f = followups.find(x => x.id === b.dataset.id); if (!f) return; f.status = 'skipped'; showToast('⏭ ข้ามรายการนี้แล้ว', 'warning'); renderPage() }))
+    document.querySelectorAll('.fu-skip-btn').forEach(b => b.addEventListener('click', async () => {
+      const f = followups.find(x => x.id === b.dataset.id)
+      if (!f) return
+      try {
+        if (f._source === 'booking') {
+          const { _source, id, ...rest } = f
+          await createDoc('followups', { ...rest, status: 'skipped' })
+        } else {
+          await updateDocData('followups', f.id, { status: 'skipped' })
+        }
+        showToast('⏭ ข้ามรายการนี้แล้ว', 'warning')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+    }))
     document.querySelectorAll('.fu-detail-btn').forEach(b => b.addEventListener('click', () => { const f = followups.find(x => x.id === b.dataset.id); if (f) openFUDetail(f) }))
   }
 
@@ -219,19 +231,24 @@ export default async function FollowUpPage(container) {
           </select>
         </div>
       </div>`,
-      onConfirm() {
+      async onConfirm() {
         const result = document.getElementById('fu-result')?.value?.trim()
-        if (!result) { showToast('❗ กรุณากรอกผลการติดต่อ', 'error'); return }
-        f.status = 'done'
-        f.result = result
-        // Create next FU if specified
+        if (!result) { showToast('❗ กรุณากรอกผลการติดต่อ', 'error'); return false }
         const nextDate = document.getElementById('fu-next')?.value
         const nextPurpose = document.getElementById('fu-next-purpose')?.value
-        if (nextDate && nextPurpose) {
-          followups.unshift({ id: `FU${String(followups.length+1).padStart(3,'0')}`, customerId: f.customerId, customerName: f.customerName, phone: f.phone, vehicleModel: f.vehicleModel, salesperson: f.salesperson, type: f.type, purpose: nextPurpose, dueDate: nextDate, status: 'pending', note: '', result: '' })
-        }
-        showToast('✅ บันทึกผล Follow-up แล้ว!', 'success')
-        renderPage()
+        try {
+          if (f._source === 'booking') {
+            const { _source, id, ...rest } = f
+            await createDoc('followups', { ...rest, status: 'done', result })
+          } else {
+            await updateDocData('followups', f.id, { status: 'done', result })
+          }
+          if (nextDate && nextPurpose) {
+            await createDoc('followups', { customerId: f.customerId, customerName: f.customerName, phone: f.phone, vehicleModel: f.vehicleModel, salesperson: f.salesperson, type: f.type, purpose: nextPurpose, dueDate: nextDate, status: 'pending', note: '', result: '' })
+          }
+          showToast('✅ บันทึกผล Follow-up แล้ว!', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -273,18 +290,20 @@ export default async function FollowUpPage(container) {
         <div class="input-group"><label class="input-label">กำหนดวันที่</label><input type="date" class="input" id="ff-date" value="${today}"></div>
         <div class="input-group"><label class="input-label">หมายเหตุ</label><textarea class="input" id="ff-note" rows="2"></textarea></div>
       </div>`,
-      onConfirm() {
+      async onConfirm() {
         const name = document.getElementById('ff-name')?.value?.trim()
-        if (!name) { showToast('❗ กรุณากรอกชื่อลูกค้า', 'error'); return }
-        followups.unshift({ id: `FU${String(followups.length+1).padStart(3,'0')}`, customerId: '', customerName: name, phone: document.getElementById('ff-phone')?.value||'', vehicleModel: document.getElementById('ff-car')?.value||'', salesperson: salespersons[0]||'', type: document.getElementById('ff-type')?.value, purpose: document.getElementById('ff-purpose')?.value, dueDate: document.getElementById('ff-date')?.value||today, status: 'pending', note: document.getElementById('ff-note')?.value||'', result: '' })
-        showToast('✅ เพิ่ม Follow-up แล้ว!', 'success')
-        tab = 'today'
-        renderPage()
+        if (!name) { showToast('❗ กรุณากรอกชื่อลูกค้า', 'error'); return false }
+        try {
+          await createDoc('followups', { customerId: '', customerName: name, phone: document.getElementById('ff-phone')?.value||'', vehicleModel: document.getElementById('ff-car')?.value||'', salesperson: salespersons[0]||'', type: document.getElementById('ff-type')?.value, purpose: document.getElementById('ff-purpose')?.value, dueDate: document.getElementById('ff-date')?.value||today, status: 'pending', note: document.getElementById('ff-note')?.value||'', result: '' })
+          showToast('✅ เพิ่ม Follow-up แล้ว!', 'success')
+          tab = 'today'
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(title, value, color) {

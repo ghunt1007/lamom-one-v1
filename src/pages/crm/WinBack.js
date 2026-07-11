@@ -5,7 +5,7 @@
 import { formatCurrency, formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -29,41 +29,45 @@ const CHURN_REASONS = {
   unknown:  'ไม่ทราบสาเหตุ',
 }
 
-const DEMO_TARGETS = [
-  { id: 'WB001', customer: 'ชาตรี เข้มแข็ง', phone: '084-666', lastVisit: addDays(-380), reason: 'service', value: 45000, status: 'contacted', offer: 'ส่วนลดบริการ 20% + ตรวจฟรี 30 รายการ', attempts: 2 },
-  { id: 'WB002', customer: 'นภา ห่างหาย', phone: '083-777', lastVisit: addDays(-420), reason: 'distance', value: 38000, status: 'interested', offer: 'บริการรถรับ-ส่งฟรี + ส่วนลด 15%', attempts: 3 },
-  { id: 'WB003', customer: 'พิชัย จากไป', phone: '082-888', lastVisit: addDays(-300), reason: 'price', value: 62000, status: 'target', offer: '', attempts: 0 },
-  { id: 'WB004', customer: 'รัตนา คืนมา', phone: '081-999', lastVisit: addDays(-350), reason: 'unknown', value: 28000, status: 'returned', offer: 'แพ็กเกจเช็คระยะ 50% ครั้งแรก', attempts: 2 },
-  { id: 'WB005', customer: 'สมพงษ์ ลาก่อน', phone: '080-000', lastVisit: addDays(-500), reason: 'sold_car', value: 15000, status: 'lost', offer: 'ส่วนลดรถใหม่ 30,000 บาท', attempts: 4 },
-  { id: 'WB006', customer: 'อัมพร เงียบไป', phone: '089-123', lastVisit: addDays(-310), reason: 'unknown', value: 52000, status: 'target', offer: '', attempts: 0 },
-]
-
 export default async function WinBackPage(container) {
   const myGen = container.__routerGen
-  let targets = DEMO_TARGETS.map(t => ({ ...t }))
-  let statusFilter = 'all'
-  let dataSource = 'demo'
+  seedDemoData()
 
-  try {
-    const delivered = await listDocs('bookings', [['status','==','ส่งมอบแล้ว']], 'deliveryDate', 'asc', 300).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth() - 10)
-    const inactive = delivered.filter(b => {
-      const d = new Date(b.deliveryDate || b.bookingDate || 0)
-      return d < cutoff
-    })
-    if (inactive.length >= 2) {
-      const live = inactive.map((b, i) => ({
-        id: `WL${i+1}`, customer: b.customerName || b.custName || 'ลูกค้า',
-        phone: b.phone || '', lastVisit: b.deliveryDate || b.bookingDate || '',
-        reason: 'unknown', value: 0, status: 'target', offer: '', attempts: 0,
-      }))
-      targets = [...live, ...DEMO_TARGETS]
-      dataSource = 'live'
-    }
-  } catch {}
+  let targets = []
+  let statusFilter = 'all'
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try {
+      const stored = await listDocs('winback_targets', [], 'lastVisit', 'asc', 300)
+      let virtual = []
+      try {
+        const delivered = await listDocs('bookings', [['status','==','ส่งมอบแล้ว']], 'deliveryDate', 'asc', 300)
+        const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth() - 10)
+        const inactive = delivered.filter(b => {
+          const d = new Date(b.deliveryDate || b.bookingDate || 0)
+          return d < cutoff && !stored.some(s => s.sourceBookingId === b.id)
+        })
+        virtual = inactive.map(b => ({
+          id: `WL-${b.id}`, customerId: b.id, sourceBookingId: b.id,
+          customer: b.customerName || b.custName || 'ลูกค้า',
+          phone: b.phone || '', lastVisit: b.deliveryDate || b.bookingDate || '',
+          reason: 'unknown', value: 0, status: 'target', offer: '', attempts: 0,
+          _source: 'booking',
+        }))
+      } catch (e) {}
+      targets = [...stored, ...virtual]
+    } catch (e) { targets = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     const list = targets.filter(t => statusFilter === 'all' || t.status === statusFilter)
     const returned = targets.filter(t => t.status === 'returned')
     const winRate = Math.round(returned.length / targets.filter(t => ['returned','lost'].includes(t.status)).length * 100) || 0
@@ -75,7 +79,7 @@ export default async function WinBackPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">💝 Win-Back Campaign</div>
-            <div class="page-subtitle">ดึงลูกค้าที่หายไป 10+ เดือนกลับมา${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">ดึงลูกค้าที่หายไป 10+ เดือนกลับมา</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="scan-btn">🔍 สแกนลูกค้าหาย</button>
@@ -152,48 +156,79 @@ export default async function WinBackPage(container) {
           </div>
         </div>`,
         confirmText: '📤 ส่งข้อเสนอ',
-        onConfirm() {
-          t.offer = document.getElementById('wb-offer')?.value || ''
-          t.status = 'contacted'; t.attempts = 1
-          showToast('📤 ส่งข้อเสนอแล้ว', 'success'); renderPage()
+        async onConfirm() {
+          const offer = document.getElementById('wb-offer')?.value || ''
+          try {
+            await persistTarget(t, { offer, status: 'contacted', attempts: 1 })
+            showToast('📤 ส่งข้อเสนอแล้ว', 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     }))
-    container.querySelectorAll('.interest-btn').forEach(b => b.addEventListener('click', () => {
-      const t = targets.find(x => x.id === b.dataset.id); if (t) { t.status = 'interested'; renderPage() }
+    container.querySelectorAll('.interest-btn').forEach(b => b.addEventListener('click', async () => {
+      const t = targets.find(x => x.id === b.dataset.id)
+      if (!t) return
+      try { await persistTarget(t, { status: 'interested' }); await loadData() }
+      catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.retry-btn').forEach(b => b.addEventListener('click', () => {
-      const t = targets.find(x => x.id === b.dataset.id); if (t) { t.attempts++; showToast('📞 บันทึกการติดต่อครั้งที่ ' + t.attempts, 'primary'); renderPage() }
+    container.querySelectorAll('.retry-btn').forEach(b => b.addEventListener('click', async () => {
+      const t = targets.find(x => x.id === b.dataset.id)
+      if (!t) return
+      try {
+        await persistTarget(t, { attempts: t.attempts + 1 })
+        showToast('📞 บันทึกการติดต่อครั้งที่ ' + (t.attempts + 1), 'primary')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.return-btn').forEach(b => b.addEventListener('click', () => {
-      const t = targets.find(x => x.id === b.dataset.id); if (t) { t.status = 'returned'; showToast('🎉 ' + t.customer + ' กลับมาแล้ว!', 'success'); renderPage() }
+    container.querySelectorAll('.return-btn').forEach(b => b.addEventListener('click', async () => {
+      const t = targets.find(x => x.id === b.dataset.id)
+      if (!t) return
+      try {
+        await persistTarget(t, { status: 'returned' })
+        showToast('🎉 ' + t.customer + ' กลับมาแล้ว!', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.lost-btn').forEach(b => b.addEventListener('click', () => {
-      const t = targets.find(x => x.id === b.dataset.id); if (t) { t.status = 'lost'; renderPage() }
+    container.querySelectorAll('.lost-btn').forEach(b => b.addEventListener('click', async () => {
+      const t = targets.find(x => x.id === b.dataset.id)
+      if (!t) return
+      try { await persistTarget(t, { status: 'lost' }); await loadData() }
+      catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    document.getElementById('scan-btn')?.addEventListener('click', () => {
+    document.getElementById('scan-btn')?.addEventListener('click', async () => {
       const unworked = targets.filter(t => t.status === 'target' && t.attempts === 0)
       if (unworked.length > 0) {
         showToast(`🔍 พบ ${unworked.length} ราย ที่ยังไม่ได้ติดต่อ — ดูในรายการเป้าหมาย`, 'warning')
       } else {
-        targets.push({
-          id: 'WB' + Date.now(),
-          customer: 'ประสิทธิ์ หายไป',
-          phone: '088-555-6789',
-          lastVisit: addDays(-365),
-          reason: 'unknown',
-          value: 35000,
-          status: 'target',
-          offer: '',
-          attempts: 0,
-        })
-        showToast('🔍 สแกนเสร็จ — พบลูกค้าหายใหม่ 1 ราย เพิ่มในรายการแล้ว', 'success')
-        renderPage()
+        try {
+          await createDoc('winback_targets', {
+            customer: 'ประสิทธิ์ หายไป',
+            phone: '088-555-6789',
+            lastVisit: addDays(-365),
+            reason: 'unknown',
+            value: 35000,
+            status: 'target',
+            offer: '',
+            attempts: 0,
+          })
+          showToast('🔍 สแกนเสร็จ — พบลูกค้าหายใหม่ 1 ราย เพิ่มในรายการแล้ว', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
 
-  renderPage()
+  async function persistTarget(t, fields) {
+    if (t._source === 'booking') {
+      const { _source, id, ...rest } = t
+      await createDoc('winback_targets', { ...rest, ...fields })
+    } else {
+      await updateDocData('winback_targets', t.id, fields)
+    }
+  }
+
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

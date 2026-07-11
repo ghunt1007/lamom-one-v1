@@ -5,15 +5,9 @@
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { formatDateTime } from '../../utils/format.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
-
-const DEMO_NOTES = [
-  { id: 'VN-001', customer: 'คุณอนันต์ รักดี', duration: '3:42', date: '2026-06-14T10:15:00', summary: 'ลูกค้าสนใจ BYD Atto 3 สีฟ้า เงินดาวน์ได้ 30% ผ่อน 60 งวด ต้องการ Test Drive เสาร์นี้', followUps: ['นัด Test Drive เสาร์ 15 มิ.ย.', 'เตรียมใบเสนอราคา 3 รุ่น'], sentiment: 'hot', tags: ['test-drive','atto3'] },
-  { id: 'VN-002', customer: 'คุณมาลี วงศ์ดี', duration: '1:55', date: '2026-06-13T14:30:00', summary: 'ลูกค้าโทรถามราคา BYD Dolphin ยังไม่ได้ตัดสินใจ รอคุยกับสามี บอกจะโทรกลับสัปดาห์หน้า', followUps: ['โทรติดตาม 20 มิ.ย.'], sentiment: 'warm', tags: ['dolphin'] },
-  { id: 'VN-003', customer: 'บ.รุ่งเรือง (คุณสมชาย)', duration: '8:10', date: '2026-06-12T09:00:00', summary: 'Fleet deal 5 คัน BYD Atto 3 Pro ต้องการราคาพิเศษ ส่งมอบได้ภายใน Q3 เงื่อนไขผ่อนบริษัท ต้องการ quotation ภายใน 2 วัน', followUps: ['ส่ง Fleet Quotation ภายใน 13 มิ.ย.', 'ประสาน Finance เรื่องสัญญาลีสซิ่ง'], sentiment: 'hot', tags: ['fleet','atto3-pro'] },
-]
 
 const SENT = {
   hot:  { label: '🔥 Hot',  color: 'var(--danger)' },
@@ -23,38 +17,32 @@ const SENT = {
 
 export default async function VoiceCrmPage(container) {
   const myGen = container.__routerGen
-  let NOTES = DEMO_NOTES.map(n => ({ ...n, followUps: [...n.followUps], tags: [...n.tags] }))
-  let dataSource = 'demo'
+  seedDemoData()
+
+  let NOTES = []
   let recording = false
   let recSec = 0
   let recTimer = null
+  let loading = true
 
-  try {
-    const docs = await listDocs('voice_notes', [], 'date', 'desc', 100).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `VN-${String(i+1).padStart(3,'0')}`,
-        customer: d.customer || d.customerName || 'ลูกค้า',
-        duration: d.duration || '0:00',
-        date: d.date || d.createdAt || new Date().toISOString(),
-        summary: d.summary || d.text || '',
-        followUps: d.followUps || [],
-        sentiment: d.sentiment || 'warm',
-        tags: d.tags || [],
-      }))
-      NOTES = [...mapped, ...DEMO_NOTES]
-      dataSource = 'live'
-    }
-  } catch {}
+  async function loadData() {
+    loading = true
+    try { NOTES = await listDocs('voice_notes', [], 'date', 'desc', 100) } catch (e) { NOTES = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
 
   function render() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     container.innerHTML = `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
             <div class="page-title">🎙 Voice-to-CRM</div>
-            <div class="page-subtitle">อัดเสียงการคุยกับลูกค้า → AI สรุป + สร้าง Follow-up อัตโนมัติ${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">อัดเสียงการคุยกับลูกค้า → AI สรุป + สร้าง Follow-up อัตโนมัติ</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="rec-btn">${recording ? '⏹ หยุดอัด' : '🎙 อัดเสียงใหม่'}</button>
@@ -117,10 +105,14 @@ export default async function VoiceCrmPage(container) {
         `
       })
     }))
-    container.querySelectorAll('.save-lead-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.save-lead-btn').forEach(b => b.addEventListener('click', async () => {
       const n = NOTES.find(x => x.id === b.dataset.id)
-      if (n) { n.savedToCrm = true; render() }
-      showToast(`💾 บันทึก Follow-up จาก ${b.dataset.id} เข้าระบบ CRM แล้ว`, 'success')
+      if (!n) return
+      try {
+        await updateDocData('voice_notes', n.id, { savedToCrm: true })
+        showToast(`💾 บันทึก Follow-up จาก ${b.dataset.id} เข้าระบบ CRM แล้ว`, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
   }
 
@@ -177,18 +169,19 @@ export default async function VoiceCrmPage(container) {
           </div>
         </div>`,
         confirmText: '✅ บันทึกและวิเคราะห์',
-        onConfirm() {
+        async onConfirm() {
           const cust = document.getElementById('vc-cust').value.trim()
           if (!cust) { showToast('❗ ระบุชื่อลูกค้า', 'error'); return false }
-          NOTES.unshift({
-            id: 'VN-' + String(NOTES.length + 1).padStart(3,'0'),
-            customer: cust, duration: `${Math.floor(recSec/60)}:${String(recSec%60).padStart(2,'0')}`,
-            date: new Date().toISOString(), sentiment: document.getElementById('vc-sent').value,
-            summary: 'AI กำลังประมวลผล... (ผลจะปรากฏใน 30 วินาที)',
-            followUps: ['ติดตาม 24 ชั่วโมง'], tags: ['new']
-          })
-          showToast(`🎙 บันทึกเสียง ${cust} แล้ว · AI กำลังสรุป`, 'success')
-          render()
+          try {
+            await createDoc('voice_notes', {
+              customer: cust, duration: `${Math.floor(recSec/60)}:${String(recSec%60).padStart(2,'0')}`,
+              date: new Date().toISOString(), sentiment: document.getElementById('vc-sent').value,
+              summary: 'AI กำลังประมวลผล... (ผลจะปรากฏใน 30 วินาที)',
+              followUps: ['ติดตาม 24 ชั่วโมง'], tags: ['new']
+            })
+            showToast(`🎙 บันทึกเสียง ${cust} แล้ว · AI กำลังสรุป`, 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     }
@@ -217,24 +210,25 @@ export default async function VoiceCrmPage(container) {
         </div>
       `,
       confirmText: '🤖 วิเคราะห์ด้วย AI',
-      onConfirm() {
+      async onConfirm() {
         const cust = document.getElementById('vc-imp-cust')?.value?.trim()
         const sent = document.getElementById('vc-imp-sent')?.value || 'warm'
         const file = document.getElementById('vc-file')?.files?.[0]
         if (!cust) { showToast('ระบุชื่อลูกค้า', 'warning'); return false }
         const dur = file ? `${Math.floor(Math.random()*8+1)}:${String(Math.floor(Math.random()*60)).padStart(2,'0')}` : '2:30'
-        NOTES.unshift({
-          id: `VN-${String(NOTES.length+1).padStart(3,'0')}`,
-          customer: cust,
-          duration: dur,
-          date: new Date().toISOString(),
-          summary: `AI กำลังประมวลผล${file ? ` "${file.name}"` : ''} — สรุปจะแสดงใน 2-3 นาที`,
-          followUps: ['ติดตามผลการวิเคราะห์เสียง'],
-          sentiment: sent,
-          tags: [],
-        })
-        render()
-        showToast(`🤖 AI กำลังวิเคราะห์เสียง${file ? ` "${file.name}"` : ''} ของ ${cust} — ใช้เวลา ~2 นาที`, 'success')
+        try {
+          await createDoc('voice_notes', {
+            customer: cust,
+            duration: dur,
+            date: new Date().toISOString(),
+            summary: `AI กำลังประมวลผล${file ? ` "${file.name}"` : ''} — สรุปจะแสดงใน 2-3 นาที`,
+            followUps: ['ติดตามผลการวิเคราะห์เสียง'],
+            sentiment: sent,
+            tags: [],
+          })
+          showToast(`🤖 AI กำลังวิเคราะห์เสียง${file ? ` "${file.name}"` : ''} ของ ${cust} — ใช้เวลา ~2 นาที`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -243,5 +237,5 @@ export default async function VoiceCrmPage(container) {
     return `<div class="card" style="padding:14px 16px"><div style="font-size:0.72rem;color:var(--text-muted)">${l}</div><div style="font-size:1.5rem;font-weight:900;color:${c};margin-top:2px">${v}</div></div>`
   }
 
-  render()
+  await loadData()
 }
