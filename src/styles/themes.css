@@ -182,3 +182,31 @@
   --text-muted:  #7E57C2;
   --border-subtle:#230060;
 }
+
+/* ── Sci-Fi HUD ─────────────────────────────────── */
+[data-theme="scifi"] {
+  --bg:          #050810;
+  --surface:     rgba(13,20,33,0.72);
+  --surface-2:   rgba(19,28,46,0.8);
+  --surface-3:   rgba(26,38,61,0.85);
+  --border:      rgba(0,229,255,0.25);
+  --border-light:rgba(0,229,255,0.5);
+  --primary:     #00E5FF;
+  --primary-dim: rgba(0,229,255,0.14);
+  --primary-glow:rgba(0,229,255,0.55);
+  --accent:      #FFA028;
+  --accent-dim:  rgba(255,160,40,0.14);
+  --success:     #39FF9E;
+  --success-dim: rgba(57,255,158,0.14);
+  --warning:     #FFC93C;
+  --warning-dim: rgba(255,201,60,0.14);
+  --danger:      #FF3860;
+  --danger-dim:  rgba(255,56,96,0.14);
+  --info:        #7B61FF;
+  --info-dim:    rgba(123,97,255,0.14);
+  --text:        #E8FBFF;
+  --text-2:      #A8D8E8;
+  --text-3:      #6E92A8;
+  --text-muted:  #4A6478;
+  --border-subtle:rgba(0,229,255,0.12);
+}

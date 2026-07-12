@@ -125,6 +125,7 @@ function openThemePicker() {
     { id: 'forest',   label: 'Forest',   color: '#4CAF50', icon: '🌿' },
     { id: 'fire',     label: 'Fire',     color: '#FF6D00', icon: '🔥' },
     { id: 'galaxy',   label: 'Galaxy',   color: '#AA00FF', icon: '🌌' },
+    { id: 'scifi',    label: 'Sci-Fi HUD', color: '#00E5FF', icon: '🛸' },
   ]
 
   const existing = document.getElementById('theme-picker')

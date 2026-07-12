@@ -18,6 +18,19 @@ function shiftMonth(ym, delta) {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
 }
 
+// พยากรณ์เชิงเส้น (least squares) k ก้าวข้างหน้า
+function linForecast(series, k) {
+  const n = series.length
+  if (n < 2) return Array(k).fill(series[0] || 0)
+  const mx = (n - 1) / 2
+  const my = series.reduce((a, b) => a + b, 0) / n
+  let num = 0, den = 0
+  series.forEach((y, x) => { num += (x - mx) * (y - my); den += (x - mx) ** 2 })
+  const slope = den ? num / den : 0
+  const intercept = my - slope * mx
+  return Array.from({ length: k }, (_, j) => Math.max(0, slope * (n + j) + intercept))
+}
+
 const BOOKING_STATUS_META = {
   'ส่งมอบแล้ว':          { label: 'ส่งมอบแล้ว', icon: '✅', color: 'success' },
   'รอส่งมอบ':            { label: 'รอส่งมอบ', icon: '📦', color: 'warning' },
@@ -120,6 +133,22 @@ export default async function DashboardPage(container) {
         </div>
       </div>
 
+      <!-- Command HUD strip -->
+      <style>
+        @keyframes dashRadarSpin { to { transform: rotate(360deg); } }
+        @keyframes dashBlip { 0%,100% { opacity: 0.15; } 50% { opacity: 1; } }
+        @keyframes dashPulseDot { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+      </style>
+      <div class="card" style="padding:10px 16px;margin-bottom:16px;display:flex;align-items:center;gap:18px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:7px">
+          <span style="width:8px;height:8px;border-radius:50%;background:var(--success);box-shadow:0 0 10px var(--success);animation:dashPulseDot 2s infinite;flex-shrink:0"></span>
+          <span style="font-size:0.7rem;letter-spacing:0.14em;color:var(--success);font-weight:700;font-family:'Share Tech Mono',monospace">SYSTEM ONLINE</span>
+        </div>
+        <div id="hud-clock" style="font-size:0.76rem;color:var(--primary);letter-spacing:0.1em;font-family:'Share Tech Mono',monospace;font-weight:700">--:--:--</div>
+        <div style="flex:1"></div>
+        <div id="hud-readouts" style="display:flex;gap:16px;font-family:'Share Tech Mono',monospace;font-size:0.7rem;letter-spacing:0.08em;color:var(--text-3);flex-wrap:wrap"></div>
+      </div>
+
       <!-- LAMI Message -->
       <div style="display:flex;align-items:flex-start;gap:12px;background:var(--primary-dim);border:1px solid var(--primary);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:20px">
         <span style="font-size:1.5rem;flex-shrink:0">🤖</span>
@@ -128,6 +157,31 @@ export default async function DashboardPage(container) {
           <div style="font-size:0.875rem;color:var(--text-2)">${tip}</div>
         </div>
         <button class="btn btn-ghost btn-sm" style="margin-left:auto;flex-shrink:0" data-nav="/ai/personal">คุยกับ LAMI →</button>
+      </div>
+
+      <!-- Operations radar + ring gauges -->
+      <div class="card mb-4" style="padding:16px">
+        <div style="font-weight:700;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+          <span>🛰 Operations Radar — ภาพรวมปฏิบัติการ</span>
+          <span id="radar-month" style="font-size:0.72rem;color:var(--primary);font-family:'Share Tech Mono',monospace;letter-spacing:0.08em"></span>
+        </div>
+        <div style="display:grid;grid-template-columns:230px 1fr;gap:20px;align-items:center">
+          <div id="radar-scope"></div>
+          <div id="ring-gauges" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px">
+            ${[1,2,3,4].map(() => `<div class="skeleton" style="height:140px;border-radius:var(--radius-md)"></div>`).join('')}
+          </div>
+        </div>
+      </div>
+
+      <!-- MoM comparison -->
+      <div class="card mb-4" style="padding:16px" id="mom-card">
+        <div style="font-weight:700;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+          <span>📡 เปรียบเทียบ เดือนที่เลือก vs เดือนก่อนหน้า</span>
+          <span id="mom-label" style="font-size:0.72rem;color:var(--primary);font-family:'Share Tech Mono',monospace;letter-spacing:0.06em"></span>
+        </div>
+        <div id="mom-strip" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
+          ${[1,2,3,4].map(() => `<div class="skeleton" style="height:86px;border-radius:var(--radius-md)"></div>`).join('')}
+        </div>
       </div>
 
       <!-- Sales/Booking Pipeline Detail -->
@@ -212,15 +266,55 @@ export default async function DashboardPage(container) {
         </div>
       </div>
 
-      <!-- Booking trend (real data, stacked by status) -->
-      <div class="card" style="padding:20px" id="monthly-chart-card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-          <div style="font-weight:700" id="monthly-chart-title">📊 แนวโน้มยอดจอง 6 เดือนล่าสุด</div>
-          <button class="btn btn-secondary btn-sm" data-nav="/analytics">ดู Analytics →</button>
+      <!-- Charts row: trend combo (past+forecast) + status donut -->
+      <div style="display:grid;grid-template-columns:1fr 320px;gap:16px">
+        <div class="card" style="padding:20px" id="monthly-chart-card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px">
+            <div style="font-weight:700" id="monthly-chart-title">📊 อดีต → ปัจจุบัน → อนาคต: ยอดจอง & มูลค่า</div>
+            <div style="display:flex;gap:4px">
+              <button class="btn btn-sm btn-primary" id="trend-6">6 เดือน</button>
+              <button class="btn btn-sm btn-secondary" id="trend-12">12 เดือน</button>
+              <button class="btn btn-secondary btn-sm" data-nav="/analytics">Analytics →</button>
+            </div>
+          </div>
+          <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:12px">แท่ง: 🟢 ส่งมอบ · 🟡 ดำเนินการ · 🔴 ถอนจอง — เส้นเรืองแสง = มูลค่า · เส้นประม่วง = พยากรณ์ 3 เดือนข้างหน้า (คลิกแท่งเพื่อเลือกเดือน)</div>
+          <div id="monthly-chart">
+            <div class="skeleton" style="width:100%;height:180px;border-radius:var(--radius-md)"></div>
+          </div>
         </div>
-        <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:12px">แท่งสีเขียว = ส่งมอบแล้ว · แท่งสีเหลือง/ส้ม = อยู่ระหว่างดำเนินการ · แท่งสีแดง = ถอนจอง</div>
-        <div id="monthly-chart" style="display:flex;align-items:flex-end;gap:10px;height:140px;border-bottom:1px solid var(--border);padding-bottom:8px">
-          ${[1,2,3,4,5,6].map(() => `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px"><div class="skeleton" style="width:100%;height:80px"></div></div>`).join('')}
+        <div class="card" style="padding:20px">
+          <div style="font-weight:700;margin-bottom:12px">🎯 สัดส่วนสถานะ — <span id="donut-month-label" style="color:var(--primary)">...</span></div>
+          <div id="status-donut">
+            <div class="skeleton" style="width:100%;height:160px;border-radius:var(--radius-md)"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Analysis row: forecast + rankings -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:16px">
+        <div class="card" style="padding:16px">
+          <div style="font-weight:700;margin-bottom:10px">🔮 พยากรณ์อนาคต</div>
+          <div id="forecast-body"><div class="skeleton" style="height:150px;border-radius:var(--radius-md)"></div></div>
+        </div>
+        <div class="card" style="padding:16px">
+          <div style="font-weight:700;margin-bottom:10px">🏆 รุ่นขายดี — <span class="fc-month" style="color:var(--primary);font-size:0.8rem"></span></div>
+          <div id="top-models"><div class="skeleton" style="height:150px;border-radius:var(--radius-md)"></div></div>
+        </div>
+        <div class="card" style="padding:16px">
+          <div style="font-weight:700;margin-bottom:10px">🥇 สุดยอดเซลส์ — <span class="fc-month" style="color:var(--primary);font-size:0.8rem"></span></div>
+          <div id="top-sales"><div class="skeleton" style="height:150px;border-radius:var(--radius-md)"></div></div>
+        </div>
+      </div>
+
+      <!-- Funnel + source row -->
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-top:16px">
+        <div class="card" style="padding:16px">
+          <div style="font-weight:700;margin-bottom:12px">📶 Conversion Funnel — <span class="fc-month" style="color:var(--primary);font-size:0.8rem"></span></div>
+          <div id="funnel-body"><div class="skeleton" style="height:120px;border-radius:var(--radius-md)"></div></div>
+        </div>
+        <div class="card" style="padding:16px">
+          <div style="font-weight:700;margin-bottom:12px">🧲 แหล่งที่มาใบจอง</div>
+          <div id="source-body"><div class="skeleton" style="height:120px;border-radius:var(--radius-md)"></div></div>
         </div>
       </div>
     </div>
@@ -232,19 +326,47 @@ export default async function DashboardPage(container) {
     if (el) navigate(el.dataset.nav)
   })
 
+  // ── HUD: นาฬิกาเดินจริง (เคลียร์ตัวเองเมื่อออกจากหน้า) ──
+  const clockEl = document.getElementById('hud-clock')
+  const clockTimer = setInterval(() => {
+    if (!clockEl || !clockEl.isConnected) { clearInterval(clockTimer); return }
+    const d = new Date()
+    clockEl.textContent = `${d.toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' })} · ${d.toLocaleTimeString('th-TH', { hour12: false })} · GMT+7`
+  }, 1000)
+
+  // ── Radar scope (แอนิเมชันกวาดหมุน + จุดเป้าหมาย) ──
+  const radarEl = document.getElementById('radar-scope')
+  if (radarEl) {
+    const blips = [[62,-30],[20,45],[-55,12],[-25,-58],[46,55],[-72,-38],[8,-72]]
+    radarEl.innerHTML = `
+      <svg viewBox="0 0 220 220" style="width:100%;max-width:220px;display:block;margin:auto">
+        ${[100,75,50,25].map(r => `<circle cx="110" cy="110" r="${r}" fill="none" stroke="var(--primary)" stroke-opacity="${r === 100 ? 0.5 : 0.22}" stroke-width="1"/>`).join('')}
+        <line x1="10" y1="110" x2="210" y2="110" stroke="var(--primary)" stroke-opacity="0.18"/>
+        <line x1="110" y1="10" x2="110" y2="210" stroke="var(--primary)" stroke-opacity="0.18"/>
+        <circle cx="110" cy="110" r="3" fill="var(--primary)" style="filter:drop-shadow(0 0 4px var(--primary-glow))"/>
+        <g style="transform-origin:110px 110px;animation:dashRadarSpin 4s linear infinite">
+          <path d="M110,110 L110,10 A100,100 0 0,1 178,37 Z" fill="var(--primary)" opacity="0.16"/>
+          <line x1="110" y1="110" x2="110" y2="10" stroke="var(--primary)" stroke-width="1.5" style="filter:drop-shadow(0 0 5px var(--primary-glow))"/>
+        </g>
+        ${blips.map(([dx, dy], i) => `<circle cx="${110 + dx}" cy="${110 + dy}" r="3" fill="var(--accent)" style="animation:dashBlip ${(1.6 + i * 0.4).toFixed(1)}s ease-in-out infinite;filter:drop-shadow(0 0 5px var(--accent))"/>`).join('')}
+      </svg>`
+  }
+
   // Load async data
   seedDemoData()
   let selectedMonth = new Date().toISOString().slice(0, 7)
+  let trendRange = 6
   try {
     const today = new Date().toISOString().slice(0, 10)
     const thisMonth = new Date().toISOString().slice(0, 7)
-    const [customers, tasks, sales, jobs, bookings, pdi] = await Promise.all([
+    const [customers, tasks, sales, jobs, bookings, pdi, leads] = await Promise.all([
       listDocs('customers', [], 'createdAt', 'desc', 5).catch(() => []),
       listDocs('tasks', [], 'createdAt', 'desc', 100).catch(() => []),
       getSalesData().catch(() => []),
       listDocs('job_cards', [], 'createdAt', 'desc', 500).catch(() => []),
       listDocs('bookings', [], 'createdAt', 'desc', 500).catch(() => []),
       listDocs('pdi', [], 'createdAt', 'desc', 50).catch(() => []),
+      listDocs('leads', [], 'createdAt', 'desc', 500).catch(() => []),
     ])
     if (container.__routerGen !== myGen) return
 
@@ -322,53 +444,393 @@ export default async function DashboardPage(container) {
       </div>`
     }
 
-    // ── กราฟแนวโน้ม 6 เดือนล่าสุด (stacked แบบง่าย: ส่งมอบแล้ว / กำลังดำเนินการ / ถอนจอง) ──
+    // สีสถานะ → CSS variable (secondary ไม่มี var จริง ใช้ text-muted แทน)
+    const colorVar = c => c === 'secondary' ? 'var(--text-muted)' : `var(--${c})`
+
+    // ── กราฟ combo SVG: อดีต (แท่ง stacked + เส้นมูลค่า) + อนาคต (พยากรณ์ 3 เดือน เส้นประ) ──
     function renderTrendChart() {
       const chartEl = document.getElementById('monthly-chart')
       if (!chartEl) return
+      const b6 = document.getElementById('trend-6'), b12 = document.getElementById('trend-12')
+      if (b6) b6.className = 'btn btn-sm ' + (trendRange === 6 ? 'btn-primary' : 'btn-secondary')
+      if (b12) b12.className = 'btn btn-sm ' + (trendRange === 12 ? 'btn-primary' : 'btn-secondary')
+
       const months = []
-      let ym = selectedMonth
-      for (let i = 5; i >= 0; i--) months.push(shiftMonth(selectedMonth, -i))
-      const maxTotal = Math.max(...months.map(m => bookings.filter(b => (b.bookingDate || '').startsWith(m)).length), 1)
-      chartEl.innerHTML = months.map(m => {
+      for (let i = trendRange - 1; i >= 0; i--) months.push(shiftMonth(selectedMonth, -i))
+      const data = months.map(m => {
         const inM = bookings.filter(b => (b.bookingDate || '').startsWith(m))
         const delivered = inM.filter(b => b.status === 'ส่งมอบแล้ว').length
         const withdrawn = inM.filter(b => b.status === 'ถอนจอง').length
-        const inProgress = inM.length - delivered - withdrawn
-        const total = inM.length
-        const h = Math.max(6, Math.round(total / maxTotal * 110))
-        const isSelected = m === selectedMonth
-        const dH = total ? Math.round(h * delivered / total) : 0
-        const wH = total ? Math.round(h * withdrawn / total) : 0
-        const pH = Math.max(0, h - dH - wH)
-        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer" data-month="${m}">
-          <div style="font-size:0.62rem;color:var(--text-muted)">${total || ''}</div>
-          <div style="width:100%;display:flex;flex-direction:column-reverse;border-radius:3px 3px 0 0;overflow:hidden;${isSelected ? 'box-shadow:0 0 0 2px var(--primary)' : ''}">
-            <div style="width:100%;height:${dH}px;background:var(--success)"></div>
-            <div style="width:100%;height:${pH}px;background:var(--warning)"></div>
-            <div style="width:100%;height:${wH}px;background:var(--danger)"></div>
-          </div>
-          <div style="font-size:0.64rem;color:${isSelected ? 'var(--primary)' : 'var(--text-muted)'};font-weight:${isSelected ? '700' : '400'}">${ymLabel(m).split(' ')[0]}</div>
-        </div>`
-      }).join('')
+        return { m, total: inM.length, delivered, withdrawn,
+                 revenue: inM.reduce((s, b) => s + (b.price || 0), 0) }
+      })
+      const FC = 3
+      const fCounts = linForecast(data.map(d => d.total), FC)
+      const fRevs = linForecast(data.map(d => d.revenue), FC)
+      const fMonths = [...Array(FC)].map((_, j) => shiftMonth(selectedMonth, j + 1))
+      const nGroups = trendRange + FC
+      const maxTotal = Math.max(...data.map(d => d.total), ...fCounts, 1)
+      const maxRev = Math.max(...data.map(d => d.revenue), ...fRevs, 1)
+
+      const W = 760, H = 210, padL = 10, padR = 10, padT = 26, padB = 28
+      const plotW = W - padL - padR, plotH = H - padT - padB
+      const groupW = plotW / nGroups
+      const barW = Math.min(trendRange === 6 ? 44 : 30, groupW * 0.55)
+      const yBase = padT + plotH
+
+      let bars = '', labels = '', dots = ''
+      const linePts = []
+      data.forEach((d, i) => {
+        const cx = padL + groupW * i + groupW / 2
+        const x = cx - barW / 2
+        const hTotal = d.total ? Math.max(6, Math.round(d.total / maxTotal * plotH)) : 0
+        const dH = d.total ? Math.round(hTotal * d.delivered / d.total) : 0
+        const wH = d.total ? Math.round(hTotal * d.withdrawn / d.total) : 0
+        const pH = Math.max(0, hTotal - dH - wH)
+        const sel = d.m === selectedMonth
+        bars += `<g data-month="${d.m}" style="cursor:pointer">
+          <rect x="${cx - groupW / 2}" y="${padT - 6}" width="${groupW}" height="${plotH + 6}" fill="transparent"/>
+          <rect x="${x}" y="${yBase - dH}" width="${barW}" height="${dH}" fill="var(--success)" opacity="0.9"/>
+          <rect x="${x}" y="${yBase - dH - pH}" width="${barW}" height="${pH}" fill="var(--warning)" opacity="0.85"/>
+          <rect x="${x}" y="${yBase - hTotal}" width="${barW}" height="${wH}" fill="var(--danger)" opacity="0.85"/>
+          ${sel ? `<rect x="${x - 4}" y="${yBase - hTotal - 5}" width="${barW + 8}" height="${hTotal + 5}" fill="none" stroke="var(--primary)" stroke-width="1.5" rx="4" style="filter:drop-shadow(0 0 4px var(--primary-glow))"/>` : ''}
+          ${d.total ? `<text x="${cx}" y="${yBase - hTotal - 10}" text-anchor="middle" font-size="10" font-weight="700" fill="var(--text-3)">${d.total}</text>` : ''}
+        </g>`
+        labels += `<text x="${cx}" y="${H - 8}" text-anchor="middle" font-size="9.5" fill="${sel ? 'var(--primary)' : 'var(--text-muted)'}" font-weight="${sel ? '700' : '400'}">${ymLabel(d.m).split(' ')[0]}</text>`
+        const ly = yBase - Math.round(d.revenue / maxRev * plotH * 0.88)
+        linePts.push([cx, ly])
+        dots += `<circle cx="${cx}" cy="${ly}" r="3.5" fill="var(--bg)" stroke="var(--primary)" stroke-width="2" style="filter:drop-shadow(0 0 4px var(--primary-glow))"/>`
+      })
+
+      // ส่วนพยากรณ์ (เส้นประ + แท่งโปร่ง สีม่วง info)
+      const xDiv = padL + groupW * trendRange
+      let fBars = '', fDots = ''
+      const fPts = [linePts[linePts.length - 1]]
+      fMonths.forEach((m, j) => {
+        const cx = padL + groupW * (trendRange + j) + groupW / 2
+        const x = cx - barW / 2
+        const cnt = fCounts[j]
+        const hTotal = cnt ? Math.max(4, Math.round(cnt / maxTotal * plotH)) : 0
+        fBars += `<rect x="${x}" y="${yBase - hTotal}" width="${barW}" height="${hTotal}" fill="var(--info)" opacity="0.10" stroke="var(--info)" stroke-width="1.2" stroke-dasharray="4 3" rx="2"/>
+          <text x="${cx}" y="${yBase - hTotal - 8}" text-anchor="middle" font-size="10" font-weight="700" fill="var(--info)">~${Math.round(cnt)}</text>`
+        labels += `<text x="${cx}" y="${H - 8}" text-anchor="middle" font-size="9.5" fill="var(--info)" font-style="italic">${ymLabel(m).split(' ')[0]}</text>`
+        const ly = yBase - Math.round(fRevs[j] / maxRev * plotH * 0.88)
+        fPts.push([cx, ly])
+        fDots += `<circle cx="${cx}" cy="${ly}" r="3" fill="var(--bg)" stroke="var(--info)" stroke-width="1.8" stroke-dasharray="2 2"/>`
+      })
+      const lineStr = linePts.map(p => p.join(',')).join(' ')
+      const fLineStr = fPts.map(p => p.join(',')).join(' ')
+      const areaStr = `${linePts[0][0]},${yBase} ${lineStr} ${linePts[linePts.length - 1][0]},${yBase}`
+
+      chartEl.innerHTML = `
+        <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
+          <defs>
+            <linearGradient id="dash-rev-grad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="var(--primary)" stop-opacity="0.22"/>
+              <stop offset="100%" stop-color="var(--primary)" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          ${[0.25, 0.5, 0.75].map(f => `<line x1="${padL}" y1="${padT + plotH * f}" x2="${W - padR}" y2="${padT + plotH * f}" stroke="var(--border)" stroke-width="0.6" stroke-dasharray="4 6" opacity="0.6"/>`).join('')}
+          <line x1="${padL}" y1="${yBase}" x2="${W - padR}" y2="${yBase}" stroke="var(--border)" stroke-width="1"/>
+          <line x1="${xDiv}" y1="${padT - 4}" x2="${xDiv}" y2="${yBase}" stroke="var(--info)" stroke-width="1" stroke-dasharray="5 4" opacity="0.7"/>
+          <text x="${xDiv + 5}" y="${padT + 4}" font-size="9" fill="var(--info)" font-family="monospace" letter-spacing="1">FORECAST →</text>
+          <polygon points="${areaStr}" fill="url(#dash-rev-grad)"/>
+          ${bars}
+          ${fBars}
+          <polyline points="${lineStr}" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linejoin="round" style="filter:drop-shadow(0 0 6px var(--primary-glow))"/>
+          <polyline points="${fLineStr}" fill="none" stroke="var(--info)" stroke-width="1.8" stroke-dasharray="6 4" stroke-linejoin="round" style="filter:drop-shadow(0 0 4px var(--info-dim))"/>
+          ${dots}
+          ${fDots}
+          ${labels}
+        </svg>`
       chartEl.querySelectorAll('[data-month]').forEach(el => el.addEventListener('click', () => {
         selectedMonth = el.dataset.month
-        renderPipeline(); renderDeptDetail(); renderTrendChart()
+        renderAll()
       }))
+    }
+
+    // ── กราฟโดนัท: สัดส่วนสถานะใบจองของเดือนที่เลือก ──
+    function renderDonut() {
+      const el = document.getElementById('status-donut')
+      if (!el) return
+      const mLabel = document.getElementById('donut-month-label')
+      if (mLabel) mLabel.textContent = ymLabel(selectedMonth)
+      const inMonth = bookings.filter(b => (b.bookingDate || '').startsWith(selectedMonth))
+      const byStatus = {}
+      inMonth.forEach(b => { byStatus[b.status] = (byStatus[b.status] || 0) + 1 })
+      const entries = Object.entries(BOOKING_STATUS_META)
+        .filter(([k]) => byStatus[k])
+        .map(([k, v]) => ({ ...v, count: byStatus[k] }))
+      const total = inMonth.length
+      if (!total) {
+        el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:160px;font-size:0.8rem;color:var(--text-muted)">ไม่มีใบจองเดือนนี้</div>`
+        return
+      }
+      const R = 54, CIRC = 2 * Math.PI * R
+      let acc = 0
+      const segs = entries.map(e => {
+        const frac = e.count / total
+        const seg = `<circle cx="80" cy="80" r="${R}" fill="none" stroke="${colorVar(e.color)}" stroke-width="16"
+          stroke-dasharray="${Math.max(0.5, frac * CIRC - 1.5).toFixed(1)} ${CIRC.toFixed(1)}"
+          stroke-dashoffset="${(-acc * CIRC).toFixed(1)}" transform="rotate(-90 80 80)" opacity="0.92"
+          style="filter:drop-shadow(0 0 3px ${colorVar(e.color)})"/>`
+        acc += frac
+        return seg
+      }).join('')
+      el.innerHTML = `
+        <div style="display:flex;flex-direction:column;align-items:center;gap:12px">
+          <svg viewBox="0 0 160 160" style="width:150px;height:150px">
+            <circle cx="80" cy="80" r="${R}" fill="none" stroke="var(--surface-3)" stroke-width="16"/>
+            ${segs}
+            <text x="80" y="77" text-anchor="middle" font-size="26" font-weight="800" fill="var(--text)">${total}</text>
+            <text x="80" y="97" text-anchor="middle" font-size="10" fill="var(--text-muted)">ใบจอง</text>
+          </svg>
+          <div style="display:flex;flex-direction:column;gap:5px;width:100%">
+            ${entries.map(e => `
+              <div style="display:flex;align-items:center;gap:6px;font-size:0.73rem">
+                <span style="width:9px;height:9px;border-radius:2px;background:${colorVar(e.color)};flex-shrink:0;box-shadow:0 0 5px ${colorVar(e.color)}"></span>
+                <span style="flex:1;color:var(--text-2)">${e.icon} ${e.label}</span>
+                <b style="color:${colorVar(e.color)}">${e.count}</b>
+              </div>`).join('')}
+          </div>
+        </div>`
+    }
+
+    // ── HUD readouts (ตัวเลขรวมทั้งระบบ) ──
+    const readEl = document.getElementById('hud-readouts')
+    if (readEl) {
+      readEl.innerHTML = `
+        <span>BOOKINGS <b style="color:var(--primary)">${bookings.length}</b></span>
+        <span>JOBS <b style="color:var(--warning)">${jobs.length}</b></span>
+        <span>CUSTOMERS <b style="color:var(--accent)">${customers.length}+</b></span>
+        <span>TASKS <b style="color:var(--success)">${tasks.length}</b></span>`
+    }
+
+    // ── Ring gauges: อัตราความสำเร็จของเดือนที่เลือก ──
+    function ringGauge(label, pct, color, sub) {
+      const R = 40, C = 2 * Math.PI * R
+      const p = Math.max(0, Math.min(100, pct || 0))
+      return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+        <svg viewBox="0 0 100 100" style="width:94px;height:94px">
+          <circle cx="50" cy="50" r="${R}" fill="none" stroke="var(--surface-3)" stroke-width="8"/>
+          <circle cx="50" cy="50" r="${R}" fill="none" stroke="var(--${color})" stroke-width="8" stroke-linecap="round"
+            stroke-dasharray="${(p / 100 * C).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 50 50)"
+            style="filter:drop-shadow(0 0 5px var(--${color}))"/>
+          <text x="50" y="55" text-anchor="middle" font-size="19" font-weight="800" fill="var(--${color})">${Math.round(p)}%</text>
+        </svg>
+        <div style="font-size:0.72rem;font-weight:700;color:var(--text-2);text-align:center">${label}</div>
+        <div style="font-size:0.64rem;color:var(--text-muted);text-align:center;font-family:'Share Tech Mono',monospace">${sub}</div>
+      </div>`
+    }
+
+    function renderGauges() {
+      const el = document.getElementById('ring-gauges')
+      if (!el) return
+      const mEl = document.getElementById('radar-month')
+      if (mEl) mEl.textContent = ymLabel(selectedMonth).toUpperCase()
+      const inMonth = bookings.filter(b => (b.bookingDate || '').startsWith(selectedMonth))
+      const delivered = inMonth.filter(b => b.status === 'ส่งมอบแล้ว').length
+      const withFin = inMonth.filter(b => b.finStatus)
+      const finPassed = withFin.filter(b => b.finStatus === 'ผ่าน').length
+      const jobsInMonth = jobs.filter(j => (j.createdAt || '').startsWith(selectedMonth))
+      const jobsDone = jobsInMonth.filter(j => ['done', 'completed', 'delivered'].includes(j.status)).length
+      const tasksDone = tasks.filter(t => t.status === 'done').length
+      el.innerHTML =
+        ringGauge('ส่งมอบสำเร็จ', inMonth.length ? delivered / inMonth.length * 100 : 0, 'success', `${delivered}/${inMonth.length} ใบจอง`) +
+        ringGauge('ไฟแนนซ์ผ่าน', withFin.length ? finPassed / withFin.length * 100 : 0, 'primary', `${finPassed}/${withFin.length} เคส`) +
+        ringGauge('งานซ่อมเสร็จ', jobsInMonth.length ? jobsDone / jobsInMonth.length * 100 : 0, 'warning', `${jobsDone}/${jobsInMonth.length} งาน`) +
+        ringGauge('Tasks เสร็จ', tasks.length ? tasksDone / tasks.length * 100 : 0, 'accent', `${tasksDone}/${tasks.length} งาน`)
+    }
+
+    // ── MoM: เปรียบเทียบเดือนที่เลือกกับเดือนก่อนหน้า ──
+    function momDelta(cur, prev) {
+      if (!prev && !cur) return `<span style="color:var(--text-muted);font-size:0.72rem">—</span>`
+      if (!prev) return `<span style="color:var(--success);font-size:0.72rem;font-weight:700">▲ ใหม่</span>`
+      const pct = (cur - prev) / prev * 100
+      if (Math.abs(pct) < 0.5) return `<span style="color:var(--text-muted);font-size:0.72rem;font-weight:700">◆ ทรงตัว</span>`
+      const up = pct > 0
+      return `<span style="color:var(--${up ? 'success' : 'danger'});font-size:0.72rem;font-weight:700">${up ? '▲' : '▼'} ${Math.abs(pct).toFixed(0)}%</span>`
+    }
+
+    function renderMoM() {
+      const el = document.getElementById('mom-strip')
+      if (!el) return
+      const prevM = shiftMonth(selectedMonth, -1)
+      const lbl = document.getElementById('mom-label')
+      if (lbl) lbl.textContent = `${ymLabel(selectedMonth)} VS ${ymLabel(prevM)}`
+      const cur = bookings.filter(b => (b.bookingDate || '').startsWith(selectedMonth))
+      const prev = bookings.filter(b => (b.bookingDate || '').startsWith(prevM))
+      const dlvCur = bookings.filter(b => b.status === 'ส่งมอบแล้ว' && (b.actualDeliveryDate || '').startsWith(selectedMonth)).length
+      const dlvPrev = bookings.filter(b => b.status === 'ส่งมอบแล้ว' && (b.actualDeliveryDate || '').startsWith(prevM)).length
+      const revCur = cur.reduce((s, b) => s + (b.price || 0), 0)
+      const revPrev = prev.reduce((s, b) => s + (b.price || 0), 0)
+      const mgCur = cur.reduce((s, b) => s + (b.margin || 0), 0)
+      const mgPrev = prev.reduce((s, b) => s + (b.margin || 0), 0)
+      const item = (icon, label, curV, prevV, curDisplay, prevDisplay, color) => `
+        <div style="background:var(--surface-2);border-radius:10px;padding:12px;border-left:3px solid var(--${color})">
+          <div style="font-size:0.68rem;color:var(--text-muted);margin-bottom:4px">${icon} ${label}</div>
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <span style="font-size:1.25rem;font-weight:800;color:var(--${color})">${curDisplay}</span>
+            ${momDelta(curV, prevV)}
+          </div>
+          <div style="font-size:0.64rem;color:var(--text-muted);margin-top:3px;font-family:'Share Tech Mono',monospace">เดือนก่อน: ${prevDisplay}</div>
+        </div>`
+      el.innerHTML =
+        item('📝', 'จองใหม่', cur.length, prev.length, cur.length + ' คัน', prev.length + ' คัน', 'primary') +
+        item('✅', 'ส่งมอบ', dlvCur, dlvPrev, dlvCur + ' คัน', dlvPrev + ' คัน', 'success') +
+        item('💰', 'มูลค่าใบจอง', revCur, revPrev, formatCurrency(revCur), formatCurrency(revPrev), 'accent') +
+        item('📈', 'Margin รวม', mgCur, mgPrev, formatCurrency(mgCur), formatCurrency(mgPrev), 'warning')
+    }
+
+    // ── พยากรณ์อนาคต: เดือนหน้า + โมเมนตัม + run-rate + สถิติสูงสุด ──
+    function renderForecast() {
+      const el = document.getElementById('forecast-body')
+      if (!el) return
+      const hist = [...Array(6)].map((_, i) => shiftMonth(selectedMonth, i - 5)).map(m => {
+        const inM = bookings.filter(b => (b.bookingDate || '').startsWith(m))
+        return { m, count: inM.length, revenue: inM.reduce((s, b) => s + (b.price || 0), 0) }
+      })
+      const counts = hist.map(h => h.count)
+      const [fcCount] = linForecast(counts, 1)
+      const [fcRev] = linForecast(hist.map(h => h.revenue), 1)
+      const avgFirst = (counts[0] + counts[1] + counts[2]) / 3
+      const avgLast = (counts[3] + counts[4] + counts[5]) / 3
+      const momPct = avgFirst ? (avgLast - avgFirst) / avgFirst * 100 : (avgLast > 0 ? 100 : 0)
+      const momIcon = momPct > 5 ? '▲' : momPct < -5 ? '▼' : '◆'
+      const momColor = momPct > 5 ? 'success' : momPct < -5 ? 'danger' : 'warning'
+      const momText = momPct > 5 ? 'ขาขึ้น' : momPct < -5 ? 'ขาลง' : 'ทรงตัว'
+
+      // run-rate: เฉพาะเมื่อดูเดือนปัจจุบัน
+      const nowYm = new Date().toISOString().slice(0, 7)
+      let runRate = ''
+      if (selectedMonth === nowYm) {
+        const d = new Date()
+        const dayNow = d.getDate()
+        const daysInM = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
+        const soFar = bookings.filter(b => (b.bookingDate || '').startsWith(selectedMonth)).length
+        const proj = dayNow ? Math.round(soFar / dayNow * daysInM) : 0
+        runRate = `<div style="background:var(--primary-dim);border:1px solid var(--primary);border-radius:8px;padding:9px 11px;margin-top:8px">
+          <div style="font-size:0.66rem;color:var(--primary);font-weight:700;font-family:'Share Tech Mono',monospace">RUN-RATE เดือนนี้</div>
+          <div style="font-size:0.76rem;color:var(--text-2);margin-top:2px">ผ่านไป ${dayNow}/${daysInM} วัน จองแล้ว <b>${soFar}</b> คัน → คาดปิดเดือน ≈ <b style="color:var(--primary)">${proj} คัน</b></div>
+        </div>`
+      }
+      const best = hist.reduce((a, b) => b.count > a.count ? b : a, hist[0])
+      const rowStyle = 'display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border-subtle);font-size:0.78rem'
+      el.innerHTML = `
+        <div style="${rowStyle}">
+          <span style="color:var(--text-muted)">📅 ${ymLabel(shiftMonth(selectedMonth, 1))} (คาดการณ์)</span>
+          <b style="color:var(--info);font-family:'Share Tech Mono',monospace">≈ ${Math.round(fcCount)} คัน</b>
+        </div>
+        <div style="${rowStyle}">
+          <span style="color:var(--text-muted)">💰 มูลค่าคาดการณ์</span>
+          <b style="color:var(--info);font-family:'Share Tech Mono',monospace">≈ ${formatCurrency(Math.round(fcRev))}</b>
+        </div>
+        <div style="${rowStyle}">
+          <span style="color:var(--text-muted)">📊 โมเมนตัม 6 เดือน</span>
+          <b style="color:var(--${momColor})">${momIcon} ${momText} ${Math.abs(momPct).toFixed(0)}%</b>
+        </div>
+        <div style="${rowStyle};border-bottom:none">
+          <span style="color:var(--text-muted)">🏅 เดือนที่ดีที่สุด</span>
+          <b style="color:var(--accent)">${ymLabel(best.m)} · ${best.count} คัน</b>
+        </div>
+        ${runRate}
+        <div style="font-size:0.62rem;color:var(--text-muted);margin-top:8px">* พยากรณ์จาก linear regression ยอดจองจริง 6 เดือนล่าสุด</div>`
+    }
+
+    // ── อันดับรุ่นขายดี + สุดยอดเซลส์ ของเดือนที่เลือก ──
+    function rankBars(entries, color, unit) {
+      if (!entries.length) return `<div style="font-size:0.78rem;color:var(--text-muted);padding:20px 0;text-align:center">ไม่มีข้อมูลเดือนนี้</div>`
+      const max = Math.max(...entries.map(e => e.count), 1)
+      return entries.map((e, i) => `
+        <div style="margin-bottom:9px">
+          <div style="display:flex;justify-content:space-between;font-size:0.75rem;margin-bottom:3px">
+            <span style="font-weight:${i === 0 ? '700' : '500'};color:${i === 0 ? `var(--${color})` : 'var(--text-2)'}">${i + 1}. ${escHtml(e.name)}</span>
+            <span style="font-family:'Share Tech Mono',monospace;color:var(--text-3)">${e.count} ${unit} · ${formatCurrency(e.revenue)}</span>
+          </div>
+          <div style="background:var(--surface-2);border-radius:3px;height:7px;overflow:hidden">
+            <div style="width:${Math.round(e.count / max * 100)}%;height:100%;background:var(--${color});box-shadow:0 0 8px var(--${color});border-radius:3px"></div>
+          </div>
+        </div>`).join('')
+    }
+
+    function renderTops() {
+      const inMonth = bookings.filter(b => (b.bookingDate || '').startsWith(selectedMonth) && b.status !== 'ถอนจอง')
+      const byModel = {}, bySales = {}
+      inMonth.forEach(b => {
+        const mk = `${b.brand || ''} ${b.model || 'ไม่ระบุ'}`.trim()
+        byModel[mk] = byModel[mk] || { name: mk, count: 0, revenue: 0 }
+        byModel[mk].count++; byModel[mk].revenue += b.price || 0
+        const sk = b.salesName || 'ไม่ระบุ'
+        bySales[sk] = bySales[sk] || { name: sk, count: 0, revenue: 0 }
+        bySales[sk].count++; bySales[sk].revenue += b.price || 0
+      })
+      const mEl = document.getElementById('top-models')
+      if (mEl) mEl.innerHTML = rankBars(Object.values(byModel).sort((a, b) => b.count - a.count || b.revenue - a.revenue).slice(0, 5), 'accent', 'คัน')
+      const sEl = document.getElementById('top-sales')
+      if (sEl) sEl.innerHTML = rankBars(Object.values(bySales).sort((a, b) => b.revenue - a.revenue).slice(0, 5), 'primary', 'ดีล')
+    }
+
+    // ── Conversion Funnel: Lead → จอง → ส่งมอบ + แหล่งที่มา ──
+    function renderFunnel() {
+      const el = document.getElementById('funnel-body')
+      if (el) {
+        const leadsInM = leads.filter(l => (l.createdAt || l.date || '').startsWith(selectedMonth)).length
+        const bookedInM = bookings.filter(b => (b.bookingDate || '').startsWith(selectedMonth)).length
+        const dlvInM = bookings.filter(b => b.status === 'ส่งมอบแล้ว' && ((b.actualDeliveryDate || '').startsWith(selectedMonth) || (b.bookingDate || '').startsWith(selectedMonth))).length
+        const stages = [
+          { label: '🧲 Leads เข้าใหม่', count: leadsInM, color: 'info' },
+          { label: '📝 เปิดใบจอง', count: bookedInM, color: 'primary' },
+          { label: '✅ ส่งมอบสำเร็จ', count: dlvInM, color: 'success' },
+        ]
+        const max = Math.max(...stages.map(s => s.count), 1)
+        const conv = (a, b) => a ? `${(b / a * 100).toFixed(0)}%` : '—'
+        el.innerHTML = stages.map((s, i) => `
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:${i < 2 ? '4px' : '0'}">
+            <div style="width:120px;font-size:0.75rem;color:var(--text-2);flex-shrink:0">${s.label}</div>
+            <div style="flex:1;background:var(--surface-2);border-radius:4px;height:26px;overflow:hidden;position:relative">
+              <div style="width:${Math.max(4, Math.round(s.count / max * 100))}%;height:100%;background:var(--${s.color});opacity:0.8;box-shadow:0 0 12px var(--${s.color});border-radius:4px"></div>
+              <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:0.78rem;font-weight:800;color:var(--text);font-family:'Share Tech Mono',monospace">${s.count}</span>
+            </div>
+          </div>
+          ${i < 2 ? `<div style="margin:2px 0 6px 130px;font-size:0.66rem;color:var(--text-muted);font-family:'Share Tech Mono',monospace">↓ อัตราแปลง ${conv(stages[i].count, stages[i + 1].count)}</div>` : ''}
+        `).join('')
+      }
+      const sEl = document.getElementById('source-body')
+      if (sEl) {
+        const inMonth = bookings.filter(b => (b.bookingDate || '').startsWith(selectedMonth))
+        const bySrc = {}
+        inMonth.forEach(b => { const k = b.source || 'ไม่ระบุ'; bySrc[k] = (bySrc[k] || 0) + 1 })
+        const entries = Object.entries(bySrc).sort((a, b) => b[1] - a[1]).slice(0, 6)
+        const max = Math.max(...entries.map(e => e[1]), 1)
+        sEl.innerHTML = entries.length ? entries.map(([k, v]) => `
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:0.75rem">
+            <span style="width:80px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(k)}</span>
+            <div style="flex:1;background:var(--surface-2);border-radius:3px;height:8px;overflow:hidden">
+              <div style="width:${Math.round(v / max * 100)}%;height:100%;background:var(--accent);box-shadow:0 0 8px var(--accent)"></div>
+            </div>
+            <b style="color:var(--accent);font-family:'Share Tech Mono',monospace">${v}</b>
+          </div>`).join('') : `<div style="font-size:0.78rem;color:var(--text-muted);padding:20px 0;text-align:center">ไม่มีข้อมูลเดือนนี้</div>`
+      }
+    }
+
+    function renderAll() {
+      renderPipeline(); renderDeptDetail(); renderTrendChart(); renderDonut(); renderGauges()
+      renderMoM(); renderForecast(); renderTops(); renderFunnel()
+      document.querySelectorAll('.fc-month').forEach(s => { s.textContent = ymLabel(selectedMonth) })
     }
 
     document.getElementById('pm-prev')?.addEventListener('click', () => {
       selectedMonth = shiftMonth(selectedMonth, -1)
-      renderPipeline(); renderDeptDetail(); renderTrendChart()
+      renderAll()
     })
     document.getElementById('pm-next')?.addEventListener('click', () => {
       selectedMonth = shiftMonth(selectedMonth, 1)
-      renderPipeline(); renderDeptDetail(); renderTrendChart()
+      renderAll()
     })
+    document.getElementById('trend-6')?.addEventListener('click', () => { trendRange = 6; renderTrendChart() })
+    document.getElementById('trend-12')?.addEventListener('click', () => { trendRange = 12; renderTrendChart() })
 
-    renderPipeline()
-    renderDeptDetail()
-    renderTrendChart()
+    renderAll()
 
     // Today panel — ใช้ข้อมูลจริง
     const todayBookings = bookings.filter(b => (b.pickupDate || b.appointmentDate || b.createdAt || '').startsWith(today))
