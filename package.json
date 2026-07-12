@@ -12,6 +12,9 @@
     "vite": "^8.0.12"
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/cli": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
     "exceljs": "^4.4.0",
     "firebase": "^12.14.0"
   }

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">LAMOM ONE</string>
+    <string name="title_activity_main">LAMOM ONE</string>
+    <string name="package_name">com.lamom.one</string>
+    <string name="custom_url_scheme">com.lamom.one</string>
+</resources>
