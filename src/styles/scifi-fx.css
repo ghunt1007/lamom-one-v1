@@ -293,3 +293,70 @@
 [data-theme="scifi"] thead tr {
   box-shadow: 0 1px 0 rgba(0,229,255,0.35), 0 3px 10px rgba(0,229,255,0.08);
 }
+
+/* ── Hex-grid ambient layer (ลายรังผึ้งจางๆ เพิ่มมิติฉากหลัง) ── */
+[data-theme="scifi"] .main-wrap {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='97' viewBox='0 0 56 97'%3E%3Cpath d='M28 0 L56 16 L56 48 L28 64 L0 48 L0 16 Z M28 64 L56 80 L56 97 M28 64 L0 80 L0 97' fill='none' stroke='%2300E5FF' stroke-opacity='0.045' stroke-width='1'/%3E%3C/svg%3E");
+  background-size: 56px 97px;
+}
+
+/* ── Title glitch: RGB-split แวบสั้นๆ เป็นระยะ ── */
+[data-theme="scifi"] .page-title {
+  animation: scifiShimmer 5s linear infinite, scifiGlitch 9s steps(1) infinite;
+}
+@keyframes scifiGlitch {
+  0%, 92%, 100% { transform: none; }
+  93% { transform: translateX(1.5px) skewX(-1.5deg); }
+  94% { transform: translateX(-1.5px) skewX(1deg); }
+  95% { transform: none; }
+}
+
+/* ── Sidebar active item: ขอบเรืองแสงเต้นเป็นจังหวะ ── */
+[data-theme="scifi"] .nav-item.active::before {
+  animation: scifiNavPulse 2.4s ease-in-out infinite;
+}
+@keyframes scifiNavPulse {
+  0%, 100% { box-shadow: 0 0 10px var(--primary), 0 0 20px var(--primary); }
+  50%      { box-shadow: 0 0 18px var(--primary), 0 0 36px var(--primary); }
+}
+
+/* ── Topbar buttons: ทรงหกเหลี่ยมแบบ FUI ── */
+[data-theme="scifi"] .topbar-btn {
+  clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
+  background: var(--surface-2);
+  border-radius: 0;
+}
+[data-theme="scifi"] .topbar-btn:hover {
+  background: var(--primary-dim);
+  filter: drop-shadow(0 0 8px var(--primary-glow));
+}
+
+/* ── SYSTEM BOOT overlay (ครั้งแรกของ session เท่านั้น) ── */
+#scifi-boot {
+  position: fixed; inset: 0; z-index: 99999;
+  background:
+    linear-gradient(rgba(0,229,255,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,229,255,0.04) 1px, transparent 1px),
+    #050810;
+  background-size: 44px 44px, 44px 44px, auto;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+  font-family: 'Share Tech Mono', monospace;
+  transition: opacity 0.4s ease;
+}
+#scifi-boot .boot-logo {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.6rem; font-weight: 900; letter-spacing: 0.3em;
+  color: #00E5FF;
+  text-shadow: 0 0 24px rgba(0,229,255,0.55);
+  animation: scifiBlink 1s steps(2) 2;
+}
+#scifi-boot .boot-status { font-size: 0.72rem; color: #6E92A8; letter-spacing: 0.25em; }
+#scifi-boot .boot-bar {
+  width: 240px; height: 3px; background: rgba(0,229,255,0.12); border-radius: 99px; overflow: hidden;
+}
+#scifi-boot .boot-bar > div {
+  height: 100%; background: linear-gradient(90deg, #00E5FF, #FFA028);
+  box-shadow: 0 0 12px rgba(0,229,255,0.55);
+  animation: scifiBootBar 1s ease-out forwards;
+}
+@keyframes scifiBootBar { from { width: 0; } to { width: 100%; } }

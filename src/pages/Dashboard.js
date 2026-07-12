@@ -138,6 +138,7 @@ export default async function DashboardPage(container) {
         @keyframes dashRadarSpin { to { transform: rotate(360deg); } }
         @keyframes dashBlip { 0%,100% { opacity: 0.15; } 50% { opacity: 1; } }
         @keyframes dashPulseDot { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+        @keyframes dashGaugeDraw { from { stroke-dasharray: 0 999; } }
       </style>
       <div class="card" style="padding:10px 16px;margin-bottom:16px;display:flex;align-items:center;gap:18px;flex-wrap:wrap">
         <div style="display:flex;align-items:center;gap:7px">
@@ -154,7 +155,7 @@ export default async function DashboardPage(container) {
         <span style="font-size:1.5rem;flex-shrink:0">🤖</span>
         <div>
           <div style="font-size:0.72rem;color:var(--primary);font-weight:700;margin-bottom:3px">LAMI — AI Assistant</div>
-          <div style="font-size:0.875rem;color:var(--text-2)">${tip}</div>
+          <div id="lami-tip" style="font-size:0.875rem;color:var(--text-2);min-height:1.3em"></div>
         </div>
         <button class="btn btn-ghost btn-sm" style="margin-left:auto;flex-shrink:0" data-nav="/ai/personal">คุยกับ LAMI →</button>
       </div>
@@ -343,6 +344,18 @@ export default async function DashboardPage(container) {
     const el = e.target.closest('[data-nav]')
     if (el) navigate(el.dataset.nav)
   })
+
+  // ── LAMI พิมพ์ข้อความทีละตัวอักษรแบบ terminal ──
+  const lamiEl = document.getElementById('lami-tip')
+  if (lamiEl) {
+    let ti = 0
+    const typeTimer = setInterval(() => {
+      if (!lamiEl.isConnected || container.__routerGen !== myGen) { clearInterval(typeTimer); return }
+      ti += 2
+      lamiEl.textContent = tip.slice(0, ti)
+      if (ti >= tip.length) { lamiEl.textContent = tip; clearInterval(typeTimer) }
+    }, 24)
+  }
 
   // ── HUD: นาฬิกาเดินจริง (เคลียร์ตัวเองเมื่อออกจากหน้า) ──
   const clockEl = document.getElementById('hud-clock')
@@ -639,7 +652,7 @@ export default async function DashboardPage(container) {
           <circle cx="50" cy="50" r="${R}" fill="none" stroke="var(--surface-3)" stroke-width="8"/>
           <circle cx="50" cy="50" r="${R}" fill="none" stroke="var(--${color})" stroke-width="8" stroke-linecap="round"
             stroke-dasharray="${(p / 100 * C).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 50 50)"
-            style="filter:drop-shadow(0 0 5px var(--${color}))"/>
+            style="filter:drop-shadow(0 0 5px var(--${color}));animation:dashGaugeDraw 900ms ease-out"/>
           <text x="50" y="55" text-anchor="middle" font-size="19" font-weight="800" fill="var(--${color})">${Math.round(p)}%</text>
         </svg>
         <div style="font-size:0.72rem;font-weight:700;color:var(--text-2);text-align:center">${label}</div>

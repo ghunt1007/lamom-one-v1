@@ -81,6 +81,21 @@ async function bootstrapShell() {
   initRouter(main)
   initAutoTableTools()  // เสริม sort+filter แบบ Excel ให้ทุกตารางอัตโนมัติ
   initSessionTimeout(logout)
+
+  // SYSTEM BOOT overlay — เฉพาะธีม Sci-Fi HUD ครั้งแรกของ session (แสดง ~1.2s)
+  try {
+    if (document.documentElement.getAttribute('data-theme') === 'scifi' && !sessionStorage.getItem('scifiBooted')) {
+      sessionStorage.setItem('scifiBooted', '1')
+      const boot = document.createElement('div')
+      boot.id = 'scifi-boot'
+      boot.innerHTML = `
+        <div class="boot-logo">LAMOM ONE</div>
+        <div class="boot-status">SYSTEM INITIALIZING · AUTHENTICATING · LOADING MODULES</div>
+        <div class="boot-bar"><div></div></div>`
+      document.body.appendChild(boot)
+      setTimeout(() => { boot.style.opacity = '0'; setTimeout(() => boot.remove(), 450) }, 1200)
+    }
+  } catch {}
 }
 
 on('user', (user) => {
