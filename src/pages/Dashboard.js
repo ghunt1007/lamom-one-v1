@@ -356,6 +356,12 @@ export default async function DashboardPage(container) {
   const radarShell = blipsMarkup => `
     <svg viewBox="0 0 220 220" style="width:100%;max-width:220px;display:block;margin:auto">
       ${[100,75,50,25].map(r => `<circle cx="110" cy="110" r="${r}" fill="none" stroke="var(--primary)" stroke-opacity="${r === 100 ? 0.5 : 0.22}" stroke-width="1"/>`).join('')}
+      ${Array.from({ length: 12 }, (_, i) => {
+        const a = i * 30 * Math.PI / 180
+        return `<line x1="${(110 + Math.cos(a) * 96).toFixed(1)}" y1="${(110 + Math.sin(a) * 96).toFixed(1)}" x2="${(110 + Math.cos(a) * 101).toFixed(1)}" y2="${(110 + Math.sin(a) * 101).toFixed(1)}" stroke="var(--primary)" stroke-opacity="0.55" stroke-width="1.5"/>`
+      }).join('')}
+      ${[[110, 7, '000'], [213, 113, '090'], [110, 219, '180'], [7, 113, '270']].map(([x, y, t]) =>
+        `<text x="${x}" y="${y}" text-anchor="middle" font-size="7" fill="var(--primary)" fill-opacity="0.6" font-family="monospace" letter-spacing="1">${t}</text>`).join('')}
       <line x1="10" y1="110" x2="210" y2="110" stroke="var(--primary)" stroke-opacity="0.18"/>
       <line x1="110" y1="10" x2="110" y2="210" stroke="var(--primary)" stroke-opacity="0.18"/>
       <circle cx="110" cy="110" r="3" fill="var(--primary)" style="filter:drop-shadow(0 0 4px var(--primary-glow))"/>
