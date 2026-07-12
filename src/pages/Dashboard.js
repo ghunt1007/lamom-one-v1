@@ -184,6 +184,21 @@ export default async function DashboardPage(container) {
         </div>
       </div>
 
+      <!-- Intelligence Center: แจ้งเตือนอัจฉริยะ + เป้า vs ผลจริง -->
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px">
+        <div class="card" style="padding:16px">
+          <div style="font-weight:700;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
+            <span>🚨 Intelligence Center — เรื่องที่ต้องจัดการ</span>
+            <span id="alert-count" class="badge badge-danger" style="display:none"></span>
+          </div>
+          <div id="alerts-body"><div class="skeleton" style="height:120px;border-radius:var(--radius-md)"></div></div>
+        </div>
+        <div class="card" style="padding:16px">
+          <div style="font-weight:700;margin-bottom:12px">🎯 เป้า vs ผลจริง — <span class="fc-month" style="color:var(--primary);font-size:0.8rem"></span></div>
+          <div id="targets-body"><div class="skeleton" style="height:120px;border-radius:var(--radius-md)"></div></div>
+        </div>
+      </div>
+
       <!-- Sales/Booking Pipeline Detail -->
       <div class="card mb-4" style="padding:16px" id="pipeline-card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
@@ -287,6 +302,9 @@ export default async function DashboardPage(container) {
           <div id="status-donut">
             <div class="skeleton" style="width:100%;height:160px;border-radius:var(--radius-md)"></div>
           </div>
+          <div class="divider"></div>
+          <div style="font-size:0.76rem;font-weight:700;color:var(--text-2);margin-bottom:8px">📅 ความถี่การจองรายวัน</div>
+          <div id="day-heatmap"></div>
         </div>
       </div>
 
@@ -359,7 +377,7 @@ export default async function DashboardPage(container) {
   try {
     const today = new Date().toISOString().slice(0, 10)
     const thisMonth = new Date().toISOString().slice(0, 7)
-    const [customers, tasks, sales, jobs, bookings, pdi, leads] = await Promise.all([
+    const [customers, tasks, sales, jobs, bookings, pdi, leads, vehicles, teamTargets] = await Promise.all([
       listDocs('customers', [], 'createdAt', 'desc', 5).catch(() => []),
       listDocs('tasks', [], 'createdAt', 'desc', 100).catch(() => []),
       getSalesData().catch(() => []),
@@ -367,6 +385,8 @@ export default async function DashboardPage(container) {
       listDocs('bookings', [], 'createdAt', 'desc', 500).catch(() => []),
       listDocs('pdi', [], 'createdAt', 'desc', 50).catch(() => []),
       listDocs('leads', [], 'createdAt', 'desc', 500).catch(() => []),
+      listDocs('vehicles', [], 'createdAt', 'desc', 500).catch(() => []),
+      listDocs('team_targets', [], 'period', 'desc', 200).catch(() => []),
     ])
     if (container.__routerGen !== myGen) return
 
@@ -715,6 +735,15 @@ export default async function DashboardPage(container) {
         </div>`
       }
       const best = hist.reduce((a, b) => b.count > a.count ? b : a, hist[0])
+
+      // เวลาเฉลี่ยจากวันจอง → วันส่งมอบจริง (ทุกใบจองที่ส่งมอบแล้วและมีวันที่ครบ)
+      const deliveredPairs = bookings.filter(b => b.status === 'ส่งมอบแล้ว' && b.bookingDate && b.actualDeliveryDate)
+      const avgDeliverDays = deliveredPairs.length
+        ? Math.round(deliveredPairs.reduce((s, b) => s + Math.max(0, (new Date(b.actualDeliveryDate) - new Date(b.bookingDate)) / 86400000), 0) / deliveredPairs.length)
+        : null
+      // มูลค่าใบจองที่ยังไม่ปิด (ไม่ส่งมอบ/ไม่ถอน) — เงินในอนาคตที่รออยู่
+      const outstanding = bookings.filter(b => !['ส่งมอบแล้ว', 'ถอนจอง'].includes(b.status)).reduce((s, b) => s + (b.price || 0), 0)
+
       const rowStyle = 'display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border-subtle);font-size:0.78rem'
       el.innerHTML = `
         <div style="${rowStyle}">
@@ -729,9 +758,17 @@ export default async function DashboardPage(container) {
           <span style="color:var(--text-muted)">📊 โมเมนตัม 6 เดือน</span>
           <b style="color:var(--${momColor})">${momIcon} ${momText} ${Math.abs(momPct).toFixed(0)}%</b>
         </div>
-        <div style="${rowStyle};border-bottom:none">
+        <div style="${rowStyle}">
           <span style="color:var(--text-muted)">🏅 เดือนที่ดีที่สุด</span>
           <b style="color:var(--accent)">${ymLabel(best.m)} · ${best.count} คัน</b>
+        </div>
+        <div style="${rowStyle}">
+          <span style="color:var(--text-muted)">⏱ เฉลี่ยจอง→ส่งมอบ</span>
+          <b style="color:var(--text-2);font-family:'Share Tech Mono',monospace">${avgDeliverDays !== null ? avgDeliverDays + ' วัน' : '—'}</b>
+        </div>
+        <div style="${rowStyle};border-bottom:none">
+          <span style="color:var(--text-muted)">💼 มูลค่าค้างส่งมอบ</span>
+          <b style="color:var(--warning);font-family:'Share Tech Mono',monospace">${formatCurrency(outstanding)}</b>
         </div>
         ${runRate}
         <div style="font-size:0.62rem;color:var(--text-muted);margin-top:8px">* พยากรณ์จาก linear regression ยอดจองจริง 6 เดือนล่าสุด</div>`
@@ -813,9 +850,115 @@ export default async function DashboardPage(container) {
       }
     }
 
+    // ── Intelligence Center: สแกนเรื่องค้าง/ด่วนจากข้อมูลจริง (กดแล้วพาไปหน้านั้น) ──
+    function renderAlerts() {
+      const el = document.getElementById('alerts-body')
+      if (!el) return
+      const now = Date.now()
+      const daysSince = d => Math.floor((now - new Date(d).getTime()) / 86400000)
+      const alerts = []
+
+      // ใบจองค้างสถานะเกิน 14 วัน (ยังไม่ส่งมอบ/ไม่ถอน)
+      const FINAL = ['ส่งมอบแล้ว', 'ถอนจอง']
+      const stuck = bookings
+        .filter(b => !FINAL.includes(b.status) && b.bookingDate && daysSince(b.bookingDate) >= 14)
+        .map(b => ({ ...b, age: daysSince(b.bookingDate) }))
+        .sort((a, b) => b.age - a.age)
+      stuck.slice(0, 4).forEach(b => alerts.push({
+        icon: '⏳', sev: b.age >= 30 ? 'danger' : 'warning', nav: '/crm/bookings',
+        text: `ใบจอง ${escHtml(b.custName || b.bookingNo || b.id)} (${escHtml((b.brand || '') + ' ' + (b.model || ''))}) ค้าง "${escHtml(b.status)}"`,
+        age: b.age,
+      }))
+      if (stuck.length > 4) alerts.push({ icon: '⏳', sev: 'warning', nav: '/crm/bookings', text: `ใบจองค้างสถานะเกิน 14 วัน อีก ${stuck.length - 4} รายการ`, age: null })
+
+      // งานซ่อมเปิดค้างเกิน 7 วัน
+      const openJobs7 = jobs
+        .filter(j => !['done', 'completed', 'delivered'].includes(j.status) && j.createdAt && daysSince(j.createdAt) >= 7)
+        .map(j => ({ ...j, age: daysSince(j.createdAt) }))
+        .sort((a, b) => b.age - a.age)
+      openJobs7.slice(0, 2).forEach(j => alerts.push({
+        icon: '🔧', sev: j.age >= 14 ? 'danger' : 'warning', nav: '/service/jobs',
+        text: `งานซ่อม ${escHtml(j.licensePlate || j.vin || j.id)} ยังไม่เสร็จ`, age: j.age,
+      }))
+      if (openJobs7.length > 2) alerts.push({ icon: '🔧', sev: 'warning', nav: '/service/jobs', text: `งานซ่อมค้างเกิน 7 วัน อีก ${openJobs7.length - 2} งาน`, age: null })
+
+      // Lead ใหม่ไม่ถูกติดตามเกิน 3 วัน (สรุปรวม)
+      const staleLeads = leads.filter(l => l.status === 'new' && l.createdAt && daysSince(l.createdAt) >= 3)
+      if (staleLeads.length) alerts.push({ icon: '🧲', sev: 'warning', nav: '/crm/leads', text: `Lead ใหม่ยังไม่ติดตามเกิน 3 วัน: ${staleLeads.length} ราย`, age: null })
+
+      // รถค้างสต็อกเกิน 90 วัน (สรุปรวม)
+      const agingStock = vehicles.filter(v => !['sold', 'ขายแล้ว', 'ส่งมอบแล้ว'].includes(v.status) && !v.deleted && v.createdAt && daysSince(v.createdAt) >= 90)
+      if (agingStock.length) alerts.push({ icon: '🚗', sev: 'warning', nav: '/dms/aging', text: `รถค้างสต็อกเกิน 90 วัน: ${agingStock.length} คัน`, age: null })
+
+      const badge = document.getElementById('alert-count')
+      if (badge) {
+        const total = stuck.length + openJobs7.length + (staleLeads.length ? 1 : 0) + (agingStock.length ? 1 : 0)
+        badge.textContent = total + ' เรื่อง'
+        badge.style.display = total ? '' : 'none'
+      }
+      el.innerHTML = alerts.length ? alerts.map(a => `
+        <div data-nav="${a.nav}" style="display:flex;align-items:center;gap:10px;padding:8px 10px;margin-bottom:6px;background:var(--${a.sev}-dim);border-left:3px solid var(--${a.sev});border-radius:6px;cursor:pointer">
+          <span style="font-size:1rem;flex-shrink:0">${a.icon}</span>
+          <span style="flex:1;font-size:0.78rem;color:var(--text-2)">${a.text}</span>
+          ${a.age !== null ? `<span style="font-size:0.7rem;font-weight:800;color:var(--${a.sev});font-family:'Share Tech Mono',monospace;flex-shrink:0">${a.age} วัน</span>` : `<span style="font-size:0.72rem;color:var(--${a.sev});flex-shrink:0">ดู →</span>`}
+        </div>`).join('')
+        : `<div style="display:flex;align-items:center;gap:10px;padding:16px;background:var(--success-dim);border-radius:8px;font-size:0.82rem;color:var(--success)"><span style="font-size:1.2rem">✅</span> ระบบปกติ — ไม่มีเรื่องค้างเกินกำหนด</div>`
+    }
+
+    // ── เป้า vs ผลจริง (จากระบบเป้าหมายทีม /hr/targets) ──
+    const METRIC_LABEL = { units: 'ยอดขาย (คัน)', revenue: 'รายได้', service: 'งานบริการ', csat: 'ความพึงพอใจ (%)', leads: 'Leads', other: 'อื่นๆ' }
+    function renderTargets() {
+      const el = document.getElementById('targets-body')
+      if (!el) return
+      const entries = teamTargets.filter(t => t.period === selectedMonth)
+      if (!entries.length) {
+        el.innerHTML = `<div style="font-size:0.78rem;color:var(--text-muted);padding:14px 0;text-align:center">ไม่มีเป้าหมายเดือนนี้<br><button class="btn btn-sm btn-secondary" data-nav="/hr/targets" style="margin-top:8px">ตั้งเป้าหมาย →</button></div>`
+        return
+      }
+      el.innerHTML = entries.slice(0, 5).map(t => {
+        const pct = t.target ? Math.round((t.actual || 0) / t.target * 100) : 0
+        const color = pct >= 100 ? 'success' : pct >= 80 ? 'primary' : pct >= 50 ? 'warning' : 'danger'
+        const fmt = v => t.metric === 'revenue' ? formatCurrency(v) : v
+        return `<div style="margin-bottom:10px" data-nav="/hr/targets">
+          <div style="display:flex;justify-content:space-between;font-size:0.73rem;margin-bottom:3px">
+            <span style="color:var(--text-2)">${escHtml(t.department)}${t.team ? ' · ' + escHtml(t.team) : ''} — ${METRIC_LABEL[t.metric] || escHtml(t.metric)}</span>
+            <b style="color:var(--${color});font-family:'Share Tech Mono',monospace">${pct}%</b>
+          </div>
+          <div style="background:var(--surface-2);border-radius:3px;height:8px;overflow:hidden">
+            <div style="width:${Math.min(100, pct)}%;height:100%;background:var(--${color});box-shadow:0 0 8px var(--${color})"></div>
+          </div>
+          <div style="font-size:0.64rem;color:var(--text-muted);margin-top:2px;font-family:'Share Tech Mono',monospace">${fmt(t.actual || 0)} / ${fmt(t.target)}</div>
+        </div>`
+      }).join('')
+    }
+
+    // ── Heatmap รายวัน: ความถี่ใบจองแต่ละวันของเดือนที่เลือก ──
+    function renderHeatmap() {
+      const el = document.getElementById('day-heatmap')
+      if (!el) return
+      const [y, m] = selectedMonth.split('-').map(Number)
+      const daysInM = new Date(y, m, 0).getDate()
+      const counts = Array(daysInM).fill(0)
+      bookings.forEach(b => {
+        if ((b.bookingDate || '').startsWith(selectedMonth)) {
+          const d = parseInt((b.bookingDate || '').slice(8, 10))
+          if (d >= 1 && d <= daysInM) counts[d - 1]++
+        }
+      })
+      const max = Math.max(...counts, 1)
+      el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">
+        ${counts.map((c, i) => {
+          const op = c ? (0.25 + 0.75 * c / max).toFixed(2) : 0
+          return `<div title="${i + 1} ${ymLabel(selectedMonth)}: ${c} ใบจอง" style="aspect-ratio:1;border-radius:3px;background:${c ? `rgba(0,180,255,${op})` : 'var(--surface-2)'};border:1px solid var(--border-subtle);display:flex;align-items:center;justify-content:center;font-size:0.55rem;color:${c ? 'var(--text)' : 'var(--text-muted)'};font-family:'Share Tech Mono',monospace;${c ? `box-shadow:0 0 6px rgba(0,180,255,${op})` : ''}">${i + 1}</div>`
+        }).join('')}
+      </div>
+      <div style="font-size:0.62rem;color:var(--text-muted);margin-top:6px">เข้มมาก = จองเยอะ · สูงสุด ${max} ใบจอง/วัน</div>`
+    }
+
     function renderAll() {
       renderPipeline(); renderDeptDetail(); renderTrendChart(); renderDonut(); renderGauges()
       renderMoM(); renderForecast(); renderTops(); renderFunnel()
+      renderAlerts(); renderTargets(); renderHeatmap()
       document.querySelectorAll('.fc-month').forEach(s => { s.textContent = ymLabel(selectedMonth) })
     }
 
