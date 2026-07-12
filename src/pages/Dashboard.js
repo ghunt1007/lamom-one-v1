@@ -162,7 +162,7 @@ export default async function DashboardPage(container) {
       <!-- Operations radar + ring gauges -->
       <div class="card mb-4" style="padding:16px">
         <div style="font-weight:700;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
-          <span>🛰 Operations Radar — ภาพรวมปฏิบัติการ</span>
+          <span>🛰 Operations Radar — จุดบนจอ = รายการค้างจริง คลิกเพื่อไปจัดการ</span>
           <span id="radar-month" style="font-size:0.72rem;color:var(--primary);font-family:'Share Tech Mono',monospace;letter-spacing:0.08em"></span>
         </div>
         <div style="display:grid;grid-template-columns:230px 1fr;gap:20px;align-items:center">
@@ -352,23 +352,21 @@ export default async function DashboardPage(container) {
     clockEl.textContent = `${d.toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' })} · ${d.toLocaleTimeString('th-TH', { hour12: false })} · GMT+7`
   }, 1000)
 
-  // ── Radar scope (แอนิเมชันกวาดหมุน + จุดเป้าหมาย) ──
+  // ── Radar scope: โครงจอ (วงแหวน + เส้นกวาด) ระหว่างรอข้อมูล — จุดจริงเติมโดย renderRadar() ──
+  const radarShell = blipsMarkup => `
+    <svg viewBox="0 0 220 220" style="width:100%;max-width:220px;display:block;margin:auto">
+      ${[100,75,50,25].map(r => `<circle cx="110" cy="110" r="${r}" fill="none" stroke="var(--primary)" stroke-opacity="${r === 100 ? 0.5 : 0.22}" stroke-width="1"/>`).join('')}
+      <line x1="10" y1="110" x2="210" y2="110" stroke="var(--primary)" stroke-opacity="0.18"/>
+      <line x1="110" y1="10" x2="110" y2="210" stroke="var(--primary)" stroke-opacity="0.18"/>
+      <circle cx="110" cy="110" r="3" fill="var(--primary)" style="filter:drop-shadow(0 0 4px var(--primary-glow))"/>
+      <g style="transform-origin:110px 110px;animation:dashRadarSpin 4s linear infinite">
+        <path d="M110,110 L110,10 A100,100 0 0,1 178,37 Z" fill="var(--primary)" opacity="0.16"/>
+        <line x1="110" y1="110" x2="110" y2="10" stroke="var(--primary)" stroke-width="1.5" style="filter:drop-shadow(0 0 5px var(--primary-glow))"/>
+      </g>
+      ${blipsMarkup}
+    </svg>`
   const radarEl = document.getElementById('radar-scope')
-  if (radarEl) {
-    const blips = [[62,-30],[20,45],[-55,12],[-25,-58],[46,55],[-72,-38],[8,-72]]
-    radarEl.innerHTML = `
-      <svg viewBox="0 0 220 220" style="width:100%;max-width:220px;display:block;margin:auto">
-        ${[100,75,50,25].map(r => `<circle cx="110" cy="110" r="${r}" fill="none" stroke="var(--primary)" stroke-opacity="${r === 100 ? 0.5 : 0.22}" stroke-width="1"/>`).join('')}
-        <line x1="10" y1="110" x2="210" y2="110" stroke="var(--primary)" stroke-opacity="0.18"/>
-        <line x1="110" y1="10" x2="110" y2="210" stroke="var(--primary)" stroke-opacity="0.18"/>
-        <circle cx="110" cy="110" r="3" fill="var(--primary)" style="filter:drop-shadow(0 0 4px var(--primary-glow))"/>
-        <g style="transform-origin:110px 110px;animation:dashRadarSpin 4s linear infinite">
-          <path d="M110,110 L110,10 A100,100 0 0,1 178,37 Z" fill="var(--primary)" opacity="0.16"/>
-          <line x1="110" y1="110" x2="110" y2="10" stroke="var(--primary)" stroke-width="1.5" style="filter:drop-shadow(0 0 5px var(--primary-glow))"/>
-        </g>
-        ${blips.map(([dx, dy], i) => `<circle cx="${110 + dx}" cy="${110 + dy}" r="3" fill="var(--accent)" style="animation:dashBlip ${(1.6 + i * 0.4).toFixed(1)}s ease-in-out infinite;filter:drop-shadow(0 0 5px var(--accent))"/>`).join('')}
-      </svg>`
-  }
+  if (radarEl) radarEl.innerHTML = radarShell('')
 
   // Load async data
   seedDemoData()
@@ -905,6 +903,55 @@ export default async function DashboardPage(container) {
         : `<div style="display:flex;align-items:center;gap:10px;padding:16px;background:var(--success-dim);border-radius:8px;font-size:0.82rem;color:var(--success)"><span style="font-size:1.2rem">✅</span> ระบบปกติ — ไม่มีเรื่องค้างเกินกำหนด</div>`
     }
 
+    // ── Radar จริง: จุด = รายการค้างจริงในระบบ · ยิ่งใกล้ศูนย์กลาง = ยิ่งด่วน · คลิกจุดเพื่อไปจัดการ ──
+    function renderRadar() {
+      const el = document.getElementById('radar-scope')
+      if (!el) return
+      const now = Date.now()
+      const daysSince = d => Math.floor((now - new Date(d).getTime()) / 86400000)
+      const FINAL = ['ส่งมอบแล้ว', 'ถอนจอง']
+      const items = []
+      bookings.filter(b => !FINAL.includes(b.status) && b.bookingDate && daysSince(b.bookingDate) >= 14).forEach(b => {
+        const age = daysSince(b.bookingDate)
+        items.push({ nav: '/crm/bookings', sev: age >= 30 ? 'danger' : 'warning', u: Math.min(1, age / 45),
+          label: `📝 ใบจอง ${b.custName || b.bookingNo || b.id} ค้าง "${b.status}" ${age} วัน` })
+      })
+      jobs.filter(j => !['done', 'completed', 'delivered'].includes(j.status) && j.createdAt && daysSince(j.createdAt) >= 7).forEach(j => {
+        const age = daysSince(j.createdAt)
+        items.push({ nav: '/service/jobs', sev: age >= 14 ? 'danger' : 'warning', u: Math.min(1, age / 30),
+          label: `🔧 งานซ่อม ${j.licensePlate || j.vin || j.id} เปิดค้าง ${age} วัน` })
+      })
+      leads.filter(l => l.status === 'new' && l.createdAt && daysSince(l.createdAt) >= 3).forEach(l => {
+        const age = daysSince(l.createdAt)
+        items.push({ nav: '/crm/leads', sev: 'warning', u: Math.min(1, age / 10),
+          label: `🧲 Lead ${l.firstName || ''} ${l.lastName || ''} ยังไม่ติดตาม ${age} วัน` })
+      })
+      vehicles.filter(v => !['sold', 'ขายแล้ว', 'ส่งมอบแล้ว'].includes(v.status) && !v.deleted && v.createdAt && daysSince(v.createdAt) >= 90).slice(0, 4).forEach(v => {
+        const age = daysSince(v.createdAt)
+        items.push({ nav: '/dms/aging', sev: 'warning', u: Math.min(1, age / 365),
+          label: `🚗 ${(v.brand || '') + ' ' + (v.model || '')} ค้างสต็อก ${age} วัน` })
+      })
+      const top = items.sort((a, b) => b.u - a.u).slice(0, 14)
+      const blips = top.map((it, i) => {
+        const ang = (i * 137.5) * Math.PI / 180
+        const r = 92 - it.u * 70
+        const cx = 110 + r * Math.cos(ang), cy = 110 + r * Math.sin(ang)
+        return `<g data-nav="${it.nav}" style="cursor:pointer">
+          <title>${escHtml(it.label)} — คลิกเพื่อไปจัดการ</title>
+          <circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="10" fill="transparent"/>
+          <circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${it.sev === 'danger' ? 4.5 : 3.5}" fill="var(--${it.sev})" style="animation:dashBlip ${(1.4 + i * 0.25).toFixed(2)}s ease-in-out infinite;filter:drop-shadow(0 0 6px var(--${it.sev}))"/>
+        </g>`
+      }).join('')
+      const nDanger = top.filter(t => t.sev === 'danger').length
+      const nWarn = top.length - nDanger
+      el.innerHTML = radarShell(top.length ? blips : `<text x="110" y="114" text-anchor="middle" font-size="11" fill="var(--success)" font-family="monospace" letter-spacing="1">ALL CLEAR</text>`) + `
+        <div style="font-size:0.64rem;color:var(--text-muted);text-align:center;margin-top:6px">
+          ${top.length
+            ? `<span style="color:var(--danger)">● วิกฤต ${nDanger}</span> · <span style="color:var(--warning)">● เตือน ${nWarn}</span> — ยิ่งใกล้ศูนย์กลาง = ยิ่งด่วน · <b>คลิกจุดเพื่อไปจัดการ</b>`
+            : `<span style="color:var(--success)">✅ ไม่มีรายการค้างในระบบ</span>`}
+        </div>`
+    }
+
     // ── เป้า vs ผลจริง (จากระบบเป้าหมายทีม /hr/targets) ──
     const METRIC_LABEL = { units: 'ยอดขาย (คัน)', revenue: 'รายได้', service: 'งานบริการ', csat: 'ความพึงพอใจ (%)', leads: 'Leads', other: 'อื่นๆ' }
     function renderTargets() {
@@ -958,7 +1005,7 @@ export default async function DashboardPage(container) {
     function renderAll() {
       renderPipeline(); renderDeptDetail(); renderTrendChart(); renderDonut(); renderGauges()
       renderMoM(); renderForecast(); renderTops(); renderFunnel()
-      renderAlerts(); renderTargets(); renderHeatmap()
+      renderAlerts(); renderTargets(); renderHeatmap(); renderRadar()
       document.querySelectorAll('.fc-month').forEach(s => { s.textContent = ymLabel(selectedMonth) })
     }
 
