@@ -54,8 +54,9 @@ initAuth(() => {
   bootstrapShell()
 })
 
-function bootstrapShell() {
-  seedDemoData()
+async function bootstrapShell() {
+  // seed demo data (lazy chunk) ให้เสร็จก่อน initRouter — กัน race หน้าแรกอ่านข้อมูลว่าง
+  await seedDemoData()
   app.innerHTML = ''
   app.className = 'app-layout'
 
