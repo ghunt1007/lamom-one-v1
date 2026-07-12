@@ -1,7 +1,5 @@
-import { login, register } from '../core/auth.js'
+import { login, register, resetPassword } from '../core/auth.js'
 import { getState, on } from '../core/store.js'
-import { verifyLogin, requestReset, changeOwnPassword, ROLES } from '../core/userDb.js'
-import { openModal } from '../utils/modal.js'
 
 export default function LoginPage(container) {
   container.style.cssText = 'min-height:100vh;width:100%;display:flex;'
@@ -163,67 +161,6 @@ export default function LoginPage(container) {
     btn.disabled = true
     btnText.innerHTML = '<span class="spinner spinner-sm"></span> กำลังเข้าสู่ระบบ...'
 
-    // 1) เช็คผู้ใช้ภายใน (สร้างจาก User Management) ก่อน
-    const internal = await verifyLogin(email, pw)
-    if (internal.ok) {
-      const u = internal.user
-      const enter = async () => {
-        const storeM = await import('../core/store.js')
-        storeM.setUser({
-          uid: u.id, email: u.email, displayName: u.name,
-          role: u.role, permissions: [],
-          supervisorEmail: u.supervisorEmail,
-        })
-        storeM.setCompany({ id: 'lamom-co', name: 'LAMOM AUTO GROUP', branch: 'สำนักงานใหญ่' })
-        storeM.showToast(`ยินดีต้อนรับ ${u.name} (${ROLES[u.role]?.label || u.role})`, 'success')
-        const routerM = await import('../core/router.js')
-        routerM.navigate('/')
-      }
-      // รหัสชั่วคราว — บังคับตั้งรหัสใหม่ก่อนเข้าระบบ
-      if (u.mustChangePw) {
-        btn.disabled = false
-        btnText.textContent = 'เข้าสู่ระบบ'
-        openModal({
-          title: '🔑 ตั้งรหัสผ่านใหม่ (บังคับ)',
-          size: 'sm',
-          body: `
-            <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:10px">รหัสที่ใช้เป็นรหัสชั่วคราว — ตั้งรหัสใหม่ของคุณเองก่อนเข้าระบบ</p>
-            <div class="input-group" style="margin-bottom:10px">
-              <label class="input-label">รหัสผ่านใหม่ (อย่างน้อย 8 ตัว) *</label>
-              <input class="input" type="password" id="fc-pw1">
-            </div>
-            <div class="input-group">
-              <label class="input-label">ยืนยันรหัสผ่านใหม่ *</label>
-              <input class="input" type="password" id="fc-pw2">
-            </div>
-            <span class="input-error" id="fc-error"></span>
-          `,
-          confirmText: '🔑 ตั้งรหัส + เข้าสู่ระบบ',
-          async onConfirm() {
-            const p1 = document.getElementById('fc-pw1')?.value || ''
-            const p2 = document.getElementById('fc-pw2')?.value || ''
-            const err = document.getElementById('fc-error')
-            if (p1.length < 8) { if (err) err.textContent = 'รหัสผ่านอย่างน้อย 8 ตัว'; return false }
-            if (p1 !== p2) { if (err) err.textContent = 'รหัสผ่านไม่ตรงกัน'; return false }
-            const r = await changeOwnPassword(u.email, p1)
-            if (!r.ok) { if (err) err.textContent = r.error; return false }
-            enter()
-          }
-        })
-        return
-      }
-      await enter()
-      return
-    }
-    if (internal.error && internal.error !== 'not_found') {
-      // เจอ user ภายในแต่รหัสผิด/ถูกระงับ — ไม่ต้องไปลอง Firebase
-      document.getElementById('pw-error').textContent = internal.error
-      btn.disabled = false
-      btnText.textContent = 'เข้าสู่ระบบ'
-      return
-    }
-
-    // 2) ไม่ใช่ user ภายใน — ลอง Firebase Auth
     try {
       await login(email, pw)
     } catch {
@@ -264,8 +201,8 @@ export default function LoginPage(container) {
     }
   })
 
-  // ลืมรหัสผ่าน — ส่งคำขอถึงผู้บังคับบัญชา / แอดมินโชว์รูม
-  document.getElementById('forgot-pw').addEventListener('click', (e) => {
+  // ลืมรหัสผ่าน — ส่งอีเมลลิงก์ตั้งรหัสผ่านใหม่จริงผ่าน Firebase Auth
+  document.getElementById('forgot-pw').addEventListener('click', async (e) => {
     e.preventDefault()
     const email = (emailEl.value || '').trim()
     if (!email) {
@@ -273,14 +210,9 @@ export default function LoginPage(container) {
       emailEl.focus()
       return
     }
-    const r = requestReset(email)
-    import('../core/store.js').then(m => {
-      if (r.dup) {
-        m.showToast('⏳ มีคำขอค้างอยู่แล้ว — ผู้บังคับบัญชากำลังดำเนินการ', 'warning')
-      } else {
-        const to = r.supervisor ? `ผู้บังคับบัญชาของคุณ (${r.supervisor})` : 'แอดมินโชว์รูม'
-        m.showToast(`📨 ส่งคำขอรีเซ็ตรหัสผ่านถึง ${to} แล้ว — รอการตั้งรหัสใหม่และติดต่อกลับ`, 'success')
-      }
-    })
+    const r = await resetPassword(email)
+    const m = await import('../core/store.js')
+    if (r.ok) m.showToast(`📨 ส่งอีเมลลิงก์ตั้งรหัสผ่านใหม่ไปที่ ${email} แล้ว — ตรวจกล่องจดหมาย`, 'success', 6000)
+    else m.showToast(r.error, 'error')
   })
 }

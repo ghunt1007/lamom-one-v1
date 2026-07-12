@@ -5,6 +5,9 @@ import {
   onAuthStateChanged,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
+  reauthenticateWithCredential,
+  updatePassword,
+  EmailAuthProvider,
 } from 'firebase/auth'
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { setUser, setCompany, setState, showToast, getState } from './store.js'
@@ -149,9 +152,26 @@ export async function createStaffAccount({ name, email, password, role }) {
   }
 }
 
-export async function sendStaffPasswordReset(email) {
+export async function resetPassword(email) {
   try {
     await sendPasswordResetEmail(auth, email)
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: authErrorMessage(e.code) }
+  }
+}
+
+// alias — เรียกจากหน้า User Management (แอดมินรีเซ็ตให้พนักงาน), ใช้ฟังก์ชันเดียวกับ resetPassword
+export const sendStaffPasswordReset = resetPassword
+
+// เปลี่ยนรหัสผ่านของตัวเอง — ต้อง reauthenticate ด้วยรหัสเดิมก่อน (ข้อกำหนดของ Firebase Auth)
+export async function changeOwnPassword(currentPassword, newPassword) {
+  const user = auth.currentUser
+  if (!user || !user.email) return { ok: false, error: 'ไม่พบผู้ใช้ที่ login อยู่' }
+  try {
+    const cred = EmailAuthProvider.credential(user.email, currentPassword)
+    await reauthenticateWithCredential(user, cred)
+    await updatePassword(user, newPassword)
     return { ok: true }
   } catch (e) {
     return { ok: false, error: authErrorMessage(e.code) }

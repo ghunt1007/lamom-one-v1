@@ -1,6 +1,16 @@
-import { formatDate } from '../../utils/format.js'
-import { showToast, getState, setState } from '../../core/store.js'
-import { ROLES, findUser, changeOwnPassword, checkPassword, getUsers } from '../../core/userDb.js'
+import { showToast, getState } from '../../core/store.js'
+import { changeOwnPassword } from '../../core/auth.js'
+
+const ROLES = {
+  owner:   { label: 'เจ้าของ',      icon: '🏆' },
+  admin:   { label: 'แอดมิน',       icon: '🔑' },
+  manager: { label: 'ผู้จัดการ',    icon: '🎯' },
+  finance: { label: 'การเงิน',      icon: '💰' },
+  hr:      { label: 'HR',           icon: '👨‍💼' },
+  sales:   { label: 'เซลส์',        icon: '💼' },
+  service: { label: 'ช่าง/บริการ',  icon: '🔧' },
+  staff:   { label: 'พนักงาน',      icon: '👤' },
+}
 
 const AVATAR_COLORS = [
   { name:'blue',    val:'#2563eb' },
@@ -21,10 +31,8 @@ const FAKE_ACTIVITY = [
 
 export default function MyAccountPage(container) {
   const me = getState('user') || {}
-  const internal = me.email ? findUser(me.email) : null
-  const role = ROLES[me.role] || { label: me.role || '—', icon:'👤', level:0 }
-  const supervisor = internal?.supervisorEmail ? (findUser(internal.supervisorEmail)?.name || internal.supervisorEmail) : '—'
-  const mySubordinates = getUsers().filter(u => u.supervisorEmail === (me.email||'').toLowerCase())
+  const isDemo = me.uid === 'demo-user'
+  const role = ROLES[me.role] || { label: me.role || '—', icon:'👤' }
 
   let prefs; try { prefs = JSON.parse(localStorage.getItem('lamom-my-prefs') || '{}') } catch { prefs = {} }
   let avatarColor = prefs.avatarColor || AVATAR_COLORS[0].val
@@ -80,24 +88,8 @@ export default function MyAccountPage(container) {
             ${row('👤 ชื่อ', me.displayName || '—')}
             ${row('📧 อีเมล (login)', me.email || '—')}
             ${row('🏷 บทบาท', `${role.icon} ${role.label}`)}
-            ${row('👔 ผู้บังคับบัญชา', supervisor)}
-            ${row('👥 ลูกน้อง', mySubordinates.length + ' คน')}
-            ${internal ? row('📅 สร้างบัญชีเมื่อ', formatDate(internal.createdAt)) : ''}
-            ${internal?.pwChangedAt ? row('🔑 เปลี่ยนรหัสล่าสุด', formatDate(internal.pwChangedAt)) : ''}
+            ${row('🔐 ประเภทบัญชี', isDemo ? '🎮 Demo' : '🔥 Firebase Auth')}
           </div>
-
-          ${mySubordinates.length > 0 ? `
-          <div class="card" style="padding:14px;border-left:3px solid var(--primary)">
-            <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">👥 ทีมของฉัน</div>
-            ${mySubordinates.map(s => `
-              <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border-subtle);font-size:0.78rem">
-                <div style="width:24px;height:24px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:0.7rem;color:white">${(s.name||'?').charAt(0)}</div>
-                <span>${s.name}</span>
-                <span class="badge badge-primary" style="font-size:0.6rem">${ROLES[s.role]?.label||s.role}</span>
-              </div>
-            `).join('')}
-          </div>
-          ` : ''}
         </div>
 
         <!-- Right: Avatar color picker -->
@@ -154,11 +146,9 @@ export default function MyAccountPage(container) {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
         <div class="card" style="padding:18px">
           <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:14px">🔑 เปลี่ยนรหัสผ่าน</div>
-          ${!internal ? `
+          ${isDemo ? `
             <div style="padding:14px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:0.8rem;color:var(--text-muted)">
-              ${me.uid==='demo-user'
-                ? '🎮 บัญชี Demo — ไม่สามารถเปลี่ยนรหัสผ่านได้'
-                : '🔥 บัญชี Firebase Auth — เปลี่ยนรหัสผ่านผ่าน Firebase Console หรือลิงก์รีเซ็ตทางอีเมล'}
+              🎮 บัญชี Demo — ไม่สามารถเปลี่ยนรหัสผ่านได้
             </div>
           ` : `
             <div style="display:flex;flex-direction:column;gap:12px">
@@ -169,13 +159,13 @@ export default function MyAccountPage(container) {
               <span class="input-error" id="cp-error"></span>
               <button class="btn btn-primary" id="cp-btn">🔑 เปลี่ยนรหัสผ่าน</button>
             </div>
-            <p style="font-size:0.68rem;color:var(--text-muted);margin-top:10px">💡 ลืมรหัสปัจจุบัน? ออกจากระบบแล้วกด "ลืมรหัสผ่าน?" เพื่อส่งคำขอถึง ${supervisor!=='—'?supervisor:'แอดมิน'}</p>
+            <p style="font-size:0.68rem;color:var(--text-muted);margin-top:10px">💡 ลืมรหัสปัจจุบัน? ออกจากระบบแล้วกด "ลืมรหัสผ่าน?" หน้า Login เพื่อรับอีเมลตั้งรหัสใหม่</p>
           `}
         </div>
         <div class="card" style="padding:18px">
           <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">🛡 ความปลอดภัยบัญชี</div>
-          ${secRow('สถานะบัญชี', me.uid==='demo-user'?'🎮 Demo':'✅ ใช้งานอยู่', me.uid==='demo-user'?'warning':'success')}
-          ${secRow('ประเภทบัญชี', internal?'🔐 LAMOM Internal':'🔥 Firebase Auth', 'primary')}
+          ${secRow('สถานะบัญชี', isDemo?'🎮 Demo':'✅ ใช้งานอยู่', isDemo?'warning':'success')}
+          ${secRow('ประเภทบัญชี', '🔥 Firebase Auth', 'primary')}
           ${secRow('Session', 'ใช้งาน Session ปัจจุบัน', 'success')}
           <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
             <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:8px">💡 คำแนะนำ</div>
@@ -205,11 +195,14 @@ export default function MyAccountPage(container) {
       const p1 = document.getElementById('cp-new1')?.value || ''
       const p2 = document.getElementById('cp-new2')?.value || ''
       const err = document.getElementById('cp-error')
+      const btn = document.getElementById('cp-btn')
       if (err) err.textContent = ''
-      if (!(await checkPassword(internal.email, oldPw))) { if (err) err.textContent = 'รหัสผ่านปัจจุบันไม่ถูกต้อง'; return }
+      if (!oldPw) { if (err) err.textContent = 'กรอกรหัสผ่านปัจจุบัน'; return }
       if (p1.length < 8) { if (err) err.textContent = 'รหัสผ่านใหม่อย่างน้อย 8 ตัว'; return }
       if (p1 !== p2) { if (err) err.textContent = 'รหัสผ่านใหม่ไม่ตรงกัน'; return }
-      const r = await changeOwnPassword(internal.email, p1)
+      if (btn) { btn.disabled = true; btn.textContent = '⏳ กำลังเปลี่ยน...' }
+      const r = await changeOwnPassword(oldPw, p1)
+      if (btn) { btn.disabled = false; btn.textContent = '🔑 เปลี่ยนรหัสผ่าน' }
       if (!r.ok) { if (err) err.textContent = r.error; return }
       showToast('🔑 เปลี่ยนรหัสผ่านสำเร็จ', 'success')
       ;['cp-old','cp-new1','cp-new2'].forEach(id => { const el = document.getElementById(id); if (el) el.value = '' })

@@ -535,7 +535,6 @@ const routes = {
   // M11 Settings
   '/settings':      () => import('../pages/settings/Settings.js'),
   '/settings/company': () => import('../pages/settings/Company.js'),
-  '/settings/users':   () => import('../pages/settings/Users.js'),
   '/settings/roles':   () => import('../pages/settings/Roles.js'),
 }
 
