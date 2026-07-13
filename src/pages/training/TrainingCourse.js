@@ -3,9 +3,11 @@
  * Route: /training/courses
  */
 import { formatDate } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+
+function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
 const COURSE_TYPES = {
   product:   { label: 'ความรู้รถ EV', color: 'primary', icon: '🚗' },
@@ -100,9 +102,13 @@ export default async function TrainingCoursePage(container) {
               <div style="background:var(--surface-2);border-radius:3px;height:5px;margin-bottom:10px">
                 <div style="width:${Math.round(enrolled.length/c.maxEnroll*100)}%;background:var(--${ct?.color});height:5px;border-radius:3px"></div>
               </div>
-              <div style="display:flex;gap:6px">
+              <div style="display:flex;gap:6px;margin-bottom:6px">
                 <button class="btn btn-xs btn-secondary view-course-btn" data-id="${c.id}" style="flex:1">ดูรายละเอียด</button>
                 ${isUpcoming ? `<button class="btn btn-xs btn-primary enroll-btn" data-id="${c.id}" style="flex:1">+ ลงทะเบียน</button>` : ''}
+              </div>
+              <div style="display:flex;gap:6px">
+                <button class="btn btn-xs btn-secondary edit-course-btn" data-id="${escHtml(c.id)}" style="flex:1">✏️ แก้ไข</button>
+                <button class="btn btn-xs btn-danger del-course-btn" data-id="${escHtml(c.id)}" style="flex:1">🗑 ลบ</button>
               </div>
             </div>`
           }).join('')}
@@ -118,6 +124,20 @@ export default async function TrainingCoursePage(container) {
     }))
     container.querySelectorAll('.enroll-btn').forEach(b => b.addEventListener('click', () => {
       const c = courses.find(x => x.id === b.dataset.id); if (c) openEnroll(c)
+    }))
+    container.querySelectorAll('.edit-course-btn').forEach(b => b.addEventListener('click', () => {
+      const c = courses.find(x => x.id === b.dataset.id); if (c) openEditCourse(c)
+    }))
+    container.querySelectorAll('.del-course-btn').forEach(b => b.addEventListener('click', async () => {
+      const c = courses.find(x => x.id === b.dataset.id)
+      if (!c) return
+      const ok = await confirmDialog({ title: '🗑 ลบหลักสูตร', message: `ต้องการลบหลักสูตร "${c.title}" ใช่หรือไม่?`, confirmText: 'ลบ', danger: true })
+      if (!ok) return
+      try {
+        await softDelete('training_courses', c.id)
+        showToast('🗑 ลบหลักสูตรแล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('ลบไม่สำเร็จ', 'error') }
     }))
   }
 
@@ -214,6 +234,52 @@ export default async function TrainingCoursePage(container) {
         })
         showToast('✅ เพิ่มหลักสูตรแล้ว!', 'success')
         await loadData()
+      }
+    })
+  }
+
+  function openEditCourse(c) {
+    openModal({
+      title: '✏️ แก้ไขหลักสูตร',
+      size: 'md',
+      body: `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="input-group" style="grid-column:1/-1"><label class="input-label">ชื่อหลักสูตร *</label><input class="input" id="cef-title" value="${escHtml(c.title)}"></div>
+          <div class="input-group"><label class="input-label">ประเภท</label>
+            <select class="input" id="cef-type">${Object.entries(COURSE_TYPES).map(([k,v]) => `<option value="${k}" ${c.type===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}</select>
+          </div>
+          <div class="input-group"><label class="input-label">วิทยากร</label><input class="input" id="cef-inst" value="${escHtml(c.instructor)}"></div>
+          <div class="input-group"><label class="input-label">วันที่</label><input type="date" class="input" id="cef-date" value="${c.startDate||addDays(14)}"></div>
+          <div class="input-group"><label class="input-label">ระยะเวลา</label><input class="input" id="cef-dur" value="${escHtml(c.duration)}"></div>
+          <div class="input-group"><label class="input-label">รูปแบบ</label>
+            <select class="input" id="cef-format">
+              ${['Classroom','Online','Workshop','Hands-on Lab'].map(f => `<option ${c.format===f?'selected':''}>${f}</option>`).join('')}
+            </select>
+          </div>
+          <div class="input-group"><label class="input-label">จำนวนสูงสุด</label><input type="number" class="input" id="cef-max" value="${c.maxEnroll}"></div>
+          <div class="input-group"><label class="input-label">คะแนนผ่าน (%)</label><input type="number" class="input" id="cef-pass" value="${c.passScore}"></div>
+          <div class="input-group" style="grid-column:1/-1"><label class="input-label">รายละเอียด</label><textarea class="input" id="cef-desc" rows="3">${escHtml(c.description||'')}</textarea></div>
+        </div>
+      `,
+      async onConfirm() {
+        const title = document.getElementById('cef-title')?.value?.trim()
+        if (!title) { showToast('❗ กรุณากรอกชื่อหลักสูตร', 'error'); return false }
+        const date = document.getElementById('cef-date')?.value || c.startDate
+        try {
+          await updateDocData('training_courses', c.id, {
+            title,
+            type: document.getElementById('cef-type')?.value||c.type,
+            instructor: document.getElementById('cef-inst')?.value||'',
+            duration: document.getElementById('cef-dur')?.value||'',
+            format: document.getElementById('cef-format')?.value||c.format,
+            maxEnroll: +document.getElementById('cef-max')?.value||c.maxEnroll,
+            startDate: date, endDate: date,
+            passScore: +document.getElementById('cef-pass')?.value||c.passScore,
+            description: document.getElementById('cef-desc')?.value||''
+          })
+          showToast('✅ บันทึกการแก้ไขแล้ว', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }

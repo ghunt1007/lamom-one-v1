@@ -45,6 +45,19 @@ export function runSeed(demoCol) {
   staffLoans.forEach(l => { if (!demoCol('staff_loans')[l.id]) demoCol('staff_loans')[l.id] = l })
 
 
+  // Skill definitions (หน้า /hr/skills) — รายการทักษะที่ใช้ประเมินใน Skill Matrix
+  const skillDefinitions = [
+    { id: 'sales', name: 'เทคนิคการขาย', icon: '💼', category: 'ขาย', order: 1 },
+    { id: 'product', name: 'ความรู้ผลิตภัณฑ์ EV', icon: '🚗', category: 'ขาย', order: 2 },
+    { id: 'finance', name: 'ไฟแนนซ์/สินเชื่อ', icon: '🏦', category: 'ขาย', order: 3 },
+    { id: 'ev_repair', name: 'ซ่อม EV/HV', icon: '⚡', category: 'ช่าง', order: 4 },
+    { id: 'general_repair', name: 'ซ่อมทั่วไป', icon: '🔧', category: 'ช่าง', order: 5 },
+    { id: 'crm_system', name: 'ใช้ระบบ LAMOM ONE', icon: '💻', category: 'ทั่วไป', order: 6 },
+    { id: 'english', name: 'ภาษาอังกฤษ', icon: '🌐', category: 'ทั่วไป', order: 7 },
+  ]
+  skillDefinitions.forEach(sk => { if (!demoCol('skill_definitions')[sk.id]) demoCol('skill_definitions')[sk.id] = sk })
+
+
   // Skill matrix (หน้า /hr/skills)
   const staffSkills = [
     { id:'S01', name:'วิชัย ยอดขาย', role:'Senior Sales', skills:{ sales:4, product:4, finance:3, ev_repair:0, general_repair:0, crm_system:3, english:2 } },

@@ -2,10 +2,12 @@
  * Succession Planning — วางแผนสืบทอดตำแหน่ง
  * Route: /hr/succession
  */
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
-import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+
+function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
 const READINESS = {
   ready:    { label: 'พร้อมแล้ว', color: 'var(--success)' },
@@ -77,6 +79,10 @@ export default async function SuccessionPlanningPage(container) {
     `
 
     container.querySelectorAll('.add-successor-btn').forEach(b => b.addEventListener('click', () => addSuccessor(b.dataset.id)))
+    container.querySelectorAll('.edit-role-btn').forEach(b => b.addEventListener('click', () => editRole(b.dataset.id)))
+    container.querySelectorAll('.del-role-btn').forEach(b => b.addEventListener('click', () => deleteRole(b.dataset.id)))
+    container.querySelectorAll('.edit-successor-btn').forEach(b => b.addEventListener('click', () => editSuccessor(b.dataset.id, +b.dataset.idx)))
+    container.querySelectorAll('.del-successor-btn').forEach(b => b.addEventListener('click', () => deleteSuccessor(b.dataset.id, +b.dataset.idx)))
     document.getElementById('add-btn')?.addEventListener('click', addRole)
     document.getElementById('report-btn')?.addEventListener('click', () => {
       const rows = plans.flatMap(p => {
@@ -109,7 +115,11 @@ export default async function SuccessionPlanningPage(container) {
               <span style="font-size:0.64rem;background:${r.color};color:#fff;padding:1px 7px;border-radius:10px;margin-left:6px">${r.label}</span>
             </div>
           </div>
-          <button class="btn btn-xs btn-secondary add-successor-btn" data-id="${p.id}">➕ เพิ่มผู้สืบทอด</button>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-xs btn-secondary add-successor-btn" data-id="${p.id}">➕ เพิ่มผู้สืบทอด</button>
+            <button class="btn btn-xs btn-secondary edit-role-btn" data-id="${p.id}">✏️ แก้ไข</button>
+            <button class="btn btn-xs btn-danger del-role-btn" data-id="${p.id}">🗑 ลบ</button>
+          </div>
         </div>
 
         ${successors.length === 0 ? `
@@ -126,6 +136,10 @@ export default async function SuccessionPlanningPage(container) {
                 </div>
                 <div style="font-size:0.7rem;color:var(--text-muted);margin-top:4px">แผนก: ${s.dept}</div>
                 ${s.gaps ? `<div style="font-size:0.7rem;margin-top:4px">🔧 ช่องว่าง: <span style="color:var(--warning)">${s.gaps}</span></div>` : ''}
+                <div style="display:flex;gap:6px;margin-top:8px">
+                  <button class="btn btn-xs btn-secondary edit-successor-btn" data-id="${p.id}" data-idx="${i}">✏️ แก้ไข</button>
+                  <button class="btn btn-xs btn-danger del-successor-btn" data-id="${p.id}" data-idx="${i}">🗑 ลบ</button>
+                </div>
               </div>`
             }).join('')}
           </div>`}
@@ -158,6 +172,101 @@ export default async function SuccessionPlanningPage(container) {
         await loadData()
       }
     })
+  }
+
+  function editRole(planId) {
+    const plan = plans.find(p => p.id === planId)
+    if (!plan) return
+    openModal({
+      title: `✏️ แก้ไขตำแหน่ง — ${plan.role}`,
+      size: 'sm',
+      body: `<div style="display:grid;gap:10px">
+        <div class="input-group"><label class="input-label">ชื่อตำแหน่ง *</label><input class="input" id="sp-role" value="${escHtml(plan.role)}"></div>
+        <div class="input-group"><label class="input-label">ผู้ดำรงตำแหน่งปัจจุบัน *</label><input class="input" id="sp-current" value="${escHtml(plan.current.name)}"></div>
+        <div style="display:flex;gap:8px">
+          <div class="input-group" style="flex:1"><label class="input-label">อายุงาน</label><input class="input" id="sp-tenure" value="${escHtml(plan.current.tenure)}"></div>
+          <div class="input-group" style="flex:1"><label class="input-label">ความเสี่ยง</label>
+            <select class="input" id="sp-risk">
+              <option value="low" ${plan.current.risk==='low'?'selected':''}>ต่ำ</option>
+              <option value="medium" ${plan.current.risk==='medium'?'selected':''}>ปานกลาง</option>
+              <option value="high" ${plan.current.risk==='high'?'selected':''}>สูง</option>
+            </select>
+          </div>
+        </div>
+      </div>`,
+      confirmText: '💾 บันทึก',
+      async onConfirm() {
+        const role = document.getElementById('sp-role').value.trim()
+        const curr = document.getElementById('sp-current').value.trim()
+        if (!role || !curr) { showToast('❗ กรอกข้อมูลที่จำเป็น', 'error'); return false }
+        try {
+          await updateDocData('succession_plans', plan.id, {
+            role,
+            current: { name: curr, tenure: document.getElementById('sp-tenure').value.trim() || '-', risk: document.getElementById('sp-risk').value }
+          })
+          showToast(`แก้ไขตำแหน่ง "${role}" แล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      }
+    })
+  }
+
+  async function deleteRole(planId) {
+    const plan = plans.find(p => p.id === planId)
+    if (!plan) return
+    const ok = await confirmDialog({ title: '🗑 ลบตำแหน่ง', message: `ลบตำแหน่ง "${plan.role}" ออกจาก Succession Plan?`, confirmText: 'ลบ', danger: true })
+    if (!ok) return
+    try {
+      await softDelete('succession_plans', plan.id)
+      showToast('🗑 ลบตำแหน่งแล้ว', 'warning')
+      await loadData()
+    } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+  }
+
+  function editSuccessor(planId, idx) {
+    const plan = plans.find(p => p.id === planId)
+    const s = plan?.successors?.[idx]
+    if (!plan || !s) return
+    openModal({
+      title: `✏️ แก้ไขผู้สืบทอด — ${plan.role}`,
+      size: 'sm',
+      body: `<div style="display:grid;gap:10px">
+        <div class="input-group"><label class="input-label">ชื่อพนักงาน *</label><input class="input" id="sp-name" value="${escHtml(s.name)}"></div>
+        <div style="display:flex;gap:8px">
+          <div class="input-group" style="flex:1"><label class="input-label">แผนก</label><input class="input" id="sp-dept" value="${escHtml(s.dept)}"></div>
+          <div class="input-group" style="flex:1"><label class="input-label">ความพร้อม</label>
+            <select class="input" id="sp-ready">${Object.entries(READINESS).map(([k,v])=>`<option value="${k}" ${s.readiness===k?'selected':''}>${v.label}</option>`).join('')}</select>
+          </div>
+        </div>
+        <div class="input-group"><label class="input-label">ช่องว่างที่ต้องพัฒนา</label><input class="input" id="sp-gaps" value="${escHtml(s.gaps || '')}"></div>
+      </div>`,
+      confirmText: '💾 บันทึก',
+      async onConfirm() {
+        const name = document.getElementById('sp-name').value.trim()
+        if (!name) { showToast('❗ ระบุชื่อ', 'error'); return false }
+        const successors = [...plan.successors]
+        successors[idx] = { name, dept: document.getElementById('sp-dept').value.trim(), readiness: document.getElementById('sp-ready').value, gaps: document.getElementById('sp-gaps').value.trim() }
+        try {
+          await updateDocData('succession_plans', plan.id, { successors })
+          showToast(`แก้ไขผู้สืบทอด "${name}" แล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      }
+    })
+  }
+
+  async function deleteSuccessor(planId, idx) {
+    const plan = plans.find(p => p.id === planId)
+    const s = plan?.successors?.[idx]
+    if (!plan || !s) return
+    const ok = await confirmDialog({ title: '🗑 ลบผู้สืบทอด', message: `ลบ "${s.name}" ออกจากรายชื่อผู้สืบทอด "${plan.role}"?`, confirmText: 'ลบ', danger: true })
+    if (!ok) return
+    const successors = plan.successors.filter((_, i) => i !== idx)
+    try {
+      await updateDocData('succession_plans', plan.id, { successors })
+      showToast('🗑 ลบผู้สืบทอดแล้ว', 'warning')
+      await loadData()
+    } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
   }
 
   function addRole() {

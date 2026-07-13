@@ -3,9 +3,11 @@
  * Route: /training/knowledge
  */
 import { timeAgo } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+
+function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
 const KB_CATS = {
   product: { label: 'ผลิตภัณฑ์/รถ', color: 'primary', icon: '🚗' },
@@ -77,9 +79,13 @@ export default async function KnowledgeBasePage(container) {
                 <span class="badge badge-${kc?.color}" style="font-size:0.6rem;white-space:nowrap">${kc?.icon} ${kc?.label}</span>
               </div>
               <div style="font-size:0.76rem;color:var(--text-muted);margin-bottom:8px;line-height:1.5">${a.excerpt}</div>
-              <div style="display:flex;justify-content:space-between;font-size:0.66rem;color:var(--text-muted)">
+              <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.66rem;color:var(--text-muted)">
                 <span>✍️ ${a.author} · อัปเดต ${timeAgo(a.updated)}</span>
                 <span>👁 ${a.views} · 👍 ${a.helpful}</span>
+              </div>
+              <div style="display:flex;gap:6px;margin-top:8px">
+                <button class="btn btn-xs btn-secondary kb-edit-btn" data-id="${escHtml(a.id)}">✏️ แก้ไข</button>
+                <button class="btn btn-xs btn-danger kb-del-btn" data-id="${escHtml(a.id)}">🗑 ลบ</button>
               </div>
             </div>`
           }).join('')}
@@ -116,6 +122,23 @@ export default async function KnowledgeBasePage(container) {
       })
       renderPage()
     }))
+    container.querySelectorAll('.kb-edit-btn').forEach(b => b.addEventListener('click', e => {
+      e.stopPropagation()
+      const a = articles.find(x => x.id === b.dataset.id)
+      if (a) openEditKb(a)
+    }))
+    container.querySelectorAll('.kb-del-btn').forEach(b => b.addEventListener('click', async e => {
+      e.stopPropagation()
+      const a = articles.find(x => x.id === b.dataset.id)
+      if (!a) return
+      const ok = await confirmDialog({ title: '🗑 ลบบทความ', message: `ต้องการลบบทความ "${a.title}" ใช่หรือไม่?`, confirmText: 'ลบ', danger: true })
+      if (!ok) return
+      try {
+        await softDelete('kb_articles', a.id)
+        showToast('🗑 ลบบทความแล้ว', 'success')
+        await loadData()
+      } catch (e2) { showToast('ลบไม่สำเร็จ', 'error') }
+    }))
     document.getElementById('add-kb-btn')?.addEventListener('click', () => {
       openModal({
         title: '+ เขียนบทความใหม่',
@@ -138,6 +161,30 @@ export default async function KnowledgeBasePage(container) {
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
+    })
+  }
+
+  function openEditKb(a) {
+    openModal({
+      title: '✏️ แก้ไขบทความ',
+      size: 'md',
+      body: `<div style="display:grid;gap:10px">
+        <div class="input-group"><label class="input-label">หัวข้อ *</label><input class="input" id="kb-e-title" value="${escHtml(a.title)}"></div>
+        <div class="input-group"><label class="input-label">หมวด</label>
+          <select class="input" id="kb-e-cat">${Object.entries(KB_CATS).map(([k,v])=>`<option value="${k}" ${a.cat===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}</select>
+        </div>
+        <div class="input-group"><label class="input-label">เนื้อหา *</label><textarea class="input" id="kb-e-content" rows="5">${escHtml(a.excerpt)}</textarea></div>
+      </div>`,
+      async onConfirm() {
+        const title = document.getElementById('kb-e-title')?.value?.trim()
+        const content = document.getElementById('kb-e-content')?.value?.trim()
+        if (!title || !content) { showToast('❗ กรอกหัวข้อและเนื้อหา', 'error'); return false }
+        try {
+          await updateDocData('kb_articles', a.id, { title, cat: document.getElementById('kb-e-cat')?.value || a.cat, excerpt: content.slice(0,120)+(content.length>120?'…':'') })
+          showToast('✅ บันทึกการแก้ไขแล้ว', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      }
     })
   }
 

@@ -3,9 +3,9 @@
  * Route: /hr/employee-kpi
  */
 import { formatDate, timeAgo } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -120,6 +120,10 @@ export default async function EmployeeKpiPage(container) {
                   <span class="badge badge-${rt.color}" style="font-size:0.6rem">${rt.label}</span>
                 </div>
               </div>
+              <div style="display:flex;gap:6px;margin-top:8px">
+                <button class="btn btn-xs btn-secondary edit-eval-btn" data-id="${e.id}">✏️ แก้ไข</button>
+                <button class="btn btn-xs btn-danger del-eval-btn" data-id="${e.id}">🗑 ลบ</button>
+              </div>
             </div>`
           }).join('')}
           ${!list.length ? '<div class="card" style="padding:32px;text-align:center;color:var(--text-muted)">ยังไม่มีการประเมินในช่วงเวลานี้</div>' : ''}
@@ -129,41 +133,61 @@ export default async function EmployeeKpiPage(container) {
 
     container.querySelectorAll('.pt-btn').forEach(b => b.addEventListener('click', () => { periodType = b.dataset.p; render() }))
     document.getElementById('staff-filter')?.addEventListener('change', e => { staffFilter = e.target.value; render() })
-    document.getElementById('new-eval-btn')?.addEventListener('click', openEvalModal)
+    document.getElementById('new-eval-btn')?.addEventListener('click', () => openEvalModal(null))
     container.querySelectorAll('.eval-card').forEach(c => c.addEventListener('click', () => {
       const e = evaluations.find(x => x.id === c.dataset.id); if (e) openDetailModal(e)
     }))
+    container.querySelectorAll('.edit-eval-btn').forEach(b => b.addEventListener('click', e => {
+      e.stopPropagation()
+      const ev = evaluations.find(x => x.id === b.dataset.id); if (ev) openEvalModal(ev)
+    }))
+    container.querySelectorAll('.del-eval-btn').forEach(b => b.addEventListener('click', async e => {
+      e.stopPropagation()
+      const ev = evaluations.find(x => x.id === b.dataset.id)
+      if (!ev) return
+      const ok = await confirmDialog({ title: '🗑 ลบผลประเมิน', message: `ลบผลประเมินของ "${staffName(ev.staffId)}" งวด ${ev.periodValue}?`, confirmText: 'ลบ', danger: true })
+      if (!ok) return
+      try {
+        await softDelete('employee_evaluations', ev.id)
+        showToast('🗑 ลบผลประเมินแล้ว', 'warning')
+        await loadData()
+      } catch (err) { showToast('บันทึกไม่สำเร็จ', 'error') }
+    }))
   }
 
-  function openEvalModal() {
-    const pv = defaultPeriodValue(periodType)
+  function openEvalModal(existing) {
+    const isEdit = !!existing
+    const pv = existing?.periodValue || defaultPeriodValue(periodType)
+    const evPtype = existing?.periodType || periodType
     openModal({
-      title: '+ ประเมินผลงานพนักงาน',
+      title: isEdit ? '✏️ แก้ไขผลประเมิน' : '+ ประเมินผลงานพนักงาน',
       size: 'md',
       body: `
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">พนักงาน *</label>
-            <select class="input" id="ev-staff">${staffList.map(s => `<option value="${s.id}">${esc(s.firstName)} ${esc(s.lastName)} (${esc(s.dept)})</option>`).join('')}</select>
+            <select class="input" id="ev-staff">${staffList.map(s => `<option value="${s.id}" ${existing?.staffId===s.id?'selected':''}>${esc(s.firstName)} ${esc(s.lastName)} (${esc(s.dept)})</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">ช่วงเวลาประเมิน</label>
-            <select class="input" id="ev-ptype">${Object.entries(PERIOD_TYPES).map(([k,v]) => `<option value="${k}" ${periodType===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}</select>
+            <select class="input" id="ev-ptype">${Object.entries(PERIOD_TYPES).map(([k,v]) => `<option value="${k}" ${evPtype===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}</select>
           </div>
-          <div class="input-group"><label class="input-label">งวดที่ประเมิน</label><input class="input" id="ev-pvalue" type="${PERIOD_TYPES[periodType].inputType}" value="${pv}"></div>
+          <div class="input-group"><label class="input-label">งวดที่ประเมิน</label><input class="input" id="ev-pvalue" type="${PERIOD_TYPES[evPtype].inputType}" value="${pv}"></div>
         </div>
         <div style="font-size:0.8rem;font-weight:700;margin-bottom:8px">ให้คะแนนแต่ละด้าน (0-100)</div>
         <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:12px">
-          ${CRITERIA.map(c => `
+          ${CRITERIA.map(c => {
+            const v = existing?.criteriaScores?.[c.key] ?? 70
+            return `
             <div>
               <div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:3px">
-                <span>${c.label}</span><span id="ev-${c.key}-val">70</span>
+                <span>${c.label}</span><span id="ev-${c.key}-val">${v}</span>
               </div>
-              <input type="range" class="ev-score" data-key="${c.key}" min="0" max="100" value="70" style="width:100%">
+              <input type="range" class="ev-score" data-key="${c.key}" min="0" max="100" value="${v}" style="width:100%">
             </div>
-          `).join('')}
+          `}).join('')}
         </div>
-        <div class="input-group"><label class="input-label">จุดแข็ง</label><input class="input" id="ev-strengths"></div>
-        <div class="input-group"><label class="input-label">จุดที่ควรพัฒนา</label><input class="input" id="ev-improvements"></div>
-        <div class="input-group"><label class="input-label">ผู้ประเมิน</label><input class="input" id="ev-reviewer" value="คุณ (Demo)"></div>
+        <div class="input-group"><label class="input-label">จุดแข็ง</label><input class="input" id="ev-strengths" value="${esc(existing?.strengths || '')}"></div>
+        <div class="input-group"><label class="input-label">จุดที่ควรพัฒนา</label><input class="input" id="ev-improvements" value="${esc(existing?.improvements || '')}"></div>
+        <div class="input-group"><label class="input-label">ผู้ประเมิน</label><input class="input" id="ev-reviewer" value="${esc(existing?.reviewer || 'คุณ (Demo)')}"></div>
       `,
       async onConfirm() {
         const staffId = document.getElementById('ev-staff')?.value
@@ -171,16 +195,18 @@ export default async function EmployeeKpiPage(container) {
         const criteriaScores = {}
         document.querySelectorAll('.ev-score').forEach(inp => { criteriaScores[inp.dataset.key] = +inp.value })
         const overallScore = calcScore(criteriaScores)
+        const fields = {
+          staffId, periodType: document.getElementById('ev-ptype')?.value || periodType,
+          periodValue: document.getElementById('ev-pvalue')?.value || pv,
+          criteriaScores, overallScore,
+          strengths: document.getElementById('ev-strengths')?.value?.trim() || '',
+          improvements: document.getElementById('ev-improvements')?.value?.trim() || '',
+          reviewer: document.getElementById('ev-reviewer')?.value?.trim() || 'ผู้ประเมิน',
+        }
         try {
-          await createDoc('employee_evaluations', {
-            staffId, periodType: document.getElementById('ev-ptype')?.value || periodType,
-            periodValue: document.getElementById('ev-pvalue')?.value || pv,
-            criteriaScores, overallScore,
-            strengths: document.getElementById('ev-strengths')?.value?.trim() || '',
-            improvements: document.getElementById('ev-improvements')?.value?.trim() || '',
-            reviewer: document.getElementById('ev-reviewer')?.value?.trim() || 'ผู้ประเมิน',
-          })
-          showToast('✅ บันทึกผลประเมินแล้ว!', 'success')
+          if (isEdit) await updateDocData('employee_evaluations', existing.id, fields)
+          else await createDoc('employee_evaluations', fields)
+          showToast(isEdit ? '✅ แก้ไขผลประเมินแล้ว!' : '✅ บันทึกผลประเมินแล้ว!', 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }

@@ -89,4 +89,14 @@ export function runSeed(demoCol) {
   ]
   staffCertifications.forEach(c => { if (!demoCol('staff_certifications')[c.id]) demoCol('staff_certifications')[c.id] = c })
 
+
+  // Quiz results (หน้า /training/quiz)
+  const quizResultsDemo = [
+    { id:'qr1', staffName:'วิชัย ยอดขาย', quizTitle:'ความรู้พื้นฐาน EV', score:4, total:4, percent:100, passed:true, passedAt:addDaysISO(-3) },
+    { id:'qr2', staffName:'สุดา มาดี', quizTitle:'เทคนิคการขาย', score:2, total:3, percent:67, passed:false, passedAt:addDaysISO(-6) },
+    { id:'qr3', staffName:'วิทยา ช่างใหญ่', quizTitle:'SOP บริการหลังการขาย', score:3, total:3, percent:100, passed:true, passedAt:addDaysISO(-10) },
+    { id:'qr4', staffName:'ธนา เก่ง', quizTitle:'ความรู้พื้นฐาน EV', score:3, total:4, percent:75, passed:true, passedAt:addDaysISO(-1) },
+  ]
+  quizResultsDemo.forEach(r => { if (!demoCol('quiz_results')[r.id]) demoCol('quiz_results')[r.id] = r })
+
 }

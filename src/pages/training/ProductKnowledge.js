@@ -2,9 +2,11 @@
  * Product Knowledge DB — ฐานข้อมูลความรู้รถ Spec / จุดขาย / คู่แข่ง
  * Route: /training/product-knowledge
  */
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+
+function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
 export default async function ProductKnowledgePage(container) {
   const myGen = container.__routerGen
@@ -75,7 +77,11 @@ export default async function ProductKnowledgePage(container) {
     return '<div class="card" style="padding:16px">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">' +
         '<div style="font-weight:700;font-size:0.9rem">📋 ' + p.brand + ' ' + p.model + '</div>' +
-        '<button class="btn btn-xs btn-primary" id="quiz-btn-' + p.id + '" style="font-size:0.7rem">🎯 ทำ Quiz</button>' +
+        '<div style="display:flex;gap:6px">' +
+          '<button class="btn btn-xs btn-primary" id="quiz-btn-' + p.id + '" style="font-size:0.7rem">🎯 ทำ Quiz</button>' +
+          '<button class="btn btn-xs btn-secondary" id="edit-btn-' + p.id + '" style="font-size:0.7rem">✏️ แก้ไข</button>' +
+          '<button class="btn btn-xs btn-danger" id="del-btn-' + p.id + '" style="font-size:0.7rem">🗑 ลบ</button>' +
+        '</div>' +
       '</div>' +
       '<div style="font-size:0.76rem;font-weight:700;margin-bottom:6px;color:var(--text-muted)">SPEC</div>' +
       '<table style="width:100%;border-collapse:collapse;margin-bottom:12px">' + specsRows + '</table>' +
@@ -138,6 +144,17 @@ export default async function ProductKnowledgePage(container) {
     document.getElementById('add-prod-btn')?.addEventListener('click', openAddProductModal)
     PRODUCTS.forEach(p=>{
       document.getElementById('quiz-btn-'+p.id)?.addEventListener('click',()=>openQuizModal(p))
+      document.getElementById('edit-btn-'+p.id)?.addEventListener('click',()=>openEditProductModal(p))
+      document.getElementById('del-btn-'+p.id)?.addEventListener('click', async ()=>{
+        const ok = await confirmDialog({ title: '🗑 ลบรุ่นรถ', message: `ต้องการลบ "${p.brand} ${p.model}" ออกจาก Knowledge DB ใช่หรือไม่?`, confirmText: 'ลบ', danger: true })
+        if (!ok) return
+        try {
+          await softDelete('product_knowledge', p.id)
+          showToast('🗑 ลบ ' + p.brand + ' ' + p.model + ' แล้ว', 'success')
+          if (selectedId === p.id) selectedId = null
+          await loadData()
+        } catch (e) { showToast('ลบไม่สำเร็จ', 'error') }
+      })
     })
   }
 
@@ -313,6 +330,73 @@ export default async function ProductKnowledgePage(container) {
         })
         document.querySelector('.modal-overlay')?.remove()
         showToast('✅ เพิ่ม ' + brand + ' ' + model + ' แล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+    })
+  }
+
+  function openEditProductModal(p) {
+    openModal({
+      title: '✏️ แก้ไข ' + p.brand + ' ' + p.model,
+      size: 'md',
+      body: `
+        <div style="display:flex;flex-direction:column;gap:12px;font-size:0.82rem">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div><label style="font-size:0.74rem;color:var(--text-muted)">แบรนด์ *</label>
+              <input id="pke-brand" class="input" value="${escHtml(p.brand)}"></div>
+            <div><label style="font-size:0.74rem;color:var(--text-muted)">รุ่น *</label>
+              <input id="pke-model" class="input" value="${escHtml(p.model)}"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div><label style="font-size:0.74rem;color:var(--text-muted)">ปีรุ่น</label>
+              <input id="pke-year" type="number" class="input" value="${p.year}"></div>
+            <div><label style="font-size:0.74rem;color:var(--text-muted)">Badge</label>
+              <select id="pke-badge" class="input">
+                <option value="EV" ${p.badge==='EV'?'selected':''}>EV</option>
+                <option value="NEW" ${p.badge==='NEW'?'selected':''}>NEW</option>
+                <option value="PHEV" ${p.badge==='PHEV'?'selected':''}>PHEV</option>
+              </select></div>
+          </div>
+          <div style="border-top:1px solid var(--border);padding-top:8px;font-size:0.76rem;font-weight:700">Specs</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div><label style="font-size:0.74rem;color:var(--text-muted)">แบตเตอรี่</label><input id="pke-bat" class="input" value="${escHtml(p.specs.battery)}"></div>
+            <div><label style="font-size:0.74rem;color:var(--text-muted)">พิสัย</label><input id="pke-range" class="input" value="${escHtml(p.specs.range)}"></div>
+            <div><label style="font-size:0.74rem;color:var(--text-muted)">กำลัง</label><input id="pke-power" class="input" value="${escHtml(p.specs.power)}"></div>
+            <div><label style="font-size:0.74rem;color:var(--text-muted)">ราคาเริ่มต้น (฿)</label><input id="pke-price" class="input" value="${escHtml(p.specs.price)}"></div>
+          </div>
+          <div><label style="font-size:0.74rem;color:var(--text-muted)">จุดขายหลัก (แยกบรรทัด)</label>
+            <textarea id="pke-selling" class="input" rows="3">${escHtml((p.selling||[]).join('\n'))}</textarea></div>
+        </div>
+      `,
+      footer: `
+        <span></span>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary btn-sm" onclick="this.closest('.modal-overlay').remove()">ยกเลิก</button>
+          <button class="btn btn-primary btn-sm" id="pke-save">💾 บันทึก</button>
+        </div>
+      `
+    })
+    document.getElementById('pke-save')?.addEventListener('click', async () => {
+      const brand = document.getElementById('pke-brand')?.value.trim()
+      const model = document.getElementById('pke-model')?.value.trim()
+      if (!brand || !model) { showToast('⚠️ กรุณากรอกแบรนด์และรุ่น', 'warning'); return }
+      const sellingRaw = document.getElementById('pke-selling')?.value.trim()
+      try {
+        await updateDocData('product_knowledge', p.id, {
+          brand, model,
+          badge: document.getElementById('pke-badge')?.value || p.badge,
+          year: parseInt(document.getElementById('pke-year')?.value) || p.year,
+          specs: {
+            ...p.specs,
+            battery: document.getElementById('pke-bat')?.value.trim() || p.specs.battery,
+            range:   document.getElementById('pke-range')?.value.trim() || p.specs.range,
+            power:   document.getElementById('pke-power')?.value.trim() || p.specs.power,
+            price:   document.getElementById('pke-price')?.value.trim() || p.specs.price,
+          },
+          selling: sellingRaw ? sellingRaw.split('\n').filter(Boolean) : p.selling,
+        })
+        document.querySelector('.modal-overlay')?.remove()
+        showToast('✅ บันทึกการแก้ไขแล้ว', 'success')
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })

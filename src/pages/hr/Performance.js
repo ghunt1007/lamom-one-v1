@@ -1,8 +1,8 @@
 import { formatDate } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
-import { getCommissionData, listDocs, createDoc, seedDemoData } from '../../core/db.js'
+import { getCommissionData, listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -149,7 +149,11 @@ export default async function PerformancePage(container) {
                   <td class="text-right" style="font-weight:800;color:var(--${pr?.color})">${e.overallScore.toFixed(1)}</td>
                   <td><span class="badge badge-${pr?.color}">${pr?.label}</span></td>
                   <td class="text-right" style="color:var(--success);font-weight:700">+${e.salary_adjustment}%</td>
-                  <td><button class="btn btn-xs btn-secondary open-review-btn" data-id="${e.id}">ดู</button></td>
+                  <td style="white-space:nowrap">
+                    <button class="btn btn-xs btn-secondary open-review-btn" data-id="${e.id}">ดู</button>
+                    <button class="btn btn-xs btn-secondary edit-review-btn" data-id="${e.id}">✏️</button>
+                    <button class="btn btn-xs btn-danger del-review-btn" data-id="${e.id}">🗑</button>
+                  </td>
                 </tr>`
               }).join('')}
             </tbody>
@@ -160,13 +164,27 @@ export default async function PerformancePage(container) {
 
     document.getElementById('period-sel')?.addEventListener('change', e => { period = e.target.value; renderPage() })
     document.getElementById('dept-sel')?.addEventListener('change', e => { deptFilter = e.target.value; renderPage() })
-    document.getElementById('add-review-btn')?.addEventListener('click', openAddForm)
+    document.getElementById('add-review-btn')?.addEventListener('click', () => openAddForm(null))
     document.getElementById('export-btn')?.addEventListener('click', () => {
       exportToExcel(list.map(e => ({ ชื่อ: e.name, แผนก: e.dept, KPI: e.kpiScore, พฤติกรรม: e.behaviorScore, เข้างาน: e.attendanceScore, รวม: e.overallScore, ระดับ: PERF_RATING[e.rating]?.label, ปรับเงินเดือน: e.salary_adjustment + '%' })), 'performance_review')
       showToast('📥 Export แล้ว!', 'success')
     })
     container.querySelectorAll('.open-review-btn').forEach(b => b.addEventListener('click', () => {
       const e = employees.find(x => x.id === b.dataset.id); if (e) openDetail(e)
+    }))
+    container.querySelectorAll('.edit-review-btn').forEach(b => b.addEventListener('click', () => {
+      const e = employees.find(x => x.id === b.dataset.id); if (e) openAddForm(e)
+    }))
+    container.querySelectorAll('.del-review-btn').forEach(b => b.addEventListener('click', async () => {
+      const e = employees.find(x => x.id === b.dataset.id)
+      if (!e) return
+      const ok = await confirmDialog({ title: '🗑 ลบการประเมิน', message: `ลบผลการประเมินของ "${e.name}" งวด ${e.period}?`, confirmText: 'ลบ', danger: true })
+      if (!ok) return
+      try {
+        await softDelete('performance_scorecards', e.id)
+        showToast('🗑 ลบการประเมินแล้ว', 'warning')
+        await loadData()
+      } catch (err) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
   }
 
@@ -227,17 +245,18 @@ export default async function PerformancePage(container) {
     })
   }
 
-  function openAddForm() {
+  function openAddForm(existing) {
+    const isEdit = !!existing
     openModal({
-      title: '+ เพิ่มการประเมิน',
+      title: isEdit ? '✏️ แก้ไขการประเมิน' : '+ เพิ่มการประเมิน',
       size: 'md',
       body: `
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div class="input-group"><label class="input-label">ชื่อพนักงาน *</label><input class="input" id="prf-name" placeholder="ชื่อ-นามสกุล"></div>
-          <div class="input-group"><label class="input-label">แผนก</label><select class="input" id="prf-dept">${DEPARTMENTS_LIST.map(d => `<option>${d}</option>`).join('')}</select></div>
-          <div class="input-group"><label class="input-label">ตำแหน่ง</label><input class="input" id="prf-role" placeholder="เซลส์ / ช่าง / บัญชี..."></div>
-          <div class="input-group"><label class="input-label">งวดการประเมิน</label><select class="input" id="prf-period">${REVIEW_PERIODS.map(p => `<option ${p===period?'selected':''}>${p}</option>`).join('')}</select></div>
-          ${[['prf-kpi','🎯 คะแนน KPI (0-100)'],['prf-beh','🤝 คะแนนพฤติกรรม (0-100)'],['prf-att','⏰ คะแนนเข้างาน (0-100)']].map(([id,l]) => `<div class="input-group"><label class="input-label">${l}</label><input type="number" class="input" id="${id}" min="0" max="100" value="80"></div>`).join('')}
+          <div class="input-group"><label class="input-label">ชื่อพนักงาน *</label><input class="input" id="prf-name" placeholder="ชื่อ-นามสกุล" value="${escHtml(existing?.name || '')}"></div>
+          <div class="input-group"><label class="input-label">แผนก</label><select class="input" id="prf-dept">${DEPARTMENTS_LIST.map(d => `<option ${existing?.dept===d?'selected':''}>${d}</option>`).join('')}</select></div>
+          <div class="input-group"><label class="input-label">ตำแหน่ง</label><input class="input" id="prf-role" placeholder="เซลส์ / ช่าง / บัญชี..." value="${escHtml(existing?.role || '')}"></div>
+          <div class="input-group"><label class="input-label">งวดการประเมิน</label><select class="input" id="prf-period">${REVIEW_PERIODS.map(p => `<option ${p===(existing?.period||period)?'selected':''}>${p}</option>`).join('')}</select></div>
+          ${[['prf-kpi','🎯 คะแนน KPI (0-100)','kpiScore'],['prf-beh','🤝 คะแนนพฤติกรรม (0-100)','behaviorScore'],['prf-att','⏰ คะแนนเข้างาน (0-100)','attendanceScore']].map(([id,l,f]) => `<div class="input-group"><label class="input-label">${l}</label><input type="number" class="input" id="${id}" min="0" max="100" value="${existing?.[f] ?? 80}"></div>`).join('')}
         </div>
       `,
       async onConfirm() {
@@ -248,18 +267,26 @@ export default async function PerformancePage(container) {
         const att = +document.getElementById('prf-att')?.value || 80
         const overall = (kpi * 0.5 + beh * 0.3 + att * 0.2)
         const rating = overall >= 90 ? 5 : overall >= 80 ? 4 : overall >= 70 ? 3 : overall >= 60 ? 2 : 1
+        const fields = {
+          name,
+          dept: document.getElementById('prf-dept')?.value||'ฝ่ายขาย',
+          role: document.getElementById('prf-role')?.value||'',
+          period: document.getElementById('prf-period')?.value||period,
+          kpiScore: kpi, behaviorScore: beh, attendanceScore: att, overallScore: overall, rating,
+          salary_adjustment: Math.round(overall / 20),
+        }
         try {
-          await createDoc('performance_scorecards', {
-            name,
-            dept: document.getElementById('prf-dept')?.value||'ฝ่ายขาย',
-            role: document.getElementById('prf-role')?.value||'',
-            period: document.getElementById('prf-period')?.value||period,
-            kpiScore: kpi, behaviorScore: beh, attendanceScore: att, overallScore: overall, rating,
-            reviewer: 'ผู้จัดการ', reviewDate: new Date().toISOString().slice(0,10),
-            goals: '', nextGoals: '', strengths: '', improvements: '',
-            salary_adjustment: Math.round(overall / 20), bonus_multiplier: 1.0
-          })
-          showToast('✅ บันทึกการประเมินแล้ว!', 'success')
+          if (isEdit) {
+            await updateDocData('performance_scorecards', existing.id, fields)
+          } else {
+            await createDoc('performance_scorecards', {
+              ...fields,
+              reviewer: 'ผู้จัดการ', reviewDate: new Date().toISOString().slice(0,10),
+              goals: '', nextGoals: '', strengths: '', improvements: '',
+              bonus_multiplier: 1.0
+            })
+          }
+          showToast(isEdit ? '✅ แก้ไขการประเมินแล้ว!' : '✅ บันทึกการประเมินแล้ว!', 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }

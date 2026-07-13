@@ -3,7 +3,9 @@
  * Route: /training/quiz
  */
 import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
+import { formatDate } from '../../utils/format.js'
+import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 
 const QUIZ_SETS = [
   {
@@ -38,10 +40,22 @@ const LEADERBOARD = [
 ]
 
 export default async function TrainingQuizPage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+
   let activeQuiz = null
   let currentQ = 0
   let score = 0
   let answered = false
+  let history = []
+  let loading = true
+
+  async function loadHistory() {
+    loading = true
+    try { history = await listDocs('quiz_results', [], 'passedAt', 'desc', 50) } catch (e) { history = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
     if (activeQuiz) { renderQuiz(); return }
@@ -85,6 +99,27 @@ export default async function TrainingQuizPage(container) {
               </div>
             `).join('')}
           </div>
+        </div>
+
+        <!-- Quiz history -->
+        <div class="card" style="padding:14px;margin-top:14px">
+          <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">📜 ประวัติการทำแบบทดสอบ</div>
+          ${loading ? '<div style="font-size:0.8rem;color:var(--text-muted)">⏳ กำลังโหลด...</div>' : ''}
+          ${!loading && history.length === 0 ? '<div style="font-size:0.8rem;color:var(--text-muted)">ยังไม่มีประวัติการทำแบบทดสอบ</div>' : ''}
+          ${!loading ? `<div style="display:flex;flex-direction:column;gap:6px">
+            ${history.map(h => `
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:0.8rem">
+                <div>
+                  <div style="font-weight:600">${h.staffName || '-'} <span style="color:var(--text-muted);font-weight:400">· ${h.quizTitle || ''}</span></div>
+                  <div style="font-size:0.68rem;color:var(--text-muted)">${h.passedAt ? formatDate(h.passedAt) : ''}</div>
+                </div>
+                <div style="text-align:right">
+                  <span class="badge badge-${h.passed ? 'success' : 'danger'}" style="font-size:0.62rem">${h.passed ? '✅ ผ่าน' : '❌ ไม่ผ่าน'}</span>
+                  <div style="font-weight:700;color:var(--${h.passed?'success':'warning'});font-size:0.82rem">${h.percent}%</div>
+                </div>
+              </div>
+            `).join('')}
+          </div>` : ''}
         </div>
       </div>
     `
@@ -162,6 +197,13 @@ export default async function TrainingQuizPage(container) {
     const total = activeQuiz.questions.length
     const pct = Math.round(score / total * 100)
     const passed = pct >= 70
+    const staffName = getState('user')?.displayName || getState('user')?.email || 'ผู้ใช้งาน'
+    createDoc('quiz_results', {
+      staffName,
+      quizTitle: activeQuiz.name,
+      score, total, percent: pct, passed,
+      passedAt: new Date().toISOString(),
+    }).catch(() => showToast('บันทึกผลไม่สำเร็จ', 'error'))
     container.innerHTML = `
       <div class="page-content animate-slide">
         <div class="card" style="padding:30px;max-width:480px;margin:40px auto;text-align:center">
@@ -179,11 +221,12 @@ export default async function TrainingQuizPage(container) {
       </div>
     `
     document.getElementById('retry-btn')?.addEventListener('click', () => { currentQ = 0; score = 0; answered = false; renderQuiz() })
-    document.getElementById('back-btn')?.addEventListener('click', () => {
-      if (passed) showToast('🏆 บันทึกคะแนน ' + pct + '% แล้ว', 'success')
-      activeQuiz = null; renderPage()
+    document.getElementById('back-btn')?.addEventListener('click', async () => {
+      showToast('🏆 บันทึกคะแนน ' + pct + '% แล้ว', 'success')
+      activeQuiz = null
+      await loadHistory()
     })
   }
 
-  renderPage()
+  await loadHistory()
 }
