@@ -142,6 +142,7 @@ const routes = {
   '/crm/quotation':       () => import('../pages/crm/QuotationBuilder.js'),
   // Settings extras
   '/settings/audit':      () => import('../pages/settings/AuditLog.js'),
+  '/settings/errors':     () => import('../pages/settings/ErrorLog.js'),
   // Analytics extras
   '/analytics/operations':() => import('../pages/analytics/OperationsDashboard.js'),
   // Insurance extras

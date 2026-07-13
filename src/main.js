@@ -13,8 +13,11 @@ import { Sidebar } from './components/layout/Sidebar.js'
 import { Topbar } from './components/layout/Topbar.js'
 import { ToastContainer } from './components/layout/Toast.js'
 import { initAutoTableTools } from './utils/tableTools.js'
+import { initErrorMonitor } from './utils/errorMonitor.js'
 
 const app = document.getElementById('app')
+
+initErrorMonitor()
 
 // Toast ต้อง mount ครั้งเดียวที่ระดับ app ไม่ใช่ใน bootstrapShell —
 // (1) หน้า login ต้องเห็น toast error จาก auth ด้วย (เดิม showToast ก่อน login ล่องหน)

@@ -370,6 +370,7 @@ const NAV = [
       { icon: '🗂', label: 'Master Data', path: '/settings/master-data' },
       { icon: '🎨', label: 'White-label', path: '/settings/whitelabel' },
       { icon: '📋', label: 'Audit Log', path: '/settings/audit' },
+      { icon: '🐞', label: 'Error Log', path: '/settings/errors' },
       { icon: '🔍', label: 'User Activity', path: '/settings/activity' },
       { icon: '💾', label: 'Backup & Restore', path: '/settings/backup' },
       { icon: '🔑', label: 'API Keys', path: '/settings/api-keys' },
