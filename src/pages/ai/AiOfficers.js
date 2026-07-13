@@ -95,12 +95,12 @@ export default async function AiOfficersPage(container) {
   // Pre-load some stats for context
   let stats = { customers: 0, vehicles: 0, jobs: 0, leads: 0 }
   try {
-    const [cust, veh, jobs, leads] = await Promise.all([
-      listDocs('customers', [], 'createdAt', 'desc', 10).catch(() => []),
+    const [cust, veh, jobs] = await Promise.all([
+      listDocs('customers', [], 'createdAt', 'desc', 200).catch(() => []),
       listDocs('vehicles', [], 'arrivedAt', 'desc', 10).catch(() => []),
       listDocs('job_cards', [], 'createdAt', 'desc', 10).catch(() => []),
-      listDocs('leads', [], 'createdAt', 'desc', 10).catch(() => []),
     ])
+    const leads = cust.filter(c => c.stage === 'lead' || c.stage === 'pp')
     stats = { customers: cust.length, vehicles: veh.length, jobs: jobs.length, leads: leads.length }
   } catch {}
 

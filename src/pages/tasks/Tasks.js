@@ -37,9 +37,11 @@ export default async function TasksPage(container) {
   seedDemoData()
 
   let tasks = []
-  let viewFilter = 'active' // active | all | done
+  let viewFilter = 'active' // active | all | done | mine
   let priorityFilter = 'all'
   let deptFilter = 'all'
+  const currentUser = getState('user')
+  const myName = currentUser?.displayName || currentUser?.email || currentUser?.uid || ''
 
   async function loadData() {
     try { tasks = await listDocs('tasks', [], 'dueDate', 'asc', 500) } catch {}
@@ -48,6 +50,7 @@ export default async function TasksPage(container) {
 
   function getFiltered() {
     let t = tasks.filter(t => {
+      if (viewFilter === 'mine') return t.assignedTo && t.assignedTo === myName
       if (viewFilter === 'active') return t.status !== 'done' && t.status !== 'cancelled'
       if (viewFilter === 'done') return t.status === 'done' || t.status === 'cancelled'
       return true
@@ -92,7 +95,8 @@ export default async function TasksPage(container) {
     }
 
     if (!filtered.length) {
-      wrap.innerHTML = `<div class="empty-state" style="padding:48px"><div class="empty-icon">✅</div><div class="empty-title">${viewFilter==='done'?'ยังไม่มีงานที่เสร็จ':'ไม่มีงานค้าง!'}</div></div>`
+      const emptyMsg = viewFilter === 'done' ? 'ยังไม่มีงานที่เสร็จ' : (viewFilter === 'mine' ? 'ยังไม่มีงานที่มอบหมายให้คุณ' : 'ไม่มีงานค้าง!')
+      wrap.innerHTML = `<div class="empty-state" style="padding:48px"><div class="empty-icon">✅</div><div class="empty-title">${emptyMsg}</div></div>`
       return
     }
 
@@ -316,6 +320,7 @@ export default async function TasksPage(container) {
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
         <div style="display:flex;gap:4px">
           <button class="btn btn-sm vf-btn btn-primary" data-vf="active">🔥 Active</button>
+          <button class="btn btn-sm vf-btn btn-secondary" data-vf="mine">👤 งานของฉัน</button>
           <button class="btn btn-sm vf-btn btn-secondary" data-vf="all">ทั้งหมด</button>
           <button class="btn btn-sm vf-btn btn-secondary" data-vf="done">✅ เสร็จแล้ว</button>
         </div>

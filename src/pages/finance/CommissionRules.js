@@ -3,7 +3,7 @@
  * Route: /finance/commission-rules
  */
 import { formatCurrency } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, getSalesData } from '../../core/db.js'
 
@@ -315,8 +315,9 @@ export default async function CommissionRulesPage(container) {
     })
 
     // Reset to default
-    document.getElementById('reset-btn')?.addEventListener('click', () => {
-      if (!confirm('Reset กติกาทั้งหมดกลับค่าเริ่มต้น?')) return
+    document.getElementById('reset-btn')?.addEventListener('click', async () => {
+      const ok = await confirmDialog({ title: 'Reset กติกา', message: 'Reset กติกาทั้งหมดกลับค่าเริ่มต้น?', confirmText: 'Reset', danger: true })
+      if (!ok) return
       rules = cloneBaseRules()
       saveRules(rules)
       showToast('↩ Reset แล้ว', 'warning')

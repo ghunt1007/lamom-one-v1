@@ -4,7 +4,7 @@ import { formatCurrency } from '../../utils/format.js'
 
 const QUICK_LINKS = [
   { icon:'👥', label:'ลูกค้า', sub:'ฐานข้อมูลลูกค้า', path:'/crm/customers', color:'primary' },
-  { icon:'🧲', label:'Lead', sub:'ติดตามลูกค้าใหม่', path:'/crm/leads', color:'accent' },
+  { icon:'🧲', label:'Lead/Prospect', sub:'ติดตามลูกค้าใหม่ (รวมใน ลูกค้า)', path:'/crm/customers', color:'accent' },
   { icon:'📋', label:'Pipeline', sub:'Kanban Sales', path:'/crm/pipeline', color:'success' },
   { icon:'📝', label:'จองรถ', sub:'ใบจองและสัญญา', path:'/crm/bookings', color:'warning' },
   { icon:'🗂️', label:'Action Plan', sub:'แผนการขายรายวัน', path:'/crm/action-plan', color:'primary' },
@@ -39,7 +39,7 @@ export default async function CrmDashboard(container) {
           <div class="page-subtitle">บริหารการขายครบวงจร</div>
         </div>
         <div class="page-actions">
-          <button class="btn btn-primary btn-sm" data-nav="/crm/leads">+ Lead ใหม่</button>
+          <button class="btn btn-primary btn-sm" data-nav="/crm/customers">+ ลูกค้าใหม่</button>
         </div>
       </div>
 
@@ -77,26 +77,25 @@ export default async function CrmDashboard(container) {
 
   if (container.__routerGen !== myGen) return
 
-  let customers = [], leads = [], sales = []
+  let customers = [], sales = []
   try {
-    ;[customers, leads, sales] = await Promise.all([
+    ;[customers, sales] = await Promise.all([
       listDocs('customers', [], 'createdAt', 'desc', 500).catch(() => []),
-      listDocs('leads', [], 'createdAt', 'desc', 500).catch(() => []),
       getSalesData().catch(() => []),
     ])
   } catch {}
 
   if (container.__routerGen !== myGen) return
 
-  const hot = customers.filter(c => c.status === 'hot').length
-  const activePipeline = leads.filter(l => !['lost', 'booking'].includes(l.status)).length
+  const hot = customers.filter(c => c.temperature === 'hot' && !c.isLost).length
+  const activePipeline = customers.filter(c => ['lead', 'pp'].includes(c.stage) && !c.isLost).length
   const bookingValue = sales.reduce((s, b) => s + (b.salePrice || 0), 0)
 
   const kpiEl = document.getElementById('crm-kpis')
   if (kpiEl) kpiEl.innerHTML = `
     ${kCard('👥', 'ลูกค้าทั้งหมด', customers.length, 'primary', '/crm/customers')}
     ${kCard('🔥', 'ลูกค้า Hot', hot, 'danger', '/crm/customers')}
-    ${kCard('🧲', 'Leads Active', activePipeline, 'accent', '/crm/leads')}
+    ${kCard('🧲', 'Lead/Prospect Active', activePipeline, 'accent', '/crm/customers')}
     ${kCard('📝', 'ใบจอง', sales.length, 'warning', '/crm/bookings')}
     ${kCard('💰', 'ยอดขายรวม', formatCurrency(bookingValue), 'success', '/crm/bookings')}
   `

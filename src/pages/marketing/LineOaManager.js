@@ -3,7 +3,7 @@
  * Route: /marketing/line-oa
  */
 import { formatDate, timeAgo } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
@@ -135,6 +135,8 @@ export default async function LineOaManagerPage(container) {
       const a = autoReplies.find(x => x.id === b.dataset.id); if (a) openArForm(a)
     }))
     container.querySelectorAll('.cancel-bc-btn').forEach(b => b.addEventListener('click', async () => {
+      const ok = await confirmDialog({ title: 'ยกเลิก Broadcast', message: 'ต้องการยกเลิก Broadcast นี้หรือไม่?', confirmText: 'ยกเลิก Broadcast', danger: true })
+      if (!ok) return
       try {
         await softDelete('line_oa_broadcasts', b.dataset.id)
         showToast('🚫 ยกเลิกแล้ว', 'secondary')

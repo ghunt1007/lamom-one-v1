@@ -7,33 +7,25 @@ function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
+// Kanban over the unified `customers` collection (stage-based pipeline).
+// Only lead ⇄ pp is a valid drag target here — booking/delivered require the real actions
+// (create a booking / mark it delivered) that live in the Customer Workspace & Bookings page.
 const STAGES = [
-  { key:'new',        label:'🆕 ใหม่',         color:'primary', bg:'var(--primary-dim)' },
-  { key:'contacted',  label:'📞 ติดต่อแล้ว',   color:'primary', bg:'var(--primary-dim)' },
-  { key:'interested', label:'💡 สนใจ',          color:'warning', bg:'var(--warning-dim)' },
-  { key:'qualified',  label:'⭐ Qualified',     color:'accent',  bg:'var(--accent-dim)' },
-  { key:'booking',    label:'📝 จอง',           color:'success', bg:'var(--success-dim)' },
-]
-
-const DEMO_LEADS = [
-  { id:'ld1', firstName:'ธีรพงศ์', lastName:'แสงทอง', status:'new', interestedModel:'BYD Atto 3', budget:1200000, createdAt: new Date(Date.now()-3600000*2).toISOString() },
-  { id:'ld2', firstName:'อรนุช', lastName:'พรหมมา', status:'contacted', interestedModel:'MG4', budget:900000, createdAt: new Date(Date.now()-86400000).toISOString() },
-  { id:'ld3', firstName:'กิตติพงษ์', lastName:'วรรณศิลป์', status:'interested', interestedModel:'DEEPAL S7', budget:1500000, createdAt: new Date(Date.now()-86400000*2).toISOString() },
-  { id:'ld4', firstName:'พิมพ์ชนก', lastName:'ทองสุข', status:'qualified', interestedModel:'BYD Seal', budget:1300000, createdAt: new Date(Date.now()-86400000*3).toISOString() },
-  { id:'ld6', firstName:'สุภาพร', lastName:'ใจดี', status:'new', interestedModel:'NETA V', budget:800000, createdAt: new Date(Date.now()-3600000*5).toISOString() },
+  { key: 'lead',      label: '🧲 Lead',       color: 'accent',  bg: 'var(--accent-dim)',  droppable: true },
+  { key: 'pp',        label: '📇 Prospect',   color: 'primary', bg: 'var(--primary-dim)', droppable: true },
+  { key: 'booking',   label: '📝 จองแล้ว',    color: 'warning', bg: 'var(--warning-dim)', droppable: false },
+  { key: 'delivered', label: '✅ ส่งมอบแล้ว', color: 'success', bg: 'var(--success-dim)', droppable: false },
 ]
 
 export default async function PipelinePage(container) {
   const myGen = container.__routerGen
   seedDemoData()
 
-  let leads = []
+  let customers = []
   let dragging = null
 
   async function loadData() {
-    try { leads = await listDocs('leads', [], 'createdAt', 'desc', 500) } catch {}
-    const active = leads.filter(l => l.status !== 'lost')
-    if (!active.length) DEMO_LEADS.forEach(l => leads.push({ ...l }))
+    try { customers = await listDocs('customers', [], 'createdAt', 'desc', 500) } catch { customers = [] }
     renderBoard()
   }
 
@@ -41,14 +33,14 @@ export default async function PipelinePage(container) {
     const board = document.getElementById('pipeline-board')
     if (!board) return
 
-    // Update stats
-    const totalBudget = leads.filter(l => l.status !== 'lost').reduce((s, l) => s + (l.budget || 0), 0)
+    const active = customers.filter(c => !c.isLost)
+    const totalBudget = active.reduce((s, c) => s + (c.budget || 0), 0)
     const el = document.getElementById('pipeline-total')
-    if (el) el.textContent = `💰 มูลค่าดีลรวม: ${formatCurrency(totalBudget)}`
+    if (el) el.textContent = `💰 มูลค่ารวม (งบประมาณลูกค้า): ${formatCurrency(totalBudget)}`
 
     board.innerHTML = STAGES.map(stage => {
-      const cards = leads.filter(l => l.status === stage.key)
-      const stageValue = cards.reduce((s, l) => s + (l.budget || 0), 0)
+      const cards = active.filter(c => c.stage === stage.key)
+      const stageValue = cards.reduce((s, c) => s + (c.budget || 0), 0)
       return `
         <div class="pipeline-col" data-stage="${stage.key}" style="
           min-width:220px; flex:1; max-width:260px;
@@ -61,15 +53,15 @@ export default async function PipelinePage(container) {
               <span style="font-weight:700;font-size:0.875rem;color:var(--${stage.color})">${stage.label}</span>
               <span class="badge badge-${stage.color}">${cards.length}</span>
             </div>
-            <div style="font-size:0.72rem;color:var(--text-muted)">${formatCurrency(stageValue)}</div>
+            <div style="font-size:0.72rem;color:var(--text-muted)">${formatCurrency(stageValue)}${!stage.droppable ? ' · อ่านอย่างเดียว' : ''}</div>
           </div>
           <!-- Cards Drop Zone -->
-          <div class="pipeline-drop" data-stage="${stage.key}" style="
+          <div class="pipeline-drop" data-stage="${stage.key}" data-droppable="${stage.droppable}" style="
             flex:1; overflow-y:auto; padding:10px; display:flex; flex-direction:column; gap:8px;
             min-height:80px;
           ">
-            ${cards.map(l => cardHTML(l, stage)).join('')}
-            ${!cards.length ? `<div class="drop-placeholder" style="border:2px dashed var(--border);border-radius:var(--radius-md);padding:16px;text-align:center;color:var(--text-muted);font-size:0.78rem">ลาก Lead มาวางที่นี่</div>` : ''}
+            ${cards.map(c => cardHTML(c, stage)).join('')}
+            ${!cards.length ? `<div class="drop-placeholder" style="border:2px dashed var(--border);border-radius:var(--radius-md);padding:16px;text-align:center;color:var(--text-muted);font-size:0.78rem">${stage.droppable ? 'ลากลูกค้ามาวางที่นี่' : 'ไม่มีรายการ'}</div>` : ''}
           </div>
         </div>
       `
@@ -79,28 +71,28 @@ export default async function PipelinePage(container) {
     bindCardEvents()
   }
 
-  function cardHTML(l, stage) {
+  function cardHTML(c, stage) {
     return `
-      <div class="pipeline-card" draggable="true" data-id="${l.id}"
+      <div class="pipeline-card" draggable="${stage.droppable}" data-id="${c.id}"
         style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);
-               padding:10px 12px;cursor:grab;transition:all 150ms;border-left:3px solid var(--${stage.color})">
+               padding:10px 12px;cursor:${stage.droppable ? 'grab' : 'pointer'};transition:all 150ms;border-left:3px solid var(--${stage.color})">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-          <div class="avatar avatar-sm" style="background:var(--${stage.color}-dim);color:var(--${stage.color});font-size:0.75rem;flex-shrink:0">${escHtml(initials(l.firstName, l.lastName))}</div>
+          <div class="avatar avatar-sm" style="background:var(--${stage.color}-dim);color:var(--${stage.color});font-size:0.75rem;flex-shrink:0">${escHtml(initials(c.firstName, c.lastName))}</div>
           <div style="flex:1;min-width:0">
-            <div style="font-weight:600;font-size:0.83rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(fullName(l))}</div>
+            <div style="font-weight:600;font-size:0.83rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(fullName(c))}${c.vip ? ' ⭐' : ''}</div>
           </div>
         </div>
-        <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:4px">🚗 ${escHtml(l.interestedModel || '-')}</div>
+        <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:4px">🚗 ${escHtml(c.interestedModel || '-')}</div>
         <div style="display:flex;align-items:center;justify-content:space-between">
-          <span style="font-size:0.78rem;font-weight:600;color:var(--accent)">${l.budget ? '฿' + Number(l.budget).toLocaleString() : '-'}</span>
-          <span style="font-size:0.7rem;color:var(--text-muted)">${timeAgo(l.createdAt)}</span>
+          <span style="font-size:0.78rem;font-weight:600;color:var(--accent)">${c.budget ? '฿' + Number(c.budget).toLocaleString() : '-'}</span>
+          <span style="font-size:0.7rem;color:var(--text-muted)">${timeAgo(c.createdAt)}</span>
         </div>
       </div>
     `
   }
 
   function bindDragDrop() {
-    document.querySelectorAll('.pipeline-card').forEach(card => {
+    document.querySelectorAll('.pipeline-card[draggable="true"]').forEach(card => {
       card.addEventListener('dragstart', e => {
         dragging = card.dataset.id
         card.style.opacity = '0.4'
@@ -115,6 +107,7 @@ export default async function PipelinePage(container) {
 
     document.querySelectorAll('.pipeline-drop').forEach(zone => {
       zone.addEventListener('dragover', e => {
+        if (zone.dataset.droppable !== 'true') return
         e.preventDefault()
         e.dataTransfer.dropEffect = 'move'
         zone.style.background = 'var(--primary-dim)'
@@ -124,17 +117,21 @@ export default async function PipelinePage(container) {
         e.preventDefault()
         zone.style.background = ''
         if (!dragging) return
+        if (zone.dataset.droppable !== 'true') {
+          showToast('📝 การเปลี่ยนเป็น "จองแล้ว/ส่งมอบแล้ว" ต้องทำผ่านหน้าลูกค้า (สร้างใบจอง) หรือหน้าจองรถ (ปรับสถานะส่งมอบ)', 'warning')
+          return
+        }
         const newStage = zone.dataset.stage
-        const lead = leads.find(l => l.id === dragging)
-        if (!lead || lead.status === newStage) return
-        const oldStage = lead.status
-        lead.status = newStage
+        const c = customers.find(x => x.id === dragging)
+        if (!c || c.stage === newStage) return
+        const oldStage = c.stage
+        c.stage = newStage
         renderBoard()
         try {
-          await updateDocData('leads', lead.id, { status: newStage })
-          showToast(`✅ ย้าย ${fullName(lead)} → ${STAGES.find(s => s.key === newStage)?.label}`, 'success')
+          await updateDocData('customers', c.id, { stage: newStage, stageChangedAt: new Date().toISOString() })
+          showToast(`✅ ย้าย ${fullName(c)} → ${STAGES.find(s => s.key === newStage)?.label}`, 'success')
         } catch {
-          lead.status = oldStage
+          c.stage = oldStage
           renderBoard()
           showToast('บันทึกไม่สำเร็จ', 'error')
         }
@@ -145,17 +142,16 @@ export default async function PipelinePage(container) {
   function bindCardEvents() {
     document.querySelectorAll('.pipeline-card').forEach(card => {
       card.addEventListener('click', () => {
-        const l = leads.find(x => x.id === card.dataset.id)
-        if (l) showLeadQuick(l)
+        const c = customers.find(x => x.id === card.dataset.id)
+        if (c) showCustomerQuick(c)
       })
     })
   }
 
-  function showLeadQuick(l) {
-    const stage = STAGES.find(s => s.key === l.status)
-    const nextStage = STAGES[STAGES.findIndex(s => s.key === l.status) + 1]
+  function showCustomerQuick(c) {
+    const stage = STAGES.find(s => s.key === c.stage)
+    const nextStage = stage?.droppable ? STAGES[STAGES.findIndex(s => s.key === c.stage) + 1] : null
 
-    // Quick popup (not full modal)
     const existing = document.getElementById('lead-quick-popup')
     if (existing) existing.remove()
 
@@ -167,15 +163,15 @@ export default async function PipelinePage(container) {
     popup.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
         <div>
-          <div style="font-weight:700;font-size:1rem">${escHtml(fullName(l))}</div>
-          <span class="badge badge-${stage?.color||'secondary'}" style="margin-top:4px">${stage?.label||escHtml(l.status)}</span>
+          <div style="font-weight:700;font-size:1rem">${escHtml(fullName(c))}</div>
+          <span class="badge badge-${stage?.color || 'secondary'}" style="margin-top:4px">${stage?.label || escHtml(c.stage)}</span>
         </div>
         <button style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.1rem" id="qp-close">✕</button>
       </div>
       <div style="display:flex;flex-direction:column;gap:6px;font-size:0.83rem;margin-bottom:14px">
-        <div>🚗 ${escHtml(l.interestedModel || '-')}</div>
-        <div>💰 ${l.budget ? '฿' + Number(l.budget).toLocaleString() : '-'}</div>
-        <div>📱 ${escHtml(l.phone || '-')}</div>
+        <div>🚗 ${escHtml(c.interestedModel || '-')}</div>
+        <div>💰 ${c.budget ? '฿' + Number(c.budget).toLocaleString() : '-'}</div>
+        <div>📱 ${escHtml(c.phone || '-')}</div>
       </div>
       <div style="display:flex;gap:8px">
         ${nextStage ? `<button class="btn btn-primary btn-sm" id="qp-next" style="flex:1;justify-content:center">→ ${nextStage.label}</button>` : ''}
@@ -184,15 +180,15 @@ export default async function PipelinePage(container) {
     `
     document.body.appendChild(popup)
     popup.querySelector('#qp-close').addEventListener('click', () => popup.remove())
-    popup.querySelector('#qp-detail').addEventListener('click', () => { popup.remove(); navigate('/crm/leads') })
+    popup.querySelector('#qp-detail').addEventListener('click', () => { popup.remove(); navigate('/crm/customers') })
     popup.querySelector('#qp-next')?.addEventListener('click', async () => {
       if (!nextStage) return
       try {
-        l.status = nextStage.key
-        await updateDocData('leads', l.id, { status: nextStage.key })
+        c.stage = nextStage.key
+        await updateDocData('customers', c.id, { stage: nextStage.key, stageChangedAt: new Date().toISOString() })
         showToast(`✅ เลื่อนเป็น ${nextStage.label}`, 'success')
         popup.remove(); renderBoard()
-      } catch { showToast('เกิดข้อผิดพลาด','error') }
+      } catch { showToast('เกิดข้อผิดพลาด', 'error') }
     })
     setTimeout(() => document.addEventListener('click', function h(e) {
       if (!popup.contains(e.target)) { popup.remove(); document.removeEventListener('click', h) }
@@ -208,7 +204,7 @@ export default async function PipelinePage(container) {
         </div>
         <div class="page-actions">
           <button class="btn btn-ghost btn-sm" id="pl-list-btn">📋 List View</button>
-          <button class="btn btn-primary" id="pl-add-btn">➕ เพิ่ม Lead</button>
+          <button class="btn btn-primary" id="pl-add-btn">➕ เพิ่มลูกค้า</button>
         </div>
       </div>
 
@@ -230,8 +226,8 @@ export default async function PipelinePage(container) {
     document.head.appendChild(s)
   }
 
-  document.getElementById('pl-list-btn').addEventListener('click', () => navigate('/crm/leads'))
-  document.getElementById('pl-add-btn').addEventListener('click', () => navigate('/crm/leads'))
+  document.getElementById('pl-list-btn').addEventListener('click', () => navigate('/crm/customers'))
+  document.getElementById('pl-add-btn').addEventListener('click', () => navigate('/crm/customers'))
 
   if (container.__routerGen === myGen) await loadData()
 }

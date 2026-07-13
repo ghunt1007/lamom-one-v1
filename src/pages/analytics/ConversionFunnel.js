@@ -38,10 +38,11 @@ export default async function ConversionFunnelPage(container) {
   let dataSource = 'demo'
 
   try {
-    const [sales, leads] = await Promise.all([
+    const [sales, customers] = await Promise.all([
       getSalesData().catch(() => []),
-      listDocs('leads', [], 'createdAt', 'desc', 500).catch(() => []),
+      listDocs('customers', [], 'createdAt', 'desc', 500).catch(() => []),
     ])
+    const leads = customers
     if (container.__routerGen !== myGen) return
     if (sales.length || leads.length) {
       const purchased = sales.length

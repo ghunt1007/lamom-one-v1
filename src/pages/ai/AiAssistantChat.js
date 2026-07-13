@@ -1,5 +1,6 @@
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, softDelete, seedDemoData } from '../../core/db.js'
+import { confirmDialog } from '../../utils/modal.js'
 
 const CANNED = [
   { kw:['ยอดขาย','ขายได้','เดือนนี้','ยอด'], ans:'📊 ยอดขายเดือนนี้: <strong>41 คัน</strong> รายได้ ฿51.96M — เกินเป้า 5% 🎉<br>Top model: BYD Dolphin (12 คัน) · Top เซลส์: วิชัย (9 คัน)' },
@@ -149,6 +150,8 @@ export default async function AiAssistantChatPage(container) {
     document.getElementById('chat-input')?.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(e.target.value) } })
     container.querySelectorAll('.cat-btn').forEach(b => b.addEventListener('click', () => send(b.dataset.q)))
     document.getElementById('clear-chat')?.addEventListener('click', async () => {
+      const ok = await confirmDialog({ title: 'ล้างประวัติแชท', message: 'ต้องการล้างประวัติแชททั้งหมดหรือไม่? ไม่สามารถกู้คืนได้', confirmText: 'ล้างแชท', danger: true })
+      if (!ok) return
       try {
         for (const m of messages) await softDelete('chat_ai_assistant', m.id)
         await createDoc('chat_ai_assistant', { role:'ai', text:'🗑 ล้างแชทแล้วค่ะ — ถามใหม่ได้เลย!', time:now() })

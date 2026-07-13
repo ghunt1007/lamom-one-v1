@@ -1,6 +1,8 @@
 // SmartSheet — Excel-like editable grid with keyboard nav + copy-paste
 // Usage: new SmartSheet(container, { columns, rows, onSave, onDelete, readOnly })
 
+import { confirmDialog } from '../utils/modal.js'
+
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
@@ -403,6 +405,8 @@ export class SmartSheet {
 
   async deleteSelected() {
     if (!this.selectedRows.size) return
+    const ok = await confirmDialog({ title: '🗑 ลบแถวที่เลือก', message: `ต้องการลบ ${this.selectedRows.size} แถวที่เลือกหรือไม่? การลบนี้ไม่สามารถย้อนกลับได้`, confirmText: 'ลบ', danger: true })
+    if (!ok) return
     if (this.onDelete) {
       const toDelete = [...this.selectedRows].map(id => this.rows.find(r => r.__id === id)).filter(Boolean)
       await Promise.all(toDelete.map(row => this.onDelete(row)))

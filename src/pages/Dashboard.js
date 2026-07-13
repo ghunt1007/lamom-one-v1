@@ -394,17 +394,18 @@ export default async function DashboardPage(container) {
   try {
     const today = new Date().toISOString().slice(0, 10)
     const thisMonth = new Date().toISOString().slice(0, 7)
-    const [customers, tasks, sales, jobs, bookings, pdi, leads, vehicles, teamTargets] = await Promise.all([
+    const [customers, tasks, sales, jobs, bookings, pdi, allCustomersForLeads, vehicles, teamTargets] = await Promise.all([
       listDocs('customers', [], 'createdAt', 'desc', 5).catch(() => []),
       listDocs('tasks', [], 'createdAt', 'desc', 100).catch(() => []),
       getSalesData().catch(() => []),
       listDocs('job_cards', [], 'createdAt', 'desc', 500).catch(() => []),
       listDocs('bookings', [], 'createdAt', 'desc', 500).catch(() => []),
       listDocs('pdi', [], 'createdAt', 'desc', 50).catch(() => []),
-      listDocs('leads', [], 'createdAt', 'desc', 500).catch(() => []),
+      listDocs('customers', [], 'createdAt', 'desc', 500).catch(() => []),
       listDocs('vehicles', [], 'createdAt', 'desc', 500).catch(() => []),
       listDocs('team_targets', [], 'period', 'desc', 200).catch(() => []),
     ])
+    const leads = allCustomersForLeads.filter(c => c.stage === 'lead' || c.stage === 'pp').map(c => ({ ...c, status: c.stage === 'lead' ? 'new' : c.stage }))
     if (container.__routerGen !== myGen) return
 
     const pendingTasks = tasks.filter(t => t.status !== 'done' && t.status !== 'cancelled').length

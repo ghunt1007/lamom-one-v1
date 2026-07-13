@@ -10,7 +10,7 @@ export const MODULES = [
   { key: 'marketing',  label: 'การตลาด',       prefixes: ['/marketing'] },
   { key: 'hr',         label: 'องค์กร',        prefixes: ['/hr', '/training', '/analytics', '/gamification'] },
   { key: 'documents',  label: 'เอกสาร',        prefixes: ['/documents'] },
-  { key: 'ai',         label: 'AI & งาน',      prefixes: ['/ai', '/tasks'] },
+  { key: 'ai',         label: 'AI & งาน',      prefixes: ['/ai', '/tasks', '/calendar', '/notes'] },
   { key: 'comms',      label: 'สื่อสาร',        prefixes: ['/comms'] },
   { key: 'quality',    label: 'คุณภาพ',        prefixes: ['/quality'] },
   { key: 'b2b',        label: 'B2B & Partner', prefixes: ['/b2b'] },

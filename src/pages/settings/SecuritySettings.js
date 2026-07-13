@@ -3,7 +3,7 @@
  * Route: /settings/security
  */
 import { timeAgo } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
@@ -132,6 +132,8 @@ export default async function SecuritySettingsPage(container) {
       }
     }))
     container.querySelectorAll('.kick-btn').forEach(b => b.addEventListener('click', async () => {
+      const ok = await confirmDialog({ title: 'บังคับ Logout', message: 'ต้องการบังคับ Logout session นี้หรือไม่?', confirmText: 'Logout', danger: true })
+      if (!ok) return
       try {
         await softDelete('security_sessions', b.dataset.id)
         showToast('🚪 Logout session แล้ว', 'warning')
@@ -140,6 +142,8 @@ export default async function SecuritySettingsPage(container) {
     }))
     document.getElementById('logout-all-btn')?.addEventListener('click', async () => {
       const targets = sessions.filter(s => !s.current)
+      const ok = await confirmDialog({ title: 'Logout ทุก Session', message: `ต้องการบังคับ Logout ทุก session ที่ใช้งานอยู่ (${targets.length} session) ยกเว้นเครื่องนี้หรือไม่? การกระทำนี้มีผลกับทุกอุปกรณ์ที่ล็อกอินอยู่`, confirmText: 'Logout ทั้งหมด', danger: true })
+      if (!ok) return
       try {
         await Promise.all(targets.map(s => softDelete('security_sessions', s.id)))
         showToast('🚪 Logout ทุก session แล้ว (ยกเว้นเครื่องนี้)', 'warning')

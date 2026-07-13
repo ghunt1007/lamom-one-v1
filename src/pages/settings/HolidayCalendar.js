@@ -3,7 +3,7 @@
  * Route: /settings/holidays
  */
 import { formatDate } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
@@ -114,6 +114,8 @@ export default async function HolidayCalendarPage(container) {
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.del-btn').forEach(b => b.addEventListener('click', async () => {
+      const ok = await confirmDialog({ title: 'ลบวันหยุด', message: 'ต้องการลบวันหยุดนี้หรือไม่?', confirmText: 'ลบ', danger: true })
+      if (!ok) return
       try {
         await softDelete('holidays', b.dataset.id)
         showToast('🗑 ลบวันหยุดแล้ว', 'secondary')

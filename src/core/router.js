@@ -7,7 +7,7 @@ const routes = {
   '/help':          () => import('../pages/settings/UserManual.js'),
   // M1 CRM
   '/crm':           () => import('../pages/crm/CrmDashboard.js'),
-  '/crm/leads':     () => import('../pages/crm/Leads.js'),
+  '/crm/leads':     () => import('../pages/crm/Customers.js'), // leads merged into unified Customers workspace (stage='lead'/'pp')
   '/crm/pipeline':  () => import('../pages/crm/Pipeline.js'),
   '/crm/customers': () => import('../pages/crm/Customers.js'),
   '/crm/bookings':  () => import('../pages/crm/Bookings.js'),
@@ -48,6 +48,8 @@ const routes = {
   '/ai':         () => import('../pages/ai/AiOfficers.js'),
   // M14 Communication Hub
   '/tasks':      () => import('../pages/tasks/Tasks.js'),
+  '/calendar':   () => import('../pages/tasks/Calendar.js'),
+  '/notes':      () => import('../pages/tasks/Notes.js'),
   // Finance extras
   '/finance/pl':      () => import('../pages/finance/PL.js'),
   '/finance/payroll': () => import('../pages/finance/Payroll.js'),

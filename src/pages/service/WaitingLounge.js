@@ -3,7 +3,7 @@
  * Route: /service/lounge
  */
 import { timeAgo } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
@@ -127,6 +127,8 @@ export default async function WaitingLoungePage(container) {
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.done-btn').forEach(b => b.addEventListener('click', async () => {
+      const ok = await confirmDialog({ title: 'ปิดคิว', message: 'ต้องการปิดคิวนี้หรือไม่?', confirmText: 'ปิดคิว', danger: true })
+      if (!ok) return
       try {
         await softDelete('waiting_lounge_queue', b.dataset.id)
         showToast('🏁 ปิดคิวแล้ว', 'primary')

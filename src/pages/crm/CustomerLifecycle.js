@@ -2,10 +2,10 @@
  * Customer Lifecycle — วงจรชีวิตลูกค้า
  * Route: /crm/lifecycle
  */
-import { formatCurrency, formatDate, timeAgo } from '../../utils/format.js'
+import { formatCurrency, formatDate, timeAgo, fullName } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { getSalesData } from '../../core/db.js'
+import { getSalesData, listDocs } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -23,65 +23,91 @@ const LIFECYCLE_STAGES = {
   churned:     { label: 'หลุดแล้ว', color: 'secondary', icon: '💔', desc: 'ไม่กลับมา' },
 }
 
+// Fallback shown only when there is truly no real data yet (fresh/empty demo store)
 const DEMO_CUSTOMERS = [
   { id: 'C001', name: 'สมชาย ใจดี', stage: 'champion', purchases: 3, totalValue: 5196000, lastContact: addDays(-15), nextAction: 'เสนอรุ่นใหม่', model: 'BYD Seal', referrals: 2 },
   { id: 'C002', name: 'มาลี สุขใจ', stage: 'repeat', purchases: 2, totalValue: 2598000, lastContact: addDays(-30), nextAction: 'ต่ออายุประกัน', model: 'BYD Dolphin', referrals: 0 },
-  { id: 'C003', name: 'ธนพล เที่ยงตรง', stage: 'first_buyer', purchases: 1, totalValue: 1299000, lastContact: addDays(-7), nextAction: 'เช็คความพอใจ', model: 'MG ZS EV', referrals: 0 },
-  { id: 'C004', name: 'อรทัย ตั้งใจ', stage: 'at_risk', purchases: 1, totalValue: 1599000, lastContact: addDays(-180), nextAction: 'โทรหาด่วน!', model: 'BYD Atto 3', referrals: 0 },
   { id: 'C005', name: 'วิรัช เก่งมาก', stage: 'prospect', purchases: 0, totalValue: 0, lastContact: addDays(-3), nextAction: 'ส่งใบเสนอราคา', model: '—', referrals: 0 },
-  { id: 'C006', name: 'ชาตรี เข้มแข็ง', stage: 'churned', purchases: 1, totalValue: 799000, lastContact: addDays(-365), nextAction: 'Win-back campaign', model: 'MG ZS EV', referrals: 0 },
 ]
 
-const FUNNEL = [
-  { stage: 'prospect', count: 48 },
-  { stage: 'first_buyer', count: 22 },
-  { stage: 'repeat', count: 15 },
-  { stage: 'champion', count: 6 },
-  { stage: 'at_risk', count: 9 },
-  { stage: 'churned', count: 14 },
-]
+function classifyPurchaseStage(purchases, lastDate) {
+  const daysSince = lastDate ? Math.floor((Date.now() - new Date(lastDate).getTime()) / 86400000) : 999
+  if (purchases >= 3) return 'champion'
+  if (purchases >= 2) return 'repeat'
+  if (daysSince > 180) return 'at_risk'
+  return 'first_buyer'
+}
 
 export default async function CustomerLifecyclePage(container) {
   const myGen = container.__routerGen
-  let customers = DEMO_CUSTOMERS.map(c => ({ ...c }))
+  let customers = []
   let stageFilter = 'all'
   let dataSource = 'demo'
 
+  // Real data: purchase history from bookings (via getSalesData) joined against the unified
+  // `customers` collection by name — gives prospect/first_buyer/repeat/champion/at_risk/churned
+  // instead of the old hardcoded DEMO_CUSTOMERS array.
   try {
-    const sales = await getSalesData().catch(() => [])
+    const [realCustomers, sales] = await Promise.all([
+      listDocs('customers', [], 'createdAt', 'desc', 500).catch(() => []),
+      getSalesData().catch(() => []),
+    ])
     if (container.__routerGen !== myGen) return
-    if (sales.length >= 2) {
-      const byName = {}
-      const today = Date.now()
-      for (const s of sales) {
-        const name = s.customerName || s.custName || ''
-        if (!name) continue
-        if (!byName[name]) byName[name] = { purchases: 0, totalValue: 0, lastDate: '', model: '' }
-        byName[name].purchases++
-        byName[name].totalValue += s.salePrice || 0
-        const d = s.deliveryDate || s.bookingDate || ''
-        if (d > byName[name].lastDate) { byName[name].lastDate = d; byName[name].model = s.model || '' }
-      }
-      const live = Object.entries(byName).map(([name, d], i) => {
-        const daysSince = d.lastDate ? Math.floor((today - new Date(d.lastDate).getTime()) / 86400000) : 999
-        const stage = d.purchases >= 3 ? 'champion' : d.purchases >= 2 ? 'repeat' : daysSince > 180 ? 'at_risk' : 'first_buyer'
-        return {
-          id: `LV${i+1}`, name, stage, purchases: d.purchases, totalValue: d.totalValue,
-          lastContact: d.lastDate, nextAction: stage === 'at_risk' ? 'โทรหาด่วน!' : 'ติดตาม',
-          model: d.model, referrals: 0,
-        }
-      })
-      customers = [...live, ...DEMO_CUSTOMERS]
-      dataSource = 'live'
+
+    const byName = {}
+    for (const s of sales) {
+      const name = s.customerName || s.custName || ''
+      if (!name) continue
+      if (!byName[name]) byName[name] = { purchases: 0, totalValue: 0, lastDate: '', model: '' }
+      byName[name].purchases++
+      byName[name].totalValue += s.salePrice || 0
+      const d = s.deliveryDate || s.bookingDate || ''
+      if (d > byName[name].lastDate) { byName[name].lastDate = d; byName[name].model = s.model || '' }
     }
-  } catch {}
+
+    const matchedNames = new Set()
+    const fromCustomers = realCustomers.map(c => {
+      const name = fullName(c)
+      const stats = byName[name]
+      let stage, purchases = 0, totalValue = 0, lastContact = c.stageChangedAt || c.createdAt, model = c.interestedModel || '', nextAction
+      if (stats) {
+        matchedNames.add(name)
+        purchases = stats.purchases; totalValue = stats.totalValue
+        lastContact = stats.lastDate || lastContact; model = stats.model || model
+        stage = classifyPurchaseStage(purchases, stats.lastDate)
+        nextAction = stage === 'at_risk' ? 'โทรหาด่วน!' : stage === 'champion' ? 'เสนอรุ่นใหม่ / ขอ referral' : 'เช็คความพอใจ'
+      } else if (c.isLost) {
+        stage = 'churned'
+        nextAction = 'Win-back campaign'
+      } else {
+        stage = 'prospect'
+        nextAction = c.stage === 'booking' ? 'ติดตามจนส่งมอบ' : c.stage === 'lead' ? 'ขอเบอร์ติดต่อ/LINE' : 'ติดตาม / เสนอใบเสนอราคา'
+      }
+      return { id: c.id, name, stage, purchases, totalValue, lastContact, nextAction, model, referrals: 0 }
+    })
+
+    // Purchase history whose name doesn't match any customers doc (e.g. legacy/demo bookings)
+    const orphanPurchases = Object.entries(byName)
+      .filter(([name]) => !matchedNames.has(name))
+      .map(([name, stats], i) => {
+        const stage = classifyPurchaseStage(stats.purchases, stats.lastDate)
+        return { id: `LV${i + 1}`, name, stage, purchases: stats.purchases, totalValue: stats.totalValue, lastContact: stats.lastDate, nextAction: stage === 'at_risk' ? 'โทรหาด่วน!' : 'ติดตาม', model: stats.model, referrals: 0 }
+      })
+
+    customers = [...fromCustomers, ...orphanPurchases]
+    dataSource = customers.length ? 'live' : 'demo'
+    if (!customers.length) customers = DEMO_CUSTOMERS.map(c => ({ ...c }))
+  } catch {
+    customers = DEMO_CUSTOMERS.map(c => ({ ...c }))
+  }
 
   function renderPage() {
     const list = customers.filter(c => stageFilter === 'all' || c.stage === stageFilter)
     const totalValue = customers.reduce((a, c) => a + c.totalValue, 0)
     const atRisk = customers.filter(c => c.stage === 'at_risk').length
     const champions = customers.filter(c => c.stage === 'champion').length
-    const maxFunnelCount = Math.max(...FUNNEL.map(f => f.count))
+    const funnel = Object.keys(LIFECYCLE_STAGES).map(stage => ({ stage, count: customers.filter(c => c.stage === stage).length }))
+    const maxFunnelCount = Math.max(1, ...funnel.map(f => f.count))
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -106,7 +132,7 @@ export default async function CustomerLifecyclePage(container) {
         <div class="card" style="padding:14px;margin-bottom:14px">
           <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">🔄 Lifecycle Funnel</div>
           <div style="display:flex;flex-direction:column;gap:6px">
-            ${FUNNEL.map(f => {
+            ${funnel.map(f => {
               const ls = LIFECYCLE_STAGES[f.stage]
               const pct = Math.round(f.count / maxFunnelCount * 100)
               return `<div style="display:flex;align-items:center;gap:10px">

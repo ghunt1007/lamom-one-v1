@@ -68,6 +68,56 @@ function calcMonthly(financeAmount, installments, ratePerYear) {
   return Math.round(total / installments)
 }
 
+// ── ตัวเลือกลูกค้าเดิมจาก collection `customers` — เชื่อมใบจองกับลูกค้าจริง (ไม่บังคับ) ──
+function openCustomerPicker(onPick) {
+  let q = ''
+  let customers = []
+  const { el, close } = openModal({
+    title: '🔍 ค้นหาลูกค้าเดิม', size: 'sm',
+    body: `
+      <input class="input" id="cp-q" placeholder="ค้นหาชื่อ / เบอร์โทร..." style="margin-bottom:10px">
+      <div id="cp-list" style="display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto">
+        <div class="skeleton" style="height:44px;border-radius:8px"></div>
+      </div>
+    `,
+    footer: `<button class="btn btn-secondary" id="cp-cancel">ยกเลิก</button>`,
+  })
+  el.querySelector('#cp-cancel').addEventListener('click', close)
+  function renderList() {
+    const list = el.querySelector('#cp-list')
+    if (!list) return
+    const filtered = customers.filter(c => {
+      if (!q) return true
+      const hay = `${c.firstName || ''} ${c.lastName || ''} ${c.phone || ''}`.toLowerCase()
+      return hay.includes(q)
+    }).slice(0, 30)
+    if (!filtered.length) { list.innerHTML = `<div style="padding:16px;text-align:center;color:var(--text-muted);font-size:0.8rem">ไม่พบลูกค้า</div>`; return }
+    list.innerHTML = filtered.map(c => `
+      <div class="cp-item" data-id="${c.id}" style="padding:8px 10px;border-radius:8px;cursor:pointer;border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:0.82rem;font-weight:600">${escHtml(`${c.firstName || ''} ${c.lastName || ''}`.trim() || '(ไม่มีชื่อ)')}</div>
+          <div style="font-size:0.7rem;color:var(--text-muted)">${escHtml(c.phone || '-')}</div>
+        </div>
+      </div>
+    `).join('')
+    list.querySelectorAll('.cp-item').forEach(item => item.addEventListener('click', () => {
+      const c = customers.find(x => x.id === item.dataset.id)
+      close()
+      if (c) onPick(c)
+    }))
+  }
+  el.querySelector('#cp-q').addEventListener('input', e => { q = e.target.value.trim().toLowerCase(); renderList() })
+  listDocs('customers', [], 'createdAt', 'desc', 500).then(rows => { customers = rows; renderList() }).catch(() => { customers = []; renderList() })
+}
+
+// ── เมื่อใบจองถูกอัปเดตสถานะเป็น "ส่งมอบแล้ว" และมี customerId เชื่อมอยู่ → อัปเดตลูกค้าเป็น stage 'delivered' ──
+async function maybeMarkCustomerDelivered(booking) {
+  if (!booking?.customerId) return
+  try {
+    await updateDocData('customers', booking.customerId, { stage: 'delivered', stageChangedAt: new Date().toISOString() })
+  } catch { /* ไม่กระทบการบันทึกใบจองหลัก ถ้าอัปเดตลูกค้าไม่สำเร็จ */ }
+}
+
 export default async function BookingsPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
@@ -368,6 +418,7 @@ export default async function BookingsPage(container) {
       try {
         await updateDocData('bookings', b.id, { status: newStatus, updatedAt: new Date().toISOString() })
         b.status = newStatus
+        if (newStatus === 'ส่งมอบแล้ว') await maybeMarkCustomerDelivered(b)
         showToast(`✅ อัปเดตเป็น "${newStatus}" แล้ว`, 'success')
         render()
       } catch { showToast('อัปเดตไม่สำเร็จ', 'error') }
@@ -550,7 +601,7 @@ export default async function BookingsPage(container) {
   // ── Booking Wizard (4 ขั้นตอน) ────────────────────────────────────────────
   function openWizard() {
     let step = 1
-    const w = { custName: '', phone: '', salesName: getSalesStaff()[0] || '', brand: '', model: '', variant: '', price: 0, discount: 0, accessories: 0, down: 0, installments: 60, interestRate: 2.99 }
+    const w = { custName: '', phone: '', salesName: getSalesStaff()[0] || '', brand: '', model: '', variant: '', price: 0, discount: 0, accessories: 0, down: 0, installments: 60, interestRate: 2.99, customerId: null }
     const bkNo = 'SK' + new Date().toISOString().slice(2, 10).replace(/-/g, '') + String(Math.floor(Math.random() * 900) + 100)
     const stepLabels = ['ข้อมูลลูกค้า', 'ราคา & รุ่น', 'ไฟแนนซ์', 'ยืนยัน']
 
@@ -575,7 +626,14 @@ export default async function BookingsPage(container) {
       if (step === 1) {
         return `<div class="input-group"><label class="input-label">ชื่อลูกค้า *</label><input class="input" id="wz-cust" value="${escHtml(w.custName)}" placeholder="ชื่อ-นามสกุล"></div>
           <div class="input-group"><label class="input-label">เบอร์โทร</label><input class="input" id="wz-phone" value="${escHtml(w.phone)}" placeholder="0XX-XXX-XXXX"></div>
-          <div class="input-group"><label class="input-label">พนักงานขาย</label><select class="input" id="wz-sales">${getSalesStaff().map(s => `<option ${s === w.salesName ? 'selected' : ''}>${escHtml(s)}</option>`).join('')}</select></div>`
+          <div class="input-group"><label class="input-label">พนักงานขาย</label><select class="input" id="wz-sales">${getSalesStaff().map(s => `<option ${s === w.salesName ? 'selected' : ''}>${escHtml(s)}</option>`).join('')}</select></div>
+          <div class="input-group"><label class="input-label">ลูกค้าเดิม (ถ้ามี — ไม่บังคับ)</label>
+            <div style="display:flex;gap:6px;align-items:center">
+              <div style="flex:1;font-size:0.78rem;color:${w.customerId ? 'var(--success)' : 'var(--text-muted)'}">${w.customerId ? '🔗 เชื่อมกับลูกค้าในระบบแล้ว' : 'walk-in / ยังไม่เชื่อม'}</div>
+              <button type="button" class="btn btn-secondary btn-xs" id="wz-pick-cust">🔍 ค้นหา</button>
+              ${w.customerId ? `<button type="button" class="btn btn-ghost btn-xs" id="wz-unpick-cust">✕</button>` : ''}
+            </div>
+          </div>`
       }
       if (step === 2) {
         return `<button type="button" class="btn btn-secondary btn-sm" id="wz-pick" style="margin-bottom:10px">🚘 เลือกรถจาก Catalog</button>
@@ -631,6 +689,13 @@ export default async function BookingsPage(container) {
         if (!w.price) w.price = v.price || 0
         rerender()
       }))
+      m.el.querySelector('#wz-pick-cust')?.addEventListener('click', () => openCustomerPicker(c => {
+        w.customerId = c.id
+        if (!w.custName) w.custName = `${c.firstName || ''} ${c.lastName || ''}`.trim()
+        if (!w.phone) w.phone = c.phone || ''
+        rerender()
+      }))
+      m.el.querySelector('#wz-unpick-cust')?.addEventListener('click', () => { w.customerId = null; rerender() })
       m.el.querySelector('#wz-next')?.addEventListener('click', () => {
         readStep()
         if (step === 1 && !w.custName) { showToast('กรุณาใส่ชื่อลูกค้า', 'error'); return }
@@ -643,7 +708,7 @@ export default async function BookingsPage(container) {
         if (!w.down && !w.rightsOnly) { showToast('กรุณาระบุจำนวนเงินจอง (หรือติ๊ก "จองสิทธิ์")', 'error'); return }
         const t = total()
         const data = {
-          bookingNo: bkNo, custName: w.custName, phone: w.phone, salesName: w.salesName,
+          bookingNo: bkNo, custName: w.custName, phone: w.phone, salesName: w.salesName, customerId: w.customerId || null,
           brand: w.brand, model: w.model, variant: w.variant, rightsOnly: w.rightsOnly || false,
           price: w.price, down: w.down, financeAmount: Math.max(t - w.down, 0), installments: w.installments, interestRate: w.interestRate, monthly: monthly(),
           margin: 0, budgetUsed: 0, com70: commission(), comFinance: 0, marginLeft: 0, totalIncome: commission(),
@@ -655,6 +720,9 @@ export default async function BookingsPage(container) {
         try {
           const id = await createDoc('bookings', data)
           bookings.unshift({ ...data, id })
+          if (data.customerId) {
+            await updateDocData('customers', data.customerId, { stage: 'booking', stageChangedAt: new Date().toISOString(), bookingId: id }).catch(() => {})
+          }
           m.close()
           showToast(`✅ สร้างใบจอง ${bkNo} สำเร็จ!`, 'success')
           render()
@@ -769,6 +837,7 @@ export default async function BookingsPage(container) {
   function openForm(existing = null) {
     const isEdit = !!existing
     const e = existing || {}
+    let linkedCustomerId = e.customerId || null
     const bkNo = e.bookingNo || ('SK' + new Date().toISOString().slice(2, 10).replace(/-/g, '') + String(Math.floor(Math.random() * 900) + 100))
     const inp = (id, label, val, type) => '<div class="input-group"><label class="input-label">' + label + '</label><input class="input" id="' + id + '" ' + (type ? 'type="' + type + '"' : '') + ' value="' + (val == null ? '' : String(val).replace(/"/g, '&quot;')) + '"></div>'
     const selOf = (id, label, list, val) => '<div class="input-group"><label class="input-label">' + label + '</label><select class="input" id="' + id + '">' + list.map(o => '<option ' + (o === val ? 'selected' : '') + '>' + o + '</option>').join('') + '</select></div>'
@@ -783,6 +852,13 @@ export default async function BookingsPage(container) {
         '<div class="grid-2">' + inp('bf-cust', 'ชื่อลูกค้า *', e.custName) + inp('bf-nid', 'เลขบัตรประชาชน', e.nid) + '</div>' +
         '<div class="grid-2">' + inp('bf-phone', 'โทรศัพท์', e.phone) + datalist('bf-source', 'แหล่งที่มา', getLeadSources(), e.source) + '</div>' +
         '<div class="grid-2">' + inp('bf-address', 'ที่อยู่', e.address) + inp('bf-province', 'จังหวัด', e.province) + '</div>' +
+        '<div class="input-group"><label class="input-label">ลูกค้าเดิม (ถ้ามี — ไม่บังคับ)</label>' +
+          '<div style="display:flex;gap:6px;align-items:center">' +
+            '<div id="bf-cust-linked" style="flex:1;font-size:0.78rem;color:' + (linkedCustomerId ? 'var(--success)' : 'var(--text-muted)') + '">' + (linkedCustomerId ? '🔗 เชื่อมกับลูกค้าในระบบแล้ว' : 'walk-in / ยังไม่เชื่อม') + '</div>' +
+            '<button type="button" class="btn btn-secondary btn-xs" id="bf-pick-cust">🔍 ค้นหา</button>' +
+            '<button type="button" class="btn btn-ghost btn-xs" id="bf-unpick-cust" style="display:' + (linkedCustomerId ? '' : 'none') + '">✕</button>' +
+          '</div>' +
+        '</div>' +
         sec('🚗 ข้อมูลรถ') +
         '<button type="button" class="btn btn-secondary btn-sm" id="bf-pick" style="align-self:flex-start">🚘 เลือกรถจาก Catalog</button>' +
         '<div class="grid-2">' + inp('bf-brand', 'ยี่ห้อ', e.brand) + inp('bf-model', 'รุ่น', e.model) + '</div>' +
@@ -822,6 +898,21 @@ export default async function BookingsPage(container) {
       el.querySelector('#bf-variant').value = v.variant
       if (!el.querySelector('#bf-price').value) el.querySelector('#bf-price').value = v.price || ''
     }))
+    el.querySelector('#bf-pick-cust')?.addEventListener('click', () => openCustomerPicker(c => {
+      linkedCustomerId = c.id
+      const linkedEl = el.querySelector('#bf-cust-linked')
+      if (linkedEl) { linkedEl.textContent = '🔗 เชื่อมกับลูกค้าในระบบแล้ว'; linkedEl.style.color = 'var(--success)' }
+      const unpickBtn = el.querySelector('#bf-unpick-cust')
+      if (unpickBtn) unpickBtn.style.display = ''
+      if (!el.querySelector('#bf-cust').value.trim()) el.querySelector('#bf-cust').value = `${c.firstName || ''} ${c.lastName || ''}`.trim()
+      if (!el.querySelector('#bf-phone').value.trim()) el.querySelector('#bf-phone').value = c.phone || ''
+    }))
+    el.querySelector('#bf-unpick-cust')?.addEventListener('click', () => {
+      linkedCustomerId = null
+      const linkedEl = el.querySelector('#bf-cust-linked')
+      if (linkedEl) { linkedEl.textContent = 'walk-in / ยังไม่เชื่อม'; linkedEl.style.color = 'var(--text-muted)' }
+      el.querySelector('#bf-unpick-cust').style.display = 'none'
+    })
     el.querySelector('#bfc').addEventListener('click', close)
     el.querySelector('#bfs').addEventListener('click', async () => {
       const cust = el.querySelector('#bf-cust').value.trim()
@@ -833,7 +924,7 @@ export default async function BookingsPage(container) {
       const financeAmount = num('bf-finamount'), installments = num('bf-install'), rate = num('bf-rate')
       const data = {
         bookingNo: g('bf-bkno').value.trim() || bkNo,
-        rightsOnly,
+        rightsOnly, customerId: linkedCustomerId || null,
         custName: cust, nid: g('bf-nid').value.trim(), phone: g('bf-phone').value.trim(), address: g('bf-address').value.trim(), province: g('bf-province').value.trim(), source: g('bf-source').value.trim(),
         brand: g('bf-brand').value.trim(), model: g('bf-model').value.trim(), variant: g('bf-variant').value.trim(),
         colorOut: g('bf-colorout').value.trim(), colorIn: g('bf-colorin').value.trim(), vin: g('bf-vin').value.trim(), motorNo: g('bf-motor').value.trim(), batNo: g('bf-bat').value.trim(),
@@ -849,8 +940,13 @@ export default async function BookingsPage(container) {
       }
       const btn = g('bfs'); btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
       try {
+        let bookingId = existing?.id
         if (isEdit) { await updateDocData('bookings', existing.id, data); Object.assign(existing, data) }
-        else { const id = await createDoc('bookings', data); bookings.unshift({ ...data, id }) }
+        else { bookingId = await createDoc('bookings', data); bookings.unshift({ ...data, id: bookingId }) }
+        if (data.customerId) {
+          if (data.status === 'ส่งมอบแล้ว') await maybeMarkCustomerDelivered(data)
+          else await updateDocData('customers', data.customerId, { stage: 'booking', stageChangedAt: new Date().toISOString(), bookingId }).catch(() => {})
+        }
         showToast(isEdit ? '✏️ แก้ไขใบจองแล้ว' : '✅ สร้างใบจองแล้ว', 'success')
         close(); render()
       } catch { btn.disabled = false; btn.textContent = 'บันทึก'; showToast('บันทึกไม่สำเร็จ', 'error') }

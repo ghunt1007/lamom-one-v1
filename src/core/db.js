@@ -33,6 +33,33 @@ function genId() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36)
 }
 
+// ── Audit log ────────────────────────────────────────────────
+// บันทึกทุกการเปลี่ยนแปลง (create/update/delete) ของทุก collection ลง audit_log
+// ต้องไม่ throw ออกไปนอกฟังก์ชัน — ถ้า logging พัง ต้องไม่กระทบการทำงานจริง (fire-and-forget-safe)
+function logAction(action, colName, id, detail) {
+  if (colName === 'audit_log') return // ป้องกัน log การ log ตัวเอง (recursion)
+  try {
+    const user = getState('user') || {}
+    const payload = {
+      user: user.displayName || user.email || user.uid || 'unknown',
+      role: user.role || '',
+      action,
+      module: colName,
+      resource: id != null ? String(id) : '-',
+      detail: detail || '',
+      ts: new Date().toISOString(),
+    }
+    if (isDemoMode()) {
+      const logId = genId()
+      demoCol('audit_log')[logId] = { id: logId, ...payload }
+      return
+    }
+    addDoc(collection(db, 'audit_log'), payload).catch(() => {})
+  } catch (e) {
+    // swallow — logging ต้องไม่ทำให้ CRUD จริงพัง
+  }
+}
+
 // ── CRUD ────────────────────────────────────────────────────
 
 export async function createDoc(colName, data) {
@@ -46,9 +73,11 @@ export async function createDoc(colName, data) {
   if (isDemoMode()) {
     const id = genId()
     demoCol(colName)[id] = { id, ...payload }
+    logAction('create', colName, id, `สร้างข้อมูลใหม่ใน ${colName}`)
     return id
   }
   const ref = await addDoc(collection(db, colName), { ...clean, createdAt: serverTimestamp(), updatedAt: serverTimestamp() })
+  logAction('create', colName, ref.id, `สร้างข้อมูลใหม่ใน ${colName}`)
   return ref.id
 }
 
@@ -61,12 +90,17 @@ export async function readDoc(colName, id) {
 export async function updateDocData(colName, id, data) {
   const clean = deepSanitize(data)
   const payload = { ...clean, updatedAt: new Date().toISOString() }
+  const isDelete = !!(data && data.deleted === true)
+  const action = isDelete ? 'delete' : 'update'
+  const detail = isDelete ? `ลบข้อมูลใน ${colName}` : `แก้ไขข้อมูลใน ${colName}`
   if (isDemoMode()) {
     const col = demoCol(colName)
     col[id] = { ...(col[id] || {}), ...payload }
+    logAction(action, colName, id, detail)
     return
   }
   await updateDoc(doc(db, colName, id), { ...clean, updatedAt: serverTimestamp() })
+  logAction(action, colName, id, detail)
 }
 
 export async function softDelete(colName, id) {

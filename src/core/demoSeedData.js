@@ -15,6 +15,7 @@ import { runSeed as runSeed_quality } from './seed/quality.js'
 import { runSeed as runSeed_service } from './seed/service.js'
 import { runSeed as runSeed_settings } from './seed/settings.js'
 import { runSeed as runSeed_training } from './seed/training.js'
+import { runSeed as runSeed_productivity } from './seed/productivity.js'
 
 export function runSeed(demoCol) {
   runSeed_b2b(demoCol)
@@ -32,4 +33,5 @@ export function runSeed(demoCol) {
   runSeed_service(demoCol)
   runSeed_settings(demoCol)
   runSeed_training(demoCol)
+  runSeed_productivity(demoCol)
 }

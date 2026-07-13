@@ -78,11 +78,11 @@ export function runSeed(demoCol) {
   const qtAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
   const shAddDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
 
-  // Communication logs
+  // Communication logs — customerId points at the unified `customers` collection (see seed/crm.js, ids cuN)
   const logs = [
-    { id:'l1', customerId:'c1', type:'call', note:'โทรติดตาม สนใจรุ่น BYD Seal สีขาว นัดทดลองขับวันศุกร์', createdBy:'sales1', createdAt: new Date(Date.now()-3600000*2).toISOString() },
-    { id:'l2', customerId:'c1', type:'line', note:'ส่งโบรชัวร์ BYD Seal ให้แล้ว ลูกค้าตอบรับดี', createdBy:'sales1', createdAt: new Date(Date.now()-86400000).toISOString() },
-    { id:'l3', customerId:'c2', type:'visit', note:'เข้ามาโชว์รูม ทดลองขับ MG4 แล้ว ชอบมาก รอเรื่องไฟแนนซ์', createdBy:'sales1', createdAt: new Date(Date.now()-3600000*5).toISOString() },
+    { id:'l1', customerId:'cu1', type:'call', note:'โทรติดตาม สนใจรุ่น DEEPAL S07 สีขาว นัดทดลองขับวันศุกร์', createdBy:'sales1', createdAt: new Date(Date.now()-3600000*2).toISOString() },
+    { id:'l2', customerId:'cu1', type:'line', note:'ส่งโบรชัวร์ DEEPAL S07 ให้แล้ว ลูกค้าตอบรับดี', createdBy:'sales1', createdAt: new Date(Date.now()-86400000).toISOString() },
+    { id:'l3', customerId:'cu6', type:'visit', note:'เข้ามาโชว์รูม ทดลองขับ BYD Seal แล้ว ชอบมาก รอตัดสินใจ', createdBy:'sales1', createdAt: new Date(Date.now()-3600000*5).toISOString() },
   ]
   logs.forEach(l => { if (!demoCol('comm_logs')[l.id]) demoCol('comm_logs')[l.id] = l })
 
@@ -133,10 +133,12 @@ export function runSeed(demoCol) {
 
   const cnAddHours = n => { const d = new Date(); d.setHours(d.getHours() - n); return d.toISOString() }
 
+  // customer_notes ยังคง key ด้วยชื่อลูกค้า (free-text) ตามของเดิม — บาง entry ปรับชื่อให้ตรงกับ
+  // seed/crm.js (unified `customers`) เพื่อให้ timeline ใน Customer Workspace แสดงตัวอย่างจริงได้
   const customerNotes = [
-    { id: 'N001', customer: 'สมชาย ใจดี', type: 'call', text: 'โทรสอบถามโปรเดือนนี้ — สนใจ BYD Seal สีดำ บอกว่าจะมาดูเสาร์นี้', staff: 'วิชัย ยอดขาย', time: cnAddHours(2), pinned: true },
-    { id: 'N002', customer: 'สมชาย ใจดี', type: 'internal', text: 'ลูกค้าเคยขอส่วนลดเกิน floor — ระวังตอนต่อรอง ให้เน้นของแถมแทน', staff: 'ผจก.ขาย', time: cnAddHours(26), pinned: true },
-    { id: 'N003', customer: 'มาลี สุขใจ', type: 'visit', text: 'มารับรถหลังเช็คระยะ พอใจมาก ฝากถามเรื่อง Wallbox สำหรับบ้าน', staff: 'วิทยา ช่างใหญ่', time: cnAddHours(5), pinned: false },
+    { id: 'N001', customer: 'ธีรพงศ์ แสงทอง', type: 'call', text: 'โทรสอบถามโปรเดือนนี้ — สนใจ DEEPAL S07 สีขาว บอกว่าจะมาดูเสาร์นี้', staff: 'วิชัย ยอดขาย', time: cnAddHours(2), pinned: true },
+    { id: 'N002', customer: 'ธีรพงศ์ แสงทอง', type: 'internal', text: 'ลูกค้าเคยขอส่วนลดเกิน floor — ระวังตอนต่อรอง ให้เน้นของแถมแทน', staff: 'ผจก.ขาย', time: cnAddHours(26), pinned: true },
+    { id: 'N003', customer: 'บิ่ง ชิ้นเทียม', type: 'visit', text: 'มาโชว์รูมถามความคืบหน้ารถเข้า พอใจมาก ฝากถามเรื่อง Wallbox สำหรับบ้าน', staff: 'วิทยา ช่างใหญ่', time: cnAddHours(5), pinned: false },
     { id: 'N004', customer: 'ธนพล เที่ยงตรง', type: 'chat', text: 'ทัก LINE ถามค่างวดไฟแนนซ์ 48 vs 60 เดือน — ส่งตารางเทียบให้แล้ว', staff: 'สุดา มาดี', time: cnAddHours(8), pinned: false },
     { id: 'N005', customer: 'อรทัย ตั้งใจ', type: 'email', text: 'ส่งใบเสนอราคา MG4 + อุปกรณ์เสริมตามที่ขอ', staff: 'ธนา เก่ง', time: cnAddHours(30), pinned: false },
     { id: 'N006', customer: 'มาลี สุขใจ', type: 'internal', text: 'ลูกค้า VIP — ซื้อ 2 คันแล้ว แนะนำเพื่อนมาอีก 1 ดูแลพิเศษ', staff: 'ผจก.ขาย', time: cnAddHours(100), pinned: true },

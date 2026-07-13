@@ -4,34 +4,36 @@ export function runSeed(demoCol) {
 
   const now = new Date()
 
-  // Customers
+  // Customers — unified collection (formerly split into `customers` + `leads`).
+  // stage: 'lead' (no phone/lineId yet) → 'pp' (got phone/LINE) → 'booking' (real bookingId linked below)
+  // → 'delivered' (linked booking status = ส่งมอบแล้ว). isLost/lostReason is an overlay flag, not a stage.
   const customers = [
-    { id:'c1', firstName:'สมชาย', lastName:'มีทรัพย์', phone:'0812345678', lineId:'@somchai', email:'somchai@email.com', status:'hot', assignedTo:'sales1', source:'facebook', tags:['VIP'], interestedModel:'BYD Seal', createdAt: new Date(Date.now()-86400000*2).toISOString() },
-    { id:'c2', firstName:'สมหญิง', lastName:'ดีมาก', phone:'0898765432', lineId:'@somying', email:'', status:'warm', assignedTo:'sales1', source:'walk-in', tags:[], interestedModel:'MG4', createdAt: new Date(Date.now()-86400000*5).toISOString() },
-    { id:'c3', firstName:'มานี', lastName:'รักดี', phone:'0811111111', lineId:'', email:'manee@gmail.com', status:'cold', assignedTo:'sales2', source:'line', tags:[], interestedModel:'NETA V', createdAt: new Date(Date.now()-86400000*10).toISOString() },
-    { id:'c4', firstName:'วิชัย', lastName:'สุขใจ', phone:'0822222222', lineId:'@wichai', email:'', status:'vip', assignedTo:'sales1', source:'referral', tags:['VIP','ลูกค้าประจำ'], interestedModel:'BYD Atto 3', createdAt: new Date(Date.now()-86400000*30).toISOString() },
-    { id:'c5', firstName:'นภา', lastName:'ฟ้าใส', phone:'0833333333', lineId:'', email:'', status:'lost', assignedTo:'sales2', source:'tiktok', tags:[], interestedModel:'DEEPAL S7', createdAt: new Date(Date.now()-86400000*15).toISOString() },
-    { id:'c6', firstName:'ธีรพงศ์', lastName:'แสงทอง', phone:'0844444444', lineId:'@theer', email:'theer@email.com', status:'hot', assignedTo:'sales1', source:'website', tags:[], interestedModel:'BYD Seal AWD', createdAt: new Date(Date.now()-86400000).toISOString() },
+    // booking — linked to real seeded bookings below (bk1, bk6)
+    { id:'cu1', firstName:'ธีรพงศ์', lastName:'แสงทอง', phone:'0812345678', lineId:'@theer', email:'theer@email.com', interestedModel:'DEEPAL S07', budget:1299000, source:'facebook', stage:'booking', stageChangedAt:'2026-06-20', temperature:'hot', vip:false, isLost:false, lostReason:'', lostAt:null, assignedTo:'อรนุช เซลส์ดี', bookingId:'bk1', notes:'ทักเพจสอบถามตอนแรก ตอนนี้จองแล้วรอส่งมอบ', tags:[], createdAt: new Date(Date.now()-86400000*20).toISOString() },
+    { id:'cu2', firstName:'บิ่ง', lastName:'ชิ้นเทียม', phone:'0895556667', lineId:'', email:'', interestedModel:'DEEPAL Q05 Ultra AWD', budget:1099000, source:'walk-in', stage:'booking', stageChangedAt:'2026-06-27', temperature:'warm', vip:false, isLost:false, lostReason:'', lostAt:null, assignedTo:'ใบเฟิน', bookingId:'bk6', notes:'รอรถเข้าไม่เกิน 3 วัน', tags:[], createdAt: new Date(Date.now()-86400000*8).toISOString() },
+    // delivered — linked to real seeded bookings below (bk8, bk9)
+    { id:'cu3', firstName:'สุภาพร', lastName:'ใจดี', phone:'0856789012', lineId:'@supaporn', email:'', interestedModel:'AION ES 2026 Ultra', budget:899000, source:'referral', stage:'delivered', stageChangedAt:'2026-05-28', temperature:null, vip:false, isLost:false, lostReason:'', lostAt:null, assignedTo:'อรนุช เซลส์ดี', bookingId:'bk8', notes:'ส่งมอบแล้ว 28 พ.ค. — ควรโทรเช็คความพึงพอใจ', tags:[], createdAt: new Date(Date.now()-86400000*50).toISOString() },
+    { id:'cu4', firstName:'ประเสริฐ', lastName:'ทองแท้', phone:'0898887776', lineId:'', email:'', interestedModel:'OMODA 5 EV', budget:769000, source:'walk-in', stage:'delivered', stageChangedAt:'2026-05-25', temperature:null, vip:false, isLost:false, lostReason:'', lostAt:null, assignedTo:'ปวีณา สายขาย', bookingId:'bk9', notes:'ส่งมอบแล้ว 25 พ.ค.', tags:[], createdAt: new Date(Date.now()-86400000*55).toISOString() },
+    // pp (prospect) — got phone/LINE, not booked yet
+    { id:'cu5', firstName:'กิตติพงษ์', lastName:'วรรณศิลป์', phone:'0823456789', lineId:'@kitti', email:'', interestedModel:'DEEPAL S7', budget:1500000, source:'tiktok', stage:'pp', stageChangedAt: new Date(Date.now()-86400000*2).toISOString(), temperature:'warm', vip:false, isLost:false, lostReason:'', lostAt:null, assignedTo:'sales2', bookingId:null, notes:'ดูคลิป TikTok แล้วสนใจมาก ได้เบอร์แล้วแต่ยังไม่จอง', tags:[], createdAt: new Date(Date.now()-86400000*2).toISOString() },
+    { id:'cu6', firstName:'พิมพ์ชนก', lastName:'ทองสุข', phone:'0834567890', lineId:'', email:'', interestedModel:'BYD Seal', budget:1300000, source:'walk-in', stage:'pp', stageChangedAt: new Date(Date.now()-86400000*3).toISOString(), temperature:'hot', vip:false, isLost:false, lostReason:'', lostAt:null, assignedTo:'sales1', bookingId:null, notes:'เข้ามาโชว์รูมเอง ทดลองขับแล้วชอบมาก', tags:[], createdAt: new Date(Date.now()-86400000*3).toISOString() },
+    { id:'cu7', firstName:'มานี', lastName:'รักดี', phone:'0811111111', lineId:'', email:'manee@gmail.com', interestedModel:'NETA V', budget:0, source:'line', stage:'pp', stageChangedAt: new Date(Date.now()-86400000*10).toISOString(), temperature:'cold', vip:false, isLost:false, lostReason:'', lostAt:null, assignedTo:'sales2', bookingId:null, notes:'', tags:[], createdAt: new Date(Date.now()-86400000*10).toISOString() },
+    { id:'cu8', firstName:'วิชัย', lastName:'สุขใจ', phone:'0822222222', lineId:'@wichai', email:'', interestedModel:'BYD Atto 3', budget:0, source:'referral', stage:'pp', stageChangedAt: new Date(Date.now()-86400000*30).toISOString(), temperature:'warm', vip:true, isLost:false, lostReason:'', lostAt:null, assignedTo:'sales1', bookingId:null, notes:'ลูกค้าประจำ ซื้อซ้ำหลายครั้ง', tags:['VIP','ลูกค้าประจำ'], createdAt: new Date(Date.now()-86400000*30).toISOString() },
+    // pp + isLost — lost-deal overlay on an already-contacted customer
+    { id:'cu9', firstName:'วรพจน์', lastName:'ศรีสมบัติ', phone:'0845678901', lineId:'@worapot', email:'', interestedModel:'NETA V', budget:700000, source:'referral', stage:'pp', stageChangedAt: new Date(Date.now()-86400000*7).toISOString(), temperature:'cold', vip:false, isLost:true, lostReason:'ราคาแพงกว่าคู่แข่ง', lostAt: new Date(Date.now()-86400000*7).toISOString(), assignedTo:'sales2', bookingId:null, notes:'เลือกไปซื้อที่อื่น ราคาถูกกว่า 5,000 บาท', tags:[], createdAt: new Date(Date.now()-86400000*7).toISOString() },
+    { id:'cu13', firstName:'ปิยะ', lastName:'มานะชัย', phone:'0812340007', lineId:'', email:'', interestedModel:'MG4', budget:850000, source:'facebook', stage:'pp', stageChangedAt: new Date(Date.now()-86400000*7).toISOString(), temperature:'cold', vip:false, isLost:true, lostReason:'ราคาสูงเกินไป', lostAt: new Date(Date.now()-86400000*7).toISOString(), assignedTo:'sales1', bookingId:null, notes:'', tags:[], createdAt: new Date(Date.now()-86400000*7).toISOString() },
+    { id:'cu14', firstName:'นภา', lastName:'ฟ้าใส', phone:'0833333333', lineId:'', email:'', interestedModel:'DEEPAL S7', budget:0, source:'tiktok', stage:'pp', stageChangedAt: new Date(Date.now()-86400000*15).toISOString(), temperature:'cold', vip:false, isLost:true, lostReason:'เงียบหายไป ไม่ตอบกลับ', lostAt: new Date(Date.now()-86400000*15).toISOString(), assignedTo:'sales2', bookingId:null, notes:'', tags:[], createdAt: new Date(Date.now()-86400000*15).toISOString() },
+    // lead — first contact via page/LINE, no phone/LINE ID captured yet
+    { id:'cu10', firstName:'ปิยะดา', lastName:'รักเรียน', phone:'', lineId:'', email:'', interestedModel:'BYD Atto 3', budget:0, source:'facebook', stage:'lead', stageChangedAt: new Date(Date.now()-3600000*3).toISOString(), temperature:null, vip:false, isLost:false, lostReason:'', lostAt:null, assignedTo:'', bookingId:null, notes:'ทักเพจถามราคา Atto3 ยังไม่ได้เบอร์ติดต่อ', tags:[], createdAt: new Date(Date.now()-3600000*3).toISOString() },
+    { id:'cu11', firstName:'ณัฐพล', lastName:'วงศ์สุข', phone:'', lineId:'', email:'', interestedModel:'MG4', budget:0, source:'line', stage:'lead', stageChangedAt: new Date(Date.now()-3600000*8).toISOString(), temperature:null, vip:false, isLost:false, lostReason:'', lostAt:null, assignedTo:'', bookingId:null, notes:'ทักไลน์ถามราคา MG4', tags:[], createdAt: new Date(Date.now()-3600000*8).toISOString() },
+    { id:'cu12', firstName:'อรนุช', lastName:'พรหมมา', phone:'', lineId:'', email:'', interestedModel:'MG4', budget:900000, source:'line', stage:'lead', stageChangedAt: new Date(Date.now()-86400000).toISOString(), temperature:null, vip:false, isLost:false, lostReason:'', lostAt:null, assignedTo:'', bookingId:null, notes:'ทักไลน์ถามราคา ยังไม่ได้เบอร์', tags:[], createdAt: new Date(Date.now()-86400000).toISOString() },
   ]
   customers.forEach(c => { if (!demoCol('customers')[c.id]) demoCol('customers')[c.id] = c })
 
 
-  // Leads
-  const leads = [
-    { id:'ld1', firstName:'ธีรพงศ์', lastName:'แสงทอง', phone:'0812340001', status:'new', interestedModel:'BYD Atto 3', budget:1200000, source:'facebook', createdAt: new Date(Date.now()-3600000*2).toISOString() },
-    { id:'ld2', firstName:'อรนุช', lastName:'พรหมมา', phone:'0812340002', status:'contacted', interestedModel:'MG4', budget:900000, source:'line', createdAt: new Date(Date.now()-86400000).toISOString() },
-    { id:'ld3', firstName:'กิตติพงษ์', lastName:'วรรณศิลป์', phone:'0812340003', status:'interested', interestedModel:'DEEPAL S7', budget:1500000, source:'website', createdAt: new Date(Date.now()-86400000*2).toISOString() },
-    { id:'ld4', firstName:'พิมพ์ชนก', lastName:'ทองสุข', phone:'0812340004', status:'qualified', interestedModel:'BYD Seal', budget:1300000, source:'referral', createdAt: new Date(Date.now()-86400000*3).toISOString() },
-    { id:'ld5', firstName:'สมบัติ', lastName:'ยิ่งใหญ่', phone:'0812340005', status:'booking', interestedModel:'BYD Seal AWD', budget:1299000, source:'walk-in', createdAt: new Date(Date.now()-86400000*4).toISOString() },
-    { id:'ld6', firstName:'สุภาพร', lastName:'ใจดี', phone:'0812340006', status:'new', interestedModel:'NETA V', budget:800000, source:'tiktok', createdAt: new Date(Date.now()-3600000*5).toISOString() },
-    { id:'ld7', firstName:'ปิยะ', lastName:'มานะชัย', phone:'0812340007', status:'lost', interestedModel:'MG4', budget:850000, source:'facebook', lostReason:'ราคาสูงเกินไป', createdAt: new Date(Date.now()-86400000*7).toISOString() },
-  ]
-  leads.forEach(l => { if (!demoCol('leads')[l.id]) demoCol('leads')[l.id] = l })
-
-
   // Bookings (โครง V8 — แหล่งขายกลาง: feed ไปยัง Margin/Finance/Commission)
   const bookings = [
-    { id:'bk1', bookingNo:'SK2506001', custName:'ธีรพงศ์ แสงทอง', nid:'1234567890123', phone:'0812345678', address:'88 ถ.สุขุมวิท', province:'กรุงเทพฯ', source:'Walk-in',
+    { id:'bk1', bookingNo:'SK2506001', custName:'ธีรพงศ์ แสงทอง', customerId:'cu1', nid:'1234567890123', phone:'0812345678', address:'88 ถ.สุขุมวิท', province:'กรุงเทพฯ', source:'Walk-in',
       brand:'DEEPAL', model:'S07', variant:'New Standard', colorOut:'ขาว Pearl', colorIn:'ดำ', vin:'LGXCE4C10PA000001', motorNo:'', batNo:'',
       price:1299000, cost:1150000, down:200000, financeCo:'BAY', financeAmount:1099000, finStatus:'ผ่าน', installments:60, interestRate:2.25, monthly:19800, campaign:'ดอกเบี้ยปกติ',
       margin:25000, budgetUsed:5000, com70:8000, comFinance:6000, marginLeft:20000, totalIncome:34000,
@@ -61,7 +63,7 @@ export function runSeed(demoCol) {
       margin:24000, budgetUsed:4000, com70:7500, comFinance:5000, marginLeft:20000, totalIncome:32500,
       bookingDate:'2026-06-28', submitDate:'2026-06-28', approveDate:'', signDate:'', cutDate:'', deliveryDate:'2026-07-18', actualDeliveryDate:'',
       salesName:'ใบเฟิน', status:'รอผลไฟแนนซ์', notes:'', createdAt:'2026-06-28' },
-    { id:'bk6', bookingNo:'SK2506006', custName:'บิ่ง ชิ้นเทียม', nid:'', phone:'0895556667', address:'', province:'', source:'Walk-in',
+    { id:'bk6', bookingNo:'SK2506006', custName:'บิ่ง ชิ้นเทียม', customerId:'cu2', nid:'', phone:'0895556667', address:'', province:'', source:'Walk-in',
       brand:'DEEPAL', model:'Q05 Ultra', variant:'AWD', colorOut:'เงิน', colorIn:'', vin:'', motorNo:'', batNo:'',
       price:1099000, cost:1010000, down:0, financeCo:'', financeAmount:0, finStatus:'ผ่าน', installments:60, interestRate:2.49, monthly:0, campaign:'',
       margin:0, budgetUsed:0, com70:0, comFinance:0, marginLeft:0, totalIncome:0,
@@ -73,13 +75,13 @@ export function runSeed(demoCol) {
       margin:20000, budgetUsed:3000, com70:7000, comFinance:5000, marginLeft:17000, totalIncome:29000,
       bookingDate:'2026-06-10', submitDate:'2026-06-10', approveDate:'2026-06-14', signDate:'2026-06-16', cutDate:'2026-06-24', deliveryDate:'2026-06-30', actualDeliveryDate:'',
       salesName:'วิชัย ขายเก่ง', status:'ตัดตัวเลขรอส่งมอบ', notes:'', createdAt:'2026-06-10' },
-    { id:'bk8', bookingNo:'SK2505018', custName:'สุภาพร ใจดี', nid:'3100502233445', phone:'0856789012', address:'12/3 หมู่บ้านสุขสันต์', province:'ปทุมธานี', source:'Referral',
+    { id:'bk8', bookingNo:'SK2505018', custName:'สุภาพร ใจดี', customerId:'cu3', nid:'3100502233445', phone:'0856789012', address:'12/3 หมู่บ้านสุขสันต์', province:'ปทุมธานี', source:'Referral',
       brand:'AION', model:'ES', variant:'2026 Ultra', colorOut:'ฟ้า', colorIn:'น้ำตาล-เบจ', vin:'LAION000000002', motorNo:'M001', batNo:'B001',
       price:899000, cost:867000, down:0, financeCo:'ซื้อสด', financeAmount:0, finStatus:'ซื้อสด', installments:0, interestRate:0, monthly:0, campaign:'ซื้อสด',
       margin:32000, budgetUsed:3000, com70:10000, comFinance:0, marginLeft:29000, totalIncome:39000,
       bookingDate:'2026-05-18', submitDate:'2026-05-18', approveDate:'2026-05-18', signDate:'2026-05-20', cutDate:'2026-05-26', deliveryDate:'2026-05-28', actualDeliveryDate:'2026-05-28',
       salesName:'อรนุช เซลส์ดี', status:'ส่งมอบแล้ว', notes:'', createdAt:'2026-05-18' },
-    { id:'bk9', bookingNo:'SK2505017', custName:'ประเสริฐ ทองแท้', nid:'', phone:'0898887776', address:'', province:'นนทบุรี', source:'Walk-in',
+    { id:'bk9', bookingNo:'SK2505017', custName:'ประเสริฐ ทองแท้', customerId:'cu4', nid:'', phone:'0898887776', address:'', province:'นนทบุรี', source:'Walk-in',
       brand:'OMODA & JAECOO', model:'Omoda 5', variant:'EV', colorOut:'ดำ', colorIn:'', vin:'LOMODA0000001', motorNo:'', batNo:'',
       price:769000, cost:700000, down:100000, financeCo:'BAY', financeAmount:669000, finStatus:'ผ่าน', installments:60, interestRate:2.4, monthly:12100, campaign:'',
       margin:16000, budgetUsed:3000, com70:6000, comFinance:4000, marginLeft:13000, totalIncome:23000,

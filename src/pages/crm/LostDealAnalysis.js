@@ -42,7 +42,7 @@ export default async function LostDealAnalysisPage(container) {
   try {
     const [bookings, leads] = await Promise.all([
       listDocs('bookings', [], 'createdAt', 'desc', 500).catch(() => []),
-      listDocs('leads', [], 'createdAt', 'desc', 500).catch(() => []),
+      listDocs('customers', [], 'createdAt', 'desc', 500).catch(() => []),
     ])
     if (container.__routerGen !== myGen) return
 
@@ -64,19 +64,19 @@ export default async function LostDealAnalysisPage(container) {
       }))
 
     const fromLeads = leads
-      .filter(l => l.status === 'lost')
+      .filter(l => l.isLost === true)
       .map(l => ({
         id: l.id,
-        custName: l.custName || l.name || '',
+        custName: [l.firstName, l.lastName].filter(Boolean).join(' ') || l.custName || l.name || '',
         phone: l.phone || '',
-        interestedIn: [l.brand, l.model].filter(Boolean).join(' ') || l.interest || '',
+        interestedIn: l.interestedModel || [l.brand, l.model].filter(Boolean).join(' ') || l.interest || '',
         budget: l.budget || 0,
         lostReason: l.lostReason || 'other',
         lostTo: l.lostTo || null,
-        lostDate: (l.lostDate || l.updatedAt || l.createdAt || '').slice(0, 10),
+        lostDate: (l.lostAt || l.updatedAt || l.createdAt || '').slice(0, 10),
         salesperson: l.assignedTo || l.salesName || '',
-        stage: l.stage || 'leads',
-        note: l.lostNote || l.note || '',
+        stage: l.stage || 'lead',
+        note: l.lostReason || l.notes || '',
         _source: 'lead',
       }))
 

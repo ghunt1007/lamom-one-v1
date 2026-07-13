@@ -2,7 +2,7 @@
  * Digital Signage — จัดการจอโชว์รูม แสดงโปรโมชั่น ราคา คิว
  * Route: /settings/digital-signage
  */
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { formatCurrency } from '../../utils/format.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
@@ -122,6 +122,8 @@ export default async function DigitalSignagePage(container) {
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.del-slide-btn').forEach(b => b.addEventListener('click', async () => {
+      const ok = await confirmDialog({ title: 'ลบ Slide', message: 'ต้องการลบ Slide นี้หรือไม่?', confirmText: 'ลบ', danger: true })
+      if (!ok) return
       try {
         await softDelete('signage_slides', b.dataset.id)
         previewSlide = 0

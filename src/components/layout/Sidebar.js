@@ -14,8 +14,7 @@ const NAV = [
   {
     group: 'การขาย',
     items: [
-      { icon: '👥', label: 'ลูกค้า', path: '/crm/customers' },
-      { icon: '🧲', label: 'Lead', path: '/crm/leads' },
+      { icon: '👥', label: 'ลูกค้า (รวม Lead)', path: '/crm/customers' },
       { icon: '📋', label: 'Pipeline', path: '/crm/pipeline' },
       { icon: '📝', label: 'จองรถ', path: '/crm/bookings' },
       { icon: '🗂️', label: 'Action Plan', path: '/crm/action-plan' },
@@ -316,6 +315,8 @@ const NAV = [
       { icon: '💬', label: 'Ask LAMI', path: '/ai/ask' },
       { icon: '🎯', label: 'Upsell AI', path: '/ai/upsell' },
       { icon: '✅', label: 'Tasks', path: '/tasks' },
+      { icon: '📅', label: 'ปฏิทินงาน', path: '/calendar' },
+      { icon: '🗒️', label: 'Notes', path: '/notes' },
     ]
   },
   {

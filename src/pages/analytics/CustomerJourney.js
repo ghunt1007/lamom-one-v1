@@ -43,14 +43,14 @@ export default async function CustomerJourneyPage(container) {
   try {
     const [sales, leads] = await Promise.all([
       getSalesData().catch(() => []),
-      listDocs('leads', [], 'createdAt', 'desc', 500).catch(() => []),
+      listDocs('customers', [], 'createdAt', 'desc', 500).catch(() => []),
     ])
     if (container.__routerGen !== myGen) return
 
     if (sales.length || leads.length) {
       const purchased = sales.length
       const allLeads = leads.length || Math.max(purchased * 4, 10)
-      const hotLeads = leads.filter(l => l.status === 'hot' || l.status === 'qualified').length || Math.round(allLeads * 0.46)
+      const hotLeads = leads.filter(l => l.temperature === 'hot' || l.stage === 'pp').length || Math.round(allLeads * 0.46)
       const testDrives = leads.filter(l => l.testDrive || l.testDriveDate).length || Math.round(allLeads * 0.23)
       const quotes = leads.filter(l => l.quoteSent || l.quoteDate).length || Math.round(purchased * 1.5)
       const loyal = Math.round(purchased * 0.38)

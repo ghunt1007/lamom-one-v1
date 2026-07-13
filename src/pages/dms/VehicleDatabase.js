@@ -468,6 +468,8 @@ export default async function VehicleDatabasePage(container) {
         } catch (e) { showToast('ลบไม่สำเร็จ', 'error') }
       })
       document.getElementById('vh-reset')?.addEventListener('click', async () => {
+        const ok = await confirmDialog({ title: '↩️ คืนค่าเดิม', message: 'ยืนยันคืนค่าข้อมูลเดิมของ "' + v.brand + ' ' + v.model + ' ' + v.variant + '"? การแก้ไข/ยืนยันข้อมูลที่บันทึกไว้จะถูกล้างทิ้ง', confirmText: 'คืนค่าเดิม', danger: true })
+        if (!ok) return
         try {
           await clearOverride(v.id); refreshWV(); showToast('↩️ คืนค่าข้อมูลเดิมแล้ว', 'warning')
           document.querySelector('.modal-close')?.click(); render()
