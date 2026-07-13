@@ -3159,30 +3159,100 @@ export const BODY_TYPES = [...new Set(VEHICLES.map(v => v.bodyType))].sort()
 
 // ═══════════════════════════════════════════════════════════════════════════
 // แหล่งข้อมูลกลาง (Single Source of Truth) — ทุกโมดูลเรียกใช้ผ่าน getVehicles()
-// ผูกกับ localStorage 3 layer เดียวกับหน้า Vehicle Database → ข้อมูลที่ เพิ่ม/แก้/ลบ
-// สะท้อนทุกที่ในระบบ (Stock, ใบเสนอราคา, จองรถ, Test Drive ฯลฯ)
+// ผูกกับ Firestore จริง (collections: vehicle_catalog_overrides / _additions / _deletions)
+// → ข้อมูลที่เพิ่ม/แก้/ลบ sync ข้ามอุปกรณ์/พนักงานทุกคน สะท้อนทุกที่ในระบบ
+// (Stock, ใบเสนอราคา, จองรถ, Test Drive ฯลฯ) — VEHICLES ด้านบนคือ catalog อ้างอิงพื้นฐาน
+// ของตลาดไทย (แก้ไม่บ่อย จึงยังเป็น static reference) ส่วนการปรับแต่งของแต่ละดีลเลอร์
+// (เพิ่มรุ่นเอง/แก้สเปค/ซ่อนรุ่น) เก็บเป็น layer แยกใน Firestore
+//
+// getVehicles()/getBrands()/getVehicleById()/searchVehicles() ยังคง "synchronous"
+// เหมือนเดิมเพื่อไม่กระทบหน้าที่เรียกใช้อยู่แล้ว (QuotationBuilder, TestDrive,
+// VehicleComparison, FinanceRateSheets, vehiclePicker.js) — อ่านจาก cache ในหน่วยความจำ
+// ที่โหลดครั้งเดียวตอนแอปเริ่มทำงาน (ดู loadVehicleOverrides() เรียกจาก main.js)
 // ═══════════════════════════════════════════════════════════════════════════
-const OVERRIDE_KEY = 'lamom_vehicle_overrides'
-const ADD_KEY = 'lamom_vehicle_additions'
-const DEL_KEY = 'lamom_vehicle_deletions'
-function _load(k, def) { try { return JSON.parse(localStorage.getItem(k)) || def } catch (e) { return def } }
-export function loadOverrides() { return _load(OVERRIDE_KEY, {}) }
-export function loadAdditions() { return _load(ADD_KEY, []) }
-export function loadDeletions() { return _load(DEL_KEY, []) }
-export function saveOverride(id, fields, by) { const o = loadOverrides(); o[id] = Object.assign({}, o[id] || {}, fields, { _verifiedBy: by, _verifiedAt: new Date().toISOString().slice(0, 10) }); try { localStorage.setItem(OVERRIDE_KEY, JSON.stringify(o)) } catch {} }
-export function clearOverride(id) { const o = loadOverrides(); delete o[id]; try { localStorage.setItem(OVERRIDE_KEY, JSON.stringify(o)) } catch {} }
-export function saveAddition(v) { const a = loadAdditions(); a.push(v); try { localStorage.setItem(ADD_KEY, JSON.stringify(a)) } catch {} }
-export function deleteVehicle(id) { const a = loadAdditions(); const i = a.findIndex(v => v.id === id); if (i >= 0) { a.splice(i, 1); try { localStorage.setItem(ADD_KEY, JSON.stringify(a)) } catch {} } else { const d = loadDeletions(); if (d.indexOf(id) < 0) { d.push(id); try { localStorage.setItem(DEL_KEY, JSON.stringify(d)) } catch {} } } clearOverride(id) }
-export function restoreDeleted() { localStorage.removeItem(DEL_KEY) }
-export function resetUserData() { localStorage.removeItem(ADD_KEY); localStorage.removeItem(DEL_KEY); localStorage.removeItem(OVERRIDE_KEY) }
-export function exportUserData() { return { additions: loadAdditions(), deletions: loadDeletions(), overrides: loadOverrides(), _exportedAt: new Date().toISOString() } }
-export function importUserData(d) { try { if (Array.isArray(d.additions)) localStorage.setItem(ADD_KEY, JSON.stringify(d.additions)); if (Array.isArray(d.deletions)) localStorage.setItem(DEL_KEY, JSON.stringify(d.deletions)); if (d.overrides && typeof d.overrides === 'object') localStorage.setItem(OVERRIDE_KEY, JSON.stringify(d.overrides)) } catch {} }
-function applyOverridesTo(list) { const o = loadOverrides(); return list.map(v => o[v.id] ? Object.assign({}, v, o[v.id]) : v) }
+import { listDocs, createDoc, updateDocData, softDelete } from '../core/db.js'
+
+let _overridesCache = {}
+let _additionsCache = []
+let _deletionsCache = []
+let _loaded = false
+
+export function loadOverrides() { return _overridesCache }
+export function loadAdditions() { return _additionsCache }
+export function loadDeletions() { return _deletionsCache }
+
+// เรียกครั้งเดียวตอน bootstrap (main.js) ก่อนหน้าไหนอ่านข้อมูลรถ — ต้อง await ให้เสร็จก่อน
+export async function loadVehicleOverrides() {
+  try {
+    const [overrides, additions, deletions] = await Promise.all([
+      listDocs('vehicle_catalog_overrides', [], 'createdAt', 'desc', 1000).catch(() => []),
+      listDocs('vehicle_catalog_additions', [], 'createdAt', 'desc', 1000).catch(() => []),
+      listDocs('vehicle_catalog_deletions', [], 'createdAt', 'desc', 1000).catch(() => []),
+    ])
+    _overridesCache = Object.fromEntries(overrides.map(o => [o.vehicleId, o]))
+    _additionsCache = additions
+    _deletionsCache = deletions.map(d => d.vehicleId)
+    _loaded = true
+  } catch (e) { _loaded = true }
+}
+export function isVehicleDataLoaded() { return _loaded }
+
+export async function saveOverride(id, fields, by) {
+  const payload = Object.assign({}, fields, { vehicleId: id, _verifiedBy: by, _verifiedAt: new Date().toISOString().slice(0, 10) })
+  const existing = _overridesCache[id]
+  if (existing) await updateDocData('vehicle_catalog_overrides', existing.id, payload)
+  else await createDoc('vehicle_catalog_overrides', payload)
+  await loadVehicleOverrides()
+}
+export async function clearOverride(id) {
+  const existing = _overridesCache[id]
+  if (existing) await softDelete('vehicle_catalog_overrides', existing.id)
+  await loadVehicleOverrides()
+}
+export async function saveAddition(v) {
+  await createDoc('vehicle_catalog_additions', v)
+  await loadVehicleOverrides()
+}
+export async function deleteVehicle(id) {
+  const addedDoc = _additionsCache.find(v => v.id === id)
+  if (addedDoc) {
+    await softDelete('vehicle_catalog_additions', addedDoc.id)
+  } else if (!_deletionsCache.includes(id)) {
+    await createDoc('vehicle_catalog_deletions', { vehicleId: id })
+  }
+  await clearOverride(id)
+  await loadVehicleOverrides()
+}
+export async function restoreDeleted() {
+  const existing = await listDocs('vehicle_catalog_deletions', [], 'createdAt', 'desc', 1000).catch(() => [])
+  await Promise.all(existing.map(d => softDelete('vehicle_catalog_deletions', d.id)))
+  await loadVehicleOverrides()
+}
+export async function resetUserData() {
+  const [overrides, additions, deletions] = await Promise.all([
+    listDocs('vehicle_catalog_overrides', [], 'createdAt', 'desc', 1000).catch(() => []),
+    listDocs('vehicle_catalog_additions', [], 'createdAt', 'desc', 1000).catch(() => []),
+    listDocs('vehicle_catalog_deletions', [], 'createdAt', 'desc', 1000).catch(() => []),
+  ])
+  await Promise.all([
+    ...overrides.map(o => softDelete('vehicle_catalog_overrides', o.id)),
+    ...additions.map(a => softDelete('vehicle_catalog_additions', a.id)),
+    ...deletions.map(d => softDelete('vehicle_catalog_deletions', d.id)),
+  ])
+  await loadVehicleOverrides()
+}
+export function exportUserData() { return { additions: _additionsCache, deletions: _deletionsCache, overrides: _overridesCache, _exportedAt: new Date().toISOString() } }
+export async function importUserData(d) {
+  if (Array.isArray(d.additions)) for (const a of d.additions) await createDoc('vehicle_catalog_additions', a)
+  if (Array.isArray(d.deletions)) for (const id of d.deletions) if (!_deletionsCache.includes(id)) await createDoc('vehicle_catalog_deletions', { vehicleId: id })
+  if (d.overrides && typeof d.overrides === 'object') for (const [id, fields] of Object.entries(d.overrides)) await saveOverride(id, fields, fields._verifiedBy || 'import')
+  await loadVehicleOverrides()
+}
+function applyOverridesTo(list) { return list.map(v => _overridesCache[v.id] ? Object.assign({}, v, _overridesCache[v.id]) : v) }
 
 // รายการรถใช้งานจริง = (ฐาน + ที่เพิ่ม) − ที่ลบ + merge override
 export function getVehicles() {
-  const del = loadDeletions()
-  return applyOverridesTo(VEHICLES.concat(loadAdditions()).filter(v => del.indexOf(v.id) < 0))
+  return applyOverridesTo(VEHICLES.concat(_additionsCache).filter(v => !_deletionsCache.includes(v.id)))
 }
 export function getBrands() { return [...new Set(getVehicles().map(v => v.brand))].sort() }
 export function getVehicleById(id) { return getVehicles().find(v => v.id === id) || null }

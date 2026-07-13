@@ -36,7 +36,12 @@ function genId() {
 // ── CRUD ────────────────────────────────────────────────────
 
 export async function createDoc(colName, data) {
-  const clean = deepSanitize(data)
+  // ตัด field "id" ที่ผู้เรียกอาจใส่มาเองทิ้งก่อนเสมอ — ป้องกันไปทับ id จริงที่ระบบ
+  // สร้างให้ (genId() ใน demo / ref.id ของ Firestore จริง) ซึ่งเป็นตัวที่ listDocs/updateDocData
+  // ใช้อ้างอิง record จริง — ถ้าปล่อยให้ทับ จะทำให้ document key กับ .id field ไม่ตรงกัน
+  // (แก้ไข/ลบ record หลังจากนั้นจะพลาดเป้าแบบเงียบๆ)
+  const { id: _ignoredId, ...rest } = data || {}
+  const clean = deepSanitize(rest)
   const payload = { ...clean, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
   if (isDemoMode()) {
     const id = genId()

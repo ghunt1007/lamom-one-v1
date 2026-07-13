@@ -2,7 +2,12 @@
  * Vehicle Database — ข้อมูลรถทุกยี่ห้อที่ขายในประเทศไทย
  * Route: /dms/vehicle-db
  */
-import { VEHICLES, BRANDS, FUEL_TYPES, searchVehicles } from '../../data/vehicleDatabase.js'
+import {
+  BRANDS, FUEL_TYPES, searchVehicles, getVehicles,
+  loadOverrides, loadAdditions, loadDeletions,
+  saveOverride, clearOverride, saveAddition, deleteVehicle,
+  restoreDeleted, resetUserData, exportUserData, importUserData,
+} from '../../data/vehicleDatabase.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 
@@ -216,25 +221,6 @@ async function aiVerifyVehicle(v) {
   return result
 }
 
-// ── Override layer: เก็บข้อมูลที่ถูกแก้ (AI/แอดมิน) ลง localStorage ถาวร ──────────
-const OVERRIDE_KEY = 'lamom_vehicle_overrides'
-function loadOverrides() {
-  try { return JSON.parse(localStorage.getItem(OVERRIDE_KEY) || '{}') } catch (e) { return {} }
-}
-function saveOverride(id, fields, by) {
-  const ov = loadOverrides()
-  ov[id] = Object.assign({}, ov[id] || {}, fields, { _verifiedBy: by, _verifiedAt: new Date().toISOString().slice(0, 10) })
-  try { localStorage.setItem(OVERRIDE_KEY, JSON.stringify(ov)) } catch {}
-}
-function clearOverride(id) {
-  const ov = loadOverrides()
-  delete ov[id]
-  try { localStorage.setItem(OVERRIDE_KEY, JSON.stringify(ov)) } catch {}
-}
-function applyOverrides(list) {
-  const ov = loadOverrides()
-  return list.map(v => ov[v.id] ? Object.assign({}, v, ov[v.id]) : v)
-}
 function verifiedBadge(v) {
   if (!v._verifiedBy) return ''
   const c = v._verifiedBy === 'AI' ? '#00b4d8' : 'var(--success)'
@@ -242,40 +228,12 @@ function verifiedBadge(v) {
   return '<span style="font-size:0.55rem;padding:1px 6px;border-radius:8px;background:' + c + '22;color:' + c + ';font-weight:700;border:1px solid ' + c + '55">' + icon + ' verified</span>'
 }
 
-// ── Add/Delete layer: เพิ่มรถใหม่ + ลบรถ (เก็บถาวรใน localStorage) ────────────────
-const ADD_KEY = 'lamom_vehicle_additions'
-const DEL_KEY = 'lamom_vehicle_deletions'
-function loadAdditions() { try { return JSON.parse(localStorage.getItem(ADD_KEY) || '[]') } catch (e) { return [] } }
-function loadDeletions() { try { return JSON.parse(localStorage.getItem(DEL_KEY) || '[]') } catch (e) { return [] } }
-function saveAddition(v) { const a = loadAdditions(); a.push(v); try { localStorage.setItem(ADD_KEY, JSON.stringify(a)) } catch {} }
-function deleteVehicleStore(id) {
-  const adds = loadAdditions()
-  const i = adds.findIndex(v => v.id === id)
-  if (i >= 0) { adds.splice(i, 1); try { localStorage.setItem(ADD_KEY, JSON.stringify(adds)) } catch {} } // รถที่เพิ่มเอง → ลบทิ้งจริง
-  else { const d = loadDeletions(); if (d.indexOf(id) < 0) { d.push(id); try { localStorage.setItem(DEL_KEY, JSON.stringify(d)) } catch {} } } // รถฐาน → ซ่อน
-  clearOverride(id)
-}
-function restoreDeleted() { localStorage.removeItem(DEL_KEY) }
-function exportUserData() { return { additions: loadAdditions(), deletions: loadDeletions(), overrides: loadOverrides(), _app: 'LAMOM ONE Vehicle DB', _exportedAt: new Date().toISOString() } }
-function importUserData(data) {
-  try {
-    if (Array.isArray(data.additions)) localStorage.setItem(ADD_KEY, JSON.stringify(data.additions))
-    if (Array.isArray(data.deletions)) localStorage.setItem(DEL_KEY, JSON.stringify(data.deletions))
-    if (data.overrides && typeof data.overrides === 'object') localStorage.setItem(OVERRIDE_KEY, JSON.stringify(data.overrides))
-  } catch {}
-}
-function resetUserData() { localStorage.removeItem(ADD_KEY); localStorage.removeItem(DEL_KEY); localStorage.removeItem(OVERRIDE_KEY) }
 function downloadJSON(filename, obj) {
   const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url; a.download = filename; document.body.appendChild(a); a.click()
   setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url) }, 100)
-}
-// รวมรายการทำงาน: (ฐาน + ที่เพิ่ม) − ที่ลบ → แล้ว merge override
-function buildWorkingVehicles() {
-  const del = loadDeletions()
-  return applyOverrides(VEHICLES.concat(loadAdditions()).filter(v => del.indexOf(v.id) < 0))
 }
 function blankVehicle() {
   return {
@@ -292,9 +250,9 @@ export default async function VehicleDatabasePage(container) {
   const myGen = container.__routerGen
   let filter = { brand: '', fuel: '', query: '' }
   let viewMode = 'grid'
-  let WV = buildWorkingVehicles() // (ฐาน + เพิ่ม) − ลบ + override
+  let WV = getVehicles() // (ฐาน + เพิ่ม) − ลบ + override — cache โหลดจาก Firestore ตอน bootstrap
 
-  function refreshWV() { WV = buildWorkingVehicles() }
+  function refreshWV() { WV = getVehicles() }
 
   function getFiltered() {
     return WV.filter(v => {
@@ -452,11 +410,13 @@ export default async function VehicleDatabasePage(container) {
         body: '<div style="font-size:0.66rem;color:var(--warning);margin-bottom:8px;padding:6px 10px;background:var(--surface-2);border-radius:6px">⚠️ ข้อมูลจาก AI — โปรดตรวจสอบราคา/โปรโมชั่นล่าสุดกับโชว์รูมอีกครั้ง</div>' + body,
         confirmText: '➕ เพิ่มเข้าฐานข้อมูล',
         cancelText: 'ปิด',
-        onConfirm: () => {
+        onConfirm: async () => {
           v.id = 'AI_ADD_' + Date.now()
-          saveAddition(v); refreshWV()
-          showToast('➕ เพิ่ม ' + v.brand + ' ' + v.model + ' (จาก AI) เข้าฐานข้อมูลแล้ว', 'success')
-          render()
+          try {
+            await saveAddition(v); refreshWV()
+            showToast('➕ เพิ่ม ' + v.brand + ' ' + v.model + ' (จาก AI) เข้าฐานข้อมูลแล้ว', 'success')
+            render()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         },
       })
       showToast('✅ พบข้อมูล ' + v.brand + ' ' + v.model, 'success')
@@ -499,15 +459,19 @@ export default async function VehicleDatabasePage(container) {
       document.getElementById('vh-delete')?.addEventListener('click', async () => {
         const ok = await confirmDialog({ title: '🗑 ลบรุ่นรถ', message: 'ยืนยันลบ "' + v.brand + ' ' + v.model + ' ' + v.variant + '" ออกจากฐานข้อมูล?', confirmText: 'ลบ', danger: true })
         if (!ok) return
-        deleteVehicleStore(v.id); refreshWV()
-        showToast('🗑 ลบ ' + v.brand + ' ' + v.model + ' แล้ว', 'warning')
-        document.querySelectorAll('.modal-overlay').forEach(m => m.remove())
-        if (container.__routerGen !== myGen) return
-        render()
+        try {
+          await deleteVehicle(v.id); refreshWV()
+          showToast('🗑 ลบ ' + v.brand + ' ' + v.model + ' แล้ว', 'warning')
+          document.querySelectorAll('.modal-overlay').forEach(m => m.remove())
+          if (container.__routerGen !== myGen) return
+          render()
+        } catch (e) { showToast('ลบไม่สำเร็จ', 'error') }
       })
-      document.getElementById('vh-reset')?.addEventListener('click', () => {
-        clearOverride(v.id); refreshWV(); showToast('↩️ คืนค่าข้อมูลเดิมแล้ว', 'warning')
-        document.querySelector('.modal-close')?.click(); render()
+      document.getElementById('vh-reset')?.addEventListener('click', async () => {
+        try {
+          await clearOverride(v.id); refreshWV(); showToast('↩️ คืนค่าข้อมูลเดิมแล้ว', 'warning')
+          document.querySelector('.modal-close')?.click(); render()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       })
     }, 50)
   }
@@ -534,12 +498,14 @@ export default async function VehicleDatabasePage(container) {
         '<div style="font-size:0.62rem;color:var(--text-muted);margin-top:8px">⚠️ AI อาจคลาดเคลื่อนได้ — ตรวจทานก่อนยืนยัน</div></div>'
       openModal({
         title: '🤖 ผลตรวจ ' + v.brand + ' ' + v.model, size: 'lg', body: dbody, confirmText: '✅ ใช้ข้อมูลที่ AI แก้',
-        onConfirm: () => {
+        onConfirm: async () => {
           const fields = {}
           changes.forEach(c => { if (result.vehicle && (c.field in result.vehicle)) fields[c.field] = result.vehicle[c.field] })
-          saveOverride(v.id, fields, 'AI'); refreshWV()
-          showToast('✅ อัปเดต ' + Object.keys(fields).length + ' ฟิลด์ด้วย AI แล้ว', 'success')
-          render()
+          try {
+            await saveOverride(v.id, fields, 'AI'); refreshWV()
+            showToast('✅ อัปเดต ' + Object.keys(fields).length + ' ฟิลด์ด้วย AI แล้ว', 'success')
+            render()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         },
       })
     } catch (err) { if (status) status.innerHTML = '<span style="color:var(--danger)">' + errMsg(err) + '</span>' }
@@ -586,7 +552,7 @@ export default async function VehicleDatabasePage(container) {
     openModal({
       title: (isNew ? '➕ เพิ่มรถรุ่นใหม่ (แอดมิน)' : '✏️ แก้ไขข้อมูล (แอดมิน) — ' + v.brand + ' ' + v.model),
       size: 'lg', body, confirmText: (isNew ? '➕ เพิ่มรถ' : '💾 บันทึก'),
-      onConfirm: () => {
+      onConfirm: async () => {
         const numKeys = ['price', 'priceMin', 'priceMax', 'year', 'power', 'torque', 'range', 'seats', 'chargeAC', 'chargeDC', 'bootSpace', 'frunk', 'airbags', 'groundClearance']
         const arrKeys = ['colors', 'interiorColors', 'safety', 'adas', 'strengths', 'weaknesses', 'pros', 'cons']
         const fields = {}
@@ -596,18 +562,20 @@ export default async function VehicleDatabasePage(container) {
           else if (arrKeys.indexOf(k) >= 0) val = val.split(',').map(s => s.trim()).filter(Boolean)
           fields[k] = val
         })
-        if (isNew) {
-          if (!fields.brand || !fields.model) { showToast('⚠️ กรุณากรอกยี่ห้อและรุ่น', 'warning'); return false }
-          const nv = Object.assign(blankVehicle(), v, fields)
-          if (!fields.priceMin) nv.priceMin = nv.price
-          if (!fields.priceMax) nv.priceMax = nv.price
-          saveAddition(nv); refreshWV()
-          showToast('➕ เพิ่ม ' + nv.brand + ' ' + nv.model + ' แล้ว', 'success')
-        } else {
-          saveOverride(v.id, fields, 'admin'); refreshWV()
-          showToast('💾 บันทึกข้อมูล (แอดมิน) แล้ว', 'success')
-        }
-        render()
+        try {
+          if (isNew) {
+            if (!fields.brand || !fields.model) { showToast('⚠️ กรุณากรอกยี่ห้อและรุ่น', 'warning'); return false }
+            const nv = Object.assign(blankVehicle(), v, fields)
+            if (!fields.priceMin) nv.priceMin = nv.price
+            if (!fields.priceMax) nv.priceMax = nv.price
+            await saveAddition(nv); refreshWV()
+            showToast('➕ เพิ่ม ' + nv.brand + ' ' + nv.model + ' แล้ว', 'success')
+          } else {
+            await saveOverride(v.id, fields, 'admin'); refreshWV()
+            showToast('💾 บันทึกข้อมูล (แอดมิน) แล้ว', 'success')
+          }
+          render()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       },
     })
   }
@@ -649,7 +617,7 @@ export default async function VehicleDatabasePage(container) {
         if (changes.length && result.vehicle) {
           const fields = {}
           changes.forEach(c => { if (c.field in result.vehicle) fields[c.field] = result.vehicle[c.field] })
-          if (Object.keys(fields).length) { saveOverride(v.id, fields, 'AI'); changed++ }
+          if (Object.keys(fields).length) { await saveOverride(v.id, fields, 'AI'); changed++ }
         }
         ok++
         if (log) log.innerHTML = '✅ ' + v.brand + ' ' + v.model + ' ' + v.variant + ' (' + changes.length + ' แก้ไข)<br>' + log.innerHTML
@@ -694,9 +662,9 @@ export default async function VehicleDatabasePage(container) {
       document.getElementById('dm-file')?.addEventListener('change', e => {
         const file = e.target.files && e.target.files[0]; if (!file) return
         const reader = new FileReader()
-        reader.onload = () => {
+        reader.onload = async () => {
           try {
-            importUserData(JSON.parse(reader.result)); refreshWV()
+            await importUserData(JSON.parse(reader.result)); refreshWV()
             showToast('⬆️ นำเข้าข้อมูลสำเร็จ', 'success')
             document.querySelectorAll('.modal-overlay').forEach(m => m.remove()); render()
           } catch (err) {
@@ -705,15 +673,19 @@ export default async function VehicleDatabasePage(container) {
         }
         reader.readAsText(file)
       })
-      document.getElementById('dm-restore')?.addEventListener('click', () => {
-        restoreDeleted(); refreshWV(); showToast('↩️ กู้คืนรถที่ลบแล้ว', 'success')
-        document.querySelectorAll('.modal-overlay').forEach(m => m.remove()); render()
+      document.getElementById('dm-restore')?.addEventListener('click', async () => {
+        try {
+          await restoreDeleted(); refreshWV(); showToast('↩️ กู้คืนรถที่ลบแล้ว', 'success')
+          document.querySelectorAll('.modal-overlay').forEach(m => m.remove()); render()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       })
       document.getElementById('dm-reset')?.addEventListener('click', async () => {
         const ok = await confirmDialog({ title: '🗑 ล้างการแก้ไขทั้งหมด', message: 'ลบข้อมูลที่ เพิ่ม/แก้/ลบ ทั้งหมด กลับสู่ค่าเริ่มต้นของระบบ?', confirmText: 'ล้างทั้งหมด', danger: true })
         if (!ok) return
-        resetUserData(); refreshWV(); showToast('🗑 ล้างการแก้ไขทั้งหมดแล้ว', 'warning')
-        document.querySelectorAll('.modal-overlay').forEach(m => m.remove()); render()
+        try {
+          await resetUserData(); refreshWV(); showToast('🗑 ล้างการแก้ไขทั้งหมดแล้ว', 'warning')
+          document.querySelectorAll('.modal-overlay').forEach(m => m.remove()); render()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       })
     }, 50)
   }
