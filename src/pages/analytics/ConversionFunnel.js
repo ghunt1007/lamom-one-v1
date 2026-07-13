@@ -46,12 +46,17 @@ export default async function ConversionFunnelPage(container) {
     if (container.__routerGen !== myGen) return
     if (sales.length || leads.length) {
       const purchased = sales.length
-      const allLeads = leads.length || Math.max(purchased * 8, 10)
-      const contacted = Math.round(allLeads * 0.74)
-      const showroom = Math.round(allLeads * 0.44)
-      const testDriven = leads.filter(l => l.testDrive || l.testDriveDate).length || Math.round(allLeads * 0.30)
-      const quoted = leads.filter(l => l.quoteSent || l.quoteDate).length || Math.round(purchased * 2.3)
-      const reserved = Math.round(purchased * 1.27)
+      // Lead total must be at least as large as closed deals — the unified `customers`
+      // collection only holds currently-tracked records, so historical bookings can
+      // outnumber it. Clamp every stage into [purchased, previousStage] so the funnel
+      // is always monotonically non-increasing and conversion never exceeds 100%.
+      const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi)
+      const allLeads = Math.max(leads.length, purchased) || Math.max(purchased * 8, 10)
+      const contacted = clamp(Math.round(allLeads * 0.74), purchased, allLeads)
+      const showroom = clamp(Math.round(allLeads * 0.44), purchased, contacted)
+      const testDriven = clamp(leads.filter(l => l.testDrive || l.testDriveDate).length || Math.round(allLeads * 0.30), purchased, showroom)
+      const quoted = clamp(leads.filter(l => l.quoteSent || l.quoteDate).length || Math.round(purchased * 2.3), purchased, testDriven)
+      const reserved = clamp(Math.round(purchased * 1.27), purchased, quoted)
       if (purchased >= 1) {
         stages[0].count = allLeads
         stages[1].count = contacted
@@ -68,8 +73,9 @@ export default async function ConversionFunnelPage(container) {
   function renderPage() {
     const maxCount = stages[0].count
     const overall = Math.round(stages[stages.length-1].count / maxCount * 1000) / 10
-    // Find biggest drop
-    let worstDrop = { idx: 0, rate: 100 }
+    // Find biggest drop (idx starts at 1 — stage 0 has no "previous" to compare against,
+    // and stages[worstDrop.idx-1] below would be undefined if this stayed at 0)
+    let worstDrop = { idx: 1, rate: 100 }
     stages.forEach((s, i) => {
       if (i > 0) {
         const rate = Math.round(s.count / stages[i-1].count * 100)

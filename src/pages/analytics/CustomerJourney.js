@@ -49,17 +49,23 @@ export default async function CustomerJourneyPage(container) {
 
     if (sales.length || leads.length) {
       const purchased = sales.length
-      const allLeads = leads.length || Math.max(purchased * 4, 10)
-      const hotLeads = leads.filter(l => l.temperature === 'hot' || l.stage === 'pp').length || Math.round(allLeads * 0.46)
+      // Same funnel-monotonicity guard as ConversionFunnel.js: `leads.length` now reflects
+      // only the unified `customers` collection (small, current-state), while `purchased`
+      // (getSalesData/bookings) can be a larger, independent historical count. Without
+      // clamping, a downstream stage (e.g. quotes derived from `purchased`) could exceed
+      // an upstream one (e.g. hotLeads derived from `leads`), producing a >100% "drop".
+      const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi)
+      const allLeads = Math.max(leads.length, purchased) || Math.max(purchased * 4, 10)
+      const hotLeads = clamp(leads.filter(l => l.temperature === 'hot' || l.stage === 'pp').length || Math.round(allLeads * 0.46), purchased, allLeads)
       const testDrives = leads.filter(l => l.testDrive || l.testDriveDate).length || Math.round(allLeads * 0.23)
-      const quotes = leads.filter(l => l.quoteSent || l.quoteDate).length || Math.round(purchased * 1.5)
-      const loyal = Math.round(purchased * 0.38)
+      const quotes = clamp(leads.filter(l => l.quoteSent || l.quoteDate).length || Math.round(purchased * 1.5), purchased, hotLeads)
+      const loyal = Math.min(Math.round(purchased * 0.38), purchased)
 
       if (purchased >= 1) {
         stages[0].count = Math.max(allLeads * 3, purchased * 12)
         stages[1].count = allLeads
         stages[2].count = hotLeads
-        stages[3].count = quotes || Math.round(purchased * 1.3)
+        stages[3].count = quotes
         stages[4].count = purchased
         stages[5].count = loyal
         dataSource = 'live'
