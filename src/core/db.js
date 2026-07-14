@@ -60,6 +60,146 @@ function logAction(action, colName, id, detail) {
   }
 }
 
+// ── Gamification hook ────────────────────────────────────────
+// ให้แต้มจริงอัตโนมัติเมื่อเกิด business event จริง (ไม่ใช่กรอกมือ) — ทำงานคู่กับ logAction
+// เขียนลง gamification_events (ledger) + สะสมยอดรวมใน staff_points
+// ต้องไม่ throw ออกไปนอกฟังก์ชัน — ถ้า gamification พัง ต้องไม่กระทบการทำงานจริง (fire-and-forget-safe)
+//
+// ตารางแต้ม (ใช้วิจารณญาณให้สมเหตุสมผล ไม่เฟ้อ):
+//   bookings create                          → +20  (สร้างใบจองใหม่)
+//   bookings status → 'ส่งมอบแล้ว' (ครั้งแรก) → +100 (ส่งมอบรถสำเร็จ — bonus ใหญ่สุด)
+//   customers stage → 'pp' (ครั้งแรก)         → +10  (เปลี่ยน lead เป็น Prospect)
+//   tasks status → 'done' (ครั้งแรก)          → +5   (ทำงานเสร็จสิ้น)
+//   comm_logs create                          → +2   (บันทึกการติดต่อ/โน้ตลูกค้า)
+//   daily_missions done → true (ครั้งแรก)      → ตาม xp ของภารกิจนั้น
+//   gamification_challenges → 'completed'     → +150 ให้ผู้เข้าร่วมที่ถึงเป้าหมาย (ครั้งแรก)
+const GAMIFICATION_EXCLUDED_COLLECTIONS = ['audit_log', 'gamification_events', 'staff_points']
+
+async function getCurrentDocSnapshot(colName, id) {
+  try {
+    if (isDemoMode()) return demoCol(colName)[id] || null
+    const snap = await getDoc(doc(db, colName, id))
+    return snap.exists() ? { id: snap.id, ...snap.data() } : null
+  } catch (e) { return null }
+}
+
+// เซ็ต flag "ให้แต้มไปแล้ว" แบบเงียบๆ (ไม่ผ่าน updateDocData) เพื่อกันเรียก logAction/awardGamePoints ซ้ำ
+function setFlagQuiet(colName, id, field) {
+  try {
+    if (isDemoMode()) {
+      const col = demoCol(colName)
+      if (col[id]) col[id][field] = true
+      return
+    }
+    updateDoc(doc(db, colName, id), { [field]: true }).catch(() => {})
+  } catch (e) {}
+}
+
+async function findStaffPointsDoc(userName) {
+  if (isDemoMode()) {
+    const rows = Object.entries(demoCol('staff_points')).map(([k, v]) => ({ id: k, ...v }))
+    return rows.find(s => s.name === userName) || null
+  }
+  const snap = await getDocs(query(collection(db, 'staff_points'), where('name', '==', userName), limit(1)))
+  return snap.empty ? null : { id: snap.docs[0].id, ...snap.docs[0].data() }
+}
+
+// เขียน ledger event + สะสมยอดรวมใน staff_points ให้ userName ที่ระบุ
+async function grantPoints(userName, points, reason, sourceCollection, sourceId) {
+  const name = (userName || '').trim()
+  if (!name || !points) return
+  try {
+    await createDoc('gamification_events', {
+      userName: name, userId: name, points, reason,
+      sourceCollection, sourceId: sourceId != null ? String(sourceId) : '',
+    })
+    const existing = await findStaffPointsDoc(name)
+    if (existing) {
+      await updateDocData('staff_points', existing.id, { points: (existing.points || 0) + points })
+    } else {
+      await createDoc('staff_points', { name, points })
+    }
+  } catch (e) {
+    // swallow — ให้แต้มพัง ต้องไม่ทำให้ CRUD จริงพัง
+  }
+}
+
+async function awardGamePoints(action, colName, id, data) {
+  if (GAMIFICATION_EXCLUDED_COLLECTIONS.includes(colName)) return // ป้องกัน recursion จากการเขียน ledger เอง
+  try {
+    const user = getState('user') || {}
+    const currentName = user.displayName || user.email || user.uid || ''
+
+    // 1) สร้างใบจองใหม่ — +20
+    if (action === 'create' && colName === 'bookings') {
+      const name = (data && data.salesName) || currentName
+      await grantPoints(name, 20, '📝 สร้างใบจองใหม่', 'bookings', id)
+      return
+    }
+
+    // 2) ใบจองส่งมอบแล้ว (ให้แต้มครั้งแรกเท่านั้น กันกดซ้ำ/แก้ไขซ้ำ)  — +100
+    if (action === 'update' && colName === 'bookings' && data && data.status === 'ส่งมอบแล้ว') {
+      const cur = await getCurrentDocSnapshot('bookings', id)
+      if (cur && !cur._deliveryPointsAwarded) {
+        setFlagQuiet('bookings', id, '_deliveryPointsAwarded')
+        await grantPoints(cur.salesName || currentName, 100, '🚗 ส่งมอบรถสำเร็จ', 'bookings', id)
+      }
+      return
+    }
+
+    // 3) ลูกค้าเปลี่ยนสถานะ lead → pp (Prospect) ครั้งแรก — +10
+    if (action === 'update' && colName === 'customers' && data && data.stage === 'pp') {
+      const cur = await getCurrentDocSnapshot('customers', id)
+      if (cur && !cur._ppPointsAwarded) {
+        setFlagQuiet('customers', id, '_ppPointsAwarded')
+        await grantPoints(cur.salesName || cur.assignedTo || currentName, 10, '📇 อัปเกรดลูกค้าเป็น Prospect', 'customers', id)
+      }
+      return
+    }
+
+    // 4) งาน (task) เสร็จสิ้นครั้งแรก — +5
+    if (action === 'update' && colName === 'tasks' && data && data.status === 'done') {
+      const cur = await getCurrentDocSnapshot('tasks', id)
+      if (cur && !cur._taskPointsAwarded) {
+        setFlagQuiet('tasks', id, '_taskPointsAwarded')
+        await grantPoints(cur.assignedTo || currentName, 5, '✅ ทำงานเสร็จสิ้น', 'tasks', id)
+      }
+      return
+    }
+
+    // 5) บันทึกการติดต่อ/โน้ตลูกค้าใหม่ — +2 (ให้กับผู้ใช้ที่ล็อกอินอยู่จริง)
+    if (action === 'create' && colName === 'comm_logs') {
+      await grantPoints(currentName, 2, '💬 บันทึกการติดต่อลูกค้า', 'comm_logs', id)
+      return
+    }
+
+    // 6) Daily mission สำเร็จครั้งแรก — ให้ตาม xp ของภารกิจ
+    if (action === 'update' && colName === 'daily_missions' && data && data.done === true) {
+      const cur = await getCurrentDocSnapshot('daily_missions', id)
+      if (cur && !cur._missionPointsAwarded) {
+        setFlagQuiet('daily_missions', id, '_missionPointsAwarded')
+        await grantPoints(currentName, cur.xp || 20, '🎯 ภารกิจสำเร็จ: ' + (cur.title || ''), 'daily_missions', id)
+      }
+      return
+    }
+
+    // 7) Challenge พิชิตสำเร็จครั้งแรก — ให้ผู้เข้าร่วมที่ถึงเป้าหมาย
+    if (action === 'update' && colName === 'gamification_challenges' && data && data.status === 'completed') {
+      const cur = await getCurrentDocSnapshot('gamification_challenges', id)
+      if (cur && !cur._challengePointsAwarded) {
+        setFlagQuiet('gamification_challenges', id, '_challengePointsAwarded')
+        const winners = (cur.participants || []).filter(p => p.progress >= cur.target)
+        for (const w of winners) {
+          await grantPoints(w.name, 150, '🏆 พิชิต Challenge: ' + (cur.name || ''), 'gamification_challenges', id)
+        }
+      }
+      return
+    }
+  } catch (e) {
+    // swallow — gamification ต้องไม่ทำให้ CRUD จริงพัง
+  }
+}
+
 // ── CRUD ────────────────────────────────────────────────────
 
 export async function createDoc(colName, data) {
@@ -74,10 +214,12 @@ export async function createDoc(colName, data) {
     const id = genId()
     demoCol(colName)[id] = { id, ...payload }
     logAction('create', colName, id, `สร้างข้อมูลใหม่ใน ${colName}`)
+    awardGamePoints('create', colName, id, clean).catch(() => {})
     return id
   }
   const ref = await addDoc(collection(db, colName), { ...clean, createdAt: serverTimestamp(), updatedAt: serverTimestamp() })
   logAction('create', colName, ref.id, `สร้างข้อมูลใหม่ใน ${colName}`)
+  awardGamePoints('create', colName, ref.id, clean).catch(() => {})
   return ref.id
 }
 
@@ -97,10 +239,12 @@ export async function updateDocData(colName, id, data) {
     const col = demoCol(colName)
     col[id] = { ...(col[id] || {}), ...payload }
     logAction(action, colName, id, detail)
+    awardGamePoints(action, colName, id, clean).catch(() => {})
     return
   }
   await updateDoc(doc(db, colName, id), { ...clean, updatedAt: serverTimestamp() })
   logAction(action, colName, id, detail)
+  awardGamePoints(action, colName, id, clean).catch(() => {})
 }
 
 export async function softDelete(colName, id) {

@@ -2,6 +2,7 @@ import { getState } from '../core/store.js'
 import { listDocs, seedDemoData, getSalesData } from '../core/db.js'
 import { formatCurrency, timeAgo } from '../utils/format.js'
 import { navigate } from '../core/router.js'
+import { generateMorningBriefing } from '../utils/ai.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -85,16 +86,6 @@ const QUICK_LINKS = [
   { icon:'🔄', label:'Migration', path:'/migration', color:'danger' },
 ]
 
-const LAMI_TIPS = [
-  'ตรวจสอบ Lead Hot ทุกเช้า — โอกาสปิดดีลสูงสุดใน 24 ชั่วโมงแรก 🔥',
-  'ยอดขายเดือนนี้อยู่ที่ 78% ของ Target — อีกนิดเดียวก็ถึงแล้ว! 💪',
-  'มีรถใน PDI 2 คัน รอส่งมอบ ติดตามสถานะให้ลูกค้าด้วยนะครับ 🚗',
-  'อะไหล่ Filter น้ำมัน ใกล้หมด — พิจารณาสั่งเพิ่มก่อนรับงานซ่อมใหม่ 🔩',
-  'Commission เดือนนี้: อรนุช ฿85,000 — Top Performer! 🏆',
-  'Training คอร์ส EV Safety ยังไม่ครบ — แจ้งทีมช่างด้วยนะครับ 🎓',
-  'ลูกค้า VIP 3 ราย ครบกำหนดต่อประกันใน 30 วัน — แจ้งเตือนล่วงหน้า 🛡',
-]
-
 const ACTIVITY_FEED = [
   { icon:'🚗', text:'จองรถ BYD Seal AWD — คุณ สมศักดิ์ เจริญสุข', time:'5 นาทีที่แล้ว', color:'primary' },
   { icon:'💰', text:'ปิดดีล MG4 X ฿1,199,000 — อรนุช เซลส์ดี', time:'23 นาทีที่แล้ว', color:'success' },
@@ -117,7 +108,6 @@ export default async function DashboardPage(container) {
   const user = getState('user')
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'อรุณสวัสดิ์' : hour < 17 ? 'สวัสดีตอนบ่าย' : 'สวัสดีตอนเย็น'
-  const tip = LAMI_TIPS[new Date().getDate() % LAMI_TIPS.length]
 
   container.innerHTML = `
     <div class="page-content animate-slide">
@@ -150,14 +140,20 @@ export default async function DashboardPage(container) {
         <div id="hud-readouts" style="display:flex;gap:16px;font-family:'Share Tech Mono',monospace;font-size:0.7rem;letter-spacing:0.08em;color:var(--text-3);flex-wrap:wrap"></div>
       </div>
 
-      <!-- LAMI Message -->
+      <!-- Morning Briefing: สรุปเชิงรุกทุกเช้าจากข้อมูลจริง แคชไว้ต่อวัน/ผู้ใช้ -->
       <div style="display:flex;align-items:flex-start;gap:12px;background:var(--primary-dim);border:1px solid var(--primary);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:20px">
-        <span style="font-size:1.5rem;flex-shrink:0">🤖</span>
-        <div>
-          <div style="font-size:0.72rem;color:var(--primary);font-weight:700;margin-bottom:3px">LAMI — AI Assistant</div>
-          <div id="lami-tip" style="font-size:0.875rem;color:var(--text-2);min-height:1.3em"></div>
+        <span style="font-size:1.5rem;flex-shrink:0">🌅</span>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px">
+            <span style="font-size:0.72rem;color:var(--primary);font-weight:700">LAMI — Morning Briefing</span>
+            <span id="briefing-time" style="font-size:0.64rem;color:var(--text-muted);font-family:'Share Tech Mono',monospace"></span>
+          </div>
+          <div id="briefing-text" style="font-size:0.875rem;color:var(--text-2);line-height:1.6;white-space:pre-line;min-height:1.3em">กำลังวิเคราะห์ข้อมูลเช้านี้...</div>
         </div>
-        <button class="btn btn-ghost btn-sm" style="margin-left:auto;flex-shrink:0" data-nav="/ai/personal">คุยกับ LAMI →</button>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
+          <button class="btn btn-ghost btn-sm" id="briefing-regen" title="สร้างสรุปใหม่จากข้อมูลล่าสุด">🔄 สร้างใหม่</button>
+          <button class="btn btn-ghost btn-sm" data-nav="/ai/personal">คุยกับ LAMI →</button>
+        </div>
       </div>
 
       <!-- Operations radar + ring gauges -->
@@ -344,18 +340,6 @@ export default async function DashboardPage(container) {
     const el = e.target.closest('[data-nav]')
     if (el) navigate(el.dataset.nav)
   })
-
-  // ── LAMI พิมพ์ข้อความทีละตัวอักษรแบบ terminal ──
-  const lamiEl = document.getElementById('lami-tip')
-  if (lamiEl) {
-    let ti = 0
-    const typeTimer = setInterval(() => {
-      if (!lamiEl.isConnected || container.__routerGen !== myGen) { clearInterval(typeTimer); return }
-      ti += 2
-      lamiEl.textContent = tip.slice(0, ti)
-      if (ti >= tip.length) { lamiEl.textContent = tip; clearInterval(typeTimer) }
-    }, 24)
-  }
 
   // ── HUD: นาฬิกาเดินจริง (เคลียร์ตัวเองเมื่อออกจากหน้า) ──
   const clockEl = document.getElementById('hud-clock')
@@ -1045,6 +1029,63 @@ export default async function DashboardPage(container) {
     // Today panel — ใช้ข้อมูลจริง
     const todayBookings = bookings.filter(b => (b.pickupDate || b.appointmentDate || b.createdAt || '').startsWith(today))
     const pendingPdi = pdi.filter(p => p.status !== 'passed' && p.status !== 'completed')
+
+    // ── Morning Briefing: สรุปเชิงรุกจากข้อมูลจริง — mirror ตรรกะเดียวกับ Intelligence Center ──
+    // แคชต่อผู้ใช้/ต่อวันใน localStorage เพื่อไม่ต้องเรียก LLM ทุกครั้งที่เข้าหน้า
+    ;(() => {
+      const textEl = document.getElementById('briefing-text')
+      const timeEl = document.getElementById('briefing-time')
+      const regenBtn = document.getElementById('briefing-regen')
+      if (!textEl) return
+
+      const daysSinceNow = d => Math.floor((Date.now() - new Date(d).getTime()) / 86400000)
+      const FINAL_ST = ['ส่งมอบแล้ว', 'ถอนจอง']
+      const stuckBookingsCount = bookings.filter(b => !FINAL_ST.includes(b.status) && b.bookingDate && daysSinceNow(b.bookingDate) >= 14).length
+      const overdueJobsCount = jobs.filter(j => !['done', 'completed', 'delivered'].includes(j.status) && j.createdAt && daysSinceNow(j.createdAt) >= 7).length
+      const staleLeadsCount = leads.filter(l => l.status === 'new' && l.createdAt && daysSinceNow(l.createdAt) >= 3).length
+      const agingStockCount = vehicles.filter(v => !['sold', 'ขายแล้ว', 'ส่งมอบแล้ว'].includes(v.status) && !v.deleted && v.createdAt && daysSinceNow(v.createdAt) >= 90).length
+      const deliveredToday = bookings.filter(b => b.status === 'ส่งมอบแล้ว' && (b.actualDeliveryDate || '').startsWith(today)).length
+      const todayCount = todayBookings.length + deliveredToday
+      const revenueThisMonth = bookings.filter(b => (b.bookingDate || '').startsWith(thisMonth)).reduce((s, b) => s + (b.price || 0), 0)
+      const monthTargets = teamTargets.filter(t => t.period === thisMonth && t.metric === 'units')
+      const targetSum = monthTargets.reduce((s, t) => s + (t.target || 0), 0)
+      const targetPct = monthTargets.length && targetSum ? Math.round(monthTargets.reduce((s, t) => s + (t.actual || 0), 0) / targetSum * 100) : null
+
+      const briefingCtx = { todayCount, stuckBookings: stuckBookingsCount, overdueJobs: overdueJobsCount, staleLeads: staleLeadsCount, agingStock: agingStockCount, revenueThisMonth, targetPct }
+      const cacheKey = `lamom_morning_briefing_${user?.uid || 'anon'}_${today}`
+
+      function showBriefing(text, generatedAt) {
+        if (!textEl.isConnected || container.__routerGen !== myGen) return
+        textEl.textContent = text
+        if (timeEl) timeEl.textContent = generatedAt ? `อัปเดต ${new Date(generatedAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}` : ''
+      }
+
+      async function loadBriefing(forceRegen) {
+        if (!forceRegen) {
+          try {
+            const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null')
+            if (cached?.text) { showBriefing(cached.text, cached.generatedAt); return }
+          } catch { /* corrupt cache — regenerate below */ }
+        }
+        if (regenBtn) { regenBtn.disabled = true; regenBtn.textContent = '⏳ กำลังสร้าง...' }
+        textEl.textContent = 'กำลังวิเคราะห์ข้อมูลเช้านี้...'
+        try {
+          const text = await generateMorningBriefing(briefingCtx)
+          if (container.__routerGen !== myGen) return
+          const generatedAt = new Date().toISOString()
+          try { localStorage.setItem(cacheKey, JSON.stringify({ text, generatedAt })) } catch { /* storage full/blocked — ยังแสดงผลได้ */ }
+          showBriefing(text, generatedAt)
+        } catch {
+          showBriefing('ไม่สามารถสร้างสรุปได้ในขณะนี้ — ลองกด "สร้างใหม่" อีกครั้งครับ', null)
+        } finally {
+          if (regenBtn) { regenBtn.disabled = false; regenBtn.textContent = '🔄 สร้างใหม่' }
+        }
+      }
+
+      regenBtn?.addEventListener('click', () => loadBriefing(true))
+      loadBriefing(false)
+    })()
+
     const todayEl = document.getElementById('today-stats')
     if (todayEl) {
       const todayItems = [

@@ -31,6 +31,23 @@ export function runSeed(demoCol) {
   gamificationRewards.forEach(r => { if (!demoCol('gamification_rewards')[r.id]) demoCol('gamification_rewards')[r.id] = r })
 
 
-  // Gamification challenges (หน้า /gamification/challenges) — ภารกิจท้าทายทีม
+  // หมายเหตุ: gamification_challenges (CH001-CH004) ถูก seed ไว้แล้วใน seed/core.js — ไม่ seed ซ้ำที่นี่
+
+  // Gamification events (ledger จริง) — ตัวอย่างประวัติแต้มที่เกิดจาก business event ย้อนหลัง
+  // ให้หน้า Dashboard/Leaderboard มีข้อมูลตัวอย่างตั้งแต่เปิดใช้งานครั้งแรก (ไม่ต้องรอ action จริงก่อน)
   const now = new Date()
+  const geAddDays = (n, h) => { const d = new Date(now); d.setDate(d.getDate() + n); if (h != null) d.setHours(h); return d.toISOString() }
+  const gamificationEventsSeed = [
+    { id:'ge1', userName:'วิชัย ยอดขาย', userId:'วิชัย ยอดขาย', points:100, reason:'🚗 ส่งมอบรถสำเร็จ', sourceCollection:'bookings', sourceId:'seed', createdAt: geAddDays(-1, 10) },
+    { id:'ge2', userName:'วิชัย ยอดขาย', userId:'วิชัย ยอดขาย', points:20, reason:'📝 สร้างใบจองใหม่', sourceCollection:'bookings', sourceId:'seed', createdAt: geAddDays(-3, 14) },
+    { id:'ge3', userName:'สุดา มาดี', userId:'สุดา มาดี', points:100, reason:'🚗 ส่งมอบรถสำเร็จ', sourceCollection:'bookings', sourceId:'seed', createdAt: geAddDays(-2, 11) },
+    { id:'ge4', userName:'สุดา มาดี', userId:'สุดา มาดี', points:10, reason:'📇 อัปเกรดลูกค้าเป็น Prospect', sourceCollection:'customers', sourceId:'seed', createdAt: geAddDays(-5, 9) },
+    { id:'ge5', userName:'ธนา เก่ง', userId:'ธนา เก่ง', points:20, reason:'📝 สร้างใบจองใหม่', sourceCollection:'bookings', sourceId:'seed', createdAt: geAddDays(-6, 15) },
+    { id:'ge6', userName:'มานะ ขยัน', userId:'มานะ ขยัน', points:5, reason:'✅ ทำงานเสร็จสิ้น', sourceCollection:'tasks', sourceId:'seed', createdAt: geAddDays(-1, 16) },
+    { id:'ge7', userName:'วิทยา ช่างใหญ่', userId:'วิทยา ช่างใหญ่', points:2, reason:'💬 บันทึกการติดต่อลูกค้า', sourceCollection:'comm_logs', sourceId:'seed', createdAt: geAddDays(-2, 13) },
+    { id:'ge8', userName:'ทวีศักดิ์ สุขสมบัติเสถียร', userId:'demo-user', points:5, reason:'✅ ทำงานเสร็จสิ้น', sourceCollection:'tasks', sourceId:'seed', createdAt: geAddDays(-4, 9) },
+    { id:'ge9', userName:'ทวีศักดิ์ สุขสมบัติเสถียร', userId:'demo-user', points:2, reason:'💬 บันทึกการติดต่อลูกค้า', sourceCollection:'comm_logs', sourceId:'seed', createdAt: geAddDays(-7, 10) },
+    { id:'ge10', userName:'วิชัย ยอดขาย', userId:'วิชัย ยอดขาย', points:100, reason:'🚗 ส่งมอบรถสำเร็จ', sourceCollection:'bookings', sourceId:'seed', createdAt: geAddDays(-9, 18) },
+  ]
+  gamificationEventsSeed.forEach(e => { if (!demoCol('gamification_events')[e.id]) demoCol('gamification_events')[e.id] = e })
 }

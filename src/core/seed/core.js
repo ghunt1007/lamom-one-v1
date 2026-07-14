@@ -456,6 +456,7 @@ export function runSeed(demoCol) {
 
 
   const staffPointsSeed = [
+    { id:'sp0', name:'ทวีศักดิ์ สุขสมบัติเสถียร', points:640 },
     { id:'sp1', name:'วิชัย ยอดขาย', points:3450 },
     { id:'sp2', name:'สุดา มาดี', points:2890 },
     { id:'sp3', name:'วิทยา ช่างใหญ่', points:2640 },

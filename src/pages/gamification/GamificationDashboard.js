@@ -1,5 +1,6 @@
 import { showToast } from '../../core/store.js'
-import { getCommissionData } from '../../core/db.js'
+import { getCommissionData, listDocs, updateDocData } from '../../core/db.js'
+import { getCurrentUser, getMyTotalPoints, getRealLeaderboard, computeMyBadges } from './gamificationData.js'
 
 const LEVELS = [
   { min:0,    max:999,   name:'🌱 Rookie',     color:'primary' },
@@ -9,24 +10,7 @@ const LEVELS = [
   { min:10000,max:99999, name:'🏆 Legend',      color:'warning' },
 ]
 
-const BADGES = [
-  { id:'b1', icon:'🚗', name:'First Sale', desc:'ขายรถได้คันแรก', xp:200, unlocked:true },
-  { id:'b2', icon:'🔥', name:'Hot Streak', desc:'ขายได้ 5 คันติดต่อกัน', xp:500, unlocked:true },
-  { id:'b3', icon:'💬', name:'Customer Love', desc:'รีวิว 5 ดาว 10 ครั้ง', xp:300, unlocked:false },
-  { id:'b4', icon:'📚', name:'Training Master', desc:'ผ่านคอร์สทั้งหมด', xp:400, unlocked:false },
-  { id:'b5', icon:'🏆', name:'Top Performer', desc:'อันดับ 1 ของเดือน', xp:1000, unlocked:false },
-  { id:'b6', icon:'🤝', name:'Team Player', desc:'ช่วยทีม 20 ครั้ง', xp:250, unlocked:false },
-  { id:'b7', icon:'🔋', name:'EV Evangelist', desc:'ขาย EV 10 คัน', xp:600, unlocked:false },
-  { id:'b8', icon:'🎯', name:'Target Crusher', desc:'ทำยอดเกิน 120%', xp:800, unlocked:false },
-]
-
-const DAILY_MISSIONS = [
-  { id:'m1', icon:'👥', title:'ติดต่อลูกค้า 3 ราย', xp:50, completed:true },
-  { id:'m2', icon:'📝', title:'อัพเดต Pipeline 5 ราย', xp:30, completed:false },
-  { id:'m3', icon:'🎓', title:'เรียนคอร์ส 15 นาที', xp:40, completed:false },
-  { id:'m4', icon:'⭐', title:'รับรีวิว 5 ดาว', xp:100, completed:false },
-]
-
+// fallback demo — ใช้เฉพาะตอนยังไม่มีข้อมูลจริงในระบบเลย (ledger ว่างเปล่าจริงๆ)
 const DEMO_LEADERBOARD = [
   { name:'อรนุช เซลส์ดี', xp:7850, sales:14, avatar:'อ', color:'primary' },
   { name:'วิชัย ขายเก่ง', xp:5200, sales:9, avatar:'ว', color:'accent' },
@@ -55,45 +39,74 @@ function getLamiStage(xp) { return LAMI_STAGES.filter(s => xp >= s.xp).pop() || 
 
 export default async function GamificationDashboard(container) {
   const myGen = container.__routerGen
-  let myXp; try { myXp = JSON.parse(localStorage.getItem('lamom-gamification') || '{"xp":7850}') } catch { myXp = { xp: 7850 } }
-  let xp = myXp.xp || 7850
+  const { name: myName } = getCurrentUser()
+  let xp = 0 // แต้มรวมจริงจาก staff_points ledger (awardGamePoints ใน core/db.js) — โหลดด้านล่าง
   let todayMood = localStorage.getItem('lamom-mood-today')
   let moodLog; try { moodLog = JSON.parse(localStorage.getItem('lamom-mood-log') || '[]') } catch { moodLog = [] }
-  let missions = DAILY_MISSIONS.map(m => ({ ...m, completed: m.completed }))
+  let missions = [] // จาก collection 'daily_missions' จริง (period: 'daily')
+  let myBadges = [] // จาก computeMyBadges() — unlock จริงตามสถิติผู้ใช้
   let activeTab = 'me'
   let liveLeaderboard = null
 
-  // load real commission data for leaderboard
+  // โหลดแต้มรวมจริง + ภารกิจวันนี้ + badge ของฉัน (ขนาน)
   try {
-    const coms = await getCommissionData()
+    const [totalPoints, dailyMissionsAll, badges] = await Promise.all([
+      getMyTotalPoints(),
+      listDocs('daily_missions', [], 'title', 'asc', 500).catch(() => []),
+      computeMyBadges().catch(() => []),
+    ])
     if (container.__routerGen !== myGen) return
-    if (coms.length) {
-      const byName = {}
-      coms.forEach(c => {
-        if (!byName[c.salesName]) byName[c.salesName] = { name: c.salesName, sales: 0, income: 0 }
-        byName[c.salesName].sales += c.carsSold
-        byName[c.salesName].income += c.incomeTotal
-      })
-      liveLeaderboard = Object.values(byName)
-        .filter(p => p.name)
-        .sort((a, b) => b.sales - a.sales)
-        .slice(0, 10)
-        .map((p, i) => ({
-          name: p.name,
-          xp: 500 + p.sales * 400 + Math.round(p.income / 1000),
-          sales: p.sales,
-          avatar: (p.name || '?').charAt(0),
-          color: ['primary','accent','success','warning','danger'][i % 5],
-        }))
+    xp = totalPoints || 0
+    missions = dailyMissionsAll.filter(m => m.period === 'daily')
+    myBadges = badges
+  } catch {}
+
+  // เรียงลำดับ leaderboard จากแต้มจริง (gamification_events / staff_points) — ถ้าว่างจริงๆ ค่อย fallback ไป commission/demo
+  try {
+    const real = await getRealLeaderboard()
+    if (container.__routerGen !== myGen) return
+    if (real.length) {
+      liveLeaderboard = real.slice(0, 10).map((p, i) => ({
+        name: p.name,
+        xp: p.points,
+        sales: p.salesUnits,
+        avatar: (p.name || '?').charAt(0),
+        color: ['primary','accent','success','warning','danger'][i % 5],
+      }))
+    } else {
+      const coms = await getCommissionData()
+      if (container.__routerGen !== myGen) return
+      if (coms.length) {
+        const byName = {}
+        coms.forEach(c => {
+          if (!byName[c.salesName]) byName[c.salesName] = { name: c.salesName, sales: 0, income: 0 }
+          byName[c.salesName].sales += c.carsSold
+          byName[c.salesName].income += c.incomeTotal
+        })
+        liveLeaderboard = Object.values(byName)
+          .filter(p => p.name)
+          .sort((a, b) => b.sales - a.sales)
+          .slice(0, 10)
+          .map((p, i) => ({
+            name: p.name,
+            xp: 500 + p.sales * 400 + Math.round(p.income / 1000),
+            sales: p.sales,
+            avatar: (p.name || '?').charAt(0),
+            color: ['primary','accent','success','warning','danger'][i % 5],
+          }))
+      }
     }
   } catch {}
 
-  function saveXP() { try { localStorage.setItem('lamom-gamification', JSON.stringify({ xp })) } catch {} }
   function saveMood(v) {
     const today = new Date().toISOString().slice(0, 10)
     moodLog = [{ date: today, value: v }, ...moodLog.filter(m => m.date !== today)].slice(0, 30)
     todayMood = today + ':' + v
     try { localStorage.setItem('lamom-mood-today', today + ':' + v); localStorage.setItem('lamom-mood-log', JSON.stringify(moodLog)) } catch {}
+  }
+
+  async function reloadMe() {
+    try { xp = await getMyTotalPoints() } catch {}
   }
 
   function renderPage() {
@@ -136,17 +149,19 @@ export default async function GamificationDashboard(container) {
     }
 
     function renderMe() {
+      const myUnlocked = myBadges.filter(b => b.unlocked).length
+      const myMissionsDone = missions.filter(m => m.done).length
       return `
         <div class="card" style="padding:24px;background:linear-gradient(135deg,var(--primary-dim),var(--surface));border:1px solid var(--primary)">
           <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
-            <div style="width:60px;height:60px;border-radius:50%;background:var(--${topLevel.color}-dim);display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:700;color:var(--${topLevel.color})">อ</div>
+            <div style="width:60px;height:60px;border-radius:50%;background:var(--${topLevel.color}-dim);display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:700;color:var(--${topLevel.color})">${(myName||'?').charAt(0)}</div>
             <div>
-              <div style="font-weight:700;font-size:1.1rem">อรนุช เซลส์ดี</div>
+              <div style="font-weight:700;font-size:1.1rem">${myName}</div>
               <div style="font-size:1rem;color:var(--${topLevel.color});font-weight:600">${topLevel.name}</div>
             </div>
             <div style="margin-left:auto;text-align:center">
               <div style="font-size:1.8rem;font-weight:700;color:var(--accent)">${xp.toLocaleString()}</div>
-              <div style="font-size:0.75rem;color:var(--text-muted)">XP รวม</div>
+              <div style="font-size:0.75rem;color:var(--text-muted)">แต้มรวม (จริง)</div>
             </div>
           </div>
           ${nextLevel ? `
@@ -159,14 +174,18 @@ export default async function GamificationDashboard(container) {
             </div>
           ` : '<div style="color:var(--warning);font-weight:600">🏆 บรรลุระดับสูงสุดแล้ว!</div>'}
           <div style="margin-top:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
-            ${['💼 14 คันที่ขาย','🏅 2 Badges','🎯 1 Mission'].map(t => `<div style="background:var(--surface-2);padding:10px;border-radius:var(--radius-md);text-align:center;font-size:0.8rem">${t}</div>`).join('')}
+            ${[`🏅 ${myUnlocked} Badges`,`🎯 ${myMissionsDone}/${missions.length||0} Mission`,`⭐ ${xp.toLocaleString()} แต้ม`].map(t => `<div style="background:var(--surface-2);padding:10px;border-radius:var(--radius-md);text-align:center;font-size:0.8rem">${t}</div>`).join('')}
           </div>
+          <div style="margin-top:10px;font-size:0.7rem;color:var(--text-muted);text-align:center">แต้มคำนวณจากเหตุการณ์จริงในระบบ (ใบจอง/ลูกค้า/งาน/บันทึกติดต่อ) ผ่าน gamification_events ledger — ไม่ใช่ค่าจำลอง</div>
         </div>
       `
     }
 
     function renderMissions() {
-      const doneCount = missions.filter(m => m.completed).length
+      if (!missions.length) {
+        return `<div class="empty-state"><div class="empty-icon">🎯</div><div class="empty-title">วันนี้ยังไม่มีภารกิจ</div><div class="empty-desc">ไปที่หน้า Daily Missions เพื่อดูภารกิจทั้งหมด</div></div>`
+      }
+      const doneCount = missions.filter(m => m.done).length
       return `
         <div style="display:flex;flex-direction:column;gap:10px">
           <div style="display:flex;justify-content:space-between;align-items:center">
@@ -174,14 +193,14 @@ export default async function GamificationDashboard(container) {
             <span class="badge badge-${doneCount===missions.length?'success':'primary'}">${doneCount===missions.length?'✅ ครบแล้ว!':doneCount+' เสร็จ'}</span>
           </div>
           ${missions.map(m => `
-            <div class="card" style="padding:14px;display:flex;align-items:center;gap:12px;${m.completed?'opacity:0.7':''}">
-              <div style="font-size:1.5rem">${m.icon}</div>
+            <div class="card" style="padding:14px;display:flex;align-items:center;gap:12px;${m.done?'opacity:0.7':''}">
+              <div style="font-size:1.5rem">${m.icon||'🎯'}</div>
               <div style="flex:1">
-                <div style="font-weight:600;${m.completed?'text-decoration:line-through':''}">${m.title}</div>
+                <div style="font-weight:600;${m.done?'text-decoration:line-through':''}">${m.title}</div>
                 <div style="font-size:0.78rem;color:var(--accent)">+${m.xp} XP</div>
               </div>
-              <button class="btn btn-sm ${m.completed?'btn-success':'btn-primary'} mission-btn" data-mid="${m.id}" ${m.completed?'disabled':''}>
-                ${m.completed ? '✅' : 'ทำเสร็จ'}
+              <button class="btn btn-sm ${m.done?'btn-success':'btn-primary'} mission-btn" data-mid="${m.id}" ${m.done?'disabled':''}>
+                ${m.done ? '✅' : 'ทำเสร็จ'}
               </button>
             </div>
           `).join('')}
@@ -190,14 +209,15 @@ export default async function GamificationDashboard(container) {
     }
 
     function renderBadges() {
+      if (!myBadges.length) return `<div class="empty-state"><div class="empty-icon">🏅</div><div class="empty-title">กำลังโหลด Badge...</div></div>`
       return `
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px">
-          ${BADGES.map(b => `
+          ${myBadges.map(b => `
             <div class="card" style="padding:14px;text-align:center;${!b.unlocked?'opacity:0.4':'border:1px solid var(--success)'}">
               <div style="font-size:2.2rem;margin-bottom:6px">${b.icon}</div>
               <div style="font-weight:700;font-size:0.85rem">${b.name}</div>
               <div style="font-size:0.7rem;color:var(--text-muted);margin-top:3px">${b.desc}</div>
-              <div style="font-size:0.72rem;color:var(--accent);margin-top:6px">+${b.xp} XP</div>
+              <div style="font-size:0.72rem;color:var(--accent);margin-top:6px">+${b.points} XP</div>
               ${b.unlocked ? '<div style="font-size:0.7rem;color:var(--success);margin-top:4px">🔓 Unlocked</div>' : '<div style="font-size:0.7rem;color:var(--text-muted);margin-top:4px">🔒 ล็อค</div>'}
             </div>
           `).join('')}
@@ -295,7 +315,7 @@ export default async function GamificationDashboard(container) {
       return `
         <div class="card" style="overflow:hidden;padding:0">
           <div style="padding:14px 16px;border-bottom:1px solid var(--border);font-weight:600;display:flex;justify-content:space-between;align-items:center">
-            <span>🏆 Leaderboard เดือนนี้</span>
+            <span>🏆 Leaderboard (แต้มสะสมจริง)</span>
             ${isLive ? '<span style="font-size:0.72rem;color:var(--success)">● ข้อมูลจริง</span>' : '<span style="font-size:0.72rem;color:var(--text-muted)">Demo</span>'}
           </div>
           ${board.map((p, i) => {
@@ -320,14 +340,16 @@ export default async function GamificationDashboard(container) {
     document.querySelectorAll('.gam-tab').forEach(btn => { btn.addEventListener('click', () => { activeTab = btn.dataset.t; renderPage() }) })
 
     document.querySelectorAll('.mission-btn:not([disabled])').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const m = missions.find(x => x.id === btn.dataset.mid)
-        if (!m || m.completed) return
-        m.completed = true
-        xp += m.xp
-        saveXP()
-        showToast(`🎯 Mission เสร็จ! +${m.xp} XP`, 'success')
-        renderPage()
+        if (!m || m.done) return
+        try {
+          await updateDocData('daily_missions', m.id, { done: true, progress: m.target })
+          m.done = true
+          showToast(`🎯 Mission เสร็จ! +${m.xp} XP`, 'success')
+          await reloadMe()
+          renderPage()
+        } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
       })
     })
 

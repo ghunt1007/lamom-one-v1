@@ -9,6 +9,7 @@ const routes = {
   '/crm':           () => import('../pages/crm/CrmDashboard.js'),
   '/crm/leads':     () => import('../pages/crm/Customers.js'), // leads merged into unified Customers workspace (stage='lead'/'pp')
   '/crm/pipeline':  () => import('../pages/crm/Pipeline.js'),
+  '/crm/warroom':   () => import('../pages/crm/WarRoom.js'),
   '/crm/customers': () => import('../pages/crm/Customers.js'),
   '/crm/bookings':  () => import('../pages/crm/Bookings.js'),
   '/crm/action-plan': () => import('../pages/crm/ActionPlan.js'),
@@ -454,6 +455,8 @@ const routes = {
   '/documents/form-builder': () => import('../pages/documents/FormBuilder.js'),
   // Settings extras
   '/settings/digital-signage': () => import('../pages/settings/DigitalSignage.js'),
+  // TV / Kiosk Display — จอทีวีโชว์รูมเต็มจอ
+  '/tv':                 () => import('../pages/TvDisplay.js'),
   // AI extras
   '/ai/upsell':          () => import('../pages/ai/UpsellAdvisor.js'),
   // Service extras

@@ -1,6 +1,7 @@
 import { getState, showToast } from '../../core/store.js'
-import { listDocs, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 import { formatCurrency } from '../../utils/format.js'
+import { askAiOfficer, AI_ENABLED } from '../../utils/ai.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -84,12 +85,53 @@ const QUICK_PROMPTS = {
   nova: ['ตรวจสอบระบบ', 'ดู Error log', 'ประสิทธิภาพ Database'],
 }
 
+// ── Persona system prompts — one distinct instruction per officer, crafted from ──
+// their title/desc/skills above so each genuinely feels different in tone/focus.
+const OFFICER_SYSTEM_PROMPTS = {
+  aria: `คุณคือ ARIA ผู้อำนวยการฝ่ายปฏิบัติการ (Operations Director) ของ LAMOM ONE ระบบบริหารโชว์รูมรถยนต์ไฟฟ้า (EV) ครบวงจร
+บทบาทของคุณคือมองภาพรวมทั้งองค์กร เชื่อมโยงข้อมูลจากทุกฝ่าย (ขาย การเงิน การตลาด บริการหลังการขาย บุคคล) เพื่อสรุปสถานะธุรกิจ ชี้จุดที่ต้องระวัง แจ้งเตือนปัญหา และจัดลำดับความสำคัญของงานให้ผู้บริหาร
+โทนเสียง: มั่นใจ กระชับ ตรงประเด็นแบบผู้บริหารระดับสูง เมื่อมีตัวเลขให้อ้างอิงข้อมูลจริงที่ได้รับในบริบทเสมอ ห้ามกุข้อมูลขึ้นเอง ใช้คำลงท้าย "ครับ"`,
+
+  sam: `คุณคือ SAM ที่ปรึกษาฝ่ายขายอัจฉริยะ (Sales Intelligence) ของ LAMOM ONE
+เชี่ยวชาญการวิเคราะห์ Pipeline การให้คะแนนโอกาสปิดดีล (Deal Prediction) และการโค้ชทีมขายให้ปิดการขายได้เร็วขึ้นด้วย Sales Script ที่ใช้ได้จริง
+โทนเสียง: กระตือรือร้น ให้กำลังใจ เหมือนโค้ชที่อยู่ข้างสนามคอยเชียร์ทีมขาย คำแนะนำต้องเจาะจง ปฏิบัติได้ทันที (actionable) เช่น สคริปต์การขาย จังหวะโทรติดตาม หรือข้อเสนอปิดการขาย ใช้คำลงท้าย "ครับ"`,
+
+  finn: `คุณคือ FINN ผู้บริหารการเงิน (Finance Officer / CFO) ของ LAMOM ONE
+เชี่ยวชาญวิเคราะห์ P&L, Margin ต่อคัน, การคำนวณค่าคอมมิชชั่น และการควบคุมงบประมาณ
+โทนเสียง: แม่นยำ รอบคอบ อิงตัวเลขเสมอ ไม่พูดกว้างๆ เมื่อวิเคราะห์ให้แสดงตรรกะการคำนวณสั้นๆ ประกอบเสมอ และเตือนความเสี่ยงทางการเงินเชิงรุกถ้าพบสัญญาณผิดปกติ ใช้คำลงท้าย "ครับ"`,
+
+  mika: `คุณคือ MIKA เจ้าหน้าที่การตลาด (Marketing Officer) ของ LAMOM ONE
+เชี่ยวชาญสร้าง Content การตลาด วิเคราะห์ ROI ของแคมเปญ ออกแบบโปรโมชั่น และให้คะแนน Lead จากพฤติกรรม
+โทนเสียง: สดใส กระชับ มีพลัง ใช้อีโมจิพอประมาณเพื่อความน่าสนใจ เวลาสร้าง Content ให้เขียนพร้อมโพสต์ได้จริง มีหัวข้อ จุดขาย และ Call-to-action ชัดเจน ใช้คำลงท้าย "ค่ะ" หรือ "นะคะ"`,
+
+  serv: `คุณคือ SERV ผู้จัดการฝ่ายบริการ (Service Manager) ของ LAMOM ONE
+ดูแลการจัดคิวงานซ่อม (Job Scheduler) การพยากรณ์อะไหล่ การมอบหมายช่าง และการแจ้งเตือนลูกค้า
+โทนเสียง: ละเอียด รอบคอบ ห่วงใยประสบการณ์ลูกค้า เมื่อตอบให้ระบุลำดับความสำคัญของงาน (เร่งด่วน/ปกติ) พร้อมวิธีจัดการที่เป็นรูปธรรม ใช้คำลงท้าย "ครับ"`,
+
+  hera: `คุณคือ HERA เจ้าหน้าที่ฝ่ายบุคคล (HR Officer) ของ LAMOM ONE
+ดูแล HR Analytics การลา (Leave Management) การติดตาม KPI พนักงาน และการคำนวณเงินเดือน (Payroll)
+โทนเสียง: อบอุ่น เป็นมิตร ใส่ใจคน แต่ยังคงความเป็นมืออาชีพเรื่องข้อมูลส่วนบุคคล คำแนะนำต้องคำนึงถึงทั้งประสิทธิภาพงานและความเป็นอยู่ที่ดีของพนักงาน ใช้คำลงท้าย "ค่ะ" หรือ "นะคะ"`,
+
+  learn: `คุณคือ LEARN อาจารย์ AI (Training Officer) ของ LAMOM ONE
+ทำหน้าที่สอนพนักงานใหม่ (e-Learning) ออก Quiz ติดตามความคืบหน้าการเรียนรู้ ออกใบรับรอง และให้ความรู้เรื่องผลิตภัณฑ์รถยนต์ไฟฟ้า
+โทนเสียง: อธิบายเป็นขั้นตอน เข้าใจง่าย เหมือนครูใจดีแต่มีมาตรฐาน เมื่อตอบคำถามเชิงเทคนิคเกี่ยวกับรถ EV ให้อธิบายให้ถูกต้องแม่นยำและเปรียบเทียบให้เห็นภาพ ใช้คำลงท้าย "ครับ"`,
+
+  apex: `คุณคือ APEX ที่ปรึกษากลยุทธ์ (Strategy Officer) ของ LAMOM ONE
+เชี่ยวชาญวิเคราะห์ตลาด วิเคราะห์คู่แข่ง (Competitor Intel) วางกลยุทธ์การเติบโต และทำ Scenario Planning ระยะยาว
+โทนเสียง: คิดเชิงระบบ มองภาพกว้าง เชื่อมโยงแนวโน้มตลาดเข้ากับสถานการณ์จริงของธุรกิจ เวลาตอบให้เสนอทางเลือกเชิงกลยุทธ์พร้อมข้อดี-ข้อเสีย ไม่ฟันธงทางเดียว ใช้คำลงท้าย "ครับ"`,
+
+  nova: `คุณคือ NOVA ผู้พิทักษ์ระบบ (System Guardian) ของ LAMOM ONE
+ตรวจสอบสถานะระบบ (System Monitor) ตรวจจับบั๊ก (Bug Detection) และดูแลประสิทธิภาพการทำงานของแพลตฟอร์ม
+โทนเสียง: กระชับ เป็นทางการ ตรงไปตรงมา แบบรายงานสถานะของระบบ AI ใช้รูปแบบข้อๆ สั้นๆ เมื่อไม่มีข้อมูล system log จริงให้บอกตรงๆว่าไม่มีสิทธิ์เข้าถึง log จริง และแนะนำให้ผู้ใช้ตรวจสอบผ่านเครื่องมือ monitoring จริงแทน ใช้คำลงท้าย "ครับ"`,
+}
+
 export default async function AiOfficersPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
 
   let activeOfficer = OFFICERS[0]
   let chatHistory = {} // id → [{role, content}]
+  const loadedOfficers = new Set() // officer ids whose history has been fetched from Firestore
   let isTyping = false
 
   // Pre-load some stats for context
@@ -106,9 +148,48 @@ export default async function AiOfficersPage(container) {
 
   if (container.__routerGen !== myGen) return
 
+  // ── Firestore chat persistence — one doc per message, keyed by officer + user ──
+  function sessionKey(officerId) {
+    const uid = getState('user')?.uid || 'anon'
+    return `${officerId}::${uid}`
+  }
+
+  async function loadHistory(officerId) {
+    if (loadedOfficers.has(officerId)) return
+    try {
+      const docs = await listDocs('ai_officer_chats', [['sessionKey', '==', sessionKey(officerId)]], 'createdAt', 'asc', 200)
+      chatHistory[officerId] = docs.map(d => ({ role: d.role, content: d.text }))
+    } catch (e) {
+      chatHistory[officerId] = chatHistory[officerId] || []
+    }
+    loadedOfficers.add(officerId)
+  }
+
+  function saveMessage(officerId, role, text) {
+    createDoc('ai_officer_chats', {
+      sessionKey: sessionKey(officerId),
+      officerId,
+      userId: getState('user')?.uid || 'anon',
+      role,
+      text,
+    }).catch(() => {})
+  }
+
+  function buildSystemPrompt(o) {
+    const persona = OFFICER_SYSTEM_PROMPTS[o.id] || `คุณคือ ${o.name} (${o.title}) เจ้าหน้าที่ AI ของระบบ LAMOM ONE ตอบเป็นภาษาไทย`
+    return `${persona}
+
+[ข้อมูลธุรกิจจริง ณ ปัจจุบัน — ใช้อ้างอิงเมื่อเกี่ยวข้องกับคำถาม]
+- ลูกค้าทั้งหมดในระบบ: ${stats.customers} ราย
+- รถในสต็อก: ${stats.vehicles} คัน
+- งานซ่อม/Job Card ล่าสุด: ${stats.jobs} งาน
+- Lead ที่ยังไม่ปิดการขาย: ${stats.leads} ราย
+
+ถ้าผู้ใช้ถามเรื่องที่ไม่มีข้อมูลจริงอยู่ในบริบทนี้ ให้บอกตรงๆว่ายังไม่มีข้อมูลนี้ในระบบ ห้ามกุข้อมูลขึ้นเอง`
+  }
+
   function getHistory(id) {
-    if (!chatHistory[id]) chatHistory[id] = []
-    return chatHistory[id]
+    return chatHistory[id] || []
   }
 
   function renderPage() {
@@ -127,7 +208,10 @@ export default async function AiOfficersPage(container) {
           <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0;background:var(--surface)">
             <div style="font-size:2rem">${activeOfficer.emoji}</div>
             <div>
-              <div style="font-weight:700">${activeOfficer.name}</div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-weight:700">${activeOfficer.name}</span>
+                <span style="font-size:0.68rem;color:${AI_ENABLED ? 'var(--success)' : 'var(--warning)'}">${AI_ENABLED ? '🟢 Gemini AI' : '🟡 Demo Mode'}</span>
+              </div>
               <div style="font-size:0.78rem;color:var(--${activeOfficer.color})">${activeOfficer.title}</div>
             </div>
             <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
@@ -205,65 +289,16 @@ export default async function AiOfficersPage(container) {
       </div>`
   }
 
-  function generateReply(prompt, officerId) {
-    const o = OFFICERS.find(x => x.id === officerId)
-    const lp = prompt.toLowerCase()
-
-    // Context-aware responses based on officer + prompt
-    const responses = {
-      aria: {
-        default: () => `ขอบคุณครับ ผมได้รับข้อความแล้ว ขณะนี้ระบบมีข้อมูลดังนี้:\n\n📊 ลูกค้า ${stats.customers} ราย\n🚗 สต็อกรถ ${stats.vehicles} คัน\n🔧 งานซ่อม ${stats.jobs} งาน\n🧲 Leads ${stats.leads} ราย\n\nมีอะไรให้ช่วยวิเคราะห์เพิ่มเติมไหมครับ?`,
-        'สรุปยอดขาย': () => `📊 สรุปยอดขายวันนี้:\n\n• รถที่ขายได้: 0 คัน (Demo Mode)\n• ยอดขายรวม: ฿0\n• กำไรสุทธิ: ฿0\n\nระบบกำลัง Real-time เมื่อเชื่อมต่อ Firebase จริงครับ`,
-        'ค้างอยู่': () => `📋 รายการที่ค้างอยู่:\n\n⚠️ PDI: ${stats.vehicles > 0 ? '1 คัน' : '0 คัน'}\n🔧 Job Cards: ${stats.jobs} งาน\n🧲 Follow-up Leads: ${stats.leads} ราย\n\nแนะนำให้จัดลำดับ Priority ครับ`,
-      },
-      sam: {
-        default: () => `💼 วิเคราะห์ Sales Pipeline:\n\n🧲 Total Leads: ${stats.leads} ราย\n📈 Pipeline Value: ฿5,700,000 (ประมาณ)\n\nLead ที่น่าสนใจที่สุดคือ Qualified stage ควร Follow-up วันนี้เลยครับ!`,
-        'pipeline': () => `📋 Pipeline Analysis:\n\n• New: 2 ราย\n• Contacted: 1 ราย\n• Interested: 1 ราย\n• Qualified: 1 ราย ← โฟกัสตรงนี้!\n\n💡 Tips: Qualified Lead ควรได้รับ Test Drive เพื่อปิดดีลใน 48 ชม.ครับ`,
-        'ปิดดีล': () => `🎯 Sales Script สำหรับ BYD Seal:\n\n1. เน้นจุดแข็ง: รับประกันแบตฯ 8 ปี\n2. เปรียบกับรถน้ำมัน: ประหยัด ฿3,000/เดือน\n3. Urgency: "ราคานี้เหลืออีก 2 คัน"\n4. Offer: ฟรีแผ่นพื้นรถ + ฟิล์ม\n\nลองใช้ดูนะครับ! 🚀`,
-      },
-      finn: {
-        default: () => `💰 Finance Summary:\n\nยอดขายรวม: ฿4,496,000\nGross Margin: ~12.5%\nNet Profit: ฿560,000+\n\nMargin ดีกว่าค่าเฉลี่ยอุตสาหกรรมครับ (8-10%) 📈`,
-        'margin': () => `📊 Margin Analysis:\n\n• BYD Seal AWD: Margin 15.6% ✅\n• MG4 X: Margin 13.2% ✅\n• DEEPAL S7: Margin 16.5% 🏆\n• NETA V II: Margin 12.5% ⚠️\n\nแนะนำ: เพิ่ม accessory package กับ NETA เพื่อ Margin ขึ้นครับ`,
-        'payroll': () => `💳 Payroll Estimate:\n\nพนักงาน 5 คน\nเงินเดือนรวม: ฿85,000/เดือน\nประกันสังคม (5%): ฿4,250\nเบิกจ่ายรวม: ฿89,250/เดือน\n\nข้อมูล Real-time หลัง Firebase ตั้งค่าครับ`,
-      },
-      mika: {
-        default: () => `📣 Marketing Insights:\n\nROI สูงสุด: TikTok (+320%) 🏆\nLeads เดือนนี้: 147 ราย\nConversion Rate: 4.8%\n\nแนะนำเพิ่ม Budget TikTok และ LINE OA ครับ`,
-        'post': () => `✍️ Content สำหรับ BYD Seal:\n\n"🚗⚡ BYD SEAL AWD ราคาแค่ 1.299 ล้าน!\n• รับประกันแบตฯ 8 ปี\n• 0-100 ใน 3.8 วินาที\n• ชาร์จ 15 นาที วิ่งได้ 200 กม.\n📲 ทักหาเราได้เลย!"`,
-        'campaign': () => `📊 Campaign Performance:\n\n1. TikTok BYD Launch: ROI +320% 🏆\n2. Facebook Test Drive: ROI +180%\n3. LINE OA Trade-in: ROI +150%\n\nแนะนำทำ Retargeting คนที่เคย Engage กับ TikTok ครับ`,
-      },
-      serv: {
-        default: () => `🔧 Service Summary:\n\nงานซ่อมวันนี้: ${stats.jobs} งาน\nเบย์ที่ใช้งาน: 3/6\nอะไหล่ใกล้หมด: 1 รายการ\n\nงานเร่งด่วน: Job JOB-2025-002 วินิจฉัย AC ไม่เย็น ควรเช็คก่อนเลย`,
-      },
-      hera: {
-        default: () => `👥 HR Summary:\n\nพนักงานทั้งหมด: 5 คน\nทำงานปกติ: 4 คน\nทดลองงาน: 1 คน\n\nKPI เดือนนี้: อรนุช เซลส์ดี = Top Performer 🏆\nแนะนำ: Review Performance ทุก 3 เดือนครับ`,
-      },
-      learn: {
-        default: () => `🎓 Training Update:\n\nคอร์สที่เสร็จแล้ว: 67%\nคอร์สบังคับที่ยังไม่ผ่าน: 2 คอร์ส\n\nแนะนำ: "EV Technology Fundamentals" สำหรับช่างใหม่\nและ "Sales Technique Advanced" สำหรับเซลส์ทีม`,
-        'สเปค': () => `🚗 BYD Seal Spec:\n\n• Motor: Rear-Wheel Drive / AWD\n• Battery: 82.56 kWh\n• Range: 580 km (CLTC)\n• 0-100: 3.8 sec (AWD)\n• Fast Charge: 150 kW DC\n• ราคา: 1,199,000 - 1,299,000 บาท\n• ประกัน: 5 ปี / แบตฯ 8 ปี`,
-      },
-      apex: {
-        default: () => `🏆 Market Analysis:\n\nตลาด EV ไทย 2025:\n• BYD: Market Share 35%\n• MG: 22%\n• NETA: 8%\n\nโอกาส: Charging Infrastructure + Fleet Sales\n\nกลยุทธ์แนะนำ: B2B Corporate Fleet + Government Bid Q3`,
-      },
-      nova: {
-        default: () => `🛸 System Status:\n\n✅ Database: Online\n✅ Auth: Active\n✅ Storage: 23% used\n✅ Functions: Running\n\n⚠️ Note: Firebase config ยังใช้ Placeholder key\nระบบทำงานใน Demo Mode\n\nไม่พบ Error ที่สำคัญครับ`,
-      },
-    }
-
-    const officerRes = responses[officerId] || {}
-    // Find matching keyword
-    for (const [key, fn] of Object.entries(officerRes)) {
-      if (key !== 'default' && lp.includes(key.toLowerCase())) return fn()
-    }
-    return officerRes.default ? officerRes.default() : `ขอบคุณที่ถามครับ! ผม ${o?.name} จะวิเคราะห์ข้อมูลให้นะครับ...\n\nขณะนี้ระบบ AI กำลังเชื่อมต่อกับ Claude API (Phase ถัดไป)\nตอนนี้ผมทำงานด้วย Demo responses ก่อนนะครับ 🚀`
-  }
-
-  function sendMessage(text) {
+  async function sendMessage(text) {
     if (!text.trim() || isTyping) return
-    const history = getHistory(activeOfficer.id)
+    const officerId = activeOfficer.id
+    const history = getHistory(officerId)
     history.push({ role: 'user', content: text })
     isTyping = true
     renderChatMessages()
-    // Typing indicator
+    saveMessage(officerId, 'user', text)
+
+    // Typing indicator (kept for UX — now wraps a real async Gemini call, not a fake timer)
     const msgs = document.getElementById('chat-messages')
     if (msgs) {
       const typing = document.createElement('div')
@@ -273,12 +308,18 @@ export default async function AiOfficersPage(container) {
       msgs.appendChild(typing)
       msgs.scrollTop = msgs.scrollHeight
     }
-    setTimeout(() => {
-      const reply = generateReply(text, activeOfficer.id)
-      history.push({ role: 'assistant', content: reply })
-      isTyping = false
-      renderChatMessages()
-    }, 800 + Math.random() * 700)
+
+    let reply
+    try {
+      const systemPrompt = buildSystemPrompt(activeOfficer)
+      reply = await askAiOfficer(officerId, text, history, systemPrompt)
+    } catch (err) {
+      reply = `⚠️ เกิดข้อผิดพลาดในการเชื่อมต่อ AI: ${err.message}`
+    }
+    history.push({ role: 'assistant', content: reply })
+    saveMessage(officerId, 'assistant', reply)
+    isTyping = false
+    if (activeOfficer.id === officerId) renderChatMessages()
   }
 
   function renderChatMessages() {
@@ -314,12 +355,19 @@ export default async function AiOfficersPage(container) {
 
   function bindOfficerSelect() {
     document.querySelectorAll('.officer-item').forEach(item => {
-      item.addEventListener('click', () => {
-        activeOfficer = OFFICERS.find(o => o.id === item.dataset.oid) || activeOfficer
+      item.addEventListener('click', async () => {
+        const oid = item.dataset.oid
+        activeOfficer = OFFICERS.find(o => o.id === oid) || activeOfficer
         renderPage()
+        if (!loadedOfficers.has(oid)) {
+          await loadHistory(oid)
+          if (container.__routerGen === myGen && activeOfficer.id === oid) renderPage()
+        }
       })
     })
   }
 
+  await loadHistory(activeOfficer.id)
+  if (container.__routerGen !== myGen) return
   renderPage()
 }

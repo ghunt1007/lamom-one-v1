@@ -16,6 +16,7 @@ const NAV = [
     items: [
       { icon: '👥', label: 'ลูกค้า (รวม Lead)', path: '/crm/customers' },
       { icon: '📋', label: 'Pipeline', path: '/crm/pipeline' },
+      { icon: '🎯', label: 'Sales War Room', path: '/crm/warroom' },
       { icon: '📝', label: 'จองรถ', path: '/crm/bookings' },
       { icon: '🗂️', label: 'Action Plan', path: '/crm/action-plan' },
       { icon: '✅', label: 'ตรวจรถก่อนส่งมอบ', path: '/crm/predelivery' },
@@ -385,6 +386,7 @@ const NAV = [
       { icon: '⚙️', label: 'Integration Config', path: '/integrations/settings' },
       { icon: '🔗', label: 'Webhook Builder', path: '/integrations/webhooks' },
       { icon: '📺', label: 'Digital Signage', path: '/settings/digital-signage' },
+      { icon: '📡', label: 'TV Mode (จอโชว์รูม)', path: '/tv' },
       { icon: '📱', label: 'SMS OTP / 2FA', path: '/settings/sms-otp' },
       { icon: '🔄', label: 'V8 Migration', path: '/migration' },
       { icon: '🗺️', label: 'Data Mapping', path: '/migration/mapping' },

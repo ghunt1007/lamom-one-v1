@@ -5,45 +5,29 @@
 import { formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-
-const BADGE_CATEGORIES = {
-  sales:    { label: 'การขาย', color: 'primary' },
-  service:  { label: 'บริการ', color: 'warning' },
-  kpi:      { label: 'KPI', color: 'success' },
-  team:     { label: 'ทีมงาน', color: 'secondary' },
-  special:  { label: 'พิเศษ', color: 'danger' },
-}
-
-const BADGE_RARITY = {
-  common:   { label: 'Common', color: '#94a3b8', star: '⭐' },
-  rare:     { label: 'Rare', color: '#3b82f6', star: '💙' },
-  epic:     { label: 'Epic', color: '#8b5cf6', star: '💜' },
-  legendary:{ label: 'Legendary', color: '#f59e0b', star: '🌟' },
-}
-
-const ALL_BADGES = [
-  { id: 'B001', name: 'First Sale', icon: '🎯', cat: 'sales', rarity: 'common', desc: 'ปิดดีลได้เป็นครั้งแรก', requirement: 'ขายรถได้ 1 คัน', points: 50, holders: 12 },
-  { id: 'B002', name: 'Sales Rookie', icon: '🚀', cat: 'sales', rarity: 'common', desc: 'ขายรถได้ 5 คัน', requirement: '5 คันสะสม', points: 100, holders: 9 },
-  { id: 'B003', name: 'Sales Pro', icon: '⭐', cat: 'sales', rarity: 'rare', desc: 'ขายรถได้ 20 คัน', requirement: '20 คันสะสม', points: 300, holders: 4 },
-  { id: 'B004', name: 'EV Expert', icon: '⚡', cat: 'sales', rarity: 'epic', desc: 'ขาย EV ได้ 50 คัน', requirement: 'EV 50 คัน', points: 800, holders: 1 },
-  { id: 'B005', name: 'Speed Closer', icon: '⚡', cat: 'sales', rarity: 'rare', desc: 'ปิดดีลภายใน 3 วัน', requirement: 'ปิด 3 ดีลใน 1 สัปดาห์', points: 250, holders: 3 },
-  { id: 'B006', name: 'Customer Whisperer', icon: '💬', cat: 'service', rarity: 'epic', desc: 'ได้ CSAT 5 ดาวติดต่อ 10 ครั้ง', requirement: 'CSAT 5★ × 10', points: 500, holders: 2 },
-  { id: 'B007', name: 'Problem Solver', icon: '🔧', cat: 'service', rarity: 'common', desc: 'แก้ปัญหาลูกค้าสำเร็จ 10 ราย', requirement: 'Resolve 10 cases', points: 150, holders: 8 },
-  { id: 'B008', name: 'KPI Champion', icon: '🏆', cat: 'kpi', rarity: 'epic', desc: 'ทำ KPI ได้ 100% 3 เดือนติดกัน', requirement: 'KPI 100% × 3 months', points: 600, holders: 2 },
-  { id: 'B009', name: 'Team Player', icon: '🤝', cat: 'team', rarity: 'common', desc: 'ช่วยเพื่อนร่วมทีม 5 ครั้ง', requirement: 'Help 5 teammates', points: 80, holders: 11 },
-  { id: 'B010', name: 'Legendary Seller', icon: '👑', cat: 'sales', rarity: 'legendary', desc: 'ขายรถได้ 100 คัน — สุดยอดเซลส์', requirement: '100 คันสะสม', points: 5000, holders: 0 },
-  { id: 'B011', name: 'Perfect Attendance', icon: '📅', cat: 'kpi', rarity: 'rare', desc: 'ไม่ขาดงาน 6 เดือน', requirement: 'Attendance 100% × 6 months', points: 400, holders: 5 },
-  { id: 'B012', name: 'Top Revenue Q1', icon: '💰', cat: 'special', rarity: 'legendary', desc: 'รายได้สูงสุดประจำไตรมาส 1', requirement: 'Special Achievement', points: 2000, holders: 1 },
-]
-
-const MY_BADGES = ['B001', 'B002', 'B007', 'B009', 'B011']
+import { BADGE_CATEGORIES, BADGE_RARITY, computeMyBadges } from './gamificationData.js'
 
 export default async function BadgesPage(container) {
+  const myGen = container.__routerGen
   let catFilter = 'all'
   let rarityFilter = 'all'
   let showMineOnly = false
+  let ALL_BADGES = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try { ALL_BADGES = await computeMyBadges() } catch { ALL_BADGES = [] }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
+    const MY_BADGES = ALL_BADGES.filter(b => b.unlocked).map(b => b.id)
     const list = ALL_BADGES.filter(b => {
       if (catFilter !== 'all' && b.cat !== catFilter) return false
       if (rarityFilter !== 'all' && b.rarity !== rarityFilter) return false
@@ -91,7 +75,7 @@ export default async function BadgesPage(container) {
               <div style="font-size:0.7rem;color:${rar.color};margin-bottom:6px">${rar.star} ${rar.label}</div>
               <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:8px">${b.desc}</div>
               <div style="font-size:0.75rem;font-weight:700;color:var(--warning)">+${b.points} pts</div>
-              ${owned ? '<div style="font-size:0.65rem;color:var(--success);margin-top:4px">✅ ปลดล็อกแล้ว</div>' : `<div style="font-size:0.65rem;color:var(--text-muted);margin-top:4px">👥 ${b.holders} คนได้แล้ว</div>`}
+              ${owned ? '<div style="font-size:0.65rem;color:var(--success);margin-top:4px">✅ ปลดล็อกแล้ว</div>' : `<div style="font-size:0.65rem;color:var(--text-muted);margin-top:4px">🔒 ${b.requirement}</div>`}
             </div>`
           }).join('')}
         </div>
@@ -109,7 +93,8 @@ export default async function BadgesPage(container) {
   function openBadgeDetail(b) {
     const cat = BADGE_CATEGORIES[b.cat]
     const rar = BADGE_RARITY[b.rarity]
-    const owned = MY_BADGES.includes(b.id)
+    const owned = !!b.unlocked
+    const trackable = typeof b.check === 'function'
     openModal({
       title: `${b.icon} ${b.name}`,
       size: 'sm',
@@ -122,15 +107,14 @@ export default async function BadgesPage(container) {
         <div style="font-size:0.88rem;text-align:center;margin-bottom:14px">${b.desc}</div>
         ${row('เงื่อนไข', b.requirement)}
         ${row('คะแนนที่ได้', '+' + b.points + ' pts')}
-        ${row('มีผู้ได้แล้ว', b.holders + ' คน')}
         <div style="margin-top:12px;text-align:center;padding:10px;background:${owned?'rgba(34,197,94,.1)':'var(--surface-2)'};border-radius:var(--radius-sm)">
-          ${owned ? '<span style="color:var(--success);font-weight:700">✅ คุณได้รับ Badge นี้แล้ว!</span>' : '<span style="color:var(--text-muted)">🔒 ยังไม่ได้ปลดล็อก</span>'}
+          ${owned ? '<span style="color:var(--success);font-weight:700">✅ คุณได้รับ Badge นี้แล้ว! (คำนวณจากข้อมูลจริง)</span>' : trackable ? '<span style="color:var(--text-muted)">🔒 ยังไม่ถึงเงื่อนไข</span>' : '<span style="color:var(--text-muted)">🔒 รอข้อมูลระบบ (ยังไม่รองรับติดตามอัตโนมัติ)</span>'}
         </div>
       `
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

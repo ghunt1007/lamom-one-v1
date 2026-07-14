@@ -4,6 +4,7 @@
  */
 import { showToast } from '../../core/store.js'
 import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
+import { getCurrentUser, getMyTotalPoints } from './gamificationData.js'
 
 const SPECIAL = [
   { id:'S1', title:'🔥 Hot Streak! ปิด 3 ดีลติดกัน', xp:1000, icon:'🔥', unlocked:false, desc:'ปิดดีล 3 ดีลติดต่อกันโดยไม่มี Lost Deal' },
@@ -11,7 +12,9 @@ const SPECIAL = [
   { id:'S3', title:'⚡ Speed Closer', xp:600, icon:'⚡', unlocked:false, desc:'ปิดดีลภายใน 24 ชม. หลัง Test Drive' },
 ]
 
-const PLAYER = { name:'กิตติ สุขใจ', level:14, xp:8450, xpNext:10000, todayXp:130, streak:5 }
+// หา level/streak คร่าวๆ จาก XP จริง — คงสูตร level เดิมไว้เพื่อความต่อเนื่องของ UI
+function levelFromXp(xp) { return Math.max(1, Math.floor(xp / 600) + 1) }
+function xpNextFromLevel(level) { return level * 600 }
 
 export default async function DailyMissionsPage(container) {
   const myGen = container.__routerGen
@@ -20,6 +23,8 @@ export default async function DailyMissionsPage(container) {
   let tab = 'daily'
   let missions = { daily: [], weekly: [] }
   let loading = true
+  const { name: myName } = getCurrentUser()
+  let PLAYER = { name: myName, level: 1, xp: 0, xpNext: 600, todayXp: 0, streak: 0 }
 
   async function loadData() {
     loading = true
@@ -27,6 +32,11 @@ export default async function DailyMissionsPage(container) {
       const all = await listDocs('daily_missions', [], 'title', 'asc', 500)
       missions = { daily: all.filter(m => m.period === 'daily'), weekly: all.filter(m => m.period === 'weekly') }
     } catch (e) { missions = { daily: [], weekly: [] } }
+    try {
+      const xp = await getMyTotalPoints()
+      const level = levelFromXp(xp)
+      PLAYER = { name: myName, level, xp, xpNext: xpNextFromLevel(level), todayXp: PLAYER.todayXp, streak: PLAYER.streak || 1 }
+    } catch {}
     loading = false
     if (container.__routerGen === myGen) render()
   }

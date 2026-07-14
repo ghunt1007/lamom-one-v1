@@ -52,6 +52,44 @@ export async function askLami(userMessage, history = [], context = {}) {
   return data.candidates?.[0]?.content?.parts?.[0]?.text || 'ไม่ได้รับคำตอบจาก AI'
 }
 
+// ── AI Officers (9 personas) — real Gemini call with per-officer persona ──────
+// systemPrompt is authored by the caller (AiOfficers.js knows each officer's
+// title/desc/skills + live business stats) and passed in here, same shape as
+// askLami's SYSTEM_PROMPT but per-officer instead of one global persona.
+export async function askAiOfficer(officerId, prompt, history = [], systemPrompt = '') {
+  if (!API_KEY) return generateOfficerFallback(officerId)
+
+  // Build Gemini contents array (alternating user/model) — history entries use
+  // {role:'user'|'assistant', content} as stored by AiOfficers.js chat state
+  const contents = []
+  history.slice(-10).forEach(h => {
+    if (h.role === 'user') contents.push({ role: 'user', parts: [{ text: h.content }] })
+    if (h.role === 'assistant') contents.push({ role: 'model', parts: [{ text: h.content }] })
+  })
+  contents.push({ role: 'user', parts: [{ text: prompt }] })
+
+  const res = await fetch(`${API_URL}?key=${API_KEY}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: systemPrompt }] },
+      contents,
+      generationConfig: { maxOutputTokens: 700, temperature: 0.7 },
+    }),
+  })
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.error?.message || `Gemini Error ${res.status}`)
+  }
+  const data = await res.json()
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || 'ไม่ได้รับคำตอบจาก AI'
+}
+
+function generateOfficerFallback(officerId) {
+  return `ขอบคุณที่ทักมาครับ 🙏 ตอนนี้ยังไม่ได้ตั้งค่า VITE_GEMINI_API_KEY เลยยังคุยกับ AI Officer (${String(officerId).toUpperCase()}) แบบจริงไม่ได้ กรุณาตั้งค่า API Key ใน .env.local เพื่อเปิดใช้งาน AI จริงครับ (Demo Mode)`
+}
+
 export async function analyzeCustomer(customer) {
   if (!API_KEY) return null
   const prompt = `วิเคราะห์โอกาสปิดการขายสำหรับลูกค้า:
@@ -234,6 +272,83 @@ export async function generateDailySummary(data) {
 
 สรุป 3-4 ประโยค highlight สำคัญ และ 2 สิ่งที่ต้องทำวันพรุ่งนี้`
   return askLami(prompt)
+}
+
+// ── Morning Briefing — สรุปสถานการณ์เชิงรุกทุกเช้าจากข้อมูลจริงของโชว์รูม ────────
+// context: { todayCount, stuckBookings, overdueJobs, staleLeads, agingStock, revenueThisMonth, targetPct }
+// คืนค่าเป็นข้อความไทย 3-5 ประโยค + บรรทัดสุดท้าย "🎯 สิ่งที่ควรทำก่อน: ..."
+export async function generateMorningBriefing(context = {}) {
+  if (!API_KEY) return generateFallbackBriefing(context)
+
+  const {
+    todayCount = 0, stuckBookings = 0, overdueJobs = 0, staleLeads = 0,
+    agingStock = 0, revenueThisMonth = 0, targetPct = null,
+  } = context
+
+  const prompt = `สร้างสรุปสถานการณ์ประจำวันเช้าของโชว์รูมรถ EV จากข้อมูลจริงต่อไปนี้:
+- นัดหมาย/ส่งมอบวันนี้: ${todayCount} รายการ
+- ใบจองค้างสถานะเกิน 14 วัน: ${stuckBookings} ใบ
+- งานซ่อมค้างเกิน 7 วัน: ${overdueJobs} งาน
+- Lead ใหม่ยังไม่ติดตามเกิน 3 วัน: ${staleLeads} ราย
+- รถค้างสต็อกเกิน 90 วัน: ${agingStock} คัน
+- มูลค่าใบจองสะสมเดือนนี้: ฿${Math.round(revenueThisMonth).toLocaleString()}
+- ความคืบหน้าเป้ายอดขายเดือนนี้: ${targetPct !== null ? targetPct + '%' : 'ไม่มีข้อมูลเป้าหมาย'}
+
+เขียนสรุป 3-5 ประโยค ภาษาไทย น้ำเสียงกระตือรือร้นเป็นมิตรแบบผู้ช่วยส่วนตัวที่ห่วงใยผลงานของทีม
+ให้ภาพรวมวันนี้แบบกระชับ ไม่ต้องทวนตัวเลขทุกตัว เลือกเฉพาะประเด็นสำคัญที่สุด
+ปิดท้ายด้วยบรรทัดใหม่ขึ้นต้นด้วย "🎯 สิ่งที่ควรทำก่อน: " ตามด้วยคำแนะนำสิ่งที่ควรทำเป็นอันดับแรกของวันนี้ 1 ข้อ สั้น กระชับ นำไปทำได้ทันที
+ห้ามใส่ markdown หรือ bullet point อื่นใด ตอบเป็นข้อความธรรมดาเท่านั้น`
+
+  try {
+    // เรียก Gemini ตรง (ไม่ผ่าน askLami) — gemini-2.5-flash เป็น thinking model ที่กิน
+    // maxOutputTokens ไปกับ "thought" parts ก่อนถึงคำตอบจริง ถ้าเผื่อโควต้าไม่พอคำตอบจะขาดกลางประโยค
+    // (ปัญหาเดียวกับที่ analyzeExpenseReceipt/analyzeFinanceRateSheet เจอมาก่อน) จึงต้องเผื่อสูงและกรอง
+    // p.thought ออกเองแทนที่จะใช้ askLami ซึ่งอ่านแค่ parts[0].text เฉยๆ
+    const res = await fetch(`${API_URL}?key=${API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens: 1200, temperature: 0.7 },
+      }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err.error?.message || `Gemini Error ${res.status}`)
+    }
+    const data = await res.json()
+    const text = data.candidates?.[0]?.content?.parts?.filter(p => !p.thought).map(p => p.text || '').join('').trim()
+    return text || generateFallbackBriefing(context)
+  } catch {
+    return generateFallbackBriefing(context)
+  }
+}
+
+function generateFallbackBriefing(context = {}) {
+  const {
+    todayCount = 0, stuckBookings = 0, overdueJobs = 0, staleLeads = 0,
+    agingStock = 0, revenueThisMonth = 0, targetPct = null,
+  } = context
+
+  const openItems = stuckBookings + overdueJobs + staleLeads + agingStock
+  const opening = todayCount > 0
+    ? `อรุณสวัสดิ์ครับ วันนี้มีนัดหมาย/รายการส่งมอบ ${todayCount} รายการที่ต้องติดตาม`
+    : `อรุณสวัสดิ์ครับ วันนี้ยังไม่มีนัดหมายหรือส่งมอบที่ตั้งไว้`
+  const targetLine = targetPct !== null
+    ? ` ยอดขายเดือนนี้อยู่ที่ ${targetPct}% ของเป้าหมาย`
+    : (revenueThisMonth > 0 ? ` มูลค่าใบจองสะสมเดือนนี้ ฿${Math.round(revenueThisMonth).toLocaleString()}` : '')
+  const statusLine = openItems > 0
+    ? ` มีเรื่องค้างที่ต้องจัดการรวม ${openItems} รายการในระบบ`
+    : ` ระบบปกติ ไม่มีเรื่องค้างเกินกำหนด`
+
+  let priority = 'ตรวจสอบภาพรวม Dashboard และติดตามลูกค้าที่ค้างนานที่สุดก่อนครับ'
+  if (stuckBookings > 0) priority = `ติดตามใบจองที่ค้างสถานะนานที่สุดก่อน — มี ${stuckBookings} ใบที่ค้างเกิน 14 วัน`
+  else if (overdueJobs > 0) priority = `เร่งปิดงานซ่อมที่ค้างนานที่สุด — มี ${overdueJobs} งานที่ค้างเกิน 7 วัน`
+  else if (staleLeads > 0) priority = `โทรติดตาม Lead ที่ยังไม่ติดต่อกลับ — มี ${staleLeads} รายที่รอเกิน 3 วัน`
+  else if (agingStock > 0) priority = `พิจารณาโปรโมชั่นระบายสต็อกรถค้างนาน — มี ${agingStock} คันที่ค้างเกิน 90 วัน`
+
+  return `${opening}${targetLine}${statusLine} (demo mode — ตั้งค่า VITE_GEMINI_API_KEY เพื่อเปิดสรุปจาก AI จริง)\n\n🎯 สิ่งที่ควรทำก่อน: ${priority}`
 }
 
 export async function suggestPrice(vehicleData, marketData = {}) {

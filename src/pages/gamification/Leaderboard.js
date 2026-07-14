@@ -5,7 +5,7 @@
 import { formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { getCommissionData } from '../../core/db.js'
+import { getRealLeaderboard } from './gamificationData.js'
 
 const RANKS = [
   { min: 3000, label: 'Diamond', color: '#60a5fa', icon: '💎' },
@@ -36,28 +36,21 @@ export default async function LeaderboardPage(container) {
   let dataSource = 'demo'
 
   try {
-    const coms = await getCommissionData()
+    const real = await getRealLeaderboard()
     if (container.__routerGen !== myGen) return
 
-    if (coms.length >= 2) {
-      const byName = {}
-      coms.forEach(c => {
-        if (!c.salesName) return
-        if (!byName[c.salesName]) byName[c.salesName] = { name: c.salesName, carsSold: 0, incomeTotal: 0 }
-        byName[c.salesName].carsSold += c.carsSold || 0
-        byName[c.salesName].incomeTotal += c.incomeTotal || 0
-      })
+    if (real.length >= 1) {
       const AVATARS = ['👨', '👩', '🧑']
-      players = Object.values(byName).map((p, i) => ({
-        id: 'LP' + String(i + 1).padStart(2, '0'),
-        name: p.name, role: 'เซลส์', dept: 'ฝ่ายขาย',
+      players = real.map((p, i) => ({
+        id: p.id || 'LP' + String(i + 1).padStart(2, '0'),
+        name: p.name, role: p.salesUnits ? 'เซลส์' : 'พนักงาน', dept: p.salesUnits ? 'ฝ่ายขาย' : 'ทั่วไป',
         avatar: AVATARS[i % 3],
-        points: 500 + p.carsSold * 400 + Math.round(p.incomeTotal / 1000),
-        monthPoints: 100 + p.carsSold * 80 + Math.round(p.incomeTotal / 5000),
+        points: p.points, // แต้มรวมจริงจาก staff_points ledger — ไม่ใช่สูตรคำนวณจำลองอีกต่อไป
+        monthPoints: p.monthPoints, // ผลรวมแต้มจาก gamification_events ของเดือนนี้จริง
         streak: 1 + (i % 10),
-        badges: Math.max(1, p.carsSold),
-        salesUnits: p.carsSold,
-        revenue: p.incomeTotal,
+        badges: Math.max(1, Math.round(p.points / 300)),
+        salesUnits: p.salesUnits,
+        revenue: p.revenue,
       })).sort((a, b) => b.points - a.points)
       dataSource = 'live'
     }
@@ -146,7 +139,7 @@ export default async function LeaderboardPage(container) {
     document.getElementById('period-all')?.addEventListener('click', () => { period = 'all'; renderPage() })
     document.getElementById('dept-filter')?.addEventListener('change', e => { deptFilter = e.target.value; renderPage() })
     container.querySelectorAll('.lb-row').forEach(r => r.addEventListener('click', () => {
-      const p = DEMO_PLAYERS.find(x => x.id === r.dataset.id); if (p) openPlayerDetail(p)
+      const p = players.find(x => x.id === r.dataset.id); if (p) openPlayerDetail(p)
     }))
   }
 
@@ -189,7 +182,7 @@ export default async function LeaderboardPage(container) {
           ${kpi('💰 รายได้', formatCurrency(p.revenue), 'success')}
         </div>
         <div style="padding:12px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:0.82rem;text-align:center">
-          🚀 อยู่ใน Top ${DEMO_PLAYERS.sort((a,b)=>b.points-a.points).findIndex(x=>x.id===p.id)+1} จาก ${DEMO_PLAYERS.length} คน
+          🚀 อยู่ใน Top ${[...players].sort((a,b)=>b.points-a.points).findIndex(x=>x.id===p.id)+1} จาก ${players.length} คน
         </div>
       `
     })

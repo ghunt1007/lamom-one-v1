@@ -5,7 +5,7 @@
 import { formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData, getSalesData } from '../../core/db.js'
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
 
@@ -107,10 +107,12 @@ export default async function ChallengesPage(container) {
   }
 
   function openUpdateModal(c) {
-    openModal({
+    const isSales = c.type === 'sales'
+    const { el } = openModal({
       title: '📊 อัปเดตคะแนน: ' + c.name,
       size: 'sm',
       body: `<div style="display:grid;gap:10px">
+        ${isSales ? `<button class="btn btn-xs btn-secondary" id="sync-real-btn" type="button">🔄 ซิงค์จากยอดขายจริง (ใบจองที่ส่งมอบแล้ว)</button>` : ''}
         ${(c.participants||[]).map((p, i) => `
           <div class="input-group"><label class="input-label">${p.name}</label>
             <input class="input" type="number" min="0" class="prog-input" id="prog-${i}" value="${p.progress}">
@@ -129,6 +131,20 @@ export default async function ChallengesPage(container) {
         await loadData()
       }
     })
+    if (isSales) {
+      el.querySelector('#sync-real-btn')?.addEventListener('click', async () => {
+        try {
+          const sales = await getSalesData()
+          const deliveredByName = {}
+          sales.filter(s => s.delivered).forEach(s => { deliveredByName[s.salesName] = (deliveredByName[s.salesName] || 0) + 1 })
+          ;(c.participants||[]).forEach((p, i) => {
+            const inp = el.querySelector(`#prog-${i}`)
+            if (inp && deliveredByName[p.name] != null) inp.value = deliveredByName[p.name]
+          })
+          showToast('🔄 ซิงค์จากยอดขายจริงแล้ว — ตรวจสอบแล้วกด "ยืนยัน"', 'info')
+        } catch { showToast('ซิงค์ไม่สำเร็จ', 'error') }
+      })
+    }
   }
 
   function openAddForm() {
