@@ -9,8 +9,6 @@ function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-const INSURERS = getInsurers()
-const INS_TYPES = getInsuranceTypes()
 const INS_STATUS = {
   active:   { label: '✅ คุ้มครองอยู่',  badge: 'success' },
   expiring: { label: '⚠️ ใกล้หมดอายุ', badge: 'warning' },
@@ -21,6 +19,11 @@ const INS_STATUS = {
 export default async function InsurancePage(container) {
   const myGen = container.__routerGen
   seedDemoData()
+
+  // เรียกสดทุกครั้งที่ render หน้านี้ (เหมือนหน้าอื่นๆ) — ไม่ใช่ module scope ตอน import
+  // เพื่อให้ได้ค่าที่โหลดจาก Firestore ผ่าน loadMasterData() ใน main.js แล้วจริง ไม่ใช่ DEFAULTS ตอน import
+  const INSURERS = getInsurers()
+  const INS_TYPES = getInsuranceTypes()
 
   let policies = []
   let filtered = []

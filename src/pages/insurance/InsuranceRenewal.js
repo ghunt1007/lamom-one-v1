@@ -29,13 +29,15 @@ const RENEWAL_STATUS = {
   cancelled: { label: 'ยกเลิก', color: 'secondary' },
 }
 
-const INSURERS = getInsurers()
-
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
 
 export default async function InsuranceRenewalPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
+
+  // เรียกสดทุกครั้งที่ render หน้านี้ (เหมือนหน้าอื่นๆ) — ไม่ใช่ module scope ตอน import
+  // เพื่อให้ได้ค่าที่โหลดจาก Firestore ผ่าน loadMasterData() ใน main.js แล้วจริง ไม่ใช่ DEFAULTS ตอน import
+  const INSURERS = getInsurers()
 
   let statusFilter = 'all'
   let policies = []

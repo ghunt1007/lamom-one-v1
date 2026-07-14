@@ -8,6 +8,7 @@ import { initRouter, navigate } from './core/router.js'
 import { getState, on, setTheme } from './core/store.js'
 import { seedDemoData } from './core/db.js'
 import { loadVehicleOverrides } from './data/vehicleDatabase.js'
+import { loadMasterData } from './data/masterData.js'
 import { initSessionTimeout, destroySessionTimeout } from './utils/sessionTimeout.js'
 import { Sidebar } from './components/layout/Sidebar.js'
 import { Topbar } from './components/layout/Topbar.js'
@@ -59,8 +60,8 @@ initAuth(() => {
 })
 
 async function bootstrapShell() {
-  // seed demo data (lazy chunk) + โหลด vehicle catalog overrides ให้เสร็จก่อน initRouter — กัน race หน้าแรกอ่านข้อมูลว่าง
-  await Promise.all([seedDemoData(), loadVehicleOverrides()])
+  // seed demo data (lazy chunk) + โหลด vehicle catalog overrides + master data ให้เสร็จก่อน initRouter — กัน race หน้าแรกอ่านข้อมูลว่าง
+  await Promise.all([seedDemoData(), loadVehicleOverrides(), loadMasterData()])
   app.innerHTML = ''
   app.className = 'app-layout'
 

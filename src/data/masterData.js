@@ -1,10 +1,21 @@
 /**
  * Master Data — ฐานข้อมูลกลางของข้อมูลอ้างอิงที่ใช้ร่วมกันทุกโมดูล
  * (พนักงานขาย, สาขา, สี, อุปกรณ์เสริม, ธนาคารไฟแนนซ์, บริษัทประกัน, แหล่งที่มา Lead ฯลฯ)
- * แก้ไข/เพิ่ม/ลบ ได้ + เก็บถาวรใน localStorage → ทุกหน้าดึงชุดเดียวกัน
+ * เก็บใน Firestore collection เดียว doc เดียว ('master_data'/'default') → sync ข้ามอุปกรณ์จริง
+ * (เดิมเก็บใน localStorage เครื่องเดียว ทำให้พนักงาน 2 เครื่องเห็นข้อมูลไม่ตรงกัน)
+ *
+ * Pattern: cache ในหน่วยความจำ โหลดครั้งเดียวตอน bootstrap (ดู loadMasterData() เรียกจาก main.js)
+ * เหมือน vehicleDatabase.js — getter ทั้งหมดยังคง "synchronous" อ่านจาก cache เพื่อไม่กระทบ
+ * หน้าที่เรียกใช้แบบ inline อยู่แล้ว (ActionPlan, Bookings, Customers, TestDrive, QuotationBuilder,
+ * DeliveryNote, Stock, FinanceApplication, FinanceRateSheets, SalesChannelComparison ฯลฯ)
+ * ส่วนฟังก์ชันแก้ไขข้อมูล (addItem/updateItem/removeItem/setList/resetMaster/setSalesChannel)
+ * เป็น async — เขียนลง Firestore แล้วอัปเดต cache
+ *
  * ใช้งาน: import { getSalesStaff, getAccessories, getBanks } from '../../data/masterData.js'
  */
-const KEY = 'lamom_master_data'
+import { listDocs, createDoc, updateDocData } from '../core/db.js'
+
+const KEY = 'lamom_master_data' // localStorage key เดิม — ใช้ตอน migrate ครั้งแรกเท่านั้น ไม่ลบทิ้งหลังจากนั้น (ไม่มีผลเสีย)
 
 const DEFAULTS = {
   salesStaff: ['อรนุช เซลส์ดี', 'วิชัย ขายเก่ง', 'ปวีณา สายขาย', 'ธนกร โชคดี', 'สุดารัตน์ ใจบุญ'],
@@ -35,18 +46,76 @@ const DEFAULTS = {
   salesStaffChannel: {},
 }
 
-function load() {
-  try { return Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(KEY) || '{}')) } catch (e) { return Object.assign({}, DEFAULTS) }
+// ═══════════════════════════════════════════════════════════════════════════
+// Firestore-backed cache — โหลดครั้งเดียวตอน bootstrap (main.js) ก่อนหน้าไหนอ่านข้อมูล
+// ต้อง await loadMasterData() ให้เสร็จก่อน — ดู vehicleDatabase.js สำหรับ pattern เดียวกัน
+// ═══════════════════════════════════════════════════════════════════════════
+let _cache = Object.assign({}, DEFAULTS)
+let _docId = null
+let _loaded = false
+
+export async function loadMasterData() {
+  try {
+    const docs = await listDocs('master_data', [], 'createdAt', 'asc', 10)
+    if (docs.length > 0) {
+      const d = docs[0]
+      _docId = d.id
+      _cache = Object.assign({}, DEFAULTS, d)
+    } else {
+      // First run ของระบบ — ยังไม่มี doc ใน Firestore
+      // Migration: ถ้ามีข้อมูลเดิมใน localStorage (ที่ผู้ใช้เคยแก้ไขไว้ก่อนย้ายมา Firestore) ให้ใช้เป็น seed
+      // แทนที่จะทิ้งไปเฉยๆ ไม่ลบ localStorage key เดิมทิ้ง (ไม่มีผลเสีย เผื่อ debug ย้อนหลัง)
+      let seed = Object.assign({}, DEFAULTS)
+      try {
+        const raw = localStorage.getItem(KEY)
+        if (raw) seed = Object.assign({}, DEFAULTS, JSON.parse(raw))
+      } catch (e) { /* localStorage เสีย/parse พัง — ใช้ DEFAULTS */ }
+      _docId = await createDoc('master_data', seed)
+      _cache = seed
+    }
+    _loaded = true
+  } catch (e) {
+    // โหลดพัง (offline/permission ฯลฯ) — ใช้ DEFAULTS ต่อไปเพื่อไม่ให้แอปค้าง, _loaded ยัง mark true
+    // (retry จะเกิดเองตอนมี mutation เพราะ ensureDocId() จะเรียก loadMasterData() ใหม่ถ้ายังไม่มี _docId)
+    _loaded = true
+  }
 }
-function save(d) { try { localStorage.setItem(KEY, JSON.stringify(d)) } catch {} }
+export function isMasterDataLoaded() { return _loaded }
+
+async function ensureDocId() {
+  if (!_docId) await loadMasterData()
+}
+
+// เขียน field เดียวลง Firestore doc + sync cache ในหน่วยความจำ
+async function writeField(name, value) {
+  await ensureDocId()
+  _cache[name] = value
+  if (_docId) await updateDocData('master_data', _docId, { [name]: value })
+}
 
 // ── Generic CRUD (ใช้กับทุก list) ──────────────────────────────────────────────
-export function getList(name) { return load()[name] || [] }
-export function setList(name, arr) { const d = load(); d[name] = arr; save(d) }
-export function addItem(name, item) { const d = load(); d[name] = (d[name] || []).concat([item]); save(d) }
-export function updateItem(name, index, item) { const d = load(); if (d[name] && d[name][index] !== undefined) { d[name][index] = item; save(d) } }
-export function removeItem(name, index) { const d = load(); if (d[name]) { d[name] = d[name].filter((_, i) => i !== index); save(d) } }
-export function resetMaster() { localStorage.removeItem(KEY) }
+export function getList(name) { return _cache[name] || [] }
+export async function setList(name, arr) { await writeField(name, arr) }
+export async function addItem(name, item) {
+  const arr = (_cache[name] || []).concat([item])
+  await writeField(name, arr)
+}
+export async function updateItem(name, index, item) {
+  const arr = (_cache[name] || []).slice()
+  if (arr[index] === undefined) return
+  arr[index] = item
+  await writeField(name, arr)
+}
+export async function removeItem(name, index) {
+  const arr = (_cache[name] || []).filter((_, i) => i !== index)
+  await writeField(name, arr)
+}
+export async function resetMaster() {
+  await ensureDocId()
+  const fresh = Object.assign({}, DEFAULTS)
+  _cache = fresh
+  if (_docId) await updateDocData('master_data', _docId, fresh)
+}
 export const MASTER_LISTS = [
   { key: 'salesStaff', label: 'พนักงานขาย', type: 'string' },
   { key: 'branches', label: 'สาขา/โชว์รูม', type: 'string' },
@@ -60,7 +129,7 @@ export const MASTER_LISTS = [
   { key: 'leadSources', label: 'แหล่งที่มา Lead', type: 'string' },
 ]
 
-// ── Convenience getters ────────────────────────────────────────────────────────
+// ── Convenience getters (synchronous — อ่านจาก cache) ──────────────────────────
 export const getSalesStaff = () => getList('salesStaff')
 export const getBranches = () => getList('branches')
 export const getColors = () => getList('colors')
@@ -76,14 +145,12 @@ export const getLeadSources = () => getList('leadSources')
 
 // ── ช่องทางขาย (หน้าร้าน/ออนไลน์) ต่อพนักงาน ────────────────────────────────────
 export function getSalesChannel(name) {
-  const d = load()
-  return (d.salesStaffChannel || {})[name] || 'showroom'
+  return (_cache.salesStaffChannel || {})[name] || 'showroom'
 }
-export function setSalesChannel(name, channel) {
-  const d = load()
-  d.salesStaffChannel = d.salesStaffChannel || {}
-  d.salesStaffChannel[name] = channel
-  save(d)
+export async function setSalesChannel(name, channel) {
+  const map = Object.assign({}, _cache.salesStaffChannel || {})
+  map[name] = channel
+  await writeField('salesStaffChannel', map)
 }
 export function getSalesStaffByChannel(channel) {
   return getSalesStaff().filter(name => getSalesChannel(name) === channel)

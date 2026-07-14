@@ -1,4 +1,4 @@
-import { MASTER_LISTS, getList, addItem, removeItem, resetMaster, getSalesChannel, setSalesChannel } from '../../data/masterData.js'
+import { MASTER_LISTS, getList, addItem, removeItem, setList, resetMaster, getSalesChannel, setSalesChannel } from '../../data/masterData.js'
 import { showToast } from '../../core/store.js'
 import { confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -131,31 +131,46 @@ export default async function MasterDataPage(container) {
       search = e.target.value; relistOnly()
     })
 
-    container.querySelectorAll('.md-del').forEach(b => b.addEventListener('click', () => {
-      removeItem(active, parseInt(b.dataset.i))
-      showToast('🗑 ลบแล้ว', 'warning')
+    container.querySelectorAll('.md-del').forEach(b => b.addEventListener('click', async () => {
+      const idx = parseInt(b.dataset.i)
+      const it = getList(active)[idx]
+      const label = it && typeof it === 'object' ? it.name : it
+      const ok = await confirmDialog({ title: '🗑 ลบรายการ', message: `ลบ "${label}" ออกจาก ${meta().label}?`, confirmText: 'ลบ', danger: true })
+      if (!ok) return
+      if (container.__routerGen !== myGen) return
+      try {
+        await removeItem(active, idx)
+        showToast('🗑 ลบแล้ว', 'warning')
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      if (container.__routerGen !== myGen) return
       render()
     }))
 
-    container.querySelectorAll('.channel-toggle').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.channel-toggle').forEach(b => b.addEventListener('click', async () => {
       const name = b.dataset.name
       const next = getSalesChannel(name) === 'showroom' ? 'online' : 'showroom'
-      setSalesChannel(name, next)
-      showToast(`${next === 'showroom' ? '🏢' : '💻'} ${name} → ${next === 'showroom' ? 'ทีมหน้าร้าน' : 'ทีมออนไลน์'}`, 'success')
+      try {
+        await setSalesChannel(name, next)
+        showToast(`${next === 'showroom' ? '🏢' : '💻'} ${name} → ${next === 'showroom' ? 'ทีมหน้าร้าน' : 'ทีมออนไลน์'}`, 'success')
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      if (container.__routerGen !== myGen) return
       relistOnly()
     }))
 
-    document.getElementById('md-add')?.addEventListener('click', () => {
+    document.getElementById('md-add')?.addEventListener('click', async () => {
       const m2 = meta()
       const name = document.getElementById('md-name')?.value?.trim()
       if (!name) { showToast('⚠️ กรุณากรอกข้อมูล', 'warning'); return }
-      if (m2.type === 'priced') {
-        const price = parseFloat(document.getElementById('md-price')?.value) || 0
-        addItem(active, { id:'X'+Date.now(), name, price })
-      } else {
-        addItem(active, name)
-      }
-      showToast('➕ เพิ่มแล้ว', 'success')
+      try {
+        if (m2.type === 'priced') {
+          const price = parseFloat(document.getElementById('md-price')?.value) || 0
+          await addItem(active, { id:'X'+Date.now(), name, price })
+        } else {
+          await addItem(active, name)
+        }
+        showToast('➕ เพิ่มแล้ว', 'success')
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return }
+      if (container.__routerGen !== myGen) return
       render()
     })
 
@@ -177,7 +192,11 @@ export default async function MasterDataPage(container) {
     document.getElementById('md-reset')?.addEventListener('click', async () => {
       const ok = await confirmDialog({ title:'↩️ รีเซ็ต Master Data', message:'คืนค่า Master Data ทั้งหมดกลับค่าเริ่มต้น?', confirmText:'รีเซ็ต', danger:true })
       if (!ok) return
-      resetMaster(); showToast('↩️ คืนค่าแล้ว', 'warning')
+      if (container.__routerGen !== myGen) return
+      try {
+        await resetMaster()
+        showToast('↩️ คืนค่าแล้ว', 'warning')
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return }
       if (container.__routerGen !== myGen) return
       render()
     })
@@ -186,9 +205,11 @@ export default async function MasterDataPage(container) {
       const m3 = meta()
       const ok = await confirmDialog({ title:`🗑 ล้างหมวด ${m3.label}`, message:`ลบข้อมูลในหมวด "${m3.label}" ทั้งหมด (${getList(active).length} รายการ)?`, confirmText:'ล้าง', danger:true })
       if (!ok) return
-      const items = getList(active)
-      for (let i = items.length - 1; i >= 0; i--) removeItem(active, i)
-      showToast(`🗑 ล้างหมวด ${m3.label} แล้ว`, 'warning')
+      if (container.__routerGen !== myGen) return
+      try {
+        await setList(active, [])
+        showToast(`🗑 ล้างหมวด ${m3.label} แล้ว`, 'warning')
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return }
       if (container.__routerGen !== myGen) return
       render()
     })
