@@ -195,4 +195,124 @@ export function runSeed(demoCol) {
   ]
   financeRateSheets.forEach(r => { if (!demoCol('finance_rate_sheets')[r.id]) demoCol('finance_rate_sheets')[r.id] = r })
 
+
+  // Installment Plans — ติดตามงวดผ่อนลูกค้าที่ซื้อตรง (หน้า /finance/installment)
+  const installmentPlans = [
+    { id:'INS001', customer:'สมชาย ใจดี',    model:'BYD Atto 3',   total:1099000, paid:4,  totalInst:36, monthly:30528, nextDate:'2026-07-20', status:'current',   overdue:0, paidHistory:[] },
+    { id:'INS002', customer:'นภา สุขใจ',     model:'BYD Seal AWD', total:1699000, paid:12, totalInst:60, monthly:31648, nextDate:'2026-08-05', status:'current',   overdue:0, paidHistory:[] },
+    { id:'INS003', customer:'วิชัย ดีมาก',   model:'BYD Han',      total:2099000, paid:2,  totalInst:48, monthly:47250, nextDate:'2026-06-10', status:'overdue',   overdue:34, paidHistory:[] },
+    { id:'INS004', customer:'มาลี รุ่งเรือง', model:'MG ZS EV',     total:799000,  paid:24, totalInst:36, monthly:24361, nextDate:'2026-07-20', status:'current',   overdue:0, paidHistory:[] },
+    { id:'INS005', customer:'อรุณ วิชิต',    model:'BYD Dolphin',  total:899000,  paid:36, totalInst:36, monthly:27222, nextDate:'',           status:'completed', overdue:0, paidHistory:[] },
+  ]
+  installmentPlans.forEach(p => { if (!demoCol('installment_plans')[p.id]) demoCol('installment_plans')[p.id] = p })
+
+
+  // EV Charging Sessions — ข้อมูลกลางร่วมกันของหน้า Charging Revenue (/finance/charging-revenue)
+  // และ Charging Cost (/finance/charging-cost) — สร้างแบบสุ่มกึ่งกำหนด (seeded PRNG) ให้ได้ dataset
+  // ที่เสมอต้นเสมอปลายทุกครั้งที่รัน demo แต่ยังดูสมจริงและมีแนวโน้มตามเดือน
+  //
+  // สคีมาต่อ 1 session:
+  //   date (YYYY-MM-DD), time (HH:MM), stationId, stationName, vehicle,
+  //   kwh, durationMin, touPeriod ('peak'|'offpeak'), useType ('public'|'test_drive'|'free_customer'|'company_car'|'delivery_prep'),
+  //   rate (บาท/kWh ที่คิดลูกค้า — 0 ถ้าไม่ใช่ public), revenue (บาท — 0 ถ้าไม่ใช่ public),
+  //   cost (บาท ต้นทุนไฟฟ้าตามเรท TOU — คำนวณทุก session ไม่ว่าประเภทไหน), status ('done'|'charging')
+  //
+  // Charging Revenue = กรองเฉพาะ useType==='public' (มุมมองรายได้)
+  // Charging Cost     = รวมทุก useType (มุมมองต้นทุนไฟฟ้ารวม แยก Peak/Off-Peak + แยกตามการใช้งาน)
+  const csRatePeak = 5.8
+  const csRateOffpeak = 2.6
+  const csStations = [
+    { id:'CS1', name:'Charger A (150kW)', rate:7.50 },
+    { id:'CS2', name:'Charger B (50kW)',  rate:6.80 },
+    { id:'CS3', name:'AC Bay 1 (22kW)',   rate:4.50 },
+    { id:'CS4', name:'AC Bay 2 (22kW)',   rate:4.50 },
+  ]
+  const csVehicles = ['BYD Atto 3','BYD Seal AWD','BYD Dolphin','BYD Han','MG4 X','MG ZS EV','NETA V II','DEEPAL S7','AION Y Plus','OMODA 5']
+  const csUseTypes = [
+    { key:'public',        w:11 },
+    { key:'test_drive',    w:3 },
+    { key:'free_customer', w:3 },
+    { key:'company_car',   w:2 },
+    { key:'delivery_prep', w:1 },
+  ]
+  function csPickUseType(rng) {
+    const total = csUseTypes.reduce((s, x) => s + x.w, 0)
+    let r = rng() * total
+    for (const item of csUseTypes) { r -= item.w; if (r <= 0) return item.key }
+    return csUseTypes[csUseTypes.length - 1].key
+  }
+  // mulberry32 — seeded PRNG กำหนดค่าตายตัว (deterministic) ให้ demo data เหมือนเดิมทุกครั้งที่รัน
+  function csMakeRng(seed) {
+    let a = seed
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0
+      let t = Math.imul(a ^ (a >>> 15), 1 | a)
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+    }
+  }
+  const csRng = csMakeRng(42)
+  const chargingSessions = []
+  for (let mIdx = 0; mIdx < 6; mIdx++) {
+    const monthsAgo = 5 - mIdx // 5 (เก่าสุด) ... 0 (เดือนปัจจุบัน)
+    const count = 14 + mIdx * 3 // แนวโน้มขาขึ้น 14 → 29 session/เดือน
+    // เดือนหลังๆ ตั้งใจย้ายการใช้งานภายใน (non-public) ไปชาร์จช่วง Off-Peak มากขึ้น (สอดคล้องกับ insight ของ LAMI)
+    const offpeakBias = 0.5 + mIdx * 0.06
+    for (let i = 0; i < count; i++) {
+      const monthDate = new Date(now.getFullYear(), now.getMonth() - monthsAgo, 1)
+      const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate()
+      let day = 1 + Math.floor(csRng() * daysInMonth)
+      if (monthsAgo === 0) day = Math.min(day, now.getDate()) // เดือนปัจจุบัน ห้ามเกินวันนี้
+      const useType = csPickUseType(csRng)
+      let hour
+      if (useType === 'public') {
+        hour = 8 + Math.floor(csRng() * 12) // ลูกค้าจ่ายเงินมาชาร์จช่วงกลางวัน 08:00–19:59
+      } else if (csRng() < offpeakBias) {
+        hour = [22, 23, 0, 1, 2, 3, 4, 5][Math.floor(csRng() * 8)] // งานภายใน ย้ายไปชาร์จกลางคืน
+      } else {
+        hour = 9 + Math.floor(csRng() * 9) // 09:00–17:59
+      }
+      const minute = Math.floor(csRng() * 60)
+      const touPeriod = (hour >= 9 && hour < 22) ? 'peak' : 'offpeak'
+      const station = csStations[Math.floor(csRng() * csStations.length)]
+      const isFast = station.rate >= 6.8
+      const kwh = Math.round((isFast ? 20 + csRng() * 45 : 8 + csRng() * 20) * 10) / 10
+      const durationMin = Math.round(kwh / (isFast ? 1.1 : 0.35))
+      const vehicle = csVehicles[Math.floor(csRng() * csVehicles.length)]
+      const rate = useType === 'public' ? station.rate : 0
+      const revenue = useType === 'public' ? Math.round(kwh * rate) : 0
+      const cost = Math.round(kwh * (touPeriod === 'peak' ? csRatePeak : csRateOffpeak))
+      chargingSessions.push({
+        id: `CHG-${mIdx}-${i}`,
+        date: new Date(monthDate.getFullYear(), monthDate.getMonth(), day).toISOString().slice(0, 10),
+        time: String(hour).padStart(2, '0') + ':' + String(minute).padStart(2, '0'),
+        stationId: station.id, stationName: station.name,
+        vehicle, kwh, durationMin, touPeriod, useType, rate, revenue, cost,
+        status: 'done',
+      })
+    }
+  }
+  // Session ของ "วันนี้" ยึดตาม TODAY_SESSIONS เดิม — ให้แน่ใจว่าพาเนล "Session วันนี้" มีข้อมูลแสดงเสมอ
+  const csTodayStr = now.toISOString().slice(0, 10)
+  const csTodaySessions = [
+    { time:'08:12', stationId:'CS1', vehicle:'BYD Atto 3',   kwh:32.5, durationMin:28, hour:8,  status:'done' },
+    { time:'09:45', stationId:'CS3', vehicle:'MG ZS EV',     kwh:18.2, durationMin:82, hour:9,  status:'done' },
+    { time:'10:30', stationId:'CS2', vehicle:'BYD Seal AWD', kwh:55.1, durationMin:66, hour:10, status:'charging' },
+    { time:'11:00', stationId:'CS4', vehicle:'BYD Dolphin',  kwh:12.4, durationMin:34, hour:11, status:'charging' },
+  ]
+  csTodaySessions.forEach((s, i) => {
+    const station = csStations.find(x => x.id === s.stationId)
+    const touPeriod = (s.hour >= 9 && s.hour < 22) ? 'peak' : 'offpeak'
+    chargingSessions.push({
+      id: `CHG-today-${i}`,
+      date: csTodayStr, time: s.time,
+      stationId: station.id, stationName: station.name,
+      vehicle: s.vehicle, kwh: s.kwh, durationMin: s.durationMin,
+      touPeriod, useType: 'public', rate: station.rate, revenue: Math.round(s.kwh * station.rate),
+      cost: Math.round(s.kwh * (touPeriod === 'peak' ? csRatePeak : csRateOffpeak)),
+      status: s.status,
+    })
+  })
+  chargingSessions.forEach(s => { if (!demoCol('charging_sessions')[s.id]) demoCol('charging_sessions')[s.id] = s })
+
 }

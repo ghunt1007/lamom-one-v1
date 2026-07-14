@@ -1,88 +1,121 @@
 /**
- * Bank Finance Partners — รายชื่อธนาคาร / โปรสินเชื่อ / Approval Rate
+ * Bank Finance Partners — รายชื่อธนาคาร / โปรสินเชื่อ / Approval Rate (scorecard ความสัมพันธ์กับธนาคาร)
  * Route: /finance/bank-partners
+ *
+ * ต่างจาก Finance Application (ที่ยื่น/ติดตามใบสมัครสินเชื่อรายลูกค้า) — หน้านี้คือมุมมอง
+ * "ความสัมพันธ์กับธนาคารพันธมิตรแต่ละแห่ง" (ดอกเบี้ย/วงเงิน/Approval rate/ผู้ติดต่อ) ซึ่ง
+ * Finance Application ไม่มี จึงเก็บไว้เป็นฟีเจอร์จริงแยกต่างหาก
+ * เดิมหน้านี้มี BANKS + RECENT_APPS hardcoded (เลขปลอมที่ไม่มีวันตรงกับข้อมูลจริง) แก้ให้:
+ *  - รายชื่อธนาคาร ดึงจาก getBanks() (master data จริง — เหมือน FinanceApplication.js ใช้)
+ *  - ข้อมูลความสัมพันธ์ (ดอกเบี้ย/วงเงิน/Approval/ผู้ติดต่อ) เก็บใน Firestore 'bank_partner_info'
+ *    แก้ไขได้จริงในหน้านี้ (CRUD จริง มี confirm ก่อนลบ)
+ *  - ใบสมัครล่าสุด ดึงจาก 'finance_applications' จริง (ข้อมูลเดียวกับหน้า Finance Application)
+ *  - ปุ่ม "ยื่น" พาไปหน้า Finance Application จริง (ไม่ทำซ้ำ logic การยื่นสินเชื่อ)
  */
 import { formatCurrency } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { getBanks } from '../../data/masterData.js'
+import { navigate } from '../../core/router.js'
 
-const BANKS = [
-  { id:'SCB',  name:'SCB',            fullName:'ธนาคารไทยพาณิชย์',     logo:'🟣', rate:2.49, maxYr:7, minDown:10, approval:82, avgDays:2.1, quota:80,  used:61, contact:'คุณสมศักดิ์ 081-111-0001' },
-  { id:'KBANK',name:'KBANK',          fullName:'ธนาคารกสิกรไทย',       logo:'🟢', rate:2.39, maxYr:7, minDown:10, approval:79, avgDays:2.5, quota:70,  used:48, contact:'คุณวิภา 082-222-0002' },
-  { id:'KTB',  name:'KTB',           fullName:'ธนาคารกรุงไทย',         logo:'🔵', rate:2.59, maxYr:7, minDown:15, approval:76, avgDays:3.0, quota:60,  used:39, contact:'คุณประยุทธ 083-333-0003' },
-  { id:'BAY',  name:'BAY',           fullName:'ธนาคารกรุงศรีอยุธยา',   logo:'🟡', rate:2.69, maxYr:6, minDown:15, approval:74, avgDays:3.2, quota:50,  used:28, contact:'คุณสุนิตา 084-444-0004' },
-  { id:'TMB',  name:'TTB',           fullName:'ธนาคารทีทีบี',          logo:'🔷', rate:2.79, maxYr:5, minDown:20, approval:71, avgDays:3.5, quota:40,  used:18, contact:'คุณมนัส 085-555-0005' },
-  { id:'GE',   name:'GE Capital',    fullName:'GE Capital (Leasing)',  logo:'🔴', rate:3.49, maxYr:5, minDown:0,  approval:88, avgDays:1.5, quota:30,  used:24, contact:'คุณสมหวัง 086-666-0006' },
-  { id:'AYUD', name:'Ayudhya Capital',fullName:'อยุธยา แคปปิตอล',     logo:'🟠', rate:3.29, maxYr:6, minDown:5,  approval:85, avgDays:1.8, quota:35,  used:21, contact:'คุณลัดดา 087-777-0007' },
-]
+function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
-const RECENT_APPS = [
-  { customer:'สมชาย ใจดี',   model:'BYD Atto 3', amount:990000, bank:'SCB',   status:'approved', date:'2026-06-14' },
-  { customer:'นภา สุขใจ',    model:'BYD Seal',   amount:1540000,bank:'KBANK', status:'approved', date:'2026-06-13' },
-  { customer:'วิชัย ดีมาก',  model:'BYD Han',    amount:1900000,bank:'KTB',   status:'pending',  date:'2026-06-13' },
-  { customer:'มาลี รุ่งเรือง',model:'MG ZS EV',  amount:720000, bank:'GE',    status:'approved', date:'2026-06-12' },
-  { customer:'อรุณ วิชิต',   model:'BYD Dolphin',amount:800000, bank:'BAY',   status:'rejected', date:'2026-06-11' },
-]
+const APP_STATUS_LABEL = {
+  draft: 'Draft', submitted: 'ส่งแล้ว', pending: 'รอ', approved: 'อนุมัติ', rejected: 'ปฏิเสธ', cancelled: 'ยกเลิก',
+}
+const APP_STATUS_COLOR = {
+  draft:'var(--text-muted)', submitted:'var(--primary)', pending:'var(--warning)', approved:'var(--success)', rejected:'var(--danger)', cancelled:'var(--danger)',
+}
 
 export default async function BankPartnersPage(container) {
+  const myGen = container.__routerGen
+  seedDemoData()
+
   let selBank = null
+  let partnerInfo = []   // bank_partner_info docs จริง
+  let recentApps = []    // finance_applications จริง
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    try {
+      partnerInfo = await listDocs('bank_partner_info', [], 'bankName', 'asc', 200)
+      recentApps = await listDocs('finance_applications', [], 'submittedDate', 'desc', 8)
+    } catch (e) { partnerInfo = []; recentApps = [] }
+    loading = false
+    if (container.__routerGen === myGen) render()
+  }
+
+  function infoFor(bankName) { return partnerInfo.find(p => p.bankName === bankName) || null }
 
   function render() {
-    const sel = selBank ? BANKS.find(b=>b.id===selBank) : null
-    const totalQuota = BANKS.reduce((s,b)=>s+b.quota,0)
-    const totalUsed  = BANKS.reduce((s,b)=>s+b.used,0)
-    const avgApproval= Math.round(BANKS.reduce((s,b)=>s+b.approval,0)/BANKS.length)
-    const bestRate   = BANKS.reduce((a,b)=>a.rate<b.rate?a:b)
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
+    const bankNames = getBanks()
+    const sel = selBank ? infoFor(selBank) : null
+    const configured = partnerInfo.filter(p => bankNames.includes(p.bankName))
+    const totalQuota = configured.reduce((s,b)=>s+(b.quota||0),0)
+    const totalUsed  = configured.reduce((s,b)=>s+(b.used||0),0)
+    const avgApproval= configured.length ? Math.round(configured.reduce((s,b)=>s+(b.approval||0),0)/configured.length) : 0
+    const rated = configured.filter(b => b.rate > 0)
+    const bestRate = rated.length ? rated.reduce((a,b)=>a.rate<b.rate?a:b) : null
 
     container.innerHTML = `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
             <div class="page-title">🏦 Bank Finance Partners</div>
-            <div class="page-subtitle">พันธมิตรธนาคาร ${BANKS.length} แห่ง · โปรสินเชื่อ · วงเงินรวม ${totalQuota} ล้าน</div>
+            <div class="page-subtitle">พันธมิตรธนาคาร ${bankNames.length} แห่ง · ${configured.length} แห่งตั้งค่าข้อมูลแล้ว${totalQuota ? ' · วงเงินรวม ' + totalQuota + ' ล้าน' : ''}</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-primary" id="compare-btn">⚖️ เปรียบเทียบดอกเบี้ย</button>
+            <button class="btn btn-primary" id="compare-btn" ${rated.length < 2 ? 'disabled title="ต้องมีอย่างน้อย 2 ธนาคารที่ตั้งค่าดอกเบี้ยแล้ว"' : ''}>⚖️ เปรียบเทียบดอกเบี้ย</button>
           </div>
         </div>
 
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
-          ${sc('🏦 ธนาคาร', BANKS.length+' แห่ง', 'var(--primary)')}
-          ${sc('✅ Approval avg.', avgApproval+'%', 'var(--success)')}
-          ${sc('💳 วงเงินใช้ไป', totalUsed+'/'+totalQuota+' M', 'var(--warning)')}
-          ${sc('💸 Rate ต่ำสุด', bestRate.rate+'%', 'var(--success)')}
+          ${sc('🏦 ธนาคาร', bankNames.length+' แห่ง', 'var(--primary)')}
+          ${sc('✅ Approval avg.', configured.length ? avgApproval+'%' : '—', 'var(--success)')}
+          ${sc('💳 วงเงินใช้ไป', totalQuota ? totalUsed+'/'+totalQuota+' M' : '—', 'var(--warning)')}
+          ${sc('💸 Rate ต่ำสุด', bestRate ? bestRate.rate+'%' : '—', 'var(--success)')}
         </div>
 
         <div style="display:grid;grid-template-columns:${sel?'1fr 300px':'1fr'};gap:16px">
           <!-- Bank cards -->
           <div style="display:flex;flex-direction:column;gap:8px">
-            ${BANKS.map(b => {
-              const quotaPct = Math.round(b.used/b.quota*100)
+            ${bankNames.map(name => {
+              const b = infoFor(name)
+              const quotaPct = b && b.quota ? Math.round((b.used||0)/b.quota*100) : 0
               return `
-              <div class="card bank-card" data-id="${b.id}" style="padding:14px;cursor:pointer;border:2px solid ${selBank===b.id?'var(--primary)':'transparent'};transition:border .2s">
+              <div class="card bank-card" data-name="${escHtml(name)}" style="padding:14px;cursor:pointer;border:2px solid ${selBank===name?'var(--primary)':'transparent'};transition:border .2s">
                 <div style="display:flex;align-items:center;gap:12px">
-                  <div style="font-size:1.8rem;width:40px;text-align:center">${b.logo}</div>
+                  <div style="font-size:1.6rem;width:40px;text-align:center">🏦</div>
                   <div style="flex:1">
                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-                      <span style="font-weight:700;font-size:0.9rem">${b.name}</span>
-                      <span style="font-size:0.68rem;color:var(--text-muted)">${b.fullName}</span>
+                      <span style="font-weight:700;font-size:0.9rem">${escHtml(name)}</span>
+                      ${!b ? '<span style="font-size:0.66rem;color:var(--text-muted)">ยังไม่ได้ตั้งค่าข้อมูลความสัมพันธ์</span>' : ''}
                     </div>
-                    <div style="display:flex;gap:14px;font-size:0.72rem;color:var(--text-muted);margin-bottom:5px">
-                      <span>📊 ${b.rate}%/ปี</span>
-                      <span>📅 สูงสุด ${b.maxYr} ปี</span>
-                      <span>💵 Down ${b.minDown}%</span>
-                      <span>✅ Approval ${b.approval}%</span>
-                      <span>⏱ ${b.avgDays} วัน</span>
+                    ${b ? `
+                    <div style="display:flex;gap:14px;font-size:0.72rem;color:var(--text-muted);margin-bottom:5px;flex-wrap:wrap">
+                      ${b.rate ? `<span>📊 ${b.rate}%/ปี</span>` : ''}
+                      ${b.maxYr ? `<span>📅 สูงสุด ${b.maxYr} ปี</span>` : ''}
+                      ${b.minDown != null ? `<span>💵 Down ${b.minDown}%</span>` : ''}
+                      ${b.approval ? `<span>✅ Approval ${b.approval}%</span>` : ''}
+                      ${b.avgDays ? `<span>⏱ ${b.avgDays} วัน</span>` : ''}
                     </div>
-                    <!-- Quota bar -->
+                    ${b.quota ? `
                     <div style="display:flex;align-items:center;gap:8px">
                       <div style="flex:1;height:5px;background:var(--surface-2);border-radius:3px;overflow:hidden">
                         <div style="height:100%;width:${quotaPct}%;background:${quotaPct>=90?'var(--danger)':quotaPct>=70?'var(--warning)':'var(--success)'};border-radius:3px"></div>
                       </div>
-                      <span style="font-size:0.64rem;color:var(--text-muted)">${b.used}/${b.quota}M (${quotaPct}%)</span>
-                    </div>
+                      <span style="font-size:0.64rem;color:var(--text-muted)">${b.used||0}/${b.quota}M (${quotaPct}%)</span>
+                    </div>` : ''}
+                    ` : ''}
                   </div>
-                  <button class="btn btn-xs btn-primary submit-btn" data-id="${b.id}" style="font-size:0.7rem;flex-shrink:0">📤 ยื่น</button>
+                  <button class="btn btn-xs btn-secondary edit-btn" data-name="${escHtml(name)}" style="font-size:0.7rem;flex-shrink:0">${b?'✏️ แก้ไข':'+ ตั้งค่า'}</button>
+                  <button class="btn btn-xs btn-primary submit-btn" data-name="${escHtml(name)}" style="font-size:0.7rem;flex-shrink:0">📤 ยื่น</button>
                 </div>
               </div>`
             }).join('')}
@@ -92,32 +125,32 @@ export default async function BankPartnersPage(container) {
           <div style="display:flex;flex-direction:column;gap:10px">
             ${sel ? `
             <div class="card" style="padding:14px">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-                <div style="font-size:1.5rem">${sel.logo}</div>
-                <div><div style="font-weight:700">${sel.name}</div><div style="font-size:0.7rem;color:var(--text-muted)">${sel.fullName}</div></div>
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px">
+                <div><div style="font-weight:700">${escHtml(selBank)}</div></div>
+                <button class="btn btn-xs btn-danger del-info-btn" data-name="${escHtml(selBank)}">🗑️ ลบ</button>
               </div>
               ${[
-                ['📊 อัตราดอกเบี้ย',sel.rate+'%/ปี'],
-                ['📅 ระยะเวลาสูงสุด',sel.maxYr+' ปี'],
-                ['💵 เงินดาวน์ต่ำสุด',sel.minDown+'%'],
-                ['✅ Approval Rate',sel.approval+'%'],
-                ['⏱ เฉลี่ยวันอนุมัติ',sel.avgDays+' วัน'],
-                ['💳 วงเงินใช้ไป',sel.used+'/'+sel.quota+' ล้าน'],
-                ['📞 ติดต่อ',sel.contact],
+                ['📊 อัตราดอกเบี้ย',(sel.rate||0)+'%/ปี'],
+                ['📅 ระยะเวลาสูงสุด',(sel.maxYr||0)+' ปี'],
+                ['💵 เงินดาวน์ต่ำสุด',(sel.minDown||0)+'%'],
+                ['✅ Approval Rate',(sel.approval||0)+'%'],
+                ['⏱ เฉลี่ยวันอนุมัติ',(sel.avgDays||0)+' วัน'],
+                ['💳 วงเงินใช้ไป',(sel.used||0)+'/'+(sel.quota||0)+' ล้าน'],
+                ['📞 ติดต่อ',escHtml(sel.contact||'—')],
               ].map(([k,v])=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:0.76rem"><span style="color:var(--text-muted)">${k}</span><b>${v}</b></div>`).join('')}
             </div>` : ''}
 
             <div class="card" style="padding:14px">
               <div style="font-size:0.76rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">📋 ใบสมัครล่าสุด</div>
-              ${RECENT_APPS.map(a=>`
+              ${recentApps.length === 0 ? '<div style="text-align:center;color:var(--text-muted);font-size:0.78rem;padding:14px">ยังไม่มีใบสมัคร</div>' : recentApps.map(a=>`
                 <div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:0.74rem">
                   <div style="display:flex;justify-content:space-between;align-items:center">
                     <div>
-                      <div style="font-weight:600">${a.customer} · ${a.model}</div>
-                      <div style="font-size:0.66rem;color:var(--text-muted)">${a.bank} · ${formatCurrency(a.amount)}</div>
+                      <div style="font-weight:600">${escHtml(a.custName)} · ${escHtml(a.vehicle)}</div>
+                      <div style="font-size:0.66rem;color:var(--text-muted)">${escHtml(a.bank)} · ${formatCurrency(a.loanAmount||0)}</div>
                     </div>
-                    <span style="font-size:0.6rem;background:${a.status==='approved'?'var(--success)':a.status==='pending'?'var(--warning)':'var(--danger)'};color:#fff;padding:1px 8px;border-radius:8px">
-                      ${a.status==='approved'?'✅ อนุมัติ':a.status==='pending'?'⏳ รอ':'❌ ปฏิเสธ'}
+                    <span style="font-size:0.6rem;background:${APP_STATUS_COLOR[a.status]||'var(--text-muted)'};color:#fff;padding:1px 8px;border-radius:8px">
+                      ${APP_STATUS_LABEL[a.status] || a.status}
                     </span>
                   </div>
                 </div>`).join('')}
@@ -126,25 +159,88 @@ export default async function BankPartnersPage(container) {
         </div>
       </div>`
 
-    container.querySelectorAll('.bank-card').forEach(el=>el.addEventListener('click',()=>{selBank=selBank===el.dataset.id?null:el.dataset.id;render()}))
+    container.querySelectorAll('.bank-card').forEach(el=>el.addEventListener('click',(e)=>{
+      if (e.target.closest('.edit-btn') || e.target.closest('.submit-btn')) return
+      selBank = selBank===el.dataset.name ? null : el.dataset.name
+      render()
+    }))
+    container.querySelectorAll('.edit-btn').forEach(b=>b.addEventListener('click',e=>{
+      e.stopPropagation()
+      openEditModal(b.dataset.name, infoFor(b.dataset.name))
+    }))
     container.querySelectorAll('.submit-btn').forEach(b=>b.addEventListener('click',e=>{
       e.stopPropagation()
-      const bank=BANKS.find(x=>x.id===b.dataset.id)
-      if(bank) showToast(`📤 เปิดฟอร์มยื่นสินเชื่อ ${bank.name} แล้ว`,'success')
+      showToast(`📤 ไปหน้ายื่นไฟแนนซ์ — เลือกธนาคาร ${b.dataset.name}`, 'success')
+      navigate('/finance/application')
     }))
+    container.querySelector('.del-info-btn')?.addEventListener('click', async e => {
+      const name = e.target.dataset.name
+      const info = infoFor(name)
+      if (!info) return
+      const ok = await confirmDialog({ title: '🗑️ ลบข้อมูลความสัมพันธ์ธนาคาร', message: `ยืนยันลบข้อมูล "${escHtml(name)}"? การลบนี้ไม่สามารถย้อนกลับได้`, confirmText: 'ลบ', danger: true })
+      if (!ok) return
+      await softDelete('bank_partner_info', info.id)
+      showToast('🗑️ ลบข้อมูลแล้ว', 'success')
+      selBank = null
+      await loadData()
+    })
     document.getElementById('compare-btn')?.addEventListener('click',()=>{
+      if (rated.length < 2) return
       openModal({ title:'⚖️ เปรียบเทียบดอกเบี้ย', size:'sm',
         body:`<div style="font-size:0.8rem">
           <table style="width:100%;border-collapse:collapse">
             <thead><tr style="color:var(--text-muted);font-size:0.7rem;border-bottom:1px solid var(--border)">
               <th style="text-align:left;padding:6px">ธนาคาร</th><th style="text-align:right">Rate</th><th style="text-align:right">ปี</th><th style="text-align:right">Approval</th>
             </tr></thead>
-            <tbody>${BANKS.sort((a,b)=>a.rate-b.rate).map(b=>`<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px">${b.logo} ${b.name}</td><td style="text-align:right;font-weight:700;color:var(--success)">${b.rate}%</td><td style="text-align:right">${b.maxYr}</td><td style="text-align:right">${b.approval}%</td></tr>`).join('')}</tbody>
+            <tbody>${[...rated].sort((a,b)=>a.rate-b.rate).map(b=>`<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px">🏦 ${escHtml(b.bankName)}</td><td style="text-align:right;font-weight:700;color:var(--success)">${b.rate}%</td><td style="text-align:right">${b.maxYr||0}</td><td style="text-align:right">${b.approval||0}%</td></tr>`).join('')}</tbody>
           </table>
         </div>`,
         confirmText:'ปิด',
         onConfirm(){}
       })
+    })
+  }
+
+  function openEditModal(bankName, info) {
+    const { el, close } = openModal({
+      title: (info ? '✏️ แก้ไข' : '+ ตั้งค่า') + ' — ' + bankName,
+      size: 'sm',
+      body: `<div style="display:flex;flex-direction:column;gap:10px">
+        <div class="grid-2">
+          <div class="input-group"><label class="input-label">อัตราดอกเบี้ย (%/ปี)</label><input class="input" type="number" step="0.01" id="bp-rate" value="${info?.rate ?? ''}"></div>
+          <div class="input-group"><label class="input-label">ระยะเวลาสูงสุด (ปี)</label><input class="input" type="number" id="bp-maxyr" value="${info?.maxYr ?? ''}"></div>
+        </div>
+        <div class="grid-2">
+          <div class="input-group"><label class="input-label">เงินดาวน์ต่ำสุด (%)</label><input class="input" type="number" id="bp-mindown" value="${info?.minDown ?? ''}"></div>
+          <div class="input-group"><label class="input-label">Approval Rate (%)</label><input class="input" type="number" id="bp-approval" value="${info?.approval ?? ''}"></div>
+        </div>
+        <div class="grid-2">
+          <div class="input-group"><label class="input-label">เฉลี่ยวันอนุมัติ</label><input class="input" type="number" step="0.1" id="bp-avgdays" value="${info?.avgDays ?? ''}"></div>
+          <div class="input-group"><label class="input-label">วงเงิน (ล้านบาท)</label><input class="input" type="number" id="bp-quota" value="${info?.quota ?? ''}"></div>
+        </div>
+        <div class="input-group"><label class="input-label">วงเงินใช้ไป (ล้านบาท)</label><input class="input" type="number" id="bp-used" value="${info?.used ?? ''}"></div>
+        <div class="input-group"><label class="input-label">ผู้ติดต่อ</label><input class="input" id="bp-contact" placeholder="ชื่อ เบอร์โทร" value="${escHtml(info?.contact||'')}"></div>
+      </div>`,
+      footer: `<button class="btn btn-secondary" id="bp-c">ยกเลิก</button><button class="btn btn-primary" id="bp-s">💾 บันทึก</button>`
+    })
+    el.querySelector('#bp-c').addEventListener('click', close)
+    el.querySelector('#bp-s').addEventListener('click', async () => {
+      const data = {
+        bankName,
+        rate: parseFloat(el.querySelector('#bp-rate').value) || 0,
+        maxYr: parseInt(el.querySelector('#bp-maxyr').value) || 0,
+        minDown: parseFloat(el.querySelector('#bp-mindown').value) || 0,
+        approval: parseInt(el.querySelector('#bp-approval').value) || 0,
+        avgDays: parseFloat(el.querySelector('#bp-avgdays').value) || 0,
+        quota: parseInt(el.querySelector('#bp-quota').value) || 0,
+        used: parseInt(el.querySelector('#bp-used').value) || 0,
+        contact: el.querySelector('#bp-contact').value.trim(),
+      }
+      if (info) await updateDocData('bank_partner_info', info.id, data)
+      else await createDoc('bank_partner_info', data)
+      showToast('✅ บันทึกข้อมูลแล้ว', 'success')
+      close()
+      await loadData()
     })
   }
 
@@ -155,5 +251,5 @@ export default async function BankPartnersPage(container) {
     </div>`
   }
 
-  render()
+  await loadData()
 }
