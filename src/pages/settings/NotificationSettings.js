@@ -3,7 +3,8 @@
  * Route: /settings/notifications
  */
 import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
+import { listDocs, createDoc, updateDocData } from '../../core/db.js'
 
 const NOTIF_CHANNELS = {
   inapp:    { label: 'In-App', icon: '🔔', desc: 'แจ้งเตือนในระบบ' },
@@ -31,8 +32,28 @@ const NOTIF_EVENTS = [
 const GROUPS = [...new Set(NOTIF_EVENTS.map(e => e.group))]
 
 export default async function NotificationSettingsPage(container) {
+  const myGen = container.__routerGen
   let settings = Object.fromEntries(NOTIF_EVENTS.map(e => [e.id, { inapp: e.inapp, email: e.email, line: e.line, push: e.push }]))
   let groupFilter = 'all'
+  let settingsDocId = null
+  const uid = (getState('user') || {}).uid || 'anonymous'
+
+  async function loadSettings() {
+    try {
+      const rows = await listDocs('user_settings', [['uid', '==', uid]], 'updatedAt', 'desc', 1)
+      if (rows.length) {
+        settingsDocId = rows[0].id
+        const saved = rows[0].notifSettings || {}
+        settings = Object.fromEntries(NOTIF_EVENTS.map(e => [e.id, {
+          inapp: saved[e.id]?.inapp ?? e.inapp,
+          email: saved[e.id]?.email ?? e.email,
+          line: saved[e.id]?.line ?? e.line,
+          push: saved[e.id]?.push ?? e.push,
+        }]))
+      }
+    } catch { /* ใช้ค่าเริ่มต้นถ้าโหลดไม่สำเร็จ */ }
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
     const list = NOTIF_EVENTS.filter(e => groupFilter === 'all' || e.group === groupFilter)
@@ -110,12 +131,25 @@ export default async function NotificationSettingsPage(container) {
     container.querySelectorAll('.notif-toggle').forEach(cb => cb.addEventListener('change', () => {
       settings[cb.dataset.id][cb.dataset.ch] = cb.checked
     }))
-    document.getElementById('save-settings-btn')?.addEventListener('click', () => {
-      showToast('💾 บันทึกการตั้งค่าแจ้งเตือนแล้ว!', 'success')
+    document.getElementById('save-settings-btn')?.addEventListener('click', async () => {
+      const btn = document.getElementById('save-settings-btn')
+      if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>' }
+      try {
+        if (settingsDocId) {
+          await updateDocData('user_settings', settingsDocId, { uid, notifSettings: settings })
+        } else {
+          settingsDocId = await createDoc('user_settings', { uid, notifSettings: settings })
+        }
+        showToast('💾 บันทึกการตั้งค่าแจ้งเตือนแล้ว!', 'success')
+      } catch {
+        showToast('บันทึกไม่สำเร็จ', 'error')
+      }
+      if (btn) { btn.disabled = false; btn.textContent = '💾 บันทึก' }
     })
   }
 
-  renderPage()
+  container.innerHTML = `<div class="page-content"><div class="skeleton" style="height:400px;border-radius:8px"></div></div>`
+  await loadSettings()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

@@ -2,9 +2,10 @@
  * Repair Estimate — ใบประเมินราคาซ่อม
  * Route: /service/estimate
  */
-import { formatCurrency } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { formatCurrency, formatDate } from '../../utils/format.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { listDocs, createDoc, softDelete } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -26,10 +27,33 @@ const PARTS_CATALOG = [
 ]
 
 export default async function RepairEstimatePage(container) {
+  const myGen = container.__routerGen
   let items = []
   let customer = ''
   let plate = ''
   let discount = 0
+  let pastEstimates = []
+  let loadingPast = true
+
+  async function loadEstimates() {
+    loadingPast = true
+    try { pastEstimates = await listDocs('repair_estimates', [], 'createdAt', 'desc', 100) } catch { pastEstimates = [] }
+    loadingPast = false
+    if (container.__routerGen === myGen) renderPage()
+  }
+
+  function estimateRow(e) {
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:0.78rem">
+      <div>
+        <div style="font-weight:700">${escHtml(e.customer || '-')}${e.plate ? ' · ' + escHtml(e.plate) : ''}</div>
+        <div style="font-size:0.66rem;color:var(--text-muted)">${formatDate(e.createdAt)} · ${(e.items || []).length} รายการ</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <strong style="color:var(--success)">${formatCurrency(e.grand)}</strong>
+        <button class="btn btn-xs btn-secondary del-est-btn" data-id="${e.id}" title="ลบ" style="color:var(--danger)">🗑</button>
+      </div>
+    </div>`
+  }
 
   function renderPage() {
     const partsTotal = items.reduce((a, i) => a + i.price * i.qty, 0)
@@ -110,6 +134,16 @@ export default async function RepairEstimatePage(container) {
             `}
           </div>
         </div>
+
+        <div class="card" style="padding:14px;margin-top:14px">
+          <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">📋 ใบประเมินที่ส่งแล้ว (${pastEstimates.length})</div>
+          ${loadingPast
+            ? '<div class="skeleton" style="height:40px;border-radius:6px"></div>'
+            : pastEstimates.length === 0
+              ? '<div style="text-align:center;color:var(--text-muted);padding:16px;font-size:0.8rem">ยังไม่มีใบประเมินที่ส่ง</div>'
+              : pastEstimates.map(e => estimateRow(e)).join('')
+          }
+        </div>
       </div>
     `
 
@@ -129,15 +163,40 @@ export default async function RepairEstimatePage(container) {
       else items.splice(parseInt(b.dataset.i), 1)
       renderPage()
     }))
-    document.getElementById('send-est-btn')?.addEventListener('click', () => {
+    document.getElementById('send-est-btn')?.addEventListener('click', async () => {
       customer = document.getElementById('est-customer')?.value || customer
       if (!customer) { showToast('❗ กรอกชื่อลูกค้าก่อนส่ง', 'error'); return }
-      showToast(`📤 ส่งใบประเมิน ${formatCurrency(grand)} ให้ ${customer} ทาง LINE — รอลูกค้ากดอนุมัติ`, 'success')
-      items = []; discount = 0; renderPage()
+      const btn = document.getElementById('send-est-btn')
+      if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>' }
+      try {
+        await createDoc('repair_estimates', {
+          customer, plate,
+          items: items.map(i => ({ name: i.name, price: i.price, hours: i.hours, qty: i.qty })),
+          discount, partsTotal, laborHours, laborTotal, subtotal, discountAmt, vat, grand,
+          status: 'sent',
+        })
+        showToast(`📤 ส่งใบประเมิน ${formatCurrency(grand)} ให้ ${customer} ทาง LINE — รอลูกค้ากดอนุมัติ`, 'success')
+        items = []; discount = 0
+        await loadEstimates()
+      } catch {
+        showToast('บันทึกใบประเมินไม่สำเร็จ', 'error')
+        if (btn) { btn.disabled = false; btn.textContent = '📤 ส่งให้ลูกค้าอนุมัติ' }
+      }
     })
+    container.querySelectorAll('.del-est-btn').forEach(b => b.addEventListener('click', async () => {
+      const id = b.dataset.id
+      if (!await confirmDialog({ title: 'ลบใบประเมิน', message: 'ยืนยันลบใบประเมินนี้? ไม่สามารถกู้คืนได้', confirmText: 'ลบ', danger: true })) return
+      try {
+        await softDelete('repair_estimates', id)
+        pastEstimates = pastEstimates.filter(e => e.id !== id)
+        showToast('ลบแล้ว', 'success')
+        renderPage()
+      } catch { showToast('เกิดข้อผิดพลาด', 'error') }
+    }))
   }
 
   renderPage()
+  await loadEstimates()
 }
 
 function sumRow(l, v, c) { return `<div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">${l}</span><span style="${c?'color:var(--'+c+')':''}">${v}</span></div>` }

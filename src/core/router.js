@@ -218,7 +218,8 @@ const routes = {
   // Quality extras
   '/quality/satisfaction': () => import('../pages/quality/CustomerSatisfaction.js'),
   // Settings extras
-  '/settings/activity': () => import('../pages/settings/UserActivity.js'),
+  // UserActivity.js was a hardcoded DEMO_LOGS duplicate of AuditLog.js (Firestore audit_log) — aliased directly, matching the /crm/leads → Customers.js pattern
+  '/settings/activity': () => import('../pages/settings/AuditLog.js'),
   // Service extras
   '/service/charging': () => import('../pages/service/ChargingStation.js'),
   // DMS extras
