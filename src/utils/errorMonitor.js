@@ -1,7 +1,7 @@
 // Client-side error monitoring — จับ error/unhandledrejection ทั่วทั้งแอปอัตโนมัติ
 // บันทึกลง collection 'error_log' ผ่าน core/db.js (ได้ audit trail ฟรีเพราะ createDoc มี hook อยู่แล้ว)
 import { createDoc } from '../core/db.js'
-import { getState } from '../core/store.js'
+import { getState, setState } from '../core/store.js'
 
 const seen = new Map() // signature → last-logged timestamp (ms), กันสแปมถ้า error เดิมเกิดรัวๆ
 const DEDUPE_WINDOW_MS = 15000
@@ -22,6 +22,7 @@ async function logError(message, source, line, col, stack) {
     seen.set(sig, now)
     count++
     const user = getState('user')
+    const shortMsg = String(message || 'Unknown error').slice(0, 120)
     await createDoc('error_log', {
       message: String(message || '').slice(0, 500),
       source: String(source || '').slice(0, 300),
@@ -32,6 +33,14 @@ async function logError(message, source, line, col, stack) {
       userAgent: navigator.userAgent,
       userName: user?.displayName || user?.email || 'unknown',
     })
+    // แจ้งเตือนจริง — ไม่ใช่แค่บันทึกเงียบๆ รอให้เข้าไปดูเอง (ก่อนหน้านี้ error log เป็น passive ล้วนๆ)
+    createDoc('notifications', {
+      type: 'system', title: '🐞 พบ Error ในระบบ',
+      body: `${shortMsg} · หน้า ${location.pathname}`,
+      read: false, link: '/settings/errors',
+    }).then(() => {
+      setState('unreadCount', (getState('unreadCount') || 0) + 1)
+    }).catch(() => {})
   } catch { /* ห้ามให้ error-logger เองพังแอป */ }
 }
 
