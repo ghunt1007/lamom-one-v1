@@ -9,6 +9,10 @@ import { listDocs, createDoc, updateDocData, softDelete } from '../../core/db.js
 import { uploadFile, deleteFile } from '../../utils/storage.js'
 import { analyzeExpenseReceipt } from '../../utils/ai.js'
 
+// ป้องกัน XSS — ข้อมูล vendor/note/staff ฯลฯ มาจากผู้ใช้พิมพ์เอง หรือ AI OCR อ่านจากรูปที่อัปโหลด
+// (ผู้ไม่หวังดีอาจปลอมใบเสร็จให้ AI อ่านค่าที่มี HTML/JS ปนมาได้) ต้อง escape ทุกครั้งก่อนแสดงผล
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
 let RECEIPTS = [
   { id:'R001', staff:'นภา มีสุข', dept:'ฝ่ายขาย', date:'2026-06-12', vendor:'ร้านอาหาร MK Suki', amount:1240, cat:'เลี้ยงรับรองลูกค้า', status:'approved', note:'', confidence:97 },
   { id:'R002', staff:'สมชาย วิเศษ', dept:'ฝ่ายบริการ', date:'2026-06-11', vendor:'บ.น้ำมัน PTT จำกัด', amount:850, cat:'ค่าน้ำมัน', status:'pending', note:'', confidence:94 },
@@ -126,8 +130,8 @@ export default async function ExpenseOcrPage(container) {
           <div style="flex:1">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
               <div>
-                <div style="font-weight:700;font-size:0.84rem">${r.vendor}</div>
-                <div style="font-size:0.7rem;color:var(--text-muted)">${r.staff} · ${r.dept} · ${formatDate(r.date)}</div>
+                <div style="font-weight:700;font-size:0.84rem">${esc(r.vendor)}</div>
+                <div style="font-size:0.7rem;color:var(--text-muted)">${esc(r.staff)} · ${esc(r.dept)} · ${formatDate(r.date)}</div>
               </div>
               <div style="text-align:right">
                 <div style="font-size:1rem;font-weight:900;color:var(--primary)">${formatCurrency(r.amount)}</div>
@@ -135,8 +139,8 @@ export default async function ExpenseOcrPage(container) {
               </div>
             </div>
             <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:8px">
-              🏷 ${r.cat}
-              ${r.note ? ` · ⚠️ ${r.note}` : ''}
+              🏷 ${esc(r.cat)}
+              ${r.note ? ` · ⚠️ ${esc(r.note)}` : ''}
             </div>
             <div style="display:flex;gap:6px">
               <button class="btn btn-xs btn-secondary detail-btn" data-id="${r.id}">🔍 รายละเอียด</button>
@@ -152,33 +156,37 @@ export default async function ExpenseOcrPage(container) {
 
   function openDetailModal(r) {
     const s = ST[r.status]
-    openModal({
-      title: `🧾 ${r.vendor}`,
+    // เฉพาะ URL ที่ขึ้นต้น https:// เท่านั้นที่ปล่อยให้เป็น src ได้ (กัน javascript:/data: URI แปลกๆ ที่แอบปนมากับข้อมูล)
+    const safeImageUrl = /^https:\/\//i.test(r.imageUrl || '') ? r.imageUrl : ''
+    const { el } = openModal({
+      title: `🧾 ${esc(r.vendor)}`,
       size: 'sm',
       body: `
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:0.76rem;margin-bottom:12px">
-          ${[['พนักงาน',r.staff],['แผนก',r.dept],['วันที่',formatDate(r.date)],['หมวด',r.cat],['จำนวนเงิน',formatCurrency(r.amount)],['AI Confidence',r.confidence+'%']].map(([k,v])=>`
+          ${[['พนักงาน',esc(r.staff)],['แผนก',esc(r.dept)],['วันที่',formatDate(r.date)],['หมวด',esc(r.cat)],['จำนวนเงิน',formatCurrency(r.amount)],['AI Confidence',r.confidence+'%']].map(([k,v])=>`
             <div style="background:var(--surface-2);padding:6px 8px;border-radius:var(--radius-sm)">
               <div style="font-size:0.62rem;color:var(--text-muted)">${k}</div>
               <div style="font-weight:600">${v}</div>
             </div>`).join('')}
         </div>
         <div style="background:var(--surface-2);border-radius:var(--radius-sm);padding:10px;text-align:center;font-size:0.72rem;color:var(--text-muted);margin-bottom:10px">
-          ${r.imageUrl
-            ? `<img src="${r.imageUrl}" style="max-width:100%;max-height:180px;border-radius:6px;cursor:pointer" onclick="window.open('${r.imageUrl}','_blank')">`
+          ${safeImageUrl
+            ? `<img id="rc-detail-img" src="${esc(safeImageUrl)}" style="max-width:100%;max-height:180px;border-radius:6px;cursor:pointer">`
             : `📷 ไม่มีภาพแนบ<br><span style="font-size:1.5rem">🧾</span>`}
         </div>
         <div style="font-size:0.72rem"><b>สถานะ:</b> <span style="background:${s.color};color:#fff;padding:1px 8px;border-radius:8px">${s.label}</span></div>
-        ${r.note ? `<div style="font-size:0.72rem;color:var(--danger);margin-top:6px">⚠️ ${r.note}</div>` : ''}`,
+        ${r.note ? `<div style="font-size:0.72rem;color:var(--danger);margin-top:6px">⚠️ ${esc(r.note)}</div>` : ''}`,
       confirmText: r.status==='pending' ? '✅ อนุมัติ' : '💾 OK',
       onConfirm() {
         if (r.status==='pending') {
           r.status='approved'
           if (r._persisted) updateDocData('expense_receipts', r.id, { status: 'approved' }).catch(() => {})
-          render(); showToast(`✅ อนุมัติ ${r.vendor} แล้ว`,'success')
+          render(); showToast(`✅ อนุมัติ ${esc(r.vendor)} แล้ว`,'success')
         }
       }
     })
+    // ใช้ addEventListener แทน inline onclick — กัน XSS จาก imageUrl ที่มีเครื่องหมาย ' ปนมา
+    el.querySelector('#rc-detail-img')?.addEventListener('click', () => window.open(safeImageUrl, '_blank'))
   }
 
   function openScanModal() {

@@ -95,7 +95,10 @@ async function loadUserProfile(firebaseUser) {
       } catch {
         // meta read failed — default to staff
       }
-      const role = isFirstUser ? 'owner' : 'staff'
+      // ผู้ใช้คนแรกของระบบ (ยังไม่มี meta/init) ได้เป็น owner โดยอัตโนมัติเพื่อ bootstrap
+      // ส่วนคนที่สมัครถัดมาทุกคนต้องรอแอดมินอนุมัติสิทธิ์ก่อน (role: 'pending')
+      // ป้องกันคนแปลกหน้าสมัครแล้วได้สิทธิ์ staff เข้าถึงข้อมูลลูกค้า/การเงินทันที
+      const role = isFirstUser ? 'owner' : 'pending'
       const permissions = isFirstUser ? ['*'] : []
       const newProfile = {
         uid: firebaseUser.uid,
@@ -103,6 +106,7 @@ async function loadUserProfile(firebaseUser) {
         displayName: firebaseUser.displayName || firebaseUser.email,
         role,
         permissions,
+        active: isFirstUser ? true : false,
         createdAt: serverTimestamp(),
       }
       await setDoc(doc(db, 'users', firebaseUser.uid), newProfile)
@@ -112,10 +116,15 @@ async function loadUserProfile(firebaseUser) {
           ownerEmail: firebaseUser.email,
           createdAt: serverTimestamp(),
         })
+        setUser(newProfile)
+        setState('role', role)
+        setState('permissions', permissions)
+      } else {
+        await signOut(auth)
+        setUser(null)
+        showToast('สร้างบัญชีสำเร็จ — กรุณารอผู้ดูแลระบบอนุมัติสิทธิ์ก่อนเข้าใช้งาน', 'warning', 8000)
+        navigate('/login')
       }
-      setUser(newProfile)
-      setState('role', role)
-      setState('permissions', permissions)
     }
   } catch (e) {
     console.error('loadUserProfile error:', e)

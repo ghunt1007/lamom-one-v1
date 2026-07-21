@@ -51,6 +51,11 @@ service cloud.firestore {
       return isSignedIn() && userRole() in ['owner', 'admin', 'manager', 'sales'];
     }
 
+    // ระบบยังไม่มีผู้ใช้คนแรก (ยังไม่มี meta/init) — ใช้ตอน bootstrap owner คนแรกเท่านั้น
+    function isBootstrapping() {
+      return !exists(/databases/$(database)/documents/meta/init);
+    }
+
     // ── Meta / System Init ────────────────────────────────────────────────────
     // Any signed-in user can read (to detect first-user scenario)
     // Any signed-in user can create init doc (first-time bootstrap)
@@ -72,9 +77,17 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if isSignedIn() && (uid() == userId || isAdmin());
-      // Allow self-create: first-login bootstrap
-      allow create: if isAdmin() || (isSignedIn() && uid() == userId);
-      allow update: if isSignedIn() && (uid() == userId || isAdmin());
+      // Self-create only allowed as the very first owner (bootstrap, no meta/init yet)
+      // or as a 'pending' account awaiting admin approval — never with a privileged role.
+      // ป้องกัน privilege escalation: ผู้ใช้ทั่วไปสร้าง/แก้ profile ตัวเองให้เป็น owner/admin เองไม่ได้
+      allow create: if isAdmin()
+        || (isSignedIn() && uid() == userId && isBootstrapping() && request.resource.data.role == 'owner')
+        || (isSignedIn() && uid() == userId && !isBootstrapping() && request.resource.data.role == 'pending');
+      // ผู้ใช้แก้ไข field ตัวเองได้ (เช่น displayName) แต่ห้ามแก้ role/permissions/active เองเด็ดขาด
+      // ต้องให้ admin เป็นคนเปลี่ยนสิทธิ์เท่านั้น
+      allow update: if isAdmin()
+        || (isSignedIn() && uid() == userId
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'permissions', 'active']));
       allow delete: if isOwner();
     }
 
@@ -85,7 +98,10 @@ service cloud.firestore {
     }
 
     // ── Audit Logs — immutable once written ──────────────────────────────────
-    match /auditLogs/{docId} {
+    // ชื่อ collection จริงคือ audit_log (ไม่ใช่ auditLogs) — เดิม rule นี้ไม่มีผลจริงเลย
+    // เพราะชื่อไม่ตรงกับที่ src/core/db.js เขียนจริง เลยตกไปใช้ default rule ท้ายไฟล์
+    // ซึ่งอนุญาตให้ staff แก้ไข/ลบได้ — ทำลายหลักฐาน audit ได้ ตอนนี้แก้ให้ตรงชื่อจริงแล้ว
+    match /audit_log/{docId} {
       allow read: if isAdmin();
       allow create: if isStaff();
       allow update, delete: if false;
@@ -314,6 +330,73 @@ service cloud.firestore {
     match /legal_references/{docId} {
       allow read: if isStaff();
       allow write: if isManager();
+    }
+
+    // ── Shared reference data & org-wide settings — admin manages ────────────
+    match /master_data/{docId} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    match /company_profile/{docId} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    match /whitelabel_settings/{docId} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    match /sms_otp_settings/{docId} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    // ── Finance-adjacent config — finance role manages ────────────────────────
+    match /bank_partner_info/{docId} {
+      allow read, write: if isFinance();
+    }
+
+    match /insurance_rate_cards/{docId} {
+      allow read, write: if isFinance() || isManager();
+    }
+
+    match /insurance_proposals/{docId} {
+      allow read, write: if isStaff();
+    }
+
+    match /payment_transactions/{docId} {
+      allow read, write: if isStaff();
+    }
+
+    match /installment_plans/{docId} {
+      allow read, write: if isStaff();
+    }
+
+    match /charging_sessions/{docId} {
+      allow read, write: if isStaff();
+    }
+
+    // ── Gamification (game-integrity only, not real money — staff-writable) ──
+    match /gamification_events/{docId} {
+      allow read, write: if isStaff();
+    }
+
+    match /staff_points/{docId} {
+      allow read, write: if isStaff();
+    }
+
+    // ── AI Officer chat history — private per user ────────────────────────────
+    match /ai_officer_chats/{docId} {
+      allow read, update, delete: if isSignedIn() && resource.data.get('userId', '') == uid();
+      allow create: if isStaff() && request.resource.data.get('userId', '') == uid();
+    }
+
+    // ── Client-side error monitoring — anyone signed in can report, only staff manage ──
+    match /error_log/{docId} {
+      allow read, update, delete: if isStaff();
+      allow create: if isSignedIn();
     }
 
     // ── Default: any other collection requires staff auth ────────────────────

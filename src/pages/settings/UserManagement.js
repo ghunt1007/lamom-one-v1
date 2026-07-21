@@ -74,11 +74,17 @@ export default async function UserManagementPage(container) {
           </div>
         </div>
 
-        <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
+        <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('👥 ผู้ใช้ทั้งหมด', users.length, 'primary')}
-          ${kpi('✅ ใช้งานอยู่', users.filter(u=>u.active !== false).length, 'success')}
+          ${kpi('✅ ใช้งานอยู่', users.filter(u=>u.active !== false && u.role !== 'pending').length, 'success')}
+          ${kpi('⏳ รออนุมัติสิทธิ์', users.filter(u=>u.role === 'pending').length, users.filter(u=>u.role==='pending').length ? 'warning' : 'secondary')}
           ${kpi('⛔ ถูกระงับ', users.filter(u=>u.active === false).length, 'secondary')}
         </div>
+        ${users.some(u=>u.role==='pending') ? `
+          <div style="padding:10px 14px;background:var(--warning)11;border:1px solid var(--warning)33;border-radius:var(--radius);margin-bottom:12px;font-size:0.78rem">
+            ⏳ มีผู้สมัครใหม่ ${users.filter(u=>u.role==='pending').length} คนรอกำหนดสิทธิ์ — กด "✏️ กำหนดสิทธิ์" ที่แถวนั้นเพื่ออนุมัติ
+          </div>
+        ` : ''}
 
         ${!canCreateUsers ? `
           <div style="padding:10px 14px;background:var(--warning)11;border:1px solid var(--warning)33;border-radius:var(--radius);margin-bottom:12px;font-size:0.78rem">
@@ -108,22 +114,24 @@ export default async function UserManagementPage(container) {
               </thead>
               <tbody>
                 ${users.map(u => {
+                  const isPending = u.role === 'pending'
                   const r = ROLES[u.role] || {}
-                  const active = u.active !== false
+                  const active = u.active !== false && !isPending
                   const iManage = canCreate(myRole, u.role)
                   return `<tr style="border-bottom:1px solid var(--border);font-size:0.8rem${active?'':';opacity:0.5'}">
                     <td style="padding:8px 14px">
                       <div style="font-weight:600">${esc(u.displayName || u.email)}</div>
                       <div style="font-size:0.65rem;color:var(--text-muted)">${esc(u.email)} · สร้างเมื่อ ${u.createdAt ? formatDate(u.createdAt) : '-'}</div>
                     </td>
-                    <td style="padding:8px 10px;text-align:center"><span class="badge badge-secondary" style="font-size:0.62rem">${r.icon||''} ${r.label||u.role}</span></td>
+                    <td style="padding:8px 10px;text-align:center">${isPending ? '<span class="badge badge-warning" style="font-size:0.62rem">⏳ รอกำหนดสิทธิ์</span>' : `<span class="badge badge-secondary" style="font-size:0.62rem">${r.icon||''} ${r.label||u.role}</span>`}</td>
                     <td style="padding:8px 10px;text-align:center">
-                      ${active ? '<span class="badge badge-success" style="font-size:0.6rem">✅ ใช้งาน</span>' : '<span class="badge badge-danger" style="font-size:0.6rem">⛔ ระงับ</span>'}
+                      ${isPending ? '<span class="badge badge-warning" style="font-size:0.6rem">⏳ สมัครใหม่</span>' : active ? '<span class="badge badge-success" style="font-size:0.6rem">✅ ใช้งาน</span>' : '<span class="badge badge-danger" style="font-size:0.6rem">⛔ ระงับ</span>'}
                     </td>
                     <td style="padding:8px 14px;text-align:right;white-space:nowrap">
                       ${iManage ? `
+                        ${isPending ? `<button class="btn btn-xs btn-primary setrole-btn" data-uid="${u.id}" data-name="${esc(u.displayName || u.email)}">✏️ กำหนดสิทธิ์</button>` : ''}
                         <button class="btn btn-xs btn-warning resetpw-btn" data-uid="${u.id}" data-email="${esc(u.email)}">🔑 รีเซ็ตรหัส</button>
-                        <button class="btn btn-xs ${active?'btn-danger':'btn-success'} toggle-btn" data-uid="${u.id}" data-active="${active}">${active?'⛔ ระงับ':'✅ เปิด'}</button>
+                        ${!isPending ? `<button class="btn btn-xs ${active?'btn-danger':'btn-success'} toggle-btn" data-uid="${u.id}" data-active="${active}">${active?'⛔ ระงับ':'✅ เปิด'}</button>` : ''}
                       ` : '<span style="font-size:0.62rem;color:var(--text-muted)">🔒 ระดับสูงกว่า/เท่าคุณ</span>'}
                     </td>
                   </tr>`
@@ -150,6 +158,7 @@ export default async function UserManagementPage(container) {
     `
 
     document.getElementById('add-user-btn')?.addEventListener('click', openCreateForm)
+    container.querySelectorAll('.setrole-btn').forEach(b => b.addEventListener('click', () => openAssignRoleForm(b.dataset.uid, b.dataset.name)))
     container.querySelectorAll('.resetpw-btn').forEach(b => b.addEventListener('click', () => confirmResetPw(b.dataset.email)))
     container.querySelectorAll('.toggle-btn').forEach(b => b.addEventListener('click', async () => {
       const nowActive = b.dataset.active !== 'true'
@@ -208,6 +217,29 @@ export default async function UserManagementPage(container) {
         const el = document.getElementById('nu-password'); if (el) el.value = genPassword()
       })
     }, 100)
+  }
+
+  function openAssignRoleForm(uid, name) {
+    const creatable = Object.entries(ROLES).filter(([k]) => canCreate(myRole, k))
+    openModal({
+      title: `✏️ กำหนดสิทธิ์ให้ ${esc(name)}`,
+      size: 'sm',
+      body: `<div class="input-group">
+        <label class="input-label">ระดับสิทธิ์ *</label>
+        <select class="input" id="ar-role">${creatable.map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+        <p style="font-size:0.68rem;color:var(--text-muted);margin-top:6px">อนุมัติแล้วผู้ใช้จะเข้าใช้งานระบบได้ทันทีตามสิทธิ์ที่เลือก</p>
+      </div>`,
+      confirmText: '✅ อนุมัติสิทธิ์',
+      async onConfirm() {
+        const role = document.getElementById('ar-role')?.value
+        if (!canCreate(myRole, role)) { showToast('❗ คุณไม่มีสิทธิ์กำหนดระดับนี้', 'error'); return false }
+        try {
+          await updateDocData('users', uid, { role, active: true })
+          showToast(`✅ กำหนดสิทธิ์ ${ROLES[role]?.label} ให้ ${name} แล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      }
+    })
   }
 
   async function confirmResetPw(email) {
