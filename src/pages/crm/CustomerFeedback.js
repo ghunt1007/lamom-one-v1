@@ -46,8 +46,10 @@ export default async function CustomerFeedbackPage(container) {
     const bookings = await listDocs('bookings', [], 'createdAt', 'desc', 300).catch(() => [])
     if (container.__routerGen !== myGen) return
     const delivered = bookings.filter(b => b.status === 'ส่งมอบแล้ว')
+    // แสดงเฉพาะ Feedback จริงเมื่อมีจริง — ห้ามเอา DEMO_FEEDBACK มาปนกับข้อมูลจริง
+    // (ป้ายกำกับ "รวมจากใบจองจริง" ต้องเป็นจริงตามที่บอก — DEMO_FEEDBACK ใช้เป็นตัวอย่างก็ต่อเมื่อยังไม่มีใบจองที่ส่งมอบแล้วเลย)
     if (delivered.length) {
-      const pending = delivered.map(b => ({
+      feedbacks = delivered.map(b => ({
         id: 'FB-' + b.id, type: 'csat',
         customerId: b.id, customerName: b.custName || 'ลูกค้า',
         phone: b.custPhone || '', department: 'delivery',
@@ -55,7 +57,6 @@ export default async function CustomerFeedbackPage(container) {
         date: (b.actualDeliveryDate || b.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString()).slice(0, 10),
         salesperson: b.salesName || '', responded: false, response: '', pending: true, _live: true,
       }))
-      feedbacks = [...pending, ...DEMO_FEEDBACK]
       dataSource = 'live'
     }
   } catch {}
@@ -80,7 +81,7 @@ export default async function CustomerFeedbackPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">💬 Customer Feedback</div>
-            <div class="page-subtitle">CSAT / NPS / รีวิว / แบบสอบถาม${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● รวมจากใบจองจริง</span>' : ''}</div>
+            <div class="page-subtitle">CSAT / NPS / รีวิว / แบบสอบถาม${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง (รอให้คะแนนหลังส่งมอบ)</span>' : ' <span style="color:var(--warning);font-size:0.75rem">● ตัวอย่างข้อมูล — ยังไม่มีใบจองที่ส่งมอบแล้ว</span>'}</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="export-btn">📥 Export</button>

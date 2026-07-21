@@ -40,26 +40,26 @@ export default async function StockValuationPage(container) {
   let branchFilter = 'all'
   let sortBy = 'daysInStock'
   let viewMode = 'table' // table | summary
-  let stock = [...DEMO_STOCK]
+  let stock = DEMO_STOCK
   let dataSource = 'demo'
 
   try {
     const vehicles = await listDocs('vehicles', [], 'createdAt', 'desc', 500).catch(() => [])
     if (container.__routerGen !== myGen) return
-    if (vehicles.length >= 2) {
-      const live = vehicles.map(v => ({
-        id: v.id, vin: v.vin || '', plate: v.plate || '',
-        brand: v.brand || '', model: v.model || '', year: v.year || new Date().getFullYear(),
-        color: v.color || '', cost: v.cost || v.purchasePrice || 0,
-        listPrice: v.listPrice || v.salePrice || v.cost || 0,
-        status: v.status || 'available', branch: v.branch || v.location || 'สำนักงานใหญ่',
-        stockDate: (v.stockDate || v.arrivedDate || v.createdAt?.toDate?.()?.toISOString() || new Date().toISOString()).slice(0, 10),
-        mileage: v.mileage || 0, notes: v.notes || '', _live: true,
-      })).filter(v => v.brand || v.model)
-      if (live.length) {
-        stock = [...live, ...DEMO_STOCK]
-        dataSource = 'live'
-      }
+    const live = vehicles.map(v => ({
+      id: v.id, vin: v.vin || '', plate: v.plate || '',
+      brand: v.brand || '', model: v.model || '', year: v.year || new Date().getFullYear(),
+      color: v.color || '', cost: v.cost || v.purchasePrice || 0,
+      listPrice: v.listPrice || v.salePrice || v.cost || 0,
+      status: v.status || 'available', branch: v.branch || v.location || 'สำนักงานใหญ่',
+      stockDate: (v.stockDate || v.arrivedDate || v.createdAt?.toDate?.()?.toISOString() || new Date().toISOString()).slice(0, 10),
+      mileage: v.mileage || 0, notes: v.notes || '', _live: true,
+    })).filter(v => v.brand || v.model)
+    // แสดงเฉพาะข้อมูลจริงเมื่อมีจริง — ห้ามเอาข้อมูลตัวอย่าง (DEMO_STOCK) มาปนกับตัวเลขจริง
+    // DEMO_STOCK ใช้เป็น placeholder ก็ต่อเมื่อยังไม่มีรถในสต็อกจริงเลยเท่านั้น
+    if (live.length) {
+      stock = live
+      dataSource = 'live'
     }
   } catch {}
 
@@ -105,7 +105,7 @@ export default async function StockValuationPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">📦 Stock Valuation</div>
-            <div class="page-subtitle">มูลค่าสินค้าคงคลัง — รถยนต์ในสต็อก${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">มูลค่าสินค้าคงคลัง — รถยนต์ในสต็อก${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ' <span style="color:var(--warning);font-size:0.75rem">● ตัวอย่างข้อมูล — ยังไม่มีรถในสต็อกจริง</span>'}</div>
           </div>
           <div class="page-actions">
             <div style="display:flex;gap:6px">
@@ -129,7 +129,7 @@ export default async function StockValuationPage(container) {
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
           <select class="input" id="brand-filter" style="width:120px">
             <option value="all">แบรนด์ทั้งหมด</option>
-            ${[...new Set(DEMO_STOCK.map(s=>s.brand))].map(b => `<option value="${b}" ${brandFilter===b?'selected':''}>${b}</option>`).join('')}
+            ${[...new Set(stock.map(s=>s.brand))].map(b => `<option value="${b}" ${brandFilter===b?'selected':''}>${b}</option>`).join('')}
           </select>
           <select class="input" id="status-filter" style="width:130px">
             <option value="all">สถานะทั้งหมด</option>
@@ -285,8 +285,8 @@ export default async function StockValuationPage(container) {
             <div style="font-weight:700;font-size:0.9rem;margin-bottom:12px">📋 สถานะสต็อก</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
               ${Object.entries(STATUS_MAP).map(([k, v]) => {
-                const cnt = DEMO_STOCK.filter(s => s.status === k).length
-                const val = DEMO_STOCK.filter(s => s.status === k).reduce((a,s)=>a+s.cost,0)
+                const cnt = stock.filter(s => s.status === k).length
+                const val = stock.filter(s => s.status === k).reduce((a,s)=>a+s.cost,0)
                 return `<div style="padding:10px;background:var(--surface-2);border-radius:var(--radius-sm);border-left:3px solid var(--${v.color})">
                   <div style="font-size:0.72rem;color:var(--text-muted)">${v.label}</div>
                   <div style="font-weight:800;font-size:1.1rem;color:var(--${v.color})">${cnt}</div>

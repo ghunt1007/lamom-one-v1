@@ -1,5 +1,6 @@
 import { showToast } from '../../core/store.js'
-import { openModal, confirmDialog } from '../../utils/modal.js'
+import { navigate } from '../../core/router.js'
+import { listDocs, createDoc, updateDocData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -21,34 +22,37 @@ const COMPANY_DEFAULTS = {
   footerNote: 'ขอบคุณที่ไว้วางใจ LAMOM AUTO — บริการด้วยใจ',
 }
 
-const BRANCH_DEFAULTS = [
-  { id:'b1', name:'สาขาหลัก (กรุงเทพ)', phone:'02-123-4567', address:'123 ถนนพระราม 9 กรุงเทพฯ', manager:'ทวีศักดิ์ สุขสมบัติเสถียร', isMain:true },
-  { id:'b2', name:'สาขาเชียงใหม่', phone:'053-111-222', address:'456 ถ.นิมมานเหมินท์ เชียงใหม่', manager:'สมชาย ใจดี', isMain:false },
-  { id:'b3', name:'สาขาขอนแก่น', phone:'043-333-444', address:'789 ถ.มิตรภาพ ขอนแก่น', manager:'วิชัย รักงาน', isMain:false },
-]
+// เก็บใน Firestore collection เดียว doc เดียว ('company_profile') → sync ข้ามอุปกรณ์จริง
+// (เดิมเก็บใน localStorage เครื่องเดียว ทำให้พนักงาน 2 เครื่องเห็นข้อมูลไม่ตรงกัน)
+// นี่คือ "โปรไฟล์บริษัทเดี่ยว" (ชื่อ/ที่อยู่/โซเชียล/ส่วนหัวเอกสาร) — คนละแนวคิดกับ BranchSettings.js
+// ซึ่งจัดการ "รายการหลายสาขา" — เดิมหน้านี้มีแท็บจัดการสาขาซ้ำซ้อนกับ BranchSettings.js (คนละ store กัน
+// ทำให้ข้อมูลสาขาไม่ตรงกัน 2 ที่) จึงตัดแท็บสาขาออก เหลือเป็นลิงก์พาไปหน้าจัดการสาขาจริงแทน
+let _docId = null
 
-function loadCompany() {
-  let saved; try { saved = JSON.parse(localStorage.getItem('lamom-company') || '{}') } catch { saved = {} }
-  return { ...COMPANY_DEFAULTS, ...saved }
-}
-function saveCompany(d) {
-  try { localStorage.setItem('lamom-company', JSON.stringify(d)) } catch {}
-}
-function loadBranches() {
+async function loadCompany() {
   try {
-    const raw = localStorage.getItem('lamom-branches')
-    return raw ? JSON.parse(raw) : [...BRANCH_DEFAULTS]
-  } catch { return [...BRANCH_DEFAULTS] }
-}
-function saveBranches(b) {
-  try { localStorage.setItem('lamom-branches', JSON.stringify(b)) } catch {}
+    const docs = await listDocs('company_profile', [], 'createdAt', 'asc', 10)
+    if (docs.length > 0) {
+      _docId = docs[0].id
+      return { ...COMPANY_DEFAULTS, ...docs[0] }
+    }
+    _docId = await createDoc('company_profile', COMPANY_DEFAULTS)
+    return { ...COMPANY_DEFAULTS }
+  } catch (e) {
+    return { ...COMPANY_DEFAULTS }
+  }
 }
 
-export default function CompanyPage(container) {
+async function saveCompany(d) {
+  if (!_docId) { try { _docId = await createDoc('company_profile', d) } catch (e) { return } ; return }
+  try { await updateDocData('company_profile', _docId, d) } catch (e) {}
+}
+
+export default async function CompanyPage(container) {
   const myGen = container.__routerGen
   let activeTab = 'info'
-  let data = loadCompany()
-  let branches = loadBranches()
+  let data = await loadCompany()
+  if (container.__routerGen !== myGen) return
 
   function renderPage() {
     container.innerHTML = `
@@ -76,7 +80,7 @@ export default function CompanyPage(container) {
 
     const body = document.getElementById('co-body')
     if (activeTab === 'info') renderInfo(body)
-    else if (activeTab === 'branches') renderBranches(body)
+    else if (activeTab === 'branches') renderBranchesRedirect(body)
     else renderDocHeader(body)
   }
 
@@ -130,7 +134,7 @@ export default function CompanyPage(container) {
         </div>
       </div>
     `
-    document.getElementById('save-info-btn').addEventListener('click', () => {
+    document.getElementById('save-info-btn').addEventListener('click', async () => {
       data = {
         ...data,
         name: document.getElementById('co-name').value,
@@ -144,88 +148,29 @@ export default function CompanyPage(container) {
         facebook: document.getElementById('co-fb').value,
         brand: document.getElementById('co-brand').value,
       }
-      saveCompany(data)
+      await saveCompany(data)
+      if (container.__routerGen !== myGen) return
       showToast('✅ บันทึกข้อมูลบริษัทแล้ว', 'success')
       renderPage()
     })
   }
 
-  function renderBranches(el) {
+  // จัดการรายชื่อหลายสาขาซ้ำซ้อนกับ BranchSettings.js (Firestore จริง /settings/branches)
+  // เพื่อไม่ให้มีข้อมูลสาขา 2 ชุดที่ไม่ตรงกัน หน้านี้จึงพาไปหน้าจัดการสาขาจริงแทน
+  function renderBranchesRedirect(el) {
     el.innerHTML = `
-      <div style="max-width:780px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-          <div style="font-size:0.85rem;color:var(--text-muted)">${branches.length} สาขา</div>
-          <button class="btn btn-primary btn-sm" id="add-branch-btn">➕ เพิ่มสาขา</button>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:10px" id="branch-list">
-          ${branches.map(b => `
-            <div class="card card-lift" style="padding:14px 18px;border-left:3px solid var(--${b.isMain?'warning':'primary'})">
-              <div style="display:flex;justify-content:space-between;align-items:flex-start">
-                <div>
-                  <div style="font-weight:700;font-size:0.88rem">${b.isMain?'⭐ ':'🏪 '}${b.name}</div>
-                  <div style="font-size:0.74rem;color:var(--text-muted);margin-top:4px">📞 ${b.phone} · 👤 ${b.manager}</div>
-                  <div style="font-size:0.73rem;color:var(--text-muted);margin-top:2px">📍 ${b.address}</div>
-                </div>
-                <div style="display:flex;gap:6px">
-                  <button class="btn btn-secondary btn-sm edit-branch" data-id="${b.id}">✏️</button>
-                  ${!b.isMain ? `<button class="btn btn-danger btn-sm del-branch" data-id="${b.id}">🗑</button>` : ''}
-                </div>
-              </div>
-            </div>
-          `).join('')}
+      <div style="max-width:520px">
+        <div class="card hub-link-card" id="go-branches" style="padding:22px;cursor:pointer;transition:transform .15s">
+          <div style="font-size:1.8rem;margin-bottom:8px">🏪</div>
+          <div style="font-weight:700;margin-bottom:4px">จัดการสาขาทั้งหมด</div>
+          <div style="font-size:0.78rem;color:var(--text-muted)">การจัดการหลายสาขาย้ายไปอยู่ที่หน้า Multi-Branch Settings แล้ว (ข้อมูลจริงจาก Firestore) — กดเพื่อไปที่หน้านั้น</div>
         </div>
       </div>
     `
-    document.getElementById('add-branch-btn').addEventListener('click', () => openBranchModal(null))
-    el.querySelectorAll('.edit-branch').forEach(b => b.addEventListener('click', () => {
-      const br = branches.find(x => x.id === b.dataset.id)
-      if (br) openBranchModal(br)
-    }))
-    el.querySelectorAll('.del-branch').forEach(b => b.addEventListener('click', async () => {
-      const br = branches.find(x => x.id === b.dataset.id)
-      const ok = await confirmDialog({ title:'🗑 ลบสาขา', message:`ลบ "${br.name}" ออกจากระบบ?`, confirmText:'ลบ', danger:true })
-      if (!ok) return
-      branches = branches.filter(x => x.id !== b.dataset.id)
-      saveBranches(branches); showToast('🗑 ลบสาขาแล้ว', 'warning')
-      if (container.__routerGen !== myGen) return
-      renderPage()
-    }))
-  }
-
-  function openBranchModal(br) {
-    const isEdit = !!br
-    openModal({
-      title: isEdit ? '✏️ แก้ไขสาขา' : '➕ เพิ่มสาขาใหม่',
-      size: 'md',
-      body: `
-        <div style="display:flex;flex-direction:column;gap:10px">
-          <div class="input-group"><label class="input-label">ชื่อสาขา</label><input class="input" id="br-name" value="${br?.name||''}" placeholder="เช่น สาขากรุงเทพ"></div>
-          <div class="input-group"><label class="input-label">โทรศัพท์</label><input class="input" id="br-phone" value="${br?.phone||''}"></div>
-          <div class="input-group"><label class="input-label">ที่อยู่</label><textarea class="input" id="br-addr" rows="2">${escHtml(br?.address||'')}</textarea></div>
-          <div class="input-group"><label class="input-label">ผู้จัดการสาขา</label><input class="input" id="br-mgr" value="${br?.manager||''}"></div>
-        </div>
-      `,
-      footer: `<button class="btn btn-secondary" onclick="document.querySelector('.modal-overlay').remove()">ยกเลิก</button>
-               <button class="btn btn-primary" id="br-save">💾 บันทึก</button>`
-    })
-    document.getElementById('br-save').addEventListener('click', () => {
-      const name = document.getElementById('br-name').value.trim()
-      if (!name) { showToast('⚠️ กรุณากรอกชื่อสาขา', 'warning'); return }
-      const updated = {
-        id: br?.id || 'b'+Date.now(),
-        name,
-        phone: document.getElementById('br-phone').value.trim(),
-        address: document.getElementById('br-addr').value.trim(),
-        manager: document.getElementById('br-mgr').value.trim(),
-        isMain: br?.isMain || false
-      }
-      if (isEdit) branches = branches.map(x => x.id === updated.id ? updated : x)
-      else branches.push(updated)
-      saveBranches(branches)
-      document.querySelector('.modal-overlay')?.remove()
-      showToast(isEdit ? '✅ แก้ไขสาขาแล้ว' : '✅ เพิ่มสาขาแล้ว', 'success')
-      renderPage()
-    })
+    const card = document.getElementById('go-branches')
+    card.addEventListener('click', () => navigate('/settings/branches'))
+    card.addEventListener('mouseenter', () => { card.style.transform = 'translateY(-2px)' })
+    card.addEventListener('mouseleave', () => { card.style.transform = '' })
   }
 
   function renderDocHeader(el) {
@@ -287,13 +232,14 @@ export default function CompanyPage(container) {
     document.getElementById('logo-text').addEventListener('input', syncPreview)
     colorHex.addEventListener('change', () => { colorPicker.value = colorHex.value; syncPreview() })
 
-    document.getElementById('save-header-btn').addEventListener('click', () => {
+    document.getElementById('save-header-btn').addEventListener('click', async () => {
       data = { ...data,
         logoText: document.getElementById('logo-text').value.trim(),
         logoColor: document.getElementById('logo-color').value,
         footerNote: document.getElementById('doc-footer').value.trim(),
       }
-      saveCompany(data)
+      await saveCompany(data)
+      if (container.__routerGen !== myGen) return
       showToast('✅ บันทึกการตั้งค่าเอกสารแล้ว', 'success')
     })
   }

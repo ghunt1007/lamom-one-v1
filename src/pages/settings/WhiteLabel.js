@@ -1,5 +1,6 @@
 import { showToast } from '../../core/store.js'
 import { openModal } from '../../utils/modal.js'
+import { listDocs, createDoc, updateDocData } from '../../core/db.js'
 
 const THEMES = [
   { id: 'default', name: 'LAMOM Purple', primary: '#6c63ff', accent: '#f857a6', bg: '#0f0f1a' },
@@ -10,19 +11,43 @@ const THEMES = [
   { id: 'slate',   name: 'Slate Gray',   primary: '#64748b', accent: '#94a3b8', bg: '#0f1117' },
 ]
 
-const WL_KEY = 'lamom-whitelabel'
+const WL_DEFAULTS = { brandName: 'LAMOM ONE', tagline: 'Automotive Business OS', themeId: 'default', primaryColor: '#6c63ff', accentColor: '#f857a6', logoUrl: '', favicon: '', footerText: '© 2025 LAMOM ONE', showPoweredBy: true }
+const WL_KEY = 'lamom-whitelabel' // localStorage key เดิม — ใช้ตอน migrate ครั้งแรกเท่านั้น ไม่ลบทิ้งหลังจากนั้น (ไม่มีผลเสีย)
 
-function loadConfig() {
-  try { return JSON.parse(localStorage.getItem(WL_KEY) || '{}') } catch { return {} }
+// องค์กร-ไวด์ Branding เดิมเก็บใน localStorage เครื่องเดียว ทำให้พนักงานคนละเครื่อง/สาขา เห็น brand ไม่ตรงกัน
+// ย้ายไป Firestore collection เดียว doc เดียว ('whitelabel_settings') → sync ข้ามอุปกรณ์จริง
+// (ไม่ต้อง preload ตอน bootstrap — main.js ไม่มีที่ไหนอ่านค่านี้ตอน boot ใช้เฉพาะภายในหน้านี้เท่านั้น)
+let _docId = null
+
+async function loadConfig() {
+  try {
+    const docs = await listDocs('whitelabel_settings', [], 'createdAt', 'asc', 10)
+    if (docs.length > 0) {
+      _docId = docs[0].id
+      return { ...WL_DEFAULTS, ...docs[0] }
+    }
+    // First run — migrate ข้อมูลเดิมจาก localStorage ถ้ามี แทนที่จะทิ้งไปเฉยๆ
+    let seed = { ...WL_DEFAULTS }
+    try {
+      const raw = localStorage.getItem(WL_KEY)
+      if (raw) seed = { ...WL_DEFAULTS, ...JSON.parse(raw) }
+    } catch (e) {}
+    _docId = await createDoc('whitelabel_settings', seed)
+    return seed
+  } catch (e) {
+    return { ...WL_DEFAULTS }
+  }
 }
 
-function saveConfig(cfg) {
-  try { localStorage.setItem(WL_KEY, JSON.stringify(cfg)) } catch {}
+async function saveConfig(cfg) {
+  if (!_docId) { try { _docId = await createDoc('whitelabel_settings', cfg) } catch (e) {} ; return }
+  try { await updateDocData('whitelabel_settings', _docId, cfg) } catch (e) {}
 }
 
 export default async function WhiteLabelPage(container) {
-  let cfg = loadConfig()
-  if (!cfg.brandName) cfg = { brandName: 'LAMOM ONE', tagline: 'Automotive Business OS', themeId: 'default', primaryColor: '#6c63ff', accentColor: '#f857a6', logoUrl: '', favicon: '', footerText: '© 2025 LAMOM ONE', showPoweredBy: true }
+  const myGen = container.__routerGen
+  let cfg = await loadConfig()
+  if (container.__routerGen !== myGen) return
 
   let tab = 'brand'
 
@@ -245,7 +270,7 @@ export default async function WhiteLabelPage(container) {
     `
   }
 
-  function saveAll() {
+  async function saveAll() {
     // Collect values
     if (document.getElementById('brand-name')) {
       cfg.brandName = document.getElementById('brand-name').value
@@ -264,7 +289,8 @@ export default async function WhiteLabelPage(container) {
     const dr = document.getElementById('default-route')?.value
     if (dr) cfg.defaultRoute = dr
 
-    saveConfig(cfg)
+    await saveConfig(cfg)
+    if (container.__routerGen !== myGen) return
 
     // Apply theme to document
     document.documentElement.style.setProperty('--primary', cfg.primaryColor)

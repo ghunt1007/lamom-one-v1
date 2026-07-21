@@ -1,5 +1,7 @@
 import { showToast, getState } from '../../core/store.js'
 import { changeOwnPassword } from '../../core/auth.js'
+import { listDocs } from '../../core/db.js'
+import { timeAgo } from '../../utils/format.js'
 
 const ROLES = {
   owner:   { label: 'เจ้าของ',      icon: '🏆' },
@@ -21,22 +23,30 @@ const AVATAR_COLORS = [
   { name:'teal',    val:'#0891b2' },
 ]
 
-const FAKE_ACTIVITY = [
-  { action:'🔐 เข้าสู่ระบบ',       device:'Chrome / Windows', time:'วันนี้ 08:45' },
-  { action:'📊 เปิด Dashboard',     device:'Chrome / Windows', time:'วันนี้ 08:47' },
-  { action:'🚗 ดู Stock รถ',        device:'Chrome / Windows', time:'วันนี้ 09:12' },
-  { action:'💼 แก้ไข Lead',         device:'Chrome / Windows', time:'เมื่อวาน 15:33' },
-  { action:'🔐 เข้าสู่ระบบ',       device:'Mobile / iOS',     time:'เมื่อวาน 07:30' },
-]
+// Action → คำอธิบายภาษาไทยสำหรับแสดงในกิจกรรมล่าสุด (ตรงกับ ACTION_TYPES ใน AuditLog.js)
+const ACTIVITY_LABELS = {
+  login:    '🔐 เข้าสู่ระบบ',
+  logout:   '🚪 ออกจากระบบ',
+  create:   '➕ สร้างข้อมูล',
+  update:   '✏️ แก้ไขข้อมูล',
+  delete:   '🗑 ลบข้อมูล',
+  export:   '📥 Export ข้อมูล',
+  view:     '👁 ดูข้อมูล',
+  approve:  '✅ อนุมัติ',
+  reject:   '❌ ปฏิเสธ',
+}
 
 export default function MyAccountPage(container) {
+  const myGen = container.__routerGen
   const me = getState('user') || {}
   const isDemo = me.uid === 'demo-user'
   const role = ROLES[me.role] || { label: me.role || '—', icon:'👤' }
+  const myName = me.displayName || me.email || me.uid || ''
 
   let prefs; try { prefs = JSON.parse(localStorage.getItem('lamom-my-prefs') || '{}') } catch { prefs = {} }
   let avatarColor = prefs.avatarColor || AVATAR_COLORS[0].val
   let activeTab = 'profile'
+  let activityLogs = null // null = ยังไม่โหลด, [] = โหลดแล้วไม่มีข้อมูล
 
   function savePrefs() {
     try { localStorage.setItem('lamom-my-prefs', JSON.stringify({ ...prefs, avatarColor })) } catch {}
@@ -210,22 +220,34 @@ export default function MyAccountPage(container) {
   }
 
   function renderActivity(el) {
+    if (activityLogs === null) {
+      el.innerHTML = `<div class="card" style="padding:14px;max-width:600px"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      listDocs('audit_log', [], 'ts', 'desc', 200).then(logs => {
+        activityLogs = logs.filter(l => l.user === myName)
+        if (container.__routerGen !== myGen || activeTab !== 'activity') return
+        renderPage()
+      }).catch(() => {
+        activityLogs = []
+        if (container.__routerGen !== myGen || activeTab !== 'activity') return
+        renderPage()
+      })
+      return
+    }
+
     el.innerHTML = `
       <div class="card" style="padding:14px;max-width:600px">
         <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">📋 กิจกรรมล่าสุด</div>
         <div style="display:flex;flex-direction:column;gap:1px">
-          ${FAKE_ACTIVITY.map(a => `
+          ${activityLogs.map(a => `
             <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 4px;border-bottom:1px solid var(--border-subtle)">
               <div>
-                <div style="font-size:0.81rem;font-weight:600">${a.action}</div>
-                <div style="font-size:0.69rem;color:var(--text-muted)">${a.device}</div>
+                <div style="font-size:0.81rem;font-weight:600">${ACTIVITY_LABELS[a.action] || (a.action || '•')}</div>
+                <div style="font-size:0.69rem;color:var(--text-muted)">${a.module || '-'}${a.detail ? ' · ' + a.detail : ''}</div>
               </div>
-              <div style="font-size:0.69rem;color:var(--text-muted);text-align:right;white-space:nowrap">${a.time}</div>
+              <div style="font-size:0.69rem;color:var(--text-muted);text-align:right;white-space:nowrap">${a.ts ? timeAgo(a.ts) : '-'}</div>
             </div>
           `).join('')}
-        </div>
-        <div style="margin-top:12px;padding:10px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:0.72rem;color:var(--text-muted);text-align:center">
-          📌 ข้อมูลกิจกรรม Demo — เมื่อเชื่อมต่อ Firebase จะแสดงประวัติจริงจาก Firestore
+          ${!activityLogs.length ? `<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:0.8rem">ยังไม่มีกิจกรรม</div>` : ''}
         </div>
       </div>
     `

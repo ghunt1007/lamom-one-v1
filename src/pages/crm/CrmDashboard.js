@@ -21,12 +21,6 @@ const QUICK_LINKS = [
   { icon:'🌐', label:'Customer Portal', sub:'พอร์ทัลลูกค้า', path:'/crm/portal', color:'accent' },
 ]
 
-const DEMO_ALERTS = [
-  { type: 'danger', msg: 'Lead ใหม่เข้ามา 5 ราย รอ Assign ให้เซลส์' },
-  { type: 'warning', msg: 'Follow-up วันนี้ 8 ราย — ยังไม่ได้ติดต่อ 3 ราย' },
-  { type: 'success', msg: 'ใบจองรอส่งมอบสัปดาห์นี้ 3 คัน ✅' },
-]
-
 export default async function CrmDashboard(container) {
   const myGen = container.__routerGen
   seedDemoData()
@@ -48,12 +42,10 @@ export default async function CrmDashboard(container) {
         ${[...Array(5)].map(() => `<div class="skeleton" style="height:88px;border-radius:var(--radius-lg)"></div>`).join('')}
       </div>
 
-      <!-- Alerts -->
-      <div style="display:flex;flex-direction:column;gap:7px;margin-bottom:20px">
-        ${DEMO_ALERTS.map(a => `
-          <div style="padding:9px 13px;background:var(--surface-2);border-left:3px solid var(--${a.type === 'danger' ? 'danger' : a.type === 'warning' ? 'warning' : 'success'});border-radius:var(--radius-sm);font-size:0.8rem">
-            ${a.type === 'danger' ? '🔴' : a.type === 'warning' ? '⚠️' : '✅'} ${a.msg}
-          </div>`).join('')}
+      <!-- Alerts: สแกนจากข้อมูลจริง (ลูกค้า/ใบจอง) — ดูรูปแบบเดียวกับ Intelligence Center ใน Dashboard.js -->
+      <div id="crm-alerts" style="display:flex;flex-direction:column;gap:7px;margin-bottom:20px">
+        <div class="skeleton" style="height:38px;border-radius:var(--radius-sm)"></div>
+        <div class="skeleton" style="height:38px;border-radius:var(--radius-sm)"></div>
       </div>
 
       <!-- Quick links -->
@@ -99,6 +91,37 @@ export default async function CrmDashboard(container) {
     ${kCard('📝', 'ใบจอง', sales.length, 'warning', '/crm/bookings')}
     ${kCard('💰', 'ยอดขายรวม', formatCurrency(bookingValue), 'success', '/crm/bookings')}
   `
+
+  renderAlerts(customers, sales)
+}
+
+// ── Alerts: สแกนเรื่องค้าง/ด่วนจากข้อมูลจริง (customers + sales) — CRM-scoped version ของ
+// Intelligence Center ใน Dashboard.js — กดแล้วพาไปหน้านั้น ──
+function renderAlerts(customers, sales) {
+  const el = document.getElementById('crm-alerts')
+  if (!el) return
+  const now = Date.now()
+  const daysSince = d => Math.floor((now - new Date(d).getTime()) / 86400000)
+  const alerts = []
+
+  // Lead ใหม่ยังไม่ได้ติดตาม (ยังไม่มีเบอร์/LINE) เกิน 3 วัน
+  const staleLeads = customers.filter(c => c.stage === 'lead' && !c.isLost && c.createdAt && daysSince(c.createdAt) >= 3)
+  if (staleLeads.length) alerts.push({ type: 'danger', icon: '🧲', nav: '/crm/customers', msg: `Lead ใหม่ยังไม่ติดตามเกิน 3 วัน: ${staleLeads.length} ราย` })
+
+  // ลูกค้า Hot ที่ยังไม่ได้ติดต่อต่อเนื่องเกิน 3 วัน
+  const staleHot = customers.filter(c => c.temperature === 'hot' && !c.isLost && c.stage !== 'delivered' && c.stageChangedAt && daysSince(c.stageChangedAt) >= 3)
+  if (staleHot.length) alerts.push({ type: 'warning', icon: '🔥', nav: '/crm/customers', msg: `ลูกค้า Hot ยังไม่ได้ติดตามเกิน 3 วัน: ${staleHot.length} ราย` })
+
+  // ใบจองค้างสถานะ (ยังไม่ส่งมอบ/ไม่ถอน) เกิน 14 วัน
+  const stuckBookings = sales.filter(s => !s.delivered && s.status !== 'ถอนจอง' && s.date && daysSince(s.date) >= 14)
+  if (stuckBookings.length) alerts.push({ type: 'warning', icon: '⏳', nav: '/crm/bookings', msg: `ใบจองค้างสถานะเกิน 14 วัน: ${stuckBookings.length} รายการ` })
+
+  el.innerHTML = alerts.length
+    ? alerts.map(a => `
+      <div data-nav="${a.nav}" style="padding:9px 13px;background:var(--surface-2);border-left:3px solid var(--${a.type});border-radius:var(--radius-sm);font-size:0.8rem;cursor:pointer">
+        ${a.icon} ${a.msg}
+      </div>`).join('')
+    : `<div style="padding:9px 13px;background:var(--surface-2);border-left:3px solid var(--success);border-radius:var(--radius-sm);font-size:0.8rem">✅ ไม่มีเรื่องด่วนตอนนี้</div>`
 }
 
 function kCard(icon, label, value, color, nav) {

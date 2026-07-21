@@ -46,8 +46,11 @@ export default async function BirthdayGreetingsPage(container) {
     const sales = await getSalesData().catch(() => [])
     if (container.__routerGen !== myGen) return
     const delivered = sales.filter(s => s.status === 'ส่งมอบแล้ว' || s.status === 'delivered')
-    if (delivered.length >= 2) {
-      const annivEvents = delivered.map((s, i) => {
+    // แสดงเฉพาะวันครบรอบจากใบจองจริงเมื่อมีจริง — ห้ามเอา DEMO_EVENTS มาปนกับข้อมูลจริง
+    // (ระบบยังไม่มีฟิลด์วันเกิดลูกค้า จึงคำนวณได้เฉพาะ "ครบรอบซื้อรถ" จากวันที่ส่งมอบจริงเท่านั้น
+    // DEMO_EVENTS ใช้เป็นตัวอย่างก็ต่อเมื่อยังไม่มีใบจองที่ส่งมอบแล้วเลย)
+    if (delivered.length) {
+      events = delivered.map((s, i) => {
         const delivDate = s.deliveryDate || s.bookingDate || ''
         const yearsAgo = delivDate ? Math.floor((Date.now() - new Date(delivDate).getTime()) / (365.25 * 86400000)) : 1
         const annivDate = delivDate ? (() => {
@@ -60,7 +63,6 @@ export default async function BirthdayGreetingsPage(container) {
           note: `ครบ ${yearsAgo} ปี`,
         }
       })
-      events = [...annivEvents, ...DEMO_EVENTS]
       dataSource = 'live'
     }
   } catch {}
@@ -82,7 +84,7 @@ export default async function BirthdayGreetingsPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🎂 Birthday & Anniversary</div>
-            <div class="page-subtitle">ส่งคำอวยพร — รักษาความสัมพันธ์ลูกค้า${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● รวมครบรอบจากข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">ส่งคำอวยพร — รักษาความสัมพันธ์ลูกค้า${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ครบรอบจากใบจองจริง</span>' : ' <span style="color:var(--warning);font-size:0.75rem">● ตัวอย่างข้อมูล — ยังไม่มีใบจองที่ส่งมอบแล้ว</span>'}</div>
           </div>
           <div class="page-actions">
             ${unsentToday > 0 ? `<button class="btn btn-primary" id="send-all-btn">📤 ส่งทั้งหมดวันนี้ (${unsentToday})</button>` : ''}

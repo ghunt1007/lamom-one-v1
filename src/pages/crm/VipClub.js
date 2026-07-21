@@ -36,30 +36,29 @@ export default async function VipClubPage(container) {
   try {
     const sales = await getSalesData().catch(() => [])
     if (container.__routerGen !== myGen) return
-    if (sales.length >= 2) {
-      const byName = {}
-      for (const s of sales) {
-        const name = s.customerName || s.custName || ''
-        if (!name) continue
-        if (!byName[name]) byName[name] = { totalSpend: 0, cars: 0 }
-        byName[name].totalSpend += s.salePrice || 0
-        byName[name].cars++
-      }
-      const topBuyers = Object.entries(byName)
-        .map(([name, d]) => ({ ...d, name }))
-        .filter(c => c.totalSpend >= 800000)
-        .sort((a, b) => b.totalSpend - a.totalSpend)
-        .slice(0, 20)
-      if (topBuyers.length >= 2) {
-        const live = topBuyers.map((c, i) => ({
-          id: `LV${i+1}`, name: c.name,
-          tier: c.totalSpend >= 3000000 ? 'platinum' : c.totalSpend >= 1500000 ? 'gold' : 'silver',
-          totalSpend: c.totalSpend, cars: c.cars, referrals: 0,
-          manager: '—', lastContact: addDays(-Math.floor(Math.random() * 30)), birthday: '—', perks_used: 0,
-        }))
-        vips = [...live, ...DEMO_VIPS]
-        dataSource = 'live'
-      }
+    const byName = {}
+    for (const s of sales) {
+      const name = s.customerName || s.custName || ''
+      if (!name) continue
+      if (!byName[name]) byName[name] = { totalSpend: 0, cars: 0 }
+      byName[name].totalSpend += s.salePrice || 0
+      byName[name].cars++
+    }
+    const topBuyers = Object.entries(byName)
+      .map(([name, d]) => ({ ...d, name }))
+      .filter(c => c.totalSpend >= 800000)
+      .sort((a, b) => b.totalSpend - a.totalSpend)
+      .slice(0, 20)
+    // แสดงเฉพาะลูกค้า VIP จริงเมื่อมีจริง — ห้ามเอา DEMO_VIPS มาปนกับยอดใช้จ่ายจริง
+    // DEMO_VIPS ใช้เป็นตัวอย่างก็ต่อเมื่อยังไม่มีลูกค้าที่เข้าเกณฑ์ VIP จริงเลยเท่านั้น
+    if (topBuyers.length) {
+      vips = topBuyers.map((c, i) => ({
+        id: `LV${i+1}`, name: c.name,
+        tier: c.totalSpend >= 3000000 ? 'platinum' : c.totalSpend >= 1500000 ? 'gold' : 'silver',
+        totalSpend: c.totalSpend, cars: c.cars, referrals: 0,
+        manager: '—', lastContact: addDays(-Math.floor(Math.random() * 30)), birthday: '—', perks_used: 0,
+      }))
+      dataSource = 'live'
     }
   } catch {}
 
@@ -75,7 +74,7 @@ export default async function VipClubPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">👑 VIP Club</div>
-            <div class="page-subtitle">ดูแลลูกค้าคนสำคัญ — Platinum / Gold / Silver${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">ดูแลลูกค้าคนสำคัญ — Platinum / Gold / Silver${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ' <span style="color:var(--warning);font-size:0.75rem">● ตัวอย่างข้อมูล — ยังไม่มีลูกค้าเข้าเกณฑ์ VIP จริง</span>'}</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="add-vip-btn">+ เพิ่ม VIP</button>
