@@ -39,7 +39,6 @@ const ACTIVITY_LABELS = {
 export default function MyAccountPage(container) {
   const myGen = container.__routerGen
   const me = getState('user') || {}
-  const isDemo = me.uid === 'demo-user'
   const role = ROLES[me.role] || { label: me.role || '—', icon:'👤' }
   const myName = me.displayName || me.email || me.uid || ''
 
@@ -98,7 +97,7 @@ export default function MyAccountPage(container) {
             ${row('👤 ชื่อ', me.displayName || '—')}
             ${row('📧 อีเมล (login)', me.email || '—')}
             ${row('🏷 บทบาท', `${role.icon} ${role.label}`)}
-            ${row('🔐 ประเภทบัญชี', isDemo ? '🎮 Demo' : '🔥 Firebase Auth')}
+            ${row('🔐 ประเภทบัญชี', '🔥 Firebase Auth')}
           </div>
         </div>
 
@@ -156,25 +155,19 @@ export default function MyAccountPage(container) {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
         <div class="card" style="padding:18px">
           <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:14px">🔑 เปลี่ยนรหัสผ่าน</div>
-          ${isDemo ? `
-            <div style="padding:14px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:0.8rem;color:var(--text-muted)">
-              🎮 บัญชี Demo — ไม่สามารถเปลี่ยนรหัสผ่านได้
-            </div>
-          ` : `
-            <div style="display:flex;flex-direction:column;gap:12px">
-              <div class="input-group"><label class="input-label">รหัสผ่านปัจจุบัน *</label><input class="input" type="password" id="cp-old"></div>
-              <div class="input-group"><label class="input-label">รหัสผ่านใหม่ (≥ 8 ตัว) *</label><input class="input" type="password" id="cp-new1"></div>
-              <div class="input-group"><label class="input-label">ยืนยันรหัสผ่านใหม่ *</label><input class="input" type="password" id="cp-new2"></div>
-              <div id="pw-strength" style="font-size:0.72rem"></div>
-              <span class="input-error" id="cp-error"></span>
-              <button class="btn btn-primary" id="cp-btn">🔑 เปลี่ยนรหัสผ่าน</button>
-            </div>
-            <p style="font-size:0.68rem;color:var(--text-muted);margin-top:10px">💡 ลืมรหัสปัจจุบัน? ออกจากระบบแล้วกด "ลืมรหัสผ่าน?" หน้า Login เพื่อรับอีเมลตั้งรหัสใหม่</p>
-          `}
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div class="input-group"><label class="input-label">รหัสผ่านปัจจุบัน *</label><input class="input" type="password" id="cp-old"></div>
+            <div class="input-group"><label class="input-label">รหัสผ่านใหม่ (≥ 8 ตัว) *</label><input class="input" type="password" id="cp-new1"></div>
+            <div class="input-group"><label class="input-label">ยืนยันรหัสผ่านใหม่ *</label><input class="input" type="password" id="cp-new2"></div>
+            <div id="pw-strength" style="font-size:0.72rem"></div>
+            <span class="input-error" id="cp-error"></span>
+            <button class="btn btn-primary" id="cp-btn">🔑 เปลี่ยนรหัสผ่าน</button>
+          </div>
+          <p style="font-size:0.68rem;color:var(--text-muted);margin-top:10px">💡 ลืมรหัสปัจจุบัน? ออกจากระบบแล้วกด "ลืมรหัสผ่าน?" หน้า Login เพื่อรับอีเมลตั้งรหัสใหม่</p>
         </div>
         <div class="card" style="padding:18px">
           <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">🛡 ความปลอดภัยบัญชี</div>
-          ${secRow('สถานะบัญชี', isDemo?'🎮 Demo':'✅ ใช้งานอยู่', isDemo?'warning':'success')}
+          ${secRow('สถานะบัญชี', '✅ ใช้งานอยู่', 'success')}
           ${secRow('ประเภทบัญชี', '🔥 Firebase Auth', 'primary')}
           ${secRow('Session', 'ใช้งาน Session ปัจจุบัน', 'success')}
           <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">

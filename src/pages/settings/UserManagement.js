@@ -6,7 +6,7 @@
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
-import { listDocs, createDoc, updateDocData, isDemoMode, seedDemoData } from '../../core/db.js'
+import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 import { createStaffAccount, sendStaffPasswordReset } from '../../core/auth.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
@@ -67,7 +67,7 @@ export default async function UserManagementPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">👥 User Management</div>
-            <div class="page-subtitle">จัดการบัญชีพนักงาน — เชื่อม Firebase Auth จริง${isDemoMode() ? ' <span style="color:var(--warning);font-size:0.72rem">(โหมด Demo: บัญชีที่สร้างจะไม่ใช่บัญชี Login จริง)</span>' : ''} · สิทธิ์ของคุณ: ${ROLES[myRole]?.icon || ''} ${ROLES[myRole]?.label || myRole}</div>
+            <div class="page-subtitle">จัดการบัญชีพนักงาน — เชื่อม Firebase Auth จริง · สิทธิ์ของคุณ: ${ROLES[myRole]?.icon || ''} ${ROLES[myRole]?.label || myRole}</div>
           </div>
           <div class="page-actions">
             ${canCreateUsers ? `<button class="btn btn-primary" id="add-user-btn">+ สร้างบัญชีใหม่</button>` : ''}
@@ -201,12 +201,8 @@ export default async function UserManagementPage(container) {
         if (password.length < 8) { showToast('❗ รหัสผ่านอย่างน้อย 8 ตัว', 'error'); return false }
         if (!canCreate(myRole, role)) { showToast('❗ คุณไม่มีสิทธิ์สร้างระดับนี้', 'error'); return false }
         try {
-          if (isDemoMode()) {
-            await createDoc('users', { displayName: name, email, role, active: true, permissions: [], createdBy: me.displayName || me.email || 'Demo' })
-          } else {
-            const result = await createStaffAccount({ name, email, password, role })
-            if (!result.ok) { showToast('❗ ' + result.error, 'error'); return false }
-          }
+          const result = await createStaffAccount({ name, email, password, role })
+          if (!result.ok) { showToast('❗ ' + result.error, 'error'); return false }
           showToast(`✅ สร้าง ${name} (${ROLES[role]?.label}) แล้ว`, 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
@@ -243,7 +239,6 @@ export default async function UserManagementPage(container) {
   }
 
   async function confirmResetPw(email) {
-    if (isDemoMode()) { showToast('📧 โหมด Demo — ในระบบจริงจะส่งอีเมลลิงก์ตั้งรหัสผ่านใหม่ไปที่ ' + email, 'primary', 6000); return }
     const r = await sendStaffPasswordReset(email)
     if (r.ok) showToast('📧 ส่งอีเมลลิงก์ตั้งรหัสผ่านใหม่ไปที่ ' + email + ' แล้ว', 'success')
     else showToast('❗ ' + r.error, 'error')

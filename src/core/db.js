@@ -15,24 +15,6 @@ function deepSanitize(v) {
   return v
 }
 
-// ── Demo store (in-memory when no Firebase) ─────────────────
-// Pinned to window so all Vite module instances share the same object across HMR reloads
-const demoStore = window.__lamomDemoStore || (window.__lamomDemoStore = {})
-
-function isDemoMode() {
-  const user = getState('user')
-  return user?.uid === 'demo-user'
-}
-
-function demoCol(col) {
-  if (!demoStore[col]) demoStore[col] = {}
-  return demoStore[col]
-}
-
-function genId() {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36)
-}
-
 // ── Audit log ────────────────────────────────────────────────
 // บันทึกทุกการเปลี่ยนแปลง (create/update/delete) ของทุก collection ลง audit_log
 // ต้องไม่ throw ออกไปนอกฟังก์ชัน — ถ้า logging พัง ต้องไม่กระทบการทำงานจริง (fire-and-forget-safe)
@@ -48,11 +30,6 @@ function logAction(action, colName, id, detail) {
       resource: id != null ? String(id) : '-',
       detail: detail || '',
       ts: new Date().toISOString(),
-    }
-    if (isDemoMode()) {
-      const logId = genId()
-      demoCol('audit_log')[logId] = { id: logId, ...payload }
-      return
     }
     addDoc(collection(db, 'audit_log'), payload).catch(() => {})
   } catch (e) {
@@ -77,7 +54,6 @@ const GAMIFICATION_EXCLUDED_COLLECTIONS = ['audit_log', 'gamification_events', '
 
 async function getCurrentDocSnapshot(colName, id) {
   try {
-    if (isDemoMode()) return demoCol(colName)[id] || null
     const snap = await getDoc(doc(db, colName, id))
     return snap.exists() ? { id: snap.id, ...snap.data() } : null
   } catch (e) { return null }
@@ -86,20 +62,11 @@ async function getCurrentDocSnapshot(colName, id) {
 // เซ็ต flag "ให้แต้มไปแล้ว" แบบเงียบๆ (ไม่ผ่าน updateDocData) เพื่อกันเรียก logAction/awardGamePoints ซ้ำ
 function setFlagQuiet(colName, id, field) {
   try {
-    if (isDemoMode()) {
-      const col = demoCol(colName)
-      if (col[id]) col[id][field] = true
-      return
-    }
     updateDoc(doc(db, colName, id), { [field]: true }).catch(() => {})
   } catch (e) {}
 }
 
 async function findStaffPointsDoc(userName) {
-  if (isDemoMode()) {
-    const rows = Object.entries(demoCol('staff_points')).map(([k, v]) => ({ id: k, ...v }))
-    return rows.find(s => s.name === userName) || null
-  }
   const snap = await getDocs(query(collection(db, 'staff_points'), where('name', '==', userName), limit(1)))
   return snap.empty ? null : { id: snap.docs[0].id, ...snap.docs[0].data() }
 }
@@ -209,14 +176,6 @@ export async function createDoc(colName, data) {
   // (แก้ไข/ลบ record หลังจากนั้นจะพลาดเป้าแบบเงียบๆ)
   const { id: _ignoredId, ...rest } = data || {}
   const clean = deepSanitize(rest)
-  const payload = { ...clean, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
-  if (isDemoMode()) {
-    const id = genId()
-    demoCol(colName)[id] = { id, ...payload }
-    logAction('create', colName, id, `สร้างข้อมูลใหม่ใน ${colName}`)
-    awardGamePoints('create', colName, id, clean).catch(() => {})
-    return id
-  }
   const ref = await addDoc(collection(db, colName), { ...clean, createdAt: serverTimestamp(), updatedAt: serverTimestamp() })
   logAction('create', colName, ref.id, `สร้างข้อมูลใหม่ใน ${colName}`)
   awardGamePoints('create', colName, ref.id, clean).catch(() => {})
@@ -224,24 +183,15 @@ export async function createDoc(colName, data) {
 }
 
 export async function readDoc(colName, id) {
-  if (isDemoMode()) return demoCol(colName)[id] || null
   const snap = await getDoc(doc(db, colName, id))
   return snap.exists() ? { id: snap.id, ...snap.data() } : null
 }
 
 export async function updateDocData(colName, id, data) {
   const clean = deepSanitize(data)
-  const payload = { ...clean, updatedAt: new Date().toISOString() }
   const isDelete = !!(data && data.deleted === true)
   const action = isDelete ? 'delete' : 'update'
   const detail = isDelete ? `ลบข้อมูลใน ${colName}` : `แก้ไขข้อมูลใน ${colName}`
-  if (isDemoMode()) {
-    const col = demoCol(colName)
-    col[id] = { ...(col[id] || {}), ...payload }
-    logAction(action, colName, id, detail)
-    awardGamePoints(action, colName, id, clean).catch(() => {})
-    return
-  }
   await updateDoc(doc(db, colName, id), { ...clean, updatedAt: serverTimestamp() })
   logAction(action, colName, id, detail)
   awardGamePoints(action, colName, id, clean).catch(() => {})
@@ -252,24 +202,6 @@ export async function softDelete(colName, id) {
 }
 
 export async function listDocs(colName, filters = [], sortBy = 'createdAt', sortDir = 'desc', maxDocs = 100) {
-  if (isDemoMode()) {
-    let rows = Object.values(demoCol(colName)).filter(r => !r.deleted)
-    filters.forEach(([field, op, val]) => {
-      rows = rows.filter(r => {
-        if (op === '==') return r[field] === val
-        if (op === '!=') return r[field] !== val
-        if (op === 'in') return Array.isArray(val) && val.includes(r[field])
-        if (op === '>=') return r[field] >= val
-        if (op === '<=') return r[field] <= val
-        return true
-      })
-    })
-    rows.sort((a, b) => {
-      const av = a[sortBy] || '', bv = b[sortBy] || ''
-      return sortDir === 'desc' ? (bv > av ? 1 : -1) : (av > bv ? 1 : -1)
-    })
-    return rows.slice(0, maxDocs)
-  }
   let q = collection(db, colName)
   const constraints = [...filters.map(([f, op, v]) => where(f, op, v)), orderBy(sortBy, sortDir), limit(maxDocs)]
   q = query(q, ...constraints)
@@ -277,14 +209,11 @@ export async function listDocs(colName, filters = [], sortBy = 'createdAt', sort
   return snap.docs.map(d => ({ id: d.id, ...d.data() }))
 }
 
-// Demo seed data
-// Demo seed data — ย้ายไป demoSeedData.js (โหลด lazy เฉพาะโหมด Demo ครั้งแรก)
-// คืน Promise เสมอ: main.js / Login.js จะ await ก่อนเข้าหน้าแรก ส่วนหน้าอื่นเรียกซ้ำได้ (idempotent)
-let _seedPromise = null
+// Demo mode ถูกลบออกจากระบบแล้ว (2026-07-23) — seedDemoData() คงไว้เป็น no-op เฉยๆ เพราะยังมี
+// การเรียกอยู่ใน 231 หน้าทั่วทั้งแอป การลบฟังก์ชันนี้ทิ้งจะต้องแก้ทุกหน้าที่เรียกโดยไม่ได้ประโยชน์
+// เพิ่มขึ้นจริง (เรียกแล้วไม่ทำอะไรอยู่ดี) จึงปล่อยไว้แบบนี้เพื่อความเสี่ยงต่ำที่สุด
 export function seedDemoData() {
-  if (!isDemoMode()) return Promise.resolve()
-  if (!_seedPromise) _seedPromise = import('./demoSeedData.js').then(m => m.runSeed(demoCol))
-  return _seedPromise
+  return Promise.resolve()
 }
 
 // ── แหล่งข้อมูลการขายกลาง: แปลงจาก "ใบจอง" (bookings) → รูปแบบ sales ──────────────
@@ -322,5 +251,3 @@ export async function getCommissionData() {
   })
   return Object.values(byKey)
 }
-
-export { demoStore, isDemoMode }

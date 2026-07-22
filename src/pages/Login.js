@@ -37,16 +37,6 @@ export default function LoginPage(container) {
           <div style="text-align:right;margin-top:-8px">
             <a href="#" id="forgot-pw" style="font-size:0.75rem;color:var(--primary);text-decoration:none">ลืมรหัสผ่าน?</a>
           </div>
-
-          <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
-            <div style="flex:1;height:1px;background:var(--border)"></div>
-            <span style="font-size:0.75rem;color:var(--text-muted)">หรือ</span>
-            <div style="flex:1;height:1px;background:var(--border)"></div>
-          </div>
-
-          <button type="button" id="demo-btn" class="btn btn-secondary" style="width:100%;justify-content:center;padding:11px">
-            🎮 ทดลองใช้ Demo (ไม่ต้อง Login)
-          </button>
         </form>
 
         <div style="text-align:center;margin-top:16px">
@@ -123,25 +113,6 @@ export default function LoginPage(container) {
   const pwEl = document.getElementById('login-password')
   const btn = document.getElementById('login-btn')
   const btnText = document.getElementById('login-btn-text')
-
-  // Demo Mode — bypass Firebase
-  document.getElementById('demo-btn').addEventListener('click', () => {
-    const { setUser, setCompany } = window.__store || {}
-    import('../core/store.js').then(m => {
-      m.setUser({
-        uid: 'demo-user',
-        email: 'demo@lamom.one',
-        displayName: 'ทวีศักดิ์ สุขสมบัติเสถียร',
-        role: 'owner',
-        permissions: ['*'],
-      })
-      m.setState('role', 'owner')
-      m.setState('permissions', ['*'])
-      m.setCompany({ id: 'demo-co', name: 'LAMOM AUTO GROUP', branch: 'สำนักงานใหญ่' })
-      m.showToast('ยินดีต้อนรับสู่ Demo Mode! 🎉', 'success')
-    })
-    import('../core/router.js').then(m => m.navigate('/'))
-  })
 
   document.getElementById('toggle-pw').addEventListener('click', () => {
     pwEl.type = pwEl.type === 'password' ? 'text' : 'password'

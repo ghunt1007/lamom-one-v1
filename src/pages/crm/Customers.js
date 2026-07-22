@@ -2,7 +2,7 @@
 // Route: /crm/customers (also aliased from /crm/leads — see router.js)
 // Collection: `customers` — single source of truth, stage-based pipeline (lead → pp → booking → delivered)
 import { listDocs, createDoc, updateDocData, softDelete, readDoc, seedDemoData } from '../../core/db.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { formatDate, timeAgo, formatPhone, formatCurrency, initials, fullName } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel, openImportModal } from '../../utils/importExport.js'
@@ -517,7 +517,8 @@ export default async function CustomersPage(container) {
       const note = document.getElementById('log-note').value.trim()
       if (!note) { document.getElementById('log-err').textContent = 'กรุณาระบุรายละเอียด'; return }
       try {
-        await createDoc('comm_logs', { customerId: c.id, type: document.getElementById('log-type').value, note, createdBy: 'demo-user' })
+        const me = getState('user') || {}
+        await createDoc('comm_logs', { customerId: c.id, type: document.getElementById('log-type').value, note, createdBy: me.displayName || me.email || me.uid || '' })
         close(); showToast('บันทึกแล้ว', 'success')
         onSaved?.()
       } catch { showToast('เกิดข้อผิดพลาด', 'error') }

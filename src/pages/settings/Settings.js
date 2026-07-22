@@ -66,7 +66,7 @@ export default function SettingsPage(container) {
           <div>
             <div style="font-weight:700">${user?.displayName || user?.email || 'ผู้ใช้'}</div>
             <div style="font-size:0.82rem;color:var(--text-muted)">${user?.email || ''}</div>
-            <div style="font-size:0.78rem;color:var(--accent);margin-top:2px">${user?.role === 'demo-user' ? '👋 Demo Mode' : (user?.role || 'Staff')}</div>
+            <div style="font-size:0.78rem;color:var(--accent);margin-top:2px">${user?.role || 'Staff'}</div>
           </div>
         </div>
         <button class="btn btn-secondary btn-sm" id="logout-btn">🚪 ออกจากระบบ</button>
