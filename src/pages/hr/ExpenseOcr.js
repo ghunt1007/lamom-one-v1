@@ -237,7 +237,7 @@ export default async function ExpenseOcrPage(container) {
           RECEIPTS.unshift({ id: 'R' + Date.now(), ...data, _persisted: false })
         }
         close(); render()
-        showToast(ocr.demo ? '🤖 Demo mode — ตั้งค่า VITE_GEMINI_API_KEY เพื่ออ่านใบเสร็จจริง' : '🤖 AI อ่านใบเสร็จสำเร็จ · ส่งขออนุมัติแล้ว', ocr.demo ? 'info' : 'success')
+        showToast(ocr.demo ? '🤖 Demo mode — ล็อกอินด้วยบัญชีจริงเพื่ออ่านใบเสร็จจริง' : '🤖 AI อ่านใบเสร็จสำเร็จ · ส่งขออนุมัติแล้ว', ocr.demo ? 'info' : 'success')
       } catch (err) {
         btn.disabled = false; btn.textContent = '🤖 ประมวลผล OCR'
         showToast(`❗ ประมวลผลไม่สำเร็จ: ${err.message || 'ไม่ทราบสาเหตุ'}`, 'error')

@@ -1,7 +1,7 @@
 import { getState, showToast } from '../../core/store.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 import { formatCurrency } from '../../utils/format.js'
-import { askAiOfficer, AI_ENABLED } from '../../utils/ai.js'
+import { askAiOfficer, isAiEnabled } from '../../utils/ai.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -210,7 +210,7 @@ export default async function AiOfficersPage(container) {
             <div>
               <div style="display:flex;align-items:center;gap:8px">
                 <span style="font-weight:700">${activeOfficer.name}</span>
-                <span style="font-size:0.68rem;color:${AI_ENABLED ? 'var(--success)' : 'var(--warning)'}">${AI_ENABLED ? '🟢 Gemini AI' : '🟡 Demo Mode'}</span>
+                <span style="font-size:0.68rem;color:${isAiEnabled() ? 'var(--success)' : 'var(--warning)'}">${isAiEnabled() ? '🟢 Gemini AI' : '🟡 Demo Mode'}</span>
               </div>
               <div style="font-size:0.78rem;color:var(--${activeOfficer.color})">${activeOfficer.title}</div>
             </div>

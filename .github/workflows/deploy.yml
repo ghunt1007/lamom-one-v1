@@ -29,8 +29,8 @@ jobs:
           VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
           VITE_FIREBASE_SENDER_ID: ${{ secrets.VITE_FIREBASE_SENDER_ID }}
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
-          VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
           VITE_R2_WORKER_URL: ${{ secrets.VITE_R2_WORKER_URL }}
+          VITE_AI_PROXY_URL: ${{ secrets.VITE_AI_PROXY_URL }}
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3

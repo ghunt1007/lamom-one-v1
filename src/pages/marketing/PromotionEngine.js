@@ -503,7 +503,7 @@ export default async function PromotionEnginePage(container) {
         if (file) { imageBase64 = await fileToBase64(file); mimeType = file.type || 'image/jpeg' }
         const result = await analyzeCampaignAnnouncement({ text, imageBase64, mimeType })
         btn.disabled = false; btn.textContent = '🤖 วิเคราะห์ใหม่'
-        if (result.demo) showToast('🤖 Demo mode — ตั้งค่า VITE_GEMINI_API_KEY เพื่อวิเคราะห์จริง', 'info')
+        if (result.demo) showToast('🤖 Demo mode — ล็อกอินด้วยบัญชีจริงเพื่อวิเคราะห์จริง', 'info')
         if (!result.rows.length) { el.querySelector('#ai-err').textContent = '⚠️ ไม่พบแคมเปญในเนื้อหาที่วิเคราะห์'; return }
         renderAiReview(el, result.rows)
       } catch (err) {

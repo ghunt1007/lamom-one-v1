@@ -5,7 +5,7 @@
 import { timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { askLami, AI_ENABLED } from '../../utils/ai.js'
+import { askLami, isAiEnabled } from '../../utils/ai.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 
 const LAMI_SKILLS = [
@@ -47,7 +47,7 @@ export default async function LamiBrainPage(container) {
   let activeTab = 'chat'
   let isTyping = false
   let loading = true
-  const aiMode = AI_ENABLED ? '🟢 Gemini AI' : '🟡 Demo Mode'
+  const aiMode = isAiEnabled() ? '🟢 Gemini AI' : '🟡 Demo Mode'
 
   async function loadData() {
     loading = true

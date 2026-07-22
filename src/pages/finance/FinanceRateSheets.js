@@ -280,7 +280,7 @@ export default async function FinanceRateSheetsPage(container) {
           const result = await analyzeFinanceRateSheet(base64, mimeType)
           close()
           if (!result.rows.length) { showToast('⚠️ ไม่พบข้อมูลตารางดอกเบี้ยในภาพนี้ ลองภาพอื่นหรือกรอกด้วยตนเอง', 'warning'); return }
-          if (result.demo) showToast('🤖 Demo mode — ตั้งค่า VITE_GEMINI_API_KEY เพื่อวิเคราะห์ภาพจริง', 'info')
+          if (result.demo) showToast('🤖 Demo mode — ล็อกอินด้วยบัญชีจริงเพื่อวิเคราะห์ภาพจริง', 'info')
           openReviewModal(result.rows, file, dataUrl)
         } catch (err) {
           close()
