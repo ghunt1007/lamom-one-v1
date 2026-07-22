@@ -7,6 +7,9 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
+// ป้องกัน XSS — หมายเหตุ (note) เป็นข้อความที่ผู้ใช้พิมพ์เอง ต้อง escape ก่อนแสดงผลเสมอ
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
 
 const FLEET_STATUS = {
@@ -82,8 +85,8 @@ export default async function FleetQuotePage(container) {
             return `<div class="card" style="padding:14px;border-left:3px solid var(--${fs?.color})">
               <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
                 <div>
-                  <div style="font-weight:700;font-size:0.92rem">${q.company}</div>
-                  <div style="font-size:0.72rem;color:var(--text-muted)">👤 ${q.contact} · 🚗 ${q.units} × ${q.model}</div>
+                  <div style="font-weight:700;font-size:0.92rem">${esc(q.company)}</div>
+                  <div style="font-size:0.72rem;color:var(--text-muted)">👤 ${esc(q.contact)} · 🚗 ${q.units} × ${q.model}</div>
                   <div style="font-size:0.72rem;color:var(--text-muted)">📅 สร้าง ${formatDate(q.created)} · หมดอายุ ${formatDate(q.expiry)}${isExpiringSoon?' ⚠️':''}</div>
                 </div>
                 <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
@@ -92,7 +95,7 @@ export default async function FleetQuotePage(container) {
                   <div style="font-size:0.67rem;color:var(--text-muted)">ส่วนลด ${q.discount}%</div>
                 </div>
               </div>
-              ${q.note ? `<div style="font-size:0.73rem;color:var(--text-muted);font-style:italic;margin-bottom:8px">📌 ${q.note}</div>` : ''}
+              ${q.note ? `<div style="font-size:0.73rem;color:var(--text-muted);font-style:italic;margin-bottom:8px">📌 ${esc(q.note)}</div>` : ''}
               <div style="display:flex;gap:6px;flex-wrap:wrap">
                 ${q.status === 'draft' ? `<button class="btn btn-xs btn-primary send-btn" data-id="${q.id}">📤 ส่ง</button>` : ''}
                 ${q.status === 'sent' ? `<button class="btn btn-xs btn-warning negotiate-btn" data-id="${q.id}">🤝 เจรจา</button>` : ''}
@@ -126,8 +129,8 @@ export default async function FleetQuotePage(container) {
       title: q ? '✏️ แก้ไข Quote' : '+ สร้าง Fleet Quote',
       size: 'md',
       body: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div class="input-group" style="grid-column:1/-1"><label class="input-label">บริษัท *</label><input class="input" id="fq-company" value="${q?.company||''}"></div>
-        <div class="input-group"><label class="input-label">ผู้ติดต่อ</label><input class="input" id="fq-contact" value="${q?.contact||''}"></div>
+        <div class="input-group" style="grid-column:1/-1"><label class="input-label">บริษัท *</label><input class="input" id="fq-company" value="${esc(q?.company||'')}"></div>
+        <div class="input-group"><label class="input-label">ผู้ติดต่อ</label><input class="input" id="fq-contact" value="${esc(q?.contact||'')}"></div>
         <div class="input-group"><label class="input-label">รุ่นรถ</label>
           <select class="input" id="fq-model">${MODELS.map(m=>`<option ${q?.model===m?'selected':''}>${m}</option>`).join('')}</select>
         </div>
@@ -135,7 +138,7 @@ export default async function FleetQuotePage(container) {
         <div class="input-group"><label class="input-label">ราคาต่อคัน</label><input class="input" type="number" id="fq-price" value="${q?.unitPrice||1000000}"></div>
         <div class="input-group"><label class="input-label">ส่วนลด (%)</label><input class="input" type="number" id="fq-discount" min="0" max="30" value="${q?.discount||0}"></div>
         <div class="input-group"><label class="input-label">วันหมดอายุ</label><input class="input" type="date" id="fq-expiry" value="${q?.expiry||addDays(30)}"></div>
-        <div class="input-group" style="grid-column:1/-1"><label class="input-label">หมายเหตุ</label><input class="input" id="fq-note" value="${q?.note||''}"></div>
+        <div class="input-group" style="grid-column:1/-1"><label class="input-label">หมายเหตุ</label><input class="input" id="fq-note" value="${esc(q?.note||'')}"></div>
       </div>`,
       async onConfirm() {
         const company = document.getElementById('fq-company')?.value?.trim()

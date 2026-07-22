@@ -15,6 +15,8 @@ const INTEREST = {
 
 const EVENT_INFO = { name: 'Motor Show บางนา 2569', booth: 'Booth A12', target: 150, staff: ['วิชัย', 'สุดา', 'ธนา'] }
 
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
 export default async function EventCheckinPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
@@ -74,7 +76,7 @@ export default async function EventCheckinPage(container) {
             const it = INTEREST[v.interest]
             return `<div class="card" style="padding:11px 14px;border-left:3px solid var(--${it?.color});display:flex;justify-content:space-between;align-items:center">
               <div>
-                <div style="font-weight:700;font-size:0.84rem">${v.name} ${v.phone ? `<span style="font-size:0.7rem;color:var(--text-muted)">📞 ${v.phone}</span>` : '<span style="font-size:0.68rem;color:var(--danger)">ไม่มีเบอร์</span>'}</div>
+                <div style="font-weight:700;font-size:0.84rem">${esc(v.name)} ${v.phone ? `<span style="font-size:0.7rem;color:var(--text-muted)">📞 ${esc(v.phone)}</span>` : '<span style="font-size:0.68rem;color:var(--danger)">ไม่มีเบอร์</span>'}</div>
                 <div style="font-size:0.7rem;color:var(--text-muted)">🚗 ${v.model} · 👤 ${v.staff} · ${timeAgo(v.time)}${v.gift?' · 🎁':''}${v.testDrive?' · 🚗 TD':''}</div>
               </div>
               <span class="badge badge-${it?.color}" style="font-size:0.65rem">${it?.label}</span>

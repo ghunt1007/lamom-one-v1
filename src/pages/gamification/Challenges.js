@@ -9,6 +9,8 @@ import { listDocs, createDoc, updateDocData, seedDemoData, getSalesData } from '
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
 
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
 const CHALLENGE_TYPES = {
   sales:   { label: 'ยอดขาย', color: 'success', icon: '💰' },
   lead:    { label: 'Lead', color: 'primary', icon: '🧲' },
@@ -66,8 +68,8 @@ export default async function ChallengesPage(container) {
             return `<div class="card" style="padding:14px;border-left:3px solid var(--${ct?.color})${isDone?';opacity:0.7':''}">
               <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
                 <div>
-                  <div style="font-weight:700;font-size:0.92rem">${c.name}</div>
-                  <div style="font-size:0.72rem;color:var(--text-muted)">🎁 ${c.reward}</div>
+                  <div style="font-weight:700;font-size:0.92rem">${esc(c.name)}</div>
+                  <div style="font-size:0.72rem;color:var(--text-muted)">🎁 ${esc(c.reward)}</div>
                 </div>
                 <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
                   <span class="badge badge-${ct?.color}" style="font-size:0.62rem">${ct?.icon} ${ct?.label}</span>
@@ -83,7 +85,7 @@ export default async function ChallengesPage(container) {
                   const isLeader = i === 0 && !isDone
                   return `<div>
                     <div style="display:flex;justify-content:space-between;font-size:0.73rem;margin-bottom:2px">
-                      <span>${isLeader?'👑 ':''}${i===0&&isDone?'🏆 ':''}${p.name}</span>
+                      <span>${isLeader?'👑 ':''}${i===0&&isDone?'🏆 ':''}${esc(p.name)}</span>
                       <span style="color:var(--${pct>=100?'success':'text-muted'})">${p.progress}/${c.target} (${pct}%)</span>
                     </div>
                     <div style="background:var(--surface-2);border-radius:3px;height:8px">
@@ -109,12 +111,12 @@ export default async function ChallengesPage(container) {
   function openUpdateModal(c) {
     const isSales = c.type === 'sales'
     const { el } = openModal({
-      title: '📊 อัปเดตคะแนน: ' + c.name,
+      title: '📊 อัปเดตคะแนน: ' + esc(c.name),
       size: 'sm',
       body: `<div style="display:grid;gap:10px">
         ${isSales ? `<button class="btn btn-xs btn-secondary" id="sync-real-btn" type="button">🔄 ซิงค์จากยอดขายจริง (ใบจองที่ส่งมอบแล้ว)</button>` : ''}
         ${(c.participants||[]).map((p, i) => `
-          <div class="input-group"><label class="input-label">${p.name}</label>
+          <div class="input-group"><label class="input-label">${esc(p.name)}</label>
             <input class="input" type="number" min="0" class="prog-input" id="prog-${i}" value="${p.progress}">
           </div>
         `).join('')}

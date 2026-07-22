@@ -17,6 +17,8 @@ const RANKS = [
 
 function getRank(pts) { return RANKS.find(r => pts >= r.min) || RANKS[4] }
 
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
 const DEMO_PLAYERS = [
   { id: 'P01', name: 'วิชัย ยอดขาย', role: 'เซลส์', dept: 'ฝ่ายขาย', avatar: '👨', points: 4280, monthPoints: 580, streak: 12, badges: 18, salesUnits: 24, revenue: 7200000 },
   { id: 'P02', name: 'สุดา มาดี',    role: 'เซลส์', dept: 'ฝ่ายขาย', avatar: '👩', points: 3520, monthPoints: 420, streak: 7,  badges: 14, salesUnits: 19, revenue: 5700000 },
@@ -117,7 +119,7 @@ export default async function LeaderboardPage(container) {
                     <div style="display:flex;align-items:center;gap:10px">
                       <div style="width:34px;height:34px;border-radius:50%;background:var(--surface-2);display:flex;align-items:center;justify-content:center;font-size:1.2rem">${p.avatar}</div>
                       <div>
-                        <div style="font-weight:600;font-size:0.85rem">${p.name}</div>
+                        <div style="font-weight:600;font-size:0.85rem">${esc(p.name)}</div>
                         <div style="font-size:0.72rem;color:var(--text-muted)">${p.role}</div>
                       </div>
                     </div>
@@ -152,7 +154,7 @@ export default async function LeaderboardPage(container) {
       <div style="display:flex;flex-direction:column;align-items:center;cursor:pointer" class="lb-row" data-id="${p.id}">
         <div style="text-align:center;margin-bottom:6px">
           <div style="font-size:1.8rem">${p.avatar}</div>
-          <div style="font-weight:700;font-size:0.83rem;margin-top:4px">${p.name}</div>
+          <div style="font-weight:700;font-size:0.83rem;margin-top:4px">${esc(p.name)}</div>
           <div style="font-size:0.72rem;color:var(--text-muted)">${p.role}</div>
           <div style="font-weight:800;font-size:1.1rem;color:${rank.color};margin-top:4px">${pts.toLocaleString()} pts</div>
         </div>
@@ -164,12 +166,12 @@ export default async function LeaderboardPage(container) {
   function openPlayerDetail(p) {
     const rank = getRank(p.points)
     openModal({
-      title: `${p.avatar} ${p.name} — โปรไฟล์`,
+      title: `${p.avatar} ${esc(p.name)} — โปรไฟล์`,
       size: 'md',
       body: `
         <div style="text-align:center;margin-bottom:16px">
           <div style="font-size:3rem">${p.avatar}</div>
-          <div style="font-size:1.1rem;font-weight:800;margin-top:4px">${p.name}</div>
+          <div style="font-size:1.1rem;font-weight:800;margin-top:4px">${esc(p.name)}</div>
           <div style="font-size:0.8rem;color:var(--text-muted)">${p.role} · ${p.dept}</div>
           <div style="margin-top:8px"><span style="font-size:0.9rem;font-weight:700;color:${rank.color}">${rank.icon} ${rank.label}</span></div>
         </div>

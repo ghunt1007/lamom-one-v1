@@ -6,6 +6,8 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
 export default async function UtmTrackerPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
@@ -29,7 +31,7 @@ export default async function UtmTrackerPage(container) {
         <div style="font-size:1.5rem">🔗</div>
         <div style="flex:1">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-            <span style="font-weight:700;font-size:0.88rem">${u.name}</span>
+            <span style="font-weight:700;font-size:0.88rem">${esc(u.name)}</span>
             <span style="font-size:0.62rem;background:var(--surface-2);padding:1px 8px;border-radius:8px">${u.source}</span>
             <span style="font-size:0.62rem;background:var(--surface-2);padding:1px 8px;border-radius:8px">${u.medium}</span>
           </div>

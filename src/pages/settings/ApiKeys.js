@@ -7,6 +7,8 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
 const KEY_SCOPES = {
   read:  { label: 'อ่านอย่างเดียว', color: 'success', icon: '👁' },
   write: { label: 'อ่าน + เขียน', color: 'warning', icon: '✏️' },
@@ -82,7 +84,7 @@ export default async function ApiKeysPage(container) {
                 const sc = KEY_SCOPES[k.scope]
                 return `<tr style="border-bottom:1px solid var(--border);font-size:0.8rem${k.active?'':';opacity:0.5'}">
                   <td style="padding:8px 14px">
-                    <div style="font-weight:600">${k.name}</div>
+                    <div style="font-weight:600">${esc(k.name)}</div>
                     <div style="font-size:0.65rem;color:var(--text-muted)">สร้าง ${formatDate(k.created)}</div>
                   </td>
                   <td style="padding:8px 10px;font-family:monospace;font-size:0.73rem">${k.prefix}••••••••</td>
@@ -106,7 +108,7 @@ export default async function ApiKeysPage(container) {
     container.querySelectorAll('.revoke-btn').forEach(b => b.addEventListener('click', async () => {
       const k = keys.find(x => x.id === b.dataset.id)
       if (!k) return
-      const ok = await confirmDialog({ title:`🚫 Revoke "${k.name}"?`, message:'Integration ที่ใช้ Key นี้จะหยุดทำงานทันที', confirmText:'Revoke', danger:true })
+      const ok = await confirmDialog({ title:`🚫 Revoke "${esc(k.name)}"?`, message:'Integration ที่ใช้ Key นี้จะหยุดทำงานทันที', confirmText:'Revoke', danger:true })
       if (!ok) return
       try {
         await updateDocData('api_keys', k.id, { active: false })

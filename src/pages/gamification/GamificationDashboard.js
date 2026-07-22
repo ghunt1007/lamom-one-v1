@@ -37,6 +37,8 @@ const MOODS = [
 function getLevel(xp) { return LEVELS.filter(l => xp >= l.min).pop() || LEVELS[0] }
 function getLamiStage(xp) { return LAMI_STAGES.filter(s => xp >= s.xp).pop() || LAMI_STAGES[0] }
 
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
 export default async function GamificationDashboard(container) {
   const myGen = container.__routerGen
   const { name: myName } = getCurrentUser()
@@ -324,7 +326,7 @@ export default async function GamificationDashboard(container) {
               <div style="font-size:1.5rem;width:36px;text-align:center">${medals[i]||i+1}</div>
               <div style="width:38px;height:38px;border-radius:50%;background:var(--${p.color}-dim);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.9rem;color:var(--${p.color})">${p.avatar}</div>
               <div style="flex:1">
-                <div style="font-weight:600">${p.name}</div>
+                <div style="font-weight:600">${esc(p.name)}</div>
                 <div style="font-size:0.75rem;color:var(--${lv.color})">${lv.name}</div>
               </div>
               <div style="text-align:right">

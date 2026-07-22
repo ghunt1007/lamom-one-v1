@@ -135,6 +135,8 @@ export default function LoginPage(container) {
         role: 'owner',
         permissions: ['*'],
       })
+      m.setState('role', 'owner')
+      m.setState('permissions', ['*'])
       m.setCompany({ id: 'demo-co', name: 'LAMOM AUTO GROUP', branch: 'สำนักงานใหญ่' })
       m.showToast('ยินดีต้อนรับสู่ Demo Mode! 🎉', 'success')
     })

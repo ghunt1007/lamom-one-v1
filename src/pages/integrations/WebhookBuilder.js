@@ -6,7 +6,10 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
-const EVENTS = ['sale.created','sale.updated','service.booked','service.completed','lead.created','lead.converted','payment.received','invoice.issued','customer.created','stock.updated']
+// ป้องกัน XSS — ชื่อ/URL/secret ของ Webhook เป็นข้อมูลที่ผู้ใช้พิมพ์เอง ต้อง escape ก่อนแสดงผลเสมอ
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
+const EVENTS =['sale.created','sale.updated','service.booked','service.completed','lead.created','lead.converted','payment.received','invoice.issued','customer.created','stock.updated']
 
 export default async function WebhookBuilderPage(container) {
   const myGen = container.__routerGen
@@ -102,9 +105,9 @@ export default async function WebhookBuilderPage(container) {
           <div style="flex:1">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
               <span style="width:8px;height:8px;border-radius:50%;background:${w.active?'var(--success)':'var(--text-muted)'};flex-shrink:0"></span>
-              <span style="font-weight:700;font-size:0.88rem">${w.name}</span>
+              <span style="font-weight:700;font-size:0.88rem">${esc(w.name)}</span>
             </div>
-            <div style="font-size:0.72rem;color:var(--text-muted);font-family:monospace;margin-bottom:8px">${w.url}</div>
+            <div style="font-size:0.72rem;color:var(--text-muted);font-family:monospace;margin-bottom:8px">${esc(w.url)}</div>
             <div style="display:flex;gap:4px;flex-wrap:wrap">
               ${w.events.map(e=>`<span style="font-size:0.64rem;background:var(--primary)22;color:var(--primary);padding:2px 7px;border-radius:8px">${e}</span>`).join('')}
             </div>
@@ -157,21 +160,21 @@ export default async function WebhookBuilderPage(container) {
 
   function openDetailModal(w) {
     openModal({
-      title: `⚙ แก้ไข ${w.name}`,
+      title: `⚙ แก้ไข ${esc(w.name)}`,
       size: 'sm',
       body: `
         <div style="display:flex;flex-direction:column;gap:10px;font-size:0.8rem">
           <div><label style="font-size:0.72rem;color:var(--text-muted)">ชื่อ Webhook</label>
-            <input class="input" id="ed-name" value="${w.name}" style="width:100%;margin-top:4px"></div>
+            <input class="input" id="ed-name" value="${esc(w.name)}" style="width:100%;margin-top:4px"></div>
           <div><label style="font-size:0.72rem;color:var(--text-muted)">URL ปลายทาง</label>
-            <input class="input" id="ed-url" value="${w.url}" style="width:100%;margin-top:4px"></div>
+            <input class="input" id="ed-url" value="${esc(w.url)}" style="width:100%;margin-top:4px"></div>
           <div><label style="font-size:0.72rem;color:var(--text-muted)">Events</label>
             <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px">
               ${EVENTS.map(e=>`<label style="display:flex;align-items:center;gap:4px;font-size:0.72rem;cursor:pointer"><input type="checkbox" class="ed-ev" value="${e}"${w.events.includes(e)?' checked':''}> ${e}</label>`).join('')}
             </div>
           </div>
           <div><label style="font-size:0.72rem;color:var(--text-muted)">Secret (optional)</label>
-            <input class="input" id="ed-secret" placeholder="HMAC SHA-256 signing secret" value="${w.secret||''}" style="width:100%;margin-top:4px"></div>
+            <input class="input" id="ed-secret" placeholder="HMAC SHA-256 signing secret" value="${esc(w.secret||'')}" style="width:100%;margin-top:4px"></div>
           <div style="font-size:0.7rem;color:var(--text-muted)">Fires: <b>${w.fires}</b> · Fails: <b>${w.fails}</b> · Last: ${w.lastFired ? new Date(w.lastFired).toLocaleString('th-TH') : '-'}</div>
         </div>`,
       confirmText: '💾 บันทึก',

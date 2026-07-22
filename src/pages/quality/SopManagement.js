@@ -7,6 +7,8 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
 const SOP_CATS = {
   sales:    { label: 'การขาย', color: 'primary', icon: '🎯' },
   service:  { label: 'ศูนย์บริการ', color: 'warning', icon: '🔧' },
@@ -105,7 +107,7 @@ export default async function SopManagementPage(container) {
                   <span class="badge badge-secondary" style="font-size:0.65rem">v${s.version}</span>
                 </div>
               </div>
-              <div style="font-weight:700;font-size:0.87rem;margin-bottom:4px">${s.title}</div>
+              <div style="font-weight:700;font-size:0.87rem;margin-bottom:4px">${esc(s.title)}</div>
               <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:8px">${sc?.label} · ${s.owner}</div>
               <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:10px">${(s.steps||[]).length} ขั้นตอน · อัพเดท ${formatDate(s.updatedDate)}</div>
               <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px">
@@ -141,7 +143,7 @@ export default async function SopManagementPage(container) {
     const sc = SOP_CATS[s.category]
     const ss = SOP_STATUS[s.status]
     openModal({
-      title: `📋 ${s.id} — ${s.title}`,
+      title: `📋 ${s.id} — ${esc(s.title)}`,
       size: 'lg',
       body: `
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">

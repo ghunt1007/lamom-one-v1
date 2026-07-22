@@ -7,6 +7,9 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 
+// ป้องกัน XSS — ข้อความเพิ่มเติม (note) เป็นข้อมูลที่ผู้ใช้พิมพ์เอง ต้อง escape ก่อนแสดงผลเสมอ
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
 const MOODS = [
   { score:5, emoji:'😄', label:'ดีมาก',  color:'#00C853' },
   { score:4, emoji:'🙂', label:'ดี',      color:'#64DD17' },
@@ -107,8 +110,8 @@ export default async function MoodSurveyPage(container) {
                   <div style="display:flex;align-items:center;gap:10px">
                     <span style="font-size:1.4rem">${m.emoji}</span>
                     <div style="flex:1">
-                      <div style="font-weight:700;font-size:0.8rem">${r.staff} <span style="font-size:0.65rem;color:var(--text-muted)">· ${r.dept}</span></div>
-                      ${r.note?`<div style="font-size:0.7rem;color:var(--text-muted);margin-top:2px">"${r.note}"</div>`:''}
+                      <div style="font-weight:700;font-size:0.8rem">${esc(r.staff)} <span style="font-size:0.65rem;color:var(--text-muted)">· ${esc(r.dept)}</span></div>
+                      ${r.note?`<div style="font-size:0.7rem;color:var(--text-muted);margin-top:2px">"${esc(r.note)}"</div>`:''}
                     </div>
                     <div style="font-size:1.1rem;font-weight:900;color:${m.color}">${r.score}</div>
                   </div>
@@ -153,7 +156,7 @@ export default async function MoodSurveyPage(container) {
             <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:2px">ช่องทาง: 🔔 แจ้งเตือนในระบบ</div>
             <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:4px">พนักงาน ${uniqueStaff.length} คน (${DEPT.join(', ')})</div>
             <div style="background:var(--surface-2);border-radius:6px;padding:8px;font-size:0.72rem;max-height:70px;overflow-y:auto">
-              ${uniqueStaff.join(', ')}
+              ${uniqueStaff.map(esc).join(', ')}
             </div>
           </div>
           <div>

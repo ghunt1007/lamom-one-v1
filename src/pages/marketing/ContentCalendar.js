@@ -7,6 +7,9 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
+// ป้องกัน XSS — ชื่อ Content (title) เป็นข้อความที่ผู้ใช้พิมพ์เอง ต้อง escape ก่อนแสดงผลเสมอ
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
 const CONTENT_TYPES = {
   post:    { label: 'Post', color: 'primary', icon: '📝' },
   story:   { label: 'Story', color: 'warning', icon: '📸' },
@@ -108,8 +111,8 @@ export default async function ContentCalendarPage(container) {
                 <div style="font-size:1.2rem">${ct?.icon}</div>
                 <span class="badge badge-${cs?.color}" style="font-size:0.65rem">${cs?.label}</span>
               </div>
-              <div style="font-weight:700;font-size:0.87rem;margin-bottom:4px">${c.title}</div>
-              <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:8px">${c.author}</div>
+              <div style="font-weight:700;font-size:0.87rem;margin-bottom:4px">${esc(c.title)}</div>
+              <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:8px">${esc(c.author)}</div>
 
               <!-- Platforms -->
               <div style="display:flex;gap:4px;margin-bottom:8px">
@@ -166,14 +169,14 @@ export default async function ContentCalendarPage(container) {
     const ct = CONTENT_TYPES[c.type]
     const cs = CONTENT_STATUS[c.status]
     openModal({
-      title: `${ct?.icon} ${c.title}`,
+      title: `${ct?.icon} ${esc(c.title)}`,
       size: 'md',
       body: `
         <div style="display:flex;gap:8px;margin-bottom:12px">
           <span class="badge badge-${ct?.color}">${ct?.icon} ${ct?.label}</span>
           <span class="badge badge-${cs?.color}">${cs?.label}</span>
         </div>
-        ${row('ผู้สร้าง', c.author)}
+        ${row('ผู้สร้าง', esc(c.author))}
         ${row('วันเผยแพร่', formatDate(c.publishDate))}
         ${row('แพลตฟอร์ม', c.platforms.map(p => PLATFORMS[p]?.icon + ' ' + PLATFORMS[p]?.label).join(', '))}
         ${c.views > 0 ? row('Views', c.views.toLocaleString()) : ''}

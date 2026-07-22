@@ -4,6 +4,9 @@ import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
+// ป้องกัน XSS — หมายเหตุ (notes) เป็นข้อความที่ผู้ใช้พิมพ์เอง ต้อง escape ก่อนแสดงผลเสมอ
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
 const PO_STATUS = {
   draft:     { label: 'ร่าง', color: 'secondary' },
   pending:   { label: 'รออนุมัติ', color: 'warning' },
@@ -159,7 +162,7 @@ export default async function PartsOrderPage(container) {
           </div>
           <div>
             ${row('มูลค่ารวม', `<strong style="color:var(--success)">${formatCurrency(o.total)}</strong>`)}
-            ${o.notes ? `<div style="margin-top:8px;padding:8px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:0.8rem">📌 ${o.notes}</div>` : ''}
+            ${o.notes ? `<div style="margin-top:8px;padding:8px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:0.8rem">📌 ${esc(o.notes)}</div>` : ''}
           </div>
         </div>
         <div style="font-size:0.78rem;font-weight:700;margin-bottom:8px">รายการอะไหล่</div>

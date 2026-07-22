@@ -7,6 +7,8 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
 const STATUS_CONFIG = {
   pending:  { label:'รอดำเนินการ', bg:'var(--warning)',  fg:'#fff' },
   approved: { label:'อนุมัติแล้ว', bg:'var(--primary)',  fg:'#fff' },
@@ -75,11 +77,11 @@ export default async function PartsRmaPage(container) {
               <div style="display:flex;align-items:flex-start;gap:12px">
                 <div style="flex:1">
                   <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-                    <span style="font-weight:700;font-size:0.86rem">${r.partName}</span>
+                    <span style="font-weight:700;font-size:0.86rem">${esc(r.partName)}</span>
                     <span style="font-size:0.62rem;background:${cfg.bg};color:${cfg.fg};padding:2px 8px;border-radius:10px">${cfg.label}</span>
                   </div>
                   <div style="font-size:0.72rem;color:var(--text-muted)">
-                    Part# ${r.partNo} · ${r.qty} ${r.unit} · ${r.supplier}
+                    Part# ${esc(r.partNo)} · ${r.qty} ${r.unit} · ${r.supplier}
                   </div>
                   <div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px">
                     เหตุผล: ${r.reason} · วันที่: ${formatDate(r.date)}
@@ -119,11 +121,11 @@ export default async function PartsRmaPage(container) {
   function openDetailModal(r) {
     const cfg = STATUS_CONFIG[r.status]
     openModal({
-      title:`↩️ RMA — ${r.partNo}`,
+      title:`↩️ RMA — ${esc(r.partNo)}`,
       size:'sm',
       body:`<div style="font-size:0.8rem;display:flex;flex-direction:column;gap:6px">
-        <div style="display:flex;justify-content:space-between"><b>${r.partName}</b><span style="font-size:0.62rem;background:${cfg.bg};color:${cfg.fg};padding:2px 8px;border-radius:10px">${cfg.label}</span></div>
-        ${dr('Part No.', r.partNo)}
+        <div style="display:flex;justify-content:space-between"><b>${esc(r.partName)}</b><span style="font-size:0.62rem;background:${cfg.bg};color:${cfg.fg};padding:2px 8px;border-radius:10px">${cfg.label}</span></div>
+        ${dr('Part No.', esc(r.partNo))}
         ${dr('จำนวน', r.qty+' '+r.unit)}
         ${dr('Supplier', r.supplier)}
         ${dr('มูลค่า', formatCurrency(r.cost))}

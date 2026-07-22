@@ -7,6 +7,8 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
 
 const AUDIT_TYPES = {
@@ -94,7 +96,7 @@ export default async function AuditSchedulePage(container) {
             return `<div class="card" style="padding:12px 14px;border-left:3px solid var(--${at?.color})${isOverdue?';background:var(--danger)08':''}">
               <div style="display:flex;justify-content:space-between;align-items:start">
                 <div style="flex:1">
-                  <div style="font-weight:700;font-size:0.87rem">${a.name}</div>
+                  <div style="font-weight:700;font-size:0.87rem">${esc(a.name)}</div>
                   <div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px">
                     👤 ${a.auditor} · 📍 ${a.area} · 📅 ${formatDate(a.scheduledDate)}
                   </div>
@@ -138,7 +140,7 @@ export default async function AuditSchedulePage(container) {
 
   function openCompleteForm(a) {
     openModal({
-      title: '✅ บันทึกผลตรวจ — ' + a.name,
+      title: '✅ บันทึกผลตรวจ — ' + esc(a.name),
       size: 'sm',
       body: `<div style="display:grid;gap:10px">
         <div class="input-group"><label class="input-label">คะแนน (0-100) *</label><input class="input" type="number" id="cp-score" min="0" max="100" value="85"></div>

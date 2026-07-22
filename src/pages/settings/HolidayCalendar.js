@@ -7,6 +7,8 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
 const HOLIDAY_TYPES = {
   national: { label: 'วันหยุดราชการ', color: 'danger', icon: '🇹🇭' },
   company:  { label: 'วันหยุดบริษัท', color: 'primary', icon: '🏢' },
@@ -58,7 +60,7 @@ export default async function HolidayCalendarPage(container) {
         <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
           ${kpi('📅 วันหยุดทั้งปี', holidays.length + ' วัน', 'primary')}
           ${kpi('🚪 โชว์รูมปิด', closedDays + ' วัน', 'warning')}
-          ${kpi('⏭ วันหยุดถัดไป', next ? next.name : '—', 'secondary')}
+          ${kpi('⏭ วันหยุดถัดไป', next ? esc(next.name) : '—', 'secondary')}
         </div>
 
         <!-- Type filter -->
@@ -85,7 +87,7 @@ export default async function HolidayCalendarPage(container) {
                 const isNext = next && h.id === next.id
                 return `<tr style="border-bottom:1px solid var(--border);font-size:0.8rem${isPast?';opacity:0.45':''}${isNext?';background:var(--primary)0d':''}">
                   <td style="padding:8px 14px;font-weight:${isNext?700:400}">${formatDate(h.date)}${isNext?' ⏭':''}</td>
-                  <td style="padding:8px 10px">${h.name}</td>
+                  <td style="padding:8px 10px">${esc(h.name)}</td>
                   <td style="padding:8px 10px;text-align:center"><span class="badge badge-${ht?.color}" style="font-size:0.6rem">${ht?.icon} ${ht?.label}</span></td>
                   <td style="padding:8px 10px;text-align:center">
                     <button class="btn btn-xs ${h.showroomOpen?'btn-success':'btn-danger'} open-toggle" data-id="${h.id}">${h.showroomOpen?'🟢 เปิด':'🔴 ปิด'}</button>

@@ -7,6 +7,8 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
 const TPL_CATS = {
   sales:    { label: 'งานขาย', color: 'success', icon: '💰' },
   service:  { label: 'งานบริการ', color: 'warning', icon: '🔧' },
@@ -69,7 +71,7 @@ export default async function DocumentTemplatesPage(container) {
             const tc = TPL_CATS[t.cat]
             return `<div class="card" style="padding:14px${t.active?'':';opacity:0.6'}">
               <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
-                <div style="font-weight:700;font-size:0.87rem">${t.name}</div>
+                <div style="font-weight:700;font-size:0.87rem">${esc(t.name)}</div>
                 <span class="badge badge-${tc?.color}" style="font-size:0.6rem">${tc?.icon} ${tc?.label}</span>
               </div>
               <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:8px">
@@ -106,7 +108,7 @@ export default async function DocumentTemplatesPage(container) {
 
   function openUseModal(t) {
     openModal({
-      title: '📄 สร้างเอกสาร: ' + t.name,
+      title: '📄 สร้างเอกสาร: ' + esc(t.name),
       size: 'md',
       body: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         ${t.fields.map((f, i) => `<div class="input-group"><label class="input-label">${f}</label><input class="input" id="doc-f-${i}"></div>`).join('')}

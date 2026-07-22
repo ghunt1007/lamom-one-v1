@@ -7,6 +7,10 @@ import { openModal } from '../../utils/modal.js'
 import { showToast, getState, setState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+}
+
 const ANN_TYPES = {
   urgent:  { label: 'ด่วน', color: 'danger', icon: '🚨' },
   policy:  { label: 'นโยบาย', color: 'warning', icon: '📜' },
@@ -70,12 +74,12 @@ export default async function AnnouncementsPage(container) {
             return `<div class="card" style="padding:14px;border-left:3px solid var(--${at?.color})${a.pinned?';background:var(--warning)06':''}">
               <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px">
                 <div>
-                  <div style="font-weight:700;font-size:0.88rem">${a.pinned?'📌 ':''}${a.title}</div>
-                  <div style="font-size:0.7rem;color:var(--text-muted)">✍️ ${a.author} · ${timeAgo(a.time)}</div>
+                  <div style="font-weight:700;font-size:0.88rem">${a.pinned?'📌 ':''}${escHtml(a.title)}</div>
+                  <div style="font-size:0.7rem;color:var(--text-muted)">✍️ ${escHtml(a.author)} · ${timeAgo(a.time)}</div>
                 </div>
                 <span class="badge badge-${at?.color}" style="font-size:0.62rem">${at?.icon} ${at?.label}</span>
               </div>
-              <div style="font-size:0.79rem;color:var(--text-muted);margin-bottom:8px;line-height:1.5">${a.body}</div>
+              <div style="font-size:0.79rem;color:var(--text-muted);margin-bottom:8px;line-height:1.5">${escHtml(a.body)}</div>
               <div style="display:flex;justify-content:space-between;align-items:center">
                 <div style="display:flex;align-items:center;gap:8px;flex:1;max-width:280px">
                   <div style="flex:1;background:var(--surface-2);border-radius:3px;height:6px">

@@ -7,6 +7,8 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
 const PARTNER_TYPES = {
   reseller:  { label: 'Reseller', color: 'primary', icon: '🤝' },
   referral:  { label: 'Referral', color: 'success', icon: '👥' },
@@ -83,7 +85,7 @@ export default async function PartnerPortalPage(container) {
                 <div style="display:flex;gap:10px;align-items:center">
                   <div style="font-size:1.4rem">${pt?.icon}</div>
                   <div>
-                    <div style="font-weight:700;font-size:0.88rem">${p.name}</div>
+                    <div style="font-weight:700;font-size:0.88rem">${esc(p.name)}</div>
                     <div style="font-size:0.72rem;color:var(--text-muted)">${pt?.label}</div>
                   </div>
                 </div>
@@ -132,7 +134,7 @@ export default async function PartnerPortalPage(container) {
     const pt = PARTNER_TYPES[p.type]
     const ps = PARTNER_STATUS[p.status]
     openModal({
-      title: `${pt?.icon} ${p.name}`,
+      title: `${pt?.icon} ${esc(p.name)}`,
       size: 'md',
       body: `
         <div style="display:flex;gap:8px;margin-bottom:12px">

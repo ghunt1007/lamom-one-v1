@@ -14,6 +14,8 @@ const REWARD_CATS = {
   perk:    { label: 'สิทธิพิเศษ', icon: '✨' },
 }
 
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
 export default async function RewardStorePage(container) {
   const myGen = container.__routerGen
   seedDemoData()
@@ -92,7 +94,7 @@ export default async function RewardStorePage(container) {
               <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">⭐ แต้มสะสมพนักงาน</div>
               ${staffPoints.map((s, i) => `
                 <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:0.78rem">
-                  <span>${['🥇','🥈','🥉'][i] || (i+1)+'.'} ${s.name}</span>
+                  <span>${['🥇','🥈','🥉'][i] || (i+1)+'.'} ${esc(s.name)}</span>
                   <strong style="color:var(--warning)">⭐ ${(s.points||0).toLocaleString()}</strong>
                 </div>
               `).join('')}
@@ -103,7 +105,7 @@ export default async function RewardStorePage(container) {
               <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">🔄 แลกล่าสุด</div>
               ${redemptions.map(r => `
                 <div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:0.73rem">
-                  <div><strong>${r.staff}</strong> แลก ${r.reward}</div>
+                  <div><strong>${esc(r.staff)}</strong> แลก ${esc(r.reward)}</div>
                   <div style="color:var(--text-muted);font-size:0.65rem">−${r.points} แต้ม · ${timeAgo(r.createdAt)}</div>
                 </div>
               `).join('')}
@@ -123,7 +125,7 @@ export default async function RewardStorePage(container) {
         body: `<div style="display:grid;gap:10px">
           <div style="font-size:0.85rem">ใช้ <strong style="color:var(--warning)">⭐ ${r.points.toLocaleString()}</strong> แต้ม</div>
           <div class="input-group"><label class="input-label">พนักงานที่แลก</label>
-            <select class="input" id="rd-staff">${staffPoints.map(s=>`<option value="${s.id}" ${s.points<r.points?'disabled':''}>${s.name} (⭐ ${s.points.toLocaleString()})${s.points<r.points?' — แต้มไม่พอ':''}</option>`).join('')}</select>
+            <select class="input" id="rd-staff">${staffPoints.map(s=>`<option value="${s.id}" ${s.points<r.points?'disabled':''}>${esc(s.name)} (⭐ ${s.points.toLocaleString()})${s.points<r.points?' — แต้มไม่พอ':''}</option>`).join('')}</select>
           </div>
         </div>`,
         confirmText: '🎁 ยืนยันแลก',

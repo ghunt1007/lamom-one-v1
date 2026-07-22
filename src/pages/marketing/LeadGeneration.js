@@ -4,6 +4,8 @@ import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
 const CHANNEL_MAP = {
   facebook:  { label: 'Facebook Ads', color: 'primary', icon: '📘' },
   google:    { label: 'Google Ads', color: 'warning', icon: '🔍' },
@@ -119,7 +121,7 @@ export default async function LeadGenerationPage(container) {
               const budgetPct = Math.round(c.spent / c.budget * 100)
               return `<tr>
                 <td>
-                  <div style="font-weight:600;font-size:0.85rem">${c.name}</div>
+                  <div style="font-weight:600;font-size:0.85rem">${esc(c.name)}</div>
                   <div style="font-size:0.72rem;color:var(--text-muted)">${formatDate(c.startDate)} — ${formatDate(c.endDate)}</div>
                 </td>
                 <td><span class="badge badge-${ch?.color}">${ch?.icon} ${ch?.label}</span></td>
@@ -183,7 +185,7 @@ export default async function LeadGenerationPage(container) {
           return `<div class="card" style="padding:12px 14px;display:flex;align-items:center;gap:12px">
             <div style="width:40px;height:40px;background:var(--primary-dim);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem">${ch?.icon}</div>
             <div style="flex:1">
-              <div style="font-weight:700;font-size:0.88rem">${l.name}</div>
+              <div style="font-weight:700;font-size:0.88rem">${esc(l.name)}</div>
               <div style="font-size:0.75rem;color:var(--text-muted)">${l.phone} · ${l.model} · ${ch?.label}</div>
             </div>
             <span class="badge badge-${stColor}">${l.status === 'hot' ? '🔥 Hot' : l.status === 'qualified' ? '✅ Qualified' : 'New'}</span>
@@ -205,7 +207,7 @@ export default async function LeadGenerationPage(container) {
     const budgetPct = Math.round(c.spent / c.budget * 100)
     const convRate = c.leads ? (c.closed / c.leads * 100).toFixed(1) : 0
     openModal({
-      title: `📋 ${c.id} — ${c.name}`,
+      title: `📋 ${c.id} — ${esc(c.name)}`,
       size: 'md',
       body: `
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">

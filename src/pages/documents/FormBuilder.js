@@ -6,6 +6,9 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
+// ป้องกัน XSS — ชื่อ/คำอธิบายฟอร์ม เป็นข้อความที่ผู้ใช้พิมพ์เอง ต้อง escape ก่อนแสดงผลเสมอ
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
 const FIELD_TYPES = [
   { type:'text',     icon:'✏️', label:'Text' },
   { type:'number',   icon:'🔢', label:'Number' },
@@ -92,7 +95,7 @@ export default async function FormBuilderPage(container) {
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
-            <div class="page-title">⚙ แก้ไขฟอร์ม: ${form.name}</div>
+            <div class="page-title">⚙ แก้ไขฟอร์ม: ${esc(form.name)}</div>
             <div class="page-subtitle">ลากสลับตำแหน่ง · เพิ่ม/ลบช่อง · ตั้งค่า Required</div>
           </div>
           <div class="page-actions">
@@ -170,7 +173,7 @@ export default async function FormBuilderPage(container) {
           <button class="btn btn-xs btn-secondary dn-btn" data-id="${f.id}" style="padding:1px 6px;line-height:1">▼</button>
         </div>
         <span style="font-size:1rem;flex-shrink:0">${ft.icon}</span>
-        <span style="font-size:0.76rem;font-weight:700;flex:1">${f.label}</span>
+        <span style="font-size:0.76rem;font-weight:700;flex:1">${esc(f.label)}</span>
         <span style="font-size:0.64rem;background:var(--primary)22;color:var(--primary);padding:2px 6px;border-radius:6px">${ft.label}</span>
         <label style="display:flex;align-items:center;gap:4px;font-size:0.72rem;flex-shrink:0">
           <input type="checkbox" class="req-toggle" data-id="${f.id}" ${f.required?'checked':''}>Required
@@ -184,14 +187,14 @@ export default async function FormBuilderPage(container) {
       <div class="card" style="padding:14px">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
           <div>
-            <div style="font-weight:700;font-size:0.88rem">${f.name}</div>
-            <div style="font-size:0.72rem;color:var(--text-muted)">${f.desc}</div>
+            <div style="font-weight:700;font-size:0.88rem">${esc(f.name)}</div>
+            <div style="font-size:0.72rem;color:var(--text-muted)">${esc(f.desc)}</div>
           </div>
           <span style="font-size:0.64rem;background:${f.active?'var(--success)':'var(--surface-2)'};color:${f.active?'#fff':'var(--text-muted)'};padding:2px 8px;border-radius:10px">${f.active?'เปิด':'ปิด'}</span>
         </div>
         <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:10px">${f.fields.length} ช่อง · ${f.submissions} การตอบ</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
-          ${f.fields.slice(0,3).map(l=>`<span style="font-size:0.64rem;background:var(--surface-2);padding:2px 7px;border-radius:6px">${l}</span>`).join('')}${f.fields.length>3?`<span style="font-size:0.64rem;color:var(--text-muted)">+${f.fields.length-3}</span>`:''}
+          ${f.fields.slice(0,3).map(l=>`<span style="font-size:0.64rem;background:var(--surface-2);padding:2px 7px;border-radius:6px">${esc(l)}</span>`).join('')}${f.fields.length>3?`<span style="font-size:0.64rem;color:var(--text-muted)">+${f.fields.length-3}</span>`:''}
         </div>
         <div style="display:flex;gap:6px">
           <button class="btn btn-xs btn-secondary edit-btn" data-id="${f.id}">⚙ แก้ไข</button>
@@ -231,10 +234,10 @@ export default async function FormBuilderPage(container) {
         ${activeFields.map(f => {
           const ft = FIELD_TYPES.find(x=>x.type===f.type)||FIELD_TYPES[0]
           return `<div>
-            <label style="font-size:0.76rem;font-weight:600">${f.label}${f.required?' <span style="color:var(--danger)">*</span>':''}</label>
-            ${f.type==='textarea' ? `<textarea class="input" style="width:100%;margin-top:4px;height:60px" placeholder="${f.label}"></textarea>`
+            <label style="font-size:0.76rem;font-weight:600">${esc(f.label)}${f.required?' <span style="color:var(--danger)">*</span>':''}</label>
+            ${f.type==='textarea' ? `<textarea class="input" style="width:100%;margin-top:4px;height:60px" placeholder="${esc(f.label)}"></textarea>`
               : f.type==='select' ? `<select class="input" style="width:100%;margin-top:4px"><option>-- เลือก --</option></select>`
-              : `<input class="input" type="${f.type}" placeholder="${f.label}" style="width:100%;margin-top:4px">`}
+              : `<input class="input" type="${f.type}" placeholder="${esc(f.label)}" style="width:100%;margin-top:4px">`}
           </div>`
         }).join('')}`,
       confirmText: '✉ ส่งฟอร์ม (ทดสอบ)',

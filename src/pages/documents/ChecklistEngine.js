@@ -8,6 +8,8 @@ import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.
 
 const CAT_COLORS = { DMS:'var(--primary)', บริการ:'var(--warning)', คุณภาพ:'var(--success)', HR:'var(--danger)' }
 
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
 function catBadge(cat) {
   const c = CAT_COLORS[cat] || 'var(--primary)'
   return '<span style="font-size:0.62rem;padding:2px 8px;border-radius:6px;background:' + c + '22;color:' + c + ';font-weight:700">' + cat + '</span>'
@@ -36,7 +38,7 @@ export default async function ChecklistEnginePage(container) {
     return '<div class="card" style="padding:14px;margin-bottom:8px">' +
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">' +
         '<div>' +
-          '<div style="font-weight:700;font-size:0.82rem">' + cl.name + '</div>' +
+          '<div style="font-weight:700;font-size:0.82rem">' + esc(cl.name) + '</div>' +
           '<div style="font-size:0.68rem;color:var(--text-muted)">ใช้แล้ว ' + cl.usedCount + ' ครั้ง · ล่าสุด ' + cl.lastUsed + '</div>' +
         '</div>' +
         catBadge(cl.category) +
@@ -55,7 +57,7 @@ export default async function ChecklistEnginePage(container) {
     const itemsHtml = cl.items.map((item, i) =>
       '<label style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border-subtle);cursor:pointer;background:' + (cl.progress[i] ? 'var(--success)11' : 'transparent') + '">' +
         '<input type="checkbox" class="check-box" data-i="' + i + '" ' + (cl.progress[i] ? 'checked' : '') + ' style="width:18px;height:18px;cursor:pointer">' +
-        '<span style="font-size:0.8rem;' + (cl.progress[i] ? 'text-decoration:line-through;color:var(--text-muted)' : '') + '">' + item + '</span>' +
+        '<span style="font-size:0.8rem;' + (cl.progress[i] ? 'text-decoration:line-through;color:var(--text-muted)' : '') + '">' + esc(item) + '</span>' +
       '</label>'
     ).join('')
 
@@ -63,7 +65,7 @@ export default async function ChecklistEnginePage(container) {
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
-            <div class="page-title">✅ ${cl.name}</div>
+            <div class="page-title">✅ ${esc(cl.name)}</div>
             <div class="page-subtitle">${cl.category} · ${done}/${cl.items.length} รายการเสร็จแล้ว</div>
           </div>
           <div class="page-actions">

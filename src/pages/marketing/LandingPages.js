@@ -6,7 +6,10 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
-const TEMPLATES = [
+// ป้องกัน XSS — ชื่อหน้า/Campaign เป็นข้อมูลที่ผู้ใช้พิมพ์เอง ต้อง escape ก่อนแสดงผลเสมอ
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
+const TEMPLATES =[
   { id:'t1', name:'Test Drive Form',    icon:'🚗' },
   { id:'t2', name:'Promotion Landing',  icon:'🎯' },
   { id:'t3', name:'Event Registration', icon:'🎪' },
@@ -39,10 +42,10 @@ export default async function LandingPagesPage(container) {
         <div style="font-size:1.5rem">🌐</div>
         <div style="flex:1">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-            <span style="font-weight:700;font-size:0.88rem">${p.title}</span>
+            <span style="font-weight:700;font-size:0.88rem">${esc(p.title)}</span>
             <span style="font-size:0.62rem;background:${statusBg};color:#fff;padding:1px 8px;border-radius:8px">${statusLabel}</span>
           </div>
-          <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:8px">📣 ${p.campaign} · สร้าง ${p.created}</div>
+          <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:8px">📣 ${esc(p.campaign)} · สร้าง ${p.created}</div>
           <div style="display:flex;gap:16px;font-size:0.74rem">
             <span>👁 ${p.visits.toLocaleString()} visits</span>
             <span>🎯 ${p.leads} leads</span>
@@ -124,15 +127,15 @@ export default async function LandingPagesPage(container) {
   function openPreviewModal(p) {
     const convColor = p.conv >= 7 ? 'var(--success)' : p.conv >= 5 ? 'var(--warning)' : 'var(--danger)'
     openModal({
-      title: '👁 Preview — ' + p.title,
+      title: '👁 Preview — ' + esc(p.title),
       size: 'md',
       body: `
         <div style="font-size:0.82rem">
           <!-- Mock landing page preview -->
           <div style="background:linear-gradient(135deg,var(--primary)22,var(--accent)11);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px">
             <div style="background:var(--primary);padding:16px 20px;color:#fff;text-align:center">
-              <div style="font-size:1.1rem;font-weight:700">${p.title}</div>
-              <div style="font-size:0.76rem;opacity:0.85;margin-top:4px">📣 ${p.campaign}</div>
+              <div style="font-size:1.1rem;font-weight:700">${esc(p.title)}</div>
+              <div style="font-size:0.76rem;opacity:0.85;margin-top:4px">📣 ${esc(p.campaign)}</div>
             </div>
             <div style="padding:16px 20px">
               <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:12px;text-align:center">กรอกข้อมูลเพื่อรับโปรโมชั่นพิเศษ</div>
@@ -172,9 +175,9 @@ export default async function LandingPagesPage(container) {
       body: `
         <div style="display:flex;flex-direction:column;gap:12px;font-size:0.82rem">
           <div><label style="font-size:0.74rem;color:var(--text-muted)">ชื่อหน้า *</label>
-            <input id="ep-title" class="input" value="${p.title}"></div>
+            <input id="ep-title" class="input" value="${esc(p.title)}"></div>
           <div><label style="font-size:0.74rem;color:var(--text-muted)">Campaign</label>
-            <input id="ep-camp" class="input" value="${p.campaign}"></div>
+            <input id="ep-camp" class="input" value="${esc(p.campaign)}"></div>
           <div><label style="font-size:0.74rem;color:var(--text-muted)">สถานะ</label>
             <select id="ep-status" class="input">
               <option value="active" ${p.status==='active'?'selected':''}>🟢 Active</option>

@@ -7,6 +7,8 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
 const PKG_TYPES = {
   basic:    { label: 'Basic', color: 'secondary', icon: '🔧' },
   standard: { label: 'Standard', color: 'primary', icon: '⭐' },
@@ -53,7 +55,7 @@ export default async function ServicePackagePage(container) {
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('📦 แพ็กเกจทั้งหมด', packages.length, 'primary')}
           ${kpi('✅ ใช้งาน', packages.filter(p=>p.active).length, 'success')}
-          ${kpi('🏆 ขายมากสุด', topPkg?.name?.slice(0,15)+'...', 'warning')}
+          ${kpi('🏆 ขายมากสุด', esc(topPkg?.name?.slice(0,15))+'...', 'warning')}
           ${kpi('💰 รายได้รวม', formatCurrency(totalRevenue), 'success')}
         </div>
 
@@ -70,7 +72,7 @@ export default async function ServicePackagePage(container) {
                 <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px">
                   <div>
                     <div style="font-size:1.2rem">${t?.icon}</div>
-                    <div style="font-weight:700;font-size:0.9rem;margin-top:4px">${p.name}</div>
+                    <div style="font-weight:700;font-size:0.9rem;margin-top:4px">${esc(p.name)}</div>
                     <div style="font-size:0.72rem;color:var(--text-muted)">⏱ ${p.duration} นาที · ขายแล้ว ${p.soldCount} ครั้ง</div>
                   </div>
                   <div style="text-align:right">
@@ -110,7 +112,7 @@ export default async function ServicePackagePage(container) {
   function openDetail(p) {
     const t = PKG_TYPES[p.type]
     openModal({
-      title: `${t?.icon} ${p.name}`,
+      title: `${t?.icon} ${esc(p.name)}`,
       size: 'sm',
       body: `
         <div style="margin-bottom:10px">

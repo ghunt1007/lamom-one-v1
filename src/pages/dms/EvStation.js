@@ -6,6 +6,8 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
 const BATTERIES = [
   { vin:'LVVDBCAE1PD123456', model:'BYD Atto 3', customer:'คุณวรพจน์', health:97, cycles:42, lastCheck:'2026-06-01', status:'excellent' },
   { vin:'LVVDBCAE1PD234567', model:'BYD Seal AWD', customer:'รถโชว์รูม', health:99, cycles:12, lastCheck:'2026-06-10', status:'excellent' },
@@ -52,7 +54,7 @@ export default async function EvStationPage(container) {
         <div style="display:flex;flex-direction:column;gap:12px;font-size:0.82rem">
           <div>
             <label style="font-size:0.74rem;color:var(--text-muted)">ชื่อสถานี *</label>
-            <input id="ev-name" class="input" placeholder="เช่น Charger D1 (อาคารจอดรถ)" value="${st?.name || ''}">
+            <input id="ev-name" class="input" placeholder="เช่น Charger D1 (อาคารจอดรถ)" value="${esc(st?.name || '')}">
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div>
@@ -128,7 +130,7 @@ export default async function EvStationPage(container) {
 
     if (isEdit) {
       document.getElementById('ev-del')?.addEventListener('click', async () => {
-        const ok = await confirmDialog({ title:'🗑 ลบสถานีชาร์จ', message:`ลบ "${st.name}" ออกจากระบบ?`, confirmText:'ลบ', danger:true })
+        const ok = await confirmDialog({ title:'🗑 ลบสถานีชาร์จ', message:`ลบ "${esc(st.name)}" ออกจากระบบ?`, confirmText:'ลบ', danger:true })
         if (!ok) return
         try {
           await softDelete('ev_charging_stations', st.id)
@@ -215,7 +217,7 @@ export default async function EvStationPage(container) {
     return `<div class="card ev-station-card" data-id="${st.id}" style="padding:14px;border:1px solid ${border};margin-bottom:8px;cursor:pointer">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
         <div>
-          <div style="font-weight:700;font-size:0.82rem">${st.name}</div>
+          <div style="font-weight:700;font-size:0.82rem">${esc(st.name)}</div>
           <div style="font-size:0.68rem;color:var(--text-muted)">${st.type} · ${st.power}</div>
         </div>
         <div style="display:flex;align-items:center;gap:6px">

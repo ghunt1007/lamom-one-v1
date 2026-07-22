@@ -5,6 +5,8 @@
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData } from '../../core/db.js'
 
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
 const FIELD_GROUPS = [
   { group:'CRM', fields:['ชื่อลูกค้า','รุ่นที่สนใจ','สถานะดีล','วันที่ติดต่อ','พนักงานขาย','แหล่งที่มา Lead'] },
   { group:'ยอดขาย', fields:['ยอดขาย (คัน)','รายได้','กำไร Gross','Margin %','ค่าคอม','ส่วนลด'] },
@@ -103,14 +105,14 @@ export default async function ReportBuilderPage(container) {
             ${savedReports.length > 0 ? `<div class="card" style="padding:14px">
               <div style="font-size:0.8rem;font-weight:700;margin-bottom:8px">📁 Report ที่บันทึกไว้ (${savedReports.length})</div>
               <div style="display:flex;flex-direction:column;gap:6px">
-                ${savedReports.map(r => `<button class="btn btn-sm btn-secondary saved-report-btn" data-id="${r.id}" style="text-align:left;justify-content:flex-start">📄 ${r.name}</button>`).join('')}
+                ${savedReports.map(r => `<button class="btn btn-sm btn-secondary saved-report-btn" data-id="${r.id}" style="text-align:left;justify-content:flex-start">📄 ${esc(r.name)}</button>`).join('')}
               </div>
             </div>` : ''}
           </div>
           <div>
             <div class="card" style="padding:14px;margin-bottom:10px">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-                <input id="report-name" value="${reportName}" style="font-size:0.88rem;font-weight:700;background:transparent;border:none;border-bottom:1px solid var(--border);padding:4px;color:var(--text);width:300px">
+                <input id="report-name" value="${esc(reportName)}" style="font-size:0.88rem;font-weight:700;background:transparent;border:none;border-bottom:1px solid var(--border);padding:4px;color:var(--text);width:300px">
                 <span style="font-size:0.7rem;color:var(--text-muted)">${selectedFields.length} fields · ${CHART_TYPES.find(c=>c.key===chartType)?.icon||'📊'} ${CHART_TYPES.find(c=>c.key===chartType)?.label||chartType}</span>
               </div>
               <div style="background:var(--surface-2);border-radius:8px;padding:16px;min-height:200px;display:flex;align-items:center;justify-content:center;margin-bottom:14px">

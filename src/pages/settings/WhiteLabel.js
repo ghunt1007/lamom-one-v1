@@ -1,6 +1,10 @@
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { openModal } from '../../utils/modal.js'
 import { listDocs, createDoc, updateDocData } from '../../core/db.js'
+
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+}
 
 const THEMES = [
   { id: 'default', name: 'LAMOM Purple', primary: '#6c63ff', accent: '#f857a6', bg: '#0f0f1a' },
@@ -49,6 +53,11 @@ export default async function WhiteLabelPage(container) {
   let cfg = await loadConfig()
   if (container.__routerGen !== myGen) return
 
+  // Branding เป็นการตั้งค่าองค์กร-ไวด์ (ทุกสาขาเห็นค่าเดียวกัน) — เดิมหน้านี้ไม่มีการเช็คสิทธิ์เลย
+  // ใครก็แก้ brand name/สี/footer ขององค์กรทั้งหมดได้ ตอนนี้จำกัดให้แก้ได้เฉพาะ owner/admin เท่านั้น
+  // (ดูได้ทุกคน — read-only display ไม่กระทบ)
+  const canEdit = ['owner', 'admin'].includes(getState('role'))
+
   let tab = 'brand'
 
   function renderPage() {
@@ -57,11 +66,13 @@ export default async function WhiteLabelPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🎨 White-label Settings</div>
-            <div class="page-subtitle">ปรับแต่ง Brand และ Theme</div>
+            <div class="page-subtitle">ปรับแต่ง Brand และ Theme${canEdit ? '' : ' · 🔒 ดูได้อย่างเดียว (ต้องมีสิทธิ์แอดมินขึ้นไปจึงแก้ไขได้)'}</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="wl-preview">👁 Preview</button>
-            <button class="btn btn-primary" id="wl-save">💾 บันทึก</button>
+            ${canEdit
+              ? `<button class="btn btn-primary" id="wl-save">💾 บันทึก</button>`
+              : `<button class="btn btn-secondary" id="wl-save" disabled title="ต้องมีสิทธิ์แอดมินขึ้นไปจึงแก้ไขได้">🔒 บันทึก</button>`}
           </div>
         </div>
 
@@ -78,52 +89,55 @@ export default async function WhiteLabelPage(container) {
     document.getElementById('wl-save')?.addEventListener('click', saveAll)
     document.getElementById('wl-preview')?.addEventListener('click', showPreview)
 
-    // Theme selection
-    document.querySelectorAll('.theme-card').forEach(card => {
-      card.addEventListener('click', () => {
-        const t = THEMES.find(x => x.id === card.dataset.tid)
-        if (t) { cfg.themeId = t.id; cfg.primaryColor = t.primary; cfg.accentColor = t.accent; renderPage() }
+    // Theme selection — disabled สำหรับคนที่ไม่มีสิทธิ์แก้ไข (ดูได้อย่างเดียว)
+    if (canEdit) {
+      document.querySelectorAll('.theme-card').forEach(card => {
+        card.addEventListener('click', () => {
+          const t = THEMES.find(x => x.id === card.dataset.tid)
+          if (t) { cfg.themeId = t.id; cfg.primaryColor = t.primary; cfg.accentColor = t.accent; renderPage() }
+        })
       })
-    })
 
-    // Apply live color preview
-    document.getElementById('primary-color')?.addEventListener('input', e => {
-      cfg.primaryColor = e.target.value
-      document.documentElement.style.setProperty('--primary', e.target.value)
-    })
-    document.getElementById('accent-color')?.addEventListener('input', e => {
-      cfg.accentColor = e.target.value
-      document.documentElement.style.setProperty('--accent', e.target.value)
-    })
+      // Apply live color preview
+      document.getElementById('primary-color')?.addEventListener('input', e => {
+        cfg.primaryColor = e.target.value
+        document.documentElement.style.setProperty('--primary', e.target.value)
+      })
+      document.getElementById('accent-color')?.addEventListener('input', e => {
+        cfg.accentColor = e.target.value
+        document.documentElement.style.setProperty('--accent', e.target.value)
+      })
+    }
   }
 
   function renderBrand() {
+    const dis = canEdit ? '' : 'disabled'
     return `
       <div style="display:grid;grid-template-columns:1fr 300px;gap:20px;align-items:start">
         <div class="card" style="padding:20px;display:flex;flex-direction:column;gap:14px">
           <div class="input-group">
             <label class="input-label">ชื่อแบรนด์ / ชื่อระบบ</label>
-            <input class="input" id="brand-name" value="${cfg.brandName}" placeholder="ชื่อแบรนด์">
+            <input class="input" id="brand-name" value="${escHtml(cfg.brandName)}" placeholder="ชื่อแบรนด์" ${dis}>
           </div>
           <div class="input-group">
             <label class="input-label">Tagline / คำอธิบาย</label>
-            <input class="input" id="brand-tagline" value="${cfg.tagline}" placeholder="คำอธิบายสั้นๆ">
+            <input class="input" id="brand-tagline" value="${escHtml(cfg.tagline)}" placeholder="คำอธิบายสั้นๆ" ${dis}>
           </div>
           <div class="input-group">
             <label class="input-label">Logo URL</label>
-            <input class="input" id="brand-logo" value="${cfg.logoUrl}" placeholder="https://...">
+            <input class="input" id="brand-logo" value="${escHtml(cfg.logoUrl)}" placeholder="https://..." ${dis}>
             <div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px">ใส่ URL รูป Logo (แนะนำ PNG 200×60px)</div>
           </div>
           <div class="input-group">
             <label class="input-label">Favicon URL</label>
-            <input class="input" id="brand-fav" value="${cfg.favicon}" placeholder="https://...">
+            <input class="input" id="brand-fav" value="${escHtml(cfg.favicon)}" placeholder="https://..." ${dis}>
           </div>
           <div class="input-group">
             <label class="input-label">Footer Text</label>
-            <input class="input" id="brand-footer" value="${cfg.footerText}" placeholder="© 2025 Your Brand">
+            <input class="input" id="brand-footer" value="${escHtml(cfg.footerText)}" placeholder="© 2025 Your Brand" ${dis}>
           </div>
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem">
-            <input type="checkbox" id="powered-by" ${cfg.showPoweredBy?'checked':''} style="width:16px;height:16px">
+            <input type="checkbox" id="powered-by" ${cfg.showPoweredBy?'checked':''} style="width:16px;height:16px" ${dis}>
             แสดง "Powered by LAMOM ONE"
           </label>
         </div>
@@ -135,15 +149,15 @@ export default async function WhiteLabelPage(container) {
             <!-- Mock sidebar header -->
             <div style="background:var(--surface);padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
               <div style="width:32px;height:32px;border-radius:var(--radius-sm);background:var(--primary);display:flex;align-items:center;justify-content:center;color:white;font-weight:900;font-size:0.9rem">
-                ${cfg.brandName.charAt(0)}
+                ${escHtml(cfg.brandName.charAt(0))}
               </div>
               <div>
-                <div style="font-weight:700;font-size:0.88rem">${cfg.brandName}</div>
-                <div style="font-size:0.68rem;color:var(--text-muted)">${cfg.tagline}</div>
+                <div style="font-weight:700;font-size:0.88rem">${escHtml(cfg.brandName)}</div>
+                <div style="font-size:0.68rem;color:var(--text-muted)">${escHtml(cfg.tagline)}</div>
               </div>
             </div>
             <div style="padding:12px 16px;background:var(--surface-2);font-size:0.72rem;color:var(--text-muted);text-align:center">
-              ${cfg.footerText}
+              ${escHtml(cfg.footerText)}
               ${cfg.showPoweredBy ? '<br><span>Powered by LAMOM ONE</span>' : ''}
             </div>
           </div>
@@ -153,6 +167,7 @@ export default async function WhiteLabelPage(container) {
   }
 
   function renderTheme() {
+    const dis = canEdit ? '' : 'disabled'
     return `
       <div style="display:flex;flex-direction:column;gap:20px">
         <!-- Theme presets -->
@@ -161,7 +176,7 @@ export default async function WhiteLabelPage(container) {
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px">
             ${THEMES.map(t => `
               <div class="theme-card" data-tid="${t.id}" style="
-                padding:14px;border-radius:var(--radius-md);cursor:pointer;
+                padding:14px;border-radius:var(--radius-md);cursor:${canEdit ? 'pointer' : 'default'};opacity:${canEdit ? '1' : '.6'};
                 border:2px solid ${cfg.themeId === t.id ? t.primary : 'var(--border)'};
                 background:${t.bg};transition:border-color 0.15s;
               ">
@@ -170,7 +185,7 @@ export default async function WhiteLabelPage(container) {
                   <div style="width:20px;height:20px;border-radius:50%;background:${t.accent}"></div>
                   <div style="width:20px;height:20px;border-radius:50%;background:${t.bg};border:1px solid rgba(255,255,255,0.2)"></div>
                 </div>
-                <div style="font-size:0.8rem;font-weight:${cfg.themeId===t.id?700:400};color:white">${t.name}</div>
+                <div style="font-size:0.8rem;font-weight:${cfg.themeId===t.id?700:400};color:white">${escHtml(t.name)}</div>
                 ${cfg.themeId === t.id ? `<div style="font-size:0.65rem;color:${t.primary};margin-top:2px">✓ ใช้งานอยู่</div>` : ''}
               </div>
             `).join('')}
@@ -184,15 +199,15 @@ export default async function WhiteLabelPage(container) {
             <div class="input-group">
               <label class="input-label">Primary Color</label>
               <div style="display:flex;gap:8px;align-items:center">
-                <input type="color" id="primary-color" value="${cfg.primaryColor}" style="width:48px;height:36px;padding:2px;border-radius:var(--radius-sm);border:1px solid var(--border);cursor:pointer;background:var(--surface)">
-                <input class="input" value="${cfg.primaryColor}" style="font-family:monospace;font-size:0.83rem" id="primary-hex" oninput="document.getElementById('primary-color').value=this.value">
+                <input type="color" id="primary-color" value="${cfg.primaryColor}" style="width:48px;height:36px;padding:2px;border-radius:var(--radius-sm);border:1px solid var(--border);cursor:pointer;background:var(--surface)" ${dis}>
+                <input class="input" value="${cfg.primaryColor}" style="font-family:monospace;font-size:0.83rem" id="primary-hex" oninput="document.getElementById('primary-color').value=this.value" ${dis}>
               </div>
             </div>
             <div class="input-group">
               <label class="input-label">Accent Color</label>
               <div style="display:flex;gap:8px;align-items:center">
-                <input type="color" id="accent-color" value="${cfg.accentColor}" style="width:48px;height:36px;padding:2px;border-radius:var(--radius-sm);border:1px solid var(--border);cursor:pointer;background:var(--surface)">
-                <input class="input" value="${cfg.accentColor}" style="font-family:monospace;font-size:0.83rem" id="accent-hex" oninput="document.getElementById('accent-color').value=this.value">
+                <input type="color" id="accent-color" value="${cfg.accentColor}" style="width:48px;height:36px;padding:2px;border-radius:var(--radius-sm);border:1px solid var(--border);cursor:pointer;background:var(--surface)" ${dis}>
+                <input class="input" value="${cfg.accentColor}" style="font-family:monospace;font-size:0.83rem" id="accent-hex" oninput="document.getElementById('accent-color').value=this.value" ${dis}>
               </div>
             </div>
           </div>
@@ -206,6 +221,7 @@ export default async function WhiteLabelPage(container) {
   }
 
   function renderLayout() {
+    const dis = canEdit ? '' : 'disabled'
     const layoutOpts = [
       { id: 'sidebar-compact', label: 'Sidebar แบบ Compact', desc: 'แสดงเฉพาะ icon ตลอดเวลา' },
       { id: 'sidebar-full', label: 'Sidebar แบบเต็ม', desc: 'แสดงชื่อเมนูเต็ม' },
@@ -216,7 +232,7 @@ export default async function WhiteLabelPage(container) {
         <div style="font-weight:700;font-size:0.88rem;margin-bottom:4px">📐 Layout Options</div>
         ${layoutOpts.map(o => `
           <label style="display:flex;align-items:center;gap:12px;padding:14px 16px;border:1px solid var(--border);border-radius:var(--radius-md);cursor:pointer;background:var(--surface)">
-            <input type="radio" name="layout-opt" value="${o.id}" ${cfg.layoutId===o.id?'checked':''} style="width:16px;height:16px">
+            <input type="radio" name="layout-opt" value="${o.id}" ${cfg.layoutId===o.id?'checked':''} style="width:16px;height:16px" ${dis}>
             <div>
               <div style="font-size:0.88rem;font-weight:600">${o.label}</div>
               <div style="font-size:0.75rem;color:var(--text-muted)">${o.desc}</div>
@@ -228,7 +244,7 @@ export default async function WhiteLabelPage(container) {
           <div style="font-weight:700;font-size:0.85rem;margin-bottom:12px">📄 หน้าแรก (Landing Page)</div>
           <div class="input-group">
             <label class="input-label">Default Route หลัง Login</label>
-            <select class="input" id="default-route">
+            <select class="input" id="default-route" ${dis}>
               ${[['/', 'Dashboard'],[ '/crm', 'CRM Dashboard'],['/service','Service Dashboard'],['/analytics','Analytics']].map(([v,l]) => `<option value="${v}" ${cfg.defaultRoute===v?'selected':''}>${l}</option>`).join('')}
             </select>
           </div>
@@ -251,7 +267,7 @@ export default async function WhiteLabelPage(container) {
           ].map(([label, active], i) => `
             <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)">
               <span style="font-size:0.85rem">${label}</span>
-              <button class="btn btn-xs btn-${active?'success':'secondary'} adv-toggle" data-i="${i}" style="min-width:60px">${active?'เปิด':'ปิด'}</button>
+              <button class="btn btn-xs btn-${active?'success':'secondary'} adv-toggle" data-i="${i}" style="min-width:60px" ${canEdit ? '' : 'disabled'}>${active?'เปิด':'ปิด'}</button>
             </div>
           `).join('')}
         </div>
@@ -271,6 +287,8 @@ export default async function WhiteLabelPage(container) {
   }
 
   async function saveAll() {
+    // Guard ฝั่ง logic ด้วย (ไม่พึ่งแค่ disabled ปุ่ม/input ฝั่ง UI) — กันกรณีมีคนพยายามยิง saveAll() ตรงๆ
+    if (!canEdit) { showToast('❌ คุณไม่มีสิทธิ์แก้ไข Branding — ต้องมีสิทธิ์แอดมินขึ้นไป', 'error'); return }
     // Collect values
     if (document.getElementById('brand-name')) {
       cfg.brandName = document.getElementById('brand-name').value
@@ -296,7 +314,9 @@ export default async function WhiteLabelPage(container) {
     document.documentElement.style.setProperty('--primary', cfg.primaryColor)
     document.documentElement.style.setProperty('--accent', cfg.accentColor)
 
-    // Update page title
+    // Update page title — document.title เป็น text-only sink (เบราว์เซอร์ไม่ประมวลผล HTML/entity ที่นี่)
+    // ไม่ใช่ innerHTML จึงไม่มีช่องโหว่ XSS ตรงนี้ — ห้าม escHtml() เพราะจะทำให้ชื่อ brand
+    // ที่มี & หรือเครื่องหมายคำพูดโชว์เป็น &amp; ตัวเป็นๆ บน tab เบราว์เซอร์ผิดจากที่ตั้งใจ
     document.title = cfg.brandName
 
     showToast('💾 บันทึก White-label Settings แล้ว!', 'success')
@@ -309,10 +329,10 @@ export default async function WhiteLabelPage(container) {
       body: `<div style="display:flex;flex-direction:column;gap:12px">
         <!-- Simulated header -->
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;display:flex;align-items:center;gap:12px">
-          <div style="width:40px;height:40px;border-radius:var(--radius-sm);background:${cfg.primaryColor};display:flex;align-items:center;justify-content:center;color:white;font-weight:900;font-size:1rem">${cfg.brandName.charAt(0)}</div>
+          <div style="width:40px;height:40px;border-radius:var(--radius-sm);background:${cfg.primaryColor};display:flex;align-items:center;justify-content:center;color:white;font-weight:900;font-size:1rem">${escHtml(cfg.brandName.charAt(0))}</div>
           <div>
-            <div style="font-weight:800;font-size:1rem">${cfg.brandName}</div>
-            <div style="font-size:0.73rem;color:var(--text-muted)">${cfg.tagline}</div>
+            <div style="font-weight:800;font-size:1rem">${escHtml(cfg.brandName)}</div>
+            <div style="font-size:0.73rem;color:var(--text-muted)">${escHtml(cfg.tagline)}</div>
           </div>
         </div>
         <!-- Color swatches -->
@@ -325,7 +345,7 @@ export default async function WhiteLabelPage(container) {
           <button style="background:${cfg.primaryColor};color:white;border:none;padding:8px 18px;border-radius:var(--radius-sm);font-weight:600;cursor:pointer">Primary Button</button>
           <button style="background:transparent;color:${cfg.primaryColor};border:1px solid ${cfg.primaryColor};padding:8px 18px;border-radius:var(--radius-sm);font-weight:600;cursor:pointer">Secondary</button>
         </div>
-        <div style="text-align:center;font-size:0.75rem;color:var(--text-muted);padding-top:8px;border-top:1px solid var(--border)">${cfg.footerText}${cfg.showPoweredBy?' · Powered by LAMOM ONE':''}</div>
+        <div style="text-align:center;font-size:0.75rem;color:var(--text-muted);padding-top:8px;border-top:1px solid var(--border)">${escHtml(cfg.footerText)}${cfg.showPoweredBy?' · Powered by LAMOM ONE':''}</div>
       </div>`,
       footer: ''
     })

@@ -7,6 +7,9 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
+// ป้องกัน XSS — ความคิดเห็น (comment) เป็นข้อความที่ผู้จัดการพิมพ์เอง ต้อง escape ก่อนแสดงผลเสมอ
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
 const REVIEW_STATUS = {
   pending:    { label: 'รอประเมิน', color: 'warning' },
   self_done:  { label: 'ประเมินตัวเองแล้ว', color: 'primary' },
@@ -123,7 +126,7 @@ export default async function PerformanceReviewPage(container) {
                   <span style="font-size:0.82rem;font-weight:700;min-width:40px;text-align:right">${selfTotal}/100</span>
                 </div>
               ` : ''}
-              ${r.comment ? `<div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:8px;font-style:italic">"${r.comment}"</div>` : ''}
+              ${r.comment ? `<div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:8px;font-style:italic">"${esc(r.comment)}"</div>` : ''}
               <div style="display:flex;gap:6px">
                 <button class="btn btn-xs btn-primary view-btn" data-id="${r.id}">ดูรายละเอียด</button>
                 ${r.status === 'self_done' ? `<button class="btn btn-xs btn-success review-btn" data-id="${r.id}">📝 ประเมิน</button>` : ''}
@@ -195,7 +198,7 @@ export default async function PerformanceReviewPage(container) {
             <div style="margin-top:8px;font-weight:700">รวม: ${(+calcScore(r.mgmtScores)).toFixed(0)}/100 · ${r.grade}</div>
           </div>` : '<div style="color:var(--text-muted);font-size:0.8rem">ผู้จัดการยังไม่ประเมิน</div>'}
         </div>
-        ${r.comment ? `<div style="margin-top:12px;padding:10px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:0.83rem;font-style:italic">"${r.comment}"</div>` : ''}
+        ${r.comment ? `<div style="margin-top:12px;padding:10px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:0.83rem;font-style:italic">"${esc(r.comment)}"</div>` : ''}
       `
     })
   }

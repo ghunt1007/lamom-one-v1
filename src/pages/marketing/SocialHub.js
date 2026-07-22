@@ -2,6 +2,9 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 
+// ป้องกัน XSS — เนื้อหา Post เป็น textarea ที่ผู้ใช้พิมพ์ได้อิสระ ไม่จำกัด HTML ต้อง escape ก่อนแสดงผลเสมอ
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
 const PLATFORMS = {
   facebook: { label: 'Facebook', icon: '📘', color: 'primary' },
   instagram: { label: 'Instagram', icon: '📸', color: 'accent' },
@@ -138,7 +141,7 @@ export default async function SocialHubPage(container) {
                 <span class="badge badge-${st.color}" style="font-size:0.65rem">${st.label}</span>
                 ${p.scheduledAt ? `<span style="font-size:0.72rem;color:var(--text-muted)">📅 ${p.scheduledAt}</span>` : ''}
               </div>
-              <div style="font-size:0.83rem;white-space:pre-line;line-height:1.4;overflow:hidden;max-height:60px">${p.content.slice(0, 120)}${p.content.length > 120 ? '...' : ''}</div>
+              <div style="font-size:0.83rem;white-space:pre-line;line-height:1.4;overflow:hidden;max-height:60px">${esc(p.content.slice(0, 120))}${p.content.length > 120 ? '...' : ''}</div>
             </div>
             <!-- Stats (published only) -->
             ${p.status === 'published' ? `
@@ -294,7 +297,7 @@ export default async function SocialHubPage(container) {
             <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
               <div style="font-size:1.3rem">${['🥇','🥈','🥉'][i]}</div>
               <div style="flex:1;min-width:0">
-                <div style="font-size:0.8rem;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${p.content.slice(0,60)}...</div>
+                <div style="font-size:0.8rem;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${esc(p.content.slice(0,60))}...</div>
                 <div style="font-size:0.72rem;color:var(--text-muted);margin-top:3px">${p.platforms.map(pl=>PLATFORMS[pl]?.icon).join('')} · 👁${p.reach.toLocaleString()} · ❤️${p.likes} · 🔄${p.shares}</div>
               </div>
             </div>
@@ -370,7 +373,7 @@ export default async function SocialHubPage(container) {
           <span class="badge badge-${st.color}">${st.label}</span>
           ${p.platforms.map(pl => `<span class="badge badge-primary" style="font-size:0.65rem">${PLATFORMS[pl]?.icon} ${PLATFORMS[pl]?.label}</span>`).join('')}
         </div>
-        <div style="background:var(--surface-2);padding:14px;border-radius:var(--radius-md);white-space:pre-line;font-size:0.85rem;line-height:1.6">${p.content}</div>
+        <div style="background:var(--surface-2);padding:14px;border-radius:var(--radius-md);white-space:pre-line;font-size:0.85rem;line-height:1.6">${esc(p.content)}</div>
         ${p.status === 'published' ? `
           <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center">
             ${[['👁','Reach',p.reach.toLocaleString()],['❤️','Likes',p.likes],['💬','Comments',p.comments],['🔄','Shares',p.shares]].map(([ic,lb,val]) => `

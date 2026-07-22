@@ -7,6 +7,9 @@ import { showToast } from '../../core/store.js'
 import { formatCurrency } from '../../utils/format.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
+// ป้องกัน XSS — หัวข้อ/คำอธิบาย Slide เป็นข้อความที่ผู้ใช้พิมพ์เอง ต้อง escape ก่อนแสดงผลเสมอ
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
 export default async function DigitalSignagePage(container) {
   const myGen = container.__routerGen
   seedDemoData()
@@ -57,8 +60,8 @@ export default async function DigitalSignagePage(container) {
             <div id="preview-box" style="aspect-ratio:16/9;background:${cur?cur.bg:'#222'};border-radius:var(--radius);display:flex;flex-direction:column;align-items:center;justify-content:center;color:${cur?cur.textColor:'#fff'};padding:20px;text-align:center;transition:background .5s;position:relative;overflow:hidden">
               ${cur ? `
                 <div style="font-size:0.64rem;opacity:0.6;margin-bottom:8px;letter-spacing:2px">${cur.type.toUpperCase()}</div>
-                <div style="font-size:1.4rem;font-weight:900;margin-bottom:6px">${cur.title}</div>
-                <div style="font-size:0.82rem;opacity:0.85;margin-bottom:10px">${cur.desc}</div>
+                <div style="font-size:1.4rem;font-weight:900;margin-bottom:6px">${esc(cur.title)}</div>
+                <div style="font-size:0.82rem;opacity:0.85;margin-bottom:10px">${esc(cur.desc)}</div>
                 ${cur.price ? `<div style="font-size:1.1rem;font-weight:700;background:rgba(255,255,255,0.2);padding:6px 16px;border-radius:20px">${formatCurrency(cur.price)}</div>` : ''}
                 <div style="position:absolute;bottom:8px;display:flex;gap:4px">
                   ${activeSl.map((_,i)=>`<div style="width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,${i===previewSlide%activeSl.length?'1':'0.4'})"></div>`).join('')}
@@ -78,12 +81,12 @@ export default async function DigitalSignagePage(container) {
                 <div class="card" style="padding:12px">
                   <div style="display:flex;justify-content:space-between;align-items:center">
                     <div>
-                      <div style="font-weight:700;font-size:0.84rem">${sc.name}</div>
-                      <div style="font-size:0.7rem;color:var(--text-muted)">${sc.location} · ${sc.resolution}</div>
+                      <div style="font-weight:700;font-size:0.84rem">${esc(sc.name)}</div>
+                      <div style="font-size:0.7rem;color:var(--text-muted)">${esc(sc.location)} · ${sc.resolution}</div>
                     </div>
                     <div style="text-align:right">
                       <span style="font-size:0.64rem;background:${sc.status==='online'?'var(--success)':'var(--danger)'};color:#fff;padding:2px 8px;border-radius:10px">${sc.status==='online'?'● Online':'○ Offline'}</span>
-                      ${sc.status==='online'?`<div style="font-size:0.64rem;color:var(--text-muted);margin-top:2px">แสดง: ${slides.find(s=>s.id===sc.currentSlide)?.title||'-'}</div>`:''}
+                      ${sc.status==='online'?`<div style="font-size:0.64rem;color:var(--text-muted);margin-top:2px">แสดง: ${esc(slides.find(s=>s.id===sc.currentSlide)?.title||'-')}</div>`:''}
                     </div>
                   </div>
                   ${sc.status==='online'?`<button class="btn btn-xs btn-secondary push-sc-btn" data-id="${sc.id}" style="margin-top:8px;font-size:0.72rem">📡 Push Playlist</button>`:''}
@@ -146,8 +149,8 @@ export default async function DigitalSignagePage(container) {
     return `
       <div style="border-radius:var(--radius-sm);overflow:hidden;border:2px solid ${s.active?s.bg:'var(--border)'}">
         <div style="background:${s.bg};color:${s.textColor};padding:12px;aspect-ratio:16/9;display:flex;flex-direction:column;justify-content:center;font-size:0.74rem;text-align:center">
-          <div style="font-weight:700">${s.title}</div>
-          <div style="font-size:0.66rem;opacity:0.8;margin-top:4px">${s.desc.slice(0,40)}${s.desc.length>40?'...':''}</div>
+          <div style="font-weight:700">${esc(s.title)}</div>
+          <div style="font-size:0.66rem;opacity:0.8;margin-top:4px">${esc(s.desc.slice(0,40))}${s.desc.length>40?'...':''}</div>
         </div>
         <div style="background:var(--surface-2);padding:8px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">

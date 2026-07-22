@@ -7,6 +7,8 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
 const CONTRACT_TYPES = {
   sale:       { label: 'สัญญาซื้อขาย', color: 'primary', icon: '🚗' },
   service:    { label: 'สัญญาบริการ', color: 'success', icon: '🔧' },
@@ -115,7 +117,7 @@ export default async function ContractManagerPage(container) {
                 return `<tr style="border-bottom:1px solid var(--border);cursor:pointer" class="ct-row" data-id="${c.id}">
                   <td style="padding:10px 14px">
                     <div style="font-weight:600;font-size:0.85rem">${c.id}</div>
-                    <div style="font-size:0.78rem;color:var(--text-muted)">${c.title}</div>
+                    <div style="font-size:0.78rem;color:var(--text-muted)">${esc(c.title)}</div>
                   </td>
                   <td style="padding:10px 14px;font-size:0.83rem">${c.party}</td>
                   <td style="padding:10px 14px;text-align:center"><span class="badge badge-${ct?.color}" style="font-size:0.65rem">${ct?.icon} ${ct?.label}</span></td>
@@ -159,7 +161,7 @@ export default async function ContractManagerPage(container) {
     const ct = CONTRACT_TYPES[c.type]
     const cs = CONTRACT_STATUS[c.status]
     openModal({
-      title: `📜 ${c.id} — ${c.title}`,
+      title: `📜 ${c.id} — ${esc(c.title)}`,
       size: 'lg',
       body: `
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">

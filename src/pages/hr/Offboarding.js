@@ -7,6 +7,9 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
+// ป้องกัน XSS — เหตุผลลาออก (reason) เป็นข้อความที่ผู้ใช้พิมพ์เอง ต้อง escape ก่อนแสดงผลเสมอ
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
 
 const OFFBOARD_TASKS = [
@@ -75,8 +78,8 @@ export default async function OffboardingPage(container) {
               const xDone = Object.values(x.tasks||{}).filter(Boolean).length
               const xPct = total ? Math.round(xDone / total * 100) : 0
               return `<div class="card ob-tab" data-id="${x.id}" style="padding:10px 12px;cursor:pointer;border:2px solid ${x.id===selected?'var(--primary)':'transparent'}">
-                <div style="font-weight:600;font-size:0.82rem">${x.name}</div>
-                <div style="font-size:0.66rem;color:var(--text-muted)">${x.role} · วันสุดท้าย ${formatDate(x.lastDay)}</div>
+                <div style="font-weight:600;font-size:0.82rem">${esc(x.name)}</div>
+                <div style="font-size:0.66rem;color:var(--text-muted)">${esc(x.role)} · วันสุดท้าย ${formatDate(x.lastDay)}</div>
                 <div style="margin-top:5px;background:var(--surface-2);border-radius:3px;height:5px">
                   <div style="width:${xPct}%;background:var(--${xPct===100?'success':'warning'});height:5px;border-radius:3px"></div>
                 </div>
@@ -90,8 +93,8 @@ export default async function OffboardingPage(container) {
             <div style="display:flex;justify-content:space-between;margin-bottom:10px">
               <div>
                 <div style="font-weight:700;font-size:1rem">${o.name}</div>
-                <div style="font-size:0.73rem;color:var(--text-muted)">${o.role} · ${o.dept} · วันสุดท้าย ${formatDate(o.lastDay)}</div>
-                <div style="font-size:0.73rem;color:var(--text-muted)">📌 เหตุผล: ${o.reason} · 🤝 ผู้รับช่วง: ${o.successor}</div>
+                <div style="font-size:0.73rem;color:var(--text-muted)">${esc(o.role)} · ${esc(o.dept)} · วันสุดท้าย ${formatDate(o.lastDay)}</div>
+                <div style="font-size:0.73rem;color:var(--text-muted)">📌 เหตุผล: ${esc(o.reason)} · 🤝 ผู้รับช่วง: ${esc(o.successor)}</div>
               </div>
               <div style="font-size:1.5rem;font-weight:900;color:var(--${pct===100?'success':'warning'})">${pct}%</div>
             </div>

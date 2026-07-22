@@ -7,6 +7,9 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 
+// ป้องกัน XSS — ข้อความรีวิว (text) อาจมาจาก Platform ภายนอก (Google/Facebook) ซึ่งควบคุมเนื้อหาไม่ได้ ต้อง escape ก่อนแสดงผลเสมอ
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
 const PLATFORMS = {
   google:    { label: 'Google', color: 'primary', icon: '🔵' },
   facebook:  { label: 'Facebook', color: 'primary', icon: '📘' },
@@ -109,7 +112,7 @@ export default async function CustomerReviewPage(container) {
             return `<div class="card" style="padding:12px 14px">
               <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px">
                 <div>
-                  <div style="font-weight:700;font-size:0.85rem">${r.author}</div>
+                  <div style="font-weight:700;font-size:0.85rem">${esc(r.author)}</div>
                   <div style="font-size:0.72rem;color:var(--text-muted)">${pl?.icon} ${pl?.label} · ${timeAgo(r.time)}</div>
                 </div>
                 <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
@@ -117,8 +120,8 @@ export default async function CustomerReviewPage(container) {
                   <span class="badge badge-${rs?.color}" style="font-size:0.6rem">${rs?.icon} ${rs?.label}</span>
                 </div>
               </div>
-              <p style="font-size:0.82rem;margin:0 0 8px">"${r.text}"</p>
-              ${r.reply ? `<div style="background:var(--surface-2);padding:8px 10px;border-radius:var(--radius-sm);font-size:0.75rem;color:var(--text-muted)">💬 ตอบแล้ว: "${r.reply}"</div>` : ''}
+              <p style="font-size:0.82rem;margin:0 0 8px">"${esc(r.text)}"</p>
+              ${r.reply ? `<div style="background:var(--surface-2);padding:8px 10px;border-radius:var(--radius-sm);font-size:0.75rem;color:var(--text-muted)">💬 ตอบแล้ว: "${esc(r.reply)}"</div>` : ''}
               ${r.status === 'pending' ? `<button class="btn btn-xs btn-primary reply-btn" data-id="${r.id}" style="margin-top:8px">💬 ตอบกลับ</button>` : ''}
             </div>`
           }).join('')}
@@ -147,7 +150,7 @@ export default async function CustomerReviewPage(container) {
           <div>
             <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:4px">ส่งให้ (${pending.length} ราย — รอตอบ)</div>
             <div style="background:var(--surface-2);border-radius:6px;padding:8px;font-size:0.72rem;max-height:60px;overflow-y:auto">
-              ${pending.map(r => r.author).join(', ') || 'ลูกค้าล่าสุดทั้งหมด'}
+              ${pending.map(r => esc(r.author)).join(', ') || 'ลูกค้าล่าสุดทั้งหมด'}
             </div>
           </div>
           <div>
@@ -174,7 +177,7 @@ export default async function CustomerReviewPage(container) {
     openModal({
       title: '💬 ตอบกลับรีวิว',
       size: 'sm',
-      body: `<div style="margin-bottom:10px;font-size:0.82rem;font-style:italic;color:var(--text-muted)">"${review.text}"</div>
+      body: `<div style="margin-bottom:10px;font-size:0.82rem;font-style:italic;color:var(--text-muted)">"${esc(review.text)}"</div>
         <div class="input-group"><label class="input-label">ข้อความตอบกลับ</label><textarea class="input" id="reply-text" rows="3" placeholder="ขอบคุณสำหรับรีวิว..."></textarea></div>`,
       async onConfirm() {
         const txt = document.getElementById('reply-text')?.value?.trim()

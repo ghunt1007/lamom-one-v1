@@ -2,7 +2,10 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
-const CATEGORIES = ['ประกัน','กองทุน','สุขภาพ','สิทธิพิเศษ']
+// ป้องกัน XSS — ชื่อสวัสดิการ (name) เป็นข้อความที่ผู้ใช้พิมพ์เอง ต้อง escape ก่อนแสดงผลเสมอ
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
+const CATEGORIES =['ประกัน','กองทุน','สุขภาพ','สิทธิพิเศษ']
 const CAT_ICONS = { 'ประกัน':'🛡','กองทุน':'🏦','สุขภาพ':'🏥','สิทธิพิเศษ':'⭐' }
 const CAT_COLORS = { 'ประกัน':'danger','กองทุน':'primary','สุขภาพ':'success','สิทธิพิเศษ':'warning' }
 
@@ -32,14 +35,14 @@ export default async function WelfarePage(container) {
         <div style="font-size:1.6rem;flex-shrink:0">${catIcon}</div>
         <div style="flex:1">
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap">
-            <span style="font-weight:700;font-size:0.86rem">${w.name}</span>
+            <span style="font-weight:700;font-size:0.86rem">${esc(w.name)}</span>
             <span class="badge badge-${catColor}" style="font-size:0.6rem">${w.category}</span>
             ${w.active
               ? '<span style="font-size:0.62rem;background:var(--success);color:#fff;padding:1px 7px;border-radius:8px">เปิดใช้</span>'
               : '<span style="font-size:0.62rem;background:var(--surface-2);padding:1px 7px;border-radius:8px;color:var(--text-muted)">ปิด</span>'}
           </div>
           <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:6px">
-            ${w.provider} · ความคุ้มครอง: <strong>${w.coverage}</strong> · ${costStr}
+            ${esc(w.provider)} · ความคุ้มครอง: <strong>${esc(w.coverage)}</strong> · ${costStr}
           </div>
           <div style="margin-bottom:4px">
             <div style="display:flex;justify-content:space-between;font-size:0.68rem;margin-bottom:3px">
@@ -116,7 +119,7 @@ export default async function WelfarePage(container) {
     container.querySelectorAll('.del-welfare').forEach(b => b.addEventListener('click', async e => {
       e.stopPropagation()
       const w = items.find(x => x.id === b.dataset.wid)
-      const ok = await confirmDialog({ title: '🗑 ลบสวัสดิการ', message: `ลบ "${w.name}" ออกจากระบบ?`, confirmText: 'ลบ', danger: true })
+      const ok = await confirmDialog({ title: '🗑 ลบสวัสดิการ', message: `ลบ "${esc(w.name)}" ออกจากระบบ?`, confirmText: 'ลบ', danger: true })
       if (!ok) return
       await softDelete('welfare_items', b.dataset.wid)
       showToast('🗑 ลบแล้ว', 'warning')
@@ -134,7 +137,7 @@ export default async function WelfarePage(container) {
     const costYear = w.cost > 0 ? w.cost * w.enrolled : 0
 
     openModal({
-      title: `${CAT_ICONS[w.category] || '📋'} ${w.name}`,
+      title: `${CAT_ICONS[w.category] || '📋'} ${esc(w.name)}`,
       size: 'md',
       body: `
         <div style="display:flex;flex-direction:column;gap:12px">
@@ -144,8 +147,8 @@ export default async function WelfarePage(container) {
           </div>
 
           <div class="card" style="padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
-            ${drow('🏢 ผู้ให้บริการ', w.provider)}
-            ${drow('💎 ความคุ้มครอง', w.coverage)}
+            ${drow('🏢 ผู้ให้บริการ', esc(w.provider))}
+            ${drow('💎 ความคุ้มครอง', esc(w.coverage))}
             ${drow('💰 ค่าใช้จ่าย', w.cost > 0 ? '฿' + w.cost.toLocaleString() + '/' + w.period : 'ไม่มีค่าใช้จ่าย')}
             ${drow('📅 รอบชำระ', w.period)}
             ${drow('💸 ต้นทุนรวม/ปี', costYear > 0 ? '฿' + costYear.toLocaleString() : 'ไม่มี')}
@@ -181,11 +184,11 @@ export default async function WelfarePage(container) {
   function openWelfareModal(w) {
     const isEdit = !!w
     openModal({
-      title: isEdit ? `✏️ แก้ไข: ${w.name}` : '➕ เพิ่มสวัสดิการใหม่',
+      title: isEdit ? `✏️ แก้ไข: ${esc(w.name)}` : '➕ เพิ่มสวัสดิการใหม่',
       size: 'md',
       body: `
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div class="input-group" style="grid-column:1/-1"><label class="input-label">ชื่อสวัสดิการ *</label><input class="input" id="wf-name" value="${w?.name || ''}"></div>
+          <div class="input-group" style="grid-column:1/-1"><label class="input-label">ชื่อสวัสดิการ *</label><input class="input" id="wf-name" value="${esc(w?.name || '')}"></div>
           <div class="input-group">
             <label class="input-label">หมวดหมู่</label>
             <select class="input" id="wf-cat">${CATEGORIES.map(c => `<option ${w?.category===c?'selected':''}>${c}</option>`).join('')}</select>

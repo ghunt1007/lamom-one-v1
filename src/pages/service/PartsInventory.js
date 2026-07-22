@@ -7,6 +7,8 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
 const PART_CATS = {
   brake:    { label: 'เบรก', color: 'danger', icon: '🔴' },
   filter:   { label: 'ไส้กรอง', color: 'primary', icon: '🔵' },
@@ -68,7 +70,7 @@ export default async function PartsInventoryPage(container) {
 
         ${lowStock.length > 0 ? `
           <div style="padding:10px 14px;background:var(--danger)11;border:1px solid var(--danger)33;border-radius:var(--radius);margin-bottom:12px;font-size:0.78rem">
-            ⚠️ <strong>สต็อกต่ำ:</strong> ${lowStock.map(p => `${p.name} (${p.qty}/${p.minQty})`).join(' · ')}
+            ⚠️ <strong>สต็อกต่ำ:</strong> ${lowStock.map(p => `${esc(p.name)} (${p.qty}/${p.minQty})`).join(' · ')}
           </div>
         ` : ''}
 
@@ -102,7 +104,7 @@ export default async function PartsInventoryPage(container) {
                 const isLow = p.qty < p.minQty
                 return `<tr style="border-bottom:1px solid var(--border);font-size:0.8rem${isLow?';background:var(--danger)06':''}">
                   <td style="padding:8px 14px">
-                    <div style="font-weight:600">${p.name}</div>
+                    <div style="font-weight:600">${esc(p.name)}</div>
                     <div style="font-size:0.65rem;color:var(--text-muted)">${p.compatible.join(', ')}</div>
                   </td>
                   <td style="padding:8px 10px;font-family:monospace;font-size:0.75rem">${p.sku}</td>
@@ -135,7 +137,7 @@ export default async function PartsInventoryPage(container) {
 
   function openAdjQty(p) {
     openModal({
-      title: '± ปรับสต็อก: ' + p.name,
+      title: '± ปรับสต็อก: ' + esc(p.name),
       size: 'sm',
       body: `<div style="display:grid;gap:10px">
         ${row2('สต็อกปัจจุบัน', p.qty + ' ชิ้น')}

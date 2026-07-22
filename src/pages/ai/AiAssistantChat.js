@@ -1,6 +1,10 @@
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, softDelete, seedDemoData } from '../../core/db.js'
 import { confirmDialog } from '../../utils/modal.js'
+
+function esc(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+}
 
 const CANNED = [
   { kw:['ยอดขาย','ขายได้','เดือนนี้','ยอด'], ans:'📊 ยอดขายเดือนนี้: <strong>41 คัน</strong> รายได้ ฿51.96M — เกินเป้า 5% 🎉<br>Top model: BYD Dolphin (12 คัน) · Top เซลส์: วิชัย (9 คัน)' },
@@ -50,13 +54,22 @@ export default async function AiAssistantChatPage(container) {
   let waiting = false
   let loading = true
 
+  // chat_ai_assistant เดิมไม่มี field ระบุเจ้าของเลย ทำให้ทุกคนที่เข้าหน้านี้เห็นข้อความของทุกคนรวมกัน
+  // (เหมือน guestbook สาธารณะ) — สโคปด้วย uid ของผู้ใช้ปัจจุบันแทน ข้อความเก่าก่อนแก้ที่ไม่มี uid
+  // จะไม่ถูกดึงมาแสดงอีก (ไม่ถือเป็น error — แชทเก่าจะเริ่มใหม่ แต่ปลอดภัยกว่าเห็นข้อความคนอื่นปนกัน)
+  function currentUid() {
+    return getState('user')?.uid || null
+  }
+
   async function loadData() {
     loading = true
     try {
-      messages = await listDocs('chat_ai_assistant', [], 'createdAt', 'asc', 500)
+      const uid = currentUid()
+      const filters = uid ? [['uid', '==', uid]] : []
+      messages = await listDocs('chat_ai_assistant', filters, 'createdAt', 'asc', 500)
       if (!messages.length) {
-        await createDoc('chat_ai_assistant', { role:'ai', text: GREETING, time: now() })
-        messages = await listDocs('chat_ai_assistant', [], 'createdAt', 'asc', 500)
+        await createDoc('chat_ai_assistant', { role:'ai', text: GREETING, time: now(), uid })
+        messages = await listDocs('chat_ai_assistant', filters, 'createdAt', 'asc', 500)
       }
     } catch (e) { messages = [] }
     loading = false
@@ -65,11 +78,15 @@ export default async function AiAssistantChatPage(container) {
 
   function msgHtml(m) {
     const isUser = m.role === 'user'
+    // ข้อความจากผู้ใช้เป็น free-text ต้อง escape ก่อน render เสมอ (กัน stored XSS)
+    // ส่วนคำตอบ AI มาจาก CANNED/GREETING ที่ hardcode ไว้ในไฟล์นี้เท่านั้น (ไม่ใช่ input ผู้ใช้)
+    // จึงปล่อยให้ render เป็น HTML ตรงๆ เพื่อให้ <strong> ในคำตอบยังโชว์ตัวหนาได้ตามที่ตั้งใจ
+    const text = isUser ? esc(m.text) : m.text
     return `<div style="display:flex;${isUser?'justify-content:flex-end':'align-items:flex-start;gap:8px'}">
       ${!isUser ? `<div style="width:30px;height:30px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0">🤖</div>` : ''}
       <div>
-        <div style="max-width:74vw;padding:10px 14px;border-radius:${isUser?'16px 16px 4px 16px':'4px 16px 16px 16px'};background:${isUser?'var(--primary)':'var(--surface-2)'};color:${isUser?'white':'var(--text)'};font-size:0.84rem;line-height:1.65">${m.text}</div>
-        <div style="font-size:0.66rem;color:var(--text-muted);margin-top:3px;${isUser?'text-align:right':''}">${m.time}</div>
+        <div style="max-width:74vw;padding:10px 14px;border-radius:${isUser?'16px 16px 4px 16px':'4px 16px 16px 16px'};background:${isUser?'var(--primary)':'var(--surface-2)'};color:${isUser?'white':'var(--text)'};font-size:0.84rem;line-height:1.65">${text}</div>
+        <div style="font-size:0.66rem;color:var(--text-muted);margin-top:3px;${isUser?'text-align:right':''}">${esc(m.time)}</div>
       </div>
     </div>`
   }
@@ -135,12 +152,13 @@ export default async function AiAssistantChatPage(container) {
       if (!text || waiting) return
       document.getElementById('chat-input').value = ''
       waiting = true
-      try { await createDoc('chat_ai_assistant', { role:'user', text, time:now() }) } catch (e) {}
-      messages.push({ role:'user', text, time:now() })
+      const uid = currentUid()
+      try { await createDoc('chat_ai_assistant', { role:'user', text, time:now(), uid }) } catch (e) {}
+      messages.push({ role:'user', text, time:now(), uid })
       renderPage()
       setTimeout(async () => {
         const answer = findAnswer(text)
-        try { await createDoc('chat_ai_assistant', { role:'ai', text: answer, time:now() }) } catch (e) {}
+        try { await createDoc('chat_ai_assistant', { role:'ai', text: answer, time:now(), uid }) } catch (e) {}
         waiting = false
         await loadData()
       }, 600 + Math.random()*400)
@@ -154,7 +172,7 @@ export default async function AiAssistantChatPage(container) {
       if (!ok) return
       try {
         for (const m of messages) await softDelete('chat_ai_assistant', m.id)
-        await createDoc('chat_ai_assistant', { role:'ai', text:'🗑 ล้างแชทแล้วค่ะ — ถามใหม่ได้เลย!', time:now() })
+        await createDoc('chat_ai_assistant', { role:'ai', text:'🗑 ล้างแชทแล้วค่ะ — ถามใหม่ได้เลย!', time:now(), uid: currentUid() })
         waiting = false
         await loadData()
       } catch (e) { showToast('ล้างแชทไม่สำเร็จ', 'error') }
