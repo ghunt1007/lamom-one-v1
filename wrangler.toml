@@ -8,4 +8,4 @@ binding = "BUCKET"
 bucket_name = "lamom-files"
 
 [vars]
-REQUIRE_AUTH = "false"
+FIREBASE_API_KEY = "AIzaSyBH098B5Ja9WiLL5sfgCvSuBqOab8aeKMo"

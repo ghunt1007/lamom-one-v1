@@ -1,11 +1,19 @@
 /**
  * LAMOM ONE — Cloudflare R2 Upload Worker
- * Deploy: wrangler deploy workers/r2-upload.js --name r2-upload
+ * Deploy: wrangler deploy --config wrangler.toml
  *
  * Binding ใน Cloudflare Dashboard:
  *   Worker > Settings > Bindings > R2 Bucket
  *   Variable name: BUCKET
  *   R2 bucket: lamom-files
+ *   Var: FIREBASE_API_KEY — Firebase Web API key (public, ใช้ verify ID token เท่านั้น)
+ *
+ * เดิมมี env var REQUIRE_AUTH="false" ที่ปิดการตรวจสอบสิทธิ์ไปเลย (ปิดถาวรจากที่ตั้งไว้ตอน
+ * dev ครั้งแรกแล้วไม่ได้เปิดคืน) และแม้เปิดไว้ก็เช็คแค่ว่า header ขึ้นต้นด้วย "Bearer " เท่านั้น
+ * ไม่ได้ตรวจสอบว่า token จริงหรือปลอม — เท่ากับใครก็อัปโหลด/ลบไฟล์ในบัคเก็ตจริงได้โดยไม่ต้อง
+ * เป็นพนักงาน ตอนนี้ตรวจสอบ Firebase ID token จริงกับ Firebase ทุกครั้งก่อนอัปโหลด/ลบเสมอ
+ * (endpoint อ่านไฟล์ /file ไม่แก้ เพราะแอปจริงเสิร์ฟไฟล์ผ่าน custom domain files.lamom.one
+ * ตรงจาก R2 อยู่แล้ว ไม่ผ่าน Worker นี้)
  */
 
 const ALLOWED_TYPES = [
@@ -35,10 +43,13 @@ export default {
       return new Response(null, { headers: cors })
     }
 
-    // Auth check — ส่ง Bearer token (Firebase ID token) มาใน header
-    const auth = request.headers.get('Authorization') || ''
-    if (!auth.startsWith('Bearer ') && env.REQUIRE_AUTH !== 'false') {
-      return json({ error: 'Unauthorized' }, 401, cors)
+    // POST /upload, DELETE /delete — ต้องมี Firebase ID token จริงเท่านั้น (verify กับ Firebase
+    // ทุกครั้ง ไม่ใช่แค่เช็คว่า header ขึ้นต้นด้วย "Bearer " เหมือนเดิม)
+    if ((request.method === 'POST' && url.pathname === '/upload') || (request.method === 'DELETE' && url.pathname === '/delete')) {
+      const auth = request.headers.get('Authorization') || ''
+      const idToken = auth.startsWith('Bearer ') ? auth.slice(7) : ''
+      const verified = idToken ? await verifyFirebaseToken(idToken, env.FIREBASE_API_KEY) : null
+      if (!verified) return json({ error: 'Unauthorized' }, 401, cors)
     }
 
     // POST /upload — อัปโหลดไฟล์
@@ -99,4 +110,18 @@ function json(data, status = 200, headers = {}) {
     status,
     headers: { 'Content-Type': 'application/json', ...headers },
   })
+}
+
+async function verifyFirebaseToken(idToken, apiKey) {
+  if (!apiKey) return null
+  try {
+    const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken }),
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    return data.users?.[0] || null
+  } catch { return null }
 }

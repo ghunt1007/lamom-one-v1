@@ -1,22 +1,33 @@
 // LAMOM ONE — File Storage Utility
 // ใช้ Cloudflare R2 (ถ้าตั้งค่า VITE_R2_WORKER_URL)
 // Fallback: Firebase Storage (ถ้าไม่มี R2 Worker)
-// Demo Mode: URL placeholder ไม่มีการอัปโหลดจริง
+// Demo Mode (ไม่มี Firebase session จริง): URL placeholder ไม่มีการอัปโหลดจริง — เดิมเช็คแค่ว่า
+// ตั้งค่า R2_WORKER หรือไม่ ทำให้ demo mode ในโปรดักชันอัปโหลดไฟล์จริงขึ้น R2 บัคเก็ตจริงโดยไม่มี
+// auth token เลย (Worker เดิมก็ไม่ได้บังคับตรวจสอบอยู่แล้ว) ตอนนี้เช็คว่ามี Firebase session จริง
+// หรือไม่แทน ถ้าไม่มี (demo mode) จะไม่แตะเครือข่ายจริงเลย
+import { auth } from '../core/firebase.js'
 
 const R2_WORKER = import.meta.env.VITE_R2_WORKER_URL
 
 export const STORAGE_ENABLED = !!R2_WORKER
 
+async function authHeader() {
+  const u = auth.currentUser
+  if (!u) return null
+  const token = await u.getIdToken()
+  return { Authorization: `Bearer ${token}` }
+}
+
 /**
  * อัปโหลดไฟล์ขึ้น R2
  * @param {File} file - File object จาก input[type=file]
  * @param {string} folder - โฟลเดอร์ปลายทาง เช่น 'vehicles', 'contracts', 'staff'
- * @param {string} [idToken] - Firebase ID token (optional, สำหรับ auth)
  * @returns {Promise<{ok:boolean, url:string, key:string}>}
  */
-export async function uploadFile(file, folder = 'uploads', idToken = '') {
-  if (!R2_WORKER) {
-    // Demo mode — return fake URL
+export async function uploadFile(file, folder = 'uploads') {
+  const auth_ = R2_WORKER ? await authHeader() : null
+  if (!R2_WORKER || !auth_) {
+    // Demo mode (ไม่มี Firebase session จริง) หรือยังไม่ตั้งค่า R2 — return fake URL ไม่แตะเครือข่ายจริง
     const fakeUrl = URL.createObjectURL(file)
     return { ok: true, url: fakeUrl, key: `demo/${folder}/${file.name}`, demo: true }
   }
@@ -25,12 +36,9 @@ export async function uploadFile(file, folder = 'uploads', idToken = '') {
   formData.append('file', file)
   formData.append('folder', folder)
 
-  const headers = {}
-  if (idToken) headers['Authorization'] = `Bearer ${idToken}`
-
   const res = await fetch(`${R2_WORKER}/upload`, {
     method: 'POST',
-    headers,
+    headers: auth_,
     body: formData,
   })
 
@@ -45,12 +53,12 @@ export async function uploadFile(file, folder = 'uploads', idToken = '') {
  * ลบไฟล์จาก R2
  * @param {string} key - key ของไฟล์จาก uploadFile()
  */
-export async function deleteFile(key, idToken = '') {
+export async function deleteFile(key) {
   if (!R2_WORKER || key.startsWith('demo/')) return { ok: true }
-  const headers = {}
-  if (idToken) headers['Authorization'] = `Bearer ${idToken}`
+  const auth_ = await authHeader()
+  if (!auth_) return { ok: true }  // demo mode — ไม่มีไฟล์จริงให้ลบ
   const res = await fetch(`${R2_WORKER}/delete?key=${encodeURIComponent(key)}`, {
-    method: 'DELETE', headers,
+    method: 'DELETE', headers: auth_,
   })
   return res.json()
 }
