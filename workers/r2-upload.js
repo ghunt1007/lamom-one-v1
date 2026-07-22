@@ -12,8 +12,11 @@
  * dev ครั้งแรกแล้วไม่ได้เปิดคืน) และแม้เปิดไว้ก็เช็คแค่ว่า header ขึ้นต้นด้วย "Bearer " เท่านั้น
  * ไม่ได้ตรวจสอบว่า token จริงหรือปลอม — เท่ากับใครก็อัปโหลด/ลบไฟล์ในบัคเก็ตจริงได้โดยไม่ต้อง
  * เป็นพนักงาน ตอนนี้ตรวจสอบ Firebase ID token จริงกับ Firebase ทุกครั้งก่อนอัปโหลด/ลบเสมอ
- * (endpoint อ่านไฟล์ /file ไม่แก้ เพราะแอปจริงเสิร์ฟไฟล์ผ่าน custom domain files.lamom.one
- * ตรงจาก R2 อยู่แล้ว ไม่ผ่าน Worker นี้)
+ *
+ * เดิม publicUrl ชี้ไป https://files.lamom.one/... (custom domain ที่ตั้งใจจะผูกกับ R2 bucket
+ * โดยตรง) แต่โดเมนนี้ไม่มีอยู่จริง (NXDOMAIN — ไม่เคยตั้งค่า DNS/custom domain เลย) ทำให้ไฟล์ทุก
+ * ไฟล์ที่อัปโหลดไปก่อนหน้านี้มี URL ใช้งานไม่ได้ ตอนนี้เปลี่ยนไปเสิร์ฟผ่าน endpoint /file ของ
+ * Worker นี้เอง (ทดสอบแล้วว่าทำงานได้จริงกับ bucket จริง) แทน ไม่ต้องรอตั้งค่า custom domain เพิ่ม
  */
 
 const ALLOWED_TYPES = [
@@ -71,7 +74,7 @@ export default {
           customMetadata: { originalName: file.name, uploadedAt: new Date().toISOString() },
         })
 
-        const publicUrl = `https://files.lamom.one/${key}`
+        const publicUrl = `${url.origin}/file?key=${encodeURIComponent(key)}`
         return json({ ok: true, key, url: publicUrl, size: file.size }, 200, cors)
       } catch (err) {
         return json({ error: err.message }, 500, cors)
