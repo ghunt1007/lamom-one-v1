@@ -39,13 +39,11 @@ jobs:
           accountId: 8e526fad63ca65975137a980925e409f
           command: pages deploy dist --project-name lamom-one
 
-      # r2-upload worker deploy — ใช้ credential เดียวกับ Pages deploy ด้านบน (CLOUDFLARE_API_TOKEN
-      # จาก GitHub Secrets) เพราะ session wrangler login แบบ interactive ในเครื่อง dev ไม่มีสิทธิ์ R2
-      # (ทดสอบสิทธิ์ token นี้แยกจากด้านบน — ถ้า token ไม่มีสิทธิ์ R2 step นี้จะ fail แต่ไม่กระทบ Pages
-      # deploy ที่ทำสำเร็จไปแล้วก่อนหน้า)
-      - name: Deploy R2 upload worker
+      # Diagnostic — เช็คว่า R2 bucket ชื่อจริงคืออะไรจากมุมมองของ token นี้ (deploy r2-upload
+      # ล่าสุด fail ด้วย "bucket 'lamom-files' not found" ทั้งที่ควรมีอยู่แล้วในโปรดักชัน)
+      - name: List R2 buckets (diagnostic)
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: 8e526fad63ca65975137a980925e409f
-          command: deploy --config wrangler.toml
+          command: r2 bucket list
