@@ -39,11 +39,3 @@ jobs:
           accountId: 8e526fad63ca65975137a980925e409f
           command: pages deploy dist --project-name lamom-one
 
-      # Diagnostic — เช็คว่า R2 bucket ชื่อจริงคืออะไรจากมุมมองของ token นี้ (deploy r2-upload
-      # ล่าสุด fail ด้วย "bucket 'lamom-files' not found" ทั้งที่ควรมีอยู่แล้วในโปรดักชัน)
-      - name: List R2 buckets (diagnostic)
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: 8e526fad63ca65975137a980925e409f
-          command: r2 bucket list
