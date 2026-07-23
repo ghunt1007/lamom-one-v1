@@ -249,6 +249,45 @@ service cloud.firestore {
       allow read, write: if isFinance();
     }
 
+    match /bank_transactions/{docId} {
+      allow read, write: if isFinance();
+    }
+
+    match /payroll_records/{docId} {
+      allow read: if isFinance() || isManager();
+      allow write: if isFinance();
+    }
+
+    match /salary_scale_staff/{docId} {
+      allow read: if isFinance() || isManager();
+      allow write: if isFinance();
+    }
+
+    match /bonus_pool_staff/{docId} {
+      allow read: if isFinance() || isManager();
+      allow write: if isFinance();
+    }
+
+    // ช่างอ่านได้ (เช็คสถานะโบนัสตัวเอง) แต่การ "อนุมัติ" (create) ต้องผู้จัดการ/การเงินเท่านั้น เพราะสั่งจ่ายเงินจริง
+    match /tech_kpi_bonus_approvals/{docId} {
+      allow read: if isStaff();
+      allow write: if isFinance() || isManager();
+    }
+
+    match /financial_closings/{docId} {
+      allow read, write: if isFinance();
+    }
+
+    match /debt_settlements/{docId} {
+      allow read, write: if isFinance();
+    }
+
+    match /expense_claims/{docId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update, delete: if isHR() || isManager();
+    }
+
     // ── HR — HR role & above ──────────────────────────────────────────────────
     match /staff/{docId} {
       allow read: if isStaff();
@@ -287,12 +326,20 @@ service cloud.firestore {
       allow write: if isManager();
     }
 
-    match /disciplinary/{docId} {
+    match /disciplinary_records/{docId} {
       allow read: if isHR() || isManager();
       allow write: if isHR() || isManager();
     }
 
     match /recruitment/{docId} {
+      allow read, write: if isHR() || isManager();
+    }
+
+    match /onboarding_staff/{docId} {
+      allow read, write: if isHR() || isManager();
+    }
+
+    match /offboarding_staff/{docId} {
       allow read, write: if isHR() || isManager();
     }
 
@@ -421,6 +468,30 @@ service cloud.firestore {
       allow create: if isSignedIn();
     }
 
+    // ── System security — admin only (ค่า secret จริง/ปิด-เปิดนโยบายทั้งองค์กร/ยกเลิก session คนอื่น) ──
+    match /api_keys/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /security_policies/{docId} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    match /security_sessions/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ── PDPA — พนักงานบันทึกความยินยอมได้ตามงานปกติ แต่คำขอสิทธิ์ตามกฎหมาย (DSR) ต้องผู้จัดการปิดงาน ──
+    match /pdpa_consents/{docId} {
+      allow read, write: if isStaff();
+    }
+
+    match /pdpa_dsr_requests/{docId} {
+      allow read: if isStaff();
+      allow write: if isManager();
+    }
+
     // ── Default: any other collection requires staff auth ────────────────────
     // สำคัญมาก (พบ 2026-07-23 ระหว่างเขียนเทส rules ครั้งแรกของโปรเจกต์): Firestore ประเมิน
     // "ทุก" match block ที่ path ตรงกัน แล้วรวมผลแบบ OR — ไม่ใช่ "block เจาะจงกว่าชนะ" อย่างที่คนมัก
@@ -434,12 +505,16 @@ service cloud.firestore {
       return collection in [
         'meta', 'users', 'roles', 'audit_log', 'settings', 'branches',
         'commissions', 'payroll', 'petty_cash', 'withholding_tax_certs', 'billing_runs', 'custom_order_docs',
-        'expenses', 'expense_approvals', 'cash_flow', 'bank_reconciliation',
+        'expenses', 'expense_approvals', 'cash_flow', 'bank_reconciliation', 'bank_transactions',
+        'payroll_records', 'salary_scale_staff', 'bonus_pool_staff', 'tech_kpi_bonus_approvals',
+        'financial_closings', 'debt_settlements', 'expense_claims',
         'staff', 'staff_loans', 'leave_requests', 'attendance', 'performance_reviews', 'team_targets',
-        'employee_evaluations', 'disciplinary', 'recruitment',
+        'employee_evaluations', 'disciplinary_records', 'recruitment', 'onboarding_staff', 'offboarding_staff',
         'notifications', 'inspections', 'sop_documents', 'legal_references',
         'master_data', 'company_profile', 'whitelabel_settings', 'sms_otp_settings',
-        'bank_partner_info', 'insurance_rate_cards', 'ai_officer_chats'
+        'bank_partner_info', 'insurance_rate_cards', 'ai_officer_chats',
+        'api_keys', 'security_policies', 'security_sessions',
+        'pdpa_consents', 'pdpa_dsr_requests'
       ];
     }
 

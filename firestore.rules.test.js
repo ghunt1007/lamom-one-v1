@@ -302,3 +302,97 @@ describe('rag_chunks (Phase 3 RAG) — same access as the internal knowledge it 
     await assertFails(db.collection('rag_chunks').get())
   })
 })
+
+// Second audit pass (2026-07-23) — these collections were added to the app after the original
+// catch-all fix and had zero specific rule coverage, so a plain "sales"/"staff" role could read
+// and write raw salaries, bank statement lines, and API keys via the catch-all. Same bug class,
+// different collections — caught by re-auditing rather than by the rules test suite itself,
+// which only ever tests collections someone remembered to write a test for.
+describe('finance collections added after the original sweep — now finance-only', () => {
+  it('plain staff cannot read bank_transactions (raw bank statement lines)', async () => {
+    await seedUser('finGap1', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('finGap1').firestore()
+    await assertFails(db.collection('bank_transactions').get())
+  })
+
+  it('finance role can read bank_transactions', async () => {
+    await seedUser('finGap2', { role: 'finance', active: true })
+    const db = testEnv.authenticatedContext('finGap2').firestore()
+    await assertSucceeds(db.collection('bank_transactions').get())
+  })
+
+  it('plain staff cannot read payroll_records (raw salaries)', async () => {
+    await seedUser('finGap3', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('finGap3').firestore()
+    await assertFails(db.collection('payroll_records').get())
+  })
+
+  it('a technician can read tech_kpi_bonus_approvals (checking their own bonus status) but cannot create one (that authorizes a real payout)', async () => {
+    await seedUser('finGap4', { role: 'service', active: true })
+    const db = testEnv.authenticatedContext('finGap4').firestore()
+    await assertSucceeds(db.collection('tech_kpi_bonus_approvals').get())
+    await assertFails(db.collection('tech_kpi_bonus_approvals').add({ month: '2026-07', totalBonus: 50000 }))
+  })
+
+  it('a manager can create a tech_kpi_bonus_approvals record', async () => {
+    await seedUser('finGap5', { role: 'manager', active: true })
+    const db = testEnv.authenticatedContext('finGap5').firestore()
+    await assertSucceeds(db.collection('tech_kpi_bonus_approvals').add({ month: '2026-07', totalBonus: 50000 }))
+  })
+})
+
+describe('system-security collections — admin only', () => {
+  it('plain staff cannot read api_keys', async () => {
+    await seedUser('secGap1', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('secGap1').firestore()
+    await assertFails(db.collection('api_keys').get())
+  })
+
+  it('admin can read and write api_keys', async () => {
+    await seedUser('secGap2', { role: 'admin', active: true })
+    const db = testEnv.authenticatedContext('secGap2').firestore()
+    await assertSucceeds(db.collection('api_keys').get())
+    await assertSucceeds(db.collection('api_keys').add({ name: 'test', key: 'x' }))
+  })
+
+  it('plain staff cannot read or terminate security_sessions (other users\' login sessions)', async () => {
+    await seedUser('secGap3', { role: 'manager', active: true })
+    const db = testEnv.authenticatedContext('secGap3').firestore()
+    await assertFails(db.collection('security_sessions').get())
+  })
+
+  it('admin can read security_sessions', async () => {
+    await seedUser('secGap4', { role: 'admin', active: true })
+    const db = testEnv.authenticatedContext('secGap4').firestore()
+    await assertSucceeds(db.collection('security_sessions').get())
+  })
+})
+
+describe('disciplinary_records — rule now matches the real collection name (was "disciplinary")', () => {
+  it('plain staff cannot read disciplinary_records', async () => {
+    await seedUser('hrGap1', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('hrGap1').firestore()
+    await assertFails(db.collection('disciplinary_records').get())
+  })
+
+  it('HR role can read and write disciplinary_records', async () => {
+    await seedUser('hrGap2', { role: 'hr', active: true })
+    const db = testEnv.authenticatedContext('hrGap2').firestore()
+    await assertSucceeds(db.collection('disciplinary_records').get())
+  })
+})
+
+describe('pdpa_dsr_requests — legal data-subject-request deadlines need manager sign-off to close', () => {
+  it('plain staff can read but not close a DSR request', async () => {
+    await seedUser('pdpaGap1', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('pdpaGap1').firestore()
+    await assertSucceeds(db.collection('pdpa_dsr_requests').get())
+    await assertFails(db.collection('pdpa_dsr_requests').add({ status: 'processing' }))
+  })
+
+  it('a manager can close a DSR request', async () => {
+    await seedUser('pdpaGap2', { role: 'manager', active: true })
+    const db = testEnv.authenticatedContext('pdpaGap2').firestore()
+    await assertSucceeds(db.collection('pdpa_dsr_requests').add({ status: 'processing' }))
+  })
+})
