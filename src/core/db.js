@@ -209,6 +209,20 @@ export async function listDocs(colName, filters = [], sortBy = 'createdAt', sort
   return snap.docs.map(d => ({ id: d.id, ...d.data() }))
 }
 
+// เหมือน listDocs แต่รับ callback แล้วอัปเดตสดทุกครั้งที่ข้อมูลเปลี่ยนบน Firestore (ของตัวเองหรือคนอื่น)
+// คืนค่า unsubscribe — หน้าที่เรียกต้องเก็บไว้เรียกตอนออกจากหน้า ไม่งั้น listener จะรั่วค้างไปเรื่อยๆ
+export function watchDocs(colName, filters = [], sortBy = 'createdAt', sortDir = 'desc', maxDocs = 100, callback) {
+  let q = collection(db, colName)
+  const constraints = [...filters.map(([f, op, v]) => where(f, op, v)), orderBy(sortBy, sortDir), limit(maxDocs)]
+  q = query(q, ...constraints)
+  return onSnapshot(q, snap => {
+    callback(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+  }, err => {
+    console.error('[watchDocs]', colName, err)
+    callback([]) // แจ้ง [] แทนการปล่อยให้ผู้เรียกที่รอ snapshot แรกค้างตลอดไป (เช่น permission denied)
+  })
+}
+
 // Demo mode ถูกลบออกจากระบบแล้ว (2026-07-23) — seedDemoData() คงไว้เป็น no-op เฉยๆ เพราะยังมี
 // การเรียกอยู่ใน 231 หน้าทั่วทั้งแอป การลบฟังก์ชันนี้ทิ้งจะต้องแก้ทุกหน้าที่เรียกโดยไม่ได้ประโยชน์
 // เพิ่มขึ้นจริง (เรียกแล้วไม่ทำอะไรอยู่ดี) จึงปล่อยไว้แบบนี้เพื่อความเสี่ยงต่ำที่สุด

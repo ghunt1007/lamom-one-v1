@@ -1,5 +1,5 @@
 import { getState } from '../core/store.js'
-import { listDocs, seedDemoData, getSalesData } from '../core/db.js'
+import { listDocs, watchDocs, seedDemoData, getSalesData } from '../core/db.js'
 import { formatCurrency, timeAgo } from '../utils/format.js'
 import { navigate } from '../core/router.js'
 import { generateMorningBriefing } from '../utils/ai.js'
@@ -375,19 +375,35 @@ export default async function DashboardPage(container) {
   seedDemoData()
   let selectedMonth = new Date().toISOString().slice(0, 7)
   let trendRange = 6
+  // Real-time: จอง/งานซ่อม/Tasks อัปเดตสดผ่าน Firestore onSnapshot — เก็บ unsubscribe ไว้เคลียร์ตอนออกจากหน้า (คืนค่าท้ายฟังก์ชันให้ router เรียก)
+  const unsubscribers = []
+  let bookings = [], jobs = [], tasks = []
   try {
     const today = new Date().toISOString().slice(0, 10)
     const thisMonth = new Date().toISOString().slice(0, 7)
-    const [customers, tasks, sales, jobs, bookings, pdi, allCustomersForLeads, vehicles, teamTargets] = await Promise.all([
+    // รอ snapshot แรกเหมือน listDocs ทั่วไป แล้วหลังจากนั้นอัปเดตสด → renderAll() ใหม่ทุกครั้งที่มีการเปลี่ยนแปลง
+    function watchOnce(colName, sortBy, sortDir, maxDocs, assign) {
+      return new Promise(resolve => {
+        let first = true
+        const unsub = watchDocs(colName, [], sortBy, sortDir, maxDocs, rows => {
+          if (container.__routerGen !== myGen) { unsub(); return }
+          assign(rows)
+          if (first) { first = false; resolve() }
+          else renderAll()
+        })
+        unsubscribers.push(unsub)
+      })
+    }
+    const [customers, sales, pdi, allCustomersForLeads, vehicles, teamTargets] = await Promise.all([
       listDocs('customers', [], 'createdAt', 'desc', 5).catch(() => []),
-      listDocs('tasks', [], 'createdAt', 'desc', 100).catch(() => []),
       getSalesData().catch(() => []),
-      listDocs('job_cards', [], 'createdAt', 'desc', 500).catch(() => []),
-      listDocs('bookings', [], 'createdAt', 'desc', 500).catch(() => []),
       listDocs('pdi', [], 'createdAt', 'desc', 50).catch(() => []),
       listDocs('customers', [], 'createdAt', 'desc', 500).catch(() => []),
       listDocs('vehicles', [], 'createdAt', 'desc', 500).catch(() => []),
       listDocs('team_targets', [], 'period', 'desc', 200).catch(() => []),
+      watchOnce('job_cards', 'createdAt', 'desc', 500, rows => { jobs = rows }),
+      watchOnce('bookings', 'createdAt', 'desc', 500, rows => { bookings = rows }),
+      watchOnce('tasks', 'createdAt', 'desc', 100, rows => { tasks = rows }),
     ])
     const leads = allCustomersForLeads.filter(c => c.stage === 'lead' || c.stage === 'pp').map(c => ({ ...c, status: c.stage === 'lead' ? 'new' : c.stage }))
     if (container.__routerGen !== myGen) return
@@ -618,9 +634,10 @@ export default async function DashboardPage(container) {
         </div>`
     }
 
-    // ── HUD readouts (ตัวเลขรวมทั้งระบบ) ──
-    const readEl = document.getElementById('hud-readouts')
-    if (readEl) {
+    // ── HUD readouts (ตัวเลขรวมทั้งระบบ) — เรียกซ้ำใน renderAll() เพื่ออัปเดตสด ──
+    function renderHud() {
+      const readEl = document.getElementById('hud-readouts')
+      if (!readEl) return
       readEl.innerHTML = `
         <span>BOOKINGS <b style="color:var(--primary)">${bookings.length}</b></span>
         <span>JOBS <b style="color:var(--warning)">${jobs.length}</b></span>
@@ -1007,6 +1024,7 @@ export default async function DashboardPage(container) {
     }
 
     function renderAll() {
+      renderHud()
       renderPipeline(); renderDeptDetail(); renderTrendChart(); renderDonut(); renderGauges()
       renderMoM(); renderForecast(); renderTops(); renderFunnel()
       renderAlerts(); renderTargets(); renderHeatmap(); renderRadar()
@@ -1144,4 +1162,9 @@ export default async function DashboardPage(container) {
       `).join('')
     }
   } catch {}
+
+  return function cleanupDashboard() {
+    clearInterval(clockTimer)
+    unsubscribers.forEach(u => { try { u() } catch {} })
+  }
 }
