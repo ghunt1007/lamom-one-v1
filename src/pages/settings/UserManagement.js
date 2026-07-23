@@ -23,6 +23,30 @@ const ROLES = {
 }
 const MIN_CREATE_LEVEL = 60
 
+// สิทธิ์แบบจำกัดเวลา — เผื่อพนักงานชั่วคราว/ผู้รับเหมา/ผู้ตรวจสอบบัญชีที่ควรมีสิทธิ์แค่ช่วงเวลาหนึ่ง
+// บังคับใช้จริงที่ Firestore Rules (accessExpiresAt) ไม่ใช่แค่ซ่อนปุ่มที่ UI
+const EXPIRY_OPTIONS = [
+  { days: null, label: 'ไม่จำกัดเวลา' },
+  { days: 1,    label: '1 วัน' },
+  { days: 7,    label: '7 วัน' },
+  { days: 30,   label: '30 วัน' },
+  { days: 90,   label: '90 วัน' },
+  { days: 180,  label: '180 วัน' },
+]
+
+function computeExpiry(days) {
+  const n = Number(days)
+  return n > 0 ? new Date(Date.now() + n * 86400000) : null
+}
+
+// คืนค่า null ถ้าไม่มีวันหมดอายุ (ใช้งานได้ตลอด) — ไม่ใช่ null = { daysLeft, expired }
+function expiryInfo(u) {
+  if (!u.accessExpiresAt) return null
+  const d = u.accessExpiresAt?.toDate ? u.accessExpiresAt.toDate() : new Date(u.accessExpiresAt)
+  const daysLeft = Math.ceil((d.getTime() - Date.now()) / 86400000)
+  return { daysLeft, expired: daysLeft < 0 }
+}
+
 function canCreate(myRole, targetRole) {
   const myLevel = ROLES[myRole]?.level || 0
   const targetLevel = ROLES[targetRole]?.level || 0
@@ -116,20 +140,25 @@ export default async function UserManagementPage(container) {
                 ${users.map(u => {
                   const isPending = u.role === 'pending'
                   const r = ROLES[u.role] || {}
-                  const active = u.active !== false && !isPending
+                  const exp = expiryInfo(u)
+                  const active = u.active !== false && !isPending && !(exp && exp.expired)
                   const iManage = canCreate(myRole, u.role)
                   return `<tr style="border-bottom:1px solid var(--border);font-size:0.8rem${active?'':';opacity:0.5'}">
                     <td style="padding:8px 14px">
                       <div style="font-weight:600">${esc(u.displayName || u.email)}</div>
                       <div style="font-size:0.65rem;color:var(--text-muted)">${esc(u.email)} · สร้างเมื่อ ${u.createdAt ? formatDate(u.createdAt) : '-'}</div>
                     </td>
-                    <td style="padding:8px 10px;text-align:center">${isPending ? '<span class="badge badge-warning" style="font-size:0.62rem">⏳ รอกำหนดสิทธิ์</span>' : `<span class="badge badge-secondary" style="font-size:0.62rem">${r.icon||''} ${r.label||u.role}</span>`}</td>
+                    <td style="padding:8px 10px;text-align:center">
+                      ${isPending ? '<span class="badge badge-warning" style="font-size:0.62rem">⏳ รอกำหนดสิทธิ์</span>' : `<span class="badge badge-secondary" style="font-size:0.62rem">${r.icon||''} ${r.label||u.role}</span>`}
+                      ${exp ? `<div style="margin-top:3px"><span class="badge ${exp.expired?'badge-danger':'badge-warning'}" style="font-size:0.58rem">${exp.expired?'❗ หมดอายุแล้ว':'⏳ เหลือ '+exp.daysLeft+' วัน'}</span></div>` : ''}
+                    </td>
                     <td style="padding:8px 10px;text-align:center">
                       ${isPending ? '<span class="badge badge-warning" style="font-size:0.6rem">⏳ สมัครใหม่</span>' : active ? '<span class="badge badge-success" style="font-size:0.6rem">✅ ใช้งาน</span>' : '<span class="badge badge-danger" style="font-size:0.6rem">⛔ ระงับ</span>'}
                     </td>
                     <td style="padding:8px 14px;text-align:right;white-space:nowrap">
                       ${iManage ? `
                         ${isPending ? `<button class="btn btn-xs btn-primary setrole-btn" data-uid="${u.id}" data-name="${esc(u.displayName || u.email)}">✏️ กำหนดสิทธิ์</button>` : ''}
+                        ${!isPending ? `<button class="btn btn-xs btn-secondary renew-btn" data-uid="${u.id}" data-name="${esc(u.displayName || u.email)}">🔄 ${exp?'ต่ออายุ':'ตั้งวันหมดอายุ'}</button>` : ''}
                         <button class="btn btn-xs btn-warning resetpw-btn" data-uid="${u.id}" data-email="${esc(u.email)}">🔑 รีเซ็ตรหัส</button>
                         ${!isPending ? `<button class="btn btn-xs ${active?'btn-danger':'btn-success'} toggle-btn" data-uid="${u.id}" data-active="${active}">${active?'⛔ ระงับ':'✅ เปิด'}</button>` : ''}
                       ` : '<span style="font-size:0.62rem;color:var(--text-muted)">🔒 ระดับสูงกว่า/เท่าคุณ</span>'}
@@ -151,7 +180,8 @@ export default async function UserManagementPage(container) {
           <p style="font-size:0.68rem;color:var(--text-muted);margin-top:8px">
             · กรอบสีน้ำเงิน = มีสิทธิ์สร้างบัญชี (ผู้จัดการขึ้นไป) — สร้างได้เฉพาะระดับ<strong>ต่ำกว่า</strong>ตัวเองเท่านั้น<br>
             · การระงับบัญชีจะบล็อกการ login จริงในครั้งถัดไปทันที (ตรวจสอบตอน login)<br>
-            · "รีเซ็ตรหัส" จะส่งอีเมลลิงก์ตั้งรหัสผ่านใหม่ไปที่อีเมลผู้ใช้จริง (Firebase Auth)
+            · "รีเซ็ตรหัส" จะส่งอีเมลลิงก์ตั้งรหัสผ่านใหม่ไปที่อีเมลผู้ใช้จริง (Firebase Auth)<br>
+            · สิทธิ์แบบจำกัดเวลา: หมดอายุแล้วจะเข้าใช้งานไม่ได้ตั้งแต่ระดับฐานข้อมูลจริง (Firestore Rules) ไม่ใช่แค่ซ่อนปุ่มบนหน้าจอ — บังคับตอน login ครั้งถัดไป กด "🔄 ต่ออายุ" เพื่อขยายเวลาได้ทุกเมื่อ
           </p>
         </div>
       </div>
@@ -159,6 +189,7 @@ export default async function UserManagementPage(container) {
 
     document.getElementById('add-user-btn')?.addEventListener('click', openCreateForm)
     container.querySelectorAll('.setrole-btn').forEach(b => b.addEventListener('click', () => openAssignRoleForm(b.dataset.uid, b.dataset.name)))
+    container.querySelectorAll('.renew-btn').forEach(b => b.addEventListener('click', () => openRenewForm(b.dataset.uid, b.dataset.name)))
     container.querySelectorAll('.resetpw-btn').forEach(b => b.addEventListener('click', () => confirmResetPw(b.dataset.email)))
     container.querySelectorAll('.toggle-btn').forEach(b => b.addEventListener('click', async () => {
       const nowActive = b.dataset.active !== 'true'
@@ -182,6 +213,9 @@ export default async function UserManagementPage(container) {
         <div class="input-group" style="grid-column:1/-1"><label class="input-label">ระดับสิทธิ์ * <span style="font-size:0.65rem;color:var(--text-muted)">(ต่ำกว่าคุณเท่านั้น)</span></label>
           <select class="input" id="nu-role">${creatable.map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
         </div>
+        <div class="input-group" style="grid-column:1/-1"><label class="input-label">ระยะเวลาสิทธิ์ <span style="font-size:0.65rem;color:var(--text-muted)">(เผื่อพนักงานชั่วคราว/ผู้รับเหมา — เลือก "ไม่จำกัดเวลา" สำหรับพนักงานประจำ)</span></label>
+          <select class="input" id="nu-expiry">${EXPIRY_OPTIONS.map(o=>`<option value="${o.days??''}">${o.label}</option>`).join('')}</select>
+        </div>
         <div class="input-group" style="grid-column:1/-1"><label class="input-label">รหัสผ่านชั่วคราว *</label>
           <div style="display:flex;gap:6px">
             <input class="input" id="nu-password" value="${suggested}" style="flex:1;font-family:monospace">
@@ -195,13 +229,14 @@ export default async function UserManagementPage(container) {
         const name = document.getElementById('nu-name')?.value?.trim()
         const email = document.getElementById('nu-email')?.value?.trim()
         const role = document.getElementById('nu-role')?.value
+        const expiryDays = document.getElementById('nu-expiry')?.value
         const password = document.getElementById('nu-password')?.value
         if (!name || !email || !password) { showToast('❗ กรอกข้อมูลให้ครบ', 'error'); return false }
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showToast('❗ รูปแบบอีเมลไม่ถูกต้อง', 'error'); return false }
         if (password.length < 8) { showToast('❗ รหัสผ่านอย่างน้อย 8 ตัว', 'error'); return false }
         if (!canCreate(myRole, role)) { showToast('❗ คุณไม่มีสิทธิ์สร้างระดับนี้', 'error'); return false }
         try {
-          const result = await createStaffAccount({ name, email, password, role })
+          const result = await createStaffAccount({ name, email, password, role, accessExpiresAt: computeExpiry(expiryDays) })
           if (!result.ok) { showToast('❗ ' + result.error, 'error'); return false }
           showToast(`✅ สร้าง ${name} (${ROLES[role]?.label}) แล้ว`, 'success')
           await loadData()
@@ -223,15 +258,41 @@ export default async function UserManagementPage(container) {
       body: `<div class="input-group">
         <label class="input-label">ระดับสิทธิ์ *</label>
         <select class="input" id="ar-role">${creatable.map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+      </div>
+      <div class="input-group" style="margin-top:10px">
+        <label class="input-label">ระยะเวลาสิทธิ์ <span style="font-size:0.65rem;color:var(--text-muted)">(เผื่อพนักงานชั่วคราว/ผู้รับเหมา)</span></label>
+        <select class="input" id="ar-expiry">${EXPIRY_OPTIONS.map(o=>`<option value="${o.days??''}">${o.label}</option>`).join('')}</select>
         <p style="font-size:0.68rem;color:var(--text-muted);margin-top:6px">อนุมัติแล้วผู้ใช้จะเข้าใช้งานระบบได้ทันทีตามสิทธิ์ที่เลือก</p>
       </div>`,
       confirmText: '✅ อนุมัติสิทธิ์',
       async onConfirm() {
         const role = document.getElementById('ar-role')?.value
+        const expiryDays = document.getElementById('ar-expiry')?.value
         if (!canCreate(myRole, role)) { showToast('❗ คุณไม่มีสิทธิ์กำหนดระดับนี้', 'error'); return false }
         try {
-          await updateDocData('users', uid, { role, active: true })
+          await updateDocData('users', uid, { role, active: true, accessExpiresAt: computeExpiry(expiryDays) })
           showToast(`✅ กำหนดสิทธิ์ ${ROLES[role]?.label} ให้ ${name} แล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      }
+    })
+  }
+
+  function openRenewForm(uid, name) {
+    openModal({
+      title: `🔄 ต่ออายุสิทธิ์ — ${esc(name)}`,
+      size: 'sm',
+      body: `<div class="input-group">
+        <label class="input-label">ระยะเวลาสิทธิ์ใหม่ *</label>
+        <select class="input" id="rn-expiry">${EXPIRY_OPTIONS.map(o=>`<option value="${o.days??''}">${o.label}</option>`).join('')}</select>
+        <p style="font-size:0.68rem;color:var(--text-muted);margin-top:6px">นับเวลาใหม่จากตอนนี้ (ไม่ใช่ต่อจากวันหมดอายุเดิม) — เลือก "ไม่จำกัดเวลา" เพื่อยกเลิกวันหมดอายุถาวร</p>
+      </div>`,
+      confirmText: '✅ บันทึก',
+      async onConfirm() {
+        const expiryDays = document.getElementById('rn-expiry')?.value
+        try {
+          await updateDocData('users', uid, { accessExpiresAt: computeExpiry(expiryDays) })
+          showToast(expiryDays ? `✅ ต่ออายุสิทธิ์ ${name} แล้ว` : `✅ ยกเลิกวันหมดอายุของ ${name} แล้ว (ใช้งานได้ตลอด)`, 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }

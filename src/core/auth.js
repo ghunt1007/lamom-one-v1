@@ -78,6 +78,17 @@ async function loadUserProfile(firebaseUser) {
         navigate('/login')
         return
       }
+      // สิทธิ์แบบจำกัดเวลา — เช็คตอน login เท่านั้น (เหมือน active===false ด้านบน) ไม่ได้เช็คระหว่างใช้งาน
+      // อยู่กลางหน้า ถ้าหมดอายุตอนกำลังใช้งาน จะบล็อกจริงตอน login ครั้งถัดไป (Firestore rules บังคับจริงเสมอ
+      // ไม่ว่า client จะเช็คตรงนี้ทันเวลาหรือไม่)
+      const expiresAt = profile.accessExpiresAt?.toDate ? profile.accessExpiresAt.toDate() : (profile.accessExpiresAt ? new Date(profile.accessExpiresAt) : null)
+      if (expiresAt && expiresAt.getTime() < Date.now()) {
+        await signOut(auth)
+        setUser(null)
+        showToast('สิทธิ์การใช้งานของคุณหมดอายุแล้ว กรุณาติดต่อผู้ดูแลระบบเพื่อขอต่ออายุ', 'error', 8000)
+        navigate('/login')
+        return
+      }
       setUser(profile)
       setState('role', profile.role || 'staff')
       setState('permissions', profile.permissions || [])
@@ -140,7 +151,7 @@ export function hasPermission(perm) {
 // Uses a secondary Firebase Auth app instance so creating a new account doesn't
 // sign the admin out of their own session (the client SDK signs in as whichever
 // user was just created via createUserWithEmailAndPassword).
-export async function createStaffAccount({ name, email, password, role }) {
+export async function createStaffAccount({ name, email, password, role, accessExpiresAt }) {
   const secondaryAuth = getSecondaryAuth()
   try {
     const cred = await createUserWithEmailAndPassword(secondaryAuth, email, password)
@@ -150,6 +161,7 @@ export async function createStaffAccount({ name, email, password, role }) {
       role: role || 'staff',
       permissions: [],
       active: true,
+      accessExpiresAt: accessExpiresAt || null,
       createdBy: getState('user')?.uid || null,
       createdAt: serverTimestamp(),
     })

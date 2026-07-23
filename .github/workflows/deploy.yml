@@ -23,6 +23,18 @@ jobs:
       - name: Run tests
         run: npm test
 
+      # ต้องมี Java เพื่อรัน Firestore Emulator — เทสไฟล์นี้เจอ vulnerability จริงระดับวิกฤต
+      # (catch-all rule ปลายไฟล์เผลอปล่อยให้ staff ธรรมดาอ่าน/เขียน payroll, audit_log,
+      # commissions ฯลฯ ได้) ตั้งแต่รันครั้งแรก จึงคุ้มค่าที่จะรันทุกครั้งก่อน deploy จริง
+      - name: Setup Java (for Firestore emulator)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Run Firestore rules tests
+        run: npm run test:rules
+
       - name: Build
         run: npm run build
         env:

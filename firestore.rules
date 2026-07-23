@@ -13,10 +13,19 @@ service cloud.firestore {
       return request.auth.uid;
     }
 
+    // สิทธิ์แบบจำกัดเวลา (accessExpiresAt) — ถ้า field นี้มีค่าและผ่านมาแล้ว ถือว่าหมดสิทธิ์ทันที
+    // ไม่ว่า field "role" จะยังเป็นอะไรอยู่ก็ตาม (บังคับที่ระดับ rules จริง ไม่ใช่แค่ซ่อนปุ่มที่ UI
+    // ซึ่งหลบเลี่ยงได้ด้วยการยิง request ตรง) ไม่มี field นี้ (null) = สิทธิ์ไม่มีวันหมดอายุตามปกติ
     function userRole() {
       return isSignedIn()
-        ? get(/databases/$(database)/documents/users/$(uid())).data.get('role', 'viewer')
+        ? roleFromProfile(get(/databases/$(database)/documents/users/$(uid())).data)
         : 'anonymous';
+    }
+
+    function roleFromProfile(profile) {
+      return (profile.get('accessExpiresAt', null) != null && profile.get('accessExpiresAt', null) < request.time)
+        ? 'expired'
+        : profile.get('role', 'viewer');
     }
 
     function isOwner() {
@@ -76,18 +85,24 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if isSignedIn() && (uid() == userId || isAdmin());
+      // แก้ไข (2026-07-23): เดิมใช้ isAdmin() (owner/admin เท่านั้น) แต่หน้า User Management ของแอป
+      // เขียนไว้ชัดเจนว่า "ผู้จัดการขึ้นไป" (manager level 70 ≥ MIN_CREATE_LEVEL 60) จัดการผู้ใช้ได้ —
+      // แปลว่า manager กด UserManagement มาก่อนหน้านี้จะเจอ permission-denied ตอนอ่านรายชื่อผู้ใช้เลย
+      // (bug ที่ค้างมาก่อน ไม่เกี่ยวกับงานตอนนี้ แต่ไปกระทบฟีเจอร์ต่ออายุสิทธิ์ที่เพิ่มใหม่โดยตรง) แก้ให้ตรง
+      // กับที่ UI ตั้งใจไว้จริง — ยังไม่ได้เพิ่มการตรวจ "ต้องสร้าง/แก้ role ต่ำกว่าตัวเองเท่านั้น" ที่ระดับ
+      // rules (ตอนนี้ตรวจแค่ที่ UI ฝั่ง client เท่านั้น เหมือนที่ isAdmin() เดิมก็ไม่ตรวจระดับกันอยู่แล้ว)
+      allow read: if isSignedIn() && (uid() == userId || isManager());
       // Self-create only allowed as the very first owner (bootstrap, no meta/init yet)
       // or as a 'pending' account awaiting admin approval — never with a privileged role.
       // ป้องกัน privilege escalation: ผู้ใช้ทั่วไปสร้าง/แก้ profile ตัวเองให้เป็น owner/admin เองไม่ได้
-      allow create: if isAdmin()
+      allow create: if isManager()
         || (isSignedIn() && uid() == userId && isBootstrapping() && request.resource.data.role == 'owner')
         || (isSignedIn() && uid() == userId && !isBootstrapping() && request.resource.data.role == 'pending');
-      // ผู้ใช้แก้ไข field ตัวเองได้ (เช่น displayName) แต่ห้ามแก้ role/permissions/active เองเด็ดขาด
-      // ต้องให้ admin เป็นคนเปลี่ยนสิทธิ์เท่านั้น
-      allow update: if isAdmin()
+      // ผู้ใช้แก้ไข field ตัวเองได้ (เช่น displayName) แต่ห้ามแก้ role/permissions/active/accessExpiresAt เอง
+      // เด็ดขาด ต้องให้ manager ขึ้นไปเป็นคนเปลี่ยนสิทธิ์เท่านั้น
+      allow update: if isManager()
         || (isSignedIn() && uid() == userId
-            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'permissions', 'active']));
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'permissions', 'active', 'accessExpiresAt']));
       allow delete: if isOwner();
     }
 
@@ -400,8 +415,29 @@ service cloud.firestore {
     }
 
     // ── Default: any other collection requires staff auth ────────────────────
+    // สำคัญมาก (พบ 2026-07-23 ระหว่างเขียนเทส rules ครั้งแรกของโปรเจกต์): Firestore ประเมิน
+    // "ทุก" match block ที่ path ตรงกัน แล้วรวมผลแบบ OR — ไม่ใช่ "block เจาะจงกว่าชนะ" อย่างที่คนมัก
+    // เข้าใจผิด แปลว่า catch-all นี้ (isStaff() แบบกว้างๆ) จะ "แข่ง" กับทุก match block ด้านบนที่จำกัด
+    // สิทธิ์แคบกว่า isStaff() เสมอ (เช่น payroll ที่ควรเป็น isFinance() เท่านั้น, audit_log ที่ห้ามแก้ไข/
+    // ลบเด็ดขาด, users ที่ควรจำกัดที่ isManager()) — ถ้าไม่กันไว้ตรงนี้ staff ธรรมดาทุกคนจะยังอ่าน/เขียน
+    // collection เหล่านั้นได้อยู่ดีผ่าน catch-all นี้ โดยไม่ต้องผ่านเงื่อนไขที่เข้มกว่าเลย (ยืนยันด้วยเทสจริง
+    // ผ่าน emulator แล้ว — sales role อ่าน/เขียน users collection ได้ทั้งที่ควรจะถูกบล็อก จนกว่าจะกันตรงนี้)
+    // ต้องเพิ่มชื่อ collection ใหม่ในลิสต์นี้ทุกครั้งที่เขียน match block ที่จำกัดสิทธิ์แคบกว่า isStaff()
+    function hasNarrowerRuleThanStaff(collection) {
+      return collection in [
+        'meta', 'users', 'roles', 'audit_log', 'settings', 'branches',
+        'commissions', 'payroll', 'petty_cash', 'withholding_tax_certs', 'billing_runs', 'custom_order_docs',
+        'expenses', 'expense_approvals', 'cash_flow', 'bank_reconciliation',
+        'staff', 'staff_loans', 'leave_requests', 'attendance', 'performance_reviews', 'team_targets',
+        'employee_evaluations', 'disciplinary', 'recruitment',
+        'notifications', 'inspections', 'sop', 'legal_references',
+        'master_data', 'company_profile', 'whitelabel_settings', 'sms_otp_settings',
+        'bank_partner_info', 'insurance_rate_cards', 'ai_officer_chats'
+      ];
+    }
+
     match /{collection}/{docId} {
-      allow read, write: if isStaff();
+      allow read, write: if isStaff() && !hasNarrowerRuleThanStaff(collection);
     }
   }
 }
