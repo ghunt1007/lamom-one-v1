@@ -188,6 +188,60 @@ describe('CRITICAL: the catch-all rule must never grant broader access than a co
     const db = testEnv.authenticatedContext('salesE').firestore()
     await assertSucceeds(db.collection('some_future_collection_nobody_wrote_a_rule_for_yet').get())
   })
+
+  // A handful more of the 34 protected collections, deliberately chosen to cover the
+  // *different* permission shapes in the file (isHR()-only, isService()-only,
+  // isOwner()-only, self-scoped-with-impersonation-check) — not exhaustive over all 34,
+  // but enough to confirm the guard mechanism itself works correctly regardless of which
+  // specific role function a given collection uses, not just the isFinance()/isAdmin()
+  // cases already covered above.
+  it('a sales-role user cannot write to staff (isHR()-only)', async () => {
+    await seedUser('salesF', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('salesF').firestore()
+    await assertFails(db.doc('staff/emp1').set({ name: 'x' }))
+  })
+
+  it('an hr-role user CAN write to staff', async () => {
+    await seedUser('hrA', { role: 'hr', active: true })
+    const db = testEnv.authenticatedContext('hrA').firestore()
+    await assertSucceeds(db.doc('staff/emp1').set({ name: 'x' }))
+  })
+
+  it('a sales-role user cannot read inspections (isService()||isManager()-only)', async () => {
+    await seedUser('salesG', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('salesG').firestore()
+    await assertFails(db.collection('inspections').get())
+  })
+
+  it('a service-role user CAN read inspections', async () => {
+    await seedUser('svcA', { role: 'service', active: true })
+    const db = testEnv.authenticatedContext('svcA').firestore()
+    await assertSucceeds(db.collection('inspections').get())
+  })
+
+  it('an admin (not owner) cannot write to roles (isOwner()-only)', async () => {
+    await seedUser('adminB', { role: 'admin', active: true })
+    const db = testEnv.authenticatedContext('adminB').firestore()
+    await assertFails(db.doc('roles/r1').set({ perms: [] }))
+  })
+
+  it('the owner CAN write to roles', async () => {
+    await seedUser('ownerA', { role: 'owner', active: true })
+    const db = testEnv.authenticatedContext('ownerA').firestore()
+    await assertSucceeds(db.doc('roles/r1').set({ perms: [] }))
+  })
+
+  it('a staff-level user cannot create an ai_officer_chats entry impersonating a different userId', async () => {
+    await seedUser('staff5', { role: 'staff', active: true })
+    const db = testEnv.authenticatedContext('staff5').firestore()
+    await assertFails(db.doc('ai_officer_chats/c1').set({ userId: 'someone-else', text: 'hi' }))
+  })
+
+  it('a staff-level user CAN create an ai_officer_chats entry scoped to their own userId', async () => {
+    await seedUser('staff6', { role: 'staff', active: true })
+    const db = testEnv.authenticatedContext('staff6').firestore()
+    await assertSucceeds(db.doc('ai_officer_chats/c2').set({ userId: 'staff6', text: 'hi' }))
+  })
 })
 
 describe('pre-existing anti-escalation protections still hold after these changes', () => {
