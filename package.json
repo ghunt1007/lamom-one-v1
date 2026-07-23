@@ -1,6 +1,6 @@
 {
   "name": "lamom-one-v1",
-  "version": "1.0.223",
+  "version": "1.0.224",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,7 +8,10 @@
     "build": "vite build && node scripts/stamp-sw.js",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:rules": "firebase emulators:exec --only firestore --project lamom-rules-test \"vitest run --config vitest.rules.config.js\""
+    "test:rules": "firebase emulators:exec --only firestore --project lamom-rules-test \"vitest run --config vitest.rules.config.js\"",
+    "cap:sync": "npm run build && npx cap sync android",
+    "cap:build:debug": "npm run cap:sync && cd android && gradlew.bat assembleDebug",
+    "cap:build:release": "npm run cap:sync && cd android && gradlew.bat assembleRelease"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.1",
