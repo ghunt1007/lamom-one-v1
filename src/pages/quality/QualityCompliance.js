@@ -1,4 +1,4 @@
-import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { watchDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { showToast } from '../../core/store.js'
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
@@ -27,36 +27,6 @@ const AUDIT_STATUS = {
   completed: { label: '✅ เสร็จแล้ว', badge: 'success' },
   overdue: { label: '⏰ เกินกำหนด', badge: 'danger' },
 }
-
-const DEMO_AUDITS = [
-  {
-    id: 'AUD001', title: 'PDPA Compliance Audit Q2/2025', type: 'pdpa', status: 'completed',
-    auditor: 'นภา จันทร์งาม', dept: 'Finance', startDate: '2025-06-01', endDate: '2025-06-05',
-    score: 88, findings: [
-      { id:'F1', level:'minor', desc:'ยังไม่มีระบบ Log การเข้าถึงข้อมูลลูกค้า', status:'open' },
-      { id:'F2', level:'observation', desc:'ควรเพิ่ม Privacy Notice บนหน้า Web', status:'closed' },
-    ]
-  },
-  {
-    id: 'AUD002', title: 'Service Quality Inspection', type: 'internal', status: 'ongoing',
-    auditor: 'ธีรยุทธ เก่งกาจ', dept: 'Service', startDate: '2025-06-08', endDate: '2025-06-12',
-    score: null, findings: [
-      { id:'F3', level:'major', desc:'ไม่พบ Calibration Certificate สำหรับเครื่องมือวัด 2 ชิ้น', status:'open' },
-    ]
-  },
-  {
-    id: 'AUD003', title: 'Sales Process Audit', type: 'internal', status: 'planned',
-    auditor: 'อรนุช สายใจ', dept: 'Sales', startDate: '2025-07-01', endDate: '2025-07-03',
-    score: null, findings: []
-  },
-  {
-    id: 'AUD004', title: 'Safety Walk-through', type: 'safety', status: 'completed',
-    auditor: 'สมหมาย รักงาน', dept: 'Workshop', startDate: '2025-05-20', endDate: '2025-05-20',
-    score: 92, findings: [
-      { id:'F4', level:'observation', desc:'ป้ายแจ้งเตือนในพื้นที่ Workshop ควรเป็นภาษาไทย', status:'closed' },
-    ]
-  },
-]
 
 const CHECKLIST_TEMPLATES = [
   {
@@ -96,11 +66,17 @@ export default async function QualityCompliancePage(container) {
   const myGen = container.__routerGen
   seedDemoData()
 
-  let audits = DEMO_AUDITS.map(a => ({ ...a, findings: a.findings.map(f => ({ ...f })) }))
+  let audits = []
   let activeTab = 'audits' // audits | checklist | findings | kpi
-  let selectedAudit = null
 
-  if (container.__routerGen !== myGen) return
+  container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+
+  // Real-time: อัปเดตสดเมื่อมีคนสร้าง Audit/ปิด Finding จากเครื่องอื่น — หน้านี้ไม่มีช่องค้นหาจึงไม่ต้องกันโฟกัส
+  const unsubAudits = watchDocs('compliance_audits', [], 'startDate', 'desc', 300, rows => {
+    if (container.__routerGen !== myGen) { unsubAudits(); return }
+    audits = rows
+    renderPage()
+  })
 
   function getStats() {
     const total = audits.length
@@ -276,9 +252,11 @@ export default async function QualityCompliancePage(container) {
         const audit = audits.find(a => a.id === btn.dataset.aid)
         const finding = audit?.findings.find(f => f.id === btn.dataset.fid)
         if (!finding) return
-        finding.status = 'closed'
-        showToast('✅ ปิด Finding แล้ว', 'success')
-        renderPage()
+        const newFindings = audit.findings.map(f => f.id === finding.id ? { ...f, status: 'closed' } : f)
+        try {
+          await updateDocData('compliance_audits', audit.id, { findings: newFindings })
+          showToast('✅ ปิด Finding แล้ว', 'success')
+        } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
       })
     })
     document.querySelectorAll('.use-template-btn').forEach(btn => {
@@ -348,25 +326,27 @@ export default async function QualityCompliancePage(container) {
       footer: `<button class="btn btn-secondary" id="afc">ยกเลิก</button><button class="btn btn-primary" id="afs">💾 สร้าง</button>`
     })
     el.querySelector('#afc').addEventListener('click', close)
-    el.querySelector('#afs').addEventListener('click', () => {
+    el.querySelector('#afs').addEventListener('click', async () => {
       const title = el.querySelector('#af-title').value.trim()
       if (!title) return
-      const id = 'AUD' + String(audits.length + 1).padStart(3, '0')
-      audits.unshift({
-        id, title,
-        type: el.querySelector('#af-type').value,
-        status: 'planned',
-        auditor: el.querySelector('#af-auditor').value || 'TBD',
-        dept: el.querySelector('#af-dept').value || 'ทั่วไป',
-        startDate: el.querySelector('#af-start').value,
-        endDate: el.querySelector('#af-end').value,
-        score: null, findings: []
-      })
-      showToast('✅ สร้าง Audit แล้ว', 'success'); close(); renderPage()
+      const btn = el.querySelector('#afs'); btn.disabled = true
+      try {
+        await createDoc('compliance_audits', {
+          title,
+          type: el.querySelector('#af-type').value,
+          status: 'planned',
+          auditor: el.querySelector('#af-auditor').value || 'TBD',
+          dept: el.querySelector('#af-dept').value || 'ทั่วไป',
+          startDate: el.querySelector('#af-start').value,
+          endDate: el.querySelector('#af-end').value,
+          score: null, findings: [],
+        })
+        showToast('✅ สร้าง Audit แล้ว', 'success'); close()
+      } catch { btn.disabled = false; showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
-  renderPage()
+  return function cleanupQualityCompliance() { unsubAudits() }
 }
 
 function kpi(title, value, color) {

@@ -492,6 +492,12 @@ service cloud.firestore {
       allow write: if isManager();
     }
 
+    // ── Quality/Compliance audits — findings อาจครอบคลุมเรื่อง PDPA ด้วย จึงเข้มเท่า legal_references ──
+    match /compliance_audits/{docId} {
+      allow read: if isStaff();
+      allow write: if isManager();
+    }
+
     // ── Default: any other collection requires staff auth ────────────────────
     // สำคัญมาก (พบ 2026-07-23 ระหว่างเขียนเทส rules ครั้งแรกของโปรเจกต์): Firestore ประเมิน
     // "ทุก" match block ที่ path ตรงกัน แล้วรวมผลแบบ OR — ไม่ใช่ "block เจาะจงกว่าชนะ" อย่างที่คนมัก
@@ -514,7 +520,7 @@ service cloud.firestore {
         'master_data', 'company_profile', 'whitelabel_settings', 'sms_otp_settings',
         'bank_partner_info', 'insurance_rate_cards', 'ai_officer_chats',
         'api_keys', 'security_policies', 'security_sessions',
-        'pdpa_consents', 'pdpa_dsr_requests'
+        'pdpa_consents', 'pdpa_dsr_requests', 'compliance_audits'
       ];
     }
 

@@ -396,3 +396,17 @@ describe('pdpa_dsr_requests — legal data-subject-request deadlines need manage
     await assertSucceeds(db.collection('pdpa_dsr_requests').add({ status: 'processing' }))
   })
 })
+
+describe('compliance_audits — plain staff can read audit results but not create/edit them', () => {
+  it('plain staff cannot create a compliance audit', async () => {
+    await seedUser('qcGap1', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('qcGap1').firestore()
+    await assertFails(db.collection('compliance_audits').add({ title: 'x' }))
+  })
+
+  it('a manager can create a compliance audit', async () => {
+    await seedUser('qcGap2', { role: 'manager', active: true })
+    const db = testEnv.authenticatedContext('qcGap2').firestore()
+    await assertSucceeds(db.collection('compliance_audits').add({ title: 'x' }))
+  })
+})

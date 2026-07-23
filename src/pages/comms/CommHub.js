@@ -1,4 +1,4 @@
-import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
+import { watchDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { showToast, getState } from '../../core/store.js'
 import { formatDate, timeAgo, initials } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
@@ -15,28 +15,6 @@ const CHANNELS = [
   { id: 'announcements', name: '📢 ประกาศ', emoji: '📢', desc: 'ประกาศสำคัญจากบริหาร' },
 ]
 
-const DEMO_MESSAGES = {
-  general: [
-    { id:'m1', author:'อรนุช สายใจ', role:'Sales Manager', content:'สวัสดีทีมงานทุกคน! ขอต้อนรับเดือนใหม่ ช่วยกัน push ยอดให้ถึง target นะครับ 🚀', createdAt:'2025-06-09T08:00:00Z', reactions:['👍','❤️'] },
-    { id:'m2', author:'วิชาญ มีโชค', role:'Sales Executive', content:'วันนี้มีลูกค้านัด Test Drive BYD Seal 2 คัน น่าจะปิดได้เลย! 💪', createdAt:'2025-06-09T09:15:00Z', reactions:['🔥'] },
-    { id:'m3', author:'ธีรยุทธ เก่งกาจ', role:'Service Advisor', content:'แจ้งทีมว่าอะไหล่ Filter น้ำมันมาแล้ว งานค้างสามารถนัดลูกค้าได้เลยครับ', createdAt:'2025-06-09T10:30:00Z', reactions:[] },
-    { id:'m4', author:'นภา จันทร์งาม', role:'Finance Officer', content:'เตือนทีมขายส่ง Invoice เดือนนี้ภายในพรุ่งนี้ด้วยนะคะ', createdAt:'2025-06-09T11:00:00Z', reactions:['👍','👍'] },
-  ],
-  announcements: [
-    { id:'a1', author:'ทวีศักดิ์ สุขสมบัติเสถียร', role:'Owner', content:'🎉 ยินดีกับทีมขายที่ทำยอดได้ 125% ของ Target เดือนที่ผ่านมา! ขอบคุณทุกคนครับ\n\n📢 เดือนนี้มีโปรโมชั่นพิเศษ BYD Atto 3 ลดเพิ่ม 30,000 บาท สำหรับลูกค้าที่ Trade-in เท่านั้น', createdAt:'2025-06-01T09:00:00Z', reactions:['🎉','👍','❤️'] },
-    { id:'a2', author:'ทวีศักดิ์ สุขสมบัติเสถียร', role:'Owner', content:'📋 นโยบายใหม่: พนักงานทุกคนต้องเข้า Training EV Technology ภายใน Q3 นี้ ติดต่อ LEARN สำหรับตารางเรียนครับ', createdAt:'2025-06-05T14:00:00Z', reactions:['👍'] },
-  ],
-  sales: [
-    { id:'s1', author:'อรนุช สายใจ', role:'Sales Manager', content:'Meeting ทีมขายทุกวันจันทร์ 9:00 น. ห้อง Training ครับ\n\nAgenda:\n• Review Pipeline\n• New Leads\n• Target Week', createdAt:'2025-06-09T07:30:00Z', reactions:['👍','👍','👍'] },
-  ],
-  service: [
-    { id:'sv1', author:'ธีรยุทธ เก่งกาจ', role:'Service Advisor', content:'ช่างทุกคนรบกวน Update สถานะ Job Card ก่อนกลับบ้านทุกวันด้วยนะครับ ขอบคุณ', createdAt:'2025-06-08T17:00:00Z', reactions:['👍'] },
-  ],
-  management: [
-    { id:'mg1', author:'ทวีศักดิ์ สุขสมบัติเสถียร', role:'Owner', content:'📊 Board Meeting วันศุกร์ 15:00 น.\nหัวข้อ: Q2 Review + Q3 Planning\nนำข้อมูลยอดขายและ P&L มาด้วยครับ', createdAt:'2025-06-07T10:00:00Z', reactions:[] },
-  ],
-}
-
 const AVATAR_COLORS = ['primary', 'accent', 'success', 'warning', 'danger']
 function avatarColor(name) {
   let sum = 0; for (const c of name) sum += c.charCodeAt(0)
@@ -48,14 +26,40 @@ export default async function CommHubPage(container) {
   seedDemoData()
 
   let activeChannel = CHANNELS[0]
-  const messages = JSON.parse(JSON.stringify(DEMO_MESSAGES))
+  const messages = {} // channel id -> real messages, populated as each channel is subscribed to
   const user = getState('user')
   const myName = user?.displayName || 'ผู้ใช้'
 
-  if (container.__routerGen !== myGen) return
-
   function getMessages(chId) {
     return messages[chId] || []
+  }
+
+  container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+
+  // Real-time: สลับ channel ต้อง unsubscribe ตัวเก่าก่อนเสมอ ไม่งั้น listener จะค้างเพิ่มขึ้นทุกครั้งที่สลับ
+  // แชทเป็น use-case ตัวอย่างของ real-time ที่สุด — ข้อความคนอื่นต้องขึ้นทันทีโดยไม่รีเฟรช
+  let unsubChannel = null
+  let firstSnapshotOfChannel = true
+  function subscribeChannel(chId) {
+    if (unsubChannel) unsubChannel()
+    firstSnapshotOfChannel = true
+    unsubChannel = watchDocs('comm_messages', [['channel', '==', chId]], 'createdAt', 'asc', 300, rows => {
+      if (container.__routerGen !== myGen) { unsubChannel(); return }
+      messages[chId] = rows
+      if (firstSnapshotOfChannel) { firstSnapshotOfChannel = false; renderPage() }
+      // กันเคสหายาก: unsubscribe เดิมไปแล้วแต่ snapshot ค้างท่อมาทีหลัง — chId จะไม่ตรง activeChannel แล้ว ข้ามการ render ทิ้ง
+      else if (chId === activeChannel.id) { refreshMessages() }
+    })
+  }
+  subscribeChannel(activeChannel.id)
+
+  // อัปเดตแค่กล่องข้อความ (ไม่ full re-render หน้า) กันไม่ให้ตัดข้อความที่กำลังพิมพ์อยู่ในกล่องคุยขาดหาย
+  function refreshMessages() {
+    const msgsEl = document.getElementById('chat-messages')
+    if (!msgsEl) return
+    msgsEl.innerHTML = renderMessages()
+    bindReactions()
+    scrollToBottom()
   }
 
   function renderPage() {
@@ -193,6 +197,7 @@ export default async function CommHubPage(container) {
     document.querySelectorAll('.channel-item').forEach(item => {
       item.addEventListener('click', () => {
         activeChannel = CHANNELS.find(c => c.id === item.dataset.ch) || activeChannel
+        subscribeChannel(activeChannel.id)
         renderPage()
       })
     })
@@ -213,27 +218,26 @@ export default async function CommHubPage(container) {
         footer: `<button class="btn btn-secondary" id="anc">ยกเลิก</button><button class="btn btn-primary" id="ans">📢 ประกาศ</button>`
       })
       el.querySelector('#anc').addEventListener('click', close)
-      el.querySelector('#ans').addEventListener('click', () => {
+      el.querySelector('#ans').addEventListener('click', async () => {
         const txt = el.querySelector('#ann-text').value.trim()
         if (!txt) return
-        const msg = { id: 'a' + Date.now(), author: myName || 'Owner', role: 'Owner', content: txt, createdAt: new Date().toISOString(), reactions: [] }
-        if (!messages.announcements) messages.announcements = []
-        messages.announcements.push(msg)
-        showToast('📢 ประกาศแล้ว', 'success'); close(); renderPage()
+        try {
+          await createDoc('comm_messages', { channel: 'announcements', author: myName || 'Owner', role: 'Owner', content: txt, reactions: [] })
+          showToast('📢 ประกาศแล้ว', 'success'); close()
+        } catch { showToast('ประกาศไม่สำเร็จ', 'error') }
       })
     })
 
+    bindReactions()
+  }
+
+  function bindReactions() {
     document.querySelectorAll('.reaction-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const msgId = btn.dataset.mid; const r = btn.dataset.r
-        const ch = messages[activeChannel.id]
-        const m = ch?.find(x => x.id === msgId)
+        const m = getMessages(activeChannel.id).find(x => x.id === msgId)
         if (!m) return
-        if (!m.reactions) m.reactions = []
-        m.reactions.push(r)
-        // Re-render messages only
-        const container2 = document.getElementById('chat-messages')
-        if (container2) { container2.innerHTML = renderMessages(); bindEvents() }
+        try { await updateDocData('comm_messages', msgId, { reactions: [...(m.reactions || []), r] }) } catch { /* เพิ่ม reaction พลาดได้ ไม่ใช่การกระทำสำคัญ */ }
       })
     })
   }
@@ -243,16 +247,9 @@ export default async function CommHubPage(container) {
     const text = input?.value.trim()
     if (!text) return
     if (input) input.value = ''
-    const msg = {
-      id: 'm' + Date.now(), author: myName, role: getState('user')?.role || 'Staff',
-      content: text, createdAt: new Date().toISOString(), reactions: []
-    }
-    if (!messages[activeChannel.id]) messages[activeChannel.id] = []
-    messages[activeChannel.id].push(msg)
-    const msgsEl = document.getElementById('chat-messages')
-    if (msgsEl) { msgsEl.innerHTML = renderMessages(); bindEvents() }
-    scrollToBottom()
+    createDoc('comm_messages', { channel: activeChannel.id, author: myName, role: getState('user')?.role || 'Staff', content: text, reactions: [] })
+      .catch(() => showToast('ส่งข้อความไม่สำเร็จ', 'error'))
   }
 
-  renderPage()
+  return function cleanupCommHub() { if (unsubChannel) unsubChannel() }
 }

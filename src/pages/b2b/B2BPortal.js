@@ -1,4 +1,4 @@
-import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { watchDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { showToast } from '../../core/store.js'
 import { formatCurrency, formatDate, timeAgo } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
@@ -25,55 +25,22 @@ const DEAL_STATUS = {
   cancelled: { label: '❌ ยกเลิก', badge: 'danger' },
 }
 
-const DEMO_PARTNERS = [
-  {
-    id: 'P001', name: 'บริษัท ทรัพย์ไพศาล จำกัด', type: 'broker', contact: 'คุณ ประกอบ ทรัพย์ไพศาล',
-    phone: '081-234-5678', email: 'prakob@sappaisarn.co.th',
-    commission_rate: 1.5, totalDeals: 12, totalRevenue: 15800000,
-    status: 'active', since: '2024-01-15',
-    deals: [
-      { id:'D1', desc:'BYD Seal x3 (Fleet)', units:3, value:3600000, status:'completed' },
-      { id:'D2', desc:'MG4 x2 (Corporate)', units:2, value:2200000, status:'contracted' },
-    ]
-  },
-  {
-    id: 'P002', name: 'กรมสรรพากร (ราชพิมาน)', type: 'government', contact: 'คุณ วิชัย ราชพิมาน',
-    phone: '02-345-6789', email: 'vichai@rd.go.th',
-    commission_rate: 0, totalDeals: 3, totalRevenue: 8700000,
-    status: 'active', since: '2024-06-01',
-    deals: [
-      { id:'D3', desc:'DEEPAL S7 x5 (ราชการ)', units:5, value:8700000, status:'approved' },
-    ]
-  },
-  {
-    id: 'P003', name: 'KASIKORN Leasing', type: 'leasing', contact: 'คุณ นภดล แสนสุข',
-    phone: '02-888-8888', email: 'napadol@kbank.co.th',
-    commission_rate: 0.5, totalDeals: 8, totalRevenue: 12400000,
-    status: 'active', since: '2023-11-20',
-    deals: [
-      { id:'D4', desc:'BYD Atto 3 x4 (Operational Lease)', units:4, value:5200000, status:'contracted' },
-    ]
-  },
-  {
-    id: 'P004', name: 'Grab / PTT EVME Fleet', type: 'fleet', contact: 'คุณ ณัฐวุฒิ สมบูรณ์',
-    phone: '081-999-8888', email: 'natthawut@grab.co.th',
-    commission_rate: 1.0, totalDeals: 5, totalRevenue: 9500000,
-    status: 'negotiating', since: '2025-03-01',
-    deals: [
-      { id:'D5', desc:'NETA V II x10 (Taxi/Ride-share)', units:10, value:9500000, status:'negotiating' },
-    ]
-  },
-]
-
 export default async function B2BPortalPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
 
-  let partners = DEMO_PARTNERS.map(p => ({ ...p, deals: [...p.deals] }))
+  let partners = []
   let activeTab = 'partners' // partners | deals | leaderboard
   let filterType = 'all'
 
-  if (container.__routerGen !== myGen) return
+  container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+
+  // Real-time: อัปเดตสดเมื่อมีคนเพิ่ม/แก้ไขพาร์ทเนอร์หรือดีลจากเครื่องอื่น — หน้านี้ไม่มีช่องค้นหาจึงไม่ต้องกันโฟกัส
+  const unsubPartners = watchDocs('b2b_corporate_partners', [], 'name', 'asc', 500, rows => {
+    if (container.__routerGen !== myGen) { unsubPartners(); return }
+    partners = rows
+    renderPage()
+  })
 
   function getTotals() {
     return partners.reduce((a, p) => ({
@@ -290,7 +257,7 @@ export default async function B2BPortalPage(container) {
       footer: `<button class="btn btn-secondary" id="dfc">ยกเลิก</button><button class="btn btn-primary" id="dfs">💾 บันทึก</button>`
     })
     el.querySelector('#dfc').addEventListener('click', close)
-    el.querySelector('#dfs').addEventListener('click', () => {
+    el.querySelector('#dfs').addEventListener('click', async () => {
       const desc = el.querySelector('#df-desc').value.trim()
       if (!desc) return
       const deal = {
@@ -299,10 +266,13 @@ export default async function B2BPortalPage(container) {
         value: +el.querySelector('#df-value').value || 0,
         status: el.querySelector('#df-status').value,
       }
-      p.deals.push(deal)
-      p.totalDeals++
-      p.totalRevenue += deal.value
-      showToast('✅ เพิ่ม Deal แล้ว', 'success'); close(); renderPage()
+      const btn = el.querySelector('#dfs'); btn.disabled = true
+      try {
+        await updateDocData('b2b_corporate_partners', p.id, {
+          deals: [...p.deals, deal], totalDeals: p.totalDeals + 1, totalRevenue: p.totalRevenue + deal.value,
+        })
+        showToast('✅ เพิ่ม Deal แล้ว', 'success'); close()
+      } catch (e) { btn.disabled = false; showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
@@ -328,25 +298,28 @@ export default async function B2BPortalPage(container) {
       footer: `<button class="btn btn-secondary" id="pfc">ยกเลิก</button><button class="btn btn-primary" id="pfs">💾 บันทึก</button>`
     })
     el.querySelector('#pfc').addEventListener('click', close)
-    el.querySelector('#pfs').addEventListener('click', () => {
+    el.querySelector('#pfs').addEventListener('click', async () => {
       const name = el.querySelector('#pf-name').value.trim()
       if (!name) return
-      partners.unshift({
-        id: 'P' + Date.now(), name,
-        type: el.querySelector('#pf-type').value,
-        contact: el.querySelector('#pf-contact').value,
-        phone: el.querySelector('#pf-phone').value,
-        email: el.querySelector('#pf-email').value,
-        commission_rate: +el.querySelector('#pf-comm').value,
-        totalDeals: 0, totalRevenue: 0, status: 'active',
-        since: new Date().toISOString().slice(0, 10),
-        deals: []
-      })
-      showToast('✅ เพิ่มพาร์ทเนอร์แล้ว', 'success'); close(); renderPage()
+      const btn = el.querySelector('#pfs'); btn.disabled = true
+      try {
+        await createDoc('b2b_corporate_partners', {
+          name,
+          type: el.querySelector('#pf-type').value,
+          contact: el.querySelector('#pf-contact').value,
+          phone: el.querySelector('#pf-phone').value,
+          email: el.querySelector('#pf-email').value,
+          commission_rate: +el.querySelector('#pf-comm').value,
+          totalDeals: 0, totalRevenue: 0, status: 'active',
+          since: new Date().toISOString().slice(0, 10),
+          deals: [],
+        })
+        showToast('✅ เพิ่มพาร์ทเนอร์แล้ว', 'success'); close()
+      } catch (e) { btn.disabled = false; showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
-  renderPage()
+  return function cleanupB2BPortal() { unsubPartners() }
 }
 
 function kpi(title, value, color, sub = '') {
