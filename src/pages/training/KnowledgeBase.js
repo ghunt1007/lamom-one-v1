@@ -58,7 +58,7 @@ export default async function KnowledgeBasePage(container) {
         <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
           ${kpi('📚 บทความ', articles.length, 'primary')}
           ${kpi('👁 อ่านรวม', totalViews.toLocaleString() + ' ครั้ง', 'success')}
-          ${kpi('🔥 ยอดนิยม', list[0]?.title.slice(0, 22) + '…' || '—', 'secondary')}
+          ${kpi('🔥 ยอดนิยม', list[0] ? escHtml(list[0].title.slice(0, 22)) + '…' : '—', 'secondary')}
         </div>
 
         <!-- Search + filter -->
@@ -75,12 +75,12 @@ export default async function KnowledgeBasePage(container) {
             const kc = KB_CATS[a.cat]
             return `<div class="card kb-card" data-id="${a.id}" style="padding:14px;cursor:pointer;border-left:3px solid var(--${kc?.color})">
               <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px">
-                <div style="font-weight:700;font-size:0.88rem">${a.title}</div>
+                <div style="font-weight:700;font-size:0.88rem">${escHtml(a.title)}</div>
                 <span class="badge badge-${kc?.color}" style="font-size:0.6rem;white-space:nowrap">${kc?.icon} ${kc?.label}</span>
               </div>
-              <div style="font-size:0.76rem;color:var(--text-muted);margin-bottom:8px;line-height:1.5">${a.excerpt}</div>
+              <div style="font-size:0.76rem;color:var(--text-muted);margin-bottom:8px;line-height:1.5">${escHtml(a.excerpt)}</div>
               <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.66rem;color:var(--text-muted)">
-                <span>✍️ ${a.author} · อัปเดต ${timeAgo(a.updated)}</span>
+                <span>✍️ ${escHtml(a.author)} · อัปเดต ${timeAgo(a.updated)}</span>
                 <span>👁 ${a.views} · 👍 ${a.helpful}</span>
               </div>
               <div style="display:flex;gap:6px;margin-top:8px">
@@ -102,13 +102,12 @@ export default async function KnowledgeBasePage(container) {
       a.views++
       try { await updateDocData('kb_articles', a.id, { views: a.views }) } catch (e) {}
       openModal({
-        title: a.title,
+        title: escHtml(a.title),
         size: 'md',
-        body: `<div style="font-size:0.85rem;line-height:1.7">
-          <p>${a.excerpt}</p>
-          <p style="color:var(--text-muted)">— (เนื้อหาเต็มของบทความ — Demo)</p>
+        body: `<div style="font-size:0.85rem;line-height:1.7;white-space:pre-line">
+          <p>${escHtml(a.content || a.excerpt)}</p>
           <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border);font-size:0.72rem;color:var(--text-muted)">
-            ✍️ ${a.author} · 👁 ${a.views} ครั้ง · 👍 ${a.helpful} คนบอกว่ามีประโยชน์
+            ✍️ ${escHtml(a.author)} · 👁 ${a.views} ครั้ง · 👍 ${a.helpful} คนบอกว่ามีประโยชน์
           </div>
         </div>`,
         confirmText: '👍 มีประโยชน์',
@@ -155,7 +154,7 @@ export default async function KnowledgeBasePage(container) {
           const content = document.getElementById('kb-content')?.value?.trim()
           if (!title || !content) { showToast('❗ กรอกหัวข้อและเนื้อหา', 'error'); return }
           try {
-            await createDoc('kb_articles', { title, cat:document.getElementById('kb-cat')?.value||'system', author:'คุณ (Demo)', views:0, helpful:0, updated:new Date().toISOString(), excerpt:content.slice(0,120)+(content.length>120?'…':'') })
+            await createDoc('kb_articles', { title, cat:document.getElementById('kb-cat')?.value||'system', author:'คุณ (Demo)', views:0, helpful:0, updated:new Date().toISOString(), content, excerpt:content.slice(0,120)+(content.length>120?'…':'') })
             showToast('📚 เผยแพร่บทความแล้ว', 'success')
             await loadData()
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
@@ -173,14 +172,14 @@ export default async function KnowledgeBasePage(container) {
         <div class="input-group"><label class="input-label">หมวด</label>
           <select class="input" id="kb-e-cat">${Object.entries(KB_CATS).map(([k,v])=>`<option value="${k}" ${a.cat===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}</select>
         </div>
-        <div class="input-group"><label class="input-label">เนื้อหา *</label><textarea class="input" id="kb-e-content" rows="5">${escHtml(a.excerpt)}</textarea></div>
+        <div class="input-group"><label class="input-label">เนื้อหา *</label><textarea class="input" id="kb-e-content" rows="5">${escHtml(a.content || a.excerpt)}</textarea></div>
       </div>`,
       async onConfirm() {
         const title = document.getElementById('kb-e-title')?.value?.trim()
         const content = document.getElementById('kb-e-content')?.value?.trim()
         if (!title || !content) { showToast('❗ กรอกหัวข้อและเนื้อหา', 'error'); return false }
         try {
-          await updateDocData('kb_articles', a.id, { title, cat: document.getElementById('kb-e-cat')?.value || a.cat, excerpt: content.slice(0,120)+(content.length>120?'…':'') })
+          await updateDocData('kb_articles', a.id, { title, cat: document.getElementById('kb-e-cat')?.value || a.cat, content, excerpt: content.slice(0,120)+(content.length>120?'…':'') })
           showToast('✅ บันทึกการแก้ไขแล้ว', 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

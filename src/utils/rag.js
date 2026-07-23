@@ -12,7 +12,7 @@ const PROXY_URL = import.meta.env.VITE_AI_PROXY_URL || 'https://lamom-ai-proxy.g
 // collection → ฟังก์ชันประกอบข้อความสำหรับทำ embedding (คืน '' หรือ falsy ถ้าไม่มีอะไรจะ index)
 const RAG_TEXT_BUILDERS = {
   sop_documents: d => [d.title, ...(Array.isArray(d.steps) ? d.steps : [])].filter(Boolean).join('\n'),
-  kb_articles: d => [d.title, d.excerpt].filter(Boolean).join('\n'),
+  kb_articles: d => [d.title, d.content || d.excerpt].filter(Boolean).join('\n'),
   product_knowledge: d => [
     `${d.brand || ''} ${d.model || ''}`.trim(),
     d.specs ? `แบตเตอรี่ ${d.specs.battery || '-'} ระยะทาง ${d.specs.range || '-'} กำลัง ${d.specs.power || '-'}` : '',

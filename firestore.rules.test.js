@@ -263,6 +263,26 @@ describe('pre-existing anti-escalation protections still hold after these change
   })
 })
 
+describe('sop_documents — write restricted to managers, matching legal_references', () => {
+  it('a plain staff member cannot create an SOP (the app only lets managers edit SOPs)', async () => {
+    await seedUser('sopStaff1', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('sopStaff1').firestore()
+    await assertFails(db.collection('sop_documents').add({ title: 'x', steps: ['a'] }))
+  })
+
+  it('a manager can create an SOP', async () => {
+    await seedUser('sopMgr1', { role: 'manager', active: true })
+    const db = testEnv.authenticatedContext('sopMgr1').firestore()
+    await assertSucceeds(db.collection('sop_documents').add({ title: 'x', steps: ['a'] }))
+  })
+
+  it('any staff member can still read SOPs (read stays open, only write is restricted)', async () => {
+    await seedUser('sopStaff2', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('sopStaff2').firestore()
+    await assertSucceeds(db.collection('sop_documents').get())
+  })
+})
+
 describe('rag_chunks (Phase 3 RAG) — same access as the internal knowledge it is derived from', () => {
   it('staff can read rag_chunks (needed to run retrieval client-side)', async () => {
     await seedUser('ragStaff1', { role: 'sales', active: true })

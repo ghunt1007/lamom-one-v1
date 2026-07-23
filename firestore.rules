@@ -337,7 +337,7 @@ service cloud.firestore {
       allow read, write: if isService() || isManager();
     }
 
-    match /sop/{docId} {
+    match /sop_documents/{docId} {
       allow read: if isStaff();
       allow write: if isManager();
     }
@@ -437,7 +437,7 @@ service cloud.firestore {
         'expenses', 'expense_approvals', 'cash_flow', 'bank_reconciliation',
         'staff', 'staff_loans', 'leave_requests', 'attendance', 'performance_reviews', 'team_targets',
         'employee_evaluations', 'disciplinary', 'recruitment',
-        'notifications', 'inspections', 'sop', 'legal_references',
+        'notifications', 'inspections', 'sop_documents', 'legal_references',
         'master_data', 'company_profile', 'whitelabel_settings', 'sms_otp_settings',
         'bank_partner_info', 'insurance_rate_cards', 'ai_officer_chats'
       ];
