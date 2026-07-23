@@ -43,9 +43,12 @@ async function loadCompany() {
   }
 }
 
+// คืนค่า true/false ให้ผู้เรียกรู้จริงว่าบันทึกสำเร็จหรือไม่ — เดิม catch เงียบแล้วโชว์ "บันทึกแล้ว" เสมอ
 async function saveCompany(d) {
-  if (!_docId) { try { _docId = await createDoc('company_profile', d) } catch (e) { return } ; return }
-  try { await updateDocData('company_profile', _docId, d) } catch (e) {}
+  try {
+    if (!_docId) { _docId = await createDoc('company_profile', d) } else { await updateDocData('company_profile', _docId, d) }
+    return true
+  } catch (e) { return false }
 }
 
 export default async function CompanyPage(container) {
@@ -148,8 +151,9 @@ export default async function CompanyPage(container) {
         facebook: document.getElementById('co-fb').value,
         brand: document.getElementById('co-brand').value,
       }
-      await saveCompany(data)
+      const ok = await saveCompany(data)
       if (container.__routerGen !== myGen) return
+      if (!ok) { showToast('บันทึกไม่สำเร็จ', 'error'); return }
       showToast('✅ บันทึกข้อมูลบริษัทแล้ว', 'success')
       renderPage()
     })
@@ -238,8 +242,9 @@ export default async function CompanyPage(container) {
         logoColor: document.getElementById('logo-color').value,
         footerNote: document.getElementById('doc-footer').value.trim(),
       }
-      await saveCompany(data)
+      const ok = await saveCompany(data)
       if (container.__routerGen !== myGen) return
+      if (!ok) { showToast('บันทึกไม่สำเร็จ', 'error'); return }
       showToast('✅ บันทึกการตั้งค่าเอกสารแล้ว', 'success')
     })
   }

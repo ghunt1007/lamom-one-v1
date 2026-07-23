@@ -52,8 +52,10 @@ async function loadSettings() {
 }
 
 async function saveSettings(s) {
-  if (!_docId) { try { _docId = await createDoc('sms_otp_settings', s) } catch (e) {} ; return }
-  try { await updateDocData('sms_otp_settings', _docId, s) } catch (e) {}
+  try {
+    if (!_docId) { _docId = await createDoc('sms_otp_settings', s) } else { await updateDocData('sms_otp_settings', _docId, s) }
+    return true
+  } catch (e) { return false }
 }
 
 export default async function SmsOtpPage(container) {
@@ -177,8 +179,9 @@ export default async function SmsOtpPage(container) {
       OTP_SETTINGS.requireOnPayment = document.getElementById('require-payment')?.checked ?? OTP_SETTINGS.requireOnPayment
       OTP_SETTINGS.requireOnExport  = document.getElementById('require-export')?.checked ?? OTP_SETTINGS.requireOnExport
       OTP_SETTINGS.template         = document.getElementById('otp-tmpl')?.value || OTP_SETTINGS.template
-      await saveSettings(OTP_SETTINGS)
+      const ok = await saveSettings(OTP_SETTINGS)
       if (container.__routerGen !== myGen) return
+      if (!ok) { showToast('บันทึกไม่สำเร็จ', 'error'); return }
       render()
       showToast('💾 บันทึกการตั้งค่า OTP แล้ว', 'success')
     })
@@ -201,8 +204,9 @@ export default async function SmsOtpPage(container) {
     document.getElementById('2fa-toggle')?.addEventListener('change', e => { OTP_SETTINGS.enabled2fa=e.target.checked; render() })
     container.querySelectorAll('.switch-btn').forEach(b => b.addEventListener('click', async () => {
       OTP_SETTINGS.activeProviderId = b.dataset.id
-      await saveSettings(OTP_SETTINGS)
+      const ok = await saveSettings(OTP_SETTINGS)
       if (container.__routerGen !== myGen) return
+      if (!ok) { showToast('บันทึกไม่สำเร็จ', 'error'); return }
       render(); showToast(`📡 เปลี่ยน Provider เป็น ${PROVIDERS.find(p=>p.id===b.dataset.id)?.name} แล้ว`, 'success')
     }))
   }

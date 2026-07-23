@@ -44,8 +44,10 @@ async function loadConfig() {
 }
 
 async function saveConfig(cfg) {
-  if (!_docId) { try { _docId = await createDoc('whitelabel_settings', cfg) } catch (e) {} ; return }
-  try { await updateDocData('whitelabel_settings', _docId, cfg) } catch (e) {}
+  try {
+    if (!_docId) { _docId = await createDoc('whitelabel_settings', cfg) } else { await updateDocData('whitelabel_settings', _docId, cfg) }
+    return true
+  } catch (e) { return false }
 }
 
 export default async function WhiteLabelPage(container) {
@@ -307,8 +309,9 @@ export default async function WhiteLabelPage(container) {
     const dr = document.getElementById('default-route')?.value
     if (dr) cfg.defaultRoute = dr
 
-    await saveConfig(cfg)
+    const ok = await saveConfig(cfg)
     if (container.__routerGen !== myGen) return
+    if (!ok) { showToast('บันทึกไม่สำเร็จ', 'error'); return }
 
     // Apply theme to document
     document.documentElement.style.setProperty('--primary', cfg.primaryColor)

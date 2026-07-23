@@ -23,28 +23,14 @@ const DOC_TYPES = {
   other:     { label: 'อื่นๆ', color: 'secondary', icon: '📄' },
 }
 
-const DEMO_DOCS = [
-  { id: 'D001', staff: 'วิชัย ยอดขาย', type: 'contract', name: 'สัญญาจ้าง 2024', uploaded: addDays(-300), expiry: addDays(65), verified: true },
-  { id: 'D002', staff: 'วิชัย ยอดขาย', type: 'license', name: 'ใบขับขี่ส่วนบุคคล', uploaded: addDays(-200), expiry: addDays(120), verified: true },
-  { id: 'D003', staff: 'สุดา มาดี', type: 'contract', name: 'สัญญาจ้าง 2024', uploaded: addDays(-280), expiry: addDays(85), verified: true },
-  { id: 'D004', staff: 'สุดา มาดี', type: 'idcard', name: 'สำเนาบัตรประชาชน', uploaded: addDays(-280), expiry: null, verified: true },
-  { id: 'D005', staff: 'วิทยา ช่างใหญ่', type: 'cert', name: 'ใบรับรอง EV Specialist', uploaded: addDays(-100), expiry: addDays(20), verified: true },
-  { id: 'D006', staff: 'ธนา เก่ง', type: 'medical', name: 'ใบรับรองแพทย์ประจำปี', uploaded: addDays(-360), expiry: addDays(-5), verified: true },
-  { id: 'D007', staff: 'ปิยะ ดีงาม', type: 'contract', name: 'สัญญาจ้าง (ใหม่)', uploaded: addDays(-2), expiry: addDays(363), verified: false },
-]
-
 export default async function StaffDocumentsPage(container) {
   const myGen = container.__routerGen
-  let docs = DEMO_DOCS.map(d => ({ ...d, _persisted: false }))
+  let docs = []
   let typeFilter = 'all'
   let search = ''
 
-  try {
-    const real = await listDocs('staff_documents', [], 'uploaded', 'desc', 200).catch(() => [])
-    if (container.__routerGen === myGen && real.length) {
-      docs = [...real.map(d => ({ ...d, _persisted: true })), ...docs]
-    }
-  } catch {}
+  try { docs = await listDocs('staff_documents', [], 'uploaded', 'desc', 200) } catch { docs = [] }
+  if (container.__routerGen !== myGen) return
 
   function expiryState(d) {
     if (!d.expiry) return 'none'
@@ -142,26 +128,33 @@ export default async function StaffDocumentsPage(container) {
     container.querySelectorAll('.verify-btn').forEach(b => b.addEventListener('click', async () => {
       const d = docs.find(x => x.id === b.dataset.id)
       if (!d) return
-      d.verified = true
-      if (d._persisted) { try { await updateDocData('staff_documents', d.id, { verified: true }) } catch {} }
-      showToast('✅ ตรวจสอบเอกสารแล้ว', 'success'); renderPage()
+      try {
+        await updateDocData('staff_documents', d.id, { verified: true })
+        d.verified = true
+        showToast('✅ ตรวจสอบเอกสารแล้ว', 'success'); renderPage()
+      } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.renew-btn').forEach(b => b.addEventListener('click', async () => {
       const d = docs.find(x => x.id === b.dataset.id)
       if (!d) return
-      d.expiry = addDays(365); d.uploaded = addDays(0)
-      if (d._persisted) { try { await updateDocData('staff_documents', d.id, { expiry: d.expiry, uploaded: d.uploaded }) } catch {} }
-      showToast('🔄 ต่ออายุเอกสารแล้ว (+1 ปี)', 'success'); renderPage()
+      const expiry = addDays(365), uploaded = addDays(0)
+      try {
+        await updateDocData('staff_documents', d.id, { expiry, uploaded })
+        d.expiry = expiry; d.uploaded = uploaded
+        showToast('🔄 ต่ออายุเอกสารแล้ว (+1 ปี)', 'success'); renderPage()
+      } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.del-btn').forEach(b => b.addEventListener('click', async () => {
       const d = docs.find(x => x.id === b.dataset.id)
       if (!d) return
       const ok = await confirmDialog({ title: 'ลบเอกสาร', message: `ลบ "${d.name}" ของ ${d.staff}?`, confirmText: 'ลบ', danger: true })
       if (!ok) return
-      if (d.fileKey) await deleteFile(d.fileKey).catch(() => {})
-      if (d._persisted) { try { await softDelete('staff_documents', d.id) } catch {} }
-      docs = docs.filter(x => x.id !== d.id)
-      showToast('🗑 ลบเอกสารแล้ว', 'success'); renderPage()
+      try {
+        await softDelete('staff_documents', d.id)
+        if (d.fileKey) await deleteFile(d.fileKey).catch(() => {})
+        docs = docs.filter(x => x.id !== d.id)
+        showToast('🗑 ลบเอกสารแล้ว', 'success'); renderPage()
+      } catch { showToast('ลบไม่สำเร็จ', 'error') }
     }))
     document.getElementById('upload-btn')?.addEventListener('click', openUploadForm)
   }
@@ -207,7 +200,7 @@ export default async function StaffDocumentsPage(container) {
       const data = { staff, type, name, uploaded: addDays(0), expiry, verified: false, fileUrl, fileKey }
       try {
         const id = await createDoc('staff_documents', data)
-        docs.unshift({ id, ...data, _persisted: true })
+        docs.unshift({ id, ...data })
         try {
           await createDoc('notifications', {
             type: 'hr',
@@ -217,10 +210,11 @@ export default async function StaffDocumentsPage(container) {
           })
           setState('unreadCount', (getState('unreadCount') || 0) + 1)
         } catch { /* แจ้งเตือนพลาดได้ ไม่กระทบเอกสารที่บันทึกไปแล้ว */ }
+        showToast('✅ อัปโหลดเอกสารแล้ว — รอตรวจสอบ', 'success'); close(); renderPage()
       } catch {
-        docs.unshift({ id: `D${String(docs.length + 1).padStart(3, '0')}`, ...data, _persisted: false })
+        btn.disabled = false; btn.textContent = '✅ อัปโหลด'
+        showToast('บันทึกไม่สำเร็จ', 'error')
       }
-      showToast('✅ อัปโหลดเอกสารแล้ว — รอตรวจสอบ', 'success'); close(); renderPage()
     })
   }
 
