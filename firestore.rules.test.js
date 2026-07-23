@@ -262,3 +262,23 @@ describe('pre-existing anti-escalation protections still hold after these change
     await assertFails(db.doc('users/staff3').update({ role: 'owner' }))
   })
 })
+
+describe('rag_chunks (Phase 3 RAG) — same access as the internal knowledge it is derived from', () => {
+  it('staff can read rag_chunks (needed to run retrieval client-side)', async () => {
+    await seedUser('ragStaff1', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('ragStaff1').firestore()
+    await assertSucceeds(db.collection('rag_chunks').get())
+  })
+
+  it('staff can write rag_chunks (the fire-and-forget indexing hook writes as the acting user)', async () => {
+    await seedUser('ragStaff2', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('ragStaff2').firestore()
+    await assertSucceeds(db.doc('rag_chunks/sop_documents_x').set({ sourceCollection: 'sop_documents', sourceId: 'x', text: 't', embedding: [0.1] }))
+  })
+
+  it('a pending (not-yet-approved) user cannot read rag_chunks', async () => {
+    await seedUser('ragPending1', { role: 'pending', active: false })
+    const db = testEnv.authenticatedContext('ragPending1').firestore()
+    await assertFails(db.collection('rag_chunks').get())
+  })
+})

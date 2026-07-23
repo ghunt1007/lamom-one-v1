@@ -347,6 +347,13 @@ service cloud.firestore {
       allow write: if isManager();
     }
 
+    // ── RAG (Phase 3) — embedding ของความรู้ภายใน (SOP/คู่มือ/Product Knowledge/กฎหมาย)
+    // เขียนอัตโนมัติจาก core/db.js ทุกครั้งที่แหล่งข้อมูลต้นทางถูกสร้าง/แก้ไข — สิทธิ์เท่ากับ
+    // การอ่าน/เขียนข้อมูลต้นทางเหล่านั้นเอง (ไม่มีข้อมูลลูกค้า/ธุรกิจส่วนตัวอยู่ใน Phase นี้)
+    match /rag_chunks/{docId} {
+      allow read, write: if isStaff();
+    }
+
     // ── Shared reference data & org-wide settings — admin manages ────────────
     match /master_data/{docId} {
       allow read: if isStaff();

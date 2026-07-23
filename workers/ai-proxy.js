@@ -53,6 +53,25 @@ export default {
         return new Response(data, { status: geminiRes.status, headers: { 'Content-Type': 'application/json', ...cors } })
       }
 
+      // RAG (Phase 3): แปลงข้อความเป็น vector สำหรับ index/ค้นหาความรู้ภายใน (SOP/คู่มือ/Product Knowledge)
+      if (url.pathname === '/embed') {
+        const body = await request.json()
+        const geminiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${env.GEMINI_API_KEY}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              content: { parts: [{ text: body.text || '' }] },
+              taskType: body.taskType || 'RETRIEVAL_DOCUMENT',
+              outputDimensionality: 768,
+            }),
+          }
+        )
+        const data = await geminiRes.text()
+        return new Response(data, { status: geminiRes.status, headers: { 'Content-Type': 'application/json', ...cors } })
+      }
+
       if (url.pathname === '/generate-stream') {
         const body = await request.json()
         const geminiRes = await fetch(

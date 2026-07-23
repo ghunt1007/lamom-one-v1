@@ -6,6 +6,7 @@ import {
   onSnapshot, serverTimestamp, Timestamp,
 } from 'firebase/firestore'
 import { getState } from './store.js'
+import { syncRagChunk, RAG_SOURCE_COLLECTIONS } from '../utils/rag.js'
 
 // ── Input sanitization — strip stored XSS before Firestore writes ──
 function deepSanitize(v) {
@@ -179,6 +180,7 @@ export async function createDoc(colName, data) {
   const ref = await addDoc(collection(db, colName), { ...clean, createdAt: serverTimestamp(), updatedAt: serverTimestamp() })
   logAction('create', colName, ref.id, `สร้างข้อมูลใหม่ใน ${colName}`)
   awardGamePoints('create', colName, ref.id, clean).catch(() => {})
+  syncRagChunk(colName, ref.id, clean).catch(() => {})
   return ref.id
 }
 
@@ -195,6 +197,14 @@ export async function updateDocData(colName, id, data) {
   await updateDoc(doc(db, colName, id), { ...clean, updatedAt: serverTimestamp() })
   logAction(action, colName, id, detail)
   awardGamePoints(action, colName, id, clean).catch(() => {})
+  if (isDelete) {
+    syncRagChunk(colName, id, { deleted: true }).catch(() => {})
+  } else if (RAG_SOURCE_COLLECTIONS.includes(colName)) {
+    // ต้องอ่านเอกสารฉบับเต็มมาประกอบ text ใหม่ — payload ของการแก้ไขอาจมีแค่บางฟิลด์ (partial update)
+    getDoc(doc(db, colName, id)).then(snap => {
+      if (snap.exists()) syncRagChunk(colName, id, { id: snap.id, ...snap.data() })
+    }).catch(() => {})
+  }
 }
 
 export async function softDelete(colName, id) {

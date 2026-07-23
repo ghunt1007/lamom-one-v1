@@ -5,6 +5,7 @@
 // Firebase ID token ของผู้ใช้ที่ล็อกอินจริงไปยืนยันตัวตนแทน — demo mode (ไม่มี Firebase
 // session จริง) จึงใช้คำตอบสำรอง (fallback) เหมือนเดิม ไม่เรียก proxy เลย
 import { auth } from '../core/firebase.js'
+import { retrieveRagContext } from './rag.js'
 
 const PROXY_URL = import.meta.env.VITE_AI_PROXY_URL || 'https://lamom-ai-proxy.ghunt1007.workers.dev'
 
@@ -81,8 +82,18 @@ export async function askAiOfficer(officerId, prompt, history = [], systemPrompt
   })
   contents.push({ role: 'user', parts: [{ text: prompt }] })
 
+  // RAG (Phase 3): แนบความรู้ภายในที่เกี่ยวข้องที่สุด (SOP/คู่มือ/Product Knowledge/กฎหมาย) เข้า
+  // system prompt ก่อนถาม Gemini — ค้นหาพลาดได้ (ไม่ throw) ไม่ให้กระทบการตอบคำถามหลัก
+  let systemWithContext = systemPrompt
+  try {
+    const chunks = await retrieveRagContext(prompt)
+    if (chunks.length) {
+      systemWithContext = `${systemPrompt}\n\n[ข้อมูลอ้างอิงภายในบริษัทที่เกี่ยวข้อง — ใช้ตอบถ้าตรงกับคำถาม ไม่ต้องใช้ถ้าไม่เกี่ยวข้อง]\n${chunks.map((c, i) => `${i + 1}. ${c}`).join('\n\n')}`
+    }
+  } catch { /* RAG ล้มเหลวได้ — ตอบแบบไม่มี context เพิ่มแทน */ }
+
   const data = await callProxy('/generate', {
-    systemInstruction: { parts: [{ text: systemPrompt }] },
+    systemInstruction: { parts: [{ text: systemWithContext }] },
     contents,
     generationConfig: { maxOutputTokens: 700, temperature: 0.7 },
   })

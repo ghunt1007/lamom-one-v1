@@ -131,6 +131,39 @@ describe('ai-proxy worker — /generate-stream', () => {
   })
 })
 
+describe('ai-proxy worker — /embed (RAG)', () => {
+  it('forwards text to the embedContent endpoint and relays the vector back', async () => {
+    stubFetch({ firebaseOk: true, geminiStatus: 200, geminiBody: '{"embedding":{"values":[0.1,0.2,0.3]}}' })
+    const req = new Request('https://worker.example/embed', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer valid', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: 'สวัสดี', taskType: 'RETRIEVAL_DOCUMENT' }),
+    })
+    const res = await worker.fetch(req, ENV)
+    expect(res.status).toBe(200)
+    const data = await res.json()
+    expect(data.embedding.values).toEqual([0.1, 0.2, 0.3])
+    const calledUrl = String(global.fetch.mock.calls.find(c => String(c[0]).includes('generativelanguage'))[0])
+    expect(calledUrl).toContain('gemini-embedding-001:embedContent')
+  })
+
+  it('rejects /embed with no Authorization header, same as /generate', async () => {
+    const req = new Request('https://worker.example/embed', { method: 'POST', body: '{}' })
+    const res = await worker.fetch(req, ENV)
+    expect(res.status).toBe(401)
+  })
+
+  it('never leaks GEMINI_API_KEY through an /embed error response', async () => {
+    stubFetch({ firebaseOk: true, geminiStatus: 500, geminiBody: '{"error":"upstream failure"}' })
+    const req = new Request('https://worker.example/embed', {
+      method: 'POST', headers: { Authorization: 'Bearer valid' }, body: '{"text":"x"}',
+    })
+    const res = await worker.fetch(req, ENV)
+    const text = await res.text()
+    expect(text).not.toContain(ENV.GEMINI_API_KEY)
+  })
+})
+
 describe('ai-proxy worker — unknown routes', () => {
   it('returns 404 for a POST to an unrecognized path, even with valid auth', async () => {
     stubFetch({ firebaseOk: true })
