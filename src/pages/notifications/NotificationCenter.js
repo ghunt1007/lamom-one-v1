@@ -1,4 +1,4 @@
-import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
+import { watchDocs, updateDocData, seedDemoData } from '../../core/db.js'
 import { showToast, setState } from '../../core/store.js'
 import { timeAgo } from '../../utils/format.js'
 import { navigate } from '../../core/router.js'
@@ -42,20 +42,24 @@ export default async function NotificationCenterPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
 
-  // Try load from db, fallback to demo
   let notifs = []
-  try {
-    notifs = await listDocs('notifications', [], 'createdAt', 'desc', 100)
-    if (!notifs.length) notifs = [...DEMO_NOTIFS]
-  } catch {
-    notifs = [...DEMO_NOTIFS]
-  }
-
-  if (container.__routerGen !== myGen) return
-  setState('unreadCount', notifs.filter(n => !n.read).length)
-
   let filterType = 'all'
   let showUnread = false
+  // การกด "✕ ปิด" เป็นการซ่อนแค่ฝั่งเรา ไม่ได้เขียนลง Firestore — ต้องจำไว้กันไม่ให้ live snapshot ดึงกลับมาอีก
+  const dismissedIds = new Set()
+
+  container.innerHTML = `<div class="page-content animate-slide">${[...Array(3)].map(() => `<div class="skeleton" style="height:64px;border-radius:var(--radius-md);margin-bottom:8px"></div>`).join('')}</div>`
+
+  // Real-time: แจ้งเตือนใหม่ขึ้นทันทีโดยไม่ต้องรีเฟรชหน้า
+  let firstSnapshot = true
+  const unsubNotifs = watchDocs('notifications', [], 'createdAt', 'desc', 100, rows => {
+    if (container.__routerGen !== myGen) { unsubNotifs(); return }
+    notifs = rows.filter(n => !dismissedIds.has(n.id))
+    if (!notifs.length && firstSnapshot) notifs = [...DEMO_NOTIFS]
+    firstSnapshot = false
+    setState('unreadCount', notifs.filter(n => !n.read).length)
+    renderPage()
+  })
 
   function getFiltered() {
     let list = showUnread ? notifs.filter(n => !n.read) : notifs
@@ -137,6 +141,7 @@ export default async function NotificationCenterPage(container) {
       btn.addEventListener('click', e => {
         e.stopPropagation()
         const id = btn.dataset.id
+        dismissedIds.add(id)
         notifs = notifs.filter(n => n.id !== id)
         renderPage()
       })
@@ -177,5 +182,5 @@ export default async function NotificationCenterPage(container) {
     `
   }
 
-  renderPage()
+  return function cleanupNotifications() { unsubNotifs() }
 }

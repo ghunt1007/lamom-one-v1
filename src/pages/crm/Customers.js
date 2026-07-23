@@ -1,7 +1,7 @@
 // Unified Customer Workspace — merges the old Customers.js + Leads.js into one page/collection.
 // Route: /crm/customers (also aliased from /crm/leads — see router.js)
 // Collection: `customers` — single source of truth, stage-based pipeline (lead → pp → booking → delivered)
-import { listDocs, createDoc, updateDocData, softDelete, readDoc, seedDemoData } from '../../core/db.js'
+import { listDocs, watchDocs, createDoc, updateDocData, softDelete, readDoc, seedDemoData } from '../../core/db.js'
 import { showToast, getState } from '../../core/store.js'
 import { formatDate, timeAgo, formatPhone, formatCurrency, initials, fullName } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
@@ -62,6 +62,13 @@ export default async function CustomersPage(container) {
     try { customers = await listDocs('customers', [], 'createdAt', 'desc', 400) } catch { customers = [] }
     applyFilter()
   }
+
+  // Real-time: อัปเดตสดเมื่อมีคนอื่นเพิ่ม/แก้ไขลูกค้าจากเครื่องอื่น — แค่รีเฟรชสถิติ+ตาราง ไม่แตะช่องค้นหา
+  const unsubCustomers = watchDocs('customers', [], 'createdAt', 'desc', 400, rows => {
+    if (container.__routerGen !== myGen) { unsubCustomers(); return }
+    customers = rows
+    applyFilter()
+  })
 
   function quickUrgency(c) {
     try { return getFollowUpRecommendation(c, []).urgency } catch { return 'low' }
@@ -793,8 +800,10 @@ export default async function CustomersPage(container) {
     applyFilter()
   })
 
-  if (container.__routerGen !== myGen) return
+  if (container.__routerGen !== myGen) { unsubCustomers(); return }
   await loadData()
+
+  return function cleanupCustomers() { unsubCustomers() }
 }
 
 function avatarColor(c) {

@@ -1,4 +1,4 @@
-import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { watchDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { showToast } from '../../core/store.js'
 import { formatDate, formatCurrency, timeAgo } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
@@ -47,11 +47,15 @@ export default async function JobCardsPage(container) {
   let statusFilter = 'all'
   let search = ''
 
-  async function loadData() {
-    try { jobs = await listDocs('job_cards', [], 'createdAt', 'desc', 500) } catch {}
-    if (!jobs.length) DEMO_JOBS.forEach(j => jobs.push({ ...j }))
+  // Real-time: อัปเดตสดเมื่อมีคนเปิด/แก้ไข/ปิด Job Card จากเครื่องอื่น (ไม่แตะช่องค้นหา จึงไม่รบกวนตอนกำลังพิมพ์)
+  let firstSnapshot = true
+  const unsubJobs = watchDocs('job_cards', [], 'createdAt', 'desc', 500, rows => {
+    if (container.__routerGen !== myGen) { unsubJobs(); return }
+    jobs = rows
+    if (!jobs.length && firstSnapshot) DEMO_JOBS.forEach(j => jobs.push({ ...j }))
+    firstSnapshot = false
     updateStats(); applyFilter()
-  }
+  })
 
   function updateStats() {
     Object.keys(JOB_STATUS).forEach(k => {
@@ -338,7 +342,7 @@ export default async function JobCardsPage(container) {
     applyFilter()
   }))
 
-  if (container.__routerGen === myGen) await loadData()
+  return function cleanupJobCards() { unsubJobs() }
 }
 
 function dRow(icon, label, value) {

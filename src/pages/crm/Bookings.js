@@ -1,4 +1,4 @@
-import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { listDocs, watchDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { showToast, getState, setState } from '../../core/store.js'
 import { formatDate, formatCurrency } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
@@ -136,6 +136,20 @@ export default async function BookingsPage(container) {
     if (!bookings.length) bookings = DEMO_BOOKINGS.map(b => ({ ...b }))
     if (container.__routerGen === myGen) render()
   }
+
+  // Real-time: อัปเดตสดเมื่อมีคนอื่นจอง/แก้ไข/ถอนจองจากเครื่องอื่น — แต่ไม่ขัดจังหวะถ้าผู้ใช้กำลังพิมพ์/เลือกอยู่ในฟอร์ม
+  function safeRender() {
+    const active = document.activeElement
+    if (active && container.contains(active) && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName)) return
+    render()
+  }
+  let firstSnapshot = true
+  const unsubBookings = watchDocs('bookings', [], 'createdAt', 'desc', 500, rows => {
+    if (container.__routerGen !== myGen) { unsubBookings(); return }
+    bookings = rows.length ? rows : (firstSnapshot ? DEMO_BOOKINGS.map(b => ({ ...b })) : bookings)
+    if (firstSnapshot) { firstSnapshot = false; render() }
+    else safeRender()
+  })
 
   function matchesFilters(b, { ignoreStatus = false } = {}) {
     if (dateFrom && (b.bookingDate || '') < dateFrom) return false
@@ -954,7 +968,8 @@ export default async function BookingsPage(container) {
   }
 
   container.innerHTML = '<div class="page-content animate-slide">' + [...Array(3)].map(() => '<div class="skeleton" style="height:44px;border-radius:6px;margin-bottom:8px"></div>').join('') + '</div>'
-  if (container.__routerGen === myGen) await loadData()
+
+  return function cleanupBookings() { unsubBookings() }
 }
 
 function dRow(label, value) {
