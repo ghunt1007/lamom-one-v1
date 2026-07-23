@@ -1,6 +1,6 @@
 {
   "name": "lamom-one-v1",
-  "version": "1.0.219",
+  "version": "1.0.220",
   "private": true,
   "type": "module",
   "scripts": {
@@ -22,5 +22,10 @@
     "@capacitor/core": "^8.4.1",
     "exceljs": "^4.4.0",
     "firebase": "^12.14.0"
+  },
+  "overrides": {
+    "exceljs": {
+      "uuid": "^11.1.1"
+    }
   }
 }
