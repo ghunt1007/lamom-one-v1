@@ -1,6 +1,6 @@
 {
   "name": "lamom-one-v1",
-  "version": "1.0.225",
+  "version": "1.0.226",
   "private": true,
   "type": "module",
   "scripts": {
@@ -14,6 +14,7 @@
     "cap:build:release": "npm run cap:sync && cd android && gradlew.bat assembleRelease"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
     "@firebase/rules-unit-testing": "^5.0.1",
     "firebase-tools": "^15.24.0",
     "vite": "^8.0.12",

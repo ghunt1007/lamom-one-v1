@@ -1,4 +1,4 @@
-import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { watchDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { showToast, getState, setState } from '../../core/store.js'
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
@@ -43,10 +43,12 @@ export default async function TasksPage(container) {
   const currentUser = getState('user')
   const myName = currentUser?.displayName || currentUser?.email || currentUser?.uid || ''
 
-  async function loadData() {
-    try { tasks = await listDocs('tasks', [], 'dueDate', 'asc', 500) } catch {}
+  // Real-time: อัปเดตสดเมื่อมีคนสร้าง/แก้ไข/ปิดงานจากเครื่องอื่น — หน้านี้ไม่มีช่องค้นหาจึงอัปเดตได้ทันทีไม่ต้องกันโฟกัส
+  const unsubTasks = watchDocs('tasks', [], 'dueDate', 'asc', 500, rows => {
+    if (container.__routerGen !== myGen) { unsubTasks(); return }
+    tasks = rows
     renderBoard()
-  }
+  })
 
   function getFiltered() {
     let t = tasks.filter(t => {
@@ -349,7 +351,7 @@ export default async function TasksPage(container) {
     renderBoard()
   }))
 
-  if (container.__routerGen === myGen) await loadData()
+  return function cleanupTasks() { unsubTasks() }
 }
 
 function dRow(icon, label, value) {
