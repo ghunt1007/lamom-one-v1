@@ -1,15 +1,17 @@
 {
   "name": "lamom-one-v1",
-  "version": "1.0.214",
+  "version": "1.0.215",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build && node scripts/stamp-sw.js",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run"
   },
   "devDependencies": {
-    "vite": "^8.0.12"
+    "vite": "^8.0.12",
+    "vitest": "^4.1.10"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.1",
