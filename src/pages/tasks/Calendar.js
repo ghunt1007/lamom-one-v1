@@ -1,6 +1,6 @@
 // Calendar — ปฏิทินรวมงาน/นัดหมาย (Tasks + Bookings delivery + manual Events)
 // Route: /calendar
-import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { watchDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { showToast, getState } from '../../core/store.js'
 import { formatDate } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
@@ -43,12 +43,24 @@ export default async function CalendarPage(container) {
   let bookings = []
   let events = []
 
-  async function loadData() {
-    try { tasks = await listDocs('tasks', [], 'dueDate', 'asc', 500) } catch { tasks = [] }
-    try { bookings = await listDocs('bookings', [], 'deliveryDate', 'asc', 500) } catch { bookings = [] }
-    try { events = await listDocs('calendar_events', [], 'date', 'asc', 500) } catch { events = [] }
-    if (container.__routerGen === myGen) renderCalendar()
-  }
+  container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+
+  // Real-time: 3 แหล่งข้อมูลรวมกันเป็นปฏิทินเดียว — อัปเดตสดเมื่อมีคนแก้ Task/ใบจอง/Event จากเครื่องอื่น
+  // หน้านี้ไม่มีช่องค้นหาจึงอัปเดตได้ทันทีไม่ต้องกันโฟกัส
+  const unsubs = [
+    watchDocs('tasks', [], 'dueDate', 'asc', 500, rows => {
+      if (container.__routerGen !== myGen) { unsubs.forEach(u => u()); return }
+      tasks = rows; renderCalendar()
+    }),
+    watchDocs('bookings', [], 'deliveryDate', 'asc', 500, rows => {
+      if (container.__routerGen !== myGen) { unsubs.forEach(u => u()); return }
+      bookings = rows; renderCalendar()
+    }),
+    watchDocs('calendar_events', [], 'date', 'asc', 500, rows => {
+      if (container.__routerGen !== myGen) { unsubs.forEach(u => u()); return }
+      events = rows; renderCalendar()
+    }),
+  ]
 
   // รวมทุกแหล่งข้อมูลเป็น item เดียวกัน key ด้วยวันที่ (YYYY-MM-DD)
   function itemsByDate() {
@@ -323,5 +335,5 @@ export default async function CalendarPage(container) {
     renderCalendar()
   })
 
-  await loadData()
+  return function cleanupCalendar() { unsubs.forEach(u => u()) }
 }
