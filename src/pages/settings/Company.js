@@ -1,6 +1,7 @@
 import { showToast } from '../../core/store.js'
 import { navigate } from '../../core/router.js'
 import { listDocs, createDoc, updateDocData } from '../../core/db.js'
+import { validateTaxId } from '../../utils/thaiId.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -9,7 +10,7 @@ function escHtml(s) {
 const COMPANY_DEFAULTS = {
   name: 'LAMOM ออโต้ จำกัด',
   nameTh: 'บริษัท ลาม่อม ออโต้ จำกัด',
-  taxId: '0-1055-12345-67-8',
+  taxId: '0-1055-12345-67-1',
   phone: '02-123-4567',
   email: 'info@lamom.co.th',
   address: '123 ถนนพระราม 9 แขวงห้วยขวาง เขตห้วยขวาง กรุงเทพฯ 10310',
@@ -138,11 +139,15 @@ export default async function CompanyPage(container) {
       </div>
     `
     document.getElementById('save-info-btn').addEventListener('click', async () => {
+      const taxId = document.getElementById('co-tax').value
+      const taxCheck = validateTaxId(taxId)
+      if (!taxCheck.valid) { showToast(taxCheck.error, 'error'); return }
+
       data = {
         ...data,
         name: document.getElementById('co-name').value,
         nameTh: document.getElementById('co-nameth').value,
-        taxId: document.getElementById('co-tax').value,
+        taxId,
         phone: document.getElementById('co-phone').value,
         email: document.getElementById('co-email').value,
         address: document.getElementById('co-addr').value,
