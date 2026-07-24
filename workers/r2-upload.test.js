@@ -156,6 +156,23 @@ describe('r2-upload worker — GET /file (public read, no auth required)', () =>
   })
 })
 
+describe('r2-upload worker — POST /csp-report', () => {
+  it('accepts a report with no Authorization header (browsers cannot attach custom headers to CSP reports)', async () => {
+    const req = new Request('https://worker.example/csp-report', {
+      method: 'POST', headers: { 'Content-Type': 'application/csp-report' },
+      body: JSON.stringify({ 'csp-report': { 'blocked-uri': 'https://evil.example/x.js' } }),
+    })
+    const res = await worker.fetch(req, ENV)
+    expect(res.status).toBe(204)
+  })
+
+  it('does not throw on a malformed/empty body', async () => {
+    const req = new Request('https://worker.example/csp-report', { method: 'POST', body: 'not json' })
+    const res = await worker.fetch(req, ENV)
+    expect(res.status).toBe(204)
+  })
+})
+
 describe('r2-upload worker — unknown routes', () => {
   it('returns 404 for an unrecognized path', async () => {
     const req = new Request('https://worker.example/nope', { method: 'GET' })

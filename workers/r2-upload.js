@@ -89,6 +89,18 @@ export default {
       return json({ ok: true }, 200, cors)
     }
 
+    // POST /csp-report — เบราว์เซอร์ส่งมาอัตโนมัติเมื่อ Content-Security-Policy-Report-Only ถูกละเมิด
+    // ไม่ต้องมี auth เพราะเบราว์เซอร์แนบ header เองไม่ได้ตาม CSP spec — แค่ log ไว้ดูผ่าน `wrangler tail`
+    // ก่อนตัดสินใจเปลี่ยนจาก Report-Only เป็นบังคับใช้จริง (เดิม Report-Only ไม่มี report-uri เลย
+    // แปลว่าไม่มีใคร "สังเกตการณ์" อะไรจริงๆตลอดที่ผ่านมา ทั้งที่ตั้งใจจะรอดูก่อน)
+    if (request.method === 'POST' && url.pathname === '/csp-report') {
+      try {
+        const body = await request.json()
+        console.log('[csp-report]', JSON.stringify(body))
+      } catch { /* body แปลก/ว่างเปล่าได้ ไม่ต้องทำอะไรต่อ */ }
+      return new Response(null, { status: 204, headers: cors })
+    }
+
     // GET /file?key=xxx — ดาวน์โหลดไฟล์
     if (request.method === 'GET' && url.pathname === '/file') {
       const key = url.searchParams.get('key')
