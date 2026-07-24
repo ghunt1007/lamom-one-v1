@@ -1,88 +1,85 @@
 /**
  * Training Progress — ติดตามความก้าวหน้าการฝึกอบรม
  * Route: /training/progress
+ * ข้อมูลจริงมาจาก collection เดียวกับ /training/courses (TrainingCourse.js) — หน้านี้แค่พลิกมุมมอง
+ * จาก "รายวิชา → ใครเรียน" เป็น "รายคน → เรียนอะไรไปแล้วบ้าง"
  */
-import { formatDate, formatCurrency } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { formatDate } from '../../utils/format.js'
+import { watchDocs } from '../../core/db.js'
 
-const PROGRESS_STATUS = {
-  not_started:{ label: 'ยังไม่เริ่ม', color: 'secondary' },
-  in_progress:{ label: 'กำลังเรียน', color: 'primary' },
-  completed:  { label: 'สำเร็จ', color: 'success' },
-  failed:     { label: 'ไม่ผ่าน', color: 'danger' },
-  overdue:    { label: 'เลยกำหนด', color: 'danger' },
+function escHtml(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') }
+
+const ENROLL_STATUS = {
+  enrolled:    { label: 'ลงทะเบียน', color: 'secondary' },
+  in_progress: { label: 'กำลังเรียน', color: 'primary' },
+  completed:   { label: 'ผ่านแล้ว', color: 'success' },
+  failed:      { label: 'ไม่ผ่าน', color: 'danger' },
 }
 
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
-
-const DEMO_PROGRESS = [
-  {
-    staffId: 'STF001', staffName: 'วิชัย ยอดขาย', avatar: '👨', dept: 'ฝ่ายขาย',
-    courses: [
-      { id: 'C001', name: 'BYD Product Knowledge 2025', status: 'completed', score: 92, dueDate: addDays(-30), completedDate: addDays(-45) },
-      { id: 'C002', name: 'EV Sales Techniques', status: 'completed', score: 88, dueDate: addDays(-60), completedDate: addDays(-70) },
-      { id: 'C003', name: 'PDPA for Sales Team', status: 'in_progress', score: null, dueDate: addDays(14), completedDate: null, progress: 65 },
-    ]
-  },
-  {
-    staffId: 'STF002', staffName: 'สุดา มาดี', avatar: '👩', dept: 'ฝ่ายขาย',
-    courses: [
-      { id: 'C001', name: 'BYD Product Knowledge 2025', status: 'completed', score: 85, dueDate: addDays(-30), completedDate: addDays(-35) },
-      { id: 'C003', name: 'PDPA for Sales Team', status: 'not_started', score: null, dueDate: addDays(14), completedDate: null, progress: 0 },
-      { id: 'C004', name: 'Customer Service Excellence', status: 'overdue', score: null, dueDate: addDays(-7), completedDate: null, progress: 20 },
-    ]
-  },
-  {
-    staffId: 'STF003', staffName: 'วิทยา ช่างดี', avatar: '🧑', dept: 'ศูนย์บริการ',
-    courses: [
-      { id: 'C005', name: 'BYD EV Certified Technician', status: 'completed', score: 95, dueDate: addDays(-90), completedDate: addDays(-100) },
-      { id: 'C006', name: 'EV Battery Safety', status: 'completed', score: 91, dueDate: addDays(-60), completedDate: addDays(-65) },
-      { id: 'C007', name: 'Advanced EV Diagnostic', status: 'in_progress', score: null, dueDate: addDays(30), completedDate: null, progress: 45 },
-    ]
-  },
-]
-
 export default async function TrainingProgressPage(container) {
-  let staffProgress = DEMO_PROGRESS
+  const myGen = container.__routerGen
+  let courses = []
+
+  container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+
+  // Real-time: หน้านี้ไม่มีช่องค้นหา อัปเดตสดได้ทันทีไม่ต้องกันโฟกัส
+  const unsubCourses = watchDocs('training_courses', [], 'startDate', 'asc', 200, rows => {
+    if (container.__routerGen !== myGen) { unsubCourses(); return }
+    courses = rows
+    renderPage()
+  })
+
+  // พลิกมุมมองจาก "หลักสูตร → ผู้เรียน" เป็น "พนักงาน → หลักสูตรที่เรียน"
+  function pivotByStaff() {
+    const byStaff = {}
+    courses.forEach(c => {
+      (c.enrolled || []).forEach(e => {
+        const key = `${e.name}|${e.dept || ''}`
+        if (!byStaff[key]) byStaff[key] = { staffName: e.name, dept: e.dept || '-', courses: [] }
+        byStaff[key].courses.push({
+          name: c.title, status: e.status, score: e.score,
+          passScore: c.passScore, startDate: c.startDate,
+        })
+      })
+    })
+    return Object.values(byStaff)
+  }
 
   function renderPage() {
-    const allCourses = staffProgress.flatMap(s => s.courses)
-    const completed = allCourses.filter(c => c.status === 'completed').length
-    const overdue = allCourses.filter(c => c.status === 'overdue').length
-    const avgScore = Math.round(allCourses.filter(c => c.score !== null).reduce((a, c) => a + c.score, 0) / allCourses.filter(c => c.score !== null).length)
+    const staffProgress = pivotByStaff()
+    const allEnrollments = staffProgress.flatMap(s => s.courses)
+    const completed = allEnrollments.filter(c => c.status === 'completed').length
+    const failed = allEnrollments.filter(c => c.status === 'failed').length
+    const scored = allEnrollments.filter(c => c.score != null)
+    const avgScore = scored.length ? Math.round(scored.reduce((a, c) => a + c.score, 0) / scored.length) : null
 
     container.innerHTML = `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
             <div class="page-title">📚 Training Progress</div>
-            <div class="page-subtitle">ติดตามความก้าวหน้าการอบรมรายบุคคล</div>
+            <div class="page-subtitle">ติดตามความก้าวหน้าการอบรมรายบุคคล — ข้อมูลจากการลงทะเบียนจริง</div>
           </div>
         </div>
 
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
-          ${kpi('📋 Course ทั้งหมด', allCourses.length, 'primary')}
+          ${kpi('📋 การลงทะเบียนทั้งหมด', allEnrollments.length, 'primary')}
           ${kpi('✅ สำเร็จแล้ว', completed, 'success')}
-          ${kpi('⚠️ เลยกำหนด', overdue, overdue > 0 ? 'danger' : 'secondary')}
-          ${kpi('📊 คะแนนเฉลี่ย', avgScore + '%', avgScore >= 80 ? 'success' : 'warning')}
+          ${kpi('❌ ไม่ผ่าน', failed, failed > 0 ? 'danger' : 'secondary')}
+          ${kpi('📊 คะแนนเฉลี่ย', avgScore != null ? avgScore + '%' : 'N/A', avgScore != null && avgScore >= 80 ? 'success' : 'warning')}
         </div>
+
+        ${!staffProgress.length ? `<div class="empty-state" style="padding:48px"><div class="empty-icon">📚</div><div class="empty-title">ยังไม่มีการลงทะเบียนอบรม</div><div class="empty-desc">ลงทะเบียนพนักงานเข้าหลักสูตรได้ที่หน้า "หลักสูตรอบรม"</div></div>` : ''}
 
         <div style="display:flex;flex-direction:column;gap:14px">
           ${staffProgress.map(s => {
             const completedCount = s.courses.filter(c => c.status === 'completed').length
             const compPct = Math.round(completedCount / s.courses.length * 100)
-            const avgSc = s.courses.filter(c => c.score !== null).length
-              ? Math.round(s.courses.filter(c => c.score !== null).reduce((a, c) => a + c.score, 0) / s.courses.filter(c => c.score !== null).length)
-              : null
             return `<div class="card" style="padding:14px">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-                <div style="display:flex;gap:12px;align-items:center">
-                  <div style="font-size:1.8rem">${s.avatar}</div>
-                  <div>
-                    <div style="font-weight:700">${s.staffName}</div>
-                    <div style="font-size:0.75rem;color:var(--text-muted)">${s.dept}</div>
-                  </div>
+                <div>
+                  <div style="font-weight:700">${escHtml(s.staffName)}</div>
+                  <div style="font-size:0.75rem;color:var(--text-muted)">${escHtml(s.dept)}</div>
                 </div>
                 <div style="text-align:right">
                   <div style="font-weight:800;font-size:1.1rem;color:${compPct===100?'var(--success)':compPct>=50?'var(--primary)':'var(--warning)'}">${compPct}%</div>
@@ -94,19 +91,15 @@ export default async function TrainingProgressPage(container) {
               </div>
               <div style="display:flex;flex-direction:column;gap:6px">
                 ${s.courses.map(c => {
-                  const cs = PROGRESS_STATUS[c.status]
+                  const cs = ENROLL_STATUS[c.status] || ENROLL_STATUS.enrolled
                   return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:0.82rem">
                     <div style="flex:1">
-                      <div style="font-weight:500">${c.name}</div>
-                      <div style="font-size:0.7rem;color:var(--text-muted)">
-                        กำหนด ${formatDate(c.dueDate)}
-                        ${c.completedDate ? ' · สำเร็จ ' + formatDate(c.completedDate) : ''}
-                        ${c.progress !== undefined && c.status === 'in_progress' ? ` · ${c.progress}%` : ''}
-                      </div>
+                      <div style="font-weight:500">${escHtml(c.name)}</div>
+                      <div style="font-size:0.7rem;color:var(--text-muted)">วันที่จัด ${formatDate(c.startDate)}</div>
                     </div>
                     <div style="display:flex;gap:6px;align-items:center">
-                      ${c.score !== null ? `<span style="font-weight:700;color:${c.score>=80?'var(--success)':'var(--warning)'}">${c.score}%</span>` : ''}
-                      <span class="badge badge-${cs?.color}" style="font-size:0.62rem">${cs?.label}</span>
+                      ${c.score != null ? `<span style="font-weight:700;color:${c.score >= (c.passScore || 80) ? 'var(--success)' : 'var(--danger)'}">${c.score}%</span>` : ''}
+                      <span class="badge badge-${cs.color}" style="font-size:0.62rem">${cs.label}</span>
                     </div>
                   </div>`
                 }).join('')}
@@ -118,7 +111,7 @@ export default async function TrainingProgressPage(container) {
     `
   }
 
-  renderPage()
+  return function cleanupTrainingProgress() { unsubCourses() }
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

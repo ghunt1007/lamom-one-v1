@@ -6,26 +6,27 @@ import { formatCurrency, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { navigate } from '../../core/router.js'
+import { watchDocs } from '../../core/db.js'
+import { analyzeCustomer, isAiEnabled } from '../../utils/ai.js'
 
-function addHours(n) { const d = new Date(); d.setHours(d.getHours() - n); return d.toISOString() }
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
 
-const SCORE_FACTORS = [
-  { factor: 'เคย Test Drive', weight: 25 },
-  { factor: 'ขอใบเสนอราคา', weight: 20 },
-  { factor: 'มาโชว์รูม 2+ ครั้ง', weight: 15 },
-  { factor: 'ตอบแชทเร็ว (<1 ชม.)', weight: 10 },
-  { factor: 'สอบถามไฟแนนซ์', weight: 15 },
-  { factor: 'มีรถเทิร์น', weight: 10 },
-  { factor: 'เปิดอ่านอีเมล/LINE', weight: 5 },
-]
+const STATUS_BASE = { vip: 90, hot: 85, warm: 60, cold: 35, lost: 5 }
 
-const DEMO_LEADS = [
-  { id: 'L001', name: 'ประพันธ์ มั่งมี', phone: '081-111', model: 'BYD Seal AWD', score: 92, signals: ['เคย Test Drive','ขอใบเสนอราคา','สอบถามไฟแนนซ์','มาโชว์รูม 2+ ครั้ง'], lastActive: addHours(2), staff: 'วิชัย ยอดขาย', value: 1699000 },
-  { id: 'L002', name: 'สุภาพร ดีพร้อม', phone: '082-222', model: 'BYD Atto 3', score: 78, signals: ['ขอใบเสนอราคา','มีรถเทิร์น','ตอบแชทเร็ว (<1 ชม.)'], lastActive: addHours(5), staff: 'สุดา มาดี', value: 1099000 },
-  { id: 'L003', name: 'อนุชา รักรถ', phone: '083-333', model: 'BYD Dolphin', score: 65, signals: ['เคย Test Drive','เปิดอ่านอีเมล/LINE'], lastActive: addHours(24), staff: 'ธนา เก่ง', value: 899000 },
-  { id: 'L004', name: 'กมลา ใจเย็น', phone: '084-444', model: 'MG4 Electric', score: 45, signals: ['เปิดอ่านอีเมล/LINE','ตอบแชทเร็ว (<1 ชม.)'], lastActive: addHours(48), staff: 'วิชัย ยอดขาย', value: 949000 },
-  { id: 'L005', name: 'ศักดิ์ชัย รอดู', phone: '085-555', model: 'ยังไม่แน่ใจ', score: 22, signals: ['เปิดอ่านอีเมล/LINE'], lastActive: addHours(120), staff: '—', value: 0 },
-]
+// คะแนนเบื้องต้นจากข้อมูลจริงที่มี (ไม่เรียก AI อัตโนมัติทุก Lead เพราะจะแพง/ช้าเกินไปตอนโหลดหน้า)
+// ต้องกด "🤖 วิเคราะห์เจาะลึก" ต่อ Lead ที่สนใจจริงๆถึงจะเรียก Gemini ผ่าน analyzeCustomer()
+function heuristicScore(c) {
+  let score = STATUS_BASE[c.status] ?? 45
+  const signals = []
+  if (c.interestedModel) { score += 5; signals.push(`ระบุรถที่สนใจ: ${c.interestedModel}`) }
+  if (c.budget) { score += 5; signals.push(`ระบุงบประมาณ: ${formatCurrency(c.budget)}`) }
+  if (c.source) signals.push(`ที่มา: ${c.source}`)
+  if (c.status === 'vip') signals.push('ลูกค้า VIP')
+  if (c.status === 'hot') signals.push('จัดระดับความสนใจสูง (Hot)')
+  return { score: Math.min(100, Math.max(5, score)), signals }
+}
 
 function tier(score) {
   if (score >= 80) return { label: 'Hot 🔥', color: 'danger', action: 'โทรปิดดีลวันนี้!' }
@@ -35,24 +36,35 @@ function tier(score) {
 }
 
 export default async function LeadScoringPage(container) {
-  let leads = DEMO_LEADS.map(l => ({ ...l, signals: [...l.signals] }))
+  const myGen = container.__routerGen
+  let leads = []
+  const aiResults = {} // customerId -> { score, reason, nextAction } จาก analyzeCustomer() แบบ on-demand
+
+  container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+
+  // Real-time: ลูกค้าที่ยังเป็น lead/pp — ไม่มีช่องค้นหาในหน้านี้จึงไม่ต้องกันโฟกัส
+  const unsubLeads = watchDocs('customers', [], 'createdAt', 'desc', 500, rows => {
+    if (container.__routerGen !== myGen) { unsubLeads(); return }
+    leads = rows.filter(c => (c.stage === 'lead' || c.stage === 'pp') && c.status !== 'lost')
+    renderPage()
+  })
 
   function renderPage() {
-    const sorted = [...leads].sort((a, b) => b.score - a.score)
-    const hot = leads.filter(l => l.score >= 80).length
-    const pipeline = leads.filter(l => l.score >= 60).reduce((a, l) => a + l.value, 0)
-    const avgScore = Math.round(leads.reduce((a, l) => a + l.score, 0) / leads.length)
+    const scored = leads.map(l => ({ ...l, ...heuristicScore(l) }))
+    const sorted = [...scored].sort((a, b) => b.score - a.score)
+    const hot = scored.filter(l => l.score >= 80).length
+    const pipeline = scored.filter(l => l.score >= 60).reduce((a, l) => a + (l.budget || 0), 0)
+    const avgScore = scored.length ? Math.round(scored.reduce((a, l) => a + l.score, 0) / scored.length) : 0
 
     container.innerHTML = `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
             <div class="page-title">🤖 AI Lead Scoring</div>
-            <div class="page-subtitle">จัดอันดับ Lead อัตโนมัติ — โฟกัสที่คนพร้อมซื้อ</div>
+            <div class="page-subtitle">จัดอันดับ Lead จากข้อมูลจริง — โฟกัสที่คนพร้อมซื้อ</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="factors-btn">⚙️ เกณฑ์คะแนน</button>
-            <button class="btn btn-primary" id="rescore-btn">🔄 คำนวณใหม่</button>
           </div>
         </div>
 
@@ -63,26 +75,34 @@ export default async function LeadScoringPage(container) {
           ${kpi('🧲 Leads ทั้งหมด', leads.length, 'primary')}
         </div>
 
+        ${!sorted.length ? `<div class="empty-state" style="padding:48px"><div class="empty-icon">🧲</div><div class="empty-title">ยังไม่มี Lead ในระบบ</div><div class="empty-desc">Lead ใหม่จากหน้าลูกค้าจะขึ้นที่นี่อัตโนมัติ</div></div>` : ''}
+
         <div style="display:flex;flex-direction:column;gap:10px">
           ${sorted.map((l, i) => {
             const t = tier(l.score)
+            const ai = aiResults[l.id]
+            const name = `${l.firstName || ''} ${l.lastName || ''}`.trim() || l.name || 'ไม่ระบุชื่อ'
             return `<div class="card" style="padding:13px 14px;border-left:3px solid var(--${t.color})">
               <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
                 <div style="display:flex;gap:10px;align-items:center">
-                  <div style="width:46px;height:46px;border-radius:50%;background:var(--${t.color})22;border:2px solid var(--${t.color});display:flex;align-items:center;justify-content:center;font-weight:900;font-size:0.95rem;color:var(--${t.color})">${l.score}</div>
+                  <div style="width:46px;height:46px;border-radius:50%;background:var(--${t.color})22;border:2px solid var(--${t.color});display:flex;align-items:center;justify-content:center;font-weight:900;font-size:0.95rem;color:var(--${t.color})">${ai?.score ?? l.score}</div>
                   <div>
-                    <div style="font-weight:700;font-size:0.88rem">${i===0?'👑 ':''}${l.name} <span style="font-size:0.7rem;color:var(--text-muted)">📞 ${l.phone}</span></div>
-                    <div style="font-size:0.72rem;color:var(--text-muted)">🚗 ${l.model}${l.value>0?' · '+formatCurrency(l.value):''} · 👤 ${l.staff} · active ${timeAgo(l.lastActive)}</div>
+                    <div style="font-weight:700;font-size:0.88rem">${i===0?'👑 ':''}${escHtml(name)} <span style="font-size:0.7rem;color:var(--text-muted)">📞 ${escHtml(l.phone || '-')}</span></div>
+                    <div style="font-size:0.72rem;color:var(--text-muted)">🚗 ${escHtml(l.interestedModel || 'ยังไม่ระบุรุ่น')} · เพิ่มเมื่อ ${timeAgo(l.createdAt)}</div>
                   </div>
                 </div>
                 <span class="badge badge-${t.color}" style="font-size:0.65rem">${t.label}</span>
               </div>
               <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">
-                ${l.signals.map(s => `<span style="font-size:0.62rem;background:var(--surface-2);padding:2px 7px;border-radius:10px;color:var(--text-muted)">✓ ${s}</span>`).join('')}
+                ${l.signals.map(s => `<span style="font-size:0.62rem;background:var(--surface-2);padding:2px 7px;border-radius:10px;color:var(--text-muted)">✓ ${escHtml(s)}</span>`).join('')}
               </div>
+              ${ai ? `<div style="font-size:0.74rem;color:var(--text-2);background:var(--primary-dim);padding:8px 10px;border-radius:8px;margin-bottom:8px">🤖 ${escHtml(ai.reason || '')}${ai.nextAction ? ' — ' + escHtml(ai.nextAction) : ''}</div>` : ''}
               <div style="display:flex;justify-content:space-between;align-items:center">
-                <div style="font-size:0.73rem;color:var(--${t.color})">🤖 แนะนำ: <strong>${t.action}</strong></div>
-                <button class="btn btn-xs btn-primary action-btn" data-id="${l.id}">📞 ดำเนินการ</button>
+                <div style="font-size:0.73rem;color:var(--${t.color})">แนะนำ: <strong>${escHtml(ai?.nextAction || t.action)}</strong></div>
+                <div style="display:flex;gap:6px">
+                  <button class="btn btn-xs btn-secondary ai-analyze-btn" data-id="${l.id}">🤖 วิเคราะห์เจาะลึก</button>
+                  <button class="btn btn-xs btn-primary action-btn" data-id="${l.id}">📞 ดำเนินการ</button>
+                </div>
               </div>
             </div>`
           }).join('')}
@@ -90,33 +110,38 @@ export default async function LeadScoringPage(container) {
       </div>
     `
 
-    document.getElementById('rescore-btn')?.addEventListener('click', () => {
-      leads.forEach(l => { l.score = Math.min(100, Math.max(5, l.score + Math.floor(Math.random() * 11) - 5)) })
-      showToast('🔄 คำนวณคะแนนใหม่จากพฤติกรรมล่าสุดแล้ว', 'success'); renderPage()
-    })
     document.getElementById('factors-btn')?.addEventListener('click', () => {
       openModal({
-        title: '⚙️ เกณฑ์การให้คะแนน',
+        title: '⚙️ เกณฑ์การให้คะแนนเบื้องต้น',
         size: 'sm',
-        body: `<div style="display:flex;flex-direction:column;gap:6px">
-          ${SCORE_FACTORS.map(f => `
-            <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.8rem;padding:6px 0;border-bottom:1px solid var(--border)">
-              <span>${f.factor}</span>
-              <span style="font-weight:700;color:var(--primary)">+${f.weight}</span>
-            </div>
-          `).join('')}
-          <p style="font-size:0.7rem;color:var(--text-muted);margin-top:8px">คะแนนเต็ม 100 — ลดลงอัตโนมัติเมื่อ Lead ไม่ active เกิน 7 วัน</p>
+        body: `<div style="display:flex;flex-direction:column;gap:6px;font-size:0.82rem">
+          <p>คะแนนพื้นฐานมาจากสถานะลูกค้า (VIP/Hot/Warm/Cold) บวกคะแนนเสริมถ้าระบุรถที่สนใจและงบประมาณไว้แล้ว</p>
+          <p style="color:var(--text-muted)">กด "🤖 วิเคราะห์เจาะลึก" ต่อรายเพื่อให้ AI วิเคราะห์โอกาสปิดดีลจากข้อมูลจริงแบบละเอียดขึ้น</p>
         </div>`,
         onConfirm() {}
       })
     })
     container.querySelectorAll('.action-btn').forEach(b => b.addEventListener('click', () => {
+      navigate('/crm/customers')
+    }))
+    container.querySelectorAll('.ai-analyze-btn').forEach(b => b.addEventListener('click', async () => {
+      if (!isAiEnabled()) { showToast('ต้องล็อกอินด้วยบัญชีจริงเพื่อใช้ AI วิเคราะห์', 'warning'); return }
       const l = leads.find(x => x.id === b.dataset.id)
-      if (l) showToast(`📞 เปิด task ติดตาม ${l.name} ให้ ${l.staff !== '—' ? l.staff : 'ทีมขาย'} แล้ว`, 'success')
+      if (!l) return
+      b.disabled = true; b.innerHTML = '<span class="spinner spinner-sm"></span>'
+      try {
+        const result = await analyzeCustomer({
+          name: `${l.firstName || ''} ${l.lastName || ''}`.trim() || 'ลูกค้า',
+          interestedIn: l.interestedModel, source: l.source, budget: l.budget,
+        })
+        if (container.__routerGen !== myGen) return
+        if (result) { aiResults[l.id] = result; renderPage() }
+        else showToast('AI วิเคราะห์ไม่สำเร็จ', 'error')
+      } catch { showToast('AI วิเคราะห์ไม่สำเร็จ', 'error') }
     }))
   }
 
-  renderPage()
+  return function cleanupLeadScoring() { unsubLeads() }
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
