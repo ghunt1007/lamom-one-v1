@@ -1,4 +1,4 @@
-import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { watchDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { showToast } from '../../core/store.js'
 import { formatDate, formatCurrency } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
@@ -37,11 +37,16 @@ export default async function VehicleOrdersPage(container) {
   let statusFilter = 'all'
   let search = ''
 
-  async function loadData() {
-    try { orders = await listDocs('vehicle_orders', [], 'createdAt', 'desc', 200) } catch {}
-    if (!orders.length) DEMO_ORDERS.forEach(o => orders.push({ ...o }))
+  // Real-time: อัปเดตสดเมื่อมีคนแก้ไขคำสั่งซื้อรถจากเครื่องอื่น — renderTable()/updateStats() แก้แค่
+  // #orders-content/#orders-filtered/#ostat-*/#order-value/#order-total เท่านั้น ไม่แตะช่องค้นหาเลย
+  let firstSnapshot = true
+  const unsubOrders = watchDocs('vehicle_orders', [], 'createdAt', 'desc', 200, rows => {
+    if (container.__routerGen !== myGen) { unsubOrders(); return }
+    orders = rows
+    if (!orders.length && firstSnapshot) DEMO_ORDERS.forEach(o => orders.push({ ...o }))
+    firstSnapshot = false
     updateStats(); applyFilter()
-  }
+  })
 
   function updateStats() {
     Object.keys(STATUS).forEach(k => {
@@ -313,7 +318,7 @@ export default async function VehicleOrdersPage(container) {
     applyFilter()
   }))
 
-  if (container.__routerGen === myGen) await loadData()
+  return function cleanupVehicleOrders() { unsubOrders() }
 }
 
 function dRow(icon, label, value) {
