@@ -13,6 +13,7 @@ import {
   getFollowUpRecommendation, getBookingDiagnosis, isModelInStock,
   deriveInitialStage, shouldAutoPromoteToPP,
 } from '../../core/customerInsights.js'
+import { analyzeCustomer, isAiEnabled } from '../../utils/ai.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -348,7 +349,10 @@ export default async function CustomersPage(container) {
     const u = URGENCY[rec.urgency] || URGENCY.low
     if (!document.getElementById('wk-followup-panel')) return
     el.innerHTML = `
-      <div style="font-weight:600;margin-bottom:6px;font-size:0.85rem">🧭 คำแนะนำการติดตาม</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-weight:600;font-size:0.85rem">🧭 คำแนะนำการติดตาม</span>
+        <button class="btn btn-ghost btn-xs" id="wk-ai-analyze-btn">🤖 วิเคราะห์เจาะลึกด้วย AI</button>
+      </div>
       <div class="card" style="padding:12px 14px;border-left:3px solid var(--${u.badge})">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
           <span class="badge badge-${u.badge}" style="font-size:0.68rem">${u.label}</span>
@@ -356,7 +360,35 @@ export default async function CustomersPage(container) {
         </div>
         <div style="font-size:0.82rem;color:var(--text-2);line-height:1.5">${escHtml(rec.recommendation)}</div>
       </div>
+      <div id="wk-ai-analysis"></div>
     `
+    // วิเคราะห์เจาะลึกด้วย AI จริง (Gemini) — เรียกเฉพาะลูกค้ารายนี้เท่านั้นตอนกดปุ่ม ไม่เรียกอัตโนมัติ
+    // ทุกครั้งที่เปิดดูลูกค้า (จะแพง/ช้าเกินจำเป็น และส่งข้อมูลลูกค้าไปให้ Gemini โดยไม่มีเหตุผลที่ชัดเจน)
+    document.getElementById('wk-ai-analyze-btn')?.addEventListener('click', async () => {
+      const btn = document.getElementById('wk-ai-analyze-btn')
+      const box = document.getElementById('wk-ai-analysis')
+      if (!isAiEnabled()) { showToast('ต้องล็อกอินด้วยบัญชีจริงเพื่อใช้ AI วิเคราะห์', 'warning'); return }
+      btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
+      try {
+        const result = await analyzeCustomer({
+          name: fullName(c), interestedIn: c.interestedModel, source: c.source, budget: c.budget,
+        })
+        if (!document.getElementById('wk-ai-analysis')) return
+        if (result) {
+          box.innerHTML = `<div class="card" style="padding:10px 14px;margin-top:8px;background:var(--primary-dim);border:1px solid var(--primary)">
+            <div style="font-size:0.72rem;color:var(--primary);font-weight:700;margin-bottom:3px">🤖 AI วิเคราะห์ — คะแนนโอกาสปิดดีล ${result.score ?? '-'}%</div>
+            <div style="font-size:0.8rem;color:var(--text-2);line-height:1.5">${escHtml(result.reason || '')}</div>
+            ${result.nextAction ? `<div style="font-size:0.78rem;color:var(--primary);margin-top:4px">→ ${escHtml(result.nextAction)}</div>` : ''}
+          </div>`
+        } else {
+          box.innerHTML = `<div style="font-size:0.78rem;color:var(--danger);margin-top:6px">AI วิเคราะห์ไม่สำเร็จ ลองใหม่อีกครั้ง</div>`
+        }
+      } catch {
+        if (document.getElementById('wk-ai-analysis')) box.innerHTML = `<div style="font-size:0.78rem;color:var(--danger);margin-top:6px">AI วิเคราะห์ไม่สำเร็จ ลองใหม่อีกครั้ง</div>`
+      } finally {
+        if (document.getElementById('wk-ai-analyze-btn')) { btn.disabled = false; btn.innerHTML = '🤖 วิเคราะห์เจาะลึกด้วย AI' }
+      }
+    })
   }
 
   async function refreshBookingPanel(c) {
