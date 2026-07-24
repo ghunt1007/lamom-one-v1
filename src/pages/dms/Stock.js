@@ -1,4 +1,4 @@
-import { listDocs, createDoc, updateDocData, softDelete, seedDemoData, getSalesData } from '../../core/db.js'
+import { listDocs, watchDocs, createDoc, updateDocData, softDelete, seedDemoData, getSalesData } from '../../core/db.js'
 import { showToast } from '../../core/store.js'
 import { formatDate, formatCurrency } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
@@ -43,17 +43,23 @@ export default async function StockPage(container) {
   let search = ''
   let viewMode = 'table' // table | card
 
-  async function loadData() {
-    try { stock = await listDocs('vehicles', [], 'arrivedAt', 'desc', 500) } catch {}
-    if (!stock.length) DEMO_STOCK.forEach(v => stock.push({ ...v }))
+  // Real-time: อัปเดตสดเมื่อมีคนแก้ไขสต็อกรถจากเครื่องอื่น — หน้านี้ renderContent()/updateStats()
+  // แก้แค่ #stock-content/#stock-filtered/#vstat-*/#stock-total เท่านั้น ไม่แตะช่องค้นหาเลย จึงปลอดภัย
+  let firstSnapshot = true
+  const unsubStock = watchDocs('vehicles', [], 'arrivedAt', 'desc', 500, async rows => {
+    if (container.__routerGen !== myGen) { unsubStock(); return }
+    stock = rows
+    if (!stock.length && firstSnapshot) DEMO_STOCK.forEach(v => stock.push({ ...v }))
+    firstSnapshot = false
     // ลิงก์ใบจอง (แหล่งกลาง): จับคู่ตาม VIN → แสดงสถานะจอง/ลูกค้าบนรถในสต็อก
     try {
       const sales = await getSalesData()
       bookingByVin = {}
       sales.forEach(s => { if (s.plate) bookingByVin[s.plate] = s })
     } catch (e) {}
+    if (container.__routerGen !== myGen) return
     updateStats(); applyFilter()
-  }
+  })
 
   function updateStats() {
     const counts = {}
@@ -475,7 +481,7 @@ export default async function StockPage(container) {
     applyFilter()
   }))
 
-  if (container.__routerGen === myGen) await loadData()
+  return function cleanupStock() { unsubStock() }
 }
 
 function dRow(icon, label, value) {

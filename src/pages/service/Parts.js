@@ -1,4 +1,4 @@
-import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { watchDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { showToast } from '../../core/store.js'
 
 function escHtml(s) {
@@ -28,11 +28,16 @@ export default async function PartsPage(container) {
   let search = ''
   let lowStockOnly = false
 
-  async function loadData() {
-    try { parts = await listDocs('parts', [], 'name', 'asc', 1000) } catch {}
-    if (!parts.length) DEMO_PARTS.forEach(p => parts.push({ ...p }))
+  // Real-time: อัปเดตสดเมื่อมีคนแก้ไขคลังอะไหล่จากเครื่องอื่น — renderTable() แก้แค่ #parts-content
+  // และ #parts-total/#parts-low/#parts-value เท่านั้น ไม่แตะช่องค้นหาเลย จึงปลอดภัย
+  let firstSnapshot = true
+  const unsubParts = watchDocs('parts', [], 'name', 'asc', 1000, rows => {
+    if (container.__routerGen !== myGen) { unsubParts(); return }
+    parts = rows
+    if (!parts.length && firstSnapshot) DEMO_PARTS.forEach(p => parts.push({ ...p }))
+    firstSnapshot = false
     updateStats(); applyFilter()
-  }
+  })
 
   function updateStats() {
     const total = parts.length
@@ -307,7 +312,7 @@ export default async function PartsPage(container) {
     showToast('Export แล้ว', 'success')
   })
 
-  if (container.__routerGen === myGen) await loadData()
+  return function cleanupParts() { unsubParts() }
 }
 
 function dRow(icon, label, value) {
