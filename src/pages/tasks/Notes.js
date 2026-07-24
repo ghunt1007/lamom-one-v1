@@ -1,6 +1,6 @@
 // Notes — บันทึกช่วยจำทั่วไป (ไม่ผูกกับลูกค้าโดยเฉพาะ — ต่างจาก CustomerNotes)
 // Route: /notes
-import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { watchDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { showToast, getState } from '../../core/store.js'
 import { timeAgo } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
@@ -24,10 +24,13 @@ export default async function NotesPage(container) {
   let search = ''
   let tagFilter = 'all'
 
-  async function loadData() {
-    try { notes = await listDocs('notes', [], 'updatedAt', 'desc', 500) } catch { notes = [] }
+  // Real-time: อัปเดตสดเมื่อมีคนอื่นเพิ่ม/แก้ไข Note จากเครื่องอื่น — renderBoard() แก้แค่ #notes-grid/
+  // #notes-tag-row/#notes-stat เท่านั้น ไม่แตะช่องค้นหาเลย จึงอัปเดตสดได้ตรงๆไม่ต้องกันโฟกัส
+  const unsubNotes = watchDocs('notes', [], 'updatedAt', 'desc', 500, rows => {
+    if (container.__routerGen !== myGen) { unsubNotes(); return }
+    notes = rows
     renderBoard()
-  }
+  })
 
   function allTags() {
     const set = new Set()
@@ -201,5 +204,5 @@ export default async function NotesPage(container) {
     searchTimer = setTimeout(() => { search = val; renderBoard() }, 200)
   })
 
-  if (container.__routerGen === myGen) await loadData()
+  return function cleanupNotes() { unsubNotes() }
 }
