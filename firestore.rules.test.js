@@ -397,6 +397,57 @@ describe('pdpa_dsr_requests — legal data-subject-request deadlines need manage
   })
 })
 
+// Third audit pass (2026-07-25) — full cross-reference of every collection name used anywhere in
+// src/ against firestore.rules found 7 more with no specific rule: webhook secrets, integration
+// configs, backup/restore, and 4 HR collections holding data more sensitive than a regular staff
+// member should see (job applicants who aren't even employees yet, succession plans, etc.).
+describe('third audit pass — webhooks/integrations/backups admin-only', () => {
+  it('plain staff cannot read webhook secrets', async () => {
+    await seedUser('auditGap1', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap1').firestore()
+    await assertFails(db.collection('webhooks').get())
+  })
+
+  it('admin can manage webhooks', async () => {
+    await seedUser('auditGap2', { role: 'admin', active: true })
+    const db = testEnv.authenticatedContext('auditGap2').firestore()
+    await assertSucceeds(db.collection('webhooks').add({ name: 'x', secret: 'shh' }))
+  })
+
+  it('a manager cannot trigger a system restore (system_backups write)', async () => {
+    await seedUser('auditGap3', { role: 'manager', active: true })
+    const db = testEnv.authenticatedContext('auditGap3').firestore()
+    await assertFails(db.collection('system_backups').add({ type: 'full', status: 'success' }))
+  })
+})
+
+describe('third audit pass — HR data more sensitive than the plain staff/isHR() split', () => {
+  it('plain staff cannot read job applicant records', async () => {
+    await seedUser('auditGap4', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap4').firestore()
+    await assertFails(db.collection('recruitment_applicants').get())
+  })
+
+  it('HR role can read job applicant records', async () => {
+    await seedUser('auditGap5', { role: 'hr', active: true })
+    const db = testEnv.authenticatedContext('auditGap5').firestore()
+    await assertSucceeds(db.collection('recruitment_applicants').get())
+  })
+
+  it('plain staff cannot read succession plans', async () => {
+    await seedUser('auditGap6', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap6').firestore()
+    await assertFails(db.collection('succession_plans').get())
+  })
+
+  it('plain staff can read the staff directory but cannot edit it', async () => {
+    await seedUser('auditGap7', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap7').firestore()
+    await assertSucceeds(db.collection('staff_profiles').get())
+    await assertFails(db.collection('staff_profiles').add({ name: 'x' }))
+  })
+})
+
 describe('compliance_audits — plain staff can read audit results but not create/edit them', () => {
   it('plain staff cannot create a compliance audit', async () => {
     await seedUser('qcGap1', { role: 'sales', active: true })

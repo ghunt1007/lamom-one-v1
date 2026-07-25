@@ -498,6 +498,40 @@ service cloud.firestore {
       allow write: if isManager();
     }
 
+    // ── System integrations/backups/webhooks — admin เท่านั้น ──────────────────
+    // webhooks เก็บ field "secret" เป็นข้อความจริงตามที่กรอกในฟอร์ม (ไม่ได้เข้ารหัส/ปกปิด) และ
+    // system_integrations เก็บ config การเชื่อมต่อ third-party — ทั้งสองไม่ควรให้ staff ทั่วไปอ่าน/แก้
+    // system_backups: การ "กู้คืน" (restore) เขียนทับข้อมูลจริงทั้งระบบได้ ต้องเป็นแอดมินสั่งเท่านั้น
+    match /webhooks/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /system_integrations/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /system_backups/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ── HR ที่อ่อนไหวสูง — ข้อมูลผู้สมัครงาน/แผนสืบทอดตำแหน่ง/ผลประเมิน ไม่ใช่ staff ทั่วไปควรเห็น ──
+    match /recruitment_applicants/{docId} {
+      allow read, write: if isHR() || isManager();
+    }
+
+    match /staff_profiles/{docId} {
+      allow read: if isStaff();
+      allow write: if isHR() || isManager();
+    }
+
+    match /succession_plans/{docId} {
+      allow read, write: if isHR() || isManager();
+    }
+
+    match /performance_scorecards/{docId} {
+      allow read, write: if isManager();
+    }
+
     // ── Default: any other collection requires staff auth ────────────────────
     // สำคัญมาก (พบ 2026-07-23 ระหว่างเขียนเทส rules ครั้งแรกของโปรเจกต์): Firestore ประเมิน
     // "ทุก" match block ที่ path ตรงกัน แล้วรวมผลแบบ OR — ไม่ใช่ "block เจาะจงกว่าชนะ" อย่างที่คนมัก
@@ -520,7 +554,9 @@ service cloud.firestore {
         'master_data', 'company_profile', 'whitelabel_settings', 'sms_otp_settings',
         'bank_partner_info', 'insurance_rate_cards', 'ai_officer_chats',
         'api_keys', 'security_policies', 'security_sessions',
-        'pdpa_consents', 'pdpa_dsr_requests', 'compliance_audits'
+        'pdpa_consents', 'pdpa_dsr_requests', 'compliance_audits',
+        'webhooks', 'system_integrations', 'system_backups',
+        'recruitment_applicants', 'staff_profiles', 'succession_plans', 'performance_scorecards'
       ];
     }
 
