@@ -4,8 +4,13 @@
  */
 import { timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+
+function myName() {
+  const me = getState('user') || {}
+  return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
+}
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -119,7 +124,7 @@ export default async function CallLogPage(container) {
       const c = calls.find(x => x.id === b.dataset.id)
       if (!c) return
       try {
-        await updateDocData('call_logs', c.id, { type: 'outbound', followed: true, staff: 'คุณ (Demo)', note: 'โทรกลับแล้ว' })
+        await updateDocData('call_logs', c.id, { type: 'outbound', followed: true, staff: myName(), note: 'โทรกลับแล้ว' })
         showToast('📞 บันทึกการโทรกลับ ' + c.phone, 'success')
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
@@ -158,7 +163,7 @@ export default async function CallLogPage(container) {
               type: document.getElementById('cl-type')?.value||'inbound',
               topic: document.getElementById('cl-topic')?.value||'other',
               caller, phone: document.getElementById('cl-phone')?.value||'—', duration: 0,
-              staff: 'คุณ (Demo)', time: new Date().toISOString(),
+              staff: myName(), time: new Date().toISOString(),
               note: document.getElementById('cl-note')?.value||'',
               followUp: document.getElementById('cl-follow')?.checked||false, followed: false
             })

@@ -4,8 +4,13 @@
  */
 import { timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+
+function myName() {
+  const me = getState('user') || {}
+  return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
+}
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -128,7 +133,7 @@ export default async function CustomerNotesPage(container) {
           const text = document.getElementById('nt-text')?.value?.trim()
           if (!text) { showToast('❗ กรุณากรอกบันทึก', 'error'); return false }
           try {
-            await createDoc('customer_notes', { customer:document.getElementById('nt-customer')?.value||DEMO_CUSTOMERS[0], type:document.getElementById('nt-type')?.value||'call', text, staff:'คุณ (Demo)', time:new Date().toISOString(), pinned:false })
+            await createDoc('customer_notes', { customer:document.getElementById('nt-customer')?.value||DEMO_CUSTOMERS[0], type:document.getElementById('nt-type')?.value||'call', text, staff: myName(), time:new Date().toISOString(), pinned:false })
             showToast('✅ บันทึกแล้ว', 'success')
             await loadData()
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

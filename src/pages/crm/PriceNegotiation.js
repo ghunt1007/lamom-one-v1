@@ -3,9 +3,14 @@
  * Route: /crm/price-negotiation
  */
 import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { formatDate } from '../../utils/format.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+
+function myName() {
+  const me = getState('user') || {}
+  return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
+}
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -103,7 +108,7 @@ export default async function PriceNegotiationPage(container) {
       const n=NEGOTIATIONS.find(x=>x.id===b.dataset.id)
       if (!n) return
       try {
-        await updateDocData('price_negotiations', n.id, { status:'approved', approver:'ผจก. วิชัย' })
+        await updateDocData('price_negotiations', n.id, { status:'approved', approver: myName() })
         showToast('✅ อนุมัติส่วนลด '+n.customer+' ฿'+n.discount.toLocaleString(),'success')
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
@@ -112,7 +117,7 @@ export default async function PriceNegotiationPage(container) {
       const n=NEGOTIATIONS.find(x=>x.id===b.dataset.id)
       if (!n) return
       try {
-        await updateDocData('price_negotiations', n.id, { status:'rejected', approver:'ผจก. วิชัย' })
+        await updateDocData('price_negotiations', n.id, { status:'rejected', approver: myName() })
         showToast('❌ ปฏิเสธส่วนลด '+n.customer,'warning')
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
@@ -144,7 +149,7 @@ export default async function PriceNegotiationPage(container) {
         const discPct=+(disc/list*100).toFixed(1)
         const model=document.getElementById('pn-model')?.value||'BYD Atto 3'
         try {
-          await createDoc('price_negotiations', {customer:cust,model,listPrice:list,offerPrice:offer,discount:disc,discPct,status:'pending',sales:'เซลส์ Demo',date:new Date().toISOString().slice(0,10),approver:''})
+          await createDoc('price_negotiations', {customer:cust,model,listPrice:list,offerPrice:offer,discount:disc,discPct,status:'pending',sales: myName(),date:new Date().toISOString().slice(0,10),approver:''})
           showToast('📤 ส่งขออนุมัติส่วนลด ฿'+disc.toLocaleString()+' แล้ว','success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

@@ -4,8 +4,13 @@
  */
 import { formatDate, formatCurrency } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+
+function myName() {
+  const me = getState('user') || {}
+  return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
+}
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
@@ -208,7 +213,7 @@ export default async function ContractManagerPage(container) {
             value: +document.getElementById('cf-value')?.value||0,
             startDate: document.getElementById('cf-start')?.value||addDays(0),
             endDate: document.getElementById('cf-end')?.value||addDays(365),
-            createdBy: 'ผู้ใช้ปัจจุบัน', signedDate: null, tags: []
+            createdBy: myName(), signedDate: null, tags: []
           })
           showToast('✅ สร้างสัญญาแล้ว!', 'success')
           await loadData()

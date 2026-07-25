@@ -4,8 +4,13 @@
  */
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+
+function myName() {
+  const me = getState('user') || {}
+  return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
+}
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -122,7 +127,7 @@ export default async function VehicleTransferPage(container) {
     container.querySelectorAll('.approve-btn').forEach(b => b.addEventListener('click', async () => {
       const t = transfers.find(x => x.id === b.dataset.id)
       if (!t) return
-      try { await updateDocData('vehicle_transfers', t.id, { status: 'approved', approvedBy: 'ผู้จัดการ' }); showToast('✅ อนุมัติโอนรถแล้ว', 'success'); await loadData() }
+      try { await updateDocData('vehicle_transfers', t.id, { status: 'approved', approvedBy: myName() }); showToast('✅ อนุมัติโอนรถแล้ว', 'success'); await loadData() }
       catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.transit-btn').forEach(b => b.addEventListener('click', async () => {
@@ -188,7 +193,7 @@ export default async function VehicleTransferPage(container) {
         try {
           await createDoc('vehicle_transfers', {
             vehiclePlate: plate, vehicleModel: document.getElementById('tf-model')?.value||'', color: '',
-            vin: '', fromBranch: from, toBranch: to, requestedBy: 'ผู้ใช้ปัจจุบัน',
+            vin: '', fromBranch: from, toBranch: to, requestedBy: myName(),
             approvedBy: null, status: 'pending', requestDate: addDays(0),
             transferDate: null, eta: null, reason: document.getElementById('tf-reason')?.value||'', trackingNo: null
           })

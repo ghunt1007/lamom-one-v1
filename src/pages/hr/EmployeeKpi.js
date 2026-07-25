@@ -4,8 +4,13 @@
  */
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+
+function myName() {
+  const me = getState('user') || {}
+  return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
+}
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -187,7 +192,7 @@ export default async function EmployeeKpiPage(container) {
         </div>
         <div class="input-group"><label class="input-label">จุดแข็ง</label><input class="input" id="ev-strengths" value="${esc(existing?.strengths || '')}"></div>
         <div class="input-group"><label class="input-label">จุดที่ควรพัฒนา</label><input class="input" id="ev-improvements" value="${esc(existing?.improvements || '')}"></div>
-        <div class="input-group"><label class="input-label">ผู้ประเมิน</label><input class="input" id="ev-reviewer" value="${esc(existing?.reviewer || 'คุณ (Demo)')}"></div>
+        <div class="input-group"><label class="input-label">ผู้ประเมิน</label><input class="input" id="ev-reviewer" value="${esc(existing?.reviewer || myName())}"></div>
       `,
       async onConfirm() {
         const staffId = document.getElementById('ev-staff')?.value

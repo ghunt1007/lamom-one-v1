@@ -4,8 +4,13 @@
  */
 import { formatCurrency, formatDate, timeAgo } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+
+function myName() {
+  const me = getState('user') || {}
+  return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
+}
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -132,7 +137,7 @@ export default async function ExpenseApprovalPage(container) {
       const e = expenses.find(x => x.id === b.dataset.id)
       if (!e) return
       try {
-        await updateDocData('expense_approvals', e.id, { status: 'approved', approvedBy: 'ผู้จัดการ' })
+        await updateDocData('expense_approvals', e.id, { status: 'approved', approvedBy: myName() })
         showToast(`✅ อนุมัติ "${e.title}" แล้ว`, 'success')
         await loadData()
       } catch (err) { showToast('บันทึกไม่สำเร็จ', 'error') }
@@ -141,7 +146,7 @@ export default async function ExpenseApprovalPage(container) {
       const e = expenses.find(x => x.id === b.dataset.id)
       if (!e) return
       try {
-        await updateDocData('expense_approvals', e.id, { status: 'rejected', approvedBy: 'ผู้จัดการ' })
+        await updateDocData('expense_approvals', e.id, { status: 'rejected', approvedBy: myName() })
         showToast(`❌ ปฏิเสธ "${e.title}"`, 'warning')
         await loadData()
       } catch (err) { showToast('บันทึกไม่สำเร็จ', 'error') }
@@ -193,7 +198,7 @@ export default async function ExpenseApprovalPage(container) {
           await createDoc('expense_approvals', {
             title,
             cat: document.getElementById('ef-cat')?.value||'other', amount,
-            status: 'pending', submittedBy: 'ผู้ใช้ปัจจุบัน', dept: 'ทั่วไป',
+            status: 'pending', submittedBy: myName(), dept: 'ทั่วไป',
             submitDate: new Date().toISOString(), approvedBy: null, receipt: false,
             notes: document.getElementById('ef-notes')?.value||''
           })

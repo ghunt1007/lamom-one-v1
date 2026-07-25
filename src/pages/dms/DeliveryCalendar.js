@@ -4,8 +4,13 @@
  */
 import { formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+
+function myName() {
+  const me = getState('user') || {}
+  return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
+}
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -207,7 +212,7 @@ export default async function DeliveryCalendarPage(container) {
               custName: name, phone: document.getElementById('dl-phone')?.value||'—',
               model: document.getElementById('dl-model')?.value||'—', colorOut: document.getElementById('dl-color')?.value||'—',
               vin: '', deliveryDate: document.getElementById('dl-date')?.value||addDays(3), deliveryTime: document.getElementById('dl-time')?.value||'10:00',
-              status: LOCAL_TO_BOOKING_STATUS.preparing, salesName: 'คุณ (Demo)', prep: [false,false,false,false,false],
+              status: LOCAL_TO_BOOKING_STATUS.preparing, salesName: myName(), prep: [false,false,false,false,false],
               bookingNo: '', nid: '', address: '', province: '', source: 'Walk-in',
               brand: '', variant: '', colorIn: '', motorNo: '', batNo: '',
               price: 0, cost: 0, down: 0, financeCo: '', financeAmount: 0, finStatus: '', installments: 0, interestRate: 0, monthly: 0, campaign: '',

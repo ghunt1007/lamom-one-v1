@@ -4,8 +4,13 @@
  */
 import { timeAgo } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+
+function myName() {
+  const me = getState('user') || {}
+  return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
+}
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -154,7 +159,7 @@ export default async function KnowledgeBasePage(container) {
           const content = document.getElementById('kb-content')?.value?.trim()
           if (!title || !content) { showToast('❗ กรอกหัวข้อและเนื้อหา', 'error'); return }
           try {
-            await createDoc('kb_articles', { title, cat:document.getElementById('kb-cat')?.value||'system', author:'คุณ (Demo)', views:0, helpful:0, updated:new Date().toISOString(), content, excerpt:content.slice(0,120)+(content.length>120?'…':'') })
+            await createDoc('kb_articles', { title, cat:document.getElementById('kb-cat')?.value||'system', author: myName(), views:0, helpful:0, updated:new Date().toISOString(), content, excerpt:content.slice(0,120)+(content.length>120?'…':'') })
             showToast('📚 เผยแพร่บทความแล้ว', 'success')
             await loadData()
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

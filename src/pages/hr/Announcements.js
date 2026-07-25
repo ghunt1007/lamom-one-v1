@@ -7,6 +7,11 @@ import { openModal } from '../../utils/modal.js'
 import { showToast, getState, setState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
+function myName() {
+  const me = getState('user') || {}
+  return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
+}
+
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
 }
@@ -131,7 +136,7 @@ export default async function AnnouncementsPage(container) {
           if (!title || !body) { showToast('❗ กรอกหัวข้อและเนื้อหา', 'error'); return false }
           const type = document.getElementById('an-type')?.value || 'general'
           await createDoc('announcements_hr', {
-            title, type, author: 'คุณ (Demo)', time: new Date().toISOString(),
+            title, type, author: myName(), time: new Date().toISOString(),
             pinned: document.getElementById('an-pin')?.checked || false, readBy: 0, totalStaff: 16, body,
           })
           try {

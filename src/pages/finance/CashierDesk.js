@@ -4,8 +4,13 @@
  */
 import { formatCurrency, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, softDelete, seedDemoData } from '../../core/db.js'
+
+function myName() {
+  const me = getState('user') || {}
+  return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
+}
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -165,7 +170,7 @@ export default async function CashierDeskPage(container) {
         const amount = parseInt(document.getElementById('py-amount')?.value) || 0
         if (!customer || amount <= 0) { showToast('❗ กรอกชื่อและจำนวนเงิน', 'error'); return false }
         try {
-          await createDoc('cashier_payments', { customer, ref:bill?.id||'MISC', desc:document.getElementById('py-desc')?.value||'—', amount, method:document.getElementById('py-method')?.value||'cash', time:new Date().toISOString(), cashier:'คุณ (Demo)' })
+          await createDoc('cashier_payments', { customer, ref:bill?.id||'MISC', desc:document.getElementById('py-desc')?.value||'—', amount, method:document.getElementById('py-method')?.value||'cash', time:new Date().toISOString(), cashier: myName() })
           if (bill) await softDelete('cashier_pending_bills', bill.id)
           showToast(`✅ รับชำระ ${formatCurrency(amount)} — พิมพ์ใบเสร็จแล้ว`, 'success')
           await loadData()
