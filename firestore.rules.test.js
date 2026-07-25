@@ -461,3 +461,49 @@ describe('compliance_audits — plain staff can read audit results but not creat
     await assertSucceeds(db.collection('compliance_audits').add({ title: 'x' }))
   })
 })
+
+describe('fourth audit pass — money-adjacent and personal-document collections', () => {
+  it('plain sales staff cannot approve their own partner commission payout', async () => {
+    await seedUser('auditGap8', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap8').firestore()
+    await assertFails(db.collection('partner_commissions').add({ amount: 5000, status: 'approved' }))
+  })
+
+  it('finance role can approve a partner commission payout', async () => {
+    await seedUser('auditGap9', { role: 'finance', active: true })
+    const db = testEnv.authenticatedContext('auditGap9').firestore()
+    await assertSucceeds(db.collection('partner_commissions').add({ amount: 5000, status: 'approved' }))
+  })
+
+  it('plain staff cannot read company financial goals', async () => {
+    await seedUser('auditGap10', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap10').firestore()
+    await assertFails(db.collection('financial_goals').get())
+  })
+
+  it('sales staff can create a contract but cannot edit its value after the fact', async () => {
+    await seedUser('auditGap11', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap11').firestore()
+    const ref = await assertSucceeds(db.collection('contracts').add({ title: 'x', party: 'y', value: 100000 }))
+    await assertFails(ref.update({ value: 999999 }))
+  })
+
+  it('plain staff cannot approve their own overtime hours', async () => {
+    await seedUser('auditGap12', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap12').firestore()
+    const ref = await assertSucceeds(db.collection('overtime_records').add({ staff: 'x', hours: 2, status: 'pending' }))
+    await assertFails(ref.update({ status: 'approved' }))
+  })
+
+  it('plain staff cannot read another employee\'s uploaded personal documents', async () => {
+    await seedUser('auditGap13', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap13').firestore()
+    await assertFails(db.collection('staff_documents').get())
+  })
+
+  it('HR can manage staff document uploads', async () => {
+    await seedUser('auditGap14', { role: 'hr', active: true })
+    const db = testEnv.authenticatedContext('auditGap14').firestore()
+    await assertSucceeds(db.collection('staff_documents').add({ staff: 'x', type: 'id_card', fileUrl: 'https://x' }))
+  })
+})

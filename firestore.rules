@@ -288,6 +288,30 @@ service cloud.firestore {
       allow update, delete: if isHR() || isManager();
     }
 
+    // เงินจริงที่จ่ายให้พาร์ทเนอร์ (referral/reseller) — การอนุมัติสั่งจ่ายจริง เหมือน tech_kpi_bonus_approvals
+    match /partner_commissions/{docId} {
+      allow read: if isStaff();
+      allow write: if isFinance() || isManager();
+    }
+
+    // เป้าหมาย/ตัวเลขการเงินเชิงกลยุทธ์ของบริษัท ไม่ใช่ข้อมูลลูกค้า/ใบเสร็จที่พนักงานขายต้องใช้ประจำวัน
+    match /financial_goals/{docId} {
+      allow read, write: if isFinance() || isManager();
+    }
+
+    // สัญญาที่มีมูลค่าดีล (value) — แก้ไข/ลบต้องผู้จัดการเท่านั้น กันแก้มูลค่าสัญญาโดยไม่มีอำนาจ
+    match /contracts/{docId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update, delete: if isManager();
+    }
+
+    match /leasing_contracts/{docId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update, delete: if isManager();
+    }
+
     // ── HR — HR role & above ──────────────────────────────────────────────────
     match /staff/{docId} {
       allow read: if isStaff();
@@ -298,6 +322,26 @@ service cloud.firestore {
       allow read: if isHR() || isManager();
       allow create: if isStaff();
       allow update, delete: if isHR();
+    }
+
+    // ชั่วโมง OT ใช้คำนวณค่าจ้างจริง (hourlyRate × hours) เหมือน staff_loans — พนักงานยื่นขอได้เอง
+    // แต่แก้ไข/อนุมัติ/ลบต้อง HR หรือผู้จัดการเท่านั้น
+    match /overtime_records/{docId} {
+      allow read: if isHR() || isManager();
+      allow create: if isStaff();
+      allow update, delete: if isHR() || isManager();
+    }
+
+    // ไฟล์เอกสารส่วนตัวพนักงานที่อัปโหลดจริง (fileUrl) — อ่อนไหวระดับเดียวกับ staff_profiles
+    match /staff_documents/{docId} {
+      allow read: if isHR() || isManager();
+      allow write: if isHR();
+    }
+
+    // แผนสวัสดิการ (ผู้ให้บริการ/ค่าใช้จ่าย/สิทธิ์) เป็นการตั้งค่าระดับองค์กร ไม่ใช่ของพนักงานคนเดียว
+    match /welfare_items/{docId} {
+      allow read: if isStaff();
+      allow write: if isHR() || isManager();
     }
 
     match /leave_requests/{docId} {
@@ -556,7 +600,9 @@ service cloud.firestore {
         'api_keys', 'security_policies', 'security_sessions',
         'pdpa_consents', 'pdpa_dsr_requests', 'compliance_audits',
         'webhooks', 'system_integrations', 'system_backups',
-        'recruitment_applicants', 'staff_profiles', 'succession_plans', 'performance_scorecards'
+        'recruitment_applicants', 'staff_profiles', 'succession_plans', 'performance_scorecards',
+        'partner_commissions', 'financial_goals', 'contracts', 'leasing_contracts',
+        'overtime_records', 'staff_documents', 'welfare_items'
       ];
     }
 
