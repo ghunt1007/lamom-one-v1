@@ -228,6 +228,16 @@ service cloud.firestore {
       allow read, write: if isFinance();
     }
 
+    // เอกสารรวม (สัญญาซื้อขาย/ใบจอง/ใบส่งมอบ ฯลฯ) ปนกับสัญญาจ้าง HR และหนังสือมอบอำนาจในพูลเดียวกัน
+    // เดิมพนักงานขายทั่วไปเปิด/แก้ไขสัญญาจ้าง HR ของคนอื่นได้เหมือนเอกสารขายทั่วไป — จำกัดแค่ 2 ประเภทนี้
+    // ให้ HR/ผู้จัดการเท่านั้น ประเภทอื่น (booking/quote/contract ลูกค้า ฯลฯ) ยังเปิดกว้างเหมือนเดิม
+    match /documents/{docId} {
+      allow read, update, delete: if isStaff() &&
+        (!(resource.data.get('type', '') in ['hr_contract', 'power_atty']) || isHR() || isManager());
+      allow create: if isStaff() &&
+        (!(request.resource.data.get('type', '') in ['hr_contract', 'power_atty']) || isHR() || isManager());
+    }
+
     match /expenses/{docId} {
       allow read: if isStaff();
       allow create: if isStaff();
@@ -280,6 +290,32 @@ service cloud.firestore {
 
     match /debt_settlements/{docId} {
       allow read, write: if isFinance();
+    }
+
+    // บัญชีทรัพย์สินถาวรของบริษัท (ต้นทุน/อายุการใช้งาน/มูลค่าตามบัญชีหลังหักค่าเสื่อม) — บัญชีภายใน ไม่ใช่รายการขาย
+    match /assets/{docId} {
+      allow read: if isStaff();
+      allow write: if isFinance() || isManager();
+    }
+
+    // สินเชื่อ Floor Plan ของดีลเลอร์เอง (วงเงิน/ยอดค้างกับธนาคาร) — ไม่ใช่ข้อมูลลูกค้า เป็นภาระหนี้บริษัทจริง
+    match /floor_plan/{docId} {
+      allow read, write: if isFinance() || isManager();
+    }
+
+    // ปิดบัญชีสิ้นเดือน (รายรับ/ต้นทุน/กำไรขั้นต้นของทั้งบริษัท) — ไม่ใช่ข้อมูลที่พนักงานขายทั่วไปต้องเห็น
+    match /monthly_close_items/{docId} {
+      allow read: if isFinance() || isManager();
+      allow write: if isFinance();
+    }
+
+    // ใบเสร็จเบิกค่าใช้จ่าย — เดิมปุ่ม "อนุมัติ/ปฏิเสธ" ไม่มีการเช็คสิทธิ์เลย พนักงานคนไหนก็กดอนุมัติใบเสร็จ
+    // ของใครก็ได้ (รวมถึงของตัวเอง) เหมือน expense_claims ที่แก้ไปแล้ว
+    match /expense_receipts/{docId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isFinance() || isManager() || isHR();
+      allow delete: if isFinance() || isManager();
     }
 
     match /expense_claims/{docId} {
@@ -373,6 +409,14 @@ service cloud.firestore {
     match /disciplinary_records/{docId} {
       allow read: if isHR() || isManager();
       allow write: if isHR() || isManager();
+    }
+
+    // แบบสำรวจ mood รายวันของพนักงาน (คะแนน+โน้ตส่วนตัว) — ส่งได้ทุกคนแต่อ่านของคนอื่นได้แค่ HR/ผู้จัดการ
+    // เพื่อความเป็นส่วนตัว (ระหว่างตรวจพบด้วยว่าฟิลด์ staff/dept เดิม hardcode เป็นข้อความคงที่ทุกครั้ง
+    // ไม่ตรงกับผู้ส่งจริงเลย — แก้ที่หน้า MoodSurvey.js ให้ใช้ชื่อผู้ใช้จริงแล้วในรอบนี้ด้วย)
+    match /mood_responses/{docId} {
+      allow read: if isHR() || isManager();
+      allow write: if isStaff();
     }
 
     match /recruitment/{docId} {
@@ -473,6 +517,19 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ข้อมูลนิติบุคคล/สาขา (เลขผู้เสียภาษี/ที่อยู่/เบอร์/อีเมล) — เดิมพนักงานทั่วไปแก้ได้เหมือน company_profile
+    // ไม่ทัน จำกัดไว้แค่ผู้จัดการขึ้นไปเหมือนกัน
+    match /companies/{docId} {
+      allow read: if isStaff();
+      allow write: if isManager();
+    }
+
+    // ฟิลด์ที่เพิ่มเองได้ (custom fields) ปรับ schema ของฟอร์มทั้งระบบ ไม่ใช่ข้อมูลรายวันของพนักงาน
+    match /custom_fields/{docId} {
+      allow read: if isStaff();
+      allow write: if isManager();
+    }
+
     match /sms_otp_settings/{docId} {
       allow read: if isStaff();
       allow write: if isAdmin();
@@ -516,6 +573,13 @@ service cloud.firestore {
     match /ai_officer_chats/{docId} {
       allow read, update, delete: if isSignedIn() && resource.data.get('userId', '') == uid();
       allow create: if isStaff() && request.resource.data.get('userId', '') == uid();
+    }
+
+    // แชท AI Assistant ส่วนตัว — เดิมกรองด้วย uid แค่ฝั่ง client เท่านั้น (comment ในโค้ดหน้านั้นยอมรับตรงๆว่า
+    // "ข้อความเก่าก่อนแก้ที่ไม่มี uid" เคยเห็นรวมกันทุกคน) ตอนนี้บังคับที่ระดับ rules จริงเหมือน ai_officer_chats
+    match /chat_ai_assistant/{docId} {
+      allow read, delete: if isStaff() && resource.data.get('uid', '') == uid();
+      allow create: if isStaff() && request.resource.data.get('uid', '') == uid();
     }
 
     // ── Client-side error monitoring — anyone signed in can report, only staff manage ──
@@ -614,7 +678,9 @@ service cloud.firestore {
         'webhooks', 'system_integrations', 'system_backups',
         'recruitment_applicants', 'staff_profiles', 'succession_plans', 'performance_scorecards',
         'partner_commissions', 'financial_goals', 'contracts', 'leasing_contracts',
-        'overtime_records', 'staff_documents', 'welfare_items'
+        'overtime_records', 'staff_documents', 'welfare_items',
+        'assets', 'floor_plan', 'monthly_close_items', 'expense_receipts',
+        'companies', 'custom_fields', 'documents', 'mood_responses', 'chat_ai_assistant'
       ];
     }
 

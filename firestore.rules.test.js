@@ -533,3 +533,110 @@ describe('kb_articles / product_knowledge — the other 2 RAG sources missed whe
     await assertSucceeds(db.collection('product_knowledge').get())
   })
 })
+
+describe('fifth audit pass — remaining 169 collections, evidence-based restrictions found in code', () => {
+  it('plain staff cannot edit the fixed-asset depreciation ledger', async () => {
+    await seedUser('auditGap15', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap15').firestore()
+    await assertFails(db.collection('assets').add({ cost: 1000000 }))
+  })
+
+  it('a staff member can only read their own AI assistant chat, not everyone else\'s', async () => {
+    await seedUser('auditGap16', { role: 'sales', active: true })
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().collection('chat_ai_assistant').doc('msg1').set({ uid: 'someoneElse', text: 'private' })
+    })
+    const db = testEnv.authenticatedContext('auditGap16').firestore()
+    await assertFails(db.collection('chat_ai_assistant').doc('msg1').get())
+  })
+
+  it('a staff member can read their own AI assistant chat', async () => {
+    await seedUser('auditGap17', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap17').firestore()
+    await db.collection('chat_ai_assistant').doc('msg2').set({ uid: 'auditGap17', text: 'mine' })
+    await assertSucceeds(db.collection('chat_ai_assistant').doc('msg2').get())
+  })
+
+  it('plain staff cannot edit the company legal/tax profile', async () => {
+    await seedUser('auditGap18', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap18').firestore()
+    await assertFails(db.collection('companies').add({ taxId: '123', name: 'x' }))
+  })
+
+  it('plain staff cannot add a custom field to the form schema', async () => {
+    await seedUser('auditGap19', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap19').firestore()
+    await assertFails(db.collection('custom_fields').add({ module: 'customers', field: 'x' }))
+  })
+
+  it('plain staff cannot read another employee\'s HR contract stored in the shared documents pool', async () => {
+    await seedUser('auditGap20', { role: 'sales', active: true })
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().collection('documents').doc('hrdoc1').set({ type: 'hr_contract', title: 'x' })
+    })
+    const db = testEnv.authenticatedContext('auditGap20').firestore()
+    await assertFails(db.collection('documents').doc('hrdoc1').get())
+  })
+
+  it('plain staff can still read/create an ordinary sales document (booking/contract/quote)', async () => {
+    await seedUser('auditGap21', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap21').firestore()
+    await assertSucceeds(db.collection('documents').add({ type: 'booking', title: 'x' }))
+  })
+
+  it('HR can read an HR contract in the shared documents pool', async () => {
+    await seedUser('auditGap22', { role: 'hr', active: true })
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().collection('documents').doc('hrdoc2').set({ type: 'hr_contract', title: 'y' })
+    })
+    const db = testEnv.authenticatedContext('auditGap22').firestore()
+    await assertSucceeds(db.collection('documents').doc('hrdoc2').get())
+  })
+
+  it('plain staff cannot approve their own expense receipt reimbursement', async () => {
+    await seedUser('auditGap23', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap23').firestore()
+    const ref = await assertSucceeds(db.collection('expense_receipts').add({ vendor: 'x', status: 'pending' }))
+    await assertFails(ref.update({ status: 'approved' }))
+  })
+
+  it('finance role can approve an expense receipt', async () => {
+    await seedUser('auditGap24', { role: 'finance', active: true })
+    const db = testEnv.authenticatedContext('auditGap24').firestore()
+    const ref = await db.collection('expense_receipts').add({ vendor: 'x', status: 'pending' })
+    await assertSucceeds(ref.update({ status: 'approved' }))
+  })
+
+  it('plain staff cannot read the dealer\'s floor-plan credit-line balances', async () => {
+    await seedUser('auditGap25', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap25').firestore()
+    await assertFails(db.collection('floor_plan').get())
+  })
+
+  it('plain staff cannot read the month-end financial close ledger', async () => {
+    await seedUser('auditGap26', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap26').firestore()
+    await assertFails(db.collection('monthly_close_items').get())
+  })
+
+  it('a sales staff member cannot read a coworker\'s mood survey response', async () => {
+    await seedUser('auditGap27', { role: 'sales', active: true })
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().collection('mood_responses').doc('m1').set({ staff: 'someone else', score: 2 })
+    })
+    const db = testEnv.authenticatedContext('auditGap27').firestore()
+    await assertFails(db.collection('mood_responses').doc('m1').get())
+  })
+
+  it('a sales staff member can still submit their own mood survey response', async () => {
+    await seedUser('auditGap28', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap28').firestore()
+    await assertSucceeds(db.collection('mood_responses').add({ staff: 'me', score: 4 }))
+  })
+
+  it('HR can read mood survey responses', async () => {
+    await seedUser('auditGap29', { role: 'hr', active: true })
+    const db = testEnv.authenticatedContext('auditGap29').firestore()
+    await assertSucceeds(db.collection('mood_responses').get())
+  })
+})

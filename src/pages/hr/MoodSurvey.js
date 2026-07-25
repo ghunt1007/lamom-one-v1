@@ -4,7 +4,7 @@
  */
 import { formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 
 // ป้องกัน XSS — ข้อความเพิ่มเติม (note) เป็นข้อมูลที่ผู้ใช้พิมพ์เอง ต้อง escape ก่อนแสดงผลเสมอ
@@ -197,8 +197,9 @@ export default async function MoodSurveyPage(container) {
       confirmText:'✅ ส่งแบบสำรวจ',
       async onConfirm() {
         if (!picked) { showToast('เลือก Mood ก่อน', 'warning'); return false }
+        const me = getState('user') || {}
         await createDoc('mood_responses', {
-          staff: 'ผู้ใช้ปัจจุบัน', dept: 'ฝ่ายขาย',
+          staff: me.displayName || me.email || 'ผู้ใช้ปัจจุบัน', dept: me.role || '—',
           date: new Date().toISOString().slice(0, 10),
           score: picked, note: document.getElementById('mood-note')?.value || '',
         })
