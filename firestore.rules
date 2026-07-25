@@ -438,6 +438,18 @@ service cloud.firestore {
       allow write: if isManager();
     }
 
+    // แหล่ง RAG อีก 2 ตัวที่ตกหล่นไปตอนเพิ่มกฎ sop_documents/legal_references — เดิมพนักงานทั่วไป
+    // แก้ไข/ลบ Product Knowledge หรือ KB ได้เหมือนกันหมด ทั้งที่ควรจำกัดเท่า SOP/กฎหมาย
+    match /kb_articles/{docId} {
+      allow read: if isStaff();
+      allow write: if isManager();
+    }
+
+    match /product_knowledge/{docId} {
+      allow read: if isStaff();
+      allow write: if isManager();
+    }
+
     // ── RAG (Phase 3) — embedding ของความรู้ภายใน (SOP/คู่มือ/Product Knowledge/กฎหมาย)
     // เขียนอัตโนมัติจาก core/db.js ทุกครั้งที่แหล่งข้อมูลต้นทางถูกสร้าง/แก้ไข — สิทธิ์เท่ากับ
     // การอ่าน/เขียนข้อมูลต้นทางเหล่านั้นเอง (ไม่มีข้อมูลลูกค้า/ธุรกิจส่วนตัวอยู่ใน Phase นี้)
@@ -594,7 +606,7 @@ service cloud.firestore {
         'financial_closings', 'debt_settlements', 'expense_claims',
         'staff', 'staff_loans', 'leave_requests', 'attendance', 'performance_reviews', 'team_targets',
         'employee_evaluations', 'disciplinary_records', 'recruitment', 'onboarding_staff', 'offboarding_staff',
-        'notifications', 'inspections', 'sop_documents', 'legal_references',
+        'notifications', 'inspections', 'sop_documents', 'legal_references', 'kb_articles', 'product_knowledge',
         'master_data', 'company_profile', 'whitelabel_settings', 'sms_otp_settings',
         'bank_partner_info', 'insurance_rate_cards', 'ai_officer_chats',
         'api_keys', 'security_policies', 'security_sessions',

@@ -507,3 +507,29 @@ describe('fourth audit pass — money-adjacent and personal-document collections
     await assertSucceeds(db.collection('staff_documents').add({ staff: 'x', type: 'id_card', fileUrl: 'https://x' }))
   })
 })
+
+describe('kb_articles / product_knowledge — the other 2 RAG sources missed when sop_documents/legal_references got their write-restriction rule', () => {
+  it('a plain staff member cannot create a KB article (should match sop_documents)', async () => {
+    await seedUser('kbStaff1', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('kbStaff1').firestore()
+    await assertFails(db.collection('kb_articles').add({ title: 'x' }))
+  })
+
+  it('a manager can create a KB article', async () => {
+    await seedUser('kbMgr1', { role: 'manager', active: true })
+    const db = testEnv.authenticatedContext('kbMgr1').firestore()
+    await assertSucceeds(db.collection('kb_articles').add({ title: 'x' }))
+  })
+
+  it('a plain staff member cannot edit product knowledge', async () => {
+    await seedUser('pkStaff1', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('pkStaff1').firestore()
+    await assertFails(db.collection('product_knowledge').add({ model: 'x' }))
+  })
+
+  it('staff can still read product knowledge (read stays open)', async () => {
+    await seedUser('pkStaff2', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('pkStaff2').firestore()
+    await assertSucceeds(db.collection('product_knowledge').get())
+  })
+})
