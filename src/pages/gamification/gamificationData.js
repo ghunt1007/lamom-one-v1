@@ -85,9 +85,12 @@ export async function getRealLeaderboard() {
     getSalesData().catch(() => []),
   ])
   const nowMonth = new Date().toISOString().slice(0, 7)
+  const nowYear = new Date().toISOString().slice(0, 4)
   const monthByName = {}
+  const yearByName = {}
   events.forEach(e => {
     if ((e.createdAt || '').slice(0, 7) === nowMonth) monthByName[e.userName] = (monthByName[e.userName] || 0) + (e.points || 0)
+    if ((e.createdAt || '').slice(0, 4) === nowYear) yearByName[e.userName] = (yearByName[e.userName] || 0) + (e.points || 0)
   })
   const salesByName = {}
   sales.filter(s => s.delivered && s.salesName).forEach(s => {
@@ -101,6 +104,7 @@ export async function getRealLeaderboard() {
       name: s.name,
       points: s.points || 0,
       monthPoints: monthByName[s.name] || 0,
+      yearPoints: yearByName[s.name] || 0,
       salesUnits: (salesByName[s.name] || {}).carsSold || 0,
       revenue: (salesByName[s.name] || {}).revenue || 0,
     }))

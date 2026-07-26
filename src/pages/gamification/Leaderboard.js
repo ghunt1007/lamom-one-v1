@@ -20,14 +20,14 @@ function getRank(pts) { return RANKS.find(r => pts >= r.min) || RANKS[4] }
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
 const DEMO_PLAYERS = [
-  { id: 'P01', name: 'วิชัย ยอดขาย', role: 'เซลส์', dept: 'ฝ่ายขาย', avatar: '👨', points: 4280, monthPoints: 580, streak: 12, badges: 18, salesUnits: 24, revenue: 7200000 },
-  { id: 'P02', name: 'สุดา มาดี',    role: 'เซลส์', dept: 'ฝ่ายขาย', avatar: '👩', points: 3520, monthPoints: 420, streak: 7,  badges: 14, salesUnits: 19, revenue: 5700000 },
-  { id: 'P03', name: 'ธนา เก่งกว่า', role: 'เซลส์', dept: 'ฝ่ายขาย', avatar: '👨', points: 2900, monthPoints: 350, streak: 5,  badges: 11, salesUnits: 16, revenue: 4800000 },
-  { id: 'P04', name: 'อรวรรณ ดีมาก', role: 'เซลส์', dept: 'ฝ่ายขาย', avatar: '👩', points: 2100, monthPoints: 280, streak: 8,  badges: 9,  salesUnits: 12, revenue: 3600000 },
-  { id: 'P05', name: 'วิทยา ช่างดี',  role: 'ช่าง',  dept: 'ศูนย์บริการ', avatar: '🧑', points: 1800, monthPoints: 220, streak: 15, badges: 12, salesUnits: 0, revenue: 0 },
-  { id: 'P06', name: 'สมศักดิ์ มั่นใจ', role: 'เซลส์', dept: 'ฝ่ายขาย', avatar: '👨', points: 1400, monthPoints: 180, streak: 3,  badges: 7,  salesUnits: 8,  revenue: 2400000 },
-  { id: 'P07', name: 'ปทิตา สวัสดี', role: 'ที่ปรึกษา', dept: 'ฝ่ายขาย', avatar: '👩', points: 1100, monthPoints: 160, streak: 6,  badges: 6,  salesUnits: 7,  revenue: 2100000 },
-  { id: 'P08', name: 'ชัยวัฒน์ พัฒนา', role: 'ช่าง', dept: 'ศูนย์บริการ', avatar: '🧑', points: 750, monthPoints: 120, streak: 4,  badges: 5,  salesUnits: 0, revenue: 0 },
+  { id: 'P01', name: 'วิชัย ยอดขาย', role: 'เซลส์', dept: 'ฝ่ายขาย', avatar: '👨', points: 4280, monthPoints: 580, yearPoints: 4280, streak: 12, badges: 18, salesUnits: 24, revenue: 7200000 },
+  { id: 'P02', name: 'สุดา มาดี',    role: 'เซลส์', dept: 'ฝ่ายขาย', avatar: '👩', points: 3520, monthPoints: 420, yearPoints: 3520, streak: 7,  badges: 14, salesUnits: 19, revenue: 5700000 },
+  { id: 'P03', name: 'ธนา เก่งกว่า', role: 'เซลส์', dept: 'ฝ่ายขาย', avatar: '👨', points: 2900, monthPoints: 350, yearPoints: 2900, streak: 5,  badges: 11, salesUnits: 16, revenue: 4800000 },
+  { id: 'P04', name: 'อรวรรณ ดีมาก', role: 'เซลส์', dept: 'ฝ่ายขาย', avatar: '👩', points: 2100, monthPoints: 280, yearPoints: 2100, streak: 8,  badges: 9,  salesUnits: 12, revenue: 3600000 },
+  { id: 'P05', name: 'วิทยา ช่างดี',  role: 'ช่าง',  dept: 'ศูนย์บริการ', avatar: '🧑', points: 1800, monthPoints: 220, yearPoints: 1800, streak: 15, badges: 12, salesUnits: 0, revenue: 0 },
+  { id: 'P06', name: 'สมศักดิ์ มั่นใจ', role: 'เซลส์', dept: 'ฝ่ายขาย', avatar: '👨', points: 1400, monthPoints: 180, yearPoints: 1400, streak: 3,  badges: 7,  salesUnits: 8,  revenue: 2400000 },
+  { id: 'P07', name: 'ปทิตา สวัสดี', role: 'ที่ปรึกษา', dept: 'ฝ่ายขาย', avatar: '👩', points: 1100, monthPoints: 160, yearPoints: 1100, streak: 6,  badges: 6,  salesUnits: 7,  revenue: 2100000 },
+  { id: 'P08', name: 'ชัยวัฒน์ พัฒนา', role: 'ช่าง', dept: 'ศูนย์บริการ', avatar: '🧑', points: 750, monthPoints: 120, yearPoints: 750, streak: 4,  badges: 5,  salesUnits: 0, revenue: 0 },
 ]
 
 export default async function LeaderboardPage(container) {
@@ -49,6 +49,7 @@ export default async function LeaderboardPage(container) {
         avatar: AVATARS[i % 3],
         points: p.points, // แต้มรวมจริงจาก staff_points ledger — ไม่ใช่สูตรคำนวณจำลองอีกต่อไป
         monthPoints: p.monthPoints, // ผลรวมแต้มจาก gamification_events ของเดือนนี้จริง
+        yearPoints: p.yearPoints, // ผลรวมแต้มจาก gamification_events ของปีนี้จริง
         streak: 1 + (i % 10),
         badges: Math.max(1, Math.round(p.points / 300)),
         salesUnits: p.salesUnits,
@@ -58,10 +59,12 @@ export default async function LeaderboardPage(container) {
     }
   } catch {}
 
+  function pointsFor(p) { return period === 'month' ? p.monthPoints : period === 'year' ? p.yearPoints : p.points }
+
   function renderPage() {
     const sorted = [...players]
       .filter(p => deptFilter === 'all' || p.dept === deptFilter)
-      .sort((a, b) => (period === 'month' ? b.monthPoints - a.monthPoints : b.points - a.points))
+      .sort((a, b) => pointsFor(b) - pointsFor(a))
 
     const top3 = sorted.slice(0, 3)
     const rest = sorted.slice(3)
@@ -78,6 +81,7 @@ export default async function LeaderboardPage(container) {
           <div class="page-actions">
             <div style="display:flex;gap:8px">
               <button class="btn btn-xs ${period==='month'?'btn-primary':'btn-secondary'}" id="period-month">เดือนนี้</button>
+              <button class="btn btn-xs ${period==='year'?'btn-primary':'btn-secondary'}" id="period-year">รายปี</button>
               <button class="btn btn-xs ${period==='all'?'btn-primary':'btn-secondary'}" id="period-all">ตลอดกาล</button>
               <select class="input" id="dept-filter" style="font-size:0.8rem;padding:4px 8px">
                 <option value="all">ทุกแผนก</option>
@@ -112,7 +116,7 @@ export default async function LeaderboardPage(container) {
             <tbody>
               ${rest.map((p, i) => {
                 const rank = getRank(p.points)
-                const pts = period === 'month' ? p.monthPoints : p.points
+                const pts = pointsFor(p)
                 return `<tr style="border-bottom:1px solid var(--border);cursor:pointer" class="lb-row" data-id="${p.id}">
                   <td style="padding:10px 14px;font-weight:700;color:var(--text-muted)">${i+4}</td>
                   <td style="padding:10px 14px">
@@ -138,6 +142,7 @@ export default async function LeaderboardPage(container) {
     `
 
     document.getElementById('period-month')?.addEventListener('click', () => { period = 'month'; renderPage() })
+    document.getElementById('period-year')?.addEventListener('click', () => { period = 'year'; renderPage() })
     document.getElementById('period-all')?.addEventListener('click', () => { period = 'all'; renderPage() })
     document.getElementById('dept-filter')?.addEventListener('change', e => { deptFilter = e.target.value; renderPage() })
     container.querySelectorAll('.lb-row').forEach(r => r.addEventListener('click', () => {
@@ -148,7 +153,7 @@ export default async function LeaderboardPage(container) {
   function podiumCard(p, pos, height) {
     if (!p) return '<div></div>'
     const rank = getRank(p.points)
-    const pts = period === 'month' ? p.monthPoints : p.points
+    const pts = pointsFor(p)
     const posLabel = pos === 1 ? '🥇' : pos === 2 ? '🥈' : '🥉'
     return `
       <div style="display:flex;flex-direction:column;align-items:center;cursor:pointer" class="lb-row" data-id="${p.id}">
@@ -178,6 +183,7 @@ export default async function LeaderboardPage(container) {
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
           ${kpi('⭐ คะแนนรวม', p.points.toLocaleString(), 'primary')}
           ${kpi('📅 เดือนนี้', p.monthPoints.toLocaleString(), 'success')}
+          ${kpi('🗓 ปีนี้', p.yearPoints.toLocaleString(), 'success')}
           ${kpi('🔥 Streak', p.streak + ' วัน', 'warning')}
           ${kpi('🏅 Badges', p.badges, 'secondary')}
           ${kpi('🚗 ยอดขาย', p.salesUnits + ' คัน', 'primary')}
