@@ -1,78 +1,37 @@
-import { formatDate } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
-import { openModal } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-const DEMO_STAFF = [
-  { id:'S001', name:'วิชาญ มีโชค', dept:'sales', shift:'08:00-17:00', photo:null },
-  { id:'S002', name:'อรนุช สายใจ', dept:'sales', shift:'08:00-17:00', photo:null },
-  { id:'S003', name:'ธีรยุทธ เก่งกาจ', dept:'service', shift:'07:30-16:30', photo:null },
-  { id:'S004', name:'พิมพ์ใจ ตั้งมั่น', dept:'service', shift:'07:30-16:30', photo:null },
-  { id:'S005', name:'นภา จิตดี', dept:'admin', shift:'08:30-17:30', photo:null },
-]
-
 function todayStr() { return new Date().toISOString().slice(0, 10) }
 function nowStr() { return new Date().toTimeString().slice(0, 5) }
 
-function generateDemoAttendance() {
-  const records = {}
-  const today = new Date()
-  for (let d = 0; d < 30; d++) {
-    const dt = new Date(today); dt.setDate(today.getDate() - d)
-    if (dt.getDay() === 0 || dt.getDay() === 6) continue // skip weekends
-    const dateStr = dt.toISOString().slice(0, 10)
-    records[dateStr] = DEMO_STAFF.map(s => {
-      const late = Math.random() < 0.1
-      const absent = Math.random() < 0.05
-      const [hIn, mIn] = s.shift.split('-')[0].split(':').map(Number)
-      const inH = late ? hIn + (Math.random() < 0.5 ? 1 : 0) : hIn
-      const inM = absent ? 0 : Math.floor(Math.random() * 15) + (late ? 20 : 0)
-      const [hOut, mOut] = s.shift.split('-')[1].split(':').map(Number)
-      return {
-        staffId: s.id, staffName: s.name, date: dateStr,
-        checkIn: absent ? null : `${String(inH).padStart(2,'0')}:${String(inM).padStart(2,'0')}`,
-        checkOut: absent ? null : `${String(hOut + (Math.random() < 0.3 ? 1 : 0)).padStart(2,'0')}:${String(Math.floor(Math.random()*30)).padStart(2,'0')}`,
-        status: absent ? 'absent' : (late || inH > hIn || inM > 15) ? 'late' : 'present',
-        lat: 13.7563 + (Math.random() - 0.5) * 0.01,
-        lng: 100.5018 + (Math.random() - 0.5) * 0.01,
-        note: ''
-      }
-    })
-  }
-  return records
-}
-
-const ATTENDANCE_KEY = 'lamom-attendance'
-
 export default async function AttendancePage(container) {
   const myGen = container.__routerGen
-  let activeStaff = DEMO_STAFF.map(s => ({ ...s }))
+  let activeStaff = []
 
   try {
-    const staffList = await listDocs('staff', [], 'name', 'asc', 200).catch(() => [])
+    const staffList = await listDocs('staff', [], 'name', 'asc', 200)
     if (container.__routerGen !== myGen) return
-    if (staffList.length >= 2) {
-      activeStaff = staffList.map(s => ({
-        id: s.id || s.staffId || ('LS' + Math.random().toString(36).slice(2, 6)),
-        name: s.name || s.staffName || '',
-        dept: s.department || s.dept || 'ทั่วไป',
-        position: s.position || s.role || '',
-        shift: s.shift || '08:30-17:30',
-        _live: true,
-      })).filter(s => s.name)
-    }
-  } catch {}
+    activeStaff = staffList.map(s => ({
+      id: s.id,
+      name: s.name || s.staffName || '',
+      dept: s.department || s.dept || 'ทั่วไป',
+      position: s.position || s.role || '',
+      shift: s.shift || '08:30-17:30',
+    })).filter(s => s.name)
+  } catch { activeStaff = [] }
 
-  let attendanceDb; try { attendanceDb = JSON.parse(localStorage.getItem(ATTENDANCE_KEY) || '{}') } catch { attendanceDb = {} }
-  if (Object.keys(attendanceDb).length < 5) {
-    attendanceDb = generateDemoAttendance()
-    try { localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(attendanceDb)) } catch {}
-  }
+  // attendanceDb: { [date]: [{ id, staffId, staffName, date, checkIn, checkOut, status, note }] } — สร้างจากข้อมูลจริงใน Firestore เท่านั้น ไม่มีข้อมูลสุ่ม/ปลอมปนอีกต่อไป
+  let attendanceDb = {}
+  try {
+    const rows = await listDocs('attendance', [], 'date', 'desc', 1000)
+    if (container.__routerGen !== myGen) return
+    rows.forEach(r => { (attendanceDb[r.date] ||= []).push(r) })
+  } catch { attendanceDb = {} }
 
   let viewDate = todayStr()
   let viewMonth = todayStr().slice(0, 7)
@@ -81,7 +40,7 @@ export default async function AttendancePage(container) {
   function getTodayRecords() {
     return attendanceDb[viewDate] || activeStaff.map(s => ({
       staffId: s.id, staffName: s.name, date: viewDate,
-      checkIn: null, checkOut: null, status: 'pending', lat: null, lng: null, note: ''
+      checkIn: null, checkOut: null, status: 'pending', note: ''
     }))
   }
 
@@ -101,34 +60,44 @@ export default async function AttendancePage(container) {
     }
   }
 
-  function checkIn(staffId) {
+  async function checkIn(staffId) {
     if (!attendanceDb[viewDate]) attendanceDb[viewDate] = []
     let rec = attendanceDb[viewDate].find(r => r.staffId === staffId)
-    const staff = activeStaff.find(s => s.id === staffId) || { name: 'พนักงาน', shift: '08:30-17:30' }
-    if (!rec) {
-      rec = { staffId, staffName: staff.name, date: viewDate, checkIn: null, checkOut: null, status: 'pending', note: '' }
-      attendanceDb[viewDate].push(rec)
-    }
-    if (rec.checkIn) return showToast('ลงเวลาเข้าแล้ว', 'warning')
-    rec.checkIn = nowStr()
+    const staff = activeStaff.find(s => s.id === staffId)
+    if (!staff) return
+    if (rec?.checkIn) return showToast('ลงเวลาเข้าแล้ว', 'warning')
+
+    const checkInTime = nowStr()
     const [hShift, mShift] = (staff.shift || '08:30-17:30').split('-')[0].split(':').map(Number)
-    const [hIn, mIn] = rec.checkIn.split(':').map(Number)
+    const [hIn, mIn] = checkInTime.split(':').map(Number)
     const lateMinutes = (hIn * 60 + mIn) - (hShift * 60 + mShift)
-    rec.status = lateMinutes > 15 ? 'late' : 'present'
-    rec.lat = 13.7563 + (Math.random() - 0.5) * 0.002
-    rec.lng = 100.5018 + (Math.random() - 0.5) * 0.002
-    try { localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(attendanceDb)) } catch {}
-    showToast(`✅ ${staff.name} เข้างาน ${rec.checkIn} ${lateMinutes > 15 ? '⚠️ สาย ' + lateMinutes + ' นาที' : ''}`, rec.status === 'late' ? 'warning' : 'success')
+    const status = lateMinutes > 15 ? 'late' : 'present'
+
+    try {
+      if (rec) {
+        await updateDocData('attendance', rec.id, { checkIn: checkInTime, status })
+        rec.checkIn = checkInTime; rec.status = status
+      } else {
+        const data = { staffId, staffName: staff.name, date: viewDate, checkIn: checkInTime, checkOut: null, status, note: '' }
+        const id = await createDoc('attendance', data)
+        attendanceDb[viewDate].push({ ...data, id })
+      }
+    } catch { return showToast('บันทึกไม่สำเร็จ', 'error') }
+
+    showToast(`✅ ${staff.name} เข้างาน ${checkInTime} ${lateMinutes > 15 ? '⚠️ สาย ' + lateMinutes + ' นาที' : ''}`, status === 'late' ? 'warning' : 'success')
     renderPage()
   }
 
-  function checkOut(staffId) {
+  async function checkOut(staffId) {
     const rec = attendanceDb[viewDate]?.find(r => r.staffId === staffId)
     if (!rec || !rec.checkIn) return showToast('ยังไม่ได้ลงเวลาเข้า', 'warning')
     if (rec.checkOut) return showToast('ลงเวลาออกแล้ว', 'warning')
-    rec.checkOut = nowStr()
-    try { localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(attendanceDb)) } catch {}
-    showToast(`👋 ${rec.staffName} ออกงาน ${rec.checkOut}`, 'success')
+    const checkOutTime = nowStr()
+    try {
+      await updateDocData('attendance', rec.id, { checkOut: checkOutTime })
+      rec.checkOut = checkOutTime
+    } catch { return showToast('บันทึกไม่สำเร็จ', 'error') }
+    showToast(`👋 ${rec.staffName} ออกงาน ${checkOutTime}`, 'success')
     renderPage()
   }
 
@@ -141,13 +110,16 @@ export default async function AttendancePage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🕐 Attendance</div>
-            <div class="page-subtitle">ลงเวลาเข้า-ออกงาน${activeStaff.some(s => s._live) ? ' <span style="color:var(--success);font-size:0.75rem">● พนักงานจากระบบจริง</span>' : ''}</div>
+            <div class="page-subtitle">ลงเวลาเข้า-ออกงาน</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="att-export">📥 Export</button>
           </div>
         </div>
 
+        ${!activeStaff.length ? `<div class="empty-state" style="padding:40px;text-align:center;color:var(--text-muted)">
+          ยังไม่มีข้อมูลพนักงานในระบบ — เพิ่มพนักงานที่หน้า HR &gt; พนักงาน ก่อน
+        </div>` : `
         <!-- KPI Today -->
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
           ${kpi('✅ มาทำงาน', todayStats.present, 'success')}
@@ -164,6 +136,7 @@ export default async function AttendancePage(container) {
         </div>
 
         ${tab === 'today' ? renderToday(todayRecs) : tab === 'monthly' ? renderMonthly() : renderReport()}
+        `}
       </div>
     `
 
@@ -190,7 +163,7 @@ export default async function AttendancePage(container) {
           const statusColor = { present:'success', late:'warning', absent:'danger', pending:'secondary' }[r.status]
           const statusLabel = { present:'มาทำงาน', late:'มาสาย', absent:'ขาดงาน', pending:'รอบันทึก' }[r.status]
           return `<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md)">
-            <div style="width:36px;height:36px;border-radius:50%;background:var(--primary-dim);display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">${escHtml(r.staffName.charAt(0))}</div>
+            <div style="width:36px;height:36px;border-radius:50%;background:var(--primary-dim);display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">${escHtml((r.staffName||'?').charAt(0))}</div>
             <div style="flex:1">
               <div style="font-weight:600;font-size:0.88rem">${escHtml(r.staffName)}</div>
               <div style="font-size:0.75rem;color:var(--text-muted)">${escHtml(s?.shift||'')} · ${escHtml(s?.dept||'')}</div>
@@ -204,7 +177,6 @@ export default async function AttendancePage(container) {
               <div style="font-size:0.68rem;color:var(--text-muted)">ออกงาน</div>
             </div>
             <span class="badge badge-${statusColor}">${statusLabel}</span>
-            ${r.lat ? `<span style="font-size:0.7rem;color:var(--primary)">📍 GPS</span>` : ''}
             <div style="display:flex;gap:4px">
               ${!r.checkIn ? `<button class="btn btn-xs btn-success checkin-btn" data-id="${r.staffId}">เข้างาน</button>` : ''}
               ${r.checkIn && !r.checkOut ? `<button class="btn btn-xs btn-warning checkout-btn" data-id="${r.staffId}">ออกงาน</button>` : ''}
@@ -244,7 +216,7 @@ export default async function AttendancePage(container) {
   }
 
   function renderReport() {
-    const monthRecs = Object.values(attendanceDb).filter((_, i, a) => true).flat()
+    const monthRecs = Object.values(attendanceDb).flat()
     return `
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">
         ${activeStaff.map(s => {

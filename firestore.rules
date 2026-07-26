@@ -386,9 +386,10 @@ service cloud.firestore {
       allow update, delete: if isHR() || isManager();
     }
 
+    // หน้า Attendance เป็นแบบ kiosk — พนักงานคนไหนก็แตะเข้า/ออกงานของตัวเองได้จากอุปกรณ์ที่ตั้งไว้หน้าออฟฟิศ
+    // จำกัดแค่ isHR()/isManager() จะทำให้พนักงานทั่วไปลงเวลาเข้า-ออกงานเองไม่ได้เลย (ผิดจากที่ UI ออกแบบไว้)
     match /attendance/{docId} {
-      allow read: if isStaff();
-      allow write: if isHR() || isManager();
+      allow read, write: if isStaff();
     }
 
     match /performance_reviews/{docId} {

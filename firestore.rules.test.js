@@ -508,6 +508,20 @@ describe('fourth audit pass — money-adjacent and personal-document collections
   })
 })
 
+describe('attendance — kiosk-style self check-in, any staff can write (not just HR/manager)', () => {
+  it('a plain sales staff member can check themself in (was blocked before this fix)', async () => {
+    await seedUser('attStaff1', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('attStaff1').firestore()
+    await assertSucceeds(db.collection('attendance').add({ staffId: 'S1', staffName: 'x', date: '2026-07-26', checkIn: '08:30', checkOut: null, status: 'present' }))
+  })
+
+  it('a plain staff member can read the attendance log', async () => {
+    await seedUser('attStaff2', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('attStaff2').firestore()
+    await assertSucceeds(db.collection('attendance').get())
+  })
+})
+
 describe('kb_articles / product_knowledge — the other 2 RAG sources missed when sop_documents/legal_references got their write-restriction rule', () => {
   it('a plain staff member cannot create a KB article (should match sop_documents)', async () => {
     await seedUser('kbStaff1', { role: 'sales', active: true })
