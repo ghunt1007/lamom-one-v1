@@ -61,10 +61,14 @@ export default async function OperationsDashboardPage(container) {
   const myGen = container.__routerGen
   const d = JSON.parse(JSON.stringify(OPS_DATA))
 
+  const today = new Date().toISOString().slice(0, 10)
+
   try {
-    const [vehicles, jobs] = await Promise.all([
+    const [vehicles, jobs, staff, attendance] = await Promise.all([
       listDocs('vehicles', [], 'createdAt', 'desc', 500).catch(() => []),
       listDocs('job_cards', [], 'createdAt', 'desc', 500).catch(() => []),
+      listDocs('staff', [], 'name', 'asc', 500).catch(() => []),
+      listDocs('attendance', [['date', '==', today]], 'date', 'desc', 500).catch(() => []),
     ])
     if (container.__routerGen !== myGen) return
 
@@ -81,6 +85,11 @@ export default async function OperationsDashboardPage(container) {
       d.service.completed = jobs.filter(j => j.status === 'เสร็จแล้ว' || j.status === 'completed' || j.status === 'done').length
       d.service.inProgress = jobs.filter(j => j.status === 'กำลังซ่อม' || j.status === 'in_progress' || j.status === 'กำลังดำเนินการ').length
       d.service.pending = jobs.filter(j => j.status === 'รอ' || j.status === 'pending').length
+    }
+
+    if (staff.length) {
+      d.workforce.totalStaff = staff.length
+      d.workforce.present = attendance.filter(a => a.checkIn).length
     }
   } catch {}
 
@@ -101,15 +110,15 @@ export default async function OperationsDashboardPage(container) {
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
           ${opsKpi('📦 สต็อกรถพร้อมขาย', d.inventory.available + ' คัน', 'primary', d.inventory.totalVehicles + ' คันทั้งหมด')}
           ${opsKpi('🔧 งานบริการเสร็จ', d.service.completed + ' งาน', 'success', 'กำลังซ่อม ' + d.service.inProgress)}
-          ${opsKpi('⭐ CSAT', d.service.csatScore + '/5.0', 'warning', 'จาก Service')}
-          ${opsKpi('👥 พนักงานวันนี้', d.workforce.present + '/' + d.workforce.totalStaff, 'primary', 'ลา ' + d.workforce.onLeave + ' คน')}
+          ${opsKpi('⭐ CSAT', d.service.csatScore + '/5.0', 'warning', 'ตัวอย่าง — ยังไม่มีระบบสำรวจ CSAT จริง')}
+          ${opsKpi('👥 พนักงานวันนี้', d.workforce.present + '/' + d.workforce.totalStaff, 'primary', 'ลงเวลาแล้ว (จาก Attendance จริง)')}
         </div>
 
         <!-- Main grid -->
         <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px">
           <!-- Sales & Service trend -->
           <div class="card" style="padding:14px">
-            <div style="font-weight:700;font-size:0.85rem;margin-bottom:12px">📈 Throughput H1 2025</div>
+            <div style="font-weight:700;font-size:0.85rem;margin-bottom:12px">📈 Throughput รายเดือน <span style="font-weight:400;color:var(--text-muted);font-size:0.7rem">(ตัวอย่างข้อมูล)</span></div>
             <div style="display:flex;align-items:flex-end;gap:5px;height:80px;border-bottom:1px solid var(--border);margin-bottom:6px">
               ${MONTHS.map((m, i) => {
                 const s = MONTHLY_THROUGHPUT.vehiclesSold[i]
@@ -128,7 +137,7 @@ export default async function OperationsDashboardPage(container) {
 
           <!-- Bottlenecks -->
           <div class="card" style="padding:14px">
-            <div style="font-weight:700;font-size:0.85rem;margin-bottom:10px">⚠️ Bottlenecks</div>
+            <div style="font-weight:700;font-size:0.85rem;margin-bottom:10px">⚠️ Bottlenecks <span style="font-weight:400;color:var(--text-muted);font-size:0.7rem">(ตัวอย่างข้อมูล — ยังไม่เชื่อมระบบตรวจจับปัญหาจริง)</span></div>
             ${BOTTLENECKS.map(b => `
               <div style="display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">
                 <span style="font-size:0.7rem;padding:2px 6px;border-radius:3px;background:var(--${b.impact==='high'?'danger':b.impact==='medium'?'warning':'secondary'}-dim,var(--surface-2));color:var(--${b.impact==='high'?'danger':b.impact==='medium'?'warning':'text-muted'});flex-shrink:0">${b.impact.toUpperCase()}</span>
@@ -149,9 +158,9 @@ export default async function OperationsDashboardPage(container) {
             ${healthBar('พร้อมขาย', d.inventory.available, d.inventory.totalVehicles, 'success')}
             ${healthBar('จอง', d.inventory.reserved, d.inventory.totalVehicles, 'warning')}
             ${healthBar('กำลังขนส่ง', d.inventory.inTransit, d.inventory.totalVehicles, 'primary')}
-            <div style="margin-top:8px;font-size:0.75rem;color:var(--text-muted)">เฉลี่ยอยู่ในสต็อก ${d.inventory.avgDaysInStock} วัน</div>
+            <div style="margin-top:8px;font-size:0.75rem;color:var(--text-muted)">เฉลี่ยอยู่ในสต็อก ${d.inventory.avgDaysInStock} วัน <span style="font-size:0.65rem">(ตัวอย่าง)</span></div>
             <div style="margin-top:4px;display:flex;justify-content:space-between;font-size:0.73rem">
-              <span>Stock Health</span>
+              <span>Stock Health <span style="font-size:0.65rem;color:var(--text-muted)">(ตัวอย่าง)</span></span>
               <strong style="color:var(--${d.inventory.stockHealth>=80?'success':'warning'})">${d.inventory.stockHealth}%</strong>
             </div>
           </div>
@@ -162,16 +171,16 @@ export default async function OperationsDashboardPage(container) {
             ${healthBar('เสร็จแล้ว', d.service.completed, d.service.totalJobs, 'success')}
             ${healthBar('กำลังซ่อม', d.service.inProgress, d.service.totalJobs, 'warning')}
             ${healthBar('รอรับ', d.service.pending, d.service.totalJobs, 'secondary')}
-            <div style="margin-top:8px;font-size:0.75rem;color:var(--text-muted)">Turnaround ${d.service.avgTurnaround} วัน</div>
+            <div style="margin-top:8px;font-size:0.75rem;color:var(--text-muted)">Turnaround ${d.service.avgTurnaround} วัน <span style="font-size:0.65rem">(ตัวอย่าง)</span></div>
             <div style="margin-top:4px;display:flex;justify-content:space-between;font-size:0.73rem">
-              <span>ช่างใช้งาน</span>
+              <span>ช่างใช้งาน <span style="font-size:0.65rem;color:var(--text-muted)">(ตัวอย่าง)</span></span>
               <strong style="color:var(--success)">${d.service.techUtilization}%</strong>
             </div>
           </div>
 
           <!-- Supply -->
           <div class="card" style="padding:14px">
-            <div style="font-weight:700;font-size:0.82rem;margin-bottom:10px">🛒 Supply Chain</div>
+            <div style="font-weight:700;font-size:0.82rem;margin-bottom:10px">🛒 Supply Chain <span style="font-weight:400;color:var(--text-muted);font-size:0.68rem">(ตัวอย่าง)</span></div>
             <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:0.78rem">
               <span style="color:var(--text-muted)">ซัพพลายเออร์</span><strong>${d.supply.activeSuppliers}</strong>
             </div>
@@ -189,15 +198,15 @@ export default async function OperationsDashboardPage(container) {
           <!-- Workforce -->
           <div class="card" style="padding:14px">
             <div style="font-weight:700;font-size:0.82rem;margin-bottom:10px">👥 HR</div>
-            ${healthBar('มาทำงาน', d.workforce.present, d.workforce.totalStaff, 'success')}
+            ${healthBar('ลงเวลาวันนี้', d.workforce.present, d.workforce.totalStaff, 'success')}
             <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:0.78rem">
-              <span style="color:var(--text-muted)">Performance avg</span><strong style="color:var(--success)">${d.workforce.avgPerformance}</strong>
+              <span style="color:var(--text-muted)">Performance avg <span style="font-size:0.65rem">(ตัวอย่าง)</span></span><strong style="color:var(--success)">${d.workforce.avgPerformance}</strong>
             </div>
             <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:0.78rem">
-              <span style="color:var(--text-muted)">ตำแหน่งว่าง</span><strong style="color:${d.workforce.openPositions>0?'var(--warning)':'var(--success)'}">${d.workforce.openPositions}</strong>
+              <span style="color:var(--text-muted)">ตำแหน่งว่าง <span style="font-size:0.65rem">(ตัวอย่าง)</span></span><strong style="color:${d.workforce.openPositions>0?'var(--warning)':'var(--success)'}">${d.workforce.openPositions}</strong>
             </div>
             <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:0.78rem">
-              <span style="color:var(--text-muted)">Training ผ่าน</span><strong>${d.workforce.trainingCompleted}%</strong>
+              <span style="color:var(--text-muted)">Training ผ่าน <span style="font-size:0.65rem">(ตัวอย่าง)</span></span><strong>${d.workforce.trainingCompleted}%</strong>
             </div>
           </div>
         </div>

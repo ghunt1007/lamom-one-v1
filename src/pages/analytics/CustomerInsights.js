@@ -3,6 +3,8 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData } from '../../core/db.js'
 
+function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+
 const MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 
 // Demo data — customer segments and behavior
@@ -103,8 +105,8 @@ export default async function CustomerInsightsPage(container) {
         ${liveTotalSales ? `<div style="margin-bottom:10px;padding:7px 12px;background:var(--surface-2);border-left:3px solid var(--success);border-radius:var(--radius-sm);font-size:0.78rem;color:var(--success)">● ข้อมูลจริง: ${liveTotalSales} ธุรกรรมจากใบจอง</div>` : ''}
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('👥 ลูกค้าทั้งหมด', totalCustomers + (liveTotalSales ? '' : ' (Demo)'), 'primary')}
-          ${kpi('✨ ใหม่เดือนนี้', newThisMonth, 'success')}
-          ${kpi('💰 Avg LTV', formatCurrency(avgLTV), 'warning')}
+          ${kpi('✨ ใหม่เดือนนี้', newThisMonth + ' (ตัวอย่าง)', 'success')}
+          ${kpi('💰 Avg LTV', formatCurrency(avgLTV) + ' (ตัวอย่าง)', 'warning')}
           ${kpi('🔄 Retention', retentionRate + '%', retentionRate >= 90 ? 'success' : 'warning')}
         </div>
 
@@ -129,7 +131,7 @@ export default async function CustomerInsightsPage(container) {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
         <!-- Monthly trend -->
         <div class="card" style="padding:14px">
-          <div style="font-weight:700;font-size:0.85rem;margin-bottom:12px">📈 ลูกค้าใหม่ vs กลับมา (H1 2025)</div>
+          <div style="font-weight:700;font-size:0.85rem;margin-bottom:12px">📈 ลูกค้าใหม่ vs กลับมา <span style="font-weight:400;color:var(--text-muted);font-size:0.7rem">(ตัวอย่างข้อมูล)</span></div>
           <div style="display:flex;align-items:flex-end;gap:3px;height:100px;border-bottom:1px solid var(--border);padding-bottom:4px;margin-bottom:6px">
             ${MONTHLY_NEW.slice(0,6).map((v, i) => {
               const returning = MONTHLY_RETURNING[i]
@@ -154,7 +156,7 @@ export default async function CustomerInsightsPage(container) {
 
         <!-- Buyer type donut-style -->
         <div class="card" style="padding:14px">
-          <div style="font-weight:700;font-size:0.85rem;margin-bottom:12px">🚗 ประเภทผู้ซื้อ</div>
+          <div style="font-weight:700;font-size:0.85rem;margin-bottom:12px">🚗 ประเภทผู้ซื้อ <span style="font-weight:400;color:var(--text-muted);font-size:0.7rem">(ตัวอย่างข้อมูล)</span></div>
           ${BUYER_TYPES.map(b => `
             <div style="margin-bottom:10px">
               <div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:3px">
@@ -169,7 +171,7 @@ export default async function CustomerInsightsPage(container) {
 
         <!-- Churn trend -->
         <div class="card" style="padding:14px;grid-column:1/-1">
-          <div style="font-weight:700;font-size:0.85rem;margin-bottom:12px">📉 Churn Analysis</div>
+          <div style="font-weight:700;font-size:0.85rem;margin-bottom:12px">📉 Churn Analysis <span style="font-weight:400;color:var(--text-muted);font-size:0.7rem">(ตัวอย่างข้อมูล)</span></div>
           <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px">
             ${MONTHLY_CHURN.slice(0,6).map((v, i) => `
               <div style="text-align:center;padding:10px;background:var(--surface-2);border-radius:var(--radius-sm)">
@@ -188,7 +190,7 @@ export default async function CustomerInsightsPage(container) {
     return `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
         <div class="card" style="padding:14px">
-          <div style="font-weight:700;font-size:0.85rem;margin-bottom:12px">👤 กลุ่มอายุ</div>
+          <div style="font-weight:700;font-size:0.85rem;margin-bottom:12px">👤 กลุ่มอายุ <span style="font-weight:400;color:var(--text-muted);font-size:0.7rem">(ตัวอย่างข้อมูล — ระบบยังไม่เก็บวันเกิดลูกค้า)</span></div>
           ${AGE_SEGMENTS.map(s => `
             <div style="margin-bottom:10px">
               <div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:3px">
@@ -203,7 +205,7 @@ export default async function CustomerInsightsPage(container) {
           `).join('')}
         </div>
         <div class="card" style="padding:14px">
-          <div style="font-weight:700;font-size:0.85rem;margin-bottom:12px">🏆 Loyalty Tier Distribution</div>
+          <div style="font-weight:700;font-size:0.85rem;margin-bottom:12px">🏆 Loyalty Tier Distribution <span style="font-weight:400;color:var(--text-muted);font-size:0.7rem">(ตัวอย่างข้อมูล)</span></div>
           ${[['Platinum',15,'danger',2500000],['Gold',42,'warning',1200000],['Silver',98,'secondary',800000],['Bronze',149,'secondary',400000]].map(([t,n,c,ltv]) => `
             <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
               <div style="display:flex;align-items:center;gap:8px">
@@ -272,7 +274,7 @@ export default async function CustomerInsightsPage(container) {
               const tc = c.tier === 'Platinum' ? 'danger' : c.tier === 'Gold' ? 'warning' : 'secondary'
               return `<tr>
                 <td style="font-weight:800;font-size:0.85rem">${i+1}</td>
-                <td style="font-weight:600;font-size:0.85rem">${c.name}</td>
+                <td style="font-weight:600;font-size:0.85rem">${escHtml(c.name)}</td>
                 <td><span class="badge badge-${c.type === 'Corporate' ? 'primary' : 'secondary'}">${c.type}</span></td>
                 <td class="text-right">${c.purchases} ครั้ง</td>
                 <td class="text-right" style="font-weight:700;color:var(--success)">${formatCurrency(c.totalSpend)}</td>

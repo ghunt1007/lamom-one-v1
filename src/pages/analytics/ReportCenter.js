@@ -61,16 +61,41 @@ const REPORT_DATA = {
   ],
 }
 
+const MONTHS_TH = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
+
 export default async function ReportCenterPage(container) {
   const myGen = container.__routerGen
+  const YEAR = new Date().getFullYear()
   let catFilter = 'all'
   let activeReport = null
-  let dateFrom = '2025-01-01'
+  let dateFrom = `${YEAR}-01-01`
   let dateTo = new Date().toISOString().slice(0, 10)
 
   // Live report data — start with demo, overlay real data when available
   const reportData = JSON.parse(JSON.stringify(REPORT_DATA))
   let liveR001 = false, liveR002 = false
+  let salesData = []
+
+  function rebuildR001() {
+    const inRange = salesData.filter(s => s.date >= dateFrom && s.date <= dateTo)
+    if (inRange.length < 2) { liveR001 = false; return }
+    const byMonth = {}
+    inRange.forEach(s => {
+      const mo = parseInt((s.date || '').slice(5, 7)) - 1
+      if (isNaN(mo) || mo < 0 || mo > 11) return
+      if (!byMonth[mo]) byMonth[mo] = { เดือน: MONTHS_TH[mo], จำนวนคัน: 0, ยอดขาย: 0, ต้นทุน: 0, กำไรรวม: 0 }
+      byMonth[mo].จำนวนคัน++
+      byMonth[mo].ยอดขาย += s.salePrice || 0
+      byMonth[mo].ต้นทุน += Math.round((s.salePrice || 0) * 0.82)
+    })
+    const r001 = Object.keys(byMonth).sort((a, b) => +a - +b).map(k => {
+      const m = byMonth[k]
+      m.กำไรรวม = m.ยอดขาย - m.ต้นทุน
+      m['Margin%'] = m.ยอดขาย ? (m.กำไรรวม / m.ยอดขาย * 100).toFixed(1) + '%' : '0%'
+      return m
+    })
+    if (r001.length) { reportData.R001 = r001; liveR001 = true } else { liveR001 = false }
+  }
 
   try {
     const [sales, coms] = await Promise.all([
@@ -78,27 +103,8 @@ export default async function ReportCenterPage(container) {
       getCommissionData().catch(() => []),
     ])
     if (container.__routerGen !== myGen) return
-
-    const MONTHS_TH = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
-
-    if (sales.length >= 2) {
-      const byMonth = {}
-      sales.forEach(s => {
-        const mo = parseInt((s.date || '').slice(5, 7)) - 1
-        if (isNaN(mo) || mo < 0 || mo > 11) return
-        if (!byMonth[mo]) byMonth[mo] = { เดือน: MONTHS_TH[mo], จำนวนคัน: 0, ยอดขาย: 0, ต้นทุน: 0, กำไรรวม: 0 }
-        byMonth[mo].จำนวนคัน++
-        byMonth[mo].ยอดขาย += s.salePrice || 0
-        byMonth[mo].ต้นทุน += Math.round((s.salePrice || 0) * 0.82)
-      })
-      const r001 = Object.keys(byMonth).sort((a, b) => +a - +b).map(k => {
-        const m = byMonth[k]
-        m.กำไรรวม = m.ยอดขาย - m.ต้นทุน
-        m['Margin%'] = m.ยอดขาย ? (m.กำไรรวม / m.ยอดขาย * 100).toFixed(1) + '%' : '0%'
-        return m
-      })
-      if (r001.length) { reportData.R001 = r001; liveR001 = true }
-    }
+    salesData = sales
+    rebuildR001()
 
     if (coms.length) {
       const byName = {}
@@ -149,8 +155,8 @@ export default async function ReportCenterPage(container) {
       exportToExcel(data, activeReport.name)
       showToast('📥 Export แล้ว!', 'success')
     })
-    document.getElementById('date-from')?.addEventListener('change', e => { dateFrom = e.target.value; renderPage() })
-    document.getElementById('date-to')?.addEventListener('change', e => { dateTo = e.target.value; renderPage() })
+    document.getElementById('date-from')?.addEventListener('change', e => { dateFrom = e.target.value; rebuildR001(); renderPage() })
+    document.getElementById('date-to')?.addEventListener('change', e => { dateTo = e.target.value; rebuildR001(); renderPage() })
   }
 
   function renderReportList(filtered) {
@@ -196,15 +202,16 @@ export default async function ReportCenterPage(container) {
           <div>
             <div style="font-weight:700;font-size:1rem">${r.name}</div>
             <div style="font-size:0.78rem;color:var(--text-muted)">${r.desc}
-              ${isLive ? ' <span style="color:var(--success);font-size:0.7rem">● ข้อมูลจริง</span>' : ''}
+              ${isLive ? ' <span style="color:var(--success);font-size:0.7rem">● ข้อมูลจริง</span>' : ' <span style="color:var(--text-muted);font-size:0.7rem">● ตัวอย่างข้อมูล — รายงานนี้ยังไม่เชื่อมข้อมูลจริง</span>'}
             </div>
           </div>
-          <!-- Date range -->
+          <!-- Date range — มีผลเฉพาะรายงานที่มีข้อมูลจริงตามวันที่ (R001) -->
+          ${r.id === 'R001' ? `
           <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
             <input type="date" class="input" id="date-from" value="${dateFrom}" style="width:140px">
             <span style="font-size:0.82rem;color:var(--text-muted)">ถึง</span>
             <input type="date" class="input" id="date-to" value="${dateTo}" style="width:140px">
-          </div>
+          </div>` : ''}
         </div>
 
         <!-- Summary KPIs (based on data) -->
