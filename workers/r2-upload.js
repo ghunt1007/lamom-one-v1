@@ -28,6 +28,11 @@ const ALLOWED_TYPES = [
   'application/vnd.ms-excel', // .xls (เอกสารเก่า)
   'text/csv',
   'video/mp4',
+  // เสียง — Voice-to-CRM: อัดเสียงจริงผ่าน MediaRecorder (webm/mp4 แล้วแต่เบราว์เซอร์) +
+  // นำเข้าไฟล์เสียง (.mp3/.wav/.m4a/.ogg) — audio/x-m4a และ audio/x-wav เป็น mimeType ที่
+  // เบราว์เซอร์บางตัว (Safari เก่า ฯลฯ) รายงานสำหรับ .m4a/.wav แทนค่ามาตรฐาน
+  'audio/webm', 'audio/mp4', 'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav',
+  'audio/ogg', 'audio/x-m4a', 'audio/aac', 'audio/flac',
 ]
 const MAX_SIZE = 50 * 1024 * 1024 // 50 MB
 

@@ -6,6 +6,20 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { formatDateTime } from '../../utils/format.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { uploadFile } from '../../utils/storage.js'
+import { analyzeVoiceNote } from '../../utils/ai.js'
+import { startMicRecording, stopMicRecording, blobToWavBase64, extFromMime } from '../../utils/audio.js'
+
+// วิเคราะห์เสียงด้วย AI จริงแบบ "ปลอดภัย" — แปลงเป็น WAV ก่อนส่งเสมอ (Gemini ไม่รับ audio/webm)
+// ถ้าแปลงไม่ได้/ไฟล์ยาวเกินงบ 20MB inline ของ Gemini หรือ AI พัง คืน null ให้ผู้เรียก fallback เอง
+// (ไฟล์เสียงจริงยังอัปโหลด+เล่นได้ปกติเสมอ ไม่ขึ้นกับผลตรงนี้)
+async function analyzeVoiceNoteSafe(blob) {
+  try {
+    const wav = await blobToWavBase64(blob)
+    if (wav.tooLarge || wav.unsupported || !wav.base64) return null
+    return await analyzeVoiceNote(wav.base64, wav.mimeType)
+  } catch (e) { return null }
+}
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -34,6 +48,7 @@ export default async function VoiceCrmPage(container) {
   let recording = false
   let recSec = 0
   let recTimer = null
+  let micSession = null
   let loading = true
 
   async function loadData() {
@@ -91,17 +106,11 @@ export default async function VoiceCrmPage(container) {
         size: 'sm',
         body: `
           <div style="font-size:0.78rem">
-            <div style="background:var(--surface-2);border-radius:8px;padding:10px;margin-bottom:12px">
-              <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-                <div style="flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden;position:relative">
-                  <div style="position:absolute;left:0;top:0;height:100%;width:40%;background:var(--primary);border-radius:2px"></div>
-                </div>
-                <span style="font-family:monospace;color:var(--text-muted);font-size:0.7rem">${n.duration}</span>
-              </div>
-              <div style="font-size:0.68rem;color:var(--text-muted);text-align:center">▶️ เล่นเสียง (Demo Mode)</div>
-            </div>
+            ${n.audioUrl
+              ? `<audio controls preload="none" style="width:100%;margin-bottom:12px" src="${escHtml(n.audioUrl)}"></audio>`
+              : `<div style="background:var(--surface-2);border-radius:8px;padding:10px;margin-bottom:12px;text-align:center;color:var(--text-muted);font-size:0.72rem">⚠️ ไม่มีไฟล์เสียง (บันทึกไว้ก่อนเชื่อมต่อระบบอัดเสียงจริง)</div>`}
             <div style="margin-bottom:10px">
-              <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:4px">📝 AI สรุปการสนทนา</div>
+              <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:4px">📝 AI สรุปการสนทนา${n.aiAnalyzed ? '' : ' <span style="color:var(--warning)">(ยังไม่ผ่าน AI จริง)</span>'}</div>
               <div style="background:var(--surface-2);border-radius:6px;padding:8px;line-height:1.6">${escHtml(n.summary)}</div>
             </div>
             <div style="margin-bottom:10px">
@@ -144,7 +153,7 @@ export default async function VoiceCrmPage(container) {
           </div>
         </div>
         <div style="margin-top:10px;font-size:0.8rem;background:var(--surface-2);padding:10px 12px;border-radius:var(--radius-sm);line-height:1.6">
-          🤖 <strong>AI สรุป:</strong> ${escHtml(n.summary)}
+          🤖 <strong>AI สรุป:</strong> ${escHtml(n.summary)}${n.aiAnalyzed ? '' : ' <span style="color:var(--warning);font-size:0.68rem">(ยังไม่ผ่าน AI จริง)</span>'}
         </div>
         <div style="margin-top:8px">
           <div style="font-size:0.72rem;font-weight:700;color:var(--text-muted);margin-bottom:4px">📋 Follow-up ที่ AI แนะนำ:</div>
@@ -158,8 +167,14 @@ export default async function VoiceCrmPage(container) {
       </div>`
   }
 
-  function toggleRec() {
+  async function toggleRec() {
     if (!recording) {
+      try {
+        micSession = await startMicRecording()
+      } catch (e) {
+        showToast('❌ ไม่สามารถเข้าถึงไมโครโฟนได้ — ตรวจสอบว่าอนุญาตสิทธิ์ไมค์ให้เบราว์เซอร์แล้ว', 'error')
+        return
+      }
       recording = true; recSec = 0; render()
       recTimer = setInterval(() => {
         recSec++
@@ -168,34 +183,48 @@ export default async function VoiceCrmPage(container) {
       }, 1000)
     } else {
       clearInterval(recTimer); recording = false
-      openModal({
-        title: '🤖 AI กำลังวิเคราะห์เสียง...',
-        size: 'sm',
-        body: `<div style="text-align:center;padding:16px">
-          <div style="font-size:2rem;margin-bottom:8px">🔊</div>
-          <div style="font-size:0.8rem;color:var(--text-muted)">ระบุลูกค้าและ Sentiment เพื่อบันทึก</div>
-          <div class="input-group" style="margin-top:12px"><label class="input-label">ชื่อลูกค้า *</label><input class="input" id="vc-cust"></div>
-          <div class="input-group" style="margin-top:8px"><label class="input-label">ความสนใจ</label>
-            <select class="input" id="vc-sent"><option value="hot">🔥 Hot</option><option value="warm">🌤 Warm</option><option value="cold">❄️ Cold</option></select>
-          </div>
-        </div>`,
-        confirmText: '✅ บันทึกและวิเคราะห์',
-        async onConfirm() {
-          const cust = document.getElementById('vc-cust').value.trim()
-          if (!cust) { showToast('❗ ระบุชื่อลูกค้า', 'error'); return false }
-          try {
-            await createDoc('voice_notes', {
-              customer: cust, duration: `${Math.floor(recSec/60)}:${String(recSec%60).padStart(2,'0')}`,
-              date: new Date().toISOString(), sentiment: document.getElementById('vc-sent').value,
-              summary: 'ยังไม่มีสรุปจาก AI — ระบบวิเคราะห์เสียงอัตโนมัติยังไม่เชื่อมต่อจริง กรุณาสรุปเองในช่องบันทึก',
-              followUps: ['ติดตาม 24 ชั่วโมง'], tags: ['new']
-            })
-            showToast(`🎙 บันทึกเสียง ${cust} แล้ว`, 'success')
-            await loadData()
-          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
-        }
-      })
+      const session = micSession; micSession = null
+      const durSec = recSec
+      render()
+      const blob = await stopMicRecording(session)
+      openRecordModal(blob, durSec)
     }
+  }
+
+  function openRecordModal(blob, durSec) {
+    openModal({
+      title: '🎙 บันทึกเสียงสำเร็จ',
+      size: 'sm',
+      body: `<div style="text-align:center;padding:16px">
+        <div style="font-size:2rem;margin-bottom:8px">🔊</div>
+        <div style="font-size:0.8rem;color:var(--text-muted)">ระบุลูกค้าเพื่อบันทึก — กด "บันทึก" แล้ว AI จะฟังและวิเคราะห์เสียงจริงให้</div>
+        <div class="input-group" style="margin-top:12px"><label class="input-label">ชื่อลูกค้า *</label><input class="input" id="vc-cust"></div>
+        <div class="input-group" style="margin-top:8px"><label class="input-label">ความสนใจ (AI จะปรับให้ถ้าวิเคราะห์สำเร็จ)</label>
+          <select class="input" id="vc-sent"><option value="hot">🔥 Hot</option><option value="warm" selected>🌤 Warm</option><option value="cold">❄️ Cold</option></select>
+        </div>
+      </div>`,
+      confirmText: '✅ บันทึกและวิเคราะห์ด้วย AI',
+      async onConfirm() {
+        const cust = document.getElementById('vc-cust').value.trim()
+        if (!cust) { showToast('❗ ระบุชื่อลูกค้า', 'error'); return false }
+        const durLabel = `${String(Math.floor(durSec/60)).padStart(2,'0')}:${String(durSec%60).padStart(2,'0')}`
+        try {
+          const file = new File([blob], `voice-${Date.now()}.${extFromMime(blob.type)}`, { type: blob.type || 'audio/webm' })
+          const upload = await uploadFile(file, 'voice-notes')
+          const ai = await analyzeVoiceNoteSafe(blob)
+          await createDoc('voice_notes', {
+            customer: cust, duration: durLabel, date: new Date().toISOString(),
+            sentiment: (ai && ai.sentiment) || document.getElementById('vc-sent').value,
+            summary: (ai && ai.summary) || 'บันทึกเสียงสำเร็จแล้ว แต่ AI วิเคราะห์อัตโนมัติไม่สำเร็จ (ไฟล์ยาวเกินไปหรือรูปแบบไม่รองรับ) กรุณาสรุปเอง',
+            followUps: (ai && ai.followUps.length) ? ai.followUps : ['ติดตามลูกค้าภายใน 24 ชั่วโมง'],
+            tags: (ai && ai.tags) || [],
+            audioUrl: upload.url, audioKey: upload.key, aiAnalyzed: !!(ai && !ai.demo),
+          })
+          showToast(`🎙 บันทึกเสียง ${cust} แล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ: ' + (e.message || ''), 'error') }
+      }
+    })
   }
 
   function openImport() {
@@ -226,20 +255,24 @@ export default async function VoiceCrmPage(container) {
         const sent = document.getElementById('vc-imp-sent')?.value || 'warm'
         const file = document.getElementById('vc-file')?.files?.[0]
         if (!cust) { showToast('ระบุชื่อลูกค้า', 'warning'); return false }
-        const dur = file ? await getAudioDuration(file) : null
+        if (!file) { showToast('เลือกไฟล์เสียง', 'warning'); return false }
+        const dur = await getAudioDuration(file)
         try {
+          const upload = await uploadFile(file, 'voice-notes')
+          const ai = await analyzeVoiceNoteSafe(file)
           await createDoc('voice_notes', {
             customer: cust,
             duration: dur ?? '-',
             date: new Date().toISOString(),
-            summary: `ยังไม่มีสรุปจาก AI${file ? ` (ไฟล์ "${file.name}")` : ''} — ระบบวิเคราะห์เสียงอัตโนมัติยังไม่เชื่อมต่อจริง กรุณาสรุปเองในช่องบันทึก`,
-            followUps: ['ติดตามผลการวิเคราะห์เสียง'],
-            sentiment: sent,
-            tags: [],
+            summary: (ai && ai.summary) || `บันทึกไฟล์เสียง "${file.name}" สำเร็จแล้ว แต่ AI วิเคราะห์อัตโนมัติไม่สำเร็จ (ไฟล์ยาวเกินไปหรือรูปแบบไม่รองรับ) กรุณาสรุปเอง`,
+            followUps: (ai && ai.followUps.length) ? ai.followUps : ['ติดตามผลการวิเคราะห์เสียง'],
+            sentiment: (ai && ai.sentiment) || sent,
+            tags: (ai && ai.tags) || [],
+            audioUrl: upload.url, audioKey: upload.key, aiAnalyzed: !!(ai && !ai.demo),
           })
-          showToast(`✅ บันทึกไฟล์เสียง${file ? ` "${file.name}"` : ''} ของ ${cust} แล้ว`, 'success')
+          showToast(`✅ บันทึกไฟล์เสียง "${file.name}" ของ ${cust} แล้ว`, 'success')
           await loadData()
-        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+        } catch (e) { showToast('บันทึกไม่สำเร็จ: ' + (e.message || ''), 'error') }
       }
     })
   }

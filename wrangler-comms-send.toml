@@ -1,0 +1,7 @@
+name = "lamom-comms-send"
+main = "workers/comms-send.js"
+compatibility_date = "2024-01-01"
+
+[vars]
+ALLOWED_ORIGIN = "https://lamom-one.pages.dev"
+FIREBASE_API_KEY = "AIzaSyBH098B5Ja9WiLL5sfgCvSuBqOab8aeKMo"

@@ -6,6 +6,8 @@ import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { TARGET_SEGMENTS, getSegmentMembers, getSegmentCount, reachableMembers } from '../../core/segments.js'
+import { sendSms, sendEmail, sendLineBroadcast, sendPush } from '../../utils/comms.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -26,14 +28,7 @@ const CHANNELS = {
   push:     { label: 'Push Notification', icon: '🔔', color: 'secondary' },
 }
 
-const TARGET_SEGS = {
-  all:        'ลูกค้าทั้งหมด',
-  prospects:  'ผู้สนใจ (Lead)',
-  owners:     'เจ้าของรถ',
-  expiring:   'ประกันหมดอายุใน 30 วัน',
-  service_due:'ถึงเวลาบำรุงรักษา',
-  inactive:   'ไม่ซื้อ > 6 เดือน',
-}
+const TARGET_SEGS = TARGET_SEGMENTS
 
 export default async function BroadcastPage(container) {
   const myGen = container.__routerGen
@@ -54,12 +49,8 @@ export default async function BroadcastPage(container) {
       return
     }
     const sent = broadcasts.filter(b => b.status === 'sent').length
-    const totalReach = broadcasts.filter(b => b.status === 'sent').reduce((a, b) => a + (b.delivered || 0), 0)
-    const avgOpen = (() => {
-      const sentList = broadcasts.filter(b => b.status === 'sent' && b.delivered > 0)
-      if (!sentList.length) return 0
-      return Math.round(sentList.reduce((a, b) => a + (b.opened / b.delivered * 100), 0) / sentList.length)
-    })()
+    const totalSuccess = broadcasts.filter(b => b.status === 'sent' && b.sent != null).reduce((a, b) => a + b.sent, 0)
+    const totalFailed = broadcasts.filter(b => b.status === 'sent' && b.failed != null).reduce((a, b) => a + (b.failed || 0), 0)
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -76,16 +67,14 @@ export default async function BroadcastPage(container) {
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('📨 Broadcast ทั้งหมด', broadcasts.length, 'primary')}
           ${kpi('✅ ส่งแล้ว', sent, 'success')}
-          ${kpi('👥 Reach รวม', totalReach.toLocaleString(), 'primary')}
-          ${kpi('📊 Open Rate เฉลี่ย', avgOpen + '%', avgOpen >= 30 ? 'success' : 'warning')}
+          ${kpi('👥 ส่งสำเร็จรวม', totalSuccess.toLocaleString(), 'primary')}
+          ${kpi('❌ ล้มเหลวรวม', totalFailed.toLocaleString(), totalFailed > 0 ? 'danger' : 'secondary')}
         </div>
 
         <div style="display:flex;flex-direction:column;gap:12px">
           ${broadcasts.map(b => {
             const ch = CHANNELS[b.channel]
             const st = BCAST_STATUS[b.status]
-            const openRate = b.delivered > 0 ? Math.round(b.opened / b.delivered * 100) : 0
-            const clickRate = b.opened > 0 ? Math.round(b.clicked / b.opened * 100) : 0
             return `<div class="card" style="padding:14px">
               <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
                 <div style="display:flex;gap:10px;align-items:flex-start">
@@ -104,27 +93,16 @@ export default async function BroadcastPage(container) {
                 </div>
               </div>
 
-              ${b.status === 'sent' ? (b.recipients == null ? `
+              ${b.status === 'sent' ? (b.sent == null ? `
                 <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:10px">📊 ยังไม่รองรับการติดตามผลส่งจริง (ไม่ได้เชื่อมต่อผู้ให้บริการ)</div>
               ` : `
-                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">
-                  ${miniStat('📤 ส่ง', b.recipients.toLocaleString())}
-                  ${miniStat('✅ ถึงมือ', b.delivered.toLocaleString())}
-                  ${miniStat('👁 เปิดอ่าน', openRate + '%')}
-                  ${miniStat('🖱 คลิก', clickRate + '%')}
-                </div>`) : ''}
-              ${b.status === 'sent' && b.recipients != null ? `
-                <!-- Open rate bar -->
-                <div style="margin-bottom:6px">
-                  <div style="display:flex;justify-content:space-between;font-size:0.7rem;margin-bottom:2px">
-                    <span style="color:var(--text-muted)">Open Rate</span>
-                    <span style="font-weight:700;color:${openRate>=30?'var(--success)':openRate>=15?'var(--warning)':'var(--danger)'}">${openRate}%</span>
-                  </div>
-                  <div style="background:var(--surface-2);border-radius:3px;height:5px">
-                    <div style="width:${Math.min(openRate,100)}%;background:${openRate>=30?'var(--success)':openRate>=15?'var(--warning)':'var(--danger)'};height:5px;border-radius:3px"></div>
-                  </div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:6px">
+                  ${miniStat('🎯 เป้าหมาย', b.recipients != null ? b.recipients.toLocaleString() : '—')}
+                  ${miniStat('✅ สำเร็จ', b.sent.toLocaleString())}
+                  ${miniStat('❌ ล้มเหลว', (b.failed || 0).toLocaleString())}
                 </div>
-              ` : `<div style="padding:8px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:0.8rem;color:var(--text-muted);margin-bottom:10px">${escHtml(b.message)}</div>`}
+                <div style="font-size:0.68rem;color:var(--text-muted);margin-bottom:10px">👁 เปิดอ่าน/🖱 คลิก — ยังไม่รองรับ (ต้องต่อ Webhook ติดตามผลเพิ่มเติม)</div>
+              `) : `<div style="padding:8px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:0.8rem;color:var(--text-muted);margin-bottom:10px">${escHtml(b.message)}</div>`}
 
               <div style="display:flex;gap:6px">
                 <button class="btn btn-xs btn-secondary view-bc-btn" data-id="${b.id}">ดูรายละเอียด</button>
@@ -144,14 +122,46 @@ export default async function BroadcastPage(container) {
     container.querySelectorAll('.send-bc-btn').forEach(b => b.addEventListener('click', async () => {
       const bc = broadcasts.find(x => x.id === b.dataset.id)
       if (!bc) return
-      // หมายเหตุ: ยังไม่มีการเชื่อมต่อผู้ให้บริการส่งข้อความจริง (LINE/SMS/Email/Push) — ปุ่มนี้แค่บันทึก
-      // สถานะในระบบว่า "ทำรายการส่งแล้ว" เท่านั้น ไม่ได้ส่งถึงลูกค้าจริง จึงไม่ควรมีตัวเลขผู้รับ/เปิดอ่าน/คลิก
-      // ปลอมๆ (เดิมสุ่มด้วย Math.random() ให้ดูสมจริง) — ปล่อยเป็น null (ยังไม่มีข้อมูลจริง) แทน
+      b.disabled = true
       try {
-        await updateDocData('broadcasts', bc.id, { status: 'sent', sentAt: new Date().toISOString(), recipients: null, delivered: null, opened: null, clicked: null })
-        showToast('📤 บันทึกสถานะส่งแล้ว — ยังไม่เชื่อมต่อผู้ให้บริการส่งข้อความจริง', 'success')
+        let result, recipients
+
+        if (bc.channel === 'line') {
+          if (bc.target !== 'all') {
+            showToast('❗ LINE รองรับส่งแบบ "ลูกค้าทั้งหมด" เท่านั้นตอนนี้ — ระบบยังไม่ได้เก็บ LINE userId รายบุคคลของลูกค้า (เก็บแค่ LINE ID ที่กรอกเอง ใช้ยิงเฉพาะกลุ่มไม่ได้)', 'error')
+            return
+          }
+          result = await sendLineBroadcast(bc.message)
+          recipients = null // Broadcast API ของ LINE ส่งถึงเพื่อน OA ทั้งหมด ฝั่งเราไม่ทราบจำนวนผู้รับจริง
+        } else {
+          const members = await getSegmentMembers(bc.target)
+          const reachable = reachableMembers(members, bc.channel)
+          if (!reachable.length) {
+            showToast(bc.channel === 'push'
+              ? '❗ ยังไม่มีลูกค้าลงทะเบียนรับ Push Notification ในระบบ (ต้องสร้างระบบเก็บ Push token ก่อน)'
+              : '❗ ไม่มีผู้รับที่ส่งได้จริงในกลุ่มนี้สำหรับช่องทางนี้ (ไม่มีข้อมูลติดต่อ)', 'error')
+            return
+          }
+          if (bc.channel === 'sms') result = await sendSms(reachable.map(m => m.phone), bc.message)
+          else if (bc.channel === 'email') result = await sendEmail(reachable.map(m => m.email), bc.subject || bc.title, bc.message)
+          else if (bc.channel === 'push') result = await sendPush(reachable.map(m => m.fcmToken), bc.title || bc.title, bc.message)
+          recipients = reachable.length
+        }
+
+        if (result.configured === false) {
+          showToast('❗ ' + result.error, 'error')
+          return
+        }
+
+        await updateDocData('broadcasts', bc.id, {
+          status: 'sent', sentAt: new Date().toISOString(),
+          recipients, sent: result.sent ?? null, failed: result.failed ?? null,
+          delivered: null, opened: null, clicked: null,
+        })
+        showToast(`📤 ส่งจริงแล้ว — สำเร็จ ${result.sent ?? '-'} / ล้มเหลว ${result.failed ?? 0}`, 'success')
         await loadData()
-      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      } catch (e) { showToast('ส่งไม่สำเร็จ: ' + e.message, 'error') }
+      finally { b.disabled = false }
     }))
   }
 
@@ -169,9 +179,10 @@ export default async function BroadcastPage(container) {
         ${row('กลุ่มเป้าหมาย', TARGET_SEGS[bc.target] || escHtml(bc.target))}
         ${bc.sentAt ? row('วันที่ส่ง', timeAgo(bc.sentAt)) : ''}
         ${bc.scheduledAt ? row('กำหนดส่ง', formatDate(bc.scheduledAt)) : ''}
-        ${bc.recipients > 0 ? row('จำนวนผู้รับ', bc.recipients.toLocaleString() + ' คน') : ''}
-        ${bc.delivered > 0 ? row('ส่งถึง', bc.delivered.toLocaleString() + ' คน') : ''}
-        ${bc.status === 'sent' && bc.recipients == null ? row('การติดตามผล', 'ยังไม่เชื่อมต่อผู้ให้บริการส่งข้อความจริง') : ''}
+        ${bc.recipients > 0 ? row('จำนวนเป้าหมาย', bc.recipients.toLocaleString() + ' คน') : ''}
+        ${bc.sent != null ? row('ส่งสำเร็จ', bc.sent.toLocaleString() + ' คน') : ''}
+        ${bc.failed != null ? row('ล้มเหลว', bc.failed.toLocaleString() + ' คน') : ''}
+        ${bc.status === 'sent' && bc.sent == null ? row('การติดตามผล', 'ยังไม่เชื่อมต่อผู้ให้บริการส่งข้อความจริง') : ''}
         <div style="margin-top:12px;padding:12px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:0.85rem">${escHtml(bc.message)}</div>
       `
     })
@@ -190,6 +201,8 @@ export default async function BroadcastPage(container) {
           <div class="input-group"><label class="input-label">กลุ่มเป้าหมาย</label>
             <select class="input" id="bc-target">${Object.entries(TARGET_SEGS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select>
           </div>
+          <div class="input-group" id="bc-subject-group" style="grid-column:1/-1;display:none"><label class="input-label">หัวข้อ Email *</label><input class="input" id="bc-subject" placeholder="หัวข้ออีเมล..."></div>
+          <div style="grid-column:1/-1;font-size:0.75rem;color:var(--text-muted)" id="bc-reach-hint">กำลังคำนวณจำนวนผู้รับจริง...</div>
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">ข้อความ *</label>
             <textarea class="input" id="bc-msg" rows="5" placeholder="พิมพ์ข้อความ (LINE: 500 ตัวอักษร, SMS: 160 ตัวอักษร)"></textarea>
           </div>
@@ -198,13 +211,16 @@ export default async function BroadcastPage(container) {
       async onConfirm() {
         const title = document.getElementById('bc-title')?.value?.trim()
         const msg = document.getElementById('bc-msg')?.value?.trim()
+        const channel = document.getElementById('bc-channel')?.value || 'line'
+        const subject = document.getElementById('bc-subject')?.value?.trim() || ''
         if (!title || !msg) { showToast('❗ กรุณากรอกชื่อและข้อความ', 'error'); return false }
+        if (channel === 'email' && !subject) { showToast('❗ กรุณากรอกหัวข้อ Email', 'error'); return false }
         try {
           await createDoc('broadcasts', {
-            title,
-            channel: document.getElementById('bc-channel')?.value||'line', status: 'draft',
-            target: document.getElementById('bc-target')?.value||'all',
-            recipients: 0, delivered: 0, opened: 0, clicked: 0,
+            title, channel, status: 'draft',
+            target: document.getElementById('bc-target')?.value || 'all',
+            subject,
+            recipients: null, sent: null, failed: null, delivered: null, opened: null, clicked: null,
             sentAt: null, scheduledAt: null, message: msg
           })
           showToast('✅ สร้าง Broadcast แล้ว!', 'success')
@@ -212,6 +228,29 @@ export default async function BroadcastPage(container) {
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
+
+    const channelEl = document.getElementById('bc-channel')
+    const targetEl = document.getElementById('bc-target')
+    const subjectGroup = document.getElementById('bc-subject-group')
+    const hintEl = document.getElementById('bc-reach-hint')
+
+    async function updateHint() {
+      const channel = channelEl?.value || 'line'
+      const target = targetEl?.value || 'all'
+      subjectGroup.style.display = channel === 'email' ? '' : 'none'
+      if (channel === 'line') {
+        hintEl.textContent = target === 'all'
+          ? '💬 LINE Broadcast ส่งถึงเพื่อน OA ทั้งหมด (ไม่จำกัดตามกลุ่มเป้าหมายที่เลือก)'
+          : '⚠️ LINE ยังรองรับส่งแบบ "ลูกค้าทั้งหมด" เท่านั้น (ยังไม่มีการเก็บ LINE userId รายบุคคล)'
+        return
+      }
+      hintEl.textContent = 'กำลังคำนวณจำนวนผู้รับจริง...'
+      const count = await getSegmentCount(target, channel)
+      hintEl.textContent = `📊 ส่งได้จริง ${count.toLocaleString()} ราย (มีข้อมูลติดต่อช่องทางนี้)`
+    }
+    channelEl?.addEventListener('change', updateHint)
+    targetEl?.addEventListener('change', updateHint)
+    updateHint()
   }
 
   await loadData()

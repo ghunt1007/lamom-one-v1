@@ -88,6 +88,21 @@ describe('r2-upload worker — POST /upload with a genuinely valid token', () =>
     expect(ENV.BUCKET.put).not.toHaveBeenCalled()
   })
 
+  it('accepts an audio recording (Voice-to-CRM) — audio/webm from browser MediaRecorder', async () => {
+    stubFirebaseVerify(true)
+    const form = new FormData()
+    form.append('file', new File(['fake-audio-bytes'], 'voice-123.webm', { type: 'audio/webm' }))
+    form.append('folder', 'voice-notes')
+    const req = new Request('https://worker.example/upload', {
+      method: 'POST', headers: { Authorization: 'Bearer valid' }, body: form,
+    })
+    const res = await worker.fetch(req, ENV)
+    expect(res.status).toBe(200)
+    const data = await res.json()
+    expect(data.ok).toBe(true)
+    expect(ENV.BUCKET.put).toHaveBeenCalledOnce()
+  })
+
   it('accepts a valid file and returns a URL built from the worker\'s own origin, not files.lamom.one', async () => {
     stubFirebaseVerify(true)
     const form = new FormData()

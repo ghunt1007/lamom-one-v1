@@ -343,6 +343,48 @@ export async function suggestPrice(vehicleData, marketData = {}) {
   try { return JSON.parse(reply.match(/\{[\s\S]*\}/)?.[0] || '{}') } catch { return null }
 }
 
+// ── Voice-to-CRM — วิเคราะห์บันทึกเสียงการคุยกับลูกค้า (transcription + สรุป) ──────
+const VOICE_NOTE_PROMPT = `คุณคือผู้ช่วยฟังบันทึกเสียงการคุยระหว่างพนักงานขายกับลูกค้าของโชว์รูมรถยนต์ไฟฟ้า (EV)
+ฟังไฟล์เสียงที่แนบมาแล้วสรุปเนื้อหาการสนทนา
+
+ตอบเป็น JSON object เดียวเท่านั้น ไม่ต้องมีคำอธิบายอื่น รูปแบบนี้:
+{"summary":"สรุปเนื้อหาการสนทนา 2-4 ประโยค ภาษาไทย","followUps":["สิ่งที่ต้องติดตามข้อ 1","ข้อ 2"],"sentiment":"hot","tags":["แท็กสั้นๆ"]}
+
+เกณฑ์ sentiment: "hot" = ลูกค้าสนใจมาก พร้อมซื้อ/นัดปิดการขาย, "warm" = สนใจแต่ยังต้องติดตามเพิ่ม, "cold" = ยังไม่สนใจหรือปฏิเสธ
+ถ้าฟังไม่ออกหรือไม่ใช่บทสนทนาการขาย ให้ตอบ {"summary":"ฟังไฟล์เสียงไม่ออก หรือไม่ใช่บทสนทนาที่วิเคราะห์ได้ กรุณาสรุปเอง","followUps":[],"sentiment":"warm","tags":[]}`
+
+export async function analyzeVoiceNote(base64Audio, mimeType) {
+  if (!isAiEnabled()) {
+    return {
+      demo: true,
+      summary: 'ตัวอย่างสรุปจาก AI (Demo Mode) — ล็อกอินด้วยบัญชีจริงเพื่อวิเคราะห์เสียงจริง',
+      followUps: ['ติดตามลูกค้าภายใน 24 ชั่วโมง'],
+      sentiment: 'warm',
+      tags: ['demo'],
+    }
+  }
+  const data = await callProxy('/generate', {
+    contents: [{
+      role: 'user',
+      parts: [
+        { inlineData: { mimeType, data: base64Audio } },
+        { text: VOICE_NOTE_PROMPT },
+      ],
+    }],
+    generationConfig: { maxOutputTokens: 1000, temperature: 0.3 },
+  })
+  const text = data.candidates?.[0]?.content?.parts?.filter(p => !p.thought).map(p => p.text || '').join('') || '{}'
+  let result = {}
+  try { result = JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] || '{}') } catch { result = {} }
+  return {
+    demo: false,
+    summary: result.summary || 'AI วิเคราะห์ไม่สำเร็จ กรุณาสรุปเอง',
+    followUps: Array.isArray(result.followUps) && result.followUps.length ? result.followUps : ['ติดตามลูกค้าภายใน 24 ชั่วโมง'],
+    sentiment: ['hot', 'warm', 'cold'].includes(result.sentiment) ? result.sentiment : 'warm',
+    tags: Array.isArray(result.tags) ? result.tags : [],
+  }
+}
+
 // ── Personal AI (ผู้ช่วยส่วนตัว) ────────────────────────────────────────────
 
 const PERSONAL_SYSTEM = `คุณคือ LAMI ผู้ช่วยส่วนตัว AI ของผู้ใช้คนนี้ — เป็นทั้งผู้เชี่ยวชาญทุกด้านและเพื่อนสนิทในเวลาเดียวกัน

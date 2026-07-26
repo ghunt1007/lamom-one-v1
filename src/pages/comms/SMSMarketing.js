@@ -6,6 +6,8 @@ import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { TARGET_SEGMENTS, getSegmentMembers, getSegmentCount, reachableMembers } from '../../core/segments.js'
+import { sendSms } from '../../utils/comms.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -76,7 +78,7 @@ export default async function SMSMarketingPage(container) {
               <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
                 <div>
                   <div style="font-weight:700;font-size:0.88rem">${escHtml(c.name)}</div>
-                  <div style="font-size:0.72rem;color:var(--text-muted)">👥 ${c.recipients} ราย ${c.time ? '· ' + timeAgo(c.time) : ''}</div>
+                  <div style="font-size:0.72rem;color:var(--text-muted)">👥 ${TARGET_SEGMENTS[c.target] || (c.recipients + ' ราย')} ${c.time ? '· ' + timeAgo(c.time) : ''}</div>
                 </div>
                 <span class="badge badge-${ss?.color}" style="font-size:0.63rem">${ss?.icon} ${ss?.label}</span>
               </div>
@@ -85,9 +87,10 @@ export default async function SMSMarketingPage(container) {
                 <div style="font-size:0.73rem;color:var(--text-muted);margin-bottom:6px">📊 ยังไม่รองรับการติดตามผลส่งจริง (ไม่ได้เชื่อมต่อผู้ให้บริการ)</div>
               ` : `
                 <div style="display:flex;gap:12px;font-size:0.73rem;margin-bottom:6px">
+                  <span>🎯 เป้าหมาย: <strong>${c.recipients}</strong></span>
                   <span>✅ ส่งสำเร็จ: <strong>${c.sent}</strong></span>
-                  <span>❌ ล้มเหลว: <strong>${c.failed}</strong></span>
-                  <span>📊 Delivery: <strong>${deliveryRate}%</strong></span>
+                  <span>❌ ล้มเหลว: <strong>${c.failed || 0}</strong></span>
+                  ${deliveryRate != null ? `<span>📊 อัตราสำเร็จ: <strong>${deliveryRate}%</strong></span>` : ''}
                 </div>
               `) : ''}
               <div style="display:flex;gap:6px">
@@ -104,15 +107,24 @@ export default async function SMSMarketingPage(container) {
     container.querySelectorAll('.send-now-btn').forEach(b => b.addEventListener('click', async () => {
       const c = campaigns.find(x => x.id === b.dataset.id)
       if (!c) return
-      if (credits < c.recipients) { showToast('❗ เครดิตไม่พอ','error'); return }
-      // หมายเหตุ: ยังไม่มีการเชื่อมต่อผู้ให้บริการส่ง SMS จริง — เดิมสุ่มจำนวน "ส่งสำเร็จ" ด้วย Math.random()
-      // ให้ดูสมจริง (เกือบเท่า recipients เสมอ) ทั้งที่ไม่มีข้อความส่งออกไปจริงแม้แต่ข้อความเดียว
+      b.disabled = true
       try {
-        await updateDocData('sms_campaigns', c.id, { status: 'sent', sent: null, time: new Date().toISOString() })
-        credits -= c.recipients
-        showToast('📱 บันทึกสถานะส่งแล้ว — ยังไม่เชื่อมต่อผู้ให้บริการ SMS จริง','success')
+        const members = await getSegmentMembers(c.target || 'all')
+        const reachable = reachableMembers(members, 'sms')
+        if (!reachable.length) { showToast('❗ ไม่มีผู้รับที่มีเบอร์โทรจริงในกลุ่มนี้', 'error'); return }
+        if (credits < reachable.length) { showToast('❗ เครดิตไม่พอ', 'error'); return }
+
+        const result = await sendSms(reachable.map(m => m.phone), c.message)
+        if (result.configured === false) { showToast('❗ ' + result.error, 'error'); return }
+
+        await updateDocData('sms_campaigns', c.id, {
+          status: 'sent', recipients: reachable.length, sent: result.sent, failed: result.failed, time: new Date().toISOString(),
+        })
+        credits -= result.sent
+        showToast(`📱 ส่งจริงแล้ว — สำเร็จ ${result.sent} / ล้มเหลว ${result.failed}`, 'success')
         await loadData()
-      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      } catch (e) { showToast('ส่งไม่สำเร็จ: ' + e.message, 'error') }
+      finally { b.disabled = false }
     }))
     container.querySelectorAll('.cancel-schedule-btn').forEach(b => b.addEventListener('click', async () => {
       const c = campaigns.find(x => x.id === b.dataset.id)
@@ -143,21 +155,19 @@ export default async function SMSMarketingPage(container) {
         </div>
         <div class="input-group"><label class="input-label">กลุ่มเป้าหมาย</label>
           <select class="input" id="sms-target">
-            <option>ลูกค้าทั้งหมด (1,842 ราย)</option>
-            <option>ลูกค้า Active (654 ราย)</option>
-            <option>ลูกค้า At Risk (87 ราย)</option>
-            <option>ใกล้หมดประกัน (134 ราย)</option>
+            ${Object.entries(TARGET_SEGMENTS).map(([k,v]) => `<option value="${k}">${v}</option>`).join('')}
           </select>
+          <div id="sms-reach-hint" style="font-size:0.7rem;color:var(--text-muted);margin-top:4px">กำลังคำนวณจำนวนผู้รับจริง...</div>
         </div>
       </div>`,
       async onConfirm() {
         const name = document.getElementById('sms-name')?.value?.trim()
         if (!name) { showToast('❗ กรุณากรอกชื่อ','error'); return false }
         const msg = document.getElementById('sms-msg')?.value || ''
-        const target = document.getElementById('sms-target')?.value || ''
-        const recip = parseInt(target.match(/\d+/)?.[0]) || 50
+        const target = document.getElementById('sms-target')?.value || 'all'
         try {
-          await createDoc('sms_campaigns', { name, recipients: recip, sent:0, failed:0, status:'draft', cost:0, time:null, message:msg })
+          const recip = await getSegmentCount(target, 'sms')
+          await createDoc('sms_campaigns', { name, target, recipients: recip, sent: null, failed: null, status: 'draft', time: null, message: msg })
           showToast('✅ สร้าง Campaign แล้ว','success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
@@ -166,8 +176,17 @@ export default async function SMSMarketingPage(container) {
     setTimeout(() => {
       const msgEl = document.getElementById('sms-msg')
       const counter = document.getElementById('sms-counter')
+      const targetEl = document.getElementById('sms-target')
+      const hintEl = document.getElementById('sms-reach-hint')
       msgEl?.addEventListener('input', () => { if(counter) counter.textContent = `${msgEl.value.length}/160` })
       document.getElementById('sms-tpl')?.addEventListener('change', e => { if(e.target.value && msgEl) msgEl.value = e.target.value })
+      async function updateHint() {
+        hintEl.textContent = 'กำลังคำนวณจำนวนผู้รับจริง...'
+        const count = await getSegmentCount(targetEl.value, 'sms')
+        hintEl.textContent = `📊 มีเบอร์โทรจริงในกลุ่มนี้ ${count.toLocaleString()} ราย`
+      }
+      targetEl?.addEventListener('change', updateHint)
+      updateHint()
     }, 100)
   }
 
