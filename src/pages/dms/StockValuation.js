@@ -15,7 +15,6 @@ const STATUS_MAP = {
   hold:      { label: 'Hold', color: 'secondary' },
 }
 
-function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min }
 function daysAgo(n) { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10) }
 
 const DEMO_STOCK = [

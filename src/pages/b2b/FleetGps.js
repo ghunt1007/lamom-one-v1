@@ -128,9 +128,9 @@ export default async function FleetGpsPage(container) {
         </div>` : ''}
       </div>`
 
-    document.getElementById('refresh-btn')?.addEventListener('click', () => {
-      FLEET.forEach(f => { if(f.status==='moving') { f.speed=Math.floor(40+Math.random()*40); f.soc=Math.max(5,f.soc-1) } })
-      render(); showToast('🔄 อัปเดตตำแหน่งแล้ว', 'success')
+    document.getElementById('refresh-btn')?.addEventListener('click', async () => {
+      await loadData()
+      showToast('🔄 โหลดข้อมูลล่าสุดจากฐานข้อมูลแล้ว', 'success')
     })
     document.getElementById('alert-btn')?.addEventListener('click', () => {
       openModal({ title:'🔔 ตั้ง Alert', size:'xs',

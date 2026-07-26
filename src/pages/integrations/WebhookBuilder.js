@@ -67,7 +67,7 @@ export default async function WebhookBuilderPage(container) {
 
     document.getElementById('new-btn')?.addEventListener('click', () => openCreateModal())
     document.getElementById('test-all-btn')?.addEventListener('click', () => {
-      showToast(`⚡ ส่ง Test Payload ไปยัง ${active} Webhooks แล้ว`, 'success')
+      showToast(`⚠ ยังไม่รองรับการทดสอบส่งจริง (ต้องมี Worker ตัวกลางยิง HTTP แทน browser)`, 'warning')
     })
     container.querySelectorAll('.toggle-btn').forEach(b => b.addEventListener('click', async () => {
       const w = webhooks.find(x => x.id === b.dataset.id)
@@ -80,7 +80,7 @@ export default async function WebhookBuilderPage(container) {
     }))
     container.querySelectorAll('.test-btn').forEach(b => b.addEventListener('click', () => {
       const w = webhooks.find(x => x.id === b.dataset.id)
-      if (w) showToast(`⚡ Test → ${w.url.slice(0,40)}... → 200 OK (${Math.floor(120+Math.random()*80)}ms)`, 'success')
+      if (w) showToast(`⚠ ยังไม่รองรับการทดสอบส่งจริงจาก browser (ติด CORS + ความเสี่ยง SSRF ถ้ายิง URL ที่ผู้ใช้กรอกเองตรงๆ ต้องมี Worker ตัวกลางก่อน)`, 'warning')
     }))
     container.querySelectorAll('.del-btn').forEach(b => b.addEventListener('click', () => {
       openModal({ title:'ลบ Webhook?', size:'xs', body:`<p style="font-size:0.82rem">ลบ Webhook นี้จะไม่สามารถย้อนกลับได้</p>`,

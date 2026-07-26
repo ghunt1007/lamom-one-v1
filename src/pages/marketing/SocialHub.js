@@ -358,7 +358,7 @@ export default async function SocialHubPage(container) {
       if (!content) return showToast('❗ กรุณาเขียนเนื้อหา', 'warning')
       const now = new Date().toISOString().slice(0,16).replace('T',' ')
       try {
-        await createDoc('social_posts', { content, platforms: getSelectedPlatforms(), status:'published', scheduledAt:now, publishedAt:now, likes:0, comments:0, shares:0, reach:Math.floor(Math.random()*5000)+500 })
+        await createDoc('social_posts', { content, platforms: getSelectedPlatforms(), status:'published', scheduledAt:now, publishedAt:now, likes:0, comments:0, shares:0, reach:0 })
         showToast('🚀 เผยแพร่แล้ว!', 'success'); tab = 'calendar'; await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
