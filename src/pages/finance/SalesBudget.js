@@ -3,14 +3,13 @@
  * Route: /finance/sales-budget
  * เปรียบเทียบเป้ายอดขาย vs จริง, งบโปรโมชั่น vs ใช้ไป รายเดือน
  */
-import { getSalesData } from '../../core/db.js'
+import { getSalesData, listDocs, createDoc, updateDocData } from '../../core/db.js'
 import { formatCurrency } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 
 const MONTHS_TH = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
-const YEAR = 2025
-const LS_KEY = 'lamom_sales_budget_2025'
+const YEAR = new Date().getFullYear() // เดิม hardcode ปี 2025 ทำให้เลือกปีปัจจุบันไม่ได้เลยเมื่อข้ามปี
 
 // เป้ายอดขาย default (บาท) รายเดือน — สามารถ edit ได้
 const DEFAULT_TARGETS = [9000000, 8500000, 12000000, 10000000, 13000000, 9000000, 10000000, 11000000, 10000000, 11000000, 13000000, 18000000]
@@ -27,23 +26,38 @@ const DEMO_SALES_BY_MONTH = {
   5: { revenue: 8300000, units: 7, foc: 140000 },
 }
 
-function loadBudgets() {
+// เก็บใน Firestore collection 'sales_budgets' (1 doc ต่อปี กรองด้วยฟิลด์ year) → sync ข้ามอุปกรณ์จริง
+// เดิมเก็บใน localStorage เครื่องเดียว ทำให้พนักงาน 2 เครื่องเห็นเป้า/งบไม่ตรงกัน (หน้า Target vs Actual
+// และ Daily Report ก็อ่านค่าเดียวกันนี้ ยิ่งกระทบกว้างกว่าหน้านี้หน้าเดียว)
+let _budgetDocId = null
+
+async function loadBudgets() {
   try {
-    const saved = JSON.parse(localStorage.getItem(LS_KEY) || '{}')
-    return {
-      targets: saved.targets || [...DEFAULT_TARGETS],
-      focBudget: saved.focBudget || [...DEFAULT_FOC_BUDGET],
+    const docs = await listDocs('sales_budgets', [['year', '==', YEAR]], 'createdAt', 'asc', 1)
+    if (docs.length > 0) {
+      _budgetDocId = docs[0].id
+      return { targets: docs[0].targets || [...DEFAULT_TARGETS], focBudget: docs[0].focBudget || [...DEFAULT_FOC_BUDGET] }
     }
-  } catch { return { targets: [...DEFAULT_TARGETS], focBudget: [...DEFAULT_FOC_BUDGET] } }
+  } catch {}
+  return { targets: [...DEFAULT_TARGETS], focBudget: [...DEFAULT_FOC_BUDGET] }
 }
 
-function saveBudgets(targets, focBudget) {
-  try { localStorage.setItem(LS_KEY, JSON.stringify({ targets, focBudget })) } catch {}
+// คืนค่า true/false ให้ผู้เรียกรู้จริงว่าบันทึกสำเร็จหรือไม่
+async function saveBudgets(targets, focBudget) {
+  try {
+    if (_budgetDocId) {
+      await updateDocData('sales_budgets', _budgetDocId, { targets, focBudget })
+    } else {
+      _budgetDocId = await createDoc('sales_budgets', { year: YEAR, targets, focBudget })
+    }
+    return true
+  } catch { return false }
 }
 
 export default async function SalesBudgetPage(container) {
   const myGen = container.__routerGen
-  let { targets, focBudget } = loadBudgets()
+  let { targets, focBudget } = await loadBudgets()
+  if (container.__routerGen !== myGen) return
   let actualByMonth = {}
   let tab = 'sales'     // 'sales' | 'foc' | 'person'
   let editMode = false
@@ -147,7 +161,7 @@ export default async function SalesBudgetPage(container) {
     container.querySelector('#tab-sales').addEventListener('click', () => { tab = 'sales'; updateContent() })
     container.querySelector('#tab-foc').addEventListener('click', () => { tab = 'foc'; updateContent() })
     container.querySelector('#tab-person').addEventListener('click', () => { tab = 'person'; updateContent() })
-    container.querySelector('#sb-edit').addEventListener('click', () => {
+    container.querySelector('#sb-edit').addEventListener('click', async () => {
       if (editMode) {
         // บันทึกค่าที่แก้ไข
         for (let m = 0; m < 12; m++) {
@@ -156,19 +170,19 @@ export default async function SalesBudgetPage(container) {
           if (tEl) targets[m] = parseFloat(tEl.value.replace(/,/g, '')) || targets[m]
           if (fEl) focBudget[m] = parseFloat(fEl.value.replace(/,/g, '')) || focBudget[m]
         }
-        saveBudgets(targets, focBudget)
-        showToast('💾 บันทึกเป้าแล้ว', 'success')
-        editMode = false
+        const ok = await saveBudgets(targets, focBudget)
+        showToast(ok ? '💾 บันทึกเป้าแล้ว' : 'บันทึกไม่สำเร็จ', ok ? 'success' : 'error')
+        if (ok) editMode = false
       } else {
         editMode = true
       }
       render()
     })
-    container.querySelector('#sb-reset')?.addEventListener('click', () => {
+    container.querySelector('#sb-reset')?.addEventListener('click', async () => {
       targets = [...DEFAULT_TARGETS]
       focBudget = [...DEFAULT_FOC_BUDGET]
-      saveBudgets(targets, focBudget)
-      showToast('↺ Reset เป้าแล้ว', 'warning')
+      const ok = await saveBudgets(targets, focBudget)
+      showToast(ok ? '↺ Reset เป้าแล้ว' : 'บันทึกไม่สำเร็จ', ok ? 'warning' : 'error')
       render()
     })
     container.querySelector('#sb-export').addEventListener('click', () => {

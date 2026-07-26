@@ -9,7 +9,6 @@ import { exportToExcel } from '../../utils/importExport.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
-const LS_BUDGET = 'lamom_sales_budget_2025'
 const DEFAULT_TARGET = 10000000
 
 function dateStr(d) { return d.toISOString().slice(0, 10) }
@@ -22,13 +21,14 @@ const DEMO_SERVICE = [
   { id: 'J003', plate: '3คง-9012', model: 'BYD Dolphin', service: 'ล้างรถ + แว็กซ์', status: 'done', revenue: 800 },
 ]
 
+// รายเป้าต่อเดือนที่โหลดจาก Firestore 'sales_budgets' ครั้งเดียวตอนเปิดหน้า (เดิมอ่านจาก localStorage
+// key ผูกปีตายตัว 'lamom_sales_budget_2025' เดียวกับหน้า Sales Budget/Target vs Actual — คนละเครื่องเห็นเป้าคนละชุด)
+let _monthlyTargets = null
+
 function getMonthTarget(month) {
-  try {
-    const data = JSON.parse(localStorage.getItem(LS_BUDGET) || 'null')
-    if (!data) return DEFAULT_TARGET
-    const idx = parseInt(month.slice(5, 7)) - 1
-    return data.targets?.[idx] || DEFAULT_TARGET
-  } catch { return DEFAULT_TARGET }
+  if (!_monthlyTargets) return DEFAULT_TARGET
+  const idx = parseInt(month.slice(5, 7)) - 1
+  return _monthlyTargets[idx] || DEFAULT_TARGET
 }
 
 function buildWeek(sales, endDate) {
@@ -80,9 +80,13 @@ export default async function DailyReportPage(container) {
   container.innerHTML = `<div class="page-content animate-slide"><div style="text-align:center;padding:48px;color:var(--text-muted);font-size:0.85rem">⏳ กำลังโหลดข้อมูล...</div></div>`
 
   try {
-    const sales = await getSalesData().catch(() => [])
+    const [sales, budgetDocs] = await Promise.all([
+      getSalesData().catch(() => []),
+      listDocs('sales_budgets', [['year', '==', new Date().getFullYear()]], 'createdAt', 'asc', 1).catch(() => []),
+    ])
     if (container.__routerGen !== myGen) return
     if (sales.length >= 1) { allSales = sales; dataSource = 'live' }
+    if (budgetDocs.length > 0) _monthlyTargets = budgetDocs[0].targets || null
   } catch {}
 
   function renderPage() {

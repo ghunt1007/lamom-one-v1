@@ -402,6 +402,12 @@ service cloud.firestore {
       allow write: if isManager();
     }
 
+    // เป้ายอดขาย/งบ FOC รายปีของทั้งบริษัท — สิทธิ์เดียวกับ team_targets เพื่อไม่ให้พนักงานขายแก้เป้าตัวเองได้
+    match /sales_budgets/{docId} {
+      allow read: if isStaff();
+      allow write: if isManager();
+    }
+
     match /employee_evaluations/{docId} {
       allow read: if isStaff();
       allow write: if isManager();
@@ -681,7 +687,8 @@ service cloud.firestore {
         'partner_commissions', 'financial_goals', 'contracts', 'leasing_contracts',
         'overtime_records', 'staff_documents', 'welfare_items',
         'assets', 'floor_plan', 'monthly_close_items', 'expense_receipts',
-        'companies', 'custom_fields', 'documents', 'mood_responses', 'chat_ai_assistant'
+        'companies', 'custom_fields', 'documents', 'mood_responses', 'chat_ai_assistant',
+        'sales_budgets'
       ];
     }
 

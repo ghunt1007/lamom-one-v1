@@ -3,24 +3,26 @@
  * Route: /finance/target-actual
  */
 import { showToast } from '../../core/store.js'
-import { getSalesData } from '../../core/db.js'
+import { getSalesData, listDocs } from '../../core/db.js'
 import { formatCurrency } from '../../utils/format.js'
 import { exportToExcel } from '../../utils/importExport.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
-const LS_BUDGET = 'lamom_sales_budget_2025'
 const MONTH_LABELS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 
 // Default targets when no SalesBudget data
 const DEF_REVENUE = [9000000,8500000,12000000,10000000,13000000,9000000,10000000,11000000,10000000,11000000,13000000,18000000]
 const DEF_UNITS   = [8,7,10,9,11,8,9,10,9,10,11,15]
 
-function loadBudget() {
+// อ่านจาก Firestore collection 'sales_budgets' เดียวกับหน้า Sales Budget — เดิมอ่านจาก localStorage
+// เครื่องเดียวกัน (key ผูกปีตายตัว 'lamom_sales_budget_2025') ทำให้เห็นเป้าคนละชุดกันข้ามเครื่อง/ข้ามปี
+async function loadBudget() {
   try {
-    const d = JSON.parse(localStorage.getItem(LS_BUDGET) || 'null')
-    return { revenue: d?.targets || DEF_REVENUE, units: DEF_UNITS }
-  } catch { return { revenue: DEF_REVENUE, units: DEF_UNITS } }
+    const docs = await listDocs('sales_budgets', [['year', '==', new Date().getFullYear()]], 'createdAt', 'asc', 1)
+    if (docs.length > 0) return { revenue: docs[0].targets || DEF_REVENUE, units: DEF_UNITS }
+  } catch {}
+  return { revenue: DEF_REVENUE, units: DEF_UNITS }
 }
 
 function pctColor(pct) {
@@ -54,7 +56,8 @@ export default async function TargetActualPage(container) {
   let selMonthIdx = new Date().getMonth()
   let allSales = []
   let dataSource = 'demo'
-  let budget = loadBudget()
+  let budget = await loadBudget()
+  if (container.__routerGen !== myGen) return
 
   // Build monthly data from sales
   function buildMonthly() {
@@ -108,7 +111,6 @@ export default async function TargetActualPage(container) {
   } catch {}
 
   function render() {
-    budget = loadBudget()
     const monthly = buildMonthly()
     const bySales = buildByPerson()
     const curM = monthly[selMonthIdx]

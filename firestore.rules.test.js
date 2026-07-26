@@ -654,3 +654,23 @@ describe('fifth audit pass — remaining 169 collections, evidence-based restric
     await assertSucceeds(db.collection('mood_responses').get())
   })
 })
+
+describe('sales_budgets — same access as team_targets, a sales rep cannot edit their own target', () => {
+  it('a plain sales staff member cannot edit the company sales budget', async () => {
+    await seedUser('auditGap30', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap30').firestore()
+    await assertFails(db.collection('sales_budgets').add({ year: 2026, targets: [1] }))
+  })
+
+  it('a manager can set the sales budget', async () => {
+    await seedUser('auditGap31', { role: 'manager', active: true })
+    const db = testEnv.authenticatedContext('auditGap31').firestore()
+    await assertSucceeds(db.collection('sales_budgets').add({ year: 2026, targets: [1] }))
+  })
+
+  it('a plain sales staff member can still read the sales budget', async () => {
+    await seedUser('auditGap32', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap32').firestore()
+    await assertSucceeds(db.collection('sales_budgets').get())
+  })
+})
