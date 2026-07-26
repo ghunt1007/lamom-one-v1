@@ -4,8 +4,13 @@
  */
 import { formatCurrency, formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+
+function myName() {
+  const me = getState('user') || {}
+  return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
+}
 
 const PO_STATUS = {
   draft:     { label: 'ร่าง', color: 'secondary' },
@@ -123,7 +128,7 @@ export default async function PurchaseOrderPage(container) {
       const o = orders.find(x => x.id === b.dataset.id)
       if (!o) return
       try {
-        await updateDocData('purchase_orders', o.id, { status: 'approved', approvedBy: 'ผู้จัดการ' })
+        await updateDocData('purchase_orders', o.id, { status: 'approved', approvedBy: myName() })
         showToast(`✅ อนุมัติ ${o.id} แล้ว`, 'success')
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

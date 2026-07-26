@@ -4,6 +4,11 @@ import { showToast, getState, setState } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
+function myName() {
+  const me = getState('user') || {}
+  return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
+}
+
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
@@ -107,7 +112,7 @@ export default async function ExpenseClaimsPage(container) {
       btn.addEventListener('click', async () => {
         const c = claims.find(x => x.id === btn.dataset.id)
         if (!c) return
-        await updateDocData('expense_claims', c.id, { status: 'approved', approvedBy: 'ผู้จัดการ' })
+        await updateDocData('expense_claims', c.id, { status: 'approved', approvedBy: myName() })
         await notify(c, 'อนุมัติคำขอเบิกค่าใช้จ่ายแล้ว')
         showToast('✅ อนุมัติแล้ว', 'success'); await loadData()
       })

@@ -4,8 +4,13 @@
  */
 import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
+
+function myName() {
+  const me = getState('user') || {}
+  return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
+}
 import { exportToExcel } from '../../utils/importExport.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
@@ -163,7 +168,7 @@ export default async function PriceHistoryPage(container) {
         const prev = priceHistory.find(h => h.model === model)
         const oldPrice = prev ? prev.newPrice : price
         try {
-          await createDoc('price_history', { model, date, oldPrice, newPrice:price, change:price-oldPrice, reason, by:'Manager', approved:false })
+          await createDoc('price_history', { model, date, oldPrice, newPrice:price, change:price-oldPrice, reason, by: myName(), approved:false })
           showToast(`✅ บันทึกราคา ${model} = ${formatCurrency(price)} แล้ว · รอ Director อนุมัติ`, 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

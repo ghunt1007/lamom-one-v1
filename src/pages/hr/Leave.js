@@ -1,8 +1,13 @@
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+
+function myName() {
+  const me = getState('user') || {}
+  return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
+}
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -223,7 +228,7 @@ export default async function LeavePage(container) {
         const l = leaves.find(x => x.id === btn.dataset.id)
         if (!l) return
         try {
-          await updateDocData('leave_requests', l.id, { status: 'approved', approvedBy: 'ผู้จัดการ' })
+          await updateDocData('leave_requests', l.id, { status: 'approved', approvedBy: myName() })
           showToast(`✅ อนุมัติการลา ${l.staff}`, 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

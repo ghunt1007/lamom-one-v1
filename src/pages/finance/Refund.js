@@ -10,6 +10,11 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState, setState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
+function myName() {
+  const me = getState('user') || {}
+  return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
+}
+
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
 const STATUS_CFG = {
@@ -166,12 +171,12 @@ export default async function RefundPage(container) {
     }))
 
     container.querySelectorAll('.approve-btn').forEach(b => b.addEventListener('click', async () => {
-      await updateDocData('refund_requests', b.dataset.id, { status: 'approved', approvedBy: 'ผู้จัดการ' })
+      await updateDocData('refund_requests', b.dataset.id, { status: 'approved', approvedBy: myName() })
       const r = refunds.find(x => x.id === b.dataset.id)
       showToast('✅ อนุมัติคืนเงิน ' + formatCurrency(r?.amount || 0) + ' แล้ว', 'success'); await loadData()
     }))
     container.querySelectorAll('.reject-btn').forEach(b => b.addEventListener('click', async () => {
-      await updateDocData('refund_requests', b.dataset.id, { status: 'rejected', approvedBy: 'ผู้จัดการ' })
+      await updateDocData('refund_requests', b.dataset.id, { status: 'rejected', approvedBy: myName() })
       showToast('❌ ปฏิเสธคำขอคืนเงิน', 'warning'); await loadData()
     }))
     container.querySelectorAll('.transfer-btn').forEach(b => b.addEventListener('click', async () => {

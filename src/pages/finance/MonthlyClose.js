@@ -4,8 +4,13 @@
  */
 import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+
+function myName() {
+  const me = getState('user') || {}
+  return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
+}
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -131,7 +136,7 @@ export default async function MonthlyClosePage(container) {
         confirmText: '🔒 ปิดงบ',
         async onConfirm() {
           try {
-            await createDoc('financial_closings', { period: currentMonth, closedAt: new Date().toISOString(), closedBy: 'พนักงาน', revenue, costs, netProfit, margin })
+            await createDoc('financial_closings', { period: currentMonth, closedAt: new Date().toISOString(), closedBy: myName(), revenue, costs, netProfit, margin })
             showToast('✅ ปิดงบเดือน ' + currentMonth + ' แล้ว', 'success')
             await loadData()
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
