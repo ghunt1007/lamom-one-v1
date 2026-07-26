@@ -282,4 +282,12 @@ export default async function VoiceCrmPage(container) {
   }
 
   await loadData()
+
+  // ถ้าออกจากหน้านี้ระหว่างกำลังอัดเสียงอยู่ (ไม่ได้กด "หยุดอัด" เอง) เดิมไม่มี cleanup เลย ทำให้
+  // ไมโครโฟนค้างเปิดอัดต่อไปเรื่อยๆ เบื้องหลังแม้ออกจากหน้าไปแล้ว (ไฟไมค์ในเบราว์เซอร์ค้างติด สิ้นเปลือง
+  // แบตเตอรี่ และเสียงที่อัดต่อจากตรงนี้ไม่มีที่ไปเลยเพราะไม่มีใครกด "หยุดอัด" ให้ประมวลผลต่อ)
+  return function cleanupVoiceCrm() {
+    if (recTimer) clearInterval(recTimer)
+    if (micSession?.stream) micSession.stream.getTracks().forEach(t => t.stop())
+  }
 }
