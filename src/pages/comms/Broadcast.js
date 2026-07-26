@@ -54,7 +54,7 @@ export default async function BroadcastPage(container) {
       return
     }
     const sent = broadcasts.filter(b => b.status === 'sent').length
-    const totalReach = broadcasts.filter(b => b.status === 'sent').reduce((a, b) => a + b.delivered, 0)
+    const totalReach = broadcasts.filter(b => b.status === 'sent').reduce((a, b) => a + (b.delivered || 0), 0)
     const avgOpen = (() => {
       const sentList = broadcasts.filter(b => b.status === 'sent' && b.delivered > 0)
       if (!sentList.length) return 0
@@ -104,13 +104,16 @@ export default async function BroadcastPage(container) {
                 </div>
               </div>
 
-              ${b.status === 'sent' ? `
+              ${b.status === 'sent' ? (b.recipients == null ? `
+                <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:10px">📊 ยังไม่รองรับการติดตามผลส่งจริง (ไม่ได้เชื่อมต่อผู้ให้บริการ)</div>
+              ` : `
                 <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">
                   ${miniStat('📤 ส่ง', b.recipients.toLocaleString())}
                   ${miniStat('✅ ถึงมือ', b.delivered.toLocaleString())}
                   ${miniStat('👁 เปิดอ่าน', openRate + '%')}
                   ${miniStat('🖱 คลิก', clickRate + '%')}
-                </div>
+                </div>`) : ''}
+              ${b.status === 'sent' && b.recipients != null ? `
                 <!-- Open rate bar -->
                 <div style="margin-bottom:6px">
                   <div style="display:flex;justify-content:space-between;font-size:0.7rem;margin-bottom:2px">
@@ -141,13 +144,12 @@ export default async function BroadcastPage(container) {
     container.querySelectorAll('.send-bc-btn').forEach(b => b.addEventListener('click', async () => {
       const bc = broadcasts.find(x => x.id === b.dataset.id)
       if (!bc) return
-      const recipients = Math.floor(Math.random() * 200) + 50
-      const delivered = Math.floor(recipients * 0.97)
-      const opened = Math.floor(delivered * 0.3)
-      const clicked = Math.floor(opened * 0.25)
+      // หมายเหตุ: ยังไม่มีการเชื่อมต่อผู้ให้บริการส่งข้อความจริง (LINE/SMS/Email/Push) — ปุ่มนี้แค่บันทึก
+      // สถานะในระบบว่า "ทำรายการส่งแล้ว" เท่านั้น ไม่ได้ส่งถึงลูกค้าจริง จึงไม่ควรมีตัวเลขผู้รับ/เปิดอ่าน/คลิก
+      // ปลอมๆ (เดิมสุ่มด้วย Math.random() ให้ดูสมจริง) — ปล่อยเป็น null (ยังไม่มีข้อมูลจริง) แทน
       try {
-        await updateDocData('broadcasts', bc.id, { status: 'sent', sentAt: new Date().toISOString(), recipients, delivered, opened, clicked })
-        showToast('📤 ส่ง Broadcast แล้ว!', 'success')
+        await updateDocData('broadcasts', bc.id, { status: 'sent', sentAt: new Date().toISOString(), recipients: null, delivered: null, opened: null, clicked: null })
+        showToast('📤 บันทึกสถานะส่งแล้ว — ยังไม่เชื่อมต่อผู้ให้บริการส่งข้อความจริง', 'success')
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
@@ -169,6 +171,7 @@ export default async function BroadcastPage(container) {
         ${bc.scheduledAt ? row('กำหนดส่ง', formatDate(bc.scheduledAt)) : ''}
         ${bc.recipients > 0 ? row('จำนวนผู้รับ', bc.recipients.toLocaleString() + ' คน') : ''}
         ${bc.delivered > 0 ? row('ส่งถึง', bc.delivered.toLocaleString() + ' คน') : ''}
+        ${bc.status === 'sent' && bc.recipients == null ? row('การติดตามผล', 'ยังไม่เชื่อมต่อผู้ให้บริการส่งข้อความจริง') : ''}
         <div style="margin-top:12px;padding:12px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:0.85rem">${escHtml(bc.message)}</div>
       `
     })

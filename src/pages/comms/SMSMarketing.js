@@ -45,7 +45,7 @@ export default async function SMSMarketingPage(container) {
       container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
       return
     }
-    const totalSent = campaigns.reduce((a, c) => a + c.sent, 0)
+    const totalSent = campaigns.reduce((a, c) => a + (c.sent || 0), 0)
     const active = campaigns.filter(c => c.status === 'scheduled').length
 
     container.innerHTML = `
@@ -71,7 +71,7 @@ export default async function SMSMarketingPage(container) {
         <div style="display:flex;flex-direction:column;gap:10px">
           ${campaigns.map(c => {
             const ss = SMS_STATUS[c.status]
-            const deliveryRate = c.recipients > 0 ? Math.round(c.sent / c.recipients * 100) : 0
+            const deliveryRate = c.recipients > 0 && c.sent != null ? Math.round(c.sent / c.recipients * 100) : null
             return `<div class="card" style="padding:13px 14px">
               <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
                 <div>
@@ -81,13 +81,15 @@ export default async function SMSMarketingPage(container) {
                 <span class="badge badge-${ss?.color}" style="font-size:0.63rem">${ss?.icon} ${ss?.label}</span>
               </div>
               <div style="font-size:0.78rem;font-style:italic;color:var(--text-muted);margin-bottom:8px;padding:6px 8px;background:var(--surface-2);border-radius:var(--radius-sm)">"${escHtml(c.message)}"</div>
-              ${c.status === 'sent' ? `
+              ${c.status === 'sent' ? (c.sent == null ? `
+                <div style="font-size:0.73rem;color:var(--text-muted);margin-bottom:6px">📊 ยังไม่รองรับการติดตามผลส่งจริง (ไม่ได้เชื่อมต่อผู้ให้บริการ)</div>
+              ` : `
                 <div style="display:flex;gap:12px;font-size:0.73rem;margin-bottom:6px">
                   <span>✅ ส่งสำเร็จ: <strong>${c.sent}</strong></span>
                   <span>❌ ล้มเหลว: <strong>${c.failed}</strong></span>
                   <span>📊 Delivery: <strong>${deliveryRate}%</strong></span>
                 </div>
-              ` : ''}
+              `) : ''}
               <div style="display:flex;gap:6px">
                 ${c.status === 'draft' ? `<button class="btn btn-xs btn-primary send-now-btn" data-id="${c.id}">📱 ส่งทันที</button>` : ''}
                 ${c.status === 'scheduled' ? `<button class="btn btn-xs btn-warning cancel-schedule-btn" data-id="${c.id}">🚫 ยกเลิก</button>` : ''}
@@ -103,11 +105,12 @@ export default async function SMSMarketingPage(container) {
       const c = campaigns.find(x => x.id === b.dataset.id)
       if (!c) return
       if (credits < c.recipients) { showToast('❗ เครดิตไม่พอ','error'); return }
-      const sent = c.recipients - Math.floor(Math.random()*5)
+      // หมายเหตุ: ยังไม่มีการเชื่อมต่อผู้ให้บริการส่ง SMS จริง — เดิมสุ่มจำนวน "ส่งสำเร็จ" ด้วย Math.random()
+      // ให้ดูสมจริง (เกือบเท่า recipients เสมอ) ทั้งที่ไม่มีข้อความส่งออกไปจริงแม้แต่ข้อความเดียว
       try {
-        await updateDocData('sms_campaigns', c.id, { status: 'sent', sent, time: new Date().toISOString() })
+        await updateDocData('sms_campaigns', c.id, { status: 'sent', sent: null, time: new Date().toISOString() })
         credits -= c.recipients
-        showToast('📱 ส่ง SMS แล้ว!','success')
+        showToast('📱 บันทึกสถานะส่งแล้ว — ยังไม่เชื่อมต่อผู้ให้บริการ SMS จริง','success')
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
