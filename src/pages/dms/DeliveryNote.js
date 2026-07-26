@@ -28,10 +28,6 @@ const DN_STATUS = {
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
 
-// localStorage overlay: delivery scheduling + checklist per booking
-function loadOL(id) { try { return JSON.parse(localStorage.getItem('dn-ol-' + id) || '{}') } catch { return {} } }
-function saveOL(id, data) { try { localStorage.setItem('dn-ol-' + id, JSON.stringify({ ...loadOL(id), ...data })) } catch {} }
-
 const DEMO_DNS = [
   { id:'DN001', bookingId:'BK001', _fbId:null, customerName:'วิชาญ มีโชค', phone:'081-234-5678',
     brand:'BYD', model:'Seal', variant:'AWD Performance', color:'Cosmos Black', year:2024,
@@ -75,29 +71,32 @@ export default async function DeliveryNotePage(container) {
     const relevant = bookings.filter(b => ['รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ', 'ส่งมอบแล้ว', 'ถอนจอง'].includes(b.status))
     if (relevant.length) {
       notes = relevant.map(b => {
-        const ol = loadOL(b.id)
+        // เดิม deliveryDate/deliveryTime/location/checklist/notes เก็บใน localStorage เป็น "overlay"
+        // แยกจาก Firestore โดยสิ้นเชิง (คนละเครื่องเห็นวันนัด/checklist ส่งมอบไม่ตรงกัน) ที่ร้ายกว่านั้นคือ
+        // deliveryDate ที่บันทึกไว้ไม่ตรงกับฟิลด์ b.deliveryDate จริงที่หน้า Bookings ใช้เตือน "ใกล้ถึงวันส่งมอบ"
+        // เลยด้วย ตอนนี้อ่าน/เขียนฟิลด์เดียวกันกับ booking จริงแล้ว ระบบเตือนของ Bookings จะตรงกับที่นัดจริง
         return {
           id: b.bookingNo || b.id,
           bookingId: b.bookingNo || b.id,
           _fbId: b.id,
           customerName: b.custName || '',
-          phone: b.custPhone || ol.phone || '',
+          phone: b.custPhone || '',
           brand: b.brand || '',
           model: b.model || '',
           variant: b.variant || '',
-          color: b.color || ol.color || '',
+          color: b.color || '',
           vin: b.vin || '',
-          plate: ol.plate || b.plate || '',
+          plate: b.plate || '',
           price: b.price || 0,
           salesperson: b.salesName || '',
-          deliveryDate: ol.deliveryDate || b.actualDeliveryDate || addDays(7),
-          deliveryTime: ol.deliveryTime || '10:00',
-          location: ol.location || (getBranches()[0] || 'โชว์รูมหลัก'),
-          status: ol.status || BOOKING_TO_DN[b.status] || 'pending',
-          signedAt: ol.signedAt || null,
-          notes: ol.notes || '',
-          accessories: ol.accessories || [],
-          checklist: ol.checklist || { docs:false, keys:false, charger:false, manual:false, mats:false, spare:false },
+          deliveryDate: b.deliveryDate || b.actualDeliveryDate || addDays(7),
+          deliveryTime: b.deliveryTime || '10:00',
+          location: b.deliveryLocation || (getBranches()[0] || 'โชว์รูมหลัก'),
+          status: (BOOKING_TO_DN[b.status] === 'pending' && b.dnScheduledAt) ? 'scheduled' : (BOOKING_TO_DN[b.status] || 'pending'),
+          signedAt: b.signedAt || null,
+          notes: b.deliveryNotes || '',
+          accessories: b.deliveryAccessories || [],
+          checklist: b.deliveryChecklist || { docs:false, keys:false, charger:false, manual:false, mats:false, spare:false },
         }
       })
     }
@@ -297,17 +296,17 @@ export default async function DeliveryNotePage(container) {
         </div>
       `,
       confirmLabel: '📅 บันทึกนัด',
-      onConfirm() {
+      async onConfirm() {
         const date = document.getElementById('sc-date')?.value
-        if (!date) { showToast('❗ กรุณาระบุวันส่งมอบ', 'error'); return }
-        const overlay = {
-          deliveryDate: date,
-          deliveryTime: document.getElementById('sc-time')?.value || n.deliveryTime,
-          location: document.getElementById('sc-loc')?.value || n.location,
-          status: 'scheduled',
+        if (!date) { showToast('❗ กรุณาระบุวันส่งมอบ', 'error'); return false }
+        const deliveryTime = document.getElementById('sc-time')?.value || n.deliveryTime
+        const deliveryLocation = document.getElementById('sc-loc')?.value || n.location
+        if (n._fbId) {
+          try {
+            await updateDocData('bookings', n._fbId, { deliveryDate: date, deliveryTime, deliveryLocation, dnScheduledAt: new Date().toISOString() })
+          } catch { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
         }
-        if (n._fbId) saveOL(n._fbId, overlay)
-        Object.assign(n, overlay)
+        Object.assign(n, { deliveryDate: date, deliveryTime, location: deliveryLocation, status: 'scheduled' })
         showToast(`📅 นัดส่งมอบ ${n.customerName} วัน ${formatDate(date)} เรียบร้อย`, 'success')
         renderPage()
       }
@@ -338,18 +337,21 @@ export default async function DeliveryNotePage(container) {
       `,
       confirmLabel: '✅ ยืนยันส่งมอบ',
       confirmClass: 'btn-success',
-      onConfirm() {
+      async onConfirm() {
         const checklist = {}
         checkItems.forEach(([key]) => { checklist[key] = !!document.querySelector(`.modal .dn-check[data-k="${key}"]`)?.checked })
         const plate = document.getElementById('dn-plate')?.value || n.plate
         const notes2 = document.getElementById('dn-notes')?.value || ''
         const signedAt = new Date().toISOString().slice(0, 10)
-        const overlay = { status:'done', signedAt, plate, notes:notes2, checklist }
         if (n._fbId) {
-          saveOL(n._fbId, overlay)
-          updateDocData('bookings', n._fbId, { status:'ส่งมอบแล้ว', actualDeliveryDate:signedAt, plate }).catch(() => {})
+          try {
+            await updateDocData('bookings', n._fbId, {
+              status: 'ส่งมอบแล้ว', actualDeliveryDate: signedAt, plate,
+              deliverySignedAt: signedAt, deliveryNotes: notes2, deliveryChecklist: checklist,
+            })
+          } catch { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
         }
-        Object.assign(n, overlay)
+        Object.assign(n, { status: 'done', signedAt, plate, notes: notes2, checklist })
         showToast(`✅ ส่งมอบ ${n.brand} ${n.model} ให้ ${n.customerName} เรียบร้อย!`, 'success')
         renderPage()
       }
