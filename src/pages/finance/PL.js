@@ -4,21 +4,26 @@ import { exportToExcel } from '../../utils/importExport.js'
 
 const MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 
-// DEMO P&L data per month (2025)
-const DEMO_PL = [
-  { month:'2025-01', revenue:4200000, cogs:3570000, opex:380000, label:'ม.ค.' },
-  { month:'2025-02', revenue:3800000, cogs:3230000, opex:360000, label:'ก.พ.' },
-  { month:'2025-03', revenue:5100000, cogs:4335000, opex:420000, label:'มี.ค.' },
-  { month:'2025-04', revenue:4600000, cogs:3910000, opex:400000, label:'เม.ย.' },
-  { month:'2025-05', revenue:5300000, cogs:4505000, opex:430000, label:'พ.ค.' },
-  { month:'2025-06', revenue:4900000, cogs:4165000, opex:410000, label:'มิ.ย.' },
-  { month:'2025-07', revenue:5800000, cogs:4930000, opex:450000, label:'ก.ค.' },
-  { month:'2025-08', revenue:5200000, cogs:4420000, opex:440000, label:'ส.ค.' },
-  { month:'2025-09', revenue:4700000, cogs:3995000, opex:415000, label:'ก.ย.' },
-  { month:'2025-10', revenue:5600000, cogs:4760000, opex:460000, label:'ต.ค.' },
-  { month:'2025-11', revenue:6100000, cogs:5185000, opex:490000, label:'พ.ย.' },
-  { month:'2025-12', revenue:6800000, cogs:5780000, opex:520000, label:'ธ.ค.' },
+// เลขตัวอย่าง (ยังไม่มีข้อมูลจริง) — เดิมผูก key เดือนไว้ตายตัวที่ปี 2025 ('2025-01'..'2025-12') ทำให้ overlay
+// ยอดขายจริงด้านล่าง (จับคู่ด้วย r.month) ไม่มีทางจับคู่กับปีปัจจุบันได้เลยเมื่อข้ามปี — P&L ปีปัจจุบันจะไม่มี
+// ข้อมูลจริงโชว์แม้แต่เดือนเดียว ตอนนี้ผูก key เดือนกับปีปัจจุบันจริงเสมอ (ตัวเลขตัวอย่างยังคงเดิม ใช้แค่ตอนยังไม่มีข้อมูลจริง)
+const DEMO_MONTH_VALUES = [
+  { revenue:4200000, cogs:3570000, opex:380000, label:'ม.ค.' },
+  { revenue:3800000, cogs:3230000, opex:360000, label:'ก.พ.' },
+  { revenue:5100000, cogs:4335000, opex:420000, label:'มี.ค.' },
+  { revenue:4600000, cogs:3910000, opex:400000, label:'เม.ย.' },
+  { revenue:5300000, cogs:4505000, opex:430000, label:'พ.ค.' },
+  { revenue:4900000, cogs:4165000, opex:410000, label:'มิ.ย.' },
+  { revenue:5800000, cogs:4930000, opex:450000, label:'ก.ค.' },
+  { revenue:5200000, cogs:4420000, opex:440000, label:'ส.ค.' },
+  { revenue:4700000, cogs:3995000, opex:415000, label:'ก.ย.' },
+  { revenue:5600000, cogs:4760000, opex:460000, label:'ต.ค.' },
+  { revenue:6100000, cogs:5185000, opex:490000, label:'พ.ย.' },
+  { revenue:6800000, cogs:5780000, opex:520000, label:'ธ.ค.' },
 ]
+function buildDemoPL(year) {
+  return DEMO_MONTH_VALUES.map((v, i) => ({ month: `${year}-${String(i+1).padStart(2,'0')}`, ...v }))
+}
 
 const OPEX_BREAKDOWN = [
   { label: 'เงินเดือนพนักงาน', pct: 38 },
@@ -33,16 +38,17 @@ export default async function PLPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
 
-  let plData = [...DEMO_PL]
-  let selectedYear = '2025'
+  let selectedYear = String(new Date().getFullYear())
+  let plData = buildDemoPL(selectedYear)
   let viewMode = 'month' // month | quarter | year
 
   function getQuarterData() {
+    const y = selectedYear
     const quarters = [
-      { label: 'Q1', months: ['2025-01','2025-02','2025-03'] },
-      { label: 'Q2', months: ['2025-04','2025-05','2025-06'] },
-      { label: 'Q3', months: ['2025-07','2025-08','2025-09'] },
-      { label: 'Q4', months: ['2025-10','2025-11','2025-12'] },
+      { label: 'Q1', months: [`${y}-01`,`${y}-02`,`${y}-03`] },
+      { label: 'Q2', months: [`${y}-04`,`${y}-05`,`${y}-06`] },
+      { label: 'Q3', months: [`${y}-07`,`${y}-08`,`${y}-09`] },
+      { label: 'Q4', months: [`${y}-10`,`${y}-11`,`${y}-12`] },
     ]
     return quarters.map(q => {
       const rows = plData.filter(r => q.months.includes(r.month))
@@ -58,7 +64,7 @@ export default async function PLPage(container) {
   function getDisplayData() {
     if (viewMode === 'quarter') return getQuarterData()
     if (viewMode === 'year') {
-      const t = plData.reduce((a,r) => ({ label:'2025 ทั้งปี', revenue: a.revenue+r.revenue, cogs: a.cogs+r.cogs, opex: a.opex+r.opex }), { revenue:0,cogs:0,opex:0 })
+      const t = plData.reduce((a,r) => ({ label:`${selectedYear} ทั้งปี`, revenue: a.revenue+r.revenue, cogs: a.cogs+r.cogs, opex: a.opex+r.opex }), { revenue:0,cogs:0,opex:0 })
       return [t]
     }
     return plData

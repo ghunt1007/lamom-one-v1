@@ -154,7 +154,7 @@ export default async function AnalyticsDashboard(container) {
     document.getElementById('a-export')?.addEventListener('click', () => {
       exportToExcel(MONTHLY_DATA.map(d => ({
         'เดือน': d.m, 'รายได้': d.sales, 'คัน': d.units, 'Leads': d.leads, 'งานซ่อม': d.jobs, 'ลูกค้าใหม่': d.cust
-      })), 'Analytics_2025')
+      })), `Analytics_${new Date().getFullYear()}`)
     })
   }
 

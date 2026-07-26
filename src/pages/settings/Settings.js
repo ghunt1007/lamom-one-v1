@@ -12,7 +12,7 @@ const THEMES = [
 
 const NAV_ITEMS = [
   { icon:'🏢', label:'ข้อมูลบริษัท', path:'/settings/company' },
-  { icon:'👥', label:'จัดการผู้ใช้', path:'/settings/users' },
+  { icon:'👥', label:'จัดการผู้ใช้', path:'/settings/users-manage' },
   { icon:'🔐', label:'Role & Permissions', path:'/settings/roles' },
 ]
 

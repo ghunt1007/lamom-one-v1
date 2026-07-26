@@ -214,7 +214,7 @@ export default async function SalesForecastPage(container) {
         เดือน: MONTHS_TH[d.month] + ' 2025',
         ประเภท: d.isForecast ? 'Forecast' : 'Actual',
         คัน: d.units, รายได้: d.revenue, Leads: d.leads
-      })), 'sales_forecast_2025')
+      })), `sales_forecast_${new Date().getFullYear()}`)
       showToast('📥 Export แล้ว!', 'success')
     })
   }
