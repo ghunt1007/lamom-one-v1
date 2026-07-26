@@ -4,8 +4,13 @@
  */
 import { formatCurrency, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+
+function myName() {
+  const me = getState('user') || {}
+  return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
+}
 
 const WASH_SERVICES = {
   basic:   { label: 'ล้างธรรมดา', price: 200, mins: 30, icon: '🚿' },
@@ -109,7 +114,7 @@ export default async function WashQueuePage(container) {
     container.querySelectorAll('.start-btn').forEach(b => b.addEventListener('click', async () => {
       const q = queue.find(x => x.id === b.dataset.id)
       if (!q) return
-      const staff = 'ทีม ' + (Math.random() > 0.5 ? 'A' : 'B')
+      const staff = myName()
       try {
         await updateDocData('wash_queue', q.id, { status: 'washing', startTime: new Date().toISOString(), staff })
         await loadData()

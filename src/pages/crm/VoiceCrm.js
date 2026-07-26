@@ -9,6 +9,17 @@ import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
+// อ่านความยาวไฟล์เสียงจริงผ่าน HTML5 Audio API — เดิมสุ่มตัวเลขด้วย Math.random() ทั้งที่มีไฟล์จริงอยู่ในมือ
+function getAudioDuration(file) {
+  return new Promise(resolve => {
+    const url = URL.createObjectURL(file)
+    const audio = new Audio(url)
+    const done = sec => { URL.revokeObjectURL(url); resolve(sec != null && isFinite(sec) ? `${Math.floor(sec/60)}:${String(Math.floor(sec%60)).padStart(2,'0')}` : null) }
+    audio.addEventListener('loadedmetadata', () => done(audio.duration))
+    audio.addEventListener('error', () => done(null))
+  })
+}
+
 const SENT = {
   hot:  { label: '🔥 Hot',  color: 'var(--danger)' },
   warm: { label: '🌤 Warm', color: 'var(--warning)' },
@@ -176,10 +187,10 @@ export default async function VoiceCrmPage(container) {
             await createDoc('voice_notes', {
               customer: cust, duration: `${Math.floor(recSec/60)}:${String(recSec%60).padStart(2,'0')}`,
               date: new Date().toISOString(), sentiment: document.getElementById('vc-sent').value,
-              summary: 'AI กำลังประมวลผล... (ผลจะปรากฏใน 30 วินาที)',
+              summary: 'ยังไม่มีสรุปจาก AI — ระบบวิเคราะห์เสียงอัตโนมัติยังไม่เชื่อมต่อจริง กรุณาสรุปเองในช่องบันทึก',
               followUps: ['ติดตาม 24 ชั่วโมง'], tags: ['new']
             })
-            showToast(`🎙 บันทึกเสียง ${cust} แล้ว · AI กำลังสรุป`, 'success')
+            showToast(`🎙 บันทึกเสียง ${cust} แล้ว`, 'success')
             await loadData()
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
@@ -215,18 +226,18 @@ export default async function VoiceCrmPage(container) {
         const sent = document.getElementById('vc-imp-sent')?.value || 'warm'
         const file = document.getElementById('vc-file')?.files?.[0]
         if (!cust) { showToast('ระบุชื่อลูกค้า', 'warning'); return false }
-        const dur = file ? `${Math.floor(Math.random()*8+1)}:${String(Math.floor(Math.random()*60)).padStart(2,'0')}` : '2:30'
+        const dur = file ? await getAudioDuration(file) : null
         try {
           await createDoc('voice_notes', {
             customer: cust,
-            duration: dur,
+            duration: dur ?? '-',
             date: new Date().toISOString(),
-            summary: `AI กำลังประมวลผล${file ? ` "${file.name}"` : ''} — สรุปจะแสดงใน 2-3 นาที`,
+            summary: `ยังไม่มีสรุปจาก AI${file ? ` (ไฟล์ "${file.name}")` : ''} — ระบบวิเคราะห์เสียงอัตโนมัติยังไม่เชื่อมต่อจริง กรุณาสรุปเองในช่องบันทึก`,
             followUps: ['ติดตามผลการวิเคราะห์เสียง'],
             sentiment: sent,
             tags: [],
           })
-          showToast(`🤖 AI กำลังวิเคราะห์เสียง${file ? ` "${file.name}"` : ''} ของ ${cust} — ใช้เวลา ~2 นาที`, 'success')
+          showToast(`✅ บันทึกไฟล์เสียง${file ? ` "${file.name}"` : ''} ของ ${cust} แล้ว`, 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }

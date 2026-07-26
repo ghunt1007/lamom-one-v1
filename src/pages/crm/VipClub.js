@@ -56,7 +56,7 @@ export default async function VipClubPage(container) {
         id: `LV${i+1}`, name: c.name,
         tier: c.totalSpend >= 3000000 ? 'platinum' : c.totalSpend >= 1500000 ? 'gold' : 'silver',
         totalSpend: c.totalSpend, cars: c.cars, referrals: 0,
-        manager: '—', lastContact: addDays(-Math.floor(Math.random() * 30)), birthday: '—', perks_used: 0,
+        manager: '—', lastContact: null, birthday: '—', perks_used: 0,
       }))
       dataSource = 'live'
     }
@@ -66,7 +66,7 @@ export default async function VipClubPage(container) {
     const list = vips.filter(v => tierFilter === 'all' || v.tier === tierFilter)
       .sort((a, b) => b.totalSpend - a.totalSpend)
     const totalValue = vips.reduce((a, v) => a + v.totalSpend, 0)
-    const needContact = vips.filter(v => v.lastContact <= addDays(-30)).length
+    const needContact = vips.filter(v => !v.lastContact || v.lastContact <= addDays(-30)).length
     const totalReferrals = vips.reduce((a, v) => a + v.referrals, 0)
 
     container.innerHTML = `
@@ -109,13 +109,13 @@ export default async function VipClubPage(container) {
         <div style="display:flex;flex-direction:column;gap:8px">
           ${list.map(v => {
             const vt = VIP_TIERS[v.tier]
-            const stale = v.lastContact <= addDays(-30)
+            const stale = !v.lastContact || v.lastContact <= addDays(-30)
             return `<div class="card" style="padding:12px 14px;border-left:3px solid var(--${vt?.color})${stale?';background:var(--danger)06':''}">
               <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px">
                 <div>
                   <div style="font-weight:700;font-size:0.87rem">${vt?.icon} ${escHtml(v.name)}</div>
                   <div style="font-size:0.72rem;color:var(--text-muted)">🚗 ${v.cars} คัน · 🤝 แนะนำ ${v.referrals} ราย · 🎂 ${v.birthday} · ใช้สิทธิ์ ${v.perks_used} ครั้ง</div>
-                  <div style="font-size:0.72rem;color:var(--${stale?'danger':'text-muted'})">👤 ${v.manager} · ติดต่อล่าสุด ${timeAgo(v.lastContact)}${stale?' ⚠️':''}</div>
+                  <div style="font-size:0.72rem;color:var(--${stale?'danger':'text-muted'})">👤 ${v.manager} · ${v.lastContact ? 'ติดต่อล่าสุด ' + timeAgo(v.lastContact) : 'ยังไม่เคยติดต่อ'}${stale?' ⚠️':''}</div>
                 </div>
                 <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
                   <span class="badge badge-${vt?.color}" style="font-size:0.63rem">${vt?.icon} ${vt?.label}</span>
