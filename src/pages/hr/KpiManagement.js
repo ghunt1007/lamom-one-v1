@@ -8,15 +8,19 @@ function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-const KPI_PERIODS = ['2025-Q1', '2025-Q2', '2025-Q3', '2025-Q4']
-
-const DEMO_STAFF = [
-  { id:'S001', name:'วิชาญ มีโชค', dept:'sales', role:'Sales Executive' },
-  { id:'S002', name:'อรนุช สายใจ', dept:'sales', role:'Sales Executive' },
-  { id:'S003', name:'ธีรยุทธ เก่งกาจ', dept:'service', role:'Service Advisor' },
-  { id:'S004', name:'พิมพ์ใจ ตั้งมั่น', dept:'service', role:'Technician' },
-  { id:'S005', name:'นภา จิตดี', dept:'admin', role:'Admin' },
-]
+// สร้างรายชื่อไตรมาสจากวันที่จริงปัจจุบัน (4 ไตรมาสล่าสุดจนถึงไตรมาสนี้) — เดิม hardcode ไว้แค่ปี 2025
+// ทำให้เลือกไตรมาสปัจจุบันไม่ได้เลยเมื่อข้ามปี
+function buildKpiPeriods() {
+  const now = new Date()
+  const q0 = Math.floor(now.getMonth() / 3)
+  const periods = []
+  for (let i = 3; i >= 0; i--) {
+    const total = now.getFullYear() * 4 + q0 - i
+    periods.push(`${Math.floor(total / 4)}-Q${(total % 4) + 1}`)
+  }
+  return periods
+}
+const KPI_PERIODS = buildKpiPeriods()
 
 const KPI_TEMPLATES = {
   sales: [
@@ -38,26 +42,33 @@ const KPI_TEMPLATES = {
   ],
 }
 
+// ยังไม่มีแหล่งข้อมูลจริงสำหรับ KPI เหล่านี้ (นอกจากยอดขาย/รายได้ฝ่ายขายที่ดึงจากค่าคอมมิชชั่นจริงด้านล่าง)
+// เดิมสุ่มตัวเลขด้วย Math.random() ทุกครั้งที่เปิดหน้า ทำให้คะแนนประเมินเปลี่ยนไปทุกครั้งที่ดู ไม่ใช่ของจริงเลย
+// ตอนนี้ปล่อยเป็น null (ยังไม่มีข้อมูล) แทนการปลอมตัวเลขที่ดูสมจริง
 function generateActuals(template) {
-  return template.map(k => ({
-    ...k, actual: k.unit === 'คะแนน' ? +(Math.random() * 1.5 + 3.5).toFixed(1)
-      : k.unit === '%' ? +(Math.random() * k.target * 1.5).toFixed(1)
-      : Math.floor(Math.random() * k.target * 1.3),
-  }))
+  return template.map(k => ({ ...k, actual: null }))
+}
+
+function kpiPct(k) {
+  if (k.actual == null) return null
+  if (k.lowerIsBetter) return k.actual === 0 ? 100 : Math.min(100, (k.target / k.actual) * 100)
+  return Math.min(100, (k.actual / k.target) * 100)
 }
 
 function calcScore(kpis) {
-  let total = 0
+  let total = 0, weightCovered = 0
   kpis.forEach(k => {
-    let pct
-    if (k.lowerIsBetter) pct = k.actual === 0 ? 100 : Math.min(100, (k.target / k.actual) * 100)
-    else pct = Math.min(100, (k.actual / k.target) * 100)
+    const pct = kpiPct(k)
+    if (pct == null) return
     total += pct * (k.weight / 100)
+    weightCovered += k.weight
   })
-  return Math.round(total)
+  if (weightCovered === 0) return null
+  return Math.round(total * (100 / weightCovered))
 }
 
 function scoreLabel(score) {
+  if (score == null) return { label: 'ยังไม่มีข้อมูล', color: 'secondary' }
   if (score >= 90) return { label: 'ยอดเยี่ยม ⭐', color: 'success' }
   if (score >= 75) return { label: 'ดีมาก', color: 'primary' }
   if (score >= 60) return { label: 'ผ่าน', color: 'warning' }
@@ -66,13 +77,12 @@ function scoreLabel(score) {
 
 export default async function KpiManagementPage(container) {
   const myGen = container.__routerGen
-  let period = '2025-Q2'
+  let period = KPI_PERIODS[KPI_PERIODS.length - 1]
   let deptFilter = 'all'
   let tab = 'overview'
 
-  let staff = DEMO_STAFF.map(s => ({ ...s }))
+  let staff = []
   let commissionMap = {}
-  let dataSource = 'demo'
 
   try {
     const [staffDocs, coms] = await Promise.all([
@@ -81,15 +91,12 @@ export default async function KpiManagementPage(container) {
     ])
     if (container.__routerGen !== myGen) return
 
-    if (staffDocs.length) {
-      staff = staffDocs.map(s => ({
-        id: s.id,
-        name: ((s.firstName || '') + ' ' + (s.lastName || '')).trim() || s.name || 'พนักงาน',
-        dept: s.dept === 'ฝ่ายขาย' ? 'sales' : s.dept === 'ฝ่ายบริการ' ? 'service' : 'admin',
-        role: s.position || s.role || '',
-      }))
-      dataSource = 'live'
-    }
+    staff = staffDocs.map(s => ({
+      id: s.id,
+      name: ((s.firstName || '') + ' ' + (s.lastName || '')).trim() || s.name || 'พนักงาน',
+      dept: s.dept === 'ฝ่ายขาย' ? 'sales' : s.dept === 'ฝ่ายบริการ' ? 'service' : 'admin',
+      role: s.position || s.role || '',
+    }))
 
     coms.forEach(c => {
       if (!c.salesName) return
@@ -127,7 +134,7 @@ export default async function KpiManagementPage(container) {
 
   function renderPage() {
     const filtered = getFiltered()
-    const scores = filtered.map(s => ({ ...s, kpis: kpiData[s.id][period], score: calcScore(kpiData[s.id][period]) })).sort((a, b) => b.score - a.score)
+    const scores = filtered.map(s => ({ ...s, kpis: kpiData[s.id][period], score: calcScore(kpiData[s.id][period]) })).sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -187,18 +194,18 @@ export default async function KpiManagementPage(container) {
               </div>
             </div>
             <div style="text-align:center;margin-bottom:10px">
-              <div style="font-size:2rem;font-weight:900;color:var(--${sl.color})">${s.score}</div>
+              <div style="font-size:2rem;font-weight:900;color:var(--${sl.color})">${s.score ?? "-"}</div>
               <div style="font-size:0.75rem;color:var(--text-muted)">คะแนนรวม</div>
               <span class="badge badge-${sl.color}">${sl.label}</span>
             </div>
             <!-- Mini KPI bars -->
             ${s.kpis.map(k => {
-              const pct = k.lowerIsBetter ? (k.actual===0?100:Math.min(100,(k.target/k.actual)*100)) : Math.min(100,(k.actual/k.target)*100)
+              const pct = kpiPct(k)
               return `<div style="margin-bottom:6px">
                 <div style="display:flex;justify-content:space-between;font-size:0.68rem;color:var(--text-muted);margin-bottom:2px">
-                  <span>${k.name}</span><span>${k.actual}/${k.target}</span>
+                  <span>${k.name}</span><span>${k.actual ?? 'ยังไม่มีข้อมูล'}${k.actual!=null?'/'+k.target:''}</span>
                 </div>
-                <div style="height:4px;background:var(--surface-3);border-radius:99px"><div style="height:100%;width:${pct}%;background:${pct>=90?'var(--success)':pct>=60?'var(--warning)':'var(--danger)'};border-radius:99px"></div></div>
+                <div style="height:4px;background:var(--surface-3);border-radius:99px"><div style="height:100%;width:${pct ?? 0}%;background:${pct==null?'var(--surface-3)':pct>=90?'var(--success)':pct>=60?'var(--warning)':'var(--danger)'};border-radius:99px"></div></div>
               </div>`
             }).join('')}
           </div>`
@@ -226,10 +233,11 @@ export default async function KpiManagementPage(container) {
                 <td style="font-weight:600;font-size:0.85rem">${escHtml(s.name)}</td>
                 <td style="font-size:0.78rem">${escHtml(s.dept)}</td>
                 ${s.kpis.map(k => {
-                  const pct = k.lowerIsBetter ? (k.actual===0?100:Math.min(100,(k.target/k.actual)*100)) : Math.min(100,(k.actual/k.target)*100)
+                  const pct = kpiPct(k)
+                  if (pct == null) return `<td class="text-right" style="font-size:0.83rem;color:var(--text-muted)">ยังไม่มีข้อมูล</td>`
                   return `<td class="text-right" style="font-size:0.83rem;color:${pct>=90?'var(--success)':pct>=60?'inherit':'var(--danger)'}">${k.actual}<small style="color:var(--text-muted)">/${k.target}</small></td>`
                 }).join('')}
-                <td class="text-right"><span class="badge badge-${sl.color}">${s.score}</span></td>
+                <td class="text-right"><span class="badge badge-${sl.color}">${s.score ?? "-"}</span></td>
               </tr>`
             }).join('')}
           </tbody>
@@ -244,20 +252,20 @@ export default async function KpiManagementPage(container) {
       title: '🎯 KPI: ' + escHtml(s.name) + ' — ' + escHtml(period), size: 'md',
       body: `<div style="display:flex;flex-direction:column;gap:12px">
         <div style="text-align:center;padding:16px;background:var(--surface-2);border-radius:var(--radius-md)">
-          <div style="font-size:3rem;font-weight:900;color:var(--${sl.color})">${s.score}</div>
+          <div style="font-size:3rem;font-weight:900;color:var(--${sl.color})">${s.score ?? "-"}</div>
           <span class="badge badge-${sl.color}" style="font-size:0.8rem">${sl.label}</span>
         </div>
         ${s.kpis.map(k => {
-          const pct = k.lowerIsBetter ? (k.actual===0?100:Math.min(100,(k.target/k.actual)*100)) : Math.min(100,(k.actual/k.target)*100)
+          const pct = kpiPct(k)
           return `<div>
             <div style="display:flex;justify-content:space-between;font-size:0.85rem;margin-bottom:4px">
               <span>${k.name} <small style="color:var(--text-muted)">(น้ำหนัก ${k.weight}%)</small></span>
-              <span style="font-weight:700">${k.actual} ${k.unit} / เป้า ${k.target}</span>
+              <span style="font-weight:700">${pct==null?'ยังไม่มีข้อมูล':`${k.actual} ${k.unit} / เป้า ${k.target}`}</span>
             </div>
             <div style="height:8px;background:var(--surface-3);border-radius:99px;overflow:hidden">
-              <div style="height:100%;width:${pct}%;background:${pct>=90?'var(--success)':pct>=60?'var(--warning)':'var(--danger)'};border-radius:99px"></div>
+              <div style="height:100%;width:${pct ?? 0}%;background:${pct==null?'var(--surface-3)':pct>=90?'var(--success)':pct>=60?'var(--warning)':'var(--danger)'};border-radius:99px"></div>
             </div>
-            <div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px">ทำได้ ${pct.toFixed(1)}% ของเป้า</div>
+            ${pct!=null ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px">ทำได้ ${pct.toFixed(1)}% ของเป้า</div>` : ''}
           </div>`
         }).join('')}
       </div>`,
