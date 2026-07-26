@@ -408,6 +408,12 @@ service cloud.firestore {
       allow write: if isManager();
     }
 
+    // งบการตลาดต่อช่องทาง ใช้คำนวณ ROI% ของทีมมาร์เก็ตติ้งเอง — เหตุผลเดียวกับ sales_budgets
+    match /marketing_budgets/{docId} {
+      allow read: if isStaff();
+      allow write: if isManager();
+    }
+
     match /employee_evaluations/{docId} {
       allow read: if isStaff();
       allow write: if isManager();
@@ -688,7 +694,7 @@ service cloud.firestore {
         'overtime_records', 'staff_documents', 'welfare_items',
         'assets', 'floor_plan', 'monthly_close_items', 'expense_receipts',
         'companies', 'custom_fields', 'documents', 'mood_responses', 'chat_ai_assistant',
-        'sales_budgets'
+        'sales_budgets', 'marketing_budgets'
       ];
     }
 

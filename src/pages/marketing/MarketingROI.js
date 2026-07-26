@@ -4,11 +4,9 @@
  */
 import { formatCurrency } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
-import { getSalesData } from '../../core/db.js'
+import { getSalesData, listDocs, createDoc, updateDocData } from '../../core/db.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { openModal } from '../../utils/modal.js'
-
-const LS_BUDGET = 'lamom_mktg_budget'
 
 const BASE_CH = [
   { id: 'fb',       name: 'Facebook Ads',     icon: '📘', defBudget: 45000,  leadsTarget: 100, color: '#3b82f6', keys: ['facebook','fb','meta'] },
@@ -28,11 +26,24 @@ const DEMO_CH = {
   referral: { leads: 45,  customers: 9,  revenue: 11691000 },
 }
 
-function loadBudgets() {
-  try { return JSON.parse(localStorage.getItem(LS_BUDGET) || '{}') } catch { return {} }
+// เก็บใน Firestore collection เดียว doc เดียว ('marketing_budgets') → sync ข้ามอุปกรณ์จริง
+// เดิมเก็บใน localStorage เครื่องเดียว ทำให้ทีมมาร์เก็ตติ้งเห็นงบต่อช่องทาง (และ ROI% ที่คำนวณจากงบนี้) ไม่ตรงกันข้ามเครื่อง
+let _budgetDocId = null
+
+async function loadBudgets() {
+  try {
+    const docs = await listDocs('marketing_budgets', [], 'createdAt', 'asc', 1)
+    if (docs.length > 0) { _budgetDocId = docs[0].id; return docs[0].budgets || {} }
+  } catch {}
+  return {}
 }
-function saveBudgets(b) {
-  try { localStorage.setItem(LS_BUDGET, JSON.stringify(b)) } catch {}
+
+async function saveBudgets(b) {
+  try {
+    if (_budgetDocId) await updateDocData('marketing_budgets', _budgetDocId, { budgets: b })
+    else _budgetDocId = await createDoc('marketing_budgets', { budgets: b })
+    return true
+  } catch { return false }
 }
 
 function matchChannel(source) {
@@ -50,7 +61,8 @@ export default async function MarketingROIPage(container) {
   let allSales = []
   let monthFilter = new Date().toISOString().slice(0, 7)
   let dataSource = 'demo'
-  let budgets = loadBudgets()
+  let budgets = await loadBudgets()
+  if (container.__routerGen !== myGen) return
 
   try {
     const s = await getSalesData()
@@ -209,14 +221,14 @@ export default async function MarketingROIPage(container) {
             <input class="input" type="number" id="bgt-${ch.id}" value="${budgets[ch.id] ?? ch.defBudget}" step="1000" min="0">
           </div>`).join('')}
         </div>`,
-        onConfirm() {
+        async onConfirm() {
           BASE_CH.forEach(ch => {
             const v = parseInt(document.getElementById('bgt-' + ch.id)?.value)
             if (!isNaN(v)) budgets[ch.id] = v
           })
-          saveBudgets(budgets)
-          showToast('✅ บันทึกงบแล้ว', 'success')
-          renderPage()
+          const ok = await saveBudgets(budgets)
+          showToast(ok ? '✅ บันทึกงบแล้ว' : 'บันทึกไม่สำเร็จ', ok ? 'success' : 'error')
+          if (ok) renderPage()
         }
       })
     })

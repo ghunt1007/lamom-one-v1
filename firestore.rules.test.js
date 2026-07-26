@@ -674,3 +674,17 @@ describe('sales_budgets — same access as team_targets, a sales rep cannot edit
     await assertSucceeds(db.collection('sales_budgets').get())
   })
 })
+
+describe('marketing_budgets — same access as sales_budgets', () => {
+  it('a plain marketing staff member cannot edit the channel budget', async () => {
+    await seedUser('auditGap33', { role: 'staff', active: true })
+    const db = testEnv.authenticatedContext('auditGap33').firestore()
+    await assertFails(db.collection('marketing_budgets').add({ budgets: { fb: 1 } }))
+  })
+
+  it('a manager can edit the marketing channel budget', async () => {
+    await seedUser('auditGap34', { role: 'manager', active: true })
+    const db = testEnv.authenticatedContext('auditGap34').firestore()
+    await assertSucceeds(db.collection('marketing_budgets').add({ budgets: { fb: 1 } }))
+  })
+})
