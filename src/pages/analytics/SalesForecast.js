@@ -1,11 +1,11 @@
 import { formatCurrency } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
-import { getSalesData } from '../../core/db.js'
+import { getSalesData, listDocs } from '../../core/db.js'
 
 const MONTHS_TH = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 
-// Historical actuals (2025 first half)
+// Historical actuals ตัวอย่าง (ครึ่งปีแรก) — ใช้เป็น placeholder เท่านั้นก่อนมีข้อมูลจริงจากใบจอง
 const ACTUALS = [
   { month: 0, units: 8,  revenue: 9200000,  leads: 65,  conversion: 12.3 },
   { month: 1, units: 6,  revenue: 6800000,  leads: 52,  conversion: 11.5 },
@@ -47,10 +47,12 @@ const SCENARIOS = {
 
 export default async function SalesForecastPage(container) {
   const myGen = container.__routerGen
+  const YEAR = new Date().getFullYear()
   let scenario = 'base'
   let viewMetric = 'revenue'
   let actuals = [...ACTUALS]
   let dataSource = 'demo'
+  let annualTarget = 0
 
   // Load real monthly sales from bookings
   try {
@@ -69,6 +71,14 @@ export default async function SalesForecastPage(container) {
       real.forEach(d => { d.conversion = parseFloat((d.units / Math.max(d.leads || d.units * 8, 1) * 100).toFixed(1)) })
       actuals = real
       dataSource = 'live'
+    }
+  } catch {}
+
+  // ดึงเป้ายอดขายรายปีจริงจาก sales_budgets (ถ้ามี) แทนตัวเลขเป้าที่ hardcode ไว้ตายตัว
+  try {
+    const budgetDocs = await listDocs('sales_budgets', [['year', '==', YEAR]], 'createdAt', 'asc', 1).catch(() => [])
+    if (budgetDocs.length && Array.isArray(budgetDocs[0].targets)) {
+      annualTarget = budgetDocs[0].targets.reduce((a, v) => a + (v || 0), 0)
     }
   } catch {}
 
@@ -91,7 +101,7 @@ export default async function SalesForecastPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🔮 Sales Forecast</div>
-            <div class="page-subtitle">พยากรณ์ยอดขาย 2025 — Moving Average + Seasonality
+            <div class="page-subtitle">พยากรณ์ยอดขาย ${YEAR} — Moving Average + Seasonality
               ${dataSource === 'live' ? '<span style="font-size:0.72rem;color:var(--success);margin-left:8px">● ข้อมูลจริงจากใบจอง</span>' : '<span style="font-size:0.72rem;color:var(--text-muted);margin-left:8px">Demo</span>'}
             </div>
           </div>
@@ -165,7 +175,7 @@ export default async function SalesForecastPage(container) {
                 const avgDeal = d.units ? Math.round(d.revenue / d.units) : 0
                 const conv = d.isForecast ? (d.leads ? (d.units / d.leads * 100).toFixed(1) : '—') : d.conversion.toFixed(1)
                 return `<tr style="${d.isForecast ? 'opacity:0.8' : ''}">
-                  <td style="font-weight:600">${MONTHS_TH[d.month]} 2025</td>
+                  <td style="font-weight:600">${MONTHS_TH[d.month]} ${YEAR}</td>
                   <td>
                     ${d.isForecast
                       ? `<span class="badge badge-${sc.color}" style="font-size:0.65rem">${sc.icon} Forecast</span>`
@@ -181,7 +191,7 @@ export default async function SalesForecastPage(container) {
             </tbody>
             <tfoot>
               <tr style="background:var(--surface-2)">
-                <td colspan="2" style="font-weight:800;padding:10px 12px">รวมทั้งปี 2025</td>
+                <td colspan="2" style="font-weight:800;padding:10px 12px">รวมทั้งปี ${YEAR}</td>
                 <td class="text-right" style="font-weight:800">${yearUnits} คัน</td>
                 <td class="text-right" style="font-weight:800;color:var(--success)">${formatCurrency(yearTotal)}</td>
                 <td class="text-right" style="font-size:0.83rem">${formatCurrency(Math.round(yearTotal / yearUnits))}</td>
@@ -196,11 +206,14 @@ export default async function SalesForecastPage(container) {
         <div class="card" style="padding:14px 16px;margin-top:14px;border-left:3px solid var(--${sc.color})">
           <div style="font-weight:700;font-size:0.85rem;margin-bottom:8px">💡 AI Insight — สถานการณ์ ${sc.label}</div>
           <div style="font-size:0.82rem;color:var(--text-muted);line-height:1.6">
-            ${scenario === 'optimistic'
-              ? `📈 หากตลาด EV ยังเติบโต 15% และแคมเปญ Q3/Q4 ทำได้ดี คาดว่าปีนี้จะปิดที่ <strong>${formatCurrency(yearTotal)}</strong> — สูงกว่าเป้าหมายปี (~${formatCurrency(110000000)}) ถึง <strong>${Math.round((yearTotal/110000000-1)*100)}%</strong> แนะนำเพิ่มสต็อกก่อน Motor Expo ธ.ค.`
-              : scenario === 'pessimistic'
-              ? `📉 กรณีตลาดชะลอตัว -5% ควรเน้น Service Revenue และ Insurance Commission เพื่อชดเชย คาดรายได้รวม <strong>${formatCurrency(yearTotal)}</strong> — ต่ำกว่าเป้า พิจารณาลดต้นทุน Opex และเร่งปิด Lead ที่ค้างใน Pipeline`
-              : `📊 สถานการณ์ปกติ growth 5% คาดรายได้รวม <strong>${formatCurrency(yearTotal)}</strong> ใกล้เคียงเป้าหมาย เน้นรักษา Conversion Rate และทำ Follow-up ลูกค้าที่ยังไม่ตัดสินใจ ช่วง Q4 ควรเพิ่มแคมเปญโปรโมชัน`}
+            ${(() => {
+              const vsTarget = annualTarget > 0
+                ? ` — ${yearTotal >= annualTarget ? 'สูงกว่า' : 'ต่ำกว่า'}เป้าหมายปี (${formatCurrency(annualTarget)}) <strong>${Math.abs(Math.round((yearTotal/annualTarget-1)*100))}%</strong>`
+                : ' (ยังไม่ได้ตั้งเป้ายอดขายรายปีไว้ที่หน้า Sales Budget)'
+              if (scenario === 'optimistic') return `📈 หากตลาด EV ยังเติบโต 15% และแคมเปญ Q3/Q4 ทำได้ดี คาดว่าปีนี้จะปิดที่ <strong>${formatCurrency(yearTotal)}</strong>${vsTarget} แนะนำเพิ่มสต็อกก่อน Motor Expo ธ.ค.`
+              if (scenario === 'pessimistic') return `📉 กรณีตลาดชะลอตัว -5% ควรเน้น Service Revenue และ Insurance Commission เพื่อชดเชย คาดรายได้รวม <strong>${formatCurrency(yearTotal)}</strong>${vsTarget} พิจารณาลดต้นทุน Opex และเร่งปิด Lead ที่ค้างใน Pipeline`
+              return `📊 สถานการณ์ปกติ growth 5% คาดรายได้รวม <strong>${formatCurrency(yearTotal)}</strong>${vsTarget} เน้นรักษา Conversion Rate และทำ Follow-up ลูกค้าที่ยังไม่ตัดสินใจ ช่วง Q4 ควรเพิ่มแคมเปญโปรโมชัน`
+            })()}
           </div>
         </div>
       </div>
@@ -211,7 +224,7 @@ export default async function SalesForecastPage(container) {
     document.getElementById('export-btn')?.addEventListener('click', () => {
       const forecast = calcForecast(actuals, SCENARIOS[scenario].growth)
       exportToExcel([...actuals, ...forecast].map(d => ({
-        เดือน: MONTHS_TH[d.month] + ' 2025',
+        เดือน: MONTHS_TH[d.month] + ' ' + YEAR,
         ประเภท: d.isForecast ? 'Forecast' : 'Actual',
         คัน: d.units, รายได้: d.revenue, Leads: d.leads
       })), `sales_forecast_${new Date().getFullYear()}`)

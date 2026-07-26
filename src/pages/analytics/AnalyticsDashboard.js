@@ -1,9 +1,12 @@
-import { listDocs, seedDemoData, getSalesData } from '../../core/db.js'
+import { listDocs, seedDemoData, getSalesData, getCommissionData } from '../../core/db.js'
 import { navigate } from '../../core/router.js'
 import { formatCurrency } from '../../utils/format.js'
 import { exportToExcel } from '../../utils/importExport.js'
 
-const MONTHLY_DATA = [
+function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+
+// ตัวอย่างข้อมูล — ใช้เป็น placeholder ก็ต่อเมื่อยังไม่มีข้อมูลขายจริงในปีปัจจุบันเลยเท่านั้น
+const DEMO_MONTHLY = [
   { m:'ม.ค.', sales:4200000, units:3, leads:25, jobs:28, cust:8 },
   { m:'ก.พ.', sales:3800000, units:2, leads:22, jobs:31, cust:6 },
   { m:'มี.ค.', sales:5100000, units:4, leads:34, jobs:26, cust:11 },
@@ -17,14 +20,24 @@ const MONTHLY_DATA = [
   { m:'พ.ย.', sales:6100000, units:5, leads:50, jobs:40, cust:17 },
   { m:'ธ.ค.', sales:6800000, units:6, leads:55, jobs:44, cust:19 },
 ]
+const MONTH_LABELS = DEMO_MONTHLY.map(d => d.m)
 
-const BRAND_DATA = [
+const DEMO_BRAND = [
   { brand:'BYD', units:18, revenue:22000000, color:'primary' },
   { brand:'MG', units:11, revenue:12500000, color:'success' },
   { brand:'DEEPAL', units:7, revenue:9800000, color:'accent' },
   { brand:'NETA', units:5, revenue:5100000, color:'warning' },
   { brand:'Others', units:3, revenue:3100000, color:'danger' },
 ]
+
+const DEMO_STAFF = [
+  { name:'อรนุช สายใจ', units:12, revenue:15800000, commission:185000 },
+  { name:'วิชาญ มีโชค', units:8, revenue:9200000, commission:108000 },
+  { name:'น.ส.ปวีณา', units:6, revenue:7100000, commission:83000 },
+  { name:'นาย สมศักดิ์', units:6, revenue:7500000, commission:88000 },
+]
+
+const BRAND_COLORS = ['primary','success','accent','warning','danger']
 
 const QUICK_LINKS = [
   { icon:'📅', label:'Daily Report', sub:'รายงานประจำวัน', path:'/analytics/daily', color:'primary' },
@@ -45,64 +58,117 @@ const QUICK_LINKS = [
   { icon:'📊', label:'Report Builder', sub:'สร้างรายงานเอง', path:'/analytics/report-builder', color:'success' },
 ]
 
-const STAFF_PERF = [
-  { name:'อรนุช สายใจ', units:12, revenue:15800000, commission:185000 },
-  { name:'วิชาญ มีโชค', units:8, revenue:9200000, commission:108000 },
-  { name:'น.ส.ปวีณา', units:6, revenue:7100000, commission:83000 },
-  { name:'นาย สมศักดิ์', units:6, revenue:7500000, commission:88000 },
-]
-
 export default async function AnalyticsDashboard(container) {
   const myGen = container.__routerGen
   seedDemoData()
+  const YEAR = new Date().getFullYear()
 
-  let activeTab = 'overview' // overview | forecast | staffperf | report
+  let activeTab = 'overview'
   let reportMetric = 'sales'
+  let dataSource = 'demo'
 
-  // Load real data
+  let MONTHLY_DATA = DEMO_MONTHLY.map(d => ({ ...d }))
+  let BRAND_DATA = DEMO_BRAND
+  let STAFF_PERF = DEMO_STAFF
+  let FUNNEL = null
   let realData = { customers: 0, sales: 0, jobs: 0 }
-  try {
-    const [c, s, j] = await Promise.all([
-      listDocs('customers', [], 'createdAt', 'desc', 100).catch(() => []),
-      getSalesData().catch(() => []),
-      listDocs('job_cards', [], 'createdAt', 'desc', 100).catch(() => []),
-    ])
-    realData = { customers: c.length, sales: s.length, jobs: j.length }
-    // overlay ยอดขายจริงต่อเดือน (จากใบจองกลาง) ทับเดือนที่มีข้อมูล
-    const byMonth = {}
-    s.forEach(x => { const mi = parseInt((x.date || '').slice(5, 7), 10) - 1; if (mi >= 0 && mi < 12) { if (!byMonth[mi]) byMonth[mi] = { sales: 0, units: 0 }; byMonth[mi].sales += x.salePrice || 0; byMonth[mi].units += 1 } })
-    Object.keys(byMonth).forEach(mi => { MONTHLY_DATA[mi].sales = byMonth[mi].sales; MONTHLY_DATA[mi].units = byMonth[mi].units })
-  } catch {}
 
-  if (container.__routerGen !== myGen) return
+  try {
+    const [customers, sales, jobs, commission] = await Promise.all([
+      listDocs('customers', [], 'createdAt', 'desc', 2000).catch(() => []),
+      getSalesData().catch(() => []),
+      listDocs('job_cards', [], 'createdAt', 'desc', 2000).catch(() => []),
+      getCommissionData().catch(() => []),
+    ])
+    if (container.__routerGen !== myGen) return
+    realData = { customers: customers.length, sales: sales.length, jobs: jobs.length }
+
+    const salesThisYear = sales.filter(s => (s.date || '').slice(0, 4) === String(YEAR))
+
+    if (salesThisYear.length) {
+      dataSource = 'live'
+
+      // เดือน: ยอดขาย/คัน จากใบจองจริง, ลูกค้าใหม่+Leads จาก customers.createdAt, งานซ่อมจาก job_cards.createdAt
+      const byMonth = Array.from({ length: 12 }, () => ({ sales: 0, units: 0, leads: 0, jobs: 0, cust: 0 }))
+      salesThisYear.forEach(s => {
+        const mi = parseInt((s.date || '').slice(5, 7), 10) - 1
+        if (mi >= 0 && mi < 12) { byMonth[mi].sales += s.salePrice || 0; byMonth[mi].units++ }
+      })
+      customers.forEach(c => {
+        const d = (c.createdAt || '').slice(0, 10)
+        if (d.slice(0, 4) !== String(YEAR)) return
+        const mi = parseInt(d.slice(5, 7), 10) - 1
+        if (mi >= 0 && mi < 12) { byMonth[mi].leads++; byMonth[mi].cust++ }
+      })
+      jobs.forEach(j => {
+        const d = (j.createdAt || '').slice(0, 10)
+        if (d.slice(0, 4) !== String(YEAR)) return
+        const mi = parseInt(d.slice(5, 7), 10) - 1
+        if (mi >= 0 && mi < 12) byMonth[mi].jobs++
+      })
+      MONTHLY_DATA = byMonth.map((d, i) => ({ m: MONTH_LABELS[i], ...d }))
+
+      // ยอดขายตามยี่ห้อ — รวมจริงจากใบจองปีนี้ (ไม่ใช่ตัวเลขคงที่)
+      const byBrand = {}
+      salesThisYear.forEach(s => {
+        const b = s.brand || 'อื่นๆ'
+        if (!byBrand[b]) byBrand[b] = { brand: b, units: 0, revenue: 0 }
+        byBrand[b].units++; byBrand[b].revenue += s.salePrice || 0
+      })
+      BRAND_DATA = Object.values(byBrand).sort((a, b) => b.revenue - a.revenue)
+        .map((b, i) => ({ ...b, color: BRAND_COLORS[i % BRAND_COLORS.length] }))
+
+      // Staff Performance — รวมจริงจากคอมมิชชั่นใบจองที่ส่งมอบแล้วปีนี้ (ไม่ใช่รายชื่อสมมติ)
+      const commThisYear = commission.filter(c => (c.month || '').slice(0, 4) === String(YEAR))
+      const byStaff = {}
+      commThisYear.forEach(c => {
+        if (!c.salesName) return
+        if (!byStaff[c.salesName]) byStaff[c.salesName] = { name: c.salesName, units: 0, revenue: 0, commission: 0 }
+        byStaff[c.salesName].units += c.carsSold || 0
+        byStaff[c.salesName].revenue += c.salePriceTotal || 0
+        byStaff[c.salesName].commission += (c.com70Total || 0) + (c.comFinanceTotal || 0)
+      })
+      STAFF_PERF = Object.values(byStaff).sort((a, b) => b.revenue - a.revenue)
+
+      // Sales Funnel จริงจากสถานะ (stage) ปัจจุบันของลูกค้าในระบบ — ไม่ใช่ % คงที่สมมติ
+      const active = customers.filter(c => !c.isLost)
+      FUNNEL = {
+        lead: active.filter(c => c.stage === 'lead').length,
+        pp: active.filter(c => c.stage === 'pp').length,
+        booking: active.filter(c => c.stage === 'booking').length,
+        delivered: active.filter(c => c.stage === 'delivered').length,
+      }
+    }
+  } catch {}
 
   const totalSales = MONTHLY_DATA.reduce((a, r) => a + r.sales, 0)
   const totalUnits = MONTHLY_DATA.reduce((a, r) => a + r.units, 0)
   const totalLeads = MONTHLY_DATA.reduce((a, r) => a + r.leads, 0)
-  const convRate = ((totalUnits / totalLeads) * 100).toFixed(1)
+  const convRate = totalLeads > 0 ? ((totalUnits / totalLeads) * 100).toFixed(1) : '0.0'
 
   // Simple linear forecast for next 3 months
   function forecast(data) {
     const n = data.length
     const last3avg = data.slice(-3).reduce((a, d) => a + d.sales, 0) / 3
     const trend = (data[n - 1].sales - data[0].sales) / n * 0.8
+    const ny = String(YEAR + 1).slice(2)
     return [
-      { m: 'ม.ค.26', sales: Math.round(last3avg + trend), forecast: true },
-      { m: 'ก.พ.26', sales: Math.round(last3avg + trend * 1.1), forecast: true },
-      { m: 'มี.ค.26', sales: Math.round(last3avg + trend * 1.2), forecast: true },
+      { m: `ม.ค.${ny}`, sales: Math.max(0, Math.round(last3avg + trend)), forecast: true },
+      { m: `ก.พ.${ny}`, sales: Math.max(0, Math.round(last3avg + trend * 1.1)), forecast: true },
+      { m: `มี.ค.${ny}`, sales: Math.max(0, Math.round(last3avg + trend * 1.2)), forecast: true },
     ]
   }
   const forecastData = forecast(MONTHLY_DATA)
 
   function renderPage() {
-    const maxSales = Math.max(...MONTHLY_DATA.map(d => d.sales))
-
     container.innerHTML = `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
             <div class="page-title">📈 Analytics 360</div>
-            <div class="page-subtitle">วิเคราะห์ธุรกิจเชิงลึก + พยากรณ์</div>
+            <div class="page-subtitle">วิเคราะห์ธุรกิจเชิงลึก + พยากรณ์
+              ${dataSource === 'live' ? '<span style="font-size:0.72rem;color:var(--success);margin-left:8px">● ข้อมูลจริง</span>' : '<span style="font-size:0.72rem;color:var(--text-muted);margin-left:8px">● ตัวอย่างข้อมูล — ยังไม่มียอดขายจริงปีนี้</span>'}
+            </div>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="a-export">📥 Export Report</button>
@@ -111,10 +177,10 @@ export default async function AnalyticsDashboard(container) {
 
         <!-- KPI -->
         <div class="kpi-grid" style="margin-bottom:16px">
-          ${kpi('💰 รายได้รวม', formatCurrency(totalSales), 'success', '+22% YoY')}
-          ${kpi('🚗 รถที่ขาย', `${totalUnits} คัน`, 'primary', 'ปี 2025')}
+          ${kpi('💰 รายได้รวม', formatCurrency(totalSales), 'success', dataSource === 'live' ? `ปี ${YEAR}` : 'ตัวอย่าง')}
+          ${kpi('🚗 รถที่ขาย', `${totalUnits} คัน`, 'primary', `ปี ${YEAR}`)}
           ${kpi('🧲 Conversion', `${convRate}%`, convRate >= 12 ? 'success' : 'warning', `จาก ${totalLeads} Leads`)}
-          ${kpi('👥 ลูกค้าใหม่', `${realData.customers || 143}`, 'accent', 'รวมทั้งปี')}
+          ${kpi('👥 ลูกค้าทั้งหมด', `${realData.customers}`, 'accent', 'ในระบบ')}
         </div>
 
         <!-- Quick links -->
@@ -154,7 +220,7 @@ export default async function AnalyticsDashboard(container) {
     document.getElementById('a-export')?.addEventListener('click', () => {
       exportToExcel(MONTHLY_DATA.map(d => ({
         'เดือน': d.m, 'รายได้': d.sales, 'คัน': d.units, 'Leads': d.leads, 'งานซ่อม': d.jobs, 'ลูกค้าใหม่': d.cust
-      })), `Analytics_${new Date().getFullYear()}`)
+      })), `Analytics_${YEAR}`)
     })
   }
 
@@ -167,13 +233,28 @@ export default async function AnalyticsDashboard(container) {
   }
 
   function renderOverview() {
-    const maxSales = Math.max(...MONTHLY_DATA.map(d => d.sales))
-    const maxUnits = Math.max(...MONTHLY_DATA.map(d => d.units))
+    const maxSales = Math.max(1, ...MONTHLY_DATA.map(d => d.sales))
+    const maxBrandUnits = Math.max(1, totalUnits)
+    const funnelSteps = FUNNEL
+      ? [
+          { label: 'Lead', value: FUNNEL.lead, color: 'primary' },
+          { label: 'Prospect', value: FUNNEL.pp, color: 'accent' },
+          { label: 'จองแล้ว', value: FUNNEL.booking, color: 'warning' },
+          { label: 'ส่งมอบแล้ว', value: FUNNEL.delivered, color: 'success' },
+        ]
+      : [
+          { label: 'Leads', value: totalLeads, color: 'primary' },
+          { label: 'Contacted', value: Math.round(totalLeads * 0.68), color: 'accent' },
+          { label: 'Qualified', value: Math.round(totalLeads * 0.35), color: 'warning' },
+          { label: 'Sold', value: totalUnits, color: 'success' },
+        ]
+    const maxFunnel = Math.max(1, ...funnelSteps.map(f => f.value))
+
     return `
       <div style="display:flex;flex-direction:column;gap:16px">
         <!-- Sales chart -->
         <div class="card" style="padding:20px">
-          <div style="font-weight:700;margin-bottom:16px">💰 รายได้รายเดือน 2025</div>
+          <div style="font-weight:700;margin-bottom:16px">💰 รายได้รายเดือน ${YEAR}</div>
           <div style="display:flex;align-items:flex-end;gap:4px;height:180px;border-bottom:1px solid var(--border);padding-bottom:8px">
             ${MONTHLY_DATA.map(d => {
               const h = Math.round(d.sales / maxSales * 160)
@@ -190,39 +271,34 @@ export default async function AnalyticsDashboard(container) {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
           <div class="card" style="padding:20px">
             <div style="font-weight:700;margin-bottom:14px">🚗 ยอดขายตามยี่ห้อ</div>
-            ${BRAND_DATA.map(b => {
-              const pct = Math.round(b.units / totalUnits * 100)
+            ${BRAND_DATA.length ? BRAND_DATA.map(b => {
+              const pct = Math.round(b.units / maxBrandUnits * 100)
               return `<div style="margin-bottom:12px">
                 <div style="display:flex;justify-content:space-between;font-size:0.83rem;margin-bottom:4px">
-                  <span>${b.brand}</span>
+                  <span>${escHtml(b.brand)}</span>
                   <span style="color:var(--text-muted)">${b.units} คัน (${pct}%)</span>
                 </div>
                 <div style="background:var(--surface-3);border-radius:99px;height:8px;overflow:hidden">
                   <div style="height:100%;width:${pct}%;background:var(--${b.color});border-radius:99px"></div>
                 </div>
               </div>`
-            }).join('')}
+            }).join('') : `<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:0.8rem">ยังไม่มีข้อมูลยี่ห้อรถที่ขายปีนี้</div>`}
           </div>
 
           <div class="card" style="padding:20px">
-            <div style="font-weight:700;margin-bottom:14px">🔽 Sales Funnel</div>
-            ${[
-              { label: 'Leads', value: totalLeads, color: 'primary', pct: 100 },
-              { label: 'Contacted', value: Math.round(totalLeads * 0.68), color: 'accent', pct: 68 },
-              { label: 'Qualified', value: Math.round(totalLeads * 0.35), color: 'warning', pct: 35 },
-              { label: 'Test Drive', value: Math.round(totalLeads * 0.22), color: 'accent', pct: 22 },
-              { label: 'Booked', value: Math.round(totalLeads * 0.16), color: 'success', pct: 16 },
-              { label: 'Sold', value: totalUnits, color: 'success', pct: parseFloat(convRate) },
-            ].map(f => `
+            <div style="font-weight:700;margin-bottom:14px">🔽 Sales Funnel${FUNNEL ? ' (สถานะปัจจุบัน)' : ''}</div>
+            ${funnelSteps.map(f => {
+              const pct = Math.round(f.value / maxFunnel * 100)
+              return `
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
                 <div style="width:80px;font-size:0.78rem;color:var(--text-muted)">${f.label}</div>
                 <div style="flex:1;background:var(--surface-3);border-radius:99px;height:22px;overflow:hidden;position:relative">
-                  <div style="height:100%;width:${f.pct}%;background:var(--${f.color});opacity:0.7;border-radius:99px"></div>
+                  <div style="height:100%;width:${pct}%;background:var(--${f.color});opacity:0.7;border-radius:99px"></div>
                   <span style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:0.73rem;font-weight:600">${f.value}</span>
                 </div>
-                <div style="width:36px;font-size:0.73rem;color:var(--text-muted);text-align:right">${f.pct}%</div>
+                <div style="width:36px;font-size:0.73rem;color:var(--text-muted);text-align:right">${pct}%</div>
               </div>
-            `).join('')}
+            `}).join('')}
           </div>
         </div>
       </div>
@@ -231,13 +307,13 @@ export default async function AnalyticsDashboard(container) {
 
   function renderForecast() {
     const allData = [...MONTHLY_DATA, ...forecastData]
-    const maxSales = Math.max(...allData.map(d => d.sales))
+    const maxSales = Math.max(1, ...allData.map(d => d.sales))
     const fTotal = forecastData.reduce((a, d) => a + d.sales, 0)
     return `
       <div style="display:flex;flex-direction:column;gap:16px">
         <div class="card" style="padding:20px;border:1px solid var(--accent)">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-            <div style="font-weight:700">🔮 Sales Forecast Q1/2026</div>
+            <div style="font-weight:700">🔮 Sales Forecast Q1/${YEAR + 1}</div>
             <div style="font-size:0.8rem;color:var(--text-muted)">อิง Linear Trend จากข้อมูล 12 เดือน</div>
           </div>
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">
@@ -249,7 +325,7 @@ export default async function AnalyticsDashboard(container) {
               </div>
             `).join('')}
           </div>
-          <div style="font-size:0.85rem;color:var(--text-muted)">รวม Q1/2026 คาดว่า: <strong style="color:var(--success)">${formatCurrency(fTotal)}</strong></div>
+          <div style="font-size:0.85rem;color:var(--text-muted)">รวม Q1/${YEAR + 1} คาดว่า: <strong style="color:var(--success)">${formatCurrency(fTotal)}</strong></div>
         </div>
 
         <div class="card" style="padding:20px">
@@ -274,10 +350,16 @@ export default async function AnalyticsDashboard(container) {
   }
 
   function renderStaffPerf() {
-    const maxRev = Math.max(...STAFF_PERF.map(s => s.revenue))
+    if (!STAFF_PERF.length) {
+      return `<div class="card" style="padding:40px;text-align:center;color:var(--text-muted)">
+        <div style="font-size:2rem">🏆</div>
+        <div style="font-size:0.85rem;margin-top:8px">ยังไม่มีข้อมูลคอมมิชชั่นที่ส่งมอบแล้วในปี ${YEAR}</div>
+      </div>`
+    }
+    const maxRev = Math.max(1, ...STAFF_PERF.map(s => s.revenue))
     return `
       <div class="card" style="padding:0;overflow:hidden">
-        <div style="padding:16px 20px;font-weight:700;border-bottom:1px solid var(--border)">🏆 Staff Performance 2025</div>
+        <div style="padding:16px 20px;font-weight:700;border-bottom:1px solid var(--border)">🏆 Staff Performance ${YEAR}${dataSource !== 'live' ? ' (ตัวอย่างข้อมูล)' : ''}</div>
         <table class="table">
           <thead>
             <tr>
@@ -294,13 +376,13 @@ export default async function AnalyticsDashboard(container) {
               const medals = ['🥇','🥈','🥉','']
               return `<tr>
                 <td style="font-size:1.3rem">${medals[i] || i+1}</td>
-                <td style="font-weight:600">${s.name}</td>
+                <td style="font-weight:600">${escHtml(s.name)}</td>
                 <td class="text-right">${s.units} คัน</td>
                 <td class="text-right" style="color:var(--success)">${formatCurrency(s.revenue)}</td>
                 <td class="text-right" style="color:var(--accent)">${formatCurrency(s.commission)}</td>
                 <td>
                   <div style="background:var(--surface-3);border-radius:99px;height:8px;overflow:hidden;min-width:100px">
-                    <div style="height:100%;width:${pct}%;background:var(--${['success','primary','accent','warning'][i]});border-radius:99px"></div>
+                    <div style="height:100%;width:${pct}%;background:var(--${['success','primary','accent','warning'][i % 4]});border-radius:99px"></div>
                   </div>
                 </td>
               </tr>`
@@ -319,7 +401,7 @@ export default async function AnalyticsDashboard(container) {
       jobs: MONTHLY_DATA.map(d => ({ label: d.m, value: d.jobs })),
     }
     const data = metrics[reportMetric] || metrics.sales
-    const maxVal = Math.max(...data.map(d => d.value))
+    const maxVal = Math.max(1, ...data.map(d => d.value))
     const fmt = reportMetric === 'sales' ? v => formatCurrency(v) : v => v.toString()
     return `
       <div style="display:flex;flex-direction:column;gap:16px">
@@ -381,7 +463,7 @@ export default async function AnalyticsDashboard(container) {
         leads: MONTHLY_DATA.map(d => ({ เดือน: d.m, Leads: d.leads })),
         jobs: MONTHLY_DATA.map(d => ({ เดือน: d.m, Jobs: d.jobs })),
       }
-      exportToExcel(metricData[reportMetric] || [], `Report_${reportMetric}_2025`)
+      exportToExcel(metricData[reportMetric] || [], `Report_${reportMetric}_${YEAR}`)
     }
   })
 }
