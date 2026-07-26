@@ -415,6 +415,12 @@ service cloud.firestore {
       allow write: if isFinance() || isManager();
     }
 
+    // งบประมาณรายปี (รายได้/ต้นทุน/ค่าใช้จ่าย) ของทั้งบริษัท — สิทธิ์เดียวกับ sales_budgets/commission_rules
+    match /budget_planning/{docId} {
+      allow read: if isStaff();
+      allow write: if isFinance() || isManager();
+    }
+
     // งบการตลาดต่อช่องทาง ใช้คำนวณ ROI% ของทีมมาร์เก็ตติ้งเอง — เหตุผลเดียวกับ sales_budgets
     match /marketing_budgets/{docId} {
       allow read: if isStaff();
@@ -701,7 +707,7 @@ service cloud.firestore {
         'overtime_records', 'staff_documents', 'welfare_items',
         'assets', 'floor_plan', 'monthly_close_items', 'expense_receipts',
         'companies', 'custom_fields', 'documents', 'mood_responses', 'chat_ai_assistant',
-        'sales_budgets', 'marketing_budgets', 'commission_rules'
+        'sales_budgets', 'marketing_budgets', 'commission_rules', 'budget_planning'
       ];
     }
 

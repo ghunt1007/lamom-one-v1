@@ -2,7 +2,7 @@ import { formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
-import { getSalesData } from '../../core/db.js'
+import { getSalesData, listDocs, createDoc, updateDocData } from '../../core/db.js'
 
 const CATEGORIES = {
   revenue: {
@@ -25,6 +25,10 @@ function makeRow(name, budgets, actuals) {
   return { name, budgets: budgets || Array(12).fill(0), actuals: actuals || Array(12).fill(0) }
 }
 
+// ตัวเลข budget (เป้า) เหล่านี้เป็นค่าเริ่มต้นที่สมเหตุสมผลให้ผู้ใช้ปรับต่อ — ใช้ครั้งแรกที่ยังไม่มี
+// เอกสารจริงในปีนั้นเท่านั้น (ดูฟังก์ชัน seedBudget ด้านล่าง) ส่วนตัวเลข "actuals" ที่ประกอบไว้ในชุดนี้
+// เป็นแค่ข้อมูลตัวอย่างสมมติผูกกับปี 2025 เดิม ไม่ใช่ค่าที่ควรนำไป seed เป็นผลจริง (seedBudget จะรีเซ็ต
+// actuals เป็น 0 ทั้งหมดเสมอ ไม่ใช้ตัวเลขสมมติเหล่านี้)
 const DEMO_BUDGET = {
   year: 2025,
   revenue: [
@@ -52,14 +56,42 @@ const DEMO_BUDGET = {
   ]
 }
 
+// เก็บใน Firestore collection 'budget_planning' (1 doc ต่อปี) → sync ข้ามอุปกรณ์จริง — เดิมทั้งหน้า
+// เป็นข้อมูลตัวอย่างผูกปี 2025 ตายตัวล้วนๆ ไม่มีการบันทึกจริงเลยแม้แต่จุดเดียว (แก้ตัวเลขงบ/actual ผ่าน
+// prompt() แล้วหายทันทีที่รีเฟรช) แถมปีที่ผูกไว้ตายตัวทำให้ real-sales overlay จับคู่ปีปัจจุบันไม่ได้เลย
+// เมื่อข้ามปี — ตอนนี้ผูกปีจริงเสมอ และทุกการแก้ไขบันทึกจริง
+function buildCategoriesFromDefaults(zeroActuals) {
+  const out = {}
+  for (const cat of ['revenue', 'cogs', 'opex']) {
+    out[cat] = DEMO_BUDGET[cat].map(r => ({ name: r.name, budgets: [...r.budgets], actuals: zeroActuals ? Array(12).fill(0) : [...r.actuals] }))
+  }
+  return out
+}
+
 export default async function BudgetPlanningPage(container) {
   const myGen = container.__routerGen
   let viewMode = 'annual' // annual | monthly
   let selectedMonth = new Date().getMonth() // 0-based
   let catView = 'all'
-  const budget = { ...DEMO_BUDGET, revenue: DEMO_BUDGET.revenue.map(r => ({ ...r, actuals: [...r.actuals] })) }
+  const currentYear = new Date().getFullYear()
+  let budgetDocId = null
+  let budget = { year: currentYear, ...buildCategoriesFromDefaults(true) }
   let dataSource = 'demo'
 
+  try {
+    const docs = await listDocs('budget_planning', [['year', '==', currentYear]], 'createdAt', 'asc', 1)
+    if (container.__routerGen !== myGen) return
+    if (docs.length > 0) {
+      budgetDocId = docs[0].id
+      budget = { year: currentYear, revenue: docs[0].revenue, cogs: docs[0].cogs, opex: docs[0].opex }
+    } else {
+      budgetDocId = await createDoc('budget_planning', { year: currentYear, ...buildCategoriesFromDefaults(true) })
+    }
+    dataSource = 'live'
+  } catch {}
+
+  // ทับ actuals ของ "ยอดขายรถยนต์" (แถวแรกของ revenue) ด้วยยอดขายจริงเดือนที่มีข้อมูลจริง — ไม่บันทึกทับ
+  // ค่าที่คำนวณสดนี้ลง Firestore (คำนวณใหม่ทุกครั้งที่โหลดหน้า ไม่ใช่ค่าที่แก้ไขเองผ่าน edit-cell)
   try {
     const sales = await getSalesData().catch(() => [])
     if (container.__routerGen !== myGen) return
@@ -70,14 +102,22 @@ export default async function BudgetPlanningPage(container) {
         if (!d) continue
         const yr = parseInt(d.slice(0, 4))
         const mo = parseInt(d.slice(5, 7)) - 1
-        if (yr === DEMO_BUDGET.year && mo >= 0 && mo < 12) byMonth[mo] += s.salePrice || 0
+        if (yr === budget.year && mo >= 0 && mo < 12) byMonth[mo] += s.salePrice || 0
       }
       for (let mo = 0; mo < 12; mo++) {
         if (byMonth[mo] > 0) budget.revenue[0].actuals[mo] = byMonth[mo]
       }
-      dataSource = 'live'
     }
   } catch {}
+
+  // คืน true/false ให้รู้ผลจริงว่าบันทึกสำเร็จหรือไม่
+  async function saveBudget() {
+    if (!budgetDocId) return false
+    try {
+      await updateDocData('budget_planning', budgetDocId, { revenue: budget.revenue, cogs: budget.cogs, opex: budget.opex })
+      return true
+    } catch { return false }
+  }
 
   function sumRow(row, field) { return row[field].reduce((a, b) => a + b, 0) }
   function sumCat(cat, field, mIdx) {
@@ -141,17 +181,19 @@ export default async function BudgetPlanningPage(container) {
     document.getElementById('export-btn')?.addEventListener('click', exportBudget)
     document.getElementById('month-select')?.addEventListener('change', e => { selectedMonth = +e.target.value; renderPage() })
     document.querySelectorAll('.edit-cell').forEach(cell => {
-      cell.addEventListener('dblclick', () => {
+      cell.addEventListener('dblclick', async () => {
         const cat = cell.dataset.cat
         const rowIdx = +cell.dataset.row
         const mIdx = +cell.dataset.m
         const field = cell.dataset.field
         const current = budget[cat][rowIdx][field][mIdx]
         const val = prompt(`แก้ไข ${budget[cat][rowIdx].name} ${MONTHS[mIdx]} (${field === 'budgets' ? 'Budget' : 'Actual'}):`, current)
-        if (val !== null && !isNaN(+val)) {
-          budget[cat][rowIdx][field][mIdx] = +val
-          renderPage()
-        }
+        if (val === null || isNaN(+val)) return
+        const prev = budget[cat][rowIdx][field][mIdx]
+        budget[cat][rowIdx][field][mIdx] = +val
+        const ok = await saveBudget()
+        if (!ok) { budget[cat][rowIdx][field][mIdx] = prev; showToast('บันทึกไม่สำเร็จ', 'error'); return }
+        renderPage()
       })
     })
   }
