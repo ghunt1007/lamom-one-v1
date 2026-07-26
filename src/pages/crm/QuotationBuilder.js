@@ -267,9 +267,7 @@ export default async function QuotationBuilderPage(container) {
 
     el.querySelector('#qt-view-customer')?.addEventListener('click', () => {
       el.remove()
-      // TODO(receiving agent): ถ้ามี route ที่ deep-link ไปลูกค้ารายเดียวได้ (เช่น /crm/customers?id=... หรือ /crm/customers/:id)
-      // ให้เปลี่ยนมาใช้ path นั้นแทน — ตอนนี้ยังไม่ทราบ route สุดท้ายหลังรวม Customers+Leads จึงพาไปหน้ารายการลูกค้าก่อน
-      navigate('/crm/customers')
+      navigate('/crm/customers?id=' + encodeURIComponent(q.customerId))
     })
     el.querySelectorAll('.qt-related-item').forEach(item => item.addEventListener('click', () => {
       const r = quotes.find(x => x.id === item.dataset.id)

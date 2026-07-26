@@ -835,6 +835,14 @@ export default async function CustomersPage(container) {
   if (container.__routerGen !== myGen) { unsubCustomers(); return }
   await loadData()
 
+  // Deep-link จากหน้าอื่น (เช่น QuotationBuilder "ดูข้อมูลลูกค้า") — /crm/customers?id=xxx เปิดรายละเอียดลูกค้าคนนั้นทันที
+  const deepLinkId = new URLSearchParams(window.location.search).get('id')
+  if (deepLinkId) {
+    const c = customers.find(x => x.id === deepLinkId)
+    if (c) openDetail(c)
+    else showToast('ไม่พบลูกค้ารายนี้ (อาจถูกลบไปแล้ว)', 'warning')
+  }
+
   return function cleanupCustomers() { unsubCustomers() }
 }
 
