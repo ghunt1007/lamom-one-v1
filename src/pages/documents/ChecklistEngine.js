@@ -39,7 +39,9 @@ export default async function ChecklistEnginePage(container) {
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">' +
         '<div>' +
           '<div style="font-weight:700;font-size:0.82rem">' + esc(cl.name) + '</div>' +
-          '<div style="font-size:0.68rem;color:var(--text-muted)">ใช้แล้ว ' + cl.usedCount + ' ครั้ง · ล่าสุด ' + cl.lastUsed + '</div>' +
+          '<div style="font-size:0.68rem;color:var(--text-muted)">ใช้แล้ว ' + cl.usedCount + ' ครั้ง · ล่าสุด ' + cl.lastUsed +
+            (cl.lastCompletedItems ? ' · ครั้งล่าสุดทำได้ ' + cl.lastCompletedItems.filter(Boolean).length + '/' + cl.lastCompletedItems.length : '') +
+          '</div>' +
         '</div>' +
         catBadge(cl.category) +
       '</div>' +
@@ -97,7 +99,10 @@ export default async function ChecklistEnginePage(container) {
     document.getElementById('save-cl-btn')?.addEventListener('click', async () => {
       const doneCount = cl.progress.filter(Boolean).length
       try {
-        await updateDocData('checklists', cl.id, { usedCount: cl.usedCount + 1, lastUsed: new Date().toISOString().slice(0, 10) })
+        // เดิมบันทึกแค่ตัวนับ (usedCount/lastUsed) ไม่เคยเก็บว่า "ข้อไหนถูกติ๊กบ้าง" เลย ทั้งที่ toast แจ้งผลว่า
+        // ทำได้กี่ข้อจากกี่ข้อ — ทำให้ย้อนดูภายหลังไม่ได้เลยว่ารายการไหนขาดไปตอนใช้ครั้งล่าสุด
+        // (ยังคงรีเซ็ตกลับเป็นว่างตอนเปิดใช้ครั้งใหม่ตามปกติ เพราะเป็น checklist แม่แบบใช้ซ้ำได้หลายครั้ง)
+        await updateDocData('checklists', cl.id, { usedCount: cl.usedCount + 1, lastUsed: new Date().toISOString().slice(0, 10), lastCompletedItems: [...cl.progress] })
         showToast('✅ บันทึก ' + cl.name + ' (' + doneCount + '/' + cl.items.length + ' รายการ)', 'success')
         activeId = null
         await loadData()

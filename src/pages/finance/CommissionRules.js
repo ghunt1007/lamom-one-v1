@@ -5,11 +5,9 @@
 import { formatCurrency } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, getSalesData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, softDelete, getSalesData } from '../../core/db.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
-
-const LS_KEY = 'lamom_comm_rules'
 
 const RULE_TYPES = {
   per_unit:  { label: 'ต่อคัน', icon: '🚗' },
@@ -18,13 +16,16 @@ const RULE_TYPES = {
   bonus:     { label: 'โบนัสพิเศษ', icon: '🎁' },
 }
 
+// key คงที่ใช้อ้างอิง "บทบาท" ของกติกาแต่ละแบบใน calcCommission() — แยกจาก id เอกสารจริงใน Firestore
+// (id เดิมแบบ 'CR001' เป็นแค่ label สมมติที่ localStorage เท่านั้น พอย้ายมาใช้ id จริงของ Firestore
+// (สุ่มจริง ไม่ใช่ 'CR001' อีกต่อไป) จึงต้องมี key แยกไว้จับคู่ตรรกะการคำนวณ)
 const BASE_RULES = [
-  { id: 'CR001', name: 'คอมพื้นฐานต่อคัน', type: 'per_unit', detail: 'ขายได้ 1 คัน = 5,000 บาท (ทุกรุ่น)', value: 5000, active: true, appliesTo: 'เซลส์ทุกคน' },
-  { id: 'CR002', name: 'ขั้นบันไดรายเดือน', type: 'tiered', detail: '', value: 0, active: true, appliesTo: 'เซลส์ทุกคน',
+  { key: 'per_unit_base', name: 'คอมพื้นฐานต่อคัน', type: 'per_unit', detail: 'ขายได้ 1 คัน = 5,000 บาท (ทุกรุ่น)', value: 5000, active: true, appliesTo: 'เซลส์ทุกคน' },
+  { key: 'tiered_monthly', name: 'ขั้นบันไดรายเดือน', type: 'tiered', detail: '', value: 0, active: true, appliesTo: 'เซลส์ทุกคน',
     tiers: [{ from: 1, to: 3, amt: 5000 }, { from: 4, to: 6, amt: 7000 }, { from: 7, to: 99, amt: 10000 }] },
-  { id: 'CR003', name: 'โบนัสรุ่น Premium', type: 'bonus', detail: 'BYD Seal / Han เพิ่มอีก 3,000/คัน', value: 3000, active: true, appliesTo: 'เซลส์ทุกคน' },
-  { id: 'CR004', name: 'คอมจากกำไรส่วนเกิน', type: 'percent', detail: 'ขายเกิน floor price ได้ 20% ของส่วนต่าง', value: 20, active: true, appliesTo: 'Senior Sales' },
-  { id: 'CR005', name: 'โบนัสปิดเป้าทีม', type: 'bonus', detail: 'ทีมถึงเป้าเดือน ทุกคนรับเพิ่ม 2,000', value: 2000, active: false, appliesTo: 'ทีมขายทั้งทีม' },
+  { key: 'premium_bonus', name: 'โบนัสรุ่น Premium', type: 'bonus', detail: 'BYD Seal / Han เพิ่มอีก 3,000/คัน', value: 3000, active: true, appliesTo: 'เซลส์ทุกคน' },
+  { key: 'floor_percent', name: 'คอมจากกำไรส่วนเกิน', type: 'percent', detail: 'ขายเกิน floor price ได้ 20% ของส่วนต่าง', value: 20, active: true, appliesTo: 'Senior Sales' },
+  { key: 'team_bonus', name: 'โบนัสปิดเป้าทีม', type: 'bonus', detail: 'ทีมถึงเป้าเดือน ทุกคนรับเพิ่ม 2,000', value: 2000, active: false, appliesTo: 'ทีมขายทั้งทีม' },
 ]
 
 const SIM_PRESETS = [
@@ -33,15 +34,17 @@ const SIM_PRESETS = [
   { units: 9, premium: 3, overFloor: 80000 },
 ]
 
-function loadSavedRules() {
-  try { return JSON.parse(localStorage.getItem(LS_KEY) || 'null') } catch { return null }
-}
-function saveRules(r) {
-  try { localStorage.setItem(LS_KEY, JSON.stringify(r)) } catch {}
-}
-
-function cloneBaseRules() {
-  return BASE_RULES.map(r => ({ ...r, tiers: r.tiers ? r.tiers.map(t => ({ ...t })) : undefined }))
+// เดิมกติกาคอมมิชชั่นทั้งหมด (toggle/แก้ไข/เพิ่ม/reset) เก็บใน localStorage เครื่องเดียวเท่านั้น แม้จะมี
+// collection 'commission_rules' ใน Firestore จริงอยู่แล้วก็ใช้แค่ตอน seed ครั้งแรกครั้งเดียว ไม่เคยเขียนกลับเลย
+// ทำให้พนักงานการเงินคนละเครื่องเห็นกติกาคอมมิชชั่นไม่ตรงกัน (กติกาที่ใช้จำลอง/อ้างอิงจริงต่างกันไปตามเครื่อง)
+// ตอนนี้ทุกกติกาเป็นเอกสารจริงใน Firestore แต่ละใบ อ่าน/เขียนตรงเสมอ ไม่มี localStorage อีกต่อไป
+async function seedBaseRules() {
+  const created = []
+  for (const r of BASE_RULES) {
+    const id = await createDoc('commission_rules', { ...r, tiers: r.tiers ? r.tiers.map(t => ({ ...t })) : undefined })
+    created.push({ ...r, id, tiers: r.tiers ? r.tiers.map(t => ({ ...t })) : undefined })
+  }
+  return created
 }
 
 function buildTierDetail(tiers) {
@@ -51,7 +54,7 @@ function buildTierDetail(tiers) {
 function calcCommission(units, premiumUnits, overFloor, rules) {
   let total = 0
   const breakdown = []
-  const tiered = rules.find(r => r.id === 'CR002' && r.active && r.tiers)
+  const tiered = rules.find(r => r.key === 'tiered_monthly' && r.active && r.tiers)
   if (tiered) {
     let amt = 0
     for (let u = 1; u <= units; u++) {
@@ -60,18 +63,18 @@ function calcCommission(units, premiumUnits, overFloor, rules) {
     }
     total += amt; breakdown.push(['ขั้นบันได (' + units + ' คัน)', amt])
   } else {
-    const base = rules.find(r => r.id === 'CR001' && r.active)
+    const base = rules.find(r => r.key === 'per_unit_base' && r.active)
     if (base) {
       const amt = units * (base.value || 5000)
       total += amt; breakdown.push(['พื้นฐาน (' + units + ' คัน)', amt])
     }
   }
-  const bonus = rules.find(r => r.id === 'CR003' && r.active)
+  const bonus = rules.find(r => r.key === 'premium_bonus' && r.active)
   if (bonus && premiumUnits > 0) {
     const amt = premiumUnits * (bonus.value || 3000)
     total += amt; breakdown.push(['โบนัส Premium (' + premiumUnits + ' คัน)', amt])
   }
-  const pct = rules.find(r => r.id === 'CR004' && r.active)
+  const pct = rules.find(r => r.key === 'floor_percent' && r.active)
   if (pct && overFloor > 0) {
     const amt = Math.round(overFloor * (pct.value || 20) / 100)
     total += amt; breakdown.push([(pct.value || 20) + '% ส่วนเกิน floor', amt])
@@ -81,7 +84,7 @@ function calcCommission(units, premiumUnits, overFloor, rules) {
 
 export default async function CommissionRulesPage(container) {
   const myGen = container.__routerGen
-  let rules = loadSavedRules() || cloneBaseRules()
+  let rules = []
   let sim = { units: 6, premium: 2, overFloor: 30000 }
   let dataSource = 'demo'
   let thisMonthPaid = 0
@@ -92,22 +95,14 @@ export default async function CommissionRulesPage(container) {
       getSalesData().catch(() => []),
     ])
     if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      if (!loadSavedRules()) {
-        const mapped = docs.map((d, i) => ({
-          id: d.id || `CR${String(i + 1).padStart(3, '0')}`,
-          name: d.name || 'กติกา',
-          type: d.type || 'per_unit',
-          detail: d.detail || d.description || '',
-          value: d.value || 0,
-          active: d.active !== undefined ? d.active : true,
-          appliesTo: d.appliesTo || 'เซลส์ทุกคน',
-          tiers: d.tiers || undefined,
-        }))
-        rules = [...mapped, ...cloneBaseRules()]
-      }
-      dataSource = 'live'
+    if (docs.length) {
+      // เอกสารเก่าที่เคยถูก seed มาก่อนอาจไม่มีฟิลด์ key (ตอนนั้นยังไม่มีแนวคิดนี้) — จับคู่ย้อนหลังด้วยชื่อ
+      // เทียบกับ BASE_RULES เพื่อให้ 4 กติกาหลักที่ calcCommission ใช้คำนวณจริงยังทำงานถูกต้อง
+      rules = docs.map(d => ({ ...d, key: d.key || BASE_RULES.find(b => b.name === d.name)?.key }))
+    } else {
+      rules = await seedBaseRules()
     }
+    dataSource = 'live'
     // Estimate total commission paid this month from sales data
     const thisMonth = new Date().toISOString().slice(0, 7)
     const monthSales = sales.filter(s => (s.date || '').startsWith(thisMonth))
@@ -199,7 +194,7 @@ export default async function CommissionRulesPage(container) {
             </div>
             <!-- Tier reference -->
             ${(() => {
-              const t = rules.find(r => r.id === 'CR002' && r.tiers)
+              const t = rules.find(r => r.key === 'tiered_monthly' && r.tiers)
               if (!t) return ''
               return `<div class="card" style="padding:12px 14px">
                 <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">📶 ตารางขั้นบันได</div>
@@ -216,9 +211,13 @@ export default async function CommissionRulesPage(container) {
     `
 
     // Toggle active/inactive
-    container.querySelectorAll('.toggle-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.toggle-btn').forEach(b => b.addEventListener('click', async () => {
       const r = rules.find(x => x.id === b.dataset.id)
-      if (r) { r.active = !r.active; saveRules(rules); renderPage() }
+      if (!r) return
+      const active = !r.active
+      try { await updateDocData('commission_rules', r.id, { active }) } catch { showToast('บันทึกไม่สำเร็จ', 'error'); return }
+      r.active = active
+      renderPage()
     }))
 
     // Edit rule inline
@@ -250,20 +249,22 @@ export default async function CommissionRulesPage(container) {
         title: '✏️ แก้ไข: ' + (rt?.icon || '') + ' ' + escHtml(r.name),
         size: 'sm',
         body: bodyHtml,
-        onConfirm() {
-          r.name = document.getElementById('er-name')?.value?.trim() || r.name
-          r.appliesTo = document.getElementById('er-applies')?.value?.trim() || r.appliesTo
-          r.detail = document.getElementById('er-detail')?.value?.trim()
+        async onConfirm() {
+          const updated = { name: r.name, appliesTo: r.appliesTo, detail: r.detail, value: r.value, tiers: r.tiers }
+          updated.name = document.getElementById('er-name')?.value?.trim() || r.name
+          updated.appliesTo = document.getElementById('er-applies')?.value?.trim() || r.appliesTo
+          updated.detail = document.getElementById('er-detail')?.value?.trim()
           if (r.type === 'tiered' && r.tiers) {
-            r.tiers.forEach((t, i) => {
+            updated.tiers = r.tiers.map((t, i) => {
               const v = parseInt(document.getElementById('er-tier-' + i)?.value)
-              if (!isNaN(v) && v >= 0) t.amt = v
+              return !isNaN(v) && v >= 0 ? { ...t, amt: v } : t
             })
           } else {
             const v = parseFloat(document.getElementById('er-value')?.value)
-            if (!isNaN(v) && v >= 0) r.value = v
+            updated.value = !isNaN(v) && v >= 0 ? v : r.value
           }
-          saveRules(rules)
+          try { await updateDocData('commission_rules', r.id, updated) } catch { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
+          Object.assign(r, updated)
           showToast('✅ บันทึกกติกาแล้ว', 'success')
           renderPage()
         }
@@ -295,19 +296,20 @@ export default async function CommissionRulesPage(container) {
           <div class="input-group"><label class="input-label">รายละเอียด</label><input class="input" id="cr-detail" placeholder="อธิบายเงื่อนไข..."></div>
           <div class="input-group"><label class="input-label">ใช้กับ</label><input class="input" id="cr-applies" value="เซลส์ทุกคน"></div>
         </div>`,
-        onConfirm() {
+        async onConfirm() {
           const name = document.getElementById('cr-name')?.value?.trim()
-          if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return }
-          rules.push({
-            id: `CR${String(rules.length + 1).padStart(3, '0')}`,
+          if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return false }
+          const data = {
             name,
             type: document.getElementById('cr-type')?.value || 'per_unit',
             detail: document.getElementById('cr-detail')?.value || '',
             value: parseFloat(document.getElementById('cr-value')?.value) || 0,
             active: true,
             appliesTo: document.getElementById('cr-applies')?.value || 'เซลส์ทุกคน',
-          })
-          saveRules(rules)
+          }
+          let id
+          try { id = await createDoc('commission_rules', data) } catch { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
+          rules.push({ id, ...data })
           showToast('✅ เพิ่มกติกาแล้ว', 'success')
           renderPage()
         }
@@ -316,10 +318,12 @@ export default async function CommissionRulesPage(container) {
 
     // Reset to default
     document.getElementById('reset-btn')?.addEventListener('click', async () => {
-      const ok = await confirmDialog({ title: 'Reset กติกา', message: 'Reset กติกาทั้งหมดกลับค่าเริ่มต้น?', confirmText: 'Reset', danger: true })
+      const ok = await confirmDialog({ title: 'Reset กติกา', message: 'Reset กติกาทั้งหมดกลับค่าเริ่มต้น? (จะลบกติกาที่เพิ่มเองทั้งหมดด้วย)', confirmText: 'Reset', danger: true })
       if (!ok) return
-      rules = cloneBaseRules()
-      saveRules(rules)
+      try {
+        await Promise.all(rules.map(r => softDelete('commission_rules', r.id)))
+        rules = await seedBaseRules()
+      } catch { showToast('Reset ไม่สำเร็จ', 'error'); return }
       showToast('↩ Reset แล้ว', 'warning')
       renderPage()
     })

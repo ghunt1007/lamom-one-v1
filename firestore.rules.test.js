@@ -688,3 +688,23 @@ describe('marketing_budgets — same access as sales_budgets', () => {
     await assertSucceeds(db.collection('marketing_budgets').add({ budgets: { fb: 1 } }))
   })
 })
+
+describe('commission_rules — a sales rep cannot edit their own commission rate', () => {
+  it('a plain sales staff member cannot edit a commission rule', async () => {
+    await seedUser('auditGap35', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap35').firestore()
+    await assertFails(db.collection('commission_rules').add({ name: 'x', value: 999999 }))
+  })
+
+  it('finance role can edit a commission rule', async () => {
+    await seedUser('auditGap36', { role: 'finance', active: true })
+    const db = testEnv.authenticatedContext('auditGap36').firestore()
+    await assertSucceeds(db.collection('commission_rules').add({ name: 'x', value: 5000 }))
+  })
+
+  it('a plain sales staff member can still read commission rules', async () => {
+    await seedUser('auditGap37', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap37').firestore()
+    await assertSucceeds(db.collection('commission_rules').get())
+  })
+})
