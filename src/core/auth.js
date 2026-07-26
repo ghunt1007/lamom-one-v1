@@ -10,7 +10,7 @@ import {
   EmailAuthProvider,
 } from 'firebase/auth'
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
-import { setUser, setCompany, setState, showToast, getState } from './store.js'
+import { setUser, setCompany, setCompanies, setActiveCompanyFilter, setState, showToast, getState } from './store.js'
 import { navigate } from './router.js'
 
 export async function register(email, password) {
@@ -96,6 +96,23 @@ async function loadUserProfile(firebaseUser) {
         const compSnap = await getDoc(doc(db, 'companies', profile.companyId))
         if (compSnap.exists()) setCompany({ id: compSnap.id, ...compSnap.data() })
       }
+      // รองรับ 1 user ทำงานหลายบริษัท — resolve companyMemberships เป็น org_companies doc จริง
+      // ค่าเริ่มต้นของตัวกรอง = "ทั้งหมด" เสมอ (เห็นข้อมูลทุกบริษัทพร้อมกันก่อน) ยกเว้นมีตัวกรองเดิมจาก session ก่อนที่ยังใช้ได้อยู่
+      const memberships = profile.companyMemberships || []
+      if (memberships.length) {
+        const companyDocs = await Promise.all(
+          memberships.map(m => getDoc(doc(db, 'org_companies', m.companyId)).catch(() => null))
+        )
+        const companies = companyDocs.filter(s => s && s.exists()).map(s => ({ id: s.id, ...s.data() }))
+        setCompanies(companies)
+        const validIds = companies.map(c => c.id)
+        const currentFilter = getState('activeCompanyFilter') || []
+        const filterStillValid = currentFilter.length && currentFilter.every(id => validIds.includes(id))
+        setActiveCompanyFilter(filterStillValid ? currentFilter : validIds)
+      } else {
+        setCompanies([])
+        setActiveCompanyFilter([])
+      }
     } else {
       // สร้าง profile ใหม่ — ใช้ meta/init เช็คว่าระบบถูก initialize ไปแล้วหรือยัง
       // (หลีกเลี่ยง collection query ที่ Firestore rules บล็อก)
@@ -118,6 +135,8 @@ async function loadUserProfile(firebaseUser) {
         role,
         permissions,
         active: isFirstUser ? true : false,
+        companyMemberships: [],
+        primaryCompanyId: null,
         createdAt: serverTimestamp(),
       }
       await setDoc(doc(db, 'users', firebaseUser.uid), newProfile)
@@ -151,17 +170,20 @@ export function hasPermission(perm) {
 // Uses a secondary Firebase Auth app instance so creating a new account doesn't
 // sign the admin out of their own session (the client SDK signs in as whichever
 // user was just created via createUserWithEmailAndPassword).
-export async function createStaffAccount({ name, email, password, role, accessExpiresAt }) {
+export async function createStaffAccount({ name, email, password, role, accessExpiresAt, companyId, department, position }) {
   const secondaryAuth = getSecondaryAuth()
   try {
     const cred = await createUserWithEmailAndPassword(secondaryAuth, email, password)
     const uid = cred.user.uid
+    const companyMemberships = companyId ? [{ companyId, role: role || 'staff', department: department || '', position: position || '' }] : []
     await setDoc(doc(db, 'users', uid), {
       uid, email, displayName: name || email,
       role: role || 'staff',
       permissions: [],
       active: true,
       accessExpiresAt: accessExpiresAt || null,
+      companyMemberships,
+      primaryCompanyId: companyId || null,
       createdBy: getState('user')?.uid || null,
       createdAt: serverTimestamp(),
     })
@@ -170,6 +192,19 @@ export async function createStaffAccount({ name, email, password, role, accessEx
   } catch (e) {
     try { await signOut(secondaryAuth) } catch {}
     return { ok: false, error: authErrorMessage(e.code) }
+  }
+}
+
+// อัปเดต companyMemberships ของ user ที่มีอยู่แล้ว (เช่น พนักงาน shared-service ที่ต้องดูแลหลายบริษัท)
+export async function updateCompanyMemberships(uid, companyMemberships) {
+  try {
+    await setDoc(doc(db, 'users', uid), {
+      companyMemberships: companyMemberships || [],
+      primaryCompanyId: companyMemberships?.[0]?.companyId || null,
+    }, { merge: true })
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: 'บันทึกไม่สำเร็จ' }
   }
 }
 

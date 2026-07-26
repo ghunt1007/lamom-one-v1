@@ -728,3 +728,23 @@ describe('budget_planning — same access as sales_budgets/commission_rules', ()
     await assertSucceeds(db.collection('budget_planning').get())
   })
 })
+
+describe('org_companies — internal legal-entity records (multi-company support)', () => {
+  it('a plain staff member cannot create a company record', async () => {
+    await seedUser('auditGap41', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap41').firestore()
+    await assertFails(db.collection('org_companies').add({ name: 'BYD Bangna', brand: 'BYD' }))
+  })
+
+  it('a manager can create a company record', async () => {
+    await seedUser('auditGap42', { role: 'manager', active: true })
+    const db = testEnv.authenticatedContext('auditGap42').firestore()
+    await assertSucceeds(db.collection('org_companies').add({ name: 'BYD Bangna', brand: 'BYD' }))
+  })
+
+  it('a plain staff member can still read company records', async () => {
+    await seedUser('auditGap43', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap43').firestore()
+    await assertSucceeds(db.collection('org_companies').get())
+  })
+})

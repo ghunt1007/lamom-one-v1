@@ -1,4 +1,4 @@
-import { getState, setState, on } from '../../core/store.js'
+import { getState, setState, setActiveCompanyFilter, on } from '../../core/store.js'
 import { navigate } from '../../core/router.js'
 import { openNotifPanel } from './NotifPanel.js'
 import { openGlobalSearch } from './GlobalSearch.js'
@@ -63,6 +63,7 @@ export function Topbar(container) {
         </div>
 
         <div class="topbar-actions">
+          ${getState('companies').length > 1 ? `<button class="topbar-btn" id="company-filter-btn" title="กรองบริษัท">🏢</button>` : ''}
           <button class="topbar-btn" id="theme-btn" title="เปลี่ยน Theme">🎨</button>
           <button class="topbar-btn" id="notif-btn" title="การแจ้งเตือน">
             🔔
@@ -90,6 +91,7 @@ export function Topbar(container) {
 
   function bindEvents() {
     document.getElementById('global-search')?.addEventListener('click', openSearch)
+    document.getElementById('company-filter-btn')?.addEventListener('click', openCompanyFilter)
     document.getElementById('theme-btn')?.addEventListener('click', openThemePicker)
     document.getElementById('notif-btn')?.addEventListener('click', (e) => openNotifPanel(e.currentTarget))
     document.getElementById('lami-chat-btn')?.addEventListener('click', () => navigate('/ai/ask'))
@@ -100,6 +102,7 @@ export function Topbar(container) {
   unsubs.push(on('sidebarCollapsed', render))
   unsubs.push(on('currentRoute', render))
   unsubs.push(on('unreadCount', render))
+  unsubs.push(on('companies', render))
 
   // Keyboard shortcut
   const keyHandler = (e) => {
@@ -115,6 +118,73 @@ export function Topbar(container) {
 
 function openSearch() {
   openGlobalSearch()
+}
+
+function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+
+// ตัวกรองบริษัท — สำหรับพนักงาน shared-service (HR/บัญชี ฯลฯ) ที่ทำงานหลายบริษัท
+// ค่าเริ่มต้นคือ "ทั้งหมด" (เห็นข้อมูลทุกบริษัทพร้อมกัน) กดเลือกเพื่อกรองแคบลงได้
+function openCompanyFilter() {
+  const companies = getState('companies') || []
+  const active = getState('activeCompanyFilter') || []
+  const isAll = !active.length || active.length === companies.length
+
+  const existing = document.getElementById('company-filter-panel')
+  if (existing) { existing.remove(); return }
+
+  const div = document.createElement('div')
+  div.id = 'company-filter-panel'
+  div.style.cssText = `
+    position:fixed; top:60px; right:12px; z-index:500;
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:var(--radius-lg); padding:8px;
+    display:flex; flex-direction:column; gap:4px;
+    box-shadow:0 8px 32px rgba(0,0,0,0.4);
+    animation: slideDown 150ms ease;
+    min-width:200px; max-height:320px; overflow-y:auto;
+  `
+  div.innerHTML = `
+    <div style="padding:4px 8px 8px;font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted)">กรองบริษัท</div>
+    <button class="company-opt-all" data-all="1"
+      style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius-md);
+             background:${isAll?'var(--surface-2)':'transparent'};border:none;cursor:pointer;color:var(--text);font-size:0.875rem;
+             font-family:var(--font-main);transition:background 150ms;text-align:left">
+      <span>${isAll?'✅':'⬜'}</span><span style="flex:1">ทั้งหมด (${companies.length} บริษัท)</span>
+    </button>
+    ${companies.map(c => `
+      <button class="company-opt" data-id="${c.id}"
+        style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius-md);
+               background:transparent;border:none;cursor:pointer;color:var(--text);font-size:0.875rem;
+               font-family:var(--font-main);transition:background 150ms;text-align:left">
+        <span>${!isAll && active.includes(c.id) ? '✅' : '⬜'}</span><span style="flex:1">${escHtml(c.name || c.id)}</span>
+      </button>
+    `).join('')}
+  `
+  div.querySelectorAll('.company-opt-all, .company-opt').forEach(btn => {
+    btn.addEventListener('mouseenter', () => btn.style.background = 'var(--surface-2)')
+    btn.addEventListener('mouseleave', () => { if (!btn.classList.contains('company-opt-all') || !isAll) btn.style.background = 'transparent' })
+  })
+  div.querySelector('.company-opt-all')?.addEventListener('click', () => {
+    setActiveCompanyFilter(companies.map(c => c.id))
+    div.remove()
+  })
+  div.querySelectorAll('.company-opt').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.id
+      const base = isAll ? [] : [...active]
+      const next = base.includes(id) ? base.filter(x => x !== id) : [...base, id]
+      setActiveCompanyFilter(next.length ? next : companies.map(c => c.id))
+      div.remove()
+    })
+  })
+
+  document.body.appendChild(div)
+  setTimeout(() => document.addEventListener('click', function handler(e) {
+    if (!div.contains(e.target) && e.target.id !== 'company-filter-btn') {
+      div.remove()
+      document.removeEventListener('click', handler)
+    }
+  }), 100)
 }
 
 function openThemePicker() {

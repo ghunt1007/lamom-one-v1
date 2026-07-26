@@ -7,7 +7,7 @@ import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
-import { createStaffAccount, sendStaffPasswordReset } from '../../core/auth.js'
+import { createStaffAccount, sendStaffPasswordReset, updateCompanyMemberships } from '../../core/auth.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -70,11 +70,13 @@ export default async function UserManagementPage(container) {
   const canCreateUsers = myLevel >= MIN_CREATE_LEVEL
 
   let users = []
+  let companiesList = []
   let loading = true
 
   async function loadData() {
     loading = true
     try { users = await listDocs('users', [], 'createdAt', 'desc', 200) } catch (e) { users = [] }
+    try { companiesList = await listDocs('org_companies', [], 'name', 'asc', 100) } catch (e) { companiesList = [] }
     loading = false
     if (container.__routerGen === myGen) render()
   }
@@ -147,6 +149,7 @@ export default async function UserManagementPage(container) {
                     <td style="padding:8px 14px">
                       <div style="font-weight:600">${esc(u.displayName || u.email)}</div>
                       <div style="font-size:0.65rem;color:var(--text-muted)">${esc(u.email)} · สร้างเมื่อ ${u.createdAt ? formatDate(u.createdAt) : '-'}</div>
+                      ${(u.companyMemberships || []).length ? `<div style="font-size:0.62rem;color:var(--text-muted);margin-top:2px">🏢 ${u.companyMemberships.map(m => esc(companiesList.find(c=>c.id===m.companyId)?.name || m.companyId)).join(', ')}${u.companyMemberships[0]?.position ? ' · ' + esc(u.companyMemberships[0].position) : ''}</div>` : ''}
                     </td>
                     <td style="padding:8px 10px;text-align:center">
                       ${isPending ? '<span class="badge badge-warning" style="font-size:0.62rem">⏳ รอกำหนดสิทธิ์</span>' : `<span class="badge badge-secondary" style="font-size:0.62rem">${r.icon||''} ${r.label||u.role}</span>`}
@@ -216,6 +219,13 @@ export default async function UserManagementPage(container) {
         <div class="input-group" style="grid-column:1/-1"><label class="input-label">ระยะเวลาสิทธิ์ <span style="font-size:0.65rem;color:var(--text-muted)">(เผื่อพนักงานชั่วคราว/ผู้รับเหมา — เลือก "ไม่จำกัดเวลา" สำหรับพนักงานประจำ)</span></label>
           <select class="input" id="nu-expiry">${EXPIRY_OPTIONS.map(o=>`<option value="${o.days??''}">${o.label}</option>`).join('')}</select>
         </div>
+        <div class="input-group"><label class="input-label">บริษัท <span style="font-size:0.65rem;color:var(--text-muted)">(ถ้าดูแลหลายบริษัท เพิ่มทีหลังได้จากหน้า "กำหนดสิทธิ์")</span></label>
+          <select class="input" id="nu-company"><option value="">— ไม่ระบุ —</option>${companiesList.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select>
+        </div>
+        <div class="input-group"><label class="input-label">แผนก</label>
+          <input class="input" id="nu-department" placeholder="เช่น ขาย, บัญชี, HR"></div>
+        <div class="input-group" style="grid-column:1/-1"><label class="input-label">ตำแหน่ง</label>
+          <input class="input" id="nu-position" placeholder="เช่น Sales Executive"></div>
         <div class="input-group" style="grid-column:1/-1"><label class="input-label">รหัสผ่านชั่วคราว *</label>
           <div style="display:flex;gap:6px">
             <input class="input" id="nu-password" value="${suggested}" style="flex:1;font-family:monospace">
@@ -231,12 +241,15 @@ export default async function UserManagementPage(container) {
         const role = document.getElementById('nu-role')?.value
         const expiryDays = document.getElementById('nu-expiry')?.value
         const password = document.getElementById('nu-password')?.value
+        const companyId = document.getElementById('nu-company')?.value || null
+        const department = document.getElementById('nu-department')?.value?.trim() || ''
+        const position = document.getElementById('nu-position')?.value?.trim() || ''
         if (!name || !email || !password) { showToast('❗ กรอกข้อมูลให้ครบ', 'error'); return false }
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showToast('❗ รูปแบบอีเมลไม่ถูกต้อง', 'error'); return false }
         if (password.length < 8) { showToast('❗ รหัสผ่านอย่างน้อย 8 ตัว', 'error'); return false }
         if (!canCreate(myRole, role)) { showToast('❗ คุณไม่มีสิทธิ์สร้างระดับนี้', 'error'); return false }
         try {
-          const result = await createStaffAccount({ name, email, password, role, accessExpiresAt: computeExpiry(expiryDays) })
+          const result = await createStaffAccount({ name, email, password, role, accessExpiresAt: computeExpiry(expiryDays), companyId, department, position })
           if (!result.ok) { showToast('❗ ' + result.error, 'error'); return false }
           showToast(`✅ สร้าง ${name} (${ROLES[role]?.label}) แล้ว`, 'success')
           await loadData()
@@ -252,6 +265,11 @@ export default async function UserManagementPage(container) {
 
   function openAssignRoleForm(uid, name) {
     const creatable = Object.entries(ROLES).filter(([k]) => canCreate(myRole, k))
+    const u = users.find(x => x.id === uid) || {}
+    const currentMemberships = u.companyMemberships || []
+    const currentCompanyIds = currentMemberships.map(m => m.companyId)
+    const currentDept = currentMemberships[0]?.department || ''
+    const currentPos = currentMemberships[0]?.position || ''
     openModal({
       title: `✏️ กำหนดสิทธิ์ให้ ${esc(name)}`,
       size: 'sm',
@@ -263,7 +281,18 @@ export default async function UserManagementPage(container) {
         <label class="input-label">ระยะเวลาสิทธิ์ <span style="font-size:0.65rem;color:var(--text-muted)">(เผื่อพนักงานชั่วคราว/ผู้รับเหมา)</span></label>
         <select class="input" id="ar-expiry">${EXPIRY_OPTIONS.map(o=>`<option value="${o.days??''}">${o.label}</option>`).join('')}</select>
         <p style="font-size:0.68rem;color:var(--text-muted);margin-top:6px">อนุมัติแล้วผู้ใช้จะเข้าใช้งานระบบได้ทันทีตามสิทธิ์ที่เลือก</p>
-      </div>`,
+      </div>
+      ${companiesList.length ? `
+      <div class="input-group" style="margin-top:10px">
+        <label class="input-label">บริษัทที่ดูแล <span style="font-size:0.65rem;color:var(--text-muted)">(เลือกได้หลายบริษัท — เผื่อพนักงาน shared-service เช่น HR/บัญชี)</span></label>
+        <div style="display:flex;flex-direction:column;gap:4px;max-height:140px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px">
+          ${companiesList.map(c => `<label style="display:flex;align-items:center;gap:6px;font-size:0.8rem"><input type="checkbox" class="ar-company-cb" value="${c.id}" ${currentCompanyIds.includes(c.id)?'checked':''}> ${esc(c.name)}</label>`).join('')}
+        </div>
+      </div>
+      <div class="input-group" style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div><label class="input-label">แผนก</label><input class="input" id="ar-department" value="${esc(currentDept)}" placeholder="เช่น ขาย, บัญชี, HR"></div>
+        <div><label class="input-label">ตำแหน่ง</label><input class="input" id="ar-position" value="${esc(currentPos)}" placeholder="เช่น Sales Executive"></div>
+      </div>` : ''}`,
       confirmText: '✅ อนุมัติสิทธิ์',
       async onConfirm() {
         const role = document.getElementById('ar-role')?.value
@@ -271,6 +300,13 @@ export default async function UserManagementPage(container) {
         if (!canCreate(myRole, role)) { showToast('❗ คุณไม่มีสิทธิ์กำหนดระดับนี้', 'error'); return false }
         try {
           await updateDocData('users', uid, { role, active: true, accessExpiresAt: computeExpiry(expiryDays) })
+          if (companiesList.length) {
+            const department = document.getElementById('ar-department')?.value?.trim() || ''
+            const position = document.getElementById('ar-position')?.value?.trim() || ''
+            const checkedIds = [...document.querySelectorAll('.ar-company-cb:checked')].map(cb => cb.value)
+            const companyMemberships = checkedIds.map(companyId => ({ companyId, role, department, position }))
+            await updateCompanyMemberships(uid, companyMemberships)
+          }
           showToast(`✅ กำหนดสิทธิ์ ${ROLES[role]?.label} ให้ ${name} แล้ว`, 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

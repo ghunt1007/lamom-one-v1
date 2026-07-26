@@ -1,6 +1,10 @@
 // Global State Store — Reactive without framework
 const listeners = {}
 
+function readJsonLS(key, fallback) {
+  try { return JSON.parse(localStorage.getItem(key)) ?? fallback } catch { return fallback }
+}
+
 const state = {
   user: null,
   company: null,
@@ -14,6 +18,10 @@ const state = {
   currentRoute: '/',
   loading: false,
   toast: null,
+  // รองรับ 1 user ทำงานหลายบริษัท (org_companies docs ที่ user เป็นสมาชิกจริง)
+  companies: [],
+  // companyId ที่กรองอยู่ตอนนี้ — [] หมายถึง "ทั้งหมด" (ค่าเริ่มต้น ตามที่เจ้าของระบบต้องการให้เห็นข้อมูลทุกบริษัทพร้อมกันก่อน แล้วค่อยกรองทีหลัง)
+  activeCompanyFilter: readJsonLS('lamom_company_filter', []),
 }
 
 export function getState(key) {
@@ -69,4 +77,14 @@ export function setUser(user) {
 
 export function setCompany(company) {
   setState('company', company)
+}
+
+export function setCompanies(list) {
+  setState('companies', list || [])
+}
+
+export function setActiveCompanyFilter(companyIds) {
+  const ids = companyIds || []
+  setState('activeCompanyFilter', ids)
+  try { localStorage.setItem('lamom_company_filter', JSON.stringify(ids)) } catch {}
 }

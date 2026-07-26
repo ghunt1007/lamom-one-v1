@@ -550,6 +550,13 @@ service cloud.firestore {
       allow write: if isManager();
     }
 
+    // นิติบุคคลจริงของเจ้าของระบบ (รองรับ 1 user ทำงานหลายบริษัท) — คนละแนวคิดกับ companies ด้านบน
+    // (companies ด้านบน = ลูกค้าองค์กร/บริษัทคู่ค้า B2B ไม่ใช่บริษัทเจ้าของระบบเอง)
+    match /org_companies/{docId} {
+      allow read: if isStaff();
+      allow write: if isManager();
+    }
+
     // ฟิลด์ที่เพิ่มเองได้ (custom fields) ปรับ schema ของฟอร์มทั้งระบบ ไม่ใช่ข้อมูลรายวันของพนักงาน
     match /custom_fields/{docId} {
       allow read: if isStaff();
@@ -706,7 +713,7 @@ service cloud.firestore {
         'partner_commissions', 'financial_goals', 'contracts', 'leasing_contracts',
         'overtime_records', 'staff_documents', 'welfare_items',
         'assets', 'floor_plan', 'monthly_close_items', 'expense_receipts',
-        'companies', 'custom_fields', 'documents', 'mood_responses', 'chat_ai_assistant',
+        'companies', 'org_companies', 'custom_fields', 'documents', 'mood_responses', 'chat_ai_assistant',
         'sales_budgets', 'marketing_budgets', 'commission_rules', 'budget_planning'
       ];
     }
