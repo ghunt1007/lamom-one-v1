@@ -795,3 +795,23 @@ describe('staff_grievances — internal employee complaints (opposite direction 
     await assertSucceeds(db.collection('staff_grievances').doc('g4').update({ status: 'resolved', resolution: 'handled' }))
   })
 })
+
+describe('announcements_hr — only authorized roles (HR/manager) can post org-wide announcements', () => {
+  it('a plain staff member cannot create an announcement', async () => {
+    await seedUser('auditGap50', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap50').firestore()
+    await assertFails(db.collection('announcements_hr').add({ title: 'x', body: 'y', scope: 'org' }))
+  })
+
+  it('HR can create an announcement', async () => {
+    await seedUser('auditGap51', { role: 'hr', active: true })
+    const db = testEnv.authenticatedContext('auditGap51').firestore()
+    await assertSucceeds(db.collection('announcements_hr').add({ title: 'x', body: 'y', scope: 'org' }))
+  })
+
+  it('a plain staff member can still read announcements', async () => {
+    await seedUser('auditGap52', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap52').firestore()
+    await assertSucceeds(db.collection('announcements_hr').get())
+  })
+})

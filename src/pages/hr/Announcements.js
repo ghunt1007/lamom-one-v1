@@ -7,6 +7,8 @@ import { openModal } from '../../utils/modal.js'
 import { showToast, getState, setState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
+const HANDLER_ROLES = ['hr', 'manager', 'admin', 'owner']
+
 function myName() {
   const me = getState('user') || {}
   return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
@@ -27,15 +29,42 @@ export default async function AnnouncementsPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
 
+  const me = getState('user') || {}
+  const myRole = getState('role') || me.role || 'staff'
+  const isHandler = HANDLER_ROLES.includes(myRole)
+  const myMemberships = me.companyMemberships || []
+  const myCompanyIds = myMemberships.map(m => m.companyId)
+  const myDepartments = [...new Set(myMemberships.map(m => m.department).filter(Boolean))]
+
   let anns = []
+  let allUsers = []
+  let companiesList = []
   let typeFilter = 'all'
   let loading = true
+
+  function isInScope(a) {
+    if (isHandler) return true // ผู้มีอำนาจเห็นทุกประกาศเสมอ ไม่ว่าจะเจาะกลุ่มไว้แบบไหน
+    if (!a.scope || a.scope === 'org') return true
+    if (a.scope === 'company') return myCompanyIds.includes(a.targetCompanyId)
+    if (a.scope === 'department') return myDepartments.includes(a.targetDepartment)
+    return true
+  }
 
   async function loadData() {
     loading = true
     try { anns = await listDocs('announcements_hr', [], 'time', 'desc', 200) } catch (e) { anns = [] }
+    try { allUsers = await listDocs('users', [], 'createdAt', 'desc', 500) } catch (e) { allUsers = [] }
+    try { companiesList = await listDocs('org_companies', [], 'name', 'asc', 50) } catch (e) { companiesList = [] }
+    anns = anns.filter(isInScope)
     loading = false
     if (container.__routerGen === myGen) renderPage()
+  }
+
+  function countAudience(scope, targetCompanyId, targetDepartment) {
+    const activeUsers = allUsers.filter(u => u.active !== false && u.role !== 'pending')
+    if (scope === 'company') return activeUsers.filter(u => (u.companyMemberships || []).some(m => m.companyId === targetCompanyId)).length
+    if (scope === 'department') return activeUsers.filter(u => (u.companyMemberships || []).some(m => m.department === targetDepartment)).length
+    return activeUsers.length
   }
 
   function renderPage() {
@@ -56,7 +85,7 @@ export default async function AnnouncementsPage(container) {
             <div class="page-subtitle">ประกาศภายใน — ทุกคนต้องอ่าน</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-primary" id="add-ann-btn">+ ประกาศใหม่</button>
+            ${isHandler ? `<button class="btn btn-primary" id="add-ann-btn">+ ประกาศใหม่</button>` : ''}
           </div>
         </div>
 
@@ -76,10 +105,12 @@ export default async function AnnouncementsPage(container) {
           ${list.map(a => {
             const at = ANN_TYPES[a.type]
             const readPct = Math.round(a.readBy / a.totalStaff * 100)
+            const scopeLabel = a.scope === 'company' ? '🏢 ' + escHtml(companiesList.find(c=>c.id===a.targetCompanyId)?.name || a.targetCompanyId)
+              : a.scope === 'department' ? '🏷 แผนก ' + escHtml(a.targetDepartment) : '🌐 ทั้งองค์กร'
             return `<div class="card" style="padding:14px;border-left:3px solid var(--${at?.color})${a.pinned?';background:var(--warning)06':''}">
               <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px">
                 <div>
-                  <div style="font-weight:700;font-size:0.88rem">${a.pinned?'📌 ':''}${escHtml(a.title)}</div>
+                  <div style="font-weight:700;font-size:0.88rem">${a.pinned?'📌 ':''}${escHtml(a.title)} <span style="font-size:0.62rem;color:var(--text-muted);font-weight:400">· ${scopeLabel}</span></div>
                   <div style="font-size:0.7rem;color:var(--text-muted)">✍️ ${escHtml(a.author)} · ${timeAgo(a.time)}</div>
                 </div>
                 <span class="badge badge-${at?.color}" style="font-size:0.62rem">${at?.icon} ${at?.label}</span>
@@ -116,6 +147,7 @@ export default async function AnnouncementsPage(container) {
       if (a) showToast(`🔔 ส่งแจ้งเตือนถึง ${a.totalStaff - a.readBy} คนที่ยังไม่อ่านแล้ว`, 'warning')
     }))
     document.getElementById('add-ann-btn')?.addEventListener('click', () => {
+      const knownDepts = [...new Set(allUsers.flatMap(u => (u.companyMemberships || []).map(m => m.department).filter(Boolean)))]
       openModal({
         title: '+ สร้างประกาศ',
         size: 'md',
@@ -123,6 +155,20 @@ export default async function AnnouncementsPage(container) {
           <div class="input-group"><label class="input-label">หัวข้อ *</label><input class="input" id="an-title"></div>
           <div class="input-group"><label class="input-label">ประเภท</label>
             <select class="input" id="an-type">${Object.entries(ANN_TYPES).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+          </div>
+          <div class="input-group"><label class="input-label">ประกาศถึง *</label>
+            <select class="input" id="an-scope">
+              <option value="org">🌐 ทั้งองค์กร (ทุกบริษัท ทุกแผนก)</option>
+              <option value="company">🏢 เฉพาะบริษัท</option>
+              <option value="department">🏷 เฉพาะแผนก</option>
+            </select>
+          </div>
+          <div class="input-group" id="an-company-wrap" style="display:none"><label class="input-label">เลือกบริษัท</label>
+            <select class="input" id="an-company">${companiesList.map(c=>`<option value="${c.id}">${escHtml(c.name)}</option>`).join('')}</select>
+          </div>
+          <div class="input-group" id="an-dept-wrap" style="display:none"><label class="input-label">ระบุแผนก</label>
+            <input class="input" id="an-department" list="an-dept-list" placeholder="เช่น ขาย, บัญชี, HR">
+            <datalist id="an-dept-list">${knownDepts.map(d=>`<option value="${escHtml(d)}">`).join('')}</datalist>
           </div>
           <div class="input-group"><label class="input-label">เนื้อหา *</label><textarea class="input" id="an-body" rows="3"></textarea></div>
           <label style="display:flex;align-items:center;gap:6px;font-size:0.8rem;cursor:pointer">
@@ -135,9 +181,15 @@ export default async function AnnouncementsPage(container) {
           const body = document.getElementById('an-body')?.value?.trim()
           if (!title || !body) { showToast('❗ กรอกหัวข้อและเนื้อหา', 'error'); return false }
           const type = document.getElementById('an-type')?.value || 'general'
+          const scope = document.getElementById('an-scope')?.value || 'org'
+          const targetCompanyId = scope === 'company' ? (document.getElementById('an-company')?.value || null) : null
+          const targetDepartment = scope === 'department' ? (document.getElementById('an-department')?.value?.trim() || null) : null
+          if (scope === 'department' && !targetDepartment) { showToast('❗ ระบุแผนกที่ต้องการประกาศถึง', 'error'); return false }
+          const totalStaff = countAudience(scope, targetCompanyId, targetDepartment)
           await createDoc('announcements_hr', {
             title, type, author: myName(), time: new Date().toISOString(),
-            pinned: document.getElementById('an-pin')?.checked || false, readBy: 0, totalStaff: 16, body,
+            pinned: document.getElementById('an-pin')?.checked || false, readBy: 0, totalStaff, body,
+            scope, targetCompanyId, targetDepartment,
           })
           try {
             await createDoc('notifications', {
@@ -146,9 +198,15 @@ export default async function AnnouncementsPage(container) {
             })
             setState('unreadCount', (getState('unreadCount') || 0) + 1)
           } catch { /* แจ้งเตือนพลาดได้ ไม่กระทบประกาศที่บันทึกไปแล้ว */ }
-          showToast('📢 ประกาศแล้ว — แจ้งเตือนทุกคนในระบบ', 'success'); await loadData()
+          showToast(`📢 ประกาศแล้ว — แจ้งเตือนถึง ${totalStaff} คน`, 'success'); await loadData()
         }
       })
+      setTimeout(() => {
+        document.getElementById('an-scope')?.addEventListener('change', (e) => {
+          document.getElementById('an-company-wrap').style.display = e.target.value === 'company' ? '' : 'none'
+          document.getElementById('an-dept-wrap').style.display = e.target.value === 'department' ? '' : 'none'
+        })
+      }, 100)
     })
   }
 
