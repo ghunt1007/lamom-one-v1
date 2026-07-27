@@ -3,6 +3,7 @@ import { listDocs, watchDocs, seedDemoData, getSalesData } from '../core/db.js'
 import { formatCurrency, timeAgo } from '../utils/format.js'
 import { navigate } from '../core/router.js'
 import { generateMorningBriefing } from '../utils/ai.js'
+import { getModuleForPath, hasModuleAccess, loadRolePermissions } from '../core/permissions.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -108,6 +109,13 @@ export default async function DashboardPage(container) {
   const user = getState('user')
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'อรุณสวัสดิ์' : hour < 17 ? 'สวัสดีตอนบ่าย' : 'สวัสดีตอนเย็น'
+
+  // Quick Access เดิมโชว์ทุกโมดูลให้ทุก role เหมือนกันหมด ทั้งที่ Sidebar กรองเมนูตามสิทธิ์โมดูล (hasModuleAccess)
+  // อยู่แล้ว ทำให้พนักงานบางคนเห็น shortcut ที่กดแล้วถูกบล็อกทันที (ไม่ตรงกับสิทธิ์จริง) แก้ให้กรองด้วยระบบเดียวกัน
+  const myRole = getState('role') || user?.role || 'staff'
+  await loadRolePermissions()
+  if (container.__routerGen !== myGen) return
+  const visibleLinks = QUICK_LINKS.filter(l => hasModuleAccess(myRole, getModuleForPath(l.path)?.key))
 
   container.innerHTML = `
     <div class="page-content animate-slide">
@@ -229,10 +237,10 @@ export default async function DashboardPage(container) {
           <div class="card" style="padding:16px">
             <div style="font-weight:700;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
               ⚡ Quick Access
-              <span style="font-size:0.75rem;color:var(--text-muted)">${QUICK_LINKS.length} modules</span>
+              <span style="font-size:0.75rem;color:var(--text-muted)">${visibleLinks.length} modules</span>
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px">
-              ${QUICK_LINKS.map(l => `
+              ${visibleLinks.map(l => `
                 <button data-nav="${l.path}" style="
                   display:flex;flex-direction:column;align-items:center;gap:5px;
                   padding:10px 6px;background:var(--surface-2);border:1px solid var(--border);
