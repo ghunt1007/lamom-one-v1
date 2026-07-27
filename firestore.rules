@@ -437,6 +437,15 @@ service cloud.firestore {
       allow write: if isHR() || isManager();
     }
 
+    // เรื่องร้องเรียนภายในของพนักงาน — คนละทิศทางกับ disciplinary_records ด้านบน
+    // (พนักงานร้องเรียนขึ้นไปหา HR/ผู้จัดการ ไม่ใช่ฝ่ายบริหารตักเตือนพนักงาน)
+    // ผู้ยื่นเห็นแค่เรื่องของตัวเอง + HR/ผู้จัดการเห็นทั้งหมด — แก้ไข/ปิดเรื่องได้เฉพาะ HR/ผู้จัดการเท่านั้น
+    match /staff_grievances/{docId} {
+      allow read: if isHR() || isManager() || (isSignedIn() && resource.data.get('submittedBy', '') == uid());
+      allow create: if isStaff() && request.resource.data.get('submittedBy', '') == uid();
+      allow update, delete: if isHR() || isManager();
+    }
+
     // แบบสำรวจ mood รายวันของพนักงาน (คะแนน+โน้ตส่วนตัว) — ส่งได้ทุกคนแต่อ่านของคนอื่นได้แค่ HR/ผู้จัดการ
     // เพื่อความเป็นส่วนตัว (ระหว่างตรวจพบด้วยว่าฟิลด์ staff/dept เดิม hardcode เป็นข้อความคงที่ทุกครั้ง
     // ไม่ตรงกับผู้ส่งจริงเลย — แก้ที่หน้า MoodSurvey.js ให้ใช้ชื่อผู้ใช้จริงแล้วในรอบนี้ด้วย)
@@ -702,7 +711,7 @@ service cloud.firestore {
         'payroll_records', 'salary_scale_staff', 'bonus_pool_staff', 'tech_kpi_bonus_approvals',
         'financial_closings', 'debt_settlements', 'expense_claims',
         'staff', 'staff_loans', 'leave_requests', 'attendance', 'performance_reviews', 'team_targets',
-        'employee_evaluations', 'disciplinary_records', 'recruitment', 'onboarding_staff', 'offboarding_staff',
+        'employee_evaluations', 'disciplinary_records', 'staff_grievances', 'recruitment', 'onboarding_staff', 'offboarding_staff',
         'notifications', 'inspections', 'sop_documents', 'legal_references', 'kb_articles', 'product_knowledge',
         'master_data', 'company_profile', 'whitelabel_settings', 'sms_otp_settings',
         'bank_partner_info', 'insurance_rate_cards', 'ai_officer_chats',

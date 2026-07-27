@@ -245,6 +245,7 @@ const NAV = [
       { icon: '🧩', label: 'Skill Matrix', path: '/hr/skills' },
       { icon: '📢', label: 'Announcements', path: '/hr/announcements' },
       { icon: '⚠️', label: 'Disciplinary', path: '/hr/disciplinary' },
+      { icon: '📢', label: 'เรื่องร้องเรียนภายใน', path: '/hr/grievances' },
       { icon: '🎯', label: 'Succession Plan', path: '/hr/succession' },
       { icon: '🧾', label: 'Expense OCR', path: '/hr/expense-ocr' },
       { icon: '😊', label: 'Mood Survey', path: '/hr/mood-survey' },

@@ -748,3 +748,50 @@ describe('org_companies — internal legal-entity records (multi-company support
     await assertSucceeds(db.collection('org_companies').get())
   })
 })
+
+describe('staff_grievances — internal employee complaints (opposite direction of disciplinary_records)', () => {
+  it('a staff member can create a grievance scoped to their own uid', async () => {
+    await seedUser('auditGap44', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap44').firestore()
+    await assertSucceeds(db.collection('staff_grievances').add({ submittedBy: 'auditGap44', subject: 'x', status: 'pending' }))
+  })
+
+  it('a staff member cannot create a grievance impersonating a different submittedBy', async () => {
+    await seedUser('auditGap45', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap45').firestore()
+    await assertFails(db.collection('staff_grievances').add({ submittedBy: 'someone-else', subject: 'x', status: 'pending' }))
+  })
+
+  it('a staff member can read their own grievance', async () => {
+    await seedUser('auditGap46', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap46').firestore()
+    await db.collection('staff_grievances').doc('g1').set({ submittedBy: 'auditGap46', subject: 'mine', status: 'pending' })
+    await assertSucceeds(db.collection('staff_grievances').doc('g1').get())
+  })
+
+  it('a staff member cannot read someone else\'s grievance', async () => {
+    await seedUser('auditGap47', { role: 'sales', active: true })
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().collection('staff_grievances').doc('g2').set({ submittedBy: 'someoneElse', subject: 'private', status: 'pending' })
+    })
+    const db = testEnv.authenticatedContext('auditGap47').firestore()
+    await assertFails(db.collection('staff_grievances').doc('g2').get())
+  })
+
+  it('a staff member cannot resolve/update their own grievance', async () => {
+    await seedUser('auditGap48', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap48').firestore()
+    await db.collection('staff_grievances').doc('g3').set({ submittedBy: 'auditGap48', subject: 'mine', status: 'pending' })
+    await assertFails(db.collection('staff_grievances').doc('g3').update({ status: 'resolved' }))
+  })
+
+  it('HR can read and resolve any grievance', async () => {
+    await seedUser('auditGap49', { role: 'hr', active: true })
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().collection('staff_grievances').doc('g4').set({ submittedBy: 'someoneElse', subject: 'case', status: 'pending' })
+    })
+    const db = testEnv.authenticatedContext('auditGap49').firestore()
+    await assertSucceeds(db.collection('staff_grievances').doc('g4').get())
+    await assertSucceeds(db.collection('staff_grievances').doc('g4').update({ status: 'resolved', resolution: 'handled' }))
+  })
+})

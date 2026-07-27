@@ -433,6 +433,7 @@ const routes = {
   // HR extras
   '/hr/disciplinary':     () => import('../pages/hr/DisciplinaryRecords.js'),
   '/hr/succession':       () => import('../pages/hr/SuccessionPlanning.js'),
+  '/hr/grievances':       () => import('../pages/hr/StaffGrievances.js'),
   // Insurance extras
   '/insurance/ncb':       () => import('../pages/insurance/NoClaim.js'),
   // CRM extras
