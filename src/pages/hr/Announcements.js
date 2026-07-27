@@ -73,11 +73,14 @@ export default async function AnnouncementsPage(container) {
     if (container.__routerGen === myGen) renderPage()
   }
 
-  function countAudience(scope, targetCompanyId, targetDepartment) {
+  function audienceUsers(scope, targetCompanyId, targetDepartment) {
     const activeUsers = allUsers.filter(u => u.active !== false && u.role !== 'pending')
-    if (scope === 'company') return activeUsers.filter(u => (u.companyMemberships || []).some(m => m.companyId === targetCompanyId)).length
-    if (scope === 'department') return activeUsers.filter(u => (u.companyMemberships || []).some(m => m.department === targetDepartment)).length
-    return activeUsers.length
+    if (scope === 'company') return activeUsers.filter(u => (u.companyMemberships || []).some(m => m.companyId === targetCompanyId))
+    if (scope === 'department') return activeUsers.filter(u => (u.companyMemberships || []).some(m => m.department === targetDepartment))
+    return activeUsers
+  }
+  function countAudience(scope, targetCompanyId, targetDepartment) {
+    return audienceUsers(scope, targetCompanyId, targetDepartment).length
   }
 
   function renderPage() {
@@ -155,9 +158,21 @@ export default async function AnnouncementsPage(container) {
       await updateDocData('announcements_hr', a.id, { pinned: !a.pinned })
       await loadData()
     }))
-    container.querySelectorAll('.remind-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.remind-btn').forEach(b => b.addEventListener('click', async () => {
       const a = anns.find(x => x.id === b.dataset.id)
-      if (a) showToast(`🔔 ส่งแจ้งเตือนถึง ${a.totalStaff - a.readBy} คนที่ยังไม่อ่านแล้ว`, 'warning')
+      if (!a) return
+      // เดิมกดแล้วขึ้น toast อ้างว่า "ส่งแจ้งเตือนแล้ว" ทั้งที่ไม่เคยสร้าง notification จริงให้ใครเลย
+      // แก้ให้สร้าง notification จริงเจาะเฉพาะคนที่ยังไม่อ่าน (เช็คจาก readByUids จริง)
+      const readSet = new Set(a.readByUids || [])
+      const unread = audienceUsers(a.scope, a.targetCompanyId, a.targetDepartment).filter(u => u.uid && !readSet.has(u.uid))
+      if (!unread.length) { showToast('ทุกคนในกลุ่มเป้าหมายอ่านแล้ว', 'success'); return }
+      try {
+        await Promise.all(unread.map(u => createDoc('notifications', {
+          type: 'system', title: `🔔 อย่าลืมอ่านประกาศ: ${a.title}`,
+          body: (a.body || '').slice(0, 100), userId: u.uid, read: false, link: '/hr/announcements', createdAt: new Date().toISOString(),
+        })))
+        showToast(`🔔 ส่งแจ้งเตือนถึง ${unread.length} คนที่ยังไม่อ่านแล้ว`, 'success')
+      } catch { showToast('ส่งแจ้งเตือนไม่สำเร็จ', 'error') }
     }))
     document.getElementById('add-ann-btn')?.addEventListener('click', () => {
       const knownDepts = [...new Set(allUsers.flatMap(u => (u.companyMemberships || []).map(m => m.department).filter(Boolean)))]
