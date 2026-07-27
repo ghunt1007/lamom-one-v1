@@ -154,6 +154,14 @@ service cloud.firestore {
       allow read, write: if isStaff();
     }
 
+    // แชทกลุ่ม (general/sales/service/management/announcements) เปิดให้ staff ทุกคนอ่าน/เขียนเหมือนเดิม
+    // ยกเว้นข้อความ DM ส่วนตัว (channel ขึ้นต้นด้วย "dm_") ที่ต้องเป็นคู่สนทนา (participants) เท่านั้นถึงอ่าน/เขียนได้
+    match /comm_messages/{docId} {
+      allow read: if isStaff() && (!resource.data.get('channel', '').matches('^dm_.*') || uid() in resource.data.get('participants', []));
+      allow create: if isStaff() && (!request.resource.data.get('channel', '').matches('^dm_.*') || uid() in request.resource.data.get('participants', []));
+      allow update: if isStaff() && (!resource.data.get('channel', '').matches('^dm_.*') || uid() in resource.data.get('participants', []));
+    }
+
     match /tasks/{docId} {
       allow read, write: if isStaff();
     }
@@ -730,7 +738,7 @@ service cloud.firestore {
         'overtime_records', 'staff_documents', 'welfare_items',
         'assets', 'floor_plan', 'monthly_close_items', 'expense_receipts',
         'companies', 'org_companies', 'custom_fields', 'documents', 'mood_responses', 'chat_ai_assistant',
-        'announcements_hr',
+        'announcements_hr', 'comm_messages',
         'sales_budgets', 'marketing_budgets', 'commission_rules', 'budget_planning'
       ];
     }

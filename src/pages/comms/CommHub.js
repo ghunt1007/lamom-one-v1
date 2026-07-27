@@ -1,7 +1,16 @@
-import { watchDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { watchDocs, createDoc, updateDocData, listDocs, seedDemoData } from '../../core/db.js'
 import { showToast, getState } from '../../core/store.js'
 import { formatDate, timeAgo, initials } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
+
+const ONLINE_WINDOW_MS = 5 * 60 * 1000 // ถือว่า "ออนไลน์" ถ้า lastActive ภายใน 5 นาทีที่แล้ว
+function isOnline(u) {
+  if (!u?.lastActive) return false
+  return Date.now() - new Date(u.lastActive).getTime() < ONLINE_WINDOW_MS
+}
+function dmChannelId(uidA, uidB) {
+  return 'dm_' + [uidA, uidB].sort().join('_')
+}
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -29,12 +38,22 @@ export default async function CommHubPage(container) {
   const messages = {} // channel id -> real messages, populated as each channel is subscribed to
   const user = getState('user')
   const myName = user?.displayName || 'ผู้ใช้'
+  const myUid = user?.uid || ''
+  let staffList = []
 
   function getMessages(chId) {
     return messages[chId] || []
   }
 
   container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+
+  try { staffList = (await listDocs('users', [], 'displayName', 'asc', 200)).filter(u => u.uid !== myUid && u.active !== false && u.role !== 'pending') } catch { staffList = [] }
+  if (container.__routerGen !== myGen) return
+
+  // Presence จริง — อัปเดต lastActive ของตัวเองทุก 60 วิที่เปิดหน้านี้ค้างอยู่ (เดิมใช้รายชื่อปลอม 3 คนคงที่)
+  const heartbeat = () => { if (myUid) updateDocData('users', myUid, { lastActive: new Date().toISOString() }).catch(() => {}) }
+  heartbeat()
+  const heartbeatTimer = setInterval(heartbeat, 60000)
 
   // Real-time: สลับ channel ต้อง unsubscribe ตัวเก่าก่อนเสมอ ไม่งั้น listener จะค้างเพิ่มขึ้นทุกครั้งที่สลับ
   // แชทเป็น use-case ตัวอย่างของ real-time ที่สุด — ข้อความคนอื่นต้องขึ้นทันทีโดยไม่รีเฟรช
@@ -83,18 +102,21 @@ export default async function CommHubPage(container) {
             `).join('')}
           </div>
 
-          <!-- Online users -->
-          <div style="padding:12px;border-top:1px solid var(--border)">
-            <div style="font-size:0.7rem;color:var(--text-muted);font-weight:600;margin-bottom:8px">ออนไลน์</div>
-            ${['อรนุช สายใจ','วิชาญ มีโชค','ธีรยุทธ เก่งกาจ'].map(name => `
-              <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+          <!-- Direct Messages — พนักงานจริงในระบบ พร้อมสถานะออนไลน์จริง (จาก lastActive) -->
+          <div style="padding:12px;border-top:1px solid var(--border);max-height:220px;overflow-y:auto">
+            <div style="font-size:0.7rem;color:var(--text-muted);font-weight:600;margin-bottom:8px">ข้อความส่วนตัว</div>
+            ${!staffList.length ? `<div style="font-size:0.72rem;color:var(--text-muted)">ไม่มีพนักงานอื่นในระบบ</div>` : staffList.map(u => {
+              const name = u.displayName || u.email
+              const chId = dmChannelId(myUid, u.uid)
+              return `
+              <div class="dm-item" data-uid="${u.uid}" data-name="${escHtml(name)}" style="display:flex;align-items:center;gap:6px;margin-bottom:6px;cursor:pointer;padding:2px 4px;border-radius:6px;${activeChannel.id===chId?'background:var(--primary-dim)':''}">
                 <div style="position:relative">
                   <div style="width:26px;height:26px;border-radius:50%;background:var(--${avatarColor(name)}-dim);display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:700;color:var(--${avatarColor(name)})">${initials(name)}</div>
-                  <div style="position:absolute;bottom:0;right:0;width:8px;height:8px;border-radius:50%;background:var(--success);border:1px solid var(--surface-2)"></div>
+                  ${isOnline(u) ? `<div style="position:absolute;bottom:0;right:0;width:8px;height:8px;border-radius:50%;background:var(--success);border:1px solid var(--surface-2)"></div>` : ''}
                 </div>
-                <span style="font-size:0.78rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name.split(' ')[0]}</span>
-              </div>
-            `).join('')}
+                <span style="font-size:0.78rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(name.split(' ')[0])}</span>
+              </div>`
+            }).join('')}
           </div>
         </div>
 
@@ -202,6 +224,16 @@ export default async function CommHubPage(container) {
       })
     })
 
+    document.querySelectorAll('.dm-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const otherUid = item.dataset.uid
+        const otherName = item.dataset.name
+        activeChannel = { id: dmChannelId(myUid, otherUid), name: '💬 ' + otherName, emoji: '💬', desc: 'ข้อความส่วนตัว', isDm: true, otherUid }
+        subscribeChannel(activeChannel.id)
+        renderPage()
+      })
+    })
+
     const input = document.getElementById('msg-input')
     const sendBtn = document.getElementById('msg-send')
     sendBtn?.addEventListener('click', sendMsg)
@@ -247,9 +279,11 @@ export default async function CommHubPage(container) {
     const text = input?.value.trim()
     if (!text) return
     if (input) input.value = ''
-    createDoc('comm_messages', { channel: activeChannel.id, author: myName, role: getState('user')?.role || 'Staff', content: text, reactions: [] })
+    const payload = { channel: activeChannel.id, author: myName, role: getState('user')?.role || 'Staff', content: text, reactions: [] }
+    if (activeChannel.isDm) payload.participants = [myUid, activeChannel.otherUid].sort()
+    createDoc('comm_messages', payload)
       .catch(() => showToast('ส่งข้อความไม่สำเร็จ', 'error'))
   }
 
-  return function cleanupCommHub() { if (unsubChannel) unsubChannel() }
+  return function cleanupCommHub() { if (unsubChannel) unsubChannel(); clearInterval(heartbeatTimer) }
 }

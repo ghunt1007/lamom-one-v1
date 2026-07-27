@@ -815,3 +815,42 @@ describe('announcements_hr — only authorized roles (HR/manager) can post org-w
     await assertSucceeds(db.collection('announcements_hr').get())
   })
 })
+
+describe('comm_messages — group channels stay open, DM channels restricted to participants', () => {
+  it('any staff can read/write a group channel message', async () => {
+    await seedUser('auditGap53', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap53').firestore()
+    await assertSucceeds(db.collection('comm_messages').add({ channel: 'general', author: 'x', content: 'hi' }))
+    await assertSucceeds(db.collection('comm_messages').get())
+  })
+
+  it('a staff member can create a DM message scoped to themselves as a participant', async () => {
+    await seedUser('auditGap54', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap54').firestore()
+    await assertSucceeds(db.collection('comm_messages').add({ channel: 'dm_auditGap54_someoneElse', author: 'x', content: 'hi', participants: ['auditGap54', 'someoneElse'] }))
+  })
+
+  it('a staff member cannot create a DM message impersonating participants that exclude themselves', async () => {
+    await seedUser('auditGap55', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap55').firestore()
+    await assertFails(db.collection('comm_messages').add({ channel: 'dm_a_b', author: 'x', content: 'hi', participants: ['a', 'b'] }))
+  })
+
+  it('a staff member cannot read a DM between two other people', async () => {
+    await seedUser('auditGap56', { role: 'sales', active: true })
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().collection('comm_messages').doc('dm1').set({ channel: 'dm_personA_personB', author: 'x', content: 'private', participants: ['personA', 'personB'] })
+    })
+    const db = testEnv.authenticatedContext('auditGap56').firestore()
+    await assertFails(db.collection('comm_messages').doc('dm1').get())
+  })
+
+  it('a participant can read their own DM', async () => {
+    await seedUser('auditGap57', { role: 'sales', active: true })
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().collection('comm_messages').doc('dm2').set({ channel: 'dm_auditGap57_other', author: 'other', content: 'hi', participants: ['auditGap57', 'other'] })
+    })
+    const db = testEnv.authenticatedContext('auditGap57').firestore()
+    await assertSucceeds(db.collection('comm_messages').doc('dm2').get())
+  })
+})
