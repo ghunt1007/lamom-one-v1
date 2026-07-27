@@ -96,6 +96,7 @@ const routes = {
   '/notifications':     () => import('../pages/notifications/NotificationCenter.js'),
   // Multi-Branch
   '/settings/branches': () => import('../pages/settings/BranchSettings.js'),
+  '/settings/org-companies': () => import('../pages/settings/OrgCompanies.js'),
   '/settings/master-data': () => import('../pages/settings/MasterData.js'),
   // CRM extras
   '/crm/showroom':  () => import('../pages/crm/ShowroomAppointment.js'),

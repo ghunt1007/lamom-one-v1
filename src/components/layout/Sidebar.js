@@ -369,6 +369,7 @@ const NAV = [
       { icon: '⚙️', label: 'ตั้งค่า', path: '/settings' },
       { icon: '🔔', label: 'Notification Settings', path: '/settings/notifications' },
       { icon: '🏢', label: 'Multi-Branch', path: '/settings/branches' },
+      { icon: '🏬', label: 'จัดการบริษัทในเครือ', path: '/settings/org-companies' },
       { icon: '🗂', label: 'Master Data', path: '/settings/master-data' },
       { icon: '🎨', label: 'White-label', path: '/settings/whitelabel' },
       { icon: '📋', label: 'Audit Log', path: '/settings/audit' },
