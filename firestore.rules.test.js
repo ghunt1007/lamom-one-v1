@@ -821,6 +821,25 @@ describe('announcements_hr — only authorized roles (HR/manager) can post org-w
     const db = testEnv.authenticatedContext('auditGap52').firestore()
     await assertSucceeds(db.collection('announcements_hr').get())
   })
+
+  it('a plain staff member can mark an announcement as read (readByUids) and toggle pinned', async () => {
+    await seedUser('auditGap53', { role: 'sales', active: true })
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().collection('announcements_hr').doc('a1').set({ title: 'x', body: 'y', scope: 'org', pinned: false, readByUids: [] })
+    })
+    const db = testEnv.authenticatedContext('auditGap53').firestore()
+    await assertSucceeds(db.collection('announcements_hr').doc('a1').update({ readByUids: ['auditGap53'] }))
+    await assertSucceeds(db.collection('announcements_hr').doc('a1').update({ pinned: true }))
+  })
+
+  it('a plain staff member cannot rewrite the announcement content while updating', async () => {
+    await seedUser('auditGap54', { role: 'sales', active: true })
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().collection('announcements_hr').doc('a2').set({ title: 'x', body: 'y', scope: 'org', pinned: false, readByUids: [] })
+    })
+    const db = testEnv.authenticatedContext('auditGap54').firestore()
+    await assertFails(db.collection('announcements_hr').doc('a2').update({ title: 'hacked' }))
+  })
 })
 
 describe('comm_messages — group channels stay open, DM channels restricted to participants', () => {

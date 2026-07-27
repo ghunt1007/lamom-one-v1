@@ -6,6 +6,8 @@ import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState, setState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { db } from '../../core/firebase.js'
+import { doc, updateDoc, arrayUnion } from 'firebase/firestore'
 
 const HANDLER_ROLES = ['hr', 'manager', 'admin', 'owner']
 
@@ -56,6 +58,17 @@ export default async function AnnouncementsPage(container) {
     try { allUsers = await listDocs('users', [], 'createdAt', 'desc', 500) } catch (e) { allUsers = [] }
     try { companiesList = await listDocs('org_companies', [], 'name', 'asc', 50) } catch (e) { companiesList = [] }
     anns = anns.filter(isInScope)
+    // readBy เดิมตั้ง 0 ไว้ตอนสร้างแล้วไม่มีจุดไหนเพิ่มค่าเลยตลอดกาล ("อ่านแล้ว 0/X" ค้างตลอดไป) —
+    // แก้ให้นับจริงจาก readByUids (ผู้ใช้ที่เปิดหน้านี้แล้วเห็นประกาศ = อ่านแล้ว) ใช้ arrayUnion กันแย่งเขียนทับกัน
+    const myUid = getState('user')?.uid || ''
+    anns.forEach(a => {
+      const uids = a.readByUids || []
+      a.readBy = uids.length
+      if (myUid && !uids.includes(myUid)) {
+        updateDoc(doc(db, 'announcements_hr', a.id), { readByUids: arrayUnion(myUid) }).catch(() => {})
+        a.readBy += 1 // อัปเดตทันทีในหน่วยความจำ ไม่ต้องรอ round-trip
+      }
+    })
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -188,7 +201,7 @@ export default async function AnnouncementsPage(container) {
           const totalStaff = countAudience(scope, targetCompanyId, targetDepartment)
           await createDoc('announcements_hr', {
             title, type, author: myName(), time: new Date().toISOString(),
-            pinned: document.getElementById('an-pin')?.checked || false, readBy: 0, totalStaff, body,
+            pinned: document.getElementById('an-pin')?.checked || false, readByUids: [], totalStaff, body,
             scope, targetCompanyId, targetDepartment,
           })
           try {

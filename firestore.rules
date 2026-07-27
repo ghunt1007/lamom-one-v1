@@ -445,11 +445,14 @@ service cloud.firestore {
       allow write: if isHR() || isManager();
     }
 
-    // ประกาศภายในบริษัท — พนักงานทุกคนอ่านได้ แต่สร้าง/แก้ไข/ลบได้เฉพาะ "ผู้มีอำนาจ" (HR/ผู้จัดการขึ้นไป) เท่านั้น
+    // ประกาศภายในบริษัท — พนักงานทุกคนอ่านได้ แต่สร้าง/แก้ไข/ลบเนื้อหาได้เฉพาะ "ผู้มีอำนาจ" (HR/ผู้จัดการขึ้นไป) เท่านั้น
     // เดิมตกอยู่ใต้ catch-all isStaff() กว้างเกิน ทำให้พนักงานทั่วไปสร้างประกาศทั้งองค์กรได้เอง
+    // ยกเว้น pinned/readByUids ที่พนักงานทั่วไปแก้เองได้ (ปักหมุดของตัวเอง + นับอ่านจริงตอนเปิดดู)
     match /announcements_hr/{docId} {
       allow read: if isStaff();
-      allow create, update, delete: if isHR() || isManager();
+      allow create, delete: if isHR() || isManager();
+      allow update: if isHR() || isManager()
+        || (isStaff() && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['title', 'body', 'type', 'scope', 'targetCompanyId', 'targetDepartment', 'author', 'time']));
     }
 
     // เรื่องร้องเรียนภายในของพนักงาน — คนละทิศทางกับ disciplinary_records ด้านบน
