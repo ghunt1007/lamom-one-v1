@@ -199,7 +199,7 @@ export default async function MoodSurveyPage(container) {
         if (!picked) { showToast('เลือก Mood ก่อน', 'warning'); return false }
         const me = getState('user') || {}
         await createDoc('mood_responses', {
-          staff: me.displayName || me.email || 'ผู้ใช้ปัจจุบัน', dept: me.role || '—',
+          staff: me.displayName || me.email || 'ผู้ใช้ปัจจุบัน', uid: me.uid || '', dept: me.role || '—',
           date: new Date().toISOString().slice(0, 10),
           score: picked, note: document.getElementById('mood-note')?.value || '',
         })

@@ -1,5 +1,5 @@
-import { showToast } from '../../core/store.js'
-import { getCommissionData, listDocs, updateDocData } from '../../core/db.js'
+import { showToast, getState } from '../../core/store.js'
+import { getCommissionData, listDocs, updateDocData, createDoc } from '../../core/db.js'
 import { getCurrentUser, getMyTotalPoints, getRealLeaderboard, computeMyBadges } from './gamificationData.js'
 
 const LEVELS = [
@@ -42,25 +42,34 @@ function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt
 export default async function GamificationDashboard(container) {
   const myGen = container.__routerGen
   const { name: myName } = getCurrentUser()
+  const myUid = (getState('user') || {}).uid || ''
+  const myDept = (getState('user') || {}).role || '—'
   let xp = 0 // แต้มรวมจริงจาก staff_points ledger (awardGamePoints ใน core/db.js) — โหลดด้านล่าง
-  let todayMood = localStorage.getItem('lamom-mood-today')
-  let moodLog; try { moodLog = JSON.parse(localStorage.getItem('lamom-mood-log') || '[]') } catch { moodLog = [] }
+  // Mood — ใช้ collection 'mood_responses' เดียวกับ hr/MoodSurvey.js (เดิมเก็บ localStorage แยกเครื่อง
+  // ทำให้ HR มองไม่เห็นเลย ทั้งที่ตัวหน้าเขียนไว้ตรงๆว่า "ติดตาม Wellbeing ของทีม") ไม่ปลอมอีกต่อไป
+  let todayMood = null
+  let moodLog = []
   let missions = [] // จาก collection 'daily_missions' จริง (period: 'daily')
   let myBadges = [] // จาก computeMyBadges() — unlock จริงตามสถิติผู้ใช้
   let activeTab = 'me'
   let liveLeaderboard = null
 
-  // โหลดแต้มรวมจริง + ภารกิจวันนี้ + badge ของฉัน (ขนาน)
+  // โหลดแต้มรวมจริง + ภารกิจวันนี้ + badge ของฉัน + mood ของฉัน (ขนาน)
   try {
-    const [totalPoints, dailyMissionsAll, badges] = await Promise.all([
+    const [totalPoints, dailyMissionsAll, badges, myMoods] = await Promise.all([
       getMyTotalPoints(),
       listDocs('daily_missions', [], 'title', 'asc', 500).catch(() => []),
       computeMyBadges().catch(() => []),
+      listDocs('mood_responses', [['uid', '==', myUid]], 'date', 'desc', 30).catch(() => []),
     ])
     if (container.__routerGen !== myGen) return
     xp = totalPoints || 0
     missions = dailyMissionsAll.filter(m => m.period === 'daily')
     myBadges = badges
+    moodLog = myMoods.map(m => ({ date: m.date, value: m.score }))
+    const today = new Date().toISOString().slice(0, 10)
+    const todayEntry = moodLog.find(m => m.date === today)
+    todayMood = todayEntry ? today + ':' + todayEntry.value : null
   } catch {}
 
   // เรียงลำดับ leaderboard จากแต้มจริง (gamification_events / staff_points) — ถ้าว่างจริงๆ ค่อย fallback ไป commission/demo
@@ -100,11 +109,13 @@ export default async function GamificationDashboard(container) {
     }
   } catch {}
 
-  function saveMood(v) {
+  async function saveMood(v) {
     const today = new Date().toISOString().slice(0, 10)
+    try {
+      await createDoc('mood_responses', { staff: myName, uid: myUid, dept: myDept, date: today, score: v, note: '' })
+    } catch { showToast('บันทึกอารมณ์ไม่สำเร็จ', 'error'); return }
     moodLog = [{ date: today, value: v }, ...moodLog.filter(m => m.date !== today)].slice(0, 30)
     todayMood = today + ':' + v
-    try { localStorage.setItem('lamom-mood-today', today + ':' + v); localStorage.setItem('lamom-mood-log', JSON.stringify(moodLog)) } catch {}
   }
 
   async function reloadMe() {
@@ -356,9 +367,12 @@ export default async function GamificationDashboard(container) {
     })
 
     document.querySelectorAll('.mood-select-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const v = parseInt(btn.dataset.v)
-        saveMood(v)
+        const before = todayMood
+        await saveMood(v)
+        if (container.__routerGen !== myGen) return
+        if (todayMood === before) return // saveMood ล้มเหลว — toast error แสดงไปแล้ว
         const mo = MOODS.find(m => m.value === v)
         showToast(`${mo.emoji} บันทึก Mood: ${mo.label}`, 'success')
         renderPage()

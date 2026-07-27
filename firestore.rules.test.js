@@ -648,6 +648,13 @@ describe('fifth audit pass — remaining 169 collections, evidence-based restric
     await assertSucceeds(db.collection('mood_responses').add({ staff: 'me', score: 4 }))
   })
 
+  it('a plain staff member can read back their own mood response (by uid)', async () => {
+    await seedUser('auditGap28b', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap28b').firestore()
+    await db.collection('mood_responses').doc('m2').set({ staff: 'me', uid: 'auditGap28b', score: 4 })
+    await assertSucceeds(db.collection('mood_responses').doc('m2').get())
+  })
+
   it('HR can read mood survey responses', async () => {
     await seedUser('auditGap29', { role: 'hr', active: true })
     const db = testEnv.authenticatedContext('auditGap29').firestore()
