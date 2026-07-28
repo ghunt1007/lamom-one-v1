@@ -479,7 +479,11 @@ const routes = {
   '/service/tech-kpi':         () => import('../pages/service/TechKpi.js'),
   '/finance/bank-partners':    () => import('../pages/finance/BankPartners.js'),
   '/finance/rate-sheets':      () => import('../pages/finance/FinanceRateSheets.js'),
-  '/crm/anniversary':          () => import('../pages/crm/Anniversary.js'),
+  // เดิมเป็นหน้าแยกต่างหาก (Anniversary.js) ซ้ำซ้อนกับ BirthdayGreetings.js — คำนวณครบรอบซื้อรถ
+  // จากใบจองจริงเหมือนกัน แต่ Anniversary.js ผูกวันที่ "วันนี้" ไว้ตายตัว (2026-06-14 ค้างมากว่าเดือน)
+  // และปนข้อมูลตัวอย่างกับข้อมูลจริงเข้าด้วยกันเสมอ ปุ่ม "ส่งของขวัญ"/"Auto-Notify" ก็ไม่เคยทำงานจริง
+  // เลย รวมเป็นหน้าเดียวกับ BirthdayGreetings.js (ที่แก้ให้ส่ง SMS จริงแล้ว) แทนการดูแล 2 ที่ซ้ำกัน
+  '/crm/anniversary':          () => import('../pages/crm/BirthdayGreetings.js'),
   '/dms/reserve-lock':         () => import('../pages/dms/ReserveLock.js'),
   // Vehicle Database
   '/dms/vehicle-db':           () => import('../pages/dms/VehicleDatabase.js'),

@@ -47,7 +47,6 @@ const NAV = [
       { icon: '🏆', label: 'Loyalty Tiers', path: '/crm/loyalty-tiers' },
       { icon: '🔗', label: 'Referral QR', path: '/crm/referral-qr' },
       { icon: '⭐', label: 'CSAT / NPS', path: '/crm/csat' },
-      { icon: '🎂', label: 'Anniversary', path: '/crm/anniversary' },
       { icon: '💬', label: 'Price Negotiation', path: '/crm/price-negotiation' },
       { icon: '🤖', label: 'Deal Coach AI', path: '/crm/deal-coach' },
     ]
