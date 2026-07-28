@@ -14,6 +14,7 @@ const NAV = [
   {
     group: 'การขาย',
     items: [
+      { icon: '📊', label: 'CRM Dashboard', path: '/crm' },
       { icon: '👥', label: 'ลูกค้า (รวม Lead)', path: '/crm/customers' },
       { icon: '📋', label: 'Pipeline', path: '/crm/pipeline' },
       { icon: '🎯', label: 'Sales War Room', path: '/crm/warroom' },
