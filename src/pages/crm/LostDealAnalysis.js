@@ -34,6 +34,7 @@ const DEMO_LOST_DEALS = [
 export default async function LostDealAnalysisPage(container) {
   const myGen = container.__routerGen
   let deals = DEMO_LOST_DEALS.map(d => ({ ...d }))
+  let dealsLive = false
   let reasonFilter = 'all'
   let salespersonFilter = 'all'
   let dateRange = '30' // days
@@ -81,7 +82,9 @@ export default async function LostDealAnalysisPage(container) {
       }))
 
     const live = [...fromBookings, ...fromLeads]
-    if (live.length) deals = [...live, ...DEMO_LOST_DEALS.map(d => ({ ...d }))]
+    // เดิมต่อข้อมูลตัวอย่างเข้ากับของจริงเสมอทุกครั้งที่มีข้อมูลจริงอย่างน้อย 1 รายการ (ไม่ใช่ fallback
+    // เฉพาะตอนไม่มีข้อมูลจริงเลย) ทำให้ดีลปลอมปนกับดีลจริงถาวรตั้งแต่มีข้อมูลจริงรายการแรก
+    if (live.length) { deals = live; dealsLive = true }
   } catch {}
 
   function getFiltered() {
@@ -126,6 +129,8 @@ export default async function LostDealAnalysisPage(container) {
             <button class="btn btn-secondary" id="ld-export">📥 Export</button>
           </div>
         </div>
+
+        <div style="font-size:0.72rem;color:${dealsLive?'var(--success)':'var(--text-muted)'};margin-bottom:8px">${dealsLive?'● ข้อมูลจริง':'● ตัวอย่างข้อมูล — ยังไม่มีดีลที่เสียจริงในระบบ'}</div>
 
         <!-- KPI -->
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">

@@ -83,6 +83,7 @@ export default async function WarRoomPage(container) {
   let funnelStages = [...FUNNEL_STAGES].map(s => ({ ...s }))
   let journeyStages = JOURNEY_STAGES.map(s => ({ ...s }))
   let lostDeals = DEMO_LOST_DEALS.map(d => ({ ...d }))
+  let lostDealsLive = false
 
   // ── Load everything up front so the summary strip + all 4 tabs are ready instantly ──
   try {
@@ -152,7 +153,9 @@ export default async function WarRoomPage(container) {
         lostTo: l.lostTo || null,
       }))
     const live = [...fromBookings, ...fromLeads]
-    if (live.length) lostDeals = [...live, ...DEMO_LOST_DEALS.map(d => ({ ...d }))]
+    // เดิมต่อข้อมูลตัวอย่างเข้ากับของจริงเสมอทุกครั้งที่มีข้อมูลจริงอย่างน้อย 1 รายการ (ไม่ใช่ fallback
+    // เฉพาะตอนไม่มีข้อมูลจริงเลย) ทำให้ดีลปลอมปนกับดีลจริงถาวรตั้งแต่มีข้อมูลจริงรายการแรก
+    if (live.length) { lostDeals = live; lostDealsLive = true }
   } catch {}
 
   // ── Derived numbers for the top summary strip ──────────────────────────────
@@ -296,6 +299,7 @@ export default async function WarRoomPage(container) {
       if (d.lostTo) byCompetitor[d.lostTo] = (byCompetitor[d.lostTo] || 0) + 1
     })
     return `
+      <div style="font-size:0.72rem;color:${lostDealsLive?'var(--success)':'var(--text-muted)'};margin-bottom:8px">${lostDealsLive?'● ข้อมูลจริง':'● ตัวอย่างข้อมูล — ยังไม่มีดีลที่เสียจริงในระบบ'}</div>
       <div class="kpi-grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:16px">
         ${kpi('💸 มูลค่าดีลที่เสีย', formatCurrency(totalLost), 'danger')}
         ${kpi('📋 จำนวนดีลที่เสีย', lostDeals.length + ' ดีล', 'warning')}

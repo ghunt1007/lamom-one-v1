@@ -65,7 +65,8 @@ export default async function CustomerLifetimeValuePage(container) {
         id: `LV${i+1}`, name, cars: d.cars, services: 0, avgDeal: d.cars > 0 ? Math.round(d.totalRev / d.cars) : 0,
         years: 1, referrals: 0, likelihood: Math.min(90, 40 + d.cars * 20),
       }))
-      customers = [...live, ...CUSTOMERS]
+      // เดิมต่อลูกค้าตัวอย่างเข้ากับของจริงเสมอเมื่อมีของจริง ทำให้ลูกค้าปลอมปนกับของจริงถาวร
+      customers = live
       dataSource = 'live'
     }
   } catch {}

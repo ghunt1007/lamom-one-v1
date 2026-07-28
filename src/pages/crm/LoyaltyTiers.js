@@ -52,7 +52,9 @@ export default async function LoyaltyTiersPage(container) {
         const tier = d.pts >= 40000 ? 'Platinum' : d.pts >= 15000 ? 'Gold' : d.pts >= 5000 ? 'Silver' : 'Bronze'
         return { id: `LV${i+1}`, name, pts: d.pts, tier, history: d.history.slice(0,3) }
       })
-      if (live.length >= 2) { liveMembers = [...live, ...MEMBERS]; dataSource = 'live' }
+      // เดิมต่อสมาชิกตัวอย่างเข้ากับของจริงเสมอเมื่อมีของจริงอย่างน้อย 2 คน ทำให้สมาชิกปลอมปนกับของจริง
+      // ถาวรตั้งแต่มีข้อมูลจริงเพียงพอ ไม่ใช่ fallback เฉพาะตอนไม่มีข้อมูลจริงเลยแบบที่ตั้งใจไว้
+      if (live.length >= 2) { liveMembers = live; dataSource = 'live' }
     }
   } catch {}
 

@@ -66,7 +66,8 @@ export default async function ChurnPredictionPage(container) {
         const score = Math.min(99, Math.max(5, Math.round(daysSinceBuy / 3)))
         return { id: `LV${i+1}`, name: c.name, model: c.model, lastVisit: c.lastBuy, lastBuy: c.lastBuy, score, signals: daysSinceBuy > 365 ? [0] : [], clv: c.clv, sales: c.sales }
       })
-      customers = [...live, ...CUSTOMERS]
+      // เดิมต่อลูกค้าตัวอย่างเข้ากับของจริงเสมอเมื่อมีของจริง ทำให้ลูกค้าปลอมปนกับของจริงถาวร
+      customers = live
       dataSource = 'live'
     }
   } catch {}
