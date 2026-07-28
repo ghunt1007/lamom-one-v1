@@ -7,6 +7,7 @@ import { getSalesData, listDocs, createDoc, updateDocData } from '../../core/db.
 import { formatCurrency } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
+import { confirmDialog } from '../../utils/modal.js'
 
 const MONTHS_TH = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 const YEAR = new Date().getFullYear() // เดิม hardcode ปี 2025 ทำให้เลือกปีปัจจุบันไม่ได้เลยเมื่อข้ามปี
@@ -179,6 +180,10 @@ export default async function SalesBudgetPage(container) {
       render()
     })
     container.querySelector('#sb-reset')?.addEventListener('click', async () => {
+      // เดิมปุ่ม Reset เขียนทับเป้ายอดขาย+งบแถมทั้งปีทันทีไม่มีการยืนยันเลย ต่างจากปุ่ม Reset อื่นๆในแอป
+      // (CommissionRules, MasterData, VehicleDatabase) ที่ยืนยันก่อนเสมอ แก้ให้ยืนยันก่อนเขียนทับ
+      const ok1 = await confirmDialog({ title: '↺ Reset เป้ายอดขาย', message: `ยืนยันรีเซ็ตเป้ายอดขาย+งบแถมทั้งปี ${YEAR} กลับเป็นค่าเริ่มต้น? ตัวเลขที่แก้ไขไว้จะหายทั้งหมด`, confirmText: 'Reset', danger: true })
+      if (!ok1) return
       targets = [...DEFAULT_TARGETS]
       focBudget = [...DEFAULT_FOC_BUDGET]
       const ok = await saveBudgets(targets, focBudget)
