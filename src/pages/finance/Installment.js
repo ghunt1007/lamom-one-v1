@@ -6,6 +6,7 @@ import { formatDate } from '../../utils/format.js'
 import { showToast, getState, setState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { openModal } from '../../utils/modal.js'
+import { sendSms } from '../../utils/comms.js'
 
 function addMonths(dateStr, n) {
   const d = dateStr ? new Date(dateStr) : new Date()
@@ -129,11 +130,21 @@ export default async function InstallmentPage(container) {
     container.querySelectorAll('.remind-btn').forEach(b => b.addEventListener('click', async () => {
       const p = plans.find(x => x.id === b.dataset.id)
       if (!p) return
+      // เดิมอ้างว่าส่ง SMS/LINE ให้ลูกค้าโดยตรง แต่ notifyInstallment() สร้างแค่การแจ้งเตือนภายในให้พนักงาน
+      // ไม่มีการส่งถึงลูกค้าเลย แก้ให้ส่ง SMS จริงถ้ามีเบอร์โทร (LINE ที่เชื่อมจริงเป็น broadcast ทั้งฐานลูกค้า
+      // เท่านั้น ส่งเจาะรายบุคคลไม่ได้ จึงไม่ใช้)
       await notifyInstallment(
         '📱 ทวงถามลูกค้าค้างชำระ: ' + p.customer,
         p.customer + ' (' + p.model + ') ค้างชำระ ' + (p.overdue || 0) + ' วัน · ผ่อน ' + (p.monthly || 0).toLocaleString() + ' บ./เดือน · สัญญา ' + p.id
       )
-      showToast('📱 ส่งแจ้งเตือน SMS/LINE ให้ ' + p.customer + ' แล้ว', 'success')
+      if (p.phone) {
+        try {
+          await sendSms([p.phone], `LAMOM แจ้งคุณ${p.customer}: ค้างชำระค่างวด ${p.model} มา ${p.overdue || 0} วัน กรุณาชำระ ${(p.monthly||0).toLocaleString()} บาทโดยเร็ว`)
+          showToast('📱 ส่ง SMS ทวงถาม ' + p.customer + ' แล้ว', 'success')
+        } catch { showToast('⚠️ ส่ง SMS ให้ ' + p.customer + ' ไม่สำเร็จ', 'error') }
+      } else {
+        showToast('⚠️ ' + p.customer + ' ไม่มีเบอร์โทรในระบบ — แจ้งพนักงานให้ติดตามแทน', 'error')
+      }
     }))
 
     container.querySelectorAll('.pay-btn').forEach(b => b.addEventListener('click', async () => {
@@ -169,7 +180,15 @@ export default async function InstallmentPage(container) {
         '📱 ทวงถามลูกค้าค้างชำระทั้งหมด ' + overduePlans.length + ' ราย',
         overduePlans.map(p => p.customer + ' (ค้าง ' + (p.overdue || 0) + ' วัน)').join(', ')
       )
-      showToast('📱 ส่งทวงถามทั้ง ' + overduePlans.length + ' รายที่ค้างชำระแล้ว', 'success')
+      const withPhone = overduePlans.filter(p => p.phone)
+      let sent = 0
+      for (const p of withPhone) {
+        try {
+          await sendSms([p.phone], `LAMOM แจ้งคุณ${p.customer}: ค้างชำระค่างวด ${p.model} มา ${p.overdue || 0} วัน กรุณาชำระ ${(p.monthly||0).toLocaleString()} บาทโดยเร็ว`)
+          sent++
+        } catch {}
+      }
+      showToast(`📱 ส่ง SMS ทวงถาม ${sent}/${overduePlans.length} รายที่ค้างชำระแล้ว${overduePlans.length > sent ? ` — ${overduePlans.length - sent} รายไม่มีเบอร์โทร/ส่งไม่สำเร็จ` : ''}`, sent ? 'success' : 'error')
     })
 
     document.getElementById('add-plan-btn')?.addEventListener('click', openAddForm)
@@ -181,7 +200,8 @@ export default async function InstallmentPage(container) {
       size: 'md',
       body: `
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div class="input-group" style="grid-column:1/-1"><label class="input-label">ชื่อลูกค้า *</label><input class="input" id="ip-customer" placeholder="ชื่อ-นามสกุล"></div>
+          <div class="input-group"><label class="input-label">ชื่อลูกค้า *</label><input class="input" id="ip-customer" placeholder="ชื่อ-นามสกุล"></div>
+          <div class="input-group"><label class="input-label">เบอร์โทร (สำหรับส่ง SMS ทวงถาม)</label><input class="input" id="ip-phone" placeholder="08xxxxxxxx"></div>
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">รุ่นรถ *</label><input class="input" id="ip-model" placeholder="เช่น BYD Atto 3"></div>
           <div class="input-group"><label class="input-label">ราคารวม (บาท) *</label><input type="number" class="input" id="ip-total" placeholder="0"></div>
           <div class="input-group"><label class="input-label">จำนวนงวดทั้งหมด *</label><input type="number" class="input" id="ip-totalinst" placeholder="36"></div>
@@ -191,6 +211,7 @@ export default async function InstallmentPage(container) {
       `,
       async onConfirm() {
         const customer = document.getElementById('ip-customer')?.value?.trim()
+        const phone = document.getElementById('ip-phone')?.value?.trim() || ''
         const model = document.getElementById('ip-model')?.value?.trim()
         const total = +document.getElementById('ip-total')?.value || 0
         const totalInst = +document.getElementById('ip-totalinst')?.value || 0
@@ -200,7 +221,7 @@ export default async function InstallmentPage(container) {
         if (total <= 0 || totalInst <= 0 || monthly <= 0) { showToast('❗ กรุณากรอกยอดเงิน/จำนวนงวดให้ครบ', 'error'); return false }
         try {
           await createDoc('installment_plans', {
-            customer, model, total, totalInst, monthly,
+            customer, phone, model, total, totalInst, monthly,
             paid: 0, overdue: 0, status: 'current',
             nextDate: document.getElementById('ip-nextdate')?.value || new Date().toISOString().slice(0, 10),
             paidHistory: [],

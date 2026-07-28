@@ -149,8 +149,16 @@ export default async function CreditControlPage(container) {
     container.querySelectorAll('.view-btn').forEach(b => b.addEventListener('click', () => {
       const d = debtors.find(x => x.id === b.dataset.id); if (d) openDetail(d)
     }))
-    container.querySelectorAll('.call-btn').forEach(b => b.addEventListener('click', () => {
-      showToast(`📞 บันทึกการติดตาม ${debtors.find(x=>x.id===b.dataset.id)?.customer} แล้ว`, 'success')
+    container.querySelectorAll('.call-btn').forEach(b => b.addEventListener('click', async () => {
+      // เดิมปุ่มนี้ไม่มีการบันทึกอะไรเลย — การติดตามลูกหนี้ทุกครั้งหายไปทันที ไม่มี audit trail ว่าติดตามไปแล้ว
+      // กี่ครั้ง แก้ให้บันทึกจริงลง Firestore (ผ่าน persistDebtor ที่มีอยู่แล้ว)
+      const d = debtors.find(x => x.id === b.dataset.id)
+      if (!d) return
+      try {
+        await persistDebtor(d, { lastContact: new Date().toISOString() })
+        showToast(`📞 บันทึกการติดตาม ${d.customer} แล้ว`, 'success')
+        await loadData()
+      } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.settle-btn').forEach(b => b.addEventListener('click', async () => {
       const d = debtors.find(x => x.id === b.dataset.id)
@@ -176,6 +184,7 @@ export default async function CreditControlPage(container) {
         ${row('วงเงินเครดิต', formatCurrency(d.creditLimit))}
         ${row('จำนวนใบแจ้งหนี้', d.invoices + ' ใบ')}
         ${row('ค้างมาตั้งแต่', formatDate(d.oldest))}
+        ${d.lastContact ? row('ติดตามล่าสุด', timeAgo(d.lastContact)) : ''}
         ${d.notes ? `<div style="margin-top:10px;padding:10px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:0.82rem">📌 ${escHtml(d.notes)}</div>` : ''}
       `
     })

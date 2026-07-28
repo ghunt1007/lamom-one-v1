@@ -4,7 +4,7 @@
  */
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -111,19 +111,32 @@ export default async function GovDocsPage(container) {
     container.querySelectorAll('.view-btn').forEach(b=>b.addEventListener('click',()=>{
       const d = govDocs.find(x=>x.id===b.dataset.id)
       if(!d) return
+      // เดิมปุ่ม "อัปเดตสถานะ" ขึ้น toast สำเร็จโดยไม่มีการบันทึกอะไรเลย (ไม่มี input ให้เปลี่ยนสถานะด้วยซ้ำ)
+      // แก้ให้มีตัวเลือกสถานะจริงและบันทึกจริงลง Firestore
       openModal({
         title: '📋 '+escHtml(d.type),
         size: 'sm',
         body: '<div style="font-size:0.84rem;line-height:2">' +
           '<div><b>ลูกค้า:</b> '+escHtml(d.customer)+'</div>' +
           '<div><b>VIN:</b> '+escHtml(d.vin)+'</div>' +
-          '<div><b>สถานะ:</b> '+escHtml(d.status)+'</div>' +
           '<div><b>กำหนดเสร็จ:</b> '+escHtml(d.dueDate)+'</div>' +
           '<div><b>ผู้รับผิดชอบ:</b> '+escHtml(d.officer)+'</div>' +
           '<div><b>หมายเหตุ:</b> '+escHtml(d.note)+'</div>' +
-        '</div>',
-        confirmText: 'อัปเดตสถานะ',
-        onConfirm: () => { showToast('✅ อัปเดตสถานะแล้ว','success'); return true }
+        '</div>' +
+        '<div class="input-group" style="margin-top:10px"><label class="input-label">สถานะ</label>' +
+          '<select class="input" id="gd-status">' +
+            ['รอดำเนินการ','กำลังดำเนินการ','เสร็จสิ้น'].map(s => `<option ${s===d.status?'selected':''}>${s}</option>`).join('') +
+          '</select></div>',
+        confirmText: '✅ บันทึกสถานะ',
+        async onConfirm() {
+          const newStatus = document.getElementById('gd-status')?.value || d.status
+          try {
+            await updateDocData('gov_docs', d.id, { status: newStatus })
+            d.status = newStatus
+            showToast('✅ อัปเดตสถานะแล้ว', 'success')
+            await loadData()
+          } catch { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
+        }
       })
     }))
     document.getElementById('add-doc-btn')?.addEventListener('click', openAddDocModal)

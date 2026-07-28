@@ -7,6 +7,14 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
+const LICENSE_NOTIFY_ROLES = ['manager', 'owner', 'admin']
+async function notifyLicenseReminder(title, body, link) {
+  const users = await listDocs('users', [], 'createdAt', 'desc', 500).catch(() => [])
+  const targets = users.filter(u => u.uid && LICENSE_NOTIFY_ROLES.includes(u.role))
+  await Promise.all(targets.map(u => createDoc('notifications', { type: 'system', title, body, userId: u.uid, read: false, link }).catch(() => {})))
+  return targets.length
+}
+
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
 function daysLeft(expiry) { return Math.ceil((new Date(expiry) - Date.now()) / 86400000) }
@@ -107,9 +115,14 @@ export default async function DealerLicensePage(container) {
     `
 
     container.querySelectorAll('.renew-btn').forEach(b => b.addEventListener('click', () => renewLic(b.dataset.id)))
-    container.querySelectorAll('.remind-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.remind-btn').forEach(b => b.addEventListener('click', async () => {
       const l = licenses.find(x => x.id === b.dataset.id)
-      showToast(`🔔 ตั้งแจ้งเตือนล่วงหน้า ${l.renewDays} วัน สำหรับ "${l.name}" แล้ว`, 'success')
+      if (!l) return
+      // เดิมอ้างว่าตั้งแจ้งเตือนแล้วแต่ไม่มีการบันทึก/ส่งอะไรเลย แก้ให้สร้างการแจ้งเตือนจริงให้ผู้บริหาร/ผู้จัดการ
+      try {
+        const count = await notifyLicenseReminder(`⚠️ ใบอนุญาตใกล้หมดอายุ: ${l.name}`, `"${l.name}" (${l.no}) เหลืออีก ${daysLeft(l.expiry)} วัน ควรเริ่มดำเนินการต่ออายุ`, '/dms/licenses')
+        showToast(`🔔 ส่งการแจ้งเตือนสำหรับ "${l.name}" ให้ผู้บริหาร ${count} คนแล้ว`, 'success')
+      } catch { showToast('ส่งการแจ้งเตือนไม่สำเร็จ', 'error') }
     }))
     document.getElementById('add-btn')?.addEventListener('click', addLic)
   }

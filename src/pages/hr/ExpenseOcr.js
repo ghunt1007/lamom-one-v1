@@ -81,25 +81,39 @@ export default async function ExpenseOcrPage(container) {
       </div>`
 
     document.getElementById('scan-btn')?.addEventListener('click', () => openScanModal())
-    document.getElementById('approve-all-btn')?.addEventListener('click', () => {
+    document.getElementById('approve-all-btn')?.addEventListener('click', async () => {
+      // เดิม fire-and-forget updateDocData().catch(()=>{}) — แสดง toast สำเร็จและเปลี่ยนสถานะบนหน้าจอทันที
+      // ไม่รอผลจริงจาก Firestore เลย ถ้าบันทึกพลาดจะเงียบและกลับเป็น pending ตอนรีเฟรชโดยไม่มีใครรู้ตัว
+      // แก้ให้รอผลจริงก่อนเปลี่ยนสถานะ และแจ้งจำนวนที่บันทึกไม่สำเร็จ
       const toApprove = RECEIPTS.filter(r=>r.status==='pending')
-      toApprove.forEach(r => { r.status='approved'; if (r._persisted) updateDocData('expense_receipts', r.id, { status: 'approved' }).catch(() => {}) })
-      render(); showToast(`✅ อนุมัติ ${toApprove.length} ใบเสร็จแล้ว`, 'success')
+      let ok = 0
+      for (const r of toApprove) {
+        try {
+          if (r._persisted) await updateDocData('expense_receipts', r.id, { status: 'approved' })
+          r.status='approved'; ok++
+        } catch {}
+      }
+      render()
+      showToast(ok === toApprove.length ? `✅ อนุมัติ ${ok} ใบเสร็จแล้ว` : `⚠️ อนุมัติสำเร็จ ${ok}/${toApprove.length} ใบ — ที่เหลือบันทึกไม่สำเร็จ กรุณาลองใหม่`, ok === toApprove.length ? 'success' : 'error')
     })
     container.querySelectorAll('.sf-btn').forEach(b => b.addEventListener('click', () => { filterStatus=b.dataset.s; render() }))
-    container.querySelectorAll('.approve-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.approve-btn').forEach(b => b.addEventListener('click', async () => {
       const r = RECEIPTS.find(x=>x.id===b.dataset.id)
       if (!r) return
-      r.status='approved'
-      if (r._persisted) updateDocData('expense_receipts', r.id, { status: 'approved' }).catch(() => {})
-      render(); showToast(`✅ อนุมัติใบเสร็จ ${r.vendor} แล้ว`, 'success')
+      try {
+        if (r._persisted) await updateDocData('expense_receipts', r.id, { status: 'approved' })
+        r.status='approved'
+        render(); showToast(`✅ อนุมัติใบเสร็จ ${r.vendor} แล้ว`, 'success')
+      } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.reject-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.reject-btn').forEach(b => b.addEventListener('click', async () => {
       const r = RECEIPTS.find(x=>x.id===b.dataset.id)
       if (!r) return
-      r.status='rejected'; r.note='ผู้อนุมัติปฏิเสธ'
-      if (r._persisted) updateDocData('expense_receipts', r.id, { status: 'rejected', note: r.note }).catch(() => {})
-      render(); showToast(`❌ ปฏิเสธใบเสร็จ ${r.vendor}`, 'warning')
+      try {
+        if (r._persisted) await updateDocData('expense_receipts', r.id, { status: 'rejected', note: 'ผู้อนุมัติปฏิเสธ' })
+        r.status='rejected'; r.note='ผู้อนุมัติปฏิเสธ'
+        render(); showToast(`❌ ปฏิเสธใบเสร็จ ${r.vendor}`, 'warning')
+      } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.del-receipt-btn').forEach(b => b.addEventListener('click', async () => {
       const r = RECEIPTS.find(x=>x.id===b.dataset.id)
@@ -177,11 +191,13 @@ export default async function ExpenseOcrPage(container) {
         <div style="font-size:0.72rem"><b>สถานะ:</b> <span style="background:${s.color};color:#fff;padding:1px 8px;border-radius:8px">${s.label}</span></div>
         ${r.note ? `<div style="font-size:0.72rem;color:var(--danger);margin-top:6px">⚠️ ${esc(r.note)}</div>` : ''}`,
       confirmText: r.status==='pending' ? '✅ อนุมัติ' : '💾 OK',
-      onConfirm() {
+      async onConfirm() {
         if (r.status==='pending') {
-          r.status='approved'
-          if (r._persisted) updateDocData('expense_receipts', r.id, { status: 'approved' }).catch(() => {})
-          render(); showToast(`✅ อนุมัติ ${esc(r.vendor)} แล้ว`,'success')
+          try {
+            if (r._persisted) await updateDocData('expense_receipts', r.id, { status: 'approved' })
+            r.status='approved'
+            render(); showToast(`✅ อนุมัติ ${esc(r.vendor)} แล้ว`,'success')
+          } catch { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
         }
       }
     })
