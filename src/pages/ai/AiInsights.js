@@ -65,7 +65,9 @@ export default async function AiInsightsPage(container) {
       const avgDeal = Math.round(totalRev / sales.length)
       liveInsights.push({ id:'LI003', cat:'ops', priority:'low', title:`Avg Deal Size ${formatCurrency(avgDeal)} จาก ${sales.length} ดีล`, detail:`วิเคราะห์จากใบจองจริง — ค่าเฉลี่ยต่อคันอยู่ที่ ${formatCurrency(avgDeal)}`, recommendation:`เน้น Upsell Option/Accessories เพื่อเพิ่ม Deal Size`, confidence:98, impact:'ต่ำ' })
 
-      insights = [...liveInsights, ...AI_INSIGHTS]
+      // เดิมต่อ insight ตัวอย่าง (ข้อความสมมติเช่น "56 ลูกค้า At-Risk") เข้ากับของจริงเสมอเมื่อมีข้อมูลจริง
+      // ทำให้ insight ปลอมปนกับของจริงถาวรตั้งแต่มีข้อมูลจริงเพียงพอ ไม่ใช่ fallback เฉพาะตอนไม่มีข้อมูลจริงเลย
+      insights = liveInsights
       dataSource = 'live'
     }
   } catch {}
@@ -92,7 +94,7 @@ export default async function AiInsightsPage(container) {
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('🔮 Insights', insights.length + (dataSource === 'live' ? ' ●' : ''), 'primary')}
           ${kpi('🚨 Priority สูง', highPriority, highPriority > 0 ? 'danger' : 'secondary')}
-          ${kpi('⭐ Avg Confidence', Math.round(AI_INSIGHTS.reduce((a, i) => a + i.confidence, 0) / AI_INSIGHTS.length) + '%', 'success')}
+          ${kpi('⭐ Avg Confidence', (insights.length ? Math.round(insights.reduce((a, i) => a + i.confidence, 0) / insights.length) : 0) + '%', 'success')}
           ${kpi('📊 หมวดหมู่', Object.keys(INSIGHT_CATS).length, 'secondary')}
         </div>
 

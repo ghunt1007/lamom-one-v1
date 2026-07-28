@@ -154,7 +154,10 @@ export default async function CustomerLifetimeValuePage(container) {
 
     container.querySelectorAll('.sort-btn').forEach(b => b.addEventListener('click', () => { sort = b.dataset.s; render() }))
     container.querySelectorAll('.action-btn').forEach(b => b.addEventListener('click', () => {
-      const c = CUSTOMERS.find(x => x.id === b.dataset.id)
+      // เดิมอ้าง CUSTOMERS (ตัวอย่างคงที่) เสมอแม้กำลังแสดงข้อมูลจริงอยู่ (customers) ทำให้เมื่อเป็นข้อมูลจริง
+      // id จะไม่ตรงกันเลย (LV1... vs id ตัวอย่าง) กดปุ่ม "กลยุทธ์" แล้วไม่มีอะไรเกิดขึ้น (บั๊กเดียวกับที่เจอใน
+      // ChurnPrediction.js) แก้ให้อ้างข้อมูลที่แสดงอยู่จริงเสมอ
+      const c = customers.find(x => x.id === b.dataset.id)
       if (!c) return
       const clv = calcClv(c); const seg = getSegment(clv)
       const strategies = {
