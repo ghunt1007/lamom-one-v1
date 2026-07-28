@@ -916,3 +916,87 @@ describe('customer_feedback — manually-added feedback entries', () => {
     await assertSucceeds(db.collection('customer_feedback').get())
   })
 })
+
+describe('price_negotiations — discount approval requires a manager', () => {
+  it('plain sales staff can request a discount but cannot approve their own', async () => {
+    await seedUser('auditGap62', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap62').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('price_negotiations/pn1').set({ customer: 'x', status: 'pending' })
+    })
+    await assertSucceeds(db.collection('price_negotiations').add({ customer: 'y', status: 'pending' }))
+    await assertFails(db.collection('price_negotiations').doc('pn1').update({ status: 'approved' }))
+  })
+
+  it('a manager can approve a discount request', async () => {
+    await seedUser('auditGap63', { role: 'manager', active: true })
+    const db = testEnv.authenticatedContext('auditGap63').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('price_negotiations/pn2').set({ customer: 'x', status: 'pending' })
+    })
+    await assertSucceeds(db.collection('price_negotiations').doc('pn2').update({ status: 'approved' }))
+  })
+})
+
+describe('invoices — marking paid requires finance/manager', () => {
+  it('plain sales staff can create an invoice but cannot mark it paid', async () => {
+    await seedUser('auditGap64', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap64').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('invoices/inv1').set({ custName: 'x', status: 'draft' })
+    })
+    await assertSucceeds(db.collection('invoices').add({ custName: 'y', status: 'draft' }))
+    await assertFails(db.collection('invoices').doc('inv1').update({ status: 'paid' }))
+  })
+
+  it('finance can mark an invoice paid', async () => {
+    await seedUser('auditGap65', { role: 'finance', active: true })
+    const db = testEnv.authenticatedContext('auditGap65').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('invoices/inv2').set({ custName: 'x', status: 'draft' })
+    })
+    await assertSucceeds(db.collection('invoices').doc('inv2').update({ status: 'paid' }))
+  })
+})
+
+describe('referrers — paying commission requires finance/manager', () => {
+  it('plain sales staff can create a referrer but cannot mark commission paid', async () => {
+    await seedUser('auditGap66', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap66').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('referrers/ref1').set({ name: 'x', commission: 5000, paid: 0 })
+    })
+    await assertSucceeds(db.collection('referrers').add({ name: 'y', commission: 5000, paid: 0 }))
+    await assertFails(db.collection('referrers').doc('ref1').update({ paid: 5000 }))
+  })
+
+  it('finance can mark referrer commission paid', async () => {
+    await seedUser('auditGap67', { role: 'finance', active: true })
+    const db = testEnv.authenticatedContext('auditGap67').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('referrers/ref2').set({ name: 'x', commission: 5000, paid: 0 })
+    })
+    await assertSucceeds(db.collection('referrers').doc('ref2').update({ paid: 5000 }))
+  })
+})
+
+describe('referrals — qualifying/paying a referral requires finance/manager', () => {
+  it('plain sales staff can log a referral but cannot approve or pay it', async () => {
+    await seedUser('auditGap68', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap68').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('referrals/rl1').set({ referrer: 'x', status: 'pending' })
+    })
+    await assertSucceeds(db.collection('referrals').add({ referrer: 'y', status: 'pending' }))
+    await assertFails(db.collection('referrals').doc('rl1').update({ status: 'paid' }))
+  })
+
+  it('a manager can qualify and pay a referral', async () => {
+    await seedUser('auditGap69', { role: 'manager', active: true })
+    const db = testEnv.authenticatedContext('auditGap69').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('referrals/rl2').set({ referrer: 'x', status: 'pending' })
+    })
+    await assertSucceeds(db.collection('referrals').doc('rl2').update({ status: 'paid' }))
+  })
+})

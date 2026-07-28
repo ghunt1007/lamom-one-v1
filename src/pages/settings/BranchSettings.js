@@ -87,16 +87,16 @@ export default async function BranchSettingsPage(container) {
             ${b.isMain ? `<span class="badge badge-primary" style="position:absolute;top:12px;right:12px;font-size:0.65rem">สาขาหลัก</span>` : ''}
             ${b.status === 'planned' ? `<span class="badge badge-primary" style="position:absolute;top:12px;right:12px;font-size:0.65rem">วางแผน</span>` : ''}
             <div style="margin-bottom:10px">
-              <div style="font-weight:700;font-size:0.95rem;margin-bottom:2px">${b.name}</div>
-              <div style="font-size:0.72rem;font-family:monospace;color:var(--text-muted)">[${b.code}]</div>
+              <div style="font-weight:700;font-size:0.95rem;margin-bottom:2px">${escHtml(b.name)}</div>
+              <div style="font-size:0.72rem;font-family:monospace;color:var(--text-muted)">[${escHtml(b.code)}]</div>
             </div>
             <div style="display:flex;flex-direction:column;gap:4px;font-size:0.78rem;color:var(--text-muted);margin-bottom:10px">
-              <div>📍 ${b.address}</div>
-              <div>📞 ${b.phone}</div>
-              <div>📧 ${b.email}</div>
-              ${b.manager ? `<div>👤 ผู้จัดการ: ${b.manager}</div>` : ''}
+              <div>📍 ${escHtml(b.address)}</div>
+              <div>📞 ${escHtml(b.phone)}</div>
+              <div>📧 ${escHtml(b.email)}</div>
+              ${b.manager ? `<div>👤 ผู้จัดการ: ${escHtml(b.manager)}</div>` : ''}
               <div>👥 พนักงาน: ${b.staff} คน</div>
-              <div>🚗 แบรนด์: ${b.brands.join(', ')}</div>
+              <div>🚗 แบรนด์: ${escHtml(b.brands.join(', '))}</div>
             </div>
             <div style="display:flex;gap:6px;padding-top:10px;border-top:1px solid var(--border)">
               <button class="btn btn-xs btn-secondary edit-branch-btn" data-id="${b.id}">✏️ แก้ไข</button>

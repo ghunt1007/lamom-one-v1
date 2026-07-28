@@ -241,10 +241,10 @@ export default async function EvStationPage(container) {
     const hc = healthColors[b.status] || 'var(--text-muted)'
     return `<tr style="border-bottom:1px solid var(--border-subtle)">
       <td style="padding:8px 10px">
-        <div style="font-size:0.76rem;font-weight:600">${b.model}</div>
-        <div style="font-size:0.64rem;color:var(--text-muted)">${b.vin.slice(-8)}</div>
+        <div style="font-size:0.76rem;font-weight:600">${esc(b.model)}</div>
+        <div style="font-size:0.64rem;color:var(--text-muted)">${esc(b.vin.slice(-8))}</div>
       </td>
-      <td style="padding:8px 10px;font-size:0.74rem">${b.customer}</td>
+      <td style="padding:8px 10px;font-size:0.74rem">${esc(b.customer)}</td>
       <td style="padding:8px 10px">
         <div style="font-weight:700;font-size:0.8rem;color:${hc}">${b.health}%</div>
         <div style="height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden;margin-top:3px;width:80px">

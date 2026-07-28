@@ -7,6 +7,10 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString() }
 
 const CONSENT_TYPES = {
@@ -69,7 +73,7 @@ export default async function PdpaConsentPage(container) {
 
         ${urgentDsr.length > 0 ? `
           <div style="padding:10px 14px;background:var(--danger)11;border:1px solid var(--danger)33;border-radius:var(--radius);margin-bottom:12px;font-size:0.78rem">
-            ⏰ <strong>กฎหมายกำหนดตอบใน 30 วัน:</strong> ${urgentDsr.map(r => `${r.customer} (${r.type}) ครบกำหนด ${formatDate(r.deadline)}`).join(' · ')}
+            ⏰ <strong>กฎหมายกำหนดตอบใน 30 วัน:</strong> ${urgentDsr.map(r => `${escHtml(r.customer)} (${escHtml(r.type)}) ครบกำหนด ${formatDate(r.deadline)}`).join(' · ')}
           </div>
         ` : ''}
 
@@ -80,7 +84,7 @@ export default async function PdpaConsentPage(container) {
             const rs = DSR_STATUS[r.status]
             return `<div class="card" style="padding:11px 14px;display:flex;justify-content:space-between;align-items:center;border-left:3px solid var(--${rs?.color})">
               <div>
-                <div style="font-weight:600;font-size:0.83rem">${r.customer} — ${r.type}</div>
+                <div style="font-weight:600;font-size:0.83rem">${escHtml(r.customer)} — ${escHtml(r.type)}</div>
                 <div style="font-size:0.68rem;color:var(--text-muted)">รับเรื่อง ${formatDate(r.received)} · ครบกำหนด ${formatDate(r.deadline)}</div>
               </div>
               <div style="display:flex;gap:6px;align-items:center">
@@ -96,7 +100,7 @@ export default async function PdpaConsentPage(container) {
         <!-- Consent matrix -->
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted)">✅ ทะเบียนความยินยอม</div>
-          <input class="input" id="search-input" placeholder="ค้นหาลูกค้า..." value="${search}" style="width:180px;padding:5px 10px;font-size:0.78rem">
+          <input class="input" id="search-input" placeholder="ค้นหาลูกค้า..." value="${escHtml(search)}" style="width:180px;padding:5px 10px;font-size:0.78rem">
         </div>
         <div class="card" style="overflow:hidden">
           <table style="width:100%;border-collapse:collapse">
@@ -111,8 +115,8 @@ export default async function PdpaConsentPage(container) {
               ${list.map(c => `
                 <tr style="border-bottom:1px solid var(--border);font-size:0.8rem">
                   <td style="padding:8px 14px">
-                    <div style="font-weight:600">${c.customer}</div>
-                    <div style="font-size:0.65rem;color:var(--text-muted)">📞 ${c.phone} · ผ่าน ${c.channel}</div>
+                    <div style="font-weight:600">${escHtml(c.customer)}</div>
+                    <div style="font-size:0.65rem;color:var(--text-muted)">📞 ${escHtml(c.phone)} · ผ่าน ${escHtml(c.channel)}</div>
                   </td>
                   ${Object.keys(CONSENT_TYPES).map(k => `
                     <td style="padding:8px 6px;text-align:center">

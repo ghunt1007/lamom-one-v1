@@ -4,7 +4,7 @@
  */
 import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { sendSms } from '../../utils/comms.js'
 
@@ -13,10 +13,15 @@ function escHtml(s) {
 }
 
 const COMMISSION_RATE = 5000 // บาทต่อคันที่ขายได้
+const PAY_ROLES = ['finance', 'manager', 'owner', 'admin']
 
 export default async function ReferralQrPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
+  const me = getState('user') || {}
+  // เดิมพนักงานคนไหนก็กด "จ่าย Commission" ให้ผู้แนะนำเองได้เลย แก้ Rules ให้จำกัดจริงแล้ว
+  // (เฉพาะการเงิน/ผู้จัดการ) ตรงนี้แค่ซ่อนปุ่มเป็นชั้นป้องกันซ้อน
+  const canPay = PAY_ROLES.includes(getState('role') || me.role || 'staff')
 
   let REFERRERS = []
   let selId = null
@@ -90,7 +95,7 @@ export default async function ReferralQrPage(container) {
                     <span style="font-weight:700">${v}</span>
                   </div>`).join('')}
               </div>
-              ${sel.commission-sel.paid > 0 ? `
+              ${sel.commission-sel.paid > 0 && canPay ? `
               <button class="btn btn-primary" id="pay-btn" style="width:100%;margin-top:10px;font-size:0.8rem">💸 จ่าย Commission ${formatCurrency(sel.commission-sel.paid)}</button>` : ''}
             </div>
           </div>` : ''}

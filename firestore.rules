@@ -317,6 +317,43 @@ service cloud.firestore {
       allow read, write: if isFinance();
     }
 
+    // ขอส่วนลดพิเศษ — เดิมพนักงานคนไหนก็กด "อนุมัติ/ปฏิเสธ" ส่วนลดของตัวเองได้เลยผ่านหน้าจอ (ตกอยู่ใต้
+    // catch-all isStaff() กว้างเกินไป) ทั้งที่ควรเป็นสิทธิ์ผู้จัดการเท่านั้น — เปิดให้ staff ยื่นขอได้ (create)
+    // แต่อนุมัติ/ปฏิเสธ (update) ต้องผู้จัดการขึ้นไปเท่านั้น
+    match /price_negotiations/{docId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isManager();
+      allow delete: if isManager();
+    }
+
+    // ใบแจ้งหนี้/ใบเสร็จรับเงิน — เดิมพนักงานคนไหนก็กด "บันทึกรับชำระ" (ปิดยอดค้างรับ) ได้เลย ตกอยู่ใต้
+    // catch-all isStaff() กว้างเกินไป ทั้งที่การรับเงินจริงต้องผ่านการเงินเท่านั้น สร้างเอกสารเปิดให้ staff ได้
+    match /invoices/{docId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isFinance() || isManager();
+      allow delete: if isFinance() || isManager();
+    }
+
+    // ผู้แนะนำ (referral QR) — เดิมพนักงานคนไหนก็กด "จ่าย Commission" ให้ผู้แนะนำเองได้เลย ตกอยู่ใต้
+    // catch-all กว้างเกินไป สร้างผู้แนะนำใหม่ยังเปิดให้ staff ได้ แต่ทำเครื่องหมายจ่ายแล้วต้องการเงิน/ผู้จัดการ
+    match /referrers/{docId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isFinance() || isManager();
+      allow delete: if isFinance() || isManager();
+    }
+
+    // โปรแกรมแนะนำเพื่อน — เดิมพนักงานคนไหนก็กด "ผ่านเกณฑ์/ไม่ผ่านเกณฑ์/จ่ายรางวัล" ได้เลย ตกอยู่ใต้
+    // catch-all กว้างเกินไป บันทึกการแนะนำใหม่ยังเปิดให้ staff ได้ แต่การอนุมัติ/จ่ายเงินต้องการเงิน/ผู้จัดการ
+    match /referrals/{docId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isFinance() || isManager();
+      allow delete: if isFinance() || isManager();
+    }
+
     // บัญชีทรัพย์สินถาวรของบริษัท (ต้นทุน/อายุการใช้งาน/มูลค่าตามบัญชีหลังหักค่าเสื่อม) — บัญชีภายใน ไม่ใช่รายการขาย
     match /assets/{docId} {
       allow read: if isStaff();
@@ -761,7 +798,8 @@ service cloud.firestore {
         'assets', 'floor_plan', 'monthly_close_items', 'expense_receipts',
         'companies', 'org_companies', 'custom_fields', 'documents', 'mood_responses', 'chat_ai_assistant',
         'announcements_hr', 'comm_messages',
-        'sales_budgets', 'marketing_budgets', 'commission_rules', 'budget_planning'
+        'sales_budgets', 'marketing_budgets', 'commission_rules', 'budget_planning',
+        'price_negotiations', 'invoices', 'referrers', 'referrals'
       ];
     }
 

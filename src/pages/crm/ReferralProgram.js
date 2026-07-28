@@ -4,8 +4,10 @@
  */
 import { formatCurrency, formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+
+const APPROVER_ROLES = ['finance', 'manager', 'owner', 'admin']
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -36,6 +38,10 @@ const TOP_REFERRERS = [
 export default async function ReferralProgramPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
+  const me = getState('user') || {}
+  // เดิมพนักงานคนไหนก็กด "ผ่านเกณฑ์/ไม่ผ่านเกณฑ์/จ่ายรางวัล" ได้เลย แก้ Rules ให้จำกัดจริงแล้ว
+  // (เฉพาะการเงิน/ผู้จัดการ) ตรงนี้แค่ซ่อนปุ่มเป็นชั้นป้องกันซ้อน
+  const canApprove = APPROVER_ROLES.includes(getState('role') || me.role || 'staff')
 
   let referrals = []
   let statusFilter = 'all'
@@ -100,9 +106,9 @@ export default async function ReferralProgramPage(container) {
                       ${r.reward > 0 ? `<div style="font-weight:700;color:var(--success)">${formatCurrency(r.reward)}</div>` : ''}
                     </div>
                   </div>
-                  ${r.status === 'qualified' ? `
+                  ${r.status === 'qualified' && canApprove ? `
                     <button class="btn btn-xs btn-success pay-btn" data-id="${r.id}" style="margin-top:8px">💰 จ่ายรางวัล</button>
-                  ` : r.status === 'pending' ? `
+                  ` : r.status === 'pending' && canApprove ? `
                     <div style="display:flex;gap:6px;margin-top:8px">
                       <button class="btn btn-xs btn-primary qualify-btn" data-id="${r.id}" style="flex:1">✓ ผ่านเกณฑ์</button>
                       <button class="btn btn-xs btn-danger reject-btn" data-id="${r.id}" style="flex:1">✗ ไม่ผ่าน</button>

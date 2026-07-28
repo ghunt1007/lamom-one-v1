@@ -7,6 +7,10 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
 const INSURERS = ['กรุงเทพประกันภัย','เมืองไทยประกันภัย','วิริยะประกันภัย','อาคเนย์ประกันภัย','คุ้มภัยโตเกียวมารีน']
 
 const ST = {
@@ -62,7 +66,7 @@ export default async function SurveyorAppointmentPage(container) {
           <div class="card" style="padding:12px 14px;margin-bottom:12px;border-left:4px solid var(--primary)">
             <div style="font-size:0.76rem;font-weight:700;color:var(--primary);margin-bottom:6px">📅 นัดวันนี้ (${todayAppts.length} คัน)</div>
             <div style="display:flex;flex-direction:column;gap:4px">
-              ${todayAppts.map(a => `<div style="font-size:0.78rem">⏰ ${a.time} · ${a.customer} · ${a.model} (${a.plate}) · ${a.insurer}${a.surveyor ? ` · ช่าง: ${a.surveyor}` : ' · <span style="color:var(--warning)">รอช่าง</span>'}</div>`).join('')}
+              ${todayAppts.map(a => `<div style="font-size:0.78rem">⏰ ${escHtml(a.time)} · ${escHtml(a.customer)} · ${escHtml(a.model)} (${escHtml(a.plate)}) · ${escHtml(a.insurer)}${a.surveyor ? ` · ช่าง: ${escHtml(a.surveyor)}` : ' · <span style="color:var(--warning)">รอช่าง</span>'}</div>`).join('')}
             </div>
           </div>` : ''}
 
@@ -75,10 +79,10 @@ export default async function SurveyorAppointmentPage(container) {
             <tbody>
               ${APPTS.map(a => `
                 <tr style="border-bottom:1px solid var(--border);font-size:0.8rem">
-                  <td style="padding:9px 12px;font-weight:600">${a.apptNo || a.id}<div style="font-size:0.68rem;color:var(--text-muted)">${a.claimNo}</div></td>
-                  <td>${a.customer}<div style="font-size:0.7rem;color:var(--text-muted)">${a.model} · ${a.plate}</div></td>
-                  <td style="font-size:0.76rem">${a.insurer}${a.surveyor?`<div style="font-size:0.68rem;color:var(--text-muted)">ช่าง: ${a.surveyor}</div>`:''}</td>
-                  <td style="font-size:0.74rem;max-width:180px">${a.damage}${a.estimateApproved?`<div style="color:var(--success);font-weight:700">อนุมัติ ฿${a.estimateApproved.toLocaleString()}</div>`:''}</td>
+                  <td style="padding:9px 12px;font-weight:600">${escHtml(a.apptNo || a.id)}<div style="font-size:0.68rem;color:var(--text-muted)">${escHtml(a.claimNo)}</div></td>
+                  <td>${escHtml(a.customer)}<div style="font-size:0.7rem;color:var(--text-muted)">${escHtml(a.model)} · ${escHtml(a.plate)}</div></td>
+                  <td style="font-size:0.76rem">${escHtml(a.insurer)}${a.surveyor?`<div style="font-size:0.68rem;color:var(--text-muted)">ช่าง: ${escHtml(a.surveyor)}</div>`:''}</td>
+                  <td style="font-size:0.74rem;max-width:180px">${escHtml(a.damage)}${a.estimateApproved?`<div style="color:var(--success);font-weight:700">อนุมัติ ฿${a.estimateApproved.toLocaleString()}</div>`:''}</td>
                   <td style="text-align:center;font-size:0.74rem">${formatDate(a.date)}<div>${a.time} น.</div></td>
                   <td style="text-align:center"><span style="font-size:0.66rem;background:${ST[a.status].color};color:#fff;padding:2px 8px;border-radius:10px">${ST[a.status].label}</span></td>
                   <td style="padding-right:12px;white-space:nowrap">
@@ -100,9 +104,9 @@ export default async function SurveyorAppointmentPage(container) {
   function confirmAppt(id) {
     const a = APPTS.find(x => x.id === id)
     openModal({
-      title: `✅ ยืนยันนัด ${a.apptNo || id}`,
+      title: `✅ ยืนยันนัด ${escHtml(a.apptNo || id)}`,
       size: 'sm',
-      body: `<div class="input-group" style="margin-bottom:10px"><label class="input-label">ชื่อช่างประกัน *</label><input class="input" id="sa-surv" value="${a.surveyor}"></div>
+      body: `<div class="input-group" style="margin-bottom:10px"><label class="input-label">ชื่อช่างประกัน *</label><input class="input" id="sa-surv" value="${escHtml(a.surveyor)}"></div>
         <div class="input-group"><label class="input-label">หมายเหตุ</label><input class="input" id="sa-note" placeholder="ข้อมูลเพิ่มเติม"></div>`,
       confirmText: '✅ ยืนยันนัด',
       async onConfirm() {
@@ -120,7 +124,7 @@ export default async function SurveyorAppointmentPage(container) {
   function doneAppt(id) {
     const a = APPTS.find(x => x.id === id)
     openModal({
-      title: `📋 บันทึกผลการตรวจ ${a.apptNo || id}`,
+      title: `📋 บันทึกผลการตรวจ ${escHtml(a.apptNo || id)}`,
       size: 'sm',
       body: `<div class="input-group" style="margin-bottom:10px"><label class="input-label">วงเงินที่อนุมัติ (บาท)</label><input class="input" type="number" id="sa-amt" placeholder="0 = รอผล"></div>
         <div class="input-group"><label class="input-label">หมายเหตุจากช่าง</label><textarea class="input" id="sa-remark" rows="2"></textarea></div>`,

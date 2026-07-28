@@ -7,6 +7,10 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
 const MONTHLY_SCORES = [4.1, 4.3, 4.2, 4.5, 4.4, 4.6]
 const MONTHS_SHORT = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.']
 
@@ -107,15 +111,15 @@ export default async function CustomerSatisfactionPage(container) {
             <div class="card" style="padding:14px;border-left:3px solid ${r.score>=4?'var(--success)':r.score<=2?'var(--danger)':'var(--warning)'}">
               <div style="display:flex;justify-content:space-between;margin-bottom:6px">
                 <div>
-                  <div style="font-weight:700;font-size:0.87rem">${r.customer}</div>
-                  <div style="font-size:0.7rem;color:var(--text-muted)">🚗 ${r.model} · ${r.channel} · ${timeAgo(r.date)}</div>
+                  <div style="font-weight:700;font-size:0.87rem">${escHtml(r.customer)}</div>
+                  <div style="font-size:0.7rem;color:var(--text-muted)">🚗 ${escHtml(r.model)} · ${escHtml(r.channel)} · ${timeAgo(r.date)}</div>
                 </div>
                 <div style="text-align:right">
                   <div>${stars(r.score)}</div>
                   ${r.replied ? '<span style="font-size:0.62rem;color:var(--success)">✓ ตอบแล้ว</span>' : '<span style="font-size:0.62rem;color:var(--warning)">⏳ รอตอบ</span>'}
                 </div>
               </div>
-              <div style="font-size:0.83rem;font-style:italic;color:var(--text-muted);margin-bottom:10px">"${r.comment}"</div>
+              <div style="font-size:0.83rem;font-style:italic;color:var(--text-muted);margin-bottom:10px">"${escHtml(r.comment)}"</div>
               <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap">
                 ${(r.tags||[]).map(t => `<span class="badge badge-secondary" style="font-size:0.62rem">${t}</span>`).join('')}
               </div>
@@ -140,10 +144,10 @@ export default async function CustomerSatisfactionPage(container) {
 
   function openReplyForm(r) {
     openModal({
-      title: `💬 ตอบรีวิว — ${r.customer}`,
+      title: `💬 ตอบรีวิว — ${escHtml(r.customer)}`,
       size: 'sm',
       body: `
-        <div style="padding:10px;background:var(--surface-2);border-radius:var(--radius-sm);margin-bottom:12px;font-size:0.82rem;font-style:italic">"${r.comment}"</div>
+        <div style="padding:10px;background:var(--surface-2);border-radius:var(--radius-sm);margin-bottom:12px;font-size:0.82rem;font-style:italic">"${escHtml(r.comment)}"</div>
         <div class="input-group"><label class="input-label">ข้อความตอบกลับ *</label>
           <textarea class="input" id="reply-text" rows="4" placeholder="ขอบคุณที่ใช้บริการ..."></textarea>
         </div>

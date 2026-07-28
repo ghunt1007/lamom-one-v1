@@ -20,9 +20,16 @@ const STATUS_CFG = {
   rejected: { label:'ปฏิเสธ',     bg:'var(--danger)',     icon:'❌' },
 }
 
+const APPROVER_ROLES = ['manager', 'owner', 'admin']
+
 export default async function PriceNegotiationPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
+  const me = getState('user') || {}
+  // เดิมพนักงานคนไหนก็กด "อนุมัติ/ปฏิเสธ" ส่วนลดของตัวเองได้เลย (ไม่มีการเช็คสิทธิ์ในหน้าจอเลย ตกอยู่ใต้
+  // Firestore Rules แบบเปิดกว้าง isStaff()) แก้ Rules ให้จำกัดจริงแล้ว (เฉพาะผู้จัดการขึ้นไป) ตรงนี้แค่ซ่อน
+  // ปุ่มไม่ให้พนักงานทั่วไปเห็นเป็นชั้นป้องกันซ้อน (UX เท่านั้น การบังคับใช้จริงอยู่ที่ Rules)
+  const canApprove = APPROVER_ROLES.includes(getState('role') || me.role || 'staff')
 
   let NEGOTIATIONS = []
   let filterStatus = 'all'
@@ -37,8 +44,8 @@ export default async function PriceNegotiationPage(container) {
 
   function negRow(n) {
     const cfg        = STATUS_CFG[n.status]
-    const approveBtn = n.status==='pending' ? '<button class="btn btn-xs btn-primary appr-btn" data-id="' + escHtml(n.id) + '" style="font-size:0.68rem">✅ อนุมัติ</button>' : ''
-    const rejectBtn  = n.status==='pending' ? '<button class="btn btn-xs btn-secondary rej-btn" data-id="' + escHtml(n.id) + '" style="font-size:0.68rem">❌ ปฏิเสธ</button>' : ''
+    const approveBtn = n.status==='pending' && canApprove ? '<button class="btn btn-xs btn-primary appr-btn" data-id="' + escHtml(n.id) + '" style="font-size:0.68rem">✅ อนุมัติ</button>' : ''
+    const rejectBtn  = n.status==='pending' && canApprove ? '<button class="btn btn-xs btn-secondary rej-btn" data-id="' + escHtml(n.id) + '" style="font-size:0.68rem">❌ ปฏิเสธ</button>' : ''
     const approverLine = n.approver ? ' · โดย ' + escHtml(n.approver) : ''
     return '<div class="card" style="padding:14px">' +
       '<div style="display:flex;align-items:flex-start;gap:12px">' +

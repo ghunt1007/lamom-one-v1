@@ -4,6 +4,24 @@ import { showToast } from '../../core/store.js'
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
+
+// เดิม doc.content (เนื้อหา rich text จาก contenteditable editor) ถูกใส่ตรงเข้า innerHTML โดยไม่กรองเลย
+// ทั้งตอนโหลดเข้า editor และตอนพิมพ์ — ใช้ escHtml() ตรงๆไม่ได้เพราะจะทำลาย formatting ที่ตั้งใจให้เป็น
+// HTML จริง (ตัวหนา/หัวข้อ/ตาราง) แก้ด้วยการกรองเฉพาะแท็ก/attribute ที่รันโค้ดได้ออกก่อนเก็บและก่อนแสดงผล
+function sanitizeRichHtml(html) {
+  const doc = new DOMParser().parseFromString(String(html ?? ''), 'text/html')
+  doc.querySelectorAll('script, style, iframe, object, embed, link, meta, form').forEach(el => el.remove())
+  doc.querySelectorAll('*').forEach(el => {
+    Array.from(el.attributes).forEach(attr => {
+      const name = attr.name.toLowerCase()
+      const value = attr.value.trim().toLowerCase()
+      if (name.startsWith('on') || (name === 'href' && value.startsWith('javascript:')) || (name === 'src' && value.startsWith('javascript:'))) {
+        el.removeAttribute(attr.name)
+      }
+    })
+  })
+  return doc.body.innerHTML
+}
 import { formatDate, formatDateTime } from '../../utils/format.js'
 import { confirmDialog, openModal } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -302,7 +320,7 @@ function openDocEditor(doc) {
           </div>
           <div id="doc-editor" contenteditable="true" spellcheck="false"
             style="flex:1;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;font-size:0.875rem;line-height:1.7;color:var(--text-2);background:var(--surface-2);outline:none"
-          >${doc.content || getTemplate(doc.type, doc)}</div>
+          >${sanitizeRichHtml(doc.content || getTemplate(doc.type, doc))}</div>
         </div>
 
         <!-- Right: Info Panel -->
@@ -340,7 +358,7 @@ function openDocEditor(doc) {
 
   el.querySelector('#doc-close-btn').addEventListener('click', close)
   el.querySelector('#doc-save-btn').addEventListener('click', async () => {
-    const content = el.querySelector('#doc-editor').innerHTML
+    const content = sanitizeRichHtml(el.querySelector('#doc-editor').innerHTML)
     const newStatus = el.querySelector('#doc-status-sel').value
     try {
       await updateDocData('documents', doc.id, { content, status: newStatus })
@@ -391,12 +409,14 @@ function openDocEditor(doc) {
 }
 
 function printDocument(doc) {
-  const content = doc.content || getTemplate(doc.type, doc)
+  // เดิม <title> ใส่ doc.title ตรงๆไม่ผ่าน escHtml() เลย (จุดเดียวในไฟล์ที่พลาด — ที่อื่นใช้ escHtml(doc.title)
+  // ทุกจุด) ถ้าชื่อเอกสารมี </title><script> ปนมาจะหลุดออกจาก <title> แล้วรันโค้ดได้ทันทีที่เปิดหน้าต่างพิมพ์
+  const content = sanitizeRichHtml(doc.content || getTemplate(doc.type, doc))
   const win = window.open('', '_blank', 'width=800,height=900')
   win.document.write(`
     <!DOCTYPE html><html><head>
     <meta charset="UTF-8">
-    <title>${doc.title}</title>
+    <title>${escHtml(doc.title)}</title>
     <style>
       body { font-family: 'Sarabun', sans-serif; font-size: 14px; line-height: 1.8; color: #111; margin: 40px; }
       h1 { font-size: 18px; text-align: center; margin-bottom: 4px; }

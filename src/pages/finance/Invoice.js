@@ -1,6 +1,6 @@
 import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
@@ -30,9 +30,15 @@ function calcDoc(doc) {
   return { subtotal, vat, total: subtotal + vat }
 }
 
+const PAY_ROLES = ['finance', 'manager', 'owner', 'admin']
+
 export default async function InvoicePage(container) {
   const myGen = container.__routerGen
   seedDemoData()
+  const me = getState('user') || {}
+  // เดิมพนักงานคนไหนก็กด "รับชำระ" ปิดยอดค้างรับได้เลย (ไม่มีการเช็คสิทธิ์ในหน้าจอ ตกอยู่ใต้ Firestore Rules
+  // แบบเปิดกว้าง isStaff()) แก้ Rules ให้จำกัดจริงแล้ว (เฉพาะการเงิน/ผู้จัดการ) ตรงนี้แค่ซ่อนปุ่มเป็นชั้นป้องกันซ้อน
+  const canPay = PAY_ROLES.includes(getState('role') || me.role || 'staff')
 
   let docs = []
   let bookingDocs = []
@@ -149,7 +155,7 @@ export default async function InvoicePage(container) {
                   <td class="text-right" style="font-weight:700">${formatCurrency(total)}</td>
                   <td><span class="badge badge-${st.color}">${st.label}</span></td>
                   <td>
-                    ${!d._live && d.status !== 'paid' && d.status !== 'cancelled' && d.type === 'invoice' ? `<button class="btn btn-xs btn-success pay-btn" data-id="${d.id}">รับชำระ</button>` : ''}
+                    ${!d._live && d.status !== 'paid' && d.status !== 'cancelled' && d.type === 'invoice' && canPay ? `<button class="btn btn-xs btn-success pay-btn" data-id="${d.id}">รับชำระ</button>` : ''}
                   </td>
                 </tr>`
               }).join('')}
@@ -249,7 +255,7 @@ export default async function InvoicePage(container) {
         </table>
         ${d.note?`<div style="color:var(--text-muted)">📝 ${escHtml(d.note)}</div>`:''}
       </div>`,
-      footer: `${!d._live&&d.status!=='paid'&&d.type==='invoice'?`<button class="btn btn-success" id="detail-pay-btn">✅ บันทึกรับชำระ</button>`:''}
+      footer: `${!d._live&&d.status!=='paid'&&d.type==='invoice'&&canPay?`<button class="btn btn-success" id="detail-pay-btn">✅ บันทึกรับชำระ</button>`:''}
                <button class="btn btn-primary" onclick="window.print()">🖨 พิมพ์</button>`
     })
     document.getElementById('detail-pay-btn')?.addEventListener('click', async () => {
