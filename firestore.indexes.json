@@ -42,7 +42,19 @@
     { "collectionGroup": "comm_messages", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "status", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] },
     { "collectionGroup": "comm_messages", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "channel", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] },
     { "collectionGroup": "bookings", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "status", "order": "ASCENDING" }, { "fieldPath": "deliveryDate", "order": "ASCENDING" }] },
-    { "collectionGroup": "custom_fields", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "module", "order": "ASCENDING" }, { "fieldPath": "order", "order": "ASCENDING" }] }
+    { "collectionGroup": "custom_fields", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "module", "order": "ASCENDING" }, { "fieldPath": "order", "order": "ASCENDING" }] },
+    { "collectionGroup": "staff_grievances", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "submittedBy", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] },
+    { "collectionGroup": "mood_responses", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "uid", "order": "ASCENDING" }, { "fieldPath": "date", "order": "DESCENDING" }] },
+    { "collectionGroup": "sales_budgets", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "year", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "ASCENDING" }] },
+    { "collectionGroup": "budget_planning", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "year", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "ASCENDING" }] },
+    { "collectionGroup": "ai_officer_chats", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "sessionKey", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "ASCENDING" }] },
+    { "collectionGroup": "user_settings", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "uid", "order": "ASCENDING" }, { "fieldPath": "updatedAt", "order": "DESCENDING" }] },
+    { "collectionGroup": "payroll_records", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "month", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "ASCENDING" }] },
+    { "collectionGroup": "chat_training_bot", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "topic", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "ASCENDING" }] },
+    { "collectionGroup": "bookings", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "customerId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] },
+    { "collectionGroup": "bookings", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "phone", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] },
+    { "collectionGroup": "job_cards", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "phone", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] },
+    { "collectionGroup": "quotations", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "customerId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] }
   ],
   "fieldOverrides": []
 }
