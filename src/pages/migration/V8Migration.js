@@ -266,6 +266,7 @@ export default async function V8MigrationPage(container) {
       const btn = document.getElementById('connect-btn')
       btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span> กำลังเชื่อมต่อ...'
       setTimeout(() => {
+        if (container.__routerGen !== myGen) return
         connected = true
         if (document.getElementById('v8-url')?.value.includes('demo')) {
           showToast('✅ เชื่อมต่อ Demo Mode สำเร็จ', 'success')
@@ -328,7 +329,11 @@ export default async function V8MigrationPage(container) {
 
     addLog('เริ่มการ Migration...', 'var(--primary)')
 
+    // เดิม chain setInterval+setTimeout นี้ไม่เช็ค routerGen เลยตลอดทั้งลูป ถ้าผู้ใช้ออกจากหน้านี้กลางทาง
+    // (container ถูก reuse ให้หน้าใหม่) callback ที่ค้างอยู่จะยังรันต่อและสุดท้ายเรียก renderPage() ทับ
+    // เนื้อหาหน้าใหม่ที่ผู้ใช้กำลังดูอยู่แบบไม่ทันตั้งตัว แก้ให้เช็คก่อนแตะ DOM ทุกจุดในลูป
     function migrateNext() {
+      if (container.__routerGen !== myGen) return
       if (idx >= selected.length) {
         // Done
         const title = document.getElementById('mig-title')
@@ -339,7 +344,10 @@ export default async function V8MigrationPage(container) {
         if (icon) icon.textContent = '🎉'
         addLog('✅ Migration เสร็จสมบูรณ์!', 'var(--success)')
         showToast('🎉 Migration สำเร็จ!', 'success')
-        setTimeout(() => { currentStep = 4; renderPage() }, 1000)
+        setTimeout(() => {
+          if (container.__routerGen !== myGen) return
+          currentStep = 4; renderPage()
+        }, 1000)
         return
       }
       const c = selected[idx]
@@ -349,6 +357,7 @@ export default async function V8MigrationPage(container) {
 
       let pct = 0
       const interval = setInterval(() => {
+        if (container.__routerGen !== myGen) { clearInterval(interval); return }
         pct = Math.min(pct + Math.random() * 20, 100)
         if (bar) bar.style.width = pct + '%'
         if (pct >= 100) {
