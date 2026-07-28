@@ -71,14 +71,15 @@ export default async function ConversionFunnelPage(container) {
   } catch {}
 
   function renderPage() {
-    const maxCount = stages[0].count
+    // เดิมไม่กัน maxCount = 0 (ไม่มี Lead เลยในช่วงที่ดู) ทำให้หารด้วยศูนย์แล้วโชว์ NaN%/Infinity% ให้ผู้ใช้เห็น
+    const maxCount = stages[0].count || 1
     const overall = Math.round(stages[stages.length-1].count / maxCount * 1000) / 10
     // Find biggest drop (idx starts at 1 — stage 0 has no "previous" to compare against,
     // and stages[worstDrop.idx-1] below would be undefined if this stayed at 0)
     let worstDrop = { idx: 1, rate: 100 }
     stages.forEach((s, i) => {
       if (i > 0) {
-        const rate = Math.round(s.count / stages[i-1].count * 100)
+        const rate = Math.round(s.count / (stages[i-1].count || 1) * 100)
         if (rate < worstDrop.rate) worstDrop = { idx: i, rate }
       }
     })
@@ -109,7 +110,7 @@ export default async function ConversionFunnelPage(container) {
         <div class="card" style="padding:18px;margin-bottom:14px">
           ${stages.map((s, i) => {
             const widthPct = Math.round(s.count / maxCount * 100)
-            const stepRate = i > 0 ? Math.round(s.count / stages[i-1].count * 100) : 100
+            const stepRate = i > 0 ? Math.round(s.count / (stages[i-1].count || 1) * 100) : 100
             const isWorst = i === worstDrop.idx
             return `<div style="margin-bottom:6px">
               <div style="display:flex;align-items:center;gap:10px">

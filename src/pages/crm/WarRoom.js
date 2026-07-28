@@ -163,12 +163,13 @@ export default async function WarRoomPage(container) {
     const activeCustomers = customers.filter(c => !c.isLost)
     const pipelineValue = activeCustomers.reduce((s, c) => s + (c.budget || 0), 0)
 
-    const overallConv = Math.round(funnelStages[funnelStages.length - 1].count / funnelStages[0].count * 1000) / 10
+    // เดิมไม่กันตัวหารเป็น 0 (ไม่มี Lead เลย) ทำให้โชว์ NaN%/Infinity% ให้ผู้ใช้เห็น
+    const overallConv = Math.round(funnelStages[funnelStages.length - 1].count / (funnelStages[0].count || 1) * 1000) / 10
 
     let worstDrop = { idx: 1, rate: 100 }
     funnelStages.forEach((s, i) => {
       if (i > 0) {
-        const rate = Math.round(s.count / funnelStages[i - 1].count * 100)
+        const rate = Math.round(s.count / (funnelStages[i - 1].count || 1) * 100)
         if (rate < worstDrop.rate) worstDrop = { idx: i, rate }
       }
     })
@@ -231,13 +232,13 @@ export default async function WarRoomPage(container) {
   }
 
   function renderFunnelTab() {
-    const maxCount = funnelStages[0].count
+    const maxCount = funnelStages[0].count || 1
     const s = computeSummary()
     return `
       <div class="card" style="padding:18px;margin-bottom:14px">
         ${funnelStages.map((st, i) => {
           const widthPct = Math.round(st.count / maxCount * 100)
-          const stepRate = i > 0 ? Math.round(st.count / funnelStages[i - 1].count * 100) : 100
+          const stepRate = i > 0 ? Math.round(st.count / (funnelStages[i - 1].count || 1) * 100) : 100
           const isWorst = i === s.worstDrop.idx
           return `<div style="margin-bottom:6px">
             <div style="display:flex;align-items:center;gap:10px">

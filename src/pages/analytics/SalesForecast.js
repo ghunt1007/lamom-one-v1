@@ -17,9 +17,13 @@ const ACTUALS = [
 
 // Simple moving-average forecast for remaining months
 function calcForecast(actuals, growthRate) {
-  const avg3Units = actuals.slice(-3).reduce((a, d) => a + d.units, 0) / 3
-  const avg3Rev = actuals.slice(-3).reduce((a, d) => a + d.revenue, 0) / 3
-  const avg3Leads = actuals.slice(-3).reduce((a, d) => a + d.leads, 0) / 3
+  // เดิมหารด้วย 3 ตรงๆเสมอ แม้ actuals มีข้อมูลจริงไม่ถึง 3 เดือน (เช่นต้นปีที่มีแค่ 1-2 เดือน) ทำให้ค่าเฉลี่ย
+  // ที่ใช้พยากรณ์ต่ำกว่าความเป็นจริงไปมาก แก้ให้หารด้วยจำนวนเดือนที่มีจริง (สูงสุด 3) แทน
+  const recent = actuals.slice(-3)
+  const n = recent.length || 1
+  const avg3Units = recent.reduce((a, d) => a + d.units, 0) / n
+  const avg3Rev = recent.reduce((a, d) => a + d.revenue, 0) / n
+  const avg3Leads = recent.reduce((a, d) => a + d.leads, 0) / n
   // Seasonal multipliers (rough Thai car market pattern)
   const seasonality = [0.85, 0.75, 1.0, 0.9, 1.05, 0.85, 0.9, 0.95, 0.9, 0.95, 1.1, 1.35]
   const forecastStart = actuals.length

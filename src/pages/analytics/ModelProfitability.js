@@ -83,8 +83,8 @@ export default async function ModelProfitabilityPage(container) {
     const totalProfit = rows.reduce((s,r)=>s+r.totalProfit,0)
     const totalRev = rows.reduce((s,r)=>s+r.totalRevenue,0)
     const totalSold = rows.reduce((s,r)=>s+r.sold,0)
-    const avgMargin = Math.round(rows.reduce((s,r)=>s+r.grossPct,0)/rows.length)
-    const topModel = rows[0]
+    const avgMargin = rows.length ? Math.round(rows.reduce((s,r)=>s+r.grossPct,0)/rows.length) : 0
+    const topModel = rows[0] || { model: '-' }
 
     const sortBtns = [['totalProfit','💰 กำไรรวม'],['grossPct','📊 Margin %'],['sold','🚗 ยอดขาย']].map(([k,l])=>'<button class="btn btn-sm '+(sortBy===k?'btn-primary':'btn-secondary')+' sort-btn" data-k="'+k+'">'+l+'</button>').join('')
 

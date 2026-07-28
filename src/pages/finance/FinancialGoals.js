@@ -64,7 +64,7 @@ export default async function FinancialGoalsPage(container) {
           ${kpi('🎯 เป้าหมายทั้งหมด', goals.length, 'primary')}
           ${kpi('✅ On Track', onTrack, 'success')}
           ${kpi('⚠️ At Risk', atRisk, atRisk > 0 ? 'danger' : 'secondary')}
-          ${kpi('📊 สำเร็จเฉลี่ย', Math.round(goals.reduce((a, g) => a + pct(g), 0) / goals.length) + '%', 'primary')}
+          ${kpi('📊 สำเร็จเฉลี่ย', (goals.length ? Math.round(goals.reduce((a, g) => a + pct(g), 0) / goals.length) : 0) + '%', 'primary')}
         </div>
 
         <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">

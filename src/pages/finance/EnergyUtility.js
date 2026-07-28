@@ -48,7 +48,7 @@ export default async function EnergyUtilityPage(container) {
   }
 
   function zoneBar(zone, val, total) {
-    const pct = Math.round(val/total*100)
+    const pct = Math.round(val/(total||1)*100)
     return '<div style="margin-bottom:8px">' +
       '<div style="display:flex;justify-content:space-between;font-size:0.72rem;margin-bottom:3px">' +
         '<span>' + ZONE_ICONS[zone] + ' ' + ZONE_LABELS[zone] + '</span>' +

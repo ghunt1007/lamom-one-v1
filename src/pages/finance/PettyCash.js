@@ -37,8 +37,11 @@ export default async function PettyCashPage(container) {
   }
 
   function balance() {
+    // เดิมมี "- 10000" ต่อท้ายโดยไม่มีที่มา/ไม่ผูกกับรายการใดเลย ทำให้ยอดเงินสดย่อยที่แสดงจริงต่ำกว่าความ
+    // เป็นจริง ฿10,000 ตลอดเวลา (รวมถึงเกณฑ์เตือน "ยอดต่ำ" ที่จะเตือนเร็วเกินจริงไปด้วย) แก้ให้คำนวณตรงตาม
+    // วงเงินตั้งต้น + รายรับ - รายจ่ายที่อนุมัติแล้วเท่านั้น
     const settled = txns.filter(t => t.status !== 'pending' && t.status !== 'rejected')
-    return FLOAT_AMOUNT + settled.reduce((a, t) => a + (t.type === 'in' ? t.amount : -t.amount), 0) - 10000
+    return FLOAT_AMOUNT + settled.reduce((a, t) => a + (t.type === 'in' ? t.amount : -t.amount), 0)
   }
 
   function renderPage() {
