@@ -129,7 +129,9 @@ export default async function CustomerSatisfactionPage(container) {
 
     container.querySelectorAll('.score-btn').forEach(b => b.addEventListener('click', () => { scoreFilter = b.dataset.s; renderPage() }))
     document.getElementById('request-review-btn')?.addEventListener('click', () => {
-      showToast('📩 ส่ง SMS ขอรีวิวถึงลูกค้า 12 คนแล้ว!', 'success')
+      // เดิมอ้างว่าส่ง SMS ไปแล้ว 12 คน (ตัวเลขคงที่ ไม่ได้คำนวณจริง) และไม่มีการส่งจริงเลย ทั้งที่ไม่มีจุดใด
+      // ในหน้านี้ผูกกับรายชื่อลูกค้าที่ยังไม่รีวิวจริง — แก้ให้บอกตรงว่ายังไม่เชื่อมระบบส่งอัตโนมัติ
+      showToast('📩 ยังไม่เชื่อมระบบส่ง SMS ขอรีวิวอัตโนมัติ — กรุณาส่งลิงก์รีวิวให้ลูกค้าเองในระหว่างนี้', 'error')
     })
     container.querySelectorAll('.reply-btn').forEach(b => b.addEventListener('click', () => {
       const r = reviews.find(x => x.id === b.dataset.id); if (r) openReplyForm(r)

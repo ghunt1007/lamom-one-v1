@@ -6,6 +6,7 @@ import { formatDate, formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
+import { sendSms } from '../../utils/comms.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -122,9 +123,20 @@ export default async function NoClaimPage(container) {
       </div>
     `
 
-    container.querySelectorAll('.notify-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.notify-btn').forEach(b => b.addEventListener('click', async () => {
       const p = policies.find(x => x.id === b.dataset.id)
-      showToast(`📱 แจ้ง ${p.customer} ผ่าน LINE ว่าประกัน ${p.plate} จะหมดใน ${daysUntil(p.renewDate)} วัน · NCB ${ncbOf(p).pct}% แล้ว`, 'success')
+      if (!p) return
+      // เดิมอ้างว่าแจ้งลูกค้าผ่าน LINE แต่ไม่มีการส่งจริง (LINE ที่เชื่อมจริงเป็น broadcast ทั้งฐานลูกค้าเท่านั้น
+      // ส่งเจาะรายบุคคลไม่ได้) แก้ให้ส่ง SMS จริงถ้ามีเบอร์โทร
+      const msg = `LAMOM แจ้งคุณ${p.customer}: ประกันรถ ${p.plate} จะหมดอายุใน ${daysUntil(p.renewDate)} วัน (NCB ${ncbOf(p).pct}%) กรุณาติดต่อต่ออายุ`
+      if (p.phone) {
+        try {
+          await sendSms([p.phone], msg)
+          showToast(`📱 ส่ง SMS แจ้ง ${p.customer} แล้ว · NCB ${ncbOf(p).pct}%`, 'success')
+        } catch { showToast(`⚠️ ส่ง SMS แจ้ง ${p.customer} ไม่สำเร็จ`, 'error') }
+      } else {
+        showToast(`⚠️ ${p.customer} ไม่มีเบอร์โทรในระบบ — กรุณาติดต่อเอง`, 'error')
+      }
     }))
     document.getElementById('add-btn')?.addEventListener('click', () => {
       openModal({
@@ -132,8 +144,12 @@ export default async function NoClaimPage(container) {
         size: 'sm',
         body: `
           <div style="display:flex;flex-direction:column;gap:10px;font-size:0.8rem">
-            <div><label style="font-size:0.72rem;color:var(--text-muted)">ชื่อลูกค้า</label>
-              <input class="input" id="nc-customer" placeholder="เช่น คุณอนันต์ รักดี" style="width:100%;margin-top:4px"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <div><label style="font-size:0.72rem;color:var(--text-muted)">ชื่อลูกค้า</label>
+                <input class="input" id="nc-customer" placeholder="เช่น คุณอนันต์ รักดี" style="width:100%;margin-top:4px"></div>
+              <div><label style="font-size:0.72rem;color:var(--text-muted)">เบอร์โทร (สำหรับส่ง SMS แจ้งต่ออายุ)</label>
+                <input class="input" id="nc-phone" placeholder="08xxxxxxxx" style="width:100%;margin-top:4px"></div>
+            </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
               <div><label style="font-size:0.72rem;color:var(--text-muted)">ทะเบียนรถ</label>
                 <input class="input" id="nc-plate" placeholder="กข-1234" style="width:100%;margin-top:4px"></div>
@@ -158,6 +174,7 @@ export default async function NoClaimPage(container) {
         confirmText: '💾 บันทึกกรมธรรม์',
         async onConfirm() {
           const customer  = document.getElementById('nc-customer')?.value?.trim()
+          const phone     = document.getElementById('nc-phone')?.value?.trim() || ''
           const plate     = document.getElementById('nc-plate')?.value?.trim()
           const model     = document.getElementById('nc-model')?.value?.trim()
           const insurer   = document.getElementById('nc-insurer')?.value?.trim()
@@ -166,7 +183,7 @@ export default async function NoClaimPage(container) {
           const basePremium = parseInt(document.getElementById('nc-premium')?.value) || 0
           const claimed   = document.getElementById('nc-claimed')?.checked || false
           if (!customer || !plate || !basePremium) { showToast('กรอกข้อมูลให้ครบ', 'warning'); return false }
-          await createDoc('ncb_policies', { customer, plate, model: model||'ไม่ระบุ', insurer: insurer||'ไม่ระบุ', renewDate, ncbYears, basePremium, claimed })
+          await createDoc('ncb_policies', { customer, phone, plate, model: model||'ไม่ระบุ', insurer: insurer||'ไม่ระบุ', renewDate, ncbYears, basePremium, claimed })
           showToast(`✅ เพิ่มกรมธรรม์ ${plate} (${customer}) แล้ว`, 'success')
           await loadData()
         }

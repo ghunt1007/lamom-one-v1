@@ -5,7 +5,15 @@
 import { formatDate, formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, updateDocData, createDoc, seedDemoData } from '../../core/db.js'
+
+const SALES_NOTIFY_ROLES = ['sales', 'manager', 'owner', 'admin']
+async function notifySalesTeam(title, body, link) {
+  const users = await listDocs('users', [], 'createdAt', 'desc', 500).catch(() => [])
+  const targets = users.filter(u => u.uid && SALES_NOTIFY_ROLES.includes(u.role))
+  await Promise.all(targets.map(u => createDoc('notifications', { type: 'system', title, body, userId: u.uid, read: false, link }).catch(() => {})))
+  return targets.length
+}
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -94,7 +102,9 @@ export default async function ModelYearChangeoverPage(container) {
       const targets = changeovers.filter(c => c.status === 'announced' || c.status === 'upcoming')
       try {
         await Promise.all(targets.map(c => updateDocData('model_year_changeovers', c.id, { notified: true })))
-        showToast(`📣 ส่งสรุป MY Changeover ${targets.length} รุ่น ให้ทีมขายและผู้จัดการทาง LINE แล้ว`, 'success')
+        // เดิมอ้างว่าส่งทาง LINE แต่ไม่มีการส่งจริง แก้ให้สร้างการแจ้งเตือนจริงในระบบให้ทีมขาย/ผู้จัดการ
+        const count = await notifySalesTeam('🔄 สรุป Model Year Changeover', `มีรุ่นที่กำลังเปลี่ยน MY ${targets.length} รุ่น — ${targets.slice(0,5).map(c=>c.model).join(', ')}${targets.length>5?' และอื่นๆ':''}`, '/dms/model-year')
+        showToast(`📣 ส่งการแจ้งเตือนสรุป MY Changeover ${targets.length} รุ่น ให้ทีมขาย/ผู้จัดการ ${count} คนแล้ว`, 'success')
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })

@@ -145,12 +145,16 @@ export default async function LoyaltyTiersPage(container) {
 
     container.querySelectorAll('.tf-btn').forEach(b => b.addEventListener('click', () => { filterTier = b.dataset.t; render() }))
     document.getElementById('notify-btn')?.addEventListener('click', () => {
+      // เดิมอ้างว่าส่งแจ้งเตือนทาง LINE ให้สมาชิกที่ใกล้ Upgrade แต่ไม่มีการส่งจริง (ไม่มีเบอร์โทร/LINE ID
+      // เก็บในระบบสมาชิกเลย) แก้ให้แสดงรายชื่อจริงที่เข้าเกณฑ์แทนการอ้างว่าส่งแล้ว
       const upgradable = liveMembers.filter(m => {
         const tier = getTier(m.pts)
         const next = TIERS[TIERS.findIndex(t => t.name === tier.name) + 1]
         return next && (next.minPts - m.pts) < 1000
       })
-      showToast(`📢 แจ้ง ${upgradable.length} คน ที่ใกล้ Upgrade ทาง LINE แล้ว`, 'success')
+      showToast(upgradable.length
+        ? `📢 พบ ${upgradable.length} คนใกล้ Upgrade: ${upgradable.map(m=>m.name).join(', ')} — กรุณาแจ้งเอง (ยังไม่เชื่อมระบบส่งข้อความอัตโนมัติ)`
+        : '📢 ไม่มีสมาชิกที่ใกล้ Upgrade ในขณะนี้', 'success')
     })
     container.querySelectorAll('.hist-btn').forEach(b => b.addEventListener('click', () => {
       const m = liveMembers.find(x => x.id === b.dataset.id)

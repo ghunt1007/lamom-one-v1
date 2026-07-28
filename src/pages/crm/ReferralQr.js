@@ -6,6 +6,7 @@ import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { sendSms } from '../../utils/comms.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -100,10 +101,19 @@ export default async function ReferralQrPage(container) {
     container.querySelectorAll('.ref-card').forEach(el => el.addEventListener('click', () => {
       selId = el.dataset.id === selId ? null : el.dataset.id; render()
     }))
-    container.querySelectorAll('.share-btn').forEach(b => b.addEventListener('click', e => {
+    container.querySelectorAll('.share-btn').forEach(b => b.addEventListener('click', async e => {
       e.stopPropagation()
       const r = REFERRERS.find(x=>x.id===b.dataset.id)
-      if (r) showToast(`📤 ส่งลิงก์ ${r.qrUrl} ให้ ${r.name} ทาง LINE แล้ว`, 'success')
+      if (!r) return
+      // เดิมอ้างว่าส่งทาง LINE แต่ไม่มีการส่งจริง — ผู้แนะนำมีเบอร์โทรเก็บไว้อยู่แล้ว แก้ให้ส่ง SMS จริง
+      if (r.phone) {
+        try {
+          await sendSms([r.phone], `LAMOM: นี่คือลิงก์แนะนำเพื่อนของคุณ ${r.qrUrl} — แนะนำเพื่อนซื้อรถรับค่าคอมมิชชั่นทันที!`)
+          showToast(`📤 ส่ง SMS ลิงก์ ${r.qrUrl} ให้ ${r.name} แล้ว`, 'success')
+        } catch { showToast(`⚠️ ส่ง SMS ให้ ${r.name} ไม่สำเร็จ`, 'error') }
+      } else {
+        showToast(`⚠️ ${r.name} ไม่มีเบอร์โทรในระบบ — กรุณาส่งลิงก์เอง: ${r.qrUrl}`, 'error')
+      }
     }))
     document.getElementById('copy-link')?.addEventListener('click', () => {
       const url = sel?.qrUrl || ''

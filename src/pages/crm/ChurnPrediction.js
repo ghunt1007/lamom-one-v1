@@ -5,6 +5,7 @@
 import { formatDate, formatCurrency } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData } from '../../core/db.js'
+import { sendSms } from '../../utils/comms.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -56,15 +57,16 @@ export default async function ChurnPredictionPage(container) {
       for (const s of sales) {
         const name = s.customerName || s.custName || ''
         if (!name) continue
-        if (!byName[name]) byName[name] = { name, lastBuy: s.bookingDate || s.deliveryDate || '', clv: 0, sales: s.salesName || '', model: s.model || '' }
+        if (!byName[name]) byName[name] = { name, lastBuy: s.bookingDate || s.deliveryDate || '', clv: 0, sales: s.salesName || '', model: s.model || '', phone: s.phone || '' }
         byName[name].clv += s.salePrice || 0
+        if (!byName[name].phone && s.phone) byName[name].phone = s.phone
         const d = s.bookingDate || s.deliveryDate || ''
         if (d > byName[name].lastBuy) byName[name].lastBuy = d
       }
       const live = Object.values(byName).map((c, i) => {
         const daysSinceBuy = c.lastBuy ? Math.floor((today - new Date(c.lastBuy).getTime()) / 86400000) : 999
         const score = Math.min(99, Math.max(5, Math.round(daysSinceBuy / 3)))
-        return { id: `LV${i+1}`, name: c.name, model: c.model, lastVisit: c.lastBuy, lastBuy: c.lastBuy, score, signals: daysSinceBuy > 365 ? [0] : [], clv: c.clv, sales: c.sales }
+        return { id: `LV${i+1}`, name: c.name, model: c.model, lastVisit: c.lastBuy, lastBuy: c.lastBuy, score, signals: daysSinceBuy > 365 ? [0] : [], clv: c.clv, sales: c.sales, phone: c.phone }
       })
       // เดิมต่อลูกค้าตัวอย่างเข้ากับของจริงเสมอเมื่อมีของจริง ทำให้ลูกค้าปลอมปนกับของจริงถาวร
       customers = live
@@ -96,8 +98,8 @@ export default async function ChurnPredictionPage(container) {
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
           ${sc('🔴 เสี่ยงสูง (≥70)', highCount + ' ราย', 'var(--danger)')}
           ${sc('💸 CLV ที่เสี่ยงสูญ', formatCurrency(totalAtRisk), 'var(--danger)')}
-          ${sc('📋 วิเคราะห์แล้ว', CUSTOMERS.length + ' ราย', 'var(--primary)')}
-          ${sc('✅ เสี่ยงต่ำ', CUSTOMERS.filter(c=>risk(c.score)==='low').length + ' ราย', 'var(--success)')}
+          ${sc('📋 วิเคราะห์แล้ว', customers.length + ' ราย', 'var(--primary)')}
+          ${sc('✅ เสี่ยงต่ำ', customers.filter(c=>risk(c.score)==='low').length + ' ราย', 'var(--success)')}
         </div>
 
         <!-- Filter -->
@@ -115,14 +117,36 @@ export default async function ChurnPredictionPage(container) {
     `
 
     container.querySelectorAll('.filter-btn').forEach(b => b.addEventListener('click', () => { filter = b.dataset.f; render() }))
-    container.querySelectorAll('.retain-btn').forEach(b => b.addEventListener('click', () => {
-      const c = CUSTOMERS.find(x => x.id === b.dataset.id)
+    // เดิมปุ่มเหล่านี้อ้าง CUSTOMERS (ตัวอย่างคงที่) เสมอแม้กำลังแสดงข้อมูลจริงอยู่ (customers) ทำให้เมื่อ
+    // เป็นข้อมูลจริง id จะไม่ตรงกันเลย (LV1... vs CH001...) และไม่มีการส่งจริงไม่ว่ากรณีใด แก้ให้อ้างข้อมูล
+    // ที่แสดงอยู่จริงเสมอ และส่ง SMS จริงเมื่อเป็นข้อมูลจริงและมีเบอร์โทร (ตัวอย่างข้อมูลคงพฤติกรรมจำลองไว้)
+    container.querySelectorAll('.retain-btn').forEach(b => b.addEventListener('click', async () => {
+      const c = customers.find(x => x.id === b.dataset.id)
+      if (!c) return
       const r = RISK[risk(c.score)]
-      showToast(`📱 ส่ง Retention Campaign ให้ ${c.name} แล้ว · ${r.action}`, 'success')
+      if (dataSource === 'live' && c.phone) {
+        try {
+          await sendSms([c.phone], `LAMOM แจ้งคุณ${c.name}: มีโปรพิเศษสำหรับคุณ กรุณาติดต่อเซลส์ ${c.sales || ''} เพื่อรับสิทธิ์`)
+          showToast(`📱 ส่ง SMS Retention Campaign ให้ ${c.name} แล้ว · ${r.action}`, 'success')
+        } catch { showToast(`⚠️ ส่ง SMS ให้ ${c.name} ไม่สำเร็จ`, 'error') }
+      } else if (dataSource === 'live') {
+        showToast(`⚠️ ${c.name} ไม่มีเบอร์โทรในระบบ — กรุณาติดต่อเอง · ${r.action}`, 'error')
+      } else {
+        showToast(`📱 (ตัวอย่าง) จำลองส่ง Retention Campaign ให้ ${c.name} · ${r.action}`, 'success')
+      }
     }))
-    document.getElementById('auto-btn')?.addEventListener('click', () => {
-      const high = CUSTOMERS.filter(c => risk(c.score) === 'high')
-      showToast(`🤖 ส่ง Auto Retention Campaign ให้ ${high.length} ราย (เสี่ยงสูง) แล้ว — Sales ได้รับแจ้งผ่าน LINE`, 'success')
+    document.getElementById('auto-btn')?.addEventListener('click', async () => {
+      const high = customers.filter(c => risk(c.score) === 'high')
+      if (dataSource === 'live') {
+        const withPhone = high.filter(c => c.phone)
+        let sent = 0
+        for (const c of withPhone) {
+          try { await sendSms([c.phone], `LAMOM แจ้งคุณ${c.name}: มีโปรพิเศษสำหรับคุณ กรุณาติดต่อเซลส์เพื่อรับสิทธิ์`); sent++ } catch {}
+        }
+        showToast(`🤖 ส่ง SMS Retention Campaign ให้ ${sent}/${high.length} ราย (เสี่ยงสูง) แล้ว${high.length > sent ? ` — ${high.length - sent} รายไม่มีเบอร์โทร/ส่งไม่สำเร็จ` : ''}`, sent ? 'success' : 'error')
+      } else {
+        showToast(`🤖 (ตัวอย่าง) จำลองส่ง Auto Retention Campaign ให้ ${high.length} ราย (เสี่ยงสูง)`, 'success')
+      }
     })
   }
 

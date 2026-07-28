@@ -6,6 +6,7 @@ import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, softDelete } from '../../core/db.js'
+import { sendSms } from '../../utils/comms.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -30,6 +31,7 @@ export default async function RepairEstimatePage(container) {
   const myGen = container.__routerGen
   let items = []
   let customer = ''
+  let phone = ''
   let plate = ''
   let discount = 0
   let pastEstimates = []
@@ -99,6 +101,7 @@ export default async function RepairEstimatePage(container) {
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
               <div class="input-group"><label class="input-label">ลูกค้า</label><input class="input" id="est-customer" value="${escHtml(customer)}" style="padding:6px 10px;font-size:0.8rem"></div>
               <div class="input-group"><label class="input-label">ทะเบียน</label><input class="input" id="est-plate" value="${escHtml(plate)}" style="padding:6px 10px;font-size:0.8rem"></div>
+              <div class="input-group" style="grid-column:1/-1"><label class="input-label">เบอร์โทร (สำหรับส่ง SMS แจ้งราคา — ไม่กรอกได้)</label><input class="input" id="est-phone" value="${escHtml(phone)}" placeholder="08xxxxxxxx" style="padding:6px 10px;font-size:0.8rem"></div>
             </div>
 
             ${items.length === 0 ? `
@@ -149,6 +152,7 @@ export default async function RepairEstimatePage(container) {
 
     document.getElementById('est-customer')?.addEventListener('change', e => { customer = e.target.value })
     document.getElementById('est-plate')?.addEventListener('change', e => { plate = e.target.value })
+    document.getElementById('est-phone')?.addEventListener('change', e => { phone = e.target.value })
     document.getElementById('est-discount')?.addEventListener('change', e => { discount = parseInt(e.target.value); renderPage() })
     container.querySelectorAll('.add-item-btn').forEach(b => b.addEventListener('click', () => {
       const p = PARTS_CATALOG[parseInt(b.dataset.i)]
@@ -165,18 +169,36 @@ export default async function RepairEstimatePage(container) {
     }))
     document.getElementById('send-est-btn')?.addEventListener('click', async () => {
       customer = document.getElementById('est-customer')?.value || customer
+      phone = document.getElementById('est-phone')?.value || phone
       if (!customer) { showToast('❗ กรอกชื่อลูกค้าก่อนส่ง', 'error'); return }
       const btn = document.getElementById('send-est-btn')
       if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>' }
       try {
         await createDoc('repair_estimates', {
-          customer, plate,
+          customer, phone, plate,
           items: items.map(i => ({ name: i.name, price: i.price, hours: i.hours, qty: i.qty })),
           discount, partsTotal, laborHours, laborTotal, subtotal, discountAmt, vat, grand,
           status: 'sent',
         })
-        showToast(`📤 ส่งใบประเมิน ${formatCurrency(grand)} ให้ ${customer} ทาง LINE — รอลูกค้ากดอนุมัติ`, 'success')
-        items = []; discount = 0
+        // เดิม toast อ้างว่าส่งให้ลูกค้าทาง LINE ให้กดอนุมัติ แต่ไม่มีการส่งจริงและไม่มีระบบให้ลูกค้ากดอนุมัติออนไลน์เลย
+        // ตัวเลือก LINE จริงในระบบ (sendLineBroadcast) เป็น broadcast ทั้งฐานลูกค้าเท่านั้น ส่งเจาะรายบุคคลไม่ได้
+        // แก้ให้ส่ง SMS จริงถ้ามีเบอร์ ไม่มีเบอร์ก็บันทึกใบประเมินไว้แต่บอกตรงๆว่ายังไม่ได้แจ้งลูกค้า
+        let smsSent = false
+        if (phone) {
+          try {
+            await sendSms([phone], `ใบประเมินราคาซ่อม LAMOM: ${formatCurrency(grand)} (รวม VAT) กรุณาโทรกลับเพื่อยืนยันการซ่อม`)
+            smsSent = true
+          } catch {}
+        }
+        showToast(
+          smsSent
+            ? `📤 บันทึกใบประเมิน ${formatCurrency(grand)} และส่ง SMS แจ้ง ${customer} แล้ว — รอโทรยืนยัน`
+            : phone
+              ? `⚠️ บันทึกใบประเมินแล้ว แต่ส่ง SMS แจ้ง ${customer} ไม่สำเร็จ — กรุณาโทรแจ้งเอง`
+              : `📤 บันทึกใบประเมิน ${formatCurrency(grand)} แล้ว — ไม่มีเบอร์โทร กรุณาแจ้งลูกค้าเอง`,
+          smsSent || !phone ? 'success' : 'error'
+        )
+        items = []; discount = 0; phone = ''
         await loadEstimates()
       } catch {
         showToast('บันทึกใบประเมินไม่สำเร็จ', 'error')

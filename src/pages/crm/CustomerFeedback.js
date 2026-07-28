@@ -2,7 +2,8 @@ import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc } from '../../core/db.js'
+import { sendSms } from '../../utils/comms.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -59,6 +60,24 @@ export default async function CustomerFeedbackPage(container) {
       }))
       dataSource = 'live'
     }
+  } catch {}
+
+  // เดิม Feedback ที่พิมพ์เพิ่มเอง (openFeedbackForm) และคำตอบที่ตอบกลับ (openResponseModal) อยู่ใน
+  // หน่วยความจำเท่านั้น รีเฟรชหน้าแล้วหายทั้งคู่ — แก้ให้บันทึกจริงลง Firestore แล้วโหลดกลับมาซ้อนทับ
+  try {
+    const manual = await listDocs('customer_feedback', [], 'createdAt', 'desc', 300).catch(() => [])
+    if (container.__routerGen !== myGen) return
+    if (manual.length) feedbacks.push(...manual.map(m => ({ ...m, _persisted: true })))
+  } catch {}
+  try {
+    const responses = await listDocs('feedback_responses', [], 'createdAt', 'desc', 500).catch(() => [])
+    if (container.__routerGen !== myGen) return
+    const byFeedbackId = {}
+    responses.forEach(r => { byFeedbackId[r.feedbackId] = r })
+    feedbacks.forEach(f => {
+      const r = byFeedbackId[f.id]
+      if (r) { f.responded = true; f.response = r.response }
+    })
   } catch {}
 
   function filtered() {
@@ -289,18 +308,27 @@ export default async function CustomerFeedbackPage(container) {
           <textarea class="input" id="resp-text" rows="4" placeholder="พิมพ์ข้อความตอบกลับ...">${f.score >= 4 ? 'ขอบคุณมากครับสำหรับ Feedback ดีๆ ยินดีให้บริการเสมอครับ 😊' : 'ขออภัยในความไม่สะดวกครับ ทีมงานจะรีบดำเนินการแก้ไขและติดต่อกลับโดยเร็วครับ'}</textarea>
         </div>
         <div style="margin-top:10px;display:flex;gap:8px">
-          <label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;cursor:pointer"><input type="checkbox" id="resp-line" checked> ส่งผ่าน LINE</label>
-          <label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;cursor:pointer"><input type="checkbox" id="resp-sms"> SMS</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;cursor:pointer"><input type="checkbox" id="resp-sms" ${f.phone?'checked':'disabled'}> ส่ง SMS${f.phone?'':' (ไม่มีเบอร์โทร)'}</label>
         </div>
       `,
-      confirmLabel: '💬 ส่งคำตอบ',
+      confirmLabel: '💬 บันทึกคำตอบ',
       confirmClass: 'btn-primary',
-      onConfirm() {
+      async onConfirm() {
+        // เดิมมีตัวเลือก "ส่งผ่าน LINE" ด้วย แต่ LINE ที่เชื่อมจริงเป็น broadcast ทั้งฐานลูกค้าเท่านั้น ส่งเจาะ
+        // ลูกค้ารายเดียวไม่ได้ (ถ้าเผลอเชื่อมจะกลายเป็นส่งคำตอบของลูกค้าคนนี้ไปให้ลูกค้าทุกคน) ตัดออก ใช้ SMS
+        // จริงแทน และคำตอบไม่เคยถูกบันทึกจริงเลย (แค่ set ในหน่วยความจำ) แก้ให้บันทึกจริงลง Firestore
         const txt = document.getElementById('resp-text')?.value?.trim()
         if (!txt) { showToast('❗ กรุณากรอกข้อความ', 'error'); return }
-        f.responded = true; f.response = txt
-        showToast(`✅ ตอบกลับ ${f.customerName} แล้ว!`, 'success')
-        renderPage()
+        const wantSms = document.getElementById('resp-sms')?.checked && f.phone
+        try {
+          await createDoc('feedback_responses', { feedbackId: f.id, customerName: f.customerName, response: txt })
+          if (wantSms) {
+            try { await sendSms([f.phone], txt) } catch { showToast('บันทึกคำตอบแล้ว แต่ส่ง SMS ไม่สำเร็จ', 'error') }
+          }
+          f.responded = true; f.response = txt
+          showToast(`✅ บันทึกคำตอบให้ ${f.customerName} แล้ว${wantSms ? ' และส่ง SMS แล้ว' : ''}`, 'success')
+          renderPage()
+        } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }
@@ -330,11 +358,10 @@ export default async function CustomerFeedbackPage(container) {
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">ความเห็น</label><textarea class="input" id="fbf-comment" rows="3" placeholder="ความเห็นของลูกค้า..."></textarea></div>
         </div>
       `,
-      onConfirm() {
+      async onConfirm() {
         const name = document.getElementById('fbf-name')?.value?.trim()
         if (!name) { showToast('❗ กรุณากรอกชื่อลูกค้า', 'error'); return }
-        feedbacks.unshift({
-          id: `FB${String(feedbacks.length+1).padStart(3,'0')}`,
+        const newFb = {
           type: document.getElementById('fbf-type')?.value || 'csat',
           customerId: '', customerName: name,
           phone: document.getElementById('fbf-phone')?.value || '',
@@ -344,9 +371,13 @@ export default async function CustomerFeedbackPage(container) {
           date: new Date().toISOString().slice(0, 10),
           salesperson: document.getElementById('fbf-sales')?.value || '',
           responded: false, response: ''
-        })
-        showToast('✅ บันทึก Feedback แล้ว!', 'success')
-        renderPage()
+        }
+        try {
+          const id = await createDoc('customer_feedback', newFb)
+          feedbacks.unshift({ id, ...newFb, _persisted: true })
+          showToast('✅ บันทึก Feedback แล้ว!', 'success')
+          renderPage()
+        } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }

@@ -2,7 +2,7 @@ import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
-import { getSalesData } from '../../core/db.js'
+import { getSalesData, listDocs, createDoc, updateDocData } from '../../core/db.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -50,6 +50,11 @@ export default async function TaxReportPage(container) {
   let tab = 'filings'
   let filingFilter = 'all'
   let liveVatBase = null
+  // เดิมสถานะ "ยื่นแล้ว/ยื่นช้า" ที่กดจากปุ่มในหน้านี้อยู่ใน DEMO_FILINGS (ตัวแปร module-level) ในหน่วยความจำ
+  // เท่านั้น รีเฟรชหน้าแล้วหายทุกครั้ง (ทีมบัญชีคิดว่ายื่นแล้วแต่ระบบไม่จำ) แก้ให้บันทึกจริงลง Firestore
+  // collection ใหม่ tax_filings — filing จาก DEMO_FILINGS ใช้ baseId อ้างกลับ ส่วน filing ที่สร้างเองใหม่
+  // ถือเป็นเอกสารของตัวเอง ไม่มี baseId
+  let filings = DEMO_FILINGS.map(f => ({ ...f }))
 
   try {
     const sales = await getSalesData().catch(() => [])
@@ -61,14 +66,29 @@ export default async function TaxReportPage(container) {
       if (currSales.length) {
         const totalRev = currSales.reduce((a, s) => a + (s.salePrice || 0), 0)
         liveVatBase = { taxBase: Math.round(totalRev / 1.07), vatAmount: Math.round(totalRev / 1.07 * 0.07) }
-        const pp30 = DEMO_FILINGS.find(f => f.type === 'pp30' && f.period === thisMonth)
+        const pp30 = filings.find(f => f.type === 'pp30' && f.period === thisMonth)
         if (pp30) { pp30.taxBase = liveVatBase.taxBase; pp30.vatAmount = liveVatBase.vatAmount }
       }
     }
   } catch {}
 
+  try {
+    const filingDocs = await listDocs('tax_filings', [], 'createdAt', 'desc', 300)
+    if (container.__routerGen !== myGen) return
+    filingDocs.slice().reverse().forEach(fd => {
+      if (fd.baseId) {
+        const base = filings.find(x => x.id === fd.baseId)
+        if (base) { base.status = fd.status; base.filedDate = fd.filedDate }
+      } else {
+        const existing = filings.find(x => x.id === fd.id)
+        if (existing) Object.assign(existing, fd, { id: fd.id })
+        else filings.push({ ...fd, _custom: true })
+      }
+    })
+  } catch {}
+
   function filteredFilings() {
-    return DEMO_FILINGS.filter(f => filingFilter === 'all' || f.status === filingFilter)
+    return filings.filter(f => filingFilter === 'all' || f.status === filingFilter)
       .sort((a, b) => b.dueDate.localeCompare(a.dueDate))
   }
 
@@ -80,10 +100,10 @@ export default async function TaxReportPage(container) {
   }
 
   function renderPage() {
-    const filings = filteredFilings()
-    const pending = DEMO_FILINGS.filter(f => f.status === 'pending').length
-    const overdue = DEMO_FILINGS.filter(f => isOverdue(f)).length
-    const totalVat = DEMO_FILINGS.reduce((a, f) => a + f.vatAmount, 0)
+    const filteredList = filteredFilings()
+    const pending = filings.filter(f => f.status === 'pending').length
+    const overdue = filings.filter(f => isOverdue(f)).length
+    const totalVat = filings.reduce((a, f) => a + f.vatAmount, 0)
     const totalWH = DEMO_INVOICES.reduce((a, i) => a + i.withheld, 0)
 
     container.innerHTML = `
@@ -112,7 +132,7 @@ export default async function TaxReportPage(container) {
           ${[['filings','📋 รายการยื่น'],['invoices','🧾 ใบกำกับภาษี'],['calendar','📅 ปฏิทินภาษี']].map(([t,l]) => `<button class="tab-btn ${tab===t?'active':''}" data-tab="${t}">${l}</button>`).join('')}
         </div>
 
-        ${tab === 'filings' ? renderFilings(filings) : tab === 'invoices' ? renderInvoices() : renderCalendar()}
+        ${tab === 'filings' ? renderFilings(filteredList) : tab === 'invoices' ? renderInvoices() : renderCalendar()}
       </div>
     `
 
@@ -120,15 +140,23 @@ export default async function TaxReportPage(container) {
     container.querySelectorAll('.ff-btn').forEach(b => b.addEventListener('click', () => { filingFilter = b.dataset.f; renderPage() }))
     document.getElementById('add-filing-btn')?.addEventListener('click', openFilingForm)
     document.getElementById('export-btn')?.addEventListener('click', () => {
-      exportToExcel(DEMO_FILINGS.map(f => ({ ID: f.id, ประเภท: TAX_TYPES[f.type]?.label, งวด: f.period, ครบกำหนด: f.dueDate, สถานะ: FILING_STATUS[f.status]?.label, 'ฐานภาษี': f.taxBase, 'ภาษี': f.vatAmount })), 'tax_report')
+      exportToExcel(filings.map(f => ({ ID: f.id, ประเภท: TAX_TYPES[f.type]?.label, งวด: f.period, ครบกำหนด: f.dueDate, สถานะ: FILING_STATUS[f.status]?.label, 'ฐานภาษี': f.taxBase, 'ภาษี': f.vatAmount })), 'tax_report')
       showToast('📥 Export แล้ว!', 'success')
     })
     container.querySelectorAll('.open-filing-btn').forEach(b => b.addEventListener('click', () => {
-      const f = DEMO_FILINGS.find(x => x.id === b.dataset.id); if (f) openFilingDetail(f)
+      const f = filings.find(x => x.id === b.dataset.id); if (f) openFilingDetail(f)
     }))
-    container.querySelectorAll('.file-now-btn').forEach(b => b.addEventListener('click', () => {
-      const f = DEMO_FILINGS.find(x => x.id === b.dataset.id)
-      if (f) { f.status = isOverdue(f) ? 'late' : 'filed'; f.filedDate = today; showToast(`✅ บันทึกการยื่น ${TAX_TYPES[f.type]?.label} แล้ว`, 'success'); renderPage() }
+    container.querySelectorAll('.file-now-btn').forEach(b => b.addEventListener('click', async () => {
+      const f = filings.find(x => x.id === b.dataset.id)
+      if (!f) return
+      const newStatus = isOverdue(f) ? 'late' : 'filed'
+      try {
+        if (f._custom) await updateDocData('tax_filings', f.id, { status: newStatus, filedDate: today })
+        else await createDoc('tax_filings', { baseId: f.id, status: newStatus, filedDate: today })
+        f.status = newStatus; f.filedDate = today
+        showToast(`✅ บันทึกการยื่น ${TAX_TYPES[f.type]?.label} แล้ว`, 'success')
+        renderPage()
+      } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
   }
 
@@ -249,12 +277,18 @@ export default async function TaxReportPage(container) {
       footer: f.status === 'pending' ? `<button class="btn btn-success mark-filed-btn" data-id="${f.id}">✓ บันทึกว่ายื่นแล้ว</button>` : ''
     })
     setTimeout(() => {
-      document.querySelector('.modal .mark-filed-btn')?.addEventListener('click', () => {
-        const filing = DEMO_FILINGS.find(x => x.id === f.id)
-        if (filing) { filing.status = isOverdue(filing) ? 'late' : 'filed'; filing.filedDate = today }
-        document.querySelector('.modal-close-btn')?.click()
-        showToast('✅ บันทึกการยื่นแล้ว!', 'success')
-        renderPage()
+      document.querySelector('.modal .mark-filed-btn')?.addEventListener('click', async () => {
+        const filing = filings.find(x => x.id === f.id)
+        if (!filing) return
+        const newStatus = isOverdue(filing) ? 'late' : 'filed'
+        try {
+          if (filing._custom) await updateDocData('tax_filings', filing.id, { status: newStatus, filedDate: today })
+          else await createDoc('tax_filings', { baseId: filing.id, status: newStatus, filedDate: today })
+          filing.status = newStatus; filing.filedDate = today
+          document.querySelector('.modal-close-btn')?.click()
+          showToast('✅ บันทึกการยื่นแล้ว!', 'success')
+          renderPage()
+        } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
       })
     }, 50)
   }
@@ -278,21 +312,24 @@ export default async function TaxReportPage(container) {
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">หมายเหตุ</label><textarea class="input" id="ff-notes" rows="2" placeholder="บันทึกเพิ่มเติม..."></textarea></div>
         </div>
       `,
-      onConfirm() {
+      async onConfirm() {
         const type = document.getElementById('ff-type')?.value
         const period = document.getElementById('ff-period')?.value
         if (!type || !period) { showToast('❗ กรุณากรอกข้อมูลที่จำเป็น', 'error'); return }
-        DEMO_FILINGS.unshift({
-          id: `TX${String(DEMO_FILINGS.length+1).padStart(3,'0')}`, type,
-          period, dueDate: document.getElementById('ff-due')?.value||'',
+        const newFiling = {
+          type, period, dueDate: document.getElementById('ff-due')?.value||'',
           filedDate: null, status: 'pending',
           taxBase: +document.getElementById('ff-base')?.value||0,
           vatAmount: +document.getElementById('ff-tax')?.value||0,
           refundable: 0, notes: document.getElementById('ff-notes')?.value||'',
           officer: 'นิภา บัญชีดี'
-        })
-        showToast('✅ บันทึกการยื่นภาษีแล้ว!', 'success')
-        renderPage()
+        }
+        try {
+          const id = await createDoc('tax_filings', newFiling)
+          filings.unshift({ id, ...newFiling, _custom: true })
+          showToast('✅ บันทึกการยื่นภาษีแล้ว!', 'success')
+          renderPage()
+        } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }

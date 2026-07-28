@@ -152,8 +152,10 @@ export default async function VipClubPage(container) {
           </select></div>`,
         confirmText: '🎁 มอบสิทธิ์',
         onConfirm() {
+          // เดิม toast อ้างว่า "แจ้งทาง LINE" แต่ไม่มีการส่งจริง และ VIP ไม่มีเบอร์โทรในระบบให้ส่ง SMS แทนได้
+          // (ต่างจาก birthday/churn ที่มีเบอร์จากยอดขาย) แก้ให้บอกตรงตามที่ทำจริง — บันทึกในระบบเท่านั้น
           v.perks_used++; v.lastContact = addDays(0)
-          showToast(`🎁 มอบสิทธิ์ให้ ${v.name} แล้ว — แจ้งทาง LINE`, 'success'); renderPage()
+          showToast(`🎁 บันทึกมอบสิทธิ์ให้ ${v.name} แล้ว — กรุณาแจ้งลูกค้าเอง (ยังไม่เชื่อมระบบส่งข้อความอัตโนมัติ)`, 'success'); renderPage()
         }
       })
     }))

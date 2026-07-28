@@ -164,11 +164,13 @@ export default async function QrVehiclePage(container) {
 
         ${v.promo ? `<div style="background:var(--success)22;padding:8px 10px;border-radius:var(--radius-sm);font-size:0.76rem;margin-top:10px">${escHtml(v.promo)}</div>` : ''}
         <div style="font-size:0.62rem;color:var(--text-muted);margin-top:8px">VIN: ${escHtml(v.vin)}</div>`,
-      confirmText: '📤 ส่งให้ลูกค้า',
+      confirmText: '✅ บันทึกว่าให้ลูกค้าดูแล้ว',
       async onConfirm() {
+        // เดิมอ้างว่าส่งข้อมูลรถให้ลูกค้าทาง LINE แต่ไม่มีการส่งจริง และฟีเจอร์นี้ออกแบบมาให้ลูกค้าสแกน QR
+        // ที่ติดรถเองอยู่แล้ว (ไม่ใช่ push แจ้งไปหาลูกค้า) แก้ข้อความให้ตรงกับสิ่งที่ระบบทำจริง
         try {
           await updateDocData('stock', v.id, { sentToCustomer: true, sentAt: new Date().toISOString() })
-          showToast(`📤 ส่งข้อมูล ${v.model} · VIN ${v.vin.slice(-6)} ให้ลูกค้าทาง LINE แล้ว`, 'success')
+          showToast(`✅ บันทึกว่าแสดงข้อมูล ${v.model} · VIN ${v.vin.slice(-6)} ให้ลูกค้าดูแล้ว`, 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }

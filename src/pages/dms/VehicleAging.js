@@ -5,7 +5,15 @@
 import { formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, updateDocData, createDoc, seedDemoData } from '../../core/db.js'
+
+const SALES_NOTIFY_ROLES = ['sales', 'manager', 'owner', 'admin']
+async function notifySalesTeam(title, body, link) {
+  const users = await listDocs('users', [], 'createdAt', 'desc', 500).catch(() => [])
+  const targets = users.filter(u => u.uid && SALES_NOTIFY_ROLES.includes(u.role))
+  await Promise.all(targets.map(u => createDoc('notifications', { type: 'system', title, body, userId: u.uid, read: false, link }).catch(() => {})))
+  return targets.length
+}
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -142,7 +150,10 @@ export default async function VehicleAgingPage(container) {
       const targets = rows.filter(r => r.days > 60)
       try {
         await Promise.all(targets.map(r => updateDocData('stock', r.id, { pushed: true })))
-        showToast(`📣 ส่งรายการรถค้างเกิน 60 วัน (${targets.length} คัน) ให้ทีมเซลส์ทาง LINE แล้ว`, 'success')
+        // เดิม toast อ้างว่าส่งทาง LINE แต่ไม่มีการส่งจริงเลย แก้ให้สร้างการแจ้งเตือนจริงในระบบ (notifications)
+        // ให้ทีมเซลส์/ผู้จัดการเห็นจริงตอนเข้าระบบ (ไม่ใช้ LINE broadcast เพราะจะกระจายไปลูกค้าทั้งหมดไม่ใช่แค่ทีมงาน)
+        const count = await notifySalesTeam('⏳ รถค้างสต็อกเกิน 60 วัน', `มีรถค้างสต็อก ${targets.length} คัน ควรเร่งระบาย — ${targets.slice(0,5).map(r=>r.model).join(', ')}${targets.length>5?' และอื่นๆ':''}`, '/dms/aging')
+        showToast(`📣 ส่งการแจ้งเตือนรถค้างเกิน 60 วัน (${targets.length} คัน) ให้ทีมเซลส์ ${count} คนแล้ว`, 'success')
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })

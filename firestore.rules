@@ -159,6 +159,18 @@ service cloud.firestore {
       allow read, write: if isStaff();
     }
 
+    match /tax_filings/{docId} {
+      allow read, write: if isStaff();
+    }
+
+    match /feedback_responses/{docId} {
+      allow read, write: if isStaff();
+    }
+
+    match /customer_feedback/{docId} {
+      allow read, write: if isStaff();
+    }
+
     // แชทกลุ่ม (general/sales/service/management/announcements) เปิดให้ staff ทุกคนอ่าน/เขียนเหมือนเดิม
     // ยกเว้นข้อความ DM ส่วนตัว (channel ขึ้นต้นด้วย "dm_") ที่ต้องเป็นคู่สนทนา (participants) เท่านั้นถึงอ่าน/เขียนได้
     match /comm_messages/{docId} {

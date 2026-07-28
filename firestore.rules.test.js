@@ -889,3 +889,30 @@ describe('greeting_sends — birthday/anniversary send log', () => {
     await assertSucceeds(db.collection('greeting_sends').get())
   })
 })
+
+describe('tax_filings — persisted filing status log', () => {
+  it('a staff member can log and read a filing status change', async () => {
+    await seedUser('auditGap59', { role: 'finance', active: true })
+    const db = testEnv.authenticatedContext('auditGap59').firestore()
+    await assertSucceeds(db.collection('tax_filings').add({ baseId: 'TX001', status: 'filed', filedDate: '2026-07-28' }))
+    await assertSucceeds(db.collection('tax_filings').get())
+  })
+})
+
+describe('feedback_responses — persisted customer feedback replies', () => {
+  it('a staff member can log and read a feedback response', async () => {
+    await seedUser('auditGap60', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap60').firestore()
+    await assertSucceeds(db.collection('feedback_responses').add({ feedbackId: 'FB001', customerName: 'x', response: 'ขอบคุณครับ' }))
+    await assertSucceeds(db.collection('feedback_responses').get())
+  })
+})
+
+describe('customer_feedback — manually-added feedback entries', () => {
+  it('a staff member can log and read a manual feedback entry', async () => {
+    await seedUser('auditGap61', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap61').firestore()
+    await assertSucceeds(db.collection('customer_feedback').add({ customerName: 'x', type: 'csat', score: 5 }))
+    await assertSucceeds(db.collection('customer_feedback').get())
+  })
+})
