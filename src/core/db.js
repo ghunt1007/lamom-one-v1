@@ -250,7 +250,7 @@ export async function getSalesData() {
     .map(b => ({
       id: b.id, bookingNo: b.bookingNo,
       date: b.actualDeliveryDate || b.cutDate || b.bookingDate || (b.createdAt || '').slice(0, 10),
-      custName: b.custName, brand: b.brand, model: ((b.model || '') + ' ' + (b.variant || '')).trim(), plate: b.vin || '',
+      custName: b.custName, phone: b.phone || '', brand: b.brand, model: ((b.model || '') + ' ' + (b.variant || '')).trim(), plate: b.vin || '',
       salePrice: b.price || 0, cost: b.cost || 0, financeAmount: b.financeAmount || 0,
       finance: b.comFinance || 0, insurance: 0, accessory: 0, discount: 0,
       margin: b.margin || 0, marginLeft: b.marginLeft || 0, totalIncome: b.totalIncome || 0,

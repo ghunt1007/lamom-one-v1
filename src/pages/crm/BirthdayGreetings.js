@@ -5,7 +5,8 @@
 import { formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { getSalesData } from '../../core/db.js'
+import { getSalesData, listDocs, createDoc } from '../../core/db.js'
+import { sendSms } from '../../utils/comms.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -50,16 +51,23 @@ export default async function BirthdayGreetingsPage(container) {
     // (ระบบยังไม่มีฟิลด์วันเกิดลูกค้า จึงคำนวณได้เฉพาะ "ครบรอบซื้อรถ" จากวันที่ส่งมอบจริงเท่านั้น
     // DEMO_EVENTS ใช้เป็นตัวอย่างก็ต่อเมื่อยังไม่มีใบจองที่ส่งมอบแล้วเลย)
     if (delivered.length) {
+      // เช็คว่าครบรอบปีนี้ของลูกค้าคนนี้ ส่งไปแล้วจริงหรือยัง (greeting_sends) — เดิมเป็น sent:false
+      // ในหน่วยความจำเฉยๆ รีเฟรชหน้าแล้วหายหมด ไม่รู้เลยว่าส่งไปแล้วหรือยัง
+      const sentLog = await listDocs('greeting_sends', [], 'sentAt', 'desc', 1000).catch(() => [])
+      const sentKey = (name, date) => `${name}|${date}`
+      const sentSet = new Set(sentLog.map(l => sentKey(l.customer, l.eventDate)))
       events = delivered.map((s, i) => {
         const delivDate = s.deliveryDate || s.bookingDate || ''
         const yearsAgo = delivDate ? Math.floor((Date.now() - new Date(delivDate).getTime()) / (365.25 * 86400000)) : 1
         const annivDate = delivDate ? (() => {
           const d = new Date(delivDate); d.setFullYear(new Date().getFullYear()); return d.toISOString().slice(0, 10)
         })() : t0.iso
+        const customer = s.customerName || s.custName || 'ลูกค้า'
+        const already = sentLog.find(l => l.customer === customer && l.eventDate === annivDate)
         return {
-          id: `LV${i+1}`, customer: s.customerName || s.custName || 'ลูกค้า',
+          id: `LV${i+1}`, customer,
           phone: s.phone || '', type: 'anniversary', date: annivDate,
-          model: s.model || '', sent: false, channel: 'LINE',
+          model: s.model || '', sent: sentSet.has(sentKey(customer, annivDate)), channel: already?.channel || 'SMS',
           note: `ครบ ${yearsAgo} ปี`,
         }
       })
@@ -132,29 +140,66 @@ export default async function BirthdayGreetingsPage(container) {
     container.querySelectorAll('.send-btn').forEach(b => b.addEventListener('click', () => {
       const e = events.find(x => x.id === b.dataset.id); if (e) openSendModal(e)
     }))
-    document.getElementById('send-all-btn')?.addEventListener('click', () => {
-      events.filter(e => groupOf(e) === 'today' && !e.sent).forEach(e => { e.sent = true })
-      showToast('📤 ส่งคำอวยพรทั้งหมดแล้ว!', 'success'); renderPage()
+    document.getElementById('send-all-btn')?.addEventListener('click', async () => {
+      const targets = events.filter(e => groupOf(e) === 'today' && !e.sent)
+      if (dataSource !== 'live') {
+        targets.forEach(e => { e.sent = true })
+        showToast('📤 ส่งคำอวยพรทั้งหมดแล้ว! (ตัวอย่างข้อมูล)', 'success'); renderPage()
+        return
+      }
+      const withPhone = targets.filter(e => e.phone)
+      if (!withPhone.length) { showToast('❗ ไม่มีเบอร์โทรลูกค้ากลุ่มนี้ในระบบ', 'warning'); return }
+      let ok = 0
+      for (const e of withPhone) {
+        const msg = buildGreetingMsg(e)
+        try {
+          await sendSms([e.phone], msg)
+          await createDoc('greeting_sends', { customer: e.customer, phone: e.phone, eventDate: e.date, type: e.type, channel: 'SMS', sentAt: new Date().toISOString() })
+          e.sent = true; e.channel = 'SMS'; ok++
+        } catch { /* ส่งไม่สำเร็จรายนี้ ข้ามไปรายต่อไป */ }
+      }
+      showToast(ok ? `📤 ส่งคำอวยพรสำเร็จ ${ok}/${withPhone.length} ราย` : '❗ ส่งไม่สำเร็จเลย — ตรวจสอบว่าตั้งค่าผู้ให้บริการ SMS แล้วหรือยัง', ok ? 'success' : 'error')
+      renderPage()
     })
   }
 
+  function buildGreetingMsg(e) {
+    return GREETING_TEMPLATES[e.type].replace('[ชื่อ]', e.customer.split(' ')[0]).replace('[รุ่นรถ]', e.model).replace('[ปี]', e.note?.match(/\d+/)?.[0] || '1')
+  }
+
   function openSendModal(e) {
-    const tpl = GREETING_TEMPLATES[e.type].replace('[ชื่อ]', escHtml(e.customer.split(' ')[0])).replace('[รุ่นรถ]', escHtml(e.model)).replace('[ปี]', e.note?.match(/\d+/)?.[0] || '1')
+    const tpl = buildGreetingMsg(e)
+    const isLive = dataSource === 'live'
     openModal({
       title: '📤 ส่งคำอวยพร: ' + escHtml(e.customer),
       size: 'sm',
       body: `<div style="display:grid;gap:10px">
         <div class="input-group"><label class="input-label">ช่องทาง</label>
-          <select class="input" id="gr-channel"><option ${e.channel==='LINE'?'selected':''}>LINE</option><option ${e.channel==='SMS'?'selected':''}>SMS</option></select>
+          ${isLive
+            ? `<input class="input" value="SMS" disabled><div style="font-size:0.68rem;color:var(--text-muted);margin-top:4px">ส่งเจาะจงถึงลูกค้ารายนี้ได้แค่ SMS เท่านั้น — LINE ในระบบตอนนี้รองรับแค่ broadcast ถึงลูกค้าทั้งหมด ยังส่งเฉพาะรายคนไม่ได้ ถ้าใช้ LINE จะกลายเป็นส่งอวยพรคนนี้ไปให้ลูกค้าทุกคนโดยไม่ตั้งใจ</div>`
+            : `<select class="input" id="gr-channel"><option ${e.channel==='LINE'?'selected':''}>LINE</option><option ${e.channel==='SMS'?'selected':''}>SMS</option></select>`}
         </div>
         <div class="input-group"><label class="input-label">ข้อความ</label>
-          <textarea class="input" id="gr-msg" rows="4">${tpl}</textarea>
+          <textarea class="input" id="gr-msg" rows="4">${escHtml(tpl)}</textarea>
         </div>
+        ${isLive && !e.phone ? `<div style="font-size:0.7rem;color:var(--danger)">⚠️ ไม่มีเบอร์โทรลูกค้ารายนี้ในระบบ ส่งไม่ได้</div>` : ''}
       </div>`,
       confirmText: '📤 ส่ง',
-      onConfirm() {
-        e.sent = true; e.channel = document.getElementById('gr-channel')?.value || e.channel
-        showToast(`✅ ส่งคำอวยพรถึง ${e.customer} ทาง ${e.channel} แล้ว`, 'success'); renderPage()
+      async onConfirm() {
+        const msg = document.getElementById('gr-msg')?.value || tpl
+        if (!isLive) {
+          e.sent = true; e.channel = document.getElementById('gr-channel')?.value || e.channel
+          showToast(`✅ ส่งคำอวยพรถึง ${e.customer} ทาง ${e.channel} แล้ว (ตัวอย่างข้อมูล)`, 'success'); renderPage()
+          return
+        }
+        if (!e.phone) { showToast('❗ ไม่มีเบอร์โทรลูกค้ารายนี้', 'error'); return false }
+        try {
+          await sendSms([e.phone], msg)
+          await createDoc('greeting_sends', { customer: e.customer, phone: e.phone, eventDate: e.date, type: e.type, channel: 'SMS', sentAt: new Date().toISOString() })
+          e.sent = true; e.channel = 'SMS'
+          showToast(`✅ ส่งคำอวยพรถึง ${e.customer} ทาง SMS แล้ว`, 'success')
+        } catch (err) { showToast('❗ ส่งไม่สำเร็จ — ' + (err.message || 'ตรวจสอบว่าตั้งค่าผู้ให้บริการ SMS แล้วหรือยัง'), 'error'); return false }
+        renderPage()
       }
     })
   }

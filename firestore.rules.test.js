@@ -880,3 +880,12 @@ describe('comm_messages — group channels stay open, DM channels restricted to 
     await assertSucceeds(db.collection('comm_messages').doc('dm2').get())
   })
 })
+
+describe('greeting_sends — birthday/anniversary send log', () => {
+  it('a staff member can log and read a greeting send', async () => {
+    await seedUser('auditGap58', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('auditGap58').firestore()
+    await assertSucceeds(db.collection('greeting_sends').add({ customer: 'x', phone: '0800000000', eventDate: '2026-07-27', channel: 'SMS' }))
+    await assertSucceeds(db.collection('greeting_sends').get())
+  })
+})

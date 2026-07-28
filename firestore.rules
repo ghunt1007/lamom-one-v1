@@ -154,6 +154,11 @@ service cloud.firestore {
       allow read, write: if isStaff();
     }
 
+    // บันทึกว่าส่งคำอวยพรวันเกิด/ครบรอบให้ลูกค้ารายไหนไปแล้ว (กันส่งซ้ำ+รีเฟรชแล้วข้อมูลไม่หาย)
+    match /greeting_sends/{docId} {
+      allow read, write: if isStaff();
+    }
+
     // แชทกลุ่ม (general/sales/service/management/announcements) เปิดให้ staff ทุกคนอ่าน/เขียนเหมือนเดิม
     // ยกเว้นข้อความ DM ส่วนตัว (channel ขึ้นต้นด้วย "dm_") ที่ต้องเป็นคู่สนทนา (participants) เท่านั้นถึงอ่าน/เขียนได้
     match /comm_messages/{docId} {
