@@ -424,9 +424,14 @@ export default async function BookingsPage(container) {
         </div>`
       }).join('')
     document.body.appendChild(pop)
+    // เดิมกดตัวเลือกในป็อปอัพจะ pop.remove() ตรงๆ โดยไม่เคย removeEventListener('click', onDocClick) เลย
+    // ทำให้ listener บน document ค้างอยู่ (จะหลุดออกเองก็ต่อเมื่อมีคนคลิกที่อื่นอีกครั้ง) แก้ให้มีจุดปิดเดียว
+    // ที่เคลียร์ทั้งป็อปอัพและ listener พร้อมกันเสมอไม่ว่าจะปิดจากทางไหน
+    function closePop() { pop.remove(); document.removeEventListener('click', onDocClick) }
+    function onDocClick(e) { if (!pop.contains(e.target)) closePop() }
     pop.querySelectorAll('.bk-qk-opt').forEach(opt => opt.addEventListener('click', async () => {
       const newStatus = opt.dataset.s
-      pop.remove()
+      closePop()
       if (newStatus === b.status) return
       if (newStatus === 'ถอนจอง') { openWithdrawModal(b); return }
       try {
@@ -437,10 +442,7 @@ export default async function BookingsPage(container) {
         render()
       } catch { showToast('อัปเดตไม่สำเร็จ', 'error') }
     }))
-    setTimeout(() => {
-      function onDocClick(e) { if (!pop.contains(e.target)) { pop.remove(); document.removeEventListener('click', onDocClick) } }
-      document.addEventListener('click', onDocClick)
-    }, 30)
+    setTimeout(() => { document.addEventListener('click', onDocClick) }, 30)
   }
 
   function copySummary(b) {

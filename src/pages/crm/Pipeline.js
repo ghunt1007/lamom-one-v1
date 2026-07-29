@@ -179,20 +179,22 @@ export default async function PipelinePage(container) {
       </div>
     `
     document.body.appendChild(popup)
-    popup.querySelector('#qp-close').addEventListener('click', () => popup.remove())
-    popup.querySelector('#qp-detail').addEventListener('click', () => { popup.remove(); navigate('/crm/customers') })
+    // เดิมปุ่มปิด/ดูรายละเอียด/เลื่อนสถานะ popup.remove() ตรงๆ ไม่เคย removeEventListener('click', h) เลย
+    // ทำให้ listener บน document ค้างอยู่จนกว่าจะมีคนคลิกที่อื่นอีกครั้ง แก้ให้มีจุดปิดเดียวที่เคลียร์ทั้งคู่เสมอ
+    function closePopup() { popup.remove(); document.removeEventListener('click', onDocClick) }
+    function onDocClick(e) { if (!popup.contains(e.target)) closePopup() }
+    popup.querySelector('#qp-close').addEventListener('click', () => closePopup())
+    popup.querySelector('#qp-detail').addEventListener('click', () => { closePopup(); navigate('/crm/customers') })
     popup.querySelector('#qp-next')?.addEventListener('click', async () => {
       if (!nextStage) return
       try {
         c.stage = nextStage.key
         await updateDocData('customers', c.id, { stage: nextStage.key, stageChangedAt: new Date().toISOString() })
         showToast(`✅ เลื่อนเป็น ${nextStage.label}`, 'success')
-        popup.remove(); renderBoard()
+        closePopup(); renderBoard()
       } catch { showToast('เกิดข้อผิดพลาด', 'error') }
     })
-    setTimeout(() => document.addEventListener('click', function h(e) {
-      if (!popup.contains(e.target)) { popup.remove(); document.removeEventListener('click', h) }
-    }), 100)
+    setTimeout(() => document.addEventListener('click', onDocClick), 100)
   }
 
   container.innerHTML = `

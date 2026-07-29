@@ -73,6 +73,11 @@ export async function openNotifPanel(anchorEl) {
     setState('unreadCount', 0)
   })
 
+  // เดิมคลิกรายการแจ้งเตือน panel.remove() ตรงๆ ไม่เคย removeEventListener('click', handler) เลย ทำให้
+  // listener บน document ค้างอยู่จนกว่าจะมีคนคลิกที่อื่นอีกครั้ง แก้ให้มีจุดปิดเดียวที่เคลียร์ทั้งคู่เสมอ
+  function closePanel() { panel.remove(); document.removeEventListener('click', onDocClick) }
+  function onDocClick(e) { if (!panel.contains(e.target) && e.target.id !== 'notif-btn') closePanel() }
+
   // Mark single read on click
   panel.querySelectorAll('.notif-item').forEach(item => {
     item.addEventListener('mouseenter', () => { item.style.background = 'var(--surface-2)' })
@@ -85,19 +90,12 @@ export async function openNotifPanel(anchorEl) {
         item.querySelector('[style*="border-radius:50%"]')?.remove()
         setState('unreadCount', Math.max(0, panel.querySelectorAll('.unread').length))
       }
-      panel.remove()
+      closePanel()
       const n = notifs.find(x => x.id === item.dataset.id)
       if (n?.link) navigate(n.link)
     })
   })
 
   // Close on outside click
-  setTimeout(() => {
-    document.addEventListener('click', function handler(e) {
-      if (!panel.contains(e.target) && e.target.id !== 'notif-btn') {
-        panel.remove()
-        document.removeEventListener('click', handler)
-      }
-    })
-  }, 100)
+  setTimeout(() => { document.addEventListener('click', onDocClick) }, 100)
 }

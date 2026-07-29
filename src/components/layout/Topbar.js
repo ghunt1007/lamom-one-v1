@@ -164,9 +164,13 @@ function openCompanyFilter() {
     btn.addEventListener('mouseenter', () => btn.style.background = 'var(--surface-2)')
     btn.addEventListener('mouseleave', () => { if (!btn.classList.contains('company-opt-all') || !isAll) btn.style.background = 'transparent' })
   })
+  // เดิมปุ่มเลือกบริษัท div.remove() ตรงๆ ไม่เคย removeEventListener('click', handler) เลย ทำให้ listener
+  // บน document ค้างอยู่จนกว่าจะมีคนคลิกที่อื่นอีกครั้ง แก้ให้มีจุดปิดเดียวที่เคลียร์ทั้งคู่เสมอ
+  function closePanel() { div.remove(); document.removeEventListener('click', onDocClick) }
+  function onDocClick(e) { if (!div.contains(e.target) && e.target.id !== 'company-filter-btn') closePanel() }
   div.querySelector('.company-opt-all')?.addEventListener('click', () => {
     setActiveCompanyFilter(companies.map(c => c.id))
-    div.remove()
+    closePanel()
   })
   div.querySelectorAll('.company-opt').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -174,17 +178,12 @@ function openCompanyFilter() {
       const base = isAll ? [] : [...active]
       const next = base.includes(id) ? base.filter(x => x !== id) : [...base, id]
       setActiveCompanyFilter(next.length ? next : companies.map(c => c.id))
-      div.remove()
+      closePanel()
     })
   })
 
   document.body.appendChild(div)
-  setTimeout(() => document.addEventListener('click', function handler(e) {
-    if (!div.contains(e.target) && e.target.id !== 'company-filter-btn') {
-      div.remove()
-      document.removeEventListener('click', handler)
-    }
-  }), 100)
+  setTimeout(() => document.addEventListener('click', onDocClick), 100)
 }
 
 function openThemePicker() {
@@ -225,21 +224,20 @@ function openThemePicker() {
       </button>
     `).join('')}
   `
+  // เดิมเลือก Theme แล้ว div.remove() ตรงๆ ไม่เคย removeEventListener('click', handler) เลย ทำให้ listener
+  // บน document ค้างอยู่จนกว่าจะมีคนคลิกที่อื่นอีกครั้ง แก้ให้มีจุดปิดเดียวที่เคลียร์ทั้งคู่เสมอ
+  function closePicker() { div.remove(); document.removeEventListener('click', onDocClick) }
+  function onDocClick(e) { if (!div.contains(e.target) && e.target.id !== 'theme-btn') closePicker() }
   div.querySelectorAll('.theme-opt').forEach(btn => {
     btn.addEventListener('mouseenter', () => btn.style.background = 'var(--surface-2)')
     btn.addEventListener('mouseleave', () => btn.style.background = 'transparent')
     btn.addEventListener('click', () => {
       const { setTheme } = window.__lamomStore || {}
       import('../../core/store.js').then(m => m.setTheme(btn.dataset.theme))
-      div.remove()
+      closePicker()
     })
   })
 
   document.body.appendChild(div)
-  setTimeout(() => document.addEventListener('click', function handler(e) {
-    if (!div.contains(e.target) && e.target.id !== 'theme-btn') {
-      div.remove()
-      document.removeEventListener('click', handler)
-    }
-  }), 100)
+  setTimeout(() => document.addEventListener('click', onDocClick), 100)
 }
