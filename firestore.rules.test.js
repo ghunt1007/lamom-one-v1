@@ -1000,3 +1000,92 @@ describe('referrals — qualifying/paying a referral requires finance/manager', 
     await assertSucceeds(db.collection('referrals').doc('rl2').update({ status: 'paid' }))
   })
 })
+
+// v1.0.291 — เดิม rules ไม่เคยตรวจ "ค่าที่เขียนสมเหตุสมผลหรือไม่" เลยแม้แต่ field เดียว (เช็คแค่สิทธิ์ผู้เขียน)
+// เพิ่มเช็คขั้นต่ำสำหรับ field เงิน/จำนวนที่ไม่มีเหตุผลทางธุรกิจให้ติดลบได้ — ทดสอบทั้งด้าน "ค่าถูกต้องผ่าน
+// ได้ตามปกติ" และ "ค่าที่ไม่สมเหตุสมผลถูกบล็อกแม้ role ถูกต้อง"
+describe('numeric bounds — money/quantity fields cannot be written negative even by an authorized role', () => {
+  it('vehicles: staff can write a normal non-negative price/cost', async () => {
+    await seedUser('numBounds1', { role: 'staff', active: true })
+    const db = testEnv.authenticatedContext('numBounds1').firestore()
+    await assertSucceeds(db.collection('vehicles').add({ brand: 'BYD', model: 'Atto 3', price: 899000, cost: 750000 }))
+  })
+
+  it('vehicles: staff cannot write a negative price even with an otherwise-valid write', async () => {
+    await seedUser('numBounds2', { role: 'staff', active: true })
+    const db = testEnv.authenticatedContext('numBounds2').firestore()
+    await assertFails(db.collection('vehicles').add({ brand: 'BYD', model: 'Atto 3', price: -1, cost: 750000 }))
+  })
+
+  it('vehicles: staff cannot write a negative cost', async () => {
+    await seedUser('numBounds3', { role: 'staff', active: true })
+    const db = testEnv.authenticatedContext('numBounds3').firestore()
+    await assertFails(db.collection('vehicles').add({ brand: 'BYD', model: 'Atto 3', price: 899000, cost: -1 }))
+  })
+
+  it('bookings: staff can write a normal booking with non-negative price/down/refundAmount', async () => {
+    await seedUser('numBounds4', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('numBounds4').firestore()
+    await assertSucceeds(db.collection('bookings').add({ custName: 'A', price: 500000, down: 50000, financeAmount: 450000, refundAmount: 0 }))
+  })
+
+  it('bookings: staff cannot write a negative down payment', async () => {
+    await seedUser('numBounds5', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('numBounds5').firestore()
+    await assertFails(db.collection('bookings').add({ custName: 'A', price: 500000, down: -1000 }))
+  })
+
+  it('bookings: staff cannot write a negative refundAmount', async () => {
+    await seedUser('numBounds6', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('numBounds6').firestore()
+    await assertFails(db.collection('bookings').add({ custName: 'A', price: 500000, refundAmount: -500 }))
+  })
+
+  it('bookings: a negative discount/margin is still allowed (legitimate loss-making deal, not bounded)', async () => {
+    await seedUser('numBounds7', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('numBounds7').firestore()
+    await assertSucceeds(db.collection('bookings').add({ custName: 'A', price: 500000, margin: -2000 }))
+  })
+
+  it('payroll_records: finance cannot write a negative base salary for a payroll run', async () => {
+    await seedUser('numBounds8', { role: 'finance', active: true })
+    const db = testEnv.authenticatedContext('numBounds8').firestore()
+    await assertFails(db.collection('payroll_records').add({ staffId: 's1', month: '2026-07', base: -1000 }))
+  })
+
+  it('payroll_records: finance CAN write a negative deduction (legitimate correction/refund of an over-deduction)', async () => {
+    await seedUser('numBounds9', { role: 'finance', active: true })
+    const db = testEnv.authenticatedContext('numBounds9').firestore()
+    await assertSucceeds(db.collection('payroll_records').add({ staffId: 's1', month: '2026-07', base: 20000, deduction: -500 }))
+  })
+
+  it('staff: HR cannot write a negative salary', async () => {
+    await seedUser('numBounds10', { role: 'hr', active: true })
+    const db = testEnv.authenticatedContext('numBounds10').firestore()
+    await assertFails(db.collection('staff').add({ firstName: 'A', lastName: 'B', salary: -100 }))
+  })
+
+  it('commission_rules: finance cannot set a percent-type rule above 100', async () => {
+    await seedUser('numBounds11', { role: 'finance', active: true })
+    const db = testEnv.authenticatedContext('numBounds11').firestore()
+    await assertFails(db.collection('commission_rules').add({ name: 'x', type: 'percent', value: 150 }))
+  })
+
+  it('commission_rules: finance can set a flat-amount (non-percent) rule above 100 with no cap', async () => {
+    await seedUser('numBounds12', { role: 'finance', active: true })
+    const db = testEnv.authenticatedContext('numBounds12').firestore()
+    await assertSucceeds(db.collection('commission_rules').add({ name: 'x', type: 'per_unit', value: 5000 }))
+  })
+
+  it('staff_loans: a staff member cannot request a zero or negative loan amount', async () => {
+    await seedUser('numBounds13', { role: 'staff', active: true })
+    const db = testEnv.authenticatedContext('numBounds13').firestore()
+    await assertFails(db.collection('staff_loans').add({ staffId: 'numBounds13', amount: 0 }))
+  })
+
+  it('staff_loans: a staff member can request a normal positive loan amount', async () => {
+    await seedUser('numBounds14', { role: 'staff', active: true })
+    const db = testEnv.authenticatedContext('numBounds14').firestore()
+    await assertSucceeds(db.collection('staff_loans').add({ staffId: 'numBounds14', amount: 10000 }))
+  })
+})

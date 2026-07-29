@@ -65,6 +65,34 @@ service cloud.firestore {
       return !exists(/databases/$(database)/documents/meta/init);
     }
 
+    // ── Numeric bounds helpers ───────────────────────────────────────────────
+    // เดิม rules ตรวจแค่ "ใครมีสิทธิ์เขียน" ไม่เคยตรวจ "ค่าที่เขียนสมเหตุสมผลหรือไม่" เลยแม้แต่ field
+    // เดียวในทั้งไฟล์ — ต่อให้ UI มี min="0" ก็ข้ามได้ง่ายๆด้วยการยิง request ตรงผ่าน Firestore SDK เพราะ
+    // ไม่มีอะไรบังคับที่ฝั่ง server เลย เพิ่มเช็คเฉพาะ field เงิน/จำนวนที่ (1) กระทบธุรกิจจริงและ (2) ไม่มี
+    // เหตุผลทางธุรกิจที่ควรเป็นค่าติดลบ — ไม่แตะ field ที่ติดลบได้จริงตามธรรมชาติ (margin ขาดทุน, ส่วนลด
+    // พิเศษที่รอผู้จัดการอนุมัติ, ใบลดหนี้, ยอดหักเงินเดือนที่แก้คืนย้อนหลัง) เพื่อไม่ให้ไปบล็อกงานจริง
+    function nonNegIfPresent(field) {
+      return !(field in request.resource.data)
+        || !(request.resource.data[field] is number)
+        || request.resource.data[field] >= 0;
+    }
+
+    function positiveIfPresent(field) {
+      return !(field in request.resource.data)
+        || !(request.resource.data[field] is number)
+        || request.resource.data[field] > 0;
+    }
+
+    // อัตราคอมมิชชั่นแบบ % (type=='percent') ต้องอยู่ในช่วง 0-100 เท่านั้น — UI หน้า CommissionRules
+    // บังคับ min="0" max="100" อยู่แล้วสำหรับ type นี้โดยเฉพาะ (type อื่นเช่น per_unit/bonus เป็นจำนวนเงิน
+    // บาทไม่ใช่ % จึงไม่จำกัดเพดานนี้) แต่ rules ไม่เคยบังคับจริงมาก่อน
+    function validCommissionValue() {
+      return nonNegIfPresent('value')
+        && (request.resource.data.get('type', '') != 'percent'
+            || !('value' in request.resource.data)
+            || request.resource.data.value <= 100);
+    }
+
     // ── Meta / System Init ────────────────────────────────────────────────────
     // Any signed-in user can read (to detect first-user scenario)
     // Any signed-in user can create init doc (first-time bootstrap)
@@ -143,7 +171,12 @@ service cloud.firestore {
     }
 
     match /bookings/{docId} {
-      allow read, write: if isStaff();
+      allow read: if isStaff();
+      // ป้องกันราคา/เงินจอง/ยอดไฟแนนซ์/ยอดคืนเงินติดลบ — ไม่มีเหตุผลทางธุรกิจให้ค่าพวกนี้ติดลบได้จริง
+      // (ไม่แตะ discount/margin/totalIncome เพราะขาดทุนได้จริงตามธรรมชาติของดีล)
+      allow write: if isStaff()
+        && nonNegIfPresent('price') && nonNegIfPresent('cost') && nonNegIfPresent('down')
+        && nonNegIfPresent('financeAmount') && nonNegIfPresent('refundAmount');
     }
 
     match /sales/{docId} {
@@ -201,7 +234,9 @@ service cloud.firestore {
 
     // ── Stock & Vehicles ─────────────────────────────────────────────────────
     match /vehicles/{docId} {
-      allow read, write: if isStaff();
+      allow read: if isStaff();
+      // ป้องกันราคา/ต้นทุนรถติดลบ — ไม่มีเหตุผลทางธุรกิจให้ราคาขาย/ต้นทุนต่อคันติดลบได้
+      allow write: if isStaff() && nonNegIfPresent('price') && nonNegIfPresent('cost');
     }
 
     match /vehicle_orders/{docId} {
@@ -290,7 +325,10 @@ service cloud.firestore {
 
     match /payroll_records/{docId} {
       allow read: if isFinance() || isManager();
-      allow write: if isFinance();
+      // ป้องกันเงินเดือนฐาน/OT/เบี้ยเลี้ยง/ประกันสังคมติดลบ — กระทบยอดจ่ายจริงที่พนักงานเห็นในสลิป
+      // (ไม่แตะ deduction เพราะการแก้ยอดหักคืนย้อนหลังที่หักเกินไปเดือนก่อนต้องใช้ค่าติดลบได้จริง)
+      allow write: if isFinance()
+        && nonNegIfPresent('base') && nonNegIfPresent('ot') && nonNegIfPresent('allowance') && nonNegIfPresent('ssf');
     }
 
     match /salary_scale_staff/{docId} {
@@ -413,12 +451,14 @@ service cloud.firestore {
     // ── HR — HR role & above ──────────────────────────────────────────────────
     match /staff/{docId} {
       allow read: if isStaff();
-      allow write: if isHR();
+      // ป้องกันเงินเดือนติดลบ — ไม่มีเหตุผลทางธุรกิจให้เงินเดือนพนักงานติดลบได้ (กระทบเพดานวงเงินกู้/สวัสดิการที่คำนวณจากฐานนี้ด้วย)
+      allow write: if isHR() && nonNegIfPresent('salary');
     }
 
     match /staff_loans/{docId} {
       allow read: if isHR() || isManager();
-      allow create: if isStaff();
+      // ป้องกันยื่นขอกู้ยืมยอด 0 หรือติดลบ — UI เช็คแค่ฝั่ง client เท่านั้น (StaffLoan.js) ข้ามได้ง่ายๆ
+      allow create: if isStaff() && positiveIfPresent('amount');
       allow update, delete: if isHR();
     }
 
@@ -474,7 +514,7 @@ service cloud.firestore {
     // เชื่อม Firestore จริงแล้ว ต้องกันไม่ให้พนักงานขายแก้อัตราคอมมิชชั่นของตัวเองได้ เหมือน sales_budgets
     match /commission_rules/{docId} {
       allow read: if isStaff();
-      allow write: if isFinance() || isManager();
+      allow write: if (isFinance() || isManager()) && validCommissionValue();
     }
 
     // งบประมาณรายปี (รายได้/ต้นทุน/ค่าใช้จ่าย) ของทั้งบริษัท — สิทธิ์เดียวกับ sales_budgets/commission_rules
@@ -799,7 +839,8 @@ service cloud.firestore {
         'companies', 'org_companies', 'custom_fields', 'documents', 'mood_responses', 'chat_ai_assistant',
         'announcements_hr', 'comm_messages',
         'sales_budgets', 'marketing_budgets', 'commission_rules', 'budget_planning',
-        'price_negotiations', 'invoices', 'referrers', 'referrals'
+        'price_negotiations', 'invoices', 'referrers', 'referrals',
+        'vehicles', 'bookings'
       ];
     }
 
