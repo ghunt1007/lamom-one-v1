@@ -125,7 +125,12 @@ export default {
         if (file.size > MAX_SIZE) return json({ error: 'File too large (max 50 MB)' }, 400, cors)
 
         const ext = (file.name.split('.').pop() || 'bin').replace(/[^a-zA-Z0-9]/g, '').slice(0, 10) || 'bin'
-        const key = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+        // GET /file ไม่มีการเช็ค auth เลย (ตั้งใจ ให้แสดงรูป/ไฟล์ในหน้าเว็บได้ตรงๆ) — ความลับของไฟล์เลย
+        // ขึ้นอยู่กับว่า key เดายาก/สุ่มจริงแค่ไหนเพียงอย่างเดียว เดิมใช้ Math.random() ซึ่งไม่ใช่ CSPRNG (มาจาก
+        // PRNG ของ V8 ที่ในทางทฤษฎีถอดรหัส state ย้อนกลับได้ถ้ามีตัวอย่าง output มากพอ) เปลี่ยนเป็น
+        // crypto.randomUUID() (Web Crypto API มีอยู่แล้วใน Cloudflare Workers runtime) ให้เอนโทรปีสุ่มจริง
+        // ระดับ cryptographic แทน โดยไม่กระทบรูปแบบ key ที่ใช้อยู่ (ยังเป็น folder/xxx.ext เหมือนเดิม)
+        const key = `${folder}/${crypto.randomUUID()}.${ext}`
 
         await env.BUCKET.put(key, file.stream(), {
           httpMetadata: { contentType: file.type },
