@@ -219,7 +219,7 @@ export default async function FinanceApplicationPage(container) {
       footer: `<button class="btn btn-secondary" id="fa-c">ยกเลิก</button><button class="btn btn-primary" id="fa-s">📤 ส่งขอสินเชื่อ</button>`
     })
     el.querySelector('#fa-c').addEventListener('click', close)
-    el.querySelector('#fa-s').addEventListener('click', async () => {
+    el.querySelector('#fa-s').addEventListener('click', async (e) => {
       const custName = el.querySelector('#fa-cust').value.trim()
       const vehicle = el.querySelector('#fa-vehicle').value.trim()
       if (!custName || !vehicle) return showToast('❗ กรุณากรอกข้อมูลให้ครบ', 'warning')
@@ -229,8 +229,13 @@ export default async function FinanceApplicationPage(container) {
       const tenure = +el.querySelector('#fa-tenure').value
       const rate = +el.querySelector('#fa-rate').value
       const monthly = calcMonthly(loanAmount, rate, tenure)
-      await createDoc('finance_applications', { custName, phone: el.querySelector('#fa-phone').value, vehicle, vehiclePrice:price, downPayment:down, loanAmount, tenure, bank: el.querySelector('#fa-bank').value, monthlyPayment:monthly, rate, status:'submitted', submittedDate:new Date().toISOString().slice(0,10), approvedDate:null, note: el.querySelector('#fa-note').value, documents:[] })
-      showToast('📤 ส่งขอสินเชื่อแล้ว', 'success'); close(); await loadData()
+      // เดิมปุ่มนี้ไม่ disable ระหว่างรอบันทึกและไม่มี try/catch เลย กดซ้ำเร็วๆจะส่งคำขอสินเชื่อซ้ำ 2 ใบให้ธนาคาร
+      const btn = e.currentTarget
+      btn.disabled = true
+      try {
+        await createDoc('finance_applications', { custName, phone: el.querySelector('#fa-phone').value, vehicle, vehiclePrice:price, downPayment:down, loanAmount, tenure, bank: el.querySelector('#fa-bank').value, monthlyPayment:monthly, rate, status:'submitted', submittedDate:new Date().toISOString().slice(0,10), approvedDate:null, note: el.querySelector('#fa-note').value, documents:[] })
+        showToast('📤 ส่งขอสินเชื่อแล้ว', 'success'); close(); await loadData()
+      } catch { btn.disabled = false; showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 

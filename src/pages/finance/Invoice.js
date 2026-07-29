@@ -221,18 +221,21 @@ export default async function InvoicePage(container) {
       footer: `<button class="btn btn-secondary" id="dc-c">ยกเลิก</button><button class="btn btn-primary" id="dc-s">💾 บันทึก</button>`
     })
     el.querySelector('#dc-c').addEventListener('click', close)
-    el.querySelector('#dc-s').addEventListener('click', async () => {
+    el.querySelector('#dc-s').addEventListener('click', async (e) => {
       const custName = el.querySelector('#dc-cust').value.trim()
       if (!custName) return showToast('❗ ระบุชื่อลูกค้า', 'warning')
       const type = el.querySelector('#dc-type').value
       const types = { quotation:'QT', invoice:'INV', receipt:'REC', tax_invoice:'TAX', credit_note:'CN' }
       const no = types[type] + '-' + new Date().getFullYear() + '-' + String(docs.length + 1).padStart(3, '0')
       const items = [{ desc: el.querySelector('#item-desc-0').value||'รายการ', qty: +el.querySelector('#item-qty-0').value||1, unit:'ชิ้น', price: +el.querySelector('#item-price-0').value||0, vat: +el.querySelector('#item-vat-0').value }]
+      // เดิมปุ่มนี้ไม่ disable ระหว่างรอบันทึก กดซ้ำเร็วๆจะสร้างเอกสารซ้ำ 2 ใบจากคลิกครั้งเดียว
+      const btn = e.currentTarget
+      btn.disabled = true
       try {
         await createDoc('invoices', { type, no, custName, custTax:'', date: el.querySelector('#dc-date').value, dueDate: el.querySelector('#dc-due').value, items, status:'draft', note: el.querySelector('#dc-note').value })
         showToast('🧾 สร้างเอกสารแล้ว', 'success'); close()
         await loadData()
-      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      } catch (e) { btn.disabled = false; showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 

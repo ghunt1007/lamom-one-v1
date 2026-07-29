@@ -86,9 +86,12 @@ export default async function VendorManagementPage(container) {
       `
     })
 
-    document.getElementById('vm-save')?.addEventListener('click', async () => {
+    document.getElementById('vm-save')?.addEventListener('click', async (e) => {
       const name = document.getElementById('vm-name')?.value.trim()
       if (!name) { showToast('⚠️ กรุณากรอกชื่อ', 'warning'); return }
+      // เดิมปุ่มนี้ไม่ disable ระหว่างรอบันทึก กดซ้ำเร็วๆตอนเพิ่มใหม่จะสร้าง vendor ซ้ำ 2 รายการ
+      const btn = e.currentTarget
+      btn.disabled = true
       const data = {
         name,
         category: document.getElementById('vm-cat')?.value || CATEGORIES[0],
@@ -110,7 +113,7 @@ export default async function VendorManagementPage(container) {
         }
         document.querySelector('.modal-overlay')?.remove()
         await loadData()
-      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      } catch (e) { btn.disabled = false; showToast('บันทึกไม่สำเร็จ', 'error') }
     })
 
     if (isEdit) {

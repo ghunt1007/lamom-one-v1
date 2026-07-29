@@ -255,19 +255,22 @@ export default async function ShowroomAppointmentPage(container) {
       footer: `<button class="btn btn-secondary" id="sa-c">ยกเลิก</button><button class="btn btn-primary" id="sa-s">💾 บันทึก</button>`
     })
     el.querySelector('#sa-c').addEventListener('click', close)
-    el.querySelector('#sa-s').addEventListener('click', async () => {
+    el.querySelector('#sa-s').addEventListener('click', async (e) => {
       const custName = el.querySelector('#sa-name').value.trim()
       const phone = el.querySelector('#sa-phone').value.trim()
       const date = el.querySelector('#sa-date').value
       const time = el.querySelector('#sa-time').value
       if (!custName || !phone || !date || !time) return showToast('❗ กรอกข้อมูลที่จำเป็น', 'warning')
       const data = { custName, phone, date, time, purpose: el.querySelector('#sa-purpose').value, interestedIn: el.querySelector('#sa-interest').value, salesperson: el.querySelector('#sa-sales').value, source: el.querySelector('#sa-source').value, budget: +el.querySelector('#sa-budget').value || 0, note: el.querySelector('#sa-note').value }
+      // เดิมปุ่มนี้ไม่ disable ระหว่างรอบันทึก กดซ้ำเร็วๆตอนสร้างนัดใหม่จะสร้างนัดหมายซ้ำ 2 รายการ
+      const btn = e.currentTarget
+      btn.disabled = true
       try {
         if (appt) await updateDocData('appointments', appt.id, data)
         else await createDoc('appointments', { ...data, status: 'scheduled', email: '' })
         showToast('📅 บันทึกนัดหมายแล้ว', 'success'); close()
         await loadData()
-      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      } catch (e) { btn.disabled = false; showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 

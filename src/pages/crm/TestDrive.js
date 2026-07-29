@@ -232,9 +232,12 @@ export default async function TestDrivePage(container) {
       footer: `<button class="btn btn-secondary" id="nfc">ยกเลิก</button><button class="btn btn-primary" id="nfs">📅 นัดหมาย</button>`
     })
     el.querySelector('#nfc').addEventListener('click', close)
-    el.querySelector('#nfs').addEventListener('click', async () => {
+    el.querySelector('#nfs').addEventListener('click', async (e) => {
       const name = el.querySelector('#nf-name').value.trim()
       if (!name) return
+      // เดิมปุ่มนี้ไม่ disable ระหว่างรอบันทึก กดซ้ำเร็วๆจะสร้างนัด Test Drive ซ้ำ 2 รายการ
+      const btn = e.currentTarget
+      btn.disabled = true
       try {
         await createDoc('test_drive_records', {
           custName: name,
@@ -248,7 +251,7 @@ export default async function TestDrivePage(container) {
         })
         showToast('📅 นัด Test Drive แล้ว', 'success'); close()
         await loadData()
-      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      } catch (e) { btn.disabled = false; showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 

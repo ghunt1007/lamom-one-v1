@@ -210,10 +210,14 @@ export default async function PayrollPage(container) {
       btn.addEventListener('click', () => { filterDept = btn.dataset.dept; renderPage() })
     })
 
-    document.getElementById('pay-all-btn')?.addEventListener('click', async () => {
+    document.getElementById('pay-all-btn')?.addEventListener('click', async (e) => {
       const pending = staffList.filter(s => s.status === 'pending')
       if (!pending.length) { showToast('จ่ายครบแล้ว', 'success'); return }
       if (!await confirmDialog({ title: 'จ่ายเงินเดือน', message: `ยืนยันจ่ายเงินเดือน ${pending.length} คน รวม ${formatCurrency(pending.reduce((a,s)=>a+netPay(s),0))}?`, confirmText: 'ยืนยัน' })) return
+      // เดิมไม่ disable ปุ่มระหว่างรอบันทึก กดซ้ำเร็วๆหลังยืนยันจะยิง Promise.all 2 ชุดซ้อนกัน สร้างรายการ
+      // จ่ายเงินเดือนซ้ำให้พนักงานคนเดียวกันได้
+      const btn = e.currentTarget
+      btn.disabled = true
       const paidAt = new Date().toISOString()
       const results = await Promise.all(pending.map(s => savePayrollRecord({ ...s, status: 'paid', paidAt })))
       const okCount = results.filter(Boolean).length
@@ -223,12 +227,14 @@ export default async function PayrollPage(container) {
     })
 
     document.querySelectorAll('.pay-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
+      btn.addEventListener('click', async (e) => {
         const s = staffList.find(x => x.id === btn.dataset.id)
         if (!s || s.status === 'paid') return
+        // เดิมไม่ disable ปุ่มระหว่างรอบันทึก กดซ้ำเร็วๆก่อนสถานะอัปเดตจะสร้างรายการจ่ายซ้ำ
+        e.currentTarget.disabled = true
         const paidAt = new Date().toISOString()
         const ok = await savePayrollRecord({ ...s, status: 'paid', paidAt })
-        if (!ok) { showToast('บันทึกไม่สำเร็จ', 'error'); return }
+        if (!ok) { e.currentTarget.disabled = false; showToast('บันทึกไม่สำเร็จ', 'error'); return }
         s.status = 'paid'; s.paidAt = paidAt
         showToast(`✅ จ่าย ${s.name} แล้ว`, 'success')
         renderPage()

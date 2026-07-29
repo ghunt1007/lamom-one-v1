@@ -213,17 +213,20 @@ export default async function ServiceAppointmentPage(container) {
       footer: `<button class="btn btn-secondary" id="ap-c">ยกเลิก</button><button class="btn btn-primary" id="ap-s">💾 บันทึก</button>`
     })
     el.querySelector('#ap-c').addEventListener('click', close)
-    el.querySelector('#ap-s').addEventListener('click', async () => {
+    el.querySelector('#ap-s').addEventListener('click', async (e) => {
       const custName = el.querySelector('#ap-cust').value.trim()
       const date = el.querySelector('#ap-date').value
       const time = el.querySelector('#ap-time').value
       if (!custName || !date || !time) return showToast('❗ กรุณากรอกข้อมูลที่จำเป็น', 'warning')
       const data = { custName, date, time, phone: el.querySelector('#ap-phone').value, model: el.querySelector('#ap-model').value, plate: el.querySelector('#ap-plate').value, type: el.querySelector('#ap-type').value, tech: el.querySelector('#ap-tech').value, km: +el.querySelector('#ap-km').value||0, note: el.querySelector('#ap-note').value }
+      // เดิมปุ่มนี้ไม่ disable ระหว่างรอบันทึก กดซ้ำเร็วๆตอนสร้างนัดใหม่จะสร้างนัดหมายซ้ำ 2 รายการ
+      const btn = e.currentTarget
+      btn.disabled = true
       try {
         if (appt) await updateDocData('service_appointments', appt.id, data)
         else await createDoc('service_appointments', { ...data, status:'scheduled' })
         showToast('📅 บันทึกนัดหมายแล้ว', 'success'); close(); await loadData()
-      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      } catch (e) { btn.disabled = false; showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 

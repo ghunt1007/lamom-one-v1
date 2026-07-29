@@ -247,19 +247,24 @@ export default async function ExpenseClaimsPage(container) {
       footer: `<button class="btn btn-secondary" id="ex-c">ยกเลิก</button><button class="btn btn-primary" id="ex-s">📩 ยื่นเบิก</button>`
     })
     el.querySelector('#ex-c').addEventListener('click', close)
-    el.querySelector('#ex-s').addEventListener('click', async () => {
+    el.querySelector('#ex-s').addEventListener('click', async (e) => {
       const staffName = el.querySelector('#ex-name').value.trim()
       const desc = el.querySelector('#ex-desc').value.trim()
       const amount = +el.querySelector('#ex-amount').value
       if (!staffName || !desc || !amount) return showToast('❗ กรุณากรอกข้อมูลให้ครบ', 'warning')
-      await createDoc('expense_claims', {
-        staffName, dept: 'other',
-        cat: el.querySelector('#ex-cat').value,
-        desc, amount, date: el.querySelector('#ex-date').value,
-        status: 'pending', approvedBy: null, paidDate: null,
-        receipt: el.querySelector('#ex-receipt').value === '1'
-      })
-      showToast('📩 ยื่นเบิกแล้ว', 'success'); close(); await loadData()
+      // เดิมปุ่มนี้ไม่ disable ระหว่างรอบันทึก กดซ้ำเร็วๆจะยื่นเบิกซ้ำ 2 รายการ เสี่ยงเบิกจ่ายซ้ำซ้อน
+      const btn = e.currentTarget
+      btn.disabled = true
+      try {
+        await createDoc('expense_claims', {
+          staffName, dept: 'other',
+          cat: el.querySelector('#ex-cat').value,
+          desc, amount, date: el.querySelector('#ex-date').value,
+          status: 'pending', approvedBy: null, paidDate: null,
+          receipt: el.querySelector('#ex-receipt').value === '1'
+        })
+        showToast('📩 ยื่นเบิกแล้ว', 'success'); close(); await loadData()
+      } catch { btn.disabled = false; showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 
