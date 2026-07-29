@@ -2,7 +2,7 @@
 import { db } from './firebase.js'
 import {
   collection, doc, addDoc, setDoc, updateDoc, deleteDoc,
-  getDoc, getDocs, query, where, orderBy, limit,
+  getDoc, getDocs, query, where, orderBy, limit, startAfter,
   onSnapshot, serverTimestamp, Timestamp,
 } from 'firebase/firestore'
 import { getState } from './store.js'
@@ -219,6 +219,26 @@ export async function listDocs(colName, filters = [], sortBy = 'createdAt', sort
   return snap.docs.map(d => ({ id: d.id, ...d.data() }))
 }
 
+// ดึงเอกสาร "ทั้งหมด" จริงๆ ไม่ใช่แค่ N แถวล่าสุดแบบ listDocs — วนดึงเป็นก้อนด้วย cursor (startAfter) จนกว่า
+// จะหมดจริง เหมาะกับข้อมูลที่ใช้คำนวณสถิติ "รวมทั้งหมด/ตลอดเวลา" ที่ต้องถูกครบทุกแถว (เช่น getSalesData()
+// ด้านล่าง — เดิมใช้ listDocs cap 1000 แถว ทำให้ตัวเลข "ยอดขายรวม/กำไรสุทธิรวม" ผิดเงียบๆทันทีที่มีใบจอง
+// เกิน 1000 ใบ เพราะใบจองเก่าสุดถูกตัดออกไปโดยไม่มี error/สัญญาณอะไรเลย) ไม่ใช้กับหน้าที่แค่ต้องการรายการ
+// ล่าสุด N รายการ (ใช้ listDocs ตามเดิม เพราะดึงทั้งหมดแพงกว่าถ้าไม่จำเป็น)
+export async function listAllDocs(colName, filters = [], sortBy = 'createdAt', sortDir = 'desc', batchSize = 500) {
+  const all = []
+  let cursor = null
+  const baseConstraints = [...filters.map(([f, op, v]) => where(f, op, v)), orderBy(sortBy, sortDir)]
+  for (let i = 0; i < 50; i++) { // เพดานกันวนลูปไม่จบ (50×500 = 25,000 เอกสาร) ไม่ใช่ข้อจำกัดทางธุรกิจจริง
+    const constraints = cursor ? [...baseConstraints, startAfter(cursor), limit(batchSize)] : [...baseConstraints, limit(batchSize)]
+    const snap = await getDocs(query(collection(db, colName), ...constraints))
+    if (snap.empty) break
+    all.push(...snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    if (snap.docs.length < batchSize) break
+    cursor = snap.docs[snap.docs.length - 1]
+  }
+  return all
+}
+
 // เหมือน listDocs แต่รับ callback แล้วอัปเดตสดทุกครั้งที่ข้อมูลเปลี่ยนบน Firestore (ของตัวเองหรือคนอื่น)
 // คืนค่า unsubscribe — หน้าที่เรียกต้องเก็บไว้เรียกตอนออกจากหน้า ไม่งั้น listener จะรั่วค้างไปเรื่อยๆ
 export function watchDocs(colName, filters = [], sortBy = 'createdAt', sortDir = 'desc', maxDocs = 100, callback) {
@@ -244,7 +264,10 @@ export function seedDemoData() {
 // ทุกหน้าการเงิน/กำไร/คอมมิชชั่น เรียกใช้ตัวนี้ → ตัวเลขตรงกับใบจองเสมอ
 export async function getSalesData() {
   let bookings = []
-  try { bookings = await listDocs('bookings', [], 'createdAt', 'desc', 1000) } catch (e) {}
+  // ใช้ listAllDocs (ไม่ใช่ listDocs cap ตายตัว) — ฟังก์ชันนี้เป็นแหล่งข้อมูลกลางให้ทุกหน้าการเงิน/แดชบอร์ด/
+  // CRM คำนวณสถิติ "รวมทั้งหมด/ตลอดเวลา" (ยอดขายรวม, กำไรสุทธิรวม, Customer Lifetime Value ฯลฯ) ต้องได้
+  // ใบจองครบทุกใบจริงๆ ไม่ใช่แค่ 1,000 ใบล่าสุด
+  try { bookings = await listAllDocs('bookings', [], 'createdAt', 'desc') } catch (e) {}
   return bookings
     // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true — ถ้าไม่กรองออกตรงนี้ ใบจองที่ "ลบ" ไปแล้วจะยัง
     // ปนอยู่ใน Dashboard/คอมมิชชั่น/รายงานการเงินทุกหน้าที่เรียกใช้ฟังก์ชันกลางนี้
