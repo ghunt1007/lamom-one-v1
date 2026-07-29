@@ -316,7 +316,7 @@ export default async function BookingsPage(container) {
     exportToExcel(rows.map(b => ({
       เลขที่จอง: b.bookingNo, สถานะ: b.status, เซลส์: b.salesName, วันจอง: formatDate(b.bookingDate),
       กำหนดส่งมอบ: formatDate(b.deliveryDate), วันตัดตัวเลข: formatDate(b.cutDate), ส่งมอบจริง: formatDate(b.actualDeliveryDate),
-      ลูกค้า: b.custName, เบอร์: b.phone, แบรนด์: detectBrand(b.brand, b.model), รุ่น: b.model + ' ' + (b.variant || ''),
+      ลูกค้า: b.custName, เบอร์: b.phone, แบรนด์: detectBrand(b.brand, b.model), รุ่น: (b.model || '') + ' ' + (b.variant || ''),
       สีนอก: b.colorOut, สีใน: b.colorIn, แหล่งที่มา: b.source, ราคา: b.price, ไฟแนนซ์: b.financeCo, ยอดจัด: b.financeAmount,
       ค่างวด: b.monthly, ต้นทุน: b.cost, กำไรขั้นต้น: b.margin, รายได้รวม: b.totalIncome,
       เลขเครื่องยนต์: b.engineNo, ป้ายแดง: b.redPlate, ป้ายขาว: b.whitePlate, หมายเหตุ: b.notes,
@@ -761,9 +761,9 @@ export default async function BookingsPage(container) {
           '<span style="font-size:1.25rem;font-weight:800;color:var(--accent)">' + formatCurrency(b.price) + '</span>' +
         '</div>' +
         sec('👤 ลูกค้า') +
-        dRow('ชื่อ', b.custName) + dRow('เลขบัตร ปชช.', b.nid || '-') + dRow('โทร', b.phone || '-') + dRow('ที่อยู่', (b.address || '-') + ' ' + (b.province || '')) + dRow('แหล่งที่มา', b.source || '-') +
+        dRow('ชื่อ', b.custName || '-') + dRow('เลขบัตร ปชช.', b.nid || '-') + dRow('โทร', b.phone || '-') + dRow('ที่อยู่', (b.address || '-') + ' ' + (b.province || '')) + dRow('แหล่งที่มา', b.source || '-') +
         sec('🚗 รถ') +
-        dRow('รุ่น', (detectBrand(b.brand, b.model) || b.brand || '') + ' ' + b.model + ' ' + (b.variant || '')) + dRow('สีนอก / ใน', (b.colorOut || '-') + ' / ' + (b.colorIn || '-')) + dRow('เลขตัวถัง (VIN)', b.vin || '-') + dRow('เลขมอเตอร์', b.motorNo || '-') + dRow('เลขแบต', b.batNo || '-') + dRow('เลขเครื่องยนต์', b.engineNo || '-') + dRow('ป้ายแดง / ป้ายขาว', (b.redPlate || '-') + ' / ' + (b.whitePlate || '-')) +
+        dRow('รุ่น', (detectBrand(b.brand, b.model) || b.brand || '') + ' ' + (b.model || '') + ' ' + (b.variant || '')) + dRow('สีนอก / ใน', (b.colorOut || '-') + ' / ' + (b.colorIn || '-')) + dRow('เลขตัวถัง (VIN)', b.vin || '-') + dRow('เลขมอเตอร์', b.motorNo || '-') + dRow('เลขแบต', b.batNo || '-') + dRow('เลขเครื่องยนต์', b.engineNo || '-') + dRow('ป้ายแดง / ป้ายขาว', (b.redPlate || '-') + ' / ' + (b.whitePlate || '-')) +
         sec('💰 การเงิน / ไฟแนนซ์') +
         dRow('ราคารถ', formatCurrency(b.price)) + dRow('เงินดาวน์', formatCurrency(b.down)) +
         (isCash ? dRow('การชำระ', 'ซื้อเงินสด') :

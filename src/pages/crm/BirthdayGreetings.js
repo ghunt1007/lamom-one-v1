@@ -164,7 +164,7 @@ export default async function BirthdayGreetingsPage(container) {
   }
 
   function buildGreetingMsg(e) {
-    return GREETING_TEMPLATES[e.type].replace('[ชื่อ]', e.customer.split(' ')[0]).replace('[รุ่นรถ]', e.model).replace('[ปี]', e.note?.match(/\d+/)?.[0] || '1')
+    return GREETING_TEMPLATES[e.type].replace('[ชื่อ]', (e.customer || '').split(' ')[0] || 'คุณลูกค้า').replace('[รุ่นรถ]', e.model || '').replace('[ปี]', e.note?.match(/\d+/)?.[0] || '1')
   }
 
   function openSendModal(e) {

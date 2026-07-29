@@ -115,7 +115,7 @@ export default async function CustomersPage(container) {
       return
     }
     tbody.innerHTML = filtered.map(c => {
-      const st = STAGE[c.stage] || { label: c.stage, badge: 'secondary' }
+      const st = STAGE[c.stage] || { label: c.stage || 'ไม่ระบุ', badge: 'secondary' }
       const urgency = URGENCY[quickUrgency(c)]
       return `
       <tr class="cust-row ${c.isLost ? 'is-lost' : ''}" data-id="${c.id}">
@@ -130,7 +130,7 @@ export default async function CustomersPage(container) {
         </td>
         <td>${formatPhone(c.phone) || '<span style="color:var(--text-muted)">-</span>'}${c.lineId ? `<div style="font-size:0.7rem;color:var(--text-muted)">💚 ${escHtml(c.lineId)}</div>` : ''}</td>
         <td>
-          <span class="badge badge-${st.badge}">${st.label}</span>
+          <span class="badge badge-${st.badge}">${escHtml(st.label)}</span>
           ${c.isLost ? `<div style="margin-top:3px"><span class="badge badge-secondary" style="font-size:0.62rem">⬛ เสียดีล</span></div>` : ''}
         </td>
         <td>${c.temperature ? `<span class="badge badge-${TEMP[c.temperature]?.badge}" style="font-size:0.68rem">${TEMP[c.temperature]?.label}</span>` : '<span style="color:var(--text-muted)">-</span>'}</td>

@@ -45,7 +45,7 @@ export default async function FinanceApplicationPage(container) {
   function getFiltered() {
     let list = apps
     if (statusFilter !== 'all') list = list.filter(a => a.status === statusFilter)
-    if (search) list = list.filter(a => a.custName.includes(search) || a.vehicle.includes(search))
+    if (search) list = list.filter(a => (a.custName || '').includes(search) || (a.vehicle || '').includes(search))
     return list
   }
 

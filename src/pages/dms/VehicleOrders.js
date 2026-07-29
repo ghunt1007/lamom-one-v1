@@ -160,7 +160,7 @@ export default async function VehicleOrdersPage(container) {
           <div style="display:flex;flex-direction:column;gap:8px">
             ${dRow('🚗','ยี่ห้อ/รุ่น', escHtml(o.brand)+' '+escHtml(o.model)+' '+escHtml(o.variant||''))}
             ${dRow('🎨','สี', escHtml(o.color||'-'))}
-            ${dRow('🔢','จำนวน',`${o.qty} คัน`)}
+            ${dRow('🔢','จำนวน',`${o.qty || 0} คัน`)}
             ${dRow('💰','ต้นทุน/คัน',formatCurrency(o.unitCost))}
             ${dRow('🏭','Supplier', escHtml(o.supplier||'-'))}
             ${dRow('📅','วันรับคาด',formatDate(o.expectedDate))}
