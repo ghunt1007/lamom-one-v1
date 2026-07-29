@@ -1,13 +1,18 @@
 import { showToast, getState } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData } from '../../core/db.js'
+import { todayBangkok, nowBangkokTime } from '../../utils/format.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-function todayStr() { return new Date().toISOString().slice(0, 10) }
-function nowStr() { return new Date().toTimeString().slice(0, 5) }
+// เดิมใช้ new Date().toISOString().slice(0,10) ซึ่งคืนวันที่ตาม UTC เสมอ — ผิดไป 1 วันทุกครั้งที่พนักงาน
+// ลงเวลาเข้างานก่อน 07:00 น. เวลาไทย (กะเช้าของศูนย์บริการ/แผนกขายเปิดเช้าเป็นเรื่องปกติ) ทำให้บันทึกการ
+// ลงเวลาไปติดอยู่ในวันก่อนหน้าแทนที่จะเป็นวันจริง แก้ให้ใช้วันที่/เวลาตามเวลาไทยจริงเสมอ ไม่ผูกกับ timezone
+// ของเครื่อง/คีออสก์
+function todayStr() { return todayBangkok() }
+function nowStr() { return nowBangkokTime() }
 
 export default async function AttendancePage(container) {
   const myGen = container.__routerGen

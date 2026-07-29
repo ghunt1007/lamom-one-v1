@@ -2,7 +2,7 @@
  * Staff Documents — เอกสารพนักงาน
  * Route: /hr/documents
  */
-import { formatDate, timeAgo } from '../../utils/format.js'
+import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState, setState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete } from '../../core/db.js'
@@ -12,7 +12,13 @@ function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
+// เดิมใช้ new Date().toISOString().slice(0,10) เป็นฐาน "วันนี้" ซึ่งคืนวันที่ตาม UTC เสมอ — ผิดไป 1 วันทุก
+// ครั้งที่ตรวจสอบก่อน 07:00 น. เวลาไทย ทำให้เอกสารที่หมดอายุไปแล้วจริงยังโชว์ "ใกล้หมดอายุ" อยู่ช่วงสั้นๆ
+// แก้ให้ยึดวันที่ตามเวลาไทยจริงเป็นฐานเสมอ
+function addDays(n) {
+  const [y, m, d] = todayBangkok().split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
+}
 
 const DOC_TYPES = {
   contract:  { label: 'สัญญาจ้าง', color: 'primary', icon: '📜' },

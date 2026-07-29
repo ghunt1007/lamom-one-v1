@@ -7,6 +7,22 @@ function toDate(v) {
   return isNaN(d.getTime()) ? null : d
 }
 
+// วันที่ "วันนี้" ตามเวลาไทย (Asia/Bangkok) จริงๆ ไม่ผูกกับ timezone ของเครื่อง/เบราว์เซอร์ผู้ใช้ — ต่างจาก
+// new Date().toISOString().slice(0,10) ที่คืนวันที่ตาม UTC เสมอ (พบว่าผิดไป 1 วันทุกครั้งที่เวลาไทยยังไม่ถึง
+// 07:00 น. เพราะเที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น. — กระทบข้อมูลลงเวลาเข้างานกะเช้าโดยตรง) ก็ต่างจาก
+// new Date().getFullYear()/getMonth()/getDate() ที่ผูกกับ timezone ที่ตั้งไว้ในเครื่อง (ผิดได้ถ้าเครื่อง/
+// คีออสก์ตั้ง timezone ผิดเป็นโซนอื่น) ฟังก์ชันนี้คำนวณวันที่ตามเวลาไทยจริงเสมอ ไม่ว่าเครื่องจะตั้งอะไรไว้
+export function todayBangkok() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+}
+
+// เวลาปัจจุบัน (HH:MM) ตามเวลาไทยจริง — ใช้เทียบเวลาเข้างาน/สายได้ถูกต้องแม้เครื่อง/คีออสก์จะตั้ง timezone
+// ผิด (เช่น VM ที่ default เป็น UTC) ยกเว้นกรณีนาฬิกาเครื่องเดินผิดจริง (ไม่ใช่แค่ timezone) ซึ่งแก้ที่ฝั่ง
+// client ไม่ได้อยู่ดี
+export function nowBangkokTime() {
+  return new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date())
+}
+
 export function formatDate(dateStr) {
   if (!dateStr) return '-'
   const months = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
