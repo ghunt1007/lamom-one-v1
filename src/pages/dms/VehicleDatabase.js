@@ -237,7 +237,7 @@ function downloadJSON(filename, obj) {
 }
 function blankVehicle() {
   return {
-    id: 'NEW_' + Date.now(), brand: '', model: '', variant: '', year: 2026, type: 'SUV', fuel: 'BEV', bodyType: 'suv',
+    id: 'NEW_' + Date.now(), brand: '', model: '', variant: '', year: new Date().getFullYear(), type: 'SUV', fuel: 'BEV', bodyType: 'suv',
     price: 0, priceMin: 0, priceMax: 0, engine: '', power: 0, torque: 0, transmission: '', drivetrain: '', battery: '', range: 0,
     length: 0, width: 0, height: 0, wheelbase: 0, weight: 0, seats: 5,
     bootSpace: 0, frunk: 0, fuelTank: 0, groundClearance: 0, airbags: 0, towCapacity: 0, chargeAC: 0, chargeDC: 0, chargeTime: '',

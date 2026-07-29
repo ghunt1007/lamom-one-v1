@@ -28,6 +28,8 @@ export default async function PayrollDetailPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
 
+  // เดิม hardcode ปี พ.ศ. 2568 (2025) ในสลิปเงินเดือนตายตัว ทำให้พิมพ์สลิปปีนี้/ปีหน้าก็ยังโชว์ปี 2568 เสมอ
+  const BE_YEAR = new Date().getFullYear() + 543
   let staff = []
   let monthIdx = 5
   let deptFilter = 'all'
@@ -181,7 +183,7 @@ export default async function PayrollDetailPage(container) {
       size: 'sm',
       body: `
         <div style="text-align:center;padding:10px 0;margin-bottom:14px">
-          <div style="font-size:0.75rem;color:var(--text-muted)">${MONTHS[monthIdx]} 2568</div>
+          <div style="font-size:0.75rem;color:var(--text-muted)">${MONTHS[monthIdx]} ${BE_YEAR}</div>
           <div style="font-size:0.7rem;color:var(--text-muted)">${escHtml(s.dept)} · ${escHtml(s.id)}</div>
         </div>
         <div style="border-top:1px solid var(--border);padding-top:10px">
@@ -204,7 +206,7 @@ export default async function PayrollDetailPage(container) {
       footer: '<button class="btn btn-secondary" onclick="this.closest(\'.modal-overlay\').remove()">ปิด</button>' +
               '<button class="btn btn-primary" id="payslip-print">🖨 พิมพ์สลิป</button>'
     })
-    document.getElementById('payslip-print')?.addEventListener('click', () => printPayslip(s, MONTHS[monthIdx] + ' 2568'))
+    document.getElementById('payslip-print')?.addEventListener('click', () => printPayslip(s, MONTHS[monthIdx] + ' ' + BE_YEAR))
   }
 
   await loadData()

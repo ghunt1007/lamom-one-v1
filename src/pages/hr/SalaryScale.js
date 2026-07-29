@@ -164,8 +164,12 @@ export default async function SalaryScalePage(container) {
     }))
     document.getElementById('review-btn')?.addEventListener('click', () => {
       const belowMkt = staff.filter(s => marketRatio(s.salary, s.market) < 95)
+      // เดิม hardcode รอบ H2/2569 ตายตัว (ถูกแค่ครึ่งปีนี้ จะกลายเป็นรอบเก่าทันทีขึ้นครึ่งปีถัดไป) แก้ให้
+      // คำนวณรอบจากวันที่จริงเสมอ
+      const now = new Date()
+      const reviewPeriod = `${now.getMonth() < 6 ? 'H1' : 'H2'}/${now.getFullYear() + 543}`
       openModal({
-        title: '📋 รอบทบทวนเงินเดือน H2/2569',
+        title: `📋 รอบทบทวนเงินเดือน ${reviewPeriod}`,
         size: 'md',
         body: `
           <div style="font-size:0.82rem">

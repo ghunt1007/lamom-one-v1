@@ -226,7 +226,7 @@ export default async function TargetActualPage(container) {
             ${pctBar(ytdRevActual, ytdRevTarget, `💰 ฿${(ytdRevActual/1000000).toFixed(1)}M/฿${(ytdRevTarget/1000000).toFixed(0)}M`, false)}
           </div>
           <div class="card" style="padding:16px">
-            <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:14px">🗓️ เป้าทั้งปี 2568</div>
+            <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:14px">🗓️ เป้าทั้งปี ${new Date().getFullYear() + 543}</div>
             ${pctBar(fullUnitActual, fullUnitTarget, `🚗 สะสม ${fullUnitActual}/${fullUnitTarget} คัน`, false)}
             ${pctBar(fullRevActual, fullRevTarget, `💰 ฿${(fullRevActual/1000000).toFixed(1)}M/฿${(fullRevTarget/1000000).toFixed(0)}M`, false)}
           </div>

@@ -141,30 +141,41 @@ export default async function PerformanceReviewPage(container) {
 
     container.querySelectorAll('.sf-btn').forEach(b => b.addEventListener('click', () => { statusFilter = b.dataset.s; renderPage() }))
     document.getElementById('start-cycle-btn')?.addEventListener('click', () => {
+      // เดิม hardcode รอบ H2/2568 (ปี 2025) และกำหนดส่งไว้ตายตัว ทำให้กดปุ่มนี้ทุกครั้งยังคงสร้างรอบเดิมของ
+      // ปีที่แล้วซ้ำไปเรื่อยๆ ไม่เคยขยับไปรอบปัจจุบันเลย แก้ให้คำนวณรอบ/กำหนดส่งจากวันที่จริงเสมอ
+      const now = new Date()
+      const beYear = now.getFullYear() + 543
+      const isH1 = now.getMonth() < 6
+      const half = isH1 ? 'H1' : 'H2'
+      const period = `${half}/${beYear}`
+      const rangeLabel = isH1 ? `ม.ค.–มิ.ย. ${now.getFullYear()}` : `ก.ค.–ธ.ค. ${now.getFullYear()}`
+      const startMonth = isH1 ? 0 : 6
+      const selfDeadline = new Date(now.getFullYear(), startMonth + 2, 0).toISOString().slice(0, 10)
+      const mgmtDeadline = new Date(now.getFullYear(), startMonth + 3, 0).toISOString().slice(0, 10)
       openModal({
-        title: '🔄 เริ่มรอบประเมิน H2/2568',
+        title: `🔄 เริ่มรอบประเมิน ${period}`,
         size: 'sm',
         body: `
           <div style="font-size:0.8rem;display:flex;flex-direction:column;gap:10px">
             <div style="background:var(--surface-2);border-radius:6px;padding:10px;font-size:0.76rem">
-              <div><b>รอบ:</b> H2/2568 (ก.ค.–ธ.ค. 2025)</div>
+              <div><b>รอบ:</b> ${period} (${rangeLabel})</div>
               <div><b>พนักงานทั้งหมด:</b> ${reviews.length} คน</div>
             </div>
             <div><label style="font-size:0.72rem;color:var(--text-muted)">กำหนดส่งผลประเมินตัวเอง</label>
-              <input class="input" id="pr-self-deadline" type="date" value="2025-08-31" style="width:100%;margin-top:4px"></div>
+              <input class="input" id="pr-self-deadline" type="date" value="${selfDeadline}" style="width:100%;margin-top:4px"></div>
             <div><label style="font-size:0.72rem;color:var(--text-muted)">กำหนดผู้จัดการส่งผล</label>
-              <input class="input" id="pr-mgmt-deadline" type="date" value="2025-09-30" style="width:100%;margin-top:4px"></div>
+              <input class="input" id="pr-mgmt-deadline" type="date" value="${mgmtDeadline}" style="width:100%;margin-top:4px"></div>
           </div>
         `,
         confirmText: '🚀 เริ่มรอบประเมิน',
         async onConfirm() {
           const selfDl = document.getElementById('pr-self-deadline')?.value
           const mgmtDl = document.getElementById('pr-mgmt-deadline')?.value
-          const toCreate = reviews.filter(r => r.period !== 'H2/2568')
+          const toCreate = reviews.filter(r => r.period !== period)
           for (const r of toCreate) {
-            await createDoc('performance_reviews', { staff: r.staff, dept: r.dept, period: 'H2/2568', status: 'pending', selfScores: null, mgmtScores: null, comment: '', grade: null })
+            await createDoc('performance_reviews', { staff: r.staff, dept: r.dept, period, status: 'pending', selfScores: null, mgmtScores: null, comment: '', grade: null })
           }
-          showToast(`🔄 เริ่มรอบประเมิน H2/2568 แล้ว · ส่งตัวเอง: ${selfDl} · ผู้จัดการ: ${mgmtDl}`, 'success')
+          showToast(`🔄 เริ่มรอบประเมิน ${period} แล้ว · ส่งตัวเอง: ${selfDl} · ผู้จัดการ: ${mgmtDl}`, 'success')
           await loadData()
         }
       })

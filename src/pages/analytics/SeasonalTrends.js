@@ -34,7 +34,9 @@ export default async function SeasonalTrendsPage(container) {
   const myGen = container.__routerGen
   let liveYearData = JSON.parse(JSON.stringify(YEAR_DATA))
   let dataSource = 'demo'
-  let selYear = 2569
+  // เดิม hardcode ปี พ.ศ. 2569 ตายตัว (บังเอิญตรงกับปีปัจจุบันตอนนี้ แต่จะกลายเป็นปีที่แล้วทันทีปีหน้า)
+  // แก้ให้คำนวณจากวันที่จริงเสมอ
+  let selYear = new Date().getFullYear() + 543
 
   try {
     const sales = await getSalesData().catch(() => [])
@@ -80,12 +82,15 @@ export default async function SeasonalTrendsPage(container) {
   }
 
   function render() {
-    const data = liveYearData[selYear]
-    const maxSales = Math.max(...data.filter(v=>v>0))
+    // เดิมปุ่มเลือกปีมีแค่ [2568, 2569] ตายตัว ปีต่อๆไปจะไม่มีปุ่มให้เลือกเลย แก้ให้สร้างจากปีที่มีข้อมูลจริง
+    const availYears = Object.keys(liveYearData).map(Number).sort((a, b) => a - b)
+    if (!liveYearData[selYear]) selYear = availYears[availYears.length - 1] || selYear
+    const data = liveYearData[selYear] || Array(12).fill(0)
+    const maxSales = Math.max(...data.filter(v=>v>0), 0)
     const totalSales = data.reduce((s,v)=>s+v,0)
     const peakIdx = data.indexOf(Math.max(...data))
     const peakMonth = MONTHS[peakIdx]
-    const yearBtns = [2568, 2569].map(y=>'<button class="btn btn-sm '+(selYear===y?'btn-primary':'btn-secondary')+' year-btn" data-y="'+y+'">'+y+'</button>').join('')
+    const yearBtns = availYears.map(y=>'<button class="btn btn-sm '+(selYear===y?'btn-primary':'btn-secondary')+' year-btn" data-y="'+y+'">'+y+'</button>').join('')
 
     const barCells = data.map((v,i)=>{
       const pct = maxSales>0?Math.round(v/maxSales*100):0
