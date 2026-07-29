@@ -1,4 +1,4 @@
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData } from '../../core/db.js'
 
@@ -16,13 +16,18 @@ export default async function AttendancePage(container) {
   try {
     const staffList = await listDocs('staff', [], 'name', 'asc', 200)
     if (container.__routerGen !== myGen) return
-    activeStaff = staffList.map(s => ({
-      id: s.id,
-      name: s.name || s.staffName || '',
-      dept: s.department || s.dept || 'ทั่วไป',
-      position: s.position || s.role || '',
-      shift: s.shift || '08:30-17:30',
-    })).filter(s => s.name)
+    // Phase 2 หลายบริษัท — พนักงานที่ยังไม่มี companyId (ข้อมูลเดิม/shared-service) ยังลงเวลาเข้า-ออกที่หน้านี้
+    // ได้เสมอ ไม่ถูกกรองออกโดยไม่ตั้งใจ
+    const activeCompanyFilter = getState('activeCompanyFilter') || []
+    activeStaff = staffList
+      .filter(s => !s.companyId || !activeCompanyFilter.length || activeCompanyFilter.includes(s.companyId))
+      .map(s => ({
+        id: s.id,
+        name: s.name || s.staffName || '',
+        dept: s.department || s.dept || 'ทั่วไป',
+        position: s.position || s.role || '',
+        shift: s.shift || '08:30-17:30',
+      })).filter(s => s.name)
   } catch { activeStaff = [] }
 
   // attendanceDb: { [date]: [{ id, staffId, staffName, date, checkIn, checkOut, status, note }] } — สร้างจากข้อมูลจริงใน Firestore เท่านั้น ไม่มีข้อมูลสุ่ม/ปลอมปนอีกต่อไป
@@ -38,7 +43,11 @@ export default async function AttendancePage(container) {
   let tab = 'today' // today | monthly | report
 
   function getTodayRecords() {
-    return attendanceDb[viewDate] || activeStaff.map(s => ({
+    // กรองตาม activeStaff ที่ผ่านตัวกรองบริษัทแล้ว (ไม่ใช่ raw attendanceDb) กันพนักงานบริษัทอื่นที่ถูกกรอง
+    // ออกไปแล้วโผล่กลับมาตอนมีบันทึกลงเวลาของวันนั้นอยู่แล้ว
+    const activeIds = new Set(activeStaff.map(s => s.id))
+    const recs = attendanceDb[viewDate]?.filter(r => activeIds.has(r.staffId))
+    return (recs && recs.length) ? recs : activeStaff.map(s => ({
       staffId: s.id, staffName: s.name, date: viewDate,
       checkIn: null, checkOut: null, status: 'pending', note: ''
     }))
@@ -144,7 +153,8 @@ export default async function AttendancePage(container) {
     document.querySelectorAll('.checkin-btn').forEach(btn => btn.addEventListener('click', () => checkIn(btn.dataset.id)))
     document.querySelectorAll('.checkout-btn').forEach(btn => btn.addEventListener('click', () => checkOut(btn.dataset.id)))
     document.getElementById('att-export')?.addEventListener('click', () => {
-      const rows = Object.entries(attendanceDb).filter(([d]) => d.startsWith(viewMonth)).flatMap(([, recs]) => recs)
+      const activeIds = new Set(activeStaff.map(s => s.id))
+      const rows = Object.entries(attendanceDb).filter(([d]) => d.startsWith(viewMonth)).flatMap(([, recs]) => recs).filter(r => activeIds.has(r.staffId))
       exportToExcel(rows.map(r => ({ วันที่:r.date, พนักงาน:r.staffName, เข้า:r.checkIn||'-', ออก:r.checkOut||'-', สถานะ:r.status })), 'Attendance')
     })
     document.getElementById('view-month')?.addEventListener('change', e => { viewMonth = e.target.value; renderPage() })

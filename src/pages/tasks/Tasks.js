@@ -51,6 +51,9 @@ export default async function TasksPage(container) {
   })
 
   function getFiltered() {
+    // Phase 2 หลายบริษัท — งานที่ยังไม่มี companyId (ข้อมูลเดิม/งานที่ส่งต่อข้ามแผนกซึ่งอาจข้ามบริษัทด้วย)
+    // ยังเห็นได้เสมอ ไม่ถูกกรองออกโดยไม่ตั้งใจ
+    const activeCompanyFilter = getState('activeCompanyFilter') || []
     let t = tasks.filter(t => {
       if (viewFilter === 'mine') return t.assignedTo && t.assignedTo === myName
       if (viewFilter === 'active') return t.status !== 'done' && t.status !== 'cancelled'
@@ -59,6 +62,7 @@ export default async function TasksPage(container) {
     })
     if (priorityFilter !== 'all') t = t.filter(x => x.priority === priorityFilter)
     if (deptFilter !== 'all') t = t.filter(x => (x.department || 'general') === deptFilter)
+    t = t.filter(x => !x.companyId || !activeCompanyFilter.length || activeCompanyFilter.includes(x.companyId))
     return t.sort((a, b) => (PRIORITY[a.priority]?.order ?? 9) - (PRIORITY[b.priority]?.order ?? 9))
   }
 
@@ -299,7 +303,12 @@ export default async function TasksPage(container) {
       }
       try {
         if (isEdit) { await updateDocData('tasks', existing.id, data); Object.assign(existing, data) }
-        else { const id = await createDoc('tasks', data); tasks.unshift({ ...data, id }) }
+        else {
+          // Phase 2 หลายบริษัท — ติด companyId ของบริษัทหลักที่พนักงานคนสร้างสังกัดอยู่ (ถ้ามี) งานเดิมที่ไม่มี
+          // companyId ยังเห็นได้ทุกคนเหมือนเดิม (ไม่ถูกกรองออก)
+          const payload = { ...data, companyId: getState('user')?.primaryCompanyId || null }
+          const id = await createDoc('tasks', payload); tasks.unshift({ ...payload, id })
+        }
         showToast(isEdit ? 'แก้ไขแล้ว' : '✅ เพิ่มงานแล้ว', 'success')
         close(); renderBoard()
       } catch { showToast('บันทึกไม่สำเร็จ','error') }
