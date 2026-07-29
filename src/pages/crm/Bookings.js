@@ -161,6 +161,9 @@ export default async function BookingsPage(container) {
       const hay = [b.bookingNo, b.custName, b.brand, b.model, b.salesName, b.phone, b.nid].filter(Boolean).join(' ').toLowerCase()
       if (!hay.includes(search)) return false
     }
+    // Phase 2 หลายบริษัท — ใบจองที่ยังไม่มี companyId (ข้อมูลเดิมทั้งหมดก่อนมีระบบนี้) ยังเห็นได้เสมอ
+    const activeCompanyFilter = getState('activeCompanyFilter') || []
+    if (b.companyId && activeCompanyFilter.length && !activeCompanyFilter.includes(b.companyId)) return false
     return true
   }
   function getFiltered() {
@@ -730,6 +733,8 @@ export default async function BookingsPage(container) {
           margin: 0, budgetUsed: 0, com70: commission(), comFinance: 0, marginLeft: 0, totalIncome: commission(),
           bookingDate: new Date().toISOString().slice(0, 10), status: 'ยอดจองคงค้าง', notes: '',
           createdAt: new Date().toISOString(),
+          // Phase 2 หลายบริษัท — ติด companyId ของบริษัทหลักที่พนักงานคนสร้างสังกัดอยู่ (ถ้ามี)
+          companyId: getState('user')?.primaryCompanyId || null,
         }
         const btn = m.el.querySelector('#wz-save')
         btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'

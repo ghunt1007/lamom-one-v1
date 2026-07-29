@@ -12,10 +12,32 @@
  * Binding/vars ที่ต้องตั้งใน Cloudflare Dashboard หรือ wrangler-ai-proxy.toml:
  *   Secret: GEMINI_API_KEY        (wrangler secret put GEMINI_API_KEY)
  *   Var:    FIREBASE_API_KEY      (Firebase Web API key — public, ใช้ verify ID token เท่านั้น)
+ *   Var:    FIREBASE_PROJECT_ID   (Firebase/Firestore project id เช่น "lamom-one-v1" — ใช้เช็ค role พนักงานจริง)
  *   Var:    ALLOWED_ORIGIN        (origin ของแอปจริง เช่น https://lamom-one.pages.dev)
  */
 
 const MODEL = 'gemini-2.5-flash'
+
+// เดิม verifyFirebeToken() เช็คแค่ว่า token เป็นของบัญชี Firebase จริง ไม่เคยเช็คว่าบัญชีนั้นเป็น "พนักงานที่
+// อนุมัติแล้ว" หรือเปล่า — ใครก็สมัครบัญชีเองจากหน้า Login ได้ (ได้ role:'pending' ตามค่าเริ่มต้น) แล้วใช้
+// token ที่ถูกต้องเรียก AI API (มีค่าใช้จ่ายจริง) ได้ทันที แก้ให้เช็ค role จริงจาก Firestore ก่อนอนุญาต
+const STAFF_ROLES = ['owner', 'admin', 'manager', 'sales', 'service', 'finance', 'hr', 'staff']
+async function isAuthorizedStaff(idToken, uid, env) {
+  const projectId = env.FIREBASE_PROJECT_ID
+  if (!projectId || !uid) return false
+  try {
+    const res = await fetch(`https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${uid}`, {
+      headers: { Authorization: `Bearer ${idToken}` },
+    })
+    if (!res.ok) return false
+    const doc = await res.json()
+    const f = doc.fields || {}
+    const role = f.role?.stringValue || 'viewer'
+    const expiresAt = f.accessExpiresAt?.timestampValue || null
+    if (expiresAt && new Date(expiresAt).getTime() < Date.now()) return false
+    return STAFF_ROLES.includes(role)
+  } catch { return false }
+}
 
 export default {
   async fetch(request, env) {
@@ -39,6 +61,9 @@ export default {
 
     const verified = await verifyFirebaseToken(idToken, env.FIREBASE_API_KEY)
     if (!verified) return json({ error: 'Unauthorized — invalid token' }, 401, cors)
+    if (!(await isAuthorizedStaff(idToken, verified.localId, env))) {
+      return json({ error: 'Unauthorized — บัญชีนี้ยังไม่ได้รับอนุมัติให้เป็นพนักงาน' }, 403, cors)
+    }
 
     if (!env.GEMINI_API_KEY) return json({ error: 'AI proxy not configured (missing GEMINI_API_KEY secret)' }, 500, cors)
 

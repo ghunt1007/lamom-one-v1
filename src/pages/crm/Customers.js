@@ -76,6 +76,9 @@ export default async function CustomersPage(container) {
   }
 
   function applyFilter() {
+    // Phase 2 หลายบริษัท (เห็นทุกบริษัทที่ตัวเองดูแลพร้อมกันตามค่าเริ่มต้น กรองได้จากปุ่มบนแถบบน) — ลูกค้าที่
+    // ยังไม่มี companyId (ข้อมูลเดิมทั้งหมดก่อนมีระบบนี้) ยังเห็นได้เสมอ ไม่ถูกกรองออกโดยไม่ตั้งใจ
+    const activeCompanyFilter = getState('activeCompanyFilter') || []
     filtered = customers.filter(c => {
       const name = fullName(c).toLowerCase()
       const matchSearch = !search || name.includes(search) ||
@@ -83,7 +86,8 @@ export default async function CustomersPage(container) {
         (c.interestedModel || '').toLowerCase().includes(search)
       const matchStage = stageFilter === 'all' || c.stage === stageFilter
       const matchLost = !lostOnly || c.isLost
-      return matchSearch && matchStage && matchLost
+      const matchCompany = !c.companyId || !activeCompanyFilter.length || activeCompanyFilter.includes(c.companyId)
+      return matchSearch && matchStage && matchLost && matchCompany
     })
     const rank = { high: 0, medium: 1, low: 2 }
     filtered.sort((a, b) => {
@@ -633,7 +637,9 @@ export default async function CustomersPage(container) {
           onSaved?.(existing)
         } else {
           const stage = deriveInitialStage(fields)
-          const payload = { ...fields, stage, stageChangedAt: new Date().toISOString(), isLost: false, lostReason: '', lostAt: null, bookingId: null, tags: [] }
+          // Phase 2 หลายบริษัท — ติด companyId ของบริษัทหลักที่พนักงานคนสร้างสังกัดอยู่ (ถ้ามี) เพื่อให้กรอง
+          // ตามบริษัทได้ในอนาคต ลูกค้าเดิมที่ไม่มี companyId ยังเห็นได้ทุกคนเหมือนเดิม (ไม่ถูกกรองออก)
+          const payload = { ...fields, stage, stageChangedAt: new Date().toISOString(), isLost: false, lostReason: '', lostAt: null, bookingId: null, tags: [], companyId: getState('user')?.primaryCompanyId || null }
           const id = await createDoc('customers', payload)
           const created = { ...payload, id }
           customers.unshift(created)

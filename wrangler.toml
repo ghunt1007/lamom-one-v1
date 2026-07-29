@@ -9,3 +9,5 @@ bucket_name = "lamom-files"
 
 [vars]
 FIREBASE_API_KEY = "AIzaSyBH098B5Ja9WiLL5sfgCvSuBqOab8aeKMo"
+FIREBASE_PROJECT_ID = "lamom-one-v1"
+ALLOWED_ORIGIN = "https://lamom-one.pages.dev"

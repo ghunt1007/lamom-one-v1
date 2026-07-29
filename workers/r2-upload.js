@@ -7,6 +7,8 @@
  *   Variable name: BUCKET
  *   R2 bucket: lamom-files
  *   Var: FIREBASE_API_KEY — Firebase Web API key (public, ใช้ verify ID token เท่านั้น)
+ *   Var: FIREBASE_PROJECT_ID — Firebase/Firestore project id เช่น "lamom-one-v1" (ใช้เช็ค role พนักงานจริง)
+ *   Var: ALLOWED_ORIGIN — origin ของแอปจริง เช่น https://lamom-one.pages.dev (จำกัด CORS ของ /upload, /delete)
  *
  * เดิมมี env var REQUIRE_AUTH="false" ที่ปิดการตรวจสอบสิทธิ์ไปเลย (ปิดถาวรจากที่ตั้งไว้ตอน
  * dev ครั้งแรกแล้วไม่ได้เปิดคืน) และแม้เปิดไว้ก็เช็คแค่ว่า header ขึ้นต้นด้วย "Bearer " เท่านั้น
@@ -18,6 +20,29 @@
  * ไฟล์ที่อัปโหลดไปก่อนหน้านี้มี URL ใช้งานไม่ได้ ตอนนี้เปลี่ยนไปเสิร์ฟผ่าน endpoint /file ของ
  * Worker นี้เอง (ทดสอบแล้วว่าทำงานได้จริงกับ bucket จริง) แทน ไม่ต้องรอตั้งค่า custom domain เพิ่ม
  */
+
+// เดิม verifyFirebaseToken() เช็คแค่ว่า token เป็นของบัญชี Firebase จริง (ไม่ใช่ token ปลอม) แต่ไม่เคยเช็คว่า
+// บัญชีนั้นเป็น "พนักงานที่อนุมัติแล้ว" หรือเปล่าเลย — ใครก็สมัครบัญชีเองจากหน้า Login ได้ (ได้ role:'pending'
+// ตามค่าเริ่มต้นใน Firestore Rules) แล้วใช้ token ที่ถูกต้องนั้นเรียก /upload, /delete ได้ทันทีทั้งที่ยังไม่ได้
+// รับอนุมัติ แก้ให้เช็ค role จริงจาก Firestore ก่อนอนุญาต (ใช้ ID token เดิมอ่าน users/{uid} ของตัวเอง ซึ่ง
+// Firestore Rules อนุญาตให้เจ้าของอ่านเอกสารตัวเองได้อยู่แล้ว ไม่ต้องมี service account เพิ่ม)
+const STAFF_ROLES = ['owner', 'admin', 'manager', 'sales', 'service', 'finance', 'hr', 'staff']
+async function isAuthorizedStaff(idToken, uid, env) {
+  const projectId = env.FIREBASE_PROJECT_ID
+  if (!projectId || !uid) return false
+  try {
+    const res = await fetch(`https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${uid}`, {
+      headers: { Authorization: `Bearer ${idToken}` },
+    })
+    if (!res.ok) return false
+    const doc = await res.json()
+    const f = doc.fields || {}
+    const role = f.role?.stringValue || 'viewer'
+    const expiresAt = f.accessExpiresAt?.timestampValue || null
+    if (expiresAt && new Date(expiresAt).getTime() < Date.now()) return false
+    return STAFF_ROLES.includes(role)
+  } catch { return false }
+}
 
 const ALLOWED_TYPES = [
   'image/jpeg', 'image/png', 'image/webp', 'image/gif',
@@ -40,9 +65,11 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url)
 
-    // CORS headers
+    // เดิม CORS เปิดกว้าง '*' ตายตัวสำหรับ endpoint ที่มีสิทธิ์เขียน/ลบไฟล์ (ต่างจาก worker อื่นในระบบที่
+    // จำกัดด้วย ALLOWED_ORIGIN) แก้ให้จำกัดตาม origin ของแอปจริงเหมือนกันหมด (ไม่กระทบการแสดงรูป/ไฟล์
+    // ผ่าน <img>/<video> src เพราะ CORS ไม่มีผลกับการโหลดทรัพยากรแบบนั้น)
     const cors = {
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': env.ALLOWED_ORIGIN || '*',
       'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     }
@@ -51,13 +78,16 @@ export default {
       return new Response(null, { headers: cors })
     }
 
-    // POST /upload, DELETE /delete — ต้องมี Firebase ID token จริงเท่านั้น (verify กับ Firebase
-    // ทุกครั้ง ไม่ใช่แค่เช็คว่า header ขึ้นต้นด้วย "Bearer " เหมือนเดิม)
+    // POST /upload, DELETE /delete — ต้องมี Firebase ID token จริงและเป็นพนักงานที่อนุมัติแล้วเท่านั้น
+    // (verify กับ Firebase ทุกครั้ง + เช็ค role จริงจาก Firestore ไม่ใช่แค่เช็คว่า token ถูกต้องอย่างเดียว)
     if ((request.method === 'POST' && url.pathname === '/upload') || (request.method === 'DELETE' && url.pathname === '/delete')) {
       const auth = request.headers.get('Authorization') || ''
       const idToken = auth.startsWith('Bearer ') ? auth.slice(7) : ''
       const verified = idToken ? await verifyFirebaseToken(idToken, env.FIREBASE_API_KEY) : null
       if (!verified) return json({ error: 'Unauthorized' }, 401, cors)
+      if (!(await isAuthorizedStaff(idToken, verified.localId, env))) {
+        return json({ error: 'Unauthorized — บัญชีนี้ยังไม่ได้รับอนุมัติให้เป็นพนักงาน' }, 403, cors)
+      }
     }
 
     // POST /upload — อัปโหลดไฟล์
@@ -65,13 +95,17 @@ export default {
       try {
         const formData = await request.formData()
         const file = formData.get('file')
-        const folder = formData.get('folder') || 'uploads'
+        // เดิม client กำหนด folder ได้อิสระเต็มที่ไม่มีการกรองเลย แก้ให้เหลือแค่ตัวอักษร/เลข/-/_ กัน key
+        // ชนกับโฟลเดอร์ของโมดูลอื่นโดยไม่ตั้งใจ (R2 เป็น flat namespace ไม่มี path traversal จริงแบบไฟล์ระบบ
+        // แต่ยังควรกรอง input แปลกๆ ก่อนใช้สร้าง key เสมอ)
+        const rawFolder = String(formData.get('folder') || 'uploads')
+        const folder = rawFolder.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 60) || 'uploads'
 
         if (!file) return json({ error: 'No file provided' }, 400, cors)
         if (!ALLOWED_TYPES.includes(file.type)) return json({ error: 'File type not allowed' }, 400, cors)
         if (file.size > MAX_SIZE) return json({ error: 'File too large (max 50 MB)' }, 400, cors)
 
-        const ext = file.name.split('.').pop()
+        const ext = (file.name.split('.').pop() || 'bin').replace(/[^a-zA-Z0-9]/g, '').slice(0, 10) || 'bin'
         const key = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
 
         await env.BUCKET.put(key, file.stream(), {

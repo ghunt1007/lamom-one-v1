@@ -1,17 +1,20 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import worker from './ai-proxy.js'
 
-const ENV = { FIREBASE_API_KEY: 'fake-public-key', GEMINI_API_KEY: 'fake-secret', ALLOWED_ORIGIN: 'https://lamom-one.pages.dev' }
+const ENV = { FIREBASE_API_KEY: 'fake-public-key', FIREBASE_PROJECT_ID: 'fake-project', GEMINI_API_KEY: 'fake-secret', ALLOWED_ORIGIN: 'https://lamom-one.pages.dev' }
 
-// Routes the global fetch mock by target URL, since a single request can trigger both
-// a Firebase token-verification call AND a Gemini API call — they must not share a response.
-function stubFetch({ firebaseOk = true, geminiStatus = 200, geminiBody = '{"candidates":[]}' } = {}) {
+// Routes the global fetch mock by target URL — a single authorized request now triggers THREE
+// calls: Firebase token verification, a Firestore read of users/{uid} (role check), then Gemini.
+function stubFetch({ firebaseOk = true, staffRole = 'sales', geminiStatus = 200, geminiBody = '{"candidates":[]}' } = {}) {
   global.fetch = vi.fn().mockImplementation((url) => {
     if (String(url).includes('identitytoolkit.googleapis.com')) {
       return Promise.resolve({
         ok: firebaseOk,
         json: async () => (firebaseOk ? { users: [{ localId: 'real-user-uid' }] } : {}),
       })
+    }
+    if (String(url).includes('firestore.googleapis.com')) {
+      return Promise.resolve({ ok: true, json: async () => ({ fields: { role: { stringValue: staffRole } } }) })
     }
     if (String(url).includes('generativelanguage.googleapis.com')) {
       return Promise.resolve({
@@ -69,6 +72,19 @@ describe('ai-proxy worker — auth gate', () => {
       method: 'POST', headers: { Authorization: 'Bearer fake-token' }, body: '{}',
     })
     await worker.fetch(req, ENV)
+    const calledUrls = global.fetch.mock.calls.map(c => String(c[0]))
+    expect(calledUrls.some(u => u.includes('generativelanguage'))).toBe(false)
+  })
+})
+
+describe('ai-proxy worker — role check (v1.0.287)', () => {
+  it('rejects /generate from a valid but unapproved ("pending") account, before reaching Gemini', async () => {
+    stubFetch({ firebaseOk: true, staffRole: 'pending' })
+    const req = new Request('https://worker.example/generate', {
+      method: 'POST', headers: { Authorization: 'Bearer valid' }, body: '{}',
+    })
+    const res = await worker.fetch(req, ENV)
+    expect(res.status).toBe(403)
     const calledUrls = global.fetch.mock.calls.map(c => String(c[0]))
     expect(calledUrls.some(u => u.includes('generativelanguage'))).toBe(false)
   })

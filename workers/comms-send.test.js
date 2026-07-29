@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { generateKeyPairSync } from 'node:crypto'
 import worker from './comms-send.js'
 
-const BASE_ENV = { FIREBASE_API_KEY: 'fake-public-key', ALLOWED_ORIGIN: 'https://lamom-one.pages.dev' }
+const BASE_ENV = { FIREBASE_API_KEY: 'fake-public-key', FIREBASE_PROJECT_ID: 'fake-project', ALLOWED_ORIGIN: 'https://lamom-one.pages.dev' }
 
 function req(path, body, { auth = 'Bearer valid' } = {}) {
   const headers = { 'Content-Type': 'application/json' }
@@ -10,11 +10,16 @@ function req(path, body, { auth = 'Bearer valid' } = {}) {
   return new Request(`https://worker.example${path}`, { method: 'POST', headers, body: JSON.stringify(body) })
 }
 
-function stubFetch(routes) {
+// staffRole defaults to 'sales' (a valid staff role) so existing "valid auth" tests keep passing
+// once the worker also checks the caller's Firestore role, not just that the token verifies.
+function stubFetch(routes, staffRole = 'sales') {
   global.fetch = vi.fn().mockImplementation((url, opts) => {
     const u = String(url)
     if (u.includes('identitytoolkit.googleapis.com')) {
       return Promise.resolve({ ok: true, json: async () => ({ users: [{ localId: 'staff-uid' }] }) })
+    }
+    if (u.includes('firestore.googleapis.com')) {
+      return Promise.resolve({ ok: true, json: async () => ({ fields: { role: { stringValue: staffRole } } }) })
     }
     for (const [match, handler] of routes) {
       if (u.includes(match)) return Promise.resolve(handler(url, opts))
@@ -53,6 +58,12 @@ describe('comms-send worker — CORS + auth gate', () => {
     stubFetch([])
     const res = await worker.fetch(req('/send/carrier-pigeon', {}), BASE_ENV)
     expect(res.status).toBe(404)
+  })
+
+  it('rejects a valid but unapproved ("pending") account before touching any provider (v1.0.287)', async () => {
+    stubFetch([], 'pending')
+    const res = await worker.fetch(req('/send/sms', { recipients: ['+66812345678'], message: 'hi' }), BASE_ENV)
+    expect(res.status).toBe(403)
   })
 })
 

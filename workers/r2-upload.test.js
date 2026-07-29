@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import worker from './r2-upload.js'
 
-const ENV = { FIREBASE_API_KEY: 'fake-public-key', BUCKET: null }
+const ENV = { FIREBASE_API_KEY: 'fake-public-key', FIREBASE_PROJECT_ID: 'fake-project', BUCKET: null }
 
 function mockBucket() {
   return {
@@ -11,12 +11,20 @@ function mockBucket() {
   }
 }
 
-// Stubs global fetch — used internally by verifyFirebaseToken() to call Firebase's
-// accounts:lookup REST endpoint. `ok` simulates whether Firebase accepted the token.
-function stubFirebaseVerify(ok) {
-  global.fetch = vi.fn().mockResolvedValue({
-    ok,
-    json: async () => (ok ? { users: [{ localId: 'real-user-uid' }] } : {}),
+// Stubs global fetch — used internally by verifyFirebaseToken() (Firebase accounts:lookup)
+// and isAuthorizedStaff() (Firestore REST read of users/{uid} to check role). `ok` simulates
+// whether Firebase accepted the token; `role` simulates the Firestore-stored staff role
+// (defaults to 'sales' — a valid staff role — so existing "valid token" tests keep passing).
+function stubFirebaseVerify(ok, role = 'sales') {
+  global.fetch = vi.fn().mockImplementation((input) => {
+    const u = typeof input === 'string' ? input : input.url
+    if (u.includes('firestore.googleapis.com')) {
+      return Promise.resolve({ ok: true, json: async () => ({ fields: { role: { stringValue: role } } }) })
+    }
+    return Promise.resolve({
+      ok,
+      json: async () => (ok ? { users: [{ localId: 'real-user-uid' }] } : {}),
+    })
   })
 }
 
@@ -70,6 +78,30 @@ describe('r2-upload worker — auth gate on /upload and /delete', () => {
     })
     const res = await worker.fetch(req, ENV)
     expect(res.status).toBe(401)
+  })
+})
+
+describe('r2-upload worker — role check on /upload and /delete (v1.0.287)', () => {
+  it('rejects /upload from a valid but unapproved ("pending") account', async () => {
+    stubFirebaseVerify(true, 'pending')
+    const form = new FormData()
+    form.append('file', new File(['x'], 'a.pdf', { type: 'application/pdf' }))
+    const req = new Request('https://worker.example/upload', {
+      method: 'POST', headers: { Authorization: 'Bearer valid' }, body: form,
+    })
+    const res = await worker.fetch(req, ENV)
+    expect(res.status).toBe(403)
+    expect(ENV.BUCKET.put).not.toHaveBeenCalled()
+  })
+
+  it('rejects /delete from a valid but unapproved ("pending") account', async () => {
+    stubFirebaseVerify(true, 'pending')
+    const req = new Request('https://worker.example/delete?key=x', {
+      method: 'DELETE', headers: { Authorization: 'Bearer valid' },
+    })
+    const res = await worker.fetch(req, ENV)
+    expect(res.status).toBe(403)
+    expect(ENV.BUCKET.delete).not.toHaveBeenCalled()
   })
 })
 
