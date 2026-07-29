@@ -30,7 +30,9 @@ export default async function StaffPage(container) {
   let search = ''
 
   async function loadData() {
-    try { staff = await listDocs('staff', [], 'startDate', 'asc', 500) } catch {}
+    // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true — ถ้าไม่กรองออก พนักงานที่ "ลบ" ไปแล้วจะยังโผล่
+    // กลับมาในรายชื่อทุกครั้งที่โหลดหน้านี้ใหม่ (และยังเข้าเกณฑ์ลงเวลา/คำนวณเงินเดือนที่หน้าอื่นต่อไปด้วย)
+    try { staff = (await listDocs('staff', [], 'startDate', 'asc', 500)).filter(s => !s.deleted) } catch {}
     if (!staff.length) DEMO_STAFF.forEach(s => staff.push({ ...s }))
     updateStats(); applyFilter()
   }

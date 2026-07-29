@@ -60,14 +60,16 @@ export default async function CustomersPage(container) {
   let lostOnly = false
 
   async function loadData() {
-    try { customers = await listDocs('customers', [], 'createdAt', 'desc', 400) } catch { customers = [] }
+    // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true (กู้คืนได้ใน 30 วันตามที่แจ้งผู้ใช้) — ถ้าไม่กรอง
+    // ออกตรงนี้ ลูกค้าที่ "ลบ" ไปแล้วจะยังโผล่กลับมาในตาราง/สถิติทุกครั้งที่โหลดใหม่หรือมี snapshot ใหม่เข้ามา
+    try { customers = (await listDocs('customers', [], 'createdAt', 'desc', 400)).filter(c => !c.deleted) } catch { customers = [] }
     applyFilter()
   }
 
   // Real-time: อัปเดตสดเมื่อมีคนอื่นเพิ่ม/แก้ไขลูกค้าจากเครื่องอื่น — แค่รีเฟรชสถิติ+ตาราง ไม่แตะช่องค้นหา
   const unsubCustomers = watchDocs('customers', [], 'createdAt', 'desc', 400, rows => {
     if (container.__routerGen !== myGen) { unsubCustomers(); return }
-    customers = rows
+    customers = rows.filter(c => !c.deleted)
     applyFilter()
   })
 

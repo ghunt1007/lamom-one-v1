@@ -246,7 +246,9 @@ export async function getSalesData() {
   let bookings = []
   try { bookings = await listDocs('bookings', [], 'createdAt', 'desc', 1000) } catch (e) {}
   return bookings
-    .filter(b => b.status !== 'ถอนจอง')
+    // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true — ถ้าไม่กรองออกตรงนี้ ใบจองที่ "ลบ" ไปแล้วจะยัง
+    // ปนอยู่ใน Dashboard/คอมมิชชั่น/รายงานการเงินทุกหน้าที่เรียกใช้ฟังก์ชันกลางนี้
+    .filter(b => !b.deleted && b.status !== 'ถอนจอง')
     .map(b => ({
       id: b.id, bookingNo: b.bookingNo,
       date: b.actualDeliveryDate || b.cutDate || b.bookingDate || (b.createdAt || '').slice(0, 10),

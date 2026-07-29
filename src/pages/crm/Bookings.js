@@ -132,7 +132,9 @@ export default async function BookingsPage(container) {
   const selectedIds = new Set()
 
   async function loadData() {
-    try { bookings = await listDocs('bookings', [], 'createdAt', 'desc', 500) } catch (e) {}
+    // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true — ถ้าไม่กรองออก ใบจองที่ "ลบ" ไปแล้วจะยังโผล่กลับมา
+    // ทุกครั้งที่โหลดหน้านี้ใหม่ (ขัดกับข้อความยืนยันลบที่บอกผู้ใช้ว่า "จะไม่ปรากฏในระบบอีกต่อไป")
+    try { bookings = (await listDocs('bookings', [], 'createdAt', 'desc', 500)).filter(b => !b.deleted) } catch (e) {}
     if (!bookings.length) bookings = DEMO_BOOKINGS.map(b => ({ ...b }))
     if (container.__routerGen === myGen) render()
   }
@@ -146,7 +148,8 @@ export default async function BookingsPage(container) {
   let firstSnapshot = true
   const unsubBookings = watchDocs('bookings', [], 'createdAt', 'desc', 500, rows => {
     if (container.__routerGen !== myGen) { unsubBookings(); return }
-    bookings = rows.length ? rows : (firstSnapshot ? DEMO_BOOKINGS.map(b => ({ ...b })) : bookings)
+    const liveRows = rows.filter(b => !b.deleted)
+    bookings = liveRows.length ? liveRows : (firstSnapshot ? DEMO_BOOKINGS.map(b => ({ ...b })) : bookings)
     if (firstSnapshot) { firstSnapshot = false; render() }
     else safeRender()
   })

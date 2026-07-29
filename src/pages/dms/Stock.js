@@ -48,7 +48,9 @@ export default async function StockPage(container) {
   let firstSnapshot = true
   const unsubStock = watchDocs('vehicles', [], 'arrivedAt', 'desc', 500, async rows => {
     if (container.__routerGen !== myGen) { unsubStock(); return }
-    stock = rows
+    // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true — ถ้าไม่กรองออก รถที่ "ลบ" ไปแล้วจะยังโผล่กลับมา
+    // ในสต็อกทุกครั้งที่มี snapshot ใหม่เข้ามา (รวมถึง snapshot จากการลบเองด้วย)
+    stock = rows.filter(v => !v.deleted)
     if (!stock.length && firstSnapshot) DEMO_STOCK.forEach(v => stock.push({ ...v }))
     firstSnapshot = false
     // ลิงก์ใบจอง (แหล่งกลาง): จับคู่ตาม VIN → แสดงสถานะจอง/ลูกค้าบนรถในสต็อก

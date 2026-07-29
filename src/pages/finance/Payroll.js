@@ -50,7 +50,10 @@ export default async function PayrollPage(container) {
         // Phase 2 หลายบริษัท — พนักงานที่ยังไม่มี companyId (ข้อมูลเดิม/shared-service) ยังเข้ารอบจ่ายเงินเดือน
         // เสมอ ไม่ถูกกรองออกโดยไม่ตั้งใจ
         const activeCompanyFilter = getState('activeCompanyFilter') || []
-        const scopedStaffDocs = staffDocs.filter(s => !s.companyId || !activeCompanyFilter.length || activeCompanyFilter.includes(s.companyId))
+        // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true — พนักงานที่ "ลบ" ไปแล้วต้องไม่เข้ารอบจ่ายเงินเดือนต่อ
+        const scopedStaffDocs = staffDocs
+          .filter(s => !s.deleted)
+          .filter(s => !s.companyId || !activeCompanyFilter.length || activeCompanyFilter.includes(s.companyId))
         const commBySales = {}
         comms.forEach(c => { commBySales[c.salesName] = (commBySales[c.salesName] || 0) + (c.incomeTotal || 0) })
         const deptMap = { owner: 'ผู้บริหาร', sales: 'ขาย', service: 'บริการ', finance: 'การเงิน', hr: 'บุคคล' }
