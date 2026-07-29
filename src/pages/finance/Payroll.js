@@ -1,6 +1,6 @@
 import { listDocs, createDoc, updateDocData, seedDemoData, getCommissionData } from '../../core/db.js'
 import { formatCurrency, formatDate } from '../../utils/format.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 
 function escHtml(s) {
@@ -47,10 +47,14 @@ export default async function PayrollPage(container) {
       ])
       if (container.__routerGen !== myGen) return
       if (staffDocs.length) {
+        // Phase 2 หลายบริษัท — พนักงานที่ยังไม่มี companyId (ข้อมูลเดิม/shared-service) ยังเข้ารอบจ่ายเงินเดือน
+        // เสมอ ไม่ถูกกรองออกโดยไม่ตั้งใจ
+        const activeCompanyFilter = getState('activeCompanyFilter') || []
+        const scopedStaffDocs = staffDocs.filter(s => !s.companyId || !activeCompanyFilter.length || activeCompanyFilter.includes(s.companyId))
         const commBySales = {}
         comms.forEach(c => { commBySales[c.salesName] = (commBySales[c.salesName] || 0) + (c.incomeTotal || 0) })
         const deptMap = { owner: 'ผู้บริหาร', sales: 'ขาย', service: 'บริการ', finance: 'การเงิน', hr: 'บุคคล' }
-        baseList = staffDocs.map(s => {
+        baseList = scopedStaffDocs.map(s => {
           const name = ((s.firstName || '') + ' ' + (s.lastName || '')).trim()
           const base = s.salary || 0
           const ssf = Math.min(Math.round(base * 0.05), 750)

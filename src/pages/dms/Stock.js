@@ -1,5 +1,5 @@
 import { listDocs, watchDocs, createDoc, updateDocData, softDelete, seedDemoData, getSalesData } from '../../core/db.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { formatDate, formatCurrency } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -78,11 +78,15 @@ export default async function StockPage(container) {
   }
 
   function applyFilter() {
+    // Phase 2 หลายบริษัท — รถที่ยังไม่มี companyId (ข้อมูลเดิมทั้งหมดก่อนมีระบบนี้) ยังเห็นได้เสมอ ไม่ถูก
+    // กรองออกโดยไม่ตั้งใจ
+    const activeCompanyFilter = getState('activeCompanyFilter') || []
     filtered = stock.filter(v => {
       const ms = statusFilter === 'all' || v.status === statusFilter
       const bs = brandFilter === 'all' || v.brand === brandFilter
       const ss = !search || `${v.brand} ${v.model} ${v.color} ${v.vin}`.toLowerCase().includes(search)
-      return ms && bs && ss
+      const matchCompany = !v.companyId || !activeCompanyFilter.length || activeCompanyFilter.includes(v.companyId)
+      return ms && bs && ss && matchCompany
     })
     renderContent()
   }
@@ -388,7 +392,12 @@ export default async function StockPage(container) {
       }
       try {
         if (isEdit) { await updateDocData('vehicles', existing.id, data); Object.assign(existing, data) }
-        else { const id = await createDoc('vehicles', data); stock.unshift({ ...data, id }) }
+        else {
+          // Phase 2 หลายบริษัท — ติด companyId ของบริษัทหลักที่พนักงานคนรับรถเข้าสังกัดอยู่ (ถ้ามี) รถเดิม
+          // ที่ไม่มี companyId ยังเห็นได้ทุกคนเหมือนเดิม (ไม่ถูกกรองออก)
+          const payload = { ...data, companyId: getState('user')?.primaryCompanyId || null }
+          const id = await createDoc('vehicles', payload); stock.unshift({ ...payload, id })
+        }
         showToast(isEdit ? 'แก้ไขแล้ว' : '✅ เพิ่มรถแล้ว', 'success')
         close(); updateStats(); applyFilter()
       } catch { showToast('บันทึกไม่สำเร็จ','error') }

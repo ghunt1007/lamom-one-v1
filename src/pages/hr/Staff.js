@@ -1,5 +1,5 @@
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { formatDate } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -47,10 +47,14 @@ export default async function StaffPage(container) {
   }
 
   function applyFilter() {
+    // Phase 2 หลายบริษัท — พนักงานที่ยังไม่มี companyId (ข้อมูลเดิมทั้งหมด, และ shared-service เช่น HR/บัญชี
+    // ที่ตั้งใจไม่ผูกบริษัทเดียว) ยังเห็นได้เสมอ ไม่ถูกกรองออกโดยไม่ตั้งใจ
+    const activeCompanyFilter = getState('activeCompanyFilter') || []
     filtered = staff.filter(s => {
       const ds = deptFilter === 'all' || s.dept === deptFilter
       const qs = !search || `${s.firstName} ${s.lastName} ${s.nickname} ${s.role}`.toLowerCase().includes(search)
-      return ds && qs
+      const matchCompany = !s.companyId || !activeCompanyFilter.length || activeCompanyFilter.includes(s.companyId)
+      return ds && qs && matchCompany
     })
     renderCards()
   }
@@ -207,7 +211,12 @@ export default async function StaffPage(container) {
       }
       try {
         if (isEdit) { await updateDocData('staff', existing.id, data); Object.assign(existing, data) }
-        else { const id = await createDoc('staff', data); staff.unshift({ ...data, id }) }
+        else {
+          // Phase 2 หลายบริษัท — ติด companyId ของบริษัทหลักที่พนักงานคนสร้างสังกัดอยู่ (ถ้ามี) พนักงานเดิม
+          // ที่ไม่มี companyId ยังเห็นได้ทุกคนเหมือนเดิม (ไม่ถูกกรองออก)
+          const payload = { ...data, companyId: getState('user')?.primaryCompanyId || null }
+          const id = await createDoc('staff', payload); staff.unshift({ ...payload, id })
+        }
         showToast(isEdit ? 'แก้ไขแล้ว' : '✅ เพิ่มพนักงานแล้ว', 'success')
         close(); updateStats(); applyFilter()
       } catch { showToast('บันทึกไม่สำเร็จ','error') }
