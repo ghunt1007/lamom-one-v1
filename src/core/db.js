@@ -3,7 +3,7 @@ import { db } from './firebase.js'
 import {
   collection, doc, addDoc, setDoc, updateDoc, deleteDoc,
   getDoc, getDocs, query, where, orderBy, limit, startAfter,
-  onSnapshot, serverTimestamp, Timestamp,
+  onSnapshot, serverTimestamp, Timestamp, increment,
 } from 'firebase/firestore'
 import { getState } from './store.js'
 import { syncRagChunk, RAG_SOURCE_COLLECTIONS } from '../utils/rag.js'
@@ -67,6 +67,16 @@ function setFlagQuiet(colName, id, field) {
   } catch (e) {}
 }
 
+// เพิ่ม/ลดค่าตัวเลขแบบอะตอมมิกด้วย increment() ของ Firestore — ปลอดภัยจาก race condition เมื่อมี 2 การเขียน
+// แข่งกันในเวลาใกล้กัน (เช่น 2 คนกดปุ่มที่เพิ่มยอดสะสมเดียวกันพร้อมกัน) ต่างจาก updateDocData ทั่วไปที่ต้อง
+// อ่านค่าเดิมมาบวกเองในโค้ดฝั่ง client ก่อนเขียนกลับ (stale read) ซึ่งถ้าแข่งกันจริง การเขียนที่แพ้จะหายไป
+// เงียบๆโดยไม่มี error ไม่ผ่าน deepSanitize เพราะ increment() คืนค่าเป็น sentinel object พิเศษของ Firestore
+// (ไม่ใช่ข้อมูล string ที่ต้องกรอง XSS อยู่แล้ว เป็นตัวเลขล้วน)
+export async function incrementField(colName, id, field, amount) {
+  await updateDoc(doc(db, colName, id), { [field]: increment(amount), updatedAt: serverTimestamp() })
+  logAction('update', colName, id, `+${amount} ${field} (atomic increment)`)
+}
+
 async function findStaffPointsDoc(userName) {
   const snap = await getDocs(query(collection(db, 'staff_points'), where('name', '==', userName), limit(1)))
   return snap.empty ? null : { id: snap.docs[0].id, ...snap.docs[0].data() }
@@ -83,7 +93,10 @@ async function grantPoints(userName, points, reason, sourceCollection, sourceId)
     })
     const existing = await findStaffPointsDoc(name)
     if (existing) {
-      await updateDocData('staff_points', existing.id, { points: (existing.points || 0) + points })
+      // เดิมอ่าน existing.points มาบวกเองแล้วเขียนกลับ (stale read) — awardGamePoints() ถูกเรียกจากหลาย
+      // action ที่ไม่เกี่ยวกันเลย (ปิดใบจอง/ทำงานเสร็จ/บันทึก comm log ฯลฯ) ถ้า 2 action ของเซลส์คนเดียวกัน
+      // เกิดขึ้นใกล้กันมาก แต้มสะสมของฝั่งที่แพ้ race จะหายไปเงียบๆ แก้ให้บวกแบบอะตอมมิกที่ระดับ Firestore แทน
+      await incrementField('staff_points', existing.id, 'points', points)
     } else {
       await createDoc('staff_points', { name, points })
     }

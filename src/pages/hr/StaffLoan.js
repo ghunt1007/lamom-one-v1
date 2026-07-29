@@ -5,7 +5,7 @@
 import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData, incrementField, readDoc } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -135,9 +135,16 @@ export default async function StaffLoanPage(container) {
     container.querySelectorAll('.pay-btn').forEach(b => b.addEventListener('click', async () => {
       const l = loans.find(x => x.id === b.dataset.id)
       if (!l) return
-      const paidInstallments = l.paidInstallments + 1
-      const status = paidInstallments >= l.installments ? 'paid' : l.status
-      await updateDocData('staff_loans', l.id, { paidInstallments, status })
+      // เดิมอ่าน l.paidInstallments มาบวก 1 เองแล้วเขียนกลับ (stale read) — ถ้า HR/ผู้จัดการ 2 คนกดหักงวด
+      // สัญญาเดียวกันใกล้เวลากันมาก (เผื่อเปิดหน้านี้พร้อมกันตอนประมวลผลเงินเดือนประจำเดือน) ทั้งคู่จะอ่านค่า
+      // เดิมตัวเดียวกันแล้วคำนวณเป้าเดียวกัน ทำให้งวดที่ควรหักจริง 2 ครั้งเหลือแค่ 1 ครั้งโดยไม่มี error เตือน
+      // แก้ให้บวกแบบอะตอมมิกที่ระดับ Firestore ก่อน แล้วอ่านค่าจริงหลังบวกมาเช็คว่าผ่อนครบหรือยัง
+      await incrementField('staff_loans', l.id, 'paidInstallments', 1)
+      const fresh = await readDoc('staff_loans', l.id)
+      const paidInstallments = fresh?.paidInstallments ?? (l.paidInstallments + 1)
+      if (paidInstallments >= l.installments && fresh?.status !== 'paid') {
+        await updateDocData('staff_loans', l.id, { status: 'paid' })
+      }
       showToast(paidInstallments >= l.installments ? '🎉 ผ่อนครบแล้ว — ปิดสัญญา' : `💵 หักงวดที่ ${paidInstallments} แล้ว`, paidInstallments >= l.installments ? 'success' : 'primary')
       await loadData()
     }))
