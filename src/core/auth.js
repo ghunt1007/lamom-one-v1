@@ -12,6 +12,7 @@ import {
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { setUser, setCompany, setCompanies, setActiveCompanyFilter, setState, showToast, getState } from './store.js'
 import { navigate } from './router.js'
+import { deepSanitize } from './db.js'
 
 export async function register(email, password) {
   try {
@@ -131,7 +132,10 @@ async function loadUserProfile(firebaseUser) {
       const newProfile = {
         uid: firebaseUser.uid,
         email: firebaseUser.email,
-        displayName: firebaseUser.displayName || firebaseUser.email,
+        // displayName มาจาก provider (เช่น Google) ซึ่งผู้สมัครควบคุมได้เอง (ตั้งชื่อบัญชี Google ของตัวเอง
+        // เป็นอะไรก็ได้) — เขียนตรงผ่าน setDoc ที่นี่ ไม่ผ่าน createDoc/updateDocData ที่กรอง XSS ให้อยู่แล้ว
+        // ปกติ จึงต้องกรองเองตรงนี้
+        displayName: deepSanitize(firebaseUser.displayName || firebaseUser.email),
         role,
         permissions,
         active: isFirstUser ? true : false,
@@ -175,9 +179,11 @@ export async function createStaffAccount({ name, email, password, role, accessEx
   try {
     const cred = await createUserWithEmailAndPassword(secondaryAuth, email, password)
     const uid = cred.user.uid
-    const companyMemberships = companyId ? [{ companyId, role: role || 'staff', department: department || '', position: position || '' }] : []
+    // ชื่อ/แผนก/ตำแหน่งพิมพ์เองโดยแอดมิน — เขียนตรงผ่าน setDoc ที่นี่ ไม่ผ่าน createDoc/updateDocData
+    // ที่กรอง XSS ให้อยู่แล้วปกติ จึงต้องกรองเองตรงนี้
+    const companyMemberships = companyId ? [{ companyId, role: role || 'staff', department: deepSanitize(department || ''), position: deepSanitize(position || '') }] : []
     await setDoc(doc(db, 'users', uid), {
-      uid, email, displayName: name || email,
+      uid, email, displayName: deepSanitize(name || email),
       role: role || 'staff',
       permissions: [],
       active: true,
@@ -199,7 +205,9 @@ export async function createStaffAccount({ name, email, password, role, accessEx
 export async function updateCompanyMemberships(uid, companyMemberships) {
   try {
     await setDoc(doc(db, 'users', uid), {
-      companyMemberships: companyMemberships || [],
+      // department/position เป็นข้อความพิมพ์เอง — เขียนตรงผ่าน setDoc ที่นี่ ไม่ผ่าน createDoc/updateDocData
+      // ที่กรอง XSS ให้อยู่แล้วปกติ จึงต้องกรองเองตรงนี้
+      companyMemberships: deepSanitize(companyMemberships || []),
       primaryCompanyId: companyMemberships?.[0]?.companyId || null,
     }, { merge: true })
     return { ok: true }

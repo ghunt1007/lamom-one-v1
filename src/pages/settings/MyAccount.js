@@ -3,6 +3,10 @@ import { changeOwnPassword } from '../../core/auth.js'
 import { listDocs } from '../../core/db.js'
 import { timeAgo } from '../../utils/format.js'
 
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
 const ROLES = {
   owner:   { label: 'เจ้าของ',      icon: '🏆' },
   admin:   { label: 'แอดมิน',       icon: '🔑' },
@@ -60,7 +64,7 @@ export default function MyAccountPage(container) {
               ${(me.displayName||'U').charAt(0)}
             </div>
             <div>
-              <div class="page-title" style="margin:0">${me.displayName || '—'}</div>
+              <div class="page-title" style="margin:0">${escHtml(me.displayName) || '—'}</div>
               <span class="badge badge-primary" style="font-size:0.65rem">${role.icon} ${role.label}</span>
             </div>
           </div>
@@ -94,8 +98,8 @@ export default function MyAccountPage(container) {
         <div style="display:flex;flex-direction:column;gap:12px">
           <div class="card" style="padding:16px">
             <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">📋 ข้อมูลบัญชี</div>
-            ${row('👤 ชื่อ', me.displayName || '—')}
-            ${row('📧 อีเมล (login)', me.email || '—')}
+            ${row('👤 ชื่อ', escHtml(me.displayName) || '—')}
+            ${row('📧 อีเมล (login)', escHtml(me.email) || '—')}
             ${row('🏷 บทบาท', `${role.icon} ${role.label}`)}
             ${row('🔐 ประเภทบัญชี', '🔥 Firebase Auth')}
           </div>

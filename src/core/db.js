@@ -9,8 +9,13 @@ import { getState } from './store.js'
 import { syncRagChunk, RAG_SOURCE_COLLECTIONS } from '../utils/rag.js'
 
 // ── Input sanitization — strip stored XSS before Firestore writes ──
-function deepSanitize(v) {
-  if (typeof v === 'string') return v.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '').replace(/\bon\w+\s*=/gi, '')
+// เดิม export แค่ผ่าน createDoc()/updateDocData() เท่านั้น — จุดที่เขียน Firestore ตรงๆนอก db.js (เช่น
+// auth.js's setDoc ตอนสร้างบัญชีพนักงาน) ไม่ได้ผ่านการกรองนี้เลย ทำให้ field ที่พิมพ์เอง (เช่นชื่อพนักงาน)
+// ยัง XSS ได้ทั้งที่ตั้งใจกันไว้ที่ระดับนี้แล้ว จึง export ออกมาให้ที่อื่นเรียกใช้ตรงได้ด้วย — เพิ่มการกัน
+// javascript:/vbscript: URI scheme (ที่ escHtml() ปลายทางเพียวๆไม่ช่วย ถ้าค่าถูกใส่ใน attribute href/src
+// ตรงๆ ไม่ใช่ text content) ต่อจาก script tag/on*= attribute ที่กันไว้เดิม
+export function deepSanitize(v) {
+  if (typeof v === 'string') return v.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '').replace(/\bon\w+\s*=/gi, '').replace(/\b(javascript|vbscript)\s*:/gi, '')
   if (Array.isArray(v)) return v.map(deepSanitize)
   if (v && typeof v === 'object' && !(v instanceof Date)) return Object.fromEntries(Object.entries(v).map(([k, w]) => [k, deepSanitize(w)]))
   return v

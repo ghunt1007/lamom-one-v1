@@ -2,6 +2,7 @@
 import { db } from '../core/firebase.js'
 import { collection, getDocs, addDoc, deleteDoc, doc, query, orderBy, limit, serverTimestamp } from 'firebase/firestore'
 import { getState } from '../core/store.js'
+import { deepSanitize } from '../core/db.js'
 
 function userCol(sub) {
   const uid = getState('user')?.uid
@@ -23,7 +24,9 @@ export async function addMemory(content, importance = 5) {
   const col = userCol('ai_memories')
   if (!col) return
   try {
-    await addDoc(col, { content: content.trim(), importance, createdAt: serverTimestamp() })
+    // content เป็นข้อความที่ AI สรุปจากบทสนทนาผู้ใช้เอง — เขียนตรงผ่าน addDoc ที่นี่ ไม่ผ่าน
+    // createDoc/updateDocData ที่กรอง XSS ให้อยู่แล้วปกติ จึงต้องกรองเองตรงนี้
+    await addDoc(col, { content: deepSanitize(content.trim()), importance, createdAt: serverTimestamp() })
   } catch {}
 }
 
@@ -37,7 +40,9 @@ export async function deleteMemory(memId) {
 export async function saveMessage(role, content) {
   const col = userCol('ai_conversations')
   if (!col) return
-  try { await addDoc(col, { role, content, createdAt: serverTimestamp() }) } catch {}
+  // content คือข้อความแชทของผู้ใช้เอง — เขียนตรงผ่าน addDoc ที่นี่ ไม่ผ่าน createDoc/updateDocData ที่กรอง
+  // XSS ให้อยู่แล้วปกติ จึงต้องกรองเองตรงนี้
+  try { await addDoc(col, { role, content: deepSanitize(content), createdAt: serverTimestamp() }) } catch {}
 }
 
 export async function loadRecentMessages(count = 16) {

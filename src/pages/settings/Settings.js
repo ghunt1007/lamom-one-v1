@@ -1,6 +1,10 @@
 import { navigate } from '../../core/router.js'
 import { getState, setState } from '../../core/store.js'
 
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
 const THEMES = [
   { key:'default', name:'💜 LAMOM Purple', primary:'#7C3AED' },
   { key:'blue', name:'💙 Ocean Blue', primary:'#2563EB' },
@@ -64,8 +68,8 @@ export default function SettingsPage(container) {
             ${(user?.displayName||user?.email||'U').slice(0,2).toUpperCase()}
           </div>
           <div>
-            <div style="font-weight:700">${user?.displayName || user?.email || 'ผู้ใช้'}</div>
-            <div style="font-size:0.82rem;color:var(--text-muted)">${user?.email || ''}</div>
+            <div style="font-weight:700">${escHtml(user?.displayName || user?.email) || 'ผู้ใช้'}</div>
+            <div style="font-size:0.82rem;color:var(--text-muted)">${escHtml(user?.email)}</div>
             <div style="font-size:0.78rem;color:var(--accent);margin-top:2px">${user?.role || 'Staff'}</div>
           </div>
         </div>

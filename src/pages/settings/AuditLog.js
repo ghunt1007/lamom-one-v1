@@ -7,6 +7,10 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { showToast } from '../../core/store.js'
 import { listDocs } from '../../core/db.js'
 
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
 const ACTION_TYPES = {
   login:    { label: 'Login', color: 'primary', icon: '🔐' },
   logout:   { label: 'Logout', color: 'secondary', icon: '🚪' },
@@ -96,14 +100,14 @@ export default async function AuditLogPage(container) {
                     <div style="font-size:0.68rem;color:var(--text-muted)">${ts ? new Date(ts).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}) : ''}</div>
                   </td>
                   <td>
-                    <div style="font-size:0.82rem;font-weight:600">${l.user || '-'}</div>
-                    <div style="font-size:0.7rem;color:var(--text-muted)">${l.role || '-'}</div>
+                    <div style="font-size:0.82rem;font-weight:600">${escHtml(l.user) || '-'}</div>
+                    <div style="font-size:0.7rem;color:var(--text-muted)">${escHtml(l.role) || '-'}</div>
                   </td>
-                  <td><span class="badge badge-${at.color}">${at.icon} ${at.label}</span></td>
-                  <td><span class="badge badge-secondary" style="font-size:0.68rem">${l.module || '-'}</span></td>
-                  <td style="font-size:0.8rem;color:var(--text-muted)">${l.resource || '-'}</td>
-                  <td style="font-size:0.82rem">${l.detail || '-'}</td>
-                  <td style="font-family:monospace;font-size:0.75rem;color:var(--text-muted)">${l.ip || '-'}</td>
+                  <td><span class="badge badge-${at.color}">${at.icon} ${escHtml(at.label)}</span></td>
+                  <td><span class="badge badge-secondary" style="font-size:0.68rem">${escHtml(l.module) || '-'}</span></td>
+                  <td style="font-size:0.8rem;color:var(--text-muted)">${escHtml(l.resource) || '-'}</td>
+                  <td style="font-size:0.82rem">${escHtml(l.detail) || '-'}</td>
+                  <td style="font-family:monospace;font-size:0.75rem;color:var(--text-muted)">${escHtml(l.ip) || '-'}</td>
                 </tr>`
               }).join('')}
               ${!list.length ? `<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)">ไม่พบ Log</td></tr>` : ''}
