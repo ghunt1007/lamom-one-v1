@@ -8,6 +8,24 @@ import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.
 import { openModal } from '../../utils/modal.js'
 import { sendSms } from '../../utils/comms.js'
 
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+// เดิม status ในระบบเขียนแค่ 'current'/'completed' เท่านั้น ไม่มีจุดไหนเขียน 'overdue' เลยแม้แต่ครั้งเดียว
+// (รวมถึงฟิลด์ overdue ที่นับจำนวนวันก็ไม่เคยถูกคำนวณใหม่เลย ค้างที่ 0 ตลอดตั้งแต่สร้างสัญญา) ทำให้แท็บ
+// "ค้างชำระ" และปุ่ม "ทวง" รายตัวไม่มีทางแสดงผลได้จริงเลย แก้ให้คำนวณสถานะ/จำนวนวันค้างจริงจากวันครบกำหนด
+function deriveStatus(p) {
+  if (p.status === 'completed') return 'completed'
+  if (p.nextDate && new Date(p.nextDate) < new Date(new Date().toDateString())) return 'overdue'
+  return 'current'
+}
+function deriveOverdueDays(p) {
+  if (!p.nextDate) return 0
+  const diff = Math.floor((Date.now() - new Date(p.nextDate).getTime()) / 86400000)
+  return diff > 0 ? diff : 0
+}
+
 function addMonths(dateStr, n) {
   const d = dateStr ? new Date(dateStr) : new Date()
   if (isNaN(d.getTime())) return new Date().toISOString().slice(0, 10)
@@ -48,11 +66,13 @@ export default async function InstallmentPage(container) {
     const pct        = Math.round(paid / totalInst * 100)
     const remaining  = totalInst - paid
     const balance    = remaining * (p.monthly || 0)
-    const isOD   = p.status === 'overdue'
-    const isDone = p.status === 'completed'
+    const status = deriveStatus(p)
+    const isOD   = status === 'overdue'
+    const isDone = status === 'completed'
+    const overdueDays = deriveOverdueDays(p)
     const statusBg    = isDone ? 'var(--success)' : isOD ? 'var(--danger)' : 'var(--primary)'
     const statusLabel = isDone ? '✅ ชำระครบ' : isOD ? '⚠️ ค้างชำระ' : '💳 ปกติ'
-    const overdueStr  = isOD ? ' <span style="color:var(--danger);font-weight:700">ค้าง ' + (p.overdue || 0) + ' วัน</span>' : ''
+    const overdueStr  = isOD ? ' <span style="color:var(--danger);font-weight:700">ค้าง ' + overdueDays + ' วัน</span>' : ''
     const nextStr     = isDone ? 'ปิดบัญชีแล้ว' : 'งวดถัดไป ' + formatDate(p.nextDate)
     const remindBtn   = isOD  ? '<button class="btn btn-xs btn-primary remind-btn" data-id="' + p.id + '" style="font-size:0.68rem">📱 ทวง</button>' : ''
     const payBtn      = !isDone ? '<button class="btn btn-xs btn-secondary pay-btn" data-id="' + p.id + '" style="font-size:0.68rem">💳 บันทึกงวด</button>' : ''
@@ -61,8 +81,8 @@ export default async function InstallmentPage(container) {
         <div style="font-size:1.4rem">💳</div>
         <div style="flex:1">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-            <span style="font-weight:700;font-size:0.88rem">${p.customer}</span>
-            <span style="font-size:0.66rem;color:var(--text-muted)">${p.model}</span>
+            <span style="font-weight:700;font-size:0.88rem">${escHtml(p.customer)}</span>
+            <span style="font-size:0.66rem;color:var(--text-muted)">${escHtml(p.model)}</span>
             <span style="font-size:0.62rem;background:${statusBg};color:#fff;padding:1px 8px;border-radius:8px">${statusLabel}</span>
           </div>
           <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:8px">
@@ -85,12 +105,12 @@ export default async function InstallmentPage(container) {
 
   function render() {
     let rows = plans
-    if (filterStatus !== 'all') rows = rows.filter(p => p.status === filterStatus)
+    if (filterStatus !== 'all') rows = rows.filter(p => deriveStatus(p) === filterStatus)
 
-    const overdue   = plans.filter(p => p.status === 'overdue').length
-    const current   = plans.filter(p => p.status === 'current').length
-    const completed = plans.filter(p => p.status === 'completed').length
-    const totalBal  = plans.filter(p => p.status !== 'completed').reduce((s, p) => s + ((p.totalInst || 0) - (p.paid || 0)) * (p.monthly || 0), 0)
+    const overdue   = plans.filter(p => deriveStatus(p) === 'overdue').length
+    const current   = plans.filter(p => deriveStatus(p) === 'current').length
+    const completed = plans.filter(p => deriveStatus(p) === 'completed').length
+    const totalBal  = plans.filter(p => deriveStatus(p) !== 'completed').reduce((s, p) => s + ((p.totalInst || 0) - (p.paid || 0)) * (p.monthly || 0), 0)
 
     const filterBtns = ['all', 'overdue', 'current', 'completed'].map(s => {
       const label = s === 'all' ? 'ทั้งหมด' : s === 'overdue' ? '⚠️ ค้างชำระ' : s === 'current' ? '💳 ปกติ' : '✅ ปิดบัญชี'
@@ -135,11 +155,11 @@ export default async function InstallmentPage(container) {
       // เท่านั้น ส่งเจาะรายบุคคลไม่ได้ จึงไม่ใช้)
       await notifyInstallment(
         '📱 ทวงถามลูกค้าค้างชำระ: ' + p.customer,
-        p.customer + ' (' + p.model + ') ค้างชำระ ' + (p.overdue || 0) + ' วัน · ผ่อน ' + (p.monthly || 0).toLocaleString() + ' บ./เดือน · สัญญา ' + p.id
+        p.customer + ' (' + p.model + ') ค้างชำระ ' + deriveOverdueDays(p) + ' วัน · ผ่อน ' + (p.monthly || 0).toLocaleString() + ' บ./เดือน · สัญญา ' + p.id
       )
       if (p.phone) {
         try {
-          await sendSms([p.phone], `LAMOM แจ้งคุณ${p.customer}: ค้างชำระค่างวด ${p.model} มา ${p.overdue || 0} วัน กรุณาชำระ ${(p.monthly||0).toLocaleString()} บาทโดยเร็ว`)
+          await sendSms([p.phone], `LAMOM แจ้งคุณ${p.customer}: ค้างชำระค่างวด ${p.model} มา ${deriveOverdueDays(p)} วัน กรุณาชำระ ${(p.monthly||0).toLocaleString()} บาทโดยเร็ว`)
           showToast('📱 ส่ง SMS ทวงถาม ' + p.customer + ' แล้ว', 'success')
         } catch { showToast('⚠️ ส่ง SMS ให้ ' + p.customer + ' ไม่สำเร็จ', 'error') }
       } else {
@@ -174,11 +194,11 @@ export default async function InstallmentPage(container) {
     }))
 
     document.getElementById('remind-all-btn')?.addEventListener('click', async () => {
-      const overduePlans = plans.filter(p => p.status === 'overdue')
+      const overduePlans = plans.filter(p => deriveStatus(p) === 'overdue')
       if (!overduePlans.length) { showToast('ไม่มีรายการค้างชำระ', 'info'); return }
       await notifyInstallment(
         '📱 ทวงถามลูกค้าค้างชำระทั้งหมด ' + overduePlans.length + ' ราย',
-        overduePlans.map(p => p.customer + ' (ค้าง ' + (p.overdue || 0) + ' วัน)').join(', ')
+        overduePlans.map(p => p.customer + ' (ค้าง ' + deriveOverdueDays(p) + ' วัน)').join(', ')
       )
       const withPhone = overduePlans.filter(p => p.phone)
       let sent = 0

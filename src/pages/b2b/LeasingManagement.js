@@ -10,6 +10,12 @@ function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
+// เดิม status ในระบบเขียนแค่ 'active' เท่านั้นทุกที่ (สร้างใหม่/ต่อสัญญา) ไม่มีจุดไหนเขียน 'expired' เลย
+// ทำให้แท็บกรอง "หมดสัญญา" ว่างเปล่าตลอดแม้สัญญาจะเลยวันสิ้นสุดมานานแล้ว แก้ให้คำนวณสถานะจริงจากวันสิ้นสุด
+function deriveStatus(l) {
+  return l.endDate && new Date(l.endDate) < new Date() ? 'expired' : (l.status || 'active')
+}
+
 export default async function LeasingManagementPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
@@ -37,8 +43,9 @@ export default async function LeasingManagementPage(container) {
     const monthly = l.qty * l.monthlyRate
     const totalValue = monthly * l.term
     const remaining = l.term - l.paid
-    const statusColor = l.status==='active'?'var(--success)':'var(--surface-2)'
-    const statusLabel = l.status==='active'?'ดำเนินการ':'หมดสัญญา'
+    const st = deriveStatus(l)
+    const statusColor = st==='active'?'var(--success)':'var(--surface-2)'
+    const statusLabel = st==='active'?'ดำเนินการ':'หมดสัญญา'
     return '<div class="card" style="padding:14px;margin-bottom:10px">' +
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">' +
         '<div>' +
@@ -65,8 +72,8 @@ export default async function LeasingManagementPage(container) {
       container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
       return
     }
-    let list = filterStatus==='all' ? leases : leases.filter(l=>l.status===filterStatus)
-    const active = leases.filter(l=>l.status==='active')
+    let list = filterStatus==='all' ? leases : leases.filter(l=>deriveStatus(l)===filterStatus)
+    const active = leases.filter(l=>deriveStatus(l)==='active')
     const totalMonthly = active.reduce((s,l)=>s+l.qty*l.monthlyRate,0)
     const totalVehicles = active.reduce((s,l)=>s+l.qty,0)
     const expiringSoon = active.filter(l=>l.term-l.paid<=6).length

@@ -40,8 +40,12 @@ export default async function UsedCarPage(container) {
     const marginCol  = margin >= 0 ? 'var(--success)' : 'var(--danger)'
     const marginStr  = (margin >= 0 ? '+' : '') + margin.toLocaleString() + ' บ.'
     const buyerLine  = c.buyer ? ' · ผู้ซื้อ: ' + escHtml(c.buyer) : ''
-    const sellBtn    = c.status==='for_sale'   ? '<button class="btn btn-xs btn-primary sell-btn" data-id="' + escHtml(c.id) + '" style="font-size:0.68rem">💵 บันทึกขาย</button>' : ''
+    const sellBtn    = (c.status==='for_sale' || c.status==='reserved') ? '<button class="btn btn-xs btn-primary sell-btn" data-id="' + escHtml(c.id) + '" style="font-size:0.68rem">💵 บันทึกขาย</button>' : ''
     const approveBtn = c.status==='inspection' ? '<button class="btn btn-xs btn-primary approve-btn" data-id="' + escHtml(c.id) + '" style="font-size:0.68rem">✅ อนุมัติ</button>' : ''
+    // เดิมไม่มีปุ่มไหนตั้งสถานะ 'reserved' เลยแม้แต่จุดเดียว ทำให้แท็บ "จองแล้ว" ว่างเปล่าตลอด (ไม่มีทางเข้าสู่
+    // สถานะนี้ได้จริง) แก้ให้เพิ่มปุ่มจองรถ/ยกเลิกจองที่ตั้ง-ยกเลิกสถานะนี้ได้จริง
+    const reserveBtn = c.status==='for_sale'  ? '<button class="btn btn-xs btn-secondary reserve-btn" data-id="' + escHtml(c.id) + '" style="font-size:0.68rem">🔒 จองรถ</button>' : ''
+    const cancelResBtn = c.status==='reserved' ? '<button class="btn btn-xs btn-secondary cancel-res-btn" data-id="' + escHtml(c.id) + '" style="font-size:0.68rem">↺ ยกเลิกจอง</button>' : ''
     const editBtn    = c.status!=='sold'       ? '<button class="btn btn-xs btn-secondary edit-btn" data-id="' + escHtml(c.id) + '" style="font-size:0.68rem">✏️ ราคา</button>' : ''
     return `<div class="card" style="padding:14px">
       <div style="display:flex;align-items:flex-start;gap:12px">
@@ -62,7 +66,7 @@ export default async function UsedCarPage(container) {
           </div>
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
-          ${sellBtn}${approveBtn}${editBtn}
+          ${sellBtn}${approveBtn}${reserveBtn}${cancelResBtn}${editBtn}
         </div>
       </div>
     </div>`
@@ -132,11 +136,47 @@ export default async function UsedCarPage(container) {
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
+    container.querySelectorAll('.reserve-btn').forEach(b=>b.addEventListener('click',()=>{
+      const c=usedCars.find(x=>x.id===b.dataset.id)
+      if (c) openReserveModal(c)
+    }))
+    container.querySelectorAll('.cancel-res-btn').forEach(b=>b.addEventListener('click', async ()=>{
+      const c=usedCars.find(x=>x.id===b.dataset.id)
+      if (!c) return
+      try {
+        await updateDocData('used_cars', c.id, { status:'for_sale', buyer:'' })
+        showToast('↺ ยกเลิกการจอง '+c.brand+' '+c.model+' แล้ว','success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+    }))
     container.querySelectorAll('.edit-btn').forEach(b=>b.addEventListener('click',()=>{
       const c=usedCars.find(x=>x.id===b.dataset.id)
       if(c) openEditPriceModal(c)
     }))
     document.getElementById('add-car-btn')?.addEventListener('click',()=>openAddModal())
+  }
+
+  function openReserveModal(c) {
+    openModal({
+      title: '🔒 จองรถ — ' + escHtml(c.brand) + ' ' + escHtml(c.model),
+      size: 'sm',
+      body: `
+        <div style="display:flex;flex-direction:column;gap:10px;font-size:0.82rem">
+          <div><label style="font-size:0.74rem;color:var(--text-muted)">ชื่อผู้จอง *</label>
+            <input id="rv-buyer" class="input" placeholder="ชื่อ-นามสกุล"></div>
+        </div>
+      `,
+      confirmText: '🔒 บันทึกการจอง',
+      async onConfirm() {
+        const buyer = document.getElementById('rv-buyer')?.value?.trim()
+        if (!buyer) { showToast('❗ กรอกชื่อผู้จอง', 'error'); return false }
+        try {
+          await updateDocData('used_cars', c.id, { status: 'reserved', buyer })
+          showToast(`🔒 จอง ${c.brand} ${c.model} ให้ ${buyer} แล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      }
+    })
   }
 
   function openEditPriceModal(c) {
