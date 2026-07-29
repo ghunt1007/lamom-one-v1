@@ -26,6 +26,22 @@
 // ตามค่าเริ่มต้นใน Firestore Rules) แล้วใช้ token ที่ถูกต้องนั้นเรียก /upload, /delete ได้ทันทีทั้งที่ยังไม่ได้
 // รับอนุมัติ แก้ให้เช็ค role จริงจาก Firestore ก่อนอนุญาต (ใช้ ID token เดิมอ่าน users/{uid} ของตัวเอง ซึ่ง
 // Firestore Rules อนุญาตให้เจ้าของอ่านเอกสารตัวเองได้อยู่แล้ว ไม่ต้องมี service account เพิ่ม)
+// เดิมไม่มีการจำกัดความถี่การอัปโหลด/ลบต่อบัญชีเลย — บัญชีเดียวที่ถูกขโมย/ใช้สคริปต์วน loop ก็ยัง
+// อัปโหลดไฟล์ 50MB (MAX_SIZE) ซ้ำๆไม่จำกัดจำนวนครั้งได้ ทำให้ค่าใช้จ่าย R2 storage พุ่งจนควบคุมไม่ได้
+const RATE_LIMIT_WINDOW_MS = 60_000
+const RATE_LIMIT_MAX_CALLS = 20 // ต่อบัญชีต่อนาที (อัปโหลด+ลบรวมกัน)
+const rateLimitLog = new Map() // uid -> timestamps[] — ชั้นป้องกันแรกในหน่วยความจำของ isolate เดียว
+function checkRateLimit(uid) {
+  const now = Date.now()
+  const hits = (rateLimitLog.get(uid) || []).filter(t => now - t < RATE_LIMIT_WINDOW_MS)
+  if (hits.length >= RATE_LIMIT_MAX_CALLS) return false
+  hits.push(now)
+  rateLimitLog.set(uid, hits)
+  return true
+}
+// เฉพาะเทสใช้เคลียร์ตัวนับระหว่างเคส (rateLimitLog เป็น module-level singleton ข้ามหลาย it() ในไฟล์เดียว)
+export function __resetRateLimit() { rateLimitLog.clear() }
+
 const STAFF_ROLES = ['owner', 'admin', 'manager', 'sales', 'service', 'finance', 'hr', 'staff']
 async function isAuthorizedStaff(idToken, uid, env) {
   const projectId = env.FIREBASE_PROJECT_ID
@@ -87,6 +103,9 @@ export default {
       if (!verified) return json({ error: 'Unauthorized' }, 401, cors)
       if (!(await isAuthorizedStaff(idToken, verified.localId, env))) {
         return json({ error: 'Unauthorized — บัญชีนี้ยังไม่ได้รับอนุมัติให้เป็นพนักงาน' }, 403, cors)
+      }
+      if (!checkRateLimit(verified.localId)) {
+        return json({ error: `อัปโหลด/ลบไฟล์บ่อยเกินไป — จำกัด ${RATE_LIMIT_MAX_CALLS} ครั้ง/นาทีต่อบัญชี กรุณารอสักครู่แล้วลองใหม่` }, 429, cors)
       }
     }
 

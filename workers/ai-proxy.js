@@ -17,6 +17,23 @@
  */
 
 const MODEL = 'gemini-2.5-flash'
+// เดิมไม่มีการจำกัดขนาด request หรือความถี่การเรียกต่อบัญชีเลย — ต่อให้ตรวจ role พนักงานแล้ว (แก้ไปแล้วรอบก่อน)
+// บัญชีเดียวที่ถูกขโมย/ใช้สคริปต์เรียกซ้ำๆ ก็ยังส่ง prompt ขนาดใหญ่รัว ๆ ได้ไม่จำกัด ทำให้ค่าใช้จ่าย Gemini
+// (คิดตาม token) พุ่งจนควบคุมไม่ได้ แก้ให้จำกัดทั้งขนาด request และความถี่ต่อบัญชี
+const MAX_BODY_BYTES = 200_000 // ~200KB ต่อ request เพียงพอสำหรับ prompt/บทสนทนาจริงในแอป
+const RATE_LIMIT_WINDOW_MS = 60_000
+const RATE_LIMIT_MAX_CALLS = 30 // ต่อบัญชีต่อนาที — ฟีเจอร์ AI ในแอปเรียกบ่อยกว่า SMS/Email ปกติ
+const rateLimitLog = new Map() // uid -> timestamps[] — ชั้นป้องกันแรกในหน่วยความจำของ isolate เดียว
+function checkRateLimit(uid) {
+  const now = Date.now()
+  const hits = (rateLimitLog.get(uid) || []).filter(t => now - t < RATE_LIMIT_WINDOW_MS)
+  if (hits.length >= RATE_LIMIT_MAX_CALLS) return false
+  hits.push(now)
+  rateLimitLog.set(uid, hits)
+  return true
+}
+// เฉพาะเทสใช้เคลียร์ตัวนับระหว่างเคส (rateLimitLog เป็น module-level singleton ข้ามหลาย it() ในไฟล์เดียว)
+export function __resetRateLimit() { rateLimitLog.clear() }
 
 // เดิม verifyFirebeToken() เช็คแค่ว่า token เป็นของบัญชี Firebase จริง ไม่เคยเช็คว่าบัญชีนั้นเป็น "พนักงานที่
 // อนุมัติแล้ว" หรือเปล่า — ใครก็สมัครบัญชีเองจากหน้า Login ได้ (ได้ role:'pending' ตามค่าเริ่มต้น) แล้วใช้
@@ -64,12 +81,21 @@ export default {
     if (!(await isAuthorizedStaff(idToken, verified.localId, env))) {
       return json({ error: 'Unauthorized — บัญชีนี้ยังไม่ได้รับอนุมัติให้เป็นพนักงาน' }, 403, cors)
     }
+    if (!checkRateLimit(verified.localId)) {
+      return json({ error: `เรียกใช้ AI บ่อยเกินไป — จำกัด ${RATE_LIMIT_MAX_CALLS} ครั้ง/นาทีต่อบัญชี กรุณารอสักครู่แล้วลองใหม่` }, 429, cors)
+    }
 
     if (!env.GEMINI_API_KEY) return json({ error: 'AI proxy not configured (missing GEMINI_API_KEY secret)' }, 500, cors)
 
+    const rawBody = await request.text()
+    if (rawBody.length > MAX_BODY_BYTES) {
+      return json({ error: `ข้อความ/prompt ใหญ่เกินไป (สูงสุด ${Math.round(MAX_BODY_BYTES / 1000)}KB)` }, 400, cors)
+    }
+    let body
+    try { body = JSON.parse(rawBody) } catch { body = {} }
+
     try {
       if (url.pathname === '/generate') {
-        const body = await request.json()
         const geminiRes = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${env.GEMINI_API_KEY}`,
           { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
@@ -80,7 +106,6 @@ export default {
 
       // RAG (Phase 3): แปลงข้อความเป็น vector สำหรับ index/ค้นหาความรู้ภายใน (SOP/คู่มือ/Product Knowledge)
       if (url.pathname === '/embed') {
-        const body = await request.json()
         const geminiRes = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${env.GEMINI_API_KEY}`,
           {
@@ -98,7 +123,6 @@ export default {
       }
 
       if (url.pathname === '/generate-stream') {
-        const body = await request.json()
         const geminiRes = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:streamGenerateContent?key=${env.GEMINI_API_KEY}&alt=sse`,
           { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }

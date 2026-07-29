@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import worker from './r2-upload.js'
+import worker, { __resetRateLimit } from './r2-upload.js'
 
 const ENV = { FIREBASE_API_KEY: 'fake-public-key', FIREBASE_PROJECT_ID: 'fake-project', BUCKET: null }
 
@@ -34,6 +34,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks()
+  __resetRateLimit()
 })
 
 describe('r2-upload worker — CORS preflight', () => {
@@ -102,6 +103,21 @@ describe('r2-upload worker — role check on /upload and /delete (v1.0.287)', ()
     const res = await worker.fetch(req, ENV)
     expect(res.status).toBe(403)
     expect(ENV.BUCKET.delete).not.toHaveBeenCalled()
+  })
+})
+
+describe('r2-upload worker — abuse/rate-limit guards (v1.0.288)', () => {
+  it('rate-limits repeated calls from the same account within the same minute', async () => {
+    stubFirebaseVerify(true)
+    let lastStatus = 200
+    for (let i = 0; i < 21; i++) {
+      const req = new Request(`https://worker.example/delete?key=uploads%2Ffoo${i}.pdf`, {
+        method: 'DELETE', headers: { Authorization: 'Bearer valid' },
+      })
+      const res = await worker.fetch(req, ENV)
+      lastStatus = res.status
+    }
+    expect(lastStatus).toBe(429)
   })
 })
 

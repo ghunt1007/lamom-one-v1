@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { generateKeyPairSync } from 'node:crypto'
-import worker from './comms-send.js'
+import worker, { __resetRateLimit } from './comms-send.js'
 
 const BASE_ENV = { FIREBASE_API_KEY: 'fake-public-key', FIREBASE_PROJECT_ID: 'fake-project', ALLOWED_ORIGIN: 'https://lamom-one.pages.dev' }
 
@@ -28,7 +28,7 @@ function stubFetch(routes, staffRole = 'sales') {
   })
 }
 
-afterEach(() => { vi.restoreAllMocks() })
+afterEach(() => { vi.restoreAllMocks(); __resetRateLimit() })
 
 describe('comms-send worker — CORS + auth gate', () => {
   it('responds to OPTIONS with the configured ALLOWED_ORIGIN', async () => {
@@ -64,6 +64,27 @@ describe('comms-send worker — CORS + auth gate', () => {
     stubFetch([], 'pending')
     const res = await worker.fetch(req('/send/sms', { recipients: ['+66812345678'], message: 'hi' }), BASE_ENV)
     expect(res.status).toBe(403)
+  })
+})
+
+describe('comms-send worker — abuse/rate-limit guards (v1.0.288)', () => {
+  it('rejects a single call with an absurdly large recipients array', async () => {
+    stubFetch([['api.twilio.com', () => ({ ok: true, json: async () => ({}) })]])
+    const hugeList = Array.from({ length: 3001 }, (_, i) => `+66${i}`)
+    const res = await worker.fetch(req('/send/sms', { recipients: hugeList, message: 'hi' }), BASE_ENV)
+    expect(res.status).toBe(400)
+    const data = await res.json()
+    expect(data.error).toMatch(/จำนวนผู้รับเกินขีดจำกัด/)
+  })
+
+  it('rate-limits repeated calls from the same account within the same minute', async () => {
+    stubFetch([['api.twilio.com', () => ({ ok: true, json: async () => ({}) })]])
+    let lastStatus = 200
+    for (let i = 0; i < 6; i++) {
+      const res = await worker.fetch(req('/send/sms', { recipients: ['+66812345678'], message: 'hi' }), { ...BASE_ENV, TWILIO_ACCOUNT_SID: 'x', TWILIO_AUTH_TOKEN: 'y', TWILIO_FROM_NUMBER: '+1' })
+      lastStatus = res.status
+    }
+    expect(lastStatus).toBe(429)
   })
 })
 

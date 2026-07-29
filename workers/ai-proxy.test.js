@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import worker from './ai-proxy.js'
+import worker, { __resetRateLimit } from './ai-proxy.js'
 
 const ENV = { FIREBASE_API_KEY: 'fake-public-key', FIREBASE_PROJECT_ID: 'fake-project', GEMINI_API_KEY: 'fake-secret', ALLOWED_ORIGIN: 'https://lamom-one.pages.dev' }
 
@@ -29,6 +29,7 @@ function stubFetch({ firebaseOk = true, staffRole = 'sales', geminiStatus = 200,
 
 afterEach(() => {
   vi.restoreAllMocks()
+  __resetRateLimit()
 })
 
 describe('ai-proxy worker — CORS preflight', () => {
@@ -87,6 +88,33 @@ describe('ai-proxy worker — role check (v1.0.287)', () => {
     expect(res.status).toBe(403)
     const calledUrls = global.fetch.mock.calls.map(c => String(c[0]))
     expect(calledUrls.some(u => u.includes('generativelanguage'))).toBe(false)
+  })
+})
+
+describe('ai-proxy worker — abuse/rate-limit guards (v1.0.288)', () => {
+  it('rejects a request body over the size cap before reaching Gemini', async () => {
+    stubFetch({ firebaseOk: true })
+    const hugeBody = JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'x'.repeat(250_000) }] }] })
+    const req = new Request('https://worker.example/generate', {
+      method: 'POST', headers: { Authorization: 'Bearer valid' }, body: hugeBody,
+    })
+    const res = await worker.fetch(req, ENV)
+    expect(res.status).toBe(400)
+    const calledUrls = global.fetch.mock.calls.map(c => String(c[0]))
+    expect(calledUrls.some(u => u.includes('generativelanguage'))).toBe(false)
+  })
+
+  it('rate-limits repeated calls from the same account within the same minute', async () => {
+    stubFetch({ firebaseOk: true })
+    let lastStatus = 200
+    for (let i = 0; i < 31; i++) {
+      const req = new Request('https://worker.example/generate', {
+        method: 'POST', headers: { Authorization: 'Bearer valid' }, body: '{}',
+      })
+      const res = await worker.fetch(req, ENV)
+      lastStatus = res.status
+    }
+    expect(lastStatus).toBe(429)
   })
 })
 

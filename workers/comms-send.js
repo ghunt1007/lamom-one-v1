@@ -26,6 +26,25 @@
  */
 
 const CHUNK_SIZE = 20 // ส่งเป็นชุดละเท่านี้ กัน subrequest ค้างพร้อมกันเยอะเกินไปใน 1 invocation
+// เดิม CHUNK_SIZE แค่จำกัดจำนวน request ที่ยิงพร้อมกันต่อ "ครั้ง" เดียวเท่านั้น ไม่ได้จำกัด "จำนวนรวม"
+// ของ recipients เลย — ต่อให้ตรวจ role พนักงานแล้ว (แก้ไปแล้วรอบก่อน) บัญชีพนักงานคนเดียวที่ถูกขโมย/
+// ใช้สคริปต์เรียกซ้ำๆ ก็ยังยิง SMS/Email หาลูกค้าทั้งฐานข้อมูล (นับพันคน) ได้ในคำขอเดียว หรือเรียกซ้ำไม่จำกัด
+// จำนวนครั้งต่อนาที ทำให้ค่าใช้จ่าย Twilio/SendGrid พุ่งจนควบคุมไม่ได้ แก้ให้จำกัดทั้งสองทาง
+const MAX_RECIPIENTS_PER_CALL = 3000 // เผื่อ broadcast ทั้งฐานลูกค้าจริงในครั้งเดียวได้ แต่ไม่ใช่ไม่จำกัดเลย
+const RATE_LIMIT_WINDOW_MS = 60_000
+const RATE_LIMIT_MAX_CALLS = 5 // ต่อบัญชีต่อนาที — เผื่อพอสำหรับการใช้งานจริง (ทวงหนี้/แจ้งเตือนหลายกลุ่มต่อกัน)
+const rateLimitLog = new Map() // uid -> timestamps[] — อยู่ในหน่วยความจำของ isolate เดียว (ชั้นป้องกันแรก
+// ไม่ทดแทน rate limiting ระดับ account/infra จริง แต่สกัดสคริปต์วน loop ยิงรัวๆจากบัญชีเดียวได้ทันที)
+function checkRateLimit(uid) {
+  const now = Date.now()
+  const hits = (rateLimitLog.get(uid) || []).filter(t => now - t < RATE_LIMIT_WINDOW_MS)
+  if (hits.length >= RATE_LIMIT_MAX_CALLS) return false
+  hits.push(now)
+  rateLimitLog.set(uid, hits)
+  return true
+}
+// เฉพาะเทสใช้เคลียร์ตัวนับระหว่างเคส (rateLimitLog เป็น module-level singleton ข้ามหลาย it() ในไฟล์เดียว)
+export function __resetRateLimit() { rateLimitLog.clear() }
 
 // เดิม verifyFirebaseToken() เช็คแค่ว่า token เป็นของบัญชี Firebase จริง ไม่เคยเช็คว่าบัญชีนั้นเป็น "พนักงานที่
 // อนุมัติแล้ว" หรือเปล่า — ใครก็สมัครบัญชีเองจากหน้า Login ได้ (ได้ role:'pending' ตามค่าเริ่มต้น) แล้วใช้
@@ -71,9 +90,15 @@ export default {
     if (!(await isAuthorizedStaff(idToken, verified.localId, env))) {
       return json({ error: 'Unauthorized — บัญชีนี้ยังไม่ได้รับอนุมัติให้เป็นพนักงาน' }, 403, cors)
     }
+    if (!checkRateLimit(verified.localId)) {
+      return json({ error: `ส่งบ่อยเกินไป — จำกัด ${RATE_LIMIT_MAX_CALLS} ครั้ง/นาทีต่อบัญชี กรุณารอสักครู่แล้วลองใหม่` }, 429, cors)
+    }
 
     let body
     try { body = await request.json() } catch { body = {} }
+    if (Array.isArray(body.recipients) && body.recipients.length > MAX_RECIPIENTS_PER_CALL) {
+      return json({ error: `จำนวนผู้รับเกินขีดจำกัด (สูงสุด ${MAX_RECIPIENTS_PER_CALL} รายต่อครั้ง) กรุณาแบ่งส่งเป็นหลายรอบ` }, 400, cors)
+    }
 
     try {
       if (url.pathname === '/send/sms') return json(await sendSms(env, body), 200, cors)
