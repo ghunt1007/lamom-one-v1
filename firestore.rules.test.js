@@ -1318,3 +1318,27 @@ describe('finance application/tracker + cashier desk (v1.0.300) — lock only th
     await assertSucceeds(db.collection('cashier_pending_bills').doc('b2').delete())
   })
 })
+
+// v1.0.301 — พบระหว่างตรวจสอบช่องทางนำเข้าไฟล์ CSV/Excel/JSON ทั่วแอปว่า vehicle_catalog_overrides/
+// _additions (ใช้เก็บการแก้ไข/เพิ่มรุ่นรถ รวมถึงตอนนำเข้าไฟล์ .json สำรอง/กู้คืนข้อมูลในหน้า Vehicle
+// Database) ไม่เคยมี match block มาก่อนเลย ทำให้ค่าที่แก้ไขผ่านช่องทางนี้ (ซึ่งไปทับข้อมูลรถจริงที่แสดงผล
+// ทั่วทั้งแอป) ไม่ผ่านการเช็คราคา/ต้นทุนติดลบแบบเดียวกับ collection vehicles หลักเลย
+describe('vehicle_catalog_overrides/_additions (v1.0.301) — same numeric bounds as vehicles', () => {
+  it('vehicle_catalog_overrides: staff cannot write a negative price via an override', async () => {
+    await seedUser('scopeGap26', { role: 'staff', active: true })
+    const db = testEnv.authenticatedContext('scopeGap26').firestore()
+    await assertFails(db.collection('vehicle_catalog_overrides').add({ price: -1, cost: 500000 }))
+  })
+
+  it('vehicle_catalog_additions: staff cannot write a negative cost via a JSON import', async () => {
+    await seedUser('scopeGap27', { role: 'staff', active: true })
+    const db = testEnv.authenticatedContext('scopeGap27').firestore()
+    await assertFails(db.collection('vehicle_catalog_additions').add({ brand: 'BYD', model: 'Atto 3', price: 899000, cost: -1 }))
+  })
+
+  it('vehicle_catalog_overrides: staff can still write a normal non-negative override', async () => {
+    await seedUser('scopeGap28', { role: 'staff', active: true })
+    const db = testEnv.authenticatedContext('scopeGap28').firestore()
+    await assertSucceeds(db.collection('vehicle_catalog_overrides').add({ price: 899000, cost: 750000 }))
+  })
+})

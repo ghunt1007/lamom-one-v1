@@ -239,6 +239,22 @@ service cloud.firestore {
       allow write: if isStaff() && nonNegIfPresent('price') && nonNegIfPresent('cost');
     }
 
+    // ตรวจสอบเพิ่มเติม (v1.0.301) — พบว่า vehicle_catalog_overrides/_additions (ใช้เก็บการแก้ไข/เพิ่มรุ่นรถ
+    // ในหน้า Vehicle Database รวมถึงตอนนำเข้าไฟล์ .json สำรอง/กู้คืนข้อมูล — importUserData() ใน
+    // src/data/vehicleDatabase.js เขียนทุก field จากไฟล์ตรงๆไม่มีการกรอง) ไม่เคยมี match block มาก่อนเลย
+    // ตกอยู่ใต้ catch-all isStaff() กว้างๆ ทำให้ค่าที่แก้/เพิ่มผ่านช่องทางนี้ (ซึ่งไปทับข้อมูลรถจริงที่แสดงผล
+    // ทั่วทั้งแอปผ่าน applyOverridesTo()) ไม่ผ่านการเช็คราคา/ต้นทุนติดลบแบบเดียวกับ vehicles เลย — เพิ่มเช็ค
+    // ตัวเลขแบบเดียวกัน ไม่จำกัดสิทธิ์ผู้ใช้เพิ่มเติม (ฟีเจอร์นี้ตั้งใจให้พนักงานทั่วไปแก้ไขข้อมูลรุ่นรถได้เหมือนเดิม)
+    match /vehicle_catalog_overrides/{docId} {
+      allow read: if isStaff();
+      allow write: if isStaff() && nonNegIfPresent('price') && nonNegIfPresent('cost');
+    }
+
+    match /vehicle_catalog_additions/{docId} {
+      allow read: if isStaff();
+      allow write: if isStaff() && nonNegIfPresent('price') && nonNegIfPresent('cost');
+    }
+
     match /vehicle_orders/{docId} {
       allow read, write: if isStaff();
     }
@@ -944,7 +960,8 @@ service cloud.firestore {
         'vehicles', 'bookings',
         'refund_requests', 'purchase_orders', 'supplier_pos', 'debts', 'deposits',
         'trade_ins', 'warranty_claims', 'warranty_service_claims', 'finance_rate_sheets',
-        'finance_applications', 'finance_tracker', 'cashier_payments', 'cashier_pending_bills'
+        'finance_applications', 'finance_tracker', 'cashier_payments', 'cashier_pending_bills',
+        'vehicle_catalog_overrides', 'vehicle_catalog_additions'
       ];
     }
 

@@ -6,6 +6,20 @@ async function getXlsx() {
   return mod.default || mod
 }
 
+// ป้องกัน CSV/Formula Injection (CWE-1236) แบบเดียวกับ escapeCSV() ด้านล่าง — เดิม exportToCSV() กันไว้แล้ว
+// แต่ exportToExcel()/exportMultiSheet() ไม่เคยกันเลย ทั้งที่หน้าส่วนใหญ่ในแอป (เกือบทุกปุ่ม Export) เรียกใช้
+// exportToExcel ไม่ใช่ CSV — ข้อมูลที่พิมพ์เข้าระบบเอง (เช่น ชื่อลูกค้า) ที่ขึ้นต้นด้วย =, +, -, @ อาจถูกโปรแกรม
+// สเปรดชีตบางตัวตีความเป็นสูตรตอนเปิดไฟล์ที่ export ออกไปให้คนอื่น ไม่แตะค่าที่ไม่ใช่ string (ตัวเลข/วันที่/
+// boolean) เพราะไม่มีความเสี่ยงและจะทำให้ format ตัวเลขเพี้ยน
+function sanitizeCellValue(v) {
+  if (typeof v !== 'string') return v
+  return /^[=+\-@\t\r]/.test(v) ? "'" + v : v
+}
+
+function sanitizeRow(row) {
+  return Object.fromEntries(Object.entries(row).map(([k, v]) => [k, sanitizeCellValue(v)]))
+}
+
 // ── EXPORT ──────────────────────────────────────────────────
 
 export async function exportToCSV(data, filename = 'export.csv') {
@@ -31,7 +45,7 @@ export async function exportToExcel(data, filename = 'export.xlsx', sheetName = 
   }))
   ws.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } }
   ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } }
-  data.forEach(row => ws.addRow(row))
+  data.forEach(row => ws.addRow(sanitizeRow(row)))
 
   const buf = await wb.xlsx.writeBuffer()
   downloadBlob(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename)
@@ -52,7 +66,7 @@ export async function exportMultiSheet(sheets, filename = 'export.xlsx') {
     }))
     ws.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } }
     ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } }
-    data.forEach(row => ws.addRow(row))
+    data.forEach(row => ws.addRow(sanitizeRow(row)))
   }
 
   const buf = await wb.xlsx.writeBuffer()
