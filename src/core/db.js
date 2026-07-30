@@ -3,7 +3,7 @@ import { db } from './firebase.js'
 import {
   collection, doc, addDoc, setDoc, updateDoc, deleteDoc,
   getDoc, getDocs, query, where, orderBy, limit, startAfter,
-  onSnapshot, serverTimestamp, Timestamp, increment,
+  onSnapshot, serverTimestamp, Timestamp, increment, deleteField,
 } from 'firebase/firestore'
 import { getState } from './store.js'
 import { syncRagChunk, RAG_SOURCE_COLLECTIONS } from '../utils/rag.js'
@@ -211,6 +211,42 @@ export async function createDoc(colName, data, actorOverride) {
 export async function readDoc(colName, id) {
   const snap = await getDoc(doc(db, colName, id))
   return snap.exists() ? { id: snap.id, ...snap.data() } : null
+}
+
+// สร้าง/แก้ไขเอกสารโดยกำหนด id เอง (upsert) — ต่างจาก createDoc() ที่ Firestore สุ่ม id ให้เสมอ ใช้ตอนต้องการ
+// ให้ id ของ collection หนึ่งตรงกับ id ของอีก collection หนึ่ง (เช่น staff_salaries/{staffId} ที่ต้องอ้างอิง
+// staff/{staffId} ตัวเดียวกันแบบ 1:1 โดยไม่ต้องเก็บ field อ้างอิงแยกต่างหาก)
+export async function setDocData(colName, id, data) {
+  const clean = deepSanitize(data)
+  await setDoc(doc(db, colName, id), { ...clean, updatedAt: serverTimestamp() }, { merge: true })
+  logAction('update', colName, id, `บันทึกข้อมูลใน ${colName}`)
+}
+
+// ── One-time migration: ย้ายเงินเดือนออกจาก staff/{docId} ไปเก็บที่ staff_salaries แยกต่างหาก (v1.0.303) ──
+// เดิม salary ฝังอยู่ใน staff doc ที่ isStaff() (พนักงานทุกคน) อ่านได้กว้างมาก — โค้ดที่แก้ไปแล้วเลิกเขียน
+// field นี้ลง staff doc แล้ว แต่ "เอกสารเก่าที่มีอยู่จริงในระบบ" ยังฝัง salary ค้างอยู่จนกว่าจะรันย้ายข้อมูล
+// จริงสักครั้ง ฟังก์ชันนี้ทำ 2 อย่างต่อพนักงาน 1 คน: (1) คัดลอกค่า salary ปัจจุบันไปที่ staff_salaries/{id}
+// (2) ลบ field salary ออกจาก staff doc ต้นทางจริงๆด้วย deleteField() (ไม่ใช่ตั้งเป็น null — ตั้งเป็น null
+// จะยังนับว่า field "มีอยู่" และโดนกฎ Firestore ที่เพิ่งเพิ่มบล็อกไว้) ปลอดภัยที่จะรันซ้ำได้เสมอ (idempotent —
+// เอกสารที่ไม่มี salary แล้วจะถูกข้ามอัตโนมัติ) ไม่ผ่าน updateDocData()/deepSanitize() เพราะ deleteField()
+// เป็น sentinel object พิเศษของ Firestore เหมือน increment()/serverTimestamp() ไม่ใช่ข้อมูลจริง
+export async function migrateStaffSalaries() {
+  const snap = await getDocs(collection(db, 'staff'))
+  let migrated = 0, skipped = 0
+  const errors = []
+  for (const d of snap.docs) {
+    const data = d.data()
+    if (data.salary == null) { skipped++; continue }
+    try {
+      await setDoc(doc(db, 'staff_salaries', d.id), { salary: data.salary, updatedAt: serverTimestamp() }, { merge: true })
+      await updateDoc(doc(db, 'staff', d.id), { salary: deleteField() })
+      migrated++
+    } catch (e) {
+      errors.push({ id: d.id, message: e.message || String(e) })
+    }
+  }
+  logAction('update', 'staff_salaries', 'migration', `ย้ายเงินเดือนออกจาก staff doc แล้ว ${migrated} คน (ข้าม ${skipped} คนที่ไม่มี salary อยู่แล้ว)`)
+  return { migrated, skipped, errors }
 }
 
 // actorOverride (พารามิเตอร์เสริม, ไม่บังคับ): ดู comment ที่ logAction() — ใช้เฉพาะหน้า shared kiosk ที่

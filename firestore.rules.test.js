@@ -1342,3 +1342,70 @@ describe('vehicle_catalog_overrides/_additions (v1.0.301) — same numeric bound
     await assertSucceeds(db.collection('vehicle_catalog_overrides').add({ price: 899000, cost: 750000 }))
   })
 })
+
+// v1.0.303 — เงินเดือนย้ายออกจาก staff/{docId} (ที่ isStaff() อ่านได้กว้างมาก) ไปเก็บที่ staff_salaries
+// แยกต่างหาก (จำกัด HR/การเงิน/ผู้จัดการเท่านั้น) เดิม field salary ฝังอยู่ในเอกสารเดียวกับชื่อ/แผนก/เบอร์
+// โทรที่ทุกคนอ่านได้ ทำให้พนักงานทุกคนดึงเงินเดือนของเพื่อนร่วมงานผ่าน Firestore SDK ตรงๆได้ แม้ v1.0.302
+// จะซ่อนที่ UI ไปแล้วก็ตาม (แค่ปิดที่ UI ไม่ได้ปิดที่ข้อมูลจริง)
+describe('staff_salaries (v1.0.303) — salary moved out of the broadly-readable staff collection', () => {
+  it('staff_salaries: a plain staff member cannot read anyone\'s salary', async () => {
+    await seedUser('salScope1', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('salScope1').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('staff_salaries/emp1').set({ salary: 25000 })
+    })
+    await assertFails(db.collection('staff_salaries').doc('emp1').get())
+  })
+
+  it('staff_salaries: HR can read a salary', async () => {
+    await seedUser('salScope2', { role: 'hr', active: true })
+    const db = testEnv.authenticatedContext('salScope2').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('staff_salaries/emp2').set({ salary: 25000 })
+    })
+    await assertSucceeds(db.collection('staff_salaries').doc('emp2').get())
+  })
+
+  it('staff_salaries: HR can set a salary, but not a negative one', async () => {
+    await seedUser('salScope3', { role: 'hr', active: true })
+    const db = testEnv.authenticatedContext('salScope3').firestore()
+    await assertSucceeds(db.collection('staff_salaries').doc('emp3').set({ salary: 30000 }))
+    await assertFails(db.collection('staff_salaries').doc('emp3').set({ salary: -1 }))
+  })
+
+  it('staff_salaries: a plain staff member cannot write a salary', async () => {
+    await seedUser('salScope4', { role: 'staff', active: true })
+    const db = testEnv.authenticatedContext('salScope4').firestore()
+    await assertFails(db.collection('staff_salaries').doc('emp4').set({ salary: 30000 }))
+  })
+
+  it('staff: HR cannot create a brand-new staff record with a salary field on it', async () => {
+    await seedUser('salScope5', { role: 'hr', active: true })
+    const db = testEnv.authenticatedContext('salScope5').firestore()
+    await assertFails(db.collection('staff').add({ firstName: 'A', lastName: 'B', salary: 20000 }))
+  })
+
+  it('staff: HR can still create a new staff record with no salary field at all', async () => {
+    await seedUser('salScope6', { role: 'hr', active: true })
+    const db = testEnv.authenticatedContext('salScope6').firestore()
+    await assertSucceeds(db.collection('staff').add({ firstName: 'A', lastName: 'B' }))
+  })
+
+  it('staff: HR can still edit other fields on a legacy record that still has an embedded salary, as long as the salary value itself is left unchanged', async () => {
+    await seedUser('salScope7', { role: 'hr', active: true })
+    const db = testEnv.authenticatedContext('salScope7').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('staff/legacy1').set({ firstName: 'A', lastName: 'B', salary: 22000 })
+    })
+    await assertSucceeds(db.collection('staff').doc('legacy1').update({ phone: '0812345678' }))
+  })
+
+  it('staff: HR cannot change the salary value on a legacy record via the staff doc anymore', async () => {
+    await seedUser('salScope8', { role: 'hr', active: true })
+    const db = testEnv.authenticatedContext('salScope8').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('staff/legacy2').set({ firstName: 'A', lastName: 'B', salary: 22000 })
+    })
+    await assertFails(db.collection('staff').doc('legacy2').update({ salary: 99999 }))
+  })
+})

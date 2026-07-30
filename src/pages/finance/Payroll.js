@@ -60,11 +60,16 @@ export default async function PayrollPage(container) {
   async function loadPayrollForMonth(month) {
     let baseList = DEMO_STAFF_PAY.map(s => ({ ...s, status: 'pending' }))
     try {
-      const [staffDocs, comms] = await Promise.all([
+      const [staffDocs, comms, salaryDocs] = await Promise.all([
         listDocs('staff', [], 'startDate', 'asc', 500).catch(() => []),
         getCommissionData().catch(() => []),
+        // เงินเดือนย้ายไปเก็บที่ staff_salaries แยกต่างหากแล้ว (v1.0.303) — หน้านี้ล็อกไว้เฉพาะการเงิน/
+        // ผู้จัดการขึ้นไปแล้วตั้งแต่ v1.0.302 จึงเรียกอ่านตรงได้เลย เอกสารเก่าที่ยังไม่ได้ย้ายข้อมูลออกจะ
+        // fallback ไปใช้ค่าเดิมที่ฝังใน staff doc ต่อไป
+        listDocs('staff_salaries', [], 'updatedAt', 'desc', 500).catch(() => []),
       ])
       if (container.__routerGen !== myGen) return
+      const salaryMap = Object.fromEntries(salaryDocs.map(d => [d.id, d.salary]))
       if (staffDocs.length) {
         // Phase 2 หลายบริษัท — พนักงานที่ยังไม่มี companyId (ข้อมูลเดิม/shared-service) ยังเข้ารอบจ่ายเงินเดือน
         // เสมอ ไม่ถูกกรองออกโดยไม่ตั้งใจ
@@ -78,7 +83,7 @@ export default async function PayrollPage(container) {
         const deptMap = { owner: 'ผู้บริหาร', sales: 'ขาย', service: 'บริการ', finance: 'การเงิน', hr: 'บุคคล' }
         baseList = scopedStaffDocs.map(s => {
           const name = ((s.firstName || '') + ' ' + (s.lastName || '')).trim()
-          const base = s.salary || 0
+          const base = salaryMap[s.id] != null ? salaryMap[s.id] : (s.salary || 0)
           const ssf = Math.min(Math.round(base * 0.05), 750)
           const commission = commBySales[name] || 0
           return { id: s.id, name, position: s.role || '-', dept: deptMap[s.role] || s.dept || '-', base, ot: 0, allowance: commission, deduction: 0, ssf, status: 'pending', commission }

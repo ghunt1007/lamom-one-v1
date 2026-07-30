@@ -92,9 +92,15 @@ export default async function HrDashboard(container) {
   // Staff/Payroll ที่แก้ไปแล้ว
   const myRole = getState('role') || getState('user')?.role || 'staff'
   const canViewSalary = SALARY_VIEW_ROLES.includes(myRole)
-  const salaryCard = canViewSalary
-    ? kCard('💰', 'เงินเดือนรวม', formatCurrency(staff.filter(s => s.status !== 'inactive').reduce((t, s) => t + (s.salary || 0), 0)), 'accent', '/finance/payroll')
-    : ''
+  let salaryCard = ''
+  if (canViewSalary) {
+    // เงินเดือนย้ายไปเก็บที่ staff_salaries แยกต่างหากแล้ว (v1.0.303) — เอกสารเก่าที่ยังไม่ได้ย้ายข้อมูลออก
+    // จะ fallback ไปใช้ค่าเดิมที่ฝังใน staff doc ต่อไป
+    let salaryMap = {}
+    try { salaryMap = Object.fromEntries((await listDocs('staff_salaries', [], 'updatedAt', 'desc', 500)).map(d => [d.id, d.salary])) } catch {}
+    const salaryTotal = staff.filter(s => s.status !== 'inactive').reduce((t, s) => t + (salaryMap[s.id] != null ? salaryMap[s.id] : (s.salary || 0)), 0)
+    salaryCard = kCard('💰', 'เงินเดือนรวม', formatCurrency(salaryTotal), 'accent', '/finance/payroll')
+  }
 
   const kpiEl = document.getElementById('hr-kpis')
   if (kpiEl) kpiEl.innerHTML = `

@@ -4,12 +4,20 @@
  */
 import { formatDate, formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
+
+// พบว่าหน้านี้ (browse โปรไฟล์พนักงานคนไหนก็ได้จาก collection staff_profiles ที่ isStaff() อ่านได้กว้าง)
+// มีบั๊กเดียวกับที่แก้ไปแล้วใน Staff.js/Payroll.js (v1.0.302) — แสดงเงินเดือนของทุกคนตรงๆโดยไม่เช็คสิทธิ์เลย
+// ต่างจาก staff/{docId} ตรงที่ staff_profiles เป็น collection แยกต่างหาก (ไม่รู้แน่ชัดว่า id ตรงกับ
+// staff/{docId} ตัวเดียวกันหรือเป็นข้อมูลชุดอื่นเลย) จึงยังไม่ย้ายเข้า staff_salaries ในรอบนี้ — ทำแค่ซ่อนที่
+// UI ก่อนเหมือนที่เคยทำกับ Staff.js ในตอนแรก รอตรวจสอบว่า collection นี้ยังใช้งานจริงคู่ขนานกับ staff หรือ
+// เป็นข้อมูลซ้ำซ้อน/เลิกใช้แล้วก่อนตัดสินใจย้ายสคีมา
+const SALARY_VIEW_ROLES = ['owner', 'admin', 'manager', 'hr']
 
 const EMPLOYMENT_TYPE = {
   fulltime:  { label: 'พนักงานประจำ', color: 'success' },
@@ -31,6 +39,7 @@ function addYears(n) { const d = new Date(); d.setFullYear(d.getFullYear() + n);
 export default async function StaffProfilePage(container) {
   const myGen = container.__routerGen
   seedDemoData()
+  const canViewSalary = SALARY_VIEW_ROLES.includes(getState('role') || getState('user')?.role || 'staff')
 
   let staff = []
   let deptFilter = 'all'
@@ -171,7 +180,7 @@ export default async function StaffProfilePage(container) {
       </div>
       ${row('อีเมล', escHtml(s.email))}
       ${row('โทรศัพท์', escHtml(s.phone))}
-      ${row('เงินเดือน', formatCurrency(s.salary) + ' / เดือน')}
+      ${canViewSalary ? row('เงินเดือน', formatCurrency(s.salary) + ' / เดือน') : ''}
       ${row('วันเริ่มงาน', formatDate(s.startDate))}
       ${row('อายุงาน', tenure + ' ปี')}
       ${row('KPI Score', s.kpiScore + '%')}

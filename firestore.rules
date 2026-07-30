@@ -568,8 +568,26 @@ service cloud.firestore {
     // ── HR — HR role & above ──────────────────────────────────────────────────
     match /staff/{docId} {
       allow read: if isStaff();
-      // ป้องกันเงินเดือนติดลบ — ไม่มีเหตุผลทางธุรกิจให้เงินเดือนพนักงานติดลบได้ (กระทบเพดานวงเงินกู้/สวัสดิการที่คำนวณจากฐานนี้ด้วย)
-      allow write: if isHR() && nonNegIfPresent('salary');
+      // (v1.0.303) เงินเดือนย้ายไปเก็บที่ staff_salaries แยกต่างหากแล้ว (อ่านได้แค่ isHR()/isFinance()/
+      // isManager()) เพราะ collection นี้ต้องเปิดให้ isStaff() อ่านได้กว้างต่อไป (หน้าอื่นอีกหลายหน้าต้องใช้
+      // ชื่อ/แผนกพนักงาน) — ห้ามเขียน/แก้ salary ผ่าน doc นี้อีกต่อไป แต่ยัง "อ่าน" ได้เพื่อ backward-compat
+      // กับเอกสารเก่าที่ยังไม่ได้ย้ายข้อมูลออก (ดูปุ่ม "ย้ายข้อมูลเงินเดือน" ในหน้า Staff — เจ้าของ/แอดมินเท่านั้น) เช็คเทียบกับค่าที่มีอยู่เดิม
+      // (ไม่ใช่แค่ห้าม field นี้เฉยๆ) เพื่อไม่ให้บล็อกการแก้ไข field อื่นบนเอกสารเก่าที่ยังมี salary ค้างอยู่
+      allow create: if isHR() && !('salary' in request.resource.data);
+      allow update: if isHR() && (
+        !('salary' in request.resource.data) ||
+        request.resource.data.salary == resource.data.get('salary', null)
+      );
+      allow delete: if isHR();
+    }
+
+    // เก็บเงินเดือนแยกจาก staff doc (v1.0.303) — เดิม salary ฝังอยู่ใน staff/{docId} ที่เปิดให้ isStaff()
+    // (พนักงานทุกคน) อ่านได้กว้างมาก ทำให้ใครก็ดึงเงินเดือนของเพื่อนร่วมงานทุกคนผ่าน Firestore SDK ตรงๆได้
+    // แม้จะซ่อนที่ UI แล้วก็ตาม (v1.0.302) — ย้ายมาเก็บที่นี่แทน จำกัดอ่าน/เขียนเฉพาะ HR/การเงิน/ผู้จัดการ
+    // เท่านั้น id ของเอกสารตรงกับ id ของ staff/{docId} ตัวเดียวกันเสมอ (ความสัมพันธ์ 1:1)
+    match /staff_salaries/{docId} {
+      allow read: if isHR() || isFinance() || isManager();
+      allow write: if (isHR() || isFinance() || isManager()) && nonNegIfPresent('salary');
     }
 
     match /staff_loans/{docId} {
@@ -941,7 +959,7 @@ service cloud.firestore {
         'expenses', 'expense_approvals', 'cash_flow', 'bank_reconciliation', 'bank_transactions',
         'payroll_records', 'salary_scale_staff', 'bonus_pool_staff', 'tech_kpi_bonus_approvals',
         'financial_closings', 'debt_settlements', 'expense_claims',
-        'staff', 'staff_loans', 'leave_requests', 'attendance', 'performance_reviews', 'team_targets',
+        'staff', 'staff_salaries', 'staff_loans', 'leave_requests', 'attendance', 'performance_reviews', 'team_targets',
         'employee_evaluations', 'disciplinary_records', 'staff_grievances', 'recruitment', 'onboarding_staff', 'offboarding_staff',
         'notifications', 'inspections', 'sop_documents', 'legal_references', 'kb_articles', 'product_knowledge',
         'master_data', 'company_profile', 'whitelabel_settings', 'sms_otp_settings',

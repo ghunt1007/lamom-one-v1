@@ -1,4 +1,4 @@
-import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData, setDocData, migrateStaffSalaries } from '../../core/db.js'
 import { showToast, getState } from '../../core/store.js'
 import { formatDate } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
@@ -15,6 +15,12 @@ function escHtml(s) {
 // staff collection ยังต้องเปิดให้ isStaff() อ่านได้กว้างเพื่อให้หน้าอื่นที่ต้องใช้ชื่อ/แผนกพนักงานทำงานได้ปกติ)
 const SALARY_VIEW_ROLES = ['owner', 'admin', 'manager', 'hr']
 
+// (v1.0.303) เงินเดือนย้ายไปเก็บที่ staff_salaries แยกต่างหากแล้ว แต่เอกสารพนักงานเก่าที่มีอยู่จริงในระบบก่อน
+// หน้านี้จะยังฝัง salary ค้างอยู่ (โค้ดใหม่แค่หยุดเขียนซ้ำ ไม่ได้ลบข้อมูลเก่าให้อัตโนมัติ) ปุ่มนี้รันการย้าย
+// ข้อมูลจริงครั้งเดียว (ปลอดภัยที่จะกดซ้ำได้ — เอกสารที่ย้ายแล้วจะถูกข้าม) จำกัดเฉพาะเจ้าของ/แอดมินเท่านั้น
+// เพราะเป็นการแก้ไขโครงสร้างข้อมูลจริงของพนักงานทุกคน ไม่ใช่งาน HR ประจำวัน
+const MIGRATION_ROLES = ['owner', 'admin']
+
 const DEPARTMENTS = ['ฝ่ายขาย','ฝ่ายบริการ','ฝ่ายการเงิน','ฝ่าย HR','ฝ่าย IT','ผู้บริหาร','อื่นๆ']
 const ROLES = { owner:'เจ้าของ', admin:'แอดมิน', manager:'ผู้จัดการ', sales:'เซลส์', service:'ช่าง/บริการ', staff:'พนักงาน' }
 const STATUS_EMP = { active:'✅ ทำงานอยู่', probation:'⏳ ทดลองงาน', leave:'🏖 ลา', inactive:'❌ ลาออก' }
@@ -30,7 +36,9 @@ const DEMO_STAFF = [
 export default async function StaffPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
-  const canViewSalary = SALARY_VIEW_ROLES.includes(getState('role') || getState('user')?.role || 'staff')
+  const myRole = getState('role') || getState('user')?.role || 'staff'
+  const canViewSalary = SALARY_VIEW_ROLES.includes(myRole)
+  const canRunMigration = MIGRATION_ROLES.includes(myRole)
 
   let staff = []
   let filtered = []
@@ -42,6 +50,16 @@ export default async function StaffPage(container) {
     // กลับมาในรายชื่อทุกครั้งที่โหลดหน้านี้ใหม่ (และยังเข้าเกณฑ์ลงเวลา/คำนวณเงินเดือนที่หน้าอื่นต่อไปด้วย)
     try { staff = (await listDocs('staff', [], 'startDate', 'asc', 500)).filter(s => !s.deleted) } catch {}
     if (!staff.length) DEMO_STAFF.forEach(s => staff.push({ ...s }))
+    // เงินเดือนย้ายไปเก็บที่ staff_salaries แยกต่างหากแล้ว (v1.0.303) — ดึงมาผสานทับ s.salary เฉพาะตอนมี
+    // สิทธิ์เห็นเท่านั้น (staff_salaries อ่านได้แค่ HR/การเงิน/ผู้จัดการ ยิงคำขอไปก็ได้แค่ permission-denied
+    // เปล่าๆถ้าไม่มีสิทธิ์) เอกสารเก่าที่ยังไม่ได้ย้ายข้อมูลออกจะ fallback ไปใช้ค่าเดิมที่ฝังใน staff doc ต่อไป
+    if (canViewSalary) {
+      try {
+        const salaryDocs = await listDocs('staff_salaries', [], 'updatedAt', 'desc', 500)
+        const salaryMap = Object.fromEntries(salaryDocs.map(d => [d.id, d.salary]))
+        staff.forEach(s => { if (salaryMap[s.id] != null) s.salary = salaryMap[s.id] })
+      } catch {}
+    }
     updateStats(); applyFilter()
   }
 
@@ -218,17 +236,22 @@ export default async function StaffPage(container) {
         role: el.querySelector('#sf-role').value, dept: el.querySelector('#sf-dept').value,
         status: el.querySelector('#sf-status').value, phone: el.querySelector('#sf-phone').value.trim(),
         email: el.querySelector('#sf-email').value.trim(), startDate: el.querySelector('#sf-start').value,
-        // ช่อง salary ไม่ถูกสร้างใน DOM เลยถ้าไม่มีสิทธิ์เห็น (ดูตรงสร้างฟอร์มด้านบน) — อ่านค่าเดิมไว้แทน
-        // กันไม่ให้ querySelector คืน null แล้ว error ตอนกดบันทึก
-        salary: canViewSalary ? (Number(el.querySelector('#sf-salary').value)||0) : (existing?.salary ?? 0),
       }
+      // เงินเดือนเก็บแยกที่ staff_salaries เสมอ (v1.0.303) ไม่เขียนลง staff doc อีกต่อไปเลย (Firestore Rules
+      // บล็อกไว้แล้วด้วย) — ช่อง #sf-salary ไม่ถูกสร้างใน DOM เลยถ้าไม่มีสิทธิ์เห็น จึงเขียนเฉพาะตอน canViewSalary
+      const newSalary = canViewSalary ? (Number(el.querySelector('#sf-salary').value)||0) : null
       try {
+        let staffId = existing?.id
         if (isEdit) { await updateDocData('staff', existing.id, data); Object.assign(existing, data) }
         else {
           // Phase 2 หลายบริษัท — ติด companyId ของบริษัทหลักที่พนักงานคนสร้างสังกัดอยู่ (ถ้ามี) พนักงานเดิม
           // ที่ไม่มี companyId ยังเห็นได้ทุกคนเหมือนเดิม (ไม่ถูกกรองออก)
           const payload = { ...data, companyId: getState('user')?.primaryCompanyId || null }
-          const id = await createDoc('staff', payload); staff.unshift({ ...payload, id })
+          staffId = await createDoc('staff', payload); staff.unshift({ ...payload, id: staffId })
+        }
+        if (newSalary != null) {
+          await setDocData('staff_salaries', staffId, { salary: newSalary })
+          const rec = staff.find(x => x.id === staffId); if (rec) rec.salary = newSalary
         }
         showToast(isEdit ? 'แก้ไขแล้ว' : '✅ เพิ่มพนักงานแล้ว', 'success')
         close(); updateStats(); applyFilter()
@@ -247,6 +270,7 @@ export default async function StaffPage(container) {
           </div>
         </div>
         <div class="page-actions">
+          ${canRunMigration ? `<button class="btn btn-secondary btn-sm" id="migrate-salary-btn" title="ย้ายเงินเดือนที่ยังฝังอยู่ใน staff doc เก่าไปเก็บที่ collection แยกต่างหาก">🔧 ย้ายข้อมูลเงินเดือน</button>` : ''}
           <button class="btn btn-secondary btn-sm" id="staff-export">📥 Export</button>
           <button class="btn btn-primary" id="add-staff-btn">➕ เพิ่มพนักงาน</button>
         </div>
@@ -275,6 +299,25 @@ export default async function StaffPage(container) {
   `
 
   document.getElementById('add-staff-btn').addEventListener('click', () => openForm())
+  document.getElementById('migrate-salary-btn')?.addEventListener('click', async () => {
+    const ok = await confirmDialog({
+      title: '🔧 ย้ายข้อมูลเงินเดือน',
+      message: 'จะย้ายเงินเดือนที่ยังฝังอยู่ในเอกสารพนักงานเก่าไปเก็บที่ collection แยกต่างหาก (staff_salaries) ที่จำกัดสิทธิ์อ่านเฉพาะผู้บริหาร/ผู้จัดการ/HR/การเงินเท่านั้น แล้วลบ field เงินเดือนออกจากเอกสารพนักงานเดิม — เป็นการแก้ไขข้อมูลจริงของพนักงานทุกคน ปลอดภัยที่จะกดซ้ำได้ (เอกสารที่ย้ายไปแล้วจะถูกข้ามอัตโนมัติ) ต้องการดำเนินการหรือไม่?',
+      confirmText: 'ย้ายข้อมูลเลย', danger: true,
+    })
+    if (!ok) return
+    const btn = document.getElementById('migrate-salary-btn')
+    btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span> กำลังย้าย...'
+    try {
+      const result = await migrateStaffSalaries()
+      showToast(`✅ ย้ายข้อมูลเงินเดือนสำเร็จ ${result.migrated} คน (ข้าม ${result.skipped} คนที่ย้ายไปแล้ว/ไม่มีข้อมูล)${result.errors.length ? ` — พลาด ${result.errors.length} คน` : ''}`, result.errors.length ? 'warning' : 'success', 8000)
+      await loadData()
+    } catch {
+      showToast('ย้ายข้อมูลไม่สำเร็จ', 'error')
+    } finally {
+      btn.disabled = false; btn.innerHTML = '🔧 ย้ายข้อมูลเงินเดือน'
+    }
+  })
   document.getElementById('staff-search').addEventListener('input', e => { search = e.target.value.toLowerCase(); applyFilter() })
   document.getElementById('dept-filter').addEventListener('change', e => { deptFilter = e.target.value; applyFilter() })
   document.getElementById('staff-export').addEventListener('click', () => {
