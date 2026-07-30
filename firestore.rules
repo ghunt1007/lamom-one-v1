@@ -392,6 +392,69 @@ service cloud.firestore {
       allow delete: if isFinance() || isManager();
     }
 
+    // พบระหว่างตรวจสอบ Firestore Rules ทั้งไฟล์อย่างเป็นระบบ (v1.0.299) — เจอ collection ที่มีการอนุมัติ/
+    // ปฏิเสธเงินจริงแบบเดียวกับ price_negotiations/invoices/referrals ด้านบนอีก 9 จุด ที่ยังตกอยู่ใต้
+    // catch-all isStaff() กว้างเกินไป (ไม่เคยมี match block เจาะจงมาก่อนเลย) พนักงานทั่วไปกด "อนุมัติ"
+    // คำขอคืนเงิน/ใบสั่งซื้อ/ข้อเสนอรับซื้อรถ/เคลมประกัน ฯลฯ ได้เองโดยไม่ต้องผ่านการเงิน/ผู้จัดการ
+    match /refund_requests/{docId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isFinance() || isManager();
+      allow delete: if isFinance() || isManager();
+    }
+
+    match /purchase_orders/{docId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update, delete: if isManager();
+    }
+
+    match /supplier_pos/{docId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update, delete: if isManager();
+    }
+
+    // debts เป็นบัญชีติดตามหนี้แบบเดียวกับ debt_settlements (isFinance() ล้วน) ที่มีอยู่แล้วในไฟล์นี้ —
+    // น่าจะตกหล่นตอนเพิ่ม debt_settlements ไปก่อนหน้านี้
+    match /debts/{docId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update, delete: if isFinance();
+    }
+
+    match /deposits/{docId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isFinance() || isManager();
+      allow delete: if isFinance() || isManager();
+    }
+
+    match /trade_ins/{docId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update, delete: if isManager();
+    }
+
+    match /warranty_claims/{docId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update, delete: if isManager();
+    }
+
+    match /warranty_service_claims/{docId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update, delete: if isManager();
+    }
+
+    match /finance_rate_sheets/{docId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isFinance() || isManager();
+      allow delete: if isFinance() || isManager();
+    }
+
     // บัญชีทรัพย์สินถาวรของบริษัท (ต้นทุน/อายุการใช้งาน/มูลค่าตามบัญชีหลังหักค่าเสื่อม) — บัญชีภายใน ไม่ใช่รายการขาย
     match /assets/{docId} {
       allow read: if isStaff();
@@ -840,7 +903,9 @@ service cloud.firestore {
         'announcements_hr', 'comm_messages',
         'sales_budgets', 'marketing_budgets', 'commission_rules', 'budget_planning',
         'price_negotiations', 'invoices', 'referrers', 'referrals',
-        'vehicles', 'bookings'
+        'vehicles', 'bookings',
+        'refund_requests', 'purchase_orders', 'supplier_pos', 'debts', 'deposits',
+        'trade_ins', 'warranty_claims', 'warranty_service_claims', 'finance_rate_sheets'
       ];
     }
 

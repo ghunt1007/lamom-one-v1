@@ -1089,3 +1089,127 @@ describe('numeric bounds — money/quantity fields cannot be written negative ev
     await assertSucceeds(db.collection('staff_loans').add({ staffId: 'numBounds14', amount: 10000 }))
   })
 })
+
+// v1.0.299 — พบระหว่างตรวจสอบไฟล์ rules ทั้งหมดอย่างเป็นระบบว่า 9 collection นี้มีการอนุมัติ/ปฏิเสธเงินจริง
+// (แบบเดียวกับ price_negotiations/invoices/referrals ที่มีเทสอยู่แล้วด้านบน) แต่ไม่เคยมี match block
+// เจาะจงมาก่อนเลย ตกอยู่ใต้ catch-all isStaff() กว้างเกินไปมาตลอด — เทสยืนยันว่าพนักงานทั่วไปสร้างคำขอได้
+// (create) แต่อนุมัติ/ปฏิเสธ (update) ต้องผ่านการเงิน/ผู้จัดการเท่านั้น
+describe('newly-scoped approval collections (v1.0.299) — staff can create but not approve/reject', () => {
+  it('refund_requests: staff can create a refund request but cannot approve it', async () => {
+    await seedUser('scopeGap1', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('scopeGap1').firestore()
+    await assertSucceeds(db.collection('refund_requests').add({ customer: 'x', amount: 1000, status: 'pending' }))
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('refund_requests/r1').set({ customer: 'x', amount: 1000, status: 'pending' })
+    })
+    await assertFails(db.collection('refund_requests').doc('r1').update({ status: 'approved' }))
+  })
+
+  it('refund_requests: finance can approve a refund request', async () => {
+    await seedUser('scopeGap2', { role: 'finance', active: true })
+    const db = testEnv.authenticatedContext('scopeGap2').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('refund_requests/r2').set({ customer: 'x', amount: 1000, status: 'pending' })
+    })
+    await assertSucceeds(db.collection('refund_requests').doc('r2').update({ status: 'approved' }))
+  })
+
+  it('purchase_orders: a plain staff member cannot approve a purchase order', async () => {
+    await seedUser('scopeGap3', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('scopeGap3').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('purchase_orders/p1').set({ status: 'pending' })
+    })
+    await assertFails(db.collection('purchase_orders').doc('p1').update({ status: 'approved' }))
+  })
+
+  it('purchase_orders: a manager can approve a purchase order', async () => {
+    await seedUser('scopeGap4', { role: 'manager', active: true })
+    const db = testEnv.authenticatedContext('scopeGap4').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('purchase_orders/p2').set({ status: 'pending' })
+    })
+    await assertSucceeds(db.collection('purchase_orders').doc('p2').update({ status: 'approved' }))
+  })
+
+  it('supplier_pos: a plain staff member cannot mark a supplier PO received', async () => {
+    await seedUser('scopeGap5', { role: 'staff', active: true })
+    const db = testEnv.authenticatedContext('scopeGap5').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('supplier_pos/sp1').set({ status: 'pending' })
+    })
+    await assertFails(db.collection('supplier_pos').doc('sp1').update({ status: 'received' }))
+  })
+
+  it('debts: a plain staff member cannot mark a debt as paid', async () => {
+    await seedUser('scopeGap6', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('scopeGap6').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('debts/d1').set({ amount: 5000, status: 'pending' })
+    })
+    await assertFails(db.collection('debts').doc('d1').update({ status: 'paid' }))
+  })
+
+  it('debts: finance can mark a debt as paid', async () => {
+    await seedUser('scopeGap7', { role: 'finance', active: true })
+    const db = testEnv.authenticatedContext('scopeGap7').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('debts/d2').set({ amount: 5000, status: 'pending' })
+    })
+    await assertSucceeds(db.collection('debts').doc('d2').update({ status: 'paid' }))
+  })
+
+  it('deposits: a plain staff member cannot change a deposit status', async () => {
+    await seedUser('scopeGap8', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('scopeGap8').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('deposits/dp1').set({ amount: 20000, status: 'held' })
+    })
+    await assertFails(db.collection('deposits').doc('dp1').update({ status: 'forfeited' }))
+  })
+
+  it('trade_ins: a plain staff member cannot approve a trade-in offer', async () => {
+    await seedUser('scopeGap9', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('scopeGap9').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('trade_ins/t1').set({ status: 'appraisal', offerPrice: 300000 })
+    })
+    await assertFails(db.collection('trade_ins').doc('t1').update({ status: 'offered' }))
+  })
+
+  it('warranty_claims: a plain staff member cannot approve a warranty claim', async () => {
+    await seedUser('scopeGap10', { role: 'service', active: true })
+    const db = testEnv.authenticatedContext('scopeGap10').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('warranty_claims/w1').set({ status: 'submitted', partCost: 5000 })
+    })
+    await assertFails(db.collection('warranty_claims').doc('w1').update({ status: 'approved' }))
+  })
+
+  it('warranty_service_claims: a plain staff member cannot approve a warranty service claim', async () => {
+    await seedUser('scopeGap11', { role: 'service', active: true })
+    const db = testEnv.authenticatedContext('scopeGap11').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('warranty_service_claims/w2').set({ status: 'submitted' })
+    })
+    await assertFails(db.collection('warranty_service_claims').doc('w2').update({ status: 'approved' }))
+  })
+
+  it('finance_rate_sheets: a plain staff member cannot confirm a bank rate sheet', async () => {
+    await seedUser('scopeGap12', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('scopeGap12').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('finance_rate_sheets/f1').set({ status: 'draft' })
+    })
+    await assertFails(db.collection('finance_rate_sheets').doc('f1').update({ status: 'confirmed' }))
+  })
+
+  it('finance_rate_sheets: finance can confirm a bank rate sheet', async () => {
+    await seedUser('scopeGap13', { role: 'finance', active: true })
+    const db = testEnv.authenticatedContext('scopeGap13').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('finance_rate_sheets/f2').set({ status: 'draft' })
+    })
+    await assertSucceeds(db.collection('finance_rate_sheets').doc('f2').update({ status: 'confirmed' }))
+  })
+})
