@@ -8,6 +8,13 @@ function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
+// พบว่าเดิมหน้านี้แสดงเงินเดือนของ "ทุกคน" บนการ์ด/ป๊อปอัพรายละเอียด/ยอดรวมหัวหน้า/ไฟล์ Export ให้เห็นตรงๆ
+// โดยไม่มีการเช็คสิทธิ์เลยแม้แต่จุดเดียว — พนักงานขาย/ช่างธรรมดาที่เปิดหน้านี้ (ซึ่งเข้าถึงได้โดยปริยายถ้าแอดมิน
+// ไม่ได้ไปจำกัดสิทธิ์โมดูล HR ไว้เป็นพิเศษ) เห็นเงินเดือนของเพื่อนร่วมงานทุกคนได้ทันที — จำกัดการแสดงผลเฉพาะ
+// ผู้บริหาร/ผู้จัดการ/HR เท่านั้น (การป้องกันจริงต้องทำที่ Firestore Rules ด้วย เพราะนี่แค่ซ่อนที่ UI —
+// staff collection ยังต้องเปิดให้ isStaff() อ่านได้กว้างเพื่อให้หน้าอื่นที่ต้องใช้ชื่อ/แผนกพนักงานทำงานได้ปกติ)
+const SALARY_VIEW_ROLES = ['owner', 'admin', 'manager', 'hr']
+
 const DEPARTMENTS = ['ฝ่ายขาย','ฝ่ายบริการ','ฝ่ายการเงิน','ฝ่าย HR','ฝ่าย IT','ผู้บริหาร','อื่นๆ']
 const ROLES = { owner:'เจ้าของ', admin:'แอดมิน', manager:'ผู้จัดการ', sales:'เซลส์', service:'ช่าง/บริการ', staff:'พนักงาน' }
 const STATUS_EMP = { active:'✅ ทำงานอยู่', probation:'⏳ ทดลองงาน', leave:'🏖 ลา', inactive:'❌ ลาออก' }
@@ -23,6 +30,7 @@ const DEMO_STAFF = [
 export default async function StaffPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
+  const canViewSalary = SALARY_VIEW_ROLES.includes(getState('role') || getState('user')?.role || 'staff')
 
   let staff = []
   let filtered = []
@@ -43,6 +51,7 @@ export default async function StaffPage(container) {
     if (totalEl) totalEl.textContent = `${staff.length} คน (ปฏิบัติงาน ${active} คน)`
     const salaryEl = document.getElementById('staff-salary')
     if (salaryEl) {
+      if (!canViewSalary) { salaryEl.textContent = ''; return }
       const total = staff.filter(s => s.status !== 'inactive').reduce((t, s) => t + (s.salary || 0), 0)
       salaryEl.textContent = `เงินเดือนรวม: ฿${total.toLocaleString()}/เดือน`
     }
@@ -124,7 +133,7 @@ export default async function StaffPage(container) {
           <div style="color:var(--text-2)">${stEl}</div>
           <div style="color:var(--text-muted)">📅 ${formatDate(s.startDate)}</div>
           ${s.phone ? `<div style="color:var(--text-muted)">📱 ${escHtml(s.phone)}</div>` : ''}
-          ${s.salary ? `<div style="color:var(--accent);font-weight:600">💰 ฿${s.salary.toLocaleString()}</div>` : ''}
+          ${canViewSalary && s.salary ? `<div style="color:var(--accent);font-weight:600">💰 ฿${s.salary.toLocaleString()}</div>` : ''}
         </div>
       </div>`
   }
@@ -143,7 +152,7 @@ export default async function StaffPage(container) {
           ${dRow('📱','โทร',s.phone||'-')}
           ${dRow('📧','อีเมล',s.email||'-')}
           ${dRow('📅','วันเริ่มงาน',formatDate(s.startDate))}
-          ${s.salary ? dRow('💰','เงินเดือน',`฿${s.salary.toLocaleString()}/เดือน`) : ''}
+          ${canViewSalary && s.salary ? dRow('💰','เงินเดือน',`฿${s.salary.toLocaleString()}/เดือน`) : ''}
           ${dRow('✅','สถานะ',STATUS_EMP[s.status]||s.status)}
         </div>
       `,
@@ -191,7 +200,7 @@ export default async function StaffPage(container) {
           </div>
           <div class="grid-2">
             <div class="input-group"><label class="input-label">วันเริ่มงาน</label><input class="input" type="date" id="sf-start" value="${existing?.startDate||new Date().toISOString().slice(0,10)}"></div>
-            <div class="input-group"><label class="input-label">เงินเดือน (บาท)</label><input class="input" type="number" id="sf-salary" value="${existing?.salary||''}"></div>
+            ${canViewSalary ? `<div class="input-group"><label class="input-label">เงินเดือน (บาท)</label><input class="input" type="number" id="sf-salary" value="${existing?.salary||''}"></div>` : ''}
           </div>
         </div>
       `,
@@ -209,7 +218,9 @@ export default async function StaffPage(container) {
         role: el.querySelector('#sf-role').value, dept: el.querySelector('#sf-dept').value,
         status: el.querySelector('#sf-status').value, phone: el.querySelector('#sf-phone').value.trim(),
         email: el.querySelector('#sf-email').value.trim(), startDate: el.querySelector('#sf-start').value,
-        salary: Number(el.querySelector('#sf-salary').value)||0,
+        // ช่อง salary ไม่ถูกสร้างใน DOM เลยถ้าไม่มีสิทธิ์เห็น (ดูตรงสร้างฟอร์มด้านบน) — อ่านค่าเดิมไว้แทน
+        // กันไม่ให้ querySelector คืน null แล้ว error ตอนกดบันทึก
+        salary: canViewSalary ? (Number(el.querySelector('#sf-salary').value)||0) : (existing?.salary ?? 0),
       }
       try {
         if (isEdit) { await updateDocData('staff', existing.id, data); Object.assign(existing, data) }
@@ -267,7 +278,7 @@ export default async function StaffPage(container) {
   document.getElementById('staff-search').addEventListener('input', e => { search = e.target.value.toLowerCase(); applyFilter() })
   document.getElementById('dept-filter').addEventListener('change', e => { deptFilter = e.target.value; applyFilter() })
   document.getElementById('staff-export').addEventListener('click', () => {
-    exportToExcel(staff.map(s => ({ ชื่อ:s.firstName, นามสกุล:s.lastName, ชื่อเล่น:s.nickname, ตำแหน่ง:ROLES[s.role]||s.role, แผนก:s.dept, โทร:s.phone, อีเมล:s.email, วันเริ่มงาน:s.startDate, เงินเดือน:s.salary, สถานะ:STATUS_EMP[s.status]||s.status })), `staff-${new Date().toISOString().slice(0,10)}.xlsx`, 'พนักงาน')
+    exportToExcel(staff.map(s => ({ ชื่อ:s.firstName, นามสกุล:s.lastName, ชื่อเล่น:s.nickname, ตำแหน่ง:ROLES[s.role]||s.role, แผนก:s.dept, โทร:s.phone, อีเมล:s.email, วันเริ่มงาน:s.startDate, ...(canViewSalary ? { เงินเดือน:s.salary } : {}), สถานะ:STATUS_EMP[s.status]||s.status })), `staff-${new Date().toISOString().slice(0,10)}.xlsx`, 'พนักงาน')
     showToast('Export แล้ว', 'success')
   })
 

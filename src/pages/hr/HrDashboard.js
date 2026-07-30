@@ -1,6 +1,9 @@
 import { listDocs, seedDemoData } from '../../core/db.js'
 import { navigate } from '../../core/router.js'
 import { formatCurrency } from '../../utils/format.js'
+import { getState } from '../../core/store.js'
+
+const SALARY_VIEW_ROLES = ['owner', 'admin', 'manager', 'hr']
 
 const QUICK_LINKS = [
   { icon:'👥', label:'พนักงาน', sub:'ข้อมูลพนักงานทั้งหมด', path:'/hr/staff', color:'primary' },
@@ -84,14 +87,20 @@ export default async function HrDashboard(container) {
 
   const active = staff.filter(s => s.status === 'active').length
   const probation = staff.filter(s => s.status === 'probation').length
-  const salaryTotal = staff.filter(s => s.status !== 'inactive').reduce((t, s) => t + (s.salary || 0), 0)
   const depts = new Set(staff.map(s => s.dept).filter(Boolean)).size
+  // เดิมแสดงยอดเงินเดือนรวมให้ทุกคนเห็นไม่ว่าตำแหน่งอะไร — จำกัดเฉพาะผู้บริหาร/ผู้จัดการ/HR เหมือนหน้า
+  // Staff/Payroll ที่แก้ไปแล้ว
+  const myRole = getState('role') || getState('user')?.role || 'staff'
+  const canViewSalary = SALARY_VIEW_ROLES.includes(myRole)
+  const salaryCard = canViewSalary
+    ? kCard('💰', 'เงินเดือนรวม', formatCurrency(staff.filter(s => s.status !== 'inactive').reduce((t, s) => t + (s.salary || 0), 0)), 'accent', '/finance/payroll')
+    : ''
 
   const kpiEl = document.getElementById('hr-kpis')
   if (kpiEl) kpiEl.innerHTML = `
     ${kCard('✅', 'พนักงานประจำ', `${active} คน`, 'success', '/hr/staff')}
     ${kCard('⏳', 'ทดลองงาน', `${probation} คน`, 'warning', '/hr/staff')}
-    ${kCard('💰', 'เงินเดือนรวม', formatCurrency(salaryTotal), 'accent', '/finance/payroll')}
+    ${salaryCard}
     ${kCard('🏢', 'จำนวนแผนก', `${depts || '—'} แผนก`, 'primary', '/hr/orgchart')}
   `
 }

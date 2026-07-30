@@ -18,12 +18,31 @@ const DEMO_STAFF_PAY = [
 
 const MONTHS_TH = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 
+// เดิมหน้านี้ไม่มีการเช็คสิทธิ์เลย — ถ้าเปิดถึงหน้านี้ได้ (ค่าเริ่มต้นเปิดให้ทุกคนถ้าแอดมินไม่ได้ไปจำกัด
+// โมดูล finance ไว้เป็นพิเศษใน Settings > Roles) จะเห็นเงินเดือนพื้นฐาน (ดึงตรงจาก staff.salary ซึ่ง
+// isStaff() อ่านได้กว้างอยู่แล้ว) ของพนักงานทุกคนทันที แม้แต่ตอนที่ payroll_records เดือนนั้นยังไม่มีข้อมูล
+// จริง (Firestore rules ของ payroll_records เองจำกัดแค่ isFinance()||isManager() อยู่แล้ว แต่หน้านี้ falls
+// back ไปอ่าน staff.salary ตรงๆถ้า payroll_records ยังว่าง ทำให้หลบเลี่ยงการป้องกันนั้นไปโดยไม่ตั้งใจ)
+const PAYROLL_VIEW_ROLES = ['owner', 'admin', 'manager', 'finance']
+
 function netPay(s) {
   return s.base + s.ot + s.allowance - s.deduction - s.ssf
 }
 
 export default async function PayrollPage(container) {
   const myGen = container.__routerGen
+  const myRole = getState('role') || getState('user')?.role || 'staff'
+  if (!PAYROLL_VIEW_ROLES.includes(myRole)) {
+    container.innerHTML = `
+      <div class="page-content animate-slide">
+        <div class="empty-state" style="padding:60px 20px">
+          <div class="empty-icon">🔒</div>
+          <div class="empty-title">ไม่มีสิทธิ์เข้าถึงหน้านี้</div>
+          <div class="empty-desc">ข้อมูลเงินเดือนเปิดให้เฉพาะฝ่ายการเงิน ผู้จัดการขึ้นไป — ติดต่อผู้ดูแลระบบหากต้องการสิทธิ์เข้าถึง</div>
+        </div>
+      </div>`
+    return
+  }
   seedDemoData()
 
   const now = new Date()
