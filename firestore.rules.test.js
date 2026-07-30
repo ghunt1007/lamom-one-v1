@@ -1213,3 +1213,108 @@ describe('newly-scoped approval collections (v1.0.299) — staff can create but 
     await assertSucceeds(db.collection('finance_rate_sheets').doc('f2').update({ status: 'confirmed' }))
   })
 })
+
+// v1.0.300 — ตรวจสอบต่อ 4 จุดที่คลุมเครือจาก v1.0.299: finance_applications/finance_tracker เป็นเครื่องมือ
+// ที่เซลส์เจ้าของดีลใช้ประจำ (ติ๊กเอกสาร/เลื่อนสถานะระหว่างทาง) จึงล็อกเฉพาะการเปลี่ยนสถานะเป็น
+// "อนุมัติ/ปฏิเสธ" (ผลจริงจากธนาคาร) ไม่ล็อกทั้ง collection — ส่วน cashier_payments/cashier_pending_bills
+// (จุดรับชำระเงินสด) ล็อกทั้งการเขียนให้การเงิน/ผู้จัดการเท่านั้น (ป้องกันปลอมบันทึกรับเงิน)
+describe('finance application/tracker + cashier desk (v1.0.300) — lock only the money-deciding action', () => {
+  it('finance_applications: staff can create a new application', async () => {
+    await seedUser('scopeGap14', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('scopeGap14').firestore()
+    await assertSucceeds(db.collection('finance_applications').add({ custName: 'x', loanAmount: 500000, status: 'submitted' }))
+  })
+
+  it('finance_applications: staff can update non-status fields (e.g. the document checklist) on their own tracked deal', async () => {
+    await seedUser('scopeGap15', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('scopeGap15').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('finance_applications/fa1').set({ custName: 'x', status: 'submitted', documents: [] })
+    })
+    await assertSucceeds(db.collection('finance_applications').doc('fa1').update({ documents: ['บัตรประชาชน'] }))
+  })
+
+  it('finance_applications: staff can move a non-terminal status forward (e.g. submitted -> pending)', async () => {
+    await seedUser('scopeGap16', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('scopeGap16').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('finance_applications/fa2').set({ custName: 'x', status: 'submitted' })
+    })
+    await assertSucceeds(db.collection('finance_applications').doc('fa2').update({ status: 'pending' }))
+  })
+
+  it('finance_applications: a plain staff member cannot flip status to approved', async () => {
+    await seedUser('scopeGap17', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('scopeGap17').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('finance_applications/fa3').set({ custName: 'x', status: 'pending' })
+    })
+    await assertFails(db.collection('finance_applications').doc('fa3').update({ status: 'approved' }))
+  })
+
+  it('finance_applications: finance can flip status to approved', async () => {
+    await seedUser('scopeGap18', { role: 'finance', active: true })
+    const db = testEnv.authenticatedContext('scopeGap18').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('finance_applications/fa4').set({ custName: 'x', status: 'pending' })
+    })
+    await assertSucceeds(db.collection('finance_applications').doc('fa4').update({ status: 'approved' }))
+  })
+
+  it('finance_tracker: staff can move a non-terminal status forward (e.g. submitted -> reviewing)', async () => {
+    await seedUser('scopeGap19', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('scopeGap19').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('finance_tracker/ft1').set({ customerName: 'x', status: 'submitted' })
+    })
+    await assertSucceeds(db.collection('finance_tracker').doc('ft1').update({ status: 'reviewing' }))
+  })
+
+  it('finance_tracker: a plain staff member cannot flip status to approved', async () => {
+    await seedUser('scopeGap20', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('scopeGap20').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('finance_tracker/ft2').set({ customerName: 'x', status: 'reviewing' })
+    })
+    await assertFails(db.collection('finance_tracker').doc('ft2').update({ status: 'approved' }))
+  })
+
+  it('finance_tracker: a manager can flip status to rejected', async () => {
+    await seedUser('scopeGap21', { role: 'manager', active: true })
+    const db = testEnv.authenticatedContext('scopeGap21').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('finance_tracker/ft3').set({ customerName: 'x', status: 'reviewing' })
+    })
+    await assertSucceeds(db.collection('finance_tracker').doc('ft3').update({ status: 'rejected' }))
+  })
+
+  it('cashier_payments: a plain staff member cannot record a cash payment', async () => {
+    await seedUser('scopeGap22', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('scopeGap22').firestore()
+    await assertFails(db.collection('cashier_payments').add({ customer: 'x', amount: 5000, method: 'cash' }))
+  })
+
+  it('cashier_payments: finance can record a cash payment', async () => {
+    await seedUser('scopeGap23', { role: 'finance', active: true })
+    const db = testEnv.authenticatedContext('scopeGap23').firestore()
+    await assertSucceeds(db.collection('cashier_payments').add({ customer: 'x', amount: 5000, method: 'cash' }))
+  })
+
+  it('cashier_pending_bills: a plain staff member cannot delete a pending bill', async () => {
+    await seedUser('scopeGap24', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('scopeGap24').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('cashier_pending_bills/b1').set({ customer: 'x', amount: 5000 })
+    })
+    await assertFails(db.collection('cashier_pending_bills').doc('b1').delete())
+  })
+
+  it('cashier_pending_bills: finance can delete a pending bill once paid', async () => {
+    await seedUser('scopeGap25', { role: 'finance', active: true })
+    const db = testEnv.authenticatedContext('scopeGap25').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('cashier_pending_bills/b2').set({ customer: 'x', amount: 5000 })
+    })
+    await assertSucceeds(db.collection('cashier_pending_bills').doc('b2').delete())
+  })
+})

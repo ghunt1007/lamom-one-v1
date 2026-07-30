@@ -455,6 +455,44 @@ service cloud.firestore {
       allow delete: if isFinance() || isManager();
     }
 
+    // ตรวจสอบเพิ่มเติม (v1.0.300) — finance_applications/finance_tracker เป็นเครื่องมือติดตามสถานะยื่น
+    // ไฟแนนซ์ที่เซลส์เจ้าของดีลใช้ประจำ (พิมพ์บันทึก/ติ๊กเอกสารที่ลูกค้าส่งมา, เลื่อนสถานะระหว่างทางเช่น
+    // "ระหว่างพิจารณา"/"อนุมัติมีเงื่อนไข") จึงไม่ล็อกทั้ง collection ให้การเงิน/ผู้จัดการเท่านั้นแบบ collection
+    // อื่นๆ (จะบล็อกงานประจำวันของเซลส์โดยไม่จำเป็น) แต่ล็อกเฉพาะ "การตัดสินใจสุดท้าย" — เปลี่ยนสถานะเป็น
+    // อนุมัติ/ปฏิเสธ ซึ่งเป็นผลจริงจากธนาคารและกระทบยอดสินเชื่อ/คอมมิชชั่น ต้องผ่านการเงิน/ผู้จัดการเท่านั้น
+    function financeStatusChangeOk() {
+      return !('status' in request.resource.data)
+        || (resource != null && request.resource.data.status == resource.data.status)
+        || !(request.resource.data.status in ['approved', 'rejected'])
+        || isFinance() || isManager();
+    }
+
+    match /finance_applications/{docId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isStaff() && financeStatusChangeOk();
+      allow delete: if isFinance() || isManager();
+    }
+
+    match /finance_tracker/{docId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isStaff() && financeStatusChangeOk();
+      allow delete: if isFinance() || isManager();
+    }
+
+    // จุดรับชำระเงินสด (Cashier Desk) — เดิมพนักงานคนไหนก็สร้างรายการ "รับเงินแล้ว" หรือลบบิลค้างชำระได้เอง
+    // เสี่ยงปลอมบันทึกรับเงิน/ปิดบังยอดขาดหายได้ จำกัดให้ต้องเป็นการเงิน/ผู้จัดการเท่านั้นที่บันทึก/ลบได้จริง
+    match /cashier_payments/{docId} {
+      allow read: if isStaff();
+      allow create, update, delete: if isFinance() || isManager();
+    }
+
+    match /cashier_pending_bills/{docId} {
+      allow read: if isStaff();
+      allow create, update, delete: if isFinance() || isManager();
+    }
+
     // บัญชีทรัพย์สินถาวรของบริษัท (ต้นทุน/อายุการใช้งาน/มูลค่าตามบัญชีหลังหักค่าเสื่อม) — บัญชีภายใน ไม่ใช่รายการขาย
     match /assets/{docId} {
       allow read: if isStaff();
@@ -905,7 +943,8 @@ service cloud.firestore {
         'price_negotiations', 'invoices', 'referrers', 'referrals',
         'vehicles', 'bookings',
         'refund_requests', 'purchase_orders', 'supplier_pos', 'debts', 'deposits',
-        'trade_ins', 'warranty_claims', 'warranty_service_claims', 'finance_rate_sheets'
+        'trade_ins', 'warranty_claims', 'warranty_service_claims', 'finance_rate_sheets',
+        'finance_applications', 'finance_tracker', 'cashier_payments', 'cashier_pending_bills'
       ];
     }
 
