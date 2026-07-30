@@ -90,12 +90,15 @@ export default async function AttendancePage(container) {
     const status = lateMinutes > 15 ? 'late' : 'present'
 
     try {
+      // ส่ง staff.name เป็น actorOverride ให้ audit_log — หน้านี้เป็น shared kiosk (พนักงานหลายคนลงเวลา
+      // บนอุปกรณ์เดียวที่ล็อกอินค้างไว้เป็นบัญชีเดียว) ถ้าไม่ระบุ audit_log จะบันทึกชื่อบัญชีที่ล็อกอินอยู่
+      // บนเครื่องเสมอ ไม่ใช่ชื่อพนักงานที่กดลงเวลาจริง
       if (rec) {
-        await updateDocData('attendance', rec.id, { checkIn: checkInTime, status })
+        await updateDocData('attendance', rec.id, { checkIn: checkInTime, status }, staff.name)
         rec.checkIn = checkInTime; rec.status = status
       } else {
         const data = { staffId, staffName: staff.name, date: viewDate, checkIn: checkInTime, checkOut: null, status, note: '' }
-        const id = await createDoc('attendance', data)
+        const id = await createDoc('attendance', data, staff.name)
         attendanceDb[viewDate].push({ ...data, id })
       }
     } catch { return showToast('บันทึกไม่สำเร็จ', 'error') }
@@ -110,7 +113,8 @@ export default async function AttendancePage(container) {
     if (rec.checkOut) return showToast('ลงเวลาออกแล้ว', 'warning')
     const checkOutTime = nowStr()
     try {
-      await updateDocData('attendance', rec.id, { checkOut: checkOutTime })
+      // ส่ง rec.staffName เป็น actorOverride ให้ audit_log — ดูเหตุผลเดียวกับ checkIn() ด้านบน
+      await updateDocData('attendance', rec.id, { checkOut: checkOutTime }, rec.staffName)
       rec.checkOut = checkOutTime
     } catch { return showToast('บันทึกไม่สำเร็จ', 'error') }
     showToast(`👋 ${rec.staffName} ออกงาน ${checkOutTime}`, 'success')

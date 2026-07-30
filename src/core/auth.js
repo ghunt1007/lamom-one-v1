@@ -49,6 +49,13 @@ export async function logout() {
   setUser(null)
   setCompany(null)
   setState('permissions', [])
+  // เดิมไม่เคลียร์ role/companies/activeCompanyFilter เลย — บนอุปกรณ์ที่มีคนต่อกันใช้ (เช่นแท็บเล็ตที่ใครๆ
+  // ก็ล็อกอินออกแล้วให้คนถัดไปล็อกอินใหม่) ค่าของบัญชีก่อนหน้าจะยังค้างอยู่ใน state/localStorage จนกว่า
+  // loadUserProfile ของบัญชีถัดไปจะเขียนทับ ซึ่งปกติจะเขียนทับได้เร็วอยู่แล้ว แต่เคลียร์ตรงนี้เพื่อไม่ให้มีช่วง
+  // สั้นๆที่ role/บริษัทของบัญชีเก่ายังค้างอยู่ในหน่วยความจำหลัง logout
+  setState('role', null)
+  setCompanies([])
+  setActiveCompanyFilter([])
   navigate('/login')
 }
 

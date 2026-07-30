@@ -24,12 +24,16 @@ export function deepSanitize(v) {
 // ── Audit log ────────────────────────────────────────────────
 // บันทึกทุกการเปลี่ยนแปลง (create/update/delete) ของทุก collection ลง audit_log
 // ต้องไม่ throw ออกไปนอกฟังก์ชัน — ถ้า logging พัง ต้องไม่กระทบการทำงานจริง (fire-and-forget-safe)
-function logAction(action, colName, id, detail) {
+// actorOverride: ใช้กับหน้าที่เป็น shared kiosk (เช่น Attendance.js — พนักงานหลายคนลงเวลาบนอุปกรณ์เดียว
+// ที่ล็อกอินค้างไว้เป็นบัญชีเดียว) เดิม audit_log บันทึกชื่อ "บัญชีที่ล็อกอินอยู่บนเครื่อง" เสมอ ไม่ใช่ชื่อ
+// พนักงานที่กดปุ่มจริง ทำให้ audit trail ของ collection นี้ผิดเจ้าของทุกครั้งที่มีคนอื่นมาใช้เครื่องเดียวกัน
+// ไม่กระทบพฤติกรรมเดิมของหน้าอื่นๆเลย เพราะเป็น parameter เสริมที่ default เป็น undefined
+function logAction(action, colName, id, detail, actorOverride) {
   if (colName === 'audit_log') return // ป้องกัน log การ log ตัวเอง (recursion)
   try {
     const user = getState('user') || {}
     const payload = {
-      user: user.displayName || user.email || user.uid || 'unknown',
+      user: actorOverride || user.displayName || user.email || user.uid || 'unknown',
       role: user.role || '',
       action,
       module: colName,
@@ -188,7 +192,9 @@ async function awardGamePoints(action, colName, id, data) {
 
 // ── CRUD ────────────────────────────────────────────────────
 
-export async function createDoc(colName, data) {
+// actorOverride (พารามิเตอร์เสริม, ไม่บังคับ): ดู comment ที่ logAction() — ใช้เฉพาะหน้า shared kiosk ที่
+// ต้องการให้ audit_log บันทึกชื่อคนที่ทำจริง ไม่ใช่บัญชีที่ล็อกอินค้างอยู่บนเครื่อง
+export async function createDoc(colName, data, actorOverride) {
   // ตัด field "id" ที่ผู้เรียกอาจใส่มาเองทิ้งก่อนเสมอ — ป้องกันไปทับ id จริงที่ระบบ
   // สร้างให้ (genId() ใน demo / ref.id ของ Firestore จริง) ซึ่งเป็นตัวที่ listDocs/updateDocData
   // ใช้อ้างอิง record จริง — ถ้าปล่อยให้ทับ จะทำให้ document key กับ .id field ไม่ตรงกัน
@@ -196,7 +202,7 @@ export async function createDoc(colName, data) {
   const { id: _ignoredId, ...rest } = data || {}
   const clean = deepSanitize(rest)
   const ref = await addDoc(collection(db, colName), { ...clean, createdAt: serverTimestamp(), updatedAt: serverTimestamp() })
-  logAction('create', colName, ref.id, `สร้างข้อมูลใหม่ใน ${colName}`)
+  logAction('create', colName, ref.id, `สร้างข้อมูลใหม่ใน ${colName}`, actorOverride)
   awardGamePoints('create', colName, ref.id, clean).catch(() => {})
   syncRagChunk(colName, ref.id, clean).catch(() => {})
   return ref.id
@@ -207,13 +213,15 @@ export async function readDoc(colName, id) {
   return snap.exists() ? { id: snap.id, ...snap.data() } : null
 }
 
-export async function updateDocData(colName, id, data) {
+// actorOverride (พารามิเตอร์เสริม, ไม่บังคับ): ดู comment ที่ logAction() — ใช้เฉพาะหน้า shared kiosk ที่
+// ต้องการให้ audit_log บันทึกชื่อคนที่ทำจริง ไม่ใช่บัญชีที่ล็อกอินค้างอยู่บนเครื่อง
+export async function updateDocData(colName, id, data, actorOverride) {
   const clean = deepSanitize(data)
   const isDelete = !!(data && data.deleted === true)
   const action = isDelete ? 'delete' : 'update'
   const detail = isDelete ? `ลบข้อมูลใน ${colName}` : `แก้ไขข้อมูลใน ${colName}`
   await updateDoc(doc(db, colName, id), { ...clean, updatedAt: serverTimestamp() })
-  logAction(action, colName, id, detail)
+  logAction(action, colName, id, detail, actorOverride)
   awardGamePoints(action, colName, id, clean).catch(() => {})
   if (isDelete) {
     syncRagChunk(colName, id, { deleted: true }).catch(() => {})
