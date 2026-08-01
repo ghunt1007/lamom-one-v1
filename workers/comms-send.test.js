@@ -218,3 +218,43 @@ describe('comms-send worker — /send/push (FCM v1)', () => {
     expect(data).toEqual({ configured: true, sent: 1, failed: 0, errors: [] })
   })
 })
+
+describe('comms-send worker — message length caps (v1.0.309)', () => {
+  it('rejects an SMS message longer than MAX_SMS_LENGTH', async () => {
+    stubFetch([['api.twilio.com', () => ({ ok: true, json: async () => ({}) })]])
+    const res = await worker.fetch(req('/send/sms', { recipients: ['+66812345678'], message: 'x'.repeat(1601) }), BASE_ENV)
+    expect(res.status).toBe(400)
+    const data = await res.json()
+    expect(data.error).toMatch(/ข้อความยาวเกินขีดจำกัด/)
+  })
+
+  it('accepts an SMS message within MAX_SMS_LENGTH', async () => {
+    stubFetch([['api.twilio.com', () => ({ ok: true, json: async () => ({}) })]])
+    const res = await worker.fetch(req('/send/sms', { recipients: ['+66812345678'], message: 'x'.repeat(1600) }), { ...BASE_ENV, TWILIO_ACCOUNT_SID: 'x', TWILIO_AUTH_TOKEN: 'y', TWILIO_FROM_NUMBER: '+1' })
+    expect(res.status).toBe(200)
+  })
+
+  it('rejects a LINE message longer than MAX_LINE_LENGTH', async () => {
+    stubFetch([['api.line.me', () => ({ ok: true, json: async () => ({}) })]])
+    const res = await worker.fetch(req('/send/line', { message: 'x'.repeat(5001) }), BASE_ENV)
+    expect(res.status).toBe(400)
+    const data = await res.json()
+    expect(data.error).toMatch(/ข้อความยาวเกินขีดจำกัด/)
+  })
+
+  it('rejects an email subject longer than MAX_SUBJECT_LENGTH', async () => {
+    stubFetch([['api.sendgrid.com', () => ({ ok: true, json: async () => ({}) })]])
+    const res = await worker.fetch(req('/send/email', { recipients: ['a@b.com'], subject: 'x'.repeat(301), message: 'hi' }), BASE_ENV)
+    expect(res.status).toBe(400)
+    const data = await res.json()
+    expect(data.error).toMatch(/หัวข้ออีเมลยาวเกินขีดจำกัด/)
+  })
+
+  it('rejects an email message longer than MAX_EMAIL_LENGTH', async () => {
+    stubFetch([['api.sendgrid.com', () => ({ ok: true, json: async () => ({}) })]])
+    const res = await worker.fetch(req('/send/email', { recipients: ['a@b.com'], subject: 'hi', message: 'x'.repeat(20001) }), BASE_ENV)
+    expect(res.status).toBe(400)
+    const data = await res.json()
+    expect(data.error).toMatch(/ข้อความยาวเกินขีดจำกัด/)
+  })
+})

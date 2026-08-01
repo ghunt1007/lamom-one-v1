@@ -31,6 +31,14 @@ const CHUNK_SIZE = 20 // ส่งเป็นชุดละเท่านี�
 // ใช้สคริปต์เรียกซ้ำๆ ก็ยังยิง SMS/Email หาลูกค้าทั้งฐานข้อมูล (นับพันคน) ได้ในคำขอเดียว หรือเรียกซ้ำไม่จำกัด
 // จำนวนครั้งต่อนาที ทำให้ค่าใช้จ่าย Twilio/SendGrid พุ่งจนควบคุมไม่ได้ แก้ให้จำกัดทั้งสองทาง
 const MAX_RECIPIENTS_PER_CALL = 3000 // เผื่อ broadcast ทั้งฐานลูกค้าจริงในครั้งเดียวได้ แต่ไม่ใช่ไม่จำกัดเลย
+// (v1.0.309) เดิมจำกัดแค่ "จำนวนผู้รับ" ไม่ได้จำกัด "ความยาวข้อความ" เลย — SMS คิดเงินเป็นช่วง (segment)
+// ละ 153 ตัวอักษร ข้อความยาวผิดปกติ 1 ครั้งคูณกับผู้รับ 3000 คน (และเรียกซ้ำได้ 5 ครั้ง/นาที) ทำให้ค่าใช้จ่าย
+// Twilio พุ่งได้มากกว่าที่ MAX_RECIPIENTS_PER_CALL ตั้งใจจะจำกัดไว้หลายเท่า จำกัดความยาวต่อช่องทางให้เหมาะสม
+const MAX_SMS_LENGTH = 1600   // ~10 segment ต่อข้อความ — เผื่อข้อความยาวจริงได้ ไม่ใช่แค่ 160 ตัวแบบหน้า SMS Marketing
+const MAX_EMAIL_LENGTH = 20000
+const MAX_SUBJECT_LENGTH = 300
+const MAX_LINE_LENGTH = 5000  // ขีดจำกัดจริงของ LINE Messaging API ต่อข้อความ
+const MAX_PUSH_LENGTH = 500
 const RATE_LIMIT_WINDOW_MS = 60_000
 const RATE_LIMIT_MAX_CALLS = 5 // ต่อบัญชีต่อนาที — เผื่อพอสำหรับการใช้งานจริง (ทวงหนี้/แจ้งเตือนหลายกลุ่มต่อกัน)
 const rateLimitLog = new Map() // uid -> timestamps[] — อยู่ในหน่วยความจำของ isolate เดียว (ชั้นป้องกันแรก
@@ -98,6 +106,19 @@ export default {
     try { body = await request.json() } catch { body = {} }
     if (Array.isArray(body.recipients) && body.recipients.length > MAX_RECIPIENTS_PER_CALL) {
       return json({ error: `จำนวนผู้รับเกินขีดจำกัด (สูงสุด ${MAX_RECIPIENTS_PER_CALL} รายต่อครั้ง) กรุณาแบ่งส่งเป็นหลายรอบ` }, 400, cors)
+    }
+    const maxLenByPath = {
+      '/send/sms': MAX_SMS_LENGTH,
+      '/send/email': MAX_EMAIL_LENGTH,
+      '/send/line': MAX_LINE_LENGTH,
+      '/send/push': MAX_PUSH_LENGTH,
+    }
+    const maxLen = maxLenByPath[url.pathname]
+    if (maxLen && typeof body.message === 'string' && body.message.length > maxLen) {
+      return json({ error: `ข้อความยาวเกินขีดจำกัด (สูงสุด ${maxLen} ตัวอักษร)` }, 400, cors)
+    }
+    if (url.pathname === '/send/email' && typeof body.subject === 'string' && body.subject.length > MAX_SUBJECT_LENGTH) {
+      return json({ error: `หัวข้ออีเมลยาวเกินขีดจำกัด (สูงสุด ${MAX_SUBJECT_LENGTH} ตัวอักษร)` }, 400, cors)
     }
 
     try {
