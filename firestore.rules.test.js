@@ -1622,3 +1622,59 @@ describe('payment_transactions + installment_plans (v1.0.306) — lock only the 
     await assertSucceeds(db.collection('installment_plans').doc('p2').update({ paid: 1, status: 'current' }))
   })
 })
+
+describe('insurance_claims + tax_filings (v1.0.307) — lock only the money/compliance decision', () => {
+  it('insurance_claims: a plain service staff can file a new claim', async () => {
+    await seedUser('insGap1', { role: 'service', active: true })
+    const db = testEnv.authenticatedContext('insGap1').firestore()
+    await assertSucceeds(db.collection('insurance_claims').add({ customer: 'x', plate: 'x', estimate: 20000, approved: 0, status: 'reported' }))
+  })
+
+  it('insurance_claims: a plain service staff can advance status through non-money stages (reported -> surveying)', async () => {
+    await seedUser('insGap2', { role: 'service', active: true })
+    const db = testEnv.authenticatedContext('insGap2').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('insurance_claims/c1').set({ customer: 'x', estimate: 20000, approved: 0, status: 'reported' })
+    })
+    await assertSucceeds(db.collection('insurance_claims').doc('c1').update({ status: 'surveying' }))
+  })
+
+  it('insurance_claims: a plain service staff CANNOT approve a claim (set status + payout amount)', async () => {
+    await seedUser('insGap3', { role: 'service', active: true })
+    const db = testEnv.authenticatedContext('insGap3').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('insurance_claims/c2').set({ customer: 'x', estimate: 20000, approved: 0, status: 'surveying' })
+    })
+    await assertFails(db.collection('insurance_claims').doc('c2').update({ status: 'approved', approved: 20000 }))
+  })
+
+  it('insurance_claims: a plain service staff CANNOT inflate the approved payout amount without touching status', async () => {
+    await seedUser('insGap4', { role: 'service', active: true })
+    const db = testEnv.authenticatedContext('insGap4').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('insurance_claims/c3').set({ customer: 'x', estimate: 20000, approved: 20000, status: 'approved' })
+    })
+    await assertFails(db.collection('insurance_claims').doc('c3').update({ approved: 999999 }))
+  })
+
+  it('insurance_claims: manager can approve a claim', async () => {
+    await seedUser('insGap5', { role: 'manager', active: true })
+    const db = testEnv.authenticatedContext('insGap5').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('insurance_claims/c4').set({ customer: 'x', estimate: 20000, approved: 0, status: 'surveying' })
+    })
+    await assertSucceeds(db.collection('insurance_claims').doc('c4').update({ status: 'approved', approved: 20000 }))
+  })
+
+  it('tax_filings: a plain sales staff cannot mark a filing as filed', async () => {
+    await seedUser('taxGap1', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('taxGap1').firestore()
+    await assertFails(db.collection('tax_filings').add({ baseId: 'vat-2026-07', status: 'filed', filedDate: '2026-07-30' }))
+  })
+
+  it('tax_filings: finance can mark a filing as filed', async () => {
+    await seedUser('taxGap2', { role: 'finance', active: true })
+    const db = testEnv.authenticatedContext('taxGap2').firestore()
+    await assertSucceeds(db.collection('tax_filings').add({ baseId: 'vat-2026-07', status: 'filed', filedDate: '2026-07-30' }))
+  })
+})

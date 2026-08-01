@@ -243,8 +243,12 @@ service cloud.firestore {
       allow read, write: if isStaff();
     }
 
+    // (v1.0.307) เดิม isStaff() เขียนได้หมด — พนักงานคนไหนก็กดปุ่ม "✓ ยื่นแล้ว" ปลอมบันทึกว่ายื่นภาษี
+    // ทันเวลาได้เอง ทั้งที่เป็นการยื่นแบบภาษีกับสรรพากรจริง (ปกปิดการยื่นล่าช้า/ไม่ยื่นได้) เป็นงานฝ่าย
+    // การเงินโดยตรง (หน้านี้อยู่ใน src/pages/finance/ เท่านั้น ไม่มีหน้าอื่นอ่าน/เขียน collection นี้เลย)
     match /tax_filings/{docId} {
-      allow read, write: if isStaff();
+      allow read: if isStaff();
+      allow create, update, delete: if isFinance() || isManager();
     }
 
     match /feedback_responses/{docId} {
@@ -534,6 +538,17 @@ service cloud.firestore {
         || isFinance() || isManager();
     }
 
+    // (v1.0.307) เคลมประกัน — งานสำรวจ/แจ้งเคลม/ซ่อมเป็นงานประจำวันของช่าง/เซลส์ตามปกติ แต่ "อนุมัติ" เป็น
+    // การตัดสินใจวงเงินจ่ายจริง เดิม isStaff() เขียนได้หมด (สถานะ + วงเงินอนุมัติ) ใช้ financeStatusChangeOk()
+    // เดิมล็อกสถานะไม่พอ เพราะพนักงานยังแก้ field "approved" (วงเงิน) ทีหลังได้โดยไม่แตะ status เลย เพิ่ม
+    // เงื่อนไข "ห้ามแก้ approved เว้นแต่การเงิน/ผู้จัดการ" แยกอีกชั้น
+    function insuranceApprovalOk() {
+      return financeStatusChangeOk()
+        && (!('approved' in request.resource.data)
+            || (resource != null && request.resource.data.approved == resource.data.get('approved', 0))
+            || isFinance() || isManager());
+    }
+
     match /finance_applications/{docId} {
       allow read: if isStaff();
       allow create: if isStaff();
@@ -772,7 +787,10 @@ service cloud.firestore {
     }
 
     match /insurance_claims/{docId} {
-      allow read, write: if isStaff();
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isStaff() && insuranceApprovalOk();
+      allow delete: if isFinance() || isManager();
     }
 
     // ── Notifications ─────────────────────────────────────────────────────────
@@ -1066,7 +1084,8 @@ service cloud.firestore {
         'refund_requests', 'purchase_orders', 'supplier_pos', 'debts', 'deposits',
         'trade_ins', 'warranty_claims', 'warranty_service_claims', 'finance_rate_sheets',
         'finance_applications', 'finance_tracker', 'cashier_payments', 'cashier_pending_bills',
-        'vehicle_catalog_overrides', 'vehicle_catalog_additions', 'payment_transactions', 'installment_plans'
+        'vehicle_catalog_overrides', 'vehicle_catalog_additions', 'payment_transactions', 'installment_plans',
+        'insurance_claims', 'tax_filings'
       ];
     }
 
