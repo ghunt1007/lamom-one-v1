@@ -174,9 +174,28 @@ service cloud.firestore {
       allow read: if isStaff();
       // ป้องกันราคา/เงินจอง/ยอดไฟแนนซ์/ยอดคืนเงินติดลบ — ไม่มีเหตุผลทางธุรกิจให้ค่าพวกนี้ติดลบได้จริง
       // (ไม่แตะ discount/margin/totalIncome เพราะขาดทุนได้จริงตามธรรมชาติของดีล)
-      allow write: if isStaff()
+      // (v1.0.304) เลขบัตรประชาชนลูกค้าย้ายไปเก็บที่ booking_national_ids แยกต่างหากแล้ว — bookings ทั้งหมด
+      // ต้องเปิดให้ isStaff() อ่านได้กว้างต่อไป (ทุกแผนกต้องดูใบจองได้) แต่ nid ไม่มีเหตุผลให้ทุกแผนกเห็น
+      // (เฉพาะฝ่ายขาย/การเงิน/ผู้จัดการที่ทำเอกสารไฟแนนซ์จริงเท่านั้นที่ต้องใช้) ห้ามเขียน/แก้ nid ผ่าน doc นี้
+      // อีกต่อไป แต่เอกสารเก่าที่ยังฝัง nid อยู่ยังแก้ field อื่นได้ปกติ (เช็คเทียบค่าเดิมเหมือน staff.salary)
+      allow create: if isStaff()
         && nonNegIfPresent('price') && nonNegIfPresent('cost') && nonNegIfPresent('down')
-        && nonNegIfPresent('financeAmount') && nonNegIfPresent('refundAmount');
+        && nonNegIfPresent('financeAmount') && nonNegIfPresent('refundAmount')
+        && !('nid' in request.resource.data);
+      allow update: if isStaff()
+        && nonNegIfPresent('price') && nonNegIfPresent('cost') && nonNegIfPresent('down')
+        && nonNegIfPresent('financeAmount') && nonNegIfPresent('refundAmount')
+        && (!('nid' in request.resource.data) || request.resource.data.nid == resource.data.get('nid', null));
+      allow delete: if isStaff();
+    }
+
+    // เก็บเลขบัตรประชาชนลูกค้าแยกจาก bookings doc (v1.0.304) — เดิม nid ฝังอยู่ใน bookings/{docId} ที่เปิด
+    // ให้ isStaff() (พนักงานทุกแผนก รวมช่าง/บริการ/HR ที่ไม่เกี่ยวกับงานไฟแนนซ์เลย) อ่านได้กว้างมาก แปลว่า
+    // ใครก็ดึงเลขบัตรประชาชนจริงของลูกค้าทุกคนผ่าน Firestore SDK ตรงๆได้ — ย้ายมาเก็บที่นี่แทน จำกัดเฉพาะ
+    // ฝ่ายขาย/การเงิน/ผู้จัดการ (คนที่ทำเอกสารไฟแนนซ์จริงของดีลนั้น) id ของเอกสารตรงกับ id ของ bookings/{docId}
+    // ตัวเดียวกันเสมอ (ความสัมพันธ์ 1:1)
+    match /booking_national_ids/{docId} {
+      allow read, write: if isSales() || isFinance() || isManager();
     }
 
     match /sales/{docId} {
@@ -756,6 +775,13 @@ service cloud.firestore {
       allow read, write: if isService() || isManager();
     }
 
+    // บริการรับ-ส่งรถลูกค้า (v1.0.304) — เก็บที่อยู่รับ/ส่งรถของลูกค้า ไม่เคยมี match block มาก่อนเลย ตกอยู่ใต้
+    // catch-all isStaff() กว้างๆ (ทุกแผนกรวม HR/การเงินที่ไม่เกี่ยวข้องเลย) เห็นที่อยู่ลูกค้าได้ทั้งหมด —
+    // เป็นฟีเจอร์เฉพาะฝ่ายบริการ จำกัดสิทธิ์ให้ตรงกับแผนกที่ใช้งานจริงเหมือน inspections ด้านบน
+    match /courtesy_car_jobs/{docId} {
+      allow read, write: if isService() || isManager();
+    }
+
     match /sop_documents/{docId} {
       allow read: if isStaff();
       allow write: if isManager();
@@ -932,7 +958,25 @@ service cloud.firestore {
 
     match /staff_profiles/{docId} {
       allow read: if isStaff();
-      allow write: if isHR() || isManager();
+      // (v1.0.304) เงินเดือนย้ายไปเก็บที่ staff_profile_salaries แยกต่างหากแล้ว (collection นี้เป็นทำเนียบ
+      // พนักงานคู่ขนานแยกจาก staff/{docId} — id ไม่ตรงกัน จึงแยก collection เก็บเงินเดือนต่างหากด้วย ไม่ใช้
+      // staff_salaries ร่วมกัน) ห้ามเขียน/แก้ salary ผ่าน doc นี้อีกต่อไป เอกสารเก่าที่ยังฝัง salary อยู่ยังแก้
+      // field อื่นได้ปกติ (เช็คเทียบค่าเดิมเหมือน staff.salary)
+      allow create: if (isHR() || isManager()) && !('salary' in request.resource.data);
+      allow update: if (isHR() || isManager()) && (
+        !('salary' in request.resource.data) ||
+        request.resource.data.salary == resource.data.get('salary', null)
+      );
+      allow delete: if isHR() || isManager();
+    }
+
+    // เก็บเงินเดือนแยกจาก staff_profiles doc (v1.0.304) — เดิม salary ฝังอยู่ใน staff_profiles/{docId} ที่
+    // เปิดให้ isStaff() (พนักงานทุกคน) อ่านได้กว้าง เหมือนบั๊กเดียวกับที่เคยพบและแก้ใน staff/{docId} ไปแล้ว
+    // (v1.0.303) แต่หลุดรอดมาเพราะเป็น collection คู่ขนานแยกต่างหาก id ของเอกสารตรงกับ staff_profiles/{docId}
+    // ตัวเดียวกันเสมอ (ความสัมพันธ์ 1:1)
+    match /staff_profile_salaries/{docId} {
+      allow read: if isHR() || isFinance() || isManager();
+      allow write: if (isHR() || isFinance() || isManager()) && nonNegIfPresent('salary');
     }
 
     match /succession_plans/{docId} {
@@ -961,13 +1005,13 @@ service cloud.firestore {
         'financial_closings', 'debt_settlements', 'expense_claims',
         'staff', 'staff_salaries', 'staff_loans', 'leave_requests', 'attendance', 'performance_reviews', 'team_targets',
         'employee_evaluations', 'disciplinary_records', 'staff_grievances', 'recruitment', 'onboarding_staff', 'offboarding_staff',
-        'notifications', 'inspections', 'sop_documents', 'legal_references', 'kb_articles', 'product_knowledge',
+        'notifications', 'inspections', 'courtesy_car_jobs', 'sop_documents', 'legal_references', 'kb_articles', 'product_knowledge',
         'master_data', 'company_profile', 'whitelabel_settings', 'sms_otp_settings',
         'bank_partner_info', 'insurance_rate_cards', 'ai_officer_chats',
         'api_keys', 'security_policies', 'security_sessions',
         'pdpa_consents', 'pdpa_dsr_requests', 'compliance_audits',
         'webhooks', 'system_integrations', 'system_backups',
-        'recruitment_applicants', 'staff_profiles', 'succession_plans', 'performance_scorecards',
+        'recruitment_applicants', 'staff_profiles', 'staff_profile_salaries', 'succession_plans', 'performance_scorecards',
         'partner_commissions', 'financial_goals', 'contracts', 'leasing_contracts',
         'overtime_records', 'staff_documents', 'welfare_items',
         'assets', 'floor_plan', 'monthly_close_items', 'expense_receipts',
@@ -975,7 +1019,7 @@ service cloud.firestore {
         'announcements_hr', 'comm_messages',
         'sales_budgets', 'marketing_budgets', 'commission_rules', 'budget_planning',
         'price_negotiations', 'invoices', 'referrers', 'referrals',
-        'vehicles', 'bookings',
+        'vehicles', 'bookings', 'booking_national_ids',
         'refund_requests', 'purchase_orders', 'supplier_pos', 'debts', 'deposits',
         'trade_ins', 'warranty_claims', 'warranty_service_claims', 'finance_rate_sheets',
         'finance_applications', 'finance_tracker', 'cashier_payments', 'cashier_pending_bills',

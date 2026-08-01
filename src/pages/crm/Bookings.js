@@ -1,4 +1,4 @@
-import { listDocs, watchDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { listDocs, watchDocs, createDoc, updateDocData, softDelete, seedDemoData, setDocData } from '../../core/db.js'
 import { showToast, getState, setState } from '../../core/store.js'
 import { formatDate, formatCurrency } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
@@ -122,6 +122,17 @@ export default async function BookingsPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
 
+  // เลขบัตรประชาชนลูกค้าย้ายไปเก็บที่ booking_national_ids แยกต่างหากแล้ว (v1.0.304) — ไม่ใช่ทุกแผนกที่
+  // ควรเห็น (เฉพาะฝ่ายขาย/การเงิน/ผู้จัดการที่ทำเอกสารไฟแนนซ์จริง) ดึงมาผสานทับ b.nid เฉพาะตอนมีสิทธิ์เท่านั้น
+  const myRole = getState('role') || getState('user')?.role || 'staff'
+  const canViewNid = ['owner', 'admin', 'manager', 'sales', 'finance'].includes(myRole)
+  let nidMap = {}
+
+  function applyNidMap(rows) {
+    if (!canViewNid) return
+    rows.forEach(b => { if (nidMap[b.id] != null) b.nid = nidMap[b.id] })
+  }
+
   let bookings = []
   let statusFilter = ''
   let brandFilter = ''
@@ -136,6 +147,13 @@ export default async function BookingsPage(container) {
     // ทุกครั้งที่โหลดหน้านี้ใหม่ (ขัดกับข้อความยืนยันลบที่บอกผู้ใช้ว่า "จะไม่ปรากฏในระบบอีกต่อไป")
     try { bookings = (await listDocs('bookings', [], 'createdAt', 'desc', 500)).filter(b => !b.deleted) } catch (e) {}
     if (!bookings.length) bookings = DEMO_BOOKINGS.map(b => ({ ...b }))
+    if (canViewNid) {
+      try {
+        const nidDocs = await listDocs('booking_national_ids', [], 'updatedAt', 'desc', 500)
+        nidMap = Object.fromEntries(nidDocs.map(d => [d.id, d.nid]))
+      } catch {}
+    }
+    applyNidMap(bookings)
     if (container.__routerGen === myGen) render()
   }
 
@@ -150,6 +168,7 @@ export default async function BookingsPage(container) {
     if (container.__routerGen !== myGen) { unsubBookings(); return }
     const liveRows = rows.filter(b => !b.deleted)
     bookings = liveRows.length ? liveRows : (firstSnapshot ? DEMO_BOOKINGS.map(b => ({ ...b })) : bookings)
+    applyNidMap(bookings)
     if (firstSnapshot) { firstSnapshot = false; render() }
     else safeRender()
   })
@@ -769,7 +788,7 @@ export default async function BookingsPage(container) {
           '<span style="font-size:1.25rem;font-weight:800;color:var(--accent)">' + formatCurrency(b.price) + '</span>' +
         '</div>' +
         sec('👤 ลูกค้า') +
-        dRow('ชื่อ', b.custName || '-') + dRow('เลขบัตร ปชช.', b.nid || '-') + dRow('โทร', b.phone || '-') + dRow('ที่อยู่', (b.address || '-') + ' ' + (b.province || '')) + dRow('แหล่งที่มา', b.source || '-') +
+        dRow('ชื่อ', b.custName || '-') + (canViewNid ? dRow('เลขบัตร ปชช.', b.nid || '-') : '') + dRow('โทร', b.phone || '-') + dRow('ที่อยู่', (b.address || '-') + ' ' + (b.province || '')) + dRow('แหล่งที่มา', b.source || '-') +
         sec('🚗 รถ') +
         dRow('รุ่น', (detectBrand(b.brand, b.model) || b.brand || '') + ' ' + (b.model || '') + ' ' + (b.variant || '')) + dRow('สีนอก / ใน', (b.colorOut || '-') + ' / ' + (b.colorIn || '-')) + dRow('เลขตัวถัง (VIN)', b.vin || '-') + dRow('เลขมอเตอร์', b.motorNo || '-') + dRow('เลขแบต', b.batNo || '-') + dRow('เลขเครื่องยนต์', b.engineNo || '-') + dRow('ป้ายแดง / ป้ายขาว', (b.redPlate || '-') + ' / ' + (b.whitePlate || '-')) +
         sec('💰 การเงิน / ไฟแนนซ์') +
@@ -873,7 +892,7 @@ export default async function BookingsPage(container) {
       body: '<div style="display:flex;flex-direction:column;gap:8px;max-height:66vh;overflow:auto;padding-right:4px">' +
         inp('bf-bkno', '📋 เลขที่ใบจอง (แก้ไขได้)', bkNo) +
         sec('👤 ข้อมูลลูกค้า') +
-        '<div class="grid-2">' + inp('bf-cust', 'ชื่อลูกค้า *', e.custName) + inp('bf-nid', 'เลขบัตรประชาชน', e.nid) + '</div>' +
+        '<div class="grid-2">' + inp('bf-cust', 'ชื่อลูกค้า *', e.custName) + (canViewNid ? inp('bf-nid', 'เลขบัตรประชาชน', e.nid) : '') + '</div>' +
         '<div class="grid-2">' + inp('bf-phone', 'โทรศัพท์', e.phone) + datalist('bf-source', 'แหล่งที่มา', getLeadSources(), e.source) + '</div>' +
         '<div class="grid-2">' + inp('bf-address', 'ที่อยู่', e.address) + inp('bf-province', 'จังหวัด', e.province) + '</div>' +
         '<div class="input-group"><label class="input-label">ลูกค้าเดิม (ถ้ามี — ไม่บังคับ)</label>' +
@@ -946,10 +965,13 @@ export default async function BookingsPage(container) {
       const rightsOnly = g('bf-rights').checked
       if (!rightsOnly && !num('bf-down')) { el.querySelector('#bf-down-e').textContent = '⚠️ กรุณาระบุจำนวนเงินจอง (หรือติ๊ก "จองสิทธิ์" หากยังไม่จ่าย)'; return }
       const financeAmount = num('bf-finamount'), installments = num('bf-install'), rate = num('bf-rate')
+      // เลขบัตรประชาชนเก็บแยกที่ booking_national_ids เสมอ (v1.0.304) ไม่เขียนลง bookings doc อีกต่อไปเลย
+      // (Firestore Rules บล็อกไว้แล้วด้วย) — ช่อง #bf-nid ไม่ถูกสร้างใน DOM เลยถ้าไม่มีสิทธิ์เห็น
+      const newNid = canViewNid ? g('bf-nid').value.trim() : null
       const data = {
         bookingNo: g('bf-bkno').value.trim() || bkNo,
         rightsOnly, customerId: linkedCustomerId || null,
-        custName: cust, nid: g('bf-nid').value.trim(), phone: g('bf-phone').value.trim(), address: g('bf-address').value.trim(), province: g('bf-province').value.trim(), source: g('bf-source').value.trim(),
+        custName: cust, phone: g('bf-phone').value.trim(), address: g('bf-address').value.trim(), province: g('bf-province').value.trim(), source: g('bf-source').value.trim(),
         brand: g('bf-brand').value.trim(), model: g('bf-model').value.trim(), variant: g('bf-variant').value.trim(),
         colorOut: g('bf-colorout').value.trim(), colorIn: g('bf-colorin').value.trim(), vin: g('bf-vin').value.trim(), motorNo: g('bf-motor').value.trim(), batNo: g('bf-bat').value.trim(),
         engineNo: g('bf-engineno').value.trim(), redPlate: g('bf-redplate').value.trim(), whitePlate: g('bf-whiteplate').value.trim(),
@@ -967,6 +989,11 @@ export default async function BookingsPage(container) {
         let bookingId = existing?.id
         if (isEdit) { await updateDocData('bookings', existing.id, data); Object.assign(existing, data) }
         else { bookingId = await createDoc('bookings', data); bookings.unshift({ ...data, id: bookingId }) }
+        if (newNid != null) {
+          await setDocData('booking_national_ids', bookingId, { nid: newNid })
+          const rec = bookings.find(x => x.id === bookingId); if (rec) rec.nid = newNid
+          if (existing) existing.nid = newNid
+        }
         if (data.customerId) {
           if (data.status === 'ส่งมอบแล้ว') await maybeMarkCustomerDelivered(data)
           else await updateDocData('customers', data.customerId, { stage: 'booking', stageChangedAt: new Date().toISOString(), bookingId }).catch(() => {})

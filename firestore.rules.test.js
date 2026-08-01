@@ -1409,3 +1409,95 @@ describe('staff_salaries (v1.0.303) — salary moved out of the broadly-readable
     await assertFails(db.collection('staff').doc('legacy2').update({ salary: 99999 }))
   })
 })
+
+// v1.0.304 — สานต่อการตรวจสอบ PII ที่เข้าถึงได้กว้างเกินไป: เลขบัตรประชาชนลูกค้าใน bookings, ที่อยู่ลูกค้า
+// ในบริการรับ-ส่งรถ, และเงินเดือนใน staff_profiles (collection คู่ขนานของ staff ที่หลุดรอดจากการแก้ v1.0.303)
+describe('booking_national_ids (v1.0.304) — customer national ID scoped to sales/finance/manager only', () => {
+  it('a service-role staff member cannot read a customer national ID', async () => {
+    await seedUser('pii1', { role: 'service', active: true })
+    const db = testEnv.authenticatedContext('pii1').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('booking_national_ids/bk1').set({ nid: '1234567890123' })
+    })
+    await assertFails(db.collection('booking_national_ids').doc('bk1').get())
+  })
+
+  it('a sales-role staff member can read a customer national ID', async () => {
+    await seedUser('pii2', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('pii2').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('booking_national_ids/bk2').set({ nid: '1234567890123' })
+    })
+    await assertSucceeds(db.collection('booking_national_ids').doc('bk2').get())
+  })
+
+  it('bookings: staff cannot create a booking with a national ID field on it', async () => {
+    await seedUser('pii3', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('pii3').firestore()
+    await assertFails(db.collection('bookings').add({ custName: 'x', nid: '1234567890123' }))
+  })
+
+  it('bookings: staff can still create a booking with no national ID field at all', async () => {
+    await seedUser('pii4', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('pii4').firestore()
+    await assertSucceeds(db.collection('bookings').add({ custName: 'x' }))
+  })
+
+  it('bookings: staff can still edit other fields on a legacy booking that still has an embedded nid, as long as nid itself is left unchanged', async () => {
+    await seedUser('pii5', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('pii5').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('bookings/legacyBk1').set({ custName: 'x', nid: '1234567890123' })
+    })
+    await assertSucceeds(db.collection('bookings').doc('legacyBk1').update({ phone: '0812345678' }))
+  })
+
+  it('bookings: staff cannot change the nid value on a legacy booking via the bookings doc anymore', async () => {
+    await seedUser('pii6', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('pii6').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('bookings/legacyBk2').set({ custName: 'x', nid: '1234567890123' })
+    })
+    await assertFails(db.collection('bookings').doc('legacyBk2').update({ nid: '9999999999999' }))
+  })
+})
+
+describe('courtesy_car_jobs (v1.0.304) — pickup/delivery customer address scoped to service/manager', () => {
+  it('an HR-role staff member cannot read a customer pickup address', async () => {
+    await seedUser('pii7', { role: 'hr', active: true })
+    const db = testEnv.authenticatedContext('pii7').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('courtesy_car_jobs/j1').set({ customer: 'x', address: '123 ถนนสุขุมวิท' })
+    })
+    await assertFails(db.collection('courtesy_car_jobs').doc('j1').get())
+  })
+
+  it('a service-role staff member can read and create a pickup job', async () => {
+    await seedUser('pii8', { role: 'service', active: true })
+    const db = testEnv.authenticatedContext('pii8').firestore()
+    await assertSucceeds(db.collection('courtesy_car_jobs').add({ customer: 'x', address: '123 ถนนสุขุมวิท' }))
+  })
+})
+
+describe('staff_profile_salaries (v1.0.304) — salary in the parallel staff_profiles directory', () => {
+  it('a plain staff member cannot read a salary from staff_profile_salaries', async () => {
+    await seedUser('pii9', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('pii9').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('staff_profile_salaries/sp1').set({ salary: 25000 })
+    })
+    await assertFails(db.collection('staff_profile_salaries').doc('sp1').get())
+  })
+
+  it('staff_profiles: HR cannot create a new profile with a salary field on it', async () => {
+    await seedUser('pii10', { role: 'hr', active: true })
+    const db = testEnv.authenticatedContext('pii10').firestore()
+    await assertFails(db.collection('staff_profiles').add({ name: 'A', salary: 20000 }))
+  })
+
+  it('staff_profiles: HR can still create a new profile with no salary field at all', async () => {
+    await seedUser('pii11', { role: 'hr', active: true })
+    const db = testEnv.authenticatedContext('pii11').firestore()
+    await assertSucceeds(db.collection('staff_profiles').add({ name: 'A' }))
+  })
+})

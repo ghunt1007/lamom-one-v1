@@ -5,18 +5,16 @@
 import { formatDate, formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
-import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, seedDemoData, setDocData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-// พบว่าหน้านี้ (browse โปรไฟล์พนักงานคนไหนก็ได้จาก collection staff_profiles ที่ isStaff() อ่านได้กว้าง)
-// มีบั๊กเดียวกับที่แก้ไปแล้วใน Staff.js/Payroll.js (v1.0.302) — แสดงเงินเดือนของทุกคนตรงๆโดยไม่เช็คสิทธิ์เลย
-// ต่างจาก staff/{docId} ตรงที่ staff_profiles เป็น collection แยกต่างหาก (ไม่รู้แน่ชัดว่า id ตรงกับ
-// staff/{docId} ตัวเดียวกันหรือเป็นข้อมูลชุดอื่นเลย) จึงยังไม่ย้ายเข้า staff_salaries ในรอบนี้ — ทำแค่ซ่อนที่
-// UI ก่อนเหมือนที่เคยทำกับ Staff.js ในตอนแรก รอตรวจสอบว่า collection นี้ยังใช้งานจริงคู่ขนานกับ staff หรือ
-// เป็นข้อมูลซ้ำซ้อน/เลิกใช้แล้วก่อนตัดสินใจย้ายสคีมา
+// พบว่าหน้านี้ (browse โปรไฟล์พนักงานคนไหนก็ได้จาก collection staff_profiles ที่ isStaff() อ่านได้กว้าง) มี
+// บั๊กเดียวกับที่แก้ไปแล้วใน Staff.js/Payroll.js (v1.0.302/303) — เงินเดือนฝังอยู่ใน staff_profiles/{docId}
+// เดียวกับชื่อ/แผนกที่ทุกคนอ่านได้ (staff_profiles เป็น collection คู่ขนานแยกจาก staff/{docId} จริง ไม่ใช่
+// id เดียวกัน จึงแยก collection staff_profile_salaries เก็บต่างหาก ไม่ใช้ staff_salaries ร่วมกัน — v1.0.304)
 const SALARY_VIEW_ROLES = ['owner', 'admin', 'manager', 'hr']
 
 const EMPLOYMENT_TYPE = {
@@ -50,6 +48,15 @@ export default async function StaffProfilePage(container) {
   async function loadData() {
     loading = true
     try { staff = await listDocs('staff_profiles', [], 'name', 'asc', 500) } catch (e) { staff = [] }
+    // เงินเดือนย้ายไปเก็บที่ staff_profile_salaries แยกต่างหากแล้ว (v1.0.304) — ดึงมาผสานทับ s.salary
+    // เฉพาะตอนมีสิทธิ์เห็นเท่านั้น เอกสารเก่าที่ยังไม่ได้ย้ายข้อมูลออกจะ fallback ไปใช้ค่าเดิมที่ฝังอยู่ต่อไป
+    if (canViewSalary) {
+      try {
+        const salaryDocs = await listDocs('staff_profile_salaries', [], 'updatedAt', 'desc', 500)
+        const salaryMap = Object.fromEntries(salaryDocs.map(d => [d.id, d.salary]))
+        staff.forEach(s => { if (salaryMap[s.id] != null) s.salary = salaryMap[s.id] })
+      } catch {}
+    }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -218,17 +225,20 @@ export default async function StaffProfilePage(container) {
         const name = document.getElementById('sf-name')?.value?.trim()
         if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return false }
         try {
-          await createDoc('staff_profiles', {
+          // เงินเดือนเก็บแยกที่ staff_profile_salaries เสมอ (v1.0.304) ไม่เขียนลง staff_profiles doc อีก
+          // ต่อไปเลย (Firestore Rules บล็อกไว้แล้วด้วย)
+          const newSalary = +document.getElementById('sf-salary')?.value || 0
+          const id = await createDoc('staff_profiles', {
             name,
             nameEn: document.getElementById('sf-nameEn')?.value||'', avatar: '👤',
             dept: document.getElementById('sf-dept')?.value||'ฝ่ายขาย',
             role: document.getElementById('sf-role')?.value||'พนักงาน',
             empType: document.getElementById('sf-type')?.value||'fulltime', status: 'active',
             startDate: document.getElementById('sf-start')?.value||addDays(0),
-            salary: +document.getElementById('sf-salary')?.value||0,
             phone: document.getElementById('sf-phone')?.value||'', email: '',
             skills: [], kpiScore: 0, leaveBalance: 10
           })
+          if (newSalary) await setDocData('staff_profile_salaries', id, { salary: newSalary })
           showToast('✅ เพิ่มพนักงานแล้ว!', 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
