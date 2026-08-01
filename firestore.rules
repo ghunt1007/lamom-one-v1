@@ -65,6 +65,34 @@ service cloud.firestore {
       return !exists(/databases/$(database)/documents/meta/init);
     }
 
+    // ── Role hierarchy (v1.0.305) ────────────────────────────────────────────
+    // เดิม rules ตรวจแค่ "isManager() หรือไม่" ตอนสร้าง/แก้ user คนอื่น ไม่เคยตรวจว่า role ที่จะตั้งให้
+    // "ต่ำกว่า" ตัวเองจริงหรือไม่ (ทั้งที่หน้า UserManagement.js ฝั่ง client บังคับไว้ชัดเจนอยู่แล้วผ่าน
+    // canCreate()/myLevel>targetLevel) แปลว่า manager ธรรมดายิง request ตรงผ่าน Firestore SDK ตั้ง
+    // role ตัวเอง/คนอื่นเป็น 'owner' ได้ทันที (privilege escalation เต็มรูปแบบ) ระดับตรงกับ ROLES ใน
+    // UserManagement.js ทุกตัว
+    function roleLevel(role) {
+      return role == 'owner' ? 100
+        : role == 'admin' ? 90
+        : role == 'manager' ? 70
+        : role == 'finance' ? 60
+        : role == 'hr' ? 60
+        : role == 'sales' ? 40
+        : role == 'service' ? 40
+        : role == 'staff' ? 20
+        : 0;
+    }
+
+    function myRoleLevel() {
+      return roleLevel(userRole());
+    }
+
+    // ต้อง "สูงกว่า" ระดับที่จะกำหนดให้อย่างเคร่งครัด (ตรงกับ canCreate() ฝั่ง client เป๊ะ) — ห้องกัน
+    // manager/admin ตั้ง role ให้เท่ากับหรือสูงกว่าตัวเอง (เช่น manager ตั้งให้ตัวเองเป็น owner)
+    function canAssignRole(role) {
+      return myRoleLevel() > roleLevel(role);
+    }
+
     // ── Numeric bounds helpers ───────────────────────────────────────────────
     // เดิม rules ตรวจแค่ "ใครมีสิทธิ์เขียน" ไม่เคยตรวจ "ค่าที่เขียนสมเหตุสมผลหรือไม่" เลยแม้แต่ field
     // เดียวในทั้งไฟล์ — ต่อให้ UI มี min="0" ก็ข้ามได้ง่ายๆด้วยการยิง request ตรงผ่าน Firestore SDK เพราะ
@@ -123,12 +151,16 @@ service cloud.firestore {
       // Self-create only allowed as the very first owner (bootstrap, no meta/init yet)
       // or as a 'pending' account awaiting admin approval — never with a privileged role.
       // ป้องกัน privilege escalation: ผู้ใช้ทั่วไปสร้าง/แก้ profile ตัวเองให้เป็น owner/admin เองไม่ได้
-      allow create: if isManager()
+      // (v1.0.305) เพิ่ม canAssignRole() บังคับที่ระดับ rules จริง — เดิม isManager() เฉยๆยอมให้ manager
+      // ตั้ง role ใหม่เป็น owner/admin ได้เอง (ดูคอมเมนต์ที่ roleLevel() ด้านบน)
+      allow create: if (isManager() && canAssignRole(request.resource.data.role))
         || (isSignedIn() && uid() == userId && isBootstrapping() && request.resource.data.role == 'owner')
         || (isSignedIn() && uid() == userId && !isBootstrapping() && request.resource.data.role == 'pending');
       // ผู้ใช้แก้ไข field ตัวเองได้ (เช่น displayName) แต่ห้ามแก้ role/permissions/active/accessExpiresAt เอง
       // เด็ดขาด ต้องให้ manager ขึ้นไปเป็นคนเปลี่ยนสิทธิ์เท่านั้น
-      allow update: if isManager()
+      // (v1.0.305) ต้อง canAssignRole ทั้ง role เดิมและ role ใหม่ — กันไม่ให้ manager แก้ไข/ตั้ง role
+      // ของคนที่ "เท่ากับหรือสูงกว่า" ตัวเอง (รวมถึงตัวเอง ผ่านสาขา isManager() นี้เอง) เป็น owner/admin
+      allow update: if (isManager() && canAssignRole(request.resource.data.get('role', 'staff')) && canAssignRole(resource.data.get('role', 'staff')))
         || (isSignedIn() && uid() == userId
             && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'permissions', 'active', 'accessExpiresAt']));
       allow delete: if isOwner();

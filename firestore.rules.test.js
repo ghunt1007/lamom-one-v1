@@ -125,6 +125,77 @@ describe('isManager() fix — users collection access matches the UI\'s stated "
   })
 })
 
+describe('canAssignRole() — role-hierarchy privilege escalation fix (v1.0.305)', () => {
+  it('a manager CANNOT create a new user with role owner (self-escalation via account creation)', async () => {
+    await seedUser('mgr4', { role: 'manager', active: true })
+    const db = testEnv.authenticatedContext('mgr4').firestore()
+    await assertFails(db.doc('users/newOwner').set({ role: 'owner', active: true, displayName: 'x' }))
+  })
+
+  it('a manager CANNOT create a new user with role admin', async () => {
+    await seedUser('mgr5', { role: 'manager', active: true })
+    const db = testEnv.authenticatedContext('mgr5').firestore()
+    await assertFails(db.doc('users/newAdmin').set({ role: 'admin', active: true, displayName: 'x' }))
+  })
+
+  it('a manager CAN still create a new user with role sales (below their own level — unaffected)', async () => {
+    await seedUser('mgr6', { role: 'manager', active: true })
+    const db = testEnv.authenticatedContext('mgr6').firestore()
+    await assertSucceeds(db.doc('users/newSales').set({ role: 'sales', active: true, displayName: 'x' }))
+  })
+
+  it('a manager CANNOT self-escalate by updating their own doc role to owner via the isManager() branch', async () => {
+    await seedUser('mgr7', { role: 'manager', active: true })
+    const db = testEnv.authenticatedContext('mgr7').firestore()
+    await assertFails(db.doc('users/mgr7').update({ role: 'owner' }))
+  })
+
+  it('a manager CANNOT promote another manager to owner', async () => {
+    await seedUser('mgr8', { role: 'manager', active: true })
+    await seedUser('mgr9', { role: 'manager', active: true })
+    const db = testEnv.authenticatedContext('mgr8').firestore()
+    await assertFails(db.doc('users/mgr9').update({ role: 'owner' }))
+  })
+
+  it('a manager CANNOT touch an existing admin account at all (e.g. toggling active), even for non-role fields', async () => {
+    await seedUser('mgr10', { role: 'manager', active: true })
+    await seedUser('admin1', { role: 'admin', active: true })
+    const db = testEnv.authenticatedContext('mgr10').firestore()
+    await assertFails(db.doc('users/admin1').update({ active: false }))
+  })
+
+  it('an admin CANNOT create a peer admin account', async () => {
+    await seedUser('admin2', { role: 'admin', active: true })
+    const db = testEnv.authenticatedContext('admin2').firestore()
+    await assertFails(db.doc('users/newAdmin2').set({ role: 'admin', active: true, displayName: 'x' }))
+  })
+
+  it('an admin CAN create a manager account (below their own level)', async () => {
+    await seedUser('admin3', { role: 'admin', active: true })
+    const db = testEnv.authenticatedContext('admin3').firestore()
+    await assertSucceeds(db.doc('users/newMgr').set({ role: 'manager', active: true, displayName: 'x' }))
+  })
+
+  it('an owner CANNOT create a second owner account (matches UI — owner role only ever set via bootstrap)', async () => {
+    await seedUser('owner2', { role: 'owner', active: true })
+    const db = testEnv.authenticatedContext('owner2').firestore()
+    await assertFails(db.doc('users/newOwner2').set({ role: 'owner', active: true, displayName: 'x' }))
+  })
+
+  it('an owner CAN create an admin account (below owner level)', async () => {
+    await seedUser('owner3', { role: 'owner', active: true })
+    const db = testEnv.authenticatedContext('owner3').firestore()
+    await assertSucceeds(db.doc('users/newAdmin3').set({ role: 'admin', active: true, displayName: 'x' }))
+  })
+
+  it('a manager can still legitimately promote a pending user to sales (unaffected regression check)', async () => {
+    await seedUser('mgr11', { role: 'manager', active: true })
+    await seedUser('pending2', { role: 'pending', active: false })
+    const db = testEnv.authenticatedContext('mgr11').firestore()
+    await assertSucceeds(db.doc('users/pending2').update({ role: 'sales', active: true }))
+  })
+})
+
 describe('CRITICAL: the catch-all rule must never grant broader access than a collection\'s own specific rule', () => {
   // Discovered while writing this test suite: Firestore evaluates every matching `match`
   // block and unions the results with OR — it does NOT let a more specific block "win"
