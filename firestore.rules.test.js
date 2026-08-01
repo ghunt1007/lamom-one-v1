@@ -1678,3 +1678,38 @@ describe('insurance_claims + tax_filings (v1.0.307) — lock only the money/comp
     await assertSucceeds(db.collection('tax_filings').add({ baseId: 'vat-2026-07', status: 'filed', filedDate: '2026-07-30' }))
   })
 })
+
+describe('gov_docs (v1.0.308) — no dedicated rule existed at all, fell to the open catch-all', () => {
+  it('a plain staff member can create a new gov doc tracking record', async () => {
+    await seedUser('govGap1', { role: 'staff', active: true })
+    const db = testEnv.authenticatedContext('govGap1').firestore()
+    await assertSucceeds(db.collection('gov_docs').add({ type: 'โอนกรรมสิทธิ์', customer: 'x', vin: 'x', status: 'รอดำเนินการ' }))
+  })
+
+  it('a plain staff member can advance status through non-final stages', async () => {
+    await seedUser('govGap2', { role: 'staff', active: true })
+    const db = testEnv.authenticatedContext('govGap2').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('gov_docs/g1').set({ type: 'โอนกรรมสิทธิ์', customer: 'x', status: 'รอดำเนินการ' })
+    })
+    await assertSucceeds(db.collection('gov_docs').doc('g1').update({ status: 'กำลังดำเนินการ' }))
+  })
+
+  it('a plain staff member CANNOT mark a gov doc as เสร็จสิ้น (fake-certify government paperwork done)', async () => {
+    await seedUser('govGap3', { role: 'staff', active: true })
+    const db = testEnv.authenticatedContext('govGap3').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('gov_docs/g2').set({ type: 'โอนกรรมสิทธิ์', customer: 'x', status: 'กำลังดำเนินการ' })
+    })
+    await assertFails(db.collection('gov_docs').doc('g2').update({ status: 'เสร็จสิ้น' }))
+  })
+
+  it('a manager can mark a gov doc as เสร็จสิ้น', async () => {
+    await seedUser('govGap4', { role: 'manager', active: true })
+    const db = testEnv.authenticatedContext('govGap4').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('gov_docs/g3').set({ type: 'โอนกรรมสิทธิ์', customer: 'x', status: 'กำลังดำเนินการ' })
+    })
+    await assertSucceeds(db.collection('gov_docs').doc('g3').update({ status: 'เสร็จสิ้น' }))
+  })
+})

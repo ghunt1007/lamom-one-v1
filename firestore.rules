@@ -531,6 +531,18 @@ service cloud.firestore {
     // "ระหว่างพิจารณา"/"อนุมัติมีเงื่อนไข") จึงไม่ล็อกทั้ง collection ให้การเงิน/ผู้จัดการเท่านั้นแบบ collection
     // อื่นๆ (จะบล็อกงานประจำวันของเซลส์โดยไม่จำเป็น) แต่ล็อกเฉพาะ "การตัดสินใจสุดท้าย" — เปลี่ยนสถานะเป็น
     // อนุมัติ/ปฏิเสธ ซึ่งเป็นผลจริงจากธนาคารและกระทบยอดสินเชื่อ/คอมมิชชั่น ต้องผ่านการเงิน/ผู้จัดการเท่านั้น
+    // (v1.0.308) เอกสารราชการ (gov_docs — โอนกรรมสิทธิ์/ภาษีป้าย/ทะเบียนรถใหม่) เดิมไม่มีกฎเจาะจงเลย
+    // ตกไปใช้ catch-all กว้างท้ายไฟล์ (isStaff() ธรรมดา) พนักงานคนไหนก็ทำเครื่องหมาย "เสร็จสิ้น" ปลอมได้เอง
+    // ทั้งที่เป็นการรับรองว่าทำเรื่องกับราชการ (กรมขนส่ง/สรรพากร) เสร็จจริงแล้ว ถ้าปลอมได้จะปกปิดการโอน
+    // กรรมสิทธิ์ที่ยังไม่เสร็จจริงได้ — งานประจำวัน (รอดำเนินการ/กำลังดำเนินการ) ยังทำได้ตามเดิม ล็อกแค่
+    // จุดที่ทำเครื่องหมาย "เสร็จสิ้น" ให้ต้องผ่านผู้จัดการขึ้นไปเท่านั้น
+    function govDocCompletionOk() {
+      return !('status' in request.resource.data)
+        || (resource != null && request.resource.data.status == resource.data.status)
+        || request.resource.data.status != 'เสร็จสิ้น'
+        || isManager();
+    }
+
     function financeStatusChangeOk() {
       return !('status' in request.resource.data)
         || (resource != null && request.resource.data.status == resource.data.status)
@@ -832,6 +844,13 @@ service cloud.firestore {
       allow read, write: if isService() || isManager();
     }
 
+    match /gov_docs/{docId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isStaff() && govDocCompletionOk();
+      allow delete: if isManager();
+    }
+
     match /sop_documents/{docId} {
       allow read: if isStaff();
       allow write: if isManager();
@@ -1085,7 +1104,7 @@ service cloud.firestore {
         'trade_ins', 'warranty_claims', 'warranty_service_claims', 'finance_rate_sheets',
         'finance_applications', 'finance_tracker', 'cashier_payments', 'cashier_pending_bills',
         'vehicle_catalog_overrides', 'vehicle_catalog_additions', 'payment_transactions', 'installment_plans',
-        'insurance_claims', 'tax_filings'
+        'insurance_claims', 'tax_filings', 'gov_docs'
       ];
     }
 
