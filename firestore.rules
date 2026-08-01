@@ -897,12 +897,23 @@ service cloud.firestore {
       allow read, write: if isStaff();
     }
 
+    // (v1.0.306) เดิม isStaff() เขียนได้หมดทุก field รวม status — พนักงานคนไหนก็ยิง updateDocData
+    // ตรงกด status เป็น 'success' ปลอมได้เอง ไม่ต้องรอใครยืนยัน (ปุ่ม "✅ ยืนยันการชำระ" ใน
+    // PaymentGateway.js ตั้งใจให้เป็นการกดยืนยันด้วยมือว่าได้รับเงินจริง ไม่ใช่ webhook อัตโนมัติ) แก้ให้
+    // สร้างรายการรอชำระได้ตามเดิม (staff ทั่วไปสร้าง QR ให้ลูกค้าที่หน้าร้านได้) แต่ยืนยัน/ทำเครื่องหมาย
+    // ล้มเหลวต้องผ่านการเงิน/ผู้จัดการเท่านั้น (ตรงกับ pattern invoices/refund_requests ที่แก้ไปแล้ว)
     match /payment_transactions/{docId} {
-      allow read, write: if isStaff();
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update, delete: if isFinance() || isManager();
     }
 
+    // (v1.0.306) เดิม isStaff() เขียนได้หมด — พนักงานคนไหนก็กดปุ่ม "หักงวดนี้" (บันทึกว่าลูกค้าจ่ายแล้ว)
+    // ปลอมได้เอง เป็นการบันทึกข้อเท็จจริงทางการเงินเหมือน cashier_payments ไม่ใช่แค่คำขอที่รออนุมัติ
+    // แก้ให้ทั้งสร้างสัญญาผ่อนใหม่และบันทึกงวดที่จ่ายแล้วต้องผ่านการเงิน/ผู้จัดการเท่านั้น
     match /installment_plans/{docId} {
-      allow read, write: if isStaff();
+      allow read: if isStaff();
+      allow create, update, delete: if isFinance() || isManager();
     }
 
     match /charging_sessions/{docId} {
@@ -1055,7 +1066,7 @@ service cloud.firestore {
         'refund_requests', 'purchase_orders', 'supplier_pos', 'debts', 'deposits',
         'trade_ins', 'warranty_claims', 'warranty_service_claims', 'finance_rate_sheets',
         'finance_applications', 'finance_tracker', 'cashier_payments', 'cashier_pending_bills',
-        'vehicle_catalog_overrides', 'vehicle_catalog_additions'
+        'vehicle_catalog_overrides', 'vehicle_catalog_additions', 'payment_transactions', 'installment_plans'
       ];
     }
 

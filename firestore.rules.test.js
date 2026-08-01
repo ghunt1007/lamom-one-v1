@@ -1572,3 +1572,53 @@ describe('staff_profile_salaries (v1.0.304) — salary in the parallel staff_pro
     await assertSucceeds(db.collection('staff_profiles').add({ name: 'A' }))
   })
 })
+
+describe('payment_transactions + installment_plans (v1.0.306) — lock only the money-confirming action', () => {
+  it('payment_transactions: a plain sales staff can create a pending payment QR request', async () => {
+    await seedUser('payGap1', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('payGap1').firestore()
+    await assertSucceeds(db.collection('payment_transactions').add({ ref: 'INV-1', customer: 'x', amount: 5000, status: 'pending' }))
+  })
+
+  it('payment_transactions: a plain sales staff CANNOT confirm a payment as success (the real exploit)', async () => {
+    await seedUser('payGap2', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('payGap2').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('payment_transactions/tx1').set({ ref: 'INV-1', customer: 'x', amount: 5000, status: 'pending' })
+    })
+    await assertFails(db.collection('payment_transactions').doc('tx1').update({ status: 'success' }))
+  })
+
+  it('payment_transactions: finance can confirm a payment as success', async () => {
+    await seedUser('payGap3', { role: 'finance', active: true })
+    const db = testEnv.authenticatedContext('payGap3').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('payment_transactions/tx2').set({ ref: 'INV-1', customer: 'x', amount: 5000, status: 'pending' })
+    })
+    await assertSucceeds(db.collection('payment_transactions').doc('tx2').update({ status: 'success' }))
+  })
+
+  it('installment_plans: a plain sales staff cannot create a new installment plan', async () => {
+    await seedUser('payGap4', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('payGap4').firestore()
+    await assertFails(db.collection('installment_plans').add({ customer: 'x', total: 500000, totalInst: 36, monthly: 15000, paid: 0, status: 'current' }))
+  })
+
+  it('installment_plans: a plain sales staff cannot record a fake paid installment (the real exploit)', async () => {
+    await seedUser('payGap5', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('payGap5').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('installment_plans/p1').set({ customer: 'x', total: 500000, totalInst: 36, monthly: 15000, paid: 0, status: 'current' })
+    })
+    await assertFails(db.collection('installment_plans').doc('p1').update({ paid: 1, status: 'current' }))
+  })
+
+  it('installment_plans: finance can record a paid installment', async () => {
+    await seedUser('payGap6', { role: 'finance', active: true })
+    const db = testEnv.authenticatedContext('payGap6').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('installment_plans/p2').set({ customer: 'x', total: 500000, totalInst: 36, monthly: 15000, paid: 0, status: 'current' })
+    })
+    await assertSucceeds(db.collection('installment_plans').doc('p2').update({ paid: 1, status: 'current' }))
+  })
+})
