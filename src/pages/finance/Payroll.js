@@ -78,8 +78,13 @@ export default async function PayrollPage(container) {
         const scopedStaffDocs = staffDocs
           .filter(s => !s.deleted)
           .filter(s => !s.companyId || !activeCompanyFilter.length || activeCompanyFilter.includes(s.companyId))
+        // เดิม bug 2 ชั้น: (1) รวม c.incomeTotal ซึ่งคือกำไรสุทธิของบริษัทต่อดีล (margin-budgetUsed+com70+
+        // comFinance) ไม่ใช่คอมมิชชั่นที่พนักงานควรได้จริง (แค่ com70+comFinance) ทำให้จ่ายเกินจริงทุกดีล
+        // (2) ไม่กรองตามเดือนที่กำลังดูอยู่เลย (getCommissionData คืนมาแยกตาม เดือน|ชื่อ อยู่แล้ว) ทำให้ยอด
+        // สะสมทุกเดือนที่ผ่านมาถูกรวมเข้าไปซ้ำทุกครั้ง ยิ่งนานยิ่งพองตัว กด "จ่ายทั้งหมด" จะบันทึกยอดผิดนี้
+        // เป็นเงินเดือนจริงลง payroll_records ทันทีโดยไม่มีการตรวจซ้ำ (มีปุ่มแก้ไข ✏️ ให้แก้เองได้ แต่ไม่บังคับ)
         const commBySales = {}
-        comms.forEach(c => { commBySales[c.salesName] = (commBySales[c.salesName] || 0) + (c.incomeTotal || 0) })
+        comms.filter(c => c.month === month).forEach(c => { commBySales[c.salesName] = (commBySales[c.salesName] || 0) + (c.com70Total || 0) + (c.comFinanceTotal || 0) })
         const deptMap = { owner: 'ผู้บริหาร', sales: 'ขาย', service: 'บริการ', finance: 'การเงิน', hr: 'บุคคล' }
         baseList = scopedStaffDocs.map(s => {
           const name = ((s.firstName || '') + ' ' + (s.lastName || '')).trim()
