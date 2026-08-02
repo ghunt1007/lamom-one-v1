@@ -251,6 +251,40 @@ export async function migrateStaffSalaries() {
 
 // actorOverride (พารามิเตอร์เสริม, ไม่บังคับ): ดู comment ที่ logAction() — ใช้เฉพาะหน้า shared kiosk ที่
 // ต้องการให้ audit_log บันทึกชื่อคนที่ทำจริง ไม่ใช่บัญชีที่ล็อกอินค้างอยู่บนเครื่อง
+export const DEFAULT_ROLE_PERMISSIONS = {
+  owner:   { roleName: 'เจ้าของ',      modules: ['*'] },
+  admin:   { roleName: 'แอดมิน',       modules: ['*'] },
+  manager: { roleName: 'ผู้จัดการ',    modules: ['*'] },
+  finance: { roleName: 'การเงิน',      modules: ['finance', 'insurance', 'b2b', 'documents', 'ai', 'comms'] },
+  hr:      { roleName: 'HR',           modules: ['hr', 'documents', 'ai', 'comms'] },
+  sales:   { roleName: 'เซลส์',        modules: ['sales', 'dms', 'marketing', 'b2b', 'documents', 'ai', 'comms'] },
+  service: { roleName: 'ช่าง/บริการ',  modules: ['service', 'quality', 'dms', 'documents', 'ai', 'comms'] },
+  staff:   { roleName: 'พนักงาน',      modules: ['documents', 'ai', 'comms'] },
+  pending: { roleName: 'รออนุมัติ',    modules: [] },
+}
+
+// ── One-time seeding: ตั้งค่าสิทธิ์เข้าถึงโมดูลเริ่มต้นต่อตำแหน่งงาน (v1.0.315) ──────────────────
+// เดิม collection 'roles' ไม่มีเอกสารอยู่เลยตั้งแต่สร้างระบบ (ไม่มีจุดไหนเขียนสร้างเอกสารใหม่ มีแค่แก้ไข
+// เอกสารที่มีอยู่แล้วผ่านหน้า Settings > Roles) ทำให้ hasModuleAccess() ใน core/permissions.js เจอ
+// "role ไม่มีข้อมูลกำหนดสิทธิ์" แล้ว fail-open (คืนค่าอนุญาตเสมอ) กับทุก role จริงๆ — ทุกตำแหน่งเห็นทุกเมนู/
+// เข้าทุกหน้าได้ผ่านการพิมพ์ URL ตรง ระบบจำกัดสิทธิ์หน้าจอทั้งระบบไม่มีผลจริงมาตลอด (Firestore Rules ยัง
+// ป้องกันข้อมูลจริงอยู่ ไม่ใช่ช่องโหว่ข้อมูลรั่ว แต่เป็นช่องโหว่ระดับ UI/defense-in-depth) แก้โดยสร้างฟังก์ชัน
+// seeding นี้ (ปลอดภัยกดซ้ำได้ — สร้างเฉพาะ role ที่ "ยังไม่มี" เอกสารอยู่ ไม่ทับของที่เจ้าของแก้ไขเองไว้แล้ว)
+// ให้กดจากปุ่มในหน้า Settings > Roles (เจ้าของ/แอดมินเท่านั้น) ไม่ auto-run เอง — เป็นค่าเริ่มต้นที่แนะนำ
+// ตามแผนก แก้ไขเพิ่ม/ลดได้ทีหลังจากหน้า Settings > Roles ตามปกติ
+export async function seedDefaultRolePermissions() {
+  const snap = await getDocs(collection(db, 'roles'))
+  const existing = new Set(snap.docs.map(d => d.id))
+  let seeded = 0, skipped = 0
+  for (const [roleId, data] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {
+    if (existing.has(roleId)) { skipped++; continue }
+    await setDoc(doc(db, 'roles', roleId), { ...data, updatedAt: serverTimestamp() })
+    seeded++
+  }
+  logAction('update', 'roles', 'seed', `ตั้งค่าสิทธิ์เริ่มต้น ${seeded} ตำแหน่ง (ข้าม ${skipped} ตำแหน่งที่มีการกำหนดไว้แล้ว)`)
+  return { seeded, skipped }
+}
+
 export async function updateDocData(colName, id, data, actorOverride) {
   const clean = deepSanitize(data)
   const isDelete = !!(data && data.deleted === true)
