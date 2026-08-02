@@ -228,6 +228,11 @@ export async function resetPassword(email) {
     await sendPasswordResetEmail(auth, email)
     return { ok: true }
   } catch (e) {
+    // v1.0.314: ไม่บอกว่าอีเมลนี้มีบัญชีอยู่ในระบบหรือไม่ (email enumeration) — เดิม auth/user-not-found
+    // แสดงข้อความ "ไม่พบบัญชีผู้ใช้นี้" ต่างจากกรณีสำเร็จอย่างชัดเจน ทำให้คนนอกลองพิมพ์อีเมลใครก็ได้แล้ว
+    // ดูข้อความตอบกลับเพื่อเช็คว่าอีเมลนั้นมีบัญชีในระบบเราหรือไม่ — ตอบเหมือนสำเร็จเสมอสำหรับกรณีนี้
+    // (Firebase เองก็ไม่ส่งอีเมลจริงถ้าไม่มีบัญชีอยู่แล้ว ผลลัพธ์จริงต่อผู้ใช้เหมือนกันทุกกรณี)
+    if (e.code === 'auth/user-not-found') return { ok: true }
     return { ok: false, error: authErrorMessage(e.code) }
   }
 }
