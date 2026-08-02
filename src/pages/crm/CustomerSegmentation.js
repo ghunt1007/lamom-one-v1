@@ -8,6 +8,8 @@ import { showToast } from '../../core/store.js'
 import { getSalesData, listDocs } from '../../core/db.js'
 import { OCCUPATIONS } from '../../utils/financeMatch.js'
 
+function escHtml(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') }
+
 const SEG_TYPES = {
   rfm:       { label: 'RFM Analysis', icon: '📊', color: 'primary' },
   behavior:  { label: 'พฤติกรรม', icon: '🎯', color: 'warning' },
@@ -248,7 +250,7 @@ export default async function CustomerSegmentationPage(container) {
           <tbody>
             ${occupationSegments.map(o => `
               <tr style="border-bottom:1px solid var(--border)">
-                <td style="padding:10px 14px;font-weight:600">💼 ${o.occupation}</td>
+                <td style="padding:10px 14px;font-weight:600">💼 ${escHtml(o.occupation)}</td>
                 <td style="padding:10px 14px;text-align:right">${o.count}</td>
                 <td style="padding:10px 14px;text-align:right;font-weight:700;color:var(--primary)">${Math.round(o.count / totalWithOcc * 100)}%</td>
                 <td style="padding:10px 14px;text-align:right;color:var(--success)">${o.avgBudget ? formatCurrency(o.avgBudget) : '-'}</td>
