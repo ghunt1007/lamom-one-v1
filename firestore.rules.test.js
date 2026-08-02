@@ -1713,3 +1713,89 @@ describe('gov_docs (v1.0.308) — no dedicated rule existed at all, fell to the 
     await assertSucceeds(db.collection('gov_docs').doc('g3').update({ status: 'เสร็จสิ้น' }))
   })
 })
+
+describe('parts_rma + custom_orders + compliance_events + gov_bids (v1.0.312) — no dedicated rule existed at all', () => {
+  it('parts_rma: a plain service staff can create a new RMA request', async () => {
+    await seedUser('rmaGap1', { role: 'service', active: true })
+    const db = testEnv.authenticatedContext('rmaGap1').firestore()
+    await assertSucceeds(db.collection('parts_rma').add({ partName: 'x', cost: 5000, status: 'pending' }))
+  })
+
+  it('parts_rma: a plain service staff CANNOT approve a supplier return credit', async () => {
+    await seedUser('rmaGap2', { role: 'service', active: true })
+    const db = testEnv.authenticatedContext('rmaGap2').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('parts_rma/r1').set({ partName: 'x', cost: 5000, status: 'pending' })
+    })
+    await assertFails(db.collection('parts_rma').doc('r1').update({ status: 'approved', refNo: 'REF-1' }))
+  })
+
+  it('parts_rma: manager can approve a supplier return credit', async () => {
+    await seedUser('rmaGap3', { role: 'manager', active: true })
+    const db = testEnv.authenticatedContext('rmaGap3').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('parts_rma/r2').set({ partName: 'x', cost: 5000, status: 'pending' })
+    })
+    await assertSucceeds(db.collection('parts_rma').doc('r2').update({ status: 'approved', refNo: 'REF-2' }))
+  })
+
+  it('custom_orders: a plain sales staff can create a new custom order', async () => {
+    await seedUser('coGap1', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('coGap1').firestore()
+    await assertSucceeds(db.collection('custom_orders').add({ customerName: 'x', vehicleModel: 'x', status: 'new' }))
+  })
+
+  it('custom_orders: a plain sales staff CANNOT mark a custom order as delivered', async () => {
+    await seedUser('coGap2', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('coGap2').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('custom_orders/c1').set({ customerName: 'x', status: 'ready' })
+    })
+    await assertFails(db.collection('custom_orders').doc('c1').update({ status: 'delivered' }))
+  })
+
+  it('custom_orders: manager can mark a custom order as delivered', async () => {
+    await seedUser('coGap3', { role: 'manager', active: true })
+    const db = testEnv.authenticatedContext('coGap3').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('custom_orders/c2').set({ customerName: 'x', status: 'ready' })
+    })
+    await assertSucceeds(db.collection('custom_orders').doc('c2').update({ status: 'delivered' }))
+  })
+
+  it('compliance_events: a plain staff member CANNOT mark a compliance deadline as done', async () => {
+    await seedUser('ceGap1', { role: 'staff', active: true })
+    const db = testEnv.authenticatedContext('ceGap1').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('compliance_events/e1').set({ title: 'x', status: 'pending' })
+    })
+    await assertFails(db.collection('compliance_events').doc('e1').update({ status: 'done' }))
+  })
+
+  it('compliance_events: manager can mark a compliance deadline as done', async () => {
+    await seedUser('ceGap2', { role: 'manager', active: true })
+    const db = testEnv.authenticatedContext('ceGap2').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('compliance_events/e2').set({ title: 'x', status: 'pending' })
+    })
+    await assertSucceeds(db.collection('compliance_events').doc('e2').update({ status: 'done' }))
+  })
+
+  it('gov_bids: a plain sales staff CANNOT submit a binding bid amount to the government', async () => {
+    await seedUser('gbGap1', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('gbGap1').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('gov_bids/b1').set({ title: 'x', budget: 1000000, status: 'preparing' })
+    })
+    await assertFails(db.collection('gov_bids').doc('b1').update({ ourBid: 950000, status: 'submitted' }))
+  })
+
+  it('gov_bids: manager can submit a binding bid amount to the government', async () => {
+    await seedUser('gbGap2', { role: 'manager', active: true })
+    const db = testEnv.authenticatedContext('gbGap2').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('gov_bids/b2').set({ title: 'x', budget: 1000000, status: 'preparing' })
+    })
+    await assertSucceeds(db.collection('gov_bids').doc('b2').update({ ourBid: 950000, status: 'submitted' }))
+  })
+})

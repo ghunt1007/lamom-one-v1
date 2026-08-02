@@ -359,6 +359,17 @@ service cloud.firestore {
       allow read, write: if isFinance();
     }
 
+    // (v1.0.312) เดิม custom_orders (ต่างจาก custom_order_docs ด้านบน) ไม่มีกฎเจาะจงเลย ตกไปใช้ catch-all
+    // กว้างท้ายไฟล์ — พนักงานคนไหนก็กดปุ่ม "ยืนยันส่งมอบรถ" ปลอมบันทึกว่าส่งมอบรถสั่งพิเศษให้ลูกค้าแล้ว
+    // ทั้งที่ยังไม่ได้ส่งจริง ล็อกเฉพาะสถานะ "delivered" ให้ต้องผ่านผู้จัดการ งานประจำวันอื่น (สร้างออเดอร์/
+    // ส่งต่อแผนก/นัดติดตั้ง) ยังทำได้ตามเดิม
+    match /custom_orders/{docId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isStaff() && statusLockRequiresManager('delivered');
+      allow delete: if isManager();
+    }
+
     // เอกสารรวม (สัญญาซื้อขาย/ใบจอง/ใบส่งมอบ ฯลฯ) ปนกับสัญญาจ้าง HR และหนังสือมอบอำนาจในพูลเดียวกัน
     // เดิมพนักงานขายทั่วไปเปิด/แก้ไขสัญญาจ้าง HR ของคนอื่นได้เหมือนเอกสารขายทั่วไป — จำกัดแค่ 2 ประเภทนี้
     // ให้ HR/ผู้จัดการเท่านั้น ประเภทอื่น (booking/quote/contract ลูกค้า ฯลฯ) ยังเปิดกว้างเหมือนเดิม
@@ -513,6 +524,16 @@ service cloud.firestore {
       allow update, delete: if isManager();
     }
 
+    // (v1.0.312) เดิมไม่มีกฎเจาะจงเลย ตกไปใช้ catch-all กว้าง — พนักงานคนไหนก็กดปุ่ม "✅ อนุมัติ" คำขอคืน
+    // อะไหล่ให้ซัพพลายเออร์ (เครดิตเงินจริง) หรือปลอมเลขอ้างอิง (refNo) ได้เอง ใช้ financeStatusChangeOk()
+    // เดิม (เช็ค status in ['approved','rejected']) ตรงกับ pattern นี้เป๊ะอยู่แล้ว ไม่ต้องเขียนใหม่
+    match /parts_rma/{docId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isStaff() && financeStatusChangeOk();
+      allow delete: if isFinance() || isManager();
+    }
+
     match /warranty_service_claims/{docId} {
       allow read: if isStaff();
       allow create: if isStaff();
@@ -548,6 +569,16 @@ service cloud.firestore {
         || (resource != null && request.resource.data.status == resource.data.status)
         || !(request.resource.data.status in ['approved', 'rejected'])
         || isFinance() || isManager();
+    }
+
+    // (v1.0.312) เวอร์ชันทั่วไปของ govDocCompletionOk() — ล็อกแค่ 1 ค่าสถานะที่เป็น "การรับรองว่าเสร็จ/
+    // ส่งมอบ/ยื่นจริง" ให้ต้องผ่านผู้จัดการเท่านั้น ใช้ซ้ำได้กับหลาย collection ที่มีชื่อค่าสถานะสุดท้ายคนละคำ
+    // (ไม่แก้ govDocCompletionOk() เดิมที่ deploy/เทสผ่านแล้ว เพื่อไม่เสี่ยงกระทบของที่ทำงานอยู่)
+    function statusLockRequiresManager(lockedValue) {
+      return !('status' in request.resource.data)
+        || (resource != null && request.resource.data.status == resource.data.status)
+        || request.resource.data.status != lockedValue
+        || isManager();
     }
 
     // (v1.0.307) เคลมประกัน — งานสำรวจ/แจ้งเคลม/ซ่อมเป็นงานประจำวันของช่าง/เซลส์ตามปกติ แต่ "อนุมัติ" เป็น
@@ -623,6 +654,16 @@ service cloud.firestore {
     match /partner_commissions/{docId} {
       allow read: if isStaff();
       allow write: if isFinance() || isManager();
+    }
+
+    // (v1.0.312) เดิมไม่มีกฎเจาะจงเลย ตกไปใช้ catch-all กว้าง — พนักงานคนไหนก็กด "📤 ยืนยันยื่น" ผูกมัดราคา
+    // ประมูลจริงกับหน่วยงานราชการเองได้ ไม่ผ่านผู้บริหารอนุมัติราคาก่อนยื่นเลย ล็อกเฉพาะสถานะ "submitted"
+    // (จุดที่ผูกมัดราคาจริง) ให้ต้องผ่านผู้จัดการ งานเตรียมเอกสาร/บันทึกผลแพ้ชนะ (ภายนอกตัดสินแล้ว) ทำได้ตามเดิม
+    match /gov_bids/{docId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isStaff() && statusLockRequiresManager('submitted');
+      allow delete: if isManager();
     }
 
     // เป้าหมาย/ตัวเลขการเงินเชิงกลยุทธ์ของบริษัท ไม่ใช่ข้อมูลลูกค้า/ใบเสร็จที่พนักงานขายต้องใช้ประจำวัน
@@ -1015,6 +1056,16 @@ service cloud.firestore {
       allow write: if isManager();
     }
 
+    // (v1.0.312) เดิมไม่มีกฎเจาะจงเลย ตกไปใช้ catch-all กว้าง — พนักงานคนไหนก็กดปุ่ม "✅ บันทึกเสร็จสิ้น"
+    // ปลอมบันทึกว่าต่อใบอนุญาต/ยื่นภาษี/เรื่องแรงงาน/สัญญาที่ครบกำหนดแล้วเสร็จจริงได้เอง ปกปิดปัญหากฎหมาย/
+    // ภาษีจนโดนค่าปรับจริงได้ ล็อกเฉพาะสถานะ "done" ให้ต้องผ่านผู้จัดการ
+    match /compliance_events/{docId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isStaff() && statusLockRequiresManager('done');
+      allow delete: if isManager();
+    }
+
     // ── System integrations/backups/webhooks — admin เท่านั้น ──────────────────
     // webhooks เก็บ field "secret" เป็นข้อความจริงตามที่กรอกในฟอร์ม (ไม่ได้เข้ารหัส/ปกปิด) และ
     // system_integrations เก็บ config การเชื่อมต่อ third-party — ทั้งสองไม่ควรให้ staff ทั่วไปอ่าน/แก้
@@ -1104,7 +1155,8 @@ service cloud.firestore {
         'trade_ins', 'warranty_claims', 'warranty_service_claims', 'finance_rate_sheets',
         'finance_applications', 'finance_tracker', 'cashier_payments', 'cashier_pending_bills',
         'vehicle_catalog_overrides', 'vehicle_catalog_additions', 'payment_transactions', 'installment_plans',
-        'insurance_claims', 'tax_filings', 'gov_docs'
+        'insurance_claims', 'tax_filings', 'gov_docs',
+        'custom_orders', 'parts_rma', 'compliance_events', 'gov_bids'
       ];
     }
 
