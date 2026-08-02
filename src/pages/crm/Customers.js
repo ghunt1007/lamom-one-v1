@@ -14,6 +14,7 @@ import {
   deriveInitialStage, shouldAutoPromoteToPP,
 } from '../../core/customerInsights.js'
 import { analyzeCustomer, isAiEnabled } from '../../utils/ai.js'
+import { OCCUPATIONS } from '../../utils/financeMatch.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -206,6 +207,8 @@ export default async function CustomersPage(container) {
                 ${detail('📧 Email', escHtml(c.email || '-'))}
                 ${detail('🚗 สนใจ', escHtml(c.interestedModel || '-'))}
                 ${detail('💰 งบประมาณ', c.budget ? formatCurrency(c.budget) : '-')}
+                ${detail('💼 อาชีพ', escHtml(c.occupation || '-'))}
+                ${detail('💵 รายได้ต่อเดือน', c.monthlyIncome ? formatCurrency(c.monthlyIncome) : '-')}
                 ${detail('📌 ที่มา', SOURCE[c.source] || escHtml(c.source) || '-')}
                 ${detail('👤 ผู้ดูแล', escHtml(c.assignedTo || '-'))}
                 ${detail('📅 เพิ่มเมื่อ', formatDate(c.createdAt))}
@@ -591,6 +594,10 @@ export default async function CustomersPage(container) {
             <div class="input-group"><label class="input-label">งบประมาณ (บาท)</label><input class="input" type="number" id="fb" value="${existing?.budget || ''}" placeholder="1000000"></div>
           </div>
           <div class="grid-2">
+            <div class="input-group"><label class="input-label">อาชีพ</label><select class="input" id="fo"><option value="">-</option>${OCCUPATIONS.map(o => `<option value="${o}" ${existing?.occupation === o ? 'selected' : ''}>${o}</option>`).join('')}</select></div>
+            <div class="input-group"><label class="input-label">รายได้ต่อเดือน (บาท)</label><input class="input" type="number" id="fic" value="${existing?.monthlyIncome || ''}" placeholder="30000"></div>
+          </div>
+          <div class="grid-2">
             <div class="input-group"><label class="input-label">ที่มา</label><select class="input" id="fso">${Object.entries(SOURCE).map(([k, v]) => `<option value="${k}" ${existing?.source === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
             <div class="input-group"><label class="input-label">อุณหภูมิ</label><select class="input" id="ft"><option value="">-</option>${Object.entries(TEMP).map(([k, v]) => `<option value="${k}" ${existing?.temperature === k ? 'selected' : ''}>${v.label}</option>`).join('')}</select></div>
           </div>
@@ -619,6 +626,8 @@ export default async function CustomersPage(container) {
         email: document.getElementById('fe').value.trim(),
         interestedModel: document.getElementById('fm').value.trim(),
         budget: Number(document.getElementById('fb').value) || 0,
+        occupation: document.getElementById('fo').value || '',
+        monthlyIncome: Number(document.getElementById('fic').value) || 0,
         source: document.getElementById('fso').value,
         temperature: document.getElementById('ft').value || null,
         assignedTo: document.getElementById('fa').value || '',

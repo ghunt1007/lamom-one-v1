@@ -4,6 +4,8 @@ import { showToast, getState, setState } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getBanks } from '../../data/masterData.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { OCCUPATIONS, rankFinanceMatches } from '../../utils/financeMatch.js'
+import { recommendFinance, isAiEnabled } from '../../utils/ai.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -214,9 +216,16 @@ export default async function FinanceApplicationPage(container) {
           </div>
           <div class="input-group"><label class="input-label">ดอกเบี้ย (%/ปี)</label><input class="input" type="number" id="fa-rate" value="2.79" step="0.01"></div>
         </div>
+        <button type="button" class="btn btn-secondary btn-sm" id="fa-recommend-btn" style="align-self:flex-start">🤖 แนะนำธนาคารที่เหมาะกับเคสนี้</button>
         <div class="input-group"><label class="input-label">หมายเหตุ</label><input class="input" id="fa-note" placeholder="หมายเหตุ (ถ้ามี)"></div>
       </div>`,
       footer: `<button class="btn btn-secondary" id="fa-c">ยกเลิก</button><button class="btn btn-primary" id="fa-s">📤 ส่งขอสินเชื่อ</button>`
+    })
+    el.querySelector('#fa-recommend-btn').addEventListener('click', () => {
+      const custName = el.querySelector('#fa-cust').value.trim()
+      const price = +el.querySelector('#fa-price').value || 0
+      const down = +el.querySelector('#fa-down').value || 0
+      openFinanceRecommend(custName, price ? Math.round((down / price) * 100) : 0)
     })
     el.querySelector('#fa-c').addEventListener('click', close)
     el.querySelector('#fa-s').addEventListener('click', async (e) => {
@@ -265,8 +274,12 @@ export default async function FinanceApplicationPage(container) {
           </div>
         </div>
         ${a.note ? `<div style="background:var(--surface-2);padding:10px;border-radius:var(--radius-sm);font-size:0.82rem">📝 ${escHtml(a.note)}</div>` : ''}
+        <button type="button" class="btn btn-secondary btn-sm" id="fa-recommend-btn2">🤖 แนะนำธนาคารที่เหมาะกับเคสนี้</button>
       </div>`,
       footer: ''
+    })
+    document.getElementById('fa-recommend-btn2')?.addEventListener('click', () => {
+      openFinanceRecommend(a.custName, a.vehiclePrice ? Math.round((a.downPayment / a.vehiclePrice) * 100) : 0)
     })
     document.querySelectorAll('.doc-toggle').forEach(tog => {
       tog.addEventListener('click', async () => {
@@ -277,6 +290,77 @@ export default async function FinanceApplicationPage(container) {
         a.documents = documents
         await updateDocData('finance_applications', a.id, { documents })
         document.querySelector('.modal-overlay')?.remove(); openAppDetail(a)
+      })
+    })
+  }
+
+  // แนะนำธนาคารที่เหมาะกับเคสนี้ — จับคู่ชื่อกับ customers ถ้าเจอ pre-fill อาชีพ/รายได้ให้ ไม่เจอก็กรอกเองได้
+  // คำนวณคะแนนทันทีแบบ rule-based (rankFinanceMatches ไม่ต้องเรียก AI) ส่วนความเห็น AI เพิ่มเติมกดแยกทีหลัง
+  async function openFinanceRecommend(prefillName = '', prefillDownPct = 0) {
+    let matchedCustomer = null
+    try {
+      const customers = await listDocs('customers', [], 'createdAt', 'desc', 500)
+      if (prefillName) {
+        matchedCustomer = customers.find(c => `${c.firstName || ''} ${c.lastName || ''}`.trim() === prefillName) || null
+      }
+    } catch { /* หาไม่เจอก็กรอกเองได้ ไม่ critical */ }
+
+    const { el, close } = openModal({
+      title: '🤖 แนะนำธนาคาร' + (prefillName ? ' — ' + escHtml(prefillName) : ''),
+      size: 'md',
+      body: `<div style="display:flex;flex-direction:column;gap:12px">
+        ${matchedCustomer ? `<div style="font-size:0.76rem;color:var(--success)">🔗 พบข้อมูลลูกค้า "${escHtml(prefillName)}" ในระบบ — ดึงอาชีพ/รายได้มาให้แล้ว (แก้ไขได้)</div>` : `<div style="font-size:0.76rem;color:var(--text-muted)">ไม่พบข้อมูลลูกค้านี้ในระบบ — กรอกอาชีพ/รายได้เองเพื่อคำนวณ</div>`}
+        <div class="grid-2">
+          <div class="input-group"><label class="input-label">อาชีพ</label><select class="input" id="fr-occ"><option value="">-</option>${OCCUPATIONS.map(o => `<option value="${o}" ${matchedCustomer?.occupation === o ? 'selected' : ''}>${o}</option>`).join('')}</select></div>
+          <div class="input-group"><label class="input-label">รายได้ต่อเดือน (บาท)</label><input class="input" type="number" id="fr-income" value="${matchedCustomer?.monthlyIncome || ''}"></div>
+        </div>
+        <div class="input-group"><label class="input-label">เงินดาวน์ที่ตั้งใจจะลง (%)</label><input class="input" type="number" id="fr-down" value="${prefillDownPct || ''}"></div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:0.82rem;cursor:pointer"><input type="checkbox" id="fr-blacklist"> มีประวัติค้างชำระ/ติด Blacklist</label>
+        <button type="button" class="btn btn-primary btn-sm" id="fr-calc-btn" style="align-self:flex-start">📊 คำนวณคะแนนความเหมาะสม</button>
+        <div id="fr-results"></div>
+      </div>`,
+      footer: `<button class="btn btn-secondary" id="fr-close">ปิด</button>`
+    })
+    el.querySelector('#fr-close').addEventListener('click', close)
+
+    el.querySelector('#fr-calc-btn').addEventListener('click', async () => {
+      const profile = {
+        occupation: el.querySelector('#fr-occ').value,
+        monthlyIncome: Number(el.querySelector('#fr-income').value) || 0,
+        downPct: Number(el.querySelector('#fr-down').value) || 0,
+        hasBlacklistHistory: el.querySelector('#fr-blacklist').checked,
+      }
+      const results = el.querySelector('#fr-results')
+      results.innerHTML = '<div style="text-align:center;padding:12px"><span class="spinner spinner-sm"></span></div>'
+      let banks = []
+      try { banks = await listDocs('bank_partner_info', [], 'bankName', 'asc', 200) } catch { banks = [] }
+      if (!banks.length) {
+        results.innerHTML = `<div style="font-size:0.8rem;color:var(--text-muted);text-align:center;padding:12px">ยังไม่มีข้อมูลธนาคารในระบบ — ไปตั้งค่าที่หน้า "Bank Finance Partners" ก่อน</div>`
+        return
+      }
+      const ranked = rankFinanceMatches(profile, banks).slice(0, 5)
+      results.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
+          ${ranked.map((b, i) => `<div class="card" style="padding:10px 12px;border-left:3px solid var(--${b.score >= 70 ? 'success' : b.score >= 40 ? 'warning' : 'danger'})">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div style="font-weight:700;font-size:0.85rem">${i === 0 ? '👑 ' : ''}${escHtml(b.bankName)}</div>
+              <span class="badge badge-${b.score >= 70 ? 'success' : b.score >= 40 ? 'warning' : 'danger'}">${b.score} คะแนน</span>
+            </div>
+            ${(b.reasons || []).length ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px">${b.reasons.map(r => '• ' + escHtml(r)).join('<br>')}</div>` : ''}
+          </div>`).join('')}
+        </div>
+        ${isAiEnabled() ? `<button type="button" class="btn btn-secondary btn-sm" id="fr-ai-btn" style="margin-top:10px">🤖 ขอความเห็น AI เพิ่มเติม</button><div id="fr-ai-result" style="margin-top:8px"></div>` : ''}
+      `
+      results.querySelector('#fr-ai-btn')?.addEventListener('click', async (e) => {
+        const btn = e.currentTarget
+        btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
+        try {
+          const reply = await recommendFinance(profile, ranked)
+          results.querySelector('#fr-ai-result').innerHTML = reply
+            ? `<div style="font-size:0.8rem;color:var(--text-2);background:var(--primary-dim);padding:10px 12px;border-radius:8px">🤖 ${escHtml(reply)}</div>`
+            : `<div style="font-size:0.78rem;color:var(--danger)">AI วิเคราะห์ไม่สำเร็จ</div>`
+        } catch { results.querySelector('#fr-ai-result').innerHTML = `<div style="font-size:0.78rem;color:var(--danger)">AI วิเคราะห์ไม่สำเร็จ</div>` }
+        btn.remove()
       })
     })
   }

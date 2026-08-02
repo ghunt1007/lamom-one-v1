@@ -25,6 +25,16 @@ function heuristicScore(c) {
   if (c.source) signals.push(`ที่มา: ${c.source}`)
   if (c.status === 'vip') signals.push('ลูกค้า VIP')
   if (c.status === 'hot') signals.push('จัดระดับความสนใจสูง (Hot)')
+  // อาชีพ/รายได้ครบ + รายได้เพียงพอเทียบงบประมาณที่ตั้งใจซื้อ = ประเมินโอกาสได้ไฟแนนซ์จริงได้ทันที
+  // ไม่ใช่แค่ "อยากซื้อ" แต่ "มีโอกาสซื้อได้จริง" ด้วย (เชื่อมกับ Workstream 3 — แนะนำไฟแนนซ์)
+  if (c.occupation && c.monthlyIncome) {
+    score += 5
+    signals.push('มีข้อมูลอาชีพ/รายได้ครบ — ประเมินไฟแนนซ์ได้ทันที')
+    if (!c.budget || c.monthlyIncome * 36 >= c.budget * 0.5) {
+      score += 5
+      signals.push('รายได้น่าจะเพียงพอสำหรับงบที่ตั้งใจซื้อ')
+    }
+  }
   return { score: Math.min(100, Math.max(5, score)), signals }
 }
 

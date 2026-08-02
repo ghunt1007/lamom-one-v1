@@ -6,6 +6,7 @@ import { timeAgo, initials } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { suggestCustomerReply, isAiEnabled } from '../../utils/ai.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -180,7 +181,7 @@ export default async function CommInboxPage(container) {
   }
 
   function openReply(m) {
-    openModal({
+    const { el } = openModal({
       title: '↩️ ตอบกลับ: ' + escHtml(m.subject),
       size: 'md',
       body: `
@@ -188,6 +189,7 @@ export default async function CommInboxPage(container) {
         <div class="input-group"><label class="input-label">ข้อความตอบกลับ *</label>
           <textarea class="input" id="reply-text" rows="5" placeholder="พิมพ์ข้อความ..."></textarea>
         </div>
+        ${isAiEnabled() ? `<button type="button" class="btn btn-secondary btn-sm" id="reply-ai-btn">🤖 ช่วยร่างคำตอบ</button>` : ''}
       `,
       async onConfirm() {
         const txt = document.getElementById('reply-text')?.value?.trim()
@@ -198,6 +200,16 @@ export default async function CommInboxPage(container) {
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
+    })
+    el.querySelector('#reply-ai-btn')?.addEventListener('click', async (e) => {
+      const btn = e.currentTarget
+      btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
+      try {
+        const draft = await suggestCustomerReply(m.preview, { channel: CHANNELS[m.channel]?.label, sender: m.sender })
+        if (draft) el.querySelector('#reply-text').value = draft
+        else showToast('AI ร่างคำตอบไม่สำเร็จ', 'error')
+      } catch { showToast('AI ร่างคำตอบไม่สำเร็จ', 'error') }
+      finally { btn.disabled = false; btn.innerHTML = '🤖 ช่วยร่างคำตอบ' }
     })
   }
 

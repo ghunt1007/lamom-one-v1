@@ -5,7 +5,8 @@
 import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { getSalesData } from '../../core/db.js'
+import { getSalesData, listDocs } from '../../core/db.js'
+import { OCCUPATIONS } from '../../utils/financeMatch.js'
 
 const SEG_TYPES = {
   rfm:       { label: 'RFM Analysis', icon: '📊', color: 'primary' },
@@ -38,6 +39,26 @@ export default async function CustomerSegmentationPage(container) {
   let activeTab = 'rfm'
   let rfmTiers = [...RFM_TIERS].map(t => ({ ...t }))
   let dataSource = 'demo'
+  // แบ่งกลุ่มตามอาชีพ — คำนวณจากข้อมูลลูกค้าจริงใน collection customers เท่านั้น (ต่างจากแท็บอื่นในหน้านี้
+  // ที่เป็นตัวเลขจำลอง/hardcoded) ใช้ field occupation/budget ที่เพิ่มใหม่ในฟอร์มลูกค้า
+  let occupationSegments = []
+
+  try {
+    const customers = await listDocs('customers', [], 'createdAt', 'desc', 1000).catch(() => [])
+    if (container.__routerGen !== myGen) return
+    const byOcc = {}
+    customers.forEach(c => {
+      const occ = c.occupation || 'ไม่ระบุ'
+      if (!byOcc[occ]) byOcc[occ] = { occupation: occ, count: 0, totalBudget: 0, withBudget: 0 }
+      byOcc[occ].count++
+      if (c.budget) { byOcc[occ].totalBudget += c.budget; byOcc[occ].withBudget++ }
+    })
+    occupationSegments = [...OCCUPATIONS, 'ไม่ระบุ']
+      .map(o => byOcc[o])
+      .filter(Boolean)
+      .map(o => ({ ...o, avgBudget: o.withBudget ? Math.round(o.totalBudget / o.withBudget) : 0 }))
+      .sort((a, b) => b.count - a.count)
+  } catch {}
 
   try {
     const sales = await getSalesData().catch(() => [])
@@ -90,12 +111,12 @@ export default async function CustomerSegmentationPage(container) {
 
         <!-- Tabs -->
         <div style="display:flex;gap:2px;margin-bottom:14px;border-bottom:1px solid var(--border)">
-          ${[['rfm','📊 RFM Analysis'],['geo','📍 Geographic'],['vehicle','🚗 By Vehicle']].map(([tab,label]) =>
+          ${[['rfm','📊 RFM Analysis'],['geo','📍 Geographic'],['vehicle','🚗 By Vehicle'],['occupation','💼 อาชีพ']].map(([tab,label]) =>
             `<button class="btn btn-xs ${activeTab===tab?'btn-primary':'btn-ghost'} tab-btn" data-tab="${tab}" style="border-radius:var(--radius) var(--radius) 0 0">${label}</button>`
           ).join('')}
         </div>
 
-        ${activeTab === 'rfm' ? renderRFM(totalCustomers) : activeTab === 'geo' ? renderGeo() : renderVehicle()}
+        ${activeTab === 'rfm' ? renderRFM(totalCustomers) : activeTab === 'geo' ? renderGeo() : activeTab === 'occupation' ? renderOccupation() : renderVehicle()}
       </div>
     `
 
@@ -196,6 +217,44 @@ export default async function CustomerSegmentationPage(container) {
                 <td style="padding:10px 14px;min-width:100px">
                   <div style="background:var(--surface-2);border-radius:3px;height:8px">
                     <div style="width:${v.pct}%;background:var(--primary);height:8px;border-radius:3px"></div>
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `
+  }
+
+  function renderOccupation() {
+    if (!occupationSegments.length) {
+      return `<div class="empty-state" style="padding:48px"><div class="empty-icon">💼</div><div class="empty-title">ยังไม่มีข้อมูลอาชีพลูกค้า</div><div class="empty-desc">เพิ่มอาชีพ/รายได้ได้ที่หน้าแก้ไขข้อมูลลูกค้า (CRM &gt; Customers)</div></div>`
+    }
+    const totalWithOcc = occupationSegments.reduce((a, o) => a + o.count, 0)
+    const maxCount = Math.max(...occupationSegments.map(o => o.count))
+    return `
+      <div class="card" style="overflow:hidden">
+        <table style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border);font-size:0.75rem;color:var(--text-muted)">
+              <th style="padding:10px 14px;text-align:left">อาชีพ</th>
+              <th style="padding:10px 14px;text-align:right">ลูกค้า</th>
+              <th style="padding:10px 14px;text-align:right">สัดส่วน</th>
+              <th style="padding:10px 14px;text-align:right">งบประมาณเฉลี่ย</th>
+              <th style="padding:10px 14px;text-align:center">Bar</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${occupationSegments.map(o => `
+              <tr style="border-bottom:1px solid var(--border)">
+                <td style="padding:10px 14px;font-weight:600">💼 ${o.occupation}</td>
+                <td style="padding:10px 14px;text-align:right">${o.count}</td>
+                <td style="padding:10px 14px;text-align:right;font-weight:700;color:var(--primary)">${Math.round(o.count / totalWithOcc * 100)}%</td>
+                <td style="padding:10px 14px;text-align:right;color:var(--success)">${o.avgBudget ? formatCurrency(o.avgBudget) : '-'}</td>
+                <td style="padding:10px 14px;min-width:100px">
+                  <div style="background:var(--surface-2);border-radius:3px;height:8px">
+                    <div style="width:${Math.round(o.count/maxCount*100)}%;background:var(--primary);height:8px;border-radius:3px"></div>
                   </div>
                 </td>
               </tr>

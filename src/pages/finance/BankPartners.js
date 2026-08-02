@@ -18,6 +18,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { getBanks } from '../../data/masterData.js'
 import { navigate } from '../../core/router.js'
+import { OCCUPATIONS } from '../../utils/financeMatch.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -137,7 +138,11 @@ export default async function BankPartnersPage(container) {
                 ['⏱ เฉลี่ยวันอนุมัติ',(sel.avgDays||0)+' วัน'],
                 ['💳 วงเงินใช้ไป',(sel.used||0)+'/'+(sel.quota||0)+' ล้าน'],
                 ['📞 ติดต่อ',escHtml(sel.contact||'—')],
+                ['💼 อาชีพที่ชอบ', (sel.preferredOccupations||[]).length ? escHtml(sel.preferredOccupations.join(', ')) : 'รับทุกอาชีพ'],
+                ['💵 รายได้ขั้นต่ำ', sel.minIncome ? formatCurrency(sel.minIncome)+'/เดือน' : '—'],
+                ['🚫 ประวัติค้างชำระ', sel.blacklistOk ? 'รับพิจารณาเป็นกรณีพิเศษ' : 'ปกติไม่รับ'],
               ].map(([k,v])=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:0.76rem"><span style="color:var(--text-muted)">${k}</span><b>${v}</b></div>`).join('')}
+              ${sel.tips ? `<div style="margin-top:8px;padding:8px 10px;background:var(--surface-2);border-radius:8px;font-size:0.74rem;color:var(--text-2)">💡 ${escHtml(sel.tips)}</div>` : ''}
             </div>` : ''}
 
             <div class="card" style="padding:14px">
@@ -220,6 +225,15 @@ export default async function BankPartnersPage(container) {
         </div>
         <div class="input-group"><label class="input-label">วงเงินใช้ไป (ล้านบาท)</label><input class="input" type="number" id="bp-used" value="${info?.used ?? ''}"></div>
         <div class="input-group"><label class="input-label">ผู้ติดต่อ</label><input class="input" id="bp-contact" placeholder="ชื่อ เบอร์โทร" value="${escHtml(info?.contact||'')}"></div>
+        <div class="input-group"><label class="input-label">รายได้ขั้นต่ำที่มักอนุมัติ (บาท/เดือน)</label><input class="input" type="number" id="bp-minincome" value="${info?.minIncome ?? ''}"></div>
+        <div class="input-group">
+          <label class="input-label">อาชีพที่ธนาคารนี้ชอบ (ไม่เลือก = รับทุกอาชีพ)</label>
+          <div style="display:flex;flex-direction:column;gap:6px;padding:8px;background:var(--surface-2);border-radius:var(--radius-sm)">
+            ${OCCUPATIONS.map(o => `<label style="display:flex;align-items:center;gap:8px;font-size:0.82rem;cursor:pointer"><input type="checkbox" class="bp-occ" value="${escHtml(o)}" ${(info?.preferredOccupations||[]).includes(o) ? 'checked' : ''}> ${o}</label>`).join('')}
+          </div>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;cursor:pointer"><input type="checkbox" id="bp-blacklist" ${info?.blacklistOk ? 'checked' : ''}> 🚫 รับพิจารณาลูกค้าที่มีประวัติค้างชำระ/ติด Blacklist เป็นกรณีพิเศษ</label>
+        <div class="input-group"><label class="input-label">บันทึกประสบการณ์จริง (เช่น "อนุมัติเร็วเป็นพิเศษถ้าเป็นข้าราชการ")</label><textarea class="input" id="bp-tips" rows="2">${escHtml(info?.tips||'')}</textarea></div>
       </div>`,
       footer: `<button class="btn btn-secondary" id="bp-c">ยกเลิก</button><button class="btn btn-primary" id="bp-s">💾 บันทึก</button>`
     })
@@ -235,6 +249,10 @@ export default async function BankPartnersPage(container) {
         quota: parseInt(el.querySelector('#bp-quota').value) || 0,
         used: parseInt(el.querySelector('#bp-used').value) || 0,
         contact: el.querySelector('#bp-contact').value.trim(),
+        minIncome: parseInt(el.querySelector('#bp-minincome').value) || 0,
+        preferredOccupations: Array.from(el.querySelectorAll('.bp-occ:checked')).map(c => c.value),
+        blacklistOk: el.querySelector('#bp-blacklist').checked,
+        tips: el.querySelector('#bp-tips').value.trim(),
       }
       if (info) await updateDocData('bank_partner_info', info.id, data)
       else await createDoc('bank_partner_info', data)

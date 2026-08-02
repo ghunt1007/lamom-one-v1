@@ -118,6 +118,32 @@ export async function analyzeCustomer(customer) {
   try { return JSON.parse(reply.match(/\{[\s\S]*\}/)?.[0] || '{}') } catch { return null }
 }
 
+// ── แนะนำไฟแนนซ์ที่เหมาะกับเคสนี้ — เสริมความเห็นภาษาธรรมชาติต่อจากคะแนนที่คำนวณแล้วด้วย
+// rankFinanceMatches() (rule-based, ไม่ต้องเรียก AI) เรียกฟังก์ชันนี้แบบ on-demand เท่านั้น
+// (กดปุ่มเพิ่มเติมใน FinanceApplication.js) เพื่อคุมค่าใช้จ่าย เหมือน analyzeCustomer() ด้านบน
+export async function recommendFinance(customerProfile, rankedBanks) {
+  if (!isAiEnabled()) return null
+  const top = rankedBanks.slice(0, 3)
+  const prompt = `ลูกค้ารายนี้: อาชีพ ${customerProfile.occupation || 'ไม่ระบุ'}, รายได้ ${customerProfile.monthlyIncome ? customerProfile.monthlyIncome.toLocaleString() + ' บาท/เดือน' : 'ไม่ระบุ'}
+ระบบคำนวณคะแนนความเหมาะสมกับไฟแนนซ์แต่ละแห่งไว้แล้วดังนี้ (คะแนนเต็ม 100):
+${top.map(b => `- ${b.bankName}: ${b.score} คะแนน (${(b.reasons||[]).join('; ') || 'ไม่มีข้อมูลเหตุผลเพิ่มเติม'})`).join('\n')}
+
+ช่วยสรุปเป็นคำแนะนำสั้นๆ 2-3 ประโยคว่าควรยื่นธนาคารไหนก่อน และมีข้อควรระวังอะไรบ้าง ตอบเป็นภาษาไทยเท่านั้น ไม่ต้องมี JSON`
+  try { return await askLami(prompt) } catch { return null }
+}
+
+// ── ผู้ช่วยร่างคำตอบลูกค้า — ใช้ใน Comm Inbox กดแล้วร่างให้ พนักงานแก้ไขก่อนกดส่งเองเสมอ
+// (ไม่ auto-send) message: ข้อความลูกค้าที่ต้องตอบ, context: { channel, sender, customerInfo }
+export async function suggestCustomerReply(message, context = {}) {
+  if (!isAiEnabled()) return null
+  const prompt = `ลูกค้า "${context.sender || 'ลูกค้า'}" ทักมาทางช่องทาง ${context.channel || '-'} ว่า:
+"${message}"
+${context.customerInfo ? `\nข้อมูลลูกค้าที่มีในระบบ: ${context.customerInfo}` : ''}
+
+ช่วยร่างคำตอบสั้นๆ สุภาพ เป็นกันเอง เป็นภาษาไทย สำหรับพนักงานขายรถ EV ใช้ตอบลูกค้ารายนี้ (พนักงานจะอ่านทวนและแก้ไขก่อนส่งจริงเสมอ) ตอบแค่ข้อความที่จะส่ง ไม่ต้องมีคำอธิบายอื่น`
+  try { return await askLami(prompt) } catch { return null }
+}
+
 // ── Finance Rate Sheet — วิเคราะห์ตารางดอกเบี้ยไฟแนนซ์จากรูปภาพ ─────────────────
 const RATE_SHEET_PROMPT = `คุณคือผู้เชี่ยวชาญวิเคราะห์ตารางโปรโมชั่นดอกเบี้ยไฟแนนซ์รถยนต์ของไทย
 วิเคราะห์รูปภาพตารางดอกเบี้ย/โปรโมชั่นไฟแนนซ์ที่แนบมา แล้วดึงข้อมูลทุกแถว/ทุกรายการที่พบในตาราง
