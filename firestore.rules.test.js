@@ -1799,3 +1799,27 @@ describe('parts_rma + custom_orders + compliance_events + gov_bids (v1.0.312) â€
     await assertSucceeds(db.collection('gov_bids').doc('b2').update({ ourBid: 950000, status: 'submitted' }))
   })
 })
+
+describe('system_backup_config (v1.0.316) â€” same sensitivity level as system_backups', () => {
+  it('a plain staff member cannot read backup schedule config', async () => {
+    await seedUser('bkGap1', { role: 'staff', active: true })
+    const db = testEnv.authenticatedContext('bkGap1').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('system_backup_config/default').set({ schedule: 'daily', retention: 30 })
+    })
+    await assertFails(db.collection('system_backup_config').doc('default').get())
+  })
+
+  it('a plain manager cannot write backup schedule config (isAdmin() only, not isManager())', async () => {
+    await seedUser('bkGap2', { role: 'manager', active: true })
+    const db = testEnv.authenticatedContext('bkGap2').firestore()
+    await assertFails(db.collection('system_backup_config').doc('default').set({ schedule: 'daily', retention: 30 }))
+  })
+
+  it('admin can read and write backup schedule config', async () => {
+    await seedUser('bkGap3', { role: 'admin', active: true })
+    const db = testEnv.authenticatedContext('bkGap3').firestore()
+    await assertSucceeds(db.collection('system_backup_config').doc('default').set({ schedule: 'daily', retention: 30 }))
+    await assertSucceeds(db.collection('system_backup_config').doc('default').get())
+  })
+})
