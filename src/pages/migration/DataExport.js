@@ -1,121 +1,126 @@
 /**
- * Data Export — ส่งออกข้อมูล
+ * Data Export — ส่งออกข้อมูลจริง (v1.0.317)
  * Route: /migration/export
+ *
+ * เดิมทั้งหน้านี้ export ข้อมูลปลอม — ไม่ว่าจะเลือกโมดูลไหน/มีข้อมูลจริงกี่รายการ ไฟล์ที่ดาวน์โหลดออกไป
+ * จะมีแค่แถวตัวอย่างปลอม 3 แถวต่อโมดูลเสมอ (DEMO_ROWS เดิม) เลขจำนวนเรคคอร์ด/วันที่ export ล่าสุดที่
+ * โชว์ในหน้าก็ hardcode ไว้ ไม่ตรงกับข้อมูลจริงเลย — ถ้าใครใช้ export "การเงิน" ไปตรวจสอบบัญชีจริงจะได้
+ * รายการปลอม 3 รายการ ไม่ใช่ข้อมูลจริง
+ *
+ * แก้ให้ export ข้อมูลจริงจาก collection ที่ตรงที่สุดต่อโมดูล (ตรวจสอบจากหน้าจริงที่ใช้ collection นั้น
+ * อยู่แล้วทั่วแอปก่อนเลือก ไม่ได้เดา):
+ *   - crm      → customers (หน้าลูกค้าหลักของทั้งระบบ)
+ *   - dms      → vehicles (stock รถ ใช้จริงใน DmsDashboard/ColorMatrix/StockValuation ฯลฯ)
+ *   - service  → job_cards (Job Card ซ่อม ใช้จริงใน ServiceDashboard/JobCards.js)
+ *   - finance  → getSalesData() (ยอดขายจริง เป็นแหล่งข้อมูล "การเงิน" ที่หน้า CashFlow/FinanceDashboard/
+ *                Margin/GpFoc ใช้ร่วมกันอยู่แล้วทั่วทั้งโมดูลการเงินจริง ไม่ได้เลือกเอง)
+ *   - hr       → staff (ไม่รวมเงินเดือน — ย้ายไปเก็บแยกที่ staff_salaries จำกัดสิทธิ์แล้วตั้งแต่ v1.0.303/
+ *                v1.0.304 การ export ทั่วไปนี้ไม่ควรเปิดช่องย้อนกลับไปรั่วเงินเดือนผ่านทางอื่น)
+ *   - marketing→ marketing_campaigns (ใช้จริงใน CampaignBuilder.js)
+ * "จำนวนเรคคอร์ด" ที่โชว์ในหน้าตอนนี้คือจำนวนจริงที่โหลดมา ไม่ใช่ตัวเลข hardcode แล้ว
+ * ตาราง "Export ล่าสุด" เดิมเป็นข้อมูลปลอมนิ่งๆไม่เคยอัปเดต ไม่มี collection จริงรองรับประวัตินี้ ตัดออก
+ * ไปเลยตามคำแนะนำ (ไม่ใส่ของปลอมไว้แทน)
  */
 import { showToast } from '../../core/store.js'
-import { formatDate } from '../../utils/format.js'
+import { listDocs, getSalesData } from '../../core/db.js'
 import { exportToExcel, exportToCSV } from '../../utils/importExport.js'
 
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString() }
-
 const EXPORT_MODULES = [
-  { id: 'crm', label: 'CRM / ลูกค้า', icon: '👥', records: 1842, lastExport: addDays(-7) },
-  { id: 'dms', label: 'DMS / สต็อก', icon: '🚗', records: 234, lastExport: addDays(-3) },
-  { id: 'service', label: 'บริการ', icon: '🔧', records: 4521, lastExport: addDays(-14) },
-  { id: 'finance', label: 'การเงิน', icon: '💰', records: 892, lastExport: addDays(-1) },
-  { id: 'hr', label: 'HR', icon: '👤', records: 16, lastExport: addDays(-30) },
-  { id: 'marketing', label: 'การตลาด', icon: '📣', records: 357, lastExport: addDays(-5) },
+  { id: 'crm', label: 'CRM / ลูกค้า', icon: '👥', col: 'customers' },
+  { id: 'dms', label: 'DMS / สต็อก', icon: '🚗', col: 'vehicles' },
+  { id: 'service', label: 'บริการ', icon: '🔧', col: 'job_cards' },
+  { id: 'finance', label: 'การเงิน', icon: '💰', col: null }, // ใช้ getSalesData() แทน collection เดียว
+  { id: 'hr', label: 'HR', icon: '👤', col: 'staff' },
+  { id: 'marketing', label: 'การตลาด', icon: '📣', col: 'marketing_campaigns' },
 ]
 
 const EXPORT_FORMATS = [
   { id: 'csv', label: 'CSV', icon: '📄', desc: 'เปิดใน Excel ได้' },
   { id: 'excel', label: 'Excel (.xlsx)', icon: '📊', desc: 'Excel พร้อมรูปแบบ' },
   { id: 'json', label: 'JSON', icon: '💾', desc: 'สำหรับนักพัฒนา' },
-  { id: 'pdf', label: 'PDF Report', icon: '📋', desc: 'รายงานพิมพ์ได้' },
 ]
 
-const RECENT_EXPORTS = [
-  { module: 'CRM', format: 'Excel', records: 1842, size: '2.4 MB', user: 'Admin', time: addDays(-1) },
-  { module: 'Finance', format: 'CSV', records: 892, size: '450 KB', user: 'ผู้จัดการ', time: addDays(-2) },
-  { module: 'Service', format: 'PDF', records: 250, size: '8.1 MB', user: 'Admin', time: addDays(-5) },
-]
+// แปลงข้อมูลจริงต่อโมดูลเป็นแถวสำหรับ export — เลือก field ที่มีประโยชน์จริง ไม่รวมข้อมูลอ่อนไหว
+// (เช่นเงินเดือนพนักงาน ที่จำกัดสิทธิ์ไว้แยกอยู่แล้ว)
+function toRows(moduleId, docs, sales) {
+  if (moduleId === 'crm') {
+    return docs.map(c => ({ 'ชื่อ': `${c.firstName||''} ${c.lastName||''}`.trim(), 'โทรศัพท์': c.phone||'', 'สถานะ': c.stage||'', 'รถที่สนใจ': c.interestedModel||'' }))
+  }
+  if (moduleId === 'dms') {
+    return docs.map(v => ({ 'VIN': v.vin||'', 'รุ่น': `${v.brand||''} ${v.model||''}`.trim(), 'สี': v.color||'', 'สถานะ': v.status||'', 'ราคา': v.listPrice||v.salePrice||v.cost||0 }))
+  }
+  if (moduleId === 'service') {
+    return docs.map(j => ({ 'เลขงาน': j.jobNo||'', 'ลูกค้า': j.custName||'', 'รถ': `${j.brand||''} ${j.model||''}`.trim(), 'ประเภทงาน': j.type||'', 'สถานะ': j.status||'' }))
+  }
+  if (moduleId === 'finance') {
+    return sales.map(s => ({ 'วันที่': s.bookingDate||'', 'รายการ': `ขายรถ ${s.model||''}`.trim(), 'ลูกค้า': s.custName||'', 'จำนวน (บาท)': s.salePrice||0 }))
+  }
+  if (moduleId === 'hr') {
+    return docs.map(s => ({ 'ชื่อ': `${s.firstName||''} ${s.lastName||''}`.trim(), 'ตำแหน่ง': s.role||'', 'แผนก': s.dept||'' }))
+  }
+  if (moduleId === 'marketing') {
+    return docs.map(c => ({ 'แคมเปญ': c.name||'', 'ประเภท': c.type||'', 'สถานะ': c.status||'', 'งบ (บาท)': c.budget||0, 'ใช้ไป (บาท)': c.spent||0, 'Leads': c.leads||0 }))
+  }
+  return []
+}
 
 export default async function DataExportPage(container) {
+  const myGen = container.__routerGen
   let selected = new Set()
   let format = 'excel'
+  let counts = {}
+  let loading = true
+
+  async function loadCounts() {
+    loading = true
+    for (const m of EXPORT_MODULES) {
+      try {
+        if (m.id === 'finance') { counts[m.id] = (await getSalesData().catch(() => [])).length }
+        else { counts[m.id] = (await listDocs(m.col, [], 'createdAt', 'desc', 2000).catch(() => [])).length }
+      } catch { counts[m.id] = 0 }
+    }
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     container.innerHTML = `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
             <div class="page-title">📤 Data Export</div>
-            <div class="page-subtitle">ส่งออกข้อมูลจากทุกโมดูล</div>
+            <div class="page-subtitle">ส่งออกข้อมูลจริงจากระบบ — จำนวนเรคคอร์ดคือของจริง ไม่ใช่ตัวเลขจำลอง</div>
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
-          <!-- Module selection -->
-          <div class="card" style="padding:14px">
-            <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">📦 เลือกโมดูล</div>
-            <div style="display:flex;flex-direction:column;gap:6px">
-              ${EXPORT_MODULES.map(m => `
-                <label style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--surface-2);border-radius:var(--radius-sm);cursor:pointer;border:1px solid ${selected.has(m.id)?'var(--primary)':'transparent'}">
-                  <input type="checkbox" class="mod-check" data-id="${m.id}" ${selected.has(m.id)?'checked':''} style="accent-color:var(--primary)">
-                  <span style="font-size:1rem">${m.icon}</span>
-                  <div style="flex:1">
-                    <div style="font-size:0.82rem;font-weight:600">${m.label}</div>
-                    <div style="font-size:0.68rem;color:var(--text-muted)">${m.records.toLocaleString()} รายการ · Export ล่าสุด ${formatDate(m.lastExport)}</div>
-                  </div>
-                </label>
-              `).join('')}
-              <div style="display:flex;gap:6px;margin-top:4px">
-                <button class="btn btn-xs btn-secondary" id="select-all-btn">เลือกทั้งหมด</button>
-                <button class="btn btn-xs btn-secondary" id="clear-btn">ล้าง</button>
-              </div>
-            </div>
+        <div class="card" style="padding:16px;margin-bottom:14px">
+          <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">เลือกข้อมูลที่จะ Export</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+            ${EXPORT_MODULES.map(m => `
+              <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface-2);border-radius:8px;cursor:pointer">
+                <input type="checkbox" class="mod-check" data-id="${m.id}" ${selected.has(m.id)?'checked':''}>
+                <span>${m.icon} ${m.label}</span>
+                <span style="margin-left:auto;font-size:0.72rem;color:var(--text-muted)">${(counts[m.id]||0).toLocaleString()} รายการ</span>
+              </label>
+            `).join('')}
           </div>
-
-          <!-- Format + settings -->
-          <div>
-            <div class="card" style="padding:14px;margin-bottom:10px">
-              <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">📁 รูปแบบไฟล์</div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
-                ${EXPORT_FORMATS.map(f => `
-                  <label style="display:flex;flex-direction:column;gap:3px;padding:8px 10px;background:var(--surface-2);border-radius:var(--radius-sm);cursor:pointer;border:2px solid ${format===f.id?'var(--primary)':'transparent'}">
-                    <div style="display:flex;align-items:center;gap:6px">
-                      <input type="radio" name="fmt" value="${f.id}" ${format===f.id?'checked':''} class="fmt-radio" style="accent-color:var(--primary)">
-                      <span>${f.icon}</span><strong style="font-size:0.8rem">${f.label}</strong>
-                    </div>
-                    <div style="font-size:0.68rem;color:var(--text-muted);padding-left:18px">${f.desc}</div>
-                  </label>
-                `).join('')}
-              </div>
-            </div>
-
-            <!-- Date range -->
-            <div class="card" style="padding:14px;margin-bottom:10px">
-              <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">📅 ช่วงวันที่</div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-                <div class="input-group"><label class="input-label">ตั้งแต่</label><input class="input" type="date" id="date-from" value="${addDays(-30).slice(0,10)}"></div>
-                <div class="input-group"><label class="input-label">ถึง</label><input class="input" type="date" id="date-to" value="${addDays(0).slice(0,10)}"></div>
-              </div>
-            </div>
-
-            <button class="btn btn-primary" id="export-btn" style="width:100%" ${selected.size===0?'disabled':''}>
-              📤 Export ${selected.size > 0 ? '(' + selected.size + ' โมดูล)' : ''}
-            </button>
+          <div style="display:flex;gap:6px;margin-bottom:14px">
+            <button class="btn btn-secondary btn-sm" id="select-all-btn">เลือกทั้งหมด</button>
+            <button class="btn btn-secondary btn-sm" id="clear-btn">ล้าง</button>
           </div>
-        </div>
-
-        <!-- Recent exports -->
-        <div class="card" style="overflow:hidden">
-          <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:0.8rem;font-weight:700;color:var(--text-muted)">📋 Export ล่าสุด</div>
-          <table style="width:100%;border-collapse:collapse">
-            <tbody>
-              ${RECENT_EXPORTS.map(e => `
-                <tr style="border-bottom:1px solid var(--border);font-size:0.8rem">
-                  <td style="padding:8px 14px;font-weight:600">${e.module}</td>
-                  <td style="padding:8px 10px"><span class="badge badge-secondary" style="font-size:0.6rem">${e.format}</span></td>
-                  <td style="padding:8px 10px;color:var(--text-muted)">${e.records.toLocaleString()} รายการ</td>
-                  <td style="padding:8px 10px;color:var(--text-muted)">${e.size}</td>
-                  <td style="padding:8px 10px;color:var(--text-muted)">${e.user}</td>
-                  <td style="padding:8px 10px;color:var(--text-muted)">${formatDate(e.time)}</td>
-                  <td style="padding:8px 14px;text-align:right"><button class="btn btn-xs btn-secondary">⬇️ ดาวน์โหลด</button></td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
+          <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">รูปแบบไฟล์</div>
+          <div style="display:flex;gap:8px;margin-bottom:14px">
+            ${EXPORT_FORMATS.map(f => `
+              <label style="display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--surface-2);border-radius:8px;cursor:pointer;font-size:0.82rem">
+                <input type="radio" name="fmt" class="fmt-radio" value="${f.id}" ${format===f.id?'checked':''}> ${f.icon} ${f.label}
+              </label>
+            `).join('')}
+          </div>
+          <button class="btn btn-primary" id="export-btn" style="width:100%" ${selected.size===0?'disabled':''}>📥 Export (${[...selected].reduce((a,id)=>a+(counts[id]||0),0).toLocaleString()} รายการ)</button>
         </div>
       </div>
     `
@@ -126,39 +131,44 @@ export default async function DataExportPage(container) {
     container.querySelectorAll('.fmt-radio').forEach(r => r.addEventListener('change', () => { format = r.value; renderPage() }))
     document.getElementById('select-all-btn')?.addEventListener('click', () => { EXPORT_MODULES.forEach(m => selected.add(m.id)); renderPage() })
     document.getElementById('clear-btn')?.addEventListener('click', () => { selected.clear(); renderPage() })
-    document.getElementById('export-btn')?.addEventListener('click', () => {
-      if (selected.size === 0) return
-      const DEMO_ROWS = {
-        crm:     [{ 'ชื่อ':'สมชาย ใจดี','โทรศัพท์':'085-111-2222','สถานะ':'ลูกค้า','รุ่นที่ซื้อ':'BYD Seal' },{ 'ชื่อ':'มาลี สุขใจ','โทรศัพท์':'086-333-4444','สถานะ':'Prospect','รุ่นที่ซื้อ':'BYD Dolphin' },{ 'ชื่อ':'วิรัช เก่งมาก','โทรศัพท์':'087-555-6666','สถานะ':'ลูกค้า','รุ่นที่ซื้อ':'BYD Atto 3' }],
-        dms:     [{ 'VIN':'LJD5JXXS5PA000001','รุ่น':'BYD Seal AWD','สี':'เทา','สถานะ':'ในสต็อก','ราคา':1699000 },{ 'VIN':'LJD5JXXS5PA000002','รุ่น':'BYD Dolphin','สี':'ขาว','สถานะ':'จอง','ราคา':899000 },{ 'VIN':'LJD5JXXS5PA000003','รุ่น':'BYD Atto 3','สี':'แดง','สถานะ':'ในสต็อก','ราคา':1099000 }],
-        service: [{ 'เลขงาน':'WO-2026-001','ลูกค้า':'สมชาย ใจดี','รุ่น':'BYD Seal','ประเภทงาน':'เช็คระยะ 20,000','สถานะ':'เสร็จแล้ว' },{ 'เลขงาน':'WO-2026-002','ลูกค้า':'อรทัย ตั้งใจ','รุ่น':'BYD Atto 3','ประเภทงาน':'ซ่อมทั่วไป','สถานะ':'กำลังทำ' },{ 'เลขงาน':'WO-2026-003','ลูกค้า':'ธนพล เที่ยงตรง','รุ่น':'MG ZS EV','ประเภทงาน':'ตรวจประกัน','สถานะ':'รอคิว' }],
-        finance: [{ 'วันที่':'2026-06-01','รายการ':'ขายรถ BYD Seal','ประเภท':'รายรับ','จำนวน (บาท)':1699000 },{ 'วันที่':'2026-06-02','รายการ':'บริการเช็คระยะ','ประเภท':'รายรับ','จำนวน (บาท)':4500 },{ 'วันที่':'2026-06-03','รายการ':'ค่าอะไหล่','ประเภท':'รายจ่าย','จำนวน (บาท)':28000 }],
-        hr:      [{ 'ชื่อ':'ทีมขาย 1','ตำแหน่ง':'Sales Executive','แผนก':'ขาย','เงินเดือน':35000 },{ 'ชื่อ':'ช่างซ่อม 1','ตำแหน่ง':'Service Technician','แผนก':'บริการ','เงินเดือน':28000 },{ 'ชื่อ':'ผู้จัดการ','ตำแหน่ง':'Branch Manager','แผนก':'บริหาร','เงินเดือน':75000 }],
-        marketing:[{ 'แคมเปญ':'Mid-Year Sale','แพลตฟอร์ม':'Facebook','Leads':64,'ยอดใช้ (บาท)':15000 },{ 'แคมเปญ':'EV Test Drive','แพลตฟอร์ม':'LINE OA','Leads':31,'ยอดใช้ (บาท)':0 },{ 'แคมเปญ':'BYD Dolphin Launch','แพลตฟอร์ม':'TikTok','Leads':57,'ยอดใช้ (บาท)':8500 }],
-      }
+    document.getElementById('export-btn')?.addEventListener('click', runExport)
+  }
+
+  async function runExport() {
+    if (selected.size === 0) return
+    const btn = document.getElementById('export-btn')
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span> กำลังดึงข้อมูล...' }
+    try {
+      let sales = null
       const allRows = []
-      ;[...selected].forEach(id => {
+      for (const id of selected) {
         const mod = EXPORT_MODULES.find(m => m.id === id)
-        ;(DEMO_ROWS[id] || []).forEach(row => allRows.push({ 'โมดูล': mod?.label || id, ...row }))
-      })
+        if (!mod) continue
+        let docs = []
+        if (id === 'finance') { sales = sales || await getSalesData().catch(() => []); docs = sales }
+        else { docs = await listDocs(mod.col, [], 'createdAt', 'desc', 2000).catch(() => []) }
+        toRows(id, docs, sales || []).forEach(row => allRows.push({ 'โมดูล': mod.label, ...row }))
+      }
       const mods = [...selected].map(id => EXPORT_MODULES.find(m => m.id === id)?.label).join(', ')
       const filename = `LAMOM_Export_${new Date().toISOString().slice(0,10)}`
       if (format === 'excel') {
         exportToExcel(allRows, filename + '.xlsx', 'Export')
-        showToast(`📥 Export ${mods} → Excel สำเร็จ`, 'success')
+        showToast(`📥 Export ${mods} → Excel สำเร็จ (${allRows.length.toLocaleString()} รายการ)`, 'success')
       } else if (format === 'csv') {
         exportToCSV(allRows, filename + '.csv')
-        showToast(`📥 Export ${mods} → CSV สำเร็จ`, 'success')
-      } else if (format === 'json') {
+        showToast(`📥 Export ${mods} → CSV สำเร็จ (${allRows.length.toLocaleString()} รายการ)`, 'success')
+      } else {
         const blob = new Blob([JSON.stringify(allRows, null, 2)], { type: 'application/json' })
         const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename + '.json'; a.click()
         URL.revokeObjectURL(a.href)
-        showToast(`📥 Export ${mods} → JSON สำเร็จ`, 'success')
-      } else {
-        showToast('📋 PDF Export: ใช้ Ctrl+P เพื่อพิมพ์เป็น PDF', 'warning')
+        showToast(`📥 Export ${mods} → JSON สำเร็จ (${allRows.length.toLocaleString()} รายการ)`, 'success')
       }
-    })
+    } catch (e) {
+      showToast('Export ไม่สำเร็จ: ' + (e.message || ''), 'error')
+    }
+    if (btn) { btn.disabled = false }
+    renderPage()
   }
 
-  renderPage()
+  await loadCounts()
 }
