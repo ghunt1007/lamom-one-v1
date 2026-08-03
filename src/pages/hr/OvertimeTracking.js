@@ -4,7 +4,7 @@
  */
 import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
@@ -21,30 +21,59 @@ const OT_STATUS = {
 }
 
 const OT_RATE = 1.5 // เท่าของค่าจ้างปกติ
+const MONTHLY_LIMIT_HOURS = 36 // เพดาน OT ตามกฎหมาย
 
-const MONTHLY_BY_STAFF = [
-  { name: 'วิทยา ช่างใหญ่', hours: 18, limit: 36 },
-  { name: 'สุรชัย มือดี', hours: 14, limit: 36 },
-  { name: 'วิชัย ยอดขาย', hours: 12, limit: 36 },
-  { name: 'มานะ ขยัน', hours: 28, limit: 36 },
-  { name: 'สมศรี การเงิน', hours: 8, limit: 36 },
-]
+// (v1.0.318) เดิม "+ บันทึก OT" ใหม่ทุกรายการเขียน hourlyRate: 200 ตายตัวเสมอ ไม่ว่าพนักงานคนนั้นได้ค่าแรง
+// จริงเท่าไหร่ — ค่า OT ที่คำนวณ (hours × hourlyRate × 1.5) ผิดสำหรับทุกคนที่ไม่ได้รับ ฿200/ชม. พอดี แก้ให้
+// คำนวณจากเงินเดือนจริงของพนักงานคนนั้น (ดึงจาก staff_salaries ก่อน fallback ไป staff.salary เดิมที่ยังไม่
+// ย้ายข้อมูล — dual-read pattern เดียวกับ Staff.js/Payroll.js) หารเป็นค่าแรงต่อชั่วโมงด้วยฐาน 30 วัน × 8 ชม.
+// (ฐานคำนวณมาตรฐานที่ใช้แปลงเงินเดือนเป็นค่าแรงรายวัน/รายชั่วโมงทั่วไป)
+// ต้องเป็น HR/การเงิน/ผู้จัดการขึ้นไปเท่านั้นถึงบันทึก OT ใหม่ได้ (เดิมไม่มีการจำกัดสิทธิ์เลย) เพราะต้อง
+// อ่านเงินเดือนจริงมาคำนวณ — ตรงกับสิทธิ์อ่าน staff_salaries ที่จำกัดไว้แล้วที่ระดับ Firestore Rules
+const OT_MANAGE_ROLES = ['owner', 'admin', 'manager', 'hr', 'finance']
+function hourlyRateFromSalary(salary) { return Math.round((Number(salary) || 0) / 30 / 8) }
 
 function otPay(o) { return Math.round(o.hours * o.hourlyRate * OT_RATE) }
 
 export default async function OvertimeTrackingPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
+  const myRole = getState('role') || getState('user')?.role || 'staff'
+  const canManage = OT_MANAGE_ROLES.includes(myRole)
 
   let records = []
+  let staffList = [] // { id, name, dept, hourlyRate } — ใช้ทั้งแบบ dropdown และคำนวณค่าแรงจริง
   let statusFilter = 'all'
   let loading = true
 
   async function loadData() {
     loading = true
     try { records = await listDocs('overtime_records', [], 'date', 'desc', 300) } catch (e) { records = [] }
+    try {
+      const [staffDocs, salaryDocs] = await Promise.all([
+        listDocs('staff', [], 'firstName', 'asc', 500).catch(() => []),
+        listDocs('staff_salaries', [], 'updatedAt', 'desc', 500).catch(() => []), // permission-denied ได้ถ้าไม่มีสิทธิ์ — fallback ไป staff.salary เดิม
+      ])
+      const salaryMap = Object.fromEntries(salaryDocs.map(d => [d.id, d.salary]))
+      staffList = staffDocs.filter(s => !s.deleted).map(s => ({
+        id: s.id,
+        name: `${s.firstName || ''} ${s.lastName || ''}`.trim() || '—',
+        dept: s.dept || '-',
+        hourlyRate: hourlyRateFromSalary(salaryMap[s.id] != null ? salaryMap[s.id] : s.salary),
+      }))
+    } catch (e) { staffList = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
+  }
+
+  // ชั่วโมง OT สะสมของแต่ละคน "เดือนนี้" จากข้อมูลจริง (ไม่รวมรายการที่ถูกปฏิเสธ) — แทนตัวเลขปลอมเดิม
+  function monthlyHoursByStaff() {
+    const ym = new Date().toISOString().slice(0, 7)
+    const byName = {}
+    records.filter(o => o.status !== 'rejected' && (o.date || '').startsWith(ym)).forEach(o => {
+      byName[o.staff] = (byName[o.staff] || 0) + (o.hours || 0)
+    })
+    return staffList.map(s => ({ name: s.name, hours: byName[s.name] || 0, limit: MONTHLY_LIMIT_HOURS }))
   }
 
   function renderPage() {
@@ -56,7 +85,8 @@ export default async function OvertimeTrackingPage(container) {
     const pending = records.filter(o => o.status === 'pending')
     const monthHours = records.filter(o => o.status !== 'rejected').reduce((a, o) => a + o.hours, 0)
     const monthCost = records.filter(o => ['approved','paid'].includes(o.status)).reduce((a, o) => a + otPay(o), 0)
-    const nearLimit = MONTHLY_BY_STAFF.filter(s => s.hours / s.limit >= 0.75)
+    const byStaff = monthlyHoursByStaff()
+    const nearLimit = byStaff.filter(s => s.hours / s.limit >= 0.75)
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -66,8 +96,8 @@ export default async function OvertimeTrackingPage(container) {
             <div class="page-subtitle">ติดตาม OT — อนุมัติ คำนวณ (อัตรา ×${OT_RATE})</div>
           </div>
           <div class="page-actions">
-            ${pending.length > 0 ? `<button class="btn btn-success" id="approve-all-btn">✅ อนุมัติทั้งหมด (${pending.length})</button>` : ''}
-            <button class="btn btn-primary" id="add-ot-btn">+ บันทึก OT</button>
+            ${canManage && pending.length > 0 ? `<button class="btn btn-success" id="approve-all-btn">✅ อนุมัติทั้งหมด (${pending.length})</button>` : ''}
+            ${canManage ? `<button class="btn btn-primary" id="add-ot-btn">+ บันทึก OT</button>` : ''}
           </div>
         </div>
 
@@ -80,19 +110,20 @@ export default async function OvertimeTrackingPage(container) {
 
         <!-- Monthly hours by staff -->
         <div class="card" style="padding:14px;margin-bottom:14px">
-          <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">📊 ชั่วโมง OT สะสมเดือนนี้ (เพดาน ${MONTHLY_BY_STAFF[0].limit} ชม./เดือน ตามกฎหมาย)</div>
-          ${MONTHLY_BY_STAFF.map(s => {
+          <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">📊 ชั่วโมง OT สะสมเดือนนี้ (เพดาน ${MONTHLY_LIMIT_HOURS} ชม./เดือน ตามกฎหมาย)</div>
+          ${byStaff.map(s => {
             const pct = Math.round(s.hours / s.limit * 100)
             const color = pct >= 90 ? 'danger' : pct >= 75 ? 'warning' : 'success'
             return `<div style="margin-bottom:8px">
               <div style="display:flex;justify-content:space-between;font-size:0.73rem;margin-bottom:3px">
-                <span>${s.name}</span><span style="color:var(--${color})">${s.hours}/${s.limit} ชม. (${pct}%)</span>
+                <span>${escHtml(s.name)}</span><span style="color:var(--${color})">${s.hours}/${s.limit} ชม. (${pct}%)</span>
               </div>
               <div style="background:var(--surface-2);border-radius:3px;height:8px">
                 <div style="width:${pct}%;background:var(--${color});height:8px;border-radius:3px"></div>
               </div>
             </div>`
           }).join('')}
+          ${!byStaff.length ? `<div style="font-size:0.75rem;color:var(--text-muted)">ยังไม่มีข้อมูลพนักงาน</div>` : ''}
         </div>
 
         <!-- Status filter -->
@@ -150,12 +181,13 @@ export default async function OvertimeTrackingPage(container) {
       showToast('✅ อนุมัติ OT ทั้งหมดแล้ว', 'success'); await loadData()
     })
     document.getElementById('add-ot-btn')?.addEventListener('click', () => {
+      if (!staffList.length) { showToast('❗ ยังไม่มีข้อมูลพนักงาน', 'error'); return }
       openModal({
         title: '+ บันทึก OT',
         size: 'sm',
         body: `<div style="display:grid;gap:10px">
           <div class="input-group"><label class="input-label">พนักงาน *</label>
-            <select class="input" id="ot-staff">${MONTHLY_BY_STAFF.map(s=>`<option>${s.name}</option>`).join('')}</select>
+            <select class="input" id="ot-staff">${staffList.map(s=>`<option value="${s.id}">${escHtml(s.name)}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">วันที่</label><input class="input" type="date" id="ot-date" value="${addDays(0)}"></div>
           <div class="input-group"><label class="input-label">จำนวนชั่วโมง</label><input class="input" type="number" min="0.5" max="8" step="0.5" id="ot-hours" value="2"></div>
@@ -164,10 +196,13 @@ export default async function OvertimeTrackingPage(container) {
         async onConfirm() {
           const reason = document.getElementById('ot-reason')?.value?.trim()
           if (!reason) { showToast('❗ กรุณากรอกเหตุผล', 'error'); return false }
+          const staffId = document.getElementById('ot-staff')?.value
+          const staff = staffList.find(s => s.id === staffId)
+          if (!staff) { showToast('❗ กรุณาเลือกพนักงาน', 'error'); return false }
           await createDoc('overtime_records', {
-            staff: document.getElementById('ot-staff')?.value||'—', dept: '—',
+            staff: staff.name, dept: staff.dept,
             date: document.getElementById('ot-date')?.value||addDays(0),
-            hours: parseFloat(document.getElementById('ot-hours')?.value)||1, hourlyRate: 200, reason, status: 'pending',
+            hours: parseFloat(document.getElementById('ot-hours')?.value)||1, hourlyRate: staff.hourlyRate, reason, status: 'pending',
           })
           showToast('✅ บันทึก OT แล้ว — รออนุมัติ', 'success'); await loadData()
         }
