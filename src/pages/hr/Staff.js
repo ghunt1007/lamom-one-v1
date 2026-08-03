@@ -22,7 +22,7 @@ const SALARY_VIEW_ROLES = ['owner', 'admin', 'manager', 'hr']
 const MIGRATION_ROLES = ['owner', 'admin']
 
 const DEPARTMENTS = ['ฝ่ายขาย','ฝ่ายบริการ','ฝ่ายการเงิน','ฝ่าย HR','ฝ่าย IT','ผู้บริหาร','อื่นๆ']
-const ROLES = { owner:'เจ้าของ', admin:'แอดมิน', manager:'ผู้จัดการ', sales:'เซลส์', service:'ช่าง/บริการ', staff:'พนักงาน' }
+export const ROLES = { owner:'เจ้าของ', admin:'แอดมิน', manager:'ผู้จัดการ', sales:'เซลส์', service:'ช่าง/บริการ', staff:'พนักงาน' }
 const STATUS_EMP = { active:'✅ ทำงานอยู่', probation:'⏳ ทดลองงาน', leave:'🏖 ลา', inactive:'❌ ลาออก' }
 
 const DEMO_STAFF = [
@@ -167,6 +167,7 @@ export default async function StaffPage(container) {
           ${s.nickname ? dRow('😊','ชื่อเล่น',s.nickname) : ''}
           ${dRow('💼','ตำแหน่ง',role)}
           ${dRow('🏢','แผนก',s.dept||'-')}
+          ${s.managerId ? dRow('🧑‍💼','หัวหน้างาน', (() => { const m = staff.find(x=>x.id===s.managerId); return m ? escHtml(m.firstName)+' '+escHtml(m.lastName) : '-' })()) : ''}
           ${dRow('📱','โทร',s.phone||'-')}
           ${dRow('📧','อีเมล',s.email||'-')}
           ${dRow('📅','วันเริ่มงาน',formatDate(s.startDate))}
@@ -220,6 +221,12 @@ export default async function StaffPage(container) {
             <div class="input-group"><label class="input-label">วันเริ่มงาน</label><input class="input" type="date" id="sf-start" value="${existing?.startDate||new Date().toISOString().slice(0,10)}"></div>
             ${canViewSalary ? `<div class="input-group"><label class="input-label">เงินเดือน (บาท)</label><input class="input" type="number" id="sf-salary" value="${existing?.salary||''}"></div>` : ''}
           </div>
+          <div class="input-group"><label class="input-label">หัวหน้างาน (ใช้แสดงในแผนผังองค์กร)</label>
+            <select class="input" id="sf-manager">
+              <option value="">— ไม่มี / เป็นระดับสูงสุด —</option>
+              ${staff.filter(s => s.id !== existing?.id).map(s => `<option value="${s.id}" ${existing?.managerId===s.id?'selected':''}>${escHtml(s.firstName)} ${escHtml(s.lastName)}</option>`).join('')}
+            </select>
+          </div>
         </div>
       `,
       footer: `<button class="btn btn-secondary" id="sfc">ยกเลิก</button><button class="btn btn-primary" id="sfs">💾 บันทึก</button>`
@@ -236,6 +243,7 @@ export default async function StaffPage(container) {
         role: el.querySelector('#sf-role').value, dept: el.querySelector('#sf-dept').value,
         status: el.querySelector('#sf-status').value, phone: el.querySelector('#sf-phone').value.trim(),
         email: el.querySelector('#sf-email').value.trim(), startDate: el.querySelector('#sf-start').value,
+        managerId: el.querySelector('#sf-manager').value || null,
       }
       // เงินเดือนเก็บแยกที่ staff_salaries เสมอ (v1.0.303) ไม่เขียนลง staff doc อีกต่อไปเลย (Firestore Rules
       // บล็อกไว้แล้วด้วย) — ช่อง #sf-salary ไม่ถูกสร้างใน DOM เลยถ้าไม่มีสิทธิ์เห็น จึงเขียนเฉพาะตอน canViewSalary
