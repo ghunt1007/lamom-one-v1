@@ -2,7 +2,7 @@ import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
-import { getSalesData, listDocs, createDoc, updateDocData } from '../../core/db.js'
+import { getSalesData, listDocs, listAllDocs, createDoc, updateDocData } from '../../core/db.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -55,9 +55,10 @@ export default async function TaxReportPage(container) {
   // collection ใหม่ tax_filings — filing จาก DEMO_FILINGS ใช้ baseId อ้างกลับ ส่วน filing ที่สร้างเองใหม่
   // ถือเป็นเอกสารของตัวเอง ไม่มี baseId
   let filings = DEMO_FILINGS.map(f => ({ ...f }))
+  let sales = []
 
   try {
-    const sales = await getSalesData().catch(() => [])
+    sales = await getSalesData().catch(() => [])
     if (container.__routerGen !== myGen) return
     if (sales.length >= 2) {
       const now = new Date()
@@ -87,6 +88,45 @@ export default async function TaxReportPage(container) {
     })
   } catch {}
 
+  // (v1.0.321) เดิม KPI "WHT สะสม" และแท็บ "ใบกำกับภาษี" ทั้งแท็บใช้ DEMO_INVOICES 4 รายการตายตัวเสมอ
+  // ไม่มีทางเป็นข้อมูลจริงได้เลย ทั้งที่ระบบมีข้อมูลจริงพร้อมใช้อยู่แล้ว: ภาษีขายจากยอดขายรถจริง
+  // (getSalesData เหมือนที่ VatReport.js ใช้ v1.0.320), ภาษีซื้อจากต้นทุนรถจริง + ใบสั่งซื้อจริงที่รับแล้ว
+  // (purchase_orders), และ WHT จริงจากหนังสือรับรองหัก ณ ที่จ่ายที่ออกจริง (withholding_tax_certs — มีหน้า
+  // WithholdingTax.js ออกใบจริงอยู่แล้ว) ใช้ของปลอมเฉพาะตอนยังไม่มีข้อมูลจริงเลยสักรายการเท่านั้น
+  let liveInvoices = null
+  let liveTotalWH = 0
+  try {
+    const out = [], inp = []
+    sales.forEach(s => {
+      const d = (s.date || '').slice(0, 10)
+      if (!d) return
+      if (s.salePrice > 0) out.push({ id: 'INV-'+s.id, vendor: s.custName || 'ลูกค้า', date: d, amount: s.salePrice, vat: Math.round(s.salePrice*0.07), withheld: 0, type: 'sale', taxInvNo: 'TSV-'+s.id })
+      if (s.cost > 0) inp.push({ id: 'PO-'+s.id, vendor: s.brand || 'ผู้จัดจำหน่ายรถ', date: d, amount: s.cost, vat: Math.round(s.cost*0.07), withheld: 0, type: 'purchase', taxInvNo: 'TIV-'+s.id })
+    })
+    try {
+      const pos = await listAllDocs('purchase_orders', [], 'requestDate', 'desc')
+      pos.filter(p => p.status === 'received' && p.cat !== 'vehicle' && p.amount > 0).forEach(p => {
+        const d = (p.requestDate || '').slice(0, 10)
+        if (!d) return
+        inp.push({ id: 'PO-'+p.id, vendor: p.supplier || 'ผู้จัดหา', date: d, amount: p.amount, vat: Math.round(p.amount*0.07), withheld: 0, type: 'purchase', taxInvNo: 'TIV-'+p.id })
+      })
+    } catch {}
+    const wht = []
+    try {
+      const certs = await listAllDocs('withholding_tax_certs', [], 'paymentDate', 'desc')
+      certs.forEach(c => {
+        const d = (c.paymentDate || '').slice(0, 10)
+        if (!d) return
+        wht.push({ id: c.id, vendor: c.payeeName || 'ผู้รับเงิน', date: d, amount: c.amountPaid || 0, vat: 0, withheld: c.taxWithheld || 0, type: 'purchase', taxInvNo: c.certNo || c.id })
+      })
+    } catch {}
+    if (container.__routerGen !== myGen) return
+    if (out.length || inp.length || wht.length) {
+      liveInvoices = [...out, ...inp, ...wht]
+      liveTotalWH = wht.reduce((a, w) => a + w.withheld, 0)
+    }
+  } catch {}
+
   function filteredFilings() {
     return filings.filter(f => filingFilter === 'all' || f.status === filingFilter)
       .sort((a, b) => b.dueDate.localeCompare(a.dueDate))
@@ -104,7 +144,7 @@ export default async function TaxReportPage(container) {
     const pending = filings.filter(f => f.status === 'pending').length
     const overdue = filings.filter(f => isOverdue(f)).length
     const totalVat = filings.reduce((a, f) => a + f.vatAmount, 0)
-    const totalWH = DEMO_INVOICES.reduce((a, i) => a + i.withheld, 0)
+    const totalWH = liveInvoices ? liveTotalWH : DEMO_INVOICES.reduce((a, i) => a + i.withheld, 0)
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -202,10 +242,12 @@ export default async function TaxReportPage(container) {
   }
 
   function renderInvoices() {
-    const inputVat = DEMO_INVOICES.filter(i => i.type === 'purchase').reduce((a, i) => a + i.vat, 0)
-    const outputVat = DEMO_INVOICES.filter(i => i.type === 'sale').reduce((a, i) => a + i.vat, 0)
+    const invoices = liveInvoices || DEMO_INVOICES
+    const inputVat = invoices.filter(i => i.type === 'purchase').reduce((a, i) => a + i.vat, 0)
+    const outputVat = invoices.filter(i => i.type === 'sale').reduce((a, i) => a + i.vat, 0)
     const netVat = outputVat - inputVat
     return `
+      ${liveInvoices ? '' : `<div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:10px">Demo (ยังไม่มีข้อมูลจริง)</div>`}
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px">
         ${kpi('📤 VAT ขาออก', formatCurrency(outputVat), 'success')}
         ${kpi('📥 VAT ขาเข้า', formatCurrency(inputVat), 'warning')}
@@ -215,15 +257,16 @@ export default async function TaxReportPage(container) {
         <table class="table">
           <thead><tr><th>เลขใบกำกับ</th><th>คู่ค้า</th><th>วันที่</th><th>ประเภท</th><th>มูลค่า</th><th>VAT</th><th>WHT</th></tr></thead>
           <tbody>
-            ${DEMO_INVOICES.map(i => `<tr>
-              <td style="font-family:monospace;font-size:0.78rem">${i.taxInvNo}</td>
-              <td style="font-size:0.83rem">${i.vendor}</td>
+            ${invoices.map(i => `<tr>
+              <td style="font-family:monospace;font-size:0.78rem">${escHtml(i.taxInvNo)}</td>
+              <td style="font-size:0.83rem">${escHtml(i.vendor)}</td>
               <td style="font-size:0.82rem">${formatDate(i.date)}</td>
               <td><span class="badge badge-${i.type==='sale'?'success':'warning'}">${i.type==='sale'?'ขาออก':'ขาเข้า'}</span></td>
               <td class="text-right" style="font-size:0.83rem">${formatCurrency(i.amount)}</td>
               <td class="text-right" style="font-size:0.83rem;color:var(--${i.type==='sale'?'success':'warning'})">${formatCurrency(i.vat)}</td>
               <td class="text-right" style="font-size:0.83rem">${i.withheld ? formatCurrency(i.withheld) : '-'}</td>
             </tr>`).join('')}
+            ${!invoices.length ? `<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)">ไม่พบรายการ</td></tr>` : ''}
           </tbody>
         </table>
       </div>`
