@@ -937,6 +937,13 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // (v1.0.325) ตั้งค่า mapping ชื่อ field V8→V1 ต่อ collection ปลายทาง — ไม่มีข้อมูลอ่อนไหว (แค่ชื่อ
+    // field เป็นข้อความ) จึงใช้สิทธิ์เดียวกับ config ทั่วไปด้านบน
+    match /v8_field_mappings/{docId} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
     // ข้อมูลนิติบุคคล/สาขา (เลขผู้เสียภาษี/ที่อยู่/เบอร์/อีเมล) — เดิมพนักงานทั่วไปแก้ได้เหมือน company_profile
     // ไม่ทัน จำกัดไว้แค่ผู้จัดการขึ้นไปเหมือนกัน
     match /companies/{docId} {
@@ -1163,7 +1170,7 @@ service cloud.firestore {
         'finance_applications', 'finance_tracker', 'cashier_payments', 'cashier_pending_bills',
         'vehicle_catalog_overrides', 'vehicle_catalog_additions', 'payment_transactions', 'installment_plans',
         'insurance_claims', 'tax_filings', 'gov_docs',
-        'custom_orders', 'parts_rma', 'compliance_events', 'gov_bids', 'system_backup_config'
+        'custom_orders', 'parts_rma', 'compliance_events', 'gov_bids', 'system_backup_config', 'v8_field_mappings'
       ];
     }
 

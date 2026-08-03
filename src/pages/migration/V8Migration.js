@@ -14,7 +14,7 @@ import { confirmDialog } from '../../utils/modal.js'
 // ที่รองรับคือ "เพิ่มข้อมูลใหม่" (append, createDoc ต่อเรคคอร์ด) การแปลงชื่อ field ระหว่างสคีมา V8/V1 เป็น
 // คนละเรื่องกับหน้านี้ (อยู่ในความรับผิดชอบของ DataMapping.js) หน้านี้ทำหน้าที่แค่ "อัปโหลด → เขียนจริง"
 
-const COLLECTIONS = [
+export const COLLECTIONS = [
   { id: 'customers', label: 'ลูกค้า', icon: '👥', v8table: 'tbl_customer' },
   { id: 'vehicles', label: 'สต็อกรถ', icon: '🚗', v8table: 'tbl_vehicle' },
   { id: 'leads', label: 'Leads', icon: '🧲', v8table: 'tbl_lead' },
