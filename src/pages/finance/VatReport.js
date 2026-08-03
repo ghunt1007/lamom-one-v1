@@ -5,7 +5,7 @@
 import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { getSalesData, listAllDocs } from '../../core/db.js'
 import { exportToExcel } from '../../utils/importExport.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
@@ -14,6 +14,16 @@ function addMonths(n) { const d = new Date(); d.setMonth(d.getMonth() + n); retu
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
 
 const VAT_RATE = 0.07
+
+// (v1.0.320) เดิมถ้ามีข้อมูลจริงจาก collection 'vat_invoices' (ที่จริงไม่มีหน้าไหนในระบบเคยเขียนเข้าไปเลย
+// แม้แต่รายการเดียว — เป็น collection ที่เตรียมชื่อไว้แต่ไม่ได้ใช้จริง) ก็จะเอาใบกำกับปลอมด้านล่างนี้
+// (DEMO_INVOICES_OUT/IN) ผสมเข้าไปถาวรอยู่ดี ทำให้ "ภาษีสุทธิ" ที่ต้องชำระ/ขอคืนผิดจากความจริงเสมอ และ
+// ปุ่มเปลี่ยนเดือน (◀/เดือนนี้) ก็ไม่ได้กรองข้อมูลตามเดือนที่เลือกจริงเลย (แค่เปลี่ยน label) — แก้ให้สร้าง
+// ใบกำกับภาษีขาย/ซื้อจากข้อมูลจริงที่มีอยู่แล้วในระบบแทน: ขาออกจากยอดขายจริง (getSalesData), ขาเข้าจาก
+// ต้นทุนรถจริงของแต่ละใบจอง (b.cost จริง ไม่ใช่ประมาณ 82% แบบที่ CashFlow.js เคยใช้) + ใบสั่งซื้อจริงที่
+// สถานะ "รับแล้ว" (purchase_orders) สำหรับรายการที่ไม่ใช่รถ ใช้ของปลอมเฉพาะตอนยังไม่มีข้อมูลจริงเลยเท่านั้น
+// และกรองตามเดือนที่เลือกจริงแล้ว (ไม่ใช่รวมทุกเดือนเข้าด้วยกันเหมือนเดิม)
+const PO_CAT_LABELS = { vehicle: 'รถยนต์', parts: 'อะไหล่', supplies: 'อุปกรณ์', service: 'บริการ' }
 
 const DEMO_INVOICES_OUT = [ // ขาออก
   { id: 'INV001', date: addDays(-5), customer: 'สมชาย ใจดี', amount: 1299000, vat: Math.round(1299000*VAT_RATE), category: 'รถยนต์' },
@@ -34,36 +44,48 @@ export default async function VatReportPage(container) {
   const myGen = container.__routerGen
   let viewMonth = addMonths(0)
   let activeTab = 'summary'
-  let invoicesOut = DEMO_INVOICES_OUT.map(i => ({ ...i }))
-  let invoicesIn = DEMO_INVOICES_IN.map(i => ({ ...i }))
+  let allInvoicesOut = []
+  let allInvoicesIn = []
   let dataSource = 'demo'
 
-  try {
-    const docs = await listDocs('vat_invoices', [], 'date', 'desc', 400).catch(() => [])
+  async function loadData() {
+    const out = []
+    const inp = []
+    try {
+      const sales = await getSalesData()
+      sales.forEach(s => {
+        const d = (s.date || '').slice(0, 10)
+        if (!d) return
+        if (s.salePrice > 0) out.push({ id: 'INV-' + s.id, date: d, customer: s.custName || 'ลูกค้า',
+          amount: s.salePrice, vat: Math.round(s.salePrice * VAT_RATE), category: 'รถยนต์' })
+        if (s.cost > 0) inp.push({ id: 'PO-' + s.id, date: d, supplier: s.brand || 'ผู้จัดจำหน่ายรถ',
+          amount: s.cost, vat: Math.round(s.cost * VAT_RATE), category: 'ต้นทุนรถ' })
+      })
+    } catch {}
+    try {
+      const pos = await listAllDocs('purchase_orders', [], 'requestDate', 'desc')
+      pos.filter(p => p.status === 'received' && p.cat !== 'vehicle' && p.amount > 0).forEach(p => {
+        const d = (p.requestDate || '').slice(0, 10)
+        if (!d) return
+        inp.push({ id: 'PO-' + p.id, date: d, supplier: p.supplier || 'ผู้จัดหา',
+          amount: p.amount, vat: Math.round(p.amount * VAT_RATE), category: PO_CAT_LABELS[p.cat] || 'อื่นๆ' })
+      })
+    } catch {}
+
     if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const out = docs.filter(d => d.type === 'out' || (d.customer && !d.supplier)).map((d, i) => ({
-        id: d.id || `INV${String(i+1).padStart(3,'0')}`,
-        date: d.date || addDays(0),
-        customer: d.customer || 'ลูกค้า',
-        amount: d.amount || 0,
-        vat: d.vat || Math.round((d.amount || 0) * VAT_RATE),
-        category: d.category || 'อื่นๆ',
-      }))
-      const inp = docs.filter(d => d.type === 'in' || d.supplier).map((d, i) => ({
-        id: d.id || `PO${String(i+1).padStart(3,'0')}`,
-        date: d.date || addDays(0),
-        supplier: d.supplier || 'ผู้จัดหา',
-        amount: d.amount || 0,
-        vat: d.vat || Math.round((d.amount || 0) * VAT_RATE),
-        category: d.category || 'อื่นๆ',
-      }))
-      if (out.length >= 1) { invoicesOut = [...out, ...DEMO_INVOICES_OUT]; dataSource = 'live' }
-      if (inp.length >= 1) { invoicesIn = [...inp, ...DEMO_INVOICES_IN] }
+    if (out.length || inp.length) {
+      allInvoicesOut = out; allInvoicesIn = inp; dataSource = 'live'
+    } else {
+      allInvoicesOut = DEMO_INVOICES_OUT.map(i => ({ ...i }))
+      allInvoicesIn = DEMO_INVOICES_IN.map(i => ({ ...i }))
+      dataSource = 'demo'
     }
-  } catch {}
+  }
+  await loadData()
 
   function renderPage() {
+    const invoicesOut = allInvoicesOut.filter(i => i.date.startsWith(viewMonth))
+    const invoicesIn = allInvoicesIn.filter(i => i.date.startsWith(viewMonth))
     const vatOut = invoicesOut.reduce((a, i) => a + i.vat, 0)
     const vatIn = invoicesIn.reduce((a, i) => a + i.vat, 0)
     const netVat = vatOut - vatIn
@@ -75,7 +97,7 @@ export default async function VatReportPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🧾 VAT Report</div>
-            <div class="page-subtitle">รายงานภาษีมูลค่าเพิ่ม — ${viewMonth}${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">รายงานภาษีมูลค่าเพิ่ม — ${viewMonth}${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ' <span style="color:var(--text-muted);font-size:0.75rem">Demo (ยังไม่มีข้อมูลจริง)</span>'}</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary btn-xs" id="prev-m-btn">◀</button>
