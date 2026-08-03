@@ -5,152 +5,169 @@
 import { formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-
-const MODELS_DATA = [
-  { name: 'BYD Dolphin', msrp: 899000, minPrice: 860000, competitor: 850000, margin: 8, stock: 8, sold30: 12, demand: 'high' },
-  { name: 'BYD Atto 3', msrp: 1099000, minPrice: 1050000, competitor: 1080000, margin: 9, stock: 5, sold30: 8, demand: 'medium' },
-  { name: 'BYD Seal AWD', msrp: 1699000, minPrice: 1620000, competitor: 1680000, margin: 7, stock: 3, sold30: 6, demand: 'medium' },
-  { name: 'MG ZS EV', msrp: 799000, minPrice: 760000, competitor: 780000, margin: 6, stock: 11, sold30: 5, demand: 'low' },
-  { name: 'BYD Han', msrp: 2099000, minPrice: 2000000, competitor: 2050000, margin: 10, stock: 2, sold30: 3, demand: 'low' },
-]
+import { listDocs, updateDocData, getSalesData } from '../../core/db.js'
 
 const DEMAND_COLORS = { high: 'success', medium: 'warning', low: 'secondary' }
 const DEMAND_LABELS = { high: 'สูง', medium: 'ปานกลาง', low: 'ต่ำ' }
 
+// (v1.0.327) เดิมทั้งหน้านี้ใช้ MODELS_DATA 5 รุ่นปลอมตายตัว (msrp/minPrice/competitor/margin/stock/sold30/
+// demand ล้วน hardcode) และปุ่ม "✅ ใช้ราคา AI ทั้งหมด" แค่เปลี่ยนตัวแปร customPrices ในหน่วยความจำ ไม่แตะ
+// Price List จริงเลย (ทั้งที่ toast บอกว่า "Price List อัปเดตแล้ว") แก้ให้ใช้รุ่นรถจริงจาก vehicle_models
+// (collection เดียวกับที่หน้า Price List ใช้จริง) สต็อก/ยอดขาย 30 วันคำนวณจากข้อมูลจริง (getSalesData)
+// ราคาคู่แข่งไม่มีแหล่งข้อมูลจริงในระบบนี้เลย (ไม่มี API เชื่อมราคาคู่แข่งภายนอก) จึงเปลี่ยนเป็นให้พนักงาน
+// กรอกเองแล้วบันทึกจริง (competitorPrice บน vehicle_models) แทนเลขปลอมที่ AI แต่งขึ้นมาเอง — Margin
+// คำนวณจากต้นทุนจริงเฉลี่ยของการขายจริงที่จับคู่ได้ ถ้ายังไม่มีข้อมูลขายจริงของรุ่นนั้นจะโชว์ "-" ไม่ใช่เลข
+// ปลอม ปุ่ม "ใช้ราคา AI ทั้งหมด" เขียนจริงลง vehicle_models.promotionPrice ทุกรุ่น (updateDocData จริง)
+
+function matchSales(sales, m) {
+  const mb = (m.brand || '').toLowerCase().trim()
+  const mm = (m.model || '').toLowerCase().trim()
+  return sales.filter(s => {
+    const sb = (s.brand || '').toLowerCase()
+    const sm = ((s.model || '') + ' ' + (s.brand || '')).toLowerCase()
+    return (!mb || sb.includes(mb)) && (!mm || sm.includes(mm))
+  })
+}
+
+// heuristic ความต้องการซื้อ — สัดส่วนขาย 30 วันเทียบสต็อกที่มี (ไม่มีสูตรมาตรฐานสากล กำหนดขึ้นเองแบบสมเหตุสมผล)
+function demandLevel(sold30, stock) {
+  const ratio = sold30 / Math.max(stock, 1)
+  if (ratio >= 0.5) return 'high'
+  if (ratio >= 0.15) return 'medium'
+  return 'low'
+}
+
 function aiRecommendedPrice(m) {
-  // Simple pricing logic based on demand and stock
-  if (m.demand === 'high' && m.stock < 5) return m.msrp // full price
-  if (m.demand === 'low' && m.stock > 8) return m.minPrice + Math.round((m.msrp - m.minPrice) * 0.2)
-  if (m.competitor < m.msrp) return Math.min(m.msrp, m.competitor + 5000)
-  return m.msrp - Math.round((m.msrp - m.minPrice) * 0.3)
+  const base = m.promotionPrice || m.basePrice
+  if (m.demand === 'high' && m.stock < 5) return m.basePrice // สต็อกน้อย+ขายดี ควรขายราคาปกติเต็ม ไม่ลด
+  if (m.demand === 'low' && m.stock > 8) return Math.round(m.basePrice * 0.94) // สต็อกล้น+ขายช้า ลดราคาระบายสต็อก
+  if (m.competitorPrice && m.competitorPrice < m.basePrice) return Math.min(m.basePrice, m.competitorPrice + 5000)
+  return base
 }
 
 export default async function PricingAdvisorPage(container) {
-  let customPrices = {}
-  let selectedModel = null
+  const myGen = container.__routerGen
+  let models = []
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    let vModels = [], sales = []
+    try { vModels = await listDocs('vehicle_models', [], 'basePrice', 'asc', 200) } catch {}
+    try { sales = await getSalesData() } catch {}
+    if (container.__routerGen !== myGen) return
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 30)
+    models = vModels.filter(m => !m.deleted).map(m => {
+      const matched = matchSales(sales, m)
+      const sold30 = matched.filter(s => s.date && new Date(s.date) >= cutoff).length
+      const withCost = matched.filter(s => s.salePrice > 0 && s.cost > 0)
+      const marginPct = withCost.length ? Math.round(withCost.reduce((a, s) => a + (s.salePrice - s.cost) / s.salePrice * 100, 0) / withCost.length) : null
+      return { ...m, sold30, marginPct, demand: demandLevel(sold30, m.stock || 0) }
+    })
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     container.innerHTML = `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
             <div class="page-title">🤖 AI Pricing Advisor</div>
-            <div class="page-subtitle">ที่ปรึกษาราคา AI — วิเคราะห์ตลาด + แนะนำราคาเหมาะสม</div>
+            <div class="page-subtitle">ที่ปรึกษาราคา AI — วิเคราะห์จากยอดขาย/สต็อกจริงในระบบ</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-primary" id="apply-all-btn">✅ ใช้ราคา AI ทั้งหมด</button>
+            <button class="btn btn-primary" id="apply-all-btn" ${models.length ? '' : 'disabled'}>✅ ใช้ราคา AI ทั้งหมด</button>
           </div>
         </div>
 
-        <!-- AI summary -->
-        <div style="padding:14px;background:var(--surface-2);border-radius:var(--radius);border-left:3px solid var(--primary);margin-bottom:16px;font-size:0.83rem">
-          🤖 <strong>LAMI วิเคราะห์:</strong> BYD Dolphin ควรขึ้นราคาเพราะ demand สูงและสต็อกน้อย · MG ZS EV ควรลดราคาเพื่อระบายสต็อก · BYD Han มี margin ดีที่สุด ควรรักษาราคา MSRP
-        </div>
-
+        ${!models.length ? `<div class="empty-state"><div class="empty-icon">🚗</div><div class="empty-title">ยังไม่มีรุ่นรถใน Price List</div><div class="empty-desc">เพิ่มรุ่นรถได้ที่หน้า Price List ก่อน</div></div>` : `
         <!-- Model pricing cards -->
         <div style="display:flex;flex-direction:column;gap:12px">
-          ${MODELS_DATA.map(m => {
-            const aiPrice = customPrices[m.name] || aiRecommendedPrice(m)
-            const diff = aiPrice - m.msrp
-            const marginAmt = aiPrice - (m.msrp * (1 - m.margin/100))
-            const marginPct = Math.round(marginAmt / aiPrice * 100)
-
+          ${models.map(m => {
+            const aiPrice = aiRecommendedPrice(m)
+            const diff = aiPrice - m.basePrice
             return `<div class="card" style="padding:14px">
               <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px">
                 <div>
-                  <div style="font-weight:700;font-size:0.93rem">${m.name}</div>
+                  <div style="font-weight:700;font-size:0.93rem">${m.brand} ${m.model}</div>
                   <div style="font-size:0.72rem;color:var(--text-muted)">
-                    📦 สต็อก ${m.stock} · ขาย 30 วัน ${m.sold30} คัน ·
+                    📦 สต็อก ${m.stock || 0} · ขาย 30 วัน ${m.sold30} คัน ·
                     <span class="badge badge-${DEMAND_COLORS[m.demand]}" style="font-size:0.6rem"> Demand ${DEMAND_LABELS[m.demand]}</span>
                   </div>
                 </div>
-                <button class="btn btn-xs btn-secondary adj-btn" data-model="${m.name}">⚙️ ปรับเอง</button>
+                <button class="btn btn-xs btn-secondary adj-btn" data-id="${m.id}">⚙️ ปรับเอง</button>
               </div>
 
               <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px">
-                ${priceBox('MSRP', m.msrp, 'secondary')}
-                ${priceBox('คู่แข่ง', m.competitor, 'warning')}
+                ${priceBox('ราคาปกติ', m.basePrice, 'secondary')}
+                ${priceBox('คู่แข่ง', m.competitorPrice || '— ไม่ทราบ', 'warning')}
                 ${priceBox('AI แนะนำ', aiPrice, 'primary')}
-                ${priceBox('Margin', marginPct + '%', marginPct >= 8 ? 'success' : 'warning')}
+                ${priceBox('Margin จริง', m.marginPct != null ? m.marginPct + '%' : '— ยังไม่มีข้อมูลขาย', m.marginPct >= 8 ? 'success' : 'warning')}
               </div>
 
-              <div style="display:flex;align-items:center;gap:8px;font-size:0.75rem">
-                <span>เทียบ MSRP: <strong style="color:var(--${diff>0?'success':diff<0?'warning':'secondary'})">${diff>0?'+':''}${formatCurrency(diff)}</strong></span>
-                <span style="color:var(--text-muted)">·</span>
-                <span>ต่ำสุด: ${formatCurrency(m.minPrice)}</span>
-                ${aiPrice < m.minPrice ? `<span class="badge badge-danger" style="font-size:0.6rem">⚠️ ต่ำกว่า floor</span>` : ''}
+              <div style="display:flex;align-items:center;gap:8px;font-size:0.75rem;flex-wrap:wrap">
+                <span>เทียบราคาปกติ: <strong style="color:var(--${diff>0?'success':diff<0?'warning':'secondary'})">${diff>0?'+':''}${formatCurrency(diff)}</strong></span>
+                ${!m.competitorPrice ? `<span class="badge badge-secondary" style="font-size:0.6rem">⚠️ ยังไม่มีราคาคู่แข่ง กดปรับเองเพื่อกรอก</span>` : ''}
               </div>
             </div>`
           }).join('')}
         </div>
-
-        <!-- Competitive analysis table -->
-        <div class="card" style="overflow:hidden;margin-top:14px">
-          <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:0.8rem;font-weight:700;color:var(--text-muted)">📊 เปรียบเทียบคู่แข่ง</div>
-          <table style="width:100%;border-collapse:collapse">
-            <thead>
-              <tr style="border-bottom:1px solid var(--border);font-size:0.73rem;color:var(--text-muted)">
-                <th style="padding:8px 14px;text-align:left">รุ่น</th>
-                <th style="padding:8px 10px;text-align:right">MSRP เรา</th>
-                <th style="padding:8px 10px;text-align:right">คู่แข่ง</th>
-                <th style="padding:8px 10px;text-align:right">ต่าง</th>
-                <th style="padding:8px 10px;text-align:right">AI แนะนำ</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${MODELS_DATA.map(m => {
-                const diff = m.msrp - m.competitor
-                const aiP = customPrices[m.name] || aiRecommendedPrice(m)
-                return `<tr style="border-bottom:1px solid var(--border);font-size:0.8rem">
-                  <td style="padding:8px 14px;font-weight:600">${m.name}</td>
-                  <td style="padding:8px 10px;text-align:right">${formatCurrency(m.msrp)}</td>
-                  <td style="padding:8px 10px;text-align:right;color:var(--text-muted)">${formatCurrency(m.competitor)}</td>
-                  <td style="padding:8px 10px;text-align:right;color:var(--${diff>0?'danger':diff<0?'success':'secondary'})">${diff>0?'+':''}${formatCurrency(diff)}</td>
-                  <td style="padding:8px 10px;text-align:right;font-weight:700;color:var(--primary)">${formatCurrency(aiP)}</td>
-                </tr>`
-              }).join('')}
-            </tbody>
-          </table>
-        </div>
+        `}
       </div>
     `
 
     container.querySelectorAll('.adj-btn').forEach(b => b.addEventListener('click', () => {
-      const m = MODELS_DATA.find(x => x.name === b.dataset.model); if (m) openAdjustModal(m)
+      const m = models.find(x => x.id === b.dataset.id); if (m) openAdjustModal(m)
     }))
-    document.getElementById('apply-all-btn')?.addEventListener('click', () => {
-      let changed = 0
-      MODELS_DATA.forEach(m => {
+    document.getElementById('apply-all-btn')?.addEventListener('click', async () => {
+      const btn = document.getElementById('apply-all-btn'); btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
+      let changed = 0, failed = 0
+      for (const m of models) {
         const ai = aiRecommendedPrice(m)
-        if (customPrices[m.name] !== ai) { customPrices[m.name] = ai; changed++ }
-      })
-      renderPage()
-      showToast(`✅ ใช้ราคา AI แล้ว ${changed} รุ่น — Price List อัปเดตแล้ว`, 'success')
+        if (ai === m.basePrice ? !!m.promotionPrice : ai !== m.promotionPrice) {
+          try {
+            await updateDocData('vehicle_models', m.id, { promotionPrice: ai === m.basePrice ? null : ai })
+            changed++
+          } catch { failed++ }
+        }
+      }
+      await loadData()
+      showToast(failed ? `⚠️ ใช้ราคา AI แล้ว ${changed} รุ่น — พลาด ${failed} รุ่น` : `✅ ใช้ราคา AI แล้ว ${changed} รุ่น — บันทึกลง Price List จริง`, failed ? 'error' : 'success')
     })
   }
 
   function openAdjustModal(m) {
-    const aiP = customPrices[m.name] || aiRecommendedPrice(m)
+    const aiP = aiRecommendedPrice(m)
     openModal({
-      title: `⚙️ ปรับราคา ${m.name}`,
+      title: `⚙️ ปรับราคา ${m.brand} ${m.model}`,
       size: 'sm',
       body: `<div style="display:grid;gap:12px">
-        ${row('MSRP', formatCurrency(m.msrp))}
-        ${row('ราคาต่ำสุด', formatCurrency(m.minPrice))}
-        ${row('ราคาคู่แข่ง', formatCurrency(m.competitor))}
+        ${row('ราคาปกติ', formatCurrency(m.basePrice))}
         ${row('AI แนะนำ', formatCurrency(aiP))}
-        <div class="input-group"><label class="input-label">ราคาที่ต้องการ (บาท)</label><input class="input" id="adj-price" type="number" value="${aiP}"></div>
+        <div class="input-group"><label class="input-label">ราคาคู่แข่ง (บาท) — กรอกเองจากที่สำรวจ</label><input class="input" id="adj-comp" type="number" value="${m.competitorPrice || ''}"></div>
+        <div class="input-group"><label class="input-label">ราคาที่ต้องการตั้ง (บาท, 0 = ใช้ราคาปกติ)</label><input class="input" id="adj-price" type="number" value="${aiP === m.basePrice ? 0 : aiP}"></div>
       </div>`,
-      onConfirm() {
-        const val = parseInt(document.getElementById('adj-price')?.value)
-        if (val < m.minPrice) { showToast('❗ ต่ำกว่าราคาต่ำสุด', 'error'); return }
-        customPrices[m.name] = val
-        showToast(`✅ ปรับราคา ${m.name} แล้ว`, 'success'); renderPage()
+      async onConfirm() {
+        const compVal = +document.getElementById('adj-comp')?.value || 0
+        const priceVal = +document.getElementById('adj-price')?.value || 0
+        try {
+          await updateDocData('vehicle_models', m.id, {
+            competitorPrice: compVal > 0 ? compVal : null,
+            promotionPrice: priceVal > 0 && priceVal !== m.basePrice ? priceVal : null,
+          })
+          showToast(`✅ ปรับราคา ${m.brand} ${m.model} แล้ว`, 'success')
+          await loadData()
+        } catch { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
       }
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function priceBox(label, val, color) {
