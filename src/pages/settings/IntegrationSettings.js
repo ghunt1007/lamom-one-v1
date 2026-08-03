@@ -7,6 +7,13 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 
+// (v1.0.330) เดิมปุ่ม "เชื่อมต่อ" รับ API Key อะไรก็ได้ที่ไม่ว่างเปล่า แล้วขึ้น "✅ เชื่อมต่อสำเร็จ!" ทันที
+// โดยไม่เคยเรียกไปตรวจสอบกับผู้ให้บริการจริงเลย (ไม่มี backend/worker เชื่อม provider จริงสำหรับ 6 หมวดนี้
+// — มีแค่ workers/comms-send.js สำหรับ SMS/LINE/Email เท่านั้น สร้าง backend เชื่อมจริงทุก provider เป็นงาน
+// เฉพาะกองใหญ่เกินกว่าการแก้บัคเดียว) ปุ่ม "Sync" ก็แค่อัปเดต timestamp ไม่ได้ sync อะไรจริง — แก้ให้พูด
+// ตรงกับความจริง: เปลี่ยนเป็น "บันทึก API Key" (ไม่ใช่ "เชื่อมต่อสำเร็จ") ระบุชัดว่ายังไม่ได้ตรวจสอบกับผู้
+// ให้บริการจริงโดยอัตโนมัติ และตัดปุ่ม Sync ออก (ไม่มีอะไรให้ sync จริง)
+
 const INTEGRATION_CATS = {
   payment:   { label: 'การชำระเงิน', icon: '💳' },
   messaging: { label: 'การสื่อสาร', icon: '💬' },
@@ -51,9 +58,12 @@ export default async function IntegrationSettingsPage(container) {
 
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('🔗 ทั้งหมด', integrations.length, 'primary')}
-          ${kpi('✅ เชื่อมต่อแล้ว', connected, 'success')}
-          ${kpi('❌ ยังไม่เชื่อม', integrations.filter(i=>i.status==='disconnected').length, 'secondary')}
+          ${kpi('🔑 บันทึก Key แล้ว', connected, 'success')}
+          ${kpi('○ ยังไม่บันทึก', integrations.filter(i=>i.status==='disconnected').length, 'secondary')}
           ${kpi('⚠️ มีปัญหา', errors, errors > 0 ? 'danger' : 'secondary')}
+        </div>
+        <div style="padding:10px 14px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:0.75rem;color:var(--text-muted);margin-bottom:14px">
+          ℹ️ หน้านี้เป็นที่บันทึก API Key/Credential ไว้ใช้งานเท่านั้น ระบบไม่ได้เชื่อมต่อ/ตรวจสอบกับผู้ให้บริการจริงโดยอัตโนมัติ กรุณาทดสอบการทำงานจริงกับผู้ให้บริการด้วยตนเองก่อนใช้งานจริง
         </div>
 
         <div style="display:flex;gap:4px;margin-bottom:14px;flex-wrap:wrap">
@@ -74,21 +84,20 @@ export default async function IntegrationSettingsPage(container) {
                   </div>
                 </div>
                 <span class="badge badge-${int.status==='connected'?'success':int.status==='error'?'danger':'secondary'}" style="font-size:0.65rem">
-                  ${int.status==='connected'?'● เชื่อมแล้ว':int.status==='error'?'● ผิดพลาด':'○ ยังไม่เชื่อม'}
+                  ${int.status==='connected'?'🔑 บันทึก Key แล้ว':int.status==='error'?'● ผิดพลาด':'○ ยังไม่บันทึก'}
                 </span>
               </div>
               <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:10px">${int.desc}</div>
-              ${int.lastSync ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:10px">Sync ล่าสุด: ${timeAgo(int.lastSync)}</div>` : ''}
+              ${int.lastSync ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:10px">บันทึก Key ล่าสุด: ${timeAgo(int.lastSync)}</div>` : ''}
               <div style="display:flex;gap:6px">
                 ${int.status === 'connected' ? `
                   <button class="btn btn-xs btn-secondary config-btn" data-id="${int.id}">⚙️ Config</button>
-                  <button class="btn btn-xs btn-secondary sync-btn" data-id="${int.id}">🔄 Sync</button>
-                  <button class="btn btn-xs btn-danger disconnect-btn" data-id="${int.id}">ตัดการเชื่อม</button>
+                  <button class="btn btn-xs btn-danger disconnect-btn" data-id="${int.id}">ลบ Key</button>
                 ` : int.status === 'error' ? `
-                  <button class="btn btn-xs btn-warning reconnect-btn" data-id="${int.id}">🔄 เชื่อมใหม่</button>
+                  <button class="btn btn-xs btn-warning reconnect-btn" data-id="${int.id}">🔄 บันทึก Key ใหม่</button>
                   <button class="btn btn-xs btn-secondary config-btn" data-id="${int.id}">⚙️ Config</button>
                 ` : `
-                  <button class="btn btn-xs btn-primary connect-btn" data-id="${int.id}">+ เชื่อมต่อ</button>
+                  <button class="btn btn-xs btn-primary connect-btn" data-id="${int.id}">+ บันทึก API Key</button>
                 `}
               </div>
             </div>`
@@ -101,21 +110,12 @@ export default async function IntegrationSettingsPage(container) {
     container.querySelectorAll('.config-btn').forEach(b => b.addEventListener('click', () => {
       const int = integrations.find(x => x.id === b.dataset.id); if (int) openConfig(int)
     }))
-    container.querySelectorAll('.sync-btn').forEach(b => b.addEventListener('click', async () => {
-      const int = integrations.find(x => x.id === b.dataset.id)
-      if (!int) return
-      try {
-        await updateDocData('system_integrations', int.id, { lastSync: new Date().toISOString() })
-        showToast(`🔄 Sync ${int.name} แล้ว`, 'success')
-        await loadData()
-      } catch (e) { showToast('Sync ไม่สำเร็จ', 'error') }
-    }))
     container.querySelectorAll('.disconnect-btn').forEach(b => b.addEventListener('click', async () => {
       const int = integrations.find(x => x.id === b.dataset.id)
       if (!int) return
       try {
         await updateDocData('system_integrations', int.id, { status: 'disconnected', lastSync: null })
-        showToast(`❌ ตัดการเชื่อมต่อ ${int.name} แล้ว`, 'warning')
+        showToast(`🗑 ลบ API Key ของ ${int.name} แล้ว`, 'warning')
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
@@ -143,8 +143,8 @@ export default async function IntegrationSettingsPage(container) {
             <input class="input" value="${v}" style="font-size:0.83rem" ${v.includes('*')?'type="password"':''}>
           </div>
         `).join('')}
-        <div style="padding:10px;background:rgba(34,197,94,.1);border-radius:var(--radius-sm);font-size:0.78rem;color:var(--success);margin-top:12px">
-          ✅ Integration นี้เชื่อมต่ออยู่และทำงานปกติ
+        <div style="padding:10px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:0.78rem;color:var(--text-muted);margin-top:12px">
+          🔑 มี API Key บันทึกไว้แล้ว — ระบบยังไม่ได้ตรวจสอบกับ ${int.name} จริงโดยอัตโนมัติ กรุณาทดสอบการทำงานจริงด้วยตนเอง
         </div>
       `
     })
@@ -152,19 +152,21 @@ export default async function IntegrationSettingsPage(container) {
 
   function openConnectModal(int) {
     openModal({
-      title: `+ เชื่อมต่อ: ${int.name}`,
+      title: `+ บันทึก API Key: ${int.name}`,
       size: 'md',
       body: `
         <div style="font-size:0.85rem;margin-bottom:14px">${int.desc}</div>
+        <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:10px">⚠️ ระบบจะบันทึก Key ไว้ใช้งานเท่านั้น ไม่ได้ตรวจสอบกับผู้ให้บริการจริงโดยอัตโนมัติ กรุณาตรวจสอบว่า Key ถูกต้องเอง</div>
         <div class="input-group"><label class="input-label">API Key / Token *</label><input class="input" id="conn-apikey" type="password" placeholder="กรอก API Key"></div>
         <div class="input-group"><label class="input-label">Client ID / Merchant ID</label><input class="input" id="conn-clientid" placeholder="กรอก ID (ถ้ามี)"></div>
       `,
+      confirmText: '💾 บันทึก API Key',
       async onConfirm() {
         const apiKey = document.getElementById('conn-apikey')?.value?.trim()
         if (!apiKey) { showToast('❗ กรุณากรอก API Key', 'error'); return false }
         try {
           await updateDocData('system_integrations', int.id, { status: 'connected', lastSync: new Date().toISOString(), config: { apiKey: '****', clientId: document.getElementById('conn-clientid')?.value || '' } })
-          showToast(`✅ เชื่อมต่อ ${int.name} สำเร็จ!`, 'success')
+          showToast(`🔑 บันทึก API Key ของ ${int.name} แล้ว — ยังไม่ได้ตรวจสอบกับผู้ให้บริการจริง`, 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
