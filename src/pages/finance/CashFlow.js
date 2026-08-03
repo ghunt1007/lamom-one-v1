@@ -1,8 +1,8 @@
 import { formatCurrency } from '../../utils/format.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
-import { getSalesData } from '../../core/db.js'
+import { showToast, getState } from '../../core/store.js'
+import { getSalesData, listDocs, createDoc, softDelete } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -28,7 +28,16 @@ const CATEGORIES = {
   },
 }
 
-// Demo weekly data
+// (v1.0.319) เดิมรายการปลอมด้านล่างนี้ (DEMO_FLOWS) ถูกผสมเข้ากับข้อมูลจริงถาวรทุกครั้งที่มีข้อมูลจริง
+// (เก็บแค่ vehicle_sale/cogs ไว้เป็นของจริง แต่เงินเดือน/ค่าเช่า/การตลาด/ค่าซ่อม/ประกัน/อะไหล่/ค่าน้ำ-ไฟ
+// ยังเป็นของปลอมเดือน มิ.ย.2025 ตายตัวเสมอ ไม่มีทางตัดออก) ทำให้ Net Cash Flow/ยอดคงเหลือผิดจากความจริง
+// แก้ให้ใช้แค่ตอนยังไม่มีข้อมูลจริงเลย (dataSource==='demo' อย่างเดียว) — รายการอื่นๆนอกจากขายรถใช้การ
+// บันทึกมือผ่านปุ่ม "➕ บันทึกรายการ" ที่ตอนนี้เขียนลง Firestore จริงแล้ว (เดิมแค่ push เข้า array
+// ในหน่วยความจำ หายหมดทันทีที่รีเฟรชหน้า) ใช้ collection ชื่อ cash_flow ที่มี Firestore Rules
+// (isFinance()||isManager() อ่าน, isFinance() เขียน) เตรียมไว้อยู่แล้วแต่ยังไม่มีหน้าไหนใช้จริงมาก่อน
+const CASH_FLOW_MANAGE_ROLES = ['owner', 'admin', 'manager', 'finance']
+
+// Demo weekly data (ใช้แสดงตัวอย่างเฉพาะตอนยังไม่มีข้อมูลจริงเลยเท่านั้น)
 const DEMO_FLOWS = [
   // Week 1 June 2025
   { id:'CF001', date:'2025-06-02', type:'income', cat:'vehicle_sale', desc:'ขาย BYD Seal AWD — สมศักดิ์', amount:1299000 },
@@ -48,34 +57,45 @@ const DEMO_FLOWS = [
 
 export default async function CashFlowPage(container) {
   const myGen = container.__routerGen
+  const myRole = getState('role') || getState('user')?.role || 'staff'
+  const canManage = CASH_FLOW_MANAGE_ROLES.includes(myRole)
   let flows = DEMO_FLOWS.map(f => ({ ...f }))
-  let viewMode = 'daily'
   let showType = 'all'
   let dataSource = 'demo'
 
-  const startBalance = 850000
+  const startBalance = 850000 // ยอดยกมา — ยังไม่มีแหล่งข้อมูลจริง (ยอดคงเหลือธนาคารจริง) ในระบบนี้
 
-  try {
-    const sales = await getSalesData()
-    if (container.__routerGen !== myGen) return
-
+  async function loadData() {
     const liveFlows = []
-    sales.forEach(s => {
-      if (!s.date || !(s.salePrice > 0)) return
-      const d = s.date.slice(0, 10)
-      const label = ((s.brand || '') + ' ' + (s.model || '')).trim()
-      liveFlows.push({ id: 'CF-' + s.id, date: d, type: 'income', cat: 'vehicle_sale',
-        desc: 'ขาย ' + label + (s.salesName ? ' — ' + s.salesName : ''), amount: s.salePrice, _live: true })
-      liveFlows.push({ id: 'CF-C-' + s.id, date: d, type: 'expense', cat: 'cogs',
-        desc: 'ต้นทุน ' + label, amount: Math.round(s.salePrice * 0.82), _live: true })
-    })
+    try {
+      const sales = await getSalesData()
+      sales.forEach(s => {
+        if (!s.date || !(s.salePrice > 0)) return
+        const d = s.date.slice(0, 10)
+        const label = ((s.brand || '') + ' ' + (s.model || '')).trim()
+        liveFlows.push({ id: 'CF-' + s.id, date: d, type: 'income', cat: 'vehicle_sale',
+          desc: 'ขาย ' + label + (s.salesName ? ' — ' + s.salesName : ''), amount: s.salePrice, _live: true })
+        liveFlows.push({ id: 'CF-C-' + s.id, date: d, type: 'expense', cat: 'cogs',
+          desc: 'ต้นทุน ' + label, amount: Math.round(s.salePrice * 0.82), _live: true })
+      })
+    } catch {}
 
-    if (liveFlows.length) {
-      const fixedExpenses = DEMO_FLOWS.filter(f => !['vehicle_sale', 'cogs'].includes(f.cat))
-      flows = [...liveFlows, ...fixedExpenses]
+    let manualFlows = []
+    try {
+      const docs = await listDocs('cash_flow', [], 'date', 'desc', 500)
+      manualFlows = docs.filter(d => !d.deleted).map(d => ({ ...d, _manual: true }))
+    } catch {} // permission-denied ได้ถ้า role ไม่ใช่ finance/manager ขึ้นไป — ไม่ใช่ error จริง
+
+    if (container.__routerGen !== myGen) return
+    if (liveFlows.length || manualFlows.length) {
+      flows = [...liveFlows, ...manualFlows]
       dataSource = 'live'
+    } else {
+      flows = DEMO_FLOWS.map(f => ({ ...f }))
+      dataSource = 'demo'
     }
-  } catch {}
+  }
+  await loadData()
 
   function getFiltered() {
     if (showType === 'all') return flows
@@ -110,12 +130,12 @@ export default async function CashFlowPage(container) {
           <div>
             <div class="page-title">💸 Cash Flow</div>
             <div class="page-subtitle">กระแสเงินสดรายวัน
-              ${dataSource === 'live' ? '<span style="font-size:0.72rem;color:var(--success);margin-left:8px">● ข้อมูลจริงจากใบจอง</span>' : '<span style="font-size:0.72rem;color:var(--text-muted);margin-left:8px">Demo</span>'}
+              ${dataSource === 'live' ? '<span style="font-size:0.72rem;color:var(--success);margin-left:8px">● ข้อมูลจริง</span>' : '<span style="font-size:0.72rem;color:var(--text-muted);margin-left:8px">Demo (ยังไม่มีข้อมูลจริง)</span>'}
             </div>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="cf-export">📥 Export</button>
-            <button class="btn btn-primary" id="new-flow-btn">➕ บันทึกรายการ</button>
+            ${canManage ? `<button class="btn btn-primary" id="new-flow-btn">➕ บันทึกรายการ</button>` : ''}
           </div>
         </div>
 
@@ -188,11 +208,12 @@ export default async function CashFlowPage(container) {
         </div>
         <div class="card" style="padding:0;overflow:hidden">
           <table class="table">
-            <thead><tr><th>วันที่</th><th>ประเภท</th><th>รายการ</th><th class="text-right">รายรับ</th><th class="text-right">รายจ่าย</th><th class="text-right">ยอดคงเหลือ</th></tr></thead>
+            <thead><tr><th>วันที่</th><th>ประเภท</th><th>รายการ</th><th class="text-right">รายรับ</th><th class="text-right">รายจ่าย</th><th class="text-right">ยอดคงเหลือ</th>${canManage ? '<th></th>' : ''}</tr></thead>
             <tbody>
               <tr style="background:var(--surface-2)">
                 <td colspan="5" style="font-size:0.8rem;color:var(--text-muted)">ยอดยกมา</td>
                 <td class="text-right" style="font-weight:700">${formatCurrency(startBalance)}</td>
+                ${canManage ? '<td></td>' : ''}
               </tr>
               ${filtered.map(f => {
                 const allCats = { ...CATEGORIES.income, ...CATEGORIES.expense }
@@ -201,10 +222,11 @@ export default async function CashFlowPage(container) {
                 return `<tr>
                   <td style="font-size:0.8rem;white-space:nowrap">${escHtml(f.date)}</td>
                   <td><span class="badge badge-${cat?.color||'secondary'}" style="font-size:0.68rem">${cat?.label||escHtml(f.cat)}</span></td>
-                  <td style="font-size:0.83rem">${escHtml(f.desc)}</td>
+                  <td style="font-size:0.83rem">${escHtml(f.desc)}${f._manual ? '' : (f._live ? ' <span style="color:var(--text-muted);font-size:0.68rem">(ใบจอง)</span>' : ' <span style="color:var(--text-muted);font-size:0.68rem">(demo)</span>')}</td>
                   <td class="text-right" style="color:var(--success)">${isIncome ? formatCurrency(f.amount) : ''}</td>
                   <td class="text-right" style="color:var(--danger)">${!isIncome ? formatCurrency(f.amount) : ''}</td>
                   <td class="text-right" style="font-weight:700;color:var(--${f.balance>=0?'success':'danger'})">${formatCurrency(f.balance)}</td>
+                  ${canManage ? `<td class="text-right">${f._manual ? `<button class="btn btn-xs btn-danger cf-del-btn" data-id="${f.id}">🗑</button>` : ''}</td>` : ''}
                 </tr>`
               }).join('')}
             </tbody>
@@ -214,6 +236,7 @@ export default async function CashFlowPage(container) {
                 <td class="text-right" style="color:var(--success)">${formatCurrency(s.income)}</td>
                 <td class="text-right" style="color:var(--danger)">${formatCurrency(s.expense)}</td>
                 <td class="text-right" style="color:var(--${s.balance>=0?'success':'danger'})">${formatCurrency(s.balance)}</td>
+                ${canManage ? '<td></td>' : ''}
               </tr>
             </tfoot>
           </table>
@@ -226,6 +249,11 @@ export default async function CashFlowPage(container) {
       exportToExcel(running.map(f => ({ วันที่:f.date, ประเภท:f.type==='income'?'รายรับ':'รายจ่าย', หมวด:({...CATEGORIES.income,...CATEGORIES.expense})[f.cat]?.label||f.cat, รายการ:f.desc, จำนวน:f.amount, คงเหลือ:f.balance })), 'CashFlow')
     })
     document.getElementById('new-flow-btn')?.addEventListener('click', openFlowForm)
+    document.querySelectorAll('.cf-del-btn').forEach(b => b.addEventListener('click', async () => {
+      await softDelete('cash_flow', b.dataset.id)
+      showToast('🗑 ลบรายการแล้ว', 'success')
+      await loadData(); renderPage()
+    }))
   }
 
   function openFlowForm() {
@@ -253,18 +281,18 @@ export default async function CashFlowPage(container) {
       footer: `<button class="btn btn-secondary" id="cfc">ยกเลิก</button><button class="btn btn-primary" id="cfs">💾 บันทึก</button>`
     })
     el.querySelector('#cfc').addEventListener('click', close)
-    el.querySelector('#cfs').addEventListener('click', () => {
+    el.querySelector('#cfs').addEventListener('click', async () => {
       const desc = el.querySelector('#cf-desc').value.trim()
       const amount = +el.querySelector('#cf-amount').value
-      if (!desc || !amount) return
-      flows.push({
-        id: 'CF' + Date.now(),
+      if (!desc || !amount) { showToast('❗ กรุณากรอกรายละเอียดและจำนวนเงิน', 'error'); return }
+      await createDoc('cash_flow', {
         date: el.querySelector('#cf-date').value,
         type: el.querySelector('#cf-type-sel').value,
         cat: el.querySelector('#cf-cat-sel').value,
         desc, amount
       })
-      showToast('💾 บันทึกรายการแล้ว', 'success'); close(); renderPage()
+      showToast('💾 บันทึกรายการแล้ว', 'success'); close()
+      await loadData(); renderPage()
     })
   }
 
