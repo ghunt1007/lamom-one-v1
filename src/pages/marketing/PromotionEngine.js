@@ -59,7 +59,10 @@ function monthLabel(ym) {
 
 export default async function PromotionEnginePage(container) {
   const myGen = container.__routerGen
-  let promos = DEMO_PROMOS.map(p => ({ ...p }))
+  // (v1.0.322) เดิมถ้ามีโปรโมชั่นจริงใน Firestore ระบบจะเอาไปต่อหน้า DEMO_PROMOS 5 รายการปลอมเสมอ ไม่มีทาง
+  // ตัดของปลอมออกเลย ทำให้ ROI/งบประมาณรวมที่แสดงผิดจากความจริงถาวร แก้ให้ใช้ของปลอมเฉพาะตอนยังไม่มี
+  // โปรโมชั่นจริงเลยเท่านั้น และกรอง p.deleted ออก (เดิมไม่กรอง โปรที่ลบไปแล้วจะโผล่กลับมาทุกครั้งที่รีเฟรช)
+  let promos = []
   let allSales = []
   let statusFilter = 'all'
   let typeFilter = 'all'
@@ -67,6 +70,7 @@ export default async function PromotionEnginePage(container) {
   let viewMode = 'list' // 'list' | 'bulletin' | 'forecast'
   let compareIds = new Set()
   let loading = true
+  let dataSource = 'demo'
 
   // โหลดข้อมูลการขายจริง + โปรโมชั่นจริงจาก Firestore
   try {
@@ -74,8 +78,9 @@ export default async function PromotionEnginePage(container) {
   } catch {}
   try {
     const real = await listDocs('promotions', [], 'startDate', 'desc', 200)
-    if (real.length) promos = [...real.map(p => ({ ...p, _persisted: true })), ...promos]
+    promos = real.filter(p => !p.deleted).map(p => ({ ...p, _persisted: true }))
   } catch {}
+  if (promos.length) { dataSource = 'live' } else { promos = DEMO_PROMOS.map(p => ({ ...p })) }
   if (container.__routerGen !== myGen) return
   loading = false
 
@@ -113,7 +118,9 @@ export default async function PromotionEnginePage(container) {
       '<div class="page-content animate-slide">' +
         '<div class="page-header"><div>' +
           '<div class="page-title">🎪 กิจกรรมส่งเสริมการขาย</div>' +
-          '<div class="page-subtitle">จัดการโปรโมชั่น วิเคราะห์ ROI งบประมาณ และคาดการณ์แคมเปญ</div>' +
+          '<div class="page-subtitle">จัดการโปรโมชั่น วิเคราะห์ ROI งบประมาณ และคาดการณ์แคมเปญ' +
+            (dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ' <span style="color:var(--text-muted);font-size:0.75rem">Demo (ยังไม่มีข้อมูลจริง)</span>') +
+          '</div>' +
         '</div><div class="page-actions">' +
           '<button class="btn btn-secondary" id="pe-export">📥 Export</button>' +
           '<button class="btn btn-secondary" id="ai-import-btn">🤖 นำเข้าจากประกาศ AI</button>' +
@@ -340,9 +347,10 @@ export default async function PromotionEnginePage(container) {
       }
       try {
         const id = await createDoc('promotions', data)
+        if (dataSource === 'demo') { promos = []; dataSource = 'live' }
         promos.unshift({ id, ...data, _persisted: true })
       } catch {
-        promos.unshift({ id: 'P' + String(promos.length + 1).padStart(3, '0'), ...data, _persisted: false })
+        showToast('บันทึกไม่สำเร็จ', 'error'); return
       }
       showToast('✅ สร้างโปรโมชั่นแล้ว!', 'success')
       close()
@@ -531,7 +539,7 @@ export default async function PromotionEnginePage(container) {
         const toImport = rows.filter((_, i) => box.querySelector('.ai-row-inc[data-i="' + i + '"]')?.checked)
         if (!toImport.length) return showToast('กรุณาเลือกอย่างน้อย 1 รายการ', 'warning')
         const cbtn = box.querySelector('#ai-confirm-import'); cbtn.disabled = true; cbtn.innerHTML = '<span class="spinner spinner-sm"></span>'
-        let ok = 0
+        let ok = 0, failed = 0
         for (const r of toImport) {
           const data = {
             title: r.title || (r.brand + ' ' + r.model), brand: r.brand || '', model: r.model || 'ทุกรุ่น',
@@ -542,21 +550,27 @@ export default async function PromotionEnginePage(container) {
           }
           try {
             const id = await createDoc('promotions', data)
+            if (dataSource === 'demo') { promos = []; dataSource = 'live' }
             promos.unshift({ id, ...data, _persisted: true })
             ok++
-          } catch { promos.unshift({ id: 'P' + Date.now() + ok, ...data, _persisted: false }); ok++ }
+          } catch { failed++ }
         }
-        try {
-          await createDoc('notifications', {
-            type: 'marketing',
-            title: 'นำเข้าแคมเปญใหม่จาก AI',
-            body: 'นำเข้า ' + ok + ' แคมเปญจากประกาศ — กรุณาตรวจสอบก่อนเปิดใช้งาน',
-            read: false, link: '/marketing/promotions', createdAt: new Date().toISOString(),
-          })
-          setState('unreadCount', (getState('unreadCount') || 0) + 1)
-        } catch {}
-        showToast('✅ นำเข้า ' + ok + ' แคมเปญแล้ว', 'success')
-        close(); renderPage()
+        if (failed) showToast('❗ นำเข้าไม่สำเร็จ ' + failed + ' รายการ', 'error')
+        if (ok) {
+          try {
+            await createDoc('notifications', {
+              type: 'marketing',
+              title: 'นำเข้าแคมเปญใหม่จาก AI',
+              body: 'นำเข้า ' + ok + ' แคมเปญจากประกาศ — กรุณาตรวจสอบก่อนเปิดใช้งาน',
+              read: false, link: '/marketing/promotions', createdAt: new Date().toISOString(),
+            })
+            setState('unreadCount', (getState('unreadCount') || 0) + 1)
+          } catch {}
+          showToast('✅ นำเข้า ' + ok + ' แคมเปญแล้ว', 'success')
+          close(); renderPage()
+        } else {
+          cbtn.disabled = false; cbtn.innerHTML = '✅ นำเข้าที่เลือก'
+        }
       })
     }
   }
