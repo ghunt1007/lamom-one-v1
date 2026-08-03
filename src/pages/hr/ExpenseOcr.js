@@ -33,16 +33,22 @@ export default async function ExpenseOcrPage(container) {
   const myGen = container.__routerGen
   let filterStatus = 'all'
 
+  // (v1.0.323) เดิมถ้ามีใบเสร็จจริงใน Firestore ระบบจะเอาไปต่อหน้าใบเสร็จปลอม 5 รายการเสมอ ไม่มีทางตัดของ
+  // ปลอมออกได้เลย ทำให้ "ยอดอนุมัติ"/"ความแม่นยำ AI" รวมที่แสดงผิดจากความจริงถาวร แก้ให้แทนที่ด้วยของจริง
+  // ทั้งหมดเมื่อมีข้อมูลจริงอย่างน้อย 1 รายการ (ไม่ผสม) และกรอง deleted ออก (เดิมไม่กรอง ใบเสร็จที่ลบไปแล้ว
+  // จะโผล่กลับมาทุกครั้งที่รีเฟรช)
   if (!RECEIPTS.some(r => r._persisted)) {
     try {
       const real = await listDocs('expense_receipts', [], 'date', 'desc', 200).catch(() => [])
-      if (container.__routerGen === myGen && real.length) {
-        RECEIPTS = [...real.map(r => ({ ...r, _persisted: true })), ...RECEIPTS]
+      if (container.__routerGen === myGen) {
+        const liveReceipts = real.filter(r => !r.deleted).map(r => ({ ...r, _persisted: true }))
+        if (liveReceipts.length) RECEIPTS = liveReceipts
       }
     } catch {}
   }
 
   function render() {
+    const dataSource = RECEIPTS.some(r => r._persisted) ? 'live' : 'demo'
     const rows = filterStatus === 'all' ? RECEIPTS : RECEIPTS.filter(r => r.status === filterStatus)
     const pending = RECEIPTS.filter(r => r.status === 'pending')
     const totalAmt = RECEIPTS.filter(r=>r.status==='approved').reduce((s,r)=>s+r.amount,0)
@@ -52,7 +58,9 @@ export default async function ExpenseOcrPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🧾 Expense Receipt OCR</div>
-            <div class="page-subtitle">AI อ่านใบเสร็จ แยกหมวด ส่งขออนุมัติ · ${RECEIPTS.length} ใบ · ${pending.length} รออนุมัติ</div>
+            <div class="page-subtitle">AI อ่านใบเสร็จ แยกหมวด ส่งขออนุมัติ · ${RECEIPTS.length} ใบ · ${pending.length} รออนุมัติ
+              ${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.72rem">● ข้อมูลจริง</span>' : ' <span style="color:var(--text-muted);font-size:0.72rem">Demo (ยังไม่มีข้อมูลจริง)</span>'}
+            </div>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="scan-btn">📷 สแกนใบเสร็จใหม่</button>
@@ -237,21 +245,27 @@ export default async function ExpenseOcrPage(container) {
           vendor: ocr.vendor || 'ไม่ทราบชื่อร้าน', amount: ocr.amount || 0, cat: ocr.category || 'อื่นๆ',
           status: 'pending', note: '', confidence: ocr.confidence || 90, imageUrl: up.url || '', imageKey: up.key || '',
         }
+        let id
         try {
-          const id = await createDoc('expense_receipts', data)
-          RECEIPTS.unshift({ id, ...data, _persisted: true })
-          try {
-            await createDoc('notifications', {
-              type: 'expense',
-              title: 'มีใบเสร็จค่าใช้จ่ายรออนุมัติ',
-              body: `${data.staff} ส่งใบเสร็จ ${data.vendor} (${formatCurrency(data.amount)}) — กรุณาตรวจสอบ`,
-              read: false, link: '/hr/expense-ocr', createdAt: new Date().toISOString(),
-            })
-            setState('unreadCount', (getState('unreadCount') || 0) + 1)
-          } catch { /* แจ้งเตือนพลาดได้ ไม่กระทบใบเสร็จที่บันทึกไปแล้ว */ }
+          id = await createDoc('expense_receipts', data)
         } catch {
-          RECEIPTS.unshift({ id: 'R' + Date.now(), ...data, _persisted: false })
+          btn.disabled = false; btn.textContent = '🤖 ประมวลผล OCR'
+          showToast('❗ บันทึกใบเสร็จไม่สำเร็จ กรุณาลองใหม่', 'error')
+          return
         }
+        // เดิมถ้ามีใบเสร็จปลอมค้างอยู่ (ยังไม่มีข้อมูลจริงเลย) จะ unshift ใบจริงใหม่ต่อหน้าของปลอมเสมอ
+        // ทำให้กลับไปผสมของปลอมกับของจริงอีก แก้ให้ล้างของปลอมก่อนเมื่อนี่คือใบเสร็จจริงใบแรก
+        if (!RECEIPTS.some(r => r._persisted)) RECEIPTS = []
+        RECEIPTS.unshift({ id, ...data, _persisted: true })
+        try {
+          await createDoc('notifications', {
+            type: 'expense',
+            title: 'มีใบเสร็จค่าใช้จ่ายรออนุมัติ',
+            body: `${data.staff} ส่งใบเสร็จ ${data.vendor} (${formatCurrency(data.amount)}) — กรุณาตรวจสอบ`,
+            read: false, link: '/hr/expense-ocr', createdAt: new Date().toISOString(),
+          })
+          setState('unreadCount', (getState('unreadCount') || 0) + 1)
+        } catch { /* แจ้งเตือนพลาดได้ ไม่กระทบใบเสร็จที่บันทึกไปแล้ว */ }
         close(); render()
         showToast(ocr.demo ? '🤖 Demo mode — ล็อกอินด้วยบัญชีจริงเพื่ออ่านใบเสร็จจริง' : '🤖 AI อ่านใบเสร็จสำเร็จ · ส่งขออนุมัติแล้ว', ocr.demo ? 'info' : 'success')
       } catch (err) {
