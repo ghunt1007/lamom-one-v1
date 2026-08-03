@@ -1,25 +1,39 @@
 import { createDoc, seedDemoData } from '../../core/db.js'
 import { showToast } from '../../core/store.js'
-import { openModal, confirmDialog } from '../../utils/modal.js'
+import { confirmDialog } from '../../utils/modal.js'
+
+// (v1.0.324) เดิมทั้งหน้านี้เป็นการจำลอง UI ล้วนๆ — "เชื่อมต่อ" แค่รอ 1.5 วิแล้วบอกว่าเชื่อมต่อสำเร็จ,
+// progress bar และจำนวนเรคคอร์ดที่ "migrate" ล้วนสุ่มด้วย Math.random(), ไม่มีการเขียน Firestore แม้แต่
+// บรรทัดเดียว (import createDoc มาแต่ไม่เคยเรียกใช้เลย) ปัญหาจริงคือระบบนี้ไม่มีทางเชื่อมต่อฐานข้อมูล V8
+// จริงได้จากโค้ดฝั่ง client เลย (ต้องมี Service Account/Firebase Admin ของ V8 ซึ่งไม่มีในระบบนี้ และการ
+// เชื่อมต่อข้าม Firebase project แบบ live ต้องทำผ่าน backend เท่านั้น) แก้ให้เป็นเครื่องมือ "นำเข้าจากไฟล์
+// Export จริง" แทน — อัปโหลดไฟล์ JSON ที่ export มาจาก V8 จริง แล้วเขียนแต่ละเรคคอร์ดลง Firestore จริง
+// พร้อมนับผลสำเร็จ/พลาดจริงต่อ collection (ไม่ใช่เลขสุ่ม) รูปแบบไฟล์ที่รองรับ: JSON object คีย์เป็นชื่อ
+// ตาราง V8 (เช่น tbl_customer) หรือชื่อ collection ปลายทาง (เช่น customers) ค่าเป็น array ของเรคคอร์ด
+// ตัดโหมด "Overwrite" ออก (เขียนทับข้ามหลาย collection แบบทั่วไปเสี่ยงเกินไปสำหรับปุ่มเดียว) — โหมดเดียว
+// ที่รองรับคือ "เพิ่มข้อมูลใหม่" (append, createDoc ต่อเรคคอร์ด) การแปลงชื่อ field ระหว่างสคีมา V8/V1 เป็น
+// คนละเรื่องกับหน้านี้ (อยู่ในความรับผิดชอบของ DataMapping.js) หน้านี้ทำหน้าที่แค่ "อัปโหลด → เขียนจริง"
 
 const COLLECTIONS = [
-  { id: 'customers', label: 'ลูกค้า', icon: '👥', v8table: 'tbl_customer', fields: 9 },
-  { id: 'vehicles', label: 'สต็อกรถ', icon: '🚗', v8table: 'tbl_vehicle', fields: 12 },
-  { id: 'leads', label: 'Leads', icon: '🧲', v8table: 'tbl_lead', fields: 8 },
-  { id: 'bookings', label: 'จองรถ', icon: '📝', v8table: 'tbl_booking', fields: 10 },
-  { id: 'job_cards', label: 'Job Cards', icon: '🔧', v8table: 'tbl_jobcard', fields: 14 },
-  { id: 'parts', label: 'อะไหล่', icon: '🔩', v8table: 'tbl_parts', fields: 7 },
-  { id: 'sales', label: 'ยอดขาย', icon: '💰', v8table: 'tbl_sales', fields: 11 },
-  { id: 'staff', label: 'พนักงาน', icon: '👤', v8table: 'tbl_staff', fields: 8 },
-  { id: 'commissions', label: 'Commission', icon: '🏆', v8table: 'tbl_commission', fields: 6 },
-  { id: 'insurance_policies', label: 'ประกัน', icon: '🛡', v8table: 'tbl_insurance', fields: 9 },
+  { id: 'customers', label: 'ลูกค้า', icon: '👥', v8table: 'tbl_customer' },
+  { id: 'vehicles', label: 'สต็อกรถ', icon: '🚗', v8table: 'tbl_vehicle' },
+  { id: 'leads', label: 'Leads', icon: '🧲', v8table: 'tbl_lead' },
+  { id: 'bookings', label: 'จองรถ', icon: '📝', v8table: 'tbl_booking' },
+  { id: 'job_cards', label: 'Job Cards', icon: '🔧', v8table: 'tbl_jobcard' },
+  { id: 'parts', label: 'อะไหล่', icon: '🔩', v8table: 'tbl_parts' },
+  { id: 'sales', label: 'ยอดขาย', icon: '💰', v8table: 'tbl_sales' },
+  { id: 'staff', label: 'พนักงาน', icon: '👤', v8table: 'tbl_staff' },
+  { id: 'commissions', label: 'Commission', icon: '🏆', v8table: 'tbl_commission' },
+  { id: 'insurance_policies', label: 'ประกัน', icon: '🛡', v8table: 'tbl_insurance' },
 ]
+const COL_BY_KEY = {}
+COLLECTIONS.forEach(c => { COL_BY_KEY[c.id.toLowerCase()] = c; COL_BY_KEY[c.v8table.toLowerCase()] = c })
 
 const STEPS = [
-  { id: 'connect', label: 'เชื่อมต่อ V8', icon: '🔗' },
+  { id: 'upload', label: 'อัปโหลดไฟล์ V8', icon: '📤' },
   { id: 'select', label: 'เลือก Collection', icon: '📋' },
   { id: 'preview', label: 'ตรวจสอบข้อมูล', icon: '🔍' },
-  { id: 'migrate', label: 'Migrate', icon: '🚀' },
+  { id: 'migrate', label: 'นำเข้า', icon: '🚀' },
   { id: 'done', label: 'เสร็จสิ้น', icon: '✅' },
 ]
 
@@ -28,10 +42,11 @@ export default async function V8MigrationPage(container) {
   seedDemoData()
 
   let currentStep = 0
-  let connected = false
+  let parsedCollections = {} // { [collectionId]: { meta, records: [...] } } — จากไฟล์ที่อัปโหลดจริงเท่านั้น
+  let unknownKeys = []
+  let uploadError = ''
   let selectedCols = new Set()
-  let migrationLog = []
-  let migrationProgress = {}
+  let migrationResults = {} // { [collectionId]: { ok, failed, total } }
 
   if (container.__routerGen !== myGen) return
 
@@ -40,8 +55,8 @@ export default async function V8MigrationPage(container) {
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
-            <div class="page-title">🔄 V8 Data Migration Tool</div>
-            <div class="page-subtitle">ย้ายข้อมูลจาก LAMOM CRM V8 → LAMOM ONE V1</div>
+            <div class="page-title">🔄 V8 Data Import Tool</div>
+            <div class="page-subtitle">นำเข้าข้อมูลจากไฟล์ Export ของ LAMOM CRM V8 → LAMOM ONE V1</div>
           </div>
         </div>
 
@@ -72,7 +87,7 @@ export default async function V8MigrationPage(container) {
 
   function renderStep() {
     switch (currentStep) {
-      case 0: return renderConnect()
+      case 0: return renderUpload()
       case 1: return renderSelect()
       case 2: return renderPreview()
       case 3: return renderMigrate()
@@ -81,34 +96,23 @@ export default async function V8MigrationPage(container) {
     }
   }
 
-  function renderConnect() {
+  function renderUpload() {
     return `
       <div class="card" style="padding:24px;max-width:560px;margin:0 auto">
         <div style="text-align:center;margin-bottom:24px">
-          <div style="font-size:3rem;margin-bottom:8px">🔗</div>
-          <div style="font-size:1.1rem;font-weight:700">เชื่อมต่อ LAMOM CRM V8</div>
-          <div style="font-size:0.85rem;color:var(--text-muted);margin-top:4px">ระบุที่อยู่ฐานข้อมูล V8 เพื่อเริ่มการย้ายข้อมูล</div>
+          <div style="font-size:3rem;margin-bottom:8px">📤</div>
+          <div style="font-size:1.1rem;font-weight:700">อัปโหลดไฟล์ Export จาก V8</div>
+          <div style="font-size:0.85rem;color:var(--text-muted);margin-top:4px">ไฟล์ JSON ที่มีคีย์เป็นชื่อตาราง V8 (เช่น tbl_customer) หรือชื่อ collection ปลายทาง (เช่น customers) ค่าเป็น array ของเรคคอร์ด</div>
         </div>
         <div style="display:flex;flex-direction:column;gap:14px">
           <div class="input-group">
-            <label class="input-label">V8 Database URL / Firebase Project ID</label>
-            <input class="input" id="v8-url" placeholder="เช่น lamom-crm-v8.firebaseio.com" value="lamom-crm-v8-demo">
+            <label class="input-label">ไฟล์ Export (.json)</label>
+            <input class="input" type="file" id="v8-file" accept=".json,application/json">
           </div>
-          <div class="input-group">
-            <label class="input-label">Service Account Key (JSON)</label>
-            <textarea class="input" id="v8-key" rows="3" placeholder='{"type":"service_account","project_id":"..."}'></textarea>
-          </div>
-          <div class="input-group">
-            <label class="input-label">Migration Mode</label>
-            <select class="input" id="v8-mode">
-              <option value="demo">Demo Mode (ใช้ข้อมูลจำลอง)</option>
-              <option value="append">Append (เพิ่มข้อมูลใหม่)</option>
-              <option value="overwrite">Overwrite (เขียนทับ)</option>
-            </select>
-          </div>
-          ${connected ? `<div style="background:var(--success-dim);color:var(--success);padding:12px;border-radius:var(--radius-md);font-size:0.85rem">✅ เชื่อมต่อสำเร็จ! พบข้อมูล V8 ที่สามารถย้ายได้</div>` : ''}
-          <button class="btn btn-primary" id="connect-btn" style="width:100%">
-            ${connected ? '✅ เชื่อมต่อแล้ว — ไปต่อ ➡' : '🔗 เชื่อมต่อ'}
+          <span class="input-error" id="v8-err">${uploadError ? '⚠️ ' + uploadError : ''}</span>
+          ${Object.keys(parsedCollections).length ? `<div style="background:var(--success-dim);color:var(--success);padding:12px;border-radius:var(--radius-md);font-size:0.85rem">✅ อ่านไฟล์สำเร็จ — พบ ${Object.keys(parsedCollections).length} collection ที่รู้จัก (${Object.values(parsedCollections).reduce((a,c)=>a+c.records.length,0)} เรคคอร์ดจริง)${unknownKeys.length ? `<br><span style="color:var(--text-muted)">ไม่รู้จักคีย์: ${unknownKeys.join(', ')}</span>` : ''}</div>` : ''}
+          <button class="btn btn-primary" id="upload-next-btn" style="width:100%" ${Object.keys(parsedCollections).length ? '' : 'disabled'}>
+            ไปต่อ ➡
           </button>
         </div>
       </div>
@@ -116,31 +120,34 @@ export default async function V8MigrationPage(container) {
   }
 
   function renderSelect() {
-    const allChecked = selectedCols.size === COLLECTIONS.length
+    const ids = Object.keys(parsedCollections)
+    const allChecked = selectedCols.size === ids.length
     return `
       <div class="card" style="padding:24px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-          <div style="font-weight:700">📋 เลือก Collection ที่ต้องการย้าย</div>
+          <div style="font-weight:700">📋 เลือก Collection ที่ต้องการนำเข้า</div>
           <div style="display:flex;gap:8px">
             <button class="btn btn-secondary btn-sm" id="sel-all">${allChecked ? 'ยกเลิกทั้งหมด' : 'เลือกทั้งหมด'}</button>
             <button class="btn btn-primary btn-sm" id="sel-next" ${selectedCols.size === 0 ? 'disabled' : ''}>ถัดไป ➡</button>
           </div>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">
-          ${COLLECTIONS.map(c => `
+          ${ids.map(id => {
+            const { meta, records } = parsedCollections[id]
+            return `
             <label style="cursor:pointer;display:block">
-              <div class="card" style="padding:14px;border:2px solid ${selectedCols.has(c.id) ? 'var(--primary)' : 'var(--border)'};background:${selectedCols.has(c.id) ? 'var(--primary-dim)' : 'var(--surface)'}">
+              <div class="card" style="padding:14px;border:2px solid ${selectedCols.has(id) ? 'var(--primary)' : 'var(--border)'};background:${selectedCols.has(id) ? 'var(--primary-dim)' : 'var(--surface)'}">
                 <div style="display:flex;align-items:center;gap:10px">
-                  <input type="checkbox" class="col-check" data-id="${c.id}" ${selectedCols.has(c.id) ? 'checked' : ''} style="width:16px;height:16px">
-                  <span style="font-size:1.3rem">${c.icon}</span>
+                  <input type="checkbox" class="col-check" data-id="${id}" ${selectedCols.has(id) ? 'checked' : ''} style="width:16px;height:16px">
+                  <span style="font-size:1.3rem">${meta.icon}</span>
                   <div>
-                    <div style="font-weight:600;font-size:0.88rem">${c.label}</div>
-                    <div style="font-size:0.73rem;color:var(--text-muted)">${c.v8table} • ${c.fields} fields</div>
+                    <div style="font-weight:600;font-size:0.88rem">${meta.label}</div>
+                    <div style="font-size:0.73rem;color:var(--text-muted)">${meta.v8table} • ${records.length} เรคคอร์ดจริง</div>
                   </div>
                 </div>
               </div>
             </label>
-          `).join('')}
+          `}).join('')}
         </div>
         <div style="margin-top:16px;font-size:0.82rem;color:var(--text-muted)">เลือกแล้ว ${selectedCols.size} Collection</div>
       </div>
@@ -148,33 +155,29 @@ export default async function V8MigrationPage(container) {
   }
 
   function renderPreview() {
-    const selected = COLLECTIONS.filter(c => selectedCols.has(c.id))
+    const selected = Object.keys(parsedCollections).filter(id => selectedCols.has(id))
+    const totalRecords = selected.reduce((a, id) => a + parsedCollections[id].records.length, 0)
     return `
       <div style="display:flex;flex-direction:column;gap:16px">
         <div class="card" style="padding:20px">
-          <div style="font-weight:700;margin-bottom:14px">🔍 ตรวจสอบข้อมูลก่อน Migrate</div>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">
+          <div style="font-weight:700;margin-bottom:14px">🔍 ตรวจสอบข้อมูลก่อนนำเข้า</div>
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:16px">
             <div style="background:var(--surface-2);padding:12px;border-radius:var(--radius-md);text-align:center">
               <div style="font-size:1.6rem;font-weight:700;color:var(--primary)">${selected.length}</div>
               <div style="font-size:0.75rem;color:var(--text-muted)">Collections</div>
             </div>
             <div style="background:var(--surface-2);padding:12px;border-radius:var(--radius-md);text-align:center">
-              <div style="font-size:1.6rem;font-weight:700;color:var(--success)">${selected.reduce((a,c) => a + (50 + Math.floor(Math.random()*200)), 0)}</div>
-              <div style="font-size:0.75rem;color:var(--text-muted)">Records ประมาณ</div>
-            </div>
-            <div style="background:var(--surface-2);padding:12px;border-radius:var(--radius-md);text-align:center">
-              <div style="font-size:1.6rem;font-weight:700;color:var(--warning)">${selected.reduce((a,c) => a + c.fields, 0)}</div>
-              <div style="font-size:0.75rem;color:var(--text-muted)">Fields รวม</div>
+              <div style="font-size:1.6rem;font-weight:700;color:var(--success)">${totalRecords}</div>
+              <div style="font-size:0.75rem;color:var(--text-muted)">เรคคอร์ดจริงจากไฟล์</div>
             </div>
           </div>
           <table class="table" style="font-size:0.83rem">
-            <thead><tr><th>Collection</th><th>V8 Table</th><th class="text-right">Fields</th><th>Status</th></tr></thead>
+            <thead><tr><th>Collection</th><th>V8 Table</th><th class="text-right">เรคคอร์ด</th></tr></thead>
             <tbody>
-              ${selected.map(c => `<tr>
-                <td>${c.icon} ${c.label}</td>
-                <td style="color:var(--text-muted);font-family:monospace">${c.v8table}</td>
-                <td class="text-right">${c.fields}</td>
-                <td><span class="badge badge-success">✅ พร้อม</span></td>
+              ${selected.map(id => `<tr>
+                <td>${parsedCollections[id].meta.icon} ${parsedCollections[id].meta.label}</td>
+                <td style="color:var(--text-muted);font-family:monospace">${parsedCollections[id].meta.v8table}</td>
+                <td class="text-right">${parsedCollections[id].records.length}</td>
               </tr>`).join('')}
             </tbody>
           </table>
@@ -183,75 +186,78 @@ export default async function V8MigrationPage(container) {
         <div class="card" style="padding:16px;background:var(--warning-dim);border:1px solid var(--warning)">
           <div style="font-weight:700;color:var(--warning);margin-bottom:6px">⚠️ ข้อควรระวัง</div>
           <ul style="font-size:0.83rem;color:var(--text);padding-left:20px;margin:0;line-height:1.8">
-            <li>Backup ข้อมูลเดิมก่อนทำการ Migrate ทุกครั้ง</li>
-            <li>ตรวจสอบ Firebase Rules ว่าอนุญาตให้ Write ได้</li>
-            <li>หาก Mode = Overwrite ข้อมูลเดิมจะถูกลบทิ้งทั้งหมด</li>
-            <li>ข้อมูล Soft Deleted จาก V8 จะถูก Map ด้วย deleted:true</li>
+            <li>โหมดนี้คือ "เพิ่มข้อมูลใหม่" (append) เท่านั้น — จะสร้างเอกสารใหม่ ไม่แก้ไข/ลบข้อมูลเดิม</li>
+            <li>ชื่อ field ในไฟล์จะถูกเขียนลง Firestore ตรงตามที่มีในไฟล์ — ถ้าชื่อ field ไม่ตรงกับที่ V1 ใช้ ต้องแปลงในไฟล์ก่อนอัปโหลด</li>
+            <li>แนะนำให้ทดสอบกับไฟล์ย่อยก่อน แล้วตรวจสอบผลลัพธ์ในหน้าที่เกี่ยวข้องก่อนนำเข้าไฟล์เต็ม</li>
           </ul>
         </div>
 
         <div style="display:flex;justify-content:space-between">
           <button class="btn btn-secondary" id="prev-btn">◀ ย้อนกลับ</button>
-          <button class="btn btn-primary" id="start-migrate-btn">🚀 เริ่ม Migrate</button>
+          <button class="btn btn-primary" id="start-migrate-btn">🚀 เริ่มนำเข้า</button>
         </div>
       </div>
     `
   }
 
   function renderMigrate() {
-    const selected = COLLECTIONS.filter(c => selectedCols.has(c.id))
+    const selected = Object.keys(parsedCollections).filter(id => selectedCols.has(id))
     return `
       <div class="card" style="padding:24px">
         <div style="text-align:center;margin-bottom:20px">
           <div style="font-size:2.5rem;margin-bottom:8px" id="mig-icon">🚀</div>
-          <div style="font-weight:700;font-size:1.1rem" id="mig-title">กำลัง Migrate ข้อมูล...</div>
-          <div style="font-size:0.83rem;color:var(--text-muted);margin-top:4px" id="mig-sub">กรุณารอสักครู่</div>
+          <div style="font-weight:700;font-size:1.1rem" id="mig-title">กำลังนำเข้าข้อมูล...</div>
+          <div style="font-size:0.83rem;color:var(--text-muted);margin-top:4px" id="mig-sub">กรุณารอสักครู่ — กำลังเขียนลง Firestore จริง</div>
         </div>
 
         <div style="margin-bottom:20px">
-          ${selected.map(c => `
-            <div style="margin-bottom:10px" id="prog-${c.id}">
+          ${selected.map(id => `
+            <div style="margin-bottom:10px" id="prog-${id}">
               <div style="display:flex;justify-content:space-between;font-size:0.83rem;margin-bottom:4px">
-                <span>${c.icon} ${c.label}</span>
-                <span id="prog-label-${c.id}" style="color:var(--text-muted)">รอ...</span>
+                <span>${parsedCollections[id].meta.icon} ${parsedCollections[id].meta.label}</span>
+                <span id="prog-label-${id}" style="color:var(--text-muted)">รอ...</span>
               </div>
               <div style="background:var(--surface-3);border-radius:99px;height:8px;overflow:hidden">
-                <div id="prog-bar-${c.id}" style="height:100%;width:0%;background:var(--primary);border-radius:99px;transition:width 0.3s"></div>
+                <div id="prog-bar-${id}" style="height:100%;width:0%;background:var(--primary);border-radius:99px;transition:width 0.3s"></div>
               </div>
             </div>
           `).join('')}
         </div>
 
         <div style="background:var(--surface-2);border-radius:var(--radius-md);padding:12px;height:150px;overflow-y:auto;font-family:monospace;font-size:0.75rem" id="mig-log">
-          <div style="color:var(--text-muted)">Migration Log:</div>
+          <div style="color:var(--text-muted)">Import Log:</div>
         </div>
       </div>
     `
   }
 
   function renderDone() {
-    const selected = COLLECTIONS.filter(c => selectedCols.has(c.id))
+    const selected = Object.keys(parsedCollections).filter(id => selectedCols.has(id))
+    const totalOk = selected.reduce((a, id) => a + (migrationResults[id]?.ok || 0), 0)
+    const totalFailed = selected.reduce((a, id) => a + (migrationResults[id]?.failed || 0), 0)
     return `
       <div class="card" style="padding:32px;text-align:center;max-width:500px;margin:0 auto">
-        <div style="font-size:4rem;margin-bottom:12px">🎉</div>
-        <div style="font-size:1.3rem;font-weight:700;color:var(--success);margin-bottom:8px">Migration สำเร็จ!</div>
-        <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:24px">ข้อมูลทั้งหมดถูกย้ายมายัง LAMOM ONE V1 เรียบร้อยแล้ว</div>
+        <div style="font-size:4rem;margin-bottom:12px">${totalFailed ? '⚠️' : '🎉'}</div>
+        <div style="font-size:1.3rem;font-weight:700;color:var(--${totalFailed ? 'warning' : 'success'});margin-bottom:8px">นำเข้าข้อมูลเสร็จแล้ว</div>
+        <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:24px">สำเร็จ ${totalOk} เรคคอร์ด${totalFailed ? ` · พลาด ${totalFailed} เรคคอร์ด` : ''}</div>
 
         <div style="background:var(--surface-2);border-radius:var(--radius-lg);padding:16px;margin-bottom:20px">
-          ${selected.map(c => `
+          ${selected.map(id => {
+            const r = migrationResults[id] || { ok: 0, failed: 0 }
+            return `
             <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:0.85rem;border-bottom:1px solid var(--border)">
-              <span>${c.icon} ${c.label}</span>
-              <span style="color:var(--success)">✅ เสร็จแล้ว</span>
+              <span>${parsedCollections[id].meta.icon} ${parsedCollections[id].meta.label}</span>
+              <span style="color:var(--${r.failed ? 'warning' : 'success'})">✅ ${r.ok}${r.failed ? ` · ❌ ${r.failed}` : ''}</span>
             </div>
-          `).join('')}
+          `}).join('')}
           <div style="display:flex;justify-content:space-between;padding:8px 0 0;font-weight:700">
             <span>ทั้งหมด</span>
-            <span style="color:var(--success)">${selected.length} Collections</span>
+            <span style="color:var(--${totalFailed ? 'warning' : 'success'})">${totalOk}/${totalOk + totalFailed} เรคคอร์ด</span>
           </div>
         </div>
 
         <div style="display:flex;gap:8px;justify-content:center">
-          <button class="btn btn-secondary" id="restart-mig">🔄 Migrate ใหม่</button>
+          <button class="btn btn-secondary" id="restart-mig">🔄 นำเข้าไฟล์ใหม่</button>
           <button class="btn btn-primary" onclick="navigate('/')">🏠 กลับ Dashboard</button>
         </div>
       </div>
@@ -259,29 +265,41 @@ export default async function V8MigrationPage(container) {
   }
 
   function bindStepEvents() {
-    // Step 0 — Connect
-    document.getElementById('connect-btn')?.addEventListener('click', () => {
-      const url = document.getElementById('v8-url')?.value.trim()
-      if (!url) { showToast('กรุณาระบุ URL', 'error'); return }
-      const btn = document.getElementById('connect-btn')
-      btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span> กำลังเชื่อมต่อ...'
-      setTimeout(() => {
-        if (container.__routerGen !== myGen) return
-        connected = true
-        if (document.getElementById('v8-url')?.value.includes('demo')) {
-          showToast('✅ เชื่อมต่อ Demo Mode สำเร็จ', 'success')
-          currentStep = 1
-          renderPage()
-        } else {
-          connected = true; renderPage()
-        }
-      }, 1500)
+    // Step 0 — Upload
+    document.getElementById('v8-file')?.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0]
+      if (!file) return
+      uploadError = ''
+      try {
+        const text = await file.text()
+        const json = JSON.parse(text)
+        if (!json || typeof json !== 'object' || Array.isArray(json)) throw new Error('ไฟล์ต้องเป็น JSON object (คีย์=ชื่อตาราง/collection, ค่า=array ของเรคคอร์ด)')
+        parsedCollections = {}
+        unknownKeys = []
+        Object.entries(json).forEach(([key, val]) => {
+          if (!Array.isArray(val)) return
+          const meta = COL_BY_KEY[key.toLowerCase()]
+          if (!meta) { unknownKeys.push(key); return }
+          parsedCollections[meta.id] = { meta, records: val.filter(r => r && typeof r === 'object') }
+        })
+        if (!Object.keys(parsedCollections).length) uploadError = 'ไม่พบ collection ที่รู้จักในไฟล์นี้'
+      } catch (err) {
+        uploadError = 'อ่านไฟล์ไม่สำเร็จ: ' + (err.message || 'รูปแบบไฟล์ไม่ถูกต้อง')
+        parsedCollections = {}
+      }
+      renderPage()
+    })
+    document.getElementById('upload-next-btn')?.addEventListener('click', () => {
+      if (!Object.keys(parsedCollections).length) return
+      selectedCols = new Set(Object.keys(parsedCollections))
+      currentStep = 1; renderPage()
     })
 
     // Step 1 — Select
     document.getElementById('sel-all')?.addEventListener('click', () => {
-      if (selectedCols.size === COLLECTIONS.length) selectedCols.clear()
-      else COLLECTIONS.forEach(c => selectedCols.add(c.id))
+      const ids = Object.keys(parsedCollections)
+      if (selectedCols.size === ids.length) selectedCols.clear()
+      else ids.forEach(id => selectedCols.add(id))
       renderPage()
     })
     document.querySelectorAll('.col-check').forEach(cb => {
@@ -299,7 +317,8 @@ export default async function V8MigrationPage(container) {
     // Step 2 — Preview
     document.getElementById('prev-btn')?.addEventListener('click', () => { currentStep = 1; renderPage() })
     document.getElementById('start-migrate-btn')?.addEventListener('click', async () => {
-      const ok = await confirmDialog({ title: '🚀 เริ่ม Migration', message: `ยืนยันย้ายข้อมูล ${selectedCols.size} Collections ไปยัง LAMOM ONE?`, confirmText: 'เริ่ม', danger: false })
+      const totalRecords = [...selectedCols].reduce((a, id) => a + parsedCollections[id].records.length, 0)
+      const ok = await confirmDialog({ title: '🚀 เริ่มนำเข้าข้อมูล', message: `ยืนยันนำเข้า ${totalRecords} เรคคอร์ด จาก ${selectedCols.size} Collections เข้า Firestore จริง?`, confirmText: 'เริ่ม', danger: false })
       if (!ok) return
       currentStep = 3
       if (container.__routerGen !== myGen) return
@@ -307,9 +326,9 @@ export default async function V8MigrationPage(container) {
       startMigration()
     })
 
-    // Step 4 — Done restart
+    // Step 4 — restart
     document.getElementById('restart-mig')?.addEventListener('click', () => {
-      currentStep = 0; connected = false; selectedCols.clear(); migrationLog = []; renderPage()
+      currentStep = 0; parsedCollections = {}; unknownKeys = []; uploadError = ''; selectedCols.clear(); migrationResults = {}; renderPage()
     })
   }
 
@@ -323,55 +342,52 @@ export default async function V8MigrationPage(container) {
     log.scrollTop = log.scrollHeight
   }
 
-  function startMigration() {
-    const selected = COLLECTIONS.filter(c => selectedCols.has(c.id))
-    let idx = 0
+  // เขียนแต่ละเรคคอร์ดลง Firestore จริงทีละรายการ นับผลสำเร็จ/พลาดจริง (ไม่ใช่ Math.random() แบบเดิม)
+  async function startMigration() {
+    const selected = Object.keys(parsedCollections).filter(id => selectedCols.has(id))
+    addLog('เริ่มนำเข้าข้อมูล...', 'var(--primary)')
 
-    addLog('เริ่มการ Migration...', 'var(--primary)')
-
-    // เดิม chain setInterval+setTimeout นี้ไม่เช็ค routerGen เลยตลอดทั้งลูป ถ้าผู้ใช้ออกจากหน้านี้กลางทาง
-    // (container ถูก reuse ให้หน้าใหม่) callback ที่ค้างอยู่จะยังรันต่อและสุดท้ายเรียก renderPage() ทับ
-    // เนื้อหาหน้าใหม่ที่ผู้ใช้กำลังดูอยู่แบบไม่ทันตั้งตัว แก้ให้เช็คก่อนแตะ DOM ทุกจุดในลูป
-    function migrateNext() {
+    for (const id of selected) {
       if (container.__routerGen !== myGen) return
-      if (idx >= selected.length) {
-        // Done
-        const title = document.getElementById('mig-title')
-        const sub = document.getElementById('mig-sub')
-        const icon = document.getElementById('mig-icon')
-        if (title) title.textContent = 'Migration สำเร็จ!'
-        if (sub) sub.textContent = `ย้าย ${selected.length} Collections เรียบร้อย`
-        if (icon) icon.textContent = '🎉'
-        addLog('✅ Migration เสร็จสมบูรณ์!', 'var(--success)')
-        showToast('🎉 Migration สำเร็จ!', 'success')
-        setTimeout(() => {
-          if (container.__routerGen !== myGen) return
-          currentStep = 4; renderPage()
-        }, 1000)
-        return
-      }
-      const c = selected[idx]
-      const bar = document.getElementById(`prog-bar-${c.id}`)
-      const label = document.getElementById(`prog-label-${c.id}`)
-      addLog(`กำลัง migrate ${c.label} (${c.v8table})...`)
+      const { meta, records } = parsedCollections[id]
+      const bar = document.getElementById(`prog-bar-${id}`)
+      const label = document.getElementById(`prog-label-${id}`)
+      addLog(`กำลังนำเข้า ${meta.label} (${meta.v8table}) — ${records.length} เรคคอร์ด...`)
 
-      let pct = 0
-      const interval = setInterval(() => {
-        if (container.__routerGen !== myGen) { clearInterval(interval); return }
-        pct = Math.min(pct + Math.random() * 20, 100)
-        if (bar) bar.style.width = pct + '%'
-        if (pct >= 100) {
-          clearInterval(interval)
-          if (label) { label.textContent = '✅ เสร็จ'; label.style.color = 'var(--success)' }
-          if (bar) bar.style.background = 'var(--success)'
-          addLog(`✅ ${c.label}: OK (${50 + Math.floor(Math.random() * 200)} records)`, 'var(--success)')
-          idx++
-          setTimeout(migrateNext, 300)
+      let ok = 0, failed = 0
+      for (let i = 0; i < records.length; i++) {
+        if (container.__routerGen !== myGen) return
+        try {
+          await createDoc(id, records[i])
+          ok++
+        } catch (e) {
+          failed++
         }
-      }, 100)
+        const pct = Math.round(((i + 1) / records.length) * 100)
+        if (bar) bar.style.width = pct + '%'
+        if (label) label.textContent = `${i + 1}/${records.length}`
+      }
+      migrationResults[id] = { ok, failed, total: records.length }
+      if (label) { label.textContent = failed ? `✅ ${ok} · ❌ ${failed}` : `✅ เสร็จ (${ok})`; label.style.color = failed ? 'var(--warning)' : 'var(--success)' }
+      if (bar) bar.style.background = failed ? 'var(--warning)' : 'var(--success)'
+      addLog(`✅ ${meta.label}: สำเร็จ ${ok}${failed ? `, พลาด ${failed}` : ''} จาก ${records.length}`, failed ? 'var(--warning)' : 'var(--success)')
     }
 
-    setTimeout(migrateNext, 500)
+    if (container.__routerGen !== myGen) return
+    const title = document.getElementById('mig-title')
+    const sub = document.getElementById('mig-sub')
+    const icon = document.getElementById('mig-icon')
+    const totalOk = selected.reduce((a, id) => a + migrationResults[id].ok, 0)
+    const totalFailed = selected.reduce((a, id) => a + migrationResults[id].failed, 0)
+    if (title) title.textContent = totalFailed ? 'นำเข้าเสร็จ (มีบางรายการพลาด)' : 'นำเข้าสำเร็จ!'
+    if (sub) sub.textContent = `สำเร็จ ${totalOk} เรคคอร์ด${totalFailed ? ` · พลาด ${totalFailed} เรคคอร์ด` : ''}`
+    if (icon) icon.textContent = totalFailed ? '⚠️' : '🎉'
+    addLog('เสร็จสมบูรณ์', totalFailed ? 'var(--warning)' : 'var(--success)')
+    showToast(totalFailed ? `⚠️ นำเข้าเสร็จ — พลาด ${totalFailed} เรคคอร์ด` : '🎉 นำเข้าข้อมูลสำเร็จ!', totalFailed ? 'error' : 'success')
+    setTimeout(() => {
+      if (container.__routerGen !== myGen) return
+      currentStep = 4; renderPage()
+    }, 800)
   }
 
   renderPage()
