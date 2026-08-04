@@ -5,7 +5,7 @@
 import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { getSalesData, listDocs, listAllDocs } from '../../core/db.js'
+import { getSalesData, listDocs, listAllDocs, createDoc, softDelete } from '../../core/db.js'
 import { OCCUPATIONS } from '../../utils/financeMatch.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') }
@@ -36,6 +36,11 @@ export default async function CustomerSegmentationPage(container) {
   let activeTab = 'rfm'
   let rfmTiers = [...RFM_TIERS].map(t => ({ ...t }))
   let dataSource = 'demo'
+  // (v1.0.348) เดิมปุ่ม "+ สร้าง Segment" ไม่อ่านค่า checkbox เงื่อนไขที่เลือกเลยแม้แต่จุดเดียว และ
+  // onConfirm() ไม่เขียน Firestore เลย แค่โชว์ toast สำเร็จหลอกๆ (fake success เหมือนบัคที่แก้ไปแล้วใน
+  // PromotionEngine.js/ExpenseOcr.js) — เพิ่ม savedSegments ให้บันทึก/แสดง/ลบได้จริงผ่าน custom_segments
+  let savedSegments = []
+  try { savedSegments = (await listDocs('custom_segments', [], 'createdAt', 'desc', 100).catch(() => [])).filter(s => !s.deleted) } catch {}
   // แบ่งกลุ่มตามอาชีพ — คำนวณจากข้อมูลลูกค้าจริงใน collection customers เท่านั้น (ต่างจากแท็บอื่นในหน้านี้
   // ที่เป็นตัวเลขจำลอง/hardcoded) ใช้ field occupation/budget ที่เพิ่มใหม่ในฟอร์มลูกค้า
   let occupationSegments = []
@@ -150,6 +155,20 @@ export default async function CustomerSegmentationPage(container) {
           ${kpi('📊 Segments', rfmTiers.length, 'secondary')}
         </div>
 
+        ${savedSegments.length ? `
+        <div class="card" style="padding:12px 14px;margin-bottom:14px">
+          <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">📌 Custom Segment ที่บันทึกไว้ (${savedSegments.length})</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            ${savedSegments.map(s => `
+              <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:0.78rem">
+                <span style="font-weight:700">${escHtml(s.name)}</span>
+                <span style="color:var(--text-muted)">${(s.conditions||[]).map(escHtml).join(', ') || 'ไม่มีเงื่อนไข'}</span>
+                <button class="btn btn-xs btn-ghost del-seg-btn" data-id="${s.id}" style="padding:2px 6px;color:var(--danger)">✕</button>
+              </div>
+            `).join('')}
+          </div>
+        </div>` : ''}
+
         <!-- Tabs -->
         <div style="display:flex;gap:2px;margin-bottom:14px;border-bottom:1px solid var(--border)">
           ${[['rfm','📊 RFM Analysis'],['geo','📍 Geographic'],['vehicle','🚗 By Vehicle'],['occupation','💼 อาชีพ']].map(([tab,label]) =>
@@ -163,6 +182,17 @@ export default async function CustomerSegmentationPage(container) {
 
     container.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => { activeTab = b.dataset.tab; renderPage() }))
     document.getElementById('create-seg-btn')?.addEventListener('click', () => openCreateSeg())
+    container.querySelectorAll('.del-seg-btn').forEach(b => b.addEventListener('click', async () => {
+      try {
+        await softDelete('custom_segments', b.dataset.id)
+      } catch (e) {
+        showToast('❌ ลบไม่สำเร็จ: ' + e.message, 'error')
+        return
+      }
+      savedSegments = savedSegments.filter(s => s.id !== b.dataset.id)
+      renderPage()
+      showToast('ลบ Segment แล้ว', 'warning')
+    }))
     container.querySelectorAll('.seg-card').forEach(el => el.addEventListener('click', () => {
       const tier = rfmTiers.find(t => t.id === el.dataset.id)
       if (tier) openSegDetail(tier)
@@ -346,17 +376,27 @@ export default async function CustomerSegmentationPage(container) {
           <div class="input-group"><label class="input-label">ชื่อ Segment *</label><input class="input" id="cs-name" placeholder="เช่น ลูกค้า EV สาขาเชียงใหม่"></div>
           <div class="input-group"><label class="input-label">เงื่อนไข</label>
             <div style="display:flex;flex-direction:column;gap:8px;padding:10px;background:var(--surface-2);border-radius:var(--radius-sm)">
-              <label style="display:flex;align-items:center;gap:8px;font-size:0.83rem;cursor:pointer"><input type="checkbox" name="cond"> ซื้อในช่วง 6 เดือน</label>
-              <label style="display:flex;align-items:center;gap:8px;font-size:0.83rem;cursor:pointer"><input type="checkbox" name="cond"> มูลค่า > 1 ล้าน</label>
-              <label style="display:flex;align-items:center;gap:8px;font-size:0.83rem;cursor:pointer"><input type="checkbox" name="cond"> ซื้อ EV</label>
-              <label style="display:flex;align-items:center;gap:8px;font-size:0.83rem;cursor:pointer"><input type="checkbox" name="cond"> อยู่ในกรุงเทพฯ</label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.83rem;cursor:pointer"><input type="checkbox" name="cond" value="ซื้อในช่วง 6 เดือน"> ซื้อในช่วง 6 เดือน</label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.83rem;cursor:pointer"><input type="checkbox" name="cond" value="มูลค่า > 1 ล้าน"> มูลค่า > 1 ล้าน</label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.83rem;cursor:pointer"><input type="checkbox" name="cond" value="ซื้อ EV"> ซื้อ EV</label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.83rem;cursor:pointer"><input type="checkbox" name="cond" value="อยู่ในกรุงเทพฯ"> อยู่ในกรุงเทพฯ</label>
             </div>
           </div>
         </div>
       `,
-      onConfirm() {
+      async onConfirm() {
         const name = document.getElementById('cs-name')?.value?.trim()
         if (!name) { showToast('❗ กรุณากรอกชื่อ Segment', 'error'); return }
+        const conditions = [...document.querySelectorAll('input[name="cond"]:checked')].map(el => el.value)
+        let id
+        try {
+          id = await createDoc('custom_segments', { name, conditions })
+        } catch (e) {
+          showToast('❌ บันทึกไม่สำเร็จ: ' + e.message, 'error')
+          return
+        }
+        savedSegments = [{ id, name, conditions }, ...savedSegments]
+        renderPage()
         showToast(`✅ สร้าง Segment "${name}" แล้ว!`, 'success')
       }
     })
