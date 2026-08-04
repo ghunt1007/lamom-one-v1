@@ -2,7 +2,7 @@ import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
-import { getSalesData } from '../../core/db.js'
+import { getSalesData, listDocs, createDoc } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -46,11 +46,11 @@ const DEMO_MEMBERS = [
 ]
 
 const DEMO_HISTORY = [
-  { memberId: 'LM001', date: '2025-06-08', type: 'earn', points: 500, desc: 'ซ่อมบำรุงรายไตรมาส - BYD Seal', balance: 18500 },
-  { memberId: 'LM001', date: '2025-04-20', type: 'earn', points: 1000, desc: 'แนะนำลูกค้าใหม่ - อรนุช สายใจ', balance: 18000 },
-  { memberId: 'LM001', date: '2025-03-01', type: 'redeem', points: -500, desc: 'แลกรับ ฟรีล้างรถ 2 ครั้ง', balance: 17000 },
-  { memberId: 'LM002', date: '2025-05-20', type: 'earn', points: 200, desc: 'ซ่อมบำรุง - MG ZS EV', balance: 6750 },
-  { memberId: 'LM002', date: '2025-01-15', type: 'earn', points: 100, desc: 'ต่ออายุประกันภัย', balance: 6550 },
+  { custName: 'วิชาญ มีโชค', date: '2025-06-08', type: 'earn', points: 500, desc: 'ซ่อมบำรุงรายไตรมาส - BYD Seal', balance: 18500 },
+  { custName: 'วิชาญ มีโชค', date: '2025-04-20', type: 'earn', points: 1000, desc: 'แนะนำลูกค้าใหม่ - อรนุช สายใจ', balance: 18000 },
+  { custName: 'วิชาญ มีโชค', date: '2025-03-01', type: 'redeem', points: -500, desc: 'แลกรับ ฟรีล้างรถ 2 ครั้ง', balance: 17000 },
+  { custName: 'อรนุช สายใจ', date: '2025-05-20', type: 'earn', points: 200, desc: 'ซ่อมบำรุง - MG ZS EV', balance: 6750 },
+  { custName: 'อรนุช สายใจ', date: '2025-01-15', type: 'earn', points: 100, desc: 'ต่ออายุประกันภัย', balance: 6550 },
 ]
 
 const REDEEM_CATALOG = [
@@ -71,7 +71,10 @@ export default async function CustomerLoyaltyPage(container) {
   let dataSource = 'demo'
 
   try {
-    const sales = await getSalesData()
+    const [sales, ledger] = await Promise.all([
+      getSalesData().catch(() => []),
+      listDocs('loyalty_ledger', [], 'createdAt', 'desc', 500).catch(() => []),
+    ])
     if (container.__routerGen !== myGen) return
 
     if (sales.length) {
@@ -97,6 +100,22 @@ export default async function CustomerLoyaltyPage(container) {
       })
       const live = Object.values(byCustomer).filter(m => m.name !== 'ไม่ระบุ')
       if (live.length) { members = live; dataSource = 'live' }
+    }
+
+    // (v1.0.342) เดิม history เป็น DEMO_HISTORY ตายตัวเสมอไม่เกี่ยวกับสมาชิกจริงเลย และปุ่ม +เพิ่มคะแนน/
+    // แลกรับ แค่แก้ตัวแปรในหน่วยความจำ ไม่เขียน Firestore จริง (หายทันทีที่รีเฟรช คะแนนสะสมจริงก็คำนวณ
+    // ใหม่จากยอดขายล้างของเดิมทิ้งทุกครั้ง) — แก้ให้บันทึกจริงลง loyalty_ledger (collection ใหม่ ไม่มี
+    // ข้อมูลอ่อนไหวเกิน CRM ทั่วไป ใช้สิทธิ์ isStaff() ผ่าน catch-all เดิมได้ ไม่ต้องแก้ Firestore Rules)
+    // จับคู่ด้วยชื่อลูกค้า (custName) เพราะ member.id เป็นเลขลำดับที่คำนวณใหม่ทุกครั้งที่โหลดหน้า ใช้ข้าม
+    // รอบโหลดไม่ได้ ส่วน custName เป็น key เดียวที่จริงและคงที่ (เหมือนกับที่ CustomerMap.js/VinDecoder.js ใช้)
+    if (ledger.length) {
+      history = ledger
+      ledger.forEach(h => {
+        const m = members.find(x => x.name === h.custName)
+        if (m) m.points += h.points
+      })
+    } else if (dataSource === 'live') {
+      history = []
     }
   } catch {}
 
@@ -206,15 +225,18 @@ export default async function CustomerLoyaltyPage(container) {
   }
 
   function renderHistory() {
+    if (!history.length) {
+      return `<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">ยังไม่มีประวัติคะแนน</div><div class="empty-desc">กด "+ เพิ่มคะแนน" หรือ "แลกรับ" เพื่อบันทึกรายการแรก</div></div>`
+    }
     return `
       <div class="card" style="padding:0;overflow:hidden">
         <table class="table">
           <thead><tr><th>สมาชิก</th><th>วันที่</th><th>รายการ</th><th class="text-right">คะแนน</th><th class="text-right">ยอดคงเหลือ</th></tr></thead>
           <tbody>
             ${history.map(h => {
-              const m = members.find(x => x.id === h.memberId)
+              const m = members.find(x => x.name === h.custName)
               return `<tr>
-                <td style="font-size:0.85rem;font-weight:600">${m ? escHtml(m.name) : h.memberId}</td>
+                <td style="font-size:0.85rem;font-weight:600">${escHtml(m ? m.name : h.custName)}</td>
                 <td style="font-size:0.82rem">${formatDate(h.date)}</td>
                 <td style="font-size:0.82rem">${escHtml(h.desc)}</td>
                 <td class="text-right" style="font-weight:700;color:${h.points > 0 ? 'var(--success)' : 'var(--danger)'}">
@@ -277,7 +299,7 @@ export default async function CustomerLoyaltyPage(container) {
     const ntInfo = nt ? TIERS[nt] : null
     const toNext = ntInfo ? ntInfo.minPoints - m.points : 0
     const pct = ntInfo ? Math.round((m.points - tier.minPoints) / (ntInfo.minPoints - tier.minPoints) * 100) : 100
-    const mHistory = history.filter(h => h.memberId === m.id)
+    const mHistory = history.filter(h => h.custName === m.name)
 
     openModal({
       title: tier.icon + ' ' + escHtml(m.name) + ' — ' + tier.label,
@@ -336,15 +358,23 @@ export default async function CustomerLoyaltyPage(container) {
         <div class="input-group"><label class="input-label">คะแนนที่เพิ่ม *</label><input type="number" class="input" id="ap-pts" placeholder="100" min="1"></div>
         <div class="input-group"><label class="input-label">หมายเหตุ</label><input class="input" id="ap-note" placeholder="รายละเอียด..."></div>
       </div>`,
-      onConfirm() {
+      async onConfirm() {
         const memberId = document.getElementById('ap-member')?.value
         const pts = +document.getElementById('ap-pts')?.value
         const note = document.getElementById('ap-note')?.value || document.getElementById('ap-type')?.value || ''
         if (!pts || pts <= 0) { showToast('❗ กรุณากรอกคะแนน', 'error'); return }
         const member = members.find(x => x.id === memberId)
         if (!member) return
-        member.points += pts
-        history.unshift({ memberId, date: new Date().toISOString().slice(0,10), type: 'earn', points: pts, desc: note, balance: member.points })
+        const newBalance = member.points + pts
+        const entry = { custName: member.name, date: new Date().toISOString().slice(0, 10), type: 'earn', points: pts, desc: note, balance: newBalance, createdAt: new Date().toISOString() }
+        try {
+          await createDoc('loyalty_ledger', entry)
+        } catch (e) {
+          showToast('❌ บันทึกคะแนนไม่สำเร็จ: ' + e.message, 'error')
+          return
+        }
+        member.points = newBalance
+        history.unshift(entry)
         showToast(`✅ เพิ่ม ${pts} คะแนนให้ ${member.name} แล้ว`, 'success')
         renderPage()
       }
@@ -368,13 +398,21 @@ export default async function CustomerLoyaltyPage(container) {
         </div>
         ${!members.filter(m => m.points >= item.points).length ? `<div style="color:var(--danger);font-size:0.82rem">ไม่มีสมาชิกที่มีคะแนนเพียงพอ</div>` : ''}
       </div>`,
-      onConfirm() {
+      async onConfirm() {
         const memberId = document.getElementById('rd-member')?.value
         if (!memberId) { showToast('❗ กรุณาเลือกสมาชิก', 'error'); return }
         const member = members.find(x => x.id === memberId)
         if (!member || member.points < item.points) { showToast('❗ คะแนนไม่เพียงพอ', 'error'); return }
-        member.points -= item.points
-        history.unshift({ memberId, date: new Date().toISOString().slice(0,10), type: 'redeem', points: -item.points, desc: `แลกรับ: ${item.name}`, balance: member.points })
+        const newBalance = member.points - item.points
+        const entry = { custName: member.name, date: new Date().toISOString().slice(0, 10), type: 'redeem', points: -item.points, desc: `แลกรับ: ${item.name}`, balance: newBalance, createdAt: new Date().toISOString() }
+        try {
+          await createDoc('loyalty_ledger', entry)
+        } catch (e) {
+          showToast('❌ บันทึกไม่สำเร็จ: ' + e.message, 'error')
+          return
+        }
+        member.points = newBalance
+        history.unshift(entry)
         showToast(`🎁 แลกรับ ${item.name} ให้ ${member.name} แล้ว!`, 'success')
         renderPage()
       }
