@@ -5,17 +5,21 @@
 import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { getSalesData, listDocs } from '../../core/db.js'
+import { getSalesData, listDocs, listAllDocs } from '../../core/db.js'
 import { OCCUPATIONS } from '../../utils/financeMatch.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') }
 
+// (v1.0.336) เดิมแท็บ RFM คำนวณ "count" จริงจากยอดขายแล้ว แต่ "avgValue" ทุก tier และ tier "Lost" (ไม่ซื้อ
+// มานาน) ยังเป็นตัวเลข hardcode เสมอแม้ตอน dataSource==='live' — แท็บ "พื้นที่" (GEO_SEGMENTS) และ "รถที่ซื้อ"
+// เป็นข้อมูลปลอมตายตัว 100% ไม่มีการคำนวณจากข้อมูลจริงเลยแม้แต่จุดเดียว (ต่างจากแท็บอาชีพที่เพิ่มไว้ก่อนหน้า
+// นี้แล้วซึ่งเป็นของจริงทั้งหมด) แก้ให้คำนวณจริง: พื้นที่ใช้จังหวัดจริงจากใบจอง (bookings.province — วิธี
+// เดียวกับหน้า Customer Map), รถที่ซื้อใช้ brand+model จริงจากยอดขาย (getSalesData) — SEG_TYPES ตัดรายการ
+// "พฤติกรรม"/"มูลค่า" ที่นิยามไว้แต่ไม่มีแท็บไหนเรียกใช้จริงเลยออก (dead code ไม่ตรงกับแท็บที่มีจริง)
 const SEG_TYPES = {
   rfm:       { label: 'RFM Analysis', icon: '📊', color: 'primary' },
-  behavior:  { label: 'พฤติกรรม', icon: '🎯', color: 'warning' },
   geo:       { label: 'พื้นที่', icon: '📍', color: 'success' },
   vehicle:   { label: 'รถที่ซื้อ', icon: '🚗', color: 'secondary' },
-  value:     { label: 'มูลค่า', icon: '💰', color: 'success' },
 }
 
 const RFM_TIERS = [
@@ -25,15 +29,6 @@ const RFM_TIERS = [
   { id: 'new',          label: 'New',       desc: 'ลูกค้าใหม่ที่เพิ่งซื้อ', color: '#8b5cf6', count: 98, avgValue: 480000, icon: '🆕' },
   { id: 'at_risk',      label: 'At Risk',   desc: 'เคยดีแต่เงียบไปนาน', color: '#ef4444', count: 56, avgValue: 750000, icon: '⚠️' },
   { id: 'lost',         label: 'Lost',      desc: 'ไม่ซื้อมานาน', color: '#94a3b8', count: 31, avgValue: 320000, icon: '😴' },
-]
-
-const GEO_SEGMENTS = [
-  { area: 'กรุงเทพฯ', count: 312, pct: 36, avgValue: 920000 },
-  { area: 'ปริมณฑล', count: 198, pct: 23, avgValue: 780000 },
-  { area: 'ภาคกลาง', count: 124, pct: 14, avgValue: 680000 },
-  { area: 'ภาคเหนือ', count: 98, pct: 11, avgValue: 650000 },
-  { area: 'ภาคใต้', count: 87, pct: 10, avgValue: 720000 },
-  { area: 'ภาคอีสาน', count: 48, pct: 6, avgValue: 590000 },
 ]
 
 export default async function CustomerSegmentationPage(container) {
@@ -62,8 +57,12 @@ export default async function CustomerSegmentationPage(container) {
       .sort((a, b) => b.count - a.count)
   } catch {}
 
+  let vehicleSegments = []
+  let geoSegments = []
+  let sales = []
+
   try {
-    const sales = await getSalesData().catch(() => [])
+    sales = await getSalesData().catch(() => [])
     if (container.__routerGen !== myGen) return
     if (sales.length >= 5) {
       const byCustomer = {}
@@ -72,20 +71,60 @@ export default async function CustomerSegmentationPage(container) {
         if (!byCustomer[name]) byCustomer[name] = { count: 0, total: 0, lastDate: '' }
         byCustomer[name].count++
         byCustomer[name].total += s.salePrice || 0
-        const d = s.bookingDate || ''
+        const d = s.date || ''
         if (d > byCustomer[name].lastDate) byCustomer[name].lastDate = d
       })
       const customers = Object.values(byCustomer).filter(c => c.count > 0)
-      const champions = customers.filter(c => c.count >= 2 && c.total >= 2000000).length
-      const loyal = customers.filter(c => c.count >= 2 && c.total < 2000000).length
-      const newCust = customers.filter(c => c.count === 1).length
-      const atRisk = Math.round(newCust * 0.15)
-      rfmTiers[0].count = champions || rfmTiers[0].count
-      rfmTiers[1].count = loyal || rfmTiers[1].count
-      rfmTiers[2].count = Math.round(newCust * 0.4) || rfmTiers[2].count
-      rfmTiers[3].count = newCust || rfmTiers[3].count
-      rfmTiers[4].count = atRisk || rfmTiers[4].count
+      const twoYearsAgo = new Date(); twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2)
+      const isOld = c => c.lastDate && new Date(c.lastDate) < twoYearsAgo
+      const avgOf = list => list.length ? Math.round(list.reduce((a, c) => a + c.total, 0) / list.length) : 0
+
+      const championsList = customers.filter(c => c.count >= 2 && c.total >= 2000000 && !isOld(c))
+      const loyalList = customers.filter(c => c.count >= 2 && c.total < 2000000 && !isOld(c))
+      const newList = customers.filter(c => c.count === 1 && !isOld(c))
+      const lostList = customers.filter(isOld)
+      // "Potential"/"At Risk" ไม่มี field จริงแยกความแตกต่างจาก New ได้ตรงๆ (ต้องใช้ pipeline stage ที่
+      // ไม่มีในระบบ) ใช้สัดส่วนประมาณจาก New ที่เป็นจำนวนจริงต่อไป (วิธีเดิม ไม่ใช่ตัวเลขปลอมใหม่)
+      rfmTiers[0].count = championsList.length; rfmTiers[0].avgValue = avgOf(championsList) || rfmTiers[0].avgValue
+      rfmTiers[1].count = loyalList.length; rfmTiers[1].avgValue = avgOf(loyalList) || rfmTiers[1].avgValue
+      rfmTiers[2].count = Math.round(newList.length * 0.4); rfmTiers[2].avgValue = avgOf(newList) || rfmTiers[2].avgValue
+      rfmTiers[3].count = newList.length; rfmTiers[3].avgValue = avgOf(newList) || rfmTiers[3].avgValue
+      rfmTiers[4].count = Math.round(newList.length * 0.15); rfmTiers[4].avgValue = avgOf(newList) || rfmTiers[4].avgValue
+      rfmTiers[5].count = lostList.length; rfmTiers[5].avgValue = avgOf(lostList) || rfmTiers[5].avgValue
       dataSource = 'live'
+
+      const byModel = {}
+      sales.forEach(s => {
+        const key = `${s.brand || ''} ${s.model || ''}`.trim() || 'ไม่ระบุรุ่น'
+        if (!byModel[key]) byModel[key] = { model: key, count: 0 }
+        byModel[key].count++
+      })
+      const totalVeh = sales.length
+      vehicleSegments = Object.values(byModel).map(v => ({
+        ...v,
+        pct: Math.round(v.count / totalVeh * 100),
+        repeat: sales.filter(s => `${s.brand||''} ${s.model||''}`.trim() === v.model && byCustomer[s.custName || 'ไม่ระบุ']?.count > 1).length,
+      })).sort((a, b) => b.count - a.count)
+    }
+  } catch {}
+
+  try {
+    const bookings = await listAllDocs('bookings', [], 'createdAt', 'desc')
+    if (container.__routerGen !== myGen) return
+    const real = bookings.filter(b => !b.deleted && b.status !== 'ถอนจอง')
+    const byProvince = {}
+    real.forEach(b => {
+      const p = (b.province || '').trim() || 'ไม่ระบุจังหวัด'
+      if (!byProvince[p]) byProvince[p] = { area: p, count: 0, total: 0 }
+      byProvince[p].count++
+      byProvince[p].total += b.price || 0
+    })
+    const totalGeo = real.length
+    if (totalGeo) {
+      geoSegments = Object.values(byProvince).map(g => ({
+        area: g.area, count: g.count, pct: Math.round(g.count / totalGeo * 100),
+        avgValue: g.count ? Math.round(g.total / g.count) : 0,
+      })).sort((a, b) => b.count - a.count)
     }
   } catch {}
 
@@ -159,15 +198,19 @@ export default async function CustomerSegmentationPage(container) {
   }
 
   function renderGeo() {
-    const maxCount = Math.max(...GEO_SEGMENTS.map(g => g.count))
+    if (!geoSegments.length) {
+      return `<div class="empty-state" style="padding:48px"><div class="empty-icon">📍</div><div class="empty-title">ยังไม่มีข้อมูลใบจองจริง</div></div>`
+    }
+    const maxCount = Math.max(...geoSegments.map(g => g.count))
     return `
+      <div style="font-size:0.72rem;color:var(--success);margin-bottom:8px">● ข้อมูลจริงจากใบจอง (จังหวัด)</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
         <div class="card" style="padding:16px">
           <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">📍 ลูกค้าตามพื้นที่</div>
-          ${GEO_SEGMENTS.map(g => `
+          ${geoSegments.map(g => `
             <div style="margin-bottom:12px">
               <div style="display:flex;justify-content:space-between;font-size:0.82rem;margin-bottom:4px">
-                <span>${g.area}</span>
+                <span>${escHtml(g.area)}</span>
                 <span style="font-weight:700">${g.count} คน (${g.pct}%)</span>
               </div>
               <div style="background:var(--surface-2);border-radius:3px;height:8px">
@@ -178,9 +221,9 @@ export default async function CustomerSegmentationPage(container) {
         </div>
         <div class="card" style="padding:16px">
           <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">💰 มูลค่าเฉลี่ยตามพื้นที่</div>
-          ${GEO_SEGMENTS.map(g => `
+          ${geoSegments.map(g => `
             <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:0.83rem">
-              <span>${g.area}</span>
+              <span>${escHtml(g.area)}</span>
               <span style="font-weight:700;color:var(--success)">${formatCurrency(g.avgValue)}</span>
             </div>
           `).join('')}
@@ -190,14 +233,12 @@ export default async function CustomerSegmentationPage(container) {
   }
 
   function renderVehicle() {
-    const vehicles = [
-      { model: 'BYD Seal AWD', count: 182, pct: 21, repeat: 12 },
-      { model: 'BYD Atto 3', count: 241, pct: 28, repeat: 18 },
-      { model: 'MG ZS EV', count: 198, pct: 23, repeat: 22 },
-      { model: 'BYD Dolphin', count: 134, pct: 15, repeat: 8 },
-      { model: 'อื่นๆ', count: 113, pct: 13, repeat: 5 },
-    ]
+    if (!vehicleSegments.length) {
+      return `<div class="empty-state" style="padding:48px"><div class="empty-icon">🚗</div><div class="empty-title">ยังไม่มีข้อมูลยอดขายจริง</div></div>`
+    }
+    const vehicles = vehicleSegments
     return `
+      <div style="font-size:0.72rem;color:var(--success);margin-bottom:8px">● ข้อมูลจริงจากยอดขาย</div>
       <div class="card" style="overflow:hidden">
         <table style="width:100%;border-collapse:collapse">
           <thead>
@@ -212,7 +253,7 @@ export default async function CustomerSegmentationPage(container) {
           <tbody>
             ${vehicles.map(v => `
               <tr style="border-bottom:1px solid var(--border)">
-                <td style="padding:10px 14px;font-weight:600">🚗 ${v.model}</td>
+                <td style="padding:10px 14px;font-weight:600">🚗 ${escHtml(v.model)}</td>
                 <td style="padding:10px 14px;text-align:right">${v.count}</td>
                 <td style="padding:10px 14px;text-align:right;font-weight:700;color:var(--primary)">${v.pct}%</td>
                 <td style="padding:10px 14px;text-align:right;color:var(--success)">${v.repeat}</td>
