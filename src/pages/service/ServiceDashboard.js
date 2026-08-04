@@ -25,12 +25,6 @@ const QUICK_LINKS = [
   { icon:'🔋', label:'EV Battery', sub:'ตรวจสุขภาพแบต', path:'/service/ev-battery', color:'success' },
 ]
 
-const DEMO_ALERTS = [
-  { type: 'danger',  msg: 'อะไหล่ใกล้หมด 3 รายการ — ควรสั่งซื้อทันที' },
-  { type: 'warning', msg: 'นัดหมาย Service วันนี้ 5 คัน — ยังไม่เช็คอิน 2 คัน' },
-  { type: 'success', msg: 'งาน QC ผ่านพร้อมส่งคืนลูกค้า 1 คัน ✅' },
-]
-
 const STATUS_COLORS = {
   waiting: 'primary', checkin: 'accent', diagnosing: 'primary',
   inprogress: 'warning', waiting_parts: 'danger', qc: 'success',
@@ -59,11 +53,8 @@ export default async function ServiceDashboard(container) {
       </div>
 
       <!-- Alerts -->
-      <div style="display:flex;flex-direction:column;gap:7px;margin-bottom:20px">
-        ${DEMO_ALERTS.map(a => `
-          <div style="padding:9px 13px;background:var(--surface-2);border-left:3px solid var(--${a.type === 'danger' ? 'danger' : a.type === 'warning' ? 'warning' : 'success'});border-radius:var(--radius-sm);font-size:0.8rem">
-            ${a.type === 'danger' ? '🔴' : a.type === 'warning' ? '⚠️' : '✅'} ${a.msg}
-          </div>`).join('')}
+      <div id="svc-alerts" style="display:flex;flex-direction:column;gap:7px;margin-bottom:20px">
+        ${[...Array(2)].map(() => `<div class="skeleton" style="height:36px;border-radius:var(--radius-sm)"></div>`).join('')}
       </div>
 
       <!-- Quick links -->
@@ -98,11 +89,12 @@ export default async function ServiceDashboard(container) {
 
   if (container.__routerGen !== myGen) return
 
-  let jobs = [], parts = []
+  let jobs = [], parts = [], appts = []
   try {
-    ;[jobs, parts] = await Promise.all([
+    ;[jobs, parts, appts] = await Promise.all([
       listDocs('job_cards', [], 'createdAt', 'desc', 500).catch(() => []),
       listDocs('parts', [], 'name', 'asc', 1000).catch(() => []),
+      listDocs('service_appointments', [], 'date', 'desc', 300).catch(() => []),
     ])
   } catch {}
 
@@ -111,6 +103,8 @@ export default async function ServiceDashboard(container) {
   const active = jobs.filter(j => !['done', 'delivered'].includes(j.status))
   const done = jobs.filter(j => j.status === 'done' || j.status === 'delivered')
   const revenue = done.reduce((s, j) => s + (j.labor || 0), 0)
+  // เดิม "lowParts || 3" — ถ้าอะไหล่ใกล้หมดจริง 0 รายการ (ค่าจริงคือ 0 ซึ่งเป็นค่า falsy) จะโชว์เลข 3
+  // ปลอมแทนทันที ทำให้เข้าใจผิดว่ามีปัญหาทั้งที่ไม่มี แก้ให้ใช้ค่าจริงตรงๆ
   const lowParts = parts.filter(p => (p.qty || 0) <= (p.minQty || 0)).length
 
   const kpiEl = document.getElementById('svc-kpis')
@@ -118,8 +112,25 @@ export default async function ServiceDashboard(container) {
     ${kCard('🔧', 'งาน Active', active.length, 'warning', '/service/jobs')}
     ${kCard('✅', 'เสร็จแล้ว', done.length, 'success', '/service/jobs')}
     ${kCard('💰', 'รายได้ค่าแรง', formatCurrency(revenue), 'accent', '/service/jobs')}
-    ${kCard('⚠️', 'อะไหล่ใกล้หมด', lowParts || 3, 'danger', '/service/parts')}
+    ${kCard('⚠️', 'อะไหล่ใกล้หมด', lowParts, lowParts > 0 ? 'danger' : 'success', '/service/parts')}
   `
+
+  // (v1.0.338) เดิม DEMO_ALERTS 3 ข้อความปลอมตายตัว ไม่เคยตรวจข้อมูลจริงเลย (ต่างจาก CrmDashboard.js ที่มี
+  // ระบบแจ้งเตือนจากข้อมูลจริงแล้ว) แก้ให้ตรวจจริงจากข้อมูลที่โหลดมาอยู่แล้ว/เพิ่มโหลด service_appointments จริง
+  const alertsEl = document.getElementById('svc-alerts')
+  if (alertsEl) {
+    const today = new Date().toISOString().slice(0, 10)
+    const todayAppts = appts.filter(a => (a.date || '').slice(0, 10) === today && !['cancelled', 'noshow'].includes(a.status))
+    const notCheckedIn = todayAppts.filter(a => a.status === 'scheduled')
+    const qcReady = jobs.filter(j => j.status === 'qc')
+    const alerts = []
+    if (lowParts > 0) alerts.push({ type: 'danger', icon: '🔴', nav: '/service/parts', msg: `อะไหล่ใกล้หมด ${lowParts} รายการ — ควรสั่งซื้อทันที` })
+    if (todayAppts.length) alerts.push({ type: 'warning', icon: '⚠️', nav: '/service/appointment', msg: `นัดหมาย Service วันนี้ ${todayAppts.length} คัน — ยังไม่เช็คอิน ${notCheckedIn.length} คัน` })
+    if (qcReady.length) alerts.push({ type: 'success', icon: '✅', nav: '/service/jobs', msg: `งาน QC ผ่านพร้อมส่งคืนลูกค้า ${qcReady.length} คัน` })
+    alertsEl.innerHTML = alerts.length
+      ? alerts.map(a => `<div data-nav="${a.nav}" style="padding:9px 13px;background:var(--surface-2);border-left:3px solid var(--${a.type});border-radius:var(--radius-sm);font-size:0.8rem;cursor:pointer">${a.icon} ${a.msg}</div>`).join('')
+      : `<div style="padding:9px 13px;background:var(--surface-2);border-left:3px solid var(--success);border-radius:var(--radius-sm);font-size:0.8rem">✅ ไม่มีเรื่องด่วนตอนนี้</div>`
+  }
 
   const activeEl = document.getElementById('svc-active-jobs')
   if (activeEl) {
