@@ -5,7 +5,7 @@
 import { formatCurrency, formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { getSalesData } from '../../core/db.js'
+import { getSalesData, listDocs, createDoc } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -34,8 +34,14 @@ export default async function VipClubPage(container) {
   let dataSource = 'demo'
 
   try {
-    const sales = await getSalesData().catch(() => [])
+    const [sales, referralsRaw, careLog] = await Promise.all([
+      getSalesData().catch(() => []),
+      listDocs('referrals', [], 'submitDate', 'desc', 500).catch(() => []),
+      listDocs('vip_care_log', [], 'createdAt', 'desc', 500).catch(() => []),
+    ])
     if (container.__routerGen !== myGen) return
+    const referralCount = name => referralsRaw.filter(r => r.referrer === name).length
+
     const byName = {}
     for (const s of sales) {
       const name = s.customerName || s.custName || ''
@@ -55,11 +61,36 @@ export default async function VipClubPage(container) {
       vips = topBuyers.map((c, i) => ({
         id: `LV${i+1}`, name: c.name,
         tier: c.totalSpend >= 3000000 ? 'platinum' : c.totalSpend >= 1500000 ? 'gold' : 'silver',
-        totalSpend: c.totalSpend, cars: c.cars, referrals: 0,
+        totalSpend: c.totalSpend, cars: c.cars, referrals: referralCount(c.name),
         manager: '—', lastContact: null, birthday: '—', perks_used: 0,
       }))
       dataSource = 'live'
+    } else {
+      vips.forEach(v => { v.referrals = referralCount(v.name) || v.referrals })
     }
+
+    // (v1.0.343) เดิมปุ่ม "+เพิ่ม VIP"/"บันทึกติดต่อ"/"มอบสิทธิพิเศษ" แค่แก้ตัวแปรในหน่วยความจำ ไม่เขียน
+    // Firestore เลย หายทันทีที่รีเฟรชหน้า — แก้ให้บันทึกจริงลง collection ใหม่ vip_care_log (เก็บเป็น log
+    // เหตุการณ์ ไม่ใช่ profile เดี่ยว เพราะไม่มี id ที่คงที่ข้ามรอบโหลดให้ upsert — จับคู่ด้วยชื่อลูกค้าเหมือน
+    // loyalty_ledger ใน CustomerLoyalty.js) careLog เรียง createdAt desc จาก Firestore แล้วจึงไม่ต้อง
+    // เทียบวันที่เองฝั่ง client — รายการแรกที่เจอต่อชื่อคือรายการล่าสุดจริง
+    const manualAdds = careLog.filter(e => e.type === 'manual_add')
+    manualAdds.forEach((e, i) => {
+      if (!vips.find(v => v.name === e.custName)) {
+        vips.push({
+          id: `VM${i + 1}`, name: e.custName, tier: e.tier || 'silver',
+          totalSpend: e.totalSpend || 0, cars: 0, referrals: referralCount(e.custName),
+          manager: e.manager || '—', lastContact: null, birthday: '—', perks_used: 0,
+        })
+      }
+    })
+    const contactSetNames = new Set()
+    careLog.filter(e => e.type === 'contact' || e.type === 'perk').forEach(e => {
+      const v = vips.find(x => x.name === e.custName)
+      if (!v) return
+      if (!contactSetNames.has(e.custName)) { v.lastContact = e.date; contactSetNames.add(e.custName) }
+      if (e.type === 'perk') v.perks_used++
+    })
   } catch {}
 
   function renderPage() {
@@ -115,7 +146,7 @@ export default async function VipClubPage(container) {
                 <div>
                   <div style="font-weight:700;font-size:0.87rem">${vt?.icon} ${escHtml(v.name)}</div>
                   <div style="font-size:0.72rem;color:var(--text-muted)">🚗 ${v.cars} คัน · 🤝 แนะนำ ${v.referrals} ราย · 🎂 ${v.birthday} · ใช้สิทธิ์ ${v.perks_used} ครั้ง</div>
-                  <div style="font-size:0.72rem;color:var(--${stale?'danger':'text-muted'})">👤 ${v.manager} · ${v.lastContact ? 'ติดต่อล่าสุด ' + timeAgo(v.lastContact) : 'ยังไม่เคยติดต่อ'}${stale?' ⚠️':''}</div>
+                  <div style="font-size:0.72rem;color:var(--${stale?'danger':'text-muted'})">👤 ${escHtml(v.manager)} · ${v.lastContact ? 'ติดต่อล่าสุด ' + timeAgo(v.lastContact) : 'ยังไม่เคยติดต่อ'}${stale?' ⚠️':''}</div>
                 </div>
                 <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
                   <span class="badge badge-${vt?.color}" style="font-size:0.63rem">${vt?.icon} ${vt?.label}</span>
@@ -133,9 +164,19 @@ export default async function VipClubPage(container) {
     `
 
     container.querySelectorAll('.tf-btn').forEach(b => b.addEventListener('click', () => { tierFilter = b.dataset.t; renderPage() }))
-    container.querySelectorAll('.contact-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.contact-btn').forEach(b => b.addEventListener('click', async () => {
       const v = vips.find(x => x.id === b.dataset.id)
-      if (v) { v.lastContact = addDays(0); showToast(`📞 บันทึกการติดต่อ ${v.name}`, 'success'); renderPage() }
+      if (!v) return
+      const today = addDays(0)
+      try {
+        await createDoc('vip_care_log', { custName: v.name, type: 'contact', date: today })
+      } catch (e) {
+        showToast('❌ บันทึกไม่สำเร็จ: ' + e.message, 'error')
+        return
+      }
+      v.lastContact = today
+      showToast(`📞 บันทึกการติดต่อ ${v.name}`, 'success')
+      renderPage()
     }))
     container.querySelectorAll('.perk-btn').forEach(b => b.addEventListener('click', () => {
       const v = vips.find(x => x.id === b.dataset.id)
@@ -151,11 +192,22 @@ export default async function VipClubPage(container) {
             <option>ส่วนลดพิเศษรถคันถัดไป 30,000</option>
           </select></div>`,
         confirmText: '🎁 มอบสิทธิ์',
-        onConfirm() {
-          // เดิม toast อ้างว่า "แจ้งทาง LINE" แต่ไม่มีการส่งจริง และ VIP ไม่มีเบอร์โทรในระบบให้ส่ง SMS แทนได้
-          // (ต่างจาก birthday/churn ที่มีเบอร์จากยอดขาย) แก้ให้บอกตรงตามที่ทำจริง — บันทึกในระบบเท่านั้น
-          v.perks_used++; v.lastContact = addDays(0)
-          showToast(`🎁 บันทึกมอบสิทธิ์ให้ ${v.name} แล้ว — กรุณาแจ้งลูกค้าเอง (ยังไม่เชื่อมระบบส่งข้อความอัตโนมัติ)`, 'success'); renderPage()
+        // เดิม toast อ้างว่า "แจ้งทาง LINE" แต่ไม่มีการส่งจริง และ VIP ไม่มีเบอร์โทรในระบบให้ส่ง SMS แทนได้
+        // (ต่างจาก birthday/churn ที่มีเบอร์จากยอดขาย) แก้ให้บอกตรงตามที่ทำจริง — บันทึกในระบบเท่านั้น
+        // (v1.0.343) เดิมยังไม่อ่านค่าที่เลือกในดรอปดาวน์ #pk-perk เลยด้วย (toast/บันทึกเป็นข้อความทั่วไปเสมอ
+        // ไม่ว่าจะเลือกสิทธิ์ไหน) และไม่เขียน Firestore เลย (หายทันทีที่รีเฟรช) — แก้ทั้งสองจุด
+        async onConfirm() {
+          const perk = document.getElementById('pk-perk')?.value || 'สิทธิพิเศษ'
+          const today = addDays(0)
+          try {
+            await createDoc('vip_care_log', { custName: v.name, type: 'perk', desc: perk, date: today })
+          } catch (e) {
+            showToast('❌ บันทึกไม่สำเร็จ: ' + e.message, 'error')
+            return
+          }
+          v.perks_used++; v.lastContact = today
+          showToast(`🎁 บันทึกมอบสิทธิ์ "${perk}" ให้ ${v.name} แล้ว — กรุณาแจ้งลูกค้าเอง (ยังไม่เชื่อมระบบส่งข้อความอัตโนมัติ)`, 'success')
+          renderPage()
         }
       })
     }))
@@ -168,12 +220,19 @@ export default async function VipClubPage(container) {
           <div class="input-group"><label class="input-label">ยอดสะสม (บาท)</label><input class="input" type="number" id="vp-spend" value="0"></div>
           <div class="input-group"><label class="input-label">ผู้ดูแล</label><input class="input" id="vp-manager"></div>
         </div>`,
-        onConfirm() {
+        async onConfirm() {
           const name = document.getElementById('vp-name')?.value?.trim()
           if (!name) { showToast('❗ กรอกชื่อ', 'error'); return }
           const spend = parseInt(document.getElementById('vp-spend')?.value) || 0
           const tier = spend >= 3000000 ? 'platinum' : spend >= 1500000 ? 'gold' : 'silver'
-          vips.push({ id:`V${String(vips.length+1).padStart(3,'0')}`, name, tier, totalSpend:spend, cars:1, referrals:0, manager:document.getElementById('vp-manager')?.value||'—', lastContact:addDays(0), birthday:'—', perks_used:0 })
+          const manager = document.getElementById('vp-manager')?.value || '—'
+          try {
+            await createDoc('vip_care_log', { custName: name, type: 'manual_add', tier, totalSpend: spend, manager })
+          } catch (e) {
+            showToast('❌ บันทึกไม่สำเร็จ: ' + e.message, 'error')
+            return
+          }
+          vips.push({ id:`V${String(vips.length+1).padStart(3,'0')}`, name, tier, totalSpend:spend, cars:1, referrals:0, manager, lastContact:addDays(0), birthday:'—', perks_used:0 })
           showToast(`👑 เพิ่ม VIP ระดับ ${VIP_TIERS[tier].label}`, 'success'); renderPage()
         }
       })
