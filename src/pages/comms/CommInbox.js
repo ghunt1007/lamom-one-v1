@@ -5,8 +5,16 @@
 import { timeAgo, initials } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { watchDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { suggestCustomerReply, isAiEnabled } from '../../utils/ai.js'
+import { sendSms, sendEmail } from '../../utils/comms.js'
+
+// (v1.0.349) เดิมโหลดข้อความด้วย listDocs() ครั้งเดียวตอนเปิดหน้า ไม่ใช่ real-time จริง (ต้องกดรีเฟรชเอง
+// ถึงจะเห็นข้อความใหม่) และปุ่ม "ตอบกลับ"/"เขียนข้อความ" ไม่เคยส่งออกจริงเลยไม่ว่าช่องทางไหน (แค่ตั้งค่า
+// status/เขียน Firestore แล้วอ้างว่า "ส่งแล้ว") — แก้ให้ใช้ watchDocs() ฟัง real-time จริง และส่งจริงผ่าน
+// sendSms/sendEmail (utils/comms.js) เมื่อมีเบอร์โทร/อีเมลผู้รับจริง — LINE Messaging API ที่ระบบนี้เชื่อม
+// ไว้เป็นแบบ Broadcast อย่างเดียว (ไม่มีการเก็บ LINE userId ต่อลูกค้า) และ Facebook/ภายใน ไม่มี integration
+// เชื่อมจริงเลย จึงบอกตรงไปตรงมาว่ายังส่งอัตโนมัติไม่ได้สำหรับช่องทางเหล่านี้ ไม่ใช่อ้างว่าส่งแล้วเหมือนเดิม
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -38,18 +46,22 @@ export default async function CommInboxPage(container) {
   let selectedId = null
   let search = ''
 
-  async function loadData() {
-    loading = true
-    try { messages = await listDocs('comm_messages', [], 'time', 'desc', 200) } catch (e) { messages = [] }
+  // comm_messages เป็น collection เดียวกับที่ CommHub.js (แชทภายในทีม) ใช้อยู่ด้วย แต่คนละ field shape กัน
+  // — orderBy('time') กันเอกสารของ CommHub (ไม่มี field time ใช้ createdAt แทน) หลุดเข้ามาให้อยู่แล้วโดย
+  // ธรรมชาติของ Firestore (orderBy จะข้ามเอกสารที่ไม่มี field นั้นเสมอ) แต่ยังกันไว้อีกชั้นเผื่อโครงสร้าง
+  // เปลี่ยนในอนาคต
+  const unsub = watchDocs('comm_messages', [], 'time', 'desc', 200, rows => {
+    if (container.__routerGen !== myGen) { unsub(); return }
+    messages = rows.filter(m => CHANNELS[m.channel])
     loading = false
-    if (container.__routerGen === myGen) renderPage()
-  }
+    renderPage()
+  })
 
   function filtered() {
     return messages.filter(m => {
       if (activeChannel !== 'all' && m.channel !== activeChannel) return false
       if (activeStatus !== 'all' && m.status !== activeStatus) return false
-      if (search && !m.sender.toLowerCase().includes(search.toLowerCase()) && !m.subject.toLowerCase().includes(search.toLowerCase())) return false
+      if (search && !(m.sender||'').toLowerCase().includes(search.toLowerCase()) && !(m.subject||'').toLowerCase().includes(search.toLowerCase())) return false
       return true
     })
   }
@@ -114,7 +126,7 @@ export default async function CommInboxPage(container) {
                   <div style="font-size:0.72rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(m.preview)}</div>
                   <div style="display:flex;gap:4px;margin-top:4px">
                     <span style="font-size:0.65rem;color:${ch?.color}">${ch?.icon} ${ch?.label}</span>
-                    ${m.tags.includes('urgent') ? '<span style="font-size:0.65rem;color:var(--danger)">🚨 เร่งด่วน</span>' : ''}
+                    ${(m.tags||[]).includes('urgent') ? '<span style="font-size:0.65rem;color:var(--danger)">🚨 เร่งด่วน</span>' : ''}
                   </div>
                 </div>`
               }).join('')}
@@ -139,10 +151,8 @@ export default async function CommInboxPage(container) {
       selectedId = m.id
       if (m.status === 'unread') {
         try { await updateDocData('comm_messages', m.id, { status: 'read' }) } catch (e) {}
-        await loadData()
-      } else {
-        renderPage()
       }
+      renderPage()
     }))
 
     if (selected) {
@@ -152,8 +162,8 @@ export default async function CommInboxPage(container) {
           await updateDocData('comm_messages', selected.id, { status: 'archived' })
           showToast('📦 เก็บข้อความแล้ว', 'success')
           selectedId = null
-          await loadData()
-        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+          renderPage()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ: ' + e.message, 'error') }
       })
     }
   }
@@ -194,11 +204,22 @@ export default async function CommInboxPage(container) {
       async onConfirm() {
         const txt = document.getElementById('reply-text')?.value?.trim()
         if (!txt) { showToast('❗ กรุณาพิมพ์ข้อความ', 'error'); return false }
+        // (v1.0.349) ส่งจริงได้เฉพาะ SMS/Email ที่มีเบอร์โทร/อีเมลผู้รับบันทึกไว้จริงเท่านั้น (LINE เชื่อมแบบ
+        // Broadcast อย่างเดียว ไม่มี userId ต่อลูกค้าให้ DM ได้ Facebook/ภายใน ไม่มี integration เชื่อมจริงเลย)
+        let sentReal = false
+        let sendErr = ''
+        try {
+          if (m.channel === 'sms' && m.phone) { await sendSms([m.phone], txt); sentReal = true }
+          else if (m.channel === 'email' && m.email) { await sendEmail([m.email], 'Re: ' + m.subject, txt); sentReal = true }
+        } catch (e) { sendErr = e.message }
+        if (sendErr) { showToast('❌ ส่งไม่สำเร็จ: ' + sendErr, 'error'); return false }
         try {
           await updateDocData('comm_messages', m.id, { status: 'replied' })
-          showToast(`✅ ตอบกลับ ${m.sender} แล้ว`, 'success')
-          await loadData()
-        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+          showToast(sentReal
+            ? `✅ ส่ง${CHANNELS[m.channel]?.label}ถึง ${m.sender} แล้ว`
+            : `📝 บันทึกคำตอบแล้ว — ยังไม่มีช่องทางส่งอัตโนมัติสำหรับ${CHANNELS[m.channel]?.label || m.channel} กรุณาส่งให้ ${m.sender} ด้วยตนเอง`,
+            'success')
+        } catch (e) { showToast('บันทึกไม่สำเร็จ: ' + e.message, 'error') }
       }
     })
     el.querySelector('#reply-ai-btn')?.addEventListener('click', async (e) => {
@@ -222,7 +243,9 @@ export default async function CommInboxPage(container) {
           <div class="input-group"><label class="input-label">ช่องทาง</label>
             <select class="input" id="comp-ch">${Object.entries(CHANNELS).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
           </div>
-          <div class="input-group"><label class="input-label">ผู้รับ</label><input class="input" id="comp-to" placeholder="ชื่อหรือเบอร์โทร"></div>
+          <div class="input-group"><label class="input-label">ผู้รับ (ชื่อ)</label><input class="input" id="comp-to" placeholder="ชื่อผู้รับ"></div>
+          <div class="input-group"><label class="input-label">เบอร์โทร (สำหรับ SMS)</label><input class="input" id="comp-phone" placeholder="08x-xxx-xxxx"></div>
+          <div class="input-group"><label class="input-label">อีเมล (สำหรับ Email)</label><input class="input" id="comp-email" placeholder="name@email.com"></div>
           <div class="input-group"><label class="input-label">หัวข้อ</label><input class="input" id="comp-subj" placeholder="หัวข้อข้อความ"></div>
           <div class="input-group"><label class="input-label">ข้อความ</label><textarea class="input" id="comp-body" rows="5" placeholder="พิมพ์ข้อความ..."></textarea></div>
         </div>
@@ -230,22 +253,33 @@ export default async function CommInboxPage(container) {
       async onConfirm() {
         const to = document.getElementById('comp-to')?.value?.trim()
         if (!to) { showToast('❗ กรุณากรอกผู้รับ', 'error'); return false }
+        const channel = document.getElementById('comp-ch')?.value || 'internal'
+        const phone = document.getElementById('comp-phone')?.value?.trim() || ''
+        const email = document.getElementById('comp-email')?.value?.trim() || ''
+        const subject = document.getElementById('comp-subj')?.value || '(ไม่มีหัวข้อ)'
+        const body = document.getElementById('comp-body')?.value || ''
+        // (v1.0.349) ส่งจริงได้เฉพาะ SMS/Email ที่กรอกเบอร์โทร/อีเมลไว้เท่านั้น ช่องทางอื่นบันทึกเป็นบันทึก
+        // ภายในเท่านั้น ไม่อ้างว่าส่งออกจริงเหมือนเดิม
+        let sentReal = false
+        let sendErr = ''
+        try {
+          if (channel === 'sms' && phone) { await sendSms([phone], body); sentReal = true }
+          else if (channel === 'email' && email) { await sendEmail([email], subject, body); sentReal = true }
+        } catch (e) { sendErr = e.message }
+        if (sendErr) { showToast('❌ ส่งไม่สำเร็จ: ' + sendErr, 'error'); return false }
         try {
           await createDoc('comm_messages', {
-            channel: document.getElementById('comp-ch')?.value||'internal',
-            sender: to, avatar: '👤',
-            subject: document.getElementById('comp-subj')?.value||'(ไม่มีหัวข้อ)',
-            preview: document.getElementById('comp-body')?.value||'',
+            channel, sender: to, avatar: '👤', phone, email,
+            subject, preview: body,
             time: new Date().toISOString(), status: 'read', tags: ['outbound']
           })
-          showToast('✅ ส่งข้อความแล้ว!', 'success')
-          await loadData()
-        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+          showToast(sentReal ? `✅ ส่ง${CHANNELS[channel]?.label}ถึง ${to} แล้ว!` : `📝 บันทึกข้อความแล้ว — ยังไม่มีช่องทางส่งอัตโนมัติสำหรับ${CHANNELS[channel]?.label || channel}`, 'success')
+        } catch (e) { showToast('บันทึกไม่สำเร็จ: ' + e.message, 'error') }
       }
     })
   }
 
-  await loadData()
+  renderPage()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
