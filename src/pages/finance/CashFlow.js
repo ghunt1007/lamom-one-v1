@@ -75,8 +75,11 @@ export default async function CashFlowPage(container) {
         const label = ((s.brand || '') + ' ' + (s.model || '')).trim()
         liveFlows.push({ id: 'CF-' + s.id, date: d, type: 'income', cat: 'vehicle_sale',
           desc: 'ขาย ' + label + (s.salesName ? ' — ' + s.salesName : ''), amount: s.salePrice, _live: true })
+        // (v1.0.347) เดิมประมาณต้นทุนที่ 82% ของราคาขายเสมอ ทั้งที่ getSalesData() มี field cost จริงต่อ
+        // ใบจองอยู่แล้ว (ใช้จริงแล้วใน VatReport.js v1.0.320) ใช้ค่าประมาณเฉพาะใบจองที่ยังไม่มีต้นทุนจริง
+        // กรอกไว้เท่านั้น (cost falsy/0)
         liveFlows.push({ id: 'CF-C-' + s.id, date: d, type: 'expense', cat: 'cogs',
-          desc: 'ต้นทุน ' + label, amount: Math.round(s.salePrice * 0.82), _live: true })
+          desc: 'ต้นทุน ' + label, amount: s.cost || Math.round(s.salePrice * 0.82), _live: true })
       })
     } catch {}
 
