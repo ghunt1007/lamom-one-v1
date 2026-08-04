@@ -5,58 +5,72 @@
 import { formatDate, formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listAllDocs, listDocs, createDoc } from '../../core/db.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
-const DEMO_VEHICLES = [
-  { vin: 'LGXC74C44N0123456', plate: '1กข-1234', model: 'BYD Seal AWD', year: 2023, color: 'ดำ', owner: 'สมชาย ใจดี', phone: '085-111', purchaseDate: '2023-08-15', warranty: '2031-08-15', battery: '82.56 kWh', motor: 'Dual Motor 390 kW', serviceCount: 4, lastService: '2026-04-20', insurer: 'วิริยะประกันภัย' },
-  { vin: 'LGXC74C44N0789012', plate: '2ขค-5678', model: 'BYD Dolphin', year: 2022, color: 'ขาว', owner: 'มาลี สุขใจ', phone: '086-222', purchaseDate: '2022-11-02', warranty: '2030-11-02', battery: '44.9 kWh', motor: 'Single 70 kW', serviceCount: 7, lastService: '2026-05-12', insurer: 'กรุงเทพประกันภัย' },
-  { vin: 'LSJW74T96MN345678', plate: '3คง-9012', model: 'MG ZS EV', year: 2021, color: 'แดง', owner: 'ธนพล เที่ยงตรง', phone: '087-333', purchaseDate: '2021-06-20', warranty: '2029-06-20', battery: '50.3 kWh', motor: 'Single 130 kW', serviceCount: 11, lastService: '2026-06-03', insurer: 'ทิพยประกันภัย' },
-  { vin: 'LGXC74C44N0456789', plate: '4งจ-3456', model: 'BYD Atto 3', year: 2023, color: 'น้ำเงิน', owner: 'อรทัย ตั้งใจ', phone: '088-444', purchaseDate: '2023-03-10', warranty: '2031-03-10', battery: '60.5 kWh', motor: 'Single 150 kW', serviceCount: 3, lastService: '2026-02-28', insurer: 'วิริยะประกันภัย' },
-]
+// (v1.0.335) เดิมรถปลอม 4 คัน (DEMO_VEHICLES) ถูกผสมเข้ากับผลค้นหาจริงถาวรเสมอ (ไม่ใช่แค่ตอนไม่มีข้อมูล
+// จริง) และปุ่ม "ประวัติซ่อม" สร้างประวัติซ่อมปลอมขึ้นมาทุกครั้งไม่ว่าจะเป็นรถจริงหรือปลอม ปุ่ม "นัดเช็คระยะ"
+// ก็แค่โชว์ toast สำเร็จ ไม่บันทึกอะไรจริงเลย — แก้ให้ใช้ข้อมูลรถจริงจากใบจอง (bookings — มี vin/whitePlate/
+// redPlate/custName/phone จริงอยู่แล้ว ไม่ใช่ vehicles/Stock ที่เป็นสต็อกก่อนขาย ไม่มีข้อมูลเจ้าของ) จับคู่
+// ประวัติซ่อมจริงจาก job_cards และประกันจริงจาก insurance_policies ด้วยทะเบียนจริง ไม่มีข้อมูลสเปกแบตเตอรี่/
+// มอเตอร์/ประกันแบตจริงในระบบเลย จึงตัดออก (ไม่ควรแต่งขึ้น) ปุ่ม "นัดเช็คระยะ" เขียนจริงลง job_cards
+// (status:'waiting' — เหมือนที่หน้า Job Cards ใช้จริง)
 
 export default async function VinDecoderPage(container) {
   const myGen = container.__routerGen
-  let vehicles = DEMO_VEHICLES.map(v => ({ ...v }))
+  let vehicles = []
   let dataSource = 'demo'
-
-  try {
-    const docs = await listDocs('vehicles', [], 'purchaseDate', 'desc', 500).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map(d => ({
-        vin: d.vin || '',
-        plate: d.plate || d.licensePlate || '',
-        model: d.model || d.vehicleModel || '',
-        year: d.year || new Date().getFullYear(),
-        color: d.color || '',
-        owner: d.owner || d.ownerName || '',
-        phone: d.phone || '',
-        purchaseDate: d.purchaseDate || '',
-        warranty: d.warranty || d.warrantyExpiry || '',
-        battery: d.battery || '',
-        motor: d.motor || '',
-        serviceCount: d.serviceCount || 0,
-        lastService: d.lastService || '',
-        insurer: d.insurer || '',
-      }))
-      vehicles = [...mapped, ...DEMO_VEHICLES]
-      dataSource = 'live'
-    }
-  } catch {}
-
   let result = null
   let notFound = false
   let query = ''
+  let loading = true
+
+  async function loadData() {
+    loading = true
+    let bookings = [], jobs = [], policies = []
+    try { bookings = await listAllDocs('bookings', [], 'createdAt', 'desc') } catch {}
+    try { jobs = await listAllDocs('job_cards', [], 'createdAt', 'desc') } catch {}
+    try { policies = await listDocs('insurance_policies', [], 'endDate', 'desc', 500) } catch {}
+    if (container.__routerGen !== myGen) return
+
+    const realBookings = bookings.filter(b => !b.deleted && b.status !== 'ถอนจอง' && (b.vin || b.whitePlate || b.redPlate))
+    vehicles = realBookings.map(b => {
+      const plate = b.whitePlate || b.redPlate || ''
+      const matchedJobs = jobs.filter(j => (plate && j.plate === plate) || (b.custName && j.custName === b.custName))
+        .sort((a, z) => (z.createdAt || '').localeCompare(a.createdAt || ''))
+      const matchedPolicy = policies.find(p => (plate && p.plate === plate) || p.custName === b.custName)
+      return {
+        vin: b.vin || '',
+        plate,
+        model: `${b.brand || ''} ${b.model || ''}`.trim() || '-',
+        color: b.colorOut || '',
+        owner: b.custName || '',
+        phone: b.phone || '',
+        purchaseDate: b.actualDeliveryDate || b.deliveryDate || b.bookingDate || (b.createdAt || '').slice(0, 10),
+        serviceCount: matchedJobs.length,
+        lastService: matchedJobs[0]?.createdAt || '',
+        insurer: matchedPolicy?.insurer || '',
+        _jobs: matchedJobs,
+      }
+    })
+    dataSource = vehicles.length ? 'live' : 'demo'
+    if (!vehicles.length) vehicles = DEMO_VEHICLES.map(v => ({ ...v, _jobs: [] }))
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
     container.innerHTML = `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
             <div class="page-title">🔎 Vehicle Lookup</div>
-            <div class="page-subtitle">ค้นหารถจาก VIN / ทะเบียน — ดูประวัติครบในที่เดียว${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">ค้นหารถจาก VIN / ทะเบียน — ดูประวัติครบในที่เดียว${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ' <span style="color:var(--text-muted);font-size:0.75rem">Demo (ยังไม่มีข้อมูลใบจองจริง)</span>'}</div>
           </div>
         </div>
 
@@ -67,7 +81,7 @@ export default async function VinDecoderPage(container) {
             <button class="btn btn-primary" id="search-btn">🔎 ค้นหา</button>
           </div>
           <div style="font-size:0.7rem;color:var(--text-muted);margin-top:8px">
-            💡 ลองค้น: ${vehicles.map(v => `<a href="#" class="quick-link" data-q="${escHtml(v.plate)}" style="color:var(--primary);margin-right:8px">${escHtml(v.plate)}</a>`).join('')}
+            💡 ลองค้น: ${vehicles.slice(0, 8).map(v => `<a href="#" class="quick-link" data-q="${escHtml(v.plate)}" style="color:var(--primary);margin-right:8px">${escHtml(v.plate)}</a>`).join('')}
           </div>
         </div>
 
@@ -85,21 +99,18 @@ export default async function VinDecoderPage(container) {
             <div class="card" style="padding:18px;margin-bottom:12px">
               <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:14px">
                 <div>
-                  <div style="font-weight:900;font-size:1.2rem">${escHtml(result.model)} <span style="font-size:0.8rem;color:var(--text-muted)">${result.year}</span></div>
-                  <div style="font-size:0.78rem;color:var(--text-muted);font-family:monospace">VIN: ${escHtml(result.vin)}</div>
+                  <div style="font-weight:900;font-size:1.2rem">${escHtml(result.model)}</div>
+                  <div style="font-size:0.78rem;color:var(--text-muted);font-family:monospace">VIN: ${escHtml(result.vin || '-')}</div>
                 </div>
                 <div style="text-align:right">
-                  <div style="font-weight:700;font-size:1rem">${escHtml(result.plate)}</div>
-                  <div style="font-size:0.72rem;color:var(--text-muted)">สี${escHtml(result.color)}</div>
+                  <div style="font-weight:700;font-size:1rem">${escHtml(result.plate || '-')}</div>
+                  <div style="font-size:0.72rem;color:var(--text-muted)">${result.color ? 'สี' + escHtml(result.color) : ''}</div>
                 </div>
               </div>
               <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
-                ${spec('🔋 แบตเตอรี่', result.battery)}
-                ${spec('⚙️ มอเตอร์', result.motor)}
                 ${spec('📅 ซื้อเมื่อ', formatDate(result.purchaseDate))}
-                ${spec('🛡 ประกันแบตถึง', formatDate(result.warranty))}
                 ${spec('🔧 เข้าศูนย์', result.serviceCount + ' ครั้ง')}
-                ${spec('📆 ซ่อมล่าสุด', formatDate(result.lastService))}
+                ${spec('📆 ซ่อมล่าสุด', result.lastService ? formatDate(result.lastService) : '-')}
               </div>
             </div>
 
@@ -108,8 +119,8 @@ export default async function VinDecoderPage(container) {
               <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">👤 เจ้าของรถ</div>
               <div style="display:flex;justify-content:space-between;align-items:center">
                 <div>
-                  <div style="font-weight:700;font-size:0.9rem">${escHtml(result.owner)}</div>
-                  <div style="font-size:0.73rem;color:var(--text-muted)">📞 ${escHtml(result.phone)} · 🛡 ${escHtml(result.insurer)}</div>
+                  <div style="font-weight:700;font-size:0.9rem">${escHtml(result.owner || '-')}</div>
+                  <div style="font-size:0.73rem;color:var(--text-muted)">📞 ${escHtml(result.phone || '-')}${result.insurer ? ' · 🛡 ' + escHtml(result.insurer) : ''}</div>
                 </div>
                 <div style="display:flex;gap:6px">
                   <button class="btn btn-xs btn-secondary" id="view-history-btn">📖 ประวัติซ่อม</button>
@@ -126,9 +137,8 @@ export default async function VinDecoderPage(container) {
       query = q.trim()
       const norm = query.toUpperCase().replace(/\s|-/g, '')
       result = vehicles.find(v =>
-        v.vin.toUpperCase() === norm ||
-        v.plate.replace(/-/g, '') === query.replace(/-/g, '') ||
-        v.plate === query
+        (v.vin && v.vin.toUpperCase() === norm) ||
+        (v.plate && (v.plate.replace(/-/g, '') === query.replace(/-/g, '') || v.plate === query))
       ) || null
       notFound = !result && query !== ''
       renderPage()
@@ -138,37 +148,29 @@ export default async function VinDecoderPage(container) {
     document.getElementById('vin-input')?.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(e.target.value) })
     container.querySelectorAll('.quick-link').forEach(a => a.addEventListener('click', e => { e.preventDefault(); doSearch(a.dataset.q) }))
     document.getElementById('view-history-btn')?.addEventListener('click', () => {
-      const mockHistory = Array.from({ length: Math.min(result.serviceCount, 5) }, (_, i) => {
-        const d = new Date(result.lastService); d.setMonth(d.getMonth() - i * 3)
-        const svc = ['ตรวจเช็คระยะ', 'เปลี่ยนยาง', 'ล้างแอร์', 'ตรวจระบบเบรก', 'ตรวจสภาพทั่วไป']
-        const cost = [3500, 8200, 2800, 4500, 1500]
-        return { date: d.toISOString().slice(0,10), service: svc[i%5], cost: cost[i%5] }
-      })
+      const history = result._jobs || []
       openModal({
         title: '📖 ประวัติซ่อม — ' + escHtml(result.plate),
         size: 'md',
         body: `
           <div style="font-size:0.82rem">
-            <div style="font-size:0.74rem;color:var(--text-muted);margin-bottom:10px">🚗 ${escHtml(result.model)} · 👤 ${escHtml(result.owner)} · 📞 ${escHtml(result.phone)}</div>
-            <table style="width:100%;border-collapse:collapse;font-size:0.76rem">
+            <div style="font-size:0.74rem;color:var(--text-muted);margin-bottom:10px">🚗 ${escHtml(result.model)} · 👤 ${escHtml(result.owner || '-')} · 📞 ${escHtml(result.phone || '-')}</div>
+            ${history.length ? `<table style="width:100%;border-collapse:collapse;font-size:0.76rem">
               <thead>
                 <tr style="border-bottom:2px solid var(--border);background:var(--surface-2)">
                   <th style="padding:7px 9px;text-align:left">วันที่</th>
                   <th style="padding:7px 9px;text-align:left">รายการ</th>
-                  <th style="padding:7px 9px;text-align:right">ค่าบริการ</th>
+                  <th style="padding:7px 9px;text-align:right">ค่าแรง</th>
                 </tr>
               </thead>
               <tbody>
-                ${mockHistory.map(h => `<tr style="border-bottom:1px solid var(--border-subtle)">
-                  <td style="padding:6px 9px;color:var(--text-muted)">${h.date}</td>
-                  <td style="padding:6px 9px">${h.service}</td>
-                  <td style="padding:6px 9px;text-align:right;font-weight:700;color:var(--success)">฿${h.cost.toLocaleString()}</td>
+                ${history.map(h => `<tr style="border-bottom:1px solid var(--border-subtle)">
+                  <td style="padding:6px 9px;color:var(--text-muted)">${formatDate(h.createdAt)}</td>
+                  <td style="padding:6px 9px">${escHtml(h.desc || h.type || '-')}</td>
+                  <td style="padding:6px 9px;text-align:right;font-weight:700;color:var(--success)">${formatCurrency(h.labor || 0)}</td>
                 </tr>`).join('')}
               </tbody>
-            </table>
-            <div style="margin-top:10px;font-size:0.72rem;color:var(--text-muted)">
-              ซ่อมทั้งหมด ${result.serviceCount} ครั้ง · ซ่อมล่าสุด ${escHtml(result.lastService)} · 🛡 ประกัน ${escHtml(result.insurer)}
-            </div>
+            </table>` : `<div class="empty-state" style="padding:16px"><div class="empty-icon">🔧</div><div class="empty-title">ยังไม่มีประวัติซ่อมในระบบ</div></div>`}
           </div>
         `
       })
@@ -180,7 +182,7 @@ export default async function VinDecoderPage(container) {
         size: 'sm',
         body: `
           <div style="font-size:0.82rem;display:flex;flex-direction:column;gap:10px">
-            <div style="font-size:0.74rem;color:var(--text-muted)">🚗 ${escHtml(result.model)} · 👤 ${escHtml(result.owner)}</div>
+            <div style="font-size:0.74rem;color:var(--text-muted)">🚗 ${escHtml(result.model)} · 👤 ${escHtml(result.owner || '-')}</div>
             <div><label style="font-size:0.74rem;color:var(--text-muted)">วันที่นัด *</label>
               <input id="bk-date" type="date" class="input" value="${today}" min="${today}"></div>
             <div><label style="font-size:0.74rem;color:var(--text-muted)">ประเภทงาน *</label>
@@ -195,17 +197,32 @@ export default async function VinDecoderPage(container) {
           </div>
         `,
         confirmText: '📅 ยืนยันนัด',
-        onConfirm() {
+        async onConfirm() {
           const date = document.getElementById('bk-date')?.value
           const type = document.getElementById('bk-type')?.value
+          const note = document.getElementById('bk-note')?.value?.trim()
           if (!date) { showToast('กรุณาเลือกวันนัด', 'error'); return false }
-          showToast(`📅 นัด ${result.owner} — ${type} วันที่ ${date} แล้ว`, 'success')
+          try {
+            await createDoc('job_cards', {
+              custName: result.owner || '-', phone: result.phone || '', brand: (result.model||'').split(' ')[0]||'', model: result.model || '',
+              plate: result.plate || '', vin: result.vin || '', type: 'service', status: 'waiting',
+              desc: `${type}${note ? ' — ' + note : ''}`, scheduledDate: date, parts: [], labor: 0,
+            })
+            showToast(`📅 นัด ${result.owner} — ${type} วันที่ ${date} แล้ว — บันทึกจริงเข้าระบบ Job Cards`, 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
         }
       })
     })
   }
 
-  renderPage()
+  await loadData()
 }
+
+// ใช้เฉพาะตอนยังไม่มีข้อมูลใบจองจริงเลยในระบบ (empty-state ตัวอย่าง ไม่ผสมกับของจริง)
+const DEMO_VEHICLES = [
+  { vin: 'LGXC74C44N0123456', plate: '1กข-1234', model: 'BYD Seal AWD', color: 'ดำ', owner: 'สมชาย ใจดี', phone: '085-111', purchaseDate: '2023-08-15', serviceCount: 0, lastService: '', insurer: '' },
+  { vin: 'LGXC74C44N0789012', plate: '2ขค-5678', model: 'BYD Dolphin', color: 'ขาว', owner: 'มาลี สุขใจ', phone: '086-222', purchaseDate: '2022-11-02', serviceCount: 0, lastService: '', insurer: '' },
+]
 
 function spec(l, v) { return `<div style="background:var(--surface-2);padding:8px 10px;border-radius:var(--radius-sm)"><div style="font-size:0.63rem;color:var(--text-muted)">${l}</div><div style="font-weight:700;font-size:0.78rem">${escHtml(String(v ?? ''))}</div></div>` }
