@@ -25,12 +25,6 @@ const QUICK_LINKS = [
   { icon:'📊', label:'Stock Audit', sub:'ตรวจนับสต็อก', path:'/dms/stock-audit', color:'success' },
 ]
 
-const DEMO_ALERTS = [
-  { type: 'danger', msg: 'รถ 2 คันอยู่นาน > 6 เดือน (Vehicle Aging) ควรทำโปร' },
-  { type: 'warning', msg: 'PDI รอดำเนินการ 3 คัน ก่อนส่งมอบลูกค้า' },
-  { type: 'success', msg: 'Trade-In รอประเมินราคา 2 คัน ✅' },
-]
-
 export default async function DmsDashboard(container) {
   const myGen = container.__routerGen
   seedDemoData()
@@ -53,11 +47,8 @@ export default async function DmsDashboard(container) {
       </div>
 
       <!-- Alerts -->
-      <div style="display:flex;flex-direction:column;gap:7px;margin-bottom:20px">
-        ${DEMO_ALERTS.map(a => `
-          <div style="padding:9px 13px;background:var(--surface-2);border-left:3px solid var(--${a.type === 'danger' ? 'danger' : a.type === 'warning' ? 'warning' : 'success'});border-radius:var(--radius-sm);font-size:0.8rem">
-            ${a.type === 'danger' ? '🔴' : a.type === 'warning' ? '⚠️' : '✅'} ${a.msg}
-          </div>`).join('')}
+      <div id="dms-alerts" style="display:flex;flex-direction:column;gap:7px;margin-bottom:20px">
+        ${[...Array(2)].map(() => `<div class="skeleton" style="height:36px;border-radius:var(--radius-sm)"></div>`).join('')}
       </div>
 
       <!-- Quick links -->
@@ -92,13 +83,14 @@ export default async function DmsDashboard(container) {
 
   if (container.__routerGen !== myGen) return
 
-  let stock = [], orders = [], pdis = [], sales = []
+  let stock = [], orders = [], pdis = [], sales = [], tradeIns = []
   try {
-    ;[stock, orders, pdis, sales] = await Promise.all([
+    ;[stock, orders, pdis, sales, tradeIns] = await Promise.all([
       listDocs('vehicles', [], 'arrivedAt', 'desc', 500).catch(() => []),
       listDocs('vehicle_orders', [], 'createdAt', 'desc', 100).catch(() => []),
       listDocs('pdi', [], 'startDate', 'desc', 100).catch(() => []),
       getSalesData().catch(() => []),
+      listDocs('trade_ins', [], 'date', 'desc', 200).catch(() => []),
     ])
   } catch {}
 
@@ -117,6 +109,23 @@ export default async function DmsDashboard(container) {
     ${kCard('🛒', 'คำสั่งซื้อ', activeOrders, 'primary', '/dms/orders')}
     ${kCard('🔧', 'รอ PDI', pendingPdi, 'danger', '/dms/pdi')}
   `
+
+  // (v1.0.337) เดิม DEMO_ALERTS 3 ข้อความปลอมตายตัว ไม่เคยตรวจข้อมูลจริงเลย (ต่างจาก CrmDashboard.js ที่มี
+  // ระบบแจ้งเตือนจากข้อมูลจริงแล้ว) แก้ให้ตรวจจริงจากข้อมูลที่โหลดมาอยู่แล้วในหน้านี้ — วิธีเดียวกับ
+  // renderAlerts() ใน CrmDashboard.js
+  const alertsEl = document.getElementById('dms-alerts')
+  if (alertsEl) {
+    const daysSince = d => Math.floor((Date.now() - new Date(d).getTime()) / 86400000)
+    const aging = stock.filter(v => v.status !== 'sold' && v.arrivedAt && daysSince(v.arrivedAt) >= 180)
+    const pendingAppraisal = tradeIns.filter(t => t.status === 'appraisal')
+    const alerts = []
+    if (aging.length) alerts.push({ type: 'danger', icon: '🔴', nav: '/dms/aging', msg: `รถ ${aging.length} คันอยู่นาน > 6 เดือน (Vehicle Aging) ควรทำโปร` })
+    if (pendingPdi) alerts.push({ type: 'warning', icon: '⚠️', nav: '/dms/pdi', msg: `PDI รอดำเนินการ ${pendingPdi} คัน ก่อนส่งมอบลูกค้า` })
+    if (pendingAppraisal.length) alerts.push({ type: 'success', icon: '✅', nav: '/dms/tradein', msg: `Trade-In รอประเมินราคา ${pendingAppraisal.length} คัน` })
+    alertsEl.innerHTML = alerts.length
+      ? alerts.map(a => `<div data-nav="${a.nav}" style="padding:9px 13px;background:var(--surface-2);border-left:3px solid var(--${a.type});border-radius:var(--radius-sm);font-size:0.8rem;cursor:pointer">${a.icon} ${a.msg}</div>`).join('')
+      : `<div style="padding:9px 13px;background:var(--surface-2);border-left:3px solid var(--success);border-radius:var(--radius-sm);font-size:0.8rem">✅ ไม่มีเรื่องด่วนตอนนี้</div>`
+  }
 
   const recentEl = document.getElementById('dms-recent-stock')
   if (recentEl) {
