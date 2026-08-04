@@ -5,6 +5,9 @@
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
+import { generateSocialContent } from '../../utils/ai.js'
+
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
 const TEMPLATES = [
   { id:'T1', name:'โปรโมชั่นรถใหม่', icon:'🚗', fields:['รุ่นรถ','ราคา','โปรโมชั่น'] },
@@ -17,38 +20,10 @@ const TEMPLATES = [
 
 const PLATFORMS = ['Facebook','Instagram','LINE','TikTok']
 
-const EXAMPLES = {
-  T1: {
-    caption: '🚗 BYD Atto 3 Extended Range — ฟรีดาวน์! ผ่อนเพียง ฿12,900/เดือน\n\n✅ แบตเตอรี่ 84.9 kWh วิ่งได้ 600 กม.\n✅ ฟรีประกันชั้น 1 ปีแรก\n✅ บริการชาร์จฟรี 3 ปี\n\n📞 สนใจติดต่อ LAMOM ONE วันนี้!',
-    hashtags: '#BYD #BYDAtto3 #รถไฟฟ้า #EV #ผ่อนถูก #LAOMONE #ฟรีดาวน์ #รถใหม่2569',
-    alt: 'ภาพรถ BYD Atto 3 สีขาวมุก จอดหน้าโชว์รูม พร้อม banner โปรโมชั่น',
-  },
-  T2: {
-    caption: '🔥 FLASH SALE วันนี้เท่านั้น!\nMG ZS EV ลดทันที ฿50,000\nจาก ฿1,099,000 เหลือ ฿1,049,000\n\n⚡ สต็อกมีจำกัด 5 คันสุดท้าย\n⏰ หมดเขต 30 มิ.ย. 2569',
-    hashtags: '#MGZSEV #FlashSale #รถไฟฟ้าราคาถูก #EV #ลดราคา #LAOMONE',
-    alt: 'รถ MG ZS EV สีขาว พร้อม price tag สีแดงแสดงส่วนลด',
-  },
-  T3: {
-    caption: '🏎 มาลอง Test Drive BYD Atto 3 ฟรี!\nวันเสาร์ที่ 20 มิ.ย. 2569 เวลา 09:00–17:00\n📍 LAMOM ONE โชว์รูม กรุงเทพ\n\n🎁 รับของขวัญฟรีสำหรับผู้ทดลองขับ 30 ท่านแรก!',
-    hashtags: '#TestDrive #BYD #BYDAtto3 #รถไฟฟ้า #EV #TestDriveDay #LAOMONE',
-    alt: 'รถ BYD Atto 3 กำลังแล่นบนถนน นักขับยิ้มพอใจ',
-  },
-  T4: {
-    caption: '⭐ คุณนภา แชร์ประสบการณ์หลังขับ BYD Seal AWD 3 เดือน\n\n"ประหยัดมากจริงๆ ชาร์จครั้งเดียววิ่งได้เกือบ 600 กม. ไม่ต้องแวะปั๊มน้ำมันเลย ประหยัดเดือนละ 8,000 บาท!" 🤩\n\n#ลูกค้าจริง #รีวิวจริง',
-    hashtags: '#BYDSeal #รีวิว #EV #รถไฟฟ้า #ประหยัดน้ำมัน #LAOMONE',
-    alt: 'ลูกค้ายืนข้างรถ BYD Seal สีดำ ยิ้มให้กล้อง',
-  },
-  T5: {
-    caption: '🔧 แจ้งเตือน! คุณสมชาย\nรถ BYD Dolphin ของคุณถึงกำหนดเข้าศูนย์บริการแล้ว\n\n📅 วันจันทร์ที่ 22 มิ.ย. 2569 เวลา 10:00\n🏢 LAMOM ONE Service Center\n\n📞 โทรยืนยัน 02-xxx-xxxx',
-    hashtags: '#AfterSales #BYD #บริการหลังการขาย #LAOMONE',
-    alt: 'ช่างกำลังเช็กระยะรถไฟฟ้าในศูนย์บริการสะอาด',
-  },
-  T6: {
-    caption: '🎉 LAMOM ONE Launch Event!\nพบกับ BYD รุ่นใหม่ล่าสุด และ MG ทุกรุ่นปี 2570\n\n📅 7–8 ก.ค. 2569\n📍 Central World Hall A\n⏰ 10:00–21:00\n\n🎁 ราคา Pre-order พิเศษเฉพาะงานเท่านั้น!',
-    hashtags: '#LAMOMONELaunch #BYD #MG #EV #รถไฟฟ้า #MotorShow2570',
-    alt: 'บูธ LAMOM ONE ตกแต่งสวยงาม มีรถไฟฟ้าจัดแสดงหลายรุ่น',
-  },
-}
+// (v1.0.331) เดิม EXAMPLES ด้านนี้เป็นข้อความสำเร็จรูป 6 ชุดตายตัว ปุ่ม "สร้าง Content ด้วย AI" แค่หยิบ
+// ตัวอย่างชุดที่ตรงกับ template มาโชว์ ไม่อ่านค่าที่พิมพ์กรอกในช่อง รุ่นรถ/ราคา/โปรโมชั่น ฯลฯ เลยแม้แต่ตัว
+// เดียว (ทั้งที่ label บอกว่า "สร้าง Content ด้วย AI") แก้ให้เรียก AI จริงผ่าน generateSocialContent()
+// (utils/ai.js) ส่งข้อมูลที่กรอกจริงไปให้ AI เขียนเนื้อหาจริง
 
 function templateBtn(t, sel) {
   return '<button class="btn btn-sm ' + (sel ? 'btn-primary' : 'btn-secondary') + ' tmpl-btn" data-id="' + t.id + '" style="text-align:left;width:100%;margin-bottom:6px;justify-content:flex-start">' +
@@ -76,12 +51,10 @@ export default async function AiContentFactoryPage(container) {
   }
 
   function render() {
-    const ex = generated || EXAMPLES[selectedTemplate.id] || EXAMPLES['T1']
-
     const fieldInputs = selectedTemplate.fields.map(f =>
       '<div style="margin-bottom:8px">' +
-        '<label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:3px">' + f + '</label>' +
-        '<input class="form-input" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.8rem" placeholder="กรอก ' + f + '..." />' +
+        '<label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:3px">' + esc(f) + '</label>' +
+        '<input class="form-input ai-field-input" data-field="' + esc(f) + '" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.8rem" placeholder="กรอก ' + esc(f) + '..." />' +
       '</div>'
     ).join('')
 
@@ -118,22 +91,24 @@ export default async function AiContentFactoryPage(container) {
 
             <div class="card" style="padding:14px">
               <div style="font-size:0.8rem;font-weight:700;margin-bottom:10px">📤 Content ที่สร้างได้</div>
+              ${!generated ? `<div class="empty-state" style="padding:24px"><div class="empty-icon">✨</div><div class="empty-title">ยังไม่ได้สร้าง Content</div><div class="empty-desc">กรอกข้อมูลด้านซ้ายแล้วกด "✨ สร้าง Content ด้วย AI"</div></div>` : `
               <div style="background:var(--surface-2);border-radius:8px;padding:12px;margin-bottom:10px">
                 <div style="font-size:0.68rem;color:var(--text-muted);margin-bottom:4px">📝 Caption</div>
-                <div style="font-size:0.78rem;line-height:1.6;white-space:pre-line">${ex.caption}</div>
+                <div style="font-size:0.78rem;line-height:1.6;white-space:pre-line">${esc(generated.caption)}</div>
               </div>
               <div style="background:var(--surface-2);border-radius:8px;padding:10px;margin-bottom:10px">
                 <div style="font-size:0.68rem;color:var(--text-muted);margin-bottom:4px"># Hashtags</div>
-                <div style="font-size:0.72rem;color:var(--primary)">${ex.hashtags}</div>
+                <div style="font-size:0.72rem;color:var(--primary)">${esc(generated.hashtags)}</div>
               </div>
               <div style="background:var(--surface-2);border-radius:8px;padding:10px;margin-bottom:12px">
                 <div style="font-size:0.68rem;color:var(--text-muted);margin-bottom:4px">🖼 Alt Text (สำหรับ SEO)</div>
-                <div style="font-size:0.72rem">${ex.alt}</div>
+                <div style="font-size:0.72rem">${esc(generated.alt)}</div>
               </div>
               <div style="display:flex;gap:8px">
                 <button class="btn btn-secondary" id="copy-btn" style="flex:1">📋 Copy ทั้งหมด</button>
                 <button class="btn btn-primary" id="schedule-btn" style="flex:1">📅 Schedule Post</button>
               </div>
+              `}
             </div>
           </div>
         </div>
@@ -150,12 +125,16 @@ export default async function AiContentFactoryPage(container) {
       else selectedPlatforms.push(p)
       render()
     }))
-    document.getElementById('gen-btn')?.addEventListener('click', () => {
-      showToast('✨ AI กำลังสร้าง Content...', 'success')
-      setTimeout(async () => {
-        generated = EXAMPLES[selectedTemplate.id] || EXAMPLES['T1']
+    document.getElementById('gen-btn')?.addEventListener('click', async () => {
+      const fields = {}
+      container.querySelectorAll('.ai-field-input').forEach(inp => { fields[inp.dataset.field] = inp.value.trim() })
+      const btn = document.getElementById('gen-btn'); btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span> AI กำลังสร้าง Content...'
+      try {
+        const result = await generateSocialContent(selectedTemplate.name, fields, selectedPlatforms)
+        generated = { caption: result.caption, hashtags: result.hashtags, alt: result.alt }
         render()
-        showToast('✅ สร้าง Content สำเร็จ!', 'success')
+        if (result.demo) showToast('🤖 Demo mode — ล็อกอินด้วยบัญชีจริงเพื่อสร้าง Content จริง', 'info')
+        else showToast('✅ สร้าง Content สำเร็จ!', 'success')
         try {
           await createDoc('content_history', {
             template: selectedTemplate.name,
@@ -166,7 +145,10 @@ export default async function AiContentFactoryPage(container) {
           })
           await loadHistory()
         } catch (e) { /* ประวัติบันทึกไม่สำเร็จ ไม่กระทบการสร้าง content */ }
-      }, 1000)
+      } catch (err) {
+        showToast(`❗ สร้าง Content ไม่สำเร็จ: ${err.message || 'ไม่ทราบสาเหตุ'}`, 'error')
+        btn.disabled = false; btn.textContent = '✨ สร้าง Content ด้วย AI'
+      }
     })
     document.getElementById('copy-btn')?.addEventListener('click', () => {
       if (!generated) { showToast('สร้าง Content ก่อนแล้วค่อย Copy', 'warning'); return }
@@ -238,7 +220,7 @@ export default async function AiContentFactoryPage(container) {
                 📱 ${h.platforms.join(' · ')}
               </div>
               <div style="font-size:0.74rem;background:var(--surface-2);border-radius:6px;padding:8px;white-space:pre-line;max-height:80px;overflow:hidden;text-overflow:ellipsis">
-                ${h.content.caption.substring(0, 120)}${h.content.caption.length > 120 ? '...' : ''}
+                ${esc((h.content?.caption || '').substring(0, 120))}${(h.content?.caption || '').length > 120 ? '...' : ''}
               </div>
             </div>
           `).join('')}

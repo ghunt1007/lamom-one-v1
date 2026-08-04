@@ -275,6 +275,30 @@ export async function analyzeCampaignAnnouncement({ text = '', imageBase64 = nul
   return { demo: false, rows }
 }
 
+// ── AI Content Factory — สร้าง caption/hashtags/alt text จริงจากข้อมูลที่พนักงานกรอก ─────
+// เดิม AiContentFactory.js ใช้ตัวอย่างข้อความสำเร็จรูป 6 ชุดตายตัว ไม่สนใจข้อมูลที่พิมพ์กรอกเลย
+const CONTENT_FACTORY_PROMPT = `คุณคือนักการตลาดโซเชียลมีเดียของโชว์รูมรถยนต์ไฟฟ้า LAMOM ONE
+เขียนเนื้อหาโพสต์จากข้อมูลที่ให้มาด้านบน ต้องใช้ข้อมูลที่กรอกมาจริงทุกจุด (ห้ามละเลยหรือมองข้าม) เขียนเป็นภาษาไทย น่าสนใจ เหมาะกับแพลตฟอร์มที่ระบุ
+ตอบเป็น JSON เท่านั้น รูปแบบ: {"caption":"ข้อความโพสต์ (ใส่ \\n ขึ้นบรรทัดใหม่ได้)","hashtags":"#tag1 #tag2 #tag3","alt":"คำอธิบายภาพประกอบสั้นๆสำหรับ SEO/Accessibility"}`
+
+export async function generateSocialContent(templateName, fields = {}, platforms = []) {
+  if (!isAiEnabled()) {
+    return { demo: true,
+      caption: `(Demo Mode) เทมเพลต "${templateName}" — ล็อกอินด้วยบัญชีจริงเพื่อให้ AI สร้าง Content จริงจากข้อมูลที่กรอก`,
+      hashtags: '#LAMOMONE', alt: 'ภาพตัวอย่างสำหรับ Demo Mode' }
+  }
+  const fieldText = Object.entries(fields).filter(([,v]) => v).map(([k,v]) => `${k}: ${v}`).join('\n') || '(ไม่ได้กรอกข้อมูลเพิ่มเติม)'
+  const prompt = `เทมเพลต: ${templateName}\nแพลตฟอร์ม: ${platforms.join(', ') || 'ทั่วไป'}\nข้อมูลที่กรอก:\n${fieldText}\n\n${CONTENT_FACTORY_PROMPT}`
+  const data = await callProxy('/generate', {
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: { maxOutputTokens: 800, temperature: 0.7 },
+  })
+  const respText = data.candidates?.[0]?.content?.parts?.filter(p => !p.thought).map(p => p.text || '').join('') || '{}'
+  let obj = {}
+  try { obj = JSON.parse(respText.match(/\{[\s\S]*\}/)?.[0] || '{}') } catch { obj = {} }
+  return { demo: false, caption: obj.caption || '', hashtags: obj.hashtags || '', alt: obj.alt || '' }
+}
+
 export async function generateDailySummary(data) {
   if (!isAiEnabled()) return null
   const prompt = `สรุปประจำวันโชว์รูม:
