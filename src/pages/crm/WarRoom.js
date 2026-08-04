@@ -84,6 +84,13 @@ export default async function WarRoomPage(container) {
   let journeyStages = JOURNEY_STAGES.map(s => ({ ...s }))
   let lostDeals = DEMO_LOST_DEALS.map(d => ({ ...d }))
   let lostDealsLive = false
+  // (v1.0.334) เดิมแท็บ Conversion Funnel/Customer Journey ไม่มี badge บอกสถานะข้อมูลจริง/ตัวอย่างเลย
+  // (ต่างจากหน้า ConversionFunnel.js/CustomerJourney.js ตัวเต็มที่มี badge นี้อยู่แล้ว และต่างจากแท็บ
+  // Win/Loss ในหน้านี้เองที่มี badge อยู่แล้ว) ทำให้ดูเหมือนเป็นข้อมูลจริงเสมอทั้งที่ยังเป็นเลข baseline
+  // ตัวอย่างล้วนถ้ายังไม่มียอดขายจริงเลยแม้แต่คันเดียว (purchased===0) — ส่วนตัวเลขระหว่างขั้น (ติดต่อสำเร็จ/
+  // เข้าโชว์รูม ฯลฯ) เป็นค่าประมาณจากอัตราการเปลี่ยนสถานะจริงผสมกับสัดส่วนอ้างอิงอุตสาหกรรม (วิธีเดียวกับ
+  // หน้าเต็มทั้งสอง ไม่ใช่ปั้นเลขขึ้นมาใหม่) เพิ่ม badge ให้ตรงกับความจริงเหมือนหน้าเต็ม
+  let hasRealSales = false
 
   // ── Load everything up front so the summary strip + all 4 tabs are ready instantly ──
   try {
@@ -98,6 +105,7 @@ export default async function WarRoomPage(container) {
     sales = salesRes
 
     const purchased = sales.length
+    hasRealSales = purchased >= 1
     const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi)
 
     // Conversion funnel — same monotonic-clamp approach as ConversionFunnel.js
@@ -235,6 +243,7 @@ export default async function WarRoomPage(container) {
     const maxCount = funnelStages[0].count || 1
     const s = computeSummary()
     return `
+      <div style="margin-bottom:8px;padding:6px 12px;background:var(--surface-2);border-left:3px solid var(--${hasRealSales?'success':'text-muted'});border-radius:var(--radius-sm);font-size:0.78rem;color:var(--${hasRealSales?'success':'text-muted'})">${hasRealSales?'● Funnel อิงข้อมูลจริงจากใบจอง/Leads (บางขั้นเป็นค่าประมาณจากอัตราเปลี่ยนสถานะ)':'● ตัวอย่างข้อมูล — ยังไม่มียอดขายจริงในระบบ'}</div>
       <div class="card" style="padding:18px;margin-bottom:14px">
         ${funnelStages.map((st, i) => {
           const widthPct = Math.round(st.count / maxCount * 100)
@@ -263,6 +272,7 @@ export default async function WarRoomPage(container) {
 
   function renderJourneyTab() {
     return `
+      <div style="margin-bottom:8px;padding:6px 12px;background:var(--surface-2);border-left:3px solid var(--${hasRealSales?'success':'text-muted'});border-radius:var(--radius-sm);font-size:0.78rem;color:var(--${hasRealSales?'success':'text-muted'})">${hasRealSales?'● Journey อิงข้อมูลจริงจากใบจอง/Leads (บางขั้นเป็นค่าประมาณจากอัตราเปลี่ยนสถานะ)':'● ตัวอย่างข้อมูล — ยังไม่มียอดขายจริงในระบบ'}</div>
       <div class="card" style="padding:20px;margin-bottom:14px">
         <div style="display:flex;flex-direction:column;gap:8px">
           ${journeyStages.map((stage, i) => {
