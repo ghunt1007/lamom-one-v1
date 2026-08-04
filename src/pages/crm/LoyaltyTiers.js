@@ -5,7 +5,7 @@
 import { formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { getSalesData } from '../../core/db.js'
+import { getSalesData, listDocs, createDoc } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -36,7 +36,10 @@ export default async function LoyaltyTiersPage(container) {
   let filterTier = 'all'
 
   try {
-    const sales = await getSalesData().catch(() => [])
+    const [sales, ledger] = await Promise.all([
+      getSalesData().catch(() => []),
+      listDocs('loyalty_tier_ledger', [], 'createdAt', 'desc', 500).catch(() => []),
+    ])
     if (container.__routerGen !== myGen) return
     if (sales.length >= 2) {
       const byName = {}
@@ -56,6 +59,19 @@ export default async function LoyaltyTiersPage(container) {
       // ถาวรตั้งแต่มีข้อมูลจริงเพียงพอ ไม่ใช่ fallback เฉพาะตอนไม่มีข้อมูลจริงเลยแบบที่ตั้งใจไว้
       if (live.length >= 2) { liveMembers = live; dataSource = 'live' }
     }
+
+    // (v1.0.344) เดิมปุ่ม "🎁 เพิ่มคะแนน Manual" แค่แก้ตัวแปรในหน่วยความจำ (m.pts, m.history) ไม่เขียน
+    // Firestore เลย หายทันทีที่รีเฟรชหน้า — แก้ให้บันทึกจริงลง collection ใหม่ loyalty_tier_ledger (แยกจาก
+    // loyalty_ledger ของหน้า Customer Loyalty เพราะเป็นระบบคะแนนคนละสเกลกันคนละหน้ากัน ไม่ควรผสมกัน)
+    // จับคู่ด้วยชื่อสมาชิก — ledger มาจาก listDocs เรียง createdAt desc อยู่แล้วต่อชื่อจึงเรียงถูกลำดับทันที
+    const ledgerByName = {}
+    ledger.forEach(e => { (ledgerByName[e.custName] ||= []).push(e) })
+    liveMembers.forEach(m => {
+      const entries = ledgerByName[m.name] || []
+      if (!entries.length) return
+      m.pts += entries.reduce((a, e) => a + (e.pts || 0), 0)
+      m.history = [...entries.map(e => ({ date: e.date, pts: e.pts, desc: e.desc })), ...m.history]
+    })
   } catch {}
 
   function render() {
@@ -179,12 +195,19 @@ export default async function LoyaltyTiersPage(container) {
               <input class="input" id="man-desc" placeholder="เช่น โบนัสพิเศษ" style="width:100%;margin-top:4px"></div>
           </div>`,
         confirmText: '🎁 เพิ่มคะแนน Manual',
-        onConfirm() {
+        async onConfirm() {
           const pts = parseInt(document.getElementById('man-pts')?.value)
           const desc = document.getElementById('man-desc')?.value.trim() || 'Manual Bonus'
           if (!pts || pts < 1) { showToast('ใส่จำนวนคะแนน', 'warning'); return false }
+          const today = new Date().toISOString().slice(0, 10)
+          try {
+            await createDoc('loyalty_tier_ledger', { custName: m.name, pts, desc, date: today })
+          } catch (e) {
+            showToast('❌ บันทึกไม่สำเร็จ: ' + e.message, 'error')
+            return
+          }
           m.pts += pts
-          m.history.unshift({ date: new Date().toISOString().slice(0, 10), pts, desc })
+          m.history.unshift({ date: today, pts, desc })
           render()
           showToast(`✅ เพิ่ม ${pts} pts ให้ ${m.name} (รวม ${m.pts.toLocaleString()} pts)`, 'success')
         }
