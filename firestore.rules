@@ -1063,6 +1063,14 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // (v1.0.351) Data Retention Policy — เก็บแค่ "นโยบาย" (collection ไหน เก็บกี่วัน) ไม่ใช่ข้อมูลจริงที่จะ
+    // ลบ (การลบจริงใช้สิทธิ์เดิมของ collection ปลายทางแต่ละที่ เช่น error_log ที่ isStaff() ลบได้อยู่แล้ว —
+    // หน้า UI จำกัด owner/admin เท่านั้นที่กดลบได้จริงอีกชั้นหนึ่ง)
+    match /data_retention_policies/{docId} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
     // เหตุการณ์ความปลอดภัยจริง (เช่น login จาก IP ที่ไม่อยู่ใน whitelist) — ทุกคนที่ login สร้างเหตุการณ์ของ
     // ตัวเองได้ (ตอน login) แอดมินอ่าน/จัดการทั้งหมด เหมือน pattern เดียวกับ error_log ด้านบน
     match /security_alerts/{docId} {
@@ -1194,7 +1202,7 @@ service cloud.firestore {
         'vehicle_catalog_overrides', 'vehicle_catalog_additions', 'payment_transactions', 'installment_plans',
         'insurance_claims', 'tax_filings', 'gov_docs',
         'custom_orders', 'parts_rma', 'compliance_events', 'gov_bids', 'system_backup_config', 'v8_field_mappings',
-        'ip_whitelist', 'security_alerts'
+        'ip_whitelist', 'security_alerts', 'data_retention_policies'
       ];
     }
 

@@ -307,6 +307,15 @@ export async function softDelete(colName, id) {
   return updateDocData(colName, id, { deleted: true, deletedAt: new Date().toISOString() })
 }
 
+// (v1.0.351) Data Retention Policy ต้อง "ลบจริง" ถาวร (ไม่ใช่ soft-delete — soft-delete ยังกินพื้นที่/แถว
+// ใน Firestore ตลอดไป ไม่ตอบโจทย์การล้างข้อมูลเก่าจริงๆ) ต้องกดยืนยันเองทุกครั้งจากหน้า UI เท่านั้น ไม่มี
+// cron ลบอัตโนมัติ (ตัดสินใจร่วมกับเจ้าของแล้วว่าเสี่ยงเกินไปสำหรับ MVP แรก) — ใช้ deleteDoc() ของ Firestore
+// SDK ตรงๆ (import ไว้อยู่แล้วแต่ไม่มีจุดไหนเรียกใช้มาก่อนเลย)
+export async function hardDeleteDoc(colName, id) {
+  await deleteDoc(doc(db, colName, id))
+  logAction('delete', colName, id, `ลบถาวรจาก ${colName} (Data Retention)`)
+}
+
 export async function listDocs(colName, filters = [], sortBy = 'createdAt', sortDir = 'desc', maxDocs = 100) {
   let q = collection(db, colName)
   const constraints = [...filters.map(([f, op, v]) => where(f, op, v)), orderBy(sortBy, sortDir), limit(maxDocs)]

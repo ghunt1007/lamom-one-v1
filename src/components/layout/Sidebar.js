@@ -380,6 +380,7 @@ const NAV = [
       { icon: '📅', label: 'Holiday Calendar', path: '/settings/holidays' },
       { icon: '💟', label: 'System Health', path: '/settings/health' },
       { icon: '🔐', label: 'Security', path: '/settings/security' },
+      { icon: '🗑', label: 'Data Retention', path: '/settings/data-retention' },
       { icon: '👥', label: 'User Management', path: '/settings/users-manage' },
       { icon: '👤', label: 'บัญชีของฉัน', path: '/settings/my-account' },
       { icon: 'ℹ️', label: 'About', path: '/settings/about' },

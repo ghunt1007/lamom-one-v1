@@ -513,6 +513,21 @@ describe('ip_whitelist + security_alerts (v1.0.350) — IP Whitelist is monitor-
   })
 })
 
+describe('data_retention_policies (v1.0.351) — presets only, same pattern as security_policies', () => {
+  it('plain staff can read data_retention_policies but not write it', async () => {
+    await seedUser('drp1', { role: 'manager', active: true })
+    const db = testEnv.authenticatedContext('drp1').firestore()
+    await assertSucceeds(db.collection('data_retention_policies').get())
+    await assertFails(db.collection('data_retention_policies').add({ collection: 'error_log', days: 90 }))
+  })
+
+  it('admin can write data_retention_policies', async () => {
+    await seedUser('drp2', { role: 'admin', active: true })
+    const db = testEnv.authenticatedContext('drp2').firestore()
+    await assertSucceeds(db.collection('data_retention_policies').add({ collection: 'error_log', days: 90 }))
+  })
+})
+
 describe('disciplinary_records — rule now matches the real collection name (was "disciplinary")', () => {
   it('plain staff cannot read disciplinary_records', async () => {
     await seedUser('hrGap1', { role: 'sales', active: true })

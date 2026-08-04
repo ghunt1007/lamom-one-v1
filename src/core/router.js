@@ -414,6 +414,7 @@ const routes = {
   '/crm/map': () => import('../pages/crm/CustomerMap.js'),
   // Settings extras
   '/settings/security': () => import('../pages/settings/SecuritySettings.js'),
+  '/settings/data-retention': () => import('../pages/settings/DataRetention.js'),
   '/settings/users-manage': () => import('../pages/settings/UserManagement.js'),
   '/settings/my-account': () => import('../pages/settings/MyAccount.js'),
   // CRM extras
