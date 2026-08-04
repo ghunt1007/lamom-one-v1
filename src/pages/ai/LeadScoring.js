@@ -17,7 +17,7 @@ const STATUS_BASE = { vip: 90, hot: 85, warm: 60, cold: 35, lost: 5 }
 
 // คะแนนเบื้องต้นจากข้อมูลจริงที่มี (ไม่เรียก AI อัตโนมัติทุก Lead เพราะจะแพง/ช้าเกินไปตอนโหลดหน้า)
 // ต้องกด "🤖 วิเคราะห์เจาะลึก" ต่อ Lead ที่สนใจจริงๆถึงจะเรียก Gemini ผ่าน analyzeCustomer()
-function heuristicScore(c) {
+export function heuristicScore(c) {
   let score = STATUS_BASE[c.status] ?? 45
   const signals = []
   if (c.interestedModel) { score += 5; signals.push(`ระบุรถที่สนใจ: ${c.interestedModel}`) }

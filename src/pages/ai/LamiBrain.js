@@ -5,29 +5,87 @@
 import { timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { navigate } from '../../core/router.js'
 import { askLami, isAiEnabled } from '../../utils/ai.js'
-import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, seedDemoData, getSalesData } from '../../core/db.js'
+import { heuristicScore } from './LeadScoring.js'
 
+// (v1.0.341) เดิม status/accuracy ต่อ Skill เป็นตัวเลข hardcode ล้วน ไม่มีระบบวัดความแม่นยำจริงในระบบเลย
+// (ต้องมี ground-truth ผลจริงเทียบคำแนะนำ AI ถึงจะวัดได้ — งานสร้างระบบวัดผลใหม่ทั้งหมด ไม่ใช่ scope การแก้
+// บัคเดียวนี้) แก้ตาม pattern เดียวกับ IntegrationSettings.js — เปลี่ยนเป็นทางลัดที่ซื่อสัตย์ไปหน้าฟีเจอร์จริง
+// ที่มีอยู่แล้วในระบบแทนเลขปลอม
 const LAMI_SKILLS = [
-  { id: 'lead_scoring',  label: 'Lead Scoring', icon: '🎯', desc: 'วิเคราะห์และให้คะแนน Lead ตาม Behavior', status: 'active', accuracy: 87 },
-  { id: 'price_suggest', label: 'Price Suggest', icon: '💰', desc: 'แนะนำราคาและส่วนลดที่เหมาะสม', status: 'active', accuracy: 91 },
-  { id: 'follow_up',     label: 'Follow-up AI', icon: '📞', desc: 'กำหนดเวลาและช่องทาง Follow-up ที่ดีที่สุด', status: 'active', accuracy: 83 },
-  { id: 'complaint',     label: 'Complaint AI', icon: '😤', desc: 'วิเคราะห์ความรุนแรงและแนะนำการจัดการ', status: 'active', accuracy: 89 },
-  { id: 'forecast',      label: 'Sales Forecast', icon: '📈', desc: 'พยากรณ์ยอดขายรายสัปดาห์/เดือน', status: 'active', accuracy: 78 },
-  { id: 'inventory',     label: 'Inventory Opt', icon: '📦', desc: 'แนะนำการสั่งสต็อกและป้องกันขาดสต็อก', status: 'learning', accuracy: 72 },
-  { id: 'customer_seg',  label: 'Customer Seg', icon: '👥', desc: 'จัดกลุ่มลูกค้าและแนะนำ Campaign', status: 'active', accuracy: 85 },
-  { id: 'ev_diag',       label: 'EV Diagnostics', icon: '⚡', desc: 'ช่วยวิเคราะห์ Fault Code และแนะนำการซ่อม', status: 'learning', accuracy: 68 },
+  { id: 'lead_scoring',  label: 'Lead Scoring', icon: '🎯', desc: 'วิเคราะห์และให้คะแนน Lead จากข้อมูลจริง', nav: '/ai/lead-scoring' },
+  { id: 'price_suggest', label: 'Price Suggest', icon: '💰', desc: 'แนะนำราคาจากยอดขาย/สต็อกจริง', nav: '/ai/pricing' },
+  { id: 'follow_up',     label: 'Follow-up', icon: '📞', desc: 'ติดตามลูกค้าที่ต้องโทร/นัดต่อ', nav: '/crm/followup' },
+  { id: 'complaint',     label: 'Complaint', icon: '😤', desc: 'บันทึกและจัดการเรื่องร้องเรียนลูกค้า', nav: '/crm/complaints' },
+  { id: 'forecast',      label: 'Sales Forecast', icon: '📈', desc: 'พยากรณ์ยอดขายจากข้อมูลขายจริง', nav: '/analytics/forecast' },
+  { id: 'inventory',     label: 'Inventory', icon: '📦', desc: 'ดูสต็อกรถและวางแผนสั่งเพิ่ม', nav: '/dms/stock' },
+  { id: 'customer_seg',  label: 'Customer Seg', icon: '👥', desc: 'จัดกลุ่มลูกค้าจากข้อมูลจริงเพื่อทำ Campaign', nav: '/crm/segments' },
+  { id: 'ev_diag',       label: 'EV Diagnostics', icon: '⚡', desc: 'ช่วยวิเคราะห์ปัญหารถ EV และแนะนำการซ่อม', nav: '/service/ev-diagnostic' },
 ]
 
-function addMins(n) { const d = new Date(); d.setMinutes(d.getMinutes() - n); return d.toISOString() }
+const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 }
 
-const LAMI_INSIGHTS = [
-  { id: 'I001', type: 'lead',      icon: '🎯', priority: 'high',   time: addMins(10), message: 'Lead วิชัย มีโชค มีโอกาสปิดสูง 87% — แนะนำโทรหาภายใน 2 ชั่วโมง', action: 'ดู Lead' },
-  { id: 'I002', type: 'stock',     icon: '📦', priority: 'high',   time: addMins(25), message: 'BYD Seal AWD เหลือ 2 คัน — มี Lead สนใจ 5 ราย แนะนำสั่งเพิ่ม 5 คัน', action: 'ดูสต็อก' },
-  { id: 'I003', type: 'service',   icon: '🔧', priority: 'medium', time: addMins(40), message: 'Job Card 3 ใบค้างนาน > 5 วัน — ควรตรวจสอบและแจ้งลูกค้า', action: 'ดู Job Card' },
-  { id: 'I004', type: 'forecast',  icon: '📈', priority: 'low',    time: addMins(60), message: 'คาดการณ์ยอดขายเดือนนี้: 18 คัน (+12% vs เดือนก่อน)', action: 'ดู Forecast' },
-  { id: 'I005', type: 'complaint', icon: '⚠️', priority: 'high',   time: addMins(90), message: 'ลูกค้า ชัยวัฒน์ ร้องเรียนเรื่องงานซ่อม — ต้องตอบสนองภายใน 24 ชม.', action: 'ดู Complaint' },
-]
+// (v1.0.341) เดิม LAMI_INSIGHTS 5 ข้อความ hardcode ตายตัว (มีชื่อลูกค้าสมมติ "วิชัย มีโชค"/"ชัยวัฒน์" ปนอยู่
+// ด้วย) ไม่เคยตรวจข้อมูลจริงเลยแม้แต่จุดเดียว — แก้ให้คำนวณจริงจาก Lead/สต็อกรถ/Job Card/ยอดขาย/ร้องเรียนจริง
+function computeInsights({ leads, vehicleModels, jobCards, complaintsList, salesRows }) {
+  const insights = []
+  const now = new Date()
+  const daysSince = d => Math.floor((now.getTime() - new Date(d).getTime()) / 86400000)
+
+  const hottest = leads.map(l => ({ ...l, ...heuristicScore(l) })).sort((a, b) => b.score - a.score).find(l => l.score >= 80)
+  if (hottest) {
+    insights.push({ icon: '🎯', priority: 'high', time: hottest.createdAt || now.toISOString(), nav: '/ai/lead-scoring', action: 'ดู Lead',
+      message: `Lead ${hottest.custName || 'ไม่ระบุชื่อ'} มีโอกาสปิดสูง ${hottest.score}% — แนะนำติดต่อโดยเร็ว` })
+  }
+
+  let lowStockPick = null
+  for (const m of vehicleModels) {
+    const stock = m.stock || 0
+    if (stock > 2) continue
+    const modelKey = `${m.brand || ''} ${m.model || ''}`.toLowerCase().trim()
+    const interested = leads.filter(l => {
+      if (!l.interestedModel) return false
+      const im = String(l.interestedModel).toLowerCase().trim()
+      return modelKey.includes(im) || im.includes(String(m.model || '').toLowerCase().trim())
+    }).length
+    if (interested > 0 && (!lowStockPick || interested > lowStockPick.interested)) lowStockPick = { m, stock, interested }
+  }
+  if (lowStockPick) {
+    insights.push({ icon: '📦', priority: 'high', time: now.toISOString(), nav: '/dms/stock', action: 'ดูสต็อก',
+      message: `${lowStockPick.m.brand} ${lowStockPick.m.model} เหลือ ${lowStockPick.stock} คัน — มี Lead สนใจ ${lowStockPick.interested} ราย แนะนำสั่งเพิ่ม` })
+  }
+
+  const overdueJobs = jobCards.filter(j => !['done', 'delivered'].includes(j.status) && j.createdAt && daysSince(j.createdAt) > 5)
+  if (overdueJobs.length) {
+    insights.push({ icon: '🔧', priority: 'medium', time: overdueJobs[0].createdAt, nav: '/service/jobs', action: 'ดู Job Card',
+      message: `Job Card ${overdueJobs.length} ใบค้างนาน > 5 วัน — ควรตรวจสอบและแจ้งลูกค้า` })
+  }
+
+  const thisMonthStr = now.toISOString().slice(0, 7)
+  const lastMonthStr = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().slice(0, 7)
+  const thisMonthCount = salesRows.filter(s => (s.date || '').startsWith(thisMonthStr)).length
+  const lastMonthCount = salesRows.filter(s => (s.date || '').startsWith(lastMonthStr)).length
+  if (thisMonthCount > 0 || lastMonthCount > 0) {
+    const growthTxt = lastMonthCount > 0
+      ? `(${thisMonthCount >= lastMonthCount ? '+' : ''}${Math.round((thisMonthCount - lastMonthCount) / lastMonthCount * 100)}% vs เดือนก่อน)`
+      : '(ยังไม่มีข้อมูลเดือนก่อนเพื่อเทียบ)'
+    insights.push({ icon: '📈', priority: 'low', time: now.toISOString(), nav: '/analytics/forecast', action: 'ดู Forecast',
+      message: `ยอดขายเดือนนี้ (ณ วันนี้): ${thisMonthCount} คัน ${growthTxt}` })
+  }
+
+  const urgentComplaints = complaintsList
+    .filter(c => ['open', 'investigating', 'escalated'].includes(c.status) && (c.priority === 'critical' || c.priority === 'high'))
+    .sort((a, b) => new Date(a.openDate || 0) - new Date(b.openDate || 0))
+  if (urgentComplaints.length) {
+    const c = urgentComplaints[0]
+    insights.push({ icon: '⚠️', priority: 'high', time: c.openDate || now.toISOString(), nav: '/crm/complaints', action: 'ดู Complaint',
+      message: `ลูกค้า ${c.custName || 'ไม่ระบุชื่อ'} ร้องเรียนเรื่อง ${c.subject || 'ไม่ระบุ'} — ต้องตอบสนองด่วน${urgentComplaints.length > 1 ? ` (มีทั้งหมด ${urgentComplaints.length} เคส)` : ''}` })
+  }
+
+  return insights.sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority])
+}
 
 const GREETING = 'สวัสดีครับ! ผม LAMI ที่ปรึกษา AI ของ LAMOM ONE พร้อมช่วยเหลือด้านการขาย การบริการ และการวิเคราะห์ข้อมูลครับ'
 
@@ -43,14 +101,22 @@ export default async function LamiBrainPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
 
+  // (v1.0.341) เดิมปุ่ม action ในแท็บ Insights และการ์ดในแท็บ Skills ไม่มี data-nav/listener ผูกไว้เลย
+  // (import navigate ก็ไม่มีด้วยซ้ำ) กดแล้วไม่เกิดอะไรขึ้นจริง — เพิ่ม delegation ครั้งเดียวตรงนี้ (ไม่ใส่ใน
+  // renderPage() เพราะถูกเรียกซ้ำหลายรอบ ถ้าผูกที่ container ทุกรอบจะเป็น listener ซ้อนกันเรื่อยๆ)
+  container.addEventListener('click', e => {
+    const nav = e.target.closest('[data-nav]')
+    if (nav) navigate(nav.dataset.nav)
+  })
+
   let chatHistory = []
+  let insights = []
   let activeTab = 'chat'
   let isTyping = false
   let loading = true
   const aiMode = isAiEnabled() ? '🟢 Gemini AI' : '🟡 Demo Mode'
 
-  async function loadData() {
-    loading = true
+  async function loadChat() {
     try {
       chatHistory = await listDocs('chat_lami_brain', [], 'createdAt', 'asc', 500)
       if (!chatHistory.length) {
@@ -58,6 +124,25 @@ export default async function LamiBrainPage(container) {
         chatHistory = await listDocs('chat_lami_brain', [], 'createdAt', 'asc', 500)
       }
     } catch (e) { chatHistory = [] }
+  }
+
+  async function loadInsights() {
+    try {
+      const [leadsRaw, vehicleModels, jobCards, complaintsList, salesRows] = await Promise.all([
+        listDocs('customers', [], 'createdAt', 'desc', 500).catch(() => []),
+        listDocs('vehicle_models', [], 'brand', 'asc', 200).catch(() => []),
+        listDocs('job_cards', [], 'createdAt', 'desc', 500).catch(() => []),
+        listDocs('complaints', [], 'createdAt', 'desc', 200).catch(() => []),
+        getSalesData().catch(() => []),
+      ])
+      const leads = leadsRaw.filter(c => (c.stage === 'lead' || c.stage === 'pp') && c.status !== 'lost')
+      insights = computeInsights({ leads, vehicleModels, jobCards, complaintsList, salesRows })
+    } catch (e) { insights = [] }
+  }
+
+  async function loadAll() {
+    loading = true
+    await Promise.all([loadChat(), loadInsights()])
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -67,9 +152,10 @@ export default async function LamiBrainPage(container) {
       container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
       return
     }
-    const totalInsights = LAMI_INSIGHTS.length
-    const highPriority = LAMI_INSIGHTS.filter(i => i.priority === 'high').length
-    const activeSkills = LAMI_SKILLS.filter(s => s.status === 'active').length
+    const totalInsights = insights.length
+    const highPriority = insights.filter(i => i.priority === 'high').length
+    const todayStr = new Date().toISOString().slice(0, 10)
+    const chatToday = chatHistory.filter(m => (m.time || '').slice(0, 10) === todayStr).length
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -86,8 +172,8 @@ export default async function LamiBrainPage(container) {
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('💡 Insights วันนี้', totalInsights, 'primary')}
           ${kpi('🚨 ต้องการดูแล', highPriority, highPriority > 0 ? 'danger' : 'secondary')}
-          ${kpi('⚡ Skills ที่ Active', activeSkills, 'success')}
-          ${kpi('📊 ความแม่นยำเฉลี่ย', Math.round(LAMI_SKILLS.filter(s=>s.status==='active').reduce((a,s)=>a+s.accuracy,0)/activeSkills) + '%', 'primary')}
+          ${kpi('⚡ Skills พร้อมใช้', LAMI_SKILLS.length, 'success')}
+          ${kpi('💬 สนทนาวันนี้', chatToday, 'primary')}
         </div>
 
         <!-- Tabs -->
@@ -139,9 +225,12 @@ export default async function LamiBrainPage(container) {
 
   function renderInsights() {
     const pColors = { high: 'danger', medium: 'warning', low: 'secondary' }
+    if (!insights.length) {
+      return `<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-title">ไม่มีเรื่องด่วนตอนนี้</div><div class="empty-desc">ไม่พบ Lead ร้อน/สต็อกใกล้หมด/Job Card ค้าง/เรื่องร้องเรียนเร่งด่วนจากข้อมูลจริงในระบบ</div></div>`
+    }
     return `
       <div style="display:flex;flex-direction:column;gap:10px">
-        ${LAMI_INSIGHTS.map(ins => `
+        ${insights.map(ins => `
           <div class="card" style="padding:14px;border-left:3px solid var(--${pColors[ins.priority]})">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
               <div style="display:flex;gap:12px;align-items:flex-start">
@@ -153,7 +242,7 @@ export default async function LamiBrainPage(container) {
               </div>
               <div style="display:flex;gap:6px;flex-shrink:0">
                 <span class="badge badge-${pColors[ins.priority]}" style="font-size:0.65rem">${ins.priority === 'high' ? '🔴 สูง' : ins.priority === 'medium' ? '🟡 กลาง' : '🟢 ต่ำ'}</span>
-                <button class="btn btn-xs btn-secondary">${ins.action}</button>
+                <button class="btn btn-xs btn-secondary" data-nav="${ins.nav}">${ins.action}</button>
               </div>
             </div>
           </div>
@@ -166,20 +255,11 @@ export default async function LamiBrainPage(container) {
     return `
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">
         ${LAMI_SKILLS.map(s => `
-          <div class="card" style="padding:14px">
-            <div style="display:flex;justify-content:space-between;margin-bottom:8px">
-              <div style="font-size:1.4rem">${s.icon}</div>
-              <span class="badge badge-${s.status==='active'?'success':'warning'}">${s.status==='active'?'Active':'Learning'}</span>
-            </div>
+          <div class="card card-lift" data-nav="${s.nav}" style="padding:14px;cursor:pointer">
+            <div style="font-size:1.4rem;margin-bottom:8px">${s.icon}</div>
             <div style="font-weight:700;font-size:0.88rem;margin-bottom:4px">${s.label}</div>
             <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:10px">${s.desc}</div>
-            <div style="display:flex;justify-content:space-between;font-size:0.75rem;margin-bottom:4px">
-              <span style="color:var(--text-muted)">ความแม่นยำ</span>
-              <span style="font-weight:700;color:${s.accuracy>=85?'var(--success)':s.accuracy>=70?'var(--warning)':'var(--danger)'}">${s.accuracy}%</span>
-            </div>
-            <div style="background:var(--surface-2);border-radius:3px;height:6px">
-              <div style="width:${s.accuracy}%;background:${s.accuracy>=85?'var(--success)':s.accuracy>=70?'var(--warning)':'var(--danger)'};height:6px;border-radius:3px"></div>
-            </div>
+            <div style="font-size:0.75rem;color:var(--primary);font-weight:600">เปิดใช้งาน →</div>
           </div>
         `).join('')}
       </div>
@@ -202,11 +282,12 @@ export default async function LamiBrainPage(container) {
       try { await createDoc('chat_lami_brain', { role: 'lami', text: '⚠️ เกิดข้อผิดพลาด: ' + err.message, time: new Date().toISOString() }) } catch (e) {}
     } finally {
       isTyping = false
-      await loadData()
+      await loadChat()
+      if (container.__routerGen === myGen) renderPage()
     }
   }
 
-  await loadData()
+  await loadAll()
 }
 
 function renderBubble(m) {
