@@ -1,8 +1,10 @@
 import { formatCurrency, formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { navigate } from '../../core/router.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
+import { heuristicScore } from '../ai/LeadScoring.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
@@ -25,13 +27,6 @@ const CAMPAIGN_STATUS = {
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
 
-const DEMO_LEADS_RECENT = [
-  { name: 'ประยุทธ ดีใจ', phone: '085-xxx-xxxx', campaign: 'LG001', channel: 'facebook', date: addDays(-1), model: 'BYD Seal', status: 'qualified', score: 85 },
-  { name: 'มาลี สุขสันต์', phone: '086-xxx-xxxx', campaign: 'LG002', channel: 'line', date: addDays(-2), model: 'MG ZS EV', status: 'new', score: 62 },
-  { name: 'สุรชาติ มั่งมี', phone: '087-xxx-xxxx', campaign: 'LG003', channel: 'google', date: addDays(-1), model: 'BYD Atto 3', status: 'new', score: 78 },
-  { name: 'ชนัญชิดา รวย', phone: '088-xxx-xxxx', campaign: 'LG001', channel: 'facebook', date: addDays(0), model: 'BYD Seal AWD', status: 'hot', score: 92 },
-]
-
 export default async function LeadGenerationPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
@@ -39,11 +34,27 @@ export default async function LeadGenerationPage(container) {
   let tab = 'campaigns'
   let statusFilter = 'all'
   let campaigns = []
+  let recentLeads = []
   let loading = true
 
+  // (v1.0.345) เดิมแท็บ "Leads ล่าสุด" เป็น DEMO_LEADS_RECENT 4 รายการปลอมตายตัวเสมอ (ไม่เกี่ยวกับ Lead
+  // จริงในระบบเลยแม้แคมเปญจะเป็นข้อมูลจริงอยู่แล้ว) และปุ่ม "ติดตาม" ไม่มี data-id/listener ผูกไว้เลยด้วย
+  // (กดแล้วไม่เกิดอะไรขึ้น) — แก้ให้ดึง Lead จริงจาก customers (stage เป็น Lead/รอตัดสินใจ) พร้อมคะแนนจริง
+  // จาก heuristicScore() เดียวกับหน้า Lead Scoring (export มาใช้ซ้ำแล้ว) ไม่มีการเชื่อม Lead กับแคมเปญที่
+  // มาจากช่องทางไหนจริงในระบบ (ไม่มี field เก็บ campaign ID บน customers) จึงไม่แสดงคอลัมน์แคมเปญปลอมอีก
   async function loadData() {
     loading = true
-    try { campaigns = await listDocs('lead_gen_campaigns', [], 'startDate', 'desc', 500) } catch (e) { campaigns = [] }
+    try {
+      const [campaignsData, leadsRaw] = await Promise.all([
+        listDocs('lead_gen_campaigns', [], 'startDate', 'desc', 500).catch(() => []),
+        listDocs('customers', [], 'createdAt', 'desc', 100).catch(() => []),
+      ])
+      campaigns = campaignsData
+      recentLeads = leadsRaw
+        .filter(c => (c.stage === 'lead' || c.stage === 'pp') && c.status !== 'lost')
+        .map(c => ({ ...c, ...heuristicScore(c) }))
+        .slice(0, 20)
+    } catch (e) { campaigns = []; recentLeads = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -103,6 +114,9 @@ export default async function LeadGenerationPage(container) {
     container.querySelectorAll('.open-camp-btn').forEach(b => b.addEventListener('click', () => {
       const c = campaigns.find(x => x.id === b.dataset.id); if (c) openCampaignDetail(c)
     }))
+    // (v1.0.345) เดิมปุ่ม "ติดตาม" ไม่มี listener ผูกไว้เลย กดแล้วไม่เกิดอะไรขึ้น — ไม่มีระบบบันทึกการติดตาม
+    // Lead แยกในหน้านี้ จึงพาไปหน้า Lead Scoring จริงที่มีเครื่องมือติดตาม/วิเคราะห์ Lead อยู่แล้วแทน
+    container.querySelectorAll('.track-lead-btn').forEach(b => b.addEventListener('click', () => navigate('/ai/lead-scoring')))
   }
 
   function renderCampaigns(list) {
@@ -176,25 +190,28 @@ export default async function LeadGenerationPage(container) {
   }
 
   function renderRecentLeads() {
+    if (!recentLeads.length) {
+      return `<div class="empty-state"><div class="empty-icon">🧲</div><div class="empty-title">ยังไม่มี Lead ล่าสุด</div><div class="empty-desc">Lead ใหม่จากหน้าลูกค้า (สถานะ Lead/รอตัดสินใจ) จะแสดงที่นี่</div></div>`
+    }
     return `
       <div style="display:flex;flex-direction:column;gap:8px">
-        ${DEMO_LEADS_RECENT.map(l => {
-          const ch = CHANNEL_MAP[l.channel]
-          const scoreColor = l.score >= 85 ? 'success' : l.score >= 70 ? 'warning' : 'secondary'
-          const stColor = l.status === 'hot' ? 'danger' : l.status === 'qualified' ? 'success' : 'secondary'
+        ${recentLeads.map(l => {
+          const name = `${l.firstName || ''} ${l.lastName || ''}`.trim() || l.name || 'ไม่ระบุชื่อ'
+          const scoreColor = l.score >= 80 ? 'danger' : l.score >= 60 ? 'warning' : 'secondary'
+          const stLabel = l.score >= 80 ? '🔥 Hot' : l.score >= 60 ? '☀️ Warm' : 'New'
           return `<div class="card" style="padding:12px 14px;display:flex;align-items:center;gap:12px">
-            <div style="width:40px;height:40px;background:var(--primary-dim);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem">${ch?.icon}</div>
+            <div style="width:40px;height:40px;background:var(--primary-dim);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem">🧲</div>
             <div style="flex:1">
-              <div style="font-weight:700;font-size:0.88rem">${esc(l.name)}</div>
-              <div style="font-size:0.75rem;color:var(--text-muted)">${l.phone} · ${l.model} · ${ch?.label}</div>
+              <div style="font-weight:700;font-size:0.88rem">${esc(name)}</div>
+              <div style="font-size:0.75rem;color:var(--text-muted)">${esc(l.phone || '—')} · ${esc(l.interestedModel || 'ยังไม่ระบุรุ่น')} · ${esc(l.source || 'ไม่ระบุที่มา')}</div>
             </div>
-            <span class="badge badge-${stColor}">${l.status === 'hot' ? '🔥 Hot' : l.status === 'qualified' ? '✅ Qualified' : 'New'}</span>
+            <span class="badge badge-${scoreColor}">${stLabel}</span>
             <div style="text-align:center;min-width:56px">
               <div style="font-size:1rem;font-weight:800;color:var(--${scoreColor})">${l.score}</div>
               <div style="font-size:0.65rem;color:var(--text-muted)">Lead Score</div>
             </div>
-            <div style="font-size:0.73rem;color:var(--text-muted)">${timeAgo(l.date)}</div>
-            <button class="btn btn-xs btn-primary">ติดตาม</button>
+            <div style="font-size:0.73rem;color:var(--text-muted)">${timeAgo(l.createdAt)}</div>
+            <button class="btn btn-xs btn-primary track-lead-btn" data-id="${l.id}">ติดตาม</button>
           </div>`
         }).join('')}
       </div>
