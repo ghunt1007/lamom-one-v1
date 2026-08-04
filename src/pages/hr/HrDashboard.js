@@ -3,6 +3,8 @@ import { navigate } from '../../core/router.js'
 import { formatCurrency } from '../../utils/format.js'
 import { getState } from '../../core/store.js'
 
+function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+
 const SALARY_VIEW_ROLES = ['owner', 'admin', 'manager', 'hr']
 
 const QUICK_LINKS = [
@@ -22,12 +24,6 @@ const QUICK_LINKS = [
   { icon:'🎉', label:'Onboarding', sub:'พนักงานใหม่', path:'/hr/onboarding', color:'success' },
   { icon:'💼', label:'Salary Scale', sub:'โครงสร้างเงินเดือน', path:'/hr/salary-scale', color:'accent' },
   { icon:'🧩', label:'Skill Matrix', sub:'ทักษะพนักงาน', path:'/hr/skills', color:'primary' },
-]
-
-const DEMO_ALERTS = [
-  { type: 'warning', msg: 'รออนุมัติใบลา 3 ใบ — สุดา, วิชัย, มานะ' },
-  { type: 'info', msg: 'พนักงานทดลองงาน 2 คน ครบ 3 เดือนสัปดาห์หน้า' },
-  { type: 'success', msg: 'จ่ายเงินเดือนเดือนนี้เสร็จแล้ว ✅' },
 ]
 
 export default async function HrDashboard(container) {
@@ -52,11 +48,8 @@ export default async function HrDashboard(container) {
       </div>
 
       <!-- Alerts -->
-      <div style="display:flex;flex-direction:column;gap:7px;margin-bottom:20px">
-        ${DEMO_ALERTS.map(a => `
-          <div style="padding:9px 13px;background:var(--surface-2);border-left:3px solid var(--${a.type === 'warning' ? 'warning' : a.type === 'success' ? 'success' : 'primary'});border-radius:var(--radius-sm);font-size:0.8rem">
-            ${a.type === 'warning' ? '⚠️' : a.type === 'success' ? '✅' : 'ℹ️'} ${a.msg}
-          </div>`).join('')}
+      <div id="hr-alerts" style="display:flex;flex-direction:column;gap:7px;margin-bottom:20px">
+        ${[...Array(2)].map(() => `<div class="skeleton" style="height:36px;border-radius:var(--radius-sm)"></div>`).join('')}
       </div>
 
       <!-- Quick links -->
@@ -80,10 +73,44 @@ export default async function HrDashboard(container) {
 
   if (container.__routerGen !== myGen) return
 
-  let staff = []
-  try { staff = await listDocs('staff', [], 'startDate', 'asc', 500) } catch {}
+  let staff = [], leaves = [], payrollRecs = []
+  const thisMonth = new Date().toISOString().slice(0, 7)
+  try {
+    ;[staff, leaves, payrollRecs] = await Promise.all([
+      listDocs('staff', [], 'startDate', 'asc', 500).catch(() => []),
+      listDocs('leave_requests', [], 'createdAt', 'desc', 200).catch(() => []),
+      listDocs('payroll_records', [['month', '==', thisMonth]], 'createdAt', 'asc', 500).catch(() => []),
+    ])
+  } catch {}
 
   if (container.__routerGen !== myGen) return
+
+  // (v1.0.340) เดิม DEMO_ALERTS 3 ข้อความปลอมตายตัว (มีชื่อพนักงานสมมติปนอยู่ด้วย) ไม่เคยตรวจข้อมูลจริงเลย
+  // แก้ให้ตรวจจริงจากข้อมูลที่โหลดมาแล้ว/เพิ่มโหลด leave_requests, payroll_records จริง — วิธีเดียวกับ
+  // renderAlerts() ใน CrmDashboard.js
+  const alertsEl = document.getElementById('hr-alerts')
+  if (alertsEl) {
+    const pendingLeaves = leaves.filter(l => l.status === 'pending')
+    const now = new Date()
+    const in7Days = new Date(); in7Days.setDate(in7Days.getDate() + 7)
+    const endingProbation = staff.filter(s => {
+      if (s.status !== 'probation' || !s.startDate) return false
+      const endDate = new Date(s.startDate); endDate.setMonth(endDate.getMonth() + 3)
+      return endDate >= now && endDate <= in7Days
+    })
+    const activeStaffCount = staff.filter(s => s.status !== 'inactive').length
+    const paidThisMonth = payrollRecs.filter(r => r.status === 'paid').length
+    const alerts = []
+    if (pendingLeaves.length) {
+      const names = escHtml(pendingLeaves.slice(0, 3).map(l => l.staff).join(', '))
+      alerts.push({ type: 'warning', icon: '⚠️', nav: '/hr/leave', msg: `รออนุมัติใบลา ${pendingLeaves.length} ใบ — ${names}${pendingLeaves.length > 3 ? ` และอีก ${pendingLeaves.length - 3} คน` : ''}` })
+    }
+    if (endingProbation.length) alerts.push({ type: 'primary', icon: 'ℹ️', nav: '/hr/staff', msg: `พนักงานทดลองงาน ${endingProbation.length} คน ครบ 3 เดือนภายใน 7 วันนี้` })
+    if (activeStaffCount > 0 && paidThisMonth >= activeStaffCount) alerts.push({ type: 'success', icon: '✅', nav: '/finance/payroll', msg: 'จ่ายเงินเดือนเดือนนี้เสร็จแล้ว' })
+    alertsEl.innerHTML = alerts.length
+      ? alerts.map(a => `<div data-nav="${a.nav}" style="padding:9px 13px;background:var(--surface-2);border-left:3px solid var(--${a.type});border-radius:var(--radius-sm);font-size:0.8rem;cursor:pointer">${a.icon} ${a.msg}</div>`).join('')
+      : `<div style="padding:9px 13px;background:var(--surface-2);border-left:3px solid var(--success);border-radius:var(--radius-sm);font-size:0.8rem">✅ ไม่มีเรื่องด่วนตอนนี้</div>`
+  }
 
   const active = staff.filter(s => s.status === 'active').length
   const probation = staff.filter(s => s.status === 'probation').length
