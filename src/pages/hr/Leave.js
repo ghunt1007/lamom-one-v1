@@ -4,6 +4,12 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
+// (v1.0.339) เดิม DEMO_QUOTA ด้านบนหน้าเป็นตัวเลข hardcode ของพนักงานสมมติ ไม่เกี่ยวกับข้อมูลลาจริงเลย
+// (ต่างจากแท็บ "สิทธิ์ลา" ที่คำนวณจากข้อมูลจริงอยู่แล้ว) และ dropdown "พนักงาน" ในฟอร์มยื่นลาเป็นชื่อปลอม
+// 5 คนตายตัว (บัคเดียวกับที่แก้ใน OvertimeTracking.js) ทำให้ทุกคำขอลาที่บันทึกจริงผูกกับชื่อปลอมเสมอ แก้ให้
+// dropdown ใช้พนักงานจริง และ Quota Summary รวมทั้งบริษัทคำนวณจากวันลาจริงที่อนุมัติแล้วปีนี้ เทียบกับสิทธิ์
+// จริง (จำนวนพนักงานจริง × maxDays ต่อคนตามประเภทการลา)
+
 function myName() {
   const me = getState('user') || {}
   return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
@@ -28,12 +34,6 @@ const LEAVE_STATUS = {
   rejected: { label: '❌ ไม่อนุมัติ', badge: 'danger' },
 }
 
-const DEMO_QUOTA = {
-  sick: { used: 3, total: 30 },
-  personal: { used: 2, total: 15 },
-  annual: { used: 4, total: 10 },
-}
-
 function calcDays(from, to) {
   const d1 = new Date(from), d2 = new Date(to)
   return Math.max(1, Math.round((d2 - d1) / 86400000) + 1)
@@ -43,6 +43,7 @@ export default async function LeavePage(container) {
   const myGen = container.__routerGen
   seedDemoData()
   let leaves = []
+  let staffList = []
   let activeTab = 'requests' // requests | quota | calendar
   let filterStatus = 'all'
   let loading = true
@@ -50,8 +51,25 @@ export default async function LeavePage(container) {
   async function loadData() {
     loading = true
     try { leaves = await listDocs('leave_requests', [], 'createdAt', 'desc', 200) } catch (e) { leaves = [] }
+    try {
+      const docs = await listDocs('staff', [], 'firstName', 'asc', 500)
+      staffList = docs.filter(s => !s.deleted)
+    } catch (e) { staffList = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
+  }
+
+  function companyQuota() {
+    const thisYear = new Date().getFullYear()
+    const staffCount = staffList.length
+    const quota = {}
+    ;['sick', 'personal', 'annual'].forEach(type => {
+      const used = leaves
+        .filter(l => l.type === type && l.status === 'approved' && (l.from || '').startsWith(String(thisYear)))
+        .reduce((a, l) => a + (l.days || 0), 0)
+      quota[type] = { used, total: staffCount * LEAVE_TYPES[type].maxDays }
+    })
+    return quota
   }
 
   function renderPage() {
@@ -74,16 +92,16 @@ export default async function LeavePage(container) {
           </div>
         </div>
 
-        <!-- Quota Summary -->
+        <!-- Quota Summary (รวมทั้งบริษัท จากข้อมูลลาจริงปีนี้ ${staffList.length} คน) -->
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">
-          ${Object.entries(DEMO_QUOTA).map(([type, q]) => {
+          ${Object.entries(companyQuota()).map(([type, q]) => {
             const t = LEAVE_TYPES[type]
-            const pct = Math.round(q.used / q.total * 100)
+            const pct = q.total > 0 ? Math.round(q.used / q.total * 100) : 0
             return `<div class="card" style="padding:14px">
-              <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:6px">${t.label}</div>
+              <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:6px">${t.label} (รวมทั้งบริษัท)</div>
               <div style="display:flex;justify-content:space-between;font-size:0.85rem;margin-bottom:6px">
                 <span style="font-weight:600">ใช้ไปแล้ว ${q.used} วัน</span>
-                <span style="color:var(--text-muted)">เหลือ ${q.total - q.used} วัน</span>
+                <span style="color:var(--text-muted)">เหลือ ${Math.max(0, q.total - q.used)} วัน</span>
               </div>
               <div style="background:var(--surface-3);border-radius:99px;height:6px;overflow:hidden">
                 <div style="height:100%;width:${pct}%;background:var(--${pct>=80?'danger':pct>=50?'warning':'success'});border-radius:99px"></div>
@@ -250,13 +268,14 @@ export default async function LeavePage(container) {
   }
 
   function openLeaveForm() {
+    if (!staffList.length) { showToast('❗ ยังไม่มีข้อมูลพนักงาน', 'error'); return }
     const today = new Date().toISOString().slice(0,10)
     const { el, close } = openModal({
       title: '➕ ยื่นคำขอลา', size:'md',
       body: `<div style="display:flex;flex-direction:column;gap:12px">
         <div class="input-group"><label class="input-label">พนักงาน *</label>
           <select class="input" id="lf-staff">
-            ${['อรนุช สายใจ','วิชาญ มีโชค','ธีรยุทธ เก่งกาจ','สมหมาย รักงาน','นภา จันทร์งาม'].map(n => `<option>${n}</option>`).join('')}
+            ${staffList.map(s => `<option>${escHtml(`${s.firstName||''} ${s.lastName||''}`.trim() || '—')}</option>`).join('')}
           </select>
         </div>
         <div class="input-group"><label class="input-label">ประเภทการลา</label>
