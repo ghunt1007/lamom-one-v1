@@ -4,63 +4,79 @@
  */
 import { formatCurrency } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listAllDocs } from '../../core/db.js'
 import { exportToExcel } from '../../utils/importExport.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
-const AREAS = [
-  { id: 'A1', name: 'บางนา-ศรีนครินทร์', customers: 412, revenue: 38500000, distance: '0-5 กม.', growth: 12, color: '#10b981' },
-  { id: 'A2', name: 'สมุทรปราการ', customers: 286, revenue: 26200000, distance: '5-15 กม.', growth: 18, color: '#3b82f6' },
-  { id: 'A3', name: 'พระโขนง-อ่อนนุช', customers: 198, revenue: 19800000, distance: '5-10 กม.', growth: 8, color: '#f59e0b' },
-  { id: 'A4', name: 'ลาดกระบัง-มีนบุรี', customers: 145, revenue: 12400000, distance: '10-20 กม.', growth: 22, color: '#8b5cf6' },
-  { id: 'A5', name: 'บางพลี-บางบ่อ', customers: 124, revenue: 11000000, distance: '10-20 กม.', growth: 15, color: '#ec4899' },
-  { id: 'A6', name: 'อื่นๆ / ต่างจังหวัด', customers: 89, revenue: 8900000, distance: '20+ กม.', growth: 5, color: '#6b7280' },
-]
+const PALETTE = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#6b7280', '#06b6d4', '#ef4444']
 
-const INSIGHTS = [
-  { icon: '🚀', text: 'ลาดกระบัง-มีนบุรี โตเร็วสุด +22% — ยังไม่มีคู่แข่ง EV dealer ในพื้นที่ ควรจัด Roadshow' },
-  { icon: '🏭', text: 'นิคมอุตสาหกรรมบางปู (สมุทรปราการ) มีบริษัทใหญ่ 40+ แห่ง — โอกาส Fleet B2B' },
-  { icon: '📉', text: 'พระโขนง-อ่อนนุช โตช้าลง (8%) — คู่แข่งเปิดโชว์รูมใหม่ที่สุขุมวิท 77 เมื่อ 3 เดือนก่อน' },
-]
+// (v1.0.333) เดิมพยายาม "ใช้ข้อมูลจริง" จาก collection customer_areas แต่ไม่มีหน้าไหนในระบบเขียนข้อมูลเข้า
+// ไปเลยแม้แต่รายการเดียว — เงื่อนไขจึงเป็นจริงไม่ได้ตลอดกาล ยังโชว์แผนที่/insight ปลอม 6 พื้นที่แต่งขึ้น
+// (บางนา-ศรีนครินทร์ ฯลฯ) เสมอ และถ้ามีข้อมูลจริงก็ยังผสมของปลอมเข้าไปอยู่ดี (เหมือนบัคที่แก้ในหลายหน้า
+// ก่อนหน้านี้) แก้ให้จัดกลุ่มลูกค้าจริงตาม "จังหวัด" จากข้อมูลใบจองจริง (bookings.province — field จริงที่มี
+// อยู่แล้วในฟอร์มใบจอง) คำนวณ Growth YoY จากจำนวนใบจองจริงปีนี้เทียบปีก่อนจริง ตัด "ห่างโชว์รูม X กม." กับ
+// insight ปลอม 3 ข้อออก (ไม่มีข้อมูลระยะทาง/competitive intelligence จริงให้ใช้เลย ไม่ควรแต่งขึ้นมา)
 
 export default async function CustomerMapPage(container) {
   const myGen = container.__routerGen
-  let areas = AREAS.map(a => ({ ...a }))
-  let dataSource = 'demo'
+  let areas = []
   let sortBy = 'customers'
+  let loading = true
 
-  try {
-    const docs = await listDocs('customer_areas', [], 'customers', 'desc', 50).catch(() => [])
+  async function loadData() {
+    loading = true
+    let bookings = []
+    try { bookings = await listAllDocs('bookings', [], 'createdAt', 'desc') } catch {}
     if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
-        id: d.id || `A${i+1}`,
-        name: d.name || d.area || d.zone || `พื้นที่ ${i+1}`,
-        customers: d.customers || d.count || 0,
-        revenue: d.revenue || 0,
-        distance: d.distance || '',
-        growth: d.growth || 0,
-        color: d.color || AREAS[i % AREAS.length]?.color || '#6b7280',
-      }))
-      areas = [...mapped, ...AREAS]
-      dataSource = 'live'
-    }
-  } catch {}
+
+    const real = bookings.filter(b => !b.deleted && b.status !== 'ถอนจอง')
+    const thisYear = new Date().getFullYear()
+    const grouped = {}
+    real.forEach(b => {
+      const province = (b.province || '').trim() || 'ไม่ระบุจังหวัด'
+      if (!grouped[province]) grouped[province] = { customers: 0, revenue: 0, thisYearCount: 0, lastYearCount: 0 }
+      const g = grouped[province]
+      g.customers++
+      g.revenue += b.price || 0
+      const y = new Date(b.createdAt || b.bookingDate || 0).getFullYear()
+      if (y === thisYear) g.thisYearCount++
+      else if (y === thisYear - 1) g.lastYearCount++
+    })
+    areas = Object.entries(grouped).map(([name, g], i) => ({
+      name,
+      customers: g.customers,
+      revenue: g.revenue,
+      growth: g.lastYearCount > 0 ? Math.round((g.thisYearCount - g.lastYearCount) / g.lastYearCount * 100) : null,
+      color: PALETTE[i % PALETTE.length],
+    })).sort((a, b) => b.customers - a.customers)
+
+    loading = false
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
-    const sorted = [...areas].sort((a, b) => b[sortBy] - a[sortBy])
+    if (loading) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
+      return
+    }
+    if (!areas.length) {
+      container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">🗺</div><div class="empty-title">ยังไม่มีข้อมูลใบจอง</div></div></div>`
+      return
+    }
+    const sorted = [...areas].sort((a, b) => (b[sortBy] ?? -1) - (a[sortBy] ?? -1))
     const totalCustomers = areas.reduce((a, x) => a + x.customers, 0)
     const totalRevenue = areas.reduce((a, x) => a + x.revenue, 0)
-    const maxV = Math.max(...areas.map(a => a[sortBy]))
-    const fastest = [...areas].sort((a, b) => b.growth - a.growth)[0]
+    const maxV = Math.max(...areas.map(a => a[sortBy] ?? 0), 1)
+    const growable = areas.filter(a => a.growth != null)
+    const fastest = growable.length ? [...growable].sort((a, b) => b.growth - a.growth)[0] : null
 
     container.innerHTML = `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
             <div class="page-title">🗺 Customer Map</div>
-            <div class="page-subtitle">ลูกค้าตามพื้นที่ — วางแผนการตลาดเชิงภูมิศาสตร์${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">ลูกค้าตามจังหวัด (จากใบจองจริง) — วางแผนการตลาดเชิงภูมิศาสตร์ <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span></div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="export-btn">📤 Export</button>
@@ -70,14 +86,8 @@ export default async function CustomerMapPage(container) {
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('👥 ลูกค้าทั้งหมด', totalCustomers.toLocaleString() + ' ราย', 'primary')}
           ${kpi('💰 มูลค่ารวม', formatCurrency(totalRevenue), 'success')}
-          ${kpi('🗺 พื้นที่หลัก', escHtml(areas[0]?.name || '—'), 'secondary')}
-          ${kpi('🚀 โตเร็วสุด', escHtml(fastest.name) + ' +' + fastest.growth + '%', 'warning')}
-        </div>
-
-        <!-- Insights -->
-        <div class="card" style="padding:12px 14px;margin-bottom:14px">
-          <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">🤖 LAMI วิเคราะห์พื้นที่</div>
-          ${INSIGHTS.map(i => `<div style="display:flex;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:0.76rem"><span>${i.icon}</span><span>${i.text}</span></div>`).join('')}
+          ${kpi('🗺 พื้นที่หลัก', escHtml(sorted[0]?.name || '—'), 'secondary')}
+          ${kpi('🚀 โตเร็วสุด (YoY)', fastest ? escHtml(fastest.name) + ' +' + fastest.growth + '%' : '— ยังไม่มีข้อมูลเทียบปีก่อน', 'warning')}
         </div>
 
         <!-- Sort -->
@@ -89,17 +99,17 @@ export default async function CustomerMapPage(container) {
         <!-- Area bars -->
         <div style="display:flex;flex-direction:column;gap:10px">
           ${sorted.map((a, i) => {
-            const pct = Math.round(a[sortBy] / maxV * 100)
+            const pct = Math.round((a[sortBy] ?? 0) / maxV * 100)
             const share = Math.round(a.customers / totalCustomers * 100)
             return `<div class="card" style="padding:13px 14px;border-left:3px solid ${a.color}">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
                 <div>
                   <div style="font-weight:700;font-size:0.86rem">${i===0?'👑 ':''}${escHtml(a.name)}</div>
-                  <div style="font-size:0.7rem;color:var(--text-muted)">📍 ห่างโชว์รูม ${escHtml(a.distance)} · ${share}% ของลูกค้าทั้งหมด</div>
+                  <div style="font-size:0.7rem;color:var(--text-muted)">${share}% ของลูกค้าทั้งหมด</div>
                 </div>
                 <div style="text-align:right">
                   <div style="font-weight:700;font-size:0.88rem">${a.customers} ราย</div>
-                  <div style="font-size:0.68rem;color:var(--${a.growth>=15?'success':a.growth>=10?'warning':'danger'})">${a.growth>=0?'+':''}${a.growth}% YoY</div>
+                  <div style="font-size:0.68rem;color:var(--${a.growth==null?'text-muted':a.growth>=15?'success':a.growth>=0?'warning':'danger'})">${a.growth==null?'ไม่มีข้อมูลปีก่อน':(a.growth>=0?'+':'')+a.growth+'% YoY'}</div>
                 </div>
               </div>
               <div style="display:flex;align-items:center;gap:10px">
@@ -118,11 +128,10 @@ export default async function CustomerMapPage(container) {
     document.getElementById('export-btn')?.addEventListener('click', () => {
       exportToExcel(
         areas.map(a => ({
-          'พื้นที่': a.name,
+          'จังหวัด': a.name,
           'ลูกค้า (ราย)': a.customers,
           'รายได้ (บาท)': a.revenue,
-          'ระยะทาง': a.distance,
-          'Growth %': a.growth,
+          'Growth % YoY': a.growth == null ? '-' : a.growth,
         })),
         'Customer_Map.xlsx',
         'Customer Map'
@@ -131,7 +140,7 @@ export default async function CustomerMapPage(container) {
     })
   }
 
-  renderPage()
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
