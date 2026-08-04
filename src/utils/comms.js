@@ -38,6 +38,12 @@ export function sendLineBroadcast(message) {
 export function getLineOaInsight() {
   return callComms('/line/insight', {})
 }
+// (v1.0.350) IP Whitelist ต้องรู้ IP จริงของผู้ login มาเทียบ — Firestore Rules มองไม่เห็น IP ผู้เรียกเลย
+// (ไม่มี request.ip) ต้องผ่าน Worker นี้ที่เห็น header CF-Connecting-IP จริงจาก Cloudflare เท่านั้น
+export async function getClientIp() {
+  const { ip } = await callComms('/whoami', {})
+  return ip
+}
 export function sendPush(tokens, title, message) {
   return callComms('/send/push', { tokens, title, message })
 }

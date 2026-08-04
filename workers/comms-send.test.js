@@ -218,6 +218,34 @@ describe('comms-send worker — /line/insight (real follower stats, v1.0.332)', 
   })
 })
 
+describe('comms-send worker — /whoami (real client IP for IP Whitelist warnings, v1.0.350)', () => {
+  it('returns the CF-Connecting-IP header value when authorized', async () => {
+    stubFetch([])
+    const request = new Request('https://worker.example/whoami', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer valid', 'CF-Connecting-IP': '203.0.113.5' },
+      body: JSON.stringify({}),
+    })
+    const res = await worker.fetch(request, BASE_ENV)
+    expect(res.status).toBe(200)
+    const data = await res.json()
+    expect(data.ip).toBe('203.0.113.5')
+  })
+
+  it('returns null ip when the header is missing', async () => {
+    stubFetch([])
+    const res = await worker.fetch(req('/whoami', {}), BASE_ENV)
+    expect(res.status).toBe(200)
+    const data = await res.json()
+    expect(data.ip).toBeNull()
+  })
+
+  it('still requires valid staff auth like every other route', async () => {
+    const res = await worker.fetch(req('/whoami', {}, { auth: '' }), BASE_ENV)
+    expect(res.status).toBe(401)
+  })
+})
+
 describe('comms-send worker — /send/push (FCM v1)', () => {
   it('reports not configured when the service account secret is missing', async () => {
     stubFetch([])

@@ -437,6 +437,80 @@ describe('system-security collections — admin only', () => {
     const db = testEnv.authenticatedContext('secGap4').firestore()
     await assertSucceeds(db.collection('security_sessions').get())
   })
+
+  // (v1.0.350) IP Whitelist ต้องให้ทุกคนที่ login เขียน session ของตัวเองได้ (ไม่ใช่แค่แอดมิน) — เปิดให้
+  // signed-in สร้าง/แก้ไข "เฉพาะ doc ของตัวเอง" เท่านั้น จับคู่ uid ตรงกับผู้เรียก
+  it('plain staff can create their own security_sessions doc (uid matches)', async () => {
+    await seedUser('secGap5', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('secGap5').firestore()
+    await assertSucceeds(db.collection('security_sessions').add({ uid: 'secGap5', user: 'Test', ip: '1.2.3.4' }))
+  })
+
+  it('plain staff cannot create a security_sessions doc claiming someone else\'s uid', async () => {
+    await seedUser('secGap6', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('secGap6').firestore()
+    await assertFails(db.collection('security_sessions').add({ uid: 'someone-else', user: 'Test', ip: '1.2.3.4' }))
+  })
+
+  it('plain staff still cannot delete (kick) a security_sessions doc, even their own', async () => {
+    await seedUser('secGap7', { role: 'sales', active: true })
+    await testEnv.withSecurityRulesDisabled(async ctx => {
+      await ctx.firestore().doc('security_sessions/mySession').set({ uid: 'secGap7', user: 'Test', ip: '1.2.3.4' })
+    })
+    const db = testEnv.authenticatedContext('secGap7').firestore()
+    await assertFails(db.doc('security_sessions/mySession').delete())
+  })
+
+  it('plain staff cannot update (soft-delete/kick) another user\'s security_sessions doc', async () => {
+    await seedUser('secGap8', { role: 'sales', active: true })
+    await testEnv.withSecurityRulesDisabled(async ctx => {
+      await ctx.firestore().doc('security_sessions/otherSession').set({ uid: 'someone-else', user: 'Other', ip: '1.2.3.4' })
+    })
+    const db = testEnv.authenticatedContext('secGap8').firestore()
+    await assertFails(db.doc('security_sessions/otherSession').update({ deleted: true }))
+  })
+
+  it('admin can update (soft-delete/kick) another user\'s security_sessions doc', async () => {
+    await seedUser('secGap9', { role: 'admin', active: true })
+    await testEnv.withSecurityRulesDisabled(async ctx => {
+      await ctx.firestore().doc('security_sessions/otherSession2').set({ uid: 'someone-else', user: 'Other', ip: '1.2.3.4' })
+    })
+    const db = testEnv.authenticatedContext('secGap9').firestore()
+    await assertSucceeds(db.doc('security_sessions/otherSession2').update({ deleted: true }))
+  })
+})
+
+describe('ip_whitelist + security_alerts (v1.0.350) — IP Whitelist is monitor-only, never a hard login block', () => {
+  it('plain staff can read ip_whitelist but not write it', async () => {
+    await seedUser('ipwl1', { role: 'manager', active: true })
+    const db = testEnv.authenticatedContext('ipwl1').firestore()
+    await assertSucceeds(db.collection('ip_whitelist').get())
+    await assertFails(db.collection('ip_whitelist').add({ label: 'Office', ip: '203.0.113.5' }))
+  })
+
+  it('admin can write ip_whitelist', async () => {
+    await seedUser('ipwl2', { role: 'admin', active: true })
+    const db = testEnv.authenticatedContext('ipwl2').firestore()
+    await assertSucceeds(db.collection('ip_whitelist').add({ label: 'Office', ip: '203.0.113.5' }))
+  })
+
+  it('any signed-in staff can create a security_alerts entry (fired at their own login)', async () => {
+    await seedUser('ipwl3', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('ipwl3').firestore()
+    await assertSucceeds(db.collection('security_alerts').add({ level: 'warning', msg: 'login from non-whitelisted IP', uid: 'ipwl3' }))
+  })
+
+  it('plain staff cannot read or manage security_alerts (only admin)', async () => {
+    await seedUser('ipwl4', { role: 'manager', active: true })
+    const db = testEnv.authenticatedContext('ipwl4').firestore()
+    await assertFails(db.collection('security_alerts').get())
+  })
+
+  it('admin can read security_alerts', async () => {
+    await seedUser('ipwl5', { role: 'admin', active: true })
+    const db = testEnv.authenticatedContext('ipwl5').firestore()
+    await assertSucceeds(db.collection('security_alerts').get())
+  })
 })
 
 describe('disciplinary_records — rule now matches the real collection name (was "disciplinary")', () => {

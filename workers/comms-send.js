@@ -127,6 +127,10 @@ export default {
       if (url.pathname === '/send/line') return json(await sendLine(env, body), 200, cors)
       if (url.pathname === '/send/push') return json(await sendPush(env, body), 200, cors)
       if (url.pathname === '/line/insight') return json(await getLineInsight(env), 200, cors)
+      // (v1.0.350) IP Whitelist (เตือนเท่านั้น ไม่บล็อกจริง — ดู CHANGELOG) ต้องมี IP จริงของผู้ login มาเทียบ
+      // Firestore Rules ไม่มีทางเห็น IP ผู้เรียกได้เลย (ไม่มี request.ip) จึงต้องผ่าน Worker นี้ที่เห็น header
+      // CF-Connecting-IP จริงจาก Cloudflare — endpoint นี้ยืนยันตัวตนเหมือน endpoint อื่นทุกจุด (กัน bot สุ่มยิง)
+      if (url.pathname === '/whoami') return json({ ip: request.headers.get('CF-Connecting-IP') || null }, 200, cors)
       return json({ error: 'Not found' }, 404, cors)
     } catch (err) {
       return json({ error: err.message || 'Send error' }, 500, cors)

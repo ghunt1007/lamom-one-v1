@@ -12,13 +12,49 @@ import {
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { setUser, setCompany, setCompanies, setActiveCompanyFilter, setState, showToast, getState } from './store.js'
 import { navigate } from './router.js'
-import { deepSanitize } from './db.js'
+import { deepSanitize, createDoc, listDocs } from './db.js'
+import { getClientIp } from '../utils/comms.js'
+
+// (v1.0.350) IP Whitelist (เตือนเท่านั้น ไม่บล็อกจริง — Firestore Rules มองไม่เห็น IP ผู้เรียกได้เลย การ
+// "บล็อกจริง" ต้องมี edge middleware ใหม่ทั้งชุดซึ่งเสี่ยงทำให้เจ้าของ/พนักงานเข้าระบบตัวเองไม่ได้ถ้าตั้งค่า
+// ผิด — เลือกทำแค่บันทึก/เตือนแทน) — บันทึก session จริง + เทียบ IP กับ whitelist ทุกครั้งที่ login สำเร็จ
+// เป็น best-effort เท่านั้น ห้ามทำให้ login ล้มเหลวไม่ว่า Worker/Firestore จะพังแบบไหนก็ตาม
+function deviceLabel() {
+  const ua = navigator.userAgent || ''
+  const os = /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iOS' : /Windows/.test(ua) ? 'Windows' : /Macintosh/.test(ua) ? 'Mac' : /Linux/.test(ua) ? 'Linux' : 'ไม่ทราบอุปกรณ์'
+  const browser = /Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : 'ไม่ทราบเบราว์เซอร์'
+  return `${os} · ${browser}`
+}
+
+async function registerSecuritySession(profile) {
+  try {
+    const ip = await getClientIp()
+    const sessionId = await createDoc('security_sessions', {
+      uid: profile.uid, user: profile.displayName || profile.email, device: deviceLabel(), ip: ip || 'ไม่พบ IP',
+      lastActive: new Date().toISOString(),
+    })
+    localStorage.setItem('lamom_session_id', sessionId)
+    if (ip) {
+      const whitelist = (await listDocs('ip_whitelist', [], 'createdAt', 'desc', 200).catch(() => [])).filter(w => !w.deleted)
+      if (whitelist.length && !whitelist.some(w => w.ip === ip)) {
+        await createDoc('security_alerts', {
+          level: 'warning', uid: profile.uid,
+          msg: `เข้าสู่ระบบจาก IP ที่ไม่อยู่ใน Whitelist — ${profile.displayName || profile.email} จาก ${ip}`,
+        })
+      }
+    }
+  } catch (e) {
+    console.error('registerSecuritySession error (non-blocking):', e)
+  }
+}
 
 export async function register(email, password) {
   try {
     setState('loading', true)
     const cred = await createUserWithEmailAndPassword(auth, email, password)
     await loadUserProfile(cred.user)
+    const profile = getState('user')
+    if (profile) registerSecuritySession(profile)
     showToast('สร้างบัญชีสำเร็จ!', 'success')
     navigate('/')
   } catch (e) {
@@ -34,6 +70,8 @@ export async function login(email, password) {
     setState('loading', true)
     const cred = await signInWithEmailAndPassword(auth, email, password)
     await loadUserProfile(cred.user)
+    const profile = getState('user')
+    if (profile) registerSecuritySession(profile)
     showToast('เข้าสู่ระบบสำเร็จ', 'success')
     navigate('/')
   } catch (e) {
