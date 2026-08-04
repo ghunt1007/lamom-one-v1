@@ -5,7 +5,7 @@
 import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { getSalesData, getCommissionData } from '../../core/db.js'
+import { getSalesData, getCommissionData, listDocs, createDoc } from '../../core/db.js'
 
 const INSIGHT_CATS = {
   sales:    { label: 'ยอดขาย', icon: '📈', color: 'success' },
@@ -38,11 +38,21 @@ export default async function AiInsightsPage(container) {
   let dataSource = 'demo'
 
   try {
-    const [sales, coms] = await Promise.all([
+    const [sales, coms, actions] = await Promise.all([
       getSalesData().catch(() => []),
       getCommissionData().catch(() => []),
+      listDocs('ai_insight_actions', [], 'createdAt', 'desc', 500).catch(() => []),
     ])
     if (container.__routerGen !== myGen) return
+
+    // (v1.0.346) เดิมปุ่ม "✅ ดำเนินการ"/"✗ ไม่สนใจ" แค่แก้ตัวแปรในหน่วยความจำ (ins.actionTaken ไม่ถูกใช้แสดง
+    // ผลอะไรเลยด้วยซ้ำ, insights ที่ถูก dismiss ก็แค่ filter ออกจาก array ชั่วคราว) ไม่เขียน Firestore เลย
+    // พอรีเฟรช/เปิดหน้าใหม่ insight ที่กด dismiss ไปแล้วก็โผล่กลับมาเหมือนไม่เคยกด — แก้ให้บันทึกจริงลง
+    // collection ใหม่ ai_insight_actions จับคู่ด้วย insight id (LI001/LI002/... เป็น "ช่อง" ประเภท insight
+    // ที่คงที่ ไม่ใช่เนื้อหาที่คงที่ — ยอมรับ trade-off นี้เพราะเป็นรายการ Priority ต่ำสุดของ audit ไม่คุ้มที่จะ
+    // สร้างระบบ dismiss-ต่อเนื้อหา/expire อัตโนมัติที่ซับซ้อนกว่านี้)
+    const dismissedIds = new Set(actions.filter(a => a.type === 'dismiss').map(a => a.insightId))
+    const actionedIds = new Set(actions.filter(a => a.type === 'action').map(a => a.insightId))
 
     if (sales.length >= 2) {
       const liveInsights = []
@@ -70,6 +80,8 @@ export default async function AiInsightsPage(container) {
       insights = liveInsights
       dataSource = 'live'
     }
+
+    insights = insights.filter(i => !dismissedIds.has(i.id)).map(i => actionedIds.has(i.id) ? { ...i, actionTaken: true } : i)
   } catch {}
 
   function renderPage() {
@@ -135,7 +147,9 @@ export default async function AiInsightsPage(container) {
                 💡 <strong>แนะนำ:</strong> ${ins.recommendation}
               </div>
               <div style="display:flex;gap:6px">
-                <button class="btn btn-xs btn-primary action-btn" data-id="${ins.id}">✅ ดำเนินการ</button>
+                ${ins.actionTaken
+                  ? `<span class="badge badge-success" style="font-size:0.72rem;padding:5px 10px">✅ ดำเนินการแล้ว</span>`
+                  : `<button class="btn btn-xs btn-primary action-btn" data-id="${ins.id}">✅ ดำเนินการ</button>`}
                 <button class="btn btn-xs btn-secondary dismiss-btn" data-id="${ins.id}">✗ ไม่สนใจ</button>
               </div>
             </div>`
@@ -150,11 +164,28 @@ export default async function AiInsightsPage(container) {
       showToast('🔄 วิเคราะห์ข้อมูลใหม่เสร็จแล้ว', 'success')
       renderPage()
     })
-    container.querySelectorAll('.action-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.action-btn').forEach(b => b.addEventListener('click', async () => {
       const ins = insights.find(x => x.id === b.dataset.id)
-      if (ins) { ins.actionTaken = true; renderPage(); showToast(`✅ บันทึก Action สำหรับ "${ins.title}" แล้ว`, 'success') }
+      if (!ins) return
+      try {
+        await createDoc('ai_insight_actions', { insightId: ins.id, type: 'action', title: ins.title })
+      } catch (e) {
+        showToast('❌ บันทึกไม่สำเร็จ: ' + e.message, 'error')
+        return
+      }
+      ins.actionTaken = true
+      renderPage()
+      showToast(`✅ บันทึก Action สำหรับ "${ins.title}" แล้ว`, 'success')
     }))
-    container.querySelectorAll('.dismiss-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.dismiss-btn').forEach(b => b.addEventListener('click', async () => {
+      const ins = insights.find(x => x.id === b.dataset.id)
+      if (!ins) return
+      try {
+        await createDoc('ai_insight_actions', { insightId: ins.id, type: 'dismiss', title: ins.title })
+      } catch (e) {
+        showToast('❌ บันทึกไม่สำเร็จ: ' + e.message, 'error')
+        return
+      }
       insights = insights.filter(x => x.id !== b.dataset.id)
       renderPage()
       showToast('ซ่อน Insight แล้ว', 'warning')
