@@ -6,6 +6,7 @@ import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { getLineOaInsight } from '../../utils/comms.js'
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString() }
 function escHtml(s) {
@@ -19,7 +20,12 @@ const MSG_TYPES = {
   auto:      { label: 'ตอบอัตโนมัติ', color: 'secondary', icon: '🤖' },
 }
 
-const OA_STATS = { followers: 4820, blocked: 312, monthlyGrowth: 156, replyRate: 92 }
+// (v1.0.332) เดิม OA_STATS ด้านนี้เป็นตัวเลขปลอมตายตัว (followers:4820, replyRate:92 ฯลฯ) ไม่มีความ
+// เกี่ยวข้องกับ LINE OA จริงเลย แก้ให้ดึงจริงจาก LINE Messaging API ผ่าน workers/comms-send.js
+// (endpoint ใหม่ /line/insight — ใช้ LINE_CHANNEL_ACCESS_TOKEN เดียวกับที่ใช้ส่ง broadcast จริงอยู่แล้ว)
+// LINE ไม่มี API คืนค่า "reply rate" ให้เลย จึงตัด stat นี้ออก แทนด้วย "Broadcast ส่งแล้ว" ที่นับจากข้อมูล
+// จริงในระบบเอง ส่วน followers/blocked/monthlyGrowth ถ้า LINE ยังไม่มีข้อมูลพร้อม (มี delay 2-3 วัน) จะ
+// โชว์ "ไม่มีข้อมูล" ตรงไปตรงมา ไม่ใช่เลขแต่งขึ้น
 
 export default async function LineOaManagerPage(container) {
   const myGen = container.__routerGen
@@ -27,17 +33,19 @@ export default async function LineOaManagerPage(container) {
 
   let broadcasts = []
   let autoReplies = []
+  let oaInsight = null
   let activeTab = 'broadcast'
   let loading = true
 
   async function loadData() {
     loading = true
     try {
-      const [b, a] = await Promise.all([
+      const [b, a, insight] = await Promise.all([
         listDocs('line_oa_broadcasts', [], 'time', 'desc', 200),
         listDocs('line_oa_auto_replies', [], 'keyword', 'asc', 200),
+        getLineOaInsight().catch(() => null),
       ])
-      broadcasts = b; autoReplies = a
+      broadcasts = b; autoReplies = a; oaInsight = insight
     } catch (e) { broadcasts = []; autoReplies = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
@@ -61,11 +69,13 @@ export default async function LineOaManagerPage(container) {
         </div>
 
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
-          ${kpi('💚 Followers', OA_STATS.followers.toLocaleString(), 'success')}
-          ${kpi('📈 เพิ่มเดือนนี้', '+' + OA_STATS.monthlyGrowth, 'primary')}
-          ${kpi('🚫 Block', OA_STATS.blocked, 'warning')}
-          ${kpi('💬 Reply Rate', OA_STATS.replyRate + '%', OA_STATS.replyRate >= 90 ? 'success' : 'warning')}
+          ${kpi('💚 Followers', oaInsight?.followers != null ? oaInsight.followers.toLocaleString() : '— ไม่มีข้อมูล', 'success')}
+          ${kpi('📈 เพิ่มเดือนนี้', oaInsight?.monthlyGrowth != null ? (oaInsight.monthlyGrowth >= 0 ? '+' : '') + oaInsight.monthlyGrowth : '— ไม่มีข้อมูล', 'primary')}
+          ${kpi('🚫 Block', oaInsight?.blocks != null ? oaInsight.blocks.toLocaleString() : '— ไม่มีข้อมูล', 'warning')}
+          ${kpi('📢 Broadcast ส่งแล้ว', broadcasts.filter(b=>b.status==='sent').length, 'success')}
         </div>
+        ${oaInsight && oaInsight.configured === false ? `<div style="padding:8px 14px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:0.72rem;color:var(--text-muted);margin-bottom:12px">⚠️ ${escHtml(oaInsight.error || 'LINE ยังไม่ได้ตั้งค่า')}</div>` : ''}
+        ${oaInsight && oaInsight.configured && oaInsight.followers == null ? `<div style="padding:8px 14px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:0.72rem;color:var(--text-muted);margin-bottom:12px">ℹ️ LINE ยังไม่มีข้อมูล Followers พร้อมใช้งาน (ปกติมี delay 2-3 วัน)</div>` : ''}
 
         <!-- Tabs -->
         <div style="display:flex;gap:4px;margin-bottom:14px">
@@ -154,7 +164,7 @@ export default async function LineOaManagerPage(container) {
             <select class="input" id="bc-type">${Object.entries(MSG_TYPES).filter(([k])=>k!=='auto').map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">กำหนดส่ง</label><input class="input" type="date" id="bc-date" value="${addDays(1).slice(0,10)}"></div>
-          <div style="font-size:0.7rem;color:var(--text-muted)">💚 จะส่งถึง followers ทั้งหมด ~${(OA_STATS.followers - OA_STATS.blocked).toLocaleString()} คน</div>
+          <div style="font-size:0.7rem;color:var(--text-muted)">💚 จะส่งถึงเพื่อน LINE OA ทั้งหมด${oaInsight?.followers != null ? ` (~${oaInsight.followers.toLocaleString()} คน)` : ''}</div>
         </div>`,
         async onConfirm() {
           const name = document.getElementById('bc-name')?.value?.trim()

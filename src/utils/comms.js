@@ -35,6 +35,9 @@ export function sendEmail(recipients, subject, message) {
 export function sendLineBroadcast(message) {
   return callComms('/send/line', { message })
 }
+export function getLineOaInsight() {
+  return callComms('/line/insight', {})
+}
 export function sendPush(tokens, title, message) {
   return callComms('/send/push', { tokens, title, message })
 }

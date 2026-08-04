@@ -126,6 +126,7 @@ export default {
       if (url.pathname === '/send/email') return json(await sendEmail(env, body), 200, cors)
       if (url.pathname === '/send/line') return json(await sendLine(env, body), 200, cors)
       if (url.pathname === '/send/push') return json(await sendPush(env, body), 200, cors)
+      if (url.pathname === '/line/insight') return json(await getLineInsight(env), 200, cors)
       return json({ error: 'Not found' }, 404, cors)
     } catch (err) {
       return json({ error: err.message || 'Send error' }, 500, cors)
@@ -210,6 +211,43 @@ async function sendLine(env, { message = '' }) {
   if (res.ok) return { configured: true, sent: 1, failed: 0, errors: [], broadcast: true }
   const data = await res.json().catch(() => ({}))
   return { configured: true, sent: 0, failed: 1, errors: [{ error: data.message || `LINE ${res.status}` }], broadcast: true }
+}
+
+// ── LINE Insight — follower/blocked count จริงจาก LINE Messaging API (อ่านอย่างเดียว) ──
+// เดิมหน้า LineOaManager.js ใช้ OA_STATS hardcode (followers:4820, blocked:312 ฯลฯ) ไม่ใช่ของจริงเลย
+// LINE เก็บข้อมูล insight เป็นรายวัน มี delay ให้ข้อมูลพร้อม (status !== 'ready' ถ้ายังไม่มีข้อมูลวันนั้น)
+// จึงขอข้อมูลของ "เมื่อวาน" เป็นหลัก (มีโอกาสพร้อมมากที่สุด) และเทียบกับวันที่ 1 ของเดือนเพื่อคำนวณการ
+// เติบโตจริง — ถ้าข้อมูลวันใดไม่พร้อมจะคืน null ให้ client แสดง "ไม่มีข้อมูล" ไม่ใช่เลขแต่งขึ้น
+// หมายเหตุ: LINE ไม่มี API คืนค่า "reply rate" ให้เลย จึงไม่มีสถิตินี้ในผลลัพธ์ (ไม่มีทางทำให้เป็นของจริงได้)
+async function getLineInsight(env) {
+  if (!env.LINE_CHANNEL_ACCESS_TOKEN) {
+    return { configured: false, error: 'LINE ยังไม่ได้ตั้งค่า (ต้องตั้ง secret LINE_CHANNEL_ACCESS_TOKEN)' }
+  }
+  // ใช้ UTC ล้วนตลอดทั้ง pipeline (ไม่ใช้ local getters ผสมกับ toISOString ที่เป็น UTC) กัน date เพี้ยน
+  // ข้ามวันตาม timezone ของเครื่องที่รันโค้ด — Cloudflare Workers จริงรันเป็น UTC อยู่แล้ว
+  const fmt = (d) => d.toISOString().slice(0, 10).replace(/-/g, '')
+  const yesterday = new Date(); yesterday.setUTCDate(yesterday.getUTCDate() - 1)
+  const monthStart = new Date(Date.UTC(yesterday.getUTCFullYear(), yesterday.getUTCMonth(), 1))
+  const [latest, atMonthStart] = await Promise.all([
+    fetchLineFollowers(env, fmt(yesterday)),
+    fetchLineFollowers(env, fmt(monthStart)),
+  ])
+  return {
+    configured: true,
+    followers: latest?.followers ?? null,
+    blocks: latest?.blocks ?? null,
+    date: latest ? fmt(yesterday) : null,
+    monthlyGrowth: (latest?.followers != null && atMonthStart?.followers != null) ? latest.followers - atMonthStart.followers : null,
+  }
+}
+async function fetchLineFollowers(env, dateStr) {
+  const res = await fetch(`https://api.line.me/v2/bot/insight/followers?date=${dateStr}`, {
+    headers: { Authorization: `Bearer ${env.LINE_CHANNEL_ACCESS_TOKEN}` },
+  })
+  if (!res.ok) return null
+  const data = await res.json().catch(() => null)
+  if (!data || data.status !== 'ready') return null
+  return data
 }
 
 // ── Push (Firebase Cloud Messaging v1 API) ───────────────────────

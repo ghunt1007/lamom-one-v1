@@ -28,7 +28,7 @@ function stubFetch(routes, staffRole = 'sales') {
   })
 }
 
-afterEach(() => { vi.restoreAllMocks(); __resetRateLimit() })
+afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); __resetRateLimit() })
 
 describe('comms-send worker — CORS + auth gate', () => {
   it('responds to OPTIONS with the configured ALLOWED_ORIGIN', async () => {
@@ -179,6 +179,42 @@ describe('comms-send worker — /send/line (Messaging API broadcast)', () => {
     const data = await res.json()
     expect(data.configured).toBe(true)
     expect(data.broadcast).toBe(true)
+  })
+})
+
+describe('comms-send worker — /line/insight (real follower stats, v1.0.332)', () => {
+  const ENV = { ...BASE_ENV, LINE_CHANNEL_ACCESS_TOKEN: 'linetokenfake' }
+
+  it('reports not configured when the LINE channel token is missing', async () => {
+    stubFetch([])
+    const res = await worker.fetch(req('/line/insight', {}), BASE_ENV)
+    const data = await res.json()
+    expect(data.configured).toBe(false)
+  })
+
+  it('returns real followers/blocks and computes monthlyGrowth when both dates are ready', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-08-15T12:00:00Z')) // yesterday=20260814, monthStart=20260801 — fixed to avoid TZ/day-boundary flakiness
+    stubFetch([['api.line.me/v2/bot/insight/followers', (url) => {
+      const dateParam = new URL(String(url)).searchParams.get('date')
+      const isMonthStart = dateParam === '20260801'
+      return { ok: true, json: async () => ({ status: 'ready', followers: isMonthStart ? 4700 : 4820, blocks: 312 }) }
+    }]])
+    const res = await worker.fetch(req('/line/insight', {}), ENV)
+    const data = await res.json()
+    expect(data.configured).toBe(true)
+    expect(data.followers).toBe(4820)
+    expect(data.blocks).toBe(312)
+    expect(data.monthlyGrowth).toBe(120)
+  })
+
+  it('returns null stats (not fabricated numbers) when LINE has no data ready for the date', async () => {
+    stubFetch([['api.line.me/v2/bot/insight/followers', () => ({ ok: true, json: async () => ({ status: 'unready' }) })]])
+    const res = await worker.fetch(req('/line/insight', {}), ENV)
+    const data = await res.json()
+    expect(data.configured).toBe(true)
+    expect(data.followers).toBeNull()
+    expect(data.monthlyGrowth).toBeNull()
   })
 })
 
