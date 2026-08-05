@@ -1,0 +1,75 @@
+name: Android Build Check
+
+# (v1.0.352) เดิมไม่มี CI ตรวจสอบว่าโปรเจกต์ Android (Capacitor) build ผ่านเลย — build ทำมือที่เครื่อง
+# นักพัฒนาเท่านั้น (มี APK debug/release จริงอยู่แล้วจากการ build มือ) การเปลี่ยนแปลงฝั่ง native (build.gradle,
+# AndroidManifest.xml, capacitor.config.json ฯลฯ) อาจพัง gradle build แล้วไม่มีใครรู้จนกว่าจะลอง build มือ
+# อีกครั้ง — เพิ่ม workflow นี้ให้รัน assembleDebug ทุกครั้งที่แก้ไฟล์ที่เกี่ยวกับ Android จริง (ไม่รันทุก
+# push เพื่อประหยัดเวลา CI เพราะโค้ดหน้าเว็บทั่วไปไม่กระทบการ build ฝั่ง native) ใช้ debug build เท่านั้น
+# (ไม่ใช้ release) เพราะ keystore เซ็นจริง (android/lamom-release.jks + keystore.properties) ไม่ได้ commit
+# เข้า git เลย (gitignore ไว้ตั้งใจ ไม่ควรเอาเข้า CI secret โดยไม่ได้รับอนุญาตจากเจ้าของก่อน) — debug build
+# ไม่ต้องใช้ keystore จริงเลย (Android สร้าง debug key ให้อัตโนมัติ) พอสำหรับตรวจว่า build ผ่านจริงหรือไม่
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'android/**'
+      - 'capacitor.config.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'src/**'
+  workflow_dispatch:
+
+jobs:
+  android-build:
+    runs-on: ubuntu-latest
+    name: Build Android (debug)
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web assets (dist/) for Capacitor to package
+        run: npm run build
+        env:
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_SENDER_ID: ${{ secrets.VITE_FIREBASE_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_R2_WORKER_URL: ${{ secrets.VITE_R2_WORKER_URL }}
+          VITE_AI_PROXY_URL: ${{ secrets.VITE_AI_PROXY_URL }}
+
+      - name: Setup Java (Gradle requires JDK)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Sync Capacitor Android project with latest web build
+        run: npx cap sync android
+
+      - name: Make gradlew executable
+        run: chmod +x android/gradlew
+
+      - name: Build debug APK
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: lamom-one-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
