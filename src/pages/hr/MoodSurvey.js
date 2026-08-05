@@ -26,8 +26,15 @@ const QUESTIONS = [
   'มีอะไรที่ทำให้คุณเครียดเป็นพิเศษไหม?',
 ]
 
+// แบบสำรวจ Mood/ความเครียดต้องมีความเป็นนิรนามในระดับหนึ่ง — เดิมหน้านี้โชว์ชื่อจริง+uid ของผู้ตอบทุกคำตอบ
+// ให้ทุก role เห็นหมด (ทำลายจุดประสงค์ของแบบสำรวจไปเลย) จำกัดให้เห็น "ใครตอบว่าอะไร" แบบรายบุคคลได้เฉพาะ
+// HR/ผู้บริหารเท่านั้น ส่วนค่าเฉลี่ยรวม/ค่าเฉลี่ยตามแผนก (aggregate) ยังเห็นได้ทุกคนเหมือนเดิม
+const MOOD_HANDLER_ROLES = ['owner', 'admin', 'manager', 'hr']
+
 export default async function MoodSurveyPage(container) {
   const myGen = container.__routerGen
+  const myRole = getState('role') || getState('user')?.role || 'staff'
+  const isHandler = MOOD_HANDLER_ROLES.includes(myRole)
   seedDemoData()
 
   let responses = []
@@ -65,7 +72,7 @@ export default async function MoodSurveyPage(container) {
             <div class="page-subtitle">วัด Mood พนักงานรายวัน · ตรวจจับความเครียด · HR Dashboard</div>
           </div>
           <div class="page-actions">
-            ${surveySentAt ? `<span style="font-size:0.74rem;color:var(--success)">✅ ส่งแบบสำรวจแล้ว</span>` : `<button class="btn btn-secondary" id="send-survey-btn">📤 ส่งแบบสำรวจ</button>`}
+            ${isHandler ? (surveySentAt ? `<span style="font-size:0.74rem;color:var(--success)">✅ ส่งแบบสำรวจแล้ว</span>` : `<button class="btn btn-secondary" id="send-survey-btn">📤 ส่งแบบสำรวจ</button>`) : ''}
             <button class="btn btn-primary" id="fill-btn">✏️ กรอกของฉัน</button>
           </div>
         </div>
@@ -100,9 +107,16 @@ export default async function MoodSurveyPage(container) {
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-          <!-- Response list -->
+          <!-- Response list — เห็นรายชื่อ/รายละเอียดผู้ตอบเป็นรายบุคคลได้เฉพาะ HR/ผู้บริหาร (isHandler) เท่านั้น
+               เพื่อรักษาความเป็นนิรนามของแบบสำรวจ Mood ให้พนักงานทั่วไป -->
           <div>
             <div style="font-size:0.76rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">📋 การตอบวันนี้ (${todayRows.length})</div>
+            ${!isHandler ? `
+            <div class="empty-state" style="padding:20px">
+              <div class="empty-icon">🔒</div>
+              <div class="empty-title" style="font-size:0.82rem">รายละเอียดผู้ตอบรายบุคคลเห็นได้เฉพาะ HR/ผู้บริหาร</div>
+              <div class="empty-desc" style="font-size:0.72rem">เพื่อรักษาความเป็นนิรนามของแบบสำรวจ — ดูค่าเฉลี่ยรวม/ค่าเฉลี่ยตามแผนกได้ตามปกติ</div>
+            </div>` : `
             <div style="display:flex;flex-direction:column;gap:6px">
               ${todayRows.map(r => {
                 const m = MOODS.find(x=>x.score===r.score)||MOODS[2]
@@ -118,7 +132,7 @@ export default async function MoodSurveyPage(container) {
                 </div>`
               }).join('')}
               ${todayRows.length === 0 ? '<div style="font-size:0.8rem;color:var(--text-muted);padding:20px;text-align:center">ยังไม่มีการตอบแบบสำรวจ</div>' : ''}
-            </div>
+            </div>`}
           </div>
 
           <!-- Dept average -->
@@ -198,8 +212,11 @@ export default async function MoodSurveyPage(container) {
       async onConfirm() {
         if (!picked) { showToast('เลือก Mood ก่อน', 'warning'); return false }
         const me = getState('user') || {}
+        // เดิมเผลอเก็บ role ของผู้ใช้ (เช่น "sales"/"hr") ลงช่อง dept แทนแผนกจริง ทำให้ตัวกรอง/ค่าเฉลี่ยตามแผนก
+        // (เทียบกับชื่อแผนกภาษาไทยจริงใน DEPT) ไม่ตรงกับข้อมูลเลย — แก้ให้ใช้แผนกจริงจาก companyMemberships
+        const myDept = (me.companyMemberships || []).map(m => m.department).filter(Boolean)[0] || '—'
         await createDoc('mood_responses', {
-          staff: me.displayName || me.email || 'ผู้ใช้ปัจจุบัน', uid: me.uid || '', dept: me.role || '—',
+          staff: me.displayName || me.email || 'ผู้ใช้ปัจจุบัน', uid: me.uid || '', dept: myDept,
           date: new Date().toISOString().slice(0, 10),
           score: picked, note: document.getElementById('mood-note')?.value || '',
         })

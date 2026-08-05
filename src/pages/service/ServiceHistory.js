@@ -180,14 +180,40 @@ export default async function ServiceHistoryPage(container) {
         <div style="margin-bottom:12px">
           ${r.services.map(s => `<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:0.83rem">✓ ${escHtml(s)}</div>`).join('')}
         </div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:8px">
           ${kpi('🔧 ค่าแรง', formatCurrency(r.laborCost), 'primary')}
           ${kpi('🔩 ค่าอะไหล่', formatCurrency(r.partsCost), 'warning')}
           ${kpi('💰 รวม', formatCurrency(r.totalCost), 'success')}
         </div>
+        <button class="btn btn-xs btn-secondary edit-cost-btn" style="margin-bottom:12px">✏️ แก้ไขค่าใช้จ่าย</button>
         ${r.nextServiceDate ? `<div style="padding:10px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:0.82rem">📅 นัดครั้งถัดไป: <strong>${formatDate(r.nextServiceDate)}</strong> หรือ <strong>${r.nextServiceMileage?.toLocaleString()} กม.</strong></div>` : ''}
         ${r.notes ? `<div style="margin-top:10px;padding:10px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:0.82rem;color:var(--text-muted)">📌 ${escHtml(r.notes)}</div>` : ''}
       `
+    })
+    setTimeout(() => {
+      document.querySelector('.modal .edit-cost-btn')?.addEventListener('click', () => openEditCostModal(r))
+    }, 50)
+  }
+
+  // เดิม totalCost/laborCost/partsCost ถูกเซ็ตเป็น 0 ตอนสร้างงานเสมอ (openAddForm) และไม่มีจุดไหนในหน้านี้ให้แก้ไขทีหลังเลย
+  // ทำให้ KPI "รายได้รวม" บนหน้านี้เป็น 0 ตลอดกาล — เพิ่มโมดัลแก้ไขค่าแรง/ค่าอะไหล่แยกจากช่างซ่อมได้ที่นี่
+  function openEditCostModal(r) {
+    openModal({
+      title: '✏️ แก้ไขค่าใช้จ่าย — ' + escHtml(r.id),
+      size: 'sm',
+      body: `<div style="display:grid;gap:10px">
+        <div class="input-group"><label class="input-label">ค่าแรง (บาท)</label><input class="input" id="ec-labor" type="number" min="0" value="${r.laborCost || 0}"></div>
+        <div class="input-group"><label class="input-label">ค่าอะไหล่ (บาท)</label><input class="input" id="ec-parts" type="number" min="0" value="${r.partsCost || 0}"></div>
+      </div>`,
+      async onConfirm() {
+        const laborCost = Math.max(0, +document.getElementById('ec-labor')?.value || 0)
+        const partsCost = Math.max(0, +document.getElementById('ec-parts')?.value || 0)
+        try {
+          await updateDocData('service_history_records', r.id, { laborCost, partsCost, totalCost: laborCost + partsCost })
+          showToast('✅ บันทึกค่าใช้จ่ายแล้ว', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      }
     })
   }
 

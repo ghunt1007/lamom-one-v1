@@ -7,6 +7,8 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
+function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
 
 const WC_STATUS = {
@@ -80,9 +82,9 @@ export default async function WarrantyClaimPage(container) {
             return `<div class="card" style="padding:13px 14px;border-left:3px solid var(--${cs?.color})">
               <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px">
                 <div>
-                  <div style="font-weight:700;font-size:0.86rem">${c.plate} — ${c.model} <span style="font-size:0.68rem;color:var(--text-muted)">VIN ${c.vin}</span></div>
-                  <div style="font-size:0.74rem;color:var(--text-muted)">🔧 ${c.issue}</div>
-                  <div style="font-size:0.72rem;color:var(--text-muted)">อะไหล่: ${c.parts} · แรง ${c.laborHrs} ชม. · 🛡 ${c.warrantyType} · ส่ง ${timeAgo(c.submitted)}</div>
+                  <div style="font-weight:700;font-size:0.86rem">${escHtml(c.plate)} — ${escHtml(c.model)} <span style="font-size:0.68rem;color:var(--text-muted)">VIN ${escHtml(c.vin)}</span></div>
+                  <div style="font-size:0.74rem;color:var(--text-muted)">🔧 ${escHtml(c.issue)}</div>
+                  <div style="font-size:0.72rem;color:var(--text-muted)">อะไหล่: ${escHtml(c.parts)} · แรง ${c.laborHrs} ชม. · 🛡 ${escHtml(c.warrantyType)} · ส่ง ${timeAgo(c.submitted)}</div>
                 </div>
                 <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
                   <span class="badge badge-${cs?.color}" style="font-size:0.62rem">${cs?.icon} ${cs?.label}</span>

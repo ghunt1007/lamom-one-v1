@@ -92,6 +92,10 @@ export default async function WarrantyManagementPage(container) {
   }
 
   function getWarrantyStatus(w) {
+    // สถานะจริงที่ตั้งไว้แล้ว (เคลม/ยกเลิก) ต้องมาก่อนเสมอ — เดิมฟังก์ชันนี้คำนวณจากวันที่ล้วนๆ ทำให้ประกันที่
+    // เคลมไปแล้ว (status:'claimed') หรือถูกยกเลิก (status:'void') ที่วันหมดอายุยังไม่ถึง/ใกล้ถึง ถูกแสดงเป็น
+    // 'active'/'expiring' ผิดๆ ทับสถานะจริงที่ตั้งใจบันทึกไว้
+    if (w.status === 'claimed' || w.status === 'void') return w.status
     const days = daysLeft(w.endDate)
     if (days < 0) return 'expired'
     if (days <= 90) return 'expiring'

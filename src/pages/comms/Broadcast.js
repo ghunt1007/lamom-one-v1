@@ -3,7 +3,7 @@
  * Route: /comms/broadcast
  */
 import { formatDate, timeAgo } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { TARGET_SEGMENTS, getSegmentMembers, getSegmentCount, reachableMembers } from '../../core/segments.js'
@@ -122,26 +122,36 @@ export default async function BroadcastPage(container) {
     container.querySelectorAll('.send-bc-btn').forEach(b => b.addEventListener('click', async () => {
       const bc = broadcasts.find(x => x.id === b.dataset.id)
       if (!bc) return
+      let reachable = null
+      let confirmMsg
+      if (bc.channel === 'line') {
+        if (bc.target !== 'all') {
+          showToast('❗ LINE รองรับส่งแบบ "ลูกค้าทั้งหมด" เท่านั้นตอนนี้ — ระบบยังไม่ได้เก็บ LINE userId รายบุคคลของลูกค้า (เก็บแค่ LINE ID ที่กรอกเอง ใช้ยิงเฉพาะกลุ่มไม่ได้)', 'error')
+          return
+        }
+        confirmMsg = `จะส่ง LINE Broadcast ข้อความนี้ถึง "เพื่อน OA ทั้งหมด" จริงทันที (ระบบไม่ทราบจำนวนผู้รับที่แน่นอนล่วงหน้า) ยืนยันส่งหรือไม่?`
+      } else {
+        const members = await getSegmentMembers(bc.target)
+        reachable = reachableMembers(members, bc.channel)
+        if (!reachable.length) {
+          showToast(bc.channel === 'push'
+            ? '❗ ยังไม่มีลูกค้าลงทะเบียนรับ Push Notification ในระบบ (ต้องสร้างระบบเก็บ Push token ก่อน)'
+            : '❗ ไม่มีผู้รับที่ส่งได้จริงในกลุ่มนี้สำหรับช่องทางนี้ (ไม่มีข้อมูลติดต่อ)', 'error')
+          return
+        }
+        confirmMsg = `จะส่ง${CHANNELS[bc.channel]?.label || bc.channel}จริงทันทีถึง <strong>${reachable.length.toLocaleString()} ราย</strong> ในกลุ่ม "${TARGET_SEGS[bc.target] || bc.target}" การส่งนี้ไม่สามารถยกเลิกได้ ยืนยันส่งหรือไม่?`
+      }
+      const ok = await confirmDialog({ title: '📤 ยืนยันส่ง Broadcast', message: confirmMsg, confirmText: '📤 ส่งจริง', danger: true })
+      if (!ok) return
+
       b.disabled = true
       try {
         let result, recipients
 
         if (bc.channel === 'line') {
-          if (bc.target !== 'all') {
-            showToast('❗ LINE รองรับส่งแบบ "ลูกค้าทั้งหมด" เท่านั้นตอนนี้ — ระบบยังไม่ได้เก็บ LINE userId รายบุคคลของลูกค้า (เก็บแค่ LINE ID ที่กรอกเอง ใช้ยิงเฉพาะกลุ่มไม่ได้)', 'error')
-            return
-          }
           result = await sendLineBroadcast(bc.message)
           recipients = null // Broadcast API ของ LINE ส่งถึงเพื่อน OA ทั้งหมด ฝั่งเราไม่ทราบจำนวนผู้รับจริง
         } else {
-          const members = await getSegmentMembers(bc.target)
-          const reachable = reachableMembers(members, bc.channel)
-          if (!reachable.length) {
-            showToast(bc.channel === 'push'
-              ? '❗ ยังไม่มีลูกค้าลงทะเบียนรับ Push Notification ในระบบ (ต้องสร้างระบบเก็บ Push token ก่อน)'
-              : '❗ ไม่มีผู้รับที่ส่งได้จริงในกลุ่มนี้สำหรับช่องทางนี้ (ไม่มีข้อมูลติดต่อ)', 'error')
-            return
-          }
           if (bc.channel === 'sms') result = await sendSms(reachable.map(m => m.phone), bc.message)
           else if (bc.channel === 'email') result = await sendEmail(reachable.map(m => m.email), bc.subject || bc.title, bc.message)
           else if (bc.channel === 'push') result = await sendPush(reachable.map(m => m.fcmToken), bc.title || bc.title, bc.message)

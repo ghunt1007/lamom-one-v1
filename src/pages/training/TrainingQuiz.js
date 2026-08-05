@@ -32,12 +32,21 @@ const QUIZ_SETS = [
   },
 ]
 
-const LEADERBOARD = [
-  { name: 'วิชัย ยอดขาย', score: 95, quizzes: 8 },
-  { name: 'สุดา มาดี', score: 92, quizzes: 7 },
-  { name: 'วิทยา ช่างใหญ่', score: 88, quizzes: 9 },
-  { name: 'ธนา เก่ง', score: 81, quizzes: 5 },
-]
+// เดิม LEADERBOARD เป็น array คงที่ของพนักงานสมมติ 4 คน ไม่เคยอัปเดตตามผล quiz_results/history จริงที่หน้านี้
+// โหลดมาอยู่แล้วเลย แก้ให้คำนวณ Top Scores จากประวัติการทำแบบทดสอบจริง — เฉลี่ย % ต่อคน เรียงจากมากไปน้อย
+function computeLeaderboard(hist) {
+  const byStaff = {}
+  hist.forEach(h => {
+    const name = h.staffName || 'ไม่ทราบชื่อ'
+    if (!byStaff[name]) byStaff[name] = { name, totalPct: 0, quizzes: 0 }
+    byStaff[name].totalPct += (h.percent || 0)
+    byStaff[name].quizzes += 1
+  })
+  return Object.values(byStaff)
+    .map(s => ({ name: s.name, score: Math.round(s.totalPct / s.quizzes), quizzes: s.quizzes }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 4)
+}
 
 export default async function TrainingQuizPage(container) {
   const myGen = container.__routerGen
@@ -86,7 +95,10 @@ export default async function TrainingQuizPage(container) {
           <!-- Leaderboard -->
           <div class="card" style="padding:14px">
             <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">🏆 Top Scores</div>
-            ${LEADERBOARD.map((l, i) => `
+            ${(() => {
+              const leaderboard = computeLeaderboard(history)
+              if (!leaderboard.length) return `<div style="font-size:0.78rem;color:var(--text-muted)">ยังไม่มีผลการทำแบบทดสอบ</div>`
+              return leaderboard.map((l, i) => `
               <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)">
                 <div style="display:flex;gap:8px;align-items:center">
                   <span>${['🥇','🥈','🥉','4.'][i]}</span>
@@ -97,7 +109,8 @@ export default async function TrainingQuizPage(container) {
                 </div>
                 <span style="font-weight:700;color:var(--${l.score>=90?'success':'warning'})">${l.score}%</span>
               </div>
-            `).join('')}
+            `).join('')
+            })()}
           </div>
         </div>
 

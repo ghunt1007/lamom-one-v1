@@ -7,6 +7,8 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
+function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
 const CASE_TYPES = {
   battery_dead: { label: 'แบต 12V หมด', icon: '🔋' },
   out_of_charge:{ label: 'ไฟหมดกลางทาง', icon: '⚡' },
@@ -73,10 +75,10 @@ export default async function RoadsideAssistPage(container) {
             return `<div class="card" style="padding:13px 14px;border-left:3px solid var(--${cs?.color})">
               <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px">
                 <div>
-                  <div style="font-weight:700;font-size:0.87rem">${ct?.icon} ${ct?.label} — ${c.plate} (${c.model})</div>
-                  <div style="font-size:0.72rem;color:var(--text-muted)">👤 ${c.customer} 📞 ${c.phone} · แจ้ง ${timeAgo(c.reported)}</div>
-                  <div style="font-size:0.74rem;font-weight:600;color:var(--primary)">📍 ${c.location}</div>
-                  ${c.team ? `<div style="font-size:0.72rem;color:var(--text-muted)">🚐 ${c.team}${c.eta > 0 ? ' · ถึงใน ~' + c.eta + ' นาที' : ''}</div>` : ''}
+                  <div style="font-weight:700;font-size:0.87rem">${ct?.icon} ${ct?.label} — ${escHtml(c.plate)} (${escHtml(c.model)})</div>
+                  <div style="font-size:0.72rem;color:var(--text-muted)">👤 ${escHtml(c.customer)} 📞 ${escHtml(c.phone)} · แจ้ง ${timeAgo(c.reported)}</div>
+                  <div style="font-size:0.74rem;font-weight:600;color:var(--primary)">📍 ${escHtml(c.location)}</div>
+                  ${c.team ? `<div style="font-size:0.72rem;color:var(--text-muted)">🚐 ${escHtml(c.team)}${c.eta > 0 ? ' · ถึงใน ~' + c.eta + ' นาที' : ''}</div>` : ''}
                 </div>
                 <span class="badge badge-${cs?.color}" style="font-size:0.65rem">${cs?.icon} ${cs?.label}</span>
               </div>

@@ -140,7 +140,7 @@ export default async function ContentCalendarPage(container) {
 
               <div style="display:flex;gap:6px">
                 <button class="btn btn-xs btn-secondary view-ct-btn" data-id="${c.id}" style="flex:1">ดูรายละเอียด</button>
-                ${c.status !== 'published' ? `<button class="btn btn-xs btn-success pub-ct-btn" data-id="${c.id}">เผยแพร่</button>` : ''}
+                ${c.status !== 'published' ? `<button class="btn btn-xs btn-success pub-ct-btn" data-id="${c.id}">บันทึกว่าเผยแพร่แล้ว</button>` : ''}
               </div>
             </div>`
           }).join('')}
@@ -160,7 +160,7 @@ export default async function ContentCalendarPage(container) {
       const newDate = addDays(0)
       c.status = 'published'; c.publishDate = newDate
       renderPage()
-      showToast(`✅ เผยแพร่ "${c.title}" แล้ว!`, 'success')
+      showToast(`📝 บันทึกในระบบแล้ว — ยังไม่เชื่อมต่อ API เพื่อโพสต์อัตโนมัติ กรุณาโพสต์ "${c.title}" เองบน Platform จริง`, 'success')
       try { await updateDocData('content_calendar', c.id, { status: 'published', publishDate: newDate }) } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
   }

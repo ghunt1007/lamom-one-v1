@@ -4,10 +4,14 @@
  */
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
+// API Key เป็นข้อมูลอ่อนไหวระดับ credential เข้าถึงระบบภายนอกได้ — สร้าง/revoke จึงจำกัดเฉพาะ owner/admin
+// เหมือน DataRetention.js/BackupRestore.js/Roles.js (เดิมหน้านี้ไม่มีการเช็คสิทธิ์เลย)
+const API_KEYS_MANAGE_ROLES = ['owner', 'admin']
 
 const KEY_SCOPES = {
   read:  { label: 'อ่านอย่างเดียว', color: 'success', icon: '👁' },

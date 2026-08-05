@@ -3,7 +3,7 @@
  * Route: /comms/sms
  */
 import { formatDate, timeAgo } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { TARGET_SEGMENTS, getSegmentMembers, getSegmentCount, reachableMembers } from '../../core/segments.js'
@@ -107,13 +107,21 @@ export default async function SMSMarketingPage(container) {
     container.querySelectorAll('.send-now-btn').forEach(b => b.addEventListener('click', async () => {
       const c = campaigns.find(x => x.id === b.dataset.id)
       if (!c) return
+      const members = await getSegmentMembers(c.target || 'all')
+      const reachable = reachableMembers(members, 'sms')
+      if (!reachable.length) { showToast('❗ ไม่มีผู้รับที่มีเบอร์โทรจริงในกลุ่มนี้', 'error'); return }
+      if (credits < reachable.length) { showToast('❗ เครดิตไม่พอ', 'error'); return }
+
+      const ok = await confirmDialog({
+        title: '📱 ยืนยันส่ง SMS',
+        message: `จะส่ง SMS จริงทันทีถึง <strong>${reachable.length.toLocaleString()} ราย</strong> ในกลุ่ม "${TARGET_SEGMENTS[c.target] || c.target}" (ใช้เครดิต ${reachable.length} ข้อความ) การส่งนี้ไม่สามารถยกเลิกได้ ยืนยันส่งหรือไม่?`,
+        confirmText: '📱 ส่งจริง',
+        danger: true,
+      })
+      if (!ok) return
+
       b.disabled = true
       try {
-        const members = await getSegmentMembers(c.target || 'all')
-        const reachable = reachableMembers(members, 'sms')
-        if (!reachable.length) { showToast('❗ ไม่มีผู้รับที่มีเบอร์โทรจริงในกลุ่มนี้', 'error'); return }
-        if (credits < reachable.length) { showToast('❗ เครดิตไม่พอ', 'error'); return }
-
         const result = await sendSms(reachable.map(m => m.phone), c.message)
         if (result.configured === false) { showToast('❗ ' + result.error, 'error'); return }
 

@@ -89,6 +89,12 @@ export default async function PolicyManagementPage(container) {
           </div>
         </div>
 
+        <div class="card" style="padding:10px 14px;margin-bottom:14px;background:var(--surface-2);border:1px dashed var(--border);font-size:0.72rem;color:var(--text-muted)">
+          ⚠️ หน้านี้เก็บข้อมูลแยกต่างหาก (collection <code>policy_renewals</code>) — ไม่ใช่ชุดข้อมูลเดียวกับหน้า
+          <strong>🛡 Insurance</strong> (collection <code>insurance_policies</code>) ที่เชื่อมกับ Global Search / VIN Decoder /
+          Upsell Advisor / Customer Portal จริง กรมธรรม์ที่เพิ่ม/ต่ออายุที่นี่จะ<strong>ไม่ปรากฏ</strong>ในหน้าอื่นเหล่านั้น
+        </div>
+
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px">
           ${sc('✅ กรมธรรม์มีผล', active + ' ฉบับ', 'var(--success)')}
           ${sc('⚠️ ใกล้หมดอายุ', expiring + ' ฉบับ', 'var(--warning)')}

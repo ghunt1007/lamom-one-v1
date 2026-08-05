@@ -63,7 +63,7 @@ export default async function EscalationRulesPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">⚡ Escalation Rules</div>
-            <div class="page-subtitle">แจ้งเตือนอัตโนมัติเมื่องานเกิน SLA · ${rules.length} กฎ</div>
+            <div class="page-subtitle">กำหนดกฎ Escalation เมื่องานเกิน SLA (ยังไม่มีระบบตรวจจับ/แจ้งเตือนอัตโนมัติ) · ${rules.length} กฎ</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="add-rule-btn">+ เพิ่มกฎใหม่</button>
@@ -97,11 +97,12 @@ export default async function EscalationRulesPage(container) {
         </div>
 
         <div class="card" style="padding:14px;margin-top:12px;background:var(--surface-2);border:1px dashed var(--border)">
-          <div style="font-size:0.76rem;font-weight:700;margin-bottom:6px">ℹ️ วิธีการทำงาน</div>
+          <div style="font-size:0.76rem;font-weight:700;margin-bottom:6px">ℹ️ หน้านี้ใช้ทำอะไร</div>
           <div style="font-size:0.72rem;color:var(--text-muted);line-height:1.8">
-            เมื่องานเกินเวลา SLA ที่กำหนด → ระบบส่งแจ้งเตือน L1 อัตโนมัติ<br>
-            หากไม่มีการตอบสนองใน 2 ชม. → ยกระดับไป L2<br>
-            ทุก Escalation บันทึกใน Audit Trail ทันที
+            หน้านี้ใช้สำหรับ<strong>กำหนดกฎ</strong> escalation ไว้ล่วงหน้า (หน่วงเวลา / สายงานแจ้งเตือน / ช่องทาง) เท่านั้น<br>
+            ⚠️ ยังไม่มีระบบตรวจจับ SLA breach อัตโนมัติเชื่อมอยู่ — ไม่มีการส่งแจ้งเตือน L1/L2 จริง และคอลัมน์ "Triggered"
+            เป็นตัวเลขที่ยังไม่ถูกอัปเดตจากเหตุการณ์จริง (ค่าเริ่มต้น 0 เสมอ)<br>
+            การแจ้งเตือนเมื่องานเกิน SLA ต้องทำโดยเจ้าหน้าที่ติดตามเอง จนกว่าจะมี engine ตรวจจับอัตโนมัติมาเชื่อมกับกฎเหล่านี้
           </div>
         </div>
       </div>`

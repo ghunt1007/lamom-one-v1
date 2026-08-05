@@ -80,7 +80,7 @@ export default async function ServicePackagePage(container) {
                     <span class="badge ${p.active?'badge-success':'badge-secondary'}" style="font-size:0.6rem">${p.active?'ใช้งาน':'ปิดใช้'}</span>
                   </div>
                 </div>
-                <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:10px">📋 ${p.items.join(' · ')}</div>
+                <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:10px">📋 ${p.items.map(esc).join(' · ')}</div>
                 <div style="display:flex;gap:6px">
                   <button class="btn btn-xs btn-primary view-pkg-btn" data-id="${p.id}" style="flex:1">รายละเอียด</button>
                   <button class="btn btn-xs ${p.active?'btn-secondary':'btn-success'} toggle-btn" data-id="${p.id}">${p.active?'ปิดใช้':'เปิดใช้'}</button>
@@ -125,7 +125,7 @@ export default async function ServicePackagePage(container) {
         ${row('รายได้รวม', formatCurrency(p.price * p.soldCount))}
         <div style="margin-top:12px">
           <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);margin-bottom:6px">📋 รายการที่ครอบคลุม</div>
-          ${p.items.map(item => `<div style="font-size:0.82rem;padding:4px 0;border-bottom:1px solid var(--border)">✓ ${item}</div>`).join('')}
+          ${p.items.map(item => `<div style="font-size:0.82rem;padding:4px 0;border-bottom:1px solid var(--border)">✓ ${esc(item)}</div>`).join('')}
         </div>
       `
     })

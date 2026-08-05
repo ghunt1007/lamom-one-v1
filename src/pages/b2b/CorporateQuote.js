@@ -13,7 +13,7 @@ function escHtml(s) {
 
 const QUOTE_STATUS = {
   draft:    { label: 'ร่าง', color: 'secondary' },
-  sent:     { label: 'ส่งแล้ว', color: 'primary' },
+  sent:     { label: 'บันทึกส่งแล้ว (ในระบบ)', color: 'primary' },
   reviewed: { label: 'อยู่ระหว่างพิจารณา', color: 'warning' },
   won:      { label: 'ได้งาน', color: 'success' },
   lost:     { label: 'เสียงาน', color: 'danger' },
@@ -106,7 +106,7 @@ export default async function CorporateQuotePage(container) {
                   <td style="padding:10px 14px;text-align:center">
                     <div style="display:flex;gap:4px;justify-content:center">
                       <button class="btn btn-xs btn-secondary view-btn" data-id="${q.id}">ดู</button>
-                      ${q.status === 'draft' ? `<button class="btn btn-xs btn-primary send-btn" data-id="${q.id}">ส่ง</button>` : ''}
+                      ${q.status === 'draft' ? `<button class="btn btn-xs btn-primary send-btn" data-id="${q.id}" title="บันทึกสถานะในระบบเท่านั้น ไม่ได้ส่งอีเมล/เอกสารจริง">บันทึกส่ง</button>` : ''}
                       ${q.status === 'sent' || q.status === 'reviewed' ? `<button class="btn btn-xs btn-success won-btn" data-id="${q.id}">ได้</button>` : ''}
                     </div>
                   </td>
@@ -128,7 +128,9 @@ export default async function CorporateQuotePage(container) {
       if (!q) return
       try {
         await updateDocData('corporate_quotes', q.id, { status: 'sent' })
-        showToast(`📤 ส่ง Quote ${q.id} ถึง ${q.company} แล้ว`, 'success')
+        // (บันทึกความซื่อสัตย์) เรคคอร์ด corporate_quotes ไม่มี field อีเมลลูกค้าเก็บไว้ (มีแค่ contact
+        // เป็นชื่อคน) จึงไม่มีทางเรียก sendEmail จริงได้จากปุ่มนี้ — บันทึกสถานะในระบบเท่านั้น
+        showToast(`📝 บันทึกสถานะ "ส่งแล้ว" ในระบบแล้ว — ยังไม่มีการส่งเอกสาร/อีเมลจริงถึง ${q.company} กรุณาส่งใบเสนอราคาให้ลูกค้าเองผ่านอีเมล/เอกสาร`, 'success')
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))

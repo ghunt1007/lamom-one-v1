@@ -9,14 +9,12 @@ import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
-const PART_CATS = {
-  brake:    { label: 'เบรก', color: 'danger', icon: '🔴' },
-  filter:   { label: 'ไส้กรอง', color: 'primary', icon: '🔵' },
-  fluid:    { label: 'น้ำมัน/น้ำยา', color: 'warning', icon: '🟡' },
-  electrical:{ label: 'ไฟฟ้า/EV', color: 'success', icon: '⚡' },
-  body:     { label: 'ตัวถัง', color: 'secondary', icon: '🔧' },
-  tyre:     { label: 'ยาง', color: 'secondary', icon: '⭕' },
-}
+// เดิมหน้านี้อ่าน/เขียน collection 'service_parts_inventory' แยกจากหน้า Parts.js (collection 'parts' — ที่
+// ServiceDashboard.js และระบบ migration ใช้อ้างอิงเป็นคลังอะไหล่หลักของระบบอยู่แล้ว) ทำให้เพิ่มอะไหล่จากหน้า
+// หนึ่งแล้วไม่โผล่อีกหน้าเลย แก้โดยให้หน้านี้ใช้ collection 'parts' ตัวเดียวกัน + field ชื่อหมวดหมู่ 'category'
+// (ค่าเป็น string ภาษาไทยอิสระ) แทน 'cat' (ที่เดิมเป็น key คงที่ชุดละกับของ Parts.js) ให้ตรงกับ schema จริงที่
+// Parts.js ใช้
+const PART_CATEGORIES = ['น้ำมันและของเหลว','ระบบเบรก','ระบบกันสะเทือน','ระบบไฟฟ้า','แบตเตอรี่ EV','ยางและล้อ','ตัวถัง','ฟิลเตอร์','อุปกรณ์เสริม','อื่นๆ']
 
 export default async function PartsInventoryPage(container) {
   const myGen = container.__routerGen
@@ -30,7 +28,7 @@ export default async function PartsInventoryPage(container) {
 
   async function loadData() {
     loading = true
-    try { parts = await listDocs('service_parts_inventory', [], 'name', 'asc', 500) } catch (e) { parts = [] }
+    try { parts = await listDocs('parts', [], 'name', 'asc', 500) } catch (e) { parts = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -41,11 +39,11 @@ export default async function PartsInventoryPage(container) {
       return
     }
     const list = parts.filter(p =>
-      (catFilter === 'all' || p.cat === catFilter) &&
-      (search === '' || p.name.toLowerCase().includes(search) || p.sku.toLowerCase().includes(search))
+      (catFilter === 'all' || p.category === catFilter) &&
+      (search === '' || (p.name||'').toLowerCase().includes(search) || (p.sku||'').toLowerCase().includes(search))
     )
-    const lowStock = parts.filter(p => p.qty < p.minQty)
-    const totalValue = parts.reduce((a, p) => a + p.qty * p.unitCost, 0)
+    const lowStock = parts.filter(p => (p.qty||0) < (p.minQty||0))
+    const totalValue = parts.reduce((a, p) => a + (p.qty||0) * (p.unitCost||0), 0)
     const totalSKUs = parts.length
 
     container.innerHTML = `
@@ -65,21 +63,21 @@ export default async function PartsInventoryPage(container) {
           ${kpi('🔩 SKU ทั้งหมด', totalSKUs, 'primary')}
           ${kpi('⚠️ สต็อกต่ำ', lowStock.length + ' รายการ', lowStock.length > 0 ? 'danger' : 'success')}
           ${kpi('💰 มูลค่าคลัง', formatCurrency(totalValue), 'warning')}
-          ${kpi('📦 รายการทั้งหมด', parts.reduce((a,p)=>a+p.qty,0) + ' ชิ้น', 'secondary')}
+          ${kpi('📦 รายการทั้งหมด', parts.reduce((a,p)=>a+(p.qty||0),0) + ' ชิ้น', 'secondary')}
         </div>
 
         ${lowStock.length > 0 ? `
           <div style="padding:10px 14px;background:var(--danger)11;border:1px solid var(--danger)33;border-radius:var(--radius);margin-bottom:12px;font-size:0.78rem">
-            ⚠️ <strong>สต็อกต่ำ:</strong> ${lowStock.map(p => `${esc(p.name)} (${p.qty}/${p.minQty})`).join(' · ')}
+            ⚠️ <strong>สต็อกต่ำ:</strong> ${lowStock.map(p => `${esc(p.name)} (${p.qty||0}/${p.minQty||0})`).join(' · ')}
           </div>
         ` : ''}
 
         <!-- Filters + search -->
         <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
-          <input class="input" id="search-input" placeholder="ค้นหาชื่อ / SKU..." value="${search}" style="width:200px;padding:6px 10px;font-size:0.8rem">
-          <div style="display:flex;gap:4px">
+          <input class="input" id="search-input" placeholder="ค้นหาชื่อ / SKU..." value="${esc(search)}" style="width:200px;padding:6px 10px;font-size:0.8rem">
+          <div style="display:flex;gap:4px;flex-wrap:wrap">
             <button class="btn btn-xs ${catFilter==='all'?'btn-primary':'btn-secondary'} cat-btn" data-c="all">ทั้งหมด</button>
-            ${Object.entries(PART_CATS).map(([k,v]) => `<button class="btn btn-xs ${catFilter===k?'btn-'+v.color:'btn-secondary'} cat-btn" data-c="${k}">${v.icon} ${v.label}</button>`).join('')}
+            ${PART_CATEGORIES.map(c => `<button class="btn btn-xs ${catFilter===c?'btn-primary':'btn-secondary'} cat-btn" data-c="${esc(c)}">${esc(c)}</button>`).join('')}
           </div>
         </div>
 
@@ -100,22 +98,21 @@ export default async function PartsInventoryPage(container) {
             </thead>
             <tbody>
               ${list.map(p => {
-                const pc = PART_CATS[p.cat]
-                const isLow = p.qty < p.minQty
+                const isLow = (p.qty||0) < (p.minQty||0)
                 return `<tr style="border-bottom:1px solid var(--border);font-size:0.8rem${isLow?';background:var(--danger)06':''}">
                   <td style="padding:8px 14px">
                     <div style="font-weight:600">${esc(p.name)}</div>
-                    <div style="font-size:0.65rem;color:var(--text-muted)">${p.compatible.join(', ')}</div>
+                    <div style="font-size:0.65rem;color:var(--text-muted)">${esc((p.compatible||[]).join(', '))}</div>
                   </td>
-                  <td style="padding:8px 10px;font-family:monospace;font-size:0.75rem">${p.sku}</td>
-                  <td style="padding:8px 10px;text-align:center"><span class="badge badge-${pc?.color}" style="font-size:0.6rem">${pc?.icon} ${pc?.label}</span></td>
+                  <td style="padding:8px 10px;font-family:monospace;font-size:0.75rem">${esc(p.sku)}</td>
+                  <td style="padding:8px 10px;text-align:center"><span class="badge badge-secondary" style="font-size:0.6rem">${esc(p.category||'-')}</span></td>
                   <td style="padding:8px 10px;text-align:center">
-                    <span style="font-weight:700;color:var(--${isLow?'danger':'success'})">${p.qty}</span>
-                    <span style="font-size:0.65rem;color:var(--text-muted)">/ min ${p.minQty}</span>
+                    <span style="font-weight:700;color:var(--${isLow?'danger':'success'})">${p.qty||0}</span>
+                    <span style="font-size:0.65rem;color:var(--text-muted)">/ min ${p.minQty||0}</span>
                   </td>
                   <td style="padding:8px 10px;text-align:right">${formatCurrency(p.unitCost)}</td>
                   <td style="padding:8px 10px;text-align:right;font-weight:700">${formatCurrency(p.unitPrice)}</td>
-                  <td style="padding:8px 10px;text-align:center"><code style="font-size:0.72rem">${p.location}</code></td>
+                  <td style="padding:8px 10px;text-align:center"><code style="font-size:0.72rem">${esc(p.location)}</code></td>
                   <td style="padding:8px 14px;text-align:right">
                     <button class="btn btn-xs btn-secondary adj-qty-btn" data-id="${p.id}">±</button>
                   </td>
@@ -146,9 +143,9 @@ export default async function PartsInventoryPage(container) {
       </div>`,
       async onConfirm() {
         const adj = parseInt(document.getElementById('adj-qty')?.value) || 0
-        const newQty = Math.max(0, p.qty + adj)
+        const newQty = Math.max(0, (p.qty||0) + adj)
         try {
-          await updateDocData('service_parts_inventory', p.id, { qty: newQty })
+          await updateDocData('parts', p.id, { qty: newQty })
           showToast(`✅ ปรับสต็อก ${p.name}: ${adj > 0 ? '+' : ''}${adj} → ${newQty} ชิ้น`, 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
@@ -164,7 +161,7 @@ export default async function PartsInventoryPage(container) {
         <div class="input-group" style="grid-column:1/-1"><label class="input-label">ชื่ออะไหล่ *</label><input class="input" id="pn-name"></div>
         <div class="input-group"><label class="input-label">SKU</label><input class="input" id="pn-sku"></div>
         <div class="input-group"><label class="input-label">ประเภท</label>
-          <select class="input" id="pn-cat">${Object.entries(PART_CATS).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+          <select class="input" id="pn-cat">${PART_CATEGORIES.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select>
         </div>
         <div class="input-group"><label class="input-label">จำนวนเริ่มต้น</label><input class="input" type="number" id="pn-qty" value="1"></div>
         <div class="input-group"><label class="input-label">ขั้นต่ำ</label><input class="input" type="number" id="pn-min" value="2"></div>
@@ -176,7 +173,7 @@ export default async function PartsInventoryPage(container) {
         const name = document.getElementById('pn-name')?.value?.trim()
         if (!name) { showToast('❗ กรุณากรอกชื่ออะไหล่','error'); return false }
         try {
-          await createDoc('service_parts_inventory', { name, sku:document.getElementById('pn-sku')?.value||'—', cat:document.getElementById('pn-cat')?.value||'body', qty:parseInt(document.getElementById('pn-qty')?.value)||0, minQty:parseInt(document.getElementById('pn-min')?.value)||2, unitCost:parseInt(document.getElementById('pn-cost')?.value)||0, unitPrice:parseInt(document.getElementById('pn-price')?.value)||0, location:document.getElementById('pn-loc')?.value||'—', compatible:['All'] })
+          await createDoc('parts', { name, sku:document.getElementById('pn-sku')?.value||'—', category:document.getElementById('pn-cat')?.value||PART_CATEGORIES[0], qty:parseInt(document.getElementById('pn-qty')?.value)||0, minQty:parseInt(document.getElementById('pn-min')?.value)||2, unitCost:parseInt(document.getElementById('pn-cost')?.value)||0, unitPrice:parseInt(document.getElementById('pn-price')?.value)||0, location:document.getElementById('pn-loc')?.value||'—', unit: 'ชิ้น' })
           showToast('✅ เพิ่มอะไหล่แล้ว','success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

@@ -27,7 +27,21 @@ export default async function StockAuditPage(container) {
 
   async function loadData() {
     loading = true
-    try { stock = await listDocs('stock_audit', [], 'model', 'asc', 200) } catch (e) { stock = [] }
+    try {
+      // เดิม query collection 'stock_audit' ที่ไม่มีใครเขียนข้อมูลจริงลงไปเลย ทำให้การนับสต็อกไม่มีวันตรง
+      // กับรถจริงในระบบ แก้ให้ตรวจนับเทียบกับ 'vehicles' จริง (เขียนโดย Stock.js) — เก็บ checked/foundLoc
+      // เป็น field เสริมบนตัวเอกสารรถจริงเลย (ไม่แยก collection) กันไม่ให้ audit หลุดจากสต็อกจริงอีก
+      // ไม่รวมรถที่ขายแล้ว/ลบแล้ว เพราะไม่ได้อยู่ในโชว์รูมให้เดินตรวจนับจริง
+      const docs = await listDocs('vehicles', [], 'arrivedAt', 'asc', 300)
+      stock = docs.filter(v => !v.deleted && v.status !== 'sold').map(v => ({
+        id: v.id,
+        vin: v.vin || '-',
+        model: `${v.brand || ''} ${v.model || ''}`.trim(),
+        systemLoc: v.location || '-',
+        checked: v.auditChecked || false,
+        foundLoc: v.auditFoundLoc || null,
+      }))
+    } catch (e) { stock = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -111,10 +125,12 @@ export default async function StockAuditPage(container) {
     document.getElementById('start-btn')?.addEventListener('click', () => { auditStarted = true; showToast('▶️ เริ่มตรวจนับ — เดินเช็คทีละคัน', 'primary'); renderPage() })
     document.getElementById('finish-btn')?.addEventListener('click', async () => {
       try {
-        await Promise.all(stock.map(s => updateDocData('stock_audit', s.id, {
-          systemLoc: (s.foundLoc && s.foundLoc !== 'ไม่พบ!') ? s.foundLoc : s.systemLoc,
-          checked: false,
-          foundLoc: null,
+        // ปิดรอบ: รถที่พบตำแหน่งไม่ตรง → อัปเดต location จริงของรถใน 'vehicles' เลย (ไม่ใช่แค่ field ตรวจนับ)
+        // ให้สต็อกจริงตรงกับที่เจอจริงหลังตรวจนับเสร็จ แล้วล้าง flag ตรวจนับเพื่อเริ่มรอบถัดไปได้
+        await Promise.all(stock.map(s => updateDocData('vehicles', s.id, {
+          location: (s.foundLoc && s.foundLoc !== 'ไม่พบ!') ? s.foundLoc : s.systemLoc,
+          auditChecked: false,
+          auditFoundLoc: null,
         })))
         showToast(`✅ ปิดรอบ — ครบ ${stock.length - missing.length}/${stock.length} คัน${mismatched.length > 0 ? ' อัปเดตตำแหน่ง ' + mismatched.length + ' คัน' : ''} — บันทึกรายงาน`, 'success')
         auditStarted = false
@@ -124,13 +140,13 @@ export default async function StockAuditPage(container) {
     container.querySelectorAll('.found-btn').forEach(b => b.addEventListener('click', async () => {
       const s = stock.find(x => x.id === b.dataset.id)
       if (!s) return
-      try { await updateDocData('stock_audit', s.id, { checked: true, foundLoc: b.dataset.loc }); await loadData() }
+      try { await updateDocData('vehicles', s.id, { auditChecked: true, auditFoundLoc: b.dataset.loc }); await loadData() }
       catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.recheck-btn').forEach(b => b.addEventListener('click', async () => {
       const s = stock.find(x => x.id === b.dataset.id)
       if (!s) return
-      try { await updateDocData('stock_audit', s.id, { checked: false, foundLoc: null }); await loadData() }
+      try { await updateDocData('vehicles', s.id, { auditChecked: false, auditFoundLoc: null }); await loadData() }
       catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
   }

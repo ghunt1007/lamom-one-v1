@@ -55,6 +55,10 @@ export default async function MonthlyClosePage(container) {
     const margin = revenue > 0 ? Math.round(netProfit / revenue * 100) : 0
     const donePct = items.length ? Math.round(items.filter(i => i.status === 'done').length / items.length * 100) : 100
     const pendingCount = items.filter(i => ['pending', 'review'].includes(i.status)).length
+    // เดิม pendingCount===0 เป็นเงื่อนไขเดียวที่ปลดล็อกปุ่ม "ปิดงบเดือนนี้" ซึ่งจริงอยู่แม้ตอนที่ยังไม่มีรายการ
+    // monthly_close_items ของเดือนนั้นเลยสักรายการ (items.length===0) ทำให้ปิดงบ ฿0 ถาวรได้โดยไม่มีข้อมูลจริง
+    // แยกเงื่อนไข "ไม่มีอะไรค้าง" ออกจาก "ยังไม่มีข้อมูลให้ปิดเลย" ให้ชัดเจน
+    const noItemsLoaded = items.length === 0
     const cats = [...new Set(items.map(i => i.category))]
 
     container.innerHTML = `
@@ -67,11 +71,13 @@ export default async function MonthlyClosePage(container) {
           <div class="page-actions">
             <button class="btn btn-secondary btn-xs" id="prev-month-btn">◀ เดือนก่อน</button>
             <button class="btn btn-secondary btn-xs" id="curr-month-btn">เดือนนี้</button>
-            ${!isClosed && pendingCount === 0
+            ${!isClosed && !noItemsLoaded && pendingCount === 0
               ? `<button class="btn btn-primary" id="close-btn">🔒 ปิดงบเดือนนี้</button>`
               : isClosed
                 ? `<span class="badge badge-success" style="padding:8px 14px">🔒 ปิดงบแล้ว</span>`
-                : `<button class="btn btn-secondary" id="close-btn" disabled>⏳ รอ ${pendingCount} รายการ</button>`
+                : noItemsLoaded
+                  ? `<button class="btn btn-secondary" id="close-btn" disabled title="ยังไม่มีรายการปิดงบของเดือนนี้ในระบบ">⚠️ ยังไม่มีข้อมูลให้ปิดงบ</button>`
+                  : `<button class="btn btn-secondary" id="close-btn" disabled>⏳ รอ ${pendingCount} รายการ</button>`
             }
           </div>
         </div>

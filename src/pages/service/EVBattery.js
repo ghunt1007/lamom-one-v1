@@ -7,6 +7,8 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 
+function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
 const BATTERY_STATUS = {
   excellent: { label: 'ดีมาก', color: 'success', icon: '🟢', threshold: 90 },
   good:      { label: 'ดี', color: 'primary', icon: '🔵', threshold: 80 },
@@ -140,14 +142,24 @@ export default async function EVBatteryPage(container) {
       title: '🔋 บันทึกผลตรวจแบตเตอรี่',
       size: 'sm',
       body: `<div style="display:grid;gap:10px">
-        ${v ? `<div style="font-weight:700">${v.plate} — ${v.model}</div>` : ''}
+        ${v ? `<div style="font-weight:700">${escHtml(v.plate)} — ${escHtml(v.model)}</div>` : `
+        <div class="input-group"><label class="input-label">เลือกรถ *</label>
+          <select class="input" id="bat-vehicle">
+            <option value="">— เลือกรถจากรายการ —</option>
+            ${vehicles.map(x => `<option value="${x.id}">${escHtml(x.plate)} — ${escHtml(x.model)} (${escHtml(x.owner)})</option>`).join('')}
+          </select>
+        </div>`}
         <div class="input-group"><label class="input-label">SOH (%)</label><input class="input" id="bat-soh" type="number" min="0" max="100" value="${v?.soh||90}"></div>
         <div class="input-group"><label class="input-label">SOC (%)</label><input class="input" id="bat-soc" type="number" min="0" max="100" value="${v?.soc||80}"></div>
         <div class="input-group"><label class="input-label">จำนวนรอบชาร์จ</label><input class="input" id="bat-cycles" type="number" value="${v?.cycles||0}"></div>
         <div class="input-group"><label class="input-label">หมายเหตุ</label><input class="input" id="bat-note" placeholder="ผลการตรวจ..."></div>
       </div>`,
       async onConfirm() {
-        if (!v) { showToast('❗ กรุณาเลือกรถจากรายการ', 'error'); return false }
+        if (!v) {
+          const selId = document.getElementById('bat-vehicle')?.value
+          v = vehicles.find(x => x.id === selId)
+          if (!v) { showToast('❗ กรุณาเลือกรถจากรายการ', 'error'); return false }
+        }
         const patch = {
           soh: parseInt(document.getElementById('bat-soh')?.value) || v.soh,
           soc: parseInt(document.getElementById('bat-soc')?.value) || v.soc,

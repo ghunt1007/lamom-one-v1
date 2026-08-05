@@ -142,8 +142,16 @@ export default async function VehicleTransferPage(container) {
     container.querySelectorAll('.arrived-btn').forEach(b => b.addEventListener('click', async () => {
       const t = transfers.find(x => x.id === b.dataset.id)
       if (!t) return
-      try { await updateDocData('vehicle_transfers', t.id, { status: 'completed' }); showToast('📍 บันทึกถึงปลายทางแล้ว!', 'success'); await loadData() }
-      catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      try {
+        await updateDocData('vehicle_transfers', t.id, { status: 'completed' })
+        // เดิม completing a transfer ไม่เคยอัปเดตตำแหน่งรถจริงใน 'vehicles' เลย — รถจะยังโชว์ location เดิม
+        // (สาขาต้นทาง) ทั้งที่ระบบโอนบอกว่าเสร็จแล้ว ทำให้สต็อกจริงกับสถานะโอนไม่ตรงกัน
+        if (t.vehicleId) {
+          try { await updateDocData('vehicles', t.vehicleId, { location: t.toBranch }) } catch (e) {}
+        }
+        showToast('📍 บันทึกถึงปลายทางแล้ว!', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
   }
 
@@ -167,14 +175,23 @@ export default async function VehicleTransferPage(container) {
     })
   }
 
-  function openAddForm() {
+  async function openAddForm() {
+    // เดิมฟอร์มนี้ให้พิมพ์ทะเบียน/รุ่นเป็น free text เอง ไม่ได้เลือกรถจริงจากสต็อกเลย และ vin/color ถูก
+    // เซ็ตเป็นสตริงว่างตายตัวเสมอ — แก้ให้ต้องเลือกรถจริงจาก 'vehicles' เท่านั้น ดึง vin/color จริงมาเก็บ
+    let realVehicles = []
+    try { realVehicles = (await listDocs('vehicles', [], 'arrivedAt', 'desc', 300)).filter(v => !v.deleted) } catch (e) { realVehicles = [] }
     openModal({
       title: '+ ขอโอนรถ',
       size: 'md',
       body: `
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div class="input-group"><label class="input-label">ทะเบียน *</label><input class="input" id="tf-plate" placeholder="กก 1234"></div>
-          <div class="input-group"><label class="input-label">รุ่น</label><input class="input" id="tf-model" placeholder="BYD Seal AWD"></div>
+          <div class="input-group" style="grid-column:1/-1"><label class="input-label">เลือกรถจากสต็อกจริง *</label>
+            <select class="input" id="tf-vehicle">
+              <option value="">— เลือกรถ —</option>
+              ${realVehicles.map(v => `<option value="${escHtml(v.id)}">${escHtml(v.brand)} ${escHtml(v.model)} ${escHtml(v.variant||'')} · ${escHtml(v.color||'')} · VIN ${escHtml((v.vin||'').slice(-6)||'-')} · อยู่ที่ ${escHtml(v.location||'-')}</option>`).join('')}
+            </select>
+          </div>
+          <div class="input-group"><label class="input-label">ทะเบียน (ถ้ามี)</label><input class="input" id="tf-plate" placeholder="กก 1234"></div>
           <div class="input-group"><label class="input-label">ต้นทาง</label>
             <select class="input" id="tf-from">${BRANCHES.map(b=>`<option>${b}</option>`).join('')}</select>
           </div>
@@ -185,15 +202,19 @@ export default async function VehicleTransferPage(container) {
         </div>
       `,
       async onConfirm() {
-        const plate = document.getElementById('tf-plate')?.value?.trim()
-        if (!plate) { showToast('❗ กรุณากรอกทะเบียน', 'error'); return false }
+        const vehicleId = document.getElementById('tf-vehicle')?.value
+        const vehicle = realVehicles.find(v => v.id === vehicleId)
+        if (!vehicle) { showToast('❗ กรุณาเลือกรถจากสต็อกจริง', 'error'); return false }
         const from = document.getElementById('tf-from')?.value
         const to = document.getElementById('tf-to')?.value
         if (from === to) { showToast('❗ ต้นทางและปลายทางต้องต่างกัน', 'error'); return false }
         try {
           await createDoc('vehicle_transfers', {
-            vehiclePlate: plate, vehicleModel: document.getElementById('tf-model')?.value||'', color: '',
-            vin: '', fromBranch: from, toBranch: to, requestedBy: myName(),
+            vehicleId: vehicle.id,
+            vehiclePlate: document.getElementById('tf-plate')?.value?.trim() || '',
+            vehicleModel: `${vehicle.brand||''} ${vehicle.model||''} ${vehicle.variant||''}`.replace(/\s+/g,' ').trim(),
+            color: vehicle.color || '', vin: vehicle.vin || '',
+            fromBranch: from, toBranch: to, requestedBy: myName(),
             approvedBy: null, status: 'pending', requestDate: addDays(0),
             transferDate: null, eta: null, reason: document.getElementById('tf-reason')?.value||'', trackingNo: null
           })

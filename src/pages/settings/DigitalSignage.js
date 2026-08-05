@@ -48,9 +48,14 @@ export default async function DigitalSignagePage(container) {
             <div class="page-subtitle">จัดการจอโชว์รูม ${screens.length} จอ · ${slides.length} Slides · ${screens.filter(s=>s.status==='online').length} Online</div>
           </div>
           <div class="page-actions">
+            <button class="btn btn-secondary" id="add-screen-btn">+ เพิ่มจอ</button>
             <button class="btn btn-secondary" id="push-all-btn">📡 Push ทุกจอ</button>
             <button class="btn btn-primary" id="add-slide-btn">+ สร้าง Slide</button>
           </div>
+        </div>
+
+        <div class="card" style="padding:12px 14px;margin-bottom:16px;border-left:3px solid var(--warning);font-size:0.8rem">
+          ⚠️ <strong>ข้อจำกัดสำคัญ:</strong> หน้านี้แค่บันทึกข้อมูล Slide/Playlist ลง Firestore (collection <code>signage_slides</code>/<code>signage_screens</code>) เท่านั้น — ระบบนี้ไม่มีแอปจอแสดงผลจริง (kiosk/TV client) กด "Push" แล้วจะ<strong>ไม่มีอะไรปรากฏบนจอทันที</strong> ต้องมีอุปกรณ์/แอปแยกต่างหากที่ดึงข้อมูลจาก Firestore ไปแสดงเองจึงจะใช้งานได้จริง
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
@@ -75,9 +80,9 @@ export default async function DigitalSignagePage(container) {
 
           <!-- Screens -->
           <div>
-            <div style="font-size:0.76rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">📺 จอที่เชื่อมต่อ</div>
+            <div style="font-size:0.76rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">📺 จอที่เพิ่มไว้ (${screens.length})</div>
             <div style="display:flex;flex-direction:column;gap:8px">
-              ${screens.map(sc => `
+              ${screens.length ? screens.map(sc => `
                 <div class="card" style="padding:12px">
                   <div style="display:flex;justify-content:space-between;align-items:center">
                     <div>
@@ -86,11 +91,11 @@ export default async function DigitalSignagePage(container) {
                     </div>
                     <div style="text-align:right">
                       <span style="font-size:0.64rem;background:${sc.status==='online'?'var(--success)':'var(--danger)'};color:#fff;padding:2px 8px;border-radius:10px">${sc.status==='online'?'● Online':'○ Offline'}</span>
-                      ${sc.status==='online'?`<div style="font-size:0.64rem;color:var(--text-muted);margin-top:2px">แสดง: ${esc(slides.find(s=>s.id===sc.currentSlide)?.title||'-')}</div>`:''}
+                      <div style="font-size:0.64rem;color:var(--text-muted);margin-top:2px">Playlist: ${(sc.playlist||[]).length} slides</div>
                     </div>
                   </div>
-                  ${sc.status==='online'?`<button class="btn btn-xs btn-secondary push-sc-btn" data-id="${sc.id}" style="margin-top:8px;font-size:0.72rem">📡 Push Playlist</button>`:''}
-                </div>`).join('')}
+                  <button class="btn btn-xs btn-secondary push-sc-btn" data-id="${sc.id}" style="margin-top:8px;font-size:0.72rem">📡 Push Playlist</button>
+                </div>`).join('') : `<div class="empty-state" style="padding:24px"><div class="empty-icon">📺</div><div class="empty-title" style="font-size:0.85rem">ยังไม่มีจอที่เพิ่มไว้</div><div class="empty-desc" style="font-size:0.72rem">กด "+ เพิ่มจอ" เพื่อลงทะเบียนจอใหม่</div></div>`}
             </div>
           </div>
         </div>
@@ -102,12 +107,17 @@ export default async function DigitalSignagePage(container) {
         </div>
       </div>`
 
+    document.getElementById('add-screen-btn')?.addEventListener('click', () => openAddScreenModal())
     document.getElementById('add-slide-btn')?.addEventListener('click', () => openAddModal())
     document.getElementById('push-all-btn')?.addEventListener('click', async () => {
-      const onlineScreens = screens.filter(s => s.status === 'online')
+      if (!screens.length) { showToast('ยังไม่มีจอให้ Push — กด "+ เพิ่มจอ" ก่อน', 'warning'); return }
+      // เดิม Push ทั้ง playlist แต่เขียนแค่ slide แรกเก็บลง currentSlide เท่านั้น (ข้อมูลไม่ตรงกับที่อ้างว่า Push
+      // ทั้ง playlist) แก้ให้เก็บ playlist เต็มจริง (array ของ slide id ทั้งหมดที่ active ตามลำดับ) พร้อม
+      // currentSlide ชี้ไปตัวแรกไว้เพื่อความเข้ากันได้กับของเดิม
+      const playlist = activeSl.map(s => s.id)
       try {
-        await Promise.all(onlineScreens.map(s => updateDocData('signage_screens', s.id, { currentSlide: activeSl[0]?.id || s.currentSlide })))
-        showToast(`📡 Push Playlist ${activeSl.length} slides ไปยัง ${onlineScreens.length} จอ Online แล้ว`, 'success')
+        await Promise.all(screens.map(s => updateDocData('signage_screens', s.id, { playlist, currentSlide: playlist[0] || null })))
+        showToast(`📡 บันทึก Playlist ${activeSl.length} slides ไปยัง ${screens.length} จอแล้ว (จอต้องดึงข้อมูลนี้ไปแสดงเอง)`, 'success')
         await loadData()
       } catch (e) { showToast('Push ไม่สำเร็จ', 'error') }
     })
@@ -137,9 +147,10 @@ export default async function DigitalSignagePage(container) {
     container.querySelectorAll('.push-sc-btn').forEach(b => b.addEventListener('click', async () => {
       const sc = screens.find(s => s.id === b.dataset.id)
       if (!sc) return
+      const playlist = activeSl.map(s => s.id)
       try {
-        await updateDocData('signage_screens', sc.id, { currentSlide: activeSl[0]?.id || sc.currentSlide })
-        showToast(`📡 Push Playlist ${activeSl.length} slides ไปยัง ${sc.name} แล้ว`, 'success')
+        await updateDocData('signage_screens', sc.id, { playlist, currentSlide: playlist[0] || null })
+        showToast(`📡 บันทึก Playlist ${activeSl.length} slides ไปยัง ${sc.name} แล้ว (จอต้องดึงข้อมูลนี้ไปแสดงเอง)`, 'success')
         await loadData()
       } catch (e) { showToast('Push ไม่สำเร็จ', 'error') }
     }))
@@ -163,6 +174,45 @@ export default async function DigitalSignagePage(container) {
           </div>
         </div>
       </div>`
+  }
+
+  // เดิมหน้านี้ไม่มีทางเพิ่มจอ ("signage_screens") ได้เลยจาก UI — จอที่เห็นมีแต่ข้อมูล demo เท่านั้น
+  // เพิ่มฟอร์มลงทะเบียนจอแบบง่าย (ชื่อ/สถานที่) ให้พอใช้งานได้จริงขั้นต่ำ — สถานะเริ่มต้นเป็น offline เพราะ
+  // ระบบนี้ไม่มีแอปจอแสดงผลจริงที่จะ report สถานะ online กลับมา
+  function openAddScreenModal() {
+    openModal({
+      title: '+ เพิ่มจอใหม่', size: 'sm',
+      body: `<div style="display:flex;flex-direction:column;gap:10px;font-size:0.8rem">
+        <div><label style="font-size:0.72rem;color:var(--text-muted)">ชื่อจอ</label>
+          <input class="input" id="sc-name" placeholder="เช่น จอโชว์รูม 1" style="width:100%;margin-top:4px"></div>
+        <div><label style="font-size:0.72rem;color:var(--text-muted)">ตำแหน่ง/สถานที่</label>
+          <input class="input" id="sc-loc" placeholder="เช่น หน้าโชว์รูม สาขาพระราม 9" style="width:100%;margin-top:4px"></div>
+        <div><label style="font-size:0.72rem;color:var(--text-muted)">ความละเอียดจอ</label>
+          <select class="input" id="sc-res" style="width:100%;margin-top:4px">
+            <option value="1920x1080">1920×1080 (Full HD)</option>
+            <option value="3840x2160">3840×2160 (4K)</option>
+            <option value="1280x720">1280×720 (HD)</option>
+          </select></div>
+        <div style="font-size:0.68rem;color:var(--text-muted)">⚠️ นี่เป็นแค่การลงทะเบียนข้อมูลจอใน Firestore — ไม่มีการเชื่อมต่อกับจอจริง ต้องมีอุปกรณ์/แอปแยกต่างหากดึงข้อมูลนี้ไปแสดงเอง</div>
+      </div>`,
+      confirmText: '+ เพิ่มจอ',
+      async onConfirm() {
+        const name = document.getElementById('sc-name')?.value.trim()
+        if (!name) { showToast('ใส่ชื่อจอ', 'warning'); return false }
+        try {
+          await createDoc('signage_screens', {
+            name,
+            location: document.getElementById('sc-loc')?.value || '',
+            resolution: document.getElementById('sc-res')?.value || '1920x1080',
+            status: 'offline',
+            currentSlide: null,
+            playlist: [],
+          })
+          showToast(`✅ เพิ่มจอ "${name}" แล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      }
+    })
   }
 
   function openAddModal() {

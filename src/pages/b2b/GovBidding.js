@@ -16,7 +16,7 @@ function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d
 const BID_STATUS = {
   watching:  { label: 'ติดตามอยู่', color: 'secondary', icon: '👀' },
   preparing: { label: 'เตรียมเอกสาร', color: 'warning', icon: '📋' },
-  submitted: { label: 'ยื่นแล้ว', color: 'primary', icon: '📤' },
+  submitted: { label: 'บันทึกยื่นแล้ว (ในระบบ)', color: 'primary', icon: '📤' },
   won:       { label: 'ชนะประมูล!', color: 'success', icon: '🏆' },
   lost:      { label: 'ไม่ชนะ', color: 'danger', icon: '😔' },
 }
@@ -139,15 +139,16 @@ export default async function GovBiddingPage(container) {
     container.querySelectorAll('.submit-btn').forEach(b => b.addEventListener('click', () => {
       const x = bids.find(z => z.id === b.dataset.id)
       if (x) openModal({
-        title: '📤 ยื่นประมูล',
+        title: '📤 บันทึกการยื่นประมูล',
         size: 'sm',
-        body: `<div class="input-group"><label class="input-label">ราคาที่เสนอ (บาท) — งบ ${formatCurrency(x.budget)}</label><input class="input" type="number" id="gb-bid" value="${Math.round(x.budget * 0.95)}"></div>`,
-        confirmText: '📤 ยืนยันยื่น',
+        body: `<div class="input-group"><label class="input-label">ราคาที่เสนอ (บาท) — งบ ${formatCurrency(x.budget)}</label><input class="input" type="number" id="gb-bid" value="${Math.round(x.budget * 0.95)}"></div>
+          <div style="margin-top:8px;font-size:0.72rem;color:var(--warning)">⚠️ ปุ่มนี้บันทึกสถานะในระบบภายในเท่านั้น — เจ้าหน้าที่ต้องยื่นเอกสาร/ยื่นราคาผ่านระบบ e-GP จริงด้วยตนเอง ระบบนี้ไม่ได้เชื่อมต่อ e-GP</div>`,
+        confirmText: '📤 บันทึก',
         async onConfirm() {
           const ourBid = parseInt(document.getElementById('gb-bid')?.value) || 0
           try {
             await updateDocData('gov_bids', x.id, { ourBid, status: 'submitted', note: 'รอประกาศผล' })
-            showToast('📤 ยื่นประมูลในระบบ e-GP แล้ว', 'success')
+            showToast('📝 บันทึกในระบบแล้ว — ต้องยื่นประมูลผ่านระบบ e-GP จริงด้วยตนเอง', 'success')
             await loadData()
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }

@@ -15,6 +15,8 @@ const STATUS_CFG = {
 
 const SERVICES = ['เปลี่ยนถ่ายน้ำมัน','เติมลม / ตรวจยาง','เปลี่ยนไส้กรองอากาศ','ตรวจเช็ก EV Battery','เปลี่ยนน้ำกลั่น','ตรวจสภาพรวดเร็ว 30 จุด','เปลี่ยนหลอดไฟ','ล้างหัวฉีด']
 
+function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
 export default async function QuickLanePage(container) {
   const myGen = container.__routerGen
   seedDemoData()
@@ -39,15 +41,15 @@ export default async function QuickLanePage(container) {
       '<div style="display:flex;align-items:flex-start;gap:12px">' +
         '<div style="background:var(--surface-2);border-radius:8px;padding:8px 12px;text-align:center;flex-shrink:0">' +
           '<div style="font-size:0.6rem;color:var(--text-muted)">Bay</div>' +
-          '<div style="font-size:1.2rem;font-weight:900;color:var(--primary)">' + j.bay + '</div>' +
+          '<div style="font-size:1.2rem;font-weight:900;color:var(--primary)">' + escHtml(j.bay) + '</div>' +
         '</div>' +
         '<div style="flex:1">' +
           '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">' +
-            '<span style="font-weight:700;font-size:0.88rem">' + j.customer + '</span>' +
-            '<span style="font-size:0.66rem;background:var(--surface-2);padding:1px 7px;border-radius:8px">' + j.plate + '</span>' +
+            '<span style="font-weight:700;font-size:0.88rem">' + escHtml(j.customer) + '</span>' +
+            '<span style="font-size:0.66rem;background:var(--surface-2);padding:1px 7px;border-radius:8px">' + escHtml(j.plate) + '</span>' +
             '<span style="font-size:0.62rem;background:'+cfg.bg+';color:'+cfg.textColor+';padding:1px 7px;border-radius:8px">' + cfg.icon + ' ' + cfg.label + '</span>' +
           '</div>' +
-          '<div style="font-size:0.74rem;margin-bottom:4px">' + j.service + '</div>' +
+          '<div style="font-size:0.74rem;margin-bottom:4px">' + escHtml(j.service) + '</div>' +
           '<div style="font-size:0.7rem;color:var(--text-muted)">⏱ เข้า ' + j.started + ' · คาด ' + j.estimated + ' นาที · ' + priceStr + '</div>' +
         '</div>' +
         '<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">' + startBtn + doneBtn + '</div>' +

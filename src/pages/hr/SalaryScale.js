@@ -4,16 +4,23 @@
  */
 import { formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 
+// พบว่าหน้านี้ไม่มีการเช็คสิทธิ์เลยแม้แต่จุดเดียว — พนักงานทุกคนเห็นตารางเงินเดือนรายบุคคล + เทียบตลาดของ
+// เพื่อนร่วมงานทุกคน และกดปุ่ม "ปรับเงินเดือน" เขียนเงินเดือนใหม่ลง Firestore ตรงๆได้เลย ไม่ต่างจาก
+// SALARY_VIEW_ROLES ใน Staff.js/StaffProfile.js — หน้านี้ทั้งหน้ามีไว้เพื่อดูโครงสร้าง/ปรับเงินเดือนเท่านั้น
+// ไม่มีประโยชน์อื่นให้พนักงานทั่วไปเข้าถึง จึงบล็อกทั้งหน้าเหมือนแบบที่ Payroll.js (finance) ทำไว้แล้ว แทนที่
+// จะซ่อนแค่บางส่วน (การป้องกันจริงต้องทำที่ Firestore Rules ด้วยเช่นกัน)
+const SALARY_SCALE_VIEW_ROLES = ['owner', 'admin', 'manager', 'hr']
+
 const SALARY_GRADES = [
-  { grade: 'G1', title: 'พนักงานใหม่', min: 15000, max: 20000, midpoint: 17500, headcount: 4 },
-  { grade: 'G2', title: 'พนักงานทั่วไป', min: 20000, max: 28000, midpoint: 24000, headcount: 8 },
-  { grade: 'G3', title: 'พนักงานอาวุโส', min: 28000, max: 38000, midpoint: 33000, headcount: 6 },
-  { grade: 'G4', title: 'หัวหน้างาน', min: 38000, max: 50000, midpoint: 44000, headcount: 4 },
-  { grade: 'G5', title: 'ผู้จัดการ', min: 50000, max: 70000, midpoint: 60000, headcount: 3 },
-  { grade: 'G6', title: 'ผู้จัดการอาวุโส', min: 70000, max: 95000, midpoint: 82500, headcount: 1 },
+  { grade: 'G1', title: 'พนักงานใหม่', min: 15000, max: 20000, midpoint: 17500 },
+  { grade: 'G2', title: 'พนักงานทั่วไป', min: 20000, max: 28000, midpoint: 24000 },
+  { grade: 'G3', title: 'พนักงานอาวุโส', min: 28000, max: 38000, midpoint: 33000 },
+  { grade: 'G4', title: 'หัวหน้างาน', min: 38000, max: 50000, midpoint: 44000 },
+  { grade: 'G5', title: 'ผู้จัดการ', min: 50000, max: 70000, midpoint: 60000 },
+  { grade: 'G6', title: 'ผู้จัดการอาวุโส', min: 70000, max: 95000, midpoint: 82500 },
 ]
 
 function compaRatio(salary, grade) {
@@ -27,6 +34,18 @@ function marketRatio(salary, market) {
 
 export default async function SalaryScalePage(container) {
   const myGen = container.__routerGen
+  const myRole = getState('role') || getState('user')?.role || 'staff'
+  if (!SALARY_SCALE_VIEW_ROLES.includes(myRole)) {
+    container.innerHTML = `
+      <div class="page-content animate-slide">
+        <div class="empty-state" style="padding:60px 20px">
+          <div class="empty-icon">🔒</div>
+          <div class="empty-title">ไม่มีสิทธิ์เข้าถึงหน้านี้</div>
+          <div class="empty-desc">โครงสร้างเงินเดือนเปิดให้เฉพาะผู้บริหาร/ผู้จัดการ/HR — ติดต่อผู้ดูแลระบบหากต้องการสิทธิ์เข้าถึง</div>
+        </div>
+      </div>`
+    return
+  }
   seedDemoData()
 
   let staff = []
@@ -47,7 +66,8 @@ export default async function SalaryScalePage(container) {
     }
     const totalPayroll = staff.reduce((a, s) => a + s.salary, 0)
     const underpaid = staff.filter(s => marketRatio(s.salary, s.market) < 95).length
-    const avgCompa = Math.round(staff.reduce((a, s) => a + compaRatio(s.salary, s.grade), 0) / staff.length)
+    // เดิมหารด้วย staff.length ตรงๆไม่มีการ์ดกัน 0 — ตอน staff ว่าง (ยังไม่มีข้อมูลจริง) จะได้ NaN% โชว์ตรงๆ
+    const avgCompa = staff.length ? Math.round(staff.reduce((a, s) => a + compaRatio(s.salary, s.grade), 0) / staff.length) : 0
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -81,13 +101,16 @@ export default async function SalaryScalePage(container) {
               const minPct = g.min / maxGrade * 100
               const maxPct = g.max / maxGrade * 100
               const midPct = g.midpoint / maxGrade * 100
+              // เดิม headcount ต่อ grade เป็นตัวเลข hardcode ตายตัว ไม่เคยตรงกับจำนวนพนักงานจริงต่อ grade เลย
+              // แก้ให้นับจากข้อมูล staff ที่โหลดมาจริงแทน
+              const headcount = staff.filter(s => s.grade === g.grade).length
               return `<div class="card" style="padding:12px 14px">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
                   <div>
                     <span style="font-weight:700;font-size:0.88rem">${g.grade}</span>
                     <span style="font-size:0.78rem;color:var(--text-muted);margin-left:8px">${g.title}</span>
                   </div>
-                  <div style="font-size:0.75rem;color:var(--text-muted)">${g.headcount} คน</div>
+                  <div style="font-size:0.75rem;color:var(--text-muted)">${headcount} คน</div>
                 </div>
                 <div style="position:relative;height:20px;background:var(--surface-2);border-radius:4px;margin-bottom:6px">
                   <div style="position:absolute;left:${minPct}%;width:${maxPct-minPct}%;height:20px;background:var(--primary)22;border:1px solid var(--primary);border-radius:4px"></div>

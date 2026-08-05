@@ -25,19 +25,6 @@ const NOTIF_TYPES = {
   warning:    { icon: '⚠️', color: 'danger', label: 'คำเตือน' },
 }
 
-const DEMO_NOTIFS = [
-  { id:'N001', type:'lead', title:'Lead ใหม่จาก Facebook', body:'คุณ สมหมาย หมายดี สนใจ BYD Seal AWD', read:false, createdAt: new Date(Date.now()-300000).toISOString(), link:'/crm/leads' },
-  { id:'N002', type:'booking', title:'จองรถใหม่', body:'คุณ สมศักดิ์ เจริญสุข จอง BYD Seal AWD มัดจำ ฿50,000', read:false, createdAt: new Date(Date.now()-900000).toISOString(), link:'/crm/bookings' },
-  { id:'N003', type:'service', title:'งานซ่อมเสร็จแล้ว', body:'Job JOB-2025-002 เสร็จสมบูรณ์ รอแจ้งลูกค้ารับรถ', read:false, createdAt: new Date(Date.now()-1800000).toISOString(), link:'/service/jobs' },
-  { id:'N004', type:'alert', title:'อะไหล่ใกล้หมด!', body:'Filter น้ำมัน MG4 เหลือ 3 ชิ้น ต่ำกว่า Minimum Stock', read:false, createdAt: new Date(Date.now()-3600000).toISOString(), link:'/service/parts' },
-  { id:'N005', type:'insurance', title:'ประกันหมดอายุใน 30 วัน', body:'กรมธรรม์ INS-2024-001 ของคุณ สมชาย หมดอายุ 09/07/2025', read:true, createdAt: new Date(Date.now()-7200000).toISOString(), link:'/insurance' },
-  { id:'N006', type:'hr', title:'คำขอลาใหม่', body:'ธีรยุทธ เก่งกาจ ขอลากิจ 15 มิ.ย. 2025 — รออนุมัติ', read:true, createdAt: new Date(Date.now()-14400000).toISOString(), link:'/hr/leave' },
-  { id:'N007', type:'finance', title:'Commission พร้อมจ่าย', body:'อรนุช สายใจ Commission ฿85,000 รอดำเนินการ', read:true, createdAt: new Date(Date.now()-86400000).toISOString(), link:'/finance/commission' },
-  { id:'N008', type:'sale', title:'ปิดดีลสำเร็จ! 🎉', body:'วิชาญ มีโชค ปิดดีล MG4 X ฿1,199,000 — ยอดเยี่ยม!', read:true, createdAt: new Date(Date.now()-172800000).toISOString(), link:'/finance/margin' },
-  { id:'N009', type:'system', title:'LAMOM ONE อัพเดตแล้ว', body:'ระบบอัพเดตเป็น v1.0.5 — Performance ดีขึ้น 30%', read:true, createdAt: new Date(Date.now()-259200000).toISOString(), link:'/' },
-  { id:'N010', type:'task', title:'Task ใกล้ครบกำหนด', body:'ส่ง Report ประจำเดือน — ครบกำหนด 30 มิ.ย. 2025', read:false, createdAt: new Date(Date.now()-43200000).toISOString(), link:'/tasks' },
-]
-
 export default async function NotificationCenterPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
@@ -51,12 +38,12 @@ export default async function NotificationCenterPage(container) {
   container.innerHTML = `<div class="page-content animate-slide">${[...Array(3)].map(() => `<div class="skeleton" style="height:64px;border-radius:var(--radius-md);margin-bottom:8px"></div>`).join('')}</div>`
 
   // Real-time: แจ้งเตือนใหม่ขึ้นทันทีโดยไม่ต้องรีเฟรชหน้า
-  let firstSnapshot = true
+  // เดิม fallback ไปแสดงแจ้งเตือนสมมติ 10 รายการ (lead/booking/ลาปลอม) เมื่อ collection จริงว่างเปล่า โดย
+  // unreadCount ของ Topbar ก็คำนวณจากข้อมูลปลอมนี้ด้วย — ตกค้างมาจากก่อนตัด demo mode ออกทั้งระบบ (2026-07-23)
+  // ตัดออก ให้ collection ว่างจริงแสดง empty state ตามจริง และ unreadCount = 0 จริงเมื่อไม่มีแจ้งเตือนจริง
   const unsubNotifs = watchDocs('notifications', [], 'createdAt', 'desc', 100, rows => {
     if (container.__routerGen !== myGen) { unsubNotifs(); return }
     notifs = rows.filter(n => !dismissedIds.has(n.id))
-    if (!notifs.length && firstSnapshot) notifs = [...DEMO_NOTIFS]
-    firstSnapshot = false
     setState('unreadCount', notifs.filter(n => !n.read).length)
     renderPage()
   })

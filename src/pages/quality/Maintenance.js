@@ -7,6 +7,9 @@ import { showToast } from '../../core/store.js'
 import { formatDate } from '../../utils/format.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
+// ป้องกัน XSS — ชื่ออุปกรณ์/ช่างผู้รับผิดชอบเป็นข้อความพิมพ์เองในฟอร์มเพิ่มอุปกรณ์ ต้อง escape ก่อนแสดงผลเสมอ
+function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+
 const STATUS_CFG = {
   ok:       { label:'ปกติ',       bg:'var(--success)',    icon:'✅' },
   due_soon: { label:'ใกล้ถึงเวลา', bg:'var(--warning)',    icon:'⚠️' },
@@ -48,11 +51,11 @@ export default async function MaintenancePage(container) {
         '<div style="font-size:1.6rem">🔧</div>' +
         '<div style="flex:1">' +
           '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">' +
-            '<span style="font-weight:700;font-size:0.88rem">' + eq.name + '</span>' +
+            '<span style="font-weight:700;font-size:0.88rem">' + escHtml(eq.name) + '</span>' +
             catBadge +
             '<span style="font-size:0.62rem;background:' + cfg.bg + ';color:#fff;padding:1px 7px;border-radius:8px">' + cfg.icon + ' ' + cfg.label + '</span>' +
           '</div>' +
-          '<div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:6px">ช่างผู้รับผิดชอบ: ' + eq.technician + ' · รอบ: ทุก ' + eq.cycle + ' วัน</div>' +
+          '<div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:6px">ช่างผู้รับผิดชอบ: ' + escHtml(eq.technician) + ' · รอบ: ทุก ' + eq.cycle + ' วัน</div>' +
           '<div style="display:flex;gap:14px;font-size:0.74rem">' +
             '<span>✅ บำรุงล่าสุด: ' + formatDate(eq.lastService) + '</span>' +
             '<span>📅 ครั้งถัดไป: ' + formatDate(eq.nextService) + '</span>' +
@@ -180,11 +183,11 @@ export default async function MaintenancePage(container) {
 
   function openServiceModal(eq) {
     openModal({
-      title: '🔧 บำรุงรักษา: ' + eq.name, size:'sm',
+      title: '🔧 บำรุงรักษา: ' + escHtml(eq.name), size:'sm',
       body: `<div style="font-size:0.8rem;display:flex;flex-direction:column;gap:8px">
         <div style="background:var(--surface-2);border-radius:8px;padding:10px;font-size:0.76rem">
           <div>📋 รอบบำรุงรักษา: ทุก <strong>${eq.cycle} วัน</strong></div>
-          <div style="margin-top:4px">👷 ช่างผู้รับผิดชอบ: <strong>${eq.technician}</strong></div>
+          <div style="margin-top:4px">👷 ช่างผู้รับผิดชอบ: <strong>${escHtml(eq.technician)}</strong></div>
           <div style="margin-top:4px">📅 ครั้งถัดไปจะเป็น: <strong>${new Date().toLocaleDateString('th-TH')}</strong></div>
         </div>
         <div><label style="font-size:0.72rem;color:var(--text-muted)">หมายเหตุการบำรุงรักษา</label>

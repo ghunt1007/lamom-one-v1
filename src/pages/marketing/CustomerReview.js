@@ -52,7 +52,7 @@ export default async function CustomerReviewPage(container) {
       (statusFilter === 'all' || r.status === statusFilter) &&
       (ratingFilter === 'all' || r.rating === parseInt(ratingFilter))
     )
-    const avgRating = (reviews.reduce((a, r) => a + r.rating, 0) / reviews.length).toFixed(1)
+    const avgRating = reviews.length ? (reviews.reduce((a, r) => a + r.rating, 0) / reviews.length).toFixed(1) : '0.0'
     const pending = reviews.filter(r => r.status === 'pending').length
     const fiveStars = reviews.filter(r => r.rating === 5).length
 
@@ -81,7 +81,7 @@ export default async function CustomerReviewPage(container) {
           <div style="display:flex;flex-direction:column;gap:4px">
             ${[5,4,3,2,1].map(s => {
               const cnt = reviews.filter(r => r.rating === s).length
-              const pct = Math.round(cnt / reviews.length * 100)
+              const pct = reviews.length ? Math.round(cnt / reviews.length * 100) : 0
               return `<div style="display:flex;align-items:center;gap:8px">
                 <span style="width:40px;font-size:0.72rem;text-align:right">${s} ⭐</span>
                 <div style="flex:1;background:var(--surface-2);border-radius:3px;height:10px">
@@ -136,10 +136,17 @@ export default async function CustomerReviewPage(container) {
     }))
     document.getElementById('request-review-btn')?.addEventListener('click', () => {
       const pending = reviews.filter(r => r.status === 'pending')
+      // (บันทึกความซื่อสัตย์) เรคคอร์ดรีวิวในนี้ไม่มี field เบอร์โทร/อีเมลของผู้เขียนรีวิวเก็บไว้เลย (มีแค่
+      // author/text/rating/platform) จึงไม่มีทางเรียก sendSms/sendEmail จริงได้จากหน้านี้ — ปุ่มนี้ทำได้แค่
+      // บันทึกสถานะ "ขอแล้ว" ไว้ในระบบเพื่อติดตาม เจ้าหน้าที่ต้องส่งคำขอจริงเองผ่าน LINE/Facebook/ช่องทางที่มี
       openModal({
-        title: '📤 ขอ Review จากลูกค้า',
+        title: '📤 บันทึกคำขอ Review',
         size: 'sm',
         body: `<div style="font-size:0.8rem;display:flex;flex-direction:column;gap:10px">
+          <div style="padding:8px 10px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:0.72rem;color:var(--warning)">
+            ⚠️ ระบบยังไม่มีเบอร์โทร/อีเมลของผู้เขียนรีวิวเก็บไว้ ปุ่มนี้จะ<strong>บันทึกในระบบ</strong>ว่าขอ Review แล้วเท่านั้น
+            — เจ้าหน้าที่ต้องส่งข้อความขอ Review ให้ลูกค้าเองผ่าน LINE/Facebook/ช่องทางที่ติดต่อได้จริง
+          </div>
           <div>
             <label style="font-size:0.72rem;color:var(--text-muted)">แพลตฟอร์มที่ต้องการ Review</label>
             <div style="display:flex;gap:12px;margin-top:6px;flex-wrap:wrap">
@@ -148,17 +155,17 @@ export default async function CustomerReviewPage(container) {
             </div>
           </div>
           <div>
-            <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:4px">ส่งให้ (${pending.length} ราย — รอตอบ)</div>
+            <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:4px">รายชื่อ (${pending.length} ราย — รอตอบ)</div>
             <div style="background:var(--surface-2);border-radius:6px;padding:8px;font-size:0.72rem;max-height:60px;overflow-y:auto">
               ${pending.map(r => esc(r.author)).join(', ') || 'ลูกค้าล่าสุดทั้งหมด'}
             </div>
           </div>
           <div>
-            <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:4px">ข้อความ (LINE)</div>
+            <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:4px">ข้อความตัวอย่าง (ส่งเองผ่าน LINE)</div>
             <div style="background:var(--surface-2);border-radius:6px;padding:8px;font-size:0.72rem;color:var(--text-muted)">สวัสดีครับ! ขอบคุณที่ไว้วางใจ LAMOM ONE 🙏 รบกวนรีวิวให้เราหน่อยนะครับ เพียง 1 นาที ช่วยให้เราปรับปรุงบริการได้ดีขึ้น ⭐ [ลิงก์]</div>
           </div>
         </div>`,
-        confirmText: '📤 ส่งคำขอ',
+        confirmText: '📝 บันทึก',
         async onConfirm() {
           const useGoogle = document.getElementById('rv-google')?.checked
           const useFb = document.getElementById('rv-fb')?.checked
@@ -167,7 +174,7 @@ export default async function CustomerReviewPage(container) {
             await Promise.all(pending.map(r => updateDocData('marketing_reviews', r.id, { sentRequest: true })))
             await loadData()
           } catch (e) { /* ไม่กระทบข้อความแจ้งเตือน */ }
-          showToast(`📤 ส่งคำขอ Review (${platforms}) ให้ลูกค้า ${pending.length || reviews.length} ราย แล้ว`, 'success')
+          showToast(`📝 บันทึกคำขอ Review (${platforms}) ในระบบแล้ว ${pending.length || reviews.length} ราย — ต้องส่งให้ลูกค้าเองผ่าน LINE/Facebook`, 'success')
         }
       })
     })

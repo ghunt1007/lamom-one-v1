@@ -8,11 +8,13 @@ import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 
-const RECALLS = [
-  { id:'RC001', campaign:'BYD-TH-2025-001', model:'BYD Atto 3 (MY2024)', issue:'อัปเดต Software BMS ป้องกันการชาร์จเกิน', severity:'medium', announced:'2025-08-15', deadline:'2026-02-15', parts:'Software update only', labor:0 },
-  { id:'RC002', campaign:'BYD-TH-2025-002', model:'BYD Seal (MY2024-2025)', issue:'ตรวจสอบและเปลี่ยน Coolant Pump แบตเตอรี่', severity:'high', announced:'2025-10-01', deadline:'2026-04-01', parts:'Coolant Pump', labor:1200 },
-  { id:'RC003', campaign:'MG-TH-2024-005', model:'MG ZS EV (MY2023)', issue:'อัปเดต Firmware ระบบเบรก ABS', severity:'critical', announced:'2024-12-01', deadline:'2025-12-01', parts:'Software update', labor:0 },
-]
+// เดิมหน้านี้มี RECALLS เป็น const array ปลอมแยกต่างหาก ไม่เชื่อมกับระบบ Recall จริงที่ RecallManagement.js ใช้
+// (collection 'recall_campaigns') ทำให้ recall ที่สร้าง/อัปเดตจริงจากหน้า RecallManagement ไม่โผล่ที่นี่เลย
+// แก้โดยอ่านจาก 'recall_campaigns' ตัวเดียวกันแทน (ดู loadData ด้านล่าง) — mapRecallFields() แปลง field name
+// ให้ตรงกับที่ template ในไฟล์นี้คาดหวัง (campaign/model/issue/announced) จากของจริง (recallNo/brand+model/fixDescription/issueDate)
+function mapRecallFields(r) {
+  return { id: r.id, campaign: r.recallNo || r.id, model: [r.brand, r.model].filter(Boolean).join(' ') || '—', issue: r.fixDescription || '', severity: r.severity || 'medium', announced: r.issueDate || '', deadline: r.deadline || '' }
+}
 
 const SEV = { critical:{ label:'วิกฤต', color:'var(--danger)' }, high:{ label:'สูง', color:'#FF6F00' }, medium:{ label:'กลาง', color:'var(--warning)' }, low:{ label:'ต่ำ', color:'var(--text-muted)' } }
 const WST = { pending:{ label:'ยังไม่ดำเนินการ', color:'var(--danger)' }, notified:{ label:'แจ้งแล้ว', color:'var(--warning)' }, completed:{ label:'เสร็จแล้ว', color:'var(--success)' } }
@@ -24,11 +26,19 @@ export default async function RecallTrackerPage(container) {
   let filterRecall = 'all'
   let filterWst = 'all'
   let VEHICLES = []
+  let RECALLS = []
   let loading = true
 
   async function loadData() {
     loading = true
-    try { VEHICLES = await listDocs('recall_tracker_vehicles', [], 'plate', 'asc', 500) } catch (e) { VEHICLES = [] }
+    try {
+      const [v, campaigns] = await Promise.all([
+        listDocs('recall_tracker_vehicles', [], 'plate', 'asc', 500),
+        listDocs('recall_campaigns', [], 'issueDate', 'desc', 200),
+      ])
+      VEHICLES = v
+      RECALLS = campaigns.map(mapRecallFields)
+    } catch (e) { VEHICLES = []; RECALLS = [] }
     loading = false
     if (container.__routerGen === myGen) render()
   }
@@ -62,7 +72,7 @@ export default async function RecallTrackerPage(container) {
         <!-- Recall campaigns -->
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
           ${RECALLS.map(r => {
-            const s = SEV[r.severity]
+            const s = SEV[r.severity] || SEV.medium
             const done = VEHICLES.filter(v=>v.recalls.includes(r.id) && v.status[r.id]==='completed').length
             const total = VEHICLES.filter(v=>v.recalls.includes(r.id)).length
             return `

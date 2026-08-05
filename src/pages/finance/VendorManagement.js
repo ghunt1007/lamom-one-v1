@@ -184,12 +184,30 @@ export default async function VendorManagementPage(container) {
       `
     })
 
-    document.getElementById('po-create')?.addEventListener('click', () => {
+    document.getElementById('po-create')?.addEventListener('click', async (e) => {
       const amount = parseFloat(document.getElementById('po-amount')?.value) || 0
       if (!amount) { showToast('⚠️ กรุณากรอกมูลค่า', 'warning'); return }
       const no = document.getElementById('po-no')?.value
-      document.querySelector('.modal-overlay')?.remove()
-      showToast(`📄 ออก ${no} มูลค่า ${formatCurrency(amount)} แล้ว`, 'success')
+      // เดิมปุ่มนี้แค่ toast ว่าสำเร็จพร้อมเลขที่ PO แต่ไม่เคยเขียนลง Firestore เลย — PO ที่ "ออก" แล้วหายไปทันที
+      // ไม่มีทางตามได้จริงจากหน้า Purchase Orders แก้ให้ createDoc ลง purchase_orders จริง (schema เดียวกับ
+      // src/pages/finance/PurchaseOrder.js ใช้: title, cat, supplier, amount, status, requestDate, approvedBy, expectedDate)
+      const btn = e.currentTarget
+      btn.disabled = true
+      try {
+        await createDoc('purchase_orders', {
+          title: (document.getElementById('po-items')?.value || '').trim() || `สั่งซื้อจาก ${v.name}`,
+          cat: 'supplies',
+          supplier: v.name,
+          amount,
+          status: 'pending',
+          requestDate: new Date().toISOString(),
+          approvedBy: null,
+          expectedDate: document.getElementById('po-date')?.value || new Date().toISOString().slice(0, 10),
+          note: document.getElementById('po-note')?.value?.trim() || '',
+        })
+        document.querySelector('.modal-overlay')?.remove()
+        showToast(`📄 ออก ${no} มูลค่า ${formatCurrency(amount)} แล้ว`, 'success')
+      } catch (err) { btn.disabled = false; showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 

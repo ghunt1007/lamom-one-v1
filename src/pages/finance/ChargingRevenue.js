@@ -11,6 +11,8 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 import { openModal } from '../../utils/modal.js'
 
+function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+
 const MONTH_LABELS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
 const RATE_PEAK = 5.8
 const RATE_OFFPEAK = 2.6
@@ -154,8 +156,8 @@ export default async function ChargingRevenuePage(container) {
                 <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:0.74rem">
                   <span style="color:var(--text-muted);font-size:0.68rem;flex-shrink:0">${s.time || ''}</span>
                   <div style="flex:1">
-                    <div style="font-weight:600">${s.vehicle || ''}</div>
-                    <div style="font-size:0.66rem;color:var(--text-muted)">${s.stationId} · ${s.kwh}kWh · ${s.durationMin} นาที</div>
+                    <div style="font-weight:600">${escHtml(s.vehicle || '')}</div>
+                    <div style="font-size:0.66rem;color:var(--text-muted)">${escHtml(s.stationId)} · ${s.kwh}kWh · ${s.durationMin} นาที</div>
                   </div>
                   <div style="text-align:right">
                     <div style="font-weight:700;color:var(--primary)">${formatCurrency(s.revenue)}</div>

@@ -50,8 +50,9 @@ export default async function LeaderboardPage(container) {
         points: p.points, // แต้มรวมจริงจาก staff_points ledger — ไม่ใช่สูตรคำนวณจำลองอีกต่อไป
         monthPoints: p.monthPoints, // ผลรวมแต้มจาก gamification_events ของเดือนนี้จริง
         yearPoints: p.yearPoints, // ผลรวมแต้มจาก gamification_events ของปีนี้จริง
-        streak: 1 + (i % 10),
-        badges: Math.max(1, Math.round(p.points / 300)),
+        // (แก้ไข) เดิม streak/badges ที่นี่เป็นสูตรปลอม (1+(i%10), points/300) ไม่มีความเกี่ยวข้องกับพฤติกรรม
+        // จริงเลย ทั้งที่วางอยู่ข้างคอลัมน์คะแนน/ยอดขาย/รายได้ที่เป็นข้อมูลจริง — ไม่มี field streak/badge
+        // ติดตามจริงในระบบให้ผูกได้ (ดู gamificationData.js) จึงตัดสองคอลัมน์นี้ออกแทนการโชว์เลขปลอมปนของจริง
         salesUnits: p.salesUnits,
         revenue: p.revenue,
       })).sort((a, b) => b.points - a.points)
@@ -108,8 +109,6 @@ export default async function LeaderboardPage(container) {
                 <th style="padding:10px 14px;text-align:left">ชื่อ</th>
                 <th style="padding:10px 14px;text-align:center">แรงค์</th>
                 <th style="padding:10px 14px;text-align:right">คะแนน</th>
-                <th style="padding:10px 14px;text-align:center">Streak</th>
-                <th style="padding:10px 14px;text-align:center">Badges</th>
                 <th style="padding:10px 14px;text-align:right">ยอดขาย</th>
               </tr>
             </thead>
@@ -130,8 +129,6 @@ export default async function LeaderboardPage(container) {
                   </td>
                   <td style="padding:10px 14px;text-align:center"><span style="font-size:0.75rem;color:${rank.color};font-weight:700">${rank.icon} ${rank.label}</span></td>
                   <td style="padding:10px 14px;text-align:right;font-weight:700">${pts.toLocaleString()}</td>
-                  <td style="padding:10px 14px;text-align:center;color:var(--warning)">🔥 ${p.streak}d</td>
-                  <td style="padding:10px 14px;text-align:center">🏅 ${p.badges}</td>
                   <td style="padding:10px 14px;text-align:right;font-size:0.8rem">${p.salesUnits > 0 ? p.salesUnits + ' คัน' : '—'}</td>
                 </tr>`
               }).join('')}

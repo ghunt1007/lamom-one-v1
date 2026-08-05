@@ -86,6 +86,11 @@ export default async function MarketingROIPage(container) {
     return BASE_CH.map(ch => {
       const spend = budgets[ch.id] ?? ch.defBudget
       let leads, customers, revenue
+      // (แก้ไข) เดิม leads ในโหมด 'live' ยังคำนวณจาก DEMO_CH ratio อยู่ดี (ไม่ใช่ข้อมูลจริง) ทั้งที่ badge
+      // หัวหน้า ● ข้อมูลจริง สื่อว่าทุกตัวเลขในหน้านี้เป็นข้อมูลจริง — ระบบไม่มี field จำนวน Lead ต่อช่องทาง
+      // เก็บจริงเลย (มีแค่ยอดขาย/ลูกค้าจริงจาก bookings) จึงทำได้แค่ทำเครื่องหมาย leadsEstimated:true ไว้
+      // แสดงกำกับใน UI ว่าตัวเลขนี้เป็นค่าประมาณ ไม่ใช่ของจริงเหมือนลูกค้า/รายได้
+      let leadsEstimated = false
       if (dataSource === 'live') {
         const mySales = allSales.filter(s => {
           const mo = (s.date || '').slice(0, 7)
@@ -95,6 +100,7 @@ export default async function MarketingROIPage(container) {
         revenue = mySales.reduce((a, s) => a + (s.salePrice || 0), 0)
         const demoRatio = DEMO_CH[ch.id].customers > 0 ? DEMO_CH[ch.id].leads / DEMO_CH[ch.id].customers : 10
         leads = customers > 0 ? Math.round(customers * demoRatio) : 0
+        leadsEstimated = true
       } else {
         leads = DEMO_CH[ch.id].leads
         customers = DEMO_CH[ch.id].customers
@@ -105,7 +111,7 @@ export default async function MarketingROIPage(container) {
       const cacV = customers > 0 ? Math.round(spend / customers) : 0
       const convV = leads > 0 ? Math.round(customers / leads * 1000) / 10 : 0
       const spendPct = Math.min(100, Math.round(spend / Math.max(ch.defBudget, 1) * 100))
-      return { ...ch, spend, leads, customers, revenue, roiPct, cplV, cacV, convV, spendPct }
+      return { ...ch, spend, leads, leadsEstimated, customers, revenue, roiPct, cplV, cacV, convV, spendPct }
     })
   }
 
@@ -131,7 +137,7 @@ export default async function MarketingROIPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">📊 Marketing ROI</div>
-            <div class="page-subtitle">วัดผลตอบแทน — แต่ละช่องทางการตลาด${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">วัดผลตอบแทน — แต่ละช่องทางการตลาด${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem" title="ลูกค้า/รายได้คำนวณจากยอดขายจริง — แต่ตัวเลข Leads ยังเป็นค่าประมาณ ไม่ใช่ข้อมูลจริง">● ลูกค้า/รายได้จริง</span>' : ''}</div>
           </div>
           <div class="page-actions">
             <select class="input" id="month-filter" style="font-size:0.78rem;padding:4px 10px;height:auto">
@@ -187,7 +193,7 @@ export default async function MarketingROIPage(container) {
                 <div style="background:${c.color};width:${c.spendPct}%;height:4px;border-radius:3px;opacity:0.7;transition:width 0.4s"></div>
               </div>
               <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
-                ${mini('🧲 Leads', c.leads.toLocaleString())}
+                ${mini(c.leadsEstimated ? '🧲 Leads (ประมาณ)' : '🧲 Leads', c.leads.toLocaleString())}
                 ${mini('💰 CPL', formatCurrency(c.cplV))}
                 ${mini('🎯 ลูกค้า', c.customers + ' (' + c.convV + '%)')}
                 ${mini('📊 CAC', formatCurrency(c.cacV))}

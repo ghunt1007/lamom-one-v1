@@ -39,14 +39,16 @@ export default async function VehicleAgingPage(container) {
   async function loadData() {
     loading = true
     try {
-      const docs = await listDocs('stock', [], 'model', 'asc', 200)
-      stock = docs.map((d, i) => ({
+      // เดิม query collection 'stock' ซึ่งไม่มีอยู่จริงในระบบ (ไม่มีหน้าไหนเขียนลง collection นี้เลย) —
+      // สต็อกจริงอยู่ใน 'vehicles' (เขียนโดย Stock.js) ทำให้หน้านี้ว่างเปล่าตลอดเวลาในทางปฏิบัติ
+      const docs = await listDocs('vehicles', [], 'arrivedAt', 'asc', 200)
+      stock = docs.filter(d => !d.deleted && d.status !== 'sold').map((d, i) => ({
         id: d.id,
         vin: d.vin || `VIN-${i+1}`,
-        model: d.model || '',
+        model: `${d.brand || ''} ${d.model || ''}`.trim(),
         color: d.color || '',
-        cost: d.cost || d.purchasePrice || 0,
-        arrived: d.arrived || d.arrivedDate || d.receivedAt || new Date().toISOString().slice(0,10),
+        cost: d.cost || 0,
+        arrived: d.arrivedAt || new Date().toISOString().slice(0,10),
         promoDisc: d.promoDisc || 0,
         campaign: d.campaign || '',
         pushed: d.pushed || false,
@@ -139,7 +141,7 @@ export default async function VehicleAgingPage(container) {
           const camp = document.getElementById('promo-camp')?.value.trim() || `Flash Deal — ${b.dataset.model}`
           if (!r) return
           try {
-            await updateDocData('stock', r.id, { promoDisc: disc, campaign: camp })
+            await updateDocData('vehicles', r.id, { promoDisc: disc, campaign: camp })
             showToast(`🎁 สร้างโปร "${camp}" ลด ${formatCurrency(disc)} สำหรับ ${b.dataset.model} แล้ว`, 'success')
             await loadData()
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
@@ -149,7 +151,7 @@ export default async function VehicleAgingPage(container) {
     document.getElementById('push-btn')?.addEventListener('click', async e => {
       const targets = rows.filter(r => r.days > 60)
       try {
-        await Promise.all(targets.map(r => updateDocData('stock', r.id, { pushed: true })))
+        await Promise.all(targets.map(r => updateDocData('vehicles', r.id, { pushed: true })))
         // เดิม toast อ้างว่าส่งทาง LINE แต่ไม่มีการส่งจริงเลย แก้ให้สร้างการแจ้งเตือนจริงในระบบ (notifications)
         // ให้ทีมเซลส์/ผู้จัดการเห็นจริงตอนเข้าระบบ (ไม่ใช้ LINE broadcast เพราะจะกระจายไปลูกค้าทั้งหมดไม่ใช่แค่ทีมงาน)
         const count = await notifySalesTeam('⏳ รถค้างสต็อกเกิน 60 วัน', `มีรถค้างสต็อก ${targets.length} คัน ควรเร่งระบาย — ${targets.slice(0,5).map(r=>r.model).join(', ')}${targets.length>5?' และอื่นๆ':''}`, '/dms/aging')

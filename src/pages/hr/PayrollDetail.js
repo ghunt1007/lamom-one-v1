@@ -4,13 +4,22 @@
  */
 import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { printPayslip } from '../../utils/payrollDocs.js'
 import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
+
+// พบว่าหน้านี้ไม่มีการเช็คสิทธิ์เลยแม้แต่จุดเดียว (เหมือน Payroll.js/hr Staff.js ก่อนแก้) — พนักงานทุกคนที่
+// เปิดถึงหน้านี้ได้เห็นเงินเดือนพื้นฐาน/คอมมิชชั่น/โบนัส/OT/ภาษี/ประกันสังคม/เงินสุทธิของเพื่อนร่วมงาน "ทุกคน"
+// พร้อมกันทันที และกดอนุมัติ/จ่ายเงินเดือนคนอื่นได้ด้วย จำกัดให้ผู้บริหาร/ผู้จัดการ/HR/การเงินเท่านั้นเห็นและ
+// จัดการของทุกคนได้ ส่วนพนักงานทั่วไปยังต้องเปิดหน้านี้เพื่อดูสลิปเงินเดือน "ของตัวเอง" ได้อยู่ (self-view)
+// แต่ห้ามเห็น/อนุมัติ/จ่ายของคนอื่นเด็ดขาด — payroll_records ไม่มี uid ผูกกับพนักงานจริง (เอกสารเก่าไม่ได้ออกแบบ
+// มาแบบนั้น) จึงจับคู่ "ตัวเอง" ด้วยชื่อที่ตรงกับ displayName/email ของผู้ใช้ที่ล็อกอินอยู่ (ดีที่สุดเท่าที่ทำได้
+// ระดับ UI โดยไม่แตะโครงสร้างข้อมูลเดิม — การป้องกันจริงต้องทำที่ Firestore Rules ด้วยเช่นกัน)
+const PAYROLL_VIEW_ROLES = ['owner', 'admin', 'manager', 'hr', 'finance']
 
 const PAYROLL_STATUS = {
   draft:    { label: 'ร่าง', color: 'secondary' },
@@ -30,6 +39,10 @@ export default async function PayrollDetailPage(container) {
 
   // เดิม hardcode ปี พ.ศ. 2568 (2025) ในสลิปเงินเดือนตายตัว ทำให้พิมพ์สลิปปีนี้/ปีหน้าก็ยังโชว์ปี 2568 เสมอ
   const BE_YEAR = new Date().getFullYear() + 543
+  const me = getState('user') || {}
+  const myRole = getState('role') || me.role || 'staff'
+  const canViewAll = PAYROLL_VIEW_ROLES.includes(myRole)
+  const myName = (me.displayName || me.email || '').trim().toLowerCase()
   let staff = []
   let monthIdx = 5
   let deptFilter = 'all'
@@ -38,7 +51,10 @@ export default async function PayrollDetailPage(container) {
 
   async function loadData() {
     loading = true
-    try { staff = await listDocs('payroll_records', [], 'name', 'asc', 300) } catch (e) { staff = [] }
+    try {
+      const all = await listDocs('payroll_records', [], 'name', 'asc', 300)
+      staff = canViewAll ? all : all.filter(s => (s.name || '').trim().toLowerCase() === myName)
+    } catch (e) { staff = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -62,10 +78,10 @@ export default async function PayrollDetailPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">💳 Payroll Detail</div>
-            <div class="page-subtitle">รายละเอียดเงินเดือน — ประมวลผลและอนุมัติ</div>
+            <div class="page-subtitle">${canViewAll ? 'รายละเอียดเงินเดือน — ประมวลผลและอนุมัติ' : 'สลิปเงินเดือนของฉัน'}</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-primary" id="pay-all-btn">💳 จ่ายที่อนุมัติแล้ว</button>
+            ${canViewAll ? `<button class="btn btn-primary" id="pay-all-btn">💳 จ่ายที่อนุมัติแล้ว</button>` : ''}
           </div>
         </div>
 
@@ -127,8 +143,8 @@ export default async function PayrollDetailPage(container) {
                     <td style="padding:10px 14px;text-align:center">
                       <div style="display:flex;gap:4px;justify-content:center">
                         <button class="btn btn-xs btn-secondary slip-btn" data-id="${s.id}">slip</button>
-                        ${s.status === 'draft' ? `<button class="btn btn-xs btn-primary approve-btn" data-id="${s.id}">อนุมัติ</button>` : ''}
-                        ${s.status === 'approved' ? `<button class="btn btn-xs btn-success pay-btn" data-id="${s.id}">จ่าย</button>` : ''}
+                        ${canViewAll && s.status === 'draft' ? `<button class="btn btn-xs btn-primary approve-btn" data-id="${s.id}">อนุมัติ</button>` : ''}
+                        ${canViewAll && s.status === 'approved' ? `<button class="btn btn-xs btn-success pay-btn" data-id="${s.id}">จ่าย</button>` : ''}
                       </div>
                     </td>
                   </tr>`

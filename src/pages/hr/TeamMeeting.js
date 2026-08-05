@@ -68,8 +68,8 @@ export default async function TeamMeetingPage(container) {
             return `<div class="card" style="padding:14px;border-left:3px solid var(--${mt?.color})">
               <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
                 <div>
-                  <div style="font-weight:700;font-size:0.9rem">${mt?.icon} ${m.title}</div>
-                  <div style="font-size:0.72rem;color:var(--text-muted)">📅 ${formatDate(m.date)} ${m.time} · 👥 ${m.attendees}</div>
+                  <div style="font-weight:700;font-size:0.9rem">${mt?.icon} ${escHtml(m.title)}</div>
+                  <div style="font-size:0.72rem;color:var(--text-muted)">📅 ${formatDate(m.date)} ${escHtml(m.time)} · 👥 ${escHtml(m.attendees)}</div>
                 </div>
                 <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
                   <span class="badge badge-${mt?.color}" style="font-size:0.6rem">${mt?.label}</span>

@@ -2,7 +2,7 @@
  * Cashier Desk — จุดรับชำระเงิน
  * Route: /finance/cashier
  */
-import { formatCurrency, timeAgo } from '../../utils/format.js'
+import { formatCurrency, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, softDelete, seedDemoData } from '../../core/db.js'
@@ -13,6 +13,14 @@ function myName() {
 }
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+
+// วันที่ (Asia/Bangkok) ของ timestamp ใดๆ — ใช้กรอง "วันนี้" ให้ตรงเวลาไทยจริง ไม่ผูกกับ timezone เครื่อง
+// (ตาม pattern เดียวกับ todayBangkok() ใน utils/format.js ที่แก้บั๊ก UTC-vs-เวลาไทยไว้แล้ว)
+function bangkokDateOf(v) {
+  const d = v ? new Date(v) : new Date()
+  if (isNaN(d.getTime())) return ''
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d)
+}
 
 const PAY_METHODS = {
   cash:     { label: 'เงินสด', icon: '💵' },
@@ -32,7 +40,11 @@ export default async function CashierDeskPage(container) {
   async function loadData() {
     loading = true
     try {
-      payments = await listDocs('cashier_payments', [], 'time', 'desc', 500)
+      // เดิมดึงมาแค่ 500 รายการล่าสุด ไม่กรองวันที่เลย ทำให้ "รับวันนี้"/"เงินสดในลิ้นชัก" จริงๆเป็นยอดสะสม
+      // ข้ามหลายวัน แต่ป้ายชื่อบอกว่าเป็น "วันนี้" — กรองเหลือเฉพาะรายการที่เกิดวันนี้ตามเวลาไทยจริง
+      const allPayments = await listDocs('cashier_payments', [], 'time', 'desc', 500)
+      const todayStr = todayBangkok()
+      payments = allPayments.filter(p => bangkokDateOf(p.time) === todayStr)
       pending = await listDocs('cashier_pending_bills', [], 'customer', 'asc', 500)
     } catch (e) { payments = []; pending = [] }
     loading = false
@@ -142,11 +154,23 @@ export default async function CashierDeskPage(container) {
           <div class="input-group"><label class="input-label">นับเงินสดจริงได้ (บาท)</label><input class="input" type="number" id="cs-counted" value="${cashInDrawer}"></div>
         </div>`,
         confirmText: '🔒 ปิดกะ',
-        onConfirm() {
+        // เดิมแค่คำนวณผลต่างแล้ว toast บอกผลเฉยๆ ไม่เคยเขียนลง Firestore เลย — ปิดกะทุกครั้งไม่มี audit trail
+        // ว่าใครนับเงิน นับได้เท่าไหร่ ขาด/เกินเท่าไหร่ แก้ให้บันทึกจริงเป็นเอกสารลง cashier_shift_closes
+        // (ต้องเพิ่ม Firestore Rules ให้ collection นี้เองถ้ายังไม่มี — ดูรายงานสรุปท้ายงาน)
+        async onConfirm() {
           const counted = parseInt(document.getElementById('cs-counted')?.value) || 0
           const diff = counted - cashInDrawer
+          try {
+            await createDoc('cashier_shift_closes', {
+              systemAmount: cashInDrawer,
+              countedAmount: counted,
+              variance: diff,
+              closedBy: myName(),
+              closedAt: new Date().toISOString(),
+            })
+          } catch (e) { showToast('บันทึกปิดกะไม่สำเร็จ', 'error'); return false }
           if (diff === 0) showToast('✅ ปิดกะสำเร็จ — เงินตรงพอดี!', 'success')
-          else showToast(`⚠️ ปิดกะ — เงิน${diff > 0 ? 'เกิน' : 'ขาด'} ${formatCurrency(Math.abs(diff))} (บันทึกผลต่าง)`, 'warning')
+          else showToast(`⚠️ ปิดกะ — เงิน${diff > 0 ? 'เกิน' : 'ขาด'} ${formatCurrency(Math.abs(diff))} (บันทึกผลต่างแล้ว)`, 'warning')
         }
       })
     })

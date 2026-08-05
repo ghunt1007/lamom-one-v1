@@ -3,7 +3,7 @@
  * Route: /integrations/webhooks
  */
 import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
 // ป้องกัน XSS — ชื่อ/URL/secret ของ Webhook เป็นข้อมูลที่ผู้ใช้พิมพ์เอง ต้อง escape ก่อนแสดงผลเสมอ
@@ -11,9 +11,15 @@ function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt
 
 const EVENTS =['sale.created','sale.updated','service.booked','service.completed','lead.created','lead.converted','payment.received','invoice.issued','customer.created','stock.updated']
 
+// Webhook เก็บ signing secret (ไว้เซ็น HMAC) ให้ระบบภายนอกใช้ยืนยันว่า request มาจากเราจริง — สิทธิ์
+// จัดการ (สร้าง/แก้ไข/ลบ/เปิดปิด) จึงจำกัดเฉพาะ owner/admin เหมือน DataRetention.js/BackupRestore.js/Roles.js
+const WEBHOOK_MANAGE_ROLES = ['owner', 'admin']
+
 export default async function WebhookBuilderPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
+  const myRole = getState('role') || getState('user')?.role || 'staff'
+  const canManage = WEBHOOK_MANAGE_ROLES.includes(myRole)
 
   let webhooks = []
   let loading = true
@@ -41,9 +47,15 @@ export default async function WebhookBuilderPage(container) {
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="test-all-btn">⚡ Test All</button>
-            <button class="btn btn-primary" id="new-btn">+ สร้าง Webhook</button>
+            ${canManage ? '<button class="btn btn-primary" id="new-btn">+ สร้าง Webhook</button>' : ''}
           </div>
         </div>
+
+        <div class="card" style="padding:12px 14px;margin-bottom:14px;border-left:3px solid var(--warning);font-size:0.8rem">
+          ⚠️ <strong>ข้อจำกัดสำคัญ:</strong> ระบบนี้ยังไม่มี Backend/Worker ตัวกลางที่ยิง Webhook จริงเมื่อเกิด Event ในระบบ (เช่น sale.created, lead.converted) — หน้านี้ใช้เก็บการตั้งค่า Webhook ไว้เท่านั้น <u>ยังไม่มีการยิง Webhook ออกจริง</u> เมื่อเกิดเหตุการณ์เหล่านี้ในระบบ
+        </div>
+
+        ${!canManage ? `<div class="card" style="padding:12px 14px;margin-bottom:14px;border-left:3px solid var(--warning);font-size:0.8rem">⚠️ เฉพาะ Owner/Admin เท่านั้นที่สร้าง/แก้ไข/ลบ Webhook ได้ในหน้านี้</div>` : ''}
 
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
           ${sc('🔗 Webhooks', webhooks.length, 'var(--primary)')}
@@ -65,11 +77,12 @@ export default async function WebhookBuilderPage(container) {
       </div>
     `
 
-    document.getElementById('new-btn')?.addEventListener('click', () => openCreateModal())
+    document.getElementById('new-btn')?.addEventListener('click', () => { if (canManage) openCreateModal() })
     document.getElementById('test-all-btn')?.addEventListener('click', () => {
       showToast(`⚠ ยังไม่รองรับการทดสอบส่งจริง (ต้องมี Worker ตัวกลางยิง HTTP แทน browser)`, 'warning')
     })
     container.querySelectorAll('.toggle-btn').forEach(b => b.addEventListener('click', async () => {
+      if (!canManage) return
       const w = webhooks.find(x => x.id === b.dataset.id)
       if (!w) return
       try {
@@ -83,6 +96,7 @@ export default async function WebhookBuilderPage(container) {
       if (w) showToast(`⚠ ยังไม่รองรับการทดสอบส่งจริงจาก browser (ติด CORS + ความเสี่ยง SSRF ถ้ายิง URL ที่ผู้ใช้กรอกเองตรงๆ ต้องมี Worker ตัวกลางก่อน)`, 'warning')
     }))
     container.querySelectorAll('.del-btn').forEach(b => b.addEventListener('click', () => {
+      if (!canManage) return
       openModal({ title:'ลบ Webhook?', size:'xs', body:`<p style="font-size:0.82rem">ลบ Webhook นี้จะไม่สามารถย้อนกลับได้</p>`,
         confirmText:'ลบ', async onConfirm() {
           try {
@@ -117,10 +131,10 @@ export default async function WebhookBuilderPage(container) {
           </div>
         </div>
         <div style="display:flex;gap:6px;margin-top:10px">
-          <button class="btn btn-xs ${w.active?'btn-secondary':'btn-primary'} toggle-btn" data-id="${w.id}">${w.active?'⏸ ปิด':'▶ เปิด'}</button>
+          ${canManage ? `<button class="btn btn-xs ${w.active?'btn-secondary':'btn-primary'} toggle-btn" data-id="${w.id}">${w.active?'⏸ ปิด':'▶ เปิด'}</button>` : ''}
           <button class="btn btn-xs btn-secondary test-btn" data-id="${w.id}">⚡ Test</button>
-          <button class="btn btn-xs btn-secondary detail-btn" data-id="${w.id}">⚙ แก้ไข</button>
-          <button class="btn btn-xs btn-secondary del-btn" data-id="${w.id}" style="color:var(--danger)">🗑</button>
+          <button class="btn btn-xs btn-secondary detail-btn" data-id="${w.id}">${canManage?'⚙ แก้ไข':'🔍 ดูรายละเอียด'}</button>
+          ${canManage ? `<button class="btn btn-xs btn-secondary del-btn" data-id="${w.id}" style="color:var(--danger)">🗑</button>` : ''}
         </div>
       </div>`
   }
@@ -141,7 +155,7 @@ export default async function WebhookBuilderPage(container) {
             </div>
           </div>
           <div><label style="font-size:0.72rem;color:var(--text-muted)">Secret (optional)</label>
-            <input class="input" id="wh-secret" placeholder="HMAC SHA-256 signing secret" style="width:100%;margin-top:4px"></div>
+            <input class="input" id="wh-secret" type="password" placeholder="HMAC SHA-256 signing secret" style="width:100%;margin-top:4px" autocomplete="new-password"></div>
         </div>`,
       confirmText: 'สร้าง Webhook',
       async onConfirm() {
@@ -158,38 +172,51 @@ export default async function WebhookBuilderPage(container) {
     })
   }
 
+  // ไม่แสดง secret เดิมที่บันทึกไว้กลับมาซ้ำอีก (เดิมเป็นช่องโหว่ — secret ใครก็เห็นได้ทุกครั้งที่กด "แก้ไข")
+  // ผู้ใช้กรอกค่าใหม่เพื่อ "เปลี่ยน" secret เท่านั้น เว้นว่างไว้ = คงค่าเดิม (เหมือนแนวทาง ApiKeys.js ที่โชว์ Key
+  // เต็มครั้งเดียวตอนสร้างแล้วไม่แสดงซ้ำอีก)
   function openDetailModal(w) {
-    openModal({
-      title: `⚙ แก้ไข ${esc(w.name)}`,
+    const readOnly = !canManage
+    const dis = readOnly ? 'disabled' : ''
+    const { el, close } = openModal({
+      title: `${readOnly ? '🔍 ดูรายละเอียด' : '⚙ แก้ไข'} ${esc(w.name)}`,
       size: 'sm',
+      footer: readOnly ? `<button class="btn btn-secondary" id="ed-close-ro">ปิด</button>` : undefined,
       body: `
         <div style="display:flex;flex-direction:column;gap:10px;font-size:0.8rem">
+          ${readOnly ? `<div style="font-size:0.72rem;color:var(--text-muted)">🔒 เฉพาะ Owner/Admin เท่านั้นที่แก้ไขได้ — โหมดนี้ดูได้อย่างเดียว</div>` : ''}
           <div><label style="font-size:0.72rem;color:var(--text-muted)">ชื่อ Webhook</label>
-            <input class="input" id="ed-name" value="${esc(w.name)}" style="width:100%;margin-top:4px"></div>
+            <input class="input" id="ed-name" value="${esc(w.name)}" style="width:100%;margin-top:4px" ${dis}></div>
           <div><label style="font-size:0.72rem;color:var(--text-muted)">URL ปลายทาง</label>
-            <input class="input" id="ed-url" value="${esc(w.url)}" style="width:100%;margin-top:4px"></div>
+            <input class="input" id="ed-url" value="${esc(w.url)}" style="width:100%;margin-top:4px" ${dis}></div>
           <div><label style="font-size:0.72rem;color:var(--text-muted)">Events</label>
             <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px">
-              ${EVENTS.map(e=>`<label style="display:flex;align-items:center;gap:4px;font-size:0.72rem;cursor:pointer"><input type="checkbox" class="ed-ev" value="${e}"${w.events.includes(e)?' checked':''}> ${e}</label>`).join('')}
+              ${EVENTS.map(e=>`<label style="display:flex;align-items:center;gap:4px;font-size:0.72rem;cursor:pointer"><input type="checkbox" class="ed-ev" value="${e}"${w.events.includes(e)?' checked':''} ${dis}> ${e}</label>`).join('')}
             </div>
           </div>
-          <div><label style="font-size:0.72rem;color:var(--text-muted)">Secret (optional)</label>
-            <input class="input" id="ed-secret" placeholder="HMAC SHA-256 signing secret" value="${esc(w.secret||'')}" style="width:100%;margin-top:4px"></div>
+          <div><label style="font-size:0.72rem;color:var(--text-muted)">Secret</label>
+            <input class="input" id="ed-secret" type="password" placeholder="${w.secret ? '••••••••••••••••' : 'HMAC SHA-256 signing secret (ไม่บังคับ)'}" value="" style="width:100%;margin-top:4px" ${dis} autocomplete="new-password">
+            <div style="font-size:0.66rem;color:var(--text-muted);margin-top:3px">${w.secret ? '🔒 มีการตั้ง secret ไว้แล้ว — เพื่อความปลอดภัยจึงไม่แสดงค่าเดิมซ้ำ กรอกค่าใหม่ที่นี่เพื่อเปลี่ยน หรือเว้นว่างไว้เพื่อคงค่าเดิม' : 'ยังไม่ได้ตั้ง secret — เว้นว่างได้ถ้าไม่ต้องการใช้ signing secret'}</div>
+          </div>
           <div style="font-size:0.7rem;color:var(--text-muted)">Fires: <b>${w.fires}</b> · Fails: <b>${w.fails}</b> · Last: ${w.lastFired ? new Date(w.lastFired).toLocaleString('th-TH') : '-'}</div>
         </div>`,
       confirmText: '💾 บันทึก',
-      async onConfirm() {
+      onConfirm: readOnly ? undefined : async () => {
         const name = document.getElementById('ed-name')?.value.trim()
         const url  = document.getElementById('ed-url')?.value.trim()
         const evs  = [...document.querySelectorAll('.ed-ev:checked')].map(c => c.value)
         if (!name || !url || !evs.length) { showToast('กรอกข้อมูลให้ครบ', 'warning'); return false }
+        const newSecret = document.getElementById('ed-secret')?.value || ''
+        const payload = { name, url, events: evs }
+        if (newSecret) payload.secret = newSecret // เว้นว่าง = ไม่แตะ secret เดิม
         try {
-          await updateDocData('webhooks', w.id, { name, url, events: evs, secret: document.getElementById('ed-secret')?.value || '' })
+          await updateDocData('webhooks', w.id, payload)
           showToast(`💾 อัปเดต "${name}" แล้ว`, 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
+    if (readOnly) el.querySelector('#ed-close-ro')?.addEventListener('click', close)
   }
 
   function sc(l, v, c) {

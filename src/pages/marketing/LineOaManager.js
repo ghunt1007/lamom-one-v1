@@ -97,6 +97,7 @@ export default async function LineOaManagerPage(container) {
                   </div>
                   <span class="badge badge-${mt?.color}" style="font-size:0.62rem">${mt?.icon} ${mt?.label}</span>
                 </div>
+                ${b.message ? `<div style="font-size:0.75rem;color:var(--text-muted);background:var(--surface-2);padding:6px 8px;border-radius:var(--radius-sm);margin-bottom:8px">${escHtml(b.message)}</div>` : ''}
                 ${b.status === 'sent' ? `
                   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
                     ${mini('📤 ส่ง', b.sent.toLocaleString())}
@@ -164,13 +165,16 @@ export default async function LineOaManagerPage(container) {
             <select class="input" id="bc-type">${Object.entries(MSG_TYPES).filter(([k])=>k!=='auto').map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">กำหนดส่ง</label><input class="input" type="date" id="bc-date" value="${addDays(1).slice(0,10)}"></div>
+          <div class="input-group"><label class="input-label">ข้อความที่จะส่ง *</label><textarea class="input" id="bc-msg" rows="4" placeholder="พิมพ์ข้อความ Broadcast..."></textarea></div>
           <div style="font-size:0.7rem;color:var(--text-muted)">💚 จะส่งถึงเพื่อน LINE OA ทั้งหมด${oaInsight?.followers != null ? ` (~${oaInsight.followers.toLocaleString()} คน)` : ''}</div>
         </div>`,
         async onConfirm() {
           const name = document.getElementById('bc-name')?.value?.trim()
+          const message = document.getElementById('bc-msg')?.value?.trim()
           if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return false }
+          if (!message) { showToast('❗ กรุณากรอกข้อความที่จะส่ง', 'error'); return false }
           try {
-            await createDoc('line_oa_broadcasts', { name, type:document.getElementById('bc-type')?.value||'broadcast', sent:0, opened:0, clicked:0, status:'scheduled', time:document.getElementById('bc-date')?.value||addDays(1) })
+            await createDoc('line_oa_broadcasts', { name, type:document.getElementById('bc-type')?.value||'broadcast', message, sent:0, opened:0, clicked:0, status:'scheduled', time:document.getElementById('bc-date')?.value||addDays(1) })
             showToast('📢 สร้าง Broadcast แล้ว', 'success')
             await loadData()
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

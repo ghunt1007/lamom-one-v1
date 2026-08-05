@@ -5,7 +5,12 @@
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+
+function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
+// ค่าไฟต่อหน่วย (บาท/kWh) — ใช้คำนวณค่าบริการตอนหยุดชาร์จจริง
+const ENERGY_RATE = 5
 
 const CHARGER_STATUS = {
   available: { label: 'ว่าง', color: 'success', icon: '🟢' },
@@ -23,24 +28,24 @@ const CHARGER_TYPES = {
 }
 
 function addMins(n) { const d = new Date(); d.setMinutes(d.getMinutes() + n); return d.toISOString() }
-function subMins(n) { const d = new Date(); d.setMinutes(d.getMinutes() - n); return d.toISOString() }
-
-const SESSION_HISTORY = [
-  { charger: 'CS01', vehicle: 'BYD Dolphin', duration: 62, energy: 35.2, cost: 176, date: subMins(120) },
-  { charger: 'CS04', vehicle: 'Tesla Model 3', duration: 95, energy: 48.5, cost: 242.5, date: subMins(200) },
-  { charger: 'CS02', vehicle: 'BYD Seal AWD', duration: 38, energy: 25.0, cost: 125, date: subMins(300) },
-]
 
 export default async function ChargingStationPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
 
   let chargers = []
+  let sessions = []
   let loading = true
 
   async function loadData() {
     loading = true
-    try { chargers = await listDocs('charging_stations', [], 'name', 'asc', 200) } catch (e) { chargers = [] }
+    try {
+      const [c, s] = await Promise.all([
+        listDocs('charging_stations', [], 'name', 'asc', 200),
+        listDocs('charging_sessions', [], 'date', 'desc', 100),
+      ])
+      chargers = c; sessions = s
+    } catch (e) { chargers = []; sessions = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -53,7 +58,8 @@ export default async function ChargingStationPage(container) {
     const available = chargers.filter(c => c.status === 'available').length
     const inUse = chargers.filter(c => c.status === 'in_use').length
     const offline = chargers.filter(c => ['offline','maintenance'].includes(c.status)).length
-    const totalEnergy = SESSION_HISTORY.reduce((a, s) => a + s.energy, 0)
+    const today = new Date().toISOString().slice(0, 10)
+    const totalEnergy = sessions.filter(s => (s.date || '').slice(0, 10) === today).reduce((a, s) => a + (s.energy || 0), 0)
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -92,7 +98,7 @@ export default async function ChargingStationPage(container) {
 
               ${isCharging ? `
                 <div style="margin-bottom:10px">
-                  <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:4px">🚗 ${c.vehicle}</div>
+                  <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:4px">🚗 ${escHtml(c.vehicle)}</div>
                   <div style="display:flex;justify-content:space-between;font-size:0.75rem;margin-bottom:4px">
                     <span>SOC: ${c.soc}%</span>
                     <span>${c.energy} kWh</span>
@@ -103,7 +109,7 @@ export default async function ChargingStationPage(container) {
                   <div style="font-size:0.68rem;color:var(--text-muted);margin-top:4px">⏱ เสร็จ ~${timeAgo(c.estFinish)}</div>
                 </div>
               ` : c.status === 'reserved' ? `
-                <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:10px">🚗 ${c.vehicle}<br>🕐 ETA ${timeAgo(c.estFinish)}</div>
+                <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:10px">🚗 ${escHtml(c.vehicle)}<br>🕐 ETA ${timeAgo(c.estFinish)}</div>
               ` : `<div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:10px">${c.power} kW</div>`}
 
               <div style="display:flex;gap:4px">
@@ -130,16 +136,17 @@ export default async function ChargingStationPage(container) {
               </tr>
             </thead>
             <tbody>
-              ${SESSION_HISTORY.map(s => `
+              ${sessions.slice(0, 10).map(s => `
                 <tr style="border-bottom:1px solid var(--border);font-size:0.82rem">
-                  <td style="padding:8px 14px">${s.charger}</td>
-                  <td style="padding:8px 14px">🚗 ${s.vehicle}</td>
+                  <td style="padding:8px 14px">${escHtml(s.charger)}</td>
+                  <td style="padding:8px 14px">🚗 ${escHtml(s.vehicle)}</td>
                   <td style="padding:8px 10px;text-align:right">${s.duration} นาที</td>
                   <td style="padding:8px 10px;text-align:right;color:var(--warning)">${s.energy} kWh</td>
-                  <td style="padding:8px 14px;text-align:right;font-weight:700;color:var(--success)">฿${s.cost.toFixed(2)}</td>
+                  <td style="padding:8px 14px;text-align:right;font-weight:700;color:var(--success)">฿${(s.cost || 0).toFixed(2)}</td>
                   <td style="padding:8px 14px;text-align:right;color:var(--text-muted)">${timeAgo(s.date)}</td>
                 </tr>
               `).join('')}
+              ${!sessions.length ? `<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted)">ยังไม่มีประวัติการชาร์จ</td></tr>` : ''}
             </tbody>
           </table>
         </div>
@@ -154,11 +161,23 @@ export default async function ChargingStationPage(container) {
     container.querySelectorAll('.stop-btn').forEach(b => b.addEventListener('click', async () => {
       const c = chargers.find(x => x.id === b.dataset.id)
       if (!c) return
+      // บันทึกเซสชั่นการชาร์จจริงลง Firestore ก่อนเคลียร์สถานะหัวชาร์จ — เดิมข้อมูลนี้หายไปเงียบๆทุกครั้งที่กด "หยุดชาร์จ"
+      const startTime = c.startTime ? new Date(c.startTime) : null
+      const durationMin = startTime ? Math.max(1, Math.round((Date.now() - startTime.getTime()) / 60000)) : 0
+      const energy = c.energy || 0
+      const cost = Math.round(energy * ENERGY_RATE * 100) / 100
       const patch = { status: 'available', vehicle: null, soc: 0, energy: 0, startTime: null, estFinish: null }
-      Object.assign(c, patch)
-      renderPage()
-      showToast(`⏹ หยุดชาร์จ ${c.name} แล้ว`, 'success')
-      try { await updateDocData('charging_stations', c.id, patch) } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      try {
+        if (energy > 0 || durationMin > 0) {
+          await createDoc('charging_sessions', {
+            chargerId: c.id, charger: c.name, vehicle: c.vehicle || '', duration: durationMin, energy, cost,
+            date: new Date().toISOString(),
+          })
+        }
+        await updateDocData('charging_stations', c.id, patch)
+        showToast(`⏹ หยุดชาร์จ ${c.name} แล้ว`, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.restart-btn').forEach(b => b.addEventListener('click', async () => {
       const c = chargers.find(x => x.id === b.dataset.id)

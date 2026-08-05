@@ -4,8 +4,9 @@
  */
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { formatDate } from '../../utils/format.js'
+import { formatDate, formatCurrency } from '../../utils/format.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { sendSms, sendEmail } from '../../utils/comms.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -133,20 +134,12 @@ export default async function ReceiptAutoPage(container) {
     container.querySelectorAll('.retry-btn').forEach(b=>b.addEventListener('click', async ()=>{
       const r=RECEIPTS.find(x=>x.id===b.dataset.id)
       if(!r) return
-      try {
-        await updateDocData('auto_receipts', r.id, { status:'sent', sent:true })
-        showToast('🔄 Retry ส่งใบเสร็จ '+r.number+' แล้ว','success')
-        await loadData()
-      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      await sendReceipt(r)
     }))
     container.querySelectorAll('.send-btn').forEach(b=>b.addEventListener('click', async ()=>{
       const r=RECEIPTS.find(x=>x.id===b.dataset.id)
       if(!r) return
-      try {
-        await updateDocData('auto_receipts', r.id, { status:'sent', sent:true })
-        showToast('📤 ส่งใบเสร็จ '+r.number+' แล้ว','success')
-        await loadData()
-      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      await sendReceipt(r)
     }))
     container.querySelectorAll('.rule-toggle').forEach(cb=>cb.addEventListener('change', async ()=>{
       const rule=AUTO_RULES.find(x=>x.id===cb.dataset.id)
@@ -158,6 +151,41 @@ export default async function ReceiptAutoPage(container) {
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     document.getElementById('gen-btn')?.addEventListener('click', openGenReceiptModal)
+  }
+
+  // เดิม "ส่งเลย"/"Retry" แค่ flip status เป็น 'sent' ไม่เคยเรียกผู้ให้บริการจริงเลย (ใบเสร็จไม่ถึงมือลูกค้าจริง
+  // แต่ระบบขึ้นว่า "ส่งแล้ว") แก้ให้เรียก sendSms/sendEmail จริงผ่าน src/utils/comms.js (pattern เดียวกับ
+  // Installment.js) จับคู่เบอร์โทร/อีเมลจาก r.phone/r.email ที่กรอกตอนออกใบเสร็จ — ช่องทาง LINE ที่เชื่อมจริง
+  // เป็น broadcast ทั้งฐานลูกค้าเท่านั้น (sendLineBroadcast) ส่งเจาะรายบุคคลไม่ได้ จึงยังไม่มี API ส่งเฉพาะคน
+  // สำหรับ LINE — คงพฤติกรรมเดิม (mark sent) ไว้เฉพาะช่องทางนี้เท่านั้น พร้อม comment อธิบายไว้ตรงนี้
+  async function sendReceipt(r) {
+    try {
+      if (r.channel === 'sms') {
+        if (!r.phone) {
+          showToast('⚠️ ไม่มีเบอร์โทรของ ' + r.customer + ' ในระบบ — ส่งไม่ได้', 'error')
+          await updateDocData('auto_receipts', r.id, { status: 'failed' })
+          await loadData()
+          return
+        }
+        await sendSms([r.phone], `LAMOM ใบเสร็จ ${r.number} — ${r.customer} ยอด ${formatCurrency(r.amount)} ขอบคุณที่ใช้บริการ`)
+      } else if (r.channel === 'email') {
+        if (!r.email) {
+          showToast('⚠️ ไม่มีอีเมลของ ' + r.customer + ' ในระบบ — ส่งไม่ได้', 'error')
+          await updateDocData('auto_receipts', r.id, { status: 'failed' })
+          await loadData()
+          return
+        }
+        await sendEmail([r.email], `ใบเสร็จ ${r.number}`, `เรียนคุณ ${r.customer}\n\nใบเสร็จเลขที่ ${r.number} ยอด ${formatCurrency(r.amount)}\nขอบคุณที่ใช้บริการ LAMOM`)
+      }
+      // channel === 'line' — ยังไม่มี API ส่งเฉพาะคนจริง (ดู comment ด้านบน) คงพฤติกรรมเดิม
+      await updateDocData('auto_receipts', r.id, { status: 'sent', sent: true })
+      showToast('📤 ส่งใบเสร็จ ' + r.number + ' แล้ว', 'success')
+      await loadData()
+    } catch (e) {
+      await updateDocData('auto_receipts', r.id, { status: 'failed' }).catch(() => {})
+      showToast('⚠️ ส่งใบเสร็จ ' + r.number + ' ไม่สำเร็จ', 'error')
+      await loadData()
+    }
   }
 
   function openGenReceiptModal() {
@@ -193,6 +221,12 @@ export default async function ReceiptAutoPage(container) {
           </div>
           <div><label style="font-size:0.74rem;color:var(--text-muted)">ยอดรวม (฿) *</label>
             <input id="rc-amt" type="number" class="input" placeholder="0"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div><label style="font-size:0.74rem;color:var(--text-muted)">เบอร์โทร (สำหรับส่ง SMS)</label>
+              <input id="rc-phone" class="input" placeholder="08xxxxxxxx"></div>
+            <div><label style="font-size:0.74rem;color:var(--text-muted)">อีเมล (สำหรับส่ง Email)</label>
+              <input id="rc-email" class="input" type="email" placeholder="name@email.com"></div>
+          </div>
         </div>
       `,
       footer: `
@@ -213,6 +247,8 @@ export default async function ReceiptAutoPage(container) {
           customer, amount,
           type:    document.getElementById('rc-type')?.value || 'service',
           channel: document.getElementById('rc-ch')?.value || 'email',
+          phone:   document.getElementById('rc-phone')?.value?.trim() || '',
+          email:   document.getElementById('rc-email')?.value?.trim() || '',
           date: today,
           sent: false,
           status: 'pending',

@@ -98,7 +98,7 @@ export default async function AuditSchedulePage(container) {
                 <div style="flex:1">
                   <div style="font-weight:700;font-size:0.87rem">${esc(a.name)}</div>
                   <div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px">
-                    👤 ${a.auditor} · 📍 ${a.area} · 📅 ${formatDate(a.scheduledDate)}
+                    👤 ${esc(a.auditor)} · 📍 ${esc(a.area)} · 📅 ${formatDate(a.scheduledDate)}
                   </div>
                   ${a.completedDate ? `<div style="font-size:0.72rem;color:var(--success)">✅ เสร็จ: ${formatDate(a.completedDate)}</div>` : ''}
                 </div>

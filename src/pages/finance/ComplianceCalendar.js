@@ -6,6 +6,8 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
+function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+
 const CATEGORIES = ['ใบอนุญาต','ภาษี','แรงงาน','สัญญา']
 
 export default async function ComplianceCalendarPage(container) {
@@ -45,10 +47,10 @@ export default async function ComplianceCalendarPage(container) {
     const uc = urgencyColor(e.dueDate, e.status)
     const dl = daysLabel(e.dueDate, e.status)
     const catColors = { 'ใบอนุญาต':'var(--primary)','ภาษี':'var(--danger)','แรงงาน':'var(--warning)','สัญญา':'var(--success)' }
-    return '<tr class="event-row" data-id="'+e.id+'" style="border-bottom:1px solid var(--border-subtle);cursor:pointer">' +
+    return '<tr class="event-row" data-id="'+escHtml(e.id)+'" style="border-bottom:1px solid var(--border-subtle);cursor:pointer">' +
       '<td style="padding:9px 10px">' +
-        '<div style="font-weight:600;font-size:0.78rem;margin-bottom:2px">'+e.title+'</div>' +
-        '<div style="font-size:0.66rem;color:var(--text-muted)">ผู้รับผิดชอบ: '+e.responsible+'</div>' +
+        '<div style="font-weight:600;font-size:0.78rem;margin-bottom:2px">'+escHtml(e.title)+'</div>' +
+        '<div style="font-size:0.66rem;color:var(--text-muted)">ผู้รับผิดชอบ: '+escHtml(e.responsible)+'</div>' +
       '</td>' +
       '<td style="padding:9px 10px"><span style="font-size:0.62rem;background:'+(catColors[e.category]||'var(--surface-2)')+';color:#fff;padding:2px 8px;border-radius:8px">'+e.category+'</span></td>' +
       '<td style="padding:9px 10px;font-size:0.74rem">'+e.dueDate+'</td>' +
@@ -131,8 +133,8 @@ export default async function ComplianceCalendarPage(container) {
       if(ev.target.tagName==='BUTTON') return
       const e = EVENTS.find(x=>x.id===r.dataset.id)
       if(!e) return
-      openModal({ title:'📅 '+e.title, size:'sm',
-        body:'<div style="font-size:0.84rem;line-height:2"><div><b>ประเภท:</b> '+e.category+'</div><div><b>กำหนด:</b> '+e.dueDate+'</div><div><b>ผู้รับผิดชอบ:</b> '+e.responsible+'</div><div><b>รายละเอียด:</b> '+e.desc+'</div></div>',
+      openModal({ title:'📅 '+escHtml(e.title), size:'sm',
+        body:'<div style="font-size:0.84rem;line-height:2"><div><b>ประเภท:</b> '+escHtml(e.category)+'</div><div><b>กำหนด:</b> '+escHtml(e.dueDate)+'</div><div><b>ผู้รับผิดชอบ:</b> '+escHtml(e.responsible)+'</div><div><b>รายละเอียด:</b> '+escHtml(e.desc)+'</div></div>',
         confirmText:'รับทราบ', onConfirm:()=>true })
     }))
     document.getElementById('add-event-btn')?.addEventListener('click', openAddEventModal)

@@ -72,11 +72,14 @@ export default async function FormBuilderPage(container) {
       const f = forms.find(x => x.id === b.dataset.id)
       if (f) { editingFormId = f.id; activeFields = f.fields.map((l,i)=>({id:'fx'+(i+1),type:'text',label:l,required:i<2})); view='editor'; render() }
     }))
+    // ลิงก์ https://lamom.app/form/{id} เดิมทำเหมือนเป็นลิงก์สาธารณะที่ลูกค้าเปิดกรอกฟอร์มได้จริง แต่ router.js
+    // ของแอปนี้ไม่มี route แบบนี้อยู่จริง (ไม่มีหน้า public form) — ระบุชัดในข้อความว่าเป็นแค่ข้อมูลอ้างอิง
+    // ภายใน ยังใช้เปิดกรอกจริงไม่ได้ กันคนเอาไปส่งให้ลูกค้าแล้วเจอหน้าใช้งานไม่ได้
     container.querySelectorAll('.share-btn').forEach(b => b.addEventListener('click', () => {
       const url = 'https://lamom.app/form/' + b.dataset.id
       navigator.clipboard?.writeText(url)
-        .then(() => showToast('🔗 Copy Link แล้ว · ' + url, 'success'))
-        .catch(() => showToast('🔗 Link: ' + url, 'success'))
+        .then(() => showToast('🔗 Copy Link แล้ว (อ้างอิงภายในเท่านั้น ยังไม่มีหน้าเปิดกรอกจริง) · ' + url, 'warning'))
+        .catch(() => showToast('🔗 Link (อ้างอิงภายในเท่านั้น): ' + url, 'warning'))
     }))
     container.querySelectorAll('.toggle-btn').forEach(b => b.addEventListener('click', async () => {
       const f = forms.find(x => x.id === b.dataset.id)

@@ -130,11 +130,11 @@ export default async function CampaignBuilderPage(container) {
           <div style="width:40px;height:40px;border-radius:var(--radius-sm);background:var(--${ct.color}-dim);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0">${ct.icon}</div>
           <div style="flex:1;min-width:0">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-              <span style="font-weight:700;font-size:0.9rem">${c.name}</span>
+              <span style="font-weight:700;font-size:0.9rem">${escHtml(c.name)}</span>
               <span class="badge badge-${st.color}" style="font-size:0.65rem">${st.label}</span>
               <span class="badge badge-${ct.color}" style="font-size:0.65rem">${ct.label}</span>
             </div>
-            <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:10px">${c.startDate} → ${c.endDate} · 🎯 ${c.target}</div>
+            <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:10px">${escHtml(c.startDate)} → ${escHtml(c.endDate)} · 🎯 ${escHtml(c.target)}</div>
             <!-- Metrics -->
             <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:10px">
               ${metric('งบ', formatCurrency(c.budget))}
@@ -206,7 +206,7 @@ export default async function CampaignBuilderPage(container) {
     const st = CAMPAIGN_STATUS[c.status]
     const roi = c.spent > 0 ? ((c.sales * 200000 - c.spent) / c.spent * 100).toFixed(1) : '0'
     openModal({
-      title: `${ct.icon} ${c.name}`, size: 'md',
+      title: `${ct.icon} ${escHtml(c.name)}`, size: 'md',
       body: `<div style="display:flex;flex-direction:column;gap:12px">
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <span class="badge badge-${st.color}">${st.label}</span>

@@ -4,7 +4,7 @@
  */
 import { formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
@@ -18,9 +18,29 @@ const LEVELS = {
   final:   { label: 'ใบเตือนสุดท้าย', color: 'var(--danger)', score: 4 },
   suspend: { label: 'พักงาน', color: 'var(--danger)', score: 5 },
 }
+// เอกสารเก่า/พิมพ์ผิดบางฉบับอาจไม่มี level ที่ตรงกับ LEVELS เลย — ใช้ fallback นี้กัน LEVELS[r.level] undefined
+// แล้วโค้ดพัง (เดิม r.level ผิด/ว่างจะทำให้ .score พังทั้งหน้าเพราะ TypeError)
+const LEVEL_FALLBACK = { label: 'ไม่ระบุระดับ', color: 'var(--text-muted)', score: 0 }
+
+// พบว่าหน้านี้ไม่มีการเช็คสิทธิ์เลย ต่างจาก StaffGrievances.js ที่มี HANDLER_ROLES อยู่แล้ว — บันทึกตักเตือน/
+// ใบเตือนเป็นข้อมูลอ่อนไหวเกี่ยวกับวินัย/การลงโทษพนักงาน จำกัดให้เห็น/จัดการได้เฉพาะ HR/ผู้จัดการ/แอดมิน/
+// เจ้าของเท่านั้น (Firestore Rules บังคับจริงเช่นกัน)
+const HANDLER_ROLES = ['hr', 'manager', 'admin', 'owner']
 
 export default async function DisciplinaryRecordsPage(container) {
   const myGen = container.__routerGen
+  const myRole = getState('role') || getState('user')?.role || 'staff'
+  if (!HANDLER_ROLES.includes(myRole)) {
+    container.innerHTML = `
+      <div class="page-content animate-slide">
+        <div class="empty-state" style="padding:60px 20px">
+          <div class="empty-icon">🔒</div>
+          <div class="empty-title">ไม่มีสิทธิ์เข้าถึงหน้านี้</div>
+          <div class="empty-desc">บันทึกตักเตือน/ใบเตือนพนักงานเปิดให้เฉพาะ HR/ผู้จัดการขึ้นไป — ติดต่อผู้ดูแลระบบหากต้องการสิทธิ์เข้าถึง</div>
+        </div>
+      </div>`
+    return
+  }
   seedDemoData()
 
   let records = []
@@ -40,7 +60,7 @@ export default async function DisciplinaryRecordsPage(container) {
     }
     // นับสะสมรายคน
     const byStaff = {}
-    records.forEach(r => { byStaff[r.staff] = (byStaff[r.staff] || 0) + LEVELS[r.level].score })
+    records.forEach(r => { byStaff[r.staff] = (byStaff[r.staff] || 0) + (LEVELS[r.level] || LEVEL_FALLBACK).score })
     const watchlist = Object.entries(byStaff).filter(([, s]) => s >= 4)
     const pendingAck = records.filter(r => !r.ack).length
 
@@ -77,7 +97,7 @@ export default async function DisciplinaryRecordsPage(container) {
                 <tr style="border-bottom:1px solid var(--border);font-size:0.8rem">
                   <td style="padding:9px 12px;font-weight:600">${escHtml(r.caseNo || r.id)}</td>
                   <td>${escHtml(r.staff)}<div style="font-size:0.7rem;color:var(--text-muted)">${escHtml(r.dept)}</div></td>
-                  <td style="text-align:center"><span style="font-size:0.66rem;background:${LEVELS[r.level].color};color:#fff;padding:2px 8px;border-radius:10px">${LEVELS[r.level].label}</span></td>
+                  <td style="text-align:center"><span style="font-size:0.66rem;background:${(LEVELS[r.level] || LEVEL_FALLBACK).color};color:#fff;padding:2px 8px;border-radius:10px">${(LEVELS[r.level] || LEVEL_FALLBACK).label}</span></td>
                   <td style="font-size:0.76rem;max-width:240px">${escHtml(r.reason)}</td>
                   <td style="font-size:0.74rem;color:var(--text-muted)">${escHtml(r.by)}</td>
                   <td style="text-align:center;font-size:0.74rem">${formatDate(r.date)}</td>

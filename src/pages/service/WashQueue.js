@@ -7,6 +7,8 @@ import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
+function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+
 function myName() {
   const me = getState('user') || {}
   return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
@@ -93,10 +95,10 @@ export default async function WashQueuePage(container) {
                 ${items.map(q => {
                   const sv = WASH_SERVICES[q.service]
                   return `<div class="card" style="padding:10px 12px;border-left:3px solid var(--${qs.color})">
-                    <div style="font-weight:700;font-size:0.83rem">${q.plate}</div>
-                    <div style="font-size:0.68rem;color:var(--text-muted)">${q.model} · ${q.customer}</div>
+                    <div style="font-weight:700;font-size:0.83rem">${escHtml(q.plate)}</div>
+                    <div style="font-size:0.68rem;color:var(--text-muted)">${escHtml(q.model)} · ${escHtml(q.customer)}</div>
                     <div style="font-size:0.7rem;margin-top:3px">${sv?.icon} ${sv?.label} ${q.isFree ? '<span class="badge badge-success" style="font-size:0.55rem">ฟรี</span>' : `<strong>${formatCurrency(sv?.price||0)}</strong>`}</div>
-                    ${q.staff ? `<div style="font-size:0.65rem;color:var(--text-muted)">👷 ${q.staff}${q.startTime ? ' · เริ่ม ' + timeAgo(q.startTime) : ''}</div>` : ''}
+                    ${q.staff ? `<div style="font-size:0.65rem;color:var(--text-muted)">👷 ${escHtml(q.staff)}${q.startTime ? ' · เริ่ม ' + timeAgo(q.startTime) : ''}</div>` : ''}
                     <div style="display:flex;gap:4px;margin-top:6px">
                       ${st === 'waiting' ? `<button class="btn btn-xs btn-warning start-btn" data-id="${q.id}" style="flex:1">🧽 เริ่ม</button>` : ''}
                       ${st === 'washing' ? `<button class="btn btn-xs btn-success finish-btn" data-id="${q.id}" style="flex:1">✅ เสร็จ</button>` : ''}

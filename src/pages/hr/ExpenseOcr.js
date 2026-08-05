@@ -29,8 +29,15 @@ const ST = {
   rejected: { label:'ปฏิเสธ',     color:'var(--danger)'  },
 }
 
+// เดิมปุ่มอนุมัติ/ปฏิเสธใบเสร็จไม่มีการเช็คสิทธิ์เลย — พนักงานคนไหนก็อนุมัติ/ปฏิเสธใบเสร็จของใครก็ได้ทันที
+// จำกัดให้อนุมัติ/ปฏิเสธได้เฉพาะผู้จัดการ/การเงิน/แอดมิน/เจ้าของ (ตามแบบ PAYROLL_VIEW_ROLES ใน Payroll.js)
+// ส่วนการสแกน/ส่งใบเสร็จของตัวเองยังทำได้ตามปกติทุก role
+const EXPENSE_APPROVE_ROLES = ['owner', 'admin', 'manager', 'finance']
+
 export default async function ExpenseOcrPage(container) {
   const myGen = container.__routerGen
+  const myRole = getState('role') || getState('user')?.role || 'staff'
+  const canApprove = EXPENSE_APPROVE_ROLES.includes(myRole)
   let filterStatus = 'all'
 
   // (v1.0.323) เดิมถ้ามีใบเสร็จจริงใน Firestore ระบบจะเอาไปต่อหน้าใบเสร็จปลอม 5 รายการเสมอ ไม่มีทางตัดของ
@@ -64,7 +71,7 @@ export default async function ExpenseOcrPage(container) {
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="scan-btn">📷 สแกนใบเสร็จใหม่</button>
-            <button class="btn btn-primary" id="approve-all-btn">✅ อนุมัติทั้งหมด</button>
+            ${canApprove ? `<button class="btn btn-primary" id="approve-all-btn">✅ อนุมัติทั้งหมด</button>` : ''}
           </div>
         </div>
 
@@ -166,7 +173,7 @@ export default async function ExpenseOcrPage(container) {
             </div>
             <div style="display:flex;gap:6px">
               <button class="btn btn-xs btn-secondary detail-btn" data-id="${r.id}">🔍 รายละเอียด</button>
-              ${r.status==='pending' ? `
+              ${canApprove && r.status==='pending' ? `
                 <button class="btn btn-xs btn-primary approve-btn" data-id="${r.id}">✅ อนุมัติ</button>
                 <button class="btn btn-xs btn-secondary reject-btn" data-id="${r.id}" style="color:var(--danger)">✕ ปฏิเสธ</button>` : ''}
               <button class="btn btn-xs btn-secondary del-receipt-btn" data-id="${r.id}" title="ลบใบเสร็จ" style="color:var(--danger);margin-left:auto">🗑</button>
@@ -198,9 +205,9 @@ export default async function ExpenseOcrPage(container) {
         </div>
         <div style="font-size:0.72rem"><b>สถานะ:</b> <span style="background:${s.color};color:#fff;padding:1px 8px;border-radius:8px">${s.label}</span></div>
         ${r.note ? `<div style="font-size:0.72rem;color:var(--danger);margin-top:6px">⚠️ ${esc(r.note)}</div>` : ''}`,
-      confirmText: r.status==='pending' ? '✅ อนุมัติ' : '💾 OK',
+      confirmText: canApprove && r.status==='pending' ? '✅ อนุมัติ' : '💾 OK',
       async onConfirm() {
-        if (r.status==='pending') {
+        if (canApprove && r.status==='pending') {
           try {
             if (r._persisted) await updateDocData('expense_receipts', r.id, { status: 'approved' })
             r.status='approved'

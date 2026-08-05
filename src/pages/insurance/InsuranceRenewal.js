@@ -83,6 +83,12 @@ export default async function InsuranceRenewalPage(container) {
           </div>
         </div>
 
+        <div class="card" style="padding:10px 14px;margin-bottom:14px;background:var(--surface-2);border:1px dashed var(--border);font-size:0.72rem;color:var(--text-muted)">
+          ⚠️ หน้านี้เก็บข้อมูลแยกต่างหาก (collection <code>insurance_renewals</code>) — ไม่ใช่ชุดข้อมูลเดียวกับหน้า
+          <strong>🛡 Insurance</strong> (collection <code>insurance_policies</code>) ที่เชื่อมกับ Global Search / VIN Decoder /
+          Upsell Advisor / Customer Portal จริง กรมธรรม์ที่เพิ่ม/ต่ออายุที่นี่จะ<strong>ไม่ปรากฏ</strong>ในหน้าอื่นเหล่านั้น
+        </div>
+
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('❗ หมดอายุแล้ว', expired, expired > 0 ? 'danger' : 'secondary')}
           ${kpi('⚠️ หมดใน 30 วัน', upcoming30, upcoming30 > 0 ? 'warning' : 'secondary')}

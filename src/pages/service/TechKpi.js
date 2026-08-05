@@ -3,12 +3,14 @@
  * Route: /service/tech-kpi
  */
 import { formatCurrency } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
-import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
+import { listDocs, seedDemoData } from '../../core/db.js'
 
 const MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.']
 
+// ⚠️ TECHS + MONTHLY_DATA เป็นข้อมูลตัวอย่าง (mock) ล้วนๆ — ยังไม่มี collection ผลงานช่างจริงในระบบ (ไม่มี
+// jobs/CSAT/comeback ต่อคนต่อเดือนที่แท้จริงใน job_cards หรือที่อื่น) ห้ามใช้ตัวเลขจากตรงนี้ไปคำนวณ/อนุมัติ
+// เงินจริง (ดู comment ที่ปุ่ม bonus-btn ด้านล่าง) — ถ้าจะทำ Bonus approval จริง ต้องสร้าง collection ผลงานช่าง
+// รายเดือนจริงก่อน แล้วค่อยเปิดปุ่มนี้กลับมา
 const TECHS = [
   { id:'T01', name:'สมศักดิ์ มีฝีมือ', level:'Master Tech', exp:8,  avatar:'🔧' },
   { id:'T02', name:'วิชัย ช่างเก่ง',   level:'Senior Tech', exp:5,  avatar:'⚡' },
@@ -87,8 +89,12 @@ export default async function TechKpiPage(container) {
             <div style="display:flex;gap:4px">
               ${MONTHS.map((m,i)=>`<button class="btn btn-xs ${i===selMonth?'btn-primary':'btn-secondary'} mo-btn" data-i="${i}">${m}</button>`).join('')}
             </div>
-            ${approvedBonusMonths.has(selMonth) ? `<span style="font-size:0.74rem;color:var(--success);margin-left:8px">✅ Bonus อนุมัติแล้ว</span>` : `<button class="btn btn-primary" id="bonus-btn" style="margin-left:8px">🎁 คำนวณ Bonus</button>`}
+            <button class="btn btn-secondary" id="bonus-btn" style="margin-left:8px" disabled title="ยังไม่เชื่อมข้อมูลผลงานช่างจริง (jobs/CSAT/comeback) — ปิดปุ่มนี้ไว้ก่อนเพื่อกันอนุมัติโบนัสจริงจากตัวเลขสมมติ">🎁 คำนวณ Bonus (ปิดใช้งาน)</button>
           </div>
+        </div>
+
+        <div class="card" style="padding:10px 14px;margin-bottom:14px;background:rgba(245,158,11,.1);border:1px solid var(--warning);border-radius:var(--radius-sm);font-size:0.78rem;color:var(--warning)">
+          ⚠️ ข้อมูลในหน้านี้ (รายชื่อช่าง / Jobs / CSAT / Come-back / Revenue) เป็นข้อมูลตัวอย่าง (demo) ยังไม่ได้เชื่อมกับข้อมูลผลงานช่างจริงในระบบ — ปุ่มอนุมัติ Bonus จึงถูกปิดใช้งานไว้เพื่อป้องกันการอนุมัติเงินจริงจากตัวเลขที่ไม่ใช่ของจริง
         </div>
 
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
@@ -173,47 +179,10 @@ export default async function TechKpiPage(container) {
 
     container.querySelectorAll('.mo-btn').forEach(b=>b.addEventListener('click',()=>{selMonth=parseInt(b.dataset.i);render()}))
     container.querySelectorAll('.tech-card').forEach(el=>el.addEventListener('click',()=>{selTech=selTech===el.dataset.id?null:el.dataset.id;render()}))
-    document.getElementById('bonus-btn')?.addEventListener('click',()=>{
-      const BONUS = { 'A+':3000, A:2000, B:1000, C:500, D:0 }
-      const bonusRows = techStats.map(t => ({ tech:t, bonus: BONUS[t.grade.g] || 0 }))
-      const totalBonus = bonusRows.reduce((s,r)=>s+r.bonus,0)
-      openModal({
-        title:`🎁 Bonus Pool — ${MONTHS[selMonth]}`,
-        size:'sm',
-        body:`<div style="font-size:0.8rem">
-          <table style="width:100%;border-collapse:collapse;font-size:0.78rem">
-            <thead><tr style="border-bottom:2px solid var(--border);text-align:left">
-              <th style="padding:8px 10px">ช่าง</th>
-              <th style="text-align:center;padding:8px">เกรด</th>
-              <th style="text-align:center;padding:8px">KPI</th>
-              <th style="text-align:right;padding:8px 10px">Bonus</th>
-            </tr></thead>
-            <tbody>
-              ${bonusRows.map(r=>`
-                <tr style="border-bottom:1px solid var(--border)">
-                  <td style="padding:8px 10px">${r.tech.avatar} ${r.tech.name}</td>
-                  <td style="text-align:center;padding:8px;font-weight:700;color:${r.tech.grade.c}">${r.tech.grade.g}</td>
-                  <td style="text-align:center;padding:8px">${r.tech.score}</td>
-                  <td style="text-align:right;padding:8px 10px;font-weight:700;color:${r.bonus>0?'var(--success)':'var(--text-muted)'}">฿${r.bonus.toLocaleString()}</td>
-                </tr>`).join('')}
-              <tr style="border-top:2px solid var(--border);font-weight:700">
-                <td colspan="3" style="padding:8px 10px;font-size:0.82rem">รวมทั้งหมด</td>
-                <td style="text-align:right;padding:8px 10px;color:var(--success)">฿${totalBonus.toLocaleString()}</td>
-              </tr>
-            </tbody>
-          </table>
-          <div style="font-size:0.68rem;color:var(--text-muted);margin-top:8px">เกณฑ์: A+ ฿3,000 · A ฿2,000 · B ฿1,000 · C ฿500 · D ฿0</div>
-        </div>`,
-        confirmText:'✅ อนุมัติ Bonus',
-        async onConfirm(){
-          try {
-            await createDoc('tech_kpi_bonus_approvals', { month: selMonth, monthLabel: MONTHS[selMonth], totalBonus, approvedCount: bonusRows.length })
-            showToast(`✅ อนุมัติ Bonus Pool ฿${totalBonus.toLocaleString()} — ${bonusRows.length} คน (${MONTHS[selMonth]})`, 'success')
-            await loadData()
-          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
-        }
-      })
-    })
+    // ปุ่ม "คำนวณ Bonus" ถูกปิดใช้งานถาวร (disabled attribute) — เดิมปุ่มนี้เขียนอนุมัติ Bonus จริงลง Firestore
+    // (tech_kpi_bonus_approvals) โดยคำนวณจากตัวเลข TECHS/MONTHLY_DATA ที่เป็น mock ล้วนๆ ไม่ใช่ผลงานช่างจริง
+    // เป็นความเสี่ยงทางการเงิน (อนุมัติเงินจริงจากข้อมูลปลอม) จึงปิดปุ่มไว้จนกว่าจะมี collection ผลงานช่างจริง
+    // (jobs/CSAT/comeback ต่อคนต่อเดือน) ให้เชื่อมต่อแทน — ดูรายละเอียดใน comment เหนือ TECHS/MONTHLY_DATA ด้านบน
   }
 
   function sc(l,v,c){

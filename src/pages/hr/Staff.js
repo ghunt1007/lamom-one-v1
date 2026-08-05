@@ -44,12 +44,17 @@ export default async function StaffPage(container) {
   let filtered = []
   let deptFilter = 'all'
   let search = ''
+  // เดิม DEMO_STAFF (ผสมชื่อเจ้าของจริงกับเงินเดือนสมมติ 4 คน) ถูก push เข้า staff list เงียบๆทุกครั้งที่
+  // collection จริงว่างเปล่า โดยไม่มีตัวบอกบนหน้าจอเลยว่านี่คือข้อมูลตัวอย่าง (ต่างจาก ExpenseOcr.js ที่ label
+  // "Demo" ไว้ชัดเจน) ผู้ใช้อาจเข้าใจผิดว่าเป็นพนักงานจริง — เพิ่มตัวแปรนี้ไว้โชว์ป้าย "ข้อมูลตัวอย่าง" แทน
+  let isDemoData = false
 
   async function loadData() {
     // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true — ถ้าไม่กรองออก พนักงานที่ "ลบ" ไปแล้วจะยังโผล่
     // กลับมาในรายชื่อทุกครั้งที่โหลดหน้านี้ใหม่ (และยังเข้าเกณฑ์ลงเวลา/คำนวณเงินเดือนที่หน้าอื่นต่อไปด้วย)
     try { staff = (await listDocs('staff', [], 'startDate', 'asc', 500)).filter(s => !s.deleted) } catch {}
-    if (!staff.length) DEMO_STAFF.forEach(s => staff.push({ ...s }))
+    isDemoData = !staff.length
+    if (isDemoData) DEMO_STAFF.forEach(s => staff.push({ ...s }))
     // เงินเดือนย้ายไปเก็บที่ staff_salaries แยกต่างหากแล้ว (v1.0.303) — ดึงมาผสานทับ s.salary เฉพาะตอนมี
     // สิทธิ์เห็นเท่านั้น (staff_salaries อ่านได้แค่ HR/การเงิน/ผู้จัดการ ยิงคำขอไปก็ได้แค่ permission-denied
     // เปล่าๆถ้าไม่มีสิทธิ์) เอกสารเก่าที่ยังไม่ได้ย้ายข้อมูลออกจะ fallback ไปใช้ค่าเดิมที่ฝังใน staff doc ต่อไป
@@ -67,6 +72,8 @@ export default async function StaffPage(container) {
     const active = staff.filter(s => s.status === 'active').length
     const totalEl = document.getElementById('staff-total')
     if (totalEl) totalEl.textContent = `${staff.length} คน (ปฏิบัติงาน ${active} คน)`
+    const demoEl = document.getElementById('staff-demo-indicator')
+    if (demoEl) demoEl.textContent = isDemoData ? '⚠️ ข้อมูลตัวอย่าง (ยังไม่มีพนักงานจริงในระบบ)' : ''
     const salaryEl = document.getElementById('staff-salary')
     if (salaryEl) {
       if (!canViewSalary) { salaryEl.textContent = ''; return }
@@ -275,6 +282,7 @@ export default async function StaffPage(container) {
           <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
             <span class="page-subtitle" id="staff-total">กำลังโหลด...</span>
             <span style="font-size:0.8rem;color:var(--accent)" id="staff-salary"></span>
+            <span style="font-size:0.76rem;color:var(--warning);font-weight:600" id="staff-demo-indicator"></span>
           </div>
         </div>
         <div class="page-actions">

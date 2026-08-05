@@ -41,14 +41,6 @@ const DOC_TYPES = {
   spec_sheet:    { label: '🚘 Spec Sheet รถ',      color: 'accent'  },
 }
 
-const DEMO_DOCS = [
-  { id: 'doc1', type: 'booking',  title: 'ใบจอง BYD Seal — สมชาย มีทรัพย์',   status: 'draft',     createdAt: new Date(Date.now()-86400000).toISOString() },
-  { id: 'doc2', type: 'quote',    title: 'ใบเสนอราคา MG4 — สมหญิง ดีมาก',     status: 'sent',      createdAt: new Date(Date.now()-86400000*2).toISOString() },
-  { id: 'doc3', type: 'contract', title: 'สัญญาซื้อขาย BYD Atto3 — วิชัย สุขใจ', status: 'signed',  createdAt: new Date(Date.now()-86400000*5).toISOString() },
-  { id: 'doc4', type: 'delivery', title: 'ใบส่งมอบ BYD Atto3 — วิชัย สุขใจ',   status: 'completed', createdAt: new Date(Date.now()-86400000*5).toISOString() },
-  { id: 'doc5', type: 'jobcard',  title: 'Job Card #JC-001 — สมชาย มีทรัพย์',  status: 'draft',     createdAt: new Date(Date.now()-3600000*3).toISOString() },
-]
-
 const STATUS_INFO = {
   draft:     { label: '✏️ Draft',     badge: 'primary' },
   sent:      { label: '📤 ส่งแล้ว',   badge: 'accent' },
@@ -60,24 +52,16 @@ const STATUS_INFO = {
 export default async function DocumentStudioPage(container) {
   const myGen = container.__routerGen
 
-  // seed demo docs
-  DEMO_DOCS.forEach(d => {
-    const store = window.__lamomDemoStore
-    if (store && !store['documents']?.[d.id]) {
-      if (!store['documents']) store['documents'] = {}
-      store['documents'][d.id] = d
-    }
-  })
-
   let docs = []
   let filtered = []
   let typeFilter = 'all'
   let search = ''
 
+  // เดิม fallback ไปแสดงเอกสารสมมติ (DEMO_DOCS มีชื่อลูกค้าปลอม) เมื่อ collection จริงว่างเปล่า/โหลดพลาด
+  // โดยไม่มีตัวบ่งชี้ว่าเป็นข้อมูลสมมติ — ตกค้างมาจากก่อนตัด demo mode ออกทั้งระบบ (2026-07-23) ตัดออก
+  // ให้ collection ว่างจริงแสดง empty state ตามจริง ไม่ปั้นข้อมูลปลอมขึ้นมาแทน
   async function loadData() {
-    // try Firestore, fallback demo
-    try { docs = await listDocs('documents', [], 'createdAt', 'desc', 200) } catch { docs = DEMO_DOCS }
-    if (!docs.length) docs = DEMO_DOCS
+    try { docs = await listDocs('documents', [], 'createdAt', 'desc', 200) } catch { docs = [] }
     applyFilter()
   }
 
@@ -382,6 +366,9 @@ function openDocEditor(doc) {
   el.querySelector('#doc-print-btn').addEventListener('click', () => printDocument(doc))
   el.querySelector('#doc-pdf-btn').addEventListener('click', () => { printDocument(doc); showToast('ใช้ "Save as PDF" ในหน้าต่างพิมพ์', 'warning') })
   el.querySelector('#doc-share-btn').addEventListener('click', () => {
+    // ลิงก์ https://lamom.app/docs/{id} เดิมทำเหมือนเป็นลิงก์สาธารณะที่เปิดดูได้จริง แต่ router.js ของแอปนี้
+    // ไม่มี route แบบนี้อยู่จริง (ไม่มีหน้า public viewer) — เดิมยังมีปุ่ม "แชร์ LINE" ที่จะส่งลิงก์เสียให้ลูกค้า
+    // จริงๆ ด้วย ตัดปุ่มแชร์ LINE ออก เหลือแค่ copy พร้อมระบุชัดว่าเป็นลิงก์อ้างอิงภายในเท่านั้น ยังใช้เปิดดูจริงไม่ได้
     const shareUrl = `https://lamom.app/docs/${doc.id}`
     openModal({
       title: '📤 แชร์เอกสาร',
@@ -389,20 +376,16 @@ function openDocEditor(doc) {
       body: `
         <div style="text-align:center;padding:4px">
           <div style="font-size:0.82rem;font-weight:600;margin-bottom:8px">${escHtml(doc.title)}</div>
-          <div style="background:var(--surface-2);border-radius:8px;padding:8px 10px;font-family:monospace;font-size:0.7rem;word-break:break-all;margin-bottom:14px;color:var(--text-muted)">${shareUrl}</div>
+          <div style="background:var(--surface-2);border-radius:8px;padding:8px 10px;font-family:monospace;font-size:0.7rem;word-break:break-all;margin-bottom:8px;color:var(--text-muted)">${shareUrl}</div>
+          <div style="font-size:0.7rem;color:var(--warning);margin-bottom:14px">⚠️ ลิงก์นี้เป็นข้อมูลอ้างอิงภายในเท่านั้น — ระบบยังไม่มีหน้าเปิดดูสาธารณะจริง (เปิดลิงก์นี้จากภายนอกแอปจะไม่พบหน้าใดๆ) ห้ามส่งให้ลูกค้าเปิดดู</div>
           <div style="display:flex;gap:8px;justify-content:center">
-            <button class="btn" id="share-line-btn" style="background:#06C755;color:#fff;border-color:#06C755">💚 แชร์ LINE</button>
             <button class="btn btn-secondary" id="share-copy-btn">📋 Copy Link</button>
           </div>
         </div>
       `
     })
-    document.getElementById('share-line-btn')?.addEventListener('click', () => {
-      window.open(`https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(shareUrl)}`, '_blank', 'noopener,noreferrer')
-      showToast('เปิด LINE Share แล้ว', 'success')
-    })
     document.getElementById('share-copy-btn')?.addEventListener('click', () => {
-      navigator.clipboard?.writeText(shareUrl).then(() => showToast('📋 Copy Link แล้ว', 'success'))
+      navigator.clipboard?.writeText(shareUrl).then(() => showToast('📋 Copy Link แล้ว (อ้างอิงภายในเท่านั้น)', 'success'))
         .catch(() => showToast('📋 Copy: ' + shareUrl, 'success'))
     })
   })

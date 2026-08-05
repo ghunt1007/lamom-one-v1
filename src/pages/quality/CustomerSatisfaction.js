@@ -11,11 +11,26 @@ function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-const MONTHLY_SCORES = [4.1, 4.3, 4.2, 4.5, 4.4, 4.6]
-const MONTHS_SHORT = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.']
+const MONTHS_SHORT = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 
 function stars(score) {
   return Array.from({length:5}, (_,i) => `<span style="color:${i<score?'#f59e0b':'#334155'};font-size:1.1rem">★</span>`).join('')
+}
+
+// เดิม MONTHLY_SCORES เป็น array ตัวเลขคงที่ 6 เดือน (ม.ค.-มิ.ย.) ตายตัว ไม่เคยคำนวณจาก customer_reviews จริง
+// ที่หน้านี้โหลดมาอยู่แล้วเลย — แก้ให้คำนวณคะแนนเฉลี่ยของ 6 เดือนล่าสุดจริง (นับถอยจากเดือนปัจจุบัน) จากรีวิวจริง
+function computeMonthlyTrend(rvws) {
+  const now = new Date()
+  const months = []
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    months.push({ key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, label: MONTHS_SHORT[d.getMonth()] })
+  }
+  return months.map(m => {
+    const inMonth = rvws.filter(r => (r.date || '').slice(0, 7) === m.key)
+    const avg = inMonth.length ? +(inMonth.reduce((a, r) => a + r.score, 0) / inMonth.length).toFixed(1) : 0
+    return { label: m.label, avg, count: inMonth.length }
+  })
 }
 
 export default async function CustomerSatisfactionPage(container) {
@@ -86,14 +101,14 @@ export default async function CustomerSatisfactionPage(container) {
           <!-- Monthly trend -->
           <div class="card" style="padding:14px">
             <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">📈 Trend รายเดือน</div>
-            ${MONTHLY_SCORES.map((s, i) => `
+            ${computeMonthlyTrend(reviews).map(m => `
               <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border)">
-                <span style="font-size:0.78rem">${MONTHS_SHORT[i]}</span>
+                <span style="font-size:0.78rem">${m.label}</span>
                 <div style="display:flex;align-items:center;gap:6px">
                   <div style="background:var(--surface-2);border-radius:3px;height:6px;width:80px">
-                    <div style="width:${(s/5*100).toFixed(0)}%;background:#f59e0b;height:6px;border-radius:3px"></div>
+                    <div style="width:${(m.avg/5*100).toFixed(0)}%;background:#f59e0b;height:6px;border-radius:3px"></div>
                   </div>
-                  <span style="font-size:0.78rem;font-weight:700;color:#f59e0b">${s}</span>
+                  <span style="font-size:0.78rem;font-weight:700;color:#f59e0b">${m.count ? m.avg : '—'}</span>
                 </div>
               </div>
             `).join('')}

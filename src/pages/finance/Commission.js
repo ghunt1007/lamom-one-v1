@@ -9,6 +9,16 @@ function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
+// หมายเหตุ (ตรวจสอบแล้ว ยังไม่แก้): หน้านี้จ่ายค่าคอมจริงโดยใช้อัตราคงที่ด้านล่างนี้ ไม่ได้อ่านจาก
+// commission_rules ที่ตั้งค่าได้จริงใน CommissionRules.js — ตรวจสอบแล้วพบว่า schema ของ 2 หน้าไม่ตรงกันจริง:
+// - COMMISSION_RULES ที่นี่เป็นแบบ "% ของยอดเงิน" ต่อประเภท (car_sale/finance/insurance/accessory) คำนวณจาก
+//   c.salePriceTotal/financeTotal/insuranceTotal/accessoryTotal (ยอดรวมต่อเดือนจาก getCommissionData())
+// - CommissionRules.js เป็นกติกาคนละแบบเลย (per_unit/tiered/percent-over-floor/bonus) ที่คำนวณจาก "จำนวนคันที่
+//   ขาย + จำนวนคัน Premium + ยอดเกิน floor price" ต่อเซลส์ — ต้องดึงข้อมูลระดับรายคัน (ไม่ใช่ยอดรวมเดือน) จาก
+//   getSalesData() มาคำนวณใหม่ทั้งหมด (เหมือนที่ CommissionRules.js ทำใน "เดือนนี้จ่ายไป" ซึ่งเป็นแค่ค่าประมาณ
+//   แสดงผล ไม่เคยใช้จ่ายจริง) การรื้อ Commission.js ให้ใช้ตรรกะนั้นเป็นการเปลี่ยนพฤติกรรมหน้าจ่ายเงินจริงแบบมี
+//   ความเสี่ยงสูง (ตัวเลขค่าคอมพนักงานจะเปลี่ยนไปจากที่เคยจ่าย) จึงไม่แก้ในรอบนี้ — ถ้าจะรวม 2 ระบบจริง ควรเลือก
+//   ให้เหลือระบบเดียว (คุยกับฝ่ายบัญชี/HR ก่อนว่าจะใช้สูตรไหนเป็นทางการ) ไม่ใช่แก้แค่โค้ด
 const COMMISSION_RULES = {
   car_sale:   { label: '🚗 ขายรถ',    rate: 0.005  }, // 0.5% of sale price
   finance:    { label: '🏦 Finance',  rate: 0.02   }, // 2% of finance amount
@@ -49,7 +59,7 @@ export default async function CommissionPage(container) {
   }
 
   function applyFilter() {
-    renderSummary(); renderTable()
+    renderSummary(); renderTable(); renderMonthFilter()
   }
 
   function renderSummary() {
@@ -172,8 +182,6 @@ export default async function CommissionPage(container) {
     }))
   }
 
-  const months = [...new Set(DEMO_COMMISSIONS.map(c => c.month))].sort().reverse()
-
   container.innerHTML = `
     <div class="page-content animate-slide">
       <div class="page-header">
@@ -198,10 +206,9 @@ export default async function CommissionPage(container) {
 
       <!-- Month filter -->
       <div class="card mb-4" style="padding:10px 16px">
-        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        <div id="comm-monthfilter" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
           <span style="font-size:0.85rem;color:var(--text-muted)">เดือน:</span>
           <button class="btn btn-sm cf-btn btn-primary" data-mf="all">ทั้งหมด</button>
-          ${months.map(m => `<button class="btn btn-sm cf-btn btn-secondary" data-mf="${m}">${m}</button>`).join('')}
         </div>
       </div>
 
@@ -214,11 +221,25 @@ export default async function CommissionPage(container) {
     </div>
   `
 
-  document.querySelectorAll('.cf-btn').forEach(btn => btn.addEventListener('click', () => {
-    monthFilter = btn.dataset.mf
-    document.querySelectorAll('.cf-btn').forEach(b => b.className = `btn btn-sm cf-btn ${b.dataset.mf === monthFilter ? 'btn-primary' : 'btn-secondary'}`)
-    applyFilter()
-  }))
+  // เดิมปุ่มกรองเดือนสร้างจาก DEMO_COMMISSIONS.map(c=>c.month) ตายตัว (คำนวณก่อน loadData() รันเสร็จด้วยซ้ำ)
+  // ทำให้ปุ่มเดือนไม่ตรงกับข้อมูลค่าคอมจริงที่โหลดมาเลย แก้ให้สร้างจากเดือนของ comms (ข้อมูลจริงที่โหลดแล้ว)
+  // เรียกใหม่ทุกครั้งหลัง loadData() เผื่อเดือนที่มีข้อมูลเปลี่ยน
+  function renderMonthFilter() {
+    const wrap = document.getElementById('comm-monthfilter')
+    if (!wrap) return
+    const months = [...new Set(comms.map(c => c.month))].filter(Boolean).sort().reverse()
+    wrap.innerHTML = `
+      <span style="font-size:0.85rem;color:var(--text-muted)">เดือน:</span>
+      <button class="btn btn-sm cf-btn ${monthFilter==='all'?'btn-primary':'btn-secondary'}" data-mf="all">ทั้งหมด</button>
+      ${months.map(m => `<button class="btn btn-sm cf-btn ${monthFilter===m?'btn-primary':'btn-secondary'}" data-mf="${escHtml(m)}">${escHtml(m)}</button>`).join('')}
+    `
+    wrap.querySelectorAll('.cf-btn').forEach(btn => btn.addEventListener('click', () => {
+      monthFilter = btn.dataset.mf
+      renderMonthFilter()
+      applyFilter()
+    }))
+  }
+
   document.getElementById('comm-export').addEventListener('click', () => {
     const filtered = getFiltered()
     exportToExcel(filtered.map(c => {

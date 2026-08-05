@@ -143,17 +143,17 @@ export default async function EVDiagnosticPage(container) {
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
           ${kpi('🔋 SOC', d.battSOC + '%', d.battSOC >= 50 ? 'success' : 'warning')}
           ${kpi('❤️ SOH', d.battSOH + '%', d.battSOH >= 90 ? 'success' : d.battSOH >= 80 ? 'warning' : 'danger')}
-          ${kpi('🌡 แบตอุณหภูมิ', d.battTemp + '°C', d.battTemp <= 35 ? 'success' : 'warning')}
+          ${kpi('🌡 แบตอุณหภูมิ', d.battTemp != null ? d.battTemp + '°C' : 'ยังไม่วัด', d.battTemp == null ? 'secondary' : d.battTemp <= 35 ? 'success' : 'warning')}
           ${kpi('🛣 พิสัย', d.range + ' กม.', 'primary')}
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:12px">
           <div>
             <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:6px">แบตเตอรี่</div>
-            ${row('Cell Vmin', d.cellMinV + ' V')}${row('Cell Vmax', d.cellMaxV + ' V')}${row('จำนวนชาร์จ', d.chargeCount + ' ครั้ง')}${row('DC Fast Charge', d.dcFastCount + ' ครั้ง')}
+            ${row('Cell Vmin', d.cellMinV != null ? d.cellMinV + ' V' : 'ยังไม่วัด')}${row('Cell Vmax', d.cellMaxV != null ? d.cellMaxV + ' V' : 'ยังไม่วัด')}${row('จำนวนชาร์จ', d.chargeCount != null ? d.chargeCount + ' ครั้ง' : 'ไม่ทราบ')}${row('DC Fast Charge', d.dcFastCount != null ? d.dcFastCount + ' ครั้ง' : 'ไม่ทราบ')}
           </div>
           <div>
             <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:6px">มอเตอร์</div>
-            ${row('อุณหภูมิมอเตอร์', d.motorTemp + '°C')}${row('ประสิทธิภาพ', d.motorEfficiency + '%')}${row('ระยะทาง', d.odometer.toLocaleString() + ' กม.')}
+            ${row('อุณหภูมิมอเตอร์', d.motorTemp != null ? d.motorTemp + '°C' : 'ยังไม่วัด')}${row('ประสิทธิภาพ', d.motorEfficiency != null ? d.motorEfficiency + '%' : 'ยังไม่วัด')}${row('ระยะทาง', d.odometer.toLocaleString() + ' กม.')}
           </div>
         </div>
         ${s.faultCodes.length ? `
@@ -188,6 +188,16 @@ export default async function EVDiagnosticPage(container) {
           <div class="input-group"><label class="input-label">พิสัยที่เหลือ (กม.)</label><input type="number" class="input" id="ef-range" placeholder="420"></div>
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">Fault Codes (คั่นด้วยเครื่องหมายจุลภาค)</label><input class="input" id="ef-faults" placeholder="P0A80, P0562 (ถ้าไม่มีให้เว้นว่าง)"></div>
         </div>
+        <div style="font-size:0.78rem;font-weight:700;margin:14px 0 8px;color:var(--text-muted)">🔬 ผลตรวจจากเครื่องมือวัด (กรอกตามที่วัดได้จริง — เว้นว่างได้ถ้ายังไม่ได้วัด)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="input-group"><label class="input-label">Cell Vmin (V)</label><input type="number" step="0.01" class="input" id="ef-cellmin" placeholder="ยังไม่ได้วัด"></div>
+          <div class="input-group"><label class="input-label">Cell Vmax (V)</label><input type="number" step="0.01" class="input" id="ef-cellmax" placeholder="ยังไม่ได้วัด"></div>
+          <div class="input-group"><label class="input-label">อุณหภูมิแบตเตอรี่ (°C)</label><input type="number" class="input" id="ef-batttemp" placeholder="ยังไม่ได้วัด"></div>
+          <div class="input-group"><label class="input-label">จำนวนครั้งชาร์จสะสม</label><input type="number" class="input" id="ef-chargecount" placeholder="ไม่ทราบ"></div>
+          <div class="input-group"><label class="input-label">จำนวนครั้ง DC Fast Charge</label><input type="number" class="input" id="ef-dcfastcount" placeholder="ไม่ทราบ"></div>
+          <div class="input-group"><label class="input-label">อุณหภูมิมอเตอร์ (°C)</label><input type="number" class="input" id="ef-motortemp" placeholder="ยังไม่ได้วัด"></div>
+          <div class="input-group" style="grid-column:1/-1"><label class="input-label">ประสิทธิภาพมอเตอร์ (%)</label><input type="number" class="input" id="ef-motoreff" placeholder="ยังไม่ได้วัด"></div>
+        </div>
       `,
       async onConfirm() {
         const plate = document.getElementById('ef-plate')?.value?.trim()
@@ -196,6 +206,8 @@ export default async function EVDiagnosticPage(container) {
         const soh = +document.getElementById('ef-soh')?.value || 98
         const faults = (document.getElementById('ef-faults')?.value || '').split(',').map(f => f.trim()).filter(f => f && FAULT_CODES[f])
         const status = faults.some(f => FAULT_CODES[f]?.severity === 'critical') ? 'critical' : faults.length > 0 ? 'warning' : 'normal'
+        // ค่าจากเครื่องมือวัดจริง — ไม่มีค่า default ปลอมแล้ว ถ้าช่างไม่ได้กรอก ให้เก็บเป็น null (แสดง "ยังไม่วัด" ตอน render) แทนการยัดเลขคงที่ซ้ำทุกครั้ง
+        const numOrNull = id => { const v = document.getElementById(id)?.value; return v === '' || v == null ? null : +v }
         try {
           await createDoc('ev_diagnostic_scans', {
             vehiclePlate: plate, vehicleModel: document.getElementById('ef-model')?.value||'',
@@ -203,7 +215,13 @@ export default async function EVDiagnosticPage(container) {
             customerId: '', customerName: document.getElementById('ef-customer')?.value||'',
             technicianName: document.getElementById('ef-tech')?.value||'',
             scanDate: new Date().toISOString(), status, faultCodes: faults,
-            data: { battSOC: soc, battSOH: soh, cellMinV: 3.24, cellMaxV: 3.26, battTemp: 29, range: +document.getElementById('ef-range')?.value||400, odometer: +document.getElementById('ef-odo')?.value||0, chargeCount: 0, dcFastCount: 0, motorTemp: 40, motorEfficiency: 95 },
+            data: {
+              battSOC: soc, battSOH: soh,
+              cellMinV: numOrNull('ef-cellmin'), cellMaxV: numOrNull('ef-cellmax'), battTemp: numOrNull('ef-batttemp'),
+              range: +document.getElementById('ef-range')?.value||400, odometer: +document.getElementById('ef-odo')?.value||0,
+              chargeCount: numOrNull('ef-chargecount'), dcFastCount: numOrNull('ef-dcfastcount'),
+              motorTemp: numOrNull('ef-motortemp'), motorEfficiency: numOrNull('ef-motoreff'),
+            },
             notes: ''
           })
           showToast('✅ สแกน EV เรียบร้อย!', status === 'critical' ? 'error' : status === 'warning' ? 'warning' : 'success')

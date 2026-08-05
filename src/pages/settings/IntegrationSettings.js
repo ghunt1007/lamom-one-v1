@@ -14,6 +14,8 @@ import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 // ตรงกับความจริง: เปลี่ยนเป็น "บันทึก API Key" (ไม่ใช่ "เชื่อมต่อสำเร็จ") ระบุชัดว่ายังไม่ได้ตรวจสอบกับผู้
 // ให้บริการจริงโดยอัตโนมัติ และตัดปุ่ม Sync ออก (ไม่มีอะไรให้ sync จริง)
 
+function escHtml(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;') }
+
 const INTEGRATION_CATS = {
   payment:   { label: 'การชำระเงิน', icon: '💳' },
   messaging: { label: 'การสื่อสาร', icon: '💬' },
@@ -133,14 +135,14 @@ export default async function IntegrationSettingsPage(container) {
         ${int.webhookUrl ? `
           <div class="input-group"><label class="input-label">Webhook URL</label>
             <div style="display:flex;gap:6px">
-              <input class="input" value="${int.webhookUrl}" readonly style="flex:1;font-size:0.78rem;font-family:monospace">
-              <button class="btn btn-xs btn-secondary" onclick="navigator.clipboard.writeText('${int.webhookUrl}');window.__showToast?.('✅ Copied!','success')">Copy</button>
+              <input class="input" value="${escHtml(int.webhookUrl)}" readonly style="flex:1;font-size:0.78rem;font-family:monospace">
+              <button class="btn btn-xs btn-secondary" onclick="navigator.clipboard.writeText('${escHtml(int.webhookUrl).replace(/'/g, "\\'")}');window.__showToast?.('✅ Copied!','success')">Copy</button>
             </div>
           </div>
         ` : ''}
         ${Object.entries(int.config).map(([k,v]) => `
-          <div class="input-group"><label class="input-label">${k}</label>
-            <input class="input" value="${v}" style="font-size:0.83rem" ${v.includes('*')?'type="password"':''}>
+          <div class="input-group"><label class="input-label">${escHtml(k)}</label>
+            <input class="input" value="${escHtml(v)}" style="font-size:0.83rem" ${String(v).includes('*')?'type="password"':''}>
           </div>
         `).join('')}
         <div style="padding:10px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:0.78rem;color:var(--text-muted);margin-top:12px">

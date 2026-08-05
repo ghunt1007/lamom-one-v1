@@ -171,8 +171,8 @@ export default async function PartsOrderPage(container) {
             <thead><tr><th>Part No.</th><th>รายการ</th><th>หมวด</th><th class="text-right">จำนวน</th><th class="text-right">ราคา/หน่วย</th><th class="text-right">รวม</th><th class="text-right">รับแล้ว</th></tr></thead>
             <tbody>
               ${o.items.map(i => `<tr>
-                <td style="font-family:monospace;font-size:0.78rem">${i.partNo}</td>
-                <td style="font-size:0.83rem">${i.name}</td>
+                <td style="font-family:monospace;font-size:0.78rem">${esc(i.partNo)}</td>
+                <td style="font-size:0.83rem">${esc(i.name)}</td>
                 <td><span class="badge badge-secondary" style="font-size:0.65rem">${PARTS_CATEGORIES[i.cat]||i.cat}</span></td>
                 <td class="text-right">${i.qty} ${i.unit}</td>
                 <td class="text-right">${formatCurrency(i.unitCost)}</td>
@@ -215,7 +215,7 @@ export default async function PartsOrderPage(container) {
         <div style="margin-bottom:12px;font-size:0.83rem;color:var(--text-muted)">กรอกจำนวนที่รับจริงสำหรับแต่ละรายการ</div>
         ${o.items.map((i, idx) => `
           <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)">
-            <div style="flex:1;font-size:0.83rem">${i.name}</div>
+            <div style="flex:1;font-size:0.83rem">${esc(i.name)}</div>
             <div style="font-size:0.78rem;color:var(--text-muted)">สั่ง ${i.qty} ${i.unit}</div>
             <input type="number" class="input recv-qty" data-idx="${idx}" value="${i.qty - i.received}" min="0" max="${i.qty - i.received}" style="width:80px;text-align:center">
           </div>

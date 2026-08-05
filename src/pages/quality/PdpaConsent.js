@@ -4,12 +4,17 @@
  */
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
+
+// พบว่าหน้านี้ไม่มีการเช็คสิทธิ์เลย — ทุก role เห็น/แก้ไขความยินยอม PDPA + เบอร์โทรของลูกค้าทุกคนในระบบได้
+// จำกัดให้เห็น/จัดการได้เฉพาะผู้บริหาร/ผู้จัดการ/แอดมินเท่านั้น (งาน compliance/PDPA ไม่ใช่งานพนักงานทั่วไป)
+// (Firestore Rules บังคับจริงเช่นกัน — นี่แค่ป้องกันระดับ UI)
+const PDPA_VIEW_ROLES = ['owner', 'admin', 'manager']
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString() }
 

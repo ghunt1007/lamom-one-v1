@@ -23,15 +23,17 @@ export default async function QrVehiclePage(container) {
   async function loadData() {
     loading = true
     try {
-      const docs = await listDocs('stock', [], 'model', 'asc', 100)
-      vehicles = docs.map((d, i) => ({
+      // เดิม query collection 'stock' ซึ่งไม่มีอยู่จริงในระบบ — สต็อกจริงอยู่ใน 'vehicles' (เขียนโดย
+      // Stock.js) ทำให้หน้านี้หาไม่พบรถจริงเลย แก้ให้อ่านจาก 'vehicles' เหมือนหน้าอื่นๆ ที่แสดงสต็อกจริง
+      const docs = await listDocs('vehicles', [], 'arrivedAt', 'desc', 100)
+      vehicles = docs.filter(d => !d.deleted).map((d, i) => ({
         id: d.id,
         vin: d.vin || `VIN-${i+1}`,
-        model: d.model || '',
+        model: `${d.brand || ''} ${d.model || ''}`.trim(),
         color: d.color || '',
         year: d.year || new Date().getFullYear(),
         plate: d.plate || '',
-        price: d.price || d.salePrice || 0,
+        price: d.price || 0,
         status: d.status || 'available',
         spec: d.spec ? { ...d.spec } : { battery: '', range: '', power: '', charge: '', seats: 5, warranty: '' },
         service: Array.isArray(d.service) ? d.service.map(s => ({ ...s })) : [],
@@ -87,7 +89,7 @@ export default async function QrVehiclePage(container) {
     document.getElementById('print-all-btn')?.addEventListener('click', async () => {
       const targets = vehicles.filter(v => v.status !== 'sold')
       try {
-        await Promise.all(targets.map(v => updateDocData('stock', v.id, { printed: true })))
+        await Promise.all(targets.map(v => updateDocData('vehicles', v.id, { printed: true })))
         showToast(`🖨 สั่งพิมพ์ QR Code ${targets.length} แผ่น (${targets.map(v=>v.model).join(', ')}) แล้ว`, 'success')
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
@@ -100,7 +102,7 @@ export default async function QrVehiclePage(container) {
       const v = vehicles.find(x => x.vin === b.dataset.vin)
       if (!v) return
       try {
-        await updateDocData('stock', v.id, { printed: true })
+        await updateDocData('vehicles', v.id, { printed: true })
         showToast(`🖨 พิมพ์ QR ของ ${b.dataset.model} แล้ว`, 'success')
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
@@ -169,7 +171,7 @@ export default async function QrVehiclePage(container) {
         // เดิมอ้างว่าส่งข้อมูลรถให้ลูกค้าทาง LINE แต่ไม่มีการส่งจริง และฟีเจอร์นี้ออกแบบมาให้ลูกค้าสแกน QR
         // ที่ติดรถเองอยู่แล้ว (ไม่ใช่ push แจ้งไปหาลูกค้า) แก้ข้อความให้ตรงกับสิ่งที่ระบบทำจริง
         try {
-          await updateDocData('stock', v.id, { sentToCustomer: true, sentAt: new Date().toISOString() })
+          await updateDocData('vehicles', v.id, { sentToCustomer: true, sentAt: new Date().toISOString() })
           showToast(`✅ บันทึกว่าแสดงข้อมูล ${v.model} · VIN ${v.vin.slice(-6)} ให้ลูกค้าดูแล้ว`, 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

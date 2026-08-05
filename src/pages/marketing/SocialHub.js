@@ -205,8 +205,9 @@ export default async function SocialHubPage(container) {
           <div style="display:flex;gap:8px">
             <button class="btn btn-secondary" id="save-draft-btn">💾 Save Draft</button>
             <button class="btn btn-primary" id="schedule-post-btn">📅 Schedule Post</button>
-            <button class="btn btn-success" id="publish-now-btn">🚀 เผยแพร่เลย</button>
+            <button class="btn btn-success" id="publish-now-btn">✅ บันทึกว่าเผยแพร่แล้ว</button>
           </div>
+          <div style="font-size:0.68rem;color:var(--text-muted);margin-top:6px">⚠️ ระบบยังไม่ได้เชื่อมต่อ Facebook/Instagram/TikTok/YouTube/LINE API จริง ปุ่มด้านบนบันทึกสถานะในระบบเท่านั้น — ต้องโพสต์เองบน Platform จริงด้วย</div>
         </div>
 
         <!-- Preview -->
@@ -359,7 +360,7 @@ export default async function SocialHubPage(container) {
       const now = new Date().toISOString().slice(0,16).replace('T',' ')
       try {
         await createDoc('social_posts', { content, platforms: getSelectedPlatforms(), status:'published', scheduledAt:now, publishedAt:now, likes:0, comments:0, shares:0, reach:0 })
-        showToast('🚀 เผยแพร่แล้ว!', 'success'); tab = 'calendar'; await loadData()
+        showToast('📝 บันทึกในระบบแล้ว — ยังไม่เชื่อมต่อ API เพื่อโพสต์อัตโนมัติ กรุณาโพสต์เองบน Platform จริง', 'success'); tab = 'calendar'; await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }

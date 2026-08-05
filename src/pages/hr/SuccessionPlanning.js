@@ -68,7 +68,7 @@ export default async function SuccessionPlanningPage(container) {
         ${criticalGaps.length ? `
           <div class="card" style="padding:12px 14px;margin-bottom:12px;border-left:4px solid var(--danger)">
             <div style="font-size:0.76rem;font-weight:700;color:var(--danger);margin-bottom:4px">🚨 ตำแหน่งที่ยังไม่มีผู้สืบทอด</div>
-            <div style="font-size:0.78rem;color:var(--text-muted)">${criticalGaps.map(p=>`${p.role} (ปัจจุบัน: ${p.current.name})`).join(' · ')} — ต้องเร่งระบุและพัฒนาผู้สืบทอด</div>
+            <div style="font-size:0.78rem;color:var(--text-muted)">${criticalGaps.map(p=>`${escHtml(p.role)} (ปัจจุบัน: ${escHtml(p.current.name)})`).join(' · ')} — ต้องเร่งระบุและพัฒนาผู้สืบทอด</div>
           </div>` : ''}
 
         <div style="display:flex;flex-direction:column;gap:12px">
@@ -110,8 +110,8 @@ export default async function SuccessionPlanningPage(container) {
       <div class="card" style="padding:14px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
           <div>
-            <div style="font-size:0.95rem;font-weight:700">🎭 ${p.role}</div>
-            <div style="font-size:0.76rem;color:var(--text-muted)">ปัจจุบัน: ${p.current.name} (${p.current.tenure})
+            <div style="font-size:0.95rem;font-weight:700">🎭 ${escHtml(p.role)}</div>
+            <div style="font-size:0.76rem;color:var(--text-muted)">ปัจจุบัน: ${escHtml(p.current.name)} (${escHtml(p.current.tenure)})
               <span style="font-size:0.64rem;background:${r.color};color:#fff;padding:1px 7px;border-radius:10px;margin-left:6px">${r.label}</span>
             </div>
           </div>
@@ -131,11 +131,11 @@ export default async function SuccessionPlanningPage(container) {
               const rd = READINESS[s.readiness]
               return `<div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px">
                 <div style="display:flex;justify-content:space-between;align-items:center">
-                  <span style="font-weight:600;font-size:0.82rem">${i===0?'🥇 ':'🥈 '}${s.name}</span>
+                  <span style="font-weight:600;font-size:0.82rem">${i===0?'🥇 ':'🥈 '}${escHtml(s.name)}</span>
                   <span style="font-size:0.64rem;background:${rd.color};color:#fff;padding:2px 7px;border-radius:10px">${rd.label}</span>
                 </div>
-                <div style="font-size:0.7rem;color:var(--text-muted);margin-top:4px">แผนก: ${s.dept}</div>
-                ${s.gaps ? `<div style="font-size:0.7rem;margin-top:4px">🔧 ช่องว่าง: <span style="color:var(--warning)">${s.gaps}</span></div>` : ''}
+                <div style="font-size:0.7rem;color:var(--text-muted);margin-top:4px">แผนก: ${escHtml(s.dept)}</div>
+                ${s.gaps ? `<div style="font-size:0.7rem;margin-top:4px">🔧 ช่องว่าง: <span style="color:var(--warning)">${escHtml(s.gaps)}</span></div>` : ''}
                 <div style="display:flex;gap:6px;margin-top:8px">
                   <button class="btn btn-xs btn-secondary edit-successor-btn" data-id="${p.id}" data-idx="${i}">✏️ แก้ไข</button>
                   <button class="btn btn-xs btn-danger del-successor-btn" data-id="${p.id}" data-idx="${i}">🗑 ลบ</button>

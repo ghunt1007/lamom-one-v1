@@ -96,18 +96,18 @@ export default async function CompanyPage(container) {
           <div class="card" style="padding:18px">
             <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">📝 ชื่อและทะเบียน</div>
             <div style="display:flex;flex-direction:column;gap:10px">
-              <div class="input-group"><label class="input-label">ชื่อบริษัท (ไทย)</label><input class="input" id="co-nameth" value="${data.nameTh}"></div>
-              <div class="input-group"><label class="input-label">ชื่อบริษัท (อังกฤษ)</label><input class="input" id="co-name" value="${data.name}"></div>
-              <div class="input-group"><label class="input-label">เลขทะเบียนภาษี 13 หลัก</label><input class="input" id="co-tax" value="${data.taxId}" placeholder="x-xxxx-xxxxx-xx-x"></div>
-              <div class="input-group"><label class="input-label">ยี่ห้อรถที่จำหน่าย</label><input class="input" id="co-brand" value="${data.brand}"></div>
+              <div class="input-group"><label class="input-label">ชื่อบริษัท (ไทย)</label><input class="input" id="co-nameth" value="${escHtml(data.nameTh)}"></div>
+              <div class="input-group"><label class="input-label">ชื่อบริษัท (อังกฤษ)</label><input class="input" id="co-name" value="${escHtml(data.name)}"></div>
+              <div class="input-group"><label class="input-label">เลขทะเบียนภาษี 13 หลัก</label><input class="input" id="co-tax" value="${escHtml(data.taxId)}" placeholder="x-xxxx-xxxxx-xx-x"></div>
+              <div class="input-group"><label class="input-label">ยี่ห้อรถที่จำหน่าย</label><input class="input" id="co-brand" value="${escHtml(data.brand)}"></div>
             </div>
           </div>
           <div class="card" style="padding:18px">
             <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">📍 ที่อยู่และติดต่อ</div>
             <div style="display:flex;flex-direction:column;gap:10px">
               <div class="input-group"><label class="input-label">ที่อยู่</label><textarea class="input" id="co-addr" rows="2">${escHtml(data.address || '')}</textarea></div>
-              <div class="input-group"><label class="input-label">โทรศัพท์</label><input class="input" id="co-phone" value="${data.phone}"></div>
-              <div class="input-group"><label class="input-label">อีเมล</label><input class="input" type="email" id="co-email" value="${data.email}"></div>
+              <div class="input-group"><label class="input-label">โทรศัพท์</label><input class="input" id="co-phone" value="${escHtml(data.phone)}"></div>
+              <div class="input-group"><label class="input-label">อีเมล</label><input class="input" type="email" id="co-email" value="${escHtml(data.email)}"></div>
             </div>
           </div>
         </div>
@@ -117,9 +117,9 @@ export default async function CompanyPage(container) {
           <div class="card" style="padding:18px">
             <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">🌐 ออนไลน์ & โซเชียล</div>
             <div style="display:flex;flex-direction:column;gap:10px">
-              <div class="input-group"><label class="input-label">Website</label><input class="input" id="co-web" value="${data.website}"></div>
-              <div class="input-group"><label class="input-label">LINE OA</label><input class="input" id="co-line" value="${data.lineOA}"></div>
-              <div class="input-group"><label class="input-label">Facebook Page</label><input class="input" id="co-fb" value="${data.facebook}"></div>
+              <div class="input-group"><label class="input-label">Website</label><input class="input" id="co-web" value="${escHtml(data.website)}"></div>
+              <div class="input-group"><label class="input-label">LINE OA</label><input class="input" id="co-line" value="${escHtml(data.lineOA)}"></div>
+              <div class="input-group"><label class="input-label">Facebook Page</label><input class="input" id="co-fb" value="${escHtml(data.facebook)}"></div>
             </div>
           </div>
           <!-- Summary card -->
@@ -189,7 +189,7 @@ export default async function CompanyPage(container) {
         <div class="card" style="padding:18px">
           <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">⚙️ ตั้งค่าส่วนหัวเอกสาร</div>
           <div style="display:flex;flex-direction:column;gap:10px">
-            <div class="input-group"><label class="input-label">ข้อความโลโก้ (ถ้าไม่มีไฟล์โลโก้)</label><input class="input" id="logo-text" value="${data.logoText||'LAMOM'}" maxlength="10"></div>
+            <div class="input-group"><label class="input-label">ข้อความโลโก้ (ถ้าไม่มีไฟล์โลโก้)</label><input class="input" id="logo-text" value="${escHtml(data.logoText||'LAMOM')}" maxlength="10"></div>
             <div class="input-group">
               <label class="input-label">สีโลโก้</label>
               <div style="display:flex;gap:8px;align-items:center">
@@ -197,7 +197,7 @@ export default async function CompanyPage(container) {
                 <input class="input" id="logo-color-hex" value="${data.logoColor||'#2563eb'}" style="flex:1;font-family:monospace">
               </div>
             </div>
-            <div class="input-group"><label class="input-label">ข้อความท้ายเอกสาร (Footer Note)</label><input class="input" id="doc-footer" value="${data.footerNote||''}"></div>
+            <div class="input-group"><label class="input-label">ข้อความท้ายเอกสาร (Footer Note)</label><input class="input" id="doc-footer" value="${escHtml(data.footerNote||'')}"></div>
           </div>
           <button class="btn btn-primary" id="save-header-btn" style="margin-top:14px">💾 บันทึกการตั้งค่า</button>
         </div>

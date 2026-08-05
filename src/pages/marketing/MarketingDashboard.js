@@ -1,6 +1,10 @@
 import { navigate } from '../../core/router.js'
-import { getSalesData } from '../../core/db.js'
+import { getSalesData, listDocs } from '../../core/db.js'
 import { formatCurrency } from '../../utils/format.js'
+
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
 
 const QUICK_LINKS = [
   { icon:'🎯', label:'Campaigns', sub:'สร้างและจัดการแคมเปญ', path:'/marketing/campaigns', color:'primary' },
@@ -17,12 +21,15 @@ const QUICK_LINKS = [
   { icon:'✨', label:'AI Content', sub:'สร้างคอนเทนต์ด้วย AI', path:'/marketing/ai-content', color:'warning' },
 ]
 
-const CAMPAIGNS = [
-  { name:'April EV Festival', channel:'Facebook', budget:50000, leads:23, conversions:4, status:'active', roi:180 },
-  { name:'BYD Seal Launch', channel:'TikTok', budget:30000, leads:45, conversions:7, status:'completed', roi:320 },
-  { name:'Trade-In Promotion', channel:'LINE OA', budget:20000, leads:18, conversions:3, status:'active', roi:150 },
-  { name:'DEEPAL S7 Teaser', channel:'YouTube', budget:40000, leads:61, conversions:5, status:'active', roi:210 },
-]
+// (แก้ไข) เดิม CAMPAIGNS เป็น array ปลอมตายตัว ไม่เกี่ยวข้องกับแคมเปญจริงใน Firestore เลย — ตอนนี้ดึงจาก
+// collection 'marketing_campaigns' เดียวกับที่ CampaignBuilder.js อ่าน/เขียนจริง
+const CAMPAIGN_TYPE_LABELS = {
+  social: '📱 Social Media', line: '💚 LINE Broadcast', email: '📧 Email',
+  sms: '💬 SMS', event: '🎪 Event / ออกบูธ', google: '🔍 Google Ads',
+}
+const CAMPAIGN_STATUS_LABELS = {
+  draft: 'Draft', planned: 'วางแผนแล้ว', active: '✅ กำลังดำเนิน', paused: 'หยุดชั่วคราว', ended: '🏁 สิ้นสุดแล้ว',
+}
 
 export default async function MarketingDashboard(container) {
   const myGen = container.__routerGen
@@ -33,8 +40,14 @@ export default async function MarketingDashboard(container) {
 
   let actualSales = []
   let sourceBreakdown = {}
+  let campaigns = []
   try {
-    actualSales = await getSalesData()
+    const [sales, camps] = await Promise.all([
+      getSalesData(),
+      listDocs('marketing_campaigns', [], 'startDate', 'desc', 200).catch(() => []),
+    ])
+    actualSales = sales
+    campaigns = camps
     if (container.__routerGen !== myGen) return
     actualSales.forEach(s => {
       const src = s.leadSource || s.source || s.channel || 'อื่นๆ'
@@ -48,9 +61,13 @@ export default async function MarketingDashboard(container) {
 
   const actualDelivered = actualSales.filter(s => s.delivered).length
   const actualTotal = actualSales.length
-  const totalLeads  = CAMPAIGNS.reduce((s, c) => s + c.leads, 0)
-  const totalBudget = CAMPAIGNS.reduce((s, c) => s + c.budget, 0)
-  const avgROI      = Math.round(CAMPAIGNS.reduce((s, c) => s + c.roi, 0) / CAMPAIGNS.length)
+  const activeCampaigns = campaigns.filter(c => c.status === 'active')
+  const totalLeads  = campaigns.reduce((s, c) => s + (c.leads || 0), 0)
+  const totalBudget = activeCampaigns.reduce((s, c) => s + (c.budget || 0), 0)
+  // ROI ต่อแคมเปญคำนวณด้วยสูตรเดียวกับ CampaignBuilder.js (สมมติมูลค่าเฉลี่ยต่อการขาย 200,000 บาท/คัน)
+  const roiOf = c => c.spent > 0 ? ((c.sales || 0) * 200000 - c.spent) / c.spent * 100 : 0
+  const withSpend = campaigns.filter(c => c.spent > 0)
+  const avgROI = withSpend.length ? Math.round(withSpend.reduce((s, c) => s + roiOf(c), 0) / withSpend.length) : 0
 
   container.innerHTML = `
     <div class="page-content animate-slide">
@@ -66,7 +83,7 @@ export default async function MarketingDashboard(container) {
 
       <!-- KPIs -->
       <div class="kpi-grid" style="margin-bottom:20px">
-        ${kCard('📢', 'Campaigns Active', CAMPAIGNS.filter(c => c.status === 'active').length + ' แคมเปญ', 'primary')}
+        ${kCard('📢', 'Campaigns Active', activeCampaigns.length + ' แคมเปญ', 'primary')}
         ${kCard('🧲', 'Leads รวม', totalLeads + ' คน', 'accent')}
         ${kCard('✅', 'ยอดจองจริง', actualTotal + ' ราย', 'success')}
         ${kCard('📈', 'ROI เฉลี่ย', avgROI + '%', 'warning')}
@@ -124,24 +141,27 @@ export default async function MarketingDashboard(container) {
 
       <!-- Campaign table -->
       <div class="card">
-        <div style="padding:12px 16px;border-bottom:1px solid var(--border);font-weight:600;font-size:0.88rem">📊 Campaign ทั้งหมด</div>
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);font-weight:600;font-size:0.88rem">📊 Campaign ทั้งหมด (ข้อมูลจริงจาก Campaign Builder)</div>
         <div class="table-wrap">
           <table>
             <thead><tr>
-              <th>Campaign</th><th>ช่องทาง</th><th>งบ</th><th>Leads</th><th>Conversion</th><th>ROI</th><th>สถานะ</th>
+              <th>Campaign</th><th>ประเภท</th><th>งบ</th><th>Leads</th><th>ยอดขาย</th><th>ROI</th><th>สถานะ</th>
             </tr></thead>
             <tbody>
-              ${CAMPAIGNS.map(c => `
-                <tr>
-                  <td style="font-weight:600">${c.name}</td>
-                  <td><span class="badge badge-primary" style="font-size:0.72rem">${c.channel}</span></td>
-                  <td style="color:var(--text-muted)">฿${c.budget.toLocaleString()}</td>
-                  <td style="text-align:center;font-weight:700;color:var(--accent)">${c.leads}</td>
-                  <td style="text-align:center;font-weight:700;color:var(--success)">${c.conversions}</td>
-                  <td style="font-weight:700;color:${c.roi >= 200 ? 'var(--success)' : c.roi >= 100 ? 'var(--warning)' : 'var(--danger)'}">+${c.roi}%</td>
-                  <td><span class="badge badge-${c.status === 'active' ? 'success' : 'primary'}" style="font-size:0.72rem">${c.status === 'active' ? '✅ กำลังรัน' : '🏁 สิ้นสุด'}</span></td>
+              ${campaigns.map(c => {
+                const roi = Math.round(roiOf(c))
+                return `
+                <tr data-nav="/marketing/campaigns" style="cursor:pointer">
+                  <td style="font-weight:600">${escHtml(c.name)}</td>
+                  <td><span class="badge badge-primary" style="font-size:0.72rem">${CAMPAIGN_TYPE_LABELS[c.type] || escHtml(c.type || '-')}</span></td>
+                  <td style="color:var(--text-muted)">฿${(c.budget||0).toLocaleString()}</td>
+                  <td style="text-align:center;font-weight:700;color:var(--accent)">${c.leads||0}</td>
+                  <td style="text-align:center;font-weight:700;color:var(--success)">${c.sales||0}</td>
+                  <td style="font-weight:700;color:${roi >= 200 ? 'var(--success)' : roi >= 100 ? 'var(--warning)' : 'var(--danger)'}">${c.spent > 0 ? (roi >= 0 ? '+' : '') + roi + '%' : '—'}</td>
+                  <td><span class="badge badge-${c.status === 'active' ? 'success' : 'primary'}" style="font-size:0.72rem">${CAMPAIGN_STATUS_LABELS[c.status] || escHtml(c.status || '-')}</span></td>
                 </tr>
-              `).join('')}
+              `}).join('')}
+              ${!campaigns.length ? `<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text-muted)">ยังไม่มีแคมเปญ — สร้างที่ Campaign Builder</td></tr>` : ''}
             </tbody>
           </table>
         </div>

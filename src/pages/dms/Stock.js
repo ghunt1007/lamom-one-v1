@@ -10,6 +10,29 @@ function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
+// ── ป้องกันขายซ้ำ (double-selling) ──────────────────────────────────────────────
+// ระบบนี้มี 3 จุดที่ "ล็อค/จอง" รถแยกกันไม่ sync กันเลย: ReserveLock.js เขียนลง collection 'reservations',
+// VehicleReservation.js เขียนลง 'vehicle_reservations', ส่วน Stock.js เขียน field status เองใน 'vehicles'
+// ไม่ทำ full merge เป็น collection เดียว (เสี่ยงเกินไปสำหรับ patch เล็ก ต้องแก้ทั้ง 3 หน้าพร้อมกัน) แค่กัน
+// อันตรายจริง (ขายรถที่มีคนจอง/ล็อคอยู่แล้วซ้ำ) โดยเช็คก่อนปล่อยรถกลับเป็น "พร้อมขาย" ทุกครั้งว่าไม่มีการ
+// ล็อค/จองที่ยัง active อยู่ในอีก 2 ระบบ — vehicle_reservations ไม่มี field vin/stockId ที่ผูกกับรถจริงเลย
+// (stockId มีอยู่ในสคีมาแต่ไม่เคยถูกเซ็ตจากหน้าไหนเลย) จึงเช็คได้แค่แบบ best-effort ด้วยรุ่น+สี ไม่ใช่ VIN ตรงๆ
+async function checkActiveLocks(v) {
+  const conflicts = []
+  try {
+    const locks = await listDocs('reservations', [], 'lockedAt', 'desc', 300)
+    locks.filter(l => l.vin && v.vin && l.vin === v.vin && (l.status === 'reserved' || l.status === 'locked'))
+      .forEach(l => conflicts.push(`🔐 ล็อคสต็อก (ReserveLock): ${l.customer || '-'} (${l.status === 'locked' ? 'ล็อคชั่วคราว' : 'จองแล้ว'})`))
+  } catch (e) {}
+  try {
+    const resv = await listDocs('vehicle_reservations', [], 'created', 'desc', 300)
+    resv.filter(r => ['active', 'deposit', 'confirmed'].includes(r.status) &&
+      ((r.stockId && r.stockId === v.id) || (r.model && v.model && r.model.toLowerCase().includes(String(v.model).toLowerCase()) && r.color === v.color)))
+      .forEach(r => conflicts.push(`📋 จองคิว (VehicleReservation): ${r.customer || '-'} (${r.status})`))
+  } catch (e) {}
+  return conflicts
+}
+
 const STATUS = {
   available:  { label: '✅ พร้อมขาย',   badge: 'success' },
   reserved:   { label: '📝 จองแล้ว',    badge: 'warning' },
@@ -311,6 +334,13 @@ export default async function StockPage(container) {
     el.querySelector('#vsc').addEventListener('click', close)
     el.querySelectorAll('[data-st]').forEach(btn => btn.addEventListener('click', async () => {
       try {
+        if (btn.dataset.st === 'available') {
+          const conflicts = await checkActiveLocks(v)
+          if (conflicts.length) {
+            showToast('⚠️ ห้ามปล่อยขาย — รถคันนี้ยังมีการจอง/ล็อคค้างอยู่: ' + conflicts.join(' · '), 'error')
+            return
+          }
+        }
         await updateDocData('vehicles', v.id, { status: btn.dataset.st })
         v.status = btn.dataset.st; showToast(`เปลี่ยนสถานะเป็น ${STATUS[btn.dataset.st]?.label}`, 'success')
         close(); document.querySelector('.modal-overlay')?.remove(); updateStats(); applyFilter()
@@ -330,8 +360,9 @@ export default async function StockPage(container) {
             <div class="input-group"><label class="input-label">ยี่ห้อ *</label>
               <select class="input" id="vf-brand">
                 ${BRANDS.map(b => `<option value="${b}" ${existing?.brand===b?'selected':''}>${b}</option>`).join('')}
-                <option value="other" ${!BRANDS.includes(existing?.brand)?'selected':''}>อื่นๆ</option>
+                <option value="other" ${(existing && !BRANDS.includes(existing.brand))?'selected':''}>อื่นๆ</option>
               </select>
+              <input class="input" id="vf-brand-other" value="${escHtml((existing && !BRANDS.includes(existing.brand)) ? existing.brand : '')}" placeholder="ระบุยี่ห้อ..." style="margin-top:6px;display:${(existing && !BRANDS.includes(existing.brand)) ? 'block' : 'none'}">
             </div>
             <div class="input-group"><label class="input-label">รุ่น *</label><input class="input" id="vf-model" value="${escHtml(existing?.model||'')}" placeholder="เช่น Seal"><span class="input-error" id="vf-model-e"></span></div>
           </div>
@@ -364,6 +395,9 @@ export default async function StockPage(container) {
       `,
       footer: `<button class="btn btn-secondary" id="vfc">ยกเลิก</button><button class="btn btn-primary" id="vfs">💾 บันทึก</button>`
     })
+    el.querySelector('#vf-brand')?.addEventListener('change', e => {
+      el.querySelector('#vf-brand-other').style.display = e.target.value === 'other' ? 'block' : 'none'
+    })
     el.querySelector('#vf-pick')?.addEventListener('click', () => pickVehicle(v => {
       const bsel = el.querySelector('#vf-brand')
       if (![...bsel.options].some(o => o.value === v.brand)) { const o = document.createElement('option'); o.value = v.brand; o.textContent = v.brand; bsel.insertBefore(o, bsel.firstChild) }
@@ -377,9 +411,12 @@ export default async function StockPage(container) {
     el.querySelector('#vfs').addEventListener('click', async () => {
       const model = el.querySelector('#vf-model').value.trim()
       if (!model) { el.querySelector('#vf-model-e').textContent = 'กรุณาระบุ'; return }
+      const brandSel = el.querySelector('#vf-brand').value
+      const brandOther = el.querySelector('#vf-brand-other').value.trim()
+      if (brandSel === 'other' && !brandOther) { showToast('❗ กรุณาระบุชื่อยี่ห้อ', 'error'); return }
       const btn = el.querySelector('#vfs'); btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
       const data = {
-        brand: el.querySelector('#vf-brand').value,
+        brand: brandSel === 'other' ? brandOther : brandSel,
         model, variant: el.querySelector('#vf-variant').value,
         year: Number(el.querySelector('#vf-year').value),
         color: el.querySelector('#vf-color').value,
@@ -393,7 +430,17 @@ export default async function StockPage(container) {
         notes: el.querySelector('#vf-notes').value.trim(),
       }
       try {
-        if (isEdit) { await updateDocData('vehicles', existing.id, data); Object.assign(existing, data) }
+        if (isEdit) {
+          if (data.status === 'available' && existing.status !== 'available') {
+            const conflicts = await checkActiveLocks({ ...existing, ...data })
+            if (conflicts.length) {
+              showToast('⚠️ ห้ามปล่อยขาย — รถคันนี้ยังมีการจอง/ล็อคค้างอยู่: ' + conflicts.join(' · '), 'error')
+              btn.disabled = false; btn.innerHTML = '💾 บันทึก'
+              return
+            }
+          }
+          await updateDocData('vehicles', existing.id, data); Object.assign(existing, data)
+        }
         else {
           // Phase 2 หลายบริษัท — ติด companyId ของบริษัทหลักที่พนักงานคนรับรถเข้าสังกัดอยู่ (ถ้ามี) รถเดิม
           // ที่ไม่มี companyId ยังเห็นได้ทุกคนเหมือนเดิม (ไม่ถูกกรองออก)
