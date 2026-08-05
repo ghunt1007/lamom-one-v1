@@ -133,7 +133,7 @@ export default async function ReserveLockPage(container) {
       body:`<div style="font-size:0.8rem;display:flex;flex-direction:column;gap:8px">
         <div><label style="font-size:0.72rem;color:var(--text-muted)">เลือกรถ</label>
           <select class="input" id="lock-vin" style="width:100%;margin-top:3px">
-            ${avail.map(v=>`<option value="${escHtml(v.id)}">${escHtml(v.model)} ${escHtml(v.color)} (VIN:${escHtml(v.vin.slice(-6))})</option>`).join('')}
+            ${avail.map(v=>`<option value="${escHtml(v.id)}">${escHtml(v.model)} ${escHtml(v.color)} (VIN:${escHtml((v.vin||'').slice(-6) || '-')})</option>`).join('')}
           </select></div>
         <div><label style="font-size:0.72rem;color:var(--text-muted)">ชื่อลูกค้า</label><input class="input" id="lock-cust" style="width:100%;margin-top:3px" placeholder="ชื่อลูกค้า..."></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -178,6 +178,10 @@ export default async function ReserveLockPage(container) {
     let custSection = v.customer ? '<div style="font-size:0.76rem;background:var(--surface-2);padding:8px;border-radius:6px;margin-bottom:8px"><div><b>' + escHtml(v.customer) + '</b> · ' + escHtml(v.agent) + '</div>' + lockLine + depositLine + '</div>' : ''
     const lockBtn    = v.status === 'available' ? '<button class="btn btn-xs btn-primary lock-now-btn" data-id="' + escHtml(v.id) + '" style="font-size:0.68rem">🔒 ล็อค</button>' : ''
     const unlockBtn  = (v.status === 'reserved' || v.status === 'locked') ? '<button class="btn btn-xs btn-secondary unlock-btn" data-id="' + escHtml(v.id) + '" style="font-size:0.68rem">🔓 ปลด</button>' : ''
+    // เดิม v.vin.slice(...) / v.price.toLocaleString() ไม่มี guard เลย — ถ้าเอกสารไหนไม่มี field vin/price
+    // (undefined) จะ throw ทันทีตอน render แล้วพังทั้งหน้า (ไม่ใช่แค่การ์ดใบนั้นใบเดียว)
+    const vinShort = (v.vin || '').slice(-8) || '-'
+    const priceStr = (v.price || 0).toLocaleString()
     return `<div class="card" style="padding:14px;border-top:3px solid ${cfg.bg}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
         <div>
@@ -186,10 +190,10 @@ export default async function ReserveLockPage(container) {
         </div>
         <span style="font-size:0.62rem;background:${cfg.bg};color:#fff;padding:2px 8px;border-radius:10px">${cfg.icon} ${cfg.label}</span>
       </div>
-      <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:8px">VIN: ${escHtml(v.vin.slice(-8))}</div>
+      <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:8px">VIN: ${escHtml(vinShort)}</div>
       ${custSection}
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <div style="font-size:0.9rem;font-weight:900;color:var(--primary)">฿${v.price.toLocaleString()}</div>
+        <div style="font-size:0.9rem;font-weight:900;color:var(--primary)">฿${priceStr}</div>
         <div style="display:flex;gap:4px">${lockBtn}${unlockBtn}</div>
       </div>
     </div>`

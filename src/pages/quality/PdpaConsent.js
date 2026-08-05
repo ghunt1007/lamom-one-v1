@@ -33,6 +33,18 @@ const DSR_STATUS = {
 
 export default async function PdpaConsentPage(container) {
   const myGen = container.__routerGen
+  const myRole = getState('role') || getState('user')?.role || 'staff'
+  if (!PDPA_VIEW_ROLES.includes(myRole)) {
+    container.innerHTML = `
+      <div class="page-content animate-slide">
+        <div class="empty-state" style="padding:60px 20px">
+          <div class="empty-icon">🔒</div>
+          <div class="empty-title">ไม่มีสิทธิ์เข้าถึงหน้านี้</div>
+          <div class="empty-desc">ข้อมูลความยินยอม PDPA + เบอร์โทรลูกค้าเปิดให้เฉพาะผู้บริหาร/ผู้จัดการ/แอดมิน — ติดต่อผู้ดูแลระบบหากต้องการสิทธิ์เข้าถึง</div>
+        </div>
+      </div>`
+    return
+  }
   seedDemoData()
 
   let consents = []

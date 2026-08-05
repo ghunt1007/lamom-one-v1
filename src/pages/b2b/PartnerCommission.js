@@ -3,7 +3,7 @@
  * Route: /b2b/partner-commission
  */
 import { formatCurrency, formatDate } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
@@ -16,7 +16,7 @@ function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d
 const PC_STATUS = {
   pending:  { label: 'รอตรวจสอบ', color: 'warning', icon: '⏳' },
   approved: { label: 'อนุมัติ', color: 'primary', icon: '✅' },
-  paid:     { label: 'จ่ายแล้ว', color: 'success', icon: '💸' },
+  paid:     { label: 'บันทึกจ่ายแล้ว (ในระบบ)', color: 'success', icon: '💸' },
   rejected: { label: 'ปฏิเสธ', color: 'danger', icon: '❌' },
 }
 
@@ -139,9 +139,17 @@ export default async function PartnerCommissionPage(container) {
     container.querySelectorAll('.pay-btn').forEach(b => b.addEventListener('click', async () => {
       const c = items.find(x => x.id === b.dataset.id)
       if (!c) return
+      // ไม่มีระบบจ่ายเงินจริงเชื่อมอยู่ที่นี่ — ปุ่มนี้แค่ตั้ง flag ในระบบ ต้องยืนยันก่อนกันกดพลาดว่า "จ่ายแล้ว" ทั้งที่เงินยังไม่ได้โอนจริง
+      const ok = await confirmDialog({
+        title: '💸 ยืนยันบันทึกว่าจ่ายแล้ว',
+        message: `จะบันทึกสถานะ "จ่ายแล้ว" ให้ ${escHtml(c.partner)} จำนวน ${formatCurrency(commAmt(c))} — ปุ่มนี้<strong>บันทึกเฉพาะสถานะในระบบภายในเท่านั้น ไม่ได้โอนเงินจริง</strong> กรุณาโอนเงินให้พาร์ทเนอร์ด้วยตนเองก่อนกดยืนยัน`,
+        confirmText: '💸 ยืนยันบันทึก',
+        danger: true,
+      })
+      if (!ok) return
       try {
         await updateDocData('partner_commissions', c.id, { status: 'paid' })
-        showToast(`💸 จ่าย ${formatCurrency(commAmt(c))} ให้ ${c.partner} แล้ว`, 'success')
+        showToast(`📝 บันทึกสถานะ "จ่ายแล้ว" ${formatCurrency(commAmt(c))} ให้ ${c.partner} ในระบบแล้ว (ไม่ได้โอนเงินจริงผ่านระบบนี้)`, 'success')
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))

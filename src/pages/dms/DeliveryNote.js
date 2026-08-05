@@ -3,7 +3,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getBranches, getSalesStaff } from '../../data/masterData.js'
-import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -100,6 +100,26 @@ export default async function DeliveryNotePage(container) {
         }
       })
     }
+  } catch {}
+
+  // เดิม "สร้างใบส่งมอบใหม่" (ที่ไม่ได้มาจากใบจอง) ไม่เคยถูก createDoc ลง Firestore เลย เก็บแค่ในหน่วยความจำ
+  // ของหน้า (notes.unshift) หายทันทีที่ปิด/รีเฟรชหน้า ตอนนี้ createDoc จริงแล้ว (ดู openDNForm ด้านล่าง) จึง
+  // ต้องโหลดกลับมาตรงนี้ด้วยไม่งั้นจะยังหายเหมือนเดิมทุกครั้งที่เข้าหน้าใหม่
+  try {
+    const standalone = await listDocs('delivery_notes', [], 'createdAt', 'desc', 200)
+    if (container.__routerGen !== myGen) return
+    standalone.filter(d => !d.deleted).forEach(d => {
+      notes.push({
+        id: d.dnNo || d.id, bookingId: '', _fbId: null, _standaloneId: d.id,
+        customerName: d.customerName || '', phone: d.phone || '',
+        brand: d.brand || '', model: d.model || '', variant: d.variant || '', color: d.color || '',
+        vin: d.vin || '', plate: d.plate || '', price: d.price || 0,
+        salesperson: d.salesperson || '', deliveryDate: d.deliveryDate || addDays(7),
+        deliveryTime: d.deliveryTime || '10:00', location: d.location || '',
+        status: d.status || 'pending', signedAt: d.signedAt || null, notes: d.notes || '',
+        accessories: d.accessories || [], checklist: d.checklist || { docs:false, keys:false, charger:false, manual:false, mats:false, spare:false },
+      })
+    })
   } catch {}
 
   if (!notes.length) notes = [...DEMO_DNS]
@@ -305,6 +325,10 @@ export default async function DeliveryNotePage(container) {
           try {
             await updateDocData('bookings', n._fbId, { deliveryDate: date, deliveryTime, deliveryLocation, dnScheduledAt: new Date().toISOString() })
           } catch { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
+        } else if (n._standaloneId) {
+          try {
+            await updateDocData('delivery_notes', n._standaloneId, { deliveryDate: date, deliveryTime, location: deliveryLocation, status: 'scheduled' })
+          } catch { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
         }
         Object.assign(n, { deliveryDate: date, deliveryTime, location: deliveryLocation, status: 'scheduled' })
         showToast(`📅 นัดส่งมอบ ${n.customerName} วัน ${formatDate(date)} เรียบร้อย`, 'success')
@@ -350,6 +374,10 @@ export default async function DeliveryNotePage(container) {
               deliverySignedAt: signedAt, deliveryNotes: notes2, deliveryChecklist: checklist,
             })
           } catch { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
+        } else if (n._standaloneId) {
+          try {
+            await updateDocData('delivery_notes', n._standaloneId, { status: 'done', signedAt, plate, notes: notes2, checklist })
+          } catch { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
         }
         Object.assign(n, { status: 'done', signedAt, plate, notes: notes2, checklist })
         showToast(`✅ ส่งมอบ ${n.brand} ${n.model} ให้ ${n.customerName} เรียบร้อย!`, 'success')
@@ -381,14 +409,16 @@ export default async function DeliveryNotePage(container) {
           <datalist id="df-staff">${staff.map(s => `<option value="${escHtml(s)}">`).join('')}</datalist>
         </div>
       </div>`,
-      onConfirm() {
+      async onConfirm() {
         const name = document.getElementById('df-name')?.value?.trim()
         const date = document.getElementById('df-date')?.value
-        if (!name || !date) { showToast('❗ กรุณากรอกข้อมูลที่จำเป็น', 'error'); return }
+        if (!name || !date) { showToast('❗ กรุณากรอกข้อมูลที่จำเป็น', 'error'); return false }
         const model = document.getElementById('df-model')?.value || ''
         const [brand, ...rest] = model.split(' ')
-        const n = {
-          id: `DN${String(notes.length+1).padStart(3,'0')}`, bookingId:'', _fbId:null,
+        // เดิม onConfirm() ไม่ async และไม่เคยเรียก Firestore เลย — แค่ notes.unshift() เก็บในหน่วยความจำของ
+        // หน้าเฉยๆ แล้ว toast ว่าสำเร็จ ปิด/รีเฟรชหน้าแล้วข้อมูลหายทันที แก้ให้ createDoc จริงลง 'delivery_notes'
+        const data = {
+          dnNo: `DN${String(notes.length+1).padStart(3,'0')}`,
           customerName:name, phone:document.getElementById('df-phone')?.value||'',
           brand:brand||'', model:rest.join(' ')||model, variant:'', color:document.getElementById('df-color')?.value||'',
           vin:document.getElementById('df-vin')?.value||'', plate:'', price:+(document.getElementById('df-price')?.value||0),
@@ -398,9 +428,12 @@ export default async function DeliveryNotePage(container) {
           status:'pending', signedAt:null, notes:'',
           accessories:[], checklist:{ docs:false, keys:false, charger:false, manual:false, mats:false, spare:false }
         }
-        notes.unshift(n)
-        showToast('✅ สร้างใบส่งมอบแล้ว!', 'success')
-        renderPage()
+        try {
+          const fid = await createDoc('delivery_notes', data)
+          notes.unshift({ id: data.dnNo, bookingId:'', _fbId:null, _standaloneId: fid, ...data })
+          showToast('✅ สร้างใบส่งมอบแล้ว!', 'success')
+          renderPage()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
       }
     })
   }

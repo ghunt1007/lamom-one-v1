@@ -1,4 +1,4 @@
-import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
+import { watchDocs, updateDocData, seedDemoData } from '../../core/db.js'
 import { showToast } from '../../core/store.js'
 import { formatCurrency, initials, fullName, timeAgo } from '../../utils/format.js'
 import { navigate } from '../../core/router.js'
@@ -24,8 +24,13 @@ export default async function PipelinePage(container) {
   let customers = []
   let dragging = null
 
-  async function loadData() {
-    try { customers = await listDocs('customers', [], 'createdAt', 'desc', 500) } catch { customers = [] }
+  // (v1.0.xxx) เดิมใช้ listDocs() ครั้งเดียวตอนโหลดหน้า — ถ้ามีคนอื่นแก้ stage ลูกค้าจากเครื่องอื่น (เช่น
+  // หน้า Customers) บอร์ดนี้จะไม่ขยับตามจนกว่าจะรีเฟรชหน้าเอง ต่างจาก Customers.js/Bookings.js ที่ใช้
+  // watchDocs() แบบสดอยู่แล้ว — เปลี่ยนมาใช้ watchDocs() เหมือนกัน แต่ห้าม re-render ทับระหว่างที่ผู้ใช้กำลัง
+  // ลากการ์ดอยู่ (dragging ไม่ใช่ null) เพราะ HTML5 drag ผูกกับ DOM node เดิม ถ้า innerHTML ถูกแทนที่กลาง
+  // ทางจะทำให้ drag หลุดกลางอากาศ
+  function safeRenderBoard() {
+    if (dragging) return
     renderBoard()
   }
 
@@ -231,5 +236,13 @@ export default async function PipelinePage(container) {
   document.getElementById('pl-list-btn').addEventListener('click', () => navigate('/crm/customers'))
   document.getElementById('pl-add-btn').addEventListener('click', () => navigate('/crm/customers'))
 
-  if (container.__routerGen === myGen) await loadData()
+  let firstSnapshot = true
+  const unsubCustomers = watchDocs('customers', [], 'createdAt', 'desc', 500, rows => {
+    if (container.__routerGen !== myGen) { unsubCustomers(); return }
+    customers = rows.filter(c => !c.deleted)
+    if (firstSnapshot) { firstSnapshot = false; renderBoard() }
+    else safeRenderBoard()
+  })
+
+  return function cleanupPipeline() { unsubCustomers() }
 }

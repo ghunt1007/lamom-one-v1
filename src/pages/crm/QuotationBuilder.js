@@ -86,7 +86,7 @@ export default async function QuotationBuilderPage(container) {
 
   async function loadData() {
     loading = true
-    try { quotes = await listDocs('quotations', [], 'createdDate', 'desc', 200) } catch (e) { quotes = [] }
+    try { quotes = (await listDocs('quotations', [], 'createdDate', 'desc', 200)).filter(q => !q.deleted) } catch (e) { quotes = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }

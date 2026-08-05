@@ -143,7 +143,9 @@ export default async function TaxReportPage(container) {
     const filteredList = filteredFilings()
     const pending = filings.filter(f => f.status === 'pending').length
     const overdue = filings.filter(f => isOverdue(f)).length
-    const totalVat = filings.reduce((a, f) => a + f.vatAmount, 0)
+    // เดิมรวม vatAmount ของทุกประเภทการยื่นเข้าด้วยกันหมด รวม pnd1/pnd53/pnd51 (ภาษีหัก ณ ที่จ่าย ไม่ใช่ VAT)
+    // เข้าไปใน KPI "VAT สะสม" ด้วย ทำให้ตัวเลขเพี้ยนสูงกว่า VAT จริงมาก — กรองเหลือแค่ pp30 (VAT ตัวจริง)
+    const totalVat = filings.filter(f => f.type === 'pp30').reduce((a, f) => a + f.vatAmount, 0)
     const totalWH = liveInvoices ? liveTotalWH : DEMO_INVOICES.reduce((a, i) => a + i.withheld, 0)
 
     container.innerHTML = `

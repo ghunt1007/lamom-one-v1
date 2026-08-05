@@ -1,5 +1,5 @@
 import { getState, showToast } from '../../core/store.js'
-import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
+import { listDocs, listAllDocs, createDoc, seedDemoData } from '../../core/db.js'
 import { formatCurrency } from '../../utils/format.js'
 import { askAiOfficer, isAiEnabled } from '../../utils/ai.js'
 
@@ -135,12 +135,15 @@ export default async function AiOfficersPage(container) {
   let isTyping = false
 
   // Pre-load some stats for context
+  // (v1.0.xxx) เดิม vehicles/job_cards จำกัดที่ limit(10) ทำให้ stats.vehicles/stats.jobs ที่ป้อนเข้า Gemini
+  // prompt ของทุก AI Officer นับต่ำกว่าจริงเงียบๆทุกครั้งที่มีเกิน 10 รายการจริงในระบบ — เปลี่ยนไปใช้
+  // listAllDocs() (pattern เดียวกับ getSalesData() ใน db.js ที่ใช้ดึง "รวมทั้งหมด/ตลอดเวลา" ให้ครบจริง)
   let stats = { customers: 0, vehicles: 0, jobs: 0, leads: 0 }
   try {
     const [cust, veh, jobs] = await Promise.all([
       listDocs('customers', [], 'createdAt', 'desc', 200).catch(() => []),
-      listDocs('vehicles', [], 'arrivedAt', 'desc', 10).catch(() => []),
-      listDocs('job_cards', [], 'createdAt', 'desc', 10).catch(() => []),
+      listAllDocs('vehicles', [], 'arrivedAt', 'desc').catch(() => []),
+      listAllDocs('job_cards', [], 'createdAt', 'desc').catch(() => []),
     ])
     const leads = cust.filter(c => c.stage === 'lead' || c.stage === 'pp')
     stats = { customers: cust.length, vehicles: veh.length, jobs: jobs.length, leads: leads.length }

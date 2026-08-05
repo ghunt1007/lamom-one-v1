@@ -11,6 +11,18 @@ function daysLeft(endDate) {
   return Math.round((new Date(endDate) - new Date()) / 86400000)
 }
 
+// เดิมหน้านี้ใช้ v.status ที่บันทึกไว้ครั้งเดียวตอนสร้าง/แก้ไขข้อมูล ไม่ถูกคำนวณสดจากวันที่เลย ต่างจาก
+// WarrantyManagement.js's getWarrantyStatus() ที่คำนวณสดจากวันหมดอายุทุกครั้งที่ render — ทำให้ตัวเลข
+// active/expiring/expired ในหน้านี้ค้างผิดไปเรื่อยๆถ้าไม่มีใครมาแก้ record ทัน แก้ให้คำนวณสดแบบเดียวกัน
+// (เก็บสถานะที่ไม่ได้ขึ้นกับวันที่ เช่น 'claimed'/'void' ไว้ก่อนเสมอถ้ามี เหมือน WarrantyManagement.js)
+function getLiveStatus(v) {
+  if (v.status === 'claimed' || v.status === 'void') return v.status
+  const d = daysLeft(v.warrantyEnd)
+  if (d <= 0) return 'expired'
+  if (d <= 60) return 'expiring'
+  return 'active'
+}
+
 function statusBadge(s, d) {
   if (s === 'expired')  return { label:'หมดแล้ว',    bg:'var(--danger)',  fg:'#fff' }
   if (d <= 60)          return { label:`เหลือ ${d}ว`, bg:'var(--warning)', fg:'#fff' }
@@ -39,14 +51,14 @@ export default async function WarrantyExpiryPage(container) {
       return
     }
     let rows = VEHICLES
-    if (filter === 'expired')  rows = rows.filter(v => v.status === 'expired')
-    if (filter === 'expiring') rows = rows.filter(v => v.status === 'expiring')
-    if (filter === 'active')   rows = rows.filter(v => v.status === 'active')
-    if (search) rows = rows.filter(v => v.owner.includes(search) || v.model.includes(search) || v.plate.includes(search))
+    if (filter === 'expired')  rows = rows.filter(v => getLiveStatus(v) === 'expired')
+    if (filter === 'expiring') rows = rows.filter(v => getLiveStatus(v) === 'expiring')
+    if (filter === 'active')   rows = rows.filter(v => getLiveStatus(v) === 'active')
+    if (search) rows = rows.filter(v => (v.owner||'').includes(search) || (v.model||'').includes(search) || (v.plate||'').includes(search))
 
-    const expired  = VEHICLES.filter(v => v.status === 'expired').length
-    const expiring = VEHICLES.filter(v => v.status === 'expiring').length
-    const active   = VEHICLES.filter(v => v.status === 'active').length
+    const expired  = VEHICLES.filter(v => getLiveStatus(v) === 'expired').length
+    const expiring = VEHICLES.filter(v => getLiveStatus(v) === 'expiring').length
+    const active   = VEHICLES.filter(v => getLiveStatus(v) === 'active').length
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -91,7 +103,7 @@ export default async function WarrantyExpiryPage(container) {
             <tbody>
               ${rows.map(v => {
                 const d = daysLeft(v.warrantyEnd)
-                const badge = statusBadge(v.status, d)
+                const badge = statusBadge(getLiveStatus(v), d)
                 const kmPct = Math.min(Math.round(v.kmCurrent / v.kmWarranty * 100), 100)
                 return `<tr class="warranty-row" data-id="${v.id}" style="border-bottom:1px solid var(--border);font-size:0.78rem;cursor:pointer">
                   <td style="padding:9px 12px">
@@ -129,7 +141,7 @@ export default async function WarrantyExpiryPage(container) {
     container.querySelectorAll('.fil-btn').forEach(b => b.addEventListener('click', () => { filter = b.dataset.f; render() }))
     document.getElementById('search-box')?.addEventListener('input', e => { search = e.target.value; render() })
     document.getElementById('notify-all-btn')?.addEventListener('click', async () => {
-      const targets = VEHICLES.filter(v => v.status === 'expiring' || v.status === 'expired')
+      const targets = VEHICLES.filter(v => getLiveStatus(v) === 'expiring' || getLiveStatus(v) === 'expired')
       try {
         await Promise.all(targets.map(v => updateDocData('warranty_expiry_vehicles', v.id, { notified: true })))
         showToast(`📨 แจ้งเตือนประกัน ${targets.length} คันแล้ว`, 'success')

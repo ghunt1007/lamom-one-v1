@@ -27,6 +27,11 @@ const RED_PLATE_POOL = [
 
 const NEXT = { red_plate: 'submitted', submitted: 'approved', approved: 'plated' }
 
+// รายการป้ายแดงที่ "ว่าง" จริง — ยังไม่ถูกใช้อยู่ในรายการที่ยังไม่ปิดสถานะ (status !== 'plated')
+function getFreeRedPlates(regs) {
+  return RED_PLATE_POOL.filter(p => !regs.some(r => r.redPlate === p.plate && r.status !== 'plated'))
+}
+
 export default async function PlateTrackingPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
@@ -48,7 +53,7 @@ export default async function PlateTrackingPage(container) {
     }
     const pending = regs.filter(r => r.status !== 'plated')
     const overdue = regs.filter(r => r.status === 'red_plate' && r.deliveredDate <= addDays(-45))
-    const freePlates = RED_PLATE_POOL.filter(p => !regs.some(r => r.redPlate === p.plate && r.status !== 'plated')).length
+    const freePlates = getFreeRedPlates(regs).length
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -132,21 +137,26 @@ export default async function PlateTrackingPage(container) {
       }
     }))
     document.getElementById('add-reg-btn')?.addEventListener('click', () => {
+      // เดิม dropdown ป้ายแดงไม่กรองป้ายที่ "กำลังใช้อยู่" ออกเลย ทำให้เผลอจ่ายป้ายแดงเดียวกันซ้ำให้รถ 2 คัน
+      // พร้อมกันได้ (ป้ายจริงมีอยู่แผ่นเดียว) แก้ให้เหลือแค่ป้ายที่ว่างจริง
+      const free = getFreeRedPlates(regs)
       openModal({
         title: '+ รถส่งมอบใหม่ (เริ่มติดตามทะเบียน)',
         size: 'sm',
         body: `<div style="display:grid;gap:10px">
           <div class="input-group"><label class="input-label">ลูกค้า *</label><input class="input" id="rg-name"></div>
           <div class="input-group"><label class="input-label">รุ่นรถ</label><input class="input" id="rg-model"></div>
-          <div class="input-group"><label class="input-label">ป้ายแดง</label>
-            <select class="input" id="rg-red">${RED_PLATE_POOL.map(p=>`<option>${p.plate}</option>`).join('')}</select>
+          <div class="input-group"><label class="input-label">ป้ายแดง${free.length ? '' : ' (ไม่มีป้ายว่าง!)'}</label>
+            <select class="input" id="rg-red">${free.length ? free.map(p=>`<option>${p.plate}</option>`).join('') : '<option value="">— ไม่มีป้ายแดงว่าง —</option>'}</select>
           </div>
         </div>`,
         async onConfirm() {
           const name = document.getElementById('rg-name')?.value?.trim()
           if (!name) { showToast('❗ กรอกชื่อ', 'error'); return false }
+          const redPlate = document.getElementById('rg-red')?.value
+          if (!redPlate) { showToast('❗ ไม่มีป้ายแดงว่างให้จ่าย — คืนป้ายที่ใช้อยู่ก่อน', 'error'); return false }
           try {
-            await createDoc('plate_tracking', { customer: name, model: document.getElementById('rg-model')?.value || '—', vin: '...ใหม่', redPlate: document.getElementById('rg-red')?.value || '—', deliveredDate: addDays(0), status: 'red_plate', newPlate: null, note: '' })
+            await createDoc('plate_tracking', { customer: name, model: document.getElementById('rg-model')?.value || '—', vin: '...ใหม่', redPlate, deliveredDate: addDays(0), status: 'red_plate', newPlate: null, note: '' })
             showToast('✅ เริ่มติดตามแล้ว', 'success')
             await loadData()
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

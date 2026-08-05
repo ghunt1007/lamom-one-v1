@@ -232,7 +232,7 @@ export default async function LeadGenerationPage(container) {
             ${row('ช่องทาง', `<span class="badge badge-${ch?.color}">${ch?.icon} ${ch?.label}</span>`)}
             ${row('สถานะ', `<span class="badge badge-${st?.color}">${st?.label}</span>`)}
             ${row('เริ่ม', formatDate(c.startDate))}${row('สิ้นสุด', formatDate(c.endDate))}
-            ${row('รุ่นเป้าหมาย', c.targetModel)}
+            ${row('รุ่นเป้าหมาย', esc(c.targetModel))}
           </div>
           <div>
             ${row('งบ', formatCurrency(c.budget))}${row('ใช้ไป', `<strong style="color:${budgetPct>90?'var(--danger)':'var(--warning)'}">${formatCurrency(c.spent)} (${budgetPct}%)</strong>`)}

@@ -15,12 +15,6 @@ function dateStr(d) { return d.toISOString().slice(0, 10) }
 function addDays(base, n) { const d = new Date(base); d.setDate(d.getDate() + n); return dateStr(d) }
 function todayStr() { return dateStr(new Date()) }
 
-const DEMO_SERVICE = [
-  { id: 'J001', plate: '1กข-1234', model: 'BYD Seal', service: 'ตรวจเช็คระยะ', status: 'done', revenue: 3500 },
-  { id: 'J002', plate: '2ขค-5678', model: 'MG ZS EV', service: 'เปลี่ยนแผ่นเบรก', status: 'in_progress', revenue: 8500 },
-  { id: 'J003', plate: '3คง-9012', model: 'BYD Dolphin', service: 'ล้างรถ + แว็กซ์', status: 'done', revenue: 800 },
-]
-
 // รายเป้าต่อเดือนที่โหลดจาก Firestore 'sales_budgets' ครั้งเดียวตอนเปิดหน้า (เดิมอ่านจาก localStorage
 // key ผูกปีตายตัว 'lamom_sales_budget_2025' เดียวกับหน้า Sales Budget/Target vs Actual — คนละเครื่องเห็นเป้าคนละชุด)
 let _monthlyTargets = null
@@ -76,17 +70,33 @@ export default async function DailyReportPage(container) {
   let viewDate = todayStr()
   let allSales = []
   let dataSource = 'demo'
+  // (v1.0.xxx) เดิม Walk-In/Test Drive/นัดหมาย และตาราง "งานบริการวันนี้" (DEMO_SERVICE) เป็นตัวเลข/ข้อมูล
+  // hardcode ตายตัวแม้หน้านี้จะขึ้น badge "● Live" — คอลเลกชันจริงมีอยู่แล้ว (job_cards ใช้ที่ JobCards.js,
+  // walk_ins ใช้ที่ WalkIn.js, test_drive_records ใช้ที่ TestDrive.js, appointments ใช้ที่ ShowroomAppointment.js)
+  // จึงดึงมาใช้จริงทั้งหมดแทน ไม่มี fallback ข้อมูลปลอมอีกต่อไปสำหรับส่วนนี้
+  let allJobs = []
+  let allWalkIns = []
+  let allTestDrives = []
+  let allAppointments = []
 
   container.innerHTML = `<div class="page-content animate-slide"><div style="text-align:center;padding:48px;color:var(--text-muted);font-size:0.85rem">⏳ กำลังโหลดข้อมูล...</div></div>`
 
   try {
-    const [sales, budgetDocs] = await Promise.all([
+    const [sales, budgetDocs, jobs, walkins, testdrives, appts] = await Promise.all([
       getSalesData().catch(() => []),
       listDocs('sales_budgets', [['year', '==', new Date().getFullYear()]], 'createdAt', 'asc', 1).catch(() => []),
+      listDocs('job_cards', [], 'createdAt', 'desc', 500).catch(() => []),
+      listDocs('walk_ins', [], 'visitTime', 'desc', 500).catch(() => []),
+      listDocs('test_drive_records', [], 'date', 'desc', 500).catch(() => []),
+      listDocs('appointments', [], 'date', 'desc', 500).catch(() => []),
     ])
     if (container.__routerGen !== myGen) return
     if (sales.length >= 1) { allSales = sales; dataSource = 'live' }
     if (budgetDocs.length > 0) _monthlyTargets = budgetDocs[0].targets || null
+    allJobs = jobs
+    allWalkIns = walkins
+    allTestDrives = testdrives
+    allAppointments = appts
   } catch {}
 
   function renderPage() {
@@ -125,6 +135,11 @@ export default async function DailyReportPage(container) {
 
     const maxRev = Math.max(...weekData.map(d => d.revenue), 1)
     const salePct = Math.round(dayUnits / dayTarget * 100)
+
+    const dayJobs = allJobs.filter(j => (j.createdAt || '').slice(0, 10) === viewDate)
+    const dayWalkIns = allWalkIns.filter(w => (w.visitTime || '').slice(0, 10) === viewDate)
+    const dayTestDrives = allTestDrives.filter(t => (t.date || '').slice(0, 10) === viewDate)
+    const dayAppointments = allAppointments.filter(a => (a.date || '').slice(0, 10) === viewDate)
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -165,7 +180,7 @@ export default async function DailyReportPage(container) {
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('🚗 ขายได้', dayUnits + '/' + dayTarget + ' คัน', salePct >= 80 ? 'success' : salePct >= 50 ? 'warning' : 'danger')}
           ${kpi('💰 รายได้วันนี้', formatCurrency(dayRevenue), 'primary')}
-          ${kpi('🚶 Walk-In', '18 คน', 'secondary')}
+          ${kpi('🚶 Walk-In', dayWalkIns.length + ' คน', 'secondary')}
           ${kpi('📅 คันเดือนนี้', monthUnits + ' คัน', 'accent')}
         </div>
 
@@ -192,9 +207,9 @@ export default async function DailyReportPage(container) {
             ${row('ยอดขาย', dayUnits + ' คัน')}
             ${row('รายได้', formatCurrency(dayRevenue))}
             ${row('Avg Deal', dayUnits > 0 ? formatCurrency(Math.round(dayRevenue / dayUnits)) : '—')}
-            ${row('Test Drive', '4 คัน')}
-            ${row('นัดหมาย', '8 รายการ')}
-            ${row('Service', DEMO_SERVICE.length + ' งาน')}
+            ${row('Test Drive', dayTestDrives.length + ' คัน')}
+            ${row('นัดหมาย', dayAppointments.length + ' รายการ')}
+            ${row('Service', dayJobs.length + ' งาน')}
           </div>
         </div>
 
@@ -222,16 +237,19 @@ export default async function DailyReportPage(container) {
           <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:0.8rem;font-weight:700;color:var(--text-muted)">🔧 งานบริการวันนี้</div>
           <table style="width:100%;border-collapse:collapse">
             <tbody>
-              ${DEMO_SERVICE.map(j => `
+              ${dayJobs.length ? dayJobs.map(j => {
+                const isDone = ['done', 'delivered'].includes(j.status)
+                return `
                 <tr style="border-bottom:1px solid var(--border);font-size:0.82rem">
-                  <td style="padding:8px 14px">${j.plate}</td>
-                  <td style="padding:8px 10px;color:var(--text-muted)">${j.model}</td>
-                  <td style="padding:8px 10px">${j.service}</td>
-                  <td style="padding:8px 14px;text-align:right;font-weight:700;color:var(--success)">${formatCurrency(j.revenue)}</td>
+                  <td style="padding:8px 14px">${escHtml(j.plate || '-')}</td>
+                  <td style="padding:8px 10px;color:var(--text-muted)">${escHtml(`${j.brand || ''} ${j.model || ''}`.trim() || '-')}</td>
+                  <td style="padding:8px 10px">${escHtml(j.desc || '-')}</td>
+                  <td style="padding:8px 14px;text-align:right;font-weight:700;color:var(--success)">${formatCurrency(j.labor || 0)}</td>
                   <td style="padding:8px 14px;text-align:right">
-                    <span class="badge badge-${j.status === 'done' ? 'success' : 'warning'}" style="font-size:0.6rem">${j.status === 'done' ? 'เสร็จ' : 'กำลังซ่อม'}</span>
+                    <span class="badge badge-${isDone ? 'success' : 'warning'}" style="font-size:0.6rem">${isDone ? 'เสร็จ' : 'กำลังซ่อม'}</span>
                   </td>
-                </tr>`).join('')}
+                </tr>`
+              }).join('') : `<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--text-muted);font-size:0.8rem">ไม่มีงานบริการวันนี้</td></tr>`}
             </tbody>
           </table>
         </div>

@@ -106,18 +106,23 @@ export default async function DocumentTemplatesPage(container) {
     document.getElementById('add-tpl-btn')?.addEventListener('click', openAddForm)
   }
 
+  // เดิมปุ่ม "สร้าง PDF" toast ว่า "กำลังดาวน์โหลด PDF..." แต่โค้ดจริงมีแค่ +1 usage counter — ไม่มีการ
+  // สร้าง/ดาวน์โหลด PDF ใดๆเกิดขึ้นจริง (การสร้าง PDF จริงเป็นงานแยกที่ยังไม่มีในระบบนี้) แก้ข้อความให้ตรง
+  // กับความจริง: นี่คือการบันทึก "การใช้งาน template" เท่านั้น
   function openUseModal(t) {
     openModal({
-      title: '📄 สร้างเอกสาร: ' + esc(t.name),
+      title: '📄 บันทึกการใช้งาน Template: ' + esc(t.name),
       size: 'md',
-      body: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      body: `
+        <div style="font-size:0.74rem;color:var(--warning);margin-bottom:10px">⚠️ ยังไม่รองรับการสร้าง/ดาวน์โหลด PDF จริงจากหน้านี้ — การกดยืนยันจะบันทึกแค่ตัวนับการใช้งาน Template เท่านั้น (ไปสร้างเอกสารจริงได้ที่ Document Studio)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         ${t.fields.map((f, i) => `<div class="input-group"><label class="input-label">${f}</label><input class="input" id="doc-f-${i}"></div>`).join('')}
       </div>`,
-      confirmText: '📄 สร้าง PDF',
+      confirmText: '✅ บันทึกการใช้งาน',
       async onConfirm() {
         try {
           await updateDocData('document_templates', t.id, { usage: t.usage + 1, lastUsed: new Date().toISOString() })
-          showToast('✅ สร้างเอกสารแล้ว — กำลังดาวน์โหลด PDF...', 'success')
+          showToast('✅ บันทึกการใช้งาน Template แล้ว (ยังไม่มี PDF ให้ดาวน์โหลดจริง)', 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }

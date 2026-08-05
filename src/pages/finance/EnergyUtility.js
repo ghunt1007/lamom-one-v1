@@ -6,7 +6,10 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
-const MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.']
+// เดิมมีแค่ ม.ค.-มิ.ย. (6 เดือน) ตายตัว — ตั้งแต่เดือน ก.ค. เป็นต้นไปไม่มีทางบันทึกมิเตอร์ได้เลย ขยายให้ครบ 12
+// เดือนของปี (schema เดิมเก็บแค่ label เดือนไทย ไม่มีปีกำกับ จึงยังไม่แก้ปัญหาข้ามปีที่ label ชนกัน — ไม่อยู่ใน
+// ขอบเขตของ finding นี้ ซึ่งเป็นเรื่อง "บันทึกไม่ได้เลยหลัง มิ.ย." เท่านั้น)
+const MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 
 const ZONES = ['showroom','service','office','parking']
 const ZONE_LABELS = { showroom:'โชว์รูม', service:'ศูนย์บริการ', office:'สำนักงาน', parking:'ลานจอด' }
@@ -17,7 +20,7 @@ export default async function EnergyUtilityPage(container) {
   seedDemoData()
 
   let READINGS = []
-  let selMonth = 'มิ.ย.'
+  let selMonth = MONTHS[new Date().getMonth()]
   let loading = true
 
   async function loadData() {

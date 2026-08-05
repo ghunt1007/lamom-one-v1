@@ -105,10 +105,21 @@ export default async function VehicleReservationPage(container) {
     `
 
     container.querySelectorAll('.sf-btn').forEach(b => b.addEventListener('click', () => { statusFilter = b.dataset.s; renderPage() }))
-    container.querySelectorAll('.deposit-btn').forEach(b => b.addEventListener('click', async () => {
+    container.querySelectorAll('.deposit-btn').forEach(b => b.addEventListener('click', () => {
       const r = reservations.find(x=>x.id===b.dataset.id); if (!r) return
-      try { await updateDocData('vehicle_reservations', r.id, { status: 'deposit', deposit: 10000 }); showToast('💰 บันทึกมัดจำแล้ว','warning'); await loadData() }
-      catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      // เดิมกดปุ่มนี้แล้ว hardcode มัดจำ ฿10,000 ทุกครั้งไม่ว่าลูกค้าวางจริงเท่าไหร่ — แก้ให้ถามจำนวนจริง
+      openModal({
+        title: '💰 รับมัดจำ — ' + escHtml(r.customer),
+        size: 'sm',
+        body: `<div class="input-group"><label class="input-label">จำนวนเงินมัดจำ (บาท) *</label><input class="input" type="number" id="dep-amount" value="10000" min="1"></div>`,
+        confirmText: '💰 บันทึกมัดจำ',
+        async onConfirm() {
+          const amount = parseInt(document.getElementById('dep-amount')?.value) || 0
+          if (!amount) { showToast('❗ กรุณาระบุจำนวนเงินมัดจำ', 'error'); return false }
+          try { await updateDocData('vehicle_reservations', r.id, { status: 'deposit', deposit: amount }); showToast('💰 บันทึกมัดจำแล้ว','warning'); await loadData() }
+          catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+        }
+      })
     }))
     container.querySelectorAll('.confirm-btn').forEach(b => b.addEventListener('click', async () => {
       const r = reservations.find(x=>x.id===b.dataset.id); if (!r) return

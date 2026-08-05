@@ -122,12 +122,20 @@ export default async function BillingRunPage(container) {
       if (!ok) return
       try {
         await updateDocData('billing_runs', r.id, { status: 'collected', collectedDate: today() })
-        for (const invId of (r.invoiceIds || [])) {
-          await updateDocData('invoices', invId, { status: 'paid', paidDate: today() })
-        }
+      } catch (e) { showToast('บันทึกรอบวางบิลไม่สำเร็จ — ยังไม่เก็บเงิน', 'error'); return }
+      // เดิมวนลูป updateDocData ต่อใบแจ้งหนี้แบบไม่มี atomicity — ถ้าพังกลางทางจะเหลือสถานะไม่สอดคล้องกันโดย
+      // เงียบๆ (บิลรวมบอกว่า "เก็บเงินแล้ว" แต่บางใบแจ้งหนี้ยังเป็น unpaid) ไม่มีทางรู้ว่าใบไหนพลาด แก้ให้ใช้
+      // Promise.allSettled แล้วบอกผู้ใช้ตรงๆว่าใบไหนอัปเดตไม่สำเร็จ เพื่อให้ไปแก้ไขเองได้
+      const invIds = r.invoiceIds || []
+      const results = await Promise.allSettled(invIds.map(invId => updateDocData('invoices', invId, { status: 'paid', paidDate: today() })))
+      const failedIds = invIds.filter((_, i) => results[i].status === 'rejected')
+      if (failedIds.length) {
+        const failedNos = invoices.filter(i => failedIds.includes(i.id)).map(i => i.no || i.id)
+        showToast(`⚠️ บันทึกเก็บเงิน ${r.runNo} แล้ว แต่มี ${failedIds.length} ใบแจ้งหนี้อัปเดตสถานะไม่สำเร็จ: ${failedNos.join(', ')} — กรุณาแก้ไขด้วยตนเอง`, 'warning')
+      } else {
         showToast(`✅ บันทึกเก็บเงิน ${r.runNo} แล้ว`, 'success')
-        await loadData()
-      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      }
+      await loadData()
     }))
   }
 

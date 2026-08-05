@@ -165,14 +165,26 @@ export default async function ChallengesPage(container) {
       async onConfirm() {
         const name = document.getElementById('ch-name')?.value?.trim()
         if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return false }
+        // (แก้ไข) เดิม participants ใส่ชื่อปลอม 3 คนตายตัวทุกครั้ง ทำให้ปุ่ม "🔄 ซิงค์จากยอดขายจริง" ที่
+        // จับคู่ด้วยชื่อไม่เจอใครจริงเลย (ชื่อไม่ตรงกับพนักงานจริง) — ตอนนี้ดึงรายชื่อพนักงานจริงจาก collection
+        // 'staff' (ที่ยังทำงานอยู่) มาเริ่มต้นแทน ถ้าดึงไม่ได้/ไม่มีพนักงานจริงในระบบ ให้เริ่มเป็นลิสต์เปล่า
+        // แทนการใส่ชื่อปลอม
+        let participants = []
+        try {
+          const staff = await listDocs('staff', [], 'firstName', 'asc', 200)
+          participants = staff
+            .filter(s => !s.deleted && s.status !== 'inactive' && s.status !== 'resigned')
+            .map(s => ({ name: `${s.firstName || ''} ${s.lastName || ''}`.trim(), progress: 0 }))
+            .filter(p => p.name)
+        } catch {}
         await createDoc('gamification_challenges', {
           name, type: document.getElementById('ch-type')?.value || 'sales',
           reward: document.getElementById('ch-reward')?.value || '🏆 รางวัล',
           target: parseInt(document.getElementById('ch-target')?.value) || 5,
-          participants: [ {name:'วิชัย ยอดขาย',progress:0}, {name:'สุดา มาดี',progress:0}, {name:'ธนา เก่ง',progress:0} ],
+          participants,
           endDate: document.getElementById('ch-end')?.value || addDays(7), status: 'active',
         })
-        showToast('🎯 สร้าง Challenge แล้ว!', 'success'); await loadData()
+        showToast('🎯 สร้าง Challenge แล้ว!' + (participants.length ? '' : ' (ยังไม่มีผู้เข้าร่วม — ยังไม่พบพนักงานจริงในระบบ)'), 'success'); await loadData()
       }
     })
   }

@@ -1,6 +1,6 @@
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, softDelete, seedDemoData } from '../../core/db.js'
 
 // ป้องกัน XSS — เนื้อหา Post เป็น textarea ที่ผู้ใช้พิมพ์ได้อิสระ ไม่จำกัด HTML ต้อง escape ก่อนแสดงผลเสมอ
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
@@ -251,13 +251,6 @@ export default async function SocialHubPage(container) {
             <button class="btn btn-sm btn-primary use-template-btn" data-id="${t.id}" style="width:100%">✍️ ใช้ Template นี้</button>
           </div>
         `).join('')}
-        <!-- Add template -->
-        <div class="card" style="padding:16px;display:flex;align-items:center;justify-content:center;min-height:180px;border:2px dashed var(--border);background:transparent;cursor:pointer" id="add-template-btn">
-          <div style="text-align:center;color:var(--text-muted)">
-            <div style="font-size:2rem;margin-bottom:6px">➕</div>
-            <div style="font-size:0.82rem">เพิ่ม Template ใหม่</div>
-          </div>
-        </div>
       </div>
     `
   }
@@ -388,7 +381,19 @@ export default async function SocialHubPage(container) {
         ` : ''}
         ${p.scheduledAt ? `<div style="font-size:0.8rem;color:var(--text-muted)">📅 กำหนดเผยแพร่: ${p.scheduledAt}</div>` : ''}
       </div>`,
-      footer: `${p.status !== 'published' ? `<button class="btn btn-danger" onclick="event.stopPropagation()">🗑 ลบ</button>` : ''}`
+      footer: `${p.status !== 'published' ? `<button class="btn btn-danger" id="post-del-btn">🗑 ลบ</button>` : ''}`
+    })
+    document.getElementById('post-del-btn')?.addEventListener('click', async (e) => {
+      e.stopPropagation()
+      const ok = await confirmDialog({ title: '🗑 ลบ Post', message: 'ลบ Post นี้ออกจากระบบ?', confirmText: 'ลบ', danger: true })
+      if (!ok) return
+      try {
+        await softDelete('social_posts', p.id)
+        document.querySelector('.modal-overlay')?.remove()
+        showToast('🗑 ลบแล้ว', 'success')
+        if (container.__routerGen !== myGen) return
+        await loadData()
+      } catch (err) { showToast('ลบไม่สำเร็จ', 'error') }
     })
   }
 

@@ -181,8 +181,6 @@ export default async function LeaderboardPage(container) {
           ${kpi('⭐ คะแนนรวม', p.points.toLocaleString(), 'primary')}
           ${kpi('📅 เดือนนี้', p.monthPoints.toLocaleString(), 'success')}
           ${kpi('🗓 ปีนี้', p.yearPoints.toLocaleString(), 'success')}
-          ${kpi('🔥 Streak', p.streak + ' วัน', 'warning')}
-          ${kpi('🏅 Badges', p.badges, 'secondary')}
           ${kpi('🚗 ยอดขาย', p.salesUnits + ' คัน', 'primary')}
           ${kpi('💰 รายได้', formatCurrency(p.revenue), 'success')}
         </div>

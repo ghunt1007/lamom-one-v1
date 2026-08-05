@@ -3,6 +3,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { getSalesStaff } from '../../data/masterData.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -22,7 +23,11 @@ const APPT_PURPOSE = [
   'รับรถ (Delivery)', 'พูดคุยไฟแนนซ์', 'อื่นๆ',
 ]
 
-const SALESPERSONS = ['วิชาญ มีโชค', 'อรนุช สายใจ', 'ยังไม่ระบุ']
+// เดิม hardcode ชื่อปลอม 2 คน — เปลี่ยนใช้ getSalesStaff() จริงเหมือน Bookings.js/ActionPlan.js
+function salespersonOptions() {
+  const staff = getSalesStaff()
+  return [...(staff.length ? staff : ['อรนุช เซลส์ดี', 'วิชัย ขายเก่ง']), 'ยังไม่ระบุ']
+}
 
 export default async function ShowroomAppointmentPage(container) {
   const myGen = container.__routerGen
@@ -104,7 +109,7 @@ export default async function ShowroomAppointmentPage(container) {
           <div style="display:flex;gap:4px;margin-left:auto;flex-wrap:wrap">
             <select class="input" id="sales-sel" style="width:150px">
               <option value="all">ทุกเซลส์</option>
-              ${SALESPERSONS.map(s => `<option value="${s}" ${salesFilter===s?'selected':''}>${s}</option>`).join('')}
+              ${salespersonOptions().map(s => `<option value="${s}" ${salesFilter===s?'selected':''}>${s}</option>`).join('')}
             </select>
             <select class="input" id="status-sel" style="width:130px">
               <option value="all">ทุกสถานะ</option>
@@ -240,7 +245,7 @@ export default async function ShowroomAppointmentPage(container) {
         <div class="grid-2">
           <div class="input-group"><label class="input-label">เซลส์ผู้ดูแล</label>
             <select class="input" id="sa-sales">
-              ${SALESPERSONS.map(s => `<option value="${s}" ${appt?.salesperson===s?'selected':''}>${s}</option>`).join('')}
+              ${salespersonOptions().map(s => `<option value="${s}" ${appt?.salesperson===s?'selected':''}>${s}</option>`).join('')}
             </select>
           </div>
           <div class="input-group"><label class="input-label">ช่องทางที่มา</label>

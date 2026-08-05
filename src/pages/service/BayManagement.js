@@ -4,7 +4,7 @@
  */
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { watchDocs, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -23,20 +23,24 @@ export default async function BayManagementPage(container) {
 
   let BAYS = []
   let QUEUE = []
+  let baysReady = false, queueReady = false
   let loading = true
 
-  async function loadData() {
-    loading = true
-    try {
-      const [bays, queue] = await Promise.all([
-        listDocs('service_bays', [], 'id', 'asc', 200),
-        listDocs('service_bay_queue', [], 'job', 'asc', 200),
-      ])
-      BAYS = bays; QUEUE = queue
-    } catch (e) { BAYS = []; QUEUE = [] }
-    loading = false
-    if (container.__routerGen === myGen) render()
-  }
+  // เดิมใช้ listDocs (โหลดครั้งเดียว) ทั้งที่หน้านี้เป็นหน้าที่ช่างหลายคนเปิดดูพร้อมกันจากหลายเครื่องเพื่อดูว่า
+  // ช่องไหนว่าง — ถ้าช่างคนหนึ่งอัปเดตสถานะช่อง/จ่ายงานจากเครื่องตัวเอง เครื่องอื่นจะไม่เห็นการเปลี่ยนแปลงเลย
+  // จนกว่าจะมีคนไปกดอะไรสักอย่างให้ re-render เปลี่ยนเป็น watchDocs ให้ทุกเครื่องเห็นสถานะช่องซ่อมสดตรงกัน
+  const unsubBays = watchDocs('service_bays', [], 'id', 'asc', 200, rows => {
+    if (container.__routerGen !== myGen) { unsubBays(); return }
+    BAYS = rows; baysReady = true
+    loading = !(baysReady && queueReady)
+    render()
+  })
+  const unsubQueue = watchDocs('service_bay_queue', [], 'job', 'asc', 200, rows => {
+    if (container.__routerGen !== myGen) { unsubQueue(); return }
+    QUEUE = rows; queueReady = true
+    loading = !(baysReady && queueReady)
+    render()
+  })
 
   function render() {
     if (loading) {
@@ -136,7 +140,7 @@ export default async function BayManagementPage(container) {
         try {
           await updateDocData('service_bays', b.id, patch)
           showToast(`อัปเดตช่อง ${b.id} → ${STATUS[ns].label}`, 'success')
-          await loadData()
+          // ไม่ต้องเรียก reload เอง — watchDocs ด้านบนจะ push ข้อมูลใหม่ + render() ให้อัตโนมัติทันทีที่ Firestore อัปเดต
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
@@ -171,7 +175,7 @@ export default async function BayManagementPage(container) {
           await updateDocData('service_bays', b.id, { status: 'busy', job: q.job, car: q.car, tech, etaMin: 60 })
           await softDelete('service_bay_queue', q.id)
           showToast(`จ่าย ${q.job} เข้าช่อง ${bid} (${tech}) แล้ว`, 'success')
-          await loadData()
+          // ไม่ต้องเรียก reload เอง — watchDocs ด้านบนจะ push ข้อมูลใหม่ + render() ให้อัตโนมัติทันทีที่ Firestore อัปเดต
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
@@ -184,5 +188,7 @@ export default async function BayManagementPage(container) {
     </div>`
   }
 
-  await loadData()
+  render() // แสดง skeleton "กำลังโหลด..." ทันทีระหว่างรอ snapshot แรกจาก watchDocs (bays + queue)
+
+  return function cleanupBayManagement() { unsubBays(); unsubQueue() }
 }

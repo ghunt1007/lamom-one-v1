@@ -87,7 +87,11 @@ export default async function ReferralQrPage(container) {
             </div>
 
             <div class="card" style="padding:14px">
-              <div style="font-size:0.76rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">📊 สถิติ</div>
+              <div style="font-size:0.76rem;font-weight:700;color:var(--text-muted);margin-bottom:4px">📊 สถิติ</div>
+              <!-- (v1.0.xxx) clicks/leads ไม่มีจุดไหนในระบบเขียนอัปเดตจริงเลย (ไม่มี public landing route
+              ที่ /ref/:code ให้ track การสแกน) — ต้องบันทึกมือ/นับจากภายนอกเท่านั้น บอกตรงๆไว้กันเข้าใจผิด
+              ว่าเป็นตัวเลข tracking สด — sales/commission อัปเดตได้จริงตอนจ่าย Commission ด้านล่าง -->
+              <div style="font-size:0.66rem;color:var(--text-muted);margin-bottom:10px">👆 Clicks/🧲 Leads ต้องนับจากการสแกนจริงภายนอกระบบ (ยังไม่มีหน้า Landing ที่ติดตามการสแกนอัตโนมัติ) — กรอกอัปเดตเองเมื่อทราบตัวเลขจริง</div>
               <div style="display:flex;flex-direction:column;gap:6px;font-size:0.78rem">
                 ${[['👆 Clicks',sel.clicks],['🧲 Leads',sel.leads],['🚗 ขายได้',sel.sales+' คัน'],['💰 Commission',formatCurrency(sel.commission)],['✅ จ่ายแล้ว',formatCurrency(sel.paid)],['⏳ ค้างจ่าย',formatCurrency(sel.commission-sel.paid)]].map(([k,v])=>`
                   <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border)">

@@ -1,4 +1,10 @@
 import { watchDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+// เดิมเลขที่คำสั่งซื้อ (orderNo) สร้างจาก counter ในหน่วยความจำ (orderCounter++) — ถ้ามี 2 คนสร้างคำสั่งซื้อ
+// พร้อมกัน (เช่น เปิด 2 แท็บ/2 เครื่อง) จะได้เลขซ้ำกันได้ (race condition) เปลี่ยนมาใช้ timestamp+random
+// (ตรงกับรูปแบบที่ ColorMatrix.js ในโฟลเดอร์เดียวกันใช้อยู่แล้วสำหรับ orderNo) กัน id ชนกันจริง
+function genOrderNo() {
+  return 'ORD-' + new Date().getFullYear() + '-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 5).toUpperCase()
+}
 import { showToast } from '../../core/store.js'
 import { formatDate, formatCurrency } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
@@ -25,8 +31,6 @@ const DEMO_ORDERS = [
   { id:'ord3', orderNo:'ORD-2025-003', brand:'DEEPAL', model:'S7', variant:'Pro', color:'ดำ', qty:1, unitCost:1320000, status:'arrived', expectedDate:'2025-04-01', supplier:'Changan Auto Thailand', notes:'รับแล้ว — ส่ง PDI', createdAt:'2025-02-20' },
   { id:'ord4', orderNo:'ORD-2025-004', brand:'NETA', model:'V II', variant:'400', color:'ขาว', qty:5, unitCost:680000, status:'production', expectedDate:'2025-06-01', supplier:'NETA Thailand', notes:'', createdAt:'2025-04-01' },
 ]
-
-let orderCounter = 5
 
 export default async function VehicleOrdersPage(container) {
   const myGen = container.__routerGen
@@ -180,7 +184,24 @@ export default async function VehicleOrdersPage(container) {
         await updateDocData('vehicle_orders', o.id, { status: nextSt })
         o.status = nextSt
         if (nextSt === 'arrived') {
-          showToast('📦 รถถึงแล้ว! เพิ่มเข้าสต็อกและส่ง PDI', 'success')
+          // เดิมกดปุ่มนี้แค่ toast ว่า "เพิ่มเข้าสต็อกแล้ว" แล้วเด้งไปหน้าสต็อก แต่ไม่เคยสร้างเอกสารรถจริง
+          // ใน 'vehicles' เลย ทำให้รถที่สั่งมา "ถึงแล้ว" ไม่โผล่ในสต็อกจริงจนกว่าพนักงานจะไปเพิ่มเองซ้ำ —
+          // แก้ให้สร้างรถจริงเข้า 'vehicles' ตามจำนวน qty ที่สั่ง (สถานะ transit รอ PDI/กรอก VIN จริงต่อ)
+          const qty = o.qty || 1
+          let created = 0
+          for (let i = 0; i < qty; i++) {
+            try {
+              await createDoc('vehicles', {
+                brand: o.brand || '', model: o.model || '', variant: o.variant || '',
+                color: o.color || '', vin: '', year: new Date().getFullYear(),
+                price: 0, cost: o.unitCost || 0, status: 'transit',
+                mileage: 0, location: 'โชว์รูมหลัก', arrivedAt: new Date().toISOString().slice(0,10),
+                notes: `รับจากคำสั่งซื้อ ${o.orderNo}`,
+              })
+              created++
+            } catch (e) {}
+          }
+          showToast(`📦 รถถึงแล้ว! สร้างรถเข้าสต็อกจริงแล้ว ${created}/${qty} คัน — ไปกรอก VIN/ราคาขาย/ส่ง PDI ต่อที่หน้าสต็อก`, 'success')
           document.querySelector('.modal-overlay')?.remove()
           setTimeout(() => navigate('/dms/stock'), 600)
         } else {
@@ -201,11 +222,12 @@ export default async function VehicleOrdersPage(container) {
   function openForm(existing = null) {
     const isEdit = !!existing
     const today = new Date().toISOString().slice(0, 10)
+    const newOrderNo = genOrderNo()
     const { el, close } = openModal({
       title: isEdit ? '✏️ แก้ไขคำสั่งซื้อ' : '➕ สั่งรถใหม่', size: 'lg',
       body: `
         <div style="display:flex;flex-direction:column;gap:12px">
-          ${isEdit ? '' : `<div class="input-group"><label class="input-label">เลขที่คำสั่ง</label><input class="input" id="of-no" value="ORD-2025-${String(orderCounter).padStart(3,'0')}" readonly style="color:var(--text-muted)"></div>`}
+          ${isEdit ? '' : `<div class="input-group"><label class="input-label">เลขที่คำสั่ง</label><input class="input" id="of-no" value="${newOrderNo}" readonly style="color:var(--text-muted)"></div>`}
           <div class="grid-2">
             <div class="input-group"><label class="input-label">ยี่ห้อ *</label><input class="input" id="of-brand" value="${escHtml(existing?.brand||'')}"></div>
             <div class="input-group"><label class="input-label">รุ่น *</label><input class="input" id="of-model" value="${escHtml(existing?.model||'')}"><span class="input-error" id="of-model-e"></span></div>
@@ -238,7 +260,7 @@ export default async function VehicleOrdersPage(container) {
       if (!model) { el.querySelector('#of-model-e').textContent = 'กรุณาระบุ'; return }
       const btn = el.querySelector('#ofs'); btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
       const data = {
-        orderNo: isEdit ? existing.orderNo : el.querySelector('#of-no')?.value || `ORD-2025-${String(orderCounter).padStart(3,'0')}`,
+        orderNo: isEdit ? existing.orderNo : (el.querySelector('#of-no')?.value || newOrderNo),
         brand: el.querySelector('#of-brand').value.trim(),
         model, variant: el.querySelector('#of-variant').value.trim(),
         color: el.querySelector('#of-color').value.trim(),
@@ -252,7 +274,7 @@ export default async function VehicleOrdersPage(container) {
       }
       try {
         if (isEdit) { await updateDocData('vehicle_orders', existing.id, data); Object.assign(existing, data) }
-        else { const id = await createDoc('vehicle_orders', data); orders.unshift({ ...data, id }); orderCounter++ }
+        else { const id = await createDoc('vehicle_orders', data); orders.unshift({ ...data, id }) }
         showToast(isEdit ? 'แก้ไขแล้ว' : '✅ สั่งรถแล้ว', 'success')
         close(); updateStats(); applyFilter()
       } catch { showToast('บันทึกไม่สำเร็จ','error') }

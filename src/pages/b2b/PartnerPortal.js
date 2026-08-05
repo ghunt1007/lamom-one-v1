@@ -101,7 +101,7 @@ export default async function PartnerPortalPage(container) {
               <div style="margin-bottom:10px">
                 ${row('ค่าคอม', p.commissionRate + '%')}
                 ${p.revenue > 0 ? row('Revenue', formatCurrency(p.revenue)) : ''}
-                ${row('ติดต่อ', p.contact)}
+                ${row('ติดต่อ', esc(p.contact))}
               </div>
 
               <div style="display:flex;gap:6px">
@@ -141,9 +141,9 @@ export default async function PartnerPortalPage(container) {
           <span class="badge badge-${pt?.color}">${pt?.label}</span>
           <span class="badge badge-${ps?.color}">${ps?.label}</span>
         </div>
-        ${row('ผู้ติดต่อ', p.contact)}
-        ${row('Email', p.email)}
-        ${row('โทรศัพท์', p.phone)}
+        ${row('ผู้ติดต่อ', esc(p.contact))}
+        ${row('Email', esc(p.email))}
+        ${row('โทรศัพท์', esc(p.phone))}
         ${row('ค่าคอมมิชชั่น', p.commissionRate + '%')}
         ${row('Leads ทั้งหมด', p.totalLeads + ' ราย')}
         ${row('ปิดดีล', p.closedDeals + ' ราย')}

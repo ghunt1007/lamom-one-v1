@@ -52,7 +52,10 @@ export default async function ExecutiveSummaryPage(container) {
       const currSales = sales.filter(s => (s.bookingDate||'').startsWith(thisMonth))
       const prevSales = sales.filter(s => (s.bookingDate||'').startsWith(lastMonth))
       const totalRevenue = currSales.reduce((a, s) => a + (s.salePrice || 0), 0)
-      const grossProfit = Math.round(totalRevenue * 0.12)
+      // (v1.0.xxx) เดิมประมาณ Gross Profit ที่ 12% ของรายได้เสมอ ทั้งที่ getSalesData() มี field cost จริง
+      // ต่อใบจอง (b.cost) — เปลี่ยนมาคำนวณจาก salePrice - cost จริงต่อคัน เหมือน pattern เดียวกับ
+      // CashFlow.js/VatReport.js (ใช้ cost จริงถ้ามี ไม่มีค่อย fallback ประมาณ 82% ของราคาขาย)
+      const grossProfit = currSales.reduce((a, s) => a + ((s.salePrice || 0) - (s.cost || Math.round((s.salePrice || 0) * 0.82))), 0)
       const topSales = coms.length ? [...coms].sort((a,b)=>b.carsSold-a.carsSold)[0] : null
       const thaiMonths = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
       summary.month = `${thaiMonths[now.getMonth()+1]} ${now.getFullYear()+543}`
@@ -70,6 +73,12 @@ export default async function ExecutiveSummaryPage(container) {
     const s = summary
     const salesPct = Math.round(s.sales.actual / s.sales.target * 100)
     const growth = Math.round((s.sales.actual - s.sales.lastMonth) / s.sales.lastMonth * 100)
+    // (v1.0.xxx) HIGHLIGHTS/CONCERNS/DECISIONS_NEEDED และ service.jobs/csat, finance.netProfit/margin/ar,
+    // people.headcount/attendance/topTech ยังเป็นข้อความ/ตัวเลขปลอมตายตัว แม้ dataSource เป็น 'live' แล้วก็ตาม
+    // (เฉพาะ sales.actual/revenue/lastMonth, finance.grossProfit/cashflow, people.topSales คำนวณจากข้อมูลจริง
+    // ข้างบนแล้ว) — ต้องมี label กำกับแยกเฉพาะส่วนที่ยังปลอมอยู่ ไม่ให้ badge "● ข้อมูลจริง" ระดับหน้าคลุมเนื้อหา
+    // ที่ยังแต่งขึ้นเองแบบเงียบๆ
+    const demoNote = dataSource === 'live' ? ' <span style="font-weight:400;font-size:0.62rem;color:var(--text-muted)">(ตัวอย่าง — ยังไม่คำนวณจากข้อมูลจริง)</span>' : ''
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -88,14 +97,14 @@ export default async function ExecutiveSummaryPage(container) {
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('🚗 ยอดขาย', s.sales.actual + ' คัน (' + salesPct + '% เป้า)', 'success')}
           ${kpi('💰 รายได้รวม', formatCurrency(s.sales.revenue + s.service.revenue), 'primary')}
-          ${kpi('📊 กำไรสุทธิ', formatCurrency(s.finance.netProfit) + ' (' + s.finance.margin + '%)', 'success')}
+          ${kpi('📊 กำไรสุทธิ', formatCurrency(s.finance.netProfit) + ' (' + s.finance.margin + '%)', 'success', demoNote)}
           ${kpi('📈 MoM Growth', (growth>0?'+':'') + growth + '%', growth >= 0 ? 'success' : 'danger')}
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
           <!-- Highlights -->
           <div class="card" style="padding:14px">
-            <div style="font-size:0.8rem;font-weight:700;color:var(--success);margin-bottom:10px">✅ จุดเด่นเดือนนี้</div>
+            <div style="font-size:0.8rem;font-weight:700;color:var(--success);margin-bottom:10px">✅ จุดเด่นเดือนนี้${demoNote}</div>
             ${HIGHLIGHTS.map(h => `
               <div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:0.78rem">
                 <span>${h.icon}</span><span>${h.text}</span>
@@ -105,7 +114,7 @@ export default async function ExecutiveSummaryPage(container) {
 
           <!-- Concerns -->
           <div class="card" style="padding:14px">
-            <div style="font-size:0.8rem;font-weight:700;color:var(--danger);margin-bottom:10px">⚠️ จุดที่ต้องจับตา</div>
+            <div style="font-size:0.8rem;font-weight:700;color:var(--danger);margin-bottom:10px">⚠️ จุดที่ต้องจับตา${demoNote}</div>
             ${CONCERNS.map(c => `
               <div style="padding:6px 0;border-bottom:1px solid var(--border)">
                 <div style="display:flex;gap:8px;font-size:0.78rem"><span>${c.icon}</span><span>${c.text}</span></div>
@@ -117,7 +126,7 @@ export default async function ExecutiveSummaryPage(container) {
 
         <!-- Decisions needed -->
         <div class="card" style="padding:14px;margin-bottom:14px;border-left:3px solid var(--warning)">
-          <div style="font-size:0.8rem;font-weight:700;color:var(--warning);margin-bottom:10px">🖊 รอเจ้าของตัดสินใจ (${DECISIONS_NEEDED.length} เรื่อง)</div>
+          <div style="font-size:0.8rem;font-weight:700;color:var(--warning);margin-bottom:10px">🖊 รอเจ้าของตัดสินใจ (${DECISIONS_NEEDED.length} เรื่อง)${demoNote}</div>
           ${DECISIONS_NEEDED.map((d, i) => `
             <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
               <div>
@@ -132,7 +141,7 @@ export default async function ExecutiveSummaryPage(container) {
         <!-- Department snapshot -->
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
           <div class="card" style="padding:12px 14px">
-            <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">🔧 ศูนย์บริการ</div>
+            <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">🔧 ศูนย์บริการ${demoNote}</div>
             ${row('งาน', s.service.jobs + ' งาน')}
             ${row('รายได้', formatCurrency(s.service.revenue))}
             ${row('CSAT', '⭐ ' + s.service.csat)}
@@ -141,10 +150,10 @@ export default async function ExecutiveSummaryPage(container) {
             <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">💰 การเงิน</div>
             ${row('Gross Profit', formatCurrency(s.finance.grossProfit))}
             ${row('Cash Flow', formatCurrency(s.finance.cashflow))}
-            ${row('AR ค้าง', formatCurrency(s.finance.ar))}
+            ${row('AR ค้าง' + demoNote, formatCurrency(s.finance.ar))}
           </div>
           <div class="card" style="padding:12px 14px">
-            <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">👥 ทีมงาน</div>
+            <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">👥 ทีมงาน${demoNote}</div>
             ${row('พนักงาน', s.people.headcount + ' คน (เข้างาน ' + s.people.attendance + '%)')}
             ${row('🏆 Top Sales', s.people.topSales)}
             ${row('🏆 Top Tech', s.people.topTech)}
@@ -202,5 +211,5 @@ export default async function ExecutiveSummaryPage(container) {
   renderPage()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
+function kpi(t, v, c, note) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div>${note ? `<div style="margin-top:2px">${note}</div>` : ''}</div>` }
 function row(l, v) { return `<div style="display:flex;justify-content:space-between;font-size:0.73rem;padding:3px 0"><span style="color:var(--text-muted)">${l}</span><span style="font-weight:600">${v}</span></div>` }

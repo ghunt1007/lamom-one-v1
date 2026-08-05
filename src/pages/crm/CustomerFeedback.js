@@ -382,9 +382,33 @@ export default async function CustomerFeedbackPage(container) {
     })
   }
 
-  container.addEventListener('click', e => {
+  container.addEventListener('click', async e => {
     if (e.target.id === 'send-survey-btn') {
-      showToast('📤 ส่ง Survey ให้ลูกค้าแล้ว! (Demo)', 'success')
+      // (v1.0.xxx) เดิม toast "(Demo)" เฉยๆ ไม่ส่งจริงเลยไม่ว่าเลือกช่องทางไหน — ตอนนี้ SMS ส่งจริงผ่าน
+      // comms.js ไปยังเบอร์โทรลูกค้าจริงที่มีอยู่ในรายการ feedbacks ที่โหลดมา ส่วน LINE/Email ระบบนี้ยังไม่มี
+      // การส่งเจาะรายบุคคลจริง (LINE เชื่อมแบบ Broadcast ทั้งฐานเท่านั้น เหมือน CommInbox.js, และหน้านี้ไม่ได้
+      // เก็บอีเมลลูกค้าไว้เลย) จึงแจ้งตรงไปตรงมาแทนอ้างว่าส่งแล้ว
+      const channels = Array.from(container.querySelectorAll('.sv-channel:checked')).map(c => c.value)
+      if (!channels.length) { showToast('❗ กรุณาเลือกช่องทางอย่างน้อย 1 ช่องทาง', 'error'); return }
+      const msg = container.querySelector('#sv-msg')?.value?.trim() || ''
+      if (!msg) { showToast('❗ กรุณากรอกข้อความนำ', 'error'); return }
+      const phones = [...new Set(feedbacks.map(f => f.phone).filter(Boolean))]
+      const btn = e.target
+      btn.disabled = true
+      const results = []
+      try {
+        if (channels.includes('sms')) {
+          if (phones.length) {
+            try { await sendSms(phones, msg); results.push(`✅ ส่ง SMS จริงถึง ${phones.length} เบอร์`) }
+            catch (err) { results.push('❌ ส่ง SMS ไม่สำเร็จ: ' + err.message) }
+          } else {
+            results.push('⚠️ ไม่มีเบอร์โทรลูกค้าในรายการปัจจุบันให้ส่ง SMS')
+          }
+        }
+        if (channels.includes('line')) results.push('📝 LINE: ยังไม่มีระบบส่งเจาะรายบุคคล (เชื่อมแบบ Broadcast ทั้งฐานลูกค้าเท่านั้น) — กรุณาส่งเอง')
+        if (channels.includes('email')) results.push('📝 Email: หน้านี้ยังไม่มีการเก็บอีเมลลูกค้า — กรุณาส่งเอง')
+        showToast(results.join(' · '), results.some(r => r.startsWith('❌')) ? 'error' : 'success')
+      } finally { btn.disabled = false }
     }
   })
 

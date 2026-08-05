@@ -60,7 +60,10 @@ export default async function SalesForecastPage(container) {
 
   // Load real monthly sales from bookings
   try {
-    const sales = await getSalesData()
+    const [sales, customers] = await Promise.all([
+      getSalesData(),
+      listDocs('customers', [], 'createdAt', 'desc', 2000).catch(() => []),
+    ])
     if (container.__routerGen !== myGen) return
     const byMonth = {}
     sales.forEach(s => {
@@ -69,6 +72,14 @@ export default async function SalesForecastPage(container) {
       if (!byMonth[mo]) byMonth[mo] = { month: mo, units: 0, revenue: 0, leads: 0, conversion: 0 }
       byMonth[mo].units++
       byMonth[mo].revenue += s.salePrice || 0
+    })
+    // (v1.0.xxx) เดิม byMonth[mo].leads ไม่เคยถูกเพิ่มเลยทั้งไฟล์ ทำให้ตกไปใช้ fallback units*8 เสมอ แม้ label
+    // บอกว่าเป็น "● ข้อมูลจริงจากใบจอง" — ดึง Lead จริงจาก customers.createdAt รายเดือน (pattern เดียวกับที่
+    // AnalyticsDashboard.js ใช้ดึง Lead จริงจากคอลเลกชัน customers)
+    customers.forEach(c => {
+      const d = (c.createdAt || '').slice(0, 10)
+      const mo = parseInt(d.slice(5, 7), 10) - 1
+      if (mo >= 0 && mo < 12 && byMonth[mo]) byMonth[mo].leads++
     })
     const real = Object.values(byMonth).sort((a, b) => a.month - b.month)
     if (real.length >= 2) {

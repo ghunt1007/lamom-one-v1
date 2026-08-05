@@ -122,7 +122,7 @@ export default async function CustomerJourneyPage(container) {
         <!-- Touchpoints & Time analysis -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
           <div class="card" style="padding:16px">
-            <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">📍 Touchpoints</div>
+            <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">📍 Touchpoints <span style="font-size:0.62rem;font-weight:400;color:var(--text-muted)">(ตัวอย่าง — ยังไม่คำนวณจากข้อมูลจริง)</span></div>
             ${Object.entries(TOUCHPOINTS).map(([name, tp]) => {
               const maxCount = Math.max(...Object.values(TOUCHPOINTS).map(x => x.count))
               const pct = Math.round(tp.count / maxCount * 100)

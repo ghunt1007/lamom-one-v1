@@ -134,11 +134,19 @@ export default async function RescheduleAiPage(container) {
 
   async function runAiReschedule() {
     const waitlist = APPTS.filter(a => a.status==='waitlist')
-    const cancelled = [...APPTS.filter(a => a.status==='cancelled')]
+    const cancelledPool = [...APPTS.filter(a => a.status==='cancelled')]
     const updates = []
+    // เดิมจับคู่ด้วย Array.shift() ล้วนๆ (FIFO — ใครอยู่ Waitlist ก่อนได้ช่องที่ยกเลิกก่อนสุดโดยไม่สนอะไรเลย)
+    // ทั้งที่การันตีว่าเป็น "AI" — เปลี่ยนเป็นจับคู่ตามลำดับความเหมาะสมจริงจากข้อมูลที่มี: บริการตรงกัน+เบย์
+    // ตรงกันก่อน > บริการตรงกัน (ไม่ต้องรื้อ setup เบย์) > เบย์ตรงกัน (ไม่ต้องเปลี่ยนประเภทงาน) > FIFO เป็น fallback
+    // สุดท้ายถ้าไม่มีอะไรตรงกันเลย — ยังไม่มีข้อมูลช่าง (technician) ในสคีมานี้ ไม่งั้นจะรวมเป็นเกณฑ์ด้วย
     waitlist.forEach(w => {
-      const slot = cancelled.shift()
-      if (slot) {
+      let idx = cancelledPool.findIndex(c => c.service === w.service && c.bay === w.bay)
+      if (idx === -1) idx = cancelledPool.findIndex(c => c.service === w.service)
+      if (idx === -1) idx = cancelledPool.findIndex(c => c.bay === w.bay)
+      if (idx === -1 && cancelledPool.length) idx = 0
+      if (idx !== -1) {
+        const slot = cancelledPool.splice(idx, 1)[0]
         updates.push(updateDocData('reschedule_appointments', w.id, { date: slot.date, slot: slot.slot, bay: slot.bay, status: 'rescheduled', aiSuggested: true }))
       }
     })

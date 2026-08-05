@@ -29,6 +29,8 @@ function genKey() {
 export default async function ApiKeysPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
+  const myRole = getState('role') || getState('user')?.role || 'staff'
+  const canManage = API_KEYS_MANAGE_ROLES.includes(myRole)
 
   let keys = []
   let loading = true
@@ -57,9 +59,11 @@ export default async function ApiKeysPage(container) {
             <div class="page-subtitle">จัดการ Keys สำหรับ Integration ภายนอก</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-primary" id="create-key-btn">+ สร้าง Key ใหม่</button>
+            ${canManage ? '<button class="btn btn-primary" id="create-key-btn">+ สร้าง Key ใหม่</button>' : ''}
           </div>
         </div>
+
+        ${!canManage ? `<div class="card" style="padding:12px 14px;margin-bottom:14px;border-left:3px solid var(--warning);font-size:0.8rem">⚠️ เฉพาะ Owner/Admin เท่านั้นที่สร้าง/Revoke API Key ได้ในหน้านี้</div>` : ''}
 
         <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
           ${kpi('🔑 Keys ใช้งาน', active + '/' + keys.length, 'primary')}
@@ -97,7 +101,7 @@ export default async function ApiKeysPage(container) {
                   <td style="padding:8px 10px;font-size:0.72rem;color:var(--text-muted)">${timeAgo(k.lastUsed)}</td>
                   <td style="padding:8px 14px;text-align:right;white-space:nowrap">
                     ${k.active
-                      ? `<button class="btn btn-xs btn-danger revoke-btn" data-id="${k.id}">🚫 Revoke</button>`
+                      ? (canManage ? `<button class="btn btn-xs btn-danger revoke-btn" data-id="${k.id}">🚫 Revoke</button>` : '')
                       : `<span class="badge badge-secondary" style="font-size:0.6rem">Revoked</span>`
                     }
                   </td>
@@ -110,6 +114,7 @@ export default async function ApiKeysPage(container) {
     `
 
     container.querySelectorAll('.revoke-btn').forEach(b => b.addEventListener('click', async () => {
+      if (!canManage) return
       const k = keys.find(x => x.id === b.dataset.id)
       if (!k) return
       const ok = await confirmDialog({ title:`🚫 Revoke "${esc(k.name)}"?`, message:'Integration ที่ใช้ Key นี้จะหยุดทำงานทันที', confirmText:'Revoke', danger:true })
@@ -121,10 +126,11 @@ export default async function ApiKeysPage(container) {
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    document.getElementById('create-key-btn')?.addEventListener('click', openCreateForm)
+    document.getElementById('create-key-btn')?.addEventListener('click', () => { if (canManage) openCreateForm() })
   }
 
   function openCreateForm() {
+    if (!canManage) return
     openModal({
       title: '+ สร้าง API Key',
       size: 'sm',

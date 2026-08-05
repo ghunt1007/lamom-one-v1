@@ -5,7 +5,7 @@
 import { formatCurrency, formatDate, timeAgo, fullName } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { getSalesData, listDocs } from '../../core/db.js'
+import { getSalesData, listDocs, createDoc, updateDocData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -43,16 +43,21 @@ export default async function CustomerLifecyclePage(container) {
   let customers = []
   let stageFilter = 'all'
   let dataSource = 'demo'
+  // เก็บไว้แยกว่า c.id ไหนเป็น doc id จริงใน collection customers (มาจาก fromCustomers) กับไหนเป็น id
+  // สังเคราะห์ล้วน (orphanPurchases เช่น 'LV1' — ไม่มี doc customers จริงให้ผูก) เพื่อไม่ยิง updateDocData
+  // ไปที่ doc ที่ไม่มีจริง
+  let realCustomerIds = new Set()
 
   // Real data: purchase history from bookings (via getSalesData) joined against the unified
   // `customers` collection by name — gives prospect/first_buyer/repeat/champion/at_risk/churned
   // instead of the old hardcoded DEMO_CUSTOMERS array.
   try {
-    const [realCustomers, sales] = await Promise.all([
+    const [realCustomersRaw, sales] = await Promise.all([
       listDocs('customers', [], 'createdAt', 'desc', 500).catch(() => []),
       getSalesData().catch(() => []),
     ])
     if (container.__routerGen !== myGen) return
+    const realCustomers = realCustomersRaw.filter(c => !c.deleted)
 
     const byName = {}
     for (const s of sales) {
@@ -94,6 +99,7 @@ export default async function CustomerLifecyclePage(container) {
         return { id: `LV${i + 1}`, name, stage, purchases: stats.purchases, totalValue: stats.totalValue, lastContact: stats.lastDate, nextAction: stage === 'at_risk' ? 'โทรหาด่วน!' : 'ติดตาม', model: stats.model, referrals: 0 }
       })
 
+    realCustomerIds = new Set(realCustomers.map(c => c.id))
     customers = [...fromCustomers, ...orphanPurchases]
     dataSource = customers.length ? 'live' : 'demo'
     if (!customers.length) customers = DEMO_CUSTOMERS.map(c => ({ ...c }))
@@ -233,19 +239,39 @@ export default async function CustomerLifecyclePage(container) {
         </div>
       `
     })
-    document.getElementById('ap-save')?.addEventListener('click', () => {
+    document.getElementById('ap-save')?.addEventListener('click', async () => {
       const custId = document.getElementById('ap-cust')?.value
       const action = document.getElementById('ap-action')?.value.trim()
       if (!action) { showToast('⚠️ กรุณากรอก Action', 'warning'); return }
       const cust = customers.find(c => c.id === custId)
-      if (cust) {
-        cust.nextAction = action
-        cust.stage = document.getElementById('ap-stage')?.value || cust.stage
-        cust.lastContact = document.getElementById('ap-date')?.value || addDays(0)
+      const newStage = document.getElementById('ap-stage')?.value || cust?.stage
+      const dueDate = document.getElementById('ap-date')?.value || addDays(0)
+      const note = document.getElementById('ap-note')?.value || ''
+      const btn = document.getElementById('ap-save')
+      if (btn) btn.disabled = true
+      try {
+        // เดิมแค่แก้ตัวแปรใน memory (cust.nextAction/stage) ไม่เขียน Firestore เลย — refresh หน้าแล้วหายทันที
+        // ตอนนี้บันทึกจริงเป็น action_plans doc (schema เดียวกับ ActionPlan.js) และถ้าลูกค้าเป็น doc จริงใน
+        // customers ก็อัปเดต stage ของลูกค้าจริงด้วย
+        await createDoc('action_plans', {
+          title: action, type: 'ติดตามลูกค้า (Lifecycle)', custName: cust?.name || '',
+          dueDate, status: 'todo', priority: 'medium', note,
+        })
+        if (cust && realCustomerIds.has(cust.id)) {
+          await updateDocData('customers', cust.id, { stage: newStage, stageChangedAt: new Date().toISOString() })
+        }
+        if (cust) {
+          cust.nextAction = action
+          cust.stage = newStage
+          cust.lastContact = dueDate
+        }
+        document.querySelector('.modal-overlay')?.remove()
+        showToast('✅ บันทึก Action Plan สำหรับ ' + (cust?.name || '') + ' แล้ว', 'success')
+        renderPage()
+      } catch (e) {
+        showToast('บันทึกไม่สำเร็จ: ' + e.message, 'error')
+        if (btn) btn.disabled = false
       }
-      document.querySelector('.modal-overlay')?.remove()
-      showToast('✅ บันทึก Action Plan สำหรับ ' + (cust?.name || '') + ' แล้ว', 'success')
-      renderPage()
     })
   }
 
@@ -262,11 +288,19 @@ export default async function CustomerLifecyclePage(container) {
         </div>
         <div class="input-group"><label class="input-label">Action ต่อไป</label><input class="input" id="new-action" value="${escHtml(customer.nextAction)}"></div>
       </div>`,
-      onConfirm() {
-        customer.stage = document.getElementById('new-stage')?.value || customer.stage
-        customer.nextAction = document.getElementById('new-action')?.value || customer.nextAction
-        customer.lastContact = addDays(0)
-        showToast('✅ อัปเดต Stage แล้ว', 'success'); renderPage()
+      async onConfirm() {
+        const newStage = document.getElementById('new-stage')?.value || customer.stage
+        const newAction = document.getElementById('new-action')?.value || customer.nextAction
+        try {
+          // เดิมแค่แก้ตัวแปร customer ใน memory ไม่เขียน Firestore เลย — อัปเดตแล้ว refresh หน้าก็หายทันที
+          if (realCustomerIds.has(customer.id)) {
+            await updateDocData('customers', customer.id, { stage: newStage, stageChangedAt: new Date().toISOString() })
+          }
+          customer.stage = newStage
+          customer.nextAction = newAction
+          customer.lastContact = addDays(0)
+          showToast('✅ อัปเดต Stage แล้ว', 'success'); renderPage()
+        } catch (e) { showToast('อัปเดตไม่สำเร็จ: ' + e.message, 'error'); return false }
       }
     })
   }

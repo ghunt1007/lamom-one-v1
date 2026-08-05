@@ -6,6 +6,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { formatDate } from '../../utils/format.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { getVehicles } from '../../data/vehicleDatabase.js'
 
 function myName() {
   const me = getState('user') || {}
@@ -139,7 +140,7 @@ export default async function PriceNegotiationPage(container) {
         <div><label style="font-size:0.72rem;color:var(--text-muted)">ลูกค้า</label><input class="input" id="pn-cust" style="width:100%;margin-top:3px" placeholder="ชื่อลูกค้า..."></div>
         <div><label style="font-size:0.72rem;color:var(--text-muted)">รุ่นรถ</label>
           <select class="input" id="pn-model" style="width:100%;margin-top:3px">
-            <option>BYD Atto 3</option><option>BYD Seal AWD</option><option>BYD Dolphin</option><option>BYD Han</option><option>MG ZS EV</option>
+            ${[...new Set(getVehicles().map(v => `${v.brand} ${v.model}${v.variant ? ' ' + v.variant : ''}`.trim()))].map(m => `<option>${escHtml(m)}</option>`).join('')}
           </select></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           <div><label style="font-size:0.72rem;color:var(--text-muted)">ราคา List (บ.)</label><input class="input" id="pn-list" type="number" style="width:100%;margin-top:3px" placeholder="0"></div>

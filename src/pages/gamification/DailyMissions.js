@@ -12,9 +12,32 @@ const SPECIAL = [
   { id:'S3', title:'⚡ Speed Closer', xp:600, icon:'⚡', unlocked:false, desc:'ปิดดีลภายใน 24 ชม. หลัง Test Drive' },
 ]
 
-// หา level/streak คร่าวๆ จาก XP จริง — คงสูตร level เดิมไว้เพื่อความต่อเนื่องของ UI
+// หา level จาก XP จริง — คงสูตร level เดิมไว้เพื่อความต่อเนื่องของ UI
 function levelFromXp(xp) { return Math.max(1, Math.floor(xp / 600) + 1) }
 function xpNextFromLevel(level) { return level * 600 }
+
+// (แก้ไข) เดิม PLAYER.streak = PLAYER.streak || 1 มีบั๊ก falsy-zero (0 ก็ถูกดันเป็น 1 เสมอ) และไม่มีการนับ
+// วันติดต่อกันจริงเลย ค่าคงที่ตลอด — ตอนนี้คำนวณ streak จริงจาก gamification_events (ledger เดียวกับที่
+// awardGamePoints ใน core/db.js เขียนทุกครั้งที่มีกิจกรรมจริงของพนักงานคนนั้น) นับจำนวนวันติดต่อกันล่าสุด
+// (นับจากวันนี้ถอยหลัง) ที่มีเหตุการณ์จริงเกิดขึ้นอย่างน้อย 1 ครั้ง
+function eventDateStr(ts) {
+  if (!ts) return ''
+  if (typeof ts === 'string') return ts.slice(0, 10)
+  if (typeof ts.toDate === 'function') return ts.toDate().toISOString().slice(0, 10)
+  if (typeof ts.seconds === 'number') return new Date(ts.seconds * 1000).toISOString().slice(0, 10)
+  return ''
+}
+
+async function computeRealStreak(myName) {
+  try {
+    const events = await listDocs('gamification_events', [['userName', '==', myName]], 'createdAt', 'desc', 500)
+    const days = new Set(events.map(e => eventDateStr(e.createdAt)).filter(Boolean))
+    let streak = 0
+    const d = new Date()
+    while (days.has(d.toISOString().slice(0, 10))) { streak++; d.setDate(d.getDate() - 1) }
+    return streak
+  } catch { return 0 }
+}
 
 export default async function DailyMissionsPage(container) {
   const myGen = container.__routerGen
@@ -33,9 +56,9 @@ export default async function DailyMissionsPage(container) {
       missions = { daily: all.filter(m => m.period === 'daily'), weekly: all.filter(m => m.period === 'weekly') }
     } catch (e) { missions = { daily: [], weekly: [] } }
     try {
-      const xp = await getMyTotalPoints()
+      const [xp, streak] = await Promise.all([getMyTotalPoints(), computeRealStreak(myName)])
       const level = levelFromXp(xp)
-      PLAYER = { name: myName, level, xp, xpNext: xpNextFromLevel(level), todayXp: PLAYER.todayXp, streak: PLAYER.streak || 1 }
+      PLAYER = { name: myName, level, xp, xpNext: xpNextFromLevel(level), todayXp: PLAYER.todayXp, streak }
     } catch {}
     loading = false
     if (container.__routerGen === myGen) render()

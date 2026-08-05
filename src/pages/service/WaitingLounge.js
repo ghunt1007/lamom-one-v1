@@ -5,7 +5,7 @@
 import { timeAgo } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { watchDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -29,12 +29,15 @@ export default async function WaitingLoungePage(container) {
   let queue = []
   let loading = true
 
-  async function loadData() {
-    loading = true
-    try { queue = await listDocs('waiting_lounge_queue', [], 'checkin', 'asc', 500) } catch (e) { queue = [] }
+  // เดิมใช้ listDocs (โหลดครั้งเดียว) ทั้งที่หน้านี้ประกาศตัวว่า "real-time เหมือนจอสนามบิน" และมีปุ่มเปิด
+  // จอทีวีให้ลูกค้าดู — ถ้าช่างอีกคนอัปเดต stage จากเครื่องอื่น จอนี้จะไม่ขยับเองเลยจนกว่าจะมีคน re-render
+  // หน้าเอง เปลี่ยนเป็น watchDocs เพื่อให้ทุกเครื่องที่เปิดหน้านี้ (รวมจอทีวี) อัปเดตสดจริงเมื่อมีการเปลี่ยนแปลง
+  const unsubQueue = watchDocs('waiting_lounge_queue', [], 'checkin', 'asc', 500, rows => {
+    if (container.__routerGen !== myGen) { unsubQueue(); return }
+    queue = rows
     loading = false
-    if (container.__routerGen === myGen) renderPage()
-  }
+    renderPage()
+  })
 
   function renderPage() {
     if (loading) {
@@ -114,7 +117,7 @@ export default async function WaitingLoungePage(container) {
       try {
         await updateDocData('waiting_lounge_queue', q.id, { stage })
         if (stage === 'ready') showToast('🎉 งานเสร็จ — อย่าลืมแจ้งลูกค้า!', 'success')
-        await loadData()
+        // ไม่ต้องเรียก reload เอง — watchDocs ด้านบนจะ push ข้อมูลใหม่ + renderPage() ให้อัตโนมัติทันทีที่ Firestore อัปเดต
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.notify-btn').forEach(b => b.addEventListener('click', async () => {
@@ -123,7 +126,7 @@ export default async function WaitingLoungePage(container) {
       try {
         await updateDocData('waiting_lounge_queue', q.id, { notified: true })
         showToast(`📱 แจ้ง ${q.customer} + ขึ้นจอ "${q.plate} พร้อมรับรถ"`, 'success')
-        await loadData()
+        // ไม่ต้องเรียก reload เอง — watchDocs ด้านบนจะ push ข้อมูลใหม่ + renderPage() ให้อัตโนมัติทันทีที่ Firestore อัปเดต
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.done-btn').forEach(b => b.addEventListener('click', async () => {
@@ -132,7 +135,6 @@ export default async function WaitingLoungePage(container) {
       try {
         await softDelete('waiting_lounge_queue', b.dataset.id)
         showToast('🏁 ปิดคิวแล้ว', 'primary')
-        await loadData()
       } catch (e) { showToast('ปิดคิวไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.drink-btn').forEach(b => b.addEventListener('click', async () => {
@@ -141,7 +143,7 @@ export default async function WaitingLoungePage(container) {
       try {
         await updateDocData('waiting_lounge_queue', q.id, { drinks: q.drinks + 1 })
         showToast('☕ เสิร์ฟเครื่องดื่มแล้ว', 'secondary')
-        await loadData()
+        // ไม่ต้องเรียก reload เอง — watchDocs ด้านบนจะ push ข้อมูลใหม่ + renderPage() ให้อัตโนมัติทันทีที่ Firestore อัปเดต
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     document.getElementById('tv-btn')?.addEventListener('click', () => {
@@ -177,14 +179,15 @@ export default async function WaitingLoungePage(container) {
           try {
             await createDoc('waiting_lounge_queue', { customer:document.getElementById('lg-name')?.value||'—', plate, service:document.getElementById('lg-service')?.value||'—', stage:'received', checkin:new Date().toISOString(), estMins:parseInt(document.getElementById('lg-est')?.value)||60, drinks:0, notified:false })
             showToast('✅ Check-in แล้ว — เชิญนั่งรอ เสิร์ฟเครื่องดื่ม', 'success')
-            await loadData()
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
     })
   }
 
-  await loadData()
+  renderPage() // แสดง skeleton "กำลังโหลด..." ทันทีระหว่างรอ snapshot แรกจาก watchDocs
+
+  return function cleanupWaitingLounge() { unsubQueue() }
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

@@ -21,6 +21,11 @@ const SHIFT_COLORS = {
   leave: '#94a3b8',
 }
 
+// ⚠️ SCOPED-OUT GAP (ดู audit finding #18) — SCHEDULE เป็นตารางเวรตัวอย่างที่ผูกกับ id คงที่ (T001-T005) ล้วนๆ
+// ไม่มี UI ให้สร้าง/แก้ไขเวรจริงเลย และแม้จะโหลดช่างจริงจาก collection 'technician_schedule' ก็ตาม เวรของช่าง
+// ที่ id ไม่ตรงกับ T001-T005 จะไม่โผล่ตารางเลย (SCHEDULE[t.id] เป็น undefined → sched=[]) ยังไม่แก้จุดนี้ในรอบนี้
+// เพราะการทำ shift-editor ที่ใช้งานได้จริง (สร้าง/แก้ไข/ลบเวรต่อช่างต่อวัน + ผูกกับข้อมูลช่างจริงแทน id คงที่)
+// เป็น feature ใหญ่เกินสโคปของการแก้บั๊กรอบนี้ — ต้องออกแบบ schema เวรใหม่ทั้งหมด ไม่ใช่แค่แก้บรรทัดเดียว
 const WEEK_DAYS = ['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา']
 const SCHEDULE = {
   T001: ['morning','morning','morning','afternoon','morning','leave','leave'],

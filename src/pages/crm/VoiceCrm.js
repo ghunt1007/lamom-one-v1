@@ -3,7 +3,7 @@
  * Route: /crm/voice-crm
  */
 import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { formatDateTime } from '../../utils/format.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { uploadFile } from '../../utils/storage.js'
@@ -22,6 +22,8 @@ async function analyzeVoiceNoteSafe(blob) {
 }
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+
+function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
 
 // อ่านความยาวไฟล์เสียงจริงผ่าน HTML5 Audio API — เดิมสุ่มตัวเลขด้วย Math.random() ทั้งที่มีไฟล์จริงอยู่ในมือ
 function getAudioDuration(file) {
@@ -129,10 +131,21 @@ export default async function VoiceCrmPage(container) {
       const n = NOTES.find(x => x.id === b.dataset.id)
       if (!n) return
       try {
+        // (v1.0.xxx) เดิมแค่ set savedToCrm:true บนตัว voice_notes เอง ไม่ได้สร้าง Follow-up จริงตามที่ปุ่ม
+        // อ้างเลย — ตอนนี้สร้าง doc จริงลง followups (schema เดียวกับ FollowUp.js) จาก AI summary/follow-up
+        // ที่วิเคราะห์ไว้แล้ว ก่อนค่อยตั้ง flag savedToCrm
+        const me = getState('user') || {}
+        await createDoc('followups', {
+          customerId: '', customerName: n.customer, phone: '',
+          vehicleModel: '', salesperson: me.displayName || me.email || '',
+          type: 'call', purpose: (n.followUps && n.followUps[0]) || 'ติดตามจาก Voice-to-CRM',
+          dueDate: addDays(1), status: 'pending',
+          note: n.summary || '', result: '',
+        })
         await updateDocData('voice_notes', n.id, { savedToCrm: true })
-        showToast(`💾 บันทึก Follow-up จาก ${b.dataset.id} เข้าระบบ CRM แล้ว`, 'success')
+        showToast(`💾 บันทึก Follow-up จาก ${n.customer} เข้าระบบ CRM แล้ว`, 'success')
         await loadData()
-      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      } catch (e) { showToast('บันทึกไม่สำเร็จ: ' + e.message, 'error') }
     }))
   }
 

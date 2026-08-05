@@ -100,7 +100,9 @@ export default async function WarRoomPage(container) {
       getSalesData().catch(() => []),
     ])
     if (container.__routerGen !== myGen) return
-    customers = customersRes
+    // softDelete() ไม่ได้ลบเอกสารจริง — ต้องกรอง !deleted ออกเอง ไม่งั้นลูกค้าที่ลบไปแล้วจะยังถูกนับใน
+    // Pipeline tab (บรรทัด 171/208 ที่ใช้ customers ตัวนี้ต่อ) และ Win/Loss/funnel ด้านล่าง
+    customers = customersRes.filter(c => !c.deleted)
     bookings = bookingsRes
     sales = salesRes
 

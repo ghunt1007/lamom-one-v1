@@ -146,8 +146,13 @@ export default async function LeadScoringPage(container) {
         })
         if (container.__routerGen !== myGen) return
         if (result) { aiResults[l.id] = result; renderPage() }
-        else showToast('AI วิเคราะห์ไม่สำเร็จ', 'error')
-      } catch { showToast('AI วิเคราะห์ไม่สำเร็จ', 'error') }
+        else { showToast('AI วิเคราะห์ไม่สำเร็จ', 'error'); b.disabled = false; b.innerHTML = '🤖 วิเคราะห์เจาะลึก' }
+      } catch {
+        // เดิม catch แค่ toast อย่างเดียว ไม่รีเซ็ตปุ่ม/spinner กลับ ทำให้ปุ่มค้าง disabled+spinner ตลอดไปถ้า
+        // analyzeCustomer() throw (เช่น proxy error/network) — ต้องรีเซ็ตกลับให้กดใหม่ได้เหมือนกรณี AI วิเคราะห์ไม่สำเร็จ
+        showToast('AI วิเคราะห์ไม่สำเร็จ', 'error')
+        b.disabled = false; b.innerHTML = '🤖 วิเคราะห์เจาะลึก'
+      }
     }))
   }
 

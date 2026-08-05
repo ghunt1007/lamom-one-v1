@@ -24,13 +24,17 @@ const NOTE_TYPES = {
   internal:{ label: 'บันทึกภายใน', color: 'warning', icon: '📌' },
 }
 
-const DEMO_CUSTOMERS = ['สมชาย ใจดี', 'มาลี สุขใจ', 'ธนพล เที่ยงตรง', 'อรทัย ตั้งใจ']
+function custName(c) { return `${c.firstName || ''} ${c.lastName || ''}`.trim() || '(ไม่มีชื่อ)' }
 
 export default async function CustomerNotesPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
 
   let notes = []
+  // (v1.0.xxx) เดิมผูกกับ DEMO_CUSTOMERS (ชื่อปลอม 4 คน) ทั้งตัวกรองและฟอร์มบันทึกใหม่ — พนักงานไม่มีทาง
+  // แนบบันทึกกับลูกค้าจริงได้เลยนอกจากชื่อบังเอิญตรงกัน เปลี่ยนให้โหลดลูกค้าจริงจาก collection customers
+  // (เหมือนที่ Bookings.js ใช้) และกรอง !deleted ออกเพื่อไม่ให้ลูกค้าที่ลบไปแล้วโผล่ในตัวเลือก
+  let customers = []
   let customerFilter = 'all'
   let typeFilter = 'all'
   let loading = true
@@ -38,6 +42,7 @@ export default async function CustomerNotesPage(container) {
   async function loadData() {
     loading = true
     try { notes = await listDocs('customer_notes', [], 'time', 'desc', 500) } catch (e) { notes = [] }
+    try { customers = (await listDocs('customers', [], 'createdAt', 'desc', 500)).filter(c => !c.deleted) } catch (e) { customers = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -74,7 +79,7 @@ export default async function CustomerNotesPage(container) {
         <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
           <select class="input" id="cust-filter" style="width:180px;padding:6px 10px;font-size:0.8rem">
             <option value="all">ลูกค้าทุกคน</option>
-            ${DEMO_CUSTOMERS.map(c => `<option ${customerFilter===c?'selected':''}>${c}</option>`).join('')}
+            ${customers.map(c => { const n = custName(c); return `<option value="${escHtml(n)}" ${customerFilter===n?'selected':''}>${escHtml(n)}</option>` }).join('')}
           </select>
           <div style="display:flex;gap:4px">
             <button class="btn btn-xs ${typeFilter==='all'?'btn-primary':'btn-secondary'} tf-btn" data-t="all">ทั้งหมด</button>
@@ -122,7 +127,7 @@ export default async function CustomerNotesPage(container) {
         size: 'sm',
         body: `<div style="display:grid;gap:10px">
           <div class="input-group"><label class="input-label">ลูกค้า</label>
-            <select class="input" id="nt-customer">${DEMO_CUSTOMERS.map(c=>`<option>${c}</option>`).join('')}</select>
+            <select class="input" id="nt-customer">${customers.length ? customers.map(c=>`<option value="${escHtml(c.id)}">${escHtml(custName(c))}</option>`).join('') : `<option value="">-- ไม่มีลูกค้าในระบบ --</option>`}</select>
           </div>
           <div class="input-group"><label class="input-label">ช่องทาง</label>
             <select class="input" id="nt-type">${Object.entries(NOTE_TYPES).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
@@ -132,8 +137,11 @@ export default async function CustomerNotesPage(container) {
         async onConfirm() {
           const text = document.getElementById('nt-text')?.value?.trim()
           if (!text) { showToast('❗ กรุณากรอกบันทึก', 'error'); return false }
+          const custId = document.getElementById('nt-customer')?.value || ''
+          if (!custId) { showToast('❗ ไม่มีลูกค้าให้เลือก — กรุณาเพิ่มลูกค้าในหน้า Customers ก่อน', 'error'); return false }
+          const c = customers.find(x => x.id === custId)
           try {
-            await createDoc('customer_notes', { customer:document.getElementById('nt-customer')?.value||DEMO_CUSTOMERS[0], type:document.getElementById('nt-type')?.value||'call', text, staff: myName(), time:new Date().toISOString(), pinned:false })
+            await createDoc('customer_notes', { customerId: custId, customer: c ? custName(c) : '', type:document.getElementById('nt-type')?.value||'call', text, staff: myName(), time:new Date().toISOString(), pinned:false })
             showToast('✅ บันทึกแล้ว', 'success')
             await loadData()
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

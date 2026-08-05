@@ -94,7 +94,9 @@ export default async function PLPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">📉 P&L Dashboard</div>
-            <div class="page-subtitle">กำไร-ขาดทุน ${selectedYear}</div>
+            <div class="page-subtitle">กำไร-ขาดทุน ${selectedYear}
+              <span style="font-size:0.72rem;color:var(--warning);margin-left:6px" title="OPEX ทั้งหมดเป็นตัวเลขประมาณการ ยังไม่เชื่อมข้อมูลค่าใช้จ่ายจริง — ดูเครื่องหมาย ✓/(ประมาณ) ต่อแถวในตารางว่า Revenue/COGS เดือนไหนเป็นข้อมูลจริง">⚠️ OPEX เป็นตัวเลขประมาณการ</span>
+            </div>
           </div>
           <div class="page-actions">
             <div style="display:flex;gap:4px">
@@ -142,7 +144,8 @@ export default async function PLPage(container) {
 
           <!-- OPEX Breakdown -->
           <div class="card" style="padding:20px">
-            <div style="font-weight:700;margin-bottom:16px">💸 OPEX Breakdown</div>
+            <div style="font-weight:700;margin-bottom:4px">💸 OPEX Breakdown</div>
+            <div style="font-size:0.7rem;color:var(--warning);margin-bottom:10px">⚠️ ประมาณการทั้งหมด — ยังไม่เชื่อมข้อมูลค่าใช้จ่ายจริง</div>
             <div style="font-size:0.88rem;font-weight:700;color:var(--warning);margin-bottom:12px">${formatCurrency(totals.opex)} / ปี</div>
             ${OPEX_BREAKDOWN.map(o => `
               <div style="margin-bottom:10px">
@@ -176,7 +179,7 @@ export default async function PLPage(container) {
               ${data.map(r => {
                 const c = calc(r)
                 return `<tr>
-                  <td style="font-weight:600">${r.label}</td>
+                  <td style="font-weight:600">${r.label}${r.actual ? ' <span title="Revenue/COGS จากข้อมูลจริง" style="color:var(--success);font-weight:400;font-size:0.7rem">✓ จริง</span>' : viewMode === 'month' ? ' <span title="ตัวเลขประมาณการ ยังไม่มีข้อมูลจริงเดือนนี้" style="color:var(--text-muted);font-weight:400;font-size:0.7rem">(ประมาณ)</span>' : ''}</td>
                   <td class="text-right">${formatCurrency(r.revenue)}</td>
                   <td class="text-right" style="color:var(--text-muted)">${formatCurrency(r.cogs)}</td>
                   <td class="text-right" style="color:var(--${c.gross>=0?'success':'danger'})">${formatCurrency(c.gross)}</td>

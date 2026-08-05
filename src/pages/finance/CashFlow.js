@@ -1,8 +1,8 @@
 import { formatCurrency } from '../../utils/format.js'
 import { exportToExcel } from '../../utils/importExport.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
-import { getSalesData, listDocs, createDoc, softDelete } from '../../core/db.js'
+import { getSalesData, listDocs, createDoc, softDelete, readDoc, setDocData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -63,7 +63,17 @@ export default async function CashFlowPage(container) {
   let showType = 'all'
   let dataSource = 'demo'
 
-  const startBalance = 850000 // ยอดยกมา — ยังไม่มีแหล่งข้อมูลจริง (ยอดคงเหลือธนาคารจริง) ในระบบนี้
+  // เดิม startBalance ผูกค่าคงที่ 850000 ตายตัวในโค้ด ไม่มีทางแก้ในหน้า UI เลย ทั้งที่บวกเข้าไปใน KPI
+  // "ยอดคงเหลือ" หลักตรงๆทุกครั้ง — แก้ให้แก้ไขได้จริงและบันทึกลง Firestore (finance_settings/cash_flow)
+  // ผ่าน setDocData (upsert ด้วย id คงที่ — ตั้งค่าระดับระบบ ไม่ใช่รายการที่ต้องมี id สุ่ม)
+  let startBalance = 850000
+
+  async function loadStartBalance() {
+    try {
+      const doc = await readDoc('finance_settings', 'cash_flow')
+      if (doc && typeof doc.startBalance === 'number') startBalance = doc.startBalance
+    } catch (e) {}
+  }
 
   async function loadData() {
     const liveFlows = []
@@ -98,6 +108,7 @@ export default async function CashFlowPage(container) {
       dataSource = 'demo'
     }
   }
+  await loadStartBalance()
   await loadData()
 
   function getFiltered() {
@@ -138,6 +149,7 @@ export default async function CashFlowPage(container) {
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="cf-export">📥 Export</button>
+            ${canManage ? `<button class="btn btn-secondary" id="edit-balance-btn">✏️ ยอดยกมา</button>` : ''}
             ${canManage ? `<button class="btn btn-primary" id="new-flow-btn">➕ บันทึกรายการ</button>` : ''}
           </div>
         </div>
@@ -252,11 +264,40 @@ export default async function CashFlowPage(container) {
       exportToExcel(running.map(f => ({ วันที่:f.date, ประเภท:f.type==='income'?'รายรับ':'รายจ่าย', หมวด:({...CATEGORIES.income,...CATEGORIES.expense})[f.cat]?.label||f.cat, รายการ:f.desc, จำนวน:f.amount, คงเหลือ:f.balance })), 'CashFlow')
     })
     document.getElementById('new-flow-btn')?.addEventListener('click', openFlowForm)
+    document.getElementById('edit-balance-btn')?.addEventListener('click', openBalanceForm)
+    // เดิมปุ่มลบรายการมือกดแล้วลบทันที ไม่มี confirmDialog เลย ต่างจากปุ่มลบส่วนใหญ่ในระบบ (เช่น
+    // VendorManagement.js) ที่มี confirmDialog ก่อนลบเสมอ
     document.querySelectorAll('.cf-del-btn').forEach(b => b.addEventListener('click', async () => {
-      await softDelete('cash_flow', b.dataset.id)
-      showToast('🗑 ลบรายการแล้ว', 'success')
-      await loadData(); renderPage()
+      const f = flows.find(x => x.id === b.dataset.id)
+      const ok = await confirmDialog({ title: '🗑 ลบรายการ', message: `ลบรายการ "${escHtml(f?.desc || '')}" (${formatCurrency(f?.amount || 0)}) ออกจากระบบ?`, confirmText: 'ลบ', danger: true })
+      if (!ok) return
+      try {
+        await softDelete('cash_flow', b.dataset.id)
+        showToast('🗑 ลบรายการแล้ว', 'success')
+        await loadData(); renderPage()
+      } catch (e) { showToast('ลบไม่สำเร็จ', 'error') }
     }))
+  }
+
+  // เดิม startBalance เป็นค่าคงที่ในโค้ด ไม่มีทางแก้ในหน้า UI — เพิ่มฟอร์มแก้ไข+บันทึกจริงลง Firestore
+  function openBalanceForm() {
+    const { el, close } = openModal({
+      title: '✏️ แก้ไขยอดยกมา (Starting Balance)', size: 'sm',
+      body: `<div class="input-group"><label class="input-label">ยอดยกมา (บาท)</label>
+        <input class="input" type="number" id="cf-start-balance" value="${startBalance}"></div>`,
+      footer: `<button class="btn btn-secondary" id="cfb-c">ยกเลิก</button><button class="btn btn-primary" id="cfb-s">💾 บันทึก</button>`
+    })
+    el.querySelector('#cfb-c').addEventListener('click', close)
+    el.querySelector('#cfb-s').addEventListener('click', async () => {
+      const val = +el.querySelector('#cf-start-balance').value
+      if (isNaN(val)) { showToast('❗ กรุณากรอกตัวเลข', 'error'); return }
+      try {
+        await setDocData('finance_settings', 'cash_flow', { startBalance: val })
+        startBalance = val
+        showToast('💾 บันทึกยอดยกมาแล้ว', 'success')
+        close(); renderPage()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+    })
   }
 
   function openFlowForm() {

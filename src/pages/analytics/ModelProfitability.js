@@ -38,14 +38,22 @@ export default async function ModelProfitabilityPage(container) {
       const byCar = {}
       for (const s of sales) {
         const key = s.model || s.vehicleModel || 'ไม่ระบุ'
-        if (!byCar[key]) byCar[key] = { sold: 0, totalRev: 0 }
+        if (!byCar[key]) byCar[key] = { sold: 0, totalRev: 0, totalCost: 0 }
         byCar[key].sold++
         byCar[key].totalRev += s.salePrice || 0
+        // ต้นทุนจริงต่อคัน (s.cost จากใบจอง) ถ้าไม่มีค่อย fallback ประมาณ 82% ของราคาขาย — pattern เดียวกับ
+        // CashFlow.js/VatReport.js ไม่ใช่ avgCost ปลอมจาก MODELS demo อีกต่อไป
+        byCar[key].totalCost += s.cost || Math.round((s.salePrice || 0) * 0.82)
       }
       liveModels = liveModels.map(m => {
         const data = byCar[m.model]
         if (!data) return m
-        return { ...m, sold: data.sold, avgPrice: data.sold > 0 ? Math.round(data.totalRev / data.sold) : m.avgPrice }
+        return {
+          ...m,
+          sold: data.sold,
+          avgPrice: data.sold > 0 ? Math.round(data.totalRev / data.sold) : m.avgPrice,
+          avgCost: data.sold > 0 ? Math.round(data.totalCost / data.sold) : m.avgCost,
+        }
       })
       dataSource = 'live'
     }
@@ -93,7 +101,7 @@ export default async function ModelProfitabilityPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">📊 Model Profitability</div>
-            <div class="page-subtitle">กำไรและ Margin แยกตามรุ่น · ${liveModels.length} รุ่น${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">กำไรและ Margin แยกตามรุ่น · ${liveModels.length} รุ่น${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ยอดขาย/ต้นทุนจริง</span> <span style="color:var(--text-muted);font-size:0.68rem">(F&amp;I เป็นค่าประมาณ)</span>' : ''}</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="export-btn">📤 Export</button>

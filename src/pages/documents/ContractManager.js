@@ -51,11 +51,14 @@ export default async function ContractManagerPage(container) {
     if (container.__routerGen === myGen) renderPage()
   }
 
+  // c.title/c.party/c.tags อาจไม่มีค่าถ้า doc ถูกสร้าง/แก้ไขมาไม่ครบฟิลด์ — เดิมเรียก .toLowerCase()/.map()
+  // ตรงๆ ทำให้ TypeError ทั้งหน้าถ้าเจอ doc แบบนี้ ใส่ fallback ค่าว่างกันพัง
   function filtered() {
     return contracts.filter(c => {
       if (typeFilter !== 'all' && c.type !== typeFilter) return false
       if (statusFilter !== 'all' && c.status !== statusFilter) return false
-      if (search && !c.title.toLowerCase().includes(search.toLowerCase()) && !c.party.toLowerCase().includes(search.toLowerCase())) return false
+      const title = c.title || '', party = c.party || ''
+      if (search && !title.toLowerCase().includes(search.toLowerCase()) && !party.toLowerCase().includes(search.toLowerCase())) return false
       return true
     })
   }
@@ -122,9 +125,9 @@ export default async function ContractManagerPage(container) {
                 return `<tr style="border-bottom:1px solid var(--border);cursor:pointer" class="ct-row" data-id="${c.id}">
                   <td style="padding:10px 14px">
                     <div style="font-weight:600;font-size:0.85rem">${c.id}</div>
-                    <div style="font-size:0.78rem;color:var(--text-muted)">${esc(c.title)}</div>
+                    <div style="font-size:0.78rem;color:var(--text-muted)">${esc(c.title || '-')}</div>
                   </td>
-                  <td style="padding:10px 14px;font-size:0.83rem">${c.party}</td>
+                  <td style="padding:10px 14px;font-size:0.83rem">${esc(c.party || '-')}</td>
                   <td style="padding:10px 14px;text-align:center"><span class="badge badge-${ct?.color}" style="font-size:0.65rem">${ct?.icon} ${ct?.label}</span></td>
                   <td style="padding:10px 14px;text-align:center"><span class="badge badge-${cs?.color}" style="font-size:0.65rem">${cs?.label}</span></td>
                   <td style="padding:10px 14px;text-align:right;font-size:0.83rem">${c.value > 0 ? formatCurrency(c.value) : '—'}</td>
@@ -173,14 +176,14 @@ export default async function ContractManagerPage(container) {
           <span class="badge badge-${ct?.color}">${ct?.icon} ${ct?.label}</span>
           <span class="badge badge-${cs?.color}">${cs?.label}</span>
         </div>
-        ${row('คู่สัญญา', c.party)}
+        ${row('คู่สัญญา', esc(c.party || '-'))}
         ${c.value > 0 ? row('มูลค่าสัญญา', formatCurrency(c.value)) : ''}
         ${row('วันเริ่ม', formatDate(c.startDate))}
         ${row('วันหมดอายุ', formatDate(c.endDate))}
         ${c.signedDate ? row('วันลงนาม', formatDate(c.signedDate)) : ''}
-        ${row('สร้างโดย', c.createdBy)}
+        ${row('สร้างโดย', esc(c.createdBy || '-'))}
         <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
-          ${c.tags.map(t => `<span style="font-size:0.72rem;padding:3px 8px;background:var(--surface-2);border-radius:10px;color:var(--text-muted)">#${t}</span>`).join('')}
+          ${(c.tags || []).map(t => `<span style="font-size:0.72rem;padding:3px 8px;background:var(--surface-2);border-radius:10px;color:var(--text-muted)">#${esc(t)}</span>`).join('')}
         </div>
       `
     })

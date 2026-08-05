@@ -35,7 +35,7 @@ export default async function UtmTrackerPage(container) {
             <span style="font-size:0.62rem;background:var(--surface-2);padding:1px 8px;border-radius:8px">${u.source}</span>
             <span style="font-size:0.62rem;background:var(--surface-2);padding:1px 8px;border-radius:8px">${u.medium}</span>
           </div>
-          <div style="font-size:0.64rem;color:var(--text-muted);margin-bottom:8px;word-break:break-all">${utmUrl}</div>
+          <div style="font-size:0.64rem;color:var(--text-muted);margin-bottom:8px;word-break:break-all">${esc(utmUrl)}</div>
           <div style="display:flex;gap:14px;font-size:0.74rem">
             <span>👆 ${u.clicks.toLocaleString()} clicks</span>
             <span>🎯 ${u.leads} leads</span>
@@ -57,8 +57,8 @@ export default async function UtmTrackerPage(container) {
 
     const totClicks = UTM_LINKS.reduce((s,u)=>s+u.clicks,0)
     const totLeads  = UTM_LINKS.reduce((s,u)=>s+u.leads,0)
-    const avgConv   = (totLeads/totClicks*100).toFixed(1)
-    const bestSrc   = [...UTM_LINKS].sort((a,b)=>b.conv-a.conv)[0]
+    const avgConv   = totClicks > 0 ? (totLeads/totClicks*100).toFixed(1) : '0.0'
+    const bestSrc   = [...UTM_LINKS].sort((a,b)=>b.conv-a.conv)[0] || null
 
     const srcBtns = ['all',...sources].map(s=>{
       const label = s==='all' ? 'ทั้งหมด' : s
@@ -81,7 +81,7 @@ export default async function UtmTrackerPage(container) {
           ${sc('👆 รวม Clicks', totClicks.toLocaleString(), 'var(--primary)')}
           ${sc('🎯 รวม Leads', totLeads+' ราย', 'var(--success)')}
           ${sc('🔄 Avg Conv.', avgConv+'%', 'var(--warning)')}
-          ${sc('🏆 Best Source', bestSrc.source+' ('+bestSrc.conv+'%)', 'var(--success)')}
+          ${sc('🏆 Best Source', bestSrc ? esc(bestSrc.source)+' ('+bestSrc.conv+'%)' : '—', 'var(--success)')}
         </div>
 
         <div style="display:flex;gap:6px;margin-bottom:14px">${srcBtns}</div>

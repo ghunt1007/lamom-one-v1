@@ -324,7 +324,10 @@ export default async function CustomOrderPage(container) {
         const freebiesRaw = document.getElementById('co-freebies')?.value?.trim() || ''
         const freebies = freebiesRaw ? freebiesRaw.split(',').map(s => s.trim()).filter(Boolean).map(name => ({ name, qty: 1 })) : []
         try {
-          const orderNo = 'CO-' + new Date().getFullYear() + '-' + String(orders.length + 1).padStart(3, '0')
+          // เดิมเลขคำสั่ง (orderNo) สร้างจาก orders.length+1 (นับจากอาร์เรย์ในหน่วยความจำ) — race-prone ถ้ามี
+          // 2 คนสร้างคำสั่งแต่งรถพร้อมกัน (2 แท็บ/2 เครื่อง) จะได้เลขซ้ำกันได้ เปลี่ยนมาใช้ timestamp+random
+          // (ตรงกับรูปแบบที่ ColorMatrix.js ในโฟลเดอร์เดียวกันใช้อยู่แล้วสำหรับ orderNo) กัน id ชนกันจริง
+          const orderNo = 'CO-' + new Date().getFullYear() + '-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 5).toUpperCase()
           await createDoc('custom_orders', {
             orderNo, customerName,
             phone: document.getElementById('co-phone')?.value?.trim() || '',

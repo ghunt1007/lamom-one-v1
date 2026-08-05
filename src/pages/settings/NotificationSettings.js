@@ -71,6 +71,10 @@ export default async function NotificationSettingsPage(container) {
           </div>
         </div>
 
+        <div class="card" style="padding:12px 14px;margin-bottom:14px;border-left:3px solid var(--warning);font-size:0.8rem">
+          ⚠️ <strong>ข้อจำกัดสำคัญ:</strong> การตั้งค่านี้บันทึกลง <code>user_settings.notifSettings</code> เท่านั้น — จุดที่สร้างการแจ้งเตือนจริงในระบบ (เช่น lead ใหม่, การจอง, คำขอลา) ยังไม่มีการเช็คค่านี้ก่อนส่ง/สร้างแจ้งเตือน ดังนั้นการปิด/เปิด Toggle ที่นี่<u>ยังไม่มีผลกับการแจ้งเตือนจริงในระบบ</u>
+        </div>
+
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('📋 เหตุการณ์ทั้งหมด', NOTIF_EVENTS.length, 'primary')}
           ${kpi('✅ เปิดอยู่', enabledCount, 'success')}

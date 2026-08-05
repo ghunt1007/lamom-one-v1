@@ -180,10 +180,18 @@ export default async function RefundPage(container) {
       showToast('❌ ปฏิเสธคำขอคืนเงิน', 'warning'); await loadData()
     }))
     container.querySelectorAll('.transfer-btn').forEach(b => b.addEventListener('click', async () => {
-      const today = new Date().toISOString().slice(0, 10)
-      await updateDocData('refund_requests', b.dataset.id, { status: 'transferred', txDate: today })
       const r = refunds.find(x => x.id === b.dataset.id)
-      showToast('💸 โอนเงินคืน ' + formatCurrency(r?.amount || 0) + ' เรียบร้อย', 'success'); await loadData()
+      if (!r) return
+      // เดิมปุ่มนี้กดแล้วโอนสถานะทันที ไม่มี confirmDialog ทั้งที่เป็นการยืนยันว่า "โอนเงินจริงแล้ว" — ต่างจาก
+      // ปุ่ม verify-ok-btn/refund-done-btn ข้างบนในไฟล์นี้เองที่มี confirmDialog ทุกครั้ง เพิ่มให้ตรงกัน
+      const ok = await confirmDialog({ title: '💸 ยืนยันโอนเงินคืน', message: `ยืนยันว่าโอนเงินคืน ${formatCurrency(r.amount || 0)} ให้ "${escHtml(r.customer)}" แล้ว?`, confirmText: 'โอนเงินแล้ว' })
+      if (!ok) return
+      const today = new Date().toISOString().slice(0, 10)
+      try {
+        await updateDocData('refund_requests', r.id, { status: 'transferred', txDate: today })
+        showToast('💸 โอนเงินคืน ' + formatCurrency(r.amount || 0) + ' เรียบร้อย', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
   }
 

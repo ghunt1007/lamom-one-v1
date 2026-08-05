@@ -60,7 +60,7 @@ export default async function CustomerPortalPage(container) {
   let loadingCust = false
   let tab = 'home'
 
-  try { customers = await listDocs('customers', [], 'createdAt', 'desc', 500) } catch { customers = [] }
+  try { customers = (await listDocs('customers', [], 'createdAt', 'desc', 500)).filter(c => !c.deleted) } catch { customers = [] }
   if (container.__routerGen !== myGen) return
 
   function filteredCustomers() {

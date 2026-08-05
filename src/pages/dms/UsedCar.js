@@ -118,14 +118,9 @@ export default async function UsedCarPage(container) {
       </div>`
 
     container.querySelectorAll('.stat-btn').forEach(b=>b.addEventListener('click',()=>{filterStatus=b.dataset.s;render()}))
-    container.querySelectorAll('.sell-btn').forEach(b=>b.addEventListener('click', async ()=>{
+    container.querySelectorAll('.sell-btn').forEach(b=>b.addEventListener('click', ()=>{
       const c=usedCars.find(x=>x.id===b.dataset.id)
-      if (!c) return
-      try {
-        await updateDocData('used_cars', c.id, { status:'sold', sold:c.asking, buyer:'ลูกค้าใหม่' })
-        showToast('🏁 บันทึกขาย '+c.brand+' '+c.model+' แล้ว','success')
-        await loadData()
-      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      if (c) openSellModal(c)
     }))
     container.querySelectorAll('.approve-btn').forEach(b=>b.addEventListener('click', async ()=>{
       const c=usedCars.find(x=>x.id===b.dataset.id)
@@ -154,6 +149,35 @@ export default async function UsedCarPage(container) {
       if(c) openEditPriceModal(c)
     }))
     document.getElementById('add-car-btn')?.addEventListener('click',()=>openAddModal())
+  }
+
+  function openSellModal(c) {
+    // เดิมกดปุ่ม "บันทึกขาย" แล้ว hardcode ชื่อผู้ซื้อเป็น "ลูกค้าใหม่" เสมอ และราคาขายจริงเท่ากับราคาตั้งขาย
+    // เป๊ะๆทุกครั้ง (ไม่มีช่องกรอกราคาต่อรองจริง) แก้ให้ถามชื่อผู้ซื้อ+ราคาขายจริงก่อนบันทึก
+    openModal({
+      title: '💵 บันทึกขาย — ' + escHtml(c.brand) + ' ' + escHtml(c.model),
+      size: 'sm',
+      body: `
+        <div style="display:flex;flex-direction:column;gap:10px;font-size:0.82rem">
+          <div><label style="font-size:0.74rem;color:var(--text-muted)">ชื่อผู้ซื้อ *</label>
+            <input id="sl-buyer" class="input" value="${escHtml(c.buyer||'')}" placeholder="ชื่อ-นามสกุล"></div>
+          <div><label style="font-size:0.74rem;color:var(--text-muted)">ราคาขายจริง (บาท) *</label>
+            <input id="sl-price" type="number" class="input" value="${c.asking}"></div>
+        </div>
+      `,
+      confirmText: '🏁 บันทึกขาย',
+      async onConfirm() {
+        const buyer = document.getElementById('sl-buyer')?.value?.trim()
+        const price = parseInt(document.getElementById('sl-price')?.value) || 0
+        if (!buyer) { showToast('❗ กรอกชื่อผู้ซื้อ', 'error'); return false }
+        if (!price) { showToast('❗ กรอกราคาขายจริง', 'error'); return false }
+        try {
+          await updateDocData('used_cars', c.id, { status:'sold', sold:price, buyer })
+          showToast('🏁 บันทึกขาย '+c.brand+' '+c.model+' แล้ว','success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      }
+    })
   }
 
   function openReserveModal(c) {

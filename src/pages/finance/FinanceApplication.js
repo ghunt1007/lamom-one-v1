@@ -56,7 +56,7 @@ export default async function FinanceApplicationPage(container) {
       total: apps.length,
       pending: apps.filter(a => ['submitted','pending'].includes(a.status)).length,
       approved: apps.filter(a => a.status === 'approved').length,
-      totalLoan: apps.filter(a => a.status === 'approved').reduce((a, x) => a + x.loanAmount, 0),
+      totalLoan: apps.filter(a => a.status === 'approved').reduce((a, x) => a + (x.loanAmount || 0), 0),
     }
   }
 

@@ -18,12 +18,6 @@ const CATEGORIES = [
   { label:'👥 HR', q:'ข้อมูลพนักงานวันนี้?' },
 ]
 
-function findAnswer(q) {
-  const lower = q.toLowerCase()
-  const m = CANNED.find(c => c.kw.some(k => lower.includes(k)))
-  return m?.ans || '🤔 ขอโทษค่ะ ยังไม่เข้าใจคำถามนี้<br>ลองถามเรื่อง: <strong>ยอดขาย / สต็อก / Lead / หนี้ค้าง / CSAT / ช่าง / กำไร / ประกัน</strong> หรือเลือกหัวข้อด้านล่างได้เลยค่ะ'
-}
-
 function now() {
   return new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})
 }
@@ -63,9 +57,10 @@ export default async function AiAssistantChatPage(container) {
   function msgHtml(m) {
     const isUser = m.role === 'user'
     // ข้อความจากผู้ใช้เป็น free-text ต้อง escape ก่อน render เสมอ (กัน stored XSS)
-    // ส่วนคำตอบ AI มาจาก CANNED/GREETING ที่ hardcode ไว้ในไฟล์นี้เท่านั้น (ไม่ใช่ input ผู้ใช้)
-    // จึงปล่อยให้ render เป็น HTML ตรงๆ เพื่อให้ <strong> ในคำตอบยังโชว์ตัวหนาได้ตามที่ตั้งใจ
-    const text = isUser ? esc(m.text) : m.text
+    // คำตอบ AI ตอนนี้มาจาก askLami() จริง (Gemini ผ่าน proxy) ไม่ใช่ CANNED hardcode แล้ว — เป็นข้อความ
+    // ธรรมดา (ไม่มี <strong>/HTML ที่ตั้งใจ) จึง escape เหมือนกับข้อความผู้ใช้เพื่อกัน XSS จาก AI ตอบ raw HTML
+    // กลับมาโดยไม่ตั้งใจ ยกเว้น GREETING ที่ยัง hardcode ไว้ในไฟล์นี้เองเท่านั้น
+    const text = (isUser || m.text !== GREETING) ? esc(m.text) : m.text
     return `<div style="display:flex;${isUser?'justify-content:flex-end':'align-items:flex-start;gap:8px'}">
       ${!isUser ? `<div style="width:30px;height:30px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0">🤖</div>` : ''}
       <div>
@@ -101,7 +96,7 @@ export default async function AiAssistantChatPage(container) {
             <div style="width:36px;height:36px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:1.3rem">🤖</div>
             <div>
               <div class="page-title" style="margin:0">LAMI — AI Business Assistant</div>
-              <div style="font-size:0.72rem;color:var(--success);font-weight:600">● พร้อมใช้งาน · ตอบจากข้อมูลจริงในระบบ</div>
+              <div style="font-size:0.72rem;color:var(--success);font-weight:600">${isAiEnabled() ? '● พร้อมใช้งาน · ขับเคลื่อนด้วย Gemini AI จริง' : '● Demo Mode · ล็อกอินด้วยบัญชีจริงเพื่อเปิดใช้งาน AI จริง'}</div>
             </div>
           </div>
           <div class="page-actions">
@@ -140,12 +135,18 @@ export default async function AiAssistantChatPage(container) {
       try { await createDoc('chat_ai_assistant', { role:'user', text, time:now(), uid }) } catch (e) {}
       messages.push({ role:'user', text, time:now(), uid })
       renderPage()
-      setTimeout(async () => {
-        const answer = findAnswer(text)
+      // เรียก askLami() จริง (เหมือน pattern เดียวกับ LamiBrain.js) แทน CANNED keyword-match เดิม — ประวัติแชท
+      // ต้องแปลง role 'ai' ในไฟล์นี้เป็น 'lami' ตามที่ askLami() คาดหวัง (ไม่กระทบ role ที่เก็บจริงใน Firestore)
+      const history = messages.slice(0, -1).map(m => ({ role: m.role === 'ai' ? 'lami' : m.role, text: m.text }))
+      try {
+        const answer = await askLami(text, history)
         try { await createDoc('chat_ai_assistant', { role:'ai', text: answer, time:now(), uid }) } catch (e) {}
+      } catch (err) {
+        try { await createDoc('chat_ai_assistant', { role:'ai', text: '⚠️ เกิดข้อผิดพลาด: ' + err.message, time:now(), uid }) } catch (e) {}
+      } finally {
         waiting = false
         await loadData()
-      }, 600 + Math.random()*400)
+      }
     }
 
     document.getElementById('send-btn')?.addEventListener('click', () => send(document.getElementById('chat-input')?.value || ''))

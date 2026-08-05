@@ -41,7 +41,9 @@ export default async function ProfitAnalysisPage(container) {
         if (isNaN(mo) || mo < 0 || mo > 11) return
         if (!byMonth[mo]) byMonth[mo] = { month: MONTHS_TH[mo], revenue: 0, cogs: 0, opex: 1250000 }
         byMonth[mo].revenue += s.salePrice || 0
-        byMonth[mo].cogs += Math.round((s.salePrice || 0) * 0.8)
+        // ต้นทุนจริงต่อคัน (s.cost จากใบจอง) ถ้าไม่มีค่อย fallback ประมาณ 82% ของราคาขาย — pattern เดียวกับ
+        // CashFlow.js/VatReport.js ไม่ใช่ประมาณ 80% ตายตัวทุกคันอีกต่อไป
+        byMonth[mo].cogs += s.cost || Math.round((s.salePrice || 0) * 0.82)
       })
       const built = Object.values(byMonth).sort((a, b) => MONTHS_TH.indexOf(a.month) - MONTHS_TH.indexOf(b.month))
       if (built.length >= 1) liveMonthly = built

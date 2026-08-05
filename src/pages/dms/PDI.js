@@ -3,7 +3,6 @@ import { showToast } from '../../core/store.js'
 import { formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { navigate } from '../../core/router.js'
-import { pickVehicle } from '../../utils/vehiclePicker.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -222,6 +221,11 @@ export default async function PdiPage(container) {
         try {
           await updateDocData('pdi', p.id, data)
           Object.assign(p, data)
+          // เดิมผ่าน PDI แล้วอัปเดตแค่ pdi doc เท่านั้น ไม่เคยอัปเดตสถานะรถจริงใน 'vehicles' กลับเลย ทำให้
+          // รถในหน้าสต็อกจริงยังค้างสถานะเดิม (เช่น pdi/transit) ทั้งที่ผ่าน PDI พร้อมส่งมอบแล้วจริง
+          if (p.vehicleId) {
+            try { await updateDocData('vehicles', p.vehicleId, { status: 'available' }) } catch (e) {}
+          }
           showToast('✅ ผ่าน PDI แล้ว! พร้อมส่งมอบ', 'success')
           close(); updateStats(); applyFilter()
         } catch { showToast('บันทึกไม่สำเร็จ','error') }
@@ -229,42 +233,39 @@ export default async function PdiPage(container) {
     }
   }
 
-  function openNewPdiForm() {
+  async function openNewPdiForm() {
+    // เดิมเปิด PDI ใหม่กรอกยี่ห้อ/รุ่น/VIN เป็น free text เอง (หรือดึงจาก Catalog สเปกเฉยๆ ไม่ใช่รถจริงที่
+    // มีอยู่ในสต็อก) ไม่มี vehicleId ผูกกับรถจริงเลย ทำให้ผ่าน PDI แล้วอัปเดตสถานะรถจริงกลับไม่ได้ (ดู
+    // pdi-pass ด้านบน) แก้ให้ต้องเลือกรถจริงจาก 'vehicles' เท่านั้น แล้วเก็บ vehicleId ไว้ในเอกสาร pdi
+    let stockVehicles = []
+    try { stockVehicles = (await listDocs('vehicles', [], 'arrivedAt', 'desc', 300)).filter(v => !v.deleted) } catch (e) { stockVehicles = [] }
+
     const { el, close } = openModal({
       title: '➕ เปิด PDI ใหม่', size: 'md',
       body: `
         <div style="display:flex;flex-direction:column;gap:12px">
-          <button class="btn btn-secondary" id="np-pick-btn" style="align-self:flex-start">🚗 เลือกจาก Catalog</button>
-          <div class="grid-2">
-            <div class="input-group"><label class="input-label">ยี่ห้อ *</label><input class="input" id="np-brand" placeholder="BYD"></div>
-            <div class="input-group"><label class="input-label">รุ่น *</label><input class="input" id="np-model" placeholder="Seal"><span class="input-error" id="np-model-e"></span></div>
-          </div>
-          <div class="grid-2">
-            <div class="input-group"><label class="input-label">สี</label><input class="input" id="np-color" placeholder="ขาว"></div>
-            <div class="input-group"><label class="input-label">VIN</label><input class="input" id="np-vin" placeholder="17 หลัก"></div>
+          <div class="input-group"><label class="input-label">เลือกรถจากสต็อกจริง *</label>
+            <select class="input" id="np-vehicle">
+              <option value="">— เลือกรถ —</option>
+              ${stockVehicles.map(v => `<option value="${escHtml(v.id)}">${escHtml(v.brand)} ${escHtml(v.model)} ${escHtml(v.variant||'')} · ${escHtml(v.color||'')} · VIN ${escHtml((v.vin||'').slice(-6)||'-')}</option>`).join('')}
+            </select>
+            <span class="input-error" id="np-vehicle-e"></span>
           </div>
           <div class="input-group"><label class="input-label">ช่างตรวจ *</label><input class="input" id="np-tech" placeholder="ชื่อช่าง"></div>
         </div>
       `,
       footer: `<button class="btn btn-secondary" id="npc">ยกเลิก</button><button class="btn btn-primary" id="nps">✅ เปิด PDI</button>`
     })
-    el.querySelector('#np-pick-btn').addEventListener('click', () => {
-      pickVehicle(v => {
-        el.querySelector('#np-brand').value = v.brand || ''
-        el.querySelector('#np-model').value = v.model || ''
-        el.querySelector('#np-color').value = ''
-        el.querySelector('#np-vin').value = v.vin || ''
-      })
-    })
     el.querySelector('#npc').addEventListener('click', close)
     el.querySelector('#nps').addEventListener('click', async () => {
-      const model = el.querySelector('#np-model').value.trim()
-      if (!model) { el.querySelector('#np-model-e').textContent = 'กรุณาระบุ'; return }
+      const vehicleId = el.querySelector('#np-vehicle').value
+      const vehicle = stockVehicles.find(v => v.id === vehicleId)
+      if (!vehicle) { el.querySelector('#np-vehicle-e').textContent = 'กรุณาเลือกรถจากสต็อก'; return }
       const btn = el.querySelector('#nps'); btn.disabled = true
       const data = {
-        brand: el.querySelector('#np-brand').value.trim(),
-        model, color: el.querySelector('#np-color').value.trim(),
-        vin: el.querySelector('#np-vin').value.trim(),
+        vehicleId: vehicle.id,
+        brand: vehicle.brand || '', model: vehicle.model || '', color: vehicle.color || '',
+        vin: vehicle.vin || '',
         techName: el.querySelector('#np-tech').value.trim(),
         status: 'inprogress', checks: {}, defects: [],
         startDate: new Date().toISOString().slice(0,10), notes: '',

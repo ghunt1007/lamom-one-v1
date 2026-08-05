@@ -5,7 +5,7 @@
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { timeAgo } from '../../utils/format.js'
-import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, incrementField, seedDemoData } from '../../core/db.js'
 
 const REWARD_CATS = {
   cash:    { label: 'เงิน/บัตรกำนัล', icon: '💰' },
@@ -133,10 +133,17 @@ export default async function RewardStorePage(container) {
           const staffId = document.getElementById('rd-staff')?.value
           const s = staffPoints.find(x => x.id === staffId)
           if (!s || s.points < r.points) { showToast('❗ แต้มไม่พอ', 'error'); return false }
-          await updateDocData('staff_points', s.id, { points: s.points - r.points })
-          await updateDocData('gamification_rewards', r.id, { stock: r.stock < 99 ? r.stock - 1 : r.stock, redeemed30: (r.redeemed30||0) + 1 })
-          await createDoc('reward_redemptions', { staff: s.name, reward: r.name, points: r.points })
-          showToast(`🎉 ${s.name} แลก "${r.name}" สำเร็จ!`, 'success'); await loadData()
+          if (r.stock <= 0) { showToast('❗ ของรางวัลหมดสต็อกแล้ว', 'error'); return false }
+          // (แก้ไข) เดิมหักสต็อก/แต้มด้วย read-then-write ธรรมดา (อ่านค่า r.stock/s.points ที่โหลดไว้ก่อนหน้า
+          // มาลบเองแล้วเขียนกลับ) ถ้ามี 2 คนแลกพร้อมกันจะเกิด stale read แต้ม/สต็อกไม่ตรงจริงได้ — เปลี่ยนเป็น
+          // incrementField (Firestore increment() แบบอะตอมมิก, มีอยู่แล้วใน core/db.js) กันแข่งกัน
+          try {
+            await incrementField('staff_points', s.id, 'points', -r.points)
+            if (r.stock < 99) await incrementField('gamification_rewards', r.id, 'stock', -1) // 99 = สต็อกไม่จำกัด (sentinel)
+            await incrementField('gamification_rewards', r.id, 'redeemed30', 1)
+            await createDoc('reward_redemptions', { staff: s.name, reward: r.name, points: r.points })
+            showToast(`🎉 ${s.name} แลก "${r.name}" สำเร็จ!`, 'success'); await loadData()
+          } catch (e) { showToast('แลกของรางวัลไม่สำเร็จ', 'error') }
         }
       })
     }))

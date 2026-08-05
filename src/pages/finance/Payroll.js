@@ -51,6 +51,10 @@ export default async function PayrollPage(container) {
   let filterDept = 'all'
   // staffId → Firestore doc id ของ payroll_records เดือนที่กำลังดูอยู่ (มีก็ต่อเมื่อเคยจ่าย/แก้ไขเดือนนี้มาก่อน)
   let payrollDocIds = {}
+  // เดิมตอน staff collection ว่าง (ยังไม่มีพนักงานจริง) หน้านี้ fallback ไป DEMO_STAFF_PAY (ST001-ST005 ปลอม)
+  // โดยไม่มีสัญญาณอะไรบอกผู้ใช้เลย และปุ่ม "จ่าย"/"จ่ายทั้งหมด" ยังกดได้ปกติ — จะเขียน payroll_records จริงให้
+  // คนปลอมเหล่านี้ทันที ตั้ง flag นี้ไว้บอกสถานะ + ใช้ปิดปุ่มจ่ายเงินตอนกำลังโชว์ข้อมูลตัวอย่าง
+  let usingDemoStaff = true
 
   if (container.__routerGen !== myGen) return
 
@@ -69,6 +73,7 @@ export default async function PayrollPage(container) {
         listDocs('staff_salaries', [], 'updatedAt', 'desc', 500).catch(() => []),
       ])
       if (container.__routerGen !== myGen) return
+      usingDemoStaff = !staffDocs.length
       const salaryMap = Object.fromEntries(salaryDocs.map(d => [d.id, d.salary]))
       if (staffDocs.length) {
         // Phase 2 หลายบริษัท — พนักงานที่ยังไม่มี companyId (ข้อมูลเดิม/shared-service) ยังเข้ารอบจ่ายเงินเดือน
@@ -158,12 +163,12 @@ export default async function PayrollPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">💳 Payroll</div>
-            <div class="page-subtitle">รอบเงินเดือน ${monthLabel}</div>
+            <div class="page-subtitle">รอบเงินเดือน ${monthLabel}${usingDemoStaff ? ' <span style="color:var(--warning);font-size:0.72rem;margin-left:8px">⚠️ ข้อมูลตัวอย่าง — ยังไม่มีพนักงานจริงในระบบ (ปิดปุ่มจ่ายเงินไว้)</span>' : ''}</div>
           </div>
           <div class="page-actions">
             <input type="month" class="input" id="pay-month" value="${selectedMonth}" style="width:160px">
             <button class="btn btn-secondary" id="pay-export">📥 Export</button>
-            <button class="btn btn-primary" id="pay-all-btn">✅ จ่ายทั้งหมด</button>
+            <button class="btn btn-primary" id="pay-all-btn" ${usingDemoStaff ? 'disabled title="ปิดใช้งาน — กำลังแสดงข้อมูลตัวอย่าง ยังไม่มีพนักงานจริง"' : ''}>✅ จ่ายทั้งหมด</button>
           </div>
         </div>
 
@@ -247,6 +252,7 @@ export default async function PayrollPage(container) {
     })
 
     document.getElementById('pay-all-btn')?.addEventListener('click', async (e) => {
+      if (usingDemoStaff) { showToast('⚠️ ไม่สามารถจ่ายเงินได้ — กำลังแสดงข้อมูลตัวอย่าง', 'error'); return }
       const pending = staffList.filter(s => s.status === 'pending')
       if (!pending.length) { showToast('จ่ายครบแล้ว', 'success'); return }
       if (!await confirmDialog({ title: 'จ่ายเงินเดือน', message: `ยืนยันจ่ายเงินเดือน ${pending.length} คน รวม ${formatCurrency(pending.reduce((a,s)=>a+netPay(s),0))}?`, confirmText: 'ยืนยัน' })) return
@@ -264,6 +270,7 @@ export default async function PayrollPage(container) {
 
     document.querySelectorAll('.pay-btn').forEach(btn => {
       btn.addEventListener('click', async (e) => {
+        if (usingDemoStaff) { showToast('⚠️ ไม่สามารถจ่ายเงินได้ — กำลังแสดงข้อมูลตัวอย่าง', 'error'); return }
         const s = staffList.find(x => x.id === btn.dataset.id)
         if (!s || s.status === 'paid') return
         // เดิมไม่ disable ปุ่มระหว่างรอบันทึก กดซ้ำเร็วๆก่อนสถานะอัปเดตจะสร้างรายการจ่ายซ้ำ
@@ -320,7 +327,7 @@ export default async function PayrollPage(container) {
       <td>
         <div style="display:flex;gap:4px">
           <button class="btn btn-ghost btn-sm edit-pay-btn" data-id="${s.id}">✏️</button>
-          ${s.status !== 'paid' ? `<button class="btn btn-primary btn-sm pay-btn" data-id="${s.id}">💳 จ่าย</button>` : ''}
+          ${s.status !== 'paid' ? `<button class="btn btn-primary btn-sm pay-btn" data-id="${s.id}" ${usingDemoStaff ? 'disabled title="ปิดใช้งาน — ข้อมูลตัวอย่าง"' : ''}>💳 จ่าย</button>` : ''}
         </div>
       </td>
     </tr>`

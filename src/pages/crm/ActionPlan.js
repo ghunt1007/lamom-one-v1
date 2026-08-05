@@ -32,7 +32,7 @@ export default async function ActionPlanPage(container) {
   let statusFilter = 'all'
 
   async function loadData() {
-    try { plans = await listDocs('action_plans', [], 'createdAt', 'desc', 500) } catch {}
+    try { plans = (await listDocs('action_plans', [], 'createdAt', 'desc', 500)).filter(p => !p.deleted) } catch {}
     if (!plans.length) plans = DEMO.map(p => ({ ...p }))
     render()
   }

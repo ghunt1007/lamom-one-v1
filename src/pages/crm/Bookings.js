@@ -107,7 +107,7 @@ function openCustomerPicker(onPick) {
     }))
   }
   el.querySelector('#cp-q').addEventListener('input', e => { q = e.target.value.trim().toLowerCase(); renderList() })
-  listDocs('customers', [], 'createdAt', 'desc', 500).then(rows => { customers = rows; renderList() }).catch(() => { customers = []; renderList() })
+  listDocs('customers', [], 'createdAt', 'desc', 500).then(rows => { customers = rows.filter(c => !c.deleted); renderList() }).catch(() => { customers = []; renderList() })
 }
 
 // ── เมื่อใบจองถูกอัปเดตสถานะเป็น "ส่งมอบแล้ว" และมี customerId เชื่อมอยู่ → อัปเดตลูกค้าเป็น stage 'delivered' ──

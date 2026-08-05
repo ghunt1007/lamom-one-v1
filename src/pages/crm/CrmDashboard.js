@@ -75,6 +75,7 @@ export default async function CrmDashboard(container) {
       listDocs('customers', [], 'createdAt', 'desc', 500).catch(() => []),
       getSalesData().catch(() => []),
     ])
+    customers = customers.filter(c => !c.deleted)
   } catch {}
 
   if (container.__routerGen !== myGen) return

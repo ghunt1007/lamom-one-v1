@@ -51,7 +51,7 @@ export default async function FinanceTrackerPage(container) {
     const list = filtered()
     const pending = apps.filter(a => ['preparing','submitted','reviewing','conditional'].includes(a.status)).length
     const approved = apps.filter(a => a.status === 'approved').length
-    const totalLoan = apps.filter(a => a.status === 'approved').reduce((s, a) => s + a.loanAmount, 0)
+    const totalLoan = apps.filter(a => a.status === 'approved').reduce((s, a) => s + (a.loanAmount || 0), 0)
     const rejected = apps.filter(a => a.status === 'rejected').length
 
     container.innerHTML = `

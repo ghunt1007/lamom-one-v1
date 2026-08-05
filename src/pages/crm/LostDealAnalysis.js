@@ -1,6 +1,7 @@
 import { formatCurrency } from '../../utils/format.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs } from '../../core/db.js'
+import { openModal } from '../../utils/modal.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -48,7 +49,7 @@ export default async function LostDealAnalysisPage(container) {
     if (container.__routerGen !== myGen) return
 
     const fromBookings = bookings
-      .filter(b => b.status === 'ถอนจอง')
+      .filter(b => !b.deleted && b.status === 'ถอนจอง')
       .map(b => ({
         id: b.bookingNo || b.id,
         custName: b.custName || '',
@@ -65,7 +66,7 @@ export default async function LostDealAnalysisPage(container) {
       }))
 
     const fromLeads = leads
-      .filter(l => l.isLost === true)
+      .filter(l => !l.deleted && l.isLost === true)
       .map(l => ({
         id: l.id,
         custName: [l.firstName, l.lastName].filter(Boolean).join(' ') || l.custName || l.name || '',
@@ -245,6 +246,31 @@ export default async function LostDealAnalysisPage(container) {
     document.getElementById('sales-sel')?.addEventListener('change', e => { salespersonFilter = e.target.value; renderPage() })
     document.querySelectorAll('.rf-btn').forEach(b => b.addEventListener('click', () => { reasonFilter = b.dataset.r; renderPage() }))
     document.getElementById('ld-export')?.addEventListener('click', () => exportToExcel(filtered.map(d => ({ วันที่:d.lostDate, ลูกค้า:d.custName, รุ่น:d.interestedIn, งบ:d.budget, เซลส์:d.salesperson, สาเหตุ:LOST_REASONS[d.lostReason]?.label||d.lostReason, คู่แข่ง:d.lostTo||'', หมายเหตุ:d.note })), 'LostDeals'))
+    // เดิม <tr class="ld-row" data-id> มี cursor:pointer เหมือนกดได้ แต่ไม่มี listener ผูกไว้เลย — เพิ่ม
+    // click handler เปิดโมดัลรายละเอียดจริง (รวม note ที่ไม่มีคอลัมน์แสดงในตารางหลัก)
+    document.querySelectorAll('.ld-row').forEach(row => row.addEventListener('click', () => {
+      const d = filtered.find(x => x.id === row.dataset.id)
+      if (d) openDealDetail(d)
+    }))
+  }
+
+  function openDealDetail(d) {
+    const r = LOST_REASONS[d.lostReason]
+    openModal({
+      title: '📋 ' + escHtml(d.custName),
+      size: 'sm',
+      body: `<div style="display:flex;flex-direction:column;gap:8px;font-size:0.83rem">
+        <div><span style="color:var(--text-muted)">โทรศัพท์:</span> ${escHtml(d.phone || '-')}</div>
+        <div><span style="color:var(--text-muted)">สนใจรุ่น:</span> ${escHtml(d.interestedIn || '-')}</div>
+        <div><span style="color:var(--text-muted)">งบประมาณ:</span> <strong>${formatCurrency(d.budget)}</strong></div>
+        <div><span style="color:var(--text-muted)">เซลส์:</span> ${escHtml(d.salesperson || '-')}</div>
+        <div><span style="color:var(--text-muted)">สาเหตุ:</span> <span class="badge badge-${r?.color||'secondary'}">${r?.label||escHtml(d.lostReason)}</span></div>
+        <div><span style="color:var(--text-muted)">ไปซื้อที่:</span> ${escHtml(d.lostTo || '—')}</div>
+        <div><span style="color:var(--text-muted)">วันที่เสียดีล:</span> ${escHtml(d.lostDate || '-')}</div>
+        ${d.note ? `<div style="margin-top:6px;padding:8px 10px;background:var(--surface-2);border-radius:var(--radius-sm);color:var(--text-muted)">💬 ${escHtml(d.note)}</div>` : ''}
+      </div>`,
+      footer: '<button class="btn btn-secondary" onclick="this.closest(\'.modal-overlay\').remove()">ปิด</button>'
+    })
   }
 
   renderPage()

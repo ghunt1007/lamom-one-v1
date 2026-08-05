@@ -26,14 +26,18 @@ const DEMO_CARS = [
 
 export default async function CarPhotosPage(container) {
   const myGen = container.__routerGen
-  let cars = DEMO_CARS.map(c => ({ ...c, posted: { ...c.posted }, photoUrls: { ...c.photoUrls }, photoKeys: { ...c.photoKeys } }))
+  let cars = []
   let dataSource = 'demo'
 
+  // เดิม concatenate DEMO_CARS (5 คันตัวอย่าง) ต่อท้าย "ทุกครั้ง" ที่โหลด ไม่ว่าจะมีข้อมูลจริงอยู่แล้วกี่คัน
+  // (เงื่อนไขเดิม docs.length >= 2 แค่คุมว่า "จะเริ่มผสม" เมื่อไหร่ ไม่ได้ป้องกันการผสมเลย) ทำให้ข้อมูลจริง
+  // กับตัวอย่างปนกันอยู่ในรายการเดียวกันตลอดไป ผู้ใช้แยกไม่ออกว่าคันไหนจริงคันไหนตัวอย่าง แก้ให้แสดง demo
+  // เฉพาะเมื่อ "ไม่มีข้อมูลจริงเลย" เท่านั้น (ศูนย์คัน) ไม่ผสมกับข้อมูลจริงเด็ดขาด
   try {
     const docs = await listDocs('car_photos', [], 'lastShoot', 'desc', 100).catch(() => [])
     if (container.__routerGen !== myGen) return
-    if (docs.length >= 2) {
-      const mapped = docs.map((d, i) => ({
+    if (docs.length) {
+      cars = docs.map((d, i) => ({
         id: d.id || `CP${String(i+1).padStart(2,'0')}`,
         model: d.model || '',
         vin: d.vin || '',
@@ -44,10 +48,13 @@ export default async function CarPhotosPage(container) {
         lastShoot: d.lastShoot || null,
         _persisted: true,
       }))
-      cars = [...mapped, ...DEMO_CARS.map(c => ({ ...c, posted: { ...c.posted }, photoUrls: { ...c.photoUrls }, photoKeys: { ...c.photoKeys } }))]
       dataSource = 'live'
+    } else {
+      cars = DEMO_CARS.map(c => ({ ...c, posted: { ...c.posted }, photoUrls: { ...c.photoUrls }, photoKeys: { ...c.photoKeys } }))
     }
-  } catch {}
+  } catch {
+    cars = DEMO_CARS.map(c => ({ ...c, posted: { ...c.posted }, photoUrls: { ...c.photoUrls }, photoKeys: { ...c.photoKeys } }))
+  }
 
   function renderPage() {
     const complete = cars.filter(c => c.photos >= 12).length

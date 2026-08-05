@@ -3,7 +3,7 @@
  * Route: /crm/fleet
  */
 import { formatCurrency, formatDate } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
@@ -73,7 +73,21 @@ export default async function FleetCorporatePage(container) {
 
     container.querySelectorAll('.move-btn').forEach(b => b.addEventListener('click', () => moveStage(b.dataset.id)))
     container.querySelectorAll('.view-btn').forEach(b => b.addEventListener('click', () => viewDeal(b.dataset.id)))
+    container.querySelectorAll('.lose-btn').forEach(b => b.addEventListener('click', () => loseDeal(b.dataset.id)))
     document.getElementById('add-btn')?.addEventListener('click', openAdd)
+  }
+
+  // เดิมปุ่ม "❌ เสียดีล" เป็น onclick="(function(){})()" ไม่ทำอะไรเลย — เขียนสถานะจริงเหมือน moveStage()
+  async function loseDeal(id) {
+    const d = DEALS.find(x => x.id === id)
+    if (!d) return
+    const ok = await confirmDialog({ title: '❌ เสียดีล', message: `ยืนยันปิดดีล "${escHtml(d.company)}" เป็นสถานะ "เสียดีล"?`, confirmText: 'เสียดีล', danger: true })
+    if (!ok) return
+    try {
+      await updateDocData('fleet_deals', d.id, { status: 'lost' })
+      showToast(`❌ ดีล ${d.id} (${d.company}) ปิดเป็นเสียดีลแล้ว`, 'warning')
+      await loadData()
+    } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
   }
 
   function dealCard(d) {
@@ -106,7 +120,7 @@ export default async function FleetCorporatePage(container) {
         <div style="display:flex;gap:8px;margin-top:10px">
           <button class="btn btn-xs btn-secondary view-btn" data-id="${d.id}">📋 รายละเอียด</button>
           ${nextStage ? `<button class="btn btn-xs btn-primary move-btn" data-id="${d.id}">➡ ${ST[nextStage].label}</button>` : ''}
-          ${d.status === 'negotiation' ? `<button class="btn btn-xs btn-secondary" style="color:var(--danger)" onclick="(function(){})()">❌ เสียดีล</button>` : ''}
+          ${d.status === 'negotiation' ? `<button class="btn btn-xs btn-secondary lose-btn" style="color:var(--danger)" data-id="${d.id}">❌ เสียดีล</button>` : ''}
         </div>
       </div>`
   }

@@ -57,7 +57,7 @@ export default async function EventCheckinPage(container) {
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('🎪 ผู้เยี่ยมชม', total + '/' + EVENT_INFO.target + ' (' + targetPct + '%)', targetPct >= 50 ? 'success' : 'primary')}
           ${kpi('🔥 Hot Leads', hot, hot > 0 ? 'danger' : 'secondary')}
-          ${kpi('📞 ได้เบอร์ติดต่อ', withPhone + ' (' + Math.round(withPhone/total*100) + '%)', 'warning')}
+          ${kpi('📞 ได้เบอร์ติดต่อ', withPhone + ' (' + (total > 0 ? Math.round(withPhone/total*100) : 0) + '%)', 'warning')}
           ${kpi('🚗 จอง Test Drive', tdCount, 'success')}
         </div>
 

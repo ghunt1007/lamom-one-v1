@@ -35,7 +35,7 @@ export default async function PreDeliveryPage(container) {
 
   async function loadData() {
     try { bookings = await listDocs('bookings', [], 'createdAt', 'desc', 500) } catch {}
-    bookings = bookings.filter(b => b.status !== 'ถอนจอง')
+    bookings = bookings.filter(b => !b.deleted && b.status !== 'ถอนจอง')
     bookings.forEach(b => { if (!b.pdItems) b.pdItems = buildItems() })
     render()
   }

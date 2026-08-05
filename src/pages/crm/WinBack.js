@@ -197,24 +197,15 @@ export default async function WinBackPage(container) {
       catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     document.getElementById('scan-btn')?.addEventListener('click', async () => {
+      // (v1.0.xxx) เดิมถ้าไม่เจอ target จริงเลยจะสร้างลูกค้าปลอม ("ประสิทธิ์ หายไป") เขียนถาวรลง Firestore
+      // ตัดออกทั้งหมด — สแกนจริงคือ re-run loadData() (ซึ่งคำนวณจาก bookings ที่ส่งมอบแล้วเกิน 10 เดือนจริง
+      // อยู่แล้วใน loadData ด้านบน) ถ้าไม่พบเป้าหมายใหม่จริง ให้แจ้งตรงไปตรงมาว่าไม่พบ ไม่ยัดข้อมูลปลอม
+      await loadData()
       const unworked = targets.filter(t => t.status === 'target' && t.attempts === 0)
       if (unworked.length > 0) {
-        showToast(`🔍 พบ ${unworked.length} ราย ที่ยังไม่ได้ติดต่อ — ดูในรายการเป้าหมาย`, 'warning')
+        showToast(`🔍 สแกนเสร็จ — พบลูกค้าหาย ${unworked.length} ราย ที่ยังไม่ได้ติดต่อ`, 'success')
       } else {
-        try {
-          await createDoc('winback_targets', {
-            customer: 'ประสิทธิ์ หายไป',
-            phone: '088-555-6789',
-            lastVisit: addDays(-365),
-            reason: 'unknown',
-            value: 35000,
-            status: 'target',
-            offer: '',
-            attempts: 0,
-          })
-          showToast('🔍 สแกนเสร็จ — พบลูกค้าหายใหม่ 1 ราย เพิ่มในรายการแล้ว', 'success')
-          await loadData()
-        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+        showToast('🔍 สแกนเสร็จ — ไม่พบลูกค้าหายรายใหม่ในขณะนี้', 'primary')
       }
     })
   }

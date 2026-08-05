@@ -19,6 +19,7 @@ export default async function PriceListPage(container) {
   seedDemoData()
 
   let models = []
+  let realStockCount = null
   let brandFilter = 'all'
   let typeFilter = 'all'
   let compareList = []
@@ -27,6 +28,12 @@ export default async function PriceListPage(container) {
   async function loadData() {
     loading = true
     try { models = await listDocs('vehicle_models', [], 'basePrice', 'asc', 100) } catch (e) { models = [] }
+    // "📦 สต็อกรวม" เดิมรวมจาก field `stock` ที่แอดมินพิมพ์เองต่อรุ่นตอนเพิ่ม/ไม่มีจุดไหนอัปเดตให้ตรงกับ
+    // ของจริงเลย ไม่ได้สะท้อนสต็อกจริงในโชว์รูม แก้ให้คำนวณสดจากจำนวนรถจริงใน 'vehicles' แทน (รวมทุกรุ่น
+    // ไม่แยกต่อโมเดล เพราะชื่อรุ่นใน vehicle_models เป็น free text ไม่ได้ผูก id กับ vehicles.model จริง —
+    // การจับคู่ต่อรุ่นแม่นยำต้องทำ data-model merge ที่ใหญ่กว่านี้)
+    try { realStockCount = (await listDocs('vehicles', [], 'arrivedAt', 'desc', 500)).filter(v => !v.deleted && v.status !== 'sold').length }
+    catch (e) { realStockCount = null }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -57,7 +64,7 @@ export default async function PriceListPage(container) {
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('🚗 รุ่นรถ', models.length, 'primary')}
           ${kpi('✅ ใช้งาน', models.filter(m=>m.active).length, 'success')}
-          ${kpi('📦 สต็อกรวม', models.reduce((a,m)=>a+m.stock,0) + ' คัน', 'primary')}
+          ${kpi('📦 สต็อกรวม (จริง)', (realStockCount ?? models.reduce((a,m)=>a+m.stock,0)) + ' คัน', 'primary')}
           ${kpi('💰 ราคาต่ำสุด', formatCurrency(Math.min(...models.map(m=>m.promotionPrice||m.basePrice))), 'warning')}
         </div>
 

@@ -101,7 +101,7 @@ export default async function DuplicateManagerPage(container) {
   let totalCustomers = 0
 
   try {
-    const customers = await listDocs('customers', [], 'createdAt', 'desc', 1000).catch(() => [])
+    const customers = (await listDocs('customers', [], 'createdAt', 'desc', 1000).catch(() => [])).filter(c => !c.deleted)
     if (container.__routerGen !== myGen) return
     totalCustomers = customers.length
     // แสดงเฉพาะกลุ่มซ้ำที่สแกนเจอจริงเมื่อมีลูกค้าจริงในระบบ — ห้ามเอา DEMO_DUPLICATES มาปนกับผลสแกนจริง

@@ -41,12 +41,16 @@ export default async function TestDrivePage(container) {
   }
 
   function getStats() {
+    const done = testdrives.filter(t => t.status === 'done').length
+    const booked = testdrives.filter(t => t.result === 'booked').length
     return {
       total: testdrives.length,
-      done: testdrives.filter(t => t.status === 'done').length,
+      done,
       scheduled: testdrives.filter(t => t.status === 'scheduled').length,
-      booked: testdrives.filter(t => t.result === 'booked').length,
-      convRate: testdrives.length > 0 ? Math.round(testdrives.filter(t => t.result === 'booked').length / testdrives.filter(t => t.status === 'done').length * 100) : 0,
+      booked,
+      // เดิมกันแค่ testdrives.length===0 แต่ตัวหารจริงคือ "done" — ถ้ามี testdrive แต่ยังไม่มีรายการไหน
+      // เสร็จเลย (done===0) ยังโชว์ NaN% อยู่ดี กันตัวหารเป็น 0 ตรงๆ
+      convRate: done > 0 ? Math.round(booked / done * 100) : 0,
     }
   }
 

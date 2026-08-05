@@ -209,13 +209,19 @@ export default async function TestDriveSchedulerPage(container) {
       async onConfirm() {
         const name = document.getElementById('tf-name')?.value?.trim()
         if (!name) { showToast('❗ กรุณากรอกชื่อลูกค้า', 'error'); return false }
+        const date = document.getElementById('tf-date')?.value||viewDate
+        const time = document.getElementById('tf-time')?.value||'10:00'
+        // เดิมไม่มีการเช็คจองซ้ำเลย — timeline view กันไม่ให้คลิก slot ที่มีคนจองแล้วได้ก็จริง แต่ปุ่ม
+        // "+ นัดทดลองขับ" หลักเปิดฟอร์มเลือกวัน/เวลาได้อิสระ ไม่ผ่าน timeline จึงเลือกช่วงเวลาที่มีคนจองอยู่
+        // แล้วซ้ำได้ ทำให้ 2 นัดชนกันในช่วงเวลาเดียวกันจริง
+        const conflict = bookings.find(x => x.date === date && x.time === time && !['cancelled','no_show'].includes(x.status))
+        if (conflict) { showToast(`❗ ช่วงเวลา ${time} วัน ${formatDate(date)} มีนัดของ ${conflict.customerName} อยู่แล้ว`, 'error'); return false }
         try {
           await createDoc('test_drives', {
             customerName: name,
             phone: document.getElementById('tf-phone')?.value||'',
             model: document.getElementById('tf-model')?.value||DEMO_VEHICLES[0],
-            date: document.getElementById('tf-date')?.value||viewDate,
-            time: document.getElementById('tf-time')?.value||'10:00',
+            date, time,
             staff: document.getElementById('tf-staff')?.value||STAFF_LIST[0],
             status: 'scheduled', notes: ''
           })

@@ -1,6 +1,10 @@
 /**
- * Fleet GPS Tracker — ติดตาม GPS รถ Fleet แบบ Real-time
+ * Fleet GPS Tracker — ติดตามรถ Fleet (ยังไม่เชื่อมต่ออุปกรณ์ GPS จริง)
  * Route: /b2b/fleet-gps
+ * (บันทึกความซื่อสัตย์) หน้านี้เดิมโฆษณาว่าเป็น "Real-time GPS tracking" แต่ไม่มี real-time listener
+ * (โหลดครั้งเดียวด้วย listDocs ไม่ใช่ watchDocs) และไม่มีช่องทางรับตำแหน่งจากอุปกรณ์ GPS จริงเลยที่ไหนใน
+ * ระบบ — ปุ่ม "Refresh" แค่โหลดข้อมูล fleet_vehicles/fleet_alerts ที่บันทึกไว้ใน Firestore ซ้ำ (ไม่ใช่ตำแหน่ง
+ * GPS สดจากรถจริง) แก้ label ทั้งหมดให้บอกตรงว่านี่คือข้อมูลที่บันทึกในระบบ ไม่ใช่ GPS แบบ real-time จริง
  */
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
@@ -60,12 +64,16 @@ export default async function FleetGpsPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🛰 Fleet GPS Tracker</div>
-            <div class="page-subtitle">ติดตามรถ ${FLEET.length} คัน แบบ Real-time · ${moving} คันกำลังขับ</div>
+            <div class="page-subtitle">ติดตามรถ ${FLEET.length} คัน (ข้อมูลบันทึกในระบบ — ยังไม่เชื่อมอุปกรณ์ GPS จริง) · ${moving} คันกำลังขับ</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="refresh-btn">🔄 Refresh</button>
             <button class="btn btn-primary" id="alert-btn">🔔 ตั้ง Alert</button>
           </div>
+        </div>
+
+        <div class="card" style="padding:8px 14px;margin-bottom:12px;background:var(--surface-2);border:1px dashed var(--border);font-size:0.7rem;color:var(--text-muted)">
+          ⚠️ ยังไม่เชื่อมต่ออุปกรณ์ GPS จริง — ตำแหน่ง/ความเร็ว/SOC ที่แสดงเป็นข้อมูลที่บันทึกไว้ในระบบ ไม่ใช่สัญญาณ GPS สดจากรถจริง และหน้านี้ไม่มีช่องทางเพิ่ม/อัปเดตตำแหน่งรถในระบบเลย
         </div>
 
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
@@ -130,7 +138,7 @@ export default async function FleetGpsPage(container) {
 
     document.getElementById('refresh-btn')?.addEventListener('click', async () => {
       await loadData()
-      showToast('🔄 โหลดข้อมูลล่าสุดจากฐานข้อมูลแล้ว', 'success')
+      showToast('🔄 โหลดข้อมูลล่าสุดที่บันทึกในระบบแล้ว (ไม่ใช่ตำแหน่ง GPS สดจากรถจริง — ยังไม่มีอุปกรณ์ GPS เชื่อมต่อ)', 'success')
     })
     document.getElementById('alert-btn')?.addEventListener('click', () => {
       openModal({ title:'🔔 ตั้ง Alert', size:'xs',

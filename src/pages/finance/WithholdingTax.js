@@ -4,12 +4,16 @@
  */
 import { formatCurrency, formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 import { printWithholdingTaxCert } from '../../utils/taxDocs.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 function today() { return new Date().toISOString().slice(0, 10) }
+function myName() {
+  const me = getState('user') || {}
+  return me.displayName || me.email || ''
+}
 
 const INCOME_TYPES = {
   salary:    { label: 'เงินเดือน ค่าจ้าง (มาตรา 40(1))', rate: 5 },
@@ -113,13 +117,17 @@ export default async function WithholdingTaxPage(container) {
           <div class="input-group"><label class="input-label">วันที่จ่ายเงิน</label><input type="date" class="input" id="wt-date" value="${today()}"></div>
           <div class="input-group"><label class="input-label">จำนวนเงินที่จ่าย (บาท) *</label><input type="number" class="input" id="wt-amount"></div>
           <div class="input-group"><label class="input-label">อัตราภาษี (%)</label><input type="number" class="input" id="wt-rate" step="0.5"></div>
-          <div class="input-group"><label class="input-label">ผู้ออกหนังสือ</label><input class="input" id="wt-issuer" value="คุณ (Demo)"></div>
+          <div class="input-group"><label class="input-label">ผู้ออกหนังสือ *</label><input class="input" id="wt-issuer" value="${esc(myName())}" placeholder="ชื่อผู้ออกหนังสือจริง"></div>
         </div>
       `,
       async onConfirm() {
         const payeeName = document.getElementById('wt-payee')?.value?.trim()
         const amountPaid = +document.getElementById('wt-amount')?.value || 0
+        const issuedBy = document.getElementById('wt-issuer')?.value?.trim()
         if (!payeeName || amountPaid <= 0) { showToast('❗ กรุณากรอกชื่อผู้รับเงินและจำนวนเงิน', 'error'); return false }
+        // เดิม default ผู้ออกหนังสือเป็น "คุณ (Demo)" ถ้าผู้ใช้ไม่แก้ ค่านี้ถูกบันทึกเป็นเอกสารทางกฎหมายจริง
+        // (หนังสือรับรองหัก ณ ที่จ่าย) แก้ default เป็นชื่อผู้ใช้ที่ล็อกอินจริง แล้วบังคับกรอกชื่อจริงเสมอ
+        if (!issuedBy) { showToast('❗ กรุณากรอกชื่อผู้ออกหนังสือ (ห้ามเว้นว่าง — เป็นเอกสารทางกฎหมาย)', 'error'); return false }
         const incomeType = document.getElementById('wt-type')?.value || 'service'
         const rateInput = document.getElementById('wt-rate')?.value
         const taxRate = rateInput ? +rateInput : INCOME_TYPES[incomeType].rate
@@ -133,7 +141,7 @@ export default async function WithholdingTaxPage(container) {
             incomeType, incomeTypeLabel: INCOME_TYPES[incomeType].label,
             paymentDate: document.getElementById('wt-date')?.value || today(),
             amountPaid, taxRate, taxWithheld,
-            issuedBy: document.getElementById('wt-issuer')?.value?.trim() || 'พนักงาน',
+            issuedBy,
           })
           showToast('✅ ออกหนังสือรับรองแล้ว!', 'success')
           await loadData()

@@ -65,7 +65,8 @@ export default async function ServiceAnalyticsPage(container) {
     const li = liveMonthly.jobs.length - 1
     const jobsNow = liveMonthly.jobs[li], jobsPrev = liveMonthly.jobs[li-1]
     const revNow = liveMonthly.revenue[li]
-    const jobsChg = Math.round((jobsNow - jobsPrev) / jobsPrev * 100)
+    // เดิมหารด้วย jobsPrev ตรงๆ ไม่กันศูนย์ — ถ้าเดือนก่อนไม่มีงานจริงเลย (jobsPrev=0) จะโชว์ NaN%/Infinity%
+    const jobsChg = jobsPrev > 0 ? Math.round((jobsNow - jobsPrev) / jobsPrev * 100) : (jobsNow > 0 ? 100 : 0)
     const data = liveMonthly[metric]
     const maxV = Math.max(...data)
     const totalJobs = BY_SERVICE_TYPE.reduce((a, s) => a + s.jobs, 0)

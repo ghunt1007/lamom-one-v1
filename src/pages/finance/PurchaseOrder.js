@@ -3,7 +3,7 @@
  * Route: /finance/po
  */
 import { formatCurrency, formatDate, timeAgo } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
@@ -34,9 +34,15 @@ function escHtml(s) {
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
 
+// เดิมไม่มีการเช็คสิทธิ์เลย — พนักงานคนไหนก็อนุมัติ/ยกเลิก PO ได้ และไม่มี confirmDialog ก่อนกดจริง
+// แก้ให้จำกัดเฉพาะฝ่ายการเงิน/ผู้จัดการขึ้นไป (มิเรอร์ pattern จาก Payroll.js) พร้อม confirmDialog
+const PO_APPROVE_ROLES = ['owner', 'admin', 'manager', 'finance']
+
 export default async function PurchaseOrderPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
+  const myRole = getState('role') || getState('user')?.role || 'staff'
+  const canApprove = PO_APPROVE_ROLES.includes(myRole)
   let orders = []
   let statusFilter = 'all'
   let loading = true
@@ -108,8 +114,8 @@ export default async function PurchaseOrderPage(container) {
               </div>
               <div style="display:flex;gap:6px">
                 <button class="btn btn-xs btn-secondary view-btn" data-id="${o.id}">รายละเอียด</button>
-                ${o.status === 'pending' ? `<button class="btn btn-xs btn-success approve-btn" data-id="${o.id}">✓ อนุมัติ</button>` : ''}
-                ${o.status === 'pending' ? `<button class="btn btn-xs btn-danger reject-btn" data-id="${o.id}">✗ ยกเลิก</button>` : ''}
+                ${o.status === 'pending' && canApprove ? `<button class="btn btn-xs btn-success approve-btn" data-id="${o.id}">✓ อนุมัติ</button>` : ''}
+                ${o.status === 'pending' && canApprove ? `<button class="btn btn-xs btn-danger reject-btn" data-id="${o.id}">✗ ยกเลิก</button>` : ''}
                 ${o.status === 'approved' ? `<button class="btn btn-xs btn-primary order-btn" data-id="${o.id}">📤 สั่งซื้อ</button>` : ''}
                 ${o.status === 'ordered' ? `<button class="btn btn-xs btn-success receive-btn" data-id="${o.id}">📦 รับแล้ว</button>` : ''}
               </div>
@@ -127,6 +133,9 @@ export default async function PurchaseOrderPage(container) {
     container.querySelectorAll('.approve-btn').forEach(b => b.addEventListener('click', async () => {
       const o = orders.find(x => x.id === b.dataset.id)
       if (!o) return
+      if (!canApprove) { showToast('⛔ ไม่มีสิทธิ์อนุมัติ PO', 'error'); return }
+      const ok = await confirmDialog({ title: '✓ อนุมัติ PO', message: `ยืนยันอนุมัติ ${o.id} — ${escHtml(o.title)} มูลค่า ${formatCurrency(o.amount)}?`, confirmText: 'อนุมัติ' })
+      if (!ok) return
       try {
         await updateDocData('purchase_orders', o.id, { status: 'approved', approvedBy: myName() })
         showToast(`✅ อนุมัติ ${o.id} แล้ว`, 'success')
@@ -136,6 +145,9 @@ export default async function PurchaseOrderPage(container) {
     container.querySelectorAll('.reject-btn').forEach(b => b.addEventListener('click', async () => {
       const o = orders.find(x => x.id === b.dataset.id)
       if (!o) return
+      if (!canApprove) { showToast('⛔ ไม่มีสิทธิ์ยกเลิก PO', 'error'); return }
+      const ok = await confirmDialog({ title: '✗ ยกเลิก PO', message: `ยืนยันยกเลิก ${o.id} — ${escHtml(o.title)}?`, confirmText: 'ยกเลิก', danger: true })
+      if (!ok) return
       try {
         await updateDocData('purchase_orders', o.id, { status: 'cancelled' })
         showToast(`❌ ยกเลิก ${o.id}`, 'warning')

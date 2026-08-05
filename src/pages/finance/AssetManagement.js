@@ -25,9 +25,19 @@ const DEPRECIATION_METHODS = {
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
 
+// เดิมคำนวณแบบ Straight-Line เสมอไม่ว่า asset.depMethod จะเป็นอะไร (แม้จะโชว์ 'Double-Declining' ในหน้า
+// รายละเอียดก็ตาม) ทำให้ตัวเลือกวิธีคิดค่าเสื่อมไม่มีผลจริงเลย แก้ให้คำนวณจริงตามวิธีที่เลือก:
+// - sl (Straight-Line): ตัดเท่ากันทุกปีตลอดอายุการใช้งาน (เดิม)
+// - db (Double-Declining Balance): ตัดอัตรา 2/usefulLife ของมูลค่าคงเหลือทุกปี (ตัดเร็วกว่าตอนต้น)
 function calcBookValue(asset) {
   const years = (new Date() - new Date(asset.purchaseDate)) / (365.25 * 86400 * 1000)
-  const annualDep = asset.cost / asset.usefulLife
+  const life = asset.usefulLife || 1
+  if (asset.depMethod === 'db') {
+    const rate = Math.min(2 / life, 1)
+    const bv = asset.cost * Math.pow(1 - rate, Math.min(years, life))
+    return Math.max(bv, 0)
+  }
+  const annualDep = asset.cost / life
   const accumulatedDep = Math.min(annualDep * years, asset.cost)
   return Math.max(asset.cost - accumulatedDep, 0)
 }
@@ -167,6 +177,9 @@ export default async function AssetManagementPage(container) {
           </div>
           <div class="input-group"><label class="input-label">ราคาทุน (บาท)</label><input type="number" class="input" id="af-cost" placeholder="0"></div>
           <div class="input-group"><label class="input-label">อายุการใช้งาน (ปี)</label><input type="number" class="input" id="af-life" value="5"></div>
+          <div class="input-group"><label class="input-label">วิธีคิดค่าเสื่อม</label>
+            <select class="input" id="af-depmethod">${Object.entries(DEPRECIATION_METHODS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select>
+          </div>
           <div class="input-group"><label class="input-label">สถานที่</label><input class="input" id="af-loc" placeholder="สาขา..."></div>
           <div class="input-group"><label class="input-label">วันที่ซื้อ</label><input type="date" class="input" id="af-date" value="${new Date().toISOString().slice(0,10)}"></div>
         </div>
@@ -179,7 +192,7 @@ export default async function AssetManagementPage(container) {
             name,
             cat: document.getElementById('af-cat')?.value||'equipment',
             cost: +document.getElementById('af-cost')?.value||0,
-            depMethod: 'sl',
+            depMethod: document.getElementById('af-depmethod')?.value || 'sl',
             usefulLife: +document.getElementById('af-life')?.value||5,
             purchaseDate: document.getElementById('af-date')?.value||addDays(0),
             location: document.getElementById('af-loc')?.value||'', status: 'active', condition: 'good', lastMaint: null

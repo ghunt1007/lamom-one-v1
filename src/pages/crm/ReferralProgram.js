@@ -29,11 +29,18 @@ const REWARD_TIERS = [
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString() }
 
-const TOP_REFERRERS = [
+// Fallback ตัวอย่างล้วน — ใช้แสดงเฉพาะตอนยังไม่มี referral จริงใน Firestore เลย
+const TOP_REFERRERS_DEMO = [
   { name: 'วิชัย มีโชค', count: 5, earned: 12000, tier: 'Gold' },
   { name: 'สุดา อารมณ์ดี', count: 3, earned: 7500, tier: 'Silver' },
   { name: 'ธนา เก่งกว่า', count: 1, earned: 2500, tier: 'Bronze' },
 ]
+
+function tierNameFor(count) {
+  let tier = null
+  for (const t of REWARD_TIERS) if (count >= t.minRef) tier = t.tier
+  return tier || '-'
+}
 
 export default async function ReferralProgramPage(container) {
   const myGen = container.__routerGen
@@ -54,6 +61,23 @@ export default async function ReferralProgramPage(container) {
     if (container.__routerGen === myGen) renderPage()
   }
 
+  // (v1.0.xxx) เดิม TOP_REFERRERS เป็น array ปั้นตายตัว ไม่ขยับตาม referrals จริงที่หน้านี้โหลดมาอยู่แล้ว
+  // คำนวณจริงจากข้อมูล referrals: count = จำนวนครั้งที่ผ่านเกณฑ์/จ่ายแล้ว, earned = ยอดที่จ่ายจริงรวม
+  function computeTopReferrers() {
+    if (!referrals.length) return TOP_REFERRERS_DEMO
+    const byName = {}
+    referrals.forEach(r => {
+      const name = r.referrer || 'ไม่ระบุ'
+      if (!byName[name]) byName[name] = { name, count: 0, earned: 0 }
+      if (r.status === 'qualified' || r.status === 'paid') byName[name].count++
+      if (r.status === 'paid') byName[name].earned += (r.reward || 0)
+    })
+    return Object.values(byName)
+      .map(x => ({ ...x, tier: tierNameFor(x.count) }))
+      .sort((a, b) => b.count - a.count || b.earned - a.earned)
+      .slice(0, 5)
+  }
+
   function renderPage() {
     if (loading) {
       container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
@@ -62,6 +86,7 @@ export default async function ReferralProgramPage(container) {
     const list = referrals.filter(r => statusFilter === 'all' || r.status === statusFilter)
     const totalPaid = referrals.filter(r => r.status === 'paid').reduce((a,r) => a + r.reward, 0)
     const pending = referrals.filter(r => r.status === 'pending' || r.status === 'qualified').length
+    const topReferrers = computeTopReferrers()
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -79,7 +104,7 @@ export default async function ReferralProgramPage(container) {
           ${kpi('🤝 แนะนำทั้งหมด', referrals.length, 'primary')}
           ${kpi('⏳ รอดำเนินการ', pending, pending > 0 ? 'warning' : 'secondary')}
           ${kpi('💰 จ่ายรางวัลรวม', formatCurrency(totalPaid), 'success')}
-          ${kpi('⭐ Top Referrer', TOP_REFERRERS[0]?.name?.split(' ')[0] || '-', 'warning')}
+          ${kpi('⭐ Top Referrer', topReferrers[0]?.name?.split(' ')[0] || '-', 'warning')}
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 280px;gap:14px">
@@ -134,16 +159,16 @@ export default async function ReferralProgramPage(container) {
 
             <div class="card" style="padding:14px">
               <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">⭐ Top Referrers</div>
-              ${TOP_REFERRERS.map((r, i) => `
+              ${topReferrers.length ? topReferrers.map((r, i) => `
                 <div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
-                  <div style="font-size:1.2rem">${['🥇','🥈','🥉'][i]}</div>
+                  <div style="font-size:1.2rem">${['🥇','🥈','🥉'][i] || '🎗️'}</div>
                   <div style="flex:1">
-                    <div style="font-size:0.83rem;font-weight:600">${r.name}</div>
+                    <div style="font-size:0.83rem;font-weight:600">${escHtml(r.name)}</div>
                     <div style="font-size:0.7rem;color:var(--text-muted)">${r.count} ครั้ง · ${r.tier}</div>
                   </div>
                   <div style="font-weight:700;font-size:0.82rem;color:var(--success)">${formatCurrency(r.earned)}</div>
                 </div>
-              `).join('')}
+              `).join('') : '<div style="font-size:0.76rem;color:var(--text-muted);text-align:center;padding:10px 0">ยังไม่มีข้อมูล</div>'}
             </div>
           </div>
         </div>

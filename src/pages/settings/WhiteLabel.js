@@ -255,34 +255,29 @@ export default async function WhiteLabelPage(container) {
     `
   }
 
+  // เดิมปุ่ม toggle 5 อันในแท็บนี้ (Custom Login/ซ่อนเมนู V8/Demo Banner/Force Dark/Show Version) ไม่มี
+  // event listener ผูกไว้เลย — กดแล้วไม่เกิดอะไรขึ้น (ปุ่มตายสนิท) และไม่มีไฟล์อื่นในระบบอ่านค่า
+  // cfg.customLogin/hideV8/showDemoBanner/forceDark/showVersion ไปใช้จริงเลย (ตรวจสอบด้วย grep ทั้ง src/
+  // แล้ว) การทำให้ toggle เหล่านี้มีผลจริงต้องไปแก้ไฟล์นอก scope ที่แก้ได้ตอนนี้ (login page/sidebar/main.js)
+  // จึงเลือกทางที่ปลอดภัยกว่า คือเอาปุ่มที่ทำอะไรไม่ได้ออก ไม่ให้ UI หลอกว่ากดได้แล้วมีผล
   function renderAdvanced() {
     return `
       <div style="max-width:560px;display:flex;flex-direction:column;gap:12px">
         <div class="card" style="padding:16px">
-          <div style="font-weight:700;font-size:0.88rem;margin-bottom:12px">⚙️ Advanced Settings</div>
+          <div style="font-weight:700;font-size:0.88rem;margin-bottom:4px">⚙️ Advanced Settings</div>
+          <div style="font-size:0.72rem;color:var(--warning);margin-bottom:12px">⚠️ ยังไม่รองรับการตั้งค่าเหล่านี้ในเวอร์ชันนี้ (ต้องแก้ไขหน้า Login/Sidebar โดยตรง) — เอาปุ่มที่ไม่ทำงานจริงออกไปก่อน เพื่อไม่ให้เข้าใจผิดว่าตั้งค่าได้</div>
           ${[
-            ['แสดงหน้า Login แบบ Custom', cfg.customLogin],
-            ['ซ่อนเมนู V8 Migration', cfg.hideV8],
-            ['เปิด Demo Mode Banner', cfg.showDemoBanner ?? true],
-            ['บังคับ Dark Mode', cfg.forceDark ?? true],
-            ['แสดง Version Number', cfg.showVersion ?? true],
-          ].map(([label, active], i) => `
+            'แสดงหน้า Login แบบ Custom',
+            'ซ่อนเมนู V8 Migration',
+            'เปิด Demo Mode Banner',
+            'บังคับ Dark Mode',
+            'แสดง Version Number',
+          ].map(label => `
             <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)">
-              <span style="font-size:0.85rem">${label}</span>
-              <button class="btn btn-xs btn-${active?'success':'secondary'} adv-toggle" data-i="${i}" style="min-width:60px" ${canEdit ? '' : 'disabled'}>${active?'เปิด':'ปิด'}</button>
+              <span style="font-size:0.85rem;color:var(--text-muted)">${label}</span>
+              <span class="badge badge-secondary" style="font-size:0.65rem">ยังไม่รองรับ</span>
             </div>
           `).join('')}
-        </div>
-
-        <div class="card" style="padding:16px">
-          <div style="font-weight:700;font-size:0.85rem;margin-bottom:10px">🔑 License Info</div>
-          <div style="font-size:0.82rem;display:flex;flex-direction:column;gap:6px">
-            <div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">License Type</span><span class="badge badge-success">Enterprise</span></div>
-            <div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">Owner</span><span>ทวีศักดิ์ สุขสมบัติเสถียร</span></div>
-            <div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">Version</span><span>LAMOM ONE v1.0.0</span></div>
-            <div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">Build</span><span style="font-family:monospace">2025-06-09</span></div>
-            <div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">Modules</span><span>17 Modules / 25 Phases</span></div>
-          </div>
         </div>
       </div>
     `

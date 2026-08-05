@@ -9,7 +9,11 @@ import {
   restoreDeleted, resetUserData, exportUserData, importUserData,
 } from '../../data/vehicleDatabase.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
+
+// เฉพาะ Owner/Admin เท่านั้นที่ทำ action ทำลาย/เขียนทับข้อมูลทั้งฐานได้ (ลบรุ่นรถ / batch-overwrite ด้วย AI)
+// ใช้ pattern เดียวกับ src/pages/settings/DataRetention.js (canManage = ROLES.includes(myRole))
+const CATALOG_MANAGE_ROLES = ['owner', 'admin']
 
 const FUEL_LABELS = { Petrol:'เบนซิน', Diesel:'ดีเซล', Hybrid:'ไฮบริด', 'PHEV':'PHEV', BEV:'ไฟฟ้า 100%' }
 const FUEL_COLORS = { Petrol:'var(--text-muted)', Diesel:'var(--warning)', Hybrid:'var(--success)', PHEV:'var(--primary)', BEV:'#00b4d8' }
@@ -165,34 +169,36 @@ function buildModal(v) {
   return { title: icon + ' ' + v.brand + ' ' + v.model + ' ' + v.variant, body }
 }
 
-// ── AI Live Lookup: ดึงข้อมูลรถคันไหนก็ได้แบบ real-time ผ่าน Claude API ──────────
-// อ่าน key จาก localStorage เท่านั้น — ไม่แสดง key ออกที่ใดทั้งสิ้น (security)
+// ── AI Live Lookup: ดึงข้อมูลรถคันไหนก็ได้แบบ real-time ─────────────────────────
+// SECURITY FIX (v — ตรวจโดย audit dms/*): เดิมฟังก์ชันนี้เรียก Anthropic API "ตรงจาก browser" โดยอ่าน
+// API key จากมาจาก localStorage.getItem('sk_claude_api_key') แล้วส่งขึ้น header x-api-key ตรงๆ จาก
+// client — เป็นช่องโหว่ความปลอดภัย/ต้นทุนจริง (ไม่ใช่แค่ "ไม่แสดง key" ตามคอมเมนต์เดิมที่เข้าใจผิด): ใครก็
+// เปิด DevTools/มีสิทธิ์เข้าเครื่อง หรือโจมตี XSS จุดใดในแอปได้ ก็ดึง key นี้ออกไปยิง Anthropic API แทนเจ้า
+// ของ key แบบไม่จำกัดได้ทันที เทียบเท่าปัญหาเดียวกับที่ src/utils/ai.js เคยแก้ไปแล้วสำหรับ Gemini
+// (ดู comment บนสุดของไฟล์นั้น, SEC-006) — utils/ai.js แก้โดยย้าย key ไปเป็น secret ฝั่ง Cloudflare Worker
+// (workers/ai-proxy.js) แล้วฝั่ง browser ส่งแค่ Firebase ID token ของผู้ใช้ที่ล็อกอินจริงไปยืนยันตัวตนแทน
+//
+// ตรวจสอบแล้วว่า "reasonably redirect" ไปใช้ proxy เดิมของ utils/ai.js ตรงๆไม่ได้ในรอบแก้นี้ เพราะ:
+//   1) proxy นั้นต่อกับ Gemini เท่านั้น ไม่มี route สำหรับ Anthropic/Claude
+//   2) ฟังก์ชันที่พอเรียกได้ (askAiOfficer) ล็อก maxOutputTokens ไว้แค่ 700 — payload ของฟีเจอร์นี้ (AI_SCHEMA
+//      เต็มรูปแบบ / aiVerifyVehicle) เดิมขอ 1800-3000 tokens อยู่แล้ว ถ้าใช้ 700 คำตอบ JSON จะขาดกลางคัน
+//      บ่อยกว่าที่แก้ปัญหาความปลอดภัยคุ้ม (callProxy() ภายใน ai.js ไม่ได้ export มาให้ปรับ token เองด้วย)
+// ทั้งสองข้อต้องแก้ที่ src/utils/ai.js และ/หรือ workers/ai-proxy.js ซึ่งอยู่นอกขอบเขตไฟล์ที่แก้รอบนี้
+// (จำกัดเฉพาะ src/pages/dms/) จึงทำ "อย่างน้อย" ตามที่ควร: ปิดการยิง Anthropic ตรงจาก browser ทันที
+// (ไม่ส่ง key ออกไปอีกต่อไป) แทนที่จะปล่อยช่องโหว่ทิ้งไว้เงียบๆ
+//
+// TODO (ต้องตัดสินใจร่วมกับทีม/เจ้าของก่อนทำต่อ): เปิดฟีเจอร์นี้กลับมาใช้งานได้จริงอย่างปลอดภัย ต้องเลือก 1 ใน 2:
+//   (a) เพิ่ม route Anthropic ใหม่ใน workers/ai-proxy.js (secret ฝั่ง Worker เหมือน Gemini) แล้วเรียกผ่าน
+//       proxy นั้นจากไฟล์นี้ — คงใช้ Claude ได้เหมือนเดิม แต่ต้องแก้ไฟล์นอก src/pages/dms/
+//   (b) เปลี่ยนมาใช้ Gemini ผ่าน utils/ai.js (เช่น export callProxy หรือเพิ่มฟังก์ชันที่ปรับ maxOutputTokens
+//       ได้) — เนื้อหา/คุณภาพคำตอบจะเปลี่ยนจาก Claude เป็น Gemini ควรให้ทีมทดสอบเทียบผลลัพธ์จริงก่อน
 const AI_SCHEMA = 'brand, model, variant, year, type, fuel(Petrol|Diesel|Hybrid|PHEV|BEV), bodyType(sedan|suv|pickup|mpv|hatchback|roadster), price, priceMin, priceMax (THB), engine, power(hp number), torque(Nm number), transmission, drivetrain, battery(string e.g. "60 kWh" or ""), range(km number, 0 if ICE), length, width, height, wheelbase, weight, seats, bootSpace(L), frunk(L front trunk, 0 if none), fuelTank(L, 0 if BEV), groundClearance(mm), airbags(number), towCapacity(kg, 0 if none), chargeAC(kW onboard AC charger, 0 if ICE), chargeDC(kW DC fast charge peak, 0 if ICE), chargeTime(string e.g "DC 30→80% ~30 นาที" Thai, "" if ICE), fuelEconomy(string e.g "15 km/L" or ""), co2(number, 0 if BEV), safety(array of strings — list ALL airbags/ABS/ESP/AEB etc), tech(array of strings), adas(array of intelligent-driving/ADAS feature strings in Thai), ncap(string — ASEAN/Euro NCAP star rating + year + scores if known, Thai), ecoSticker(string — Thai ECO Sticker info: CO2 g/km + emission, "" if unknown), warranty(string), colors(array of exterior colors), interiorColors(array of interior color names), strengths(array 3-4 จุดแข็ง Thai), weaknesses(array 3-4 จุดอ่อน Thai), pros(array 3-4 ข้อดี Thai), cons(array 3-4 ข้อเสีย Thai), importer, origin'
 
-// เรียก Claude API (อ่าน key จาก localStorage เท่านั้น) แล้วคืน JSON object
-async function callClaudeJSON(prompt, maxTokens) {
-  const apiKey = localStorage.getItem('sk_claude_api_key')
-  if (!apiKey) { const e = new Error('NO_KEY'); e.code = 'NO_KEY'; throw e }
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: maxTokens || 1800,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  })
-  if (!res.ok) { const e = new Error('API_' + res.status); e.code = 'API_' + res.status; throw e }
-  const data = await res.json()
-  const text = (data.content && data.content[0] && data.content[0].text) || ''
-  const m = text.match(/\{[\s\S]*\}/)
-  if (!m) throw new Error('PARSE')
-  return JSON.parse(m[0])
+// ปิดใช้งานชั่วคราว — ไม่ส่ง API key จาก browser ไปที่ไหนอีกแล้ว (ดู comment ด้านบน)
+async function callClaudeJSON() {
+  const e = new Error('DISABLED_INSECURE')
+  e.code = 'DISABLED_INSECURE'
+  throw e
 }
 
 async function aiLookup(queryText) {
@@ -248,6 +254,8 @@ function blankVehicle() {
 
 export default async function VehicleDatabasePage(container) {
   const myGen = container.__routerGen
+  const myRole = getState('role') || getState('user')?.role || 'staff'
+  const canManageCatalog = CATALOG_MANAGE_ROLES.includes(myRole)
   let filter = { brand: '', fuel: '', query: '' }
   let viewMode = 'grid'
   let WV = getVehicles() // (ฐาน + เพิ่ม) − ลบ + override — cache โหลดจาก Firestore ตอน bootstrap
@@ -314,7 +322,7 @@ export default async function VehicleDatabasePage(container) {
             <input type="text" id="search-input" placeholder="ค้นหา ยี่ห้อ รุ่น รุ่นย่อย..." value="${filter.query}"
               style="padding:6px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);color:var(--text);font-size:0.78rem;width:220px">
             <button class="btn btn-primary" id="ai-lookup-btn">🤖 ค้นด้วย AI</button>
-            <button class="btn btn-secondary" id="ai-batch-btn">✨ ตรวจทั้งหมดด้วย AI</button>
+            ${canManageCatalog ? '<button class="btn btn-secondary" id="ai-batch-btn">✨ ตรวจทั้งหมดด้วย AI</button>' : ''}
             <button class="btn btn-secondary" id="add-vehicle-btn">➕ เพิ่มรถ</button>
             <button class="btn btn-secondary" id="data-mgr-btn">💾 ข้อมูล</button>
           </div>
@@ -422,7 +430,8 @@ export default async function VehicleDatabasePage(container) {
       showToast('✅ พบข้อมูล ' + v.brand + ' ' + v.model, 'success')
     } catch (err) {
       let msg = '❌ ค้นหาไม่สำเร็จ'
-      if (err.code === 'NO_KEY') msg = '🔑 ยังไม่ได้ตั้งค่า Claude API Key — ไปที่ตั้งค่า > API Keys'
+      if (err.code === 'DISABLED_INSECURE') msg = '🚧 ฟีเจอร์นี้ปิดใช้งานชั่วคราว (รอทีมพัฒนาทำ secure proxy) — ดู TODO ในโค้ด callClaudeJSON()'
+      else if (err.code === 'NO_KEY') msg = '🔑 ยังไม่ได้ตั้งค่า Claude API Key — ไปที่ตั้งค่า > API Keys'
       else if (err.code === 'NOT_FOUND') msg = '🔍 ไม่พบรถรุ่นนี้ในตลาดไทย ลองพิมพ์ให้ชัดเจนขึ้น'
       else if (err.code && err.code.startsWith('API_')) msg = '⚠️ เชื่อมต่อ AI ไม่สำเร็จ (' + err.code + ') — ตรวจสอบ API Key'
       if (status) status.innerHTML = '<span style="color:var(--danger)">' + msg + '</span>'
@@ -433,6 +442,7 @@ export default async function VehicleDatabasePage(container) {
   // ── เปิด modal รถ พร้อมปุ่ม ตรวจ/แก้ไข ────────────────────────────────────────
   function fmtVal(x) { return Array.isArray(x) ? x.join(', ') : (x === undefined || x === null || x === '' ? '-' : String(x)) }
   function errMsg(err) {
+    if (err.code === 'DISABLED_INSECURE') return '🚧 ฟีเจอร์นี้ปิดใช้งานชั่วคราว (เดิมส่ง API key ตรงจาก browser ซึ่งไม่ปลอดภัย) — รอทีมพัฒนาทำ secure proxy ก่อน ดู TODO ในโค้ด'
     if (err.code === 'NO_KEY') return '🔑 ยังไม่ได้ตั้งค่า Claude API Key — ไปที่ ตั้งค่า > API Keys'
     if (err.code === 'NOT_FOUND') return '🔍 ไม่พบข้อมูลรถรุ่นนี้'
     if (err.code && err.code.indexOf('API_') === 0) return '⚠️ เชื่อมต่อ AI ไม่สำเร็จ (' + err.code + ')'
@@ -448,7 +458,7 @@ export default async function VehicleDatabasePage(container) {
     const actions = '<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center">' +
       '<button class="btn btn-sm btn-primary" id="vh-ai-verify">🤖 ตรวจ/อัปเดตด้วย AI</button>' +
       '<button class="btn btn-sm btn-secondary" id="vh-admin-edit">✏️ แก้ไข (แอดมิน)</button>' +
-      '<button class="btn btn-sm btn-danger" id="vh-delete">🗑 ลบรุ่นนี้</button>' +
+      (canManageCatalog ? '<button class="btn btn-sm btn-danger" id="vh-delete">🗑 ลบรุ่นนี้</button>' : '') +
       (v._verifiedBy ? '<button class="btn btn-sm btn-secondary" id="vh-reset">↩️ คืนค่าเดิม</button>' : '') +
       note + '</div>' +
       '<div id="vh-status" style="margin-bottom:10px;font-size:0.76rem"></div>'
@@ -457,6 +467,7 @@ export default async function VehicleDatabasePage(container) {
       document.getElementById('vh-ai-verify')?.addEventListener('click', () => runAiVerify(v))
       document.getElementById('vh-admin-edit')?.addEventListener('click', () => openAdminEdit(v))
       document.getElementById('vh-delete')?.addEventListener('click', async () => {
+        if (!canManageCatalog) { showToast('เฉพาะ Owner/Admin เท่านั้นที่ลบรุ่นรถได้', 'warning'); return }
         const ok = await confirmDialog({ title: '🗑 ลบรุ่นรถ', message: 'ยืนยันลบ "' + v.brand + ' ' + v.model + ' ' + v.variant + '" ออกจากฐานข้อมูล?', confirmText: 'ลบ', danger: true })
         if (!ok) return
         try {
@@ -585,26 +596,15 @@ export default async function VehicleDatabasePage(container) {
   // ── Batch: ให้ AI ตรวจ+เติมข้อมูลทุกคันที่กรองอยู่ ทีละคัน (แก้/เติมแบบ per-variant) ──
   let batchRunning = false
   function runBatchVerify() {
+    if (!canManageCatalog) { showToast('เฉพาะ Owner/Admin เท่านั้นที่ใช้ฟังก์ชันนี้ได้', 'warning'); return }
     if (batchRunning) return
-    if (!localStorage.getItem('sk_claude_api_key')) {
-      showToast('🔑 ต้องตั้ง Claude API Key ก่อน (ตั้งค่า > API Keys)', 'warning'); return
-    }
-    const list = getFiltered()
-    const scopeLabel = filter.brand || (filter.fuel ? (FUEL_LABELS[filter.fuel] || filter.fuel) : 'ทั้งหมด')
-    const body = '<div style="font-size:0.82rem">' +
-      '<div style="margin-bottom:10px">จะให้ AI ตรวจสอบและเติมข้อมูล (จุดแข็ง/อ่อน, ข้อดี/เสีย, NCAP, ADAS, สเปก) ' +
-      '<strong>' + list.length + ' คัน</strong> (ขอบเขต: ' + scopeLabel + ') แบบรายรุ่นย่อย — ผลลัพธ์จะถูกบันทึกทับอัตโนมัติ' +
-      '<br><span style="font-size:0.7rem;color:var(--text-muted)">⚠️ ใช้เวลาพอสมควร (เรียก AI ทีละคัน) และใช้โควต้า API · กรองยี่ห้อก่อนเพื่อทำเป็นชุดย่อยได้</span></div>' +
-      '<div id="batch-progress" style="font-size:0.8rem;font-weight:600"></div>' +
-      '<div id="batch-log" style="margin-top:8px;max-height:200px;overflow:auto;font-size:0.68rem;color:var(--text-muted)"></div>' +
-    '</div>'
-    openModal({
-      title: '✨ ตรวจทั้งหมดด้วย AI (' + list.length + ' คัน)', size: 'md', body,
-      confirmText: '▶ เริ่มตรวจ',
-      onConfirm: () => { doBatch(list); return false },
-    })
+    // ฟีเจอร์นี้ปิดใช้งานชั่วคราว — ดู TODO ที่ callClaudeJSON() ด้านบน (เดิมส่ง API key ตรงจาก browser
+    // ไปยิง Anthropic API ตรงๆ ซึ่งไม่ปลอดภัย) รอทีมพัฒนาทำ secure proxy ก่อนจึงจะเปิดใช้งานต่อได้จริง
+    showToast('🚧 ฟีเจอร์ตรวจทั้งหมดด้วย AI ปิดใช้งานชั่วคราว (รอทีมพัฒนาทำ secure proxy ก่อน) — ดู TODO ในโค้ด', 'warning')
   }
 
+  // หมายเหตุ: ไม่มีจุดไหนเรียก doBatch() อยู่ตอนนี้แล้ว (runBatchVerify() ปิดฟีเจอร์ไว้ชั่วคราวก่อนถึงจุดที่
+  // เคยเปิด modal ยืนยัน) คงฟังก์ชันนี้ไว้เผื่อทีมพัฒนาต่อจาก TODO ที่ callClaudeJSON() แล้วมาต่อสายเรียกใหม่
   async function doBatch(list) {
     batchRunning = true
     const prog = document.getElementById('batch-progress')
@@ -625,6 +625,7 @@ export default async function VehicleDatabasePage(container) {
         if (log) log.innerHTML = '✅ ' + v.brand + ' ' + v.model + ' ' + v.variant + ' (' + changes.length + ' แก้ไข)<br>' + log.innerHTML
       } catch (err) {
         fail++
+        if (err.code === 'DISABLED_INSECURE') { if (prog) prog.innerHTML = '🚧 ฟีเจอร์นี้ปิดใช้งานชั่วคราว — หยุด'; break }
         if (err.code === 'NO_KEY') { if (prog) prog.innerHTML = '🔑 ไม่พบ API Key — หยุด'; break }
         if (log) log.innerHTML = '⚠️ ' + v.brand + ' ' + v.model + ' — ' + errMsg(err) + '<br>' + log.innerHTML
       }

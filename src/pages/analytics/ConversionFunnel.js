@@ -131,7 +131,7 @@ export default async function ConversionFunnelPage(container) {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
           <!-- By source -->
           <div class="card" style="padding:14px">
-            <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">📊 Conversion แยกตามแหล่ง Lead</div>
+            <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">📊 Conversion แยกตามแหล่ง Lead <span style="font-size:0.62rem;font-weight:400">(ตัวอย่าง)</span></div>
             ${BY_SOURCE.map(s => {
               const conv = Math.round(s.closed / s.leads * 1000) / 10
               return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:0.78rem">
@@ -146,7 +146,7 @@ export default async function ConversionFunnelPage(container) {
 
           <!-- Drop reasons -->
           <div class="card" style="padding:14px">
-            <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">💔 สาเหตุหลักที่หลุด</div>
+            <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">💔 สาเหตุหลักที่หลุด <span style="font-size:0.62rem;font-weight:400">(ตัวอย่าง)</span></div>
             ${DROP_REASONS.map(d => `
               <div style="padding:7px 0;border-bottom:1px solid var(--border)">
                 <div style="font-size:0.7rem;color:var(--text-muted)">${d.from}</div>

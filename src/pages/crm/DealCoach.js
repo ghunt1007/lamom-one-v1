@@ -4,9 +4,12 @@
  */
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { getSalesStaff } from '../../data/masterData.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+
+const DEAL_STAGES = ['เจรจา', 'เสนอราคา', 'รอตัดสินใจ', 'รอไฟแนนซ์', 'ปิดการขาย']
 
 const TIPS = [
   'ตอบ objection "ราคาสูง" ด้วยการเปรียบ TCO 5 ปี — ลูกค้ามักประหลาดใจ',
@@ -99,9 +102,14 @@ export default async function DealCoachPage(container) {
             <div class="page-subtitle">แนะนำ Sales Real-time · ${list.length} ดีลที่กำลังดำเนินการ</div>
           </div>
           <div class="page-actions">
+            <button class="btn btn-secondary" id="add-deal-btn">+ เพิ่มดีล</button>
             <button class="btn btn-primary" id="train-btn">🎯 Training Mode</button>
           </div>
         </div>
+
+        ${!DEALS.length ? `<div style="padding:10px 14px;background:var(--surface-2);border-left:3px solid var(--warning);border-radius:var(--radius-sm);margin-bottom:14px;font-size:0.78rem">
+          ⚠️ ยังไม่มีดีลในระบบ collection <code>deals</code> ยังไม่มีจุดสร้างข้อมูลอัตโนมัติจากใบจอง/ลูกค้า — กด "+ เพิ่มดีล" เพื่อเริ่มบันทึกดีลจริงที่กำลังเจรจาอยู่
+        </div>` : ''}
 
         <div style="background:var(--surface-2);border:1px solid var(--primary);border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:0.78rem">
           <span style="color:var(--primary);font-weight:700">💡 Tip of the day:</span> ${tipOfDay}
@@ -111,7 +119,7 @@ export default async function DealCoachPage(container) {
           ${sc('🎯 ดีลทั้งหมด', list.length+' ดีล', 'var(--primary)')}
           ${sc('🔥 Win Rate สูง (≥80%)', hot+' ดีล', 'var(--success)')}
           ${sc('📊 Avg Win Rate', avgWin+'%', avgWin>=60?'var(--success)':'var(--warning)')}
-          ${sc('⏳ ค้างนานสุด', Math.max(...list.map(d=>d.days))+' วัน', 'var(--danger)')}
+          ${sc('⏳ ค้างนานสุด', Math.max(...list.map(d=>d.days), 0)+' วัน', 'var(--danger)')}
         </div>
 
         <div style="display:flex;gap:6px;margin-bottom:14px">${filterBtns}</div>
@@ -128,6 +136,52 @@ export default async function DealCoachPage(container) {
     container.querySelectorAll('.sales-filter').forEach(b=>b.addEventListener('click',()=>{filterSales=b.dataset.s;selDealId=null;render()}))
     document.getElementById('log-action-btn')?.addEventListener('click',()=>openLogActionModal())
     document.getElementById('train-btn')?.addEventListener('click',()=>openTrainingModal())
+    document.getElementById('add-deal-btn')?.addEventListener('click',()=>openAddDealModal())
+  }
+
+  // (v1.0.xxx) เดิมหน้านี้อ่านจาก collection 'deals' อย่างเดียว แต่ไม่มีจุดไหนในระบบทั้งหมดเขียนสร้าง doc
+  // ลง 'deals' เลย — หน้านี้จึงว่างตลอดในการใช้งานจริง เพิ่มฟอร์มสร้างดีลจริงเพื่อให้ collection มีข้อมูลได้จริง
+  // (เลือกวิธีนี้แทนการชี้ไปอ่าน bookings/customers เพราะ schema ของหน้านี้ต้องมี winPct/advice/objections/
+  // competitors ที่ bookings/customers ไม่มี — ปั้นค่าพวกนั้นขึ้นมาเองจะกลายเป็นข้อมูลปลอมอีกชุดแทน)
+  function openAddDealModal() {
+    const salesList = getSalesStaff().length ? getSalesStaff() : ['อรนุช เซลส์ดี', 'วิชัย ขายเก่ง']
+    openModal({
+      title: '+ เพิ่มดีลที่กำลังเจรจา',
+      size: 'sm',
+      body: `
+        <div style="display:flex;flex-direction:column;gap:10px;font-size:0.82rem">
+          <div><label style="font-size:0.74rem;color:var(--text-muted)">ลูกค้า *</label><input id="ad-cust" class="input" placeholder="ชื่อลูกค้า"></div>
+          <div><label style="font-size:0.74rem;color:var(--text-muted)">รุ่นรถ</label><input id="ad-model" class="input" placeholder="เช่น BYD Seal AWD"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div><label style="font-size:0.74rem;color:var(--text-muted)">ราคา (บ.)</label><input id="ad-price" type="number" class="input" value="0"></div>
+            <div><label style="font-size:0.74rem;color:var(--text-muted)">เซลส์</label>
+              <select id="ad-sales" class="input">${salesList.map(s => `<option>${escHtml(s)}</option>`).join('')}</select></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div><label style="font-size:0.74rem;color:var(--text-muted)">Stage</label>
+              <select id="ad-stage" class="input">${DEAL_STAGES.map(s => `<option>${s}</option>`).join('')}</select></div>
+            <div><label style="font-size:0.74rem;color:var(--text-muted)">Win Rate ประมาณ (%)</label><input id="ad-win" type="number" min="0" max="100" class="input" value="50"></div>
+          </div>
+        </div>
+      `,
+      confirmText: '💾 บันทึกดีล',
+      async onConfirm() {
+        const customer = document.getElementById('ad-cust')?.value?.trim()
+        if (!customer) { showToast('❗ กรุณากรอกชื่อลูกค้า', 'error'); return false }
+        try {
+          await createDoc('deals', {
+            customer, model: document.getElementById('ad-model')?.value?.trim() || '',
+            price: +document.getElementById('ad-price')?.value || 0,
+            salesperson: document.getElementById('ad-sales')?.value || '',
+            stage: document.getElementById('ad-stage')?.value || DEAL_STAGES[0],
+            winPct: +document.getElementById('ad-win')?.value || 50,
+            days: 0, advice: [], objections: [], competitors: [],
+          })
+          showToast('✅ เพิ่มดีล ' + customer + ' แล้ว', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ: ' + e.message, 'error') }
+      }
+    })
   }
 
   function openLogActionModal() {

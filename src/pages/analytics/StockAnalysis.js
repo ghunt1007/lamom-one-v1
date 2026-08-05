@@ -45,9 +45,24 @@ export default async function StockAnalysisPage(container) {
         if (v.status === 'จอง' || v.status === 'reserved') grouped[key].reserved++
         else grouped[key].stock++
       }
+      // (v1.0.xxx) เดิมรุ่นจริงที่ไม่ตรงกับ MODELS demo ตัวไหนเลย fallback ไป MODELS[i % MODELS.length] ซึ่งยืม
+      // targetStock/color ของรุ่นอื่นที่ไม่เกี่ยวข้องมาใช้ — ค่า targetStock ปลอมนี้ไหลเข้าไปคำนวณจำนวน
+      // "+ สั่งรถเพิ่ม" จริงด้วย (ดูปุ่ม order-btn ด้านล่าง) จึงเปลี่ยนเป็นค่ากลาง (เฉลี่ยจากรุ่น demo จริง)
+      // แทนการยืมข้อมูลรุ่นอื่นแบบสุ่มซึ่งไม่เกี่ยวข้องกับรุ่นนี้เลย
+      const avgTargetStock = Math.round(MODELS.reduce((a, m) => a + m.targetStock, 0) / MODELS.length)
+      const avgPrice = Math.round(MODELS.reduce((a, m) => a + m.price, 0) / MODELS.length)
       liveModels = Object.entries(grouped).map(([name, g], i) => {
-        const demo = MODELS.find(m => m.name === name) || MODELS[i % MODELS.length]
-        return { ...demo, name, stock: g.stock, reserved: g.reserved, price: g.price || demo.price }
+        const demo = MODELS.find(m => m.name === name)
+        return {
+          id: demo?.id || `V${i}`,
+          name,
+          stock: g.stock,
+          reserved: g.reserved,
+          sold30: demo?.sold30 || 0,
+          targetStock: demo?.targetStock ?? avgTargetStock,
+          price: g.price || demo?.price || avgPrice,
+          color: demo?.color || '#94a3b8',
+        }
       })
       dataSource = 'live'
     }
@@ -107,7 +122,7 @@ export default async function StockAnalysisPage(container) {
 
           <!-- Aging analysis -->
           <div class="card" style="padding:14px">
-            <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">⏳ Aging สต็อก</div>
+            <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">⏳ Aging สต็อก <span style="font-size:0.62rem;font-weight:400;color:var(--text-muted)">(ตัวอย่าง — ยังไม่คำนวณจากข้อมูลจริง)</span></div>
             ${AGING_DATA.map(a => {
               const color = a.range.startsWith('120') ? 'danger' : a.range.startsWith('91') ? 'warning' : 'primary'
               return `<div style="margin-bottom:8px">

@@ -18,8 +18,11 @@ function mapDbVehicle(v) {
     torque: v.torque || 0,
     topSpeed: 0,
     accel: 0,
-    charging_ac: 0,
-    charging_dc: 0,
+    // เดิม hardcode ชาร์จ AC/DC และ pros/cons เป็น 0/[] ตายตัวเสมอ ไม่ได้ map จาก field จริงในแคตตาล็อกเลย
+    // (vehicleDatabase.js มี chargeAC/chargeDC/pros/cons อยู่แล้วจริง — ดู buildModal() ใน
+    // VehicleDatabase.js ที่ใช้ field เดียวกันนี้) ทำให้ตารางเปรียบเทียบชาร์จ/ข้อดี-ข้อเสียว่างเปล่าเสมอ
+    charging_ac: v.chargeAC || 0,
+    charging_dc: v.chargeDC || 0,
     seats: v.seats || 5,
     size: v.type || v.bodyType || '',
     weight: v.weight || 0,
@@ -28,8 +31,8 @@ function mapDbVehicle(v) {
     colors: v.colors?.length || 0,
     warrantyText: v.warranty || '',
     features: [...(v.safety || []), ...(v.tech || [])],
-    pros: [],
-    cons: [],
+    pros: v.pros || [],
+    cons: v.cons || [],
   }
 }
 

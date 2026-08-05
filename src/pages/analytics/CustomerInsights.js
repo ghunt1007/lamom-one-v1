@@ -50,6 +50,7 @@ export default async function CustomerInsightsPage(container) {
   let liveSourceData = null
   let liveTopBuyers = null
   let liveTotalSales = 0
+  let liveDistinctCustomers = 0
   const COLORS = ['primary','success','warning','secondary','danger']
 
   try {
@@ -78,6 +79,9 @@ export default async function CustomerInsightsPage(container) {
         byCustomer[name].totalSpend += s.salePrice || 0
         if ((s.date || '') > byCustomer[name].lastDate) byCustomer[name].lastDate = s.date || ''
       })
+      // "👥 ลูกค้าทั้งหมด" ควรนับจำนวนลูกค้าจริง (distinct) ไม่ใช่จำนวนธุรกรรม (liveTotalSales) — byCustomer
+      // ด้านล่างนี้คำนวณอยู่แล้ว ใช้จำนวน key ของมันแทน
+      liveDistinctCustomers = Object.keys(byCustomer).length
       liveTopBuyers = Object.values(byCustomer).sort((a, b) => b.totalSpend - a.totalSpend).slice(0, 10).map(c => ({
         ...c, type: 'Individual', tier: c.totalSpend >= 3000000 ? 'Platinum' : c.totalSpend >= 1500000 ? 'Gold' : 'Silver'
       }))
@@ -85,7 +89,7 @@ export default async function CustomerInsightsPage(container) {
   } catch {}
 
   function renderPage() {
-    const totalCustomers = liveTotalSales || AGE_SEGMENTS.reduce((a, s) => a + s.count, 0)
+    const totalCustomers = liveDistinctCustomers || AGE_SEGMENTS.reduce((a, s) => a + s.count, 0)
     const avgLTV = Math.round(AGE_SEGMENTS.reduce((a, s) => a + s.count * s.avgSpend, 0) / AGE_SEGMENTS.reduce((a, s) => a + s.count, 0))
     const newThisMonth = MONTHLY_NEW[5]
     const retentionRate = Math.round(((AGE_SEGMENTS.reduce((a,s)=>a+s.count,0) - MONTHLY_CHURN.reduce((a,v)=>a+v,0)) / AGE_SEGMENTS.reduce((a,s)=>a+s.count,0)) * 100)
@@ -107,7 +111,7 @@ export default async function CustomerInsightsPage(container) {
           ${kpi('👥 ลูกค้าทั้งหมด', totalCustomers + (liveTotalSales ? '' : ' (Demo)'), 'primary')}
           ${kpi('✨ ใหม่เดือนนี้', newThisMonth + ' (ตัวอย่าง)', 'success')}
           ${kpi('💰 Avg LTV', formatCurrency(avgLTV) + ' (ตัวอย่าง)', 'warning')}
-          ${kpi('🔄 Retention', retentionRate + '%', retentionRate >= 90 ? 'success' : 'warning')}
+          ${kpi('🔄 Retention', retentionRate + '% (ตัวอย่าง)', retentionRate >= 90 ? 'success' : 'warning')}
         </div>
 
         <div class="tab-nav" style="margin-bottom:14px">

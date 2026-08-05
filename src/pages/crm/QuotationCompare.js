@@ -6,6 +6,8 @@ import { formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
+import { sendEmail } from '../../utils/comms.js'
+import { printDocument, docHeader, docFooter, esc } from '../../utils/print.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -131,18 +133,46 @@ export default async function QuotationComparePage(container) {
     document.getElementById('down-slider')?.addEventListener('input', e => { downPct = parseInt(e.target.value); renderPage() })
     container.querySelectorAll('.term-btn').forEach(b => b.addEventListener('click', () => { term = parseInt(b.dataset.t); renderPage() }))
     document.getElementById('send-btn')?.addEventListener('click', () => {
+      // (v1.0.xxx) เดิมไม่อ่านช่องทางที่เลือกเลย แค่ toast สำเร็จหลอกๆทุกครั้ง — ตอนนี้อ่านช่องทางจริง:
+      // "พิมพ์เอกสาร" เปิดหน้าต่างพิมพ์จริงผ่าน printDocument() (utils/print.js), "อีเมล" ส่งจริงผ่าน
+      // sendEmail() (utils/comms.js) เมื่อกรอกอีเมลผู้รับ, "LINE" ไม่มีการเชื่อม DM รายบุคคลจริงในระบบนี้
+      // (เชื่อมแบบ Broadcast ทั้งฐานลูกค้าเท่านั้น เหมือน CommInbox.js) จึงแจ้งตรงไปตรงมาแทนอ้างว่าส่งแล้ว
       openModal({
         title: '📤 ส่งใบเปรียบเทียบให้ลูกค้า',
         size: 'sm',
         body: `<div style="display:grid;gap:10px">
           <div class="input-group"><label class="input-label">ชื่อลูกค้า *</label><input class="input" id="qc-name"></div>
-          <div class="input-group"><label class="input-label">ส่งทาง</label><select class="input" id="qc-ch"><option>LINE</option><option>อีเมล</option><option>พิมพ์เอกสาร</option></select></div>
+          <div class="input-group"><label class="input-label">ส่งทาง</label><select class="input" id="qc-ch"><option value="line">LINE</option><option value="email">อีเมล</option><option value="print">พิมพ์เอกสาร</option></select></div>
+          <div class="input-group" id="qc-email-group"><label class="input-label">อีเมลผู้รับ (สำหรับส่งทางอีเมล)</label><input class="input" id="qc-email" placeholder="name@email.com"></div>
         </div>`,
         confirmText: '📤 ส่ง',
-        onConfirm() {
+        async onConfirm() {
           const name = document.getElementById('qc-name')?.value?.trim()
           if (!name) { showToast('❗ กรอกชื่อลูกค้า', 'error'); return false }
-          showToast(`📤 ส่งใบเปรียบเทียบ ${chosen.length} รุ่นให้ ${name} แล้ว`, 'success')
+          const ch = document.getElementById('qc-ch')?.value || 'line'
+          const email = document.getElementById('qc-email')?.value?.trim() || ''
+          if (ch === 'print') {
+            const html = docHeader('ใบเปรียบเทียบรุ่นรถ', '', new Date().toISOString().slice(0, 10)) +
+              `<p>ลูกค้า: ${esc(name)}</p>` +
+              `<table style="width:100%;border-collapse:collapse;margin-top:10px">
+                <tr>${chosen.map(v => `<th style="border:1px solid #ccc;padding:6px;text-align:left">${esc(v.brand || '')} ${esc(v.model || '')}</th>`).join('')}</tr>
+                <tr>${chosen.map(v => `<td style="border:1px solid #ccc;padding:6px">${formatCurrency(Math.round(v.price * (1 - PROMO_DISCOUNT)))} (ดาวน์ ${downPct}% / ${term} เดือน: ${formatCurrency(monthly(Math.round(v.price * (1 - PROMO_DISCOUNT) * (1 - downPct / 100))))}/ด.)</td>`).join('')}</tr>
+              </table>` + docFooter()
+            printDocument(html, { title: 'ใบเปรียบเทียบรุ่นรถ ' + name })
+            showToast(`🖨️ เปิดหน้าต่างพิมพ์ใบเปรียบเทียบ ${chosen.length} รุ่นสำหรับ ${name} แล้ว`, 'success')
+            return
+          }
+          if (ch === 'email') {
+            if (!email) { showToast('❗ กรุณากรอกอีเมลผู้รับ', 'error'); return false }
+            const bodyText = chosen.map(v => `${v.brand || ''} ${v.model || ''} — ${formatCurrency(Math.round(v.price * (1 - PROMO_DISCOUNT)))} (ดาวน์ ${downPct}% / ${term} เดือน)`).join('\n')
+            try {
+              await sendEmail([email], 'ใบเปรียบเทียบรุ่นรถสำหรับคุณ ' + name, bodyText)
+              showToast(`✅ ส่งอีเมลใบเปรียบเทียบให้ ${name} แล้ว`, 'success')
+            } catch (e) { showToast('❌ ส่งอีเมลไม่สำเร็จ: ' + e.message, 'error'); return false }
+            return
+          }
+          // LINE — ไม่มีการเชื่อม DM รายบุคคลจริงในระบบนี้
+          showToast(`📝 LINE ยังไม่มีระบบส่งเจาะรายบุคคล (เชื่อมแบบ Broadcast ทั้งฐานลูกค้าเท่านั้น) — กรุณาส่งให้ ${name} ด้วยตนเอง`, 'warning')
         }
       })
     })

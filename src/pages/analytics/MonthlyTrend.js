@@ -38,6 +38,7 @@ export default async function MonthlyTrendPage(container) {
   let metric = 'sales'
   let compareYear = true
   let dataSource = 'demo'
+  let liveYear = null
 
   try {
     const sales = await getSalesData().catch(() => [])
@@ -46,6 +47,7 @@ export default async function MonthlyTrendPage(container) {
       const currYear = new Date().getFullYear()
       if (!liveData[currYear]) liveData[currYear] = { sales: Array(12).fill(0), revenue: Array(12).fill(0), service: Array(12).fill(0), gross: Array(12).fill(0) }
       year = currYear
+      liveYear = currYear
       sales.forEach(s => {
         const d = new Date(s.bookingDate || s.createdAt?.toDate?.() || new Date())
         const y = d.getFullYear(), mo = d.getMonth()
@@ -53,7 +55,9 @@ export default async function MonthlyTrendPage(container) {
           liveData[y].sales[mo] = (liveData[y].sales[mo] || 0) + 1
           const rev = s.salePrice || 0
           liveData[y].revenue[mo] = (liveData[y].revenue[mo] || 0) + rev
-          liveData[y].gross[mo] = (liveData[y].gross[mo] || 0) + Math.round(rev * 0.12)
+          // กำไรขั้นต้นจริงต่อคัน (rev - ต้นทุนจริง s.cost) ถ้าไม่มี cost ค่อย fallback ประมาณ 82% ของราคาขาย
+          // (pattern เดียวกับ CashFlow.js/VatReport.js) ไม่ใช่ประมาณ margin 12% ตายตัวทุกคันอีกต่อไป
+          liveData[y].gross[mo] = (liveData[y].gross[mo] || 0) + (rev - (s.cost || Math.round(rev * 0.82)))
         }
       })
       dataSource = 'live'
@@ -71,6 +75,9 @@ export default async function MonthlyTrendPage(container) {
     const total = values.reduce((a, v) => a + v, 0)
     const prevTotal = prevValues.reduce((a, v) => a + v, 0)
     const growth = prevTotal > 0 ? Math.round((total - prevTotal) / prevTotal * 100) : 0
+    // (v1.0.xxx) ปีก่อนหน้าที่ใช้เทียบ YoY อาจเป็น YEARLY_DATA ตัวอย่างตายตัว (ไม่ใช่ปีที่คำนวณจากยอดขายจริง
+    // — มีแค่ liveYear เดียวที่เป็นข้อมูลจริง) ต้องเตือนเมื่อฐานเทียบยังเป็นข้อมูลตัวอย่างอยู่
+    const prevIsFake = compareYear && !!prevData && (year - 1) !== liveYear
 
     // Best and worst months
     const maxIdx = values.indexOf(Math.max(...values))
@@ -102,7 +109,7 @@ export default async function MonthlyTrendPage(container) {
           ${kpi('📊 รวม ' + year, m?.format(total) || total, m?.color || 'primary')}
           ${kpi('📅 สูงสุด', MONTHS[maxIdx], 'success')}
           ${kpi('📅 ต่ำสุด', MONTHS[minIdx], 'warning')}
-          ${kpi('📈 YoY Growth', (growth > 0 ? '+' : '') + growth + '%', growth >= 0 ? 'success' : 'danger')}
+          ${kpi('📈 YoY Growth', (growth > 0 ? '+' : '') + growth + '%', growth >= 0 ? 'success' : 'danger', prevIsFake ? '(ปีเทียบเป็นข้อมูลตัวอย่าง)' : '')}
         </div>
 
         <!-- Bar chart -->
@@ -187,4 +194,4 @@ export default async function MonthlyTrendPage(container) {
   renderPage()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
+function kpi(t, v, c, note) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div>${note ? `<div style="font-size:0.6rem;color:var(--text-muted);margin-top:2px">${note}</div>` : ''}</div>` }

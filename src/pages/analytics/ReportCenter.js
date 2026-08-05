@@ -86,7 +86,9 @@ export default async function ReportCenterPage(container) {
       if (!byMonth[mo]) byMonth[mo] = { เดือน: MONTHS_TH[mo], จำนวนคัน: 0, ยอดขาย: 0, ต้นทุน: 0, กำไรรวม: 0 }
       byMonth[mo].จำนวนคัน++
       byMonth[mo].ยอดขาย += s.salePrice || 0
-      byMonth[mo].ต้นทุน += Math.round((s.salePrice || 0) * 0.82)
+      // ต้นทุนจริงต่อคัน (s.cost จากใบจอง) ถ้าไม่มีค่อย fallback ประมาณ 82% ของราคาขาย — pattern เดียวกับ
+      // CashFlow.js/VatReport.js ไม่ใช่ประมาณ 82% ตายตัวทุกคันอีกต่อไป
+      byMonth[mo].ต้นทุน += s.cost || Math.round((s.salePrice || 0) * 0.82)
     })
     const r001 = Object.keys(byMonth).sort((a, b) => +a - +b).map(k => {
       const m = byMonth[k]

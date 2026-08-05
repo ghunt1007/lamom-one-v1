@@ -46,7 +46,7 @@ export default async function CustomerSegmentationPage(container) {
   let occupationSegments = []
 
   try {
-    const customers = await listDocs('customers', [], 'createdAt', 'desc', 1000).catch(() => [])
+    const customers = (await listDocs('customers', [], 'createdAt', 'desc', 1000).catch(() => [])).filter(c => !c.deleted)
     if (container.__routerGen !== myGen) return
     const byOcc = {}
     customers.forEach(c => {
@@ -338,6 +338,11 @@ export default async function CustomerSegmentationPage(container) {
     `
   }
 
+  // (v1.0.xxx) เดิมมีปุ่ม "สร้าง Campaign"/"Export List" ในโมดัลนี้ที่กด onclick แล้ว
+  // "document.querySelector('.modal').remove()" เฉยๆ ไม่ทำอะไรจริงเลย (ดูเหมือนใช้งานได้แต่ที่จริงว่างเปล่า)
+  // ตัดปุ่มทั้งสองออกเพราะ tier ที่ส่งเข้ามาเก็บแค่ตัวเลขสรุป (count/avgValue) ไม่มีรายชื่อสมาชิกจริงให้
+  // export/ส่งแคมเปญได้ (การคำนวณ RFM ด้านบนไม่ได้เก็บรายชื่อ championsList/loyalList ฯลฯ ไว้ต่อ tier)
+  // — ต้องรื้อโครงสร้างข้อมูลใหญ่กว่าที่ scope การแก้บัคนี้ควรทำ
   function openSegDetail(tier) {
     openModal({
       title: `${tier.icon} ${tier.label} Segment`,
@@ -358,10 +363,6 @@ export default async function CustomerSegmentationPage(container) {
               tier.id === 'at_risk' ? '🚨 Win-back campaign, Special discount, Personal call' :
               '📧 Re-engagement email, Big promotion, Survey why they left'}
           </div>
-        </div>
-        <div style="margin-top:10px;display:flex;gap:8px">
-          <button class="btn btn-primary" style="flex:1" onclick="document.querySelector('.modal').remove()">📢 สร้าง Campaign</button>
-          <button class="btn btn-secondary" style="flex:1" onclick="document.querySelector('.modal').remove()">📋 Export List</button>
         </div>
       `
     })

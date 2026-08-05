@@ -176,7 +176,18 @@ export default async function VehicleReceivingPage(container) {
         try {
           if (allPassed) {
             await updateDocData('vehicle_receiving', v.id, { checklist, status: 'stocked', stockedDate: today, pdiStatus: 'passed' })
-            showToast(`✅ PDI ผ่าน! รับ ${v.brand} ${v.model} เข้าสต็อกแล้ว`, 'success')
+            // เดิมผ่าน PDI แล้วอัปเดตแค่ status ของ vehicle_receiving เท่านั้น ไม่เคยสร้างเอกสารจริงใน
+            // 'vehicles' เลย ทำให้รถที่ผ่าน PDI แล้วไม่โผล่ในหน้าสต็อกจริงให้ขายได้จริง
+            try {
+              await createDoc('vehicles', {
+                brand: v.brand || '', model: v.model || '', variant: v.variant || '',
+                color: v.color || '', vin: v.vin || '', year: v.year || new Date().getFullYear(),
+                price: 0, cost: v.cost || 0, status: 'available',
+                mileage: 0, location: v.branch || 'โชว์รูมหลัก', arrivedAt: v.arrivedDate || today,
+                notes: `รับเข้าจาก Vehicle Receiving${v.supplier ? ' (' + v.supplier + ')' : ''}`,
+              })
+            } catch (e) {}
+            showToast(`✅ PDI ผ่าน! รับ ${v.brand} ${v.model} เข้าสต็อกจริงแล้ว`, 'success')
           } else {
             await updateDocData('vehicle_receiving', v.id, { checklist, status: 'inspecting', pdiStatus: 'in_progress' })
             showToast('📋 บันทึก PDI บางส่วน', 'warning')

@@ -131,7 +131,7 @@ export default async function SeasonalTrendsPage(container) {
         </div>
 
         <div class="card" style="padding:16px;margin-bottom:12px">
-          <div style="font-size:0.8rem;font-weight:700;margin-bottom:12px">🌡️ Heat Map รายรุ่น (12 เดือน)</div>
+          <div style="font-size:0.8rem;font-weight:700;margin-bottom:12px">🌡️ Heat Map รายรุ่น (12 เดือน) <span style="font-size:0.62rem;font-weight:400;color:var(--text-muted)">(ตัวอย่าง — ยังไม่คำนวณจากข้อมูลจริง)</span></div>
           <div style="overflow-x:auto">
             ${MODEL_SEASONAL.map(m=>modelRow(m)).join('')}
           </div>
@@ -144,11 +144,11 @@ export default async function SeasonalTrendsPage(container) {
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="card" style="padding:16px">
-            <div style="font-size:0.8rem;font-weight:700;margin-bottom:10px">🔥 เดือนขายดี</div>
+            <div style="font-size:0.8rem;font-weight:700;margin-bottom:10px">🔥 เดือนขายดี <span style="font-size:0.62rem;font-weight:400;color:var(--text-muted)">(ตัวอย่าง)</span></div>
             ${PEAK_MONTHS.map(p=>'<div style="border-bottom:1px solid var(--border-subtle);padding:8px 0"><div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="font-weight:700;font-size:0.78rem">'+p.month+'</span><span style="color:var(--success);font-weight:700;font-size:0.76rem">'+p.uplift+'</span></div><div style="font-size:0.7rem;color:var(--text-muted)">'+p.reason+'</div></div>').join('')}
           </div>
           <div class="card" style="padding:16px">
-            <div style="font-size:0.8rem;font-weight:700;margin-bottom:10px">📉 เดือนยอดขายต่ำ</div>
+            <div style="font-size:0.8rem;font-weight:700;margin-bottom:10px">📉 เดือนยอดขายต่ำ <span style="font-size:0.62rem;font-weight:400;color:var(--text-muted)">(ตัวอย่าง)</span></div>
             ${LOW_MONTHS.map(l=>'<div style="border-bottom:1px solid var(--border-subtle);padding:8px 0"><div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="font-weight:700;font-size:0.78rem">'+l.month+'</span><span style="color:var(--danger);font-weight:700;font-size:0.76rem">'+l.drop+'</span></div><div style="font-size:0.7rem;color:var(--text-muted)">'+l.reason+'</div></div>').join('')}
           </div>
         </div>

@@ -32,9 +32,17 @@ const EXP_STATUS = {
   paid:     { label: 'จ่ายแล้ว', color: 'secondary' },
 }
 
+// เดิมไม่มีการเช็คสิทธิ์เลย — พนักงานคนไหนก็อนุมัติ/ปฏิเสธค่าใช้จ่ายของใครก็ได้ (รวมของตัวเอง) โดยไม่มี
+// confirmDialog เลย ต่างจากหน้าอื่นๆที่มี role gate ชัดเจน (เช่น Payroll.js) แก้ให้จำกัดเฉพาะฝ่ายการเงิน/
+// ผู้จัดการขึ้นไป และห้ามอนุมัติรายการที่ตัวเองยื่นเอง
+const EXP_APPROVE_ROLES = ['owner', 'admin', 'manager', 'finance']
+
 export default async function ExpenseApprovalPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
+  const myRole = getState('role') || getState('user')?.role || 'staff'
+  const canApprove = EXP_APPROVE_ROLES.includes(myRole)
+  const currentUserName = myName()
   let expenses = []
   let statusFilter = 'all'
   let catFilter = 'all'
@@ -113,13 +121,15 @@ export default async function ExpenseApprovalPage(container) {
                   <span class="badge badge-${st?.color}" style="font-size:0.62rem">${st?.label}</span>
                 </div>
               </div>
-              ${e.status === 'pending' ? `
+              ${e.status === 'pending' ? (canApprove && e.submittedBy !== currentUserName ? `
                 <div style="display:flex;gap:6px;margin-top:10px">
                   <button class="btn btn-xs btn-success approve-btn" data-id="${e.id}" style="flex:1">✓ อนุมัติ</button>
                   <button class="btn btn-xs btn-danger reject-btn" data-id="${e.id}" style="flex:1">✗ ปฏิเสธ</button>
                   <button class="btn btn-xs btn-secondary view-btn" data-id="${e.id}">ดูรายละเอียด</button>
                 </div>
-              ` : `<button class="btn btn-xs btn-secondary view-btn" data-id="${e.id}" style="margin-top:8px">ดูรายละเอียด</button>`}
+              ` : `<button class="btn btn-xs btn-secondary view-btn" data-id="${e.id}" style="margin-top:8px">ดูรายละเอียด</button>
+                ${canApprove && e.submittedBy === currentUserName ? '<div style="font-size:0.66rem;color:var(--text-muted);margin-top:4px">⚠️ ไม่สามารถอนุมัติรายการของตัวเองได้</div>' : ''}`
+              ) : `<button class="btn btn-xs btn-secondary view-btn" data-id="${e.id}" style="margin-top:8px">ดูรายละเอียด</button>`}
             </div>`
           }).join('')}
           ${!list.length ? '<div class="empty-state"><div class="empty-state-icon">💸</div><div>ไม่พบรายการ</div></div>' : ''}
@@ -136,6 +146,9 @@ export default async function ExpenseApprovalPage(container) {
     container.querySelectorAll('.approve-btn').forEach(b => b.addEventListener('click', async () => {
       const e = expenses.find(x => x.id === b.dataset.id)
       if (!e) return
+      if (!canApprove || e.submittedBy === currentUserName) { showToast('⛔ ไม่มีสิทธิ์อนุมัติรายการนี้', 'error'); return }
+      const ok = await confirmDialog({ title: '✓ อนุมัติค่าใช้จ่าย', message: `ยืนยันอนุมัติ "${escHtml(e.title)}" จำนวน ${formatCurrency(e.amount)}?`, confirmText: 'อนุมัติ' })
+      if (!ok) return
       try {
         await updateDocData('expense_approvals', e.id, { status: 'approved', approvedBy: myName() })
         showToast(`✅ อนุมัติ "${e.title}" แล้ว`, 'success')
@@ -145,6 +158,9 @@ export default async function ExpenseApprovalPage(container) {
     container.querySelectorAll('.reject-btn').forEach(b => b.addEventListener('click', async () => {
       const e = expenses.find(x => x.id === b.dataset.id)
       if (!e) return
+      if (!canApprove || e.submittedBy === currentUserName) { showToast('⛔ ไม่มีสิทธิ์ดำเนินการนี้', 'error'); return }
+      const ok = await confirmDialog({ title: '✗ ปฏิเสธคำขอ', message: `ยืนยันปฏิเสธ "${escHtml(e.title)}"?`, confirmText: 'ปฏิเสธ', danger: true })
+      if (!ok) return
       try {
         await updateDocData('expense_approvals', e.id, { status: 'rejected', approvedBy: myName() })
         showToast(`❌ ปฏิเสธ "${e.title}"`, 'warning')

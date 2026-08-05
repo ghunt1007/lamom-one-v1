@@ -6,6 +6,7 @@ import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
+import { getSalesStaff } from '../../data/masterData.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -28,7 +29,22 @@ const VISIT_OUTCOMES = {
 
 const MODELS = ['BYD Dolphin', 'BYD Atto 3', 'BYD Seal AWD', 'MG ZS EV', 'BYD Han', 'ยังไม่แน่ใจ']
 
-const HOURLY_TRAFFIC = [2, 3, 8, 12, 15, 18, 14, 10, 7, 3] // 9-18
+// Fallback ตัวอย่างล้วน — ใช้แสดงเฉพาะตอนยังไม่มี walk-in จริงเลย (คำนวณจริงจาก w.visitTime ด้านล่างแทน)
+const HOURLY_TRAFFIC_DEMO = [2, 3, 8, 12, 15, 18, 14, 10, 7, 3] // 9-18
+
+// (v1.0.xxx) เดิมกราฟนี้ปั้นตายตัวเสมอ ทั้งที่ walk_ins doc มี field visitTime จริงพอคำนวณ distribution
+// รายชั่วโมงได้อยู่แล้ว — นับจำนวน walk-in จริงต่อชั่วโมง 9:00-18:00 จาก walkins ที่โหลดมา
+function computeHourlyTraffic(walkins) {
+  if (!walkins.length) return HOURLY_TRAFFIC_DEMO
+  const counts = new Array(10).fill(0) // ชั่วโมง 9-18
+  walkins.forEach(w => {
+    const d = new Date(w.visitTime)
+    if (isNaN(d.getTime())) return
+    const h = d.getHours()
+    if (h >= 9 && h <= 18) counts[h - 9]++
+  })
+  return counts
+}
 
 export default async function WalkInPage(container) {
   const myGen = container.__routerGen
@@ -53,7 +69,8 @@ export default async function WalkInPage(container) {
     const list = walkins.filter(w => interestFilter === 'all' || w.interest === interestFilter)
     const hot = walkins.filter(w => w.interest === 'hot').length
     const booked = walkins.filter(w => w.outcome === 'book').length
-    const convRate = Math.round((walkins.filter(w => ['book','test_drive'].includes(w.outcome)).length / walkins.length) * 100)
+    const convRate = walkins.length ? Math.round((walkins.filter(w => ['book','test_drive'].includes(w.outcome)).length / walkins.length) * 100) : 0
+    const HOURLY_TRAFFIC = computeHourlyTraffic(walkins)
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -79,7 +96,7 @@ export default async function WalkInPage(container) {
           <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">📊 Traffic รายชั่วโมง</div>
           <div style="display:flex;gap:4px;align-items:flex-end;height:50px">
             ${HOURLY_TRAFFIC.map((v, i) => {
-              const maxV = Math.max(...HOURLY_TRAFFIC)
+              const maxV = Math.max(...HOURLY_TRAFFIC, 1)
               const pct = Math.round(v / maxV * 100)
               return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
                 <div style="width:100%;background:var(--primary);border-radius:2px 2px 0 0;height:${pct/2}px;min-height:4px"></div>
@@ -142,7 +159,7 @@ export default async function WalkInPage(container) {
           </div>
           <div class="input-group"><label class="input-label">เซลส์ที่ดูแล</label>
             <select class="input" id="wi-staff">
-              <option>วิชัย ยอดขาย</option><option>สุดา มาดี</option><option>ธนา เก่ง</option>
+              ${(getSalesStaff().length ? getSalesStaff() : ['อรนุช เซลส์ดี', 'วิชัย ขายเก่ง']).map(s => `<option>${escHtml(s)}</option>`).join('')}
             </select>
           </div>
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">หมายเหตุ</label><input class="input" id="wi-notes"></div>

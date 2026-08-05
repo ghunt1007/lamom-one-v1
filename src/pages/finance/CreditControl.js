@@ -3,7 +3,7 @@
  * Route: /finance/credit
  */
 import { formatCurrency, formatDate, timeAgo } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
@@ -43,6 +43,11 @@ export default async function CreditControlPage(container) {
           const bookDate = (b.bookingDate || b.createdAt?.toDate?.()?.toISOString() || '').slice(0, 10)
           const dueDate = bookDate ? new Date(new Date(bookDate).getTime() + 30 * 86400000).toISOString().slice(0, 10) : ''
           const daysPast = dueDate ? Math.max(0, Math.round((Date.now() - new Date(dueDate)) / 86400000)) : 0
+          // หมายเหตุ (ตรวจสอบแล้ว ยังไม่แก้): ตั้ง creditLimit = used = b.price เสมอ ทำให้ "% ใช้เครดิต" เป็น
+          // ~100% ทุกรายเสมอ ไม่มีความหมายจริง — ตรวจสอบแล้วว่าระบบยังไม่มี field วงเงินเครดิตจริงต่อลูกค้า
+          // เลย (ค้นทั้งโค้ดพบแค่ creditLimit ของ vendor/supplier ใน SupplierManagement.js ซึ่งเป็นคนละเรื่อง)
+          // จะต้องเพิ่ม field ใหม่ในระบบลูกค้าก่อนถึงจะแก้ % นี้ให้มีความหมายจริงได้ — ไม่ทำในรอบนี้เพราะเกิน
+          // ขอบเขตของหน้านี้ไฟล์เดียว
           return {
             id: 'CR-' + b.id, customerId: b.id, sourceBookingId: b.id,
             customer: b.custName || 'ลูกค้า', contact: b.custName || '', phone: b.phone || '',
@@ -163,6 +168,9 @@ export default async function CreditControlPage(container) {
     container.querySelectorAll('.settle-btn').forEach(b => b.addEventListener('click', async () => {
       const d = debtors.find(x => x.id === b.dataset.id)
       if (!d) return
+      // เดิมกดแล้วบันทึก "ชำระแล้ว" ทันทีไม่มี confirmDialog ทั้งที่เป็นการล้างยอดหนี้ ${d.used} บาทถาวร
+      const ok = await confirmDialog({ title: '✅ ยืนยันชำระหนี้แล้ว', message: `ยืนยันว่า ${escHtml(d.customer)} ชำระยอดค้าง ${formatCurrency(d.used)} ครบแล้ว?`, confirmText: 'ชำระแล้ว' })
+      if (!ok) return
       try {
         await persistDebtor(d, { status: 'settled', used: 0 })
         showToast(`✅ ชำระหนี้ ${d.customer} แล้ว!`, 'success')

@@ -38,9 +38,25 @@ export default async function BranchComparisonPage(container) {
         byBranch[br].sales++
         byBranch[br].revenue += s.salePrice || 0
       }
+      // (v1.0.xxx) เดิมสาขาจริงที่ไม่ตรงกับ BRANCHES demo ตัวไหนเลย fallback ไป BRANCHES[i % BRANCHES.length]
+      // ซึ่งยืม manager/staff/csat/service/leads ของสาขาอื่นที่ไม่เกี่ยวข้องมาแปะ — เปลี่ยนเป็นค่ากลาง/เฉลี่ย
+      // แทนการยืมข้อมูลสาขาอื่นแบบสุ่ม
+      const avgStaff = Math.round(BRANCHES.reduce((a, b) => a + b.staff, 0) / BRANCHES.length)
+      const avgCsat = +(BRANCHES.reduce((a, b) => a + b.csat, 0) / BRANCHES.length).toFixed(1)
       liveBranches = Object.entries(byBranch).map(([name, d], i) => {
-        const demo = BRANCHES.find(b => b.name.includes(name)) || BRANCHES[i % BRANCHES.length]
-        return { ...demo, name, sales: d.sales, revenue: d.revenue }
+        const demo = BRANCHES.find(b => b.name.includes(name) || name.includes(b.name.replace('สาขา', '')))
+        return {
+          id: demo?.id || `B${i}`,
+          name,
+          manager: demo?.manager || 'ไม่ระบุ',
+          sales: d.sales,
+          revenue: d.revenue,
+          service: demo?.service || 0,
+          staff: demo?.staff || avgStaff,
+          csat: demo?.csat ?? avgCsat,
+          leads: demo?.leads || 0,
+          color: demo?.color || '#94a3b8',
+        }
       })
       if (liveBranches.length === 0) liveBranches = [...BRANCHES].map(b => ({ ...b }))
       dataSource = 'live'
