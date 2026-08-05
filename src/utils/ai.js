@@ -560,6 +560,20 @@ AI: "${aiMsg}"
   } catch { return [] }
 }
 
+// ── Generic JSON-only prompt — text-only Gemini call, caller parses the JSON out of the text ──
+// ใช้เมื่อต้องการคำตอบ JSON object/array ล้วนๆจาก prompt ข้อความอย่างเดียว (ไม่มีรูป/ไม่มี persona
+// เฉพาะ) เช่น VehicleDatabase.js's AI lookup/verify — เผื่อ maxOutputTokens สูงได้ตามที่ผู้เรียกกำหนด
+// (gemini-2.5-flash เป็น thinking model กิน token ไปกับ "thought" ก่อนตอบจริง จึงกรอง p.thought ออก
+// เหมือน analyzeFinanceRateSheet/analyzeExpenseReceipt ด้านบน)
+export async function askJsonPrompt(prompt, maxOutputTokens = 2000) {
+  if (!isAiEnabled()) { const e = new Error('ต้องล็อกอินด้วยบัญชีจริงเพื่อใช้งาน AI (ไม่รองรับใน Demo Mode)'); e.code = 'NOT_ENABLED'; throw e }
+  const data = await callProxy('/generate', {
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: { maxOutputTokens, temperature: 0.2 },
+  })
+  return data.candidates?.[0]?.content?.parts?.filter(p => !p.thought).map(p => p.text || '').join('') || ''
+}
+
 function buildPrompt(msg, context) {
   if (!Object.keys(context).length) return msg
   const ctx = Object.entries(context).map(([k, v]) => `${k}: ${v}`).join('\n')

@@ -10,6 +10,7 @@ import {
 } from '../../data/vehicleDatabase.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
+import { askJsonPrompt, isAiEnabled } from '../../utils/ai.js'
 
 // เฉพาะ Owner/Admin เท่านั้นที่ทำ action ทำลาย/เขียนทับข้อมูลทั้งฐานได้ (ลบรุ่นรถ / batch-overwrite ด้วย AI)
 // ใช้ pattern เดียวกับ src/pages/settings/DataRetention.js (canManage = ROLES.includes(myRole))
@@ -170,35 +171,23 @@ function buildModal(v) {
 }
 
 // ── AI Live Lookup: ดึงข้อมูลรถคันไหนก็ได้แบบ real-time ─────────────────────────
-// SECURITY FIX (v — ตรวจโดย audit dms/*): เดิมฟังก์ชันนี้เรียก Anthropic API "ตรงจาก browser" โดยอ่าน
-// API key จากมาจาก localStorage.getItem('sk_claude_api_key') แล้วส่งขึ้น header x-api-key ตรงๆ จาก
-// client — เป็นช่องโหว่ความปลอดภัย/ต้นทุนจริง (ไม่ใช่แค่ "ไม่แสดง key" ตามคอมเมนต์เดิมที่เข้าใจผิด): ใครก็
-// เปิด DevTools/มีสิทธิ์เข้าเครื่อง หรือโจมตี XSS จุดใดในแอปได้ ก็ดึง key นี้ออกไปยิง Anthropic API แทนเจ้า
-// ของ key แบบไม่จำกัดได้ทันที เทียบเท่าปัญหาเดียวกับที่ src/utils/ai.js เคยแก้ไปแล้วสำหรับ Gemini
-// (ดู comment บนสุดของไฟล์นั้น, SEC-006) — utils/ai.js แก้โดยย้าย key ไปเป็น secret ฝั่ง Cloudflare Worker
-// (workers/ai-proxy.js) แล้วฝั่ง browser ส่งแค่ Firebase ID token ของผู้ใช้ที่ล็อกอินจริงไปยืนยันตัวตนแทน
-//
-// ตรวจสอบแล้วว่า "reasonably redirect" ไปใช้ proxy เดิมของ utils/ai.js ตรงๆไม่ได้ในรอบแก้นี้ เพราะ:
-//   1) proxy นั้นต่อกับ Gemini เท่านั้น ไม่มี route สำหรับ Anthropic/Claude
-//   2) ฟังก์ชันที่พอเรียกได้ (askAiOfficer) ล็อก maxOutputTokens ไว้แค่ 700 — payload ของฟีเจอร์นี้ (AI_SCHEMA
-//      เต็มรูปแบบ / aiVerifyVehicle) เดิมขอ 1800-3000 tokens อยู่แล้ว ถ้าใช้ 700 คำตอบ JSON จะขาดกลางคัน
-//      บ่อยกว่าที่แก้ปัญหาความปลอดภัยคุ้ม (callProxy() ภายใน ai.js ไม่ได้ export มาให้ปรับ token เองด้วย)
-// ทั้งสองข้อต้องแก้ที่ src/utils/ai.js และ/หรือ workers/ai-proxy.js ซึ่งอยู่นอกขอบเขตไฟล์ที่แก้รอบนี้
-// (จำกัดเฉพาะ src/pages/dms/) จึงทำ "อย่างน้อย" ตามที่ควร: ปิดการยิง Anthropic ตรงจาก browser ทันที
-// (ไม่ส่ง key ออกไปอีกต่อไป) แทนที่จะปล่อยช่องโหว่ทิ้งไว้เงียบๆ
-//
-// TODO (ต้องตัดสินใจร่วมกับทีม/เจ้าของก่อนทำต่อ): เปิดฟีเจอร์นี้กลับมาใช้งานได้จริงอย่างปลอดภัย ต้องเลือก 1 ใน 2:
-//   (a) เพิ่ม route Anthropic ใหม่ใน workers/ai-proxy.js (secret ฝั่ง Worker เหมือน Gemini) แล้วเรียกผ่าน
-//       proxy นั้นจากไฟล์นี้ — คงใช้ Claude ได้เหมือนเดิม แต่ต้องแก้ไฟล์นอก src/pages/dms/
-//   (b) เปลี่ยนมาใช้ Gemini ผ่าน utils/ai.js (เช่น export callProxy หรือเพิ่มฟังก์ชันที่ปรับ maxOutputTokens
-//       ได้) — เนื้อหา/คุณภาพคำตอบจะเปลี่ยนจาก Claude เป็น Gemini ควรให้ทีมทดสอบเทียบผลลัพธ์จริงก่อน
+// SECURITY FIX (v1.0.357 — ตรวจโดย audit dms/*): เดิมฟังก์ชันนี้เรียก Anthropic API "ตรงจาก browser"
+// โดยอ่าน API key จาก localStorage.getItem('sk_claude_api_key') แล้วส่งขึ้น header x-api-key ตรงๆจาก
+// client — เป็นช่องโหว่ความปลอดภัย/ต้นทุนจริง ใครก็เปิด DevTools/มีสิทธิ์เข้าเครื่อง หรือโจมตี XSS จุดใด
+// ในแอปได้ ก็ดึง key นี้ออกไปยิง Anthropic API แทนเจ้าของ key แบบไม่จำกัดได้ทันที (ปัญหาเดียวกับที่
+// src/utils/ai.js เคยแก้ไปแล้วสำหรับ Gemini — SEC-006) แก้แล้วโดยเปลี่ยนมาเรียก Gemini ผ่าน
+// utils/ai.js's askJsonPrompt() (Cloudflare Worker proxy เดิม, ยืนยันตัวตนด้วย Firebase ID token ของ
+// ผู้ใช้ที่ล็อกอินจริง — ไม่มี API key ค้างอยู่ฝั่ง browser เลย) แทน — เลือกเส้นทางนี้ตามที่เจ้าของระบบ
+// ยืนยันไว้ (ไม่ได้เพิ่ม route Anthropic ใหม่ใน worker เพราะไม่จำเป็น Gemini ตอบได้เทียบเท่าสำหรับงานนี้)
+// คุณภาพคำตอบเปลี่ยนจาก Claude เป็น Gemini — ควรลองใช้งานจริงเทียบผลก่อน (เช่น "AI ค้นหา" ชื่อรถที่รู้จักดี
+// กับรถที่ออกใหม่/หายาก) แล้วปรับ prompt เพิ่มได้ถ้าคำตอบยังไม่แม่นพอ
 const AI_SCHEMA = 'brand, model, variant, year, type, fuel(Petrol|Diesel|Hybrid|PHEV|BEV), bodyType(sedan|suv|pickup|mpv|hatchback|roadster), price, priceMin, priceMax (THB), engine, power(hp number), torque(Nm number), transmission, drivetrain, battery(string e.g. "60 kWh" or ""), range(km number, 0 if ICE), length, width, height, wheelbase, weight, seats, bootSpace(L), frunk(L front trunk, 0 if none), fuelTank(L, 0 if BEV), groundClearance(mm), airbags(number), towCapacity(kg, 0 if none), chargeAC(kW onboard AC charger, 0 if ICE), chargeDC(kW DC fast charge peak, 0 if ICE), chargeTime(string e.g "DC 30→80% ~30 นาที" Thai, "" if ICE), fuelEconomy(string e.g "15 km/L" or ""), co2(number, 0 if BEV), safety(array of strings — list ALL airbags/ABS/ESP/AEB etc), tech(array of strings), adas(array of intelligent-driving/ADAS feature strings in Thai), ncap(string — ASEAN/Euro NCAP star rating + year + scores if known, Thai), ecoSticker(string — Thai ECO Sticker info: CO2 g/km + emission, "" if unknown), warranty(string), colors(array of exterior colors), interiorColors(array of interior color names), strengths(array 3-4 จุดแข็ง Thai), weaknesses(array 3-4 จุดอ่อน Thai), pros(array 3-4 ข้อดี Thai), cons(array 3-4 ข้อเสีย Thai), importer, origin'
 
-// ปิดใช้งานชั่วคราว — ไม่ส่ง API key จาก browser ไปที่ไหนอีกแล้ว (ดู comment ด้านบน)
-async function callClaudeJSON() {
-  const e = new Error('DISABLED_INSECURE')
-  e.code = 'DISABLED_INSECURE'
-  throw e
+async function callClaudeJSON(prompt, maxTokens) {
+  const text = await askJsonPrompt(prompt, maxTokens || 2000)
+  const m = text.match(/\{[\s\S]*\}/)
+  if (!m) { const e = new Error('PARSE'); e.code = 'PARSE'; throw e }
+  return JSON.parse(m[0])
 }
 
 async function aiLookup(queryText) {
@@ -430,10 +419,10 @@ export default async function VehicleDatabasePage(container) {
       showToast('✅ พบข้อมูล ' + v.brand + ' ' + v.model, 'success')
     } catch (err) {
       let msg = '❌ ค้นหาไม่สำเร็จ'
-      if (err.code === 'DISABLED_INSECURE') msg = '🚧 ฟีเจอร์นี้ปิดใช้งานชั่วคราว (รอทีมพัฒนาทำ secure proxy) — ดู TODO ในโค้ด callClaudeJSON()'
-      else if (err.code === 'NO_KEY') msg = '🔑 ยังไม่ได้ตั้งค่า Claude API Key — ไปที่ตั้งค่า > API Keys'
+      if (err.code === 'NOT_ENABLED') msg = '🔑 ต้องล็อกอินด้วยบัญชีจริงเพื่อใช้งาน AI'
       else if (err.code === 'NOT_FOUND') msg = '🔍 ไม่พบรถรุ่นนี้ในตลาดไทย ลองพิมพ์ให้ชัดเจนขึ้น'
-      else if (err.code && err.code.startsWith('API_')) msg = '⚠️ เชื่อมต่อ AI ไม่สำเร็จ (' + err.code + ') — ตรวจสอบ API Key'
+      else if (err.code === 'PARSE') msg = '⚠️ AI ตอบไม่ครบ/ไม่ใช่รูปแบบที่คาดไว้ ลองใหม่อีกครั้ง'
+      else if (err.code && err.code.startsWith('API_')) msg = '⚠️ เชื่อมต่อ AI ไม่สำเร็จ (' + err.code + ')'
       if (status) status.innerHTML = '<span style="color:var(--danger)">' + msg + '</span>'
       else showToast(msg, 'error')
     }
@@ -442,9 +431,9 @@ export default async function VehicleDatabasePage(container) {
   // ── เปิด modal รถ พร้อมปุ่ม ตรวจ/แก้ไข ────────────────────────────────────────
   function fmtVal(x) { return Array.isArray(x) ? x.join(', ') : (x === undefined || x === null || x === '' ? '-' : String(x)) }
   function errMsg(err) {
-    if (err.code === 'DISABLED_INSECURE') return '🚧 ฟีเจอร์นี้ปิดใช้งานชั่วคราว (เดิมส่ง API key ตรงจาก browser ซึ่งไม่ปลอดภัย) — รอทีมพัฒนาทำ secure proxy ก่อน ดู TODO ในโค้ด'
-    if (err.code === 'NO_KEY') return '🔑 ยังไม่ได้ตั้งค่า Claude API Key — ไปที่ ตั้งค่า > API Keys'
+    if (err.code === 'NOT_ENABLED') return '🔑 ต้องล็อกอินด้วยบัญชีจริงเพื่อใช้งาน AI'
     if (err.code === 'NOT_FOUND') return '🔍 ไม่พบข้อมูลรถรุ่นนี้'
+    if (err.code === 'PARSE') return '⚠️ AI ตอบไม่ครบ/ไม่ใช่รูปแบบที่คาดไว้ ลองใหม่อีกครั้ง'
     if (err.code && err.code.indexOf('API_') === 0) return '⚠️ เชื่อมต่อ AI ไม่สำเร็จ (' + err.code + ')'
     return '❌ ไม่สำเร็จ: ' + (err.message || '')
   }
@@ -598,13 +587,23 @@ export default async function VehicleDatabasePage(container) {
   function runBatchVerify() {
     if (!canManageCatalog) { showToast('เฉพาะ Owner/Admin เท่านั้นที่ใช้ฟังก์ชันนี้ได้', 'warning'); return }
     if (batchRunning) return
-    // ฟีเจอร์นี้ปิดใช้งานชั่วคราว — ดู TODO ที่ callClaudeJSON() ด้านบน (เดิมส่ง API key ตรงจาก browser
-    // ไปยิง Anthropic API ตรงๆ ซึ่งไม่ปลอดภัย) รอทีมพัฒนาทำ secure proxy ก่อนจึงจะเปิดใช้งานต่อได้จริง
-    showToast('🚧 ฟีเจอร์ตรวจทั้งหมดด้วย AI ปิดใช้งานชั่วคราว (รอทีมพัฒนาทำ secure proxy ก่อน) — ดู TODO ในโค้ด', 'warning')
+    if (!isAiEnabled()) { showToast('🔑 ต้องล็อกอินด้วยบัญชีจริงเพื่อใช้งาน AI', 'warning'); return }
+    const list = getFiltered()
+    const scopeLabel = filter.brand || (filter.fuel ? (FUEL_LABELS[filter.fuel] || filter.fuel) : 'ทั้งหมด')
+    const body = '<div style="font-size:0.82rem">' +
+      '<div style="margin-bottom:10px">จะให้ AI ตรวจสอบและเติมข้อมูล (จุดแข็ง/อ่อน, ข้อดี/เสีย, NCAP, ADAS, สเปก) ' +
+      '<strong>' + list.length + ' คัน</strong> (ขอบเขต: ' + scopeLabel + ') แบบรายรุ่นย่อย — ผลลัพธ์จะถูกบันทึกทับอัตโนมัติ' +
+      '<br><span style="font-size:0.7rem;color:var(--text-muted)">⚠️ ใช้เวลาพอสมควร (เรียก AI ทีละคัน) และใช้โควต้า API · กรองยี่ห้อก่อนเพื่อทำเป็นชุดย่อยได้</span></div>' +
+      '<div id="batch-progress" style="font-size:0.8rem;font-weight:600"></div>' +
+      '<div id="batch-log" style="margin-top:8px;max-height:200px;overflow:auto;font-size:0.68rem;color:var(--text-muted)"></div>' +
+    '</div>'
+    openModal({
+      title: '✨ ตรวจทั้งหมดด้วย AI (' + list.length + ' คัน)', size: 'md', body,
+      confirmText: '▶ เริ่มตรวจ',
+      onConfirm: () => { doBatch(list); return false },
+    })
   }
 
-  // หมายเหตุ: ไม่มีจุดไหนเรียก doBatch() อยู่ตอนนี้แล้ว (runBatchVerify() ปิดฟีเจอร์ไว้ชั่วคราวก่อนถึงจุดที่
-  // เคยเปิด modal ยืนยัน) คงฟังก์ชันนี้ไว้เผื่อทีมพัฒนาต่อจาก TODO ที่ callClaudeJSON() แล้วมาต่อสายเรียกใหม่
   async function doBatch(list) {
     batchRunning = true
     const prog = document.getElementById('batch-progress')
@@ -625,8 +624,7 @@ export default async function VehicleDatabasePage(container) {
         if (log) log.innerHTML = '✅ ' + v.brand + ' ' + v.model + ' ' + v.variant + ' (' + changes.length + ' แก้ไข)<br>' + log.innerHTML
       } catch (err) {
         fail++
-        if (err.code === 'DISABLED_INSECURE') { if (prog) prog.innerHTML = '🚧 ฟีเจอร์นี้ปิดใช้งานชั่วคราว — หยุด'; break }
-        if (err.code === 'NO_KEY') { if (prog) prog.innerHTML = '🔑 ไม่พบ API Key — หยุด'; break }
+        if (err.code === 'NOT_ENABLED') { if (prog) prog.innerHTML = '🔑 ต้องล็อกอินด้วยบัญชีจริงเพื่อใช้งาน AI — หยุด'; break }
         if (log) log.innerHTML = '⚠️ ' + v.brand + ' ' + v.model + ' — ' + errMsg(err) + '<br>' + log.innerHTML
       }
     }
