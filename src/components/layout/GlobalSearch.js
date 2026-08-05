@@ -3,22 +3,26 @@
 import { listDocs, seedDemoData } from '../../core/db.js'
 import { navigate } from '../../core/router.js'
 import { formatCurrency } from '../../utils/format.js'
+import { getState } from '../../core/store.js'
+import { t as tr } from '../../i18n/index.js'
+// (v1.0.354) t เป็นชื่อ parameter ของ SOURCES/tasks item ในไฟล์นี้อยู่แล้ว (เช่น t => t.title) เปลี่ยนชื่อ
+// import เป็น tr กันชนกับ t local variable ในหลายจุดของไฟล์นี้
 
-// แต่ละ collection: วิธีดึงข้อความค้นหา + แสดงผล + ปลายทางเมื่อคลิก
+// แต่ละ collection: วิธีดึงข้อความค้นหา + แสดงผล + ปลายทางเมื่อคลิก (groupKey อ้าง i18n key แปลชื่อกลุ่ม)
 const SOURCES = [
-  { col: 'bookings', icon: '📝', group: 'ใบจอง', route: '/crm/bookings',
+  { col: 'bookings', icon: '📝', groupKey: 'grpBookings', route: '/crm/bookings',
     text: b => [b.bookingNo, b.custName, b.brand, b.model, b.variant, b.vin, b.phone, b.salesName].join(' '),
     title: b => (b.bookingNo || '') + ' · ' + (b.custName || ''),
     sub: b => [b.brand, b.model, b.variant].filter(Boolean).join(' ') + ' · ' + (b.status || '') + ' · ' + formatCurrency(b.price) },
-  { col: 'customers', icon: '👤', group: 'ลูกค้า', route: '/crm/customers',
+  { col: 'customers', icon: '👤', groupKey: 'grpCustomers', route: '/crm/customers',
     text: c => [c.firstName, c.lastName, c.phone, c.email, c.lineId, c.interestedModel].join(' '),
     title: c => [c.firstName, c.lastName].filter(Boolean).join(' '),
     sub: c => (c.phone || '') + (c.interestedModel ? ' · สนใจ ' + c.interestedModel : '') },
-  { col: 'vehicles', icon: '🚗', group: 'สต็อกรถ', route: '/dms/stock',
+  { col: 'vehicles', icon: '🚗', groupKey: 'grpStock', route: '/dms/stock',
     text: v => [v.brand, v.model, v.variant, v.color, v.vin, v.status, v.location].join(' '),
     title: v => [v.brand, v.model, v.variant].filter(Boolean).join(' '),
     sub: v => (v.color || '') + ' · ' + (v.vin || '') + ' · ' + (v.status || '') },
-  { col: 'staff', icon: '🧑‍💼', group: 'พนักงาน', route: '/hr/staff',
+  { col: 'staff', icon: '🧑‍💼', groupKey: 'grpStaff', route: '/hr/staff',
     text: s => [s.firstName, s.lastName, s.nickname, s.dept, s.role, s.phone, s.email].join(' '),
     title: s => [s.firstName, s.lastName].filter(Boolean).join(' ') + (s.nickname ? ' (' + s.nickname + ')' : ''),
     sub: s => (s.dept || '') + ' · ' + (s.role || '') },
@@ -26,36 +30,60 @@ const SOURCES = [
     text: j => [j.jobNo, j.custName, j.brand, j.model, j.plate, j.vin, j.desc, j.techName, j.status].join(' '),
     title: j => (j.jobNo || '') + ' · ' + (j.custName || ''),
     sub: j => [j.brand, j.model].filter(Boolean).join(' ') + ' · ' + (j.plate || '') + ' · ' + (j.status || '') },
-  { col: 'parts', icon: '⚙️', group: 'อะไหล่', route: '/service/parts',
+  { col: 'parts', icon: '⚙️', groupKey: 'grpParts', route: '/service/parts',
     text: p => [p.sku, p.name, p.brand, p.category, p.location].join(' '),
     title: p => (p.name || ''),
     sub: p => (p.sku || '') + ' · คงเหลือ ' + (p.qty || 0) + ' ' + (p.unit || '') },
-  { col: 'insurance_policies', icon: '🛡️', group: 'ประกันภัย', route: '/insurance',
+  { col: 'insurance_policies', icon: '🛡️', groupKey: 'grpInsurance', route: '/insurance',
     text: p => [p.policyNo, p.custName, p.brand, p.model, p.plate, p.insurer, p.type].join(' '),
     title: p => (p.policyNo || '') + ' · ' + (p.custName || ''),
     sub: p => (p.insurer || '') + ' · ' + (p.type || '') + ' · ' + (p.status || '') },
-  { col: 'tasks', icon: '✅', group: 'งาน', route: '/tasks',
+  { col: 'tasks', icon: '✅', groupKey: 'grpTasks', route: '/tasks',
     text: t => [t.title, t.desc, t.priority, t.status].join(' '),
     title: t => (t.title || ''),
     sub: t => (t.status || '') + ' · ' + (t.priority || '') },
 ]
+function srcGroup(src) { return src.groupKey ? tr(src.groupKey) : src.group }
 
-// ดัชนีเมนู/หน้า สำหรับ jump ไปหน้าโดยตรง
+// ดัชนีเมนู/หน้า สำหรับ jump ไปหน้าโดยตรง — [label(ไทย, ใช้ค้นหาเสมอ), route, icon, labelEn, labelZh]
 const PAGES = [
-  ['Dashboard ภาพรวม', '/', '📊'], ['ใบจองรถ', '/crm/bookings', '📝'], ['ลูกค้า', '/crm/customers', '👤'],
-  ['Lead', '/crm/leads', '🎯'], ['Pipeline ขาย', '/crm/pipeline', '📈'], ['ทดลองขับ', '/crm/testdrive', '🚗'],
-  ['สต็อกรถ', '/dms/stock', '🚙'], ['สั่งรถใหม่', '/dms/orders', '📦'], ['PDI ตรวจรถ', '/dms/pdi', '🔍'],
-  ['Job Card บริการ', '/service/jobs', '🔧'], ['อะไหล่', '/service/parts', '⚙️'],
-  ['กำไร Margin', '/finance/margin', '💰'], ['คอมมิชชั่น', '/finance/commission', '💵'],
-  ['กฎคอมมิชชั่น', '/finance/commission-rules', '📐'], ['งบประมาณ', '/finance/budget', '🧮'],
-  ['เงินเดือน Payroll', '/finance/payroll', '🧾'], ['สลิปเงินเดือน', '/finance/payroll-detail', '🧾'],
-  ['เป้า vs จริง', '/finance/target-actual', '🎯'], ['กำไรขาดทุน P&L', '/finance/pl', '📑'],
-  ['โปรโมชั่นส่งเสริมการขาย', '/marketing/promotions', '🎁'], ['อีเว้นท์', '/marketing/events', '🎪'],
-  ['Action Plan ขาย', '/finance/target-actual', '🗂️'], ['พยากรณ์ยอดขาย', '/analytics/forecast', '🔮'],
-  ['พนักงาน', '/hr/staff', '🧑‍💼'], ['ตรวจรถก่อนส่งมอบ', '/service/inspection', '✅'],
-  ['ใบส่งมอบรถ', '/dms/delivery', '🚚'], ['ประกันภัย', '/insurance', '🛡️'], ['งาน Tasks', '/tasks', '✅'],
-  ['เอกสาร', '/documents', '📄'], ['ตั้งค่า', '/settings', '⚙️'], ['Master Data', '/settings/master-data', '🗃️'],
+  ['Dashboard ภาพรวม', '/', '📊', 'Dashboard Overview', '仪表盘总览'],
+  ['ใบจองรถ', '/crm/bookings', '📝', 'Bookings', '订车'],
+  ['ลูกค้า', '/crm/customers', '👤', 'Customers', '客户'],
+  ['Lead', '/crm/leads', '🎯', 'Lead', '潜在客户'],
+  ['Pipeline ขาย', '/crm/pipeline', '📈', 'Sales Pipeline', '销售流程'],
+  ['ทดลองขับ', '/crm/testdrive', '🚗', 'Test Drive', '试驾'],
+  ['สต็อกรถ', '/dms/stock', '🚙', 'Stock', '库存'],
+  ['สั่งรถใหม่', '/dms/orders', '📦', 'New Vehicle Orders', '新车订购'],
+  ['PDI ตรวจรถ', '/dms/pdi', '🔍', 'PDI Inspection', 'PDI检查'],
+  ['Job Card บริการ', '/service/jobs', '🔧', 'Service Job Card', '服务工单'],
+  ['อะไหล่', '/service/parts', '⚙️', 'Parts', '配件'],
+  ['กำไร Margin', '/finance/margin', '💰', 'Margin', '利润率'],
+  ['คอมมิชชั่น', '/finance/commission', '💵', 'Commission', '提成'],
+  ['กฎคอมมิชชั่น', '/finance/commission-rules', '📐', 'Commission Rules', '提成规则'],
+  ['งบประมาณ', '/finance/budget', '🧮', 'Budget', '预算'],
+  ['เงินเดือน Payroll', '/finance/payroll', '🧾', 'Payroll', '工资单'],
+  ['สลิปเงินเดือน', '/finance/payroll-detail', '🧾', 'Payslip', '工资单明细'],
+  ['เป้า vs จริง', '/finance/target-actual', '🎯', 'Target vs Actual', '目标 vs 实际'],
+  ['กำไรขาดทุน P&L', '/finance/pl', '📑', 'P&L', '损益表'],
+  ['โปรโมชั่นส่งเสริมการขาย', '/marketing/promotions', '🎁', 'Promotions', '促销活动'],
+  ['อีเว้นท์', '/marketing/events', '🎪', 'Events', '活动'],
+  ['Action Plan ขาย', '/finance/target-actual', '🗂️', 'Sales Action Plan', '销售行动计划'],
+  ['พยากรณ์ยอดขาย', '/analytics/forecast', '🔮', 'Sales Forecast', '销售预测'],
+  ['พนักงาน', '/hr/staff', '🧑‍💼', 'Staff', '员工'],
+  ['ตรวจรถก่อนส่งมอบ', '/service/inspection', '✅', 'Pre-Delivery Inspection', '交车前检查'],
+  ['ใบส่งมอบรถ', '/dms/delivery', '🚚', 'Delivery Note', '交车单'],
+  ['ประกันภัย', '/insurance', '🛡️', 'Insurance', '保险'],
+  ['งาน Tasks', '/tasks', '✅', 'Tasks', '任务'],
+  ['เอกสาร', '/documents', '📄', 'Documents', '文档'],
+  ['ตั้งค่า', '/settings', '⚙️', 'Settings', '设置'],
+  ['Master Data', '/settings/master-data', '🗃️', 'Master Data', '主数据'],
 ]
+// ค้นหาเทียบกับ label ภาษาไทยเสมอ (source of truth) แต่แสดงผลตามภาษาที่เลือกไว้
+function pageLabel(p) {
+  const lang = getState('language') || 'th'
+  return (lang === 'en' ? p[3] : lang === 'zh' ? p[4] : null) || p[0]
+}
 
 function norm(s) { return String(s || '').toLowerCase() }
 
@@ -76,13 +104,13 @@ export function openGlobalSearch() {
     '<div class="modal" style="max-width:640px;width:92%;overflow:hidden">' +
       '<div style="padding:12px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)">' +
         '<span style="font-size:1.1rem">🔍</span>' +
-        '<input type="text" id="gsearch-input" placeholder="ค้นหาลูกค้า · ใบจอง · รถ · อะไหล่ · พนักงาน · เมนู..." ' +
+        '<input type="text" id="gsearch-input" placeholder="' + escAttr(tr('searchAllPlaceholder')) + '" ' +
           'style="border:none;background:transparent;font-size:1rem;flex:1;outline:none;color:var(--text);font-family:var(--font-main)" autocomplete="off">' +
         '<span class="topbar-search-kbd" style="cursor:pointer" id="gsearch-esc">Esc</span>' +
       '</div>' +
       '<div id="gsearch-results" style="max-height:62vh;overflow:auto;padding:6px"></div>' +
       '<div style="padding:6px 14px;border-top:1px solid var(--border);font-size:0.7rem;color:var(--text-muted);display:flex;gap:14px">' +
-        '<span>↑↓ เลื่อน</span><span>↵ เปิด</span><span>Esc ปิด</span>' +
+        '<span>' + tr('moveHint') + '</span><span>' + tr('openHint') + '</span><span>' + tr('closeHint') + '</span>' +
       '</div>' +
     '</div>'
 
@@ -113,9 +141,10 @@ export function openGlobalSearch() {
 
     const results = []
 
-    // หน้า/เมนู
-    PAGES.forEach(([label, route, icon]) => {
-      if (matchAll(label)) results.push({ type: 'page', icon, group: 'เมนู', title: label, sub: route, route })
+    // หน้า/เมนู — ค้นหาเทียบกับชื่อภาษาไทย (source of truth) เสมอ แต่แสดงผลตามภาษาที่เลือกไว้
+    PAGES.forEach(p => {
+      const [label, route, icon] = p
+      if (matchAll(label)) results.push({ type: 'page', icon, group: tr('grpMenu'), title: pageLabel(p), sub: route, route })
     })
 
     // ข้อมูลในแต่ละ collection — ดึงขนานกันทุก collection พร้อมกัน
@@ -125,7 +154,7 @@ export function openGlobalSearch() {
     SOURCES.forEach((src, i) => {
       fetched[i].forEach(r => {
         if (matchAll(src.text(r))) {
-          results.push({ type: 'data', icon: src.icon, group: src.group, title: src.title(r) || '(ไม่มีชื่อ)', sub: src.sub(r), route: src.route })
+          results.push({ type: 'data', icon: src.icon, group: srcGroup(src), title: src.title(r) || tr('noName'), sub: src.sub(r), route: src.route })
         }
       })
     })
@@ -138,17 +167,17 @@ export function openGlobalSearch() {
   function renderEmpty() {
     resultsCache = []
     resBox.innerHTML =
-      '<div style="padding:4px"><div style="font-size:0.7rem;color:var(--text-muted);padding:6px 10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">ไปที่หน้า</div>' +
-      PAGES.slice(0, 10).map((p, i) => rowHtml({ icon: p[2], title: p[0], sub: p[1], group: 'เมนู' }, i)).join('') +
+      '<div style="padding:4px"><div style="font-size:0.7rem;color:var(--text-muted);padding:6px 10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">' + tr('goToPage') + '</div>' +
+      PAGES.slice(0, 10).map((p, i) => rowHtml({ icon: p[2], title: pageLabel(p), sub: p[1], group: tr('grpMenu') }, i)).join('') +
       '</div>'
-    resultsCache = PAGES.slice(0, 10).map(p => ({ type: 'page', icon: p[2], title: p[0], sub: p[1], route: p[1] }))
+    resultsCache = PAGES.slice(0, 10).map(p => ({ type: 'page', icon: p[2], title: pageLabel(p), sub: p[1], route: p[1] }))
     activeIdx = 0
     bindRows()
   }
 
   function renderResults(q) {
     if (!resultsCache.length) {
-      resBox.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-muted)"><div style="font-size:2rem">🔍</div><div style="margin-top:8px">ไม่พบ "' + escAttr(q) + '"</div></div>'
+      resBox.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-muted)"><div style="font-size:2rem">🔍</div><div style="margin-top:8px">' + escAttr(tr('noResultsFor')) + ' "' + escAttr(q) + '"</div></div>'
       return
     }
     // จัดกลุ่มตาม group

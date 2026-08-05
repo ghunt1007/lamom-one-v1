@@ -2,6 +2,7 @@ import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 import { timeAgo } from '../../utils/format.js'
 import { setState } from '../../core/store.js'
 import { navigate } from '../../core/router.js'
+import { t } from '../../i18n/index.js'
 
 const NOTIF_ICONS = { lead: '🧲', reminder: '⏰', system: '⚙️', finance: '💰', service: '🔧', warning: '⚠️' }
 
@@ -31,10 +32,10 @@ export async function openNotifPanel(anchorEl) {
   `
   panel.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
-      <div style="font-weight:700;font-size:0.95rem">🔔 การแจ้งเตือน</div>
+      <div style="font-weight:700;font-size:0.95rem">🔔 ${t('notifications')}</div>
       <div style="display:flex;gap:8px;align-items:center">
-        ${unread.length ? `<span class="badge badge-danger">${unread.length} ใหม่</span>` : ''}
-        <button class="btn btn-ghost btn-sm" id="mark-all-read" style="font-size:0.75rem">อ่านทั้งหมด</button>
+        ${unread.length ? `<span class="badge badge-danger">${unread.length} ${t('newBadge')}</span>` : ''}
+        <button class="btn btn-ghost btn-sm" id="mark-all-read" style="font-size:0.75rem">${t('markAllRead')}</button>
       </div>
     </div>
     <div style="overflow-y:auto;flex:1">
@@ -53,7 +54,7 @@ export async function openNotifPanel(anchorEl) {
       `).join('') : `
         <div class="empty-state" style="padding:32px">
           <div class="empty-icon">🔔</div>
-          <div class="empty-title">ไม่มีการแจ้งเตือน</div>
+          <div class="empty-title">${t('noNotifications')}</div>
         </div>
       `}
     </div>

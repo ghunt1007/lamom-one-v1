@@ -29,6 +29,11 @@ const DICT = {
     roleOwner: 'เจ้าของ', roleAdmin: 'แอดมิน', roleManager: 'ผู้จัดการ', roleSales: 'เซลส์', roleService: 'ช่าง', roleStaff: 'พนักงาน',
     greetingMorning: 'อรุณสวัสดิ์', greetingAfternoon: 'สวัสดีตอนบ่าย', greetingEvening: 'สวัสดีตอนเย็น',
     welcome: 'ยินดีต้อนรับ', newLead: 'Lead ใหม่',
+    markAllRead: 'อ่านทั้งหมด', newBadge: 'ใหม่', noNotifications: 'ไม่มีการแจ้งเตือน',
+    searchAllPlaceholder: 'ค้นหาลูกค้า · ใบจอง · รถ · อะไหล่ · พนักงาน · เมนู...',
+    moveHint: '↑↓ เลื่อน', openHint: '↵ เปิด', closeHint: 'Esc ปิด', goToPage: 'ไปที่หน้า', noResultsFor: 'ไม่พบ', noName: '(ไม่มีชื่อ)',
+    grpMenu: 'เมนู', grpBookings: 'ใบจอง', grpCustomers: 'ลูกค้า', grpStock: 'สต็อกรถ', grpStaff: 'พนักงาน',
+    grpParts: 'อะไหล่', grpInsurance: 'ประกันภัย', grpTasks: 'งาน',
   },
   en: {
     appTagline: 'Automotive Business Operating System',
@@ -48,6 +53,11 @@ const DICT = {
     roleOwner: 'Owner', roleAdmin: 'Admin', roleManager: 'Manager', roleSales: 'Sales', roleService: 'Technician', roleStaff: 'Staff',
     greetingMorning: 'Good morning', greetingAfternoon: 'Good afternoon', greetingEvening: 'Good evening',
     welcome: 'Welcome', newLead: 'New Lead',
+    markAllRead: 'Mark all read', newBadge: 'new', noNotifications: 'No notifications',
+    searchAllPlaceholder: 'Search customers · bookings · vehicles · parts · staff · pages...',
+    moveHint: '↑↓ Move', openHint: '↵ Open', closeHint: 'Esc Close', goToPage: 'Go to page', noResultsFor: 'No results for', noName: '(No name)',
+    grpMenu: 'Pages', grpBookings: 'Bookings', grpCustomers: 'Customers', grpStock: 'Stock', grpStaff: 'Staff',
+    grpParts: 'Parts', grpInsurance: 'Insurance', grpTasks: 'Tasks',
   },
   zh: {
     appTagline: '汽车业务运营系统',
@@ -67,6 +77,11 @@ const DICT = {
     roleOwner: '所有者', roleAdmin: '管理员', roleManager: '经理', roleSales: '销售', roleService: '技师', roleStaff: '员工',
     greetingMorning: '早上好', greetingAfternoon: '下午好', greetingEvening: '晚上好',
     welcome: '欢迎', newLead: '新潜在客户',
+    markAllRead: '全部标为已读', newBadge: '条新', noNotifications: '没有通知',
+    searchAllPlaceholder: '搜索客户 · 订单 · 车辆 · 配件 · 员工 · 页面...',
+    moveHint: '↑↓ 移动', openHint: '↵ 打开', closeHint: 'Esc 关闭', goToPage: '前往页面', noResultsFor: '找不到', noName: '（无名称）',
+    grpMenu: '页面', grpBookings: '订车', grpCustomers: '客户', grpStock: '库存', grpStaff: '员工',
+    grpParts: '配件', grpInsurance: '保险', grpTasks: '任务',
   },
 }
 
