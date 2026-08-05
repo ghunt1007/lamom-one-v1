@@ -1,74 +1,84 @@
 import { login, register, resetPassword } from '../core/auth.js'
-import { getState, on } from '../core/store.js'
+import { getState, on, setLanguage } from '../core/store.js'
+import { t, LANGUAGES } from '../i18n/index.js'
 
 export default function LoginPage(container) {
   container.style.cssText = 'min-height:100vh;width:100%;display:flex;'
+  const curLang = getState('language') || 'th'
   container.innerHTML = `
     <div class="login-page" style="flex:1">
+      <div style="position:absolute;top:16px;right:16px;display:flex;gap:4px;z-index:1">
+        ${LANGUAGES.map(l => `<button type="button" class="lang-opt-btn" data-lang="${l.id}" style="padding:4px 9px;border-radius:var(--radius-sm);border:1px solid var(--border);background:${l.id===curLang?'var(--primary)':'var(--surface)'};color:${l.id===curLang?'#fff':'var(--text)'};font-size:0.75rem;cursor:pointer">${l.flag} ${l.label}</button>`).join('')}
+      </div>
       <div class="login-card">
         <div class="login-logo">
           <div class="login-logo-icon">L</div>
           <div>
             <div class="login-logo-name">LAMOM ONE</div>
-            <div class="login-logo-sub">ระบบปฏิบัติการธุรกิจยานยนต์</div>
+            <div class="login-logo-sub">${t('appTagline')}</div>
           </div>
         </div>
 
         <form class="login-form" id="login-form" novalidate>
           <div class="input-group">
-            <label class="input-label">อีเมล <span class="required">*</span></label>
+            <label class="input-label">${t('email')} <span class="required">*</span></label>
             <input type="email" class="input" id="login-email" placeholder="example@email.com" autocomplete="email">
             <span class="input-error" id="email-error"></span>
           </div>
 
           <div class="input-group">
-            <label class="input-label">รหัสผ่าน <span class="required">*</span></label>
+            <label class="input-label">${t('password')} <span class="required">*</span></label>
             <div style="position:relative">
-              <input type="password" class="input" id="login-password" placeholder="รหัสผ่าน" autocomplete="current-password" style="padding-right:44px">
+              <input type="password" class="input" id="login-password" placeholder="${t('password')}" autocomplete="current-password" style="padding-right:44px">
               <button type="button" id="toggle-pw" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1rem">👁</button>
             </div>
             <span class="input-error" id="pw-error"></span>
           </div>
 
           <button type="submit" class="btn btn-primary" id="login-btn" style="width:100%;justify-content:center;padding:11px">
-            <span id="login-btn-text">เข้าสู่ระบบ</span>
+            <span id="login-btn-text">${t('login')}</span>
           </button>
 
           <div style="text-align:right;margin-top:-8px">
-            <a href="#" id="forgot-pw" style="font-size:0.75rem;color:var(--primary);text-decoration:none">ลืมรหัสผ่าน?</a>
+            <a href="#" id="forgot-pw" style="font-size:0.75rem;color:var(--primary);text-decoration:none">${t('forgotPassword')}</a>
           </div>
         </form>
 
         <div style="text-align:center;margin-top:16px">
           <span style="font-size:0.8rem;color:var(--text-muted)">LAMOM ONE V1 © 2569 · </span>
-          <a href="#" id="show-register" style="font-size:0.8rem;color:var(--primary);text-decoration:none">สร้างบัญชีใหม่</a>
+          <a href="#" id="show-register" style="font-size:0.8rem;color:var(--primary);text-decoration:none">${t('createAccount')}</a>
         </div>
       </div>
 
       <div class="login-card" id="register-card" style="display:none;margin-top:16px">
-        <div style="font-size:1rem;font-weight:700;margin-bottom:18px">สร้างบัญชีผู้ใช้ใหม่</div>
+        <div style="font-size:1rem;font-weight:700;margin-bottom:18px">${t('createAccountTitle')}</div>
         <form id="register-form" novalidate>
           <div class="input-group">
-            <label class="input-label">อีเมล <span class="required">*</span></label>
+            <label class="input-label">${t('email')} <span class="required">*</span></label>
             <input type="email" class="input" id="reg-email" placeholder="example@email.com">
             <span class="input-error" id="reg-email-error"></span>
           </div>
           <div class="input-group" style="margin-top:12px">
-            <label class="input-label">รหัสผ่าน (อย่างน้อย 8 ตัว) <span class="required">*</span></label>
-            <input type="password" class="input" id="reg-pw" placeholder="รหัสผ่าน">
+            <label class="input-label">${t('passwordMin')} <span class="required">*</span></label>
+            <input type="password" class="input" id="reg-pw" placeholder="${t('password')}">
           </div>
           <div class="input-group" style="margin-top:12px">
-            <label class="input-label">ยืนยันรหัสผ่าน <span class="required">*</span></label>
-            <input type="password" class="input" id="reg-pw2" placeholder="รหัสผ่านอีกครั้ง">
+            <label class="input-label">${t('confirmPassword')} <span class="required">*</span></label>
+            <input type="password" class="input" id="reg-pw2" placeholder="${t('passwordAgain')}">
             <span class="input-error" id="reg-pw-error"></span>
           </div>
           <button type="submit" class="btn btn-primary" id="reg-btn" style="width:100%;justify-content:center;padding:11px;margin-top:16px">
-            <span id="reg-btn-text">สร้างบัญชี</span>
+            <span id="reg-btn-text">${t('createAccount')}</span>
           </button>
         </form>
       </div>
     </div>
   `
+
+  container.querySelectorAll('.lang-opt-btn').forEach(b => b.addEventListener('click', () => {
+    setLanguage(b.dataset.lang)
+    LoginPage(container)
+  }))
 
   // Styles injected once
   if (!document.getElementById('login-style')) {
@@ -77,7 +87,7 @@ export default function LoginPage(container) {
     s.textContent = `
       .login-page {
         min-height: 100vh; display: flex; align-items: center; justify-content: center;
-        background: var(--bg);
+        position: relative; background: var(--bg);
         background-image: radial-gradient(ellipse at 20% 50%, var(--primary-dim) 0%, transparent 60%),
                           radial-gradient(ellipse at 80% 20%, var(--accent-dim) 0%, transparent 50%);
       }
@@ -127,18 +137,18 @@ export default function LoginPage(container) {
     document.getElementById('pw-error').textContent = ''
 
     let valid = true
-    if (!email) { document.getElementById('email-error').textContent = 'กรุณาระบุอีเมล'; valid = false }
-    if (!pw) { document.getElementById('pw-error').textContent = 'กรุณาระบุรหัสผ่าน'; valid = false }
+    if (!email) { document.getElementById('email-error').textContent = t('pleaseEnterEmail'); valid = false }
+    if (!pw) { document.getElementById('pw-error').textContent = t('pleaseEnterPassword'); valid = false }
     if (!valid) return
 
     btn.disabled = true
-    btnText.innerHTML = '<span class="spinner spinner-sm"></span> กำลังเข้าสู่ระบบ...'
+    btnText.innerHTML = `<span class="spinner spinner-sm"></span> ${t('loggingIn')}`
 
     try {
       await login(email, pw)
     } catch {
       btn.disabled = false
-      btnText.textContent = 'เข้าสู่ระบบ'
+      btnText.textContent = t('login')
     }
   })
 
@@ -161,16 +171,16 @@ export default function LoginPage(container) {
     const regBtnText = document.getElementById('reg-btn-text')
     emailErr.textContent = ''
     pwErr.textContent = ''
-    if (!email) { emailErr.textContent = 'กรุณาระบุอีเมล'; return }
-    if (pw.length < 8) { pwErr.textContent = 'รหัสผ่านอย่างน้อย 8 ตัว'; return }
-    if (pw !== pw2) { pwErr.textContent = 'รหัสผ่านไม่ตรงกัน'; return }
+    if (!email) { emailErr.textContent = t('pleaseEnterEmail'); return }
+    if (pw.length < 8) { pwErr.textContent = t('passwordMinError'); return }
+    if (pw !== pw2) { pwErr.textContent = t('passwordMismatch'); return }
     regBtn.disabled = true
-    regBtnText.innerHTML = '<span class="spinner spinner-sm"></span> กำลังสร้างบัญชี...'
+    regBtnText.innerHTML = `<span class="spinner spinner-sm"></span> ${t('creatingAccount')}`
     try {
       await register(email, pw)
     } catch {
       regBtn.disabled = false
-      regBtnText.textContent = 'สร้างบัญชี'
+      regBtnText.textContent = t('createAccount')
     }
   })
 
@@ -179,7 +189,7 @@ export default function LoginPage(container) {
     e.preventDefault()
     const email = (emailEl.value || '').trim()
     if (!email) {
-      document.getElementById('email-error').textContent = 'กรอกอีเมลของคุณก่อน แล้วกด "ลืมรหัสผ่าน?" อีกครั้ง'
+      document.getElementById('email-error').textContent = t('enterEmailFirst')
       emailEl.focus()
       return
     }

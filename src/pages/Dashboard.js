@@ -1,9 +1,10 @@
-import { getState } from '../core/store.js'
+import { getState, on } from '../core/store.js'
 import { listDocs, watchDocs, seedDemoData, getSalesData } from '../core/db.js'
 import { formatCurrency, timeAgo } from '../utils/format.js'
 import { navigate } from '../core/router.js'
 import { generateMorningBriefing } from '../utils/ai.js'
 import { getModuleForPath, hasModuleAccess, loadRolePermissions } from '../core/permissions.js'
+import { t } from '../i18n/index.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -108,7 +109,9 @@ export default async function DashboardPage(container) {
   const myGen = container.__routerGen
   const user = getState('user')
   const hour = new Date().getHours()
-  const greeting = hour < 12 ? 'อรุณสวัสดิ์' : hour < 17 ? 'สวัสดีตอนบ่าย' : 'สวัสดีตอนเย็น'
+  // (v1.0.353) รองรับหลายภาษา — เฉพาะส่วน "เปลือก" ของหน้านี้ (คำทักทาย/ปุ่ม) เท่านั้น เนื้อหา KPI/กราฟ/
+  // สถานะต่างๆด้านในยังเป็นภาษาไทยล้วน (เป็นเนื้อหาเชิงลึกของหน้า ไม่ใช่ขอบเขต "เมนู/ส่วนกลาง" ที่ตกลงกันไว้)
+  const greeting = hour < 12 ? t('greetingMorning') : hour < 17 ? t('greetingAfternoon') : t('greetingEvening')
 
   // Quick Access เดิมโชว์ทุกโมดูลให้ทุก role เหมือนกันหมด ทั้งที่ Sidebar กรองเมนูตามสิทธิ์โมดูล (hasModuleAccess)
   // อยู่แล้ว ทำให้พนักงานบางคนเห็น shortcut ที่กดแล้วถูกบล็อกทันที (ไม่ตรงกับสิทธิ์จริง) แก้ให้กรองด้วยระบบเดียวกัน
@@ -122,12 +125,12 @@ export default async function DashboardPage(container) {
       <!-- Header -->
       <div class="page-header">
         <div>
-          <div class="page-title">${greeting} 👋 ${escHtml(user?.displayName || user?.email?.split('@')[0] || 'ยินดีต้อนรับ')}</div>
+          <div class="page-title" id="dash-greeting">${greeting} 👋 ${escHtml(user?.displayName || user?.email?.split('@')[0] || t('welcome'))}</div>
           <div class="page-subtitle">${formatThaiDate()} · LAMOM ONE</div>
         </div>
         <div class="page-actions">
           <button class="btn btn-secondary btn-sm" data-nav="/analytics">📊 Analytics</button>
-          <button class="btn btn-primary btn-sm" data-nav="/crm/leads">➕ Lead ใหม่</button>
+          <button class="btn btn-primary btn-sm" id="dash-new-lead-btn" data-nav="/crm/leads">➕ ${t('newLead')}</button>
         </div>
       </div>
 

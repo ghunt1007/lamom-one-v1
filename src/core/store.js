@@ -11,6 +11,9 @@ const state = {
   role: null,
   permissions: [],
   theme: localStorage.getItem('lamom_theme') || 'midnight',
+  // (v1.0.353) รองรับหลายภาษา — เริ่มจากเมนูหลัก/ส่วนกลาง (Sidebar/Topbar/Login/Dashboard) เท่านั้น
+  // เนื้อหาในแต่ละหน้า (400+ หน้า) ยังเป็นภาษาไทยล้วน เป็นงานแยกที่ใหญ่กว่านี้มาก ยังไม่ได้ทำรอบนี้
+  language: localStorage.getItem('lamom_lang') || 'th',
   sidebarCollapsed: localStorage.getItem('lamom_sidebar') === 'true',
   notifications: [],
   unreadCount: 0,
@@ -54,6 +57,11 @@ export function setTheme(theme) {
   setState('theme', theme)
   try { localStorage.setItem('lamom_theme', theme) } catch {}
   document.documentElement.setAttribute('data-theme', theme)
+}
+
+export function setLanguage(lang) {
+  setState('language', lang)
+  try { localStorage.setItem('lamom_lang', lang) } catch {}
 }
 
 export function toggleSidebar() {

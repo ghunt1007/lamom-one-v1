@@ -2,34 +2,38 @@ import { getState, on, toggleSidebar } from '../../core/store.js'
 import { navigate } from '../../core/router.js'
 import { logout } from '../../core/auth.js'
 import { getModuleForPath, hasModuleAccess, loadRolePermissions } from '../../core/permissions.js'
+import { t } from '../../i18n/index.js'
 
+// (v1.0.353) รองรับหลายภาษา — เมนูส่วนใหญ่เป็นศัพท์ธุรกิจที่เป็นภาษาอังกฤษอยู่แล้ว (Pipeline, Dashboard,
+// Commission ฯลฯ) จึงเพิ่มคำแปลเฉพาะรายการที่เป็นภาษาไทยล้วนเท่านั้น (labelEn/labelZh) รายการที่ไม่มีคำแปล
+// จะ fallback ไปโชว์ label เดิม (ซึ่งเป็นภาษาอังกฤษอยู่แล้วส่วนใหญ่) — ชื่อกลุ่ม (groupEn/groupZh) แปลครบ
 const NAV = [
   {
-    group: 'ภาพรวม',
+    group: 'ภาพรวม', groupEn: 'Overview', groupZh: '总览',
     items: [
       { icon: '🏠', label: 'Dashboard', path: '/' },
       { icon: '🔔', label: 'Notifications', path: '/notifications' },
     ]
   },
   {
-    group: 'การขาย',
+    group: 'การขาย', groupEn: 'Sales', groupZh: '销售',
     items: [
       { icon: '📊', label: 'CRM Dashboard', path: '/crm' },
-      { icon: '👥', label: 'ลูกค้า (รวม Lead)', path: '/crm/customers' },
+      { icon: '👥', label: 'ลูกค้า (รวม Lead)', labelEn: 'Customers (incl. Leads)', labelZh: '客户（含潜在客户）', path: '/crm/customers' },
       { icon: '📋', label: 'Pipeline', path: '/crm/pipeline' },
       { icon: '🎯', label: 'Sales War Room', path: '/crm/warroom' },
-      { icon: '📝', label: 'จองรถ', path: '/crm/bookings' },
+      { icon: '📝', label: 'จองรถ', labelEn: 'Bookings', labelZh: '订车', path: '/crm/bookings' },
       { icon: '🗂️', label: 'Action Plan', path: '/crm/action-plan' },
-      { icon: '✅', label: 'ตรวจรถก่อนส่งมอบ', path: '/crm/predelivery' },
+      { icon: '✅', label: 'ตรวจรถก่อนส่งมอบ', labelEn: 'Pre-Delivery Inspection', labelZh: '交车前检查', path: '/crm/predelivery' },
       { icon: '🚗', label: 'Test Drive', path: '/crm/testdrive' },
       { icon: '🌐', label: 'Customer Portal', path: '/crm/portal' },
-      { icon: '📢', label: 'ร้องเรียน', path: '/crm/complaints' },
+      { icon: '📢', label: 'ร้องเรียน', labelEn: 'Complaints', labelZh: '投诉', path: '/crm/complaints' },
       { icon: '📉', label: 'Lost Deal', path: '/crm/lostdeals' },
       { icon: '🏪', label: 'Showroom Appt', path: '/crm/showroom' },
       { icon: '📞', label: 'Follow-up', path: '/crm/followup' },
       { icon: '👑', label: 'Loyalty', path: '/crm/loyalty' },
       { icon: '💬', label: 'Feedback', path: '/crm/feedback' },
-      { icon: '📄', label: 'ใบเสนอราคา', path: '/crm/quotation' },
+      { icon: '📄', label: 'ใบเสนอราคา', labelEn: 'Quotation', labelZh: '报价单', path: '/crm/quotation' },
       { icon: '🎯', label: 'Segmentation', path: '/crm/segments' },
       { icon: '🤝', label: 'Referral Program', path: '/crm/referral' },
       { icon: '🚶', label: 'Walk-In Traffic', path: '/crm/walkin' },
@@ -53,25 +57,25 @@ const NAV = [
     ]
   },
   {
-    group: 'โชว์รูม',
+    group: 'โชว์รูม', groupEn: 'Showroom', groupZh: '展厅',
     items: [
       { icon: '🚗', label: 'DMS', path: '/dms' },
-      { icon: '📦', label: 'สต็อกรถ', path: '/dms/stock' },
-      { icon: '🛒', label: 'สั่งรถใหม่', path: '/dms/orders' },
+      { icon: '📦', label: 'สต็อกรถ', labelEn: 'Stock', labelZh: '库存', path: '/dms/stock' },
+      { icon: '🛒', label: 'สั่งรถใหม่', labelEn: 'New Vehicle Orders', labelZh: '新车订购', path: '/dms/orders' },
       { icon: '✅', label: 'PDI', path: '/dms/pdi' },
       { icon: '🤝', label: 'Suppliers', path: '/dms/suppliers' },
       { icon: '📦', label: 'Stock Valuation', path: '/dms/stockvalue' },
-      { icon: '⚖️', label: 'เปรียบเทียบรถ', path: '/dms/compare' },
-      { icon: '🚗', label: 'ใบส่งมอบรถ', path: '/dms/delivery' },
-      { icon: '📦', label: 'รับรถเข้าสต็อก', path: '/dms/receiving' },
-      { icon: '🚛', label: 'โอนรถ', path: '/dms/transfer' },
+      { icon: '⚖️', label: 'เปรียบเทียบรถ', labelEn: 'Vehicle Comparison', labelZh: '车型比较', path: '/dms/compare' },
+      { icon: '🚗', label: 'ใบส่งมอบรถ', labelEn: 'Delivery Note', labelZh: '交车单', path: '/dms/delivery' },
+      { icon: '📦', label: 'รับรถเข้าสต็อก', labelEn: 'Vehicle Receiving', labelZh: '车辆入库', path: '/dms/receiving' },
+      { icon: '🚛', label: 'โอนรถ', labelEn: 'Vehicle Transfer', labelZh: '车辆调拨', path: '/dms/transfer' },
       { icon: '🗓', label: 'TD Schedule', path: '/dms/testdrive-schedule' },
       { icon: '💰', label: 'Price List', path: '/dms/pricelist' },
       { icon: '📋', label: 'Reservation', path: '/dms/reservation' },
       { icon: '🔄', label: 'Trade-In', path: '/dms/tradein' },
       { icon: '🔎', label: 'Vehicle Lookup', path: '/dms/vin-lookup' },
       { icon: '🛍', label: 'Accessory Shop', path: '/dms/accessories' },
-      { icon: '🎨', label: 'สั่งแต่งรถ', path: '/dms/custom-orders' },
+      { icon: '🎨', label: 'สั่งแต่งรถ', labelEn: 'Custom Orders', labelZh: '定制订单', path: '/dms/custom-orders' },
       { icon: '🎉', label: 'Delivery Calendar', path: '/dms/delivery-calendar' },
       { icon: '🚙', label: 'Plate Tracking', path: '/dms/plates' },
       { icon: '🚗', label: 'Demo Fleet', path: '/dms/demo-fleet' },
@@ -79,11 +83,11 @@ const NAV = [
       { icon: '📸', label: 'Car Photos', path: '/dms/photos' },
       { icon: '🏦', label: 'Floor Plan', path: '/dms/floorplan' },
       { icon: '📋', label: 'Stock Audit', path: '/dms/stock-audit' },
-      { icon: '🤝', label: 'รถฝากขาย', path: '/dms/consignment' },
+      { icon: '🤝', label: 'รถฝากขาย', labelEn: 'Consignment Vehicle', labelZh: '寄售车辆', path: '/dms/consignment' },
       { icon: '⏳', label: 'Vehicle Aging', path: '/dms/aging' },
       { icon: '⭐', label: 'Special Edition', path: '/dms/special-edition' },
       { icon: '🔄', label: 'Model Year', path: '/dms/model-year' },
-      { icon: '📋', label: 'ใบอนุญาต', path: '/dms/licenses' },
+      { icon: '📋', label: 'ใบอนุญาต', labelEn: 'Licenses', labelZh: '许可证', path: '/dms/licenses' },
       { icon: '📱', label: 'QR per Vehicle', path: '/dms/qr-vehicle' },
       { icon: '📋', label: 'Homologation', path: '/dms/homologation' },
       { icon: '📈', label: 'Price History', path: '/dms/price-history' },
@@ -92,27 +96,27 @@ const NAV = [
       { icon: '🎨', label: 'Color Matrix', path: '/dms/color-matrix' },
       { icon: '🚗', label: 'Used Car', path: '/dms/used-car' },
       { icon: '⚙️', label: 'Model Config', path: '/dms/model-config' },
-      { icon: '📋', label: 'เอกสารราชการ', path: '/dms/gov-docs' },
+      { icon: '📋', label: 'เอกสารราชการ', labelEn: 'Gov Docs', labelZh: '官方文件', path: '/dms/gov-docs' },
       { icon: '⚡', label: 'EV Station', path: '/dms/ev-station' },
       { icon: '🚘', label: 'Vehicle Database', path: '/dms/vehicle-db' },
     ]
   },
   {
-    group: 'บริการ',
+    group: 'บริการ', groupEn: 'Service', groupZh: '服务',
     items: [
       { icon: '🔧', label: 'Service', path: '/service' },
       { icon: '🗂️', label: 'Job Card', path: '/service/jobs' },
-      { icon: '🔩', label: 'อะไหล่', path: '/service/parts' },
+      { icon: '🔩', label: 'อะไหล่', labelEn: 'Parts', labelZh: '配件', path: '/service/parts' },
       { icon: '📅', label: 'Service Appt', path: '/service/appointment' },
       { icon: '🚙', label: 'Loaner Car', path: '/service/loaner' },
       { icon: '🛡', label: 'Warranty', path: '/service/warranty' },
       { icon: '🔍', label: 'Inspection', path: '/service/inspection' },
-      { icon: '🛒', label: 'สั่งอะไหล่', path: '/service/parts-order' },
-      { icon: '📖', label: 'ประวัติซ่อม', path: '/service/history' },
+      { icon: '🛒', label: 'สั่งอะไหล่', labelEn: 'Parts Order', labelZh: '订购配件', path: '/service/parts-order' },
+      { icon: '📖', label: 'ประวัติซ่อม', labelEn: 'Repair History', labelZh: '维修历史', path: '/service/history' },
       { icon: '⚡', label: 'EV Diagnostic', path: '/service/ev-diagnostic' },
       { icon: '🔔', label: 'Recall', path: '/service/recall' },
       { icon: '📦', label: 'Service Packages', path: '/service/packages' },
-      { icon: '🗓️', label: 'ตารางบำรุงรักษาเช็คระยะ', path: '/service/maintenance-schedule' },
+      { icon: '🗓️', label: 'ตารางบำรุงรักษาเช็คระยะ', labelEn: 'Maintenance Schedule', labelZh: '保养计划', path: '/service/maintenance-schedule' },
       { icon: '⚡', label: 'Charging Station', path: '/service/charging' },
       { icon: '👷', label: 'Technician Schedule', path: '/service/technicians' },
       { icon: '🔋', label: 'EV Battery Health', path: '/service/ev-battery' },
@@ -137,23 +141,23 @@ const NAV = [
     ]
   },
   {
-    group: 'การเงิน',
+    group: 'การเงิน', groupEn: 'Finance', groupZh: '财务',
     items: [
       { icon: '💰', label: 'Finance', path: '/finance' },
       { icon: '📊', label: 'Margin', path: '/finance/margin' },
       { icon: '💎', label: 'GP & FOC', path: '/finance/gp-foc' },
-      { icon: '🎯', label: 'งบขาย & งบแถม', path: '/finance/sales-budget' },
+      { icon: '🎯', label: 'งบขาย & งบแถม', labelEn: 'Sales & Gift Budget', labelZh: '销售与赠品预算', path: '/finance/sales-budget' },
       { icon: '🏆', label: 'Commission', path: '/finance/commission' },
       { icon: '📉', label: 'P&L', path: '/finance/pl' },
       { icon: '💳', label: 'Payroll', path: '/finance/payroll' },
       { icon: '💸', label: 'Cash Flow', path: '/finance/cashflow' },
       { icon: '🧾', label: 'Invoice', path: '/finance/invoice' },
-      { icon: '🏦', label: 'ยื่นไฟแนนซ์', path: '/finance/application' },
+      { icon: '🏦', label: 'ยื่นไฟแนนซ์', labelEn: 'Finance Application', labelZh: '融资申请', path: '/finance/application' },
       { icon: '📋', label: 'Finance Tracker', path: '/finance/tracker' },
       { icon: '📊', label: 'Budget Planning', path: '/finance/budget' },
       { icon: '🧾', label: 'Tax Report', path: '/finance/tax' },
-      { icon: '📝', label: 'หัก ณ ที่จ่าย (ใบ 50 ทวิ)', path: '/finance/withholding-tax' },
-      { icon: '📑', label: 'วางบิล', path: '/finance/billing-run' },
+      { icon: '📝', label: 'หัก ณ ที่จ่าย (ใบ 50 ทวิ)', labelEn: 'Withholding Tax', labelZh: '预扣税', path: '/finance/withholding-tax' },
+      { icon: '📑', label: 'วางบิล', labelEn: 'Billing Run', labelZh: '开票', path: '/finance/billing-run' },
       { icon: '🏦', label: 'Credit Control', path: '/finance/credit' },
       { icon: '🏭', label: 'Assets', path: '/finance/assets' },
       { icon: '💸', label: 'Expense Approval', path: '/finance/expenses' },
@@ -172,8 +176,8 @@ const NAV = [
       { icon: '⚡', label: 'Charging Revenue', path: '/finance/charging-revenue' },
       { icon: '💱', label: 'Multi-Currency', path: '/finance/multi-currency' },
       { icon: '🏦', label: 'Bank Partners', path: '/finance/bank-partners' },
-      { icon: '📈', label: 'ดอกเบี้ยไฟแนนซ์', path: '/finance/rate-sheets' },
-      { icon: '💵', label: 'Deposit (มัดจำ)', path: '/finance/deposit' },
+      { icon: '📈', label: 'ดอกเบี้ยไฟแนนซ์', labelEn: 'Finance Rate Sheets', labelZh: '融资利率表', path: '/finance/rate-sheets' },
+      { icon: '💵', label: 'Deposit (มัดจำ)', labelEn: 'Deposit', labelZh: '订金', path: '/finance/deposit' },
       { icon: '⚖️', label: 'Break-even', path: '/finance/breakeven' },
       { icon: '💸', label: 'Refund', path: '/finance/refund' },
       { icon: '💳', label: 'Installment', path: '/finance/installment' },
@@ -186,10 +190,10 @@ const NAV = [
     ]
   },
   {
-    group: 'ประกัน',
+    group: 'ประกัน', groupEn: 'Insurance', groupZh: '保险',
     items: [
       { icon: '🛡', label: 'Insurance', path: '/insurance' },
-      { icon: '🔄', label: 'ต่ออายุประกัน', path: '/insurance/renewal' },
+      { icon: '🔄', label: 'ต่ออายุประกัน', labelEn: 'Insurance Renewal', labelZh: '保险续保', path: '/insurance/renewal' },
       { icon: '📋', label: 'Claims', path: '/insurance/claims' },
       { icon: '⚖️', label: 'Compare', path: '/insurance/compare' },
       { icon: '🏅', label: 'No-Claim Bonus', path: '/insurance/ncb' },
@@ -197,7 +201,7 @@ const NAV = [
     ]
   },
   {
-    group: 'การตลาด',
+    group: 'การตลาด', groupEn: 'Marketing', groupZh: '市场营销',
     items: [
       { icon: '📣', label: 'Marketing', path: '/marketing' },
       { icon: '🎯', label: 'Campaigns', path: '/marketing/campaigns' },
@@ -220,17 +224,17 @@ const NAV = [
     ]
   },
   {
-    group: 'องค์กร',
+    group: 'องค์กร', groupEn: 'Organization', groupZh: '组织',
     items: [
       { icon: '👤', label: 'HR', path: '/hr' },
       { icon: '🏛', label: 'Org Chart', path: '/hr/orgchart' },
       { icon: '👤', label: 'Staff Profiles', path: '/hr/profile' },
-      { icon: '🏖', label: 'ลาพนักงาน', path: '/hr/leave' },
+      { icon: '🏖', label: 'ลาพนักงาน', labelEn: 'Leave', labelZh: '请假', path: '/hr/leave' },
       { icon: '🕐', label: 'Attendance', path: '/hr/attendance' },
       { icon: '📆', label: 'Shift & Schedule', path: '/hr/shift' },
       { icon: '🎯', label: 'KPI', path: '/hr/kpi' },
-      { icon: '🎯', label: 'เป้าหมายทีม/ฝ่าย', path: '/hr/targets' },
-      { icon: '📋', label: 'ประเมิน KPI รายบุคคล', path: '/hr/employee-kpi' },
+      { icon: '🎯', label: 'เป้าหมายทีม/ฝ่าย', labelEn: 'Team/Dept Targets', labelZh: '团队/部门目标', path: '/hr/targets' },
+      { icon: '📋', label: 'ประเมิน KPI รายบุคคล', labelEn: 'Individual KPI Review', labelZh: '个人绩效考核', path: '/hr/employee-kpi' },
       { icon: '💳', label: 'Expense Claims', path: '/hr/expense' },
       { icon: '👔', label: 'Recruitment', path: '/hr/recruitment' },
       { icon: '📊', label: 'Performance', path: '/hr/performance' },
@@ -245,14 +249,14 @@ const NAV = [
       { icon: '🧩', label: 'Skill Matrix', path: '/hr/skills' },
       { icon: '📢', label: 'Announcements', path: '/hr/announcements' },
       { icon: '⚠️', label: 'Disciplinary', path: '/hr/disciplinary' },
-      { icon: '📢', label: 'เรื่องร้องเรียนภายใน', path: '/hr/grievances' },
+      { icon: '📢', label: 'เรื่องร้องเรียนภายใน', labelEn: 'Internal Grievances', labelZh: '内部投诉', path: '/hr/grievances' },
       { icon: '🎯', label: 'Succession Plan', path: '/hr/succession' },
       { icon: '🧾', label: 'Expense OCR', path: '/hr/expense-ocr' },
       { icon: '😊', label: 'Mood Survey', path: '/hr/mood-survey' },
       { icon: '🎁', label: 'Bonus Pool', path: '/hr/bonus-pool' },
       { icon: '🎁', label: 'Employee Welfare', path: '/hr/welfare' },
       { icon: '🎓', label: 'Training', path: '/training' },
-      { icon: '📚', label: 'หลักสูตร', path: '/training/courses' },
+      { icon: '📚', label: 'หลักสูตร', labelEn: 'Courses', labelZh: '课程', path: '/training/courses' },
       { icon: '📊', label: 'Training Progress', path: '/training/progress' },
       { icon: '🏆', label: 'Certification', path: '/training/certification' },
       { icon: '📝', label: 'Training Quiz', path: '/training/quiz' },
@@ -279,8 +283,8 @@ const NAV = [
       { icon: '📦', label: 'Stock Analysis', path: '/analytics/stock' },
       { icon: '📈', label: 'Monthly Trend', path: '/analytics/monthly' },
       { icon: '🏢', label: 'Branch Comparison', path: '/analytics/branches' },
-      { icon: '⚖️', label: 'ทีมหน้าร้าน vs ออนไลน์', path: '/analytics/sales-channel' },
-      { icon: '🏭', label: 'ภาพรวมประสิทธิภาพแผนก', path: '/analytics/dept-ops' },
+      { icon: '⚖️', label: 'ทีมหน้าร้าน vs ออนไลน์', labelEn: 'Showroom vs Online', labelZh: '门店 vs 线上', path: '/analytics/sales-channel' },
+      { icon: '🏭', label: 'ภาพรวมประสิทธิภาพแผนก', labelEn: 'Department Ops Overview', labelZh: '部门运营总览', path: '/analytics/dept-ops' },
       { icon: '🔻', label: 'Conversion Funnel', path: '/analytics/funnel' },
       { icon: '🔧', label: 'Service Analytics', path: '/analytics/service' },
       { icon: '📋', label: 'Executive Summary', path: '/analytics/executive' },
@@ -294,10 +298,10 @@ const NAV = [
     ]
   },
   {
-    group: 'เอกสาร',
+    group: 'เอกสาร', groupEn: 'Documents', groupZh: '文档',
     items: [
       { icon: '📄', label: 'Document Studio', path: '/documents' },
-      { icon: '🗂️', label: 'คลังเอกสาร', path: '/documents/library' },
+      { icon: '🗂️', label: 'คลังเอกสาร', labelEn: 'Document Library', labelZh: '文档库', path: '/documents/library' },
       { icon: '📜', label: 'Contracts', path: '/documents/contracts' },
       { icon: '📑', label: 'Templates', path: '/documents/templates' },
       { icon: '📝', label: 'Form Builder', path: '/documents/form-builder' },
@@ -305,9 +309,9 @@ const NAV = [
     ]
   },
   {
-    group: 'AI & งาน',
+    group: 'AI & งาน', groupEn: 'AI & Tasks', groupZh: 'AI 与任务',
     items: [
-      { icon: '💫', label: 'ผู้ช่วยส่วนตัว', path: '/ai/personal' },
+      { icon: '💫', label: 'ผู้ช่วยส่วนตัว', labelEn: 'Personal Assistant', labelZh: '个人助理', path: '/ai/personal' },
       { icon: '🤖', label: 'AI Officers', path: '/ai' },
       { icon: '🧠', label: 'LAMI Brain', path: '/ai/lami' },
       { icon: '🎯', label: 'Sales Coach', path: '/ai/sales-coach' },
@@ -317,12 +321,12 @@ const NAV = [
       { icon: '💬', label: 'Ask LAMI', path: '/ai/ask' },
       { icon: '🎯', label: 'Upsell AI', path: '/ai/upsell' },
       { icon: '✅', label: 'Tasks', path: '/tasks' },
-      { icon: '📅', label: 'ปฏิทินงาน', path: '/calendar' },
+      { icon: '📅', label: 'ปฏิทินงาน', labelEn: 'Calendar', labelZh: '日历', path: '/calendar' },
       { icon: '🗒️', label: 'Notes', path: '/notes' },
     ]
   },
   {
-    group: 'สื่อสาร',
+    group: 'สื่อสาร', groupEn: 'Communications', groupZh: '沟通',
     items: [
       { icon: '💬', label: 'Comm Hub', path: '/comms' },
       { icon: '📬', label: 'Inbox', path: '/comms/inbox' },
@@ -335,12 +339,12 @@ const NAV = [
     ]
   },
   {
-    group: 'คุณภาพ',
+    group: 'คุณภาพ', groupEn: 'Quality', groupZh: '质量',
     items: [
       { icon: '📋', label: 'Quality & PDPA', path: '/quality' },
       { icon: '📖', label: 'SOP', path: '/quality/sop' },
       { icon: '✅', label: 'Compliance', path: '/quality/compliance' },
-      { icon: '⚖️', label: 'กฎหมายที่เกี่ยวข้อง', path: '/quality/legal-reference' },
+      { icon: '⚖️', label: 'กฎหมายที่เกี่ยวข้อง', labelEn: 'Legal Reference', labelZh: '法规参考', path: '/quality/legal-reference' },
       { icon: '⭐', label: 'Satisfaction', path: '/quality/satisfaction' },
       { icon: '🔍', label: 'Audit Schedule', path: '/quality/audit-schedule' },
       { icon: '🚨', label: 'Incident Report', path: '/quality/incidents' },
@@ -350,7 +354,7 @@ const NAV = [
     ]
   },
   {
-    group: 'B2B & Partner',
+    group: 'B2B & Partner', groupEn: 'B2B & Partner', groupZh: 'B2B 与合作伙伴',
     items: [
       { icon: '🤝', label: 'B2B Portal', path: '/b2b' },
       { icon: '🏢', label: 'Fleet Management', path: '/b2b/fleet' },
@@ -364,12 +368,12 @@ const NAV = [
     ]
   },
   {
-    group: 'ระบบ',
+    group: 'ระบบ', groupEn: 'System', groupZh: '系统',
     items: [
-      { icon: '⚙️', label: 'ตั้งค่า', path: '/settings' },
+      { icon: '⚙️', label: 'ตั้งค่า', labelEn: 'Settings', labelZh: '设置', path: '/settings' },
       { icon: '🔔', label: 'Notification Settings', path: '/settings/notifications' },
       { icon: '🏢', label: 'Multi-Branch', path: '/settings/branches' },
-      { icon: '🏬', label: 'จัดการบริษัทในเครือ', path: '/settings/org-companies' },
+      { icon: '🏬', label: 'จัดการบริษัทในเครือ', labelEn: 'Manage Affiliated Companies', labelZh: '管理关联公司', path: '/settings/org-companies' },
       { icon: '🗂', label: 'Master Data', path: '/settings/master-data' },
       { icon: '🎨', label: 'White-label', path: '/settings/whitelabel' },
       { icon: '📋', label: 'Audit Log', path: '/settings/audit' },
@@ -382,14 +386,14 @@ const NAV = [
       { icon: '🔐', label: 'Security', path: '/settings/security' },
       { icon: '🗑', label: 'Data Retention', path: '/settings/data-retention' },
       { icon: '👥', label: 'User Management', path: '/settings/users-manage' },
-      { icon: '👤', label: 'บัญชีของฉัน', path: '/settings/my-account' },
+      { icon: '👤', label: 'บัญชีของฉัน', labelEn: 'My Account', labelZh: '我的账户', path: '/settings/my-account' },
       { icon: 'ℹ️', label: 'About', path: '/settings/about' },
-      { icon: '📖', label: 'คู่มือการใช้งาน', path: '/help' },
+      { icon: '📖', label: 'คู่มือการใช้งาน', labelEn: 'User Manual', labelZh: '使用手册', path: '/help' },
       { icon: '🔗', label: 'Integrations', path: '/integrations' },
       { icon: '⚙️', label: 'Integration Config', path: '/integrations/settings' },
       { icon: '🔗', label: 'Webhook Builder', path: '/integrations/webhooks' },
       { icon: '📺', label: 'Digital Signage', path: '/settings/digital-signage' },
-      { icon: '📡', label: 'TV Mode (จอโชว์รูม)', path: '/tv' },
+      { icon: '📡', label: 'TV Mode (จอโชว์รูม)', labelEn: 'TV Mode (Showroom Display)', labelZh: '电视模式（展厅显示）', path: '/tv' },
       { icon: '📱', label: 'SMS OTP / 2FA', path: '/settings/sms-otp' },
       { icon: '🔄', label: 'V8 Migration', path: '/migration' },
       { icon: '🗺️', label: 'Data Mapping', path: '/migration/mapping' },
@@ -423,8 +427,11 @@ export function Sidebar(container) {
     const collapsed = getState('sidebarCollapsed')
     const route = getState('currentRoute')
     const user = getState('user')
+    const lang = getState('language') || 'th'
     const grpState = loadGroupState()
     const nav = visibleNav(user?.role)
+    const gLabel = g => (lang === 'en' ? g.groupEn : lang === 'zh' ? g.groupZh : null) || g.group
+    const iLabel = i => (lang === 'en' ? i.labelEn : lang === 'zh' ? i.labelZh : null) || i.label
 
     // Auto-expand the group containing the active route
     nav.forEach(g => {
@@ -438,7 +445,7 @@ export function Sidebar(container) {
         <div class="sidebar-logo">
           <div class="sidebar-logo-icon">L</div>
           ${!collapsed ? '<span class="sidebar-logo-text">LAMOM ONE</span>' : ''}
-          ${!collapsed ? `<button class="sidebar-toggle" id="sidebar-toggle" title="ย่อ Sidebar">◀</button>` : ''}
+          ${!collapsed ? `<button class="sidebar-toggle" id="sidebar-toggle" title="${t('collapseSidebar')}">◀</button>` : ''}
         </div>
 
         <nav class="sidebar-nav">
@@ -449,7 +456,7 @@ export function Sidebar(container) {
             <div class="nav-group">
               ${!collapsed ? `
                 <div class="nav-group-label nav-group-toggle ${hasActive ? 'has-active' : ''}" data-grp="${escHtml(group.group)}">
-                  <span>${group.group}</span>
+                  <span>${escHtml(gLabel(group))}</span>
                   <span class="nav-grp-arrow">${isGroupCollapsed ? '▸' : '▾'}</span>
                 </div>
               ` : ''}
@@ -457,9 +464,9 @@ export function Sidebar(container) {
                 ${group.items.map(item => `
                   <div class="nav-item ${route === item.path ? 'active' : ''}"
                        data-path="${item.path}"
-                       title="${item.label}">
+                       title="${escHtml(iLabel(item))}">
                     <span class="nav-icon">${item.icon}</span>
-                    ${!collapsed ? `<span class="nav-label">${item.label}</span>` : ''}
+                    ${!collapsed ? `<span class="nav-label">${escHtml(iLabel(item))}</span>` : ''}
                   </div>
                 `).join('')}
               </div>
@@ -473,7 +480,7 @@ export function Sidebar(container) {
             ${!collapsed ? `
               <div class="lami-info">
                 <div class="lami-name">LAMI</div>
-                <div class="lami-mood">ยินดีช่วยเสมอ 😊</div>
+                <div class="lami-mood">${t('alwaysHappyToHelp')}</div>
               </div>
             ` : ''}
           </div>
@@ -481,12 +488,12 @@ export function Sidebar(container) {
             <div class="user-avatar-mini">${getInitials(user?.displayName || user?.email || 'U')}</div>
             ${!collapsed ? `
               <div style="overflow:hidden">
-                <div class="user-name-mini">${escHtml(user?.displayName || user?.email || 'ผู้ใช้')}</div>
+                <div class="user-name-mini">${escHtml(user?.displayName || user?.email || t('user'))}</div>
                 <div class="user-role-mini">${escHtml(roleLabel(user?.role))}</div>
               </div>
             ` : ''}
           </div>
-          ${collapsed ? `<button class="sidebar-toggle" id="sidebar-toggle" title="ขยาย Sidebar">▶</button>` : ''}
+          ${collapsed ? `<button class="sidebar-toggle" id="sidebar-toggle" title="${t('expandSidebar')}">▶</button>` : ''}
         </div>
       </aside>
     `
@@ -537,8 +544,8 @@ export function Sidebar(container) {
       pop.id = 'user-menu-pop'
       pop.style.cssText = 'position:fixed;bottom:64px;left:14px;z-index:1000;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 8px 30px rgba(0,0,0,0.4);padding:6px;min-width:180px'
       pop.innerHTML = `
-        <button id="um-account" style="display:flex;align-items:center;gap:8px;width:100%;padding:9px 12px;background:none;border:none;color:var(--text);cursor:pointer;font-size:0.82rem;border-radius:var(--radius-sm);text-align:left">👤 บัญชีของฉัน</button>
-        <button id="um-logout" style="display:flex;align-items:center;gap:8px;width:100%;padding:9px 12px;background:none;border:none;color:var(--danger);cursor:pointer;font-size:0.82rem;border-radius:var(--radius-sm);text-align:left">🚪 ออกจากระบบ</button>
+        <button id="um-account" style="display:flex;align-items:center;gap:8px;width:100%;padding:9px 12px;background:none;border:none;color:var(--text);cursor:pointer;font-size:0.82rem;border-radius:var(--radius-sm);text-align:left">👤 ${t('myAccount')}</button>
+        <button id="um-logout" style="display:flex;align-items:center;gap:8px;width:100%;padding:9px 12px;background:none;border:none;color:var(--danger);cursor:pointer;font-size:0.82rem;border-radius:var(--radius-sm);text-align:left">🚪 ${t('logout')}</button>
       `
       document.body.appendChild(pop)
       pop.querySelectorAll('button').forEach(b => {
@@ -559,6 +566,7 @@ export function Sidebar(container) {
   unsubs.push(on('sidebarCollapsed', render))
   unsubs.push(on('currentRoute', render))
   unsubs.push(on('user', render))
+  unsubs.push(on('language', render))
 
   return () => unsubs.forEach(fn => fn())
 }
@@ -573,6 +581,6 @@ function getInitials(name) {
 }
 
 function roleLabel(role) {
-  const map = { owner: 'เจ้าของ', admin: 'แอดมิน', manager: 'ผู้จัดการ', sales: 'เซลส์', service: 'ช่าง', staff: 'พนักงาน' }
-  return map[role] || role || 'พนักงาน'
+  const map = { owner: t('roleOwner'), admin: t('roleAdmin'), manager: t('roleManager'), sales: t('roleSales'), service: t('roleService'), staff: t('roleStaff') }
+  return map[role] || role || t('roleStaff')
 }
