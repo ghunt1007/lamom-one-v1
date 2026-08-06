@@ -18,12 +18,27 @@ const PERF_RATING = {
 
 const DEPARTMENTS_LIST = ['ฝ่ายขาย', 'ศูนย์บริการ', 'การเงิน', 'การตลาด', 'คลังสินค้า', 'HR', 'ผู้บริหาร']
 
-const REVIEW_PERIODS = ['Q1/2025', 'Q2/2025', 'Q3/2025', 'Q4/2025', 'ประจำปี 2025']
+// เดิม hardcode ปี 2025 ตายตัวทั้ง dropdown — พอถึงปี 2026 หน้านี้ไม่มีงวดปีปัจจุบันให้เลือกเลยแม้แต่งวดเดียว
+// (บัคเดียวกับที่แก้ไปแล้วใน PerformanceReview.js) แก้ให้คำนวณจากปีจริงเสมอ ครอบคลุมปีที่แล้ว+ปีนี้
+function buildReviewPeriods() {
+  const y = new Date().getFullYear()
+  const periods = []
+  for (const yr of [y - 1, y]) {
+    for (let q = 1; q <= 4; q++) periods.push(`Q${q}/${yr}`)
+    periods.push(`ประจำปี ${yr}`)
+  }
+  return periods
+}
+const REVIEW_PERIODS = buildReviewPeriods()
+function currentQuarterPeriod() {
+  const now = new Date()
+  return `Q${Math.floor(now.getMonth() / 3) + 1}/${now.getFullYear()}`
+}
 
 export default async function PerformancePage(container) {
   const myGen = container.__routerGen
   seedDemoData()
-  let period = 'Q2/2025'
+  let period = currentQuarterPeriod()
   let deptFilter = 'all'
   let employees = []
   let loading = true

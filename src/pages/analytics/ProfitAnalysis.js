@@ -6,6 +6,8 @@ import { formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { getSalesData } from '../../core/db.js'
 
+function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+
 const MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.']
 const PRODUCTS = [
   { id: 'P1', name: 'BYD Seal AWD', category: 'EV Sedan', units: 18, revenue: 28620000, cogs: 22896000, gross: 5724000 },
@@ -29,6 +31,7 @@ export default async function ProfitAnalysisPage(container) {
   let period = 'h1'
   let activeTab = 'overview'
   let liveMonthly = null
+  let liveProducts = null
 
   try {
     const sales = await getSalesData()
@@ -47,11 +50,26 @@ export default async function ProfitAnalysisPage(container) {
       })
       const built = Object.values(byMonth).sort((a, b) => MONTHS_TH.indexOf(a.month) - MONTHS_TH.indexOf(b.month))
       if (built.length >= 1) liveMonthly = built
+
+      // เดิมตาราง "กำไรตามสินค้า/บริการ" เป็น PRODUCTS ปลอมตายตัวเสมอ ไม่เคยเปลี่ยนตามข้อมูลจริงเลยแม้ KPI
+      // ด้านบนจะเป็นข้อมูลจริงแล้วก็ตาม (badge "● ข้อมูลจริงจากใบจอง" หลอกผู้ใช้ว่าทั้งหน้าเป็นของจริง ทั้งที่
+      // ตารางนี้ไม่ใช่) พบจากการทดสอบคลิกใช้งานจริง — แก้ให้สร้างจากยอดขายจริงแยกตามรุ่นรถเหมือน SalesByModel.js
+      const byModel = {}
+      sales.forEach(s => {
+        const key = (s.brand || '-') + '|' + (s.model || '-')
+        if (!byModel[key]) byModel[key] = { id: key, name: (s.model || '-').trim() || '-', category: s.brand || '-', units: 0, revenue: 0, cogs: 0 }
+        const p = byModel[key]
+        p.units++
+        p.revenue += s.salePrice || 0
+        p.cogs += s.cost || Math.round((s.salePrice || 0) * 0.82)
+      })
+      liveProducts = Object.values(byModel).map(p => ({ ...p, gross: p.revenue - p.cogs })).sort((a, b) => b.revenue - a.revenue)
     }
   } catch {}
 
   function renderPage() {
     const data = liveMonthly || MONTHLY_DATA
+    const products = liveProducts || PRODUCTS
     const totalRevenue = data.reduce((a, m) => a + m.revenue, 0)
     const totalCogs = data.reduce((a, m) => a + m.cogs, 0)
     const totalOpex = data.reduce((a, m) => a + m.opex, 0)
@@ -136,12 +154,12 @@ export default async function ProfitAnalysisPage(container) {
               </tr>
             </thead>
             <tbody>
-              ${PRODUCTS.map(p => {
-                const margin = Math.round(p.gross / p.revenue * 100)
+              ${products.map(p => {
+                const margin = p.revenue ? Math.round(p.gross / p.revenue * 100) : 0
                 return `<tr style="border-bottom:1px solid var(--border)">
                   <td style="padding:10px 14px">
-                    <div style="font-weight:600;font-size:0.85rem">${p.name}</div>
-                    <div style="font-size:0.72rem;color:var(--text-muted)">${p.category} · ${p.units} ${p.category==='บริการ'?'รายการ':'คัน'}</div>
+                    <div style="font-weight:600;font-size:0.85rem">${escHtml(p.name)}</div>
+                    <div style="font-size:0.72rem;color:var(--text-muted)">${escHtml(p.category)} · ${p.units} ${p.category==='บริการ'?'รายการ':'คัน'}</div>
                   </td>
                   <td style="padding:10px 14px;text-align:right;font-size:0.83rem">${formatCurrency(p.revenue)}</td>
                   <td style="padding:10px 14px;text-align:right;font-size:0.83rem;color:var(--danger)">${formatCurrency(p.cogs)}</td>
