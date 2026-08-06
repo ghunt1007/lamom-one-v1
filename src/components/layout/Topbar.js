@@ -205,8 +205,11 @@ function openCompanyFilter() {
   setTimeout(() => document.addEventListener('click', onDocClick), 100)
 }
 
-function openThemePicker() {
-  const themes = [
+// v1.0.365 — ขยายจาก 7 เป็น 31 ธีม เพิ่ม 24 ธีมใหม่ตามที่เจ้าของระบบขอ (ตั้งค่าสี/คอนทราสต์เองผ่าน
+// src/styles/themes.css แล้ว — ผ่าน WCAG AA ครบทุกธีมเหมือน 7 ธีมเดิม) จัดกลุ่มเป็นหมวดให้เลือกง่ายขึ้น
+// เพราะรายการยาวเกินจะแสดงแบบ flat list เดียวได้อีกต่อไป — เพิ่ม scroll ให้ panel ด้วย
+const THEME_GROUPS = [
+  { group: 'คลาสสิก', themes: [
     { id: 'midnight', label: 'Midnight', color: '#3B82F6', icon: '🌑' },
     { id: 'neon',     label: 'Neon',     color: '#00F5FF', icon: '⚡' },
     { id: 'ocean',    label: 'Ocean',    color: '#29B6F6', icon: '🌊' },
@@ -214,8 +217,48 @@ function openThemePicker() {
     { id: 'fire',     label: 'Fire',     color: '#FF6D00', icon: '🔥' },
     { id: 'galaxy',   label: 'Galaxy',   color: '#AA00FF', icon: '🌌' },
     { id: 'scifi',    label: 'Sci-Fi HUD', color: '#00E5FF', icon: '🛸' },
-  ]
+  ]},
+  { group: 'ซูเปอร์ฮีโร่', themes: [
+    { id: 'avengers',  label: 'Avengers', color: '#ED1D24', icon: '🛡️' },
+    { id: 'spiderman', label: 'Spider-Man', color: '#E31B23', icon: '🕸️' },
+    { id: 'ironman',   label: 'Iron Man', color: '#C8102E', icon: '🦾' },
+    { id: 'guardians', label: 'Guardians of the Galaxy', color: '#FF8A00', icon: '🌌' },
+  ]},
+  { group: 'น่ารัก', themes: [
+    { id: 'kuromi',   label: 'คุโรมิ', color: '#8E24AA', icon: '🎀' },
+    { id: 'cutecat',  label: 'แมวน่ารักๆ', color: '#FF7EB6', icon: '🐱' },
+    { id: 'cutekid',  label: 'เด็กน้อยน่ารัก', color: '#4FC3F7', icon: '🧸' },
+    { id: 'cutegirl', label: 'น่ารักๆเอาใจสาวๆ', color: '#F48FB1', icon: '💗' },
+  ]},
+  { group: 'มงคล / ฮวงจุ้ย', themes: [
+    { id: 'dragon',     label: 'มังกร', color: '#C62828', icon: '🐉' },
+    { id: 'luckysales', label: 'เสริมดวงการขาย', color: '#D4AF37', icon: '🧧' },
+    { id: 'fengshui',   label: 'เสริมฮวงจุ้ย', color: '#2E7D32', icon: '☯️' },
+  ]},
+  { group: 'ธุรกิจ / มืออาชีพ', themes: [
+    { id: 'spy',         label: 'สายลับ', color: '#3E7CB1', icon: '🕵️' },
+    { id: 'prosales',    label: 'นักขายมืออาชีพ', color: '#1976D2', icon: '💼' },
+    { id: 'executive',   label: 'ผู้บริหาร', color: '#D4AF37', icon: '🎩' },
+    { id: 'darkintense', label: 'ดุเข้ม', color: '#B71C1C', icon: '⚔️' },
+  ]},
+  { group: 'ธรรมชาติ', themes: [
+    { id: 'space',     label: 'อวกาศ', color: '#7C4DFF', icon: '🪐' },
+    { id: 'sky',       label: 'ท้องฟ้า', color: '#42A5F5', icon: '☁️' },
+    { id: 'sea',       label: 'ทะเล', color: '#00897B', icon: '🌊' },
+    { id: 'mountain',  label: 'ภูเขา', color: '#78909C', icon: '⛰️' },
+    { id: 'waterfall', label: 'น้ำตก', color: '#26C6DA', icon: '💧' },
+  ]},
+  { group: 'รถยนต์', themes: [
+    { id: 'automotive', label: 'รถยนต์', color: '#E53935', icon: '🏎️' },
+    { id: 'deepal',      label: 'DEEPAL', color: '#00D9A6', icon: '🚙' },
+  ]},
+  { group: 'อื่นๆ', themes: [
+    { id: 'easyeyes', label: 'สบายตา', color: '#A1887F', icon: '🌤️' },
+    { id: 'horror',   label: 'สยองขวัญ', color: '#8B0000', icon: '🩸' },
+  ]},
+]
 
+function openThemePicker() {
   const existing = document.getElementById('theme-picker')
   if (existing) { existing.remove(); return }
 
@@ -228,19 +271,22 @@ function openThemePicker() {
     display:flex; flex-direction:column; gap:4px;
     box-shadow:0 8px 32px rgba(0,0,0,0.4);
     animation: slideDown 150ms ease;
-    min-width:160px;
+    min-width:200px; max-height:70vh; overflow-y:auto;
   `
   div.innerHTML = `
     <div style="padding:4px 8px 8px;font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted)">${t('selectTheme')}</div>
-    ${themes.map(th => `
-      <button class="theme-opt" data-theme="${th.id}"
-        style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius-md);
-               background:transparent;border:none;cursor:pointer;color:var(--text);font-size:0.875rem;
-               font-family:var(--font-main);transition:background 150ms;text-align:left">
-        <span>${th.icon}</span>
-        <span style="flex:1">${th.label}</span>
-        <span style="width:14px;height:14px;border-radius:50%;background:${th.color};flex-shrink:0"></span>
-      </button>
+    ${THEME_GROUPS.map(g => `
+      <div style="padding:6px 8px 2px;font-size:0.68rem;font-weight:700;color:var(--text-3)">${g.group}</div>
+      ${g.themes.map(th => `
+        <button class="theme-opt" data-theme="${th.id}"
+          style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius-md);
+                 background:transparent;border:none;cursor:pointer;color:var(--text);font-size:0.875rem;
+                 font-family:var(--font-main);transition:background 150ms;text-align:left">
+          <span>${th.icon}</span>
+          <span style="flex:1">${th.label}</span>
+          <span style="width:14px;height:14px;border-radius:50%;background:${th.color};flex-shrink:0"></span>
+        </button>
+      `).join('')}
     `).join('')}
   `
   // เดิมเลือก Theme แล้ว div.remove() ตรงๆ ไม่เคย removeEventListener('click', handler) เลย ทำให้ listener

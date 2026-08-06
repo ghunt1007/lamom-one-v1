@@ -1,5 +1,5 @@
 /* ============================================================
-   LAMOM ONE V1 — Theme System (6 Themes, Dark Only)
+   LAMOM ONE V1 — Theme System (31 Themes, Dark Only)
    ============================================================ */
 
 :root {
@@ -218,4 +218,676 @@
   --text-3:      #7D9EB1;
   --text-muted:  #7190A8;
   --border-subtle:rgba(0,229,255,0.12);
+}
+
+/* ── Avengers รวมทีมฮีโร่ Marvel 🛡️ ─────────────────────── */
+[data-theme="avengers"] {
+  --bg:          #060a14;
+  --surface:     #0a1224;
+  --surface-2:   #101c37;
+  --surface-3:   #16264b;
+  --border:      #20386f;
+  --border-light:#2a4a92;
+  --primary:     #ED1D24;
+  --primary-dim: #ED1D2426;
+  --primary-glow:#ED1D2459;
+  --accent:      #1D63F2;
+  --accent-dim:  #1D63F226;
+  --success:     #22C55E;
+  --success-dim: #22C55E26;
+  --warning:     #F5C518;
+  --warning-dim: #F5C51826;
+  --danger:      #ED1D24;
+  --danger-dim:  #ED1D2426;
+  --info:        #1D63F2;
+  --info-dim:    #1D63F226;
+  --text:        #f3f4f7;
+  --text-2:      #cdd3df;
+  --text-3:      #879dd1;
+  --text-muted:  #768dc4;
+  --border-subtle:#0e182f;
+}
+
+/* ── Spider-Man 🕸️ ─────────────────────── */
+[data-theme="spiderman"] {
+  --bg:          #050914;
+  --surface:     #091125;
+  --surface-2:   #0e1a39;
+  --surface-3:   #13234e;
+  --border:      #1d3372;
+  --border-light:#264497;
+  --primary:     #E31B23;
+  --primary-dim: #E31B2326;
+  --primary-glow:#E31B2359;
+  --accent:      #1B3D8F;
+  --accent-dim:  #1B3D8F26;
+  --success:     #2ECC71;
+  --success-dim: #2ECC7126;
+  --warning:     #F1C40F;
+  --warning-dim: #F1C40F26;
+  --danger:      #E31B23;
+  --danger-dim:  #E31B2326;
+  --info:        #1B3D8F;
+  --info-dim:    #1B3D8F26;
+  --text:        #f3f4f7;
+  --text-2:      #cdd2df;
+  --text-3:      #879bd1;
+  --text-muted:  #768ac4;
+  --border-subtle:#0c1631;
+}
+
+/* ── Iron Man 🦾 ─────────────────────── */
+[data-theme="ironman"] {
+  --bg:          #140a06;
+  --surface:     #24120a;
+  --surface-2:   #371c10;
+  --surface-3:   #4b2616;
+  --border:      #6f3820;
+  --border-light:#924a2a;
+  --primary:     #C8102E;
+  --primary-dim: #C8102E26;
+  --primary-glow:#C8102E59;
+  --accent:      #FFC72C;
+  --accent-dim:  #FFC72C26;
+  --success:     #2ECC71;
+  --success-dim: #2ECC7126;
+  --warning:     #FFC72C;
+  --warning-dim: #FFC72C26;
+  --danger:      #C8102E;
+  --danger-dim:  #C8102E26;
+  --info:        #4FC3F7;
+  --info-dim:    #4FC3F726;
+  --text:        #f7f4f3;
+  --text-2:      #dfd3cd;
+  --text-3:      #d19c85;
+  --text-muted:  #c38a72;
+  --border-subtle:#2f180e;
+}
+
+/* ── Guardians of the Galaxy 🌌 ─────────────────────── */
+[data-theme="guardians"] {
+  --bg:          #0c0614;
+  --surface:     #150a24;
+  --surface-2:   #211037;
+  --surface-3:   #2d164b;
+  --border:      #42206f;
+  --border-light:#572a92;
+  --primary:     #FF8A00;
+  --primary-dim: #FF8A0026;
+  --primary-glow:#FF8A0059;
+  --accent:      #7B2FF7;
+  --accent-dim:  #7B2FF726;
+  --success:     #39FF9E;
+  --success-dim: #39FF9E26;
+  --warning:     #FF8A00;
+  --warning-dim: #FF8A0026;
+  --danger:      #FF3860;
+  --danger-dim:  #FF386026;
+  --info:        #40C4FF;
+  --info-dim:    #40C4FF26;
+  --text:        #f5f3f7;
+  --text-2:      #d5cddf;
+  --text-3:      #aa8bd3;
+  --text-muted:  #9c7bc6;
+  --border-subtle:#1c0e2f;
+}
+
+/* ── สายลับ 🕵️ ─────────────────────── */
+[data-theme="spy"] {
+  --bg:          #090d11;
+  --surface:     #10171e;
+  --surface-2:   #19242e;
+  --surface-3:   #22303f;
+  --border:      #32475d;
+  --border-light:#425e7b;
+  --primary:     #3E7CB1;
+  --primary-dim: #3E7CB126;
+  --primary-glow:#3E7CB159;
+  --accent:      #9AA5B1;
+  --accent-dim:  #9AA5B126;
+  --success:     #4CAF50;
+  --success-dim: #4CAF5026;
+  --warning:     #D4AF37;
+  --warning-dim: #D4AF3726;
+  --danger:      #D32F2F;
+  --danger-dim:  #D32F2F26;
+  --info:        #3E7CB1;
+  --info-dim:    #3E7CB126;
+  --text:        #f3f5f7;
+  --text-2:      #cdd6df;
+  --text-3:      #87aacc;
+  --text-muted:  #7599bd;
+  --border-subtle:#151f28;
+}
+
+/* ── คุโรมิ 🎀 ─────────────────────── */
+[data-theme="kuromi"] {
+  --bg:          #100614;
+  --surface:     #1c0a24;
+  --surface-2:   #2c1037;
+  --surface-3:   #3b164b;
+  --border:      #57206f;
+  --border-light:#732a92;
+  --primary:     #8E24AA;
+  --primary-dim: #8E24AA26;
+  --primary-glow:#8E24AA59;
+  --accent:      #EC407A;
+  --accent-dim:  #EC407A26;
+  --success:     #66BB6A;
+  --success-dim: #66BB6A26;
+  --warning:     #FFD54F;
+  --warning-dim: #FFD54F26;
+  --danger:      #EC407A;
+  --danger-dim:  #EC407A26;
+  --info:        #AB47BC;
+  --info-dim:    #AB47BC26;
+  --text:        #f6f3f7;
+  --text-2:      #dacddf;
+  --text-3:      #bd8bd3;
+  --text-muted:  #af79c6;
+  --border-subtle:#250e2f;
+}
+
+/* ── แมวน่ารักๆ 🐱 ─────────────────────── */
+[data-theme="cutecat"] {
+  --bg:          #12070b;
+  --surface:     #210d14;
+  --surface-2:   #34141e;
+  --surface-3:   #461b29;
+  --border:      #68273d;
+  --border-light:#893450;
+  --primary:     #FF7EB6;
+  --primary-dim: #FF7EB626;
+  --primary-glow:#FF7EB659;
+  --accent:      #FFD166;
+  --accent-dim:  #FFD16626;
+  --success:     #66BB6A;
+  --success-dim: #66BB6A26;
+  --warning:     #FFD166;
+  --warning-dim: #FFD16626;
+  --danger:      #FF5C7A;
+  --danger-dim:  #FF5C7A26;
+  --info:        #81D4FA;
+  --info-dim:    #81D4FA26;
+  --text:        #f7f3f4;
+  --text-2:      #dfcdd3;
+  --text-3:      #d38ba3;
+  --text-muted:  #c67993;
+  --border-subtle:#2c111a;
+}
+
+/* ── เด็กน้อยน่ารัก 🧸 ─────────────────────── */
+[data-theme="cutekid"] {
+  --bg:          #070f12;
+  --surface:     #0d1a21;
+  --surface-2:   #142934;
+  --surface-3:   #1b3846;
+  --border:      #275268;
+  --border-light:#346d89;
+  --primary:     #4FC3F7;
+  --primary-dim: #4FC3F726;
+  --primary-glow:#4FC3F759;
+  --accent:      #FFD54F;
+  --accent-dim:  #FFD54F26;
+  --success:     #66BB6A;
+  --success-dim: #66BB6A26;
+  --warning:     #FFD54F;
+  --warning-dim: #FFD54F26;
+  --danger:      #FF7043;
+  --danger-dim:  #FF704326;
+  --info:        #4FC3F7;
+  --info-dim:    #4FC3F726;
+  --text:        #f3f5f7;
+  --text-2:      #cdd9df;
+  --text-3:      #81b5cf;
+  --text-muted:  #6da4c0;
+  --border-subtle:#11232c;
+}
+
+/* ── มังกร 🐉 ─────────────────────── */
+[data-theme="dragon"] {
+  --bg:          #140606;
+  --surface:     #240a0a;
+  --surface-2:   #371010;
+  --surface-3:   #4b1616;
+  --border:      #6f2020;
+  --border-light:#922a2a;
+  --primary:     #C62828;
+  --primary-dim: #C6282826;
+  --primary-glow:#C6282859;
+  --accent:      #D4AF37;
+  --accent-dim:  #D4AF3726;
+  --success:     #2E7D32;
+  --success-dim: #2E7D3226;
+  --warning:     #D4AF37;
+  --warning-dim: #D4AF3726;
+  --danger:      #C62828;
+  --danger-dim:  #C6282826;
+  --info:        #00897B;
+  --info-dim:    #00897B26;
+  --text:        #f7f3f3;
+  --text-2:      #dfcdcd;
+  --text-3:      #d48c8c;
+  --text-muted:  #c67b7b;
+  --border-subtle:#2f0e0e;
+}
+
+/* ── เสริมดวงการขาย 🧧 ─────────────────────── */
+[data-theme="luckysales"] {
+  --bg:          #140505;
+  --surface:     #250909;
+  --surface-2:   #390e0e;
+  --surface-3:   #4e1313;
+  --border:      #721d1d;
+  --border-light:#972626;
+  --primary:     #D4AF37;
+  --primary-dim: #D4AF3726;
+  --primary-glow:#D4AF3759;
+  --accent:      #C8102E;
+  --accent-dim:  #C8102E26;
+  --success:     #2E7D32;
+  --success-dim: #2E7D3226;
+  --warning:     #D4AF37;
+  --warning-dim: #D4AF3726;
+  --danger:      #C8102E;
+  --danger-dim:  #C8102E26;
+  --info:        #D4AF37;
+  --info-dim:    #D4AF3726;
+  --text:        #f7f3f3;
+  --text-2:      #dfcdcd;
+  --text-3:      #d48c8c;
+  --text-muted:  #c67b7b;
+  --border-subtle:#310c0c;
+}
+
+/* ── เสริมฮวงจุ้ย ☯️ ─────────────────────── */
+[data-theme="fengshui"] {
+  --bg:          #071209;
+  --surface:     #0d2111;
+  --surface-2:   #14341a;
+  --surface-3:   #1b4623;
+  --border:      #276834;
+  --border-light:#348945;
+  --primary:     #2E7D32;
+  --primary-dim: #2E7D3226;
+  --primary-glow:#2E7D3259;
+  --accent:      #D4AF37;
+  --accent-dim:  #D4AF3726;
+  --success:     #2E7D32;
+  --success-dim: #2E7D3226;
+  --warning:     #D4AF37;
+  --warning-dim: #D4AF3726;
+  --danger:      #C62828;
+  --danger-dim:  #C6282826;
+  --info:        #00897B;
+  --info-dim:    #00897B26;
+  --text:        #f3f7f4;
+  --text-2:      #cddfd1;
+  --text-3:      #78cc89;
+  --text-muted:  #60bb72;
+  --border-subtle:#112c16;
+}
+
+/* ── น่ารักๆเอาใจสาวๆ 💗 ─────────────────────── */
+[data-theme="cutegirl"] {
+  --bg:          #12070e;
+  --surface:     #210d1a;
+  --surface-2:   #341428;
+  --surface-3:   #461b36;
+  --border:      #682750;
+  --border-light:#89346a;
+  --primary:     #F48FB1;
+  --primary-dim: #F48FB126;
+  --primary-glow:#F48FB159;
+  --accent:      #CE93D8;
+  --accent-dim:  #CE93D826;
+  --success:     #81C784;
+  --success-dim: #81C78426;
+  --warning:     #FFD54F;
+  --warning-dim: #FFD54F26;
+  --danger:      #F06292;
+  --danger-dim:  #F0629226;
+  --info:        #CE93D8;
+  --info-dim:    #CE93D826;
+  --text:        #f7f3f5;
+  --text-2:      #dfcdd9;
+  --text-3:      #d38bb8;
+  --text-muted:  #c679aa;
+  --border-subtle:#2c1122;
+}
+
+/* ── นักขายมืออาชีพ 💼 ─────────────────────── */
+[data-theme="prosales"] {
+  --bg:          #080c11;
+  --surface:     #0f151f;
+  --surface-2:   #172130;
+  --surface-3:   #1f2d41;
+  --border:      #2e4260;
+  --border-light:#3d587f;
+  --primary:     #1976D2;
+  --primary-dim: #1976D226;
+  --primary-glow:#1976D259;
+  --accent:      #90A4AE;
+  --accent-dim:  #90A4AE26;
+  --success:     #43A047;
+  --success-dim: #43A04726;
+  --warning:     #FB8C00;
+  --warning-dim: #FB8C0026;
+  --danger:      #E53935;
+  --danger-dim:  #E5393526;
+  --info:        #1976D2;
+  --info-dim:    #1976D226;
+  --text:        #f3f4f7;
+  --text-2:      #cdd4df;
+  --text-3:      #87a5d1;
+  --text-muted:  #7695c4;
+  --border-subtle:#141c29;
+}
+
+/* ── สบายตา 🌤️ ─────────────────────── */
+[data-theme="easyeyes"] {
+  --bg:          #100d09;
+  --surface:     #1d1711;
+  --surface-2:   #2e241a;
+  --surface-3:   #3e3123;
+  --border:      #5b4933;
+  --border-light:#796044;
+  --primary:     #A1887F;
+  --primary-dim: #A1887F26;
+  --primary-glow:#A1887F59;
+  --accent:      #8D6E63;
+  --accent-dim:  #8D6E6326;
+  --success:     #7CB342;
+  --success-dim: #7CB34226;
+  --warning:     #FFB74D;
+  --warning-dim: #FFB74D26;
+  --danger:      #E57373;
+  --danger-dim:  #E5737326;
+  --info:        #4FC3F7;
+  --info-dim:    #4FC3F726;
+  --text:        #f7f5f3;
+  --text-2:      #dfd7cd;
+  --text-3:      #c7a782;
+  --text-muted:  #b6956f;
+  --border-subtle:#271f16;
+}
+
+/* ── ดุเข้ม ⚔️ ─────────────────────── */
+[data-theme="darkintense"] {
+  --bg:          #110808;
+  --surface:     #1f0f0f;
+  --surface-2:   #301717;
+  --surface-3:   #411f1f;
+  --border:      #602e2e;
+  --border-light:#7f3d3d;
+  --primary:     #B71C1C;
+  --primary-dim: #B71C1C26;
+  --primary-glow:#B71C1C59;
+  --accent:      #546E7A;
+  --accent-dim:  #546E7A26;
+  --success:     #43A047;
+  --success-dim: #43A04726;
+  --warning:     #F9A825;
+  --warning-dim: #F9A82526;
+  --danger:      #B71C1C;
+  --danger-dim:  #B71C1C26;
+  --info:        #546E7A;
+  --info-dim:    #546E7A26;
+  --text:        #f7f3f3;
+  --text-2:      #dfcdcd;
+  --text-3:      #d48c8c;
+  --text-muted:  #c67b7b;
+  --border-subtle:#291414;
+}
+
+/* ── ผู้บริหาร 🎩 ─────────────────────── */
+[data-theme="executive"] {
+  --bg:          #080b12;
+  --surface:     #0e1320;
+  --surface-2:   #151e32;
+  --surface-3:   #1d2944;
+  --border:      #2b3c64;
+  --border-light:#394f84;
+  --primary:     #D4AF37;
+  --primary-dim: #D4AF3726;
+  --primary-glow:#D4AF3759;
+  --accent:      #8C9EFF;
+  --accent-dim:  #8C9EFF26;
+  --success:     #43A047;
+  --success-dim: #43A04726;
+  --warning:     #D4AF37;
+  --warning-dim: #D4AF3726;
+  --danger:      #C62828;
+  --danger-dim:  #C6282826;
+  --info:        #5C7CFA;
+  --info-dim:    #5C7CFA26;
+  --text:        #f3f4f7;
+  --text-2:      #cdd3df;
+  --text-3:      #8ba0d3;
+  --text-muted:  #7990c6;
+  --border-subtle:#121a2b;
+}
+
+/* ── รถยนต์ 🏎️ ─────────────────────── */
+[data-theme="automotive"] {
+  --bg:          #080d11;
+  --surface:     #0f171f;
+  --surface-2:   #172530;
+  --surface-3:   #1f3241;
+  --border:      #2e4960;
+  --border-light:#3d617f;
+  --primary:     #E53935;
+  --primary-dim: #E5393526;
+  --primary-glow:#E5393559;
+  --accent:      #B0BEC5;
+  --accent-dim:  #B0BEC526;
+  --success:     #43A047;
+  --success-dim: #43A04726;
+  --warning:     #FDD835;
+  --warning-dim: #FDD83526;
+  --danger:      #E53935;
+  --danger-dim:  #E5393526;
+  --info:        #42A5F5;
+  --info-dim:    #42A5F526;
+  --text:        #f3f5f7;
+  --text-2:      #cdd7df;
+  --text-3:      #83acd0;
+  --text-muted:  #709cc2;
+  --border-subtle:#141f29;
+}
+
+/* ── อวกาศ 🪐 ─────────────────────── */
+[data-theme="space"] {
+  --bg:          #080614;
+  --surface:     #0f0a24;
+  --surface-2:   #171037;
+  --surface-3:   #1f164b;
+  --border:      #2d206f;
+  --border-light:#3c2a92;
+  --primary:     #7C4DFF;
+  --primary-dim: #7C4DFF26;
+  --primary-glow:#7C4DFF59;
+  --accent:      #40C4FF;
+  --accent-dim:  #40C4FF26;
+  --success:     #39FF9E;
+  --success-dim: #39FF9E26;
+  --warning:     #FFD740;
+  --warning-dim: #FFD74026;
+  --danger:      #FF5252;
+  --danger-dim:  #FF525226;
+  --info:        #40C4FF;
+  --info-dim:    #40C4FF26;
+  --text:        #f3f3f7;
+  --text-2:      #d0cddf;
+  --text-3:      #988cd4;
+  --text-muted:  #897dc7;
+  --border-subtle:#130e2f;
+}
+
+/* ── ท้องฟ้า ☁️ ─────────────────────── */
+[data-theme="sky"] {
+  --bg:          #060e13;
+  --surface:     #0b1922;
+  --surface-2:   #122736;
+  --surface-3:   #183449;
+  --border:      #244d6b;
+  --border-light:#2f668e;
+  --primary:     #42A5F5;
+  --primary-dim: #42A5F526;
+  --primary-glow:#42A5F559;
+  --accent:      #FFB74D;
+  --accent-dim:  #FFB74D26;
+  --success:     #66BB6A;
+  --success-dim: #66BB6A26;
+  --warning:     #FFB74D;
+  --warning-dim: #FFB74D26;
+  --danger:      #EF5350;
+  --danger-dim:  #EF535026;
+  --info:        #42A5F5;
+  --info-dim:    #42A5F526;
+  --text:        #f3f5f7;
+  --text-2:      #cdd8df;
+  --text-3:      #81afcf;
+  --text-muted:  #6e9fc1;
+  --border-subtle:#0f212e;
+}
+
+/* ── ทะเล 🌊 ─────────────────────── */
+[data-theme="sea"] {
+  --bg:          #061213;
+  --surface:     #0b2122;
+  --surface-2:   #123336;
+  --surface-3:   #184549;
+  --border:      #24656b;
+  --border-light:#2f868e;
+  --primary:     #00897B;
+  --primary-dim: #00897B26;
+  --primary-glow:#00897B59;
+  --accent:      #FFAB91;
+  --accent-dim:  #FFAB9126;
+  --success:     #26A69A;
+  --success-dim: #26A69A26;
+  --warning:     #FFAB91;
+  --warning-dim: #FFAB9126;
+  --danger:      #EF5350;
+  --danger-dim:  #EF535026;
+  --info:        #00ACC1;
+  --info-dim:    #00ACC126;
+  --text:        #f3f7f7;
+  --text-2:      #cddedf;
+  --text-3:      #7ec7ce;
+  --text-muted:  #65b6bd;
+  --border-subtle:#0f2b2e;
+}
+
+/* ── ภูเขา ⛰️ ─────────────────────── */
+[data-theme="mountain"] {
+  --bg:          #0a0e10;
+  --surface:     #12191c;
+  --surface-2:   #1c262c;
+  --surface-3:   #26343b;
+  --border:      #384d57;
+  --border-light:#4a6573;
+  --primary:     #78909C;
+  --primary-dim: #78909C26;
+  --primary-glow:#78909C59;
+  --accent:      #66BB6A;
+  --accent-dim:  #66BB6A26;
+  --success:     #66BB6A;
+  --success-dim: #66BB6A26;
+  --warning:     #FFB74D;
+  --warning-dim: #FFB74D26;
+  --danger:      #E57373;
+  --danger-dim:  #E5737326;
+  --info:        #78909C;
+  --info-dim:    #78909C26;
+  --text:        #f3f5f7;
+  --text-2:      #cdd9df;
+  --text-3:      #8bb0c3;
+  --text-muted:  #799fb2;
+  --border-subtle:#182125;
+}
+
+/* ── น้ำตก 💧 ─────────────────────── */
+[data-theme="waterfall"] {
+  --bg:          #061113;
+  --surface:     #0b1f22;
+  --surface-2:   #123036;
+  --surface-3:   #184149;
+  --border:      #245f6b;
+  --border-light:#2f7e8e;
+  --primary:     #26C6DA;
+  --primary-dim: #26C6DA26;
+  --primary-glow:#26C6DA59;
+  --accent:      #81C784;
+  --accent-dim:  #81C78426;
+  --success:     #81C784;
+  --success-dim: #81C78426;
+  --warning:     #FFD54F;
+  --warning-dim: #FFD54F26;
+  --danger:      #4DD0E1;
+  --danger-dim:  #4DD0E126;
+  --info:        #26C6DA;
+  --info-dim:    #26C6DA26;
+  --text:        #f3f6f7;
+  --text-2:      #cddcdf;
+  --text-3:      #7ec1ce;
+  --text-muted:  #67b0be;
+  --border-subtle:#0f292e;
+}
+
+/* ── สยองขวัญ 🩸 ─────────────────────── */
+[data-theme="horror"] {
+  --bg:          #120808;
+  --surface:     #200e0e;
+  --surface-2:   #321515;
+  --surface-3:   #441d1d;
+  --border:      #642b2b;
+  --border-light:#843939;
+  --primary:     #8B0000;
+  --primary-dim: #8B000026;
+  --primary-glow:#8B000059;
+  --accent:      #6B8E23;
+  --accent-dim:  #6B8E2326;
+  --success:     #556B2F;
+  --success-dim: #556B2F26;
+  --warning:     #8B0000;
+  --warning-dim: #8B000026;
+  --danger:      #8B0000;
+  --danger-dim:  #8B000026;
+  --info:        #6B8E23;
+  --info-dim:    #6B8E2326;
+  --text:        #f7f3f3;
+  --text-2:      #dfcdcd;
+  --text-3:      #d48c8c;
+  --text-muted:  #c67b7b;
+  --border-subtle:#2b1212;
+}
+
+/* ── รถยนต์ DEEPAL 🚙 ─────────────────────── */
+[data-theme="deepal"] {
+  --bg:          #071211;
+  --surface:     #0d211f;
+  --surface-2:   #143431;
+  --surface-3:   #1b4642;
+  --border:      #276861;
+  --border-light:#348980;
+  --primary:     #00D9A6;
+  --primary-dim: #00D9A626;
+  --primary-glow:#00D9A659;
+  --accent:      #64B5CE;
+  --accent-dim:  #64B5CE26;
+  --success:     #00D9A6;
+  --success-dim: #00D9A626;
+  --warning:     #FFC94D;
+  --warning-dim: #FFC94D26;
+  --danger:      #FF5A5F;
+  --danger-dim:  #FF5A5F26;
+  --info:        #64B5CE;
+  --info-dim:    #64B5CE26;
+  --text:        #f3f7f6;
+  --text-2:      #cddfdd;
+  --text-3:      #76cbc3;
+  --text-muted:  #5db9b0;
+  --border-subtle:#112c2a;
 }
