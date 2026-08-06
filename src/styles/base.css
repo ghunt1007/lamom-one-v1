@@ -307,3 +307,23 @@ tbody tr:hover { background: var(--surface-2); }
 .animate-slide   { animation: slideUp 250ms ease; }
 .animate-pulse   { animation: pulse 2s infinite; }
 .animate-bounce  { animation: bounce 1s infinite; }
+
+/* ── Reduced Motion (v1.0.363) ──
+   เดิมไม่มีจุดไหนตรวจ prefers-reduced-motion เลยทั้งแอป (มีอนิเมชั่นวนซ้ำไม่จบหลายจุด — pulse/bounce/
+   lamiBounce ของ LAMI widget ที่ Sidebar และเอฟเฟกต์ธีม Sci-Fi ใน scifi-fx.css เช่น scan/particles/
+   glitch/pulse/stream ที่วนตลอดเวลาหน้าเปิดอยู่) ผู้ใช้ที่ตั้งค่า OS ไว้ว่าไม่ต้องการอนิเมชั่น (มักเพราะ
+   เวียนหัว/ปัญหาระบบการทรงตัว) ไม่มีทางปิดอนิเมชั่นเหล่านี้ได้เลยจากในแอป — เพิ่ม media query กลาง
+   ปิด/ย่ออนิเมชั่นตกแต่งที่ไม่จำเป็นทั้งหมดเมื่อ OS ส่งสัญญาณนี้มา ยกเว้น .spinner/.skeleton ที่เป็น
+   ตัวบอกสถานะ "กำลังโหลด" จริง (หยุดนิ่งจะดูเหมือนค้าง ไม่ใช่ "ลดอนิเมชั่น") จึงปล่อยให้หมุน/ระยิบต่อไป */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .spinner, .skeleton {
+    animation-duration: revert !important;
+    animation-iteration-count: revert !important;
+  }
+  html { scroll-behavior: auto; }
+}
