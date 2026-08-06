@@ -17,6 +17,21 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* v1.0.367 — ลายน้ำตกแต่งประจำธีม (--bg-image ตั้งไว้ต่อธีมใน themes.css, ธีมที่ไม่ได้ตั้งไว้จะเป็น none)
+   วางบน pseudo-element แยกจาก body เพราะ body ต้องคง solid background (var(--bg)) ไว้เป็นพื้นเสมอ — ทุกข้อความ
+   จริงอยู่บนการ์ด/แผง --surface ทึบเหนือขึ้นไปอีกชั้น ไม่โดนภาพนี้บังหรือกระทบ contrast ที่ทำ WCAG ไว้เลย */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image: var(--bg-image);
+  background-repeat: no-repeat;
+  background-position: bottom right;
+  background-size: min(560px, 55vw);
+  pointer-events: none;
+}
+
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--surface); }
