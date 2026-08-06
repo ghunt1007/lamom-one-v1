@@ -248,6 +248,10 @@ const THEME_GROUPS = [
     { id: 'mountain',  label: 'ภูเขา', color: '#78909C', icon: '⛰️' },
     { id: 'waterfall', label: 'น้ำตก', color: '#26C6DA', icon: '💧' },
   ]},
+  { group: 'การบิน / อวกาศ', themes: [
+    { id: 'spaceship',  label: 'ยานอวกาศ', color: '#29B6F6', icon: '🚀' },
+    { id: 'fighterjet', label: 'เครื่องบินรบ', color: '#00FF41', icon: '✈️' },
+  ]},
   { group: 'รถยนต์', themes: [
     { id: 'automotive', label: 'รถยนต์', color: '#E53935', icon: '🏎️' },
     { id: 'deepal',      label: 'DEEPAL', color: '#00D9A6', icon: '🚙' },

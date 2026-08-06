@@ -1,5 +1,5 @@
 /* ============================================================
-   LAMOM ONE V1 — Theme System (31 Themes, Dark Only)
+   LAMOM ONE V1 — Theme System (33 Themes, Dark Only)
    ============================================================ */
 
 :root {
@@ -918,3 +918,61 @@
 [data-theme="waterfall"] { --bg-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20520%20520%22%3E%0A%20%20%20%20%3Cg%20stroke%3D%22%2326C6DA%22%20stroke-width%3D%223%22%20opacity%3D%220.13%22%20stroke-linecap%3D%22round%22%3E%0A%20%20%20%20%20%20%3Cline%20x1%3D%22360%22%20y1%3D%22120%22%20x2%3D%22350%22%20y2%3D%22460%22%2F%3E%3Cline%20x1%3D%22390%22%20y1%3D%22120%22%20x2%3D%22385%22%20y2%3D%22460%22%2F%3E%0A%20%20%20%20%20%20%3Cline%20x1%3D%22420%22%20y1%3D%22120%22%20x2%3D%22420%22%20y2%3D%22460%22%2F%3E%3Cline%20x1%3D%22450%22%20y1%3D%22120%22%20x2%3D%22455%22%20y2%3D%22460%22%2F%3E%3Cline%20x1%3D%22480%22%20y1%3D%22120%22%20x2%3D%22490%22%20y2%3D%22460%22%2F%3E%0A%20%20%20%20%3C%2Fg%3E%0A%20%20%20%20%3Cellipse%20cx%3D%22420%22%20cy%3D%22470%22%20rx%3D%2290%22%20ry%3D%2220%22%20fill%3D%22%2381C784%22%20opacity%3D%220.12%22%2F%3E%3C%2Fsvg%3E"); }
 [data-theme="horror"] { --bg-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20520%20520%22%3E%0A%20%20%20%20%3Cg%20fill%3D%22%238B0000%22%20opacity%3D%220.15%22%3E%0A%20%20%20%20%20%20%3Cpath%20d%3D%22M400%20300%20q10%2040%20-5%2060%20q15%2010%200%2040%20q15%205%20-5%2040%22%20stroke%3D%22%238B0000%22%20stroke-width%3D%223%22%20fill%3D%22none%22%2F%3E%0A%20%20%20%20%20%20%3Cpath%20d%3D%22M420%20340%20q8%2030%200%2060%20t%208%2060%22%20stroke%3D%22%236B8E23%22%20stroke-width%3D%223%22%20fill%3D%22none%22%20opacity%3D%220.7%22%2F%3E%0A%20%20%20%20%3C%2Fg%3E%0A%20%20%20%20%3Cpolygon%20points%3D%22340%2C380%20370%2C360%20380%2C400%20350%2C410%22%20fill%3D%22%238B0000%22%20opacity%3D%220.12%22%2F%3E%3C%2Fsvg%3E"); }
 [data-theme="deepal"] { --bg-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20520%20520%22%3E%0A%20%20%20%20%3Cg%20fill%3D%22none%22%20stroke%3D%22%2300D9A6%22%20stroke-width%3D%223%22%20opacity%3D%220.15%22%3E%0A%20%20%20%20%20%20%3Cpath%20d%3D%22M320%20420%20h140%20l-16%20-40%20q-8%20-14%20-26%20-14%20h-56%20q-18%200%20-26%2014%20z%22%2F%3E%0A%20%20%20%20%20%20%3Ccircle%20cx%3D%22355%22%20cy%3D%22425%22%20r%3D%2216%22%2F%3E%3Ccircle%20cx%3D%22425%22%20cy%3D%22425%22%20r%3D%2216%22%2F%3E%0A%20%20%20%20%3C%2Fg%3E%0A%20%20%20%20%3Cg%20stroke%3D%22%2364B5CE%22%20stroke-width%3D%223%22%20opacity%3D%220.13%22%20stroke-linecap%3D%22round%22%3E%0A%20%20%20%20%20%20%3Cline%20x1%3D%22200%22%20y1%3D%22380%22%20x2%3D%22280%22%20y2%3D%22380%22%2F%3E%3Cline%20x1%3D%22180%22%20y1%3D%22410%22%20x2%3D%22270%22%20y2%3D%22410%22%2F%3E%0A%20%20%20%20%3C%2Fg%3E%3C%2Fsvg%3E"); }
+
+/* ── ยานอวกาศ 🚀 ─────────────────────── */
+[data-theme="spaceship"] {
+  --bg:          #060e13;
+  --surface:     #0b1822;
+  --surface-2:   #122636;
+  --surface-3:   #183449;
+  --border:      #244c6b;
+  --border-light:#2f658e;
+  --primary:     #29B6F6;
+  --primary-dim: #29B6F626;
+  --primary-glow:#29B6F659;
+  --accent:      #FFAB40;
+  --accent-dim:  #FFAB4026;
+  --success:     #29B6F6;
+  --success-dim: #29B6F626;
+  --warning:     #FFAB40;
+  --warning-dim: #FFAB4026;
+  --danger:      #FF5252;
+  --danger-dim:  #FF525226;
+  --info:        #80D8FF;
+  --info-dim:    #80D8FF26;
+  --text:        #f3f5f7;
+  --text-2:      #cdd7df;
+  --text-3:      #83afd0;
+  --text-muted:  #709ec2;
+  --border-subtle:#0f212e;
+}
+
+/* ── เครื่องบินรบ ✈️ ─────────────────────── */
+[data-theme="fighterjet"] {
+  --bg:          #0c0f0b;
+  --surface:     #151a14;
+  --surface-2:   #20291f;
+  --surface-3:   #2c372a;
+  --border:      #41513d;
+  --border-light:#566c51;
+  --primary:     #00FF41;
+  --primary-dim: #00FF4126;
+  --primary-glow:#00FF4159;
+  --accent:      #FF3D00;
+  --accent-dim:  #FF3D0026;
+  --success:     #00FF41;
+  --success-dim: #00FF4126;
+  --warning:     #FFC107;
+  --warning-dim: #FFC10726;
+  --danger:      #FF3D00;
+  --danger-dim:  #FF3D0026;
+  --info:        #40C4FF;
+  --info-dim:    #40C4FF26;
+  --text:        #f4f6f3;
+  --text-2:      #d2dcd0;
+  --text-3:      #92b78a;
+  --text-muted:  #82a57b;
+  --border-subtle:#1c231a;
+}
+[data-theme="spaceship"] { --bg-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20520%20520%22%3E%0A%20%20%20%20%3Cg%20fill%3D%22%2329B6F6%22%20opacity%3D%220.15%22%3E%0A%20%20%20%20%20%20%3Cpath%20d%3D%22M420%20260%20L440%20420%20L420%20460%20L400%20420%20Z%22%2F%3E%0A%20%20%20%20%20%20%3Cpath%20d%3D%22M400%20400%20L370%20440%20L400%20440%20Z%22%2F%3E%3Cpath%20d%3D%22M440%20400%20L470%20440%20L440%20440%20Z%22%2F%3E%0A%20%20%20%20%20%20%3Ccircle%20cx%3D%22420%22%20cy%3D%22320%22%20r%3D%2210%22%20fill%3D%22%23FFAB40%22%20opacity%3D%220.7%22%2F%3E%0A%20%20%20%20%3C%2Fg%3E%0A%20%20%20%20%3Cg%20fill%3D%22%23FFAB40%22%20opacity%3D%220.13%22%3E%0A%20%20%20%20%20%20%3Cpath%20d%3D%22M405%20460%20L420%20520%20L435%20460%20Z%22%2F%3E%0A%20%20%20%20%3C%2Fg%3E%0A%20%20%20%20%3Cg%20fill%3D%22%2329B6F6%22%20opacity%3D%220.12%22%3E%3Ccircle%20cx%3D%22120%22%20cy%3D%2290%22%20r%3D%222%22%2F%3E%3Ccircle%20cx%3D%22200%22%20cy%3D%2260%22%20r%3D%222%22%2F%3E%3Ccircle%20cx%3D%2280%22%20cy%3D%22160%22%20r%3D%222%22%2F%3E%3Ccircle%20cx%3D%22260%22%20cy%3D%22120%22%20r%3D%222%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"); }
+[data-theme="fighterjet"] { --bg-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20520%20520%22%3E%0A%20%20%20%20%3Cg%20fill%3D%22%2300FF41%22%20opacity%3D%220.14%22%3E%0A%20%20%20%20%20%20%3Cpath%20d%3D%22M480%20400%20L340%20420%20L360%20400%20L340%20380%20Z%22%2F%3E%0A%20%20%20%20%20%20%3Cpath%20d%3D%22M400%20400%20L370%20350%20L385%20400%20Z%22%2F%3E%3Cpath%20d%3D%22M400%20400%20L370%20450%20L385%20400%20Z%22%2F%3E%0A%20%20%20%20%3C%2Fg%3E%0A%20%20%20%20%3Cg%20stroke%3D%22%23FF3D00%22%20stroke-width%3D%223%22%20opacity%3D%220.14%22%20stroke-linecap%3D%22round%22%3E%0A%20%20%20%20%20%20%3Cline%20x1%3D%22200%22%20y1%3D%22405%22%20x2%3D%22330%22%20y2%3D%22400%22%2F%3E%3Cline%20x1%3D%22180%22%20y1%3D%22418%22%20x2%3D%22330%22%20y2%3D%22408%22%2F%3E%0A%20%20%20%20%3C%2Fg%3E%0A%20%20%20%20%3Cg%20fill%3D%22none%22%20stroke%3D%22%2300FF41%22%20stroke-width%3D%221.5%22%20opacity%3D%220.12%22%3E%0A%20%20%20%20%20%20%3Ccircle%20cx%3D%22230%22%20cy%3D%22200%22%20r%3D%2250%22%2F%3E%3Ccircle%20cx%3D%22230%22%20cy%3D%22200%22%20r%3D%2230%22%2F%3E%0A%20%20%20%20%20%20%3Cline%20x1%3D%22180%22%20y1%3D%22200%22%20x2%3D%22280%22%20y2%3D%22200%22%2F%3E%3Cline%20x1%3D%22230%22%20y1%3D%22150%22%20x2%3D%22230%22%20y2%3D%22250%22%2F%3E%0A%20%20%20%20%3C%2Fg%3E%3C%2Fsvg%3E"); }
