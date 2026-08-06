@@ -6,16 +6,27 @@ import { formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { getSalesData } from '../../core/db.js'
 import { exportToExcel } from '../../utils/importExport.js'
+import { getVehicles } from '../../data/vehicleDatabase.js'
 
 const MONTH_LABELS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 
-const MODELS = [
+// ก่อนหน้านี้ m.model/m.brand เป็น string hardcode เสมอ ไม่มีความเสี่ยง XSS — ตอนนี้มาจากยี่ห้อ/รุ่นที่พนักงาน
+// พิมพ์เองตอนสร้างใบจอง (real, free-text) ต้อง escape ก่อน render และก่อนใช้เป็นค่าใน attribute เสมอ
+function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+function escAttr(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/"/g,'&quot;') }
+
+// ใช้เฉพาะตอนยังไม่มียอดขายจริงเลย (บริษัทใหม่/ยังไม่มีข้อมูล) — เดิมลิสต์นี้ตายตัวแค่ 5 รุ่นและถูกใช้เสมอไม่
+// ว่าจะมีข้อมูลจริงกี่รุ่นก็ตาม ทำให้รุ่นจริงที่ขายได้แต่ไม่อยู่ใน 5 รุ่นนี้หายไปจากรายงานทั้งหมด และ margin
+// เป็นตัวเลขแต่งขึ้นตายตัว (ไม่เคยคำนวณจากต้นทุนจริง) — ตอนนี้มีข้อมูลจริงจะสร้างรายการจากยอดขายจริงเสมอ
+const DEMO_MODELS = [
   { model:'BYD Atto 3',  brand:'BYD', type:'EV',   color:'#3b82f6', icon:'🔵', price:1099000, monthly:[18,22,19,25,28,31,29,26,24,27,31,35], colors:['ขาว','ดำ','ฟ้า','แดง'], margin:8.2 },
   { model:'BYD Seal AWD', brand:'BYD', type:'EV',   color:'#10b981', icon:'🟢', price:1499000, monthly:[12,15,14,18,20,24,22,19,17,20,24,28], colors:['ขาว','ดำ','เทา'], margin:9.5 },
   { model:'MG ZS EV',    brand:'MG',  type:'EV',   color:'#f59e0b', icon:'🟡', price:879000,  monthly:[25,28,24,30,27,32,30,28,25,29,32,36], colors:['ขาว','แดง','ดำ','น้ำเงิน'], margin:7.8 },
   { model:'BYD Dolphin', brand:'BYD', type:'EV',   color:'#8b5cf6', icon:'🟣', price:699000,  monthly:[30,35,38,42,45,50,48,44,40,45,50,55], colors:['ขาว','ฟ้า','เขียว','ส้ม'], margin:7.2 },
   { model:'MG EP',       brand:'MG',  type:'PHEV', color:'#ef4444', icon:'🔴', price:749000,  monthly:[8,10,9,11,12,10,9,8,7,9,10,12], colors:['ขาว','ดำ'], margin:8.8 },
 ]
+const PALETTE = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444','#06b6d4','#ec4899','#84cc16']
+const ICONS = ['🔵','🟢','🟡','🟣','🔴','🩵','🩷','🟠']
 
 export default async function SalesByModelPage(container) {
   const myGen = container.__routerGen
@@ -23,7 +34,8 @@ export default async function SalesByModelPage(container) {
   let periodIdx = new Date().getMonth()
   let allSales = []
   let dataSource = 'demo'
-  let realMonthly = {} // { modelKey: [0..11] units, 0..11 revenue }
+  let realMonthly = {} // { modelKey: [0..11] units, 0..11 revenue, 0..11 cost }
+  let MODELS = DEMO_MODELS
 
   try {
     const sales = await getSalesData()
@@ -34,12 +46,29 @@ export default async function SalesByModelPage(container) {
       sales.forEach(s => {
         const mo = parseInt((s.date || s.bookingDate || '').slice(5, 7)) - 1
         if (mo < 0 || mo > 11 || isNaN(mo)) return
-        const key = ((s.brand || '') + ' ' + (s.model || '')).trim().toLowerCase()
-        if (!realMonthly[key]) realMonthly[key] = { units: Array(12).fill(0), revenue: Array(12).fill(0) }
+        const brand = s.brand || '', model = s.model || ''
+        const key = (brand + ' ' + model).trim().toLowerCase()
+        if (!realMonthly[key]) realMonthly[key] = { brand, model, units: Array(12).fill(0), revenue: Array(12).fill(0), cost: Array(12).fill(0) }
         realMonthly[key].units[mo]++
         realMonthly[key].revenue[mo] += s.salePrice || 0
+        realMonthly[key].cost[mo] += s.cost || Math.round((s.salePrice || 0) * 0.82) // ใช้ต้นทุนจริงถ้ามี ไม่มีค่อยประมาณ (pattern เดียวกับ CashFlow.js/VatReport.js)
       })
       dataSource = 'live'
+      // สร้างรายการรุ่นรถจากยอดขายจริงทั้งหมด ไม่จำกัดแค่ 5 รุ่นใน DEMO_MODELS อีกต่อไป — ลองจับคู่กับ
+      // แคตตาล็อกจริง (data/vehicleDatabase.js) เพื่อได้ type/สีจริงถ้าเจอ ไม่เจอก็ปล่อยว่าง ไม่แต่งขึ้น
+      const catalog = getVehicles()
+      MODELS = Object.entries(realMonthly).map(([key, r], i) => {
+        const units = r.units.reduce((a, v) => a + v, 0) || 1
+        const revenue = r.revenue.reduce((a, v) => a + v, 0)
+        const cost = r.cost.reduce((a, v) => a + v, 0)
+        const cat = catalog.find(v => (v.brand + ' ' + v.model).toLowerCase() === key)
+        return {
+          model: (r.brand + ' ' + r.model).trim() || key, brand: r.brand || '-', type: cat?.fuel === 'BEV' ? 'EV' : (cat?.fuel || '-'),
+          color: PALETTE[i % PALETTE.length], icon: ICONS[i % ICONS.length],
+          price: Math.round(revenue / units), monthly: r.units, colors: cat?.colors || [],
+          margin: revenue > 0 ? Math.round((revenue - cost) / revenue * 1000) / 10 : 0,
+        }
+      })
     }
   } catch {}
 
@@ -118,9 +147,9 @@ export default async function SalesByModelPage(container) {
             const rev = modelRevenue(m, periodIdx)
             const barPct = Math.round(units / maxUnits * 100)
             const ytd = modelYtd(m)
-            return `<div style="margin-bottom:14px" class="model-bar" data-model="${m.model}" style="cursor:pointer">
+            return `<div style="margin-bottom:14px" class="model-bar" data-model="${escAttr(m.model)}" style="cursor:pointer">
               <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:0.83rem;cursor:pointer">
-                <span><span style="font-size:1rem">${m.icon}</span> <strong>${m.model}</strong> <span style="font-size:0.7rem;color:var(--text-muted)">${m.brand} · ${m.type}</span></span>
+                <span><span style="font-size:1rem">${m.icon}</span> <strong>${escHtml(m.model)}</strong> <span style="font-size:0.7rem;color:var(--text-muted)">${escHtml(m.brand)} · ${escHtml(m.type)}</span></span>
                 <span style="font-weight:700">${units} คัน · ${formatCurrency(rev)}</span>
               </div>
               <div style="background:var(--surface-2);border-radius:4px;height:10px">
@@ -150,10 +179,10 @@ export default async function SalesByModelPage(container) {
               <tbody>
                 ${MODELS.map(m => {
                   const ytd = modelYtd(m)
-                  return `<tr style="border-bottom:1px solid var(--border);cursor:pointer" class="model-row" data-model="${m.model}">
+                  return `<tr style="border-bottom:1px solid var(--border);cursor:pointer" class="model-row" data-model="${escAttr(m.model)}">
                     <td style="padding:8px 14px;font-size:0.82rem">
-                      <span style="color:${m.color}">${m.icon}</span> ${m.model}
-                      <div style="font-size:0.67rem;color:var(--text-muted)">${m.type}</div>
+                      <span style="color:${m.color}">${m.icon}</span> ${escHtml(m.model)}
+                      <div style="font-size:0.67rem;color:var(--text-muted)">${escHtml(m.type)}</div>
                     </td>
                     ${MONTH_LABELS.map((_, i) => {
                       const v = modelUnits(m, i)
@@ -175,10 +204,10 @@ export default async function SalesByModelPage(container) {
           ${sorted.map(m => {
             const units = modelUnits(m, periodIdx)
             const ytd = modelYtd(m)
-            return `<div class="card card-lift" style="padding:14px;border-left:4px solid ${m.color};cursor:pointer" data-model="${m.model}">
+            return `<div class="card card-lift" style="padding:14px;border-left:4px solid ${m.color};cursor:pointer" data-model="${escAttr(m.model)}">
               <div style="font-size:1.8rem;margin-bottom:6px">${m.icon}</div>
-              <div style="font-weight:700;font-size:0.9rem">${m.model}</div>
-              <div style="font-size:0.71rem;color:var(--text-muted)">${m.brand} · ${m.type} · Margin ${m.margin}%</div>
+              <div style="font-weight:700;font-size:0.9rem">${escHtml(m.model)}</div>
+              <div style="font-size:0.71rem;color:var(--text-muted)">${escHtml(m.brand)} · ${escHtml(m.type)} · Margin ${m.margin}%</div>
               <div style="margin-top:8px;font-size:1.2rem;font-weight:900;color:${m.color}">${units} คัน</div>
               <div style="font-size:0.71rem;color:var(--text-muted)">${formatCurrency(m.price)}/คัน</div>
               <div style="font-size:0.75rem;color:var(--success);margin-top:3px">${formatCurrency(modelRevenue(m, periodIdx))}</div>
@@ -209,12 +238,12 @@ export default async function SalesByModelPage(container) {
     const ytd = modelYtd(m)
     const r = findReal(m)
     openModal({
-      title: `${m.icon} ${m.model}`,
+      title: `${m.icon} ${escHtml(m.model)}`,
       size: 'sm',
       body: `
         <div style="margin-bottom:12px">
-          <span class="badge badge-primary">${m.brand}</span>
-          <span class="badge badge-secondary" style="margin-left:4px">${m.type}</span>
+          <span class="badge badge-primary">${escHtml(m.brand)}</span>
+          <span class="badge badge-secondary" style="margin-left:4px">${escHtml(m.type)}</span>
           ${r ? '<span class="badge badge-success" style="margin-left:4px">● ข้อมูลจริง</span>' : ''}
         </div>
         ${row('ราคา', formatCurrency(m.price))}
@@ -236,7 +265,7 @@ export default async function SalesByModelPage(container) {
             </div>`
           }).join('')}
         </div>
-        <div style="margin-top:10px;font-size:0.72rem;color:var(--text-muted)">สีที่มี: ${m.colors.join(' · ')}</div>
+        ${m.colors.length ? `<div style="margin-top:10px;font-size:0.72rem;color:var(--text-muted)">สีที่มี: ${m.colors.join(' · ')}</div>` : ''}
       `
     })
   }

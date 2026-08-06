@@ -6,7 +6,9 @@ import { formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
-import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+
+function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
 // เดิมหน้านี้มี RECALLS เป็น const array ปลอมแยกต่างหาก ไม่เชื่อมกับระบบ Recall จริงที่ RecallManagement.js ใช้
 // (collection 'recall_campaigns') ทำให้ recall ที่สร้าง/อัปเดตจริงจากหน้า RecallManagement ไม่โผล่ที่นี่เลย
@@ -64,6 +66,7 @@ export default async function RecallTrackerPage(container) {
             <div class="page-subtitle">ติดตามสถานะ Recall ต่อ VIN · ${VEHICLES.length} คัน · ${RECALLS.length} แคมเปญ</div>
           </div>
           <div class="page-actions">
+            <button class="btn btn-secondary" id="add-vehicle-btn">➕ เพิ่มรถเข้า Recall</button>
             <button class="btn btn-secondary" id="notify-pending-btn">📢 แจ้งทั้งหมด (Pending)</button>
             <button class="btn btn-primary" id="report-btn">📊 รายงาน</button>
           </div>
@@ -152,6 +155,72 @@ export default async function RecallTrackerPage(container) {
 
     document.getElementById('sel-recall')?.addEventListener('change', e => { filterRecall=e.target.value; render() })
     document.getElementById('sel-wst')?.addEventListener('change', e => { filterWst=e.target.value; render() })
+    // เดิมหน้านี้ไม่มีทางเพิ่มรถเข้า recall_tracker_vehicles ได้เลยแม้แต่จุดเดียว (ไม่มีปุ่ม/ไม่มีจุดไหนเรียก
+    // createDoc ในทั้งไฟล์) ต้องพึ่ง seedDemoData() เท่านั้น — เมื่อมี Recall จริงเกิดขึ้น (สร้างแคมเปญใหม่ที่
+    // RecallManagement.js) ไม่มีทางเอารถที่ได้รับผลกระทบจริงเข้ามาติดตามในหน้านี้ได้เลย เพิ่มปุ่มนี้ให้ค้นรถจริง
+    // จากใบจอง (bookings) แล้วผูกกับแคมเปญจริง (RECALLS ที่อ่านจาก recall_campaigns อยู่แล้ว) — ถ้า VIN นั้น
+    // มีอยู่ในระบบติดตามแล้ว จะเพิ่มแคมเปญนี้เข้าไปในรถคันเดิม ไม่สร้างแถวซ้ำ
+    document.getElementById('add-vehicle-btn')?.addEventListener('click', () => {
+      if (!RECALLS.length) { showToast('⚠️ ยังไม่มี Recall Campaign ในระบบ — สร้างที่หน้า Recall Management ก่อน', 'warning'); return }
+      let matches = []
+      let picked = null
+      const { el } = openModal({
+        title: '➕ เพิ่มรถเข้า Recall',
+        size: 'sm',
+        body: `<div style="display:flex;flex-direction:column;gap:10px;font-size:0.8rem">
+          <div><label style="font-size:0.72rem;color:var(--text-muted)">Recall Campaign *</label>
+            <select class="input" id="av-campaign" style="width:100%;margin-top:4px">${RECALLS.map(r => `<option value="${r.id}">${escHtml(r.campaign)} — ${escHtml(r.model)}</option>`).join('')}</select></div>
+          <div><label style="font-size:0.72rem;color:var(--text-muted)">ค้นหารถจากใบจอง (VIN / ทะเบียน / ชื่อลูกค้า)</label>
+            <input class="input" id="av-search" placeholder="พิมพ์เพื่อค้นหา..." style="width:100%;margin-top:4px"></div>
+          <div id="av-results" style="max-height:180px;overflow:auto;display:flex;flex-direction:column;gap:4px"></div>
+          <div id="av-picked" style="font-size:0.76rem;color:var(--success)"></div>
+        </div>`,
+        confirmText: '➕ เพิ่ม',
+        async onConfirm() {
+          if (!picked) { showToast('⚠️ กรุณาเลือกรถก่อน', 'warning'); return false }
+          const campaignId = document.getElementById('av-campaign')?.value
+          const existing = VEHICLES.find(v => v.vin === picked.vin)
+          try {
+            if (existing) {
+              if (existing.recalls.includes(campaignId)) { showToast('รถคันนี้อยู่ใน Recall นี้แล้ว', 'warning'); return false }
+              await updateDocData('recall_tracker_vehicles', existing.id, {
+                recalls: [...existing.recalls, campaignId],
+                status: { ...existing.status, [campaignId]: 'pending' },
+              })
+            } else {
+              await createDoc('recall_tracker_vehicles', {
+                vin: picked.vin, plate: picked.plate, model: picked.model, owner: picked.owner, phone: picked.phone,
+                recalls: [campaignId], status: { [campaignId]: 'pending' },
+              })
+            }
+            showToast(`✅ เพิ่ม ${picked.owner} เข้า Recall แล้ว`, 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
+        }
+      })
+      let searchTimer = null
+      el.querySelector('#av-search')?.addEventListener('input', e => {
+        clearTimeout(searchTimer)
+        const q = e.target.value.trim().toLowerCase()
+        searchTimer = setTimeout(async () => {
+          if (q.length < 2) { el.querySelector('#av-results').innerHTML = ''; return }
+          let bookings = []
+          try { bookings = await listDocs('bookings', [], 'createdAt', 'desc', 500) } catch { bookings = [] }
+          matches = bookings.filter(b => !b.deleted && (
+            (b.vin || '').toLowerCase().includes(q) || (b.whitePlate || '').toLowerCase().includes(q) || (b.custName || '').toLowerCase().includes(q)
+          )).slice(0, 8)
+          el.querySelector('#av-results').innerHTML = matches.map((b, i) => `
+            <button type="button" class="btn btn-xs btn-secondary av-pick" data-i="${i}" style="text-align:left;justify-content:flex-start">
+              ${escHtml(b.custName)} · ${escHtml(b.brand)} ${escHtml(b.model)} · VIN ${escHtml((b.vin||'').slice(-8))}
+            </button>`).join('') || '<div style="font-size:0.72rem;color:var(--text-muted)">ไม่พบ</div>'
+          el.querySelectorAll('.av-pick').forEach(btn => btn.addEventListener('click', () => {
+            const b = matches[parseInt(btn.dataset.i)]
+            picked = { vin: b.vin, plate: b.whitePlate || b.vin, model: [b.brand, b.model].filter(Boolean).join(' '), owner: b.custName, phone: b.phone || '' }
+            el.querySelector('#av-picked').textContent = `✅ เลือกแล้ว: ${picked.owner} (${picked.model})`
+          }))
+        }, 300)
+      })
+    })
     document.getElementById('notify-pending-btn')?.addEventListener('click', async () => {
       const toNotify = VEHICLES.filter(v=>Object.values(v.status).some(s=>s==='pending'))
       try {

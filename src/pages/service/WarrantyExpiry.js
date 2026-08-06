@@ -5,10 +5,35 @@
 import { formatDate, formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, seedDemoData } from '../../core/db.js'
+import { loadWarranties, persistWarranty } from './WarrantyManagement.js'
 
 function daysLeft(endDate) {
   return Math.round((new Date(endDate) - new Date()) / 86400000)
+}
+
+// เดิมหน้านี้อ่าน collection 'warranty_expiry_vehicles' ของตัวเองแยกจาก WarrantyManagement.js โดยสิ้นเชิง —
+// เป็นข้อมูล seed ตายตัว ไม่มีจุดไหนเขียนจริงเข้า collection นี้เลย (ไม่ sync กับใบจองที่ส่งมอบจริง/ประกันที่
+// สร้าง-แก้ไขจริงในหน้า WarrantyManagement.js) ทำให้สองหน้าเห็นข้อมูลประกันคนละชุดกัน — แก้ให้ดึงจากฟังก์ชัน
+// กลาง loadWarranties()/persistWarranty() ที่ WarrantyManagement.js export ไว้ (v1.0.359) แทน เป็นแหล่งข้อมูล
+// จริงชุดเดียวกันทั้งสองหน้า (mapWarranty() ด้านล่างแปลง field name ให้ตรงกับ template เดิมของไฟล์นี้)
+function mapWarranty(w, kmByVin) {
+  return {
+    id: w.id, vin: w.vin || '', plate: w.vehiclePlate || '-', model: [w.brand, w.model].filter(Boolean).join(' ') || '-',
+    owner: w.customerName || '-', phone: w.phone || '', warrantyEnd: w.endDate || '', sale: w.startDate || '',
+    kmCurrent: kmByVin[w.vin] || 0, kmWarranty: w.km || 100000, status: w.status || 'active', notified: !!w.notified,
+    _raw: w,
+  }
+}
+
+// ไม่มีฟิลด์ "เลขไมล์ปัจจุบัน" เก็บไว้ที่ประกันเลย (WarrantyManagement.js ไม่ track odometer) — ดึงเลขไมล์ล่าสุด
+// จริงจาก job_cards (บันทึกทุกครั้งที่รถเข้าศูนย์บริการ มีฟิลด์ mileage ต่อ VIN จริงอยู่แล้ว) แทนการโชว์เลขปลอม
+async function loadLatestMileageByVin() {
+  let jobs = []
+  try { jobs = await listDocs('job_cards', [], 'createdAt', 'desc', 1000) } catch { jobs = [] }
+  const byVin = {}
+  jobs.forEach(j => { if (j.vin && !(j.vin in byVin)) byVin[j.vin] = j.mileage || 0 }) // เรียง desc แล้ว — ตัวแรกต่อ VIN คือล่าสุด
+  return byVin
 }
 
 // เดิมหน้านี้ใช้ v.status ที่บันทึกไว้ครั้งเดียวตอนสร้าง/แก้ไขข้อมูล ไม่ถูกคำนวณสดจากวันที่เลย ต่างจาก
@@ -40,7 +65,10 @@ export default async function WarrantyExpiryPage(container) {
 
   async function loadData() {
     loading = true
-    try { VEHICLES = await listDocs('warranty_expiry_vehicles', [], 'warrantyEnd', 'asc', 500) } catch (e) { VEHICLES = [] }
+    try {
+      const [warranties, kmByVin] = await Promise.all([loadWarranties(), loadLatestMileageByVin()])
+      VEHICLES = warranties.map(w => mapWarranty(w, kmByVin)).filter(v => v.warrantyEnd).sort((a, b) => a.warrantyEnd.localeCompare(b.warrantyEnd))
+    } catch (e) { VEHICLES = [] }
     loading = false
     if (container.__routerGen === myGen) render()
   }
@@ -143,7 +171,7 @@ export default async function WarrantyExpiryPage(container) {
     document.getElementById('notify-all-btn')?.addEventListener('click', async () => {
       const targets = VEHICLES.filter(v => getLiveStatus(v) === 'expiring' || getLiveStatus(v) === 'expired')
       try {
-        await Promise.all(targets.map(v => updateDocData('warranty_expiry_vehicles', v.id, { notified: true })))
+        await Promise.all(targets.map(v => persistWarranty(v._raw, { notified: true })))
         showToast(`📨 แจ้งเตือนประกัน ${targets.length} คันแล้ว`, 'success')
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
@@ -153,7 +181,7 @@ export default async function WarrantyExpiryPage(container) {
       const v = VEHICLES.find(x => x.id === b.dataset.id)
       if (!v) return
       try {
-        await updateDocData('warranty_expiry_vehicles', v.id, { notified: true })
+        await persistWarranty(v._raw, { notified: true })
         showToast(`📱 แจ้ง ${v.owner} เรื่องประกัน ${v.model} แล้ว`, 'success')
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
@@ -192,7 +220,7 @@ export default async function WarrantyExpiryPage(container) {
         cur.setFullYear(cur.getFullYear() + ext)
         const warrantyEnd = cur.toISOString().slice(0, 10)
         try {
-          await updateDocData('warranty_expiry_vehicles', v.id, { warrantyEnd, status: 'active' })
+          await persistWarranty(v._raw, { endDate: warrantyEnd, status: 'active' })
           showToast(`✅ ต่อประกัน ${v.model} +${ext} ปี — หมดอายุใหม่ ${warrantyEnd}`, 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

@@ -39,6 +39,45 @@ function daysLeft(endDate) { return Math.round((new Date(endDate) - today) / 864
 const EV_BRANDS = ['BYD', 'MG', 'Neta', 'ORA', 'AION', 'Tesla', 'Ora', 'DEEPAL']
 function addYears(d, y) { const dt = new Date(d); dt.setFullYear(dt.getFullYear() + y); return dt.toISOString().slice(0, 10) }
 
+// ดึงประกันจริงทั้งหมด (บันทึกไว้จริง + คำนวณสดจากใบจองที่ส่งมอบแล้วแต่ยังไม่มีเอกสารประกันของตัวเอง) — เดิม
+// อยู่ในตัว WarrantyManagementPage() เท่านั้น แยกออกมาเป็น export ระดับโมดูล (v1.0.359) เพื่อให้
+// WarrantyExpiry.js เรียกใช้ข้อมูลจริงชุดเดียวกันได้ ไม่ต้องมีคอลเลกชัน warranty_expiry_vehicles แยกที่ไม่มี
+// ใครเขียนจริงอีกต่อไป (เดิมเป็นข้อมูล seed ตายตัว ไม่ sync กับใบจองจริงเลยเหมือนไฟล์นี้ทำอยู่แล้ว)
+export async function loadWarranties() {
+  const stored = await listDocs('vehicle_warranties', [], 'endDate', 'asc', 500)
+  let virtual = []
+  try {
+    const bookings = await listDocs('bookings', [['status', '==', 'ส่งมอบแล้ว']], 'createdAt', 'desc', 500)
+    virtual = bookings.filter(b => !stored.some(s => s.sourceBookingId === b.id)).map(b => {
+      const startDate = (b.actualDeliveryDate || b.deliveryDate || b.updatedAt?.toDate?.()?.toISOString() || '').slice(0, 10)
+      const isEV = EV_BRANDS.some(br => (b.brand || '').includes(br))
+      return {
+        id: 'W-' + b.id, customerId: b.id, sourceBookingId: b.id,
+        customerName: b.custName || 'ลูกค้า', phone: b.phone || '',
+        vehiclePlate: b.plate || '', brand: b.brand || '', model: b.model || '',
+        year: new Date(startDate || new Date()).getFullYear(), vin: b.vin || '',
+        type: 'factory', startDate, endDate: startDate ? addYears(startDate, 3) : '',
+        km: 100000, status: 'active',
+        notes: 'รับประกันโรงงาน 3 ปี' + (isEV ? ' / แบตเตอรี่ 8 ปี' : ''),
+        _source: 'booking',
+      }
+    })
+  } catch (e) {}
+  return [...stored, ...virtual]
+}
+
+// บันทึกการแก้ไข/เพิ่มเติมประกัน — ถ้าเป็นประกัน "virtual" (คำนวณสดจากใบจอง ยังไม่มีเอกสารจริง) จะสร้างเอกสาร
+// จริงใน vehicle_warranties ให้ครั้งแรกที่มีคนแก้ไข (promote จาก virtual → stored)
+export async function persistWarranty(w, fields) {
+  if (w._source === 'booking') {
+    const { _source, id, ...rest } = w
+    const newId = await createDoc('vehicle_warranties', { ...rest, sourceBookingId: w.sourceBookingId, ...fields })
+    return newId
+  }
+  if (Object.keys(fields).length) await updateDocData('vehicle_warranties', w.id, fields)
+  return w.id
+}
+
 export default async function WarrantyManagementPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
@@ -53,26 +92,7 @@ export default async function WarrantyManagementPage(container) {
   async function loadData() {
     loading = true
     try {
-      const stored = await listDocs('vehicle_warranties', [], 'endDate', 'asc', 500)
-      let virtual = []
-      try {
-        const bookings = await listDocs('bookings', [['status', '==', 'ส่งมอบแล้ว']], 'createdAt', 'desc', 500)
-        virtual = bookings.filter(b => !stored.some(s => s.sourceBookingId === b.id)).map(b => {
-          const startDate = (b.actualDeliveryDate || b.deliveryDate || b.updatedAt?.toDate?.()?.toISOString() || '').slice(0, 10)
-          const isEV = EV_BRANDS.some(br => (b.brand || '').includes(br))
-          return {
-            id: 'W-' + b.id, customerId: b.id, sourceBookingId: b.id,
-            customerName: b.custName || 'ลูกค้า', phone: b.phone || '',
-            vehiclePlate: b.plate || '', brand: b.brand || '', model: b.model || '',
-            year: new Date(startDate || new Date()).getFullYear(), vin: b.vin || '',
-            type: 'factory', startDate, endDate: startDate ? addYears(startDate, 3) : '',
-            km: 100000, status: 'active',
-            notes: 'รับประกันโรงงาน 3 ปี' + (isEV ? ' / แบตเตอรี่ 8 ปี' : ''),
-            _source: 'booking',
-          }
-        })
-      } catch (e) {}
-      warranties = [...stored, ...virtual]
+      warranties = await loadWarranties()
       claims = await listDocs('warranty_service_claims', [], 'date', 'desc', 500)
     } catch (e) { warranties = []; claims = [] }
     loading = false
@@ -80,16 +100,6 @@ export default async function WarrantyManagementPage(container) {
   }
 
   function claimCount(warrantyId) { return claims.filter(c => c.warrantyId === warrantyId).length }
-
-  async function persistWarranty(w, fields) {
-    if (w._source === 'booking') {
-      const { _source, id, ...rest } = w
-      const newId = await createDoc('vehicle_warranties', { ...rest, sourceBookingId: w.sourceBookingId, ...fields })
-      return newId
-    }
-    if (Object.keys(fields).length) await updateDocData('vehicle_warranties', w.id, fields)
-    return w.id
-  }
 
   function getWarrantyStatus(w) {
     // สถานะจริงที่ตั้งไว้แล้ว (เคลม/ยกเลิก) ต้องมาก่อนเสมอ — เดิมฟังก์ชันนี้คำนวณจากวันที่ล้วนๆ ทำให้ประกันที่
