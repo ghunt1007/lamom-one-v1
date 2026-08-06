@@ -46,7 +46,7 @@ export default async function EVBatteryPage(container) {
       return
     }
     const list = vehicles.filter(v => statusFilter === 'all' || getBatteryStatus(v.soh) === statusFilter)
-    const avgSoh = Math.round(vehicles.reduce((a, v) => a + v.soh, 0) / vehicles.length)
+    const avgSoh = vehicles.length ? Math.round(vehicles.reduce((a, v) => a + v.soh, 0) / vehicles.length) : 0
     const needAttention = vehicles.filter(v => getBatteryStatus(v.soh) === 'poor' || getBatteryStatus(v.soh) === 'fair').length
     const overdueCheck = vehicles.filter(v => v.nextCheck < addDays(0)).length
 

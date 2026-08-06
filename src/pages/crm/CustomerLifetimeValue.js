@@ -76,7 +76,7 @@ export default async function CustomerLifetimeValuePage(container) {
       .sort((a, b) => sort === 'clv' ? b.clv - a.clv : b.likelihood - a.likelihood)
 
     const totalClv = data.reduce((s, c) => s + c.clv, 0)
-    const avgClv   = Math.round(totalClv / data.length)
+    const avgClv   = data.length ? Math.round(totalClv / data.length) : 0
     const platCount = data.filter(c => c.seg === 'platinum').length
 
     container.innerHTML = `
