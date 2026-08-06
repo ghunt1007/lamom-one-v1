@@ -4,6 +4,9 @@
  */
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { askAiOfficer, isAiEnabled } from '../../utils/ai.js'
+
+function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
 
 const COACHING_TOPICS = [
   { id: 'objection', title: 'รับมือข้อโต้แย้ง', icon: '🛡', desc: 'เทคนิคตอบข้อโต้แย้งจากลูกค้า' },
@@ -14,11 +17,18 @@ const COACHING_TOPICS = [
   { id: 'ev_knowledge', title: 'ความรู้ EV', icon: '⚡', desc: 'ข้อมูลเทคนิค EV ที่ลูกค้ามักถาม' },
 ]
 
+// เดิม S01/S02 มีคำตอบ "ลูกค้า" แค่ 1 บทตายตัวต่อสถานการณ์ (ไม่ตอบโต้จริง กดปุ่มไหนก็ได้คำชม "ดีมาก!"
+// เหมือนกันหมด) ส่วน S03/S04 ไม่มีบทเลยด้วยซ้ำ (fallback เป็นข้อความทั่วไป) — ตอนนี้ทุกสถานการณ์ใช้ Gemini
+// เล่นบท "ลูกค้า" จริงผ่าน persona ด้านล่าง ตอบโต้ตามข้อความจริงที่พนักงานพิมพ์ ไม่ใช่ปุ่มตัวเลือกสำเร็จรูป
 const ROLEPLAY_SCENARIOS = [
-  { id: 'S01', title: 'ลูกค้าต่อราคา 50,000 บาท', difficulty: 'ง่าย', icon: '💰' },
-  { id: 'S02', title: 'ลูกค้ากังวลเรื่องระยะทาง EV', difficulty: 'ปานกลาง', icon: '🔋' },
-  { id: 'S03', title: 'ลูกค้าเปรียบเทียบกับคู่แข่ง', difficulty: 'ยาก', icon: '⚖️' },
-  { id: 'S04', title: 'ลูกค้าขอผ่อน 0% แต่ไม่มี', difficulty: 'ปานกลาง', icon: '🏦' },
+  { id: 'S01', title: 'ลูกค้าต่อราคา 50,000 บาท', difficulty: 'ง่าย', icon: '💰',
+    persona: 'คุณคือลูกค้าที่กำลังจะซื้อรถ EV กับเซลส์ (ผู้ใช้) แต่ขอต่อราคาลง 50,000 บาทเสมอ ถ้าเซลส์อธิบายมูลค่า/เสนอของแถมแทนลดเงินสด/ถามกลับอย่างมีเหตุผล ให้เริ่มอ่อนลงแต่ยังไม่ยอมทันที ถ้าเซลส์ยอมลดราคาทันทีแบบไม่มีเงื่อนไข ให้กดดันขอลดเพิ่มอีก' },
+  { id: 'S02', title: 'ลูกค้ากังวลเรื่องระยะทาง EV', difficulty: 'ปานกลาง', icon: '🔋',
+    persona: 'คุณคือลูกค้าที่สนใจรถ EV แต่กังวลมากเรื่องระยะทางวิ่งไม่พอ กลัวรถหมดแบตกลางทาง ไม่มั่นใจสถานีชาร์จ ถ้าเซลส์ตอบด้วยข้อมูลจริง/มั่นใจ ให้เริ่มคลายกังวล ถ้าตอบไม่ชัดเจนหรือข้อมูลดูไม่น่าเชื่อ ให้ถามซ้ำ/กังวลต่อ' },
+  { id: 'S03', title: 'ลูกค้าเปรียบเทียบกับคู่แข่ง', difficulty: 'ยาก', icon: '⚖️',
+    persona: 'คุณคือลูกค้าที่กำลังเปรียบเทียบรถรุ่นนี้กับรถแบรนด์คู่แข่งที่ถูกกว่าหรือมีสเปกที่ดูดีกว่าในบางจุด ตั้งคำถามท้าทายเกี่ยวกับจุดต่างและความคุ้มค่า ถ้าเซลส์ตอบได้ตรงจุด/มีเหตุผลน่าเชื่อ ให้เริ่มเอนเอียงมาทางรุ่นนี้ ถ้าตอบไม่ตรงคำถามหรือดูเลี่ยงประเด็น ให้กดดันถามต่อ' },
+  { id: 'S04', title: 'ลูกค้าขอผ่อน 0% แต่ไม่มี', difficulty: 'ปานกลาง', icon: '🏦',
+    persona: 'คุณคือลูกค้าที่อยากได้โปรผ่อน 0% ที่เคยเห็นโฆษณาจากที่อื่น แต่โปรโมชั่นนี้ไม่มีจริง ไม่พอใจถ้าเซลส์บอกตรงๆว่าไม่มี ให้ลูกค้ากดดัน/ขู่จะไปซื้อที่อื่น ถ้าเซลส์เสนอทางเลือกอื่นที่สมเหตุสมผล (ดอกเบี้ยจริง/โปรอื่นทดแทน) ให้เริ่มพิจารณา' },
 ]
 
 const QUIZ_QUESTIONS = [
@@ -154,36 +164,70 @@ export default async function SalesCoachPage(container) {
   }
 
   function openRoleplay(scenario) {
-    const RESPONSES = {
-      S01: ['ผมเข้าใจว่าราคาสำคัญมากครับ ขอถามว่าคุณเปรียบเทียบกับรุ่นไหนอยู่ครับ?', 'เราคำนวณต้นทุนทั้งหมด รวมค่าน้ำมัน/ค่าไฟ 5 ปี รถ EV ถูกกว่ามากครับ', 'ผมดูว่าจะช่วยอะไรได้บ้าง เช่น ของแถมหรือแพ็กเกจประกัน'],
-      S02: ['BYD Atto 3 วิ่งได้ 420 km ต่อชาร์จหนึ่งครั้งครับ ปกติขับวันละเท่าไหร่ครับ?', 'มีสถานีชาร์จตามห้างใหญ่ๆ มากกว่า 1,000 แห่งทั่วไทยแล้วครับ', 'ที่บ้านชาร์จได้เลยครับ ค่าไฟถูกกว่าน้ำมัน 3-4 เท่า'],
-    }
-    const replies = RESPONSES[scenario.id] || ['ขอบคุณสำหรับคำถามครับ ผมจะช่วยแนะนำ...']
-    let chatHistory = [{ role: 'customer', text: scenario.title }]
+    // history เก็บบทสนทนาจริง (ไม่ใช่ปุ่มเลือกสำเร็จรูปแบบเดิม) — 'assistant' = ลูกค้า (AI เล่นบท), 'user' =
+    // พนักงานขาย (ผู้ใช้พิมพ์เอง) ตรงกับ shape ที่ askAiOfficer() ในหน้า AiOfficers.js ใช้อยู่แล้ว
+    let history = [{ role: 'assistant', content: scenario.title }]
+    let sending = false
+    const systemPrompt = scenario.persona + ' ตอบสั้นๆเป็นธรรมชาติ 1-2 ประโยค ภาษาไทยเท่านั้น ห้ามบอกว่าตัวเองเป็น AI เล่นบทลูกค้าอย่างสมจริงตลอดบทสนทนา'
+    const notEnabled = !isAiEnabled()
 
-    openModal({
-      title: `🎭 Roleplay: ${scenario.title}`,
+    const { el, close } = openModal({
+      title: `🎭 Roleplay: ${escHtml(scenario.title)}`,
       size: 'md',
       body: `
-        <div id="chat-area" style="height:200px;overflow-y:auto;background:var(--surface-2);border-radius:var(--radius-sm);padding:10px;margin-bottom:10px;font-size:0.82rem">
-          <div style="color:var(--danger);margin-bottom:8px">👤 ลูกค้า: "${scenario.title}"</div>
+        ${notEnabled ? `<div style="font-size:0.7rem;color:var(--warning);margin-bottom:8px;padding:6px 10px;background:var(--surface-2);border-radius:6px">⚠️ ต้องล็อกอินด้วยบัญชีจริงเพื่อคุยกับ AI ลูกค้าจำลอง</div>` : ''}
+        <div id="chat-area" style="height:220px;overflow-y:auto;background:var(--surface-2);border-radius:var(--radius-sm);padding:10px;margin-bottom:10px;font-size:0.82rem">
+          <div style="color:var(--danger);margin-bottom:8px">👤 ลูกค้า: "${escHtml(scenario.title)}"</div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:6px">
-          ${replies.map((r, i) => `<button class="btn btn-secondary reply-opt" data-idx="${i}" style="text-align:left;font-size:0.8rem">💬 ${r}</button>`).join('')}
+        <div style="display:flex;gap:6px;margin-bottom:8px">
+          <input class="input" id="rp-input" placeholder="พิมพ์คำตอบของคุณ (พนักงานขาย)..." style="flex:1" ${notEnabled ? 'disabled' : ''}>
+          <button class="btn btn-primary" id="rp-send" ${notEnabled ? 'disabled' : ''}>ส่ง</button>
+        </div>
+        <div style="display:flex;justify-content:flex-end">
+          <button class="btn btn-secondary btn-xs" id="rp-feedback" ${notEnabled ? 'disabled' : ''}>🤖 ขอ Feedback ภาพรวม</button>
         </div>
       `,
+      footer: `<button class="btn btn-secondary" id="rp-close">ปิด</button>`,
     })
 
+    async function sendReply() {
+      const input = el.querySelector('#rp-input')
+      const text = input?.value.trim()
+      const sendBtn = el.querySelector('#rp-send')
+      const chatArea = el.querySelector('#chat-area')
+      if (!text || sending) return
+      sending = true; sendBtn.disabled = true
+      chatArea.innerHTML += `<div style="color:var(--success);margin-bottom:8px">🧑‍💼 เซลส์: "${escHtml(text)}"</div>`
+      chatArea.scrollTop = chatArea.scrollHeight
+      input.value = ''
+      const historyBefore = [...history]
+      history.push({ role: 'user', content: text })
+      try {
+        const reply = await askAiOfficer('sales-coach-' + scenario.id, text, historyBefore, systemPrompt)
+        history.push({ role: 'assistant', content: reply })
+        chatArea.innerHTML += `<div style="color:var(--danger);margin-bottom:8px">👤 ลูกค้า: "${escHtml(reply)}"</div>`
+        chatArea.scrollTop = chatArea.scrollHeight
+      } catch (e) { showToast('AI ตอบไม่สำเร็จ ลองใหม่อีกครั้ง', 'error') }
+      sending = false; sendBtn.disabled = false
+    }
+
     setTimeout(() => {
-      document.querySelectorAll('.reply-opt').forEach(b => b.addEventListener('click', () => {
-        const area = document.getElementById('chat-area')
-        if (area) {
-          area.innerHTML += `<div style="color:var(--success);margin-bottom:8px">🧑‍💼 เซลส์: "${replies[+b.dataset.idx]}"</div>`
-          area.innerHTML += `<div style="color:var(--primary);margin-top:8px">🤖 AI: ดีมาก! นี่คือเทคนิคที่ถูกต้อง ลองใช้กับลูกค้าจริงได้เลย</div>`
-          area.scrollTop = area.scrollHeight
-        }
-      }))
-    }, 100)
+      el.querySelector('#rp-send')?.addEventListener('click', sendReply)
+      el.querySelector('#rp-input')?.addEventListener('keydown', e => { if (e.key === 'Enter') sendReply() })
+      el.querySelector('#rp-close')?.addEventListener('click', close)
+      el.querySelector('#rp-feedback')?.addEventListener('click', async () => {
+        const btn = el.querySelector('#rp-feedback')
+        if (history.length < 3) { showToast('คุยกับลูกค้าจำลองก่อนสักหน่อยแล้วค่อยขอ Feedback', 'warning'); return }
+        btn.disabled = true; btn.textContent = '⏳ กำลังวิเคราะห์...'
+        const convo = history.map(h => (h.role === 'user' ? 'เซลส์' : 'ลูกค้า') + ': ' + h.content).join('\n')
+        try {
+          const feedback = await askAiOfficer('sales-coach-feedback', 'ประเมิน feedback บทสนทนาการขายนี้:\n' + convo, [],
+            'คุณคือโค้ชฝึกขายมืออาชีพของโชว์รูมรถ EV ประเมินบทสนทนาที่แนบมา ให้คะแนน 1-10 พร้อมจุดที่ทำได้ดีและจุดที่ควรปรับปรุง 2-3 ข้อ ตอบภาษาไทยกระชับ ไม่ต้องมี markdown')
+          openModal({ title: '🤖 Feedback จาก AI Coach', size: 'sm', body: `<div style="font-size:0.85rem;line-height:1.7;white-space:pre-line">${escHtml(feedback)}</div>` })
+        } catch { showToast('ขอ Feedback ไม่สำเร็จ', 'error') }
+        btn.disabled = false; btn.textContent = '🤖 ขอ Feedback ภาพรวม'
+      })
+    }, 50)
   }
 
   renderPage()
