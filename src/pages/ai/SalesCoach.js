@@ -7,6 +7,9 @@ import { showToast } from '../../core/store.js'
 import { askAiOfficer, isAiEnabled } from '../../utils/ai.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+// AI มักตอบด้วย **ตัวหนา** แม้ system prompt จะขอไม่ให้มี markdown ก็ตาม (โมเดลไม่เชื่อฟังเสมอไป) —
+// แปลงเป็น <b> หลัง escHtml() แล้วเท่านั้น (ปลอดภัยเพราะ escHtml ทำลาย tag จากข้อความ AI ไปก่อนแล้ว)
+function mdBold(s) { return escHtml(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>') }
 
 const COACHING_TOPICS = [
   { id: 'objection', title: 'รับมือข้อโต้แย้ง', icon: '🛡', desc: 'เทคนิคตอบข้อโต้แย้งจากลูกค้า' },
@@ -223,7 +226,7 @@ export default async function SalesCoachPage(container) {
         try {
           const feedback = await askAiOfficer('sales-coach-feedback', 'ประเมิน feedback บทสนทนาการขายนี้:\n' + convo, [],
             'คุณคือโค้ชฝึกขายมืออาชีพของโชว์รูมรถ EV ประเมินบทสนทนาที่แนบมา ให้คะแนน 1-10 พร้อมจุดที่ทำได้ดีและจุดที่ควรปรับปรุง 2-3 ข้อ ตอบภาษาไทยกระชับ ไม่ต้องมี markdown')
-          openModal({ title: '🤖 Feedback จาก AI Coach', size: 'sm', body: `<div style="font-size:0.85rem;line-height:1.7;white-space:pre-line">${escHtml(feedback)}</div>` })
+          openModal({ title: '🤖 Feedback จาก AI Coach', size: 'sm', body: `<div style="font-size:0.85rem;line-height:1.7;white-space:pre-line">${mdBold(feedback)}</div>` })
         } catch { showToast('ขอ Feedback ไม่สำเร็จ', 'error') }
         btn.disabled = false; btn.textContent = '🤖 ขอ Feedback ภาพรวม'
       })

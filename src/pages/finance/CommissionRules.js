@@ -56,8 +56,10 @@ const SIM_PRESETS = [
 async function seedBaseRules() {
   const created = []
   for (const r of BASE_RULES) {
-    const id = await createDoc('commission_rules', { ...r, tiers: r.tiers ? r.tiers.map(t => ({ ...t })) : undefined })
-    created.push({ ...r, id, tiers: r.tiers ? r.tiers.map(t => ({ ...t })) : undefined })
+    const payload = { ...r }
+    if (r.tiers) payload.tiers = r.tiers.map(t => ({ ...t })); else delete payload.tiers
+    const id = await createDoc('commission_rules', payload)
+    created.push({ ...payload, id })
   }
   return created
 }
@@ -124,8 +126,10 @@ export async function loadOrSeedRules() {
   const missing = BASE_RULES.filter(r => !existingKeys.has(r.key))
   for (const r of missing) {
     try {
-      const id = await createDoc('commission_rules', { ...r, tiers: r.tiers ? r.tiers.map(t => ({ ...t })) : undefined })
-      rules.push({ ...r, id })
+      const payload = { ...r }
+      if (r.tiers) payload.tiers = r.tiers.map(t => ({ ...t })); else delete payload.tiers
+      const id = await createDoc('commission_rules', payload)
+      rules.push({ ...payload, id })
     } catch { /* ข้ามกติกาที่บันทึกไม่สำเร็จ — ไม่ให้ทั้งหน้าพังเพราะกติกาเสริมตัวเดียว */ }
   }
   return rules

@@ -52,7 +52,7 @@ export default async function StockAuditPage(container) {
       return
     }
     const checked = stock.filter(s => s.checked)
-    const pct = Math.round(checked.length / stock.length * 100)
+    const pct = stock.length ? Math.round(checked.length / stock.length * 100) : 0
     const mismatched = checked.filter(s => s.foundLoc && s.foundLoc !== s.systemLoc)
     const missing = checked.filter(s => s.foundLoc === 'ไม่พบ!')
     const done = checked.length === stock.length

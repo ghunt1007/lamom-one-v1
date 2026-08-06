@@ -5,7 +5,9 @@
 import { formatDate, formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, updateDocData, createDoc, seedDemoData } from '../../core/db.js'
+
+function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
 const RECALL_STATUS = {
   open:       { label: 'เปิดอยู่', color: 'danger' },
@@ -63,6 +65,7 @@ export default async function RecallManagementPage(container) {
             <div class="page-title">🔔 Recall Management</div>
             <div class="page-subtitle">จัดการการเรียกคืนและแจ้งเตือนรถ</div>
           </div>
+          <button class="btn btn-primary" id="new-recall-btn">➕ สร้าง Recall Campaign</button>
         </div>
 
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
@@ -140,6 +143,63 @@ export default async function RecallManagementPage(container) {
       selectedRecall = selectedRecall?.id === r?.id ? null : r
       renderPage()
     }))
+
+    // เดิมทั้งหน้านี้และ RecallTracker.js (/service/recall-tracker) อ่านจาก recall_campaigns อย่างเดียว
+    // ไม่มีทางสร้างแคมเปญใหม่ได้เลยจากในแอป (ต้องเข้า Firestore console ตรงเท่านั้น) — ทำให้ทั้งฟีเจอร์ Recall
+    // ใช้งานจริงไม่ได้เลยในระบบที่ยังไม่มีข้อมูล seed มาก่อน พบจากการทดสอบคลิกใช้งานจริง
+    document.getElementById('new-recall-btn')?.addEventListener('click', () => {
+      const { el, close } = openModal({
+        title: '➕ สร้าง Recall Campaign ใหม่',
+        size: 'sm',
+        body: `<div style="display:flex;flex-direction:column;gap:10px;font-size:0.8rem">
+          <div><label style="font-size:0.72rem;color:var(--text-muted)">หัวข้อ Recall *</label>
+            <input class="input" id="nr-title" style="width:100%;margin-top:4px" placeholder="เช่น เปลี่ยนปั๊มเบรก"></div>
+          <div><label style="font-size:0.72rem;color:var(--text-muted)">เลข Recall *</label>
+            <input class="input" id="nr-no" style="width:100%;margin-top:4px" placeholder="เช่น RC-2026-001"></div>
+          <div style="display:flex;gap:8px">
+            <div style="flex:1"><label style="font-size:0.72rem;color:var(--text-muted)">ยี่ห้อ *</label>
+              <input class="input" id="nr-brand" style="width:100%;margin-top:4px"></div>
+            <div style="flex:1"><label style="font-size:0.72rem;color:var(--text-muted)">รุ่น *</label>
+              <input class="input" id="nr-model" style="width:100%;margin-top:4px"></div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <div style="flex:1"><label style="font-size:0.72rem;color:var(--text-muted)">ความรุนแรง</label>
+              <select class="input" id="nr-sev" style="width:100%;margin-top:4px">
+                <option value="critical">🔴 วิกฤต</option><option value="high" selected>🟡 สูง</option>
+                <option value="medium">กลาง</option><option value="low">ต่ำ</option>
+              </select></div>
+            <div style="flex:1"><label style="font-size:0.72rem;color:var(--text-muted)">Deadline</label>
+              <input class="input" type="date" id="nr-deadline" style="width:100%;margin-top:4px"></div>
+          </div>
+          <div><label style="font-size:0.72rem;color:var(--text-muted)">จำนวนรถที่เกี่ยวข้อง (คัน) *</label>
+            <input class="input" type="number" id="nr-total" style="width:100%;margin-top:4px" placeholder="0"></div>
+          <div><label style="font-size:0.72rem;color:var(--text-muted)">รายละเอียดการแก้ไข</label>
+            <textarea class="input" id="nr-desc" rows="2" style="width:100%;margin-top:4px" placeholder="สิ่งที่ต้องแก้ไข/เปลี่ยนให้ลูกค้า"></textarea></div>
+        </div>`,
+        confirmText: '💾 สร้าง',
+        onConfirm: async () => {
+          const title = document.getElementById('nr-title')?.value?.trim()
+          const recallNo = document.getElementById('nr-no')?.value?.trim()
+          const brand = document.getElementById('nr-brand')?.value?.trim()
+          const model = document.getElementById('nr-model')?.value?.trim()
+          const total = Math.max(0, Number(document.getElementById('nr-total')?.value) || 0)
+          if (!title || !recallNo || !brand || !model) { showToast('กรุณากรอกข้อมูลที่มี * ให้ครบ', 'warning'); return false }
+          try {
+            await createDoc('recall_campaigns', {
+              title, recallNo, brand, model, total,
+              severity: document.getElementById('nr-sev')?.value || 'medium',
+              deadline: document.getElementById('nr-deadline')?.value || '',
+              fixDescription: document.getElementById('nr-desc')?.value?.trim() || '',
+              status: 'open', totalVehicles: total, fixed: 0, pending: total,
+              issueDate: new Date().toISOString().slice(0, 10),
+            })
+            showToast('✅ สร้าง Recall Campaign แล้ว', 'success')
+            await loadData()
+            return true
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
+        },
+      })
+    })
 
     container.querySelectorAll('.contact-veh-btn').forEach(b => b.addEventListener('click', async e => { e.stopPropagation()
       const v = vehicles.find(x => x.vin === b.dataset.vin)

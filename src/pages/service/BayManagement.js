@@ -49,7 +49,7 @@ export default async function BayManagementPage(container) {
     }
     const free = BAYS.filter(b => b.status === 'free').length
     const busy = BAYS.filter(b => b.status === 'busy').length
-    const util = Math.round(busy / BAYS.length * 100)
+    const util = BAYS.length ? Math.round(busy / BAYS.length * 100) : 0
 
     container.innerHTML = `
       <div class="page-content animate-slide">

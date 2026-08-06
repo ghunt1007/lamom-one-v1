@@ -47,7 +47,7 @@ export default async function SecuritySettingsPage(container) {
     }
     const enabledCount = policies.filter(p => p.enabled).length
     const criticalOff = policies.filter(p => p.critical && !p.enabled).length
-    const score = Math.round(enabledCount / policies.length * 100)
+    const score = policies.length ? Math.round(enabledCount / policies.length * 100) : 0
     const staleSessions = sessions.filter(s => new Date(s.lastActive) < new Date(Date.now() - 24*3600000))
 
     container.innerHTML = `

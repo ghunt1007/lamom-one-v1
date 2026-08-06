@@ -197,7 +197,10 @@ async function aiLookup(queryText) {
     AI_SCHEMA +
     '. ราคาเป็นบาท. ถ้าไม่ใช่รถไฟฟ้าให้ battery="" range=0 chargeAC=0 chargeDC=0. ' +
     'ห้ามมีข้อความอื่นนอก JSON. ถ้าไม่รู้จักรถคันนี้ให้ตอบ {"error":"not_found"}.'
-  const obj = await callClaudeJSON(prompt, 1800)
+  // AI_SCHEMA มีฟิลด์ประมาณ 30 ฟิลด์ + array ย่อยอีก 9 ชุด (safety/tech/adas/colors/pros/cons ฯลฯ) — 1800
+  // token เดิมไม่พอสำหรับรถที่มีข้อมูลจริงเยอะ (เช่น Tesla Model Y) ทำให้ Gemini ตอบ JSON ไม่ทันจบก่อนโดนตัด
+  // (finishReason: MAX_TOKENS) แล้ว regex หา "{...}" ไม่เจอวงเล็บปิด โดน error PARSE ทุกครั้งที่ทดสอบจริง
+  const obj = await callClaudeJSON(prompt, 4000)
   if (obj.error) { const e = new Error('NOT_FOUND'); e.code = 'NOT_FOUND'; throw e }
   obj.id = 'AI_' + Date.now()
   return obj
@@ -211,7 +214,8 @@ async function aiVerifyVehicle(v) {
     'ใช้ชุดฟิลด์: ' + AI_SCHEMA + ', chargeTime. ' +
     'ตอบเป็น JSON เท่านั้น รูปแบบ: {"vehicle": {ออบเจ็กต์รถที่ถูกต้องครบทุกฟิลด์ คง id เดิม}, "changes": [{"field":"ชื่อฟิลด์","old":"ค่าเดิม","new":"ค่าใหม่","reason":"เหตุผลสั้นๆภาษาไทย"}]}. ' +
     'ถ้าทุกอย่างถูกต้องแล้วให้ changes เป็น []. ห้ามมีข้อความนอก JSON.'
-  const result = await callClaudeJSON(prompt, 3000)
+  // ใหญ่กว่า aiLookup อีก เพราะต้องได้ทั้ง vehicle object เต็ม + changes array ในคำตอบเดียว
+  const result = await callClaudeJSON(prompt, 6000)
   if (result.vehicle) result.vehicle.id = v.id
   return result
 }
