@@ -382,7 +382,7 @@ export async function getSalesData() {
       date: b.actualDeliveryDate || b.cutDate || b.bookingDate || (b.createdAt || '').slice(0, 10),
       custName: b.custName, phone: b.phone || '', brand: b.brand, model: ((b.model || '') + ' ' + (b.variant || '')).trim(), plate: b.vin || '',
       salePrice: b.price || 0, cost: b.cost || 0, financeAmount: b.financeAmount || 0,
-      finance: b.comFinance || 0, insurance: 0, accessory: 0, discount: 0,
+      finance: b.comFinance || 0, insurance: b.insuranceAmount || 0, accessory: b.accessoryAmount || 0, discount: 0,
       margin: b.margin || 0, marginLeft: b.marginLeft || 0, totalIncome: b.totalIncome || 0,
       com70: b.com70 || 0, comFinance: b.comFinance || 0, budgetUsed: b.budgetUsed || 0,
       financeCo: b.financeCo || '', salesName: b.salesName || '', status: b.status || '',
@@ -401,6 +401,10 @@ export async function getCommissionData() {
     if (!byKey[key]) byKey[key] = { id: key, salesName: s.salesName, month, carsSold: 0, salePriceTotal: 0, financeTotal: 0, insuranceTotal: 0, accessoryTotal: 0, com70Total: 0, comFinanceTotal: 0, incomeTotal: 0, status: 'pending' }
     const c = byKey[key]
     c.carsSold++; c.salePriceTotal += s.salePrice; c.financeTotal += s.financeAmount
+    // เดิม insuranceTotal/accessoryTotal ประกาศไว้ตอนสร้าง object แต่ไม่มีจุดไหนบวกเพิ่มเลย (ค้างที่ 0 ตลอด
+    // ทุกครั้ง) เพราะ getSalesData() เองก็ hardcode insurance/accessory เป็น 0 มาก่อน — ตอนนี้ทั้งคู่มีข้อมูล
+    // จริงจาก bookings.insuranceAmount/accessoryAmount แล้ว (ดู Bookings.js) จึงบวกสะสมได้จริง
+    c.insuranceTotal += s.insurance; c.accessoryTotal += s.accessory
     c.com70Total += s.com70; c.comFinanceTotal += s.comFinance; c.incomeTotal += s.totalIncome
   })
   return Object.values(byKey)

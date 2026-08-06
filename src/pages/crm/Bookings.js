@@ -800,6 +800,7 @@ export default async function BookingsPage(container) {
         dRow('ต้นทุนรถ', formatCurrency(b.cost)) + dRow('กำไรขั้นต้น (Margin)', formatCurrency(b.margin)) + dRow('งบการตลาดที่ใช้', formatCurrency(b.budgetUsed)) +
         '<div style="display:flex;gap:6px;padding:2px 0"><span style="color:var(--text-muted);min-width:110px;flex-shrink:0;font-size:0.82rem">กำไรคงเหลือ</span><span style="font-weight:700;color:var(--success);font-size:0.82rem">' + formatCurrency(b.marginLeft != null ? b.marginLeft : (b.margin || 0) - (b.budgetUsed || 0)) + '</span></div>' +
         dRow('คอมเซลส์', formatCurrency(b.com70)) + dRow('คอมไฟแนนซ์', formatCurrency(b.comFinance)) +
+        dRow('ยอดขายประกัน', formatCurrency(b.insuranceAmount)) + dRow('ยอดขายอุปกรณ์', formatCurrency(b.accessoryAmount)) +
         '<div style="display:flex;gap:6px;padding:2px 0"><span style="color:var(--text-muted);min-width:110px;flex-shrink:0;font-size:0.82rem">💰 รายได้รวม</span><span style="font-weight:800;color:var(--accent);font-size:0.92rem">' + formatCurrency(b.totalIncome != null ? b.totalIncome : ((b.margin || 0) - (b.budgetUsed || 0)) + (b.com70 || 0) + (b.comFinance || 0)) + '</span></div>' +
         sec('📅 ไทม์ไลน์') +
         dRow('วันจอง', formatDate(b.bookingDate)) + dRow('ยื่นไฟแนนซ์', formatDate(b.submitDate)) + dRow('อนุมัติ', formatDate(b.approveDate)) + dRow('เซ็นสัญญา', formatDate(b.signDate)) + dRow('วันตัดรถ', formatDate(b.cutDate)) + dRow('นัดส่งมอบ', formatDate(b.deliveryDate)) + dRow('ส่งมอบจริง', formatDate(b.actualDeliveryDate)) +
@@ -921,6 +922,10 @@ export default async function BookingsPage(container) {
         sec('💵 กำไร / คอมมิชชั่น (แบบ V8)') +
         '<div class="grid-2">' + inp('bf-margin', 'กำไรขั้นต้น Margin (บาท)', e.margin, 'number') + inp('bf-budget', 'งบการตลาดที่ใช้ (บาท)', e.budgetUsed, 'number') + '</div>' +
         '<div class="grid-2">' + inp('bf-com70', 'คอมเซลส์ (บาท)', e.com70, 'number') + inp('bf-comfin', 'คอมไฟแนนซ์ (บาท)', e.comFinance, 'number') + '</div>' +
+        // ยอดขายประกัน/อุปกรณ์ต่อใบจอง — เดิมไม่มีฟิลด์นี้เลยทั้งระบบ ทำให้หน้า Commission.js ต้องคำนวณค่าคอม
+        // ประกัน/อุปกรณ์จากตัวเลข 0 ตายตัวเสมอ (getSalesData() เคย hardcode insurance:0, accessory:0) เพิ่มที่นี่
+        // เพื่อให้มีข้อมูลจริงต่อใบจองให้หน้าคอมมิชชั่น/รายงานการเงินอื่นๆดึงไปคำนวณได้จริง
+        '<div class="grid-2">' + inp('bf-insamt', 'ยอดขายประกัน (บาท)', e.insuranceAmount, 'number') + inp('bf-accamt', 'ยอดขายอุปกรณ์ (บาท)', e.accessoryAmount, 'number') + '</div>' +
         '<div style="font-size:0.72rem;color:var(--text-muted)">💡 กำไรคงเหลือ = Margin − งบการตลาด · รายได้รวม = กำไรคงเหลือ + คอมเซลส์ + คอมไฟแนนซ์ (คำนวณอัตโนมัติ)</div>' +
         sec('📅 ไทม์ไลน์') +
         '<div class="grid-2">' + inp('bf-bdate', 'วันจอง', e.bookingDate || new Date().toISOString().slice(0, 10), 'date') + inp('bf-submit', 'วันยื่นไฟแนนซ์', e.submitDate, 'date') + '</div>' +
@@ -978,6 +983,7 @@ export default async function BookingsPage(container) {
         price: num('bf-price'), cost: num('bf-cost'), down: num('bf-down'), financeCo: g('bf-finco').value, financeAmount, finStatus: g('bf-finstatus').value,
         installments, interestRate: rate, monthly: calcMonthly(financeAmount, installments, rate), campaign: g('bf-campaign').value,
         margin: num('bf-margin'), budgetUsed: num('bf-budget'), com70: num('bf-com70'), comFinance: num('bf-comfin'),
+        insuranceAmount: num('bf-insamt'), accessoryAmount: num('bf-accamt'),
         marginLeft: num('bf-margin') - num('bf-budget'),
         totalIncome: (num('bf-margin') - num('bf-budget')) + num('bf-com70') + num('bf-comfin'),
         bookingDate: g('bf-bdate').value, submitDate: g('bf-submit').value, approveDate: g('bf-approve').value, signDate: g('bf-sign').value, cutDate: g('bf-cut').value, deliveryDate: g('bf-delivery').value, actualDeliveryDate: g('bf-actual').value,

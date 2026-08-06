@@ -1,29 +1,14 @@
-import { listDocs, createDoc, updateDocData, seedDemoData, getCommissionData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData, getCommissionData, getSalesData } from '../../core/db.js'
 import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { printCommissionSlip } from '../../utils/payrollDocs.js'
+import { calcCommission, loadOrSeedRules } from './CommissionRules.js'
+import { navigate } from '../../core/router.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
-
-// หมายเหตุ (ตรวจสอบแล้ว ยังไม่แก้): หน้านี้จ่ายค่าคอมจริงโดยใช้อัตราคงที่ด้านล่างนี้ ไม่ได้อ่านจาก
-// commission_rules ที่ตั้งค่าได้จริงใน CommissionRules.js — ตรวจสอบแล้วพบว่า schema ของ 2 หน้าไม่ตรงกันจริง:
-// - COMMISSION_RULES ที่นี่เป็นแบบ "% ของยอดเงิน" ต่อประเภท (car_sale/finance/insurance/accessory) คำนวณจาก
-//   c.salePriceTotal/financeTotal/insuranceTotal/accessoryTotal (ยอดรวมต่อเดือนจาก getCommissionData())
-// - CommissionRules.js เป็นกติกาคนละแบบเลย (per_unit/tiered/percent-over-floor/bonus) ที่คำนวณจาก "จำนวนคันที่
-//   ขาย + จำนวนคัน Premium + ยอดเกิน floor price" ต่อเซลส์ — ต้องดึงข้อมูลระดับรายคัน (ไม่ใช่ยอดรวมเดือน) จาก
-//   getSalesData() มาคำนวณใหม่ทั้งหมด (เหมือนที่ CommissionRules.js ทำใน "เดือนนี้จ่ายไป" ซึ่งเป็นแค่ค่าประมาณ
-//   แสดงผล ไม่เคยใช้จ่ายจริง) การรื้อ Commission.js ให้ใช้ตรรกะนั้นเป็นการเปลี่ยนพฤติกรรมหน้าจ่ายเงินจริงแบบมี
-//   ความเสี่ยงสูง (ตัวเลขค่าคอมพนักงานจะเปลี่ยนไปจากที่เคยจ่าย) จึงไม่แก้ในรอบนี้ — ถ้าจะรวม 2 ระบบจริง ควรเลือก
-//   ให้เหลือระบบเดียว (คุยกับฝ่ายบัญชี/HR ก่อนว่าจะใช้สูตรไหนเป็นทางการ) ไม่ใช่แก้แค่โค้ด
-const COMMISSION_RULES = {
-  car_sale:   { label: '🚗 ขายรถ',    rate: 0.005  }, // 0.5% of sale price
-  finance:    { label: '🏦 Finance',  rate: 0.02   }, // 2% of finance amount
-  insurance:  { label: '🛡 ประกัน',   rate: 0.05   }, // 5% of premium
-  accessory:  { label: '🔧 อุปกรณ์',  rate: 0.10   }, // 10% of accessory
 }
 
 const DEMO_COMMISSIONS = [
@@ -33,23 +18,41 @@ const DEMO_COMMISSIONS = [
   { id:'c4', salesName:'วิชัย ขายเก่ง', month:'2025-04', carsSold:1, salePriceTotal:769000, financeTotal:80000, insuranceTotal:18000, accessoryTotal:12000, status:'pending', paidAt:'' },
 ]
 
-function calcComm(c) {
-  const car = (c.salePriceTotal || 0) * COMMISSION_RULES.car_sale.rate
-  const fin = (c.financeTotal || 0) * COMMISSION_RULES.finance.rate
-  const ins = (c.insuranceTotal || 0) * COMMISSION_RULES.insurance.rate
-  const acc = (c.accessoryTotal || 0) * COMMISSION_RULES.accessory.rate
-  return { car, fin, ins, acc, total: car + fin + ins + acc }
-}
-
 export default async function CommissionPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
 
   let comms = []
   let monthFilter = 'all'
+  let rules = []       // กติกาจริงจาก commission_rules (ตั้งค่าได้ที่หน้า Commission Rules)
+  let salesRows = []    // ใบจองจริงทั้งหมด — ใช้หา premiumUnits/overFloor ต่อเซลส์+เดือน (กติกา bonus/percent-over-floor ต้องใช้ระดับรายคัน ไม่ใช่ยอดรวมเดือน)
+
+  // เดิมหน้านี้จ่ายค่าคอมจริงด้วยอัตราคงที่ในไฟล์นี้เอง (0.5%/2%/5%/10%) แยกขาดจากกติกาที่ตั้งค่าได้จริงใน
+  // CommissionRules.js โดยสิ้นเชิง — เจ้าของระบบยืนยันให้เปลี่ยนมาใช้กติกาจาก CommissionRules.js เป็นทางการ
+  // (v1.0.358) เพราะแต่ละบริษัทมีสูตรจ่ายจริงต่างกัน (ค่ารายคัน/ขั้นบันได/โบนัส Premium/% กำไรส่วนเกิน floor/
+  // %ไฟแนนซ์/%ประกัน/%อุปกรณ์) — ดูฟังก์ชัน calcCommission() ที่ CommissionRules.js สำหรับตรรกะเต็ม
+  function calcComm(c) {
+    const [name, month] = [c.salesName, c.month]
+    let premiumUnits = 0, overFloor = 0
+    salesRows.forEach(s => {
+      if (s.salesName !== name || !(s.date || '').startsWith(month)) return
+      const model = (s.model || '').toLowerCase()
+      if (model.includes('seal') || model.includes('han') || model.includes('atto')) premiumUnits++
+      overFloor += Math.max(0, (s.salePrice || 0) - (s.floor || s.cost || s.salePrice || 0))
+    })
+    const { total, breakdownRows } = calcCommission({
+      units: c.carsSold || 0, premiumUnits, overFloor,
+      saleTotal: c.salePriceTotal || 0, financeTotal: c.financeTotal || 0,
+      insuranceTotal: c.insuranceTotal || 0, accessoryTotal: c.accessoryTotal || 0,
+    }, rules)
+    return { total, breakdown: breakdownRows }
+  }
 
   async function loadData() {
-    try { comms = await getCommissionData() } catch {}
+    try {
+      const [c, r, s] = await Promise.all([getCommissionData(), loadOrSeedRules(), getSalesData()])
+      comms = c; rules = r; salesRows = s
+    } catch {}
     if (!comms.length) DEMO_COMMISSIONS.forEach(c => comms.push({ ...c }))
     applyFilter()
   }
@@ -118,14 +121,15 @@ export default async function CommissionPage(container) {
       return
     }
 
+    // เดิมตารางนี้มี 4 คอลัมน์ค่าคอมตายตัว (รถ/Finance/ประกัน/อุปกรณ์) เพราะสูตรเดิมมีแค่ 4 หมวดคงที่ — ตอนนี้
+    // กติกาจริงจาก CommissionRules.js ปรับได้ (เปิด/ปิด/เพิ่มกติกาเองได้) ทำให้จำนวนรายการต่อคนไม่คงที่แล้ว จึง
+    // ย่อเหลือ "รวม" คอลัมน์เดียว ส่วนรายละเอียดเต็มดูได้จากปุ่ม "🖨 สลิป" (รองรับรายการไม่จำกัดจำนวนอยู่แล้ว)
     wrap.innerHTML = `
       <div style="font-weight:600;margin-bottom:10px">📋 รายละเอียดค่าคอม</div>
       <div class="table-wrap">
         <table>
           <thead><tr>
-            <th>เดือน</th><th>เซลส์</th><th>รถที่ขาย</th>
-            <th>ค่าคอมรถ</th><th>ค่าคอม Finance</th><th>ค่าคอมประกัน</th><th>ค่าคอมอุปกรณ์</th>
-            <th>รวม</th><th>สถานะ</th><th></th>
+            <th>เดือน</th><th>เซลส์</th><th>รถที่ขาย</th><th>รวม</th><th>สถานะ</th><th></th>
           </tr></thead>
           <tbody>${filtered.map(c => {
             const comm = calcComm(c)
@@ -135,10 +139,6 @@ export default async function CommissionPage(container) {
                 <td style="font-weight:600;color:var(--primary)">${escHtml(c.month)}</td>
                 <td style="font-weight:600">${escHtml(c.salesName)}</td>
                 <td style="text-align:center">${c.carsSold || 0} คัน</td>
-                <td>${formatCurrency(comm.car)}</td>
-                <td>${formatCurrency(comm.fin)}</td>
-                <td>${formatCurrency(comm.ins)}</td>
-                <td>${formatCurrency(comm.acc)}</td>
                 <td style="font-weight:700;font-size:1rem;color:var(--accent)">${formatCurrency(comm.total)}</td>
                 <td>
                   <span class="badge badge-${isPaid ? 'success' : 'warning'}">${isPaid ? '✅ จ่ายแล้ว' : '⏳ รอจ่าย'}</span>
@@ -171,12 +171,7 @@ export default async function CommissionPage(container) {
       const comm = calcComm(c)
       printCommissionSlip({
         salesName: c.salesName, month: c.month, carsSold: c.carsSold, status: c.status, paidAt: c.paidAt,
-        breakdown: [
-          { label: COMMISSION_RULES.car_sale.label,  base: c.salePriceTotal, rate: COMMISSION_RULES.car_sale.rate,  amount: comm.car },
-          { label: COMMISSION_RULES.finance.label,   base: c.financeTotal,   rate: COMMISSION_RULES.finance.rate,   amount: comm.fin },
-          { label: COMMISSION_RULES.insurance.label, base: c.insuranceTotal, rate: COMMISSION_RULES.insurance.rate, amount: comm.ins },
-          { label: COMMISSION_RULES.accessory.label, base: c.accessoryTotal, rate: COMMISSION_RULES.accessory.rate, amount: comm.acc },
-        ],
+        breakdown: comm.breakdown.length ? comm.breakdown : [{ label: 'ไม่มีกติกาคอมมิชชั่นที่ใช้งานอยู่ (ตั้งค่าได้ที่หน้า Commission Rules)', amount: 0 }],
         total: comm.total,
       })
     }))
@@ -194,13 +189,16 @@ export default async function CommissionPage(container) {
         </div>
       </div>
 
-      <!-- Commission Rate Info -->
+      <!-- Commission Rate Info — ดึงจากกติกาจริงที่ตั้งค่าได้ที่หน้า Commission Rules (v1.0.358) -->
       <div class="card mb-4" style="padding:12px 16px">
-        <div style="font-size:0.82rem;color:var(--text-muted);margin-bottom:6px">อัตราค่าคอม</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <div style="font-size:0.82rem;color:var(--text-muted)">กติกาคอมมิชชั่นที่ใช้งานอยู่</div>
+          <button class="btn btn-ghost btn-xs" id="comm-goto-rules" style="font-size:0.72rem;color:var(--primary)">⚙️ ตั้งค่ากติกา →</button>
+        </div>
         <div style="display:flex;gap:16px;flex-wrap:wrap">
-          ${Object.entries(COMMISSION_RULES).map(([k,v]) => `
-            <div style="font-size:0.8rem"><span style="color:var(--text-2)">${v.label}</span> <span style="font-weight:700;color:var(--accent)">${(v.rate*100).toFixed(1)}%</span></div>
-          `).join('')}
+          ${rules.filter(r => r.active).length ? rules.filter(r => r.active).map(r => `
+            <div style="font-size:0.8rem"><span style="color:var(--text-2)">${escHtml(r.name)}</span> <span style="font-weight:700;color:var(--accent)">${r.type === 'tiered' ? 'ขั้นบันได' : r.type === 'percent' ? (r.value || 0) + '%' : formatCurrency(r.value || 0)}</span></div>
+          `).join('') : '<div style="font-size:0.8rem;color:var(--warning)">⚠️ ยังไม่มีกติกาที่เปิดใช้งาน — ค่าคอมจะเป็น 0 ทุกรายการ</div>'}
         </div>
       </div>
 
@@ -242,12 +240,15 @@ export default async function CommissionPage(container) {
 
   document.getElementById('comm-export').addEventListener('click', () => {
     const filtered = getFiltered()
+    // เดิม export คอลัมน์ค่าคอมแยก 4 หมวดคงที่ (รถ/Finance/ประกัน/อุปกรณ์) ตอนนี้กติกาจริงปรับได้ไม่จำกัด
+    // จำนวนหมวดแล้ว จึง export ยอดรวมสุทธิ + ตัวเลขฐานคำนวณจริงแทน (ดูรายละเอียดต่อรายการได้จากใบสลิป)
     exportToExcel(filtered.map(c => {
       const comm = calcComm(c)
-      return { เดือน:c.month, เซลส์:c.salesName, รถที่ขาย:c.carsSold, ค่าคอมรถ:comm.car, ค่าคอมFinance:comm.fin, ค่าคอมประกัน:comm.ins, ค่าคอมอุปกรณ์:comm.acc, รวม:comm.total, สถานะ:c.status === 'paid' ? 'จ่ายแล้ว' : 'รอจ่าย', วันที่จ่าย:formatDate(c.paidAt) }
+      return { เดือน:c.month, เซลส์:c.salesName, รถที่ขาย:c.carsSold, ยอดขายรถ:c.salePriceTotal, ยอดจัดไฟแนนซ์:c.financeTotal, ยอดขายประกัน:c.insuranceTotal, ยอดขายอุปกรณ์:c.accessoryTotal, ค่าคอมรวมสุทธิ:comm.total, สถานะ:c.status === 'paid' ? 'จ่ายแล้ว' : 'รอจ่าย', วันที่จ่าย:formatDate(c.paidAt) }
     }), `commission-${new Date().toISOString().slice(0,10)}.xlsx`, 'Commission')
     showToast('Export แล้ว', 'success')
   })
+  document.getElementById('comm-goto-rules')?.addEventListener('click', () => navigate('/finance/commission-rules'))
 
   if (container.__routerGen === myGen) await loadData()
 
