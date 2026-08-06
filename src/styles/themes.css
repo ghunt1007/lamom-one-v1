@@ -39,7 +39,10 @@
   --text:        #F9FAFB;
   --text-2:      #D1D5DB;
   --text-3:      #9CA3AF;
-  --text-muted:  #6B7280;
+  /* v1.0.362 — เดิม #6B7280 ตกมาตรฐาน WCAG AA (4.5:1) เมื่อวางบน --surface-3 (2.48:1 เท่านั้น) ทำให้
+     ข้อความ "muted" ที่ใช้ทั่วทั้งแอป (timestamp/hint/label รอง) อ่านยากเกินไปสำหรับผู้มีสายตาเลือนราง —
+     ปรับให้ผ่าน 4.5:1 บนพื้นหลังที่สว่างที่สุด (--surface-3) โดยคง hue เดิมไว้ ไม่เปลี่ยนธีม */
+  --text-muted:  #9BA1AC;
   --border-subtle:#2D3748;
 }
 
@@ -66,8 +69,10 @@
   --info-dim:    rgba(124,77,255,0.12);
   --text:        #E0E7FF;
   --text-2:      #A5B4FC;
-  --text-3:      #6366F1;
-  --text-muted:  #4338CA;
+  /* v1.0.362 — --text-3 เดิม (#6366F1) และ --text-muted เดิม (#4338CA) ตกมาตรฐาน WCAG AA ทั้งคู่บน
+     --surface-3 (4.24:1 และ 1.98:1) ปรับให้ทั้งสองผ่าน 4.5:1 พร้อมคง text-3 สว่างกว่า text-muted เหมือนเดิม */
+  --text-3:      #8D8FF5;
+  --text-muted:  #8982DE;
   --border-subtle:#202050;
 }
 
@@ -123,7 +128,8 @@
   --text:        #F1F8E9;
   --text-2:      #DCEDC8;
   --text-3:      #AED581;
-  --text-muted:  #7CB342;
+  /* v1.0.362 — เดิม #7CB342 ตกมาตรฐาน WCAG AA บน --surface-3 (3.86:1) ปรับให้ผ่าน 4.5:1 */
+  --text-muted:  #8EC258;
   --border-subtle:#253D2A;
 }
 
@@ -179,7 +185,8 @@
   --text:        #EDE7F6;
   --text-2:      #D1C4E9;
   --text-3:      #B39DDB;
-  --text-muted:  #7E57C2;
+  /* v1.0.362 — เดิม #7E57C2 ตกมาตรฐาน WCAG AA บน --surface-3 (3.31:1) ปรับให้ผ่าน 4.5:1 */
+  --text-muted:  #9474CD;
   --border-subtle:#230060;
 }
 
@@ -206,7 +213,9 @@
   --info-dim:    rgba(123,97,255,0.14);
   --text:        #E8FBFF;
   --text-2:      #A8D8E8;
-  --text-3:      #6E92A8;
-  --text-muted:  #4A6478;
+  /* v1.0.362 — --text-3 เดิม (#6E92A8) และ --text-muted เดิม (#4A6478) ตกมาตรฐาน WCAG AA ทั้งคู่บน
+     --surface-3 ที่เป็น rgba ทับ --bg (สีจริงหลัง composite เข้มกว่าที่ตัวเลขดูตรงๆ) ปรับให้ผ่าน 4.5:1 */
+  --text-3:      #7D9EB1;
+  --text-muted:  #7190A8;
   --border-subtle:rgba(0,229,255,0.12);
 }

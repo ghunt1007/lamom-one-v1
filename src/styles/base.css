@@ -32,6 +32,17 @@ p  { line-height: 1.6; color: var(--text-2); }
 a  { color: var(--primary); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
+/* ── Keyboard focus (v1.0.362) ──
+   เดิมทั้งไฟล์ไม่มี :focus-visible เลยแม้แต่จุดเดียว ปุ่ม/ลิงก์/การ์ดคลิกได้ต้องพึ่ง focus ring
+   ของ browser เองล้วนๆ (สีเริ่มต้นของแต่ละ browser อาจกลืนไปกับพื้นหลังธีมเข้มบางธีม) — เพิ่ม focus
+   ring ที่ใช้สี --primary ของธีมปัจจุบันเสมอ ให้ผู้ใช้คีย์บอร์ด (Tab) เห็นตำแหน่ง focus ชัดเจนทุกธีม
+   ใช้ :focus-visible (ไม่ใช่ :focus) เพื่อไม่ให้วงแหวนโผล่ตอนคลิกด้วยเมาส์ (เฉพาะตอน Tab ด้วยคีย์บอร์ด) */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.input:focus-visible { outline: none; } /* .input มี box-shadow เป็น focus indicator ของตัวเองอยู่แล้ว ไม่ต้องซ้ำ */
+
 /* ── Buttons ── */
 .btn {
   display: inline-flex; align-items: center; gap: 8px;
