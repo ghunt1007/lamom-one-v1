@@ -38,10 +38,13 @@ export default async function PdiPage(container) {
   let pdis = []
   let filtered = []
   let statusFilter = 'all'
+  // เดิมไม่มีการแจ้งเลยว่า DEMO_PDI (ตัวอย่าง) ที่โผล่มาแทนตอนยังไม่มีข้อมูล PDI จริงเป็นข้อมูลปลอม
+  let isDemoData = false
 
   async function loadData() {
     try { pdis = await listDocs('pdi', [], 'startDate', 'desc', 200) } catch {}
-    if (!pdis.length) DEMO_PDI.forEach(p => pdis.push({ ...p }))
+    isDemoData = !pdis.length
+    if (isDemoData) DEMO_PDI.forEach(p => pdis.push({ ...p }))
     updateStats(); applyFilter()
   }
 
@@ -52,6 +55,8 @@ export default async function PdiPage(container) {
     })
     const totEl = document.getElementById('pdi-total')
     if (totEl) totEl.textContent = `${pdis.length} รายการ`
+    const demoEl = document.getElementById('pdi-demo-indicator')
+    if (demoEl) demoEl.textContent = isDemoData ? '⚠️ ข้อมูลตัวอย่าง (ยังไม่มี PDI จริงในระบบ)' : ''
   }
 
   function applyFilter() {
@@ -284,7 +289,10 @@ export default async function PdiPage(container) {
       <div class="page-header">
         <div>
           <div class="page-title">✅ PDI — Pre-Delivery Inspection</div>
-          <div class="page-subtitle" id="pdi-total">กำลังโหลด...</div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <span class="page-subtitle" id="pdi-total">กำลังโหลด...</span>
+            <span style="font-size:0.76rem;color:var(--warning);font-weight:600" id="pdi-demo-indicator"></span>
+          </div>
         </div>
         <div class="page-actions">
           <button class="btn btn-secondary btn-sm" id="pdi-stock-btn">📦 ไปสต็อก</button>

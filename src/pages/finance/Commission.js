@@ -26,6 +26,7 @@ export default async function CommissionPage(container) {
   let monthFilter = 'all'
   let rules = []       // กติกาจริงจาก commission_rules (ตั้งค่าได้ที่หน้า Commission Rules)
   let salesRows = []    // ใบจองจริงทั้งหมด — ใช้หา premiumUnits/overFloor ต่อเซลส์+เดือน (กติกา bonus/percent-over-floor ต้องใช้ระดับรายคัน ไม่ใช่ยอดรวมเดือน)
+  let isDemoData = false
 
   // เดิมหน้านี้จ่ายค่าคอมจริงด้วยอัตราคงที่ในไฟล์นี้เอง (0.5%/2%/5%/10%) แยกขาดจากกติกาที่ตั้งค่าได้จริงใน
   // CommissionRules.js โดยสิ้นเชิง — เจ้าของระบบยืนยันให้เปลี่ยนมาใช้กติกาจาก CommissionRules.js เป็นทางการ
@@ -53,7 +54,8 @@ export default async function CommissionPage(container) {
       const [c, r, s] = await Promise.all([getCommissionData(), loadOrSeedRules(), getSalesData()])
       comms = c; rules = r; salesRows = s
     } catch {}
-    if (!comms.length) DEMO_COMMISSIONS.forEach(c => comms.push({ ...c }))
+    isDemoData = !comms.length
+    if (isDemoData) DEMO_COMMISSIONS.forEach(c => comms.push({ ...c }))
     applyFilter()
   }
 
@@ -72,6 +74,8 @@ export default async function CommissionPage(container) {
     const pending = total - paid
 
     const el = document.getElementById('comm-summary')
+    const demoEl = document.getElementById('comm-demo-indicator')
+    if (demoEl) demoEl.textContent = isDemoData ? '⚠️ ข้อมูลตัวอย่าง (ยังไม่มีค่าคอมจริงในระบบ)' : ''
     if (!el) return
 
     // Group by sales
@@ -182,7 +186,10 @@ export default async function CommissionPage(container) {
       <div class="page-header">
         <div>
           <div class="page-title">🏆 ค่าคอมมิชชั่น</div>
-          <div class="page-subtitle">ค่าคอมเซลส์ทุกช่องทาง</div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <div class="page-subtitle">ค่าคอมเซลส์ทุกช่องทาง</div>
+            <span style="font-size:0.76rem;color:var(--warning);font-weight:600" id="comm-demo-indicator"></span>
+          </div>
         </div>
         <div class="page-actions">
           <button class="btn btn-secondary btn-sm" id="comm-export">📥 Export</button>

@@ -27,6 +27,7 @@ export default async function PartsPage(container) {
   let catFilter = 'all'
   let search = ''
   let lowStockOnly = false
+  let isDemoData = false
 
   // Real-time: อัปเดตสดเมื่อมีคนแก้ไขคลังอะไหล่จากเครื่องอื่น — renderTable() แก้แค่ #parts-content
   // และ #parts-total/#parts-low/#parts-value เท่านั้น ไม่แตะช่องค้นหาเลย จึงปลอดภัย
@@ -34,7 +35,8 @@ export default async function PartsPage(container) {
   const unsubParts = watchDocs('parts', [], 'name', 'asc', 1000, rows => {
     if (container.__routerGen !== myGen) { unsubParts(); return }
     parts = rows
-    if (!parts.length && firstSnapshot) DEMO_PARTS.forEach(p => parts.push({ ...p }))
+    isDemoData = !parts.length && firstSnapshot
+    if (isDemoData) DEMO_PARTS.forEach(p => parts.push({ ...p }))
     firstSnapshot = false
     updateStats(); applyFilter()
   })
@@ -49,6 +51,8 @@ export default async function PartsPage(container) {
     if (lowEl) { lowEl.textContent = `⚠️ ใกล้หมด ${low} รายการ`; lowEl.style.color = low > 0 ? 'var(--danger)' : 'var(--text-muted)' }
     const valEl = document.getElementById('parts-value')
     if (valEl) valEl.textContent = `มูลค่าคลัง: ${formatCurrency(value)}`
+    const demoEl = document.getElementById('parts-demo-indicator')
+    if (demoEl) demoEl.textContent = isDemoData ? '⚠️ ข้อมูลตัวอย่าง (ยังไม่มีอะไหล่จริงในระบบ)' : ''
   }
 
   function applyFilter() {
@@ -270,6 +274,7 @@ export default async function PartsPage(container) {
             <span class="page-subtitle" id="parts-total">กำลังโหลด...</span>
             <span style="font-size:0.8rem" id="parts-low"></span>
             <span style="font-size:0.8rem;color:var(--accent)" id="parts-value"></span>
+            <span style="font-size:0.76rem;color:var(--warning);font-weight:600" id="parts-demo-indicator"></span>
           </div>
         </div>
         <div class="page-actions">

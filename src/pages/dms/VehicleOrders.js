@@ -40,6 +40,8 @@ export default async function VehicleOrdersPage(container) {
   let filtered = []
   let statusFilter = 'all'
   let search = ''
+  // เดิมไม่มีการแจ้งเลยว่า DEMO_ORDERS ที่โผล่มาแทนตอนยังไม่มีคำสั่งซื้อจริงเป็นข้อมูลปลอม
+  let isDemoData = false
 
   // Real-time: อัปเดตสดเมื่อมีคนแก้ไขคำสั่งซื้อรถจากเครื่องอื่น — renderTable()/updateStats() แก้แค่
   // #orders-content/#orders-filtered/#ostat-*/#order-value/#order-total เท่านั้น ไม่แตะช่องค้นหาเลย
@@ -47,7 +49,8 @@ export default async function VehicleOrdersPage(container) {
   const unsubOrders = watchDocs('vehicle_orders', [], 'createdAt', 'desc', 200, rows => {
     if (container.__routerGen !== myGen) { unsubOrders(); return }
     orders = rows
-    if (!orders.length && firstSnapshot) DEMO_ORDERS.forEach(o => orders.push({ ...o }))
+    isDemoData = !orders.length && firstSnapshot
+    if (isDemoData) DEMO_ORDERS.forEach(o => orders.push({ ...o }))
     firstSnapshot = false
     updateStats(); applyFilter()
   })
@@ -62,6 +65,8 @@ export default async function VehicleOrdersPage(container) {
     if (el) el.textContent = `มูลค่าคำสั่งซื้อรวม: ${formatCurrency(totalCost)}`
     const totEl = document.getElementById('order-total')
     if (totEl) totEl.textContent = `${orders.length} รายการ`
+    const demoEl = document.getElementById('order-demo-indicator')
+    if (demoEl) demoEl.textContent = isDemoData ? '⚠️ ข้อมูลตัวอย่าง (ยังไม่มีคำสั่งซื้อจริง)' : ''
   }
 
   function applyFilter() {
@@ -290,6 +295,7 @@ export default async function VehicleOrdersPage(container) {
           <div style="display:flex;gap:12px;align-items:center">
             <span class="page-subtitle" id="order-total">กำลังโหลด...</span>
             <span style="font-size:0.8rem;color:var(--accent)" id="order-value"></span>
+            <span style="font-size:0.76rem;color:var(--warning);font-weight:600" id="order-demo-indicator"></span>
           </div>
         </div>
         <div class="page-actions">

@@ -46,13 +46,15 @@ export default async function JobCardsPage(container) {
   let filtered = []
   let statusFilter = 'all'
   let search = ''
+  let isDemoData = false
 
   // Real-time: อัปเดตสดเมื่อมีคนเปิด/แก้ไข/ปิด Job Card จากเครื่องอื่น (ไม่แตะช่องค้นหา จึงไม่รบกวนตอนกำลังพิมพ์)
   let firstSnapshot = true
   const unsubJobs = watchDocs('job_cards', [], 'createdAt', 'desc', 500, rows => {
     if (container.__routerGen !== myGen) { unsubJobs(); return }
     jobs = rows
-    if (!jobs.length && firstSnapshot) DEMO_JOBS.forEach(j => jobs.push({ ...j }))
+    isDemoData = !jobs.length && firstSnapshot
+    if (isDemoData) DEMO_JOBS.forEach(j => jobs.push({ ...j }))
     firstSnapshot = false
     updateStats(); applyFilter()
   })
@@ -68,6 +70,8 @@ export default async function JobCardsPage(container) {
     const revEl = document.getElementById('job-revenue')
     const rev = jobs.filter(j => j.status === 'done' || j.status === 'delivered').reduce((s, j) => s + (j.labor || 0), 0)
     if (revEl) revEl.textContent = `รายได้: ${formatCurrency(rev)}`
+    const demoEl = document.getElementById('job-demo-indicator')
+    if (demoEl) demoEl.textContent = isDemoData ? '⚠️ ข้อมูลตัวอย่าง (ยังไม่มี Job Card จริงในระบบ)' : ''
   }
 
   function applyFilter() {
@@ -298,6 +302,7 @@ export default async function JobCardsPage(container) {
           <div style="display:flex;gap:12px;align-items:center">
             <span class="page-subtitle" id="job-total">กำลังโหลด...</span>
             <span style="font-size:0.8rem;color:var(--accent)" id="job-revenue"></span>
+            <span style="font-size:0.76rem;color:var(--warning);font-weight:600" id="job-demo-indicator"></span>
           </div>
         </div>
         <div class="page-actions">

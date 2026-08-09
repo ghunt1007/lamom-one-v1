@@ -26,10 +26,14 @@ export default async function MarginPage(container) {
   let sales = []
   let filtered = []
   let monthFilter = 'all'
+  // เดิมไม่มีการแจ้งเลยว่า DEMO_SALES ที่โผล่มาแทนตอนยังไม่มีใบจองจริงเป็นข้อมูลปลอม (dormant อยู่ตอนนี้
+  // เพราะมีใบจองจริงแล้ว แต่ยังเป็นบั๊กแฝงถ้าใบจองจริงหายไปชั่วคราว/ยังไม่มีในระบบใหม่)
+  let isDemoData = false
 
   async function loadData() {
     try { sales = await getSalesData() } catch {}
-    if (!sales.length) DEMO_SALES.forEach(s => sales.push({ ...s }))
+    isDemoData = !sales.length
+    if (isDemoData) DEMO_SALES.forEach(s => sales.push({ ...s }))
     applyFilter()
   }
 
@@ -52,6 +56,8 @@ export default async function MarginPage(container) {
     const pctEl = document.getElementById('sum-pct')
     if (pctEl) { pctEl.textContent = `${avgPct}%`; pctEl.style.color = Number(avgPct) >= 10 ? 'var(--success)' : 'var(--danger)' }
     const cntEl = document.getElementById('sum-count'); if (cntEl) cntEl.textContent = `${filtered.length} คัน`
+    const demoEl = document.getElementById('margin-demo-indicator')
+    if (demoEl) demoEl.textContent = isDemoData ? '⚠️ ข้อมูลตัวอย่าง (ยังไม่มีใบจองจริง)' : ''
   }
 
   function renderTable() {
@@ -104,7 +110,10 @@ export default async function MarginPage(container) {
       <div class="page-header">
         <div>
           <div class="page-title">📊 Margin per Car</div>
-          <div class="page-subtitle">กำไรต่อคัน วิเคราะห์ยอดขาย</div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <span class="page-subtitle">กำไรต่อคัน วิเคราะห์ยอดขาย</span>
+            <span style="font-size:0.76rem;color:var(--warning);font-weight:600" id="margin-demo-indicator"></span>
+          </div>
         </div>
         <div class="page-actions">
           <button class="btn btn-secondary btn-sm" id="margin-export">📥 Export</button>

@@ -65,6 +65,10 @@ export default async function StockPage(container) {
   let brandFilter = 'all'
   let search = ''
   let viewMode = 'table' // table | card
+  // เดิมหน้านี้ไม่มีการแจ้งเลยว่า DEMO_STOCK (7 คันตัวอย่าง) ที่โผล่มาแทนตอนยังไม่มีรถจริงเป็นข้อมูลปลอม
+  // (ทุกหน้าอื่นในระบบที่ fallback แบบเดียวกัน เช่น Staff.js มี badge "⚠️ ข้อมูลตัวอย่าง" เตือนไว้เสมอ) ทำให้
+  // ดูเหมือนมีรถในสต็อกจริง 7 คันทั้งที่ยังไม่มีรถจริงเลยแม้แต่คันเดียว — เพิ่ม badge แบบเดียวกัน
+  let isDemoData = false
 
   // Real-time: อัปเดตสดเมื่อมีคนแก้ไขสต็อกรถจากเครื่องอื่น — หน้านี้ renderContent()/updateStats()
   // แก้แค่ #stock-content/#stock-filtered/#vstat-*/#stock-total เท่านั้น ไม่แตะช่องค้นหาเลย จึงปลอดภัย
@@ -74,7 +78,8 @@ export default async function StockPage(container) {
     // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true — ถ้าไม่กรองออก รถที่ "ลบ" ไปแล้วจะยังโผล่กลับมา
     // ในสต็อกทุกครั้งที่มี snapshot ใหม่เข้ามา (รวมถึง snapshot จากการลบเองด้วย)
     stock = rows.filter(v => !v.deleted)
-    if (!stock.length && firstSnapshot) DEMO_STOCK.forEach(v => stock.push({ ...v }))
+    isDemoData = !stock.length && firstSnapshot
+    if (isDemoData) DEMO_STOCK.forEach(v => stock.push({ ...v }))
     firstSnapshot = false
     // ลิงก์ใบจอง (แหล่งกลาง): จับคู่ตาม VIN → แสดงสถานะจอง/ลูกค้าบนรถในสต็อก
     try {
@@ -95,6 +100,8 @@ export default async function StockPage(container) {
     })
     const totalEl = document.getElementById('stock-total')
     if (totalEl) totalEl.textContent = `${stock.length} คัน`
+    const demoEl = document.getElementById('stock-demo-indicator')
+    if (demoEl) demoEl.textContent = isDemoData ? '⚠️ ข้อมูลตัวอย่าง (ยังไม่มีรถในสต็อกจริง)' : ''
 
     // Value stats
     const availableValue = stock.filter(v => v.status === 'available').reduce((s, v) => s + (v.cost || 0), 0)
@@ -462,6 +469,7 @@ export default async function StockPage(container) {
           <div style="display:flex;gap:12px;align-items:center">
             <span class="page-subtitle" id="stock-total">กำลังโหลด...</span>
             <span style="font-size:0.8rem;color:var(--accent)" id="stock-value"></span>
+            <span style="font-size:0.76rem;color:var(--warning);font-weight:600" id="stock-demo-indicator"></span>
           </div>
         </div>
         <div class="page-actions">
