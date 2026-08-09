@@ -24,7 +24,7 @@ export default async function KeyManagementPage(container) {
 
   async function loadData() {
     loading = true
-    try { keys = await listDocs('keys', [], 'slot', 'asc', 200) } catch (e) { keys = [] }
+    try { keys = (await listDocs('keys', [], 'slot', 'asc', 200)).filter(k => !k.deleted) } catch (e) { keys = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }

@@ -29,7 +29,7 @@ export default async function AccessoryShopPage(container) {
 
   async function loadData() {
     loading = true
-    try { items = await listDocs('accessories', [], 'sold30', 'desc', 200) } catch (e) { items = [] }
+    try { items = (await listDocs('accessories', [], 'sold30', 'desc', 200)).filter(a => !a.deleted) } catch (e) { items = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }

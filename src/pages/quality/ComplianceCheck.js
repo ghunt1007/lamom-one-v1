@@ -41,7 +41,7 @@ export default async function ComplianceCheckPage(container) {
 
   async function loadData() {
     loading = true
-    try { items = await listDocs('compliance_checklist', [], 'nextCheck', 'asc', 200) } catch (e) { items = [] }
+    try { items = (await listDocs('compliance_checklist', [], 'nextCheck', 'asc', 200)).filter(c => !c.deleted) } catch (e) { items = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }

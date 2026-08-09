@@ -2,12 +2,19 @@
  * 5S Audit — ตรวจ 5ส ประจำสัปดาห์
  * Route: /quality/5s
  */
-import { formatDate } from '../../utils/format.js'
+import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
+// เดิม new Date().toISOString() คืนวันที่ตาม UTC เสมอ ผิดไป 1 วันทุกครั้งที่เวลาไทยยังไม่ถึง 07:00 น.
+// (บั๊กคลาสเดียวกับที่แก้ใน TestDriveScheduler.js/Attendance.js — ยึดวันที่ไทยจริงจาก todayBangkok() เสมอ)
+function addDays(n) {
+  const [y, m, d] = todayBangkok().split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 1, d))
+  dt.setUTCDate(dt.getUTCDate() + n)
+  return dt.toISOString().slice(0, 10)
+}
 
 const FIVE_S = [
   { key: 's1', label: 'สะสาง', icon: '🗑', desc: 'แยกของจำเป็น/ไม่จำเป็น ทิ้งของไม่ใช้' },
@@ -28,7 +35,7 @@ export default async function FiveSPage(container) {
 
   async function loadData() {
     loading = true
-    try { areas = await listDocs('five_s_areas', [], 'name', 'asc', 100) } catch (e) { areas = [] }
+    try { areas = (await listDocs('five_s_areas', [], 'name', 'asc', 100)).filter(a => !a.deleted) } catch (e) { areas = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
