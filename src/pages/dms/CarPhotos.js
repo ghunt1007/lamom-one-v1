@@ -66,7 +66,7 @@ export default async function CarPhotosPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">📸 Car Photos</div>
-            <div class="page-subtitle">รูปรถสต็อก — มาตรฐาน 12 มุม พร้อมโพสต์ขาย${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">รูปรถสต็อก — มาตรฐาน 12 มุม พร้อมโพสต์ขาย${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ' <span style="color:var(--warning);font-size:0.75rem;font-weight:600">⚠️ ข้อมูลตัวอย่าง (ยังไม่มีรถในระบบให้ถ่ายภาพจริง)</span>'}</div>
           </div>
         </div>
 

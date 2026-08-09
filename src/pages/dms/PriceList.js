@@ -65,7 +65,7 @@ export default async function PriceListPage(container) {
           ${kpi('🚗 รุ่นรถ', models.length, 'primary')}
           ${kpi('✅ ใช้งาน', models.filter(m=>m.active).length, 'success')}
           ${kpi('📦 สต็อกรวม (จริง)', (realStockCount ?? models.reduce((a,m)=>a+m.stock,0)) + ' คัน', 'primary')}
-          ${kpi('💰 ราคาต่ำสุด', formatCurrency(Math.min(...models.map(m=>m.promotionPrice||m.basePrice))), 'warning')}
+          ${kpi('💰 ราคาต่ำสุด', models.length ? formatCurrency(Math.min(...models.map(m=>m.promotionPrice||m.basePrice))) : formatCurrency(0), 'warning')}
         </div>
 
         <!-- Filters -->

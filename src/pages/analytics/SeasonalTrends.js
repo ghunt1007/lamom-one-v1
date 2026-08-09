@@ -119,7 +119,7 @@ export default async function SeasonalTrendsPage(container) {
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px">
           ${sc('📊 ยอดขายรวม '+selYear, totalSales+' คัน', 'var(--primary)')}
           ${sc('🔥 เดือนพีค', peakMonth+' ('+Math.max(...data)+' คัน)', 'var(--success)')}
-          ${sc('📉 เดือนต่ำสุด', MONTHS[data.indexOf(Math.min(...data.filter(v=>v>0)))]+' คัน', 'var(--warning)')}
+          ${data.filter(v=>v>0).length ? sc('📉 เดือนต่ำสุด', MONTHS[data.indexOf(Math.min(...data.filter(v=>v>0)))]+' คัน', 'var(--warning)') : ''}
           ${sc('📈 Avg/เดือน', Math.round(totalSales/Math.max(data.filter(v=>v>0).length,1))+' คัน', 'var(--text-muted)')}
         </div>
 

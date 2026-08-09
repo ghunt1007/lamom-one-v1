@@ -2,7 +2,7 @@
  * Test Drive Scheduler — ตารางทดลองขับ
  * Route: /dms/testdrive-schedule
  */
-import { formatDate, timeAgo } from '../../utils/format.js'
+import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
@@ -23,7 +23,15 @@ const TD_STATUS = {
 const DEMO_VEHICLES = ['BYD Seal AWD', 'BYD Atto 3', 'MG ZS EV', 'BYD Dolphin']
 const STAFF_LIST = ['วิชัย ยอดขาย', 'สุดา มาดี', 'ธนา เก่ง', 'ปทิตา ที่ปรึกษา']
 
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
+// เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+// เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+// เป็นจุดตั้งต้นเสมอ แล้วบวก/ลบวันด้วย UTC methods (ไม่ผูกกับ timezone ของเครื่อง/เบราว์เซอร์ผู้ใช้)
+function addDays(n) {
+  const [y, m, d] = todayBangkok().split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 1, d))
+  dt.setUTCDate(dt.getUTCDate() + n)
+  return dt.toISOString().slice(0, 10)
+}
 function timeSlot(h) { return `${String(h).padStart(2,'0')}:00` }
 
 const TIME_SLOTS = [9,10,11,13,14,15,16,17].map(timeSlot)
@@ -144,10 +152,10 @@ export default async function TestDriveSchedulerPage(container) {
     `
 
     document.getElementById('prev-day')?.addEventListener('click', () => {
-      const d = new Date(viewDate); d.setDate(d.getDate() - 1); viewDate = d.toISOString().slice(0, 10); renderPage()
+      const d = new Date(viewDate); d.setUTCDate(d.getUTCDate() - 1); viewDate = d.toISOString().slice(0, 10); renderPage()
     })
     document.getElementById('next-day')?.addEventListener('click', () => {
-      const d = new Date(viewDate); d.setDate(d.getDate() + 1); viewDate = d.toISOString().slice(0, 10); renderPage()
+      const d = new Date(viewDate); d.setUTCDate(d.getUTCDate() + 1); viewDate = d.toISOString().slice(0, 10); renderPage()
     })
     document.getElementById('today-btn')?.addEventListener('click', () => { viewDate = addDays(0); renderPage() })
     document.getElementById('book-td-btn')?.addEventListener('click', () => openBookForm())
