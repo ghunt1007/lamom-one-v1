@@ -3,9 +3,9 @@
  * Route: /quality/compliance
  */
 import { formatDate } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -68,6 +68,9 @@ export default async function ComplianceCheckPage(container) {
             <div class="page-title">✅ Compliance Check</div>
             <div class="page-subtitle">ตรวจสอบการปฏิบัติตามกฎหมายและมาตรฐาน</div>
           </div>
+          <div class="page-actions">
+            <button class="btn btn-primary" id="add-check-btn">➕ เพิ่มรายการตรวจ</button>
+          </div>
         </div>
 
         <!-- Compliance Score -->
@@ -124,11 +127,12 @@ export default async function ComplianceCheckPage(container) {
                 <div style="display:flex;gap:6px;align-items:center">
                   <span class="badge badge-${c.criticality==='critical'?'danger':c.criticality==='high'?'warning':'secondary'}" style="font-size:0.62rem">${c.criticality}</span>
                   <button class="btn btn-xs btn-secondary update-btn" data-id="${c.id}">แก้ไข</button>
+                  <button class="btn btn-xs btn-ghost del-check-btn" data-id="${c.id}">🗑️</button>
                 </div>
               </div>
             </div>`
           }).join('')}
-          ${!list.length ? `<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-title">ไม่มีรายการ</div></div>` : ''}
+          ${!list.length ? `<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-title">ไม่มีรายการ</div>${!items.length ? '<div class="empty-desc">กดปุ่ม "➕ เพิ่มรายการตรวจ" ด้านบนเพื่อเริ่มรายการแรก</div>' : ''}</div>` : ''}
         </div>
       </div>
     `
@@ -138,6 +142,56 @@ export default async function ComplianceCheckPage(container) {
     container.querySelectorAll('.update-btn').forEach(b => b.addEventListener('click', () => {
       const c = items.find(x => x.id === b.dataset.id); if (c) openUpdateModal(c)
     }))
+    container.querySelectorAll('.del-check-btn').forEach(b => b.addEventListener('click', () => {
+      deleteCheck(items.find(x => x.id === b.dataset.id))
+    }))
+    document.getElementById('add-check-btn')?.addEventListener('click', openAddForm)
+  }
+
+  async function deleteCheck(c) {
+    if (!c) return
+    const ok = await confirmDialog({ title: '🗑️ ลบรายการตรวจ', message: `ยืนยันลบ "${escHtml(c.title)}"? การลบนี้ไม่สามารถย้อนกลับได้`, confirmText: 'ลบถาวร', danger: true })
+    if (!ok) return
+    await softDelete('compliance_checklist', c.id)
+    showToast('🗑️ ลบรายการตรวจแล้ว', 'success')
+    await loadData()
+  }
+
+  function openAddForm() {
+    const { el, close } = openModal({
+      title: '➕ เพิ่มรายการตรวจ Compliance', size: 'md',
+      body: `<div style="display:flex;flex-direction:column;gap:10px">
+        <div class="input-group"><label class="input-label">ชื่อรายการ *</label><input class="input" id="ca-title"><span class="input-error" id="ca-title-e"></span></div>
+        <div class="grid-2">
+          <div class="input-group"><label class="input-label">หมวด</label>
+            <select class="input" id="ca-cat">${Object.entries(COMPLIANCE_CATS).map(([k,v]) => `<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+          </div>
+          <div class="input-group"><label class="input-label">ความสำคัญ</label>
+            <select class="input" id="ca-criticality"><option value="critical">critical</option><option value="high">high</option><option value="normal" selected>normal</option></select>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="input-group"><label class="input-label">ผู้รับผิดชอบ</label><input class="input" id="ca-owner"></div>
+          <div class="input-group"><label class="input-label">ตรวจถัดไป</label><input class="input" type="date" id="ca-next" value="${addDays(30)}"></div>
+        </div>
+      </div>`,
+      footer: `<button class="btn btn-secondary" id="cac">ยกเลิก</button><button class="btn btn-primary" id="cas">💾 บันทึก</button>`
+    })
+    el.querySelector('#cac').addEventListener('click', close)
+    el.querySelector('#cas').addEventListener('click', async () => {
+      const title = el.querySelector('#ca-title').value.trim()
+      if (!title) { el.querySelector('#ca-title-e').textContent = 'กรุณาระบุ'; return }
+      const btn = el.querySelector('#cas'); btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
+      try {
+        await createDoc('compliance_checklist', {
+          title, cat: el.querySelector('#ca-cat').value, criticality: el.querySelector('#ca-criticality').value,
+          owner: el.querySelector('#ca-owner').value.trim() || '-',
+          status: 'na', notes: '', nextCheck: el.querySelector('#ca-next').value, lastCheck: addDays(0),
+        })
+        showToast('✅ เพิ่มรายการตรวจแล้ว', 'success')
+        close(); await loadData()
+      } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
+    })
   }
 
   function openUpdateModal(c) {

@@ -5,7 +5,7 @@
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -72,6 +72,7 @@ export default async function CustomerSatisfactionPage(container) {
             <div class="page-subtitle">ความพึงพอใจลูกค้า — ติดตามและตอบรีวิว</div>
           </div>
           <div class="page-actions">
+            <button class="btn btn-secondary" id="add-review-btn">➕ บันทึกรีวิว</button>
             <button class="btn btn-primary" id="request-review-btn">📩 ขอรีวิว</button>
           </div>
         </div>
@@ -141,7 +142,7 @@ export default async function CustomerSatisfactionPage(container) {
               ${!r.replied ? `<button class="btn btn-xs btn-primary reply-btn" data-id="${r.id}">💬 ตอบรีวิว</button>` : ''}
             </div>
           `).join('')}
-          ${!list.length ? `<div class="empty-state"><div class="empty-icon">⭐</div><div class="empty-title">ไม่มีรีวิว</div></div>` : ''}
+          ${!list.length ? `<div class="empty-state"><div class="empty-icon">⭐</div><div class="empty-title">ไม่มีรีวิว</div>${!reviews.length ? '<div class="empty-desc">กดปุ่ม "➕ บันทึกรีวิว" ด้านบนเพื่อลงรีวิวที่ลูกค้าให้ทางโทรศัพท์/โซเชียล</div>' : ''}</div>` : ''}
         </div>
       </div>
     `
@@ -155,6 +156,42 @@ export default async function CustomerSatisfactionPage(container) {
     container.querySelectorAll('.reply-btn').forEach(b => b.addEventListener('click', () => {
       const r = reviews.find(x => x.id === b.dataset.id); if (r) openReplyForm(r)
     }))
+    document.getElementById('add-review-btn')?.addEventListener('click', openAddReviewForm)
+  }
+
+  function openAddReviewForm() {
+    const { el, close } = openModal({
+      title: '➕ บันทึกรีวิวลูกค้า', size: 'sm',
+      body: `<div style="display:flex;flex-direction:column;gap:10px">
+        <div class="input-group"><label class="input-label">ลูกค้า *</label><input class="input" id="rv-customer"><span class="input-error" id="rv-customer-e"></span></div>
+        <div class="input-group"><label class="input-label">รุ่นรถ</label><input class="input" id="rv-model"></div>
+        <div class="input-group"><label class="input-label">ช่องทาง</label>
+          <select class="input" id="rv-channel"><option>โทรศัพท์</option><option>Facebook</option><option>Google Review</option><option>LINE</option><option>ในร้าน</option></select>
+        </div>
+        <div class="input-group"><label class="input-label">คะแนน</label>
+          <select class="input" id="rv-score">${[5,4,3,2,1].map(s=>`<option value="${s}">${s} ดาว</option>`).join('')}</select>
+        </div>
+        <div class="input-group"><label class="input-label">ความคิดเห็น</label><textarea class="input" id="rv-comment" rows="3"></textarea></div>
+      </div>`,
+      footer: `<button class="btn btn-secondary" id="rvc">ยกเลิก</button><button class="btn btn-primary" id="rvs">💾 บันทึก</button>`
+    })
+    el.querySelector('#rvc').addEventListener('click', close)
+    el.querySelector('#rvs').addEventListener('click', async () => {
+      const customer = el.querySelector('#rv-customer').value.trim()
+      if (!customer) { el.querySelector('#rv-customer-e').textContent = 'กรุณาระบุ'; return }
+      const btn = el.querySelector('#rvs'); btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
+      try {
+        await createDoc('customer_reviews', {
+          customer, model: el.querySelector('#rv-model').value.trim() || '-',
+          channel: el.querySelector('#rv-channel').value,
+          score: Number(el.querySelector('#rv-score').value),
+          comment: el.querySelector('#rv-comment').value.trim(),
+          date: new Date().toISOString(), replied: false, tags: [],
+        })
+        showToast('✅ บันทึกรีวิวแล้ว', 'success')
+        close(); await loadData()
+      } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
+    })
   }
 
   function openReplyForm(r) {

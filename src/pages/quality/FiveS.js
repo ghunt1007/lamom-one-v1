@@ -3,9 +3,9 @@
  * Route: /quality/5s
  */
 import { formatDate } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
 
@@ -48,6 +48,9 @@ export default async function FiveSPage(container) {
           <div>
             <div class="page-title">🧹 5S Audit</div>
             <div class="page-subtitle">ตรวจ 5ส — สะสาง สะดวก สะอาด สุขลักษณะ สร้างนิสัย</div>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-primary" id="add-area-btn">➕ เพิ่มพื้นที่ตรวจ</button>
           </div>
         </div>
 
@@ -94,10 +97,13 @@ export default async function FiveSPage(container) {
                   </div>`
                 }).join('')}
               </div>
-              <button class="btn btn-xs btn-primary audit-btn" data-id="${a.id}">📋 ตรวจรอบใหม่</button>
+              <div style="display:flex;gap:6px">
+                <button class="btn btn-xs btn-primary audit-btn" data-id="${a.id}">📋 ตรวจรอบใหม่</button>
+                <button class="btn btn-xs btn-ghost del-area-btn" data-id="${a.id}">🗑️ ลบ</button>
+              </div>
             </div>`
           }).join('')}
-          ${!areas.length ? `<div class="empty-state"><div class="empty-icon">🧹</div><div class="empty-title">ไม่มีพื้นที่ตรวจ</div></div>` : ''}
+          ${!areas.length ? `<div class="empty-state"><div class="empty-icon">🧹</div><div class="empty-title">ไม่มีพื้นที่ตรวจ</div><div class="empty-desc">กดปุ่ม "➕ เพิ่มพื้นที่ตรวจ" ด้านบนเพื่อเริ่มตั้งพื้นที่แรก</div></div>` : ''}
         </div>
       </div>
     `
@@ -135,6 +141,45 @@ export default async function FiveSPage(container) {
         }))
       }, 100)
     }))
+    container.querySelectorAll('.del-area-btn').forEach(b => b.addEventListener('click', () => {
+      deleteArea(areas.find(x => x.id === b.dataset.id))
+    }))
+    document.getElementById('add-area-btn')?.addEventListener('click', openAddForm)
+  }
+
+  async function deleteArea(a) {
+    if (!a) return
+    const ok = await confirmDialog({ title: '🗑️ ลบพื้นที่ตรวจ', message: `ยืนยันลบพื้นที่ "${a.name}"? การลบนี้ไม่สามารถย้อนกลับได้`, confirmText: 'ลบถาวร', danger: true })
+    if (!ok) return
+    await softDelete('five_s_areas', a.id)
+    showToast('🗑️ ลบพื้นที่ตรวจแล้ว', 'success')
+    await loadData()
+  }
+
+  function openAddForm() {
+    const { el, close } = openModal({
+      title: '➕ เพิ่มพื้นที่ตรวจ 5ส', size: 'sm',
+      body: `<div style="display:flex;flex-direction:column;gap:10px">
+        <div class="input-group"><label class="input-label">ชื่อพื้นที่ *</label><input class="input" id="fa-name" placeholder="เช่น โชว์รูมหลัก, ห้อง PDI, คลังอะไหล่"><span class="input-error" id="fa-name-e"></span></div>
+        <div class="input-group"><label class="input-label">ผู้รับผิดชอบ</label><input class="input" id="fa-owner"></div>
+      </div>`,
+      footer: `<button class="btn btn-secondary" id="fac">ยกเลิก</button><button class="btn btn-primary" id="fas">💾 บันทึก</button>`
+    })
+    el.querySelector('#fac').addEventListener('click', close)
+    el.querySelector('#fas').addEventListener('click', async () => {
+      const name = el.querySelector('#fa-name').value.trim()
+      if (!name) { el.querySelector('#fa-name-e').textContent = 'กรุณาระบุ'; return }
+      const btn = el.querySelector('#fas'); btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
+      try {
+        await createDoc('five_s_areas', {
+          name, owner: el.querySelector('#fa-owner').value.trim() || '-',
+          scores: { s1: 0, s2: 0, s3: 0, s4: 0, s5: 0 },
+          lastAudit: addDays(0), photos: 0,
+        })
+        showToast('✅ เพิ่มพื้นที่ตรวจแล้ว', 'success')
+        close(); await loadData()
+      } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
+    })
   }
 
   await loadData()

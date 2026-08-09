@@ -5,7 +5,7 @@
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
-import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -95,7 +95,10 @@ export default async function PdpaConsentPage(container) {
         ` : ''}
 
         <!-- DSR Requests -->
-        <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">📨 คำขอใช้สิทธิของเจ้าของข้อมูล (DSR)</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted)">📨 คำขอใช้สิทธิของเจ้าของข้อมูล (DSR)</div>
+          <button class="btn btn-xs btn-primary" id="add-dsr-btn">➕ บันทึกคำขอ DSR</button>
+        </div>
         <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
           ${requests.map(r => {
             const rs = DSR_STATUS[r.status]
@@ -169,6 +172,36 @@ export default async function PdpaConsentPage(container) {
       await updateDocData('pdpa_dsr_requests', b.dataset.id, { status: 'done' })
       showToast('✅ ปิดคำขอ DSR แล้ว — แจ้งลูกค้าทางอีเมล', 'success'); await loadData()
     }))
+    document.getElementById('add-dsr-btn')?.addEventListener('click', openAddDsrForm)
+  }
+
+  function openAddDsrForm() {
+    const { el, close } = openModal({
+      title: '➕ บันทึกคำขอใช้สิทธิ (DSR)', size: 'sm',
+      body: `<div style="display:flex;flex-direction:column;gap:10px">
+        <div class="input-group"><label class="input-label">ลูกค้า *</label><input class="input" id="dr-customer"><span class="input-error" id="dr-customer-e"></span></div>
+        <div class="input-group"><label class="input-label">ประเภทคำขอ</label>
+          <select class="input" id="dr-type"><option>ขอเข้าถึงข้อมูล</option><option>ขอลบข้อมูล</option><option>ขอแก้ไขข้อมูล</option><option>ขอถอนความยินยอม</option><option>ขอโอนย้ายข้อมูล</option></select>
+        </div>
+        <div class="input-group"><label class="input-label">วันที่รับเรื่อง</label><input class="input" type="date" id="dr-received" value="${addDays(0).slice(0,10)}"></div>
+      </div>`,
+      footer: `<button class="btn btn-secondary" id="drc">ยกเลิก</button><button class="btn btn-primary" id="drs">💾 บันทึก</button>`
+    })
+    el.querySelector('#drc').addEventListener('click', close)
+    el.querySelector('#drs').addEventListener('click', async () => {
+      const customer = el.querySelector('#dr-customer').value.trim()
+      if (!customer) { el.querySelector('#dr-customer-e').textContent = 'กรุณาระบุ'; return }
+      const btn = el.querySelector('#drs'); btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
+      const received = el.querySelector('#dr-received').value
+      try {
+        await createDoc('pdpa_dsr_requests', {
+          customer, type: el.querySelector('#dr-type').value,
+          received, deadline: addDays(30), status: 'pending',
+        })
+        showToast('✅ บันทึกคำขอ DSR แล้ว', 'success')
+        close(); await loadData()
+      } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
+    })
   }
 
   await loadData()
