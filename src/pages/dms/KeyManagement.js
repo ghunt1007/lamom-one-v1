@@ -3,9 +3,9 @@
  * Route: /dms/keys
  */
 import { timeAgo } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -45,6 +45,9 @@ export default async function KeyManagementPage(container) {
             <div class="page-title">🔑 Key Management</div>
             <div class="page-subtitle">ตู้กุญแจ — รู้เสมอว่ากุญแจอยู่ไหน ใครถือ</div>
           </div>
+          <div class="page-actions">
+            <button class="btn btn-primary" id="add-key-btn">➕ เพิ่มกุญแจ</button>
+          </div>
         </div>
 
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
@@ -65,7 +68,7 @@ export default async function KeyManagementPage(container) {
           </div>
         ` : ''}
 
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">
+        ${keys.length ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">
           ${keys.map(k => {
             const ks = KEY_STATUS[k.status]
             return `<div class="card" style="padding:12px 14px;border-left:3px solid var(--${ks?.color})">
@@ -81,10 +84,11 @@ export default async function KeyManagementPage(container) {
                 ${k.status === 'in_cabinet' ? `<button class="btn btn-xs btn-warning out-btn" data-id="${k.id}">🔑 เบิก</button>` : ''}
                 ${k.status === 'checked_out' ? `<button class="btn btn-xs btn-success in-btn" data-id="${k.id}">🔐 คืน</button><button class="btn btn-xs btn-danger lost-btn" data-id="${k.id}">🚨 หาย</button>` : ''}
                 ${k.status === 'missing' ? `<button class="btn btn-xs btn-success found-btn" data-id="${k.id}">✅ เจอแล้ว</button>` : ''}
+                <button class="btn btn-xs btn-ghost del-key-btn" data-id="${k.id}" title="ลบช่องกุญแจ">🗑️</button>
               </div>
             </div>`
           }).join('')}
-        </div>
+        </div>` : `<div class="empty-state" style="padding:48px"><div class="empty-icon">🔑</div><div class="empty-title">ยังไม่มีช่องกุญแจในระบบ</div><div class="empty-desc">กดปุ่ม "➕ เพิ่มกุญแจ" ด้านบนเพื่อเริ่มลงทะเบียนกุญแจรถ</div></div>`}
       </div>
     `
 
@@ -139,6 +143,44 @@ export default async function KeyManagementPage(container) {
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
+    container.querySelectorAll('.del-key-btn').forEach(b => b.addEventListener('click', () => {
+      deleteKey(keys.find(x => x.id === b.dataset.id))
+    }))
+    document.getElementById('add-key-btn')?.addEventListener('click', openAddForm)
+  }
+
+  async function deleteKey(k) {
+    if (!k) return
+    const ok = await confirmDialog({ title: '🗑️ ลบช่องกุญแจ', message: `ยืนยันลบช่องกุญแจของ "${escHtml(k.vehicle)}" (ช่อง ${escHtml(k.slot)})? การลบนี้ไม่สามารถย้อนกลับได้`, confirmText: 'ลบถาวร', danger: true })
+    if (!ok) return
+    await softDelete('keys', k.id)
+    showToast('🗑️ ลบช่องกุญแจแล้ว', 'success')
+    await loadData()
+  }
+
+  function openAddForm() {
+    const { el, close } = openModal({
+      title: '➕ เพิ่มช่องกุญแจ', size: 'sm',
+      body: `<div style="display:flex;flex-direction:column;gap:10px">
+        <div class="input-group"><label class="input-label">รถ (ยี่ห้อ/รุ่น/ทะเบียน) *</label><input class="input" id="kf-vehicle"><span class="input-error" id="kf-vehicle-e"></span></div>
+        <div class="input-group"><label class="input-label">VIN</label><input class="input" id="kf-vin"></div>
+        <div class="input-group"><label class="input-label">ช่องในตู้กุญแจ *</label><input class="input" id="kf-slot"><span class="input-error" id="kf-slot-e"></span></div>
+      </div>`,
+      footer: `<button class="btn btn-secondary" id="kfc">ยกเลิก</button><button class="btn btn-primary" id="kfs">💾 บันทึก</button>`
+    })
+    el.querySelector('#kfc').addEventListener('click', close)
+    el.querySelector('#kfs').addEventListener('click', async () => {
+      const vehicle = el.querySelector('#kf-vehicle').value.trim()
+      const slot = el.querySelector('#kf-slot').value.trim()
+      if (!vehicle) { el.querySelector('#kf-vehicle-e').textContent = 'กรุณาระบุ'; return }
+      if (!slot) { el.querySelector('#kf-slot-e').textContent = 'กรุณาระบุ'; return }
+      const btn = el.querySelector('#kfs'); btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
+      try {
+        await createDoc('keys', { vehicle, vin: el.querySelector('#kf-vin').value.trim(), slot, status: 'in_cabinet', holder: null, purpose: null, since: new Date().toISOString() })
+        showToast('✅ เพิ่มช่องกุญแจแล้ว', 'success')
+        close(); await loadData()
+      } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
+    })
   }
 
   await loadData()

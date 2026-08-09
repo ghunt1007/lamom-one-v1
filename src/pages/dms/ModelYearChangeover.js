@@ -55,6 +55,7 @@ export default async function ModelYearChangeoverPage(container) {
             <div class="page-subtitle">บริหารการเปลี่ยน MY · ระบายสต็อกเก่า · แจ้งลูกค้าและเซลส์</div>
           </div>
           <div class="page-actions">
+            <button class="btn btn-secondary" id="add-my-btn">➕ เพิ่ม MY Changeover</button>
             <button class="btn btn-primary" id="notify-btn">📣 แจ้งทีมขาย</button>
           </div>
         </div>
@@ -72,9 +73,9 @@ export default async function ModelYearChangeoverPage(container) {
             <div style="font-size:0.78rem;color:var(--text-muted)">${announced.map(c=>`${escHtml(c.model)} MY${c.oldYear} เหลือ ${c.oldStockLeft} คัน (ขาย MY${c.oldYear} ถูกกว่าใหม่ ${formatCurrency(c.newPrice-c.oldPrice)})`).join(' · ')}</div>
           </div>` : ''}
 
-        <div style="display:flex;flex-direction:column;gap:12px">
+        ${changeovers.length ? `<div style="display:flex;flex-direction:column;gap:12px">
           ${changeovers.map(c => changeCard(c)).join('')}
-        </div>
+        </div>` : `<div class="empty-state" style="padding:48px"><div class="empty-icon">🔄</div><div class="empty-title">ยังไม่มีรายการ Model Year Changeover</div><div class="empty-desc">กดปุ่ม "➕ เพิ่ม MY Changeover" ด้านบนเพื่อเริ่มบันทึกรุ่นที่กำลังเปลี่ยนปี</div></div>`}
       </div>
     `
 
@@ -107,6 +108,60 @@ export default async function ModelYearChangeoverPage(container) {
         showToast(`📣 ส่งการแจ้งเตือนสรุป MY Changeover ${targets.length} รุ่น ให้ทีมขาย/ผู้จัดการ ${count} คนแล้ว`, 'success')
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+    })
+    document.getElementById('add-my-btn')?.addEventListener('click', openAddForm)
+  }
+
+  function openAddForm() {
+    const { el, close } = openModal({
+      title: '➕ เพิ่ม Model Year Changeover', size: 'md',
+      body: `<div style="display:flex;flex-direction:column;gap:10px">
+        <div class="input-group"><label class="input-label">รุ่นรถ *</label><input class="input" id="my-model"><span class="input-error" id="my-model-e"></span></div>
+        <div class="grid-2">
+          <div class="input-group"><label class="input-label">ปี MY เดิม *</label><input class="input" type="number" id="my-oldyear" value="${new Date().getFullYear()+543-1}"></div>
+          <div class="input-group"><label class="input-label">ปี MY ใหม่ *</label><input class="input" type="number" id="my-newyear" value="${new Date().getFullYear()+543}"></div>
+        </div>
+        <div class="grid-2">
+          <div class="input-group"><label class="input-label">วันประกาศ</label><input class="input" type="date" id="my-announced"></div>
+          <div class="input-group"><label class="input-label">วันมีผล</label><input class="input" type="date" id="my-effective"></div>
+        </div>
+        <div class="grid-2">
+          <div class="input-group"><label class="input-label">ราคา MY เดิม (บาท)</label><input class="input" type="number" id="my-oldprice"></div>
+          <div class="input-group"><label class="input-label">ราคา MY ใหม่ (บาท)</label><input class="input" type="number" id="my-newprice"></div>
+        </div>
+        <div class="input-group"><label class="input-label">สต็อกรุ่นเก่าคงเหลือ (คัน)</label><input class="input" type="number" id="my-stockleft" value="0"></div>
+        <div class="input-group"><label class="input-label">สิ่งที่เปลี่ยน (1 บรรทัดต่อ 1 ข้อ)</label><textarea class="input" id="my-changes" rows="3" placeholder="เช่น เพิ่มสีใหม่&#10;ปรับสเปคแบต"></textarea></div>
+        <div class="input-group"><label class="input-label">สถานะ</label>
+          <select class="input" id="my-status">
+            ${Object.entries(ST).map(([k,v]) => `<option value="${k}">${v.label}</option>`).join('')}
+          </select>
+        </div>
+      </div>`,
+      footer: `<button class="btn btn-secondary" id="myc">ยกเลิก</button><button class="btn btn-primary" id="mys">💾 บันทึก</button>`
+    })
+    el.querySelector('#myc').addEventListener('click', close)
+    el.querySelector('#mys').addEventListener('click', async () => {
+      const model = el.querySelector('#my-model').value.trim()
+      const oldYear = Number(el.querySelector('#my-oldyear').value)
+      const newYear = Number(el.querySelector('#my-newyear').value)
+      if (!model) { el.querySelector('#my-model-e').textContent = 'กรุณาระบุ'; return }
+      const btn = el.querySelector('#mys'); btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
+      const data = {
+        model, oldYear, newYear,
+        announcedDate: el.querySelector('#my-announced').value || new Date().toISOString().slice(0,10),
+        effectiveDate: el.querySelector('#my-effective').value || new Date().toISOString().slice(0,10),
+        oldPrice: Number(el.querySelector('#my-oldprice').value) || 0,
+        newPrice: Number(el.querySelector('#my-newprice').value) || 0,
+        oldStockLeft: Number(el.querySelector('#my-stockleft').value) || 0,
+        changes: el.querySelector('#my-changes').value.split('\n').map(s => s.trim()).filter(Boolean),
+        status: el.querySelector('#my-status').value,
+        notified: false,
+      }
+      try {
+        await createDoc('model_year_changeovers', data)
+        showToast('✅ เพิ่ม Model Year Changeover แล้ว', 'success')
+        close(); await loadData()
+      } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 

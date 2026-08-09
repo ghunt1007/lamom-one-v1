@@ -3,9 +3,9 @@
  * Route: /dms/accessories
  */
 import { formatCurrency } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -52,6 +52,7 @@ export default async function AccessoryShopPage(container) {
             <div class="page-subtitle">ขายอุปกรณ์เสริม — Upsell ตอนส่งมอบรถ</div>
           </div>
           <div class="page-actions">
+            <button class="btn btn-secondary" id="add-acc-btn">➕ เพิ่มสินค้า</button>
             <button class="btn btn-primary" id="cart-btn">🛒 ตะกร้า (${cart.length}) ${cartTotal > 0 ? '— ' + formatCurrency(cartTotal) : ''}</button>
           </div>
         </div>
@@ -69,24 +70,28 @@ export default async function AccessoryShopPage(container) {
           ${Object.entries(ACC_CATS).map(([k,v]) => `<button class="btn btn-xs ${catFilter===k?'btn-'+v.color:'btn-secondary'} cf-btn" data-c="${k}">${v.icon} ${v.label}</button>`).join('')}
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px">
+        ${list.length ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px">
           ${list.map(a => {
             const ac = ACC_CATS[a.cat]
-            const marginPct = Math.round((a.price - a.cost) / a.price * 100)
+            const marginPct = a.price ? Math.round((a.price - a.cost) / a.price * 100) : 0
             return `<div class="card" style="padding:14px;display:flex;flex-direction:column">
               <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px">
                 <span class="badge badge-${ac?.color}" style="font-size:0.6rem">${ac?.icon} ${ac?.label}</span>
-                ${a.popular ? '<span class="badge badge-danger" style="font-size:0.58rem">🔥 ขายดี</span>' : ''}
+                <div style="display:flex;gap:4px">
+                  ${a.popular ? '<span class="badge badge-danger" style="font-size:0.58rem">🔥 ขายดี</span>' : ''}
+                  <button class="btn btn-ghost btn-xs edit-acc-btn" data-id="${a.id}" title="แก้ไข">✏️</button>
+                  <button class="btn btn-ghost btn-xs del-acc-btn" data-id="${a.id}" title="ลบ">🗑️</button>
+                </div>
               </div>
               <div style="font-weight:700;font-size:0.85rem;flex:1;margin-bottom:8px">${escHtml(a.name)}</div>
               <div style="font-size:1rem;font-weight:900;color:var(--primary);margin-bottom:4px">${formatCurrency(a.price)}</div>
               <div style="font-size:0.68rem;color:var(--text-muted);margin-bottom:10px">
-                margin ${marginPct}% · ขาย 30 วัน: ${a.sold30} · ${a.stock >= 99 ? 'สั่งตามออเดอร์' : 'สต็อก ' + a.stock}
+                margin ${marginPct}% · ขาย 30 วัน: ${a.sold30||0} · ${a.stock >= 99 ? 'สั่งตามออเดอร์' : 'สต็อก ' + (a.stock||0)}
               </div>
-              <button class="btn btn-xs btn-primary add-cart-btn" data-id="${a.id}" ${a.stock === 0 ? 'disabled' : ''}>+ ใส่ตะกร้า</button>
+              <button class="btn btn-xs btn-primary add-cart-btn" data-id="${a.id}" ${!a.stock ? 'disabled' : ''}>+ ใส่ตะกร้า</button>
             </div>`
           }).join('')}
-        </div>
+        </div>` : `<div class="empty-state" style="padding:48px"><div class="empty-icon">🛍</div><div class="empty-title">ยังไม่มีสินค้าอุปกรณ์เสริมในระบบ</div><div class="empty-desc">กดปุ่ม "➕ เพิ่มสินค้า" ด้านบนเพื่อเริ่มเพิ่มสินค้าเข้าคลัง</div></div>`}
       </div>
     `
 
@@ -100,7 +105,72 @@ export default async function AccessoryShopPage(container) {
         showToast('🛒 เพิ่ม ' + a.name, 'success'); renderPage()
       }
     }))
+    container.querySelectorAll('.edit-acc-btn').forEach(b => b.addEventListener('click', (e) => {
+      e.stopPropagation()
+      openForm(items.find(x => x.id === b.dataset.id))
+    }))
+    container.querySelectorAll('.del-acc-btn').forEach(b => b.addEventListener('click', (e) => {
+      e.stopPropagation()
+      deleteItem(items.find(x => x.id === b.dataset.id))
+    }))
     document.getElementById('cart-btn')?.addEventListener('click', openCart)
+    document.getElementById('add-acc-btn')?.addEventListener('click', () => openForm())
+  }
+
+  async function deleteItem(a) {
+    if (!a) return
+    const ok = await confirmDialog({ title: '🗑️ ลบสินค้า', message: `ยืนยันลบ "${escHtml(a.name)}" ออกจากคลังสินค้าอุปกรณ์เสริม? การลบนี้ไม่สามารถย้อนกลับได้`, confirmText: 'ลบถาวร', danger: true })
+    if (!ok) return
+    await softDelete('accessories', a.id)
+    showToast('🗑️ ลบสินค้าแล้ว', 'success')
+    await loadData()
+  }
+
+  function openForm(existing = null) {
+    const isEdit = !!existing
+    const { el, close } = openModal({
+      title: isEdit ? '✏️ แก้ไขสินค้า' : '➕ เพิ่มสินค้าอุปกรณ์เสริม', size: 'md',
+      body: `
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div class="input-group"><label class="input-label">ชื่อสินค้า *</label><input class="input" id="af-name" value="${escHtml(existing?.name||'')}"><span class="input-error" id="af-name-e"></span></div>
+          <div class="grid-2">
+            <div class="input-group"><label class="input-label">หมวดหมู่</label>
+              <select class="input" id="af-cat">
+                ${Object.entries(ACC_CATS).map(([k,v]) => `<option value="${k}" ${existing?.cat===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}
+              </select>
+            </div>
+            <div class="input-group"><label class="input-label">สต็อก (99 = สั่งตามออเดอร์)</label><input class="input" type="number" id="af-stock" value="${existing?.stock ?? 0}"></div>
+          </div>
+          <div class="grid-2">
+            <div class="input-group"><label class="input-label">ราคาทุน (บาท)</label><input class="input" type="number" id="af-cost" value="${existing?.cost||''}"></div>
+            <div class="input-group"><label class="input-label">ราคาขาย (บาท) *</label><input class="input" type="number" id="af-price" value="${existing?.price||''}"><span class="input-error" id="af-price-e"></span></div>
+          </div>
+          <div class="input-group"><label class="input-label"><input type="checkbox" id="af-popular" ${existing?.popular?'checked':''}> ติดป้าย "🔥 ขายดี"</label></div>
+        </div>
+      `,
+      footer: `<button class="btn btn-secondary" id="afc">ยกเลิก</button><button class="btn btn-primary" id="afs">💾 บันทึก</button>`
+    })
+    el.querySelector('#afc').addEventListener('click', close)
+    el.querySelector('#afs').addEventListener('click', async () => {
+      const name = el.querySelector('#af-name').value.trim()
+      const price = Number(el.querySelector('#af-price').value) || 0
+      if (!name) { el.querySelector('#af-name-e').textContent = 'กรุณาระบุ'; return }
+      if (!price) { el.querySelector('#af-price-e').textContent = 'กรุณาระบุ'; return }
+      const btn = el.querySelector('#afs'); btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
+      const data = {
+        name, cat: el.querySelector('#af-cat').value,
+        stock: Number(el.querySelector('#af-stock').value) || 0,
+        cost: Number(el.querySelector('#af-cost').value) || 0,
+        price, popular: el.querySelector('#af-popular').checked,
+        sold30: existing?.sold30 || 0,
+      }
+      try {
+        if (isEdit) await updateDocData('accessories', existing.id, data)
+        else await createDoc('accessories', data)
+        showToast(isEdit ? 'แก้ไขแล้ว' : '✅ เพิ่มสินค้าแล้ว', 'success')
+        close(); await loadData()
+      } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
+    })
   }
 
   function openCart() {

@@ -110,7 +110,7 @@ export default async function DealerLicensePage(container) {
             </tbody>
           </table>
         </div>
-        <p style="font-size:0.7rem;color:var(--text-muted);margin-top:8px;padding-left:4px">💡 แถบสีส้ม = ใกล้หมดภายใน ${Math.max(...licenses.map(l=>l.renewDays))} วัน ตามที่กำหนดในแต่ละใบ</p>
+        ${licenses.length ? `<p style="font-size:0.7rem;color:var(--text-muted);margin-top:8px;padding-left:4px">💡 แถบสีส้ม = ใกล้หมดภายในจำนวนวันที่กำหนดไว้ในแต่ละใบ (สูงสุด ${Math.max(...licenses.map(l=>l.renewDays))} วัน)</p>` : ''}
       </div>
     `
 
