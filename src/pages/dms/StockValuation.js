@@ -43,7 +43,10 @@ export default async function StockValuationPage(container) {
   let dataSource = 'demo'
 
   try {
-    const vehicles = await listDocs('vehicles', [], 'createdAt', 'desc', 500).catch(() => [])
+    // เดิม orderBy('createdAt') — Firestore orderBy ตัดเอกสารที่ไม่มี field นี้ออกจากผลลัพธ์ไปเงียบๆทั้งหมด
+    // (ไม่ error, ไม่ sort ไปท้ายแถว แต่หายไปเลย) รถจริงในระบบส่วนใหญ่ไม่มี createdAt (มีแต่ arrivedAt ซึ่งเป็น
+    // field ที่ Stock.js ใช้จริงและเห็นรถจริงครบ) ทำให้หน้านี้เห็นรถจริง 0 คันเสมอ ต้องใช้ arrivedAt ให้ตรงกัน
+    const vehicles = await listDocs('vehicles', [], 'arrivedAt', 'desc', 500).catch(() => [])
     if (container.__routerGen !== myGen) return
     const live = vehicles.map(v => ({
       id: v.id, vin: v.vin || '', plate: v.plate || '',

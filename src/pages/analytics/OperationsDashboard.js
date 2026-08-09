@@ -65,7 +65,9 @@ export default async function OperationsDashboardPage(container) {
 
   try {
     const [vehicles, jobs, staff, attendance] = await Promise.all([
-      listDocs('vehicles', [], 'createdAt', 'desc', 500).catch(() => []),
+      // เดิม orderBy('createdAt') — รถจริงในระบบไม่มี field นี้ (มีแต่ arrivedAt) ทำให้ Firestore orderBy
+      // ตัดออกจากผลลัพธ์ไปเงียบๆทั้งหมด เห็นสต็อกรถ 0 คันตลอด ต้องใช้ arrivedAt ให้ตรงกับ Stock.js
+      listDocs('vehicles', [], 'arrivedAt', 'desc', 500).catch(() => []),
       listDocs('job_cards', [], 'createdAt', 'desc', 500).catch(() => []),
       listDocs('staff', [], 'name', 'asc', 500).catch(() => []),
       listDocs('attendance', [['date', '==', today]], 'date', 'desc', 500).catch(() => []),

@@ -410,7 +410,9 @@ export default async function DashboardPage(container) {
       getSalesData().catch(() => []),
       listDocs('pdi', [], 'createdAt', 'desc', 50).catch(() => []),
       listDocs('customers', [], 'createdAt', 'desc', 500).catch(() => []),
-      listDocs('vehicles', [], 'createdAt', 'desc', 500).catch(() => []),
+      // เดิม orderBy('createdAt') — รถจริงส่วนใหญ่ในระบบไม่มี field นี้ (มีแต่ arrivedAt) ทำให้ Firestore
+      // orderBy ตัดออกจากผลลัพธ์ไปเงียบๆทั้งหมด เห็นสต็อกรถ 0 คันตลอด ต้องใช้ arrivedAt ให้ตรงกับ Stock.js
+      listDocs('vehicles', [], 'arrivedAt', 'desc', 500).catch(() => []),
       listDocs('team_targets', [], 'period', 'desc', 200).catch(() => []),
       watchOnce('job_cards', 'createdAt', 'desc', 500, rows => { jobs = rows }),
       watchOnce('bookings', 'createdAt', 'desc', 500, rows => { bookings = rows }),

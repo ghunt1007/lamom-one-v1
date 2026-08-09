@@ -35,7 +35,9 @@ export default async function StockAnalysisPage(container) {
   let sortDir = 'desc'
 
   try {
-    const vehicles = await listDocs('vehicles', [], 'createdAt', 'desc', 500).catch(() => [])
+    // เดิม orderBy('createdAt') — รถจริงในระบบไม่มี field นี้ (มีแต่ arrivedAt) ทำให้ Firestore orderBy
+    // ตัดออกจากผลลัพธ์ไปเงียบๆทั้งหมด เห็นสต็อกรถ 0 คันตลอด ต้องใช้ arrivedAt ให้ตรงกับ Stock.js
+    const vehicles = await listDocs('vehicles', [], 'arrivedAt', 'desc', 500).catch(() => [])
     if (container.__routerGen !== myGen) return
     if (vehicles.length >= 2) {
       const grouped = {}
