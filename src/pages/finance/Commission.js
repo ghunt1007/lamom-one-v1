@@ -63,8 +63,17 @@ export default async function CommissionPage(container) {
     return comms.filter(c => monthFilter === 'all' || c.month === monthFilter)
   }
 
+  function renderActiveRules() {
+    const el = document.getElementById('comm-active-rules')
+    if (!el) return
+    const activeRules = rules.filter(r => r.active)
+    el.innerHTML = activeRules.length ? activeRules.map(r => `
+      <div style="font-size:0.8rem"><span style="color:var(--text-2)">${escHtml(r.name)}</span> <span style="font-weight:700;color:var(--accent)">${r.type === 'tiered' ? 'ขั้นบันได' : r.type === 'percent' ? (r.value || 0) + '%' : formatCurrency(r.value || 0)}</span></div>
+    `).join('') : '<div style="font-size:0.8rem;color:var(--warning)">⚠️ ยังไม่มีกติกาที่เปิดใช้งาน — ค่าคอมจะเป็น 0 ทุกรายการ</div>'
+  }
+
   function applyFilter() {
-    renderSummary(); renderTable(); renderMonthFilter()
+    renderActiveRules(); renderSummary(); renderTable(); renderMonthFilter()
   }
 
   function renderSummary() {
@@ -202,11 +211,7 @@ export default async function CommissionPage(container) {
           <div style="font-size:0.82rem;color:var(--text-muted)">กติกาคอมมิชชั่นที่ใช้งานอยู่</div>
           <button class="btn btn-ghost btn-xs" id="comm-goto-rules" style="font-size:0.72rem;color:var(--primary)">⚙️ ตั้งค่ากติกา →</button>
         </div>
-        <div style="display:flex;gap:16px;flex-wrap:wrap">
-          ${rules.filter(r => r.active).length ? rules.filter(r => r.active).map(r => `
-            <div style="font-size:0.8rem"><span style="color:var(--text-2)">${escHtml(r.name)}</span> <span style="font-weight:700;color:var(--accent)">${r.type === 'tiered' ? 'ขั้นบันได' : r.type === 'percent' ? (r.value || 0) + '%' : formatCurrency(r.value || 0)}</span></div>
-          `).join('') : '<div style="font-size:0.8rem;color:var(--warning)">⚠️ ยังไม่มีกติกาที่เปิดใช้งาน — ค่าคอมจะเป็น 0 ทุกรายการ</div>'}
-        </div>
+        <div id="comm-active-rules" style="display:flex;gap:16px;flex-wrap:wrap">กำลังโหลด...</div>
       </div>
 
       <!-- Month filter -->
