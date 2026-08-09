@@ -19,7 +19,11 @@ export default async function AttendancePage(container) {
   let activeStaff = []
 
   try {
-    const staffList = await listDocs('staff', [], 'name', 'asc', 200)
+    // เดิม orderBy('name') + map ใช้ s.name/s.staffName — พนักงานจริงเก็บเป็น firstName/lastName แยกกัน
+    // ไม่มี field 'name' รวมเลย (ดู Staff.js) ทำให้ Firestore orderBy ตัดพนักงานทุกคนออกจากผลลัพธ์ตั้งแต่ query
+    // แรกแล้ว และแม้จะแก้ query ก็ยังจะได้ name ว่างเปล่าอยู่ดีเพราะ map หา field ผิดชื่อ — เห็นพนักงาน 0 คน
+    // ในหน้าลงเวลามาตลอด แก้ทั้ง query และการรวมชื่อให้ตรงกับ schema จริง
+    const staffList = await listDocs('staff', [], 'firstName', 'asc', 200)
     if (container.__routerGen !== myGen) return
     // Phase 2 หลายบริษัท — พนักงานที่ยังไม่มี companyId (ข้อมูลเดิม/shared-service) ยังลงเวลาเข้า-ออกที่หน้านี้
     // ได้เสมอ ไม่ถูกกรองออกโดยไม่ตั้งใจ
@@ -30,7 +34,7 @@ export default async function AttendancePage(container) {
       .filter(s => !s.companyId || !activeCompanyFilter.length || activeCompanyFilter.includes(s.companyId))
       .map(s => ({
         id: s.id,
-        name: s.name || s.staffName || '',
+        name: s.name || s.staffName || [s.firstName, s.lastName].filter(Boolean).join(' '),
         dept: s.department || s.dept || 'ทั่วไป',
         position: s.position || s.role || '',
         shift: s.shift || '08:30-17:30',

@@ -69,7 +69,9 @@ export default async function OperationsDashboardPage(container) {
       // ตัดออกจากผลลัพธ์ไปเงียบๆทั้งหมด เห็นสต็อกรถ 0 คันตลอด ต้องใช้ arrivedAt ให้ตรงกับ Stock.js
       listDocs('vehicles', [], 'arrivedAt', 'desc', 500).catch(() => []),
       listDocs('job_cards', [], 'createdAt', 'desc', 500).catch(() => []),
-      listDocs('staff', [], 'name', 'asc', 500).catch(() => []),
+      // เดิม orderBy('name') — พนักงานจริงเก็บเป็น firstName/lastName แยกกัน ไม่มี field 'name' รวมเลย
+      // (ดู Staff.js) ทำให้ Firestore orderBy ตัดพนักงานทุกคนออกจากผลลัพธ์ เห็นพนักงาน 0 คนตลอด
+      listDocs('staff', [], 'firstName', 'asc', 500).catch(() => []),
       listDocs('attendance', [['date', '==', today]], 'date', 'desc', 500).catch(() => []),
     ])
     if (container.__routerGen !== myGen) return
