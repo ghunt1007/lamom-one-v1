@@ -1,4 +1,4 @@
-import { formatCurrency, formatDate } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, readDoc, createDoc } from '../../core/db.js'
@@ -197,7 +197,7 @@ export default async function CustomerPortalPage(container) {
           custName: cust.name, phone: cust.phone,
           model: chosenVeh.model || '', plate: chosenVeh.plate || '',
           type: typeSel?.value || SERVICE_TYPES[0],
-          date: dateInp?.value || new Date().toISOString().slice(0, 10),
+          date: dateInp?.value || todayBangkok(),
           time: timeSel?.value || '09:00',
           note: noteInp?.value?.trim() || '',
           status: 'scheduled',
@@ -408,7 +408,9 @@ export default async function CustomerPortalPage(container) {
   }
 
   function renderBooking(c) {
-    const today = new Date().toISOString().slice(0, 10)
+    // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+    // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+    const today = todayBangkok()
     if (!c.vehicles.length) {
       return `<div class="card" style="padding:20px">
         <div class="empty-state" style="padding:0">

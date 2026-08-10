@@ -4,7 +4,7 @@
  */
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { formatDate, formatCurrency } from '../../utils/format.js'
+import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { sendSms, sendEmail } from '../../utils/comms.js'
 
@@ -239,7 +239,9 @@ export default async function ReceiptAutoPage(container) {
   }
 
   function openGenReceiptModal() {
-    const today = new Date().toISOString().slice(0,10)
+    // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+    // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+    const today = todayBangkok()
     const nextNum = 'REC-' + new Date().getFullYear() + '-' + String(RECEIPTS.length + 541 + 1).padStart(4,'0')
     openModal({
       title: '🧾 ออกใบเสร็จด่วน',

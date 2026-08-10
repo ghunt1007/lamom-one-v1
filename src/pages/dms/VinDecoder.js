@@ -2,7 +2,7 @@
  * VIN Decoder & Vehicle Lookup — ค้นหารถจาก VIN/ทะเบียน
  * Route: /dms/vin-lookup
  */
-import { formatDate, formatCurrency } from '../../utils/format.js'
+import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listAllDocs, listDocs, createDoc } from '../../core/db.js'
@@ -176,7 +176,9 @@ export default async function VinDecoderPage(container) {
       })
     })
     document.getElementById('book-service-btn')?.addEventListener('click', () => {
-      const today = new Date().toISOString().slice(0,10)
+      // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+      // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+      const today = todayBangkok()
       openModal({
         title: '📅 นัดเช็คระยะ — ' + escHtml(result.plate),
         size: 'sm',

@@ -1,4 +1,4 @@
-import { formatDate } from '../../utils/format.js'
+import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -296,7 +296,7 @@ export default async function PerformancePage(container) {
           } else {
             await createDoc('performance_scorecards', {
               ...fields,
-              reviewer: 'ผู้จัดการ', reviewDate: new Date().toISOString().slice(0,10),
+              reviewer: 'ผู้จัดการ', reviewDate: todayBangkok(),
               goals: '', nextGoals: '', strengths: '', improvements: '',
               bonus_multiplier: 1.0
             })

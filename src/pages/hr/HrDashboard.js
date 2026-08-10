@@ -1,6 +1,6 @@
 import { listDocs, seedDemoData } from '../../core/db.js'
 import { navigate } from '../../core/router.js'
-import { formatCurrency } from '../../utils/format.js'
+import { formatCurrency, todayBangkok } from '../../utils/format.js'
 import { getState } from '../../core/store.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
@@ -74,7 +74,7 @@ export default async function HrDashboard(container) {
   if (container.__routerGen !== myGen) return
 
   let staff = [], leaves = [], payrollRecs = []
-  const thisMonth = new Date().toISOString().slice(0, 7)
+  const thisMonth = todayBangkok().slice(0, 7)
   try {
     ;[staff, leaves, payrollRecs] = await Promise.all([
       listDocs('staff', [], 'startDate', 'asc', 500).catch(() => []),

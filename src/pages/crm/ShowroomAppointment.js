@@ -1,4 +1,4 @@
-import { formatDate, timeAgo } from '../../utils/format.js'
+import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -34,7 +34,9 @@ export default async function ShowroomAppointmentPage(container) {
   seedDemoData()
 
   let appts = []
-  let viewDate = new Date().toISOString().slice(0, 10)
+  // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+  // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+  let viewDate = todayBangkok()
   let statusFilter = 'all'
   let salesFilter = 'all'
   let tab = 'today' // today | upcoming | all
@@ -59,7 +61,7 @@ export default async function ShowroomAppointmentPage(container) {
   }
 
   function getStats() {
-    const today = new Date().toISOString().slice(0, 10)
+    const today = todayBangkok()
     const todayList = appts.filter(a => a.date === today)
     return {
       today: todayList.length,
@@ -167,7 +169,7 @@ export default async function ShowroomAppointmentPage(container) {
 
   function renderApptCard(a) {
     const st = APPT_STATUS[a.status] || APPT_STATUS.scheduled
-    const isToday = a.date === new Date().toISOString().slice(0, 10)
+    const isToday = a.date === todayBangkok()
     return `<div class="appt-card-click" data-id="${a.id}" style="
       padding:12px 16px;background:var(--surface);border:1px solid var(--border);
       border-left:3px solid var(--${st.color});border-radius:var(--radius-md);cursor:pointer;
@@ -222,7 +224,7 @@ export default async function ShowroomAppointmentPage(container) {
   }
 
   function openForm(appt = null) {
-    const today = new Date().toISOString().slice(0, 10)
+    const today = todayBangkok()
     const { el, close } = openModal({
       title: appt ? '✏️ แก้ไขนัดหมาย' : '🏪 นัดหมายใหม่', size: 'md',
       body: `<div style="display:flex;flex-direction:column;gap:12px">

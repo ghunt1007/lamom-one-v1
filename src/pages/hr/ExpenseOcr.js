@@ -2,7 +2,7 @@
  * Expense Receipt OCR — สแกนใบเสร็จ AI อ่าน ขออนุมัติ
  * Route: /hr/expense-ocr
  */
-import { formatCurrency, formatDate } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState, setState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete } from '../../core/db.js'
@@ -248,7 +248,7 @@ export default async function ExpenseOcrPage(container) {
         const me = getState('user') || {}
         const data = {
           staff: me.displayName || me.email || 'ผู้ใช้ปัจจุบัน', dept: '—',
-          date: ocr.date || new Date().toISOString().slice(0, 10),
+          date: ocr.date || todayBangkok(),
           vendor: ocr.vendor || 'ไม่ทราบชื่อร้าน', amount: ocr.amount || 0, cat: ocr.category || 'อื่นๆ',
           status: 'pending', note: '', confidence: ocr.confidence || 90, imageUrl: up.url || '', imageKey: up.key || '',
         }

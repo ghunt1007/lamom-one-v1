@@ -5,7 +5,7 @@
  */
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { showToast, getState, setState } from '../../core/store.js'
-import { formatDate, formatCurrency } from '../../utils/format.js'
+import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { analyzeFinanceRateSheet } from '../../utils/ai.js'
@@ -59,7 +59,9 @@ export default async function FinanceRateSheetsPage(container) {
   function render() {
     const filtered = getFiltered()
     const pendingCount = sheets.filter(s => s.status === 'pending').length
-    const today = new Date().toISOString().slice(0, 10)
+    // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+    // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+    const today = todayBangkok()
     const activeCount = sheets.filter(s => s.status === 'confirmed' && (!s.dateTo || s.dateTo >= today)).length
     const banks = [...new Set(sheets.map(s => s.bank).filter(Boolean))].sort()
     const brands = [...new Set(sheets.map(s => s.brand).filter(Boolean))].sort()
@@ -130,7 +132,7 @@ export default async function FinanceRateSheetsPage(container) {
       ธนาคาร: s.bank, แคมเปญ: s.campaign, แบรนด์: s.brand, รุ่น: s.model, ปี: s.year, เดือน: s.month,
       วันที่เริ่ม: formatDate(s.dateFrom), วันที่สิ้นสุด: formatDate(s.dateTo), เงื่อนไข: s.conditions,
       คอมไฟแนนซ์: s.financeCommission, Extra: s.extraPayment, Subsidy: s.subsidy, สถานะ: STATUS_MAP[s.status]?.label || s.status,
-    })), 'finance-rate-sheets-' + new Date().toISOString().slice(0, 10) + '.xlsx', 'ดอกเบี้ยไฟแนนซ์')
+    })), 'finance-rate-sheets-' + todayBangkok() + '.xlsx', 'ดอกเบี้ยไฟแนนซ์')
     showToast('📥 Export แล้ว', 'success')
   }
 

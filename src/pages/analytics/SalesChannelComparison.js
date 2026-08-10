@@ -2,7 +2,7 @@
  * Sales Channel Comparison — เปรียบเทียบทีมขายหน้าร้าน vs ทีมขายออนไลน์
  * Route: /analytics/sales-channel
  */
-import { formatCurrency } from '../../utils/format.js'
+import { formatCurrency, todayBangkok } from '../../utils/format.js'
 import { getSalesData } from '../../core/db.js'
 import { getSalesStaff, getSalesChannel } from '../../data/masterData.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -140,7 +140,7 @@ export default async function SalesChannelComparisonPage(container) {
       exportToExcel([
         { ช่องทาง: 'ทีมหน้าร้าน', ...flattenStats(showroomStats) },
         { ช่องทาง: 'ทีมออนไลน์', ...flattenStats(onlineStats) },
-      ], 'sales-channel-comparison-' + new Date().toISOString().slice(0, 10) + '.xlsx', 'เปรียบเทียบช่องทาง')
+      ], 'sales-channel-comparison-' + todayBangkok() + '.xlsx', 'เปรียบเทียบช่องทาง')
       showToast('📥 Export แล้ว', 'success')
     })
     document.getElementById('scc-setup').addEventListener('click', (e) => {

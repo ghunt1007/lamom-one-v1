@@ -1,6 +1,6 @@
 import { seedDemoData, getSalesData } from '../../core/db.js'
 import { navigate } from '../../core/router.js'
-import { formatCurrency } from '../../utils/format.js'
+import { formatCurrency, todayBangkok } from '../../utils/format.js'
 
 const QUICK_LINKS = [
   { icon:'📊', label:'Margin', sub:'กำไรต่อคัน', path:'/finance/margin', color:'success' },
@@ -68,7 +68,9 @@ export default async function FinanceDashboard(container) {
 
   if (container.__routerGen !== myGen) return
 
-  const thisMonth = new Date().toISOString().slice(0, 7)
+  // เดิม new Date().toISOString().slice(0,7) คืนเดือนตาม UTC เสมอ ทำให้ "เดือนนี้" ผิดไปทุกครั้งที่
+  // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+  const thisMonth = todayBangkok().slice(0, 7)
   const thisMonthSales = sales.filter(s => (s.date || '').startsWith(thisMonth))
   const revenue = sales.reduce((t, s) => t + (s.salePrice || 0), 0)
   const net = sales.reduce((t, s) => {

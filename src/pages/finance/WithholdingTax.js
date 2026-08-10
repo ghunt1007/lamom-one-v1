@@ -2,14 +2,14 @@
  * Withholding Tax Certificate — หนังสือรับรองการหักภาษี ณ ที่จ่าย (ใบ 50 ทวิ)
  * Route: /finance/withholding-tax
  */
-import { formatCurrency, formatDate, timeAgo } from '../../utils/format.js'
+import { formatCurrency, formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 import { printWithholdingTaxCert } from '../../utils/taxDocs.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
-function today() { return new Date().toISOString().slice(0, 10) }
+function today() { return todayBangkok() }
 function myName() {
   const me = getState('user') || {}
   return me.displayName || me.email || ''

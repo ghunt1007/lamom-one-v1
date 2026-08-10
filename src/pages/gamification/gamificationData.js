@@ -8,6 +8,7 @@
  */
 import { listDocs, getSalesData } from '../../core/db.js'
 import { getState } from '../../core/store.js'
+import { todayBangkok } from '../../utils/format.js'
 
 export const BADGE_CATEGORIES = {
   sales:    { label: 'การขาย', color: 'primary' },
@@ -84,8 +85,8 @@ export async function getRealLeaderboard() {
     listDocs('gamification_events', [], 'createdAt', 'desc', 3000).catch(() => []),
     getSalesData().catch(() => []),
   ])
-  const nowMonth = new Date().toISOString().slice(0, 7)
-  const nowYear = new Date().toISOString().slice(0, 4)
+  const nowMonth = todayBangkok().slice(0, 7)
+  const nowYear = todayBangkok().slice(0, 4)
   const monthByName = {}
   const yearByName = {}
   events.forEach(e => {

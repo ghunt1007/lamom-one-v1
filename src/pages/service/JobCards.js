@@ -1,6 +1,6 @@
 import { watchDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { showToast } from '../../core/store.js'
-import { formatDate, formatCurrency, timeAgo } from '../../utils/format.js'
+import { formatDate, formatCurrency, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
 
@@ -224,7 +224,7 @@ export default async function JobCardsPage(container) {
 
   function openForm(existing = null) {
     const isEdit = !!existing
-    const today = new Date().toISOString().slice(0,10)
+    const today = todayBangkok()
     const { el, close } = openModal({
       title: isEdit ? '✏️ แก้ไข Job Card' : '➕ เปิด Job Card ใหม่', size: 'lg',
       body: `
@@ -338,7 +338,7 @@ export default async function JobCardsPage(container) {
   document.getElementById('add-job-btn').addEventListener('click', () => openForm())
   document.getElementById('job-search').addEventListener('input', e => { search = e.target.value.toLowerCase(); applyFilter() })
   document.getElementById('job-export').addEventListener('click', () => {
-    exportToExcel(jobs.map(j => ({ เลขงาน:j.jobNo, ลูกค้า:j.custName, โทร:j.phone, รถ:`${j.brand} ${j.model}`, ทะเบียน:j.plate, ประเภท:JOB_TYPE[j.type]||j.type, สถานะ:JOB_STATUS[j.status]?.label||j.status, ช่าง:j.techName, เบย์:j.bay, ค่าแรง:j.labor, วันที่:formatDate(j.createdAt) })), `jobs-${new Date().toISOString().slice(0,10)}.xlsx`, 'Job Cards')
+    exportToExcel(jobs.map(j => ({ เลขงาน:j.jobNo, ลูกค้า:j.custName, โทร:j.phone, รถ:`${j.brand} ${j.model}`, ทะเบียน:j.plate, ประเภท:JOB_TYPE[j.type]||j.type, สถานะ:JOB_STATUS[j.status]?.label||j.status, ช่าง:j.techName, เบย์:j.bay, ค่าแรง:j.labor, วันที่:formatDate(j.createdAt) })), `jobs-${todayBangkok()}.xlsx`, 'Job Cards')
     showToast('Export แล้ว', 'success')
   })
   document.querySelectorAll('.jf-btn').forEach(btn => btn.addEventListener('click', () => {

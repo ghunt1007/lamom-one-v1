@@ -5,6 +5,7 @@
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
+import { todayBangkok } from '../../utils/format.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
@@ -131,7 +132,7 @@ export default async function UtmTrackerPage(container) {
         const src=document.getElementById('utm-src')?.value||'facebook'
         const med=document.getElementById('utm-med')?.value||'paid'
         try {
-          await createDoc('utm_links', { name, url, source:src, medium:med, campaign:camp, clicks:0, leads:0, conv:0, created:new Date().toISOString().slice(0,10) })
+          await createDoc('utm_links', { name, url, source:src, medium:med, campaign:camp, clicks:0, leads:0, conv:0, created:todayBangkok() })
           showToast('🔗 สร้าง UTM Link: '+name,'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

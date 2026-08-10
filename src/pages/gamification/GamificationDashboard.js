@@ -1,4 +1,5 @@
 import { showToast, getState } from '../../core/store.js'
+import { todayBangkok } from '../../utils/format.js'
 import { getCommissionData, listDocs, updateDocData, createDoc } from '../../core/db.js'
 import { getCurrentUser, getMyTotalPoints, getRealLeaderboard, computeMyBadges } from './gamificationData.js'
 
@@ -67,7 +68,7 @@ export default async function GamificationDashboard(container) {
     missions = dailyMissionsAll.filter(m => m.period === 'daily')
     myBadges = badges
     moodLog = myMoods.map(m => ({ date: m.date, value: m.score }))
-    const today = new Date().toISOString().slice(0, 10)
+    const today = todayBangkok()
     const todayEntry = moodLog.find(m => m.date === today)
     todayMood = todayEntry ? today + ':' + todayEntry.value : null
   } catch {}
@@ -110,7 +111,7 @@ export default async function GamificationDashboard(container) {
   } catch {}
 
   async function saveMood(v) {
-    const today = new Date().toISOString().slice(0, 10)
+    const today = todayBangkok()
     try {
       await createDoc('mood_responses', { staff: myName, uid: myUid, dept: myDept, date: today, score: v, note: '' })
     } catch { showToast('บันทึกอารมณ์ไม่สำเร็จ', 'error'); return }

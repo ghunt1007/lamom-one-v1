@@ -1,6 +1,6 @@
 import { getState, on } from '../core/store.js'
 import { listDocs, watchDocs, seedDemoData, getSalesData } from '../core/db.js'
-import { formatCurrency, timeAgo } from '../utils/format.js'
+import { formatCurrency, timeAgo, todayBangkok } from '../utils/format.js'
 import { navigate } from '../core/router.js'
 import { generateMorningBriefing } from '../utils/ai.js'
 import { getModuleForPath, hasModuleAccess, loadRolePermissions } from '../core/permissions.js'
@@ -384,14 +384,18 @@ export default async function DashboardPage(container) {
 
   // Load async data
   seedDemoData()
-  let selectedMonth = new Date().toISOString().slice(0, 7)
+  // เดิม new Date().toISOString().slice(0,7) คืนเดือนตาม UTC เสมอ ทำให้ "เดือนนี้" ผิดไป 1 วันทุกครั้งที่
+  // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+  let selectedMonth = todayBangkok().slice(0, 7)
   let trendRange = 6
   // Real-time: จอง/งานซ่อม/Tasks อัปเดตสดผ่าน Firestore onSnapshot — เก็บ unsubscribe ไว้เคลียร์ตอนออกจากหน้า (คืนค่าท้ายฟังก์ชันให้ router เรียก)
   const unsubscribers = []
   let bookings = [], jobs = [], tasks = []
   try {
-    const today = new Date().toISOString().slice(0, 10)
-    const thisMonth = new Date().toISOString().slice(0, 7)
+    // เดิม new Date().toISOString().slice(0,10)/(0,7) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้"/"เดือนนี้" ผิดไป 1 วันทุกครั้งที่
+    // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+    const today = todayBangkok()
+    const thisMonth = today.slice(0, 7)
     // รอ snapshot แรกเหมือน listDocs ทั่วไป แล้วหลังจากนั้นอัปเดตสด → renderAll() ใหม่ทุกครั้งที่มีการเปลี่ยนแปลง
     function watchOnce(colName, sortBy, sortDir, maxDocs, assign) {
       return new Promise(resolve => {
@@ -753,7 +757,8 @@ export default async function DashboardPage(container) {
       const momText = momPct > 5 ? 'ขาขึ้น' : momPct < -5 ? 'ขาลง' : 'ทรงตัว'
 
       // run-rate: เฉพาะเมื่อดูเดือนปัจจุบัน
-      const nowYm = new Date().toISOString().slice(0, 7)
+      // เดิม new Date().toISOString().slice(0,7) คืนเดือนตาม UTC เสมอ — แก้ให้ยึดเดือนไทยจริงจาก todayBangkok()
+      const nowYm = todayBangkok().slice(0, 7)
       let runRate = ''
       if (selectedMonth === nowYm) {
         const d = new Date()

@@ -11,6 +11,7 @@ import {
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { askJsonPrompt, isAiEnabled } from '../../utils/ai.js'
+import { todayBangkok } from '../../utils/format.js'
 
 // เฉพาะ Owner/Admin เท่านั้นที่ทำ action ทำลาย/เขียนทับข้อมูลทั้งฐานได้ (ลบรุ่นรถ / batch-overwrite ด้วย AI)
 // ใช้ pattern เดียวกับ src/pages/settings/DataRetention.js (canManage = ROLES.includes(myRole))
@@ -660,7 +661,9 @@ export default async function VehicleDatabasePage(container) {
     openModal({ title: '💾 จัดการข้อมูล (สำรอง / กู้คืน)', size: 'md', body, confirmText: 'ปิด', onConfirm: () => {} })
     setTimeout(() => {
       document.getElementById('dm-export')?.addEventListener('click', () => {
-        downloadJSON('lamom-vehicles-' + new Date().toISOString().slice(0, 10) + '.json', exportUserData())
+        // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+        // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+        downloadJSON('lamom-vehicles-' + todayBangkok() + '.json', exportUserData())
         const s = document.getElementById('dm-status'); if (s) s.innerHTML = '<span style="color:var(--success)">✅ ดาวน์โหลดไฟล์สำรองแล้ว</span>'
       })
       document.getElementById('dm-import')?.addEventListener('click', () => document.getElementById('dm-file').click())

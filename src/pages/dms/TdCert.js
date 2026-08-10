@@ -2,7 +2,7 @@
  * Test Drive Certificate — ใบรับรองการทดลองขับ
  * Route: /dms/td-cert
  */
-import { formatDate, formatDateTime } from '../../utils/format.js'
+import { formatDate, formatDateTime, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
@@ -53,7 +53,9 @@ export default async function TdCertPage(container) {
           ${sc('📋 ทั้งหมด', certs.length+' ใบ', 'var(--primary)')}
           ${sc('✅ เซ็นแล้ว', signed+' ใบ', 'var(--success)')}
           ${sc('⏳ รอเซ็น', unsigned+' ใบ', 'var(--warning)')}
-          ${sc('🚗 วันนี้', certs.filter(c=>c.date===new Date().toISOString().slice(0,10)).length+' ใบ', 'var(--text)')}
+          <!-- เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+          เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok() -->
+          ${sc('🚗 วันนี้', certs.filter(c=>c.date===todayBangkok()).length+' ใบ', 'var(--text)')}
         </div>
 
         <div style="display:flex;gap:8px;margin-bottom:14px">
@@ -170,7 +172,9 @@ export default async function TdCertPage(container) {
             <option>BYD Atto 3</option><option>BYD Seal AWD</option><option>BYD Han</option><option>BYD Dolphin</option><option>MG ZS EV</option>
           </select></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <div><label style="font-size:0.72rem;color:var(--text-muted)">วันที่</label><input class="input" id="td-date" type="date" value="${new Date().toISOString().slice(0,10)}" style="width:100%;margin-top:3px"></div>
+          <!-- เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+          เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok() -->
+          <div><label style="font-size:0.72rem;color:var(--text-muted)">วันที่</label><input class="input" id="td-date" type="date" value="${todayBangkok()}" style="width:100%;margin-top:3px"></div>
           <div><label style="font-size:0.72rem;color:var(--text-muted)">เวลา</label><input class="input" id="td-time" type="time" value="10:00" style="width:100%;margin-top:3px"></div>
         </div>
         <div><label style="font-size:0.72rem;color:var(--text-muted)">พนักงานดูแล</label>
@@ -186,7 +190,9 @@ export default async function TdCertPage(container) {
           await createDoc('test_drive_certs', {
             customer:name, phone:document.getElementById('td-phone')?.value||'-',
             model:document.getElementById('td-model')?.value||'BYD Atto 3',
-            plate:'รอกำหนด', date:document.getElementById('td-date')?.value||new Date().toISOString().slice(0,10),
+            // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+            // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+            plate:'รอกำหนด', date:document.getElementById('td-date')?.value||todayBangkok(),
             time:document.getElementById('td-time')?.value||'10:00', km:0,
             staff:document.getElementById('td-staff')?.value||'พนักงาน A',
             fuel:'100%', damage:'ไม่มี', signed:false

@@ -1,7 +1,7 @@
 // GP & FOC Analysis — วิเคราะห์กำไรขั้นต้น (Gross Profit) และของแถม (Free of Charge)
 // อ่านจากใบจองกลาง (getSalesData) → ตรงกับ Margin/Commission เสมอ
 import { seedDemoData, getSalesData } from '../../core/db.js'
-import { formatCurrency, formatDate } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { showToast } from '../../core/store.js'
 
@@ -124,7 +124,7 @@ export default async function GpFocPage(container) {
     exportToExcel(filtered.map(s => {
       const g = calcGpFoc(s)
       return { วันที่: s.date, ลูกค้า: s.custName, รถ: (s.brand || '') + ' ' + (s.model || ''), ราคาขาย: s.salePrice, ต้นทุน: s.cost, GP: g.gp, 'GP%': g.gpPct.toFixed(1), FOC: g.foc, 'FOC%ของGP': g.focPct.toFixed(0), GPสุทธิ: g.gpNet, เซลส์: s.salesName }
-    }), 'gp-foc-' + new Date().toISOString().slice(0, 10) + '.xlsx', 'GP-FOC')
+    }), 'gp-foc-' + todayBangkok() + '.xlsx', 'GP-FOC')
     showToast('📥 Export แล้ว', 'success')
   })
 

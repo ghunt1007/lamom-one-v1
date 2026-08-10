@@ -2,7 +2,7 @@
  * Dealer License Tracking — ต่ออายุใบอนุญาตตัวแทนจำหน่าย
  * Route: /dms/licenses
  */
-import { formatDate } from '../../utils/format.js'
+import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
@@ -141,7 +141,7 @@ export default async function DealerLicensePage(container) {
         if (!newDate) { showToast('❗ ระบุวันที่หมดอายุใหม่', 'error'); return false }
         const no = document.getElementById('lic-no').value.trim()
         try {
-          await updateDocData('licenses', l.id, { expiry: newDate, no, issue: new Date().toISOString().slice(0,10) })
+          await updateDocData('licenses', l.id, { expiry: newDate, no, issue: todayBangkok() })
           showToast(`✅ ต่ออายุ "${l.name}" ถึง ${formatDate(newDate)} แล้ว`, 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
@@ -172,7 +172,7 @@ export default async function DealerLicensePage(container) {
         if (!name || !expiry) { showToast('❗ กรอกชื่อและวันหมดอายุ', 'error'); return false }
         try {
           await createDoc('licenses', { name, issuer: document.getElementById('nl-issuer').value.trim(), no: document.getElementById('nl-no').value.trim(),
-            issue: document.getElementById('nl-issue').value || new Date().toISOString().slice(0,10),
+            issue: document.getElementById('nl-issue').value || todayBangkok(),
             expiry, renewDays: 60, status: 'ok', dept: document.getElementById('nl-dept').value.trim() || '-' })
           showToast(`เพิ่มใบอนุญาต "${name}" แล้ว`, 'success')
           await loadData()

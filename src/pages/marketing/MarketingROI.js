@@ -2,7 +2,7 @@
  * Marketing ROI — วัดผลตอบแทนการตลาด
  * Route: /marketing/roi
  */
-import { formatCurrency } from '../../utils/format.js'
+import { formatCurrency, todayBangkok } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData, listDocs, createDoc, updateDocData } from '../../core/db.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -59,7 +59,9 @@ export default async function MarketingROIPage(container) {
   const myGen = container.__routerGen
   let sortBy = 'roi'
   let allSales = []
-  let monthFilter = new Date().toISOString().slice(0, 7)
+  // เดิม new Date().toISOString().slice(0,7) คืนเดือนตาม UTC เสมอ ทำให้ "เดือนนี้" ผิดไปทุกครั้งที่
+  // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+  let monthFilter = todayBangkok().slice(0, 7)
   let dataSource = 'demo'
   let budgets = await loadBudgets()
   if (container.__routerGen !== myGen) return

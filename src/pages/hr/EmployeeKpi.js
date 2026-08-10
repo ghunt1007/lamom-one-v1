@@ -2,7 +2,7 @@
  * Employee KPI Evaluation — ประเมินผลงานพนักงานรายบุคคล (รายวัน/รายสัปดาห์/รายเดือน/รายปี)
  * Route: /hr/employee-kpi
  */
-import { formatDate, timeAgo } from '../../utils/format.js'
+import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
@@ -29,9 +29,9 @@ const CRITERIA = [
   { key: 'initiative', label: 'ความคิดริเริ่ม' },
 ]
 
-function today() { return new Date().toISOString().slice(0, 10) }
+function today() { return todayBangkok() }
 function thisWeek() { const d = new Date(); const jan1 = new Date(d.getFullYear(), 0, 1); const days = Math.floor((d - jan1) / 86400000); const week = Math.ceil((days + jan1.getDay() + 1) / 7); return d.getFullYear() + '-W' + String(week).padStart(2, '0') }
-function thisMonth() { return new Date().toISOString().slice(0, 7) }
+function thisMonth() { return todayBangkok().slice(0, 7) }
 function thisYear() { return String(new Date().getFullYear()) }
 function defaultPeriodValue(type) { return type === 'daily' ? today() : type === 'weekly' ? thisWeek() : type === 'monthly' ? thisMonth() : thisYear() }
 

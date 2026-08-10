@@ -24,6 +24,7 @@
 import { showToast } from '../../core/store.js'
 import { listDocs, getSalesData } from '../../core/db.js'
 import { exportToExcel, exportToCSV } from '../../utils/importExport.js'
+import { todayBangkok } from '../../utils/format.js'
 
 const EXPORT_MODULES = [
   { id: 'crm', label: 'CRM / ลูกค้า', icon: '👥', col: 'customers' },
@@ -150,7 +151,7 @@ export default async function DataExportPage(container) {
         toRows(id, docs, sales || []).forEach(row => allRows.push({ 'โมดูล': mod.label, ...row }))
       }
       const mods = [...selected].map(id => EXPORT_MODULES.find(m => m.id === id)?.label).join(', ')
-      const filename = `LAMOM_Export_${new Date().toISOString().slice(0,10)}`
+      const filename = `LAMOM_Export_${todayBangkok()}`
       if (format === 'excel') {
         exportToExcel(allRows, filename + '.xlsx', 'Export')
         showToast(`📥 Export ${mods} → Excel สำเร็จ (${allRows.length.toLocaleString()} รายการ)`, 'success')

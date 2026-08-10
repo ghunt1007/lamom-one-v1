@@ -5,7 +5,7 @@
  * — หน้านี้แสดงเฉพาะ session ที่ลูกค้าจ่ายเงิน (useType==='public') เป็นมุมมองรายได้
  * ส่วนต้นทุนไฟฟ้ารวมทุกประเภทการใช้งานอยู่ที่หน้า Charging Cost (/finance/charging-cost)
  */
-import { formatCurrency } from '../../utils/format.js'
+import { formatCurrency, todayBangkok } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
@@ -68,7 +68,9 @@ export default async function ChargingRevenuePage(container) {
       return { month: m.label, key: m.key, sessions: rows.length, kwh, revenue, cost, profit: revenue - cost }
     })
 
-    const todayStr = new Date().toISOString().slice(0, 10)
+    // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+    // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+    const todayStr = todayBangkok()
     const TODAY_SESSIONS = publicSessions.filter(s => s.date === todayStr).sort((a, b) => (a.time || '').localeCompare(b.time || ''))
 
     const m = MONTHLY[selMonth]

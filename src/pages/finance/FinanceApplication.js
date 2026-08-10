@@ -1,4 +1,4 @@
-import { formatCurrency } from '../../utils/format.js'
+import { formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState, setState } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -120,7 +120,9 @@ export default async function FinanceApplicationPage(container) {
         if (!a) return
         const newStatus = btn.dataset.s
         const patch = { status: newStatus }
-        if (newStatus === 'approved') patch.approvedDate = new Date().toISOString().slice(0,10)
+        // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+        // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+        if (newStatus === 'approved') patch.approvedDate = todayBangkok()
         await updateDocData('finance_applications', a.id, patch)
         try {
           await createDoc('notifications', {
@@ -242,7 +244,9 @@ export default async function FinanceApplicationPage(container) {
       const btn = e.currentTarget
       btn.disabled = true
       try {
-        await createDoc('finance_applications', { custName, phone: el.querySelector('#fa-phone').value, vehicle, vehiclePrice:price, downPayment:down, loanAmount, tenure, bank: el.querySelector('#fa-bank').value, monthlyPayment:monthly, rate, status:'submitted', submittedDate:new Date().toISOString().slice(0,10), approvedDate:null, note: el.querySelector('#fa-note').value, documents:[] })
+        // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+        // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+        await createDoc('finance_applications', { custName, phone: el.querySelector('#fa-phone').value, vehicle, vehiclePrice:price, downPayment:down, loanAmount, tenure, bank: el.querySelector('#fa-bank').value, monthlyPayment:monthly, rate, status:'submitted', submittedDate:todayBangkok(), approvedDate:null, note: el.querySelector('#fa-note').value, documents:[] })
         showToast('📤 ส่งขอสินเชื่อแล้ว', 'success'); close(); await loadData()
       } catch { btn.disabled = false; showToast('บันทึกไม่สำเร็จ', 'error') }
     })

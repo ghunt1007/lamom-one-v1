@@ -2,7 +2,7 @@
  * Surveyor Appointment — นัดช่างประกันตรวจรถ
  * Route: /service/surveyor
  */
-import { formatDate, formatDateTime } from '../../utils/format.js'
+import { formatDate, formatDateTime, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
@@ -39,7 +39,7 @@ export default async function SurveyorAppointmentPage(container) {
       container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
       return
     }
-    const today = new Date().toISOString().slice(0,10)
+    const today = todayBangkok()
     const todayAppts = APPTS.filter(a => a.date === today)
     const pending = APPTS.filter(a => a.status === 'pending')
 

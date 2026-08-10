@@ -2,7 +2,7 @@
  * Vehicle Aging Report — รถค้างสต็อก แจ้งเตือนเร่งขาย
  * Route: /dms/aging
  */
-import { formatCurrency } from '../../utils/format.js'
+import { formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, updateDocData, createDoc, seedDemoData } from '../../core/db.js'
@@ -48,7 +48,9 @@ export default async function VehicleAgingPage(container) {
         model: `${d.brand || ''} ${d.model || ''}`.trim(),
         color: d.color || '',
         cost: d.cost || 0,
-        arrived: d.arrivedAt || new Date().toISOString().slice(0,10),
+        // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+        // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+        arrived: d.arrivedAt || todayBangkok(),
         promoDisc: d.promoDisc || 0,
         campaign: d.campaign || '',
         pushed: d.pushed || false,

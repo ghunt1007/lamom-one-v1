@@ -2,7 +2,7 @@
  * LAMI Brain — ศูนย์บัญชาการ AI Officer LAMI
  * Route: /ai/lami
  */
-import { timeAgo } from '../../utils/format.js'
+import { timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { navigate } from '../../core/router.js'
@@ -154,7 +154,9 @@ export default async function LamiBrainPage(container) {
     }
     const totalInsights = insights.length
     const highPriority = insights.filter(i => i.priority === 'high').length
-    const todayStr = new Date().toISOString().slice(0, 10)
+    // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+    // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+    const todayStr = todayBangkok()
     const chatToday = chatHistory.filter(m => (m.time || '').slice(0, 10) === todayStr).length
 
     container.innerHTML = `

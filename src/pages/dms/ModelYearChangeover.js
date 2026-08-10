@@ -2,7 +2,7 @@
  * Model Year Changeover — บริหารการเปลี่ยน Model Year
  * Route: /dms/model-year
  */
-import { formatDate, formatCurrency } from '../../utils/format.js'
+import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, updateDocData, createDoc, softDelete, seedDemoData } from '../../core/db.js'
@@ -160,8 +160,8 @@ export default async function ModelYearChangeoverPage(container) {
       const btn = el.querySelector('#mys'); btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
       const data = {
         model, oldYear, newYear,
-        announcedDate: el.querySelector('#my-announced').value || new Date().toISOString().slice(0,10),
-        effectiveDate: el.querySelector('#my-effective').value || new Date().toISOString().slice(0,10),
+        announcedDate: el.querySelector('#my-announced').value || todayBangkok(),
+        effectiveDate: el.querySelector('#my-effective').value || todayBangkok(),
         oldPrice: Number(el.querySelector('#my-oldprice').value) || 0,
         newPrice: Number(el.querySelector('#my-newprice').value) || 0,
         oldStockLeft: Number(el.querySelector('#my-stockleft').value) || 0,

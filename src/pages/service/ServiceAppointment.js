@@ -1,4 +1,4 @@
-import { formatDate } from '../../utils/format.js'
+import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
@@ -28,7 +28,7 @@ export default async function ServiceAppointmentPage(container) {
   seedDemoData()
 
   let appts = []
-  let viewDate = new Date().toISOString().slice(0, 10)
+  let viewDate = todayBangkok()
   let viewMode = 'day' // day | week | list
   let statusFilter = 'all'
   let loading = true
@@ -54,7 +54,7 @@ export default async function ServiceAppointmentPage(container) {
   }
 
   function getStats() {
-    const today = new Date().toISOString().slice(0,10)
+    const today = todayBangkok()
     const todayAppts = appts.filter(a => a.date === today)
     return {
       total: todayAppts.length,
@@ -71,7 +71,7 @@ export default async function ServiceAppointmentPage(container) {
     }
     const s = getStats()
     const filtered = getFiltered()
-    const today = new Date().toISOString().slice(0,10)
+    const today = todayBangkok()
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -143,7 +143,7 @@ export default async function ServiceAppointmentPage(container) {
 
   function renderApptCard(a) {
     const st = APPT_STATUS[a.status]
-    const isToday = a.date === new Date().toISOString().slice(0,10)
+    const isToday = a.date === todayBangkok()
     return `
       <div class="appt-card" data-id="${a.id}" style="
         padding:14px 16px;background:var(--surface);border:1px solid var(--border);
@@ -181,7 +181,7 @@ export default async function ServiceAppointmentPage(container) {
   }
 
   function openApptForm(appt = null) {
-    const today = new Date().toISOString().slice(0, 10)
+    const today = todayBangkok()
     const { el, close } = openModal({
       title: appt ? '✏️ แก้ไขนัดหมาย' : '📅 นัดหมายใหม่', size: 'md',
       body: `<div style="display:flex;flex-direction:column;gap:12px">

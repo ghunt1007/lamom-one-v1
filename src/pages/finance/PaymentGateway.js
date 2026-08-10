@@ -10,6 +10,7 @@
  */
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
+import { todayBangkok } from '../../utils/format.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
@@ -154,7 +155,9 @@ export default async function PaymentGatewayPage(container) {
       if (!ref || !customer || amount <= 0) { showToast('❗ กรอกเลขที่อ้างอิง ลูกค้า และจำนวนเงินให้ครบ', 'error'); return }
       const desc = el.querySelector('#np-desc').value.trim() || '—'
       const method = el.querySelector('#np-method').value
-      const id = await createDoc('payment_transactions', { ref, customer, desc, amount, method, status: 'pending', date: new Date().toISOString().slice(0,10) })
+      // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+      // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+      const id = await createDoc('payment_transactions', { ref, customer, desc, amount, method, status: 'pending', date: todayBangkok() })
       showToast('✅ สร้างรายการชำระแล้ว — รอลูกค้าชำระ', 'success')
       close()
       await loadData()

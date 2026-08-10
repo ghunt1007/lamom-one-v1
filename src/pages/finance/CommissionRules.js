@@ -2,7 +2,7 @@
  * Commission Rules — ตั้งค่ากติกาคอมมิชชั่น
  * Route: /finance/commission-rules
  */
-import { formatCurrency } from '../../utils/format.js'
+import { formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, getSalesData } from '../../core/db.js'
@@ -151,7 +151,9 @@ export default async function CommissionRulesPage(container) {
     rules = docs
     dataSource = 'live'
     // Estimate total commission paid this month from sales data
-    const thisMonth = new Date().toISOString().slice(0, 7)
+    // เดิม new Date().toISOString().slice(0,7) คืนเดือนตาม UTC เสมอ ทำให้ "เดือนนี้" ผิดไปทุกครั้งที่
+    // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+    const thisMonth = todayBangkok().slice(0, 7)
     const monthSales = sales.filter(s => (s.date || '').startsWith(thisMonth))
     if (monthSales.length) {
       const byPerson = {}

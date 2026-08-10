@@ -2,7 +2,7 @@
  * Price History Log — ประวัติการเปลี่ยนราคา ต่อรุ่น ต่อวัน
  * Route: /dms/price-history
  */
-import { formatCurrency, formatDate } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
@@ -154,7 +154,9 @@ export default async function PriceHistoryPage(container) {
         <div><label style="font-size:0.72rem;color:var(--text-muted)">ราคาใหม่ (บาท)</label>
           <input class="input" id="ph-price" type="number" placeholder="1099000" style="width:100%;margin-top:4px"></div>
         <div><label style="font-size:0.72rem;color:var(--text-muted)">วันที่มีผล</label>
-          <input class="input" id="ph-date" type="date" value="${new Date().toISOString().slice(0,10)}" style="width:100%;margin-top:4px"></div>
+          <!-- เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+          เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok() -->
+          <input class="input" id="ph-date" type="date" value="${todayBangkok()}" style="width:100%;margin-top:4px"></div>
         <div><label style="font-size:0.72rem;color:var(--text-muted)">เหตุผล</label>
           <input class="input" id="ph-reason" placeholder="โปรโมชั่น / ต้นทุน..." style="width:100%;margin-top:4px"></div>
       </div>`,

@@ -2,7 +2,7 @@
  * Homologation Records — มาตรฐานรถยนต์ มอก. / UNECE / ECE ต่อรุ่น
  * Route: /dms/homologation
  */
-import { formatDate } from '../../utils/format.js'
+import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
@@ -152,8 +152,14 @@ export default async function HomologationPage(container) {
   }
 
   function openAddCertModal() {
-    const today = new Date().toISOString().slice(0, 10)
-    const in5y  = new Date(new Date().setFullYear(new Date().getFullYear() + 5)).toISOString().slice(0, 10)
+    // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+    // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+    // เป็นจุดตั้งต้นเสมอ แล้วบวก/ลบปีด้วย UTC methods (ไม่ผูกกับ timezone ของเครื่อง/เบราว์เซอร์ผู้ใช้)
+    const today = todayBangkok()
+    const [ty, tm, td] = today.split('-').map(Number)
+    const in5yDate = new Date(Date.UTC(ty, tm - 1, td))
+    in5yDate.setUTCFullYear(in5yDate.getUTCFullYear() + 5)
+    const in5y = in5yDate.toISOString().slice(0, 10)
     const CATS  = ['Battery Safety','Crash Test','Lighting','Steering','Brakes','EMC','ADAS']
     const STDS  = ['มอก.2718 / ECE R100','ECE R94 / R95','ECE R48','ECE R12','ECE R79','ECE R100 Amend.3']
     openModal({

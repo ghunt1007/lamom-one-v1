@@ -4,7 +4,7 @@
  */
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
-import { formatDate } from '../../utils/format.js'
+import { formatDate, todayBangkok } from '../../utils/format.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 
@@ -157,7 +157,7 @@ export default async function PriceNegotiationPage(container) {
         const discPct=+(disc/list*100).toFixed(1)
         const model=document.getElementById('pn-model')?.value||'BYD Atto 3'
         try {
-          await createDoc('price_negotiations', {customer:cust,model,listPrice:list,offerPrice:offer,discount:disc,discPct,status:'pending',sales: myName(),date:new Date().toISOString().slice(0,10),approver:''})
+          await createDoc('price_negotiations', {customer:cust,model,listPrice:list,offerPrice:offer,discount:disc,discPct,status:'pending',sales: myName(),date:todayBangkok(),approver:''})
           showToast('📤 ส่งขออนุมัติส่วนลด ฿'+disc.toLocaleString()+' แล้ว','success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

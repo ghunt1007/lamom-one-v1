@@ -1,6 +1,6 @@
 import { watchDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { showToast } from '../../core/store.js'
-import { formatCurrency, formatDate, timeAgo } from '../../utils/format.js'
+import { formatCurrency, formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
 
@@ -311,7 +311,7 @@ export default async function B2BPortalPage(container) {
           email: el.querySelector('#pf-email').value,
           commission_rate: +el.querySelector('#pf-comm').value,
           totalDeals: 0, totalRevenue: 0, status: 'active',
-          since: new Date().toISOString().slice(0, 10),
+          since: todayBangkok(),
           deals: [],
         })
         showToast('✅ เพิ่มพาร์ทเนอร์แล้ว', 'success'); close()

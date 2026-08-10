@@ -2,7 +2,7 @@
  * Charging Station — สถานีชาร์จ EV
  * Route: /service/charging
  */
-import { formatDate, timeAgo } from '../../utils/format.js'
+import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
@@ -58,7 +58,7 @@ export default async function ChargingStationPage(container) {
     const available = chargers.filter(c => c.status === 'available').length
     const inUse = chargers.filter(c => c.status === 'in_use').length
     const offline = chargers.filter(c => ['offline','maintenance'].includes(c.status)).length
-    const today = new Date().toISOString().slice(0, 10)
+    const today = todayBangkok()
     const totalEnergy = sessions.filter(s => (s.date || '').slice(0, 10) === today).reduce((a, s) => a + (s.energy || 0), 0)
 
     container.innerHTML = `

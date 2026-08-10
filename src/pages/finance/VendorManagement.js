@@ -2,7 +2,7 @@
  * Vendor Management — ซัพพลายเออร์ สัญญา ประวัติ
  * Route: /finance/vendor
  */
-import { formatCurrency } from '../../utils/format.js'
+import { formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
@@ -100,7 +100,7 @@ export default async function VendorManagementPage(container) {
         ytdSpend: parseFloat(document.getElementById('vm-spend')?.value) || 0,
         rating: Math.min(5, Math.max(1, parseFloat(document.getElementById('vm-rating')?.value) || 5)),
         status: document.getElementById('vm-active')?.checked ? 'active' : 'inactive',
-        lastOrder: v?.lastOrder || new Date().toISOString().slice(0, 10)
+        lastOrder: v?.lastOrder || todayBangkok()
       }
       try {
         if (isEdit) {
@@ -202,7 +202,7 @@ export default async function VendorManagementPage(container) {
           status: 'pending',
           requestDate: new Date().toISOString(),
           approvedBy: null,
-          expectedDate: document.getElementById('po-date')?.value || new Date().toISOString().slice(0, 10),
+          expectedDate: document.getElementById('po-date')?.value || todayBangkok(),
           note: document.getElementById('po-note')?.value?.trim() || '',
         })
         document.querySelector('.modal-overlay')?.remove()

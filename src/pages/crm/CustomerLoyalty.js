@@ -1,4 +1,4 @@
-import { formatCurrency, formatDate } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -366,7 +366,7 @@ export default async function CustomerLoyaltyPage(container) {
         const member = members.find(x => x.id === memberId)
         if (!member) return
         const newBalance = member.points + pts
-        const entry = { custName: member.name, date: new Date().toISOString().slice(0, 10), type: 'earn', points: pts, desc: note, balance: newBalance, createdAt: new Date().toISOString() }
+        const entry = { custName: member.name, date: todayBangkok(), type: 'earn', points: pts, desc: note, balance: newBalance, createdAt: new Date().toISOString() }
         try {
           await createDoc('loyalty_ledger', entry)
         } catch (e) {
@@ -404,7 +404,7 @@ export default async function CustomerLoyaltyPage(container) {
         const member = members.find(x => x.id === memberId)
         if (!member || member.points < item.points) { showToast('❗ คะแนนไม่เพียงพอ', 'error'); return }
         const newBalance = member.points - item.points
-        const entry = { custName: member.name, date: new Date().toISOString().slice(0, 10), type: 'redeem', points: -item.points, desc: `แลกรับ: ${item.name}`, balance: newBalance, createdAt: new Date().toISOString() }
+        const entry = { custName: member.name, date: todayBangkok(), type: 'redeem', points: -item.points, desc: `แลกรับ: ${item.name}`, balance: newBalance, createdAt: new Date().toISOString() }
         try {
           await createDoc('loyalty_ledger', entry)
         } catch (e) {

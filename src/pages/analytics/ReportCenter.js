@@ -1,4 +1,4 @@
-import { formatCurrency, formatDate } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData, getCommissionData } from '../../core/db.js'
@@ -69,7 +69,9 @@ export default async function ReportCenterPage(container) {
   let catFilter = 'all'
   let activeReport = null
   let dateFrom = `${YEAR}-01-01`
-  let dateTo = new Date().toISOString().slice(0, 10)
+  // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+  // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+  let dateTo = todayBangkok()
 
   // Live report data — start with demo, overlay real data when available
   const reportData = JSON.parse(JSON.stringify(REPORT_DATA))

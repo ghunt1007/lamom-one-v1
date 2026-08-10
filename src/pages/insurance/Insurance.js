@@ -1,6 +1,6 @@
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { showToast } from '../../core/store.js'
-import { formatDate, formatCurrency } from '../../utils/format.js'
+import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getInsurers, getInsuranceTypes } from '../../data/masterData.js'
@@ -167,8 +167,11 @@ export default async function InsurancePage(container) {
   }
 
   function openRenewForm(p) {
-    const newStart = new Date(p.endDate > new Date().toISOString().slice(0,10) ? p.endDate : new Date().toISOString().slice(0,10))
-    const newEnd = new Date(newStart); newEnd.setFullYear(newEnd.getFullYear() + 1)
+    // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+    // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+    // เป็นจุดตั้งต้นเสมอ แล้วบวก/ลบด้วย UTC methods (ไม่ผูกกับ timezone ของเครื่อง/เบราว์เซอร์ผู้ใช้)
+    const newStart = new Date(p.endDate > todayBangkok() ? p.endDate : todayBangkok())
+    const newEnd = new Date(newStart); newEnd.setUTCFullYear(newEnd.getUTCFullYear() + 1)
     const { el, close } = openModal({
       title: '🔄 ต่ออายุกรมธรรม์ — ' + escHtml(p.custName), size: 'md',
       body: `
@@ -219,8 +222,12 @@ export default async function InsurancePage(container) {
 
   function openForm(existing = null) {
     const isEdit = !!existing
-    const today = new Date().toISOString().slice(0,10)
-    const nextYear = new Date(); nextYear.setFullYear(nextYear.getFullYear() + 1)
+    // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+    // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+    // เป็นจุดตั้งต้นเสมอ แล้วบวก/ลบด้วย UTC methods (ไม่ผูกกับ timezone ของเครื่อง/เบราว์เซอร์ผู้ใช้)
+    const today = todayBangkok()
+    const [ny_y, ny_m, ny_d] = today.split('-').map(Number)
+    const nextYear = new Date(Date.UTC(ny_y, ny_m - 1, ny_d)); nextYear.setUTCFullYear(nextYear.getUTCFullYear() + 1)
     const { el, close } = openModal({
       title: isEdit ? '✏️ แก้ไขกรมธรรม์' : '➕ เพิ่มกรมธรรม์', size: 'lg',
       body: `
@@ -331,7 +338,7 @@ export default async function InsurancePage(container) {
   document.getElementById('add-ins-btn').addEventListener('click', () => openForm())
   document.getElementById('ins-search').addEventListener('input', e => { search = e.target.value.toLowerCase(); applyFilter() })
   document.getElementById('ins-export').addEventListener('click', () => {
-    exportToExcel(policies.map(p => ({ เลขกรมธรรม์:p.policyNo, ลูกค้า:p.custName, ทะเบียน:p.plate, รถ:`${p.brand} ${p.model}`, บริษัทประกัน:p.insurer, ประเภท:p.type, เบี้ย:p.premium, ค่าคอม:p.commission, เริ่ม:p.startDate, สิ้นสุด:p.endDate, สถานะ:INS_STATUS[p.status]?.label||p.status })), `insurance-${new Date().toISOString().slice(0,10)}.xlsx`, 'Insurance')
+    exportToExcel(policies.map(p => ({ เลขกรมธรรม์:p.policyNo, ลูกค้า:p.custName, ทะเบียน:p.plate, รถ:`${p.brand} ${p.model}`, บริษัทประกัน:p.insurer, ประเภท:p.type, เบี้ย:p.premium, ค่าคอม:p.commission, เริ่ม:p.startDate, สิ้นสุด:p.endDate, สถานะ:INS_STATUS[p.status]?.label||p.status })), `insurance-${todayBangkok()}.xlsx`, 'Insurance')
     showToast('Export แล้ว', 'success')
   })
   document.querySelectorAll('.if-btn').forEach(btn => btn.addEventListener('click', () => {

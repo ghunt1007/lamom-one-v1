@@ -2,7 +2,7 @@
  * Recall Tracker Detail — ติดตาม Recall ต่อ VIN + แจ้งลูกค้า
  * Route: /service/recall-tracker
  */
-import { formatDate } from '../../utils/format.js'
+import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -266,7 +266,7 @@ export default async function RecallTrackerPage(container) {
     container.querySelectorAll('.done-btn').forEach(b => b.addEventListener('click', () => {
       openModal({ title:'✅ บันทึกงาน Recall', size:'xs',
         body:`<div style="font-size:0.8rem;display:flex;flex-direction:column;gap:8px">
-          <div><label style="font-size:0.72rem;color:var(--text-muted)">วันที่เข้ารับบริการ</label><input class="input" id="rc-date" type="date" value="${new Date().toISOString().slice(0,10)}" style="width:100%;margin-top:4px"></div>
+          <div><label style="font-size:0.72rem;color:var(--text-muted)">วันที่เข้ารับบริการ</label><input class="input" id="rc-date" type="date" value="${todayBangkok()}" style="width:100%;margin-top:4px"></div>
           <div><label style="font-size:0.72rem;color:var(--text-muted)">ช่างผู้รับผิดชอบ</label><input class="input" id="rc-tech" placeholder="ชื่อช่าง" style="width:100%;margin-top:4px"></div>
           <div><label style="font-size:0.72rem;color:var(--text-muted)">หมายเหตุ</label><input class="input" id="rc-note" placeholder="ผลการซ่อม..." style="width:100%;margin-top:4px"></div>
         </div>`,

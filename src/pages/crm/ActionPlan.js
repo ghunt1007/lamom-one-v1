@@ -1,6 +1,6 @@
 // Action Plan — แผนปฏิบัติการขาย: กิจกรรมที่เซลส์ต้องทำเพื่อปิดเป้า
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
-import { formatDate } from '../../utils/format.js'
+import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { getSalesStaff } from '../../data/masterData.js'
@@ -13,7 +13,9 @@ const STATUS = {
 }
 const PRIORITY = { high: { label: 'สูง', color: 'danger' }, medium: { label: 'กลาง', color: 'warning' }, low: { label: 'ต่ำ', color: 'primary' } }
 
-function today() { return new Date().toISOString().slice(0, 10) }
+// เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+// เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+function today() { return todayBangkok() }
 
 const DEMO = [
   { id:'ap1', salesName:'อรนุช เซลส์ดี', title:'โทรปิดดีล ธีรพงศ์ — BYD Seal', type:'ปิดการขาย', custName:'ธีรพงศ์ แสงทอง', dueDate: today(), status:'doing', priority:'high', note:'ลูกค้าขอส่วนลดเพิ่ม 1 หมื่น', createdAt:'2025-06-18' },

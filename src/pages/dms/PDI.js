@@ -1,6 +1,6 @@
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { showToast } from '../../core/store.js'
-import { formatDate } from '../../utils/format.js'
+import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { navigate } from '../../core/router.js'
 
@@ -222,7 +222,9 @@ export default async function PdiPage(container) {
         } catch { showToast('บันทึกไม่สำเร็จ','error') }
       })
       el.querySelector('#pdi-pass').addEventListener('click', async () => {
-        const data = { ...collectState(), status: 'passed', endDate: new Date().toISOString().slice(0,10) }
+        // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+        // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+        const data = { ...collectState(), status: 'passed', endDate: todayBangkok() }
         try {
           await updateDocData('pdi', p.id, data)
           Object.assign(p, data)
@@ -273,7 +275,9 @@ export default async function PdiPage(container) {
         vin: vehicle.vin || '',
         techName: el.querySelector('#np-tech').value.trim(),
         status: 'inprogress', checks: {}, defects: [],
-        startDate: new Date().toISOString().slice(0,10), notes: '',
+        // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+        // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+        startDate: todayBangkok(), notes: '',
       }
       try {
         const id = await createDoc('pdi', data)

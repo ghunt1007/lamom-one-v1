@@ -2,7 +2,7 @@
  * Stock Reservation Lock — ล็อคสต็อกรอโอน / ป้องกันซ้ำซ้อน
  * Route: /dms/reserve-lock
  */
-import { formatDate } from '../../utils/format.js'
+import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
@@ -153,7 +153,9 @@ export default async function ReserveLockPage(container) {
         try {
           await updateDocData('reservations', v.id, {
             status: document.getElementById('lock-type')?.value||'reserved',
-            customer: cust, agent:'พนักงาน A', lockedAt: new Date().toISOString().slice(0,10),
+            // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+            // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+            customer: cust, agent:'พนักงาน A', lockedAt: todayBangkok(),
             expiry: document.getElementById('lock-exp')?.value||'',
             deposit: parseInt(document.getElementById('lock-dep')?.value)||0,
           })

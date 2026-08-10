@@ -2,7 +2,7 @@
  * Staff Mood Survey — สำรวจความรู้สึกพนักงานรายวัน / รายสัปดาห์
  * Route: /hr/mood-survey
  */
-import { formatDate } from '../../utils/format.js'
+import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
@@ -39,7 +39,7 @@ export default async function MoodSurveyPage(container) {
 
   let responses = []
   let filterDept = 'all'
-  let filterDate = new Date().toISOString().slice(0, 10)
+  let filterDate = todayBangkok()
   let surveySentAt = null
   let loading = true
 
@@ -217,10 +217,10 @@ export default async function MoodSurveyPage(container) {
         const myDept = (me.companyMemberships || []).map(m => m.department).filter(Boolean)[0] || '—'
         await createDoc('mood_responses', {
           staff: me.displayName || me.email || 'ผู้ใช้ปัจจุบัน', uid: me.uid || '', dept: myDept,
-          date: new Date().toISOString().slice(0, 10),
+          date: todayBangkok(),
           score: picked, note: document.getElementById('mood-note')?.value || '',
         })
-        filterDate = new Date().toISOString().slice(0, 10)
+        filterDate = todayBangkok()
         showToast('✅ ส่ง Mood Survey แล้ว ขอบคุณ!', 'success')
         await loadData()
       }

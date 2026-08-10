@@ -4,7 +4,7 @@ import { showToast } from '../../core/store.js'
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
-import { formatCurrency, formatDate } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
 
@@ -253,7 +253,7 @@ export default async function PartsPage(container) {
         qty: Number(el.querySelector('#pf-qty').value)||0, minQty: Number(el.querySelector('#pf-min').value)||0,
         unitCost: Number(el.querySelector('#pf-cost').value)||0, unitPrice: Number(el.querySelector('#pf-price').value)||0,
         unit: el.querySelector('#pf-unit').value||'ชิ้น', location: el.querySelector('#pf-loc').value.trim(),
-        createdAt: existing?.createdAt || new Date().toISOString().slice(0,10),
+        createdAt: existing?.createdAt || todayBangkok(),
       }
       try {
         if (isEdit) { await updateDocData('parts', existing.id, data); Object.assign(existing, data) }
@@ -313,7 +313,7 @@ export default async function PartsPage(container) {
     applyFilter()
   })
   document.getElementById('parts-export').addEventListener('click', () => {
-    exportToExcel(parts.map(p => ({ SKU:p.sku, ชื่ออะไหล่:p.name, หมวดหมู่:p.category, ยี่ห้อ:p.brand, คงเหลือ:p.qty, หน่วย:p.unit, ขั้นต่ำ:p.minQty, ราคาทุน:p.unitCost, ราคาขาย:p.unitPrice, ที่เก็บ:p.location })), `parts-${new Date().toISOString().slice(0,10)}.xlsx`, 'คลังอะไหล่')
+    exportToExcel(parts.map(p => ({ SKU:p.sku, ชื่ออะไหล่:p.name, หมวดหมู่:p.category, ยี่ห้อ:p.brand, คงเหลือ:p.qty, หน่วย:p.unit, ขั้นต่ำ:p.minQty, ราคาทุน:p.unitCost, ราคาขาย:p.unitPrice, ที่เก็บ:p.location })), `parts-${todayBangkok()}.xlsx`, 'คลังอะไหล่')
     showToast('Export แล้ว', 'success')
   })
 

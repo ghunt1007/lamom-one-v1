@@ -1,6 +1,6 @@
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { showToast } from '../../core/store.js'
-import { formatDate, timeAgo } from '../../utils/format.js'
+import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 import { getSalesStaff } from '../../data/masterData.js'
@@ -61,7 +61,9 @@ export default async function TestDrivePage(container) {
     }
     const s = getStats()
     const filtered = filterStatus === 'all' ? testdrives : testdrives.filter(t => t.status === filterStatus)
-    const today = new Date().toISOString().slice(0, 10)
+    // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+    // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+    const today = todayBangkok()
     const todayTDs = testdrives.filter(t => t.date === today && t.status === 'scheduled')
 
     container.innerHTML = `
@@ -214,7 +216,7 @@ export default async function TestDrivePage(container) {
   }
 
   function openNewForm() {
-    const today = new Date().toISOString().slice(0, 10)
+    const today = todayBangkok()
     const { el, close } = openModal({
       title: '➕ นัด Test Drive ใหม่', size:'md',
       body: `<div style="display:flex;flex-direction:column;gap:12px">

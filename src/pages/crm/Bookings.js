@@ -1,6 +1,6 @@
 import { listDocs, watchDocs, createDoc, updateDocData, softDelete, seedDemoData, setDocData } from '../../core/db.js'
 import { showToast, getState, setState } from '../../core/store.js'
-import { formatDate, formatCurrency } from '../../utils/format.js'
+import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { navigate } from '../../core/router.js'
@@ -229,7 +229,8 @@ export default async function BookingsPage(container) {
     const statusTotal = Object.values(statusCounts).reduce((s, n) => s + n, 0)
     const activeAll = bookings.filter(b => ACTIVE_PIPELINE.includes(b.status))
     const pipelineVal = activeAll.reduce((s, b) => s + (b.price || 0), 0)
-    const curMonth = new Date().toISOString().slice(0, 7)
+    // เดิม new Date().toISOString().slice(0,7) คืนเดือนตาม UTC เสมอ — แก้ให้ยึดเดือนไทยจริงจาก todayBangkok()
+    const curMonth = todayBangkok().slice(0, 7)
     const delMonth = bookings.filter(b => TERMINAL_STATUSES.slice(0, 2).includes(b.status) && (b.cutDate || b.deliveryDate || '').startsWith(curMonth)).length
     const urgentCount = bookings.filter(isUrgent).length
     const deliveredAll = bookings.filter(b => b.status === 'ส่งมอบแล้ว')
@@ -345,7 +346,7 @@ export default async function BookingsPage(container) {
       สีนอก: b.colorOut, สีใน: b.colorIn, แหล่งที่มา: b.source, ราคา: b.price, ไฟแนนซ์: b.financeCo, ยอดจัด: b.financeAmount,
       ค่างวด: b.monthly, ต้นทุน: b.cost, กำไรขั้นต้น: b.margin, รายได้รวม: b.totalIncome,
       เลขเครื่องยนต์: b.engineNo, ป้ายแดง: b.redPlate, ป้ายขาว: b.whitePlate, หมายเหตุ: b.notes,
-    })), fileTag + '-' + new Date().toISOString().slice(0, 10) + '.xlsx', 'ใบจอง')
+    })), fileTag + '-' + todayBangkok() + '.xlsx', 'ใบจอง')
     showToast('📥 Export แล้ว', 'success')
   }
 
@@ -499,7 +500,8 @@ export default async function BookingsPage(container) {
     if (!b) return
     const downAmt = Number(b.down) || 0
     const hasMoney = downAmt > 0 && !b.rightsOnly
-    const today = new Date().toISOString().slice(0, 10)
+    // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+    const today = todayBangkok()
     const { el, close } = openModal({
       title: '❌ ถอนจอง ' + escHtml(b.bookingNo),
       size: 'sm',
@@ -584,7 +586,8 @@ export default async function BookingsPage(container) {
 
   // ── EOD summary (สรุปยอดประจำวัน) ────────────────────────────────────────
   function openEodSummary() {
-    const todayStr = new Date().toISOString().slice(0, 10)
+    // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+    const todayStr = todayBangkok()
     const now = new Date()
     const thM = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
     const dateStr = `${now.getDate()} ${thM[now.getMonth()]} ${now.getFullYear() + 543}`
@@ -753,7 +756,7 @@ export default async function BookingsPage(container) {
           brand: w.brand, model: w.model, variant: w.variant, rightsOnly: w.rightsOnly || false,
           price: w.price, down: w.down, financeAmount: Math.max(t - w.down, 0), installments: w.installments, interestRate: w.interestRate, monthly: monthly(),
           margin: 0, budgetUsed: 0, com70: commission(), comFinance: 0, marginLeft: 0, totalIncome: commission(),
-          bookingDate: new Date().toISOString().slice(0, 10), status: 'ยอดจองคงค้าง', notes: '',
+          bookingDate: todayBangkok(), status: 'ยอดจองคงค้าง', notes: '',
           createdAt: new Date().toISOString(),
           // Phase 2 หลายบริษัท — ติด companyId ของบริษัทหลักที่พนักงานคนสร้างสังกัดอยู่ (ถ้ามี)
           companyId: getState('user')?.primaryCompanyId || null,
@@ -841,7 +844,7 @@ export default async function BookingsPage(container) {
     document.getElementById('bk-edit2')?.addEventListener('click', () => { document.querySelectorAll('.modal-overlay').forEach(m => m.remove()); openForm(b) })
     document.getElementById('bk-note2')?.addEventListener('click', () => { document.querySelectorAll('.modal-overlay').forEach(m => m.remove()); openNoteModal(b) })
     document.getElementById('bk-verify-pay')?.addEventListener('click', async () => {
-      const patch = { paymentVerifyStatus: 'รอการเงินยืนยัน', paymentVerifyRequestedAt: new Date().toISOString().slice(0, 10) }
+      const patch = { paymentVerifyStatus: 'รอการเงินยืนยัน', paymentVerifyRequestedAt: todayBangkok() }
       try {
         await updateDocData('bookings', b.id, patch)
         Object.assign(b, patch)
@@ -928,7 +931,7 @@ export default async function BookingsPage(container) {
         '<div class="grid-2">' + inp('bf-insamt', 'ยอดขายประกัน (บาท)', e.insuranceAmount, 'number') + inp('bf-accamt', 'ยอดขายอุปกรณ์ (บาท)', e.accessoryAmount, 'number') + '</div>' +
         '<div style="font-size:0.72rem;color:var(--text-muted)">💡 กำไรคงเหลือ = Margin − งบการตลาด · รายได้รวม = กำไรคงเหลือ + คอมเซลส์ + คอมไฟแนนซ์ (คำนวณอัตโนมัติ)</div>' +
         sec('📅 ไทม์ไลน์') +
-        '<div class="grid-2">' + inp('bf-bdate', 'วันจอง', e.bookingDate || new Date().toISOString().slice(0, 10), 'date') + inp('bf-submit', 'วันยื่นไฟแนนซ์', e.submitDate, 'date') + '</div>' +
+        '<div class="grid-2">' + inp('bf-bdate', 'วันจอง', e.bookingDate || todayBangkok(), 'date') + inp('bf-submit', 'วันยื่นไฟแนนซ์', e.submitDate, 'date') + '</div>' +
         '<div class="grid-2">' + inp('bf-approve', 'วันอนุมัติ', e.approveDate, 'date') + inp('bf-sign', 'วันเซ็นสัญญา', e.signDate, 'date') + '</div>' +
         '<div class="grid-2">' + inp('bf-cut', 'วันตัดรถ', e.cutDate, 'date') + inp('bf-delivery', 'วันนัดส่งมอบ', e.deliveryDate, 'date') + '</div>' +
         inp('bf-actual', 'วันส่งมอบจริง', e.actualDeliveryDate, 'date') +

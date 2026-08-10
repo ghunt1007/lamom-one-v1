@@ -1,6 +1,6 @@
 import { watchDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { showToast, getState, setState } from '../../core/store.js'
-import { formatDate, timeAgo } from '../../utils/format.js'
+import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 
 const DEPARTMENTS = {
@@ -91,7 +91,7 @@ export default async function TasksPage(container) {
       const todo = tasks.filter(t => t.status === 'todo').length
       const inprog = tasks.filter(t => t.status === 'inprogress').length
       const done = tasks.filter(t => t.status === 'done').length
-      const overdue = tasks.filter(t => t.status !== 'done' && t.status !== 'cancelled' && t.dueDate && t.dueDate < new Date().toISOString().slice(0,10)).length
+      const overdue = tasks.filter(t => t.status !== 'done' && t.status !== 'cancelled' && t.dueDate && t.dueDate < todayBangkok()).length
       statEl.innerHTML = `
         <span class="badge badge-primary">📋 ต้องทำ ${todo}</span>
         <span class="badge badge-primary">⚙️ กำลังทำ ${inprog}</span>
@@ -148,7 +148,7 @@ export default async function TasksPage(container) {
     const pr = PRIORITY[t.priority] || PRIORITY.medium
     const st = STATUS[t.status] || STATUS.todo
     const dept = DEPARTMENTS[t.department] || DEPARTMENTS.general
-    const isOverdue = t.status !== 'done' && t.status !== 'cancelled' && t.dueDate && t.dueDate < new Date().toISOString().slice(0,10)
+    const isOverdue = t.status !== 'done' && t.status !== 'cancelled' && t.dueDate && t.dueDate < todayBangkok()
     const isDone = t.status === 'done' || t.status === 'cancelled'
     const wasRouted = t.originDept && t.originDept !== t.department
     const nextLabel = { todo:'▶ เริ่ม', inprogress:'✅ เสร็จ' }[t.status]
@@ -253,8 +253,14 @@ export default async function TasksPage(container) {
 
   function openForm(existing = null) {
     const isEdit = !!existing
-    const today = new Date().toISOString().slice(0,10)
-    const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0,10)
+    // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้/พรุ่งนี้" ผิดไป 1 วันทุกครั้งที่
+    // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+    // เป็นจุดตั้งต้นเสมอ แล้วบวกวันด้วย UTC methods (ไม่ผูกกับ timezone ของเครื่อง/เบราว์เซอร์ผู้ใช้)
+    const today = todayBangkok()
+    const [ty, tm, td] = today.split('-').map(Number)
+    const tomorrowDt = new Date(Date.UTC(ty, tm - 1, td))
+    tomorrowDt.setUTCDate(tomorrowDt.getUTCDate() + 1)
+    const tomorrow = tomorrowDt.toISOString().slice(0, 10)
     const { el, close } = openModal({
       title: isEdit ? '✏️ แก้ไขงาน' : '➕ งานใหม่', size: 'md',
       body: `

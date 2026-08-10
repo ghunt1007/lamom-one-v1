@@ -1,7 +1,7 @@
 // เซลล์ตรวจรถก่อนส่งมอบ — Sales Pre-Delivery Check (ผูกกับใบจอง)
 // ต่างจาก PDI ของช่าง: เป็นเช็คลิสต์ฝั่งเซลส์ก่อนส่งมอบให้ลูกค้า + พิมพ์ใบตรวจรับมอบ
 import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
-import { formatCurrency, formatDate } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { printDocument, docHeader, docFooter, esc } from '../../utils/print.js'
@@ -172,7 +172,9 @@ export default async function PreDeliveryPage(container) {
       const r = readiness(b)
       if (r.failed > 0) { showToast('⚠️ ยังมี ' + r.failed + ' รายการต้องแก้ไข', 'warning'); return }
       if (r.checked < r.total) { showToast('⚠️ ตรวจยังไม่ครบทุกข้อ', 'warning'); return }
-      b.pdReady = true; b.pdReadyDate = new Date().toISOString().slice(0, 10)
+      // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+      // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+      b.pdReady = true; b.pdReadyDate = todayBangkok()
       await updateDocData('bookings', b.id, { pdItems: b.pdItems, pdNote: b.pdNote, pdReady: true, pdReadyDate: b.pdReadyDate }).catch(() => {})
       showToast('✅ ยืนยันพร้อมส่งมอบแล้ว!', 'success'); close(); render()
     })

@@ -2,7 +2,7 @@
  * Quotation Compare — เปรียบเทียบใบเสนอราคาให้ลูกค้า
  * Route: /crm/quote-compare
  */
-import { formatCurrency } from '../../utils/format.js'
+import { formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
@@ -152,7 +152,7 @@ export default async function QuotationComparePage(container) {
           const ch = document.getElementById('qc-ch')?.value || 'line'
           const email = document.getElementById('qc-email')?.value?.trim() || ''
           if (ch === 'print') {
-            const html = docHeader('ใบเปรียบเทียบรุ่นรถ', '', new Date().toISOString().slice(0, 10)) +
+            const html = docHeader('ใบเปรียบเทียบรุ่นรถ', '', todayBangkok()) +
               `<p>ลูกค้า: ${esc(name)}</p>` +
               `<table style="width:100%;border-collapse:collapse;margin-top:10px">
                 <tr>${chosen.map(v => `<th style="border:1px solid #ccc;padding:6px;text-align:left">${esc(v.brand || '')} ${esc(v.model || '')}</th>`).join('')}</tr>

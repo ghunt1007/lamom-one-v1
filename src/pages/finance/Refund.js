@@ -5,7 +5,7 @@
  * - คำขอคืนเงินทั่วไป (workflow ขออนุมัติ → อนุมัติ → โอน)
  * Route: /finance/refund
  */
-import { formatDate, formatCurrency } from '../../utils/format.js'
+import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState, setState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
@@ -150,7 +150,9 @@ export default async function RefundPage(container) {
       if (!b) return
       const ok = await confirmDialog({ title: '✅ ยืนยันยอดโอนเข้า', message: `ยืนยันว่าเงิน ${formatCurrency(b.down)} ของ "${escHtml(b.custName || b.bookingNo)}" โอนเข้าบัญชีจริงแล้ว? เซลส์จะได้รับแจ้งทันที`, confirmText: 'ยืนยัน' })
       if (!ok) return
-      const today = new Date().toISOString().slice(0, 10)
+      // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+      // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+      const today = todayBangkok()
       await updateDocData('bookings', b.id, { paymentVerifyStatus: 'ยืนยันแล้ว', paymentVerifiedAt: today })
       await notifySales('✅ การเงินยืนยันยอดโอนแล้ว', `ใบจอง ${b.bookingNo} — ${b.custName || ''} ยอด ${formatCurrency(b.down)} มีเงินโอนเข้ามาจริง เซลส์ดำเนินการต่อได้`)
       showToast('✅ ยืนยันยอดโอนแล้ว — แจ้งเซลส์เรียบร้อย', 'success')
@@ -163,7 +165,7 @@ export default async function RefundPage(container) {
       const amt = Number(b.refundAmount) || Number(b.down) || 0
       const ok = await confirmDialog({ title: '💸 ยืนยันโอนเงินคืนลูกค้า', message: `ยืนยันว่าโอนเงินจอง ${formatCurrency(amt)} คืนให้ "${escHtml(b.custName || b.bookingNo)}" แล้ว? ฝ่ายขายจะเห็นสถานะ "คืนเงินแล้ว" ทันที`, confirmText: 'โอนคืนแล้ว' })
       if (!ok) return
-      const today = new Date().toISOString().slice(0, 10)
+      const today = todayBangkok()
       await updateDocData('bookings', b.id, { refundStatus: 'คืนเงินแล้ว', refundAmount: amt, refundedAt: today })
       await notifySales('💸 การเงินคืนเงินจองให้ลูกค้าแล้ว', `ใบจอง ${b.bookingNo} — คืนเงิน ${formatCurrency(amt)} ให้ ${b.custName || ''} เรียบร้อย (${formatDate(today)})`)
       showToast('💸 บันทึกการคืนเงินแล้ว — ฝ่ายขายเห็นสถานะทันที', 'success')
@@ -186,7 +188,7 @@ export default async function RefundPage(container) {
       // ปุ่ม verify-ok-btn/refund-done-btn ข้างบนในไฟล์นี้เองที่มี confirmDialog ทุกครั้ง เพิ่มให้ตรงกัน
       const ok = await confirmDialog({ title: '💸 ยืนยันโอนเงินคืน', message: `ยืนยันว่าโอนเงินคืน ${formatCurrency(r.amount || 0)} ให้ "${escHtml(r.customer)}" แล้ว?`, confirmText: 'โอนเงินแล้ว' })
       if (!ok) return
-      const today = new Date().toISOString().slice(0, 10)
+      const today = todayBangkok()
       try {
         await updateDocData('refund_requests', r.id, { status: 'transferred', txDate: today })
         showToast('💸 โอนเงินคืน ' + formatCurrency(r.amount || 0) + ' เรียบร้อย', 'success')
@@ -242,7 +244,9 @@ export default async function RefundPage(container) {
         const reason=document.getElementById('rf-reason')?.value?.trim()
         if(!cust||!amount||!reason){showToast('กรุณากรอกข้อมูลให้ครบ','warning');return false}
         const type=document.getElementById('rf-type')?.value||'คืนมัดจำ'
-        await createDoc('refund_requests', { customer:cust, type, amount, reason, status:'pending', date:new Date().toISOString().slice(0,10), approvedBy:'', txDate:'' })
+        // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+        // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+        await createDoc('refund_requests', { customer:cust, type, amount, reason, status:'pending', date:todayBangkok(), approvedBy:'', txDate:'' })
         showToast('📤 ยื่นขอคืนเงิน ' + formatCurrency(amount) + ' แล้ว','success')
         await loadData()
       }

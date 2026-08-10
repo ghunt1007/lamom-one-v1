@@ -1,5 +1,5 @@
 import { showToast, getState } from '../../core/store.js'
-import { formatDate, timeAgo } from '../../utils/format.js'
+import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
@@ -269,7 +269,7 @@ export default async function LeavePage(container) {
 
   function openLeaveForm() {
     if (!staffList.length) { showToast('❗ ยังไม่มีข้อมูลพนักงาน', 'error'); return }
-    const today = new Date().toISOString().slice(0,10)
+    const today = todayBangkok()
     const { el, close } = openModal({
       title: '➕ ยื่นคำขอลา', size:'md',
       body: `<div style="display:flex;flex-direction:column;gap:12px">

@@ -2,7 +2,7 @@
  * Upsell / Cross-sell AI Advisor — แนะนำ Upsell สินค้าและบริการต่อลูกค้า
  * Route: /ai/upsell
  */
-import { formatCurrency, formatDate } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData, listDocs, createDoc } from '../../core/db.js'
@@ -53,9 +53,13 @@ export default async function UpsellAdvisorPage(container) {
       if (!byCust[key] || (s.date || '') > (byCust[key].date || '')) byCust[key] = s
     })
 
-    const today = new Date().toISOString().slice(0, 10)
-    const sixMonthsAgo = new Date(); sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
-    const twoYearsAgo = new Date(); twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2)
+    // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+    // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+    // เป็นจุดตั้งต้นเสมอ แล้วบวก/ลบด้วย UTC methods (ไม่ผูกกับ timezone ของเครื่อง/เบราว์เซอร์ผู้ใช้)
+    const today = todayBangkok()
+    const [tY, tM, tD] = today.split('-').map(Number)
+    const sixMonthsAgo = new Date(Date.UTC(tY, tM - 1, tD)); sixMonthsAgo.setUTCMonth(sixMonthsAgo.getUTCMonth() - 6)
+    const twoYearsAgo = new Date(Date.UTC(tY, tM - 1, tD)); twoYearsAgo.setUTCFullYear(twoYearsAgo.getUTCFullYear() - 2)
 
     customers = Object.values(byCust).map(s => {
       const cust = { name: s.custName, phone: s.phone || '', model: `${s.brand||''} ${s.model||''}`.trim(), buyDate: s.date }

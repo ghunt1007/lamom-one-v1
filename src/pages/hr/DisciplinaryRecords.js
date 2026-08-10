@@ -2,7 +2,7 @@
  * Disciplinary Records — บันทึกตักเตือน / ใบเตือนพนักงาน
  * Route: /hr/disciplinary
  */
-import { formatDate } from '../../utils/format.js'
+import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
@@ -144,7 +144,7 @@ export default async function DisciplinaryRecordsPage(container) {
           caseNo: 'DR-' + Date.now(), staff, dept: document.getElementById('dr-dept').value.trim() || '-',
           level: document.getElementById('dr-level').value, reason,
           by: document.getElementById('dr-by').value.trim() || 'หัวหน้างาน',
-          date: new Date().toISOString().slice(0,10), ack: false,
+          date: todayBangkok(), ack: false,
         })
         showToast(`ออกใบเตือน ให้ ${staff} แล้ว — รอลงนามรับทราบ`, 'success')
         await loadData()

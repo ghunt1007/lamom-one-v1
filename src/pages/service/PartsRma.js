@@ -2,7 +2,7 @@
  * Parts Return & RMA — คืนอะไหล่ / ส่งคืน Supplier
  * Route: /service/parts-rma
  */
-import { formatDate, formatCurrency } from '../../utils/format.js'
+import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
@@ -177,7 +177,7 @@ export default async function PartsRmaPage(container) {
             qty:parseInt(document.getElementById('rma-qty')?.value)||1,
             unit:'ชิ้น', reason:document.getElementById('rma-reason')?.value||'',
             supplier:document.getElementById('rma-sup')?.value||'',
-            date:new Date().toISOString().slice(0,10), cost:parseInt(document.getElementById('rma-cost')?.value)||0,
+            date:todayBangkok(), cost:parseInt(document.getElementById('rma-cost')?.value)||0,
             status:'pending', refNo:''
           })
           showToast(`📋 สร้าง RMA ${name} แล้ว`, 'success')

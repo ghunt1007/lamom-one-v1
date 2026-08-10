@@ -1,4 +1,4 @@
-import { formatCurrency, formatDate } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -23,11 +23,16 @@ const FILING_STATUS = {
   amended:  { label: 'แก้ไข', color: 'secondary' },
 }
 
+// เดิม new Date().setMonth() คืนเดือนตาม UTC เสมอ ทำให้ "เดือนนี้" ผิดไป 1 วันทุกครั้งที่เวลาไทยยังไม่ถึง
+// 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok() เป็นจุดตั้งต้นเสมอ
+// แล้วบวก/ลบเดือนด้วย UTC methods (ไม่ผูกกับ timezone ของเครื่อง/เบราว์เซอร์ผู้ใช้)
 function addMonths(n) {
-  const d = new Date(); d.setMonth(d.getMonth() + n)
-  return d.toISOString().slice(0, 7)
+  const [y, m, d] = todayBangkok().split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 1, d))
+  dt.setUTCMonth(dt.getUTCMonth() + n)
+  return dt.toISOString().slice(0, 7)
 }
-function thisMonth() { return new Date().toISOString().slice(0, 7) }
+function thisMonth() { return todayBangkok().slice(0, 7) }
 
 const DEMO_FILINGS = [
   { id: 'TX001', type: 'pp30', period: addMonths(-1), dueDate: `${addMonths(-1)}-15`, filedDate: `${addMonths(-1)}-14`, status: 'filed', taxBase: 4820000, vatAmount: 337400, refundable: 0, notes: 'ยื่นออนไลน์', officer: 'นิภา บัญชีดี' },
@@ -132,7 +137,7 @@ export default async function TaxReportPage(container) {
       .sort((a, b) => b.dueDate.localeCompare(a.dueDate))
   }
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayBangkok()
   function isOverdue(f) { return f.status === 'pending' && f.dueDate < today }
   function daysUntilDue(f) {
     const diff = Math.ceil((new Date(f.dueDate) - new Date(today)) / 86400000)

@@ -1,5 +1,5 @@
 import { listDocs, seedDemoData, getSalesData } from '../../core/db.js'
-import { formatCurrency, formatDate } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { showToast } from '../../core/store.js'
 
@@ -159,7 +159,7 @@ export default async function MarginPage(container) {
     exportToExcel(filtered.map(s => {
       const m = calcMargin(s)
       return { วันที่:s.date, ลูกค้า:s.custName, รถ:`${s.brand} ${s.model}`, ราคาขาย:s.salePrice, ต้นทุน:s.cost, กำไรหยาบ:m.gross, Finance:s.finance, ประกัน:s.insurance, อุปกรณ์:s.accessory, ส่วนลด:s.discount, กำไรสุทธิ:m.net, Margin:m.pct+'%', เซลส์:s.salesName }
-    }), `margin-${new Date().toISOString().slice(0,10)}.xlsx`, 'Margin')
+    }), `margin-${todayBangkok()}.xlsx`, 'Margin')
     showToast('Export แล้ว', 'success')
   })
   document.querySelector('.mf-btn').addEventListener('click', () => { monthFilter = 'all'; refreshMonthBtns(); applyFilter() })

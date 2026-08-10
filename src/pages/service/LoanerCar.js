@@ -1,4 +1,4 @@
-import { formatDate } from '../../utils/format.js'
+import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
@@ -44,7 +44,7 @@ export default async function LoanerCarPage(container) {
     const avail = cars.filter(c => c.status === 'available').length
     const loaned = cars.filter(c => c.status === 'loaned').length
     const activeLoans = loans.filter(l => l.status === 'active')
-    const overdue = activeLoans.filter(l => l.returnDate < new Date().toISOString().slice(0,10)).length
+    const overdue = activeLoans.filter(l => l.returnDate < todayBangkok()).length
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -137,7 +137,7 @@ export default async function LoanerCarPage(container) {
         <thead><tr><th>ลูกค้า</th><th>รถสำรอง</th><th>Job Card</th><th>วันยืม</th><th>กำหนดคืน</th><th>สถานะ</th><th></th></tr></thead>
         <tbody>
           ${sorted.map(l => {
-            const isOverdue = l.status === 'active' && l.returnDate < new Date().toISOString().slice(0,10)
+            const isOverdue = l.status === 'active' && l.returnDate < todayBangkok()
             return `<tr>
               <td>
                 <div style="font-weight:600;font-size:0.85rem">${escHtml(l.custName)}</div>
@@ -158,7 +158,7 @@ export default async function LoanerCarPage(container) {
 
   function openLoanForm() {
     const availCars = cars.filter(c => c.status === 'available')
-    const today = new Date().toISOString().slice(0, 10)
+    const today = todayBangkok()
     const { el, close } = openModal({
       title: '🚙 บันทึกการยืมรถ', size: 'md',
       body: `<div style="display:flex;flex-direction:column;gap:12px">
@@ -213,7 +213,7 @@ export default async function LoanerCarPage(container) {
 
   function openReturnForm(loan) {
     const car = cars.find(c => c.id === loan.carId)
-    const today = new Date().toISOString().slice(0, 10)
+    const today = todayBangkok()
     const { el, close } = openModal({
       title: '🔄 รับรถคืน', size: 'sm',
       body: `<div style="display:flex;flex-direction:column;gap:12px">

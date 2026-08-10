@@ -1,4 +1,4 @@
-import { formatDate } from '../../utils/format.js'
+import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -290,7 +290,7 @@ export default async function VehicleInspectionPage(container) {
   }
 
   function openInsForm() {
-    const today = new Date().toISOString().slice(0, 10)
+    const today = todayBangkok()
     openModal({
       title: '+ สร้างการตรวจสภาพ',
       size: 'md',

@@ -9,7 +9,7 @@
  * ตามแพทเทิร์นเดียวกับ pages/ai/PersonalAI.js (full-screen overlay)
  */
 import { listDocs, getSalesData, getCommissionData, seedDemoData } from '../core/db.js'
-import { formatCurrency } from '../utils/format.js'
+import { formatCurrency, todayBangkok } from '../utils/format.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -357,8 +357,10 @@ export default async function TvDisplayPage(container) {
   }
 
   async function loadData() {
-    const today = new Date().toISOString().slice(0, 10)
-    const thisMonth = new Date().toISOString().slice(0, 7)
+    // เดิม new Date().toISOString().slice(0,10)/(0,7) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้"/"เดือนนี้" ผิดไป 1 วันทุกครั้งที่
+    // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+    const today = todayBangkok()
+    const thisMonth = today.slice(0, 7)
     let bookings = [], sales = [], commission = []
     try {
       ;[bookings, sales, commission] = await Promise.all([

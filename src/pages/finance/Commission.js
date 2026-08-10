@@ -1,5 +1,5 @@
 import { listDocs, createDoc, updateDocData, seedDemoData, getCommissionData, getSalesData } from '../../core/db.js'
-import { formatCurrency, formatDate } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -171,7 +171,9 @@ export default async function CommissionPage(container) {
       const c = comms.find(x => x.id === btn.dataset.id)
       if (!c) return
       btn.disabled = true; btn.textContent = '...'
-      const paidAt = new Date().toISOString().slice(0,10)
+      // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+      // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+      const paidAt = todayBangkok()
       try {
         await updateDocData('commissions', c.id, { status: 'paid', paidAt })
         c.status = 'paid'; c.paidAt = paidAt
@@ -257,7 +259,7 @@ export default async function CommissionPage(container) {
     exportToExcel(filtered.map(c => {
       const comm = calcComm(c)
       return { เดือน:c.month, เซลส์:c.salesName, รถที่ขาย:c.carsSold, ยอดขายรถ:c.salePriceTotal, ยอดจัดไฟแนนซ์:c.financeTotal, ยอดขายประกัน:c.insuranceTotal, ยอดขายอุปกรณ์:c.accessoryTotal, ค่าคอมรวมสุทธิ:comm.total, สถานะ:c.status === 'paid' ? 'จ่ายแล้ว' : 'รอจ่าย', วันที่จ่าย:formatDate(c.paidAt) }
-    }), `commission-${new Date().toISOString().slice(0,10)}.xlsx`, 'Commission')
+    }), `commission-${todayBangkok()}.xlsx`, 'Commission')
     showToast('Export แล้ว', 'success')
   })
   document.getElementById('comm-goto-rules')?.addEventListener('click', () => navigate('/finance/commission-rules'))

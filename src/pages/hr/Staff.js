@@ -1,6 +1,6 @@
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData, setDocData, migrateStaffSalaries } from '../../core/db.js'
 import { showToast, getState } from '../../core/store.js'
-import { formatDate } from '../../utils/format.js'
+import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
 
@@ -225,7 +225,7 @@ export default async function StaffPage(container) {
             <div class="input-group"><label class="input-label">อีเมล</label><input class="input" type="email" id="sf-email" value="${escHtml(existing?.email||'')}"></div>
           </div>
           <div class="grid-2">
-            <div class="input-group"><label class="input-label">วันเริ่มงาน</label><input class="input" type="date" id="sf-start" value="${existing?.startDate||new Date().toISOString().slice(0,10)}"></div>
+            <div class="input-group"><label class="input-label">วันเริ่มงาน</label><input class="input" type="date" id="sf-start" value="${existing?.startDate||todayBangkok()}"></div>
             ${canViewSalary ? `<div class="input-group"><label class="input-label">เงินเดือน (บาท)</label><input class="input" type="number" id="sf-salary" value="${existing?.salary||''}"></div>` : ''}
           </div>
           <div class="input-group"><label class="input-label">หัวหน้างาน (ใช้แสดงในแผนผังองค์กร)</label>
@@ -337,7 +337,7 @@ export default async function StaffPage(container) {
   document.getElementById('staff-search').addEventListener('input', e => { search = e.target.value.toLowerCase(); applyFilter() })
   document.getElementById('dept-filter').addEventListener('change', e => { deptFilter = e.target.value; applyFilter() })
   document.getElementById('staff-export').addEventListener('click', () => {
-    exportToExcel(staff.map(s => ({ ชื่อ:s.firstName, นามสกุล:s.lastName, ชื่อเล่น:s.nickname, ตำแหน่ง:ROLES[s.role]||s.role, แผนก:s.dept, โทร:s.phone, อีเมล:s.email, วันเริ่มงาน:s.startDate, ...(canViewSalary ? { เงินเดือน:s.salary } : {}), สถานะ:STATUS_EMP[s.status]||s.status })), `staff-${new Date().toISOString().slice(0,10)}.xlsx`, 'พนักงาน')
+    exportToExcel(staff.map(s => ({ ชื่อ:s.firstName, นามสกุล:s.lastName, ชื่อเล่น:s.nickname, ตำแหน่ง:ROLES[s.role]||s.role, แผนก:s.dept, โทร:s.phone, อีเมล:s.email, วันเริ่มงาน:s.startDate, ...(canViewSalary ? { เงินเดือน:s.salary } : {}), สถานะ:STATUS_EMP[s.status]||s.status })), `staff-${todayBangkok()}.xlsx`, 'พนักงาน')
     showToast('Export แล้ว', 'success')
   })
 

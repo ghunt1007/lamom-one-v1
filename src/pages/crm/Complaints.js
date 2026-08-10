@@ -1,4 +1,4 @@
-import { formatDate, timeAgo } from '../../utils/format.js'
+import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -157,7 +157,8 @@ export default async function ComplaintsPage(container) {
   }
 
   function openComplaintForm(comp = null) {
-    const today = new Date().toISOString().slice(0, 10)
+    // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+    const today = todayBangkok()
     const { el, close } = openModal({
       title: comp ? '✏️ แก้ไขเรื่องร้องเรียน' : '📢 บันทึกเรื่องร้องเรียนใหม่', size: 'md',
       body: `<div style="display:flex;flex-direction:column;gap:12px">
@@ -230,7 +231,7 @@ export default async function ComplaintsPage(container) {
     el.querySelectorAll('.status-change').forEach(btn => {
       btn.addEventListener('click', async () => {
         const fields = { status: btn.dataset.s, response: el.querySelector('#cp-resp').value }
-        if (btn.dataset.s === 'closed' || btn.dataset.s === 'resolved') fields.closedDate = new Date().toISOString().slice(0,10)
+        if (btn.dataset.s === 'closed' || btn.dataset.s === 'resolved') fields.closedDate = todayBangkok()
         try {
           await updateDocData('complaints', c.id, fields)
           showToast('✅ อัพเดตสถานะแล้ว','success'); close()

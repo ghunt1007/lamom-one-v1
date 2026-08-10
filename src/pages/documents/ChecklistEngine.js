@@ -5,6 +5,7 @@
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { todayBangkok } from '../../utils/format.js'
 
 const CAT_COLORS = { DMS:'var(--primary)', บริการ:'var(--warning)', คุณภาพ:'var(--success)', HR:'var(--danger)' }
 
@@ -102,7 +103,9 @@ export default async function ChecklistEnginePage(container) {
         // เดิมบันทึกแค่ตัวนับ (usedCount/lastUsed) ไม่เคยเก็บว่า "ข้อไหนถูกติ๊กบ้าง" เลย ทั้งที่ toast แจ้งผลว่า
         // ทำได้กี่ข้อจากกี่ข้อ — ทำให้ย้อนดูภายหลังไม่ได้เลยว่ารายการไหนขาดไปตอนใช้ครั้งล่าสุด
         // (ยังคงรีเซ็ตกลับเป็นว่างตอนเปิดใช้ครั้งใหม่ตามปกติ เพราะเป็น checklist แม่แบบใช้ซ้ำได้หลายครั้ง)
-        await updateDocData('checklists', cl.id, { usedCount: cl.usedCount + 1, lastUsed: new Date().toISOString().slice(0, 10), lastCompletedItems: [...cl.progress] })
+        // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+        // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+        await updateDocData('checklists', cl.id, { usedCount: cl.usedCount + 1, lastUsed: todayBangkok(), lastCompletedItems: [...cl.progress] })
         showToast('✅ บันทึก ' + cl.name + ' (' + doneCount + '/' + cl.items.length + ' รายการ)', 'success')
         activeId = null
         await loadData()
@@ -186,7 +189,9 @@ export default async function ChecklistEnginePage(container) {
           name,
           category: document.getElementById('cl-cat')?.value || 'DMS',
           usedCount: 0,
-          lastUsed: new Date().toISOString().slice(0,10),
+          // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+          // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+          lastUsed: todayBangkok(),
           items,
         })
         document.querySelector('.modal-overlay')?.remove()

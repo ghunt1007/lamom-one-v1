@@ -2,7 +2,7 @@
  * Loyalty Tier Auto-upgrade — ระบบ Tier อัตโนมัติตามคะแนนสะสม
  * Route: /crm/loyalty-tiers
  */
-import { formatCurrency } from '../../utils/format.js'
+import { formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData, listDocs, createDoc } from '../../core/db.js'
@@ -199,7 +199,9 @@ export default async function LoyaltyTiersPage(container) {
           const pts = parseInt(document.getElementById('man-pts')?.value)
           const desc = document.getElementById('man-desc')?.value.trim() || 'Manual Bonus'
           if (!pts || pts < 1) { showToast('ใส่จำนวนคะแนน', 'warning'); return false }
-          const today = new Date().toISOString().slice(0, 10)
+          // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+          // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+          const today = todayBangkok()
           try {
             await createDoc('loyalty_tier_ledger', { custName: m.name, pts, desc, date: today })
           } catch (e) {

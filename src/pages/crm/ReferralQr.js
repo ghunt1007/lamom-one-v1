@@ -2,7 +2,7 @@
  * Referral QR Generator — QR แนะนำเพื่อน ได้ Commission อัตโนมัติ
  * Route: /crm/referral-qr
  */
-import { formatCurrency, formatDate } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
@@ -195,7 +195,7 @@ export default async function ReferralQrPage(container) {
         if (!name) { showToast('ใส่ชื่อ', 'warning'); return false }
         const code = name.replace(/\s/g,'').toUpperCase().slice(0,4)+(REFERRERS.length+1).toString().padStart(3,'0')
         try {
-          const newId = await createDoc('referrers', { name, phone, code, qrUrl:`lamom.app/ref/${code}`, clicks:0, leads:0, sales:0, commission:0, paid:0, createdAt: new Date().toISOString().slice(0,10) })
+          const newId = await createDoc('referrers', { name, phone, code, qrUrl:`lamom.app/ref/${code}`, clicks:0, leads:0, sales:0, commission:0, paid:0, createdAt: todayBangkok() })
           selId = newId
           showToast(`🔗 สร้าง QR ของ ${name} แล้ว · Code: ${code}`, 'success')
           await loadData()

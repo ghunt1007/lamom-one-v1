@@ -1,4 +1,4 @@
-import { formatCurrency, formatDate } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -83,7 +83,9 @@ export default async function InvoicePage(container) {
   }
 
   function getSummary() {
-    const today = new Date().toISOString().slice(0, 10)
+    // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+    // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+    const today = todayBangkok()
     const invoices = allDocs().filter(d => d.type === 'invoice')
     return {
       outstanding: invoices.filter(d => d.status === 'sent' && d.dueDate >= today).reduce((a, d) => a + calcDoc(d).total, 0),
@@ -141,7 +143,7 @@ export default async function InvoicePage(container) {
             <tbody>
               ${filtered.map(d => {
                 const dt = DOC_TYPES[d.type]
-                const today = new Date().toISOString().slice(0, 10)
+                const today = todayBangkok()
                 const effStatus = d.status === 'sent' && d.dueDate < today ? 'overdue' : d.status
                 const st = DOC_STATUS[effStatus]
                 const { total } = calcDoc(d)
@@ -180,7 +182,7 @@ export default async function InvoicePage(container) {
         const d = allDocs().find(x => x.id === btn.dataset.id)
         if (!d || d._live) return
         try {
-          await updateDocData('invoices', d.id, { status: 'paid', paidDate: new Date().toISOString().slice(0,10) })
+          await updateDocData('invoices', d.id, { status: 'paid', paidDate: todayBangkok() })
           showToast('✅ บันทึกการชำระแล้ว', 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
@@ -189,7 +191,7 @@ export default async function InvoicePage(container) {
   }
 
   function openDocForm(doc = null) {
-    const today = new Date().toISOString().slice(0, 10)
+    const today = todayBangkok()
     const { el, close } = openModal({
       title: doc ? '✏️ แก้ไขเอกสาร' : '🧾 สร้างเอกสารใหม่', size: 'lg',
       body: `<div style="display:flex;flex-direction:column;gap:12px">
@@ -263,7 +265,7 @@ export default async function InvoicePage(container) {
     })
     document.getElementById('detail-pay-btn')?.addEventListener('click', async () => {
       try {
-        await updateDocData('invoices', d.id, { status: 'paid', paidDate: new Date().toISOString().slice(0,10) })
+        await updateDocData('invoices', d.id, { status: 'paid', paidDate: todayBangkok() })
         document.querySelector('.modal-overlay')?.remove(); showToast('✅ บันทึกการชำระแล้ว', 'success')
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

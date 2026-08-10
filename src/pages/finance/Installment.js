@@ -2,7 +2,7 @@
  * Installment Tracking — ติดตามงวดผ่อนลูกค้าที่ซื้อตรง
  * Route: /finance/installment
  */
-import { formatDate } from '../../utils/format.js'
+import { formatDate, todayBangkok } from '../../utils/format.js'
 import { showToast, getState, setState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { openModal } from '../../utils/modal.js'
@@ -26,9 +26,18 @@ function deriveOverdueDays(p) {
   return diff > 0 ? diff : 0
 }
 
+// เดิม new Date() แล้วตามด้วย .setMonth()/.toISOString().slice(0,10) อิงเวลาเครื่อง/UTC เสมอ ทำให้ "วันนี้"
+// ผิดไป 1 วันทุกครั้งที่เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก
+// todayBangkok() เป็นจุดตั้งต้นเมื่อไม่มีวันที่อ้างอิง (dateStr) แล้วบวก/ลบเดือนด้วย UTC methods
 function addMonths(dateStr, n) {
-  const d = dateStr ? new Date(dateStr) : new Date()
-  if (isNaN(d.getTime())) return new Date().toISOString().slice(0, 10)
+  if (!dateStr) {
+    const [y, m, day] = todayBangkok().split('-').map(Number)
+    const dt = new Date(Date.UTC(y, m - 1, day))
+    dt.setUTCMonth(dt.getUTCMonth() + n)
+    return dt.toISOString().slice(0, 10)
+  }
+  const d = new Date(dateStr)
+  if (isNaN(d.getTime())) return todayBangkok()
   d.setMonth(d.getMonth() + n)
   return d.toISOString().slice(0, 10)
 }
@@ -174,7 +183,7 @@ export default async function InstallmentPage(container) {
       const totalInst = p.totalInst || 1
       const isDone = newPaid >= totalInst
       const paidHistory = Array.isArray(p.paidHistory) ? [...p.paidHistory] : []
-      paidHistory.push({ date: new Date().toISOString().slice(0, 10), amount: p.monthly || 0 })
+      paidHistory.push({ date: todayBangkok(), amount: p.monthly || 0 })
       const btn = b
       btn.disabled = true
       try {
@@ -226,7 +235,7 @@ export default async function InstallmentPage(container) {
           <div class="input-group"><label class="input-label">ราคารวม (บาท) *</label><input type="number" class="input" id="ip-total" placeholder="0"></div>
           <div class="input-group"><label class="input-label">จำนวนงวดทั้งหมด *</label><input type="number" class="input" id="ip-totalinst" placeholder="36"></div>
           <div class="input-group"><label class="input-label">ผ่อนต่อเดือน (บาท) *</label><input type="number" class="input" id="ip-monthly" placeholder="0"></div>
-          <div class="input-group"><label class="input-label">งวดถัดไป</label><input type="date" class="input" id="ip-nextdate" value="${new Date().toISOString().slice(0, 10)}"></div>
+          <div class="input-group"><label class="input-label">งวดถัดไป</label><input type="date" class="input" id="ip-nextdate" value="${todayBangkok()}"></div>
         </div>
       `,
       async onConfirm() {
@@ -243,7 +252,7 @@ export default async function InstallmentPage(container) {
           await createDoc('installment_plans', {
             customer, phone, model, total, totalInst, monthly,
             paid: 0, overdue: 0, status: 'current',
-            nextDate: document.getElementById('ip-nextdate')?.value || new Date().toISOString().slice(0, 10),
+            nextDate: document.getElementById('ip-nextdate')?.value || todayBangkok(),
             paidHistory: [],
           })
           showToast('✅ สร้างสัญญาผ่อนใหม่แล้ว', 'success')

@@ -1,4 +1,4 @@
-import { formatDate } from '../../utils/format.js'
+import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -308,7 +308,7 @@ export default async function RecruitmentPage(container) {
         const jid = jobId || document.getElementById('af-job')?.value
         await createDoc('recruitment_applicants', {
           jobId: jid, name, phone: document.getElementById('af-phone')?.value||'', email: document.getElementById('af-email')?.value||'',
-          appliedDate: new Date().toISOString().slice(0,10), status: 'new', score: null,
+          appliedDate: todayBangkok(), status: 'new', score: null,
           note: document.getElementById('af-note')?.value||'', resumeUrl: '#',
         })
         showToast('✅ เพิ่มใบสมัครแล้ว', 'success')
@@ -338,7 +338,7 @@ export default async function RecruitmentPage(container) {
         if (j) {
           await updateDocData('recruitment_jobs', j.id, data)
         } else {
-          await createDoc('recruitment_jobs', { ...data, type: 'fulltime', openDate: new Date().toISOString().slice(0,10), filled: 0, requirements: [] })
+          await createDoc('recruitment_jobs', { ...data, type: 'fulltime', openDate: todayBangkok(), filled: 0, requirements: [] })
         }
         showToast('✅ บันทึกตำแหน่งงานแล้ว', 'success')
         await loadData()

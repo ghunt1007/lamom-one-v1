@@ -6,7 +6,7 @@ function genOrderNo() {
   return 'ORD-' + new Date().getFullYear() + '-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 5).toUpperCase()
 }
 import { showToast } from '../../core/store.js'
-import { formatDate, formatCurrency } from '../../utils/format.js'
+import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { navigate } from '../../core/router.js'
@@ -200,7 +200,9 @@ export default async function VehicleOrdersPage(container) {
                 brand: o.brand || '', model: o.model || '', variant: o.variant || '',
                 color: o.color || '', vin: '', year: new Date().getFullYear(),
                 price: 0, cost: o.unitCost || 0, status: 'transit',
-                mileage: 0, location: 'โชว์รูมหลัก', arrivedAt: new Date().toISOString().slice(0,10),
+                // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+                // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+                mileage: 0, location: 'โชว์รูมหลัก', arrivedAt: todayBangkok(),
                 notes: `รับจากคำสั่งซื้อ ${o.orderNo}`,
               })
               created++
@@ -226,7 +228,9 @@ export default async function VehicleOrdersPage(container) {
 
   function openForm(existing = null) {
     const isEdit = !!existing
-    const today = new Date().toISOString().slice(0, 10)
+    // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+    // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+    const today = todayBangkok()
     const newOrderNo = genOrderNo()
     const { el, close } = openModal({
       title: isEdit ? '✏️ แก้ไขคำสั่งซื้อ' : '➕ สั่งรถใหม่', size: 'lg',
@@ -337,7 +341,9 @@ export default async function VehicleOrdersPage(container) {
   document.getElementById('add-order-btn').addEventListener('click', () => openForm())
   document.getElementById('order-search').addEventListener('input', e => { search = e.target.value.toLowerCase(); applyFilter() })
   document.getElementById('order-export-btn').addEventListener('click', () => {
-    exportToExcel(orders.map(o => ({ เลขที่:o.orderNo, ยี่ห้อ:o.brand, รุ่น:o.model, สี:o.color, จำนวน:o.qty, ต้นทุน:o.unitCost, มูลค่ารวม:(o.unitCost||0)*(o.qty||1), สถานะ:STATUS[o.status]?.label||o.status, วันรับคาด:formatDate(o.expectedDate), Supplier:o.supplier })), `orders-${new Date().toISOString().slice(0,10)}.xlsx`, 'คำสั่งซื้อ')
+    // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+    // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+    exportToExcel(orders.map(o => ({ เลขที่:o.orderNo, ยี่ห้อ:o.brand, รุ่น:o.model, สี:o.color, จำนวน:o.qty, ต้นทุน:o.unitCost, มูลค่ารวม:(o.unitCost||0)*(o.qty||1), สถานะ:STATUS[o.status]?.label||o.status, วันรับคาด:formatDate(o.expectedDate), Supplier:o.supplier })), `orders-${todayBangkok()}.xlsx`, 'คำสั่งซื้อ')
     showToast('Export แล้ว', 'success')
   })
   document.querySelectorAll('.sf-ord').forEach(btn => btn.addEventListener('click', () => {

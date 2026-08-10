@@ -2,7 +2,7 @@
  * Deposit Management — มัดจำ รับ/คืน/ตัดยอด
  * Route: /finance/deposit
  */
-import { formatCurrency, formatDate } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
@@ -130,7 +130,9 @@ export default async function DepositManagementPage(container) {
         try {
           await createDoc('deposits', {
             customer, model, amount, method: document.getElementById('dp-method').value,
-            date: new Date().toISOString().slice(0,10), status: 'held',
+            // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+            // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+            date: todayBangkok(), status: 'held',
             booking: document.getElementById('dp-bk').value.trim() || '-'
           })
           showToast(`รับมัดจำ ${formatCurrency(amount)} จาก ${customer} แล้ว`, 'success')

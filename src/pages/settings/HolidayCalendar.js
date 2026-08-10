@@ -2,7 +2,7 @@
  * Holiday Calendar — ปฏิทินวันหยุดบริษัท
  * Route: /settings/holidays
  */
-import { formatDate } from '../../utils/format.js'
+import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
@@ -37,7 +37,7 @@ export default async function HolidayCalendarPage(container) {
       container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
       return
     }
-    const today = new Date().toISOString().slice(0,10)
+    const today = todayBangkok()
     const list = holidays
       .filter(h => typeFilter === 'all' || h.type === typeFilter)
       .sort((a, b) => a.date.localeCompare(b.date))

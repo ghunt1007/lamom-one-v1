@@ -1,4 +1,4 @@
-import { formatCurrency, formatDate } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState, setState } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -130,7 +130,7 @@ export default async function ExpenseClaimsPage(container) {
       btn.addEventListener('click', async () => {
         const c = claims.find(x => x.id === btn.dataset.id)
         if (!c) return
-        await updateDocData('expense_claims', c.id, { status: 'paid', paidDate: new Date().toISOString().slice(0,10) })
+        await updateDocData('expense_claims', c.id, { status: 'paid', paidDate: todayBangkok() })
         showToast('💳 จ่ายแล้ว', 'success'); await loadData()
       })
     })
@@ -223,7 +223,7 @@ export default async function ExpenseClaimsPage(container) {
   }
 
   function openClaimForm() {
-    const today = new Date().toISOString().slice(0, 10)
+    const today = todayBangkok()
     const { el, close } = openModal({
       title: '💳 ยื่นเบิกค่าใช้จ่าย', size: 'md',
       body: `<div style="display:flex;flex-direction:column;gap:12px">

@@ -2,7 +2,7 @@
  * Used Car Management — ซื้อ-ขายรถมือสอง ประเมิน ตั้งราคา
  * Route: /dms/used-car
  */
-import { formatDate } from '../../utils/format.js'
+import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
@@ -269,7 +269,9 @@ export default async function UsedCarPage(container) {
         const appraisal=parseInt(document.getElementById('uc-appr')?.value)||0
         const asking=parseInt(document.getElementById('uc-ask')?.value)||0
         try {
-          await createDoc('used_cars', { plate,brand,model,year,km,appraisal,asking,sold:0,status:'inspection',date:new Date().toISOString().slice(0,10),buyer:'' })
+          // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+          // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+          await createDoc('used_cars', { plate,brand,model,year,km,appraisal,asking,sold:0,status:'inspection',date:todayBangkok(),buyer:'' })
           showToast('🚗 รับ '+brand+' '+model+' เข้าสต็อก (รอประเมิน)','success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

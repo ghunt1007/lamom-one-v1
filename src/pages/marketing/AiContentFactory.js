@@ -6,6 +6,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 import { generateSocialContent } from '../../utils/ai.js'
+import { todayBangkok } from '../../utils/format.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -175,7 +176,7 @@ export default async function AiContentFactoryPage(container) {
             </div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-            <div><label style="font-size:0.72rem;color:var(--text-muted)">วันที่</label><input class="input" id="sch-date" type="date" value="${new Date().toISOString().slice(0,10)}" style="width:100%;margin-top:3px"></div>
+            <div><label style="font-size:0.72rem;color:var(--text-muted)">วันที่</label><input class="input" id="sch-date" type="date" value="${todayBangkok()}" style="width:100%;margin-top:3px"></div>
             <div><label style="font-size:0.72rem;color:var(--text-muted)">เวลา</label><input class="input" id="sch-time" type="time" value="09:00" style="width:100%;margin-top:3px"></div>
           </div>
           <div style="background:var(--surface-2);border-radius:6px;padding:8px;font-size:0.7rem;color:var(--text-muted)">${preview}</div>

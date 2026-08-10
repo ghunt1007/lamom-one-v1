@@ -2,6 +2,7 @@ import { MASTER_LISTS, getList, addItem, removeItem, setList, resetMaster, getSa
 import { showToast } from '../../core/store.js'
 import { confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
+import { todayBangkok } from '../../utils/format.js'
 
 export default async function MasterDataPage(container) {
   const myGen = container.__routerGen
@@ -185,7 +186,7 @@ export default async function MasterDataPage(container) {
       const rows = m2.type === 'priced'
         ? items.map(it => ({ ชื่อ: it.name, ราคา: it.price }))
         : items.map(it => ({ รายการ: it }))
-      exportToExcel(rows, `masterdata-${active}-${new Date().toISOString().slice(0,10)}.xlsx`, m2.label)
+      exportToExcel(rows, `masterdata-${active}-${todayBangkok()}.xlsx`, m2.label)
       showToast('📥 Export แล้ว', 'success')
     })
 

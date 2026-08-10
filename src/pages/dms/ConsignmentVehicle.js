@@ -2,7 +2,7 @@
  * Consignment Vehicle — รถฝากขาย (ผู้ฝากนำรถมาฝากโชว์รูมขาย รับค่าคอม)
  * Route: /dms/consignment
  */
-import { formatCurrency, formatDate } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
@@ -133,7 +133,7 @@ export default async function ConsignmentVehiclePage(container) {
             owner, phone: document.getElementById('cs-phone').value.trim(), model,
             plate: document.getElementById('cs-plate').value.trim(), ask, floor: Math.round(ask*0.94),
             commPct: parseInt(document.getElementById('cs-comm').value) || 5,
-            start: new Date().toISOString().slice(0,10), status: 'selling',
+            start: todayBangkok(), status: 'selling',
           })
           showToast(`รับรถฝากขาย ${model} จาก ${owner} แล้ว`, 'success')
           await loadData()

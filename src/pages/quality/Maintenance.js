@@ -4,7 +4,7 @@
  */
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { formatDate } from '../../utils/format.js'
+import { formatDate, todayBangkok } from '../../utils/format.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 // ป้องกัน XSS — ชื่ออุปกรณ์/ช่างผู้รับผิดชอบเป็นข้อความพิมพ์เองในฟอร์มเพิ่มอุปกรณ์ ต้อง escape ก่อนแสดงผลเสมอ
@@ -120,7 +120,9 @@ export default async function MaintenancePage(container) {
   }
 
   function openAddEquipmentModal() {
-    const today = new Date().toISOString().slice(0, 10)
+    // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+    // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+    const today = todayBangkok()
     openModal({
       title: '🔧 เพิ่มอุปกรณ์ใหม่',
       size: 'md',
@@ -162,8 +164,10 @@ export default async function MaintenancePage(container) {
       if (!name) { showToast('⚠️ กรุณากรอกชื่ออุปกรณ์', 'warning'); return }
       const cycle = parseInt(document.getElementById('eq-cycle')?.value) || 90
       const lastService = document.getElementById('eq-last')?.value || today
+      // lastService เป็น date-only string (YYYY-MM-DD) — ใช้ UTC methods แทน local getDate/setDate
+      // เพื่อไม่ให้ผลลัพธ์ผูกกับ timezone ของเครื่อง/เบราว์เซอร์ผู้ใช้
       const nextDate = new Date(lastService)
-      nextDate.setDate(nextDate.getDate() + cycle)
+      nextDate.setUTCDate(nextDate.getUTCDate() + cycle)
       const nextService = nextDate.toISOString().slice(0, 10)
       const daysLeft = Math.ceil((nextDate - new Date(today)) / (1000 * 60 * 60 * 24))
       const status = daysLeft < 0 ? 'overdue' : daysLeft <= 7 ? 'due_soon' : 'ok'
@@ -195,9 +199,11 @@ export default async function MaintenancePage(container) {
       </div>`,
       confirmText: '✅ บันทึกการบำรุงรักษา',
       async onConfirm() {
-        const today  = new Date().toISOString().slice(0, 10)
+        // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+        // เวลาไทยยังไม่ถึง 07:00 น. — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok() แล้วบวกด้วย UTC methods
+        const today  = todayBangkok()
         const nextD  = new Date(today)
-        nextD.setDate(nextD.getDate() + eq.cycle)
+        nextD.setUTCDate(nextD.getUTCDate() + eq.cycle)
         try {
           await updateDocData('maintenance_equipment', eq.id, { lastService: today, nextService: nextD.toISOString().slice(0,10), status: 'ok' })
           showToast('✅ บันทึกการบำรุงรักษา: ' + eq.name + ' แล้ว', 'success')

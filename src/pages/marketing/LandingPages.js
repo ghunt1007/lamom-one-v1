@@ -5,6 +5,7 @@
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { todayBangkok } from '../../utils/format.js'
 
 // ป้องกัน XSS — ชื่อหน้า/Campaign เป็นข้อมูลที่ผู้ใช้พิมพ์เอง ต้อง escape ก่อนแสดงผลเสมอ
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
@@ -116,7 +117,7 @@ export default async function LandingPagesPage(container) {
       const p=PAGES.find(x=>x.id===b.dataset.id)
       if(!p) return
       try {
-        await createDoc('landing_pages', { title:'[Copy] '+p.title, campaign:p.campaign, visits:0, leads:0, conv:0, status:'active', created:new Date().toISOString().slice(0,10) })
+        await createDoc('landing_pages', { title:'[Copy] '+p.title, campaign:p.campaign, visits:0, leads:0, conv:0, status:'active', created:todayBangkok() })
         showToast('📋 Duplicate: '+p.title,'success')
         await loadData()
       } catch (e) { showToast('ทำสำเนาไม่สำเร็จ', 'error') }
@@ -225,7 +226,7 @@ export default async function LandingPagesPage(container) {
         const camp=document.getElementById('lp-camp')?.value?.trim()
         if(!title||!camp){showToast('ใส่ชื่อหน้าและ Campaign','warning');return false}
         try {
-          await createDoc('landing_pages', { title, campaign:camp, visits:0, leads:0, conv:0, status:'active', created:new Date().toISOString().slice(0,10) })
+          await createDoc('landing_pages', { title, campaign:camp, visits:0, leads:0, conv:0, status:'active', created:todayBangkok() })
           showToast('🌐 สร้าง Landing Page: '+title,'success')
           await loadData()
         } catch (e) { showToast('สร้างไม่สำเร็จ', 'error') }

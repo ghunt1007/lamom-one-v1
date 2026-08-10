@@ -3,7 +3,7 @@
 // Collection: `customers` — single source of truth, stage-based pipeline (lead → pp → booking → delivered)
 import { listDocs, watchDocs, createDoc, updateDocData, softDelete, readDoc, seedDemoData } from '../../core/db.js'
 import { showToast, getState } from '../../core/store.js'
-import { formatDate, timeAgo, formatPhone, formatCurrency, initials, fullName } from '../../utils/format.js'
+import { formatDate, timeAgo, formatPhone, formatCurrency, initials, fullName, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel, openImportModal } from '../../utils/importExport.js'
 import { SmartSheet } from '../../components/SmartSheet.js'
@@ -527,7 +527,9 @@ export default async function CustomersPage(container) {
           model, price, cost: 0, down, financeAmount: Math.max(price - down, 0), finStatus: '',
           salesName, source: c.source || '', status: 'ยอดจองคงค้าง',
           margin: 0, budgetUsed: 0, com70: 0, comFinance: 0, marginLeft: 0, totalIncome: 0,
-          bookingDate: new Date().toISOString().slice(0, 10), notes: `สร้างจาก Customer Workspace (${fullName(c)})`,
+          // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+          // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+          bookingDate: todayBangkok(), notes: `สร้างจาก Customer Workspace (${fullName(c)})`,
         }
         const bookingId = await createDoc('bookings', bookingData)
         const stageChangedAt = new Date().toISOString()
@@ -799,7 +801,7 @@ export default async function CustomersPage(container) {
       'ที่มา': c.source || '', 'แท็ก': (c.tags || []).join(', '),
       'วันที่เพิ่ม': formatDate(c.createdAt),
     }))
-    exportToExcel(rows, `customers-${new Date().toISOString().slice(0, 10)}.xlsx`, 'ลูกค้า')
+    exportToExcel(rows, `customers-${todayBangkok()}.xlsx`, 'ลูกค้า')
     showToast(`Export ${rows.length} รายการแล้ว`, 'success')
   })
 

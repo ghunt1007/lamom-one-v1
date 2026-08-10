@@ -3,7 +3,7 @@
  * Route: /analytics/dept-ops
  */
 import { listDocs } from '../../core/db.js'
-import { formatCurrency, timeAgo } from '../../utils/format.js'
+import { formatCurrency, timeAgo, todayBangkok } from '../../utils/format.js'
 import { navigate } from '../../core/router.js'
 
 const DEPARTMENTS = {
@@ -41,7 +41,9 @@ export default async function DeptOperationsDashboardPage(container) {
   } catch {}
   if (container.__routerGen !== myGen) return
 
-  const today = new Date().toISOString().slice(0, 10)
+  // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+  // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+  const today = todayBangkok()
 
   function taskStatsFor(deptKey) {
     const deptTasks = tasks.filter(t => (t.department || 'general') === deptKey && t.status !== 'done' && t.status !== 'cancelled')

@@ -2,13 +2,15 @@
  * Billing Run — ระบบวางบิล (รวมใบแจ้งหนี้เป็นรอบ ส่งเก็บเงินลูกค้า)
  * Route: /finance/billing-run
  */
-import { formatCurrency, formatDate, timeAgo } from '../../utils/format.js'
+import { formatCurrency, formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
-function today() { return new Date().toISOString().slice(0, 10) }
+// เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+// เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+function today() { return todayBangkok() }
 
 const RUN_STATUS = {
   draft:     { label: 'ร่าง', color: 'secondary', icon: '📝' },

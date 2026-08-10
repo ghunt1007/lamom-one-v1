@@ -3,6 +3,7 @@
  * Route: /finance/compliance-calendar
  */
 import { openModal } from '../../utils/modal.js'
+import { todayBangkok } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
@@ -141,7 +142,9 @@ export default async function ComplianceCalendarPage(container) {
   }
 
   function openAddEventModal() {
-    const todayStr = new Date().toISOString().slice(0, 10)
+    // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+    // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+    const todayStr = todayBangkok()
     openModal({
       title: '📅 เพิ่มรายการ Compliance ใหม่',
       size: 'md',

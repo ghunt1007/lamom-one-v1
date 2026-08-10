@@ -6,11 +6,11 @@
  * สถานะ Integration จริงจาก system_integrations, Error จริงจาก error_log, และกิจกรรมวันนี้ประมาณจาก audit_log
  * (ระบุชัดเจนว่าเป็นค่าประมาณ ไม่ใช่ตัวเลข Firebase Billing Quota จริงซึ่งดึงจากฝั่ง client ไม่ได้)
  */
-import { timeAgo } from '../../utils/format.js'
+import { timeAgo, todayBangkok } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { listDocs } from '../../core/db.js'
 
-function todayStr() { return new Date().toISOString().slice(0, 10) }
+function todayStr() { return todayBangkok() }
 
 export default async function SystemHealthPage(container) {
   async function loadData() {

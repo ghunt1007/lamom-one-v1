@@ -1,6 +1,6 @@
 import { listDocs, watchDocs, createDoc, updateDocData, softDelete, seedDemoData, getSalesData } from '../../core/db.js'
 import { showToast, getState } from '../../core/store.js'
-import { formatDate, formatCurrency } from '../../utils/format.js'
+import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getBranches } from '../../data/masterData.js'
@@ -394,7 +394,9 @@ export default async function StockPage(container) {
             <div class="input-group"><label class="input-label">ที่ตั้ง</label><input class="input" id="vf-loc" list="vf-locs" value="${escHtml(existing?.location||getBranches()[0]||'โชว์รูมหลัก')}"><datalist id="vf-locs">${getBranches().map(b => `<option value="${b}">`).join('')}<option value="ห้อง PDI"><option value="-"></datalist></div>
           </div>
           <div class="grid-2">
-            <div class="input-group"><label class="input-label">วันที่รับรถ</label><input class="input" type="date" id="vf-arrived" value="${existing?.arrivedAt||new Date().toISOString().slice(0,10)}"></div>
+            <!-- เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+            เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok() -->
+            <div class="input-group"><label class="input-label">วันที่รับรถ</label><input class="input" type="date" id="vf-arrived" value="${existing?.arrivedAt||todayBangkok()}"></div>
             <div class="input-group"><label class="input-label">เลขไมล์ (km)</label><input class="input" type="number" id="vf-mileage" value="${existing?.mileage||0}"></div>
           </div>
           <div class="input-group"><label class="input-label">หมายเหตุ</label><input class="input" id="vf-notes" value="${escHtml(existing?.notes||'')}"></div>
@@ -532,7 +534,9 @@ export default async function StockPage(container) {
   })
   document.getElementById('stock-export-btn').addEventListener('click', () => {
     if (!stock.length) return
-    exportToExcel(stock.map(v => ({ ยี่ห้อ:v.brand, รุ่น:v.model, Variant:v.variant, ปี:v.year, สี:v.color, VIN:v.vin, ราคา:v.price, ต้นทุน:v.cost, กำไร:(v.price||0)-(v.cost||0), สถานะ:STATUS[v.status]?.label||v.status, ที่ตั้ง:v.location, รับมา:formatDate(v.arrivedAt) })), `stock-${new Date().toISOString().slice(0,10)}.xlsx`, 'สต็อกรถ')
+    // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+    // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
+    exportToExcel(stock.map(v => ({ ยี่ห้อ:v.brand, รุ่น:v.model, Variant:v.variant, ปี:v.year, สี:v.color, VIN:v.vin, ราคา:v.price, ต้นทุน:v.cost, กำไร:(v.price||0)-(v.cost||0), สถานะ:STATUS[v.status]?.label||v.status, ที่ตั้ง:v.location, รับมา:formatDate(v.arrivedAt) })), `stock-${todayBangkok()}.xlsx`, 'สต็อกรถ')
     showToast('Export แล้ว', 'success')
   })
   document.querySelectorAll('.sf-stock').forEach(btn => btn.addEventListener('click', () => {

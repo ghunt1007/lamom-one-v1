@@ -1,6 +1,6 @@
 import { listDocs, seedDemoData } from '../../core/db.js'
 import { navigate } from '../../core/router.js'
-import { formatCurrency } from '../../utils/format.js'
+import { formatCurrency, todayBangkok } from '../../utils/format.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -119,7 +119,7 @@ export default async function ServiceDashboard(container) {
   // ระบบแจ้งเตือนจากข้อมูลจริงแล้ว) แก้ให้ตรวจจริงจากข้อมูลที่โหลดมาอยู่แล้ว/เพิ่มโหลด service_appointments จริง
   const alertsEl = document.getElementById('svc-alerts')
   if (alertsEl) {
-    const today = new Date().toISOString().slice(0, 10)
+    const today = todayBangkok()
     const todayAppts = appts.filter(a => (a.date || '').slice(0, 10) === today && !['cancelled', 'noshow'].includes(a.status))
     const notCheckedIn = todayAppts.filter(a => a.status === 'scheduled')
     const qcReady = jobs.filter(j => j.status === 'qc')
