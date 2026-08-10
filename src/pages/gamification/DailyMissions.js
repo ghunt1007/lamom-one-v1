@@ -190,7 +190,7 @@ export default async function DailyMissionsPage(container) {
 
   async function deleteMission(m) {
     if (!m) return
-    const ok = await confirmDialog({ title: '🗑️ ลบภารกิจ', message: `ยืนยันลบภารกิจ "${m.title}"? การลบนี้ไม่สามารถย้อนกลับได้`, confirmText: 'ลบถาวร', danger: true })
+    const ok = await confirmDialog({ title: '🗑️ ลบภารกิจ', message: `ยืนยันลบภารกิจ "${escHtml(m.title)}"? การลบนี้ไม่สามารถย้อนกลับได้`, confirmText: 'ลบถาวร', danger: true })
     if (!ok) return
     await softDelete('daily_missions', m.id)
     showToast('🗑️ ลบภารกิจแล้ว', 'success')
