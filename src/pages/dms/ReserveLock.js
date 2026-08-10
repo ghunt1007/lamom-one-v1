@@ -3,9 +3,9 @@
  * Route: /dms/reserve-lock
  */
 import { formatDate, todayBangkok } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -32,7 +32,7 @@ export default async function ReserveLockPage(container) {
 
   async function loadData() {
     loading = true
-    try { stock = await listDocs('reservations', [], 'lockedAt', 'desc', 200) } catch (e) { stock = [] }
+    try { stock = (await listDocs('reservations', [], 'lockedAt', 'desc', 200)).filter(v => !v.deleted) } catch (e) { stock = [] }
     loading = false
     if (container.__routerGen === myGen) render()
   }
@@ -63,6 +63,7 @@ export default async function ReserveLockPage(container) {
             <div class="page-subtitle">ล็อคสต็อกรอโอน · ป้องกันซ้ำซ้อน · ${stock.length} คัน</div>
           </div>
           <div class="page-actions">
+            <button class="btn btn-secondary" id="add-stock-btn">➕ เพิ่มรถเข้าระบบ</button>
             <button class="btn btn-secondary" id="release-exp-btn">🔓 ปลดล็อคหมดอายุ</button>
             <button class="btn btn-primary" id="lock-btn">+ ล็อคสต็อก</button>
           </div>
@@ -105,6 +106,19 @@ export default async function ReserveLockPage(container) {
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
     document.getElementById('lock-btn')?.addEventListener('click',()=>openLockModal())
+    document.getElementById('add-stock-btn')?.addEventListener('click',()=>openAddStockModal())
+    container.querySelectorAll('.del-stock-btn').forEach(b=>b.addEventListener('click', async ()=>{
+      const v=stock.find(x=>x.id===b.dataset.id)
+      if(!v) return
+      const activeWarn = (v.status==='reserved'||v.status==='locked') ? ' ⚠️ คันนี้กำลังถูกจอง/ล็อคอยู่' : ''
+      const ok = await confirmDialog({ title:'ลบรถออกจากระบบ', message:`ยืนยันลบ "${escHtml(v.model)}" ออกจากระบบล็อคสต็อกหรือไม่?${activeWarn}`, confirmText:'ลบ', danger:true })
+      if(!ok) return
+      try {
+        await softDelete('reservations', v.id)
+        showToast('🗑 ลบออกจากระบบแล้ว','success')
+        await loadData()
+      } catch (e) { showToast('ลบไม่สำเร็จ', 'error') }
+    }))
     container.querySelectorAll('.lock-now-btn').forEach(b=>b.addEventListener('click',()=>{
       const v=stock.find(x=>x.id===b.dataset.id); if(v) openLockModal(v)
     }))
@@ -124,6 +138,42 @@ export default async function ReserveLockPage(container) {
         })
       }
     }))
+  }
+
+  // เดิม 'reservations' อ่าน/แก้ไขได้เท่านั้น ไม่มีทางเพิ่มรถเข้าระบบนี้เลยจากในแอป (ต้องเข้า Firestore console
+  // ตรงหรือรอ seed data เก่า) ทำให้หน้านี้ใช้งานจริงไม่ได้เลยถ้าไม่มีข้อมูลมาก่อน — เพิ่มฟอร์มให้กรอกรถเข้าระบบ
+  // ล็อคสต็อกได้เอง (แยกจาก collection 'vehicles' จริงของ Stock.js — ระบบนี้มี 3 จุดล็อค/จองไม่ sync กันอยู่แล้ว
+  // ดู comment ใน Stock.js — ฟอร์มนี้แค่แก้บั๊ก "สร้างไม่ได้เลย" ของหน้านี้เอง ไม่ได้แก้ปัญหา sync ข้ามระบบ)
+  function openAddStockModal() {
+    openModal({
+      title:'➕ เพิ่มรถเข้าระบบล็อคสต็อก', size:'sm',
+      body:`<div style="font-size:0.8rem;display:flex;flex-direction:column;gap:8px">
+        <div><label style="font-size:0.72rem;color:var(--text-muted)">รุ่นรถ *</label><input class="input" id="ns-model" style="width:100%;margin-top:3px" placeholder="เช่น BYD Seal AWD"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div><label style="font-size:0.72rem;color:var(--text-muted)">สี</label><input class="input" id="ns-color" style="width:100%;margin-top:3px"></div>
+          <div><label style="font-size:0.72rem;color:var(--text-muted)">ปี</label><input class="input" type="number" id="ns-year" value="${new Date().getFullYear()}" style="width:100%;margin-top:3px"></div>
+        </div>
+        <div><label style="font-size:0.72rem;color:var(--text-muted)">VIN</label><input class="input" id="ns-vin" style="width:100%;margin-top:3px" placeholder="เลขตัวถัง"></div>
+        <div><label style="font-size:0.72rem;color:var(--text-muted)">ราคา (บาท)</label><input class="input" type="number" id="ns-price" placeholder="0" style="width:100%;margin-top:3px"></div>
+      </div>`,
+      confirmText:'➕ เพิ่ม',
+      async onConfirm(){
+        const model = document.getElementById('ns-model')?.value?.trim()
+        if(!model){showToast('❗ กรุณากรอกรุ่นรถ','error');return false}
+        try {
+          await createDoc('reservations', {
+            model,
+            color: document.getElementById('ns-color')?.value?.trim() || '',
+            year: parseInt(document.getElementById('ns-year')?.value) || new Date().getFullYear(),
+            vin: document.getElementById('ns-vin')?.value?.trim() || '',
+            price: parseInt(document.getElementById('ns-price')?.value) || 0,
+            status: 'available', customer: '', agent: '', lockedAt: '', expiry: '', deposit: 0,
+          })
+          showToast(`✅ เพิ่ม ${model} เข้าระบบแล้ว`,'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      }
+    })
   }
 
   function openLockModal(vehicle=null) {
@@ -180,6 +230,7 @@ export default async function ReserveLockPage(container) {
     let custSection = v.customer ? '<div style="font-size:0.76rem;background:var(--surface-2);padding:8px;border-radius:6px;margin-bottom:8px"><div><b>' + escHtml(v.customer) + '</b> · ' + escHtml(v.agent) + '</div>' + lockLine + depositLine + '</div>' : ''
     const lockBtn    = v.status === 'available' ? '<button class="btn btn-xs btn-primary lock-now-btn" data-id="' + escHtml(v.id) + '" style="font-size:0.68rem">🔒 ล็อค</button>' : ''
     const unlockBtn  = (v.status === 'reserved' || v.status === 'locked') ? '<button class="btn btn-xs btn-secondary unlock-btn" data-id="' + escHtml(v.id) + '" style="font-size:0.68rem">🔓 ปลด</button>' : ''
+    const delBtn     = '<button class="btn btn-xs btn-secondary del-stock-btn" data-id="' + escHtml(v.id) + '" title="ลบออกจากระบบ" style="font-size:0.68rem;color:var(--danger)">🗑</button>'
     // เดิม v.vin.slice(...) / v.price.toLocaleString() ไม่มี guard เลย — ถ้าเอกสารไหนไม่มี field vin/price
     // (undefined) จะ throw ทันทีตอน render แล้วพังทั้งหน้า (ไม่ใช่แค่การ์ดใบนั้นใบเดียว)
     const vinShort = (v.vin || '').slice(-8) || '-'
@@ -196,7 +247,7 @@ export default async function ReserveLockPage(container) {
       ${custSection}
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div style="font-size:0.9rem;font-weight:900;color:var(--primary)">฿${priceStr}</div>
-        <div style="display:flex;gap:4px">${lockBtn}${unlockBtn}</div>
+        <div style="display:flex;gap:4px">${lockBtn}${unlockBtn}${delBtn}</div>
       </div>
     </div>`
   }

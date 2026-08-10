@@ -29,7 +29,7 @@ export default async function SkillMatrixPage(container) {
   async function loadData() {
     loading = true
     try {
-      staff = await listDocs('staff_skills', [], 'name', 'asc', 200)
+      staff = (await listDocs('staff_skills', [], 'name', 'asc', 200)).filter(s => !s.deleted)
       skills = (await listDocs('skill_definitions', [], 'order', 'asc', 200)).filter(sk => !sk.deleted)
     } catch (e) { staff = []; skills = [] }
     loading = false
@@ -58,6 +58,7 @@ export default async function SkillMatrixPage(container) {
             <div class="page-subtitle">ตารางทักษะ — หา gap วางแผนอบรม</div>
           </div>
           <div class="page-actions">
+            <button class="btn btn-secondary" id="add-staff-btn">+ เพิ่มพนักงาน</button>
             <button class="btn btn-primary" id="add-skill-btn">+ เพิ่มทักษะ</button>
           </div>
         </div>
@@ -95,8 +96,13 @@ export default async function SkillMatrixPage(container) {
                 ${staff.map(s => `
                   <tr style="border-bottom:1px solid var(--border)">
                     <td style="padding:8px 14px">
-                      <div style="font-weight:600;font-size:0.8rem">${esc(s.name)}</div>
-                      <div style="font-size:0.63rem;color:var(--text-muted)">${esc(s.role)}</div>
+                      <div style="display:flex;align-items:center;justify-content:space-between;gap:6px">
+                        <div>
+                          <div style="font-weight:600;font-size:0.8rem">${esc(s.name)}</div>
+                          <div style="font-size:0.63rem;color:var(--text-muted)">${esc(s.role)}</div>
+                        </div>
+                        <button class="staff-del-btn" data-id="${s.id}" title="ลบพนักงานออกจากตาราง" style="font-size:0.65rem;border:none;background:none;cursor:pointer;padding:1px;flex-shrink:0">🗑</button>
+                      </div>
                     </td>
                     ${skills.map(sk => {
                       const lv = s.skills?.[sk.id] || 0
@@ -141,6 +147,19 @@ export default async function SkillMatrixPage(container) {
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
 
+    document.getElementById('add-staff-btn')?.addEventListener('click', () => openStaffModal())
+    container.querySelectorAll('.staff-del-btn').forEach(b => b.addEventListener('click', async e => {
+      e.stopPropagation()
+      const s = staff.find(x => x.id === b.dataset.id)
+      if (!s) return
+      const ok = await confirmDialog({ title: '🗑 ลบพนักงาน', message: `ลบ "${esc(s.name)}" ออกจาก Skill Matrix? (ไม่ใช่การลบพนักงานออกจากระบบ HR จริง)`, confirmText: 'ลบ', danger: true })
+      if (!ok) return
+      try {
+        await softDelete('staff_skills', s.id)
+        showToast('🗑 ลบพนักงานออกจากตารางแล้ว', 'warning')
+        await loadData()
+      } catch (err) { showToast('บันทึกไม่สำเร็จ', 'error') }
+    }))
     document.getElementById('add-skill-btn')?.addEventListener('click', () => openSkillModal(null))
     container.querySelectorAll('.skill-edit-btn').forEach(b => b.addEventListener('click', e => {
       e.stopPropagation()
@@ -150,7 +169,7 @@ export default async function SkillMatrixPage(container) {
       e.stopPropagation()
       const sk = skills.find(x => x.id === b.dataset.id)
       if (!sk) return
-      const ok = await confirmDialog({ title: '🗑 ลบทักษะ', message: `ลบทักษะ "${sk.name}" ออกจาก Skill Matrix? (คะแนนทักษะเดิมของพนักงานจะยังคงอยู่ในระบบแต่จะไม่แสดงผลอีก)`, confirmText: 'ลบ', danger: true })
+      const ok = await confirmDialog({ title: '🗑 ลบทักษะ', message: `ลบทักษะ "${esc(sk.name)}" ออกจาก Skill Matrix? (คะแนนทักษะเดิมของพนักงานจะยังคงอยู่ในระบบแต่จะไม่แสดงผลอีก)`, confirmText: 'ลบ', danger: true })
       if (!ok) return
       try {
         await softDelete('skill_definitions', sk.id)
@@ -163,7 +182,7 @@ export default async function SkillMatrixPage(container) {
   function openSkillModal(existing) {
     const isEdit = !!existing
     openModal({
-      title: isEdit ? `✏️ แก้ไขทักษะ: ${existing.name}` : '+ เพิ่มทักษะใหม่',
+      title: isEdit ? `✏️ แก้ไขทักษะ: ${esc(existing.name)}` : '+ เพิ่มทักษะใหม่',
       size: 'sm',
       body: `
         <div style="display:grid;gap:10px">
@@ -190,6 +209,35 @@ export default async function SkillMatrixPage(container) {
             await createDoc('skill_definitions', { ...fields, order: skills.length ? Math.max(...skills.map(s => s.order || 0)) + 1 : 1 })
           }
           showToast(isEdit ? '✅ แก้ไขทักษะแล้ว!' : '✅ เพิ่มทักษะแล้ว!', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      }
+    })
+  }
+
+  // เดิม 'staff_skills' อ่าน/แก้ไขคะแนนทักษะได้เท่านั้น ไม่มีทางเพิ่มพนักงานเข้าตารางเลยจากในแอป — ถ้ายังไม่มี
+  // ข้อมูลมาก่อน หน้านี้จะแสดง "ยังไม่มีข้อมูลพนักงาน" ตลอดไปโดยไม่มีทางแก้ไขได้เลย
+  function openStaffModal() {
+    openModal({
+      title: '+ เพิ่มพนักงานในตาราง',
+      size: 'sm',
+      body: `
+        <div style="display:grid;gap:10px">
+          <div class="input-group"><label class="input-label">ชื่อพนักงาน *</label><input class="input" id="ns-name"></div>
+          <div class="input-group"><label class="input-label">ตำแหน่ง/แผนก</label><input class="input" id="ns-role" placeholder="เช่น ช่างระดับ 2, เซลส์"></div>
+        </div>
+      `,
+      confirmText: '💾 บันทึก',
+      async onConfirm() {
+        const name = document.getElementById('ns-name')?.value?.trim()
+        if (!name) { showToast('❗ กรุณากรอกชื่อพนักงาน', 'error'); return false }
+        try {
+          await createDoc('staff_skills', {
+            name,
+            role: document.getElementById('ns-role')?.value?.trim() || '',
+            skills: {},
+          })
+          showToast('✅ เพิ่มพนักงานในตารางแล้ว!', 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }

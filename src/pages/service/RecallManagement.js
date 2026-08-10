@@ -115,26 +115,30 @@ export default async function RecallManagementPage(container) {
           <!-- Vehicle list for selected recall -->
           ${selectedRecall ? `
             <div>
-              <div style="font-weight:700;margin-bottom:10px;font-size:0.9rem">🚗 รายการรถใน ${selectedRecall.id}</div>
-              <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:10px;padding:10px;background:var(--surface-2);border-radius:var(--radius-sm)">${selectedRecall.fixDescription}</div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+                <div style="font-weight:700;font-size:0.9rem">🚗 รายการรถใน ${escHtml(selectedRecall.id)}</div>
+                <button class="btn btn-xs btn-primary" id="add-recall-veh-btn">➕ เพิ่มรถ</button>
+              </div>
+              <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:10px;padding:10px;background:var(--surface-2);border-radius:var(--radius-sm)">${escHtml(selectedRecall.fixDescription)}</div>
               ${vehicles.filter(v => v.recallId === selectedRecall.id).map(v => {
                 const vs = VEHICLE_STATUS[v.vStatus]
                 return `<div class="card" style="padding:10px;margin-bottom:6px;border-left:3px solid var(--${vs?.color})">
                   <div style="display:flex;justify-content:space-between;margin-bottom:4px">
                     <div>
-                      <div style="font-weight:600;font-size:0.83rem">${v.plate} — ${v.owner}</div>
-                      <div style="font-size:0.7rem;color:var(--text-muted)">${v.phone}</div>
+                      <div style="font-weight:600;font-size:0.83rem">${escHtml(v.plate)} — ${escHtml(v.owner)}</div>
+                      <div style="font-size:0.7rem;color:var(--text-muted)">${escHtml(v.phone)}</div>
                     </div>
                     <span class="badge badge-${vs?.color}" style="font-size:0.62rem">${vs?.label}</span>
                   </div>
                   ${v.appointDate ? `<div style="font-size:0.72rem;color:var(--text-muted)">นัด: ${formatDate(v.appointDate)}</div>` : ''}
                   <div style="display:flex;gap:4px;margin-top:6px">
-                    ${v.vStatus === 'pending_contact' ? `<button class="btn btn-xs btn-primary contact-veh-btn" data-vin="${v.vin}">📞 ติดต่อ</button>` : ''}
-                    ${v.vStatus === 'contacted' ? `<button class="btn btn-xs btn-warning schedule-veh-btn" data-vin="${v.vin}">📅 นัด</button>` : ''}
-                    ${v.vStatus === 'scheduled' ? `<button class="btn btn-xs btn-success fix-veh-btn" data-vin="${v.vin}">✅ แก้ไขแล้ว</button>` : ''}
+                    ${v.vStatus === 'pending_contact' ? `<button class="btn btn-xs btn-primary contact-veh-btn" data-id="${escHtml(v.id)}">📞 ติดต่อ</button>` : ''}
+                    ${v.vStatus === 'contacted' ? `<button class="btn btn-xs btn-warning schedule-veh-btn" data-id="${escHtml(v.id)}">📅 นัด</button>` : ''}
+                    ${v.vStatus === 'scheduled' ? `<button class="btn btn-xs btn-success fix-veh-btn" data-id="${escHtml(v.id)}">✅ แก้ไขแล้ว</button>` : ''}
                   </div>
                 </div>`
               }).join('')}
+              ${!vehicles.filter(v => v.recallId === selectedRecall.id).length ? `<div style="text-align:center;color:var(--text-muted);font-size:0.78rem;padding:14px">ยังไม่มีรถในแคมเปญนี้ — กด "➕ เพิ่มรถ"</div>` : ''}
             </div>
           ` : ''}
         </div>
@@ -146,6 +150,44 @@ export default async function RecallManagementPage(container) {
       selectedRecall = selectedRecall?.id === r?.id ? null : r
       renderPage()
     }))
+
+    // เดิม recall_campaign_vehicles อ่าน/อัปเดตสถานะรถได้เท่านั้น ไม่มีทางเพิ่มรถเข้าแคมเปญเลยจากในแอป —
+    // ทำให้ "สร้าง Recall Campaign" ข้างบนใช้งานได้จริงแค่ครึ่งเดียว (มีแคมเปญแต่ไม่มีรถให้ติดตามจริง)
+    document.getElementById('add-recall-veh-btn')?.addEventListener('click', e => { e.stopPropagation()
+      if (!selectedRecall) return
+      const { el } = openModal({
+        title: '➕ เพิ่มรถเข้า Recall Campaign',
+        size: 'sm',
+        body: `<div style="display:flex;flex-direction:column;gap:10px;font-size:0.8rem">
+          <div><label style="font-size:0.72rem;color:var(--text-muted)">ทะเบียนรถ *</label>
+            <input class="input" id="nv-plate" style="width:100%;margin-top:4px" placeholder="1กข-1234"></div>
+          <div><label style="font-size:0.72rem;color:var(--text-muted)">ชื่อเจ้าของรถ *</label>
+            <input class="input" id="nv-owner" style="width:100%;margin-top:4px"></div>
+          <div><label style="font-size:0.72rem;color:var(--text-muted)">เบอร์โทร</label>
+            <input class="input" id="nv-phone" style="width:100%;margin-top:4px" placeholder="08xxxxxxxx"></div>
+          <div><label style="font-size:0.72rem;color:var(--text-muted)">VIN</label>
+            <input class="input" id="nv-vin" style="width:100%;margin-top:4px"></div>
+        </div>`,
+        confirmText: '💾 เพิ่ม',
+        onConfirm: async () => {
+          const plate = el.querySelector('#nv-plate')?.value?.trim()
+          const owner = el.querySelector('#nv-owner')?.value?.trim()
+          if (!plate || !owner) { showToast('กรุณากรอกทะเบียนและชื่อเจ้าของรถ', 'warning'); return false }
+          try {
+            await createDoc('recall_campaign_vehicles', {
+              recallId: selectedRecall.id,
+              plate, owner,
+              phone: el.querySelector('#nv-phone')?.value?.trim() || '',
+              vin: el.querySelector('#nv-vin')?.value?.trim() || '',
+              vStatus: 'pending_contact',
+            })
+            showToast('✅ เพิ่มรถเข้า Recall Campaign แล้ว', 'success')
+            await loadData()
+            return true
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
+        },
+      })
+    })
 
     // เดิมทั้งหน้านี้และ RecallTracker.js (/service/recall-tracker) อ่านจาก recall_campaigns อย่างเดียว
     // ไม่มีทางสร้างแคมเปญใหม่ได้เลยจากในแอป (ต้องเข้า Firestore console ตรงเท่านั้น) — ทำให้ทั้งฟีเจอร์ Recall
@@ -205,7 +247,7 @@ export default async function RecallManagementPage(container) {
     })
 
     container.querySelectorAll('.contact-veh-btn').forEach(b => b.addEventListener('click', async e => { e.stopPropagation()
-      const v = vehicles.find(x => x.vin === b.dataset.vin)
+      const v = vehicles.find(x => x.id === b.dataset.id)
       if (!v) return
       try {
         await updateDocData('recall_campaign_vehicles', v.id, { vStatus: 'contacted' })
@@ -214,7 +256,7 @@ export default async function RecallManagementPage(container) {
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.schedule-veh-btn').forEach(b => b.addEventListener('click', async e => { e.stopPropagation()
-      const v = vehicles.find(x => x.vin === b.dataset.vin)
+      const v = vehicles.find(x => x.id === b.dataset.id)
       if (!v) return
       try {
         await updateDocData('recall_campaign_vehicles', v.id, { vStatus: 'scheduled', appointDate: addDays(5) })
@@ -223,7 +265,7 @@ export default async function RecallManagementPage(container) {
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.fix-veh-btn').forEach(b => b.addEventListener('click', async e => { e.stopPropagation()
-      const v = vehicles.find(x => x.vin === b.dataset.vin)
+      const v = vehicles.find(x => x.id === b.dataset.id)
       if (!v) return
       const recall = recalls.find(r => r.id === v.recallId)
       try {

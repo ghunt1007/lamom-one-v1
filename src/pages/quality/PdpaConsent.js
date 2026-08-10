@@ -6,6 +6,7 @@ import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+// createDoc นำเข้าไว้แล้วสำหรับ pdpa_dsr_requests เดิม — ใช้เพิ่มเติมกับ pdpa_consents ด้านล่าง (ดูปุ่ม "➕ เพิ่มลูกค้าในทะเบียน")
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -55,7 +56,7 @@ export default async function PdpaConsentPage(container) {
   async function loadData() {
     loading = true
     try {
-      consents = await listDocs('pdpa_consents', [], 'updatedAt', 'desc', 300)
+      consents = (await listDocs('pdpa_consents', [], 'updatedAt', 'desc', 300)).filter(c => !c.deleted)
       requests = await listDocs('pdpa_dsr_requests', [], 'deadline', 'asc', 100)
     } catch (e) { /* keep whatever loaded */ }
     loading = false
@@ -79,6 +80,7 @@ export default async function PdpaConsentPage(container) {
             <div class="page-title">🔒 PDPA Consent</div>
             <div class="page-subtitle">ความยินยอมข้อมูลส่วนบุคคล + คำขอใช้สิทธิ (DSR)</div>
           </div>
+          <button class="btn btn-primary" id="add-consent-btn">➕ เพิ่มลูกค้าในทะเบียน</button>
         </div>
 
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
@@ -173,6 +175,46 @@ export default async function PdpaConsentPage(container) {
       showToast('✅ ปิดคำขอ DSR แล้ว — แจ้งลูกค้าทางอีเมล', 'success'); await loadData()
     }))
     document.getElementById('add-dsr-btn')?.addEventListener('click', openAddDsrForm)
+    document.getElementById('add-consent-btn')?.addEventListener('click', openAddConsentForm)
+  }
+
+  function openAddConsentForm() {
+    const { el, close } = openModal({
+      title: '➕ เพิ่มลูกค้าในทะเบียนความยินยอม', size: 'sm',
+      body: `<div style="display:flex;flex-direction:column;gap:10px">
+        <div class="input-group"><label class="input-label">ชื่อลูกค้า *</label><input class="input" id="nc-customer"><span class="input-error" id="nc-customer-e"></span></div>
+        <div class="input-group"><label class="input-label">เบอร์โทร</label><input class="input" id="nc-phone" placeholder="08xxxxxxxx"></div>
+        <div class="input-group"><label class="input-label">ช่องทางที่ได้รับความยินยอม</label>
+          <select class="input" id="nc-channel"><option>หน้าร้าน</option><option>LINE</option><option>เว็บไซต์</option><option>โทรศัพท์</option></select>
+        </div>
+        <div class="input-group">
+          <label class="input-label">ความยินยอมเริ่มต้น</label>
+          <div style="display:flex;flex-direction:column;gap:6px;padding:8px;background:var(--surface-2);border-radius:var(--radius-sm)">
+            ${Object.entries(CONSENT_TYPES).map(([k, v]) => `<label style="display:flex;align-items:center;gap:8px;font-size:0.82rem;cursor:${k==='service'?'not-allowed':'pointer'}"><input type="checkbox" class="nc-consent" value="${k}" ${k==='service' ? 'checked disabled' : ''}> ${v.icon} ${v.label}</label>`).join('')}
+          </div>
+        </div>
+      </div>`,
+      footer: `<button class="btn btn-secondary" id="ncc">ยกเลิก</button><button class="btn btn-primary" id="ncs">💾 บันทึก</button>`
+    })
+    el.querySelector('#ncc').addEventListener('click', close)
+    el.querySelector('#ncs').addEventListener('click', async () => {
+      const customer = el.querySelector('#nc-customer').value.trim()
+      if (!customer) { el.querySelector('#nc-customer-e').textContent = 'กรุณาระบุ'; return }
+      const btn = el.querySelector('#ncs'); btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
+      const consentsObj = { service: true }
+      Object.keys(CONSENT_TYPES).forEach(k => { if (k !== 'service') consentsObj[k] = false })
+      el.querySelectorAll('.nc-consent:checked').forEach(c => { consentsObj[c.value] = true })
+      try {
+        await createDoc('pdpa_consents', {
+          customer,
+          phone: el.querySelector('#nc-phone').value.trim(),
+          channel: el.querySelector('#nc-channel').value,
+          consents: consentsObj,
+        })
+        showToast('✅ เพิ่มลูกค้าในทะเบียนความยินยอมแล้ว', 'success')
+        close(); await loadData()
+      } catch { showToast('บันทึกไม่สำเร็จ', 'error'); btn.disabled = false; btn.innerHTML = '💾 บันทึก' }
+    })
   }
 
   function openAddDsrForm() {

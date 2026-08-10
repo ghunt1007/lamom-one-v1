@@ -4,8 +4,8 @@
  */
 import { formatDate } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
-import { openModal } from '../../utils/modal.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { sendSms } from '../../utils/comms.js'
 
 function escHtml(s) {
@@ -58,7 +58,7 @@ export default async function CsatPage(container) {
     loading = true
     try {
       const feedback = await listDocs('csat', [], 'createdAt', 'desc', 200)
-      liveRecent = feedback.map(f => ({
+      liveRecent = feedback.filter(f => !f.deleted).map(f => ({
         id: f.id,
         customer: f.customer || f.customerName || f.custName || 'ลูกค้า',
         phone: f.phone || f.custPhone || '',
@@ -123,6 +123,7 @@ export default async function CsatPage(container) {
             <div style="display:flex;gap:4px">
               ${MONTHLY_CSAT.map((mo,i)=>`<button class="btn btn-xs ${i===selMonth?'btn-primary':'btn-secondary'} mo-btn" data-i="${i}">${mo.month}</button>`).join('')}
             </div>
+            <button class="btn btn-secondary" id="add-csat-btn" style="margin-left:8px">➕ บันทึกผลสำรวจ</button>
             <button class="btn btn-primary" id="send-survey-btn" style="margin-left:8px">📤 ส่งแบบสำรวจ</button>
           </div>
         </div>
@@ -200,18 +201,32 @@ export default async function CsatPage(container) {
                     <div style="display:flex;gap:6px;align-items:center">
                       <span style="color:#f59e0b;font-size:0.8rem">${starStr(r.csat)}</span>
                       <span style="font-size:0.6rem;background:${npt.c};color:#fff;padding:1px 6px;border-radius:8px">NPS ${r.nps} ${npt.label}</span>
+                      <button class="btn btn-xs btn-secondary del-csat-btn" data-id="${r.id}" title="ลบ" style="color:var(--danger)">🗑</button>
                     </div>
                   </div>
                   ${r.comment?`<div style="font-size:0.68rem;color:var(--text-muted);font-style:italic">"${escHtml(r.comment)}"</div>`:''}
                   <div style="font-size:0.62rem;color:var(--text-muted);margin-top:2px">${formatDate(r.date)}</div>
                 </div>`
               }).join('')}
+              ${!liveRecent.length ? `<div style="text-align:center;color:var(--text-muted);font-size:0.78rem;padding:14px">ยังไม่มีผลสำรวจ — กด "➕ บันทึกผลสำรวจ"</div>` : ''}
             </div>
           </div>
         </div>
       </div>`
 
     container.querySelectorAll('.mo-btn').forEach(b => b.addEventListener('click', () => { selMonth = parseInt(b.dataset.i); render() }))
+    document.getElementById('add-csat-btn')?.addEventListener('click', openAddCsatModal)
+    container.querySelectorAll('.del-csat-btn').forEach(b => b.addEventListener('click', async () => {
+      const r = liveRecent.find(x => x.id === b.dataset.id)
+      if (!r) return
+      const ok = await confirmDialog({ title: 'ลบผลสำรวจ', message: `ยืนยันลบผลสำรวจของ "${escHtml(r.customer)}" หรือไม่?`, confirmText: 'ลบ', danger: true })
+      if (!ok) return
+      try {
+        await softDelete('csat', r.id)
+        showToast('🗑 ลบผลสำรวจแล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('ลบไม่สำเร็จ', 'error') }
+    }))
     document.getElementById('send-survey-btn')?.addEventListener('click', () => {
       const recipients = liveRecent.slice(0, 5).map(r => r.customer)
       openModal({
@@ -263,6 +278,42 @@ export default async function CsatPage(container) {
           } catch (e) { showToast('ส่งไม่สำเร็จ: ' + e.message, 'error') }
         }
       })
+    })
+  }
+
+  function openAddCsatModal() {
+    openModal({
+      title: '➕ บันทึกผลสำรวจ CSAT',
+      size: 'sm',
+      body: `<div style="display:grid;gap:10px">
+        <div class="input-group"><label class="input-label">ชื่อลูกค้า *</label><input class="input" id="nc-customer"></div>
+        <div class="input-group"><label class="input-label">เบอร์โทร</label><input class="input" id="nc-phone" placeholder="08xxxxxxxx"></div>
+        <div class="input-group"><label class="input-label">รุ่นรถ</label><input class="input" id="nc-model"></div>
+        <div class="input-group"><label class="input-label">คะแนน CSAT (1-5 ดาว)</label>
+          <select class="input" id="nc-csat">${[5,4,3,2,1].map(n => `<option value="${n}" ${n===5?'selected':''}>${starStr(n)} (${n})</option>`).join('')}</select>
+        </div>
+        <div class="input-group"><label class="input-label">NPS (0-10)</label><input class="input" type="number" id="nc-nps" min="0" max="10" value="7"></div>
+        <div class="input-group"><label class="input-label">ความเห็นเพิ่มเติม</label><textarea class="input" id="nc-comment" rows="3"></textarea></div>
+      </div>`,
+      async onConfirm() {
+        const customer = document.getElementById('nc-customer')?.value?.trim()
+        if (!customer) { showToast('❗ กรุณากรอกชื่อลูกค้า', 'error'); return false }
+        const nps = Math.max(0, Math.min(10, parseInt(document.getElementById('nc-nps')?.value) || 0))
+        try {
+          await createDoc('csat', {
+            customer,
+            phone: document.getElementById('nc-phone')?.value?.trim() || '',
+            model: document.getElementById('nc-model')?.value?.trim() || '',
+            date: new Date().toISOString(),
+            csat: parseInt(document.getElementById('nc-csat')?.value) || 5,
+            nps,
+            comment: document.getElementById('nc-comment')?.value?.trim() || '',
+            surveyed: true,
+          })
+          showToast('✅ บันทึกผลสำรวจแล้ว', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      }
     })
   }
 
