@@ -89,8 +89,8 @@ export default async function RecallManagementPage(container) {
                 return `<div class="card recall-card" data-id="${r.id}" style="padding:14px;cursor:pointer;border-left:3px solid var(--${st?.color});${isSelected?'box-shadow:0 0 0 2px var(--primary)':''}">
                   <div style="display:flex;justify-content:space-between;margin-bottom:6px">
                     <div>
-                      <div style="font-weight:700;font-size:0.88rem">${r.title}</div>
-                      <div style="font-size:0.72rem;color:var(--text-muted)">${r.recallNo} · ${r.brand} ${r.model}</div>
+                      <div style="font-weight:700;font-size:0.88rem">${escHtml(r.title)}</div>
+                      <div style="font-size:0.72rem;color:var(--text-muted)">${escHtml(r.recallNo)} · ${escHtml(r.brand)} ${escHtml(r.model)}</div>
                     </div>
                     <div style="text-align:right">
                       <span class="badge badge-${st?.color}" style="font-size:0.65rem">${st?.label}</span>
