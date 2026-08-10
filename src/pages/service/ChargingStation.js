@@ -3,9 +3,9 @@
  * Route: /service/charging
  */
 import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
@@ -44,7 +44,7 @@ export default async function ChargingStationPage(container) {
         listDocs('charging_stations', [], 'name', 'asc', 200),
         listDocs('charging_sessions', [], 'date', 'desc', 100),
       ])
-      chargers = c; sessions = s
+      chargers = c.filter(x => !x.deleted); sessions = s
     } catch (e) { chargers = []; sessions = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
@@ -69,6 +69,7 @@ export default async function ChargingStationPage(container) {
             <div class="page-subtitle">สถานีชาร์จ EV — ติดตามสถานะ Real-time</div>
           </div>
           <div class="page-actions">
+            <button class="btn btn-secondary" id="add-charger-btn">➕ เพิ่มหัวชาร์จ</button>
             <button class="btn btn-primary" id="start-session-btn">⚡ เริ่มชาร์จ</button>
           </div>
         </div>
@@ -90,10 +91,13 @@ export default async function ChargingStationPage(container) {
               <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px">
                 <div>
                   <div style="font-size:1.4rem">${st?.icon}</div>
-                  <div style="font-weight:700;font-size:0.9rem">${c.name}</div>
+                  <div style="font-weight:700;font-size:0.9rem">${escHtml(c.name)}</div>
                   <span class="badge badge-${ct?.color}" style="font-size:0.6rem">${ct?.label}</span>
                 </div>
-                <span class="badge badge-${st?.color}" style="font-size:0.65rem">${st?.label}</span>
+                <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+                  <span class="badge badge-${st?.color}" style="font-size:0.65rem">${st?.label}</span>
+                  <button class="btn btn-xs btn-secondary del-charger-btn" data-id="${c.id}" title="ลบ" style="color:var(--danger)">🗑</button>
+                </div>
               </div>
 
               ${isCharging ? `
@@ -154,6 +158,18 @@ export default async function ChargingStationPage(container) {
     `
 
     document.getElementById('start-session-btn')?.addEventListener('click', openStartSession)
+    document.getElementById('add-charger-btn')?.addEventListener('click', openAddCharger)
+    container.querySelectorAll('.del-charger-btn').forEach(b => b.addEventListener('click', async () => {
+      const c = chargers.find(x => x.id === b.dataset.id)
+      if (!c) return
+      const ok = await confirmDialog({ title: 'ลบหัวชาร์จ', message: `ยืนยันลบหัวชาร์จ "${escHtml(c.name)}" หรือไม่?`, confirmText: 'ลบ', danger: true })
+      if (!ok) return
+      try {
+        await softDelete('charging_stations', c.id)
+        showToast('🗑 ลบหัวชาร์จแล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('ลบไม่สำเร็จ', 'error') }
+    }))
     container.querySelectorAll('.start-btn').forEach(b => b.addEventListener('click', () => {
       const c = chargers.find(x => x.id === b.dataset.id)
       if (c) openStartSessionFor(c)
@@ -203,7 +219,7 @@ export default async function ChargingStationPage(container) {
           <div class="input-group"><label class="input-label">หัวชาร์จ</label>
             <select class="input" id="cs-charger">${availableList.map(c => {
               const ct = CHARGER_TYPES[c.type]
-              return `<option value="${c.id}" ${charger?.id===c.id?'selected':''}>${c.name} — ${ct?.label}</option>`
+              return `<option value="${c.id}" ${charger?.id===c.id?'selected':''}>${escHtml(c.name)} — ${ct?.label}</option>`
             }).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">ทะเบียนรถ</label><input class="input" id="cs-plate" placeholder="1กข-1234"></div>
@@ -221,6 +237,31 @@ export default async function ChargingStationPage(container) {
         try {
           await updateDocData('charging_stations', c.id, patch)
           showToast(`⚡ เริ่มชาร์จ ${c.name} แล้ว!`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      }
+    })
+  }
+
+  function openAddCharger() {
+    openModal({
+      title: '➕ เพิ่มหัวชาร์จ',
+      size: 'sm',
+      body: `<div style="display:grid;gap:10px">
+        <div class="input-group"><label class="input-label">ชื่อหัวชาร์จ *</label><input class="input" id="nc-name" placeholder="เช่น Charger-05"></div>
+        <div class="input-group"><label class="input-label">ประเภท</label>
+          <select class="input" id="nc-type">${Object.entries(CHARGER_TYPES).map(([k,v]) => `<option value="${k}">${v.label}</option>`).join('')}</select>
+        </div>
+        <div class="input-group"><label class="input-label">กำลังไฟ (kW)</label><input class="input" type="number" id="nc-power" value="7"></div>
+      </div>`,
+      async onConfirm() {
+        const name = document.getElementById('nc-name')?.value?.trim()
+        if (!name) { showToast('❗ กรุณากรอกชื่อหัวชาร์จ', 'error'); return false }
+        const type = document.getElementById('nc-type')?.value || 'ac_7'
+        const power = parseInt(document.getElementById('nc-power')?.value) || 7
+        try {
+          await createDoc('charging_stations', { name, type, power, status: 'available', vehicle: null, soc: 0, energy: 0, startTime: null, estFinish: null })
+          showToast(`✅ เพิ่มหัวชาร์จ "${name}" แล้ว`, 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }

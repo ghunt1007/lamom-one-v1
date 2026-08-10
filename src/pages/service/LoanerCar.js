@@ -1,7 +1,7 @@
 import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -30,7 +30,7 @@ export default async function LoanerCarPage(container) {
         listDocs('loaner_cars', [], 'plate', 'asc', 200),
         listDocs('loaner_loans', [], 'loanDate', 'desc', 500),
       ])
-      cars = c; loans = l
+      cars = c.filter(x => !x.deleted); loans = l
     } catch (e) { cars = []; loans = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
@@ -54,6 +54,7 @@ export default async function LoanerCarPage(container) {
             <div class="page-subtitle">จัดการรถสำรอง / รถให้ยืม</div>
           </div>
           <div class="page-actions">
+            ${tab === 'fleet' ? `<button class="btn btn-primary" id="add-car-btn">➕ เพิ่มรถสำรอง</button>` : ''}
             ${tab === 'loans' ? `<button class="btn btn-primary" id="new-loan-btn">➕ บันทึกยืมรถ</button>` : ''}
           </div>
         </div>
@@ -79,6 +80,21 @@ export default async function LoanerCarPage(container) {
 
     document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => { tab = b.dataset.t; renderPage() }))
     document.getElementById('new-loan-btn')?.addEventListener('click', () => openLoanForm())
+    document.getElementById('add-car-btn')?.addEventListener('click', () => openAddCarForm())
+    document.querySelectorAll('.del-car-btn').forEach(btn => {
+      btn.addEventListener('click', async e => {
+        e.stopPropagation()
+        const car = cars.find(c => c.id === btn.dataset.id)
+        if (!car) return
+        const ok = await confirmDialog({ title: 'ลบรถสำรอง', message: `ยืนยันลบรถสำรอง "${escHtml(car.model)} (${escHtml(car.plate)})" หรือไม่?`, confirmText: 'ลบ', danger: true })
+        if (!ok) return
+        try {
+          await softDelete('loaner_cars', car.id)
+          showToast('🗑 ลบรถสำรองแล้ว', 'success')
+          await loadData()
+        } catch (e) { showToast('ลบไม่สำเร็จ', 'error') }
+      })
+    })
     document.querySelectorAll('.car-status-btn').forEach(btn => {
       btn.addEventListener('click', async e => {
         e.stopPropagation()
@@ -108,7 +124,10 @@ export default async function LoanerCarPage(container) {
               <div style="font-weight:700;font-size:0.9rem">${escHtml(c.model)}</div>
               <div style="font-size:0.78rem;color:var(--text-muted)">${escHtml(c.plate)} · ${escHtml(c.color)}</div>
             </div>
-            <span class="badge badge-${st.color}">${st.label}</span>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+              <span class="badge badge-${st.color}">${st.label}</span>
+              <button class="btn btn-xs btn-secondary del-car-btn" data-id="${c.id}" title="ลบ" style="color:var(--danger)">🗑</button>
+            </div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:0.78rem;margin-bottom:10px">
             <div>⛽ ${c.fuel}</div>
@@ -170,7 +189,7 @@ export default async function LoanerCarPage(container) {
           <div class="input-group"><label class="input-label">รถสำรอง *</label>
             <select class="input" id="ll-car">
               <option value="">-- เลือกรถ --</option>
-              ${availCars.map(c => `<option value="${c.id}">${c.model} (${c.plate})</option>`).join('')}
+              ${availCars.map(c => `<option value="${c.id}">${escHtml(c.model)} (${escHtml(c.plate)})</option>`).join('')}
             </select>
           </div>
           <div class="input-group"><label class="input-label">Job Card</label><input class="input" id="ll-job" placeholder="JOB-2025-xxx"></div>
@@ -234,6 +253,44 @@ export default async function LoanerCarPage(container) {
         await updateDocData('loaner_loans', loan.id, { actualReturn, fuelIn, kmIn, status: 'returned' })
         if (car) await updateDocData('loaner_cars', car.id, { status: 'cleaning', km: kmIn, loanedTo: null })
         showToast('✅ รับรถคืนแล้ว', 'success'); close(); await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+    })
+  }
+
+  function openAddCarForm() {
+    const { el, close } = openModal({
+      title: '➕ เพิ่มรถสำรอง', size: 'sm',
+      body: `<div style="display:flex;flex-direction:column;gap:12px">
+        <div class="grid-2">
+          <div class="input-group"><label class="input-label">รุ่นรถ *</label><input class="input" id="nc-model" placeholder="เช่น Toyota Yaris"></div>
+          <div class="input-group"><label class="input-label">ทะเบียน *</label><input class="input" id="nc-plate" placeholder="1กข-1234"></div>
+        </div>
+        <div class="grid-2">
+          <div class="input-group"><label class="input-label">สี</label><input class="input" id="nc-color" placeholder="ขาว"></div>
+          <div class="input-group"><label class="input-label">เชื้อเพลิง</label><input class="input" id="nc-fuel" placeholder="เบนซิน / EV" value="เบนซิน"></div>
+        </div>
+        <div class="grid-2">
+          <div class="input-group"><label class="input-label">เลขไมล์ (km)</label><input class="input" type="number" id="nc-km" value="0"></div>
+          <div class="input-group"><label class="input-label">ระดับเชื้อเพลิง (%)</label><input class="input" type="number" id="nc-fuellvl" min="0" max="100" value="100"></div>
+        </div>
+      </div>`,
+      footer: `<button class="btn btn-secondary" id="nc-c">ยกเลิก</button><button class="btn btn-primary" id="nc-s">💾 บันทึก</button>`
+    })
+    el.querySelector('#nc-c').addEventListener('click', close)
+    el.querySelector('#nc-s').addEventListener('click', async () => {
+      const model = el.querySelector('#nc-model').value.trim()
+      const plate = el.querySelector('#nc-plate').value.trim()
+      if (!model || !plate) return showToast('❗ กรุณากรอกรุ่นรถและทะเบียน', 'warning')
+      try {
+        await createDoc('loaner_cars', {
+          model, plate,
+          color: el.querySelector('#nc-color').value.trim() || '-',
+          fuel: el.querySelector('#nc-fuel').value.trim() || '-',
+          km: +el.querySelector('#nc-km').value || 0,
+          fuelLevel: +el.querySelector('#nc-fuellvl').value || 100,
+          status: 'available', loanedTo: null
+        })
+        showToast('🚙 เพิ่มรถสำรองแล้ว', 'success'); close(); await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }

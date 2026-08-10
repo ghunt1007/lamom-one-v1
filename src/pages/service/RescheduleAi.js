@@ -3,9 +3,11 @@
  * Route: /service/reschedule-ai
  */
 import { formatDate } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+
+function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
 const SLOTS = ['09:00','09:30','10:00','10:30','11:00','11:30','13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30']
 
@@ -26,7 +28,7 @@ export default async function RescheduleAiPage(container) {
 
   async function loadData() {
     loading = true
-    try { APPTS = await listDocs('reschedule_appointments', [], 'date', 'asc', 500) } catch (e) { APPTS = [] }
+    try { APPTS = (await listDocs('reschedule_appointments', [], 'date', 'asc', 500)).filter(a => !a.deleted) } catch (e) { APPTS = [] }
     loading = false
     if (container.__routerGen === myGen) render()
   }
@@ -49,6 +51,7 @@ export default async function RescheduleAiPage(container) {
             <div class="page-subtitle">AI จัดตารางนัดใหม่อัตโนมัติ · ${cancelled} ยกเลิก · ${waitlist} Waitlist รอสล็อต</div>
           </div>
           <div class="page-actions">
+            <button class="btn btn-secondary" id="add-appt-btn">➕ เพิ่มนัด</button>
             <button class="btn btn-primary" id="ai-run-btn">⚡ AI จัดใหม่ทั้งหมด</button>
           </div>
         </div>
@@ -107,6 +110,18 @@ export default async function RescheduleAiPage(container) {
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
+    document.getElementById('add-appt-btn')?.addEventListener('click', () => openAddAppt())
+    container.querySelectorAll('.del-appt-btn').forEach(b => b.addEventListener('click', async () => {
+      const a = APPTS.find(x => x.id === b.dataset.id)
+      if (!a) return
+      const ok = await confirmDialog({ title: 'ลบนัด', message: `ยืนยันลบนัดของ "${escHtml(a.customer)}" ออกจากระบบหรือไม่?`, confirmText: 'ลบ', danger: true })
+      if (!ok) return
+      try {
+        await softDelete('reschedule_appointments', a.id)
+        showToast('🗑 ลบนัดแล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('ลบไม่สำเร็จ', 'error') }
+    }))
   }
 
   function apptCard(a) {
@@ -116,17 +131,18 @@ export default async function RescheduleAiPage(container) {
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
           <div style="flex:1">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-              <span style="font-weight:700;font-size:0.86rem">${a.customer}</span>
+              <span style="font-weight:700;font-size:0.86rem">${escHtml(a.customer)}</span>
               <span style="font-size:0.64rem;background:${s.color};color:#fff;padding:2px 8px;border-radius:10px">${s.label}</span>
               ${a.aiSuggested ? '<span style="font-size:0.62rem;background:var(--primary);color:#fff;padding:2px 7px;border-radius:10px">🤖 AI แนะนำ</span>' : ''}
             </div>
-            <div style="font-size:0.72rem;color:var(--text-muted)">${a.model} · ${a.service}</div>
+            <div style="font-size:0.72rem;color:var(--text-muted)">${escHtml(a.model)} · ${escHtml(a.service)}</div>
             <div style="font-size:0.76rem;margin-top:4px">📅 ${formatDate(a.date)} · ⏰ ${a.slot} · 🏗 Bay ${a.bay}</div>
           </div>
           <div style="display:flex;gap:6px;flex-shrink:0">
             ${a.status==='confirmed' ? `<button class="btn btn-xs btn-secondary cancel-btn" data-id="${a.id}" style="font-size:0.7rem;color:var(--danger)">ยกเลิก</button>` : ''}
             ${a.status==='cancelled'||a.status==='waitlist' ? `<button class="btn btn-xs btn-secondary reschedule-btn" data-id="${a.id}" style="font-size:0.7rem">📅 นัดใหม่</button>` : ''}
             ${a.aiSuggested ? `<button class="btn btn-xs btn-primary confirm-ai-btn" data-id="${a.id}" style="font-size:0.7rem">✅ ยืนยัน</button>` : ''}
+            ${a.status==='cancelled'||a.status==='waitlist' ? `<button class="btn btn-xs btn-secondary del-appt-btn" data-id="${a.id}" title="ลบ" style="font-size:0.7rem;color:var(--danger)">🗑</button>` : ''}
           </div>
         </div>
       </div>`
@@ -160,10 +176,10 @@ export default async function RescheduleAiPage(container) {
 
   function openRescheduleModal(a) {
     openModal({
-      title: `📅 นัดใหม่ — ${a.customer}`, size:'sm',
+      title: `📅 นัดใหม่ — ${escHtml(a.customer)}`, size:'sm',
       body: `<div style="font-size:0.8rem;display:flex;flex-direction:column;gap:10px">
         <div style="background:var(--surface-2);padding:8px 10px;border-radius:var(--radius-sm);font-size:0.76rem">
-          ${a.model} · ${a.service}<br>
+          ${escHtml(a.model)} · ${escHtml(a.service)}<br>
           <span style="color:var(--text-muted)">เดิม: ${formatDate(a.date)} ${a.slot}</span>
         </div>
         <div><label style="font-size:0.72rem;color:var(--text-muted)">วันที่ใหม่</label>
@@ -185,6 +201,44 @@ export default async function RescheduleAiPage(container) {
         try {
           await updateDocData('reschedule_appointments', a.id, { date, slot, bay, status: 'confirmed', aiSuggested: false })
           showToast(`✅ นัดใหม่ ${a.customer} → ${formatDate(date)} ${slot} แล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      }
+    })
+  }
+
+  function openAddAppt() {
+    openModal({
+      title: '➕ เพิ่มนัด', size: 'sm',
+      body: `<div style="font-size:0.8rem;display:flex;flex-direction:column;gap:10px">
+        <div><label style="font-size:0.72rem;color:var(--text-muted)">ชื่อลูกค้า *</label>
+          <input class="input" id="na-customer" style="width:100%;margin-top:4px"></div>
+        <div><label style="font-size:0.72rem;color:var(--text-muted)">รุ่นรถ</label>
+          <input class="input" id="na-model" style="width:100%;margin-top:4px"></div>
+        <div><label style="font-size:0.72rem;color:var(--text-muted)">บริการ</label>
+          <input class="input" id="na-service" style="width:100%;margin-top:4px"></div>
+        <div><label style="font-size:0.72rem;color:var(--text-muted)">วันที่</label>
+          <input class="input" id="na-date" type="date" value="${new Date().toISOString().slice(0,10)}" style="width:100%;margin-top:4px"></div>
+        <div><label style="font-size:0.72rem;color:var(--text-muted)">เวลา</label>
+          <select class="input" id="na-slot" style="width:100%;margin-top:4px">${SLOTS.map(s=>`<option>${s}</option>`).join('')}</select></div>
+        <div><label style="font-size:0.72rem;color:var(--text-muted)">Bay</label>
+          <select class="input" id="na-bay" style="width:100%;margin-top:4px">${[1,2,3,4,5].map(b=>`<option>${b}</option>`).join('')}</select></div>
+      </div>`,
+      confirmText: '✅ บันทึก',
+      async onConfirm() {
+        const customer = document.getElementById('na-customer')?.value?.trim()
+        if (!customer) { showToast('❗ กรุณากรอกชื่อลูกค้า', 'error'); return false }
+        try {
+          await createDoc('reschedule_appointments', {
+            customer,
+            model: document.getElementById('na-model')?.value?.trim() || '-',
+            service: document.getElementById('na-service')?.value?.trim() || '-',
+            date: document.getElementById('na-date')?.value,
+            slot: document.getElementById('na-slot')?.value,
+            bay: parseInt(document.getElementById('na-bay')?.value) || 1,
+            status: 'confirmed', aiSuggested: false,
+          })
+          showToast(`✅ เพิ่มนัด ${customer} แล้ว`, 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }

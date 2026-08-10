@@ -3,8 +3,9 @@
  * Route: /analytics/parts
  */
 import { formatCurrency } from '../../utils/format.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs } from '../../core/db.js'
+import { listDocs, createDoc, softDelete } from '../../core/db.js'
 import { exportToExcel } from '../../utils/importExport.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
@@ -41,21 +42,28 @@ export default async function PartsAnalyticsPage(container) {
   let dataSource = 'demo'
   let sortBy = 'sold90'
 
-  try {
-    const parts = await listDocs('parts_inventory', [], 'name', 'asc', 500).catch(() => [])
-    if (container.__routerGen !== myGen) return
-    if (parts.length >= 2) {
-      liveParts = parts.map(p => ({
-        name: p.name || p.partName || 'อะไหล่',
-        sold90: p.sold90 || p.qtySold || 0,
-        stock: p.stock || p.qty || 0,
-        cost: p.cost || p.costPrice || 0,
-        price: p.price || p.salePrice || 0,
-        daysInStock: p.daysInStock || 30,
-      }))
-      dataSource = 'live'
-    }
-  } catch {}
+  async function loadData() {
+    try {
+      const parts = (await listDocs('parts_inventory', [], 'name', 'asc', 500).catch(() => [])).filter(p => !p.deleted)
+      if (container.__routerGen !== myGen) return
+      if (parts.length >= 2) {
+        liveParts = parts.map(p => ({
+          id: p.id,
+          name: p.name || p.partName || 'อะไหล่',
+          sold90: p.sold90 || p.qtySold || 0,
+          stock: p.stock || p.qty || 0,
+          cost: p.cost || p.costPrice || 0,
+          price: p.price || p.salePrice || 0,
+          daysInStock: p.daysInStock || 30,
+        }))
+        dataSource = 'live'
+      } else {
+        liveParts = [...PARTS_DATA].map(p => ({ ...p }))
+        dataSource = 'demo'
+      }
+    } catch {}
+    if (container.__routerGen === myGen) renderPage()
+  }
 
   function renderPage() {
     const sorted = [...liveParts].sort((a, b) => {
@@ -77,6 +85,7 @@ export default async function PartsAnalyticsPage(container) {
             <div class="page-subtitle">วิเคราะห์อะไหล่ — 90 วันล่าสุด${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
           </div>
           <div class="page-actions">
+            <button class="btn btn-secondary" id="add-part-btn">➕ เพิ่มอะไหล่</button>
             <button class="btn btn-primary" id="export-btn">📤 Export</button>
           </div>
         </div>
@@ -112,6 +121,7 @@ export default async function PartsAnalyticsPage(container) {
                 <th style="padding:8px 10px;text-align:right">Margin</th>
                 <th style="padding:8px 10px;text-align:right">ค้าง (วัน)</th>
                 <th style="padding:8px 14px">สถานะ</th>
+                <th style="padding:8px 14px"></th>
               </tr>
             </thead>
             <tbody>
@@ -126,6 +136,7 @@ export default async function PartsAnalyticsPage(container) {
                   <td style="padding:8px 10px;text-align:right">${marginPct(p)}%</td>
                   <td style="padding:8px 10px;text-align:right;color:var(--${p.daysInStock>120?'danger':'text-muted'})">${p.daysInStock}</td>
                   <td style="padding:8px 14px"><span class="badge badge-${ci.color}" style="font-size:0.6rem">${ci.icon} ${ci.label}</span></td>
+                  <td style="padding:8px 14px;text-align:right">${dataSource==='live' && p.id ? `<button class="btn btn-xs btn-secondary del-part-btn" data-id="${p.id}" title="ลบ" style="color:var(--danger)">🗑</button>` : ''}</td>
                 </tr>`
               }).join('')}
             </tbody>
@@ -154,9 +165,52 @@ export default async function PartsAnalyticsPage(container) {
       )
       showToast('📥 Export Parts Analytics แล้ว', 'success')
     })
+    document.getElementById('add-part-btn')?.addEventListener('click', () => openAddPart())
+    container.querySelectorAll('.del-part-btn').forEach(b => b.addEventListener('click', async () => {
+      const p = liveParts.find(x => x.id === b.dataset.id)
+      if (!p) return
+      const ok = await confirmDialog({ title: 'ลบอะไหล่', message: `ยืนยันลบอะไหล่ "${escHtml(p.name)}" ออกจากระบบวิเคราะห์หรือไม่?`, confirmText: 'ลบ', danger: true })
+      if (!ok) return
+      try {
+        await softDelete('parts_inventory', p.id)
+        showToast('🗑 ลบแล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('ลบไม่สำเร็จ', 'error') }
+    }))
   }
 
-  renderPage()
+  function openAddPart() {
+    openModal({
+      title: '➕ เพิ่มอะไหล่เข้าระบบวิเคราะห์',
+      size: 'sm',
+      body: `<div style="display:grid;gap:10px">
+        <div class="input-group"><label class="input-label">ชื่ออะไหล่ *</label><input class="input" id="np-name"></div>
+        <div class="input-group"><label class="input-label">ขาย 90 วัน (ชิ้น)</label><input class="input" type="number" id="np-sold" value="0"></div>
+        <div class="input-group"><label class="input-label">สต็อกคงเหลือ (ชิ้น)</label><input class="input" type="number" id="np-stock" value="0"></div>
+        <div class="input-group"><label class="input-label">ต้นทุน/ชิ้น (บาท)</label><input class="input" type="number" id="np-cost" value="0"></div>
+        <div class="input-group"><label class="input-label">ราคาขาย/ชิ้น (บาท)</label><input class="input" type="number" id="np-price" value="0"></div>
+        <div class="input-group"><label class="input-label">ค้างในสต็อก (วัน)</label><input class="input" type="number" id="np-days" value="30"></div>
+      </div>`,
+      async onConfirm() {
+        const name = document.getElementById('np-name')?.value?.trim()
+        if (!name) { showToast('❗ กรุณากรอกชื่ออะไหล่', 'error'); return false }
+        try {
+          await createDoc('parts_inventory', {
+            name,
+            sold90: parseInt(document.getElementById('np-sold')?.value) || 0,
+            stock: parseInt(document.getElementById('np-stock')?.value) || 0,
+            cost: parseFloat(document.getElementById('np-cost')?.value) || 0,
+            price: parseFloat(document.getElementById('np-price')?.value) || 0,
+            daysInStock: parseInt(document.getElementById('np-days')?.value) || 30,
+          })
+          showToast(`✅ เพิ่มอะไหล่ "${name}" แล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      }
+    })
+  }
+
+  await loadData()
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

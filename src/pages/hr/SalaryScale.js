@@ -3,9 +3,11 @@
  * Route: /hr/salary-scale
  */
 import { formatCurrency } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
-import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+
+function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
 // พบว่าหน้านี้ไม่มีการเช็คสิทธิ์เลยแม้แต่จุดเดียว — พนักงานทุกคนเห็นตารางเงินเดือนรายบุคคล + เทียบตลาดของ
 // เพื่อนร่วมงานทุกคน และกดปุ่ม "ปรับเงินเดือน" เขียนเงินเดือนใหม่ลง Firestore ตรงๆได้เลย ไม่ต่างจาก
@@ -54,7 +56,7 @@ export default async function SalaryScalePage(container) {
 
   async function loadData() {
     loading = true
-    try { staff = await listDocs('salary_scale_staff', [], 'name', 'asc', 200) } catch (e) { staff = [] }
+    try { staff = (await listDocs('salary_scale_staff', [], 'name', 'asc', 200)).filter(s => !s.deleted) } catch (e) { staff = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -77,6 +79,7 @@ export default async function SalaryScalePage(container) {
             <div class="page-subtitle">โครงสร้างเงินเดือน — Grade และ Market Comparison</div>
           </div>
           <div class="page-actions">
+            <button class="btn btn-secondary" id="add-staff-btn">➕ เพิ่มพนักงาน</button>
             <button class="btn btn-primary" id="review-btn">📋 ทบทวนเงินเดือน</button>
           </div>
         </div>
@@ -144,15 +147,18 @@ export default async function SalaryScalePage(container) {
                   const mr = marketRatio(s.salary, s.market)
                   return `<tr style="border-bottom:1px solid var(--border);font-size:0.8rem">
                     <td style="padding:8px 14px">
-                      <div style="font-weight:600">${s.name}</div>
-                      <div style="font-size:0.68rem;color:var(--text-muted)">${s.dept}</div>
+                      <div style="font-weight:600">${escHtml(s.name)}</div>
+                      <div style="font-size:0.68rem;color:var(--text-muted)">${escHtml(s.dept)}</div>
                     </td>
                     <td style="padding:8px 10px;text-align:center"><span class="badge badge-secondary" style="font-size:0.6rem">${s.grade}</span></td>
                     <td style="padding:8px 10px;text-align:right;font-weight:700">${formatCurrency(s.salary)}</td>
                     <td style="padding:8px 10px;text-align:right;color:var(--text-muted)">${formatCurrency(s.market)}</td>
                     <td style="padding:8px 10px;text-align:right;color:var(--${cr>=95?'success':'warning'})">${cr}%</td>
                     <td style="padding:8px 10px;text-align:right;color:var(--${mr>=95?'success':'danger'})">${mr}%</td>
-                    <td style="padding:8px 14px;text-align:right"><button class="btn btn-xs btn-secondary adj-btn" data-id="${s.id}">✏️</button></td>
+                    <td style="padding:8px 14px;text-align:right;display:flex;gap:4px;justify-content:flex-end">
+                      <button class="btn btn-xs btn-secondary adj-btn" data-id="${s.id}">✏️</button>
+                      <button class="btn btn-xs btn-secondary del-staff-btn" data-id="${s.id}" style="color:var(--danger)">🗑</button>
+                    </td>
                   </tr>`
                 }).join('')}
               </tbody>
@@ -166,7 +172,7 @@ export default async function SalaryScalePage(container) {
     container.querySelectorAll('.adj-btn').forEach(b => b.addEventListener('click', () => {
       const s = staff.find(x => x.id === b.dataset.id)
       if (s) openModal({
-        title: '✏️ ปรับเงินเดือน ' + s.name,
+        title: '✏️ ปรับเงินเดือน ' + escHtml(s.name),
         size: 'sm',
         body: `<div style="display:grid;gap:10px">
           ${row('Grade ปัจจุบัน', s.grade)}
@@ -184,6 +190,18 @@ export default async function SalaryScalePage(container) {
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
+    }))
+    document.getElementById('add-staff-btn')?.addEventListener('click', () => openAddStaff())
+    container.querySelectorAll('.del-staff-btn').forEach(b => b.addEventListener('click', async () => {
+      const s = staff.find(x => x.id === b.dataset.id)
+      if (!s) return
+      const ok = await confirmDialog({ title: 'ลบพนักงาน', message: `ยืนยันลบ "${escHtml(s.name)}" ออกจากตารางเงินเดือนหรือไม่?`, confirmText: 'ลบ', danger: true })
+      if (!ok) return
+      try {
+        await softDelete('salary_scale_staff', s.id)
+        showToast('🗑 ลบแล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('ลบไม่สำเร็จ', 'error') }
     }))
     document.getElementById('review-btn')?.addEventListener('click', () => {
       const belowMkt = staff.filter(s => marketRatio(s.salary, s.market) < 95)
@@ -215,8 +233,8 @@ export default async function SalaryScalePage(container) {
                   const ratio = marketRatio(s.salary, s.market)
                   const c = ratio < 90 ? 'var(--danger)' : 'var(--warning)'
                   return `<tr style="border-bottom:1px solid var(--border-subtle)">
-                    <td style="padding:6px 9px;font-weight:700">${s.name}</td>
-                    <td style="padding:6px 9px;color:var(--text-muted)">${s.dept}</td>
+                    <td style="padding:6px 9px;font-weight:700">${escHtml(s.name)}</td>
+                    <td style="padding:6px 9px;color:var(--text-muted)">${escHtml(s.dept)}</td>
                     <td style="padding:6px 9px;text-align:right">฿${s.salary.toLocaleString()}</td>
                     <td style="padding:6px 9px;text-align:right;color:var(--text-muted)">฿${s.market.toLocaleString()}</td>
                     <td style="padding:6px 9px;text-align:right;font-weight:700;color:${c}">${ratio}%</td>
@@ -230,6 +248,37 @@ export default async function SalaryScalePage(container) {
           </div>
         `
       })
+    })
+  }
+
+  function openAddStaff() {
+    openModal({
+      title: '➕ เพิ่มพนักงานเข้าตารางเงินเดือน',
+      size: 'sm',
+      body: `<div style="display:grid;gap:10px">
+        <div class="input-group"><label class="input-label">ชื่อ-นามสกุล *</label><input class="input" id="ns-name"></div>
+        <div class="input-group"><label class="input-label">แผนก</label><input class="input" id="ns-dept"></div>
+        <div class="input-group"><label class="input-label">Grade</label>
+          <select class="input" id="ns-grade">${SALARY_GRADES.map(g => `<option value="${g.grade}">${g.grade} — ${g.title}</option>`).join('')}</select>
+        </div>
+        <div class="input-group"><label class="input-label">เงินเดือน (บาท)</label><input class="input" type="number" id="ns-salary" value="20000"></div>
+        <div class="input-group"><label class="input-label">เงินเดือนอ้างอิงตลาด (บาท)</label><input class="input" type="number" id="ns-market" value="22000"></div>
+      </div>`,
+      async onConfirm() {
+        const name = document.getElementById('ns-name')?.value?.trim()
+        if (!name) { showToast('❗ กรุณากรอกชื่อพนักงาน', 'error'); return false }
+        try {
+          await createDoc('salary_scale_staff', {
+            name,
+            dept: document.getElementById('ns-dept')?.value?.trim() || '-',
+            grade: document.getElementById('ns-grade')?.value || 'G1',
+            salary: parseInt(document.getElementById('ns-salary')?.value) || 20000,
+            market: parseInt(document.getElementById('ns-market')?.value) || 20000,
+          })
+          showToast(`✅ เพิ่ม "${name}" เข้าตารางเงินเดือนแล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      }
     })
   }
 

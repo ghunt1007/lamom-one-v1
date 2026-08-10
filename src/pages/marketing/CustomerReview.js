@@ -3,9 +3,9 @@
  * Route: /marketing/reviews
  */
 import { timeAgo } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
 // ป้องกัน XSS — ข้อความรีวิว (text) อาจมาจาก Platform ภายนอก (Google/Facebook) ซึ่งควบคุมเนื้อหาไม่ได้ ต้อง escape ก่อนแสดงผลเสมอ
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
@@ -37,7 +37,7 @@ export default async function CustomerReviewPage(container) {
 
   async function loadData() {
     loading = true
-    try { reviews = await listDocs('marketing_reviews', [], 'time', 'desc', 500) } catch (e) { reviews = [] }
+    try { reviews = (await listDocs('marketing_reviews', [], 'time', 'desc', 500)).filter(r => !r.deleted) } catch (e) { reviews = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -64,6 +64,7 @@ export default async function CustomerReviewPage(container) {
             <div class="page-subtitle">จัดการรีวิวจากทุก Platform</div>
           </div>
           <div class="page-actions">
+            <button class="btn btn-secondary" id="add-review-btn">➕ เพิ่มรีวิว</button>
             <button class="btn btn-primary" id="request-review-btn">📤 ขอ Review</button>
           </div>
         </div>
@@ -122,7 +123,10 @@ export default async function CustomerReviewPage(container) {
               </div>
               <p style="font-size:0.82rem;margin:0 0 8px">"${esc(r.text)}"</p>
               ${r.reply ? `<div style="background:var(--surface-2);padding:8px 10px;border-radius:var(--radius-sm);font-size:0.75rem;color:var(--text-muted)">💬 ตอบแล้ว: "${esc(r.reply)}"</div>` : ''}
-              ${r.status === 'pending' ? `<button class="btn btn-xs btn-primary reply-btn" data-id="${r.id}" style="margin-top:8px">💬 ตอบกลับ</button>` : ''}
+              <div style="display:flex;gap:6px;margin-top:8px">
+                ${r.status === 'pending' ? `<button class="btn btn-xs btn-primary reply-btn" data-id="${r.id}">💬 ตอบกลับ</button>` : ''}
+                <button class="btn btn-xs btn-secondary del-review-btn" data-id="${r.id}" title="ลบ" style="color:var(--danger)">🗑</button>
+              </div>
             </div>`
           }).join('')}
         </div>
@@ -134,6 +138,18 @@ export default async function CustomerReviewPage(container) {
     container.querySelectorAll('.reply-btn').forEach(b => b.addEventListener('click', () => {
       const r = reviews.find(x => x.id === b.dataset.id); if (r) openReplyModal(r)
     }))
+    container.querySelectorAll('.del-review-btn').forEach(b => b.addEventListener('click', async () => {
+      const r = reviews.find(x => x.id === b.dataset.id)
+      if (!r) return
+      const ok = await confirmDialog({ title: 'ลบรีวิว', message: `ยืนยันลบรีวิวจาก "${esc(r.author)}" หรือไม่?`, confirmText: 'ลบ', danger: true })
+      if (!ok) return
+      try {
+        await softDelete('marketing_reviews', r.id)
+        showToast('🗑 ลบรีวิวแล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('ลบไม่สำเร็จ', 'error') }
+    }))
+    document.getElementById('add-review-btn')?.addEventListener('click', () => openAddReview())
     document.getElementById('request-review-btn')?.addEventListener('click', () => {
       const pending = reviews.filter(r => r.status === 'pending')
       // (บันทึกความซื่อสัตย์) เรคคอร์ดรีวิวในนี้ไม่มี field เบอร์โทร/อีเมลของผู้เขียนรีวิวเก็บไว้เลย (มีแค่
@@ -192,6 +208,41 @@ export default async function CustomerReviewPage(container) {
         try {
           await updateDocData('marketing_reviews', review.id, { reply: txt, status: 'replied' })
           showToast('✅ ตอบกลับแล้ว', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      }
+    })
+  }
+
+  function openAddReview() {
+    openModal({
+      title: '➕ เพิ่มรีวิวลูกค้า',
+      size: 'sm',
+      body: `<div style="display:grid;gap:10px">
+        <div class="input-group"><label class="input-label">ชื่อลูกค้า *</label><input class="input" id="nr-author"></div>
+        <div class="input-group"><label class="input-label">Platform</label>
+          <select class="input" id="nr-platform">${Object.entries(PLATFORMS).map(([k,v]) => `<option value="${k}" ${k==='internal'?'selected':''}>${v.icon} ${v.label}</option>`).join('')}</select>
+        </div>
+        <div class="input-group"><label class="input-label">คะแนน (ดาว)</label>
+          <select class="input" id="nr-rating">${[5,4,3,2,1].map(n => `<option value="${n}" ${n===5?'selected':''}>${stars(n)} (${n})</option>`).join('')}</select>
+        </div>
+        <div class="input-group"><label class="input-label">ข้อความรีวิว *</label><textarea class="input" id="nr-text" rows="3"></textarea></div>
+      </div>`,
+      async onConfirm() {
+        const author = document.getElementById('nr-author')?.value?.trim()
+        const text = document.getElementById('nr-text')?.value?.trim()
+        if (!author || !text) { showToast('❗ กรุณากรอกชื่อลูกค้าและข้อความรีวิว', 'error'); return false }
+        try {
+          await createDoc('marketing_reviews', {
+            author,
+            platform: document.getElementById('nr-platform')?.value || 'internal',
+            rating: parseInt(document.getElementById('nr-rating')?.value) || 5,
+            text,
+            time: new Date().toISOString(),
+            status: 'pending',
+            reply: null,
+          })
+          showToast('✅ เพิ่มรีวิวแล้ว', 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }

@@ -3,9 +3,11 @@
  * Route: /hr/bonus-pool
  */
 import { formatCurrency } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+
+function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
 const POOL_BUDGET = 1200000
 
@@ -32,7 +34,7 @@ export default async function BonusPoolPage(container) {
 
   async function loadData() {
     loading = true
-    try { staff = await listDocs('bonus_pool_staff', [], 'name', 'asc', 200) } catch (e) { staff = [] }
+    try { staff = (await listDocs('bonus_pool_staff', [], 'name', 'asc', 200)).filter(s => !s.deleted) } catch (e) { staff = [] }
     staff.forEach(s => s.bonus = calcBonus(s))
     loading = false
     if (container.__routerGen === myGen) render()
@@ -57,6 +59,7 @@ export default async function BonusPoolPage(container) {
             <div class="page-subtitle">คำนวณ Bonus ตาม KPI · งบประมาณ ${formatCurrency(POOL_BUDGET)} · ${staff.length} คน</div>
           </div>
           <div class="page-actions">
+            <button class="btn btn-secondary" id="add-staff-btn">➕ เพิ่มพนักงาน</button>
             <button class="btn btn-secondary" id="recalc-btn">🔄 คำนวณใหม่</button>
             <button class="btn btn-primary" id="approve-all-btn">✅ อนุมัติทั้งหมด</button>
           </div>
@@ -83,7 +86,7 @@ export default async function BonusPoolPage(container) {
         <!-- Dept filter -->
         <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
           <button class="btn btn-xs ${filter==='all'?'btn-primary':'btn-secondary'} dept-btn" data-d="all">ทั้งหมด</button>
-          ${depts.map(d=>`<button class="btn btn-xs ${filter===d?'btn-primary':'btn-secondary'} dept-btn" data-d="${d}">${d}</button>`).join('')}
+          ${depts.map(d=>`<button class="btn btn-xs ${filter===d?'btn-primary':'btn-secondary'} dept-btn" data-d="${escHtml(d)}">${escHtml(d)}</button>`).join('')}
         </div>
 
         <!-- Staff cards -->
@@ -96,8 +99,8 @@ export default async function BonusPoolPage(container) {
                 </div>
                 <div style="flex:1">
                   <div style="display:flex;align-items:center;gap:8px">
-                    <span style="font-weight:700;font-size:0.86rem">${s.name}</span>
-                    <span style="font-size:0.68rem;color:var(--text-muted)">${s.role} · ${s.dept}</span>
+                    <span style="font-weight:700;font-size:0.86rem">${escHtml(s.name)}</span>
+                    <span style="font-size:0.68rem;color:var(--text-muted)">${escHtml(s.role)} · ${escHtml(s.dept)}</span>
                     ${s.paid?`<span style="font-size:0.6rem;background:var(--success);color:#fff;padding:1px 6px;border-radius:8px">✅ จ่ายแล้ว</span>`:''}
                   </div>
                   <div style="display:flex;gap:12px;margin-top:5px">
@@ -126,6 +129,7 @@ export default async function BonusPoolPage(container) {
                 <div style="display:flex;flex-direction:column;gap:4px">
                   ${!s.paid?`<button class="btn btn-xs btn-primary pay-btn" data-id="${s.id}" style="font-size:0.7rem">💸 จ่าย</button>`:''}
                   <button class="btn btn-xs btn-secondary edit-btn" data-id="${s.id}" style="font-size:0.7rem">✏️ แก้ไข</button>
+                  <button class="btn btn-xs btn-secondary del-staff-btn" data-id="${s.id}" style="font-size:0.7rem;color:var(--danger)">🗑 ลบ</button>
                 </div>
               </div>
             </div>`).join('')}
@@ -155,11 +159,55 @@ export default async function BonusPoolPage(container) {
       const s = staff.find(x => x.id === b.dataset.id)
       if (s) openEditModal(s)
     }))
+    document.getElementById('add-staff-btn')?.addEventListener('click', () => openAddStaff())
+    container.querySelectorAll('.del-staff-btn').forEach(b => b.addEventListener('click', async () => {
+      const s = staff.find(x => x.id === b.dataset.id)
+      if (!s) return
+      const ok = await confirmDialog({ title: 'ลบพนักงาน', message: `ยืนยันลบ "${escHtml(s.name)}" ออกจาก Bonus Pool หรือไม่?`, confirmText: 'ลบ', danger: true })
+      if (!ok) return
+      try {
+        await softDelete('bonus_pool_staff', s.id)
+        showToast('🗑 ลบแล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('ลบไม่สำเร็จ', 'error') }
+    }))
+  }
+
+  function openAddStaff() {
+    openModal({
+      title: '➕ เพิ่มพนักงานเข้า Bonus Pool',
+      size: 'sm',
+      body: `<div style="display:grid;gap:10px">
+        <div class="input-group"><label class="input-label">ชื่อ-นามสกุล *</label><input class="input" id="ns-name"></div>
+        <div class="input-group"><label class="input-label">ตำแหน่ง</label><input class="input" id="ns-role"></div>
+        <div class="input-group"><label class="input-label">แผนก</label><input class="input" id="ns-dept"></div>
+        <div class="input-group"><label class="input-label">เงินเดือนฐาน (บาท)</label><input class="input" type="number" id="ns-base" value="20000"></div>
+        <div class="input-group"><label class="input-label">Multiplier</label><input class="input" type="number" step="0.5" id="ns-mult" value="1"></div>
+        <div class="input-group"><label class="input-label">KPI Score (%)</label><input class="input" type="number" id="ns-kpi" value="80" min="0" max="100"></div>
+      </div>`,
+      async onConfirm() {
+        const name = document.getElementById('ns-name')?.value?.trim()
+        if (!name) { showToast('❗ กรุณากรอกชื่อพนักงาน', 'error'); return false }
+        try {
+          await createDoc('bonus_pool_staff', {
+            name,
+            role: document.getElementById('ns-role')?.value?.trim() || '-',
+            dept: document.getElementById('ns-dept')?.value?.trim() || '-',
+            base: parseInt(document.getElementById('ns-base')?.value) || 20000,
+            multiplier: parseFloat(document.getElementById('ns-mult')?.value) || 1,
+            kpi: parseInt(document.getElementById('ns-kpi')?.value) || 80,
+            paid: false,
+          })
+          showToast(`✅ เพิ่ม "${name}" เข้า Bonus Pool แล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      }
+    })
   }
 
   function openEditModal(s) {
     openModal({
-      title:`✏️ ปรับ Bonus — ${s.name}`, size:'xs',
+      title:`✏️ ปรับ Bonus — ${escHtml(s.name)}`, size:'xs',
       body:`<div style="font-size:0.8rem;display:flex;flex-direction:column;gap:8px">
         <div><label style="font-size:0.72rem;color:var(--text-muted)">KPI Score (%)</label>
           <input class="input" id="kpi-val" type="number" value="${s.kpi}" min="0" max="100" style="width:100%;margin-top:4px"></div>

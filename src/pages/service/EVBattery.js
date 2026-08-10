@@ -3,9 +3,9 @@
  * Route: /service/ev-battery
  */
 import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
@@ -38,7 +38,7 @@ export default async function EVBatteryPage(container) {
 
   async function loadData() {
     loading = true
-    try { vehicles = await listDocs('ev_battery_vehicles', [], 'plate', 'asc', 500) } catch (e) { vehicles = [] }
+    try { vehicles = (await listDocs('ev_battery_vehicles', [], 'plate', 'asc', 500)).filter(v => !v.deleted) } catch (e) { vehicles = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -61,6 +61,7 @@ export default async function EVBatteryPage(container) {
             <div class="page-subtitle">ตรวจสอบสุขภาพแบตเตอรี่ — ลูกค้าทั้งหมด</div>
           </div>
           <div class="page-actions">
+            <button class="btn btn-secondary" id="add-vehicle-btn">➕ เพิ่มรถ EV</button>
             <button class="btn btn-primary" id="add-check-btn">+ บันทึกตรวจ</button>
           </div>
         </div>
@@ -88,10 +89,13 @@ export default async function EVBatteryPage(container) {
             return `<div class="card" style="padding:14px;border-left:3px solid var(--${bs?.color})">
               <div style="display:flex;justify-content:space-between;margin-bottom:10px">
                 <div>
-                  <div style="font-weight:700;font-size:0.88rem">${v.plate}</div>
-                  <div style="font-size:0.72rem;color:var(--text-muted)">${v.model} · ${v.year} · ${v.owner}</div>
+                  <div style="font-weight:700;font-size:0.88rem">${escHtml(v.plate)}</div>
+                  <div style="font-size:0.72rem;color:var(--text-muted)">${escHtml(v.model)} · ${v.year} · ${escHtml(v.owner)}</div>
                 </div>
-                <span class="badge badge-${bs?.color}" style="font-size:0.62rem">${bs?.icon} ${bs?.label}</span>
+                <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+                  <span class="badge badge-${bs?.color}" style="font-size:0.62rem">${bs?.icon} ${bs?.label}</span>
+                  <button class="btn btn-xs btn-secondary del-vehicle-btn" data-id="${v.id}" title="ลบ" style="color:var(--danger)">🗑</button>
+                </div>
               </div>
 
               <!-- SOH bar -->
@@ -138,6 +142,51 @@ export default async function EVBatteryPage(container) {
       const v = vehicles.find(x => x.id === b.dataset.id); if (v) openCheckModal(v)
     }))
     document.getElementById('add-check-btn')?.addEventListener('click', () => openCheckModal())
+    document.getElementById('add-vehicle-btn')?.addEventListener('click', () => openAddVehicle())
+    container.querySelectorAll('.del-vehicle-btn').forEach(b => b.addEventListener('click', async () => {
+      const v = vehicles.find(x => x.id === b.dataset.id)
+      if (!v) return
+      const ok = await confirmDialog({ title: 'ลบรถ EV', message: `ยืนยันลบรถ "${escHtml(v.plate)} — ${escHtml(v.model)}" ออกจากระบบตรวจแบตเตอรี่หรือไม่?`, confirmText: 'ลบ', danger: true })
+      if (!ok) return
+      try {
+        await softDelete('ev_battery_vehicles', v.id)
+        showToast('🗑 ลบรถแล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('ลบไม่สำเร็จ', 'error') }
+    }))
+  }
+
+  function openAddVehicle() {
+    openModal({
+      title: '➕ เพิ่มรถ EV เข้าระบบตรวจแบตเตอรี่',
+      size: 'sm',
+      body: `<div style="display:grid;gap:10px">
+        <div class="input-group"><label class="input-label">ทะเบียน *</label><input class="input" id="nv-plate" placeholder="1กข-1234"></div>
+        <div class="input-group"><label class="input-label">รุ่นรถ *</label><input class="input" id="nv-model" placeholder="BYD Seal"></div>
+        <div class="input-group"><label class="input-label">ปี</label><input class="input" type="number" id="nv-year" value="${new Date().getFullYear()+543}"></div>
+        <div class="input-group"><label class="input-label">เจ้าของ</label><input class="input" id="nv-owner" placeholder="ชื่อลูกค้า"></div>
+        <div class="input-group"><label class="input-label">Capacity เดิม (kWh)</label><input class="input" type="number" id="nv-cap" value="82"></div>
+      </div>`,
+      async onConfirm() {
+        const plate = document.getElementById('nv-plate')?.value?.trim()
+        const model = document.getElementById('nv-model')?.value?.trim()
+        if (!plate || !model) { showToast('❗ กรุณากรอกทะเบียนและรุ่นรถ', 'error'); return false }
+        const originalCapacity = parseFloat(document.getElementById('nv-cap')?.value) || 82
+        try {
+          await createDoc('ev_battery_vehicles', {
+            plate, model,
+            year: parseInt(document.getElementById('nv-year')?.value) || new Date().getFullYear()+543,
+            owner: document.getElementById('nv-owner')?.value?.trim() || '-',
+            soh: 100, soc: 80, cycles: 0,
+            capacity: originalCapacity, originalCapacity,
+            range: Math.round(originalCapacity * 6),
+            lastCheck: addDays(0), nextCheck: addDays(90),
+          })
+          showToast(`✅ เพิ่มรถ "${plate}" เข้าระบบแล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      }
+    })
   }
 
   function openCheckModal(v = null) {
