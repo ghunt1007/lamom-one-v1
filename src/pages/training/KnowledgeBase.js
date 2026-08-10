@@ -33,7 +33,7 @@ export default async function KnowledgeBasePage(container) {
 
   async function loadData() {
     loading = true
-    try { articles = await listDocs('kb_articles', [], 'views', 'desc', 500) } catch (e) { articles = [] }
+    try { articles = (await listDocs('kb_articles', [], 'views', 'desc', 500)).filter(a => !a.deleted) } catch (e) { articles = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }

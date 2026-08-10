@@ -18,7 +18,7 @@ export default async function ErrorLogPage(container) {
   let logs = []
 
   try {
-    logs = await listDocs('error_log', [], 'createdAt', 'desc', 500)
+    logs = (await listDocs('error_log', [], 'createdAt', 'desc', 500)).filter(l => !l.deleted)
   } catch (e) {
     logs = []
   }

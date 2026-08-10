@@ -19,7 +19,7 @@ export default async function WelfarePage(container) {
 
   async function loadData() {
     loading = true
-    try { items = await listDocs('welfare_items', [], 'name', 'asc', 200) } catch (e) { items = [] }
+    try { items = (await listDocs('welfare_items', [], 'name', 'asc', 200)).filter(w => !w.deleted) } catch (e) { items = [] }
     loading = false
     if (container.__routerGen === myGen) render()
   }

@@ -30,7 +30,7 @@ export default async function SkillMatrixPage(container) {
     loading = true
     try {
       staff = await listDocs('staff_skills', [], 'name', 'asc', 200)
-      skills = await listDocs('skill_definitions', [], 'order', 'asc', 200)
+      skills = (await listDocs('skill_definitions', [], 'order', 'asc', 200)).filter(sk => !sk.deleted)
     } catch (e) { staff = []; skills = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()

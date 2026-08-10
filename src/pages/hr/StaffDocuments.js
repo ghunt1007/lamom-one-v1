@@ -35,7 +35,7 @@ export default async function StaffDocumentsPage(container) {
   let typeFilter = 'all'
   let search = ''
 
-  try { docs = await listDocs('staff_documents', [], 'uploaded', 'desc', 200) } catch { docs = [] }
+  try { docs = (await listDocs('staff_documents', [], 'uploaded', 'desc', 200)).filter(d => !d.deleted) } catch { docs = [] }
   if (container.__routerGen !== myGen) return
 
   function expiryState(d) {

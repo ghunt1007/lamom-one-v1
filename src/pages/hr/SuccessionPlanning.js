@@ -31,7 +31,7 @@ export default async function SuccessionPlanningPage(container) {
 
   async function loadData() {
     loading = true
-    try { plans = await listDocs('succession_plans', [], 'role', 'asc', 100) } catch (e) { plans = [] }
+    try { plans = (await listDocs('succession_plans', [], 'role', 'asc', 100)).filter(p => !p.deleted) } catch (e) { plans = [] }
     loading = false
     if (container.__routerGen === myGen) render()
   }

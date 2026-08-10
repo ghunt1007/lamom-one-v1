@@ -40,7 +40,7 @@ export default async function SocialHubPage(container) {
 
   async function loadData() {
     loading = true
-    try { posts = await listDocs('social_posts', [], 'createdAt', 'desc', 500) } catch (e) { posts = [] }
+    try { posts = (await listDocs('social_posts', [], 'createdAt', 'desc', 500)).filter(p => !p.deleted) } catch (e) { posts = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }

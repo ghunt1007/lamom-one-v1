@@ -55,12 +55,12 @@ export default async function EvRangePlannerPage(container) {
 
   async function loadPoints() {
     let docs = []
-    try { docs = await listDocs('ev_trip_charging_points', [], 'dist', 'asc', 100) } catch (e) {}
+    try { docs = (await listDocs('ev_trip_charging_points', [], 'dist', 'asc', 100)).filter(p => !p.deleted) } catch (e) {}
     if (!docs.length) {
       for (const p of DEFAULT_CHARGING_POINTS) {
         try { await createDoc('ev_trip_charging_points', p) } catch (e) {}
       }
-      try { docs = await listDocs('ev_trip_charging_points', [], 'dist', 'asc', 100) } catch (e) {}
+      try { docs = (await listDocs('ev_trip_charging_points', [], 'dist', 'asc', 100)).filter(p => !p.deleted) } catch (e) {}
     }
     points = docs
     loaded = true

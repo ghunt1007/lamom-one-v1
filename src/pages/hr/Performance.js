@@ -46,7 +46,7 @@ export default async function PerformancePage(container) {
   async function loadData() {
     loading = true
     try {
-      employees = await listDocs('performance_scorecards', [], 'reviewDate', 'desc', 300)
+      employees = (await listDocs('performance_scorecards', [], 'reviewDate', 'desc', 300)).filter(e => !e.deleted)
       const coms = await getCommissionData().catch(() => [])
       if (coms.length) {
         coms.forEach(com => {

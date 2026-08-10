@@ -19,7 +19,7 @@ export default async function ProductKnowledgePage(container) {
 
   async function loadData() {
     loading = true
-    try { PRODUCTS = await listDocs('product_knowledge', [], 'model', 'asc', 500) } catch (e) { PRODUCTS = [] }
+    try { PRODUCTS = (await listDocs('product_knowledge', [], 'model', 'asc', 500)).filter(p => !p.deleted) } catch (e) { PRODUCTS = [] }
     loading = false
     if (container.__routerGen === myGen) render()
   }

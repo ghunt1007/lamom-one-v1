@@ -37,7 +37,7 @@ export default async function BayManagementPage(container) {
   })
   const unsubQueue = watchDocs('service_bay_queue', [], 'job', 'asc', 200, rows => {
     if (container.__routerGen !== myGen) { unsubQueue(); return }
-    QUEUE = rows; queueReady = true
+    QUEUE = rows.filter(q => !q.deleted); queueReady = true
     loading = !(baysReady && queueReady)
     render()
   })

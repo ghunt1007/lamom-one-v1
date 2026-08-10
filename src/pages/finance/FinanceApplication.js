@@ -39,7 +39,7 @@ export default async function FinanceApplicationPage(container) {
 
   async function loadData() {
     loading = true
-    try { apps = await listDocs('finance_applications', [], 'submittedDate', 'desc', 300) } catch (e) { apps = [] }
+    try { apps = (await listDocs('finance_applications', [], 'submittedDate', 'desc', 300)).filter(a => !a.deleted) } catch (e) { apps = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }

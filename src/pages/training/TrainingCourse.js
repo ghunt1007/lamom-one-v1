@@ -40,7 +40,7 @@ export default async function TrainingCoursePage(container) {
 
   async function loadData() {
     loading = true
-    try { courses = await listDocs('training_courses', [], 'startDate', 'asc', 200) } catch (e) { courses = [] }
+    try { courses = (await listDocs('training_courses', [], 'startDate', 'asc', 200)).filter(c => !c.deleted) } catch (e) { courses = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }

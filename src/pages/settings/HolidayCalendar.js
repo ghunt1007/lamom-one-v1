@@ -27,7 +27,7 @@ export default async function HolidayCalendarPage(container) {
 
   async function loadData() {
     loading = true
-    try { holidays = await listDocs('holidays', [], 'date', 'asc', 200) } catch (e) { holidays = [] }
+    try { holidays = (await listDocs('holidays', [], 'date', 'asc', 200)).filter(h => !h.deleted) } catch (e) { holidays = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }

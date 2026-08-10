@@ -36,7 +36,7 @@ export default async function CampaignBuilderPage(container) {
 
   async function loadData() {
     loading = true
-    try { campaigns = await listDocs('marketing_campaigns', [], 'startDate', 'desc', 500) } catch (e) { campaigns = [] }
+    try { campaigns = (await listDocs('marketing_campaigns', [], 'startDate', 'desc', 500)).filter(c => !c.deleted) } catch (e) { campaigns = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }

@@ -39,7 +39,7 @@ export default async function FinanceRateSheetsPage(container) {
   let search = ''
 
   async function loadData() {
-    try { sheets = await listDocs('finance_rate_sheets', [], 'createdAt', 'desc', 500) } catch { sheets = [] }
+    try { sheets = (await listDocs('finance_rate_sheets', [], 'createdAt', 'desc', 500)).filter(s => !s.deleted) } catch { sheets = [] }
     if (container.__routerGen === myGen) render()
   }
 

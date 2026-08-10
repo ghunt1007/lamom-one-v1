@@ -39,7 +39,7 @@ export default async function RepairEstimatePage(container) {
 
   async function loadEstimates() {
     loadingPast = true
-    try { pastEstimates = await listDocs('repair_estimates', [], 'createdAt', 'desc', 100) } catch { pastEstimates = [] }
+    try { pastEstimates = (await listDocs('repair_estimates', [], 'createdAt', 'desc', 100)).filter(e => !e.deleted) } catch { pastEstimates = [] }
     loadingPast = false
     if (container.__routerGen === myGen) renderPage()
   }

@@ -2,10 +2,10 @@
  * Receipt Automation — ออกใบเสร็จอัตโนมัติ / กฎการส่ง
  * Route: /finance/receipt-auto
  */
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { formatDate, formatCurrency } from '../../utils/format.js'
-import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { sendSms, sendEmail } from '../../utils/comms.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
@@ -15,6 +15,9 @@ const STATUS_CFG = {
   pending: { label:'รอส่ง',      bg:'var(--warning)',     icon:'⏳' },
   failed:  { label:'ส่งไม่ได้',  bg:'var(--danger)',      icon:'❌' },
 }
+
+const RULE_TRIGGERS = ['sale.completed', 'service.completed', 'invoice.issued', 'insurance.renewed', 'payment.received']
+const RULE_CHANNELS = { sms: '📱 SMS', email: '📧 Email', line: '💚 LINE' }
 
 export default async function ReceiptAutoPage(container) {
   const myGen = container.__routerGen
@@ -29,8 +32,8 @@ export default async function ReceiptAutoPage(container) {
   async function loadData() {
     loading = true
     try {
-      RECEIPTS = await listDocs('auto_receipts', [], 'date', 'desc', 500)
-      AUTO_RULES = await listDocs('auto_send_rules', [], 'name', 'asc', 500)
+      RECEIPTS = (await listDocs('auto_receipts', [], 'date', 'desc', 500)).filter(r => !r.deleted)
+      AUTO_RULES = (await listDocs('auto_send_rules', [], 'name', 'asc', 500)).filter(r => !r.deleted)
     } catch (e) { RECEIPTS = []; AUTO_RULES = [] }
     loading = false
     if (container.__routerGen === myGen) render()
@@ -66,10 +69,11 @@ export default async function ReceiptAutoPage(container) {
       '<div style="display:flex;align-items:center;gap:10px">' +
         '<div style="font-size:1.4rem">' + chIcon + '</div>' +
         '<div style="flex:1">' +
-          '<div style="font-weight:700;font-size:0.82rem;margin-bottom:2px">' + rule.name + '</div>' +
-          '<div style="font-size:0.68rem;color:var(--text-muted)">Trigger: ' + rule.trigger + ' → ' + rule.channel + '</div>' +
+          '<div style="font-weight:700;font-size:0.82rem;margin-bottom:2px">' + escHtml(rule.name) + '</div>' +
+          '<div style="font-size:0.68rem;color:var(--text-muted)">Trigger: ' + escHtml(rule.trigger) + ' → ' + escHtml(rule.channel) + '</div>' +
         '</div>' +
         toggle +
+        '<button class="btn btn-xs btn-ghost del-rule-btn" data-id="' + rule.id + '" title="ลบ" style="color:var(--danger)">🗑️</button>' +
       '</div>' +
     '</div>'
   }
@@ -97,7 +101,8 @@ export default async function ReceiptAutoPage(container) {
       {key:'rules',    label:'⚙️ Auto Rules'},
     ].map(t=>'<button class="btn btn-sm ' + (tab===t.key?'btn-primary':'btn-secondary') + ' tab-btn" data-t="' + t.key + '">' + t.label + '</button>').join('')
 
-    const rulesHtml = AUTO_RULES.map(r=>ruleRow(r)).join('')
+    const rulesHtml = AUTO_RULES.map(r=>ruleRow(r)).join('') +
+      (AUTO_RULES.length === 0 ? '<div class="empty-state"><div class="empty-icon">⚙️</div><div class="empty-title">ยังไม่มี Auto Rule</div><div class="empty-desc">กด "➕ เพิ่ม Rule" เพื่อตั้งกฎส่งใบเสร็จอัตโนมัติ</div></div>' : '')
     const receiptsHtml = `
       <div style="display:flex;gap:6px;margin-bottom:12px">${statusBtns}</div>
       <div style="display:flex;flex-direction:column;gap:8px">
@@ -113,7 +118,7 @@ export default async function ReceiptAutoPage(container) {
             <div class="page-subtitle">ออกใบเสร็จอัตโนมัติ · ${RECEIPTS.length} รายการ</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-primary" id="gen-btn">+ ออกใบเสร็จ</button>
+            ${tab === 'rules' ? '<button class="btn btn-primary" id="add-rule-btn">➕ เพิ่ม Rule</button>' : '<button class="btn btn-primary" id="gen-btn">+ ออกใบเสร็จ</button>'}
           </div>
         </div>
 
@@ -151,6 +156,51 @@ export default async function ReceiptAutoPage(container) {
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     document.getElementById('gen-btn')?.addEventListener('click', openGenReceiptModal)
+    document.getElementById('add-rule-btn')?.addEventListener('click', openAddRuleModal)
+    container.querySelectorAll('.del-rule-btn').forEach(b=>b.addEventListener('click', async ()=>{
+      const rule = AUTO_RULES.find(x=>x.id===b.dataset.id)
+      if (!rule) return
+      const ok = await confirmDialog({ title:'🗑️ ลบ Auto Rule', message:`ยืนยันลบ Rule "${escHtml(rule.name)}"?`, confirmText:'ลบ', danger:true })
+      if (!ok) return
+      try {
+        await softDelete('auto_send_rules', rule.id)
+        showToast('🗑️ ลบแล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('ลบไม่สำเร็จ', 'error') }
+    }))
+  }
+
+  function openAddRuleModal() {
+    openModal({
+      title: '➕ เพิ่ม Auto Send Rule',
+      size: 'sm',
+      body: `<div style="display:grid;gap:10px;font-size:0.82rem">
+        <div><label style="font-size:0.74rem;color:var(--text-muted)">ชื่อ Rule *</label>
+          <input id="ar-name" class="input" placeholder="เช่น ส่งใบเสร็จหลังปิดงาน"></div>
+        <div><label style="font-size:0.74rem;color:var(--text-muted)">Trigger (เหตุการณ์ที่จะเริ่มส่ง)</label>
+          <select id="ar-trig" class="input">${RULE_TRIGGERS.map(t=>`<option value="${t}">${t}</option>`).join('')}</select></div>
+        <div><label style="font-size:0.74rem;color:var(--text-muted)">ช่องทางส่ง</label>
+          <select id="ar-ch" class="input">${Object.entries(RULE_CHANNELS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></div>
+        <span class="input-error" id="ar-err"></span>
+      </div>`,
+      footer: `<button class="btn btn-secondary" id="ar-c">ยกเลิก</button><button class="btn btn-primary" id="ar-s">💾 บันทึก</button>`,
+    })
+    document.getElementById('ar-c')?.addEventListener('click', () => document.querySelector('.modal-overlay')?.remove())
+    document.getElementById('ar-s')?.addEventListener('click', async () => {
+      const name = document.getElementById('ar-name')?.value.trim()
+      if (!name) { document.getElementById('ar-err').textContent = '❗ กรุณากรอกชื่อ Rule'; return }
+      try {
+        await createDoc('auto_send_rules', {
+          name,
+          trigger: document.getElementById('ar-trig')?.value || RULE_TRIGGERS[0],
+          channel: document.getElementById('ar-ch')?.value || 'sms',
+          active: true,
+        })
+        document.querySelector('.modal-overlay')?.remove()
+        showToast('✅ เพิ่ม Rule แล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+    })
   }
 
   // เดิม "ส่งเลย"/"Retry" แค่ flip status เป็น 'sent' ไม่เคยเรียกผู้ให้บริการจริงเลย (ใบเสร็จไม่ถึงมือลูกค้าจริง

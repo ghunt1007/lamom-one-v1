@@ -119,7 +119,7 @@ function escapeLabel(s) { return String(s ?? '').replace(/</g, '‹').replace(/>
 // ลบกติกาที่มีอยู่แล้วหรือที่แอดมินปรับเองไปแล้วเลย — เพิ่มเฉพาะ key ที่ยังไม่มีจริงๆเท่านั้น
 export async function loadOrSeedRules() {
   let rules = []
-  try { rules = await listDocs('commission_rules', [], 'name', 'asc', 100) } catch { rules = [] }
+  try { rules = (await listDocs('commission_rules', [], 'name', 'asc', 100)).filter(r => !r.deleted) } catch { rules = [] }
   rules = rules.map(d => ({ ...d, key: d.key || BASE_RULES.find(b => b.name === d.name)?.key }))
   if (!rules.length) return await seedBaseRules()
   const existingKeys = new Set(rules.map(r => r.key).filter(Boolean))

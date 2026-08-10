@@ -34,7 +34,7 @@ export default async function WaitingLoungePage(container) {
   // หน้าเอง เปลี่ยนเป็น watchDocs เพื่อให้ทุกเครื่องที่เปิดหน้านี้ (รวมจอทีวี) อัปเดตสดจริงเมื่อมีการเปลี่ยนแปลง
   const unsubQueue = watchDocs('waiting_lounge_queue', [], 'checkin', 'asc', 500, rows => {
     if (container.__routerGen !== myGen) { unsubQueue(); return }
-    queue = rows
+    queue = rows.filter(q => !q.deleted)
     loading = false
     renderPage()
   })

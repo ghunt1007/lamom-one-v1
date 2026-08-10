@@ -57,7 +57,7 @@ export default async function PolicyManagementPage(container) {
 
   async function loadData() {
     loading = true
-    try { policies = await listDocs('policy_renewals', [], 'endDate', 'asc', 500) } catch (e) { policies = [] }
+    try { policies = (await listDocs('policy_renewals', [], 'endDate', 'asc', 500)).filter(p => !p.deleted) } catch (e) { policies = [] }
     loading = false
     if (container.__routerGen === myGen) render()
   }

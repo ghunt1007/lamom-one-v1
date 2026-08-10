@@ -3,9 +3,9 @@
  * Route: /finance/monthly-close
  */
 import { formatCurrency, formatDate } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
-import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
 function myName() {
   const me = getState('user') || {}
@@ -35,7 +35,7 @@ export default async function MonthlyClosePage(container) {
   async function loadData() {
     loading = true
     try {
-      allItems = await listDocs('monthly_close_items', [], 'category', 'asc', 500)
+      allItems = (await listDocs('monthly_close_items', [], 'category', 'asc', 500)).filter(i => !i.deleted)
       closings = await listDocs('financial_closings', [], 'period', 'desc', 100)
     } catch (e) { allItems = []; closings = [] }
     loading = false
@@ -71,6 +71,7 @@ export default async function MonthlyClosePage(container) {
           <div class="page-actions">
             <button class="btn btn-secondary btn-xs" id="prev-month-btn">◀ เดือนก่อน</button>
             <button class="btn btn-secondary btn-xs" id="curr-month-btn">เดือนนี้</button>
+            ${!isClosed ? `<button class="btn btn-secondary" id="add-item-btn">➕ เพิ่มรายการ</button>` : ''}
             ${!isClosed && !noItemsLoaded && pendingCount === 0
               ? `<button class="btn btn-primary" id="close-btn">🔒 ปิดงบเดือนนี้</button>`
               : isClosed
@@ -113,8 +114,9 @@ export default async function MonthlyClosePage(container) {
                     <td style="padding:8px 10px;color:var(--text-muted);font-size:0.73rem">${escHtml(i.responsible)}</td>
                     <td style="padding:8px 10px;text-align:right;font-weight:700;color:var(--${i.amount>=0?'success':'danger'})">${i.amount>=0?'+':''}${formatCurrency(i.amount)}</td>
                     <td style="padding:8px 10px;text-align:center"><span class="badge badge-${sm?.color}" style="font-size:0.6rem">${sm?.icon} ${sm?.label}</span></td>
-                    <td style="padding:8px 14px;text-align:right">
+                    <td style="padding:8px 14px;text-align:right;white-space:nowrap">
                       ${!isClosed && i.status !== 'done' ? `<button class="btn btn-xs btn-success mark-done-btn" data-id="${escHtml(i.id)}">✅ เสร็จ</button>` : ''}
+                      ${!isClosed ? `<button class="btn btn-xs btn-ghost del-item-btn" data-id="${escHtml(i.id)}" title="ลบ">🗑️</button>` : ''}
                     </td>
                   </tr>`
                 }).join('')}
@@ -122,6 +124,7 @@ export default async function MonthlyClosePage(container) {
             </table>
           </div>`
         }).join('')}
+        ${noItemsLoaded ? `<div class="empty-state"><div class="empty-icon">📅</div><div class="empty-title">ยังไม่มีรายการปิดงบเดือนนี้</div><div class="empty-desc">กด "➕ เพิ่มรายการ" เพื่อเริ่มบันทึกรายรับ/ต้นทุนของเดือนนี้</div></div>` : ''}
       </div>
     `
 
@@ -131,8 +134,48 @@ export default async function MonthlyClosePage(container) {
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
+    container.querySelectorAll('.del-item-btn').forEach(b => b.addEventListener('click', async () => {
+      const it = allItems.find(x => x.id === b.dataset.id)
+      if (!it) return
+      const ok = await confirmDialog({ title: '🗑️ ลบรายการปิดงบ', message: `ยืนยันลบ "${escHtml(it.name)}"?`, confirmText: 'ลบ', danger: true })
+      if (!ok) return
+      try {
+        await softDelete('monthly_close_items', it.id)
+        showToast('🗑️ ลบแล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('ลบไม่สำเร็จ', 'error') }
+    }))
     document.getElementById('prev-month-btn')?.addEventListener('click', () => { const d = new Date(currentMonth + '-01'); d.setMonth(d.getMonth()-1); currentMonth = d.toISOString().slice(0,7); renderPage() })
     document.getElementById('curr-month-btn')?.addEventListener('click', () => { currentMonth = addMonths(0); renderPage() })
+    document.getElementById('add-item-btn')?.addEventListener('click', () => {
+      openModal({
+        title: '➕ เพิ่มรายการปิดงบ — ' + currentMonth,
+        size: 'sm',
+        body: `<div style="display:grid;gap:10px">
+          <div class="input-group"><label class="input-label">หมวดหมู่ *</label><input class="input" id="mc-cat" placeholder="เช่น รายได้จากการขาย, ค่าใช้จ่ายดำเนินงาน"></div>
+          <div class="input-group"><label class="input-label">ชื่อรายการ *</label><input class="input" id="mc-name" placeholder="เช่น ยอดขายรถเดือนนี้"></div>
+          <div class="input-group"><label class="input-label">ผู้รับผิดชอบ</label><input class="input" id="mc-resp" placeholder="ชื่อผู้รับผิดชอบ"></div>
+          <div class="input-group"><label class="input-label">จำนวนเงิน (฿) — ใส่ค่าลบสำหรับต้นทุน/ค่าใช้จ่าย *</label><input class="input" type="number" id="mc-amt" placeholder="เช่น 500000 หรือ -120000"></div>
+          <span class="input-error" id="mc-err"></span>
+        </div>`,
+        confirmText: '💾 บันทึก',
+        async onConfirm() {
+          const category = document.getElementById('mc-cat')?.value?.trim()
+          const name = document.getElementById('mc-name')?.value?.trim()
+          const amount = Number(document.getElementById('mc-amt')?.value)
+          if (!category || !name || !amount) { document.getElementById('mc-err').textContent = '❗ กรุณากรอกหมวดหมู่ ชื่อรายการ และจำนวนเงินให้ครบ'; return false }
+          try {
+            await createDoc('monthly_close_items', {
+              category, name, amount,
+              responsible: document.getElementById('mc-resp')?.value?.trim() || myName(),
+              status: 'pending', period: currentMonth,
+            })
+            showToast('✅ เพิ่มรายการแล้ว', 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+        }
+      })
+    })
     document.getElementById('close-btn')?.addEventListener('click', () => {
       openModal({
         title: '🔒 ปิดงบเดือน ' + currentMonth,

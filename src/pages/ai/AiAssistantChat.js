@@ -44,10 +44,10 @@ export default async function AiAssistantChatPage(container) {
     try {
       const uid = currentUid()
       const filters = uid ? [['uid', '==', uid]] : []
-      messages = await listDocs('chat_ai_assistant', filters, 'createdAt', 'asc', 500)
+      messages = (await listDocs('chat_ai_assistant', filters, 'createdAt', 'asc', 500)).filter(m => !m.deleted)
       if (!messages.length) {
         await createDoc('chat_ai_assistant', { role:'ai', text: GREETING, time: now(), uid })
-        messages = await listDocs('chat_ai_assistant', filters, 'createdAt', 'asc', 500)
+        messages = (await listDocs('chat_ai_assistant', filters, 'createdAt', 'asc', 500)).filter(m => !m.deleted)
       }
     } catch (e) { messages = [] }
     loading = false

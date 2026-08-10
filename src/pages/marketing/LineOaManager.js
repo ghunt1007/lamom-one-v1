@@ -45,7 +45,7 @@ export default async function LineOaManagerPage(container) {
         listDocs('line_oa_auto_replies', [], 'keyword', 'asc', 200),
         getLineOaInsight().catch(() => null),
       ])
-      broadcasts = b; autoReplies = a; oaInsight = insight
+      broadcasts = b.filter(x => !x.deleted); autoReplies = a; oaInsight = insight
     } catch (e) { broadcasts = []; autoReplies = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()

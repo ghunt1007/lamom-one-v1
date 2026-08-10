@@ -43,7 +43,7 @@ export default async function ExpenseClaimsPage(container) {
 
   async function loadData() {
     loading = true
-    try { claims = await listDocs('expense_claims', [], 'date', 'desc', 500) } catch (e) { claims = [] }
+    try { claims = (await listDocs('expense_claims', [], 'date', 'desc', 500)).filter(c => !c.deleted) } catch (e) { claims = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }

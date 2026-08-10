@@ -34,7 +34,7 @@ export default async function PartsPage(container) {
   let firstSnapshot = true
   const unsubParts = watchDocs('parts', [], 'name', 'asc', 1000, rows => {
     if (container.__routerGen !== myGen) { unsubParts(); return }
-    parts = rows
+    parts = rows.filter(p => !p.deleted)
     isDemoData = !parts.length && firstSnapshot
     if (isDemoData) DEMO_PARTS.forEach(p => parts.push({ ...p }))
     firstSnapshot = false

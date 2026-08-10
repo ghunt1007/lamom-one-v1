@@ -3,7 +3,7 @@
  * Route: /finance/cashier
  */
 import { formatCurrency, timeAgo, todayBangkok } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, softDelete, seedDemoData } from '../../core/db.js'
 
@@ -45,7 +45,7 @@ export default async function CashierDeskPage(container) {
       const allPayments = await listDocs('cashier_payments', [], 'time', 'desc', 500)
       const todayStr = todayBangkok()
       payments = allPayments.filter(p => bangkokDateOf(p.time) === todayStr)
-      pending = await listDocs('cashier_pending_bills', [], 'customer', 'asc', 500)
+      pending = (await listDocs('cashier_pending_bills', [], 'customer', 'asc', 500)).filter(b => !b.deleted)
     } catch (e) { payments = []; pending = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
@@ -68,6 +68,7 @@ export default async function CashierDeskPage(container) {
             <div class="page-subtitle">จุดรับชำระ — วันนี้</div>
           </div>
           <div class="page-actions">
+            <button class="btn btn-secondary" id="add-bill-btn">➕ เพิ่มบิลรอชำระ</button>
             <button class="btn btn-secondary" id="close-shift-btn">🔒 ปิดกะ + นับเงิน</button>
             <button class="btn btn-primary" id="new-pay-btn">+ รับชำระ</button>
           </div>
@@ -93,6 +94,7 @@ export default async function CashierDeskPage(container) {
                 <div style="display:flex;gap:6px;align-items:center">
                   <strong style="font-size:0.85rem">${formatCurrency(b.amount)}</strong>
                   <button class="btn btn-xs btn-success collect-btn" data-id="${escHtml(b.id)}">💵 รับเงิน</button>
+                  <button class="btn btn-xs btn-ghost del-bill-btn" data-id="${escHtml(b.id)}" title="ยกเลิกบิล">🗑️</button>
                 </div>
               </div>
             `).join('')}
@@ -145,6 +147,18 @@ export default async function CashierDeskPage(container) {
       if (bill) openCollect(bill)
     }))
     document.getElementById('new-pay-btn')?.addEventListener('click', () => openCollect())
+    document.getElementById('add-bill-btn')?.addEventListener('click', () => openAddBill())
+    container.querySelectorAll('.del-bill-btn').forEach(b => b.addEventListener('click', async () => {
+      const bill = pending.find(x => x.id === b.dataset.id)
+      if (!bill) return
+      const ok = await confirmDialog({ title: '🗑️ ยกเลิกบิลรอชำระ', message: `ยืนยันยกเลิกบิลของ "${escHtml(bill.customer)}" — ${formatCurrency(bill.amount)}?`, confirmText: 'ยกเลิก', danger: true })
+      if (!ok) return
+      try {
+        await softDelete('cashier_pending_bills', bill.id)
+        showToast('🗑️ ยกเลิกบิลแล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('ยกเลิกไม่สำเร็จ', 'error') }
+    }))
     document.getElementById('close-shift-btn')?.addEventListener('click', () => {
       openModal({
         title: '🔒 ปิดกะ + นับเงิน',
@@ -197,6 +211,30 @@ export default async function CashierDeskPage(container) {
           await createDoc('cashier_payments', { customer, ref:bill?.id||'MISC', desc:document.getElementById('py-desc')?.value||'—', amount, method:document.getElementById('py-method')?.value||'cash', time:new Date().toISOString(), cashier: myName() })
           if (bill) await softDelete('cashier_pending_bills', bill.id)
           showToast(`✅ รับชำระ ${formatCurrency(amount)} — พิมพ์ใบเสร็จแล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      }
+    })
+  }
+
+  function openAddBill() {
+    openModal({
+      title: '➕ เพิ่มบิลรอชำระ',
+      size: 'sm',
+      body: `<div style="display:grid;gap:10px">
+        <div class="input-group"><label class="input-label">ลูกค้า *</label><input class="input" id="ab-customer" placeholder="ชื่อ-นามสกุล"></div>
+        <div class="input-group"><label class="input-label">รายการ</label><input class="input" id="ab-desc" placeholder="เช่น ค่าซ่อมบำรุง"></div>
+        <div class="input-group"><label class="input-label">จำนวนเงิน *</label><input class="input" type="number" id="ab-amount"></div>
+        <span class="input-error" id="ab-err"></span>
+      </div>`,
+      confirmText: '➕ เพิ่มบิล',
+      async onConfirm() {
+        const customer = document.getElementById('ab-customer')?.value?.trim()
+        const amount = parseInt(document.getElementById('ab-amount')?.value) || 0
+        if (!customer || amount <= 0) { document.getElementById('ab-err').textContent = '❗ กรอกชื่อและจำนวนเงิน'; return false }
+        try {
+          await createDoc('cashier_pending_bills', { customer, desc: document.getElementById('ab-desc')?.value?.trim() || '—', amount, createdAt: new Date().toISOString(), createdBy: myName() })
+          showToast('✅ เพิ่มบิลรอชำระแล้ว', 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }

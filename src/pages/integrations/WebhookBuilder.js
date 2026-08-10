@@ -26,7 +26,7 @@ export default async function WebhookBuilderPage(container) {
 
   async function loadData() {
     loading = true
-    try { webhooks = await listDocs('webhooks', [], 'name', 'asc', 500) } catch (e) { webhooks = [] }
+    try { webhooks = (await listDocs('webhooks', [], 'name', 'asc', 500)).filter(w => !w.deleted) } catch (e) { webhooks = [] }
     loading = false
     if (container.__routerGen === myGen) render()
   }

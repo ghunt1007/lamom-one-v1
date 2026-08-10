@@ -26,7 +26,7 @@ export default async function DigitalSignagePage(container) {
         listDocs('signage_slides', [], 'title', 'asc', 200),
         listDocs('signage_screens', [], 'name', 'asc', 200),
       ])
-      slides = sl; screens = sc
+      slides = sl.filter(x => !x.deleted); screens = sc
     } catch (e) { slides = []; screens = [] }
     loading = false
     if (container.__routerGen === myGen) render()

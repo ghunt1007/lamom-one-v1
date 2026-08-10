@@ -32,7 +32,7 @@ export default async function MaintenanceSchedulePage(container) {
 
   async function loadData() {
     loading = true
-    try { schedules = await listDocs('maintenance_schedules', [], 'intervalKm', 'asc', 300) } catch (e) { schedules = [] }
+    try { schedules = (await listDocs('maintenance_schedules', [], 'intervalKm', 'asc', 300)).filter(s => !s.deleted) } catch (e) { schedules = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }

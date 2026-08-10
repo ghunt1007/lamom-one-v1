@@ -23,7 +23,7 @@ export default async function VendorManagementPage(container) {
 
   async function loadData() {
     loading = true
-    try { VENDORS = await listDocs('vendors', [], 'name', 'asc', 500) } catch (e) { VENDORS = [] }
+    try { VENDORS = (await listDocs('vendors', [], 'name', 'asc', 500)).filter(v => !v.deleted) } catch (e) { VENDORS = [] }
     loading = false
     if (container.__routerGen === myGen) render()
   }

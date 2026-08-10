@@ -19,7 +19,7 @@ export default async function OrgCompaniesPage(container) {
 
   async function loadData() {
     loading = true
-    try { companies = await listDocs('org_companies', [], 'name', 'asc', 50) } catch (e) { companies = [] }
+    try { companies = (await listDocs('org_companies', [], 'name', 'asc', 50)).filter(c => !c.deleted) } catch (e) { companies = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }

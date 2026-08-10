@@ -52,7 +52,7 @@ export default async function JobCardsPage(container) {
   let firstSnapshot = true
   const unsubJobs = watchDocs('job_cards', [], 'createdAt', 'desc', 500, rows => {
     if (container.__routerGen !== myGen) { unsubJobs(); return }
-    jobs = rows
+    jobs = rows.filter(j => !j.deleted)
     isDemoData = !jobs.length && firstSnapshot
     if (isDemoData) DEMO_JOBS.forEach(j => jobs.push({ ...j }))
     firstSnapshot = false

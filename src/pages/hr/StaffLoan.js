@@ -38,7 +38,7 @@ export default async function StaffLoanPage(container) {
 
   async function loadData() {
     loading = true
-    try { loans = await listDocs('staff_loans', [], 'date', 'desc', 300) } catch (e) { loans = [] }
+    try { loans = (await listDocs('staff_loans', [], 'date', 'desc', 300)).filter(l => !l.deleted) } catch (e) { loans = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }

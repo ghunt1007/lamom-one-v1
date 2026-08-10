@@ -27,7 +27,7 @@ export default async function BranchSettingsPage(container) {
         listDocs('branches', [], 'name', 'asc', 200),
         listDocs('company_profile', [], 'createdAt', 'asc', 20),
       ])
-      branches = b; companies = c
+      branches = b.filter(x => !x.deleted); companies = c
     } catch (e) { branches = []; companies = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()

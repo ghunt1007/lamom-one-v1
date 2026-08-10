@@ -41,8 +41,8 @@ export default async function BankPartnersPage(container) {
   async function loadData() {
     loading = true
     try {
-      partnerInfo = await listDocs('bank_partner_info', [], 'bankName', 'asc', 200)
-      recentApps = await listDocs('finance_applications', [], 'submittedDate', 'desc', 8)
+      partnerInfo = (await listDocs('bank_partner_info', [], 'bankName', 'asc', 200)).filter(p => !p.deleted)
+      recentApps = (await listDocs('finance_applications', [], 'submittedDate', 'desc', 8)).filter(a => !a.deleted)
     } catch (e) { partnerInfo = []; recentApps = [] }
     loading = false
     if (container.__routerGen === myGen) render()

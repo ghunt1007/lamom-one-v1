@@ -37,7 +37,7 @@ export default async function FinanceTrackerPage(container) {
 
   async function loadData() {
     loading = true
-    try { apps = await listDocs('finance_tracker', [], 'createdAt', 'desc', 300) } catch (e) { apps = [] }
+    try { apps = (await listDocs('finance_tracker', [], 'createdAt', 'desc', 300)).filter(a => !a.deleted) } catch (e) { apps = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }

@@ -59,8 +59,8 @@ export default async function EmployeeKpiPage(container) {
   async function loadData() {
     loading = true
     try {
-      staffList = await listDocs('staff', [], 'firstName', 'asc', 500)
-      evaluations = await listDocs('employee_evaluations', [], 'periodValue', 'desc', 500)
+      staffList = (await listDocs('staff', [], 'firstName', 'asc', 500)).filter(s => !s.deleted)
+      evaluations = (await listDocs('employee_evaluations', [], 'periodValue', 'desc', 500)).filter(e => !e.deleted)
     } catch (e) { staffList = []; evaluations = [] }
     loading = false
     if (container.__routerGen === myGen) render()
