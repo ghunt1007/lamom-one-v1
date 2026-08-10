@@ -3,9 +3,9 @@
  * Route: /dms/model-year
  */
 import { formatDate, formatCurrency } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, updateDocData, createDoc, seedDemoData } from '../../core/db.js'
+import { listDocs, updateDocData, createDoc, softDelete, seedDemoData } from '../../core/db.js'
 
 const SALES_NOTIFY_ROLES = ['sales', 'manager', 'owner', 'admin']
 async function notifySalesTeam(title, body, link) {
@@ -34,7 +34,7 @@ export default async function ModelYearChangeoverPage(container) {
 
   async function loadData() {
     loading = true
-    try { changeovers = await listDocs('model_year_changeovers', [], 'effectiveDate', 'desc', 50) } catch (e) { changeovers = [] }
+    try { changeovers = (await listDocs('model_year_changeovers', [], 'effectiveDate', 'desc', 50)).filter(c => !c.deleted) } catch (e) { changeovers = [] }
     loading = false
     if (container.__routerGen === myGen) render()
   }
@@ -79,6 +79,9 @@ export default async function ModelYearChangeoverPage(container) {
       </div>
     `
 
+    container.querySelectorAll('.del-my-btn').forEach(b => b.addEventListener('click', () => {
+      deleteChangeover(changeovers.find(x => x.id === b.dataset.id))
+    }))
     container.querySelectorAll('.clear-stock-btn').forEach(b => b.addEventListener('click', () => {
       const c = changeovers.find(x => x.model === b.dataset.model)
       openModal({
@@ -110,6 +113,15 @@ export default async function ModelYearChangeoverPage(container) {
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
     document.getElementById('add-my-btn')?.addEventListener('click', openAddForm)
+  }
+
+  async function deleteChangeover(c) {
+    if (!c) return
+    const ok = await confirmDialog({ title: '🗑️ ลบ MY Changeover', message: `ยืนยันลบ "${escHtml(c.model)}" MY${c.oldYear} → MY${c.newYear}? การลบนี้ไม่สามารถย้อนกลับได้`, confirmText: 'ลบถาวร', danger: true })
+    if (!ok) return
+    await softDelete('model_year_changeovers', c.id)
+    showToast('🗑️ ลบแล้ว', 'success')
+    await loadData()
   }
 
   function openAddForm() {
@@ -181,6 +193,7 @@ export default async function ModelYearChangeoverPage(container) {
           <div style="text-align:right;font-size:0.8rem">
             <div style="color:var(--text-muted)">ราคา MY${c.oldYear}: <del>${formatCurrency(c.oldPrice)}</del></div>
             <div style="font-weight:700;color:var(--primary)">ราคา MY${c.newYear}: ${formatCurrency(c.newPrice)} ${diff>0?`<span style="color:var(--danger)">(+${formatCurrency(diff)})</span>`:`<span style="color:var(--success)">(${formatCurrency(diff)})</span>`}</div>
+            <button class="btn btn-xs btn-ghost del-my-btn" data-id="${c.id}" style="margin-top:4px">🗑️ ลบ</button>
           </div>
         </div>
 
