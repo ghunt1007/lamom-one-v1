@@ -3,8 +3,11 @@
  * Route: /gamification/missions
  */
 import { showToast } from '../../core/store.js'
-import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { getCurrentUser, getMyTotalPoints } from './gamificationData.js'
+
+function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
 const SPECIAL = [
   { id:'S1', title:'🔥 Hot Streak! ปิด 3 ดีลติดกัน', xp:1000, icon:'🔥', unlocked:false, desc:'ปิดดีล 3 ดีลติดต่อกันโดยไม่มี Lost Deal' },
@@ -52,7 +55,7 @@ export default async function DailyMissionsPage(container) {
   async function loadData() {
     loading = true
     try {
-      const all = await listDocs('daily_missions', [], 'title', 'asc', 500)
+      const all = (await listDocs('daily_missions', [], 'title', 'asc', 500)).filter(m => !m.deleted)
       missions = { daily: all.filter(m => m.period === 'daily'), weekly: all.filter(m => m.period === 'weekly') }
     } catch (e) { missions = { daily: [], weekly: [] } }
     try {
@@ -79,14 +82,17 @@ export default async function DailyMissionsPage(container) {
         '<div style="display:flex;gap:10px;align-items:center">' +
           '<span style="font-size:1.4rem">'+m.icon+'</span>' +
           '<div>' +
-            '<div style="font-weight:700;font-size:0.82rem;'+(m.done?'text-decoration:line-through;color:var(--text-muted)':'')+'">'+m.title+'</div>' +
+            '<div style="font-weight:700;font-size:0.82rem;'+(m.done?'text-decoration:line-through;color:var(--text-muted)':'')+'">'+escHtml(m.title)+'</div>' +
             '<div style="font-size:0.68rem;color:var(--warning);font-weight:700">+'+m.xp+' XP</div>' +
           '</div>' +
         '</div>' +
+        '<div style="display:flex;gap:4px;align-items:center">' +
         (m.done ?
           '<span style="font-size:1.2rem">✅</span>' :
           '<button class="btn btn-sm btn-primary complete-btn" data-id="'+m.id+'" data-type="'+tab+'">ทำเสร็จ</button>'
         ) +
+        '<button class="btn btn-sm btn-ghost del-mission-btn" data-id="'+m.id+'" title="ลบ">🗑️</button>' +
+        '</div>' +
       '</div>' +
       (m.done ? '' :
         '<div>' +
@@ -135,6 +141,9 @@ export default async function DailyMissionsPage(container) {
             <div class="page-title">🎯 Daily Missions</div>
             <div class="page-subtitle">ภารกิจและ XP Rewards · สาย Streak ${PLAYER.streak} วัน 🔥</div>
           </div>
+          <div class="page-actions">
+            ${tab !== 'special' ? '<button class="btn btn-primary" id="add-mission-btn">➕ สร้างภารกิจ</button>' : ''}
+          </div>
         </div>
 
         <div class="card" style="padding:16px;margin-bottom:14px">
@@ -159,7 +168,7 @@ export default async function DailyMissionsPage(container) {
 
         <div style="display:flex;gap:6px;margin-bottom:14px">${tabBtns}</div>
 
-        ${tab==='special' ? SPECIAL.map(s=>specialCard(s)).join('') : list.map(m=>missionCard(m)).join('')}
+        ${tab==='special' ? SPECIAL.map(s=>specialCard(s)).join('') : (list.length ? list.map(m=>missionCard(m)).join('') : '<div class="empty-state" style="padding:40px"><div class="empty-icon">🎯</div><div class="empty-title">ยังไม่มีภารกิจ'+(tab==='daily'?'วันนี้':'สัปดาห์นี้')+'</div><div class="empty-desc">กดปุ่ม "➕ สร้างภารกิจ" ด้านบนเพื่อเริ่มตั้งภารกิจแรก</div></div>')}
       </div>`
 
     container.querySelectorAll('.tab-btn').forEach(b=>b.addEventListener('click',()=>{tab=b.dataset.t;render()}))
@@ -173,6 +182,52 @@ export default async function DailyMissionsPage(container) {
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
+    container.querySelectorAll('.del-mission-btn').forEach(b=>b.addEventListener('click', () => {
+      deleteMission(missions[tab].find(x=>x.id===b.dataset.id))
+    }))
+    document.getElementById('add-mission-btn')?.addEventListener('click', () => openAddMissionForm())
+  }
+
+  async function deleteMission(m) {
+    if (!m) return
+    const ok = await confirmDialog({ title: '🗑️ ลบภารกิจ', message: `ยืนยันลบภารกิจ "${m.title}"? การลบนี้ไม่สามารถย้อนกลับได้`, confirmText: 'ลบถาวร', danger: true })
+    if (!ok) return
+    await softDelete('daily_missions', m.id)
+    showToast('🗑️ ลบภารกิจแล้ว', 'success')
+    await loadData()
+  }
+
+  function openAddMissionForm() {
+    const { el, close } = openModal({
+      title: '➕ สร้างภารกิจ', size: 'sm',
+      body: `<div style="display:flex;flex-direction:column;gap:10px">
+        <div class="input-group"><label class="input-label">ชื่อภารกิจ *</label><input class="input" id="mf-title" placeholder="เช่น ปิดดีลให้ได้ 1 คันวันนี้"><span class="input-error" id="mf-title-e"></span></div>
+        <div class="grid-2">
+          <div class="input-group"><label class="input-label">ประเภท</label>
+            <select class="input" id="mf-period"><option value="${tab==='weekly'?'weekly':'daily'}" selected>${tab==='weekly'?'รายสัปดาห์':'รายวัน'}</option><option value="${tab==='weekly'?'daily':'weekly'}">${tab==='weekly'?'รายวัน':'รายสัปดาห์'}</option></select>
+          </div>
+          <div class="input-group"><label class="input-label">XP ที่ได้</label><input class="input" type="number" id="mf-xp" value="50"></div>
+        </div>
+        <div class="input-group"><label class="input-label">เป้าหมาย (จำนวนครั้ง/คัน)</label><input class="input" type="number" id="mf-target" value="1"></div>
+      </div>`,
+      footer: `<button class="btn btn-secondary" id="mfc">ยกเลิก</button><button class="btn btn-primary" id="mfs">💾 บันทึก</button>`
+    })
+    el.querySelector('#mfc').addEventListener('click', close)
+    el.querySelector('#mfs').addEventListener('click', async () => {
+      const title = el.querySelector('#mf-title').value.trim()
+      if (!title) { el.querySelector('#mf-title-e').textContent = 'กรุณาระบุ'; return }
+      const btn = el.querySelector('#mfs'); btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
+      try {
+        await createDoc('daily_missions', {
+          title, icon: '🎯', period: el.querySelector('#mf-period').value,
+          xp: Number(el.querySelector('#mf-xp').value) || 0,
+          target: Number(el.querySelector('#mf-target').value) || 1,
+          progress: 0, done: false,
+        })
+        showToast('✅ สร้างภารกิจแล้ว', 'success')
+        close(); await loadData()
+      } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
+    })
   }
 
   function sc(l,v,c){

@@ -2,10 +2,10 @@
  * Reward Store — ร้านแลกของรางวัล (แต้มพนักงาน)
  * Route: /gamification/rewards
  */
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { timeAgo } from '../../utils/format.js'
-import { listDocs, createDoc, incrementField, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, softDelete, incrementField, seedDemoData } from '../../core/db.js'
 
 const REWARD_CATS = {
   cash:    { label: 'เงิน/บัตรกำนัล', icon: '💰' },
@@ -29,7 +29,7 @@ export default async function RewardStorePage(container) {
   async function loadData() {
     loading = true
     try {
-      rewards = await listDocs('gamification_rewards', [], 'points', 'asc', 100)
+      rewards = (await listDocs('gamification_rewards', [], 'points', 'asc', 100)).filter(r => !r.deleted)
       staffPoints = await listDocs('staff_points', [], 'points', 'desc', 100)
       redemptions = await listDocs('reward_redemptions', [], 'createdAt', 'desc', 10)
     } catch (e) { /* keep whatever loaded */ }
@@ -52,6 +52,9 @@ export default async function RewardStorePage(container) {
           <div>
             <div class="page-title">🎁 Reward Store</div>
             <div class="page-subtitle">แลกแต้มสะสมเป็นของรางวัล — สร้างแรงจูงใจทีม</div>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-primary" id="add-reward-btn">➕ เพิ่มของรางวัล</button>
           </div>
         </div>
 
@@ -78,13 +81,16 @@ export default async function RewardStorePage(container) {
                     <span style="font-size:1.2rem">${rc?.icon}</span>
                     ${r.popular ? '<span class="badge badge-danger" style="font-size:0.55rem">🔥 ฮิต</span>' : ''}
                   </div>
-                  <div style="font-weight:700;font-size:0.8rem;flex:1;margin-bottom:6px">${r.name}</div>
+                  <div style="font-weight:700;font-size:0.8rem;flex:1;margin-bottom:6px">${esc(r.name)}</div>
                   <div style="font-size:0.95rem;font-weight:900;color:var(--warning);margin-bottom:4px">⭐ ${(r.points||0).toLocaleString()}</div>
                   <div style="font-size:0.63rem;color:var(--text-muted);margin-bottom:8px">${r.stock >= 99 ? 'ไม่จำกัด' : 'เหลือ ' + r.stock} · แลกแล้ว ${r.redeemed30||0}/เดือน</div>
-                  <button class="btn btn-xs btn-primary redeem-btn" data-id="${r.id}" ${out?'disabled':''}>${out?'หมด':'🎁 แลก'}</button>
+                  <div style="display:flex;gap:4px">
+                    <button class="btn btn-xs btn-primary redeem-btn" data-id="${r.id}" ${out?'disabled':''} style="flex:1">${out?'หมด':'🎁 แลก'}</button>
+                    <button class="btn btn-xs btn-ghost del-reward-btn" data-id="${r.id}">🗑️</button>
+                  </div>
                 </div>`
               }).join('')}
-              ${!list.length ? `<div class="empty-state"><div class="empty-icon">🎁</div><div class="empty-title">ไม่มีของรางวัล</div></div>` : ''}
+              ${!list.length ? `<div class="empty-state"><div class="empty-icon">🎁</div><div class="empty-title">ไม่มีของรางวัล</div>${!rewards.length ? '<div class="empty-desc">กดปุ่ม "➕ เพิ่มของรางวัล" ด้านบนเพื่อเริ่มเพิ่มของรางวัลแรก</div>' : ''}</div>` : ''}
             </div>
           </div>
 
@@ -117,10 +123,14 @@ export default async function RewardStorePage(container) {
     `
 
     container.querySelectorAll('.cf-btn').forEach(b => b.addEventListener('click', () => { catFilter = b.dataset.c; renderPage() }))
+    container.querySelectorAll('.del-reward-btn').forEach(b => b.addEventListener('click', () => {
+      deleteReward(rewards.find(x => x.id === b.dataset.id))
+    }))
+    document.getElementById('add-reward-btn')?.addEventListener('click', openAddRewardForm)
     container.querySelectorAll('.redeem-btn').forEach(b => b.addEventListener('click', () => {
       const r = rewards.find(x => x.id === b.dataset.id)
       if (r) openModal({
-        title: '🎁 แลกรางวัล: ' + r.name,
+        title: '🎁 แลกรางวัล: ' + esc(r.name),
         size: 'sm',
         body: `<div style="display:grid;gap:10px">
           <div style="font-size:0.85rem">ใช้ <strong style="color:var(--warning)">⭐ ${r.points.toLocaleString()}</strong> แต้ม</div>
@@ -147,6 +157,49 @@ export default async function RewardStorePage(container) {
         }
       })
     }))
+  }
+
+  async function deleteReward(r) {
+    if (!r) return
+    const ok = await confirmDialog({ title: '🗑️ ลบของรางวัล', message: `ยืนยันลบ "${esc(r.name)}"? การลบนี้ไม่สามารถย้อนกลับได้`, confirmText: 'ลบถาวร', danger: true })
+    if (!ok) return
+    await softDelete('gamification_rewards', r.id)
+    showToast('🗑️ ลบของรางวัลแล้ว', 'success')
+    await loadData()
+  }
+
+  function openAddRewardForm() {
+    const { el, close } = openModal({
+      title: '➕ เพิ่มของรางวัล', size: 'sm',
+      body: `<div style="display:flex;flex-direction:column;gap:10px">
+        <div class="input-group"><label class="input-label">ชื่อของรางวัล *</label><input class="input" id="rf-name"><span class="input-error" id="rf-name-e"></span></div>
+        <div class="grid-2">
+          <div class="input-group"><label class="input-label">หมวดหมู่</label>
+            <select class="input" id="rf-cat">${Object.entries(REWARD_CATS).map(([k,v]) => `<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+          </div>
+          <div class="input-group"><label class="input-label">ใช้แต้ม *</label><input class="input" type="number" id="rf-points"><span class="input-error" id="rf-points-e"></span></div>
+        </div>
+        <div class="input-group"><label class="input-label">สต็อก (99 = ไม่จำกัด)</label><input class="input" type="number" id="rf-stock" value="99"></div>
+      </div>`,
+      footer: `<button class="btn btn-secondary" id="rfc">ยกเลิก</button><button class="btn btn-primary" id="rfs">💾 บันทึก</button>`
+    })
+    el.querySelector('#rfc').addEventListener('click', close)
+    el.querySelector('#rfs').addEventListener('click', async () => {
+      const name = el.querySelector('#rf-name').value.trim()
+      const points = Number(el.querySelector('#rf-points').value) || 0
+      if (!name) { el.querySelector('#rf-name-e').textContent = 'กรุณาระบุ'; return }
+      if (!points) { el.querySelector('#rf-points-e').textContent = 'กรุณาระบุ'; return }
+      const btn = el.querySelector('#rfs'); btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
+      try {
+        await createDoc('gamification_rewards', {
+          name, cat: el.querySelector('#rf-cat').value, points,
+          stock: Number(el.querySelector('#rf-stock').value) || 0,
+          redeemed30: 0, popular: false,
+        })
+        showToast('✅ เพิ่มของรางวัลแล้ว', 'success')
+        close(); await loadData()
+      } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
+    })
   }
 
   await loadData()

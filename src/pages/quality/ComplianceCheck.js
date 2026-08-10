@@ -119,9 +119,9 @@ export default async function ComplianceCheckPage(container) {
                 <div style="display:flex;gap:12px;align-items:center;flex:1">
                   <div style="font-size:1.2rem">${st?.icon}</div>
                   <div style="flex:1">
-                    <div style="font-weight:600;font-size:0.87rem">${c.title}</div>
+                    <div style="font-weight:600;font-size:0.87rem">${escHtml(c.title)}</div>
                     <div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px">
-                      ${cat?.icon} ${cat?.label} · รับผิดชอบ: ${c.owner}
+                      ${cat?.icon} ${cat?.label} · รับผิดชอบ: ${escHtml(c.owner)}
                       · ตรวจถัดไป: <span style="color:${isOverdue?'var(--danger)':'inherit'}">${formatDate(c.nextCheck)}${isOverdue?' (เลยกำหนด!)':''}</span>
                     </div>
                     ${c.notes ? `<div style="font-size:0.75rem;color:var(--warning);margin-top:3px">⚠️ ${escHtml(c.notes)}</div>` : ''}
@@ -203,7 +203,7 @@ export default async function ComplianceCheckPage(container) {
       title: `✅ อัพเดต: ${c.id}`,
       size: 'md',
       body: `
-        <div style="font-weight:600;margin-bottom:8px">${c.title}</div>
+        <div style="font-weight:600;margin-bottom:8px">${escHtml(c.title)}</div>
         <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:12px">${cat?.icon} ${cat?.label}</div>
         <div class="input-group"><label class="input-label">สถานะ</label>
           <select class="input" id="cu-status">

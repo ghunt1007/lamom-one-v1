@@ -7,6 +7,8 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
+function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+
 // เดิม new Date().toISOString() คืนวันที่ตาม UTC เสมอ ผิดไป 1 วันทุกครั้งที่เวลาไทยยังไม่ถึง 07:00 น.
 // (บั๊กคลาสเดียวกับที่แก้ใน TestDriveScheduler.js/Attendance.js — ยึดวันที่ไทยจริงจาก todayBangkok() เสมอ)
 function addDays(n) {
@@ -89,8 +91,8 @@ export default async function FiveSPage(container) {
             return `<div class="card" style="padding:14px;border-left:3px solid var(--${color})">
               <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px">
                 <div>
-                  <div style="font-weight:700;font-size:0.88rem">${a.name}</div>
-                  <div style="font-size:0.7rem;color:var(--${isOverdue?'danger':'text-muted'})">👥 ${a.owner} · ตรวจล่าสุด ${formatDate(a.lastAudit)}${isOverdue?' ⚠️ เกินกำหนด':''} · 📷 ${a.photos} รูป</div>
+                  <div style="font-weight:700;font-size:0.88rem">${escHtml(a.name)}</div>
+                  <div style="font-size:0.7rem;color:var(--${isOverdue?'danger':'text-muted'})">👥 ${escHtml(a.owner)} · ตรวจล่าสุด ${formatDate(a.lastAudit)}${isOverdue?' ⚠️ เกินกำหนด':''} · 📷 ${a.photos} รูป</div>
                 </div>
                 <div style="font-size:1.3rem;font-weight:900;color:var(--${color})">${avg}</div>
               </div>
@@ -120,7 +122,7 @@ export default async function FiveSPage(container) {
       if (!a) return
       const scores = { ...a.scores }
       openModal({
-        title: '📋 ตรวจ 5ส: ' + a.name,
+        title: '📋 ตรวจ 5ส: ' + escHtml(a.name),
         size: 'md',
         body: `<div style="display:grid;gap:12px">
           ${FIVE_S.map(s => `
@@ -156,7 +158,7 @@ export default async function FiveSPage(container) {
 
   async function deleteArea(a) {
     if (!a) return
-    const ok = await confirmDialog({ title: '🗑️ ลบพื้นที่ตรวจ', message: `ยืนยันลบพื้นที่ "${a.name}"? การลบนี้ไม่สามารถย้อนกลับได้`, confirmText: 'ลบถาวร', danger: true })
+    const ok = await confirmDialog({ title: '🗑️ ลบพื้นที่ตรวจ', message: `ยืนยันลบพื้นที่ "${escHtml(a.name)}"? การลบนี้ไม่สามารถย้อนกลับได้`, confirmText: 'ลบถาวร', danger: true })
     if (!ok) return
     await softDelete('five_s_areas', a.id)
     showToast('🗑️ ลบพื้นที่ตรวจแล้ว', 'success')
