@@ -3,7 +3,7 @@
  * Route: /marketing/promotions
  */
 import { getSalesData, listDocs, createDoc, updateDocData, softDelete } from '../../core/db.js'
-import { formatCurrency, formatDate } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState, setState } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -26,7 +26,10 @@ const PROMO_STATUS = {
   ended:    { label: 'สิ้นสุดแล้ว', color: 'secondary' },
 }
 
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
+function addDays(n) {
+  const [y, m, d] = todayBangkok().split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
+}
 
 const DEMO_PROMOS = [
   { id: 'P001', title: 'BYD Dolphin ลดพิเศษ 20,000 บาท', type: 'discount', value: 20000, brand: 'BYD', model: 'Dolphin', startDate: addDays(-30), endDate: addDays(20), status: 'active', used: 28, limit: 50, budget: 1000000, note: 'โปรโมชั่น H2 2025 ช่วงเปิดตัวรุ่นใหม่', _persisted: false },
@@ -179,7 +182,7 @@ export default async function PromotionEnginePage(container) {
       exportToExcel(promos.map(p => {
         const m = calcPromoMetrics(p)
         return { ID: p.id, แบรนด์: p.brand, โปรโมชั่น: p.title, ประเภท: PROMO_TYPES[p.type]?.label, รุ่น: p.model, วันเริ่ม: p.startDate, วันสิ้นสุด: p.endDate, สถานะ: PROMO_STATUS[p.status]?.label, ใช้สิทธิ์: p.used, จำกัด: p.limit, มูลค่าต่อคัน: p.value, งบประมาณ: p.budget, งบใช้ไป: m.budgetUsed, Revenue: m.revenueGenerated, ROI: m.roi + 'x' }
-      }), 'promotions_' + new Date().toISOString().slice(0,10))
+      }), 'promotions_' + addDays(0))
       showToast('📥 Export แล้ว', 'success')
     })
     container.querySelectorAll('.sf-btn').forEach(b => b.addEventListener('click', () => { statusFilter = b.dataset.s; renderPage() }))

@@ -8,7 +8,7 @@
  *   มา — หน้านี้จะอ่านค่า, ลบ key ทิ้งทันที (กันไม่ให้เผลอเด้งฟอร์มซ้ำตอนเข้าหน้านี้ครั้งต่อไป),
  *   แล้วเปิดฟอร์ม "สร้างใบเสนอราคา" อัตโนมัติพร้อมข้อมูลลูกค้า/รุ่นรถที่สนใจ (ถ้าตรงกับ catalog)
  */
-import { formatCurrency, formatDate } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -34,7 +34,10 @@ const DEFAULT_REG_FEE = 2900
 
 const PREFILL_KEY = 'lamom_quote_prefill'
 
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
+function addDays(n) {
+  const [y, m, d] = todayBangkok().split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
+}
 
 // ราคาอุปกรณ์เสริมของรถรุ่นที่เลือก — ใช้ priceByVehicle[vehicleId] ถ้ามี ไม่งั้น fallback เป็นราคาเริ่มต้น
 function getAccessoryPrice(acc, vehicleId) {

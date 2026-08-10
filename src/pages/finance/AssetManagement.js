@@ -2,7 +2,7 @@
  * Asset Management — จัดการสินทรัพย์
  * Route: /finance/assets
  */
-import { formatCurrency, formatDate } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
@@ -23,7 +23,10 @@ const DEPRECIATION_METHODS = {
   db: 'Double-Declining',
 }
 
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
+function addDays(n) {
+  const [y, m, d] = todayBangkok().split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
+}
 
 // เดิมคำนวณแบบ Straight-Line เสมอไม่ว่า asset.depMethod จะเป็นอะไร (แม้จะโชว์ 'Double-Declining' ในหน้า
 // รายละเอียดก็ตาม) ทำให้ตัวเลือกวิธีคิดค่าเสื่อมไม่มีผลจริงเลย แก้ให้คำนวณจริงตามวิธีที่เลือก:
@@ -181,7 +184,7 @@ export default async function AssetManagementPage(container) {
             <select class="input" id="af-depmethod">${Object.entries(DEPRECIATION_METHODS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">สถานที่</label><input class="input" id="af-loc" placeholder="สาขา..."></div>
-          <div class="input-group"><label class="input-label">วันที่ซื้อ</label><input type="date" class="input" id="af-date" value="${new Date().toISOString().slice(0,10)}"></div>
+          <div class="input-group"><label class="input-label">วันที่ซื้อ</label><input type="date" class="input" id="af-date" value="${addDays(0)}"></div>
         </div>
       `,
       async onConfirm() {

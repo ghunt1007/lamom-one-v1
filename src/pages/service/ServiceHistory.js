@@ -1,4 +1,4 @@
-import { formatCurrency, formatDate, timeAgo } from '../../utils/format.js'
+import { formatCurrency, formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -18,7 +18,10 @@ const JOB_STATUS = {
 
 const SERVICE_TYPES = { periodic: 'ตรวจตามระยะ', repair: 'ซ่อมทั่วไป', warranty: 'รับประกัน', recall: 'Recall', pdi: 'PDI', accident: 'อุบัติเหตุ', electric: 'EV System' }
 
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
+function addDays(n) {
+  const [y, m, d] = todayBangkok().split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
+}
 
 export default async function ServiceHistoryPage(container) {
   const myGen = container.__routerGen

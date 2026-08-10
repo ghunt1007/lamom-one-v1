@@ -1,4 +1,4 @@
-import { formatCurrency, formatDate } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -354,7 +354,7 @@ export default async function SupplierManagementPage(container) {
         <div class="input-group"><label class="input-label">ซัพพลายเออร์ *</label>
           <select class="input" id="po-supplier">${s.map(x => `<option value="${escHtml(x.id)}">${escHtml(x.name)}</option>`).join('')}</select>
         </div>
-        <div class="input-group"><label class="input-label">กำหนดรับ</label><input type="date" class="input" id="po-exp" value="${addDays(new Date(), 7).toISOString().slice(0,10)}"></div>
+        <div class="input-group"><label class="input-label">กำหนดรับ</label><input type="date" class="input" id="po-exp" value="${addDays(todayDate(), 7).toISOString().slice(0,10)}"></div>
         <div class="input-group"><label class="input-label">รายการสั่งซื้อ (1 รายการ)</label>
           <input class="input" id="po-item-name" placeholder="ชื่อสินค้า">
           <div style="display:flex;gap:8px;margin-top:6px">
@@ -373,7 +373,7 @@ export default async function SupplierManagementPage(container) {
         const price = +document.getElementById('po-price')?.value || 0
         if (!itemName) { showToast('❗ กรุณากรอกรายการสินค้า', 'error'); return false }
         try {
-          await createDoc('supplier_pos', { supplierId: supId, supplierName: sup?.name || '', date: new Date().toISOString().slice(0,10), expectedDate: document.getElementById('po-exp')?.value, status: 'pending', items: [{ name: itemName, qty, unit: document.getElementById('po-unit')?.value||'ชิ้น', price }], total: qty * price, notes: document.getElementById('po-notes')?.value||'' })
+          await createDoc('supplier_pos', { supplierId: supId, supplierName: sup?.name || '', date: todayBangkok(), expectedDate: document.getElementById('po-exp')?.value, status: 'pending', items: [{ name: itemName, qty, unit: document.getElementById('po-unit')?.value||'ชิ้น', price }], total: qty * price, notes: document.getElementById('po-notes')?.value||'' })
           showToast('📋 สร้าง PO แล้ว!', 'success')
           tab = 'po'
           await loadData()
@@ -382,7 +382,10 @@ export default async function SupplierManagementPage(container) {
     })
   }
 
-  function addDays(d, n) { const dt = new Date(d); dt.setDate(dt.getDate()+n); return dt }
+  // เดิมเรียก addDays(new Date(), 7) ซึ่ง new Date() คืนเวลาตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
+  // เวลาไทยยังไม่ถึง 07:00 น. — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok() เป็นจุดตั้งต้นเสมอ แล้วบวกวันด้วย UTC methods
+  function todayDate() { const [y, m, d] = todayBangkok().split('-').map(Number); return new Date(Date.UTC(y, m - 1, d)) }
+  function addDays(d, n) { const dt = new Date(d); dt.setUTCDate(dt.getUTCDate()+n); return dt }
 
   await loadData()
 }

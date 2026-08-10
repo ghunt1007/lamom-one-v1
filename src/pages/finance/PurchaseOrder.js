@@ -2,7 +2,7 @@
  * Purchase Order — ใบสั่งซื้อ
  * Route: /finance/po
  */
-import { formatCurrency, formatDate, timeAgo } from '../../utils/format.js'
+import { formatCurrency, formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
@@ -32,7 +32,10 @@ function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
+function addDays(n) {
+  const [y, m, d] = todayBangkok().split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
+}
 
 // เดิมไม่มีการเช็คสิทธิ์เลย — พนักงานคนไหนก็อนุมัติ/ยกเลิก PO ได้ และไม่มี confirmDialog ก่อนกดจริง
 // แก้ให้จำกัดเฉพาะฝ่ายการเงิน/ผู้จัดการขึ้นไป (มิเรอร์ pattern จาก Payroll.js) พร้อม confirmDialog

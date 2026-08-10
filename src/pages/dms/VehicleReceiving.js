@@ -2,7 +2,7 @@
  * Vehicle Receiving — รับรถเข้าสต็อก (จากคำสั่งซื้อ)
  * Route: /dms/receiving
  */
-import { formatCurrency, formatDate } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -20,7 +20,10 @@ const RECV_STATUS = {
   rejected: { label: 'ปฏิเสธรับ', color: 'danger' },
 }
 
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
+function addDays(n) {
+  const [y, m, d] = todayBangkok().split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
+}
 
 export default async function VehicleReceivingPage(container) {
   const myGen = container.__routerGen

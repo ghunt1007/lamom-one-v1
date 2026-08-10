@@ -2,7 +2,7 @@
  * VAT Report — รายงานภาษีมูลค่าเพิ่ม
  * Route: /finance/vat
  */
-import { formatCurrency, formatDate } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData, listAllDocs } from '../../core/db.js'
@@ -10,8 +10,14 @@ import { exportToExcel } from '../../utils/importExport.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
-function addMonths(n) { const d = new Date(); d.setMonth(d.getMonth() + n); return d.toISOString().slice(0,7) }
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
+function addMonths(n) {
+  const [y, m, d] = todayBangkok().split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1 + n, d)).toISOString().slice(0, 7)
+}
+function addDays(n) {
+  const [y, m, d] = todayBangkok().split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
+}
 
 const VAT_RATE = 0.07
 
@@ -203,7 +209,7 @@ export default async function VatReportPage(container) {
     `
 
     container.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => { activeTab = b.dataset.t; renderPage() }))
-    document.getElementById('prev-m-btn')?.addEventListener('click', () => { const d = new Date(viewMonth+'-01'); d.setMonth(d.getMonth()-1); viewMonth = d.toISOString().slice(0,7); renderPage() })
+    document.getElementById('prev-m-btn')?.addEventListener('click', () => { const d = new Date(viewMonth+'-01'); d.setUTCMonth(d.getUTCMonth()-1); viewMonth = d.toISOString().slice(0,7); renderPage() })
     document.getElementById('curr-m-btn')?.addEventListener('click', () => { viewMonth = addMonths(0); renderPage() })
     document.getElementById('export-btn')?.addEventListener('click', () => {
       const outRows = invoicesOut.map(i => ({ 'ประเภท':'ขาออก (ภาษีขาย)', 'เลขที่ใบกำกับ':i.id, 'วันที่':i.date, 'ชื่อผู้ซื้อ':i.customer, 'หมวดหมู่':i.category, 'มูลค่า (บาท)':i.amount, 'VAT 7% (บาท)':i.vat }))

@@ -1,4 +1,4 @@
-import { formatDate, timeAgo } from '../../utils/format.js'
+import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -19,7 +19,10 @@ const FEEDBACK_TYPES = {
 
 const DEPARTMENTS = { sales: 'ฝ่ายขาย', service: 'ศูนย์บริการ', delivery: 'ส่งมอบรถ', finance: 'ไฟแนนซ์', general: 'ทั่วไป' }
 
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
+function addDays(n) {
+  const [y, m, d] = todayBangkok().split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
+}
 
 const DEMO_FEEDBACK = [
   { id: 'FB001', type: 'csat', customerId: 'C001', customerName: 'วิชาญ มีโชค', phone: '081-234-5678',
@@ -55,7 +58,7 @@ export default async function CustomerFeedbackPage(container) {
         customerId: b.id, customerName: b.custName || 'ลูกค้า',
         phone: b.custPhone || '', department: 'delivery',
         score: 0, maxScore: 5, comment: '',
-        date: (b.actualDeliveryDate || b.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString()).slice(0, 10),
+        date: (b.actualDeliveryDate || b.updatedAt?.toDate?.()?.toISOString() || addDays(0)).slice(0, 10),
         salesperson: b.salesName || '', responded: false, response: '', pending: true, _live: true,
       }))
       dataSource = 'live'
@@ -368,7 +371,7 @@ export default async function CustomerFeedbackPage(container) {
           department: document.getElementById('fbf-dept')?.value || 'general',
           score: +document.getElementById('fbf-score')?.value || 5,
           maxScore: 5, comment: document.getElementById('fbf-comment')?.value || '',
-          date: new Date().toISOString().slice(0, 10),
+          date: addDays(0),
           salesperson: document.getElementById('fbf-sales')?.value || '',
           responded: false, response: ''
         }

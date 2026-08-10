@@ -2,7 +2,7 @@
  * Vehicle Transfer — โอนรถระหว่างสาขา
  * Route: /dms/transfer
  */
-import { formatDate, timeAgo } from '../../utils/format.js'
+import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
@@ -25,7 +25,10 @@ const TRANSFER_STATUS = {
 
 const BRANCHES = ['สาขากรุงเทพ', 'สาขาเชียงใหม่', 'สาขาภูเก็ต', 'สาขาขอนแก่น', 'สาขาพัทยา']
 
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
+function addDays(n) {
+  const [y, m, d] = todayBangkok().split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
+}
 
 export default async function VehicleTransferPage(container) {
   const myGen = container.__routerGen

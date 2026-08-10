@@ -2,7 +2,7 @@
  * Content Calendar — ปฏิทินเนื้อหา
  * Route: /marketing/content
  */
-import { formatDate, timeAgo } from '../../utils/format.js'
+import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
@@ -37,7 +37,10 @@ const CONTENT_STATUS = {
   published: { label: 'เผยแพร่แล้ว', color: 'success' },
 }
 
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
+function addDays(n) {
+  const [y, m, d] = todayBangkok().split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
+}
 
 export default async function ContentCalendarPage(container) {
   const myGen = container.__routerGen

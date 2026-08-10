@@ -2,7 +2,7 @@
  * Offboarding — พนักงานลาออก (Checklist)
  * Route: /hr/offboarding
  */
-import { formatDate } from '../../utils/format.js'
+import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
@@ -10,7 +10,10 @@ import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.
 // ป้องกัน XSS — เหตุผลลาออก (reason) เป็นข้อความที่ผู้ใช้พิมพ์เอง ต้อง escape ก่อนแสดงผลเสมอ
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
+function addDays(n) {
+  const [y, m, d] = todayBangkok().split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
+}
 
 const OFFBOARD_TASKS = [
   { id: 'T01', cat: '📄 เอกสาร', task: 'รับใบลาออก + อนุมัติ' },

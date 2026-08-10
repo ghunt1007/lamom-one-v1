@@ -2,7 +2,7 @@
  * Compliance Check — ตรวจสอบการปฏิบัติตามกฎ
  * Route: /quality/compliance
  */
-import { formatDate } from '../../utils/format.js'
+import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
@@ -28,7 +28,10 @@ const CHECK_STATUS = {
   na:      { label: 'N/A', color: 'secondary', icon: '—' },
 }
 
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
+function addDays(n) {
+  const [y, m, d] = todayBangkok().split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
+}
 
 export default async function ComplianceCheckPage(container) {
   const myGen = container.__routerGen

@@ -2,7 +2,7 @@
  * Recall Management — จัดการการเรียกคืนรถ
  * Route: /service/recall
  */
-import { formatDate, formatCurrency } from '../../utils/format.js'
+import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, updateDocData, createDoc, seedDemoData } from '../../core/db.js'
@@ -24,7 +24,10 @@ const VEHICLE_STATUS = {
   declined:        { label: 'ปฏิเสธ', color: 'danger' },
 }
 
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
+function addDays(n) {
+  const [y, m, d] = todayBangkok().split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
+}
 
 export default async function RecallManagementPage(container) {
   const myGen = container.__routerGen
@@ -191,7 +194,7 @@ export default async function RecallManagementPage(container) {
               deadline: document.getElementById('nr-deadline')?.value || '',
               fixDescription: document.getElementById('nr-desc')?.value?.trim() || '',
               status: 'open', totalVehicles: total, fixed: 0, pending: total,
-              issueDate: new Date().toISOString().slice(0, 10),
+              issueDate: addDays(0),
             })
             showToast('✅ สร้าง Recall Campaign แล้ว', 'success')
             await loadData()

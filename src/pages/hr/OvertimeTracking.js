@@ -2,7 +2,7 @@
  * Overtime Tracking — ติดตาม OT
  * Route: /hr/overtime
  */
-import { formatCurrency, formatDate } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
@@ -11,7 +11,10 @@ function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
+function addDays(n) {
+  const [y, m, d] = todayBangkok().split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
+}
 
 const OT_STATUS = {
   pending:  { label: 'รออนุมัติ', color: 'warning', icon: '⏳' },
@@ -68,7 +71,7 @@ export default async function OvertimeTrackingPage(container) {
 
   // ชั่วโมง OT สะสมของแต่ละคน "เดือนนี้" จากข้อมูลจริง (ไม่รวมรายการที่ถูกปฏิเสธ) — แทนตัวเลขปลอมเดิม
   function monthlyHoursByStaff() {
-    const ym = new Date().toISOString().slice(0, 7)
+    const ym = todayBangkok().slice(0, 7)
     const byName = {}
     records.filter(o => o.status !== 'rejected' && (o.date || '').startsWith(ym)).forEach(o => {
       byName[o.staff] = (byName[o.staff] || 0) + (o.hours || 0)

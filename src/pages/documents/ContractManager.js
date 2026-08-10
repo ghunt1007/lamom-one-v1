@@ -2,7 +2,7 @@
  * Contract Manager — จัดการสัญญา
  * Route: /documents/contracts
  */
-import { formatDate, formatCurrency } from '../../utils/format.js'
+import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
@@ -32,7 +32,10 @@ const CONTRACT_STATUS = {
   cancelled:{ label: 'ยกเลิก', color: 'danger' },
 }
 
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
+function addDays(n) {
+  const [y, m, d] = todayBangkok().split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
+}
 
 export default async function ContractManagerPage(container) {
   const myGen = container.__routerGen
@@ -158,7 +161,7 @@ export default async function ContractManagerPage(container) {
       const c = contracts.find(x => x.id === b.dataset.id)
       if (!c) return
       try {
-        await updateDocData('contracts', c.id, { status: 'signed', signedDate: new Date().toISOString().slice(0, 10) })
+        await updateDocData('contracts', c.id, { status: 'signed', signedDate: addDays(0) })
         showToast('✅ ลงนามสัญญาแล้ว!', 'success')
         await loadData()
       } catch (err) { showToast('บันทึกไม่สำเร็จ', 'error') }
@@ -201,7 +204,7 @@ export default async function ContractManagerPage(container) {
           </div>
           <div class="input-group"><label class="input-label">คู่สัญญา *</label><input class="input" id="cf-party" placeholder="ชื่อ/บริษัท"></div>
           <div class="input-group"><label class="input-label">มูลค่า (บาท)</label><input type="number" class="input" id="cf-value" placeholder="0"></div>
-          <div class="input-group"><label class="input-label">วันเริ่ม</label><input type="date" class="input" id="cf-start" value="${new Date().toISOString().slice(0,10)}"></div>
+          <div class="input-group"><label class="input-label">วันเริ่ม</label><input type="date" class="input" id="cf-start" value="${addDays(0)}"></div>
           <div class="input-group"><label class="input-label">วันหมดอายุ</label><input type="date" class="input" id="cf-end"></div>
         </div>
       `,

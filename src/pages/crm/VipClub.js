@@ -2,7 +2,7 @@
  * VIP Club — ดูแลลูกค้า VIP
  * Route: /crm/vip
  */
-import { formatCurrency, formatDate, timeAgo } from '../../utils/format.js'
+import { formatCurrency, formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData, listDocs, createDoc } from '../../core/db.js'
@@ -11,7 +11,10 @@ function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
+function addDays(n) {
+  const [y, m, d] = todayBangkok().split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
+}
 
 const VIP_TIERS = {
   platinum: { label: 'Platinum', color: 'primary', icon: '💎', minSpend: 3000000, benefits: ['ผู้จัดการดูแลส่วนตัว', 'รถสำรองฟรีทุกครั้ง', 'ส่วนลดบริการ 25%', 'เชิญงาน Exclusive ทุกงาน'] },

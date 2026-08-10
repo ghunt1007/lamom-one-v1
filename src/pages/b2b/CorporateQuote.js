@@ -2,7 +2,7 @@
  * Corporate Quote — ใบเสนอราคา B2B
  * Route: /b2b/quotes
  */
-import { formatCurrency, formatDate, timeAgo } from '../../utils/format.js'
+import { formatCurrency, formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
@@ -19,7 +19,10 @@ const QUOTE_STATUS = {
   lost:     { label: 'เสียงาน', color: 'danger' },
 }
 
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
+function addDays(n) {
+  const [y, m, d] = todayBangkok().split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
+}
 
 function calcTotal(q) {
   const gross = q.qty * q.unitPrice

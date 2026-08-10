@@ -1,4 +1,4 @@
-import { formatDate, formatCurrency } from '../../utils/format.js'
+import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -26,7 +26,10 @@ const DN_STATUS = {
   cancelled: { label: 'ยกเลิก', color: 'danger' },
 }
 
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
+function addDays(n) {
+  const [y, m, d] = todayBangkok().split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
+}
 
 const DEMO_DNS = [
   { id:'DN001', bookingId:'BK001', _fbId:null, customerName:'วิชาญ มีโชค', phone:'081-234-5678',
@@ -125,7 +128,7 @@ export default async function DeliveryNotePage(container) {
   if (!notes.length) notes = [...DEMO_DNS]
   if (container.__routerGen !== myGen) return
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = addDays(0)
 
   function filtered() {
     return notes.filter(n => statusFilter === 'all' || n.status === statusFilter)
@@ -366,7 +369,7 @@ export default async function DeliveryNotePage(container) {
         checkItems.forEach(([key]) => { checklist[key] = !!document.querySelector(`.modal .dn-check[data-k="${key}"]`)?.checked })
         const plate = document.getElementById('dn-plate')?.value || n.plate
         const notes2 = document.getElementById('dn-notes')?.value || ''
-        const signedAt = new Date().toISOString().slice(0, 10)
+        const signedAt = addDays(0)
         if (n._fbId) {
           try {
             await updateDocData('bookings', n._fbId, {

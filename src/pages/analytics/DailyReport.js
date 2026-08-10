@@ -2,7 +2,7 @@
  * Daily Report — รายงานประจำวัน
  * Route: /analytics/daily
  */
-import { formatCurrency, formatDate } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData, listDocs } from '../../core/db.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -12,8 +12,14 @@ function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,
 const DEFAULT_TARGET = 10000000
 
 function dateStr(d) { return d.toISOString().slice(0, 10) }
-function addDays(base, n) { const d = new Date(base); d.setDate(d.getDate() + n); return dateStr(d) }
-function todayStr() { return dateStr(new Date()) }
+// เดิม todayStr() ใช้ dateStr(new Date()) ซึ่งคืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่เวลา
+// ไทยยังไม่ถึง 07:00 น. — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok() แล้วบวก/ลบวันด้วย UTC methods เสมอ (ไม่ผูก
+// กับ timezone ของเครื่อง/เบราว์เซอร์ผู้ใช้)
+function addDays(base, n) { const d = new Date(base); d.setUTCDate(d.getUTCDate() + n); return dateStr(d) }
+function todayStr() {
+  const [y, m, d] = todayBangkok().split('-').map(Number)
+  return dateStr(new Date(Date.UTC(y, m - 1, d)))
+}
 
 // รายเป้าต่อเดือนที่โหลดจาก Firestore 'sales_budgets' ครั้งเดียวตอนเปิดหน้า (เดิมอ่านจาก localStorage
 // key ผูกปีตายตัว 'lamom_sales_budget_2025' เดียวกับหน้า Sales Budget/Target vs Actual — คนละเครื่องเห็นเป้าคนละชุด)
@@ -28,7 +34,7 @@ function getMonthTarget(month) {
 function buildWeek(sales, endDate) {
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(endDate)
-    d.setDate(d.getDate() - (6 - i))
+    d.setUTCDate(d.getUTCDate() - (6 - i))
     const ds = dateStr(d)
     const day = sales.filter(s => (s.date || s.bookingDate || s.deliveryDate || '').slice(0, 10) === ds)
     return { date: ds, units: day.length, revenue: day.reduce((a, s) => a + (s.salePrice || 0), 0) }
@@ -37,7 +43,7 @@ function buildWeek(sales, endDate) {
 
 function buildDemoWeek(endDate) {
   return [2, 4, 1, 3, 5, 2, 3].map((u, i) => {
-    const d = new Date(endDate); d.setDate(d.getDate() - (6 - i))
+    const d = new Date(endDate); d.setUTCDate(d.getUTCDate() - (6 - i))
     return { date: dateStr(d), units: u, revenue: u * 1299000 }
   })
 }

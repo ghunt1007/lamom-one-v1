@@ -2,7 +2,7 @@
  * Staff Loan — เงินกู้/เบิกล่วงหน้าพนักงาน
  * Route: /hr/loans
  */
-import { formatCurrency, formatDate } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData, incrementField, readDoc } from '../../core/db.js'
@@ -11,7 +11,10 @@ function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
+function addDays(n) {
+  const [y, m, d] = todayBangkok().split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
+}
 
 const LOAN_TYPES = {
   advance:   { label: 'เบิกเงินเดือนล่วงหน้า', icon: '💵', maxPct: 50, desc: 'สูงสุด 50% ของเงินเดือน หักคืนเดือนถัดไป' },

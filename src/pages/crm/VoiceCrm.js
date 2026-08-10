@@ -4,7 +4,7 @@
  */
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
-import { formatDateTime } from '../../utils/format.js'
+import { formatDateTime, todayBangkok } from '../../utils/format.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { uploadFile } from '../../utils/storage.js'
 import { analyzeVoiceNote } from '../../utils/ai.js'
@@ -23,7 +23,10 @@ async function analyzeVoiceNoteSafe(blob) {
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
+function addDays(n) {
+  const [y, m, d] = todayBangkok().split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
+}
 
 // อ่านความยาวไฟล์เสียงจริงผ่าน HTML5 Audio API — เดิมสุ่มตัวเลขด้วย Math.random() ทั้งที่มีไฟล์จริงอยู่ในมือ
 function getAudioDuration(file) {

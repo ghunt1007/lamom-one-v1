@@ -2,7 +2,7 @@
  * Customer Lifecycle — วงจรชีวิตลูกค้า
  * Route: /crm/lifecycle
  */
-import { formatCurrency, formatDate, timeAgo, fullName } from '../../utils/format.js'
+import { formatCurrency, formatDate, timeAgo, fullName, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData, listDocs, createDoc, updateDocData } from '../../core/db.js'
@@ -11,8 +11,14 @@ function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
-function addMonths(n) { const d = new Date(); d.setMonth(d.getMonth() + n); return d.toISOString().slice(0,10) }
+function addDays(n) {
+  const [y, m, d] = todayBangkok().split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
+}
+function addMonths(n) {
+  const [y, m, d] = todayBangkok().split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1 + n, d)).toISOString().slice(0, 10)
+}
 
 const LIFECYCLE_STAGES = {
   prospect:    { label: 'Prospect', color: 'secondary', icon: '🔍', desc: 'ยังไม่เคยซื้อ' },
@@ -204,7 +210,7 @@ export default async function CustomerLifecyclePage(container) {
   }
 
   function openAddActionModal() {
-    const today = new Date().toISOString().slice(0,10)
+    const today = addDays(0)
     openModal({
       title: '+ สร้าง Action Plan',
       size: 'md',

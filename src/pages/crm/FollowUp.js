@@ -1,4 +1,4 @@
-import { formatDate, timeAgo } from '../../utils/format.js'
+import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -25,9 +25,12 @@ const FU_STATUS = {
 
 const PURPOSES = ['หลังส่งมอบรถ', 'ตรวจสอบความพึงพอใจ', 'แจ้งบริการถึงกำหนด', 'เสนอต่ออายุประกัน', 'แนะนำรุ่นใหม่', 'กิจกรรม/โปรโมชัน', 'วันเกิด/เทศกาล', 'ทั่วไป']
 
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
+function addDays(n) {
+  const [y, m, d] = todayBangkok().split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
+}
 
-const today = new Date().toISOString().slice(0, 10)
+const today = addDays(0)
 
 export default async function FollowUpPage(container) {
   const myGen = container.__routerGen
@@ -55,7 +58,7 @@ export default async function FollowUpPage(container) {
               || (b.updatedAt?.toDate ? b.updatedAt.toDate().toISOString().slice(0, 10) : null)
               || today
             const dueDate = (() => {
-              const d = new Date(deliveryDate); d.setDate(d.getDate() + 7); return d.toISOString().slice(0, 10)
+              const d = new Date(deliveryDate); d.setUTCDate(d.getUTCDate() + 7); return d.toISOString().slice(0, 10)
             })()
             return {
               id: 'FU-' + b.id, customerId: b.id, sourceBookingId: b.id,

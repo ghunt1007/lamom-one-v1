@@ -2,13 +2,16 @@
  * Error Log — ตรวจจับ error ฝั่ง client อัตโนมัติ (window.onerror / unhandledrejection)
  * Route: /settings/errors
  */
-import { timeAgo } from '../../utils/format.js'
+import { timeAgo, todayBangkok } from '../../utils/format.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, softDelete } from '../../core/db.js'
 import { confirmDialog } from '../../utils/modal.js'
 
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
+function addDays(n) {
+  const [y, m, d] = todayBangkok().split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
+}
 
 export default async function ErrorLogPage(container) {
   let search = ''

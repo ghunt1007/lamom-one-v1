@@ -2,7 +2,7 @@
  * Audit Log — บันทึกการใช้งานระบบ
  * Route: /settings/audit
  */
-import { formatDate, timeAgo } from '../../utils/format.js'
+import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { showToast } from '../../core/store.js'
 import { listDocs } from '../../core/db.js'
@@ -25,7 +25,10 @@ const ACTION_TYPES = {
 
 const MODULES = ['CRM', 'DMS', 'Service', 'Finance', 'HR', 'Marketing', 'Analytics', 'Settings', 'System']
 
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
+function addDays(n) {
+  const [y, m, d] = todayBangkok().split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
+}
 
 export default async function AuditLogPage(container) {
   let actionFilter = 'all'

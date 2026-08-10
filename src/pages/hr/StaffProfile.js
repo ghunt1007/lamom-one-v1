@@ -2,7 +2,7 @@
  * Staff Profile — โปรไฟล์พนักงาน
  * Route: /hr/profile
  */
-import { formatDate, formatCurrency } from '../../utils/format.js'
+import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, seedDemoData, setDocData } from '../../core/db.js'
@@ -31,8 +31,14 @@ const STAFF_STATUS = {
   terminated: { label: 'ให้ออก', color: 'danger' },
 }
 
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
-function addYears(n) { const d = new Date(); d.setFullYear(d.getFullYear() + n); return d.toISOString().slice(0, 10) }
+function addDays(n) {
+  const [y, m, d] = todayBangkok().split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
+}
+function addYears(n) {
+  const [y, m, d] = todayBangkok().split('-').map(Number)
+  return new Date(Date.UTC(y + n, m - 1, d)).toISOString().slice(0, 10)
+}
 
 export default async function StaffProfilePage(container) {
   const myGen = container.__routerGen
@@ -217,7 +223,7 @@ export default async function StaffProfilePage(container) {
             <select class="input" id="sf-type">${Object.entries(EMPLOYMENT_TYPE).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">เงินเดือน</label><input type="number" class="input" id="sf-salary" placeholder="25000"></div>
-          <div class="input-group"><label class="input-label">วันเริ่มงาน</label><input type="date" class="input" id="sf-start" value="${new Date().toISOString().slice(0,10)}"></div>
+          <div class="input-group"><label class="input-label">วันเริ่มงาน</label><input type="date" class="input" id="sf-start" value="${addDays(0)}"></div>
           <div class="input-group"><label class="input-label">โทรศัพท์</label><input class="input" id="sf-phone"></div>
         </div>
       `,

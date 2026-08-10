@@ -1,4 +1,4 @@
-import { formatCurrency, formatDate } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -340,7 +340,7 @@ export default async function WarrantyManagementPage(container) {
       size: 'md',
       body: `<div style="display:flex;flex-direction:column;gap:12px">
         <div class="input-group"><label class="input-label">ปัญหา / อาการที่พบ</label><textarea class="input" id="claim-issue" rows="3" placeholder="อธิบายปัญหาที่พบ..."></textarea></div>
-        <div class="input-group"><label class="input-label">วันที่พบปัญหา</label><input type="date" class="input" id="claim-date" value="${new Date().toISOString().slice(0,10)}"></div>
+        <div class="input-group"><label class="input-label">วันที่พบปัญหา</label><input type="date" class="input" id="claim-date" value="${todayBangkok()}"></div>
         <div class="input-group"><label class="input-label">เลขกิโลปัจจุบัน</label><input type="number" class="input" id="claim-km" placeholder="กม."></div>
       </div>`,
       async onConfirm() {
@@ -373,7 +373,7 @@ export default async function WarrantyManagementPage(container) {
           <select class="input" id="wf-type">${Object.entries(WARRANTY_TYPES).map(([k,v]) => `<option value="${k}" ${w?.type===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}</select>
         </div>
         <div class="input-group"><label class="input-label">ระยะทาง (กม.)</label><input type="number" class="input" id="wf-km" value="${w?.km||100000}"></div>
-        <div class="input-group"><label class="input-label">วันเริ่ม</label><input type="date" class="input" id="wf-start" value="${w?.startDate||new Date().toISOString().slice(0,10)}"></div>
+        <div class="input-group"><label class="input-label">วันเริ่ม</label><input type="date" class="input" id="wf-start" value="${w?.startDate||todayBangkok()}"></div>
         <div class="input-group"><label class="input-label">วันหมดอายุ</label><input type="date" class="input" id="wf-end" value="${w?.endDate||''}"></div>
         <div class="input-group" style="grid-column:1/-1"><label class="input-label">หมายเหตุ</label><input class="input" id="wf-notes" value="${escHtml(w?.notes||'')}"></div>
       </div>`,

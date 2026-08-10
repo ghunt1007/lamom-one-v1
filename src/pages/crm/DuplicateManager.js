@@ -2,7 +2,7 @@
  * Duplicate Manager — จัดการข้อมูลลูกค้าซ้ำ
  * Route: /crm/duplicates
  */
-import { formatDate } from '../../utils/format.js'
+import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, updateDocData, softDelete } from '../../core/db.js'
@@ -11,7 +11,10 @@ function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10) }
+function addDays(n) {
+  const [y, m, d] = todayBangkok().split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
+}
 
 // ตัวอย่างข้อมูล — ใช้แสดงก็ต่อเมื่อยังไม่มีลูกค้าจริงในระบบเลย (collection ว่างเปล่าจริงๆ)
 const DEMO_DUPLICATES = [
