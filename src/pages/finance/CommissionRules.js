@@ -344,44 +344,44 @@ export default async function CommissionRulesPage(container) {
       sim = { financeTotal: 0, insuranceTotal: 0, accessoryTotal: 0, ...SIM_PRESETS[parseInt(b.dataset.i)] }; renderPage()
     }))
 
-    // Add new rule
+    // Add new rule — จำกัดให้เพิ่มได้แค่ประเภท "percent" เท่านั้น (v1.0.390) เดิมเปิดให้เลือกได้ทั้ง 4
+    // ประเภทใน RULE_TYPES แต่ calcCommission() รู้จักกติกาประเภท per_unit/tiered/bonus เฉพาะ 4 กติกาตั้งต้น
+    // ที่มี key คงที่ (per_unit_base/tiered_monthly/premium_bonus) เท่านั้น — กติกาใหม่ที่แอดมินสร้างเองจะไม่มี
+    // key นี้เลย ทำให้กด "เปิดใช้งาน" ได้เหมือนใช้งานได้จริง แต่ไม่ถูกนำไปคำนวณจ่ายจริงเลยแม้แต่บาทเดียว (พบจาก
+    // การเขียนเทสให้ calcCommission() แล้วสังเกตว่ามันเช็คด้วย key ไม่ใช่ type) มีแต่ประเภท percent ที่ทำงาน
+    // ถูกต้องกับกติกาใหม่ (calcCommission() วนตาม type ไม่ใช่ key สำหรับ percent) จึงล็อกฟอร์มนี้ไว้แค่ percent
+    // ไปก่อน จนกว่าจะออกแบบ schema ใหม่ให้กติกาที่ไม่ใช่ percent มี "multiplier field" คล้าย base ของ percent
     document.getElementById('add-rule-btn')?.addEventListener('click', () => {
       openModal({
-        title: '+ เพิ่มกติกาคอมมิชชั่น',
+        title: '+ เพิ่มกติกาคอมมิชชั่น (% เท่านั้น)',
         size: 'sm',
         body: `<div style="display:grid;gap:10px">
           <div class="input-group"><label class="input-label">ชื่อกติกา *</label><input class="input" id="cr-name" placeholder="เช่น โบนัสรุ่นใหม่"></div>
-          <div class="input-group"><label class="input-label">ประเภท</label>
-            <select class="input" id="cr-type">${Object.entries(RULE_TYPES).map(([k, v]) => `<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
-          </div>
-          <div class="input-group" id="cr-base-wrap" style="display:none"><label class="input-label">% ของ</label>
+          <div style="font-size:0.72rem;color:var(--text-muted)">💡 เพิ่มได้เฉพาะกติกาแบบ "% ของฐาน" — กติกาแบบต่อคัน/ขั้นบันได/โบนัสคงที่มี 3 แบบตั้งต้นให้แก้ไขค่าได้อยู่แล้ว (ปุ่ม ✏️ ที่รายการด้านซ้าย) ไม่สามารถเพิ่มแบบใหม่เองได้ในตอนนี้</div>
+          <div class="input-group"><label class="input-label">% ของ</label>
             <select class="input" id="cr-base">${Object.entries(PERCENT_BASES).map(([k,v]) => `<option value="${k}">${v.label}</option>`).join('')}</select>
           </div>
-          <div class="input-group"><label class="input-label">ค่าคอม (บาท หรือ %)</label><input class="input" type="number" id="cr-value" value="0" min="0"></div>
+          <div class="input-group"><label class="input-label">เปอร์เซ็นต์ (%)</label><input class="input" type="number" id="cr-value" value="0" min="0" max="100" step="0.5"></div>
           <div class="input-group"><label class="input-label">รายละเอียด</label><input class="input" id="cr-detail" placeholder="อธิบายเงื่อนไข..."></div>
           <div class="input-group"><label class="input-label">ใช้กับ</label><input class="input" id="cr-applies" value="เซลส์ทุกคน"></div>
         </div>`,
         async onConfirm() {
           const name = document.getElementById('cr-name')?.value?.trim()
           if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return false }
-          const type = document.getElementById('cr-type')?.value || 'per_unit'
           const data = {
-            name, type,
+            name, type: 'percent',
+            base: document.getElementById('cr-base')?.value || 'floor',
             detail: document.getElementById('cr-detail')?.value || '',
             value: parseFloat(document.getElementById('cr-value')?.value) || 0,
             active: true,
             appliesTo: document.getElementById('cr-applies')?.value || 'เซลส์ทุกคน',
           }
-          if (type === 'percent') data.base = document.getElementById('cr-base')?.value || 'floor'
           let id
           try { id = await createDoc('commission_rules', data) } catch { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
           rules.push({ id, ...data })
           showToast('✅ เพิ่มกติกาแล้ว', 'success')
           renderPage()
         }
-      })
-      document.getElementById('cr-type')?.addEventListener('change', e => {
-        document.getElementById('cr-base-wrap').style.display = e.target.value === 'percent' ? '' : 'none'
       })
     })
 
