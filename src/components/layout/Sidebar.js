@@ -204,6 +204,7 @@ const NAV = [
     group: 'การตลาด', groupEn: 'Marketing', groupZh: '市场营销',
     items: [
       { icon: '📣', label: 'Marketing', path: '/marketing' },
+      { icon: '🎯', label: 'เป้าหมายแคมเปญประจำเดือน', path: '/marketing/monthly-goals' },
       { icon: '🎯', label: 'Campaigns', path: '/marketing/campaigns' },
       { icon: '📱', label: 'Social Hub', path: '/marketing/social' },
       { icon: '🎪', label: 'Events', path: '/marketing/events' },

@@ -265,6 +265,7 @@ const routes = {
   '/service/ev-battery': () => import('../pages/service/EVBattery.js'),
   // Marketing extras
   '/marketing/reviews': () => import('../pages/marketing/CustomerReview.js'),
+  '/marketing/monthly-goals': () => import('../pages/marketing/MonthlyCampaignGoals.js'),
   // B2B extras
   '/b2b/fleet-quote': () => import('../pages/b2b/FleetQuote.js'),
   // Finance extras
