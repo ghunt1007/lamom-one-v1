@@ -22,9 +22,9 @@ const PARTS_DATA = [
   { name: 'ล้อแม็กซ์ 19"', sold90: 1, stock: 2, cost: 32000, price: 48000, daysInStock: 190 },
 ]
 
-function turnover(p) { return p.stock > 0 ? Math.round(p.sold90 / 3 / p.stock * 10) / 10 : 0 } // ครั้ง/เดือน
-function marginPct(p) { return Math.round((p.price - p.cost) / p.price * 100) }
-function classify(p) {
+export function turnover(p) { return p.stock > 0 ? Math.round(p.sold90 / 3 / p.stock * 10) / 10 : 0 } // ครั้ง/เดือน
+export function marginPct(p) { return Math.round((p.price - p.cost) / p.price * 100) }
+export function classify(p) {
   if (p.daysInStock > 120) return 'dead'
   if (turnover(p) >= 1) return 'fast'
   return 'slow'

@@ -16,7 +16,7 @@ function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,
 // จะซ่อนแค่บางส่วน (การป้องกันจริงต้องทำที่ Firestore Rules ด้วยเช่นกัน)
 const SALARY_SCALE_VIEW_ROLES = ['owner', 'admin', 'manager', 'hr']
 
-const SALARY_GRADES = [
+export const SALARY_GRADES = [
   { grade: 'G1', title: 'พนักงานใหม่', min: 15000, max: 20000, midpoint: 17500 },
   { grade: 'G2', title: 'พนักงานทั่วไป', min: 20000, max: 28000, midpoint: 24000 },
   { grade: 'G3', title: 'พนักงานอาวุโส', min: 28000, max: 38000, midpoint: 33000 },
@@ -25,12 +25,12 @@ const SALARY_GRADES = [
   { grade: 'G6', title: 'ผู้จัดการอาวุโส', min: 70000, max: 95000, midpoint: 82500 },
 ]
 
-function compaRatio(salary, grade) {
+export function compaRatio(salary, grade) {
   const g = SALARY_GRADES.find(x => x.grade === grade)
   return g ? Math.round(salary / g.midpoint * 100) : 100
 }
 
-function marketRatio(salary, market) {
+export function marketRatio(salary, market) {
   return Math.round(salary / market * 100)
 }
 

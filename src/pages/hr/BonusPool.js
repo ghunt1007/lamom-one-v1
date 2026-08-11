@@ -11,16 +11,16 @@ function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,
 
 const POOL_BUDGET = 1200000
 
-function calcBonus(s) {
+export function calcBonus(s) {
   const rate = s.kpi >= 90 ? 1.0 : s.kpi >= 80 ? 0.8 : s.kpi >= 70 ? 0.6 : 0.4
   return Math.round(s.base * s.multiplier * rate)
 }
 
-function kpiColor(kpi) {
+export function kpiColor(kpi) {
   return kpi >= 90 ? 'var(--success)' : kpi >= 75 ? 'var(--warning)' : 'var(--danger)'
 }
 
-function kpiGrade(kpi) {
+export function kpiGrade(kpi) {
   return kpi >= 90 ? 'A' : kpi >= 80 ? 'B' : kpi >= 70 ? 'C' : 'D'
 }
 

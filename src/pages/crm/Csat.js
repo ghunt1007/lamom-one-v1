@@ -36,13 +36,13 @@ const CATEGORIES_DEMO = [
   { cat:'คุณภาพงาน',       score:93 },
 ]
 
-function npsType(score) {
+export function npsType(score) {
   if (score >= 9) return { label:'Promoter', c:'var(--success)' }
   if (score >= 7) return { label:'Passive',  c:'var(--warning)' }
   return { label:'Detractor', c:'var(--danger)' }
 }
 
-function starStr(score, max=5) {
+export function starStr(score, max=5) {
   return '★'.repeat(score)+'☆'.repeat(max-score)
 }
 

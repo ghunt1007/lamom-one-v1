@@ -21,7 +21,7 @@ function addDays(n) {
   return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
 }
 
-function getBatteryStatus(soh) {
+export function getBatteryStatus(soh) {
   if (soh >= 90) return 'excellent'
   if (soh >= 80) return 'good'
   if (soh >= 70) return 'fair'
