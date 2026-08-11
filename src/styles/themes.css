@@ -46,6 +46,7 @@
   --text-muted:  #9BA1AC;
   --border-subtle:#2D3748;
 }
+[data-theme="midnight"] { --bg-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20520%20520%22%3E%0A%20%20%20%20%3Ccircle%20cx%3D%22410%22%20cy%3D%22380%22%20r%3D%2280%22%20fill%3D%22%233B82F6%22%20opacity%3D%220.16%22%2F%3E%0A%20%20%20%20%3Ccircle%20cx%3D%22385%22%20cy%3D%22405%22%20r%3D%226%22%20fill%3D%22%233B82F6%22%20opacity%3D%220.22%22%2F%3E%0A%20%20%20%20%3Ccircle%20cx%3D%22440%22%20cy%3D%22420%22%20r%3D%224%22%20fill%3D%22%233B82F6%22%20opacity%3D%220.22%22%2F%3E%0A%20%20%20%20%3Cpath%20d%3D%22M380%20365%20q8%2010%2016%200%22%20stroke%3D%22%233B82F6%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22%20fill%3D%22none%22%20opacity%3D%220.28%22%2F%3E%0A%20%20%20%20%3Cpath%20d%3D%22M424%20365%20q8%2010%2016%200%22%20stroke%3D%22%233B82F6%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22%20fill%3D%22none%22%20opacity%3D%220.28%22%2F%3E%0A%20%20%20%20%3Cpath%20d%3D%22M395%20395%20q15%2012%2030%200%22%20stroke%3D%22%233B82F6%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22%20fill%3D%22none%22%20opacity%3D%220.28%22%2F%3E%0A%20%20%20%20%3Ccircle%20cx%3D%22320%22%20cy%3D%22270%22%20r%3D%223%22%20fill%3D%22%233B82F6%22%20opacity%3D%220.18%22%2F%3E%0A%20%20%20%20%3Ccircle%20cx%3D%22470%22%20cy%3D%22250%22%20r%3D%224%22%20fill%3D%22%233B82F6%22%20opacity%3D%220.18%22%2F%3E%0A%20%20%20%20%3Ccircle%20cx%3D%22350%22%20cy%3D%22480%22%20r%3D%223%22%20fill%3D%22%233B82F6%22%20opacity%3D%220.18%22%2F%3E%0A%20%20%3C%2Fsvg%3E"); }
 
 /* ── Neon ───────────────────────────────────────── */
 [data-theme="neon"] {
@@ -76,6 +77,7 @@
   --text-muted:  #8982DE;
   --border-subtle:#202050;
 }
+[data-theme="neon"] { --bg-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20520%20520%22%3E%0A%20%20%20%20%3Cpath%20d%3D%22M420%20260%20L385%20360%20L410%20360%20L390%20460%20L455%20340%20L425%20340%20L445%20260%20Z%22%20fill%3D%22%2300F5FF%22%20opacity%3D%220.18%22%2F%3E%0A%20%20%20%20%3Ccircle%20cx%3D%22405%22%20cy%3D%22330%22%20r%3D%225%22%20fill%3D%22%2300F5FF%22%20opacity%3D%220.3%22%2F%3E%0A%20%20%20%20%3Ccircle%20cx%3D%22425%22%20cy%3D%22330%22%20r%3D%225%22%20fill%3D%22%2300F5FF%22%20opacity%3D%220.3%22%2F%3E%0A%20%20%20%20%3Cpath%20d%3D%22M400%20355%20q12%2010%2024%200%22%20stroke%3D%22%2300F5FF%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22%20fill%3D%22none%22%20opacity%3D%220.3%22%2F%3E%0A%20%20%20%20%3Ccircle%20cx%3D%22330%22%20cy%3D%22240%22%20r%3D%223%22%20fill%3D%22%2300F5FF%22%20opacity%3D%220.18%22%2F%3E%0A%20%20%20%20%3Ccircle%20cx%3D%22470%22%20cy%3D%22480%22%20r%3D%224%22%20fill%3D%22%2300F5FF%22%20opacity%3D%220.18%22%2F%3E%0A%20%20%3C%2Fsvg%3E"); }
 
 /* ── Ocean ──────────────────────────────────────── */
 [data-theme="ocean"] {
@@ -104,6 +106,7 @@
   --text-muted:  #4FC3F7;
   --border-subtle:#202872;
 }
+[data-theme="ocean"] { --bg-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20520%20520%22%3E%0A%20%20%20%20%3Cpath%20d%3D%22M360%20420%20Q400%20380%20440%20420%20Q460%20440%20440%20460%20Q400%20480%20360%20460%20Q340%20440%20360%20420%20Z%22%20fill%3D%22%2329B6F6%22%20opacity%3D%220.16%22%2F%3E%0A%20%20%20%20%3Cpath%20d%3D%22M430%20400%20Q450%20340%20480%20360%20Q470%20390%20445%20400%20Z%22%20fill%3D%22%2329B6F6%22%20opacity%3D%220.16%22%2F%3E%0A%20%20%20%20%3Ccircle%20cx%3D%22385%22%20cy%3D%22415%22%20r%3D%224%22%20fill%3D%22%2329B6F6%22%20opacity%3D%220.3%22%2F%3E%0A%20%20%20%20%3Cpath%20d%3D%22M300%20460%20Q340%20440%20380%20460%20Q420%20480%20460%20460%22%20stroke%3D%22%2329B6F6%22%20stroke-width%3D%225%22%20stroke-linecap%3D%22round%22%20fill%3D%22none%22%20opacity%3D%220.2%22%2F%3E%0A%20%20%3C%2Fsvg%3E"); }
 
 /* ── Forest ─────────────────────────────────────── */
 [data-theme="forest"] {
@@ -133,6 +136,7 @@
   --text-muted:  #8EC258;
   --border-subtle:#253D2A;
 }
+[data-theme="forest"] { --bg-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20520%20520%22%3E%0A%20%20%20%20%3Ccircle%20cx%3D%22420%22%20cy%3D%22340%22%20r%3D%2285%22%20fill%3D%22%234CAF50%22%20opacity%3D%220.16%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%22405%22%20y%3D%22410%22%20width%3D%2230%22%20height%3D%2260%22%20rx%3D%228%22%20fill%3D%22%234CAF50%22%20opacity%3D%220.18%22%2F%3E%0A%20%20%20%20%3Ccircle%20cx%3D%22395%22%20cy%3D%22330%22%20r%3D%225%22%20fill%3D%22%234CAF50%22%20opacity%3D%220.3%22%2F%3E%0A%20%20%20%20%3Ccircle%20cx%3D%22445%22%20cy%3D%22330%22%20r%3D%225%22%20fill%3D%22%234CAF50%22%20opacity%3D%220.3%22%2F%3E%0A%20%20%20%20%3Cpath%20d%3D%22M400%20360%20q20%2016%2040%200%22%20stroke%3D%22%234CAF50%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22%20fill%3D%22none%22%20opacity%3D%220.3%22%2F%3E%0A%20%20%20%20%3Ccircle%20cx%3D%22340%22%20cy%3D%22450%22%20r%3D%2210%22%20fill%3D%22%234CAF50%22%20opacity%3D%220.14%22%2F%3E%0A%20%20%20%20%3Ccircle%20cx%3D%22480%22%20cy%3D%22460%22%20r%3D%228%22%20fill%3D%22%234CAF50%22%20opacity%3D%220.14%22%2F%3E%0A%20%20%3C%2Fsvg%3E"); }
 
 /* ── Fire ───────────────────────────────────────── */
 [data-theme="fire"] {
@@ -161,6 +165,7 @@
   --text-muted:  #FFA726;
   --border-subtle:#361600;
 }
+[data-theme="fire"] { --bg-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20520%20520%22%3E%0A%20%20%20%20%3Cpath%20d%3D%22M420%20260%20Q460%20320%20440%20380%20Q470%20400%20445%20450%20Q420%20480%20385%20455%20Q355%20430%20375%20385%20Q360%20350%20390%20320%20Q395%20350%20410%20340%20Q400%20300%20420%20260%20Z%22%20fill%3D%22%23FF6D00%22%20opacity%3D%220.17%22%2F%3E%0A%20%20%20%20%3Ccircle%20cx%3D%22400%22%20cy%3D%22390%22%20r%3D%225%22%20fill%3D%22%23FF6D00%22%20opacity%3D%220.32%22%2F%3E%0A%20%20%20%20%3Ccircle%20cx%3D%22428%22%20cy%3D%22390%22%20r%3D%225%22%20fill%3D%22%23FF6D00%22%20opacity%3D%220.32%22%2F%3E%0A%20%20%20%20%3Cpath%20d%3D%22M398%20415%20q14%2012%2028%200%22%20stroke%3D%22%23FF6D00%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22%20fill%3D%22none%22%20opacity%3D%220.32%22%2F%3E%0A%20%20%3C%2Fsvg%3E"); }
 
 /* ── Galaxy ─────────────────────────────────────── */
 [data-theme="galaxy"] {
@@ -190,6 +195,7 @@
   --text-muted:  #9474CD;
   --border-subtle:#230060;
 }
+[data-theme="galaxy"] { --bg-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20520%20520%22%3E%0A%20%20%20%20%3Cpath%20d%3D%22M300%20480%20Q360%20440%20420%20400%20L440%20380%20Q400%20390%20360%20410%20Q320%20430%20300%20480%20Z%22%20fill%3D%22%23AA00FF%22%20opacity%3D%220.15%22%2F%3E%0A%20%20%20%20%3Ccircle%20cx%3D%22440%22%20cy%3D%22370%22%20r%3D%2234%22%20fill%3D%22%23AA00FF%22%20opacity%3D%220.2%22%2F%3E%0A%20%20%20%20%3Ccircle%20cx%3D%22428%22%20cy%3D%22362%22%20r%3D%224%22%20fill%3D%22%23AA00FF%22%20opacity%3D%220.35%22%2F%3E%0A%20%20%20%20%3Ccircle%20cx%3D%22450%22%20cy%3D%22362%22%20r%3D%224%22%20fill%3D%22%23AA00FF%22%20opacity%3D%220.35%22%2F%3E%0A%20%20%20%20%3Cpath%20d%3D%22M425%20380%20q15%2010%2030%200%22%20stroke%3D%22%23AA00FF%22%20stroke-width%3D%223.5%22%20stroke-linecap%3D%22round%22%20fill%3D%22none%22%20opacity%3D%220.35%22%2F%3E%0A%20%20%20%20%3Cpath%20d%3D%22M480%20320%20l6%2014%20l14%206%20l-14%206%20l-6%2014%20l-6%20-14%20l-14%20-6%20l14%20-6%20Z%22%20fill%3D%22%23AA00FF%22%20opacity%3D%220.2%22%2F%3E%0A%20%20%20%20%3Ccircle%20cx%3D%22330%22%20cy%3D%22280%22%20r%3D%223%22%20fill%3D%22%23AA00FF%22%20opacity%3D%220.18%22%2F%3E%0A%20%20%3C%2Fsvg%3E"); }
 
 /* ── Sci-Fi HUD ─────────────────────────────────── */
 [data-theme="scifi"] {
@@ -220,6 +226,7 @@
   --text-muted:  #7190A8;
   --border-subtle:rgba(0,229,255,0.12);
 }
+[data-theme="scifi"] { --bg-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20520%20520%22%3E%0A%20%20%20%20%3Crect%20x%3D%22360%22%20y%3D%22330%22%20width%3D%22110%22%20height%3D%2290%22%20rx%3D%2218%22%20fill%3D%22%2300E5FF%22%20opacity%3D%220.16%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%22405%22%20y%3D%22300%22%20width%3D%228%22%20height%3D%2230%22%20fill%3D%22%2300E5FF%22%20opacity%3D%220.22%22%2F%3E%0A%20%20%20%20%3Ccircle%20cx%3D%22409%22%20cy%3D%22295%22%20r%3D%228%22%20fill%3D%22%2300E5FF%22%20opacity%3D%220.26%22%2F%3E%0A%20%20%20%20%3Ccircle%20cx%3D%22390%22%20cy%3D%22370%22%20r%3D%229%22%20fill%3D%22%2300E5FF%22%20opacity%3D%220.32%22%2F%3E%0A%20%20%20%20%3Ccircle%20cx%3D%22440%22%20cy%3D%22370%22%20r%3D%229%22%20fill%3D%22%2300E5FF%22%20opacity%3D%220.32%22%2F%3E%0A%20%20%20%20%3Cpath%20d%3D%22M390%20400%20q25%2014%2050%200%22%20stroke%3D%22%2300E5FF%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22%20fill%3D%22none%22%20opacity%3D%220.28%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%22330%22%20y%3D%22350%22%20width%3D%2214%22%20height%3D%2240%22%20rx%3D%226%22%20fill%3D%22%2300E5FF%22%20opacity%3D%220.14%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%22486%22%20y%3D%22350%22%20width%3D%2214%22%20height%3D%2240%22%20rx%3D%226%22%20fill%3D%22%2300E5FF%22%20opacity%3D%220.14%22%2F%3E%0A%20%20%3C%2Fsvg%3E"); }
 
 /* ── Avengers รวมทีมฮีโร่ Marvel 🛡️ ─────────────────────── */
 [data-theme="avengers"] {
