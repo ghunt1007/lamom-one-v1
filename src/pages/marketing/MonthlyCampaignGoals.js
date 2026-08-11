@@ -53,13 +53,18 @@ export default async function MonthlyCampaignGoalsPage(container) {
   async function loadData() {
     loading = true
     try {
+      // เดิม query ด้วย where('month','==',...) + orderBy('createdAt') พร้อมกัน — Firestore ต้องมี
+      // composite index สำหรับ equality filter + orderBy บนฟิลด์คนละตัวกันเสมอ ซึ่ง collection ใหม่นี้ยังไม่มี
+      // index นี้เลย ทำให้ query ล้มเหลวเงียบๆ (ถูก catch ไว้) — สร้างได้จริงแต่โหลดกลับมาแสดงไม่ได้เลย ตรวจพบ
+      // จากการทดสอบสร้างเป้าหมายจริงในเบราว์เซอร์แล้วเห็นว่าไม่ขึ้น ทั้งที่ toast แจ้งบันทึกสำเร็จ — แก้ตาม
+      // แพทเทิร์นเดียวกับ TeamTargets.js: ดึงมาทั้งหมด (จำนวนน้อยมาก เดือนละ 1 เอกสาร) แล้วกรองเดือนฝั่ง JS
       const [goals, promoDocs, campDocs, s] = await Promise.all([
-        listDocs('monthly_campaign_goals', [['month', '==', selectedMonth]], 'createdAt', 'desc', 1),
+        listDocs('monthly_campaign_goals', [], 'month', 'desc', 60),
         listDocs('promotions', [], 'startDate', 'desc', 200),
         listDocs('marketing_campaigns', [], 'startDate', 'desc', 200),
         getSalesData(),
       ])
-      goal = goals.filter(g => !g.deleted)[0] || null
+      goal = goals.find(g => !g.deleted && g.month === selectedMonth) || null
       promos = promoDocs.filter(p => !p.deleted && overlapsMonth(p.startDate, p.endDate, selectedMonth))
       campaigns = campDocs.filter(c => !c.deleted && overlapsMonth(c.startDate, c.endDate, selectedMonth))
       sales = s
