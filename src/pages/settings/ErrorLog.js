@@ -2,7 +2,7 @@
  * Error Log — ตรวจจับ error ฝั่ง client อัตโนมัติ (window.onerror / unhandledrejection)
  * Route: /settings/errors
  */
-import { timeAgo, todayBangkok } from '../../utils/format.js'
+import { timeAgo, todayBangkok, formatDateTime } from '../../utils/format.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, softDelete } from '../../core/db.js'
@@ -11,6 +11,15 @@ import { confirmDialog } from '../../utils/modal.js'
 function addDays(n) {
   const [y, m, d] = todayBangkok().split('-').map(Number)
   return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
+}
+
+// createdAt คือ Firestore serverTimestamp() (มี .toDate()) ไม่ใช่ string — เดิม (l.createdAt || '').startsWith(...)
+// เรียก .startsWith บน Timestamp object ตรงๆ ทำให้หน้าพังทั้งหน้าทันทีที่มี error_log จริงสักรายการ (TypeError:
+// startsWith is not a function) ต้องแปลงเป็นวันที่ตามเวลาไทยก่อนเทียบเสมอ เหมือน todayBangkok()/toDate() ที่อื่น
+function toBangkokDateStr(v) {
+  const d = v?.toDate ? v.toDate() : (v ? new Date(v) : null)
+  if (!d || isNaN(d.getTime())) return null
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d)
 }
 
 export default async function ErrorLogPage(container) {
@@ -31,7 +40,7 @@ export default async function ErrorLogPage(container) {
 
   function renderPage() {
     const list = filtered()
-    const today = logs.filter(l => (l.createdAt || '').startsWith(addDays(0))).length
+    const today = logs.filter(l => toBangkokDateStr(l.createdAt) === addDays(0)).length
     const affectedUsers = new Set(logs.map(l => l.userName)).size
 
     container.innerHTML = `
@@ -89,7 +98,7 @@ export default async function ErrorLogPage(container) {
 
     document.getElementById('search-inp')?.addEventListener('input', e => { search = e.target.value; renderPage() })
     document.getElementById('export-btn')?.addEventListener('click', () => {
-      exportToExcel(list.map(l => ({ เวลา: l.createdAt || '-', ผู้ใช้: l.userName || '-', ข้อความ: l.message || '-', หน้า: l.url || '-', บรรทัด: l.line || '-' })), 'error_log')
+      exportToExcel(list.map(l => ({ เวลา: l.createdAt ? formatDateTime(l.createdAt) : '-', ผู้ใช้: l.userName || '-', ข้อความ: l.message || '-', หน้า: l.url || '-', บรรทัด: l.line || '-' })), 'error_log')
       showToast('📥 Export Error Log แล้ว!', 'success')
     })
     document.getElementById('clear-btn')?.addEventListener('click', async () => {

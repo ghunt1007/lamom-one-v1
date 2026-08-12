@@ -216,6 +216,7 @@ export default async function CommissionRulesPage(container) {
                   <div style="display:flex;gap:4px;flex-shrink:0;padding-top:2px">
                     <button class="btn btn-xs btn-secondary edit-btn" data-id="${escHtml(r.id)}" title="แก้ไขกติกา">✏️</button>
                     <button class="btn btn-xs ${r.active ? 'btn-success' : 'btn-secondary'} toggle-btn" data-id="${escHtml(r.id)}">${r.active ? '✅' : '⏸'}</button>
+                    <button class="btn btn-xs btn-danger del-rule-btn" data-id="${escHtml(r.id)}" title="ลบกติกานี้">🗑</button>
                   </div>
                 </div>
               </div>`
@@ -273,6 +274,16 @@ export default async function CommissionRulesPage(container) {
       const active = !r.active
       try { await updateDocData('commission_rules', r.id, { active }) } catch { showToast('บันทึกไม่สำเร็จ', 'error'); return }
       r.active = active
+      renderPage()
+    }))
+
+    container.querySelectorAll('.del-rule-btn').forEach(b => b.addEventListener('click', async () => {
+      const r = rules.find(x => x.id === b.dataset.id)
+      if (!r) return
+      if (!await confirmDialog({ title: 'ลบกติกาคอมมิชชั่น', message: `ลบกติกา "${r.name}"? การลบนี้ไม่สามารถย้อนกลับได้`, confirmText: 'ลบ', danger: true })) return
+      try { await softDelete('commission_rules', r.id) } catch { showToast('ลบไม่สำเร็จ', 'error'); return }
+      rules = rules.filter(x => x.id !== r.id)
+      showToast('🗑 ลบกติกาแล้ว', 'success')
       renderPage()
     }))
 

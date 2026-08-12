@@ -3,9 +3,9 @@
  * Route: /service/recall
  */
 import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, updateDocData, createDoc, seedDemoData } from '../../core/db.js'
+import { listDocs, updateDocData, createDoc, softDelete, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -45,7 +45,9 @@ export default async function RecallManagementPage(container) {
         listDocs('recall_campaigns', [], 'issueDate', 'desc', 200),
         listDocs('recall_campaign_vehicles', [], 'plate', 'asc', 500),
       ])
-      recalls = r; vehicles = v
+      // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true — ถ้าไม่กรองออก แคมเปญ/รถที่ "ลบ" ไปแล้วจะโผล่กลับมา
+      // ทุกครั้งที่โหลดหน้านี้ใหม่ (บั๊กคลาสเดียวกับที่เจอซ้ำหลายจุดในระบบนี้ — Customers/Staff/Stock/Bookings)
+      recalls = r.filter(x => !x.deleted); vehicles = v.filter(x => !x.deleted)
       if (selectedRecall) selectedRecall = recalls.find(x => x.id === selectedRecall.id) || null
     } catch (e) { recalls = []; vehicles = [] }
     loading = false
@@ -95,6 +97,7 @@ export default async function RecallManagementPage(container) {
                     <div style="text-align:right">
                       <span class="badge badge-${st?.color}" style="font-size:0.65rem">${st?.label}</span>
                       <div style="font-size:0.65rem;margin-top:2px;color:${r.severity==='critical'?'var(--danger)':'var(--warning)'}">${r.severity === 'critical' ? '🔴 Critical' : '🟡 High'}</div>
+                      <button class="btn btn-xs btn-secondary del-recall-btn" data-id="${r.id}" title="ลบ Recall Campaign นี้" style="margin-top:4px">🗑</button>
                     </div>
                   </div>
                   <div style="margin-bottom:6px">
@@ -149,6 +152,19 @@ export default async function RecallManagementPage(container) {
       const r = recalls.find(x => x.id === el.dataset.id)
       selectedRecall = selectedRecall?.id === r?.id ? null : r
       renderPage()
+    }))
+
+    container.querySelectorAll('.del-recall-btn').forEach(b => b.addEventListener('click', async e => { e.stopPropagation()
+      const r = recalls.find(x => x.id === b.dataset.id)
+      if (!r) return
+      if (!await confirmDialog({ title: 'ลบ Recall Campaign', message: `ลบ "${r.title}" (${r.recallNo})? รถที่อยู่ในแคมเปญนี้จะถูกลบไปด้วย — การลบนี้ไม่สามารถย้อนกลับได้`, confirmText: 'ลบ', danger: true })) return
+      try {
+        await Promise.all(vehicles.filter(v => v.recallId === r.id).map(v => softDelete('recall_campaign_vehicles', v.id)))
+        await softDelete('recall_campaigns', r.id)
+        if (selectedRecall?.id === r.id) selectedRecall = null
+        showToast('🗑 ลบ Recall Campaign แล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('ลบไม่สำเร็จ', 'error') }
     }))
 
     // เดิม recall_campaign_vehicles อ่าน/อัปเดตสถานะรถได้เท่านั้น ไม่มีทางเพิ่มรถเข้าแคมเปญเลยจากในแอป —
