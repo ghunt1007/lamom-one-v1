@@ -2,10 +2,10 @@
  * Technician Schedule — ตารางงานช่าง
  * Route: /service/technicians
  */
-import { formatDate } from '../../utils/format.js'
+import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, setDocData, updateDocData, seedDemoData } from '../../core/db.js'
 
 const TECH_SKILLS = {
   general: { label: 'ทั่วไป', color: 'secondary', icon: '🔧' },
@@ -20,19 +20,27 @@ const SHIFT_COLORS = {
   afternoon: '#f59e0b',
   leave: '#94a3b8',
 }
+const SHIFT_LABELS = { morning: 'เช้า', afternoon: 'บ่าย', leave: 'ลา' }
 
-// ⚠️ SCOPED-OUT GAP (ดู audit finding #18) — SCHEDULE เป็นตารางเวรตัวอย่างที่ผูกกับ id คงที่ (T001-T005) ล้วนๆ
-// ไม่มี UI ให้สร้าง/แก้ไขเวรจริงเลย และแม้จะโหลดช่างจริงจาก collection 'technician_schedule' ก็ตาม เวรของช่าง
-// ที่ id ไม่ตรงกับ T001-T005 จะไม่โผล่ตารางเลย (SCHEDULE[t.id] เป็น undefined → sched=[]) ยังไม่แก้จุดนี้ในรอบนี้
-// เพราะการทำ shift-editor ที่ใช้งานได้จริง (สร้าง/แก้ไข/ลบเวรต่อช่างต่อวัน + ผูกกับข้อมูลช่างจริงแทน id คงที่)
-// เป็น feature ใหญ่เกินสโคปของการแก้บั๊กรอบนี้ — ต้องออกแบบ schema เวรใหม่ทั้งหมด ไม่ใช่แค่แก้บรรทัดเดียว
+// เวรช่างจริง ผูกกับ technicianId จริงต่อสัปดาห์ (collection 'tech_shifts', docId = `${technicianId}_${weekStart}`)
+// แทนที่ SCHEDULE คงที่แบบเดิมที่ผูกกับ id ตัวอย่าง T001-T005 ล้วนๆ (ดู audit finding #18 — แก้แล้วรอบนี้)
 const WEEK_DAYS = ['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา']
-const SCHEDULE = {
-  T001: ['morning','morning','morning','afternoon','morning','leave','leave'],
-  T002: ['morning','morning','afternoon','morning','morning','morning','leave'],
-  T003: ['afternoon','morning','morning','morning','afternoon','leave','leave'],
-  T004: ['morning','afternoon','morning','morning','morning','leave','leave'],
-  T005: ['morning','morning','morning','afternoon','afternoon','morning','leave'],
+
+export function mondayOf(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 1, d))
+  const dow = dt.getUTCDay() // 0=อา
+  const diffToMonday = dow === 0 ? -6 : 1 - dow
+  dt.setUTCDate(dt.getUTCDate() + diffToMonday)
+  return dt.toISOString().slice(0, 10)
+}
+export function addDaysStr(dateStr, n) {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 1, d + n))
+  return dt.toISOString().slice(0, 10)
+}
+export function weekDatesOf(weekStart) {
+  return Array.from({ length: 7 }, (_, i) => addDaysStr(weekStart, i))
 }
 
 export default async function TechnicianSchedulePage(container) {
@@ -40,14 +48,29 @@ export default async function TechnicianSchedulePage(container) {
   seedDemoData()
 
   let techs = []
+  let shiftDocs = []
   let skillFilter = 'all'
+  let selectedWeekStart = mondayOf(todayBangkok())
   let loading = true
 
   async function loadData() {
     loading = true
-    try { techs = await listDocs('technician_schedule', [], 'name', 'asc', 200) } catch (e) { techs = [] }
+    try {
+      // ดึงเวรทั้งหมดมาแล้วกรองฝั่ง JS แทน where+orderBy คนละฟิลด์ (กันปัญหา composite index เหมือนที่เจอมาก่อนหน้านี้)
+      const [t, s] = await Promise.all([
+        listDocs('technician_schedule', [], 'name', 'asc', 200),
+        listDocs('tech_shifts', [], 'weekStart', 'desc', 500),
+      ])
+      techs = t
+      shiftDocs = s
+    } catch (e) { techs = []; shiftDocs = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
+  }
+
+  function shiftsFor(techId) {
+    const doc = shiftDocs.find(s => !s.deleted && s.technicianId === techId && s.weekStart === selectedWeekStart)
+    return doc?.days || ['', '', '', '', '', '', '']
   }
 
   function renderPage() {
@@ -58,9 +81,12 @@ export default async function TechnicianSchedulePage(container) {
     const list = techs.filter(t =>
       skillFilter === 'all' || t.skills.includes(skillFilter)
     )
-    const onDuty = techs.filter(t => SCHEDULE[t.id]?.[0] !== 'leave').length
+    const todayIdx = weekDatesOf(selectedWeekStart).indexOf(todayBangkok())
+    const onDuty = techs.filter(t => todayIdx >= 0 && shiftsFor(t.id)[todayIdx] && shiftsFor(t.id)[todayIdx] !== 'leave').length
     const totalJobs = techs.reduce((a, t) => a + t.jobsToday, 0)
-    const avgEff = Math.round(techs.reduce((a, t) => a + t.efficiency, 0) / techs.length)
+    const avgEff = techs.length ? Math.round(techs.reduce((a, t) => a + t.efficiency, 0) / techs.length) : 0
+    const weekDates = weekDatesOf(selectedWeekStart)
+    const isThisWeek = selectedWeekStart === mondayOf(todayBangkok())
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -89,27 +115,36 @@ export default async function TechnicianSchedulePage(container) {
 
         <!-- Weekly schedule grid -->
         <div class="card" style="overflow:hidden;margin-bottom:14px">
-          <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:0.8rem;font-weight:700;color:var(--text-muted)">📅 ตารางสัปดาห์นี้</div>
+          <div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+            <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted)">📅 ตารางเวร ${formatDate(selectedWeekStart)} — ${formatDate(weekDates[6])}</div>
+            <div style="display:flex;gap:4px">
+              <button class="btn btn-xs btn-secondary" id="wk-prev">◀ สัปดาห์ก่อน</button>
+              <button class="btn btn-xs ${isThisWeek?'btn-primary':'btn-secondary'}" id="wk-this">สัปดาห์นี้</button>
+              <button class="btn btn-xs btn-secondary" id="wk-next">สัปดาห์ถัดไป ▶</button>
+            </div>
+          </div>
           <div style="overflow-x:auto">
             <table style="width:100%;border-collapse:collapse;min-width:600px">
               <thead>
                 <tr style="border-bottom:1px solid var(--border);font-size:0.75rem;color:var(--text-muted)">
                   <th style="padding:8px 14px;text-align:left">ช่าง</th>
-                  ${WEEK_DAYS.map(d => `<th style="padding:8px 10px;text-align:center">${d}</th>`).join('')}
+                  ${WEEK_DAYS.map((d, i) => `<th style="padding:8px 10px;text-align:center">${d}<br><span style="font-size:0.62rem;font-weight:400">${weekDates[i].slice(8,10)}/${weekDates[i].slice(5,7)}</span></th>`).join('')}
                 </tr>
               </thead>
               <tbody>
                 ${list.map(t => {
-                  const sched = SCHEDULE[t.id] || []
+                  const sched = shiftsFor(t.id)
                   return `<tr style="border-bottom:1px solid var(--border)">
                     <td style="padding:8px 14px">
                       <div style="font-weight:600;font-size:0.83rem">${t.name}</div>
                       <div style="font-size:0.68rem;color:var(--text-muted)">${t.level} · Eff ${t.efficiency}%</div>
                     </td>
                     ${sched.map((s, i) => {
-                      const label = s === 'morning' ? 'เช้า' : s === 'afternoon' ? 'บ่าย' : 'ลา'
+                      const label = SHIFT_LABELS[s] || '—'
+                      const bg = SHIFT_COLORS[s] || 'var(--border)'
+                      const color = SHIFT_COLORS[s] || 'var(--text-muted)'
                       return `<td style="padding:8px 6px;text-align:center">
-                        <div style="background:${SHIFT_COLORS[s]}22;color:${SHIFT_COLORS[s]};border-radius:3px;padding:3px 6px;font-size:0.68rem;font-weight:700">${label}</div>
+                        <button class="btn shift-cell" data-tech="${t.id}" data-day="${i}" style="background:${SHIFT_COLORS[s]?bg+'22':'var(--surface-2)'};color:${color};border:none;border-radius:3px;padding:3px 8px;font-size:0.68rem;font-weight:700;cursor:pointer;min-width:44px">${label}</button>
                       </td>`
                     }).join('')}
                   </tr>`
@@ -156,6 +191,41 @@ export default async function TechnicianSchedulePage(container) {
     container.querySelectorAll('.assign-btn').forEach(b => b.addEventListener('click', () => {
       const t = techs.find(x => x.id === b.dataset.id); if (t) openAssignModal(t)
     }))
+    document.getElementById('wk-prev')?.addEventListener('click', () => { selectedWeekStart = addDaysStr(selectedWeekStart, -7); renderPage() })
+    document.getElementById('wk-this')?.addEventListener('click', () => { selectedWeekStart = mondayOf(todayBangkok()); renderPage() })
+    document.getElementById('wk-next')?.addEventListener('click', () => { selectedWeekStart = addDaysStr(selectedWeekStart, 7); renderPage() })
+    container.querySelectorAll('.shift-cell').forEach(b => b.addEventListener('click', () => openShiftModal(b.dataset.tech, +b.dataset.day)))
+  }
+
+  function openShiftModal(techId, dayIdx) {
+    const t = techs.find(x => x.id === techId)
+    if (!t) return
+    const current = shiftsFor(techId)[dayIdx]
+    const dayDate = weekDatesOf(selectedWeekStart)[dayIdx]
+    openModal({
+      title: `🗓️ เวร ${t.name} — วัน${WEEK_DAYS[dayIdx]} (${formatDate(dayDate)})`,
+      size: 'sm',
+      body: `
+        <div class="input-group"><label class="input-label">ประเภทเวร</label>
+          <select class="input" id="sh-type">
+            <option value="" ${!current?'selected':''}>— ไม่มีเวร —</option>
+            <option value="morning" ${current==='morning'?'selected':''}>เช้า</option>
+            <option value="afternoon" ${current==='afternoon'?'selected':''}>บ่าย</option>
+            <option value="leave" ${current==='leave'?'selected':''}>ลา</option>
+          </select>
+        </div>
+      `,
+      async onConfirm() {
+        const val = document.getElementById('sh-type')?.value || ''
+        try {
+          const days = [...shiftsFor(techId)]
+          days[dayIdx] = val
+          await setDocData('tech_shifts', `${techId}_${selectedWeekStart}`, { technicianId: techId, weekStart: selectedWeekStart, days })
+          showToast('✅ บันทึกเวรแล้ว', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      }
+    })
   }
 
   function openAssignModal(tech = null) {
