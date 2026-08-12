@@ -11,8 +11,8 @@ const state = {
   role: null,
   permissions: [],
   theme: localStorage.getItem('lamom_theme') || 'midnight',
-  // (v1.0.353) รองรับหลายภาษา — เริ่มจากเมนูหลัก/ส่วนกลาง (Sidebar/Topbar/Login/Dashboard) เท่านั้น
-  // เนื้อหาในแต่ละหน้า (400+ หน้า) ยังเป็นภาษาไทยล้วน เป็นงานแยกที่ใหญ่กว่านี้มาก ยังไม่ได้ทำรอบนี้
+  // (v1.0.353) รองรับหลายภาษา — เมนูหลัก/ส่วนกลาง (Sidebar/Topbar/Login/Dashboard) ผ่าน src/i18n/index.js
+  // ส่วนคำศัพท์ที่ใช้ซ้ำในเนื้อหาแต่ละหน้า (ปุ่ม/label/สถานะ) แปลอัตโนมัติผ่าน src/i18n/autoTranslate.js (v1.0.402)
   language: localStorage.getItem('lamom_lang') || 'th',
   sidebarCollapsed: localStorage.getItem('lamom_sidebar') === 'true',
   notifications: [],

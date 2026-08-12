@@ -15,6 +15,7 @@ import { Topbar } from './components/layout/Topbar.js'
 import { ToastContainer } from './components/layout/Toast.js'
 import { initAutoTableTools } from './utils/tableTools.js'
 import { initErrorMonitor } from './utils/errorMonitor.js'
+import { initAutoI18n } from './i18n/autoTranslate.js'
 
 const app = document.getElementById('app')
 
@@ -85,6 +86,12 @@ async function bootstrapShell() {
 
   initRouter(main)
   initAutoTableTools()  // เสริม sort+filter แบบ Excel ให้ทุกตารางอัตโนมัติ
+
+  // แปลคำศัพท์ที่ใช้ซ้ำทั่วระบบ (ปุ่ม/label/สถานะ) อัตโนมัติตามภาษาที่เลือก — ดู autoTranslate.js
+  // สำหรับข้อจำกัด (ไม่ใช่การแปลเนื้อหาเฉพาะหน้าแบบ contextual เต็มรูปแบบ)
+  const onLangChange = initAutoI18n(() => getState('language'))
+  on('language', onLangChange)
+
   initSessionTimeout(logout)
 
   // SYSTEM BOOT overlay — เฉพาะธีม Sci-Fi HUD ครั้งแรกของ session (แสดง ~1.2s)
