@@ -280,7 +280,7 @@ export default async function CommissionRulesPage(container) {
     container.querySelectorAll('.del-rule-btn').forEach(b => b.addEventListener('click', async () => {
       const r = rules.find(x => x.id === b.dataset.id)
       if (!r) return
-      if (!await confirmDialog({ title: 'ลบกติกาคอมมิชชั่น', message: `ลบกติกา "${r.name}"? การลบนี้ไม่สามารถย้อนกลับได้`, confirmText: 'ลบ', danger: true })) return
+      if (!await confirmDialog({ title: 'ลบกติกาคอมมิชชั่น', message: `ลบกติกา "${escHtml(r.name)}"? การลบนี้ไม่สามารถย้อนกลับได้`, confirmText: 'ลบ', danger: true })) return
       try { await softDelete('commission_rules', r.id) } catch { showToast('ลบไม่สำเร็จ', 'error'); return }
       rules = rules.filter(x => x.id !== r.id)
       showToast('🗑 ลบกติกาแล้ว', 'success')

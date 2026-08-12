@@ -157,7 +157,7 @@ export default async function RecallManagementPage(container) {
     container.querySelectorAll('.del-recall-btn').forEach(b => b.addEventListener('click', async e => { e.stopPropagation()
       const r = recalls.find(x => x.id === b.dataset.id)
       if (!r) return
-      if (!await confirmDialog({ title: 'ลบ Recall Campaign', message: `ลบ "${r.title}" (${r.recallNo})? รถที่อยู่ในแคมเปญนี้จะถูกลบไปด้วย — การลบนี้ไม่สามารถย้อนกลับได้`, confirmText: 'ลบ', danger: true })) return
+      if (!await confirmDialog({ title: 'ลบ Recall Campaign', message: `ลบ "${escHtml(r.title)}" (${escHtml(r.recallNo)})? รถที่อยู่ในแคมเปญนี้จะถูกลบไปด้วย — การลบนี้ไม่สามารถย้อนกลับได้`, confirmText: 'ลบ', danger: true })) return
       try {
         await Promise.all(vehicles.filter(v => v.recallId === r.id).map(v => softDelete('recall_campaign_vehicles', v.id)))
         await softDelete('recall_campaigns', r.id)
