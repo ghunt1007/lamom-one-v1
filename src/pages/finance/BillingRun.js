@@ -84,7 +84,7 @@ export default async function BillingRunPage(container) {
         </div>
 
         <div class="card" style="padding:0;overflow:hidden">
-          <table class="table">
+          <div class="table-wrap"><table class="table">
             <thead><tr><th>เลขที่วางบิล</th><th>ลูกค้า</th><th>จำนวนใบแจ้งหนี้</th><th>วันที่วางบิล</th><th>กำหนดชำระ</th><th class="text-right">ยอดรวม</th><th>สถานะ</th><th></th></tr></thead>
             <tbody>
               ${list.map(r => {
@@ -107,7 +107,7 @@ export default async function BillingRunPage(container) {
               }).join('')}
               ${!list.length ? `<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text-muted)">ไม่พบรายการ</td></tr>` : ''}
             </tbody>
-          </table>
+          </table></div>
         </div>
       </div>
     `

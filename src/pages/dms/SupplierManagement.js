@@ -145,7 +145,7 @@ export default async function SupplierManagementPage(container) {
       </div>
 
       <div class="card" style="padding:0;overflow:hidden">
-        <table class="table">
+        <div class="table-wrap"><table class="table">
           <thead><tr><th>ซัพพลายเออร์</th><th>หมวด</th><th>ผู้ติดต่อ</th><th>เทอม</th><th>วงเครดิต</th><th>ยอดรวม</th><th>Rating</th><th>สถานะ</th><th></th></tr></thead>
           <tbody>
             ${list.map(s => {
@@ -177,7 +177,7 @@ export default async function SupplierManagementPage(container) {
             }).join('')}
             ${!list.length ? `<tr><td colspan="9" style="text-align:center;padding:32px;color:var(--text-muted)">ไม่พบข้อมูล</td></tr>` : ''}
           </tbody>
-        </table>
+        </table></div>
       </div>
     `
   }
@@ -188,7 +188,7 @@ export default async function SupplierManagementPage(container) {
         <button class="btn btn-primary" id="add-po-btn">+ สร้าง PO ใหม่</button>
       </div>
       <div class="card" style="padding:0;overflow:hidden">
-        <table class="table">
+        <div class="table-wrap"><table class="table">
           <thead><tr><th>PO#</th><th>ซัพพลายเออร์</th><th>วันที่</th><th>กำหนดรับ</th><th>จำนวนรายการ</th><th>มูลค่ารวม</th><th>สถานะ</th><th></th></tr></thead>
           <tbody>
             ${pos.map(p => {
@@ -211,7 +211,7 @@ export default async function SupplierManagementPage(container) {
               </tr>`
             }).join('')}
           </tbody>
-        </table>
+        </table></div>
       </div>
     `
   }

@@ -217,7 +217,7 @@ export default async function KpiManagementPage(container) {
   function renderDetail(scores) {
     return `
       <div class="card" style="padding:0;overflow:hidden">
-        <table class="table">
+        <div class="table-wrap"><table class="table">
           <thead>
             <tr>
               <th>พนักงาน</th>
@@ -241,7 +241,7 @@ export default async function KpiManagementPage(container) {
               </tr>`
             }).join('')}
           </tbody>
-        </table>
+        </table></div>
       </div>
     `
   }

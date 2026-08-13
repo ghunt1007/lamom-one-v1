@@ -153,7 +153,7 @@ export default async function LeavePage(container) {
     if (!filtered.length) return `<div class="empty-state"><div class="empty-icon">🏖</div><div class="empty-title">ไม่มีคำขอลา</div></div>`
     return `
       <div class="card" style="padding:0;overflow:hidden">
-        <table class="table">
+        <div class="table-wrap"><table class="table">
           <thead><tr><th>พนักงาน</th><th>ประเภท</th><th>วันที่</th><th>จำนวน</th><th>เหตุผล</th><th>สถานะ</th><th></th></tr></thead>
           <tbody>
             ${filtered.map(l => {
@@ -177,7 +177,7 @@ export default async function LeavePage(container) {
               </tr>`
             }).join('')}
           </tbody>
-        </table>
+        </table></div>
       </div>
     `
   }
@@ -186,7 +186,7 @@ export default async function LeavePage(container) {
     const staffNames = [...new Set(leaves.map(l => l.staff))]
     return `
       <div class="card" style="padding:0;overflow:hidden">
-        <table class="table">
+        <div class="table-wrap"><table class="table">
           <thead><tr><th>พนักงาน</th>${Object.entries(LEAVE_TYPES).slice(0,4).map(([,v]) => `<th class="text-center">${v.label}</th>`).join('')}<th class="text-center">รวมที่ใช้</th></tr></thead>
           <tbody>
             ${staffNames.map(name => {
@@ -201,7 +201,7 @@ export default async function LeavePage(container) {
               </tr>`
             }).join('')}
           </tbody>
-        </table>
+        </table></div>
       </div>
     `
   }

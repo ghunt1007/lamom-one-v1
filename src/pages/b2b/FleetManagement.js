@@ -146,7 +146,7 @@ export default async function FleetManagementPage(container) {
         ${vehicles.length ? `
           <div style="font-size:0.78rem;font-weight:700;margin-bottom:8px">รายการรถในกอง</div>
           <div class="card" style="padding:0;overflow:hidden">
-            <table class="table">
+            <div class="table-wrap"><table class="table">
               <thead><tr><th>รุ่น</th><th class="text-right">จำนวน</th><th class="text-right">ราคา/คัน</th><th class="text-right">รวม</th></tr></thead>
               <tbody>
                 ${vehicles.map(v => `<tr>
@@ -159,7 +159,7 @@ export default async function FleetManagementPage(container) {
               <tfoot>
                 <tr><td colspan="3" style="font-weight:800;padding:8px 12px">รวม</td><td class="text-right" style="font-weight:800;color:var(--success)">${formatCurrency(vehicles.reduce((a,v)=>a+v.qty*v.unitPrice,0))}</td></tr>
               </tfoot>
-            </table>
+            </table></div>
           </div>
         ` : ''}
         ${f.notes ? `<div style="margin-top:12px;padding:10px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:0.82rem">📌 ${escHtml(f.notes)}</div>` : ''}

@@ -134,7 +134,7 @@ export default async function QuotationBuilderPage(container) {
         </div>
 
         <div class="card" style="padding:0;overflow:hidden">
-          <table class="table">
+          <div class="table-wrap"><table class="table">
             <thead><tr><th>เลขที่</th><th>ลูกค้า</th><th>รถ</th><th class="text-right">ราคาสุทธิ</th><th class="text-right">ดาวน์</th><th class="text-right">ผ่อน/เดือน</th><th>วันหมดอายุ</th><th>สถานะ</th><th></th></tr></thead>
             <tbody>
               ${list.map(q => {
@@ -167,7 +167,7 @@ export default async function QuotationBuilderPage(container) {
               }).join('')}
               ${!list.length ? `<tr><td colspan="9" style="text-align:center;padding:32px;color:var(--text-muted)">ไม่พบใบเสนอราคา</td></tr>` : ''}
             </tbody>
-          </table>
+          </table></div>
         </div>
       </div>
     `

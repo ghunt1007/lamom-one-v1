@@ -204,7 +204,7 @@ export default async function PayrollPage(container) {
 
         <!-- Table -->
         <div class="card" style="padding:0;overflow:hidden">
-          <table class="table">
+          <div class="table-wrap"><table class="table">
             <thead>
               <tr>
                 <th>พนักงาน</th>
@@ -234,7 +234,7 @@ export default async function PayrollPage(container) {
                 <td colspan="2"></td>
               </tr>
             </tfoot>
-          </table>
+          </table></div>
         </div>
       </div>
     `

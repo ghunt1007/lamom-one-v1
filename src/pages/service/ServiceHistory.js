@@ -95,7 +95,7 @@ export default async function ServiceHistoryPage(container) {
         </div>
 
         <div class="card" style="padding:0;overflow:hidden">
-          <table class="table">
+          <div class="table-wrap"><table class="table">
             <thead><tr><th>รหัส</th><th>ลูกค้า / รถ</th><th>ประเภท</th><th>วันที่</th><th>ช่าง</th><th>ค่าใช้จ่าย</th><th>สถานะ</th><th></th></tr></thead>
             <tbody>
               ${list.map(r => {
@@ -127,7 +127,7 @@ export default async function ServiceHistoryPage(container) {
               }).join('')}
               ${!list.length ? `<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text-muted)">ไม่พบรายการ</td></tr>` : ''}
             </tbody>
-          </table>
+          </table></div>
         </div>
       </div>
     `

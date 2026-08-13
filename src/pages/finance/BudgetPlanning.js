@@ -303,7 +303,7 @@ export default async function BudgetPlanningPage(container) {
         <div style="display:grid;grid-template-columns:1fr 320px;gap:16px">
           <!-- Detailed table -->
           <div class="card" style="padding:0;overflow:hidden">
-            <table class="table">
+            <div class="table-wrap"><table class="table">
               <thead><tr><th>รายการ</th><th class="text-right">Budget</th><th class="text-right">Actual</th><th class="text-right">+/-</th><th class="text-right">%</th></tr></thead>
               <tbody>
                 ${Object.entries(CATEGORIES).map(([cat, catInfo]) => `
@@ -326,7 +326,7 @@ export default async function BudgetPlanningPage(container) {
                   }).join('')}
                 `).join('')}
               </tbody>
-            </table>
+            </table></div>
           </div>
 
           <!-- Summary card -->

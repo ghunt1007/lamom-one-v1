@@ -168,7 +168,7 @@ export default async function ExpenseClaimsPage(container) {
         </div>
       </div>
       <div class="card" style="padding:0;overflow:hidden">
-        <table class="table">
+        <div class="table-wrap"><table class="table">
           <thead><tr><th>วันที่</th><th>พนักงาน</th><th>หมวด</th><th>รายละเอียด</th><th class="text-right">จำนวน</th><th>ใบเสร็จ</th><th>สถานะ</th><th></th></tr></thead>
           <tbody>
             ${filtered.map(c => {
@@ -192,7 +192,7 @@ export default async function ExpenseClaimsPage(container) {
             }).join('')}
             ${!filtered.length ? `<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text-muted)">ไม่มีรายการ</td></tr>` : ''}
           </tbody>
-        </table>
+        </table></div>
       </div>
     `
   }

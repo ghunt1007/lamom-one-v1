@@ -360,7 +360,7 @@ export default async function AnalyticsDashboard(container) {
     return `
       <div class="card" style="padding:0;overflow:hidden">
         <div style="padding:16px 20px;font-weight:700;border-bottom:1px solid var(--border)">🏆 Staff Performance ${YEAR}${dataSource !== 'live' ? ' (ตัวอย่างข้อมูล)' : ''}</div>
-        <table class="table">
+        <div class="table-wrap"><table class="table">
           <thead>
             <tr>
               <th>อันดับ</th><th>พนักงาน</th>
@@ -388,7 +388,7 @@ export default async function AnalyticsDashboard(container) {
               </tr>`
             }).join('')}
           </tbody>
-        </table>
+        </table></div>
       </div>
     `
   }

@@ -75,7 +75,7 @@ export default async function WithholdingTaxPage(container) {
         </div>
 
         <div class="card" style="padding:0;overflow:hidden">
-          <table class="table">
+          <div class="table-wrap"><table class="table">
             <thead><tr><th>เลขที่</th><th>ผู้รับเงิน</th><th>ประเภทเงินได้</th><th>วันที่จ่าย</th><th class="text-right">จำนวนเงิน</th><th class="text-right">อัตรา</th><th class="text-right">ภาษีหัก</th><th></th></tr></thead>
             <tbody>
               ${list.map(c => `<tr>
@@ -90,7 +90,7 @@ export default async function WithholdingTaxPage(container) {
               </tr>`).join('')}
               ${!list.length ? `<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text-muted)">ไม่พบรายการ</td></tr>` : ''}
             </tbody>
-          </table>
+          </table></div>
         </div>
       </div>
     `

@@ -115,7 +115,7 @@ export default async function TestDrivePage(container) {
 
         <!-- Table -->
         <div class="card" style="padding:0;overflow:hidden">
-          <table class="table">
+          <div class="table-wrap"><table class="table">
             <thead><tr><th>ลูกค้า</th><th>รถที่ Test Drive</th><th>วันที่/เวลา</th><th>Sales</th><th>สถานะ</th><th>ผลลัพธ์</th><th></th></tr></thead>
             <tbody>
               ${filtered.length ? filtered.map(t => {
@@ -140,7 +140,7 @@ export default async function TestDrivePage(container) {
                 </tr>`
               }).join('') : `<tr><td colspan="7"><div class="empty-state" style="padding:32px"><div class="empty-icon">🚗</div><div class="empty-title">ไม่มีรายการ</div></div></td></tr>`}
             </tbody>
-          </table>
+          </table></div>
         </div>
       </div>
     `

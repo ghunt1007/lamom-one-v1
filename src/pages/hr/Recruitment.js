@@ -162,7 +162,7 @@ export default async function RecruitmentPage(container) {
   function renderApplicants() {
     return `
       <div class="card" style="padding:0;overflow:hidden">
-        <table class="table">
+        <div class="table-wrap"><table class="table">
           <thead><tr><th>ชื่อ</th><th>ตำแหน่งที่สมัคร</th><th>วันที่สมัคร</th><th>คะแนน</th><th>สถานะ</th><th>การจัดการ</th></tr></thead>
           <tbody>
             ${applicants.map(a => {
@@ -190,7 +190,7 @@ export default async function RecruitmentPage(container) {
             }).join('')}
             ${!applicants.length ? `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted)">ไม่มีใบสมัคร</td></tr>` : ''}
           </tbody>
-        </table>
+        </table></div>
       </div>
     `
   }

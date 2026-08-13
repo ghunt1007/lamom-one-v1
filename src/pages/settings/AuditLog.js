@@ -91,7 +91,7 @@ export default async function AuditLogPage(container) {
         </div>
 
         <div class="card" style="padding:0;overflow:hidden">
-          <table class="table">
+          <div class="table-wrap"><table class="table">
             <thead><tr><th>เวลา</th><th>ผู้ใช้</th><th>Action</th><th>Module</th><th>Resource</th><th>รายละเอียด</th><th>IP</th></tr></thead>
             <tbody>
               ${list.map(l => {
@@ -115,7 +115,7 @@ export default async function AuditLogPage(container) {
               }).join('')}
               ${!list.length ? `<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)">ไม่พบ Log</td></tr>` : ''}
             </tbody>
-          </table>
+          </table></div>
         </div>
         <div style="font-size:0.75rem;color:var(--text-muted);margin-top:8px;text-align:right">แสดง ${list.length} จาก ${logs.length} รายการ</div>
       </div>

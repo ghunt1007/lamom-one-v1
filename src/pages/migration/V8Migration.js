@@ -171,7 +171,7 @@ export default async function V8MigrationPage(container) {
               <div style="font-size:0.75rem;color:var(--text-muted)">เรคคอร์ดจริงจากไฟล์</div>
             </div>
           </div>
-          <table class="table" style="font-size:0.83rem">
+          <div class="table-wrap"><table class="table" style="font-size:0.83rem">
             <thead><tr><th>Collection</th><th>V8 Table</th><th class="text-right">เรคคอร์ด</th></tr></thead>
             <tbody>
               ${selected.map(id => `<tr>
@@ -180,7 +180,7 @@ export default async function V8MigrationPage(container) {
                 <td class="text-right">${parsedCollections[id].records.length}</td>
               </tr>`).join('')}
             </tbody>
-          </table>
+          </table></div>
         </div>
 
         <div class="card" style="padding:16px;background:var(--warning-dim);border:1px solid var(--warning)">

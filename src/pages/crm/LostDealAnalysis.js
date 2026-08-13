@@ -205,7 +205,7 @@ export default async function LostDealAnalysisPage(container) {
 
         <!-- Deal List -->
         <div class="card" style="padding:0;overflow:hidden">
-          <table class="table">
+          <div class="table-wrap"><table class="table">
             <thead><tr><th>ลูกค้า</th><th>สนใจรุ่น</th><th>งบ</th><th>เซลส์</th><th>สาเหตุ</th><th>ไปซื้อที่ไหน</th><th>วันที่เสีย</th></tr></thead>
             <tbody>
               ${filtered.map(d => {
@@ -225,7 +225,7 @@ export default async function LostDealAnalysisPage(container) {
               }).join('')}
               ${!filtered.length ? `<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)">ไม่มีข้อมูล</td></tr>` : ''}
             </tbody>
-          </table>
+          </table></div>
         </div>
 
         <!-- Insights box -->

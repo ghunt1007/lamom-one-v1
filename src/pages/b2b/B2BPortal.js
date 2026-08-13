@@ -153,7 +153,7 @@ export default async function B2BPortalPage(container) {
     if (!allDeals.length) return `<div class="empty-state"><div class="empty-icon">💼</div><div class="empty-title">ยังไม่มี Deal</div></div>`
     return `
       <div class="card" style="padding:0;overflow:hidden">
-        <table class="table">
+        <div class="table-wrap"><table class="table">
           <thead><tr><th>พาร์ทเนอร์</th><th>Deal</th><th class="text-right">คัน</th><th class="text-right">มูลค่า</th><th>สถานะ</th></tr></thead>
           <tbody>
             ${allDeals.map(d => {
@@ -168,7 +168,7 @@ export default async function B2BPortalPage(container) {
               </tr>`
             }).join('')}
           </tbody>
-        </table>
+        </table></div>
       </div>
     `
   }

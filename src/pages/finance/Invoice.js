@@ -138,7 +138,7 @@ export default async function InvoicePage(container) {
 
         <!-- Table -->
         <div class="card" style="padding:0;overflow:hidden">
-          <table class="table">
+          <div class="table-wrap"><table class="table">
             <thead><tr><th>เลขที่</th><th>ประเภท</th><th>ลูกค้า</th><th>วันที่</th><th>ครบกำหนด</th><th class="text-right">มูลค่า</th><th>สถานะ</th><th></th></tr></thead>
             <tbody>
               ${filtered.map(d => {
@@ -163,7 +163,7 @@ export default async function InvoicePage(container) {
               }).join('')}
               ${!filtered.length ? `<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text-muted)">ไม่มีเอกสาร</td></tr>` : ''}
             </tbody>
-          </table>
+          </table></div>
         </div>
       </div>
     `

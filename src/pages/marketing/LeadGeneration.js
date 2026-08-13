@@ -129,7 +129,7 @@ export default async function LeadGenerationPage(container) {
         ${Object.entries(CAMPAIGN_STATUS).map(([k,v]) => `<button class="btn btn-sm ${statusFilter===k?'btn-'+v.color:'btn-secondary'} sf-btn" data-s="${k}">${v.label}</button>`).join('')}
       </div>
       <div class="card" style="padding:0;overflow:hidden">
-        <table class="table">
+        <div class="table-wrap"><table class="table">
           <thead><tr><th>แคมเปญ</th><th>ช่องทาง</th><th>งบ/ใช้ไป</th><th class="text-right">Leads</th><th class="text-right">Qualified</th><th class="text-right">ปิดได้</th><th class="text-right">CPL</th><th class="text-right">CPA</th><th>สถานะ</th><th></th></tr></thead>
           <tbody>
             ${list.map(c => {
@@ -158,7 +158,7 @@ export default async function LeadGenerationPage(container) {
               </tr>`
             }).join('')}
           </tbody>
-        </table>
+        </table></div>
       </div>
     </div>`
   }

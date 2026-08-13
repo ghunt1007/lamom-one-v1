@@ -85,7 +85,7 @@ export default async function PartsOrderPage(container) {
         </div>
 
         <div class="card" style="padding:0;overflow:hidden">
-          <table class="table">
+          <div class="table-wrap"><table class="table">
             <thead><tr><th>PO</th><th>ซัพพลายเออร์</th><th>วันที่สร้าง</th><th>กำหนดรับ</th><th>รายการ</th><th>มูลค่า</th><th>สถานะ</th><th></th></tr></thead>
             <tbody>
               ${list.map(o => {
@@ -114,7 +114,7 @@ export default async function PartsOrderPage(container) {
               }).join('')}
               ${!list.length ? `<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text-muted)">ไม่พบรายการ</td></tr>` : ''}
             </tbody>
-          </table>
+          </table></div>
         </div>
       </div>
     `
@@ -170,7 +170,7 @@ export default async function PartsOrderPage(container) {
         </div>
         <div style="font-size:0.78rem;font-weight:700;margin-bottom:8px">รายการอะไหล่</div>
         <div class="card" style="padding:0;overflow:hidden">
-          <table class="table">
+          <div class="table-wrap"><table class="table">
             <thead><tr><th>Part No.</th><th>รายการ</th><th>หมวด</th><th class="text-right">จำนวน</th><th class="text-right">ราคา/หน่วย</th><th class="text-right">รวม</th><th class="text-right">รับแล้ว</th></tr></thead>
             <tbody>
               ${o.items.map(i => `<tr>
@@ -189,7 +189,7 @@ export default async function PartsOrderPage(container) {
                 <td class="text-right" style="font-weight:800;color:var(--success)">${formatCurrency(o.total)}</td><td></td>
               </tr>
             </tfoot>
-          </table>
+          </table></div>
         </div>
       `,
       footer: ['ordered','partial'].includes(o.status) ? `<button class="btn btn-success receive-modal-btn">📦 รับสินค้า</button>` : o.status === 'pending' ? `<button class="btn btn-primary approve-modal-btn">✓ อนุมัติ</button>` : ''

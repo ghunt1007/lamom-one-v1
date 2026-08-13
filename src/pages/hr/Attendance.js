@@ -220,7 +220,7 @@ export default async function AttendancePage(container) {
         <input type="month" class="input" id="view-month" value="${viewMonth}" style="width:160px">
       </div>
       <div class="card" style="padding:0;overflow:hidden">
-        <table class="table">
+        <div class="table-wrap"><table class="table">
           <thead><tr><th>วันที่</th>${activeStaff.map(s=>`<th style="text-align:center;font-size:0.78rem">${escHtml(s.name.split(' ')[0])}</th>`).join('')}</tr></thead>
           <tbody>
             ${monthRecs.map(([date, recs]) => `
@@ -235,7 +235,7 @@ export default async function AttendancePage(container) {
               </tr>
             `).join('')}
           </tbody>
-        </table>
+        </table></div>
       </div>
     `
   }

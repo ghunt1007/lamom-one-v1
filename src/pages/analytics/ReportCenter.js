@@ -270,7 +270,7 @@ export default async function ReportCenterPage(container) {
 
         <!-- Data table -->
         <div class="card" style="padding:0;overflow:hidden;overflow-x:auto">
-          <table class="table">
+          <div class="table-wrap"><table class="table">
             <thead>
               <tr>${r.fields.map(f => `<th>${f}</th>`).join('')}</tr>
             </thead>
@@ -282,7 +282,7 @@ export default async function ReportCenterPage(container) {
               }).join('')}</tr>`).join('')}
               ${!data.length ? `<tr><td colspan="${r.fields.length}" style="text-align:center;padding:32px;color:var(--text-muted)">ไม่มีข้อมูลในช่วงที่เลือก</td></tr>` : ''}
             </tbody>
-          </table>
+          </table></div>
         </div>
 
         <!-- Bar chart (simple HTML) -->

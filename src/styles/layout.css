@@ -365,6 +365,10 @@
   box-shadow: 0 24px 80px rgba(0,0,0,0.5);
   display: flex; flex-direction: column;
   max-height: calc(100vh - 32px);
+  /* .modal-sm/md/lg/xl กำหนด width เป็นพิกเซลตายตัว (400-980px) ไม่มี max-width มาก่อนเลย — บนจอมือถือ
+     (375px ทั่วไป) แม้แต่ modal-sm (400px) ก็กว้างกว่าทั้งจอ ทำให้ทุก modal ในระบบ (ใช้ผ่าน openModal()
+     ซ้ำกันหลายร้อยจุดทั่วแอป — ฟอร์มเพิ่ม/แก้ไขข้อมูลแทบทุกหน้า) ล้นขอบจอ กดปุ่มด้านขวา/ปิดไม่ได้บนมือถือ */
+  max-width: calc(100vw - 32px);
   animation: modalIn 200ms cubic-bezier(0.34,1.56,0.64,1);
 }
 .modal-sm { width: 400px; }
@@ -391,6 +395,7 @@
   padding: 16px 24px 20px; border-top: 1px solid var(--border);
   display: flex; align-items: center; justify-content: flex-end; gap: 8px;
   flex-shrink: 0;
+  flex-wrap: wrap;
 }
 
 /* ── Responsive ── */

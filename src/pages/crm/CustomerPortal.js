@@ -371,7 +371,7 @@ export default async function CustomerPortalPage(container) {
   function renderDocs(c) {
     if (!c.documents.length) return `<div class="empty-state" style="padding:36px"><div class="empty-icon">📄</div><div class="empty-title">ยังไม่มีเอกสาร</div></div>`
     return `<div class="card" style="padding:0;overflow:hidden">
-      <table class="table">
+      <div class="table-wrap"><table class="table">
         <thead><tr><th>เลขที่</th><th>ประเภท</th><th>วันที่</th><th class="text-right">จำนวน</th><th>สถานะ</th><th></th></tr></thead>
         <tbody>
           ${c.documents.map(d => `<tr>
@@ -383,7 +383,7 @@ export default async function CustomerPortalPage(container) {
             <td><button class="btn btn-xs btn-secondary dl-btn" data-id="${d.id}">📥</button></td>
           </tr>`).join('')}
         </tbody>
-      </table>
+      </table></div>
     </div>`
   }
 

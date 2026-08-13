@@ -174,7 +174,7 @@ export default async function SalesForecastPage(container) {
 
         <!-- Detailed table -->
         <div class="card" style="padding:0;overflow:hidden;overflow-x:auto">
-          <table class="table">
+          <div class="table-wrap"><table class="table">
             <thead>
               <tr>
                 <th>เดือน</th><th>ประเภท</th>
@@ -214,7 +214,7 @@ export default async function SalesForecastPage(container) {
                 <td></td>
               </tr>
             </tfoot>
-          </table>
+          </table></div>
         </div>
 
         <!-- Insight box -->

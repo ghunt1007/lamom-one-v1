@@ -162,7 +162,7 @@ export default async function PLPage(container) {
 
         <!-- Detail Table -->
         <div class="card" style="padding:0;overflow:hidden">
-          <table class="table">
+          <div class="table-wrap"><table class="table">
             <thead>
               <tr>
                 <th>ช่วงเวลา</th>
@@ -202,7 +202,7 @@ export default async function PLPage(container) {
                 <td class="text-right"><span class="badge badge-${tc.net>=0?'success':'danger'}">${tc.netPct}%</span></td>
               </tr>
             </tfoot>
-          </table>
+          </table></div>
         </div>
       </div>
     `

@@ -150,7 +150,7 @@ export default async function PerformancePage(container) {
 
         <!-- Summary table -->
         <div class="card" style="padding:0;overflow:hidden">
-          <table class="table">
+          <div class="table-wrap"><table class="table">
             <thead><tr><th>พนักงาน</th><th>แผนก</th><th>KPI</th><th>พฤติกรรม</th><th>เข้างาน</th><th>รวม</th><th>ระดับ</th><th>ปรับเงินเดือน</th><th></th></tr></thead>
             <tbody>
               ${list.map(e => {
@@ -172,7 +172,7 @@ export default async function PerformancePage(container) {
                 </tr>`
               }).join('')}
             </tbody>
-          </table>
+          </table></div>
         </div>
       </div>
     `

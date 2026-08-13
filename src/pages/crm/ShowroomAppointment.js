@@ -196,7 +196,7 @@ export default async function ShowroomAppointmentPage(container) {
 
   function renderTable(list) {
     return `<div class="card" style="padding:0;overflow:hidden">
-      <table class="table">
+      <div class="table-wrap"><table class="table">
         <thead><tr><th>วันที่/เวลา</th><th>ลูกค้า</th><th>วัตถุประสงค์</th><th>รุ่นที่สนใจ</th><th>เซลส์</th><th>สถานะ</th><th></th></tr></thead>
         <tbody>
           ${list.map(a => {
@@ -219,7 +219,7 @@ export default async function ShowroomAppointmentPage(container) {
           }).join('')}
           ${!list.length ? `<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)">ไม่มีนัดหมาย</td></tr>` : ''}
         </tbody>
-      </table>
+      </table></div>
     </div>`
   }
 

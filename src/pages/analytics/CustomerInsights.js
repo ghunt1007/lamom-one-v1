@@ -242,7 +242,7 @@ export default async function CustomerInsightsPage(container) {
           `).join('')}
         </div>
         <div class="card" style="padding:0;overflow:hidden">
-          <table class="table">
+          <div class="table-wrap"><table class="table">
             <thead><tr><th>แหล่งที่มา</th><th class="text-right">Leads</th><th class="text-right">สัดส่วน</th><th class="text-right">ค่าใช้จ่าย</th><th class="text-right">CPA</th></tr></thead>
             <tbody>
               ${srcData.map(s => `<tr>
@@ -260,7 +260,7 @@ export default async function CustomerInsightsPage(container) {
                 <td></td>
               </tr>
             </tbody>
-          </table>
+          </table></div>
         </div>
       </div>
     `
@@ -271,7 +271,7 @@ export default async function CustomerInsightsPage(container) {
     return `
       ${liveTopBuyers ? '<div style="margin-bottom:8px;font-size:0.78rem;color:var(--success)">● ข้อมูลจริงจากใบจอง</div>' : '<div style="margin-bottom:8px;font-size:0.78rem;color:var(--text-muted)">Demo</div>'}
       <div class="card" style="padding:0;overflow:hidden">
-        <table class="table">
+        <div class="table-wrap"><table class="table">
           <thead><tr><th>#</th><th>ชื่อลูกค้า</th><th>ประเภท</th><th class="text-right">จำนวนซื้อ</th><th class="text-right">มูลค่ารวม</th><th>Tier</th><th>ล่าสุด</th></tr></thead>
           <tbody>
             ${topList.map((c, i) => {
@@ -287,7 +287,7 @@ export default async function CustomerInsightsPage(container) {
               </tr>`
             }).join('')}
           </tbody>
-        </table>
+        </table></div>
       </div>
     `
   }

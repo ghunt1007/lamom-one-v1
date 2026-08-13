@@ -214,7 +214,7 @@ export default async function TaxReportPage(container) {
         ${Object.entries(FILING_STATUS).map(([k,v]) => `<button class="btn btn-sm ${filingFilter===k?'btn-'+v.color:'btn-secondary'} ff-btn" data-f="${k}">${v.label}</button>`).join('')}
       </div>
       <div class="card" style="padding:0;overflow:hidden">
-        <table class="table">
+        <div class="table-wrap"><table class="table">
           <thead><tr><th>รหัส</th><th>ประเภท</th><th>งวด</th><th>ครบกำหนด</th><th>ฐานภาษี</th><th>ภาษี</th><th>สถานะ</th><th></th></tr></thead>
           <tbody>
             ${filings.map(f => {
@@ -243,7 +243,7 @@ export default async function TaxReportPage(container) {
             }).join('')}
             ${!filings.length ? `<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text-muted)">ไม่พบรายการ</td></tr>` : ''}
           </tbody>
-        </table>
+        </table></div>
       </div>
     </div>`
   }
@@ -261,7 +261,7 @@ export default async function TaxReportPage(container) {
         ${kpi(netVat >= 0 ? '💸 ภาษีที่ต้องชำระ' : '💰 ขอคืน', formatCurrency(Math.abs(netVat)), netVat >= 0 ? 'danger' : 'success')}
       </div>
       <div class="card" style="padding:0;overflow:hidden">
-        <table class="table">
+        <div class="table-wrap"><table class="table">
           <thead><tr><th>เลขใบกำกับ</th><th>คู่ค้า</th><th>วันที่</th><th>ประเภท</th><th>มูลค่า</th><th>VAT</th><th>WHT</th></tr></thead>
           <tbody>
             ${invoices.map(i => `<tr>
@@ -275,7 +275,7 @@ export default async function TaxReportPage(container) {
             </tr>`).join('')}
             ${!invoices.length ? `<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)">ไม่พบรายการ</td></tr>` : ''}
           </tbody>
-        </table>
+        </table></div>
       </div>`
   }
 

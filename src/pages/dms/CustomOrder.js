@@ -141,7 +141,7 @@ export default async function CustomOrderPage(container) {
       </table>
 
       <div style="font-size:0.78rem;font-weight:700;margin-bottom:6px">🎨 รายการสั่งแต่ง</div>
-      <div style="overflow:hidden;border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:8px">
+      <div style="overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:8px">
         <table class="table" style="width:100%">
           <thead><tr><th>รายการ</th><th class="text-right">จำนวน</th><th class="text-right">ราคา/หน่วย</th><th class="text-right">รวม</th></tr></thead>
           <tbody>

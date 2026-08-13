@@ -201,7 +201,7 @@ export default async function WarrantyManagementPage(container) {
       </div>
 
       <div class="card" style="padding:0;overflow:hidden">
-        <table class="table">
+        <div class="table-wrap"><table class="table">
           <thead><tr>
             <th>รหัส</th><th>ลูกค้า</th><th>รถ</th><th>ประเภท</th>
             <th>วันหมดอายุ</th><th>เหลือ</th><th>เคลม</th><th>สถานะ</th><th>การจัดการ</th>
@@ -239,7 +239,7 @@ export default async function WarrantyManagementPage(container) {
             }).join('')}
             ${!list.length ? `<tr><td colspan="9" style="text-align:center;padding:32px;color:var(--text-muted)">ไม่พบข้อมูล</td></tr>` : ''}
           </tbody>
-        </table>
+        </table></div>
       </div>
     `
   }
@@ -247,7 +247,7 @@ export default async function WarrantyManagementPage(container) {
   function renderClaims() {
     return `
       <div class="card" style="padding:0;overflow:hidden">
-        <table class="table">
+        <div class="table-wrap"><table class="table">
           <thead><tr>
             <th>รหัส</th><th>ลูกค้า</th><th>ทะเบียน</th><th>วันที่</th><th>ปัญหา</th><th>ค่าใช้จ่าย</th><th>คุ้มครอง</th><th>สถานะ</th><th>การจัดการ</th>
           </tr></thead>
@@ -273,7 +273,7 @@ export default async function WarrantyManagementPage(container) {
               </tr>`
             }).join('')}
           </tbody>
-        </table>
+        </table></div>
       </div>
     `
   }

@@ -250,7 +250,7 @@ export default async function CompanyKpiPage(container) {
               <span class="badge badge-${scoreLabel(score).color}">${score!=null ? score+'% • '+scoreLabel(score).label : 'เป้าหมายอ้างอิง — ยังไม่เชื่อมข้อมูลจริง'}</span>
             </div>
             <div class="card" style="padding:0;overflow:hidden">
-              <table class="table">
+              <div class="table-wrap"><table class="table">
                 <thead><tr><th>ตัวชี้วัด</th><th class="text-right">เป้าหมาย</th><th class="text-right">${info.hasRealData ? 'ผลจริง' : 'อ้างอิง (ยังไม่มีข้อมูลจริง)'}</th><th class="text-right">% บรรลุ</th><th>แนวโน้ม</th><th>สถานะ</th></tr></thead>
                 <tbody>
                   ${info.kpis.map(k => {
@@ -280,7 +280,7 @@ export default async function CompanyKpiPage(container) {
                     </tr>`
                   }).join('')}
                 </tbody>
-              </table>
+              </table></div>
             </div>
           </div>`
         }).join('')}

@@ -189,7 +189,7 @@ export default async function CustomerLoyaltyPage(container) {
         <span style="font-size:0.82rem;color:var(--text-muted);margin-left:auto">${list.length} สมาชิก</span>
       </div>
       <div class="card" style="padding:0;overflow:hidden">
-        <table class="table">
+        <div class="table-wrap"><table class="table">
           <thead><tr><th>สมาชิก</th><th>รถ</th><th>คะแนนสะสม</th><th>ระดับ</th><th>เป้าถัดไป</th><th>ยอดซื้อรวม</th><th>กิจกรรมล่าสุด</th><th></th></tr></thead>
           <tbody>
             ${list.map(m => {
@@ -219,7 +219,7 @@ export default async function CustomerLoyaltyPage(container) {
               </tr>`
             }).join('')}
           </tbody>
-        </table>
+        </table></div>
       </div>
     `
   }
@@ -230,7 +230,7 @@ export default async function CustomerLoyaltyPage(container) {
     }
     return `
       <div class="card" style="padding:0;overflow:hidden">
-        <table class="table">
+        <div class="table-wrap"><table class="table">
           <thead><tr><th>สมาชิก</th><th>วันที่</th><th>รายการ</th><th class="text-right">คะแนน</th><th class="text-right">ยอดคงเหลือ</th></tr></thead>
           <tbody>
             ${history.map(h => {
@@ -246,7 +246,7 @@ export default async function CustomerLoyaltyPage(container) {
               </tr>`
             }).join('')}
           </tbody>
-        </table>
+        </table></div>
       </div>
     `
   }

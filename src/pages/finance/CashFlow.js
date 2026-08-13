@@ -222,7 +222,7 @@ export default async function CashFlowPage(container) {
           ${['all','income','expense'].map(t => `<button class="btn btn-sm ${showType===t?'btn-primary':'btn-secondary'} cf-type-btn" data-t="${t}">${{all:'ทั้งหมด',income:'💰 รายรับ',expense:'💸 รายจ่าย'}[t]}</button>`).join('')}
         </div>
         <div class="card" style="padding:0;overflow:hidden">
-          <table class="table">
+          <div class="table-wrap"><table class="table">
             <thead><tr><th>วันที่</th><th>ประเภท</th><th>รายการ</th><th class="text-right">รายรับ</th><th class="text-right">รายจ่าย</th><th class="text-right">ยอดคงเหลือ</th>${canManage ? '<th></th>' : ''}</tr></thead>
             <tbody>
               <tr style="background:var(--surface-2)">
@@ -254,7 +254,7 @@ export default async function CashFlowPage(container) {
                 ${canManage ? '<td></td>' : ''}
               </tr>
             </tfoot>
-          </table>
+          </table></div>
         </div>
       </div>
     `

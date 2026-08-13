@@ -172,7 +172,7 @@ export default async function StockValuationPage(container) {
   function renderTable(list) {
     return `
       <div class="card" style="padding:0;overflow:hidden;overflow-x:auto">
-        <table class="table">
+        <div class="table-wrap"><table class="table">
           <thead>
             <tr>
               <th>ID</th><th>รถ</th><th>สี / VIN</th><th>สาขา</th>
@@ -220,7 +220,7 @@ export default async function StockValuationPage(container) {
               <td colspan="3"></td>
             </tr>
           </tfoot>
-        </table>
+        </table></div>
       </div>
     `
   }

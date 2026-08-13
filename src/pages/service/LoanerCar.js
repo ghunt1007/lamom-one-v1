@@ -152,7 +152,7 @@ export default async function LoanerCarPage(container) {
   function renderLoans() {
     const sorted = [...loans].sort((a, b) => b.loanDate.localeCompare(a.loanDate))
     return `<div class="card" style="padding:0;overflow:hidden">
-      <table class="table">
+      <div class="table-wrap"><table class="table">
         <thead><tr><th>ลูกค้า</th><th>รถสำรอง</th><th>Job Card</th><th>วันยืม</th><th>กำหนดคืน</th><th>สถานะ</th><th></th></tr></thead>
         <tbody>
           ${sorted.map(l => {
@@ -171,7 +171,7 @@ export default async function LoanerCarPage(container) {
             </tr>`
           }).join('')}
         </tbody>
-      </table>
+      </table></div>
     </div>`
   }
 

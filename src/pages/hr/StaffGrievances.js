@@ -86,7 +86,7 @@ export default async function StaffGrievancesPage(container) {
 
         ${!filtered.length ? `<div class="empty-state"><div class="empty-icon">📢</div><div class="empty-title">${isHandler ? 'ไม่มีเรื่องร้องเรียน' : 'คุณยังไม่เคยยื่นเรื่องร้องเรียน'}</div></div>` : `
         <div class="card" style="padding:0;overflow:hidden">
-          <table class="table">
+          <div class="table-wrap"><table class="table">
             <thead><tr>${isHandler ? '<th>ผู้ยื่น</th>' : ''}<th>หมวด</th><th>หัวข้อ</th><th>วันที่ยื่น</th><th>สถานะ</th><th></th></tr></thead>
             <tbody>
               ${filtered.map(c => {
@@ -102,7 +102,7 @@ export default async function StaffGrievancesPage(container) {
                 </tr>`
               }).join('')}
             </tbody>
-          </table>
+          </table></div>
         </div>`}
       </div>
     `
