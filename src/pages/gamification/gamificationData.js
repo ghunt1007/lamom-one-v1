@@ -25,21 +25,39 @@ export const BADGE_RARITY = {
   legendary:{ label: 'Legendary', color: '#f59e0b', star: '🌟' },
 }
 
-// check(ctx) === null ➜ ยังไม่มีข้อมูลจริงมาผูกได้ (เช่น CSAT/Attendance) — ปล่อยล็อคไว้ตรงๆ ไม่ปลอมเลข
+// check(ctx) === null ➜ ยังไม่มีข้อมูลจริงมาผูกได้แบบน่าเชื่อถือ (เช่น B004 ต้องจับคู่ model ที่พนักงานพิมพ์เอง
+// ตอนจองกับ fuel type ในฐานข้อมูลรถ — เสี่ยงจับคู่ผิดถ้าใช้ fuzzy match, B006 CSAT ไม่มี field ผูกกับพนักงาน
+// คนที่ดูแลลูกค้ารายนั้นเลยในตอนนี้, B008 "KPI 100%" ไม่มีนิยามกลางที่ใช้จริงอยู่แล้วในระบบ ต้องถามเจ้าของ
+// ระบบก่อนว่าวัดจากอะไร, B012 เป็นรางวัลเปรียบเทียบทั้งบริษัทที่ควรให้ผู้บริหารตัดสิน ไม่ใช่สูตรอัตโนมัติ)
+// ปล่อยล็อคไว้ตรงๆ ไม่ปลอมเลข — ดีกว่าเดาสูตรเองแล้วให้เครดิตผิดคน
 export const ALL_BADGES = [
   { id: 'B001', name: 'First Sale', icon: '🎯', cat: 'sales', rarity: 'common', desc: 'ปิดดีลได้เป็นครั้งแรก', requirement: 'ส่งมอบรถอย่างน้อย 1 คัน', points: 50, check: ctx => ctx.delivered >= 1 },
   { id: 'B002', name: 'Sales Rookie', icon: '🚀', cat: 'sales', rarity: 'common', desc: 'ขายรถได้ 5 คัน', requirement: 'ส่งมอบรถ 5 คันสะสม', points: 100, check: ctx => ctx.delivered >= 5 },
   { id: 'B003', name: 'Sales Pro', icon: '⭐', cat: 'sales', rarity: 'rare', desc: 'ขายรถได้ 20 คัน', requirement: 'ส่งมอบรถ 20 คันสะสม', points: 300, check: ctx => ctx.delivered >= 20 },
   { id: 'B004', name: 'EV Expert', icon: '⚡', cat: 'sales', rarity: 'epic', desc: 'ขาย EV ได้ 50 คัน', requirement: 'EV 50 คัน', points: 800, check: null },
-  { id: 'B005', name: 'Speed Closer', icon: '⚡', cat: 'sales', rarity: 'rare', desc: 'ปิดดีลภายใน 3 วัน', requirement: 'ปิด 3 ดีลใน 1 สัปดาห์', points: 250, check: null },
+  // "requirement" (สิ่งที่โชว์ให้ผู้ใช้เห็นจริงเป็นเงื่อนไข) คือ "ปิด 3 ดีลใน 1 สัปดาห์" — ยึดตามนี้เป็นสูตรจริง
+  // (desc เดิม "ปิดดีลภายใน 3 วัน" ขัดกันเอง เป็นปัญหาข้อความเดิมของ badge นี้ ไม่ใช่สิ่งที่ต้องแก้ในรอบนี้)
+  { id: 'B005', name: 'Speed Closer', icon: '⚡', cat: 'sales', rarity: 'rare', desc: 'ปิดดีลภายใน 3 วัน', requirement: 'ปิด 3 ดีลใน 1 สัปดาห์', points: 250, check: ctx => hasThreeWithinDays(ctx.deliveryDates, 7) },
   { id: 'B006', name: 'Customer Whisperer', icon: '💬', cat: 'service', rarity: 'epic', desc: 'ได้ CSAT 5 ดาวติดต่อ 10 ครั้ง', requirement: 'CSAT 5★ × 10', points: 500, check: null },
   { id: 'B007', name: 'Problem Solver', icon: '🔧', cat: 'service', rarity: 'common', desc: 'บันทึกการติดต่อดูแลลูกค้า 10 ครั้ง', requirement: 'Comm Log 10 ครั้ง', points: 150, check: ctx => ctx.commLogs >= 10 },
   { id: 'B008', name: 'KPI Champion', icon: '🏆', cat: 'kpi', rarity: 'epic', desc: 'ทำ KPI ได้ 100% 3 เดือนติดกัน', requirement: 'KPI 100% × 3 months', points: 600, check: null },
   { id: 'B009', name: 'Team Player', icon: '🤝', cat: 'team', rarity: 'common', desc: 'ทำงาน (Task) สำเร็จ 5 งาน', requirement: 'Task เสร็จ 5 งาน', points: 80, check: ctx => ctx.tasksDone >= 5 },
   { id: 'B010', name: 'Legendary Seller', icon: '👑', cat: 'sales', rarity: 'legendary', desc: 'ขายรถได้ 100 คัน — สุดยอดเซลส์', requirement: 'ส่งมอบรถ 100 คันสะสม', points: 5000, check: ctx => ctx.delivered >= 100 },
-  { id: 'B011', name: 'Perfect Attendance', icon: '📅', cat: 'kpi', rarity: 'rare', desc: 'ไม่ขาดงาน 6 เดือน', requirement: 'Attendance 100% × 6 months', points: 400, check: null },
+  // นับ "ขาดงาน" จาก attendance.status==='absent' ของพนักงานคนนี้เองใน 6 เดือนล่าสุด + ต้องมีข้อมูลจริงครบ
+  // ทุกเดือนใน 6 เดือนนั้น (กันเคสพนักงานใหม่/ยังไม่มีประวัติเลยได้ badge นี้ไปฟรีๆแบบ vacuously true)
+  { id: 'B011', name: 'Perfect Attendance', icon: '📅', cat: 'kpi', rarity: 'rare', desc: 'ไม่ขาดงาน 6 เดือน', requirement: 'Attendance 100% × 6 months', points: 400, check: ctx => ctx.attendanceMonthsCovered >= 6 && ctx.attendanceAbsences === 0 },
   { id: 'B012', name: 'Top Revenue Q1', icon: '💰', cat: 'special', rarity: 'legendary', desc: 'รายได้สูงสุดประจำไตรมาส 1', requirement: 'Special Achievement', points: 2000, check: null },
 ]
+
+// มีรายการวันที่ (YYYY-MM-DD) ที่ "3 รายการขึ้นไปตกอยู่ในหน้าต่างกว้าง windowDays วันติดต่อกัน" หรือไม่
+export function hasThreeWithinDays(dates, windowDays) {
+  const sorted = (dates || []).filter(Boolean).map(d => new Date(d).getTime()).filter(t => !isNaN(t)).sort((a, b) => a - b)
+  const windowMs = windowDays * 86400000
+  for (let i = 0; i + 2 < sorted.length; i++) {
+    if (sorted[i + 2] - sorted[i] <= windowMs) return true
+  }
+  return false
+}
 
 export function getCurrentUser() {
   const user = getState('user') || {}
@@ -52,14 +70,29 @@ export function getCurrentUser() {
 // รวมสถิติจริงของ "ฉัน" (ผู้ใช้ที่ล็อกอินอยู่) จากทุก collection ที่เกี่ยวข้อง — ใช้คำนวณ badge unlock
 export async function getMyStatsContext() {
   const { uid, name } = getCurrentUser()
-  let bookings = [], tasks = [], commLogs = []
+  let bookings = [], tasks = [], commLogs = [], attendance = []
   try { bookings = await getSalesData() } catch {}
   try { tasks = await listDocs('tasks', [], 'dueDate', 'desc', 500) } catch {}
   try { commLogs = await listDocs('comm_logs', [], 'createdAt', 'desc', 500) } catch {}
-  const delivered = bookings.filter(b => b.delivered && b.salesName === name).length
+  try { attendance = await listDocs('attendance', [], 'date', 'desc', 500) } catch {}
+  const myDelivered = bookings.filter(b => b.delivered && b.salesName === name)
+  const delivered = myDelivered.length
   const tasksDone = tasks.filter(t => t.status === 'done' && (t.assignedTo === name || !t.assignedTo)).length
   const commLogsCount = commLogs.filter(c => c.createdBy === uid || c.createdBy === name).length
-  return { delivered, tasksDone, commLogs: commLogsCount }
+  const deliveryDates = myDelivered.map(b => b.date).filter(Boolean)
+
+  // 6 เดือนล่าสุด (รวมเดือนนี้) ตามเวลาไทยจริง — ใช้เช็ค badge "ไม่ขาดงาน 6 เดือน"
+  const sixMonthsBack = new Set()
+  const [ty, tm] = todayBangkok().split('-').map(Number)
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(Date.UTC(ty, tm - 1 - i, 1))
+    sixMonthsBack.add(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`)
+  }
+  const myAttendance = attendance.filter(a => a.staffName === name && sixMonthsBack.has((a.date || '').slice(0, 7)))
+  const monthsWithRecords = new Set(myAttendance.map(a => (a.date || '').slice(0, 7)))
+  const attendanceAbsences = myAttendance.filter(a => a.status === 'absent').length
+
+  return { delivered, tasksDone, commLogs: commLogsCount, deliveryDates, attendanceMonthsCovered: monthsWithRecords.size, attendanceAbsences }
 }
 
 // คืนรายการ badge พร้อม unlocked:boolean จริงตามสถิติของผู้ใช้ปัจจุบัน
