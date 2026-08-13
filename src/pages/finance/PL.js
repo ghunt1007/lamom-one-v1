@@ -145,7 +145,7 @@ export default async function PLPage(container) {
           <!-- OPEX Breakdown -->
           <div class="card" style="padding:20px">
             <div style="font-weight:700;margin-bottom:4px">💸 OPEX Breakdown</div>
-            <div style="font-size:0.7rem;color:var(--warning);margin-bottom:10px">⚠️ ประมาณการทั้งหมด — ยังไม่เชื่อมข้อมูลค่าใช้จ่ายจริง</div>
+            <div style="font-size:0.7rem;color:var(--warning);margin-bottom:10px">⚠️ สัดส่วน % ยังเป็นตัวอย่าง — ยอดรวม OPEX ต่อเดือนที่มีเครื่องหมาย ✓ ด้านล่างรวมค่าใช้จ่ายจริงที่เบิกผ่านระบบแล้ว (Petty Cash + เบิกพนักงานที่อนุมัติ) แต่ยังไม่รวมเงินเดือน</div>
             <div style="font-size:0.88rem;font-weight:700;color:var(--warning);margin-bottom:12px">${formatCurrency(totals.opex)} / ปี</div>
             ${OPEX_BREAKDOWN.map(o => `
               <div style="margin-bottom:10px">
@@ -184,7 +184,7 @@ export default async function PLPage(container) {
                   <td class="text-right" style="color:var(--text-muted)">${formatCurrency(r.cogs)}</td>
                   <td class="text-right" style="color:var(--${c.gross>=0?'success':'danger'})">${formatCurrency(c.gross)}</td>
                   <td class="text-right"><span class="badge badge-${c.gross>=0?'success':'danger'}">${c.grossPct}%</span></td>
-                  <td class="text-right" style="color:var(--text-muted)">${formatCurrency(r.opex)}</td>
+                  <td class="text-right" style="color:var(--text-muted)">${formatCurrency(r.opex)}${r.opexActual ? ' <span title="รวมค่าใช้จ่ายที่เบิกผ่านระบบจริง (Petty Cash + เบิกพนักงานที่อนุมัติแล้ว) — ยังไม่รวมเงินเดือน" style="color:var(--success);font-weight:400;font-size:0.62rem">✓ บางส่วน</span>' : ''}</td>
                   <td class="text-right" style="color:var(--${c.net>=0?'success':'danger'});font-weight:700">${formatCurrency(c.net)}</td>
                   <td class="text-right"><span class="badge badge-${c.net>=0?'success':'danger'}">${c.netPct}%</span></td>
                 </tr>`
@@ -238,6 +238,33 @@ export default async function PLPage(container) {
       return r
     })
     if (changed) renderPage()
+  } catch (e) {}
+
+  // overlay OPEX จริงบางส่วน — รวมค่าใช้จ่ายที่เบิกผ่านระบบแล้วจริง (Petty Cash จ่ายออก + เบิกพนักงานที่
+  // อนุมัติ/จ่ายแล้ว) ทับตัวเลขประมาณการเฉพาะเดือนที่มียอดจริง > 0 — ไม่รวมเงินเดือน (ยังไม่มีแหล่งข้อมูล
+  // เงินเดือนต่อเดือนที่ดึงมารวมได้ตรงๆ) จึงติดป้าย "✓ บางส่วน" ไม่ใช่ "✓ จริง" เหมือน revenue/cogs — กัน
+  // เข้าใจผิดว่าเป็นต้นทุนดำเนินงานที่ครบถ้วนแล้ว
+  try {
+    const [claims, petty] = await Promise.all([
+      listDocs('expense_claims', [], 'date', 'desc', 2000),
+      listDocs('petty_cash', [], 'time', 'desc', 2000),
+    ])
+    if (container.__routerGen !== myGen) return
+    const opexByMonth = {}
+    claims.filter(c => c.status === 'approved' || c.status === 'paid').forEach(c => {
+      const m = (c.date || '').slice(0, 7); if (!m) return
+      opexByMonth[m] = (opexByMonth[m] || 0) + (c.amount || 0)
+    })
+    petty.filter(p => p.type === 'out' && p.status === 'approved').forEach(p => {
+      const m = (p.time || '').slice(0, 7); if (!m) return
+      opexByMonth[m] = (opexByMonth[m] || 0) + (p.amount || 0)
+    })
+    let opexChanged = false
+    plData = plData.map(r => {
+      if (opexByMonth[r.month] > 0) { opexChanged = true; return { ...r, opex: opexByMonth[r.month], opexActual: true } }
+      return r
+    })
+    if (opexChanged) renderPage()
   } catch (e) {}
 }
 
