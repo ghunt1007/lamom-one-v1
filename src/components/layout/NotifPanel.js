@@ -23,7 +23,7 @@ export async function openNotifPanel(anchorEl) {
   panel.id = 'notif-panel'
   panel.style.cssText = `
     position:fixed; top:60px; right:12px; z-index:500;
-    width:340px; max-height:480px;
+    width:340px; max-width:calc(100vw - 24px); max-height:480px;
     background:var(--surface); border:1px solid var(--border);
     border-radius:var(--radius-xl); overflow:hidden;
     box-shadow:0 8px 40px rgba(0,0,0,0.5);
