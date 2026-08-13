@@ -284,6 +284,16 @@
 }
 .topbar-btn:hover { background: var(--surface-2); color: var(--text); }
 
+.topbar-menu-btn { display: none; flex-shrink: 0; }
+
+.sidebar-backdrop {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 98;
+}
+.sidebar-backdrop.active { display: block; }
+
 .topbar-notif-dot {
   position: absolute; top: 5px; right: 5px;
   width: 8px; height: 8px;
@@ -388,9 +398,13 @@
   .sidebar {
     transform: translateX(-100%);
     transition: transform var(--transition), width var(--transition);
+    width: min(80vw, 300px);
   }
+  .sidebar.collapsed { width: min(80vw, 300px); }
   .sidebar.mobile-open { transform: translateX(0); }
   .topbar { left: 0; }
+  .topbar.sidebar-collapsed { left: 0; }
   .main-wrap { margin-left: 0; }
   .topbar-search { display: none; }
+  .topbar-menu-btn { display: flex; }
 }

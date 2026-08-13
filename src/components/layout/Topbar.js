@@ -64,6 +64,7 @@ export function Topbar(container) {
 
     const html = `
       <header class="topbar ${collapsed ? 'sidebar-collapsed' : ''}" id="topbar">
+        <button class="topbar-btn topbar-menu-btn" id="mobile-menu-btn" title="${t('menu')}">☰</button>
         <div class="topbar-breadcrumb">
           <span style="color:var(--text-muted);font-size:0.8rem">LAMOM ONE</span>
           ${crumbs.map((c, i) => `
@@ -107,6 +108,7 @@ export function Topbar(container) {
   }
 
   function bindEvents() {
+    document.getElementById('mobile-menu-btn')?.addEventListener('click', toggleMobileMenu)
     document.getElementById('global-search')?.addEventListener('click', openSearch)
     document.getElementById('company-filter-btn')?.addEventListener('click', openCompanyFilter)
     document.getElementById('lang-btn')?.addEventListener('click', openLanguagePicker)
@@ -119,6 +121,7 @@ export function Topbar(container) {
   refreshUnreadCount()
   unsubs.push(on('sidebarCollapsed', render))
   unsubs.push(on('currentRoute', render))
+  unsubs.push(on('currentRoute', closeMobileMenu))
   unsubs.push(on('unreadCount', render))
   unsubs.push(on('companies', render))
   unsubs.push(on('language', render))
@@ -137,6 +140,35 @@ export function Topbar(container) {
 
 function openSearch() {
   openGlobalSearch()
+}
+
+// เดิมไม่มีทางเปิด sidebar บนมือถือได้เลย — CSS ที่ layout.css ซ่อน .sidebar ไว้นอกจอเสมอที่ ≤768px
+// (transform: translateX(-100%)) และรอ class "mobile-open" มาเลื่อนกลับเข้ามา แต่ไม่มีปุ่มไหนในทั้งระบบ
+// เคยเพิ่ม class นี้เลย ทำให้เมนูทั้งหมดกดใช้งานไม่ได้บนมือถือถาวร (ต้องพิมพ์ URL เองเท่านั้น) ปุ่ม
+// hamburger นี้ + backdrop คือทางเข้าเดียวที่ขาดไป
+function toggleMobileMenu() {
+  const sidebar = document.getElementById('sidebar')
+  if (!sidebar) return
+  const opening = !sidebar.classList.contains('mobile-open')
+  sidebar.classList.toggle('mobile-open', opening)
+  if (opening) {
+    let backdrop = document.getElementById('sidebar-backdrop')
+    if (!backdrop) {
+      backdrop = document.createElement('div')
+      backdrop.id = 'sidebar-backdrop'
+      backdrop.className = 'sidebar-backdrop'
+      backdrop.addEventListener('click', closeMobileMenu)
+      document.body.appendChild(backdrop)
+    }
+    backdrop.classList.add('active')
+  } else {
+    closeMobileMenu()
+  }
+}
+
+function closeMobileMenu() {
+  document.getElementById('sidebar')?.classList.remove('mobile-open')
+  document.getElementById('sidebar-backdrop')?.classList.remove('active')
 }
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
