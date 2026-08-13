@@ -373,6 +373,7 @@ const NAV = [
     items: [
       { icon: '⚙️', label: 'ตั้งค่า', labelEn: 'Settings', labelZh: '设置', path: '/settings' },
       { icon: '🔔', label: 'Notification Settings', path: '/settings/notifications' },
+      { icon: '📨', label: 'รายงานประจำวัน (Telegram/LINE)', labelEn: 'Daily Report (Telegram/LINE)', labelZh: '每日报告 (Telegram/LINE)', path: '/settings/daily-report' },
       { icon: '🏢', label: 'Multi-Branch', path: '/settings/branches' },
       { icon: '🏬', label: 'จัดการบริษัทในเครือ', labelEn: 'Manage Affiliated Companies', labelZh: '管理关联公司', path: '/settings/org-companies' },
       { icon: '🗂', label: 'Master Data', path: '/settings/master-data' },

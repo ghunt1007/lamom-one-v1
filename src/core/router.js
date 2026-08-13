@@ -547,6 +547,8 @@ const routes = {
   '/finance/charging-revenue': () => import('../pages/finance/ChargingRevenue.js'),
   // Settings extras
   '/settings/whitelabel': () => import('../pages/settings/WhiteLabel.js'),
+  // Settings extras
+  '/settings/daily-report': () => import('../pages/settings/DailyReportSettings.js'),
   // M11 Settings
   '/settings':      () => import('../pages/settings/Settings.js'),
   '/settings/company': () => import('../pages/settings/Company.js'),

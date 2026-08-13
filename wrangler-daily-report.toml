@@ -1,0 +1,12 @@
+name = "lamom-daily-report"
+main = "workers/daily-report.js"
+compatibility_date = "2024-01-01"
+
+[vars]
+ALLOWED_ORIGIN = "https://lamom-one.pages.dev"
+FIREBASE_API_KEY = "AIzaSyBH098B5Ja9WiLL5sfgCvSuBqOab8aeKMo"
+FIREBASE_PROJECT_ID = "lamom-one-v1"
+
+# 11:00 UTC = 18:00 เวลาไทย (Bangkok ไม่มี DST เลยแปลงคงที่ได้ตรงตัว) ทุกวัน
+[triggers]
+crons = ["0 11 * * *"]
