@@ -1,4 +1,4 @@
-import { formatCurrency } from '../../utils/format.js'
+import { formatCurrency, toDateStr } from '../../utils/format.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs } from '../../core/db.js'
 import { openModal } from '../../utils/modal.js'
@@ -58,7 +58,7 @@ export default async function LostDealAnalysisPage(container) {
         budget: b.price || 0,
         lostReason: b.cancelReason || 'other',
         lostTo: b.cancelLostTo || null,
-        lostDate: (b.updatedAt || b.createdAt || '').slice(0, 10),
+        lostDate: b.bookingDate || toDateStr(b.updatedAt || b.createdAt),
         salesperson: b.salesName || '',
         stage: 'booking',
         note: b.cancelNote || b.notes || '',
@@ -75,7 +75,7 @@ export default async function LostDealAnalysisPage(container) {
         budget: l.budget || 0,
         lostReason: l.lostReason || 'other',
         lostTo: l.lostTo || null,
-        lostDate: (l.lostAt || l.updatedAt || l.createdAt || '').slice(0, 10),
+        lostDate: toDateStr(l.lostAt || l.updatedAt || l.createdAt),
         salesperson: l.assignedTo || l.salesName || '',
         stage: l.stage || 'lead',
         note: l.lostReason || l.notes || '',

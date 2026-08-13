@@ -1,4 +1,4 @@
-import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok, toDateStr } from '../../utils/format.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData, getCommissionData, listDocs } from '../../core/db.js'
@@ -160,7 +160,9 @@ export default async function ReportCenterPage(container) {
     const r008 = bookings
       .filter(b => !b.deleted && b.status === 'ถอนจอง')
       .map(b => ({
-        วันที่: (b.updatedAt || b.createdAt || '').slice(0, 10),
+        // b.updatedAt/createdAt คือ Firestore serverTimestamp() object เสมอ ไม่ใช่ string — .slice() ตรงๆ
+        // จะพัง (เงียบๆ เพราะ block นี้อยู่ใน try/catch) ทำให้รายงานนี้ไม่เคยโชว์ข้อมูลจริงเลยสักครั้ง
+        วันที่: b.cutDate || b.bookingDate || toDateStr(b.updatedAt || b.createdAt),
         ลูกค้า: b.custName || '',
         รุ่น: [b.brand, b.model].filter(Boolean).join(' '),
         สาเหตุ: LOST_REASON_LABELS[b.cancelReason] || 'ไม่ระบุ',

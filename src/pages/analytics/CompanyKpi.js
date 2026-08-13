@@ -1,4 +1,4 @@
-import { formatCurrency } from '../../utils/format.js'
+import { formatCurrency, toDateStr } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getSalesData, listDocs } from '../../core/db.js'
@@ -133,7 +133,12 @@ export default async function CompanyKpiPage(container) {
   }
 
   function computeCrmKpis() {
-    const periodCustomers = customers.filter(c => inRange((c.createdAt || '').slice(0, 10)))
+    // เดิมใช้ c.createdAt ตรงๆ — createDoc() เขียน createdAt เป็น Firestore serverTimestamp() เสมอ (object
+    // ไม่ใช่ string) การเรียก .slice() ตรงๆ จึงพังทั้งหน้าทันทีที่มีลูกค้าจริงสักคน (บั๊กคลาสเดียวกับที่เจอ
+    // ใน ErrorLog.js v1.0.404) ใช้ stageChangedAt แทน (string ISO เสมอ ตั้งตอนสร้างทุกครั้งใน Customers.js)
+    // ซึ่งยังแม่นยำกว่าด้วย เพราะลูกค้าที่นำเข้าจากไฟล์เก่าจะมี createdAt เป็น "วันนำเข้า" ล้วนๆ ไม่ใช่วันที่
+    // เป็นลูกค้าจริงในอดีต ทำให้ KPI รายไตรมาสเพี้ยนถ้าอิง createdAt
+    const periodCustomers = customers.filter(c => inRange(toDateStr(c.stageChangedAt || c.createdAt)))
     const newLeads = periodCustomers.length
     const progressed = periodCustomers.filter(c => c.stage === 'booking' || c.stage === 'delivered').length
     const leadConv = newLeads > 0 ? Math.round(progressed / newLeads * 1000) / 10 : null

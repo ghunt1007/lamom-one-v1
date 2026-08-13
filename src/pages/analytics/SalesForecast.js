@@ -1,4 +1,4 @@
-import { formatCurrency } from '../../utils/format.js'
+import { formatCurrency, toDateStr } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getSalesData, listDocs } from '../../core/db.js'
@@ -77,7 +77,7 @@ export default async function SalesForecastPage(container) {
     // บอกว่าเป็น "● ข้อมูลจริงจากใบจอง" — ดึง Lead จริงจาก customers.createdAt รายเดือน (pattern เดียวกับที่
     // AnalyticsDashboard.js ใช้ดึง Lead จริงจากคอลเลกชัน customers)
     customers.forEach(c => {
-      const d = (c.createdAt || '').slice(0, 10)
+      const d = toDateStr(c.stageChangedAt || c.createdAt)
       const mo = parseInt(d.slice(5, 7), 10) - 1
       if (mo >= 0 && mo < 12 && byMonth[mo]) byMonth[mo].leads++
     })

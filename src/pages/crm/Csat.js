@@ -2,7 +2,7 @@
  * CSAT / NPS Dashboard — คะแนนความพึงพอใจลูกค้า
  * Route: /crm/csat
  */
-import { formatDate } from '../../utils/format.js'
+import { formatDate, toDateStr } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
@@ -63,7 +63,7 @@ export default async function CsatPage(container) {
         customer: f.customer || f.customerName || f.custName || 'ลูกค้า',
         phone: f.phone || f.custPhone || '',
         model: f.model || '',
-        date: (f.date || f.createdAt || '').slice(0, 10),
+        date: f.date || toDateStr(f.createdAt),
         csat: f.csat || f.csatScore || 4,
         nps: f.nps ?? f.npsScore ?? 7,
         comment: f.comment || f.feedback || '',

@@ -2,7 +2,7 @@
  * Executive Summary — สรุปผู้บริหารหน้าเดียว
  * Route: /analytics/executive
  */
-import { formatCurrency, formatDate } from '../../utils/format.js'
+import { formatCurrency, formatDate, toDateStr } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { openModal } from '../../utils/modal.js'
 import { getSalesData, getCommissionData, listDocs } from '../../core/db.js'
@@ -56,7 +56,7 @@ async function computeRealSignals(currSales, growth) {
   try {
     const csat = await listDocs('csat', [], 'createdAt', 'desc', 500)
     const thisMo = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`
-    const moCsat = csat.filter(f => (f.createdAt||'').startsWith(thisMo))
+    const moCsat = csat.filter(f => toDateStr(f.createdAt).startsWith(thisMo))
     if (moCsat.length >= 3) {
       const avg = Math.round(moCsat.reduce((a,f) => a + (f.csat || f.csatScore || 4), 0) / moCsat.length / 5 * 100)
       if (avg >= 85) highlights.push({ icon: '⭐', text: `CSAT เดือนนี้ ${avg}% จาก ${moCsat.length} รีวิว` })

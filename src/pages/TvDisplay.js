@@ -9,7 +9,7 @@
  * ตามแพทเทิร์นเดียวกับ pages/ai/PersonalAI.js (full-screen overlay)
  */
 import { listDocs, getSalesData, getCommissionData, seedDemoData } from '../core/db.js'
-import { formatCurrency, todayBangkok } from '../utils/format.js'
+import { formatCurrency, todayBangkok, toDateStr } from '../utils/format.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -371,7 +371,7 @@ export default async function TvDisplayPage(container) {
     } catch (e) { /* เก็บค่าว่างไว้ ไม่ให้จอทีวีพัง */ }
     if (container.__routerGen !== myGen || !overlay.isConnected) return
 
-    const todayBookings = bookings.filter(b => (b.bookingDate || (b.createdAt || '').slice(0, 10) || '').startsWith(today) && b.status !== 'ถอนจอง')
+    const todayBookings = bookings.filter(b => (b.bookingDate || toDateStr(b.createdAt)).startsWith(today) && b.status !== 'ถอนจอง')
     const todayDeliveries = bookings.filter(b => b.status === 'ส่งมอบแล้ว' && (b.actualDeliveryDate || '').startsWith(today))
     const mtdRevenue = sales.filter(s => s.delivered && (s.date || '').startsWith(thisMonth)).reduce((sum, s) => sum + (s.salePrice || 0), 0)
     const mtdCars = sales.filter(s => s.delivered && (s.date || '').startsWith(thisMonth)).length

@@ -2,7 +2,7 @@
  * Operations Dashboard — ภาพรวมการดำเนินงาน
  * Route: /analytics/operations
  */
-import { formatCurrency, todayBangkok } from '../../utils/format.js'
+import { formatCurrency, todayBangkok, toDateStr } from '../../utils/format.js'
 import { listDocs } from '../../core/db.js'
 
 function escHtml(s) {
@@ -22,11 +22,6 @@ const SAMPLE_ONLY = {
 function daysSince(dateStr) {
   if (!dateStr) return 0
   return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000)
-}
-function toDateStr(v) {
-  if (!v) return ''
-  const d = v?.toDate ? v.toDate() : new Date(v)
-  return isNaN(d) ? '' : d.toISOString().slice(0, 10)
 }
 function monthKey(dateStr) { return (dateStr || '').slice(0, 7) }
 function last6MonthKeys() {

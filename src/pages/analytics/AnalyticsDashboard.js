@@ -1,6 +1,6 @@
 import { listDocs, seedDemoData, getSalesData, getCommissionData } from '../../core/db.js'
 import { navigate } from '../../core/router.js'
-import { formatCurrency } from '../../utils/format.js'
+import { formatCurrency, toDateStr } from '../../utils/format.js'
 import { exportToExcel } from '../../utils/importExport.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
@@ -95,13 +95,13 @@ export default async function AnalyticsDashboard(container) {
         if (mi >= 0 && mi < 12) { byMonth[mi].sales += s.salePrice || 0; byMonth[mi].units++ }
       })
       customers.forEach(c => {
-        const d = (c.createdAt || '').slice(0, 10)
+        const d = toDateStr(c.stageChangedAt || c.createdAt)
         if (d.slice(0, 4) !== String(YEAR)) return
         const mi = parseInt(d.slice(5, 7), 10) - 1
         if (mi >= 0 && mi < 12) { byMonth[mi].leads++; byMonth[mi].cust++ }
       })
       jobs.forEach(j => {
-        const d = (j.createdAt || '').slice(0, 10)
+        const d = toDateStr(j.createdAt)
         if (d.slice(0, 4) !== String(YEAR)) return
         const mi = parseInt(d.slice(5, 7), 10) - 1
         if (mi >= 0 && mi < 12) byMonth[mi].jobs++

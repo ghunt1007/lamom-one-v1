@@ -2,7 +2,7 @@
  * Daily Report — รายงานประจำวัน
  * Route: /analytics/daily
  */
-import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok, toDateStr } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData, listDocs } from '../../core/db.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -142,7 +142,7 @@ export default async function DailyReportPage(container) {
     const maxRev = Math.max(...weekData.map(d => d.revenue), 1)
     const salePct = Math.round(dayUnits / dayTarget * 100)
 
-    const dayJobs = allJobs.filter(j => (j.createdAt || '').slice(0, 10) === viewDate)
+    const dayJobs = allJobs.filter(j => toDateStr(j.createdAt) === viewDate)
     const dayWalkIns = allWalkIns.filter(w => (w.visitTime || '').slice(0, 10) === viewDate)
     const dayTestDrives = allTestDrives.filter(t => (t.date || '').slice(0, 10) === viewDate)
     const dayAppointments = allAppointments.filter(a => (a.date || '').slice(0, 10) === viewDate)

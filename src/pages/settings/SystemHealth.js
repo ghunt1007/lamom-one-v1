@@ -6,7 +6,7 @@
  * สถานะ Integration จริงจาก system_integrations, Error จริงจาก error_log, และกิจกรรมวันนี้ประมาณจาก audit_log
  * (ระบุชัดเจนว่าเป็นค่าประมาณ ไม่ใช่ตัวเลข Firebase Billing Quota จริงซึ่งดึงจากฝั่ง client ไม่ได้)
  */
-import { timeAgo, todayBangkok } from '../../utils/format.js'
+import { timeAgo, todayBangkok, toDateStr } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { listDocs } from '../../core/db.js'
 
@@ -26,7 +26,7 @@ export default async function SystemHealthPage(container) {
 
     const todayAudit = auditToday.filter(a => (a.ts || '').startsWith(todayStr()))
     const activeUsersToday = new Set(todayAudit.map(a => a.user).filter(Boolean)).size
-    const errorsToday = errors.filter(e => (e.createdAt || '').startsWith(todayStr())).length
+    const errorsToday = errors.filter(e => toDateStr(e.createdAt).startsWith(todayStr())).length
 
     return { firestoreOk, firestoreLatency, integrations, errors, todayAudit, activeUsersToday, errorsToday }
   }

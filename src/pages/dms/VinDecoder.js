@@ -2,7 +2,7 @@
  * VIN Decoder & Vehicle Lookup — ค้นหารถจาก VIN/ทะเบียน
  * Route: /dms/vin-lookup
  */
-import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
+import { formatDate, formatCurrency, todayBangkok, toDateStr } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listAllDocs, listDocs, createDoc } from '../../core/db.js'
@@ -47,7 +47,7 @@ export default async function VinDecoderPage(container) {
         color: b.colorOut || '',
         owner: b.custName || '',
         phone: b.phone || '',
-        purchaseDate: b.actualDeliveryDate || b.deliveryDate || b.bookingDate || (b.createdAt || '').slice(0, 10),
+        purchaseDate: b.actualDeliveryDate || b.deliveryDate || b.bookingDate || toDateStr(b.createdAt),
         serviceCount: matchedJobs.length,
         lastService: matchedJobs[0]?.createdAt || '',
         insurer: matchedPolicy?.insurer || '',

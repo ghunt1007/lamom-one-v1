@@ -8,7 +8,7 @@
  */
 import { listDocs, getSalesData } from '../../core/db.js'
 import { getState } from '../../core/store.js'
-import { todayBangkok } from '../../utils/format.js'
+import { todayBangkok, toDateStr } from '../../utils/format.js'
 
 export const BADGE_CATEGORIES = {
   sales:    { label: 'การขาย', color: 'primary' },
@@ -123,8 +123,9 @@ export async function getRealLeaderboard() {
   const monthByName = {}
   const yearByName = {}
   events.forEach(e => {
-    if ((e.createdAt || '').slice(0, 7) === nowMonth) monthByName[e.userName] = (monthByName[e.userName] || 0) + (e.points || 0)
-    if ((e.createdAt || '').slice(0, 4) === nowYear) yearByName[e.userName] = (yearByName[e.userName] || 0) + (e.points || 0)
+    const ed = toDateStr(e.createdAt)
+    if (ed.slice(0, 7) === nowMonth) monthByName[e.userName] = (monthByName[e.userName] || 0) + (e.points || 0)
+    if (ed.slice(0, 4) === nowYear) yearByName[e.userName] = (yearByName[e.userName] || 0) + (e.points || 0)
   })
   const salesByName = {}
   sales.filter(s => s.delivered && s.salesName).forEach(s => {

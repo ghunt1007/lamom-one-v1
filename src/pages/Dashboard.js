@@ -1,6 +1,6 @@
 import { getState, on } from '../core/store.js'
 import { listDocs, watchDocs, seedDemoData, getSalesData } from '../core/db.js'
-import { formatCurrency, timeAgo, todayBangkok } from '../utils/format.js'
+import { formatCurrency, timeAgo, todayBangkok, toDateStr } from '../utils/format.js'
 import { navigate } from '../core/router.js'
 import { generateMorningBriefing } from '../utils/ai.js'
 import { getModuleForPath, hasModuleAccess, loadRolePermissions } from '../core/permissions.js'
@@ -464,7 +464,7 @@ export default async function DashboardPage(container) {
 
     // ── แผนกอื่น: ศูนย์บริการ (Job Cards) + สรุปไฟแนนซ์ (จาก booking.finStatus) เดือนเดียวกัน ──
     function renderDeptDetail() {
-      const jobsInMonth = jobs.filter(j => (j.createdAt || '').startsWith(selectedMonth))
+      const jobsInMonth = jobs.filter(j => toDateStr(j.createdAt).startsWith(selectedMonth))
       const jobByStatus = {}
       jobsInMonth.forEach(j => { jobByStatus[j.status] = (jobByStatus[j.status] || 0) + 1 })
 
@@ -688,7 +688,7 @@ export default async function DashboardPage(container) {
       const delivered = inMonth.filter(b => b.status === 'ส่งมอบแล้ว').length
       const withFin = inMonth.filter(b => b.finStatus)
       const finPassed = withFin.filter(b => b.finStatus === 'ผ่าน').length
-      const jobsInMonth = jobs.filter(j => (j.createdAt || '').startsWith(selectedMonth))
+      const jobsInMonth = jobs.filter(j => toDateStr(j.createdAt).startsWith(selectedMonth))
       const jobsDone = jobsInMonth.filter(j => ['done', 'completed', 'delivered'].includes(j.status)).length
       const tasksDone = tasks.filter(t => t.status === 'done').length
       el.innerHTML =
@@ -1063,7 +1063,7 @@ export default async function DashboardPage(container) {
     renderAll()
 
     // Today panel — ใช้ข้อมูลจริง
-    const todayBookings = bookings.filter(b => (b.pickupDate || b.appointmentDate || b.createdAt || '').startsWith(today))
+    const todayBookings = bookings.filter(b => (b.pickupDate || b.appointmentDate || toDateStr(b.createdAt)).startsWith(today))
     const pendingPdi = pdi.filter(p => p.status !== 'passed' && p.status !== 'completed')
 
     // ── Morning Briefing: สรุปเชิงรุกจากข้อมูลจริง — mirror ตรรกะเดียวกับ Intelligence Center ──

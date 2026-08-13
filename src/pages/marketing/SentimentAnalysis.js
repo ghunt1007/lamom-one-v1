@@ -6,7 +6,7 @@
  * ทำงานคล้าย src/core/customerInsights.js (rules engine) แต่ให้คะแนน sentiment จากข้อความจริงแทน
  */
 import { listDocs } from '../../core/db.js'
-import { fullName } from '../../utils/format.js'
+import { fullName, toDateStr } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 
 function escHtml(s) {
@@ -51,7 +51,7 @@ export default async function SentimentPage(container) {
 
     const fromLogs = logs
       .filter(l => l.note)
-      .map(l => ({ id: 'log_' + l.id, customer: nameById[l.customerId] || 'ลูกค้า', channel: CHANNEL_MAP[l.type] || 'อื่นๆ', date: (l.createdAt || '').slice(0, 10), text: l.note }))
+      .map(l => ({ id: 'log_' + l.id, customer: nameById[l.customerId] || 'ลูกค้า', channel: CHANNEL_MAP[l.type] || 'อื่นๆ', date: toDateStr(l.createdAt), text: l.note }))
     const fromNotes = notes
       .filter(n => n.text)
       .map(n => ({ id: 'note_' + n.id, customer: n.customer || 'ลูกค้า', channel: CHANNEL_MAP[n.type] || 'อื่นๆ', date: (n.time || '').slice(0, 10), text: n.text }))

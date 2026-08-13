@@ -23,6 +23,15 @@ export function nowBangkokTime() {
   return new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date())
 }
 
+// แปลงค่าวันที่ (Firestore Timestamp object, ISO string, หรือ Date) ให้เป็น 'YYYY-MM-DD' เสมอ — ใช้แทนการ
+// เรียก .slice(0,10) ตรงๆ กับ field อย่าง createdAt/updatedAt ซึ่ง createDoc()/updateDocData() เขียนเป็น
+// Firestore serverTimestamp() object เสมอ ไม่ใช่ string การเรียก .slice() ตรงๆ จะพัง (TypeError) ทันทีที่
+// เอกสารนั้นมีอยู่จริง — บั๊กคลาสนี้เจอซ้ำหลายจุดทั่วระบบเพราะ collection ส่วนใหญ่ไม่มีข้อมูลจริงมาก่อน
+export function toDateStr(v) {
+  const d = toDate(v)
+  return d ? d.toISOString().slice(0, 10) : ''
+}
+
 export function formatDate(dateStr) {
   if (!dateStr) return '-'
   const months = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
