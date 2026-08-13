@@ -5,10 +5,16 @@
  * (โหลดครั้งเดียวด้วย listDocs ไม่ใช่ watchDocs) และไม่มีช่องทางรับตำแหน่งจากอุปกรณ์ GPS จริงเลยที่ไหนใน
  * ระบบ — ปุ่ม "Refresh" แค่โหลดข้อมูล fleet_vehicles/fleet_alerts ที่บันทึกไว้ใน Firestore ซ้ำ (ไม่ใช่ตำแหน่ง
  * GPS สดจากรถจริง) แก้ label ทั้งหมดให้บอกตรงว่านี่คือข้อมูลที่บันทึกในระบบ ไม่ใช่ GPS แบบ real-time จริง
+ *
+ * (v1.0.407) เดิมหน้านี้ไม่มีช่องทางเพิ่มรถเข้า fleet หรืออัปเดตตำแหน่ง/สถานะเองเลยแม้แต่จุดเดียว —
+ * ทั้งที่ยังไม่มีฮาร์ดแวร์ GPS จริงมาเชื่อม ก็ควรอย่างน้อยให้พนักงานกรอกตำแหน่ง/สถานะรถเองได้ (เช่น
+ * โทรถามคนขับแล้วมาอัปเดตในระบบ) เพิ่ม "+ เพิ่มรถเข้า Fleet" ที่ header และ "✏️ อัปเดตตำแหน่งเอง" ที่
+ * การ์ดรายละเอียดรถที่เลือกไว้
  */
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { todayBangkok, nowBangkokTime } from '../../utils/format.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -33,7 +39,7 @@ export default async function FleetGpsPage(container) {
 
   async function loadData() {
     loading = true
-    try { FLEET = await listDocs('fleet_vehicles', [], 'plate', 'asc', 100) } catch (e) { FLEET = [] }
+    try { FLEET = (await listDocs('fleet_vehicles', [], 'plate', 'asc', 100)).filter(f => !f.deleted) } catch (e) { FLEET = [] }
     try {
       const alertDocs = await listDocs('fleet_alerts', [], 'createdAt', 'desc', 1)
       if (alertDocs.length) {
@@ -68,12 +74,13 @@ export default async function FleetGpsPage(container) {
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="refresh-btn">🔄 Refresh</button>
-            <button class="btn btn-primary" id="alert-btn">🔔 ตั้ง Alert</button>
+            <button class="btn btn-secondary" id="alert-btn">🔔 ตั้ง Alert</button>
+            <button class="btn btn-primary" id="add-vehicle-btn">➕ เพิ่มรถเข้า Fleet</button>
           </div>
         </div>
 
         <div class="card" style="padding:8px 14px;margin-bottom:12px;background:var(--surface-2);border:1px dashed var(--border);font-size:0.7rem;color:var(--text-muted)">
-          ⚠️ ยังไม่เชื่อมต่ออุปกรณ์ GPS จริง — ตำแหน่ง/ความเร็ว/SOC ที่แสดงเป็นข้อมูลที่บันทึกไว้ในระบบ ไม่ใช่สัญญาณ GPS สดจากรถจริง และหน้านี้ไม่มีช่องทางเพิ่ม/อัปเดตตำแหน่งรถในระบบเลย
+          ⚠️ ยังไม่เชื่อมต่ออุปกรณ์ GPS จริง — ตำแหน่ง/ความเร็ว/SOC ที่แสดงเป็นข้อมูลที่บันทึกไว้ในระบบเท่านั้น (กรอกเอง ไม่ใช่สัญญาณ GPS สดจากรถจริง) ใช้ปุ่ม "✏️ อัปเดตตำแหน่งเอง" ที่การ์ดรถด้านล่างเพื่อบันทึกตำแหน่งล่าสุดที่ทราบ
         </div>
 
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
@@ -125,7 +132,13 @@ export default async function FleetGpsPage(container) {
 
         ${sel ? `
         <div class="card" style="padding:14px;margin-top:14px">
-          <div style="font-size:0.76rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">📍 ${escHtml(sel.plate)} · ${escHtml(sel.model)} · ${escHtml(sel.driver)}</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div style="font-size:0.76rem;font-weight:700;color:var(--text-muted)">📍 ${escHtml(sel.plate)} · ${escHtml(sel.model)} · ${escHtml(sel.driver)}</div>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-xs btn-secondary" id="update-pos-btn">✏️ อัปเดตตำแหน่งเอง</button>
+              <button class="btn btn-xs btn-danger" id="del-vehicle-btn">🗑 ลบออกจาก Fleet</button>
+            </div>
+          </div>
           <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;font-size:0.74rem">
             ${[['📍 ตำแหน่ง',escHtml(sel.location)],['🚀 ความเร็ว',sel.speed+'km/h'],['🔋 SOC',sel.soc+'%'],['📏 ไมล์',(sel.odometer||0).toLocaleString()+' km'],['🎯 ภารกิจ',escHtml(sel.trip)]].map(([k,v])=>`
               <div style="background:var(--surface-2);padding:8px;border-radius:var(--radius-sm)">
@@ -170,6 +183,98 @@ export default async function FleetGpsPage(container) {
     container.querySelectorAll('.map-pin, .fleet-row').forEach(el => el.addEventListener('click', () => {
       selectedId = el.dataset.id === selectedId ? null : el.dataset.id; render()
     }))
+
+    document.getElementById('add-vehicle-btn')?.addEventListener('click', () => {
+      openModal({
+        title: '➕ เพิ่มรถเข้า Fleet',
+        size: 'sm',
+        body: `<div style="display:flex;flex-direction:column;gap:10px;font-size:0.8rem">
+          <div><label style="font-size:0.72rem;color:var(--text-muted)">ทะเบียนรถ *</label>
+            <input class="input" id="nv-plate" style="width:100%;margin-top:4px" placeholder="1กข-1234"></div>
+          <div><label style="font-size:0.72rem;color:var(--text-muted)">รุ่นรถ *</label>
+            <input class="input" id="nv-model" style="width:100%;margin-top:4px"></div>
+          <div><label style="font-size:0.72rem;color:var(--text-muted)">คนขับ</label>
+            <input class="input" id="nv-driver" style="width:100%;margin-top:4px"></div>
+          <div><label style="font-size:0.72rem;color:var(--text-muted)">สถานะ</label>
+            <select class="input" id="nv-status" style="width:100%;margin-top:4px">
+              ${Object.entries(STATUS_MAP).map(([k,v]) => `<option value="${k}">${v.icon} ${v.label}</option>`).join('')}
+            </select></div>
+        </div>`,
+        confirmText: '💾 เพิ่ม',
+        onConfirm: async () => {
+          const plate = document.getElementById('nv-plate')?.value?.trim()
+          const model = document.getElementById('nv-model')?.value?.trim()
+          if (!plate || !model) { showToast('กรุณากรอกทะเบียนและรุ่นรถ', 'warning'); return false }
+          try {
+            await createDoc('fleet_vehicles', {
+              plate, model,
+              driver: document.getElementById('nv-driver')?.value?.trim() || '',
+              status: document.getElementById('nv-status')?.value || 'parked',
+              location: 'ยังไม่ระบุ', speed: 0, soc: 100, odometer: 0, trip: '-',
+              lastUpdate: `${todayBangkok()} ${nowBangkokTime()}`,
+            })
+            showToast('✅ เพิ่มรถเข้า Fleet แล้ว', 'success')
+            await loadData()
+            return true
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
+        },
+      })
+    })
+
+    document.getElementById('update-pos-btn')?.addEventListener('click', () => {
+      if (!sel) return
+      openModal({
+        title: `✏️ อัปเดตตำแหน่งเอง — ${escHtml(sel.plate)}`,
+        size: 'sm',
+        body: `<div style="display:flex;flex-direction:column;gap:10px;font-size:0.8rem">
+          <div style="font-size:0.72rem;color:var(--text-muted)">⚠️ ยังไม่มีอุปกรณ์ GPS จริง — กรอกตำแหน่ง/สถานะที่ทราบเอง (เช่น โทรถามคนขับ) ค่าที่บันทึกจะไม่ใช่สัญญาณ GPS สด</div>
+          <div><label style="font-size:0.72rem;color:var(--text-muted)">ตำแหน่ง</label>
+            <input class="input" id="up-loc" value="${escHtml(sel.location || '')}" style="width:100%;margin-top:4px"></div>
+          <div style="display:flex;gap:8px">
+            <div style="flex:1"><label style="font-size:0.72rem;color:var(--text-muted)">ความเร็ว (km/h)</label>
+              <input class="input" type="number" id="up-speed" value="${sel.speed || 0}" style="width:100%;margin-top:4px"></div>
+            <div style="flex:1"><label style="font-size:0.72rem;color:var(--text-muted)">SOC (%)</label>
+              <input class="input" type="number" id="up-soc" value="${sel.soc || 0}" style="width:100%;margin-top:4px"></div>
+          </div>
+          <div><label style="font-size:0.72rem;color:var(--text-muted)">ไมล์สะสม (km)</label>
+            <input class="input" type="number" id="up-odo" value="${sel.odometer || 0}" style="width:100%;margin-top:4px"></div>
+          <div><label style="font-size:0.72rem;color:var(--text-muted)">ภารกิจ</label>
+            <input class="input" id="up-trip" value="${escHtml(sel.trip || '')}" style="width:100%;margin-top:4px"></div>
+          <div><label style="font-size:0.72rem;color:var(--text-muted)">สถานะ</label>
+            <select class="input" id="up-status" style="width:100%;margin-top:4px">
+              ${Object.entries(STATUS_MAP).map(([k,v]) => `<option value="${k}" ${sel.status===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}
+            </select></div>
+        </div>`,
+        confirmText: '💾 บันทึก',
+        onConfirm: async () => {
+          try {
+            await updateDocData('fleet_vehicles', sel.id, {
+              location: document.getElementById('up-loc')?.value?.trim() || '',
+              speed: Math.max(0, Number(document.getElementById('up-speed')?.value) || 0),
+              soc: Math.min(100, Math.max(0, Number(document.getElementById('up-soc')?.value) || 0)),
+              odometer: Math.max(0, Number(document.getElementById('up-odo')?.value) || 0),
+              trip: document.getElementById('up-trip')?.value?.trim() || '',
+              status: document.getElementById('up-status')?.value || sel.status,
+              lastUpdate: `${todayBangkok()} ${nowBangkokTime()}`,
+            })
+            showToast('✅ อัปเดตตำแหน่งแล้ว', 'success')
+            await loadData()
+            return true
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
+        },
+      })
+    })
+
+    document.getElementById('del-vehicle-btn')?.addEventListener('click', async () => {
+      if (!sel) return
+      if (!await confirmDialog({ title: 'ลบรถออกจาก Fleet', message: `ลบ "${escHtml(sel.plate)}" ออกจาก Fleet GPS Tracker? การลบนี้ไม่สามารถย้อนกลับได้`, confirmText: 'ลบ', danger: true })) return
+      try {
+        await softDelete('fleet_vehicles', sel.id)
+        selectedId = null
+        showToast('🗑 ลบรถออกจาก Fleet แล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('ลบไม่สำเร็จ', 'error') }
+    })
   }
 
   function fleetRow(f) {

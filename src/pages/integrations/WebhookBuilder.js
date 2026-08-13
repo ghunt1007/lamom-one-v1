@@ -5,6 +5,7 @@
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { testSendWebhook } from '../../utils/webhookTest.js'
 
 // ป้องกัน XSS — ชื่อ/URL/secret ของ Webhook เป็นข้อมูลที่ผู้ใช้พิมพ์เอง ต้อง escape ก่อนแสดงผลเสมอ
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
@@ -52,7 +53,7 @@ export default async function WebhookBuilderPage(container) {
         </div>
 
         <div class="card" style="padding:12px 14px;margin-bottom:14px;border-left:3px solid var(--warning);font-size:0.8rem">
-          ⚠️ <strong>ข้อจำกัดสำคัญ:</strong> ระบบนี้ยังไม่มี Backend/Worker ตัวกลางที่ยิง Webhook จริงเมื่อเกิด Event ในระบบ (เช่น sale.created, lead.converted) — หน้านี้ใช้เก็บการตั้งค่า Webhook ไว้เท่านั้น <u>ยังไม่มีการยิง Webhook ออกจริง</u> เมื่อเกิดเหตุการณ์เหล่านี้ในระบบ
+          ⚠️ <strong>ข้อจำกัดสำคัญ:</strong> ปุ่ม "⚡ Test" ยิง Webhook จริงได้แล้ว (ผ่าน Worker ตัวกลาง) แต่ระบบยังไม่มีการยิง Webhook <u>อัตโนมัติ</u> เมื่อเกิด Event จริงในระบบ (เช่น sale.created, lead.converted) — ต้อง hook เข้าทุกจุดที่เขียนข้อมูลทั่วทั้งแอป เป็นงานคนละสเกล ยังไม่ได้ทำในตอนนี้ ใช้ปุ่ม Test เพื่อยืนยันว่าปลายทางพร้อมรับได้ก่อนเชื่อมต่อจริงเท่านั้น
         </div>
 
         ${!canManage ? `<div class="card" style="padding:12px 14px;margin-bottom:14px;border-left:3px solid var(--warning);font-size:0.8rem">⚠️ เฉพาะ Owner/Admin เท่านั้นที่สร้าง/แก้ไข/ลบ Webhook ได้ในหน้านี้</div>` : ''}
@@ -78,8 +79,21 @@ export default async function WebhookBuilderPage(container) {
     `
 
     document.getElementById('new-btn')?.addEventListener('click', () => { if (canManage) openCreateModal() })
-    document.getElementById('test-all-btn')?.addEventListener('click', () => {
-      showToast(`⚠ ยังไม่รองรับการทดสอบส่งจริง (ต้องมี Worker ตัวกลางยิง HTTP แทน browser)`, 'warning')
+    document.getElementById('test-all-btn')?.addEventListener('click', async e => {
+      const btn = e.currentTarget
+      const targets = webhooks.filter(w => w.active)
+      if (!targets.length) { showToast('ไม่มี Webhook ที่เปิดใช้งานอยู่', 'warning'); return }
+      btn.disabled = true
+      btn.textContent = `⏳ กำลังทดสอบ ${targets.length} รายการ...`
+      let ok = 0, fail = 0
+      for (const w of targets) {
+        const result = await testOne(w)
+        if (result.ok) ok++; else fail++
+      }
+      btn.disabled = false
+      btn.textContent = '⚡ Test All'
+      showToast(`ทดสอบครบ ${targets.length} รายการ — สำเร็จ ${ok} · ล้มเหลว ${fail}`, fail ? 'warning' : 'success')
+      await loadData()
     })
     container.querySelectorAll('.toggle-btn').forEach(b => b.addEventListener('click', async () => {
       if (!canManage) return
@@ -91,9 +105,18 @@ export default async function WebhookBuilderPage(container) {
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    container.querySelectorAll('.test-btn').forEach(b => b.addEventListener('click', () => {
+    container.querySelectorAll('.test-btn').forEach(b => b.addEventListener('click', async () => {
       const w = webhooks.find(x => x.id === b.dataset.id)
-      if (w) showToast(`⚠ ยังไม่รองรับการทดสอบส่งจริงจาก browser (ติด CORS + ความเสี่ยง SSRF ถ้ายิง URL ที่ผู้ใช้กรอกเองตรงๆ ต้องมี Worker ตัวกลางก่อน)`, 'warning')
+      if (!w) return
+      b.disabled = true
+      const original = b.textContent
+      b.textContent = '⏳ กำลังยิง...'
+      const result = await testOne(w)
+      b.disabled = false
+      b.textContent = original
+      if (result.ok) showToast(`✅ ยิง "${esc(w.name)}" สำเร็จ — ปลายทางตอบ ${result.status} (${result.durationMs}ms)`, 'success')
+      else showToast(`❌ ยิง "${esc(w.name)}" ไม่สำเร็จ — ${result.status ? `ปลายทางตอบ ${result.status}` : (result.error || 'ไม่ทราบสาเหตุ')}`, 'error')
+      await loadData()
     }))
     container.querySelectorAll('.del-btn').forEach(b => b.addEventListener('click', () => {
       if (!canManage) return
@@ -110,6 +133,25 @@ export default async function WebhookBuilderPage(container) {
       const w = webhooks.find(x => x.id === b.dataset.id)
       if (w) openDetailModal(w)
     }))
+  }
+
+  // ยิงจริงผ่าน workers/webhook-test.js แล้วอัปเดตตัวนับ fires/fails/lastFired จริงตามผลที่ได้ (ไม่ใช่เลข
+  // สุ่ม/ไม่นับเลย เหมือนก่อนหน้านี้) คืนค่า result เดิมที่ worker ตอบกลับให้ผู้เรียกใช้แสดงผลต่อได้
+  async function testOne(w) {
+    let result
+    try {
+      result = await testSendWebhook({ url: w.url, method: w.method || 'POST', secret: w.secret || '', event: w.events?.[0] || 'webhook.test' })
+    } catch (e) {
+      result = { ok: false, status: 0, error: e.message || 'ยิง Webhook ไม่สำเร็จ' }
+    }
+    try {
+      await updateDocData('webhooks', w.id, {
+        lastFired: new Date().toISOString(),
+        fires: (w.fires || 0) + (result.ok ? 1 : 0),
+        fails: (w.fails || 0) + (result.ok ? 0 : 1),
+      })
+    } catch (e) { /* ตัวนับอัปเดตไม่สำเร็จไม่ critical — ผลการทดสอบจริงยังแสดงให้ผู้ใช้เห็นถูกต้องอยู่ดี */ }
+    return result
   }
 
   function whCard(w) {
