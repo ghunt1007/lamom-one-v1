@@ -5,7 +5,7 @@
  * อัตราแลกเปลี่ยนเก็บใน Firestore (exchange_rates) และแก้ไขได้เองโดยทีมงาน/แอดมิน
  * — ไม่ใช่การดึงข้อมูล real-time จากภายนอก (แอปนี้ไม่มี integration กับ BOT หรือ FX API ใดๆ)
  */
-import { formatCurrency, formatDateTime } from '../../utils/format.js'
+import { formatCurrency, formatDateTime, toDate } from '../../utils/format.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData } from '../../core/db.js'
 import { openModal } from '../../utils/modal.js'
@@ -72,7 +72,9 @@ export default async function MultiCurrencyPage(container) {
   function latestManualUpdate() {
     const edited = currencies.filter(c => c.code !== 'THB' && c.updatedByName)
     if (!edited.length) return null
-    return edited.reduce((a, b) => (new Date(a.updatedAt) > new Date(b.updatedAt) ? a : b))
+    // updatedAt คือ Firestore serverTimestamp() object — new Date() ตรงๆ ได้ Invalid Date เงียบๆ เทียบกันได้ false
+    // เสมอ ทำให้ reduce เลือกตัวแรกในลิสต์ทุกครั้งแทนที่จะเป็นตัวที่แก้ไขล่าสุดจริง
+    return edited.reduce((a, b) => (toDate(a.updatedAt) > toDate(b.updatedAt) ? a : b))
   }
 
   function render() {

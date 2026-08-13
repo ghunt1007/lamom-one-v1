@@ -2,7 +2,7 @@
  * Executive Summary — สรุปผู้บริหารหน้าเดียว
  * Route: /analytics/executive
  */
-import { formatCurrency, formatDate, toDateStr } from '../../utils/format.js'
+import { formatCurrency, formatDate, toDateStr, toDate } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { openModal } from '../../utils/modal.js'
 import { getSalesData, getCommissionData, listDocs } from '../../core/db.js'
@@ -75,7 +75,13 @@ async function computeRealSignals(currSales, growth) {
 
   try {
     const jobs = await listDocs('job_cards', [], 'createdAt', 'desc', 500)
-    const overdue = jobs.filter(j => j.status !== 'done' && j.status !== 'closed' && j.createdAt && (now - new Date(j.createdAt)) / 86400000 > 5)
+    // j.createdAt คือ Firestore serverTimestamp() object — new Date() ตรงๆ ได้ Invalid Date เงียบๆ (ไม่ throw)
+    // ทำให้เงื่อนไขนี้เป็น false เสมอ (เทียบกับ NaN ได้ false ทุกครั้ง) งานค้างนานแค่ไหนก็ไม่เคยถูกนับว่า "เกิน 5 วัน"
+    const overdue = jobs.filter(j => {
+      if (j.status === 'done' || j.status === 'closed') return false
+      const d = toDate(j.createdAt)
+      return d && (now - d) / 86400000 > 5
+    })
     if (overdue.length) concerns.push({ icon: '🔧', text: `งานซ่อมค้างเกิน 5 วัน ${overdue.length} งาน`, action: 'ติดตามความคืบหน้ากับหัวหน้าช่าง' })
   } catch {}
 

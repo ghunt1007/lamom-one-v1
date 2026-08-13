@@ -1,6 +1,10 @@
 // Formatting utilities
 
-function toDate(v) {
+// แปลงค่าวันที่ (Firestore Timestamp object, ISO string, หรือ Date) ให้เป็น Date object เสมอ (หรือ null) —
+// ใช้แทนการเรียก new Date(x.createdAt) ตรงๆ ซึ่ง Date constructor ไม่รู้จัก Timestamp object จะได้
+// Invalid Date เงียบๆ (ไม่ throw) การเปรียบเทียบ/คำนวณกับ Invalid Date ได้ false/NaN เสมอ — บั๊กที่ไม่พัง
+// แต่ตรรกะผิดเงียบๆ ตรวจไม่เจอง่ายเท่า TypeError ตรงๆ
+export function toDate(v) {
   if (!v) return null
   if (v?.toDate) return v.toDate()  // Firestore Timestamp
   const d = new Date(v)

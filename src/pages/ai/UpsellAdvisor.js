@@ -2,7 +2,7 @@
  * Upsell / Cross-sell AI Advisor — แนะนำ Upsell สินค้าและบริการต่อลูกค้า
  * Route: /ai/upsell
  */
-import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok, toDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData, listDocs, createDoc } from '../../core/db.js'
@@ -74,7 +74,10 @@ export default async function UpsellAdvisorPage(container) {
           reason: latestPolicy ? `ประกันหมดอายุแล้วตั้งแต่ ${formatDate(latestPolicy.endDate)}` : 'ยังไม่พบประวัติทำประกันภัยในระบบ',
           price: latestPolicy?.premium || null })
       }
-      if (!latestJob || new Date(latestJob.createdAt) < sixMonthsAgo) {
+      // latestJob.createdAt คือ Firestore serverTimestamp() object — new Date() ตรงๆ ได้ Invalid Date เงียบๆ
+      // ทำให้เงื่อนไข "ไม่เข้าศูนย์เกิน 6 เดือน" เป็น false เสมอแม้ latestJob มีจริง จึงพลาดโอกาส upsell
+      const latestJobDate = toDate(latestJob?.createdAt)
+      if (!latestJob || !latestJobDate || latestJobDate < sixMonthsAgo) {
         opportunities.push({ type: 'service',
           reason: latestJob ? `เข้าศูนย์บริการล่าสุด ${formatDate(latestJob.createdAt)} (เกิน 6 เดือน)` : 'ยังไม่พบประวัติเข้าศูนย์บริการในระบบ',
           price: null })
