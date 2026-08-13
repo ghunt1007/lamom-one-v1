@@ -1,7 +1,7 @@
 import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { showToast } from '../../core/store.js'
-import { getSalesData, getCommissionData } from '../../core/db.js'
+import { getSalesData, getCommissionData, listDocs } from '../../core/db.js'
 
 const REPORT_CATEGORIES = {
   sales:    { label: '💰 ยอดขาย', icon: '💰', color: 'success' },
@@ -75,7 +75,7 @@ export default async function ReportCenterPage(container) {
 
   // Live report data — start with demo, overlay real data when available
   const reportData = JSON.parse(JSON.stringify(REPORT_DATA))
-  let liveR001 = false, liveR002 = false
+  let liveR001 = false, liveR002 = false, liveR006 = false, liveR008 = false
   let salesData = []
 
   function rebuildR001() {
@@ -122,6 +122,51 @@ export default async function ReportCenterPage(container) {
       const r002 = Object.values(byName).sort((a, b) => b.จำนวนคัน - a.จำนวนคัน)
       if (r002.length) { reportData.R002 = r002; liveR002 = true }
     }
+  } catch {}
+
+  // R006 รายงานการมาทำงาน — สรุปจริงจาก attendance ต่อพนักงาน (มา/ขาด/สาย) ไม่ผูกช่วงวันที่จาก
+  // dateFrom/dateTo ของหน้านี้ (เอาข้อมูลทั้งหมดที่มี) เพราะ attendance ยังไม่มีตัวกรองช่วงวันในหน้านี้
+  try {
+    const attendance = await listDocs('attendance', [], 'date', 'desc', 2000).catch(() => [])
+    if (container.__routerGen !== myGen) return
+    if (attendance.length) {
+      const byStaff = {}
+      attendance.forEach(a => {
+        const name = a.staffName; if (!name) return
+        if (!byStaff[name]) byStaff[name] = { พนักงาน: name, มา: 0, ขาด: 0, สาย: 0, total: 0 }
+        byStaff[name].total++
+        if (a.status === 'present') byStaff[name].มา++
+        else if (a.status === 'late') { byStaff[name].มา++; byStaff[name].สาย++ }
+        else if (a.status === 'absent') byStaff[name].ขาด++
+      })
+      const r006 = Object.values(byStaff).map(s => {
+        const { total, ...row } = s
+        row['อัตรา%'] = total ? Math.round(row.มา / total * 100) + '%' : '0%'
+        return row
+      })
+      if (r006.length) { reportData.R006 = r006; liveR006 = true }
+    }
+  } catch {}
+
+  // R008 รายงาน Lost Deal — ใบจองสถานะ "ถอนจอง" จริง (schema เดียวกับ LostDealAnalysis.js) แปลงเป็นแถวรายงาน
+  const LOST_REASON_LABELS = {
+    price: 'ราคาแพงเกินไป', competitor: 'ไปซื้อคู่แข่ง', model: 'ไม่มีรุ่นที่ต้องการ', finance: 'ไฟแนนซ์ไม่ผ่าน',
+    timing: 'ยังไม่พร้อมซื้อ', service: 'ไม่พอใจบริการ', location: 'ไกลเกินไป', changed_mind: 'เปลี่ยนใจ',
+    no_contact: 'ติดต่อไม่ได้', other: 'อื่นๆ',
+  }
+  try {
+    const bookings = await listDocs('bookings', [], 'createdAt', 'desc', 500).catch(() => [])
+    if (container.__routerGen !== myGen) return
+    const r008 = bookings
+      .filter(b => !b.deleted && b.status === 'ถอนจอง')
+      .map(b => ({
+        วันที่: (b.updatedAt || b.createdAt || '').slice(0, 10),
+        ลูกค้า: b.custName || '',
+        รุ่น: [b.brand, b.model].filter(Boolean).join(' '),
+        สาเหตุ: LOST_REASON_LABELS[b.cancelReason] || 'ไม่ระบุ',
+        มูลค่า: b.price || 0,
+      }))
+    if (r008.length) { reportData.R008 = r008; liveR008 = true }
   } catch {}
 
   function getFiltered() {
@@ -196,7 +241,7 @@ export default async function ReportCenterPage(container) {
     const r = activeReport
     const cat = REPORT_CATEGORIES[r.cat]
     const data = reportData[r.id] || []
-    const isLive = (r.id === 'R001' && liveR001) || (r.id === 'R002' && liveR002)
+    const isLive = (r.id === 'R001' && liveR001) || (r.id === 'R002' && liveR002) || (r.id === 'R006' && liveR006) || (r.id === 'R008' && liveR008)
 
     return `
       <div>
