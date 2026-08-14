@@ -40,14 +40,17 @@ function injectStyle() {
   st.textContent =
     '.tt-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}' +
     '.tt-search{position:relative;display:flex;align-items:center}' +
-    '.tt-search input{padding:4px 8px 4px 26px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-size:0.78rem;width:200px;font-family:var(--font-main)}' +
+    // font-size ของ input ต้องเป็น 16px จริง (ไม่ใช่ rem — root html font-size ของระบบนี้คือ 15px) เสมอ กัน
+    // iOS Safari ซูมทั้งหน้าจออัตโนมัติทุกครั้งที่แตะช่องพิมพ์ (เดิม 0.78rem/0.7rem ต่ำกว่าเกณฑ์ — พิมพ์
+    // ค้นหา/กรองในตารางแล้วหน้าจอกระตุกซูมเข้าเองบนมือถือ)
+    '.tt-search input{padding:4px 8px 4px 26px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-size:16px;width:200px;font-family:var(--font-main)}' +
     '.tt-search span{position:absolute;left:8px;color:var(--text-muted);font-size:0.78rem;pointer-events:none}' +
     '.tt-btn{font-size:0.74rem;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);cursor:pointer;font-family:var(--font-main)}' +
     '.tt-btn.on{background:var(--primary);color:#fff;border-color:var(--primary)}' +
     '.tt-info{font-size:0.72rem;color:var(--warning)}' +
     '.tt-th-sortable{cursor:pointer;user-select:none}' +
     '.tt-arrow{color:var(--primary);margin-left:3px;font-size:0.85em}' +
-    '.tt-filter-row input{width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:4px;font-size:0.7rem;padding:2px 5px;background:var(--surface);color:var(--text);font-family:var(--font-main)}'
+    '.tt-filter-row input{width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:4px;font-size:16px;padding:2px 5px;background:var(--surface);color:var(--text);font-family:var(--font-main)}'
   document.head.appendChild(st)
 }
 

@@ -74,7 +74,7 @@ export default async function PartsInventoryPage(container) {
 
         <!-- Filters + search -->
         <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
-          <input class="input" id="search-input" placeholder="ค้นหาชื่อ / SKU..." value="${esc(search)}" style="width:200px;padding:6px 10px;font-size:0.8rem">
+          <input class="input" id="search-input" placeholder="ค้นหาชื่อ / SKU..." value="${esc(search)}" style="width:200px;padding:6px 10px;font-size:16px">
           <div style="display:flex;gap:4px;flex-wrap:wrap">
             <button class="btn btn-xs ${catFilter==='all'?'btn-primary':'btn-secondary'} cat-btn" data-c="all">ทั้งหมด</button>
             ${PART_CATEGORIES.map(c => `<button class="btn btn-xs ${catFilter===c?'btn-primary':'btn-secondary'} cat-btn" data-c="${esc(c)}">${esc(c)}</button>`).join('')}

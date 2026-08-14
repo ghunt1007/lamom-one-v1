@@ -131,7 +131,7 @@ export default async function EventManagementPage(container) {
             '<button class="btn btn-xs ' + (typeFilter==='all'?'btn-primary':'btn-secondary') + ' type-btn" data-t="all">ทั้งหมด</button>' +
             Object.entries(EVENT_TYPES).map(([k,v]) => '<button class="btn btn-xs ' + (typeFilter===k?'btn-primary':'btn-secondary') + ' type-btn" data-t="' + k + '">' + v.icon + ' ' + v.label + '</button>').join('') +
           '</div>' +
-          '<select class="input" id="status-filter" style="width:130px;height:28px;font-size:0.8rem">' +
+          '<select class="input" id="status-filter" style="width:130px;height:28px;font-size:16px">' +
             '<option value="all">สถานะทั้งหมด</option>' +
             Object.entries(EVENT_STATUS).map(([k,v]) => '<option value="' + k + '" ' + (statusFilter===k?'selected':'') + '>' + v.label + '</option>').join('') +
           '</select>' +

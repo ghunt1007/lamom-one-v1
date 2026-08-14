@@ -64,7 +64,7 @@ export default async function ChatTemplatesPage(container) {
 
         <!-- Filters -->
         <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
-          <input class="input" id="search-input" placeholder="ค้นหา..." value="${search}" style="width:180px;padding:6px 10px;font-size:0.8rem">
+          <input class="input" id="search-input" placeholder="ค้นหา..." value="${search}" style="width:180px;padding:6px 10px;font-size:16px">
           <div style="display:flex;gap:4px">
             <button class="btn btn-xs ${catFilter==='all'?'btn-primary':'btn-secondary'} cf-btn" data-c="all">ทั้งหมด</button>
             ${Object.entries(TPL_CATS).map(([k,v]) => `<button class="btn btn-xs ${catFilter===k?'btn-'+v.color:'btn-secondary'} cf-btn" data-c="${k}">${v.icon} ${v.label}</button>`).join('')}

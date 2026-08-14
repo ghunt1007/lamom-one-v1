@@ -77,7 +77,7 @@ export default async function CustomerNotesPage(container) {
 
         <!-- Filters -->
         <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
-          <select class="input" id="cust-filter" style="width:180px;padding:6px 10px;font-size:0.8rem">
+          <select class="input" id="cust-filter" style="width:180px;padding:6px 10px;font-size:16px">
             <option value="all">ลูกค้าทุกคน</option>
             ${customers.map(c => { const n = custName(c); return `<option value="${escHtml(n)}" ${customerFilter===n?'selected':''}>${escHtml(n)}</option>` }).join('')}
           </select>

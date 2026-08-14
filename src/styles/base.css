@@ -139,7 +139,11 @@ a:hover { text-decoration: underline; }
 .input {
   background: var(--surface-2); border: 1px solid var(--border);
   border-radius: var(--radius-md); color: var(--text);
-  font-family: var(--font-main); font-size: 0.9rem;
+  /* font-size ต้อง >= 16px จริง (ไม่ใช่ 1rem — root html font-size ของระบบนี้คือ 15px ไม่ใช่ 16px มาตรฐาน
+     เบราว์เซอร์ ใช้ 1rem จะได้แค่ 15px ยังไม่พ้นเกณฑ์) เสมอ — iOS Safari จะซูมทั้งหน้าจออัตโนมัติทันทีที่แตะ
+     input ที่ font-size ต่ำกว่า 16px (พฤติกรรมมาตรฐานของเบราว์เซอร์ ป้องกันข้อความอ่านไม่ออก) เดิมใช้ 0.9rem
+     (13.5px) ทำให้ทุกครั้งที่แตะช่องพิมพ์บนมือถือ (iOS) หน้าจอกระตุกซูมเข้าเอง พิมพ์ยาก ต้องซูมออกเองทุกครั้ง */
+  font-family: var(--font-main); font-size: 16px;
   padding: 9px 12px; transition: border-color var(--transition), box-shadow var(--transition);
   width: 100%; outline: none;
 }

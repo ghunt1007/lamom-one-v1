@@ -99,9 +99,9 @@ export default async function RepairEstimatePage(container) {
           <!-- Estimate -->
           <div class="card" style="padding:14px;height:fit-content">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-              <div class="input-group"><label class="input-label">ลูกค้า</label><input class="input" id="est-customer" value="${escHtml(customer)}" style="padding:6px 10px;font-size:0.8rem"></div>
-              <div class="input-group"><label class="input-label">ทะเบียน</label><input class="input" id="est-plate" value="${escHtml(plate)}" style="padding:6px 10px;font-size:0.8rem"></div>
-              <div class="input-group" style="grid-column:1/-1"><label class="input-label">เบอร์โทร (สำหรับส่ง SMS แจ้งราคา — ไม่กรอกได้)</label><input class="input" id="est-phone" value="${escHtml(phone)}" placeholder="08xxxxxxxx" style="padding:6px 10px;font-size:0.8rem"></div>
+              <div class="input-group"><label class="input-label">ลูกค้า</label><input class="input" id="est-customer" value="${escHtml(customer)}" style="padding:6px 10px;font-size:16px"></div>
+              <div class="input-group"><label class="input-label">ทะเบียน</label><input class="input" id="est-plate" value="${escHtml(plate)}" style="padding:6px 10px;font-size:16px"></div>
+              <div class="input-group" style="grid-column:1/-1"><label class="input-label">เบอร์โทร (สำหรับส่ง SMS แจ้งราคา — ไม่กรอกได้)</label><input class="input" id="est-phone" value="${escHtml(phone)}" placeholder="08xxxxxxxx" style="padding:6px 10px;font-size:16px"></div>
             </div>
 
             ${items.length === 0 ? `

@@ -84,7 +84,7 @@ export default async function LeaderboardPage(container) {
               <button class="btn btn-xs ${period==='month'?'btn-primary':'btn-secondary'}" id="period-month">เดือนนี้</button>
               <button class="btn btn-xs ${period==='year'?'btn-primary':'btn-secondary'}" id="period-year">รายปี</button>
               <button class="btn btn-xs ${period==='all'?'btn-primary':'btn-secondary'}" id="period-all">ตลอดกาล</button>
-              <select class="input" id="dept-filter" style="font-size:0.8rem;padding:4px 8px">
+              <select class="input" id="dept-filter" style="font-size:16px;padding:4px 8px">
                 <option value="all">ทุกแผนก</option>
                 <option value="ฝ่ายขาย" ${deptFilter==='ฝ่ายขาย'?'selected':''}>ฝ่ายขาย</option>
                 <option value="ศูนย์บริการ" ${deptFilter==='ศูนย์บริการ'?'selected':''}>ศูนย์บริการ</option>

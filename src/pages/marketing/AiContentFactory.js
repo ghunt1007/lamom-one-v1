@@ -55,7 +55,7 @@ export default async function AiContentFactoryPage(container) {
     const fieldInputs = selectedTemplate.fields.map(f =>
       '<div style="margin-bottom:8px">' +
         '<label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:3px">' + esc(f) + '</label>' +
-        '<input class="form-input ai-field-input" data-field="' + esc(f) + '" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.8rem" placeholder="กรอก ' + esc(f) + '..." />' +
+        '<input class="form-input ai-field-input" data-field="' + esc(f) + '" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-size:16px" placeholder="กรอก ' + esc(f) + '..." />' +
       '</div>'
     ).join('')
 

@@ -75,7 +75,7 @@ export default async function StaffDocumentsPage(container) {
 
         <!-- Filters -->
         <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
-          <input class="input" id="search-input" placeholder="ค้นหาพนักงาน / เอกสาร..." value="${escHtml(search)}" style="width:200px;padding:6px 10px;font-size:0.8rem">
+          <input class="input" id="search-input" placeholder="ค้นหาพนักงาน / เอกสาร..." value="${escHtml(search)}" style="width:200px;padding:6px 10px;font-size:16px">
           <div style="display:flex;gap:4px;flex-wrap:wrap">
             <button class="btn btn-xs ${typeFilter==='all'?'btn-primary':'btn-secondary'} tf-btn" data-t="all">ทั้งหมด</button>
             ${Object.entries(DOC_TYPES).map(([k,v]) => `<button class="btn btn-xs ${typeFilter===k?'btn-'+v.color:'btn-secondary'} tf-btn" data-t="${k}">${v.icon} ${v.label}</button>`).join('')}
