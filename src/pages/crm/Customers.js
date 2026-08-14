@@ -59,6 +59,7 @@ export default async function CustomersPage(container) {
   let search = ''
   let stageFilter = 'all'
   let lostOnly = false
+  let salesFilter = ''
 
   async function loadData() {
     // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true (กู้คืนได้ใน 30 วันตามที่แจ้งผู้ใช้) — ถ้าไม่กรอง
@@ -90,7 +91,8 @@ export default async function CustomersPage(container) {
       const matchStage = stageFilter === 'all' || c.stage === stageFilter
       const matchLost = !lostOnly || c.isLost
       const matchCompany = !c.companyId || !activeCompanyFilter.length || activeCompanyFilter.includes(c.companyId)
-      return matchSearch && matchStage && matchLost && matchCompany
+      const matchSales = !salesFilter || c.assignedTo === salesFilter
+      return matchSearch && matchStage && matchLost && matchCompany && matchSales
     })
     const rank = { high: 0, medium: 1, low: 2 }
     filtered.sort((a, b) => {
@@ -698,6 +700,10 @@ export default async function CustomersPage(container) {
             <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted)">🔍</span>
             <input class="input" id="cust-search" placeholder="ค้นหาชื่อ เบอร์โทร LINE รถที่สนใจ..." style="padding-left:32px">
           </div>
+          <select class="input" id="cust-sales-filter" style="width:auto;min-width:140px" title="กรองตามผู้ดูแล">
+            <option value="">👤 ผู้ดูแลทั้งหมด</option>
+            ${getSalesStaff().map(s => `<option value="${escHtml(s)}">${escHtml(s)}</option>`).join('')}
+          </select>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
             ${['all', ...STAGE_ORDER].map(s => `
               <button class="btn btn-sm sf ${s === 'all' ? 'btn-primary' : 'btn-secondary'}" data-s="${s}">
@@ -834,6 +840,7 @@ export default async function CustomersPage(container) {
     })
   })
   document.getElementById('cust-search').addEventListener('input', e => { search = e.target.value.trim().toLowerCase(); applyFilter() })
+  document.getElementById('cust-sales-filter').addEventListener('change', e => { salesFilter = e.target.value; applyFilter() })
   document.querySelectorAll('.sf').forEach(btn => btn.addEventListener('click', () => {
     stageFilter = btn.dataset.s
     document.querySelectorAll('.sf').forEach(b => b.className = `btn btn-sm sf ${b.dataset.s === stageFilter ? 'btn-primary' : 'btn-secondary'}`)
