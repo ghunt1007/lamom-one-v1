@@ -104,8 +104,10 @@ export function openGlobalSearch() {
     '<div class="modal" style="max-width:640px;width:92%;overflow:hidden">' +
       '<div style="padding:12px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)">' +
         '<span style="font-size:1.1rem">🔍</span>' +
+        // font-size ต้องเป็น 16px จริง (ไม่ใช่ rem — root html font-size ของระบบนี้คือ 15px) กัน iOS Safari
+        // ซูมทั้งหน้าจออัตโนมัติทันทีที่แตะช่องพิมพ์ (ดู pattern เดียวกับที่แก้ไปแล้วทั่วระบบใน v1.0.423)
         '<input type="text" id="gsearch-input" placeholder="' + escAttr(tr('searchAllPlaceholder')) + '" ' +
-          'style="border:none;background:transparent;font-size:1rem;flex:1;outline:none;color:var(--text);font-family:var(--font-main)" autocomplete="off">' +
+          'style="border:none;background:transparent;font-size:16px;flex:1;outline:none;color:var(--text);font-family:var(--font-main)" autocomplete="off">' +
         '<span class="topbar-search-kbd" style="cursor:pointer" id="gsearch-esc">Esc</span>' +
       '</div>' +
       '<div id="gsearch-results" style="max-height:62vh;overflow:auto;padding:6px"></div>' +
@@ -148,8 +150,10 @@ export function openGlobalSearch() {
     })
 
     // ข้อมูลในแต่ละ collection — ดึงขนานกันทุก collection พร้อมกัน
+    // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true — ถ้าไม่กรองออก ลูกค้า/ใบจอง/พนักงาน/รถที่ "ลบ"
+    // ไปแล้วจะยังค้นเจอและกดเปิดได้จาก Global Search (Ctrl+K) ทั่วทั้งแอปต่อไปเรื่อยๆ
     const fetched = await Promise.all(
-      SOURCES.map(src => listDocs(src.col, [], 'createdAt', 'desc', 500).catch(() => []))
+      SOURCES.map(src => listDocs(src.col, [], 'createdAt', 'desc', 500).then(rows => rows.filter(r => !r.deleted)).catch(() => []))
     )
     SOURCES.forEach((src, i) => {
       fetched[i].forEach(r => {

@@ -116,7 +116,7 @@ export default async function MultiCurrencyPage(container) {
             <!-- Custom amount -->
             <div class="card" style="padding:14px">
               <div style="font-size:0.76rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">✏️ ระบุราคาเอง (บาท)</div>
-              <input class="input" id="custom-amt" type="number" value="${amtTHB}" style="width:100%;font-size:1rem;font-weight:700">
+              <input class="input" id="custom-amt" type="number" value="${amtTHB}" style="width:100%;font-size:16px;font-weight:700">
             </div>
 
             <!-- Rate status -->
