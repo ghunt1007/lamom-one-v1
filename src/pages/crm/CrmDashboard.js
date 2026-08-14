@@ -1,6 +1,6 @@
 import { listDocs, seedDemoData, getSalesData } from '../../core/db.js'
 import { navigate } from '../../core/router.js'
-import { formatCurrency } from '../../utils/format.js'
+import { formatCurrency, toDate } from '../../utils/format.js'
 
 const QUICK_LINKS = [
   { icon:'👥', label:'ลูกค้า', sub:'ฐานข้อมูลลูกค้า', path:'/crm/customers', color:'primary' },
@@ -102,7 +102,9 @@ function renderAlerts(customers, sales) {
   const el = document.getElementById('crm-alerts')
   if (!el) return
   const now = Date.now()
-  const daysSince = d => Math.floor((now - new Date(d).getTime()) / 86400000)
+  // d มักเป็น Firestore serverTimestamp() object (c.createdAt) — new Date(d) ตรงๆ ได้ Invalid Date เงียบๆ
+  // (NaN) เทียบกับตัวเลขได้ false เสมอ ทำให้แจ้งเตือน Lead ค้างไม่เคยขึ้นเลย ใช้ toDate() แทน
+  const daysSince = d => { const dt = toDate(d); return dt ? Math.floor((now - dt.getTime()) / 86400000) : -Infinity }
   const alerts = []
 
   // Lead ใหม่ยังไม่ได้ติดตาม (ยังไม่มีเบอร์/LINE) เกิน 3 วัน

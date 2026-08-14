@@ -1,6 +1,6 @@
 import { getState, on } from '../core/store.js'
 import { listDocs, watchDocs, seedDemoData, getSalesData } from '../core/db.js'
-import { formatCurrency, timeAgo, todayBangkok, toDateStr } from '../utils/format.js'
+import { formatCurrency, timeAgo, todayBangkok, toDateStr, toDate } from '../utils/format.js'
 import { navigate } from '../core/router.js'
 import { generateMorningBriefing } from '../utils/ai.js'
 import { getModuleForPath, hasModuleAccess, loadRolePermissions } from '../core/permissions.js'
@@ -892,7 +892,10 @@ export default async function DashboardPage(container) {
       const el = document.getElementById('alerts-body')
       if (!el) return
       const now = Date.now()
-      const daysSince = d => Math.floor((now - new Date(d).getTime()) / 86400000)
+      // d มักเป็น Firestore serverTimestamp() object (j.createdAt/l.createdAt/v.createdAt) — new Date(d) ตรงๆ
+      // ได้ Invalid Date เงียบๆ (NaN) เทียบกับตัวเลขได้ false เสมอ ทำให้แจ้งเตือนงานค้าง/Lead ค้าง/รถค้างสต็อก
+      // ไม่เคยขึ้นเลยแม้จะค้างจริง ใช้ toDate() แทนเพื่อรองรับทั้ง Timestamp/string/Date ให้ถูกต้อง
+      const daysSince = d => { const dt = toDate(d); return dt ? Math.floor((now - dt.getTime()) / 86400000) : -Infinity }
       const alerts = []
 
       // ใบจองค้างสถานะเกิน 14 วัน (ยังไม่ส่งมอบ/ไม่ถอน)
@@ -947,7 +950,7 @@ export default async function DashboardPage(container) {
       const el = document.getElementById('radar-scope')
       if (!el) return
       const now = Date.now()
-      const daysSince = d => Math.floor((now - new Date(d).getTime()) / 86400000)
+      const daysSince = d => { const dt = toDate(d); return dt ? Math.floor((now - dt.getTime()) / 86400000) : -Infinity }
       const FINAL = ['ส่งมอบแล้ว', 'ถอนจอง']
       const items = []
       bookings.filter(b => !FINAL.includes(b.status) && b.bookingDate && daysSince(b.bookingDate) >= 14).forEach(b => {
@@ -1074,7 +1077,7 @@ export default async function DashboardPage(container) {
       const regenBtn = document.getElementById('briefing-regen')
       if (!textEl) return
 
-      const daysSinceNow = d => Math.floor((Date.now() - new Date(d).getTime()) / 86400000)
+      const daysSinceNow = d => { const dt = toDate(d); return dt ? Math.floor((Date.now() - dt.getTime()) / 86400000) : -Infinity }
       const FINAL_ST = ['ส่งมอบแล้ว', 'ถอนจอง']
       const stuckBookingsCount = bookings.filter(b => !FINAL_ST.includes(b.status) && b.bookingDate && daysSinceNow(b.bookingDate) >= 14).length
       const overdueJobsCount = jobs.filter(j => !['done', 'completed', 'delivered'].includes(j.status) && j.createdAt && daysSinceNow(j.createdAt) >= 7).length

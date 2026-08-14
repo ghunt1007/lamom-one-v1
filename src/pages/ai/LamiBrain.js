@@ -2,7 +2,7 @@
  * LAMI Brain — ศูนย์บัญชาการ AI Officer LAMI
  * Route: /ai/lami
  */
-import { timeAgo, todayBangkok } from '../../utils/format.js'
+import { timeAgo, todayBangkok, toDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { navigate } from '../../core/router.js'
@@ -32,7 +32,9 @@ const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 }
 function computeInsights({ leads, vehicleModels, jobCards, complaintsList, salesRows }) {
   const insights = []
   const now = new Date()
-  const daysSince = d => Math.floor((now.getTime() - new Date(d).getTime()) / 86400000)
+  // d มักเป็น Firestore serverTimestamp() object (เช่น j.createdAt) — new Date(d) ตรงๆ ได้ Invalid Date เงียบๆ
+  // (NaN) เทียบกับตัวเลขได้ false เสมอ ใช้ toDate() แทนเพื่อรองรับทั้ง Timestamp/string/Date ให้ถูกต้อง
+  const daysSince = d => { const dt = toDate(d); return dt ? Math.floor((now.getTime() - dt.getTime()) / 86400000) : -Infinity }
 
   const hottest = leads.map(l => ({ ...l, ...heuristicScore(l) })).sort((a, b) => b.score - a.score).find(l => l.score >= 80)
   if (hottest) {

@@ -3,7 +3,7 @@
  * Route: /analytics/dept-ops
  */
 import { listDocs } from '../../core/db.js'
-import { formatCurrency, timeAgo, todayBangkok } from '../../utils/format.js'
+import { formatCurrency, timeAgo, todayBangkok, toDate } from '../../utils/format.js'
 import { navigate } from '../../core/router.js'
 
 const DEPARTMENTS = {
@@ -22,9 +22,11 @@ const STUCK_BOOKING_STATUSES = ['รอผลไฟแนนซ์', 'จัด�
 const STUCK_DAYS_THRESHOLD = 5
 
 function escHtml(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }
+// dateStr มักเป็น Firestore serverTimestamp() object (b.createdAt/j.createdAt) — new Date(dateStr) ตรงๆ ได้
+// Invalid Date เงียบๆ (NaN) เทียบกับตัวเลขได้ false เสมอ ทำให้ตรวจจับจุดคอขวดไม่เคยเจอเลย ใช้ toDate() แทน
 function daysSince(dateStr) {
-  if (!dateStr) return 0
-  return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000)
+  const d = toDate(dateStr)
+  return d ? Math.floor((Date.now() - d.getTime()) / 86400000) : 0
 }
 
 export default async function DeptOperationsDashboardPage(container) {
