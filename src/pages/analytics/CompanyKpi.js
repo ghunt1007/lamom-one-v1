@@ -107,7 +107,8 @@ export default async function CompanyKpiPage(container) {
     const [s, c] = await Promise.all([getSalesData().catch(() => []), listDocs('customers', [], 'createdAt', 'desc', 3000).catch(() => [])])
     if (container.__routerGen !== myGen) return
     sales = s
-    customers = c
+    // softDelete() ไม่ลบเอกสารจริง แค่ตั้ง deleted:true — กรองออกกันลูกค้าที่ลบไปแล้วปนอยู่ใน KPI
+    customers = c.filter(x => !x.deleted)
   } catch {}
 
   function inRange(dateStr) {

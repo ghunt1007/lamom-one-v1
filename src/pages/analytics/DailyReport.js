@@ -99,7 +99,8 @@ export default async function DailyReportPage(container) {
     if (container.__routerGen !== myGen) return
     if (sales.length >= 1) { allSales = sales; dataSource = 'live' }
     if (budgetDocs.length > 0) _monthlyTargets = budgetDocs[0].targets || null
-    allJobs = jobs
+    // softDelete() ไม่ลบเอกสารจริง แค่ตั้ง deleted:true — กรองออกกันงานซ่อมที่ลบไปแล้วปนในรายงาน
+    allJobs = jobs.filter(x => !x.deleted)
     allWalkIns = walkins
     allTestDrives = testdrives
     allAppointments = appts

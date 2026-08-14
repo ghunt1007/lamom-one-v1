@@ -74,13 +74,16 @@ export default async function AnalyticsDashboard(container) {
   let realData = { customers: 0, sales: 0, jobs: 0 }
 
   try {
-    const [customers, sales, jobs, commission] = await Promise.all([
+    const [customersRaw, sales, jobsRaw, commission] = await Promise.all([
       listDocs('customers', [], 'createdAt', 'desc', 2000).catch(() => []),
       getSalesData().catch(() => []),
       listDocs('job_cards', [], 'createdAt', 'desc', 2000).catch(() => []),
       getCommissionData().catch(() => []),
     ])
     if (container.__routerGen !== myGen) return
+    // softDelete() ไม่ลบเอกสารจริง แค่ตั้ง deleted:true — กรองออกกันลูกค้า/งานซ่อมที่ลบไปแล้วปนในสถิติ
+    const customers = customersRaw.filter(x => !x.deleted)
+    const jobs = jobsRaw.filter(x => !x.deleted)
     realData = { customers: customers.length, sales: sales.length, jobs: jobs.length }
 
     const salesThisYear = sales.filter(s => (s.date || '').slice(0, 4) === String(YEAR))

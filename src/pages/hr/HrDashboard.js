@@ -81,6 +81,8 @@ export default async function HrDashboard(container) {
       listDocs('leave_requests', [], 'createdAt', 'desc', 200).catch(() => []),
       listDocs('payroll_records', [['month', '==', thisMonth]], 'createdAt', 'asc', 500).catch(() => []),
     ])
+    // softDelete() ไม่ลบเอกสารจริง แค่ตั้ง deleted:true — กรองออกกันพนักงานที่ลบไปแล้วปนในสถิติ HR
+    staff = staff.filter(x => !x.deleted)
   } catch {}
 
   if (container.__routerGen !== myGen) return

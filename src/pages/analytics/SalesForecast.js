@@ -60,11 +60,13 @@ export default async function SalesForecastPage(container) {
 
   // Load real monthly sales from bookings
   try {
-    const [sales, customers] = await Promise.all([
+    const [sales, customersRaw] = await Promise.all([
       getSalesData(),
       listDocs('customers', [], 'createdAt', 'desc', 2000).catch(() => []),
     ])
     if (container.__routerGen !== myGen) return
+    // softDelete() ไม่ลบเอกสารจริง แค่ตั้ง deleted:true — กรองออกกันลูกค้าที่ลบไปแล้วปนในพยากรณ์ยอดขาย
+    const customers = customersRaw.filter(x => !x.deleted)
     const byMonth = {}
     sales.forEach(s => {
       const mo = parseInt((s.date || '').slice(5, 7)) - 1

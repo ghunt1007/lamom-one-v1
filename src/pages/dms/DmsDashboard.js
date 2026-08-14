@@ -92,6 +92,8 @@ export default async function DmsDashboard(container) {
       getSalesData().catch(() => []),
       listDocs('trade_ins', [], 'date', 'desc', 200).catch(() => []),
     ])
+    // softDelete() ไม่ลบเอกสารจริง แค่ตั้ง deleted:true — กรองออกกันรถที่ลบไปแล้วปนในสถิติสต็อก
+    stock = stock.filter(x => !x.deleted)
   } catch {}
 
   if (container.__routerGen !== myGen) return

@@ -96,6 +96,8 @@ export default async function ServiceDashboard(container) {
       listDocs('parts', [], 'name', 'asc', 1000).catch(() => []),
       listDocs('service_appointments', [], 'date', 'desc', 300).catch(() => []),
     ])
+    // softDelete() ไม่ลบเอกสารจริง แค่ตั้ง deleted:true — กรองออกกันงานซ่อมที่ลบไปแล้วปนในสถิติ
+    jobs = jobs.filter(x => !x.deleted)
   } catch {}
 
   if (container.__routerGen !== myGen) return
