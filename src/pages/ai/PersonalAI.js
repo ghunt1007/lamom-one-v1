@@ -2,6 +2,8 @@ import { askPersonalAI, extractMemories } from '../../utils/ai.js'
 import { createSTT, speak, stopSpeaking, canSTT } from '../../utils/voice.js'
 import { loadMemories, addMemory, deleteMemory, saveMessage, loadRecentMessages, memoriesToContext } from '../../utils/memory.js'
 import { getState } from '../../core/store.js'
+import { getSalesData, listDocs } from '../../core/db.js'
+import { todayBangkok, formatCurrency } from '../../utils/format.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
 
@@ -19,6 +21,32 @@ export default async function PersonalAIPage(container) {
 
   memories = await loadMemories()
   history  = await loadRecentMessages(16)
+
+  // เดิม LAMI (Personal AI) ไม่มีทางเข้าถึงข้อมูลธุรกิจจริงเลย ถามอะไรที่ต้องใช้ตัวเลขจริง (เช่น "ยอดขาย
+  // วันนี้เท่าไหร่") จะตอบไม่ได้ ต้องขอให้ผู้ใช้บอกตัวเลขเอง — ดึงสรุปตัวเลขสำคัญมาแนบใน context ทุกข้อความ
+  // แทน (ใช้ pattern เดียวกับ AiOfficers.js ที่คำนวณสถิติจริงแล้วแนบเข้า systemPrompt อยู่แล้ว) โหลดครั้งเดียว
+  // ตอนเปิดหน้า ไม่บล็อกการแสดงผลแชท (fire-and-forget) พลาดได้ไม่กระทบการคุยหลัก
+  let businessSnapshot = ''
+  loadBusinessSnapshot().then(s => { businessSnapshot = s }).catch(() => {})
+
+  async function loadBusinessSnapshot() {
+    try {
+      const [sales, vehicles] = await Promise.all([
+        getSalesData().catch(() => []),
+        listDocs('vehicles', [], 'arrivedAt', 'desc', 500).catch(() => []),
+      ])
+      const today = todayBangkok()
+      const thisMonth = today.slice(0, 7)
+      const todayCount = sales.filter(s => (s.date || '').startsWith(today)).length
+      const monthSales = sales.filter(s => (s.date || '').startsWith(thisMonth))
+      const monthRevenue = monthSales.reduce((sum, s) => sum + (s.salePrice || 0), 0)
+      const activeStock = vehicles.filter(v => !v.deleted && !['sold', 'ขายแล้ว', 'ส่งมอบแล้ว'].includes(v.status)).length
+      return `[ข้อมูลธุรกิจล่าสุด ณ วันที่ ${today} — ใช้ตอบถ้าคำถามเกี่ยวข้อง ไม่ต้องพูดถึงถ้าไม่เกี่ยวข้อง]\n` +
+        `ยอดขาย/ส่งมอบวันนี้: ${todayCount} คัน\n` +
+        `ยอดขายเดือนนี้: ${monthSales.length} คัน มูลค่ารวม ${formatCurrency(monthRevenue)}\n` +
+        `รถคงเหลือในสต็อกตอนนี้: ${activeStock} คัน`
+    } catch { return '' }
+  }
 
   // ── Full-screen overlay ────────────────────────────────────────────────────
   const overlay = document.createElement('div')
@@ -504,7 +532,7 @@ export default async function PersonalAIPage(container) {
     isThinking = true; setAIState('thinking')
 
     try {
-      const memCtx = memoriesToContext(memories)
+      const memCtx = memoriesToContext(memories) + (businessSnapshot ? '\n\n' + businessSnapshot : '')
       // onChunk updates the bubble progressively — feels instant
       // null chunk = 429 retry waiting signal
       const reply = await askPersonalAI(
