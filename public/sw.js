@@ -25,7 +25,7 @@ self.addEventListener('activate', event => {
   )
 })
 
-// Fetch — network first, fallback cache
+// Fetch — network first, fallback cache (ยกเว้นไฟล์ build ที่มี content-hash ในชื่อ ดูด้านล่าง)
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url)
 
@@ -34,6 +34,29 @@ self.addEventListener('fetch', event => {
   if (!url.origin.includes(self.location.origin)) return
   // Skip Firebase API calls
   if (url.hostname.includes('firestore') || url.hostname.includes('firebase')) return
+
+  // ไฟล์ที่ Vite build ออกมาใน /assets/ มี content-hash อยู่ในชื่อไฟล์เสมอ (เช่น Dashboard-VMp1tVm3.js) —
+  // เนื้อไฟล์เปลี่ยนไม่ได้โดยไม่เปลี่ยนชื่อ (deploy ใหม่ = hash ใหม่ = URL ใหม่) จึง cache-first ได้ปลอดภัย
+  // 100% ต่างจากเดิมที่ network-first ทุกไฟล์เหมือนกันหมด ทำให้แอป SPA 340+ หน้าที่โหลดแต่ละหน้าเป็น chunk
+  // แยก (route-level code splitting) ต้องรอ network ทุกครั้งที่สลับหน้า แม้ไฟล์นั้นจะเคย cache ไว้แล้วก็ตาม
+  // — ช้าเป็นพิเศษบนมือถือ/เน็ตช้าที่เจ้าของระบบเคยแจ้งปัญหาไว้ cache-first ทำให้สลับหน้าที่เคยเปิดแล้วโหลด
+  // จาก cache ทันทีโดยไม่รอ network เลย ('/' และ HTML shell ยังคง network-first เหมือนเดิมเพื่อให้ได้
+  // index.html เวอร์ชันล่าสุดเสมอหลัง deploy)
+  if (url.pathname.startsWith('/assets/')) {
+    event.respondWith(
+      caches.match(event.request).then(cached => {
+        if (cached) return cached
+        return fetch(event.request).then(response => {
+          if (response && response.status === 200) {
+            const clone = response.clone()
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone))
+          }
+          return response
+        })
+      })
+    )
+    return
+  }
 
   event.respondWith(
     fetch(event.request)
