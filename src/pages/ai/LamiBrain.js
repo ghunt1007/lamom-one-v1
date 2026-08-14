@@ -137,8 +137,8 @@ export default async function LamiBrainPage(container) {
         listDocs('complaints', [], 'createdAt', 'desc', 200).catch(() => []),
         getSalesData().catch(() => []),
       ])
-      const leads = leadsRaw.filter(c => (c.stage === 'lead' || c.stage === 'pp') && c.status !== 'lost')
-      insights = computeInsights({ leads, vehicleModels, jobCards, complaintsList, salesRows })
+      const leads = leadsRaw.filter(c => !c.deleted && (c.stage === 'lead' || c.stage === 'pp') && c.status !== 'lost')
+      insights = computeInsights({ leads, vehicleModels, jobCards: jobCards.filter(j => !j.deleted), complaintsList, salesRows })
     } catch (e) { insights = [] }
   }
 

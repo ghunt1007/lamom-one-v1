@@ -39,7 +39,8 @@ export default async function DeptOperationsDashboardPage(container) {
       listDocs('bookings', [], 'createdAt', 'desc', 300).catch(() => []),
       listDocs('job_cards', [], 'createdAt', 'desc', 300).catch(() => []),
     ])
-    tasks = t; bookings = b; jobs = j
+    // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true — กรองออกกันงาน/ใบจองที่ลบไปแล้วโผล่เป็นจุดคอขวดอีก
+    tasks = t.filter(r => !r.deleted); bookings = b.filter(r => !r.deleted); jobs = j.filter(r => !r.deleted)
   } catch {}
   if (container.__routerGen !== myGen) return
 

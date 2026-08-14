@@ -418,11 +418,13 @@ export default async function DashboardPage(container) {
       // orderBy ตัดออกจากผลลัพธ์ไปเงียบๆทั้งหมด เห็นสต็อกรถ 0 คันตลอด ต้องใช้ arrivedAt ให้ตรงกับ Stock.js
       listDocs('vehicles', [], 'arrivedAt', 'desc', 500).catch(() => []),
       listDocs('team_targets', [], 'period', 'desc', 200).catch(() => []),
-      watchOnce('job_cards', 'createdAt', 'desc', 500, rows => { jobs = rows }),
-      watchOnce('bookings', 'createdAt', 'desc', 500, rows => { bookings = rows }),
-      watchOnce('tasks', 'createdAt', 'desc', 100, rows => { tasks = rows }),
+      // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true — ถ้าไม่กรองออกตรงนี้ งานซ่อม/ใบจอง/งานที่ถูกลบ
+      // ไปแล้วจะยังโผล่เป็นแจ้งเตือน "ค้าง" บน Dashboard และถูกนับรวมในตัวเลข KPI ด้านบนต่อไปเงียบๆ
+      watchOnce('job_cards', 'createdAt', 'desc', 500, rows => { jobs = rows.filter(r => !r.deleted) }),
+      watchOnce('bookings', 'createdAt', 'desc', 500, rows => { bookings = rows.filter(r => !r.deleted) }),
+      watchOnce('tasks', 'createdAt', 'desc', 100, rows => { tasks = rows.filter(r => !r.deleted) }),
     ])
-    const leads = allCustomersForLeads.filter(c => c.stage === 'lead' || c.stage === 'pp').map(c => ({ ...c, status: c.stage === 'lead' ? 'new' : c.stage }))
+    const leads = allCustomersForLeads.filter(c => !c.deleted && (c.stage === 'lead' || c.stage === 'pp')).map(c => ({ ...c, status: c.stage === 'lead' ? 'new' : c.stage }))
     if (container.__routerGen !== myGen) return
 
     const pendingTasks = tasks.filter(t => t.status !== 'done' && t.status !== 'cancelled').length
