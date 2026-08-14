@@ -257,8 +257,20 @@ export default async function StaffPage(container) {
       const newSalary = canViewSalary ? (Number(el.querySelector('#sf-salary').value)||0) : null
       try {
         let staffId = existing?.id
-        if (isEdit) { await updateDocData('staff', existing.id, data); Object.assign(existing, data) }
-        else {
+        // ถ้ากำลังแก้ "พนักงาน" ที่จริงๆเป็นแค่ DEMO_STAFF (isDemoData — ไม่มีพนักงานจริงในระบบเลย ระบบเลยโชว์
+        // ตัวอย่างแทน) existing.id จะเป็น id ปลอม (st1-st5) ที่ไม่เคยมีเอกสารจริงใน Firestore เลย เรียก
+        // updateDocData ตรงๆ จะพัง "No document to update" (บั๊กจริงที่เจอในระบบ error log การผลิต) ต้องสร้าง
+        // เป็นเอกสารจริงใหม่แทนการอัปเดต เพื่อให้สิ่งที่ผู้ใช้กรอกแก้ไขถูกบันทึกจริง ไม่หายไปเงียบๆ
+        if (isEdit && !isDemoData) { await updateDocData('staff', existing.id, data); Object.assign(existing, data) }
+        else if (isEdit && isDemoData) {
+          // กำลัง "แก้ไข" พนักงานตัวอย่าง (DEMO_STAFF) อยู่ — สร้างเป็นเอกสารจริงแทนการอัปเดต (ดูคอมเมนต์ด้านบน)
+          // แล้วโหลดข้อมูลใหม่ทั้งหมด เพราะตอนนี้ collection มีเอกสารจริงแล้ว isDemoData จะกลายเป็น false
+          // ไม่ต้องใช้ DEMO_STAFF fallback อีกต่อไป — ต้อง reload กันรายการตัวอย่างเดิม (รวมตัวที่เพิ่งแก้)
+          // ค้างซ้ำอยู่กับของจริงที่เพิ่งสร้าง
+          const payload = { ...data, companyId: getState('user')?.primaryCompanyId || null }
+          staffId = await createDoc('staff', payload)
+          await loadData()
+        } else {
           // Phase 2 หลายบริษัท — ติด companyId ของบริษัทหลักที่พนักงานคนสร้างสังกัดอยู่ (ถ้ามี) พนักงานเดิม
           // ที่ไม่มี companyId ยังเห็นได้ทุกคนเหมือนเดิม (ไม่ถูกกรองออก)
           const payload = { ...data, companyId: getState('user')?.primaryCompanyId || null }
