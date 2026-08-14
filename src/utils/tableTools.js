@@ -43,9 +43,12 @@ function injectStyle() {
     // font-size ของ input ต้องเป็น 16px จริง (ไม่ใช่ rem — root html font-size ของระบบนี้คือ 15px) เสมอ กัน
     // iOS Safari ซูมทั้งหน้าจออัตโนมัติทุกครั้งที่แตะช่องพิมพ์ (เดิม 0.78rem/0.7rem ต่ำกว่าเกณฑ์ — พิมพ์
     // ค้นหา/กรองในตารางแล้วหน้าจอกระตุกซูมเข้าเองบนมือถือ)
-    '.tt-search input{padding:4px 8px 4px 26px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-size:16px;width:200px;font-family:var(--font-main)}' +
+    '.tt-search input{padding:4px 8px 4px 26px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-size:16px;width:200px;max-width:60vw;font-family:var(--font-main)}' +
     '.tt-search span{position:absolute;left:8px;color:var(--text-muted);font-size:0.78rem;pointer-events:none}' +
-    '.tt-btn{font-size:0.74rem;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);cursor:pointer;font-family:var(--font-main)}' +
+    // เดิมปุ่ม "ตัวกรองคอลัมน์" (มีอยู่แล้วในทุกตาราง กรองได้ทีละหลายคอลัมน์พร้อมกัน) ใช้สีเดียวกับพื้นหลัง
+    // เรียบๆ เหมือนปุ่มตกแต่ง ไม่มีใครสังเกตว่าเป็นฟีเจอร์กรองข้อมูลที่ใช้งานได้จริง — เน้นด้วยกรอบสีธีมให้
+    // ชัดว่าเป็นปุ่มฟังก์ชัน + ขยาย touch target ให้กดง่ายขึ้นบนมือถือ
+    '.tt-btn{font-size:0.74rem;padding:6px 12px;border:1px solid var(--primary);border-radius:6px;background:var(--surface);color:var(--primary);cursor:pointer;font-family:var(--font-main);font-weight:600}' +
     '.tt-btn.on{background:var(--primary);color:#fff;border-color:var(--primary)}' +
     '.tt-info{font-size:0.72rem;color:var(--warning)}' +
     '.tt-th-sortable{cursor:pointer;user-select:none}' +
