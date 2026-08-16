@@ -73,13 +73,18 @@ function doSpeak(text, onEnd) {
   sayNext()
 }
 
-export function speak(text, { onEnd } = {}) {
+// (v1.0.443) เดิมถ้าอุปกรณ์/เบราว์เซอร์ไม่มีเสียงติดตั้งไว้เลยสักตัว (getVoices() ว่างเปล่าตลอด — พบจริงว่า
+// เกิดขึ้นได้ เช่น บางเบราว์เซอร์/ระบบปฏิบัติการที่ไม่มี Thai TTS voice pack) speak() จะยัง "ลอง" พูดต่อไป
+// เงียบๆ (synth.speak() ไม่ throw error แค่ไม่มีเสียงออกมาจริง) ผู้ใช้เห็นแค่ "AI ไม่พูด" โดยไม่รู้สาเหตุเลย
+// เพิ่ม onNoVoice callback (เสริม ไม่บังคับใช้) ให้ผู้เรียกรู้ตัวได้ว่าไม่มีเสียงให้ใช้จริงบนอุปกรณ์นี้
+// เพื่อแจ้งผู้ใช้แทนความเงียบที่อธิบายไม่ได้
+export function speak(text, { onEnd, onNoVoice } = {}) {
   if (!text) { onEnd?.(); return }
   const clean = stripEmoji(text)
   if (!clean) { onEnd?.(); return }
 
   const synth = window.speechSynthesis
-  if (!synth) { onEnd?.(); return }
+  if (!synth) { onNoVoice?.(); onEnd?.(); return }
 
   // Trigger voice list load (Chrome lazy-loads voices on first getVoices() call)
   synth.getVoices()
@@ -89,6 +94,7 @@ export function speak(text, { onEnd } = {}) {
     if (fired) return
     fired = true
     synth.onvoiceschanged = null
+    if (synth.getVoices().length === 0) onNoVoice?.()
     doSpeak(clean, onEnd)
   }
 

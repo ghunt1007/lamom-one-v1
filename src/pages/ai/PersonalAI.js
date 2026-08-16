@@ -1,7 +1,7 @@
 import { askPersonalAI, extractMemories } from '../../utils/ai.js'
 import { createSTT, speak, stopSpeaking, canSTT } from '../../utils/voice.js'
 import { loadMemories, addMemory, deleteMemory, saveMessage, loadRecentMessages, memoriesToContext } from '../../utils/memory.js'
-import { getState } from '../../core/store.js'
+import { getState, showToast } from '../../core/store.js'
 import { getSalesData, listDocs } from '../../core/db.js'
 import { todayBangkok, formatCurrency } from '../../utils/format.js'
 
@@ -15,6 +15,14 @@ export default async function PersonalAIPage(container) {
   let cameraStream = null, recognition = null
   let isListening = false, isThinking = false, isSpeaking = false
   let convMode = false, autoSpeak = true
+  // (v1.0.443) เดิมถ้าอุปกรณ์ไม่มีเสียง TTS ติดตั้งเลย (พบจริงว่าเกิดได้) AI จะ "เงียบ" โดยไม่มีสัญญาณอะไรบอก
+  // ผู้ใช้เลยว่าเกิดอะไรขึ้น — เตือนครั้งเดียวต่อการเปิดหน้านี้ 1 ครั้ง ไม่สแปมทุกข้อความที่พิมพ์
+  let noVoiceWarned = false
+  function warnNoVoice() {
+    if (noVoiceWarned) return
+    noVoiceWarned = true
+    showToast('🔇 อุปกรณ์นี้ไม่มีเสียงพูดภาษาไทยติดตั้งไว้ — AI จะตอบเป็นข้อความอย่างเดียว', 'warning', 6000)
+  }
   let aiState = 'idle'
   let animReq = null, animT = 0, lastTS = 0
   let sendCount = 0   // tracks messages sent; extractMemories runs every 3rd
@@ -550,6 +558,7 @@ export default async function PersonalAIPage(container) {
       if (autoSpeak) {
         setAIState('speaking'); isSpeaking = true
         speak(reply, {
+          onNoVoice: warnNoVoice,
           onEnd: () => {
             isSpeaking = false
             if (convMode) { setAIState('listening'); setTimeout(startListening, 500) }
@@ -617,6 +626,7 @@ export default async function PersonalAIPage(container) {
     if (autoSpeak) {
       isSpeaking = true; setAIState('speaking')
       speak(greet, {
+        onNoVoice: warnNoVoice,
         onEnd: () => {
           isSpeaking = false
           if (convMode) { setAIState('listening'); setTimeout(startListening, 500) }
