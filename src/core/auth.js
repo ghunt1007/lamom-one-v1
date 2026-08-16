@@ -249,7 +249,7 @@ export async function createStaffAccount({ name, email, password, role, accessEx
       const nameParts = (name || '').trim().split(/\s+/)
       await createDoc('staff', {
         uid, firstName: nameParts[0] || name || email, lastName: nameParts.slice(1).join(' '),
-        nickname: '', role: role || 'staff', dept: department || '', phone: '', email,
+        nickname: '', role: role || 'staff', position: position || '', dept: department || '', phone: '', email,
         startDate: todayBangkok(), status: 'active', companyId: companyId || null, managerId: null,
       })
     } catch (e) {}

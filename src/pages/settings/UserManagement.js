@@ -8,6 +8,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 import { createStaffAccount, sendStaffPasswordReset, updateCompanyMemberships } from '../../core/auth.js'
+import { getPositions } from '../../data/masterData.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -224,8 +225,10 @@ export default async function UserManagementPage(container) {
         </div>
         <div class="input-group"><label class="input-label">แผนก</label>
           <input class="input" id="nu-department" placeholder="เช่น ขาย, บัญชี, HR"></div>
-        <div class="input-group" style="grid-column:1/-1"><label class="input-label">ตำแหน่ง</label>
-          <input class="input" id="nu-position" placeholder="เช่น Sales Executive"></div>
+        <div class="input-group" style="grid-column:1/-1"><label class="input-label">ตำแหน่ง <span style="font-size:0.65rem;color:var(--text-muted)">(เลือกจากรายชื่อมาตรฐาน หรือพิมพ์เองได้ — แก้รายชื่อมาตรฐานได้ที่ Settings > Master Data)</span></label>
+          <input class="input" id="nu-position" list="position-options" placeholder="เช่น เซลส์">
+          <datalist id="position-options">${getPositions().map(p => `<option value="${esc(p)}">`).join('')}</datalist>
+        </div>
         <div class="input-group" style="grid-column:1/-1"><label class="input-label">รหัสผ่านชั่วคราว *</label>
           <div style="display:flex;gap:6px">
             <input class="input" id="nu-password" value="${suggested}" style="flex:1;font-family:monospace">
@@ -300,7 +303,7 @@ export default async function UserManagementPage(container) {
       </div>
       <div class="input-group" style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <div><label class="input-label">แผนก</label><input class="input" id="ar-department" value="${esc(currentDept)}" placeholder="เช่น ขาย, บัญชี, HR"></div>
-        <div><label class="input-label">ตำแหน่ง</label><input class="input" id="ar-position" value="${esc(currentPos)}" placeholder="เช่น Sales Executive"></div>
+        <div><label class="input-label">ตำแหน่ง</label><input class="input" id="ar-position" list="ar-position-options" value="${esc(currentPos)}" placeholder="เช่น เซลส์"><datalist id="ar-position-options">${getPositions().map(p => `<option value="${esc(p)}">`).join('')}</datalist></div>
       </div>` : ''}`,
       confirmText: '✅ อนุมัติสิทธิ์',
       async onConfirm() {

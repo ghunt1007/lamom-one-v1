@@ -3,6 +3,7 @@ import { showToast, getState } from '../../core/store.js'
 import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
+import { getPositions } from '../../data/masterData.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -168,6 +169,7 @@ export default async function StaffPage(container) {
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;font-size:0.82rem">
           <div><span class="badge badge-${color}" style="font-size:0.72rem">${role}</span> <span style="color:var(--text-muted);font-size:0.78rem">${escHtml(s.dept)}</span></div>
+          ${s.position ? `<div style="color:var(--text-2);font-weight:600">🏷️ ${escHtml(s.position)}</div>` : ''}
           <div style="color:var(--text-2)">${stEl}</div>
           <div style="color:var(--text-muted)">📅 ${formatDate(s.startDate)}</div>
           ${s.phone ? `<div style="color:var(--text-muted)">📱 ${escHtml(s.phone)}</div>` : ''}
@@ -185,7 +187,8 @@ export default async function StaffPage(container) {
         <div style="display:flex;flex-direction:column;gap:10px">
           ${dRow('🏷','ชื่อ-นามสกุล',`${s.firstName} ${s.lastName}`)}
           ${s.nickname ? dRow('😊','ชื่อเล่น',s.nickname) : ''}
-          ${dRow('💼','ตำแหน่ง',role)}
+          ${dRow('💼','ระดับสิทธิ์',role)}
+          ${s.position ? dRow('🏷️','ตำแหน่งงาน',s.position) : ''}
           ${dRow('🏢','แผนก',s.dept||'-')}
           ${s.managerId ? dRow('🧑‍💼','หัวหน้างาน', (() => { const m = staff.find(x=>x.id===s.managerId); return m ? escHtml(m.firstName)+' '+escHtml(m.lastName) : '-' })()) : ''}
           ${dRow('📱','โทร',s.phone||'-')}
@@ -249,11 +252,15 @@ export default async function StaffPage(container) {
           </div>
           <div class="grid-2">
             <div class="input-group"><label class="input-label">ชื่อเล่น</label><input class="input" id="sf-nn" value="${escHtml(existing?.nickname||'')}"></div>
-            <div class="input-group"><label class="input-label">ตำแหน่ง</label>
+            <div class="input-group"><label class="input-label">ระดับสิทธิ์ในระบบ</label>
               <select class="input" id="sf-role">
                 ${Object.entries(ROLES).map(([k,v]) => `<option value="${k}" ${existing?.role===k?'selected':''}>${v}</option>`).join('')}
               </select>
             </div>
+          </div>
+          <div class="input-group"><label class="input-label">ตำแหน่งงาน (ชื่อตำแหน่งจริง) <span style="font-size:0.65rem;color:var(--text-muted)">(เลือกจากรายชื่อมาตรฐาน หรือพิมพ์เองได้ — แก้รายชื่อมาตรฐานได้ที่ Settings > Master Data)</span></label>
+            <input class="input" id="sf-position" list="sf-position-options" value="${escHtml(existing?.position||'')}" placeholder="เช่น เซลส์">
+            <datalist id="sf-position-options">${getPositions().map(p => `<option value="${escHtml(p)}">`).join('')}</datalist>
           </div>
           <div class="grid-2">
             <div class="input-group"><label class="input-label">แผนก</label>
@@ -300,7 +307,8 @@ export default async function StaffPage(container) {
       const btn = el.querySelector('#sfs'); btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
       const data = {
         firstName: fn, lastName: ln, nickname: el.querySelector('#sf-nn').value.trim(),
-        role: el.querySelector('#sf-role').value, dept: el.querySelector('#sf-dept').value,
+        role: el.querySelector('#sf-role').value, position: el.querySelector('#sf-position').value.trim(),
+        dept: el.querySelector('#sf-dept').value,
         status: el.querySelector('#sf-status').value, phone: el.querySelector('#sf-phone').value.trim(),
         email: el.querySelector('#sf-email').value.trim(), startDate: el.querySelector('#sf-start').value,
         managerId: el.querySelector('#sf-manager').value || null,
@@ -403,7 +411,7 @@ export default async function StaffPage(container) {
   document.getElementById('staff-search').addEventListener('input', e => { search = e.target.value.toLowerCase(); applyFilter() })
   document.getElementById('dept-filter').addEventListener('change', e => { deptFilter = e.target.value; applyFilter() })
   document.getElementById('staff-export').addEventListener('click', () => {
-    exportToExcel(staff.map(s => ({ ชื่อ:s.firstName, นามสกุล:s.lastName, ชื่อเล่น:s.nickname, ตำแหน่ง:ROLES[s.role]||s.role, แผนก:s.dept, โทร:s.phone, อีเมล:s.email, วันเริ่มงาน:s.startDate, ...(canViewSalary ? { เงินเดือน:s.salary } : {}), สถานะ:STATUS_EMP[s.status]||s.status })), `staff-${todayBangkok()}.xlsx`, 'พนักงาน')
+    exportToExcel(staff.map(s => ({ ชื่อ:s.firstName, นามสกุล:s.lastName, ชื่อเล่น:s.nickname, ระดับสิทธิ์:ROLES[s.role]||s.role, ตำแหน่งงาน:s.position||'', แผนก:s.dept, โทร:s.phone, อีเมล:s.email, วันเริ่มงาน:s.startDate, ...(canViewSalary ? { เงินเดือน:s.salary } : {}), สถานะ:STATUS_EMP[s.status]||s.status })), `staff-${todayBangkok()}.xlsx`, 'พนักงาน')
     showToast('Export แล้ว', 'success')
   })
 
