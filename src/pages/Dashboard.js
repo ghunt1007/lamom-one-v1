@@ -568,8 +568,15 @@ export default async function DashboardPage(container) {
         const x = cx - barW / 2
         const cnt = fCounts[j]
         const hTotal = cnt ? Math.max(4, Math.round(cnt / maxTotal * plotH)) : 0
-        fBars += `<rect x="${x}" y="${yBase - hTotal}" width="${barW}" height="${hTotal}" fill="var(--info)" opacity="0.10" stroke="var(--info)" stroke-width="1.2" stroke-dasharray="4 3" rx="2"/>
-          <text x="${cx}" y="${yBase - hTotal - 8}" text-anchor="middle" font-size="10" font-weight="700" fill="var(--info)">~${Math.round(cnt)}</text>`
+        // (v1.0.429) เดิมแท่งพยากรณ์ (เดือนถัดไปจาก selectedMonth) ไม่มี data-month/click listener เลย ต่างจาก
+        // แท่งเดือนจริงทางซ้ายที่คลิกได้ทุกแท่ง — ผลคือถ้าผู้ใช้คลิกแท่งย้อนหลังไปเดือนก่อนๆ (selectedMonth ขยับ
+        // ถอยหลัง) หน้าต่างกราฟทั้งหมดจะเลื่อนตามไปอยู่ที่เดือนนั้น ไม่มีแท่งไหนในกราฟให้คลิกเพื่อ "เดินหน้า" กลับมา
+        // อีกเลย (ต้องออกไปกดปุ่ม ▶ นอกกราฟแทน) เพิ่ม data-month ให้แท่งพยากรณ์คลิกได้เหมือนแท่งจริงเพื่อเดินหน้าได้
+        fBars += `<g data-month="${m}" style="cursor:pointer">
+          <rect x="${cx - groupW / 2}" y="${padT - 6}" width="${groupW}" height="${plotH + 6}" fill="transparent"/>
+          <rect x="${x}" y="${yBase - hTotal}" width="${barW}" height="${hTotal}" fill="var(--info)" opacity="0.10" stroke="var(--info)" stroke-width="1.2" stroke-dasharray="4 3" rx="2"/>
+          <text x="${cx}" y="${yBase - hTotal - 8}" text-anchor="middle" font-size="10" font-weight="700" fill="var(--info)">~${Math.round(cnt)}</text>
+        </g>`
         labels += `<text x="${cx}" y="${H - 8}" text-anchor="middle" font-size="9.5" fill="var(--info)" font-style="italic">${ymLabel(m).split(' ')[0]}</text>`
         const ly = yBase - Math.round(fRevs[j] / maxRev * plotH * 0.88)
         fPts.push([cx, ly])

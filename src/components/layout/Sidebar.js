@@ -225,7 +225,11 @@ const NAV = [
     ]
   },
   {
-    group: 'องค์กร', groupEn: 'Organization', groupZh: '组织',
+    // (v1.0.429) เดิมกลุ่ม "องค์กร" เดียวรวม HR/Training/Analytics/Gamification ไว้ด้วยกันทั้งหมด 69 รายการ
+    // ทำให้หาเมนูที่ต้องการยากมาก (ตามที่แจ้งว่า "หมวดหมู่ยังดูงงๆ") — แยกเป็น 4 กลุ่มย่อยตามลักษณะงานจริง
+    // (สิทธิ์การเข้าถึงยังเป็นโมดูล 'hr' เดียวกันเหมือนเดิมทุกประการที่ permissions.js — ระบบสิทธิ์ผูกกับ
+    // path prefix ไม่ผูกกับกลุ่มเมนูที่มองเห็น จึงแยกกลุ่มแสดงผลได้โดยไม่กระทบสิทธิ์การเข้าถึงเลย)
+    group: 'บุคคล (HR)', groupEn: 'HR', groupZh: '人力资源',
     items: [
       { icon: '👤', label: 'HR', path: '/hr' },
       { icon: '🏛', label: 'Org Chart', path: '/hr/orgchart' },
@@ -256,6 +260,11 @@ const NAV = [
       { icon: '😊', label: 'Mood Survey', path: '/hr/mood-survey' },
       { icon: '🎁', label: 'Bonus Pool', path: '/hr/bonus-pool' },
       { icon: '🎁', label: 'Employee Welfare', path: '/hr/welfare' },
+    ]
+  },
+  {
+    group: 'ฝึกอบรม', groupEn: 'Training', groupZh: '培训',
+    items: [
       { icon: '🎓', label: 'Training', path: '/training' },
       { icon: '📚', label: 'หลักสูตร', labelEn: 'Courses', labelZh: '课程', path: '/training/courses' },
       { icon: '📊', label: 'Training Progress', path: '/training/progress' },
@@ -265,13 +274,23 @@ const NAV = [
       { icon: '🕵️', label: 'Competitor Intel', path: '/training/competitor' },
       { icon: '📚', label: 'Product Knowledge', path: '/training/product-knowledge' },
       { icon: '🤖', label: 'TrainingBot AI', path: '/training/bot' },
-      { icon: '📈', label: 'Analytics', path: '/analytics' },
+    ]
+  },
+  {
+    group: 'เกมมิฟิเคชัน', groupEn: 'Gamification', groupZh: '游戏化激励',
+    items: [
       { icon: '🎮', label: 'Gamification', path: '/gamification' },
       { icon: '🏆', label: 'Leaderboard', path: '/gamification/leaderboard' },
       { icon: '🏅', label: 'Badges', path: '/gamification/badges' },
       { icon: '🎯', label: 'Challenges', path: '/gamification/challenges' },
       { icon: '🎁', label: 'Reward Store', path: '/gamification/rewards' },
       { icon: '🎯', label: 'Daily Missions', path: '/gamification/missions' },
+    ]
+  },
+  {
+    group: 'วิเคราะห์ข้อมูล', groupEn: 'Analytics', groupZh: '数据分析',
+    items: [
+      { icon: '📈', label: 'Analytics', path: '/analytics' },
       { icon: '📊', label: 'Report Center', path: '/analytics/reports' },
       { icon: '🎯', label: 'Company KPI', path: '/analytics/kpi' },
       { icon: '🔮', label: 'Sales Forecast', path: '/analytics/forecast' },
