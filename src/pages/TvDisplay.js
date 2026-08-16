@@ -24,7 +24,10 @@ function formatThaiDateFull(d) {
 
 const REFRESH_MS = 90000   // อัปเดตข้อมูลจริงทุก 90 วิ — กันยิง Firestore ถี่เกิน
 const TICKER_MS = 5000     // หมุนข้อความ ticker ทุก 5 วิ
-const IDLE_HIDE_MS = 3000  // ซ่อนปุ่มควบคุมหลังไม่ขยับเมาส์ 3 วิ
+// (v1.0.435) เดิม 3000ms สั้นเกินไปสำหรับใช้งานจริง — ผู้ใช้ต้องขยับเมาส์ให้ปุ่มโผล่แล้วกดให้ทันภายในไม่กี่วิ
+// ก่อนจางหายอีกรอบ พลาดจังหวะง่ายมาก ปรับให้ยาวขึ้น (ปุ่ม "ออก" ตอนนี้แยกออกมาไม่จางหายสนิทแล้วด้วย — ดู
+// #tvd-exit-standalone — จุดนี้กระทบแค่ปุ่ม "เต็มจอ" ที่เหลือใน #tvd-controls เท่านั้น)
+const IDLE_HIDE_MS = 8000
 
 export default async function TvDisplayPage(container) {
   const myGen = container.__routerGen
@@ -71,6 +74,18 @@ export default async function TvDisplayPage(container) {
   backdrop-filter:blur(6px);transition:background .2s;
 }
 #tvd-controls button:hover { background:rgba(255,255,255,0.18); }
+/* (v1.0.435) เดิมปุ่ม "ออก" อยู่ใน #tvd-controls ซึ่งจางหายสนิท (opacity:0, pointer-events:none) หลังไม่มี
+   การขยับเมาส์/แตะจอแค่ 3 วิ — บนจอทีวี/คีออสก์โชว์รูมจริงที่มักไม่มีเมาส์เกาะติดตลอดเวลา ผู้ใช้ต้องขยับเมาส์/
+   แตะจอให้ปุ่มโผล่มาก่อน แล้วต้องกดให้ทันภายในไม่กี่วินาทีก่อนมันจางหายอีกรอบ — พลาดจังหวะได้ง่ายมาก ทำให้
+   รู้สึกเหมือน "ออกไม่ได้" ทั้งที่ปุ่มยังทำงานถูกต้องถ้ากดทัน แยกปุ่มออกมาให้จางแต่ไม่หายสนิท (ยังกดได้เสมอ
+   ไม่ต้องรอขยับเมาส์ก่อน) เป็นทางออกสำรองถาวรที่ใช้ได้แน่นอนไม่ว่าจะพลาดจังหวะแค่ไหนก็ตาม */
+#tvd-exit-standalone {
+  position:fixed;top:18px;left:18px;z-index:31;
+  background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.14);color:#fff;
+  padding:9px 16px;border-radius:10px;font-size:0.85rem;font-weight:600;cursor:pointer;
+  backdrop-filter:blur(6px);opacity:0.32;transition:opacity .2s;
+}
+#tvd-exit-standalone:hover, #tvd-exit-standalone:focus { opacity:1; }
 
 #tvd-kpis {
   display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(12px,1.6vw,28px);
@@ -148,8 +163,8 @@ export default async function TvDisplayPage(container) {
   overlay.innerHTML = `
     <div id="tvd-controls">
       <button id="tvd-fs-toggle" title="โหมดเต็มจอ">🖥️ เต็มจอ</button>
-      <button id="tvd-exit-btn" title="ออกจากโหมดทีวี (Esc)">✕ ออก (Esc)</button>
     </div>
+    <button id="tvd-exit-standalone" title="ออกจากโหมดทีวี (Esc) — กดได้เสมอ ไม่ต้องรอปุ่มอื่นโผล่ก่อน">✕ ออก (Esc)</button>
 
     <div id="tvd-topbar">
       <div id="tvd-brand"><span class="dot"></span> LAMOM ONE · โชว์รูม</div>
@@ -250,7 +265,7 @@ export default async function TvDisplayPage(container) {
     cleanup()
     if (window.navigate) window.navigate('/')
   }
-  overlay.querySelector('#tvd-exit-btn').addEventListener('click', exitTv)
+  overlay.querySelector('#tvd-exit-standalone').addEventListener('click', exitTv)
   function onKeydown(e) { if (e.key === 'Escape') exitTv() }
   document.addEventListener('keydown', onKeydown)
 
