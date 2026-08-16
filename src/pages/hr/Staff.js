@@ -39,11 +39,21 @@ export default async function StaffPage(container) {
   const myRole = getState('role') || getState('user')?.role || 'staff'
   const canViewSalary = SALARY_VIEW_ROLES.includes(myRole)
   const canRunMigration = MIGRATION_ROLES.includes(myRole)
+  // เชื่อม staff↔users ต้องดึง collection users ทั้งหมดมาเลือก (มีอีเมล/ข้อมูลอ่อนไหวของทุกคน) — Firestore
+  // Rules อนุญาตอ่านทั้ง collection นี้เฉพาะ isManager() (owner/admin/manager) เท่านั้น ต่างจาก canViewSalary
+  // ที่ isHR() ครอบคลุมถึง role 'hr' ด้วย — ถ้าใช้ SALARY_VIEW_ROLES เดิม (มี 'hr') ตรงนี้ ผู้ใช้ role 'hr' จะ
+  // เห็นปุ่มแต่กดแล้ว query ล้มเหลวเงียบๆ (catch ไว้) กลายเป็นดรอปดาวน์ว่างเปล่าโดยไม่รู้สาเหตุ
+  const canLinkAccount = ['owner', 'admin', 'manager'].includes(myRole)
+  // audit_log อ่านได้เฉพาะ owner/admin เท่านั้นตาม Firestore Rules จริง (isAdmin()) — ต่างจาก canViewSalary/
+  // canLinkAccount ที่รวม manager/hr ด้วย ถ้าเผลอใช้ตัวแปรเดียวกันปุ่มจะโชว์ให้ manager/hr กด แต่ query จะ
+  // permission-denied เงียบๆ (จับ error ไว้แล้วไม่ throw) ทำให้เห็น "ไม่พบประวัติ" ทั้งที่จริงมีประวัติอยู่
+  const canViewHistory = ['owner', 'admin'].includes(myRole)
 
   let staff = []
   let filtered = []
   let deptFilter = 'all'
   let search = ''
+  let loginAccounts = [] // users ที่ยังไม่มี staff doc เชื่อมอยู่ — ใช้เติมตัวเลือก "เชื่อมกับบัญชีผู้ใช้"
   // เดิม DEMO_STAFF (ผสมชื่อเจ้าของจริงกับเงินเดือนสมมติ 4 คน) ถูก push เข้า staff list เงียบๆทุกครั้งที่
   // collection จริงว่างเปล่า โดยไม่มีตัวบอกบนหน้าจอเลยว่านี่คือข้อมูลตัวอย่าง (ต่างจาก ExpenseOcr.js ที่ label
   // "Demo" ไว้ชัดเจน) ผู้ใช้อาจเข้าใจผิดว่าเป็นพนักงานจริง — เพิ่มตัวแปรนี้ไว้โชว์ป้าย "ข้อมูลตัวอย่าง" แทน
@@ -64,6 +74,9 @@ export default async function StaffPage(container) {
         const salaryMap = Object.fromEntries(salaryDocs.map(d => [d.id, d.salary]))
         staff.forEach(s => { if (salaryMap[s.id] != null) s.salary = salaryMap[s.id] })
       } catch {}
+    }
+    if (canLinkAccount) {
+      try { loginAccounts = await listDocs('users', [], 'createdAt', 'desc', 500) } catch { loginAccounts = [] }
     }
     updateStats(); applyFilter()
   }
@@ -180,14 +193,48 @@ export default async function StaffPage(container) {
           ${dRow('📅','วันเริ่มงาน',formatDate(s.startDate))}
           ${canViewSalary && s.salary ? dRow('💰','เงินเดือน',`฿${s.salary.toLocaleString()}/เดือน`) : ''}
           ${dRow('✅','สถานะ',STATUS_EMP[s.status]||s.status)}
+          ${canLinkAccount ? dRow('🔗','บัญชีผู้ใช้ (login)', (() => { const u = loginAccounts.find(x=>x.id===s.uid); return u ? escHtml(u.email) : (s.uid ? 'เชื่อมแล้ว (ไม่พบบัญชี)' : 'ยังไม่ได้เชื่อม') })()) : ''}
         </div>
       `,
       footer: `<button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">ปิด</button>
+               ${canViewHistory ? `<button class="btn btn-secondary" id="s-hist">🕐 ประวัติการแก้ไข</button>` : ''}
                <button class="btn btn-primary" id="s-edit">✏️ แก้ไข</button>
                <button class="btn btn-danger" id="s-del">🗑️ ลบ</button>`
     })
     document.getElementById('s-edit')?.addEventListener('click', () => { document.querySelector('.modal-overlay')?.remove(); openForm(s) })
     document.getElementById('s-del')?.addEventListener('click', () => deleteStaff(s))
+    document.getElementById('s-hist')?.addEventListener('click', () => openHistory(s))
+  }
+
+  // (v1.0.430) เดิมไม่มีวิธีดูประวัติการแก้ไขข้อมูลพนักงานคนหนึ่งๆเลย ทั้งที่ audit_log บันทึกทุก
+  // create/update/delete ของทุก collection อยู่แล้วโดยอัตโนมัติ (logAction() ใน core/db.js) รวมถึง staff —
+  // แค่ไม่เคยมีหน้าไหน filter มาแสดงเจาะจงต่อพนักงาน 1 คน ใช้ข้อมูลที่มีอยู่แล้วทั้งหมด ไม่ต้องสร้าง
+  // ระบบบันทึกประวัติใหม่ซ้ำซ้อน
+  async function openHistory(s) {
+    openModal({ title: `🕐 ประวัติการแก้ไข — ${escHtml(s.firstName)} ${escHtml(s.lastName)}`, size: 'md', body: `<div class="empty-state" style="padding:24px"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div>` })
+    let entries = []
+    // ไม่ใช้ where(module)+where(resource)+orderBy(ts) รวมกัน (ต้องมี composite index ที่ยังไม่ได้สร้างไว้ —
+    // บั๊กคลาสเดิมที่เคยตั้งใจเลี่ยงไว้แล้วในโปรเจกต์นี้) ดึงมากรองฝั่ง client แทนเหมือน AuditLog.js เดิม
+    try {
+      entries = (await listDocs('audit_log', [], 'ts', 'desc', 500)).filter(e => e.module === 'staff' && e.resource === s.id)
+    } catch {}
+    const body = document.querySelector('.modal-overlay .modal-body')
+    if (!body) return
+    if (!entries.length) {
+      body.innerHTML = `<div class="empty-state" style="padding:24px"><div class="empty-icon">📭</div><div class="empty-title">ไม่พบประวัติการแก้ไข</div></div>`
+      return
+    }
+    const ACTION_LABEL = { create:'➕ สร้าง', update:'✏️ แก้ไข', delete:'🗑️ ลบ' }
+    body.innerHTML = `<div style="display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow-y:auto">
+      ${entries.map(e => `<div style="padding:8px 10px;background:var(--surface-2);border-radius:8px;font-size:0.78rem">
+        <div style="display:flex;justify-content:space-between;gap:8px">
+          <span style="font-weight:700">${ACTION_LABEL[e.action]||escHtml(e.action)}</span>
+          <span style="color:var(--text-muted);font-size:0.68rem">${e.ts ? formatDate(e.ts) : '-'}</span>
+        </div>
+        <div style="color:var(--text-2);margin-top:2px">${escHtml(e.detail||'')}</div>
+        <div style="color:var(--text-muted);font-size:0.68rem;margin-top:2px">โดย ${escHtml(e.user||'-')}</div>
+      </div>`).join('')}
+    </div>`
   }
 
   function openForm(existing = null) {
@@ -234,6 +281,12 @@ export default async function StaffPage(container) {
               ${staff.filter(s => s.id !== existing?.id).map(s => `<option value="${s.id}" ${existing?.managerId===s.id?'selected':''}>${escHtml(s.firstName)} ${escHtml(s.lastName)}</option>`).join('')}
             </select>
           </div>
+          ${canLinkAccount ? `<div class="input-group"><label class="input-label">เชื่อมกับบัญชีผู้ใช้ (login) <span style="font-size:0.65rem;color:var(--text-muted)">(บัญชีที่สร้างใหม่ผ่าน User Management จะเชื่อมให้อัตโนมัติแล้ว — ใช้ช่องนี้เชื่อมย้อนหลังสำหรับพนักงานเก่า)</span></label>
+            <select class="input" id="sf-uid">
+              <option value="">— ไม่เชื่อม —</option>
+              ${loginAccounts.filter(u => u.id === existing?.uid || !staff.some(s => s.uid === u.id && s.id !== existing?.id)).map(u => `<option value="${u.id}" ${existing?.uid===u.id?'selected':''}>${escHtml(u.displayName||u.email)} (${escHtml(u.email)})</option>`).join('')}
+            </select>
+          </div>` : ''}
         </div>
       `,
       footer: `<button class="btn btn-secondary" id="sfc">ยกเลิก</button><button class="btn btn-primary" id="sfs">💾 บันทึก</button>`
@@ -251,6 +304,7 @@ export default async function StaffPage(container) {
         status: el.querySelector('#sf-status').value, phone: el.querySelector('#sf-phone').value.trim(),
         email: el.querySelector('#sf-email').value.trim(), startDate: el.querySelector('#sf-start').value,
         managerId: el.querySelector('#sf-manager').value || null,
+        ...(canLinkAccount ? { uid: el.querySelector('#sf-uid')?.value || null } : {}),
       }
       // เงินเดือนเก็บแยกที่ staff_salaries เสมอ (v1.0.303) ไม่เขียนลง staff doc อีกต่อไปเลย (Firestore Rules
       // บล็อกไว้แล้วด้วย) — ช่อง #sf-salary ไม่ถูกสร้างใน DOM เลยถ้าไม่มีสิทธิ์เห็น จึงเขียนเฉพาะตอน canViewSalary

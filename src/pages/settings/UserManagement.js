@@ -284,9 +284,18 @@ export default async function UserManagementPage(container) {
       </div>
       ${companiesList.length ? `
       <div class="input-group" style="margin-top:10px">
-        <label class="input-label">บริษัทที่ดูแล <span style="font-size:0.65rem;color:var(--text-muted)">(เลือกได้หลายบริษัท — เผื่อพนักงาน shared-service เช่น HR/บัญชี)</span></label>
-        <div style="display:flex;flex-direction:column;gap:4px;max-height:140px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px">
-          ${companiesList.map(c => `<label style="display:flex;align-items:center;gap:6px;font-size:0.8rem"><input type="checkbox" class="ar-company-cb" value="${c.id}" ${currentCompanyIds.includes(c.id)?'checked':''}> ${esc(c.name)}</label>`).join('')}
+        <label class="input-label">บริษัทที่ดูแล + หัวหน้างานต่อบริษัท <span style="font-size:0.65rem;color:var(--text-muted)">(1 คนทำงานหลายบริษัทได้ และมีหัวหน้าต่างกันในแต่ละบริษัทได้ — เผื่อพนักงาน shared-service เช่น HR/บัญชี)</span></label>
+        <div style="display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px">
+          ${companiesList.map(c => {
+            const membership = currentMemberships.find(m => m.companyId === c.id)
+            return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--border)">
+              <label style="display:flex;align-items:center;gap:6px;font-size:0.8rem;flex:1"><input type="checkbox" class="ar-company-cb" value="${c.id}" ${membership?'checked':''}> ${esc(c.name)}</label>
+              <select class="input ar-company-manager" data-company="${c.id}" style="width:150px;font-size:0.7rem">
+                <option value="">— ไม่มีหัวหน้า —</option>
+                ${users.filter(u => u.id !== uid).map(x => `<option value="${x.id}" ${membership?.managerId===x.id?'selected':''}>${esc(x.displayName||x.email)}</option>`).join('')}
+              </select>
+            </div>`
+          }).join('')}
         </div>
       </div>
       <div class="input-group" style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -304,7 +313,10 @@ export default async function UserManagementPage(container) {
             const department = document.getElementById('ar-department')?.value?.trim() || ''
             const position = document.getElementById('ar-position')?.value?.trim() || ''
             const checkedIds = [...document.querySelectorAll('.ar-company-cb:checked')].map(cb => cb.value)
-            const companyMemberships = checkedIds.map(companyId => ({ companyId, role, department, position }))
+            const companyMemberships = checkedIds.map(companyId => ({
+              companyId, role, department, position,
+              managerId: document.querySelector(`.ar-company-manager[data-company="${companyId}"]`)?.value || null,
+            }))
             await updateCompanyMemberships(uid, companyMemberships)
           }
           showToast(`✅ กำหนดสิทธิ์ ${ROLES[role]?.label} ให้ ${name} แล้ว`, 'success')

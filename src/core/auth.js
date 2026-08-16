@@ -14,6 +14,7 @@ import { setUser, setCompany, setCompanies, setActiveCompanyFilter, setState, sh
 import { navigate } from './router.js'
 import { deepSanitize, createDoc, listDocs } from './db.js'
 import { getClientIp } from '../utils/comms.js'
+import { todayBangkok } from '../utils/format.js'
 
 // (v1.0.350) IP Whitelist (เตือนเท่านั้น ไม่บล็อกจริง — Firestore Rules มองไม่เห็น IP ผู้เรียกได้เลย การ
 // "บล็อกจริง" ต้องมี edge middleware ใหม่ทั้งชุดซึ่งเสี่ยงทำให้เจ้าของ/พนักงานเข้าระบบตัวเองไม่ได้ถ้าตั้งค่า
@@ -226,7 +227,7 @@ export async function createStaffAccount({ name, email, password, role, accessEx
     const uid = cred.user.uid
     // ชื่อ/แผนก/ตำแหน่งพิมพ์เองโดยแอดมิน — เขียนตรงผ่าน setDoc ที่นี่ ไม่ผ่าน createDoc/updateDocData
     // ที่กรอง XSS ให้อยู่แล้วปกติ จึงต้องกรองเองตรงนี้
-    const companyMemberships = companyId ? [{ companyId, role: role || 'staff', department: deepSanitize(department || ''), position: deepSanitize(position || '') }] : []
+    const companyMemberships = companyId ? [{ companyId, role: role || 'staff', department: deepSanitize(department || ''), position: deepSanitize(position || ''), managerId: null }] : []
     await setDoc(doc(db, 'users', uid), {
       uid, email, displayName: deepSanitize(name || email),
       role: role || 'staff',
@@ -239,6 +240,19 @@ export async function createStaffAccount({ name, email, password, role, accessEx
       createdAt: serverTimestamp(),
     })
     await signOut(secondaryAuth)
+    // (v1.0.430) เดิมสร้างบัญชี login (users) กับข้อมูลพนักงาน HR (staff) แยกกันคนละหน้าโดยสิ้นเชิง ไม่มี
+    // field เชื่อมกันเลย — HR ต้องมากรอกซ้ำเองอีกรอบที่หน้า Staff แถมพิมพ์ชื่อ/แผนกไม่ตรงกับที่กรอกตอนสร้าง
+    // บัญชีได้ ตอนนี้สร้างเอกสารพนักงาน HR ให้พร้อมกันเลยโดยผูก uid ไว้ตั้งแต่ต้น ข้อมูลจะตรงกันเสมอเพราะมา
+    // จากฟอร์มเดียวกัน — พลาดได้ (เช่น Firestore Rules บล็อกเพราะสิทธิ์ไม่พอ) ไม่ทำให้การสร้างบัญชี login ล้ม
+    // เพราะบัญชี login คือสิ่งที่ต้องมีแน่ๆ ส่วน staff doc ที่ขาดไปยังเชื่อมย้อนหลังได้ทีหลังจากหน้า Staff
+    try {
+      const nameParts = (name || '').trim().split(/\s+/)
+      await createDoc('staff', {
+        uid, firstName: nameParts[0] || name || email, lastName: nameParts.slice(1).join(' '),
+        nickname: '', role: role || 'staff', dept: department || '', phone: '', email,
+        startDate: todayBangkok(), status: 'active', companyId: companyId || null, managerId: null,
+      })
+    } catch (e) {}
     return { ok: true, uid }
   } catch (e) {
     try { await signOut(secondaryAuth) } catch {}
