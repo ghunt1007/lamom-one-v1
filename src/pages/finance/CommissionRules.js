@@ -6,6 +6,7 @@ import { formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, getSalesData } from '../../core/db.js'
+import { getPositions } from '../../data/masterData.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -294,7 +295,10 @@ export default async function CommissionRulesPage(container) {
       const rt = RULE_TYPES[r.type]
       let bodyHtml = `<div style="display:grid;gap:10px">
         <div class="input-group"><label class="input-label">ชื่อกติกา</label><input class="input" id="er-name" value="${escHtml(r.name)}"></div>
-        <div class="input-group"><label class="input-label">ใช้กับ</label><input class="input" id="er-applies" value="${escHtml(r.appliesTo)}"></div>`
+        <div class="input-group"><label class="input-label">ใช้กับ <span style="font-size:0.65rem;color:var(--text-muted)">(อธิบายตำแหน่ง/กลุ่มที่ใช้กติกานี้ — ยังเป็นข้อความอธิบายเท่านั้น ไม่ได้บังคับคำนวณอัตโนมัติตามตำแหน่ง)</span></label>
+          <input class="input" id="er-applies" list="cr-position-options" value="${escHtml(r.appliesTo)}">
+          <datalist id="cr-position-options">${getPositions().map(p => `<option value="${escHtml(p)}">`).join('')}</datalist>
+        </div>`
       if (r.type === 'tiered' && r.tiers) {
         bodyHtml += `<div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);margin-top:4px">📶 ค่าคอมต่อขั้น (บาท)</div>`
         r.tiers.forEach((t, i) => {
@@ -374,7 +378,9 @@ export default async function CommissionRulesPage(container) {
           </div>
           <div class="input-group"><label class="input-label">เปอร์เซ็นต์ (%)</label><input class="input" type="number" id="cr-value" value="0" min="0" max="100" step="0.5"></div>
           <div class="input-group"><label class="input-label">รายละเอียด</label><input class="input" id="cr-detail" placeholder="อธิบายเงื่อนไข..."></div>
-          <div class="input-group"><label class="input-label">ใช้กับ</label><input class="input" id="cr-applies" value="เซลส์ทุกคน"></div>
+          <div class="input-group"><label class="input-label">ใช้กับ</label><input class="input" id="cr-applies" list="cr-position-options" value="เซลส์ทุกคน">
+          <datalist id="cr-position-options">${getPositions().map(p => `<option value="${escHtml(p)}">`).join('')}</datalist>
+          </div>
         </div>`,
         async onConfirm() {
           const name = document.getElementById('cr-name')?.value?.trim()
