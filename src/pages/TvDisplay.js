@@ -416,7 +416,16 @@ export default async function TvDisplayPage(container) {
   }, REFRESH_MS)
 
   // ── Cleanup ────────────────────────────────────────────────────────
-  const cleanup = () => {
+  // (v1.0.440) พบบั๊กจริงที่เป็นสาเหตุของ "เข้าเต็มจอแล้วออกไม่ได้" ที่แจ้งซ้ำหลายรอบ — เจอจาก Error Log จริง
+  // "Cannot access 'cleanup' before initialization" ที่ /tv เกิดขึ้นจริงหลายครั้งของเจ้าของระบบเอง (ล่าสุด
+  // เมื่อไม่ถึงชั่วโมงที่แล้ว) สาเหตุ: exitTv() (ผูกกับปุ่ม "ออก" ตั้งแต่บรรทัดแรกๆ) เรียก cleanup() ที่เดิม
+  // ประกาศเป็น const แค่ตอนท้ายฟังก์ชัน หลัง await loadData() — ถ้าผู้ใช้กดปุ่ม "ออก" ระหว่างที่ loadData()
+  // (ดึงข้อมูล Firestore ครั้งแรก) ยังโหลดไม่เสร็จ cleanup ยังอยู่ใน temporal dead zone จริงๆ กดแล้ว throw
+  // ReferenceError ทันที — cleanup()/navigate('/') ไม่ทำงานเลย ทำให้ติดค้างอยู่หน้าเดิมเหมือน "ออกไม่ได้" จริง
+  // (v1.0.435 ที่เพิ่งแก้ให้ปุ่มออกกดได้ทันทีตั้งแต่เปิดหน้า ยิ่งเพิ่มโอกาสกดโดนช่วงนี้ก่อนโหลดเสร็จ) เปลี่ยน
+  // const เป็น function declaration (hoisted) เหมือน pattern เดียวกับที่แก้ไปแล้วที่ PersonalAI.js (v1.0.434)
+  // เพื่อให้เรียกได้ปลอดภัยไม่ว่าจะกดตอนไหนก็ตาม
+  function cleanup() {
     clearInterval(clockTimer)
     clearInterval(refreshTimer)
     clearInterval(tickerTimer)
