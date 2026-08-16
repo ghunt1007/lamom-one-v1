@@ -61,6 +61,18 @@ export default async function CustomersPage(container) {
   let lostOnly = false
   let salesFilter = ''
 
+  // (v1.0.432) ตามคำขอ "แต่ละตำแหน่งจะมองเห็นเฉพาะของงานและข้อมูลลูกค้าตัวเอง" — เดิมทุกคนที่มีสิทธิ์เข้าโมดูล
+  // CRM เห็นลูกค้าทุกรายเหมือนกันหมด ไม่มีการกรองตามผู้ดูแลเลย (มีแค่ dropdown กรองเองแบบ manual จาก v1.0.425)
+  // ตอนนี้เซลส์/ช่าง/พนักงานทั่วไป (ระดับผู้ปฏิบัติงาน ไม่ใช่หัวหน้า) จะเห็นเฉพาะลูกค้าที่ assignedTo ตรงกับ
+  // ชื่อตัวเองเป็นค่าเริ่มต้น — เทียบแบบ normalize (ตัดช่องว่าง/ตัวพิมพ์เล็กใหญ่) เพราะ assignedTo เป็นชื่อ
+  // ข้อความอิสระที่พิมพ์เอง ไม่ใช่ uid ผูกตรงๆ อาจเพี้ยนเล็กน้อยได้ (ช่องว่างเกิน/ตัวพิมพ์) ให้ลิงก์ "ดูทั้งหมด"
+  // ไว้เสมอ (ไม่ซ่อน) เผื่อชื่อไม่ตรงกันจริงๆจากปัญหาคุณภาพข้อมูล จะได้ไม่ถูกล็อกออกจากงานตัวเองเงียบๆ
+  const OWN_SCOPE_ROLES = ['sales', 'service', 'staff']
+  const myRole = getState('role') || getState('user')?.role || 'staff'
+  const myDisplayName = getState('user')?.displayName || ''
+  const normName = s => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ')
+  let ownScopeActive = OWN_SCOPE_ROLES.includes(myRole) && !!myDisplayName
+
   async function loadData() {
     // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true (กู้คืนได้ใน 30 วันตามที่แจ้งผู้ใช้) — ถ้าไม่กรอง
     // ออกตรงนี้ ลูกค้าที่ "ลบ" ไปแล้วจะยังโผล่กลับมาในตาราง/สถิติทุกครั้งที่โหลดใหม่หรือมี snapshot ใหม่เข้ามา
@@ -92,7 +104,8 @@ export default async function CustomersPage(container) {
       const matchLost = !lostOnly || c.isLost
       const matchCompany = !c.companyId || !activeCompanyFilter.length || activeCompanyFilter.includes(c.companyId)
       const matchSales = !salesFilter || c.assignedTo === salesFilter
-      return matchSearch && matchStage && matchLost && matchCompany && matchSales
+      const matchOwn = !ownScopeActive || normName(c.assignedTo) === normName(myDisplayName)
+      return matchSearch && matchStage && matchLost && matchCompany && matchSales && matchOwn
     })
     const rank = { high: 0, medium: 1, low: 2 }
     filtered.sort((a, b) => {
@@ -681,6 +694,13 @@ export default async function CustomersPage(container) {
         </div>
       </div>
 
+      ${ownScopeActive ? `
+      <div id="cust-scope-banner" style="padding:8px 14px;background:var(--primary)11;border:1px solid var(--primary)33;border-radius:var(--radius-sm);margin-bottom:12px;font-size:0.76rem;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+        <span>🔒 กำลังแสดงเฉพาะลูกค้าที่คุณดูแล (ผู้ดูแล = "${escHtml(myDisplayName)}")</span>
+        <button class="btn btn-xs btn-ghost" id="cust-show-all">เห็นลูกค้าไม่ครบ? ดูทั้งหมด →</button>
+      </div>
+      ` : ''}
+
       <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px">
         ${STAGE_ORDER.map(k => `
           <div class="card stat-pill" data-s="${k}" style="padding:10px 12px;text-align:center;cursor:pointer">
@@ -841,6 +861,11 @@ export default async function CustomersPage(container) {
   })
   document.getElementById('cust-search').addEventListener('input', e => { search = e.target.value.trim().toLowerCase(); applyFilter() })
   document.getElementById('cust-sales-filter').addEventListener('change', e => { salesFilter = e.target.value; applyFilter() })
+  document.getElementById('cust-show-all')?.addEventListener('click', () => {
+    ownScopeActive = false
+    document.getElementById('cust-scope-banner')?.remove()
+    applyFilter()
+  })
   document.querySelectorAll('.sf').forEach(btn => btn.addEventListener('click', () => {
     stageFilter = btn.dataset.s
     document.querySelectorAll('.sf').forEach(b => b.className = `btn btn-sm sf ${b.dataset.s === stageFilter ? 'btn-primary' : 'btn-secondary'}`)
