@@ -128,6 +128,13 @@ export default async function BookingsPage(container) {
   const canViewNid = ['owner', 'admin', 'manager', 'sales', 'finance'].includes(myRole)
   let nidMap = {}
 
+  // (v1.0.436) ต่อจากหน้าลูกค้า (v1.0.432) — เซลส์/ช่าง/พนักงานทั่วไปเห็นเฉพาะใบจองของตัวเองเป็นค่าเริ่มต้น
+  // เหมือนกัน ผูกกับ salesName (ชื่อพิมพ์เอง เทียบแบบ normalize) เพราะ Bookings ไม่มี uid ผูกตรงๆเหมือนกัน
+  const OWN_SCOPE_ROLES = ['sales', 'service', 'staff']
+  const myDisplayName = getState('user')?.displayName || ''
+  const normName = s => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ')
+  let ownScopeActive = OWN_SCOPE_ROLES.includes(myRole) && !!myDisplayName
+
   function applyNidMap(rows) {
     if (!canViewNid) return
     rows.forEach(b => { if (nidMap[b.id] != null) b.nid = nidMap[b.id] })
@@ -177,6 +184,7 @@ export default async function BookingsPage(container) {
     if (dateFrom && (b.bookingDate || '') < dateFrom) return false
     if (dateTo && (b.bookingDate || '') > dateTo) return false
     if (sellerFilter && b.salesName !== sellerFilter) return false
+    if (ownScopeActive && normName(b.salesName) !== normName(myDisplayName)) return false
     if (brandFilter && detectBrand(b.brand, b.model) !== brandFilter) return false
     if (!ignoreStatus && statusFilter && b.status !== statusFilter) return false
     if (search) {
@@ -295,6 +303,13 @@ export default async function BookingsPage(container) {
           </div>
         </div>
 
+        ${ownScopeActive ? `
+        <div id="bk-scope-banner" style="padding:8px 14px;background:var(--primary)11;border:1px solid var(--primary)33;border-radius:var(--radius-sm);margin-bottom:12px;font-size:0.76rem;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+          <span>🔒 กำลังแสดงเฉพาะใบจองที่คุณเป็นเซลส์ (เซลส์ = "${escHtml(myDisplayName)}")</span>
+          <button class="btn btn-xs btn-ghost" id="bk-show-all">เห็นใบจองไม่ครบ? ดูทั้งหมด →</button>
+        </div>
+        ` : ''}
+
         <div class="card mb-4" style="padding:10px 14px">
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
             <select class="input" id="bk-f-seller" style="width:auto;font-size:0.76rem">${sellerOpts}</select>
@@ -326,6 +341,7 @@ export default async function BookingsPage(container) {
     document.getElementById('bk-add-btn').addEventListener('click', () => openForm())
     document.getElementById('bk-search').addEventListener('input', ev => { search = ev.target.value.trim().toLowerCase(); render() })
     document.getElementById('bk-f-seller').addEventListener('change', ev => { sellerFilter = ev.target.value; render() })
+    document.getElementById('bk-show-all')?.addEventListener('click', () => { ownScopeActive = false; render() })
     document.getElementById('bk-f-brand').addEventListener('change', ev => { brandFilter = ev.target.value; render() })
     document.getElementById('bk-date-from').addEventListener('change', ev => { dateFrom = ev.target.value; render() })
     document.getElementById('bk-date-to').addEventListener('change', ev => { dateTo = ev.target.value; render() })
