@@ -1,5 +1,5 @@
 import { watchDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { formatDate, formatCurrency, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -48,6 +48,14 @@ export default async function JobCardsPage(container) {
   let search = ''
   let isDemoData = false
 
+  // (v1.0.437) ต่อจากหน้าลูกค้า/ใบจอง (v1.0.432/436) — ช่าง/พนักงานทั่วไปเห็นเฉพาะ Job Card ที่ตัวเองรับผิดชอบ
+  // เป็นค่าเริ่มต้น ผูกกับ techName (ชื่อพิมพ์เอง เทียบแบบ normalize) ตรงกับ "แต่ละตำแหน่งเห็นเฉพาะงานตัวเอง"
+  const OWN_SCOPE_ROLES = ['sales', 'service', 'staff']
+  const myRole = getState('role') || getState('user')?.role || 'staff'
+  const myDisplayName = getState('user')?.displayName || ''
+  const normName = s => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ')
+  let ownScopeActive = OWN_SCOPE_ROLES.includes(myRole) && !!myDisplayName
+
   // Real-time: อัปเดตสดเมื่อมีคนเปิด/แก้ไข/ปิด Job Card จากเครื่องอื่น (ไม่แตะช่องค้นหา จึงไม่รบกวนตอนกำลังพิมพ์)
   let firstSnapshot = true
   const unsubJobs = watchDocs('job_cards', [], 'createdAt', 'desc', 500, rows => {
@@ -60,15 +68,18 @@ export default async function JobCardsPage(container) {
   })
 
   function updateStats() {
+    // ตัวเลขสรุปด้านบนต้องสอดคล้องกับตารางด้านล่าง — ถ้ากำลังกรองเฉพาะงานตัวเองอยู่ (ownScopeActive) ต้องนับ
+    // จากขอบเขตเดียวกัน ไม่ใช่ยอดรวมทั้งบริษัทที่จะไม่ตรงกับตารางที่เห็นจริงจนดูเหมือนเลขผิด
+    const scoped = ownScopeActive ? jobs.filter(j => normName(j.techName) === normName(myDisplayName)) : jobs
     Object.keys(JOB_STATUS).forEach(k => {
       const el = document.getElementById(`jstat-${k}`)
-      if (el) el.textContent = jobs.filter(j => j.status === k).length
+      if (el) el.textContent = scoped.filter(j => j.status === k).length
     })
-    const active = jobs.filter(j => !['done','delivered'].includes(j.status)).length
+    const active = scoped.filter(j => !['done','delivered'].includes(j.status)).length
     const totEl = document.getElementById('job-total')
-    if (totEl) totEl.textContent = `${jobs.length} งาน (active: ${active})`
+    if (totEl) totEl.textContent = `${scoped.length} งาน (active: ${active})`
     const revEl = document.getElementById('job-revenue')
-    const rev = jobs.filter(j => j.status === 'done' || j.status === 'delivered').reduce((s, j) => s + (j.labor || 0), 0)
+    const rev = scoped.filter(j => j.status === 'done' || j.status === 'delivered').reduce((s, j) => s + (j.labor || 0), 0)
     if (revEl) revEl.textContent = `รายได้: ${formatCurrency(rev)}`
     const demoEl = document.getElementById('job-demo-indicator')
     if (demoEl) demoEl.textContent = isDemoData ? '⚠️ ข้อมูลตัวอย่าง (ยังไม่มี Job Card จริงในระบบ)' : ''
@@ -78,7 +89,8 @@ export default async function JobCardsPage(container) {
     filtered = jobs.filter(j => {
       const ss = statusFilter === 'all' || j.status === statusFilter
       const qs = !search || `${j.jobNo} ${j.custName} ${j.brand} ${j.model} ${j.plate}`.toLowerCase().includes(search)
-      return ss && qs
+      const os = !ownScopeActive || normName(j.techName) === normName(myDisplayName)
+      return ss && qs && os
     })
     renderTable()
   }
@@ -311,6 +323,13 @@ export default async function JobCardsPage(container) {
         </div>
       </div>
 
+      ${ownScopeActive ? `
+      <div id="job-scope-banner" style="padding:8px 14px;background:var(--primary)11;border:1px solid var(--primary)33;border-radius:var(--radius-sm);margin-bottom:12px;font-size:0.76rem;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+        <span>🔒 กำลังแสดงเฉพาะ Job Card ที่คุณเป็นช่างรับผิดชอบ (ช่าง = "${escHtml(myDisplayName)}")</span>
+        <button class="btn btn-xs btn-ghost" id="job-show-all">เห็นงานไม่ครบ? ดูทั้งหมด →</button>
+      </div>
+      ` : ''}
+
       <!-- Status Pills -->
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;overflow-x:auto;padding-bottom:4px">
         <button class="btn btn-sm jf-btn btn-primary" data-sf="all">ทั้งหมด</button>
@@ -337,6 +356,11 @@ export default async function JobCardsPage(container) {
 
   document.getElementById('add-job-btn').addEventListener('click', () => openForm())
   document.getElementById('job-search').addEventListener('input', e => { search = e.target.value.toLowerCase(); applyFilter() })
+  document.getElementById('job-show-all')?.addEventListener('click', () => {
+    ownScopeActive = false
+    document.getElementById('job-scope-banner')?.remove()
+    applyFilter()
+  })
   document.getElementById('job-export').addEventListener('click', () => {
     exportToExcel(jobs.map(j => ({ เลขงาน:j.jobNo, ลูกค้า:j.custName, โทร:j.phone, รถ:`${j.brand} ${j.model}`, ทะเบียน:j.plate, ประเภท:JOB_TYPE[j.type]||j.type, สถานะ:JOB_STATUS[j.status]?.label||j.status, ช่าง:j.techName, เบย์:j.bay, ค่าแรง:j.labor, วันที่:formatDate(j.createdAt) })), `jobs-${todayBangkok()}.xlsx`, 'Job Cards')
     showToast('Export แล้ว', 'success')
