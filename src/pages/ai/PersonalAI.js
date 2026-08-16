@@ -681,10 +681,18 @@ export default async function PersonalAIPage(container) {
     typeIn.style.height = Math.min(typeIn.scrollHeight, 80) + 'px'
   })
 
-  overlay.querySelector('#aos-xb').addEventListener('click', () => {
-    exitConvMode(); closeCamera(); overlay.remove()
+  // (v1.0.434) เดิมปุ่ม ✕ เรียก exitConvMode()/closeCamera()/overlay.remove() เองแยกจาก cleanup() ด้านล่าง
+  // (ที่ router เรียกตอนออกจากหน้าปกติ) ทำให้พลาด cancelAnimationFrame(animReq) กับ window resize listener —
+  // กด ✕ ปิดแล้ว animation loop กับ resize listener ยังค้างทำงานอยู่เบื้องหลังตลอดไป ไม่มีทางเคลียร์เอง เปลี่ยน
+  // ให้ปุ่ม ✕ เรียก cleanup() ตัวเดียวกันเป๊ะ พร้อมเพิ่มปุ่ม Esc ให้ออกได้เหมือนหน้าโหมดเต็มจออื่น (TvDisplay.js)
+  // ที่มีอยู่แล้ว — หน้านี้เดิมไม่มีทาง Esc ออกเลย มีแค่ปุ่ม ✕ เล็กๆมุมขวาบนทางเดียว
+  function exitPersonalAI() {
+    cleanup()
     if (window.navigate) window.navigate('/')
-  })
+  }
+  overlay.querySelector('#aos-xb').addEventListener('click', exitPersonalAI)
+  function onEscKey(e) { if (e.key === 'Escape') exitPersonalAI() }
+  document.addEventListener('keydown', onEscKey)
 
   overlay.querySelector('#aos-sb').addEventListener('click', e => {
     autoSpeak = !autoSpeak
@@ -712,11 +720,12 @@ export default async function PersonalAIPage(container) {
 
   // ── Cleanup ────────────────────────────────────────────────────────────────
   container.innerHTML = ''
-  const cleanup = () => {
+  function cleanup() {
     exitConvMode()
     closeCamera()
     cancelAnimationFrame(animReq)
     window.removeEventListener('resize', onResize)
+    document.removeEventListener('keydown', onEscKey)
     document.getElementById('aos-css')?.remove()
     overlay.remove()
   }
