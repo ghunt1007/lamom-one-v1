@@ -2,7 +2,7 @@
  * LAMI Brain — ศูนย์บัญชาการ AI Officer LAMI
  * Route: /ai/lami
  */
-import { timeAgo, todayBangkok, toDate } from '../../utils/format.js'
+import { timeAgo, todayBangkok, toDate, toDateStr, formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { navigate } from '../../core/router.js'
@@ -113,6 +113,7 @@ export default async function LamiBrainPage(container) {
 
   let chatHistory = []
   let insights = []
+  let businessContext = {}
   let activeTab = 'chat'
   let isTyping = false
   let loading = true
@@ -130,16 +131,48 @@ export default async function LamiBrainPage(container) {
 
   async function loadInsights() {
     try {
-      const [leadsRaw, vehicleModels, jobCards, complaintsList, salesRows] = await Promise.all([
+      const [leadsRaw, vehicleModels, jobCards, complaintsList, salesRows, debts, csat, staff] = await Promise.all([
         listDocs('customers', [], 'createdAt', 'desc', 500).catch(() => []),
         listDocs('vehicle_models', [], 'brand', 'asc', 200).catch(() => []),
         listDocs('job_cards', [], 'createdAt', 'desc', 500).catch(() => []),
         listDocs('complaints', [], 'createdAt', 'desc', 200).catch(() => []),
         getSalesData().catch(() => []),
+        listDocs('debts', [], 'dueDate', 'asc', 200).catch(() => []),
+        listDocs('csat', [], 'createdAt', 'desc', 100).catch(() => []),
+        listDocs('staff', [], 'createdAt', 'desc', 200).catch(() => []),
       ])
       const leads = leadsRaw.filter(c => !c.deleted && (c.stage === 'lead' || c.stage === 'pp') && c.status !== 'lost')
       insights = computeInsights({ leads, vehicleModels, jobCards: jobCards.filter(j => !j.deleted), complaintsList, salesRows })
+      businessContext = buildBusinessContext({ leads, vehicleModels, jobCards, salesRows, debts, csat, staff })
     } catch (e) { insights = [] }
+  }
+
+  // (v1.0.428) เดิม askLami(text, chatHistory) ในหน้าแชทของ LAMI Brain เองก็ไม่เคยส่ง context เลยเหมือนกับ
+  // AiAssistantChat.js — ใช้ข้อมูลที่ loadInsights() ดึงมาแล้ว (ไม่ต้อง query ซ้ำ) มาแปลงเป็นบริบทให้ askLami()
+  function buildBusinessContext({ leads, vehicleModels, jobCards, salesRows, debts, csat, staff }) {
+    try {
+      const today = todayBangkok()
+      const thisMonth = today.slice(0, 7)
+      const monthSales = salesRows.filter(s => (s.date || '').startsWith(thisMonth))
+      const activeStock = vehicleModels.reduce((sum, m) => sum + (m.stock || 0), 0)
+      const hotLeads = leads.filter(c => heuristicScore(c).score >= 80).length
+      const openDebts = debts.filter(d => !d.deleted && d.status !== 'paid')
+      const overdueAmount = openDebts.reduce((sum, d) => sum + (d.amount || 0), 0)
+      const npsScores = csat.filter(c => !c.deleted && typeof c.nps === 'number').map(c => c.nps)
+      const avgNps = npsScores.length ? Math.round(npsScores.reduce((a, b) => a + b, 0) / npsScores.length * 10) / 10 : null
+      const activeStaff = staff.filter(s => !s.deleted).length
+      const todayJobs = jobCards.filter(j => !j.deleted && toDateStr(j.createdAt) === today)
+      const doneToday = todayJobs.filter(j => j.status === 'done' || j.status === 'delivered').length
+      return {
+        'ยอดขายเดือนนี้': `${monthSales.length} คัน มูลค่ารวม ${formatCurrency(monthSales.reduce((s, x) => s + (x.salePrice || 0), 0))}`,
+        'รถคงเหลือในสต็อก (รวมทุกรุ่น)': `${activeStock} คัน`,
+        'Hot Lead (คะแนน 80 ขึ้นไป)': `${hotLeads} ราย จาก Lead ทั้งหมด ${leads.length} ราย`,
+        'ยอดค้างชำระ': openDebts.length ? `${openDebts.length} รายการ รวม ${formatCurrency(overdueAmount)}` : 'ไม่มีรายการค้างชำระ',
+        'คะแนนความพึงพอใจลูกค้า (NPS เฉลี่ยล่าสุด)': avgNps !== null ? `${avgNps}/10 จาก ${npsScores.length} รายการ` : 'ยังไม่มีข้อมูลการประเมิน',
+        'งานซ่อม/ศูนย์บริการวันนี้': `รับเข้า ${todayJobs.length} งาน (เสร็จ/ส่งมอบแล้ว ${doneToday} งาน)`,
+        'พนักงานที่ยังทำงานอยู่': `${activeStaff} คน`,
+      }
+    } catch (e) { return {} }
   }
 
   async function loadAll() {
@@ -280,7 +313,7 @@ export default async function LamiBrainPage(container) {
     isTyping = true
     renderPage()
     try {
-      const reply = await askLami(text, chatHistory)
+      const reply = await askLami(text, chatHistory, businessContext)
       try { await createDoc('chat_lami_brain', { role: 'lami', text: reply, time: new Date().toISOString() }) } catch (e) {}
     } catch (err) {
       try { await createDoc('chat_lami_brain', { role: 'lami', text: '⚠️ เกิดข้อผิดพลาด: ' + err.message, time: new Date().toISOString() }) } catch (e) {}

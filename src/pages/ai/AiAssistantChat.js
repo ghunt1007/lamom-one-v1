@@ -1,7 +1,9 @@
 import { showToast, getState } from '../../core/store.js'
-import { listDocs, createDoc, softDelete, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, softDelete, seedDemoData, getSalesData } from '../../core/db.js'
 import { confirmDialog } from '../../utils/modal.js'
 import { askLami, isAiEnabled } from '../../utils/ai.js'
+import { formatCurrency, todayBangkok, toDateStr } from '../../utils/format.js'
+import { heuristicScore } from './LeadScoring.js'
 
 function esc(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
@@ -31,6 +33,47 @@ export default async function AiAssistantChatPage(container) {
   let messages = []
   let waiting = false
   let loading = true
+  let businessContext = {}
+
+  // (v1.0.428) หน้านี้มีปุ่มคำถามสำเร็จรูปตรงกับหัวข้อธุรกิจจริง (ยอดขาย/สต็อก/Hot Lead/ค้างชำระ/CSAT/ช่าง/
+  // กำไร/HR) แต่เดิม askLami(text, history) ไม่เคยส่ง context เลย — Gemini จึงต้องเดา/กุตัวเลขทุกครั้งที่ตอบ
+  // คำถามพวกนี้ ดึงสถิติจริงจากคอลเลกชันที่เกี่ยวข้องมาแนบเป็น context แทน (พลาดได้ ไม่ throw — แชทยังใช้ได้
+  // ต่อแม้บาง query ล้มเหลว แค่บริบทจุดนั้นจะหายไป ไม่ใช่ทั้งหน้าพัง)
+  async function loadBusinessContext() {
+    try {
+      const today = todayBangkok()
+      const thisMonth = today.slice(0, 7)
+      const [sales, vehicles, customers, debts, csat, staff, jobs] = await Promise.all([
+        getSalesData().catch(() => []),
+        listDocs('vehicles', [], 'arrivedAt', 'desc', 500).catch(() => []),
+        listDocs('customers', [], 'createdAt', 'desc', 500).catch(() => []),
+        listDocs('debts', [], 'dueDate', 'asc', 200).catch(() => []),
+        listDocs('csat', [], 'createdAt', 'desc', 100).catch(() => []),
+        listDocs('staff', [], 'createdAt', 'desc', 200).catch(() => []),
+        listDocs('job_cards', [], 'createdAt', 'desc', 500).catch(() => []),
+      ])
+      const monthSales = sales.filter(s => (s.date || '').startsWith(thisMonth))
+      const activeStock = vehicles.filter(v => !v.deleted && !['sold', 'ขายแล้ว', 'ส่งมอบแล้ว'].includes(v.status)).length
+      const leads = customers.filter(c => !c.deleted && (c.stage === 'lead' || c.stage === 'pp'))
+      const hotLeads = leads.filter(c => heuristicScore(c).score >= 80).length
+      const openDebts = debts.filter(d => !d.deleted && d.status !== 'paid')
+      const overdueAmount = openDebts.reduce((sum, d) => sum + (d.amount || 0), 0)
+      const npsScores = csat.filter(c => !c.deleted && typeof c.nps === 'number').map(c => c.nps)
+      const avgNps = npsScores.length ? Math.round(npsScores.reduce((a, b) => a + b, 0) / npsScores.length * 10) / 10 : null
+      const activeStaff = staff.filter(s => !s.deleted).length
+      const todayJobs = jobs.filter(j => !j.deleted && toDateStr(j.createdAt) === today)
+      const doneToday = todayJobs.filter(j => j.status === 'done' || j.status === 'delivered').length
+      businessContext = {
+        'ยอดขายเดือนนี้': `${monthSales.length} คัน มูลค่ารวม ${formatCurrency(monthSales.reduce((s, x) => s + (x.salePrice || 0), 0))}`,
+        'รถคงเหลือในสต็อก': `${activeStock} คัน`,
+        'Hot Lead (คะแนน 80 ขึ้นไป)': `${hotLeads} ราย จาก Lead ทั้งหมด ${leads.length} ราย`,
+        'ยอดค้างชำระ': openDebts.length ? `${openDebts.length} รายการ รวม ${formatCurrency(overdueAmount)}` : 'ไม่มีรายการค้างชำระ',
+        'คะแนนความพึงพอใจลูกค้า (NPS เฉลี่ยล่าสุด)': avgNps !== null ? `${avgNps}/10 จาก ${npsScores.length} รายการ` : 'ยังไม่มีข้อมูลการประเมิน',
+        'งานซ่อม/ศูนย์บริการวันนี้': `รับเข้า ${todayJobs.length} งาน (เสร็จ/ส่งมอบแล้ว ${doneToday} งาน)`,
+        'พนักงานที่ยังทำงานอยู่': `${activeStaff} คน`,
+      }
+    } catch (e) { businessContext = {} }
+  }
 
   // chat_ai_assistant เดิมไม่มี field ระบุเจ้าของเลย ทำให้ทุกคนที่เข้าหน้านี้เห็นข้อความของทุกคนรวมกัน
   // (เหมือน guestbook สาธารณะ) — สโคปด้วย uid ของผู้ใช้ปัจจุบันแทน ข้อความเก่าก่อนแก้ที่ไม่มี uid
@@ -139,7 +182,7 @@ export default async function AiAssistantChatPage(container) {
       // ต้องแปลง role 'ai' ในไฟล์นี้เป็น 'lami' ตามที่ askLami() คาดหวัง (ไม่กระทบ role ที่เก็บจริงใน Firestore)
       const history = messages.slice(0, -1).map(m => ({ role: m.role === 'ai' ? 'lami' : m.role, text: m.text }))
       try {
-        const answer = await askLami(text, history)
+        const answer = await askLami(text, history, businessContext)
         try { await createDoc('chat_ai_assistant', { role:'ai', text: answer, time:now(), uid }) } catch (e) {}
       } catch (err) {
         try { await createDoc('chat_ai_assistant', { role:'ai', text: '⚠️ เกิดข้อผิดพลาด: ' + err.message, time:now(), uid }) } catch (e) {}
@@ -165,5 +208,5 @@ export default async function AiAssistantChatPage(container) {
     if (!waiting) document.getElementById('chat-input')?.focus()
   }
 
-  await loadData()
+  await Promise.all([loadData(), loadBusinessContext()])
 }
