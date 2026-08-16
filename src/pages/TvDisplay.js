@@ -360,10 +360,13 @@ export default async function TvDisplayPage(container) {
       .filter(b => b.status !== 'ถอนจอง')
       .sort((a, b) => toDateStr(b.createdAt).localeCompare(toDateStr(a.createdAt)))
       .slice(0, 12)
+    // (v1.0.441) escHtml() ตรงนี้เกินจำเป็นและทำให้ตัวอักษรอย่าง "&" ในชื่อแบรนด์ (เช่น "OMODA & JAECOO")
+    // ขึ้นเป็น "&amp;" ตรงๆบนจอจริง — showTickerItem() ด้านล่างเซ็ตด้วย .textContent (ไม่ใช่ .innerHTML)
+    // ซึ่งปลอดภัยจาก XSS อยู่แล้วโดยไม่ต้อง escape เอง (ตรงข้ามกับ escHtml() ที่มีไว้ใช้ตอนแทรกผ่าน innerHTML)
     tickerItems = sorted.map(b => {
-      const name = escHtml(b.custName || 'ลูกค้า')
-      const car = escHtml(`${b.brand || ''} ${b.model || ''}`.trim() || 'รถยนต์')
-      const sales = escHtml(b.salesName || '')
+      const name = b.custName || 'ลูกค้า'
+      const car = `${b.brand || ''} ${b.model || ''}`.trim() || 'รถยนต์'
+      const sales = b.salesName || ''
       if (b.status === 'ส่งมอบแล้ว') return `🎉 คุณ${sales || '-'} ส่งมอบ ${car} ให้คุณ${name} แล้ว!`
       return `📝 คุณ${name} จอง ${car}${sales ? ' — ดูแลโดยคุณ' + sales : ''}`
     })
