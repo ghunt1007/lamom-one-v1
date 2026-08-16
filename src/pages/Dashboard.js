@@ -116,6 +116,7 @@ export default async function DashboardPage(container) {
   // Quick Access เดิมโชว์ทุกโมดูลให้ทุก role เหมือนกันหมด ทั้งที่ Sidebar กรองเมนูตามสิทธิ์โมดูล (hasModuleAccess)
   // อยู่แล้ว ทำให้พนักงานบางคนเห็น shortcut ที่กดแล้วถูกบล็อกทันที (ไม่ตรงกับสิทธิ์จริง) แก้ให้กรองด้วยระบบเดียวกัน
   const myRole = getState('role') || user?.role || 'staff'
+  const normName = s => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ')
   await loadRolePermissions()
   if (container.__routerGen !== myGen) return
   const visibleLinks = QUICK_LINKS.filter(l => hasModuleAccess(myRole, getModuleForPath(l.path)?.key))
@@ -323,7 +324,8 @@ export default async function DashboardPage(container) {
           <div id="forecast-body"><div class="skeleton" style="height:150px;border-radius:var(--radius-md)"></div></div>
         </div>
         <div class="card" style="padding:16px">
-          <div style="font-weight:700;margin-bottom:10px">🏆 รุ่นขายดี — <span class="fc-month" style="color:var(--primary);font-size:0.8rem"></span></div>
+          <div style="font-weight:700;margin-bottom:2px">🏆 รุ่นขายดี — <span class="fc-month" style="color:var(--primary);font-size:0.8rem"></span></div>
+          <div style="font-size:0.66rem;color:var(--text-muted);margin-bottom:8px">📝 ยอดจอง · ✅ ยอดตัดตัวเลข/ส่งมอบ</div>
           <div id="top-models"><div class="skeleton" style="height:150px;border-radius:var(--radius-md)"></div></div>
         </div>
         <div class="card" style="padding:16px">
@@ -436,29 +438,34 @@ export default async function DashboardPage(container) {
       if (label) label.textContent = ymLabel(selectedMonth)
 
       const inMonth = bookings.filter(b => (b.bookingDate || '').startsWith(selectedMonth))
-      const deliveredInMonth = bookings.filter(b => b.status === 'ส่งมอบแล้ว' && (b.actualDeliveryDate || '').startsWith(selectedMonth))
-      const byStatus = {}
-      inMonth.forEach(b => { byStatus[b.status] = (byStatus[b.status] || 0) + 1 })
-      const revenue = inMonth.reduce((s, b) => s + (b.price || 0), 0)
+      // (v1.0.433) "ส่งมอบ" ของธุรกิจนี้นับตามวันตัดตัวเลข (cutDate — วันตัดรถออกจากสต็อกให้ใบจองนี้จริง ซึ่ง
+      // อาจไม่ตรงกับวันส่งมอบจริง (actualDeliveryDate) ที่มักช้ากว่า) ใช้ pattern เดียวกับที่ Bookings.js ใช้
+      // อยู่แล้วจริง (TERMINAL_STATUSES 2 ตัวแรก: ส่งมอบแล้ว + ตัดตัวเลขรอส่งมอบ) เดิม Dashboard ใช้แค่
+      // actualDeliveryDate + เฉพาะสถานะ "ส่งมอบแล้ว" ตัวเลขจึงไม่ตรงกับที่ทีมขายเข้าใจว่าตัดตัวเลขเดือนไหนจริง
+      const deliveredInMonth = bookings.filter(b => ['ส่งมอบแล้ว', 'ตัดตัวเลขรอส่งมอบ'].includes(b.status) && (b.cutDate || b.actualDeliveryDate || '').startsWith(selectedMonth))
+      // ยอดรอส่งมอบ/รอรถ/รอผลไฟแนนซ์ ต้องเป็นยอดค้างจริงทั้งหมดที่ยังไม่จบ ไม่ใช่แค่ที่จองมาในเดือนที่เลือกดู —
+      // เดิมกรองจาก inMonth ทำให้ตัวเลข "ยอดค้าง" ดูน้อยกว่าจริงมาก เพราะยอดค้างจริงสะสมมาจากหลายเดือนก่อน
+      // หน้านี้ด้วย ไม่ใช่แค่เดือนที่กำลังดูอยู่ ส่วนถอนจองยังคงนับเฉพาะเดือนที่เลือกเหมือนเดิม (ไม่มี field
+      // วันที่ถอนจองแยกต่างหาก ใช้ bookingDate เป็นตัวกำหนดเดือนต่อไปเหมือนที่ทำมาตลอด)
+      const byStatusAll = {}
+      bookings.forEach(b => { byStatusAll[b.status] = (byStatusAll[b.status] || 0) + 1 })
+      const byStatusMonth = {}
+      inMonth.forEach(b => { byStatusMonth[b.status] = (byStatusMonth[b.status] || 0) + 1 })
 
       const body = document.getElementById('pipeline-body')
       if (!body) return
       body.innerHTML = `
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:14px">
           ${pCard('📝', 'จองมาเดือนนี้', inMonth.length, 'primary', '/crm/bookings')}
-          ${pCard('✅', 'ส่งมอบไปแล้ว', deliveredInMonth.length, 'success', '/crm/bookings')}
-          ${pCard('📦', 'รอส่งมอบ', (byStatus['รอส่งมอบ'] || 0) + (byStatus['ตัดตัวเลขรอส่งมอบ'] || 0), 'warning', '/crm/bookings')}
-          ${pCard('🚗', 'รอรถ', byStatus['รอรถ'] || 0, 'accent', '/crm/bookings')}
-          ${pCard('🏦', 'รอผลไฟแนนซ์', byStatus['รอผลไฟแนนซ์'] || 0, 'primary', '/crm/bookings')}
-          ${pCard('❌', 'ถอนจอง', byStatus['ถอนจอง'] || 0, 'danger', '/crm/bookings')}
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--surface-2);border-radius:8px;font-size:0.8rem">
-          <span>💰 มูลค่ารวมใบจองเดือนนี้</span>
-          <b style="color:var(--success);font-size:0.95rem">${formatCurrency(revenue)}</b>
+          ${pCard('✅', 'ตัดตัวเลข/ส่งมอบเดือนนี้', deliveredInMonth.length, 'success', '/crm/bookings')}
+          ${pCard('📦', 'รอส่งมอบ (ค้างทั้งหมด)', (byStatusAll['รอส่งมอบ'] || 0) + (byStatusAll['ตัดตัวเลขรอส่งมอบ'] || 0), 'warning', '/crm/bookings')}
+          ${pCard('🚗', 'รอรถ (ค้างทั้งหมด)', byStatusAll['รอรถ'] || 0, 'accent', '/crm/bookings')}
+          ${pCard('🏦', 'รอผลไฟแนนซ์ (ค้างทั้งหมด)', byStatusAll['รอผลไฟแนนซ์'] || 0, 'primary', '/crm/bookings')}
+          ${pCard('❌', 'ถอนจองเดือนนี้', byStatusMonth['ถอนจอง'] || 0, 'danger', '/crm/bookings')}
         </div>
         <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px">
-          ${Object.entries(BOOKING_STATUS_META).filter(([k]) => byStatus[k]).map(([k, v]) =>
-            `<span class="badge badge-${v.color}" style="font-size:0.68rem">${v.icon} ${v.label}: ${byStatus[k]}</span>`
+          ${Object.entries(BOOKING_STATUS_META).filter(([k]) => byStatusMonth[k]).map(([k, v]) =>
+            `<span class="badge badge-${v.color}" style="font-size:0.68rem">${v.icon} ${v.label}: ${byStatusMonth[k]}</span>`
           ).join('')}
         </div>
       `
@@ -836,21 +843,64 @@ export default async function DashboardPage(container) {
         </div>`).join('')
     }
 
+    // (v1.0.433) เดิม "รุ่นขายดี" นับแค่ยอดจอง (ตาม bookingDate) อย่างเดียว ไม่มีคอลัมน์ยอดส่งมอบเลย — ตามที่
+    // ขอให้เห็นทั้งยอดจองและยอดส่งมอบคู่กัน เพิ่มยอดส่งมอบเข้าไปด้วย นับตามเกณฑ์เดียวกับการ์ด KPI ด้านบน
+    // (cutDate/actualDeliveryDate ตรงกับเดือนที่เลือกดู ไม่ใช่ของที่จองเดือนนี้แล้วเพิ่งส่งมอบทีหลัง)
+    function modelRankBars(entries) {
+      if (!entries.length) return `<div style="font-size:0.78rem;color:var(--text-muted);padding:20px 0;text-align:center">ไม่มีข้อมูลเดือนนี้</div>`
+      const max = Math.max(...entries.map(e => e.count), 1)
+      return entries.map((e, i) => `
+        <div style="margin-bottom:9px">
+          <div style="display:flex;justify-content:space-between;font-size:0.75rem;margin-bottom:3px">
+            <span style="font-weight:${i === 0 ? '700' : '500'};color:${i === 0 ? 'var(--accent)' : 'var(--text-2)'}">${i + 1}. ${escHtml(e.name)}</span>
+            <span style="font-family:'Share Tech Mono',monospace;color:var(--text-3)">📝${e.count} · ✅${e.delivered} · ${formatCurrency(e.revenue)}</span>
+          </div>
+          <div style="background:var(--surface-2);border-radius:3px;height:7px;overflow:hidden">
+            <div style="width:${Math.round(e.count / max * 100)}%;height:100%;background:var(--accent);box-shadow:0 0 8px var(--accent);border-radius:3px"></div>
+          </div>
+        </div>`).join('')
+    }
+
     function renderTops() {
       const inMonth = bookings.filter(b => (b.bookingDate || '').startsWith(selectedMonth) && b.status !== 'ถอนจอง')
+      const deliveredInMonthAll = bookings.filter(b => ['ส่งมอบแล้ว', 'ตัดตัวเลขรอส่งมอบ'].includes(b.status) && (b.cutDate || b.actualDeliveryDate || '').startsWith(selectedMonth))
       const byModel = {}, bySales = {}
       inMonth.forEach(b => {
         const mk = `${b.brand || ''} ${b.model || 'ไม่ระบุ'}`.trim()
-        byModel[mk] = byModel[mk] || { name: mk, count: 0, revenue: 0 }
+        byModel[mk] = byModel[mk] || { name: mk, count: 0, revenue: 0, delivered: 0 }
         byModel[mk].count++; byModel[mk].revenue += b.price || 0
+      })
+      // (v1.0.433) รายได้เซลส์เดิมนับจาก price ของใบจองที่เข้าเดือนนี้ตาม bookingDate — ตามที่ขอให้นับจาก
+      // "รายได้รวม" (totalIncome — กำไรขั้นต้น+ค่าคอม ไม่ใช่แค่ราคาขาย) ของคันที่ตัดตัวเลข/ส่งมอบเข้าเดือนนี้
+      // จริง (cutDate) ไม่ใช่ตอนที่ลูกค้าจองครั้งแรก เปลี่ยนแหล่งข้อมูลให้ตรงตามนั้น
+      deliveredInMonthAll.forEach(b => {
+        const mk = `${b.brand || ''} ${b.model || 'ไม่ระบุ'}`.trim()
+        byModel[mk] = byModel[mk] || { name: mk, count: 0, revenue: 0, delivered: 0 }
+        byModel[mk].delivered++
         const sk = b.salesName || 'ไม่ระบุ'
         bySales[sk] = bySales[sk] || { name: sk, count: 0, revenue: 0 }
-        bySales[sk].count++; bySales[sk].revenue += b.price || 0
+        bySales[sk].count++
+        bySales[sk].revenue += (b.totalIncome != null ? b.totalIncome : (b.price || 0))
       })
       const mEl = document.getElementById('top-models')
-      if (mEl) mEl.innerHTML = rankBars(Object.values(byModel).sort((a, b) => b.count - a.count || b.revenue - a.revenue).slice(0, 5), 'accent', 'คัน')
+      if (mEl) mEl.innerHTML = modelRankBars(Object.values(byModel).sort((a, b) => b.count - a.count || b.revenue - a.revenue).slice(0, 5))
+      // เซลส์เห็นเฉพาะรายได้ของตัวเอง (ยังไม่ใช่ผลรวมทั้งบริษัทเหมือนหัวหน้า) — เทียบชื่อแบบ normalize เหมือน
+      // ที่ทำไว้แล้วที่หน้าลูกค้า (v1.0.432) เพราะ salesName เป็นชื่อพิมพ์เอง ไม่ใช่ uid ผูกตรงๆ
       const sEl = document.getElementById('top-sales')
-      if (sEl) sEl.innerHTML = rankBars(Object.values(bySales).sort((a, b) => b.revenue - a.revenue).slice(0, 5), 'primary', 'ดีล')
+      if (sEl) {
+        if (myRole === 'sales' && user?.displayName) {
+          const myKey = Object.keys(bySales).find(k => normName(k) === normName(user.displayName))
+          const mine = myKey ? bySales[myKey] : { count: 0, revenue: 0 }
+          sEl.innerHTML = `
+            <div style="text-align:center;padding:14px 0">
+              <div style="font-size:0.72rem;color:var(--text-muted)">💰 รายได้ของคุณเดือนนี้ (ตัดตัวเลข/ส่งมอบ)</div>
+              <div style="font-size:1.6rem;font-weight:800;color:var(--primary);margin-top:4px">${formatCurrency(mine.revenue)}</div>
+              <div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px">${mine.count} ดีล</div>
+            </div>`
+        } else {
+          sEl.innerHTML = rankBars(Object.values(bySales).sort((a, b) => b.revenue - a.revenue).slice(0, 5), 'primary', 'ดีล')
+        }
+      }
     }
 
     // ── Conversion Funnel: Lead → จอง → ส่งมอบ + แหล่งที่มา ──
