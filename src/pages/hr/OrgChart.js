@@ -26,30 +26,68 @@ const ROLE_ICON = { owner: '👑', admin: '🛡', manager: '👔', sales: '🎯'
 export default async function OrgChartPage(container) {
   const myGen = container.__routerGen
   let selectedDept = 'all'
+  let selectedCompany = 'all' // 'all' = สายบังคับบัญชาหลัก (staff.managerId) — ไม่แยกตามบริษัท
   let viewMode = 'tree'
   let staff = []
+  let companiesList = []
+  // uid → users doc — เชื่อมกับ staff.uid (v1.0.430) เพื่ออ่าน companyMemberships[].managerId ต่อบริษัท
+  // อ่าน collection users ทั้งหมดได้แค่ owner/admin/manager ตาม Firestore Rules — พลาดได้ (เช่นบัญชี sales/
+  // service ทั่วไปเปิดหน้านี้) ไม่กระทบมุมมองหลัก แค่จะไม่มีตัวเลือกแยกตามบริษัทให้เลือกเท่านั้น
+  let usersByUid = {}
 
   try {
     const docs = await listDocs('staff', [], 'firstName', 'asc', 500)
     if (container.__routerGen !== myGen) return
     staff = docs.filter(s => !s.deleted)
   } catch {}
+  try { companiesList = await listDocs('org_companies', [], 'name', 'asc', 100) } catch {}
+  try {
+    const users = await listDocs('users', [], 'createdAt', 'desc', 500)
+    usersByUid = Object.fromEntries(users.map(u => [u.id, u]))
+  } catch {}
+
+  // (v1.0.431) พนักงาน 1 คนทำงานหลายบริษัทได้ และมีหัวหน้าต่างกันในแต่ละบริษัท (companyMemberships[].managerId
+  // ที่เพิ่มไว้ v1.0.430) — เดิมแผนผังใช้ staff.managerId เดียวตายตัวทั้งระบบเสมอ ไม่แยกตามบริษัทเลย ตอนนี้ถ้า
+  // เลือกบริษัทใดบริษัทหนึ่ง จะกรองเฉพาะพนักงานที่สังกัดบริษัทนั้นจริง (ผ่าน companyMemberships หรือ staff.
+  // companyId เดิม) แล้วต่อสายบังคับบัญชาตาม managerId เฉพาะของบริษัทนั้นก่อน — ถ้าคนนั้นไม่มีบัญชีเชื่อม/ไม่มี
+  // ข้อมูลหัวหน้าเฉพาะบริษัท จะ fallback ไปใช้ staff.managerId เดิมแทน (ไม่ตัดข้อมูลที่มีอยู่แล้วทิ้ง)
+  function membershipFor(s, companyId) {
+    const u = s.uid ? usersByUid[s.uid] : null
+    return u?.companyMemberships?.find(m => m.companyId === companyId) || null
+  }
+
+  function staffInCompany(s, companyId) {
+    if (s.companyId === companyId) return true
+    return !!membershipFor(s, companyId)
+  }
 
   function buildTree() {
+    const pool = selectedCompany === 'all' ? staff : staff.filter(s => staffInCompany(s, selectedCompany))
     const byId = {}
-    staff.forEach(s => { byId[s.id] = { ...s, children: [] } })
+    pool.forEach(s => { byId[s.id] = { ...s, children: [] } })
     const roots = []
     Object.values(byId).forEach(node => {
-      if (node.managerId && byId[node.managerId] && node.managerId !== node.id) byId[node.managerId].children.push(node)
+      let managerId = node.managerId
+      if (selectedCompany !== 'all') {
+        const membership = membershipFor(node, selectedCompany)
+        if (membership?.managerId) {
+          // managerId ใน companyMemberships อ้างเป็น uid ของหัวหน้า ต้องแปลงเป็น staff doc id ก่อน (Org Chart
+          // ต่อสายด้วย staff doc id เสมอ) — หาไม่เจอ (หัวหน้ายังไม่มี/ยังไม่เชื่อม staff doc) ถือเป็น root
+          const managerStaff = pool.find(s => s.uid === membership.managerId)
+          managerId = managerStaff ? managerStaff.id : null
+        }
+      }
+      if (managerId && byId[managerId] && managerId !== node.id) byId[managerId].children.push(node)
       else roots.push(node)
     })
     return roots
   }
 
   function renderPage() {
+    const pool = selectedCompany === 'all' ? staff : staff.filter(s => staffInCompany(s, selectedCompany))
     const roots = buildTree()
-    const depts = [...new Set(staff.map(s => s.dept).filter(Boolean))]
-    const managerIds = new Set(staff.map(s => s.managerId).filter(Boolean))
+    const depts = [...new Set(pool.map(s => s.dept).filter(Boolean))]
+    const managerIds = new Set(pool.map(s => s.managerId).filter(Boolean))
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -68,11 +106,20 @@ export default async function OrgChartPage(container) {
 
         ${!staff.length ? `<div class="empty-state"><div class="empty-icon">🏛</div><div class="empty-title">ยังไม่มีข้อมูลพนักงาน</div></div>` : `
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
-          ${kpi('👥 พนักงานทั้งหมด', staff.length + ' คน', 'primary')}
+          ${kpi('👥 พนักงานทั้งหมด', pool.length + ' คน', 'primary')}
           ${kpi('🏢 แผนกทั้งหมด', depts.length, 'secondary')}
           ${kpi('👔 มีผู้ใต้บังคับบัญชา', managerIds.size + ' คน', 'warning')}
           ${kpi('🌱 ระดับบนสุด', roots.length + ' คน', 'success')}
         </div>
+
+        ${companiesList.length ? `
+        <!-- Company filter — สายบังคับบัญชาต่อบริษัท (v1.0.431) -->
+        <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;align-items:center">
+          <span style="font-size:0.7rem;color:var(--text-muted);margin-right:4px">🏢 บริษัท:</span>
+          <button class="btn btn-xs ${selectedCompany==='all'?'btn-primary':'btn-secondary'} company-btn" data-c="all">สายบังคับบัญชาหลัก</button>
+          ${companiesList.map(c => `<button class="btn btn-xs ${selectedCompany===c.id?'btn-primary':'btn-secondary'} company-btn" data-c="${c.id}">${esc(c.name)}</button>`).join('')}
+        </div>
+        ` : ''}
 
         <!-- Dept filter -->
         <div style="display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap">
@@ -80,13 +127,14 @@ export default async function OrgChartPage(container) {
           ${depts.map(d => `<button class="btn btn-xs ${selectedDept===d?'btn-primary':'btn-secondary'} dept-btn" data-d="${esc(d)}" style="color:${DEPT_COLORS[d]||'inherit'}">${esc(d)}</button>`).join('')}
         </div>
 
-        <div style="overflow-x:auto">${viewMode === 'tree' ? renderTreeRoots(roots) : renderList(staff, depts)}</div>
+        <div style="overflow-x:auto">${viewMode === 'tree' ? renderTreeRoots(roots) : renderList(pool, depts)}</div>
         `}
       </div>
     `
 
     document.getElementById('view-tree')?.addEventListener('click', () => { viewMode = 'tree'; renderPage() })
     document.getElementById('view-list')?.addEventListener('click', () => { viewMode = 'list'; renderPage() })
+    container.querySelectorAll('.company-btn').forEach(b => b.addEventListener('click', () => { selectedCompany = b.dataset.c; renderPage() }))
     container.querySelectorAll('.dept-btn').forEach(b => b.addEventListener('click', () => { selectedDept = b.dataset.d; renderPage() }))
     container.querySelectorAll('.node-card').forEach(el => el.addEventListener('click', () => {
       const s = staff.find(x => x.id === el.dataset.id); if (s) openNodeDetail(s)
