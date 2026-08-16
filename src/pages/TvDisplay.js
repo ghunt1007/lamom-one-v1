@@ -350,9 +350,15 @@ export default async function TvDisplayPage(container) {
   }
 
   function buildTicker(bookings) {
+    // (v1.0.440) เจอสดๆระหว่างตรวจสอบบั๊กเต็มจอ — createdAt เป็น Firestore Timestamp object เสมอ (ไม่ใช่
+    // string) เหมือนทุกจุดที่เจอบั๊กคลาสนี้มาตลอดทั้งเซสชัน .localeCompare() ตรงๆ กับ Timestamp object throw
+    // TypeError ทันทีทุกครั้งที่มีใบจองจริงอย่างน้อย 1 ใบ (มีจริง 226 ใบ) — พังตั้งแต่จุดนี้ใน loadData() ที่ไม่
+    // ได้ครอบ try/catch ตรงจุดนี้ ทำให้ ticker ไม่เคยแสดงผลจริงเลย "กำลังโหลดกิจกรรมล่าสุด..." ค้างตลอด และ
+    // ร้ายแรงกว่านั้น — setInterval รีเฟรชข้อมูล (บรรทัดหลัง await loadData()) ไม่เคยถูกตั้งค่าเลยเพราะ error
+    // ทำให้ทั้งจอทีวีหยุดอัปเดตข้อมูลถาวรหลังโหลดครั้งแรก ทั้งที่จุดประสงค์คือจอสดอัปเดตทุก 90 วิ
     const sorted = bookings.slice()
       .filter(b => b.status !== 'ถอนจอง')
-      .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+      .sort((a, b) => toDateStr(b.createdAt).localeCompare(toDateStr(a.createdAt)))
       .slice(0, 12)
     tickerItems = sorted.map(b => {
       const name = escHtml(b.custName || 'ลูกค้า')
@@ -409,7 +415,10 @@ export default async function TvDisplayPage(container) {
     buildTicker(bookings)
   }
 
-  await loadData()
+  // จอนี้ตั้งใจให้เปิดค้างไว้เป็นวันๆ (ติดผนัง/ทีวีโชว์รูม) — ถ้า loadData() พังตั้งแต่รอบแรกแล้วไม่ครอบ try/catch
+  // ตรงนี้ setInterval รีเฟรชด้านล่างจะไม่ถูกตั้งค่าเลยแม้แต่ครั้งเดียว จอจะหยุดอัปเดตข้อมูลถาวรตั้งแต่ตอนนั้น
+  // (เจอเคสจริงจากบั๊ก ticker ด้านบน) ครอบไว้กันบั๊กจุดอื่นในอนาคตพังแบบเดียวกันซ้ำอีก
+  try { await loadData() } catch (e) {}
   const refreshTimer = setInterval(() => {
     if (!overlay.isConnected) { clearInterval(refreshTimer); return }
     loadData()
