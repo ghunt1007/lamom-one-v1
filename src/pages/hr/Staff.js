@@ -4,6 +4,8 @@ import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getPositions } from '../../data/masterData.js'
+import { navigate } from '../../core/router.js'
+import { validateThaiId } from '../../utils/thaiId.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -22,9 +24,17 @@ const SALARY_VIEW_ROLES = ['owner', 'admin', 'manager', 'hr']
 // เพราะเป็นการแก้ไขโครงสร้างข้อมูลจริงของพนักงานทุกคน ไม่ใช่งาน HR ประจำวัน
 const MIGRATION_ROLES = ['owner', 'admin']
 
+// (v1.0.444) ข้อมูลอ่อนไหวสูง (เลขบัตรประชาชน/วันเกิด/ที่อยู่/ผู้ติดต่อฉุกเฉิน/บัญชีธนาคาร) เก็บแยกที่
+// staff_pii collection ต่างหาก (ตรงกับ Firestore Rules ที่เพิ่งเพิ่ม — isHR()||isFinance()||isManager()
+// เท่านั้น) เหมือน pattern เดียวกับ SALARY_VIEW_ROLES/staff_salaries ด้านล่าง — ต่างจาก canViewSalary ตรงที่
+// รวม 'finance' เข้ามาด้วย (บัญชีธนาคารใช้จ่ายเงินเดือนจริงเป็นข้อมูลที่ฝ่ายการเงินต้องใช้)
+const PII_VIEW_ROLES = ['owner', 'admin', 'manager', 'hr', 'finance']
+
 const DEPARTMENTS = ['ฝ่ายขาย','ฝ่ายบริการ','ฝ่ายการเงิน','ฝ่าย HR','ฝ่าย IT','ผู้บริหาร','อื่นๆ']
 export const ROLES = { owner:'เจ้าของ', admin:'แอดมิน', manager:'ผู้จัดการ', sales:'เซลส์', service:'ช่าง/บริการ', staff:'พนักงาน' }
 const STATUS_EMP = { active:'✅ ทำงานอยู่', probation:'⏳ ทดลองงาน', leave:'🏖 ลา', inactive:'❌ ลาออก' }
+const GENDERS = { male:'ชาย', female:'หญิง', other:'อื่นๆ/ไม่ระบุ' }
+const EDUCATION_LEVELS = ['ต่ำกว่า ม.6', 'ม.6/ปวช.', 'ปวส./อนุปริญญา', 'ปริญญาตรี', 'ปริญญาโท', 'ปริญญาเอก']
 
 const DEMO_STAFF = [
   { id:'st1', firstName:'ทวีศักดิ์', lastName:'สุขสมบัติเสถียร', nickname:'เจ้าของ', role:'owner', dept:'ผู้บริหาร', phone:'0812345678', email:'owner@lamom.com', startDate:'2020-01-01', salary:0, status:'active', avatar:'' },
@@ -49,6 +59,7 @@ export default async function StaffPage(container) {
   // canLinkAccount ที่รวม manager/hr ด้วย ถ้าเผลอใช้ตัวแปรเดียวกันปุ่มจะโชว์ให้ manager/hr กด แต่ query จะ
   // permission-denied เงียบๆ (จับ error ไว้แล้วไม่ throw) ทำให้เห็น "ไม่พบประวัติ" ทั้งที่จริงมีประวัติอยู่
   const canViewHistory = ['owner', 'admin'].includes(myRole)
+  const canViewPII = PII_VIEW_ROLES.includes(myRole)
 
   let staff = []
   let filtered = []
@@ -78,6 +89,17 @@ export default async function StaffPage(container) {
     }
     if (canLinkAccount) {
       try { loginAccounts = await listDocs('users', [], 'createdAt', 'desc', 500) } catch { loginAccounts = [] }
+    }
+    // (v1.0.444) PII อ่อนไหวสูง (เลขบัตรประชาชน/วันเกิด/ที่อยู่/ผู้ติดต่อฉุกเฉิน/บัญชีธนาคาร) เก็บแยกที่
+    // staff_pii เหมือน pattern เดียวกับ staff_salaries ด้านบน — ผสานทับเข้า staff เฉพาะตอนมีสิทธิ์เห็นเท่านั้น
+    if (canViewPII) {
+      try {
+        const piiDocs = await listDocs('staff_pii', [], 'updatedAt', 'desc', 500)
+        // ตัด id/createdAt/updatedAt ของเอกสาร staff_pii ทิ้งก่อนผสาน — ไม่งั้นจะไปทับ timestamp ของ
+        // staff doc เองโดยไม่ตั้งใจ (2 collection คนละเอกสารกัน แค่ id ตรงกัน)
+        const piiMap = Object.fromEntries(piiDocs.map(d => { const { id, createdAt, updatedAt, ...rest } = d; return [d.id, rest] }))
+        staff.forEach(s => { if (piiMap[s.id]) Object.assign(s, piiMap[s.id]) })
+      } catch {}
     }
     updateStats(); applyFilter()
   }
@@ -194,19 +216,35 @@ export default async function StaffPage(container) {
           ${dRow('📱','โทร',s.phone||'-')}
           ${dRow('📧','อีเมล',s.email||'-')}
           ${dRow('📅','วันเริ่มงาน',formatDate(s.startDate))}
+          ${s.contractEndDate ? dRow('📆','สิ้นสุดสัญญา',formatDate(s.contractEndDate)) : ''}
+          ${s.gender ? dRow('🧑','เพศ',GENDERS[s.gender]||s.gender) : ''}
+          ${s.education ? dRow('🎓','วุฒิการศึกษา',s.education) : ''}
           ${canViewSalary && s.salary ? dRow('💰','เงินเดือน',`฿${s.salary.toLocaleString()}/เดือน`) : ''}
           ${dRow('✅','สถานะ',STATUS_EMP[s.status]||s.status)}
           ${canLinkAccount ? dRow('🔗','บัญชีผู้ใช้ (login)', (() => { const u = loginAccounts.find(x=>x.id===s.uid); return u ? escHtml(u.email) : (s.uid ? 'เชื่อมแล้ว (ไม่พบบัญชี)' : 'ยังไม่ได้เชื่อม') })()) : ''}
+          ${canViewPII ? `
+          <div style="margin-top:4px;padding-top:10px;border-top:1px solid var(--border)">
+            <div style="font-size:0.68rem;color:var(--text-muted);font-weight:700;margin-bottom:6px">🔒 ข้อมูลอ่อนไหว (จำกัดสิทธิ์)</div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              ${s.nationalId ? dRow('🪪','เลขบัตรประชาชน',s.nationalId) : ''}
+              ${s.birthDate ? dRow('🎂','วันเกิด',formatDate(s.birthDate)) : ''}
+              ${s.address ? dRow('🏠','ที่อยู่',s.address) : ''}
+              ${s.emergencyContactName ? dRow('🆘','ผู้ติดต่อฉุกเฉิน',`${s.emergencyContactName}${s.emergencyContactPhone ? ' · '+s.emergencyContactPhone : ''}`) : ''}
+              ${s.bankName || s.bankAccount ? dRow('🏦','บัญชีธนาคาร',`${s.bankName||'-'} · ${s.bankAccount||'-'}`) : ''}
+            </div>
+          </div>` : ''}
         </div>
       `,
       footer: `<button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">ปิด</button>
                ${canViewHistory ? `<button class="btn btn-secondary" id="s-hist">🕐 ประวัติการแก้ไข</button>` : ''}
+               <button class="btn btn-secondary" id="s-docs">📎 เอกสาร/เรซูเม่</button>
                <button class="btn btn-primary" id="s-edit">✏️ แก้ไข</button>
                <button class="btn btn-danger" id="s-del">🗑️ ลบ</button>`
     })
     document.getElementById('s-edit')?.addEventListener('click', () => { document.querySelector('.modal-overlay')?.remove(); openForm(s) })
     document.getElementById('s-del')?.addEventListener('click', () => deleteStaff(s))
     document.getElementById('s-hist')?.addEventListener('click', () => openHistory(s))
+    document.getElementById('s-docs')?.addEventListener('click', () => { document.querySelector('.modal-overlay')?.remove(); navigate('/hr/documents') })
   }
 
   // (v1.0.430) เดิมไม่มีวิธีดูประวัติการแก้ไขข้อมูลพนักงานคนหนึ่งๆเลย ทั้งที่ audit_log บันทึกทุก
@@ -280,8 +318,21 @@ export default async function StaffPage(container) {
           </div>
           <div class="grid-2">
             <div class="input-group"><label class="input-label">วันเริ่มงาน</label><input class="input" type="date" id="sf-start" value="${existing?.startDate||todayBangkok()}"></div>
-            ${canViewSalary ? `<div class="input-group"><label class="input-label">เงินเดือน (บาท)</label><input class="input" type="number" id="sf-salary" value="${existing?.salary||''}"></div>` : ''}
+            <div class="input-group"><label class="input-label">สิ้นสุดสัญญา <span style="font-size:0.65rem;color:var(--text-muted)">(ถ้าเป็นสัญญาจ้างแบบมีกำหนดเวลา)</span></label><input class="input" type="date" id="sf-contract-end" value="${existing?.contractEndDate||''}"></div>
           </div>
+          <div class="grid-2">
+            <div class="input-group"><label class="input-label">เพศ</label>
+              <select class="input" id="sf-gender">
+                <option value="">— ไม่ระบุ —</option>
+                ${Object.entries(GENDERS).map(([k,v]) => `<option value="${k}" ${existing?.gender===k?'selected':''}>${v}</option>`).join('')}
+              </select>
+            </div>
+            <div class="input-group"><label class="input-label">วุฒิการศึกษา</label>
+              <input class="input" id="sf-education" list="sf-education-options" value="${escHtml(existing?.education||'')}">
+              <datalist id="sf-education-options">${EDUCATION_LEVELS.map(e => `<option value="${e}">`).join('')}</datalist>
+            </div>
+          </div>
+          ${canViewSalary ? `<div class="input-group"><label class="input-label">เงินเดือน (บาท)</label><input class="input" type="number" id="sf-salary" value="${existing?.salary||''}"></div>` : ''}
           <div class="input-group"><label class="input-label">หัวหน้างาน (ใช้แสดงในแผนผังองค์กร)</label>
             <select class="input" id="sf-manager">
               <option value="">— ไม่มี / เป็นระดับสูงสุด —</option>
@@ -294,16 +345,53 @@ export default async function StaffPage(container) {
               ${loginAccounts.filter(u => u.id === existing?.uid || !staff.some(s => s.uid === u.id && s.id !== existing?.id)).map(u => `<option value="${u.id}" ${existing?.uid===u.id?'selected':''}>${escHtml(u.displayName||u.email)} (${escHtml(u.email)})</option>`).join('')}
             </select>
           </div>` : ''}
+          ${canViewPII ? `
+          <div style="padding-top:10px;border-top:1px solid var(--border)">
+            <div style="font-size:0.72rem;color:var(--text-muted);font-weight:700;margin-bottom:8px">🔒 ข้อมูลอ่อนไหว (เก็บแยกจากข้อมูลทั่วไป จำกัดสิทธิ์เห็นเฉพาะเจ้าของ/แอดมิน/ผู้จัดการ/HR/การเงิน)</div>
+            <div style="display:flex;flex-direction:column;gap:12px">
+              <div class="input-group"><label class="input-label">เลขบัตรประชาชน</label>
+                <input class="input" id="sf-nid" value="${escHtml(existing?.nationalId||'')}" maxlength="17" placeholder="x-xxxx-xxxxx-xx-x">
+                <span class="input-error" id="sf-nid-e"></span>
+              </div>
+              <div class="grid-2">
+                <div class="input-group"><label class="input-label">วันเกิด</label><input class="input" type="date" id="sf-dob" value="${existing?.birthDate||''}"></div>
+                <div></div>
+              </div>
+              <div class="input-group"><label class="input-label">ที่อยู่</label><textarea class="input" id="sf-address" rows="2">${escHtml(existing?.address||'')}</textarea></div>
+              <div class="grid-2">
+                <div class="input-group"><label class="input-label">ผู้ติดต่อฉุกเฉิน</label><input class="input" id="sf-emc-name" value="${escHtml(existing?.emergencyContactName||'')}"></div>
+                <div class="input-group"><label class="input-label">เบอร์ผู้ติดต่อฉุกเฉิน</label><input class="input" id="sf-emc-phone" value="${escHtml(existing?.emergencyContactPhone||'')}"></div>
+              </div>
+              <div class="grid-2">
+                <div class="input-group"><label class="input-label">ธนาคาร</label><input class="input" id="sf-bank-name" value="${escHtml(existing?.bankName||'')}" placeholder="เช่น กสิกรไทย"></div>
+                <div class="input-group"><label class="input-label">เลขบัญชี</label><input class="input" id="sf-bank-acc" value="${escHtml(existing?.bankAccount||'')}"></div>
+              </div>
+            </div>
+          </div>` : ''}
         </div>
       `,
       footer: `<button class="btn btn-secondary" id="sfc">ยกเลิก</button><button class="btn btn-primary" id="sfs">💾 บันทึก</button>`
     })
     el.querySelector('#sfc').addEventListener('click', close)
+    // ตรวจเลขบัตรประชาชนแบบ real-time (MOD-11 checksum เดียวกับที่ใช้ตรวจเลขบัตรลูกค้าอยู่แล้ว) — เตือนทันที
+    // ไม่ต้องรอกดบันทึกก่อนถึงจะรู้ว่าพิมพ์ผิด ช่องว่างไม่ถือว่าผิด (ไม่บังคับกรอก)
+    el.querySelector('#sf-nid')?.addEventListener('input', e => {
+      const v = e.target.value.trim()
+      const errEl = el.querySelector('#sf-nid-e')
+      if (!v) { errEl.textContent = ''; return }
+      const r = validateThaiId(v)
+      errEl.textContent = r.valid ? '' : r.error
+    })
     el.querySelector('#sfs').addEventListener('click', async () => {
       const fn = el.querySelector('#sf-fn').value.trim()
       const ln = el.querySelector('#sf-ln').value.trim()
       if (!fn) { el.querySelector('#sf-fn-e').textContent = 'กรุณาระบุ'; return }
       if (!ln) { el.querySelector('#sf-ln-e').textContent = 'กรุณาระบุ'; return }
+      const nidRaw = el.querySelector('#sf-nid')?.value.trim() || ''
+      if (nidRaw) {
+        const r = validateThaiId(nidRaw)
+        if (!r.valid) { el.querySelector('#sf-nid-e').textContent = r.error; return }
+      }
       const btn = el.querySelector('#sfs'); btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
       const data = {
         firstName: fn, lastName: ln, nickname: el.querySelector('#sf-nn').value.trim(),
@@ -311,12 +399,26 @@ export default async function StaffPage(container) {
         dept: el.querySelector('#sf-dept').value,
         status: el.querySelector('#sf-status').value, phone: el.querySelector('#sf-phone').value.trim(),
         email: el.querySelector('#sf-email').value.trim(), startDate: el.querySelector('#sf-start').value,
+        contractEndDate: el.querySelector('#sf-contract-end').value || null,
+        gender: el.querySelector('#sf-gender').value || null,
+        education: el.querySelector('#sf-education').value.trim(),
         managerId: el.querySelector('#sf-manager').value || null,
         ...(canLinkAccount ? { uid: el.querySelector('#sf-uid')?.value || null } : {}),
       }
       // เงินเดือนเก็บแยกที่ staff_salaries เสมอ (v1.0.303) ไม่เขียนลง staff doc อีกต่อไปเลย (Firestore Rules
       // บล็อกไว้แล้วด้วย) — ช่อง #sf-salary ไม่ถูกสร้างใน DOM เลยถ้าไม่มีสิทธิ์เห็น จึงเขียนเฉพาะตอน canViewSalary
       const newSalary = canViewSalary ? (Number(el.querySelector('#sf-salary').value)||0) : null
+      // (v1.0.444) เลขบัตรประชาชน/วันเกิด/ที่อยู่/ผู้ติดต่อฉุกเฉิน/บัญชีธนาคาร เก็บแยกที่ staff_pii เสมอ
+      // เหมือนเงินเดือนด้านบน (Firestore Rules จำกัดเฉพาะ HR/การเงิน/ผู้จัดการ) — ช่องพวกนี้ไม่ถูกสร้างใน DOM
+      // เลยถ้าไม่มีสิทธิ์เห็น (canViewPII) จึงเขียนเฉพาะตอนมีสิทธิ์เท่านั้น
+      const piiData = canViewPII ? {
+        nationalId: nidRaw, birthDate: el.querySelector('#sf-dob').value || null,
+        address: el.querySelector('#sf-address').value.trim(),
+        emergencyContactName: el.querySelector('#sf-emc-name').value.trim(),
+        emergencyContactPhone: el.querySelector('#sf-emc-phone').value.trim(),
+        bankName: el.querySelector('#sf-bank-name').value.trim(),
+        bankAccount: el.querySelector('#sf-bank-acc').value.trim(),
+      } : null
       try {
         let staffId = existing?.id
         // ถ้ากำลังแก้ "พนักงาน" ที่จริงๆเป็นแค่ DEMO_STAFF (isDemoData — ไม่มีพนักงานจริงในระบบเลย ระบบเลยโชว์
@@ -342,9 +444,18 @@ export default async function StaffPage(container) {
           await setDocData('staff_salaries', staffId, { salary: newSalary })
           const rec = staff.find(x => x.id === staffId); if (rec) rec.salary = newSalary
         }
+        if (piiData) {
+          await setDocData('staff_pii', staffId, piiData)
+          const rec = staff.find(x => x.id === staffId); if (rec) Object.assign(rec, piiData)
+        }
         showToast(isEdit ? 'แก้ไขแล้ว' : '✅ เพิ่มพนักงานแล้ว', 'success')
         close(); updateStats(); applyFilter()
-      } catch { showToast('บันทึกไม่สำเร็จ','error') }
+      } catch (e) {
+        // (v1.0.444) เดิมข้อความ error ทั่วไปเกินไป ("บันทึกไม่สำเร็จ") ไม่บอกสาเหตุจริงเลย — ถ้าเป็น
+        // permission-denied จาก Firestore Rules หรือ error อื่นที่วินิจฉัยได้ ให้โชว์ข้อความจริงแทน
+        showToast('บันทึกไม่สำเร็จ: ' + (e?.message || 'เกิดข้อผิดพลาดไม่ทราบสาเหตุ'), 'error', 8000)
+        btn.disabled = false; btn.innerHTML = '💾 บันทึก'
+      }
     })
   }
 
@@ -411,7 +522,13 @@ export default async function StaffPage(container) {
   document.getElementById('staff-search').addEventListener('input', e => { search = e.target.value.toLowerCase(); applyFilter() })
   document.getElementById('dept-filter').addEventListener('change', e => { deptFilter = e.target.value; applyFilter() })
   document.getElementById('staff-export').addEventListener('click', () => {
-    exportToExcel(staff.map(s => ({ ชื่อ:s.firstName, นามสกุล:s.lastName, ชื่อเล่น:s.nickname, ระดับสิทธิ์:ROLES[s.role]||s.role, ตำแหน่งงาน:s.position||'', แผนก:s.dept, โทร:s.phone, อีเมล:s.email, วันเริ่มงาน:s.startDate, ...(canViewSalary ? { เงินเดือน:s.salary } : {}), สถานะ:STATUS_EMP[s.status]||s.status })), `staff-${todayBangkok()}.xlsx`, 'พนักงาน')
+    exportToExcel(staff.map(s => ({
+      ชื่อ:s.firstName, นามสกุล:s.lastName, ชื่อเล่น:s.nickname, ระดับสิทธิ์:ROLES[s.role]||s.role, ตำแหน่งงาน:s.position||'', แผนก:s.dept,
+      เพศ:GENDERS[s.gender]||'', วุฒิการศึกษา:s.education||'', โทร:s.phone, อีเมล:s.email, วันเริ่มงาน:s.startDate, สิ้นสุดสัญญา:s.contractEndDate||'',
+      ...(canViewSalary ? { เงินเดือน:s.salary } : {}),
+      ...(canViewPII ? { เลขบัตรประชาชน:s.nationalId||'', วันเกิด:s.birthDate||'', ที่อยู่:s.address||'', ผู้ติดต่อฉุกเฉิน:s.emergencyContactName||'', เบอร์ฉุกเฉิน:s.emergencyContactPhone||'', ธนาคาร:s.bankName||'', เลขบัญชี:s.bankAccount||'' } : {}),
+      สถานะ:STATUS_EMP[s.status]||s.status,
+    })), `staff-${todayBangkok()}.xlsx`, 'พนักงาน')
     showToast('Export แล้ว', 'success')
   })
 

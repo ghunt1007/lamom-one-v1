@@ -709,6 +709,16 @@ service cloud.firestore {
       allow write: if (isHR() || isFinance() || isManager()) && nonNegIfPresent('salary');
     }
 
+    // เก็บข้อมูลอ่อนไหวสูงของพนักงาน (เลขบัตรประชาชน/วันเกิด/ที่อยู่/ผู้ติดต่อฉุกเฉิน/บัญชีธนาคาร) แยกจาก
+    // staff/{docId} เหมือน pattern เดียวกับ staff_salaries (v1.0.303) เป๊ะ — ถ้าฝัง field พวกนี้ไว้ใน staff
+    // doc ตรงๆ จะเปิดให้ isStaff() (พนักงานทุกคน) อ่านได้กว้างเหมือนที่เคยเป็นบั๊กจริงกับเงินเดือนมาก่อน แต่
+    // ครั้งนี้ร้ายแรงกว่าเพราะเป็น PII ที่ใช้ปลอมตัว/แอบอ้างได้จริง (เลขบัตรประชาชน) ไม่ใช่แค่ตัวเลขเงินเดือน
+    // id ของเอกสารตรงกับ id ของ staff/{docId} ตัวเดียวกันเสมอ (ความสัมพันธ์ 1:1)
+    match /staff_pii/{docId} {
+      allow read: if isHR() || isFinance() || isManager();
+      allow write: if isHR() || isFinance() || isManager();
+    }
+
     match /staff_loans/{docId} {
       allow read: if isHR() || isManager();
       // ป้องกันยื่นขอกู้ยืมยอด 0 หรือติดลบ — UI เช็คแค่ฝั่ง client เท่านั้น (StaffLoan.js) ข้ามได้ง่ายๆ
@@ -1179,7 +1189,7 @@ service cloud.firestore {
         'expenses', 'expense_approvals', 'cash_flow', 'bank_reconciliation', 'bank_transactions',
         'payroll_records', 'salary_scale_staff', 'bonus_pool_staff', 'tech_kpi_bonus_approvals',
         'financial_closings', 'debt_settlements', 'expense_claims',
-        'staff', 'staff_salaries', 'staff_loans', 'leave_requests', 'attendance', 'performance_reviews', 'team_targets',
+        'staff', 'staff_salaries', 'staff_pii', 'staff_loans', 'leave_requests', 'attendance', 'performance_reviews', 'team_targets',
         'employee_evaluations', 'disciplinary_records', 'staff_grievances', 'recruitment', 'onboarding_staff', 'offboarding_staff',
         'notifications', 'inspections', 'courtesy_car_jobs', 'sop_documents', 'legal_references', 'kb_articles', 'product_knowledge',
         'master_data', 'company_profile', 'whitelabel_settings', 'sms_otp_settings',

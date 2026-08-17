@@ -201,7 +201,7 @@ export default async function UserManagementPage(container) {
         await updateDocData('users', b.dataset.uid, { active: nowActive })
         showToast(nowActive ? '✅ เปิดใช้งานบัญชีแล้ว' : '⛔ ระงับบัญชีแล้ว — จะบล็อกการ login ครั้งถัดไป', nowActive ? 'success' : 'warning')
         await loadData()
-      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      } catch (e) { showToast('บันทึกไม่สำเร็จ: ' + (e?.message || 'เกิดข้อผิดพลาดไม่ทราบสาเหตุ'), 'error', 8000) }
     }))
   }
 
@@ -256,7 +256,7 @@ export default async function UserManagementPage(container) {
           if (!result.ok) { showToast('❗ ' + result.error, 'error'); return false }
           showToast(`✅ สร้าง ${name} (${ROLES[role]?.label}) แล้ว`, 'success')
           await loadData()
-        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+        } catch (e) { showToast('บันทึกไม่สำเร็จ: ' + (e?.message || 'เกิดข้อผิดพลาดไม่ทราบสาเหตุ'), 'error', 8000) }
       }
     })
     setTimeout(() => {
@@ -320,11 +320,16 @@ export default async function UserManagementPage(container) {
               companyId, role, department, position,
               managerId: document.querySelector(`.ar-company-manager[data-company="${companyId}"]`)?.value || null,
             }))
-            await updateCompanyMemberships(uid, companyMemberships)
+            // (v1.0.444) บั๊กจริงที่พบ — updateCompanyMemberships() ไม่เคย throw เอง (internal try/catch คืนค่า
+            // {ok:false,error} แทน) แต่โค้ดเดิมไม่เคยเช็คผลลัพธ์เลย ถ้าล้มเหลว (เช่น permission-denied) หน้าจอ
+            // จะยังขึ้น "✅ กำหนดสิทธิ์แล้ว" ทั้งที่บริษัท/แผนก/ตำแหน่ง/หัวหน้างานที่เพิ่งตั้งไม่ได้ถูกบันทึกจริง
+            // เลย — ผู้ใช้เห็นว่า "สำเร็จ" ตลอดแม้ตั้งค่าไม่ได้จริงตามที่รายงาน
+            const cmResult = await updateCompanyMemberships(uid, companyMemberships)
+            if (!cmResult.ok) { showToast('❗ กำหนดสิทธิ์ระดับสำเร็จ แต่บันทึกบริษัท/แผนก/ตำแหน่งไม่สำเร็จ: ' + cmResult.error, 'error', 8000); await loadData(); return }
           }
           showToast(`✅ กำหนดสิทธิ์ ${ROLES[role]?.label} ให้ ${name} แล้ว`, 'success')
           await loadData()
-        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+        } catch (e) { showToast('บันทึกไม่สำเร็จ: ' + (e?.message || 'เกิดข้อผิดพลาดไม่ทราบสาเหตุ'), 'error', 8000) }
       }
     })
   }
@@ -345,7 +350,7 @@ export default async function UserManagementPage(container) {
           await updateDocData('users', uid, { accessExpiresAt: computeExpiry(expiryDays) })
           showToast(expiryDays ? `✅ ต่ออายุสิทธิ์ ${name} แล้ว` : `✅ ยกเลิกวันหมดอายุของ ${name} แล้ว (ใช้งานได้ตลอด)`, 'success')
           await loadData()
-        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+        } catch (e) { showToast('บันทึกไม่สำเร็จ: ' + (e?.message || 'เกิดข้อผิดพลาดไม่ทราบสาเหตุ'), 'error', 8000) }
       }
     })
   }

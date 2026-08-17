@@ -1570,6 +1570,42 @@ describe('staff_salaries (v1.0.303) — salary moved out of the broadly-readable
   })
 })
 
+// v1.0.444 — เก็บ PII อ่อนไหวสูงของพนักงาน (เลขบัตรประชาชน/วันเกิด/ที่อยู่/ผู้ติดต่อฉุกเฉิน/บัญชีธนาคาร)
+// แยกออกจาก staff/{docId} เหมือน pattern เดียวกับ staff_salaries (v1.0.303) เป๊ะ — กันไม่ให้พนักงานทุกคน
+// (isStaff() อ่าน staff doc ได้กว้าง) เห็นเลขบัตรประชาชน/บัญชีธนาคารของเพื่อนร่วมงานได้ถ้าเผลอฝัง field
+// พวกนี้ไว้ใน staff doc ตรงๆ
+describe('staff_pii (v1.0.444) — sensitive PII scoped to HR/finance/manager only', () => {
+  it('a plain staff member cannot read a colleague\'s national ID/PII record', async () => {
+    await seedUser('piiScope1', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('piiScope1').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('staff_pii/emp1').set({ nationalId: '1234567890123' })
+    })
+    await assertFails(db.collection('staff_pii').doc('emp1').get())
+  })
+
+  it('HR can read a staff PII record', async () => {
+    await seedUser('piiScope2', { role: 'hr', active: true })
+    const db = testEnv.authenticatedContext('piiScope2').firestore()
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('staff_pii/emp2').set({ nationalId: '1234567890123' })
+    })
+    await assertSucceeds(db.collection('staff_pii').doc('emp2').get())
+  })
+
+  it('a plain staff member cannot write a colleague\'s PII record', async () => {
+    await seedUser('piiScope3', { role: 'sales', active: true })
+    const db = testEnv.authenticatedContext('piiScope3').firestore()
+    await assertFails(db.collection('staff_pii').doc('emp3').set({ nationalId: '1234567890123' }))
+  })
+
+  it('HR can write a staff PII record', async () => {
+    await seedUser('piiScope4', { role: 'hr', active: true })
+    const db = testEnv.authenticatedContext('piiScope4').firestore()
+    await assertSucceeds(db.collection('staff_pii').doc('emp4').set({ nationalId: '1234567890123', bankAccount: '1112223334' }))
+  })
+})
+
 // v1.0.304 — สานต่อการตรวจสอบ PII ที่เข้าถึงได้กว้างเกินไป: เลขบัตรประชาชนลูกค้าใน bookings, ที่อยู่ลูกค้า
 // ในบริการรับ-ส่งรถ, และเงินเดือนใน staff_profiles (collection คู่ขนานของ staff ที่หลุดรอดจากการแก้ v1.0.303)
 describe('booking_national_ids (v1.0.304) — customer national ID scoped to sales/finance/manager only', () => {

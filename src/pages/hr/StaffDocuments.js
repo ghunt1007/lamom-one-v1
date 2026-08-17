@@ -21,6 +21,7 @@ function addDays(n) {
 }
 
 const DOC_TYPES = {
+  resume:    { label: 'เรซูเม่/ประวัติย่อ', color: 'accent', icon: '📋' },
   contract:  { label: 'สัญญาจ้าง', color: 'primary', icon: '📜' },
   idcard:    { label: 'บัตรประชาชน', color: 'secondary', icon: '🪪' },
   license:   { label: 'ใบขับขี่', color: 'warning', icon: '🚗' },

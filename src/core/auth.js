@@ -271,7 +271,7 @@ export async function updateCompanyMemberships(uid, companyMemberships) {
     }, { merge: true })
     return { ok: true }
   } catch (e) {
-    return { ok: false, error: 'บันทึกไม่สำเร็จ' }
+    return { ok: false, error: e?.message || 'บันทึกไม่สำเร็จ' }
   }
 }
 
