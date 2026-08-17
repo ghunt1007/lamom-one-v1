@@ -438,7 +438,14 @@ export default async function StaffPage(container) {
           // Phase 2 หลายบริษัท — ติด companyId ของบริษัทหลักที่พนักงานคนสร้างสังกัดอยู่ (ถ้ามี) พนักงานเดิม
           // ที่ไม่มี companyId ยังเห็นได้ทุกคนเหมือนเดิม (ไม่ถูกกรองออก)
           const payload = { ...data, companyId: getState('user')?.primaryCompanyId || null }
-          staffId = await createDoc('staff', payload); staff.unshift({ ...payload, id: staffId })
+          staffId = await createDoc('staff', payload)
+          // (v1.0.448) เดิมกดปุ่ม "เพิ่มพนักงาน" (ไม่ใช่แก้ไข) ตอน isDemoData=true (ยังไม่มีพนักงานจริงเลย
+          // ระบบเลยโชว์ DEMO_STAFF 5 คนตัวอย่างแทน) จะแค่ unshift พนักงานจริงที่เพิ่งสร้างเข้าไปปนกับของตัวอย่าง
+          // เดิมในหน่วยความจำ โดยไม่รีเซ็ต isDemoData/reload เลย ผลคือป้าย "⚠️ ข้อมูลตัวอย่าง" กับพนักงานปลอม
+          // 5 คนยังค้างแสดงอยู่ปนกับพนักงานจริงที่เพิ่งเพิ่ม จนกว่าจะรีเฟรชหน้าเอง — ใช้ pattern เดียวกับตอนแก้ไข
+          // พนักงานตัวอย่างด้านบน คือ reload ใหม่ทั้งหมดทันทีถ้าเพิ่งสร้างพนักงานจริงคนแรก
+          if (isDemoData) await loadData()
+          else staff.unshift({ ...payload, id: staffId })
         }
         if (newSalary != null) {
           await setDocData('staff_salaries', staffId, { salary: newSalary })
