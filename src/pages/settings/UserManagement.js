@@ -9,6 +9,7 @@ import { showToast, getState } from '../../core/store.js'
 import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 import { createStaffAccount, sendStaffPasswordReset, updateCompanyMemberships } from '../../core/auth.js'
 import { getPositions } from '../../data/masterData.js'
+import { navigate } from '../../core/router.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -72,12 +73,17 @@ export default async function UserManagementPage(container) {
 
   let users = []
   let companiesList = []
+  let staffList = []
   let loading = true
 
   async function loadData() {
     loading = true
     try { users = await listDocs('users', [], 'createdAt', 'desc', 200) } catch (e) { users = [] }
     try { companiesList = await listDocs('org_companies', [], 'name', 'asc', 100) } catch (e) { companiesList = [] }
+    // (v1.0.451) เดิมหน้านี้ไม่รู้จักข้อมูลพนักงาน (HR) เลย — บัญชี login กับข้อมูลพนักงานดูเป็นคนละระบบ
+    // แยกขาดจากกัน ทั้งที่จริงเชื่อมกันผ่าน staff.uid (v1.0.430) ตามที่ขอ "บัญชีผู้ใช้ต้องสัมพันธ์กับข้อมูล
+    // พนักงาน" — โหลดมาเพื่อโชว์สถานะการเชื่อมโยงให้เห็นชัดเจนตรงนี้เลย ไม่ต้องเดา/สลับหน้าไปเช็คเอง
+    try { staffList = (await listDocs('staff', [], 'createdAt', 'desc', 500)).filter(s => !s.deleted) } catch (e) { staffList = [] }
     loading = false
     if (container.__routerGen === myGen) render()
   }
@@ -146,11 +152,18 @@ export default async function UserManagementPage(container) {
                   const exp = expiryInfo(u)
                   const active = u.active !== false && !isPending && !(exp && exp.expired)
                   const iManage = canCreate(myRole, u.role)
+                  // (v1.0.451) สถานะการเชื่อมกับข้อมูลพนักงาน (HR) — เชื่อมผ่าน staff.uid ตั้งแต่ v1.0.430
+                  // (บัญชีที่สร้างใหม่ผ่านหน้านี้เชื่อมให้อัตโนมัติ ส่วนบัญชีเก่า/สมัครเองต้องเชื่อมย้อนหลังที่
+                  // หน้า Staff เอง) โชว์ให้เห็นชัดตรงนี้เลยว่าเชื่อมแล้วหรือยัง ไม่ต้องเดา/สลับหน้าไปเช็คเอง
+                  const linkedStaff = staffList.find(s => s.uid === u.id)
                   return `<tr style="border-bottom:1px solid var(--border);font-size:0.8rem${active?'':';opacity:0.5'}">
                     <td style="padding:8px 14px">
                       <div style="font-weight:600">${esc(u.displayName || u.email)}</div>
                       <div style="font-size:0.65rem;color:var(--text-muted)">${esc(u.email)} · สร้างเมื่อ ${u.createdAt ? formatDate(u.createdAt) : '-'}</div>
                       ${(u.companyMemberships || []).length ? `<div style="font-size:0.62rem;color:var(--text-muted);margin-top:2px">🏢 ${u.companyMemberships.map(m => esc(companiesList.find(c=>c.id===m.companyId)?.name || m.companyId)).join(', ')}${u.companyMemberships[0]?.position ? ' · ' + esc(u.companyMemberships[0].position) : ''}</div>` : ''}
+                      ${linkedStaff
+                        ? `<div class="staff-link-btn" data-nav-staff="1" style="font-size:0.62rem;color:var(--success);margin-top:2px;cursor:pointer">🔗 เชื่อมกับพนักงาน: ${esc(linkedStaff.firstName||'')} ${esc(linkedStaff.lastName||'')}${linkedStaff.position ? ' · '+esc(linkedStaff.position) : ''}</div>`
+                        : !isPending ? `<div class="staff-link-btn" data-nav-staff="1" style="font-size:0.62rem;color:var(--warning);margin-top:2px;cursor:pointer">⚠️ ยังไม่เชื่อมกับข้อมูลพนักงาน — กดเพื่อไปเชื่อม</div>` : ''}
                     </td>
                     <td style="padding:8px 10px;text-align:center">
                       ${isPending ? '<span class="badge badge-warning" style="font-size:0.62rem">⏳ รอกำหนดสิทธิ์</span>' : `<span class="badge badge-secondary" style="font-size:0.62rem">${r.icon||''} ${r.label||u.role}</span>`}
@@ -161,7 +174,7 @@ export default async function UserManagementPage(container) {
                     </td>
                     <td style="padding:8px 14px;text-align:right;white-space:nowrap">
                       ${iManage ? `
-                        ${isPending ? `<button class="btn btn-xs btn-primary setrole-btn" data-uid="${u.id}" data-name="${esc(u.displayName || u.email)}">✏️ กำหนดสิทธิ์</button>` : ''}
+                        <button class="btn btn-xs btn-primary setrole-btn" data-uid="${u.id}" data-name="${esc(u.displayName || u.email)}">✏️ ${isPending ? 'กำหนดสิทธิ์' : 'แก้ไขบัญชี'}</button>
                         ${!isPending ? `<button class="btn btn-xs btn-secondary renew-btn" data-uid="${u.id}" data-name="${esc(u.displayName || u.email)}">🔄 ${exp?'ต่ออายุ':'ตั้งวันหมดอายุ'}</button>` : ''}
                         <button class="btn btn-xs btn-warning resetpw-btn" data-uid="${u.id}" data-email="${esc(u.email)}">🔑 รีเซ็ตรหัส</button>
                         ${!isPending ? `<button class="btn btn-xs ${active?'btn-danger':'btn-success'} toggle-btn" data-uid="${u.id}" data-active="${active}">${active?'⛔ ระงับ':'✅ เปิด'}</button>` : ''}
@@ -192,6 +205,7 @@ export default async function UserManagementPage(container) {
     `
 
     document.getElementById('add-user-btn')?.addEventListener('click', openCreateForm)
+    container.querySelectorAll('.staff-link-btn').forEach(b => b.addEventListener('click', () => navigate('/hr/staff')))
     container.querySelectorAll('.setrole-btn').forEach(b => b.addEventListener('click', () => openAssignRoleForm(b.dataset.uid, b.dataset.name)))
     container.querySelectorAll('.renew-btn').forEach(b => b.addEventListener('click', () => openRenewForm(b.dataset.uid, b.dataset.name)))
     container.querySelectorAll('.resetpw-btn').forEach(b => b.addEventListener('click', () => confirmResetPw(b.dataset.email)))
@@ -266,24 +280,39 @@ export default async function UserManagementPage(container) {
     }, 100)
   }
 
+  const KEEP_EXPIRY = '__keep__'
+
   function openAssignRoleForm(uid, name) {
     const creatable = Object.entries(ROLES).filter(([k]) => canCreate(myRole, k))
     const u = users.find(x => x.id === uid) || {}
+    const isPendingUser = u.role === 'pending'
     const currentMemberships = u.companyMemberships || []
     const currentCompanyIds = currentMemberships.map(m => m.companyId)
     const currentDept = currentMemberships[0]?.department || ''
     const currentPos = currentMemberships[0]?.position || ''
     openModal({
-      title: `✏️ กำหนดสิทธิ์ให้ ${esc(name)}`,
+      title: `✏️ แก้ไขบัญชี — ${esc(name)}`,
       size: 'sm',
       body: `<div class="input-group">
+        <label class="input-label">ชื่อ-นามสกุล (แสดงในระบบ)</label>
+        <input class="input" id="ar-name" value="${esc(u.displayName || '')}">
+      </div>
+      <div class="input-group" style="margin-top:8px">
+        <label class="input-label">อีเมล (ใช้ login)</label>
+        <input class="input" value="${esc(u.email || '')}" disabled style="opacity:0.6">
+        <span style="font-size:0.62rem;color:var(--text-muted)">🔒 แก้อีเมลจากหน้านี้ไม่ได้ (ข้อจำกัดของ Firebase Auth — เปลี่ยนได้เฉพาะเจ้าของบัญชีเองตอน login) ถ้าอีเมลผิดจริง ต้องลบบัญชีนี้แล้วสร้างใหม่</span>
+      </div>
+      <div class="input-group" style="margin-top:10px">
         <label class="input-label">ระดับสิทธิ์ *</label>
-        <select class="input" id="ar-role">${creatable.map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+        <select class="input" id="ar-role">${creatable.map(([k,v])=>`<option value="${k}" ${u.role===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}</select>
       </div>
       <div class="input-group" style="margin-top:10px">
         <label class="input-label">ระยะเวลาสิทธิ์ <span style="font-size:0.65rem;color:var(--text-muted)">(เผื่อพนักงานชั่วคราว/ผู้รับเหมา)</span></label>
-        <select class="input" id="ar-expiry">${EXPIRY_OPTIONS.map(o=>`<option value="${o.days??''}">${o.label}</option>`).join('')}</select>
-        <p style="font-size:0.68rem;color:var(--text-muted);margin-top:6px">อนุมัติแล้วผู้ใช้จะเข้าใช้งานระบบได้ทันทีตามสิทธิ์ที่เลือก</p>
+        <select class="input" id="ar-expiry">
+          <option value="${KEEP_EXPIRY}" selected>— คงเดิมไม่เปลี่ยนแปลง —</option>
+          ${EXPIRY_OPTIONS.map(o=>`<option value="${o.days??''}">${o.label}</option>`).join('')}
+        </select>
+        <p style="font-size:0.68rem;color:var(--text-muted);margin-top:6px">${isPendingUser ? 'อนุมัติแล้วผู้ใช้จะเข้าใช้งานระบบได้ทันทีตามสิทธิ์ที่เลือก' : 'ค่าเริ่มต้น "คงเดิม" จะไม่แตะวันหมดอายุที่ตั้งไว้อยู่แล้ว — เลือกเปลี่ยนเฉพาะตอนต้องการแก้จริงๆ'}</p>
       </div>
       ${companiesList.length ? `
       <div class="input-group" style="margin-top:10px">
@@ -305,13 +334,21 @@ export default async function UserManagementPage(container) {
         <div><label class="input-label">แผนก</label><input class="input" id="ar-department" value="${esc(currentDept)}" placeholder="เช่น ขาย, บัญชี, HR"></div>
         <div><label class="input-label">ตำแหน่ง</label><input class="input" id="ar-position" list="ar-position-options" value="${esc(currentPos)}" placeholder="เช่น เซลส์"><datalist id="ar-position-options">${getPositions().map(p => `<option value="${esc(p)}">`).join('')}</datalist></div>
       </div>` : ''}`,
-      confirmText: '✅ อนุมัติสิทธิ์',
+      confirmText: isPendingUser ? '✅ อนุมัติสิทธิ์' : '✅ บันทึก',
       async onConfirm() {
         const role = document.getElementById('ar-role')?.value
         const expiryDays = document.getElementById('ar-expiry')?.value
+        const newName = document.getElementById('ar-name')?.value?.trim()
+        if (!newName) { showToast('❗ กรุณาใส่ชื่อ-นามสกุล', 'error'); return false }
         if (!canCreate(myRole, role)) { showToast('❗ คุณไม่มีสิทธิ์กำหนดระดับนี้', 'error'); return false }
         try {
-          await updateDocData('users', uid, { role, active: true, accessExpiresAt: computeExpiry(expiryDays) })
+          // (v1.0.451) ค่าเริ่มต้น "คงเดิม" ไม่ส่ง accessExpiresAt ไปใน payload เลย (ไม่ใช่ส่งเป็น null) —
+          // updateDocData ใช้ Firestore updateDoc() ที่แก้เฉพาะ field ที่ระบุมาเท่านั้น ไม่แตะ field ที่ไม่ได้
+          // ระบุ เดิมถ้าไม่ทำแบบนี้ เปิดหน้านี้มาแก้แค่ชื่อคนที่มีวันหมดอายุจำกัดอยู่แล้ว จะไปรีเซ็ตวันหมดอายุ
+          // เป็น "ไม่จำกัดเวลา" โดยไม่ตั้งใจทุกครั้ง (ค่า default เดิมของ dropdown คือช่องแรกซึ่งคือไม่จำกัดเวลา)
+          const payload = { role, active: true, displayName: newName }
+          if (expiryDays !== KEEP_EXPIRY) payload.accessExpiresAt = computeExpiry(expiryDays)
+          await updateDocData('users', uid, payload)
           if (companiesList.length) {
             const department = document.getElementById('ar-department')?.value?.trim() || ''
             const position = document.getElementById('ar-position')?.value?.trim() || ''
@@ -327,7 +364,7 @@ export default async function UserManagementPage(container) {
             const cmResult = await updateCompanyMemberships(uid, companyMemberships)
             if (!cmResult.ok) { showToast('❗ กำหนดสิทธิ์ระดับสำเร็จ แต่บันทึกบริษัท/แผนก/ตำแหน่งไม่สำเร็จ: ' + cmResult.error, 'error', 8000); await loadData(); return }
           }
-          showToast(`✅ กำหนดสิทธิ์ ${ROLES[role]?.label} ให้ ${name} แล้ว`, 'success')
+          showToast(isPendingUser ? `✅ กำหนดสิทธิ์ ${ROLES[role]?.label} ให้ ${newName} แล้ว` : `✅ บันทึกข้อมูลบัญชี ${newName} แล้ว`, 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ: ' + (e?.message || 'เกิดข้อผิดพลาดไม่ทราบสาเหตุ'), 'error', 8000) }
       }
