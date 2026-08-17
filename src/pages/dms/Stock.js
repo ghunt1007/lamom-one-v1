@@ -1,5 +1,6 @@
 import { listDocs, watchDocs, createDoc, updateDocData, softDelete, seedDemoData, getSalesData } from '../../core/db.js'
-import { showToast, getState } from '../../core/store.js'
+import { showToast, getState, on } from '../../core/store.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -73,23 +74,31 @@ export default async function StockPage(container) {
   // Real-time: อัปเดตสดเมื่อมีคนแก้ไขสต็อกรถจากเครื่องอื่น — หน้านี้ renderContent()/updateStats()
   // แก้แค่ #stock-content/#stock-filtered/#vstat-*/#stock-total เท่านั้น ไม่แตะช่องค้นหาเลย จึงปลอดภัย
   let firstSnapshot = true
-  const unsubStock = watchDocs('vehicles', [], 'arrivedAt', 'desc', 500, async rows => {
-    if (container.__routerGen !== myGen) { unsubStock(); return }
-    // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true — ถ้าไม่กรองออก รถที่ "ลบ" ไปแล้วจะยังโผล่กลับมา
-    // ในสต็อกทุกครั้งที่มี snapshot ใหม่เข้ามา (รวมถึง snapshot จากการลบเองด้วย)
-    stock = rows.filter(v => !v.deleted)
-    isDemoData = !stock.length && firstSnapshot
-    if (isDemoData) DEMO_STOCK.forEach(v => stock.push({ ...v }))
-    firstSnapshot = false
-    // ลิงก์ใบจอง (แหล่งกลาง): จับคู่ตาม VIN → แสดงสถานะจอง/ลูกค้าบนรถในสต็อก
-    try {
-      const sales = await getSalesData()
-      bookingByVin = {}
-      sales.forEach(s => { if (s.plate) bookingByVin[s.plate] = s })
-    } catch (e) {}
-    if (container.__routerGen !== myGen) return
-    updateStats(); applyFilter()
-  })
+  let unsubStock = () => {}
+  // (v1.0.453) การกรองตามบริษัทย้ายเข้า query จริงแล้ว (companyScopeFilters()) — ต้องยกเลิก subscription
+  // เก่าแล้วยิงใหม่ทุกครั้งที่ activeCompanyFilter (ตัวกรอง Topbar) เปลี่ยน ไม่งั้นตัวกรองจะหยุดทำงาน
+  function startWatchStock() {
+    unsubStock()
+    unsubStock = watchDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 500, async rows => {
+      if (container.__routerGen !== myGen) { unsubStock(); return }
+      // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true — ถ้าไม่กรองออก รถที่ "ลบ" ไปแล้วจะยังโผล่กลับมา
+      // ในสต็อกทุกครั้งที่มี snapshot ใหม่เข้ามา (รวมถึง snapshot จากการลบเองด้วย)
+      stock = rows.filter(v => !v.deleted)
+      isDemoData = !stock.length && firstSnapshot
+      if (isDemoData) DEMO_STOCK.forEach(v => stock.push({ ...v }))
+      firstSnapshot = false
+      // ลิงก์ใบจอง (แหล่งกลาง): จับคู่ตาม VIN → แสดงสถานะจอง/ลูกค้าบนรถในสต็อก
+      try {
+        const sales = await getSalesData()
+        bookingByVin = {}
+        sales.forEach(s => { if (s.plate) bookingByVin[s.plate] = s })
+      } catch (e) {}
+      if (container.__routerGen !== myGen) return
+      updateStats(); applyFilter()
+    })
+  }
+  startWatchStock()
+  const offCompanyFilter = on('activeCompanyFilter', startWatchStock)
 
   function updateStats() {
     const counts = {}
@@ -110,15 +119,13 @@ export default async function StockPage(container) {
   }
 
   function applyFilter() {
-    // Phase 2 หลายบริษัท — รถที่ยังไม่มี companyId (ข้อมูลเดิมทั้งหมดก่อนมีระบบนี้) ยังเห็นได้เสมอ ไม่ถูก
-    // กรองออกโดยไม่ตั้งใจ
-    const activeCompanyFilter = getState('activeCompanyFilter') || []
+    // (v1.0.453) การกรองตามบริษัทย้ายเข้า query จริงแล้ว (companyScopeFilters() ใน startWatchStock()) —
+    // ไม่ต้องกรองซ้ำที่นี่อีก
     filtered = stock.filter(v => {
       const ms = statusFilter === 'all' || v.status === statusFilter
       const bs = brandFilter === 'all' || v.brand === brandFilter
       const ss = !search || `${v.brand} ${v.model} ${v.color} ${v.vin}`.toLowerCase().includes(search)
-      const matchCompany = !v.companyId || !activeCompanyFilter.length || activeCompanyFilter.includes(v.companyId)
-      return ms && bs && ss && matchCompany
+      return ms && bs && ss
     })
     renderContent()
   }
@@ -453,7 +460,7 @@ export default async function StockPage(container) {
         else {
           // Phase 2 หลายบริษัท — ติด companyId ของบริษัทหลักที่พนักงานคนรับรถเข้าสังกัดอยู่ (ถ้ามี) รถเดิม
           // ที่ไม่มี companyId ยังเห็นได้ทุกคนเหมือนเดิม (ไม่ถูกกรองออก)
-          const payload = { ...data, companyId: getState('user')?.primaryCompanyId || null }
+          const payload = { ...data, companyId: myEffectiveCompanyId() }
           const id = await createDoc('vehicles', payload); stock.unshift({ ...payload, id })
         }
         showToast(isEdit ? 'แก้ไขแล้ว' : '✅ เพิ่มรถแล้ว', 'success')
@@ -551,7 +558,7 @@ export default async function StockPage(container) {
     applyFilter()
   }))
 
-  return function cleanupStock() { unsubStock() }
+  return function cleanupStock() { unsubStock(); offCompanyFilter() }
 }
 
 function dRow(icon, label, value) {

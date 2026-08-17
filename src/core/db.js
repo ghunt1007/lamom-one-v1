@@ -249,6 +249,54 @@ export async function migrateStaffSalaries() {
   return { migrated, skipped, errors }
 }
 
+// ── One-time migration: เติม companyIds (flat array) ให้ users doc เก่าที่มี companyMemberships อยู่แล้ว
+// (v1.0.453) ── Firestore Rules อ่าน field ในอาเรย์ของ map (companyMemberships[].companyId) ไม่ได้โดยตรง
+// ต้องมี field แยกเป็น flat array ให้ rule เช็ค "in" ได้ตรงๆ — user ที่สร้าง/แก้ไขหลัง v1.0.453 มี field นี้
+// อัตโนมัติอยู่แล้วจาก createStaffAccount()/updateCompanyMemberships() ฟังก์ชันนี้ไล่เติมให้ user เก่าที่ยังไม่มี
+// เท่านั้น ปลอดภัยรันซ้ำได้ (ข้าม doc ที่มี companyIds อยู่แล้ว)
+export async function backfillUserCompanyIds() {
+  const snap = await getDocs(collection(db, 'users'))
+  let migrated = 0, skipped = 0
+  const errors = []
+  for (const d of snap.docs) {
+    const data = d.data()
+    if (data.companyIds != null) { skipped++; continue }
+    try {
+      const companyIds = (data.companyMemberships || []).map(m => m.companyId)
+      await updateDoc(doc(db, 'users', d.id), { companyIds })
+      migrated++
+    } catch (e) {
+      errors.push({ id: d.id, message: e.message || String(e) })
+    }
+  }
+  logAction('update', 'users', 'migration', `เติม companyIds ให้ user เก่าแล้ว ${migrated} คน (ข้าม ${skipped} คนที่มีอยู่แล้ว)`)
+  return { migrated, skipped, errors }
+}
+
+// ── Generic one-time migration: เติม companyId ให้เอกสารเก่าใน collection ใดๆ ที่ยังไม่มี field นี้ (v1.0.453) ──
+// ใช้ร่วมกับกลไก company-scoping — inferFn(doc) รับเอกสารดิบ คืน companyId ที่ควรใส่ (หรือ null ถ้า infer
+// ไม่ได้ เช่นไม่มี field เชื่อมโยงไปยัง collection อื่นที่มี companyId อยู่แล้ว) เอกสารที่ inferFn คืน null จะถูก
+// ข้าม ไม่ใช่ตั้งเป็น null ทับ (ต่างจาก skip เพราะมี companyId อยู่แล้ว) — ปลอดภัยรันซ้ำได้เสมอ
+export async function backfillCompanyId(colName, inferFn) {
+  const snap = await getDocs(collection(db, colName))
+  let migrated = 0, skipped = 0, unresolved = 0
+  const errors = []
+  for (const d of snap.docs) {
+    const data = d.data()
+    if (data.companyId != null) { skipped++; continue }
+    try {
+      const companyId = await inferFn(data, d.id)
+      if (!companyId) { unresolved++; continue }
+      await updateDoc(doc(db, colName, d.id), { companyId })
+      migrated++
+    } catch (e) {
+      errors.push({ id: d.id, message: e.message || String(e) })
+    }
+  }
+  logAction('update', colName, 'migration', `เติม companyId ให้ ${colName} แล้ว ${migrated} รายการ (ข้าม ${skipped} รายการที่มีอยู่แล้ว, infer ไม่ได้ ${unresolved} รายการ)`)
+  return { migrated, skipped, unresolved, errors }
+}
+
 // actorOverride (พารามิเตอร์เสริม, ไม่บังคับ): ดู comment ที่ logAction() — ใช้เฉพาะหน้า shared kiosk ที่
 // ต้องการให้ audit_log บันทึกชื่อคนที่ทำจริง ไม่ใช่บัญชีที่ล็อกอินค้างอยู่บนเครื่อง
 export const DEFAULT_ROLE_PERMISSIONS = {

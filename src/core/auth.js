@@ -235,6 +235,7 @@ export async function createStaffAccount({ name, email, password, role, accessEx
       active: true,
       accessExpiresAt: accessExpiresAt || null,
       companyMemberships,
+      companyIds: companyMemberships.map(m => m.companyId),
       primaryCompanyId: companyId || null,
       createdBy: getState('user')?.uid || null,
       createdAt: serverTimestamp(),
@@ -271,6 +272,7 @@ export async function updateCompanyMemberships(uid, companyMemberships) {
       // department/position เป็นข้อความพิมพ์เอง — เขียนตรงผ่าน setDoc ที่นี่ ไม่ผ่าน createDoc/updateDocData
       // ที่กรอง XSS ให้อยู่แล้วปกติ จึงต้องกรองเองตรงนี้
       companyMemberships: deepSanitize(companyMemberships || []),
+      companyIds: (companyMemberships || []).map(m => m.companyId),
       primaryCompanyId: companyMemberships?.[0]?.companyId || null,
     }, { merge: true })
     return { ok: true }

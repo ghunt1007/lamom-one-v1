@@ -1,5 +1,6 @@
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData, setDocData, migrateStaffSalaries } from '../../core/db.js'
-import { showToast, getState } from '../../core/store.js'
+import { showToast, getState, on } from '../../core/store.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -74,7 +75,7 @@ export default async function StaffPage(container) {
   async function loadData() {
     // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true — ถ้าไม่กรองออก พนักงานที่ "ลบ" ไปแล้วจะยังโผล่
     // กลับมาในรายชื่อทุกครั้งที่โหลดหน้านี้ใหม่ (และยังเข้าเกณฑ์ลงเวลา/คำนวณเงินเดือนที่หน้าอื่นต่อไปด้วย)
-    try { staff = (await listDocs('staff', [], 'startDate', 'asc', 500)).filter(s => !s.deleted) } catch {}
+    try { staff = (await listDocs('staff', companyScopeFilters(), 'startDate', 'asc', 500)).filter(s => !s.deleted) } catch {}
     isDemoData = !staff.length
     if (isDemoData) DEMO_STAFF.forEach(s => staff.push({ ...s }))
     // เงินเดือนย้ายไปเก็บที่ staff_salaries แยกต่างหากแล้ว (v1.0.303) — ดึงมาผสานทับ s.salary เฉพาะตอนมี
@@ -119,14 +120,12 @@ export default async function StaffPage(container) {
   }
 
   function applyFilter() {
-    // Phase 2 หลายบริษัท — พนักงานที่ยังไม่มี companyId (ข้อมูลเดิมทั้งหมด, และ shared-service เช่น HR/บัญชี
-    // ที่ตั้งใจไม่ผูกบริษัทเดียว) ยังเห็นได้เสมอ ไม่ถูกกรองออกโดยไม่ตั้งใจ
-    const activeCompanyFilter = getState('activeCompanyFilter') || []
+    // (v1.0.453) การกรองตามบริษัทย้ายเข้า query จริงแล้ว (companyScopeFilters() ใน loadData()) — ไม่ต้อง
+    // กรองซ้ำที่นี่อีก
     filtered = staff.filter(s => {
       const ds = deptFilter === 'all' || s.dept === deptFilter
       const qs = !search || `${s.firstName} ${s.lastName} ${s.nickname} ${s.role}`.toLowerCase().includes(search)
-      const matchCompany = !s.companyId || !activeCompanyFilter.length || activeCompanyFilter.includes(s.companyId)
-      return ds && qs && matchCompany
+      return ds && qs
     })
     renderCards()
   }
@@ -480,13 +479,13 @@ export default async function StaffPage(container) {
           // แล้วโหลดข้อมูลใหม่ทั้งหมด เพราะตอนนี้ collection มีเอกสารจริงแล้ว isDemoData จะกลายเป็น false
           // ไม่ต้องใช้ DEMO_STAFF fallback อีกต่อไป — ต้อง reload กันรายการตัวอย่างเดิม (รวมตัวที่เพิ่งแก้)
           // ค้างซ้ำอยู่กับของจริงที่เพิ่งสร้าง
-          const payload = { ...data, companyId: getState('user')?.primaryCompanyId || null }
+          const payload = { ...data, companyId: myEffectiveCompanyId() }
           staffId = await createDoc('staff', payload)
           await loadData()
         } else {
           // Phase 2 หลายบริษัท — ติด companyId ของบริษัทหลักที่พนักงานคนสร้างสังกัดอยู่ (ถ้ามี) พนักงานเดิม
           // ที่ไม่มี companyId ยังเห็นได้ทุกคนเหมือนเดิม (ไม่ถูกกรองออก)
-          const payload = { ...data, companyId: getState('user')?.primaryCompanyId || null }
+          const payload = { ...data, companyId: myEffectiveCompanyId() }
           staffId = await createDoc('staff', payload)
           // (v1.0.448) เดิมกดปุ่ม "เพิ่มพนักงาน" (ไม่ใช่แก้ไข) ตอน isDemoData=true (ยังไม่มีพนักงานจริงเลย
           // ระบบเลยโชว์ DEMO_STAFF 5 คนตัวอย่างแทน) จะแค่ unshift พนักงานจริงที่เพิ่งสร้างเข้าไปปนกับของตัวอย่าง
@@ -591,6 +590,12 @@ export default async function StaffPage(container) {
   })
 
   if (container.__routerGen === myGen) await loadData()
+
+  // (v1.0.453) การกรองตามบริษัทย้ายเข้า query จริงแล้ว (companyScopeFilters()) — หน้านี้ไม่มี live
+  // subscription (แค่โหลดครั้งเดียว) ต้อง reload ใหม่เองทุกครั้งที่ activeCompanyFilter (ตัวกรอง Topbar)
+  // เปลี่ยน ไม่งั้นตัวกรองจะหยุดทำงานจนกว่าจะรีเฟรชหน้าเอง
+  const offCompanyFilter = on('activeCompanyFilter', () => { if (container.__routerGen === myGen) loadData() })
+  return function cleanupStaff() { offCompanyFilter() }
 }
 
 // (v1.0.452) ประวัติการทำงานที่อื่นก่อนหน้า — เก็บเป็น array บน staff doc เอง (ไม่ใช่ข้อมูลอ่อนไหวระดับ

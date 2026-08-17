@@ -60,6 +60,39 @@ service cloud.firestore {
       return isSignedIn() && userRole() in ['owner', 'admin', 'manager', 'sales'];
     }
 
+    // ── Company data scoping (v1.0.453) ──────────────────────────────────────
+    // "พนักงานแต่ละคนเห็นแค่ข้อมูลของบริษัทที่ตัวเองทำงาน" — กลไกกลางที่ collection ธุรกิจต่างๆ จะเรียกใช้
+    // ทีละ collection ในหลายเฟสถัดไป (customers/bookings/vehicles/staff/tasks ฯลฯ) ตอนนี้ยังไม่ได้ผูกกับ
+    // collection ไหนจริง (ฟังก์ชันพร้อมใช้ แต่ยัง "ไม่ได้เปิดใช้งาน") เพราะพบว่าแต่ละ collection มีหน้าอื่นๆ
+    // หลายสิบหน้าทั่วทั้งแอปที่ query แบบกว้างไม่มี where('companyId',...) เลย — ต้องแก้ query ให้ครบ "ทุกหน้า
+    // ที่อ่าน collection นั้น" ก่อนถึงจะปิด rule ให้แคบลงได้อย่างปลอดภัย (ไม่งั้น deploy แล้ว permission-denied
+    // ทันทีสำหรับพนักงานที่ถูก scope ในหน้าที่ยังไม่ได้แก้) แต่ละเฟสถัดไปต้องไล่หา query ทั้งหมดของ collection
+    // นั้นก่อน (grep listDocs/watchDocs/listAllDocs) แล้วแก้ให้ใช้ companyScopeFilters() ให้ครบก่อนเปลี่ยน rule
+    // — myProfile() ใช้ path เดียวกับที่ userRole() ดึงอยู่แล้ว (get() คนละครั้งแต่ path เดียวกัน Firestore จะ
+    // cache ผลภายในการประเมิน rule ครั้งเดียว ไม่เพิ่ม read เกินจำเป็น) companyIds เป็น flat array มิเรอร์ของ
+    // companyMemberships[].companyId เพราะ rules อ่าน field ในอาเรย์ของ map ไม่ได้โดยตรง ต้องมี field แยกให้
+    // เช็ค "in" ตรงๆ
+    function myProfile() {
+      return get(/databases/$(database)/documents/users/$(uid())).data;
+    }
+
+    function myCompanyIds() {
+      return isSignedIn() ? myProfile().get('companyIds', []) : [];
+    }
+
+    // เห็นทุกบริษัทโดยไม่มีเงื่อนไข: ตั้ง flag เป็นรายบุคคล (HR/การตลาด/PDI/ตรวจสอบ/หัวหน้าบัญชี ฯลฯ
+    // ตามผังองค์กรจริง) — owner/admin เห็นทุกบริษัทอยู่แล้วผ่าน isAdmin() ไม่ต้องพึ่ง flag นี้
+    function isGroupWide() {
+      return isSignedIn() && myProfile().get('groupWide', false) == true;
+    }
+
+    // เงื่อนไขกลางที่ collection ที่ต้อง company-scope ทุกตัวเรียกใช้ — เอกสารที่ไม่มี companyId เลย
+    // (ข้อมูลเก่า/กำพร้า) จะ fail-closed สำหรับคนถูก scope (ไม่เห็น) แต่ admin/groupWide ยังเห็นเพื่อไปแก้ไขได้
+    function canSeeCompanyDoc(data) {
+      return isAdmin() || isGroupWide()
+        || (data.get('companyId', null) != null && data.get('companyId', null) in myCompanyIds());
+    }
+
     // ระบบยังไม่มีผู้ใช้คนแรก (ยังไม่มี meta/init) — ใช้ตอน bootstrap owner คนแรกเท่านั้น
     function isBootstrapping() {
       return !exists(/databases/$(database)/documents/meta/init);
@@ -194,6 +227,12 @@ service cloud.firestore {
     }
 
     // ── CRM & Sales ──────────────────────────────────────────────────────────
+    // (v1.0.453) เดิมตั้งใจ scope collection นี้ตามบริษัทเหมือนกัน แต่พบว่ามีอีก ~25 หน้าทั่วทั้งแอป
+    // (Dashboard/AnalyticsDashboard/WarRoom/Pipeline/CrmDashboard/AiOfficers/LeadScoring ฯลฯ) ที่ query
+    // collection นี้แบบกว้างโดยไม่มี where('companyId',...) — deploy ตอนนี้จะ permission-denied ทันทีสำหรับ
+    // พนักงานที่ถูก scope ในทุกหน้าเหล่านั้น เก็บไว้กว้างเหมือนเดิมก่อนจนกว่าจะแก้ query ให้ครบเป็นงานแยกต่างหาก
+    // (Customers.js แก้ query ให้ใช้ companyScopeFilters() แล้วในระหว่างนี้ — ใช้ได้ทั้งกับ rule แบบกว้างนี้
+    // และแบบ scope ในอนาคต ไม่ต้องแก้ query ซ้ำอีกรอบตอนเปิดใช้งานจริง)
     match /customers/{docId} {
       allow read, write: if isStaff();
     }
@@ -202,6 +241,13 @@ service cloud.firestore {
       allow read, write: if isStaff();
     }
 
+    // (v1.0.453) เดิมตั้งใจ scope collection นี้ตามบริษัทเหมือนกัน แต่พบว่ามีอีก ~23 หน้าทั่วทั้งแอป
+    // (OperationsDashboard/ReportCenter/WarRoom/DeliveryCalendar/Invoice/RecallTracker ฯลฯ) ที่ query
+    // collection นี้แบบกว้างโดยไม่มี where('companyId',...) — deploy ตอนนี้จะ permission-denied ทันทีสำหรับ
+    // พนักงานที่ถูก scope ในทุกหน้าเหล่านั้น เก็บไว้กว้างเหมือนเดิมก่อนจนกว่าจะแก้ query ให้ครบเป็นงานแยกต่างหาก
+    // (Bookings.js แก้ query ให้ใช้ companyScopeFilters() แล้วในระหว่างนี้ — ใช้ได้ทั้งกับ rule แบบกว้างนี้
+    // และแบบ scope ในอนาคต ไม่ต้องแก้ query ซ้ำอีกรอบตอนเปิดใช้งานจริง — booking_national_ids ยังคง scope
+    // จริงอยู่เพราะมีแค่หน้าเดียวที่อ่าน ความเสี่ยงต่ำ ใช้พิสูจน์กลไกนี้แบบใช้งานจริงได้)
     match /bookings/{docId} {
       allow read: if isStaff();
       // ป้องกันราคา/เงินจอง/ยอดไฟแนนซ์/ยอดคืนเงินติดลบ — ไม่มีเหตุผลทางธุรกิจให้ค่าพวกนี้ติดลบได้จริง
@@ -267,6 +313,9 @@ service cloud.firestore {
       allow update: if isStaff() && (!resource.data.get('channel', '').matches('^dm_.*') || uid() in resource.data.get('participants', []));
     }
 
+    // (v1.0.453) เดิมตั้งใจ scope collection นี้ตามบริษัทเหมือนกัน แต่พบว่ามีอีก 3 หน้า (DeptOperationsDashboard/
+    // gamificationData/Calendar) ที่ query แบบกว้างโดยไม่มี where('companyId',...) — เก็บไว้กว้างเหมือนเดิม
+    // ก่อนจนกว่าจะแก้ query ให้ครบเป็นงานแยกต่างหาก (Tasks.js แก้ query ให้ใช้ companyScopeFilters() แล้ว)
     match /tasks/{docId} {
       allow read, write: if isStaff();
     }
@@ -288,10 +337,16 @@ service cloud.firestore {
     }
 
     // ── Stock & Vehicles ─────────────────────────────────────────────────────
+    // (v1.0.453) เดิมตั้งใจ scope collection นี้ตามบริษัทเหมือนกัน แต่พบว่ามีอีก ~17 หน้าทั่วทั้งแอป
+    // (Dashboard/DmsDashboard/StockAnalysis/AiOfficers/ExecutiveSummary ฯลฯ) ที่ query แบบกว้างโดยไม่มี
+    // where('companyId',...) — เก็บไว้กว้างเหมือนเดิมก่อนจนกว่าจะแก้ query ให้ครบเป็นงานแยกต่างหาก (Stock.js
+    // แก้ query ให้ใช้ companyScopeFilters() แล้ว)
     match /vehicles/{docId} {
       allow read: if isStaff();
       // ป้องกันราคา/ต้นทุนรถติดลบ — ไม่มีเหตุผลทางธุรกิจให้ราคาขาย/ต้นทุนต่อคันติดลบได้
-      allow write: if isStaff() && nonNegIfPresent('price') && nonNegIfPresent('cost');
+      allow create: if isStaff() && nonNegIfPresent('price') && nonNegIfPresent('cost');
+      allow update: if isStaff() && nonNegIfPresent('price') && nonNegIfPresent('cost');
+      allow delete: if isStaff();
     }
 
     // ตรวจสอบเพิ่มเติม (v1.0.301) — พบว่า vehicle_catalog_overrides/_additions (ใช้เก็บการแก้ไข/เพิ่มรุ่นรถ
@@ -686,6 +741,14 @@ service cloud.firestore {
 
     // ── HR — HR role & above ──────────────────────────────────────────────────
     match /staff/{docId} {
+      // (v1.0.453) เดิมตั้งใจจะ scope collection นี้ตามบริษัทเหมือนกัน แต่พบว่ามีอีก 15 หน้าทั่วทั้งแอป
+      // (AiAssistantChat/LamiBrain/OperationsDashboard/ReportBuilder/Payroll/Challenges/EmployeeKpi/
+      // HrDashboard/KpiManagement/Leave/OrgChart/OvertimeTracking/ShiftSchedule/UserManagement ฯลฯ) ที่ query
+      // collection นี้แบบกว้างโดยไม่มี where('companyId',...) เลย — ถ้า deploy canSeeCompanyDoc() ตอนนี้จะ
+      // permission-denied ทันทีสำหรับพนักงานที่ถูก scope (ไม่ใช่ owner/admin/groupWide) ในทุกหน้าเหล่านั้น
+      // เก็บ collection นี้ไว้กว้างเหมือนเดิมก่อน (isStaff()) จนกว่าจะแก้ query ให้ครบทั้ง 15+ หน้าเป็นงานแยก
+      // ต่างหาก (Staff.js/Attendance.js แก้ query ให้ใช้ companyScopeFilters() แล้วในระหว่างนี้ — ใช้ได้ทั้งกับ
+      // rule แบบกว้างนี้และแบบ scope ในอนาคต ไม่ต้องแก้ query ซ้ำอีกรอบตอนเปิดใช้งานจริง)
       allow read: if isStaff();
       // (v1.0.303) เงินเดือนย้ายไปเก็บที่ staff_salaries แยกต่างหากแล้ว (อ่านได้แค่ isHR()/isFinance()/
       // isManager()) เพราะ collection นี้ต้องเปิดให้ isStaff() อ่านได้กว้างต่อไป (หน้าอื่นอีกหลายหน้าต้องใช้

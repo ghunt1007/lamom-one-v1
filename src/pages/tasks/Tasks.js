@@ -1,5 +1,6 @@
 import { watchDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
-import { showToast, getState, setState } from '../../core/store.js'
+import { showToast, getState, setState, on } from '../../core/store.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 
@@ -44,16 +45,23 @@ export default async function TasksPage(container) {
   const myName = currentUser?.displayName || currentUser?.email || currentUser?.uid || ''
 
   // Real-time: อัปเดตสดเมื่อมีคนสร้าง/แก้ไข/ปิดงานจากเครื่องอื่น — หน้านี้ไม่มีช่องค้นหาจึงอัปเดตได้ทันทีไม่ต้องกันโฟกัส
-  const unsubTasks = watchDocs('tasks', [], 'dueDate', 'asc', 500, rows => {
-    if (container.__routerGen !== myGen) { unsubTasks(); return }
-    tasks = rows
-    renderBoard()
-  })
+  let unsubTasks = () => {}
+  // (v1.0.453) การกรองตามบริษัทย้ายเข้า query จริงแล้ว (companyScopeFilters()) — ต้องยกเลิก subscription
+  // เก่าแล้วยิงใหม่ทุกครั้งที่ activeCompanyFilter (ตัวกรอง Topbar) เปลี่ยน ไม่งั้นตัวกรองจะหยุดทำงาน
+  function startWatchTasks() {
+    unsubTasks()
+    unsubTasks = watchDocs('tasks', companyScopeFilters(), 'dueDate', 'asc', 500, rows => {
+      if (container.__routerGen !== myGen) { unsubTasks(); return }
+      tasks = rows
+      renderBoard()
+    })
+  }
+  startWatchTasks()
+  const offCompanyFilter = on('activeCompanyFilter', startWatchTasks)
 
   function getFiltered() {
-    // Phase 2 หลายบริษัท — งานที่ยังไม่มี companyId (ข้อมูลเดิม/งานที่ส่งต่อข้ามแผนกซึ่งอาจข้ามบริษัทด้วย)
-    // ยังเห็นได้เสมอ ไม่ถูกกรองออกโดยไม่ตั้งใจ
-    const activeCompanyFilter = getState('activeCompanyFilter') || []
+    // (v1.0.453) การกรองตามบริษัทย้ายเข้า query จริงแล้ว (companyScopeFilters() ใน startWatchTasks()) —
+    // ไม่ต้องกรองซ้ำที่นี่อีก
     let t = tasks.filter(t => {
       if (viewFilter === 'mine') return t.assignedTo && t.assignedTo === myName
       if (viewFilter === 'active') return t.status !== 'done' && t.status !== 'cancelled'
@@ -62,7 +70,6 @@ export default async function TasksPage(container) {
     })
     if (priorityFilter !== 'all') t = t.filter(x => x.priority === priorityFilter)
     if (deptFilter !== 'all') t = t.filter(x => (x.department || 'general') === deptFilter)
-    t = t.filter(x => !x.companyId || !activeCompanyFilter.length || activeCompanyFilter.includes(x.companyId))
     return t.sort((a, b) => (PRIORITY[a.priority]?.order ?? 9) - (PRIORITY[b.priority]?.order ?? 9))
   }
 
@@ -312,7 +319,7 @@ export default async function TasksPage(container) {
         else {
           // Phase 2 หลายบริษัท — ติด companyId ของบริษัทหลักที่พนักงานคนสร้างสังกัดอยู่ (ถ้ามี) งานเดิมที่ไม่มี
           // companyId ยังเห็นได้ทุกคนเหมือนเดิม (ไม่ถูกกรองออก)
-          const payload = { ...data, companyId: getState('user')?.primaryCompanyId || null }
+          const payload = { ...data, companyId: myEffectiveCompanyId() }
           const id = await createDoc('tasks', payload); tasks.unshift({ ...payload, id })
         }
         showToast(isEdit ? 'แก้ไขแล้ว' : '✅ เพิ่มงานแล้ว', 'success')
@@ -366,7 +373,7 @@ export default async function TasksPage(container) {
     renderBoard()
   }))
 
-  return function cleanupTasks() { unsubTasks() }
+  return function cleanupTasks() { unsubTasks(); offCompanyFilter() }
 }
 
 function dRow(icon, label, value) {

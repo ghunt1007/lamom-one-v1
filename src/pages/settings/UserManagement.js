@@ -6,7 +6,7 @@
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
-import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, updateDocData, seedDemoData, backfillUserCompanyIds } from '../../core/db.js'
 import { createStaffAccount, sendStaffPasswordReset, updateCompanyMemberships } from '../../core/auth.js'
 import { getPositions } from '../../data/masterData.js'
 import { navigate } from '../../core/router.js'
@@ -103,6 +103,7 @@ export default async function UserManagementPage(container) {
             <div class="page-subtitle">จัดการบัญชีพนักงาน — เชื่อม Firebase Auth จริง · สิทธิ์ของคุณ: ${ROLES[myRole]?.icon || ''} ${ROLES[myRole]?.label || myRole}</div>
           </div>
           <div class="page-actions">
+            ${(myRole === 'owner' || myRole === 'admin') ? `<button class="btn btn-secondary btn-sm" id="backfill-companyids-btn" title="เติม companyIds ให้บัญชีเก่าที่สร้างก่อน v1.0.453 (จำเป็นสำหรับการแยกข้อมูลตามบริษัท)">🔧 เติม companyIds บัญชีเก่า</button>` : ''}
             ${canCreateUsers ? `<button class="btn btn-primary" id="add-user-btn">+ สร้างบัญชีใหม่</button>` : ''}
           </div>
         </div>
@@ -205,6 +206,19 @@ export default async function UserManagementPage(container) {
     `
 
     document.getElementById('add-user-btn')?.addEventListener('click', openCreateForm)
+    document.getElementById('backfill-companyids-btn')?.addEventListener('click', async (e) => {
+      const btn = e.currentTarget
+      btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span> กำลังเติม...'
+      try {
+        const result = await backfillUserCompanyIds()
+        showToast(`✅ เติม companyIds สำเร็จ ${result.migrated} คน (ข้าม ${result.skipped} คนที่มีอยู่แล้ว)${result.errors.length ? ` — พลาด ${result.errors.length} คน` : ''}`, result.errors.length ? 'warning' : 'success', 8000)
+        await loadData()
+      } catch {
+        showToast('เติมข้อมูลไม่สำเร็จ', 'error')
+      } finally {
+        btn.disabled = false; btn.innerHTML = '🔧 เติม companyIds บัญชีเก่า'
+      }
+    })
     container.querySelectorAll('.staff-link-btn').forEach(b => b.addEventListener('click', () => navigate('/hr/staff')))
     container.querySelectorAll('.setrole-btn').forEach(b => b.addEventListener('click', () => openAssignRoleForm(b.dataset.uid, b.dataset.name)))
     container.querySelectorAll('.renew-btn').forEach(b => b.addEventListener('click', () => openRenewForm(b.dataset.uid, b.dataset.name)))
@@ -333,7 +347,15 @@ export default async function UserManagementPage(container) {
       <div class="input-group" style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <div><label class="input-label">แผนก</label><input class="input" id="ar-department" value="${esc(currentDept)}" placeholder="เช่น ขาย, บัญชี, HR"></div>
         <div><label class="input-label">ตำแหน่ง</label><input class="input" id="ar-position" list="ar-position-options" value="${esc(currentPos)}" placeholder="เช่น เซลส์"><datalist id="ar-position-options">${getPositions().map(p => `<option value="${esc(p)}">`).join('')}</datalist></div>
-      </div>` : ''}`,
+      </div>
+      ${(u.role !== 'owner' && u.role !== 'admin') ? `
+      <div class="input-group" style="margin-top:10px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:0.8rem">
+          <input type="checkbox" id="ar-groupwide" ${u.groupWide ? 'checked' : ''}>
+          เห็นข้อมูลทุกบริษัท (Group-wide)
+        </label>
+        <span style="font-size:0.65rem;color:var(--text-muted)">สำหรับ HR/การตลาด/PDI/ตรวจสอบ/หัวหน้าฝ่ายบัญชีที่ต้องดูแลทุกบริษัทจริงตามผังองค์กร — ปกติแล้วพนักงานเห็นแค่ข้อมูลบริษัทที่สังกัดเท่านั้น</span>
+      </div>` : ''}` : ''}`,
       confirmText: isPendingUser ? '✅ อนุมัติสิทธิ์' : '✅ บันทึก',
       async onConfirm() {
         const role = document.getElementById('ar-role')?.value
@@ -348,6 +370,7 @@ export default async function UserManagementPage(container) {
           // เป็น "ไม่จำกัดเวลา" โดยไม่ตั้งใจทุกครั้ง (ค่า default เดิมของ dropdown คือช่องแรกซึ่งคือไม่จำกัดเวลา)
           const payload = { role, active: true, displayName: newName }
           if (expiryDays !== KEEP_EXPIRY) payload.accessExpiresAt = computeExpiry(expiryDays)
+          if (role !== 'owner' && role !== 'admin') payload.groupWide = document.getElementById('ar-groupwide')?.checked === true
           await updateDocData('users', uid, payload)
           if (companiesList.length) {
             const department = document.getElementById('ar-department')?.value?.trim() || ''

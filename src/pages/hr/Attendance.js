@@ -1,6 +1,7 @@
 import { showToast, getState } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 import { todayBangkok, nowBangkokTime } from '../../utils/format.js'
 
 function escHtml(s) {

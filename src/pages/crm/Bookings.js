@@ -1,5 +1,6 @@
 import { listDocs, watchDocs, createDoc, updateDocData, softDelete, seedDemoData, setDocData } from '../../core/db.js'
-import { showToast, getState, setState } from '../../core/store.js'
+import { showToast, getState, setState, on } from '../../core/store.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -152,7 +153,7 @@ export default async function BookingsPage(container) {
   async function loadData() {
     // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true — ถ้าไม่กรองออก ใบจองที่ "ลบ" ไปแล้วจะยังโผล่กลับมา
     // ทุกครั้งที่โหลดหน้านี้ใหม่ (ขัดกับข้อความยืนยันลบที่บอกผู้ใช้ว่า "จะไม่ปรากฏในระบบอีกต่อไป")
-    try { bookings = (await listDocs('bookings', [], 'createdAt', 'desc', 500)).filter(b => !b.deleted) } catch (e) {}
+    try { bookings = (await listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 500)).filter(b => !b.deleted) } catch (e) {}
     if (!bookings.length) bookings = DEMO_BOOKINGS.map(b => ({ ...b }))
     if (canViewNid) {
       try {
@@ -171,14 +172,23 @@ export default async function BookingsPage(container) {
     render()
   }
   let firstSnapshot = true
-  const unsubBookings = watchDocs('bookings', [], 'createdAt', 'desc', 500, rows => {
-    if (container.__routerGen !== myGen) { unsubBookings(); return }
-    const liveRows = rows.filter(b => !b.deleted)
-    bookings = liveRows.length ? liveRows : (firstSnapshot ? DEMO_BOOKINGS.map(b => ({ ...b })) : bookings)
-    applyNidMap(bookings)
-    if (firstSnapshot) { firstSnapshot = false; render() }
-    else safeRender()
-  })
+  let unsubBookings = () => {}
+  // (v1.0.453) การกรองตามบริษัทย้ายเข้า query จริงแล้ว (companyScopeFilters()) — ตอนก่อนเปลี่ยน
+  // activeCompanyFilter (ตัวกรอง Topbar) แค่ re-render ฝั่ง client เพราะ filter เดิมเป็นแค่ JS filter
+  // เฉยๆ ตอนนี้ต้องยกเลิก subscription เก่าแล้วยิงใหม่ทุกครั้งที่ filter เปลี่ยน ไม่งั้นตัวกรองจะหยุดทำงาน
+  function startWatchBookings() {
+    unsubBookings()
+    unsubBookings = watchDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 500, rows => {
+      if (container.__routerGen !== myGen) { unsubBookings(); return }
+      const liveRows = rows.filter(b => !b.deleted)
+      bookings = liveRows.length ? liveRows : (firstSnapshot ? DEMO_BOOKINGS.map(b => ({ ...b })) : bookings)
+      applyNidMap(bookings)
+      if (firstSnapshot) { firstSnapshot = false; render() }
+      else safeRender()
+    })
+  }
+  startWatchBookings()
+  const offCompanyFilter = on('activeCompanyFilter', startWatchBookings)
 
   function matchesFilters(b, { ignoreStatus = false } = {}) {
     if (dateFrom && (b.bookingDate || '') < dateFrom) return false
@@ -191,9 +201,8 @@ export default async function BookingsPage(container) {
       const hay = [b.bookingNo, b.custName, b.brand, b.model, b.salesName, b.phone, b.nid].filter(Boolean).join(' ').toLowerCase()
       if (!hay.includes(search)) return false
     }
-    // Phase 2 หลายบริษัท — ใบจองที่ยังไม่มี companyId (ข้อมูลเดิมทั้งหมดก่อนมีระบบนี้) ยังเห็นได้เสมอ
-    const activeCompanyFilter = getState('activeCompanyFilter') || []
-    if (b.companyId && activeCompanyFilter.length && !activeCompanyFilter.includes(b.companyId)) return false
+    // (v1.0.453) การกรองตามบริษัทย้ายเข้า query จริงแล้ว (companyScopeFilters() ใน loadData()/
+    // startWatchBookings()) — ไม่ต้องกรองซ้ำที่นี่อีก ผลลัพธ์ที่ได้มาถูกกรองมาถูกต้องตั้งแต่ query แล้ว
     return true
   }
   function getFiltered() {
@@ -775,7 +784,7 @@ export default async function BookingsPage(container) {
           bookingDate: todayBangkok(), status: 'ยอดจองคงค้าง', notes: '',
           createdAt: new Date().toISOString(),
           // Phase 2 หลายบริษัท — ติด companyId ของบริษัทหลักที่พนักงานคนสร้างสังกัดอยู่ (ถ้ามี)
-          companyId: getState('user')?.primaryCompanyId || null,
+          companyId: myEffectiveCompanyId(),
         }
         const btn = m.el.querySelector('#wz-save')
         btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
@@ -1031,7 +1040,7 @@ export default async function BookingsPage(container) {
 
   container.innerHTML = '<div class="page-content animate-slide">' + [...Array(3)].map(() => '<div class="skeleton" style="height:44px;border-radius:6px;margin-bottom:8px"></div>').join('') + '</div>'
 
-  return function cleanupBookings() { unsubBookings() }
+  return function cleanupBookings() { unsubBookings(); offCompanyFilter() }
 }
 
 function dRow(label, value) {

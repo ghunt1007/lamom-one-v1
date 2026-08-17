@@ -2,7 +2,8 @@
 // Route: /crm/customers (also aliased from /crm/leads — see router.js)
 // Collection: `customers` — single source of truth, stage-based pipeline (lead → pp → booking → delivered)
 import { listDocs, watchDocs, createDoc, updateDocData, softDelete, readDoc, seedDemoData } from '../../core/db.js'
-import { showToast, getState } from '../../core/store.js'
+import { showToast, getState, on } from '../../core/store.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { formatDate, timeAgo, formatPhone, formatCurrency, initials, fullName, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel, openImportModal } from '../../utils/importExport.js'
@@ -76,25 +77,32 @@ export default async function CustomersPage(container) {
   async function loadData() {
     // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true (กู้คืนได้ใน 30 วันตามที่แจ้งผู้ใช้) — ถ้าไม่กรอง
     // ออกตรงนี้ ลูกค้าที่ "ลบ" ไปแล้วจะยังโผล่กลับมาในตาราง/สถิติทุกครั้งที่โหลดใหม่หรือมี snapshot ใหม่เข้ามา
-    try { customers = (await listDocs('customers', [], 'createdAt', 'desc', 400)).filter(c => !c.deleted) } catch { customers = [] }
+    try { customers = (await listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 400)).filter(c => !c.deleted) } catch { customers = [] }
     applyFilter()
   }
 
   // Real-time: อัปเดตสดเมื่อมีคนอื่นเพิ่ม/แก้ไขลูกค้าจากเครื่องอื่น — แค่รีเฟรชสถิติ+ตาราง ไม่แตะช่องค้นหา
-  const unsubCustomers = watchDocs('customers', [], 'createdAt', 'desc', 400, rows => {
-    if (container.__routerGen !== myGen) { unsubCustomers(); return }
-    customers = rows.filter(c => !c.deleted)
-    applyFilter()
-  })
+  let unsubCustomers = () => {}
+  // (v1.0.453) การกรองตามบริษัทย้ายเข้า query จริงแล้ว (companyScopeFilters()) — ต้องยกเลิก subscription
+  // เก่าแล้วยิงใหม่ทุกครั้งที่ activeCompanyFilter (ตัวกรอง Topbar) เปลี่ยน ไม่งั้นตัวกรองจะหยุดทำงาน
+  function startWatchCustomers() {
+    unsubCustomers()
+    unsubCustomers = watchDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 400, rows => {
+      if (container.__routerGen !== myGen) { unsubCustomers(); return }
+      customers = rows.filter(c => !c.deleted)
+      applyFilter()
+    })
+  }
+  startWatchCustomers()
+  const offCompanyFilter = on('activeCompanyFilter', startWatchCustomers)
 
   function quickUrgency(c) {
     try { return getFollowUpRecommendation(c, []).urgency } catch { return 'low' }
   }
 
   function applyFilter() {
-    // Phase 2 หลายบริษัท (เห็นทุกบริษัทที่ตัวเองดูแลพร้อมกันตามค่าเริ่มต้น กรองได้จากปุ่มบนแถบบน) — ลูกค้าที่
-    // ยังไม่มี companyId (ข้อมูลเดิมทั้งหมดก่อนมีระบบนี้) ยังเห็นได้เสมอ ไม่ถูกกรองออกโดยไม่ตั้งใจ
-    const activeCompanyFilter = getState('activeCompanyFilter') || []
+    // (v1.0.453) การกรองตามบริษัทย้ายเข้า query จริงแล้ว (companyScopeFilters() ใน loadData()/
+    // startWatchCustomers()) — ไม่ต้องกรองซ้ำที่นี่อีก
     filtered = customers.filter(c => {
       const name = fullName(c).toLowerCase()
       const matchSearch = !search || name.includes(search) ||
@@ -102,10 +110,9 @@ export default async function CustomersPage(container) {
         (c.interestedModel || '').toLowerCase().includes(search)
       const matchStage = stageFilter === 'all' || c.stage === stageFilter
       const matchLost = !lostOnly || c.isLost
-      const matchCompany = !c.companyId || !activeCompanyFilter.length || activeCompanyFilter.includes(c.companyId)
       const matchSales = !salesFilter || c.assignedTo === salesFilter
       const matchOwn = !ownScopeActive || normName(c.assignedTo) === normName(myDisplayName)
-      return matchSearch && matchStage && matchLost && matchCompany && matchSales && matchOwn
+      return matchSearch && matchStage && matchLost && matchSales && matchOwn
     })
     const rank = { high: 0, medium: 1, low: 2 }
     filtered.sort((a, b) => {
@@ -667,7 +674,7 @@ export default async function CustomersPage(container) {
           const stage = deriveInitialStage(fields)
           // Phase 2 หลายบริษัท — ติด companyId ของบริษัทหลักที่พนักงานคนสร้างสังกัดอยู่ (ถ้ามี) เพื่อให้กรอง
           // ตามบริษัทได้ในอนาคต ลูกค้าเดิมที่ไม่มี companyId ยังเห็นได้ทุกคนเหมือนเดิม (ไม่ถูกกรองออก)
-          const payload = { ...fields, stage, stageChangedAt: new Date().toISOString(), isLost: false, lostReason: '', lostAt: null, bookingId: null, tags: [], companyId: getState('user')?.primaryCompanyId || null }
+          const payload = { ...fields, stage, stageChangedAt: new Date().toISOString(), isLost: false, lostReason: '', lostAt: null, bookingId: null, tags: [], companyId: myEffectiveCompanyId() }
           const id = await createDoc('customers', payload)
           const created = { ...payload, id }
           customers.unshift(created)
@@ -894,7 +901,7 @@ export default async function CustomersPage(container) {
     else showToast('ไม่พบลูกค้ารายนี้ (อาจถูกลบไปแล้ว)', 'warning')
   }
 
-  return function cleanupCustomers() { unsubCustomers() }
+  return function cleanupCustomers() { unsubCustomers(); offCompanyFilter() }
 }
 
 function avatarColor(c) {

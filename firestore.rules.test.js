@@ -51,13 +51,15 @@ function pastDate(days = 1) { return new Date(Date.now() - days * 86400000) }
 
 describe('accessExpiresAt — time-limited access is enforced at the rules level', () => {
   it('a sales user with no accessExpiresAt (permanent access) can read customers', async () => {
-    await seedUser('u1', { role: 'sales', active: true })
+    // groupWide:true — this test is about accessExpiresAt, not company scoping (see v1.0.453
+    // "company scoping — core mechanism" describe block below for that).
+    await seedUser('u1', { role: 'sales', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('u1').firestore()
     await assertSucceeds(db.collection('customers').get())
   })
 
   it('a sales user whose accessExpiresAt is in the future can still read customers', async () => {
-    await seedUser('u2', { role: 'sales', active: true, accessExpiresAt: futureDate() })
+    await seedUser('u2', { role: 'sales', active: true, accessExpiresAt: futureDate(), groupWide: true })
     const db = testEnv.authenticatedContext('u2').firestore()
     await assertSucceeds(db.collection('customers').get())
   })
@@ -248,7 +250,9 @@ describe('CRITICAL: the catch-all rule must never grant broader access than a co
   })
 
   it('sanity check: the fix does not over-restrict genuinely staff-wide collections like customers', async () => {
-    await seedUser('salesD', { role: 'sales', active: true })
+    // groupWide:true — this test is about the catch-all-vs-narrower-rule interaction, not
+    // company scoping (see v1.0.453 "company scoping — core mechanism" describe block below).
+    await seedUser('salesD', { role: 'sales', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('salesD').firestore()
     await assertSucceeds(db.collection('customers').get())
     await assertSucceeds(db.doc('bookings/b1').set({ status: 'new' }))
@@ -273,7 +277,7 @@ describe('CRITICAL: the catch-all rule must never grant broader access than a co
   })
 
   it('an hr-role user CAN write to staff', async () => {
-    await seedUser('hrA', { role: 'hr', active: true })
+    await seedUser('hrA', { role: 'hr', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('hrA').firestore()
     await assertSucceeds(db.doc('staff/emp1').set({ name: 'x' }))
   })
@@ -1165,44 +1169,47 @@ describe('referrals — qualifying/paying a referral requires finance/manager', 
 // เพิ่มเช็คขั้นต่ำสำหรับ field เงิน/จำนวนที่ไม่มีเหตุผลทางธุรกิจให้ติดลบได้ — ทดสอบทั้งด้าน "ค่าถูกต้องผ่าน
 // ได้ตามปกติ" และ "ค่าที่ไม่สมเหตุสมผลถูกบล็อกแม้ role ถูกต้อง"
 describe('numeric bounds — money/quantity fields cannot be written negative even by an authorized role', () => {
+  // groupWide:true throughout this block — these tests are about the price/cost non-negative
+  // guard, not company scoping (see v1.0.453 "company scoping — core mechanism" block below);
+  // without it every write would fail for the unrelated reason of missing companyId.
   it('vehicles: staff can write a normal non-negative price/cost', async () => {
-    await seedUser('numBounds1', { role: 'staff', active: true })
+    await seedUser('numBounds1', { role: 'staff', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('numBounds1').firestore()
     await assertSucceeds(db.collection('vehicles').add({ brand: 'BYD', model: 'Atto 3', price: 899000, cost: 750000 }))
   })
 
   it('vehicles: staff cannot write a negative price even with an otherwise-valid write', async () => {
-    await seedUser('numBounds2', { role: 'staff', active: true })
+    await seedUser('numBounds2', { role: 'staff', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('numBounds2').firestore()
     await assertFails(db.collection('vehicles').add({ brand: 'BYD', model: 'Atto 3', price: -1, cost: 750000 }))
   })
 
   it('vehicles: staff cannot write a negative cost', async () => {
-    await seedUser('numBounds3', { role: 'staff', active: true })
+    await seedUser('numBounds3', { role: 'staff', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('numBounds3').firestore()
     await assertFails(db.collection('vehicles').add({ brand: 'BYD', model: 'Atto 3', price: 899000, cost: -1 }))
   })
 
   it('bookings: staff can write a normal booking with non-negative price/down/refundAmount', async () => {
-    await seedUser('numBounds4', { role: 'sales', active: true })
+    await seedUser('numBounds4', { role: 'sales', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('numBounds4').firestore()
     await assertSucceeds(db.collection('bookings').add({ custName: 'A', price: 500000, down: 50000, financeAmount: 450000, refundAmount: 0 }))
   })
 
   it('bookings: staff cannot write a negative down payment', async () => {
-    await seedUser('numBounds5', { role: 'sales', active: true })
+    await seedUser('numBounds5', { role: 'sales', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('numBounds5').firestore()
     await assertFails(db.collection('bookings').add({ custName: 'A', price: 500000, down: -1000 }))
   })
 
   it('bookings: staff cannot write a negative refundAmount', async () => {
-    await seedUser('numBounds6', { role: 'sales', active: true })
+    await seedUser('numBounds6', { role: 'sales', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('numBounds6').firestore()
     await assertFails(db.collection('bookings').add({ custName: 'A', price: 500000, refundAmount: -500 }))
   })
 
   it('bookings: a negative discount/margin is still allowed (legitimate loss-making deal, not bounded)', async () => {
-    await seedUser('numBounds7', { role: 'sales', active: true })
+    await seedUser('numBounds7', { role: 'sales', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('numBounds7').firestore()
     await assertSucceeds(db.collection('bookings').add({ custName: 'A', price: 500000, margin: -2000 }))
   })
@@ -1540,19 +1547,19 @@ describe('staff_salaries (v1.0.303) — salary moved out of the broadly-readable
   })
 
   it('staff: HR cannot create a brand-new staff record with a salary field on it', async () => {
-    await seedUser('salScope5', { role: 'hr', active: true })
+    await seedUser('salScope5', { role: 'hr', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('salScope5').firestore()
     await assertFails(db.collection('staff').add({ firstName: 'A', lastName: 'B', salary: 20000 }))
   })
 
   it('staff: HR can still create a new staff record with no salary field at all', async () => {
-    await seedUser('salScope6', { role: 'hr', active: true })
+    await seedUser('salScope6', { role: 'hr', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('salScope6').firestore()
     await assertSucceeds(db.collection('staff').add({ firstName: 'A', lastName: 'B' }))
   })
 
   it('staff: HR can still edit other fields on a legacy record that still has an embedded salary, as long as the salary value itself is left unchanged', async () => {
-    await seedUser('salScope7', { role: 'hr', active: true })
+    await seedUser('salScope7', { role: 'hr', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('salScope7').firestore()
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await ctx.firestore().doc('staff/legacy1').set({ firstName: 'A', lastName: 'B', salary: 22000 })
@@ -1561,7 +1568,7 @@ describe('staff_salaries (v1.0.303) — salary moved out of the broadly-readable
   })
 
   it('staff: HR cannot change the salary value on a legacy record via the staff doc anymore', async () => {
-    await seedUser('salScope8', { role: 'hr', active: true })
+    await seedUser('salScope8', { role: 'hr', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('salScope8').firestore()
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await ctx.firestore().doc('staff/legacy2').set({ firstName: 'A', lastName: 'B', salary: 22000 })
@@ -1628,19 +1635,19 @@ describe('booking_national_ids (v1.0.304) — customer national ID scoped to sal
   })
 
   it('bookings: staff cannot create a booking with a national ID field on it', async () => {
-    await seedUser('pii3', { role: 'sales', active: true })
+    await seedUser('pii3', { role: 'sales', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('pii3').firestore()
     await assertFails(db.collection('bookings').add({ custName: 'x', nid: '1234567890123' }))
   })
 
   it('bookings: staff can still create a booking with no national ID field at all', async () => {
-    await seedUser('pii4', { role: 'sales', active: true })
+    await seedUser('pii4', { role: 'sales', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('pii4').firestore()
     await assertSucceeds(db.collection('bookings').add({ custName: 'x' }))
   })
 
   it('bookings: staff can still edit other fields on a legacy booking that still has an embedded nid, as long as nid itself is left unchanged', async () => {
-    await seedUser('pii5', { role: 'sales', active: true })
+    await seedUser('pii5', { role: 'sales', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('pii5').firestore()
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await ctx.firestore().doc('bookings/legacyBk1').set({ custName: 'x', nid: '1234567890123' })
@@ -1649,7 +1656,7 @@ describe('booking_national_ids (v1.0.304) — customer national ID scoped to sal
   })
 
   it('bookings: staff cannot change the nid value on a legacy booking via the bookings doc anymore', async () => {
-    await seedUser('pii6', { role: 'sales', active: true })
+    await seedUser('pii6', { role: 'sales', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('pii6').firestore()
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await ctx.firestore().doc('bookings/legacyBk2').set({ custName: 'x', nid: '1234567890123' })
@@ -1657,6 +1664,14 @@ describe('booking_national_ids (v1.0.304) — customer national ID scoped to sal
     await assertFails(db.collection('bookings').doc('legacyBk2').update({ nid: '9999999999999' }))
   })
 })
+
+// v1.0.453 — "พนักงานแต่ละคนเห็นแค่ข้อมูลของบริษัทที่ตัวเองทำงาน" กลไกกลาง (myProfile/myCompanyIds/
+// isGroupWide/canSeeCompanyDoc, ดู firestore.rules ต่อจาก isSales()) ถูกสร้างไว้แล้วแต่ยัง "ไม่ได้เปิดใช้งาน"
+// กับ collection ไหนจริงในเฟสนี้ — ตอนลองผูกกับ bookings/customers/vehicles/tasks/staff พบว่าแต่ละตัวมีหน้า
+// อื่นทั่วทั้งแอป (ตั้งแต่ ~4 ถึง ~25 หน้า) ที่ query แบบกว้างไม่มี where('companyId',...) เลย ถ้าปิด rule ให้
+// แคบตอนนี้จะ permission-denied ทันทีสำหรับพนักงานที่ถูก scope ในหน้าที่ยังไม่ได้แก้ — เลื่อนการทดสอบกลไกนี้
+// แบบผูกกับ collection จริงไปเป็นเฟสถัดไปที่ไล่แก้ query ให้ครบทุกหน้าของ collection นั้นก่อน (ดูแผนในไฟล์
+// C:\Users\ghunt\.claude\plans\inherited-shimmying-leaf.md) — ฟังก์ชันกลไกเองพร้อมใช้แล้ว รอแค่จุดที่ปลอดภัยพอ
 
 describe('courtesy_car_jobs (v1.0.304) — pickup/delivery customer address scoped to service/manager', () => {
   it('an HR-role staff member cannot read a customer pickup address', async () => {

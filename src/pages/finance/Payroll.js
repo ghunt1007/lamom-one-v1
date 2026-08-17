@@ -1,6 +1,7 @@
 import { listDocs, createDoc, updateDocData, seedDemoData, getCommissionData } from '../../core/db.js'
 import { formatCurrency, formatDate } from '../../utils/format.js'
-import { showToast, getState } from '../../core/store.js'
+import { showToast, getState, on } from '../../core/store.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 
 function escHtml(s) {
@@ -65,7 +66,7 @@ export default async function PayrollPage(container) {
     let baseList = DEMO_STAFF_PAY.map(s => ({ ...s, status: 'pending' }))
     try {
       const [staffDocs, comms, salaryDocs] = await Promise.all([
-        listDocs('staff', [], 'startDate', 'asc', 500).catch(() => []),
+        listDocs('staff', companyScopeFilters(), 'startDate', 'asc', 500).catch(() => []),
         getCommissionData().catch(() => []),
         // เงินเดือนย้ายไปเก็บที่ staff_salaries แยกต่างหากแล้ว (v1.0.303) — หน้านี้ล็อกไว้เฉพาะการเงิน/
         // ผู้จัดการขึ้นไปแล้วตั้งแต่ v1.0.302 จึงเรียกอ่านตรงได้เลย เอกสารเก่าที่ยังไม่ได้ย้ายข้อมูลออกจะ
@@ -76,13 +77,9 @@ export default async function PayrollPage(container) {
       usingDemoStaff = !staffDocs.length
       const salaryMap = Object.fromEntries(salaryDocs.map(d => [d.id, d.salary]))
       if (staffDocs.length) {
-        // Phase 2 หลายบริษัท — พนักงานที่ยังไม่มี companyId (ข้อมูลเดิม/shared-service) ยังเข้ารอบจ่ายเงินเดือน
-        // เสมอ ไม่ถูกกรองออกโดยไม่ตั้งใจ
-        const activeCompanyFilter = getState('activeCompanyFilter') || []
+        // (v1.0.453) การกรองตามบริษัทย้ายเข้า query จริงแล้ว (companyScopeFilters()) — ไม่ต้องกรองซ้ำที่นี่อีก
         // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true — พนักงานที่ "ลบ" ไปแล้วต้องไม่เข้ารอบจ่ายเงินเดือนต่อ
-        const scopedStaffDocs = staffDocs
-          .filter(s => !s.deleted)
-          .filter(s => !s.companyId || !activeCompanyFilter.length || activeCompanyFilter.includes(s.companyId))
+        const scopedStaffDocs = staffDocs.filter(s => !s.deleted)
         // เดิม bug 2 ชั้น: (1) รวม c.incomeTotal ซึ่งคือกำไรสุทธิของบริษัทต่อดีล (margin-budgetUsed+com70+
         // comFinance) ไม่ใช่คอมมิชชั่นที่พนักงานควรได้จริง (แค่ com70+comFinance) ทำให้จ่ายเกินจริงทุกดีล
         // (2) ไม่กรองตามเดือนที่กำลังดูอยู่เลย (getCommissionData คืนมาแยกตาม เดือน|ชื่อ อยู่แล้ว) ทำให้ยอด
@@ -393,6 +390,16 @@ export default async function PayrollPage(container) {
   await loadPayrollForMonth(selectedMonth)
   if (container.__routerGen !== myGen) return
   renderPage()
+
+  // (v1.0.453) การกรองตามบริษัทย้ายเข้า query จริงแล้ว (companyScopeFilters()) — หน้านี้ไม่มี live
+  // subscription (แค่โหลดครั้งเดียวต่อเดือน) ต้อง reload ใหม่เองทุกครั้งที่ activeCompanyFilter (ตัวกรอง
+  // Topbar) เปลี่ยน ไม่งั้นตัวกรองจะหยุดทำงานจนกว่าจะรีเฟรชหน้าเอง
+  const offCompanyFilter = on('activeCompanyFilter', async () => {
+    if (container.__routerGen !== myGen) return
+    await loadPayrollForMonth(selectedMonth)
+    if (container.__routerGen === myGen) renderPage()
+  })
+  return function cleanupPayroll() { offCompanyFilter() }
 }
 
 function kpi(title, value, color, sub = '') {
