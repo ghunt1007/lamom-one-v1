@@ -619,6 +619,27 @@ async function render(appEl) {
   } catch (e) {
     if (gen !== renderGen) return
     setState('loading', false)
+    // (v1.0.450) เดิม "ไม่พบหน้าที่ต้องการ" โผล่ผิดๆ ได้หลายหน้าพร้อมกันทุกครั้งที่ deploy เวอร์ชันใหม่ระหว่างที่
+    // ผู้ใช้เปิดแอปค้างอยู่ (เจอจริงจากที่แจ้งมา — เซสชันนี้ ship บ่อยมากทำให้เจอง่าย) สาเหตุจริง: แต่ละหน้าโหลด
+    // ผ่าน dynamic import() เป็นไฟล์ JS แยกที่ชื่อไฟล์ผูกกับ content hash (เช่น Bookings-abc123.js) เปลี่ยนทุก
+    // ครั้งที่ deploy ใหม่ ถ้าผู้ใช้เปิดแอปค้างไว้ตั้งแต่ก่อน deploy แล้วเพิ่งกดเข้าหน้าที่ยังไม่เคยโหลดในเซสชัน
+    // นั้น เบราว์เซอร์จะไปขอไฟล์ hash เก่าที่เซิร์ฟเวอร์ลบไปแล้ว (ถูกทับด้วยไฟล์ hash ใหม่ตอน deploy) ได้ 404
+    // กลับมา เดิมโค้ดตีความเป็น "หน้านี้ไม่มี" ทั้งที่จริงคือแค่แคชเก่าไม่ตรงกับเวอร์ชันจริงบนเซิร์ฟเวอร์ — ตรวจ
+    // ข้อความ error ที่ตรงกับรูปแบบ chunk-load-failure ที่รู้จักของแต่ละเบราว์เซอร์ ถ้าตรงจะรีโหลดหน้าทั้งหมด
+    // อัตโนมัติครั้งเดียว (ได้ index.html + chunk ล่าสุดจริงจาก server) กันไม่ให้วนซ้ำไม่รู้จบด้วย sessionStorage
+    // ถ้ารีโหลดแล้วยังพังอีกก็ fallback ไปโชว์ "ไม่พบหน้าที่ต้องการ" จริงๆ (เผื่อเป็นปัญหาอื่นจริงๆ ไม่ใช่แค่แคชเก่า)
+    const msg = String(e?.message || '')
+    const isChunkLoadError = /failed to fetch dynamically imported module|error loading dynamically imported module|importing a module script failed|failed to import/i.test(msg)
+    if (isChunkLoadError) {
+      const key = 'lamom_chunk_reload_' + path
+      let alreadyTried = false
+      try { alreadyTried = !!sessionStorage.getItem(key) } catch {}
+      if (!alreadyTried) {
+        try { sessionStorage.setItem(key, '1') } catch {}
+        window.location.reload()
+        return
+      }
+    }
     appEl.innerHTML = renderNotFound()
   }
 }
