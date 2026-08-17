@@ -4,6 +4,7 @@
 import { listDocs, watchDocs, createDoc, updateDocData, softDelete, readDoc, seedDemoData } from '../../core/db.js'
 import { showToast, getState, on } from '../../core/store.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { getMyTeamNames } from '../../core/hierarchy.js'
 import { formatDate, timeAgo, formatPhone, formatCurrency, initials, fullName, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel, openImportModal } from '../../utils/importExport.js'
@@ -68,11 +69,24 @@ export default async function CustomersPage(container) {
   // ชื่อตัวเองเป็นค่าเริ่มต้น — เทียบแบบ normalize (ตัดช่องว่าง/ตัวพิมพ์เล็กใหญ่) เพราะ assignedTo เป็นชื่อ
   // ข้อความอิสระที่พิมพ์เอง ไม่ใช่ uid ผูกตรงๆ อาจเพี้ยนเล็กน้อยได้ (ช่องว่างเกิน/ตัวพิมพ์) ให้ลิงก์ "ดูทั้งหมด"
   // ไว้เสมอ (ไม่ซ่อน) เผื่อชื่อไม่ตรงกันจริงๆจากปัญหาคุณภาพข้อมูล จะได้ไม่ถูกล็อกออกจากงานตัวเองเงียบๆ
-  const OWN_SCOPE_ROLES = ['sales', 'service', 'staff']
+  // (v1.0.454) ขยายจาก "เห็นเฉพาะของตัวเอง" เป็น "เห็นของตัวเอง + ผู้ใต้บังคับบัญชา" ตามที่ขอ ("ผู้ใช้จะ
+  // มองเห็นแค่ผู้ใต้บังคับบัญชาที่ตัวเองดูแลเท่านั้น") — ไล่หาทีมจริงผ่าน staff.managerId (getMyTeamNames())
+  // role=manager ที่ยังไม่มีข้อมูลทีมเชื่อมไว้ (hasSubordinates=false) จะ fallback ไปเห็นทุกคนเหมือนพฤติกรรม
+  // เดิมก่อนหน้านี้ (ไม่ใช่เห็นว่างเปล่า) ส่วนระดับผู้ปฏิบัติงาน (sales/service/staff) ที่ไม่มีลูกทีมจริง (กรณี
+  // ปกติทั่วไป) ยังคงเห็นเฉพาะของตัวเองเหมือนเดิมทุกประการ
+  const SCOPED_ROLES = ['sales', 'service', 'staff', 'manager']
   const myRole = getState('role') || getState('user')?.role || 'staff'
   const myDisplayName = getState('user')?.displayName || ''
   const normName = s => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ')
-  let ownScopeActive = OWN_SCOPE_ROLES.includes(myRole) && !!myDisplayName
+  let myTeamNames = new Set([normName(myDisplayName)])
+  let ownScopeActive = false
+  if (SCOPED_ROLES.includes(myRole) && myDisplayName) {
+    try {
+      const { names, hasSubordinates } = await getMyTeamNames()
+      if (hasSubordinates) { myTeamNames = names; ownScopeActive = true }
+      else if (myRole !== 'manager') ownScopeActive = true
+    } catch { ownScopeActive = myRole !== 'manager' }
+  }
 
   async function loadData() {
     // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true (กู้คืนได้ใน 30 วันตามที่แจ้งผู้ใช้) — ถ้าไม่กรอง
@@ -111,7 +125,7 @@ export default async function CustomersPage(container) {
       const matchStage = stageFilter === 'all' || c.stage === stageFilter
       const matchLost = !lostOnly || c.isLost
       const matchSales = !salesFilter || c.assignedTo === salesFilter
-      const matchOwn = !ownScopeActive || normName(c.assignedTo) === normName(myDisplayName)
+      const matchOwn = !ownScopeActive || myTeamNames.has(normName(c.assignedTo))
       return matchSearch && matchStage && matchLost && matchSales && matchOwn
     })
     const rank = { high: 0, medium: 1, low: 2 }
@@ -703,7 +717,7 @@ export default async function CustomersPage(container) {
 
       ${ownScopeActive ? `
       <div id="cust-scope-banner" style="padding:8px 14px;background:var(--primary)11;border:1px solid var(--primary)33;border-radius:var(--radius-sm);margin-bottom:12px;font-size:0.76rem;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-        <span>🔒 กำลังแสดงเฉพาะลูกค้าที่คุณดูแล (ผู้ดูแล = "${escHtml(myDisplayName)}")</span>
+        <span>🔒 ${myTeamNames.size > 1 ? `กำลังแสดงเฉพาะลูกค้าของคุณและทีมที่ดูแล (${myTeamNames.size} คน)` : `กำลังแสดงเฉพาะลูกค้าที่คุณดูแล (ผู้ดูแล = "${escHtml(myDisplayName)}")`}</span>
         <button class="btn btn-xs btn-ghost" id="cust-show-all">เห็นลูกค้าไม่ครบ? ดูทั้งหมด →</button>
       </div>
       ` : ''}

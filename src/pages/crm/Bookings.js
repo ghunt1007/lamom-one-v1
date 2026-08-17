@@ -1,6 +1,7 @@
 import { listDocs, watchDocs, createDoc, updateDocData, softDelete, seedDemoData, setDocData } from '../../core/db.js'
 import { showToast, getState, setState, on } from '../../core/store.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { getMyTeamNames } from '../../core/hierarchy.js'
 import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -131,10 +132,20 @@ export default async function BookingsPage(container) {
 
   // (v1.0.436) ต่อจากหน้าลูกค้า (v1.0.432) — เซลส์/ช่าง/พนักงานทั่วไปเห็นเฉพาะใบจองของตัวเองเป็นค่าเริ่มต้น
   // เหมือนกัน ผูกกับ salesName (ชื่อพิมพ์เอง เทียบแบบ normalize) เพราะ Bookings ไม่มี uid ผูกตรงๆเหมือนกัน
-  const OWN_SCOPE_ROLES = ['sales', 'service', 'staff']
+  // (v1.0.454) ขยายเป็น "ตัวเอง + ผู้ใต้บังคับบัญชา" ตามที่ขอ — แพทเทิร์นเดียวกับ Customers.js เป๊ะ (ดูคอมเมนต์
+  // ที่นั่น) role=manager ไม่มีทีมเชื่อมไว้จริง fallback เห็นทุกคนเหมือนเดิม ไม่ใช่เห็นว่างเปล่า
+  const SCOPED_ROLES = ['sales', 'service', 'staff', 'manager']
   const myDisplayName = getState('user')?.displayName || ''
   const normName = s => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ')
-  let ownScopeActive = OWN_SCOPE_ROLES.includes(myRole) && !!myDisplayName
+  let myTeamNames = new Set([normName(myDisplayName)])
+  let ownScopeActive = false
+  if (SCOPED_ROLES.includes(myRole) && myDisplayName) {
+    try {
+      const { names, hasSubordinates } = await getMyTeamNames()
+      if (hasSubordinates) { myTeamNames = names; ownScopeActive = true }
+      else if (myRole !== 'manager') ownScopeActive = true
+    } catch { ownScopeActive = myRole !== 'manager' }
+  }
 
   function applyNidMap(rows) {
     if (!canViewNid) return
@@ -194,7 +205,7 @@ export default async function BookingsPage(container) {
     if (dateFrom && (b.bookingDate || '') < dateFrom) return false
     if (dateTo && (b.bookingDate || '') > dateTo) return false
     if (sellerFilter && b.salesName !== sellerFilter) return false
-    if (ownScopeActive && normName(b.salesName) !== normName(myDisplayName)) return false
+    if (ownScopeActive && !myTeamNames.has(normName(b.salesName))) return false
     if (brandFilter && detectBrand(b.brand, b.model) !== brandFilter) return false
     if (!ignoreStatus && statusFilter && b.status !== statusFilter) return false
     if (search) {
@@ -314,7 +325,7 @@ export default async function BookingsPage(container) {
 
         ${ownScopeActive ? `
         <div id="bk-scope-banner" style="padding:8px 14px;background:var(--primary)11;border:1px solid var(--primary)33;border-radius:var(--radius-sm);margin-bottom:12px;font-size:0.76rem;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-          <span>🔒 กำลังแสดงเฉพาะใบจองที่คุณเป็นเซลส์ (เซลส์ = "${escHtml(myDisplayName)}")</span>
+          <span>🔒 ${myTeamNames.size > 1 ? `กำลังแสดงเฉพาะใบจองของคุณและทีมที่ดูแล (${myTeamNames.size} คน)` : `กำลังแสดงเฉพาะใบจองที่คุณเป็นเซลส์ (เซลส์ = "${escHtml(myDisplayName)}")`}</span>
           <button class="btn btn-xs btn-ghost" id="bk-show-all">เห็นใบจองไม่ครบ? ดูทั้งหมด →</button>
         </div>
         ` : ''}

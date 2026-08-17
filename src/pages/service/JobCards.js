@@ -1,5 +1,6 @@
 import { watchDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { showToast, getState } from '../../core/store.js'
+import { getMyTeamNames } from '../../core/hierarchy.js'
 import { formatDate, formatCurrency, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -50,11 +51,20 @@ export default async function JobCardsPage(container) {
 
   // (v1.0.437) ต่อจากหน้าลูกค้า/ใบจอง (v1.0.432/436) — ช่าง/พนักงานทั่วไปเห็นเฉพาะ Job Card ที่ตัวเองรับผิดชอบ
   // เป็นค่าเริ่มต้น ผูกกับ techName (ชื่อพิมพ์เอง เทียบแบบ normalize) ตรงกับ "แต่ละตำแหน่งเห็นเฉพาะงานตัวเอง"
-  const OWN_SCOPE_ROLES = ['sales', 'service', 'staff']
+  // (v1.0.454) ขยายเป็น "ตัวเอง + ผู้ใต้บังคับบัญชา" ตามที่ขอ — แพทเทิร์นเดียวกับ Customers.js/Bookings.js เป๊ะ
+  const SCOPED_ROLES = ['sales', 'service', 'staff', 'manager']
   const myRole = getState('role') || getState('user')?.role || 'staff'
   const myDisplayName = getState('user')?.displayName || ''
   const normName = s => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ')
-  let ownScopeActive = OWN_SCOPE_ROLES.includes(myRole) && !!myDisplayName
+  let myTeamNames = new Set([normName(myDisplayName)])
+  let ownScopeActive = false
+  if (SCOPED_ROLES.includes(myRole) && myDisplayName) {
+    try {
+      const { names, hasSubordinates } = await getMyTeamNames()
+      if (hasSubordinates) { myTeamNames = names; ownScopeActive = true }
+      else if (myRole !== 'manager') ownScopeActive = true
+    } catch { ownScopeActive = myRole !== 'manager' }
+  }
 
   // Real-time: อัปเดตสดเมื่อมีคนเปิด/แก้ไข/ปิด Job Card จากเครื่องอื่น (ไม่แตะช่องค้นหา จึงไม่รบกวนตอนกำลังพิมพ์)
   let firstSnapshot = true
@@ -70,7 +80,7 @@ export default async function JobCardsPage(container) {
   function updateStats() {
     // ตัวเลขสรุปด้านบนต้องสอดคล้องกับตารางด้านล่าง — ถ้ากำลังกรองเฉพาะงานตัวเองอยู่ (ownScopeActive) ต้องนับ
     // จากขอบเขตเดียวกัน ไม่ใช่ยอดรวมทั้งบริษัทที่จะไม่ตรงกับตารางที่เห็นจริงจนดูเหมือนเลขผิด
-    const scoped = ownScopeActive ? jobs.filter(j => normName(j.techName) === normName(myDisplayName)) : jobs
+    const scoped = ownScopeActive ? jobs.filter(j => myTeamNames.has(normName(j.techName))) : jobs
     Object.keys(JOB_STATUS).forEach(k => {
       const el = document.getElementById(`jstat-${k}`)
       if (el) el.textContent = scoped.filter(j => j.status === k).length
@@ -89,7 +99,7 @@ export default async function JobCardsPage(container) {
     filtered = jobs.filter(j => {
       const ss = statusFilter === 'all' || j.status === statusFilter
       const qs = !search || `${j.jobNo} ${j.custName} ${j.brand} ${j.model} ${j.plate}`.toLowerCase().includes(search)
-      const os = !ownScopeActive || normName(j.techName) === normName(myDisplayName)
+      const os = !ownScopeActive || myTeamNames.has(normName(j.techName))
       return ss && qs && os
     })
     renderTable()
@@ -325,7 +335,7 @@ export default async function JobCardsPage(container) {
 
       ${ownScopeActive ? `
       <div id="job-scope-banner" style="padding:8px 14px;background:var(--primary)11;border:1px solid var(--primary)33;border-radius:var(--radius-sm);margin-bottom:12px;font-size:0.76rem;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-        <span>🔒 กำลังแสดงเฉพาะ Job Card ที่คุณเป็นช่างรับผิดชอบ (ช่าง = "${escHtml(myDisplayName)}")</span>
+        <span>🔒 ${myTeamNames.size > 1 ? `กำลังแสดงเฉพาะ Job Card ของคุณและทีมที่ดูแล (${myTeamNames.size} คน)` : `กำลังแสดงเฉพาะ Job Card ที่คุณเป็นช่างรับผิดชอบ (ช่าง = "${escHtml(myDisplayName)}")`}</span>
         <button class="btn btn-xs btn-ghost" id="job-show-all">เห็นงานไม่ครบ? ดูทั้งหมด →</button>
       </div>
       ` : ''}

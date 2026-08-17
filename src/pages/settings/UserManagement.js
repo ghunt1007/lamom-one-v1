@@ -4,9 +4,9 @@
  * กติกา: สร้าง user ได้เฉพาะ owner/admin/manager และสร้างได้เฉพาะระดับที่ "ต่ำกว่า" ตัวเองเท่านั้น
  */
 import { formatDate, timeAgo } from '../../utils/format.js'
-import { openModal } from '../../utils/modal.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
-import { listDocs, updateDocData, seedDemoData, backfillUserCompanyIds } from '../../core/db.js'
+import { listDocs, updateDocData, seedDemoData, backfillUserCompanyIds, hardDeleteDoc } from '../../core/db.js'
 import { createStaffAccount, sendStaffPasswordReset, updateCompanyMemberships } from '../../core/auth.js'
 import { getPositions } from '../../data/masterData.js'
 import { navigate } from '../../core/router.js'
@@ -179,6 +179,7 @@ export default async function UserManagementPage(container) {
                         ${!isPending ? `<button class="btn btn-xs btn-secondary renew-btn" data-uid="${u.id}" data-name="${esc(u.displayName || u.email)}">🔄 ${exp?'ต่ออายุ':'ตั้งวันหมดอายุ'}</button>` : ''}
                         <button class="btn btn-xs btn-warning resetpw-btn" data-uid="${u.id}" data-email="${esc(u.email)}">🔑 รีเซ็ตรหัส</button>
                         ${!isPending ? `<button class="btn btn-xs ${active?'btn-danger':'btn-success'} toggle-btn" data-uid="${u.id}" data-active="${active}">${active?'⛔ ระงับ':'✅ เปิด'}</button>` : ''}
+                        ${myRole === 'owner' && u.id !== me.uid ? `<button class="btn btn-xs btn-danger delete-user-btn" data-uid="${u.id}" data-name="${esc(u.displayName || u.email)}">🗑️ ลบบัญชี</button>` : ''}
                       ` : '<span style="font-size:0.62rem;color:var(--text-muted)">🔒 ระดับสูงกว่า/เท่าคุณ</span>'}
                     </td>
                   </tr>`
@@ -230,6 +231,20 @@ export default async function UserManagementPage(container) {
         showToast(nowActive ? '✅ เปิดใช้งานบัญชีแล้ว' : '⛔ ระงับบัญชีแล้ว — จะบล็อกการ login ครั้งถัดไป', nowActive ? 'success' : 'warning')
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ: ' + (e?.message || 'เกิดข้อผิดพลาดไม่ทราบสาเหตุ'), 'error', 8000) }
+    }))
+    container.querySelectorAll('.delete-user-btn').forEach(b => b.addEventListener('click', async () => {
+      const uid = b.dataset.uid, name = b.dataset.name
+      const ok = await confirmDialog({
+        title: '🗑️ ลบบัญชีผู้ใช้',
+        message: `ลบบัญชีของ "${name}" ถาวร — ผู้ใช้จะเข้าระบบไม่ได้อีกต่อไปทันที (ข้อมูลพนักงาน/HR ที่เชื่อมกันไว้ ถ้ามี จะไม่ถูกลบ แค่หลุดการเชื่อมโยงกับบัญชี login เท่านั้น) การลบนี้ย้อนกลับไม่ได้ ต้องการดำเนินการหรือไม่?`,
+        confirmText: 'ลบถาวร', danger: true,
+      })
+      if (!ok) return
+      try {
+        await hardDeleteDoc('users', uid)
+        showToast(`✅ ลบบัญชี ${name} แล้ว`, 'success')
+        await loadData()
+      } catch (e) { showToast('ลบไม่สำเร็จ: ' + (e?.message || 'เกิดข้อผิดพลาดไม่ทราบสาเหตุ'), 'error', 8000) }
     }))
   }
 
