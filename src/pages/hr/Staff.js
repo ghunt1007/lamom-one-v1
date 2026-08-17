@@ -219,8 +219,19 @@ export default async function StaffPage(container) {
           ${s.contractEndDate ? dRow('📆','สิ้นสุดสัญญา',formatDate(s.contractEndDate)) : ''}
           ${s.gender ? dRow('🧑','เพศ',GENDERS[s.gender]||s.gender) : ''}
           ${s.education ? dRow('🎓','วุฒิการศึกษา',s.education) : ''}
+          ${s.eduSchool ? dRow('🏫','สถาบันการศึกษา',s.eduSchool) : ''}
+          ${s.eduMajor ? dRow('📚','สาขาวิชา',s.eduMajor) : ''}
           ${canViewSalary && s.salary ? dRow('💰','เงินเดือน',`฿${s.salary.toLocaleString()}/เดือน`) : ''}
           ${dRow('✅','สถานะ',STATUS_EMP[s.status]||s.status)}
+          ${s.workHistory?.length ? `
+          <div style="margin-top:4px;padding-top:10px;border-top:1px solid var(--border)">
+            <div style="font-size:0.68rem;color:var(--text-muted);font-weight:700;margin-bottom:6px">💼 ประวัติการทำงาน</div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              ${s.workHistory.map(w => `<div style="font-size:0.8rem;color:var(--text-2)">
+                <b>${escHtml(w.company||'-')}</b>${w.position ? ' — '+escHtml(w.position) : ''}${w.period ? ` <span style="color:var(--text-muted);font-size:0.72rem">(${escHtml(w.period)})</span>` : ''}
+              </div>`).join('')}
+            </div>
+          </div>` : ''}
           ${canLinkAccount ? dRow('🔗','บัญชีผู้ใช้ (login)', (() => { const u = loginAccounts.find(x=>x.id===s.uid); return u ? escHtml(u.email) : (s.uid ? 'เชื่อมแล้ว (ไม่พบบัญชี)' : 'ยังไม่ได้เชื่อม') })()) : ''}
           ${canViewPII ? `
           <div style="margin-top:4px;padding-top:10px;border-top:1px solid var(--border)">
@@ -332,7 +343,18 @@ export default async function StaffPage(container) {
               <datalist id="sf-education-options">${EDUCATION_LEVELS.map(e => `<option value="${e}">`).join('')}</datalist>
             </div>
           </div>
+          <div class="grid-2">
+            <div class="input-group"><label class="input-label">สถาบันการศึกษา</label><input class="input" id="sf-edu-school" value="${escHtml(existing?.eduSchool||'')}" placeholder="เช่น มหาวิทยาลัยธรรมศาสตร์"></div>
+            <div class="input-group"><label class="input-label">สาขาวิชา</label><input class="input" id="sf-edu-major" value="${escHtml(existing?.eduMajor||'')}" placeholder="เช่น บริหารธุรกิจ"></div>
+          </div>
           ${canViewSalary ? `<div class="input-group"><label class="input-label">เงินเดือน (บาท)</label><input class="input" type="number" id="sf-salary" value="${existing?.salary||''}"></div>` : ''}
+          <div class="input-group">
+            <label class="input-label">ประวัติการทำงาน (ที่อื่นก่อนหน้า)</label>
+            <div id="sf-wh-list" style="display:flex;flex-direction:column;gap:8px">
+              ${(existing?.workHistory?.length ? existing.workHistory : [{}]).map(w => workHistoryRow(w)).join('')}
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" id="sf-wh-add" style="margin-top:8px;align-self:flex-start">➕ เพิ่มประวัติการทำงาน</button>
+          </div>
           <div class="input-group"><label class="input-label">หัวหน้างาน (ใช้แสดงในแผนผังองค์กร)</label>
             <select class="input" id="sf-manager">
               <option value="">— ไม่มี / เป็นระดับสูงสุด —</option>
@@ -382,6 +404,24 @@ export default async function StaffPage(container) {
       const r = validateThaiId(v)
       errEl.textContent = r.valid ? '' : r.error
     })
+    // (v1.0.452) แถวประวัติการทำงานเพิ่ม/ลบได้ไดนามิก — ใช้ event delegation ที่ container เดียว (#sf-wh-list)
+    // แทนการ bind listener ทีละแถว เพราะแถวใหม่ที่เพิ่มเข้ามาทีหลังด้วย insertAdjacentHTML ไม่มี listener
+    // ของตัวเองอยู่แล้วโดยธรรมชาติ — delegation จับ event จาก parent ที่ยังอยู่ตลอดแทน ใช้ได้กับทุกแถวไม่ว่า
+    // จะเพิ่มเข้ามาเมื่อไหร่ก็ตาม
+    const whList = el.querySelector('#sf-wh-list')
+    el.querySelector('#sf-wh-add')?.addEventListener('click', () => {
+      whList.insertAdjacentHTML('beforeend', workHistoryRow())
+    })
+    whList?.addEventListener('click', e => {
+      const btn = e.target.closest('.wh-remove')
+      if (!btn) return
+      // เหลือแถวเดียวไว้เสมอ (ลบเป็นค่าว่างแทนการลบ DOM ทิ้งหมด) กันฟอร์มดูพังถ้าลบจนหมด
+      if (whList.querySelectorAll('.wh-row').length <= 1) {
+        btn.closest('.wh-row').querySelectorAll('input').forEach(i => i.value = '')
+      } else {
+        btn.closest('.wh-row').remove()
+      }
+    })
     el.querySelector('#sfs').addEventListener('click', async () => {
       const fn = el.querySelector('#sf-fn').value.trim()
       const ln = el.querySelector('#sf-ln').value.trim()
@@ -402,6 +442,15 @@ export default async function StaffPage(container) {
         contractEndDate: el.querySelector('#sf-contract-end').value || null,
         gender: el.querySelector('#sf-gender').value || null,
         education: el.querySelector('#sf-education').value.trim(),
+        eduSchool: el.querySelector('#sf-edu-school').value.trim(),
+        eduMajor: el.querySelector('#sf-edu-major').value.trim(),
+        // (v1.0.452) กรองแถวที่ว่างทั้งแถวทิ้งก่อนบันทึก (เช่นแถวเริ่มต้นที่ไม่ได้กรอกอะไรเลย) ไม่งั้นจะมี
+        // entry ว่างเปล่าติดไปในอาร์เรย์ทุกครั้งที่บันทึกโดยไม่มีข้อมูลจริงอะไรเลย
+        workHistory: [...el.querySelectorAll('.wh-row')].map(row => ({
+          company: row.querySelector('.wh-company').value.trim(),
+          position: row.querySelector('.wh-position').value.trim(),
+          period: row.querySelector('.wh-period').value.trim(),
+        })).filter(w => w.company || w.position || w.period),
         managerId: el.querySelector('#sf-manager').value || null,
         ...(canLinkAccount ? { uid: el.querySelector('#sf-uid')?.value || null } : {}),
       }
@@ -531,7 +580,9 @@ export default async function StaffPage(container) {
   document.getElementById('staff-export').addEventListener('click', () => {
     exportToExcel(staff.map(s => ({
       ชื่อ:s.firstName, นามสกุล:s.lastName, ชื่อเล่น:s.nickname, ระดับสิทธิ์:ROLES[s.role]||s.role, ตำแหน่งงาน:s.position||'', แผนก:s.dept,
-      เพศ:GENDERS[s.gender]||'', วุฒิการศึกษา:s.education||'', โทร:s.phone, อีเมล:s.email, วันเริ่มงาน:s.startDate, สิ้นสุดสัญญา:s.contractEndDate||'',
+      เพศ:GENDERS[s.gender]||'', วุฒิการศึกษา:s.education||'', สถาบันการศึกษา:s.eduSchool||'', สาขาวิชา:s.eduMajor||'',
+      ประวัติการทำงาน:(s.workHistory||[]).map(w => `${w.company||''}${w.position?' ('+w.position+')':''}${w.period?' '+w.period:''}`).join('; '),
+      โทร:s.phone, อีเมล:s.email, วันเริ่มงาน:s.startDate, สิ้นสุดสัญญา:s.contractEndDate||'',
       ...(canViewSalary ? { เงินเดือน:s.salary } : {}),
       ...(canViewPII ? { เลขบัตรประชาชน:s.nationalId||'', วันเกิด:s.birthDate||'', ที่อยู่:s.address||'', ผู้ติดต่อฉุกเฉิน:s.emergencyContactName||'', เบอร์ฉุกเฉิน:s.emergencyContactPhone||'', ธนาคาร:s.bankName||'', เลขบัญชี:s.bankAccount||'' } : {}),
       สถานะ:STATUS_EMP[s.status]||s.status,
@@ -540,6 +591,18 @@ export default async function StaffPage(container) {
   })
 
   if (container.__routerGen === myGen) await loadData()
+}
+
+// (v1.0.452) ประวัติการทำงานที่อื่นก่อนหน้า — เก็บเป็น array บน staff doc เอง (ไม่ใช่ข้อมูลอ่อนไหวระดับ
+// เดียวกับเลขบัตรประชาชน/บัญชีธนาคาร จึงไม่ต้องแยกไป staff_pii) แต่ละแถวแก้/ลบเองได้อิสระผ่าน event
+// delegation บน #sf-wh-list (รองรับแถวที่เพิ่มเข้ามาใหม่แบบไดนามิกด้วย ไม่ต้อง bind listener ทีละแถว)
+function workHistoryRow(w = {}) {
+  return `<div class="wh-row" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;align-items:start">
+    <input class="input wh-company" value="${escHtml(w.company||'')}" placeholder="บริษัท/องค์กร">
+    <input class="input wh-position" value="${escHtml(w.position||'')}" placeholder="ตำแหน่ง">
+    <input class="input wh-period" value="${escHtml(w.period||'')}" placeholder="ช่วงเวลา เช่น 2563-2565">
+    <button type="button" class="btn btn-ghost btn-sm wh-remove" style="padding:6px" title="ลบแถวนี้">🗑️</button>
+  </div>`
 }
 
 function dRow(icon, label, value) {
