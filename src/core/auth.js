@@ -1,4 +1,4 @@
-import { auth, db, getSecondaryAuth } from './firebase.js'
+import { auth, db, getSecondaryAuth, deleteSecondaryApp } from './firebase.js'
 import {
   signInWithEmailAndPassword,
   signOut,
@@ -239,7 +239,11 @@ export async function createStaffAccount({ name, email, password, role, accessEx
       createdBy: getState('user')?.uid || null,
       createdAt: serverTimestamp(),
     })
-    await signOut(secondaryAuth)
+    // (v1.0.449) เดิมเรียกแค่ signOut(secondaryAuth) — ไม่ได้ทำลาย app instance จริง ตัวจับเวลา refresh token
+    // อัตโนมัติที่เริ่มทำงานตอน createUserWithEmailAndPassword() ยังค้างอยู่เบื้องหลังต่อไปได้ พอทำงานอีกครั้ง
+    // หลัง sign out ไปแล้วจะ throw แบบจับไม่ได้เลย (เจอจริงใน Error Log — ผูกกับหน้าที่แอดมินบังเอิญเปิดอยู่
+    // ตอนนั้น ไม่ใช่หน้าที่เป็นสาเหตุจริง) deleteSecondaryApp() ทำลาย instance ทั้งตัว เคลียร์ timer จริง
+    await deleteSecondaryApp()
     // (v1.0.430) เดิมสร้างบัญชี login (users) กับข้อมูลพนักงาน HR (staff) แยกกันคนละหน้าโดยสิ้นเชิง ไม่มี
     // field เชื่อมกันเลย — HR ต้องมากรอกซ้ำเองอีกรอบที่หน้า Staff แถมพิมพ์ชื่อ/แผนกไม่ตรงกับที่กรอกตอนสร้าง
     // บัญชีได้ ตอนนี้สร้างเอกสารพนักงาน HR ให้พร้อมกันเลยโดยผูก uid ไว้ตั้งแต่ต้น ข้อมูลจะตรงกันเสมอเพราะมา
@@ -255,7 +259,7 @@ export async function createStaffAccount({ name, email, password, role, accessEx
     } catch (e) {}
     return { ok: true, uid }
   } catch (e) {
-    try { await signOut(secondaryAuth) } catch {}
+    try { await deleteSecondaryApp() } catch {}
     return { ok: false, error: authErrorMessage(e.code) }
   }
 }

@@ -1,4 +1,4 @@
-import { initializeApp, getApps } from 'firebase/app'
+import { initializeApp, getApps, deleteApp } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check'
@@ -35,4 +35,17 @@ export function getSecondaryAuth() {
   const existing = getApps().find(a => a.name === 'secondary')
   const secondaryApp = existing || initializeApp(firebaseConfig, 'secondary')
   return getAuth(secondaryApp)
+}
+
+// (v1.0.449) เดิม createStaffAccount() (core/auth.js) เรียกแค่ signOut(secondaryAuth) หลังสร้างบัญชีเสร็จ —
+// signOut ไม่ได้ทำลาย app instance จริง แค่เคลียร์ user ปัจจุบันเท่านั้น ตัวจับเวลา refresh token อัตโนมัติของ
+// Firebase Auth SDK ที่เริ่มทำงานตอน createUserWithEmailAndPassword() ยังคงค้างอยู่เบื้องหลังต่อไปได้ (ไม่ถูก
+// เคลียร์โดย signOut) พอตัวจับเวลานี้ทำงานอีกครั้งหลัง user ถูก sign out ไปแล้ว จะพังแบบ throw ที่จับไม่ได้เลย
+// (เจอจริงใน Error Log การผลิต — "e.getIdToken is not a function" / "Cannot read properties of undefined
+// (reading 'app')" ผูกกับหน้าที่แอดมินบังเอิญเปิดอยู่ตอนนั้น ไม่ใช่หน้าที่เป็นสาเหตุจริง) deleteApp() ทำลาย
+// app instance ทั้งตัวจริง เคลียร์ timer/listener ภายในทั้งหมด ปลอดภัยกว่า — เรียกครั้งเดียวหลังใช้งานเสร็จ
+// ทุกครั้ง ครั้งถัดไปที่เรียก getSecondaryAuth() จะสร้าง instance ใหม่ให้เอง (คนละ) ราคาถูก ไม่มีผลเสีย
+export async function deleteSecondaryApp() {
+  const existing = getApps().find(a => a.name === 'secondary')
+  if (existing) { try { await deleteApp(existing) } catch { /* เคลียร์ไม่ได้ก็ไม่ให้กระทบ flow หลัก */ } }
 }
