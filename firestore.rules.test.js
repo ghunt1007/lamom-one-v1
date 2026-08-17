@@ -1665,13 +1665,56 @@ describe('booking_national_ids (v1.0.304) — customer national ID scoped to sal
   })
 })
 
-// v1.0.453 — "พนักงานแต่ละคนเห็นแค่ข้อมูลของบริษัทที่ตัวเองทำงาน" กลไกกลาง (myProfile/myCompanyIds/
-// isGroupWide/canSeeCompanyDoc, ดู firestore.rules ต่อจาก isSales()) ถูกสร้างไว้แล้วแต่ยัง "ไม่ได้เปิดใช้งาน"
-// กับ collection ไหนจริงในเฟสนี้ — ตอนลองผูกกับ bookings/customers/vehicles/tasks/staff พบว่าแต่ละตัวมีหน้า
-// อื่นทั่วทั้งแอป (ตั้งแต่ ~4 ถึง ~25 หน้า) ที่ query แบบกว้างไม่มี where('companyId',...) เลย ถ้าปิด rule ให้
-// แคบตอนนี้จะ permission-denied ทันทีสำหรับพนักงานที่ถูก scope ในหน้าที่ยังไม่ได้แก้ — เลื่อนการทดสอบกลไกนี้
-// แบบผูกกับ collection จริงไปเป็นเฟสถัดไปที่ไล่แก้ query ให้ครบทุกหน้าของ collection นั้นก่อน (ดูแผนในไฟล์
-// C:\Users\ghunt\.claude\plans\inherited-shimmying-leaf.md) — ฟังก์ชันกลไกเองพร้อมใช้แล้ว รอแค่จุดที่ปลอดภัยพอ
+// v1.0.455 — Phase 0.5: canSeeCompanyDoc() เปิดใช้งานจริงกับ tasks เป็น collection แรก (ผู้อ่านน้อยสุดใน
+// บรรดา 6 collection ของ Phase 0 — v1.0.453 — แก้ query ครบทุกหน้าแล้วก่อนปิด rule ดูรายละเอียดที่ไฟล์แผน
+// C:\Users\ghunt\.claude\plans\inherited-shimmying-leaf.md) — 5 เคสนี้พิสูจน์ว่ากลไกบังคับจริง ไม่ใช่แค่กรองผิว
+// (ดู list-query เคสที่ 4/5 โดยเฉพาะ — Firestore ปฏิเสธทั้ง query ถ้า where ไม่ตรงกับ rule ไม่ใช่กรองผลลัพธ์
+// บางส่วนออกเงียบๆ)
+describe('company scoping — core mechanism, first real collection: tasks (v1.0.455)', () => {
+  it('owner sees a task from a company they are not a member of (no where clause needed)', async () => {
+    await seedUser('csOwner1', { role: 'owner', active: true })
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('tasks/csT1').set({ title: 'x', companyId: 'companyB' })
+    })
+    const db = testEnv.authenticatedContext('csOwner1').firestore()
+    await assertSucceeds(db.doc('tasks/csT1').get())
+    await assertSucceeds(db.collection('tasks').get())
+  })
+
+  it('a groupWide:true user sees a task from a company they are not a member of', async () => {
+    await seedUser('csHr1', { role: 'hr', active: true, companyIds: ['companyA'], groupWide: true })
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('tasks/csT2').set({ title: 'x', companyId: 'companyB' })
+    })
+    const db = testEnv.authenticatedContext('csHr1').firestore()
+    await assertSucceeds(db.doc('tasks/csT2').get())
+    await assertSucceeds(db.collection('tasks').get())
+  })
+
+  it('a company-scoped sales user CANNOT open a task belonging to a different company directly', async () => {
+    await seedUser('csSales1', { role: 'sales', active: true, companyIds: ['companyA'] })
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('tasks/csT3').set({ title: 'x', companyId: 'companyB' })
+    })
+    const db = testEnv.authenticatedContext('csSales1').firestore()
+    await assertFails(db.doc('tasks/csT3').get())
+  })
+
+  it('a company-scoped sales user CAN list tasks when the query is properly scoped with a matching where clause', async () => {
+    await seedUser('csSales2', { role: 'sales', active: true, companyIds: ['companyA'] })
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('tasks/csT4').set({ title: 'x', companyId: 'companyA' })
+    })
+    const db = testEnv.authenticatedContext('csSales2').firestore()
+    await assertSucceeds(db.collection('tasks').where('companyId', 'in', ['companyA']).get())
+  })
+
+  it('a company-scoped sales user CANNOT list tasks with no where clause at all — proves enforcement is real, not cosmetic', async () => {
+    await seedUser('csSales3', { role: 'sales', active: true, companyIds: ['companyA'] })
+    const db = testEnv.authenticatedContext('csSales3').firestore()
+    await assertFails(db.collection('tasks').get())
+  })
+})
 
 describe('courtesy_car_jobs (v1.0.304) — pickup/delivery customer address scoped to service/manager', () => {
   it('an HR-role staff member cannot read a customer pickup address', async () => {

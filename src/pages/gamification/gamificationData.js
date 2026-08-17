@@ -8,6 +8,7 @@
  */
 import { listDocs, getSalesData } from '../../core/db.js'
 import { getState } from '../../core/store.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 import { todayBangkok, toDateStr } from '../../utils/format.js'
 
 export const BADGE_CATEGORIES = {
@@ -72,7 +73,7 @@ export async function getMyStatsContext() {
   const { uid, name } = getCurrentUser()
   let bookings = [], tasks = [], commLogs = [], attendance = []
   try { bookings = await getSalesData() } catch {}
-  try { tasks = await listDocs('tasks', [], 'dueDate', 'desc', 500) } catch {}
+  try { tasks = await listDocs('tasks', companyScopeFilters(), 'dueDate', 'desc', 500) } catch {}
   try { commLogs = await listDocs('comm_logs', [], 'createdAt', 'desc', 500) } catch {}
   try { attendance = await listDocs('attendance', [], 'date', 'desc', 500) } catch {}
   const myDelivered = bookings.filter(b => b.delivered && b.salesName === name)

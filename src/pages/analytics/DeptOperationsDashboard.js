@@ -5,6 +5,7 @@
 import { listDocs } from '../../core/db.js'
 import { formatCurrency, timeAgo, todayBangkok, toDate } from '../../utils/format.js'
 import { navigate } from '../../core/router.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 const DEPARTMENTS = {
   sales:     { label: 'ฝ่ายขาย', icon: '🚗' },
@@ -35,7 +36,7 @@ export default async function DeptOperationsDashboardPage(container) {
 
   try {
     const [t, b, j] = await Promise.all([
-      listDocs('tasks', [], 'dueDate', 'asc', 500).catch(() => []),
+      listDocs('tasks', companyScopeFilters(), 'dueDate', 'asc', 500).catch(() => []),
       listDocs('bookings', [], 'createdAt', 'desc', 300).catch(() => []),
       listDocs('job_cards', [], 'createdAt', 'desc', 300).catch(() => []),
     ])

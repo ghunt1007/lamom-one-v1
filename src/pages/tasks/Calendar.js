@@ -1,7 +1,8 @@
 // Calendar — ปฏิทินรวมงาน/นัดหมาย (Tasks + Bookings delivery + manual Events)
 // Route: /calendar
 import { watchDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
-import { showToast, getState } from '../../core/store.js'
+import { showToast, getState, on } from '../../core/store.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 import { formatDate } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { navigate } from '../../core/router.js'
@@ -47,11 +48,21 @@ export default async function CalendarPage(container) {
 
   // Real-time: 3 แหล่งข้อมูลรวมกันเป็นปฏิทินเดียว — อัปเดตสดเมื่อมีคนแก้ Task/ใบจอง/Event จากเครื่องอื่น
   // หน้านี้ไม่มีช่องค้นหาจึงอัปเดตได้ทันทีไม่ต้องกันโฟกัส
-  const unsubs = [
-    watchDocs('tasks', [], 'dueDate', 'asc', 500, rows => {
-      if (container.__routerGen !== myGen) { unsubs.forEach(u => u()); return }
+  let unsubTasks = () => {}
+  // (v1.0.455) การกรองตามบริษัทย้ายเข้า query จริงแล้ว (companyScopeFilters()) — ต้องยกเลิก subscription เก่า
+  // แล้วยิงใหม่ทุกครั้งที่ activeCompanyFilter (ตัวกรอง Topbar) เปลี่ยน ไม่งั้นตัวกรองจะหยุดทำงาน
+  function startWatchTasks() {
+    unsubTasks()
+    unsubTasks = watchDocs('tasks', companyScopeFilters(), 'dueDate', 'asc', 500, rows => {
+      if (container.__routerGen !== myGen) { unsubTasks(); return }
       tasks = rows; renderCalendar()
-    }),
+    })
+  }
+  startWatchTasks()
+  const offCompanyFilter = on('activeCompanyFilter', startWatchTasks)
+
+  const unsubs = [
+    () => unsubTasks(),
     watchDocs('bookings', [], 'deliveryDate', 'asc', 500, rows => {
       if (container.__routerGen !== myGen) { unsubs.forEach(u => u()); return }
       bookings = rows; renderCalendar()
@@ -335,5 +346,5 @@ export default async function CalendarPage(container) {
     renderCalendar()
   })
 
-  return function cleanupCalendar() { unsubs.forEach(u => u()) }
+  return function cleanupCalendar() { unsubs.forEach(u => u()); offCompanyFilter() }
 }

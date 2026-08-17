@@ -313,11 +313,16 @@ service cloud.firestore {
       allow update: if isStaff() && (!resource.data.get('channel', '').matches('^dm_.*') || uid() in resource.data.get('participants', []));
     }
 
-    // (v1.0.453) เดิมตั้งใจ scope collection นี้ตามบริษัทเหมือนกัน แต่พบว่ามีอีก 3 หน้า (DeptOperationsDashboard/
-    // gamificationData/Calendar) ที่ query แบบกว้างโดยไม่มี where('companyId',...) — เก็บไว้กว้างเหมือนเดิม
-    // ก่อนจนกว่าจะแก้ query ให้ครบเป็นงานแยกต่างหาก (Tasks.js แก้ query ให้ใช้ companyScopeFilters() แล้ว)
+    // (v1.0.455) Phase 0.5 — collection แรกที่เปิดใช้งานจริง (canSeeCompanyDoc()) หลัง Phase 0 (v1.0.453)
+    // แก้ query ให้ครบทั้ง 4 หน้าที่อ่าน collection นี้แล้ว (Tasks.js, DeptOperationsDashboard.js,
+    // gamificationData.js, Calendar.js — ทุกหน้าใช้ companyScopeFilters() แล้ว) จึงปิด rule ให้แคบได้อย่าง
+    // ปลอดภัย (เลือก tasks ก่อนเพราะมีผู้อ่านน้อยที่สุดในบรรดา 6 collection ของ Phase 0 — ดูรายละเอียดเพิ่มเติม
+    // ที่ไฟล์แผน C:\Users\ghunt\.claude\plans\inherited-shimmying-leaf.md)
     match /tasks/{docId} {
-      allow read, write: if isStaff();
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
+      allow create: if isStaff() && canSeeCompanyDoc(request.resource.data);
+      allow update: if isStaff() && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isStaff() && canSeeCompanyDoc(resource.data);
     }
 
     match /quotations/{docId} {
@@ -1268,7 +1273,7 @@ service cloud.firestore {
         'announcements_hr', 'comm_messages',
         'sales_budgets', 'marketing_budgets', 'commission_rules', 'budget_planning',
         'price_negotiations', 'invoices', 'referrers', 'referrals',
-        'vehicles', 'bookings', 'booking_national_ids',
+        'vehicles', 'bookings', 'booking_national_ids', 'tasks',
         'refund_requests', 'purchase_orders', 'supplier_pos', 'debts', 'deposits',
         'trade_ins', 'warranty_claims', 'warranty_service_claims', 'finance_rate_sheets',
         'finance_applications', 'finance_tracker', 'cashier_payments', 'cashier_pending_bills',
