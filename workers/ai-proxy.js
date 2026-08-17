@@ -17,6 +17,7 @@
  */
 
 const MODEL = 'gemini-2.5-flash'
+const TTS_MODEL = 'gemini-2.5-flash-preview-tts'
 // เดิมไม่มีการจำกัดขนาด request หรือความถี่การเรียกต่อบัญชีเลย — ต่อให้ตรวจ role พนักงานแล้ว (แก้ไปแล้วรอบก่อน)
 // บัญชีเดียวที่ถูกขโมย/ใช้สคริปต์เรียกซ้ำๆ ก็ยังส่ง prompt ขนาดใหญ่รัว ๆ ได้ไม่จำกัด ทำให้ค่าใช้จ่าย Gemini
 // (คิดตาม token) พุ่งจนควบคุมไม่ได้ แก้ให้จำกัดทั้งขนาด request และความถี่ต่อบัญชี
@@ -115,6 +116,32 @@ export default {
               content: { parts: [{ text: body.text || '' }] },
               taskType: body.taskType || 'RETRIEVAL_DOCUMENT',
               outputDimensionality: 768,
+            }),
+          }
+        )
+        const data = await geminiRes.text()
+        return new Response(data, { status: geminiRes.status, headers: { 'Content-Type': 'application/json', ...cors } })
+      }
+
+      // Cloud TTS (v1.0.444): เดิม AI พูดตอบด้วย Web Speech API ฝั่ง browser ล้วนๆ ซึ่งต้องพึ่งเสียงพูด
+      // ที่ติดตั้งไว้ในเครื่อง/เบราว์เซอร์เอง — บางอุปกรณ์ไม่มีเสียงไทยติดตั้งเลยทำให้ "เงียบ" โดยไม่มีทาง
+      // แก้จากฝั่งเว็บแอป ผู้ใช้ขอให้เปลี่ยนเป็นระบบคลาวด์ทั้งหมด ("ทุกอย่างต้องออนไลน์ 100%") จุดนี้ส่งข้อความ
+      // ไปให้ Gemini TTS สร้างเสียงจริงกลับมาเป็นไฟล์เสียง (base64 PCM) แทน ใช้ GEMINI_API_KEY secret เดิม
+      // ที่ตั้งไว้แล้ว ไม่ต้องขอ credential ใหม่จากเจ้าของระบบเลย
+      if (url.pathname === '/tts') {
+        const voiceName = typeof body.voiceName === 'string' && body.voiceName ? body.voiceName : 'Kore'
+        const text = String(body.text || '').slice(0, 4000)
+        const geminiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${TTS_MODEL}:generateContent?key=${env.GEMINI_API_KEY}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text }] }],
+              generationConfig: {
+                responseModalities: ['AUDIO'],
+                speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } },
+              },
             }),
           }
         )

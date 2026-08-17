@@ -575,6 +575,20 @@ export async function askJsonPrompt(prompt, maxOutputTokens = 2000) {
   return data.candidates?.[0]?.content?.parts?.filter(p => !p.thought).map(p => p.text || '').join('') || ''
 }
 
+// ── Cloud TTS (v1.0.444) — เสียง AI จริงจาก Gemini TTS แทน Web Speech API ────────
+// เดิม AI พูดตอบด้วย speechSynthesis ของเบราว์เซอร์ล้วนๆ ซึ่งต้องพึ่งเสียงพูดที่ติดตั้งไว้ในเครื่อง —
+// บางอุปกรณ์ไม่มีเสียงไทยติดตั้งเลย (พบจริง getVoices().length===0) ทำให้ AI "เงียบ" โดยไม่มีทางแก้จาก
+// ฝั่งเว็บแอปเลย ผู้ใช้ขอให้เปลี่ยนเป็นระบบคลาวด์ ("ทุกอย่างต้องออนไลน์ 100%") — เรียก proxy /tts ที่ส่งต่อ
+// ไปยัง Gemini TTS (ผ่าน GEMINI_API_KEY secret เดิม ไม่ต้องขอ credential ใหม่) ได้ไฟล์เสียงจริงกลับมาเป็น
+// base64 PCM ให้ voice.js เล่นผ่าน <audio> แทน — ทำงานเหมือนกันทุกอุปกรณ์ ไม่พึ่งเสียงที่ติดตั้งในเครื่องอีกต่อไป
+// คืน null เมื่อไม่ได้ล็อกอิน (demo mode) เพื่อให้ผู้เรียก fallback ไป Web Speech API แทนได้
+export async function ttsCloud(text, voiceName = 'Kore') {
+  if (!isAiEnabled() || !text) return null
+  const data = await callProxy('/tts', { text, voiceName })
+  const parts = data.candidates?.[0]?.content?.parts || []
+  return parts.find(p => p.inlineData?.data)?.inlineData?.data || null
+}
+
 function buildPrompt(msg, context) {
   if (!Object.keys(context).length) return msg
   const ctx = Object.entries(context).map(([k, v]) => `${k}: ${v}`).join('\n')

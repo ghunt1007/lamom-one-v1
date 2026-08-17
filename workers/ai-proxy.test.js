@@ -208,6 +208,39 @@ describe('ai-proxy worker — /embed (RAG)', () => {
   })
 })
 
+describe('ai-proxy worker — /tts (cloud voice, v1.0.444)', () => {
+  it('forwards text to the TTS model and relays the audio response back', async () => {
+    stubFetch({ firebaseOk: true, geminiStatus: 200, geminiBody: '{"candidates":[{"content":{"parts":[{"inlineData":{"mimeType":"audio/pcm","data":"ZmFrZS1hdWRpbw=="}}]}}]}' })
+    const req = new Request('https://worker.example/tts', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer valid', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: 'สวัสดีครับ' }),
+    })
+    const res = await worker.fetch(req, ENV)
+    expect(res.status).toBe(200)
+    const data = await res.json()
+    expect(data.candidates[0].content.parts[0].inlineData.data).toBe('ZmFrZS1hdWRpbw==')
+    const calledUrl = String(global.fetch.mock.calls.find(c => String(c[0]).includes('generativelanguage'))[0])
+    expect(calledUrl).toContain('gemini-2.5-flash-preview-tts:generateContent')
+  })
+
+  it('rejects /tts with no Authorization header, same as /generate', async () => {
+    const req = new Request('https://worker.example/tts', { method: 'POST', body: '{}' })
+    const res = await worker.fetch(req, ENV)
+    expect(res.status).toBe(401)
+  })
+
+  it('never leaks GEMINI_API_KEY through a /tts error response', async () => {
+    stubFetch({ firebaseOk: true, geminiStatus: 500, geminiBody: '{"error":"upstream failure"}' })
+    const req = new Request('https://worker.example/tts', {
+      method: 'POST', headers: { Authorization: 'Bearer valid' }, body: '{"text":"x"}',
+    })
+    const res = await worker.fetch(req, ENV)
+    const text = await res.text()
+    expect(text).not.toContain(ENV.GEMINI_API_KEY)
+  })
+})
+
 describe('ai-proxy worker — unknown routes', () => {
   it('returns 404 for a POST to an unrecognized path, even with valid auth', async () => {
     stubFetch({ firebaseOk: true })
