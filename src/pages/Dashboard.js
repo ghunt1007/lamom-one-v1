@@ -184,9 +184,12 @@ export default async function DashboardPage(container) {
 
       <!-- MoM comparison -->
       <div class="card mb-4" style="padding:16px" id="mom-card">
-        <div style="font-weight:700;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
-          <span>📡 เปรียบเทียบ เดือนที่เลือก vs เดือนก่อนหน้า</span>
-          <span id="mom-label" style="font-size:0.72rem;color:var(--primary);font-family:'Share Tech Mono',monospace;letter-spacing:0.06em"></span>
+        <div style="font-weight:700;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+          <span>📡 เปรียบเทียบ เดือนที่เลือก vs <span style="font-weight:400;color:var(--text-muted);font-size:0.78rem">(เลือกเดือน/ปีเทียบเองได้)</span></span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <input type="month" id="mom-compare-picker" class="input" style="width:150px;font-size:0.76rem;padding:5px 8px" title="เลือกเดือน/ปีที่ต้องการเทียบ">
+            <span id="mom-label" style="font-size:0.72rem;color:var(--primary);font-family:'Share Tech Mono',monospace;letter-spacing:0.06em"></span>
+          </div>
         </div>
         <div id="mom-strip" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
           ${[1,2,3,4].map(() => `<div class="skeleton" style="height:86px;border-radius:var(--radius-md)"></div>`).join('')}
@@ -317,6 +320,21 @@ export default async function DashboardPage(container) {
         </div>
       </div>
 
+      <!-- (v1.0.446) กราฟยอดส่งมอบ/ยอดถอนจองแยกเดี่ยว ตามที่ขอ ("เพิ่มกราฟแสดงยอดส่งมอบ", "เพิ่มกราฟแสดงยอดถอนจอง")
+           — เดิมมีแค่ตัวเลขรวมในการ์ด KPI ด้านบน ไม่มีกราฟแนวโน้มรายเดือนแยกให้ดูย้อนหลังเหมือนกราฟยอดจองหลัก -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">
+        <div class="card" style="padding:16px">
+          <div style="font-weight:700;margin-bottom:2px">✅ ยอดส่งมอบรายเดือน <span style="font-size:0.65rem;color:var(--text-muted);font-weight:400">(นับตามวันตัดตัวเลข)</span></div>
+          <div style="font-size:0.66rem;color:var(--text-muted);margin-bottom:8px">คลิกแท่งเพื่อเลือกดูเดือนนั้น</div>
+          <div id="delivery-chart"><div class="skeleton" style="width:100%;height:140px;border-radius:var(--radius-md)"></div></div>
+        </div>
+        <div class="card" style="padding:16px">
+          <div style="font-weight:700;margin-bottom:2px">❌ ยอดถอนจองรายเดือน</div>
+          <div style="font-size:0.66rem;color:var(--text-muted);margin-bottom:8px">คลิกแท่งเพื่อเลือกดูเดือนนั้น</div>
+          <div id="cancel-chart"><div class="skeleton" style="width:100%;height:140px;border-radius:var(--radius-md)"></div></div>
+        </div>
+      </div>
+
       <!-- Analysis row: forecast + rankings -->
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:16px">
         <div class="card" style="padding:16px">
@@ -390,6 +408,9 @@ export default async function DashboardPage(container) {
   // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
   let selectedMonth = todayBangkok().slice(0, 7)
   let trendRange = 6
+  // (v1.0.446) เดือนที่ใช้เปรียบเทียบในการ์ด MoM — เดิมล็อกตายเป็น "เดือนก่อนหน้า" เสมอ ไม่มีทางเลือกเดือน/ปี
+  // อื่นมาเทียบเอง (เช่นเทียบกับเดือนเดียวกันปีที่แล้วแบบ YoY) ตามที่ขอ "เพิ่มการเปรียบเทียบแบบเลือกเดือนปี"
+  let compareMonth = shiftMonth(selectedMonth, -1)
   // Real-time: จอง/งานซ่อม/Tasks อัปเดตสดผ่าน Firestore onSnapshot — เก็บ unsubscribe ไว้เคลียร์ตอนออกจากหน้า (คืนค่าท้ายฟังก์ชันให้ router เรียก)
   const unsubscribers = []
   let bookings = [], jobs = [], tasks = []
@@ -431,6 +452,15 @@ export default async function DashboardPage(container) {
 
     const pendingTasks = tasks.filter(t => t.status !== 'done' && t.status !== 'cancelled').length
     const openJobs = jobs.filter(j => j.status !== 'done' && j.status !== 'completed' && j.status !== 'delivered').length
+
+    // (v1.0.446) จุดเดียวที่เปลี่ยน selectedMonth ทุกจุด (คลิกแท่งกราฟ/ปุ่ม ◀▶) ให้ผ่านฟังก์ชันนี้เสมอ — รีเซ็ต
+    // compareMonth กลับเป็น "เดือนก่อนหน้าของเดือนที่เพิ่งเลือก" อัตโนมัติทุกครั้งที่เปลี่ยนเดือนหลัก (พฤติกรรม
+    // เดิม) ผู้ใช้ยังเลือกเดือน/ปีอื่นมาเทียบเองได้ผ่าน picker บนการ์ด MoM สำหรับเดือนที่กำลังดูอยู่นี้
+    function setSelectedMonth(m) {
+      selectedMonth = m
+      compareMonth = shiftMonth(m, -1)
+      renderAll()
+    }
 
     // ── ยอดจอง/ยอดขาย รายละเอียดรายเดือน (คลิกดูเดือนก่อนหน้าได้) ──────────────
     function renderPipeline() {
@@ -614,10 +644,7 @@ export default async function DashboardPage(container) {
           ${fDots}
           ${labels}
         </svg>`
-      chartEl.querySelectorAll('[data-month]').forEach(el => el.addEventListener('click', () => {
-        selectedMonth = el.dataset.month
-        renderAll()
-      }))
+      chartEl.querySelectorAll('[data-month]').forEach(el => el.addEventListener('click', () => setSelectedMonth(el.dataset.month)))
     }
 
     // ── กราฟโดนัท: สัดส่วนสถานะใบจองของเดือนที่เลือก ──
@@ -665,6 +692,58 @@ export default async function DashboardPage(container) {
               </div>`).join('')}
           </div>
         </div>`
+    }
+
+    // ── กราฟแท่งเดี่ยวขนาดเล็ก ใช้ร่วมกันระหว่างกราฟยอดส่งมอบ/ยอดถอนจอง (v1.0.446) — คลิกแท่งเลือกเดือนได้
+    // เหมือนกราฟหลัก (renderTrendChart) เพื่อให้ทุกกราฟบนหน้านี้ทำงานสัมพันธ์กัน คลิกจุดไหนก็ได้แล้วข้อมูล
+    // ทั้งหน้าเปลี่ยนตามเดือนเดียวกันเสมอ
+    function miniBarChart(elId, monthsArr, counts, color) {
+      const el = document.getElementById(elId)
+      if (!el) return
+      const W = 400, H = 150, padL = 6, padR = 6, padT = 20, padB = 26
+      const plotW = W - padL - padR, plotH = H - padT - padB
+      const n = monthsArr.length
+      const groupW = plotW / n
+      const barW = Math.min(34, groupW * 0.55)
+      const max = Math.max(...counts, 1)
+      const yBase = padT + plotH
+      let bars = '', labels = ''
+      monthsArr.forEach((m, i) => {
+        const cx = padL + groupW * i + groupW / 2
+        const x = cx - barW / 2
+        const v = counts[i]
+        const h = v ? Math.max(4, Math.round(v / max * plotH)) : 0
+        const sel = m === selectedMonth
+        bars += `<g data-month="${m}" style="cursor:pointer">
+          <rect x="${cx - groupW / 2}" y="${padT}" width="${groupW}" height="${plotH}" fill="transparent"/>
+          <rect x="${x}" y="${yBase - h}" width="${barW}" height="${h}" fill="var(--${color})" opacity="0.88" rx="2"/>
+          ${sel ? `<rect x="${x - 3}" y="${yBase - h - 4}" width="${barW + 6}" height="${h + 4}" fill="none" stroke="var(--primary)" stroke-width="1.3" rx="3"/>` : ''}
+          ${v ? `<text x="${cx}" y="${yBase - h - 6}" text-anchor="middle" font-size="9.5" font-weight="700" fill="var(--text-3)">${v}</text>` : ''}
+        </g>`
+        labels += `<text x="${cx}" y="${H - 8}" text-anchor="middle" font-size="8.5" fill="${sel ? 'var(--primary)' : 'var(--text-muted)'}" font-weight="${sel ? '700' : '400'}">${ymLabel(m).split(' ')[0]}</text>`
+      })
+      el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
+        <line x1="${padL}" y1="${yBase}" x2="${W - padR}" y2="${yBase}" stroke="var(--border)" stroke-width="1"/>
+        ${bars}${labels}
+      </svg>`
+      el.querySelectorAll('[data-month]').forEach(g => g.addEventListener('click', () => setSelectedMonth(g.dataset.month)))
+    }
+
+    // ยอดส่งมอบนับตามวันตัดตัวเลข (cutDate) เหมือนการ์ด KPI "ตัดตัวเลข/ส่งมอบเดือนนี้" ด้านบนเป๊ะ (ไม่ใช่แค่
+    // สถานะ "ส่งมอบแล้ว" อย่างเดียว — รวม "ตัดตัวเลขรอส่งมอบ" ด้วยตามนิยามเดียวกันทั้งหน้า)
+    function renderDeliveryChart() {
+      const months = []
+      for (let i = trendRange - 1; i >= 0; i--) months.push(shiftMonth(selectedMonth, -i))
+      const counts = months.map(m => bookings.filter(b => ['ส่งมอบแล้ว', 'ตัดตัวเลขรอส่งมอบ'].includes(b.status) && (b.cutDate || b.actualDeliveryDate || '').startsWith(m)).length)
+      miniBarChart('delivery-chart', months, counts, 'success')
+    }
+
+    // ยอดถอนจองนับตาม bookingDate เดือนนั้นๆ เหมือนการ์ด KPI "ถอนจองเดือนนี้" ด้านบนเป๊ะ
+    function renderCancelChart() {
+      const months = []
+      for (let i = trendRange - 1; i >= 0; i--) months.push(shiftMonth(selectedMonth, -i))
+      const counts = months.map(m => bookings.filter(b => b.status === 'ถอนจอง' && (b.bookingDate || '').startsWith(m)).length)
+      miniBarChart('cancel-chart', months, counts, 'danger')
     }
 
     // ── HUD readouts (ตัวเลขรวมทั้งระบบ) — เรียกซ้ำใน renderAll() เพื่ออัปเดตสด ──
@@ -727,9 +806,14 @@ export default async function DashboardPage(container) {
     function renderMoM() {
       const el = document.getElementById('mom-strip')
       if (!el) return
-      const prevM = shiftMonth(selectedMonth, -1)
+      // (v1.0.446) เดิม prevM ล็อกตายเป็นเดือนก่อนหน้าเสมอ — ตอนนี้ใช้ compareMonth ที่เลือกเองได้ผ่าน
+      // picker (ค่าเริ่มต้นยังเป็นเดือนก่อนหน้าเหมือนเดิมทุกประการ ไม่กระทบพฤติกรรมเดิม)
+      const prevM = compareMonth
       const lbl = document.getElementById('mom-label')
       if (lbl) lbl.textContent = `${ymLabel(selectedMonth)} VS ${ymLabel(prevM)}`
+      const picker = document.getElementById('mom-compare-picker')
+      // ไม่ทับค่าที่ผู้ใช้กำลังพิมพ์/เลือกอยู่เองในช่อง (document.activeElement) กัน UX สะดุด
+      if (picker && document.activeElement !== picker) picker.value = prevM
       const cur = bookings.filter(b => (b.bookingDate || '').startsWith(selectedMonth))
       const prev = bookings.filter(b => (b.bookingDate || '').startsWith(prevM))
       const dlvCur = bookings.filter(b => b.status === 'ส่งมอบแล้ว' && (b.actualDeliveryDate || '').startsWith(selectedMonth)).length
@@ -1108,19 +1192,19 @@ export default async function DashboardPage(container) {
       renderPipeline(); renderDeptDetail(); renderTrendChart(); renderDonut(); renderGauges()
       renderMoM(); renderForecast(); renderTops(); renderFunnel()
       renderAlerts(); renderTargets(); renderHeatmap(); renderRadar()
+      renderDeliveryChart(); renderCancelChart()
       document.querySelectorAll('.fc-month').forEach(s => { s.textContent = ymLabel(selectedMonth) })
     }
 
-    document.getElementById('pm-prev')?.addEventListener('click', () => {
-      selectedMonth = shiftMonth(selectedMonth, -1)
-      renderAll()
+    document.getElementById('pm-prev')?.addEventListener('click', () => setSelectedMonth(shiftMonth(selectedMonth, -1)))
+    document.getElementById('pm-next')?.addEventListener('click', () => setSelectedMonth(shiftMonth(selectedMonth, 1)))
+    document.getElementById('mom-compare-picker')?.addEventListener('change', e => {
+      if (e.target.value) { compareMonth = e.target.value; renderMoM() }
     })
-    document.getElementById('pm-next')?.addEventListener('click', () => {
-      selectedMonth = shiftMonth(selectedMonth, 1)
-      renderAll()
-    })
-    document.getElementById('trend-6')?.addEventListener('click', () => { trendRange = 6; renderTrendChart() })
-    document.getElementById('trend-12')?.addEventListener('click', () => { trendRange = 12; renderTrendChart() })
+    // (v1.0.446) ต้องรีเฟรชกราฟส่งมอบ/ถอนจองด้วย — ใช้ trendRange เดียวกับกราฟหลัก ถ้าเรียกแค่ renderTrendChart()
+    // อย่างเดียวเหมือนเดิม กราฟ 2 อันใหม่จะค้างช่วงเดือนเก่าไม่ตรงกับกราฟหลักที่เพิ่งสลับ 6/12 เดือน
+    document.getElementById('trend-6')?.addEventListener('click', () => { trendRange = 6; renderTrendChart(); renderDeliveryChart(); renderCancelChart() })
+    document.getElementById('trend-12')?.addEventListener('click', () => { trendRange = 12; renderTrendChart(); renderDeliveryChart(); renderCancelChart() })
 
     renderAll()
 
