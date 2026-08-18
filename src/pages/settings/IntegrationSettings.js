@@ -6,6 +6,7 @@ import { timeAgo } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
+import { isProgramOwner } from '../../core/hierarchy.js'
 
 // (v1.0.330) เดิมปุ่ม "เชื่อมต่อ" รับ API Key อะไรก็ได้ที่ไม่ว่างเปล่า แล้วขึ้น "✅ เชื่อมต่อสำเร็จ!" ทันที
 // โดยไม่เคยเรียกไปตรวจสอบกับผู้ให้บริการจริงเลย (ไม่มี backend/worker เชื่อม provider จริงสำหรับ 6 หมวดนี้
@@ -26,6 +27,10 @@ const INTEGRATION_CATS = {
 }
 
 export default async function IntegrationSettingsPage(container) {
+  if (!isProgramOwner()) {
+    container.innerHTML = `<div class="page-content"><div class="empty-state" style="padding:60px 20px"><div class="empty-icon">🔒</div><div class="empty-title">ไม่มีสิทธิ์เข้าถึงหน้านี้</div><div class="empty-desc">การเชื่อมต่อระบบภายนอก (API Key/Credential) กระทบทุกบริษัทพร้อมกัน เปิดให้เฉพาะเจ้าของโปรแกรมเท่านั้น</div></div></div>`
+    return
+  }
   const myGen = container.__routerGen
   seedDemoData()
 

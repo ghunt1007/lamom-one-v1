@@ -5,6 +5,7 @@
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData } from '../../core/db.js'
+import { isProgramOwner } from '../../core/hierarchy.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -60,6 +61,7 @@ async function saveSettings(s) {
 
 export default async function SmsOtpPage(container) {
   const myGen = container.__routerGen
+  const canManage = isProgramOwner()
   let OTP_SETTINGS = await loadSettings()
   if (container.__routerGen !== myGen) return
 
@@ -75,9 +77,11 @@ export default async function SmsOtpPage(container) {
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="test-otp-btn">🧪 ทดสอบส่ง OTP</button>
-            <button class="btn btn-primary" id="save-btn">💾 บันทึก</button>
+            ${canManage ? `<button class="btn btn-primary" id="save-btn">💾 บันทึก</button>` : ''}
           </div>
         </div>
+
+        ${!canManage ? `<div class="card" style="padding:12px 14px;margin-bottom:14px;border-left:3px solid var(--warning);font-size:0.8rem">🔒 บันทึกการตั้งค่า/เปลี่ยน Provider ได้เฉพาะเจ้าของโปรแกรมเท่านั้น — ดูค่าปัจจุบันได้ตามปกติ</div>` : ''}
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
           <!-- Left col -->
@@ -145,7 +149,7 @@ export default async function SmsOtpPage(container) {
                     </div>
                     ${p.id===active.id
                       ? `<span style="font-size:0.62rem;background:var(--success);color:#fff;padding:2px 8px;border-radius:10px">✅ ใช้งาน</span>`
-                      : `<button class="btn btn-xs btn-secondary switch-btn" data-id="${p.id}" style="font-size:0.7rem">ใช้งาน</button>`}
+                      : canManage ? `<button class="btn btn-xs btn-secondary switch-btn" data-id="${p.id}" style="font-size:0.7rem">ใช้งาน</button>` : ''}
                   </div>`).join('')}
             </div>
 

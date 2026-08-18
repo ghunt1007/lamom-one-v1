@@ -2,6 +2,7 @@ import { showToast } from '../../core/store.js'
 import { navigate } from '../../core/router.js'
 import { listDocs, createDoc, updateDocData } from '../../core/db.js'
 import { validateTaxId } from '../../utils/thaiId.js'
+import { isProgramOwner } from '../../core/hierarchy.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -54,6 +55,7 @@ async function saveCompany(d) {
 
 export default async function CompanyPage(container) {
   const myGen = container.__routerGen
+  const canManage = isProgramOwner()
   let activeTab = 'info'
   let data = await loadCompany()
   if (container.__routerGen !== myGen) return
@@ -74,6 +76,8 @@ export default async function CompanyPage(container) {
             `<button class="btn btn-sm co-tab ${activeTab===k?'btn-primary':'btn-secondary'}" data-tab="${k}">${l}</button>`
           ).join('')}
         </div>
+
+        ${!canManage ? `<div class="card" style="padding:12px 14px;margin-bottom:14px;border-left:3px solid var(--warning);font-size:0.8rem">🔒 บันทึกข้อมูลบริษัทได้เฉพาะเจ้าของโปรแกรมเท่านั้น — ดูข้อมูลได้ตามปกติ</div>` : ''}
 
         <div id="co-body"></div>
       </div>
@@ -131,14 +135,14 @@ export default async function CompanyPage(container) {
             <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
               ${data.brand.split(',').map(b => `<span class="badge badge-primary" style="font-size:0.65rem">${escHtml(b.trim())}</span>`).join('')}
             </div>
-            <div style="margin-top:12px">
+            ${canManage ? `<div style="margin-top:12px">
               <button class="btn btn-primary" id="save-info-btn" style="width:100%">💾 บันทึกข้อมูลบริษัท</button>
-            </div>
+            </div>` : ''}
           </div>
         </div>
       </div>
     `
-    document.getElementById('save-info-btn').addEventListener('click', async () => {
+    document.getElementById('save-info-btn')?.addEventListener('click', async () => {
       const taxId = document.getElementById('co-tax').value
       const taxCheck = validateTaxId(taxId)
       if (!taxCheck.valid) { showToast(taxCheck.error, 'error'); return }
@@ -199,7 +203,7 @@ export default async function CompanyPage(container) {
             </div>
             <div class="input-group"><label class="input-label">ข้อความท้ายเอกสาร (Footer Note)</label><input class="input" id="doc-footer" value="${escHtml(data.footerNote||'')}"></div>
           </div>
-          <button class="btn btn-primary" id="save-header-btn" style="margin-top:14px">💾 บันทึกการตั้งค่า</button>
+          ${canManage ? `<button class="btn btn-primary" id="save-header-btn" style="margin-top:14px">💾 บันทึกการตั้งค่า</button>` : ''}
         </div>
 
         <!-- Preview card -->
@@ -241,7 +245,7 @@ export default async function CompanyPage(container) {
     document.getElementById('logo-text').addEventListener('input', syncPreview)
     colorHex.addEventListener('change', () => { colorPicker.value = colorHex.value; syncPreview() })
 
-    document.getElementById('save-header-btn').addEventListener('click', async () => {
+    document.getElementById('save-header-btn')?.addEventListener('click', async () => {
       data = { ...data,
         logoText: document.getElementById('logo-text').value.trim(),
         logoColor: document.getElementById('logo-color').value,

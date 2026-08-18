@@ -3,9 +3,10 @@
  * Route: /settings/roles
  */
 import { openModal, confirmDialog } from '../../utils/modal.js'
-import { showToast, getState } from '../../core/store.js'
+import { showToast } from '../../core/store.js'
 import { listDocs, updateDocData, setDocData, seedDemoData, seedDefaultRolePermissions } from '../../core/db.js'
 import { MODULES, invalidateRolePermissionsCache } from '../../core/permissions.js'
+import { isProgramOwner } from '../../core/hierarchy.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -15,13 +16,13 @@ const ROLE_COLORS = { owner:'warning', admin:'primary', manager:'accent', financ
 // เท่านั้นอยู่แล้ว — ไม่ใช่ isOwner()||isAdmin() แม้แต่แอดมินก็แก้ไม่ได้จริง ปุ่มในหน้านี้ต้องซ่อนให้ตรงกัน
 // ไม่งั้นแอดมินจะกดแล้วเจอ permission-denied ที่ Firestore Rules อยู่ดี — รวมถึงปุ่ม "แก้ไข" เดิมที่เคย
 // เปิดให้ทุกคนเห็นโดยไม่มีการซ่อนเลย (พึ่ง Firestore Rules บล็อกฝั่งเดียว) แก้ให้ซ่อนตรงกันทั้งหมดด้วย)
-const MANAGE_ROLES_ROLES = ['owner']
-
+// อัปเดตภายหลัง: Firestore Rules เปลี่ยนจาก isOwner() (ของแต่ละบริษัท) เป็น isProgramOwner() (เจ้าของ
+// โปรแกรมคนเดียวเท่านั้น) — ฝั่งหน้านี้ต้องตามให้ตรง ไม่งั้น owner ของบริษัทอื่นจะเห็นปุ่มเปิดใช้งานได้แต่
+// กดแล้วเจอ permission-denied
 export default async function RolesPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
-  const myRole = getState('role') || getState('user')?.role || 'staff'
-  const canManage = MANAGE_ROLES_ROLES.includes(myRole)
+  const canManage = isProgramOwner()
 
   let roles = []
   let loading = true

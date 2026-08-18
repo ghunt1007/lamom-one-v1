@@ -10,6 +10,7 @@ import { listDocs, updateDocData, seedDemoData, backfillUserCompanyIds, hardDele
 import { createStaffAccount, sendStaffPasswordReset, updateCompanyMemberships } from '../../core/auth.js'
 import { getPositions } from '../../data/masterData.js'
 import { navigate } from '../../core/router.js'
+import { isProgramOwner } from '../../core/hierarchy.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -179,7 +180,7 @@ export default async function UserManagementPage(container) {
                         ${!isPending ? `<button class="btn btn-xs btn-secondary renew-btn" data-uid="${u.id}" data-name="${esc(u.displayName || u.email)}">🔄 ${exp?'ต่ออายุ':'ตั้งวันหมดอายุ'}</button>` : ''}
                         <button class="btn btn-xs btn-warning resetpw-btn" data-uid="${u.id}" data-email="${esc(u.email)}">🔑 รีเซ็ตรหัส</button>
                         ${!isPending ? `<button class="btn btn-xs ${active?'btn-danger':'btn-success'} toggle-btn" data-uid="${u.id}" data-active="${active}">${active?'⛔ ระงับ':'✅ เปิด'}</button>` : ''}
-                        ${myRole === 'owner' && u.id !== me.uid ? `<button class="btn btn-xs btn-danger delete-user-btn" data-uid="${u.id}" data-name="${esc(u.displayName || u.email)}">🗑️ ลบบัญชี</button>` : ''}
+                        ${isProgramOwner() && u.id !== me.uid ? `<button class="btn btn-xs btn-danger delete-user-btn" data-uid="${u.id}" data-name="${esc(u.displayName || u.email)}">🗑️ ลบบัญชี</button>` : ''}
                       ` : '<span style="font-size:0.62rem;color:var(--text-muted)">🔒 ระดับสูงกว่า/เท่าคุณ</span>'}
                     </td>
                   </tr>`

@@ -4,15 +4,15 @@
  */
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
-import { showToast, getState } from '../../core/store.js'
+import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { isProgramOwner } from '../../core/hierarchy.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
-// API Key เป็นข้อมูลอ่อนไหวระดับ credential เข้าถึงระบบภายนอกได้ — สร้าง/revoke จึงจำกัดเฉพาะ owner/admin
-// เหมือน DataRetention.js/BackupRestore.js/Roles.js (เดิมหน้านี้ไม่มีการเช็คสิทธิ์เลย)
-const API_KEYS_MANAGE_ROLES = ['owner', 'admin']
-
+// API Key เป็นข้อมูลอ่อนไหวระดับ credential เข้าถึงระบบภายนอกได้ และเป็นการตั้งค่าระดับระบบทั้งแพลตฟอร์ม
+// (ไม่ใช่ข้อมูลของบริษัทใดบริษัทหนึ่ง) — Firestore Rules จำกัดทั้งอ่าน/เขียนให้ isProgramOwner() เท่านั้น
+// (ไม่ใช่ owner/admin ของบริษัทไหนก็ได้) ฝั่งหน้านี้ต้องเช็คให้ตรงกัน
 const KEY_SCOPES = {
   read:  { label: 'อ่านอย่างเดียว', color: 'success', icon: '👁' },
   write: { label: 'อ่าน + เขียน', color: 'warning', icon: '✏️' },
@@ -29,8 +29,7 @@ function genKey() {
 export default async function ApiKeysPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
-  const myRole = getState('role') || getState('user')?.role || 'staff'
-  const canManage = API_KEYS_MANAGE_ROLES.includes(myRole)
+  const canManage = isProgramOwner()
 
   let keys = []
   let loading = true
@@ -63,7 +62,7 @@ export default async function ApiKeysPage(container) {
           </div>
         </div>
 
-        ${!canManage ? `<div class="card" style="padding:12px 14px;margin-bottom:14px;border-left:3px solid var(--warning);font-size:0.8rem">⚠️ เฉพาะ Owner/Admin เท่านั้นที่สร้าง/Revoke API Key ได้ในหน้านี้</div>` : ''}
+        ${!canManage ? `<div class="card" style="padding:12px 14px;margin-bottom:14px;border-left:3px solid var(--warning);font-size:0.8rem">🔒 เฉพาะเจ้าของโปรแกรมเท่านั้นที่ดู/จัดการ API Keys ได้ — รายการด้านล่างจึงว่างเปล่าสำหรับคุณ</div>` : ''}
 
         <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
           ${kpi('🔑 Keys ใช้งาน', active + '/' + keys.length, 'primary')}

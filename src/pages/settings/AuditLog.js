@@ -6,6 +6,7 @@ import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { showToast } from '../../core/store.js'
 import { listDocs } from '../../core/db.js'
+import { isProgramOwner } from '../../core/hierarchy.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -31,6 +32,11 @@ function addDays(n) {
 }
 
 export default async function AuditLogPage(container) {
+  if (!isProgramOwner()) {
+    container.innerHTML = `<div class="page-content"><div class="empty-state" style="padding:60px 20px"><div class="empty-icon">🔒</div><div class="empty-title">ไม่มีสิทธิ์เข้าถึงหน้านี้</div><div class="empty-desc">Audit Log เห็นกิจกรรมข้ามทุกบริษัทได้ เปิดให้เฉพาะเจ้าของโปรแกรมเท่านั้น</div></div></div>`
+    return
+  }
+
   let actionFilter = 'all'
   let moduleFilter = 'all'
   let userFilter = ''

@@ -11,13 +11,12 @@
  */
 import { formatDate } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
-import { showToast, getState } from '../../core/store.js'
+import { showToast } from '../../core/store.js'
 import { listDocs, listAllDocs, createDoc, softDelete, hardDeleteDoc } from '../../core/db.js'
+import { isProgramOwner } from '../../core/hierarchy.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') }
 function toDate(v) { return v?.toDate ? v.toDate() : new Date(v) }
-
-const DATA_RETENTION_ROLES = ['owner', 'admin']
 
 const RETAINABLE_COLLECTIONS = {
   error_log: 'Error Log (บันทึกข้อผิดพลาดระบบ)',
@@ -30,8 +29,7 @@ const RETAINABLE_COLLECTIONS = {
 
 export default async function DataRetentionPage(container) {
   const myGen = container.__routerGen
-  const myRole = getState('role') || getState('user')?.role || 'staff'
-  const canManage = DATA_RETENTION_ROLES.includes(myRole)
+  const canManage = isProgramOwner()
   let policies = []
   let loading = true
   // เก็บผลตรวจสอบล่าสุดต่อ policy — ต้องตรวจใหม่ทุกครั้งก่อนลบจริง (กันลบจากตัวเลขเก่าที่ไม่ตรงกับปัจจุบัน)

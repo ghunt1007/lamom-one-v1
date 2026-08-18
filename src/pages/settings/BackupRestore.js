@@ -14,10 +14,11 @@
  * เข้าถึงได้เฉพาะเจ้าของ/แอดมิน (ตรวจสอบทั้งฐานข้อมูลทุก collection ความเสี่ยงสูงกว่าฟีเจอร์อื่นในระบบ)
  */
 import { openModal, confirmDialog } from '../../utils/modal.js'
-import { showToast, getState } from '../../core/store.js'
+import { showToast } from '../../core/store.js'
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { listDocs, createDoc, setDocData, seedDemoData } from '../../core/db.js'
 import { ALL_COLLECTIONS, exportAllData, downloadBackupFile, summarizeBackupData, restoreFromBackupData } from '../../core/backup.js'
+import { isProgramOwner } from '../../core/hierarchy.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -26,8 +27,6 @@ const BACKUP_STATUS = {
   partial: { label: 'บางส่วน', color: 'warning', icon: '⚠️' },
   failed:  { label: 'ล้มเหลว', color: 'danger', icon: '❌' },
 }
-
-const MANAGE_BACKUP_ROLES = ['owner', 'admin']
 
 function formatBytes(bytes) {
   if (!bytes) return '0 B'
@@ -47,8 +46,7 @@ function formatMs(ms) {
 export default async function BackupRestorePage(container) {
   const myGen = container.__routerGen
   seedDemoData()
-  const myRole = getState('role') || getState('user')?.role || 'staff'
-  const canManage = MANAGE_BACKUP_ROLES.includes(myRole)
+  const canManage = isProgramOwner()
 
   let backups = []
   let schedule = 'manual'

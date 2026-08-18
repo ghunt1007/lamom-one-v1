@@ -2,6 +2,7 @@ import { getState, on, toggleSidebar } from '../../core/store.js'
 import { navigate } from '../../core/router.js'
 import { logout } from '../../core/auth.js'
 import { getModuleForPath, hasModuleAccess, loadRolePermissions } from '../../core/permissions.js'
+import { isProgramOwner } from '../../core/hierarchy.js'
 import { t } from '../../i18n/index.js'
 
 // (v1.0.353) รองรับหลายภาษา — เมนูส่วนใหญ่เป็นศัพท์ธุรกิจที่เป็นภาษาอังกฤษอยู่แล้ว (Pipeline, Dashboard,
@@ -396,10 +397,10 @@ const NAV = [
       { icon: '🏬', label: 'จัดการบริษัทในเครือ', labelEn: 'Manage Affiliated Companies', labelZh: '管理关联公司', path: '/settings/org-companies' },
       { icon: '🗂', label: 'Master Data', path: '/settings/master-data' },
       { icon: '🎨', label: 'White-label', path: '/settings/whitelabel' },
-      { icon: '📋', label: 'Audit Log', path: '/settings/audit' },
+      { icon: '📋', label: 'Audit Log', path: '/settings/audit', programOwnerOnly: true },
       { icon: '🐞', label: 'Error Log', path: '/settings/errors' },
       { icon: '🔍', label: 'User Activity', path: '/settings/activity' },
-      { icon: '💾', label: 'Backup & Restore', path: '/settings/backup' },
+      { icon: '💾', label: 'Backup & Restore', path: '/settings/backup', programOwnerOnly: true },
       { icon: '🔑', label: 'API Keys', path: '/settings/api-keys' },
       { icon: '📅', label: 'Holiday Calendar', path: '/settings/holidays' },
       { icon: '💟', label: 'System Health', path: '/settings/health' },
@@ -410,13 +411,13 @@ const NAV = [
       { icon: 'ℹ️', label: 'About', path: '/settings/about' },
       { icon: '📖', label: 'คู่มือการใช้งาน', labelEn: 'User Manual', labelZh: '使用手册', path: '/help' },
       { icon: '🔗', label: 'Integrations', path: '/integrations' },
-      { icon: '⚙️', label: 'Integration Config', path: '/integrations/settings' },
+      { icon: '⚙️', label: 'Integration Config', path: '/integrations/settings', programOwnerOnly: true },
       { icon: '🔗', label: 'Webhook Builder', path: '/integrations/webhooks' },
       { icon: '📺', label: 'Digital Signage', path: '/settings/digital-signage' },
       { icon: '📡', label: 'TV Mode (จอโชว์รูม)', labelEn: 'TV Mode (Showroom Display)', labelZh: '电视模式（展厅显示）', path: '/tv' },
       { icon: '📱', label: 'SMS OTP / 2FA', path: '/settings/sms-otp' },
       { icon: '🔄', label: 'V8 Migration', path: '/migration' },
-      { icon: '🗺️', label: 'Data Mapping', path: '/migration/mapping' },
+      { icon: '🗺️', label: 'Data Mapping', path: '/migration/mapping', programOwnerOnly: true },
       { icon: '📤', label: 'Data Export', path: '/migration/export' },
     ]
   },
@@ -437,9 +438,14 @@ export function Sidebar(container) {
 
   loadRolePermissions().then(() => render())
 
+  // (v1.0.469) เพจที่ Firestore Rules บังคับให้เจ้าของโปรแกรมเท่านั้น (isProgramOwner()) ทั้งอ่าน+เขียน —
+  // ไม่มีอะไรให้แอดมิน/เจ้าของบริษัทอื่นดูจริงถ้าเปิดเข้าไป (permission-denied ทันที) จึงซ่อนออกจากเมนูไปเลย
+  // ต่างจากเพจที่แค่ "บาง action" ถูกจำกัด (เช่น API Keys/Webhook Builder/Security ที่อ่านได้บางส่วน) — พวกนั้น
+  // ยังโชว์เมนูตามปกติ แค่ปุ่มแก้ไขจะถูกซ่อน/มีข้อความอธิบายในหน้าเอง
   function visibleNav(role) {
+    const ownerOnlyOk = isProgramOwner()
     return NAV
-      .map(g => ({ ...g, items: g.items.filter(i => hasModuleAccess(role, getModuleForPath(i.path)?.key)) }))
+      .map(g => ({ ...g, items: g.items.filter(i => hasModuleAccess(role, getModuleForPath(i.path)?.key) && (!i.programOwnerOnly || ownerOnlyOk)) }))
       .filter(g => g.items.length > 0)
   }
 

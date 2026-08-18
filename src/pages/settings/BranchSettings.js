@@ -2,6 +2,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { navigate } from '../../core/router.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { isProgramOwner } from '../../core/hierarchy.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -10,6 +11,7 @@ function escHtml(s) {
 export default async function BranchSettingsPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
+  const canManage = isProgramOwner()
 
   let branches = []
   let companies = []
@@ -46,8 +48,8 @@ export default async function BranchSettingsPage(container) {
             <div class="page-subtitle">จัดการสาขาและบริษัท</div>
           </div>
           <div class="page-actions">
-            ${tab === 'branches' ? `<button class="btn btn-primary" id="new-branch-btn">➕ เพิ่มสาขา</button>` : ''}
-            ${tab === 'company' ? `<button class="btn btn-primary" id="edit-company-btn">✏️ แก้ไขข้อมูล</button>` : ''}
+            ${tab === 'branches' && canManage ? `<button class="btn btn-primary" id="new-branch-btn">➕ เพิ่มสาขา</button>` : ''}
+            ${tab === 'company' && canManage ? `<button class="btn btn-primary" id="edit-company-btn">✏️ แก้ไขข้อมูล</button>` : ''}
           </div>
         </div>
 
@@ -57,6 +59,8 @@ export default async function BranchSettingsPage(container) {
           <button class="btn btn-sm ${tab==='company'?'btn-primary':'btn-secondary'} tab-btn" data-t="company">🏢 ข้อมูลบริษัท</button>
           <button class="btn btn-sm ${tab==='pdpa'?'btn-primary':'btn-secondary'} tab-btn" data-t="pdpa">🔒 PDPA</button>
         </div>
+
+        ${!canManage && tab !== 'pdpa' ? `<div class="card" style="padding:12px 14px;margin-bottom:14px;border-left:3px solid var(--warning);font-size:0.8rem">🔒 แก้ไขสาขา/ข้อมูลบริษัทได้เฉพาะเจ้าของโปรแกรมเท่านั้น — ดูข้อมูลได้ตามปกติ</div>` : ''}
 
         ${tab === 'branches' ? renderBranches() : tab === 'company' ? renderCompany() : renderPdpa()}
       </div>
@@ -104,10 +108,10 @@ export default async function BranchSettingsPage(container) {
               <div>👥 พนักงาน: ${b.staff} คน</div>
               <div>🚗 แบรนด์: ${escHtml(b.brands.join(', '))}</div>
             </div>
-            <div style="display:flex;gap:6px;padding-top:10px;border-top:1px solid var(--border)">
+            ${canManage ? `<div style="display:flex;gap:6px;padding-top:10px;border-top:1px solid var(--border)">
               <button class="btn btn-xs btn-secondary edit-branch-btn" data-id="${b.id}">✏️ แก้ไข</button>
               ${!b.isMain ? `<button class="btn btn-xs btn-danger del-branch-btn" data-id="${b.id}">🗑</button>` : ''}
-            </div>
+            </div>` : ''}
           </div>
         `).join('')}
       </div>

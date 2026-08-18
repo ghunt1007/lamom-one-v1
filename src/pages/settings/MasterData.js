@@ -3,9 +3,11 @@ import { showToast } from '../../core/store.js'
 import { confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { todayBangkok } from '../../utils/format.js'
+import { isProgramOwner } from '../../core/hierarchy.js'
 
 export default async function MasterDataPage(container) {
   const myGen = container.__routerGen
+  const canManage = isProgramOwner()
   let active = MASTER_LISTS[0].key
   let search = ''
 
@@ -53,21 +55,25 @@ export default async function MasterDataPage(container) {
       const channelToggle = active === 'salesStaff' ? (() => {
         const ch = getSalesChannel(it)
         const isShowroom = ch === 'showroom'
-        return `<button class="btn btn-xs channel-toggle" data-name="${it}" style="margin-right:8px;background:${isShowroom?'var(--primary-dim)':'var(--success-dim)'};color:${isShowroom?'var(--primary)':'var(--success)'};border:1px solid ${isShowroom?'var(--primary)':'var(--success)'}">
-          ${isShowroom ? '🏢 หน้าร้าน' : '💻 ออนไลน์'}
-        </button>`
+        const label2 = isShowroom ? '🏢 หน้าร้าน' : '💻 ออนไลน์'
+        return canManage
+          ? `<button class="btn btn-xs channel-toggle" data-name="${it}" style="margin-right:8px;background:${isShowroom?'var(--primary-dim)':'var(--success-dim)'};color:${isShowroom?'var(--primary)':'var(--success)'};border:1px solid ${isShowroom?'var(--primary)':'var(--success)'}">
+              ${label2}
+            </button>`
+          : `<span style="margin-right:8px;font-size:0.72rem;color:var(--text-muted)">${label2}</span>`
       })() : ''
       return `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 14px;border-bottom:1px solid var(--border-subtle)">
         <div style="font-size:0.82rem">${label}</div>
         <div style="display:flex;align-items:center">
           ${channelToggle}
-          <button class="btn btn-sm btn-danger md-del" data-i="${realIdx}" title="ลบ">🗑</button>
+          ${canManage ? `<button class="btn btn-sm btn-danger md-del" data-i="${realIdx}" title="ลบ">🗑</button>` : ''}
         </div>
       </div>`
     }).join('')
   }
 
   function addRow() {
+    if (!canManage) return ''
     const m = meta()
     if (m.type === 'priced') {
       return `<input id="md-name" placeholder="ชื่อรายการ" class="input" style="flex:2;font-size:0.82rem">
@@ -92,12 +98,14 @@ export default async function MasterDataPage(container) {
           </div>
           <div class="page-actions" style="gap:6px">
             <button class="btn btn-secondary btn-sm" id="md-export">📥 Export</button>
-            <button class="btn btn-secondary btn-sm" id="md-reset">↩️ รีเซ็ต</button>
+            ${canManage ? `<button class="btn btn-secondary btn-sm" id="md-reset">↩️ รีเซ็ต</button>` : ''}
           </div>
         </div>
 
         <!-- Tabs -->
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">${tabs()}</div>
+
+        ${!canManage ? `<div class="card" style="padding:12px 14px;margin-bottom:14px;border-left:3px solid var(--warning);font-size:0.8rem">🔒 แก้ไขข้อมูลอ้างอิงกลางได้เฉพาะเจ้าของโปรแกรมเท่านั้น — ดูข้อมูลได้ตามปกติ</div>` : ''}
 
         <div class="card" style="padding:14px">
           <!-- Header row -->
@@ -116,7 +124,7 @@ export default async function MasterDataPage(container) {
             ${itemsHtml()}
           </div>
 
-          ${allItems.length > 0 ? `
+          ${allItems.length > 0 && canManage ? `
           <div style="display:flex;justify-content:flex-end;margin-top:8px">
             <button class="btn btn-sm btn-danger" id="md-clear">🗑 ล้างหมวดนี้ทั้งหมด</button>
           </div>` : ''}

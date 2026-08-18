@@ -7,6 +7,7 @@
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete } from '../../core/db.js'
+import { isProgramOwner } from '../../core/hierarchy.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -14,6 +15,7 @@ function escHtml(s) {
 
 export default async function OrgCompaniesPage(container) {
   const myGen = container.__routerGen
+  const canManage = isProgramOwner()
   let companies = []
   let loading = true
 
@@ -37,9 +39,11 @@ export default async function OrgCompaniesPage(container) {
             <div class="page-subtitle">จัดการรายชื่อบริษัทในเครือ — ใช้ผูกกับพนักงานที่หน้า User Management (รองรับ 1 คนทำงานหลายบริษัท)</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-primary" id="new-co-btn">➕ เพิ่มบริษัท</button>
+            ${canManage ? `<button class="btn btn-primary" id="new-co-btn">➕ เพิ่มบริษัท</button>` : ''}
           </div>
         </div>
+
+        ${!canManage ? `<div class="card" style="padding:12px 14px;margin-bottom:14px;border-left:3px solid var(--warning);font-size:0.8rem">🔒 เพิ่ม/แก้ไข/ลบบริษัทได้เฉพาะเจ้าของโปรแกรมเท่านั้น — ดูรายชื่อได้ตามปกติ</div>` : ''}
 
         ${!companies.length ? `
           <div class="empty-state">
@@ -62,10 +66,10 @@ export default async function OrgCompaniesPage(container) {
                 ${c.taxId ? `<div>🧾 เลขผู้เสียภาษี: ${escHtml(c.taxId)}</div>` : ''}
                 ${c.address ? `<div>📍 ${escHtml(c.address)}</div>` : ''}
               </div>
-              <div style="display:flex;gap:6px;padding-top:10px;border-top:1px solid var(--border)">
+              ${canManage ? `<div style="display:flex;gap:6px;padding-top:10px;border-top:1px solid var(--border)">
                 <button class="btn btn-xs btn-secondary edit-co-btn" data-id="${c.id}">✏️ แก้ไข</button>
                 <button class="btn btn-xs btn-danger del-co-btn" data-id="${c.id}">🗑</button>
-              </div>
+              </div>` : ''}
             </div>
           `).join('')}
         </div>`}

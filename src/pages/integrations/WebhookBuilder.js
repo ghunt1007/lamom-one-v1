@@ -3,24 +3,24 @@
  * Route: /integrations/webhooks
  */
 import { openModal } from '../../utils/modal.js'
-import { showToast, getState } from '../../core/store.js'
+import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { testSendWebhook } from '../../utils/webhookTest.js'
+import { isProgramOwner } from '../../core/hierarchy.js'
 
 // ป้องกัน XSS — ชื่อ/URL/secret ของ Webhook เป็นข้อมูลที่ผู้ใช้พิมพ์เอง ต้อง escape ก่อนแสดงผลเสมอ
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
 const EVENTS =['sale.created','sale.updated','service.booked','service.completed','lead.created','lead.converted','payment.received','invoice.issued','customer.created','stock.updated']
 
-// Webhook เก็บ signing secret (ไว้เซ็น HMAC) ให้ระบบภายนอกใช้ยืนยันว่า request มาจากเราจริง — สิทธิ์
-// จัดการ (สร้าง/แก้ไข/ลบ/เปิดปิด) จึงจำกัดเฉพาะ owner/admin เหมือน DataRetention.js/BackupRestore.js/Roles.js
-const WEBHOOK_MANAGE_ROLES = ['owner', 'admin']
+// Webhook เก็บ signing secret (ไว้เซ็น HMAC) ให้ระบบภายนอกใช้ยืนยันว่า request มาจากเราจริง และเป็นการตั้งค่า
+// ระดับระบบทั้งแพลตฟอร์ม — Firestore Rules จำกัดทั้งอ่าน/เขียนให้ isProgramOwner() เท่านั้น (ไม่ใช่
+// owner/admin ของบริษัทไหนก็ได้) ฝั่งหน้านี้ต้องเช็คให้ตรงกัน
 
 export default async function WebhookBuilderPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
-  const myRole = getState('role') || getState('user')?.role || 'staff'
-  const canManage = WEBHOOK_MANAGE_ROLES.includes(myRole)
+  const canManage = isProgramOwner()
 
   let webhooks = []
   let loading = true
@@ -56,7 +56,7 @@ export default async function WebhookBuilderPage(container) {
           ⚠️ <strong>ข้อจำกัดสำคัญ:</strong> ปุ่ม "⚡ Test" ยิง Webhook จริงได้แล้ว (ผ่าน Worker ตัวกลาง) แต่ระบบยังไม่มีการยิง Webhook <u>อัตโนมัติ</u> เมื่อเกิด Event จริงในระบบ (เช่น sale.created, lead.converted) — ต้อง hook เข้าทุกจุดที่เขียนข้อมูลทั่วทั้งแอป เป็นงานคนละสเกล ยังไม่ได้ทำในตอนนี้ ใช้ปุ่ม Test เพื่อยืนยันว่าปลายทางพร้อมรับได้ก่อนเชื่อมต่อจริงเท่านั้น
         </div>
 
-        ${!canManage ? `<div class="card" style="padding:12px 14px;margin-bottom:14px;border-left:3px solid var(--warning);font-size:0.8rem">⚠️ เฉพาะ Owner/Admin เท่านั้นที่สร้าง/แก้ไข/ลบ Webhook ได้ในหน้านี้</div>` : ''}
+        ${!canManage ? `<div class="card" style="padding:12px 14px;margin-bottom:14px;border-left:3px solid var(--warning);font-size:0.8rem">🔒 เฉพาะเจ้าของโปรแกรมเท่านั้นที่ดู/จัดการ Webhook ได้ — รายการด้านล่างจึงว่างเปล่าสำหรับคุณ</div>` : ''}
 
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
           ${sc('🔗 Webhooks', webhooks.length, 'var(--primary)')}

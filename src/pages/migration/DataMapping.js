@@ -6,6 +6,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, setDocData } from '../../core/db.js'
 import { COLLECTIONS } from './V8Migration.js'
+import { isProgramOwner } from '../../core/hierarchy.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -20,6 +21,10 @@ function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt
 // จริงได้จนกว่าจะมีไฟล์ export มาอัปโหลดจริง (ดูจำนวนจริงได้ที่ V8Migration.js ตอนอัปโหลดไฟล์)
 
 export default async function DataMappingPage(container) {
+  if (!isProgramOwner()) {
+    container.innerHTML = `<div class="page-content"><div class="empty-state" style="padding:60px 20px"><div class="empty-icon">🔒</div><div class="empty-title">ไม่มีสิทธิ์เข้าถึงหน้านี้</div><div class="empty-desc">การตั้งค่าจับคู่ field V8 → V1 กระทบการนำเข้าข้อมูลทั้งระบบ เปิดให้เฉพาะเจ้าของโปรแกรมเท่านั้น</div></div></div>`
+    return
+  }
   const myGen = container.__routerGen
   let mappings = {} // { [collectionId]: [{ v8Field, v1Field }, ...] }
 

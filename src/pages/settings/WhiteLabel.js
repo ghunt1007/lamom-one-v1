@@ -1,6 +1,7 @@
-import { showToast, getState } from '../../core/store.js'
+import { showToast } from '../../core/store.js'
 import { openModal } from '../../utils/modal.js'
 import { listDocs, createDoc, updateDocData } from '../../core/db.js'
+import { isProgramOwner } from '../../core/hierarchy.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
@@ -55,10 +56,10 @@ export default async function WhiteLabelPage(container) {
   let cfg = await loadConfig()
   if (container.__routerGen !== myGen) return
 
-  // Branding เป็นการตั้งค่าองค์กร-ไวด์ (ทุกสาขาเห็นค่าเดียวกัน) — เดิมหน้านี้ไม่มีการเช็คสิทธิ์เลย
-  // ใครก็แก้ brand name/สี/footer ขององค์กรทั้งหมดได้ ตอนนี้จำกัดให้แก้ได้เฉพาะ owner/admin เท่านั้น
+  // Branding เป็นการตั้งค่าระดับระบบทั้งแพลตฟอร์ม (ทุกบริษัทเห็นค่าเดียวกัน) — Firestore Rules จำกัดให้
+  // แก้ได้เฉพาะ isProgramOwner() เท่านั้น (ไม่ใช่ owner/admin ของบริษัทไหนก็ได้) ฝั่งหน้านี้ต้องเช็คให้ตรงกัน
   // (ดูได้ทุกคน — read-only display ไม่กระทบ)
-  const canEdit = ['owner', 'admin'].includes(getState('role'))
+  const canEdit = isProgramOwner()
 
   let tab = 'brand'
 
@@ -68,13 +69,13 @@ export default async function WhiteLabelPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🎨 White-label Settings</div>
-            <div class="page-subtitle">ปรับแต่ง Brand และ Theme${canEdit ? '' : ' · 🔒 ดูได้อย่างเดียว (ต้องมีสิทธิ์แอดมินขึ้นไปจึงแก้ไขได้)'}</div>
+            <div class="page-subtitle">ปรับแต่ง Brand และ Theme${canEdit ? '' : ' · 🔒 ดูได้อย่างเดียว (เฉพาะเจ้าของโปรแกรมเท่านั้นที่แก้ไขได้)'}</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="wl-preview">👁 Preview</button>
             ${canEdit
               ? `<button class="btn btn-primary" id="wl-save">💾 บันทึก</button>`
-              : `<button class="btn btn-secondary" id="wl-save" disabled title="ต้องมีสิทธิ์แอดมินขึ้นไปจึงแก้ไขได้">🔒 บันทึก</button>`}
+              : `<button class="btn btn-secondary" id="wl-save" disabled title="เฉพาะเจ้าของโปรแกรมเท่านั้นที่แก้ไขได้">🔒 บันทึก</button>`}
           </div>
         </div>
 
@@ -285,7 +286,7 @@ export default async function WhiteLabelPage(container) {
 
   async function saveAll() {
     // Guard ฝั่ง logic ด้วย (ไม่พึ่งแค่ disabled ปุ่ม/input ฝั่ง UI) — กันกรณีมีคนพยายามยิง saveAll() ตรงๆ
-    if (!canEdit) { showToast('❌ คุณไม่มีสิทธิ์แก้ไข Branding — ต้องมีสิทธิ์แอดมินขึ้นไป', 'error'); return }
+    if (!canEdit) { showToast('❌ คุณไม่มีสิทธิ์แก้ไข Branding — เฉพาะเจ้าของโปรแกรมเท่านั้น', 'error'); return }
     // Collect values
     if (document.getElementById('brand-name')) {
       cfg.brandName = document.getElementById('brand-name').value

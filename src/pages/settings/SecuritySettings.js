@@ -6,6 +6,7 @@ import { timeAgo } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { isProgramOwner } from '../../core/hierarchy.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') }
 
@@ -17,6 +18,7 @@ function escHtml(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g
 export default async function SecuritySettingsPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
+  const amOwner = isProgramOwner()
 
   let policies = []
   let sessions = []
@@ -25,17 +27,31 @@ export default async function SecuritySettingsPage(container) {
   let loading = true
   const mySessionId = localStorage.getItem('lamom_session_id')
 
+  // security_sessions และ security_alerts อ่านได้เฉพาะเจ้าของโปรแกรมเท่านั้น (ดู firestore.rules) — เดิม
+  // bundle รวมกับ security_policies/ip_whitelist ใน Promise.all เดียว ทำให้ permission-denied จุดเดียว
+  // (sessions) ทำให้ catch ทั้งก้อนเงียบๆ policies/whitelist ที่ isStaff() ควรเห็นได้ก็หายไปด้วย — แยกเป็น
+  // 2 ก้อนอิสระ ไม่ยิง sessions/alerts เลยถ้าไม่ใช่เจ้าของโปรแกรม (กันขึ้น permission-denied ที่ console โดยรู้อยู่แล้วว่าไม่มีสิทธิ์)
   async function loadData() {
     loading = true
     try {
-      const [p, s, a, w] = await Promise.all([
+      const [p, w] = await Promise.all([
         listDocs('security_policies', [], 'id', 'asc', 50),
-        listDocs('security_sessions', [], 'lastActive', 'desc', 200),
-        listDocs('security_alerts', [], 'createdAt', 'desc', 50).catch(() => []),
         listDocs('ip_whitelist', [], 'createdAt', 'desc', 200).catch(() => []),
       ])
-      policies = p; sessions = s; alerts = a; whitelist = w.filter(x => !x.deleted)
-    } catch (e) { policies = []; sessions = []; alerts = []; whitelist = [] }
+      policies = p; whitelist = w.filter(x => !x.deleted)
+    } catch (e) { policies = []; whitelist = [] }
+
+    if (amOwner) {
+      try {
+        const [s, a] = await Promise.all([
+          listDocs('security_sessions', [], 'lastActive', 'desc', 200),
+          listDocs('security_alerts', [], 'createdAt', 'desc', 50).catch(() => []),
+        ])
+        sessions = s; alerts = a
+      } catch (e) { sessions = []; alerts = [] }
+    } else {
+      sessions = []; alerts = []
+    }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -62,7 +78,7 @@ export default async function SecuritySettingsPage(container) {
         <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
           ${kpi('🛡 Security Score', score + '%', score >= 80 ? 'success' : 'warning')}
           ${kpi('⚠️ นโยบายสำคัญที่ปิดอยู่', criticalOff, criticalOff > 0 ? 'danger' : 'success')}
-          ${kpi('💻 Sessions active', sessions.length, staleSessions.length > 0 ? 'warning' : 'primary')}
+          ${kpi('💻 Sessions active', amOwner ? sessions.length : '—', staleSessions.length > 0 ? 'warning' : 'primary')}
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
@@ -72,19 +88,21 @@ export default async function SecuritySettingsPage(container) {
             ${policies.map(p => `
               <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)">
                 <span style="font-size:0.76rem">${p.critical?'⭐ ':''}${p.name}</span>
-                <button class="btn btn-xs ${p.enabled?'btn-success':'btn-secondary'} pol-btn" data-id="${p.id}">${p.enabled?'✅ เปิด':'⏸ ปิด'}</button>
+                ${amOwner
+                  ? `<button class="btn btn-xs ${p.enabled?'btn-success':'btn-secondary'} pol-btn" data-id="${p.id}">${p.enabled?'✅ เปิด':'⏸ ปิด'}</button>`
+                  : `<span class="badge badge-${p.enabled?'success':'secondary'}" style="font-size:0.65rem">${p.enabled?'✅ เปิด':'⏸ ปิด'}</span>`}
               </div>
             `).join('')}
-            <p style="font-size:0.65rem;color:var(--text-muted);margin-top:8px">⭐ = นโยบายสำคัญ แนะนำเปิดเสมอ</p>
+            <p style="font-size:0.65rem;color:var(--text-muted);margin-top:8px">⭐ = นโยบายสำคัญ แนะนำเปิดเสมอ${!amOwner ? ' · 🔒 เปิด/ปิดได้เฉพาะเจ้าของโปรแกรม' : ''}</p>
           </div>
 
           <!-- Sessions -->
           <div class="card" style="padding:14px">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
               <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted)">💻 Sessions ที่ login อยู่</div>
-              ${sessions.length > 1 ? '<button class="btn btn-xs btn-danger" id="logout-all-btn">🚪 Logout ทั้งหมด</button>' : ''}
+              ${amOwner && sessions.length > 1 ? '<button class="btn btn-xs btn-danger" id="logout-all-btn">🚪 Logout ทั้งหมด</button>' : ''}
             </div>
-            ${sessions.length ? sessions.map(s => {
+            ${!amOwner ? `<p style="font-size:0.76rem;color:var(--text-muted)">🔒 ดู Session ที่กำลังใช้งานได้เฉพาะเจ้าของโปรแกรมเท่านั้น</p>` : sessions.length ? sessions.map(s => {
               const current = s.id === mySessionId
               const stale = s.lastActive && new Date(s.lastActive) < new Date(Date.now() - 24*3600000)
               return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
@@ -102,13 +120,13 @@ export default async function SecuritySettingsPage(container) {
         <div class="card" style="padding:14px;margin-bottom:14px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
             <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted)">🌐 IP Whitelist (เตือนเท่านั้น ไม่บล็อก login จริง)</div>
-            <button class="btn btn-xs btn-primary" id="add-ip-btn">+ เพิ่ม IP</button>
+            ${amOwner ? `<button class="btn btn-xs btn-primary" id="add-ip-btn">+ เพิ่ม IP</button>` : ''}
           </div>
-          <p style="font-size:0.68rem;color:var(--text-muted);margin-bottom:8px">Firestore ไม่มีทางเช็ค IP ผู้ login ได้เอง — ระบบแค่แจ้งเตือนที่นี่เมื่อ login จาก IP นอกรายการ ไม่ได้บล็อกการเข้าใช้งานจริง</p>
+          <p style="font-size:0.68rem;color:var(--text-muted);margin-bottom:8px">Firestore ไม่มีทางเช็ค IP ผู้ login ได้เอง — ระบบแค่แจ้งเตือนที่นี่เมื่อ login จาก IP นอกรายการ ไม่ได้บล็อกการเข้าใช้งานจริง${!amOwner ? ' · 🔒 เพิ่ม/ลบ IP ได้เฉพาะเจ้าของโปรแกรม' : ''}</p>
           ${whitelist.length ? whitelist.map(w => `
             <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:0.78rem">
               <span>${escHtml(w.label)} — <code>${escHtml(w.ip)}</code></span>
-              <button class="btn btn-xs btn-ghost del-ip-btn" data-id="${w.id}" style="color:var(--danger)">✕</button>
+              ${amOwner ? `<button class="btn btn-xs btn-ghost del-ip-btn" data-id="${w.id}" style="color:var(--danger)">✕</button>` : ''}
             </div>
           `).join('') : `<p style="font-size:0.76rem;color:var(--text-muted)">ยังไม่มี IP ใน Whitelist — ยังไม่มีการเตือนใดๆจนกว่าจะเพิ่มรายการแรก</p>`}
         </div>
@@ -116,7 +134,7 @@ export default async function SecuritySettingsPage(container) {
         <!-- Alerts -->
         <div class="card" style="padding:14px">
           <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">🔔 เหตุการณ์ความปลอดภัยล่าสุด</div>
-          ${alerts.length ? alerts.map(a => `
+          ${!amOwner ? `<p style="font-size:0.76rem;color:var(--text-muted)">🔒 ดูเหตุการณ์ความปลอดภัยได้เฉพาะเจ้าของโปรแกรมเท่านั้น</p>` : alerts.length ? alerts.map(a => `
             <div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:0.76rem">
               <span>${a.level==='warning'?'⚠️':'ℹ️'}</span>
               <span style="flex:1">${escHtml(a.msg)}</span>
