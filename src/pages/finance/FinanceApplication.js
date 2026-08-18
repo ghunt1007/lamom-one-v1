@@ -28,9 +28,22 @@ function calcMonthly(amount, rate, months) {
   return Math.round(total / months)
 }
 
+// (v1.0.461) หน้าใบจอง (Bookings.js) เขียน sessionStorage key นี้เป็น JSON
+// {bookingId, customerId, custName, phone, vehicle, vehiclePrice, downPayment} แล้ว navigate('/finance/application')
+// มา — หน้านี้จะอ่านค่า, ลบ key ทิ้งทันที, แล้วเปิดฟอร์ม "ยื่นไฟแนนซ์ใหม่" อัตโนมัติพร้อมข้อมูลจากใบจอง
+// (แพทเทิร์นเดียวกับ lamom_quote_prefill ใน QuotationBuilder.js) — เดิมใบจองกับใบสมัครไฟแนนซ์จริงเป็นคนละ
+// ระบบแยกกันสนิท ไม่มีรหัสเชื่อมกันเลย ต้องพิมพ์ชื่อลูกค้า/รุ่นรถซ้ำเอง
+const PREFILL_KEY = 'lamom_finance_prefill'
+
 export default async function FinanceApplicationPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
+
+  let prefillData = null
+  try {
+    const raw = sessionStorage.getItem(PREFILL_KEY)
+    if (raw) { sessionStorage.removeItem(PREFILL_KEY); prefillData = JSON.parse(raw) }
+  } catch { prefillData = null }
 
   let apps = []
   let statusFilter = 'all'
@@ -109,6 +122,7 @@ export default async function FinanceApplicationPage(container) {
     document.getElementById('fa-search')?.addEventListener('input', e => { search = e.target.value; renderPage() })
     document.querySelectorAll('.sf-btn').forEach(b => b.addEventListener('click', () => { statusFilter = b.dataset.s; renderPage() }))
     document.getElementById('new-app-btn')?.addEventListener('click', () => openAppForm())
+    if (prefillData) { openAppForm(prefillData); prefillData = null }
     document.getElementById('fa-export')?.addEventListener('click', () => exportToExcel(filtered.map(a => ({ ลูกค้า:a.custName, รถ:a.vehicle, วงเงิน:a.loanAmount, งวด:a.tenure, ธนาคาร:a.bank, ผ่อน:a.monthlyPayment, สถานะ:APP_STATUS[a.status].label })), 'FinanceApps'))
     document.querySelectorAll('.app-card').forEach(card => {
       card.addEventListener('click', () => { const a = apps.find(x => x.id === card.dataset.id); if (a) openAppDetail(a) })
@@ -189,20 +203,21 @@ export default async function FinanceApplicationPage(container) {
     return `<div><div style="font-size:0.7rem;color:var(--text-muted)">${label}</div><div style="font-size:0.82rem;font-weight:600">${value}</div></div>`
   }
 
-  function openAppForm() {
+  function openAppForm(prefill = null) {
     const { el, close } = openModal({
       title: '🏦 ยื่นไฟแนนซ์ใหม่', size: 'md',
       body: `<div style="display:flex;flex-direction:column;gap:12px">
+        ${prefill?.bookingId ? `<div style="font-size:0.76rem;color:var(--primary);background:var(--primary-dim);padding:6px 10px;border-radius:8px">🔗 เชื่อมกับใบจอง: ${escHtml(prefill.custName||'')} — ${escHtml(prefill.vehicle||'')}</div>` : ''}
         <div class="grid-2">
-          <div class="input-group"><label class="input-label">ลูกค้า *</label><input class="input" id="fa-cust" placeholder="ชื่อ-นามสกุล"></div>
-          <div class="input-group"><label class="input-label">เบอร์โทร</label><input class="input" id="fa-phone" placeholder="08x-xxx-xxxx"></div>
+          <div class="input-group"><label class="input-label">ลูกค้า *</label><input class="input" id="fa-cust" placeholder="ชื่อ-นามสกุล" value="${escHtml(prefill?.custName||'')}"></div>
+          <div class="input-group"><label class="input-label">เบอร์โทร</label><input class="input" id="fa-phone" placeholder="08x-xxx-xxxx" value="${escHtml(prefill?.phone||'')}"></div>
         </div>
         <div class="grid-2">
-          <div class="input-group"><label class="input-label">รุ่นรถ *</label><input class="input" id="fa-vehicle" placeholder="เช่น BYD Seal AWD"></div>
-          <div class="input-group"><label class="input-label">ราคารถ (฿)</label><input class="input" type="number" id="fa-price" placeholder="0"></div>
+          <div class="input-group"><label class="input-label">รุ่นรถ *</label><input class="input" id="fa-vehicle" placeholder="เช่น BYD Seal AWD" value="${escHtml(prefill?.vehicle||'')}"></div>
+          <div class="input-group"><label class="input-label">ราคารถ (฿)</label><input class="input" type="number" id="fa-price" placeholder="0" value="${prefill?.vehiclePrice||''}"></div>
         </div>
         <div class="grid-2">
-          <div class="input-group"><label class="input-label">เงินดาวน์ (฿)</label><input class="input" type="number" id="fa-down" placeholder="0" oninput="document.getElementById('fa-loan-calc').textContent='วงเงิน: ฿'+(+document.getElementById('fa-price').value - +this.value).toLocaleString()"></div>
+          <div class="input-group"><label class="input-label">เงินดาวน์ (฿)</label><input class="input" type="number" id="fa-down" placeholder="0" value="${prefill?.downPayment||''}" oninput="document.getElementById('fa-loan-calc').textContent='วงเงิน: ฿'+(+document.getElementById('fa-price').value - +this.value).toLocaleString()"></div>
           <div class="input-group"><label class="input-label">จำนวนงวด (เดือน)</label>
             <select class="input" id="fa-tenure">
               ${[24,36,48,60,72,84].map(t => `<option value="${t}" ${t===60?'selected':''}>${t} เดือน</option>`).join('')}
@@ -246,7 +261,7 @@ export default async function FinanceApplicationPage(container) {
       try {
         // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
         // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
-        await createDoc('finance_applications', { custName, phone: el.querySelector('#fa-phone').value, vehicle, vehiclePrice:price, downPayment:down, loanAmount, tenure, bank: el.querySelector('#fa-bank').value, monthlyPayment:monthly, rate, status:'submitted', submittedDate:todayBangkok(), approvedDate:null, note: el.querySelector('#fa-note').value, documents:[] })
+        await createDoc('finance_applications', { custName, phone: el.querySelector('#fa-phone').value, vehicle, vehiclePrice:price, downPayment:down, loanAmount, tenure, bank: el.querySelector('#fa-bank').value, monthlyPayment:monthly, rate, status:'submitted', submittedDate:todayBangkok(), approvedDate:null, note: el.querySelector('#fa-note').value, documents:[], bookingId: prefill?.bookingId || null, customerId: prefill?.customerId || null })
         showToast('📤 ส่งขอสินเชื่อแล้ว', 'success'); close(); await loadData()
       } catch { btn.disabled = false; showToast('บันทึกไม่สำเร็จ', 'error') }
     })

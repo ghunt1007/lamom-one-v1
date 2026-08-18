@@ -835,6 +835,7 @@ export default async function BookingsPage(container) {
         (isCash ? dRow('การชำระ', 'ซื้อเงินสด') :
           dRow('ไฟแนนซ์', (b.financeCo || '-') + ' · ' + (b.finStatus || '')) + dRow('ยอดจัด', formatCurrency(b.financeAmount)) + dRow('งวด / ดอกเบี้ย', (b.installments || 0) + ' งวด · ' + (b.interestRate || 0) + '%') + dRow('ค่างวด/เดือน', formatCurrency(b.monthly))) +
         dRow('แคมเปญ', b.campaign || '-') +
+        (!isCash ? sec('🏦 สถานะยื่นไฟแนนซ์ (Finance Application)') + '<div id="bk-finapp-panel"><div class="skeleton" style="height:34px;border-radius:10px"></div></div>' : '') +
         sec('💵 กำไร / คอมมิชชั่น') +
         dRow('ต้นทุนรถ', formatCurrency(b.cost)) + dRow('กำไรขั้นต้น (Margin)', formatCurrency(b.margin)) + dRow('งบการตลาดที่ใช้', formatCurrency(b.budgetUsed)) +
         '<div style="display:flex;gap:6px;padding:2px 0"><span style="color:var(--text-muted);min-width:110px;flex-shrink:0;font-size:0.82rem">กำไรคงเหลือ</span><span style="font-weight:700;color:var(--success);font-size:0.82rem">' + formatCurrency(b.marginLeft != null ? b.marginLeft : (b.margin || 0) - (b.budgetUsed || 0)) + '</span></div>' +
@@ -872,10 +873,21 @@ export default async function BookingsPage(container) {
               (Number(b.down) > 0 && !b.rightsOnly && b.status !== 'ถอนจอง' && b.paymentVerifyStatus !== 'ยืนยันแล้ว' && b.paymentVerifyStatus !== 'รอการเงินยืนยัน'
                 ? '<button class="btn btn-secondary" id="bk-verify-pay" style="color:var(--warning)">💸 แจ้งการเงินตรวจยอด</button>' : '') +
               '<button class="btn btn-secondary" id="bk-print">🖨 พิมพ์ใบจอง</button>' +
+              (!isCash ? '<button class="btn btn-secondary" id="bk-finance-btn">🏦 ยื่นไฟแนนซ์</button>' : '') +
               (b.status === 'ถอนจอง'
                 ? '<button class="btn btn-danger" id="bk-print-cancel">🖨 พิมพ์ใบถอนจอง</button>'
                 : '<button class="btn btn-primary" id="bk-to-doc">📄 สร้างเอกสาร</button>') +
               '<button class="btn btn-danger" id="bk-delete2">🗑️ ลบใบจอง</button>'
+    })
+    if (!isCash) refreshFinAppPanel(b)
+    document.getElementById('bk-finance-btn')?.addEventListener('click', () => {
+      sessionStorage.setItem('lamom_finance_prefill', JSON.stringify({
+        bookingId: b.id, customerId: b.customerId || null, custName: b.custName || '', phone: b.phone || '',
+        vehicle: `${detectBrand(b.brand, b.model) || b.brand || ''} ${b.model || ''} ${b.variant || ''}`.trim(),
+        vehiclePrice: b.price || 0, downPayment: b.down || 0,
+      }))
+      document.querySelectorAll('.modal-overlay').forEach(m => m.remove())
+      navigate('/finance/application')
     })
     document.getElementById('bk-edit2')?.addEventListener('click', () => { document.querySelectorAll('.modal-overlay').forEach(m => m.remove()); openForm(b) })
     document.getElementById('bk-note2')?.addEventListener('click', () => { document.querySelectorAll('.modal-overlay').forEach(m => m.remove()); openNoteModal(b) })
@@ -896,6 +908,21 @@ export default async function BookingsPage(container) {
     document.getElementById('bk-print-cancel')?.addEventListener('click', () => openCancelPrintModal(b))
     document.getElementById('bk-to-doc')?.addEventListener('click', () => { document.querySelector('.modal-overlay')?.remove(); navigate('/documents') })
     document.getElementById('bk-delete2')?.addEventListener('click', () => deleteBooking(b))
+  }
+
+  // (v1.0.461) เดิมสถานะไฟแนนซ์บนใบจอง (finStatus ที่กรอกเอง) กับใบสมัครไฟแนนซ์จริงที่ฝ่ายการเงินยื่นกับ
+  // ธนาคาร (collection finance_applications) เป็นคนละระบบแยกกันสนิท ไม่มีรหัสเชื่อมกันเลย ("เบ็ดเสร็จจุดเดียว")
+  // — ต่อไปนี้ใบสมัครที่ยื่นผ่านปุ่มนี้จะผูก bookingId ไว้จริง ทำให้ดูสถานะจริงจากธนาคารได้ตรงนี้เลย
+  async function refreshFinAppPanel(b) {
+    const el = document.getElementById('bk-finapp-panel')
+    if (!el) return
+    let apps = []
+    try { apps = await listDocs('finance_applications', [], 'submittedDate', 'desc', 300) } catch { apps = [] }
+    if (!document.getElementById('bk-finapp-panel')) return
+    const a = apps.find(x => x.bookingId === b.id)
+    if (!a) { el.innerHTML = `<div style="font-size:0.8rem;color:var(--text-muted)">ยังไม่ได้ยื่นไฟแนนซ์จริงกับธนาคาร — กด "🏦 ยื่นไฟแนนซ์" ด้านล่าง</div>`; return }
+    const st = { draft:'Draft', submitted:'ส่งแล้ว', pending:'รออนุมัติ', approved:'✅ อนุมัติ', rejected:'❌ ไม่อนุมัติ', cancelled:'ยกเลิก' }[a.status] || a.status
+    el.innerHTML = `<div class="card" style="padding:8px 12px;font-size:0.8rem">🏦 ${escHtml(a.bank || '-')} — ${escHtml(st)} · วงเงิน ${formatCurrency(a.loanAmount || 0)}</div>`
   }
 
   // ── โน๊ตด่วน — เพิ่ม/แก้ไขหมายเหตุโดยไม่ต้องเปิดฟอร์มเต็ม ─────────────────
