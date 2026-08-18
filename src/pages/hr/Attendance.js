@@ -32,7 +32,10 @@ export default async function AttendancePage(container) {
     activeStaff = staffList
       // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true — พนักงานที่ "ลบ" ไปแล้วต้องไม่มาลงเวลา/รับเงินเดือนต่อ
       .filter(s => !s.deleted)
-      .filter(s => !s.companyId || !activeCompanyFilter.length || activeCompanyFilter.includes(s.companyId))
+      .filter(s => {
+        const ids = s.companyIds?.length ? s.companyIds : (s.companyId ? [s.companyId] : [])
+        return !ids.length || !activeCompanyFilter.length || ids.some(id => activeCompanyFilter.includes(id))
+      })
       .map(s => ({
         id: s.id,
         name: s.name || s.staffName || [s.firstName, s.lastName].filter(Boolean).join(' '),

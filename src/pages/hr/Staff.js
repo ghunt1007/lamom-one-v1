@@ -15,6 +15,29 @@ function companyNameOf(companiesList, companyId) {
   if (!companyId) return ''
   return companiesList.find(c => c.id === companyId)?.name || ''
 }
+// (v1.0.463) พนักงาน 1 คนสังกัดได้หลายบริษัทในเครือ (เช่น ตำแหน่งงานที่ดูแลรวมทุกบริษัท) ตามที่ขอ — ข้อมูลเดิม
+// มีแค่ companyId เดี่ยว เก็บ fallback ไว้ให้ยังอ่านข้อมูลเก่าได้ปกติ ไม่ต้อง migrate ย้อนหลัง
+function companyIdsOf(s) {
+  return s?.companyIds?.length ? s.companyIds : (s?.companyId ? [s.companyId] : [])
+}
+function companyNamesOf(companiesList, s) {
+  return companyIdsOf(s).map(id => companyNameOf(companiesList, id)).filter(Boolean).join(', ')
+}
+// (v1.0.463) เดิมช่องตำแหน่งเป็น <input list=datalist> ตามที่แจ้งว่า "กดเปลี่ยนไม่ได้" — เบราว์เซอร์ส่วนใหญ่
+// ไม่เปิด dropdown ให้อัตโนมัติถ้าช่องมีข้อความอยู่แล้ว (ต้องลบข้อความเดิมก่อนถึงเห็นตัวเลือก) ทำให้ดูเหมือนกดไม่ติด
+// เปลี่ยนเป็น <select> จริงแทน กดแล้วเห็น dropdown ทันทีเหมือนช่องอื่นๆในฟอร์มนี้ ยังพิมพ์เองได้ผ่านตัวเลือก "อื่นๆ"
+function positionSelectHtml(id, currentValue, allowEmpty = false) {
+  const positions = getPositions()
+  const isOther = currentValue && !positions.includes(currentValue)
+  return `
+    <select class="input position-select" id="${id}" data-other-id="${id}-other">
+      ${allowEmpty ? `<option value="">— ไม่ระบุ —</option>` : ''}
+      ${positions.map(p => `<option value="${escHtml(p)}" ${currentValue===p?'selected':''}>${escHtml(p)}</option>`).join('')}
+      <option value="__other__" ${isOther?'selected':''}>อื่นๆ (พิมพ์เอง)</option>
+    </select>
+    <input class="input" id="${id}-other" value="${escHtml(isOther?currentValue:'')}" placeholder="พิมพ์ตำแหน่งเอง" style="margin-top:6px;display:${isOther?'block':'none'}">
+  `
+}
 
 // พบว่าเดิมหน้านี้แสดงเงินเดือนของ "ทุกคน" บนการ์ด/ป๊อปอัพรายละเอียด/ยอดรวมหัวหน้า/ไฟล์ Export ให้เห็นตรงๆ
 // โดยไม่มีการเช็คสิทธิ์เลยแม้แต่จุดเดียว — พนักงานขาย/ช่างธรรมดาที่เปิดหน้านี้ (ซึ่งเข้าถึงได้โดยปริยายถ้าแอดมิน
@@ -200,7 +223,7 @@ export default async function StaffPage(container) {
         <div style="display:flex;flex-direction:column;gap:4px;font-size:0.82rem">
           <div><span class="badge badge-${color}" style="font-size:0.72rem">${role}</span> <span style="color:var(--text-muted);font-size:0.78rem">${escHtml(s.dept)}</span></div>
           ${s.position ? `<div style="color:var(--text-2);font-weight:600">🏷️ ${escHtml(s.position)}${s.positionSecondary ? ` <span style="color:var(--text-muted);font-weight:400">(+${escHtml(s.positionSecondary)})</span>` : ''}</div>` : ''}
-          ${companyNameOf(companiesList, s.companyId) ? `<div style="color:var(--text-muted)">🏢 ${escHtml(companyNameOf(companiesList, s.companyId))}</div>` : ''}
+          ${companyNamesOf(companiesList, s) ? `<div style="color:var(--text-muted)">🏢 ${escHtml(companyNamesOf(companiesList, s))}</div>` : ''}
           <div style="color:var(--text-2)">${stEl}</div>
           <div style="color:var(--text-muted)">📅 ${formatDate(s.startDate)}</div>
           ${s.phone ? `<div style="color:var(--text-muted)">📱 ${escHtml(s.phone)}</div>` : ''}
@@ -219,7 +242,7 @@ export default async function StaffPage(container) {
           ${dRow('🏷','ชื่อ-นามสกุล',`${s.firstName} ${s.lastName}`)}
           ${s.nickname ? dRow('😊','ชื่อเล่น',s.nickname) : ''}
           ${dRow('💼','ระดับสิทธิ์',role)}
-          ${companyNameOf(companiesList, s.companyId) ? dRow('🏢','บริษัท', escHtml(companyNameOf(companiesList, s.companyId))) : ''}
+          ${companyNamesOf(companiesList, s) ? dRow('🏢','บริษัท', escHtml(companyNamesOf(companiesList, s))) : ''}
           ${s.position ? dRow('🏷️','ตำแหน่งหลัก',s.position) : ''}
           ${s.positionSecondary ? dRow('🏷️','ตำแหน่งรอง',s.positionSecondary) : ''}
           ${dRow('🏬','แผนก',s.dept||'-')}
@@ -318,19 +341,22 @@ export default async function StaffPage(container) {
               </select>
             </div>
           </div>
-          ${companiesList.length ? `<div class="input-group"><label class="input-label">บริษัท <span style="font-size:0.65rem;color:var(--text-muted)">(พนักงานคนนี้อยู่บริษัทไหนในเครือ — แก้รายชื่อบริษัทได้ที่ Settings > บริษัทในเครือ)</span></label>
-            <select class="input" id="sf-company">
-              <option value="">— ไม่ระบุบริษัท —</option>
-              ${companiesList.map(c => `<option value="${c.id}" ${(existing?.companyId || myEffectiveCompanyId() || '') === c.id ? 'selected' : ''}>${escHtml(c.name)}</option>`).join('')}
-            </select>
-          </div>` : ''}
+          ${companiesList.length ? (() => {
+            const selectedIds = isEdit ? companyIdsOf(existing) : (myEffectiveCompanyId() ? [myEffectiveCompanyId()] : [])
+            return `<div class="input-group"><label class="input-label">บริษัท (เลือกได้หลายบริษัท) <span style="font-size:0.65rem;color:var(--text-muted)">(พนักงานคนนี้อยู่บริษัทไหนในเครือได้มากกว่า 1 บริษัท — แก้รายชื่อบริษัทได้ที่ Settings > บริษัทในเครือ)</span></label>
+            <div style="display:flex;flex-wrap:wrap;gap:12px;padding:8px 0">
+              ${companiesList.map(c => `<label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;cursor:pointer">
+                <input type="checkbox" class="sf-company-cb" value="${c.id}" ${selectedIds.includes(c.id) ? 'checked' : ''}> ${escHtml(c.name)}
+              </label>`).join('')}
+            </div>
+          </div>`
+          })() : ''}
           <div class="grid-2">
             <div class="input-group"><label class="input-label">ตำแหน่งหลัก (ชื่อตำแหน่งจริง) <span style="font-size:0.65rem;color:var(--text-muted)">(เลือกจากรายชื่อมาตรฐาน หรือพิมพ์เองได้ — แก้รายชื่อมาตรฐานได้ที่ Settings > Master Data)</span></label>
-              <input class="input" id="sf-position" list="sf-position-options" value="${escHtml(existing?.position||'')}" placeholder="เช่น เซลส์">
-              <datalist id="sf-position-options">${getPositions().map(p => `<option value="${escHtml(p)}">`).join('')}</datalist>
+              ${positionSelectHtml('sf-position', existing?.position || '')}
             </div>
             <div class="input-group"><label class="input-label">ตำแหน่งรอง <span style="font-size:0.65rem;color:var(--text-muted)">(ถ้ามี — เช่น รักษาการตำแหน่งอื่นควบ)</span></label>
-              <input class="input" id="sf-position2" list="sf-position-options" value="${escHtml(existing?.positionSecondary||'')}" placeholder="ไม่บังคับ">
+              ${positionSelectHtml('sf-position2', existing?.positionSecondary || '', true)}
             </div>
           </div>
           <div class="grid-2">
@@ -444,6 +470,12 @@ export default async function StaffPage(container) {
         btn.closest('.wh-row').remove()
       }
     })
+    el.querySelectorAll('.position-select').forEach(sel => {
+      sel.addEventListener('change', () => {
+        const other = el.querySelector('#' + sel.dataset.otherId)
+        if (other) other.style.display = sel.value === '__other__' ? 'block' : 'none'
+      })
+    })
     el.querySelector('#sfs').addEventListener('click', async () => {
       const fn = el.querySelector('#sf-fn').value.trim()
       const ln = el.querySelector('#sf-ln').value.trim()
@@ -455,11 +487,16 @@ export default async function StaffPage(container) {
         if (!r.valid) { el.querySelector('#sf-nid-e').textContent = r.error; return }
       }
       const btn = el.querySelector('#sfs'); btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
+      const readPosition = (selId, otherId) => {
+        const v = el.querySelector('#' + selId)?.value || ''
+        return v === '__other__' ? (el.querySelector('#' + otherId)?.value.trim() || '') : v
+      }
+      const selectedCompanyIds = [...el.querySelectorAll('.sf-company-cb:checked')].map(cb => cb.value)
       const data = {
         firstName: fn, lastName: ln, nickname: el.querySelector('#sf-nn').value.trim(),
-        role: el.querySelector('#sf-role').value, position: el.querySelector('#sf-position').value.trim(),
-        positionSecondary: el.querySelector('#sf-position2')?.value.trim() || '',
-        ...(el.querySelector('#sf-company') ? { companyId: el.querySelector('#sf-company').value || null } : {}),
+        role: el.querySelector('#sf-role').value, position: readPosition('sf-position', 'sf-position-other'),
+        positionSecondary: readPosition('sf-position2', 'sf-position2-other'),
+        ...(el.querySelector('.sf-company-cb') ? { companyIds: selectedCompanyIds, companyId: selectedCompanyIds[0] || null } : {}),
         dept: el.querySelector('#sf-dept').value,
         status: el.querySelector('#sf-status').value, phone: el.querySelector('#sf-phone').value.trim(),
         email: el.querySelector('#sf-email').value.trim(), startDate: el.querySelector('#sf-start').value,
@@ -504,13 +541,13 @@ export default async function StaffPage(container) {
           // แล้วโหลดข้อมูลใหม่ทั้งหมด เพราะตอนนี้ collection มีเอกสารจริงแล้ว isDemoData จะกลายเป็น false
           // ไม่ต้องใช้ DEMO_STAFF fallback อีกต่อไป — ต้อง reload กันรายการตัวอย่างเดิม (รวมตัวที่เพิ่งแก้)
           // ค้างซ้ำอยู่กับของจริงที่เพิ่งสร้าง
-          const payload = { ...data, companyId: data.companyId ?? myEffectiveCompanyId() }
+          const payload = { ...data, companyId: data.companyId ?? myEffectiveCompanyId(), companyIds: data.companyIds?.length ? data.companyIds : (myEffectiveCompanyId() ? [myEffectiveCompanyId()] : []) }
           staffId = await createDoc('staff', payload)
           await loadData()
         } else {
           // Phase 2 หลายบริษัท — ติด companyId ของบริษัทหลักที่พนักงานคนสร้างสังกัดอยู่ (ถ้ามี) พนักงานเดิม
           // ที่ไม่มี companyId ยังเห็นได้ทุกคนเหมือนเดิม (ไม่ถูกกรองออก)
-          const payload = { ...data, companyId: data.companyId ?? myEffectiveCompanyId() }
+          const payload = { ...data, companyId: data.companyId ?? myEffectiveCompanyId(), companyIds: data.companyIds?.length ? data.companyIds : (myEffectiveCompanyId() ? [myEffectiveCompanyId()] : []) }
           staffId = await createDoc('staff', payload)
           // (v1.0.448) เดิมกดปุ่ม "เพิ่มพนักงาน" (ไม่ใช่แก้ไข) ตอน isDemoData=true (ยังไม่มีพนักงานจริงเลย
           // ระบบเลยโชว์ DEMO_STAFF 5 คนตัวอย่างแทน) จะแค่ unshift พนักงานจริงที่เพิ่งสร้างเข้าไปปนกับของตัวอย่าง

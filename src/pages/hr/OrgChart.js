@@ -81,8 +81,13 @@ export default async function OrgChartPage(container) {
     return u?.companyMemberships?.find(m => m.companyId === companyId) || null
   }
 
+  // (v1.0.463) พนักงาน 1 คนสังกัดได้หลายบริษัทแล้ว (companyIds array) — เก็บ fallback ให้ companyId เดี่ยวเดิม
+  // ยังอ่านได้ปกติสำหรับข้อมูลก่อนหน้านี้ที่ยังไม่ถูกแก้ผ่านฟอร์มใหม่
+  function staffCompanyIds(s) {
+    return s?.companyIds?.length ? s.companyIds : (s?.companyId ? [s.companyId] : [])
+  }
   function staffInCompany(s, companyId) {
-    if (s.companyId === companyId) return true
+    if (staffCompanyIds(s).includes(companyId)) return true
     return !!membershipFor(s, companyId)
   }
 
@@ -249,7 +254,7 @@ export default async function OrgChartPage(container) {
             <div style="font-size:0.68rem;color:var(--text-muted);margin-bottom:6px">หน้าร้าน (แยกแต่ละยี่ห้อ)</div>
             <div style="display:grid;grid-template-columns:repeat(${Math.max(companies.length,1)},1fr);gap:8px;margin-bottom:12px">
               ${(companies.length ? companies : [null]).map((c, i) => {
-                const floorStaff = c ? pool.filter(s => COMPANY_SECTION_MAP[s.position] === 'sales-floor' && s.companyId === c.id) : []
+                const floorStaff = c ? pool.filter(s => COMPANY_SECTION_MAP[s.position] === 'sales-floor' && staffCompanyIds(s).includes(c.id)) : []
                 return `<div style="text-align:center">
                   ${c ? `<div style="font-size:0.65rem;font-weight:700;color:${brandColor(i)};margin-bottom:4px">${esc(c.brand||c.name)}</div>` : ''}
                   ${box('ผู้จัดการทีม+ลูกทีม', '👔', floorStaff, { minWidth: '100%', color: brandColor(i) })}
@@ -268,7 +273,7 @@ export default async function OrgChartPage(container) {
           <div style="padding:8px 12px;background:#f59e0b;color:white;font-weight:700;font-size:0.8rem">🔧 ฝ่ายเซอร์วิส (แยกแต่ละยี่ห้อ)</div>
           <div style="padding:12px;display:grid;grid-template-columns:repeat(${Math.max(companies.length,1)},1fr);gap:8px">
             ${(companies.length ? companies : [null]).map((c, i) => {
-              const svcStaff = c ? pool.filter(s => COMPANY_SECTION_MAP[s.position] === 'service' && s.companyId === c.id) : []
+              const svcStaff = c ? pool.filter(s => COMPANY_SECTION_MAP[s.position] === 'service' && staffCompanyIds(s).includes(c.id)) : []
               return `<div style="text-align:center">
                 ${c ? `<div style="font-size:0.65rem;font-weight:700;color:${brandColor(i)};margin-bottom:4px">${esc(c.brand||c.name)}</div>` : ''}
                 ${Object.keys(SERVICE_ROLE_LABEL).map(pos => box(SERVICE_ROLE_LABEL[pos], '🔧', svcStaff.filter(s => s.position === pos), { minWidth: '100%', color: brandColor(i) })).join('<div style="height:4px"></div>')}
