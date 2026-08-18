@@ -2,8 +2,9 @@
  * Org Chart — แผนผังองค์กร
  * Route: /hr/orgchart
  */
-import { openModal } from '../../utils/modal.js'
-import { listDocs } from '../../core/db.js'
+import { openModal, confirmDialog } from '../../utils/modal.js'
+import { listDocs, updateDocData } from '../../core/db.js'
+import { getState, showToast } from '../../core/store.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { getVisibilityScope, scopeIncludesStaff } from '../../core/hierarchy.js'
 import { ROLES } from './Staff.js'
@@ -68,6 +69,12 @@ export default async function OrgChartPage(container) {
     staff = docs.filter(s => !s.deleted)
   } catch {}
   try { companiesList = await listDocs('org_companies', [], 'name', 'asc', 100) } catch {}
+
+  // (v1.0.468) "ลากวางตั้งค่าเชื่อมโยงได้" ตามที่ขอ — ให้สิทธิ์เปลี่ยนหัวหน้างานจริงผ่านการลากวางเฉพาะ role ที่
+  // แก้ไข staff.managerId ได้อยู่แล้วตาม Firestore Rules (isHR() = owner/admin/manager/hr) กันไม่ให้เซลส์/ช่าง
+  // ทั่วไปที่เปิดหน้านี้มาดูทีมตัวเองไปลากเปลี่ยนโครงสร้างองค์กรคนอื่นได้โดยไม่ตั้งใจ
+  const myRole = getState('role') || getState('user')?.role || 'staff'
+  const canReorg = ['owner', 'admin', 'manager', 'hr'].includes(myRole)
   try {
     const users = await listDocs('users', [], 'createdAt', 'desc', 500)
     usersByUid = Object.fromEntries(users.map(u => [u.id, u]))
@@ -395,9 +402,13 @@ export default async function OrgChartPage(container) {
     const { nodes, edges } = computeDragLayout(roots)
     const maxX = Math.max(400, ...nodes.map(n => n.x + DRAG_NODE_W + 40))
     const maxY = Math.max(300, ...nodes.map(n => n.y + DRAG_NODE_H + 40))
+    const canReorgDrop = canReorg && selectedCompany === 'all'
+    const reorgHint = canReorgDrop
+      ? ' · 🔗 ลากไปวางทับกล่องอื่นเพื่อเปลี่ยนหัวหน้างานจริง (บันทึกลงระบบทันที)'
+      : (canReorg ? ' · 🔒 เปลี่ยนหัวหน้างานได้เฉพาะมุมมอง "สายบังคับบัญชาหลัก" เท่านั้น' : '')
     return `
       <div style="margin-bottom:8px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-        <div style="font-size:0.74rem;color:var(--text-muted)">🖱️ ลากกล่องเพื่อจัดตำแหน่งเอง — บันทึกอัตโนมัติ (เฉพาะเบราว์เซอร์นี้) · กดเฉยๆเพื่อดูรายละเอียด</div>
+        <div style="font-size:0.74rem;color:var(--text-muted)">🖱️ ลากกล่องเพื่อจัดตำแหน่งเอง — บันทึกอัตโนมัติ (เฉพาะเบราว์เซอร์นี้)${reorgHint} · กดเฉยๆเพื่อดูรายละเอียด</div>
         <button class="btn btn-xs btn-secondary" id="drag-reset-btn">🔄 จัดเรียงใหม่</button>
       </div>
       <div id="drag-canvas" style="position:relative;width:${maxX}px;height:${maxY}px;background:var(--surface-2)">
@@ -417,9 +428,56 @@ export default async function OrgChartPage(container) {
       </div>
     `
   }
+  // (v1.0.468) เดินขึ้นสาย managerId จริงจาก targetId — ถ้าเจอ nodeId ระหว่างทาง แปลว่า targetId เป็น
+  // ผู้ใต้บังคับบัญชา (ทางตรง/ทางอ้อม) ของ nodeId อยู่แล้ว ห้ามลากตั้งให้ targetId เป็นหัวหน้าของ nodeId
+  // เพราะจะเกิดสายบังคับบัญชาวนกลับ (nodeId → targetId → ... → nodeId)
+  function isDescendantOf(targetId, nodeId) {
+    let cur = staff.find(s => s.id === targetId)
+    const visited = new Set()
+    while (cur && cur.managerId && !visited.has(cur.id)) {
+      visited.add(cur.id)
+      if (cur.managerId === nodeId) return true
+      cur = staff.find(s => s.id === cur.managerId)
+    }
+    return false
+  }
+  function clearDragPosition(id) {
+    const pos = loadDragPositions()
+    delete pos[id]
+    try { localStorage.setItem(DRAG_STORAGE_KEY, JSON.stringify(pos)) } catch {}
+  }
+  async function handleReparentDrop(node, targetId, origLeft, origTop, updateLines) {
+    const nodeId = node.dataset.id
+    const revert = () => { node.style.left = origLeft + 'px'; node.style.top = origTop + 'px'; updateLines() }
+    if (nodeId === targetId) return revert()
+    if (isDescendantOf(targetId, nodeId)) {
+      showToast('ตั้งเป็นหัวหน้าไม่ได้ — จะเกิดสายบังคับบัญชาวนกลับ (คนๆนี้เป็นผู้ใต้บังคับบัญชาอยู่แล้ว)', 'error')
+      return revert()
+    }
+    const person = staff.find(s => s.id === nodeId)
+    const target = staff.find(s => s.id === targetId)
+    if (!person || !target) return revert()
+    const ok = await confirmDialog({
+      title: '🔗 เปลี่ยนหัวหน้างาน',
+      message: `ตั้งให้ "${esc(nameOf(target))}" เป็นหัวหน้างานของ "${esc(nameOf(person))}" ใช่หรือไม่? การเปลี่ยนแปลงนี้จะบันทึกลงระบบทันที`,
+      confirmText: 'ยืนยัน',
+    })
+    if (!ok) return revert()
+    try {
+      await updateDocData('staff', nodeId, { managerId: targetId })
+      person.managerId = targetId
+      clearDragPosition(nodeId)
+      showToast(`ตั้ง "${nameOf(target)}" เป็นหัวหน้างานของ "${nameOf(person)}" แล้ว`, 'success')
+      renderPage()
+    } catch {
+      showToast('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง', 'error')
+      revert()
+    }
+  }
   function initDragView() {
     const canvas = document.getElementById('drag-canvas')
     if (!canvas) return
+    const canReorgDrop = canReorg && selectedCompany === 'all'
     function updateLines() {
       canvas.querySelectorAll('#drag-lines line').forEach(line => {
         const fromEl = canvas.querySelector(`.chart-node[data-id="${line.dataset.from}"]`)
@@ -434,6 +492,25 @@ export default async function OrgChartPage(container) {
     updateLines()
     canvas.querySelectorAll('.chart-node').forEach(node => {
       let dragging = false, moved = false, startX = 0, startY = 0, origLeft = 0, origTop = 0
+      let dropTargetEl = null
+      function clearDropHighlight() {
+        if (dropTargetEl) { dropTargetEl.style.outline = ''; dropTargetEl.style.outlineOffset = '' }
+        dropTargetEl = null
+      }
+      function updateDropTarget(left, top) {
+        const cx = left + node.offsetWidth / 2
+        const cy = top + node.offsetHeight / 2
+        let found = null
+        canvas.querySelectorAll('.chart-node').forEach(el => {
+          if (el === node) return
+          const l = el.offsetLeft, t = el.offsetTop, w = el.offsetWidth, h = el.offsetHeight
+          if (cx >= l && cx <= l + w && cy >= t && cy <= t + h) found = el
+        })
+        if (found !== dropTargetEl) {
+          clearDropHighlight()
+          if (found) { found.style.outline = '3px solid var(--success)'; found.style.outlineOffset = '2px'; dropTargetEl = found }
+        }
+      }
       node.addEventListener('pointerdown', e => {
         dragging = true; moved = false
         startX = e.clientX; startY = e.clientY
@@ -447,15 +524,22 @@ export default async function OrgChartPage(container) {
         const dx = e.clientX - startX, dy = e.clientY - startY
         if (Math.abs(dx) > 3 || Math.abs(dy) > 3) moved = true
         if (!moved) return
-        node.style.left = Math.max(0, origLeft + dx) + 'px'
-        node.style.top = Math.max(0, origTop + dy) + 'px'
+        const newLeft = Math.max(0, origLeft + dx)
+        const newTop = Math.max(0, origTop + dy)
+        node.style.left = newLeft + 'px'
+        node.style.top = newTop + 'px'
         updateLines()
+        if (canReorgDrop) updateDropTarget(newLeft, newTop)
       })
       node.addEventListener('pointerup', () => {
         dragging = false
         node.style.cursor = 'grab'
         node.style.zIndex = 1
-        if (moved) {
+        const targetId = dropTargetEl?.dataset.id
+        clearDropHighlight()
+        if (moved && targetId) {
+          handleReparentDrop(node, targetId, origLeft, origTop, updateLines)
+        } else if (moved) {
           saveDragPosition(node.dataset.id, node.offsetLeft, node.offsetTop)
         } else {
           const s = staff.find(x => x.id === node.dataset.id)
