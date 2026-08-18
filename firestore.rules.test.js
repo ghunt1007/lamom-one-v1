@@ -1671,14 +1671,29 @@ describe('booking_national_ids (v1.0.304) — customer national ID scoped to sal
 // (ดู list-query เคสที่ 4/5 โดยเฉพาะ — Firestore ปฏิเสธทั้ง query ถ้า where ไม่ตรงกับ rule ไม่ใช่กรองผลลัพธ์
 // บางส่วนออกเงียบๆ)
 describe('company scoping — core mechanism, first real collection: tasks (v1.0.455)', () => {
-  it('owner sees a task from a company they are not a member of (no where clause needed)', async () => {
-    await seedUser('csOwner1', { role: 'owner', active: true })
+  // (v1.0.465) นโยบายที่เจ้าของระบบยืนยันชัดเจน: "แอดมิน/เจ้าของบริษัทเห็นได้เฉพาะบริษัทตัวเองเท่านั้น
+  // ยกเว้นฉันซึ่งเป็นเจ้าของโปรแกรม" — canSeeCompanyDoc() เปลี่ยนจาก isAdmin() (role owner/admin ใครก็ได้)
+  // เป็น isProgramOwner() (ผูกกับอีเมลบัญชีเดียวเท่านั้น) เทสนี้เดิมชื่อ "owner sees..." ทดสอบด้วย role='owner'
+  // เฉยๆ (ไม่ผูกอีเมล) ซึ่งตอนนี้ "ไม่ควร" ข้ามบริษัทได้อีกต่อไป — แก้เทสให้ตรงกับพฤติกรรมใหม่ที่ตั้งใจ
+  it('the program-owner account (by email) sees a task from a company they are not a member of', async () => {
+    await seedUser('csProgOwner', { role: 'owner', active: true })
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await ctx.firestore().doc('tasks/csT1').set({ title: 'x', companyId: 'companyB' })
     })
-    const db = testEnv.authenticatedContext('csOwner1').firestore()
+    const db = testEnv.authenticatedContext('csProgOwner', { email: 'ghunt1007@gmail.com' }).firestore()
     await assertSucceeds(db.doc('tasks/csT1').get())
     await assertSucceeds(db.collection('tasks').get())
+  })
+
+  it('a plain owner-role account that is NOT the program-owner email is company-scoped like anyone else (the actual policy change)', async () => {
+    await seedUser('csOwner1', { role: 'owner', active: true, companyIds: ['companyA'] })
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('tasks/csT1b').set({ title: 'x', companyId: 'companyB' })
+    })
+    const db = testEnv.authenticatedContext('csOwner1', { email: 'somsak@lamom.one' }).firestore()
+    await assertFails(db.doc('tasks/csT1b').get())
+    await assertFails(db.collection('tasks').get())
+    await assertSucceeds(db.collection('tasks').where('companyId', 'in', ['companyA']).get())
   })
 
   it('a groupWide:true user sees a task from a company they are not a member of', async () => {

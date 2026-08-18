@@ -1,6 +1,7 @@
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData, setDocData, migrateStaffSalaries } from '../../core/db.js'
 import { showToast, getState, on } from '../../core/store.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { getVisibilityScope, scopeIncludesStaff } from '../../core/hierarchy.js'
 import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -102,13 +103,24 @@ export default async function StaffPage(container) {
   // collection จริงว่างเปล่า โดยไม่มีตัวบอกบนหน้าจอเลยว่านี่คือข้อมูลตัวอย่าง (ต่างจาก ExpenseOcr.js ที่ label
   // "Demo" ไว้ชัดเจน) ผู้ใช้อาจเข้าใจผิดว่าเป็นพนักงานจริง — เพิ่มตัวแปรนี้ไว้โชว์ป้าย "ข้อมูลตัวอย่าง" แทน
   let isDemoData = false
+  let scope = null // ผลลัพธ์ล่าสุดจาก getVisibilityScope() — ใช้โชว์แบนเนอร์บอกขอบเขตที่เห็นอยู่
 
   async function loadData() {
     // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true — ถ้าไม่กรองออก พนักงานที่ "ลบ" ไปแล้วจะยังโผล่
     // กลับมาในรายชื่อทุกครั้งที่โหลดหน้านี้ใหม่ (และยังเข้าเกณฑ์ลงเวลา/คำนวณเงินเดือนที่หน้าอื่นต่อไปด้วย)
     try { staff = (await listDocs('staff', companyScopeFilters(), 'startDate', 'asc', 500)).filter(s => !s.deleted) } catch {}
     isDemoData = !staff.length
-    if (isDemoData) DEMO_STAFF.forEach(s => staff.push({ ...s }))
+    if (isDemoData) {
+      DEMO_STAFF.forEach(s => staff.push({ ...s }))
+    } else {
+      // (v1.0.465) "ระดับสิทธิ์ผู้ใช้งานเห็นเฉพาะผู้ใต้บังคับบัญชาลงไปเท่านั้น...อิงจากผังองค์กร" — กรองซ้ำ
+      // อีกชั้นหลัง companyScopeFilters() (ที่กรองแค่ระดับบริษัท) ด้วยสายบังคับบัญชาจริง (managerId) เจ้าของ
+      // โปรแกรม/แอดมิน/เจ้าของบริษัทไม่ถูกกรองชั้นนี้ (ดู getVisibilityScope())
+      try {
+        scope = await getVisibilityScope()
+        staff = staff.filter(s => scopeIncludesStaff(scope, s))
+      } catch {}
+    }
     // เงินเดือนย้ายไปเก็บที่ staff_salaries แยกต่างหากแล้ว (v1.0.303) — ดึงมาผสานทับ s.salary เฉพาะตอนมี
     // สิทธิ์เห็นเท่านั้น (staff_salaries อ่านได้แค่ HR/การเงิน/ผู้จัดการ ยิงคำขอไปก็ได้แค่ permission-denied
     // เปล่าๆถ้าไม่มีสิทธิ์) เอกสารเก่าที่ยังไม่ได้ย้ายข้อมูลออกจะ fallback ไปใช้ค่าเดิมที่ฝังใน staff doc ต่อไป

@@ -13,6 +13,14 @@ service cloud.firestore {
       return request.auth.uid;
     }
 
+    // (v1.0.465) เจ้าของโปรแกรม (บัญชีนี้เท่านั้น) เห็น/แก้ไขได้ทุกอย่างทุกบริษัทไม่มีข้อจำกัด — ผูกกับอีเมล
+    // ไม่ใช่ role 'owner' เพราะ role นี้อาจมีเจ้าของธุรกิจจริงคนอื่น (ที่ควรถูกจำกัดแค่บริษัทตัวเอง) ถืออยู่ด้วย
+    // ในอนาคต — ดู client-side ที่เทียบเคียงกันใน src/core/hierarchy.js (PROGRAM_OWNER_EMAIL)
+    function isProgramOwner() {
+      return isSignedIn() && request.auth.token.email != null
+        && request.auth.token.email.lower() == 'ghunt1007@gmail.com';
+    }
+
     // สิทธิ์แบบจำกัดเวลา (accessExpiresAt) — ถ้า field นี้มีค่าและผ่านมาแล้ว ถือว่าหมดสิทธิ์ทันที
     // ไม่ว่า field "role" จะยังเป็นอะไรอยู่ก็ตาม (บังคับที่ระดับ rules จริง ไม่ใช่แค่ซ่อนปุ่มที่ UI
     // ซึ่งหลบเลี่ยงได้ด้วยการยิง request ตรง) ไม่มี field นี้ (null) = สิทธิ์ไม่มีวันหมดอายุตามปกติ
@@ -87,9 +95,11 @@ service cloud.firestore {
     }
 
     // เงื่อนไขกลางที่ collection ที่ต้อง company-scope ทุกตัวเรียกใช้ — เอกสารที่ไม่มี companyId เลย
-    // (ข้อมูลเก่า/กำพร้า) จะ fail-closed สำหรับคนถูก scope (ไม่เห็น) แต่ admin/groupWide ยังเห็นเพื่อไปแก้ไขได้
+    // (ข้อมูลเก่า/กำพร้า) จะ fail-closed สำหรับคนถูก scope (ไม่เห็น) แต่เจ้าของโปรแกรม/groupWide ยังเห็นเพื่อไปแก้ไขได้
+    // (v1.0.465) เดิมใช้ isAdmin() (role owner/admin ใครก็ได้) ซึ่งขัดกับนโยบายที่ยืนยันชัดเจนว่า "แอดมิน/เจ้าของ
+    // บริษัทดูได้เฉพาะบริษัทที่ตัวเองสังกัดเท่านั้น" — เปลี่ยนเป็น isProgramOwner() (บัญชีเดียวเท่านั้น) แทน
     function canSeeCompanyDoc(data) {
-      return isAdmin() || isGroupWide()
+      return isProgramOwner() || isGroupWide()
         || (data.get('companyId', null) != null && data.get('companyId', null) in myCompanyIds());
     }
 

@@ -5,13 +5,16 @@
 // หรือ filter ว่างเปล่า = เห็นหมด) — Firestore ปฏิเสธทั้ง query ถ้า where ไม่ตรงกับ rule ที่ประเมิน
 // ฝั่ง server ดังนั้น query ต้องส่ง where('companyId','in',...) ตรงกับสิ่งที่ rule อนุญาตเป๊ะๆ
 import { getState } from './store.js'
+import { isProgramOwner } from './hierarchy.js'
 
-// เห็นทุกบริษัทโดยไม่มีเงื่อนไข: owner/admin เสมอ, หรือถูกตั้ง flag groupWide เป็นรายบุคคล
-// (สำหรับ HR/การตลาด/PDI/ตรวจสอบ/หัวหน้าบัญชีที่ต้องดูแลทุกบริษัทจริงตามผังองค์กร)
+// (v1.0.465) เห็นทุกบริษัทโดยไม่มีเงื่อนไข: เดิม role owner/admin ใครก็ได้เห็นหมด — ขัดกับนโยบายที่ยืนยันว่า
+// "แอดมิน/เจ้าของบริษัทดูได้เฉพาะบริษัทที่ตัวเองสังกัดเท่านั้น ยกเว้นเจ้าของโปรแกรม" เปลี่ยนเป็นผูกกับอีเมล
+// บัญชีเจ้าของโปรแกรมเท่านั้น (isProgramOwner()) หรือถูกตั้ง flag groupWide เป็นรายบุคคล (สำหรับ HR/การตลาด/
+// PDI/ตรวจสอบ/หัวหน้าบัญชีที่ต้องดูแลทุกบริษัทจริงตามผังองค์กร) — ตรงกับ canSeeCompanyDoc() ใน firestore.rules
 export function isCompanyScopeUnrestricted() {
+  if (isProgramOwner()) return true
   const user = getState('user')
   if (!user) return false
-  if (user.role === 'owner' || user.role === 'admin') return true
   return user.groupWide === true
 }
 

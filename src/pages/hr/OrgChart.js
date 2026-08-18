@@ -4,6 +4,8 @@
  */
 import { openModal } from '../../utils/modal.js'
 import { listDocs } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
+import { getVisibilityScope, scopeIncludesStaff } from '../../core/hierarchy.js'
 import { ROLES } from './Staff.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') }
@@ -61,7 +63,7 @@ export default async function OrgChartPage(container) {
   let usersByUid = {}
 
   try {
-    const docs = await listDocs('staff', [], 'firstName', 'asc', 500)
+    const docs = await listDocs('staff', companyScopeFilters(), 'firstName', 'asc', 500)
     if (container.__routerGen !== myGen) return
     staff = docs.filter(s => !s.deleted)
   } catch {}
@@ -69,6 +71,17 @@ export default async function OrgChartPage(container) {
   try {
     const users = await listDocs('users', [], 'createdAt', 'desc', 500)
     usersByUid = Object.fromEntries(users.map(u => [u.id, u]))
+  } catch {}
+
+  // (v1.0.465) "ระดับสิทธิ์ผู้ใช้งานเห็นเฉพาะผู้ใต้บังคับบัญชาลงไปเท่านั้น...อิงจากผังองค์กร" — companyScopeFilters()
+  // ด้านบนกรองแค่ระดับบริษัท ต้องกรองซ้ำอีกชั้นตามสายบังคับบัญชาจริง เจ้าของโปรแกรม/แอดมิน/เจ้าของบริษัทไม่ถูก
+  // กรองชั้นนี้ (ดู getVisibilityScope()) — และตัดตัวเลือกบริษัทในดรอปดาวน์ให้เหลือเฉพาะที่ตัวเองมีสิทธิ์เห็นด้วย
+  try {
+    const scope = await getVisibilityScope()
+    staff = staff.filter(s => scopeIncludesStaff(scope, s))
+    if (!scope.unrestricted && scope.companyIds?.length) {
+      companiesList = companiesList.filter(c => scope.companyIds.includes(c.id))
+    }
   } catch {}
 
   // (v1.0.431) พนักงาน 1 คนทำงานหลายบริษัทได้ และมีหัวหน้าต่างกันในแต่ละบริษัท (companyMemberships[].managerId

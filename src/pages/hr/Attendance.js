@@ -1,7 +1,8 @@
-import { showToast, getState } from '../../core/store.js'
+import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
+import { getVisibilityScope, scopeIncludesStaff } from '../../core/hierarchy.js'
 import { todayBangkok, nowBangkokTime } from '../../utils/format.js'
 
 function escHtml(s) {
@@ -24,18 +25,18 @@ export default async function AttendancePage(container) {
     // ไม่มี field 'name' รวมเลย (ดู Staff.js) ทำให้ Firestore orderBy ตัดพนักงานทุกคนออกจากผลลัพธ์ตั้งแต่ query
     // แรกแล้ว และแม้จะแก้ query ก็ยังจะได้ name ว่างเปล่าอยู่ดีเพราะ map หา field ผิดชื่อ — เห็นพนักงาน 0 คน
     // ในหน้าลงเวลามาตลอด แก้ทั้ง query และการรวมชื่อให้ตรงกับ schema จริง
-    const staffList = await listDocs('staff', [], 'firstName', 'asc', 200)
+    const staffList = await listDocs('staff', companyScopeFilters(), 'firstName', 'asc', 200)
     if (container.__routerGen !== myGen) return
-    // Phase 2 หลายบริษัท — พนักงานที่ยังไม่มี companyId (ข้อมูลเดิม/shared-service) ยังลงเวลาเข้า-ออกที่หน้านี้
-    // ได้เสมอ ไม่ถูกกรองออกโดยไม่ตั้งใจ
-    const activeCompanyFilter = getState('activeCompanyFilter') || []
+    // (v1.0.465) เดิมกรองแค่ตามตัวกรอง Topbar (activeCompanyFilter — ปิดได้/ข้ามได้) ไม่ใช่บริษัทที่สังกัดจริง
+    // เปลี่ยนไปใช้ companyScopeFilters() ในคำสั่ง query ด้านบนแล้ว (บังคับจริงเหมือนหน้าอื่นๆ) ตรงนี้กรองซ้ำอีก
+    // ชั้นตามสายบังคับบัญชาจริง (managerId) — เจ้าของโปรแกรม/แอดมิน/เจ้าของบริษัทไม่ถูกกรองชั้นนี้ ส่วนพนักงาน
+    // ทั่วไปยังลงเวลาของตัวเองได้เสมอ (getVisibilityScope() รวมตัวเองไว้ในขอบเขตเสมอ)
+    let scope = { unrestricted: true }
+    try { scope = await getVisibilityScope() } catch {}
     activeStaff = staffList
       // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true — พนักงานที่ "ลบ" ไปแล้วต้องไม่มาลงเวลา/รับเงินเดือนต่อ
       .filter(s => !s.deleted)
-      .filter(s => {
-        const ids = s.companyIds?.length ? s.companyIds : (s.companyId ? [s.companyId] : [])
-        return !ids.length || !activeCompanyFilter.length || ids.some(id => activeCompanyFilter.includes(id))
-      })
+      .filter(s => scopeIncludesStaff(scope, s))
       .map(s => ({
         id: s.id,
         name: s.name || s.staffName || [s.firstName, s.lastName].filter(Boolean).join(' '),

@@ -50,3 +50,73 @@ export async function getMyTeamNames() {
   }
   return { names, hasSubordinates: subordinateCount > 0 }
 }
+
+// ── RBAC ตามผังองค์กร (v1.0.465) ─────────────────────────────────────────────
+// นโยบายที่เจ้าของระบบยืนยันไว้ชัดเจน:
+//   1. เจ้าของโปรแกรม (บัญชีนี้เท่านั้น — ผูกกับอีเมล ไม่ใช่ role เพราะ role 'owner' ในอนาคตอาจมีเจ้าของธุรกิจ
+//      จริงคนอื่นถืออยู่ด้วย) เห็น/แก้ไขได้ทุกอย่างทุกบริษัท ไม่มีข้อจำกัด
+//   2. แอดมิน/เจ้าของบริษัท (role admin หรือ owner ที่ไม่ใช่เจ้าของโปรแกรม) เห็น/แก้ไขได้ทุกคนแต่เฉพาะใน
+//      บริษัทที่ตัวเองสังกัดเท่านั้น ไม่ข้ามบริษัท ไม่ถูกจำกัดตามสายบังคับบัญชา (มีอำนาจสูงสุดในบริษัทตัวเอง)
+//   3. คนอื่นทั้งหมด (manager/sales/service/staff) เห็นเฉพาะตัวเอง + ผู้ใต้บังคับบัญชาที่ลงไปทุกระดับ
+//      (managerId) เท่านั้น — เห็นคนที่อยู่สูงกว่าไม่ได้ ข้ามทีมไม่ได้ ข้ามบริษัทที่ตัวเองไม่ได้สังกัดไม่ได้
+// ⚠️ ฟังก์ชันนี้เป็นเครื่องมือใหม่ ไม่กระทบ getMyTeamNames() เดิมด้านบน (หน้าที่ใช้อยู่แล้ว — Customers/
+// Bookings/JobCards — ยังทำงานเหมือนเดิมทุกประการ) จะค่อยๆย้ายมาใช้ตัวนี้ทีละหน้าแยกต่างหาก
+export const PROGRAM_OWNER_EMAIL = 'ghunt1007@gmail.com'
+
+export function isProgramOwner() {
+  const me = getState('user')
+  return !!me?.email && me.email.toLowerCase() === PROGRAM_OWNER_EMAIL.toLowerCase()
+}
+
+function staffCompanyIds(s) {
+  return s?.companyIds?.length ? s.companyIds : (s?.companyId ? [s.companyId] : [])
+}
+
+// คืน scope object ใช้ร่วมกับ scopeIncludesStaff()/scopeCompanyFilter() ด้านล่าง
+export async function getVisibilityScope() {
+  if (isProgramOwner()) return { unrestricted: true }
+  const me = getState('user')
+  const role = getState('role') || me?.role || 'staff'
+
+  let staffList = []
+  try { staffList = await listDocs('staff', [], 'firstName', 'asc', 1000) } catch { staffList = [] }
+  const myStaff = staffList.find(s => s.uid === me?.uid && !s.deleted) || null
+  const myCompanyIds = myStaff ? staffCompanyIds(myStaff) : (me?.companyIds || [])
+
+  // แอดมิน/เจ้าของบริษัท — เห็นทุกคนในบริษัทตัวเอง ไม่ถูกจำกัดตามสายบังคับบัญชา
+  if (['admin', 'owner'].includes(role)) {
+    return { companyOnly: true, companyIds: myCompanyIds }
+  }
+
+  // อื่นๆ — ตัวเอง + ลูกทีมทุกระดับ (transitive) ผ่าน managerId เท่านั้น
+  const names = new Set()
+  if (me?.displayName) names.add(normName(me.displayName))
+  if (!myStaff) return { names, staffIds: new Set(), companyIds: myCompanyIds, hasSubordinates: false }
+  names.add(normName(fullName(myStaff)))
+  const staffIds = new Set([myStaff.id])
+  const byManager = {}
+  staffList.forEach(s => { if (s.managerId && !s.deleted) (byManager[s.managerId] ||= []).push(s) })
+  const queue = [myStaff.id]
+  const visited = new Set()
+  while (queue.length) {
+    const id = queue.shift()
+    if (visited.has(id)) continue
+    visited.add(id)
+    ;(byManager[id] || []).forEach(child => {
+      names.add(normName(fullName(child)))
+      staffIds.add(child.id)
+      queue.push(child.id)
+    })
+  }
+  return { names, staffIds, companyIds: myCompanyIds, hasSubordinates: staffIds.size > 1 }
+}
+
+// เช็คว่า scope ที่ได้จาก getVisibilityScope() เห็นพนักงานคนนี้ได้หรือไม่ (ใช้กรองรายชื่อ/การ์ด/แถวตาราง)
+export function scopeIncludesStaff(scope, s) {
+  if (!scope || scope.unrestricted) return true
+  const targetCompanyIds = staffCompanyIds(s)
+  const sameCompany = !scope.companyIds?.length || !targetCompanyIds.length || targetCompanyIds.some(id => scope.companyIds.includes(id))
+  if (!sameCompany) return false
+  if (scope.companyOnly) return true
+  return !!scope.staffIds?.has(s.id)
+}
