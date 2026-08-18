@@ -260,7 +260,9 @@ export default async function InvoicePage(container) {
         </table>
         ${d.note?`<div style="color:var(--text-muted)">📝 ${escHtml(d.note)}</div>`:''}
       </div>`,
-      footer: `${!d._live&&d.status!=='paid'&&d.type==='invoice'&&canPay?`<button class="btn btn-success" id="detail-pay-btn">✅ บันทึกรับชำระ</button>`:''}
+      footer: `${!d._live&&d.status!=='paid'&&d.status!=='cancelled'&&d.type==='invoice'&&!d.sentToCashier&&canPay?`<button class="btn btn-secondary" id="detail-cashier-btn">📤 ส่งไปเก็บที่แคชเชียร์</button>`:''}
+               ${!d._live&&d.sentToCashier&&d.status!=='paid'?`<span style="font-size:0.76rem;color:var(--primary);align-self:center">📤 ส่งแคชเชียร์แล้ว — รอเก็บเงิน</span>`:''}
+               ${!d._live&&d.status!=='paid'&&d.type==='invoice'&&canPay?`<button class="btn btn-success" id="detail-pay-btn">✅ บันทึกรับชำระ</button>`:''}
                <button class="btn btn-primary" onclick="window.print()">🖨 พิมพ์</button>`
     })
     document.getElementById('detail-pay-btn')?.addEventListener('click', async () => {
@@ -269,6 +271,23 @@ export default async function InvoicePage(container) {
         document.querySelector('.modal-overlay')?.remove(); showToast('✅ บันทึกการชำระแล้ว', 'success')
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+    })
+    // (v1.0.462) เดิมใบแจ้งหนี้ (invoices) กับจุดเก็บเงินจริง (Cashier Desk — cashier_pending_bills/
+    // cashier_payments) เป็นคนละระบบแยกกันสนิท ไม่มีรหัสเชื่อมกันเลย พนักงานต้องพิมพ์ชื่อลูกค้า/จำนวนเงินซ้ำเอง
+    // ที่แคชเชียร์ และไม่มีทางกระทบยอดกันได้จริง (จ่ายที่แคชเชียร์แล้วใบแจ้งหนี้ไม่ถูกอัปเดตเป็น "ชำระแล้ว" อัตโนมัติ)
+    // เพิ่มปุ่มนี้ให้ส่งบิลไปรอที่แคชเชียร์แบบผูกรหัสจริง (invoiceId) — ฝั่ง Cashier Desk เมื่อรับเงินบิลนี้แล้ว
+    // จะย้อนมาอัปเดตใบแจ้งหนี้เป็น "ชำระแล้ว" ให้อัตโนมัติ (ดู CashierDesk.js) ปิดช่องรั่วเรื่องกระทบยอดไม่ได้
+    document.getElementById('detail-cashier-btn')?.addEventListener('click', async () => {
+      try {
+        await createDoc('cashier_pending_bills', {
+          customer: d.custName, desc: `${d.no} — ${d.items.map(i => i.desc).join(', ')}`,
+          amount: total, invoiceId: d.id, createdAt: new Date().toISOString(), createdBy: (getState('user')||{}).displayName || '',
+        })
+        await updateDocData('invoices', d.id, { sentToCashier: true })
+        d.sentToCashier = true
+        document.querySelector('.modal-overlay')?.remove(); showToast('📤 ส่งไปเก็บที่แคชเชียร์แล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('ส่งไม่สำเร็จ', 'error') }
     })
   }
 

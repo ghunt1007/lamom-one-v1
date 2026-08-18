@@ -5,7 +5,7 @@
 import { formatCurrency, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
-import { listDocs, createDoc, softDelete, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
 function myName() {
   const me = getState('user') || {}
@@ -88,7 +88,7 @@ export default async function CashierDeskPage(container) {
             ${pending.length === 0 ? '<div style="text-align:center;color:var(--success);font-size:0.8rem;padding:14px">✅ ไม่มีบิลค้าง</div>' : pending.map(b => `
               <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
                 <div>
-                  <div style="font-size:0.8rem;font-weight:600">${escHtml(b.customer)}</div>
+                  <div style="font-size:0.8rem;font-weight:600">${escHtml(b.customer)}${b.invoiceId ? ' <span style="font-size:0.65rem;color:var(--primary)">🔗 เชื่อมใบแจ้งหนี้</span>' : ''}</div>
                   <div style="font-size:0.68rem;color:var(--text-muted)">${escHtml(b.id)} — ${escHtml(b.desc)}</div>
                 </div>
                 <div style="display:flex;gap:6px;align-items:center">
@@ -208,8 +208,14 @@ export default async function CashierDeskPage(container) {
         const amount = parseInt(document.getElementById('py-amount')?.value) || 0
         if (!customer || amount <= 0) { showToast('❗ กรอกชื่อและจำนวนเงิน', 'error'); return false }
         try {
-          await createDoc('cashier_payments', { customer, ref:bill?.id||'MISC', desc:document.getElementById('py-desc')?.value||'—', amount, method:document.getElementById('py-method')?.value||'cash', time:new Date().toISOString(), cashier: myName() })
+          await createDoc('cashier_payments', { customer, ref:bill?.id||'MISC', desc:document.getElementById('py-desc')?.value||'—', amount, method:document.getElementById('py-method')?.value||'cash', time:new Date().toISOString(), cashier: myName(), invoiceId: bill?.invoiceId || null })
           if (bill) await softDelete('cashier_pending_bills', bill.id)
+          // (v1.0.462) บิลที่ส่งมาจากใบแจ้งหนี้จริง (มี invoiceId ผูกไว้) — เก็บเงินที่นี่แล้วย้อนไปอัปเดต
+          // ใบแจ้งหนี้ต้นทางเป็น "ชำระแล้ว" อัตโนมัติ ปิดช่องรั่วเดิมที่กระทบยอดกันไม่ได้ (จ่ายแล้วใบแจ้งหนี้
+          // ยังค้างสถานะเดิมตลอดไป) ถ้าอัปเดตไม่สำเร็จก็ไม่กระทบเงินที่รับมาแล้ว (บันทึกจริงไปแล้วข้างบน)
+          if (bill?.invoiceId) {
+            try { await updateDocData('invoices', bill.invoiceId, { status: 'paid', paidDate: todayBangkok() }) } catch { /* ไม่ critical — เงินบันทึกแล้ว แค่ใบแจ้งหนี้ต้นทางอาจต้องอัปเดตเอง */ }
+          }
           showToast(`✅ รับชำระ ${formatCurrency(amount)} — พิมพ์ใบเสร็จแล้ว`, 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
