@@ -1,6 +1,6 @@
 import { watchDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { showToast, getState } from '../../core/store.js'
-import { getMyTeamNames } from '../../core/hierarchy.js'
+import { getVisibilityScope } from '../../core/hierarchy.js'
 import { formatDate, formatCurrency, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -62,20 +62,13 @@ export default async function JobCardsPage(container) {
 
   // (v1.0.437) ต่อจากหน้าลูกค้า/ใบจอง (v1.0.432/436) — ช่าง/พนักงานทั่วไปเห็นเฉพาะ Job Card ที่ตัวเองรับผิดชอบ
   // เป็นค่าเริ่มต้น ผูกกับ techName (ชื่อพิมพ์เอง เทียบแบบ normalize) ตรงกับ "แต่ละตำแหน่งเห็นเฉพาะงานตัวเอง"
-  // (v1.0.454) ขยายเป็น "ตัวเอง + ผู้ใต้บังคับบัญชา" ตามที่ขอ — แพทเทิร์นเดียวกับ Customers.js/Bookings.js เป๊ะ
-  const SCOPED_ROLES = ['sales', 'service', 'staff', 'manager']
-  const myRole = getState('role') || getState('user')?.role || 'staff'
+  // (v1.0.467) เปลี่ยนจาก getMyTeamNames() (fallback ผ่อนปรน) มาใช้ getVisibilityScope() ตามนโยบายเข้มงวด
+  // แพทเทิร์นเดียวกับ Customers.js/Bookings.js เป๊ะ — ไม่มี fallback เห็นกว้างขึ้นอีกต่อไป
   const myDisplayName = getState('user')?.displayName || ''
   const normName = s => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ')
-  let myTeamNames = new Set([normName(myDisplayName)])
-  let ownScopeActive = false
-  if (SCOPED_ROLES.includes(myRole) && myDisplayName) {
-    try {
-      const { names, hasSubordinates } = await getMyTeamNames()
-      if (hasSubordinates) { myTeamNames = names; ownScopeActive = true }
-      else if (myRole !== 'manager') ownScopeActive = true
-    } catch { ownScopeActive = myRole !== 'manager' }
-  }
+  const visScope = await getVisibilityScope()
+  const ownScopeActive = !visScope.unrestricted && !visScope.companyOnly
+  const myTeamNames = visScope.names || new Set([normName(myDisplayName)])
 
   // Real-time: อัปเดตสดเมื่อมีคนเปิด/แก้ไข/ปิด Job Card จากเครื่องอื่น (ไม่แตะช่องค้นหา จึงไม่รบกวนตอนกำลังพิมพ์)
   let firstSnapshot = true
@@ -353,7 +346,6 @@ export default async function JobCardsPage(container) {
       ${ownScopeActive ? `
       <div id="job-scope-banner" style="padding:8px 14px;background:var(--primary)11;border:1px solid var(--primary)33;border-radius:var(--radius-sm);margin-bottom:12px;font-size:0.76rem;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
         <span>🔒 ${myTeamNames.size > 1 ? `กำลังแสดงเฉพาะ Job Card ของคุณและทีมที่ดูแล (${myTeamNames.size} คน)` : `กำลังแสดงเฉพาะ Job Card ที่คุณเป็นช่างรับผิดชอบ (ช่าง = "${escHtml(myDisplayName)}")`}</span>
-        <button class="btn btn-xs btn-ghost" id="job-show-all">เห็นงานไม่ครบ? ดูทั้งหมด →</button>
       </div>
       ` : ''}
 
@@ -384,11 +376,6 @@ export default async function JobCardsPage(container) {
   document.getElementById('add-job-btn').addEventListener('click', () => openForm())
   if (prefillData) openForm(null, prefillData)
   document.getElementById('job-search').addEventListener('input', e => { search = e.target.value.toLowerCase(); applyFilter() })
-  document.getElementById('job-show-all')?.addEventListener('click', () => {
-    ownScopeActive = false
-    document.getElementById('job-scope-banner')?.remove()
-    applyFilter()
-  })
   document.getElementById('job-export').addEventListener('click', () => {
     exportToExcel(jobs.map(j => ({ เลขงาน:j.jobNo, ลูกค้า:j.custName, โทร:j.phone, รถ:`${j.brand} ${j.model}`, ทะเบียน:j.plate, ประเภท:JOB_TYPE[j.type]||j.type, สถานะ:JOB_STATUS[j.status]?.label||j.status, ช่าง:j.techName, เบย์:j.bay, ค่าแรง:j.labor, วันที่:formatDate(j.createdAt) })), `jobs-${todayBangkok()}.xlsx`, 'Job Cards')
     showToast('Export แล้ว', 'success')

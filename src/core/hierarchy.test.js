@@ -73,6 +73,30 @@ describe('getVisibilityScope', () => {
     expect(scope.unrestricted).toBeUndefined()
   })
 
+  it('groupWide staff (not admin/owner) sees every company, no hierarchy restriction', async () => {
+    mockState.user = { uid: 'u-hr', displayName: 'HR Person', groupWide: true, companyIds: ['c1'] }
+    mockState.role = 'staff'
+    mockStaffList = [
+      staff({ id: 's-hr', uid: 'u-hr', companyIds: ['c1'] }),
+      staff({ id: 's-other-company', companyIds: ['c2'] }),
+    ]
+    const scope = await getVisibilityScope()
+    expect(scope.unrestricted).toBeUndefined()
+    expect(scope.companyOnly).toBe(true)
+    expect(scope.companyIds).toEqual([])
+    expect(scopeIncludesStaff(scope, mockStaffList[0])).toBe(true)
+    expect(scopeIncludesStaff(scope, mockStaffList[1])).toBe(true)
+  })
+
+  it('groupWide:false staff (plain default) is not affected — falls through to hierarchy scope', async () => {
+    mockState.user = { uid: 'u-plain', displayName: 'Plain Staff', groupWide: false }
+    mockState.role = 'staff'
+    mockStaffList = [staff({ id: 's-plain', uid: 'u-plain', companyIds: ['c1'] })]
+    const scope = await getVisibilityScope()
+    expect(scope.companyOnly).toBeUndefined()
+    expect(scope.staffIds).toBeDefined()
+  })
+
   it('owner role (not program owner) gets company-only scope like admin', async () => {
     mockState.user = { email: 'somsak@lamom.one', uid: 'u-owner2' }
     mockState.role = 'owner'

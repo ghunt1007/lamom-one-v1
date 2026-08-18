@@ -4,7 +4,7 @@
 import { listDocs, watchDocs, createDoc, updateDocData, softDelete, readDoc, seedDemoData } from '../../core/db.js'
 import { showToast, getState, on } from '../../core/store.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
-import { getMyTeamNames } from '../../core/hierarchy.js'
+import { getVisibilityScope } from '../../core/hierarchy.js'
 import { formatDate, timeAgo, formatPhone, formatCurrency, initials, fullName, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel, openImportModal } from '../../utils/importExport.js'
@@ -63,30 +63,18 @@ export default async function CustomersPage(container) {
   let lostOnly = false
   let salesFilter = ''
 
-  // (v1.0.432) ตามคำขอ "แต่ละตำแหน่งจะมองเห็นเฉพาะของงานและข้อมูลลูกค้าตัวเอง" — เดิมทุกคนที่มีสิทธิ์เข้าโมดูล
-  // CRM เห็นลูกค้าทุกรายเหมือนกันหมด ไม่มีการกรองตามผู้ดูแลเลย (มีแค่ dropdown กรองเองแบบ manual จาก v1.0.425)
-  // ตอนนี้เซลส์/ช่าง/พนักงานทั่วไป (ระดับผู้ปฏิบัติงาน ไม่ใช่หัวหน้า) จะเห็นเฉพาะลูกค้าที่ assignedTo ตรงกับ
-  // ชื่อตัวเองเป็นค่าเริ่มต้น — เทียบแบบ normalize (ตัดช่องว่าง/ตัวพิมพ์เล็กใหญ่) เพราะ assignedTo เป็นชื่อ
-  // ข้อความอิสระที่พิมพ์เอง ไม่ใช่ uid ผูกตรงๆ อาจเพี้ยนเล็กน้อยได้ (ช่องว่างเกิน/ตัวพิมพ์) ให้ลิงก์ "ดูทั้งหมด"
-  // ไว้เสมอ (ไม่ซ่อน) เผื่อชื่อไม่ตรงกันจริงๆจากปัญหาคุณภาพข้อมูล จะได้ไม่ถูกล็อกออกจากงานตัวเองเงียบๆ
-  // (v1.0.454) ขยายจาก "เห็นเฉพาะของตัวเอง" เป็น "เห็นของตัวเอง + ผู้ใต้บังคับบัญชา" ตามที่ขอ ("ผู้ใช้จะ
-  // มองเห็นแค่ผู้ใต้บังคับบัญชาที่ตัวเองดูแลเท่านั้น") — ไล่หาทีมจริงผ่าน staff.managerId (getMyTeamNames())
-  // role=manager ที่ยังไม่มีข้อมูลทีมเชื่อมไว้ (hasSubordinates=false) จะ fallback ไปเห็นทุกคนเหมือนพฤติกรรม
-  // เดิมก่อนหน้านี้ (ไม่ใช่เห็นว่างเปล่า) ส่วนระดับผู้ปฏิบัติงาน (sales/service/staff) ที่ไม่มีลูกทีมจริง (กรณี
-  // ปกติทั่วไป) ยังคงเห็นเฉพาะของตัวเองเหมือนเดิมทุกประการ
-  const SCOPED_ROLES = ['sales', 'service', 'staff', 'manager']
-  const myRole = getState('role') || getState('user')?.role || 'staff'
+  // (v1.0.467) เปลี่ยนจาก getMyTeamNames() (มี fallback ผ่อนปรนให้ manager ที่ไม่มีลูกทีมจริงเห็นทุกคนแทน)
+  // มาใช้ getVisibilityScope() ตามนโยบายที่เจ้าของระบบยืนยันไว้เข้มงวด — "เห็นเฉพาะผู้ใต้บังคับบัญชาโดยตรง
+  // ลงไปเท่านั้น ไม่สามารถดูข้ามทีม ข้ามบริษัทได้ ไม่มีข้อยกเว้น" — แอดมิน/เจ้าของบริษัท/groupWide/เจ้าของ
+  // โปรแกรม เห็นทุกคนในขอบเขตที่อนุญาตอยู่แล้วจาก companyScopeFilters() ระดับ query (ownScopeActive=false
+  // ไม่ต้องกรองซ้ำ) ส่วนคนอื่นทั้งหมด (รวม manager ที่ไม่มีลูกทีมเชื่อมไว้) ถูกจำกัดเห็นแค่ตัวเอง/ลูกทีมจริง
+  // เสมอ ไม่มี fallback เห็นกว้างขึ้นอีกต่อไป — เทียบชื่อแบบ normalize เหมือนเดิมเพราะ assignedTo เป็นข้อความ
+  // อิสระที่พิมพ์เอง ไม่ใช่ uid ผูกตรงๆ
   const myDisplayName = getState('user')?.displayName || ''
   const normName = s => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ')
-  let myTeamNames = new Set([normName(myDisplayName)])
-  let ownScopeActive = false
-  if (SCOPED_ROLES.includes(myRole) && myDisplayName) {
-    try {
-      const { names, hasSubordinates } = await getMyTeamNames()
-      if (hasSubordinates) { myTeamNames = names; ownScopeActive = true }
-      else if (myRole !== 'manager') ownScopeActive = true
-    } catch { ownScopeActive = myRole !== 'manager' }
-  }
+  const visScope = await getVisibilityScope()
+  const ownScopeActive = !visScope.unrestricted && !visScope.companyOnly
+  const myTeamNames = visScope.names || new Set([normName(myDisplayName)])
 
   async function loadData() {
     // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true (กู้คืนได้ใน 30 วันตามที่แจ้งผู้ใช้) — ถ้าไม่กรอง
@@ -767,7 +755,6 @@ export default async function CustomersPage(container) {
       ${ownScopeActive ? `
       <div id="cust-scope-banner" style="padding:8px 14px;background:var(--primary)11;border:1px solid var(--primary)33;border-radius:var(--radius-sm);margin-bottom:12px;font-size:0.76rem;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
         <span>🔒 ${myTeamNames.size > 1 ? `กำลังแสดงเฉพาะลูกค้าของคุณและทีมที่ดูแล (${myTeamNames.size} คน)` : `กำลังแสดงเฉพาะลูกค้าที่คุณดูแล (ผู้ดูแล = "${escHtml(myDisplayName)}")`}</span>
-        <button class="btn btn-xs btn-ghost" id="cust-show-all">เห็นลูกค้าไม่ครบ? ดูทั้งหมด →</button>
       </div>
       ` : ''}
 
@@ -931,11 +918,6 @@ export default async function CustomersPage(container) {
   })
   document.getElementById('cust-search').addEventListener('input', e => { search = e.target.value.trim().toLowerCase(); applyFilter() })
   document.getElementById('cust-sales-filter').addEventListener('change', e => { salesFilter = e.target.value; applyFilter() })
-  document.getElementById('cust-show-all')?.addEventListener('click', () => {
-    ownScopeActive = false
-    document.getElementById('cust-scope-banner')?.remove()
-    applyFilter()
-  })
   document.querySelectorAll('.sf').forEach(btn => btn.addEventListener('click', () => {
     stageFilter = btn.dataset.s
     document.querySelectorAll('.sf').forEach(b => b.className = `btn btn-sm sf ${b.dataset.s === stageFilter ? 'btn-primary' : 'btn-secondary'}`)

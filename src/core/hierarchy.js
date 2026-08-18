@@ -1,10 +1,18 @@
-// ── Management hierarchy resolver (v1.0.454) ────────────────────────────────
+// ── RBAC ตามผังองค์กร (v1.0.454, เข้มงวดขึ้นเป็น v1.0.465-467) ──────────────────
 // "ผู้ใช้จะมองเห็นแค่ผู้ใต้บังคับบัญชาที่ตัวเองดูแลเท่านั้น" — ไล่หาผู้ใต้บังคับบัญชาทุกระดับ (transitive) จาก
 // staff.managerId (ฟิลด์หลักที่ผูกโครงสร้างองค์กรจริง — คนละอันกับ companyMemberships[].managerId ที่เป็น
-// หัวหน้าเฉพาะรายบริษัทสำหรับพนักงาน shared-service) ใช้กับหน้าที่มี "own scope" อยู่แล้ว (Customers/
-// Bookings/JobCards — เดิม sales/service/staff เห็นแค่ของตัวเอง) ให้หัวหน้าทีมเห็นของทีมทั้งหมดด้วย ไม่ใช่
-// แค่ของตัวเองเฉยๆ — เทียบชื่อแบบ normalize (ตัดช่องว่าง/ตัวพิมพ์เล็กใหญ่) เหมือน pattern เดิมของหน้าเหล่านี้
-// เพราะ assignedTo/salesName/techName เป็นชื่อข้อความอิสระที่พิมพ์เอง ไม่ใช่ uid ผูกตรงๆ
+// หัวหน้าเฉพาะรายบริษัทสำหรับพนักงาน shared-service) — เทียบชื่อแบบ normalize (ตัดช่องว่าง/ตัวพิมพ์เล็กใหญ่)
+// เพราะ assignedTo/salesName/techName ในหน้า Customers/Bookings/JobCards เป็นชื่อข้อความอิสระที่พิมพ์เอง
+// ไม่ใช่ uid ผูกตรงๆ
+//
+// นโยบายที่เจ้าของระบบยืนยันไว้ชัดเจน (ไม่มี fallback ผ่อนปรนอีกต่อไป):
+//   1. เจ้าของโปรแกรม (บัญชีนี้เท่านั้น — ผูกกับอีเมล ไม่ใช่ role เพราะ role 'owner' ในอนาคตอาจมีเจ้าของธุรกิจ
+//      จริงคนอื่นถืออยู่ด้วย) เห็น/แก้ไขได้ทุกอย่างทุกบริษัท ไม่มีข้อจำกัด
+//   2. แอดมิน/เจ้าของบริษัท (role admin หรือ owner ที่ไม่ใช่เจ้าของโปรแกรม) หรือ groupWide:true (HR/การตลาด/
+//      PDI/ตรวจสอบที่ต้องดูแลข้ามบริษัทจริงตามผังองค์กร) เห็น/แก้ไขได้ทุกคนแต่เฉพาะในบริษัทที่ตัวเองสังกัด
+//      เท่านั้น (groupWide ไม่ถูกจำกัดบริษัทด้วย) ไม่ถูกจำกัดตามสายบังคับบัญชา (มีอำนาจสูงสุดในบริษัทตัวเอง)
+//   3. คนอื่นทั้งหมด (manager/sales/service/staff) เห็นเฉพาะตัวเอง + ผู้ใต้บังคับบัญชาที่ลงไปทุกระดับ
+//      (managerId) เท่านั้น — เห็นคนที่อยู่สูงกว่าไม่ได้ ข้ามทีมไม่ได้ ข้ามบริษัทที่ตัวเองไม่ได้สังกัดไม่ได้
 import { listDocs } from './db.js'
 import { getState } from './store.js'
 
@@ -16,51 +24,6 @@ function fullName(s) {
   return `${s.firstName || ''} ${s.lastName || ''}`.trim()
 }
 
-// คืน { names: Set<string> (normalize แล้ว), hasSubordinates: boolean } — hasSubordinates=false หมายถึง
-// หา staff doc ของตัวเองไม่เจอ (ยังไม่เชื่อมบัญชี) หรือเจอแต่ไม่มีใครอยู่ใต้บังคับบัญชาเลย — ให้หน้าที่เรียกใช้
-// ตัดสินใจเองว่าจะ fallback ยังไง (เช่น role=manager ที่ไม่มีลูกทีมจริง ควรเห็นกว้างเหมือนเดิม ไม่ใช่เห็นว่างเปล่า)
-export async function getMyTeamNames() {
-  const me = getState('user')
-  const names = new Set()
-  if (me?.displayName) names.add(normName(me.displayName))
-  if (!me?.uid) return { names, hasSubordinates: false }
-
-  let staffList = []
-  try { staffList = await listDocs('staff', [], 'firstName', 'asc', 1000) } catch { return { names, hasSubordinates: false } }
-
-  const myStaff = staffList.find(s => s.uid === me.uid && !s.deleted)
-  if (!myStaff) return { names, hasSubordinates: false }
-  names.add(normName(fullName(myStaff)))
-
-  const byManager = {}
-  staffList.forEach(s => { if (s.managerId && !s.deleted) (byManager[s.managerId] ||= []).push(s) })
-
-  const queue = [myStaff.id]
-  const visited = new Set()
-  let subordinateCount = 0
-  while (queue.length) {
-    const id = queue.shift()
-    if (visited.has(id)) continue
-    visited.add(id)
-    ;(byManager[id] || []).forEach(child => {
-      names.add(normName(fullName(child)))
-      queue.push(child.id)
-      subordinateCount++
-    })
-  }
-  return { names, hasSubordinates: subordinateCount > 0 }
-}
-
-// ── RBAC ตามผังองค์กร (v1.0.465) ─────────────────────────────────────────────
-// นโยบายที่เจ้าของระบบยืนยันไว้ชัดเจน:
-//   1. เจ้าของโปรแกรม (บัญชีนี้เท่านั้น — ผูกกับอีเมล ไม่ใช่ role เพราะ role 'owner' ในอนาคตอาจมีเจ้าของธุรกิจ
-//      จริงคนอื่นถืออยู่ด้วย) เห็น/แก้ไขได้ทุกอย่างทุกบริษัท ไม่มีข้อจำกัด
-//   2. แอดมิน/เจ้าของบริษัท (role admin หรือ owner ที่ไม่ใช่เจ้าของโปรแกรม) เห็น/แก้ไขได้ทุกคนแต่เฉพาะใน
-//      บริษัทที่ตัวเองสังกัดเท่านั้น ไม่ข้ามบริษัท ไม่ถูกจำกัดตามสายบังคับบัญชา (มีอำนาจสูงสุดในบริษัทตัวเอง)
-//   3. คนอื่นทั้งหมด (manager/sales/service/staff) เห็นเฉพาะตัวเอง + ผู้ใต้บังคับบัญชาที่ลงไปทุกระดับ
-//      (managerId) เท่านั้น — เห็นคนที่อยู่สูงกว่าไม่ได้ ข้ามทีมไม่ได้ ข้ามบริษัทที่ตัวเองไม่ได้สังกัดไม่ได้
-// ⚠️ ฟังก์ชันนี้เป็นเครื่องมือใหม่ ไม่กระทบ getMyTeamNames() เดิมด้านบน (หน้าที่ใช้อยู่แล้ว — Customers/
-// Bookings/JobCards — ยังทำงานเหมือนเดิมทุกประการ) จะค่อยๆย้ายมาใช้ตัวนี้ทีละหน้าแยกต่างหาก
 export const PROGRAM_OWNER_EMAIL = 'ghunt1007@gmail.com'
 
 export function isProgramOwner() {
@@ -84,8 +47,11 @@ export async function getVisibilityScope() {
   const myCompanyIds = myStaff ? staffCompanyIds(myStaff) : (me?.companyIds || [])
 
   // แอดมิน/เจ้าของบริษัท — เห็นทุกคนในบริษัทตัวเอง ไม่ถูกจำกัดตามสายบังคับบัญชา
-  if (['admin', 'owner'].includes(role)) {
-    return { companyOnly: true, companyIds: myCompanyIds }
+  // groupWide:true (ตั้งได้รายบุคคลที่ User Management — สำหรับ HR/การตลาด/PDI/ตรวจสอบ/หัวหน้าบัญชีที่ต้อง
+  // ดูแลทุกบริษัทจริงตามผังองค์กร) เห็นทุกคนทุกบริษัทเหมือนกัน ไม่ถูกจำกัดทั้งบริษัทและสายบังคับบัญชา —
+  // companyIds ว่างเปล่า (ไม่ใช่ unrestricted แบบเจ้าของโปรแกรม) หมายถึง "ทุกบริษัท" ใน scopeIncludesStaff()
+  if (['admin', 'owner'].includes(role) || me?.groupWide === true) {
+    return { companyOnly: true, companyIds: me?.groupWide === true ? [] : myCompanyIds }
   }
 
   // อื่นๆ — ตัวเอง + ลูกทีมทุกระดับ (transitive) ผ่าน managerId เท่านั้น
