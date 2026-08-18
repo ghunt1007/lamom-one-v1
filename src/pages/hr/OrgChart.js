@@ -131,12 +131,15 @@ export default async function OrgChartPage(container) {
               <button class="btn btn-xs ${viewMode==='company'?'btn-primary':'btn-secondary'}" id="view-company">🏢 บริษัท</button>
               <button class="btn btn-xs ${viewMode==='tree'?'btn-primary':'btn-secondary'}" id="view-tree">🌳 Tree</button>
               <button class="btn btn-xs ${viewMode==='list'?'btn-primary':'btn-secondary'}" id="view-list">📋 List</button>
+              <button class="btn btn-xs ${viewMode==='drag'?'btn-primary':'btn-secondary'}" id="view-drag">🕸️ ลากวาง</button>
             </div>
           </div>
         </div>
 
         ${!staff.length ? `<div class="empty-state"><div class="empty-icon">🏛</div><div class="empty-title">ยังไม่มีข้อมูลพนักงาน</div></div>` : viewMode === 'company' ? `
         <div style="overflow-x:auto">${renderCompanyView(staff, companiesList)}</div>
+        ` : viewMode === 'drag' ? `
+        <div style="overflow:auto;max-height:70vh;border:1px solid var(--border);border-radius:var(--radius-md)">${renderDragView(roots)}</div>
         ` : `
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('👥 พนักงานทั้งหมด', pool.length + ' คน', 'primary')}
@@ -168,6 +171,7 @@ export default async function OrgChartPage(container) {
     document.getElementById('view-company')?.addEventListener('click', () => { viewMode = 'company'; renderPage() })
     document.getElementById('view-tree')?.addEventListener('click', () => { viewMode = 'tree'; renderPage() })
     document.getElementById('view-list')?.addEventListener('click', () => { viewMode = 'list'; renderPage() })
+    document.getElementById('view-drag')?.addEventListener('click', () => { viewMode = 'drag'; renderPage() })
     container.querySelectorAll('.company-btn').forEach(b => b.addEventListener('click', () => { selectedCompany = b.dataset.c; renderPage() }))
     container.querySelectorAll('.dept-btn').forEach(b => b.addEventListener('click', () => { selectedDept = b.dataset.d; renderPage() }))
     container.querySelectorAll('.co-box').forEach(el => el.addEventListener('click', () => {
@@ -177,6 +181,7 @@ export default async function OrgChartPage(container) {
     container.querySelectorAll('.node-card').forEach(el => el.addEventListener('click', () => {
       const s = staff.find(x => x.id === el.dataset.id); if (s) openNodeDetail(s)
     }))
+    if (viewMode === 'drag') initDragView()
   }
 
   // (v1.0.456) ผังองค์กรตามโครงสร้างบริษัทจริง — ดูคอมเมนต์ที่ COMPANY_SECTION_MAP ด้านบน จัดกลุ่มพนักงานจริง
@@ -324,6 +329,130 @@ export default async function OrgChartPage(container) {
           </div>
         </div>
       `).join(''),
+    })
+  }
+
+  // (v1.0.464) มุมมอง "🕸️ ลากวาง" ตามที่ขอ ("ฝังบริษัททำเป็นแผนผังเชื่อมโยงแบบลากวางได้มีเส้นกำกับชัดเจน") —
+  // จัดตำแหน่งกล่องอัตโนมัติแบบ tree layout ก่อน (ลูกอยู่แถวล่าง พ่อแม่อยู่กึ่งกลางลูกๆของตัวเอง) แล้ววาดเส้น
+  // SVG เชื่อมพ่อลูกตามสายบังคับบัญชาจริง (staff.managerId) ลากกล่องจัดตำแหน่งเองได้ บันทึกตำแหน่งลง
+  // localStorage อัตโนมัติ (เฉพาะเบราว์เซอร์นี้ — เป็นแค่ค่าจัดวางที่ผู้ใช้ปรับเอง ไม่ใช่ข้อมูลธุรกิจ จึงไม่จำเป็น
+  // ต้องเก็บที่ Firestore) กดกล่องเฉยๆ (ไม่ลาก) เปิดรายละเอียดพนักงานคนนั้นเหมือนมุมมองอื่น
+  const DRAG_STORAGE_KEY = 'lamom_orgchart_drag_positions'
+  const DRAG_NODE_W = 150, DRAG_NODE_H = 64, DRAG_COL_GAP = 20, DRAG_ROW_GAP = 60
+  function loadDragPositions() {
+    try { return JSON.parse(localStorage.getItem(DRAG_STORAGE_KEY) || '{}') } catch { return {} }
+  }
+  function saveDragPosition(id, x, y) {
+    const pos = loadDragPositions()
+    pos[id] = { x, y }
+    try { localStorage.setItem(DRAG_STORAGE_KEY, JSON.stringify(pos)) } catch {}
+  }
+  function clearDragPositions() {
+    try { localStorage.removeItem(DRAG_STORAGE_KEY) } catch {}
+  }
+  function computeDragLayout(roots) {
+    const saved = loadDragPositions()
+    const nodes = []
+    const edges = []
+    let nextCol = 0
+    function visit(node, depth, parentId) {
+      let colX
+      if (!node.children.length) {
+        colX = nextCol; nextCol++
+      } else {
+        node.children.forEach(c => visit(c, depth + 1, node.id))
+        const childXs = nodes.filter(n => n.parentId === node.id).map(n => n.colX)
+        colX = childXs.length ? (Math.min(...childXs) + Math.max(...childXs)) / 2 : nextCol++
+      }
+      nodes.push({ id: node.id, s: node, depth, colX, parentId })
+      if (parentId) edges.push({ from: parentId, to: node.id })
+    }
+    roots.forEach(r => visit(r, 0, null))
+    nodes.forEach(n => {
+      const defaultX = n.colX * (DRAG_NODE_W + DRAG_COL_GAP) + 20
+      const defaultY = n.depth * (DRAG_NODE_H + DRAG_ROW_GAP) + 20
+      const sv = saved[n.id]
+      n.x = (typeof sv?.x === 'number') ? sv.x : defaultX
+      n.y = (typeof sv?.y === 'number') ? sv.y : defaultY
+    })
+    return { nodes, edges }
+  }
+  function renderDragView(roots) {
+    if (!roots.length) return `<div class="empty-state"><div class="empty-icon">🕸️</div><div class="empty-title">ยังไม่มีข้อมูลพนักงาน</div></div>`
+    const { nodes, edges } = computeDragLayout(roots)
+    const maxX = Math.max(400, ...nodes.map(n => n.x + DRAG_NODE_W + 40))
+    const maxY = Math.max(300, ...nodes.map(n => n.y + DRAG_NODE_H + 40))
+    return `
+      <div style="margin-bottom:8px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div style="font-size:0.74rem;color:var(--text-muted)">🖱️ ลากกล่องเพื่อจัดตำแหน่งเอง — บันทึกอัตโนมัติ (เฉพาะเบราว์เซอร์นี้) · กดเฉยๆเพื่อดูรายละเอียด</div>
+        <button class="btn btn-xs btn-secondary" id="drag-reset-btn">🔄 จัดเรียงใหม่</button>
+      </div>
+      <div id="drag-canvas" style="position:relative;width:${maxX}px;height:${maxY}px;background:var(--surface-2)">
+        <svg id="drag-lines" width="${maxX}" height="${maxY}" style="position:absolute;top:0;left:0;pointer-events:none">
+          ${edges.map(e => `<line data-from="${esc(e.from)}" data-to="${esc(e.to)}" x1="0" y1="0" x2="0" y2="0" stroke="var(--primary)" stroke-width="2" opacity="0.55"/>`).join('')}
+        </svg>
+        ${nodes.map(n => {
+          const s = n.s
+          return `<div class="chart-node" data-id="${esc(s.id)}" style="position:absolute;left:${n.x}px;top:${n.y}px;width:${DRAG_NODE_W}px;min-height:${DRAG_NODE_H}px;cursor:grab;touch-action:none;user-select:none;z-index:1">
+            <div class="card" style="padding:8px 10px;text-align:center;border-top:3px solid var(--primary);background:var(--surface)">
+              <div style="font-size:1rem">${ROLE_ICON[s.role] || '👤'}</div>
+              <div style="font-weight:700;font-size:0.74rem;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(nameOf(s))}</div>
+              <div style="font-size:0.62rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.position || s.dept || '-')}</div>
+            </div>
+          </div>`
+        }).join('')}
+      </div>
+    `
+  }
+  function initDragView() {
+    const canvas = document.getElementById('drag-canvas')
+    if (!canvas) return
+    function updateLines() {
+      canvas.querySelectorAll('#drag-lines line').forEach(line => {
+        const fromEl = canvas.querySelector(`.chart-node[data-id="${line.dataset.from}"]`)
+        const toEl = canvas.querySelector(`.chart-node[data-id="${line.dataset.to}"]`)
+        if (!fromEl || !toEl) return
+        line.setAttribute('x1', fromEl.offsetLeft + fromEl.offsetWidth / 2)
+        line.setAttribute('y1', fromEl.offsetTop + fromEl.offsetHeight)
+        line.setAttribute('x2', toEl.offsetLeft + toEl.offsetWidth / 2)
+        line.setAttribute('y2', toEl.offsetTop)
+      })
+    }
+    updateLines()
+    canvas.querySelectorAll('.chart-node').forEach(node => {
+      let dragging = false, moved = false, startX = 0, startY = 0, origLeft = 0, origTop = 0
+      node.addEventListener('pointerdown', e => {
+        dragging = true; moved = false
+        startX = e.clientX; startY = e.clientY
+        origLeft = node.offsetLeft; origTop = node.offsetTop
+        node.style.cursor = 'grabbing'
+        node.style.zIndex = 2
+        try { node.setPointerCapture(e.pointerId) } catch {}
+      })
+      node.addEventListener('pointermove', e => {
+        if (!dragging) return
+        const dx = e.clientX - startX, dy = e.clientY - startY
+        if (Math.abs(dx) > 3 || Math.abs(dy) > 3) moved = true
+        if (!moved) return
+        node.style.left = Math.max(0, origLeft + dx) + 'px'
+        node.style.top = Math.max(0, origTop + dy) + 'px'
+        updateLines()
+      })
+      node.addEventListener('pointerup', () => {
+        dragging = false
+        node.style.cursor = 'grab'
+        node.style.zIndex = 1
+        if (moved) {
+          saveDragPosition(node.dataset.id, node.offsetLeft, node.offsetTop)
+        } else {
+          const s = staff.find(x => x.id === node.dataset.id)
+          if (s) openNodeDetail(s)
+        }
+      })
+    })
+    document.getElementById('drag-reset-btn')?.addEventListener('click', () => {
+      clearDragPositions()
+      renderPage()
     })
   }
 
