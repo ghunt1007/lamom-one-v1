@@ -406,6 +406,7 @@ const NAV = [
       { icon: '💟', label: 'System Health', path: '/settings/health' },
       { icon: '🔐', label: 'Security', path: '/settings/security' },
       { icon: '🗑', label: 'Data Retention', path: '/settings/data-retention' },
+      { icon: '🧹', label: 'เติมข้อมูลบริษัทย้อนหลัง', labelEn: 'Company Data Cleanup', path: '/settings/company-data-cleanup', programOwnerOnly: true },
       { icon: '👥', label: 'User Management', path: '/settings/users-manage' },
       { icon: '👤', label: 'บัญชีของฉัน', labelEn: 'My Account', labelZh: '我的账户', path: '/settings/my-account' },
       { icon: 'ℹ️', label: 'About', path: '/settings/about' },

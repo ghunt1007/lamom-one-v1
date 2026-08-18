@@ -345,7 +345,11 @@ service cloud.firestore {
       allow read, write: if isStaff();
     }
 
-    match /follow_ups/{docId} {
+    // (v1.0.470) แก้ชื่อ collection ผิด — โค้ดแอปทุกจุด (FollowUp.js/VoiceCrm.js) เขียน/อ่าน collection ชื่อ
+    // 'followups' (ไม่มีขีดล่าง) จริงๆ บล็อกนี้เดิมชื่อ follow_ups (มีขีดล่าง) จึงไม่เคย match อะไรเลยตั้งแต่
+    // สร้างมา — collection นี้ถูกปกครองด้วย catch-all isStaff() ท้ายไฟล์แทนมาตลอด (พฤติกรรมจริงเหมือนเดิม
+    // ทุกประการเพราะบล็อกนี้ก็เป็น isStaff() เหมือนกัน แค่แก้ชื่อให้ตรงเผื่ออนาคตต้องปรับสิทธิ์ให้แคบลง)
+    match /followups/{docId} {
       allow read, write: if isStaff();
     }
 

@@ -414,6 +414,7 @@ const routes = {
   // Settings extras
   '/settings/security': () => import('../pages/settings/SecuritySettings.js'),
   '/settings/data-retention': () => import('../pages/settings/DataRetention.js'),
+  '/settings/company-data-cleanup': () => import('../pages/settings/CompanyDataCleanup.js'),
   '/settings/users-manage': () => import('../pages/settings/UserManagement.js'),
   '/settings/my-account': () => import('../pages/settings/MyAccount.js'),
   // CRM extras
