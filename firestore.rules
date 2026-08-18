@@ -36,10 +36,8 @@ service cloud.firestore {
         : profile.get('role', 'viewer');
     }
 
-    function isOwner() {
-      return isSignedIn() && userRole() == 'owner';
-    }
-
+    // (v1.0.466) isOwner() (role=='owner' คนไหนก็ได้) ถูกแทนที่ด้วย isProgramOwner() ทุกจุดแล้ว — ลบทิ้งเพราะ
+    // ไม่มีที่ไหนเรียกใช้อีก (ยืนยันจาก warning ตอน deploy: "Unused function: isOwner")
     function isAdmin() {
       return isSignedIn() && userRole() in ['owner', 'admin'];
     }
