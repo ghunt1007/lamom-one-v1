@@ -171,7 +171,9 @@ service cloud.firestore {
     match /meta/{docId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn();
-      allow update, delete: if isAdmin();
+      // (v1.0.466) ตั้งค่าระบบระดับ bootstrap — เจ้าของโปรแกรมเท่านั้น (ไม่ใช่ isAdmin() เดิม ซึ่งเปิดให้
+      // แอดมิน/เจ้าของบริษัทใดก็ได้แก้ค่าระดับทั้งแพลตฟอร์ม ขัดกับนโยบาย "แอดมินแก้ได้แค่บริษัทตัวเอง")
+      allow update, delete: if isProgramOwner();
     }
 
     // ── Users ─────────────────────────────────────────────────────────────────
@@ -206,13 +208,16 @@ service cloud.firestore {
       allow update: if (isManager() && canAssignRole(request.resource.data.get('role', 'staff')) && canAssignRole(resource.data.get('role', 'staff')))
         || (isSignedIn() && uid() == userId
             && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'permissions', 'active', 'accessExpiresAt']));
-      allow delete: if isOwner();
+      // (v1.0.466) ลบบัญชี login — เจ้าของโปรแกรมเท่านั้น (ตัวอย่างที่ยืนยันไว้ชัดเจนว่าต้องเป็นเจ้าของโปรแกรม
+      // เท่านั้น ไม่ใช่ role owner ใครก็ได้ เพราะแอดมิน/เจ้าของบริษัทควรลบได้แค่บัญชีในบริษัทตัวเอง ยังไม่มี
+      // company-scoping ระดับนี้ในเอกสาร users จึงจำกัดไว้ที่เจ้าของโปรแกรมก่อนเพื่อความปลอดภัย)
+      allow delete: if isProgramOwner();
     }
 
-    // ── Roles & Permissions — owner only ─────────────────────────────────────
+    // ── Roles & Permissions — เจ้าของโปรแกรมเท่านั้น (v1.0.466 — กระทบนิยามสิทธิ์ทั้งแพลตฟอร์ม ทุกบริษัท) ──
     match /roles/{docId} {
       allow read: if isStaff();
-      allow write: if isOwner();
+      allow write: if isProgramOwner();
     }
 
     // ── Audit Logs — immutable once written ──────────────────────────────────
@@ -220,20 +225,23 @@ service cloud.firestore {
     // เพราะชื่อไม่ตรงกับที่ src/core/db.js เขียนจริง เลยตกไปใช้ default rule ท้ายไฟล์
     // ซึ่งอนุญาตให้ staff แก้ไข/ลบได้ — ทำลายหลักฐาน audit ได้ ตอนนี้แก้ให้ตรงชื่อจริงแล้ว
     match /audit_log/{docId} {
-      allow read: if isAdmin();
+      // (v1.0.466) audit log เห็นกิจกรรมข้ามทุกบริษัทได้ (ยังไม่มี companyId แยกในเอกสาร) — จำกัดเจ้าของ
+      // โปรแกรมเท่านั้นแทน isAdmin() เดิม กันแอดมินบริษัทหนึ่งเห็นกิจกรรมของอีกบริษัทผ่าน audit trail
+      allow read: if isProgramOwner();
       allow create: if isStaff();
       allow update, delete: if false;
     }
 
-    // ── Branches & Settings — admin manages ──────────────────────────────────
+    // ── Branches & Settings — ตั้งค่าระดับแพลตฟอร์ม กระทบทุกบริษัทพร้อมกัน (v1.0.466: เจ้าของโปรแกรมเท่านั้น
+    // แทน isAdmin() เดิม — ยังไม่มีโครงสร้างแยกตั้งค่าต่อบริษัท การให้แอดมินบริษัทหนึ่งแก้ไขจะกระทบทุกบริษัท) ──
     match /settings/{docId} {
       allow read: if isStaff();
-      allow write: if isAdmin();
+      allow write: if isProgramOwner();
     }
 
     match /branches/{docId} {
       allow read: if isStaff();
-      allow write: if isAdmin();
+      allow write: if isProgramOwner();
     }
 
     // ── CRM & Sales ──────────────────────────────────────────────────────────
@@ -1009,27 +1017,30 @@ service cloud.firestore {
       allow read, write: if isStaff();
     }
 
-    // ── Shared reference data & org-wide settings — admin manages ────────────
+    // ── Shared reference data & org-wide settings — เจ้าของโปรแกรมเท่านั้น (v1.0.466) ────────────
+    // เดิมใช้ isAdmin() (role owner/admin คนไหนก็แก้ได้) — collection พวกนี้เป็นค่าตั้งค่าเดียวใช้ร่วมกันทุก
+    // บริษัทในเครือ ไม่ได้แยกเก็บต่อบริษัท ถ้าปล่อยให้แอดมินบริษัทหนึ่งแก้ จะกระทบทุกบริษัทพร้อมกัน ขัดกับ
+    // นโยบาย "แอดมิน/เจ้าของบริษัทแก้ได้แค่บริษัทตัวเอง" — จำกัดเป็นเจ้าของโปรแกรมเท่านั้นแทน
     match /master_data/{docId} {
       allow read: if isStaff();
-      allow write: if isAdmin();
+      allow write: if isProgramOwner();
     }
 
     match /company_profile/{docId} {
       allow read: if isStaff();
-      allow write: if isAdmin();
+      allow write: if isProgramOwner();
     }
 
     match /whitelabel_settings/{docId} {
       allow read: if isStaff();
-      allow write: if isAdmin();
+      allow write: if isProgramOwner();
     }
 
     // (v1.0.325) ตั้งค่า mapping ชื่อ field V8→V1 ต่อ collection ปลายทาง — ไม่มีข้อมูลอ่อนไหว (แค่ชื่อ
     // field เป็นข้อความ) จึงใช้สิทธิ์เดียวกับ config ทั่วไปด้านบน
     match /v8_field_mappings/{docId} {
       allow read: if isStaff();
-      allow write: if isAdmin();
+      allow write: if isProgramOwner();
     }
 
     // ข้อมูลนิติบุคคล/สาขา (เลขผู้เสียภาษี/ที่อยู่/เบอร์/อีเมล) — เดิมพนักงานทั่วไปแก้ได้เหมือน company_profile
@@ -1041,20 +1052,24 @@ service cloud.firestore {
 
     // นิติบุคคลจริงของเจ้าของระบบ (รองรับ 1 user ทำงานหลายบริษัท) — คนละแนวคิดกับ companies ด้านบน
     // (companies ด้านบน = ลูกค้าองค์กร/บริษัทคู่ค้า B2B ไม่ใช่บริษัทเจ้าของระบบเอง)
+    // (v1.0.466) รายชื่อบริษัทในเครือเอง — เจ้าของโปรแกรมเท่านั้นที่เพิ่ม/แก้/ลบบริษัทได้ (เดิม isManager()
+    // เปิดให้ผู้จัดการบริษัทไหนก็แก้ไข/ลบบริษัทอื่นในเครือได้ ขัดกับนโยบาย "แก้ได้แค่บริษัทตัวเอง" ชัดเจน)
     match /org_companies/{docId} {
       allow read: if isStaff();
-      allow write: if isManager();
+      allow write: if isProgramOwner();
     }
 
     // ฟิลด์ที่เพิ่มเองได้ (custom fields) ปรับ schema ของฟอร์มทั้งระบบ ไม่ใช่ข้อมูลรายวันของพนักงาน
+    // (v1.0.466) กระทบฟอร์มทุกบริษัทพร้อมกัน — เจ้าของโปรแกรมเท่านั้น
     match /custom_fields/{docId} {
       allow read: if isStaff();
-      allow write: if isManager();
+      allow write: if isProgramOwner();
     }
 
+    // (v1.0.466) ตั้งค่า SMS OTP gateway ทั้งแพลตฟอร์ม — เจ้าของโปรแกรมเท่านั้น (เดิม isAdmin())
     match /sms_otp_settings/{docId} {
       allow read: if isStaff();
-      allow write: if isAdmin();
+      allow write: if isProgramOwner();
     }
 
     // ── Finance-adjacent config — finance role manages ────────────────────────
@@ -1121,48 +1136,51 @@ service cloud.firestore {
       allow create: if isSignedIn();
     }
 
-    // ── System security — admin only (ค่า secret จริง/ปิด-เปิดนโยบายทั้งองค์กร/ยกเลิก session คนอื่น) ──
+    // ── System security — เจ้าของโปรแกรมเท่านั้น (v1.0.466) ─────────────────────────────────
+    // เดิมใช้ isAdmin() (role owner/admin คนไหนก็ได้) — collection พวกนี้เป็นการตั้งค่าระดับแพลตฟอร์มทั้งระบบ
+    // ไม่ได้แยกต่อบริษัท (ค่า secret จริง/นโยบายความปลอดภัยทั้งองค์กร/ยกเลิก session คนอื่น) ให้แอดมิน/เจ้าของ
+    // บริษัทใดบริษัทหนึ่งควบคุมได้จะกระทบทุกบริษัทพร้อมกัน และเสี่ยงถ้าเจ้าของธุรกิจที่ไม่ใช่สายเทคนิคเผลอกด
+    // ผิด (ตัวอย่างที่ยืนยันไว้ชัดเจน: "ตั้งค่าระบบ" ต้องเป็นเจ้าของโปรแกรมเท่านั้น)
     match /api_keys/{docId} {
-      allow read, write: if isAdmin();
+      allow read, write: if isProgramOwner();
     }
 
     match /security_policies/{docId} {
       allow read: if isStaff();
-      allow write: if isAdmin();
+      allow write: if isProgramOwner();
     }
 
     // (v1.0.350) เดิม write เป็น isAdmin() ล้วน แต่ทุกคนที่ login ต้องเขียน session ของตัวเองได้ (ไม่ใช่แค่
     // แอดมิน) — เปิดให้ signed-in สร้าง/แก้ไข "เฉพาะ doc ของตัวเอง" (เทียบ uid ตรงกับผู้เรียก) อ่านทั้งหมด/
-    // บังคับ logout คนอื่น (kick) ยังจำกัดแอดมินเหมือนเดิม
+    // บังคับ logout คนอื่น (kick) จำกัดเจ้าของโปรแกรมเท่านั้น (v1.0.466 — เดิม isAdmin())
     match /security_sessions/{docId} {
-      allow read: if isAdmin();
+      allow read: if isProgramOwner();
       allow create: if isSignedIn() && request.resource.data.get('uid', '') == uid();
-      // update ต้องเปิดให้แอดมิน "kick" (soft-delete ผ่าน updateDocData) session ของคนอื่นได้ด้วย ไม่ใช่แค่
-      // เจ้าของ session เอง ไม่งั้นปุ่ม "🚪 Logout" ในหน้า Security Settings จะใช้ไม่ได้จริงกับทุกคนยกเว้น
-      // ตัวเอง
-      allow update: if isAdmin() || (isSignedIn() && request.resource.data.get('uid', '') == uid());
-      allow delete: if isAdmin();
+      // update ต้องเปิดให้เจ้าของโปรแกรม "kick" (soft-delete ผ่าน updateDocData) session ของคนอื่นได้ด้วย
+      // ไม่ใช่แค่เจ้าของ session เอง ไม่งั้นปุ่ม "🚪 Logout" ในหน้า Security Settings จะใช้ไม่ได้จริง
+      allow update: if isProgramOwner() || (isSignedIn() && request.resource.data.get('uid', '') == uid());
+      allow delete: if isProgramOwner();
     }
 
-    // (v1.0.350) IP Whitelist (เตือนเท่านั้น ไม่บล็อกจริง) — ดูได้ทุกคนที่เป็นพนักงาน แก้ไขได้แค่แอดมิน
-    // เหมือน security_policies ด้านบน
+    // (v1.0.350) IP Whitelist (เตือนเท่านั้น ไม่บล็อกจริง) — ดูได้ทุกคนที่เป็นพนักงาน แก้ไขได้แค่เจ้าของ
+    // โปรแกรม (v1.0.466 — เดิม isAdmin())
     match /ip_whitelist/{docId} {
       allow read: if isStaff();
-      allow write: if isAdmin();
+      allow write: if isProgramOwner();
     }
 
     // (v1.0.351) Data Retention Policy — เก็บแค่ "นโยบาย" (collection ไหน เก็บกี่วัน) ไม่ใช่ข้อมูลจริงที่จะ
-    // ลบ (การลบจริงใช้สิทธิ์เดิมของ collection ปลายทางแต่ละที่ เช่น error_log ที่ isStaff() ลบได้อยู่แล้ว —
-    // หน้า UI จำกัด owner/admin เท่านั้นที่กดลบได้จริงอีกชั้นหนึ่ง)
+    // ลบ (การลบจริงใช้สิทธิ์เดิมของ collection ปลายทางแต่ละที่ เช่น error_log ที่ isStaff() ลบได้อยู่แล้ว)
+    // (v1.0.466 — เดิม isAdmin() เขียนได้ เปลี่ยนเป็นเจ้าของโปรแกรมเท่านั้น)
     match /data_retention_policies/{docId} {
       allow read: if isStaff();
-      allow write: if isAdmin();
+      allow write: if isProgramOwner();
     }
 
     // เหตุการณ์ความปลอดภัยจริง (เช่น login จาก IP ที่ไม่อยู่ใน whitelist) — ทุกคนที่ login สร้างเหตุการณ์ของ
-    // ตัวเองได้ (ตอน login) แอดมินอ่าน/จัดการทั้งหมด เหมือน pattern เดียวกับ error_log ด้านบน
+    // ตัวเองได้ (ตอน login) เจ้าของโปรแกรมอ่าน/จัดการทั้งหมด (v1.0.466 — เดิม isAdmin())
     match /security_alerts/{docId} {
-      allow read, update, delete: if isAdmin();
+      allow read, update, delete: if isProgramOwner();
       allow create: if isSignedIn();
     }
 
@@ -1195,24 +1213,25 @@ service cloud.firestore {
     // ── System integrations/backups/webhooks — admin เท่านั้น ──────────────────
     // webhooks เก็บ field "secret" เป็นข้อความจริงตามที่กรอกในฟอร์ม (ไม่ได้เข้ารหัส/ปกปิด) และ
     // system_integrations เก็บ config การเชื่อมต่อ third-party — ทั้งสองไม่ควรให้ staff ทั่วไปอ่าน/แก้
-    // system_backups: การ "กู้คืน" (restore) เขียนทับข้อมูลจริงทั้งระบบได้ ต้องเป็นแอดมินสั่งเท่านั้น
+    // system_backups: การ "กู้คืน" (restore) เขียนทับข้อมูลจริงทั้งระบบได้ (v1.0.466 — เดิม isAdmin() ทั้งหมด
+    // เปลี่ยนเป็นเจ้าของโปรแกรมเท่านั้น เพราะกระทบทั้งแพลตฟอร์มทุกบริษัทพร้อมกัน ไม่ใช่แค่บริษัทตัวเอง)
     match /webhooks/{docId} {
-      allow read, write: if isAdmin();
+      allow read, write: if isProgramOwner();
     }
 
     match /system_integrations/{docId} {
-      allow read, write: if isAdmin();
+      allow read, write: if isProgramOwner();
     }
 
     match /system_backups/{docId} {
-      allow read, write: if isAdmin();
+      allow read, write: if isProgramOwner();
     }
 
     // (v1.0.316) เก็บค่าที่ต้องการของ Auto Backup (ความถี่/ระยะเก็บ) — เดิมไม่มี collection นี้เลยตอนที่
     // ฟีเจอร์ Backup & Restore ยังเป็นของปลอมทั้งหมด เพิ่มพร้อมกับตอนแก้ให้ทำงานจริง ระดับสิทธิ์เดียวกับ
-    // system_backups (isAdmin() เท่านั้น เพราะเป็นฟีเจอร์คู่กัน)
+    // system_backups (v1.0.466 — เจ้าของโปรแกรมเท่านั้น เพราะเป็นฟีเจอร์คู่กัน)
     match /system_backup_config/{docId} {
-      allow read, write: if isAdmin();
+      allow read, write: if isProgramOwner();
     }
 
     // ── HR ที่อ่อนไหวสูง — ข้อมูลผู้สมัครงาน/แผนสืบทอดตำแหน่ง/ผลประเมิน ไม่ใช่ staff ทั่วไปควรเห็น ──

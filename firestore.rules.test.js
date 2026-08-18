@@ -112,11 +112,20 @@ describe('isManager() fix — users collection access matches the UI\'s stated "
     await assertFails(db.collection('users').get())
   })
 
-  it('an owner can still delete a user account (unchanged — delete stays isOwner()-only)', async () => {
-    await seedUser('owner1', { role: 'owner', active: true })
+  // (v1.0.466) เปลี่ยนจาก isOwner() เป็น isProgramOwner() — บัญชี owner ทั่วไป (ไม่ใช่เจ้าของโปรแกรม) ลบ
+  // บัญชีคนอื่นไม่ได้อีกต่อไป (ตัวอย่างที่ยืนยันไว้ชัดเจน: "ลบบัญชี" ต้องเป็นเจ้าของโปรแกรมเท่านั้น)
+  it('the program-owner account can delete a user account', async () => {
+    await seedUser('progOwnerDel', { role: 'owner', active: true })
     await seedUser('toDelete', { role: 'staff', active: true })
-    const db = testEnv.authenticatedContext('owner1').firestore()
+    const db = testEnv.authenticatedContext('progOwnerDel', { email: 'ghunt1007@gmail.com' }).firestore()
     await assertSucceeds(db.doc('users/toDelete').delete())
+  })
+
+  it('a plain owner-role account (not the program-owner email) can no longer delete a user account', async () => {
+    await seedUser('owner1', { role: 'owner', active: true })
+    await seedUser('toDelete2', { role: 'staff', active: true })
+    const db = testEnv.authenticatedContext('owner1', { email: 'somsak@lamom.one' }).firestore()
+    await assertFails(db.doc('users/toDelete2').delete())
   })
 
   it('a manager cannot delete a user account (delete requires isOwner(), not just isManager())', async () => {
@@ -223,15 +232,26 @@ describe('CRITICAL: the catch-all rule must never grant broader access than a co
     await assertFails(db.collection('commissions').get())
   })
 
-  it('an admin CAN read audit_log, but nobody — not even admin — can update or delete it (immutability)', async () => {
-    await seedUser('adminA', { role: 'admin', active: true })
+  // (v1.0.466) audit_log read เปลี่ยนจาก isAdmin() เป็น isProgramOwner() เท่านั้น — กันแอดมินบริษัทหนึ่ง
+  // เห็นกิจกรรมของอีกบริษัทผ่าน audit trail (ยังไม่มี companyId แยกในเอกสาร)
+  it('the program-owner account CAN read audit_log, but nobody — not even them — can update or delete it (immutability)', async () => {
+    await seedUser('progOwnerA', { role: 'owner', active: true })
     await testEnv.withSecurityRulesDisabled(async (context) => {
       await context.firestore().doc('audit_log/entry1').set({ action: 'create', user: 'someone' })
     })
-    const db = testEnv.authenticatedContext('adminA').firestore()
+    const db = testEnv.authenticatedContext('progOwnerA', { email: 'ghunt1007@gmail.com' }).firestore()
     await assertSucceeds(db.doc('audit_log/entry1').get())
     await assertFails(db.doc('audit_log/entry1').update({ action: 'tampered' }))
     await assertFails(db.doc('audit_log/entry1').delete())
+  })
+
+  it('a plain admin (not the program-owner account) can no longer read audit_log — the actual policy change', async () => {
+    await seedUser('adminA', { role: 'admin', active: true })
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await context.firestore().doc('audit_log/entry1b').set({ action: 'create', user: 'someone' })
+    })
+    const db = testEnv.authenticatedContext('adminA', { email: 'admin@lamom.one' }).firestore()
+    await assertFails(db.doc('audit_log/entry1b').get())
   })
 
   it('a plain staff-role user cannot read audit_log at all (isAdmin()-only read)', async () => {
@@ -300,10 +320,17 @@ describe('CRITICAL: the catch-all rule must never grant broader access than a co
     await assertFails(db.doc('roles/r1').set({ perms: [] }))
   })
 
-  it('the owner CAN write to roles', async () => {
-    await seedUser('ownerA', { role: 'owner', active: true })
-    const db = testEnv.authenticatedContext('ownerA').firestore()
+  // (v1.0.466) เปลี่ยนจาก isOwner() เป็น isProgramOwner() — นิยามสิทธิ์กระทบทุกบริษัทพร้อมกัน
+  it('the program-owner account CAN write to roles', async () => {
+    await seedUser('progOwnerRoles', { role: 'owner', active: true })
+    const db = testEnv.authenticatedContext('progOwnerRoles', { email: 'ghunt1007@gmail.com' }).firestore()
     await assertSucceeds(db.doc('roles/r1').set({ perms: [] }))
+  })
+
+  it('a plain owner-role account (not the program-owner email) can no longer write to roles', async () => {
+    await seedUser('ownerA', { role: 'owner', active: true })
+    const db = testEnv.authenticatedContext('ownerA', { email: 'somchai@lamom.one' }).firestore()
+    await assertFails(db.doc('roles/r2').set({ perms: [] }))
   })
 
   it('a staff-level user cannot create an ai_officer_chats entry impersonating a different userId', async () => {
@@ -423,11 +450,19 @@ describe('system-security collections — admin only', () => {
     await assertFails(db.collection('api_keys').get())
   })
 
-  it('admin can read and write api_keys', async () => {
-    await seedUser('secGap2', { role: 'admin', active: true })
-    const db = testEnv.authenticatedContext('secGap2').firestore()
+  // (v1.0.466) เปลี่ยนจาก isAdmin() เป็น isProgramOwner() — api_keys เป็น secret ระดับแพลตฟอร์ม
+  it('the program-owner account can read and write api_keys', async () => {
+    await seedUser('progOwnerKeys', { role: 'owner', active: true })
+    const db = testEnv.authenticatedContext('progOwnerKeys', { email: 'ghunt1007@gmail.com' }).firestore()
     await assertSucceeds(db.collection('api_keys').get())
     await assertSucceeds(db.collection('api_keys').add({ name: 'test', key: 'x' }))
+  })
+
+  it('a plain admin (not the program-owner account) can no longer read or write api_keys', async () => {
+    await seedUser('secGap2', { role: 'admin', active: true })
+    const db = testEnv.authenticatedContext('secGap2', { email: 'admin@lamom.one' }).firestore()
+    await assertFails(db.collection('api_keys').get())
+    await assertFails(db.collection('api_keys').add({ name: 'test', key: 'x' }))
   })
 
   it('plain staff cannot read or terminate security_sessions (other users\' login sessions)', async () => {
@@ -436,10 +471,17 @@ describe('system-security collections — admin only', () => {
     await assertFails(db.collection('security_sessions').get())
   })
 
-  it('admin can read security_sessions', async () => {
-    await seedUser('secGap4', { role: 'admin', active: true })
-    const db = testEnv.authenticatedContext('secGap4').firestore()
+  // (v1.0.466) เปลี่ยนจาก isAdmin() เป็น isProgramOwner() — ยกเลิก session คนอื่นกระทบทั้งแพลตฟอร์ม
+  it('the program-owner account can read security_sessions', async () => {
+    await seedUser('progOwnerSess', { role: 'owner', active: true })
+    const db = testEnv.authenticatedContext('progOwnerSess', { email: 'ghunt1007@gmail.com' }).firestore()
     await assertSucceeds(db.collection('security_sessions').get())
+  })
+
+  it('a plain admin (not the program-owner account) can no longer read security_sessions', async () => {
+    await seedUser('secGap4', { role: 'admin', active: true })
+    const db = testEnv.authenticatedContext('secGap4', { email: 'admin@lamom.one' }).firestore()
+    await assertFails(db.collection('security_sessions').get())
   })
 
   // (v1.0.350) IP Whitelist ต้องให้ทุกคนที่ login เขียน session ของตัวเองได้ (ไม่ใช่แค่แอดมิน) — เปิดให้
@@ -474,13 +516,23 @@ describe('system-security collections — admin only', () => {
     await assertFails(db.doc('security_sessions/otherSession').update({ deleted: true }))
   })
 
-  it('admin can update (soft-delete/kick) another user\'s security_sessions doc', async () => {
-    await seedUser('secGap9', { role: 'admin', active: true })
+  // (v1.0.466) เปลี่ยนจาก isAdmin() เป็น isProgramOwner()
+  it('the program-owner account can update (soft-delete/kick) another user\'s security_sessions doc', async () => {
+    await seedUser('progOwnerKick', { role: 'owner', active: true })
     await testEnv.withSecurityRulesDisabled(async ctx => {
       await ctx.firestore().doc('security_sessions/otherSession2').set({ uid: 'someone-else', user: 'Other', ip: '1.2.3.4' })
     })
-    const db = testEnv.authenticatedContext('secGap9').firestore()
+    const db = testEnv.authenticatedContext('progOwnerKick', { email: 'ghunt1007@gmail.com' }).firestore()
     await assertSucceeds(db.doc('security_sessions/otherSession2').update({ deleted: true }))
+  })
+
+  it('a plain admin (not the program-owner account) can no longer kick another user\'s security_sessions doc', async () => {
+    await seedUser('secGap9', { role: 'admin', active: true })
+    await testEnv.withSecurityRulesDisabled(async ctx => {
+      await ctx.firestore().doc('security_sessions/otherSession3').set({ uid: 'someone-else', user: 'Other', ip: '1.2.3.4' })
+    })
+    const db = testEnv.authenticatedContext('secGap9', { email: 'admin@lamom.one' }).firestore()
+    await assertFails(db.doc('security_sessions/otherSession3').update({ deleted: true }))
   })
 })
 
@@ -492,10 +544,17 @@ describe('ip_whitelist + security_alerts (v1.0.350) — IP Whitelist is monitor-
     await assertFails(db.collection('ip_whitelist').add({ label: 'Office', ip: '203.0.113.5' }))
   })
 
-  it('admin can write ip_whitelist', async () => {
-    await seedUser('ipwl2', { role: 'admin', active: true })
-    const db = testEnv.authenticatedContext('ipwl2').firestore()
+  // (v1.0.466) เปลี่ยนจาก isAdmin() เป็น isProgramOwner()
+  it('the program-owner account can write ip_whitelist', async () => {
+    await seedUser('progOwnerIpwl', { role: 'owner', active: true })
+    const db = testEnv.authenticatedContext('progOwnerIpwl', { email: 'ghunt1007@gmail.com' }).firestore()
     await assertSucceeds(db.collection('ip_whitelist').add({ label: 'Office', ip: '203.0.113.5' }))
+  })
+
+  it('a plain admin (not the program-owner account) can no longer write ip_whitelist', async () => {
+    await seedUser('ipwl2', { role: 'admin', active: true })
+    const db = testEnv.authenticatedContext('ipwl2', { email: 'admin@lamom.one' }).firestore()
+    await assertFails(db.collection('ip_whitelist').add({ label: 'Office', ip: '203.0.113.5' }))
   })
 
   it('any signed-in staff can create a security_alerts entry (fired at their own login)', async () => {
@@ -510,10 +569,17 @@ describe('ip_whitelist + security_alerts (v1.0.350) — IP Whitelist is monitor-
     await assertFails(db.collection('security_alerts').get())
   })
 
-  it('admin can read security_alerts', async () => {
-    await seedUser('ipwl5', { role: 'admin', active: true })
-    const db = testEnv.authenticatedContext('ipwl5').firestore()
+  // (v1.0.466) เปลี่ยนจาก isAdmin() เป็น isProgramOwner()
+  it('the program-owner account can read security_alerts', async () => {
+    await seedUser('progOwnerAlerts', { role: 'owner', active: true })
+    const db = testEnv.authenticatedContext('progOwnerAlerts', { email: 'ghunt1007@gmail.com' }).firestore()
     await assertSucceeds(db.collection('security_alerts').get())
+  })
+
+  it('a plain admin (not the program-owner account) can no longer read security_alerts', async () => {
+    await seedUser('ipwl5', { role: 'admin', active: true })
+    const db = testEnv.authenticatedContext('ipwl5', { email: 'admin@lamom.one' }).firestore()
+    await assertFails(db.collection('security_alerts').get())
   })
 })
 
@@ -525,10 +591,17 @@ describe('data_retention_policies (v1.0.351) — presets only, same pattern as s
     await assertFails(db.collection('data_retention_policies').add({ collection: 'error_log', days: 90 }))
   })
 
-  it('admin can write data_retention_policies', async () => {
-    await seedUser('drp2', { role: 'admin', active: true })
-    const db = testEnv.authenticatedContext('drp2').firestore()
+  // (v1.0.466) เปลี่ยนจาก isAdmin() เป็น isProgramOwner()
+  it('the program-owner account can write data_retention_policies', async () => {
+    await seedUser('progOwnerDrp', { role: 'owner', active: true })
+    const db = testEnv.authenticatedContext('progOwnerDrp', { email: 'ghunt1007@gmail.com' }).firestore()
     await assertSucceeds(db.collection('data_retention_policies').add({ collection: 'error_log', days: 90 }))
+  })
+
+  it('a plain admin (not the program-owner account) can no longer write data_retention_policies', async () => {
+    await seedUser('drp2', { role: 'admin', active: true })
+    const db = testEnv.authenticatedContext('drp2', { email: 'admin@lamom.one' }).firestore()
+    await assertFails(db.collection('data_retention_policies').add({ collection: 'error_log', days: 90 }))
   })
 })
 
@@ -572,10 +645,17 @@ describe('third audit pass — webhooks/integrations/backups admin-only', () => 
     await assertFails(db.collection('webhooks').get())
   })
 
-  it('admin can manage webhooks', async () => {
-    await seedUser('auditGap2', { role: 'admin', active: true })
-    const db = testEnv.authenticatedContext('auditGap2').firestore()
+  // (v1.0.466) เปลี่ยนจาก isAdmin() เป็น isProgramOwner()
+  it('the program-owner account can manage webhooks', async () => {
+    await seedUser('progOwnerWh', { role: 'owner', active: true })
+    const db = testEnv.authenticatedContext('progOwnerWh', { email: 'ghunt1007@gmail.com' }).firestore()
     await assertSucceeds(db.collection('webhooks').add({ name: 'x', secret: 'shh' }))
+  })
+
+  it('a plain admin (not the program-owner account) can no longer manage webhooks', async () => {
+    await seedUser('auditGap2', { role: 'admin', active: true })
+    const db = testEnv.authenticatedContext('auditGap2', { email: 'admin@lamom.one' }).firestore()
+    await assertFails(db.collection('webhooks').add({ name: 'x', secret: 'shh' }))
   })
 
   it('a manager cannot trigger a system restore (system_backups write)', async () => {
@@ -907,9 +987,17 @@ describe('org_companies — internal legal-entity records (multi-company support
     await assertFails(db.collection('org_companies').add({ name: 'BYD Bangna', brand: 'BYD' }))
   })
 
-  it('a manager can create a company record', async () => {
+  // (v1.0.466) เปลี่ยนจาก isManager() เป็น isProgramOwner() — รายชื่อบริษัทในเครือกระทบทุกบริษัทพร้อมกัน
+  // ผู้จัดการบริษัทไหนก็แก้ไข/ลบบริษัทอื่นในเครือไม่ได้อีกต่อไป (ตรงกับนโยบาย "แก้ได้แค่บริษัทตัวเอง")
+  it('a plain manager (not the program-owner account) can no longer create a company record', async () => {
     await seedUser('auditGap42', { role: 'manager', active: true })
-    const db = testEnv.authenticatedContext('auditGap42').firestore()
+    const db = testEnv.authenticatedContext('auditGap42', { email: 'manager@lamom.one' }).firestore()
+    await assertFails(db.collection('org_companies').add({ name: 'BYD Bangna', brand: 'BYD' }))
+  })
+
+  it('the program-owner account can create a company record', async () => {
+    await seedUser('auditGap42b', { role: 'owner', active: true })
+    const db = testEnv.authenticatedContext('auditGap42b', { email: 'ghunt1007@gmail.com' }).firestore()
     await assertSucceeds(db.collection('org_companies').add({ name: 'BYD Bangna', brand: 'BYD' }))
   })
 
@@ -2014,10 +2102,17 @@ describe('system_backup_config (v1.0.316) — same sensitivity level as system_b
     await assertFails(db.collection('system_backup_config').doc('default').set({ schedule: 'daily', retention: 30 }))
   })
 
-  it('admin can read and write backup schedule config', async () => {
-    await seedUser('bkGap3', { role: 'admin', active: true })
-    const db = testEnv.authenticatedContext('bkGap3').firestore()
+  // (v1.0.466) เปลี่ยนจาก isAdmin() เป็น isProgramOwner()
+  it('the program-owner account can read and write backup schedule config', async () => {
+    await seedUser('progOwnerBk', { role: 'owner', active: true })
+    const db = testEnv.authenticatedContext('progOwnerBk', { email: 'ghunt1007@gmail.com' }).firestore()
     await assertSucceeds(db.collection('system_backup_config').doc('default').set({ schedule: 'daily', retention: 30 }))
     await assertSucceeds(db.collection('system_backup_config').doc('default').get())
+  })
+
+  it('a plain admin (not the program-owner account) can no longer read or write backup schedule config', async () => {
+    await seedUser('bkGap3', { role: 'admin', active: true })
+    const db = testEnv.authenticatedContext('bkGap3', { email: 'admin@lamom.one' }).firestore()
+    await assertFails(db.collection('system_backup_config').doc('default').set({ schedule: 'daily', retention: 30 }))
   })
 })
