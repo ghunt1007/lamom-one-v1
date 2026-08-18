@@ -39,9 +39,20 @@ const DEMO_JOBS = [
 
 let jobCounter = 5
 
+// (v1.0.459) หน้าลูกค้า (Customers.js) เขียน sessionStorage key นี้เป็น JSON {customerId, custName, phone}
+// แล้ว navigate('/service/jobs') มา — หน้านี้จะอ่านค่า, ลบ key ทิ้งทันที, แล้วเปิดฟอร์ม "เปิด Job Card ใหม่"
+// อัตโนมัติพร้อมข้อมูลลูกค้า (แพทเทิร์นเดียวกับ lamom_quote_prefill ใน QuotationBuilder.js)
+const PREFILL_KEY = 'lamom_jobcard_prefill'
+
 export default async function JobCardsPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
+
+  let prefillData = null
+  try {
+    const raw = sessionStorage.getItem(PREFILL_KEY)
+    if (raw) { sessionStorage.removeItem(PREFILL_KEY); prefillData = JSON.parse(raw) }
+  } catch { prefillData = null }
 
   let jobs = []
   let filtered = []
@@ -244,16 +255,17 @@ export default async function JobCardsPage(container) {
     document.getElementById('j-delete')?.addEventListener('click', () => deleteJob(j))
   }
 
-  function openForm(existing = null) {
+  function openForm(existing = null, prefill = null) {
     const isEdit = !!existing
     const today = todayBangkok()
     const { el, close } = openModal({
       title: isEdit ? '✏️ แก้ไข Job Card' : '➕ เปิด Job Card ใหม่', size: 'lg',
       body: `
         <div style="display:flex;flex-direction:column;gap:12px">
+          ${prefill?.customerId ? `<div style="font-size:0.76rem;color:var(--primary);background:var(--primary-dim);padding:6px 10px;border-radius:8px">🔗 เชื่อมกับลูกค้า: ${escHtml(prefill.custName||'')}</div>` : ''}
           <div class="grid-2">
-            <div class="input-group"><label class="input-label">ชื่อลูกค้า *</label><input class="input" id="jf-cust" value="${escHtml(existing?.custName||'')}"><span class="input-error" id="jf-cust-e"></span></div>
-            <div class="input-group"><label class="input-label">โทร</label><input class="input" id="jf-phone" value="${escHtml(existing?.phone||'')}"></div>
+            <div class="input-group"><label class="input-label">ชื่อลูกค้า *</label><input class="input" id="jf-cust" value="${escHtml(existing?.custName||prefill?.custName||'')}"><span class="input-error" id="jf-cust-e"></span></div>
+            <div class="input-group"><label class="input-label">โทร</label><input class="input" id="jf-phone" value="${escHtml(existing?.phone||prefill?.phone||'')}"></div>
           </div>
           <div class="grid-2">
             <div class="input-group"><label class="input-label">ยี่ห้อ</label><input class="input" id="jf-brand" value="${escHtml(existing?.brand||'')}"></div>
@@ -305,6 +317,7 @@ export default async function JobCardsPage(container) {
         techName: el.querySelector('#jf-tech').value.trim(), labor: Number(el.querySelector('#jf-labor').value)||0,
         desc, status: el.querySelector('#jf-status').value,
         parts: existing?.parts || [], createdAt: existing?.createdAt || new Date().toISOString(),
+        customerId: existing?.customerId || prefill?.customerId || null,
       }
       try {
         if (isEdit) { await updateDocData('job_cards', existing.id, data); Object.assign(existing, data) }
@@ -365,6 +378,7 @@ export default async function JobCardsPage(container) {
   `
 
   document.getElementById('add-job-btn').addEventListener('click', () => openForm())
+  if (prefillData) openForm(null, prefillData)
   document.getElementById('job-search').addEventListener('input', e => { search = e.target.value.toLowerCase(); applyFilter() })
   document.getElementById('job-show-all')?.addEventListener('click', () => {
     ownScopeActive = false

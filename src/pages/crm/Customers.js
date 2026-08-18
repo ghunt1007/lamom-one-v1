@@ -278,6 +278,7 @@ export default async function CustomersPage(container) {
             <div style="display:flex;gap:6px;flex-wrap:wrap">
               <button class="btn btn-primary btn-sm" id="wk-quote-btn">🧾 สร้างใบเสนอราคา</button>
               ${!c.bookingId && !c.isLost && c.stage !== 'lead' ? `<button class="btn btn-primary btn-sm" id="wk-booking-btn">📝 สร้างใบจอง</button>` : ''}
+              <button class="btn btn-secondary btn-sm" id="wk-jobcard-btn">🔧 เปิด Job Card</button>
             </div>
 
             <div id="wk-booking-panel">
@@ -287,6 +288,11 @@ export default async function CustomersPage(container) {
 
             <div id="wk-quote-panel">
               <div style="font-weight:600;margin-bottom:6px;font-size:0.85rem">🧾 ใบเสนอราคาที่เกี่ยวข้อง</div>
+              <div class="skeleton" style="height:40px;border-radius:10px"></div>
+            </div>
+
+            <div id="wk-jobcard-panel">
+              <div style="font-weight:600;margin-bottom:6px;font-size:0.85rem">🔧 ประวัติซ่อม/บริการ (Job Card)</div>
               <div class="skeleton" style="height:40px;border-radius:10px"></div>
             </div>
           </div>
@@ -341,11 +347,19 @@ export default async function CustomersPage(container) {
       navigate('/crm/quotation')
     })
     el.querySelector('#wk-booking-btn')?.addEventListener('click', () => openCreateBookingModal(c, updated => { close(); loadData().then(() => openDetail(updated)) }))
+    el.querySelector('#wk-jobcard-btn')?.addEventListener('click', () => {
+      sessionStorage.setItem('lamom_jobcard_prefill', JSON.stringify({
+        customerId: c.id, custName: fullName(c), phone: c.phone || '',
+      }))
+      document.querySelectorAll('.modal-overlay').forEach(m => m.remove())
+      navigate('/service/jobs')
+    })
 
     refreshTimeline(c)
     refreshFollowup(c)
     refreshBookingPanel(c)
     refreshQuotePanel(c)
+    refreshJobCardPanel(c)
   }
 
   async function refreshTimeline(c) {
@@ -502,6 +516,41 @@ export default async function CustomersPage(container) {
         `).join('')}
       </div>
     `
+  }
+
+  // (v1.0.459) ประวัติ Job Card ของลูกค้าคนนี้ — job_cards ยังไม่มี field customerId มาก่อน (พึ่งเพิ่มใหม่)
+  // เลยจับคู่แบบ best-effort ด้วยเบอร์โทร (เชื่อถือได้กว่าชื่อ เพราะพิมพ์ผิด/สะกดต่างกันได้) ควบกับ customerId
+  // จริงสำหรับ Job Card ที่เปิดจากปุ่ม "🔧 เปิด Job Card" ในหน้านี้นับจากนี้ไป
+  function normPhone(p) { return String(p || '').replace(/\D/g, '') }
+  async function refreshJobCardPanel(c) {
+    const el = document.getElementById('wk-jobcard-panel')
+    if (!el) return
+    let jobs = []
+    try { jobs = await listDocs('job_cards', [], 'createdAt', 'desc', 300) } catch { jobs = [] }
+    const myPhone = normPhone(c.phone)
+    const matched = jobs.filter(j => !j.deleted && (j.customerId === c.id || (myPhone && normPhone(j.phone) === myPhone)))
+    if (!document.getElementById('wk-jobcard-panel')) return
+    if (!matched.length) {
+      el.innerHTML = `<div style="font-weight:600;margin-bottom:6px;font-size:0.85rem">🔧 ประวัติซ่อม/บริการ (Job Card)</div><div style="font-size:0.8rem;color:var(--text-muted)">ยังไม่มีประวัติ Job Card</div>`
+      return
+    }
+    el.innerHTML = `
+      <div style="font-weight:600;margin-bottom:6px;font-size:0.85rem">🔧 ประวัติซ่อม/บริการ (Job Card)</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${matched.slice(0, 5).map(j => `
+          <div class="card" style="padding:8px 12px;display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-size:0.8rem;font-weight:600">${escHtml(j.jobNo || '')}</div>
+              <div style="font-size:0.7rem;color:var(--text-muted)">${escHtml(`${j.brand||''} ${j.model||''}`.trim() || '-')} · ${formatDate(j.createdAt)}</div>
+            </div>
+            <span class="badge badge-secondary" style="font-size:0.68rem">${escHtml(j.status || '-')}</span>
+          </div>
+        `).join('')}
+        ${matched.length > 5 ? `<div style="font-size:0.72rem;color:var(--text-muted)">และอีก ${matched.length - 5} รายการ</div>` : ''}
+      </div>
+      <button class="btn btn-secondary btn-sm" id="wk-view-jobcards" style="margin-top:8px;width:100%;justify-content:center">🔗 ดู Job Card ทั้งหมด</button>
+    `
+    document.getElementById('wk-view-jobcards')?.addEventListener('click', () => { document.querySelectorAll('.modal-overlay').forEach(m => m.remove()); navigate('/service/jobs') })
   }
 
   function openLostModal(c, onDone) {
