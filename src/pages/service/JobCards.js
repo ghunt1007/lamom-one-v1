@@ -263,18 +263,20 @@ export default async function JobCardsPage(container) {
       body: `
         <div style="display:flex;flex-direction:column;gap:12px">
           ${prefill?.customerId ? `<div style="font-size:0.76rem;color:var(--primary);background:var(--primary-dim);padding:6px 10px;border-radius:8px">🔗 เชื่อมกับลูกค้า: ${escHtml(prefill.custName||'')}</div>` : ''}
+          ${prefill?.vehicleId ? `<div style="font-size:0.76rem;color:var(--primary);background:var(--primary-dim);padding:6px 10px;border-radius:8px">🔗 เชื่อมกับรถในสต็อก: ${escHtml(`${prefill.brand||''} ${prefill.model||''}`.trim())} (VIN ${escHtml(prefill.vin||'')})</div>` : ''}
           <div class="grid-2">
             <div class="input-group"><label class="input-label">ชื่อลูกค้า *</label><input class="input" id="jf-cust" value="${escHtml(existing?.custName||prefill?.custName||'')}"><span class="input-error" id="jf-cust-e"></span></div>
             <div class="input-group"><label class="input-label">โทร</label><input class="input" id="jf-phone" value="${escHtml(existing?.phone||prefill?.phone||'')}"></div>
           </div>
           <div class="grid-2">
-            <div class="input-group"><label class="input-label">ยี่ห้อ</label><input class="input" id="jf-brand" value="${escHtml(existing?.brand||'')}"></div>
-            <div class="input-group"><label class="input-label">รุ่น</label><input class="input" id="jf-model" value="${escHtml(existing?.model||'')}"></div>
+            <div class="input-group"><label class="input-label">ยี่ห้อ</label><input class="input" id="jf-brand" value="${escHtml(existing?.brand||prefill?.brand||'')}"></div>
+            <div class="input-group"><label class="input-label">รุ่น</label><input class="input" id="jf-model" value="${escHtml(existing?.model||prefill?.model||'')}"></div>
           </div>
           <div class="grid-2">
             <div class="input-group"><label class="input-label">ทะเบียน</label><input class="input" id="jf-plate" value="${escHtml(existing?.plate||'')}"></div>
-            <div class="input-group"><label class="input-label">เลขไมล์</label><input class="input" type="number" id="jf-mileage" value="${existing?.mileage||0}"></div>
+            <div class="input-group"><label class="input-label">VIN</label><input class="input" id="jf-vin" value="${escHtml(existing?.vin||prefill?.vin||'')}"></div>
           </div>
+          <div class="input-group"><label class="input-label">เลขไมล์</label><input class="input" type="number" id="jf-mileage" value="${existing?.mileage||0}"></div>
           <div class="grid-2">
             <div class="input-group"><label class="input-label">ประเภทงาน</label>
               <select class="input" id="jf-type">
@@ -312,12 +314,14 @@ export default async function JobCardsPage(container) {
       const data = {
         jobNo, custName: cust, phone: el.querySelector('#jf-phone').value.trim(),
         brand: el.querySelector('#jf-brand').value.trim(), model: el.querySelector('#jf-model').value.trim(),
-        plate: el.querySelector('#jf-plate').value.trim(), mileage: Number(el.querySelector('#jf-mileage').value)||0,
+        plate: el.querySelector('#jf-plate').value.trim(), vin: el.querySelector('#jf-vin').value.trim(),
+        mileage: Number(el.querySelector('#jf-mileage').value)||0,
         type: el.querySelector('#jf-type').value, bay: el.querySelector('#jf-bay').value,
         techName: el.querySelector('#jf-tech').value.trim(), labor: Number(el.querySelector('#jf-labor').value)||0,
         desc, status: el.querySelector('#jf-status').value,
         parts: existing?.parts || [], createdAt: existing?.createdAt || new Date().toISOString(),
         customerId: existing?.customerId || prefill?.customerId || null,
+        vehicleId: existing?.vehicleId || prefill?.vehicleId || null,
       }
       try {
         if (isEdit) { await updateDocData('job_cards', existing.id, data); Object.assign(existing, data) }

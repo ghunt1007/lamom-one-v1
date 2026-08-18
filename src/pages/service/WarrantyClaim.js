@@ -26,9 +26,20 @@ const LABOR_RATE = 500
 
 const NEXT = { draft: 'submitted', submitted: 'approved', approved: 'reimbursed' }
 
+// (v1.0.460) หน้ารถในสต็อก (Stock.js) เขียน sessionStorage key นี้เป็น JSON {vin, vehicleId, brand, model}
+// แล้ว navigate('/service/warranty-claim') มา — หน้านี้จะอ่านค่า, ลบ key ทิ้งทันที, แล้วเปิดฟอร์ม "เปิดเคลม"
+// อัตโนมัติพร้อมข้อมูลรถ (แพทเทิร์นเดียวกับ lamom_quote_prefill ใน QuotationBuilder.js)
+const PREFILL_KEY = 'lamom_warranty_prefill'
+
 export default async function WarrantyClaimPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
+
+  let prefillData = null
+  try {
+    const raw = sessionStorage.getItem(PREFILL_KEY)
+    if (raw) { sessionStorage.removeItem(PREFILL_KEY); prefillData = JSON.parse(raw) }
+  } catch { prefillData = null }
 
   let claims = []
   let statusFilter = 'all'
@@ -120,37 +131,51 @@ export default async function WarrantyClaimPage(container) {
       if (!c) return
       try { await updateDocData('warranty_claims', c.id, { status: 'rejected' }); await loadData() } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
-    document.getElementById('add-wc-btn')?.addEventListener('click', () => {
-      openModal({
-        title: '+ เปิดเคลมรับประกัน',
-        size: 'md',
-        body: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div class="input-group"><label class="input-label">ทะเบียน *</label><input class="input" id="wc-plate"></div>
-          <div class="input-group"><label class="input-label">รุ่น</label><input class="input" id="wc-model"></div>
-          <div class="input-group" style="grid-column:1/-1"><label class="input-label">อาการ/ปัญหา *</label><input class="input" id="wc-issue"></div>
-          <div class="input-group"><label class="input-label">อะไหล่ที่เปลี่ยน</label><input class="input" id="wc-parts"></div>
-          <div class="input-group"><label class="input-label">ค่าอะไหล่ (บาท)</label><input class="input" type="number" id="wc-cost" value="0"></div>
-          <div class="input-group"><label class="input-label">ชั่วโมงแรง</label><input class="input" type="number" step="0.5" id="wc-hrs" value="1"></div>
-          <div class="input-group"><label class="input-label">ประเภทประกัน</label>
-            <select class="input" id="wc-type"><option>ทั่วไป 3 ปี</option><option>Powertrain 8 ปี</option><option>Battery 8 ปี/160k km</option></select>
-          </div>
-        </div>`,
-        confirmText: '📤 เปิดเคลม + ส่งค่าย',
-        async onConfirm() {
-          const plate = document.getElementById('wc-plate')?.value?.trim()
-          const issue = document.getElementById('wc-issue')?.value?.trim()
-          if (!plate || !issue) { showToast('❗ กรอกทะเบียนและอาการ', 'error'); return false }
-          try {
-            await createDoc('warranty_claims', { plate, model:document.getElementById('wc-model')?.value||'—', vin:'...ใหม่', issue, parts:document.getElementById('wc-parts')?.value||'—', laborHrs:parseFloat(document.getElementById('wc-hrs')?.value)||1, partCost:parseInt(document.getElementById('wc-cost')?.value)||0, status:'submitted', submitted:addDays(0), warrantyType:document.getElementById('wc-type')?.value||'ทั่วไป 3 ปี' })
-            showToast('📤 เปิดเคลม + ส่งค่ายแล้ว', 'success')
-            await loadData()
-          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
-        }
-      })
+    document.getElementById('add-wc-btn')?.addEventListener('click', () => openCreateForm())
+  }
+
+  function openCreateForm(prefill = null) {
+    openModal({
+      title: '+ เปิดเคลมรับประกัน',
+      size: 'md',
+      body: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        ${prefill?.vehicleId ? `<div style="grid-column:1/-1;font-size:0.76rem;color:var(--primary);background:var(--primary-dim);padding:6px 10px;border-radius:8px">🔗 เชื่อมกับรถในสต็อก: ${escHtml(`${prefill.brand||''} ${prefill.model||''}`.trim())} (VIN ${escHtml(prefill.vin||'')})</div>` : ''}
+        <div class="input-group"><label class="input-label">ทะเบียน *</label><input class="input" id="wc-plate" value="${escHtml(prefill?.plate||'')}"></div>
+        <div class="input-group"><label class="input-label">รุ่น</label><input class="input" id="wc-model" value="${escHtml(`${prefill?.brand||''} ${prefill?.model||''}`.trim())}"></div>
+        <div class="input-group" style="grid-column:1/-1"><label class="input-label">VIN</label><input class="input" id="wc-vin" value="${escHtml(prefill?.vin||'')}"></div>
+        <div class="input-group" style="grid-column:1/-1"><label class="input-label">อาการ/ปัญหา *</label><input class="input" id="wc-issue"></div>
+        <div class="input-group"><label class="input-label">อะไหล่ที่เปลี่ยน</label><input class="input" id="wc-parts"></div>
+        <div class="input-group"><label class="input-label">ค่าอะไหล่ (บาท)</label><input class="input" type="number" id="wc-cost" value="0"></div>
+        <div class="input-group"><label class="input-label">ชั่วโมงแรง</label><input class="input" type="number" step="0.5" id="wc-hrs" value="1"></div>
+        <div class="input-group"><label class="input-label">ประเภทประกัน</label>
+          <select class="input" id="wc-type"><option>ทั่วไป 3 ปี</option><option>Powertrain 8 ปี</option><option>Battery 8 ปี/160k km</option></select>
+        </div>
+      </div>`,
+      confirmText: '📤 เปิดเคลม + ส่งค่าย',
+      async onConfirm() {
+        const plate = document.getElementById('wc-plate')?.value?.trim()
+        const issue = document.getElementById('wc-issue')?.value?.trim()
+        if (!plate || !issue) { showToast('❗ กรอกทะเบียนและอาการ', 'error'); return false }
+        try {
+          await createDoc('warranty_claims', {
+            plate, model: document.getElementById('wc-model')?.value || '—',
+            vin: document.getElementById('wc-vin')?.value?.trim() || '',
+            vehicleId: prefill?.vehicleId || null,
+            issue, parts: document.getElementById('wc-parts')?.value || '—',
+            laborHrs: parseFloat(document.getElementById('wc-hrs')?.value) || 1,
+            partCost: parseInt(document.getElementById('wc-cost')?.value) || 0,
+            status: 'submitted', submitted: addDays(0),
+            warrantyType: document.getElementById('wc-type')?.value || 'ทั่วไป 3 ปี',
+          })
+          showToast('📤 เปิดเคลม + ส่งค่ายแล้ว', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      }
     })
   }
 
   await loadData()
+  if (prefillData) openCreateForm(prefillData)
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

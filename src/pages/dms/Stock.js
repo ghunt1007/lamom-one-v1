@@ -6,6 +6,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getBranches } from '../../data/masterData.js'
 import { pickVehicle } from '../../utils/vehiclePicker.js'
+import { navigate } from '../../core/router.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -268,13 +269,37 @@ export default async function StockPage(container) {
             <button class="btn btn-primary btn-sm" id="v-reserve" ${v.status !== 'available' ? 'disabled' : ''}>📝 จอง</button>
             <button class="btn btn-secondary btn-sm" id="v-status">🔄 เปลี่ยนสถานะ</button>
             <button class="btn btn-ghost btn-sm" id="v-qr">🔗 QR Code</button>
+            <button class="btn btn-ghost btn-sm" id="v-jobcard-btn">🔧 เปิด Job Card</button>
+            <button class="btn btn-ghost btn-sm" id="v-warranty-btn">🛡 แจ้งเคลมประกัน</button>
           </div>
+          <div id="v-booking-panel"><div class="skeleton" style="height:34px;border-radius:10px"></div></div>
+          <div id="v-pdi-panel"><div class="skeleton" style="height:34px;border-radius:10px"></div></div>
+          <div id="v-jobcard-panel"><div class="skeleton" style="height:34px;border-radius:10px"></div></div>
+          <div id="v-warranty-panel"><div class="skeleton" style="height:34px;border-radius:10px"></div></div>
         </div>
       `,
       footer: `<button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">ปิด</button>
                <button class="btn btn-primary" id="v-edit-btn">✏️ แก้ไข</button>`
     })
     document.getElementById('v-edit-btn')?.addEventListener('click', () => { document.querySelector('.modal-overlay')?.remove(); openForm(v) })
+    document.getElementById('v-jobcard-btn')?.addEventListener('click', () => {
+      sessionStorage.setItem('lamom_jobcard_prefill', JSON.stringify({
+        vehicleId: v.id, vin: v.vin || '', brand: v.brand || '', model: v.model || '',
+      }))
+      document.querySelectorAll('.modal-overlay').forEach(m => m.remove())
+      navigate('/service/jobs')
+    })
+    document.getElementById('v-warranty-btn')?.addEventListener('click', () => {
+      sessionStorage.setItem('lamom_warranty_prefill', JSON.stringify({
+        vehicleId: v.id, vin: v.vin || '', brand: v.brand || '', model: v.model || '',
+      }))
+      document.querySelectorAll('.modal-overlay').forEach(m => m.remove())
+      navigate('/service/warranty-claim')
+    })
+    refreshBookingPanelForVehicle(v)
+    refreshPdiPanel(v)
+    refreshJobCardPanelForVehicle(v)
+    refreshWarrantyPanelForVehicle(v)
     document.getElementById('v-reserve')?.addEventListener('click', async () => {
       try {
         await updateDocData('vehicles', v.id, { status: 'reserved' })
@@ -331,6 +356,54 @@ export default async function StockPage(container) {
         `
       })
     })
+  }
+
+  // (v1.0.460) รถ 1 คัน — ดูประวัติทั้งวงจร (จอง/PDI/ซ่อม/เคลมประกัน) ในหน้าเดียวกัน ไม่ต้องไล่ค้นทีละหน้า
+  // ตามที่ขอ ("เบ็ดเสร็จจุดเดียว") — bookingByVin คำนวณไว้แล้วในสโคปด้านนอก (จับคู่ด้วย VIN จริง)
+  // ส่วน PDI ผูก vehicleId จริงอยู่แล้ว (real FK) แต่ job_cards/warranty_claims เพิ่งเพิ่ม field vin ให้ใหม่
+  // ในรอบนี้ (ก่อนหน้านี้ไม่มีเลย) จึงจับคู่ได้แม่นยำเฉพาะรายการที่เปิดผ่านปุ่มในหน้านี้นับจากนี้ไป
+  function refreshBookingPanelForVehicle(v) {
+    const el = document.getElementById('v-booking-panel')
+    if (!el) return
+    const b = v.vin ? bookingByVin[v.vin] : null
+    if (!b) { el.innerHTML = `<div style="font-size:0.8rem;color:var(--text-muted)">📋 ยังไม่มีใบจอง</div>`; return }
+    el.innerHTML = `<div class="card" style="padding:8px 12px;font-size:0.8rem">📋 <strong>จองแล้ว</strong> — ${escHtml(b.custName || '-')} · ${escHtml(b.status || '-')}</div>`
+  }
+  async function refreshPdiPanel(v) {
+    const el = document.getElementById('v-pdi-panel')
+    if (!el) return
+    let pdis = []
+    try { pdis = await listDocs('pdi', [], 'startDate', 'desc', 300) } catch { pdis = [] }
+    if (!document.getElementById('v-pdi-panel')) return
+    const p = pdis.find(x => x.vehicleId === v.id)
+    if (!p) { el.innerHTML = `<div style="font-size:0.8rem;color:var(--text-muted)">🔧 ยังไม่มีประวัติ PDI</div>`; return }
+    el.innerHTML = `<div class="card" style="padding:8px 12px;font-size:0.8rem">🔧 <strong>PDI</strong> — ${escHtml(p.status || '-')} · ช่าง ${escHtml(p.techName || '-')} · ${formatDate(p.startDate)}</div>`
+  }
+  async function refreshJobCardPanelForVehicle(v) {
+    const el = document.getElementById('v-jobcard-panel')
+    if (!el) return
+    let jobs = []
+    try { jobs = await listDocs('job_cards', [], 'createdAt', 'desc', 300) } catch { jobs = [] }
+    if (!document.getElementById('v-jobcard-panel')) return
+    const matched = jobs.filter(j => !j.deleted && v.vin && j.vin === v.vin)
+    if (!matched.length) { el.innerHTML = `<div style="font-size:0.8rem;color:var(--text-muted)">🗂️ ยังไม่มีประวัติ Job Card</div>`; return }
+    el.innerHTML = `<div style="display:flex;flex-direction:column;gap:6px">
+      ${matched.slice(0, 3).map(j => `<div class="card" style="padding:8px 12px;font-size:0.8rem">🗂️ ${escHtml(j.jobNo || '')} — ${escHtml(j.status || '-')} · ${formatDate(j.createdAt)}</div>`).join('')}
+      ${matched.length > 3 ? `<div style="font-size:0.72rem;color:var(--text-muted)">และอีก ${matched.length - 3} รายการ</div>` : ''}
+    </div>`
+  }
+  async function refreshWarrantyPanelForVehicle(v) {
+    const el = document.getElementById('v-warranty-panel')
+    if (!el) return
+    let claims = []
+    try { claims = await listDocs('warranty_claims', [], 'submitted', 'desc', 300) } catch { claims = [] }
+    if (!document.getElementById('v-warranty-panel')) return
+    const matched = claims.filter(c => v.vin && c.vin === v.vin)
+    if (!matched.length) { el.innerHTML = `<div style="font-size:0.8rem;color:var(--text-muted)">🛡 ยังไม่มีเคลมประกัน</div>`; return }
+    el.innerHTML = `<div style="display:flex;flex-direction:column;gap:6px">
+      ${matched.slice(0, 3).map(c => `<div class="card" style="padding:8px 12px;font-size:0.8rem">🛡 ${escHtml(c.issue || '-')} — ${escHtml(c.status || '-')} · ${formatDate(c.submitted)}</div>`).join('')}
+      ${matched.length > 3 ? `<div style="font-size:0.72rem;color:var(--text-muted)">และอีก ${matched.length - 3} รายการ</div>` : ''}
+    </div>`
   }
 
   function openStatusModal(v) {
