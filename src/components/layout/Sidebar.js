@@ -233,7 +233,6 @@ const NAV = [
     items: [
       { icon: '👤', label: 'HR', path: '/hr' },
       { icon: '🏛', label: 'Org Chart', path: '/hr/orgchart' },
-      { icon: '👤', label: 'Staff Profiles', path: '/hr/profile' },
       { icon: '🏖', label: 'ลาพนักงาน', labelEn: 'Leave', labelZh: '请假', path: '/hr/leave' },
       { icon: '🕐', label: 'Attendance', path: '/hr/attendance' },
       { icon: '📆', label: 'Shift & Schedule', path: '/hr/shift' },

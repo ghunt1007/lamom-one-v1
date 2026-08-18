@@ -193,8 +193,6 @@ const routes = {
   '/finance/assets': () => import('../pages/finance/AssetManagement.js'),
   // Gamification extras
   '/gamification/badges': () => import('../pages/gamification/Badges.js'),
-  // HR extras
-  '/hr/profile': () => import('../pages/hr/StaffProfile.js'),
   // Training extras
   '/training/progress': () => import('../pages/training/TrainingProgress.js'),
   // Analytics extras

@@ -11,6 +11,10 @@ import { validateThaiId } from '../../utils/thaiId.js'
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
+function companyNameOf(companiesList, companyId) {
+  if (!companyId) return ''
+  return companiesList.find(c => c.id === companyId)?.name || ''
+}
 
 // พบว่าเดิมหน้านี้แสดงเงินเดือนของ "ทุกคน" บนการ์ด/ป๊อปอัพรายละเอียด/ยอดรวมหัวหน้า/ไฟล์ Export ให้เห็นตรงๆ
 // โดยไม่มีการเช็คสิทธิ์เลยแม้แต่จุดเดียว — พนักงานขาย/ช่างธรรมดาที่เปิดหน้านี้ (ซึ่งเข้าถึงได้โดยปริยายถ้าแอดมิน
@@ -67,6 +71,10 @@ export default async function StaffPage(container) {
   let deptFilter = 'all'
   let search = ''
   let loginAccounts = [] // users ที่ยังไม่มี staff doc เชื่อมอยู่ — ใช้เติมตัวเลือก "เชื่อมกับบัญชีผู้ใช้"
+  // (v1.0.458) เดิมหน้านี้ไม่รู้จักบริษัทในเครือเลย แม้ staff.companyId จะมีอยู่แล้ว (ใช้กรองข้อมูลตาม
+  // companyScopeFilters() อยู่แล้ว) แต่ไม่เคยแสดง/แก้ไขชื่อบริษัทที่หน้าจอเลยสักจุด ("พนักงานคนนี้อยู่บริษัท
+  // อะไร" ตอบไม่ได้จากหน้านี้) — โหลดมาเพื่อแสดง+แก้ไขได้จริง
+  let companiesList = []
   // เดิม DEMO_STAFF (ผสมชื่อเจ้าของจริงกับเงินเดือนสมมติ 4 คน) ถูก push เข้า staff list เงียบๆทุกครั้งที่
   // collection จริงว่างเปล่า โดยไม่มีตัวบอกบนหน้าจอเลยว่านี่คือข้อมูลตัวอย่าง (ต่างจาก ExpenseOcr.js ที่ label
   // "Demo" ไว้ชัดเจน) ผู้ใช้อาจเข้าใจผิดว่าเป็นพนักงานจริง — เพิ่มตัวแปรนี้ไว้โชว์ป้าย "ข้อมูลตัวอย่าง" แทน
@@ -91,6 +99,7 @@ export default async function StaffPage(container) {
     if (canLinkAccount) {
       try { loginAccounts = await listDocs('users', [], 'createdAt', 'desc', 500) } catch { loginAccounts = [] }
     }
+    try { companiesList = await listDocs('org_companies', [], 'name', 'asc', 100) } catch { companiesList = [] }
     // (v1.0.444) PII อ่อนไหวสูง (เลขบัตรประชาชน/วันเกิด/ที่อยู่/ผู้ติดต่อฉุกเฉิน/บัญชีธนาคาร) เก็บแยกที่
     // staff_pii เหมือน pattern เดียวกับ staff_salaries ด้านบน — ผสานทับเข้า staff เฉพาะตอนมีสิทธิ์เห็นเท่านั้น
     if (canViewPII) {
@@ -190,7 +199,8 @@ export default async function StaffPage(container) {
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;font-size:0.82rem">
           <div><span class="badge badge-${color}" style="font-size:0.72rem">${role}</span> <span style="color:var(--text-muted);font-size:0.78rem">${escHtml(s.dept)}</span></div>
-          ${s.position ? `<div style="color:var(--text-2);font-weight:600">🏷️ ${escHtml(s.position)}</div>` : ''}
+          ${s.position ? `<div style="color:var(--text-2);font-weight:600">🏷️ ${escHtml(s.position)}${s.positionSecondary ? ` <span style="color:var(--text-muted);font-weight:400">(+${escHtml(s.positionSecondary)})</span>` : ''}</div>` : ''}
+          ${companyNameOf(companiesList, s.companyId) ? `<div style="color:var(--text-muted)">🏢 ${escHtml(companyNameOf(companiesList, s.companyId))}</div>` : ''}
           <div style="color:var(--text-2)">${stEl}</div>
           <div style="color:var(--text-muted)">📅 ${formatDate(s.startDate)}</div>
           ${s.phone ? `<div style="color:var(--text-muted)">📱 ${escHtml(s.phone)}</div>` : ''}
@@ -209,8 +219,10 @@ export default async function StaffPage(container) {
           ${dRow('🏷','ชื่อ-นามสกุล',`${s.firstName} ${s.lastName}`)}
           ${s.nickname ? dRow('😊','ชื่อเล่น',s.nickname) : ''}
           ${dRow('💼','ระดับสิทธิ์',role)}
-          ${s.position ? dRow('🏷️','ตำแหน่งงาน',s.position) : ''}
-          ${dRow('🏢','แผนก',s.dept||'-')}
+          ${companyNameOf(companiesList, s.companyId) ? dRow('🏢','บริษัท', escHtml(companyNameOf(companiesList, s.companyId))) : ''}
+          ${s.position ? dRow('🏷️','ตำแหน่งหลัก',s.position) : ''}
+          ${s.positionSecondary ? dRow('🏷️','ตำแหน่งรอง',s.positionSecondary) : ''}
+          ${dRow('🏬','แผนก',s.dept||'-')}
           ${s.managerId ? dRow('🧑‍💼','หัวหน้างาน', (() => { const m = staff.find(x=>x.id===s.managerId); return m ? escHtml(m.firstName)+' '+escHtml(m.lastName) : '-' })()) : ''}
           ${dRow('📱','โทร',s.phone||'-')}
           ${dRow('📧','อีเมล',s.email||'-')}
@@ -306,9 +318,20 @@ export default async function StaffPage(container) {
               </select>
             </div>
           </div>
-          <div class="input-group"><label class="input-label">ตำแหน่งงาน (ชื่อตำแหน่งจริง) <span style="font-size:0.65rem;color:var(--text-muted)">(เลือกจากรายชื่อมาตรฐาน หรือพิมพ์เองได้ — แก้รายชื่อมาตรฐานได้ที่ Settings > Master Data)</span></label>
-            <input class="input" id="sf-position" list="sf-position-options" value="${escHtml(existing?.position||'')}" placeholder="เช่น เซลส์">
-            <datalist id="sf-position-options">${getPositions().map(p => `<option value="${escHtml(p)}">`).join('')}</datalist>
+          ${companiesList.length ? `<div class="input-group"><label class="input-label">บริษัท <span style="font-size:0.65rem;color:var(--text-muted)">(พนักงานคนนี้อยู่บริษัทไหนในเครือ — แก้รายชื่อบริษัทได้ที่ Settings > บริษัทในเครือ)</span></label>
+            <select class="input" id="sf-company">
+              <option value="">— ไม่ระบุบริษัท —</option>
+              ${companiesList.map(c => `<option value="${c.id}" ${(existing?.companyId || myEffectiveCompanyId() || '') === c.id ? 'selected' : ''}>${escHtml(c.name)}</option>`).join('')}
+            </select>
+          </div>` : ''}
+          <div class="grid-2">
+            <div class="input-group"><label class="input-label">ตำแหน่งหลัก (ชื่อตำแหน่งจริง) <span style="font-size:0.65rem;color:var(--text-muted)">(เลือกจากรายชื่อมาตรฐาน หรือพิมพ์เองได้ — แก้รายชื่อมาตรฐานได้ที่ Settings > Master Data)</span></label>
+              <input class="input" id="sf-position" list="sf-position-options" value="${escHtml(existing?.position||'')}" placeholder="เช่น เซลส์">
+              <datalist id="sf-position-options">${getPositions().map(p => `<option value="${escHtml(p)}">`).join('')}</datalist>
+            </div>
+            <div class="input-group"><label class="input-label">ตำแหน่งรอง <span style="font-size:0.65rem;color:var(--text-muted)">(ถ้ามี — เช่น รักษาการตำแหน่งอื่นควบ)</span></label>
+              <input class="input" id="sf-position2" list="sf-position-options" value="${escHtml(existing?.positionSecondary||'')}" placeholder="ไม่บังคับ">
+            </div>
           </div>
           <div class="grid-2">
             <div class="input-group"><label class="input-label">แผนก</label>
@@ -435,6 +458,8 @@ export default async function StaffPage(container) {
       const data = {
         firstName: fn, lastName: ln, nickname: el.querySelector('#sf-nn').value.trim(),
         role: el.querySelector('#sf-role').value, position: el.querySelector('#sf-position').value.trim(),
+        positionSecondary: el.querySelector('#sf-position2')?.value.trim() || '',
+        ...(el.querySelector('#sf-company') ? { companyId: el.querySelector('#sf-company').value || null } : {}),
         dept: el.querySelector('#sf-dept').value,
         status: el.querySelector('#sf-status').value, phone: el.querySelector('#sf-phone').value.trim(),
         email: el.querySelector('#sf-email').value.trim(), startDate: el.querySelector('#sf-start').value,
@@ -479,13 +504,13 @@ export default async function StaffPage(container) {
           // แล้วโหลดข้อมูลใหม่ทั้งหมด เพราะตอนนี้ collection มีเอกสารจริงแล้ว isDemoData จะกลายเป็น false
           // ไม่ต้องใช้ DEMO_STAFF fallback อีกต่อไป — ต้อง reload กันรายการตัวอย่างเดิม (รวมตัวที่เพิ่งแก้)
           // ค้างซ้ำอยู่กับของจริงที่เพิ่งสร้าง
-          const payload = { ...data, companyId: myEffectiveCompanyId() }
+          const payload = { ...data, companyId: data.companyId ?? myEffectiveCompanyId() }
           staffId = await createDoc('staff', payload)
           await loadData()
         } else {
           // Phase 2 หลายบริษัท — ติด companyId ของบริษัทหลักที่พนักงานคนสร้างสังกัดอยู่ (ถ้ามี) พนักงานเดิม
           // ที่ไม่มี companyId ยังเห็นได้ทุกคนเหมือนเดิม (ไม่ถูกกรองออก)
-          const payload = { ...data, companyId: myEffectiveCompanyId() }
+          const payload = { ...data, companyId: data.companyId ?? myEffectiveCompanyId() }
           staffId = await createDoc('staff', payload)
           // (v1.0.448) เดิมกดปุ่ม "เพิ่มพนักงาน" (ไม่ใช่แก้ไข) ตอน isDemoData=true (ยังไม่มีพนักงานจริงเลย
           // ระบบเลยโชว์ DEMO_STAFF 5 คนตัวอย่างแทน) จะแค่ unshift พนักงานจริงที่เพิ่งสร้างเข้าไปปนกับของตัวอย่าง
