@@ -5,9 +5,10 @@
 import { timeAgo, initials } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { watchDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { watchDocs, listAllDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { suggestCustomerReply, isAiEnabled } from '../../utils/ai.js'
 import { sendSms, sendEmail } from '../../utils/comms.js'
+import { isProgramOwner } from '../../core/hierarchy.js'
 
 // (v1.0.349) เดิมโหลดข้อความด้วย listDocs() ครั้งเดียวตอนเปิดหน้า ไม่ใช่ real-time จริง (ต้องกดรีเฟรชเอง
 // ถึงจะเห็นข้อความใหม่) และปุ่ม "ตอบกลับ"/"เขียนข้อความ" ไม่เคยส่งออกจริงเลยไม่ว่าช่องทางไหน (แค่ตั้งค่า
@@ -45,12 +46,47 @@ export default async function CommInboxPage(container) {
   let activeStatus = 'all'
   let selectedId = null
   let search = ''
+  const canMigrate = isProgramOwner()
+  let legacyCount = 0
+  let migrating = false
 
-  // comm_messages เป็น collection เดียวกับที่ CommHub.js (แชทภายในทีม) ใช้อยู่ด้วย แต่คนละ field shape กัน
-  // — orderBy('time') กันเอกสารของ CommHub (ไม่มี field time ใช้ createdAt แทน) หลุดเข้ามาให้อยู่แล้วโดย
-  // ธรรมชาติของ Firestore (orderBy จะข้ามเอกสารที่ไม่มี field นั้นเสมอ) แต่ยังกันไว้อีกชั้นเผื่อโครงสร้าง
-  // เปลี่ยนในอนาคต
-  const unsub = watchDocs('comm_messages', [], 'time', 'desc', 200, rows => {
+  // (v1.0.484) เอกสารเก่าที่เคยปนอยู่ใน comm_messages (ก่อนแยก collection) ยังไม่ถูกย้ายมา — เพิ่มปุ่มย้าย
+  // แบบเดียวกับเครื่องมือ backfill อื่นในระบบ (owner-only, คัดลอกไม่ลบทิ้ง) ระบุด้วยเงื่อนไขเดียวกับที่ filter
+  // กันข้อมูล CommHub ปนมาอยู่แล้ว (มี field time + channel ตรงกับ CHANNELS)
+  function isInboxLike(d) { return !!d.time && !!CHANNELS[d.channel] }
+  async function checkLegacy() {
+    try {
+      const legacy = await listAllDocs('comm_messages', [], 'createdAt', 'desc', 500)
+      legacyCount = legacy.filter(d => isInboxLike(d) && !d._migratedToInbox).length
+    } catch { legacyCount = 0 }
+    if (container.__routerGen === myGen) renderPage()
+  }
+  async function runMigration() {
+    migrating = true
+    renderPage()
+    let migrated = 0, errors = 0
+    try {
+      const legacy = await listAllDocs('comm_messages', [], 'createdAt', 'desc', 500)
+      for (const doc of legacy.filter(d => isInboxLike(d) && !d._migratedToInbox)) {
+        try {
+          await createDoc('comm_inbox_messages', doc)
+          await updateDocData('comm_messages', doc.id, { _migratedToInbox: true })
+          migrated++
+        } catch { errors++ }
+      }
+    } catch { showToast('อ่านข้อมูลเก่าไม่สำเร็จ', 'error') }
+    migrating = false
+    showToast(`✅ ย้ายข้อมูลเก่าแล้ว ${migrated} รายการ${errors ? ` (พลาด ${errors} รายการ)` : ''}`, errors ? 'warning' : 'success')
+    legacyCount = 0
+    renderPage()
+  }
+  if (canMigrate) checkLegacy()
+
+  // (v1.0.484) แยก collection ออกจาก comm_messages (ที่ CommHub.js แชทภายในทีมใช้อยู่) เป็น
+  // comm_inbox_messages ของตัวเอง — เดิมสองหน้านี้ใช้ collection เดียวกันแต่ field shape คนละแบบ (คนละ
+  // วัตถุประสงค์กันจริง: แชทภายในทีม vs ข้อความจากลูกค้า) กันไว้แค่ด้วย orderBy('time')/filter(CHANNELS[...])
+  // ซึ่งเป็นการป้องกันที่เผลอได้ถ้าโครงสร้างเปลี่ยนในอนาคต ตอนนี้แยกจริงแล้ว ไม่ต้องพึ่ง orderBy กันข้อมูลปนกันอีก
+  const unsub = watchDocs('comm_inbox_messages', [], 'time', 'desc', 200, rows => {
     if (container.__routerGen !== myGen) { unsub(); return }
     messages = rows.filter(m => CHANNELS[m.channel])
     loading = false
@@ -87,6 +123,11 @@ export default async function CommInboxPage(container) {
             <button class="btn btn-primary" id="compose-btn">✏️ เขียนข้อความ</button>
           </div>
         </div>
+
+        ${canMigrate && legacyCount > 0 ? `<div class="card" style="padding:10px 14px;margin-bottom:12px;border-left:3px solid var(--warning);font-size:0.78rem;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+          <span>🔧 พบข้อความเก่า ${legacyCount} รายการที่ยังปนอยู่ใน collection เดิม (comm_messages) — ข้อความเก่าจะยังอยู่ครบ แค่คัดลอกมารวม ไม่ลบทิ้ง</span>
+          <button class="btn btn-warning btn-sm" id="migrate-legacy-btn" ${migrating ? 'disabled' : ''}>${migrating ? '⏳ กำลังย้าย...' : '🔧 ย้ายข้อความเก่ามารวม'}</button>
+        </div>` : ''}
 
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('📬 ข้อความทั้งหมด', messages.length, 'primary')}
@@ -143,6 +184,7 @@ export default async function CommInboxPage(container) {
     `
 
     document.getElementById('compose-btn')?.addEventListener('click', openCompose)
+    document.getElementById('migrate-legacy-btn')?.addEventListener('click', runMigration)
     document.getElementById('msg-search')?.addEventListener('input', e => { search = e.target.value; renderPage() })
     container.querySelectorAll('.ch-btn').forEach(b => b.addEventListener('click', () => { activeChannel = b.dataset.ch; renderPage() }))
     container.querySelectorAll('.msg-item').forEach(el => el.addEventListener('click', async () => {
@@ -150,7 +192,7 @@ export default async function CommInboxPage(container) {
       if (!m) return
       selectedId = m.id
       if (m.status === 'unread') {
-        try { await updateDocData('comm_messages', m.id, { status: 'read' }) } catch (e) {}
+        try { await updateDocData('comm_inbox_messages', m.id, { status: 'read' }) } catch (e) {}
       }
       renderPage()
     }))
@@ -159,7 +201,7 @@ export default async function CommInboxPage(container) {
       document.getElementById('reply-btn')?.addEventListener('click', () => openReply(selected))
       document.getElementById('archive-btn')?.addEventListener('click', async () => {
         try {
-          await updateDocData('comm_messages', selected.id, { status: 'archived' })
+          await updateDocData('comm_inbox_messages', selected.id, { status: 'archived' })
           showToast('📦 เก็บข้อความแล้ว', 'success')
           selectedId = null
           renderPage()
@@ -214,7 +256,7 @@ export default async function CommInboxPage(container) {
         } catch (e) { sendErr = e.message }
         if (sendErr) { showToast('❌ ส่งไม่สำเร็จ: ' + sendErr, 'error'); return false }
         try {
-          await updateDocData('comm_messages', m.id, { status: 'replied' })
+          await updateDocData('comm_inbox_messages', m.id, { status: 'replied' })
           showToast(sentReal
             ? `✅ ส่ง${CHANNELS[m.channel]?.label}ถึง ${m.sender} แล้ว`
             : `📝 บันทึกคำตอบแล้ว — ยังไม่มีช่องทางส่งอัตโนมัติสำหรับ${CHANNELS[m.channel]?.label || m.channel} กรุณาส่งให้ ${m.sender} ด้วยตนเอง`,
@@ -268,7 +310,7 @@ export default async function CommInboxPage(container) {
         } catch (e) { sendErr = e.message }
         if (sendErr) { showToast('❌ ส่งไม่สำเร็จ: ' + sendErr, 'error'); return false }
         try {
-          await createDoc('comm_messages', {
+          await createDoc('comm_inbox_messages', {
             channel, sender: to, avatar: '👤', phone, email,
             subject, preview: body,
             time: new Date().toISOString(), status: 'read', tags: ['outbound']
