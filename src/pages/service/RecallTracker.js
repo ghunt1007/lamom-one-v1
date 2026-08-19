@@ -18,6 +18,36 @@ function mapRecallFields(r) {
   return { id: r.id, campaign: r.recallNo || r.id, model: [r.brand, r.model].filter(Boolean).join(' ') || '—', issue: r.fixDescription || '', severity: r.severity || 'medium', announced: r.issueDate || '', deadline: r.deadline || '' }
 }
 
+// (v1.0.483) รวมสคีมากับ recall_campaign_vehicles (RecallManagement.js) ตามที่เจ้าของยืนยัน — เดิมเก็บคนละ
+// collection กัน (recall_tracker_vehicles: 1 เอกสารต่อ 1 คัน มี array ของ recall ทั้งหมดในตัว vs
+// recall_campaign_vehicles: 1 เอกสารต่อ 1 คู่ (รถ, recall)) รถที่เพิ่ม/อัปเดตจากหน้าหนึ่งไม่โผล่อีกหน้าเลย
+// เป็นความเสี่ยงด้านความปลอดภัยจริง (รถที่โดน recall อาจถูกติดตามไม่ครบ) — แปลงข้อมูลที่ขอบเขต (จัดกลุ่มแถว
+// คานอนิคัลตาม VIN ให้เข้ารูปแบบเดิมของไฟล์นี้) ไม่แตะ logic แสดงผลเดิมเลย — 'declined' (ค่ายไม่มีในคำศัพท์
+// เดิมของหน้านี้) map เป็น 'notified' ไว้ก่อน (ไม่ใช่ pending ที่ดูเหมือนยังไม่ทำอะไร ไม่ใช่ completed ที่ดูเหมือน
+// เสร็จแล้วทั้งที่ลูกค้าปฏิเสธจริง)
+const STATUS_FROM_SHARED = { pending_contact:'pending', contacted:'notified', scheduled:'notified', fixed:'completed', declined:'notified' }
+const STATUS_TO_SHARED = { pending:'pending_contact', notified:'contacted', completed:'fixed' }
+
+function groupByVin(rows, modelByCampaign) {
+  const byVin = {}
+  rows.forEach(r => {
+    const key = r.vin || r.id
+    if (!byVin[key]) {
+      byVin[key] = { id: key, vin: r.vin || '', plate: r.plate || '', model: modelByCampaign[r.recallId] || '', owner: r.owner || '', phone: r.phone || '', recalls: [], status: {}, rowIdByCampaign: {} }
+    }
+    const v = byVin[key]
+    v.recalls.push(r.recallId)
+    v.status[r.recallId] = STATUS_FROM_SHARED[r.vStatus] || 'pending'
+    v.rowIdByCampaign[r.recallId] = r.id
+    if (r.vStatus === 'fixed') {
+      if (r.completedDate) v.completedDate = r.completedDate
+      if (r.completedTech) v.completedTech = r.completedTech
+      if (r.completedNote) v.completedNote = r.completedNote
+    }
+  })
+  return Object.values(byVin)
+}
+
 const SEV = { critical:{ label:'วิกฤต', color:'var(--danger)' }, high:{ label:'สูง', color:'#FF6F00' }, medium:{ label:'กลาง', color:'var(--warning)' }, low:{ label:'ต่ำ', color:'var(--text-muted)' } }
 const WST = { pending:{ label:'ยังไม่ดำเนินการ', color:'var(--danger)' }, notified:{ label:'แจ้งแล้ว', color:'var(--warning)' }, completed:{ label:'เสร็จแล้ว', color:'var(--success)' } }
 
@@ -34,12 +64,14 @@ export default async function RecallTrackerPage(container) {
   async function loadData() {
     loading = true
     try {
-      const [v, campaigns] = await Promise.all([
-        listDocs('recall_tracker_vehicles', [], 'plate', 'asc', 500),
+      const [flatRows, campaigns] = await Promise.all([
+        listDocs('recall_campaign_vehicles', [], 'plate', 'asc', 500),
         listDocs('recall_campaigns', [], 'issueDate', 'desc', 200),
       ])
-      VEHICLES = v
       RECALLS = campaigns.map(mapRecallFields)
+      const modelByCampaign = {}
+      RECALLS.forEach(r => { modelByCampaign[r.id] = r.model })
+      VEHICLES = groupByVin(flatRows.filter(r => !r.deleted), modelByCampaign)
     } catch (e) { VEHICLES = []; RECALLS = [] }
     loading = false
     if (container.__routerGen === myGen) render()
@@ -180,19 +212,14 @@ export default async function RecallTrackerPage(container) {
           if (!picked) { showToast('⚠️ กรุณาเลือกรถก่อน', 'warning'); return false }
           const campaignId = document.getElementById('av-campaign')?.value
           const existing = VEHICLES.find(v => v.vin === picked.vin)
+          if (existing && existing.recalls.includes(campaignId)) { showToast('รถคันนี้อยู่ใน Recall นี้แล้ว', 'warning'); return false }
           try {
-            if (existing) {
-              if (existing.recalls.includes(campaignId)) { showToast('รถคันนี้อยู่ใน Recall นี้แล้ว', 'warning'); return false }
-              await updateDocData('recall_tracker_vehicles', existing.id, {
-                recalls: [...existing.recalls, campaignId],
-                status: { ...existing.status, [campaignId]: 'pending' },
-              })
-            } else {
-              await createDoc('recall_tracker_vehicles', {
-                vin: picked.vin, plate: picked.plate, model: picked.model, owner: picked.owner, phone: picked.phone,
-                recalls: [campaignId], status: { [campaignId]: 'pending' },
-              })
-            }
+            // (v1.0.483) ทุกกรณีคือแค่เพิ่มแถวใหม่ 1 แถวสำหรับคู่ (รถ, recall) นี้ — ไม่ว่ารถจะเคยอยู่ใน
+            // recall อื่นมาก่อนหรือไม่ก็ตาม ตรงกับแพทเทิร์นเดียวกับ createDoc ใน RecallManagement.js
+            await createDoc('recall_campaign_vehicles', {
+              recallId: campaignId, plate: picked.plate, owner: picked.owner, phone: picked.phone, vin: picked.vin,
+              vStatus: STATUS_TO_SHARED.pending,
+            })
             showToast(`✅ เพิ่ม ${picked.owner} เข้า Recall แล้ว`, 'success')
             await loadData()
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
@@ -222,14 +249,11 @@ export default async function RecallTrackerPage(container) {
       })
     })
     document.getElementById('notify-pending-btn')?.addEventListener('click', async () => {
-      const toNotify = VEHICLES.filter(v=>Object.values(v.status).some(s=>s==='pending'))
+      const pendingVehicles = VEHICLES.filter(v=>Object.values(v.status).some(s=>s==='pending'))
+      const rowIds = pendingVehicles.flatMap(v => v.recalls.filter(rid => v.status[rid] === 'pending').map(rid => v.rowIdByCampaign[rid]))
       try {
-        await Promise.all(toNotify.map(v => {
-          const newStatus = { ...v.status }
-          Object.keys(newStatus).forEach(k => { if (newStatus[k]==='pending') newStatus[k]='notified' })
-          return updateDocData('recall_tracker_vehicles', v.id, { status: newStatus })
-        }))
-        showToast(`📢 แจ้ง ${toNotify.length} เจ้าของรถแล้ว`, 'success')
+        await Promise.all(rowIds.map(rowId => updateDocData('recall_campaign_vehicles', rowId, { vStatus: STATUS_TO_SHARED.notified })))
+        showToast(`📢 แจ้ง ${pendingVehicles.length} เจ้าของรถแล้ว`, 'success')
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
@@ -255,10 +279,9 @@ export default async function RecallTrackerPage(container) {
     container.querySelectorAll('.notify-btn').forEach(b => b.addEventListener('click', async () => {
       const v = VEHICLES.find(x=>x.vin===b.dataset.vin)
       if (!v) return
-      const newStatus = { ...v.status }
-      Object.keys(newStatus).forEach(k=>{if(newStatus[k]==='pending')newStatus[k]='notified'})
+      const rowIds = v.recalls.filter(rid => v.status[rid] === 'pending').map(rid => v.rowIdByCampaign[rid])
       try {
-        await updateDocData('recall_tracker_vehicles', v.id, { status: newStatus })
+        await Promise.all(rowIds.map(rowId => updateDocData('recall_campaign_vehicles', rowId, { vStatus: STATUS_TO_SHARED.notified })))
         showToast(`📢 แจ้ง ${v.owner} แล้ว`, 'success')
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
@@ -294,13 +317,12 @@ export default async function RecallTrackerPage(container) {
         async onConfirm() {
           const v = VEHICLES.find(x=>x.vin===b.dataset.vin)
           if (!v) return
-          const newStatus = { ...v.status }
-          Object.keys(newStatus).forEach(k=>{newStatus[k]='completed'})
           const completedDate = document.getElementById('rc-date')?.value || todayBangkok()
           const completedTech = document.getElementById('rc-tech')?.value.trim() || ''
           const completedNote = document.getElementById('rc-note')?.value.trim() || ''
+          const rowIds = v.recalls.map(rid => v.rowIdByCampaign[rid])
           try {
-            await updateDocData('recall_tracker_vehicles', v.id, { status: newStatus, completedDate, completedTech, completedNote })
+            await Promise.all(rowIds.map(rowId => updateDocData('recall_campaign_vehicles', rowId, { vStatus: STATUS_TO_SHARED.completed, completedDate, completedTech, completedNote })))
             showToast(`✅ บันทึก Recall เสร็จสมบูรณ์`, 'success')
             await loadData()
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
