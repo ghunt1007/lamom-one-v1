@@ -183,9 +183,11 @@ export default async function NoClaimPage(container) {
           const basePremium = parseInt(document.getElementById('nc-premium')?.value) || 0
           const claimed   = document.getElementById('nc-claimed')?.checked || false
           if (!customer || !plate || !basePremium) { showToast('กรอกข้อมูลให้ครบ', 'warning'); return false }
-          await createDoc('ncb_policies', { customer, phone, plate, model: model||'ไม่ระบุ', insurer: insurer||'ไม่ระบุ', renewDate, ncbYears, basePremium, claimed })
-          showToast(`✅ เพิ่มกรมธรรม์ ${plate} (${customer}) แล้ว`, 'success')
-          await loadData()
+          try {
+            await createDoc('ncb_policies', { customer, phone, plate, model: model||'ไม่ระบุ', insurer: insurer||'ไม่ระบุ', renewDate, ncbYears, basePremium, claimed })
+            showToast(`✅ เพิ่มกรมธรรม์ ${plate} (${customer}) แล้ว`, 'success')
+            await loadData()
+          } catch { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
         }
       })
     })

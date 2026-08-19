@@ -331,14 +331,16 @@ export default async function CashFlowPage(container) {
       const desc = el.querySelector('#cf-desc').value.trim()
       const amount = +el.querySelector('#cf-amount').value
       if (!desc || !amount) { showToast('❗ กรุณากรอกรายละเอียดและจำนวนเงิน', 'error'); return }
-      await createDoc('cash_flow', {
-        date: el.querySelector('#cf-date').value,
-        type: el.querySelector('#cf-type-sel').value,
-        cat: el.querySelector('#cf-cat-sel').value,
-        desc, amount
-      })
-      showToast('💾 บันทึกรายการแล้ว', 'success'); close()
-      await loadData(); renderPage()
+      try {
+        await createDoc('cash_flow', {
+          date: el.querySelector('#cf-date').value,
+          type: el.querySelector('#cf-type-sel').value,
+          cat: el.querySelector('#cf-cat-sel').value,
+          desc, amount
+        })
+        showToast('💾 บันทึกรายการแล้ว', 'success'); close()
+        await loadData(); renderPage()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 

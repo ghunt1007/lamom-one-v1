@@ -137,8 +137,10 @@ export default async function ServiceReminderPage(container) {
           </div>
         </div>`,
         async onConfirm() {
+          const bookedDate = document.getElementById('bk-date')?.value || addDays(3)
+          const bookedTime = document.getElementById('bk-time')?.value || ''
           try {
-            await updateDocData('service_reminders', r.id, { booked: true })
+            await updateDocData('service_reminders', r.id, { booked: true, bookedDate, bookedTime })
             showToast('📅 จองคิวสำเร็จ!', 'success')
             await loadData()
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

@@ -231,7 +231,7 @@ export default async function PdiPage(container) {
           // เดิมผ่าน PDI แล้วอัปเดตแค่ pdi doc เท่านั้น ไม่เคยอัปเดตสถานะรถจริงใน 'vehicles' กลับเลย ทำให้
           // รถในหน้าสต็อกจริงยังค้างสถานะเดิม (เช่น pdi/transit) ทั้งที่ผ่าน PDI พร้อมส่งมอบแล้วจริง
           if (p.vehicleId) {
-            try { await updateDocData('vehicles', p.vehicleId, { status: 'available' }) } catch (e) {}
+            try { await updateDocData('vehicles', p.vehicleId, { status: 'available' }) } catch (e) { showToast('⚠️ อัปเดตสถานะรถในสต็อกไม่สำเร็จ', 'warning') }
           }
           showToast('✅ ผ่าน PDI แล้ว! พร้อมส่งมอบ', 'success')
           close(); updateStats(); applyFilter()

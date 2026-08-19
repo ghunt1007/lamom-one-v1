@@ -70,7 +70,7 @@ export default async function FormBuilderPage(container) {
     document.getElementById('new-form-btn')?.addEventListener('click', () => openNewFormModal())
     container.querySelectorAll('.edit-btn').forEach(b => b.addEventListener('click', () => {
       const f = forms.find(x => x.id === b.dataset.id)
-      if (f) { editingFormId = f.id; activeFields = f.fields.map((l,i)=>({id:'fx'+(i+1),type:'text',label:l,required:i<2})); view='editor'; render() }
+      if (f) { editingFormId = f.id; activeFields = f.fields.map((fld,i)=> typeof fld === 'string' ? {id:'fx'+(i+1),type:'text',label:fld,required:i<2} : {id: fld.id || 'fx'+(i+1), type: fld.type || 'text', label: fld.label || '', required: !!fld.required}); view='editor'; render() }
     }))
     // ลิงก์ https://lamom.app/form/{id} เดิมทำเหมือนเป็นลิงก์สาธารณะที่ลูกค้าเปิดกรอกฟอร์มได้จริง แต่ router.js
     // ของแอปนี้ไม่มี route แบบนี้อยู่จริง (ไม่มีหน้า public form) — ระบุชัดในข้อความว่าเป็นแค่ข้อมูลอ้างอิง
@@ -138,7 +138,7 @@ export default async function FormBuilderPage(container) {
       const f = forms.find(x => x.id === editingFormId)
       if (!f) return
       try {
-        await updateDocData('forms', f.id, { fields: activeFields.map(f=>f.label) })
+        await updateDocData('forms', f.id, { fields: activeFields.map(f=>({ id:f.id, type:f.type, label:f.label, required:f.required })) })
         view='list'
         showToast('💾 บันทึกฟอร์มแล้ว', 'success')
         await loadData()
@@ -197,7 +197,7 @@ export default async function FormBuilderPage(container) {
         </div>
         <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:10px">${f.fields.length} ช่อง · ${f.submissions} การตอบ</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
-          ${f.fields.slice(0,3).map(l=>`<span style="font-size:0.64rem;background:var(--surface-2);padding:2px 7px;border-radius:6px">${esc(l)}</span>`).join('')}${f.fields.length>3?`<span style="font-size:0.64rem;color:var(--text-muted)">+${f.fields.length-3}</span>`:''}
+          ${f.fields.slice(0,3).map(l=>`<span style="font-size:0.64rem;background:var(--surface-2);padding:2px 7px;border-radius:6px">${esc(typeof l === 'string' ? l : l.label)}</span>`).join('')}${f.fields.length>3?`<span style="font-size:0.64rem;color:var(--text-muted)">+${f.fields.length-3}</span>`:''}
         </div>
         <div style="display:flex;gap:6px">
           <button class="btn btn-xs btn-secondary edit-btn" data-id="${f.id}">⚙ แก้ไข</button>

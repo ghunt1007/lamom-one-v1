@@ -167,21 +167,29 @@ export default async function OvertimeTrackingPage(container) {
 
     container.querySelectorAll('.sf-btn').forEach(b => b.addEventListener('click', () => { statusFilter = b.dataset.s; renderPage() }))
     container.querySelectorAll('.approve-btn').forEach(b => b.addEventListener('click', async () => {
-      await updateDocData('overtime_records', b.dataset.id, { status: 'approved' })
-      showToast('✅ อนุมัติ OT แล้ว', 'success'); await loadData()
+      try {
+        await updateDocData('overtime_records', b.dataset.id, { status: 'approved' })
+        showToast('✅ อนุมัติ OT แล้ว', 'success'); await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.reject-btn').forEach(b => b.addEventListener('click', async () => {
-      await updateDocData('overtime_records', b.dataset.id, { status: 'rejected' })
-      await loadData()
+      try {
+        await updateDocData('overtime_records', b.dataset.id, { status: 'rejected' })
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.pay-btn').forEach(b => b.addEventListener('click', async () => {
-      await updateDocData('overtime_records', b.dataset.id, { status: 'paid' })
-      showToast('💸 ส่งเข้ารอบเงินเดือนแล้ว', 'success'); await loadData()
+      try {
+        await updateDocData('overtime_records', b.dataset.id, { status: 'paid' })
+        showToast('💸 ส่งเข้ารอบเงินเดือนแล้ว', 'success'); await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     document.getElementById('approve-all-btn')?.addEventListener('click', async () => {
       const toApprove = records.filter(o => o.status === 'pending')
-      for (const o of toApprove) { await updateDocData('overtime_records', o.id, { status: 'approved' }) }
-      showToast('✅ อนุมัติ OT ทั้งหมดแล้ว', 'success'); await loadData()
+      try {
+        for (const o of toApprove) { await updateDocData('overtime_records', o.id, { status: 'approved' }) }
+        showToast('✅ อนุมัติ OT ทั้งหมดแล้ว', 'success'); await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ — บางรายการอาจอนุมัติไปแล้ว', 'error'); await loadData() }
     })
     document.getElementById('add-ot-btn')?.addEventListener('click', () => {
       if (!staffList.length) { showToast('❗ ยังไม่มีข้อมูลพนักงาน', 'error'); return }
@@ -202,12 +210,14 @@ export default async function OvertimeTrackingPage(container) {
           const staffId = document.getElementById('ot-staff')?.value
           const staff = staffList.find(s => s.id === staffId)
           if (!staff) { showToast('❗ กรุณาเลือกพนักงาน', 'error'); return false }
-          await createDoc('overtime_records', {
-            staff: staff.name, dept: staff.dept,
-            date: document.getElementById('ot-date')?.value||addDays(0),
-            hours: parseFloat(document.getElementById('ot-hours')?.value)||1, hourlyRate: staff.hourlyRate, reason, status: 'pending',
-          })
-          showToast('✅ บันทึก OT แล้ว — รออนุมัติ', 'success'); await loadData()
+          try {
+            await createDoc('overtime_records', {
+              staff: staff.name, dept: staff.dept,
+              date: document.getElementById('ot-date')?.value||addDays(0),
+              hours: parseFloat(document.getElementById('ot-hours')?.value)||1, hourlyRate: staff.hourlyRate, reason, status: 'pending',
+            })
+            showToast('✅ บันทึก OT แล้ว — รออนุมัติ', 'success'); await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
         }
       })
     })

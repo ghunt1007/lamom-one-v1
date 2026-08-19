@@ -130,10 +130,12 @@ export default async function ChallengesPage(container) {
           return { ...p, progress: isNaN(v) ? p.progress : v }
         })
         const status = participants.some(p => p.progress >= c.target) ? 'completed' : c.status
-        await updateDocData('gamification_challenges', c.id, { participants, status })
-        if (participants.some(p => p.progress >= c.target)) showToast('🎉 มีผู้พิชิต Challenge แล้ว!', 'success')
-        else showToast('✅ อัปเดตคะแนนแล้ว', 'success')
-        await loadData()
+        try {
+          await updateDocData('gamification_challenges', c.id, { participants, status })
+          if (participants.some(p => p.progress >= c.target)) showToast('🎉 มีผู้พิชิต Challenge แล้ว!', 'success')
+          else showToast('✅ อัปเดตคะแนนแล้ว', 'success')
+          await loadData()
+        } catch { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
       }
     })
     if (isSales) {
@@ -180,14 +182,16 @@ export default async function ChallengesPage(container) {
             .map(s => ({ name: `${s.firstName || ''} ${s.lastName || ''}`.trim(), progress: 0 }))
             .filter(p => p.name)
         } catch {}
-        await createDoc('gamification_challenges', {
-          name, type: document.getElementById('ch-type')?.value || 'sales',
-          reward: document.getElementById('ch-reward')?.value || '🏆 รางวัล',
-          target: parseInt(document.getElementById('ch-target')?.value) || 5,
-          participants,
-          endDate: document.getElementById('ch-end')?.value || addDays(7), status: 'active',
-        })
-        showToast('🎯 สร้าง Challenge แล้ว!' + (participants.length ? '' : ' (ยังไม่มีผู้เข้าร่วม — ยังไม่พบพนักงานจริงในระบบ)'), 'success'); await loadData()
+        try {
+          await createDoc('gamification_challenges', {
+            name, type: document.getElementById('ch-type')?.value || 'sales',
+            reward: document.getElementById('ch-reward')?.value || '🏆 รางวัล',
+            target: parseInt(document.getElementById('ch-target')?.value) || 5,
+            participants,
+            endDate: document.getElementById('ch-end')?.value || addDays(7), status: 'active',
+          })
+          showToast('🎯 สร้าง Challenge แล้ว!' + (participants.length ? '' : ' (ยังไม่มีผู้เข้าร่วม — ยังไม่พบพนักงานจริงในระบบ)'), 'success'); await loadData()
+        } catch { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
       }
     })
   }

@@ -129,19 +129,23 @@ export default async function InsuranceClaimsPage(container) {
           body: `<div class="input-group"><label class="input-label">วงเงินอนุมัติ (บาท)</label><input class="input" type="number" id="clm-approved" value="${c.estimate}"></div>`,
           async onConfirm() {
             const approved = parseInt(document.getElementById('clm-approved')?.value) || c.estimate
-            await updateDocData('insurance_claims', c.id, { approved, status: 'approved' })
-            showToast('✅ อนุมัติเคลมแล้ว', 'success'); await loadData()
+            try {
+              await updateDocData('insurance_claims', c.id, { approved, status: 'approved' })
+              showToast('✅ อนุมัติเคลมแล้ว', 'success'); await loadData()
+            } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
           }
         })
       } else {
         updateDocData('insurance_claims', c.id, { status: next }).then(() => {
           showToast(`${CLAIM_STATUS[next]?.icon} เปลี่ยนสถานะแล้ว`, 'success'); loadData()
-        })
+        }).catch(() => showToast('บันทึกไม่สำเร็จ', 'error'))
       }
     }))
     container.querySelectorAll('.reject-btn').forEach(b => b.addEventListener('click', async () => {
-      await updateDocData('insurance_claims', b.dataset.id, { status: 'rejected' })
-      showToast('❌ ปฏิเสธเคลมแล้ว', 'secondary'); await loadData()
+      try {
+        await updateDocData('insurance_claims', b.dataset.id, { status: 'rejected' })
+        showToast('❌ ปฏิเสธเคลมแล้ว', 'secondary'); await loadData()
+      } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     document.getElementById('add-claim-btn')?.addEventListener('click', openAddForm)
   }
@@ -166,13 +170,15 @@ export default async function InsuranceClaimsPage(container) {
       async onConfirm() {
         const name = document.getElementById('cl-name')?.value?.trim()
         if (!name) { showToast('❗ กรุณากรอกชื่อลูกค้า', 'error'); return false }
-        await createDoc('insurance_claims', {
-          customer: name, plate: document.getElementById('cl-plate')?.value||'—', model: document.getElementById('cl-model')?.value||'—',
-          type: document.getElementById('cl-type')?.value||'other', insurer: document.getElementById('cl-insurer')?.value||'—',
-          status: 'reported', estimate: parseInt(document.getElementById('cl-estimate')?.value)||0, approved: 0,
-          reported: addDays(0), note: document.getElementById('cl-note')?.value||'',
-        })
-        showToast('✅ แจ้งเคลมแล้ว', 'success'); await loadData()
+        try {
+          await createDoc('insurance_claims', {
+            customer: name, plate: document.getElementById('cl-plate')?.value||'—', model: document.getElementById('cl-model')?.value||'—',
+            type: document.getElementById('cl-type')?.value||'other', insurer: document.getElementById('cl-insurer')?.value||'—',
+            status: 'reported', estimate: parseInt(document.getElementById('cl-estimate')?.value)||0, approved: 0,
+            reported: addDays(0), note: document.getElementById('cl-note')?.value||'',
+          })
+          showToast('✅ แจ้งเคลมแล้ว', 'success'); await loadData()
+        } catch { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
       }
     })
   }

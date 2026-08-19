@@ -106,9 +106,11 @@ export default async function FinanceTrackerPage(container) {
       const a = apps.find(x => x.id === b.dataset.id); if (!a) return
       const ok = await confirmDialog({ title: '🗑️ ลบรายการ', message: `ยืนยันลบรายการของ "${escHtml(a.customerName)}"? การลบนี้ไม่สามารถย้อนกลับได้`, confirmText: 'ลบ', danger: true })
       if (!ok) return
-      await softDelete('finance_tracker', a.id)
-      showToast('🗑️ ลบรายการแล้ว', 'success')
-      await loadData()
+      try {
+        await softDelete('finance_tracker', a.id)
+        showToast('🗑️ ลบรายการแล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('ลบไม่สำเร็จ', 'error') }
     }))
   }
 
@@ -200,7 +202,9 @@ export default async function FinanceTrackerPage(container) {
         const patch = { status: newStatus, notes: document.getElementById('su-notes')?.value || a.notes }
         if (newStatus === 'approved') patch.approvedDate = addDays(0)
         if (newStatus === 'submitted') patch.submittedDate = addDays(0)
-        await updateDocData('finance_tracker', a.id, patch)
+        try {
+          await updateDocData('finance_tracker', a.id, patch)
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
         try {
           await createDoc('notifications', {
             type: 'finance',
@@ -243,16 +247,18 @@ export default async function FinanceTrackerPage(container) {
         const term = +document.getElementById('af-term')?.value || 60
         const rate = +document.getElementById('af-rate')?.value || 2.99
         const monthly = Math.round(loan * (1 + rate / 100 * term / 12) / term)
-        await createDoc('finance_tracker', {
-          customerId: '', customerName: name, phone: document.getElementById('af-phone')?.value||'',
-          vehicleModel: document.getElementById('af-model')?.value||'',
-          vehiclePrice: price, downPayment: down, loanAmount: loan,
-          bank: document.getElementById('af-bank')?.value||'',
-          term, monthlyPayment: monthly, interestRate: rate,
-          status: 'preparing', submittedDate: null, approvedDate: null, conditions: '',
-          salesperson: document.getElementById('af-sales')?.value||'',
-          notes: document.getElementById('af-notes')?.value||''
-        })
+        try {
+          await createDoc('finance_tracker', {
+            customerId: '', customerName: name, phone: document.getElementById('af-phone')?.value||'',
+            vehicleModel: document.getElementById('af-model')?.value||'',
+            vehiclePrice: price, downPayment: down, loanAmount: loan,
+            bank: document.getElementById('af-bank')?.value||'',
+            term, monthlyPayment: monthly, interestRate: rate,
+            status: 'preparing', submittedDate: null, approvedDate: null, conditions: '',
+            salesperson: document.getElementById('af-sales')?.value||'',
+            notes: document.getElementById('af-notes')?.value||''
+          })
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
         showToast('✅ บันทึกการยื่นไฟแนนซ์แล้ว!', 'success')
         await loadData()
       }

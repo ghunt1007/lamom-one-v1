@@ -201,14 +201,16 @@ export default async function MultiCurrencyPage(container) {
         const user = getState('user')
         const updatedByName = user?.displayName || user?.email || 'ผู้ใช้งาน'
         let changed = 0
-        for (const inp of inputs) {
-          const newRate = parseFloat(inp.value)
-          if (!newRate || newRate <= 0) continue
-          const cur = editable.find(c => c.id === inp.dataset.id)
-          if (!cur || cur.rate === newRate) continue
-          await updateDocData('exchange_rates', inp.dataset.id, { rate: newRate, updatedByName })
-          changed++
-        }
+        try {
+          for (const inp of inputs) {
+            const newRate = parseFloat(inp.value)
+            if (!newRate || newRate <= 0) continue
+            const cur = editable.find(c => c.id === inp.dataset.id)
+            if (!cur || cur.rate === newRate) continue
+            await updateDocData('exchange_rates', inp.dataset.id, { rate: newRate, updatedByName })
+            changed++
+          }
+        } catch (e) { showToast('บันทึกไม่สำเร็จ — บางรายการอาจบันทึกไปแล้ว', 'error'); await loadRates(); render(); return false }
         if (changed) {
           await loadRates()
           render()

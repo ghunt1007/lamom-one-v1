@@ -126,14 +126,18 @@ export default async function StaffLoanPage(container) {
     container.querySelectorAll('.approve-btn').forEach(b => b.addEventListener('click', async () => {
       const l = loans.find(x => x.id === b.dataset.id)
       if (!l) return
-      await updateDocData('staff_loans', l.id, { status: 'approved' })
-      showToast(`✅ อนุมัติ ${formatCurrency(l.amount)} — โอนพร้อมรอบเงินเดือน`, 'success'); await loadData()
+      try {
+        await updateDocData('staff_loans', l.id, { status: 'approved' })
+        showToast(`✅ อนุมัติ ${formatCurrency(l.amount)} — โอนพร้อมรอบเงินเดือน`, 'success'); await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.reject-btn').forEach(b => b.addEventListener('click', async () => {
       const l = loans.find(x => x.id === b.dataset.id)
       if (!l) return
-      await updateDocData('staff_loans', l.id, { status: 'rejected' })
-      await loadData()
+      try {
+        await updateDocData('staff_loans', l.id, { status: 'rejected' })
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.pay-btn').forEach(b => b.addEventListener('click', async () => {
       const l = loans.find(x => x.id === b.dataset.id)
@@ -142,22 +146,26 @@ export default async function StaffLoanPage(container) {
       // สัญญาเดียวกันใกล้เวลากันมาก (เผื่อเปิดหน้านี้พร้อมกันตอนประมวลผลเงินเดือนประจำเดือน) ทั้งคู่จะอ่านค่า
       // เดิมตัวเดียวกันแล้วคำนวณเป้าเดียวกัน ทำให้งวดที่ควรหักจริง 2 ครั้งเหลือแค่ 1 ครั้งโดยไม่มี error เตือน
       // แก้ให้บวกแบบอะตอมมิกที่ระดับ Firestore ก่อน แล้วอ่านค่าจริงหลังบวกมาเช็คว่าผ่อนครบหรือยัง
-      await incrementField('staff_loans', l.id, 'paidInstallments', 1)
-      const fresh = await readDoc('staff_loans', l.id)
-      const paidInstallments = fresh?.paidInstallments ?? (l.paidInstallments + 1)
-      if (paidInstallments >= l.installments && fresh?.status !== 'paid') {
-        await updateDocData('staff_loans', l.id, { status: 'paid' })
-      }
-      showToast(paidInstallments >= l.installments ? '🎉 ผ่อนครบแล้ว — ปิดสัญญา' : `💵 หักงวดที่ ${paidInstallments} แล้ว`, paidInstallments >= l.installments ? 'success' : 'primary')
-      await loadData()
+      try {
+        await incrementField('staff_loans', l.id, 'paidInstallments', 1)
+        const fresh = await readDoc('staff_loans', l.id)
+        const paidInstallments = fresh?.paidInstallments ?? (l.paidInstallments + 1)
+        if (paidInstallments >= l.installments && fresh?.status !== 'paid') {
+          await updateDocData('staff_loans', l.id, { status: 'paid' })
+        }
+        showToast(paidInstallments >= l.installments ? '🎉 ผ่อนครบแล้ว — ปิดสัญญา' : `💵 หักงวดที่ ${paidInstallments} แล้ว`, paidInstallments >= l.installments ? 'success' : 'primary')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.del-loan-btn').forEach(b => b.addEventListener('click', async () => {
       const l = loans.find(x => x.id === b.dataset.id)
       if (!l) return
       const ok = await confirmDialog({ title: '🗑️ ลบรายการกู้/เบิก', message: `ยืนยันลบรายการของ "${escHtml(l.staff)}" — ${formatCurrency(l.amount)}?`, confirmText: 'ลบ', danger: true })
       if (!ok) return
-      await softDelete('staff_loans', l.id)
-      showToast('🗑️ ลบแล้ว', 'success'); await loadData()
+      try {
+        await softDelete('staff_loans', l.id)
+        showToast('🗑️ ลบแล้ว', 'success'); await loadData()
+      } catch (e) { showToast('ลบไม่สำเร็จ', 'error') }
     }))
     document.getElementById('add-loan-btn')?.addEventListener('click', () => {
       openModal({
@@ -188,8 +196,10 @@ export default async function StaffLoanPage(container) {
           if (amount <= 0) { showToast('❗ กรอกจำนวนเงิน', 'error'); return false }
           if (amount > maxAmount) { showToast(`❗ เกินวงเงิน — ${LOAN_TYPES[type].label} สูงสุด ${formatCurrency(maxAmount)}`, 'error'); return false }
           const installments = type === 'advance' ? 1 : type === 'emergency' ? 6 : 12
-          await createDoc('staff_loans', { staff: staffName, salary, type, amount, installments, paidInstallments: 0, status: 'pending', date: addDays(0), reason: document.getElementById('ln-reason')?.value || '—' })
-          showToast('✅ ยื่นคำขอแล้ว — รอผู้จัดการอนุมัติ', 'success'); await loadData()
+          try {
+            await createDoc('staff_loans', { staff: staffName, salary, type, amount, installments, paidInstallments: 0, status: 'pending', date: addDays(0), reason: document.getElementById('ln-reason')?.value || '—' })
+            showToast('✅ ยื่นคำขอแล้ว — รอผู้จัดการอนุมัติ', 'success'); await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
         }
       })
     })

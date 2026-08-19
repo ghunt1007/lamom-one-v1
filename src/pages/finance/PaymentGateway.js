@@ -118,16 +118,20 @@ export default async function PaymentGatewayPage(container) {
     container.querySelectorAll('.confirm-btn').forEach(b => b.addEventListener('click', async () => {
       const t = txns.find(x => x.id === b.dataset.id)
       if (!t) return
-      await updateDocData('payment_transactions', t.id, { status: 'success' })
-      showToast('✅ ยืนยันการชำระ ' + t.ref, 'success')
-      await loadData()
+      try {
+        await updateDocData('payment_transactions', t.id, { status: 'success' })
+        showToast('✅ ยืนยันการชำระ ' + t.ref, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.fail-btn').forEach(b => b.addEventListener('click', async () => {
       const t = txns.find(x => x.id === b.dataset.id)
       if (!t) return
-      await updateDocData('payment_transactions', t.id, { status: 'failed' })
-      showToast('❌ ทำเครื่องหมายล้มเหลว ' + t.ref, 'warning')
-      await loadData()
+      try {
+        await updateDocData('payment_transactions', t.id, { status: 'failed' })
+        showToast('❌ ทำเครื่องหมายล้มเหลว ' + t.ref, 'warning')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     document.getElementById('new-pay-btn')?.addEventListener('click', openNewPaymentModal)
   }
@@ -157,7 +161,10 @@ export default async function PaymentGatewayPage(container) {
       const method = el.querySelector('#np-method').value
       // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
       // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
-      const id = await createDoc('payment_transactions', { ref, customer, desc, amount, method, status: 'pending', date: todayBangkok() })
+      let id
+      try {
+        id = await createDoc('payment_transactions', { ref, customer, desc, amount, method, status: 'pending', date: todayBangkok() })
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return }
       showToast('✅ สร้างรายการชำระแล้ว — รอลูกค้าชำระ', 'success')
       close()
       await loadData()

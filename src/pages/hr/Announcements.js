@@ -155,8 +155,10 @@ export default async function AnnouncementsPage(container) {
     container.querySelectorAll('.pin-btn').forEach(b => b.addEventListener('click', async () => {
       const a = anns.find(x => x.id === b.dataset.id)
       if (!a) return
-      await updateDocData('announcements_hr', a.id, { pinned: !a.pinned })
-      await loadData()
+      try {
+        await updateDocData('announcements_hr', a.id, { pinned: !a.pinned })
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.remind-btn').forEach(b => b.addEventListener('click', async () => {
       const a = anns.find(x => x.id === b.dataset.id)
@@ -214,11 +216,13 @@ export default async function AnnouncementsPage(container) {
           const targetDepartment = scope === 'department' ? (document.getElementById('an-department')?.value?.trim() || null) : null
           if (scope === 'department' && !targetDepartment) { showToast('❗ ระบุแผนกที่ต้องการประกาศถึง', 'error'); return false }
           const totalStaff = countAudience(scope, targetCompanyId, targetDepartment)
-          await createDoc('announcements_hr', {
-            title, type, author: myName(), time: new Date().toISOString(),
-            pinned: document.getElementById('an-pin')?.checked || false, readByUids: [], totalStaff, body,
-            scope, targetCompanyId, targetDepartment,
-          })
+          try {
+            await createDoc('announcements_hr', {
+              title, type, author: myName(), time: new Date().toISOString(),
+              pinned: document.getElementById('an-pin')?.checked || false, readByUids: [], totalStaff, body,
+              scope, targetCompanyId, targetDepartment,
+            })
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
           try {
             await createDoc('notifications', {
               type: 'system', title: `📢 ประกาศใหม่: ${title}`,

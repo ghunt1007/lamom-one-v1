@@ -140,8 +140,10 @@ export default async function ExpenseClaimsPage(container) {
         if (!c) return
         const ok = await confirmDialog({ title: '🗑️ ลบรายการเบิก', message: `ยืนยันลบรายการเบิกของ "${escHtml(c.staffName)}" — ${escHtml(c.desc)}?`, confirmText: 'ลบ', danger: true })
         if (!ok) return
-        await softDelete('expense_claims', c.id)
-        showToast('🗑️ ลบแล้ว', 'success'); await loadData()
+        try {
+          await softDelete('expense_claims', c.id)
+          showToast('🗑️ ลบแล้ว', 'success'); await loadData()
+        } catch (e) { showToast('ลบไม่สำเร็จ', 'error') }
       })
     })
   }

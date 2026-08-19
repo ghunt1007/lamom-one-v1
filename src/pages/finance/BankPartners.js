@@ -184,10 +184,12 @@ export default async function BankPartnersPage(container) {
       if (!info) return
       const ok = await confirmDialog({ title: '🗑️ ลบข้อมูลความสัมพันธ์ธนาคาร', message: `ยืนยันลบข้อมูล "${escHtml(name)}"? การลบนี้ไม่สามารถย้อนกลับได้`, confirmText: 'ลบ', danger: true })
       if (!ok) return
-      await softDelete('bank_partner_info', info.id)
-      showToast('🗑️ ลบข้อมูลแล้ว', 'success')
-      selBank = null
-      await loadData()
+      try {
+        await softDelete('bank_partner_info', info.id)
+        showToast('🗑️ ลบข้อมูลแล้ว', 'success')
+        selBank = null
+        await loadData()
+      } catch (e) { showToast('ลบไม่สำเร็จ', 'error') }
     })
     document.getElementById('compare-btn')?.addEventListener('click',()=>{
       if (rated.length < 2) return
@@ -254,11 +256,13 @@ export default async function BankPartnersPage(container) {
         blacklistOk: el.querySelector('#bp-blacklist').checked,
         tips: el.querySelector('#bp-tips').value.trim(),
       }
-      if (info) await updateDocData('bank_partner_info', info.id, data)
-      else await createDoc('bank_partner_info', data)
-      showToast('✅ บันทึกข้อมูลแล้ว', 'success')
-      close()
-      await loadData()
+      try {
+        if (info) await updateDocData('bank_partner_info', info.id, data)
+        else await createDoc('bank_partner_info', data)
+        showToast('✅ บันทึกข้อมูลแล้ว', 'success')
+        close()
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 

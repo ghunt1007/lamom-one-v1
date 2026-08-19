@@ -123,8 +123,10 @@ export default async function OffboardingPage(container) {
       const x = list.find(z => z.id === cb.dataset.oid)
       if (!x) return
       const tasks = { ...(x.tasks||{}), [cb.dataset.t]: cb.checked }
-      await updateDocData('offboarding_staff', x.id, { tasks })
-      await loadData()
+      try {
+        await updateDocData('offboarding_staff', x.id, { tasks })
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); cb.checked = !cb.checked }
     }))
     document.getElementById('add-ob-btn')?.addEventListener('click', () => {
       openModal({
@@ -141,14 +143,16 @@ export default async function OffboardingPage(container) {
           const name = document.getElementById('ob-name')?.value?.trim()
           if (!name) { showToast('❗ กรอกชื่อ', 'error'); return false }
           const tasks = {}; OFFBOARD_TASKS.forEach(t => tasks[t.id] = false)
-          const newId = await createDoc('offboarding_staff', {
-            name, role: document.getElementById('ob-role')?.value||'—', dept: '—',
-            lastDay: document.getElementById('ob-lastday')?.value||addDays(30),
-            reason: document.getElementById('ob-reason')?.value||'—',
-            successor: document.getElementById('ob-successor')?.value||'—', tasks,
-          })
-          selected = newId
-          showToast('👋 เริ่ม Offboarding แล้ว', 'primary'); await loadData()
+          try {
+            const newId = await createDoc('offboarding_staff', {
+              name, role: document.getElementById('ob-role')?.value||'—', dept: '—',
+              lastDay: document.getElementById('ob-lastday')?.value||addDays(30),
+              reason: document.getElementById('ob-reason')?.value||'—',
+              successor: document.getElementById('ob-successor')?.value||'—', tasks,
+            })
+            selected = newId
+            showToast('👋 เริ่ม Offboarding แล้ว', 'primary'); await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
         }
       })
     })

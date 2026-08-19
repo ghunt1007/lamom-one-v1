@@ -132,8 +132,10 @@ export default async function OnboardingPage(container) {
       const staffMember = staff.find(x => x.id === sid)
       if (!staffMember) return
       const tasks = (staffMember.tasks||[]).map(t => t.id === tid ? { ...t, done: cb.checked } : t)
-      await updateDocData('onboarding_staff', sid, { tasks })
-      await loadData()
+      try {
+        await updateDocData('onboarding_staff', sid, { tasks })
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); cb.checked = !cb.checked }
     }))
     document.getElementById('add-staff-btn')?.addEventListener('click', openAddForm)
   }
@@ -153,13 +155,15 @@ export default async function OnboardingPage(container) {
       async onConfirm() {
         const name = document.getElementById('ob-name')?.value?.trim()
         if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return false }
-        const newId = await createDoc('onboarding_staff', {
-          name, role: document.getElementById('ob-role')?.value||'—', dept: document.getElementById('ob-dept')?.value||'—',
-          startDate: document.getElementById('ob-start')?.value||addDays(0),
-          tasks: ONBOARDING_TEMPLATE.map(t => ({ ...t, done: false })),
-        })
-        selected = newId
-        showToast('✅ เพิ่มพนักงาน Onboarding แล้ว', 'success'); await loadData()
+        try {
+          const newId = await createDoc('onboarding_staff', {
+            name, role: document.getElementById('ob-role')?.value||'—', dept: document.getElementById('ob-dept')?.value||'—',
+            startDate: document.getElementById('ob-start')?.value||addDays(0),
+            tasks: ONBOARDING_TEMPLATE.map(t => ({ ...t, done: false })),
+          })
+          selected = newId
+          showToast('✅ เพิ่มพนักงาน Onboarding แล้ว', 'success'); await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
       }
     })
   }

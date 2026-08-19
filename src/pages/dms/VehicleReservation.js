@@ -135,35 +135,46 @@ export default async function VehicleReservationPage(container) {
       catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     document.getElementById('add-res-btn')?.addEventListener('click', () => openAddForm())
+    container.querySelectorAll('.edit-btn').forEach(b => b.addEventListener('click', () => {
+      const r = reservations.find(x=>x.id===b.dataset.id); if (r) openAddForm(r)
+    }))
   }
 
-  function openAddForm() {
+  function openAddForm(existing) {
+    const isEdit = !!existing
     openModal({
-      title: '+ สร้างการจองรถ',
+      title: isEdit ? '✏️ แก้ไขการจองรถ' : '+ สร้างการจองรถ',
       size: 'md',
       body: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div class="input-group"><label class="input-label">ชื่อลูกค้า *</label><input class="input" id="rs-name"></div>
-        <div class="input-group"><label class="input-label">โทรศัพท์</label><input class="input" id="rs-phone"></div>
+        <div class="input-group"><label class="input-label">ชื่อลูกค้า *</label><input class="input" id="rs-name" value="${escHtml(existing?.customer||'')}"></div>
+        <div class="input-group"><label class="input-label">โทรศัพท์</label><input class="input" id="rs-phone" value="${escHtml(existing?.phone||'')}"></div>
         <div class="input-group"><label class="input-label">รุ่นรถ</label>
-          <select class="input" id="rs-model">${MODELS.map(m=>`<option>${m}</option>`).join('')}</select>
+          <select class="input" id="rs-model">${MODELS.map(m=>`<option ${existing?.model===m?'selected':''}>${m}</option>`).join('')}</select>
         </div>
-        <div class="input-group"><label class="input-label">สี</label><input class="input" id="rs-color" placeholder="ขาว / น้ำเงิน / เทา"></div>
-        <div class="input-group"><label class="input-label">มัดจำ (บาท)</label><input class="input" type="number" id="rs-deposit" value="0"></div>
-        <div class="input-group"><label class="input-label">วันหมดอายุจอง</label><input class="input" type="date" id="rs-expiry" value="${addDays(14)}"></div>
+        <div class="input-group"><label class="input-label">สี</label><input class="input" id="rs-color" placeholder="ขาว / น้ำเงิน / เทา" value="${escHtml(existing?.color||'')}"></div>
+        <div class="input-group"><label class="input-label">มัดจำ (บาท)</label><input class="input" type="number" id="rs-deposit" value="${existing?.deposit||0}"></div>
+        <div class="input-group"><label class="input-label">วันหมดอายุจอง</label><input class="input" type="date" id="rs-expiry" value="${existing?.expiry||addDays(14)}"></div>
       </div>`,
       async onConfirm() {
         const name = document.getElementById('rs-name')?.value?.trim()
         if (!name) { showToast('❗ กรุณากรอกชื่อ','error'); return false }
         const dep = parseInt(document.getElementById('rs-deposit')?.value)||0
+        const data = {
+          customer:name, phone:document.getElementById('rs-phone')?.value||'',
+          model:document.getElementById('rs-model')?.value||MODELS[0],
+          color:document.getElementById('rs-color')?.value||'ขาว', deposit:dep,
+          expiry:document.getElementById('rs-expiry')?.value||addDays(14),
+        }
         try {
-          await createDoc('vehicle_reservations', {
-            customer:name, phone:document.getElementById('rs-phone')?.value||'',
-            model:document.getElementById('rs-model')?.value||MODELS[0],
-            color:document.getElementById('rs-color')?.value||'ขาว', deposit:dep,
-            staff:'วิชัย ยอดขาย', status:dep>0?'deposit':'active', created:new Date().toISOString(),
-            expiry:document.getElementById('rs-expiry')?.value||addDays(14), stockId:null
-          })
-          showToast('✅ สร้างการจองแล้ว','success')
+          if (isEdit) {
+            await updateDocData('vehicle_reservations', existing.id, data)
+            showToast('✅ แก้ไขการจองแล้ว','success')
+          } else {
+            await createDoc('vehicle_reservations', {
+              ...data, staff:'วิชัย ยอดขาย', status:dep>0?'deposit':'active', created:new Date().toISOString(), stockId:null
+            })
+            showToast('✅ สร้างการจองแล้ว','success')
+          }
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }

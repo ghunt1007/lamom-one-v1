@@ -164,8 +164,10 @@ export default async function PreDeliveryPage(container) {
 
     el.querySelector('#pd-save').addEventListener('click', async () => {
       b.pdNote = el.querySelector('#pd-note').value
-      await updateDocData('bookings', b.id, { pdItems: b.pdItems, pdNote: b.pdNote }).catch(() => {})
-      showToast('💾 บันทึกแล้ว', 'success'); close(); render()
+      try {
+        await updateDocData('bookings', b.id, { pdItems: b.pdItems, pdNote: b.pdNote })
+        showToast('💾 บันทึกแล้ว', 'success'); close(); render()
+      } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
     el.querySelector('#pd-ready').addEventListener('click', async () => {
       b.pdNote = el.querySelector('#pd-note').value
@@ -175,8 +177,10 @@ export default async function PreDeliveryPage(container) {
       // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
       // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
       b.pdReady = true; b.pdReadyDate = todayBangkok()
-      await updateDocData('bookings', b.id, { pdItems: b.pdItems, pdNote: b.pdNote, pdReady: true, pdReadyDate: b.pdReadyDate }).catch(() => {})
-      showToast('✅ ยืนยันพร้อมส่งมอบแล้ว!', 'success'); close(); render()
+      try {
+        await updateDocData('bookings', b.id, { pdItems: b.pdItems, pdNote: b.pdNote, pdReady: true, pdReadyDate: b.pdReadyDate })
+        showToast('✅ ยืนยันพร้อมส่งมอบแล้ว!', 'success'); close(); render()
+      } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 

@@ -193,9 +193,11 @@ export default async function TrainingCoursePage(container) {
         const enrolled = c.enrolled || []
         if (enrolled.length >= c.maxEnroll) { showToast('❗ เต็มจำนวนแล้ว', 'error'); return false }
         const updated = [...enrolled, { name, dept: document.getElementById('enf-dept')?.value||'', score: null, status: 'enrolled' }]
-        await updateDocData('training_courses', c.id, { enrolled: updated })
-        showToast(`✅ ลงทะเบียน ${name} เรียบร้อย!`, 'success')
-        await loadData()
+        try {
+          await updateDocData('training_courses', c.id, { enrolled: updated })
+          showToast(`✅ ลงทะเบียน ${name} เรียบร้อย!`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
       }
     })
   }
@@ -224,19 +226,21 @@ export default async function TrainingCoursePage(container) {
         const title = document.getElementById('cof-title')?.value?.trim()
         if (!title) { showToast('❗ กรุณากรอกชื่อหลักสูตร', 'error'); return false }
         const date = document.getElementById('cof-date')?.value||addDays(14)
-        await createDoc('training_courses', {
-          title,
-          type: document.getElementById('cof-type')?.value||'product',
-          instructor: document.getElementById('cof-inst')?.value||'',
-          duration: document.getElementById('cof-dur')?.value||'',
-          format: document.getElementById('cof-format')?.value||'Classroom',
-          maxEnroll: +document.getElementById('cof-max')?.value||20,
-          startDate: date, endDate: date,
-          passScore: +document.getElementById('cof-pass')?.value||80,
-          enrolled: [], description: ''
-        })
-        showToast('✅ เพิ่มหลักสูตรแล้ว!', 'success')
-        await loadData()
+        try {
+          await createDoc('training_courses', {
+            title,
+            type: document.getElementById('cof-type')?.value||'product',
+            instructor: document.getElementById('cof-inst')?.value||'',
+            duration: document.getElementById('cof-dur')?.value||'',
+            format: document.getElementById('cof-format')?.value||'Classroom',
+            maxEnroll: +document.getElementById('cof-max')?.value||20,
+            startDate: date, endDate: date,
+            passScore: +document.getElementById('cof-pass')?.value||80,
+            enrolled: [], description: ''
+          })
+          showToast('✅ เพิ่มหลักสูตรแล้ว!', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
       }
     })
   }

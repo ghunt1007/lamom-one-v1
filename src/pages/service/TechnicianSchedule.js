@@ -250,8 +250,10 @@ export default async function TechnicianSchedulePage(container) {
         const techId = document.getElementById('as-tech')?.value
         const t = techs.find(x => x.id === techId)
         if (!t) return
+        const jobType = document.getElementById('as-type')?.value || ''
+        const plate = document.getElementById('as-plate')?.value.trim() || ''
         try {
-          await updateDocData('technician_schedule', t.id, { jobsToday: t.jobsToday + 1 })
+          await updateDocData('technician_schedule', t.id, { jobsToday: t.jobsToday + 1, lastAssignedType: jobType, lastAssignedPlate: plate })
           showToast(`✅ มอบงานให้ ${t.name} แล้ว`, 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

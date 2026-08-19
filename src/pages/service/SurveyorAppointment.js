@@ -112,8 +112,9 @@ export default async function SurveyorAppointmentPage(container) {
       async onConfirm() {
         const surv = document.getElementById('sa-surv').value.trim()
         if (!surv) { showToast('❗ ระบุชื่อช่างประกัน', 'error'); return false }
+        const note = document.getElementById('sa-note')?.value.trim() || ''
         try {
-          await updateDocData('surveyor_appointments', a.id, { surveyor: surv, status: 'confirmed' })
+          await updateDocData('surveyor_appointments', a.id, { surveyor: surv, status: 'confirmed', note })
           showToast(`ยืนยันนัดกับช่าง ${surv} แล้ว`, 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
@@ -131,7 +132,8 @@ export default async function SurveyorAppointmentPage(container) {
       confirmText: '💾 บันทึกผล',
       async onConfirm() {
         const amt = parseInt(document.getElementById('sa-amt').value) || 0
-        const patch = { status: 'done' }
+        const remark = document.getElementById('sa-remark')?.value.trim() || ''
+        const patch = { status: 'done', remark }
         if (amt) patch.estimateApproved = amt
         try {
           await updateDocData('surveyor_appointments', a.id, patch)

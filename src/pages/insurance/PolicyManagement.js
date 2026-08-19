@@ -145,10 +145,12 @@ export default async function PolicyManagementPage(container) {
           const newEnd = new Date(p.endDate)
           newEnd.setFullYear(newEnd.getFullYear() + 1)
           const patch = { status: 'active', startDate: p.endDate, endDate: newEnd.toISOString().slice(0, 10) }
-          await updateDocData('policy_renewals', p.id, patch)
-          Object.assign(p, patch)
-          showToast('✅ ต่ออายุกรมธรรม์ ' + p.plate + ' เรียบร้อย', 'success')
-          render()
+          try {
+            await updateDocData('policy_renewals', p.id, patch)
+            Object.assign(p, patch)
+            showToast('✅ ต่ออายุกรมธรรม์ ' + p.plate + ' เรียบร้อย', 'success')
+            render()
+          } catch { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
         }
       })
     }))
@@ -214,19 +216,21 @@ export default async function PolicyManagementPage(container) {
       const customer = document.getElementById('p-customer')?.value.trim()
       const insurer = document.getElementById('p-insurer')?.value.trim()
       if (!plate || !customer || !insurer) { showToast('⚠️ กรุณากรอกข้อมูลที่จำเป็น', 'warning'); return }
-      await createDoc('policy_renewals', {
-        plate, customer, insurer,
-        model: document.getElementById('p-model')?.value.trim() || 'EV',
-        type: document.getElementById('p-type')?.value || 'ชั้น 1',
-        premium: parseFloat(document.getElementById('p-premium')?.value) || 0,
-        sum: parseFloat(document.getElementById('p-sum')?.value) || 0,
-        startDate: document.getElementById('p-start')?.value || today,
-        endDate: document.getElementById('p-end')?.value || nextYear,
-        status: 'active',
-      })
-      document.querySelector('.modal-overlay')?.remove()
-      showToast('✅ เพิ่มกรมธรรม์แล้ว', 'success')
-      await loadData()
+      try {
+        await createDoc('policy_renewals', {
+          plate, customer, insurer,
+          model: document.getElementById('p-model')?.value.trim() || 'EV',
+          type: document.getElementById('p-type')?.value || 'ชั้น 1',
+          premium: parseFloat(document.getElementById('p-premium')?.value) || 0,
+          sum: parseFloat(document.getElementById('p-sum')?.value) || 0,
+          startDate: document.getElementById('p-start')?.value || today,
+          endDate: document.getElementById('p-end')?.value || nextYear,
+          status: 'active',
+        })
+        document.querySelector('.modal-overlay')?.remove()
+        showToast('✅ เพิ่มกรมธรรม์แล้ว', 'success')
+        await loadData()
+      } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 

@@ -350,7 +350,8 @@ export default async function WarrantyManagementPage(container) {
           const warrantyId = await persistWarranty(w, {})
           await createDoc('warranty_service_claims', {
             warrantyId, customerName: w.customerName, vehiclePlate: w.vehiclePlate, type: w.type,
-            date: document.getElementById('claim-date')?.value, issue, status: 'pending', techNote: '', cost: 0, covered: null
+            date: document.getElementById('claim-date')?.value, mileage: parseInt(document.getElementById('claim-km')?.value) || 0,
+            issue, status: 'pending', techNote: '', cost: 0, covered: null
           })
           showToast('📋 ยื่นเคลมแล้ว รอการอนุมัติ', 'success')
           tab = 'claims'

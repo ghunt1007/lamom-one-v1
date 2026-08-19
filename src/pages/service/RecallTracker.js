@@ -263,6 +263,26 @@ export default async function RecallTrackerPage(container) {
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
+    container.querySelectorAll('.hist-btn').forEach(b => b.addEventListener('click', () => {
+      const v = VEHICLES.find(x=>x.vin===b.dataset.vin)
+      if (!v) return
+      openModal({
+        title: '📜 ประวัติ Recall — ' + escHtml(v.plate),
+        size: 'sm',
+        body: `<div style="font-size:0.8rem;display:flex;flex-direction:column;gap:8px">
+          ${v.recalls.map(rid => {
+            const r = RECALLS.find(x=>x.id===rid)
+            const st = WST[v.status[rid]] || {}
+            return `<div style="padding:8px 10px;background:var(--surface-2);border-radius:6px">
+              <div style="font-weight:700">${escHtml(r?.campaign||rid)}</div>
+              <div style="font-size:0.72rem;color:var(--text-muted)">สถานะ: <span style="color:${st.color||'inherit'}">${escHtml(st.label||v.status[rid])}</span></div>
+            </div>`
+          }).join('')}
+          ${v.completedDate ? `<div style="font-size:0.74rem;color:var(--text-muted)">✅ เข้ารับบริการ ${escHtml(v.completedDate)}${v.completedTech?' · ช่าง '+escHtml(v.completedTech):''}${v.completedNote?'<br>หมายเหตุ: '+escHtml(v.completedNote):''}</div>` : ''}
+        </div>`,
+        footer: `<button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">ปิด</button>`,
+      })
+    }))
     container.querySelectorAll('.done-btn').forEach(b => b.addEventListener('click', () => {
       openModal({ title:'✅ บันทึกงาน Recall', size:'xs',
         body:`<div style="font-size:0.8rem;display:flex;flex-direction:column;gap:8px">
@@ -276,8 +296,11 @@ export default async function RecallTrackerPage(container) {
           if (!v) return
           const newStatus = { ...v.status }
           Object.keys(newStatus).forEach(k=>{newStatus[k]='completed'})
+          const completedDate = document.getElementById('rc-date')?.value || todayBangkok()
+          const completedTech = document.getElementById('rc-tech')?.value.trim() || ''
+          const completedNote = document.getElementById('rc-note')?.value.trim() || ''
           try {
-            await updateDocData('recall_tracker_vehicles', v.id, { status: newStatus })
+            await updateDocData('recall_tracker_vehicles', v.id, { status: newStatus, completedDate, completedTech, completedNote })
             showToast(`✅ บันทึก Recall เสร็จสมบูรณ์`, 'success')
             await loadData()
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

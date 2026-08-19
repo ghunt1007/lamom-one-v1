@@ -226,7 +226,8 @@ export default async function DealCoachPage(container) {
       if (!action) { showToast('⚠️ กรุณากรอกสิ่งที่ทำไป', 'warning'); return }
       const newWin = parseInt(document.getElementById('la-win')?.value)
       const next   = document.getElementById('la-next')?.value.trim()
-      const fields = { days: 0 }
+      const result = document.getElementById('la-result')?.value
+      const fields = { days: 0, lastResult: result }
       if (!isNaN(newWin) && newWin >= 0 && newWin <= 100) fields.winPct = newWin
       if (next) fields.advice = [next, ...deal.advice.slice(0, 2)]
       try {

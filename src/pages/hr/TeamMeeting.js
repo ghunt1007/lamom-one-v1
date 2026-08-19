@@ -106,8 +106,10 @@ export default async function TeamMeetingPage(container) {
       const m = meetings.find(x => x.id === cb.dataset.mid)
       if (!m) return
       const actions = (m.actions||[]).map((a, i) => i === parseInt(cb.dataset.i) ? { ...a, done: cb.checked } : a)
-      await updateDocData('team_meetings', m.id, { actions })
-      await loadData()
+      try {
+        await updateDocData('team_meetings', m.id, { actions })
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.add-action-btn').forEach(b => b.addEventListener('click', () => {
       const m = meetings.find(x => x.id === b.dataset.id)
@@ -122,8 +124,10 @@ export default async function TeamMeetingPage(container) {
           const task = document.getElementById('ai-task')?.value?.trim()
           if (!task) { showToast('❗ กรุณากรอกงาน', 'error'); return false }
           const actions = [...(m.actions||[]), { task, owner: document.getElementById('ai-owner')?.value || '—', done: false }]
-          await updateDocData('team_meetings', m.id, { actions })
-          showToast('✅ เพิ่ม Action แล้ว', 'success'); await loadData()
+          try {
+            await updateDocData('team_meetings', m.id, { actions })
+            showToast('✅ เพิ่ม Action แล้ว', 'success'); await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
         }
       })
     }))
@@ -134,14 +138,18 @@ export default async function TeamMeetingPage(container) {
         size: 'sm',
         body: `<div class="input-group"><label class="input-label">บันทึก</label><textarea class="input" id="mn-notes" rows="4">${escHtml(m.notes || '')}</textarea></div>`,
         async onConfirm() {
-          await updateDocData('team_meetings', m.id, { notes: document.getElementById('mn-notes')?.value || '' })
-          showToast('📝 บันทึกแล้ว', 'success'); await loadData()
+          try {
+            await updateDocData('team_meetings', m.id, { notes: document.getElementById('mn-notes')?.value || '' })
+            showToast('📝 บันทึกแล้ว', 'success'); await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
         }
       })
     }))
     container.querySelectorAll('.end-btn').forEach(b => b.addEventListener('click', async () => {
-      await updateDocData('team_meetings', b.dataset.id, { done: true })
-      showToast('✅ จบประชุม — Action Items ถูกติดตามต่อ', 'success'); await loadData()
+      try {
+        await updateDocData('team_meetings', b.dataset.id, { done: true })
+        showToast('✅ จบประชุม — Action Items ถูกติดตามต่อ', 'success'); await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     document.getElementById('add-meeting-btn')?.addEventListener('click', () => {
       openModal({
@@ -159,12 +167,14 @@ export default async function TeamMeetingPage(container) {
         async onConfirm() {
           const title = document.getElementById('mt-title')?.value?.trim()
           if (!title) { showToast('❗ กรุณากรอกหัวข้อ', 'error'); return false }
-          await createDoc('team_meetings', {
-            title, type: document.getElementById('mt-type')?.value||'adhoc',
-            date: document.getElementById('mt-date')?.value||addDays(1), time: document.getElementById('mt-time')?.value||'09:00',
-            attendees: document.getElementById('mt-attendees')?.value||'—', notes: '', done: false, actions: [],
-          })
-          showToast('📅 นัดประชุมแล้ว', 'success'); await loadData()
+          try {
+            await createDoc('team_meetings', {
+              title, type: document.getElementById('mt-type')?.value||'adhoc',
+              date: document.getElementById('mt-date')?.value||addDays(1), time: document.getElementById('mt-time')?.value||'09:00',
+              attendees: document.getElementById('mt-attendees')?.value||'—', notes: '', done: false, actions: [],
+            })
+            showToast('📅 นัดประชุมแล้ว', 'success'); await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
         }
       })
     })

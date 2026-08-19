@@ -114,10 +114,12 @@ export default async function DisciplinaryRecordsPage(container) {
     `
 
     container.querySelectorAll('.ack-btn').forEach(b => b.addEventListener('click', async () => {
-      await updateDocData('disciplinary_records', b.dataset.id, { ack: true })
-      const r = records.find(x => x.id === b.dataset.id)
-      showToast(`บันทึกการลงนามรับทราบของ ${r?.staff} แล้ว`, 'success')
-      await loadData()
+      try {
+        await updateDocData('disciplinary_records', b.dataset.id, { ack: true })
+        const r = records.find(x => x.id === b.dataset.id)
+        showToast(`บันทึกการลงนามรับทราบของ ${r?.staff} แล้ว`, 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     document.getElementById('add-btn')?.addEventListener('click', openAdd)
   }

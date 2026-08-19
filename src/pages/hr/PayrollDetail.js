@@ -175,17 +175,23 @@ export default async function PayrollDetailPage(container) {
     document.getElementById('pay-all-btn')?.addEventListener('click', async () => {
       const toPay = staff.filter(s => s.status === 'approved')
       if (!toPay.length) { showToast('ไม่มีรายการที่อนุมัติ', 'warning'); return }
-      for (const s of toPay) { await updateDocData('payroll_records', s.id, { status: 'paid' }) }
-      showToast(`✅ จ่ายเงินเดือน ${toPay.length} คนแล้ว!`, 'success'); await loadData()
+      try {
+        for (const s of toPay) { await updateDocData('payroll_records', s.id, { status: 'paid' }) }
+        showToast(`✅ จ่ายเงินเดือน ${toPay.length} คนแล้ว!`, 'success'); await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ — บางรายการอาจจ่ายไปแล้ว', 'error'); await loadData() }
     })
     container.querySelectorAll('.approve-btn').forEach(b => b.addEventListener('click', async () => {
-      await updateDocData('payroll_records', b.dataset.id, { status: 'approved' })
-      showToast('✅ อนุมัติแล้ว', 'success'); await loadData()
+      try {
+        await updateDocData('payroll_records', b.dataset.id, { status: 'approved' })
+        showToast('✅ อนุมัติแล้ว', 'success'); await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.pay-btn').forEach(b => b.addEventListener('click', async () => {
       const s = staff.find(x => x.id === b.dataset.id)
-      await updateDocData('payroll_records', b.dataset.id, { status: 'paid' })
-      showToast(`✅ จ่ายเงินเดือน ${s?.name} แล้ว`, 'success'); await loadData()
+      try {
+        await updateDocData('payroll_records', b.dataset.id, { status: 'paid' })
+        showToast(`✅ จ่ายเงินเดือน ${s?.name} แล้ว`, 'success'); await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.slip-btn').forEach(b => b.addEventListener('click', () => {
       const s = staff.find(x => x.id === b.dataset.id); if (s) openSlip(s)

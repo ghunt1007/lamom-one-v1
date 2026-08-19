@@ -158,9 +158,11 @@ export default async function FinanceApplicationPage(container) {
         if (!a) return
         const ok = await confirmDialog({ title: '🗑️ ลบรายการยื่นไฟแนนซ์', message: `ยืนยันลบรายการของ "${escHtml(a.custName)}" — ${escHtml(a.vehicle)}? การลบนี้ไม่สามารถย้อนกลับได้`, confirmText: 'ลบ', danger: true })
         if (!ok) return
-        await softDelete('finance_applications', a.id)
-        showToast('🗑️ ลบรายการแล้ว', 'success')
-        await loadData()
+        try {
+          await softDelete('finance_applications', a.id)
+          showToast('🗑️ ลบรายการแล้ว', 'success')
+          await loadData()
+        } catch (e) { showToast('ลบไม่สำเร็จ', 'error') }
       })
     })
   }

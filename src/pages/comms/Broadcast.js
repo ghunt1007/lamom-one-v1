@@ -173,6 +173,28 @@ export default async function BroadcastPage(container) {
       } catch (e) { showToast('ส่งไม่สำเร็จ: ' + e.message, 'error') }
       finally { b.disabled = false }
     }))
+    container.querySelectorAll('.sched-bc-btn').forEach(b => b.addEventListener('click', () => {
+      const bc = broadcasts.find(x => x.id === b.dataset.id); if (bc) openScheduleModal(bc)
+    }))
+  }
+
+  function openScheduleModal(bc) {
+    openModal({
+      title: '⏰ กำหนดเวลาส่ง — ' + escHtml(bc.title),
+      size: 'sm',
+      body: `<div class="input-group"><label class="input-label">วันและเวลาที่ต้องการส่ง *</label><input class="input" type="datetime-local" id="sched-at"></div>
+        <div style="font-size:0.72rem;color:var(--text-muted);margin-top:6px">⚠️ ระบบยังไม่มีตัวส่งอัตโนมัติตามเวลาที่กำหนด — ทีมงานต้องกลับมากด "ส่งทันที" เองเมื่อถึงเวลา</div>`,
+      confirmText: '💾 บันทึกกำหนดการ',
+      async onConfirm() {
+        const val = document.getElementById('sched-at')?.value
+        if (!val) { showToast('❗ กรุณาเลือกวันและเวลา', 'error'); return false }
+        try {
+          await updateDocData('broadcasts', bc.id, { status: 'scheduled', scheduledAt: new Date(val).toISOString() })
+          showToast('⏰ กำหนดเวลาส่งแล้ว', 'success')
+          await loadData()
+        } catch { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
+      }
+    })
   }
 
   function openDetail(bc) {

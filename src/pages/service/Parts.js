@@ -199,8 +199,9 @@ export default async function PartsPage(container) {
     })
     el.querySelector('#adj-s').addEventListener('click', async () => {
       const newQty = Number(el.querySelector('#adj-qty').value)
+      const lastAdjustReason = el.querySelector('#adj-reason').value
       try {
-        await updateDocData('parts', p.id, { qty: newQty })
+        await updateDocData('parts', p.id, { qty: newQty, lastAdjustReason })
         p.qty = newQty; showToast(`✅ ปรับสต็อกเป็น ${newQty} ${p.unit}`, 'success')
         close(); updateStats(); applyFilter()
       } catch { showToast('บันทึกไม่สำเร็จ','error') }

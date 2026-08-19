@@ -172,11 +172,13 @@ export default async function PerformanceReviewPage(container) {
           const selfDl = document.getElementById('pr-self-deadline')?.value
           const mgmtDl = document.getElementById('pr-mgmt-deadline')?.value
           const toCreate = reviews.filter(r => r.period !== period)
-          for (const r of toCreate) {
-            await createDoc('performance_reviews', { staff: r.staff, dept: r.dept, period, status: 'pending', selfScores: null, mgmtScores: null, comment: '', grade: null })
-          }
-          showToast(`🔄 เริ่มรอบประเมิน ${period} แล้ว · ส่งตัวเอง: ${selfDl} · ผู้จัดการ: ${mgmtDl}`, 'success')
-          await loadData()
+          try {
+            for (const r of toCreate) {
+              await createDoc('performance_reviews', { staff: r.staff, dept: r.dept, period, status: 'pending', selfScores: null, mgmtScores: null, comment: '', grade: null })
+            }
+            showToast(`🔄 เริ่มรอบประเมิน ${period} แล้ว · ส่งตัวเอง: ${selfDl} · ผู้จัดการ: ${mgmtDl}`, 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ — บางรายการอาจสร้างไปแล้ว', 'error'); await loadData(); return false }
         }
       })
     })
@@ -238,8 +240,10 @@ export default async function PerformanceReviewPage(container) {
         const comment = document.getElementById('mgmt-comment')?.value || ''
         const total = +calcScore(scores)
         const grade = gradeFromScore(total)
-        await updateDocData('performance_reviews', r.id, { mgmtScores: scores, comment, status: 'reviewed', grade })
-        showToast(`✅ ประเมิน ${r.staff} เสร็จแล้ว! เกรด ${grade}`, 'success'); await loadData()
+        try {
+          await updateDocData('performance_reviews', r.id, { mgmtScores: scores, comment, status: 'reviewed', grade })
+          showToast(`✅ ประเมิน ${r.staff} เสร็จแล้ว! เกรด ${grade}`, 'success'); await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
       }
     })
 

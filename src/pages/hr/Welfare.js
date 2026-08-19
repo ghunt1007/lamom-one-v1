@@ -121,9 +121,11 @@ export default async function WelfarePage(container) {
       const w = items.find(x => x.id === b.dataset.wid)
       const ok = await confirmDialog({ title: '🗑 ลบสวัสดิการ', message: `ลบ "${esc(w.name)}" ออกจากระบบ?`, confirmText: 'ลบ', danger: true })
       if (!ok) return
-      await softDelete('welfare_items', b.dataset.wid)
-      showToast('🗑 ลบแล้ว', 'warning')
-      await loadData()
+      try {
+        await softDelete('welfare_items', b.dataset.wid)
+        showToast('🗑 ลบแล้ว', 'warning')
+        await loadData()
+      } catch (e) { showToast('ลบไม่สำเร็จ', 'error') }
     }))
 
     document.getElementById('add-welfare-btn')?.addEventListener('click', () => openWelfareModal(null))
@@ -225,11 +227,13 @@ export default async function WelfarePage(container) {
         enrolled:  parseInt(document.getElementById('wf-enrolled').value) || 0,
         active:    document.getElementById('wf-active').checked,
       }
-      if (isEdit) await updateDocData('welfare_items', w.id, data)
-      else await createDoc('welfare_items', data)
-      document.querySelector('.modal-overlay')?.remove()
-      showToast(isEdit ? '✅ แก้ไขสวัสดิการแล้ว' : '✅ เพิ่มสวัสดิการแล้ว', 'success')
-      await loadData()
+      try {
+        if (isEdit) await updateDocData('welfare_items', w.id, data)
+        else await createDoc('welfare_items', data)
+        document.querySelector('.modal-overlay')?.remove()
+        showToast(isEdit ? '✅ แก้ไขสวัสดิการแล้ว' : '✅ เพิ่มสวัสดิการแล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 

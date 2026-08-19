@@ -224,9 +224,11 @@ export default async function InsuranceRenewalPage(container) {
           expiryDate: expiry.toISOString().slice(0, 10),
           lastRenewedDate: today,
         }
-        await updateDocData('insurance_renewals', p.id, patch)
-        showToast(`✅ ต่อประกัน ${p.customerName} เรียบร้อย!`, 'success')
-        await loadData()
+        try {
+          await updateDocData('insurance_renewals', p.id, patch)
+          showToast(`✅ ต่อประกัน ${p.customerName} เรียบร้อย!`, 'success')
+          await loadData()
+        } catch { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
       }
     })
   }
@@ -258,20 +260,22 @@ export default async function InsuranceRenewalPage(container) {
         if (!name) { showToast('❗ กรุณากรอกชื่อลูกค้า', 'error'); return false }
         const start = document.getElementById('inf-start')?.value || today
         const expiry = new Date(start); expiry.setFullYear(expiry.getFullYear() + 1)
-        await createDoc('insurance_renewals', {
-          customerId: '', customerName: name, phone: document.getElementById('inf-phone')?.value||'',
-          vehiclePlate: document.getElementById('inf-plate')?.value||'',
-          vehicleModel: document.getElementById('inf-model')?.value||'', vehicleYear: 2024,
-          insurer: document.getElementById('inf-insurer')?.value||'',
-          policyNo: document.getElementById('inf-policy')?.value||'',
-          type: document.getElementById('inf-type')?.value||'class1',
-          premium: +document.getElementById('inf-premium')?.value||0,
-          coverAmount: 0, expiryDate: expiry.toISOString().slice(0,10),
-          startDate: start, status: 'renewed', lastRenewedDate: start,
-          salesperson: document.getElementById('inf-sales')?.value||'', notes: '',
-        })
-        showToast('✅ เพิ่มกรมธรรม์แล้ว!', 'success')
-        await loadData()
+        try {
+          await createDoc('insurance_renewals', {
+            customerId: '', customerName: name, phone: document.getElementById('inf-phone')?.value||'',
+            vehiclePlate: document.getElementById('inf-plate')?.value||'',
+            vehicleModel: document.getElementById('inf-model')?.value||'', vehicleYear: 2024,
+            insurer: document.getElementById('inf-insurer')?.value||'',
+            policyNo: document.getElementById('inf-policy')?.value||'',
+            type: document.getElementById('inf-type')?.value||'class1',
+            premium: +document.getElementById('inf-premium')?.value||0,
+            coverAmount: 0, expiryDate: expiry.toISOString().slice(0,10),
+            startDate: start, status: 'renewed', lastRenewedDate: start,
+            salesperson: document.getElementById('inf-sales')?.value||'', notes: '',
+          })
+          showToast('✅ เพิ่มกรมธรรม์แล้ว!', 'success')
+          await loadData()
+        } catch { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
       }
     })
   }

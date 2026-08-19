@@ -130,6 +130,25 @@ export default async function PartsInventoryPage(container) {
       const p = parts.find(x => x.id === b.dataset.id); if (p) openAdjQty(p)
     }))
     document.getElementById('add-part-btn')?.addEventListener('click', openAddForm)
+    document.getElementById('adjust-btn')?.addEventListener('click', openPartPicker)
+  }
+
+  function openPartPicker() {
+    if (!parts.length) { showToast('ยังไม่มีอะไหล่ในคลัง', 'warning'); return }
+    openModal({
+      title: '± ปรับสต็อก — เลือกอะไหล่',
+      size: 'sm',
+      body: `<div class="input-group"><label class="input-label">อะไหล่</label>
+        <select class="input" id="pk-part">
+          ${parts.map(p => `<option value="${p.id}">${esc(p.name)} (${esc(p.sku)}) — ${p.qty||0} ชิ้น</option>`).join('')}
+        </select>
+      </div>`,
+      confirmText: 'ถัดไป',
+      onConfirm() {
+        const p = parts.find(x => x.id === document.getElementById('pk-part')?.value)
+        if (p) openAdjQty(p)
+      }
+    })
   }
 
   function openAdjQty(p) {
@@ -144,8 +163,9 @@ export default async function PartsInventoryPage(container) {
       async onConfirm() {
         const adj = parseInt(document.getElementById('adj-qty')?.value) || 0
         const newQty = Math.max(0, (p.qty||0) + adj)
+        const lastAdjustNote = document.getElementById('adj-note')?.value.trim() || ''
         try {
-          await updateDocData('parts', p.id, { qty: newQty })
+          await updateDocData('parts', p.id, { qty: newQty, lastAdjustNote })
           showToast(`✅ ปรับสต็อก ${p.name}: ${adj > 0 ? '+' : ''}${adj} → ${newQty} ชิ้น`, 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

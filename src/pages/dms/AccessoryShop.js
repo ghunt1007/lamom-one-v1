@@ -193,12 +193,14 @@ export default async function AccessoryShopPage(container) {
       </div>`,
       confirmText: '💳 ออกบิล',
       async onConfirm() {
+        const customerName = document.getElementById('cart-customer')?.value.trim() || ''
         try {
           for (const c of cart) {
             const a = items.find(x => x.id === c.id)
             if (!a) continue
             await updateDocData('accessories', a.id, { stock: a.stock < 99 ? Math.max(0, a.stock - c.qty) : a.stock, sold30: a.sold30 + c.qty })
           }
+          await createDoc('accessory_sales', { customerName, items: cart.map(c => ({ id: c.id, name: c.name, qty: c.qty, price: c.price })), total })
           showToast(`✅ ออกบิล ${formatCurrency(total)} แล้ว!`, 'success')
           cart = []
           await loadData()

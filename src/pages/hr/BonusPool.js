@@ -144,16 +144,20 @@ export default async function BonusPoolPage(container) {
         body:`<div style="font-size:0.8rem">อนุมัติ Bonus รวม <b>${formatCurrency(totalBonus)}</b> สำหรับพนักงาน ${staff.length} คน ใช่ไหม?</div>`,
         confirmText:'✅ ยืนยันอนุมัติ',
         async onConfirm() {
-          for (const s of staff) { if (!s.paid) await updateDocData('bonus_pool_staff', s.id, { paid: true }) }
-          showToast('✅ อนุมัติ Bonus ทั้งหมดแล้ว', 'success'); await loadData()
+          try {
+            for (const s of staff) { if (!s.paid) await updateDocData('bonus_pool_staff', s.id, { paid: true }) }
+            showToast('✅ อนุมัติ Bonus ทั้งหมดแล้ว', 'success'); await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ — บางรายการอาจอนุมัติไปแล้ว', 'error'); await loadData(); return false }
         }
       })
     })
     container.querySelectorAll('.pay-btn').forEach(b => b.addEventListener('click', async () => {
       const s = staff.find(x => x.id === b.dataset.id)
       if (!s) return
-      await updateDocData('bonus_pool_staff', s.id, { paid: true })
-      showToast(`💸 จ่าย Bonus ${s.name} ${formatCurrency(s.bonus)} แล้ว`, 'success'); await loadData()
+      try {
+        await updateDocData('bonus_pool_staff', s.id, { paid: true })
+        showToast(`💸 จ่าย Bonus ${s.name} ${formatCurrency(s.bonus)} แล้ว`, 'success'); await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.edit-btn').forEach(b => b.addEventListener('click', () => {
       const s = staff.find(x => x.id === b.dataset.id)
@@ -220,9 +224,11 @@ export default async function BonusPoolPage(container) {
         const kpi = Math.max(0, Math.min(100, parseInt(document.getElementById('kpi-val')?.value) || s.kpi))
         const multiplier = parseFloat(document.getElementById('mult-val')?.value) || s.multiplier
         const bonus = calcBonus({ ...s, kpi, multiplier })
-        await updateDocData('bonus_pool_staff', s.id, { kpi, multiplier })
-        showToast(`💾 ปรับ Bonus ${s.name} เป็น ${formatCurrency(bonus)} แล้ว`, 'success')
-        await loadData()
+        try {
+          await updateDocData('bonus_pool_staff', s.id, { kpi, multiplier })
+          showToast(`💾 ปรับ Bonus ${s.name} เป็น ${formatCurrency(bonus)} แล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
       }
     })
   }

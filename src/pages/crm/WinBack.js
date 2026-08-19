@@ -161,8 +161,9 @@ export default async function WinBackPage(container) {
         confirmText: '📤 ส่งข้อเสนอ',
         async onConfirm() {
           const offer = document.getElementById('wb-offer')?.value || ''
+          const channel = document.getElementById('wb-channel')?.value || ''
           try {
-            await persistTarget(t, { offer, status: 'contacted', attempts: 1 })
+            await persistTarget(t, { offer, channel, status: 'contacted', attempts: 1 })
             showToast('📤 ส่งข้อเสนอแล้ว', 'success')
             await loadData()
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

@@ -215,14 +215,16 @@ export default async function MoodSurveyPage(container) {
         // เดิมเผลอเก็บ role ของผู้ใช้ (เช่น "sales"/"hr") ลงช่อง dept แทนแผนกจริง ทำให้ตัวกรอง/ค่าเฉลี่ยตามแผนก
         // (เทียบกับชื่อแผนกภาษาไทยจริงใน DEPT) ไม่ตรงกับข้อมูลเลย — แก้ให้ใช้แผนกจริงจาก companyMemberships
         const myDept = (me.companyMemberships || []).map(m => m.department).filter(Boolean)[0] || '—'
-        await createDoc('mood_responses', {
-          staff: me.displayName || me.email || 'ผู้ใช้ปัจจุบัน', uid: me.uid || '', dept: myDept,
-          date: todayBangkok(),
-          score: picked, note: document.getElementById('mood-note')?.value || '',
-        })
-        filterDate = todayBangkok()
-        showToast('✅ ส่ง Mood Survey แล้ว ขอบคุณ!', 'success')
-        await loadData()
+        try {
+          await createDoc('mood_responses', {
+            staff: me.displayName || me.email || 'ผู้ใช้ปัจจุบัน', uid: me.uid || '', dept: myDept,
+            date: todayBangkok(),
+            score: picked, note: document.getElementById('mood-note')?.value || '',
+          })
+          filterDate = todayBangkok()
+          showToast('✅ ส่ง Mood Survey แล้ว ขอบคุณ!', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
       }
     })
     setTimeout(() => {

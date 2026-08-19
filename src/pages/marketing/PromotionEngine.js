@@ -202,8 +202,10 @@ export default async function PromotionEnginePage(container) {
     container.querySelectorAll('.end-btn').forEach(b => b.addEventListener('click', async () => {
       const p = promos.find(x => x.id === b.dataset.id)
       if (!p) return
+      if (p._persisted) {
+        try { await updateDocData('promotions', p.id, { status: 'ended' }) } catch { showToast('บันทึกไม่สำเร็จ', 'error'); return }
+      }
       p.status = 'ended'
-      if (p._persisted) { try { await updateDocData('promotions', p.id, { status: 'ended' }) } catch {} }
       showToast('❌ ยุติโปรโมชั่น "' + p.title + '" แล้ว', 'warning'); renderPage()
     }))
     container.querySelectorAll('.del-promo-btn').forEach(b => b.addEventListener('click', async () => {
@@ -211,7 +213,9 @@ export default async function PromotionEnginePage(container) {
       if (!p) return
       const ok = await confirmDialog({ title: 'ลบโปรโมชั่น', message: 'ลบ "' + p.title + '"?', confirmText: 'ลบ', danger: true })
       if (!ok) return
-      if (p._persisted) { try { await softDelete('promotions', p.id) } catch {} }
+      if (p._persisted) {
+        try { await softDelete('promotions', p.id) } catch { showToast('ลบไม่สำเร็จ', 'error'); return }
+      }
       promos = promos.filter(x => x.id !== p.id)
       showToast('🗑 ลบโปรโมชั่นแล้ว', 'success'); renderPage()
     }))

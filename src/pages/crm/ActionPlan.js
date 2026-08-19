@@ -126,8 +126,11 @@ export default async function ActionPlanPage(container) {
 
     wrap.querySelectorAll('.ap-done').forEach(b => b.addEventListener('click', async () => {
       const p = plans.find(x => x.id === b.dataset.id); if (!p) return
-      p.status = 'done'; await updateDocData('action_plans', p.id, { status: 'done' }).catch(() => {})
-      showToast('✅ ทำกิจกรรมเสร็จแล้ว', 'success'); render()
+      try {
+        await updateDocData('action_plans', p.id, { status: 'done' })
+        p.status = 'done'
+        showToast('✅ ทำกิจกรรมเสร็จแล้ว', 'success'); render()
+      } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     wrap.querySelectorAll('.ap-edit').forEach(b => b.addEventListener('click', () => openForm(plans.find(x => x.id === b.dataset.id))))
   }
@@ -173,9 +176,11 @@ export default async function ActionPlanPage(container) {
         note: el.querySelector('#af-note').value.trim(),
         createdAt: existing?.createdAt || new Date().toISOString(),
       }
-      if (isEdit) { await updateDocData('action_plans', existing.id, data).catch(() => {}); Object.assign(existing, data) }
-      else { const id = await createDoc('action_plans', data).catch(() => 'ap' + Date.now()); plans.unshift({ ...data, id }) }
-      showToast(isEdit ? '✏️ แก้ไขแล้ว' : '✅ เพิ่มกิจกรรมแล้ว', 'success'); close(); render()
+      try {
+        if (isEdit) { await updateDocData('action_plans', existing.id, data); Object.assign(existing, data) }
+        else { const id = await createDoc('action_plans', data); plans.unshift({ ...data, id }) }
+        showToast(isEdit ? '✏️ แก้ไขแล้ว' : '✅ เพิ่มกิจกรรมแล้ว', 'success'); close(); render()
+      } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
   }
 

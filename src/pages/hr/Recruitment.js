@@ -103,16 +103,18 @@ export default async function RecruitmentPage(container) {
   }
 
   async function moveApplicant(a, newStatus) {
-    await updateDocData('recruitment_applicants', a.id, { status: newStatus })
-    if (newStatus === 'hired') {
-      const j = jobs.find(x => x.id === a.jobId)
-      if (j) {
-        const filled = (j.filled||0) + 1
-        await updateDocData('recruitment_jobs', j.id, { filled, status: filled >= 1 ? 'filled' : j.status })
+    try {
+      await updateDocData('recruitment_applicants', a.id, { status: newStatus })
+      if (newStatus === 'hired') {
+        const j = jobs.find(x => x.id === a.jobId)
+        if (j) {
+          const filled = (j.filled||0) + 1
+          await updateDocData('recruitment_jobs', j.id, { filled, status: filled >= 1 ? 'filled' : j.status })
+        }
       }
-    }
-    showToast(`✅ อัปเดตสถานะ ${a.name} แล้ว`, 'success')
-    await loadData()
+      showToast(`✅ อัปเดตสถานะ ${a.name} แล้ว`, 'success')
+      await loadData()
+    } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
   }
 
   function renderJobs() {
@@ -306,13 +308,15 @@ export default async function RecruitmentPage(container) {
         const name = document.getElementById('af-name')?.value?.trim()
         if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return false }
         const jid = jobId || document.getElementById('af-job')?.value
-        await createDoc('recruitment_applicants', {
-          jobId: jid, name, phone: document.getElementById('af-phone')?.value||'', email: document.getElementById('af-email')?.value||'',
-          appliedDate: todayBangkok(), status: 'new', score: null,
-          note: document.getElementById('af-note')?.value||'', resumeUrl: '#',
-        })
-        showToast('✅ เพิ่มใบสมัครแล้ว', 'success')
-        await loadData()
+        try {
+          await createDoc('recruitment_applicants', {
+            jobId: jid, name, phone: document.getElementById('af-phone')?.value||'', email: document.getElementById('af-email')?.value||'',
+            appliedDate: todayBangkok(), status: 'new', score: null,
+            note: document.getElementById('af-note')?.value||'', resumeUrl: '#',
+          })
+          showToast('✅ เพิ่มใบสมัครแล้ว', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
       }
     })
   }
@@ -335,13 +339,15 @@ export default async function RecruitmentPage(container) {
         const title = document.getElementById('jf-title')?.value?.trim()
         if (!title) { showToast('❗ กรุณากรอกชื่อตำแหน่ง', 'error'); return false }
         const data = { title, dept: document.getElementById('jf-dept').value, location: document.getElementById('jf-loc').value, salaryMin: +document.getElementById('jf-min').value, salaryMax: +document.getElementById('jf-max').value, deadline: document.getElementById('jf-dead').value, status: document.getElementById('jf-status').value, description: document.getElementById('jf-desc').value }
-        if (j) {
-          await updateDocData('recruitment_jobs', j.id, data)
-        } else {
-          await createDoc('recruitment_jobs', { ...data, type: 'fulltime', openDate: todayBangkok(), filled: 0, requirements: [] })
-        }
-        showToast('✅ บันทึกตำแหน่งงานแล้ว', 'success')
-        await loadData()
+        try {
+          if (j) {
+            await updateDocData('recruitment_jobs', j.id, data)
+          } else {
+            await createDoc('recruitment_jobs', { ...data, type: 'fulltime', openDate: todayBangkok(), filled: 0, requirements: [] })
+          }
+          showToast('✅ บันทึกตำแหน่งงานแล้ว', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
       }
     })
   }

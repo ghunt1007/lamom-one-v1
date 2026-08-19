@@ -153,8 +153,10 @@ export default async function RefundPage(container) {
       // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
       // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
       const today = todayBangkok()
-      await updateDocData('bookings', b.id, { paymentVerifyStatus: 'ยืนยันแล้ว', paymentVerifiedAt: today })
-      await notifySales('✅ การเงินยืนยันยอดโอนแล้ว', `ใบจอง ${b.bookingNo} — ${b.custName || ''} ยอด ${formatCurrency(b.down)} มีเงินโอนเข้ามาจริง เซลส์ดำเนินการต่อได้`)
+      try {
+        await updateDocData('bookings', b.id, { paymentVerifyStatus: 'ยืนยันแล้ว', paymentVerifiedAt: today })
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return }
+      try { await notifySales('✅ การเงินยืนยันยอดโอนแล้ว', `ใบจอง ${b.bookingNo} — ${b.custName || ''} ยอด ${formatCurrency(b.down)} มีเงินโอนเข้ามาจริง เซลส์ดำเนินการต่อได้`) } catch { /* แจ้งเตือนพลาดได้ ไม่กระทบสถานะที่บันทึกไปแล้ว */ }
       showToast('✅ ยืนยันยอดโอนแล้ว — แจ้งเซลส์เรียบร้อย', 'success')
       await loadData()
     }))
@@ -166,20 +168,26 @@ export default async function RefundPage(container) {
       const ok = await confirmDialog({ title: '💸 ยืนยันโอนเงินคืนลูกค้า', message: `ยืนยันว่าโอนเงินจอง ${formatCurrency(amt)} คืนให้ "${escHtml(b.custName || b.bookingNo)}" แล้ว? ฝ่ายขายจะเห็นสถานะ "คืนเงินแล้ว" ทันที`, confirmText: 'โอนคืนแล้ว' })
       if (!ok) return
       const today = todayBangkok()
-      await updateDocData('bookings', b.id, { refundStatus: 'คืนเงินแล้ว', refundAmount: amt, refundedAt: today })
-      await notifySales('💸 การเงินคืนเงินจองให้ลูกค้าแล้ว', `ใบจอง ${b.bookingNo} — คืนเงิน ${formatCurrency(amt)} ให้ ${b.custName || ''} เรียบร้อย (${formatDate(today)})`)
+      try {
+        await updateDocData('bookings', b.id, { refundStatus: 'คืนเงินแล้ว', refundAmount: amt, refundedAt: today })
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return }
+      try { await notifySales('💸 การเงินคืนเงินจองให้ลูกค้าแล้ว', `ใบจอง ${b.bookingNo} — คืนเงิน ${formatCurrency(amt)} ให้ ${b.custName || ''} เรียบร้อย (${formatDate(today)})`) } catch { /* แจ้งเตือนพลาดได้ ไม่กระทบสถานะที่บันทึกไปแล้ว */ }
       showToast('💸 บันทึกการคืนเงินแล้ว — ฝ่ายขายเห็นสถานะทันที', 'success')
       await loadData()
     }))
 
     container.querySelectorAll('.approve-btn').forEach(b => b.addEventListener('click', async () => {
-      await updateDocData('refund_requests', b.dataset.id, { status: 'approved', approvedBy: myName() })
-      const r = refunds.find(x => x.id === b.dataset.id)
-      showToast('✅ อนุมัติคืนเงิน ' + formatCurrency(r?.amount || 0) + ' แล้ว', 'success'); await loadData()
+      try {
+        await updateDocData('refund_requests', b.dataset.id, { status: 'approved', approvedBy: myName() })
+        const r = refunds.find(x => x.id === b.dataset.id)
+        showToast('✅ อนุมัติคืนเงิน ' + formatCurrency(r?.amount || 0) + ' แล้ว', 'success'); await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.reject-btn').forEach(b => b.addEventListener('click', async () => {
-      await updateDocData('refund_requests', b.dataset.id, { status: 'rejected', approvedBy: myName() })
-      showToast('❌ ปฏิเสธคำขอคืนเงิน', 'warning'); await loadData()
+      try {
+        await updateDocData('refund_requests', b.dataset.id, { status: 'rejected', approvedBy: myName() })
+        showToast('❌ ปฏิเสธคำขอคืนเงิน', 'warning'); await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.transfer-btn').forEach(b => b.addEventListener('click', async () => {
       const r = refunds.find(x => x.id === b.dataset.id)
@@ -246,9 +254,11 @@ export default async function RefundPage(container) {
         const type=document.getElementById('rf-type')?.value||'คืนมัดจำ'
         // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
         // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
-        await createDoc('refund_requests', { customer:cust, type, amount, reason, status:'pending', date:todayBangkok(), approvedBy:'', txDate:'' })
-        showToast('📤 ยื่นขอคืนเงิน ' + formatCurrency(amount) + ' แล้ว','success')
-        await loadData()
+        try {
+          await createDoc('refund_requests', { customer:cust, type, amount, reason, status:'pending', date:todayBangkok(), approvedBy:'', txDate:'' })
+          showToast('📤 ยื่นขอคืนเงิน ' + formatCurrency(amount) + ' แล้ว','success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
       }
     })
   }

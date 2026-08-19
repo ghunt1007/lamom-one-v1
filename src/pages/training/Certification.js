@@ -131,8 +131,10 @@ export default async function CertificationPage(container) {
     container.querySelectorAll('.sf-btn').forEach(b => b.addEventListener('click', () => { statusFilter = b.dataset.s; renderPage() }))
     document.getElementById('issue-cert-btn')?.addEventListener('click', openIssueCert)
     container.querySelectorAll('.renew-btn').forEach(b => b.addEventListener('click', async () => {
-      await updateDocData('staff_certifications', b.dataset.id, { status: 'pending', issueDate: null, expDate: null, score: null })
-      showToast('✅ ส่งแจ้งเตือนต่ออายุแล้ว', 'success'); await loadData()
+      try {
+        await updateDocData('staff_certifications', b.dataset.id, { status: 'pending', issueDate: null, expDate: null, score: null })
+        showToast('✅ ส่งแจ้งเตือนต่ออายุแล้ว', 'success'); await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.exam-btn').forEach(b => b.addEventListener('click', () => {
       const sc = staffCerts.find(x => x.id === b.dataset.id)
@@ -144,16 +146,18 @@ export default async function CertificationPage(container) {
         async onConfirm() {
           const score = +document.getElementById('exam-score')?.value
           if (score < 0 || score > 100) { showToast('❗ คะแนน 0-100', 'error'); return false }
-          if (score >= 70) {
-            const cert = CERTS.find(c => c.id === sc.certId)
-            await updateDocData('staff_certifications', sc.id, {
-              score, status: 'active', issueDate: addDays(0), expDate: addDays((cert?.validMonths || 12) * 30),
-            })
-            showToast(`🎉 ผ่าน! ${sc.staff} ได้รับใบรับรองแล้ว`, 'success')
-          } else {
-            showToast(`❌ ไม่ผ่าน คะแนน ${score}% (ต้องการ 70%+)`, 'error')
-          }
-          await loadData()
+          try {
+            if (score >= 70) {
+              const cert = CERTS.find(c => c.id === sc.certId)
+              await updateDocData('staff_certifications', sc.id, {
+                score, status: 'active', issueDate: addDays(0), expDate: addDays((cert?.validMonths || 12) * 30),
+              })
+              showToast(`🎉 ผ่าน! ${sc.staff} ได้รับใบรับรองแล้ว`, 'success')
+            } else {
+              showToast(`❌ ไม่ผ่าน คะแนน ${score}% (ต้องการ 70%+)`, 'error')
+            }
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
         }
       })
     }))
@@ -187,11 +191,13 @@ export default async function CertificationPage(container) {
         const existing = staffCerts.find(sc => sc.staffId === staffId && sc.certId === certId)
         if (existing) { showToast('⚠️ มีใบรับรองนี้แล้ว', 'warning'); return false }
         const staffName = document.getElementById('ic-staff')?.selectedOptions[0]?.text || ''
-        await createDoc('staff_certifications', {
-          staffId, staff: staffName, certId, issueDate: addDays(0),
-          expDate: addDays((cert?.validMonths||12)*30), score, status: 'active'
-        })
-        showToast('✅ ออกใบรับรองแล้ว!', 'success'); await loadData()
+        try {
+          await createDoc('staff_certifications', {
+            staffId, staff: staffName, certId, issueDate: addDays(0),
+            expDate: addDays((cert?.validMonths||12)*30), score, status: 'active'
+          })
+          showToast('✅ ออกใบรับรองแล้ว!', 'success'); await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
       }
     })
   }

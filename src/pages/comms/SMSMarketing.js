@@ -142,6 +142,15 @@ export default async function SMSMarketingPage(container) {
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
+    container.querySelectorAll('.copy-btn').forEach(b => b.addEventListener('click', async () => {
+      const c = campaigns.find(x => x.id === b.dataset.id)
+      if (!c) return
+      try {
+        await createDoc('sms_campaigns', { name: c.name + ' (ทำซ้ำ)', target: c.target, recipients: c.recipients, sent: null, failed: null, status: 'draft', time: null, message: c.message })
+        showToast('📋 ทำซ้ำ Campaign แล้ว', 'success')
+        await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+    }))
     document.getElementById('create-btn')?.addEventListener('click', openCreateForm)
   }
 

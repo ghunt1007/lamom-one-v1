@@ -150,7 +150,7 @@ export default async function VehicleTransferPage(container) {
         // เดิม completing a transfer ไม่เคยอัปเดตตำแหน่งรถจริงใน 'vehicles' เลย — รถจะยังโชว์ location เดิม
         // (สาขาต้นทาง) ทั้งที่ระบบโอนบอกว่าเสร็จแล้ว ทำให้สต็อกจริงกับสถานะโอนไม่ตรงกัน
         if (t.vehicleId) {
-          try { await updateDocData('vehicles', t.vehicleId, { location: t.toBranch }) } catch (e) {}
+          try { await updateDocData('vehicles', t.vehicleId, { location: t.toBranch }) } catch (e) { showToast('⚠️ อัปเดตตำแหน่งรถในสต็อกไม่สำเร็จ', 'warning') }
         }
         showToast('📍 บันทึกถึงปลายทางแล้ว!', 'success')
         await loadData()

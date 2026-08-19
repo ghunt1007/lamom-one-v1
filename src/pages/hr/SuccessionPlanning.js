@@ -167,9 +167,11 @@ export default async function SuccessionPlanningPage(container) {
         const name = document.getElementById('sp-name').value.trim()
         if (!name) { showToast('❗ ระบุชื่อ', 'error'); return false }
         const successors = [...(plan.successors||[]), { name, dept: document.getElementById('sp-dept').value.trim(), readiness: document.getElementById('sp-ready').value, gaps: document.getElementById('sp-gaps').value.trim() }]
-        await updateDocData('succession_plans', plan.id, { successors })
-        showToast(`เพิ่ม ${name} เป็นผู้สืบทอด "${plan.role}" แล้ว`, 'success')
-        await loadData()
+        try {
+          await updateDocData('succession_plans', plan.id, { successors })
+          showToast(`เพิ่ม ${name} เป็นผู้สืบทอด "${plan.role}" แล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
       }
     })
   }
@@ -288,9 +290,11 @@ export default async function SuccessionPlanningPage(container) {
         const role = document.getElementById('sp-role').value.trim()
         const curr = document.getElementById('sp-current').value.trim()
         if (!role || !curr) { showToast('❗ กรอกข้อมูลที่จำเป็น', 'error'); return false }
-        await createDoc('succession_plans', { role, current: { name: curr, tenure: document.getElementById('sp-tenure').value.trim() || '-', risk: document.getElementById('sp-risk').value }, successors: [] })
-        showToast(`เพิ่มตำแหน่ง "${role}" เข้า Succession Plan แล้ว`, 'success')
-        await loadData()
+        try {
+          await createDoc('succession_plans', { role, current: { name: curr, tenure: document.getElementById('sp-tenure').value.trim() || '-', risk: document.getElementById('sp-risk').value }, successors: [] })
+          showToast(`เพิ่มตำแหน่ง "${role}" เข้า Succession Plan แล้ว`, 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
       }
     })
   }

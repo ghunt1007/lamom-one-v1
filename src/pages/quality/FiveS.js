@@ -137,8 +137,11 @@ export default async function FiveSPage(container) {
         </div>`,
         confirmText: '💾 บันทึกผลตรวจ',
         async onConfirm() {
-          await updateDocData('five_s_areas', a.id, { scores, lastAudit: addDays(0), photos: (a.photos||0) + 2 })
-          showToast(`✅ บันทึกผลตรวจ ${a.name} แล้ว — คะแนน ${avgScore(scores)}/5`, 'success'); await loadData()
+          const note = document.getElementById('fs-note')?.value.trim() || ''
+          try {
+            await updateDocData('five_s_areas', a.id, { scores, note, lastAudit: addDays(0), photos: (a.photos||0) + 2 })
+            showToast(`✅ บันทึกผลตรวจ ${a.name} แล้ว — คะแนน ${avgScore(scores)}/5`, 'success'); await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
       })
       // wire score buttons after modal renders

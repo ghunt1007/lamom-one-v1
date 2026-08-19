@@ -141,6 +141,9 @@ export default async function EVBatteryPage(container) {
     container.querySelectorAll('.check-btn').forEach(b => b.addEventListener('click', () => {
       const v = vehicles.find(x => x.id === b.dataset.id); if (v) openCheckModal(v)
     }))
+    container.querySelectorAll('.sched-btn').forEach(b => b.addEventListener('click', () => {
+      const v = vehicles.find(x => x.id === b.dataset.id); if (v) openScheduleModal(v)
+    }))
     document.getElementById('add-check-btn')?.addEventListener('click', () => openCheckModal())
     document.getElementById('add-vehicle-btn')?.addEventListener('click', () => openAddVehicle())
     container.querySelectorAll('.del-vehicle-btn').forEach(b => b.addEventListener('click', async () => {
@@ -216,12 +219,31 @@ export default async function EVBatteryPage(container) {
           soh: parseInt(document.getElementById('bat-soh')?.value) || v.soh,
           soc: parseInt(document.getElementById('bat-soc')?.value) || v.soc,
           cycles: parseInt(document.getElementById('bat-cycles')?.value) || v.cycles,
+          note: document.getElementById('bat-note')?.value.trim() || '',
           lastCheck: addDays(0),
           nextCheck: addDays(90),
         }
         try {
           await updateDocData('ev_battery_vehicles', v.id, patch)
           showToast('✅ บันทึกผลตรวจแบตเตอรี่แล้ว', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+      }
+    })
+  }
+
+  function openScheduleModal(v) {
+    openModal({
+      title: '📅 นัดตรวจแบตเตอรี่ — ' + escHtml(v.plate),
+      size: 'sm',
+      body: `<div class="input-group"><label class="input-label">วันนัดตรวจ *</label><input class="input" type="date" id="sched-date" value="${addDays(3)}"></div>`,
+      confirmText: '📅 บันทึกวันนัด',
+      async onConfirm() {
+        const nextCheck = document.getElementById('sched-date')?.value
+        if (!nextCheck) { showToast('❗ กรุณาระบุวันนัด', 'error'); return false }
+        try {
+          await updateDocData('ev_battery_vehicles', v.id, { nextCheck })
+          showToast(`📅 นัดตรวจ ${v.plate} วันที่ ${formatDate(nextCheck)} แล้ว`, 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
       }

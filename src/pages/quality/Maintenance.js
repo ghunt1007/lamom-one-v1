@@ -204,8 +204,9 @@ export default async function MaintenancePage(container) {
         const today  = todayBangkok()
         const nextD  = new Date(today)
         nextD.setUTCDate(nextD.getUTCDate() + eq.cycle)
+        const note = document.getElementById('maint-note')?.value.trim() || ''
         try {
-          await updateDocData('maintenance_equipment', eq.id, { lastService: today, nextService: nextD.toISOString().slice(0,10), status: 'ok' })
+          await updateDocData('maintenance_equipment', eq.id, { lastService: today, nextService: nextD.toISOString().slice(0,10), status: 'ok', note })
           showToast('✅ บันทึกการบำรุงรักษา: ' + eq.name + ' แล้ว', 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
