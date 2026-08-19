@@ -100,6 +100,10 @@ export default async function DeliveryNotePage(container) {
           notes: b.deliveryNotes || '',
           accessories: b.deliveryAccessories || [],
           checklist: b.deliveryChecklist || { docs:false, keys:false, charger:false, manual:false, mats:false, spare:false },
+          // (v1.0.479) เชื่อมสถานะเช็คลิสต์ตรวจสภาพรถก่อนส่งมอบจากหน้า PreDelivery.js (คนละเช็คลิสต์กับ
+          // deliveryChecklist ด้านบน — อันนี้คือเอกสารส่งมอบ ส่วน pdReady คือตรวจสภาพรถจริง) เดิมสองหน้านี้ไม่
+          // เชื่อมกันเลย เซ็นส่งมอบได้โดยไม่เคยผ่านการตรวจสภาพรถมาก่อน
+          pdReady: b.pdReady || false,
         }
       })
     }
@@ -350,6 +354,7 @@ export default async function DeliveryNotePage(container) {
           <div style="font-weight:700">${escHtml(n.brand)} ${escHtml(n.model)} ${escHtml(n.variant)}</div>
           <div style="color:var(--text-muted)">${escHtml(n.color)} · ${escHtml(n.vin || 'รอ VIN')}</div>
         </div>
+        ${n._fbId && !n.pdReady ? `<div style="padding:8px 12px;background:var(--warning-bg,#fef3c7);color:var(--warning);border-radius:var(--radius-sm);margin-bottom:14px;font-size:0.78rem">⚠️ คันนี้ยังไม่ผ่านเช็คลิสต์ตรวจสภาพรถก่อนส่งมอบ (หน้า "ตรวจรับรถก่อนส่งมอบ") — ตรวจสอบให้แน่ใจก่อนเซ็นส่งมอบจริง</div>` : ''}
         <div style="font-size:0.8rem;font-weight:700;margin-bottom:8px">ตรวจสอบ Checklist ก่อนส่งมอบ</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px">
           ${checkItems.map(([key,label]) => `
