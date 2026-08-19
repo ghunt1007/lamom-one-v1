@@ -5,7 +5,7 @@
 import { formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { watchDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
@@ -26,12 +26,19 @@ export default async function PartsInventoryPage(container) {
   let sortBy = 'name'
   let loading = true
 
-  async function loadData() {
-    loading = true
-    try { parts = await listDocs('parts', [], 'name', 'asc', 500) } catch (e) { parts = [] }
-    loading = false
-    if (container.__routerGen === myGen) renderPage()
+  // (v1.0.477) เปลี่ยนจาก listDocs (ดึงครั้งเดียว) เป็น watchDocs (real-time) — collection 'parts' ตัวเดียวกับ
+  // Parts.js/ServiceDashboard.js ใช้ร่วมกัน เดิมสองหน้าเปิดพร้อมกันจะเห็นยอดคงคลังไม่ตรงกันจนกว่าจะรีเฟรชเอง
+  let unsubParts = () => {}
+  function startWatch() {
+    unsubParts()
+    unsubParts = watchDocs('parts', [], 'name', 'asc', 500, docs => {
+      if (container.__routerGen !== myGen) { unsubParts(); return }
+      parts = docs
+      loading = false
+      renderPage()
+    })
   }
+  async function loadData() {} // เหลือไว้เพราะโค้ดเดิมเรียกหลังบันทึกทุกจุด — listener ด้านบนอัปเดตให้อัตโนมัติแล้ว
 
   function renderPage() {
     if (loading) {
@@ -201,7 +208,8 @@ export default async function PartsInventoryPage(container) {
     })
   }
 
-  await loadData()
+  startWatch()
+  return function cleanupPartsInventory() { unsubParts() }
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

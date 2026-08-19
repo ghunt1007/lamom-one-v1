@@ -5,7 +5,7 @@
 import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { watchDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -42,12 +42,19 @@ export default async function PlateTrackingPage(container) {
   let regs = []
   let loading = true
 
-  async function loadData() {
-    loading = true
-    try { regs = await listDocs('plate_tracking', [], 'deliveredDate', 'desc', 200) } catch (e) { regs = [] }
-    loading = false
-    if (container.__routerGen === myGen) renderPage()
+  // (v1.0.477) เปลี่ยนจาก listDocs เป็น watchDocs (real-time) — pool ป้ายแดงมีจำกัด เดิมเจ้าหน้าที่สองคนเปิด
+  // พร้อมกันอาจเห็น pool ว่างเหมือนกันแล้วจ่ายป้ายเดียวกันให้รถสองคันซ้อนกันโดยไม่รู้ตัว
+  let unsubRegs = () => {}
+  function startWatch() {
+    unsubRegs()
+    unsubRegs = watchDocs('plate_tracking', [], 'deliveredDate', 'desc', 200, docs => {
+      if (container.__routerGen !== myGen) { unsubRegs(); return }
+      regs = docs
+      loading = false
+      renderPage()
+    })
   }
+  async function loadData() {} // เหลือไว้เพราะโค้ดเดิมเรียกหลังบันทึกทุกจุด — listener ด้านบนอัปเดตให้อัตโนมัติแล้ว
 
   function renderPage() {
     if (loading) {
@@ -168,7 +175,8 @@ export default async function PlateTrackingPage(container) {
     })
   }
 
-  await loadData()
+  startWatch()
+  return function cleanupPlateTracking() { unsubRegs() }
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

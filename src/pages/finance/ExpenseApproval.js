@@ -5,7 +5,7 @@
 import { formatCurrency, formatDate, timeAgo } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
-import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { watchDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function myName() {
   const me = getState('user') || {}
@@ -48,12 +48,19 @@ export default async function ExpenseApprovalPage(container) {
   let catFilter = 'all'
   let loading = true
 
-  async function loadData() {
-    loading = true
-    try { expenses = await listDocs('expense_approvals', [], 'submitDate', 'desc', 200) } catch (e) { expenses = [] }
-    loading = false
-    if (container.__routerGen === myGen) renderPage()
+  // (v1.0.477) เปลี่ยนจาก listDocs เป็น watchDocs (real-time) — คิวอนุมัติที่ผู้อนุมัติหลายคนดูพร้อมกัน เดิม
+  // ถ้าคนหนึ่งอนุมัติไปแล้ว อีกคนอาจกดอนุมัติซ้ำหรือปฏิเสธรายการที่จ่ายไปแล้วเพราะเห็นสถานะเก่าค้างอยู่
+  let unsubExpenses = () => {}
+  function startWatch() {
+    unsubExpenses()
+    unsubExpenses = watchDocs('expense_approvals', [], 'submitDate', 'desc', 200, docs => {
+      if (container.__routerGen !== myGen) { unsubExpenses(); return }
+      expenses = docs
+      loading = false
+      renderPage()
+    })
   }
+  async function loadData() {} // เหลือไว้เพราะโค้ดเดิมเรียกหลังบันทึกทุกจุด — listener ด้านบนอัปเดตให้อัตโนมัติแล้ว
 
   function renderPage() {
     if (loading) {
@@ -225,7 +232,8 @@ export default async function ExpenseApprovalPage(container) {
     })
   }
 
-  await loadData()
+  startWatch()
+  return function cleanupExpenseApproval() { unsubExpenses() }
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

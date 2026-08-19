@@ -5,7 +5,7 @@
 import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { watchDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -30,12 +30,19 @@ export default async function ReserveLockPage(container) {
   let stock = []
   let loading = true
 
-  async function loadData() {
-    loading = true
-    try { stock = (await listDocs('reservations', [], 'lockedAt', 'desc', 200)).filter(v => !v.deleted) } catch (e) { stock = [] }
-    loading = false
-    if (container.__routerGen === myGen) render()
+  // (v1.0.477) เปลี่ยนจาก listDocs (ดึงครั้งเดียว) เป็น watchDocs (real-time) — จุดประสงค์หน้านี้คือป้องกันการ
+  // ล็อค/จองซ้ำซ้อน เดิมสองคนเปิดพร้อมกันจะไม่เห็นการล็อคของอีกฝ่ายจนกว่าจะออกแล้วกลับเข้าหน้าใหม่
+  let unsubStock = () => {}
+  function startWatch() {
+    unsubStock()
+    unsubStock = watchDocs('reservations', [], 'lockedAt', 'desc', 200, docs => {
+      if (container.__routerGen !== myGen) { unsubStock(); return }
+      stock = docs.filter(v => !v.deleted)
+      loading = false
+      render()
+    })
   }
+  async function loadData() {} // เหลือไว้เพราะโค้ดเดิมเรียกหลังบันทึกทุกจุด — listener ด้านบนอัปเดตให้อัตโนมัติแล้ว
 
   let filterStatus = 'all'
   let filterModel  = 'all'
@@ -259,5 +266,6 @@ export default async function ReserveLockPage(container) {
     </div>`
   }
 
-  await loadData()
+  startWatch()
+  return function cleanupReserveLock() { unsubStock() }
 }

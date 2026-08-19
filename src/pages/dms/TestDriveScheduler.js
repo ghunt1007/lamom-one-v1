@@ -5,7 +5,7 @@
 import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { watchDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -44,12 +44,19 @@ export default async function TestDriveSchedulerPage(container) {
   let viewDate = addDays(0)
   let loading = true
 
-  async function loadData() {
-    loading = true
-    try { bookings = await listDocs('test_drives', [], 'date', 'asc', 200) } catch (e) { bookings = [] }
-    loading = false
-    if (container.__routerGen === myGen) renderPage()
+  // (v1.0.477) เปลี่ยนจาก listDocs เป็น watchDocs (real-time) — คนขายสองคนอาจจองรถคันเดียวกันในช่วงเวลาเดียวกัน
+  // ซ้อนกันได้ถ้าไม่เห็นการจองล่าสุดของกันและกันทันที
+  let unsubBookings = () => {}
+  function startWatch() {
+    unsubBookings()
+    unsubBookings = watchDocs('test_drives', [], 'date', 'asc', 200, docs => {
+      if (container.__routerGen !== myGen) { unsubBookings(); return }
+      bookings = docs
+      loading = false
+      renderPage()
+    })
   }
+  async function loadData() {} // เหลือไว้เพราะโค้ดเดิมเรียกหลังบันทึกทุกจุด — listener ด้านบนอัปเดตให้อัตโนมัติแล้ว
 
   function renderPage() {
     if (loading) {
@@ -240,7 +247,8 @@ export default async function TestDriveSchedulerPage(container) {
     })
   }
 
-  await loadData()
+  startWatch()
+  return function cleanupTestDriveScheduler() { unsubBookings() }
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

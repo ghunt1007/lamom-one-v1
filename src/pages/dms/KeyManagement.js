@@ -5,7 +5,7 @@
 import { timeAgo } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { watchDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -22,12 +22,19 @@ export default async function KeyManagementPage(container) {
   let keys = []
   let loading = true
 
-  async function loadData() {
-    loading = true
-    try { keys = (await listDocs('keys', [], 'slot', 'asc', 200)).filter(k => !k.deleted) } catch (e) { keys = [] }
-    loading = false
-    if (container.__routerGen === myGen) renderPage()
+  // (v1.0.477) เปลี่ยนจาก listDocs เป็น watchDocs (real-time) — หน้านี้ต้องรู้เสมอว่ากุญแจแต่ละคันอยู่ตู้หรือถูก
+  // เบิกออก เดิมสองคนเปิดพร้อมกัน คนหนึ่งเพิ่งเบิกไปอีกคนจะยังเห็นสถานะเก่าค้างจนกว่าจะรีเฟรชเอง เสี่ยงเบิกซ้ำ
+  let unsubKeys = () => {}
+  function startWatch() {
+    unsubKeys()
+    unsubKeys = watchDocs('keys', [], 'slot', 'asc', 200, docs => {
+      if (container.__routerGen !== myGen) { unsubKeys(); return }
+      keys = docs.filter(k => !k.deleted)
+      loading = false
+      renderPage()
+    })
   }
+  async function loadData() {} // เหลือไว้เพราะโค้ดเดิมเรียกหลังบันทึกทุกจุด — listener ด้านบนอัปเดตให้อัตโนมัติแล้ว
 
   function renderPage() {
     if (loading) {
@@ -183,7 +190,8 @@ export default async function KeyManagementPage(container) {
     })
   }
 
-  await loadData()
+  startWatch()
+  return function cleanupKeyManagement() { unsubKeys() }
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

@@ -5,7 +5,7 @@
 import { formatDate, formatCurrency, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { watchDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -34,12 +34,19 @@ export default async function VehicleReservationPage(container) {
   let statusFilter = 'all'
   let loading = true
 
-  async function loadData() {
-    loading = true
-    try { reservations = await listDocs('vehicle_reservations', [], 'created', 'desc', 200) } catch (e) { reservations = [] }
-    loading = false
-    if (container.__routerGen === myGen) renderPage()
+  // (v1.0.477) เปลี่ยนจาก listDocs เป็น watchDocs (real-time) — คนขายสองคนอาจแข่งกันจองรถรุ่นเดียวกันพร้อมกัน
+  // เดิมไม่เห็นการจองของอีกฝ่ายจนกว่าจะรีเฟรชเอง
+  let unsubReservations = () => {}
+  function startWatch() {
+    unsubReservations()
+    unsubReservations = watchDocs('vehicle_reservations', [], 'created', 'desc', 200, docs => {
+      if (container.__routerGen !== myGen) { unsubReservations(); return }
+      reservations = docs
+      loading = false
+      renderPage()
+    })
   }
+  async function loadData() {} // เหลือไว้เพราะโค้ดเดิมเรียกหลังบันทึกทุกจุด — listener ด้านบนอัปเดตให้อัตโนมัติแล้ว
 
   function renderPage() {
     if (loading) {
@@ -181,7 +188,8 @@ export default async function VehicleReservationPage(container) {
     })
   }
 
-  await loadData()
+  startWatch()
+  return function cleanupVehicleReservation() { unsubReservations() }
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

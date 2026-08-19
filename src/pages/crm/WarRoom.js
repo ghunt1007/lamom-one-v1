@@ -12,7 +12,7 @@
  * (`customers`, `bookings` via getSalesData()).
  */
 import { formatCurrency } from '../../utils/format.js'
-import { getSalesData, listDocs, seedDemoData } from '../../core/db.js'
+import { getSalesData, watchDocs, seedDemoData } from '../../core/db.js'
 import { navigate } from '../../core/router.js'
 
 function escHtml(s) {
@@ -92,19 +92,15 @@ export default async function WarRoomPage(container) {
   // หน้าเต็มทั้งสอง ไม่ใช่ปั้นเลขขึ้นมาใหม่) เพิ่ม badge ให้ตรงกับความจริงเหมือนหน้าเต็ม
   let hasRealSales = false
 
-  // ── Load everything up front so the summary strip + all 4 tabs are ready instantly ──
-  try {
-    const [customersRes, bookingsRes, salesRes] = await Promise.all([
-      listDocs('customers', [], 'createdAt', 'desc', 500).catch(() => []),
-      listDocs('bookings', [], 'createdAt', 'desc', 500).catch(() => []),
-      getSalesData().catch(() => []),
-    ])
-    if (container.__routerGen !== myGen) return
-    // softDelete() ไม่ได้ลบเอกสารจริง — ต้องกรอง !deleted ออกเอง ไม่งั้นลูกค้าที่ลบไปแล้วจะยังถูกนับใน
-    // Pipeline tab (บรรทัด 171/208 ที่ใช้ customers ตัวนี้ต่อ) และ Win/Loss/funnel ด้านล่าง
-    customers = customersRes.filter(c => !c.deleted)
-    bookings = bookingsRes
-    sales = salesRes
+  // (v1.0.477) แยกส่วนคำนวณข้อมูลอนุพันธ์ (funnel/journey/win-loss) ออกมาเป็นฟังก์ชันเรียกซ้ำได้ — เดิมคำนวณ
+  // ครั้งเดียวตอนโหลดหน้า เปลี่ยน customers/bookings เป็น real-time (watchDocs) แล้วต้องคำนวณใหม่ทุกครั้งที่
+  // ข้อมูลอัปเดต จึงรีเซ็ตกลับไปที่ baseline (FUNNEL_STAGES/JOURNEY_STAGES/DEMO_LOST_DEALS) ทุกครั้งก่อนคำนวณ
+  // ใหม่ ไม่ให้ค่าที่คำนวณไว้ก่อนหน้าตกค้างสะสมผิดๆ (เช่นถ้ายอดขายจริงลดจาก >=1 กลับมาเป็น 0)
+  function recomputeDerived() {
+    funnelStages = [...FUNNEL_STAGES].map(s => ({ ...s }))
+    journeyStages = JOURNEY_STAGES.map(s => ({ ...s }))
+    lostDeals = DEMO_LOST_DEALS.map(d => ({ ...d }))
+    lostDealsLive = false
 
     const purchased = sales.length
     hasRealSales = purchased >= 1
@@ -166,7 +162,35 @@ export default async function WarRoomPage(container) {
     // เดิมต่อข้อมูลตัวอย่างเข้ากับของจริงเสมอทุกครั้งที่มีข้อมูลจริงอย่างน้อย 1 รายการ (ไม่ใช่ fallback
     // เฉพาะตอนไม่มีข้อมูลจริงเลย) ทำให้ดีลปลอมปนกับดีลจริงถาวรตั้งแต่มีข้อมูลจริงรายการแรก
     if (live.length) { lostDeals = live; lostDealsLive = true }
-  } catch {}
+  }
+
+  // ── โหลด customers/bookings แบบ real-time (สองหน้านี้เป็น "ศูนย์บัญชาการ" ที่ทีมมองพร้อมกันระหว่างวันขาย
+  // จริง) ส่วน sales (getSalesData()) โหลดครั้งเดียวพอ — แสดงหน้าครั้งแรกก็ต่อเมื่อทั้งสอง listener ส่งชุดแรก
+  // มาครบแล้ว (เหมือนพฤติกรรมเดิมที่รอ Promise.all ก่อนค่อย render) ────────────────────────────────
+  let firstCustomersLoaded = false
+  let firstBookingsLoaded = false
+  let unsubCustomers = () => {}
+  let unsubBookings = () => {}
+  function startWatch() {
+    unsubCustomers()
+    unsubCustomers = watchDocs('customers', [], 'createdAt', 'desc', 500, docs => {
+      if (container.__routerGen !== myGen) { unsubCustomers(); return }
+      // softDelete() ไม่ได้ลบเอกสารจริง — ต้องกรอง !deleted ออกเอง ไม่งั้นลูกค้าที่ลบไปแล้วจะยังถูกนับใน
+      // Pipeline tab และ Win/Loss/funnel
+      customers = docs.filter(c => !c.deleted)
+      firstCustomersLoaded = true
+      if (firstBookingsLoaded) { recomputeDerived(); renderPage() }
+    })
+    unsubBookings()
+    unsubBookings = watchDocs('bookings', [], 'createdAt', 'desc', 500, docs => {
+      if (container.__routerGen !== myGen) { unsubBookings(); return }
+      bookings = docs
+      firstBookingsLoaded = true
+      if (firstCustomersLoaded) { recomputeDerived(); renderPage() }
+    })
+  }
+  try { sales = await getSalesData() } catch { sales = [] }
+  if (container.__routerGen !== myGen) return
 
   // ── Derived numbers for the top summary strip ──────────────────────────────
   function computeSummary() {
@@ -389,7 +413,8 @@ export default async function WarRoomPage(container) {
     document.getElementById('wr-open-lostdeal')?.addEventListener('click', () => navigate('/crm/lostdeals'))
   }
 
-  renderPage()
+  startWatch()
+  return function cleanupWarRoom() { unsubCustomers(); unsubBookings() }
 }
 
 function kpi(title, value, color) {
