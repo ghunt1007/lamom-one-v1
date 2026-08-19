@@ -31,6 +31,11 @@ const CLAIM_STATUS = {
   closed:   { label: 'ปิด', color: 'secondary' },
 }
 
+// สถานะฝั่ง warranty_claims (WarrantyClaim.js) — ใช้แค่แสดง badge เชื่อมสถานะ ไม่ใช่สถานะของ collection นี้
+const MFG_CLAIM_STATUS = {
+  draft: 'ร่าง', submitted: 'ส่งค่ายแล้ว', approved: 'ค่ายอนุมัติ', rejected: 'ค่ายปฏิเสธ', reimbursed: 'รับเงินคืนแล้ว',
+}
+
 const today = new Date()
 
 function addDays(d, n) { const dt = new Date(d); dt.setDate(dt.getDate() + n); return dt }
@@ -87,13 +92,28 @@ export default async function WarrantyManagementPage(container) {
   let searchQ = ''
   let warranties = []
   let claims = []
+  let mfgClaimsByPlate = {}
   let loading = true
+
+  // (v1.0.482) เชื่อมสถานะกับ warranty_claims (WarrantyClaim.js /service/warranty-claim — workflow เคลม
+  // เงินคืนจากค่ายรถ คำนวณค่าอะไหล่+ค่าแรงเอง) ตามที่เจ้าของยืนยัน "เชื่อมสถานะเท่านั้น ไม่รวมสคีมา" — สอง
+  // ระบบนี้ทำงานคนละอย่างจริง (ที่นี่เป็นแค่ตั๋วเก็บเรื่องร้องเรียนช่วงประกัน ไม่มีการคำนวณเงิน) จับคู่แบบ
+  // best-effort ด้วยทะเบียนรถ (ฟิลด์เดียวที่ทั้งสอง collection มีร่วมกัน) แสดงเป็น badge เสริมเท่านั้น
+  function normPlate(p) { return String(p || '').replace(/\s/g, '').toLowerCase() }
+  async function loadMfgClaims() {
+    try {
+      const rows = await listDocs('warranty_claims', [], 'submitted', 'desc', 500)
+      mfgClaimsByPlate = {}
+      rows.forEach(c => { const p = normPlate(c.plate); if (p && !mfgClaimsByPlate[p]) mfgClaimsByPlate[p] = c })
+    } catch { mfgClaimsByPlate = {} }
+  }
 
   async function loadData() {
     loading = true
     try {
       warranties = await loadWarranties()
       claims = await listDocs('warranty_service_claims', [], 'date', 'desc', 500)
+      await loadMfgClaims()
     } catch (e) { warranties = []; claims = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
@@ -249,11 +269,12 @@ export default async function WarrantyManagementPage(container) {
       <div class="card" style="padding:0;overflow:hidden">
         <div class="table-wrap"><table class="table">
           <thead><tr>
-            <th>รหัส</th><th>ลูกค้า</th><th>ทะเบียน</th><th>วันที่</th><th>ปัญหา</th><th>ค่าใช้จ่าย</th><th>คุ้มครอง</th><th>สถานะ</th><th>การจัดการ</th>
+            <th>รหัส</th><th>ลูกค้า</th><th>ทะเบียน</th><th>วันที่</th><th>ปัญหา</th><th>ค่าใช้จ่าย</th><th>คุ้มครอง</th><th>สถานะ</th><th>เคลมค่ายรถ</th><th>การจัดการ</th>
           </tr></thead>
           <tbody>
             ${claims.map(c => {
               const st = CLAIM_STATUS[c.status]
+              const mfg = mfgClaimsByPlate[normPlate(c.vehiclePlate)]
               return `<tr>
                 <td style="font-family:monospace;font-size:0.8rem">${escHtml(c.id)}</td>
                 <td style="font-size:0.85rem;font-weight:600">${escHtml(c.customerName)}</td>
@@ -263,6 +284,7 @@ export default async function WarrantyManagementPage(container) {
                 <td style="font-size:0.82rem">${c.cost > 0 ? formatCurrency(c.cost) : '-'}</td>
                 <td>${c.covered === true ? '<span class="badge badge-success">✓ คุ้มครอง</span>' : c.covered === false ? '<span class="badge badge-danger">✗ ไม่คุ้มครอง</span>' : '<span class="badge badge-secondary">รอ</span>'}</td>
                 <td><span class="badge badge-${st.color}">${st.label}</span></td>
+                <td>${mfg ? `<span class="badge badge-primary" style="font-size:0.68rem" title="เคลมเงินคืนจากค่ายรถ">🏭 ${escHtml(MFG_CLAIM_STATUS[mfg.status] || mfg.status)}</span>` : '<span style="font-size:0.72rem;color:var(--text-muted)">-</span>'}</td>
                 <td>
                   ${c.status === 'pending' ? `
                     <div style="display:flex;gap:4px">
