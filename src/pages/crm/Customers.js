@@ -283,6 +283,11 @@ export default async function CustomersPage(container) {
               <div style="font-weight:600;margin-bottom:6px;font-size:0.85rem">🔧 ประวัติซ่อม/บริการ (Job Card)</div>
               <div class="skeleton" style="height:40px;border-radius:10px"></div>
             </div>
+
+            <div id="wk-complaint-panel">
+              <div style="font-weight:600;margin-bottom:6px;font-size:0.85rem">⚠️ ประวัติร้องเรียน</div>
+              <div class="skeleton" style="height:40px;border-radius:10px"></div>
+            </div>
           </div>
         </div>
       `,
@@ -348,6 +353,7 @@ export default async function CustomersPage(container) {
     refreshBookingPanel(c)
     refreshQuotePanel(c)
     refreshJobCardPanel(c)
+    refreshComplaintPanel(c)
   }
 
   async function refreshTimeline(c) {
@@ -539,6 +545,40 @@ export default async function CustomersPage(container) {
       <button class="btn btn-secondary btn-sm" id="wk-view-jobcards" style="margin-top:8px;width:100%;justify-content:center">🔗 ดู Job Card ทั้งหมด</button>
     `
     document.getElementById('wk-view-jobcards')?.addEventListener('click', () => { document.querySelectorAll('.modal-overlay').forEach(m => m.remove()); navigate('/service/jobs') })
+  }
+
+  // (v1.0.478) ประวัติร้องเรียนของลูกค้าคนนี้ — collection 'complaints' ยังไม่มี field customerId เลย (เก็บแค่
+  // custName/phone แบบพิมพ์เอง) เลยจับคู่แบบ best-effort ด้วยเบอร์โทรเหมือนแพทเทิร์น refreshJobCardPanel()
+  // ด้านบน (v1.0.459) — เดิมเซลส์ที่คุยกับลูกค้าไม่มีทางรู้จากหน้านี้เลยว่าลูกค้าเคยร้องเรียนอะไรมาก่อน
+  async function refreshComplaintPanel(c) {
+    const el = document.getElementById('wk-complaint-panel')
+    if (!el) return
+    let complaints = []
+    try { complaints = await listDocs('complaints', [], 'createdAt', 'desc', 300) } catch { complaints = [] }
+    const myPhone = normPhone(c.phone)
+    const matched = complaints.filter(x => myPhone && normPhone(x.phone) === myPhone)
+    if (!document.getElementById('wk-complaint-panel')) return
+    if (!matched.length) {
+      el.innerHTML = `<div style="font-weight:600;margin-bottom:6px;font-size:0.85rem">⚠️ ประวัติร้องเรียน</div><div style="font-size:0.8rem;color:var(--text-muted)">ยังไม่มีประวัติร้องเรียน</div>`
+      return
+    }
+    el.innerHTML = `
+      <div style="font-weight:600;margin-bottom:6px;font-size:0.85rem">⚠️ ประวัติร้องเรียน (${matched.length})</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${matched.slice(0, 5).map(x => `
+          <div class="card" style="padding:8px 12px;display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-size:0.8rem;font-weight:600">${escHtml(x.subject || '-')}</div>
+              <div style="font-size:0.7rem;color:var(--text-muted)">${escHtml(x.openDate || '')}</div>
+            </div>
+            <span class="badge badge-secondary" style="font-size:0.68rem">${escHtml(x.status || '-')}</span>
+          </div>
+        `).join('')}
+        ${matched.length > 5 ? `<div style="font-size:0.72rem;color:var(--text-muted)">และอีก ${matched.length - 5} รายการ</div>` : ''}
+      </div>
+      <button class="btn btn-secondary btn-sm" id="wk-view-complaints" style="margin-top:8px;width:100%;justify-content:center">🔗 ดูเรื่องร้องเรียนทั้งหมด</button>
+    `
+    document.getElementById('wk-view-complaints')?.addEventListener('click', () => { document.querySelectorAll('.modal-overlay').forEach(m => m.remove()); navigate('/crm/complaints') })
   }
 
   function openLostModal(c, onDone) {
