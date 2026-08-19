@@ -27,6 +27,22 @@ function deviceLabel() {
   return `${os} · ${browser}`
 }
 
+// (v1.0.486) audit_log เดิมมี ACTION_TYPES 'login'/'logout' พร้อม UI รอแสดงผลอยู่แล้วที่หน้า Audit Log
+// (settings/AuditLog.js) แต่ไม่เคยมีจุดไหนเขียน entry ประเภทนี้จริงเลยตลอดกาล (logAction() ใน db.js ถูกเรียก
+// เฉพาะตอน create/update/delete เอกสารเท่านั้น) ทำให้ "ใครเข้ามาใช้งานระบบ" ไม่เคยถูกบันทึกจริง ต่างจาก
+// security_sessions ที่มีอยู่แล้ว (ใช้แสดง session/IP ที่หน้า Security Settings คนละหน้า คนละวัตถุประสงค์)
+async function logAudit(action, detail) {
+  try {
+    const user = getState('user') || {}
+    await createDoc('audit_log', {
+      user: user.displayName || user.email || user.uid || 'unknown',
+      role: user.role || getState('role') || '',
+      action, module: 'System', resource: user.uid || '-', detail: detail || '',
+      ts: new Date().toISOString(),
+    })
+  } catch (e) { /* audit log พลาดได้ ต้องไม่กระทบ login/logout จริง */ }
+}
+
 async function registerSecuritySession(profile) {
   try {
     const ip = await getClientIp()
@@ -72,7 +88,7 @@ export async function login(email, password) {
     const cred = await signInWithEmailAndPassword(auth, email, password)
     await loadUserProfile(cred.user)
     const profile = getState('user')
-    if (profile) registerSecuritySession(profile)
+    if (profile) { registerSecuritySession(profile); logAudit('login', `เข้าสู่ระบบ (${deviceLabel()})`) }
     showToast('เข้าสู่ระบบสำเร็จ', 'success')
     navigate('/')
   } catch (e) {
@@ -84,6 +100,7 @@ export async function login(email, password) {
 }
 
 export async function logout() {
+  await logAudit('logout', 'ออกจากระบบ')
   await signOut(auth)
   setUser(null)
   setCompany(null)

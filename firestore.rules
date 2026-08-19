@@ -901,6 +901,16 @@ service cloud.firestore {
         || (isStaff() && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['title', 'body', 'type', 'scope', 'targetCompanyId', 'targetDepartment', 'author', 'time']));
     }
 
+    // (v1.0.486) บันทึกข้อความภายใน (MEMO) — เอกสารทางการที่มีเลขที่/เรียน/จาก แยกจาก announcements_hr
+    // (feed แจ้งเตือนทั่วไป) แต่ใช้นโยบายสิทธิ์เดียวกันเป๊ะ — พนักงานทุกคนอ่านได้ สร้าง/แก้เนื้อหาเฉพาะ
+    // ผู้มีอำนาจ (HR/ผู้จัดการขึ้นไป) ยกเว้น readByUids ที่พนักงานทั่วไปแก้เองได้ (รับทราบของตัวเอง)
+    match /internal_memos/{docId} {
+      allow read: if isStaff();
+      allow create, delete: if isHR() || isManager();
+      allow update: if isHR() || isManager()
+        || (isStaff() && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['memoNo', 'to', 'from', 'subject', 'body', 'date', 'scope', 'targetCompanyId', 'targetDepartment', 'author', 'time']));
+    }
+
     // เรื่องร้องเรียนภายในของพนักงาน — คนละทิศทางกับ disciplinary_records ด้านบน
     // (พนักงานร้องเรียนขึ้นไปหา HR/ผู้จัดการ ไม่ใช่ฝ่ายบริหารตักเตือนพนักงาน)
     // ผู้ยื่นเห็นแค่เรื่องของตัวเอง + HR/ผู้จัดการเห็นทั้งหมด — แก้ไข/ปิดเรื่องได้เฉพาะ HR/ผู้จัดการเท่านั้น
@@ -1301,7 +1311,7 @@ service cloud.firestore {
         'overtime_records', 'staff_documents', 'welfare_items',
         'assets', 'floor_plan', 'monthly_close_items', 'expense_receipts',
         'companies', 'org_companies', 'custom_fields', 'documents', 'mood_responses', 'chat_ai_assistant',
-        'announcements_hr', 'comm_messages',
+        'announcements_hr', 'internal_memos', 'comm_messages',
         'sales_budgets', 'marketing_budgets', 'commission_rules', 'budget_planning',
         'price_negotiations', 'invoices', 'referrers', 'referrals',
         'vehicles', 'bookings', 'booking_national_ids', 'tasks',

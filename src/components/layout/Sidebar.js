@@ -252,6 +252,7 @@ const NAV = [
       { icon: '👥', label: 'Team Meeting', path: '/hr/meetings' },
       { icon: '🧩', label: 'Skill Matrix', path: '/hr/skills' },
       { icon: '📢', label: 'Announcements', path: '/hr/announcements' },
+      { icon: '📄', label: 'บันทึกข้อความภายใน', labelEn: 'Internal Memo', labelZh: '内部备忘录', path: '/hr/memo' },
       { icon: '⚠️', label: 'Disciplinary', path: '/hr/disciplinary' },
       { icon: '📢', label: 'เรื่องร้องเรียนภายใน', labelEn: 'Internal Grievances', labelZh: '内部投诉', path: '/hr/grievances' },
       { icon: '🎯', label: 'Succession Plan', path: '/hr/succession' },

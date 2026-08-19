@@ -368,6 +368,7 @@ const routes = {
   '/finance/loan-calc': () => import('../pages/finance/LoanCalculator.js'),
   // HR extras
   '/hr/announcements': () => import('../pages/hr/Announcements.js'),
+  '/hr/memo': () => import('../pages/hr/InternalMemo.js'),
   // DMS extras
   '/dms/demo-fleet': () => import('../pages/dms/DemoFleet.js'),
   // Quality extras
