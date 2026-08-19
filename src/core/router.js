@@ -279,7 +279,10 @@ const routes = {
   // Comms extras
   '/comms/sms': () => import('../pages/comms/SMSMarketing.js'),
   // Service extras
-  '/service/parts-inventory': () => import('../pages/service/PartsInventory.js'),
+  // (v1.0.480) PartsInventory.js ถูกลบแล้ว — เป็นหน้า CRUD ซ้ำกับ Parts.js (/service/parts) เต็มรูปแบบ
+  // อ่าน/เขียน collection 'parts' ตัวเดียวกัน ให้ URL เก่านี้ (เผื่อมี bookmark/ลิงก์ค้างอยู่) ยังใช้ได้โดย
+  // แสดงหน้า Parts.js แทน ไม่ต้องมี route "ตาย" ที่พังทันทีที่กด
+  '/service/parts-inventory': () => import('../pages/service/Parts.js'),
   // Insurance extras
   '/insurance/claims': () => import('../pages/insurance/InsuranceClaims.js'),
   // Gamification extras

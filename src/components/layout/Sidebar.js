@@ -121,7 +121,6 @@ const NAV = [
       { icon: '⚡', label: 'Charging Station', path: '/service/charging' },
       { icon: '👷', label: 'Technician Schedule', path: '/service/technicians' },
       { icon: '🔋', label: 'EV Battery Health', path: '/service/ev-battery' },
-      { icon: '🔩', label: 'Parts Inventory', path: '/service/parts-inventory' },
       { icon: '🔔', label: 'Service Reminder', path: '/service/reminders' },
       { icon: '🚿', label: 'Wash & Detailing', path: '/service/wash' },
       { icon: '🚐', label: 'Pickup & Delivery', path: '/service/pickup' },
