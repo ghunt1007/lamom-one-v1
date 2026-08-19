@@ -6,7 +6,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { listDocs, updateDocData } from '../../core/db.js'
 import { getState, showToast } from '../../core/store.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
-import { getVisibilityScope, scopeIncludesStaff } from '../../core/hierarchy.js'
+import { getVisibilityScope, scopeIncludesStaff, staffManagerIds } from '../../core/hierarchy.js'
 import { ROLES } from './Staff.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') }
@@ -395,25 +395,37 @@ export default async function OrgChartPage(container) {
       n.x = (typeof sv?.x === 'number') ? sv.x : defaultX
       n.y = (typeof sv?.y === 'number') ? sv.y : defaultY
     })
-    return { nodes, edges }
+    // (v1.0.476) หัวหน้างานคนที่ 2 ขึ้นไป (staffManagerIds() ตัวถัดจากตัวแรก) — เดิมผังใช้แค่หัวหน้าคนแรก
+    // จัดตำแหน่ง/วาดเส้นทึบ (edges ด้านบน) เท่านั้น ไม่กระทบ layout เดิม แค่เพิ่มเส้นประแยกต่างหากสำหรับ
+    // หัวหน้ารองที่เหลือ (ถ้ามีในผังเดียวกัน) ไม่ทำ layout ใหม่แบบ DAG เต็มรูปแบบ (นอกขอบเขตตอนนี้)
+    const nodeIds = new Set(nodes.map(n => n.id))
+    const extraEdges = []
+    nodes.forEach(n => {
+      staffManagerIds(n.s).slice(1).forEach(mid => {
+        if (nodeIds.has(mid) && mid !== n.id) extraEdges.push({ from: mid, to: n.id })
+      })
+    })
+    return { nodes, edges, extraEdges }
   }
   function renderDragView(roots) {
     if (!roots.length) return `<div class="empty-state"><div class="empty-icon">🕸️</div><div class="empty-title">ยังไม่มีข้อมูลพนักงาน</div></div>`
-    const { nodes, edges } = computeDragLayout(roots)
+    const { nodes, edges, extraEdges } = computeDragLayout(roots)
     const maxX = Math.max(400, ...nodes.map(n => n.x + DRAG_NODE_W + 40))
     const maxY = Math.max(300, ...nodes.map(n => n.y + DRAG_NODE_H + 40))
     const canReorgDrop = canReorg && selectedCompany === 'all'
     const reorgHint = canReorgDrop
       ? ' · 🔗 ลากไปวางทับกล่องอื่นเพื่อเปลี่ยนหัวหน้างานจริง (บันทึกลงระบบทันที)'
       : (canReorg ? ' · 🔒 เปลี่ยนหัวหน้างานได้เฉพาะมุมมอง "สายบังคับบัญชาหลัก" เท่านั้น' : '')
+    const extraHint = extraEdges.length ? ' · ┄┄ เส้นประ = หัวหน้างานรอง (คนที่ 2 ขึ้นไป)' : ''
     return `
       <div style="margin-bottom:8px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-        <div style="font-size:0.74rem;color:var(--text-muted)">🖱️ ลากกล่องเพื่อจัดตำแหน่งเอง — บันทึกอัตโนมัติ (เฉพาะเบราว์เซอร์นี้)${reorgHint} · กดเฉยๆเพื่อดูรายละเอียด</div>
+        <div style="font-size:0.74rem;color:var(--text-muted)">🖱️ ลากกล่องเพื่อจัดตำแหน่งเอง — บันทึกอัตโนมัติ (เฉพาะเบราว์เซอร์นี้)${reorgHint}${extraHint} · กดเฉยๆเพื่อดูรายละเอียด</div>
         <button class="btn btn-xs btn-secondary" id="drag-reset-btn">🔄 จัดเรียงใหม่</button>
       </div>
       <div id="drag-canvas" style="position:relative;width:${maxX}px;height:${maxY}px;background:var(--surface-2)">
         <svg id="drag-lines" width="${maxX}" height="${maxY}" style="position:absolute;top:0;left:0;pointer-events:none">
           ${edges.map(e => `<line data-from="${esc(e.from)}" data-to="${esc(e.to)}" x1="0" y1="0" x2="0" y2="0" stroke="var(--primary)" stroke-width="2" opacity="0.55"/>`).join('')}
+          ${extraEdges.map(e => `<line data-from="${esc(e.from)}" data-to="${esc(e.to)}" x1="0" y1="0" x2="0" y2="0" stroke="var(--warning)" stroke-width="1.5" stroke-dasharray="5,4" opacity="0.55"/>`).join('')}
         </svg>
         ${nodes.map(n => {
           const s = n.s
