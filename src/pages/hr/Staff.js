@@ -1,7 +1,7 @@
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData, setDocData, migrateStaffSalaries, hardDeleteDoc } from '../../core/db.js'
 import { showToast, getState, on } from '../../core/store.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
-import { getVisibilityScope, scopeIncludesStaff, isProgramOwner } from '../../core/hierarchy.js'
+import { getVisibilityScope, scopeIncludesStaff, isProgramOwner, staffManagerIds } from '../../core/hierarchy.js'
 import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -24,6 +24,11 @@ function companyIdsOf(s) {
 }
 function companyNamesOf(companiesList, s) {
   return companyIdsOf(s).map(id => companyNameOf(companiesList, id)).filter(Boolean).join(', ')
+}
+// (v1.0.475) พนักงาน 1 คนมีหัวหน้างานได้มากกว่า 1 คน ตามที่ขอ — staffManagerIds() (จาก hierarchy.js เพราะ
+// ใช้ร่วมกับ RBAC scope ด้วย) fallback ไปหา managerId เดี่ยวเดิมได้ถ้ายังไม่ได้ตั้งหลายคน
+function managerNamesOf(staffList, s) {
+  return staffManagerIds(s).map(id => { const m = staffList.find(x => x.id === id); return m ? `${m.firstName || ''} ${m.lastName || ''}`.trim() : '' }).filter(Boolean).join(', ')
 }
 // (v1.0.463) เดิมช่องตำแหน่งเป็น <input list=datalist> ตามที่แจ้งว่า "กดเปลี่ยนไม่ได้" — เบราว์เซอร์ส่วนใหญ่
 // ไม่เปิด dropdown ให้อัตโนมัติถ้าช่องมีข้อความอยู่แล้ว (ต้องลบข้อความเดิมก่อนถึงเห็นตัวเลือก) ทำให้ดูเหมือนกดไม่ติด
@@ -354,7 +359,7 @@ export default async function StaffPage(container) {
           ${s.position ? dRow('🏷️','ตำแหน่งหลัก',s.position) : ''}
           ${s.positionSecondary ? dRow('🏷️','ตำแหน่งรอง',s.positionSecondary) : ''}
           ${dRow('🏬','แผนก',s.dept||'-')}
-          ${s.managerId ? dRow('🧑‍💼','หัวหน้างาน', (() => { const m = staff.find(x=>x.id===s.managerId); return m ? escHtml(m.firstName)+' '+escHtml(m.lastName) : '-' })()) : ''}
+          ${managerNamesOf(staff, s) ? dRow('🧑‍💼','หัวหน้างาน', escHtml(managerNamesOf(staff, s))) : ''}
           ${dRow('📱','โทร',s.phone||'-')}
           ${dRow('📧','อีเมล',s.email||'-')}
           ${dRow('📅','วันเริ่มงาน',formatDate(s.startDate))}
@@ -511,12 +516,28 @@ export default async function StaffPage(container) {
             </div>
             <button type="button" class="btn btn-secondary btn-sm" id="sf-wh-add" style="margin-top:8px;align-self:flex-start">➕ เพิ่มประวัติการทำงาน</button>
           </div>
-          <div class="input-group"><label class="input-label">หัวหน้างาน (ใช้แสดงในแผนผังองค์กร)</label>
-            <select class="input" id="sf-manager">
-              <option value="">— ไม่มี / เป็นระดับสูงสุด —</option>
-              ${staff.filter(s => s.id !== existing?.id).map(s => `<option value="${s.id}" ${existing?.managerId===s.id?'selected':''}>${escHtml(s.firstName)} ${escHtml(s.lastName)}</option>`).join('')}
-            </select>
-          </div>
+          ${(() => {
+            // (v1.0.475) พนักงาน 1 คนมีหัวหน้างานได้มากกว่า 1 คน — เปลี่ยนจาก select เดี่ยวเป็น checkbox
+            // หลายตัวเลือก (แพทเทิร์นเดียวกับช่องบริษัทด้านบน) กันตัวเองและ "ลูกทีมของตัวเอง" (ทางตรง/ทางอ้อม)
+            // ออกจากตัวเลือกเสมอ — เลือกลูกทีมตัวเองเป็นหัวหน้าตัวเองจะทำให้เกิดสายบังคับบัญชาวนกลับ
+            const selectedManagerIds = staffManagerIds(existing)
+            const descendantIds = new Set()
+            if (existing) {
+              const queue = [existing.id]
+              while (queue.length) {
+                const id = queue.shift()
+                staff.forEach(s => { if (staffManagerIds(s).includes(id) && !descendantIds.has(s.id)) { descendantIds.add(s.id); queue.push(s.id) } })
+              }
+            }
+            const options = staff.filter(s => s.id !== existing?.id && !descendantIds.has(s.id))
+            return `<div class="input-group"><label class="input-label">หัวหน้างาน (เลือกได้หลายคน — ใช้แสดงในแผนผังองค์กร)</label>
+              <div style="display:flex;flex-direction:column;gap:6px;max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px">
+                ${options.length ? options.map(s => `<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;cursor:pointer">
+                  <input type="checkbox" class="sf-manager-cb" value="${s.id}" ${selectedManagerIds.includes(s.id) ? 'checked' : ''}> ${escHtml(s.firstName)} ${escHtml(s.lastName)}
+                </label>`).join('') : `<span style="font-size:0.78rem;color:var(--text-muted)">— ไม่มีตัวเลือก (เป็นระดับสูงสุด) —</span>`}
+              </div>
+            </div>`
+          })()}
           ${canLinkAccount ? renderAccessPanel(existing, loginAccounts, staff) : ''}
           ${canViewPII ? `
           <div style="padding-top:10px;border-top:1px solid var(--border)">
@@ -643,6 +664,7 @@ export default async function StaffPage(container) {
         return v === '__other__' ? (el.querySelector('#' + otherId)?.value.trim() || '') : v
       }
       const selectedCompanyIds = [...el.querySelectorAll('.sf-company-cb:checked')].map(cb => cb.value)
+      const selectedManagerIds = [...el.querySelectorAll('.sf-manager-cb:checked')].map(cb => cb.value)
       const data = {
         firstName: fn, lastName: ln, nickname: el.querySelector('#sf-nn').value.trim(),
         role: el.querySelector('#sf-role').value, position: readPosition('sf-position', 'sf-position-other'),
@@ -663,7 +685,9 @@ export default async function StaffPage(container) {
           position: row.querySelector('.wh-position').value.trim(),
           period: row.querySelector('.wh-period').value.trim(),
         })).filter(w => w.company || w.position || w.period),
-        managerId: el.querySelector('#sf-manager').value || null,
+        // เขียนทั้ง managerIds (ค่าใหม่) และ managerId (ค่าเดี่ยวเดิม = ตัวแรก) พร้อมกันเสมอ ไม่งั้นถ้าลบหัวหน้า
+        // ออกจนเหลือ [] จะยัง fallback ไปหา managerId เดิมที่ค้างอยู่ผ่าน staffManagerIds() โดยไม่ตั้งใจ
+        managerIds: selectedManagerIds, managerId: selectedManagerIds[0] || null,
       }
       // เงินเดือนเก็บแยกที่ staff_salaries เสมอ (v1.0.303) ไม่เขียนลง staff doc อีกต่อไปเลย (Firestore Rules
       // บล็อกไว้แล้วด้วย) — ช่อง #sf-salary ไม่ถูกสร้างใน DOM เลยถ้าไม่มีสิทธิ์เห็น จึงเขียนเฉพาะตอน canViewSalary

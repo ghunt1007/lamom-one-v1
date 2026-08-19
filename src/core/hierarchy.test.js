@@ -128,6 +128,26 @@ describe('getVisibilityScope', () => {
     expect(scope.staffIds.has('boss')).toBe(false)
   })
 
+  it('staff with multiple managers is visible to every one of them as a subordinate (v1.0.475)', async () => {
+    mockState.user = { uid: 'u-mgrA', displayName: 'Manager A' }
+    mockState.role = 'manager'
+    mockStaffList = [
+      staff({ id: 'mgrA', uid: 'u-mgrA', firstName: 'Manager', lastName: 'A', companyIds: ['c1'] }),
+      staff({ id: 'mgrB', uid: 'u-mgrB', firstName: 'Manager', lastName: 'B', companyIds: ['c1'] }),
+      // shared รายงานตรงต่อ mgrA และรายงานเส้นประต่อ mgrB พร้อมกัน — ใช้ field managerIds (ไม่ใช่ managerId เดี่ยว)
+      staff({ id: 'shared', firstName: 'Shared', lastName: 'Report', managerIds: ['mgrA', 'mgrB'], companyIds: ['c1'] }),
+      staff({ id: 'onlyB', firstName: 'Only', lastName: 'B', managerId: 'mgrB', companyIds: ['c1'] }),
+    ]
+    const scopeA = await getVisibilityScope()
+    expect(scopeA.staffIds.has('shared')).toBe(true)
+    expect(scopeA.staffIds.has('onlyB')).toBe(false)
+
+    mockState.user = { uid: 'u-mgrB', displayName: 'Manager B' }
+    const scopeB = await getVisibilityScope()
+    expect(scopeB.staffIds.has('shared')).toBe(true)
+    expect(scopeB.staffIds.has('onlyB')).toBe(true)
+  })
+
   it('staff with no linked account gets a name-only scope with hasSubordinates false', async () => {
     mockState.user = { uid: 'u-unknown', displayName: 'Ghost User' }
     mockState.role = 'staff'

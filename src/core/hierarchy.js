@@ -35,6 +35,13 @@ function staffCompanyIds(s) {
   return s?.companyIds?.length ? s.companyIds : (s?.companyId ? [s.companyId] : [])
 }
 
+// (v1.0.475) พนักงาน 1 คนมีหัวหน้างานได้มากกว่า 1 คน (เช่น รายงานตรงต่อผู้จัดการสาขา + รายงานเส้นประต่อ
+// ผู้จัดการฝ่ายส่วนกลางด้วย) — เดิม managerId เป็นค่าเดี่ยว เก็บ fallback ไว้ให้ยังอ่านข้อมูลเก่าได้ปกติ
+// เหมือน companyId→companyIds ที่ทำไว้แล้ว ไม่ต้อง migrate ย้อนหลัง
+export function staffManagerIds(s) {
+  return s?.managerIds?.length ? s.managerIds : (s?.managerId ? [s.managerId] : [])
+}
+
 // คืน scope object ใช้ร่วมกับ scopeIncludesStaff()/scopeCompanyFilter() ด้านล่าง
 export async function getVisibilityScope() {
   if (isProgramOwner()) return { unrestricted: true }
@@ -61,7 +68,9 @@ export async function getVisibilityScope() {
   names.add(normName(fullName(myStaff)))
   const staffIds = new Set([myStaff.id])
   const byManager = {}
-  staffList.forEach(s => { if (s.managerId && !s.deleted) (byManager[s.managerId] ||= []).push(s) })
+  // (v1.0.475) พนักงาน 1 คนอาจอยู่ใต้หัวหน้างานหลายคน — เก็บลูกทีมไว้ใน "ทุก" หัวหน้าที่มีสิทธิ์เห็นจริง
+  // (ไม่ใช่แค่หัวหน้าคนแรก) ใช้ staffManagerIds() ที่ fallback ไปหา managerId เดี่ยวได้ถ้ายังไม่ได้ตั้งหลายคน
+  staffList.forEach(s => { if (!s.deleted) staffManagerIds(s).forEach(mid => { (byManager[mid] ||= []).push(s) }) })
   const queue = [myStaff.id]
   const visited = new Set()
   while (queue.length) {
