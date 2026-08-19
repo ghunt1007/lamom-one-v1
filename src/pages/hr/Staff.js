@@ -1,13 +1,14 @@
-import { listDocs, createDoc, updateDocData, softDelete, seedDemoData, setDocData, migrateStaffSalaries } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, softDelete, seedDemoData, setDocData, migrateStaffSalaries, hardDeleteDoc } from '../../core/db.js'
 import { showToast, getState, on } from '../../core/store.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
-import { getVisibilityScope, scopeIncludesStaff } from '../../core/hierarchy.js'
+import { getVisibilityScope, scopeIncludesStaff, isProgramOwner } from '../../core/hierarchy.js'
 import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getPositions } from '../../data/masterData.js'
 import { navigate } from '../../core/router.js'
 import { validateThaiId } from '../../utils/thaiId.js'
+import { linkNewAccountForStaff, updateCompanyMemberships, sendStaffPasswordReset } from '../../core/auth.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -40,6 +41,71 @@ function positionSelectHtml(id, currentValue, allowEmpty = false) {
   `
 }
 
+// (v1.0.473) แผงจัดการสิทธิ์ login ฝังในฟอร์มพนักงาน — ใช้ "ระดับสิทธิ์ในระบบ" (#sf-role) ช่องเดียวกับด้านบน
+// เป็นระดับสิทธิ์ login ด้วยเลย (ไม่มีดรอปดาวน์ระดับสิทธิ์ซ้ำซ้อนอันที่สอง) — ตรงกับที่ขอ "ทำที่เดียวจบ" เป๊ะๆ
+// ผลคือถ้าคนแก้ไม่มีสิทธิ์มอบระดับที่เลือกไว้ (canCreateAccountRole เช็คตอนบันทึก) จะข้ามการสร้าง/ซิงค์บัญชี
+// login แต่ยังบันทึกข้อมูลพนักงานตามปกติ พร้อมข้อความเตือนอธิบายเหตุผล — 3 สถานะ: (1) มีบัญชีเชื่อมอยู่แล้ว →
+// โชว์อีเมล/สถานะ/group-wide + ปุ่มรีเซ็ตรหัส/ระงับ/ยกเลิกเชื่อม/ลบบัญชี ได้ทันทีโดยไม่ต้องออกจากฟอร์มนี้
+// (2) ยังไม่มีบัญชี → เลือกสร้างใหม่ (กรอกแค่อีเมล/รหัสผ่าน) หรือเชื่อมกับบัญชี login เก่าที่ยังไม่ได้ผูกกับใคร
+// (3) ไม่มีสิทธิ์จัดการบัญชี (canLinkAccount false) → ไม่แสดงแผงนี้เลย เหมือนเดิม
+function renderAccessPanel(existing, loginAccounts, staffList) {
+  const linkedUser = existing?.uid ? loginAccounts.find(u => u.id === existing.uid) : null
+  if (existing?.uid) {
+    if (!linkedUser) {
+      return `<div style="padding-top:10px;border-top:1px solid var(--border)">
+        <div style="font-size:0.72rem;color:var(--text-muted);font-weight:700;margin-bottom:8px">🔐 สิทธิ์การเข้าใช้งาน (Login)</div>
+        <div class="card" style="padding:10px 12px;background:var(--warning-dim,var(--surface-2));font-size:0.78rem;color:var(--warning)">
+          ⚠️ เชื่อมกับบัญชี login ไว้ แต่หาบัญชีนั้นไม่พบแล้ว (อาจถูกลบไปแล้ว) — บันทึกฟอร์มนี้เพื่อยกเลิกการเชื่อมอัตโนมัติ
+        </div>
+      </div>`
+    }
+    const active = linkedUser.active !== false && linkedUser.role !== 'pending'
+    return `<div style="padding-top:10px;border-top:1px solid var(--border)">
+      <div style="font-size:0.72rem;color:var(--text-muted);font-weight:700;margin-bottom:8px">🔐 สิทธิ์การเข้าใช้งาน (Login)</div>
+      <div class="card" style="padding:10px 12px;background:var(--surface-2)">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+          <div style="font-size:0.8rem;font-weight:600">📧 ${escHtml(linkedUser.email)}</div>
+          <span class="badge ${active?'badge-success':'badge-danger'}" style="font-size:0.68rem">${active?'✅ ใช้งาน':'⛔ ระงับ'}</span>
+        </div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;margin-top:8px;cursor:pointer">
+          <input type="checkbox" id="sf-acc-groupwide" ${linkedUser.groupWide?'checked':''}> เห็นข้อมูลทุกบริษัท (Group-wide)
+        </label>
+        <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+          <button type="button" class="btn btn-xs btn-warning" id="sf-acc-resetpw" data-email="${escHtml(linkedUser.email)}">🔑 รีเซ็ตรหัสผ่าน</button>
+          <button type="button" class="btn btn-xs ${active?'btn-danger':'btn-success'}" id="sf-acc-toggle" data-uid="${linkedUser.id}" data-active="${active}">${active?'⛔ ระงับ':'✅ เปิดใช้งาน'}</button>
+          <button type="button" class="btn btn-xs btn-secondary" id="sf-acc-unlink">🔓 ยกเลิกการเชื่อม</button>
+          ${isProgramOwner() ? `<button type="button" class="btn btn-xs btn-danger" id="sf-acc-delete" data-uid="${linkedUser.id}">🗑️ ลบบัญชี login</button>` : ''}
+        </div>
+        <p style="font-size:0.62rem;color:var(--text-muted);margin-top:6px">💡 ชื่อ/แผนก/ตำแหน่ง/บริษัท/ระดับสิทธิ์ที่กรอกด้านบนจะซิงค์เข้าบัญชี login นี้อัตโนมัติทุกครั้งที่กด "บันทึก"</p>
+      </div>
+    </div>`
+  }
+  const unlinkedAccounts = loginAccounts.filter(u => !staffList.some(s => s.uid === u.id && s.id !== existing?.id))
+  return `<div style="padding-top:10px;border-top:1px solid var(--border)">
+    <div style="font-size:0.72rem;color:var(--text-muted);font-weight:700;margin-bottom:8px">🔐 สิทธิ์การเข้าใช้งาน (Login)</div>
+    <div class="card" style="padding:10px 12px;background:var(--surface-2)">
+      <label style="display:flex;align-items:center;gap:8px;font-size:0.82rem;cursor:pointer">
+        <input type="checkbox" id="sf-acc-create-toggle"> ➕ สร้างบัญชี login ให้พนักงานคนนี้
+      </label>
+      <div id="sf-acc-create-fields" style="display:none;margin-top:10px;flex-direction:column;gap:8px">
+        <div class="input-group"><label class="input-label">อีเมล (ใช้ login) *</label><input class="input" type="email" id="sf-acc-email" placeholder="name@lamom.one"></div>
+        <div class="input-group"><label class="input-label">รหัสผ่านชั่วคราว *</label>
+          <div style="display:flex;gap:6px"><input class="input" id="sf-acc-password" value="${genPassword()}" style="flex:1;font-family:monospace"><button type="button" class="btn btn-secondary" id="sf-acc-genpw">🎲</button></div>
+          <span style="font-size:0.62rem;color:var(--warning)">⚠️ ส่งรหัสนี้ให้ผู้ใช้ทางช่องทางปลอดภัย</span>
+        </div>
+        <p style="font-size:0.62rem;color:var(--text-muted)">ระดับสิทธิ์ login จะใช้ค่าเดียวกับ "ระดับสิทธิ์ในระบบ" ด้านบน — ชื่อ/แผนก/ตำแหน่ง/บริษัทก็ดึงจากข้อมูลพนักงานด้านบนให้อัตโนมัติเช่นกัน ไม่ต้องกรอกซ้ำ</p>
+      </div>
+      ${existing && unlinkedAccounts.length ? `<div style="margin-top:10px;border-top:1px dashed var(--border);padding-top:10px">
+        <label class="input-label" style="font-size:0.7rem">หรือเชื่อมกับบัญชี login เก่าที่มีอยู่แล้ว (ย้อนหลัง)</label>
+        <select class="input" id="sf-uid">
+          <option value="">— ไม่เชื่อม —</option>
+          ${unlinkedAccounts.map(u => `<option value="${u.id}">${escHtml(u.displayName||u.email)} (${escHtml(u.email)})</option>`).join('')}
+        </select>
+      </div>` : ''}
+    </div>
+  </div>`
+}
+
 // พบว่าเดิมหน้านี้แสดงเงินเดือนของ "ทุกคน" บนการ์ด/ป๊อปอัพรายละเอียด/ยอดรวมหัวหน้า/ไฟล์ Export ให้เห็นตรงๆ
 // โดยไม่มีการเช็คสิทธิ์เลยแม้แต่จุดเดียว — พนักงานขาย/ช่างธรรมดาที่เปิดหน้านี้ (ซึ่งเข้าถึงได้โดยปริยายถ้าแอดมิน
 // ไม่ได้ไปจำกัดสิทธิ์โมดูล HR ไว้เป็นพิเศษ) เห็นเงินเดือนของเพื่อนร่วมงานทุกคนได้ทันที — จำกัดการแสดงผลเฉพาะ
@@ -60,10 +126,40 @@ const MIGRATION_ROLES = ['owner', 'admin']
 const PII_VIEW_ROLES = ['owner', 'admin', 'manager', 'hr', 'finance']
 
 const DEPARTMENTS = ['ฝ่ายขาย','ฝ่ายบริการ','ฝ่ายการเงิน','ฝ่าย HR','ฝ่าย IT','ผู้บริหาร','อื่นๆ']
-export const ROLES = { owner:'เจ้าของ', admin:'แอดมิน', manager:'ผู้จัดการ', sales:'เซลส์', service:'ช่าง/บริการ', staff:'พนักงาน' }
+// (v1.0.473) เพิ่ม finance/hr ให้ตรงกับ LOGIN_ROLES ด้านล่าง — เดิมสองระบบ (staff.role กับ users.role) มี
+// คำศัพท์ไม่ตรงกัน (ที่นี่ขาด finance/hr) พอรวมเป็นฟอร์มเดียวกันแล้วต้องใช้ค่าเดียวกันได้กับทั้งคู่เสมอ
+export const ROLES = { owner:'เจ้าของ', admin:'แอดมิน', manager:'ผู้จัดการ', finance:'การเงิน', hr:'HR', sales:'เซลส์', service:'ช่าง/บริการ', staff:'พนักงาน' }
 const STATUS_EMP = { active:'✅ ทำงานอยู่', probation:'⏳ ทดลองงาน', leave:'🏖 ลา', inactive:'❌ ลาออก' }
 const GENDERS = { male:'ชาย', female:'หญิง', other:'อื่นๆ/ไม่ระบุ' }
 const EDUCATION_LEVELS = ['ต่ำกว่า ม.6', 'ม.6/ปวช.', 'ปวส./อนุปริญญา', 'ปริญญาตรี', 'ปริญญาโท', 'ปริญญาเอก']
+
+// (v1.0.473) "ทำที่เดียวจบ ข้อมูลประสานกัน" — ย้ายการจัดการสิทธิ์ login (บัญชี users) เข้ามารวมกับฟอร์มพนักงาน
+// ตรงนี้แทนที่จะต้องสลับไปหน้า User Management แยกต่างหากเหมือนเดิม (ซึ่งทำให้ชื่อ/แผนก/ตำแหน่ง/บริษัทของ
+// สองฝั่งเพี้ยนไม่ตรงกันได้ง่ายเพราะแก้คนละที่ ไม่มีอะไรซิงค์กันเลย) — ระดับสิทธิ์ login เป็นคนละแนวคิดกับ
+// ROLES ด้านบน (บทบาทในองค์กร) จึงมี level กำกับสำหรับกันไม่ให้สร้าง/แก้บัญชีที่มีสิทธิ์สูงกว่าตัวเอง เหมือนที่
+// User Management เดิมทำไว้ (canCreate()) — ย้ายมาไว้ที่นี่แทนเพราะเป็นจุดเดียวที่ยังจัดการบัญชี login อยู่แล้ว
+const LOGIN_ROLES = {
+  owner:   { label: 'เจ้าของ',      icon: '🏆', level: 100 },
+  admin:   { label: 'แอดมิน',       icon: '🔑', level: 90 },
+  manager: { label: 'ผู้จัดการ',    icon: '🎯', level: 70 },
+  finance: { label: 'การเงิน',      icon: '💰', level: 60 },
+  hr:      { label: 'HR',           icon: '👨‍💼', level: 60 },
+  sales:   { label: 'เซลส์',        icon: '💼', level: 40 },
+  service: { label: 'ช่าง/บริการ',  icon: '🔧', level: 40 },
+  staff:   { label: 'พนักงาน',      icon: '👤', level: 20 },
+}
+const MIN_CREATE_LEVEL = 60
+function canCreateAccountRole(myRole, targetRole) {
+  const myLevel = LOGIN_ROLES[myRole]?.level || 0
+  const targetLevel = LOGIN_ROLES[targetRole]?.level || 0
+  return myLevel >= MIN_CREATE_LEVEL && myLevel > targetLevel
+}
+function genPassword() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
+  let p = ''
+  for (let i = 0; i < 8; i++) p += chars[Math.floor(Math.random() * chars.length)]
+  return p + '#' + Math.floor(Math.random() * 90 + 10)
+}
 
 const DEMO_STAFF = [
   { id:'st1', firstName:'ทวีศักดิ์', lastName:'สุขสมบัติเสถียร', nickname:'เจ้าของ', role:'owner', dept:'ผู้บริหาร', phone:'0812345678', email:'owner@lamom.com', startDate:'2020-01-01', salary:0, status:'active', avatar:'' },
@@ -421,12 +517,7 @@ export default async function StaffPage(container) {
               ${staff.filter(s => s.id !== existing?.id).map(s => `<option value="${s.id}" ${existing?.managerId===s.id?'selected':''}>${escHtml(s.firstName)} ${escHtml(s.lastName)}</option>`).join('')}
             </select>
           </div>
-          ${canLinkAccount ? `<div class="input-group"><label class="input-label">เชื่อมกับบัญชีผู้ใช้ (login) <span style="font-size:0.65rem;color:var(--text-muted)">(บัญชีที่สร้างใหม่ผ่าน User Management จะเชื่อมให้อัตโนมัติแล้ว — ใช้ช่องนี้เชื่อมย้อนหลังสำหรับพนักงานเก่า)</span></label>
-            <select class="input" id="sf-uid">
-              <option value="">— ไม่เชื่อม —</option>
-              ${loginAccounts.filter(u => u.id === existing?.uid || !staff.some(s => s.uid === u.id && s.id !== existing?.id)).map(u => `<option value="${u.id}" ${existing?.uid===u.id?'selected':''}>${escHtml(u.displayName||u.email)} (${escHtml(u.email)})</option>`).join('')}
-            </select>
-          </div>` : ''}
+          ${canLinkAccount ? renderAccessPanel(existing, loginAccounts, staff) : ''}
           ${canViewPII ? `
           <div style="padding-top:10px;border-top:1px solid var(--border)">
             <div style="font-size:0.72rem;color:var(--text-muted);font-weight:700;margin-bottom:8px">🔒 ข้อมูลอ่อนไหว (เก็บแยกจากข้อมูลทั่วไป จำกัดสิทธิ์เห็นเฉพาะเจ้าของ/แอดมิน/ผู้จัดการ/HR/การเงิน)</div>
@@ -488,6 +579,54 @@ export default async function StaffPage(container) {
         if (other) other.style.display = sel.value === '__other__' ? 'block' : 'none'
       })
     })
+    // (v1.0.473) ปุ่มจัดการบัญชี login ในแผง 🔐 — เป็น action ทันที ไม่ต้องรอกด "บันทึก" หลัก (ตรงกับ UX เดิม
+    // ของหน้า User Management) เสร็จแล้วปิดฟอร์มนี้แล้วโหลดใหม่ทั้งหมด เพราะข้อมูลบัญชี login เปลี่ยนไปแล้ว
+    el.querySelector('#sf-acc-create-toggle')?.addEventListener('change', e => {
+      const fields = el.querySelector('#sf-acc-create-fields')
+      if (fields) fields.style.display = e.target.checked ? 'flex' : 'none'
+    })
+    el.querySelector('#sf-acc-genpw')?.addEventListener('click', () => {
+      const pwEl = el.querySelector('#sf-acc-password'); if (pwEl) pwEl.value = genPassword()
+    })
+    el.querySelector('#sf-acc-resetpw')?.addEventListener('click', async e => {
+      const email = e.currentTarget.dataset.email
+      const r = await sendStaffPasswordReset(email)
+      if (r.ok) showToast('📧 ส่งอีเมลลิงก์ตั้งรหัสผ่านใหม่ไปที่ ' + email + ' แล้ว', 'success')
+      else showToast('❗ ' + r.error, 'error')
+    })
+    el.querySelector('#sf-acc-toggle')?.addEventListener('click', async e => {
+      const t = e.currentTarget
+      const nowActive = t.dataset.active !== 'true'
+      try {
+        await updateDocData('users', t.dataset.uid, { active: nowActive })
+        showToast(nowActive ? '✅ เปิดใช้งานบัญชีแล้ว' : '⛔ ระงับบัญชีแล้ว', nowActive ? 'success' : 'warning')
+        close(); await loadData()
+      } catch (e2) { showToast('บันทึกไม่สำเร็จ: ' + (e2?.message || 'เกิดข้อผิดพลาด'), 'error', 8000) }
+    })
+    el.querySelector('#sf-acc-unlink')?.addEventListener('click', async () => {
+      const ok = await confirmDialog({ title: '🔓 ยกเลิกการเชื่อมบัญชี', message: 'บัญชี login จะยังใช้งานได้ตามปกติ แค่ไม่ผูกกับข้อมูลพนักงานคนนี้อีกต่อไป (เชื่อมใหม่ทีหลังได้)', confirmText: 'ยกเลิกการเชื่อม' })
+      if (!ok || !existing) return
+      try {
+        await updateDocData('staff', existing.id, { uid: null })
+        showToast('🔓 ยกเลิกการเชื่อมบัญชีแล้ว', 'success')
+        close(); await loadData()
+      } catch (e) { showToast('บันทึกไม่สำเร็จ: ' + (e?.message || 'เกิดข้อผิดพลาด'), 'error', 8000) }
+    })
+    el.querySelector('#sf-acc-delete')?.addEventListener('click', async btn => {
+      const uid = btn.currentTarget.dataset.uid
+      const ok = await confirmDialog({
+        title: '🗑️ ลบบัญชี login',
+        message: 'ลบบัญชี login นี้ถาวร — เข้าระบบไม่ได้อีกต่อไปทันที ข้อมูลพนักงานจะไม่ถูกลบ แค่หลุดการเชื่อมโยงเท่านั้น การลบนี้ย้อนกลับไม่ได้',
+        confirmText: 'ลบถาวร', danger: true,
+      })
+      if (!ok || !existing) return
+      try {
+        await hardDeleteDoc('users', uid)
+        await updateDocData('staff', existing.id, { uid: null })
+        showToast('🗑️ ลบบัญชี login แล้ว', 'success')
+        close(); await loadData()
+      } catch (e) { showToast('ลบไม่สำเร็จ: ' + (e?.message || 'เกิดข้อผิดพลาด'), 'error', 8000) }
+    })
     el.querySelector('#sfs').addEventListener('click', async () => {
       const fn = el.querySelector('#sf-fn').value.trim()
       const ln = el.querySelector('#sf-ln').value.trim()
@@ -525,7 +664,6 @@ export default async function StaffPage(container) {
           period: row.querySelector('.wh-period').value.trim(),
         })).filter(w => w.company || w.position || w.period),
         managerId: el.querySelector('#sf-manager').value || null,
-        ...(canLinkAccount ? { uid: el.querySelector('#sf-uid')?.value || null } : {}),
       }
       // เงินเดือนเก็บแยกที่ staff_salaries เสมอ (v1.0.303) ไม่เขียนลง staff doc อีกต่อไปเลย (Firestore Rules
       // บล็อกไว้แล้วด้วย) — ช่อง #sf-salary ไม่ถูกสร้างใน DOM เลยถ้าไม่มีสิทธิ์เห็น จึงเขียนเฉพาะตอน canViewSalary
@@ -577,7 +715,42 @@ export default async function StaffPage(container) {
           await setDocData('staff_pii', staffId, piiData)
           const rec = staff.find(x => x.id === staffId); if (rec) Object.assign(rec, piiData)
         }
-        showToast(isEdit ? 'แก้ไขแล้ว' : '✅ เพิ่มพนักงานแล้ว', 'success')
+        // (v1.0.473) "ทำที่เดียวจบ ข้อมูลประสานกัน" — จัดการบัญชี login ต่อจากการบันทึกพนักงานสำเร็จเสมอ ไม่ให้
+        // ปัญหาตรงนี้ทำให้ข้อมูลพนักงานที่เพิ่งบันทึกไปแล้วหายไปด้วย (แยก try/catch ของตัวเอง) — ใช้ data.role
+        // (ช่อง "ระดับสิทธิ์ในระบบ" เดียวกับด้านบน) เป็นระดับสิทธิ์ login ด้วยเลย ไม่มีดรอปดาวน์ที่สองให้ซ้ำซ้อน
+        // แต่ต้องเช็ค canCreateAccountRole ก่อนเสมอ กันคนแก้มอบ/คงสิทธิ์ login สูงกว่าระดับตัวเองได้
+        let accountMsg = ''
+        if (canLinkAccount) {
+          const roleAllowed = canCreateAccountRole(myRole, data.role)
+          try {
+            if (!existing?.uid && el.querySelector('#sf-acc-create-toggle')?.checked) {
+              const accEmail = el.querySelector('#sf-acc-email')?.value.trim()
+              const accPassword = el.querySelector('#sf-acc-password')?.value
+              if (!accEmail || !accPassword) { accountMsg = ' (ยังไม่ได้สร้างบัญชี login — กรอกอีเมล/รหัสผ่านไม่ครบ)' }
+              else if (!roleAllowed) { accountMsg = ` (ยังไม่ได้สร้างบัญชี login — คุณไม่มีสิทธิ์มอบระดับ "${ROLES[data.role]||data.role}" ให้ login ได้)` }
+              else {
+                const r = await linkNewAccountForStaff(staffId, { name: `${fn} ${ln}`, email: accEmail, password: accPassword, role: data.role, companyIds: selectedCompanyIds, department: data.dept, position: data.position })
+                accountMsg = r.ok ? ' + สร้างบัญชี login แล้ว' : ` (สร้างบัญชี login ไม่สำเร็จ: ${r.error})`
+              }
+            } else if (!existing?.uid && el.querySelector('#sf-uid')?.value) {
+              await updateDocData('staff', staffId, { uid: el.querySelector('#sf-uid').value })
+              accountMsg = ' + เชื่อมบัญชี login แล้ว'
+            } else if (existing?.uid) {
+              if (!roleAllowed) {
+                accountMsg = ` (ไม่ได้ซิงค์ระดับสิทธิ์ login — คุณไม่มีสิทธิ์มอบระดับ "${ROLES[data.role]||data.role}" ให้ login ได้ แก้เฉพาะข้อมูลพนักงานเท่านั้น)`
+              } else {
+                await updateDocData('users', existing.uid, {
+                  displayName: `${fn} ${ln}`, role: data.role,
+                  ...(data.role !== 'owner' && data.role !== 'admin' ? { groupWide: el.querySelector('#sf-acc-groupwide')?.checked === true } : {}),
+                })
+                const memberships = selectedCompanyIds.map(companyId => ({ companyId, role: data.role, department: data.dept, position: data.position, managerId: null }))
+                const cmResult = await updateCompanyMemberships(existing.uid, memberships)
+                if (!cmResult.ok) accountMsg = ` (ซิงค์บัญชี login บางส่วนไม่สำเร็จ: ${cmResult.error})`
+              }
+            }
+          } catch (e) { accountMsg = ` (ซิงค์บัญชี login ไม่สำเร็จ: ${e?.message || 'เกิดข้อผิดพลาด'})` }
+        }
+        showToast((isEdit ? 'แก้ไขแล้ว' : '✅ เพิ่มพนักงานแล้ว') + accountMsg, accountMsg.includes('ไม่สำเร็จ') ? 'warning' : 'success', accountMsg ? 8000 : 4000)
         close(); updateStats(); applyFilter()
       } catch (e) {
         // (v1.0.444) เดิมข้อความ error ทั่วไปเกินไป ("บันทึกไม่สำเร็จ") ไม่บอกสาเหตุจริงเลย — ถ้าเป็น

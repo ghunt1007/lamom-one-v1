@@ -12,7 +12,7 @@ import {
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { setUser, setCompany, setCompanies, setActiveCompanyFilter, setState, showToast, getState } from './store.js'
 import { navigate } from './router.js'
-import { deepSanitize, createDoc, listDocs } from './db.js'
+import { deepSanitize, createDoc, listDocs, updateDocData } from './db.js'
 import { getClientIp } from '../utils/comms.js'
 import { todayBangkok } from '../utils/format.js'
 
@@ -258,6 +258,37 @@ export async function createStaffAccount({ name, email, password, role, accessEx
         startDate: todayBangkok(), status: 'active', companyId: companyId || null, managerId: null,
       })
     } catch (e) {}
+    return { ok: true, uid }
+  } catch (e) {
+    try { await deleteSecondaryApp() } catch {}
+    return { ok: false, error: authErrorMessage(e.code) }
+  }
+}
+
+// (v1.0.473) "ทำที่เดียวจบ ข้อมูลประสานกัน" — เดิม createStaffAccount() ผูก uid ให้กับ staff doc ที่ "สร้างใหม่"
+// เท่านั้น ใช้ตอนคนนี้มีข้อมูลพนักงาน (staff) อยู่แล้วจากหน้า Staff.js (กรอกไว้ก่อนแล้ว) แล้วแค่ต้องการเปิด
+// สิทธิ์ login ให้ — สร้าง Firebase Auth + users doc เหมือนกัน แต่ผูกกับ staffId ที่มีอยู่แล้วแทนการสร้างซ้ำ
+export async function linkNewAccountForStaff(staffId, { name, email, password, role, companyIds, department, position }) {
+  const secondaryAuth = getSecondaryAuth()
+  try {
+    const cred = await createUserWithEmailAndPassword(secondaryAuth, email, password)
+    const uid = cred.user.uid
+    const ids = companyIds?.length ? companyIds : []
+    const companyMemberships = ids.map(companyId => ({ companyId, role: role || 'staff', department: deepSanitize(department || ''), position: deepSanitize(position || ''), managerId: null }))
+    await setDoc(doc(db, 'users', uid), {
+      uid, email, displayName: deepSanitize(name || email),
+      role: role || 'staff',
+      permissions: [],
+      active: true,
+      accessExpiresAt: null,
+      companyMemberships,
+      companyIds: ids,
+      primaryCompanyId: ids[0] || null,
+      createdBy: getState('user')?.uid || null,
+      createdAt: serverTimestamp(),
+    })
+    await deleteSecondaryApp()
+    await updateDocData('staff', staffId, { uid })
     return { ok: true, uid }
   } catch (e) {
     try { await deleteSecondaryApp() } catch {}

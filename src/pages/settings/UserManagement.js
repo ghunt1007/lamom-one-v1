@@ -109,6 +109,11 @@ export default async function UserManagementPage(container) {
           </div>
         </div>
 
+        <div class="card" style="padding:10px 14px;margin-bottom:12px;border-left:3px solid var(--primary);font-size:0.78rem;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+          <span>💡 <b>ทำที่เดียวจบ:</b> จัดการชื่อ/ตำแหน่ง/บริษัท/สิทธิ์ login พร้อมกันได้ในหน้าเดียวที่ <b>Settings &gt; พนักงาน</b> แล้ว (แผง "🔐 สิทธิ์การเข้าใช้งาน" ในฟอร์มแก้ไขพนักงาน) — หน้านี้ยังใช้ดูรายชื่อบัญชีทั้งหมด/เติม companyIds บัญชีเก่าได้ตามปกติ</span>
+          <button class="btn btn-secondary btn-sm" id="goto-staff-btn">👥 ไปหน้าพนักงาน</button>
+        </div>
+
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('👥 ผู้ใช้ทั้งหมด', users.length, 'primary')}
           ${kpi('✅ ใช้งานอยู่', users.filter(u=>u.active !== false && u.role !== 'pending').length, 'success')}
@@ -208,6 +213,7 @@ export default async function UserManagementPage(container) {
     `
 
     document.getElementById('add-user-btn')?.addEventListener('click', openCreateForm)
+    document.getElementById('goto-staff-btn')?.addEventListener('click', () => navigate('/hr/staff'))
     document.getElementById('backfill-companyids-btn')?.addEventListener('click', async (e) => {
       const btn = e.currentTarget
       btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span> กำลังเติม...'
