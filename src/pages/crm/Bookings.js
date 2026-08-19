@@ -1019,36 +1019,46 @@ export default async function BookingsPage(container) {
       el.querySelector('#bf-unpick-cust').style.display = 'none'
     })
     el.querySelector('#bfc').addEventListener('click', close)
+    // (v1.0.472) เดิมโค้ดสร้างเก็บ data object (บรรทัด g('...').value หลายสิบช่อง) อยู่นอก try/catch — ถ้ามี
+    // ช่องไหนอ่านค่าไม่ได้ (เช่น element หาย/undefined จากเหตุผลใดก็ตาม) จะโยน exception ที่ไม่มีใครจับเลย ปุ่ม
+    // "บันทึก" จะดูเหมือนกดไม่ติด (ไม่ disable, ไม่ toast, ไม่มีอะไรเกิดขึ้นให้เห็นเลย) — ย้าย try ให้ครอบตั้งแต่
+    // ต้นฟังก์ชัน กันไม่ให้ error หลุดแบบไม่มีร่องรอยอีก พร้อม log ไว้ให้ debug ได้ถ้าเกิดซ้ำ
     el.querySelector('#bfs').addEventListener('click', async () => {
-      const cust = el.querySelector('#bf-cust').value.trim()
-      if (!cust) { el.querySelector('#bf-cust-e').textContent = '⚠️ กรุณาระบุชื่อลูกค้า'; return }
-      const g = id => el.querySelector('#' + id)
-      const num = id => Number(g(id).value) || 0
-      const rightsOnly = g('bf-rights').checked
-      if (!rightsOnly && !num('bf-down')) { el.querySelector('#bf-down-e').textContent = '⚠️ กรุณาระบุจำนวนเงินจอง (หรือติ๊ก "จองสิทธิ์" หากยังไม่จ่าย)'; return }
-      const financeAmount = num('bf-finamount'), installments = num('bf-install'), rate = num('bf-rate')
-      // เลขบัตรประชาชนเก็บแยกที่ booking_national_ids เสมอ (v1.0.304) ไม่เขียนลง bookings doc อีกต่อไปเลย
-      // (Firestore Rules บล็อกไว้แล้วด้วย) — ช่อง #bf-nid ไม่ถูกสร้างใน DOM เลยถ้าไม่มีสิทธิ์เห็น
-      const newNid = canViewNid ? g('bf-nid').value.trim() : null
-      const data = {
-        bookingNo: g('bf-bkno').value.trim() || bkNo,
-        rightsOnly, customerId: linkedCustomerId || null,
-        custName: cust, phone: g('bf-phone').value.trim(), address: g('bf-address').value.trim(), province: g('bf-province').value.trim(), source: g('bf-source').value.trim(),
-        brand: g('bf-brand').value.trim(), model: g('bf-model').value.trim(), variant: g('bf-variant').value.trim(),
-        colorOut: g('bf-colorout').value.trim(), colorIn: g('bf-colorin').value.trim(), vin: g('bf-vin').value.trim(), motorNo: g('bf-motor').value.trim(), batNo: g('bf-bat').value.trim(),
-        engineNo: g('bf-engineno').value.trim(), redPlate: g('bf-redplate').value.trim(), whitePlate: g('bf-whiteplate').value.trim(),
-        price: num('bf-price'), cost: num('bf-cost'), down: num('bf-down'), financeCo: g('bf-finco').value, financeAmount, finStatus: g('bf-finstatus').value,
-        installments, interestRate: rate, monthly: calcMonthly(financeAmount, installments, rate), campaign: g('bf-campaign').value,
-        margin: num('bf-margin'), budgetUsed: num('bf-budget'), com70: num('bf-com70'), comFinance: num('bf-comfin'),
-        insuranceAmount: num('bf-insamt'), accessoryAmount: num('bf-accamt'),
-        marginLeft: num('bf-margin') - num('bf-budget'),
-        totalIncome: (num('bf-margin') - num('bf-budget')) + num('bf-com70') + num('bf-comfin'),
-        bookingDate: g('bf-bdate').value, submitDate: g('bf-submit').value, approveDate: g('bf-approve').value, signDate: g('bf-sign').value, cutDate: g('bf-cut').value, deliveryDate: g('bf-delivery').value, actualDeliveryDate: g('bf-actual').value,
-        salesName: g('bf-sales').value, status: g('bf-status').value, notes: g('bf-notes').value.trim(),
-        createdAt: existing?.createdAt || new Date().toISOString(),
-      }
-      const btn = g('bfs'); btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
+      const btn = el.querySelector('#bfs')
       try {
+        const cust = el.querySelector('#bf-cust').value.trim()
+        if (!cust) { el.querySelector('#bf-cust-e').textContent = '⚠️ กรุณาระบุชื่อลูกค้า'; return }
+        const g = id => el.querySelector('#' + id)
+        const num = id => Number(g(id).value) || 0
+        const rightsOnly = g('bf-rights').checked
+        if (!rightsOnly && !num('bf-down')) { el.querySelector('#bf-down-e').textContent = '⚠️ กรุณาระบุจำนวนเงินจอง (หรือติ๊ก "จองสิทธิ์" หากยังไม่จ่าย)'; return }
+        const financeAmount = num('bf-finamount'), installments = num('bf-install'), rate = num('bf-rate')
+        // เลขบัตรประชาชนเก็บแยกที่ booking_national_ids เสมอ (v1.0.304) ไม่เขียนลง bookings doc อีกต่อไปเลย
+        // (Firestore Rules บล็อกไว้แล้วด้วย) — ช่อง #bf-nid ไม่ถูกสร้างใน DOM เลยถ้าไม่มีสิทธิ์เห็น
+        const newNid = canViewNid ? g('bf-nid').value.trim() : null
+        // (v1.0.472) จองใหม่ผ่านฟอร์มนี้ (ต่างจากตัว Wizard ที่มี companyId อยู่แล้ว) ไม่เคยติด companyId เลย
+        // มาตั้งแต่แรก — พนักงานที่ถูกจำกัดสิทธิ์ตามบริษัท (companyScopeFilters()) จะมองไม่เห็นใบจองที่ตัวเอง
+        // เพิ่งสร้างเองทันที เพราะ query กรอง companyId ออกไป (isEdit ไม่ต้องเติม เพราะ updateDocData merge
+        // ไม่ทับ companyId เดิมอยู่แล้วถ้าไม่ส่งไป)
+        const data = {
+          ...(isEdit ? {} : { companyId: myEffectiveCompanyId() }),
+          bookingNo: g('bf-bkno').value.trim() || bkNo,
+          rightsOnly, customerId: linkedCustomerId || null,
+          custName: cust, phone: g('bf-phone').value.trim(), address: g('bf-address').value.trim(), province: g('bf-province').value.trim(), source: g('bf-source').value.trim(),
+          brand: g('bf-brand').value.trim(), model: g('bf-model').value.trim(), variant: g('bf-variant').value.trim(),
+          colorOut: g('bf-colorout').value.trim(), colorIn: g('bf-colorin').value.trim(), vin: g('bf-vin').value.trim(), motorNo: g('bf-motor').value.trim(), batNo: g('bf-bat').value.trim(),
+          engineNo: g('bf-engineno').value.trim(), redPlate: g('bf-redplate').value.trim(), whitePlate: g('bf-whiteplate').value.trim(),
+          price: num('bf-price'), cost: num('bf-cost'), down: num('bf-down'), financeCo: g('bf-finco').value, financeAmount, finStatus: g('bf-finstatus').value,
+          installments, interestRate: rate, monthly: calcMonthly(financeAmount, installments, rate), campaign: g('bf-campaign').value,
+          margin: num('bf-margin'), budgetUsed: num('bf-budget'), com70: num('bf-com70'), comFinance: num('bf-comfin'),
+          insuranceAmount: num('bf-insamt'), accessoryAmount: num('bf-accamt'),
+          marginLeft: num('bf-margin') - num('bf-budget'),
+          totalIncome: (num('bf-margin') - num('bf-budget')) + num('bf-com70') + num('bf-comfin'),
+          bookingDate: g('bf-bdate').value, submitDate: g('bf-submit').value, approveDate: g('bf-approve').value, signDate: g('bf-sign').value, cutDate: g('bf-cut').value, deliveryDate: g('bf-delivery').value, actualDeliveryDate: g('bf-actual').value,
+          salesName: g('bf-sales').value, status: g('bf-status').value, notes: g('bf-notes').value.trim(),
+          createdAt: existing?.createdAt || new Date().toISOString(),
+        }
+        btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
         let bookingId = existing?.id
         if (isEdit) { await updateDocData('bookings', existing.id, data); Object.assign(existing, data) }
         else { bookingId = await createDoc('bookings', data); bookings.unshift({ ...data, id: bookingId }) }
@@ -1063,7 +1073,11 @@ export default async function BookingsPage(container) {
         }
         showToast(isEdit ? '✏️ แก้ไขใบจองแล้ว' : '✅ สร้างใบจองแล้ว', 'success')
         close(); render()
-      } catch { btn.disabled = false; btn.textContent = 'บันทึก'; showToast('บันทึกไม่สำเร็จ', 'error') }
+      } catch (err) {
+        console.error('Bookings openForm save failed:', err)
+        if (btn) { btn.disabled = false; btn.textContent = '💾 บันทึก' }
+        showToast('บันทึกไม่สำเร็จ — ' + (err?.message || 'เกิดข้อผิดพลาด'), 'error')
+      }
     })
   }
 

@@ -850,6 +850,9 @@ export default async function CustomersPage(container) {
             else {
               if (!row.stage) row.stage = deriveInitialStage(row)
               row.stageChangedAt = new Date().toISOString()
+              // (v1.0.472) เพิ่มลูกค้าใหม่ผ่าน Sheet view เดิมไม่เคยติด companyId เลย — พนักงานที่ถูกจำกัด
+              // สิทธิ์ตามบริษัทจะมองไม่เห็นแถวที่ตัวเองเพิ่งเพิ่มเองทันที (แพทเทิร์นเดียวกับที่พบใน Bookings.js)
+              row.companyId = myEffectiveCompanyId()
               const id = await createDoc('customers', row); row.id = id
             }
             showToast('บันทึกแล้ว', 'success')
@@ -908,6 +911,7 @@ export default async function CustomersPage(container) {
           await createDoc('customers', {
             ...fields, stage: deriveInitialStage(fields), stageChangedAt: new Date().toISOString(),
             isLost: false, lostReason: '', lostAt: null, bookingId: null,
+            companyId: myEffectiveCompanyId(),
           }).catch(() => {})
           added++
         }
