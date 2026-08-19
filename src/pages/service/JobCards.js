@@ -1,5 +1,6 @@
 import { watchDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
-import { showToast, getState } from '../../core/store.js'
+import { showToast, getState, on } from '../../core/store.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { getVisibilityScope } from '../../core/hierarchy.js'
 import { formatDate, formatCurrency, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
@@ -71,15 +72,25 @@ export default async function JobCardsPage(container) {
   const myTeamNames = visScope.names || new Set([normName(myDisplayName)])
 
   // Real-time: อัปเดตสดเมื่อมีคนเปิด/แก้ไข/ปิด Job Card จากเครื่องอื่น (ไม่แตะช่องค้นหา จึงไม่รบกวนตอนกำลังพิมพ์)
+  // (v1.0.474) เดิม query แบบไม่กรองบริษัทเลย (companyScopeFilters() ตัวเปล่า) — พนักงานที่ถูกจำกัดสิทธิ์ตาม
+  // บริษัทเห็น Job Card ข้ามบริษัทได้หมด ต่างจาก Bookings.js/Customers.js/Staff.js ที่ทำไปแล้ว — แก้ให้ตรงกัน
+  // ต้องยกเลิก subscription เดิมแล้วยิงใหม่ทุกครั้งที่ activeCompanyFilter (ตัวกรอง Topbar) เปลี่ยนด้วย เหมือน
+  // แพทเทิร์นเดียวกับ Bookings.js/Customers.js ไม่งั้นตัวกรอง Topbar จะหยุดทำงานเงียบๆ
   let firstSnapshot = true
-  const unsubJobs = watchDocs('job_cards', [], 'createdAt', 'desc', 500, rows => {
-    if (container.__routerGen !== myGen) { unsubJobs(); return }
-    jobs = rows.filter(j => !j.deleted)
-    isDemoData = !jobs.length && firstSnapshot
-    if (isDemoData) DEMO_JOBS.forEach(j => jobs.push({ ...j }))
-    firstSnapshot = false
-    updateStats(); applyFilter()
-  })
+  let unsubJobs = () => {}
+  function startWatchJobs() {
+    unsubJobs()
+    unsubJobs = watchDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc', 500, rows => {
+      if (container.__routerGen !== myGen) { unsubJobs(); return }
+      jobs = rows.filter(j => !j.deleted)
+      isDemoData = !jobs.length && firstSnapshot
+      if (isDemoData) DEMO_JOBS.forEach(j => jobs.push({ ...j }))
+      firstSnapshot = false
+      updateStats(); applyFilter()
+    })
+  }
+  startWatchJobs()
+  const offCompanyFilter = on('activeCompanyFilter', startWatchJobs)
 
   function updateStats() {
     // ตัวเลขสรุปด้านบนต้องสอดคล้องกับตารางด้านล่าง — ถ้ากำลังกรองเฉพาะงานตัวเองอยู่ (ownScopeActive) ต้องนับ
@@ -305,6 +316,9 @@ export default async function JobCardsPage(container) {
       const btn = el.querySelector('#jfs'); btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
       const jobNo = isEdit ? existing.jobNo : `JOB-${new Date().getFullYear()}-${String(jobCounter).padStart(3,'0')}`
       const data = {
+        // (v1.0.474) ติด companyId ตอนสร้างใหม่เท่านั้น (isEdit ไม่ต้องเติม — updateDocData merge ไม่ทับ
+        // companyId เดิมอยู่แล้วถ้าไม่ส่งไป) แพทเทิร์นเดียวกับที่แก้ไว้แล้วใน Bookings.js/Customers.js (v1.0.472)
+        ...(isEdit ? {} : { companyId: myEffectiveCompanyId() }),
         jobNo, custName: cust, phone: el.querySelector('#jf-phone').value.trim(),
         brand: el.querySelector('#jf-brand').value.trim(), model: el.querySelector('#jf-model').value.trim(),
         plate: el.querySelector('#jf-plate').value.trim(), vin: el.querySelector('#jf-vin').value.trim(),
@@ -386,7 +400,7 @@ export default async function JobCardsPage(container) {
     applyFilter()
   }))
 
-  return function cleanupJobCards() { unsubJobs() }
+  return function cleanupJobCards() { unsubJobs(); offCompanyFilter() }
 }
 
 function dRow(icon, label, value) {
