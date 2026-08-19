@@ -6,7 +6,8 @@ import { formatCurrency, formatDate, timeAgo, todayBangkok } from '../../utils/f
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState, setState } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
-import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { listDocs, listAllDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { isProgramOwner } from '../../core/hierarchy.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -27,6 +28,36 @@ function addDays(n) {
   return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
 }
 
+// (v1.0.481) รวม collection กับ FinanceApplication.js (finance_applications) ตามที่เจ้าของยืนยันว่าหน้า
+// "ยื่นไฟแนนซ์" เป็นหลัก — เดิมสองหน้านี้เขียนคนละ collection (finance_tracker) ทำให้สถานะที่อัปเดตในหน้า
+// หนึ่งไม่โผล่อีกหน้าเลย ชื่อฟิลด์/สถานะไม่ตรงกัน (custName vs customerName, vehicle vs vehicleModel,
+// tenure vs term, rate vs interestRate, note vs notes) จึงแปลงข้อมูลที่ขอบเขต (อ่าน/เขียน) แทนการไล่แก้ทั้ง
+// ไฟล์ เพื่อไม่ให้กระทบ logic เดิมของหน้านี้เลย — โครงสร้างภายในไฟล์ยังใช้ชื่อฟิลด์/สถานะเดิมของตัวเองทั้งหมด
+// สถานะ 'conditional' ของหน้านี้ไม่มีคู่เทียบใน finance_applications (6 สถานะ) — ยุบรวมเป็น 'pending' ตอนบันทึก
+const STATUS_TO_SHARED = { preparing:'draft', submitted:'submitted', reviewing:'pending', conditional:'pending', approved:'approved', rejected:'rejected', cancelled:'cancelled' }
+const STATUS_FROM_SHARED = { draft:'preparing', submitted:'submitted', pending:'reviewing', approved:'approved', rejected:'rejected', cancelled:'cancelled' }
+function fromShared(a) {
+  return {
+    ...a,
+    customerName: a.custName ?? a.customerName ?? '',
+    vehicleModel: a.vehicle ?? a.vehicleModel ?? '',
+    term: a.tenure ?? a.term ?? 60,
+    interestRate: a.rate ?? a.interestRate ?? 0,
+    notes: a.note ?? a.notes ?? '',
+    status: STATUS_FROM_SHARED[a.status] || a.status || 'preparing',
+  }
+}
+function toSharedPatch(patch) {
+  const out = { ...patch }
+  if ('customerName' in out) { out.custName = out.customerName; delete out.customerName }
+  if ('vehicleModel' in out) { out.vehicle = out.vehicleModel; delete out.vehicleModel }
+  if ('term' in out) { out.tenure = out.term; delete out.term }
+  if ('interestRate' in out) { out.rate = out.interestRate; delete out.interestRate }
+  if ('notes' in out) { out.note = out.notes; delete out.notes }
+  if ('status' in out) out.status = STATUS_TO_SHARED[out.status] || out.status
+  return out
+}
+
 export default async function FinanceTrackerPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
@@ -34,12 +65,47 @@ export default async function FinanceTrackerPage(container) {
   let statusFilter = 'all'
   let apps = []
   let loading = true
+  const canMigrate = isProgramOwner()
+  let legacyCount = 0
+  let migrating = false
 
   async function loadData() {
     loading = true
-    try { apps = (await listDocs('finance_tracker', [], 'createdAt', 'desc', 300)).filter(a => !a.deleted) } catch (e) { apps = [] }
+    try { apps = (await listDocs('finance_applications', [], 'createdAt', 'desc', 300)).filter(a => !a.deleted).map(fromShared) } catch (e) { apps = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
+    if (canMigrate) checkLegacy()
+  }
+
+  // (v1.0.481) หน้านี้เคยเขียน collection แยก 'finance_tracker' มาก่อนรวมเข้ากับ finance_applications —
+  // เอกสารเก่าที่ยังไม่ถูกย้ายจะยังไม่โผล่ในหน้านี้ (ที่ตอนนี้อ่านจาก finance_applications แล้ว) เพิ่มปุ่ม
+  // ย้ายข้อมูลเก่าแบบเดียวกับเครื่องมือ backfill อื่นในระบบ (owner-only, ไม่ลบข้อมูลเก่าทิ้ง แค่คัดลอกมา
+  // รวม กันข้อมูลหายถ้าเกิดปัญหาระหว่างย้าย) — ทำเครื่องหมาย _migrated:true ไว้ที่เอกสารเก่ากันย้ายซ้ำ
+  async function checkLegacy() {
+    try {
+      const legacy = await listAllDocs('finance_tracker', [], 'createdAt', 'desc', 500)
+      legacyCount = legacy.filter(d => !d._migrated && !d.deleted).length
+    } catch { legacyCount = 0 }
+    if (container.__routerGen === myGen) renderPage()
+  }
+
+  async function runMigration() {
+    migrating = true
+    renderPage()
+    let migrated = 0, errors = 0
+    try {
+      const legacy = await listAllDocs('finance_tracker', [], 'createdAt', 'desc', 500)
+      for (const doc of legacy.filter(d => !d._migrated && !d.deleted)) {
+        try {
+          await createDoc('finance_applications', toSharedPatch(doc))
+          await updateDocData('finance_tracker', doc.id, { _migrated: true })
+          migrated++
+        } catch { errors++ }
+      }
+    } catch { showToast('อ่านข้อมูลเก่าไม่สำเร็จ', 'error') }
+    migrating = false
+    showToast(`✅ ย้ายข้อมูลเก่าแล้ว ${migrated} รายการ${errors ? ` (พลาด ${errors} รายการ)` : ''}`, errors ? 'warning' : 'success')
+    await loadData()
   }
 
   function filtered() {
@@ -70,6 +136,11 @@ export default async function FinanceTrackerPage(container) {
           </div>
         </div>
 
+        ${canMigrate && legacyCount > 0 ? `<div class="card" style="padding:10px 14px;margin-bottom:12px;border-left:3px solid var(--warning);font-size:0.78rem;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+          <span>🔧 พบข้อมูลเก่า ${legacyCount} รายการที่ยังไม่ถูกย้ายมารวมกับหน้า "ยื่นไฟแนนซ์" (finance_applications) — ข้อมูลเก่าจะยังอยู่ครบ แค่คัดลอกมารวม ไม่ลบทิ้ง</span>
+          <button class="btn btn-warning btn-sm" id="migrate-legacy-btn" ${migrating ? 'disabled' : ''}>${migrating ? '⏳ กำลังย้าย...' : '🔧 ย้ายข้อมูลเก่ามารวม'}</button>
+        </div>` : ''}
+
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('⏳ กำลังดำเนินการ', pending, 'warning')}
           ${kpi('✅ อนุมัติแล้ว', approved, 'success')}
@@ -92,6 +163,7 @@ export default async function FinanceTrackerPage(container) {
 
     container.querySelectorAll('.sf-btn').forEach(b => b.addEventListener('click', () => { statusFilter = b.dataset.s; renderPage() }))
     document.getElementById('add-app-btn')?.addEventListener('click', openAddForm)
+    document.getElementById('migrate-legacy-btn')?.addEventListener('click', runMigration)
     document.getElementById('export-btn')?.addEventListener('click', () => {
       exportToExcel(apps.map(a => ({ ID: a.id, ลูกค้า: a.customerName, รถ: a.vehicleModel, ธนาคาร: a.bank, สินเชื่อ: a.loanAmount, ดอกเบี้ย: a.interestRate, สถานะ: APP_STATUS[a.status]?.label })), 'finance_applications')
       showToast('📥 Export แล้ว!', 'success')
@@ -107,7 +179,7 @@ export default async function FinanceTrackerPage(container) {
       const ok = await confirmDialog({ title: '🗑️ ลบรายการ', message: `ยืนยันลบรายการของ "${escHtml(a.customerName)}"? การลบนี้ไม่สามารถย้อนกลับได้`, confirmText: 'ลบ', danger: true })
       if (!ok) return
       try {
-        await softDelete('finance_tracker', a.id)
+        await softDelete('finance_applications', a.id)
         showToast('🗑️ ลบรายการแล้ว', 'success')
         await loadData()
       } catch (e) { showToast('ลบไม่สำเร็จ', 'error') }
@@ -203,7 +275,7 @@ export default async function FinanceTrackerPage(container) {
         if (newStatus === 'approved') patch.approvedDate = addDays(0)
         if (newStatus === 'submitted') patch.submittedDate = addDays(0)
         try {
-          await updateDocData('finance_tracker', a.id, patch)
+          await updateDocData('finance_applications', a.id, toSharedPatch(patch))
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
         try {
           await createDoc('notifications', {
@@ -248,7 +320,7 @@ export default async function FinanceTrackerPage(container) {
         const rate = +document.getElementById('af-rate')?.value || 2.99
         const monthly = Math.round(loan * (1 + rate / 100 * term / 12) / term)
         try {
-          await createDoc('finance_tracker', {
+          await createDoc('finance_applications', toSharedPatch({
             customerId: '', customerName: name, phone: document.getElementById('af-phone')?.value||'',
             vehicleModel: document.getElementById('af-model')?.value||'',
             vehiclePrice: price, downPayment: down, loanAmount: loan,
@@ -257,7 +329,7 @@ export default async function FinanceTrackerPage(container) {
             status: 'preparing', submittedDate: null, approvedDate: null, conditions: '',
             salesperson: document.getElementById('af-sales')?.value||'',
             notes: document.getElementById('af-notes')?.value||''
-          })
+          }))
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
         showToast('✅ บันทึกการยื่นไฟแนนซ์แล้ว!', 'success')
         await loadData()
