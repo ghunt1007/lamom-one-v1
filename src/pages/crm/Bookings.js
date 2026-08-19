@@ -1,7 +1,7 @@
-import { listDocs, watchDocs, createDoc, updateDocData, softDelete, seedDemoData, setDocData } from '../../core/db.js'
+import { listDocs, listAllDocs, watchDocs, createDoc, updateDocData, softDelete, seedDemoData, setDocData } from '../../core/db.js'
 import { showToast, getState, setState, on } from '../../core/store.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
-import { getVisibilityScope } from '../../core/hierarchy.js'
+import { getVisibilityScope, isProgramOwner } from '../../core/hierarchy.js'
 import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -129,6 +129,29 @@ export default async function BookingsPage(container) {
   const myRole = getState('role') || getState('user')?.role || 'staff'
   const canViewNid = ['owner', 'admin', 'manager', 'sales', 'finance'].includes(myRole)
   let nidMap = {}
+
+  // (v1.0.485) เครื่องมือครั้งเดียว — เติมเงินจอง 4,000 บาทให้ทุกใบจอง DEEPAL ที่ยังไม่มีเงินจอง (down ว่าง/0)
+  // ตามที่เจ้าของขอตรงๆ ไม่ทับใบที่มีเงินจองจริงอยู่แล้ว รวมใบที่ถอนจอง/ยกเลิกไปแล้วด้วย (ตามที่ยืนยัน) ใช้
+  // detectBrand() ตัวเดียวกับที่หน้านี้ใช้แสดง badge แบรนด์อยู่แล้ว (กันเคส brand เก็บไม่ตรงเคส/ไม่มีค่า แต่เดา
+  // จากรุ่นได้) ไม่ใช่ where('brand','==','DEEPAL') ตรงๆ ซึ่งจะพลาดข้อมูลเก่าที่เก็บไม่ตรงเป๊ะ
+  const canFillDeposit = isProgramOwner()
+  async function fillDeepalDeposit() {
+    let all = []
+    try { all = await listAllDocs('bookings', [], 'createdAt', 'desc', 500) } catch { showToast('โหลดข้อมูลไม่สำเร็จ', 'error'); return }
+    const targets = all.filter(b => !b.deleted && detectBrand(b.brand, b.model) === 'DEEPAL' && (!b.down || Number(b.down) === 0))
+    if (!targets.length) { showToast('ไม่พบใบจอง DEEPAL ที่ยังไม่มีเงินจอง', 'warning'); return }
+    const ok = await confirmDialog({
+      title: '🔧 เติมเงินจอง DEEPAL',
+      message: `พบใบจอง DEEPAL ที่ยังไม่มีเงินจอง (ว่าง/0) ทั้งหมด ${targets.length} รายการ — จะใส่เงินจอง 4,000 บาทให้ทุกรายการ (ไม่ทับรายการที่มีเงินจองอยู่แล้ว) ยืนยันดำเนินการหรือไม่?`,
+      confirmText: `✅ เติมเงินจอง ${targets.length} รายการ`,
+    })
+    if (!ok) return
+    let done = 0, errors = 0
+    for (const b of targets) {
+      try { await updateDocData('bookings', b.id, { down: 4000 }); done++ } catch { errors++ }
+    }
+    showToast(`✅ เติมเงินจองแล้ว ${done} รายการ${errors ? ` (พลาด ${errors} รายการ)` : ''}`, errors ? 'warning' : 'success')
+  }
 
   // (v1.0.436) ต่อจากหน้าลูกค้า (v1.0.432) — เซลส์/ช่าง/พนักงานทั่วไปเห็นเฉพาะใบจองของตัวเองเป็นค่าเริ่มต้น
   // เหมือนกัน ผูกกับ salesName (ชื่อพิมพ์เอง เทียบแบบ normalize) เพราะ Bookings ไม่มี uid ผูกตรงๆเหมือนกัน
@@ -312,6 +335,7 @@ export default async function BookingsPage(container) {
             <div class="page-subtitle">แสดง ${filtered.length} / ${bookings.length} รายการ</div>
           </div>
           <div class="page-actions">
+            ${canFillDeposit ? `<button class="btn btn-warning btn-sm" id="bk-fill-deepal-deposit-btn">🔧 เติมเงินจอง DEEPAL 4,000</button>` : ''}
             <button class="btn btn-primary" id="bk-wizard-btn">✨ จองใหม่ (Wizard)</button>
           </div>
         </div>
@@ -350,6 +374,7 @@ export default async function BookingsPage(container) {
     renderTable(filtered)
 
     document.getElementById('bk-wizard-btn').addEventListener('click', () => openWizard())
+    document.getElementById('bk-fill-deepal-deposit-btn')?.addEventListener('click', () => fillDeepalDeposit())
     document.getElementById('bk-add-btn').addEventListener('click', () => openForm())
     document.getElementById('bk-search').addEventListener('input', ev => { search = ev.target.value.trim().toLowerCase(); render() })
     document.getElementById('bk-f-seller').addEventListener('change', ev => { sellerFilter = ev.target.value; render() })
