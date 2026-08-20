@@ -155,9 +155,14 @@ a:hover { text-decoration: underline; }
   cursor: default;
 }
 .kpi-card:hover { border-color: var(--primary); box-shadow: 0 0 20px var(--primary-dim); }
-.kpi-label { font-size: 0.8rem; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.05em; }
+/* (v1.0.491) kpi-title คือชื่อ class ที่ helper function kpi() ในแต่ละหน้า (โค้ดคัดลอกแบบเดียวกันซ้ำใน 170
+   หน้า — ไม่ได้ import จากที่เดียวกัน) ใช้จริง ต่างจาก kpi-label ที่นิยามไว้ในสไตล์ชีทนี้เดิม — สอง class
+   ไม่เคยตรงกันเลยตั้งแต่แรก ทำให้หัวข้อ KPI (เช่น "ยอดขายรวม") ไม่มีสไตล์อะไรเลย (ไม่เล็ก ไม่จาง ไม่ตัวพิมพ์ใหญ่
+   ตามที่ตั้งใจ) ใน 170 หน้าที่ใช้ kpi() แก้โดยให้สอง class ใช้กฎเดียวกัน */
+.kpi-title, .kpi-label { font-size: 0.8rem; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.05em; }
 .kpi-value { font-size: 1.8rem; font-weight: 700; margin: 6px 0 4px; color: var(--text); }
 .kpi-change { font-size: 0.8rem; display: flex; align-items: center; gap: 4px; }
+.kpi-sub { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
 .kpi-up   { color: var(--success); }
 .kpi-down { color: var(--danger); }
 
@@ -232,7 +237,7 @@ tbody tr:hover { background: var(--surface-2); }
   display: flex; flex-direction: column; align-items: center;
   justify-content: center; padding: 64px 24px; gap: 12px; text-align: center;
 }
-.empty-icon { font-size: 3rem; opacity: 0.5; }
+.empty-icon, .empty-state-icon { font-size: 3rem; opacity: 0.5; }
 .empty-title { font-size: 1.1rem; font-weight: 600; color: var(--text); }
 .empty-desc { color: var(--text-muted); font-size: 0.875rem; max-width: 300px; }
 
@@ -311,6 +316,9 @@ tbody tr:hover { background: var(--surface-2); }
 .text-muted    { color: var(--text-muted); }
 .text-sm  { font-size: 0.825rem; }
 .text-xs  { font-size: 0.75rem; }
+.text-right  { text-align: right; }
+.text-center { text-align: center; }
+.text-left   { text-align: left; }
 .font-bold { font-weight: 700; }
 .font-semibold { font-weight: 600; }
 .truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
