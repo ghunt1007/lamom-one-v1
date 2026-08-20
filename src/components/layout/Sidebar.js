@@ -451,7 +451,14 @@ export function Sidebar(container) {
   }
 
   function render() {
-    const collapsed = getState('sidebarCollapsed')
+    // (v1.0.489) sidebarCollapsed เป็นค่าเดียวที่ persist ผ่าน localStorage ใช้ร่วมกันทั้ง desktop (ย่อเหลือ
+    // แถบไอคอนแคบๆ) และ mobile (ลิ้นชักเมนูแบบ slide-in ที่ CSS บังคับให้กว้าง min(80vw,300px) เสมออยู่แล้ว —
+    // ดู @media max-width:768px ใน layout.css) — เดิมถ้าเคยกดย่อ sidebar จากเครื่อง desktop มาก่อน (หรือกด
+    // ปุ่มย่อบนมือถือเองโดยไม่ตั้งใจ) ค่า collapsed=true จะติดค้างข้ามอุปกรณ์ ทำให้เมนูมือถือ (ที่กว้างพอแสดง
+    // label อยู่แล้ว) render แค่ไอคอนล้วนไม่มีชื่อเมนูเลยสักตัว (ปุ่มขยายกลับก็เป็นไอคอนเล็กๆหาไม่เจอด้วย) —
+    // บังคับ collapsed=false เสมอเมื่อจอแคบ ไม่ให้ state ของ desktop ไปกระทบการแสดงผลบนมือถือ
+    const isMobileViewport = window.innerWidth <= 768
+    const collapsed = getState('sidebarCollapsed') && !isMobileViewport
     const route = getState('currentRoute')
     const user = getState('user')
     const lang = getState('language') || 'th'
@@ -472,7 +479,7 @@ export function Sidebar(container) {
         <div class="sidebar-logo">
           <div class="sidebar-logo-icon">L</div>
           ${!collapsed ? '<span class="sidebar-logo-text">LAMOM ONE</span>' : ''}
-          ${!collapsed ? `<button class="sidebar-toggle" id="sidebar-toggle" title="${t('collapseSidebar')}">◀</button>` : ''}
+          ${!collapsed && !isMobileViewport ? `<button class="sidebar-toggle" id="sidebar-toggle" title="${t('collapseSidebar')}">◀</button>` : ''}
         </div>
 
         <nav class="sidebar-nav">
