@@ -198,13 +198,16 @@ a:hover { text-decoration: underline; }
 select.input { cursor: pointer; }
 
 /* ── Tables ── */
-.table-wrap { overflow-x: auto; border-radius: var(--radius-lg); border: 1px solid var(--border); }
+/* (v1.0.494) เพิ่มแถบสีคาดซ้ายตอน hover แถวตาราง (ลวดลายเดียวกับ .nav-item.active ที่มีอยู่แล้วในเมนู) ให้
+   ตารางซึ่งเป็นหน้าตาที่พนักงานเห็นบ่อยที่สุดในระบบ (มากกว่า Dashboard) ดูมีมิติ/ทันสมัยขึ้น โดยไม่แตะสี
+   ตัวอักษร/พื้นหลังหลักที่ผ่าน WCAG ไว้แล้วเลย (แค่เพิ่ม inset box-shadow ซึ่งไม่กระทบ contrast ของข้อความ) */
+.table-wrap { overflow-x: auto; border-radius: var(--radius-lg); border: 1px solid var(--border); background: var(--surface); }
 table { width: 100%; border-collapse: collapse; }
 thead tr { background: var(--surface-2); }
 th { padding: 11px 14px; text-align: left; font-size: 0.8rem; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
 td { padding: 12px 14px; font-size: 0.875rem; color: var(--text-2); border-top: 1px solid var(--border); }
-tbody tr { transition: background var(--transition); }
-tbody tr:hover { background: var(--surface-2); }
+tbody tr { transition: background var(--transition), box-shadow var(--transition); }
+tbody tr:hover { background: var(--surface-2); box-shadow: inset 3px 0 0 var(--primary); }
 
 /* ── Badges ── */
 .badge {
