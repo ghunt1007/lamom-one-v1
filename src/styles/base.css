@@ -94,6 +94,23 @@ a:hover { text-decoration: underline; }
 }
 .btn-danger:hover { filter: brightness(1.1); box-shadow: 0 0 16px var(--danger-dim); }
 
+/* (v1.0.490) btn-success/btn-warning ใช้จริงใน 83/37 หน้าทั่วแอปมาตลอด (ปุ่มอนุมัติ/ยืนยัน/เตือน) แต่ไม่เคย
+   มี base rule เลยตั้งแต่แรก — .btn ไม่มี background/color เริ่มต้น ปุ่มพวกนี้จึงแทบมองไม่เห็น (โปร่งใส ไม่มีสี
+   กำกับสถานะ) มาตลอด ไม่ใช่แค่บนมือถือ */
+.btn-success {
+  background: var(--success); color: #fff;
+}
+.btn-success:hover { filter: brightness(1.1); box-shadow: 0 0 16px var(--success-dim); }
+
+.btn-warning {
+  background: var(--warning); color: #fff;
+}
+.btn-warning:hover { filter: brightness(1.1); box-shadow: 0 0 16px var(--warning-dim); }
+
+/* (v1.0.490) btn-xs ใช้จริงใน 225 หน้าทั่วแอป (ปุ่มเล็กในตาราง/แถวการ์ด) มากกว่า btn-xs เองไม่เคยมี base rule
+   เลยเช่นกัน (มีแค่ btn-sm/btn-lg) ทำให้ปุ่มที่ตั้งใจให้เล็กกะทัดรัดกลับมีขนาดเท่าปุ่มปกติเสมอมา คับแคบ/ล้น
+   พื้นที่โดยเฉพาะในตารางและบนจอมือถือ */
+.btn-xs { padding: 3px 8px; font-size: 0.7rem; gap: 4px; }
 .btn-sm { padding: 5px 10px; font-size: 0.8rem; }
 .btn-lg { padding: 11px 22px; font-size: 1rem; }
 .btn-icon { padding: 8px; border-radius: var(--radius-md); }
@@ -190,6 +207,11 @@ tbody tr:hover { background: var(--surface-2); }
 .badge-danger  { background: var(--danger-dim);  color: var(--danger); }
 .badge-info    { background: var(--info-dim);    color: var(--info); }
 .badge-muted   { background: var(--surface-2);   color: var(--text-3); }
+/* (v1.0.490) badge-secondary/badge-accent ใช้จริงใน 31/4 หน้าทั่วแอปมาตลอด แต่ไม่เคยมี base rule — แบดจ์
+   พวกนี้จึงเหลือแค่รูปทรงเปล่าไม่มีสีพื้นหลัง/ตัวอักษรกำกับสถานะเลย — secondary เทียบเท่า muted (สถานะกลางๆ/
+   ไม่ระบุ) ตามความหมายที่ใช้จริงในทุกหน้าที่เรียก */
+.badge-secondary { background: var(--surface-2); color: var(--text-3); }
+.badge-accent  { background: var(--accent-dim);  color: var(--accent); }
 
 /* ── Avatar ── */
 .avatar {
