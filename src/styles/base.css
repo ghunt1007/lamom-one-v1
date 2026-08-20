@@ -115,6 +115,19 @@ a:hover { text-decoration: underline; }
 }
 .card-title { font-size: 1rem; font-weight: 600; color: var(--text); }
 
+/* ── KPI Grid ── */
+/* (v1.0.488) class นี้ใช้ใน 173+ หน้าทั่วทั้งแอป (คู่กับ style="grid-template-columns:repeat(N,1fr)" ที่เขียน
+   inline ต่อหน้า) แต่ไม่เคยมี base rule กำหนด display:grid ไว้เลยตั้งแต่แรก — ทำให้ grid-template-columns
+   inline ไม่มีผลอะไรเลย (ต้องมี display:grid คู่กันเสมอ) การ์ด KPI ทุกหน้าจึงเรียงต่อกันแบบ block ธรรมดา
+   (การ์ดเต็มความกว้างเรียงต่อกันในแนวตั้ง) แทนที่จะเป็นกริดกะทัดรัดตามที่ตั้งใจไว้ ทำให้หน้าที่ควรสูงแค่การ์ด
+   เดียวยืดยาวเกินจำเป็นหลายเท่า — กระทบทุกขนาดจอ (ไม่ใช่แค่มือถือ) แต่สังเกตชัดสุดบนมือถือที่พื้นที่จำกัดอยู่แล้ว
+   กฎ mobile-collapse ที่มีอยู่แล้วด้านล่าง (@media max-width:640px, บรรทัด .page-content
+   div[style*="grid-template-columns"]) ใช้ได้กับ class นี้ทันทีที่มี display:grid แล้ว ไม่ต้องแก้ที่อื่นเพิ่ม */
+.kpi-grid { display: grid; gap: 16px; }
+@media (max-width: 1024px) {
+  .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
+}
+
 /* ── KPI Card ── */
 .kpi-card {
   background: var(--surface);
