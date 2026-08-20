@@ -344,6 +344,10 @@ tbody tr:hover { background: var(--surface-2); }
 .page-subtitle { font-size: 0.875rem; color: var(--text-3); margin-top: 2px; }
 .page-actions { display: flex; gap: 8px; align-items: center; }
 
+/* (v1.0.492) ใช้ใน 30+ หน้าเป็นแถบครอบปุ่มแท็บ (.tab-btn) แต่ไม่เคยมี base rule — ปุ่มแท็บยังพอมองเห็นได้
+   เพราะ .btn เป็น inline-flex อยู่แล้ว แค่ไม่มี gap/wrap ทำให้ปุ่มชิดกันเกินไปและไม่ขึ้นบรรทัดใหม่บนจอแคบ */
+.tab-nav { display: flex; gap: 4px; flex-wrap: wrap; }
+
 /* ── Loading Overlay ── */
 .loading-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,0.5);
