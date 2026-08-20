@@ -34,6 +34,15 @@ function addMonths(n) {
 }
 function thisMonth() { return todayBangkok().slice(0, 7) }
 
+// (v1.0.487) ราคา/ต้นทุนรถและมูลค่า PO เก็บเป็น "ราคารวม VAT แล้ว" เสมอตามกฎหมาย (ยืนยันใน
+// QuotationBuilder.js) — เดิมแท็บ "ใบกำกับภาษี" ในไฟล์นี้เอาราคารวม VAT ไปคูณ 7% ซ้ำอีกชั้น ทำให้ VAT สูงเกิน
+// จริง ~6.5% (ขัดแย้งกันเองกับ KPI "VAT สะสม" ด้านบนที่ใช้สูตรถูกอยู่แล้วที่บรรทัด pp30 taxBase/vatAmount)
+// แก้ให้ใช้สูตรถอด VAT เดียวกัน (fullPrice × 7/107) ทั้งไฟล์ — ดู extractVat() เดียวกันใน VatReport.js
+function extractVat(fullPrice) {
+  const vat = Math.round((fullPrice || 0) * 7 / 107)
+  return { amount: (fullPrice || 0) - vat, vat }
+}
+
 const DEMO_FILINGS = [
   { id: 'TX001', type: 'pp30', period: addMonths(-1), dueDate: `${addMonths(-1)}-15`, filedDate: `${addMonths(-1)}-14`, status: 'filed', taxBase: 4820000, vatAmount: 337400, refundable: 0, notes: 'ยื่นออนไลน์', officer: 'นิภา บัญชีดี' },
   { id: 'TX002', type: 'pnd53', period: addMonths(-1), dueDate: `${addMonths(-1)}-07`, filedDate: `${addMonths(-1)}-07`, status: 'filed', taxBase: 285000, vatAmount: 28500, refundable: 0, notes: '', officer: 'นิภา บัญชีดี' },
@@ -44,10 +53,10 @@ const DEMO_FILINGS = [
 ]
 
 const DEMO_INVOICES = [
-  { id: 'INV001', vendor: 'BYD Auto Thailand', date: `${addMonths(-1)}-05`, amount: 8740000, vat: 611800, withheld: 87400, type: 'purchase', taxInvNo: 'TIV0001234' },
-  { id: 'INV002', vendor: 'LAMOM ONE (ขาย)', date: `${addMonths(-1)}-08`, amount: 1449000, vat: 101430, withheld: 0, type: 'sale', taxInvNo: 'TSV0009821' },
-  { id: 'INV003', vendor: 'AIS Fiber', date: `${addMonths(-1)}-01`, amount: 3200, vat: 224, withheld: 96, type: 'purchase', taxInvNo: 'TIV0001235' },
-  { id: 'INV004', vendor: 'สำนักงานบัญชีดี', date: `${addMonths(-1)}-01`, amount: 15000, vat: 1050, withheld: 1500, type: 'purchase', taxInvNo: 'TIV0001236' },
+  { id: 'INV001', vendor: 'BYD Auto Thailand', date: `${addMonths(-1)}-05`, ...extractVat(8740000), withheld: 87400, type: 'purchase', taxInvNo: 'TIV0001234' },
+  { id: 'INV002', vendor: 'LAMOM ONE (ขาย)', date: `${addMonths(-1)}-08`, ...extractVat(1449000), withheld: 0, type: 'sale', taxInvNo: 'TSV0009821' },
+  { id: 'INV003', vendor: 'AIS Fiber', date: `${addMonths(-1)}-01`, ...extractVat(3200), withheld: 96, type: 'purchase', taxInvNo: 'TIV0001235' },
+  { id: 'INV004', vendor: 'สำนักงานบัญชีดี', date: `${addMonths(-1)}-01`, ...extractVat(15000), withheld: 1500, type: 'purchase', taxInvNo: 'TIV0001236' },
 ]
 
 export default async function TaxReportPage(container) {
@@ -105,15 +114,15 @@ export default async function TaxReportPage(container) {
     sales.forEach(s => {
       const d = (s.date || '').slice(0, 10)
       if (!d) return
-      if (s.salePrice > 0) out.push({ id: 'INV-'+s.id, vendor: s.custName || 'ลูกค้า', date: d, amount: s.salePrice, vat: Math.round(s.salePrice*0.07), withheld: 0, type: 'sale', taxInvNo: 'TSV-'+s.id })
-      if (s.cost > 0) inp.push({ id: 'PO-'+s.id, vendor: s.brand || 'ผู้จัดจำหน่ายรถ', date: d, amount: s.cost, vat: Math.round(s.cost*0.07), withheld: 0, type: 'purchase', taxInvNo: 'TIV-'+s.id })
+      if (s.salePrice > 0) out.push({ id: 'INV-'+s.id, vendor: s.custName || 'ลูกค้า', date: d, ...extractVat(s.salePrice), withheld: 0, type: 'sale', taxInvNo: 'TSV-'+s.id })
+      if (s.cost > 0) inp.push({ id: 'PO-'+s.id, vendor: s.brand || 'ผู้จัดจำหน่ายรถ', date: d, ...extractVat(s.cost), withheld: 0, type: 'purchase', taxInvNo: 'TIV-'+s.id })
     })
     try {
       const pos = await listAllDocs('purchase_orders', [], 'requestDate', 'desc')
       pos.filter(p => p.status === 'received' && p.cat !== 'vehicle' && p.amount > 0).forEach(p => {
         const d = (p.requestDate || '').slice(0, 10)
         if (!d) return
-        inp.push({ id: 'PO-'+p.id, vendor: p.supplier || 'ผู้จัดหา', date: d, amount: p.amount, vat: Math.round(p.amount*0.07), withheld: 0, type: 'purchase', taxInvNo: 'TIV-'+p.id })
+        inp.push({ id: 'PO-'+p.id, vendor: p.supplier || 'ผู้จัดหา', date: d, ...extractVat(p.amount), withheld: 0, type: 'purchase', taxInvNo: 'TIV-'+p.id })
       })
     } catch {}
     const wht = []

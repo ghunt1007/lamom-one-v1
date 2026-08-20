@@ -19,7 +19,17 @@ function addDays(n) {
   return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
 }
 
-const VAT_RATE = 0.07
+// (v1.0.487) ราคา/ต้นทุนรถและมูลค่า PO ในระบบเก็บเป็น "ราคารวม VAT แล้ว" เสมอ (ตามกฎหมายไทยที่ราคาสินค้า
+// ต้องรวม VAT ในป้ายราคา — ยืนยันชัดเจนแล้วใน QuotationBuilder.js: "ราคารถของไทยรวม VAT 7% ไว้ในราคาแล้ว
+// ตามกฎหมาย") เดิมหน้านี้เอาราคาที่รวม VAT แล้วไปคูณ 7% ซ้ำอีกชั้น (เหมือนราคานั้นยังไม่รวม VAT) ทำให้ VAT
+// สูงเกินจริง ~6.5% ของ VAT ที่ถูกต้อง (เช่น รถ 1,299,000 บาท คิดผิดเป็น 90,930 ที่ถูกคือ 84,981) ต้องถอด VAT
+// ที่แฝงอยู่ในราคาด้วยสูตร fullPrice × 7/107 (เทียบเท่า fullPrice ÷ 1.07 × 0.07) แทนการคูณ 7% ตรงๆ — ฟังก์ชัน
+// นี้คืนทั้ง base (ยอดก่อน VAT ที่แท้จริง) และ vat (ภาษีที่แฝงอยู่) ให้ base+vat = fullPrice เสมอ ตรงกับ column
+// header "ยอดก่อน VAT" ที่หน้านี้แสดงอยู่แล้ว
+function extractVat(fullPrice) {
+  const vat = Math.round((fullPrice || 0) * 7 / 107)
+  return { amount: (fullPrice || 0) - vat, vat }
+}
 
 // (v1.0.320) เดิมถ้ามีข้อมูลจริงจาก collection 'vat_invoices' (ที่จริงไม่มีหน้าไหนในระบบเคยเขียนเข้าไปเลย
 // แม้แต่รายการเดียว — เป็น collection ที่เตรียมชื่อไว้แต่ไม่ได้ใช้จริง) ก็จะเอาใบกำกับปลอมด้านล่างนี้
@@ -32,18 +42,18 @@ const VAT_RATE = 0.07
 const PO_CAT_LABELS = { vehicle: 'รถยนต์', parts: 'อะไหล่', supplies: 'อุปกรณ์', service: 'บริการ' }
 
 const DEMO_INVOICES_OUT = [ // ขาออก
-  { id: 'INV001', date: addDays(-5), customer: 'สมชาย ใจดี', amount: 1299000, vat: Math.round(1299000*VAT_RATE), category: 'รถยนต์' },
-  { id: 'INV002', date: addDays(-7), customer: 'มาลี สุขใจ', amount: 899000, vat: Math.round(899000*VAT_RATE), category: 'รถยนต์' },
-  { id: 'INV003', date: addDays(-10), customer: 'ABC Co Ltd', amount: 12500, vat: Math.round(12500*VAT_RATE), category: 'บริการ' },
-  { id: 'INV004', date: addDays(-12), customer: 'ธนพล เที่ยงตรง', amount: 3500, vat: Math.round(3500*VAT_RATE), category: 'อะไหล่' },
-  { id: 'INV005', date: addDays(-15), customer: 'SCG Group', amount: 75000, vat: Math.round(75000*VAT_RATE), category: 'ประกัน' },
+  { id: 'INV001', date: addDays(-5), customer: 'สมชาย ใจดี', ...extractVat(1299000), category: 'รถยนต์' },
+  { id: 'INV002', date: addDays(-7), customer: 'มาลี สุขใจ', ...extractVat(899000), category: 'รถยนต์' },
+  { id: 'INV003', date: addDays(-10), customer: 'ABC Co Ltd', ...extractVat(12500), category: 'บริการ' },
+  { id: 'INV004', date: addDays(-12), customer: 'ธนพล เที่ยงตรง', ...extractVat(3500), category: 'อะไหล่' },
+  { id: 'INV005', date: addDays(-15), customer: 'SCG Group', ...extractVat(75000), category: 'ประกัน' },
 ]
 
 const DEMO_INVOICES_IN = [ // ขาเข้า
-  { id: 'PO001', date: addDays(-3), supplier: 'BYD Auto Thailand', amount: 8990000, vat: Math.round(8990000*VAT_RATE), category: 'ต้นทุนรถ' },
-  { id: 'PO002', date: addDays(-8), supplier: 'บริษัทอะไหล่ไทย', amount: 45000, vat: Math.round(45000*VAT_RATE), category: 'อะไหล่' },
-  { id: 'PO003', date: addDays(-10), supplier: 'True Corp', amount: 3500, vat: Math.round(3500*VAT_RATE), category: 'ค่าโทรศัพท์' },
-  { id: 'PO004', date: addDays(-14), supplier: 'AXA Insurance', amount: 18000, vat: Math.round(18000*VAT_RATE), category: 'ประกันบริษัท' },
+  { id: 'PO001', date: addDays(-3), supplier: 'BYD Auto Thailand', ...extractVat(8990000), category: 'ต้นทุนรถ' },
+  { id: 'PO002', date: addDays(-8), supplier: 'บริษัทอะไหล่ไทย', ...extractVat(45000), category: 'อะไหล่' },
+  { id: 'PO003', date: addDays(-10), supplier: 'True Corp', ...extractVat(3500), category: 'ค่าโทรศัพท์' },
+  { id: 'PO004', date: addDays(-14), supplier: 'AXA Insurance', ...extractVat(18000), category: 'ประกันบริษัท' },
 ]
 
 export default async function VatReportPage(container) {
@@ -63,9 +73,9 @@ export default async function VatReportPage(container) {
         const d = (s.date || '').slice(0, 10)
         if (!d) return
         if (s.salePrice > 0) out.push({ id: 'INV-' + s.id, date: d, customer: s.custName || 'ลูกค้า',
-          amount: s.salePrice, vat: Math.round(s.salePrice * VAT_RATE), category: 'รถยนต์' })
+          ...extractVat(s.salePrice), category: 'รถยนต์' })
         if (s.cost > 0) inp.push({ id: 'PO-' + s.id, date: d, supplier: s.brand || 'ผู้จัดจำหน่ายรถ',
-          amount: s.cost, vat: Math.round(s.cost * VAT_RATE), category: 'ต้นทุนรถ' })
+          ...extractVat(s.cost), category: 'ต้นทุนรถ' })
       })
     } catch {}
     try {
@@ -74,7 +84,7 @@ export default async function VatReportPage(container) {
         const d = (p.requestDate || '').slice(0, 10)
         if (!d) return
         inp.push({ id: 'PO-' + p.id, date: d, supplier: p.supplier || 'ผู้จัดหา',
-          amount: p.amount, vat: Math.round(p.amount * VAT_RATE), category: PO_CAT_LABELS[p.cat] || 'อื่นๆ' })
+          ...extractVat(p.amount), category: PO_CAT_LABELS[p.cat] || 'อื่นๆ' })
       })
     } catch {}
 
