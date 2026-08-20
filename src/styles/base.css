@@ -116,14 +116,19 @@ a:hover { text-decoration: underline; }
 .btn-icon { padding: 8px; border-radius: var(--radius-md); }
 
 /* ── Cards ── */
+/* (v1.0.493) เพิ่มความลึก/ความรู้สึกทันสมัยให้การ์ด (ใช้ซ้ำแทบทุกหน้าทั่วแอป) แบบระมัดระวัง — ไม่แตะ
+   background ให้โปร่งใส (glassmorphism เต็มรูปแบบ) เพราะ comment เดิมด้านบนยืนยันชัดว่า --surface ทึบเป็น
+   เงื่อนไขที่ตั้งใจไว้เพื่อคง WCAG AA contrast ให้ครบทั้ง 33 ธีม การลดความทึบเสี่ยงทำให้บางธีมอ่านยากลง —
+   เพิ่มแค่เงาลึกตอนพัก (เดิมมีแค่ตอน hover) และ border glow ตอน hover ให้สอดคล้องกับที่ .kpi-card ทำอยู่แล้ว */
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 20px;
-  transition: box-shadow var(--transition), transform var(--transition);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.18);
+  transition: box-shadow var(--transition), transform var(--transition), border-color var(--transition);
 }
-.card:hover { box-shadow: 0 4px 24px rgba(0,0,0,0.4); }
+.card:hover { box-shadow: 0 4px 24px rgba(0,0,0,0.4); border-color: var(--border-light); }
 .card-lift:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
 
 .card-header {
@@ -151,6 +156,7 @@ a:hover { text-decoration: underline; }
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 20px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.18);
   transition: all var(--transition);
   cursor: default;
 }
