@@ -54,15 +54,6 @@ function statusBadge(status) {
 const TERMINAL_STATUSES = ['ส่งมอบแล้ว', 'ตัดตัวเลขรอส่งมอบ', 'ถอนจอง', 'ยกเลิก']
 const ACTIVE_PIPELINE = ['ยอดจองคงค้าง', 'จัดไฟแนนซ์ก่อนจอง', 'รอผลไฟแนนซ์', 'รอรถ', 'รอส่งมอบ']
 
-const DEMO_BOOKINGS = [
-  { id: 'bk1', bookingNo: 'SK2506001', custName: 'ธีรพงศ์ แสงทอง', phone: '0812345678', province: 'กรุงเทพฯ', source: 'Walk-in',
-    brand: 'DEEPAL', model: 'S07', variant: 'New Standard', colorOut: 'ขาว Pearl', colorIn: 'ดำ',
-    price: 1299000, cost: 1150000, down: 200000, financeCo: 'BAY', financeAmount: 1099000, finStatus: 'ผ่าน', installments: 60, interestRate: 2.25, monthly: 19800,
-    margin: 25000, budgetUsed: 5000, com70: 8000, comFinance: 6000, marginLeft: 20000, totalIncome: 34000,
-    bookingDate: '2026-06-20', deliveryDate: '2026-07-01', actualDeliveryDate: '',
-    salesName: 'อรนุช เซลส์ดี', status: 'รอส่งมอบ', notes: '', createdAt: '2026-06-20' },
-]
-
 function calcMonthly(financeAmount, installments, ratePerYear) {
   if (!financeAmount || !installments) return 0
   const years = installments / 12
@@ -197,7 +188,6 @@ export default async function BookingsPage(container) {
     // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true — ถ้าไม่กรองออก ใบจองที่ "ลบ" ไปแล้วจะยังโผล่กลับมา
     // ทุกครั้งที่โหลดหน้านี้ใหม่ (ขัดกับข้อความยืนยันลบที่บอกผู้ใช้ว่า "จะไม่ปรากฏในระบบอีกต่อไป")
     try { bookings = (await listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 500)).filter(b => !b.deleted) } catch (e) {}
-    if (!bookings.length) bookings = DEMO_BOOKINGS.map(b => ({ ...b }))
     if (canViewNid) {
       try {
         const nidDocs = await listDocs('booking_national_ids', companyScopeFilters(), 'updatedAt', 'desc', 500)
@@ -223,8 +213,7 @@ export default async function BookingsPage(container) {
     unsubBookings()
     unsubBookings = watchDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 500, rows => {
       if (container.__routerGen !== myGen) { unsubBookings(); return }
-      const liveRows = rows.filter(b => !b.deleted)
-      bookings = liveRows.length ? liveRows : (firstSnapshot ? DEMO_BOOKINGS.map(b => ({ ...b })) : bookings)
+      bookings = rows.filter(b => !b.deleted)
       applyNidMap(bookings)
       if (firstSnapshot) { firstSnapshot = false; render() }
       else safeRender()

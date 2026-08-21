@@ -22,13 +22,15 @@ const SERVICE_TYPES = [
   'แก้ไขปัญหา / ซ่อม', 'ติดตั้งอุปกรณ์', 'รับประกัน (Warranty)', 'อื่นๆ'
 ]
 
-const TECHS = ['วิชัย ช่างดี', 'ธนา ซ่อมเก่ง', 'สมศักดิ์ ช่างใหม่', 'อรุณ ช่างเก่า']
-
 export default async function ServiceAppointmentPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
 
   let appts = []
+  // (v1.0.538) เดิม TECHS hardcode รายชื่อช่างปลอม 4 คนเสมอ ไม่ผูกกับพนักงานจริงเลย — ทั้งดึงมาเป็นตัวเลือก
+  // ใน dropdown มอบหมายช่าง และใช้ TECHS.length เป็น "จำนวนช่างทั้งหมด" ตอนเช็ค capacity (v1.0.526) ด้วย
+  // ทำให้ระบบเข้าใจผิดว่ามีช่างพอดี 4 คนเสมอไม่ว่าความจริงจะมีกี่คน — ดึงช่างจริงจาก staff (แผนกบริการ) แทน
+  let TECHS = []
   let viewDate = todayBangkok()
   let viewMode = 'day' // day | week | list
   let statusFilter = 'all'
@@ -37,6 +39,11 @@ export default async function ServiceAppointmentPage(container) {
   async function loadData() {
     loading = true
     try { appts = await listDocs('service_appointments', companyScopeFilters(), 'date', 'desc', 500) } catch (e) { appts = [] }
+    try {
+      const staff = await listDocs('staff', companyScopeFilters(), 'createdAt', 'desc', 500)
+      TECHS = staff.filter(s => !s.deleted && s.status !== 'inactive' && s.dept === 'ฝ่ายบริการ')
+        .map(s => ((s.firstName || '') + ' ' + (s.lastName || '')).trim() || s.name || 'พนักงาน')
+    } catch { TECHS = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -228,7 +235,9 @@ export default async function ServiceAppointmentPage(container) {
         const techConflict = activeAtSlot.find(a => a.tech === tech)
         if (techConflict) { showToast(`❗ ช่าง${tech} มีนัดของ ${techConflict.custName} ชนเวลา ${time} อยู่แล้ว`, 'error'); return }
       }
-      if (activeAtSlot.length >= TECHS.length) { showToast(`❗ ช่วงเวลา ${time} เต็มแล้ว (ช่างว่างหมด ${TECHS.length}/${TECHS.length} คน) กรุณาเลือกเวลาอื่น`, 'error'); return }
+      // (v1.0.538) TECHS ตอนนี้ดึงจากพนักงานจริง (แผนกบริการ) แทนรายชื่อปลอมเดิม — ถ้ายังไม่มีการตั้งพนักงาน
+      // แผนกบริการไว้เลย (TECHS.length===0) ต้องไม่บล็อกการจองทั้งหมด (0>=0 จะเป็น true เสมอ) ข้ามเช็คนี้ไป
+      if (TECHS.length && activeAtSlot.length >= TECHS.length) { showToast(`❗ ช่วงเวลา ${time} เต็มแล้ว (ช่างว่างหมด ${TECHS.length}/${TECHS.length} คน) กรุณาเลือกเวลาอื่น`, 'error'); return }
       const data = { custName, date, time, phone: el.querySelector('#ap-phone').value, model: el.querySelector('#ap-model').value, plate: el.querySelector('#ap-plate').value, type: el.querySelector('#ap-type').value, tech, km: +el.querySelector('#ap-km').value||0, note: el.querySelector('#ap-note').value }
       // เดิมปุ่มนี้ไม่ disable ระหว่างรอบันทึก กดซ้ำเร็วๆตอนสร้างนัดใหม่จะสร้างนัดหมายซ้ำ 2 รายการ
       const btn = e.currentTarget

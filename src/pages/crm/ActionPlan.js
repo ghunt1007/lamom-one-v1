@@ -18,14 +18,6 @@ const PRIORITY = { high: { label: 'สูง', color: 'danger' }, medium: { labe
 // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
 function today() { return todayBangkok() }
 
-const DEMO = [
-  { id:'ap1', salesName:'อรนุช เซลส์ดี', title:'โทรปิดดีล ธีรพงศ์ — BYD Seal', type:'ปิดการขาย', custName:'ธีรพงศ์ แสงทอง', dueDate: today(), status:'doing', priority:'high', note:'ลูกค้าขอส่วนลดเพิ่ม 1 หมื่น', createdAt:'2025-06-18' },
-  { id:'ap2', salesName:'อรนุช เซลส์ดี', title:'นัดทดลองขับ Atto 3', type:'ทดลองขับ', custName:'สมหญิง ดีมาก', dueDate: today(), status:'todo', priority:'medium', note:'', createdAt:'2025-06-19' },
-  { id:'ap3', salesName:'วิชัย ขายเก่ง', title:'ติดตามผลไฟแนนซ์ TTB', type:'ติดตามไฟแนนซ์', custName:'กิตติพงษ์ วรรณศิลป์', dueDate: '2025-06-20', status:'doing', priority:'high', note:'รอเอกสารเพิ่ม', createdAt:'2025-06-17' },
-  { id:'ap4', salesName:'วิชัย ขายเก่ง', title:'ส่งใบเสนอราคา NETA V', type:'เสนอราคา', custName:'สุภาพร ใจดี', dueDate: '2025-06-22', status:'todo', priority:'medium', note:'', createdAt:'2025-06-19' },
-  { id:'ap5', salesName:'อรนุช เซลส์ดี', title:'ส่งมอบรถ + แนะนำแอป', type:'ดูแลหลังขาย', custName:'สมบัติ ยิ่งใหญ่', dueDate:'2025-06-15', status:'done', priority:'low', note:'ส่งมอบเรียบร้อย', createdAt:'2025-06-14' },
-]
-
 export default async function ActionPlanPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
@@ -36,7 +28,6 @@ export default async function ActionPlanPage(container) {
 
   async function loadData() {
     try { plans = (await listDocs('action_plans', companyScopeFilters(), 'createdAt', 'desc', 500)).filter(p => !p.deleted) } catch {}
-    if (!plans.length) plans = DEMO.map(p => ({ ...p }))
     render()
   }
 

@@ -27,8 +27,6 @@ const PD_TYPE = {
   both:     { label: 'รับ-ส่งครบวงจร', icon: '🔄' },
 }
 
-const DRIVERS = ['สมบัติ ขับดี', 'อนันต์ ปลอดภัย']
-
 const NEXT = { scheduled: 'enroute', enroute: 'picked', picked: 'servicing', servicing: 'returning', returning: 'completed' }
 
 export default async function CourtesyCarPage(container) {
@@ -36,11 +34,18 @@ export default async function CourtesyCarPage(container) {
   seedDemoData()
 
   let jobs = []
+  // (v1.0.538) เดิม DRIVERS hardcode ชื่อคนขับปลอม 2 คนเสมอ — งานรับ-ส่งรถจริงที่มอบหมายผ่านฟอร์มนี้จะผูก
+  // กับคนขับปลอมเสมอ (ไม่มีแผนก "คนขับ" แยกในระบบ HR จึงดึงพนักงานที่ยังทำงานอยู่ทั้งหมดมาให้เลือกแทน)
+  let DRIVERS = []
   let loading = true
 
   async function loadData() {
     loading = true
     try { jobs = await listDocs('courtesy_car_jobs', companyScopeFilters(), 'scheduledAt', 'desc', 500) } catch (e) { jobs = [] }
+    try {
+      const staff = await listDocs('staff', companyScopeFilters(), 'createdAt', 'desc', 500)
+      DRIVERS = staff.filter(s => !s.deleted && s.status !== 'inactive').map(s => ((s.firstName || '') + ' ' + (s.lastName || '')).trim() || s.name || 'พนักงาน')
+    } catch { DRIVERS = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -70,7 +75,7 @@ export default async function CourtesyCarPage(container) {
           ${kpi('🔄 งานวันนี้', todayJobs, 'primary')}
           ${kpi('🚗 กำลังดำเนินการ', active, active > 0 ? 'warning' : 'success')}
           ${kpi('🛣 ระยะทางรวม', totalKm + ' km', 'secondary')}
-          ${kpi('👷 คนขับ', DRIVERS.length + ' คน', 'secondary')}
+          ${kpi('👷 คนขับที่เคยมอบหมาย', new Set(jobs.filter(j => j.driver).map(j => j.driver)).size + ' คน', 'secondary')}
         </div>
 
         <div style="display:flex;flex-direction:column;gap:10px">
@@ -105,6 +110,7 @@ export default async function CourtesyCarPage(container) {
 
     container.querySelectorAll('.assign-btn').forEach(b => b.addEventListener('click', () => {
       const j = jobs.find(x => x.id === b.dataset.id)
+      if (!DRIVERS.length) { showToast('❗ ยังไม่มีข้อมูลพนักงานในระบบ', 'error'); return }
       if (j) openModal({
         title: '👷 มอบหมายคนขับ',
         size: 'sm',
