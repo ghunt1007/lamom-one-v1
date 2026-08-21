@@ -578,13 +578,17 @@ service cloud.firestore {
     }
 
     match /salary_scale_staff/{docId} {
-      allow read: if isFinance() || isManager();
-      allow write: if isFinance();
+      allow read: if (isFinance() || isManager()) && canSeeCompanyDoc(resource.data);
+      allow create: if isFinance() && canSeeCompanyDoc(request.resource.data);
+      allow update: if isFinance() && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isFinance() && canSeeCompanyDoc(resource.data);
     }
 
     match /bonus_pool_staff/{docId} {
-      allow read: if isFinance() || isManager();
-      allow write: if isFinance();
+      allow read: if (isFinance() || isManager()) && canSeeCompanyDoc(resource.data);
+      allow create: if isFinance() && canSeeCompanyDoc(request.resource.data);
+      allow update: if isFinance() && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isFinance() && canSeeCompanyDoc(resource.data);
     }
 
     // ช่างอ่านได้ (เช็คสถานะโบนัสตัวเอง) แต่การ "อนุมัติ" (create) ต้องผู้จัดการ/การเงินเท่านั้น เพราะสั่งจ่ายเงินจริง
@@ -845,16 +849,17 @@ service cloud.firestore {
     // ใบเสร็จเบิกค่าใช้จ่าย — เดิมปุ่ม "อนุมัติ/ปฏิเสธ" ไม่มีการเช็คสิทธิ์เลย พนักงานคนไหนก็กดอนุมัติใบเสร็จ
     // ของใครก็ได้ (รวมถึงของตัวเอง) เหมือน expense_claims ที่แก้ไปแล้ว
     match /expense_receipts/{docId} {
-      allow read: if isStaff();
-      allow create: if isStaff();
-      allow update: if isFinance() || isManager() || isHR();
-      allow delete: if isFinance() || isManager();
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
+      allow create: if isStaff() && canSeeCompanyDoc(request.resource.data);
+      allow update: if (isFinance() || isManager() || isHR()) && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if (isFinance() || isManager()) && canSeeCompanyDoc(resource.data);
     }
 
     match /expense_claims/{docId} {
-      allow read: if isStaff();
-      allow create: if isStaff();
-      allow update, delete: if isHR() || isManager();
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
+      allow create: if isStaff() && canSeeCompanyDoc(request.resource.data);
+      allow update: if (isHR() || isManager()) && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if (isHR() || isManager()) && canSeeCompanyDoc(resource.data);
     }
 
     // เงินจริงที่จ่ายให้พาร์ทเนอร์ (referral/reseller) — การอนุมัติสั่งจ่ายจริง เหมือน tech_kpi_bonus_approvals
@@ -935,41 +940,50 @@ service cloud.firestore {
     // ครั้งนี้ร้ายแรงกว่าเพราะเป็น PII ที่ใช้ปลอมตัว/แอบอ้างได้จริง (เลขบัตรประชาชน) ไม่ใช่แค่ตัวเลขเงินเดือน
     // id ของเอกสารตรงกับ id ของ staff/{docId} ตัวเดียวกันเสมอ (ความสัมพันธ์ 1:1)
     match /staff_pii/{docId} {
-      allow read: if isHR() || isFinance() || isManager();
-      allow write: if isHR() || isFinance() || isManager();
+      allow read: if (isHR() || isFinance() || isManager()) && canSeeCompanyDoc(resource.data);
+      allow create: if (isHR() || isFinance() || isManager()) && canSeeCompanyDoc(request.resource.data);
+      allow update: if (isHR() || isFinance() || isManager()) && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if (isHR() || isFinance() || isManager()) && canSeeCompanyDoc(resource.data);
     }
 
     match /staff_loans/{docId} {
-      allow read: if isHR() || isManager();
+      allow read: if (isHR() || isManager()) && canSeeCompanyDoc(resource.data);
       // ป้องกันยื่นขอกู้ยืมยอด 0 หรือติดลบ — UI เช็คแค่ฝั่ง client เท่านั้น (StaffLoan.js) ข้ามได้ง่ายๆ
-      allow create: if isStaff() && positiveIfPresent('amount');
-      allow update, delete: if isHR();
+      allow create: if isStaff() && positiveIfPresent('amount') && canSeeCompanyDoc(request.resource.data);
+      allow update: if isHR() && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isHR() && canSeeCompanyDoc(resource.data);
     }
 
     // ชั่วโมง OT ใช้คำนวณค่าจ้างจริง (hourlyRate × hours) เหมือน staff_loans — พนักงานยื่นขอได้เอง
     // แต่แก้ไข/อนุมัติ/ลบต้อง HR หรือผู้จัดการเท่านั้น
     match /overtime_records/{docId} {
-      allow read: if isHR() || isManager();
-      allow create: if isStaff();
-      allow update, delete: if isHR() || isManager();
+      allow read: if (isHR() || isManager()) && canSeeCompanyDoc(resource.data);
+      allow create: if isStaff() && canSeeCompanyDoc(request.resource.data);
+      allow update: if (isHR() || isManager()) && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if (isHR() || isManager()) && canSeeCompanyDoc(resource.data);
     }
 
     // ไฟล์เอกสารส่วนตัวพนักงานที่อัปโหลดจริง (fileUrl) — อ่อนไหวระดับเดียวกับ staff_profiles
     match /staff_documents/{docId} {
-      allow read: if isHR() || isManager();
-      allow write: if isHR();
+      allow read: if (isHR() || isManager()) && canSeeCompanyDoc(resource.data);
+      allow create: if isHR() && canSeeCompanyDoc(request.resource.data);
+      allow update: if isHR() && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isHR() && canSeeCompanyDoc(resource.data);
     }
 
     // แผนสวัสดิการ (ผู้ให้บริการ/ค่าใช้จ่าย/สิทธิ์) เป็นการตั้งค่าระดับองค์กร ไม่ใช่ของพนักงานคนเดียว
     match /welfare_items/{docId} {
-      allow read: if isStaff();
-      allow write: if isHR() || isManager();
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
+      allow create: if (isHR() || isManager()) && canSeeCompanyDoc(request.resource.data);
+      allow update: if (isHR() || isManager()) && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if (isHR() || isManager()) && canSeeCompanyDoc(resource.data);
     }
 
     match /leave_requests/{docId} {
-      allow read: if isStaff();
-      allow create: if isStaff();
-      allow update, delete: if isHR() || isManager();
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
+      allow create: if isStaff() && canSeeCompanyDoc(request.resource.data);
+      allow update: if (isHR() || isManager()) && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if (isHR() || isManager()) && canSeeCompanyDoc(resource.data);
     }
 
     // หน้า Attendance เป็นแบบ kiosk — พนักงานคนไหนก็แตะเข้า/ออกงานของตัวเองได้จากอุปกรณ์ที่ตั้งไว้หน้าออฟฟิศ
@@ -979,13 +993,17 @@ service cloud.firestore {
     }
 
     match /performance_reviews/{docId} {
-      allow read: if isStaff();
-      allow write: if isManager();
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
+      allow create: if isManager() && canSeeCompanyDoc(request.resource.data);
+      allow update: if isManager() && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isManager() && canSeeCompanyDoc(resource.data);
     }
 
     match /team_targets/{docId} {
-      allow read: if isStaff();
-      allow write: if isManager();
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
+      allow create: if isManager() && canSeeCompanyDoc(request.resource.data);
+      allow update: if isManager() && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isManager() && canSeeCompanyDoc(resource.data);
     }
 
     // เป้ายอดขาย/งบ FOC รายปีของทั้งบริษัท — สิทธิ์เดียวกับ team_targets เพื่อไม่ให้พนักงานขายแก้เป้าตัวเองได้
@@ -1020,13 +1038,17 @@ service cloud.firestore {
     }
 
     match /employee_evaluations/{docId} {
-      allow read: if isStaff();
-      allow write: if isManager();
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
+      allow create: if isManager() && canSeeCompanyDoc(request.resource.data);
+      allow update: if isManager() && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isManager() && canSeeCompanyDoc(resource.data);
     }
 
     match /disciplinary_records/{docId} {
-      allow read: if isHR() || isManager();
-      allow write: if isHR() || isManager();
+      allow read: if (isHR() || isManager()) && canSeeCompanyDoc(resource.data);
+      allow create: if (isHR() || isManager()) && canSeeCompanyDoc(request.resource.data);
+      allow update: if (isHR() || isManager()) && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if (isHR() || isManager()) && canSeeCompanyDoc(resource.data);
     }
 
     // ประกาศภายในบริษัท — พนักงานทุกคนอ่านได้ แต่สร้าง/แก้ไข/ลบเนื้อหาได้เฉพาะ "ผู้มีอำนาจ" (HR/ผู้จัดการขึ้นไป) เท่านั้น
@@ -1053,9 +1075,10 @@ service cloud.firestore {
     // (พนักงานร้องเรียนขึ้นไปหา HR/ผู้จัดการ ไม่ใช่ฝ่ายบริหารตักเตือนพนักงาน)
     // ผู้ยื่นเห็นแค่เรื่องของตัวเอง + HR/ผู้จัดการเห็นทั้งหมด — แก้ไข/ปิดเรื่องได้เฉพาะ HR/ผู้จัดการเท่านั้น
     match /staff_grievances/{docId} {
-      allow read: if isHR() || isManager() || (isSignedIn() && resource.data.get('submittedBy', '') == uid());
-      allow create: if isStaff() && request.resource.data.get('submittedBy', '') == uid();
-      allow update, delete: if isHR() || isManager();
+      allow read: if (isHR() || isManager() || (isSignedIn() && resource.data.get('submittedBy', '') == uid())) && canSeeCompanyDoc(resource.data);
+      allow create: if isStaff() && request.resource.data.get('submittedBy', '') == uid() && canSeeCompanyDoc(request.resource.data);
+      allow update: if (isHR() || isManager()) && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if (isHR() || isManager()) && canSeeCompanyDoc(resource.data);
     }
 
     // แบบสำรวจ mood รายวันของพนักงาน (คะแนน+โน้ตส่วนตัว) — ส่งได้ทุกคนแต่อ่านของคนอื่นได้แค่ HR/ผู้จัดการ
@@ -1073,11 +1096,17 @@ service cloud.firestore {
     }
 
     match /onboarding_staff/{docId} {
-      allow read, write: if isHR() || isManager();
+      allow read: if (isHR() || isManager()) && canSeeCompanyDoc(resource.data);
+      allow create: if (isHR() || isManager()) && canSeeCompanyDoc(request.resource.data);
+      allow update: if (isHR() || isManager()) && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if (isHR() || isManager()) && canSeeCompanyDoc(resource.data);
     }
 
     match /offboarding_staff/{docId} {
-      allow read, write: if isHR() || isManager();
+      allow read: if (isHR() || isManager()) && canSeeCompanyDoc(resource.data);
+      allow create: if (isHR() || isManager()) && canSeeCompanyDoc(request.resource.data);
+      allow update: if (isHR() || isManager()) && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if (isHR() || isManager()) && canSeeCompanyDoc(resource.data);
     }
 
     // ── Insurance ─────────────────────────────────────────────────────────────
@@ -1402,8 +1431,20 @@ service cloud.firestore {
     }
 
     // ── HR ที่อ่อนไหวสูง — ข้อมูลผู้สมัครงาน/แผนสืบทอดตำแหน่ง/ผลประเมิน ไม่ใช่ staff ทั่วไปควรเห็น ──
+    // เดิมไม่มี match block เจาะจงเลย ตกอยู่ใต้ catch-all isStaff() กว้าง — คงสิทธิ์เดิมไว้ (isStaff() ทุกจุด)
+    // เพิ่มแค่การกรองตามบริษัท ไม่เปลี่ยนสิทธิ์ตาม role
+    match /recruitment_jobs/{docId} {
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
+      allow create: if isStaff() && canSeeCompanyDoc(request.resource.data);
+      allow update: if isStaff() && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isStaff() && canSeeCompanyDoc(resource.data);
+    }
+
     match /recruitment_applicants/{docId} {
-      allow read, write: if isHR() || isManager();
+      allow read: if (isHR() || isManager()) && canSeeCompanyDoc(resource.data);
+      allow create: if (isHR() || isManager()) && canSeeCompanyDoc(request.resource.data);
+      allow update: if (isHR() || isManager()) && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if (isHR() || isManager()) && canSeeCompanyDoc(resource.data);
     }
 
     match /staff_profiles/{docId} {
@@ -1429,12 +1470,40 @@ service cloud.firestore {
       allow write: if (isHR() || isFinance() || isManager()) && nonNegIfPresent('salary');
     }
 
+    // เดิมไม่มี match block เจาะจงเลย ตกอยู่ใต้ catch-all isStaff() กว้าง — คงสิทธิ์เดิมไว้
+    match /shift_schedules/{docId} {
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
+      allow create: if isStaff() && canSeeCompanyDoc(request.resource.data);
+      allow update: if isStaff() && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isStaff() && canSeeCompanyDoc(resource.data);
+    }
+
+    match /staff_skills/{docId} {
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
+      allow create: if isStaff() && canSeeCompanyDoc(request.resource.data);
+      allow update: if isStaff() && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isStaff() && canSeeCompanyDoc(resource.data);
+    }
+
+    match /team_meetings/{docId} {
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
+      allow create: if isStaff() && canSeeCompanyDoc(request.resource.data);
+      allow update: if isStaff() && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isStaff() && canSeeCompanyDoc(resource.data);
+    }
+
     match /succession_plans/{docId} {
-      allow read, write: if isHR() || isManager();
+      allow read: if (isHR() || isManager()) && canSeeCompanyDoc(resource.data);
+      allow create: if (isHR() || isManager()) && canSeeCompanyDoc(request.resource.data);
+      allow update: if (isHR() || isManager()) && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if (isHR() || isManager()) && canSeeCompanyDoc(resource.data);
     }
 
     match /performance_scorecards/{docId} {
-      allow read, write: if isManager();
+      allow read: if isManager() && canSeeCompanyDoc(resource.data);
+      allow create: if isManager() && canSeeCompanyDoc(request.resource.data);
+      allow update: if isManager() && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isManager() && canSeeCompanyDoc(resource.data);
     }
 
     // ── Default: any other collection requires staff auth ────────────────────
@@ -1474,6 +1543,7 @@ service cloud.firestore {
         'comm_logs', 'quotations', 'followups', 'greeting_sends', 'test_drives', 'appointments',
         'vehicle_orders', 'parts', 'pdi', 'service_appointments', 'vehicle_inspections', 'job_cards',
         'cashier_shift_closes', 'charging_sessions', 'energy_readings', 'auto_receipts', 'auto_send_rules', 'vendors', 'compliance_checklist',
+        'recruitment_jobs', 'shift_schedules', 'staff_skills', 'team_meetings',
         'refund_requests', 'purchase_orders', 'supplier_pos', 'debts', 'deposits',
         'trade_ins', 'warranty_claims', 'warranty_service_claims', 'finance_rate_sheets',
         'finance_applications', 'finance_tracker', 'cashier_payments', 'cashier_pending_bills',

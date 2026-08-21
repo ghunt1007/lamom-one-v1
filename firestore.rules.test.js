@@ -613,8 +613,9 @@ describe('disciplinary_records — rule now matches the real collection name (wa
     await assertFails(db.collection('disciplinary_records').get())
   })
 
+  // (v1.0.507) groupWide:true — ไม่ใช่การแยกบริษัท
   it('HR role can read and write disciplinary_records', async () => {
-    await seedUser('hrGap2', { role: 'hr', active: true })
+    await seedUser('hrGap2', { role: 'hr', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('hrGap2').firestore()
     await assertSucceeds(db.collection('disciplinary_records').get())
   })
@@ -676,8 +677,9 @@ describe('third audit pass — HR data more sensitive than the plain staff/isHR(
     await assertFails(db.collection('recruitment_applicants').get())
   })
 
+  // (v1.0.507) groupWide:true — ไม่ใช่การแยกบริษัท
   it('HR role can read job applicant records', async () => {
-    await seedUser('auditGap5', { role: 'hr', active: true })
+    await seedUser('auditGap5', { role: 'hr', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('auditGap5').firestore()
     await assertSucceeds(db.collection('recruitment_applicants').get())
   })
@@ -737,8 +739,9 @@ describe('fourth audit pass — money-adjacent and personal-document collections
     await assertFails(ref.update({ value: 999999 }))
   })
 
+  // (v1.0.507) groupWide:true — ไม่ใช่การแยกบริษัท
   it('plain staff cannot approve their own overtime hours', async () => {
-    await seedUser('auditGap12', { role: 'sales', active: true })
+    await seedUser('auditGap12', { role: 'sales', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('auditGap12').firestore()
     const ref = await assertSucceeds(db.collection('overtime_records').add({ staff: 'x', hours: 2, status: 'pending' }))
     await assertFails(ref.update({ status: 'approved' }))
@@ -750,8 +753,9 @@ describe('fourth audit pass — money-adjacent and personal-document collections
     await assertFails(db.collection('staff_documents').get())
   })
 
+  // (v1.0.507) groupWide:true — ไม่ใช่การแยกบริษัท
   it('HR can manage staff document uploads', async () => {
-    await seedUser('auditGap14', { role: 'hr', active: true })
+    await seedUser('auditGap14', { role: 'hr', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('auditGap14').firestore()
     await assertSucceeds(db.collection('staff_documents').add({ staff: 'x', type: 'id_card', fileUrl: 'https://x' }))
   })
@@ -856,15 +860,16 @@ describe('fifth audit pass — remaining 169 collections, evidence-based restric
     await assertSucceeds(db.collection('documents').doc('hrdoc2').get())
   })
 
+  // (v1.0.507) groupWide:true × 2 — ไม่ใช่การแยกบริษัท
   it('plain staff cannot approve their own expense receipt reimbursement', async () => {
-    await seedUser('auditGap23', { role: 'sales', active: true })
+    await seedUser('auditGap23', { role: 'sales', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('auditGap23').firestore()
     const ref = await assertSucceeds(db.collection('expense_receipts').add({ vendor: 'x', status: 'pending' }))
     await assertFails(ref.update({ status: 'approved' }))
   })
 
   it('finance role can approve an expense receipt', async () => {
-    await seedUser('auditGap24', { role: 'finance', active: true })
+    await seedUser('auditGap24', { role: 'finance', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('auditGap24').firestore()
     const ref = await db.collection('expense_receipts').add({ vendor: 'x', status: 'pending' })
     await assertSucceeds(ref.update({ status: 'approved' }))
@@ -1017,8 +1022,9 @@ describe('org_companies — internal legal-entity records (multi-company support
 })
 
 describe('staff_grievances — internal employee complaints (opposite direction of disciplinary_records)', () => {
+  // (v1.0.507) groupWide:true — ไม่ใช่การแยกบริษัท
   it('a staff member can create a grievance scoped to their own uid', async () => {
-    await seedUser('auditGap44', { role: 'sales', active: true })
+    await seedUser('auditGap44', { role: 'sales', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('auditGap44').firestore()
     await assertSucceeds(db.collection('staff_grievances').add({ submittedBy: 'auditGap44', subject: 'x', status: 'pending' }))
   })
@@ -1029,8 +1035,9 @@ describe('staff_grievances — internal employee complaints (opposite direction 
     await assertFails(db.collection('staff_grievances').add({ submittedBy: 'someone-else', subject: 'x', status: 'pending' }))
   })
 
+  // (v1.0.507) groupWide:true — ไม่ใช่การแยกบริษัท
   it('a staff member can read their own grievance', async () => {
-    await seedUser('auditGap46', { role: 'sales', active: true })
+    await seedUser('auditGap46', { role: 'sales', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('auditGap46').firestore()
     await db.collection('staff_grievances').doc('g1').set({ submittedBy: 'auditGap46', subject: 'mine', status: 'pending' })
     await assertSucceeds(db.collection('staff_grievances').doc('g1').get())
@@ -1045,15 +1052,17 @@ describe('staff_grievances — internal employee complaints (opposite direction 
     await assertFails(db.collection('staff_grievances').doc('g2').get())
   })
 
+  // (v1.0.507) groupWide:true — ไม่ใช่การแยกบริษัท
   it('a staff member cannot resolve/update their own grievance', async () => {
-    await seedUser('auditGap48', { role: 'sales', active: true })
+    await seedUser('auditGap48', { role: 'sales', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('auditGap48').firestore()
     await db.collection('staff_grievances').doc('g3').set({ submittedBy: 'auditGap48', subject: 'mine', status: 'pending' })
     await assertFails(db.collection('staff_grievances').doc('g3').update({ status: 'resolved' }))
   })
 
+  // (v1.0.507) groupWide:true — ไม่ใช่การแยกบริษัท
   it('HR can read and resolve any grievance', async () => {
-    await seedUser('auditGap49', { role: 'hr', active: true })
+    await seedUser('auditGap49', { role: 'hr', active: true, groupWide: true })
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await ctx.firestore().collection('staff_grievances').doc('g4').set({ submittedBy: 'someoneElse', subject: 'case', status: 'pending' })
     })
@@ -1359,8 +1368,9 @@ describe('numeric bounds — money/quantity fields cannot be written negative ev
     await assertFails(db.collection('staff_loans').add({ staffId: 'numBounds13', amount: 0 }))
   })
 
+  // (v1.0.507) groupWide:true — ไม่ใช่การแยกบริษัท
   it('staff_loans: a staff member can request a normal positive loan amount', async () => {
-    await seedUser('numBounds14', { role: 'staff', active: true })
+    await seedUser('numBounds14', { role: 'staff', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('numBounds14').firestore()
     await assertSucceeds(db.collection('staff_loans').add({ staffId: 'numBounds14', amount: 10000 }))
   })
@@ -1704,8 +1714,9 @@ describe('staff_pii (v1.0.444) — sensitive PII scoped to HR/finance/manager on
     await assertFails(db.collection('staff_pii').doc('emp1').get())
   })
 
+  // (v1.0.507) groupWide:true — ไม่ใช่การแยกบริษัท
   it('HR can read a staff PII record', async () => {
-    await seedUser('piiScope2', { role: 'hr', active: true })
+    await seedUser('piiScope2', { role: 'hr', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('piiScope2').firestore()
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await ctx.firestore().doc('staff_pii/emp2').set({ nationalId: '1234567890123' })
@@ -1719,8 +1730,9 @@ describe('staff_pii (v1.0.444) — sensitive PII scoped to HR/finance/manager on
     await assertFails(db.collection('staff_pii').doc('emp3').set({ nationalId: '1234567890123' }))
   })
 
+  // (v1.0.507) groupWide:true — ไม่ใช่การแยกบริษัท
   it('HR can write a staff PII record', async () => {
-    await seedUser('piiScope4', { role: 'hr', active: true })
+    await seedUser('piiScope4', { role: 'hr', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('piiScope4').firestore()
     await assertSucceeds(db.collection('staff_pii').doc('emp4').set({ nationalId: '1234567890123', bankAccount: '1112223334' }))
   })
@@ -2192,6 +2204,80 @@ describe('company scoping — Phase 4, finance collections (v1.0.504)', () => {
       it('a company-scoped user CANNOT list docs with no where clause at all', async () => {
         await seedUser(`csp4p6_${col}`, { role: 'manager', active: true, companyIds: ['companyA'] })
         const db = testEnv.authenticatedContext(`csp4p6_${col}`).firestore()
+        await assertFails(db.collection(col).get())
+      })
+    })
+  })
+})
+
+// v1.0.507 — Phase 5: canSeeCompanyDoc() เปิดใช้งานจริงกับ 24 collection ฝั่ง HR โค้ดแอปทุกหน้าที่อ่าน/เขียน
+// collection เหล่านี้แก้ให้ใช้ companyScopeFilters()/myEffectiveCompanyId() ครบแล้วใน v1.0.506 — role gate เดิม
+// หลากหลายมาก (isStaff/isHR/isFinance/isManager ผสมกัน) แต่ role 'manager'/'owner' ผ่านทุก gate ที่ใช้ในแอปนี้
+// จึงใช้ role เดียวกันทดสอบกลไก company-scoping ได้ครบทั้ง 24 collection (เหมือน Phase 4) — เคสนี้ทดสอบเฉพาะ
+// ฝั่ง canSeeCompanyDoc() เท่านั้น ไม่ใช่ role gate ของแต่ละ collection (มีเทสเจาะจงแยกต่างหากอยู่แล้ว)
+describe('company scoping — Phase 5, HR collections (v1.0.507)', () => {
+  const collections = [
+    'bonus_pool_staff', 'disciplinary_records', 'employee_evaluations', 'expense_receipts', 'expense_claims',
+    'leave_requests', 'offboarding_staff', 'onboarding_staff', 'overtime_records', 'performance_scorecards',
+    'performance_reviews', 'recruitment_jobs', 'recruitment_applicants', 'shift_schedules', 'salary_scale_staff',
+    'staff_skills', 'staff_pii', 'staff_documents', 'staff_loans', 'succession_plans', 'staff_grievances',
+    'team_meetings', 'welfare_items', 'team_targets',
+  ]
+
+  collections.forEach((col) => {
+    describe(col, () => {
+      it('the program-owner account (by email) sees a doc from a company they are not a member of', async () => {
+        await seedUser(`csp5p1_${col}`, { role: 'owner', active: true })
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.firestore().doc(`${col}/d1`).set({ note: 'x', companyId: 'companyB' })
+        })
+        const db = testEnv.authenticatedContext(`csp5p1_${col}`, { email: 'ghunt1007@gmail.com' }).firestore()
+        await assertSucceeds(db.doc(`${col}/d1`).get())
+        await assertSucceeds(db.collection(col).get())
+      })
+
+      it('a plain owner-role account that is NOT the program-owner email is company-scoped like anyone else', async () => {
+        await seedUser(`csp5p2_${col}`, { role: 'owner', active: true, companyIds: ['companyA'] })
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.firestore().doc(`${col}/d2`).set({ note: 'x', companyId: 'companyB' })
+        })
+        const db = testEnv.authenticatedContext(`csp5p2_${col}`, { email: 'somsak@lamom.one' }).firestore()
+        await assertFails(db.doc(`${col}/d2`).get())
+        await assertFails(db.collection(col).get())
+        await assertSucceeds(db.collection(col).where('companyId', 'in', ['companyA']).get())
+      })
+
+      it('a groupWide:true user sees a doc from a company they are not a member of', async () => {
+        await seedUser(`csp5p3_${col}`, { role: 'manager', active: true, companyIds: ['companyA'], groupWide: true })
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.firestore().doc(`${col}/d3`).set({ note: 'x', companyId: 'companyB' })
+        })
+        const db = testEnv.authenticatedContext(`csp5p3_${col}`).firestore()
+        await assertSucceeds(db.doc(`${col}/d3`).get())
+        await assertSucceeds(db.collection(col).get())
+      })
+
+      it('a company-scoped user CANNOT open a doc belonging to a different company directly', async () => {
+        await seedUser(`csp5p4_${col}`, { role: 'manager', active: true, companyIds: ['companyA'] })
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.firestore().doc(`${col}/d4`).set({ note: 'x', companyId: 'companyB' })
+        })
+        const db = testEnv.authenticatedContext(`csp5p4_${col}`).firestore()
+        await assertFails(db.doc(`${col}/d4`).get())
+      })
+
+      it('a company-scoped user CAN list docs when the query is properly scoped with a matching where clause', async () => {
+        await seedUser(`csp5p5_${col}`, { role: 'manager', active: true, companyIds: ['companyA'] })
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.firestore().doc(`${col}/d5`).set({ note: 'x', companyId: 'companyA' })
+        })
+        const db = testEnv.authenticatedContext(`csp5p5_${col}`).firestore()
+        await assertSucceeds(db.collection(col).where('companyId', 'in', ['companyA']).get())
+      })
+
+      it('a company-scoped user CANNOT list docs with no where clause at all', async () => {
+        await seedUser(`csp5p6_${col}`, { role: 'manager', active: true, companyIds: ['companyA'] })
+        const db = testEnv.authenticatedContext(`csp5p6_${col}`).firestore()
         await assertFails(db.collection(col).get())
       })
     })
