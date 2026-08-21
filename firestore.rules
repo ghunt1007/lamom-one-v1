@@ -735,8 +735,12 @@ service cloud.firestore {
 
     match /trade_ins/{docId} {
       allow read: if isStaff();
-      allow create: if isStaff();
-      allow update, delete: if isManager();
+      // (v1.0.522) เพิ่มช่องยอดหนี้ค้างชำระ (outstandingLoan) — กันค่าติดลบเหมือน guard เดิมของ bookings
+      allow create: if isStaff()
+        && nonNegIfPresent('marketPrice') && nonNegIfPresent('offerPrice') && nonNegIfPresent('outstandingLoan');
+      allow update: if isManager()
+        && nonNegIfPresent('marketPrice') && nonNegIfPresent('offerPrice') && nonNegIfPresent('outstandingLoan');
+      allow delete: if isManager();
     }
 
     match /warranty_claims/{docId} {
