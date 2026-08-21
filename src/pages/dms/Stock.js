@@ -1,4 +1,4 @@
-import { listDocs, watchDocs, createDoc, updateDocData, softDelete, seedDemoData, getSalesData } from '../../core/db.js'
+import { listDocs, listAllDocs, watchDocs, createDoc, updateDocData, softDelete, seedDemoData, getSalesData } from '../../core/db.js'
 import { showToast, getState, on } from '../../core/store.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
@@ -7,6 +7,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { getBranches } from '../../data/masterData.js'
 import { pickVehicle } from '../../utils/vehiclePicker.js'
 import { navigate } from '../../core/router.js'
+import { isProgramOwner } from '../../core/hierarchy.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -46,16 +47,6 @@ const STATUS = {
 
 const BRANDS = ['BYD','MG','NETA','DEEPAL','CHANGAN','GWM','CHERY','ZEEKR','AION','ORA']
 
-const DEMO_STOCK = [
-  { id:'v1', brand:'BYD', model:'Seal', variant:'AWD', color:'ขาว Pearl', vin:'LGXCE4C10PA000001', year:2025, price:1299000, cost:1150000, status:'available', mileage:0, location:'โชว์รูมหลัก', arrivedAt:'2025-03-01', notes:'' },
-  { id:'v2', brand:'BYD', model:'Atto 3', variant:'Extended Range', color:'น้ำเงิน', vin:'LGXCE4C10PA000002', year:2025, price:1099000, cost:970000, status:'reserved', mileage:0, location:'โชว์รูมหลัก', arrivedAt:'2025-02-15', notes:'จอง-วิชัย สุขใจ' },
-  { id:'v3', brand:'MG', model:'MG4', variant:'X-Power', color:'แดง Dragon', vin:'SDUZZZEF5PA000003', year:2025, price:949000, cost:840000, status:'available', mileage:0, location:'โชว์รูมหลัก', arrivedAt:'2025-03-10', notes:'' },
-  { id:'v4', brand:'DEEPAL', model:'S7', variant:'Pro', color:'ดำ Obsidian', vin:'LZEZ1EBA0PA000004', year:2025, price:1479000, cost:1320000, status:'pdi', mileage:0, location:'ห้อง PDI', arrivedAt:'2025-04-01', notes:'PDI เสร็จ 5 เม.ย.' },
-  { id:'v5', brand:'NETA', model:'V II', variant:'Pro 400', color:'ขาว', vin:'LNBSCCAD0PA000005', year:2025, price:769000, cost:680000, status:'available', mileage:0, location:'โชว์รูมสาขา 2', arrivedAt:'2025-03-20', notes:'' },
-  { id:'v6', brand:'BYD', model:'Seal', variant:'RWD', color:'เทา Ink', vin:'LGXCE4C10PA000006', year:2025, price:1199000, cost:1060000, status:'demo', mileage:3520, location:'โชว์รูมหลัก', arrivedAt:'2025-01-10', notes:'รถทดลองขับ' },
-  { id:'v7', brand:'MG', model:'MG4', variant:'X', color:'ขาว', vin:'SDUZZZEF5PA000007', year:2024, price:869000, cost:760000, status:'sold', mileage:0, location:'-', arrivedAt:'2024-11-01', notes:'ขายแล้ว 15 ม.ค. 68' },
-]
-
 export default async function StockPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
@@ -67,14 +58,9 @@ export default async function StockPage(container) {
   let brandFilter = 'all'
   let search = ''
   let viewMode = 'table' // table | card
-  // เดิมหน้านี้ไม่มีการแจ้งเลยว่า DEMO_STOCK (7 คันตัวอย่าง) ที่โผล่มาแทนตอนยังไม่มีรถจริงเป็นข้อมูลปลอม
-  // (ทุกหน้าอื่นในระบบที่ fallback แบบเดียวกัน เช่น Staff.js มี badge "⚠️ ข้อมูลตัวอย่าง" เตือนไว้เสมอ) ทำให้
-  // ดูเหมือนมีรถในสต็อกจริง 7 คันทั้งที่ยังไม่มีรถจริงเลยแม้แต่คันเดียว — เพิ่ม badge แบบเดียวกัน
-  let isDemoData = false
 
   // Real-time: อัปเดตสดเมื่อมีคนแก้ไขสต็อกรถจากเครื่องอื่น — หน้านี้ renderContent()/updateStats()
   // แก้แค่ #stock-content/#stock-filtered/#vstat-*/#stock-total เท่านั้น ไม่แตะช่องค้นหาเลย จึงปลอดภัย
-  let firstSnapshot = true
   let unsubStock = () => {}
   // (v1.0.453) การกรองตามบริษัทย้ายเข้า query จริงแล้ว (companyScopeFilters()) — ต้องยกเลิก subscription
   // เก่าแล้วยิงใหม่ทุกครั้งที่ activeCompanyFilter (ตัวกรอง Topbar) เปลี่ยน ไม่งั้นตัวกรองจะหยุดทำงาน
@@ -84,10 +70,11 @@ export default async function StockPage(container) {
       if (container.__routerGen !== myGen) { unsubStock(); return }
       // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true — ถ้าไม่กรองออก รถที่ "ลบ" ไปแล้วจะยังโผล่กลับมา
       // ในสต็อกทุกครั้งที่มี snapshot ใหม่เข้ามา (รวมถึง snapshot จากการลบเองด้วย)
+      // (v1.0.528) เดิมถ้า collection ว่างจริง (ยังไม่เคยมีใครใช้หน้านี้เลย) จะเติม DEMO_STOCK (7 คันตัวอย่าง
+      // ปลอม) เข้ามาแสดงแทนแบบไม่มีทางแยกออกจากรถจริงชัดเจน — เจ้าของแจ้งว่าดูเหมือนมีสต็อกจริงทั้งที่ไม่มี
+      // เลย ตรวจสอบฐานข้อมูลจริงแล้วยืนยันว่า 'vehicles' ว่างเปล่า 100% (โมดูลนี้ไม่เคยถูกใช้งานจริง ธุรกิจ
+      // บันทึกการขายผ่านหน้า "ใบจอง" ทั้งหมด) เอา fallback ปลอมออก ให้โชว์ "ว่างเปล่าจริง" แทนตรงไปตรงมา
       stock = rows.filter(v => !v.deleted)
-      isDemoData = !stock.length && firstSnapshot
-      if (isDemoData) DEMO_STOCK.forEach(v => stock.push({ ...v }))
-      firstSnapshot = false
       // ลิงก์ใบจอง (แหล่งกลาง): จับคู่ตาม VIN → แสดงสถานะจอง/ลูกค้าบนรถในสต็อก
       try {
         const sales = await getSalesData()
@@ -96,10 +83,70 @@ export default async function StockPage(container) {
       } catch (e) {}
       if (container.__routerGen !== myGen) return
       updateStats(); applyFilter()
+      if (canBackfill) checkBackfillCandidates()
     })
   }
   startWatchStock()
   const offCompanyFilter = on('activeCompanyFilter', startWatchStock)
+
+  // (v1.0.528) เครื่องมือดึงรถจากใบจองเก่ามาสร้างเป็นสต็อกจริง (เฉพาะเจ้าของโปรแกรม) — ธุรกิจบันทึกการขาย
+  // ผ่านหน้า "ใบจอง" มาตลอดโดยไม่เคยสร้างเอกสารรถใน 'vehicles' คู่กันเลย ทำให้สต็อกว่างเปล่าแม้จะขาย/ส่งมอบ
+  // รถไปแล้วจริงหลายคัน — ดึงจากใบจองที่มี VIN จริง (ไม่ใช่ถอนจอง) มาสร้างรถ 1 คันต่อ 1 VIN ไม่ซ้ำ สถานะ
+  // ตั้งตาม booking: ส่งมอบแล้ว → sold, อื่นๆที่ยังไม่ถอนจอง → reserved (มีคนจองอยู่จริง)
+  const canBackfill = isProgramOwner()
+  let backfillCandidates = []
+  let backfilling = false
+
+  async function checkBackfillCandidates() {
+    if (!canBackfill) return
+    try {
+      const bookings = await listAllDocs('bookings', companyScopeFilters(), 'createdAt', 'desc')
+      const existingVins = new Set(stock.map(v => v.vin).filter(Boolean))
+      const seen = new Set()
+      backfillCandidates = bookings.filter(b => {
+        if (!b.deleted && b.vin && b.status !== 'ถอนจอง' && !existingVins.has(b.vin) && !seen.has(b.vin)) {
+          seen.add(b.vin); return true
+        }
+        return false
+      })
+    } catch { backfillCandidates = [] }
+    if (container.__routerGen === myGen) updateBackfillBanner()
+  }
+
+  function updateBackfillBanner() {
+    const el = document.getElementById('stock-backfill-banner')
+    if (!el) return
+    if (!canBackfill || !backfillCandidates.length) { el.innerHTML = ''; return }
+    el.innerHTML = `<div class="card" style="padding:10px 14px;margin-bottom:14px;border:1px solid var(--warning);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <span style="font-size:0.8rem;color:var(--warning)">⚠️ พบใบจองเก่า ${backfillCandidates.length} คันที่มี VIN แต่ยังไม่มีเอกสารรถในสต็อก</span>
+      <button class="btn btn-warning btn-sm" id="stock-backfill-btn" ${backfilling ? 'disabled' : ''}>${backfilling ? '⏳ กำลังสร้าง...' : '🔧 ดึงรถจากใบจองเก่ามาเป็นสต็อก'}</button>
+    </div>`
+    document.getElementById('stock-backfill-btn')?.addEventListener('click', runBackfill)
+  }
+
+  async function runBackfill() {
+    backfilling = true
+    updateBackfillBanner()
+    let created = 0, errors = 0
+    for (const b of backfillCandidates) {
+      try {
+        await createDoc('vehicles', {
+          brand: b.brand || '', model: b.model || '', variant: b.variant || '',
+          color: b.colorOut || '', vin: b.vin, year: new Date().getFullYear(),
+          price: b.price || 0, cost: b.cost || 0,
+          status: b.status === 'ส่งมอบแล้ว' ? 'sold' : 'reserved',
+          mileage: 0, location: b.status === 'ส่งมอบแล้ว' ? '-' : (getBranches()[0] || 'โชว์รูมหลัก'),
+          arrivedAt: b.actualDeliveryDate || b.cutDate || b.bookingDate || todayBangkok(),
+          notes: `ดึงจากใบจอง ${b.bookingNo || b.id} (${b.custName || '-'})`,
+          companyId: b.companyId || myEffectiveCompanyId(),
+        })
+        created++
+      } catch { errors++ }
+    }
+    backfilling = false
+    showToast(`✅ สร้างรถเข้าสต็อกจากใบจองเก่าแล้ว ${created} คัน${errors ? ` (พลาด ${errors} คัน)` : ''}`, errors ? 'warning' : 'success')
+    await checkBackfillCandidates()
+  }
 
   function updateStats() {
     const counts = {}
@@ -110,8 +157,6 @@ export default async function StockPage(container) {
     })
     const totalEl = document.getElementById('stock-total')
     if (totalEl) totalEl.textContent = `${stock.length} คัน`
-    const demoEl = document.getElementById('stock-demo-indicator')
-    if (demoEl) demoEl.textContent = isDemoData ? '⚠️ ข้อมูลตัวอย่าง (ยังไม่มีรถในสต็อกจริง)' : ''
 
     // Value stats
     const availableValue = stock.filter(v => v.status === 'available').reduce((s, v) => s + (v.cost || 0), 0)
@@ -138,7 +183,10 @@ export default async function StockPage(container) {
     if (countEl) countEl.textContent = `แสดง ${filtered.length} คัน`
 
     if (!filtered.length) {
-      wrap.innerHTML = `<div class="empty-state" style="padding:48px"><div class="empty-icon">🚗</div><div class="empty-title">ไม่พบรถ</div><div class="empty-desc">ลองเปลี่ยนตัวกรอง</div></div>`
+      // (v1.0.528) แยกข้อความให้ชัดว่า "สต็อกว่างจริงยังไม่มีรถเลย" กับ "มีรถแต่ตัวกรองไม่ตรง" ไม่ใช่แบบเดียวกัน
+      wrap.innerHTML = !stock.length
+        ? `<div class="empty-state" style="padding:48px"><div class="empty-icon">🚗</div><div class="empty-title">ยังไม่มีรถในสต็อกเลย</div><div class="empty-desc">กด "➕ เพิ่มรถ" เพื่อเริ่มบันทึกรถเข้าสต็อก${canBackfill ? ' หรือใช้ปุ่มดึงจากใบจองเก่าด้านบน (ถ้ามี)' : ''}</div></div>`
+        : `<div class="empty-state" style="padding:48px"><div class="empty-icon">🚗</div><div class="empty-title">ไม่พบรถ</div><div class="empty-desc">ลองเปลี่ยนตัวกรอง</div></div>`
       return
     }
 
@@ -573,7 +621,6 @@ export default async function StockPage(container) {
           <div style="display:flex;gap:12px;align-items:center">
             <span class="page-subtitle" id="stock-total">กำลังโหลด...</span>
             <span style="font-size:0.8rem;color:var(--accent)" id="stock-value"></span>
-            <span style="font-size:0.76rem;color:var(--warning);font-weight:600" id="stock-demo-indicator"></span>
           </div>
         </div>
         <div class="page-actions">
@@ -582,6 +629,8 @@ export default async function StockPage(container) {
           <button class="btn btn-primary" id="add-stock-btn">➕ เพิ่มรถ</button>
         </div>
       </div>
+
+      <div id="stock-backfill-banner"></div>
 
       <!-- Status Stats -->
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
