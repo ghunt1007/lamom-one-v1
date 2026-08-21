@@ -2,63 +2,64 @@
  * Technician KPI — KPI ช่างรายบุคคล / รายเดือน
  * Route: /service/tech-kpi
  */
-import { formatCurrency } from '../../utils/format.js'
-import { listDocs, seedDemoData } from '../../core/db.js'
+import { formatCurrency, todayBangkok } from '../../utils/format.js'
+import { listAllDocs, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
-const MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.']
+const MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 
-// ⚠️ TECHS + MONTHLY_DATA เป็นข้อมูลตัวอย่าง (mock) ล้วนๆ — ยังไม่มี collection ผลงานช่างจริงในระบบ (ไม่มี
-// jobs/CSAT/comeback ต่อคนต่อเดือนที่แท้จริงใน job_cards หรือที่อื่น) ห้ามใช้ตัวเลขจากตรงนี้ไปคำนวณ/อนุมัติ
-// เงินจริง (ดู comment ที่ปุ่ม bonus-btn ด้านล่าง) — ถ้าจะทำ Bonus approval จริง ต้องสร้าง collection ผลงานช่าง
-// รายเดือนจริงก่อน แล้วค่อยเปิดปุ่มนี้กลับมา
-const TECHS = [
-  { id:'T01', name:'สมศักดิ์ มีฝีมือ', level:'Master Tech', exp:8,  avatar:'🔧' },
-  { id:'T02', name:'วิชัย ช่างเก่ง',   level:'Senior Tech', exp:5,  avatar:'⚡' },
-  { id:'T03', name:'นพดล ซ่อมดี',     level:'Senior Tech', exp:4,  avatar:'🔩' },
-  { id:'T04', name:'ประสิทธิ์ รวดเร็ว',level:'Tech',        exp:2,  avatar:'🛠' },
-  { id:'T05', name:'อนันต์ ตั้งใจ',    level:'Tech',        exp:1,  avatar:'🔋' },
-]
+// (v1.0.534) เจ้าของระบบยืนยันให้เริ่มจาก Jobs/Revenue จริงก่อน — เดิม TECHS/MONTHLY_DATA เป็นข้อมูลตัวอย่าง
+// (mock) ล้วนๆ ทั้งชื่อช่าง 5 คนและตัวเลขผลงานทุกเดือน ตอนนี้ดึงรายชื่อช่างจริง (จาก techName ที่กรอกจริงใน
+// job_cards เดือนนั้นๆ — ไม่ hardcode รายชื่อ เพราะ techName เป็นช่องพิมพ์เองไม่ได้ผูกกับ staff record) พร้อม
+// จำนวนงาน/รายได้จริง (แพทเทิร์นเดียวกับ JobCards.js: รายได้นับเฉพาะงานที่ status done/delivered)
+// CSAT และ Come-back ยังไม่มีข้อมูลผูกกับช่างรายคนจริงในระบบ (ไม่มี field เชื่อม CSAT เข้ากับช่างที่ทำงานนั้น
+// เลย) จึงยังแสดงเป็น "ไม่มีข้อมูล" ตรงๆ ไม่ปลอมตัวเลข — คะแนน KPI รอบนี้จึงคำนวณจากจำนวนงานอย่างเดียว
+// (100% ของน้ำหนักที่มีข้อมูลจริง) ปุ่มอนุมัติ Bonus ยังคงปิดไว้เหมือนเดิมจนกว่าจะมี CSAT/comeback จริงด้วย
 
-const MONTHLY_DATA = {
-  T01: [{jobs:42,csat:96,comeback:1,hrs:168,revenue:128000},{jobs:45,csat:97,comeback:0,hrs:172,revenue:138000},{jobs:40,csat:95,comeback:2,hrs:160,revenue:122000},{jobs:48,csat:98,comeback:0,hrs:176,revenue:145000},{jobs:52,csat:99,comeback:0,hrs:180,revenue:158000},{jobs:49,csat:97,comeback:1,hrs:174,revenue:149000}],
-  T02: [{jobs:38,csat:91,comeback:2,hrs:168,revenue:112000},{jobs:41,csat:93,comeback:1,hrs:170,revenue:121000},{jobs:36,csat:90,comeback:3,hrs:162,revenue:108000},{jobs:43,csat:92,comeback:2,hrs:172,revenue:128000},{jobs:47,csat:94,comeback:1,hrs:178,revenue:139000},{jobs:44,csat:93,comeback:1,hrs:175,revenue:132000}],
-  T03: [{jobs:35,csat:88,comeback:3,hrs:162,revenue:98000},{jobs:37,csat:90,comeback:2,hrs:165,revenue:104000},{jobs:33,csat:87,comeback:4,hrs:158,revenue:94000},{jobs:40,csat:91,comeback:2,hrs:168,revenue:112000},{jobs:44,csat:92,comeback:1,hrs:172,revenue:122000},{jobs:41,csat:90,comeback:2,hrs:170,revenue:116000}],
-  T04: [{jobs:28,csat:84,comeback:4,hrs:156,revenue:78000},{jobs:30,csat:86,comeback:3,hrs:160,revenue:84000},{jobs:26,csat:83,comeback:5,hrs:152,revenue:74000},{jobs:33,csat:87,comeback:3,hrs:164,revenue:91000},{jobs:36,csat:88,comeback:2,hrs:168,revenue:99000},{jobs:34,csat:86,comeback:3,hrs:165,revenue:94000}],
-  T05: [{jobs:22,csat:80,comeback:5,hrs:148,revenue:58000},{jobs:24,csat:82,comeback:4,hrs:152,revenue:64000},{jobs:20,csat:79,comeback:6,hrs:144,revenue:54000},{jobs:27,csat:84,comeback:4,hrs:156,revenue:72000},{jobs:30,csat:85,comeback:3,hrs:160,revenue:79000},{jobs:28,csat:83,comeback:4,hrs:158,revenue:74000}],
-}
-
-function kpiScore(d) {
-  const jobsScore = Math.min(d.jobs/50*40, 40)
-  const csatScore = (d.csat-70)/30*35
-  const cbScore   = Math.max(0, (5-d.comeback)/5*25)
-  return Math.round(jobsScore+csatScore+cbScore)
+function kpiScore(jobs, maxJobs) {
+  if (!maxJobs) return 0
+  return Math.round(Math.min(jobs / maxJobs, 1) * 100)
 }
 
 function grade(score) {
-  if(score>=90) return {g:'A+',c:'var(--success)'}
-  if(score>=80) return {g:'A', c:'var(--success)'}
-  if(score>=70) return {g:'B', c:'var(--primary)'}
-  if(score>=60) return {g:'C', c:'var(--warning)'}
-  return {g:'D',c:'var(--danger)'}
+  if (score >= 90) return { g: 'A+', c: 'var(--success)' }
+  if (score >= 80) return { g: 'A', c: 'var(--success)' }
+  if (score >= 70) return { g: 'B', c: 'var(--primary)' }
+  if (score >= 60) return { g: 'C', c: 'var(--warning)' }
+  return { g: 'D', c: 'var(--danger)' }
 }
 
 export default async function TechKpiPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
 
-  let selMonth = 5
-  let selTech  = null
-  let approvedBonusMonths = new Set()
+  const now = todayBangkok().split('-').map(Number)
+  let selMonth = now[1] - 1 // 0-indexed, เดือนปัจจุบันตามเวลาไทยจริง
+  const selYear = now[0]
+  let selTech = null
   let loading = true
+  let allJobs = []
 
   async function loadData() {
     loading = true
-    try {
-      const rows = await listDocs('tech_kpi_bonus_approvals', [], 'month', 'asc', 200)
-      approvedBonusMonths = new Set(rows.map(r => r.month))
-    } catch (e) { approvedBonusMonths = new Set() }
+    try { allJobs = await listAllDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc') } catch { allJobs = [] }
+    allJobs = allJobs.filter(j => !j.deleted)
     loading = false
     if (container.__routerGen === myGen) render()
+  }
+
+  // สรุปผลงานจริงต่อช่างสำหรับเดือนที่เลือก จากชื่อช่างที่กรอกจริงใน job_cards (ไม่ hardcode รายชื่อ)
+  function techStatsForMonth(monthIdx) {
+    const period = `${selYear}-${String(monthIdx + 1).padStart(2, '0')}`
+    const monthJobs = allJobs.filter(j => (j.createdAt || '').slice(0, 7) === period && (j.techName || '').trim())
+    const byTech = {}
+    monthJobs.forEach(j => {
+      const name = j.techName.trim()
+      if (!byTech[name]) byTech[name] = { name, jobs: 0, revenue: 0 }
+      byTech[name].jobs++
+      if (j.status === 'done' || j.status === 'delivered') byTech[name].revenue += (j.labor || 0)
+    })
+    return Object.values(byTech)
   }
 
   function render() {
@@ -66,64 +67,60 @@ export default async function TechKpiPage(container) {
       container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
       return
     }
-    const techStats = TECHS.map(t => {
-      const d = MONTHLY_DATA[t.id][selMonth]
-      const score = kpiScore(d)
-      const g = grade(score)
-      return { ...t, ...d, score, grade:g }
-    }).sort((a,b) => b.score-a.score)
+    const rows = techStatsForMonth(selMonth)
+    const maxJobs = Math.max(1, ...rows.map(r => r.jobs))
+    const techStats = rows
+      .map(t => { const score = kpiScore(t.jobs, maxJobs); return { ...t, score, grade: grade(score) } })
+      .sort((a, b) => b.jobs - a.jobs)
 
-    const sel = selTech ? techStats.find(t=>t.id===selTech) : null
-    const totalJobs    = techStats.reduce((s,t)=>s+t.jobs,0)
-    const totalRevenue = techStats.reduce((s,t)=>s+t.revenue,0)
-    const avgCsat      = Math.round(techStats.reduce((s,t)=>s+t.csat,0)/techStats.length)
+    const sel = selTech ? techStats.find(t => t.name === selTech) : null
+    const totalJobs = techStats.reduce((s, t) => s + t.jobs, 0)
+    const totalRevenue = techStats.reduce((s, t) => s + t.revenue, 0)
 
     container.innerHTML = `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
             <div class="page-title">🔧 Technician KPI</div>
-            <div class="page-subtitle">ผลงานช่างรายบุคคล · CSAT · Come-back Rate · Revenue</div>
+            <div class="page-subtitle">ผลงานช่างรายบุคคล — จำนวนงาน · รายได้ (จาก Job Card จริง)</div>
           </div>
           <div class="page-actions">
-            <div style="display:flex;gap:4px">
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
               ${MONTHS.map((m,i)=>`<button class="btn btn-xs ${i===selMonth?'btn-primary':'btn-secondary'} mo-btn" data-i="${i}">${m}</button>`).join('')}
             </div>
-            <button class="btn btn-secondary" id="bonus-btn" style="margin-left:8px" disabled title="ยังไม่เชื่อมข้อมูลผลงานช่างจริง (jobs/CSAT/comeback) — ปิดปุ่มนี้ไว้ก่อนเพื่อกันอนุมัติโบนัสจริงจากตัวเลขสมมติ">🎁 คำนวณ Bonus (ปิดใช้งาน)</button>
+            <button class="btn btn-secondary" id="bonus-btn" style="margin-left:8px" disabled title="ยังไม่มีข้อมูล CSAT/Come-back ผูกกับช่างรายคนจริง — ปิดปุ่มนี้ไว้ก่อนเพื่อกันอนุมัติโบนัสจริงจากข้อมูลไม่ครบ">🎁 คำนวณ Bonus (ปิดใช้งาน)</button>
           </div>
         </div>
 
         <div class="card" style="padding:10px 14px;margin-bottom:14px;background:rgba(245,158,11,.1);border:1px solid var(--warning);border-radius:var(--radius-sm);font-size:0.78rem;color:var(--warning)">
-          ⚠️ ข้อมูลในหน้านี้ (รายชื่อช่าง / Jobs / CSAT / Come-back / Revenue) เป็นข้อมูลตัวอย่าง (demo) ยังไม่ได้เชื่อมกับข้อมูลผลงานช่างจริงในระบบ — ปุ่มอนุมัติ Bonus จึงถูกปิดใช้งานไว้เพื่อป้องกันการอนุมัติเงินจริงจากตัวเลขที่ไม่ใช่ของจริง
+          ⚠️ จำนวนงาน/รายได้เป็นข้อมูลจริงจาก Job Card แล้ว (รายชื่อช่างดึงจากที่กรอกจริงในแต่ละงาน) ส่วน CSAT และ Come-back Rate ยังไม่มีข้อมูลผูกกับช่างรายคนจริงในระบบ (แสดง "ไม่มีข้อมูล") คะแนน KPI ด้านล่างจึงคำนวณจากจำนวนงานอย่างเดียว — ปุ่มอนุมัติ Bonus ปิดไว้จนกว่าจะมีข้อมูล CSAT/Come-back จริงด้วย
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
           ${sc('🔧 Job รวม', totalJobs+' งาน', 'var(--primary)')}
           ${sc('💰 Revenue รวม', formatCurrency(totalRevenue), 'var(--success)')}
-          ${sc('⭐ CSAT เฉลี่ย', avgCsat+'%', 'var(--warning)')}
-          ${sc('🏆 Top Tech', techStats[0].avatar+' '+techStats[0].name.split(' ')[0], 'var(--success)')}
+          ${sc('🏆 Top Tech', techStats[0] ? techStats[0].name.split(' ')[0] : '—', 'var(--success)')}
         </div>
 
+        ${!techStats.length ? `<div class="empty-state" style="padding:40px 20px"><div class="empty-icon">🔧</div><div class="empty-title">ยังไม่มี Job Card ในเดือนนี้เลย</div><div class="empty-desc">เปิด Job Card พร้อมกรอกชื่อช่างรับผิดชอบที่หน้า "ใบสั่งซ่อม" เพื่อให้ข้อมูลแสดงที่นี่</div></div>` : `
         <div style="display:grid;grid-template-columns:${sel?'1fr 280px':'1fr'};gap:16px">
           <!-- Leaderboard -->
           <div style="display:flex;flex-direction:column;gap:8px">
             ${techStats.map((t,rank) => `
-              <div class="card tech-card" data-id="${t.id}" style="padding:14px;cursor:pointer;border:2px solid ${selTech===t.id?'var(--primary)':'transparent'};transition:border .2s">
+              <div class="card tech-card" data-name="${escAttr(t.name)}" style="padding:14px;cursor:pointer;border:2px solid ${selTech===t.name?'var(--primary)':'transparent'};transition:border .2s">
                 <div style="display:flex;align-items:center;gap:12px">
-                  <div style="font-size:1.5rem;width:36px;text-align:center">${rank===0?'🥇':rank===1?'🥈':rank===2?'🥉':t.avatar}</div>
+                  <div style="font-size:1.5rem;width:36px;text-align:center">${rank===0?'🥇':rank===1?'🥈':rank===2?'🥉':'🔧'}</div>
                   <div style="flex:1">
                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-                      <span style="font-weight:700;font-size:0.86rem">${t.name}</span>
-                      <span style="font-size:0.64rem;color:var(--text-muted)">${t.level} · ${t.exp} ปี</span>
+                      <span style="font-weight:700;font-size:0.86rem">${escHtml(t.name)}</span>
                       <span style="font-size:0.7rem;font-weight:900;color:${t.grade.c};background:${t.grade.c}22;padding:1px 8px;border-radius:8px">${t.grade.g}</span>
                     </div>
                     <div style="display:flex;gap:12px;font-size:0.72rem;color:var(--text-muted)">
                       <span>📋 ${t.jobs} งาน</span>
-                      <span>⭐ ${t.csat}%</span>
-                      <span>🔄 Come-back ${t.comeback}</span>
+                      <span>⭐ CSAT: ไม่มีข้อมูล</span>
+                      <span>🔄 Come-back: ไม่มีข้อมูล</span>
                       <span>💰 ${formatCurrency(t.revenue)}</span>
                     </div>
-                    <!-- KPI bar -->
                     <div style="display:flex;align-items:center;gap:8px;margin-top:5px">
                       <div style="flex:1;height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden">
                         <div style="height:100%;width:${t.score}%;background:${t.grade.c};border-radius:3px"></div>
@@ -140,33 +137,31 @@ export default async function TechKpiPage(container) {
           <div style="display:flex;flex-direction:column;gap:10px">
             <div class="card" style="padding:14px">
               <div style="text-align:center;padding-bottom:10px;border-bottom:1px solid var(--border)">
-                <div style="font-size:2rem">${sel.avatar}</div>
-                <div style="font-weight:700;margin-top:4px">${sel.name}</div>
-                <div style="font-size:0.72rem;color:var(--text-muted)">${sel.level}</div>
+                <div style="font-size:2rem">🔧</div>
+                <div style="font-weight:700;margin-top:4px">${escHtml(sel.name)}</div>
                 <div style="font-size:2rem;font-weight:900;color:${sel.grade.c};margin-top:6px">${sel.grade.g}</div>
-                <div style="font-size:0.72rem;color:var(--text-muted)">${sel.score}/100 คะแนน</div>
+                <div style="font-size:0.72rem;color:var(--text-muted)">${sel.score}/100 คะแนน (จากจำนวนงาน)</div>
               </div>
               <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px;font-size:0.76rem">
                 ${[
-                  ['📋 Jobs',sel.jobs+' งาน'],
-                  ['⭐ CSAT',sel.csat+'%'],
-                  ['🔄 Come-back',sel.comeback+' ครั้ง'],
-                  ['⏱ ชั่วโมงทำงาน',sel.hrs+' ชม.'],
-                  ['💰 Revenue',formatCurrency(sel.revenue)],
-                  ['⚙️ Rev/Hour',formatCurrency(Math.round(sel.revenue/sel.hrs))+'/ชม.'],
+                  ['📋 Jobs', sel.jobs+' งาน'],
+                  ['⭐ CSAT', 'ไม่มีข้อมูล'],
+                  ['🔄 Come-back', 'ไม่มีข้อมูล'],
+                  ['💰 Revenue', formatCurrency(sel.revenue)],
                 ].map(([k,v])=>`<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text-muted)">${k}</span><b>${v}</b></div>`).join('')}
               </div>
             </div>
-            <!-- Monthly trend for selected tech -->
+            <!-- Monthly jobs trend for selected tech -->
             <div class="card" style="padding:14px">
-              <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:8px">📈 Jobs Trend</div>
+              <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:8px">📈 Jobs Trend (ปี ${selYear})</div>
               <div style="display:flex;align-items:flex-end;gap:4px;height:48px">
                 ${MONTHS.map((m,i) => {
-                  const d = MONTHLY_DATA[sel.id][i]
-                  const maxJ = Math.max(...MONTHLY_DATA[sel.id].map(x=>x.jobs))
-                  const h = Math.round(d.jobs/maxJ*44)+4
+                  const monthRows = techStatsForMonth(i)
+                  const jobs = monthRows.find(r => r.name === sel.name)?.jobs || 0
+                  const maxJ = Math.max(1, ...MONTHS.map((_,ii) => techStatsForMonth(ii).find(r => r.name === sel.name)?.jobs || 0))
+                  const h = Math.round(jobs/maxJ*44)+4
                   return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
-                    <div style="font-size:0.54rem;color:var(--text-muted)">${d.jobs}</div>
+                    <div style="font-size:0.54rem;color:var(--text-muted)">${jobs}</div>
                     <div style="width:100%;height:${h}px;background:${i===selMonth?'var(--primary)':'var(--primary)55'};border-radius:2px 2px 0 0"></div>
                     <div style="font-size:0.54rem;color:var(--text-muted)">${m}</div>
                   </div>`
@@ -174,15 +169,11 @@ export default async function TechKpiPage(container) {
               </div>
             </div>
           </div>` : ''}
-        </div>
+        </div>`}
       </div>`
 
     container.querySelectorAll('.mo-btn').forEach(b=>b.addEventListener('click',()=>{selMonth=parseInt(b.dataset.i);render()}))
-    container.querySelectorAll('.tech-card').forEach(el=>el.addEventListener('click',()=>{selTech=selTech===el.dataset.id?null:el.dataset.id;render()}))
-    // ปุ่ม "คำนวณ Bonus" ถูกปิดใช้งานถาวร (disabled attribute) — เดิมปุ่มนี้เขียนอนุมัติ Bonus จริงลง Firestore
-    // (tech_kpi_bonus_approvals) โดยคำนวณจากตัวเลข TECHS/MONTHLY_DATA ที่เป็น mock ล้วนๆ ไม่ใช่ผลงานช่างจริง
-    // เป็นความเสี่ยงทางการเงิน (อนุมัติเงินจริงจากข้อมูลปลอม) จึงปิดปุ่มไว้จนกว่าจะมี collection ผลงานช่างจริง
-    // (jobs/CSAT/comeback ต่อคนต่อเดือน) ให้เชื่อมต่อแทน — ดูรายละเอียดใน comment เหนือ TECHS/MONTHLY_DATA ด้านบน
+    container.querySelectorAll('.tech-card').forEach(el=>el.addEventListener('click',()=>{selTech=selTech===el.dataset.name?null:el.dataset.name;render()}))
   }
 
   function sc(l,v,c){
@@ -194,3 +185,6 @@ export default async function TechKpiPage(container) {
 
   await loadData()
 }
+
+function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+function escAttr(s) { return escHtml(s).replace(/"/g,'&quot;') }

@@ -30,11 +30,21 @@ describe('hasThreeWithinDays — Speed Closer badge condition (3 deliveries with
 })
 
 describe('ALL_BADGES — check functions only exist where the underlying data is reliably attributable', () => {
-  it('Speed Closer (B005) and Perfect Attendance (B011) now have real check functions', () => {
+  it('Speed Closer (B005), Perfect Attendance (B011), and KPI Champion (B008) now have real check functions', () => {
     const b005 = ALL_BADGES.find(b => b.id === 'B005')
     const b011 = ALL_BADGES.find(b => b.id === 'B011')
+    const b008 = ALL_BADGES.find(b => b.id === 'B008')
     expect(typeof b005.check).toBe('function')
     expect(typeof b011.check).toBe('function')
+    expect(typeof b008.check).toBe('function')
+  })
+
+  it('KPI Champion requires 3 consecutive months hit, not just any 3 months ever (vacuously-true guard: 0 counts as not met)', () => {
+    const b008 = ALL_BADGES.find(b => b.id === 'B008')
+    expect(b008.check({ kpiChampionMonths: 0 })).toBe(false)
+    expect(b008.check({ kpiChampionMonths: 2 })).toBe(false)
+    expect(b008.check({ kpiChampionMonths: 3 })).toBe(true)
+    expect(b008.check({ kpiChampionMonths: 5 })).toBe(true)
   })
 
   it('Perfect Attendance requires full 6-month coverage AND zero absences (not vacuously true for a brand-new record)', () => {
@@ -44,8 +54,8 @@ describe('ALL_BADGES — check functions only exist where the underlying data is
     expect(b011.check({ attendanceMonthsCovered: 6, attendanceAbsences: 0 })).toBe(true)
   })
 
-  it('badges lacking a reliable data source (EV Expert, Customer Whisperer, KPI Champion, Top Revenue) stay explicitly untracked', () => {
-    ;['B004', 'B006', 'B008', 'B012'].forEach(id => {
+  it('badges lacking a reliable data source (EV Expert, Customer Whisperer, Top Revenue) stay explicitly untracked', () => {
+    ;['B004', 'B006', 'B012'].forEach(id => {
       expect(ALL_BADGES.find(b => b.id === id).check).toBe(null)
     })
   })

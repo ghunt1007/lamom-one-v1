@@ -28,9 +28,10 @@ export const BADGE_RARITY = {
 
 // check(ctx) === null ➜ ยังไม่มีข้อมูลจริงมาผูกได้แบบน่าเชื่อถือ (เช่น B004 ต้องจับคู่ model ที่พนักงานพิมพ์เอง
 // ตอนจองกับ fuel type ในฐานข้อมูลรถ — เสี่ยงจับคู่ผิดถ้าใช้ fuzzy match, B006 CSAT ไม่มี field ผูกกับพนักงาน
-// คนที่ดูแลลูกค้ารายนั้นเลยในตอนนี้, B008 "KPI 100%" ไม่มีนิยามกลางที่ใช้จริงอยู่แล้วในระบบ ต้องถามเจ้าของ
-// ระบบก่อนว่าวัดจากอะไร, B012 เป็นรางวัลเปรียบเทียบทั้งบริษัทที่ควรให้ผู้บริหารตัดสิน ไม่ใช่สูตรอัตโนมัติ)
-// ปล่อยล็อคไว้ตรงๆ ไม่ปลอมเลข — ดีกว่าเดาสูตรเองแล้วให้เครดิตผิดคน
+// คนที่ดูแลลูกค้ารายนั้นเลยในตอนนี้, B012 เป็นรางวัลเปรียบเทียบทั้งบริษัทที่ควรให้ผู้บริหารตัดสิน ไม่ใช่สูตร
+// อัตโนมัติ) ปล่อยล็อคไว้ตรงๆ ไม่ปลอมเลข — ดีกว่าเดาสูตรเองแล้วให้เครดิตผิดคน
+// (v1.0.534) B008 "KPI 100%" ปลดล็อกแล้ว — เจ้าของระบบยืนยันนิยาม: วัดจากเป้าหมายที่ตั้งไว้จริงใน team_targets
+// (หน้า TeamTargets) เทียบกับฝ่ายของพนักงานคนนั้น (staff.dept) ดู checkKpiChampion() ด้านล่าง
 export const ALL_BADGES = [
   { id: 'B001', name: 'First Sale', icon: '🎯', cat: 'sales', rarity: 'common', desc: 'ปิดดีลได้เป็นครั้งแรก', requirement: 'ส่งมอบรถอย่างน้อย 1 คัน', points: 50, check: ctx => ctx.delivered >= 1 },
   { id: 'B002', name: 'Sales Rookie', icon: '🚀', cat: 'sales', rarity: 'common', desc: 'ขายรถได้ 5 คัน', requirement: 'ส่งมอบรถ 5 คันสะสม', points: 100, check: ctx => ctx.delivered >= 5 },
@@ -41,7 +42,10 @@ export const ALL_BADGES = [
   { id: 'B005', name: 'Speed Closer', icon: '⚡', cat: 'sales', rarity: 'rare', desc: 'ปิดดีลภายใน 3 วัน', requirement: 'ปิด 3 ดีลใน 1 สัปดาห์', points: 250, check: ctx => hasThreeWithinDays(ctx.deliveryDates, 7) },
   { id: 'B006', name: 'Customer Whisperer', icon: '💬', cat: 'service', rarity: 'epic', desc: 'ได้ CSAT 5 ดาวติดต่อ 10 ครั้ง', requirement: 'CSAT 5★ × 10', points: 500, check: null },
   { id: 'B007', name: 'Problem Solver', icon: '🔧', cat: 'service', rarity: 'common', desc: 'บันทึกการติดต่อดูแลลูกค้า 10 ครั้ง', requirement: 'Comm Log 10 ครั้ง', points: 150, check: ctx => ctx.commLogs >= 10 },
-  { id: 'B008', name: 'KPI Champion', icon: '🏆', cat: 'kpi', rarity: 'epic', desc: 'ทำ KPI ได้ 100% 3 เดือนติดกัน', requirement: 'KPI 100% × 3 months', points: 600, check: null },
+  // (v1.0.534) นิยาม "KPI 100%" ตามที่เจ้าของระบบยืนยัน: ส่งมอบตามเป้าที่ตั้งไว้ใน team_targets
+  // (หน้า TeamTargets) เป้าหมายเป็นระดับ "ฝ่าย" ไม่ใช่รายบุคคล — จับคู่กับฝ่ายของพนักงานคนนั้นเอง
+  // (staff.dept) ดู checkKpiChampion() ด้านล่างสำหรับรายละเอียดเงื่อนไข
+  { id: 'B008', name: 'KPI Champion', icon: '🏆', cat: 'kpi', rarity: 'epic', desc: 'ทำ KPI ได้ 100% 3 เดือนติดกัน', requirement: 'KPI 100% × 3 months', points: 600, check: ctx => ctx.kpiChampionMonths >= 3 },
   { id: 'B009', name: 'Team Player', icon: '🤝', cat: 'team', rarity: 'common', desc: 'ทำงาน (Task) สำเร็จ 5 งาน', requirement: 'Task เสร็จ 5 งาน', points: 80, check: ctx => ctx.tasksDone >= 5 },
   { id: 'B010', name: 'Legendary Seller', icon: '👑', cat: 'sales', rarity: 'legendary', desc: 'ขายรถได้ 100 คัน — สุดยอดเซลส์', requirement: 'ส่งมอบรถ 100 คันสะสม', points: 5000, check: ctx => ctx.delivered >= 100 },
   // นับ "ขาดงาน" จาก attendance.status==='absent' ของพนักงานคนนี้เองใน 6 เดือนล่าสุด + ต้องมีข้อมูลจริงครบ
@@ -58,6 +62,38 @@ export function hasThreeWithinDays(dates, windowDays) {
     if (sorted[i + 2] - sorted[i] <= windowMs) return true
   }
   return false
+}
+
+// (v1.0.534) จำนวนเดือนล่าสุดติดต่อกัน (นับจากเดือนปัจจุบันย้อนหลัง) ที่ "ทุก" เป้าหมาย team_targets ของฝ่าย
+// พนักงานคนนี้ (staff.dept) ทำได้ >= 100% (actual/target) — หยุดนับทันทีที่เจอเดือนไหนพลาดเป้าหรือไม่มีเป้า
+// เลย (กันเคส "ไม่มีข้อมูล" ถูกนับเป็นผ่านแบบ vacuously true เหมือนแพทเทิร์นเดียวกับ B011 ไม่ขาดงาน)
+// เป้าหมายเป็นระดับฝ่าย ไม่ใช่รายบุคคล (ระบบยังไม่มีเป้าหมายรายคนจริง) — ใช้ฝ่ายของพนักงานเป็นตัวแทนตามที่
+// เจ้าของระบบยืนยัน ถ้าพนักงานยังไม่ได้ผูกบัญชี login กับ staff record (ไม่มี dept) จะได้ 0 เสมอ
+async function computeKpiChampionMonths(uid) {
+  if (!uid) return 0
+  let staffList = [], targets = []
+  try { staffList = await listDocs('staff', companyScopeFilters(), 'createdAt', 'desc', 500) } catch { return 0 }
+  const me = staffList.find(s => s.uid === uid && !s.deleted)
+  if (!me?.dept) return 0
+  try { targets = await listDocs('team_targets', companyScopeFilters(), 'period', 'desc', 500) } catch { return 0 }
+  const myTargets = targets.filter(t => t.department === me.dept)
+  if (!myTargets.length) return 0
+
+  const byMonth = {}
+  myTargets.forEach(t => { (byMonth[t.period] ||= []).push(t) })
+
+  let months = 0
+  const [ty, tm] = todayBangkok().split('-').map(Number)
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(Date.UTC(ty, tm - 1 - i, 1))
+    const period = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+    const monthTargets = byMonth[period]
+    if (!monthTargets?.length) break // ไม่มีเป้าหมายตั้งไว้เดือนนั้น = สายขาด หยุดนับ
+    const allHit = monthTargets.every(t => t.target > 0 && t.actual >= t.target)
+    if (!allHit) break
+    months++
+  }
+  return months
 }
 
 export function getCurrentUser() {
@@ -92,8 +128,9 @@ export async function getMyStatsContext() {
   const myAttendance = attendance.filter(a => a.staffName === name && sixMonthsBack.has((a.date || '').slice(0, 7)))
   const monthsWithRecords = new Set(myAttendance.map(a => (a.date || '').slice(0, 7)))
   const attendanceAbsences = myAttendance.filter(a => a.status === 'absent').length
+  const kpiChampionMonths = await computeKpiChampionMonths(uid)
 
-  return { delivered, tasksDone, commLogs: commLogsCount, deliveryDates, attendanceMonthsCovered: monthsWithRecords.size, attendanceAbsences }
+  return { delivered, tasksDone, commLogs: commLogsCount, deliveryDates, attendanceMonthsCovered: monthsWithRecords.size, attendanceAbsences, kpiChampionMonths }
 }
 
 // คืนรายการ badge พร้อม unlocked:boolean จริงตามสถิติของผู้ใช้ปัจจุบัน
