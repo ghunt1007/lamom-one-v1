@@ -59,12 +59,40 @@ export default async function CustomerLifecyclePage(container) {
   // `customers` collection by name — gives prospect/first_buyer/repeat/champion/at_risk/churned
   // instead of the old hardcoded DEMO_CUSTOMERS array.
   try {
-    const [realCustomersRaw, sales] = await Promise.all([
+    // (v1.0.525) เดิม "งานถัดไป" (nextAction) มาจาก stage อย่างเดียว — ลูกค้า 2 คน stage เดียวกันได้คำแนะนำ
+    // เหมือนกันเป๊ะเสมอ ทั้งที่สถานการณ์จริงต่างกัน (คนหนึ่งประกันใกล้หมด อีกคนมีเรื่องร้องเรียนค้างอยู่) ดึง
+    // สัญญาณจริงเพิ่ม 2 อย่างที่มีอยู่แล้วในระบบ (ประกันรถใกล้หมดอายุจาก vehicle_warranties, ข้อร้องเรียนที่ยัง
+    // ไม่ปิดจาก complaints) มาจับคู่ด้วยชื่อลูกค้า (แพทเทิร์นเดียวกับ byName ที่ join sales อยู่แล้ว) ให้
+    // คำแนะนำตรงสถานการณ์จริงของลูกค้าคนนั้นๆ ไม่ใช่แค่ label ตายตัวตาม stage
+    const [realCustomersRaw, sales, warranties, openComplaints] = await Promise.all([
       listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
       getSalesData().catch(() => []),
+      listDocs('vehicle_warranties', companyScopeFilters(), 'endDate', 'asc', 500).catch(() => []),
+      listDocs('complaints', companyScopeFilters(), 'openDate', 'desc', 300).catch(() => []),
     ])
     if (container.__routerGen !== myGen) return
     const realCustomers = realCustomersRaw.filter(c => !c.deleted)
+
+    const today = todayBangkok()
+    const daysUntil = d => d ? Math.round((new Date(d) - new Date(today)) / 86400000) : null
+    const warrantyByName = {}
+    warranties.forEach(w => {
+      if (!w.customerName || w.status === 'expired') return
+      const d = daysUntil(w.endDate)
+      if (d != null && d <= 60 && (warrantyByName[w.customerName] == null || d < warrantyByName[w.customerName])) warrantyByName[w.customerName] = d
+    })
+    const openComplaintByName = {}
+    openComplaints.forEach(c => { if (c.status === 'open' && c.custName) openComplaintByName[c.custName] = true })
+
+    // สัญญาณจริงมาก่อนเสมอ (เรื่องร้องเรียนค้าง > ประกันใกล้หมด > คำแนะนำตาม stage เดิม)
+    function realSignalAction(name, fallback) {
+      if (openComplaintByName[name]) return '📢 มีข้อร้องเรียนค้างอยู่ — ตอบกลับด่วน!'
+      if (warrantyByName[name] != null) {
+        const d = warrantyByName[name]
+        return d < 0 ? '🛡 ประกันหมดอายุแล้ว — แจ้งต่ออายุ' : `🛡 ประกันเหลือ ${d} วัน — แจ้งต่ออายุ/นัดตรวจ`
+      }
+      return fallback
+    }
 
     const byName = {}
     for (const s of sales) {
@@ -87,13 +115,13 @@ export default async function CustomerLifecyclePage(container) {
         purchases = stats.purchases; totalValue = stats.totalValue
         lastContact = stats.lastDate || lastContact; model = stats.model || model
         stage = classifyPurchaseStage(purchases, stats.lastDate)
-        nextAction = stage === 'at_risk' ? 'โทรหาด่วน!' : stage === 'champion' ? 'เสนอรุ่นใหม่ / ขอ referral' : 'เช็คความพอใจ'
+        nextAction = realSignalAction(name, stage === 'at_risk' ? 'โทรหาด่วน!' : stage === 'champion' ? 'เสนอรุ่นใหม่ / ขอ referral' : 'เช็คความพอใจ')
       } else if (c.isLost) {
         stage = 'churned'
-        nextAction = 'Win-back campaign'
+        nextAction = realSignalAction(name, 'Win-back campaign')
       } else {
         stage = 'prospect'
-        nextAction = c.stage === 'booking' ? 'ติดตามจนส่งมอบ' : c.stage === 'lead' ? 'ขอเบอร์ติดต่อ/LINE' : 'ติดตาม / เสนอใบเสนอราคา'
+        nextAction = realSignalAction(name, c.stage === 'booking' ? 'ติดตามจนส่งมอบ' : c.stage === 'lead' ? 'ขอเบอร์ติดต่อ/LINE' : 'ติดตาม / เสนอใบเสนอราคา')
       }
       return { id: c.id, name, stage, purchases, totalValue, lastContact, nextAction, model, referrals: 0 }
     })
@@ -103,7 +131,7 @@ export default async function CustomerLifecyclePage(container) {
       .filter(([name]) => !matchedNames.has(name))
       .map(([name, stats], i) => {
         const stage = classifyPurchaseStage(stats.purchases, stats.lastDate)
-        return { id: `LV${i + 1}`, name, stage, purchases: stats.purchases, totalValue: stats.totalValue, lastContact: stats.lastDate, nextAction: stage === 'at_risk' ? 'โทรหาด่วน!' : 'ติดตาม', model: stats.model, referrals: 0 }
+        return { id: `LV${i + 1}`, name, stage, purchases: stats.purchases, totalValue: stats.totalValue, lastContact: stats.lastDate, nextAction: realSignalAction(name, stage === 'at_risk' ? 'โทรหาด่วน!' : 'ติดตาม'), model: stats.model, referrals: 0 }
       })
 
     realCustomerIds = new Set(realCustomers.map(c => c.id))
