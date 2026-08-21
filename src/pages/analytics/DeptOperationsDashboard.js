@@ -38,7 +38,7 @@ export default async function DeptOperationsDashboardPage(container) {
     const [t, b, j] = await Promise.all([
       listDocs('tasks', companyScopeFilters(), 'dueDate', 'asc', 500).catch(() => []),
       listDocs('bookings', [], 'createdAt', 'desc', 300).catch(() => []),
-      listDocs('job_cards', [], 'createdAt', 'desc', 300).catch(() => []),
+      listDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc', 300).catch(() => []),
     ])
     // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true — กรองออกกันงาน/ใบจองที่ลบไปแล้วโผล่เป็นจุดคอขวดอีก
     tasks = t.filter(r => !r.deleted); bookings = b.filter(r => !r.deleted); jobs = j.filter(r => !r.deleted)

@@ -135,7 +135,7 @@ export default async function LamiBrainPage(container) {
       const [leadsRaw, vehicleModels, jobCards, complaintsList, salesRows, debts, csat, staff] = await Promise.all([
         listDocs('customers', [], 'createdAt', 'desc', 500).catch(() => []),
         listDocs('vehicle_models', [], 'brand', 'asc', 200).catch(() => []),
-        listDocs('job_cards', [], 'createdAt', 'desc', 500).catch(() => []),
+        listDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
         listDocs('complaints', companyScopeFilters(), 'createdAt', 'desc', 200).catch(() => []),
         getSalesData().catch(() => []),
         listDocs('debts', [], 'dueDate', 'asc', 200).catch(() => []),

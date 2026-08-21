@@ -424,13 +424,19 @@ export default async function DashboardPage(container) {
     function watchOnce(colName, sortBy, sortDir, maxDocs, assign) {
       return new Promise(resolve => {
         let first = true
-        const unsub = watchDocs(colName, [], sortBy, sortDir, maxDocs, rows => {
-          if (container.__routerGen !== myGen) { unsub(); return }
-          assign(rows)
-          if (first) { first = false; resolve() }
-          else renderAll()
-        })
-        unsubscribers.push(unsub)
+        let unsub = () => {}
+        function start() {
+          unsub()
+          unsub = watchDocs(colName, companyScopeFilters(), sortBy, sortDir, maxDocs, rows => {
+            if (container.__routerGen !== myGen) { unsub(); return }
+            assign(rows)
+            if (first) { first = false; resolve() }
+            else renderAll()
+          })
+        }
+        start()
+        unsubscribers.push(() => unsub())
+        unsubscribers.push(on('activeCompanyFilter', start))
       })
     }
     const [customers, sales, pdi, allCustomersForLeads, vehicles, teamTargets] = await Promise.all([

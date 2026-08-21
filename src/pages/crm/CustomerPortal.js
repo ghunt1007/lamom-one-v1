@@ -2,7 +2,7 @@ import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, readDoc, createDoc } from '../../core/db.js'
-import { myEffectiveCompanyId } from '../../core/companyScope.js'
+import { myEffectiveCompanyId, companyScopeFilters } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -124,9 +124,9 @@ export default async function CustomerPortalPage(container) {
     // ── job_cards: จับคู่ด้วยเบอร์โทรก่อน (มีตรงตัว) → ชื่อลูกค้า ──
     let jobs = []
     try {
-      if (phone) jobs = await listDocs('job_cards', [['phone', '==', phone]], 'createdAt', 'desc', 100).catch(() => [])
+      if (phone) jobs = await listDocs('job_cards', [['phone', '==', phone], ...companyScopeFilters()], 'createdAt', 'desc', 100).catch(() => [])
       if (!jobs.length) {
-        const all = await listDocs('job_cards', [], 'createdAt', 'desc', 500).catch(() => [])
+        const all = await listDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => [])
         jobs = all.filter(j => j.custName && j.custName.trim() === name.trim())
       }
     } catch {}

@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData, listDocs, createDoc } from '../../core/db.js'
 import { sendSms } from '../../utils/comms.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -43,7 +44,7 @@ export default async function UpsellAdvisorPage(container) {
     let sales = [], policies = [], jobCards = []
     try { sales = await getSalesData() } catch {}
     try { policies = await listDocs('insurance_policies', [], 'endDate', 'desc', 500) } catch {}
-    try { jobCards = await listDocs('job_cards', [], 'createdAt', 'desc', 500) } catch {}
+    try { jobCards = await listDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc', 500) } catch {}
     if (container.__routerGen !== myGen) return
 
     // รวมยอดขายเป็นรายลูกค้า (ชื่อ+เบอร์เดียวกัน) ใช้ยอดขายล่าสุดของคนนั้นเป็นตัวแทน

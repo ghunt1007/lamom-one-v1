@@ -7,6 +7,7 @@ import { showToast } from '../../core/store.js'
 import { openModal } from '../../utils/modal.js'
 import { getSalesData, getCommissionData, listDocs } from '../../core/db.js'
 import { exportToExcel } from '../../utils/importExport.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
 
@@ -74,7 +75,7 @@ async function computeRealSignals(currSales, growth) {
   } catch {}
 
   try {
-    const jobs = await listDocs('job_cards', [], 'createdAt', 'desc', 500)
+    const jobs = await listDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc', 500)
     // j.createdAt คือ Firestore serverTimestamp() object — new Date() ตรงๆ ได้ Invalid Date เงียบๆ (ไม่ throw)
     // ทำให้เงื่อนไขนี้เป็น false เสมอ (เทียบกับ NaN ได้ false ทุกครั้ง) งานค้างนานแค่ไหนก็ไม่เคยถูกนับว่า "เกิน 5 วัน"
     const overdue = jobs.filter(j => {

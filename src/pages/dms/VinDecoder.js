@@ -6,6 +6,7 @@ import { formatDate, formatCurrency, todayBangkok, toDateStr } from '../../utils
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listAllDocs, listDocs, createDoc } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -30,7 +31,7 @@ export default async function VinDecoderPage(container) {
     loading = true
     let bookings = [], jobs = [], policies = []
     try { bookings = await listAllDocs('bookings', [], 'createdAt', 'desc') } catch {}
-    try { jobs = await listAllDocs('job_cards', [], 'createdAt', 'desc') } catch {}
+    try { jobs = await listAllDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc') } catch {}
     try { policies = await listDocs('insurance_policies', [], 'endDate', 'desc', 500) } catch {}
     if (container.__routerGen !== myGen) return
 
@@ -209,6 +210,7 @@ export default async function VinDecoderPage(container) {
               custName: result.owner || '-', phone: result.phone || '', brand: (result.model||'').split(' ')[0]||'', model: result.model || '',
               plate: result.plate || '', vin: result.vin || '', type: 'service', status: 'waiting',
               desc: `${type}${note ? ' — ' + note : ''}`, scheduledDate: date, parts: [], labor: 0,
+              companyId: myEffectiveCompanyId(),
             })
             showToast(`📅 นัด ${result.owner} — ${type} วันที่ ${date} แล้ว — บันทึกจริงเข้าระบบ Job Cards`, 'success')
             await loadData()

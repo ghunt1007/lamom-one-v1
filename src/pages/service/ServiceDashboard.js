@@ -93,7 +93,7 @@ export default async function ServiceDashboard(container) {
   let jobs = [], parts = [], appts = []
   try {
     ;[jobs, parts, appts] = await Promise.all([
-      listDocs('job_cards', [], 'createdAt', 'desc', 500).catch(() => []),
+      listDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
       listDocs('parts', companyScopeFilters(), 'name', 'asc', 1000).catch(() => []),
       listDocs('service_appointments', companyScopeFilters(), 'date', 'desc', 300).catch(() => []),
     ])

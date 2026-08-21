@@ -4,6 +4,7 @@ import { confirmDialog } from '../../utils/modal.js'
 import { askLami, isAiEnabled } from '../../utils/ai.js'
 import { formatCurrency, todayBangkok, toDateStr } from '../../utils/format.js'
 import { heuristicScore } from './LeadScoring.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 function esc(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
@@ -50,7 +51,7 @@ export default async function AiAssistantChatPage(container) {
         listDocs('debts', [], 'dueDate', 'asc', 200).catch(() => []),
         listDocs('csat', [], 'createdAt', 'desc', 100).catch(() => []),
         listDocs('staff', [], 'createdAt', 'desc', 200).catch(() => []),
-        listDocs('job_cards', [], 'createdAt', 'desc', 500).catch(() => []),
+        listDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
       ])
       const monthSales = sales.filter(s => (s.date || '').startsWith(thisMonth))
       const activeStock = vehicles.filter(v => !v.deleted && !['sold', 'ขายแล้ว', 'ส่งมอบแล้ว'].includes(v.status)).length

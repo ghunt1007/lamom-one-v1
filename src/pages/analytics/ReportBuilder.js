@@ -5,6 +5,7 @@
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, getSalesData } from '../../core/db.js'
 import { formatCurrency, formatDate } from '../../utils/format.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
@@ -106,7 +107,7 @@ export default async function ReportBuilderPage(container) {
         return null
       }}))
     } else if (primaryGroup === 'บริการ') {
-      const jobs = await listDocs('job_cards', [], 'createdAt', 'desc', 500)
+      const jobs = await listDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc', 500)
       const byTech = {}
       jobs.filter(j => !j.deleted).forEach(j => { const k = j.techName || 'ไม่ระบุ'; (byTech[k] = byTech[k] || []).push(j) })
       entities = Object.entries(byTech).map(([name, list]) => ({ key: name, get: (f) => {

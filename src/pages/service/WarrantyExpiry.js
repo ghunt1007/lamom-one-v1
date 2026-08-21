@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, seedDemoData } from '../../core/db.js'
 import { loadWarranties, persistWarranty } from './WarrantyManagement.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 function daysLeft(endDate) {
   return Math.round((new Date(endDate) - new Date()) / 86400000)
@@ -30,7 +31,7 @@ function mapWarranty(w, kmByVin) {
 // จริงจาก job_cards (บันทึกทุกครั้งที่รถเข้าศูนย์บริการ มีฟิลด์ mileage ต่อ VIN จริงอยู่แล้ว) แทนการโชว์เลขปลอม
 async function loadLatestMileageByVin() {
   let jobs = []
-  try { jobs = await listDocs('job_cards', [], 'createdAt', 'desc', 1000) } catch { jobs = [] }
+  try { jobs = await listDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc', 1000) } catch { jobs = [] }
   const byVin = {}
   jobs.forEach(j => { if (j.vin && !(j.vin in byVin)) byVin[j.vin] = j.mileage || 0 }) // เรียง desc แล้ว — ตัวแรกต่อ VIN คือล่าสุด
   return byVin

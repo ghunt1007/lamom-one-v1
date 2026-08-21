@@ -2,6 +2,7 @@ import { listDocs, seedDemoData, getSalesData, getCommissionData } from '../../c
 import { navigate } from '../../core/router.js'
 import { formatCurrency, toDateStr } from '../../utils/format.js'
 import { exportToExcel } from '../../utils/importExport.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -77,7 +78,7 @@ export default async function AnalyticsDashboard(container) {
     const [customersRaw, sales, jobsRaw, commission] = await Promise.all([
       listDocs('customers', [], 'createdAt', 'desc', 2000).catch(() => []),
       getSalesData().catch(() => []),
-      listDocs('job_cards', [], 'createdAt', 'desc', 2000).catch(() => []),
+      listDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc', 2000).catch(() => []),
       getCommissionData().catch(() => []),
     ])
     if (container.__routerGen !== myGen) return

@@ -520,7 +520,7 @@ export default async function CustomersPage(container) {
     const el = document.getElementById('wk-jobcard-panel')
     if (!el) return
     let jobs = []
-    try { jobs = await listDocs('job_cards', [], 'createdAt', 'desc', 300) } catch { jobs = [] }
+    try { jobs = await listDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc', 300) } catch { jobs = [] }
     const myPhone = normPhone(c.phone)
     const matched = jobs.filter(j => !j.deleted && (j.customerId === c.id || (myPhone && normPhone(j.phone) === myPhone)))
     if (!document.getElementById('wk-jobcard-panel')) return

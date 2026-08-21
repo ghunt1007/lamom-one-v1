@@ -6,6 +6,7 @@ import { formatCurrency } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { listDocs } from '../../core/db.js'
 import { exportToExcel } from '../../utils/importExport.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 const MONTHLY = {
   jobs: [98, 112, 105, 124, 131, 118],
@@ -44,7 +45,7 @@ export default async function ServiceAnalyticsPage(container) {
   let metric = 'jobs'
 
   try {
-    const jobs = await listDocs('job_cards', [], 'createdAt', 'desc', 1000).catch(() => [])
+    const jobs = await listDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc', 1000).catch(() => [])
     if (container.__routerGen !== myGen) return
     if (jobs.length >= 2) {
       const now = new Date()

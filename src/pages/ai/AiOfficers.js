@@ -2,6 +2,7 @@ import { getState, showToast } from '../../core/store.js'
 import { listDocs, listAllDocs, createDoc, seedDemoData } from '../../core/db.js'
 import { formatCurrency } from '../../utils/format.js'
 import { askAiOfficer, isAiEnabled } from '../../utils/ai.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -143,7 +144,7 @@ export default async function AiOfficersPage(container) {
     const [cust, veh, jobs] = await Promise.all([
       listDocs('customers', [], 'createdAt', 'desc', 200).catch(() => []),
       listAllDocs('vehicles', [], 'arrivedAt', 'desc').catch(() => []),
-      listAllDocs('job_cards', [], 'createdAt', 'desc').catch(() => []),
+      listAllDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc').catch(() => []),
     ])
     const leads = cust.filter(c => c.stage === 'lead' || c.stage === 'pp')
     stats = { customers: cust.length, vehicles: veh.length, jobs: jobs.length, leads: leads.length }

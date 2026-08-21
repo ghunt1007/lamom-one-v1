@@ -383,7 +383,7 @@ export default async function StockPage(container) {
     const el = document.getElementById('v-jobcard-panel')
     if (!el) return
     let jobs = []
-    try { jobs = await listDocs('job_cards', [], 'createdAt', 'desc', 300) } catch { jobs = [] }
+    try { jobs = await listDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc', 300) } catch { jobs = [] }
     if (!document.getElementById('v-jobcard-panel')) return
     const matched = jobs.filter(j => !j.deleted && v.vin && j.vin === v.vin)
     if (!matched.length) { el.innerHTML = `<div style="font-size:0.8rem;color:var(--text-muted)">🗂️ ยังไม่มีประวัติ Job Card</div>`; return }
