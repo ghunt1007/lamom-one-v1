@@ -643,6 +643,7 @@ export default async function CustomersPage(container) {
           // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
           // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
           bookingDate: todayBangkok(), notes: `สร้างจาก Customer Workspace (${fullName(c)})`,
+          companyId: myEffectiveCompanyId(),
         }
         const bookingId = await createDoc('bookings', bookingData)
         const stageChangedAt = new Date().toISOString()

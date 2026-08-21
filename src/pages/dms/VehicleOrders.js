@@ -211,6 +211,7 @@ export default async function VehicleOrdersPage(container) {
                 // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
                 mileage: 0, location: 'โชว์รูมหลัก', arrivedAt: todayBangkok(),
                 notes: `รับจากคำสั่งซื้อ ${o.orderNo}`,
+                companyId: o.companyId || myEffectiveCompanyId(),
               })
               created++
             } catch (e) {}

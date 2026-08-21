@@ -6,7 +6,7 @@ import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
-import { companyScopeFilters } from '../../core/companyScope.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function myName() {
   const me = getState('user') || {}
@@ -217,11 +217,12 @@ export default async function DeliveryCalendarPage(container) {
               model: document.getElementById('dl-model')?.value||'—', colorOut: document.getElementById('dl-color')?.value||'—',
               vin: '', deliveryDate: document.getElementById('dl-date')?.value||addDays(3), deliveryTime: document.getElementById('dl-time')?.value||'10:00',
               status: LOCAL_TO_BOOKING_STATUS.preparing, salesName: myName(), prep: [false,false,false,false,false],
-              bookingNo: '', nid: '', address: '', province: '', source: 'Walk-in',
+              bookingNo: '', address: '', province: '', source: 'Walk-in',
               brand: '', variant: '', colorIn: '', motorNo: '', batNo: '',
               price: 0, cost: 0, down: 0, financeCo: '', financeAmount: 0, finStatus: '', installments: 0, interestRate: 0, monthly: 0, campaign: '',
               margin: 0, budgetUsed: 0, com70: 0, comFinance: 0, marginLeft: 0, totalIncome: 0,
               bookingDate: addDays(0), submitDate: '', approveDate: '', signDate: '', cutDate: '', actualDeliveryDate: '', notes: '',
+              companyId: myEffectiveCompanyId(),
             })
             showToast('✅ นัดส่งมอบแล้ว', 'success')
             await loadData()

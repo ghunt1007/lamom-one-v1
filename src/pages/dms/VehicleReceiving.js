@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -42,7 +43,7 @@ export default async function VehicleReceivingPage(container) {
 
   async function loadData() {
     loading = true
-    try { vehicles = await listDocs('vehicle_receiving', [], 'eta', 'asc', 200) } catch (e) { vehicles = [] }
+    try { vehicles = await listDocs('vehicle_receiving', companyScopeFilters(), 'eta', 'asc', 200) } catch (e) { vehicles = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -188,6 +189,7 @@ export default async function VehicleReceivingPage(container) {
                 price: 0, cost: v.cost || 0, status: 'available',
                 mileage: 0, location: v.branch || 'โชว์รูมหลัก', arrivedAt: v.arrivedDate || today,
                 notes: `รับเข้าจาก Vehicle Receiving${v.supplier ? ' (' + v.supplier + ')' : ''}`,
+                companyId: v.companyId || myEffectiveCompanyId(),
               })
             } catch (e) {}
             showToast(`✅ PDI ผ่าน! รับ ${v.brand} ${v.model} เข้าสต็อกจริงแล้ว`, 'success')
@@ -256,7 +258,8 @@ export default async function VehicleReceivingPage(container) {
             status: 'transit', eta: document.getElementById('rvf-eta')?.value||addDays(7),
             arrivedDate: null, stockedDate: null, pdiStatus: 'pending',
             branch: document.getElementById('rvf-branch')?.value||'สาขาหลัก',
-            checklist: { exterior: false, interior: false, mechanical: false, documents: false, keys: false }
+            checklist: { exterior: false, interior: false, mechanical: false, documents: false, keys: false },
+            companyId: myEffectiveCompanyId(),
           })
           showToast('✅ บันทึกรถรับเข้าแล้ว!', 'success')
           await loadData()
