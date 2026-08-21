@@ -219,7 +219,17 @@ export default async function ServiceAppointmentPage(container) {
       const date = el.querySelector('#ap-date').value
       const time = el.querySelector('#ap-time').value
       if (!custName || !date || !time) return showToast('❗ กรุณากรอกข้อมูลที่จำเป็น', 'warning')
-      const data = { custName, date, time, phone: el.querySelector('#ap-phone').value, model: el.querySelector('#ap-model').value, plate: el.querySelector('#ap-plate').value, type: el.querySelector('#ap-type').value, tech: el.querySelector('#ap-tech').value, km: +el.querySelector('#ap-km').value||0, note: el.querySelector('#ap-note').value }
+      const tech = el.querySelector('#ap-tech').value
+      // (v1.0.526) เดิมหน้านี้ไม่เช็ค capacity เลย — จองช่างคนเดิมเวลาเดียวกันซ้ำได้ไม่จำกัด และจองเกินจำนวน
+      // ช่างทั้งหมดในช่วงเวลาเดียวกันได้แบบเงียบๆ (จองสล็อต 9 คนตอน 9 โมงทั้งที่มีช่างแค่ 4 คนก็ยังสำเร็จ) —
+      // เพิ่มเช็ค 2 ชั้น: (1) ช่างคนเดียวกันชนเวลาเดียวกันไม่ได้ (2) รวมทุกช่างในช่วงเวลานั้นห้ามเกินจำนวนช่างที่มี
+      const activeAtSlot = appts.filter(a => a.id !== appt?.id && a.date === date && a.time === time && !['cancelled','noshow'].includes(a.status))
+      if (tech) {
+        const techConflict = activeAtSlot.find(a => a.tech === tech)
+        if (techConflict) { showToast(`❗ ช่าง${tech} มีนัดของ ${techConflict.custName} ชนเวลา ${time} อยู่แล้ว`, 'error'); return }
+      }
+      if (activeAtSlot.length >= TECHS.length) { showToast(`❗ ช่วงเวลา ${time} เต็มแล้ว (ช่างว่างหมด ${TECHS.length}/${TECHS.length} คน) กรุณาเลือกเวลาอื่น`, 'error'); return }
+      const data = { custName, date, time, phone: el.querySelector('#ap-phone').value, model: el.querySelector('#ap-model').value, plate: el.querySelector('#ap-plate').value, type: el.querySelector('#ap-type').value, tech, km: +el.querySelector('#ap-km').value||0, note: el.querySelector('#ap-note').value }
       // เดิมปุ่มนี้ไม่ disable ระหว่างรอบันทึก กดซ้ำเร็วๆตอนสร้างนัดใหม่จะสร้างนัดหมายซ้ำ 2 รายการ
       const btn = e.currentTarget
       btn.disabled = true
