@@ -59,6 +59,7 @@ export default async function MarketingROIPage(container) {
   const myGen = container.__routerGen
   let sortBy = 'roi'
   let allSales = []
+  let leadCampaigns = []
   // เดิม new Date().toISOString().slice(0,7) คืนเดือนตาม UTC เสมอ ทำให้ "เดือนนี้" ผิดไปทุกครั้งที่
   // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
   let monthFilter = todayBangkok().slice(0, 7)
@@ -76,6 +77,11 @@ export default async function MarketingROIPage(container) {
       dataSource = hasSource ? 'live' : 'demo'
     }
   } catch {}
+  // (v1.0.527) เดิม Leads ต่อช่องทางไม่เคยเป็นข้อมูลจริงเลย (ประมาณจาก DEMO_CH ratio เสมอแม้ badge บอกว่า
+  // "ข้อมูลจริง") ทั้งที่ระบบมี lead_gen_campaigns (LeadGeneration.js/LeadSources.js) เก็บจำนวน Lead จริงต่อ
+  // แคมเปญ/ช่องทางอยู่แล้ว — ดึงมาใช้แทนถ้าช่องทางนั้นมีแคมเปญบันทึกไว้จริง (ไม่มีก็ยัง fallback เป็นค่าประมาณ
+  // เหมือนเดิม ไม่ใช่ทุกช่องทางจะมีแคมเปญบันทึกครบ)
+  try { leadCampaigns = await listDocs('lead_gen_campaigns', [], 'startDate', 'desc', 500) } catch {}
 
   function getMonths() {
     const mo = new Set(allSales.map(s => (s.date || '').slice(0, 7)).filter(Boolean))
@@ -87,7 +93,7 @@ export default async function MarketingROIPage(container) {
   function buildChannels(month) {
     return BASE_CH.map(ch => {
       const spend = budgets[ch.id] ?? ch.defBudget
-      let leads, customers, revenue
+      let leads, customers, revenue, profit
       // (แก้ไข) เดิม leads ในโหมด 'live' ยังคำนวณจาก DEMO_CH ratio อยู่ดี (ไม่ใช่ข้อมูลจริง) ทั้งที่ badge
       // หัวหน้า ● ข้อมูลจริง สื่อว่าทุกตัวเลขในหน้านี้เป็นข้อมูลจริง — ระบบไม่มี field จำนวน Lead ต่อช่องทาง
       // เก็บจริงเลย (มีแค่ยอดขาย/ลูกค้าจริงจาก bookings) จึงทำได้แค่ทำเครื่องหมาย leadsEstimated:true ไว้
@@ -100,20 +106,29 @@ export default async function MarketingROIPage(container) {
         })
         customers = mySales.length
         revenue = mySales.reduce((a, s) => a + (s.salePrice || 0), 0)
-        const demoRatio = DEMO_CH[ch.id].customers > 0 ? DEMO_CH[ch.id].leads / DEMO_CH[ch.id].customers : 10
-        leads = customers > 0 ? Math.round(customers * demoRatio) : 0
-        leadsEstimated = true
+        // (v1.0.527) กำไรขั้นต้นจริงต่อดีล (totalIncome = margin−งบการตลาด+คอมเซลส์+คอมไฟแนนซ์ ต่อใบจอง)
+        // แทนการสมมติอัตรากำไร 8% คงที่ — แต่ละดีลมาร์จิ้นไม่เท่ากันจริง ใช้ตัวเลขจริงแม่นยำกว่า
+        profit = mySales.reduce((a, s) => a + (s.totalIncome || 0), 0)
+        const myCampaigns = leadCampaigns.filter(c => matchChannel(c.channel || '') === ch.id && (!month || (c.startDate || '').slice(0, 7) === month))
+        if (myCampaigns.length) {
+          leads = myCampaigns.reduce((a, c) => a + (c.leads || 0), 0)
+        } else {
+          const demoRatio = DEMO_CH[ch.id].customers > 0 ? DEMO_CH[ch.id].leads / DEMO_CH[ch.id].customers : 10
+          leads = customers > 0 ? Math.round(customers * demoRatio) : 0
+          leadsEstimated = true
+        }
       } else {
         leads = DEMO_CH[ch.id].leads
         customers = DEMO_CH[ch.id].customers
         revenue = DEMO_CH[ch.id].revenue
+        profit = Math.round(revenue * 0.08)
       }
-      const roiPct = spend > 0 && revenue > 0 ? Math.round((revenue * 0.08 - spend) / spend * 100) : 0
+      const roiPct = spend > 0 ? Math.round((profit - spend) / spend * 100) : 0
       const cplV = leads > 0 ? Math.round(spend / leads) : 0
       const cacV = customers > 0 ? Math.round(spend / customers) : 0
       const convV = leads > 0 ? Math.round(customers / leads * 1000) / 10 : 0
       const spendPct = Math.min(100, Math.round(spend / Math.max(ch.defBudget, 1) * 100))
-      return { ...ch, spend, leads, leadsEstimated, customers, revenue, roiPct, cplV, cacV, convV, spendPct }
+      return { ...ch, spend, leads, leadsEstimated, customers, revenue, profit, roiPct, cplV, cacV, convV, spendPct }
     })
   }
 
@@ -129,7 +144,8 @@ export default async function MarketingROIPage(container) {
     const totalLeads = channels.reduce((a, c) => a + c.leads, 0)
     const totalCustomers = channels.reduce((a, c) => a + c.customers, 0)
     const totalRevenue = channels.reduce((a, c) => a + c.revenue, 0)
-    const blendedROI = totalSpend > 0 ? Math.round((totalRevenue * 0.08 - totalSpend) / totalSpend * 100) : 0
+    const totalProfit = channels.reduce((a, c) => a + c.profit, 0)
+    const blendedROI = totalSpend > 0 ? Math.round((totalProfit - totalSpend) / totalSpend * 100) : 0
     const best = sorted[0]
     const worst = sorted[sorted.length - 1]
     const months = getMonths()
@@ -139,7 +155,7 @@ export default async function MarketingROIPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">📊 Marketing ROI</div>
-            <div class="page-subtitle">วัดผลตอบแทน — แต่ละช่องทางการตลาด${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem" title="ลูกค้า/รายได้คำนวณจากยอดขายจริง — แต่ตัวเลข Leads ยังเป็นค่าประมาณ ไม่ใช่ข้อมูลจริง">● ลูกค้า/รายได้จริง</span>' : ''}</div>
+            <div class="page-subtitle">วัดผลตอบแทน — แต่ละช่องทางการตลาด${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem" title="ลูกค้า/รายได้/กำไร คำนวณจากยอดขายจริงเสมอ — Leads เป็นข้อมูลจริงถ้าช่องทางนั้นมีแคมเปญบันทึกไว้ใน Lead Generation ไม่งั้น fallback เป็นค่าประมาณ (ดูป้าย ประมาณ กำกับ)">● ข้อมูลจริง</span>' : ''}</div>
           </div>
           <div class="page-actions">
             <select class="input" id="month-filter" style="font-size:0.78rem;padding:4px 10px;height:auto">
