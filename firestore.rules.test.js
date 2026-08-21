@@ -417,8 +417,9 @@ describe('finance collections added after the original sweep — now finance-onl
     await assertFails(db.collection('bank_transactions').get())
   })
 
+  // (v1.0.504) groupWide:true — ไม่ใช่การแยกบริษัท (ดู "company scoping" describe block ด้านล่าง)
   it('finance role can read bank_transactions', async () => {
-    await seedUser('finGap2', { role: 'finance', active: true })
+    await seedUser('finGap2', { role: 'finance', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('finGap2').firestore()
     await assertSucceeds(db.collection('bank_transactions').get())
   })
@@ -716,8 +717,9 @@ describe('fourth audit pass — money-adjacent and personal-document collections
     await assertFails(db.collection('partner_commissions').add({ amount: 5000, status: 'approved' }))
   })
 
+  // (v1.0.504) groupWide:true — ไม่ใช่การแยกบริษัท
   it('finance role can approve a partner commission payout', async () => {
-    await seedUser('auditGap9', { role: 'finance', active: true })
+    await seedUser('auditGap9', { role: 'finance', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('auditGap9').firestore()
     await assertSucceeds(db.collection('partner_commissions').add({ amount: 5000, status: 'approved' }))
   })
@@ -916,14 +918,15 @@ describe('sales_budgets — same access as team_targets, a sales rep cannot edit
     await assertFails(db.collection('sales_budgets').add({ year: 2026, targets: [1] }))
   })
 
+  // (v1.0.504) groupWide:true × 2 — ไม่ใช่การแยกบริษัท
   it('a manager can set the sales budget', async () => {
-    await seedUser('auditGap31', { role: 'manager', active: true })
+    await seedUser('auditGap31', { role: 'manager', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('auditGap31').firestore()
     await assertSucceeds(db.collection('sales_budgets').add({ year: 2026, targets: [1] }))
   })
 
   it('a plain sales staff member can still read the sales budget', async () => {
-    await seedUser('auditGap32', { role: 'sales', active: true })
+    await seedUser('auditGap32', { role: 'sales', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('auditGap32').firestore()
     await assertSucceeds(db.collection('sales_budgets').get())
   })
@@ -950,14 +953,15 @@ describe('commission_rules — a sales rep cannot edit their own commission rate
     await assertFails(db.collection('commission_rules').add({ name: 'x', value: 999999 }))
   })
 
+  // (v1.0.504) groupWide:true × 2 — ไม่ใช่การแยกบริษัท
   it('finance role can edit a commission rule', async () => {
-    await seedUser('auditGap36', { role: 'finance', active: true })
+    await seedUser('auditGap36', { role: 'finance', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('auditGap36').firestore()
     await assertSucceeds(db.collection('commission_rules').add({ name: 'x', value: 5000 }))
   })
 
   it('a plain sales staff member can still read commission rules', async () => {
-    await seedUser('auditGap37', { role: 'sales', active: true })
+    await seedUser('auditGap37', { role: 'sales', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('auditGap37').firestore()
     await assertSucceeds(db.collection('commission_rules').get())
   })
@@ -970,14 +974,15 @@ describe('budget_planning — same access as sales_budgets/commission_rules', ()
     await assertFails(db.collection('budget_planning').add({ year: 2026, revenue: [] }))
   })
 
+  // (v1.0.504) groupWide:true × 2 — ไม่ใช่การแยกบริษัท
   it('a manager can set the annual budget', async () => {
-    await seedUser('auditGap39', { role: 'manager', active: true })
+    await seedUser('auditGap39', { role: 'manager', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('auditGap39').firestore()
     await assertSucceeds(db.collection('budget_planning').add({ year: 2026, revenue: [] }))
   })
 
   it('a plain staff member can still read the annual budget', async () => {
-    await seedUser('auditGap40', { role: 'sales', active: true })
+    await seedUser('auditGap40', { role: 'sales', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('auditGap40').firestore()
     await assertSucceeds(db.collection('budget_planning').get())
   })
@@ -1148,8 +1153,9 @@ describe('greeting_sends — birthday/anniversary send log', () => {
 })
 
 describe('tax_filings — persisted filing status log', () => {
+  // (v1.0.504) groupWide:true — ไม่ใช่การแยกบริษัท
   it('a staff member can log and read a filing status change', async () => {
-    await seedUser('auditGap59', { role: 'finance', active: true })
+    await seedUser('auditGap59', { role: 'finance', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('auditGap59').firestore()
     await assertSucceeds(db.collection('tax_filings').add({ baseId: 'TX001', status: 'filed', filedDate: '2026-07-28' }))
     await assertSucceeds(db.collection('tax_filings').get())
@@ -1200,8 +1206,9 @@ describe('price_negotiations — discount approval requires a manager', () => {
 })
 
 describe('invoices — marking paid requires finance/manager', () => {
+  // (v1.0.504) groupWide:true × 2 — ไม่ใช่การแยกบริษัท
   it('plain sales staff can create an invoice but cannot mark it paid', async () => {
-    await seedUser('auditGap64', { role: 'sales', active: true })
+    await seedUser('auditGap64', { role: 'sales', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('auditGap64').firestore()
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await ctx.firestore().doc('invoices/inv1').set({ custName: 'x', status: 'draft' })
@@ -1211,7 +1218,7 @@ describe('invoices — marking paid requires finance/manager', () => {
   })
 
   it('finance can mark an invoice paid', async () => {
-    await seedUser('auditGap65', { role: 'finance', active: true })
+    await seedUser('auditGap65', { role: 'finance', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('auditGap65').firestore()
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await ctx.firestore().doc('invoices/inv2').set({ custName: 'x', status: 'draft' })
@@ -1339,8 +1346,9 @@ describe('numeric bounds — money/quantity fields cannot be written negative ev
     await assertFails(db.collection('commission_rules').add({ name: 'x', type: 'percent', value: 150 }))
   })
 
+  // (v1.0.504) groupWide:true — ไม่ใช่การแยกบริษัท
   it('commission_rules: finance can set a flat-amount (non-percent) rule above 100 with no cap', async () => {
-    await seedUser('numBounds12', { role: 'finance', active: true })
+    await seedUser('numBounds12', { role: 'finance', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('numBounds12').firestore()
     await assertSucceeds(db.collection('commission_rules').add({ name: 'x', type: 'per_unit', value: 5000 }))
   })
@@ -1363,8 +1371,9 @@ describe('numeric bounds — money/quantity fields cannot be written negative ev
 // เจาะจงมาก่อนเลย ตกอยู่ใต้ catch-all isStaff() กว้างเกินไปมาตลอด — เทสยืนยันว่าพนักงานทั่วไปสร้างคำขอได้
 // (create) แต่อนุมัติ/ปฏิเสธ (update) ต้องผ่านการเงิน/ผู้จัดการเท่านั้น
 describe('newly-scoped approval collections (v1.0.299) — staff can create but not approve/reject', () => {
+  // (v1.0.504) groupWide:true — ไม่ใช่การแยกบริษัท
   it('refund_requests: staff can create a refund request but cannot approve it', async () => {
-    await seedUser('scopeGap1', { role: 'sales', active: true })
+    await seedUser('scopeGap1', { role: 'sales', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('scopeGap1').firestore()
     await assertSucceeds(db.collection('refund_requests').add({ customer: 'x', amount: 1000, status: 'pending' }))
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
@@ -1374,7 +1383,7 @@ describe('newly-scoped approval collections (v1.0.299) — staff can create but 
   })
 
   it('refund_requests: finance can approve a refund request', async () => {
-    await seedUser('scopeGap2', { role: 'finance', active: true })
+    await seedUser('scopeGap2', { role: 'finance', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('scopeGap2').firestore()
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await ctx.firestore().doc('refund_requests/r2').set({ customer: 'x', amount: 1000, status: 'pending' })
@@ -1391,8 +1400,9 @@ describe('newly-scoped approval collections (v1.0.299) — staff can create but 
     await assertFails(db.collection('purchase_orders').doc('p1').update({ status: 'approved' }))
   })
 
+  // (v1.0.504) groupWide:true — ไม่ใช่การแยกบริษัท
   it('purchase_orders: a manager can approve a purchase order', async () => {
-    await seedUser('scopeGap4', { role: 'manager', active: true })
+    await seedUser('scopeGap4', { role: 'manager', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('scopeGap4').firestore()
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await ctx.firestore().doc('purchase_orders/p2').set({ status: 'pending' })
@@ -1418,8 +1428,9 @@ describe('newly-scoped approval collections (v1.0.299) — staff can create but 
     await assertFails(db.collection('debts').doc('d1').update({ status: 'paid' }))
   })
 
+  // (v1.0.504) groupWide:true — ไม่ใช่การแยกบริษัท
   it('debts: finance can mark a debt as paid', async () => {
-    await seedUser('scopeGap7', { role: 'finance', active: true })
+    await seedUser('scopeGap7', { role: 'finance', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('scopeGap7').firestore()
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await ctx.firestore().doc('debts/d2').set({ amount: 5000, status: 'pending' })
@@ -1487,14 +1498,15 @@ describe('newly-scoped approval collections (v1.0.299) — staff can create but 
 // "อนุมัติ/ปฏิเสธ" (ผลจริงจากธนาคาร) ไม่ล็อกทั้ง collection — ส่วน cashier_payments/cashier_pending_bills
 // (จุดรับชำระเงินสด) ล็อกทั้งการเขียนให้การเงิน/ผู้จัดการเท่านั้น (ป้องกันปลอมบันทึกรับเงิน)
 describe('finance application/tracker + cashier desk (v1.0.300) — lock only the money-deciding action', () => {
+  // (v1.0.504) groupWide:true × 4 — ไม่ใช่การแยกบริษัท
   it('finance_applications: staff can create a new application', async () => {
-    await seedUser('scopeGap14', { role: 'sales', active: true })
+    await seedUser('scopeGap14', { role: 'sales', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('scopeGap14').firestore()
     await assertSucceeds(db.collection('finance_applications').add({ custName: 'x', loanAmount: 500000, status: 'submitted' }))
   })
 
   it('finance_applications: staff can update non-status fields (e.g. the document checklist) on their own tracked deal', async () => {
-    await seedUser('scopeGap15', { role: 'sales', active: true })
+    await seedUser('scopeGap15', { role: 'sales', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('scopeGap15').firestore()
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await ctx.firestore().doc('finance_applications/fa1').set({ custName: 'x', status: 'submitted', documents: [] })
@@ -1503,7 +1515,7 @@ describe('finance application/tracker + cashier desk (v1.0.300) — lock only th
   })
 
   it('finance_applications: staff can move a non-terminal status forward (e.g. submitted -> pending)', async () => {
-    await seedUser('scopeGap16', { role: 'sales', active: true })
+    await seedUser('scopeGap16', { role: 'sales', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('scopeGap16').firestore()
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await ctx.firestore().doc('finance_applications/fa2').set({ custName: 'x', status: 'submitted' })
@@ -1521,7 +1533,7 @@ describe('finance application/tracker + cashier desk (v1.0.300) — lock only th
   })
 
   it('finance_applications: finance can flip status to approved', async () => {
-    await seedUser('scopeGap18', { role: 'finance', active: true })
+    await seedUser('scopeGap18', { role: 'finance', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('scopeGap18').firestore()
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await ctx.firestore().doc('finance_applications/fa4').set({ custName: 'x', status: 'pending' })
@@ -1530,7 +1542,7 @@ describe('finance application/tracker + cashier desk (v1.0.300) — lock only th
   })
 
   it('finance_tracker: staff can move a non-terminal status forward (e.g. submitted -> reviewing)', async () => {
-    await seedUser('scopeGap19', { role: 'sales', active: true })
+    await seedUser('scopeGap19', { role: 'sales', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('scopeGap19').firestore()
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await ctx.firestore().doc('finance_tracker/ft1').set({ customerName: 'x', status: 'submitted' })
@@ -1548,7 +1560,7 @@ describe('finance application/tracker + cashier desk (v1.0.300) — lock only th
   })
 
   it('finance_tracker: a manager can flip status to rejected', async () => {
-    await seedUser('scopeGap21', { role: 'manager', active: true })
+    await seedUser('scopeGap21', { role: 'manager', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('scopeGap21').firestore()
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await ctx.firestore().doc('finance_tracker/ft3').set({ customerName: 'x', status: 'reviewing' })
@@ -1563,7 +1575,7 @@ describe('finance application/tracker + cashier desk (v1.0.300) — lock only th
   })
 
   it('cashier_payments: finance can record a cash payment', async () => {
-    await seedUser('scopeGap23', { role: 'finance', active: true })
+    await seedUser('scopeGap23', { role: 'finance', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('scopeGap23').firestore()
     await assertSucceeds(db.collection('cashier_payments').add({ customer: 'x', amount: 5000, method: 'cash' }))
   })
@@ -1578,7 +1590,7 @@ describe('finance application/tracker + cashier desk (v1.0.300) — lock only th
   })
 
   it('cashier_pending_bills: finance can delete a pending bill once paid', async () => {
-    await seedUser('scopeGap25', { role: 'finance', active: true })
+    await seedUser('scopeGap25', { role: 'finance', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('scopeGap25').firestore()
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await ctx.firestore().doc('cashier_pending_bills/b2').set({ customer: 'x', amount: 5000 })
@@ -2108,6 +2120,84 @@ describe('company scoping — job_cards (v1.0.502)', () => {
   })
 })
 
+// v1.0.504 — Phase 4: canSeeCompanyDoc() เปิดใช้งานจริงกับ 35 collection ฝั่งการเงิน โค้ดแอปทุกหน้าที่อ่าน/
+// เขียน collection เหล่านี้แก้ให้ใช้ companyScopeFilters()/myEffectiveCompanyId() ครบแล้วใน v1.0.503 —
+// role gate เดิมของแต่ละ collection หลากหลายมาก (isStaff/isFinance/isManager/isService ผสมกัน) แต่ role
+// 'manager' และ 'owner' ผ่านทุก gate ที่ใช้ในแอปนี้ (isFinance()/isManager()/isService() ทุกตัวรวม 'manager'
+// ไว้ด้วย) จึงใช้ role เดียวกันทดสอบกลไก company-scoping ได้ครบทั้ง 35 collection โดยไม่ต้องแยก role ตาม
+// collection — เคสนี้ทดสอบเฉพาะฝั่ง canSeeCompanyDoc() เท่านั้น ไม่ใช่ role gate ของแต่ละ collection (มีเทส
+// เจาะจงแยกต่างหากอยู่แล้วสำหรับ role gate แต่ละตัว)
+describe('company scoping — Phase 4, finance collections (v1.0.504)', () => {
+  const collections = [
+    'invoices', 'purchase_orders', 'bank_transactions', 'assets', 'finance_applications', 'budget_planning',
+    'billing_runs', 'cash_flow', 'cashier_payments', 'cashier_pending_bills', 'cashier_shift_closes',
+    'charging_sessions', 'commission_rules', 'debt_settlements', 'debts', 'deposits', 'expense_approvals',
+    'energy_readings', 'finance_tracker', 'financial_goals', 'installment_plans', 'monthly_close_items',
+    'financial_closings', 'payment_transactions', 'petty_cash', 'auto_receipts', 'auto_send_rules',
+    'sales_budgets', 'refund_requests', 'tax_filings', 'withholding_tax_certs', 'vendors',
+    'partner_commissions', 'floor_plan', 'compliance_checklist',
+  ]
+
+  collections.forEach((col) => {
+    describe(col, () => {
+      it('the program-owner account (by email) sees a doc from a company they are not a member of', async () => {
+        await seedUser(`csp4p1_${col}`, { role: 'owner', active: true })
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.firestore().doc(`${col}/d1`).set({ note: 'x', companyId: 'companyB' })
+        })
+        const db = testEnv.authenticatedContext(`csp4p1_${col}`, { email: 'ghunt1007@gmail.com' }).firestore()
+        await assertSucceeds(db.doc(`${col}/d1`).get())
+        await assertSucceeds(db.collection(col).get())
+      })
+
+      it('a plain owner-role account that is NOT the program-owner email is company-scoped like anyone else', async () => {
+        await seedUser(`csp4p2_${col}`, { role: 'owner', active: true, companyIds: ['companyA'] })
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.firestore().doc(`${col}/d2`).set({ note: 'x', companyId: 'companyB' })
+        })
+        const db = testEnv.authenticatedContext(`csp4p2_${col}`, { email: 'somsak@lamom.one' }).firestore()
+        await assertFails(db.doc(`${col}/d2`).get())
+        await assertFails(db.collection(col).get())
+        await assertSucceeds(db.collection(col).where('companyId', 'in', ['companyA']).get())
+      })
+
+      it('a groupWide:true user sees a doc from a company they are not a member of', async () => {
+        await seedUser(`csp4p3_${col}`, { role: 'manager', active: true, companyIds: ['companyA'], groupWide: true })
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.firestore().doc(`${col}/d3`).set({ note: 'x', companyId: 'companyB' })
+        })
+        const db = testEnv.authenticatedContext(`csp4p3_${col}`).firestore()
+        await assertSucceeds(db.doc(`${col}/d3`).get())
+        await assertSucceeds(db.collection(col).get())
+      })
+
+      it('a company-scoped user CANNOT open a doc belonging to a different company directly', async () => {
+        await seedUser(`csp4p4_${col}`, { role: 'manager', active: true, companyIds: ['companyA'] })
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.firestore().doc(`${col}/d4`).set({ note: 'x', companyId: 'companyB' })
+        })
+        const db = testEnv.authenticatedContext(`csp4p4_${col}`).firestore()
+        await assertFails(db.doc(`${col}/d4`).get())
+      })
+
+      it('a company-scoped user CAN list docs when the query is properly scoped with a matching where clause', async () => {
+        await seedUser(`csp4p5_${col}`, { role: 'manager', active: true, companyIds: ['companyA'] })
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.firestore().doc(`${col}/d5`).set({ note: 'x', companyId: 'companyA' })
+        })
+        const db = testEnv.authenticatedContext(`csp4p5_${col}`).firestore()
+        await assertSucceeds(db.collection(col).where('companyId', 'in', ['companyA']).get())
+      })
+
+      it('a company-scoped user CANNOT list docs with no where clause at all', async () => {
+        await seedUser(`csp4p6_${col}`, { role: 'manager', active: true, companyIds: ['companyA'] })
+        const db = testEnv.authenticatedContext(`csp4p6_${col}`).firestore()
+        await assertFails(db.collection(col).get())
+      })
+    })
+  })
+})
+
 describe('courtesy_car_jobs (v1.0.304) — pickup/delivery customer address scoped to service/manager', () => {
   it('an HR-role staff member cannot read a customer pickup address', async () => {
     await seedUser('pii7', { role: 'hr', active: true })
@@ -2151,7 +2241,7 @@ describe('staff_profile_salaries (v1.0.304) — salary in the parallel staff_pro
 
 describe('payment_transactions + installment_plans (v1.0.306) — lock only the money-confirming action', () => {
   it('payment_transactions: a plain sales staff can create a pending payment QR request', async () => {
-    await seedUser('payGap1', { role: 'sales', active: true })
+    await seedUser('payGap1', { role: 'sales', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('payGap1').firestore()
     await assertSucceeds(db.collection('payment_transactions').add({ ref: 'INV-1', customer: 'x', amount: 5000, status: 'pending' }))
   })
@@ -2166,7 +2256,7 @@ describe('payment_transactions + installment_plans (v1.0.306) — lock only the 
   })
 
   it('payment_transactions: finance can confirm a payment as success', async () => {
-    await seedUser('payGap3', { role: 'finance', active: true })
+    await seedUser('payGap3', { role: 'finance', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('payGap3').firestore()
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await ctx.firestore().doc('payment_transactions/tx2').set({ ref: 'INV-1', customer: 'x', amount: 5000, status: 'pending' })
@@ -2190,7 +2280,7 @@ describe('payment_transactions + installment_plans (v1.0.306) — lock only the 
   })
 
   it('installment_plans: finance can record a paid installment', async () => {
-    await seedUser('payGap6', { role: 'finance', active: true })
+    await seedUser('payGap6', { role: 'finance', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('payGap6').firestore()
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await ctx.firestore().doc('installment_plans/p2').set({ customer: 'x', total: 500000, totalInst: 36, monthly: 15000, paid: 0, status: 'current' })
@@ -2248,8 +2338,9 @@ describe('insurance_claims + tax_filings (v1.0.307) — lock only the money/comp
     await assertFails(db.collection('tax_filings').add({ baseId: 'vat-2026-07', status: 'filed', filedDate: '2026-07-30' }))
   })
 
+  // (v1.0.504) groupWide:true — ไม่ใช่การแยกบริษัท
   it('tax_filings: finance can mark a filing as filed', async () => {
-    await seedUser('taxGap2', { role: 'finance', active: true })
+    await seedUser('taxGap2', { role: 'finance', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('taxGap2').firestore()
     await assertSucceeds(db.collection('tax_filings').add({ baseId: 'vat-2026-07', status: 'filed', filedDate: '2026-07-30' }))
   })
