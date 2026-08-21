@@ -55,7 +55,7 @@ export default function SettingsPage(container) {
             <button class="btn btn-sm mode-btn ${currentMode === 'dark' ? 'btn-primary' : 'btn-secondary'}" data-mode="dark">🌙 มืด (Dark)</button>
             <button class="btn btn-sm mode-btn ${currentMode === 'light' ? 'btn-primary' : 'btn-secondary'}" data-mode="light">☀️ สว่าง (Light)</button>
           </div>
-          <div style="font-size:0.72rem;color:var(--text-muted);margin-top:6px">⚠️ ตอนนี้โหมดสว่างรองรับเฉพาะ Theme "Midnight" (ค่าเริ่มต้น) เท่านั้น — Theme อื่นจะยังแสดงเป็นโทนมืดต่อไปแม้เปิดโหมดสว่าง</div>
+          <div style="font-size:0.72rem;color:var(--text-muted);margin-top:6px">โหมดสว่างรองรับครบทุก Theme สีแล้ว — สลับ Theme ได้อิสระ พื้นหลังจะยังคงสว่างตามที่เลือกไว้</div>
         </div>
       </div>
 
