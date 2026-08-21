@@ -575,10 +575,19 @@ describe('system-security collections — admin only', () => {
   })
 })
 
-describe('ip_whitelist + security_alerts (v1.0.350) — IP Whitelist is monitor-only, never a hard login block', () => {
+describe('ip_whitelist + security_alerts (v1.0.350, read opened v1.0.533) — IP Whitelist edge-block support', () => {
   it('plain staff can read ip_whitelist but not write it', async () => {
     await seedUser('ipwl1', { role: 'manager', active: true })
     const db = testEnv.authenticatedContext('ipwl1').firestore()
+    await assertSucceeds(db.collection('ip_whitelist').get())
+    await assertFails(db.collection('ip_whitelist').add({ label: 'Office', ip: '203.0.113.5' }))
+  })
+
+  // (v1.0.533) functions/_middleware.js (Cloudflare Pages Function ที่บล็อก IP จริงระดับ edge) ไม่มี
+  // Firebase Auth session เป็นของตัวเอง ต้องอ่าน ip_whitelist แบบไม่ login ได้ — เปิด read เป็น public
+  // (ข้อมูลแค่ label + IP address ไม่ใช่ของอ่อนไหว) write ยังคงจำกัดเฉพาะเจ้าของโปรแกรมเหมือนเดิม
+  it('an unauthenticated caller can read ip_whitelist (needed by the edge block Function) but not write it', async () => {
+    const db = testEnv.unauthenticatedContext().firestore()
     await assertSucceeds(db.collection('ip_whitelist').get())
     await assertFails(db.collection('ip_whitelist').add({ label: 'Office', ip: '203.0.113.5' }))
   })

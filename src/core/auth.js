@@ -16,10 +16,11 @@ import { deepSanitize, createDoc, listDocs, updateDocData } from './db.js'
 import { getClientIp } from '../utils/comms.js'
 import { todayBangkok } from '../utils/format.js'
 
-// (v1.0.350) IP Whitelist (เตือนเท่านั้น ไม่บล็อกจริง — Firestore Rules มองไม่เห็น IP ผู้เรียกได้เลย การ
-// "บล็อกจริง" ต้องมี edge middleware ใหม่ทั้งชุดซึ่งเสี่ยงทำให้เจ้าของ/พนักงานเข้าระบบตัวเองไม่ได้ถ้าตั้งค่า
-// ผิด — เลือกทำแค่บันทึก/เตือนแทน) — บันทึก session จริง + เทียบ IP กับ whitelist ทุกครั้งที่ login สำเร็จ
-// เป็น best-effort เท่านั้น ห้ามทำให้ login ล้มเหลวไม่ว่า Worker/Firestore จะพังแบบไหนก็ตาม
+// (v1.0.350) IP Whitelist — จุดนี้ (หลัง login สำเร็จ) ยังคงเป็นแค่บันทึก/เตือนเท่านั้น (best-effort ห้ามทำให้
+// login ล้มเหลวไม่ว่า Worker/Firestore จะพังแบบไหนก็ตาม) เพราะ Firestore Rules มองไม่เห็น IP ผู้เรียกได้เลย —
+// (v1.0.533) การบล็อกจริงถูกย้ายไปทำที่ edge แทน (functions/_middleware.js, Cloudflare Pages Function ที่
+// เช็คก่อนหน้าเว็บจะโหลดด้วยซ้ำ) ปิดโดยดีฟอลต์ เจ้าของต้องเปิดเองผ่าน Cloudflare env var — ดูรายละเอียดที่
+// ไฟล์นั้นและ SecuritySettings.js — บันทึก session จริง + เทียบ IP กับ whitelist ทุกครั้งที่ login สำเร็จ
 function deviceLabel() {
   const ua = navigator.userAgent || ''
   const os = /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iOS' : /Windows/.test(ua) ? 'Windows' : /Macintosh/.test(ua) ? 'Mac' : /Linux/.test(ua) ? 'Linux' : 'ไม่ทราบอุปกรณ์'

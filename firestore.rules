@@ -1400,8 +1400,12 @@ service cloud.firestore {
 
     // (v1.0.350) IP Whitelist (เตือนเท่านั้น ไม่บล็อกจริง) — ดูได้ทุกคนที่เป็นพนักงาน แก้ไขได้แค่เจ้าของ
     // โปรแกรม (v1.0.466 — เดิม isAdmin())
+    // (v1.0.533) เปิด read แบบไม่ต้อง login เลย (เดิม isStaff() เท่านั้น) — จำเป็นสำหรับให้ Cloudflare Pages
+    // Function (functions/_middleware.js) อ่านรายการ IP ได้จาก edge ตอนเช็คบล็อกจริง (Function ไม่มี Firebase
+    // Auth session เป็นของตัวเอง) ข้อมูลในนี้มีแค่ label + IP address (เช่น "ออฟฟิศหลัก" + เลข IP) ไม่ใช่ข้อมูล
+    // อ่อนไหว การเปิด read สาธารณะจึงยอมรับความเสี่ยงได้ — write ยังคงจำกัดเฉพาะเจ้าของโปรแกรมเหมือนเดิม
     match /ip_whitelist/{docId} {
-      allow read: if isStaff();
+      allow read: if true;
       allow write: if isProgramOwner();
     }
 

@@ -116,13 +116,18 @@ export default async function SecuritySettingsPage(container) {
           </div>
         </div>
 
-        <!-- IP Whitelist (เตือนเท่านั้น) -->
+        <!-- IP Whitelist (v1.0.533 — บล็อกจริงได้แล้วที่ระดับ edge ถ้าเปิดใช้งาน) -->
         <div class="card" style="padding:14px;margin-bottom:14px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-            <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted)">🌐 IP Whitelist (เตือนเท่านั้น ไม่บล็อก login จริง)</div>
+            <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted)">🌐 IP Whitelist</div>
             ${amOwner ? `<button class="btn btn-xs btn-primary" id="add-ip-btn">+ เพิ่ม IP</button>` : ''}
           </div>
-          <p style="font-size:0.68rem;color:var(--text-muted);margin-bottom:8px">Firestore ไม่มีทางเช็ค IP ผู้ login ได้เอง — ระบบแค่แจ้งเตือนที่นี่เมื่อ login จาก IP นอกรายการ ไม่ได้บล็อกการเข้าใช้งานจริง${!amOwner ? ' · 🔒 เพิ่ม/ลบ IP ได้เฉพาะเจ้าของโปรแกรม' : ''}</p>
+          <p style="font-size:0.68rem;color:var(--text-muted);margin-bottom:8px">รายการนี้ยังคงใช้แจ้งเตือน (security_alerts) ที่นี่เสมอเมื่อ login จาก IP นอกรายการ${!amOwner ? ' · 🔒 เพิ่ม/ลบ IP ได้เฉพาะเจ้าของโปรแกรม' : ''}</p>
+          ${amOwner ? `<div class="card" style="padding:10px 12px;margin-bottom:10px;background:var(--warning-dim);border:1px solid var(--warning);font-size:0.7rem;line-height:1.6">
+            ⚠️ <strong>บล็อกจริงระดับเว็บ (edge) ทำได้แล้ว แต่ต้องเปิดเองเพิ่ม 2 ขั้นตอน (ตั้งใจไม่เปิดอัตโนมัติ — เสี่ยงล็อกตัวเองออกจากระบบธุรกิจจริงถ้าตั้งผิด):</strong><br>
+            1) ตั้งค่า <code>IP_BLOCK_BYPASS_KEY</code> เป็นค่าลับยาวๆ ที่ Cloudflare Pages &gt; lamom-one &gt; Settings &gt; Environment variables แล้วเก็บ URL <code>https://lamom-one.pages.dev/?_bypass=&lt;ค่านั้น&gt;</code> ไว้ในที่ปลอดภัย (เผื่อ whitelist ตั้งผิดจนเข้าเว็บไม่ได้ ยังมีทางกลับเข้ามาได้เสมอ)<br>
+            2) เปิด <code>IP_BLOCK_ENABLED=true</code> ที่เดียวกัน — จากนั้น IP ที่ไม่อยู่ในรายการด้านล่างจะเข้าเว็บนี้ไม่ได้เลยจริงๆ (ไม่ใช่แค่เตือนอีกต่อไป) ยกเว้นรายการที่ list ไว้ + ผู้ที่เปิดผ่านลิงก์ bypass แล้ว
+          </div>` : ''}
           ${whitelist.length ? whitelist.map(w => `
             <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:0.78rem">
               <span>${escHtml(w.label)} — <code>${escHtml(w.ip)}</code></span>
