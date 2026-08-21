@@ -297,12 +297,18 @@ service cloud.firestore {
     }
 
     match /comm_logs/{docId} {
-      allow read, write: if isStaff();
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
+      allow create: if isStaff() && canSeeCompanyDoc(request.resource.data);
+      allow update: if isStaff() && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isStaff() && canSeeCompanyDoc(resource.data);
     }
 
     // บันทึกว่าส่งคำอวยพรวันเกิด/ครบรอบให้ลูกค้ารายไหนไปแล้ว (กันส่งซ้ำ+รีเฟรชแล้วข้อมูลไม่หาย)
     match /greeting_sends/{docId} {
-      allow read, write: if isStaff();
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
+      allow create: if isStaff() && canSeeCompanyDoc(request.resource.data);
+      allow update: if isStaff() && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isStaff() && canSeeCompanyDoc(resource.data);
     }
 
     // (v1.0.307) เดิม isStaff() เขียนได้หมด — พนักงานคนไหนก็กดปุ่ม "✓ ยื่นแล้ว" ปลอมบันทึกว่ายื่นภาษี
@@ -342,7 +348,10 @@ service cloud.firestore {
     }
 
     match /quotations/{docId} {
-      allow read, write: if isStaff();
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
+      allow create: if isStaff() && canSeeCompanyDoc(request.resource.data);
+      allow update: if isStaff() && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isStaff() && canSeeCompanyDoc(resource.data);
     }
 
     // (v1.0.470) แก้ชื่อ collection ผิด — โค้ดแอปทุกจุด (FollowUp.js/VoiceCrm.js) เขียน/อ่าน collection ชื่อ
@@ -350,15 +359,24 @@ service cloud.firestore {
     // สร้างมา — collection นี้ถูกปกครองด้วย catch-all isStaff() ท้ายไฟล์แทนมาตลอด (พฤติกรรมจริงเหมือนเดิม
     // ทุกประการเพราะบล็อกนี้ก็เป็น isStaff() เหมือนกัน แค่แก้ชื่อให้ตรงเผื่ออนาคตต้องปรับสิทธิ์ให้แคบลง)
     match /followups/{docId} {
-      allow read, write: if isStaff();
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
+      allow create: if isStaff() && canSeeCompanyDoc(request.resource.data);
+      allow update: if isStaff() && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isStaff() && canSeeCompanyDoc(resource.data);
     }
 
     match /test_drives/{docId} {
-      allow read, write: if isStaff();
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
+      allow create: if isStaff() && canSeeCompanyDoc(request.resource.data);
+      allow update: if isStaff() && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isStaff() && canSeeCompanyDoc(resource.data);
     }
 
     match /appointments/{docId} {
-      allow read, write: if isStaff();
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
+      allow create: if isStaff() && canSeeCompanyDoc(request.resource.data);
+      allow update: if isStaff() && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isStaff() && canSeeCompanyDoc(resource.data);
     }
 
     // ── Stock & Vehicles ─────────────────────────────────────────────────────
@@ -1315,6 +1333,7 @@ service cloud.firestore {
         'sales_budgets', 'marketing_budgets', 'commission_rules', 'budget_planning',
         'price_negotiations', 'invoices', 'referrers', 'referrals',
         'vehicles', 'bookings', 'booking_national_ids', 'tasks',
+        'comm_logs', 'quotations', 'followups', 'greeting_sends', 'test_drives', 'appointments',
         'refund_requests', 'purchase_orders', 'supplier_pos', 'debts', 'deposits',
         'trade_ins', 'warranty_claims', 'warranty_service_claims', 'finance_rate_sheets',
         'finance_applications', 'finance_tracker', 'cashier_payments', 'cashier_pending_bills',

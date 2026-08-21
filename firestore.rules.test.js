@@ -1134,11 +1134,13 @@ describe('comm_messages — group channels stay open, DM channels restricted to 
 })
 
 describe('greeting_sends — birthday/anniversary send log', () => {
+  // (v1.0.496) หลัง canSeeCompanyDoc() เปิดใช้กับ collection นี้ — โค้ดแอปจริง (BirthdayGreetings.js)
+  // stamp companyId ทุกครั้งที่สร้างเอกสารใหม่แล้วตั้งแต่ v1.0.495 เทสนี้แก้ให้ตรงกับพฤติกรรมจริง
   it('a staff member can log and read a greeting send', async () => {
-    await seedUser('auditGap58', { role: 'sales', active: true })
+    await seedUser('auditGap58', { role: 'sales', active: true, companyIds: ['companyA'] })
     const db = testEnv.authenticatedContext('auditGap58').firestore()
-    await assertSucceeds(db.collection('greeting_sends').add({ customer: 'x', phone: '0800000000', eventDate: '2026-07-27', channel: 'SMS' }))
-    await assertSucceeds(db.collection('greeting_sends').get())
+    await assertSucceeds(db.collection('greeting_sends').add({ customer: 'x', phone: '0800000000', eventDate: '2026-07-27', channel: 'SMS', companyId: 'companyA' }))
+    await assertSucceeds(db.collection('greeting_sends').where('companyId', 'in', ['companyA']).get())
   })
 })
 
@@ -1816,6 +1818,74 @@ describe('company scoping — core mechanism, first real collection: tasks (v1.0
     await seedUser('csSales3', { role: 'sales', active: true, companyIds: ['companyA'] })
     const db = testEnv.authenticatedContext('csSales3').firestore()
     await assertFails(db.collection('tasks').get())
+  })
+})
+
+// v1.0.496 — Phase 1: canSeeCompanyDoc() เปิดใช้งานจริงกับอีก 6 collection ของ CRM ที่เหลือ (comm_logs,
+// quotations, followups, greeting_sends, test_drives, appointments) ตามแพทเทิร์นเดียวกับ tasks (v1.0.455)
+// ด้านบนเป๊ะๆ — โค้ดแอปทุกหน้าที่อ่าน/เขียน collection เหล่านี้แก้ให้ใช้ companyScopeFilters()/
+// myEffectiveCompanyId() ครบแล้วใน v1.0.495 (deploy โค้ดแอปก่อน ยืนยัน production แล้วค่อยปิด rule ทีหลัง
+// ตามลำดับที่ปลอดภัย) วนซ้ำ 6 เคสหลักเดิมข้ามทั้ง 6 collection เพื่อพิสูจน์ว่ากลไกบังคับจริงทุกตัว ไม่ใช่แค่ tasks
+describe('company scoping — Phase 1, remaining CRM collections (v1.0.496)', () => {
+  const collections = ['comm_logs', 'quotations', 'followups', 'greeting_sends', 'test_drives', 'appointments']
+
+  collections.forEach((col) => {
+    describe(col, () => {
+      it('the program-owner account (by email) sees a doc from a company they are not a member of', async () => {
+        await seedUser(`csp1_${col}`, { role: 'owner', active: true })
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.firestore().doc(`${col}/d1`).set({ note: 'x', companyId: 'companyB' })
+        })
+        const db = testEnv.authenticatedContext(`csp1_${col}`, { email: 'ghunt1007@gmail.com' }).firestore()
+        await assertSucceeds(db.doc(`${col}/d1`).get())
+        await assertSucceeds(db.collection(col).get())
+      })
+
+      it('a plain owner-role account that is NOT the program-owner email is company-scoped like anyone else', async () => {
+        await seedUser(`csp2_${col}`, { role: 'owner', active: true, companyIds: ['companyA'] })
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.firestore().doc(`${col}/d2`).set({ note: 'x', companyId: 'companyB' })
+        })
+        const db = testEnv.authenticatedContext(`csp2_${col}`, { email: 'somsak@lamom.one' }).firestore()
+        await assertFails(db.doc(`${col}/d2`).get())
+        await assertFails(db.collection(col).get())
+        await assertSucceeds(db.collection(col).where('companyId', 'in', ['companyA']).get())
+      })
+
+      it('a groupWide:true user sees a doc from a company they are not a member of', async () => {
+        await seedUser(`csp3_${col}`, { role: 'hr', active: true, companyIds: ['companyA'], groupWide: true })
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.firestore().doc(`${col}/d3`).set({ note: 'x', companyId: 'companyB' })
+        })
+        const db = testEnv.authenticatedContext(`csp3_${col}`).firestore()
+        await assertSucceeds(db.doc(`${col}/d3`).get())
+        await assertSucceeds(db.collection(col).get())
+      })
+
+      it('a company-scoped sales user CANNOT open a doc belonging to a different company directly', async () => {
+        await seedUser(`csp4_${col}`, { role: 'sales', active: true, companyIds: ['companyA'] })
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.firestore().doc(`${col}/d4`).set({ note: 'x', companyId: 'companyB' })
+        })
+        const db = testEnv.authenticatedContext(`csp4_${col}`).firestore()
+        await assertFails(db.doc(`${col}/d4`).get())
+      })
+
+      it('a company-scoped sales user CAN list docs when the query is properly scoped with a matching where clause', async () => {
+        await seedUser(`csp5_${col}`, { role: 'sales', active: true, companyIds: ['companyA'] })
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.firestore().doc(`${col}/d5`).set({ note: 'x', companyId: 'companyA' })
+        })
+        const db = testEnv.authenticatedContext(`csp5_${col}`).firestore()
+        await assertSucceeds(db.collection(col).where('companyId', 'in', ['companyA']).get())
+      })
+
+      it('a company-scoped sales user CANNOT list docs with no where clause at all', async () => {
+        await seedUser(`csp6_${col}`, { role: 'sales', active: true, companyIds: ['companyA'] })
+        const db = testEnv.authenticatedContext(`csp6_${col}`).firestore()
+        await assertFails(db.collection(col).get())
+      })
+    })
   })
 })
 
