@@ -156,7 +156,12 @@
     { "collectionGroup": "team_targets", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "department", "order": "ASCENDING" }] },
     { "collectionGroup": "team_targets", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "period", "order": "DESCENDING" }] },
     { "collectionGroup": "bookings", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "deliveryDate", "order": "ASCENDING" }] },
-    { "collectionGroup": "vehicles", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "arrivedAt", "order": "ASCENDING" }] }
+    { "collectionGroup": "vehicles", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "arrivedAt", "order": "ASCENDING" }] },
+    { "collectionGroup": "bookings", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "customerId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] },
+    { "collectionGroup": "bookings", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "phone", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] },
+    { "collectionGroup": "bookings", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "status", "order": "ASCENDING" }, { "fieldPath": "deliveryDate", "order": "ASCENDING" }] },
+    { "collectionGroup": "bookings", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "status", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] },
+    { "collectionGroup": "vehicle_warranties", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "endDate", "order": "ASCENDING" }] }
   ],
   "fieldOverrides": []
 }

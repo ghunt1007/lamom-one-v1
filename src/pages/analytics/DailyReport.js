@@ -91,7 +91,7 @@ export default async function DailyReportPage(container) {
   try {
     const [sales, budgetDocs, jobs, walkins, testdrives, appts] = await Promise.all([
       getSalesData().catch(() => []),
-      listDocs('sales_budgets', [['year', '==', new Date().getFullYear()]], 'createdAt', 'asc', 1).catch(() => []),
+      listDocs('sales_budgets', [['year', '==', new Date().getFullYear()], ...companyScopeFilters()], 'createdAt', 'asc', 1).catch(() => []),
       listDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
       listDocs('walk_ins', [], 'visitTime', 'desc', 500).catch(() => []),
       listDocs('test_drive_records', [], 'date', 'desc', 500).catch(() => []),

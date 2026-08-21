@@ -94,7 +94,7 @@ export default async function SalesForecastPage(container) {
 
   // ดึงเป้ายอดขายรายปีจริงจาก sales_budgets (ถ้ามี) แทนตัวเลขเป้าที่ hardcode ไว้ตายตัว
   try {
-    const budgetDocs = await listDocs('sales_budgets', [['year', '==', YEAR]], 'createdAt', 'asc', 1).catch(() => [])
+    const budgetDocs = await listDocs('sales_budgets', [['year', '==', YEAR], ...companyScopeFilters()], 'createdAt', 'asc', 1).catch(() => [])
     if (budgetDocs.length && Array.isArray(budgetDocs[0].targets)) {
       annualTarget = budgetDocs[0].targets.reduce((a, v) => a + (v || 0), 0)
     }

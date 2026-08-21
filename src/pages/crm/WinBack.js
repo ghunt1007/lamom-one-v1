@@ -6,6 +6,7 @@ import { formatCurrency, formatDate, timeAgo, todayBangkok } from '../../utils/f
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -46,7 +47,7 @@ export default async function WinBackPage(container) {
       const stored = await listDocs('winback_targets', [], 'lastVisit', 'asc', 300)
       let virtual = []
       try {
-        const delivered = await listDocs('bookings', [['status','==','ส่งมอบแล้ว']], 'deliveryDate', 'asc', 300)
+        const delivered = await listDocs('bookings', [['status','==','ส่งมอบแล้ว'], ...companyScopeFilters()], 'deliveryDate', 'asc', 300)
         const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth() - 10)
         const inactive = delivered.filter(b => {
           const d = new Date(b.deliveryDate || b.bookingDate || 0)

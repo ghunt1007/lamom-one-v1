@@ -3,6 +3,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -49,10 +50,10 @@ function addYears(d, y) { const dt = new Date(d); dt.setFullYear(dt.getFullYear(
 // WarrantyExpiry.js เรียกใช้ข้อมูลจริงชุดเดียวกันได้ ไม่ต้องมีคอลเลกชัน warranty_expiry_vehicles แยกที่ไม่มี
 // ใครเขียนจริงอีกต่อไป (เดิมเป็นข้อมูล seed ตายตัว ไม่ sync กับใบจองจริงเลยเหมือนไฟล์นี้ทำอยู่แล้ว)
 export async function loadWarranties() {
-  const stored = await listDocs('vehicle_warranties', [], 'endDate', 'asc', 500)
+  const stored = await listDocs('vehicle_warranties', companyScopeFilters(), 'endDate', 'asc', 500)
   let virtual = []
   try {
-    const bookings = await listDocs('bookings', [['status', '==', 'ส่งมอบแล้ว']], 'createdAt', 'desc', 500)
+    const bookings = await listDocs('bookings', [['status', '==', 'ส่งมอบแล้ว'], ...companyScopeFilters()], 'createdAt', 'desc', 500)
     virtual = bookings.filter(b => !stored.some(s => s.sourceBookingId === b.id)).map(b => {
       const startDate = (b.actualDeliveryDate || b.deliveryDate || b.updatedAt?.toDate?.()?.toISOString() || '').slice(0, 10)
       const isEV = EV_BRANDS.some(br => (b.brand || '').includes(br))
@@ -76,7 +77,7 @@ export async function loadWarranties() {
 export async function persistWarranty(w, fields) {
   if (w._source === 'booking') {
     const { _source, id, ...rest } = w
-    const newId = await createDoc('vehicle_warranties', { ...rest, sourceBookingId: w.sourceBookingId, ...fields })
+    const newId = await createDoc('vehicle_warranties', { ...rest, sourceBookingId: w.sourceBookingId, ...fields, companyId: myEffectiveCompanyId() })
     return newId
   }
   if (Object.keys(fields).length) await updateDocData('vehicle_warranties', w.id, fields)
@@ -415,7 +416,7 @@ export default async function WarrantyManagementPage(container) {
             await persistWarranty(w, fields)
             showToast('✅ แก้ไขรับประกันแล้ว', 'success')
           } else {
-            await createDoc('vehicle_warranties', { ...fields, status: 'active' })
+            await createDoc('vehicle_warranties', { ...fields, status: 'active', companyId: myEffectiveCompanyId() })
             showToast('✅ เพิ่มรับประกันแล้ว', 'success')
           }
           await loadData()

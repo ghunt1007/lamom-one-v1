@@ -281,7 +281,7 @@ export default async function DuplicateManagerPage(container) {
       // เดิม soft-delete ผู้แพ้เลยโดยไม่ย้ายใบจองที่อ้าง customerId ของผู้แพ้อยู่ — ทำให้ใบจองค้างอ้างอิง
       // ลูกค้าที่ "ลบ" ไปแล้ว ไม่มีทางเจอจากหน้าลูกค้าอีกเลยแม้จะเป็นใบจองจริงของผู้ชนะหลังรวมข้อมูลแล้ว
       try {
-        const loserBookings = await listDocs('bookings', [['customerId', '==', loser.id]], 'createdAt', 'desc', 200)
+        const loserBookings = await listDocs('bookings', [['customerId', '==', loser.id], ...companyScopeFilters()], 'createdAt', 'desc', 200)
         for (const b of loserBookings) await updateDocData('bookings', b.id, { customerId: winner.id })
       } catch { /* ย้ายใบจองพลาดได้ ไม่ควรบล็อกการรวมข้อมูลลูกค้าที่เหลือ */ }
       await softDelete('customers', loser.id)

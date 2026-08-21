@@ -94,13 +94,13 @@ export default async function CustomerPortalPage(container) {
     // ── หา booking ที่เชื่อมกับลูกค้าคนนี้ (bookingId → customerId → เบอร์โทร) ──
     let bookings = []
     try {
-      if (c.id) bookings = await listDocs('bookings', [['customerId', '==', c.id]], 'createdAt', 'desc', 20).catch(() => [])
+      if (c.id) bookings = await listDocs('bookings', [['customerId', '==', c.id], ...companyScopeFilters()], 'createdAt', 'desc', 20).catch(() => [])
       if (!bookings.length && c.bookingId) {
         const b = await readDoc('bookings', c.bookingId).catch(() => null)
         if (b) bookings = [b]
       }
       if (!bookings.length && phone) {
-        bookings = await listDocs('bookings', [['phone', '==', phone]], 'createdAt', 'desc', 20).catch(() => [])
+        bookings = await listDocs('bookings', [['phone', '==', phone], ...companyScopeFilters()], 'createdAt', 'desc', 20).catch(() => [])
       }
     } catch {}
 
