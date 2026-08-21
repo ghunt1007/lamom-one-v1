@@ -443,7 +443,10 @@ service cloud.firestore {
     }
 
     match /job_cards/{docId} {
-      allow read, write: if isStaff();
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
+      allow create: if isStaff() && canSeeCompanyDoc(request.resource.data);
+      allow update: if isStaff() && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isStaff() && canSeeCompanyDoc(resource.data);
     }
 
     match /service_appointments/{docId} {
@@ -1371,7 +1374,7 @@ service cloud.firestore {
         'price_negotiations', 'invoices', 'referrers', 'referrals',
         'vehicles', 'bookings', 'booking_national_ids', 'tasks',
         'comm_logs', 'quotations', 'followups', 'greeting_sends', 'test_drives', 'appointments',
-        'vehicle_orders', 'parts', 'pdi', 'service_appointments', 'vehicle_inspections',
+        'vehicle_orders', 'parts', 'pdi', 'service_appointments', 'vehicle_inspections', 'job_cards',
         'refund_requests', 'purchase_orders', 'supplier_pos', 'debts', 'deposits',
         'trade_ins', 'warranty_claims', 'warranty_service_claims', 'finance_rate_sheets',
         'finance_applications', 'finance_tracker', 'cashier_payments', 'cashier_pending_bills',

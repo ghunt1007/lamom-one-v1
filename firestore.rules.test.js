@@ -2048,6 +2048,66 @@ describe('company scoping — Phase 3, DMS/service collections (v1.0.500)', () =
   })
 })
 
+// v1.0.502 — job_cards (ใบสั่งซ่อม): canSeeCompanyDoc() เปิดใช้งานจริง โค้ดแอปครบทุกจุดอ่าน/เขียนแล้วใน
+// v1.0.501 (18 หน้า — collection ที่มีผู้อ่านกว้างที่สุดในบรรดาที่เคยทำมา) รูปแบบ read rule เดิม isStaff()
+// เฉยๆ เหมือน 6 collection ของ Phase 1 จึงใช้ role 'sales' เดิมได้ตรงๆ
+describe('company scoping — job_cards (v1.0.502)', () => {
+  it('the program-owner account (by email) sees a doc from a company they are not a member of', async () => {
+    await seedUser('csjc1', { role: 'owner', active: true })
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('job_cards/d1').set({ note: 'x', companyId: 'companyB' })
+    })
+    const db = testEnv.authenticatedContext('csjc1', { email: 'ghunt1007@gmail.com' }).firestore()
+    await assertSucceeds(db.doc('job_cards/d1').get())
+    await assertSucceeds(db.collection('job_cards').get())
+  })
+
+  it('a plain owner-role account that is NOT the program-owner email is company-scoped like anyone else', async () => {
+    await seedUser('csjc2', { role: 'owner', active: true, companyIds: ['companyA'] })
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('job_cards/d2').set({ note: 'x', companyId: 'companyB' })
+    })
+    const db = testEnv.authenticatedContext('csjc2', { email: 'somsak@lamom.one' }).firestore()
+    await assertFails(db.doc('job_cards/d2').get())
+    await assertFails(db.collection('job_cards').get())
+    await assertSucceeds(db.collection('job_cards').where('companyId', 'in', ['companyA']).get())
+  })
+
+  it('a groupWide:true user sees a doc from a company they are not a member of', async () => {
+    await seedUser('csjc3', { role: 'hr', active: true, companyIds: ['companyA'], groupWide: true })
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('job_cards/d3').set({ note: 'x', companyId: 'companyB' })
+    })
+    const db = testEnv.authenticatedContext('csjc3').firestore()
+    await assertSucceeds(db.doc('job_cards/d3').get())
+    await assertSucceeds(db.collection('job_cards').get())
+  })
+
+  it('a company-scoped sales user CANNOT open a doc belonging to a different company directly', async () => {
+    await seedUser('csjc4', { role: 'sales', active: true, companyIds: ['companyA'] })
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('job_cards/d4').set({ note: 'x', companyId: 'companyB' })
+    })
+    const db = testEnv.authenticatedContext('csjc4').firestore()
+    await assertFails(db.doc('job_cards/d4').get())
+  })
+
+  it('a company-scoped sales user CAN list docs when the query is properly scoped with a matching where clause', async () => {
+    await seedUser('csjc5', { role: 'sales', active: true, companyIds: ['companyA'] })
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('job_cards/d5').set({ note: 'x', companyId: 'companyA' })
+    })
+    const db = testEnv.authenticatedContext('csjc5').firestore()
+    await assertSucceeds(db.collection('job_cards').where('companyId', 'in', ['companyA']).get())
+  })
+
+  it('a company-scoped sales user CANNOT list docs with no where clause at all', async () => {
+    await seedUser('csjc6', { role: 'sales', active: true, companyIds: ['companyA'] })
+    const db = testEnv.authenticatedContext('csjc6').firestore()
+    await assertFails(db.collection('job_cards').get())
+  })
+})
+
 describe('courtesy_car_jobs (v1.0.304) — pickup/delivery customer address scoped to service/manager', () => {
   it('an HR-role staff member cannot read a customer pickup address', async () => {
     await seedUser('pii7', { role: 'hr', active: true })
