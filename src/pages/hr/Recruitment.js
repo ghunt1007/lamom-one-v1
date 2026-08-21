@@ -3,6 +3,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -41,8 +42,8 @@ export default async function RecruitmentPage(container) {
   async function loadData() {
     loading = true
     try {
-      jobs = await listDocs('recruitment_jobs', [], 'openDate', 'desc', 200)
-      applicants = await listDocs('recruitment_applicants', [], 'appliedDate', 'desc', 500)
+      jobs = await listDocs('recruitment_jobs', companyScopeFilters(), 'openDate', 'desc', 200)
+      applicants = await listDocs('recruitment_applicants', companyScopeFilters(), 'appliedDate', 'desc', 500)
     } catch (e) { /* keep whatever loaded */ }
     loading = false
     if (container.__routerGen === myGen) renderPage()
@@ -313,6 +314,7 @@ export default async function RecruitmentPage(container) {
             jobId: jid, name, phone: document.getElementById('af-phone')?.value||'', email: document.getElementById('af-email')?.value||'',
             appliedDate: todayBangkok(), status: 'new', score: null,
             note: document.getElementById('af-note')?.value||'', resumeUrl: '#',
+            companyId: myEffectiveCompanyId(),
           })
           showToast('✅ เพิ่มใบสมัครแล้ว', 'success')
           await loadData()
@@ -343,7 +345,7 @@ export default async function RecruitmentPage(container) {
           if (j) {
             await updateDocData('recruitment_jobs', j.id, data)
           } else {
-            await createDoc('recruitment_jobs', { ...data, type: 'fulltime', openDate: todayBangkok(), filled: 0, requirements: [] })
+            await createDoc('recruitment_jobs', { ...data, type: 'fulltime', openDate: todayBangkok(), filled: 0, requirements: [], companyId: myEffectiveCompanyId() })
           }
           showToast('✅ บันทึกตำแหน่งงานแล้ว', 'success')
           await loadData()

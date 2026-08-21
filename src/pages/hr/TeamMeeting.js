@@ -6,6 +6,7 @@ import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function addDays(n) {
   const [y, m, d] = todayBangkok().split('-').map(Number)
@@ -31,7 +32,7 @@ export default async function TeamMeetingPage(container) {
 
   async function loadData() {
     loading = true
-    try { meetings = await listDocs('team_meetings', [], 'date', 'desc', 200) } catch (e) { meetings = [] }
+    try { meetings = await listDocs('team_meetings', companyScopeFilters(), 'date', 'desc', 200) } catch (e) { meetings = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -172,6 +173,7 @@ export default async function TeamMeetingPage(container) {
               title, type: document.getElementById('mt-type')?.value||'adhoc',
               date: document.getElementById('mt-date')?.value||addDays(1), time: document.getElementById('mt-time')?.value||'09:00',
               attendees: document.getElementById('mt-attendees')?.value||'—', notes: '', done: false, actions: [],
+              companyId: myEffectiveCompanyId(),
             })
             showToast('📅 นัดประชุมแล้ว', 'success'); await loadData()
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }

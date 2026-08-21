@@ -447,7 +447,7 @@ export default async function DashboardPage(container) {
       // เดิม orderBy('createdAt') — รถจริงส่วนใหญ่ในระบบไม่มี field นี้ (มีแต่ arrivedAt) ทำให้ Firestore
       // orderBy ตัดออกจากผลลัพธ์ไปเงียบๆทั้งหมด เห็นสต็อกรถ 0 คันตลอด ต้องใช้ arrivedAt ให้ตรงกับ Stock.js
       listDocs('vehicles', [], 'arrivedAt', 'desc', 500).catch(() => []),
-      listDocs('team_targets', [], 'period', 'desc', 200).catch(() => []),
+      listDocs('team_targets', companyScopeFilters(), 'period', 'desc', 200).catch(() => []),
       // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true — ถ้าไม่กรองออกตรงนี้ งานซ่อม/ใบจอง/งานที่ถูกลบ
       // ไปแล้วจะยังโผล่เป็นแจ้งเตือน "ค้าง" บน Dashboard และถูกนับรวมในตัวเลข KPI ด้านบนต่อไปเงียบๆ
       watchOnce('job_cards', 'createdAt', 'desc', 500, rows => { jobs = rows.filter(r => !r.deleted) }),

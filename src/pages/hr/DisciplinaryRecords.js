@@ -6,6 +6,7 @@ import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -48,7 +49,7 @@ export default async function DisciplinaryRecordsPage(container) {
 
   async function loadData() {
     loading = true
-    try { records = await listDocs('disciplinary_records', [], 'date', 'desc', 300) } catch (e) { records = [] }
+    try { records = await listDocs('disciplinary_records', companyScopeFilters(), 'date', 'desc', 300) } catch (e) { records = [] }
     loading = false
     if (container.__routerGen === myGen) render()
   }
@@ -147,6 +148,7 @@ export default async function DisciplinaryRecordsPage(container) {
           level: document.getElementById('dr-level').value, reason,
           by: document.getElementById('dr-by').value.trim() || 'หัวหน้างาน',
           date: todayBangkok(), ack: false,
+          companyId: myEffectiveCompanyId(),
         })
         showToast(`ออกใบเตือน ให้ ${staff} แล้ว — รอลงนามรับทราบ`, 'success')
         await loadData()

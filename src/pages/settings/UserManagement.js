@@ -7,6 +7,7 @@ import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, updateDocData, seedDemoData, backfillUserCompanyIds, hardDeleteDoc } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 import { createStaffAccount, sendStaffPasswordReset, updateCompanyMemberships } from '../../core/auth.js'
 import { getPositions } from '../../data/masterData.js'
 import { navigate } from '../../core/router.js'
@@ -84,7 +85,7 @@ export default async function UserManagementPage(container) {
     // (v1.0.451) เดิมหน้านี้ไม่รู้จักข้อมูลพนักงาน (HR) เลย — บัญชี login กับข้อมูลพนักงานดูเป็นคนละระบบ
     // แยกขาดจากกัน ทั้งที่จริงเชื่อมกันผ่าน staff.uid (v1.0.430) ตามที่ขอ "บัญชีผู้ใช้ต้องสัมพันธ์กับข้อมูล
     // พนักงาน" — โหลดมาเพื่อโชว์สถานะการเชื่อมโยงให้เห็นชัดเจนตรงนี้เลย ไม่ต้องเดา/สลับหน้าไปเช็คเอง
-    try { staffList = (await listDocs('staff', [], 'createdAt', 'desc', 500)).filter(s => !s.deleted) } catch (e) { staffList = [] }
+    try { staffList = (await listDocs('staff', companyScopeFilters(), 'createdAt', 'desc', 500)).filter(s => !s.deleted) } catch (e) { staffList = [] }
     loading = false
     if (container.__routerGen === myGen) render()
   }

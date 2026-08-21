@@ -6,6 +6,7 @@ import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function addDays(n) {
   const [y, m, d] = todayBangkok().split('-').map(Number)
@@ -45,7 +46,7 @@ export default async function OnboardingPage(container) {
 
   async function loadData() {
     loading = true
-    try { staff = await listDocs('onboarding_staff', [], 'startDate', 'desc', 200) } catch (e) { staff = [] }
+    try { staff = await listDocs('onboarding_staff', companyScopeFilters(), 'startDate', 'desc', 200) } catch (e) { staff = [] }
     if (!selected || !staff.find(x => x.id === selected)) selected = staff[0]?.id
     loading = false
     if (container.__routerGen === myGen) renderPage()
@@ -160,6 +161,7 @@ export default async function OnboardingPage(container) {
             name, role: document.getElementById('ob-role')?.value||'—', dept: document.getElementById('ob-dept')?.value||'—',
             startDate: document.getElementById('ob-start')?.value||addDays(0),
             tasks: ONBOARDING_TEMPLATE.map(t => ({ ...t, done: false })),
+            companyId: myEffectiveCompanyId(),
           })
           selected = newId
           showToast('✅ เพิ่มพนักงาน Onboarding แล้ว', 'success'); await loadData()

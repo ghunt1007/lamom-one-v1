@@ -3,6 +3,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getCommissionData, listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -46,7 +47,7 @@ export default async function PerformancePage(container) {
   async function loadData() {
     loading = true
     try {
-      employees = (await listDocs('performance_scorecards', [], 'reviewDate', 'desc', 300)).filter(e => !e.deleted)
+      employees = (await listDocs('performance_scorecards', companyScopeFilters(), 'reviewDate', 'desc', 300)).filter(e => !e.deleted)
       const coms = await getCommissionData().catch(() => [])
       if (coms.length) {
         coms.forEach(com => {
@@ -298,7 +299,8 @@ export default async function PerformancePage(container) {
               ...fields,
               reviewer: 'ผู้จัดการ', reviewDate: todayBangkok(),
               goals: '', nextGoals: '', strengths: '', improvements: '',
-              bonus_multiplier: 1.0
+              bonus_multiplier: 1.0,
+              companyId: myEffectiveCompanyId(),
             })
           }
           showToast(isEdit ? '✅ แก้ไขการประเมินแล้ว!' : '✅ บันทึกการประเมินแล้ว!', 'success')

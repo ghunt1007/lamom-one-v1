@@ -6,6 +6,7 @@ import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 function addMonths(n) { const d = new Date(); d.setMonth(d.getMonth() + n); return d.toISOString().slice(0, 7) }
@@ -35,7 +36,7 @@ export default async function TeamTargetsPage(container) {
 
   async function loadData() {
     loading = true
-    try { targets = await listDocs('team_targets', [], 'department', 'asc', 500) } catch (e) { targets = [] }
+    try { targets = await listDocs('team_targets', companyScopeFilters(), 'department', 'asc', 500) } catch (e) { targets = [] }
     loading = false
     if (container.__routerGen === myGen) render()
   }
@@ -159,6 +160,7 @@ export default async function TeamTargetsPage(container) {
             metric: document.getElementById('tt-metric')?.value || 'other',
             period: document.getElementById('tt-period')?.value || currentMonth,
             target, actual: +document.getElementById('tt-actual')?.value || 0,
+            companyId: myEffectiveCompanyId(),
           })
           showToast('✅ มอบหมายเป้าหมายแล้ว!', 'success')
           await loadData()

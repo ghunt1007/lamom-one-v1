@@ -6,6 +6,7 @@ import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData, getSalesData } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 function addDays(n) {
   const [y, m, d] = todayBangkok().split('-').map(Number)
@@ -176,7 +177,7 @@ export default async function ChallengesPage(container) {
         // แทนการใส่ชื่อปลอม
         let participants = []
         try {
-          const staff = await listDocs('staff', [], 'firstName', 'asc', 200)
+          const staff = await listDocs('staff', companyScopeFilters(), 'firstName', 'asc', 200)
           participants = staff
             .filter(s => !s.deleted && s.status !== 'inactive' && s.status !== 'resigned')
             .map(s => ({ name: `${s.firstName || ''} ${s.lastName || ''}`.trim(), progress: 0 }))

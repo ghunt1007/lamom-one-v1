@@ -3,6 +3,7 @@ import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 // (v1.0.339) เดิม DEMO_QUOTA ด้านบนหน้าเป็นตัวเลข hardcode ของพนักงานสมมติ ไม่เกี่ยวกับข้อมูลลาจริงเลย
 // (ต่างจากแท็บ "สิทธิ์ลา" ที่คำนวณจากข้อมูลจริงอยู่แล้ว) และ dropdown "พนักงาน" ในฟอร์มยื่นลาเป็นชื่อปลอม
@@ -50,9 +51,9 @@ export default async function LeavePage(container) {
 
   async function loadData() {
     loading = true
-    try { leaves = await listDocs('leave_requests', [], 'createdAt', 'desc', 200) } catch (e) { leaves = [] }
+    try { leaves = await listDocs('leave_requests', companyScopeFilters(), 'createdAt', 'desc', 200) } catch (e) { leaves = [] }
     try {
-      const docs = await listDocs('staff', [], 'firstName', 'asc', 500)
+      const docs = await listDocs('staff', companyScopeFilters(), 'firstName', 'asc', 500)
       staffList = docs.filter(s => !s.deleted)
     } catch (e) { staffList = [] }
     loading = false
@@ -303,6 +304,7 @@ export default async function LeavePage(container) {
           type: el.querySelector('#lf-type').value,
           from, to, days: calcDays(from, to),
           reason, status: 'pending', approvedBy: null,
+          companyId: myEffectiveCompanyId(),
         })
         showToast('📤 ยื่นคำขอลาแล้ว', 'success'); close(); await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

@@ -6,6 +6,7 @@ import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData, incrementField, readDoc } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -38,7 +39,7 @@ export default async function StaffLoanPage(container) {
 
   async function loadData() {
     loading = true
-    try { loans = (await listDocs('staff_loans', [], 'date', 'desc', 300)).filter(l => !l.deleted) } catch (e) { loans = [] }
+    try { loans = (await listDocs('staff_loans', companyScopeFilters(), 'date', 'desc', 300)).filter(l => !l.deleted) } catch (e) { loans = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -197,7 +198,7 @@ export default async function StaffLoanPage(container) {
           if (amount > maxAmount) { showToast(`❗ เกินวงเงิน — ${LOAN_TYPES[type].label} สูงสุด ${formatCurrency(maxAmount)}`, 'error'); return false }
           const installments = type === 'advance' ? 1 : type === 'emergency' ? 6 : 12
           try {
-            await createDoc('staff_loans', { staff: staffName, salary, type, amount, installments, paidInstallments: 0, status: 'pending', date: addDays(0), reason: document.getElementById('ln-reason')?.value || '—' })
+            await createDoc('staff_loans', { staff: staffName, salary, type, amount, installments, paidInstallments: 0, status: 'pending', date: addDays(0), reason: document.getElementById('ln-reason')?.value || '—', companyId: myEffectiveCompanyId() })
             showToast('✅ ยื่นคำขอแล้ว — รอผู้จัดการอนุมัติ', 'success'); await loadData()
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
         }

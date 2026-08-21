@@ -6,6 +6,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -31,7 +32,7 @@ export default async function SuccessionPlanningPage(container) {
 
   async function loadData() {
     loading = true
-    try { plans = (await listDocs('succession_plans', [], 'role', 'asc', 100)).filter(p => !p.deleted) } catch (e) { plans = [] }
+    try { plans = (await listDocs('succession_plans', companyScopeFilters(), 'role', 'asc', 100)).filter(p => !p.deleted) } catch (e) { plans = [] }
     loading = false
     if (container.__routerGen === myGen) render()
   }
@@ -291,7 +292,7 @@ export default async function SuccessionPlanningPage(container) {
         const curr = document.getElementById('sp-current').value.trim()
         if (!role || !curr) { showToast('❗ กรอกข้อมูลที่จำเป็น', 'error'); return false }
         try {
-          await createDoc('succession_plans', { role, current: { name: curr, tenure: document.getElementById('sp-tenure').value.trim() || '-', risk: document.getElementById('sp-risk').value }, successors: [] })
+          await createDoc('succession_plans', { role, current: { name: curr, tenure: document.getElementById('sp-tenure').value.trim() || '-', risk: document.getElementById('sp-risk').value }, successors: [], companyId: myEffectiveCompanyId() })
           showToast(`เพิ่มตำแหน่ง "${role}" เข้า Succession Plan แล้ว`, 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }

@@ -120,9 +120,9 @@ export default async function ReportBuilderPage(container) {
         return null
       }}))
     } else if (primaryGroup === 'HR') {
-      const staff = await listDocs('staff', [], 'firstName', 'asc', 500)
+      const staff = await listDocs('staff', companyScopeFilters(), 'firstName', 'asc', 500)
       let leaves = []
-      try { leaves = await listDocs('leave_requests', [], 'createdAt', 'desc', 500) } catch {}
+      try { leaves = await listDocs('leave_requests', companyScopeFilters(), 'createdAt', 'desc', 500) } catch {}
       entities = staff.filter(s => !s.deleted).map(s => ({ key: s.id, get: (f) => {
         const name = `${s.firstName||''} ${s.lastName||''}`.trim() || '-'
         if (f === 'พนักงาน') return name

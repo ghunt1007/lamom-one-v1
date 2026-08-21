@@ -6,6 +6,7 @@ import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function myName() {
   const me = getState('user') || {}
@@ -59,8 +60,8 @@ export default async function EmployeeKpiPage(container) {
   async function loadData() {
     loading = true
     try {
-      staffList = (await listDocs('staff', [], 'firstName', 'asc', 500)).filter(s => !s.deleted)
-      evaluations = (await listDocs('employee_evaluations', [], 'periodValue', 'desc', 500)).filter(e => !e.deleted)
+      staffList = (await listDocs('staff', companyScopeFilters(), 'firstName', 'asc', 500)).filter(s => !s.deleted)
+      evaluations = (await listDocs('employee_evaluations', companyScopeFilters(), 'periodValue', 'desc', 500)).filter(e => !e.deleted)
     } catch (e) { staffList = []; evaluations = [] }
     loading = false
     if (container.__routerGen === myGen) render()
@@ -210,7 +211,7 @@ export default async function EmployeeKpiPage(container) {
         }
         try {
           if (isEdit) await updateDocData('employee_evaluations', existing.id, fields)
-          else await createDoc('employee_evaluations', fields)
+          else await createDoc('employee_evaluations', { ...fields, companyId: myEffectiveCompanyId() })
           showToast(isEdit ? '✅ แก้ไขผลประเมินแล้ว!' : '✅ บันทึกผลประเมินแล้ว!', 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

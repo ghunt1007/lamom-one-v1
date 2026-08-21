@@ -3,6 +3,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, getCommissionData } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -86,7 +87,7 @@ export default async function KpiManagementPage(container) {
 
   try {
     const [staffDocs, coms] = await Promise.all([
-      listDocs('staff', [], 'startDate', 'asc', 200).catch(() => []),
+      listDocs('staff', companyScopeFilters(), 'startDate', 'asc', 200).catch(() => []),
       getCommissionData().catch(() => []),
     ])
     if (container.__routerGen !== myGen) return

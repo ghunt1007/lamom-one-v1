@@ -50,7 +50,7 @@ export default async function AiAssistantChatPage(container) {
         listDocs('customers', [], 'createdAt', 'desc', 500).catch(() => []),
         listDocs('debts', companyScopeFilters(), 'dueDate', 'asc', 200).catch(() => []),
         listDocs('csat', [], 'createdAt', 'desc', 100).catch(() => []),
-        listDocs('staff', [], 'createdAt', 'desc', 200).catch(() => []),
+        listDocs('staff', companyScopeFilters(), 'createdAt', 'desc', 200).catch(() => []),
         listDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
       ])
       const monthSales = sales.filter(s => (s.date || '').startsWith(thisMonth))

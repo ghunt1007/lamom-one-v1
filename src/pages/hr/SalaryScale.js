@@ -6,6 +6,7 @@ import { formatCurrency } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
@@ -56,7 +57,7 @@ export default async function SalaryScalePage(container) {
 
   async function loadData() {
     loading = true
-    try { staff = (await listDocs('salary_scale_staff', [], 'name', 'asc', 200)).filter(s => !s.deleted) } catch (e) { staff = [] }
+    try { staff = (await listDocs('salary_scale_staff', companyScopeFilters(), 'name', 'asc', 200)).filter(s => !s.deleted) } catch (e) { staff = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -274,6 +275,7 @@ export default async function SalaryScalePage(container) {
             grade: document.getElementById('ns-grade')?.value || 'G1',
             salary: parseInt(document.getElementById('ns-salary')?.value) || 20000,
             market: parseInt(document.getElementById('ns-market')?.value) || 20000,
+            companyId: myEffectiveCompanyId(),
           })
           showToast(`✅ เพิ่ม "${name}" เข้าตารางเงินเดือนแล้ว`, 'success')
           await loadData()

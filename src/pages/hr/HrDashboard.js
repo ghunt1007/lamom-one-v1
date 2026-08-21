@@ -1,4 +1,5 @@
 import { listDocs, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 import { navigate } from '../../core/router.js'
 import { formatCurrency, todayBangkok } from '../../utils/format.js'
 import { getState } from '../../core/store.js'
@@ -77,8 +78,8 @@ export default async function HrDashboard(container) {
   const thisMonth = todayBangkok().slice(0, 7)
   try {
     ;[staff, leaves, payrollRecs] = await Promise.all([
-      listDocs('staff', [], 'startDate', 'asc', 500).catch(() => []),
-      listDocs('leave_requests', [], 'createdAt', 'desc', 200).catch(() => []),
+      listDocs('staff', companyScopeFilters(), 'startDate', 'asc', 500).catch(() => []),
+      listDocs('leave_requests', companyScopeFilters(), 'createdAt', 'desc', 200).catch(() => []),
       listDocs('payroll_records', [['month', '==', thisMonth]], 'createdAt', 'asc', 500).catch(() => []),
     ])
     // softDelete() ไม่ลบเอกสารจริง แค่ตั้ง deleted:true — กรองออกกันพนักงานที่ลบไปแล้วปนในสถิติ HR

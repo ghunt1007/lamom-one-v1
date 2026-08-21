@@ -240,7 +240,7 @@ export default async function StaffPage(container) {
     // staff_pii เหมือน pattern เดียวกับ staff_salaries ด้านบน — ผสานทับเข้า staff เฉพาะตอนมีสิทธิ์เห็นเท่านั้น
     if (canViewPII) {
       try {
-        const piiDocs = await listDocs('staff_pii', [], 'updatedAt', 'desc', 500)
+        const piiDocs = await listDocs('staff_pii', companyScopeFilters(), 'updatedAt', 'desc', 500)
         // ตัด id/createdAt/updatedAt ของเอกสาร staff_pii ทิ้งก่อนผสาน — ไม่งั้นจะไปทับ timestamp ของ
         // staff doc เองโดยไม่ตั้งใจ (2 collection คนละเอกสารกัน แค่ id ตรงกัน)
         const piiMap = Object.fromEntries(piiDocs.map(d => { const { id, createdAt, updatedAt, ...rest } = d; return [d.id, rest] }))

@@ -3,6 +3,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState, setState } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function myName() {
   const me = getState('user') || {}
@@ -43,7 +44,7 @@ export default async function ExpenseClaimsPage(container) {
 
   async function loadData() {
     loading = true
-    try { claims = (await listDocs('expense_claims', [], 'date', 'desc', 500)).filter(c => !c.deleted) } catch (e) { claims = [] }
+    try { claims = (await listDocs('expense_claims', companyScopeFilters(), 'date', 'desc', 500)).filter(c => !c.deleted) } catch (e) { claims = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -263,7 +264,8 @@ export default async function ExpenseClaimsPage(container) {
           cat: el.querySelector('#ex-cat').value,
           desc, amount, date: el.querySelector('#ex-date').value,
           status: 'pending', approvedBy: null, paidDate: null,
-          receipt: el.querySelector('#ex-receipt').value === '1'
+          receipt: el.querySelector('#ex-receipt').value === '1',
+          companyId: myEffectiveCompanyId(),
         })
         showToast('📩 ยื่นเบิกแล้ว', 'success'); close(); await loadData()
       } catch { btn.disabled = false; showToast('บันทึกไม่สำเร็จ', 'error') }

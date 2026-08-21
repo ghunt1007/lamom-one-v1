@@ -247,7 +247,7 @@ export default async function PLPage(container) {
   // เข้าใจผิดว่าเป็นต้นทุนดำเนินงานที่ครบถ้วนแล้ว
   try {
     const [claims, petty] = await Promise.all([
-      listDocs('expense_claims', [], 'date', 'desc', 2000),
+      listDocs('expense_claims', companyScopeFilters(), 'date', 'desc', 2000),
       listDocs('petty_cash', companyScopeFilters(), 'time', 'desc', 2000),
     ])
     if (container.__routerGen !== myGen) return

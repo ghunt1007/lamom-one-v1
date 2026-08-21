@@ -5,6 +5,7 @@
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -29,7 +30,7 @@ export default async function SkillMatrixPage(container) {
   async function loadData() {
     loading = true
     try {
-      staff = (await listDocs('staff_skills', [], 'name', 'asc', 200)).filter(s => !s.deleted)
+      staff = (await listDocs('staff_skills', companyScopeFilters(), 'name', 'asc', 200)).filter(s => !s.deleted)
       skills = (await listDocs('skill_definitions', [], 'order', 'asc', 200)).filter(sk => !sk.deleted)
     } catch (e) { staff = []; skills = [] }
     loading = false
@@ -236,6 +237,7 @@ export default async function SkillMatrixPage(container) {
             name,
             role: document.getElementById('ns-role')?.value?.trim() || '',
             skills: {},
+            companyId: myEffectiveCompanyId(),
           })
           showToast('✅ เพิ่มพนักงานในตารางแล้ว!', 'success')
           await loadData()

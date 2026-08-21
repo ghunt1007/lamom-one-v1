@@ -3,6 +3,7 @@ import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { todayBangkok } from '../../utils/format.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -52,8 +53,8 @@ export default async function ShiftSchedulePage(container) {
     loading = true
     try {
       const [staff, shifts] = await Promise.all([
-        listDocs('staff', [], 'firstName', 'asc', 200),
-        listDocs('shift_schedules', [], 'date', 'asc', 2000),
+        listDocs('staff', companyScopeFilters(), 'firstName', 'asc', 200),
+        listDocs('shift_schedules', companyScopeFilters(), 'date', 'asc', 2000),
       ])
       activeStaff = staff.map(s => ({
         id: s.id,
@@ -216,7 +217,7 @@ export default async function ShiftSchedulePage(container) {
       try {
         const existing = scheduleDocs.find(x => x.date === date && x.staffId === staffId)
         if (existing) await updateDocData('shift_schedules', existing.id, { shift: selected })
-        else await createDoc('shift_schedules', { staffId, date, shift: selected })
+        else await createDoc('shift_schedules', { staffId, date, shift: selected, companyId: myEffectiveCompanyId() })
         showToast(`✅ กำหนดกะ ${SHIFTS[selected].label} แล้ว`, 'success')
         close()
         await loadData()

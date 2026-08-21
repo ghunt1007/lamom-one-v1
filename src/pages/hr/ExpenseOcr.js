@@ -6,6 +6,7 @@ import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState, setState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { uploadFile, deleteFile } from '../../utils/storage.js'
 import { analyzeExpenseReceipt } from '../../utils/ai.js'
 
@@ -46,7 +47,7 @@ export default async function ExpenseOcrPage(container) {
   // จะโผล่กลับมาทุกครั้งที่รีเฟรช)
   if (!RECEIPTS.some(r => r._persisted)) {
     try {
-      const real = await listDocs('expense_receipts', [], 'date', 'desc', 200).catch(() => [])
+      const real = await listDocs('expense_receipts', companyScopeFilters(), 'date', 'desc', 200).catch(() => [])
       if (container.__routerGen === myGen) {
         const liveReceipts = real.filter(r => !r.deleted).map(r => ({ ...r, _persisted: true }))
         if (liveReceipts.length) RECEIPTS = liveReceipts
@@ -251,6 +252,7 @@ export default async function ExpenseOcrPage(container) {
           date: ocr.date || todayBangkok(),
           vendor: ocr.vendor || 'ไม่ทราบชื่อร้าน', amount: ocr.amount || 0, cat: ocr.category || 'อื่นๆ',
           status: 'pending', note: '', confidence: ocr.confidence || 90, imageUrl: up.url || '', imageKey: up.key || '',
+          companyId: myEffectiveCompanyId(),
         }
         let id
         try {

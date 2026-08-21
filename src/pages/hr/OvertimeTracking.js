@@ -6,6 +6,7 @@ import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -51,10 +52,10 @@ export default async function OvertimeTrackingPage(container) {
 
   async function loadData() {
     loading = true
-    try { records = await listDocs('overtime_records', [], 'date', 'desc', 300) } catch (e) { records = [] }
+    try { records = await listDocs('overtime_records', companyScopeFilters(), 'date', 'desc', 300) } catch (e) { records = [] }
     try {
       const [staffDocs, salaryDocs] = await Promise.all([
-        listDocs('staff', [], 'firstName', 'asc', 500).catch(() => []),
+        listDocs('staff', companyScopeFilters(), 'firstName', 'asc', 500).catch(() => []),
         listDocs('staff_salaries', [], 'updatedAt', 'desc', 500).catch(() => []), // permission-denied ได้ถ้าไม่มีสิทธิ์ — fallback ไป staff.salary เดิม
       ])
       const salaryMap = Object.fromEntries(salaryDocs.map(d => [d.id, d.salary]))
@@ -215,6 +216,7 @@ export default async function OvertimeTrackingPage(container) {
               staff: staff.name, dept: staff.dept,
               date: document.getElementById('ot-date')?.value||addDays(0),
               hours: parseFloat(document.getElementById('ot-hours')?.value)||1, hourlyRate: staff.hourlyRate, reason, status: 'pending',
+              companyId: myEffectiveCompanyId(),
             })
             showToast('✅ บันทึก OT แล้ว — รออนุมัติ', 'success'); await loadData()
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }

@@ -7,6 +7,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState, setState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete } from '../../core/db.js'
 import { uploadFile, deleteFile } from '../../utils/storage.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -36,7 +37,7 @@ export default async function StaffDocumentsPage(container) {
   let typeFilter = 'all'
   let search = ''
 
-  try { docs = (await listDocs('staff_documents', [], 'uploaded', 'desc', 200)).filter(d => !d.deleted) } catch { docs = [] }
+  try { docs = (await listDocs('staff_documents', companyScopeFilters(), 'uploaded', 'desc', 200)).filter(d => !d.deleted) } catch { docs = [] }
   if (container.__routerGen !== myGen) return
 
   function expiryState(d) {
@@ -204,7 +205,7 @@ export default async function StaffDocumentsPage(container) {
         try { const up = await uploadFile(file, 'staff/' + staff.replace(/\W+/g, '')); fileUrl = up.url; fileKey = up.key }
         catch (e) { showToast(`⚠️ อัปโหลดไฟล์ไม่สำเร็จ (${e.message || 'ไม่ทราบสาเหตุ'}) — บันทึกข้อมูลไว้ก่อนได้`, 'warning') }
       }
-      const data = { staff, type, name, uploaded: addDays(0), expiry, verified: false, fileUrl, fileKey }
+      const data = { staff, type, name, uploaded: addDays(0), expiry, verified: false, fileUrl, fileKey, companyId: myEffectiveCompanyId() }
       try {
         const id = await createDoc('staff_documents', data)
         docs.unshift({ id, ...data })

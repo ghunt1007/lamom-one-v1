@@ -1,6 +1,7 @@
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 // ป้องกัน XSS — ชื่อสวัสดิการ (name) เป็นข้อความที่ผู้ใช้พิมพ์เอง ต้อง escape ก่อนแสดงผลเสมอ
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
@@ -19,7 +20,7 @@ export default async function WelfarePage(container) {
 
   async function loadData() {
     loading = true
-    try { items = (await listDocs('welfare_items', [], 'name', 'asc', 200)).filter(w => !w.deleted) } catch (e) { items = [] }
+    try { items = (await listDocs('welfare_items', companyScopeFilters(), 'name', 'asc', 200)).filter(w => !w.deleted) } catch (e) { items = [] }
     loading = false
     if (container.__routerGen === myGen) render()
   }
@@ -229,7 +230,7 @@ export default async function WelfarePage(container) {
       }
       try {
         if (isEdit) await updateDocData('welfare_items', w.id, data)
-        else await createDoc('welfare_items', data)
+        else await createDoc('welfare_items', { ...data, companyId: myEffectiveCompanyId() })
         document.querySelector('.modal-overlay')?.remove()
         showToast(isEdit ? '✅ แก้ไขสวัสดิการแล้ว' : '✅ เพิ่มสวัสดิการแล้ว', 'success')
         await loadData()

@@ -7,6 +7,7 @@ import { showToast, getState } from '../../core/store.js'
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { listDocs, createDoc, updateDocData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function myName() {
   const me = getState('user') || {}
@@ -51,8 +52,8 @@ export default async function StaffGrievancesPage(container) {
     loading = true
     try {
       cases = isHandler
-        ? await listDocs('staff_grievances', [], 'createdAt', 'desc', 300)
-        : await listDocs('staff_grievances', [['submittedBy', '==', me.uid || '']], 'createdAt', 'desc', 100)
+        ? await listDocs('staff_grievances', companyScopeFilters(), 'createdAt', 'desc', 300)
+        : await listDocs('staff_grievances', [['submittedBy', '==', me.uid || ''], ...companyScopeFilters()], 'createdAt', 'desc', 100)
     } catch (e) { cases = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
@@ -147,6 +148,7 @@ export default async function StaffGrievancesPage(container) {
           resolution: '',
           resolvedBy: null,
           resolvedAt: null,
+          companyId: myEffectiveCompanyId(),
         })
         showToast('📤 ส่งเรื่องร้องเรียนแล้ว', 'success'); close(); await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

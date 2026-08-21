@@ -58,7 +58,7 @@ export default async function OperationsDashboardPage(container) {
       listDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
       // เดิม orderBy('name') — พนักงานจริงเก็บเป็น firstName/lastName แยกกัน ไม่มี field 'name' รวมเลย
       // (ดู Staff.js) ทำให้ Firestore orderBy ตัดพนักงานทุกคนออกจากผลลัพธ์ เห็นพนักงาน 0 คนตลอด
-      listDocs('staff', [], 'firstName', 'asc', 500).catch(() => []),
+      listDocs('staff', companyScopeFilters(), 'firstName', 'asc', 500).catch(() => []),
       listDocs('attendance', [['date', '==', today]], 'date', 'desc', 500).catch(() => []),
       listDocs('bookings', [], 'createdAt', 'desc', 1000).catch(() => []),
       listDocs('suppliers', [], 'name', 'asc', 300).catch(() => []),

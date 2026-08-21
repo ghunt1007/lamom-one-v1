@@ -6,6 +6,7 @@ import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 // ป้องกัน XSS — เหตุผลลาออก (reason) เป็นข้อความที่ผู้ใช้พิมพ์เอง ต้อง escape ก่อนแสดงผลเสมอ
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
@@ -38,7 +39,7 @@ export default async function OffboardingPage(container) {
 
   async function loadData() {
     loading = true
-    try { list = await listDocs('offboarding_staff', [], 'lastDay', 'desc', 200) } catch (e) { list = [] }
+    try { list = await listDocs('offboarding_staff', companyScopeFilters(), 'lastDay', 'desc', 200) } catch (e) { list = [] }
     if (!selected || !list.find(x => x.id === selected)) selected = list[0]?.id
     loading = false
     if (container.__routerGen === myGen) renderPage()
@@ -149,6 +150,7 @@ export default async function OffboardingPage(container) {
               lastDay: document.getElementById('ob-lastday')?.value||addDays(30),
               reason: document.getElementById('ob-reason')?.value||'—',
               successor: document.getElementById('ob-successor')?.value||'—', tasks,
+              companyId: myEffectiveCompanyId(),
             })
             selected = newId
             showToast('👋 เริ่ม Offboarding แล้ว', 'primary'); await loadData()

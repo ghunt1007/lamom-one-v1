@@ -6,6 +6,7 @@ import { formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 // ป้องกัน XSS — ความคิดเห็น (comment) เป็นข้อความที่ผู้จัดการพิมพ์เอง ต้อง escape ก่อนแสดงผลเสมอ
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
@@ -57,7 +58,7 @@ export default async function PerformanceReviewPage(container) {
 
   async function loadData() {
     loading = true
-    try { reviews = await listDocs('performance_reviews', [], 'period', 'desc', 300) } catch (e) { reviews = [] }
+    try { reviews = await listDocs('performance_reviews', companyScopeFilters(), 'period', 'desc', 300) } catch (e) { reviews = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -174,7 +175,7 @@ export default async function PerformanceReviewPage(container) {
           const toCreate = reviews.filter(r => r.period !== period)
           try {
             for (const r of toCreate) {
-              await createDoc('performance_reviews', { staff: r.staff, dept: r.dept, period, status: 'pending', selfScores: null, mgmtScores: null, comment: '', grade: null })
+              await createDoc('performance_reviews', { staff: r.staff, dept: r.dept, period, status: 'pending', selfScores: null, mgmtScores: null, comment: '', grade: null, companyId: myEffectiveCompanyId() })
             }
             showToast(`🔄 เริ่มรอบประเมิน ${period} แล้ว · ส่งตัวเอง: ${selfDl} · ผู้จัดการ: ${mgmtDl}`, 'success')
             await loadData()
