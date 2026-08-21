@@ -26,12 +26,6 @@ const PDI_CHECKS = [
   { group: 'เอกสารและอุปกรณ์', items: ['คู่มือรถและใบรับประกัน', 'สมุดบริการ', 'สายชาร์จ Type2 และ Adapter', 'กุญแจสำรอง', 'ยางอะไหล่หรืออุปกรณ์เสริม'] },
 ]
 
-const DEMO_PDI = [
-  { id:'pdi1', vehicleId:'v4', brand:'DEEPAL', model:'S7', color:'ดำ', vin:'LZEZ1EBA0PA000004', techName:'สมชาย รักงาน', status:'inprogress', startDate:'2025-04-02', checks:{}, defects:[], notes:'' },
-  { id:'pdi2', vehicleId:'v1', brand:'BYD', model:'Seal', color:'ขาว Pearl', vin:'LGXCE4C10PA000001', techName:'วิชัย ช่างดี', status:'passed', startDate:'2025-03-05', endDate:'2025-03-05', checks:{}, defects:[], notes:'ผ่านทุกรายการ' },
-  { id:'pdi3', vehicleId:'v3', brand:'MG', model:'MG4', color:'แดง', vin:'SDUZZZEF5PA000003', techName:'สมชาย รักงาน', status:'pending', startDate:'2025-03-10', checks:{}, defects:[], notes:'' },
-]
-
 export default async function PdiPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
@@ -39,13 +33,12 @@ export default async function PdiPage(container) {
   let pdis = []
   let filtered = []
   let statusFilter = 'all'
-  // เดิมไม่มีการแจ้งเลยว่า DEMO_PDI (ตัวอย่าง) ที่โผล่มาแทนตอนยังไม่มีข้อมูล PDI จริงเป็นข้อมูลปลอม
-  let isDemoData = false
 
   async function loadData() {
+    // (v1.0.529) เดิมถ้า collection ว่างจริง (ยังไม่เคยมีใครใช้หน้านี้เลย) จะเติม DEMO_PDI (ตัวอย่างปลอม)
+    // เข้ามาแสดงแทน — ตรวจสอบฐานข้อมูลจริงแล้วยืนยันว่า 'pdi' ว่างเปล่า 100% เหมือนกับ 'vehicles'/'vehicle_orders'
+    // (v1.0.528/529) เอา fallback ปลอมออก ให้โชว์ "ว่างเปล่าจริง" แทนตรงไปตรงมา
     try { pdis = await listDocs('pdi', companyScopeFilters(), 'startDate', 'desc', 200) } catch {}
-    isDemoData = !pdis.length
-    if (isDemoData) DEMO_PDI.forEach(p => pdis.push({ ...p }))
     updateStats(); applyFilter()
   }
 
@@ -56,8 +49,6 @@ export default async function PdiPage(container) {
     })
     const totEl = document.getElementById('pdi-total')
     if (totEl) totEl.textContent = `${pdis.length} รายการ`
-    const demoEl = document.getElementById('pdi-demo-indicator')
-    if (demoEl) demoEl.textContent = isDemoData ? '⚠️ ข้อมูลตัวอย่าง (ยังไม่มี PDI จริงในระบบ)' : ''
   }
 
   function applyFilter() {
@@ -70,7 +61,9 @@ export default async function PdiPage(container) {
     if (!wrap) return
 
     if (!filtered.length) {
-      wrap.innerHTML = `<div class="empty-state" style="padding:48px"><div class="empty-icon">✅</div><div class="empty-title">ไม่มีรายการ PDI</div></div>`
+      wrap.innerHTML = !pdis.length
+        ? `<div class="empty-state" style="padding:48px"><div class="empty-icon">✅</div><div class="empty-title">ยังไม่มีรายการ PDI เลย</div><div class="empty-desc">กด "➕ เปิด PDI" เพื่อเริ่มบันทึก</div></div>`
+        : `<div class="empty-state" style="padding:48px"><div class="empty-icon">✅</div><div class="empty-title">ไม่มีรายการ PDI</div></div>`
       return
     }
 
@@ -297,7 +290,6 @@ export default async function PdiPage(container) {
           <div class="page-title">✅ PDI — Pre-Delivery Inspection</div>
           <div style="display:flex;gap:10px;align-items:center">
             <span class="page-subtitle" id="pdi-total">กำลังโหลด...</span>
-            <span style="font-size:0.76rem;color:var(--warning);font-weight:600" id="pdi-demo-indicator"></span>
           </div>
         </div>
         <div class="page-actions">

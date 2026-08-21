@@ -26,13 +26,6 @@ const STATUS = {
   cancelled:  { label: '❌ ยกเลิก',        badge: 'danger'  },
 }
 
-const DEMO_ORDERS = [
-  { id:'ord1', orderNo:'ORD-2025-001', brand:'BYD', model:'Seal', variant:'AWD', color:'ขาว Pearl', qty:3, unitCost:1150000, status:'shipped', expectedDate:'2025-04-20', supplier:'BYD Auto Thailand', notes:'ETA พอร์ตแหลมฉบัง', createdAt:'2025-03-01' },
-  { id:'ord2', orderNo:'ORD-2025-002', brand:'MG', model:'MG4', variant:'X', color:'แดง', qty:2, unitCost:840000, status:'confirmed', expectedDate:'2025-05-10', supplier:'SAIC-MG Thailand', notes:'', createdAt:'2025-03-15' },
-  { id:'ord3', orderNo:'ORD-2025-003', brand:'DEEPAL', model:'S7', variant:'Pro', color:'ดำ', qty:1, unitCost:1320000, status:'arrived', expectedDate:'2025-04-01', supplier:'Changan Auto Thailand', notes:'รับแล้ว — ส่ง PDI', createdAt:'2025-02-20' },
-  { id:'ord4', orderNo:'ORD-2025-004', brand:'NETA', model:'V II', variant:'400', color:'ขาว', qty:5, unitCost:680000, status:'production', expectedDate:'2025-06-01', supplier:'NETA Thailand', notes:'', createdAt:'2025-04-01' },
-]
-
 export default async function VehicleOrdersPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
@@ -41,21 +34,18 @@ export default async function VehicleOrdersPage(container) {
   let filtered = []
   let statusFilter = 'all'
   let search = ''
-  // เดิมไม่มีการแจ้งเลยว่า DEMO_ORDERS ที่โผล่มาแทนตอนยังไม่มีคำสั่งซื้อจริงเป็นข้อมูลปลอม
-  let isDemoData = false
 
   // Real-time: อัปเดตสดเมื่อมีคนแก้ไขคำสั่งซื้อรถจากเครื่องอื่น — renderTable()/updateStats() แก้แค่
   // #orders-content/#orders-filtered/#ostat-*/#order-value/#order-total เท่านั้น ไม่แตะช่องค้นหาเลย
-  let firstSnapshot = true
   let unsubOrders = () => {}
   function startWatchOrders() {
     unsubOrders()
     unsubOrders = watchDocs('vehicle_orders', companyScopeFilters(), 'createdAt', 'desc', 200, rows => {
       if (container.__routerGen !== myGen) { unsubOrders(); return }
+      // (v1.0.529) เดิมถ้า collection ว่างจริง (ยังไม่เคยมีใครใช้หน้านี้เลย) จะเติม DEMO_ORDERS (ตัวอย่างปลอม)
+      // เข้ามาแสดงแทน — ตรวจสอบฐานข้อมูลจริงแล้วยืนยันว่า 'vehicle_orders' ว่างเปล่า 100% เหมือนกับ 'vehicles'
+      // (สต็อกรถ v1.0.528) เอา fallback ปลอมออก ให้โชว์ "ว่างเปล่าจริง" แทนตรงไปตรงมา
       orders = rows
-      isDemoData = !orders.length && firstSnapshot
-      if (isDemoData) DEMO_ORDERS.forEach(o => orders.push({ ...o }))
-      firstSnapshot = false
       updateStats(); applyFilter()
     })
   }
@@ -72,8 +62,6 @@ export default async function VehicleOrdersPage(container) {
     if (el) el.textContent = `มูลค่าคำสั่งซื้อรวม: ${formatCurrency(totalCost)}`
     const totEl = document.getElementById('order-total')
     if (totEl) totEl.textContent = `${orders.length} รายการ`
-    const demoEl = document.getElementById('order-demo-indicator')
-    if (demoEl) demoEl.textContent = isDemoData ? '⚠️ ข้อมูลตัวอย่าง (ยังไม่มีคำสั่งซื้อจริง)' : ''
   }
 
   function applyFilter() {
@@ -92,7 +80,9 @@ export default async function VehicleOrdersPage(container) {
     if (cEl) cEl.textContent = `แสดง ${filtered.length} รายการ`
 
     if (!filtered.length) {
-      wrap.innerHTML = `<div class="empty-state" style="padding:48px"><div class="empty-icon">🛒</div><div class="empty-title">ไม่พบคำสั่งซื้อ</div></div>`
+      wrap.innerHTML = !orders.length
+        ? `<div class="empty-state" style="padding:48px"><div class="empty-icon">🛒</div><div class="empty-title">ยังไม่มีคำสั่งซื้อรถเลย</div><div class="empty-desc">กด "➕ สั่งรถใหม่" เพื่อเริ่มบันทึก</div></div>`
+        : `<div class="empty-state" style="padding:48px"><div class="empty-icon">🛒</div><div class="empty-title">ไม่พบคำสั่งซื้อ</div></div>`
       return
     }
 
@@ -310,7 +300,6 @@ export default async function VehicleOrdersPage(container) {
           <div style="display:flex;gap:12px;align-items:center">
             <span class="page-subtitle" id="order-total">กำลังโหลด...</span>
             <span style="font-size:0.8rem;color:var(--accent)" id="order-value"></span>
-            <span style="font-size:0.76rem;color:var(--warning);font-weight:600" id="order-demo-indicator"></span>
           </div>
         </div>
         <div class="page-actions">
