@@ -7,7 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
-import { companyScopeFilters } from '../../core/companyScope.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -66,8 +66,8 @@ export default async function RecallTrackerPage(container) {
     loading = true
     try {
       const [flatRows, campaigns] = await Promise.all([
-        listDocs('recall_campaign_vehicles', [], 'plate', 'asc', 500),
-        listDocs('recall_campaigns', [], 'issueDate', 'desc', 200),
+        listDocs('recall_campaign_vehicles', companyScopeFilters(), 'plate', 'asc', 500),
+        listDocs('recall_campaigns', companyScopeFilters(), 'issueDate', 'desc', 200),
       ])
       RECALLS = campaigns.map(mapRecallFields)
       const modelByCampaign = {}
@@ -220,6 +220,7 @@ export default async function RecallTrackerPage(container) {
             await createDoc('recall_campaign_vehicles', {
               recallId: campaignId, plate: picked.plate, owner: picked.owner, phone: picked.phone, vin: picked.vin,
               vStatus: STATUS_TO_SHARED.pending,
+              companyId: myEffectiveCompanyId(),
             })
             showToast(`✅ เพิ่ม ${picked.owner} เข้า Recall แล้ว`, 'success')
             await loadData()

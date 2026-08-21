@@ -6,6 +6,7 @@ import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, updateDocData, createDoc, softDelete, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -42,8 +43,8 @@ export default async function RecallManagementPage(container) {
     loading = true
     try {
       const [r, v] = await Promise.all([
-        listDocs('recall_campaigns', [], 'issueDate', 'desc', 200),
-        listDocs('recall_campaign_vehicles', [], 'plate', 'asc', 500),
+        listDocs('recall_campaigns', companyScopeFilters(), 'issueDate', 'desc', 200),
+        listDocs('recall_campaign_vehicles', companyScopeFilters(), 'plate', 'asc', 500),
       ])
       // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true — ถ้าไม่กรองออก แคมเปญ/รถที่ "ลบ" ไปแล้วจะโผล่กลับมา
       // ทุกครั้งที่โหลดหน้านี้ใหม่ (บั๊กคลาสเดียวกับที่เจอซ้ำหลายจุดในระบบนี้ — Customers/Staff/Stock/Bookings)
@@ -196,6 +197,7 @@ export default async function RecallManagementPage(container) {
               phone: el.querySelector('#nv-phone')?.value?.trim() || '',
               vin: el.querySelector('#nv-vin')?.value?.trim() || '',
               vStatus: 'pending_contact',
+              companyId: myEffectiveCompanyId(),
             })
             showToast('✅ เพิ่มรถเข้า Recall Campaign แล้ว', 'success')
             await loadData()
@@ -253,6 +255,7 @@ export default async function RecallManagementPage(container) {
               fixDescription: document.getElementById('nr-desc')?.value?.trim() || '',
               status: 'open', totalVehicles: total, fixed: 0, pending: total,
               issueDate: addDays(0),
+              companyId: myEffectiveCompanyId(),
             })
             showToast('✅ สร้าง Recall Campaign แล้ว', 'success')
             await loadData()

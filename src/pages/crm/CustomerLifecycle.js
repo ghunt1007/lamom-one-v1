@@ -6,7 +6,7 @@ import { formatCurrency, formatDate, timeAgo, fullName, todayBangkok } from '../
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData, listDocs, createDoc, updateDocData } from '../../core/db.js'
-import { companyScopeFilters } from '../../core/companyScope.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -263,6 +263,7 @@ export default async function CustomerLifecyclePage(container) {
         await createDoc('action_plans', {
           title: action, type: 'ติดตามลูกค้า (Lifecycle)', custName: cust?.name || '',
           dueDate, status: 'todo', priority: 'medium', note,
+          companyId: myEffectiveCompanyId(),
         })
         if (cust && realCustomerIds.has(cust.id)) {
           await updateDocData('customers', cust.id, { stage: newStage, stageChangedAt: new Date().toISOString() })

@@ -4,6 +4,7 @@ import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { getSalesStaff } from '../../data/masterData.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 const TYPES = ['โทรติดตาม', 'นัดหมาย', 'ทดลองขับ', 'เสนอราคา', 'ติดตามไฟแนนซ์', 'ปิดการขาย', 'ดูแลหลังขาย', 'อื่นๆ']
 const STATUS = {
@@ -34,7 +35,7 @@ export default async function ActionPlanPage(container) {
   let statusFilter = 'all'
 
   async function loadData() {
-    try { plans = (await listDocs('action_plans', [], 'createdAt', 'desc', 500)).filter(p => !p.deleted) } catch {}
+    try { plans = (await listDocs('action_plans', companyScopeFilters(), 'createdAt', 'desc', 500)).filter(p => !p.deleted) } catch {}
     if (!plans.length) plans = DEMO.map(p => ({ ...p }))
     render()
   }
@@ -175,6 +176,7 @@ export default async function ActionPlanPage(container) {
         priority: el.querySelector('#af-priority').value, status: el.querySelector('#af-status').value,
         note: el.querySelector('#af-note').value.trim(),
         createdAt: existing?.createdAt || new Date().toISOString(),
+        ...(isEdit ? {} : { companyId: myEffectiveCompanyId() }),
       }
       try {
         if (isEdit) { await updateDocData('action_plans', existing.id, data); Object.assign(existing, data) }
