@@ -2,6 +2,7 @@
 // เดิมหน้า SMSMarketing.js เขียนตัวเลขไว้ตายตัวในดรอปดาวน์ (เช่น "ลูกค้าทั้งหมด (1,842 ราย)")
 // ไม่ได้นับจากฐานข้อมูลจริงเลย ไฟล์นี้แทนที่ด้วยการนับ+ดึงรายชื่อจริงทุกครั้ง (ดู CHANGELOG)
 import { listDocs } from './db.js'
+import { companyScopeFilters } from './companyScope.js'
 
 const AT_RISK_DAYS = 90        // Lead/Prospect ที่เงียบไปนานกว่านี้ถือว่า "At Risk"
 // เกณฑ์ "ใกล้หมดประกัน" ใช้ status ที่ WarrantyExpiry.js คำนวณไว้แล้ว (expiring = เหลือ ≤60 วัน)
@@ -32,7 +33,7 @@ export async function getSegmentMembers(target) {
   }
 
   let customers = []
-  try { customers = await listDocs('customers', [], 'createdAt', 'desc', 3000) } catch { customers = [] }
+  try { customers = await listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 3000) } catch { customers = [] }
   customers = customers.filter(c => !c.deleted)
 
   if (target === 'active') {

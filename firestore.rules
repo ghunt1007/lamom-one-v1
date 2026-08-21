@@ -903,26 +903,22 @@ service cloud.firestore {
 
     // ── HR — HR role & above ──────────────────────────────────────────────────
     match /staff/{docId} {
-      // (v1.0.453) เดิมตั้งใจจะ scope collection นี้ตามบริษัทเหมือนกัน แต่พบว่ามีอีก 15 หน้าทั่วทั้งแอป
-      // (AiAssistantChat/LamiBrain/OperationsDashboard/ReportBuilder/Payroll/Challenges/EmployeeKpi/
-      // HrDashboard/KpiManagement/Leave/OrgChart/OvertimeTracking/ShiftSchedule/UserManagement ฯลฯ) ที่ query
-      // collection นี้แบบกว้างโดยไม่มี where('companyId',...) เลย — ถ้า deploy canSeeCompanyDoc() ตอนนี้จะ
-      // permission-denied ทันทีสำหรับพนักงานที่ถูก scope (ไม่ใช่ owner/admin/groupWide) ในทุกหน้าเหล่านั้น
-      // เก็บ collection นี้ไว้กว้างเหมือนเดิมก่อน (isStaff()) จนกว่าจะแก้ query ให้ครบทั้ง 15+ หน้าเป็นงานแยก
-      // ต่างหาก (Staff.js/Attendance.js แก้ query ให้ใช้ companyScopeFilters() แล้วในระหว่างนี้ — ใช้ได้ทั้งกับ
-      // rule แบบกว้างนี้และแบบ scope ในอนาคต ไม่ต้องแก้ query ซ้ำอีกรอบตอนเปิดใช้งานจริง)
-      allow read: if isStaff();
+      // (v1.0.508) ก่อนหน้านี้เก็บกว้างไว้ (isStaff() เฉยๆ) เพราะมี 15+ หน้าทั่วแอปที่ query แบบไม่มี
+      // where('companyId',...) เลย — ตอนนี้แก้ query ครบทุกหน้าแล้ว (ยกเว้น src/core/hierarchy.js ที่ตั้งใจ
+      // อ่านกว้างเพื่อคำนวณสายบังคับบัญชาข้ามบริษัทของผู้ใช้ groupWide เอง และ CompanyDataCleanup.js ที่เป็น
+      // เครื่องมือ backfill ต้องอ่านข้ามบริษัท) เปิดใช้ canSeeCompanyDoc() บังคับจริงแล้ว
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
       // (v1.0.303) เงินเดือนย้ายไปเก็บที่ staff_salaries แยกต่างหากแล้ว (อ่านได้แค่ isHR()/isFinance()/
       // isManager()) เพราะ collection นี้ต้องเปิดให้ isStaff() อ่านได้กว้างต่อไป (หน้าอื่นอีกหลายหน้าต้องใช้
       // ชื่อ/แผนกพนักงาน) — ห้ามเขียน/แก้ salary ผ่าน doc นี้อีกต่อไป แต่ยัง "อ่าน" ได้เพื่อ backward-compat
       // กับเอกสารเก่าที่ยังไม่ได้ย้ายข้อมูลออก (ดูปุ่ม "ย้ายข้อมูลเงินเดือน" ในหน้า Staff — เจ้าของ/แอดมินเท่านั้น) เช็คเทียบกับค่าที่มีอยู่เดิม
       // (ไม่ใช่แค่ห้าม field นี้เฉยๆ) เพื่อไม่ให้บล็อกการแก้ไข field อื่นบนเอกสารเก่าที่ยังมี salary ค้างอยู่
-      allow create: if isHR() && !('salary' in request.resource.data);
+      allow create: if isHR() && !('salary' in request.resource.data) && canSeeCompanyDoc(request.resource.data);
       allow update: if isHR() && (
         !('salary' in request.resource.data) ||
         request.resource.data.salary == resource.data.get('salary', null)
-      );
-      allow delete: if isHR();
+      ) && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isHR() && canSeeCompanyDoc(resource.data);
     }
 
     // เก็บเงินเดือนแยกจาก staff doc (v1.0.303) — เดิม salary ฝังอยู่ใน staff/{docId} ที่เปิดให้ isStaff()

@@ -7,6 +7,7 @@ import {
 } from 'firebase/firestore'
 import { getState } from './store.js'
 import { syncRagChunk, RAG_SOURCE_COLLECTIONS } from '../utils/rag.js'
+import { companyScopeFilters } from './companyScope.js'
 
 // ── Input sanitization — strip stored XSS before Firestore writes ──
 // เดิม export แค่ผ่าน createDoc()/updateDocData() เท่านั้น — จุดที่เขียน Firestore ตรงๆนอก db.js (เช่น
@@ -420,7 +421,7 @@ export async function getSalesData() {
   // ใช้ listAllDocs (ไม่ใช่ listDocs cap ตายตัว) — ฟังก์ชันนี้เป็นแหล่งข้อมูลกลางให้ทุกหน้าการเงิน/แดชบอร์ด/
   // CRM คำนวณสถิติ "รวมทั้งหมด/ตลอดเวลา" (ยอดขายรวม, กำไรสุทธิรวม, Customer Lifetime Value ฯลฯ) ต้องได้
   // ใบจองครบทุกใบจริงๆ ไม่ใช่แค่ 1,000 ใบล่าสุด
-  try { bookings = await listAllDocs('bookings', [], 'createdAt', 'desc') } catch (e) {}
+  try { bookings = await listAllDocs('bookings', companyScopeFilters(), 'createdAt', 'desc') } catch (e) {}
   return bookings
     // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true — ถ้าไม่กรองออกตรงนี้ ใบจองที่ "ลบ" ไปแล้วจะยัง
     // ปนอยู่ใน Dashboard/คอมมิชชั่น/รายงานการเงินทุกหน้าที่เรียกใช้ฟังก์ชันกลางนี้
