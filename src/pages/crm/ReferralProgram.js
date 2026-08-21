@@ -6,6 +6,7 @@ import { formatCurrency, formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 const APPROVER_ROLES = ['finance', 'manager', 'owner', 'admin']
 
@@ -56,7 +57,7 @@ export default async function ReferralProgramPage(container) {
 
   async function loadData() {
     loading = true
-    try { referrals = await listDocs('referrals', [], 'submitDate', 'desc', 200) } catch (e) { referrals = [] }
+    try { referrals = await listDocs('referrals', companyScopeFilters(), 'submitDate', 'desc', 200) } catch (e) { referrals = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -224,7 +225,8 @@ export default async function ReferralProgramPage(container) {
             referee, refereePhone: document.getElementById('rf-ree-phone')?.value||'',
             model: document.getElementById('rf-model')?.value||'BYD Seal AWD',
             status: 'pending', reward: +document.getElementById('rf-reward')?.value||3000,
-            submitDate: new Date().toISOString()
+            submitDate: new Date().toISOString(),
+            companyId: myEffectiveCompanyId()
           })
           showToast('✅ บันทึกการแนะนำแล้ว!', 'success')
           await loadData()

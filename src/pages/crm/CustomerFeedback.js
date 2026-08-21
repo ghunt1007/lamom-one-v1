@@ -4,6 +4,7 @@ import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc } from '../../core/db.js'
 import { sendSms } from '../../utils/comms.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -68,12 +69,12 @@ export default async function CustomerFeedbackPage(container) {
   // เดิม Feedback ที่พิมพ์เพิ่มเอง (openFeedbackForm) และคำตอบที่ตอบกลับ (openResponseModal) อยู่ใน
   // หน่วยความจำเท่านั้น รีเฟรชหน้าแล้วหายทั้งคู่ — แก้ให้บันทึกจริงลง Firestore แล้วโหลดกลับมาซ้อนทับ
   try {
-    const manual = await listDocs('customer_feedback', [], 'createdAt', 'desc', 300).catch(() => [])
+    const manual = await listDocs('customer_feedback', companyScopeFilters(), 'createdAt', 'desc', 300).catch(() => [])
     if (container.__routerGen !== myGen) return
     if (manual.length) feedbacks.push(...manual.map(m => ({ ...m, _persisted: true })))
   } catch {}
   try {
-    const responses = await listDocs('feedback_responses', [], 'createdAt', 'desc', 500).catch(() => [])
+    const responses = await listDocs('feedback_responses', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => [])
     if (container.__routerGen !== myGen) return
     const byFeedbackId = {}
     responses.forEach(r => { byFeedbackId[r.feedbackId] = r })
@@ -324,7 +325,7 @@ export default async function CustomerFeedbackPage(container) {
         if (!txt) { showToast('❗ กรุณากรอกข้อความ', 'error'); return }
         const wantSms = document.getElementById('resp-sms')?.checked && f.phone
         try {
-          await createDoc('feedback_responses', { feedbackId: f.id, customerName: f.customerName, response: txt })
+          await createDoc('feedback_responses', { feedbackId: f.id, customerName: f.customerName, response: txt, companyId: myEffectiveCompanyId() })
           if (wantSms) {
             try { await sendSms([f.phone], txt) } catch { showToast('บันทึกคำตอบแล้ว แต่ส่ง SMS ไม่สำเร็จ', 'error') }
           }
@@ -373,7 +374,8 @@ export default async function CustomerFeedbackPage(container) {
           maxScore: 5, comment: document.getElementById('fbf-comment')?.value || '',
           date: addDays(0),
           salesperson: document.getElementById('fbf-sales')?.value || '',
-          responded: false, response: ''
+          responded: false, response: '',
+          companyId: myEffectiveCompanyId()
         }
         try {
           const id = await createDoc('customer_feedback', newFb)

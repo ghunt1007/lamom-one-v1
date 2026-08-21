@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { sendSms } from '../../utils/comms.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -29,7 +30,7 @@ export default async function ReferralQrPage(container) {
 
   async function loadData() {
     loading = true
-    try { REFERRERS = await listDocs('referrers', [], 'sales', 'desc', 100) } catch (e) { REFERRERS = [] }
+    try { REFERRERS = await listDocs('referrers', companyScopeFilters(), 'sales', 'desc', 100) } catch (e) { REFERRERS = [] }
     loading = false
     if (container.__routerGen === myGen) render()
   }
@@ -195,7 +196,7 @@ export default async function ReferralQrPage(container) {
         if (!name) { showToast('ใส่ชื่อ', 'warning'); return false }
         const code = name.replace(/\s/g,'').toUpperCase().slice(0,4)+(REFERRERS.length+1).toString().padStart(3,'0')
         try {
-          const newId = await createDoc('referrers', { name, phone, code, qrUrl:`lamom.app/ref/${code}`, clicks:0, leads:0, sales:0, commission:0, paid:0, createdAt: todayBangkok() })
+          const newId = await createDoc('referrers', { name, phone, code, qrUrl:`lamom.app/ref/${code}`, clicks:0, leads:0, sales:0, commission:0, paid:0, createdAt: todayBangkok(), companyId: myEffectiveCompanyId() })
           selId = newId
           showToast(`🔗 สร้าง QR ของ ${name} แล้ว · Code: ${code}`, 'success')
           await loadData()

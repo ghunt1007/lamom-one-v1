@@ -7,6 +7,7 @@ import { showToast, getState } from '../../core/store.js'
 import { formatDate, todayBangkok } from '../../utils/format.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function myName() {
   const me = getState('user') || {}
@@ -38,7 +39,7 @@ export default async function PriceNegotiationPage(container) {
 
   async function loadData() {
     loading = true
-    try { NEGOTIATIONS = await listDocs('price_negotiations', [], 'date', 'desc', 200) } catch (e) { NEGOTIATIONS = [] }
+    try { NEGOTIATIONS = await listDocs('price_negotiations', companyScopeFilters(), 'date', 'desc', 200) } catch (e) { NEGOTIATIONS = [] }
     loading = false
     if (container.__routerGen === myGen) render()
   }
@@ -157,7 +158,7 @@ export default async function PriceNegotiationPage(container) {
         const discPct=+(disc/list*100).toFixed(1)
         const model=document.getElementById('pn-model')?.value||'BYD Atto 3'
         try {
-          await createDoc('price_negotiations', {customer:cust,model,listPrice:list,offerPrice:offer,discount:disc,discPct,status:'pending',sales: myName(),date:todayBangkok(),approver:''})
+          await createDoc('price_negotiations', {customer:cust,model,listPrice:list,offerPrice:offer,discount:disc,discPct,status:'pending',sales: myName(),date:todayBangkok(),approver:'',companyId: myEffectiveCompanyId()})
           showToast('📤 ส่งขออนุมัติส่วนลด ฿'+disc.toLocaleString()+' แล้ว','success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

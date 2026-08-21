@@ -6,6 +6,7 @@ import { openModal } from '../../utils/modal.js'
 import { todayBangkok } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -22,7 +23,7 @@ export default async function ComplianceCalendarPage(container) {
 
   async function loadData() {
     loading = true
-    try { EVENTS = await listDocs('compliance_events', [], 'dueDate', 'asc', 500) } catch (e) { EVENTS = [] }
+    try { EVENTS = await listDocs('compliance_events', companyScopeFilters(), 'dueDate', 'asc', 500) } catch (e) { EVENTS = [] }
     loading = false
     if (container.__routerGen === myGen) render()
   }
@@ -186,6 +187,7 @@ export default async function ComplianceCalendarPage(container) {
           responsible: document.getElementById('cc-resp')?.value.trim() || '-',
           status: 'pending',
           desc: document.getElementById('cc-desc')?.value.trim() || '',
+          companyId: myEffectiveCompanyId(),
         })
         document.querySelector('.modal-overlay')?.remove()
         showToast('✅ เพิ่มรายการแล้ว', 'success')

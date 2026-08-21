@@ -9,6 +9,7 @@ import { navigate } from '../../core/router.js'
 import { askLami, isAiEnabled } from '../../utils/ai.js'
 import { listDocs, createDoc, seedDemoData, getSalesData } from '../../core/db.js'
 import { heuristicScore } from './LeadScoring.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 // (v1.0.341) เดิม status/accuracy ต่อ Skill เป็นตัวเลข hardcode ล้วน ไม่มีระบบวัดความแม่นยำจริงในระบบเลย
 // (ต้องมี ground-truth ผลจริงเทียบคำแนะนำ AI ถึงจะวัดได้ — งานสร้างระบบวัดผลใหม่ทั้งหมด ไม่ใช่ scope การแก้
@@ -135,7 +136,7 @@ export default async function LamiBrainPage(container) {
         listDocs('customers', [], 'createdAt', 'desc', 500).catch(() => []),
         listDocs('vehicle_models', [], 'brand', 'asc', 200).catch(() => []),
         listDocs('job_cards', [], 'createdAt', 'desc', 500).catch(() => []),
-        listDocs('complaints', [], 'createdAt', 'desc', 200).catch(() => []),
+        listDocs('complaints', companyScopeFilters(), 'createdAt', 'desc', 200).catch(() => []),
         getSalesData().catch(() => []),
         listDocs('debts', [], 'dueDate', 'asc', 200).catch(() => []),
         listDocs('csat', [], 'createdAt', 'desc', 100).catch(() => []),

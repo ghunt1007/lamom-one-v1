@@ -3,6 +3,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -44,7 +45,7 @@ export default async function ComplaintsPage(container) {
 
   async function loadData() {
     loading = true
-    try { complaints = await listDocs('complaints', [], 'createdAt', 'desc', 200) } catch (e) { complaints = [] }
+    try { complaints = await listDocs('complaints', companyScopeFilters(), 'createdAt', 'desc', 200) } catch (e) { complaints = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -193,7 +194,7 @@ export default async function ComplaintsPage(container) {
       const data = { custName, phone:el.querySelector('#cp-phone').value, vehicle:el.querySelector('#cp-vehicle').value, category:el.querySelector('#cp-cat').value, priority:el.querySelector('#cp-pri').value, subject, detail:el.querySelector('#cp-detail').value, assignedTo:el.querySelector('#cp-assign').value }
       try {
         if (comp) await updateDocData('complaints', comp.id, data)
-        else await createDoc('complaints', { ...data, status:'open', openDate:today, closedDate:null, response:'', createdAt:today })
+        else await createDoc('complaints', { ...data, status:'open', openDate:today, closedDate:null, response:'', createdAt:today, companyId: myEffectiveCompanyId() })
         showToast('📢 บันทึกแล้ว', 'success'); close()
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

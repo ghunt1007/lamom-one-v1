@@ -6,6 +6,7 @@ import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 // createDoc นำเข้าไว้แล้วสำหรับ pdpa_dsr_requests เดิม — ใช้เพิ่มเติมกับ pdpa_consents ด้านล่าง (ดูปุ่ม "➕ เพิ่มลูกค้าในทะเบียน")
 
 function escHtml(s) {
@@ -56,8 +57,8 @@ export default async function PdpaConsentPage(container) {
   async function loadData() {
     loading = true
     try {
-      consents = (await listDocs('pdpa_consents', [], 'updatedAt', 'desc', 300)).filter(c => !c.deleted)
-      requests = await listDocs('pdpa_dsr_requests', [], 'deadline', 'asc', 100)
+      consents = (await listDocs('pdpa_consents', companyScopeFilters(), 'updatedAt', 'desc', 300)).filter(c => !c.deleted)
+      requests = await listDocs('pdpa_dsr_requests', companyScopeFilters(), 'deadline', 'asc', 100)
     } catch (e) { /* keep whatever loaded */ }
     loading = false
     if (container.__routerGen === myGen) renderPage()
@@ -210,6 +211,7 @@ export default async function PdpaConsentPage(container) {
           phone: el.querySelector('#nc-phone').value.trim(),
           channel: el.querySelector('#nc-channel').value,
           consents: consentsObj,
+          companyId: myEffectiveCompanyId(),
         })
         showToast('✅ เพิ่มลูกค้าในทะเบียนความยินยอมแล้ว', 'success')
         close(); await loadData()
@@ -239,6 +241,7 @@ export default async function PdpaConsentPage(container) {
         await createDoc('pdpa_dsr_requests', {
           customer, type: el.querySelector('#dr-type').value,
           received, deadline: addDays(30), status: 'pending',
+          companyId: myEffectiveCompanyId(),
         })
         showToast('✅ บันทึกคำขอ DSR แล้ว', 'success')
         close(); await loadData()

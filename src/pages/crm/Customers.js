@@ -554,7 +554,7 @@ export default async function CustomersPage(container) {
     const el = document.getElementById('wk-complaint-panel')
     if (!el) return
     let complaints = []
-    try { complaints = await listDocs('complaints', [], 'createdAt', 'desc', 300) } catch { complaints = [] }
+    try { complaints = await listDocs('complaints', companyScopeFilters(), 'createdAt', 'desc', 300) } catch { complaints = [] }
     const myPhone = normPhone(c.phone)
     const matched = complaints.filter(x => myPhone && normPhone(x.phone) === myPhone)
     if (!document.getElementById('wk-complaint-panel')) return

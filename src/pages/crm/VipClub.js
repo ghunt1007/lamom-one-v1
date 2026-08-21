@@ -6,6 +6,7 @@ import { formatCurrency, formatDate, timeAgo, todayBangkok } from '../../utils/f
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData, listDocs, createDoc } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -39,7 +40,7 @@ export default async function VipClubPage(container) {
   try {
     const [sales, referralsRaw, careLog] = await Promise.all([
       getSalesData().catch(() => []),
-      listDocs('referrals', [], 'submitDate', 'desc', 500).catch(() => []),
+      listDocs('referrals', companyScopeFilters(), 'submitDate', 'desc', 500).catch(() => []),
       listDocs('vip_care_log', [], 'createdAt', 'desc', 500).catch(() => []),
     ])
     if (container.__routerGen !== myGen) return
