@@ -24,6 +24,8 @@ function normPhone(p) { return String(p || '').replace(/\D/g, '') }
 // mode 'customerId' = ผูกผ่าน customerId เท่านั้น (มี FK ตรงจริง)
 // mode 'customerId+phone' = ลอง customerId ก่อน ถ้าไม่มี/หาไม่เจอ fallback ไปเบอร์โทร
 // mode 'phone' = ไม่มี customerId เก็บไว้เลย ผูกผ่านเบอร์โทรอย่างเดียว
+// mode 'staffId' = ผูกผ่าน field staffId เทียบกับ staff.companyId (attendance/payroll_records)
+// mode 'docIdAsStaffId' = ตัว document ID เองคือ staffId ตรงๆ (staff_salaries — setDocData(staffId, ...))
 const COLLECTIONS = [
   { key: 'comm_logs', label: 'บันทึกการติดต่อลูกค้า (Comm Logs)', mode: 'customerId' },
   { key: 'quotations', label: 'ใบเสนอราคา', mode: 'customerId' },
@@ -31,6 +33,9 @@ const COLLECTIONS = [
   { key: 'greeting_sends', label: 'บันทึกการส่งข้อความอวยพร', mode: 'phone' },
   { key: 'test_drives', label: 'นัดทดลองขับ', mode: 'phone' },
   { key: 'appointments', label: 'นัดหมายเข้าโชว์รูม', mode: 'phone' },
+  { key: 'attendance', label: 'บันทึกเวลาเข้า-ออกงาน (Attendance)', mode: 'staffId' },
+  { key: 'payroll_records', label: 'สลิปเงินเดือน (Payroll Records)', mode: 'staffId' },
+  { key: 'staff_salaries', label: 'ฐานเงินเดือนพนักงาน (Staff Salaries)', mode: 'docIdAsStaffId' },
 ]
 
 export default async function CompanyDataCleanupPage(container) {
@@ -61,8 +66,27 @@ export default async function CompanyDataCleanupPage(container) {
     return customerLookup
   }
 
+  let staffLookup = null
+  async function buildStaffLookup() {
+    if (staffLookup) return staffLookup
+    let staffDocs = []
+    try { staffDocs = await listAllDocs('staff', [], 'createdAt', 'desc', 500) } catch { staffDocs = [] }
+    const byId = {}
+    staffDocs.forEach(s => { if (s.companyId) byId[s.id] = s.companyId })
+    staffLookup = { byId }
+    return staffLookup
+  }
+
   function inferFnFor(mode) {
-    return async data => {
+    return async (data, docId) => {
+      if (mode === 'staffId') {
+        const { byId } = await buildStaffLookup()
+        return (data.staffId && byId[data.staffId]) || null
+      }
+      if (mode === 'docIdAsStaffId') {
+        const { byId } = await buildStaffLookup()
+        return byId[docId] || null
+      }
       const { byId, byPhone } = await buildCustomerLookup()
       if (data.customerId && byId[data.customerId]) return byId[data.customerId]
       if (mode !== 'customerId') {
