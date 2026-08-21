@@ -415,15 +415,31 @@ service cloud.firestore {
     }
 
     match /vehicle_orders/{docId} {
-      allow read, write: if isStaff();
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
+      allow create: if isStaff() && canSeeCompanyDoc(request.resource.data);
+      allow update: if isStaff() && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isStaff() && canSeeCompanyDoc(resource.data);
     }
 
     match /parts/{docId} {
-      allow read, write: if isStaff();
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
+      allow create: if isStaff() && canSeeCompanyDoc(request.resource.data);
+      allow update: if isStaff() && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isStaff() && canSeeCompanyDoc(resource.data);
     }
 
     match /pdi/{docId} {
-      allow read, write: if isStaff();
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
+      allow create: if isStaff() && canSeeCompanyDoc(request.resource.data);
+      allow update: if isStaff() && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isStaff() && canSeeCompanyDoc(resource.data);
+    }
+
+    match /vehicle_inspections/{docId} {
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
+      allow create: if isStaff() && canSeeCompanyDoc(request.resource.data);
+      allow update: if isStaff() && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isStaff() && canSeeCompanyDoc(resource.data);
     }
 
     match /job_cards/{docId} {
@@ -431,7 +447,10 @@ service cloud.firestore {
     }
 
     match /service_appointments/{docId} {
-      allow read, write: if isStaff();
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
+      allow create: if isStaff() && canSeeCompanyDoc(request.resource.data);
+      allow update: if isStaff() && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isStaff() && canSeeCompanyDoc(resource.data);
     }
 
     // ── Finance — finance role & above ────────────────────────────────────────
@@ -1017,14 +1036,17 @@ service cloud.firestore {
     // catch-all isStaff() กว้างๆ (ทุกแผนกรวม HR/การเงินที่ไม่เกี่ยวข้องเลย) เห็นที่อยู่ลูกค้าได้ทั้งหมด —
     // เป็นฟีเจอร์เฉพาะฝ่ายบริการ จำกัดสิทธิ์ให้ตรงกับแผนกที่ใช้งานจริงเหมือน inspections ด้านบน
     match /courtesy_car_jobs/{docId} {
-      allow read, write: if isService() || isManager();
+      allow read: if (isService() || isManager()) && canSeeCompanyDoc(resource.data);
+      allow create: if (isService() || isManager()) && canSeeCompanyDoc(request.resource.data);
+      allow update: if (isService() || isManager()) && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if (isService() || isManager()) && canSeeCompanyDoc(resource.data);
     }
 
     match /gov_docs/{docId} {
-      allow read: if isStaff();
-      allow create: if isStaff();
-      allow update: if isStaff() && govDocCompletionOk();
-      allow delete: if isManager();
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
+      allow create: if isStaff() && canSeeCompanyDoc(request.resource.data);
+      allow update: if isStaff() && govDocCompletionOk() && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isManager() && canSeeCompanyDoc(resource.data);
     }
 
     match /sop_documents/{docId} {
@@ -1349,6 +1371,7 @@ service cloud.firestore {
         'price_negotiations', 'invoices', 'referrers', 'referrals',
         'vehicles', 'bookings', 'booking_national_ids', 'tasks',
         'comm_logs', 'quotations', 'followups', 'greeting_sends', 'test_drives', 'appointments',
+        'vehicle_orders', 'parts', 'pdi', 'service_appointments', 'vehicle_inspections',
         'refund_requests', 'purchase_orders', 'supplier_pos', 'debts', 'deposits',
         'trade_ins', 'warranty_claims', 'warranty_service_claims', 'finance_rate_sheets',
         'finance_applications', 'finance_tracker', 'cashier_payments', 'cashier_pending_bills',

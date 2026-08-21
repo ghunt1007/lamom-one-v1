@@ -1970,6 +1970,84 @@ describe('company scoping — Phase 2, feedback/compliance/referral collections 
   })
 })
 
+// v1.0.500 — Phase 3: canSeeCompanyDoc() เปิดใช้งานจริงกับอีก 7 collection ของ DMS/งานบริการ (vehicle_orders,
+// parts, pdi, service_appointments, vehicle_inspections, courtesy_car_jobs, gov_docs) โค้ดแอปทุกหน้าที่อ่าน/
+// เขียน collection เหล่านี้แก้ให้ใช้ companyScopeFilters()/myEffectiveCompanyId() ครบแล้วใน v1.0.499 —
+// courtesy_car_jobs ใช้ role scoped เป็น 'service' แทน 'sales' เพราะ read rule เดิมต้อง isService()||isManager()
+// อยู่แล้ว (ไม่ใช่ isStaff() เฉยๆแบบ 6 collection ที่เหลือ) ส่วนอื่นเหมือนกันหมด
+describe('company scoping — Phase 3, DMS/service collections (v1.0.500)', () => {
+  const targets = [
+    { col: 'vehicle_orders', role: 'sales' },
+    { col: 'parts', role: 'sales' },
+    { col: 'pdi', role: 'sales' },
+    { col: 'service_appointments', role: 'sales' },
+    { col: 'vehicle_inspections', role: 'sales' },
+    { col: 'courtesy_car_jobs', role: 'service' },
+    { col: 'gov_docs', role: 'sales' },
+  ]
+
+  targets.forEach(({ col, role }) => {
+    describe(col, () => {
+      it('the program-owner account (by email) sees a doc from a company they are not a member of', async () => {
+        await seedUser(`csp3p1_${col}`, { role: 'owner', active: true })
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.firestore().doc(`${col}/d1`).set({ note: 'x', companyId: 'companyB' })
+        })
+        const db = testEnv.authenticatedContext(`csp3p1_${col}`, { email: 'ghunt1007@gmail.com' }).firestore()
+        await assertSucceeds(db.doc(`${col}/d1`).get())
+        await assertSucceeds(db.collection(col).get())
+      })
+
+      it('a plain owner-role account that is NOT the program-owner email is company-scoped like anyone else', async () => {
+        await seedUser(`csp3p2_${col}`, { role: 'owner', active: true, companyIds: ['companyA'] })
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.firestore().doc(`${col}/d2`).set({ note: 'x', companyId: 'companyB' })
+        })
+        const db = testEnv.authenticatedContext(`csp3p2_${col}`, { email: 'somsak@lamom.one' }).firestore()
+        await assertFails(db.doc(`${col}/d2`).get())
+        await assertFails(db.collection(col).get())
+        await assertSucceeds(db.collection(col).where('companyId', 'in', ['companyA']).get())
+      })
+
+      it('a groupWide:true user sees a doc from a company they are not a member of', async () => {
+        // role: 'manager' (ไม่ใช่ 'hr' แบบ Phase 1/2) เพราะ courtesy_car_jobs ต้อง isService()||isManager()
+        // อยู่แล้วไม่ว่า groupWide หรือไม่ — 'manager' ผ่านทั้ง 7 collection ในเซ็ตนี้
+        await seedUser(`csp3p3_${col}`, { role: 'manager', active: true, companyIds: ['companyA'], groupWide: true })
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.firestore().doc(`${col}/d3`).set({ note: 'x', companyId: 'companyB' })
+        })
+        const db = testEnv.authenticatedContext(`csp3p3_${col}`).firestore()
+        await assertSucceeds(db.doc(`${col}/d3`).get())
+        await assertSucceeds(db.collection(col).get())
+      })
+
+      it('a company-scoped user CANNOT open a doc belonging to a different company directly', async () => {
+        await seedUser(`csp3p4_${col}`, { role, active: true, companyIds: ['companyA'] })
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.firestore().doc(`${col}/d4`).set({ note: 'x', companyId: 'companyB' })
+        })
+        const db = testEnv.authenticatedContext(`csp3p4_${col}`).firestore()
+        await assertFails(db.doc(`${col}/d4`).get())
+      })
+
+      it('a company-scoped user CAN list docs when the query is properly scoped with a matching where clause', async () => {
+        await seedUser(`csp3p5_${col}`, { role, active: true, companyIds: ['companyA'] })
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.firestore().doc(`${col}/d5`).set({ note: 'x', companyId: 'companyA' })
+        })
+        const db = testEnv.authenticatedContext(`csp3p5_${col}`).firestore()
+        await assertSucceeds(db.collection(col).where('companyId', 'in', ['companyA']).get())
+      })
+
+      it('a company-scoped user CANNOT list docs with no where clause at all', async () => {
+        await seedUser(`csp3p6_${col}`, { role, active: true, companyIds: ['companyA'] })
+        const db = testEnv.authenticatedContext(`csp3p6_${col}`).firestore()
+        await assertFails(db.collection(col).get())
+      })
+    })
+  })
+})
+
 describe('courtesy_car_jobs (v1.0.304) — pickup/delivery customer address scoped to service/manager', () => {
   it('an HR-role staff member cannot read a customer pickup address', async () => {
     await seedUser('pii7', { role: 'hr', active: true })
@@ -1980,8 +2058,9 @@ describe('courtesy_car_jobs (v1.0.304) — pickup/delivery customer address scop
     await assertFails(db.collection('courtesy_car_jobs').doc('j1').get())
   })
 
+  // (v1.0.500) groupWide:true — ไม่ใช่การแยกบริษัท (ดู "company scoping — Phase 3" ด้านล่าง)
   it('a service-role staff member can read and create a pickup job', async () => {
-    await seedUser('pii8', { role: 'service', active: true })
+    await seedUser('pii8', { role: 'service', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('pii8').firestore()
     await assertSucceeds(db.collection('courtesy_car_jobs').add({ customer: 'x', address: '123 ถนนสุขุมวิท' }))
   })
@@ -2117,14 +2196,16 @@ describe('insurance_claims + tax_filings (v1.0.307) — lock only the money/comp
 })
 
 describe('gov_docs (v1.0.308) — no dedicated rule existed at all, fell to the open catch-all', () => {
+  // (v1.0.500) groupWide:true — ไม่ใช่การแยกบริษัท (ดู "company scoping — Phase 3" ด้านล่าง)
   it('a plain staff member can create a new gov doc tracking record', async () => {
-    await seedUser('govGap1', { role: 'staff', active: true })
+    await seedUser('govGap1', { role: 'staff', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('govGap1').firestore()
     await assertSucceeds(db.collection('gov_docs').add({ type: 'โอนกรรมสิทธิ์', customer: 'x', vin: 'x', status: 'รอดำเนินการ' }))
   })
 
+  // (v1.0.500) groupWide:true — ไม่ใช่การแยกบริษัท (ดู "company scoping — Phase 3" ด้านล่าง)
   it('a plain staff member can advance status through non-final stages', async () => {
-    await seedUser('govGap2', { role: 'staff', active: true })
+    await seedUser('govGap2', { role: 'staff', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('govGap2').firestore()
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await ctx.firestore().doc('gov_docs/g1').set({ type: 'โอนกรรมสิทธิ์', customer: 'x', status: 'รอดำเนินการ' })
@@ -2141,8 +2222,9 @@ describe('gov_docs (v1.0.308) — no dedicated rule existed at all, fell to the 
     await assertFails(db.collection('gov_docs').doc('g2').update({ status: 'เสร็จสิ้น' }))
   })
 
+  // (v1.0.500) groupWide:true — ไม่ใช่การแยกบริษัท (ดู "company scoping — Phase 3" ด้านล่าง)
   it('a manager can mark a gov doc as เสร็จสิ้น', async () => {
-    await seedUser('govGap4', { role: 'manager', active: true })
+    await seedUser('govGap4', { role: 'manager', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('govGap4').firestore()
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await ctx.firestore().doc('gov_docs/g3').set({ type: 'โอนกรรมสิทธิ์', customer: 'x', status: 'กำลังดำเนินการ' })
