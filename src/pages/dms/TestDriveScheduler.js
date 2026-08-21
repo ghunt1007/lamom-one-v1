@@ -21,6 +21,15 @@ const TD_STATUS = {
   cancelled: { label: 'ยกเลิก', color: 'secondary' },
 }
 
+// (v1.0.523) field ใหม่ที่มากับข้อมูลที่รวมมาจาก TestDrive.js (/crm/test-drive ใช้ collection เดียวกันแล้ว) —
+// หน้านี้ไม่มีฟอร์มบันทึกผลของตัวเอง แต่ควรโชว์ผลที่อีกหน้าบันทึกไว้ให้เห็นในตารางเดียวกันด้วย
+const TD_RESULT = {
+  interested:  { label: '🔥 สนใจมาก', color: 'danger' },
+  maybe:       { label: '🤔 อาจจะ', color: 'warning' },
+  notinterested:{ label: '😐 ไม่สนใจ', color: 'primary' },
+  booked:      { label: '📝 จองแล้ว!', color: 'success' },
+}
+
 const DEMO_VEHICLES = ['BYD Seal AWD', 'BYD Atto 3', 'MG ZS EV', 'BYD Dolphin']
 const STAFF_LIST = ['วิชัย ยอดขาย', 'สุดา มาดี', 'ธนา เก่ง', 'ปทิตา ที่ปรึกษา']
 
@@ -130,12 +139,14 @@ export default async function TestDriveSchedulerPage(container) {
                 <th style="padding:8px 14px;text-align:center">วัน-เวลา</th>
                 <th style="padding:8px 14px;text-align:center">เซลส์</th>
                 <th style="padding:8px 14px;text-align:center">สถานะ</th>
+                <th style="padding:8px 14px;text-align:center">ผลลัพธ์</th>
                 <th style="padding:8px 14px;text-align:center">จัดการ</th>
               </tr>
             </thead>
             <tbody>
               ${bookings.map(b => {
                 const st = TD_STATUS[b.status]
+                const rs = TD_RESULT[b.result]
                 return `<tr style="border-bottom:1px solid var(--border)">
                   <td style="padding:8px 14px;font-size:0.83rem">
                     <div style="font-weight:600">${escHtml(b.customerName)}</div>
@@ -145,6 +156,7 @@ export default async function TestDriveSchedulerPage(container) {
                   <td style="padding:8px 14px;text-align:center;font-size:0.78rem">${formatDate(b.date)}<br>${escHtml(b.time)}</td>
                   <td style="padding:8px 14px;text-align:center;font-size:0.78rem">${escHtml(b.staff)}</td>
                   <td style="padding:8px 14px;text-align:center"><span class="badge badge-${st?.color}" style="font-size:0.62rem">${st?.label}</span></td>
+                  <td style="padding:8px 14px;text-align:center">${rs ? `<span class="badge badge-${rs.color}" style="font-size:0.62rem">${rs.label}</span>` : '-'}</td>
                   <td style="padding:8px 14px;text-align:center">
                     <div style="display:flex;gap:4px;justify-content:center">
                       ${b.status === 'scheduled' ? `<button class="btn btn-xs btn-success confirm-btn" data-id="${escHtml(b.id)}">✓ ยืนยัน</button>` : ''}
