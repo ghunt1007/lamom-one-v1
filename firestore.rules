@@ -250,22 +250,24 @@ service cloud.firestore {
     // (Customers.js แก้ query ให้ใช้ companyScopeFilters() แล้วในระหว่างนี้ — ใช้ได้ทั้งกับ rule แบบกว้างนี้
     // และแบบ scope ในอนาคต ไม่ต้องแก้ query ซ้ำอีกรอบตอนเปิดใช้งานจริง)
     match /customers/{docId} {
-      allow read, write: if isStaff();
+      // (v1.0.511) ก่อนหน้านี้เก็บกว้างไว้ (isStaff() เฉยๆ) เพราะมี 25+ หน้าทั่วแอปที่ query แบบไม่มี
+      // where('companyId',...) เลย — ตอนนี้แก้ query ครบทุกหน้าแล้ว เปิดใช้ canSeeCompanyDoc() บังคับจริงแล้ว
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
+      allow create: if isStaff() && canSeeCompanyDoc(request.resource.data);
+      allow update: if isStaff() && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isStaff() && canSeeCompanyDoc(resource.data);
     }
 
     match /leads/{docId} {
       allow read, write: if isStaff();
     }
 
-    // (v1.0.453) เดิมตั้งใจ scope collection นี้ตามบริษัทเหมือนกัน แต่พบว่ามีอีก ~23 หน้าทั่วทั้งแอป
-    // (OperationsDashboard/ReportCenter/WarRoom/DeliveryCalendar/Invoice/RecallTracker ฯลฯ) ที่ query
-    // collection นี้แบบกว้างโดยไม่มี where('companyId',...) — deploy ตอนนี้จะ permission-denied ทันทีสำหรับ
-    // พนักงานที่ถูก scope ในทุกหน้าเหล่านั้น เก็บไว้กว้างเหมือนเดิมก่อนจนกว่าจะแก้ query ให้ครบเป็นงานแยกต่างหาก
-    // (Bookings.js แก้ query ให้ใช้ companyScopeFilters() แล้วในระหว่างนี้ — ใช้ได้ทั้งกับ rule แบบกว้างนี้
-    // และแบบ scope ในอนาคต ไม่ต้องแก้ query ซ้ำอีกรอบตอนเปิดใช้งานจริง — booking_national_ids ยังคง scope
-    // จริงอยู่เพราะมีแค่หน้าเดียวที่อ่าน ความเสี่ยงต่ำ ใช้พิสูจน์กลไกนี้แบบใช้งานจริงได้)
+    // (v1.0.511) ก่อนหน้านี้เก็บกว้างไว้ (isStaff() เฉยๆ) เพราะมี ~23 หน้าทั่วแอปที่ query แบบไม่มี
+    // where('companyId',...) เลย — ตอนนี้แก้ query ครบทุกหน้าแล้ว เปิดใช้ canSeeCompanyDoc() บังคับจริงแล้ว
+    // (booking_national_ids ยังคงเก็บกว้างไว้ก่อน — เพิ่งเริ่มติด companyId เอกสารใหม่ใน v1.0.510 เอกสารเก่า
+    // ยังไม่ได้ backfill รอเจ้าของกดปุ่มก่อนถึงจะเปิด canSeeCompanyDoc() ให้ collection นั้นได้)
     match /bookings/{docId} {
-      allow read: if isStaff();
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
       // ป้องกันราคา/เงินจอง/ยอดไฟแนนซ์/ยอดคืนเงินติดลบ — ไม่มีเหตุผลทางธุรกิจให้ค่าพวกนี้ติดลบได้จริง
       // (ไม่แตะ discount/margin/totalIncome เพราะขาดทุนได้จริงตามธรรมชาติของดีล)
       // (v1.0.304) เลขบัตรประชาชนลูกค้าย้ายไปเก็บที่ booking_national_ids แยกต่างหากแล้ว — bookings ทั้งหมด
@@ -275,12 +277,13 @@ service cloud.firestore {
       allow create: if isStaff()
         && nonNegIfPresent('price') && nonNegIfPresent('cost') && nonNegIfPresent('down')
         && nonNegIfPresent('financeAmount') && nonNegIfPresent('refundAmount')
-        && !('nid' in request.resource.data);
+        && !('nid' in request.resource.data) && canSeeCompanyDoc(request.resource.data);
       allow update: if isStaff()
         && nonNegIfPresent('price') && nonNegIfPresent('cost') && nonNegIfPresent('down')
         && nonNegIfPresent('financeAmount') && nonNegIfPresent('refundAmount')
-        && (!('nid' in request.resource.data) || request.resource.data.nid == resource.data.get('nid', null));
-      allow delete: if isStaff();
+        && (!('nid' in request.resource.data) || request.resource.data.nid == resource.data.get('nid', null))
+        && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isStaff() && canSeeCompanyDoc(resource.data);
     }
 
     // เก็บเลขบัตรประชาชนลูกค้าแยกจาก bookings doc (v1.0.304) — เดิม nid ฝังอยู่ใน bookings/{docId} ที่เปิด
@@ -393,11 +396,13 @@ service cloud.firestore {
     // where('companyId',...) — เก็บไว้กว้างเหมือนเดิมก่อนจนกว่าจะแก้ query ให้ครบเป็นงานแยกต่างหาก (Stock.js
     // แก้ query ให้ใช้ companyScopeFilters() แล้ว)
     match /vehicles/{docId} {
-      allow read: if isStaff();
+      // (v1.0.511) ก่อนหน้านี้เก็บกว้างไว้ (isStaff() เฉยๆ) เพราะมี 17+ หน้าทั่วแอปที่ query แบบไม่มี
+      // where('companyId',...) เลย — ตอนนี้แก้ query ครบทุกหน้าแล้ว เปิดใช้ canSeeCompanyDoc() บังคับจริงแล้ว
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
       // ป้องกันราคา/ต้นทุนรถติดลบ — ไม่มีเหตุผลทางธุรกิจให้ราคาขาย/ต้นทุนต่อคันติดลบได้
-      allow create: if isStaff() && nonNegIfPresent('price') && nonNegIfPresent('cost');
-      allow update: if isStaff() && nonNegIfPresent('price') && nonNegIfPresent('cost');
-      allow delete: if isStaff();
+      allow create: if isStaff() && nonNegIfPresent('price') && nonNegIfPresent('cost') && canSeeCompanyDoc(request.resource.data);
+      allow update: if isStaff() && nonNegIfPresent('price') && nonNegIfPresent('cost') && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isStaff() && canSeeCompanyDoc(resource.data);
     }
 
     // ตรวจสอบเพิ่มเติม (v1.0.301) — พบว่า vehicle_catalog_overrides/_additions (ใช้เก็บการแก้ไข/เพิ่มรุ่นรถ
@@ -1535,7 +1540,7 @@ service cloud.firestore {
         'announcements_hr', 'internal_memos', 'comm_messages',
         'sales_budgets', 'marketing_budgets', 'commission_rules', 'budget_planning',
         'price_negotiations', 'invoices', 'referrers', 'referrals',
-        'vehicles', 'bookings', 'booking_national_ids', 'tasks',
+        'vehicles', 'bookings', 'booking_national_ids', 'tasks', 'customers',
         'comm_logs', 'quotations', 'followups', 'greeting_sends', 'test_drives', 'appointments',
         'vehicle_orders', 'parts', 'pdi', 'service_appointments', 'vehicle_inspections', 'job_cards',
         'cashier_shift_closes', 'charging_sessions', 'energy_readings', 'auto_receipts', 'auto_send_rules', 'vendors', 'compliance_checklist',

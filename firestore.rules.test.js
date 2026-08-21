@@ -2344,6 +2344,73 @@ describe('company scoping — staff (v1.0.508)', () => {
   })
 })
 
+// v1.0.511 — customers/vehicles/bookings: canSeeCompanyDoc() เปิดใช้งานจริง โค้ดแอปครบทุกจุดอ่าน/เขียนแล้ว
+// (49 หน้าสุดท้ายใน v1.0.509 + booking_national_ids ใน v1.0.510) นี่คือ 3 collection ผู้อ่านกว้างที่สุดใน
+// ระบบที่ค้างมาตั้งแต่ v1.0.453 — read rule ทั้ง 3 collection เป็น isStaff() เฉยๆ เหมือน Phase 1 จึงใช้ role
+// 'sales'/'owner'/'manager' เดิมได้ตรงๆ (booking_national_ids ยังไม่รวมในเซ็ตนี้ — รอ backfill ก่อน)
+describe('company scoping — customers/vehicles/bookings (v1.0.511)', () => {
+  const collections = ['customers', 'vehicles', 'bookings']
+
+  collections.forEach((col) => {
+    describe(col, () => {
+      it('the program-owner account (by email) sees a doc from a company they are not a member of', async () => {
+        await seedUser(`cspbig1_${col}`, { role: 'owner', active: true })
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.firestore().doc(`${col}/d1`).set({ note: 'x', companyId: 'companyB' })
+        })
+        const db = testEnv.authenticatedContext(`cspbig1_${col}`, { email: 'ghunt1007@gmail.com' }).firestore()
+        await assertSucceeds(db.doc(`${col}/d1`).get())
+        await assertSucceeds(db.collection(col).get())
+      })
+
+      it('a plain owner-role account that is NOT the program-owner email is company-scoped like anyone else', async () => {
+        await seedUser(`cspbig2_${col}`, { role: 'owner', active: true, companyIds: ['companyA'] })
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.firestore().doc(`${col}/d2`).set({ note: 'x', companyId: 'companyB' })
+        })
+        const db = testEnv.authenticatedContext(`cspbig2_${col}`, { email: 'somsak@lamom.one' }).firestore()
+        await assertFails(db.doc(`${col}/d2`).get())
+        await assertFails(db.collection(col).get())
+        await assertSucceeds(db.collection(col).where('companyId', 'in', ['companyA']).get())
+      })
+
+      it('a groupWide:true user sees a doc from a company they are not a member of', async () => {
+        await seedUser(`cspbig3_${col}`, { role: 'hr', active: true, companyIds: ['companyA'], groupWide: true })
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.firestore().doc(`${col}/d3`).set({ note: 'x', companyId: 'companyB' })
+        })
+        const db = testEnv.authenticatedContext(`cspbig3_${col}`).firestore()
+        await assertSucceeds(db.doc(`${col}/d3`).get())
+        await assertSucceeds(db.collection(col).get())
+      })
+
+      it('a company-scoped sales user CANNOT open a doc belonging to a different company directly', async () => {
+        await seedUser(`cspbig4_${col}`, { role: 'sales', active: true, companyIds: ['companyA'] })
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.firestore().doc(`${col}/d4`).set({ note: 'x', companyId: 'companyB' })
+        })
+        const db = testEnv.authenticatedContext(`cspbig4_${col}`).firestore()
+        await assertFails(db.doc(`${col}/d4`).get())
+      })
+
+      it('a company-scoped sales user CAN list docs when the query is properly scoped with a matching where clause', async () => {
+        await seedUser(`cspbig5_${col}`, { role: 'sales', active: true, companyIds: ['companyA'] })
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.firestore().doc(`${col}/d5`).set({ note: 'x', companyId: 'companyA' })
+        })
+        const db = testEnv.authenticatedContext(`cspbig5_${col}`).firestore()
+        await assertSucceeds(db.collection(col).where('companyId', 'in', ['companyA']).get())
+      })
+
+      it('a company-scoped sales user CANNOT list docs with no where clause at all', async () => {
+        await seedUser(`cspbig6_${col}`, { role: 'sales', active: true, companyIds: ['companyA'] })
+        const db = testEnv.authenticatedContext(`cspbig6_${col}`).firestore()
+        await assertFails(db.collection(col).get())
+      })
+    })
+  })
+})
+
 describe('courtesy_car_jobs (v1.0.304) — pickup/delivery customer address scoped to service/manager', () => {
   it('an HR-role staff member cannot read a customer pickup address', async () => {
     await seedUser('pii7', { role: 'hr', active: true })
