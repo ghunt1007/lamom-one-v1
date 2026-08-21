@@ -210,6 +210,9 @@ export default async function VehicleOrdersPage(container) {
                 // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
                 // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
                 mileage: 0, location: 'โชว์รูมหลัก', arrivedAt: todayBangkok(),
+                // (v1.0.519) ไทม์ไลน์รถ — vehicle_orders ไม่มี field VIN เลย (สั่งเป็นล็อต qty คัน ไม่รู้ VIN
+                // จนกว่าจะถึงจริง) จึงเติม vin ให้ตรงไม่ได้ แต่ orderDate เติมได้จริงจากวันที่สร้างคำสั่งซื้อนี้เอง
+                orderDate: (o.createdAt || '').slice(0, 10) || todayBangkok(),
                 notes: `รับจากคำสั่งซื้อ ${o.orderNo}`,
                 companyId: o.companyId || myEffectiveCompanyId(),
               })

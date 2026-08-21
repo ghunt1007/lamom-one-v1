@@ -261,8 +261,15 @@ export default async function StockPage(container) {
             ${dRow('📦','ต้นทุน',formatCurrency(v.cost))}
             ${dRow('📊','กำไร',`<span style="color:${margin>0?'var(--success)':'var(--danger)'}">${margin>0?'+':''}${formatCurrency(margin)}</span>`)}
             ${dRow('📍','ที่ตั้ง', escHtml(v.location||'-'))}
-            ${dRow('🗓','รับมาเมื่อ',formatDate(v.arrivedAt))}
             ${v.mileage ? dRow('🛣','เลขไมล์',`${v.mileage.toLocaleString()} km`) : ''}
+          </div>
+          <div style="font-weight:700;font-size:0.78rem;color:var(--primary);margin:2px 0;border-bottom:1px solid var(--border-subtle);padding-bottom:3px">📅 ไทม์ไลน์รถ</div>
+          <div class="grid-2" style="gap:8px">
+            ${dRow('📝','สั่งซื้อ', v.orderDate ? formatDate(v.orderDate) : '-')}
+            ${dRow('💳','ตัดฟอร์แพลน', v.floorPlanCutDate ? formatDate(v.floorPlanCutDate) : '-')}
+            ${dRow('🗓','รับรถ/PDI', formatDate(v.arrivedAt))}
+            ${dRow('🔑','คีย์ขาย', v.saleDate ? formatDate(v.saleDate) : '-')}
+            ${dRow('🚚','ส่งมอบ', v.deliveryDate ? formatDate(v.deliveryDate) : '-')}
           </div>
           ${v.notes ? `<div style="background:var(--surface-2);padding:10px 12px;border-radius:var(--radius-md);font-size:0.85rem">📝 ${escHtml(v.notes)}</div>` : ''}
           <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -479,6 +486,15 @@ export default async function StockPage(container) {
             <div class="input-group"><label class="input-label">วันที่รับรถ</label><input class="input" type="date" id="vf-arrived" value="${existing?.arrivedAt||todayBangkok()}"></div>
             <div class="input-group"><label class="input-label">เลขไมล์ (km)</label><input class="input" type="number" id="vf-mileage" value="${existing?.mileage||0}"></div>
           </div>
+          <div style="font-weight:700;font-size:0.78rem;color:var(--primary);margin:6px 0 2px;border-bottom:1px solid var(--border-subtle);padding-bottom:3px">📅 ไทม์ไลน์รถ (ไม่บังคับ)</div>
+          <div class="grid-2">
+            <div class="input-group"><label class="input-label">วันที่สั่งซื้อ</label><input class="input" type="date" id="vf-order" value="${existing?.orderDate||''}"></div>
+            <div class="input-group"><label class="input-label">วันที่ตัดฟอร์แพลน</label><input class="input" type="date" id="vf-floorplan" value="${existing?.floorPlanCutDate||''}"></div>
+          </div>
+          <div class="grid-2">
+            <div class="input-group"><label class="input-label">วันที่คีย์ขาย</label><input class="input" type="date" id="vf-sale" value="${existing?.saleDate||''}"></div>
+            <div class="input-group"><label class="input-label">วันที่ส่งมอบ</label><input class="input" type="date" id="vf-delivery" value="${existing?.deliveryDate||''}"></div>
+          </div>
           <div class="input-group"><label class="input-label">หมายเหตุ</label><input class="input" id="vf-notes" value="${escHtml(existing?.notes||'')}"></div>
         </div>
       `,
@@ -516,6 +532,12 @@ export default async function StockPage(container) {
         location: el.querySelector('#vf-loc').value,
         arrivedAt: el.querySelector('#vf-arrived').value,
         mileage: Number(el.querySelector('#vf-mileage').value) || 0,
+        // (v1.0.519) ไทม์ไลน์รถละเอียดขึ้น — วันสั่งซื้อ/ตัดฟอร์แพลน/คีย์ขาย/ส่งมอบ ไม่บังคับกรอก (ปล่อยว่าง
+        // ได้ถ้ายังไม่ถึงขั้นตอนนั้น) เก็บเป็น null แทน '' เพื่อไม่ให้ formatDate() ขึ้น NaN/Invalid Date
+        orderDate: el.querySelector('#vf-order').value || null,
+        floorPlanCutDate: el.querySelector('#vf-floorplan').value || null,
+        saleDate: el.querySelector('#vf-sale').value || null,
+        deliveryDate: el.querySelector('#vf-delivery').value || null,
         notes: el.querySelector('#vf-notes').value.trim(),
       }
       try {
@@ -616,7 +638,7 @@ export default async function StockPage(container) {
     if (!stock.length) return
     // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
     // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
-    exportToExcel(stock.map(v => ({ ยี่ห้อ:v.brand, รุ่น:v.model, Variant:v.variant, ปี:v.year, สี:v.color, VIN:v.vin, ราคา:v.price, ต้นทุน:v.cost, กำไร:(v.price||0)-(v.cost||0), สถานะ:STATUS[v.status]?.label||v.status, ที่ตั้ง:v.location, รับมา:formatDate(v.arrivedAt) })), `stock-${todayBangkok()}.xlsx`, 'สต็อกรถ')
+    exportToExcel(stock.map(v => ({ ยี่ห้อ:v.brand, รุ่น:v.model, Variant:v.variant, ปี:v.year, สี:v.color, VIN:v.vin, ราคา:v.price, ต้นทุน:v.cost, กำไร:(v.price||0)-(v.cost||0), สถานะ:STATUS[v.status]?.label||v.status, ที่ตั้ง:v.location, สั่งซื้อ:v.orderDate?formatDate(v.orderDate):'-', ตัดฟอร์แพลน:v.floorPlanCutDate?formatDate(v.floorPlanCutDate):'-', รับมา:formatDate(v.arrivedAt), คีย์ขาย:v.saleDate?formatDate(v.saleDate):'-', ส่งมอบ:v.deliveryDate?formatDate(v.deliveryDate):'-' })), `stock-${todayBangkok()}.xlsx`, 'สต็อกรถ')
     showToast('Export แล้ว', 'success')
   })
   document.querySelectorAll('.sf-stock').forEach(btn => btn.addEventListener('click', () => {

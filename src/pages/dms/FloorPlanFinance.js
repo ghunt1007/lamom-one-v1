@@ -144,22 +144,41 @@ export default async function FloorPlanFinancePage(container) {
         }
       })
     }))
-    document.getElementById('draw-btn')?.addEventListener('click', () => {
+    document.getElementById('draw-btn')?.addEventListener('click', async () => {
+      // (v1.0.519) เดิมฟอร์มนี้กรอกรุ่นรถเป็น free text เอง และ hardcode vin:'...ใหม่' เสมอ (ไม่เคยผูกกับรถจริง
+      // ใน 'vehicles' เลยตั้งแต่แรก แม้ schema ของ floor_plan จะมี field vin อยู่แล้วก็ตาม) แก้ให้ต้องเลือกรถจริง
+      // จากสต็อกเหมือนแพทเทิร์นเดียวกับ PDI.js แล้วเก็บ vehicleId+vin จริง พร้อม auto-stamp floorPlanCutDate
+      // กลับไปที่ vehicle doc นั้นตอนเบิกสำเร็จ (ไทม์ไลน์รถในหน้าสต็อกจะเห็นวันตัดฟอร์แพลนจริง)
+      let stockVehicles = []
+      try { stockVehicles = (await listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 300)).filter(v => !v.deleted) } catch (e) { stockVehicles = [] }
       openModal({
         title: '+ เบิกวงเงิน (รถเข้าสต็อกใหม่)',
         size: 'sm',
         body: `<div style="display:grid;gap:10px">
-          <div class="input-group"><label class="input-label">รุ่นรถ *</label><input class="input" id="fp-model"></div>
+          <div class="input-group"><label class="input-label">เลือกรถจากสต็อกจริง *</label>
+            <select class="input" id="fp-vehicle">
+              <option value="">— เลือกรถ —</option>
+              ${stockVehicles.map(v => `<option value="${escHtml(v.id)}">${escHtml(v.brand)} ${escHtml(v.model)} ${escHtml(v.variant||'')} · VIN ${escHtml((v.vin||'').slice(-6)||'-')}</option>`).join('')}
+            </select>
+            <span class="input-error" id="fp-vehicle-e"></span>
+          </div>
           <div class="input-group"><label class="input-label">ราคาทุน (บาท)</label><input class="input" type="number" id="fp-amount"></div>
           <div style="font-size:0.72rem;color:var(--text-muted)">วงเงินคงเหลือ: <strong>${formatCurrency(available)}</strong></div>
         </div>`,
         async onConfirm() {
-          const model = document.getElementById('fp-model')?.value?.trim()
+          const vehicleId = document.getElementById('fp-vehicle')?.value
+          const vehicle = stockVehicles.find(v => v.id === vehicleId)
           const amount = parseInt(document.getElementById('fp-amount')?.value) || 0
-          if (!model || amount <= 0) { showToast('❗ กรอกข้อมูลให้ครบ', 'error'); return false }
+          if (!vehicle) { document.getElementById('fp-vehicle-e').textContent = 'กรุณาเลือกรถจากสต็อก'; return false }
+          if (amount <= 0) { showToast('❗ กรอกข้อมูลให้ครบ', 'error'); return false }
           if (amount > available) { showToast('❗ เกินวงเงินคงเหลือ', 'error'); return false }
           try {
-            await createDoc('floor_plan', { model, vin:'...ใหม่', principal:amount, drawDate:addDays(0), status:'active', sold:false, companyId: myEffectiveCompanyId() })
+            const drawDate = addDays(0)
+            await createDoc('floor_plan', {
+              vehicleId: vehicle.id, model: `${vehicle.brand||''} ${vehicle.model||''}`.trim(), vin: vehicle.vin || '',
+              principal:amount, drawDate, status:'active', sold:false, companyId: myEffectiveCompanyId(),
+            })
+            try { await updateDocData('vehicles', vehicle.id, { floorPlanCutDate: drawDate }) } catch (e) { /* ไม่กระทบยอดเบิกที่บันทึกไปแล้ว */ }
             showToast(`✅ เบิก ${formatCurrency(amount)} แล้ว — ดอกเบี้ยเริ่มเดินวันนี้`, 'warning')
             await loadData()
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
