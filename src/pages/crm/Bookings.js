@@ -76,6 +76,16 @@ function calcMonthly(financeAmount, installments, ratePerYear) {
 // b.down ตรงๆ เหมือนเดิม เพราะคนละความหมายกัน)
 function depositAmt(b) { return Number(b?.bookingDeposit) || Number(b?.down) || 0 }
 
+// (v1.0.524) สินค้า F&I มาตรฐาน 4 ประเภทที่ตัวแทนจำหน่ายรถ EV ในไทยขายจริง — รายการคงที่ (ไม่ใช่ dynamic list)
+// insurance/creditLife รวมเป็น insuranceAmount, warranty/accessory รวมเป็น accessoryAmount (backward-compat
+// กับ Commission.js/getSalesData() ที่อ่าน 2 field เดิมอยู่แล้ว)
+const FI_TYPES = [
+  { key: 'insurance', label: '🚗 ประกันภัยรถยนต์' },
+  { key: 'creditLife', label: '❤️ ประกันชีวิตคุ้มครองสินเชื่อ' },
+  { key: 'warranty', label: '🛡 รับประกันเพิ่ม/ขยายเวลา' },
+  { key: 'accessory', label: '🎁 อุปกรณ์ตกแต่ง' },
+]
+
 // ── ตัวเลือกลูกค้าเดิมจาก collection `customers` — เชื่อมใบจองกับลูกค้าจริง (ไม่บังคับ) ──
 function openCustomerPicker(onPick) {
   let q = ''
@@ -865,6 +875,12 @@ export default async function BookingsPage(container) {
         dRow('คอมเซลส์', formatCurrency(b.com70)) + dRow('คอมไฟแนนซ์', formatCurrency(b.comFinance)) +
         dRow('ยอดขายประกัน', formatCurrency(b.insuranceAmount)) + dRow('ยอดขายอุปกรณ์', formatCurrency(b.accessoryAmount)) +
         '<div style="display:flex;gap:6px;padding:2px 0"><span style="color:var(--text-muted);min-width:110px;flex-shrink:0;font-size:0.82rem">💰 รายได้รวม</span><span style="font-weight:800;color:var(--accent);font-size:0.92rem">' + formatCurrency(b.totalIncome != null ? b.totalIncome : ((b.margin || 0) - (b.budgetUsed || 0)) + (b.com70 || 0) + (b.comFinance || 0)) + '</span></div>' +
+        // (v1.0.524) โชว์รายการ F&I แยกชิ้นที่ขายจริง (ถ้ามี) — ใบจองเก่าที่ไม่มี fiItems จะไม่แสดงส่วนนี้เลย
+        ((b.fiItems || []).some(x => x.sold) ? sec('🛡 รายการ F&I ที่ขาย') +
+          (b.fiItems || []).filter(x => x.sold).map(x => {
+            const ft = FI_TYPES.find(f => f.key === x.type)
+            return dRow(ft?.label || x.type, escHtml(x.provider || '-') + ' · ' + formatCurrency(x.price) + (x.commission ? ' · คอม ' + formatCurrency(x.commission) : ''))
+          }).join('') : '') +
         sec('📅 ไทม์ไลน์') +
         dRow('วันจอง', formatDate(b.bookingDate)) + dRow('ยื่นไฟแนนซ์', formatDate(b.submitDate)) + dRow('อนุมัติ', formatDate(b.approveDate)) + dRow('เซ็นสัญญา', formatDate(b.signDate)) + dRow('วันตัดรถ', formatDate(b.cutDate)) + dRow('นัดส่งมอบ', formatDate(b.deliveryDate)) + dRow('ส่งมอบจริง', formatDate(b.actualDeliveryDate)) +
         dRow('เซลส์', b.salesName || '-') +
@@ -1012,10 +1028,23 @@ export default async function BookingsPage(container) {
         sec('💵 กำไร / คอมมิชชั่น (แบบ V8)') +
         '<div class="grid-2">' + inp('bf-margin', 'กำไรขั้นต้น Margin (บาท)', e.margin, 'number') + inp('bf-budget', 'งบการตลาดที่ใช้ (บาท)', e.budgetUsed, 'number') + '</div>' +
         '<div class="grid-2">' + inp('bf-com70', 'คอมเซลส์ (บาท)', e.com70, 'number') + inp('bf-comfin', 'คอมไฟแนนซ์ (บาท)', e.comFinance, 'number') + '</div>' +
-        // ยอดขายประกัน/อุปกรณ์ต่อใบจอง — เดิมไม่มีฟิลด์นี้เลยทั้งระบบ ทำให้หน้า Commission.js ต้องคำนวณค่าคอม
-        // ประกัน/อุปกรณ์จากตัวเลข 0 ตายตัวเสมอ (getSalesData() เคย hardcode insurance:0, accessory:0) เพิ่มที่นี่
-        // เพื่อให้มีข้อมูลจริงต่อใบจองให้หน้าคอมมิชชั่น/รายงานการเงินอื่นๆดึงไปคำนวณได้จริง
-        '<div class="grid-2">' + inp('bf-insamt', 'ยอดขายประกัน (บาท)', e.insuranceAmount, 'number') + inp('bf-accamt', 'ยอดขายอุปกรณ์ (บาท)', e.accessoryAmount, 'number') + '</div>' +
+        // (v1.0.524) เดิม "ยอดขายประกัน/อุปกรณ์" เป็นแค่ 2 ช่องยอดเงินก้อนเดียว ไม่มีรายการแยกต่อชิ้น (ไม่รู้ว่า
+        // ขายประกันภัยรถ/ประกันชีวิตคุ้มครองสินเชื่อ/รับประกันเพิ่ม/อุปกรณ์ ยี่ห้อไหน ราคาเท่าไหร่ คอมเท่าไหร่
+        // แยกกัน) ทำให้ดู F&I attach rate หรือค่าคอมแยกตามสินค้าไม่ได้เลย ตามมาตรฐาน DMS ทั่วไปที่ต้องแยกรายชิ้น
+        // — เปลี่ยนเป็นตารางรายการคงที่ 4 ชิ้น (ติ๊กขาย/ไม่ขาย + ผู้ให้บริการ + ราคา + คอม) แทน ไม่ใช้ dynamic
+        // add/remove row (ไม่มี pattern ที่พิสูจน์แล้วในระบบให้อ้างอิง เสี่ยงเกินไปสำหรับฟอร์มนี้ที่ใหญ่/ใช้จริงอยู่
+        // แล้ว) — insuranceAmount/accessoryAmount ยังคงคำนวณอัตโนมัติจากรายการเพื่อไม่กระทบ Commission.js/
+        // getSalesData() ที่อ่าน field 2 ตัวนี้อยู่แล้ว (backward-compat)
+        sec('🛡 สินค้า F&I (ประกัน/รับประกันเพิ่ม/อุปกรณ์)') +
+        '<div style="display:flex;flex-direction:column;gap:6px">' + FI_TYPES.map((ft, i) => {
+          const item = (e.fiItems || []).find(x => x.type === ft.key) || {}
+          return '<div class="grid-fi" style="display:grid;grid-template-columns:auto 1fr 90px 80px;gap:6px;align-items:center;font-size:0.78rem">' +
+            '<label style="display:flex;align-items:center;gap:5px;white-space:nowrap"><input type="checkbox" class="fi-sold" data-i="' + i + '" ' + (item.sold ? 'checked' : '') + '> ' + ft.label + '</label>' +
+            '<input class="input fi-provider" data-i="' + i + '" placeholder="ผู้ให้บริการ/ยี่ห้อ" value="' + escHtml(item.provider || '') + '" style="font-size:0.78rem">' +
+            '<input class="input fi-price" data-i="' + i + '" type="number" placeholder="ราคา" value="' + (item.price || '') + '" style="font-size:0.78rem">' +
+            '<input class="input fi-comm" data-i="' + i + '" type="number" placeholder="คอม" value="' + (item.commission || '') + '" style="font-size:0.78rem">' +
+          '</div>'
+        }).join('') + '</div>' +
         '<div style="font-size:0.72rem;color:var(--text-muted)">💡 กำไรคงเหลือ = Margin − งบการตลาด · รายได้รวม = กำไรคงเหลือ + คอมเซลส์ + คอมไฟแนนซ์ (คำนวณอัตโนมัติ)</div>' +
         sec('📅 ไทม์ไลน์') +
         '<div class="grid-2">' + inp('bf-bdate', 'วันจอง', e.bookingDate || todayBangkok(), 'date') + inp('bf-submit', 'วันยื่นไฟแนนซ์', e.submitDate, 'date') + '</div>' +
@@ -1066,6 +1095,19 @@ export default async function BookingsPage(container) {
         const rightsOnly = g('bf-rights').checked
         if (!rightsOnly && !num('bf-deposit')) { el.querySelector('#bf-deposit-e').textContent = '⚠️ กรุณาระบุจำนวนเงินจอง (หรือติ๊ก "จองสิทธิ์" หากยังไม่จ่าย)'; return }
         const financeAmount = num('bf-finamount'), installments = num('bf-install'), rate = num('bf-rate')
+        // (v1.0.524) รวมรายการ F&I ที่ติ๊ก/กรอกไว้จริงเท่านั้น (เก็บ type ไว้ทุกแถวเพื่อรู้ว่าแถวไหนคือชนิดไหน
+        // แม้ยังไม่ติ๊กขาย — ใช้ตอนแก้ไขครั้งถัดไปให้ค่าที่เคยกรอกไม่หาย) ถ้าไม่มีรายการไหนติ๊ก/กรอกเลย (ฟอร์ม
+        // เดิมก่อน v1.0.524 หรือใบจองที่ยังไม่เคยแตะส่วนนี้) ให้คงค่า insuranceAmount/accessoryAmount เดิมไว้
+        // ไม่ทับเป็น 0 (backward-compat กับใบจองเก่าที่กรอกยอดรวมแบบ manual ไว้ก่อนหน้านี้)
+        const fiItems = FI_TYPES.map((ft, i) => ({
+          type: ft.key,
+          sold: [...el.querySelectorAll('.fi-sold')][i]?.checked || false,
+          provider: [...el.querySelectorAll('.fi-provider')][i]?.value.trim() || '',
+          price: Number([...el.querySelectorAll('.fi-price')][i]?.value) || 0,
+          commission: Number([...el.querySelectorAll('.fi-comm')][i]?.value) || 0,
+        })).filter(x => x.sold || x.provider || x.price || x.commission)
+        const fiInsurance = fiItems.filter(x => x.type === 'insurance' || x.type === 'creditLife').reduce((s, x) => s + x.price, 0)
+        const fiAccessory = fiItems.filter(x => x.type === 'warranty' || x.type === 'accessory').reduce((s, x) => s + x.price, 0)
         // เลขบัตรประชาชนเก็บแยกที่ booking_national_ids เสมอ (v1.0.304) ไม่เขียนลง bookings doc อีกต่อไปเลย
         // (Firestore Rules บล็อกไว้แล้วด้วย) — ช่อง #bf-nid ไม่ถูกสร้างใน DOM เลยถ้าไม่มีสิทธิ์เห็น
         const newNid = canViewNid ? g('bf-nid').value.trim() : null
@@ -1084,7 +1126,9 @@ export default async function BookingsPage(container) {
           price: num('bf-price'), cost: num('bf-cost'), bookingDeposit: num('bf-deposit'), down: num('bf-down'), financeCo: g('bf-finco').value, financeAmount, finStatus: g('bf-finstatus').value,
           installments, interestRate: rate, monthly: calcMonthly(financeAmount, installments, rate), campaign: g('bf-campaign').value,
           margin: num('bf-margin'), budgetUsed: num('bf-budget'), com70: num('bf-com70'), comFinance: num('bf-comfin'),
-          insuranceAmount: num('bf-insamt'), accessoryAmount: num('bf-accamt'),
+          fiItems,
+          insuranceAmount: fiItems.length ? fiInsurance : (e.insuranceAmount || 0),
+          accessoryAmount: fiItems.length ? fiAccessory : (e.accessoryAmount || 0),
           marginLeft: num('bf-margin') - num('bf-budget'),
           totalIncome: (num('bf-margin') - num('bf-budget')) + num('bf-com70') + num('bf-comfin'),
           bookingDate: g('bf-bdate').value, submitDate: g('bf-submit').value, approveDate: g('bf-approve').value, signDate: g('bf-sign').value, cutDate: g('bf-cut').value, deliveryDate: g('bf-delivery').value, actualDeliveryDate: g('bf-actual').value,
