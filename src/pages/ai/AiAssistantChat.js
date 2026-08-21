@@ -54,6 +54,10 @@ export default async function AiAssistantChatPage(container) {
         listDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
       ])
       const monthSales = sales.filter(s => (s.date || '').startsWith(thisMonth))
+      // totalIncome ต่อใบจอง = กำไรสุทธิจริง (แพทเทิร์นเดียวกับ Margin.js/Commission.js/MarketingROI.js
+      // ที่ใช้ field นี้เป็นกำไรอยู่แล้ว) นับเฉพาะที่ส่งมอบแล้วเพราะตัวเลขจะนิ่ง/ครบถ้วนหลังส่งมอบจริงเท่านั้น
+      // ปุ่ม "💰 กำไร" มีมาตั้งแต่ v1.0.428 แต่ businessContext ไม่เคยมี key นี้เลย ทำให้ AI ตอบคำถามนี้ไม่ได้
+      const monthProfit = monthSales.filter(s => s.delivered).reduce((sum, s) => sum + (s.totalIncome || 0), 0)
       const activeStock = vehicles.filter(v => !v.deleted && !['sold', 'ขายแล้ว', 'ส่งมอบแล้ว'].includes(v.status)).length
       const leads = customers.filter(c => !c.deleted && (c.stage === 'lead' || c.stage === 'pp'))
       const hotLeads = leads.filter(c => heuristicScore(c).score >= 80).length
@@ -66,6 +70,7 @@ export default async function AiAssistantChatPage(container) {
       const doneToday = todayJobs.filter(j => j.status === 'done' || j.status === 'delivered').length
       businessContext = {
         'ยอดขายเดือนนี้': `${monthSales.length} คัน มูลค่ารวม ${formatCurrency(monthSales.reduce((s, x) => s + (x.salePrice || 0), 0))}`,
+        'กำไรเดือนนี้ (จากรถที่ส่งมอบแล้ว)': `${formatCurrency(monthProfit)} จาก ${monthSales.filter(s => s.delivered).length} คันที่ส่งมอบแล้ว`,
         'รถคงเหลือในสต็อก': `${activeStock} คัน`,
         'Hot Lead (คะแนน 80 ขึ้นไป)': `${hotLeads} ราย จาก Lead ทั้งหมด ${leads.length} ราย`,
         'ยอดค้างชำระ': openDebts.length ? `${openDebts.length} รายการ รวม ${formatCurrency(overdueAmount)}` : 'ไม่มีรายการค้างชำระ',

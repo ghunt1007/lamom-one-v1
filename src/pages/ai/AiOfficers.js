@@ -1,6 +1,6 @@
 import { getState, showToast } from '../../core/store.js'
-import { listDocs, listAllDocs, createDoc, seedDemoData } from '../../core/db.js'
-import { formatCurrency } from '../../utils/format.js'
+import { listDocs, listAllDocs, createDoc, seedDemoData, getSalesData } from '../../core/db.js'
+import { formatCurrency, todayBangkok } from '../../utils/format.js'
 import { askAiOfficer, isAiEnabled } from '../../utils/ai.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 
@@ -139,15 +139,29 @@ export default async function AiOfficersPage(container) {
   // (v1.0.xxx) เดิม vehicles/job_cards จำกัดที่ limit(10) ทำให้ stats.vehicles/stats.jobs ที่ป้อนเข้า Gemini
   // prompt ของทุก AI Officer นับต่ำกว่าจริงเงียบๆทุกครั้งที่มีเกิน 10 รายการจริงในระบบ — เปลี่ยนไปใช้
   // listAllDocs() (pattern เดียวกับ getSalesData() ใน db.js ที่ใช้ดึง "รวมทั้งหมด/ตลอดเวลา" ให้ครบจริง)
-  let stats = { customers: 0, vehicles: 0, jobs: 0, leads: 0 }
+  // (v1.0.531) FINN (CFO officer) โฆษณาไว้ว่าทำ "P&L Analysis / Margin Optimizer / Commission Calc" ได้
+  // แต่ stats เดิมมีแค่ customers/vehicles/jobs/leads — ไม่มีตัวเลขการเงินเลยสักตัว ทำให้ FINN ตอบคำถามหลัก
+  // ของตัวเอง (เช่น "สรุป P&L เดือนนี้") ไม่ได้จริง เพิ่มสถิติยอดขาย/กำไร/คอมมิชชั่นจริงจาก getSalesData()
+  // (แหล่งข้อมูลกลางเดียวกับที่ Margin.js/Commission.js/MarketingROI.js ใช้อยู่แล้ว)
+  let stats = { customers: 0, vehicles: 0, jobs: 0, leads: 0, monthDelivered: 0, monthRevenue: 0, monthProfit: 0, avgMarginPerCar: 0, monthCommission: 0 }
   try {
-    const [cust, veh, jobs] = await Promise.all([
+    const [cust, veh, jobs, sales] = await Promise.all([
       listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 200).catch(() => []),
       listAllDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc').catch(() => []),
       listAllDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc').catch(() => []),
+      getSalesData().catch(() => []),
     ])
     const leads = cust.filter(c => c.stage === 'lead' || c.stage === 'pp')
-    stats = { customers: cust.length, vehicles: veh.length, jobs: jobs.length, leads: leads.length }
+    const thisMonth = todayBangkok().slice(0, 7)
+    const monthDeliveredSales = sales.filter(s => s.delivered && (s.date || '').startsWith(thisMonth))
+    const monthRevenue = monthDeliveredSales.reduce((sum, s) => sum + (s.salePrice || 0), 0)
+    const monthProfit = monthDeliveredSales.reduce((sum, s) => sum + (s.totalIncome || 0), 0)
+    const monthCommission = monthDeliveredSales.reduce((sum, s) => sum + (s.com70 || 0) + (s.comFinance || 0), 0)
+    stats = {
+      customers: cust.length, vehicles: veh.length, jobs: jobs.length, leads: leads.length,
+      monthDelivered: monthDeliveredSales.length, monthRevenue, monthProfit, monthCommission,
+      avgMarginPerCar: monthDeliveredSales.length ? Math.round(monthProfit / monthDeliveredSales.length) : 0,
+    }
   } catch {}
 
   if (container.__routerGen !== myGen) return
@@ -188,6 +202,11 @@ export default async function AiOfficersPage(container) {
 - รถในสต็อก: ${stats.vehicles} คัน
 - งานซ่อม/Job Card ล่าสุด: ${stats.jobs} งาน
 - Lead ที่ยังไม่ปิดการขาย: ${stats.leads} ราย
+- รถที่ส่งมอบแล้วเดือนนี้: ${stats.monthDelivered} คัน
+- ยอดขายรวมเดือนนี้ (จากรถที่ส่งมอบแล้ว): ${formatCurrency(stats.monthRevenue)}
+- กำไรสุทธิรวมเดือนนี้ (totalIncome): ${formatCurrency(stats.monthProfit)}
+- กำไรเฉลี่ยต่อคันเดือนนี้: ${formatCurrency(stats.avgMarginPerCar)}
+- ค่าคอมมิชชั่นรวมเดือนนี้ (การขาย 70% + ไฟแนนซ์): ${formatCurrency(stats.monthCommission)}
 
 ถ้าผู้ใช้ถามเรื่องที่ไม่มีข้อมูลจริงอยู่ในบริบทนี้ ให้บอกตรงๆว่ายังไม่มีข้อมูลนี้ในระบบ ห้ามกุข้อมูลขึ้นเอง`
   }
