@@ -26,6 +26,8 @@ function normPhone(p) { return String(p || '').replace(/\D/g, '') }
 // mode 'phone' = ไม่มี customerId เก็บไว้เลย ผูกผ่านเบอร์โทรอย่างเดียว
 // mode 'staffId' = ผูกผ่าน field staffId เทียบกับ staff.companyId (attendance/payroll_records)
 // mode 'docIdAsStaffId' = ตัว document ID เองคือ staffId ตรงๆ (staff_salaries — setDocData(staffId, ...))
+// mode 'docIdAsBookingId' = ตัว document ID เองคือ bookingId ตรงๆ เทียบกับ bookings.companyId
+// (booking_national_ids — setDocData(bookingId, ...))
 const COLLECTIONS = [
   { key: 'comm_logs', label: 'บันทึกการติดต่อลูกค้า (Comm Logs)', mode: 'customerId' },
   { key: 'quotations', label: 'ใบเสนอราคา', mode: 'customerId' },
@@ -36,6 +38,7 @@ const COLLECTIONS = [
   { key: 'attendance', label: 'บันทึกเวลาเข้า-ออกงาน (Attendance)', mode: 'staffId' },
   { key: 'payroll_records', label: 'สลิปเงินเดือน (Payroll Records)', mode: 'staffId' },
   { key: 'staff_salaries', label: 'ฐานเงินเดือนพนักงาน (Staff Salaries)', mode: 'docIdAsStaffId' },
+  { key: 'booking_national_ids', label: 'เลขบัตรประชาชนลูกค้า (Booking National IDs)', mode: 'docIdAsBookingId' },
 ]
 
 export default async function CompanyDataCleanupPage(container) {
@@ -77,6 +80,17 @@ export default async function CompanyDataCleanupPage(container) {
     return staffLookup
   }
 
+  let bookingLookup = null
+  async function buildBookingLookup() {
+    if (bookingLookup) return bookingLookup
+    let bookingDocs = []
+    try { bookingDocs = await listAllDocs('bookings', [], 'createdAt', 'desc', 500) } catch { bookingDocs = [] }
+    const byId = {}
+    bookingDocs.forEach(b => { if (b.companyId) byId[b.id] = b.companyId })
+    bookingLookup = { byId }
+    return bookingLookup
+  }
+
   function inferFnFor(mode) {
     return async (data, docId) => {
       if (mode === 'staffId') {
@@ -85,6 +99,10 @@ export default async function CompanyDataCleanupPage(container) {
       }
       if (mode === 'docIdAsStaffId') {
         const { byId } = await buildStaffLookup()
+        return byId[docId] || null
+      }
+      if (mode === 'docIdAsBookingId') {
+        const { byId } = await buildBookingLookup()
         return byId[docId] || null
       }
       const { byId, byPhone } = await buildCustomerLookup()

@@ -184,7 +184,7 @@ export default async function BookingsPage(container) {
     if (!bookings.length) bookings = DEMO_BOOKINGS.map(b => ({ ...b }))
     if (canViewNid) {
       try {
-        const nidDocs = await listDocs('booking_national_ids', [], 'updatedAt', 'desc', 500)
+        const nidDocs = await listDocs('booking_national_ids', companyScopeFilters(), 'updatedAt', 'desc', 500)
         nidMap = Object.fromEntries(nidDocs.map(d => [d.id, d.nid]))
       } catch {}
     }
@@ -1088,7 +1088,7 @@ export default async function BookingsPage(container) {
         if (isEdit) { await updateDocData('bookings', existing.id, data); Object.assign(existing, data) }
         else { bookingId = await createDoc('bookings', data); bookings.unshift({ ...data, id: bookingId }) }
         if (newNid != null) {
-          await setDocData('booking_national_ids', bookingId, { nid: newNid })
+          await setDocData('booking_national_ids', bookingId, { nid: newNid, companyId: data.companyId || existing?.companyId || myEffectiveCompanyId() })
           const rec = bookings.find(x => x.id === bookingId); if (rec) rec.nid = newNid
           if (existing) existing.nid = newNid
         }
