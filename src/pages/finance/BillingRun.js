@@ -6,6 +6,7 @@ import { formatCurrency, formatDate, timeAgo, todayBangkok } from '../../utils/f
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
@@ -31,8 +32,8 @@ export default async function BillingRunPage(container) {
   async function loadData() {
     loading = true
     try {
-      runs = await listDocs('billing_runs', [], 'createdAt', 'desc', 500)
-      invoices = await listDocs('invoices', [], 'date', 'desc', 500)
+      runs = await listDocs('billing_runs', companyScopeFilters(), 'createdAt', 'desc', 500)
+      invoices = await listDocs('invoices', companyScopeFilters(), 'date', 'desc', 500)
     } catch (e) { runs = []; invoices = [] }
     loading = false
     if (container.__routerGen === myGen) render()
@@ -182,7 +183,7 @@ export default async function BillingRunPage(container) {
           await createDoc('billing_runs', {
             runNo, customerName, invoiceIds: checked, totalAmount,
             submittedDate: today(), dueDate: document.getElementById('br-due')?.value || today(),
-            status: 'submitted',
+            status: 'submitted', companyId: myEffectiveCompanyId(),
           })
           showToast('📑 วางบิลแล้ว!', 'success')
           await loadData()

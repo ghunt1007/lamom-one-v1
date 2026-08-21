@@ -87,7 +87,7 @@ async function computeRealSignals(currSales, growth) {
   } catch {}
 
   try {
-    const debts = await listDocs('debts', [], 'dueDate', 'asc', 500)
+    const debts = await listDocs('debts', companyScopeFilters(), 'dueDate', 'asc', 500)
     const critical = debts.filter(d => d.status === 'overdue90')
     if (critical.length) {
       const amt = critical.reduce((a,d) => a + (d.amount || 0), 0)
@@ -96,7 +96,7 @@ async function computeRealSignals(currSales, growth) {
   } catch {}
 
   try {
-    const orders = await listDocs('purchase_orders', [], 'requestDate', 'desc', 200)
+    const orders = await listDocs('purchase_orders', companyScopeFilters(), 'requestDate', 'desc', 200)
     const pending = orders.filter(o => o.status === 'pending')
     if (pending.length) {
       const amt = pending.reduce((a,o) => a + (o.amount || 0), 0)

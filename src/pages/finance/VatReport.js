@@ -6,6 +6,7 @@ import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData, listAllDocs } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 import { exportToExcel } from '../../utils/importExport.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
@@ -79,7 +80,7 @@ export default async function VatReportPage(container) {
       })
     } catch {}
     try {
-      const pos = await listAllDocs('purchase_orders', [], 'requestDate', 'desc')
+      const pos = await listAllDocs('purchase_orders', companyScopeFilters(), 'requestDate', 'desc')
       pos.filter(p => p.status === 'received' && p.cat !== 'vehicle' && p.amount > 0).forEach(p => {
         const d = (p.requestDate || '').slice(0, 10)
         if (!d) return

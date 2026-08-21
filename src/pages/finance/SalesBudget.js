@@ -8,6 +8,7 @@ import { formatCurrency } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { confirmDialog } from '../../utils/modal.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 const MONTHS_TH = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 const YEAR = new Date().getFullYear() // เดิม hardcode ปี 2025 ทำให้เลือกปีปัจจุบันไม่ได้เลยเมื่อข้ามปี
@@ -34,7 +35,7 @@ let _budgetDocId = null
 
 async function loadBudgets() {
   try {
-    const docs = await listDocs('sales_budgets', [['year', '==', YEAR]], 'createdAt', 'asc', 1)
+    const docs = await listDocs('sales_budgets', [['year', '==', YEAR], ...companyScopeFilters()], 'createdAt', 'asc', 1)
     if (docs.length > 0) {
       _budgetDocId = docs[0].id
       return { targets: docs[0].targets || [...DEFAULT_TARGETS], focBudget: docs[0].focBudget || [...DEFAULT_FOC_BUDGET] }
@@ -49,7 +50,7 @@ async function saveBudgets(targets, focBudget) {
     if (_budgetDocId) {
       await updateDocData('sales_budgets', _budgetDocId, { targets, focBudget })
     } else {
-      _budgetDocId = await createDoc('sales_budgets', { year: YEAR, targets, focBudget })
+      _budgetDocId = await createDoc('sales_budgets', { year: YEAR, targets, focBudget, companyId: myEffectiveCompanyId() })
     }
     return true
   } catch { return false }

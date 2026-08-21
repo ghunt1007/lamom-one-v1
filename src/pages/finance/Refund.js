@@ -9,6 +9,7 @@ import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState, setState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function myName() {
   const me = getState('user') || {}
@@ -35,8 +36,8 @@ export default async function RefundPage(container) {
   async function loadData() {
     loading = true
     try {
-      bookings = await listDocs('bookings', [], 'createdAt', 'desc', 500)
-      refunds = await listDocs('refund_requests', [], 'date', 'desc', 200)
+      bookings = await listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 500)
+      refunds = await listDocs('refund_requests', companyScopeFilters(), 'date', 'desc', 200)
     } catch (e) { /* keep whatever loaded */ }
     loading = false
     if (container.__routerGen === myGen) render()
@@ -255,7 +256,7 @@ export default async function RefundPage(container) {
         // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
         // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
         try {
-          await createDoc('refund_requests', { customer:cust, type, amount, reason, status:'pending', date:todayBangkok(), approvedBy:'', txDate:'' })
+          await createDoc('refund_requests', { customer:cust, type, amount, reason, status:'pending', date:todayBangkok(), approvedBy:'', txDate:'', companyId: myEffectiveCompanyId() })
           showToast('📤 ยื่นขอคืนเงิน ' + formatCurrency(amount) + ' แล้ว','success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }

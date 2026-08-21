@@ -7,6 +7,7 @@ import { showToast, getState, setState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { openModal } from '../../utils/modal.js'
 import { sendSms } from '../../utils/comms.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -60,7 +61,7 @@ export default async function InstallmentPage(container) {
   async function loadData() {
     loading = true
     if (container.__routerGen === myGen) renderLoading()
-    try { plans = await listDocs('installment_plans', [], 'createdAt', 'desc', 200) } catch (e) { plans = [] }
+    try { plans = await listDocs('installment_plans', companyScopeFilters(), 'createdAt', 'desc', 200) } catch (e) { plans = [] }
     loading = false
     if (container.__routerGen === myGen) render()
   }
@@ -254,6 +255,7 @@ export default async function InstallmentPage(container) {
             paid: 0, overdue: 0, status: 'current',
             nextDate: document.getElementById('ip-nextdate')?.value || todayBangkok(),
             paidHistory: [],
+            companyId: myEffectiveCompanyId(),
           })
           showToast('✅ สร้างสัญญาผ่อนใหม่แล้ว', 'success')
           await loadData()

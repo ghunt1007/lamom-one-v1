@@ -6,6 +6,7 @@ import { formatCurrency, formatDate, timeAgo, todayBangkok } from '../../utils/f
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function myName() {
   const me = getState('user') || {}
@@ -52,7 +53,7 @@ export default async function PurchaseOrderPage(container) {
 
   async function loadData() {
     loading = true
-    try { orders = await listDocs('purchase_orders', [], 'requestDate', 'desc', 200) } catch (e) { orders = [] }
+    try { orders = await listDocs('purchase_orders', companyScopeFilters(), 'requestDate', 'desc', 200) } catch (e) { orders = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -223,7 +224,8 @@ export default async function PurchaseOrderPage(container) {
             title,
             cat: document.getElementById('po-cat')?.value||'supplies', supplier, amount,
             status: 'pending', requestDate: new Date().toISOString(), approvedBy: null,
-            expectedDate: document.getElementById('po-date')?.value||addDays(14)
+            expectedDate: document.getElementById('po-date')?.value||addDays(14),
+            companyId: myEffectiveCompanyId(),
           })
           showToast('✅ สร้าง PO แล้ว!', 'success')
           await loadData()

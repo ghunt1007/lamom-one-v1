@@ -6,6 +6,7 @@ import { formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -23,7 +24,7 @@ export default async function VendorManagementPage(container) {
 
   async function loadData() {
     loading = true
-    try { VENDORS = (await listDocs('vendors', [], 'name', 'asc', 500)).filter(v => !v.deleted) } catch (e) { VENDORS = [] }
+    try { VENDORS = (await listDocs('vendors', companyScopeFilters(), 'name', 'asc', 500)).filter(v => !v.deleted) } catch (e) { VENDORS = [] }
     loading = false
     if (container.__routerGen === myGen) render()
   }
@@ -102,6 +103,7 @@ export default async function VendorManagementPage(container) {
         status: document.getElementById('vm-active')?.checked ? 'active' : 'inactive',
         lastOrder: v?.lastOrder || todayBangkok()
       }
+      if (!isEdit) data.companyId = myEffectiveCompanyId()
       try {
         if (isEdit) {
           await updateDocData('vendors', v.id, data)
@@ -204,6 +206,7 @@ export default async function VendorManagementPage(container) {
           approvedBy: null,
           expectedDate: document.getElementById('po-date')?.value || todayBangkok(),
           note: document.getElementById('po-note')?.value?.trim() || '',
+          companyId: myEffectiveCompanyId(),
         })
         document.querySelector('.modal-overlay')?.remove()
         showToast(`📄 ออก ${no} มูลค่า ${formatCurrency(amount)} แล้ว`, 'success')

@@ -5,6 +5,7 @@
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 // เดิมมีแค่ ม.ค.-มิ.ย. (6 เดือน) ตายตัว — ตั้งแต่เดือน ก.ค. เป็นต้นไปไม่มีทางบันทึกมิเตอร์ได้เลย ขยายให้ครบ 12
 // เดือนของปี (schema เดิมเก็บแค่ label เดือนไทย ไม่มีปีกำกับ จึงยังไม่แก้ปัญหาข้ามปีที่ label ชนกัน — ไม่อยู่ใน
@@ -26,7 +27,7 @@ export default async function EnergyUtilityPage(container) {
   async function loadData() {
     loading = true
     try {
-      READINGS = await listDocs('energy_readings', [], 'createdAt', 'asc', 500)
+      READINGS = await listDocs('energy_readings', companyScopeFilters(), 'createdAt', 'asc', 500)
       READINGS.sort((a, b) => MONTHS.indexOf(a.month) - MONTHS.indexOf(b.month))
     } catch (e) { READINGS = [] }
     loading = false
@@ -165,7 +166,7 @@ export default async function EnergyUtilityPage(container) {
         const exist = READINGS.find(r=>r.month===month)
         try {
           if(exist) await updateDocData('energy_readings', exist.id, { elec, water, net })
-          else await createDoc('energy_readings', { month, elec, water, net, zone:{showroom:0,service:0,office:0,parking:0} })
+          else await createDoc('energy_readings', { month, elec, water, net, zone:{showroom:0,service:0,office:0,parking:0}, companyId: myEffectiveCompanyId() })
           selMonth=month
           showToast('⚡ บันทึกมิเตอร์เดือน '+month+' แล้ว','success')
           await loadData()

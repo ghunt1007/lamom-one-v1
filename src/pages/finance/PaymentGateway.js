@@ -12,6 +12,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { todayBangkok } from '../../utils/format.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -33,7 +34,7 @@ export default async function PaymentGatewayPage(container) {
 
   async function loadData() {
     loading = true
-    try { txns = await listDocs('payment_transactions', [], 'date', 'desc', 300) } catch (e) { txns = [] }
+    try { txns = await listDocs('payment_transactions', companyScopeFilters(), 'date', 'desc', 300) } catch (e) { txns = [] }
     loading = false
     if (container.__routerGen === myGen) render()
   }
@@ -163,7 +164,7 @@ export default async function PaymentGatewayPage(container) {
       // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
       let id
       try {
-        id = await createDoc('payment_transactions', { ref, customer, desc, amount, method, status: 'pending', date: todayBangkok() })
+        id = await createDoc('payment_transactions', { ref, customer, desc, amount, method, status: 'pending', date: todayBangkok(), companyId: myEffectiveCompanyId() })
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return }
       showToast('✅ สร้างรายการชำระแล้ว — รอลูกค้าชำระ', 'success')
       close()

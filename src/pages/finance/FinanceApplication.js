@@ -4,6 +4,7 @@ import { showToast, getState, setState } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getBanks } from '../../data/masterData.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { OCCUPATIONS, rankFinanceMatches } from '../../utils/financeMatch.js'
 import { recommendFinance, isAiEnabled } from '../../utils/ai.js'
 
@@ -52,7 +53,7 @@ export default async function FinanceApplicationPage(container) {
 
   async function loadData() {
     loading = true
-    try { apps = (await listDocs('finance_applications', [], 'submittedDate', 'desc', 300)).filter(a => !a.deleted) } catch (e) { apps = [] }
+    try { apps = (await listDocs('finance_applications', companyScopeFilters(), 'submittedDate', 'desc', 300)).filter(a => !a.deleted) } catch (e) { apps = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -263,7 +264,7 @@ export default async function FinanceApplicationPage(container) {
       try {
         // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
         // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
-        await createDoc('finance_applications', { custName, phone: el.querySelector('#fa-phone').value, vehicle, vehiclePrice:price, downPayment:down, loanAmount, tenure, bank: el.querySelector('#fa-bank').value, monthlyPayment:monthly, rate, status:'submitted', submittedDate:todayBangkok(), approvedDate:null, note: el.querySelector('#fa-note').value, documents:[], bookingId: prefill?.bookingId || null, customerId: prefill?.customerId || null })
+        await createDoc('finance_applications', { custName, phone: el.querySelector('#fa-phone').value, vehicle, vehiclePrice:price, downPayment:down, loanAmount, tenure, bank: el.querySelector('#fa-bank').value, monthlyPayment:monthly, rate, status:'submitted', submittedDate:todayBangkok(), approvedDate:null, note: el.querySelector('#fa-note').value, documents:[], bookingId: prefill?.bookingId || null, customerId: prefill?.customerId || null, companyId: myEffectiveCompanyId() })
         showToast('📤 ส่งขอสินเชื่อแล้ว', 'success'); close(); await loadData()
       } catch { btn.disabled = false; showToast('บันทึกไม่สำเร็จ', 'error') }
     })
@@ -320,7 +321,7 @@ export default async function FinanceApplicationPage(container) {
   async function openFinanceRecommend(prefillName = '', prefillDownPct = 0) {
     let matchedCustomer = null
     try {
-      const customers = await listDocs('customers', [], 'createdAt', 'desc', 500)
+      const customers = await listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 500)
       if (prefillName) {
         matchedCustomer = customers.find(c => `${c.firstName || ''} ${c.lastName || ''}`.trim() === prefillName) || null
       }

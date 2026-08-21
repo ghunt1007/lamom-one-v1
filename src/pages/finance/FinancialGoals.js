@@ -6,6 +6,7 @@ import { formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -31,7 +32,7 @@ export default async function FinancialGoalsPage(container) {
 
   async function loadData() {
     loading = true
-    try { goals = await listDocs('financial_goals', [], 'title', 'asc', 500) } catch (e) { goals = [] }
+    try { goals = await listDocs('financial_goals', companyScopeFilters(), 'title', 'asc', 500) } catch (e) { goals = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -172,7 +173,8 @@ export default async function FinancialGoalsPage(container) {
             title,
             cat: document.getElementById('ng-cat')?.value || 'revenue',
             period: document.getElementById('ng-period')?.value || 'รายเดือน',
-            target, current: 0, unit: document.getElementById('ng-unit')?.value || 'บาท'
+            target, current: 0, unit: document.getElementById('ng-unit')?.value || 'บาท',
+            companyId: myEffectiveCompanyId(),
           })
           showToast('✅ ตั้งเป้าหมายแล้ว!', 'success')
           await loadData()

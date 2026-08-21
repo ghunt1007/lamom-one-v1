@@ -6,6 +6,7 @@ import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -44,7 +45,7 @@ export default async function ComplianceCheckPage(container) {
 
   async function loadData() {
     loading = true
-    try { items = (await listDocs('compliance_checklist', [], 'nextCheck', 'asc', 200)).filter(c => !c.deleted) } catch (e) { items = [] }
+    try { items = (await listDocs('compliance_checklist', companyScopeFilters(), 'nextCheck', 'asc', 200)).filter(c => !c.deleted) } catch (e) { items = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -190,6 +191,7 @@ export default async function ComplianceCheckPage(container) {
           title, cat: el.querySelector('#ca-cat').value, criticality: el.querySelector('#ca-criticality').value,
           owner: el.querySelector('#ca-owner').value.trim() || '-',
           status: 'na', notes: '', nextCheck: el.querySelector('#ca-next').value, lastCheck: addDays(0),
+          companyId: myEffectiveCompanyId(),
         })
         showToast('✅ เพิ่มรายการตรวจแล้ว', 'success')
         close(); await loadData()

@@ -3,6 +3,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { getSalesData, listDocs, createDoc, softDelete, readDoc, setDocData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -95,7 +96,7 @@ export default async function CashFlowPage(container) {
 
     let manualFlows = []
     try {
-      const docs = await listDocs('cash_flow', [], 'date', 'desc', 500)
+      const docs = await listDocs('cash_flow', companyScopeFilters(), 'date', 'desc', 500)
       manualFlows = docs.filter(d => !d.deleted).map(d => ({ ...d, _manual: true }))
     } catch {} // permission-denied ได้ถ้า role ไม่ใช่ finance/manager ขึ้นไป — ไม่ใช่ error จริง
 
@@ -336,7 +337,8 @@ export default async function CashFlowPage(container) {
           date: el.querySelector('#cf-date').value,
           type: el.querySelector('#cf-type-sel').value,
           cat: el.querySelector('#cf-cat-sel').value,
-          desc, amount
+          desc, amount,
+          companyId: myEffectiveCompanyId(),
         })
         showToast('💾 บันทึกรายการแล้ว', 'success'); close()
         await loadData(); renderPage()

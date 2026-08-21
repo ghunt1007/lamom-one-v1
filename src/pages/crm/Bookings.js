@@ -933,7 +933,7 @@ export default async function BookingsPage(container) {
     const el = document.getElementById('bk-finapp-panel')
     if (!el) return
     let apps = []
-    try { apps = await listDocs('finance_applications', [], 'submittedDate', 'desc', 300) } catch { apps = [] }
+    try { apps = await listDocs('finance_applications', companyScopeFilters(), 'submittedDate', 'desc', 300) } catch { apps = [] }
     if (!document.getElementById('bk-finapp-panel')) return
     const a = apps.find(x => x.bookingId === b.id)
     if (!a) { el.innerHTML = `<div style="font-size:0.8rem;color:var(--text-muted)">ยังไม่ได้ยื่นไฟแนนซ์จริงกับธนาคาร — กด "🏦 ยื่นไฟแนนซ์" ด้านล่าง</div>`; return }

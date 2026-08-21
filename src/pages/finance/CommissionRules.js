@@ -7,6 +7,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, getSalesData } from '../../core/db.js'
 import { getPositions } from '../../data/masterData.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -57,7 +58,7 @@ const SIM_PRESETS = [
 async function seedBaseRules() {
   const created = []
   for (const r of BASE_RULES) {
-    const payload = { ...r }
+    const payload = { ...r, companyId: myEffectiveCompanyId() }
     if (r.tiers) payload.tiers = r.tiers.map(t => ({ ...t })); else delete payload.tiers
     const id = await createDoc('commission_rules', payload)
     created.push({ ...payload, id })
@@ -120,14 +121,14 @@ function escapeLabel(s) { return String(s ?? '').replace(/</g, '‹').replace(/>
 // ลบกติกาที่มีอยู่แล้วหรือที่แอดมินปรับเองไปแล้วเลย — เพิ่มเฉพาะ key ที่ยังไม่มีจริงๆเท่านั้น
 export async function loadOrSeedRules() {
   let rules = []
-  try { rules = (await listDocs('commission_rules', [], 'name', 'asc', 100)).filter(r => !r.deleted) } catch { rules = [] }
+  try { rules = (await listDocs('commission_rules', companyScopeFilters(), 'name', 'asc', 100)).filter(r => !r.deleted) } catch { rules = [] }
   rules = rules.map(d => ({ ...d, key: d.key || BASE_RULES.find(b => b.name === d.name)?.key }))
   if (!rules.length) return await seedBaseRules()
   const existingKeys = new Set(rules.map(r => r.key).filter(Boolean))
   const missing = BASE_RULES.filter(r => !existingKeys.has(r.key))
   for (const r of missing) {
     try {
-      const payload = { ...r }
+      const payload = { ...r, companyId: myEffectiveCompanyId() }
       if (r.tiers) payload.tiers = r.tiers.map(t => ({ ...t })); else delete payload.tiers
       const id = await createDoc('commission_rules', payload)
       rules.push({ ...payload, id })
@@ -392,6 +393,7 @@ export default async function CommissionRulesPage(container) {
             value: parseFloat(document.getElementById('cr-value')?.value) || 0,
             active: true,
             appliesTo: document.getElementById('cr-applies')?.value || 'เซลส์ทุกคน',
+            companyId: myEffectiveCompanyId(),
           }
           let id
           try { id = await createDoc('commission_rules', data) } catch { showToast('บันทึกไม่สำเร็จ', 'error'); return false }

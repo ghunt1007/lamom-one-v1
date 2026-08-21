@@ -8,6 +8,7 @@ import { showToast, getState, setState } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, listAllDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -71,7 +72,7 @@ export default async function FinanceTrackerPage(container) {
 
   async function loadData() {
     loading = true
-    try { apps = (await listDocs('finance_applications', [], 'createdAt', 'desc', 300)).filter(a => !a.deleted).map(fromShared) } catch (e) { apps = [] }
+    try { apps = (await listDocs('finance_applications', companyScopeFilters(), 'createdAt', 'desc', 300)).filter(a => !a.deleted).map(fromShared) } catch (e) { apps = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
     if (canMigrate) checkLegacy()
@@ -83,7 +84,7 @@ export default async function FinanceTrackerPage(container) {
   // รวม กันข้อมูลหายถ้าเกิดปัญหาระหว่างย้าย) — ทำเครื่องหมาย _migrated:true ไว้ที่เอกสารเก่ากันย้ายซ้ำ
   async function checkLegacy() {
     try {
-      const legacy = await listAllDocs('finance_tracker', [], 'createdAt', 'desc', 500)
+      const legacy = await listAllDocs('finance_tracker', companyScopeFilters(), 'createdAt', 'desc', 500)
       legacyCount = legacy.filter(d => !d._migrated && !d.deleted).length
     } catch { legacyCount = 0 }
     if (container.__routerGen === myGen) renderPage()
@@ -94,10 +95,10 @@ export default async function FinanceTrackerPage(container) {
     renderPage()
     let migrated = 0, errors = 0
     try {
-      const legacy = await listAllDocs('finance_tracker', [], 'createdAt', 'desc', 500)
+      const legacy = await listAllDocs('finance_tracker', companyScopeFilters(), 'createdAt', 'desc', 500)
       for (const doc of legacy.filter(d => !d._migrated && !d.deleted)) {
         try {
-          await createDoc('finance_applications', toSharedPatch(doc))
+          await createDoc('finance_applications', { ...toSharedPatch(doc), companyId: myEffectiveCompanyId() })
           await updateDocData('finance_tracker', doc.id, { _migrated: true })
           migrated++
         } catch { errors++ }
@@ -328,7 +329,8 @@ export default async function FinanceTrackerPage(container) {
             term, monthlyPayment: monthly, interestRate: rate,
             status: 'preparing', submittedDate: null, approvedDate: null, conditions: '',
             salesperson: document.getElementById('af-sales')?.value||'',
-            notes: document.getElementById('af-notes')?.value||''
+            notes: document.getElementById('af-notes')?.value||'',
+            companyId: myEffectiveCompanyId(),
           }))
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
         showToast('✅ บันทึกการยื่นไฟแนนซ์แล้ว!', 'success')

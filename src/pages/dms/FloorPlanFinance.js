@@ -6,6 +6,7 @@ import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -29,7 +30,7 @@ export default async function FloorPlanFinancePage(container) {
 
   async function loadData() {
     loading = true
-    try { units = await listDocs('floor_plan', [], 'drawDate', 'desc', 200) } catch (e) { units = [] }
+    try { units = await listDocs('floor_plan', companyScopeFilters(), 'drawDate', 'desc', 200) } catch (e) { units = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -158,7 +159,7 @@ export default async function FloorPlanFinancePage(container) {
           if (!model || amount <= 0) { showToast('❗ กรอกข้อมูลให้ครบ', 'error'); return false }
           if (amount > available) { showToast('❗ เกินวงเงินคงเหลือ', 'error'); return false }
           try {
-            await createDoc('floor_plan', { model, vin:'...ใหม่', principal:amount, drawDate:addDays(0), status:'active', sold:false })
+            await createDoc('floor_plan', { model, vin:'...ใหม่', principal:amount, drawDate:addDays(0), status:'active', sold:false, companyId: myEffectiveCompanyId() })
             showToast(`✅ เบิก ${formatCurrency(amount)} แล้ว — ดอกเบี้ยเริ่มเดินวันนี้`, 'warning')
             await loadData()
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

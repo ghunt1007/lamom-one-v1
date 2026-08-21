@@ -6,6 +6,7 @@ import { showToast } from '../../core/store.js'
 import { getSalesData, listDocs } from '../../core/db.js'
 import { formatCurrency } from '../../utils/format.js'
 import { exportToExcel } from '../../utils/importExport.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -19,7 +20,7 @@ const DEF_UNITS   = [8,7,10,9,11,8,9,10,9,10,11,15]
 // เครื่องเดียวกัน (key ผูกปีตายตัว 'lamom_sales_budget_2025') ทำให้เห็นเป้าคนละชุดกันข้ามเครื่อง/ข้ามปี
 async function loadBudget() {
   try {
-    const docs = await listDocs('sales_budgets', [['year', '==', new Date().getFullYear()]], 'createdAt', 'asc', 1)
+    const docs = await listDocs('sales_budgets', [['year', '==', new Date().getFullYear()], ...companyScopeFilters()], 'createdAt', 'asc', 1)
     if (docs.length > 0) return { revenue: docs[0].targets || DEF_REVENUE, units: DEF_UNITS }
   } catch {}
   return { revenue: DEF_REVENUE, units: DEF_UNITS }

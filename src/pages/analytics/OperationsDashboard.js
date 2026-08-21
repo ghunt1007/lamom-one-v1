@@ -62,7 +62,7 @@ export default async function OperationsDashboardPage(container) {
       listDocs('attendance', [['date', '==', today]], 'date', 'desc', 500).catch(() => []),
       listDocs('bookings', [], 'createdAt', 'desc', 1000).catch(() => []),
       listDocs('suppliers', [], 'name', 'asc', 300).catch(() => []),
-      listDocs('purchase_orders', [], 'requestDate', 'desc', 300).catch(() => []),
+      listDocs('purchase_orders', companyScopeFilters(), 'requestDate', 'desc', 300).catch(() => []),
       listDocs('parts', companyScopeFilters(), 'name', 'asc', 1000).catch(() => []),
     ])
     if (container.__routerGen !== myGen) return

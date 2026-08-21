@@ -3,6 +3,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getSalesData, listDocs, createDoc, updateDocData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 const CATEGORIES = {
   revenue: {
@@ -79,13 +80,13 @@ export default async function BudgetPlanningPage(container) {
   let dataSource = 'demo'
 
   try {
-    const docs = await listDocs('budget_planning', [['year', '==', currentYear]], 'createdAt', 'asc', 1)
+    const docs = await listDocs('budget_planning', [['year', '==', currentYear], ...companyScopeFilters()], 'createdAt', 'asc', 1)
     if (container.__routerGen !== myGen) return
     if (docs.length > 0) {
       budgetDocId = docs[0].id
       budget = { year: currentYear, revenue: docs[0].revenue, cogs: docs[0].cogs, opex: docs[0].opex }
     } else {
-      budgetDocId = await createDoc('budget_planning', { year: currentYear, ...buildCategoriesFromDefaults(true) })
+      budgetDocId = await createDoc('budget_planning', { year: currentYear, ...buildCategoriesFromDefaults(true), companyId: myEffectiveCompanyId() })
     }
     dataSource = 'live'
   } catch {}

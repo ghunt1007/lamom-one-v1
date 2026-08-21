@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 import { printWithholdingTaxCert } from '../../utils/taxDocs.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 function today() { return todayBangkok() }
@@ -35,7 +36,7 @@ export default async function WithholdingTaxPage(container) {
 
   async function loadData() {
     loading = true
-    try { certs = await listDocs('withholding_tax_certs', [], 'paymentDate', 'desc', 500) } catch (e) { certs = [] }
+    try { certs = await listDocs('withholding_tax_certs', companyScopeFilters(), 'paymentDate', 'desc', 500) } catch (e) { certs = [] }
     loading = false
     if (container.__routerGen === myGen) render()
   }
@@ -142,6 +143,7 @@ export default async function WithholdingTaxPage(container) {
             paymentDate: document.getElementById('wt-date')?.value || today(),
             amountPaid, taxRate, taxWithheld,
             issuedBy,
+            companyId: myEffectiveCompanyId(),
           })
           showToast('✅ ออกหนังสือรับรองแล้ว!', 'success')
           await loadData()

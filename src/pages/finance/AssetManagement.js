@@ -6,6 +6,7 @@ import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -54,7 +55,7 @@ export default async function AssetManagementPage(container) {
 
   async function loadData() {
     loading = true
-    try { assets = await listDocs('assets', [], 'purchaseDate', 'desc', 200) } catch (e) { assets = [] }
+    try { assets = await listDocs('assets', companyScopeFilters(), 'purchaseDate', 'desc', 200) } catch (e) { assets = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -198,7 +199,8 @@ export default async function AssetManagementPage(container) {
             depMethod: document.getElementById('af-depmethod')?.value || 'sl',
             usefulLife: +document.getElementById('af-life')?.value||5,
             purchaseDate: document.getElementById('af-date')?.value||addDays(0),
-            location: document.getElementById('af-loc')?.value||'', status: 'active', condition: 'good', lastMaint: null
+            location: document.getElementById('af-loc')?.value||'', status: 'active', condition: 'good', lastMaint: null,
+            companyId: myEffectiveCompanyId(),
           })
           showToast('✅ เพิ่มสินทรัพย์แล้ว!', 'success')
           await loadData()

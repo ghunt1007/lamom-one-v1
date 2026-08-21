@@ -9,6 +9,7 @@ import { formatCurrency, todayBangkok } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { openModal } from '../../utils/modal.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
@@ -48,7 +49,7 @@ export default async function ChargingRevenuePage(container) {
   async function loadData() {
     loading = true
     if (container.__routerGen === myGen) renderLoading()
-    try { sessions = await listDocs('charging_sessions', [], 'date', 'desc', 1000) } catch (e) { sessions = [] }
+    try { sessions = await listDocs('charging_sessions', companyScopeFilters(), 'date', 'desc', 1000) } catch (e) { sessions = [] }
     loading = false
     if (container.__routerGen === myGen) render()
   }
@@ -253,6 +254,7 @@ export default async function ChargingRevenuePage(container) {
           await createDoc('charging_sessions', {
             date, time, stationId: station.id, stationName: station.name,
             vehicle, kwh, durationMin, touPeriod, useType, rate, revenue, cost, status,
+            companyId: myEffectiveCompanyId(),
           })
           showToast('⚡ บันทึก Session แล้ว', 'success')
           await loadData()

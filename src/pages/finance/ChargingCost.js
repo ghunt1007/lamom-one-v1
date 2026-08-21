@@ -9,6 +9,7 @@ import { formatCurrency } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 const RATE_PEAK = 5.8   // บาท/หน่วย On-Peak
 const RATE_OFFPEAK = 2.6 // บาท/หน่วย Off-Peak (TOU)
@@ -41,7 +42,7 @@ export default async function ChargingCostPage(container) {
   async function loadData() {
     loading = true
     if (container.__routerGen === myGen) renderLoading()
-    try { sessions = await listDocs('charging_sessions', [], 'date', 'desc', 1000) } catch (e) { sessions = [] }
+    try { sessions = await listDocs('charging_sessions', companyScopeFilters(), 'date', 'desc', 1000) } catch (e) { sessions = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }

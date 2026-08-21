@@ -7,6 +7,7 @@ import { showToast } from '../../core/store.js'
 import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { sendSms, sendEmail } from '../../utils/comms.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -32,8 +33,8 @@ export default async function ReceiptAutoPage(container) {
   async function loadData() {
     loading = true
     try {
-      RECEIPTS = (await listDocs('auto_receipts', [], 'date', 'desc', 500)).filter(r => !r.deleted)
-      AUTO_RULES = (await listDocs('auto_send_rules', [], 'name', 'asc', 500)).filter(r => !r.deleted)
+      RECEIPTS = (await listDocs('auto_receipts', companyScopeFilters(), 'date', 'desc', 500)).filter(r => !r.deleted)
+      AUTO_RULES = (await listDocs('auto_send_rules', companyScopeFilters(), 'name', 'asc', 500)).filter(r => !r.deleted)
     } catch (e) { RECEIPTS = []; AUTO_RULES = [] }
     loading = false
     if (container.__routerGen === myGen) render()
@@ -195,6 +196,7 @@ export default async function ReceiptAutoPage(container) {
           trigger: document.getElementById('ar-trig')?.value || RULE_TRIGGERS[0],
           channel: document.getElementById('ar-ch')?.value || 'sms',
           active: true,
+          companyId: myEffectiveCompanyId(),
         })
         document.querySelector('.modal-overlay')?.remove()
         showToast('✅ เพิ่ม Rule แล้ว', 'success')
@@ -304,6 +306,7 @@ export default async function ReceiptAutoPage(container) {
           date: today,
           sent: false,
           status: 'pending',
+          companyId: myEffectiveCompanyId(),
         })
         document.querySelector('.modal-overlay')?.remove()
         showToast('✅ ออกใบเสร็จ ' + nextNum + ' ให้ ' + customer + ' แล้ว', 'success')

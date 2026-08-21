@@ -3,6 +3,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getSalesData, listDocs, listAllDocs, createDoc, updateDocData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -88,7 +89,7 @@ export default async function TaxReportPage(container) {
   } catch {}
 
   try {
-    const filingDocs = await listDocs('tax_filings', [], 'createdAt', 'desc', 300)
+    const filingDocs = await listDocs('tax_filings', companyScopeFilters(), 'createdAt', 'desc', 300)
     if (container.__routerGen !== myGen) return
     filingDocs.slice().reverse().forEach(fd => {
       if (fd.baseId) {
@@ -118,7 +119,7 @@ export default async function TaxReportPage(container) {
       if (s.cost > 0) inp.push({ id: 'PO-'+s.id, vendor: s.brand || 'ผู้จัดจำหน่ายรถ', date: d, ...extractVat(s.cost), withheld: 0, type: 'purchase', taxInvNo: 'TIV-'+s.id })
     })
     try {
-      const pos = await listAllDocs('purchase_orders', [], 'requestDate', 'desc')
+      const pos = await listAllDocs('purchase_orders', companyScopeFilters(), 'requestDate', 'desc')
       pos.filter(p => p.status === 'received' && p.cat !== 'vehicle' && p.amount > 0).forEach(p => {
         const d = (p.requestDate || '').slice(0, 10)
         if (!d) return
@@ -127,7 +128,7 @@ export default async function TaxReportPage(container) {
     } catch {}
     const wht = []
     try {
-      const certs = await listAllDocs('withholding_tax_certs', [], 'paymentDate', 'desc')
+      const certs = await listAllDocs('withholding_tax_certs', companyScopeFilters(), 'paymentDate', 'desc')
       certs.forEach(c => {
         const d = (c.paymentDate || '').slice(0, 10)
         if (!d) return
@@ -208,7 +209,7 @@ export default async function TaxReportPage(container) {
       const newStatus = isOverdue(f) ? 'late' : 'filed'
       try {
         if (f._custom) await updateDocData('tax_filings', f.id, { status: newStatus, filedDate: today })
-        else await createDoc('tax_filings', { baseId: f.id, status: newStatus, filedDate: today })
+        else await createDoc('tax_filings', { baseId: f.id, status: newStatus, filedDate: today, companyId: myEffectiveCompanyId() })
         f.status = newStatus; f.filedDate = today
         showToast(`✅ บันทึกการยื่น ${TAX_TYPES[f.type]?.label} แล้ว`, 'success')
         renderPage()
@@ -342,7 +343,7 @@ export default async function TaxReportPage(container) {
         const newStatus = isOverdue(filing) ? 'late' : 'filed'
         try {
           if (filing._custom) await updateDocData('tax_filings', filing.id, { status: newStatus, filedDate: today })
-          else await createDoc('tax_filings', { baseId: filing.id, status: newStatus, filedDate: today })
+          else await createDoc('tax_filings', { baseId: filing.id, status: newStatus, filedDate: today, companyId: myEffectiveCompanyId() })
           filing.status = newStatus; filing.filedDate = today
           document.querySelector('.modal-close-btn')?.click()
           showToast('✅ บันทึกการยื่นแล้ว!', 'success')
@@ -384,7 +385,7 @@ export default async function TaxReportPage(container) {
           officer: 'นิภา บัญชีดี'
         }
         try {
-          const id = await createDoc('tax_filings', newFiling)
+          const id = await createDoc('tax_filings', { ...newFiling, companyId: myEffectiveCompanyId() })
           filings.unshift({ id, ...newFiling, _custom: true })
           showToast('✅ บันทึกการยื่นภาษีแล้ว!', 'success')
           renderPage()

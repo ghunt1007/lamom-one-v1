@@ -17,6 +17,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { getBanks } from '../../data/masterData.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 import { navigate } from '../../core/router.js'
 import { OCCUPATIONS } from '../../utils/financeMatch.js'
 
@@ -42,7 +43,7 @@ export default async function BankPartnersPage(container) {
     loading = true
     try {
       partnerInfo = (await listDocs('bank_partner_info', [], 'bankName', 'asc', 200)).filter(p => !p.deleted)
-      recentApps = (await listDocs('finance_applications', [], 'submittedDate', 'desc', 8)).filter(a => !a.deleted)
+      recentApps = (await listDocs('finance_applications', companyScopeFilters(), 'submittedDate', 'desc', 8)).filter(a => !a.deleted)
     } catch (e) { partnerInfo = []; recentApps = [] }
     loading = false
     if (container.__routerGen === myGen) render()

@@ -48,7 +48,7 @@ export default async function AiAssistantChatPage(container) {
         getSalesData().catch(() => []),
         listDocs('vehicles', [], 'arrivedAt', 'desc', 500).catch(() => []),
         listDocs('customers', [], 'createdAt', 'desc', 500).catch(() => []),
-        listDocs('debts', [], 'dueDate', 'asc', 200).catch(() => []),
+        listDocs('debts', companyScopeFilters(), 'dueDate', 'asc', 200).catch(() => []),
         listDocs('csat', [], 'createdAt', 'desc', 100).catch(() => []),
         listDocs('staff', [], 'createdAt', 'desc', 200).catch(() => []),
         listDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),

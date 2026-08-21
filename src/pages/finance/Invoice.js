@@ -3,6 +3,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -50,8 +51,8 @@ export default async function InvoicePage(container) {
   async function loadData() {
     loading = true
     try {
-      docs = await listDocs('invoices', [], 'date', 'desc', 500)
-      const bookings = await listDocs('bookings', [], 'createdAt', 'desc', 200)
+      docs = await listDocs('invoices', companyScopeFilters(), 'date', 'desc', 500)
+      const bookings = await listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 200)
       const billable = bookings.filter(b => ['ยืนยัน', 'รอส่งมอบ', 'ส่งมอบแล้ว'].includes(b.status))
       bookingDocs = billable.map((b, i) => {
         const no = 'INV-' + (b.bookingNo || (new Date().getFullYear() + '-' + String(i + 1).padStart(3, '0')))
@@ -234,7 +235,7 @@ export default async function InvoicePage(container) {
       const btn = e.currentTarget
       btn.disabled = true
       try {
-        await createDoc('invoices', { type, no, custName, custTax:'', date: el.querySelector('#dc-date').value, dueDate: el.querySelector('#dc-due').value, items, status:'draft', note: el.querySelector('#dc-note').value })
+        await createDoc('invoices', { type, no, custName, custTax:'', date: el.querySelector('#dc-date').value, dueDate: el.querySelector('#dc-due').value, items, status:'draft', note: el.querySelector('#dc-note').value, companyId: myEffectiveCompanyId() })
         showToast('🧾 สร้างเอกสารแล้ว', 'success'); close()
         await loadData()
       } catch (e) { btn.disabled = false; showToast('บันทึกไม่สำเร็จ', 'error') }
@@ -282,6 +283,7 @@ export default async function InvoicePage(container) {
         await createDoc('cashier_pending_bills', {
           customer: d.custName, desc: `${d.no} — ${d.items.map(i => i.desc).join(', ')}`,
           amount: total, invoiceId: d.id, createdAt: new Date().toISOString(), createdBy: (getState('user')||{}).displayName || '',
+          companyId: myEffectiveCompanyId(),
         })
         await updateDocData('invoices', d.id, { sentToCashier: true })
         d.sentToCashier = true

@@ -6,6 +6,7 @@ import { formatCurrency, formatDate, timeAgo, todayBangkok } from '../../utils/f
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -37,10 +38,10 @@ export default async function CreditControlPage(container) {
   async function loadData() {
     loading = true
     try {
-      const stored = await listDocs('debt_settlements', [], 'oldest', 'asc', 300)
+      const stored = await listDocs('debt_settlements', companyScopeFilters(), 'oldest', 'asc', 300)
       let virtual = []
       try {
-        const bookings = await listDocs('bookings', [], 'createdAt', 'desc', 300)
+        const bookings = await listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 300)
         const outstanding = bookings.filter(b => ['ยืนยัน', 'รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ'].includes(b.status))
         virtual = outstanding.filter(b => !stored.some(s => s.sourceBookingId === b.id)).map(b => {
           const bookDate = (b.bookingDate || b.createdAt?.toDate?.()?.toISOString() || '').slice(0, 10)
@@ -70,7 +71,7 @@ export default async function CreditControlPage(container) {
   async function persistDebtor(d, fields) {
     if (d._source === 'booking') {
       const { _source, id, ...rest } = d
-      await createDoc('debt_settlements', { ...rest, sourceBookingId: d.sourceBookingId, ...fields })
+      await createDoc('debt_settlements', { ...rest, sourceBookingId: d.sourceBookingId, ...fields, companyId: myEffectiveCompanyId() })
     } else {
       await updateDocData('debt_settlements', d.id, fields)
     }
@@ -227,7 +228,8 @@ export default async function CreditControlPage(container) {
             type: document.getElementById('df-type')?.value||'retail',
             creditLimit: limit, used, invoices: used > 0 ? 1 : 0,
             oldest: addDays(0), status: used > 0 ? 'overdue_7' : 'current',
-            contact: document.getElementById('df-contact')?.value||'', phone: '', notes: ''
+            contact: document.getElementById('df-contact')?.value||'', phone: '', notes: '',
+            companyId: myEffectiveCompanyId(),
           })
           showToast('✅ เพิ่มลูกหนี้แล้ว!', 'success')
           await loadData()

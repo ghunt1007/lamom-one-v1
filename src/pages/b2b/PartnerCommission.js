@@ -6,6 +6,7 @@ import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -41,7 +42,7 @@ export default async function PartnerCommissionPage(container) {
 
   async function loadData() {
     loading = true
-    try { items = await listDocs('partner_commissions', [], 'date', 'desc', 200) } catch (e) { items = [] }
+    try { items = await listDocs('partner_commissions', companyScopeFilters(), 'date', 'desc', 200) } catch (e) { items = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -178,7 +179,8 @@ export default async function PartnerCommissionPage(container) {
               partner, type,
               deal: document.getElementById('pc-deal')?.value || '—',
               dealValue: parseInt(document.getElementById('pc-value')?.value) || 0,
-              rate, status: 'pending', date: addDays(0)
+              rate, status: 'pending', date: addDays(0),
+              companyId: myEffectiveCompanyId(),
             })
             showToast('✅ บันทึกแล้ว — รอตรวจสอบ', 'success')
             await loadData()

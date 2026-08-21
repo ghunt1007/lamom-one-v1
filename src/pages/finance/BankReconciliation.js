@@ -6,6 +6,7 @@ import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -26,7 +27,7 @@ const DEMO_BOOK_ENTRIES = [
 async function loadRealBookEntries() {
   const entries = []
   try {
-    const invoices = await listDocs('invoices', [], 'date', 'desc', 300)
+    const invoices = await listDocs('invoices', companyScopeFilters(), 'date', 'desc', 300)
     invoices
       .filter(i => i.type === 'invoice' && i.status !== 'paid' && i.status !== 'cancelled')
       .forEach(i => {
@@ -44,7 +45,7 @@ async function loadRealBookEntries() {
 }
 
 async function listAllDocsSafe() {
-  try { return await listDocs('purchase_orders', [], 'requestDate', 'desc', 300) } catch (e) { return [] }
+  try { return await listDocs('purchase_orders', companyScopeFilters(), 'requestDate', 'desc', 300) } catch (e) { return [] }
 }
 
 export default async function BankReconciliationPage(container) {
@@ -57,7 +58,7 @@ export default async function BankReconciliationPage(container) {
 
   async function loadData() {
     loading = true
-    try { txns = await listDocs('bank_transactions', [], 'date', 'desc', 200) } catch (e) { txns = [] }
+    try { txns = await listDocs('bank_transactions', companyScopeFilters(), 'date', 'desc', 200) } catch (e) { txns = [] }
     try {
       const real = await loadRealBookEntries()
       if (container.__routerGen !== myGen) return
@@ -232,6 +233,7 @@ export default async function BankReconciliationPage(container) {
               amount,
               matched: null,
               type: amount >= 0 ? 'in' : 'out',
+              companyId: myEffectiveCompanyId(),
             })
           }
           if (!rows.length) { showToast('❗ ไม่พบแถวข้อมูลที่ถูกต้องในไฟล์ (ต้องเป็น CSV คอลัมน์ Date, Description, Amount)', 'error'); return false }

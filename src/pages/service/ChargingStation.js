@@ -6,6 +6,7 @@ import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
@@ -42,7 +43,7 @@ export default async function ChargingStationPage(container) {
     try {
       const [c, s] = await Promise.all([
         listDocs('charging_stations', [], 'name', 'asc', 200),
-        listDocs('charging_sessions', [], 'date', 'desc', 100),
+        listDocs('charging_sessions', companyScopeFilters(), 'date', 'desc', 100),
       ])
       chargers = c.filter(x => !x.deleted); sessions = s
     } catch (e) { chargers = []; sessions = [] }
@@ -187,7 +188,7 @@ export default async function ChargingStationPage(container) {
         if (energy > 0 || durationMin > 0) {
           await createDoc('charging_sessions', {
             chargerId: c.id, charger: c.name, vehicle: c.vehicle || '', duration: durationMin, energy, cost,
-            date: new Date().toISOString(),
+            date: new Date().toISOString(), companyId: myEffectiveCompanyId(),
           })
         }
         await updateDocData('charging_stations', c.id, patch)

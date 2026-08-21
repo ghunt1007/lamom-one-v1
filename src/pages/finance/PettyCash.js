@@ -6,6 +6,7 @@ import { formatCurrency, formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -31,7 +32,7 @@ export default async function PettyCashPage(container) {
 
   async function loadData() {
     loading = true
-    try { txns = await listDocs('petty_cash', [], 'time', 'desc', 500) } catch (e) { txns = [] }
+    try { txns = await listDocs('petty_cash', companyScopeFilters(), 'time', 'desc', 500) } catch (e) { txns = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -165,7 +166,7 @@ export default async function PettyCashPage(container) {
           if (!desc || amount <= 0) { showToast('❗ กรอกรายการและจำนวนเงิน', 'error'); return false }
           if (amount > balance()) { showToast('❗ เงินสดย่อยไม่พอ', 'error'); return false }
           try {
-            await createDoc('petty_cash', { type:'out', cat:document.getElementById('pt-cat')?.value||'other', amount, desc, by:document.getElementById('pt-by')?.value||'—', time:new Date().toISOString(), receipt:document.getElementById('pt-receipt')?.checked||false, status:'pending' })
+            await createDoc('petty_cash', { type:'out', cat:document.getElementById('pt-cat')?.value||'other', amount, desc, by:document.getElementById('pt-by')?.value||'—', time:new Date().toISOString(), receipt:document.getElementById('pt-receipt')?.checked||false, status:'pending', companyId: myEffectiveCompanyId() })
             showToast(`📝 ส่งคำขอเบิก ${formatCurrency(amount)} รออนุมัติแล้ว`, 'success')
             await loadData()
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
@@ -185,7 +186,7 @@ export default async function PettyCashPage(container) {
           const amount = parseInt(document.getElementById('rf-amount')?.value) || 0
           if (amount <= 0) return false
           try {
-            await createDoc('petty_cash', { type:'in', cat:'other', amount, desc:'เติมเงินสดย่อย (เบิกจากบัญชีหลัก)', by:'การเงิน', time:new Date().toISOString(), receipt:true, status:'approved' })
+            await createDoc('petty_cash', { type:'in', cat:'other', amount, desc:'เติมเงินสดย่อย (เบิกจากบัญชีหลัก)', by:'การเงิน', time:new Date().toISOString(), receipt:true, status:'approved', companyId: myEffectiveCompanyId() })
             showToast(`💰 เติม ${formatCurrency(amount)} แล้ว`, 'success')
             await loadData()
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

@@ -6,6 +6,7 @@ import { formatCurrency, formatDate, timeAgo, todayBangkok } from '../../utils/f
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -31,7 +32,7 @@ export default async function DebtCollectionPage(container) {
 
   async function loadData() {
     loading = true
-    try { debts = await listDocs('debts', [], 'dueDate', 'asc', 200) } catch (e) { debts = [] }
+    try { debts = await listDocs('debts', companyScopeFilters(), 'dueDate', 'asc', 200) } catch (e) { debts = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -181,7 +182,8 @@ export default async function DebtCollectionPage(container) {
               customer: name, type: document.getElementById('db-type')?.value||'อื่นๆ',
               amount: parseInt(document.getElementById('db-amt')?.value)||0,
               dueDate: document.getElementById('db-due')?.value||addDays(30),
-              status: 'current', lastContact: null, contacts: 0, note: ''
+              status: 'current', lastContact: null, contacts: 0, note: '',
+              companyId: myEffectiveCompanyId(),
             })
             showToast('✅ บันทึกหนี้แล้ว', 'success')
             await loadData()

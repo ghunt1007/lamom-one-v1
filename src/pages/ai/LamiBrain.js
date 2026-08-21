@@ -138,7 +138,7 @@ export default async function LamiBrainPage(container) {
         listDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
         listDocs('complaints', companyScopeFilters(), 'createdAt', 'desc', 200).catch(() => []),
         getSalesData().catch(() => []),
-        listDocs('debts', [], 'dueDate', 'asc', 200).catch(() => []),
+        listDocs('debts', companyScopeFilters(), 'dueDate', 'asc', 200).catch(() => []),
         listDocs('csat', [], 'createdAt', 'desc', 100).catch(() => []),
         listDocs('staff', [], 'createdAt', 'desc', 200).catch(() => []),
       ])

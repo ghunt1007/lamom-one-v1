@@ -141,7 +141,7 @@ export default async function CustomerPortalPage(container) {
     // ── invoices: จับคู่ด้วยชื่อลูกค้า ──
     let documents = []
     try {
-      const all = await listDocs('invoices', [], 'date', 'desc', 500).catch(() => [])
+      const all = await listDocs('invoices', companyScopeFilters(), 'date', 'desc', 500).catch(() => [])
       documents = all.filter(d => d.custName && d.custName.trim() === name.trim())
     } catch {}
 

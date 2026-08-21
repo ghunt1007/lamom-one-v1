@@ -6,6 +6,7 @@ import { formatCurrency, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function myName() {
   const me = getState('user') || {}
@@ -42,10 +43,10 @@ export default async function CashierDeskPage(container) {
     try {
       // เดิมดึงมาแค่ 500 รายการล่าสุด ไม่กรองวันที่เลย ทำให้ "รับวันนี้"/"เงินสดในลิ้นชัก" จริงๆเป็นยอดสะสม
       // ข้ามหลายวัน แต่ป้ายชื่อบอกว่าเป็น "วันนี้" — กรองเหลือเฉพาะรายการที่เกิดวันนี้ตามเวลาไทยจริง
-      const allPayments = await listDocs('cashier_payments', [], 'time', 'desc', 500)
+      const allPayments = await listDocs('cashier_payments', companyScopeFilters(), 'time', 'desc', 500)
       const todayStr = todayBangkok()
       payments = allPayments.filter(p => bangkokDateOf(p.time) === todayStr)
-      pending = (await listDocs('cashier_pending_bills', [], 'customer', 'asc', 500)).filter(b => !b.deleted)
+      pending = (await listDocs('cashier_pending_bills', companyScopeFilters(), 'customer', 'asc', 500)).filter(b => !b.deleted)
     } catch (e) { payments = []; pending = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
@@ -181,6 +182,7 @@ export default async function CashierDeskPage(container) {
               variance: diff,
               closedBy: myName(),
               closedAt: new Date().toISOString(),
+              companyId: myEffectiveCompanyId(),
             })
           } catch (e) { showToast('บันทึกปิดกะไม่สำเร็จ', 'error'); return false }
           if (diff === 0) showToast('✅ ปิดกะสำเร็จ — เงินตรงพอดี!', 'success')
@@ -208,7 +210,7 @@ export default async function CashierDeskPage(container) {
         const amount = parseInt(document.getElementById('py-amount')?.value) || 0
         if (!customer || amount <= 0) { showToast('❗ กรอกชื่อและจำนวนเงิน', 'error'); return false }
         try {
-          await createDoc('cashier_payments', { customer, ref:bill?.id||'MISC', desc:document.getElementById('py-desc')?.value||'—', amount, method:document.getElementById('py-method')?.value||'cash', time:new Date().toISOString(), cashier: myName(), invoiceId: bill?.invoiceId || null })
+          await createDoc('cashier_payments', { customer, ref:bill?.id||'MISC', desc:document.getElementById('py-desc')?.value||'—', amount, method:document.getElementById('py-method')?.value||'cash', time:new Date().toISOString(), cashier: myName(), invoiceId: bill?.invoiceId || null, companyId: myEffectiveCompanyId() })
           if (bill) await softDelete('cashier_pending_bills', bill.id)
           // (v1.0.462) บิลที่ส่งมาจากใบแจ้งหนี้จริง (มี invoiceId ผูกไว้) — เก็บเงินที่นี่แล้วย้อนไปอัปเดต
           // ใบแจ้งหนี้ต้นทางเป็น "ชำระแล้ว" อัตโนมัติ ปิดช่องรั่วเดิมที่กระทบยอดกันไม่ได้ (จ่ายแล้วใบแจ้งหนี้
@@ -239,7 +241,7 @@ export default async function CashierDeskPage(container) {
         const amount = parseInt(document.getElementById('ab-amount')?.value) || 0
         if (!customer || amount <= 0) { document.getElementById('ab-err').textContent = '❗ กรอกชื่อและจำนวนเงิน'; return false }
         try {
-          await createDoc('cashier_pending_bills', { customer, desc: document.getElementById('ab-desc')?.value?.trim() || '—', amount, createdAt: new Date().toISOString(), createdBy: myName() })
+          await createDoc('cashier_pending_bills', { customer, desc: document.getElementById('ab-desc')?.value?.trim() || '—', amount, createdAt: new Date().toISOString(), createdBy: myName(), companyId: myEffectiveCompanyId() })
           showToast('✅ เพิ่มบิลรอชำระแล้ว', 'success')
           await loadData()
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

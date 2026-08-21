@@ -6,6 +6,7 @@ import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function myName() {
   const me = getState('user') || {}
@@ -35,8 +36,8 @@ export default async function MonthlyClosePage(container) {
   async function loadData() {
     loading = true
     try {
-      allItems = (await listDocs('monthly_close_items', [], 'category', 'asc', 500)).filter(i => !i.deleted)
-      closings = await listDocs('financial_closings', [], 'period', 'desc', 100)
+      allItems = (await listDocs('monthly_close_items', companyScopeFilters(), 'category', 'asc', 500)).filter(i => !i.deleted)
+      closings = await listDocs('financial_closings', companyScopeFilters(), 'period', 'desc', 100)
     } catch (e) { allItems = []; closings = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
@@ -169,6 +170,7 @@ export default async function MonthlyClosePage(container) {
               category, name, amount,
               responsible: document.getElementById('mc-resp')?.value?.trim() || myName(),
               status: 'pending', period: currentMonth,
+              companyId: myEffectiveCompanyId(),
             })
             showToast('✅ เพิ่มรายการแล้ว', 'success')
             await loadData()
@@ -185,7 +187,7 @@ export default async function MonthlyClosePage(container) {
         confirmText: '🔒 ปิดงบ',
         async onConfirm() {
           try {
-            await createDoc('financial_closings', { period: currentMonth, closedAt: new Date().toISOString(), closedBy: myName(), revenue, costs, netProfit, margin })
+            await createDoc('financial_closings', { period: currentMonth, closedAt: new Date().toISOString(), closedBy: myName(), revenue, costs, netProfit, margin, companyId: myEffectiveCompanyId() })
             showToast('✅ ปิดงบเดือน ' + currentMonth + ' แล้ว', 'success')
             await loadData()
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

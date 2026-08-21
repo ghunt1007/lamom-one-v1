@@ -4,8 +4,9 @@
  */
 import { formatCurrency, formatDate, timeAgo } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
-import { showToast, getState } from '../../core/store.js'
+import { showToast, getState, on } from '../../core/store.js'
 import { watchDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function myName() {
   const me = getState('user') || {}
@@ -53,7 +54,7 @@ export default async function ExpenseApprovalPage(container) {
   let unsubExpenses = () => {}
   function startWatch() {
     unsubExpenses()
-    unsubExpenses = watchDocs('expense_approvals', [], 'submitDate', 'desc', 200, docs => {
+    unsubExpenses = watchDocs('expense_approvals', companyScopeFilters(), 'submitDate', 'desc', 200, docs => {
       if (container.__routerGen !== myGen) { unsubExpenses(); return }
       expenses = docs
       loading = false
@@ -223,7 +224,8 @@ export default async function ExpenseApprovalPage(container) {
             cat: document.getElementById('ef-cat')?.value||'other', amount,
             status: 'pending', submittedBy: myName(), dept: 'ทั่วไป',
             submitDate: new Date().toISOString(), approvedBy: null, receipt: false,
-            notes: document.getElementById('ef-notes')?.value||''
+            notes: document.getElementById('ef-notes')?.value||'',
+            companyId: myEffectiveCompanyId(),
           })
           showToast('✅ ยื่นค่าใช้จ่ายแล้ว!', 'success')
           await loadData()
@@ -233,7 +235,8 @@ export default async function ExpenseApprovalPage(container) {
   }
 
   startWatch()
-  return function cleanupExpenseApproval() { unsubExpenses() }
+  const offCompanyFilter = on('activeCompanyFilter', startWatch)
+  return function cleanupExpenseApproval() { unsubExpenses(); offCompanyFilter() }
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

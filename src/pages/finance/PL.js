@@ -1,4 +1,5 @@
 import { listDocs, seedDemoData, getSalesData } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 import { formatCurrency } from '../../utils/format.js'
 import { exportToExcel } from '../../utils/importExport.js'
 
@@ -247,7 +248,7 @@ export default async function PLPage(container) {
   try {
     const [claims, petty] = await Promise.all([
       listDocs('expense_claims', [], 'date', 'desc', 2000),
-      listDocs('petty_cash', [], 'time', 'desc', 2000),
+      listDocs('petty_cash', companyScopeFilters(), 'time', 'desc', 2000),
     ])
     if (container.__routerGen !== myGen) return
     const opexByMonth = {}
