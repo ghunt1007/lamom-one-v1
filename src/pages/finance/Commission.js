@@ -11,13 +11,6 @@ function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-const DEMO_COMMISSIONS = [
-  { id:'c1', salesName:'อรนุช เซลส์ดี', month:'2025-03', carsSold:2, salePriceTotal:2778000, financeTotal:350000, insuranceTotal:63000, accessoryTotal:95000, status:'paid', paidAt:'2025-04-05' },
-  { id:'c2', salesName:'วิชัย ขายเก่ง', month:'2025-03', carsSold:1, salePriceTotal:949000, financeTotal:95000, insuranceTotal:22000, accessoryTotal:15000, status:'pending', paidAt:'' },
-  { id:'c3', salesName:'อรนุช เซลส์ดี', month:'2025-04', carsSold:1, salePriceTotal:1479000, financeTotal:200000, insuranceTotal:35000, accessoryTotal:60000, status:'pending', paidAt:'' },
-  { id:'c4', salesName:'วิชัย ขายเก่ง', month:'2025-04', carsSold:1, salePriceTotal:769000, financeTotal:80000, insuranceTotal:18000, accessoryTotal:12000, status:'pending', paidAt:'' },
-]
-
 export default async function CommissionPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
@@ -26,7 +19,6 @@ export default async function CommissionPage(container) {
   let monthFilter = 'all'
   let rules = []       // กติกาจริงจาก commission_rules (ตั้งค่าได้ที่หน้า Commission Rules)
   let salesRows = []    // ใบจองจริงทั้งหมด — ใช้หา premiumUnits/overFloor ต่อเซลส์+เดือน (กติกา bonus/percent-over-floor ต้องใช้ระดับรายคัน ไม่ใช่ยอดรวมเดือน)
-  let isDemoData = false
 
   // เดิมหน้านี้จ่ายค่าคอมจริงด้วยอัตราคงที่ในไฟล์นี้เอง (0.5%/2%/5%/10%) แยกขาดจากกติกาที่ตั้งค่าได้จริงใน
   // CommissionRules.js โดยสิ้นเชิง — เจ้าของระบบยืนยันให้เปลี่ยนมาใช้กติกาจาก CommissionRules.js เป็นทางการ
@@ -54,8 +46,6 @@ export default async function CommissionPage(container) {
       const [c, r, s] = await Promise.all([getCommissionData(), loadOrSeedRules(), getSalesData()])
       comms = c; rules = r; salesRows = s
     } catch {}
-    isDemoData = !comms.length
-    if (isDemoData) DEMO_COMMISSIONS.forEach(c => comms.push({ ...c }))
     applyFilter()
   }
 
@@ -83,8 +73,6 @@ export default async function CommissionPage(container) {
     const pending = total - paid
 
     const el = document.getElementById('comm-summary')
-    const demoEl = document.getElementById('comm-demo-indicator')
-    if (demoEl) demoEl.textContent = isDemoData ? '⚠️ ข้อมูลตัวอย่าง (ยังไม่มีค่าคอมจริงในระบบ)' : ''
     if (!el) return
 
     // Group by sales
@@ -130,7 +118,9 @@ export default async function CommissionPage(container) {
     const filtered = getFiltered()
 
     if (!filtered.length) {
-      wrap.innerHTML = `<div class="empty-state" style="padding:48px"><div class="empty-icon">🏆</div><div class="empty-title">ไม่มีข้อมูลค่าคอม</div></div>`
+      wrap.innerHTML = !comms.length
+        ? `<div class="empty-state" style="padding:48px"><div class="empty-icon">🏆</div><div class="empty-title">ยังไม่มีค่าคอมจริงในระบบ</div><div class="empty-desc">ค่าคอมคำนวณจากใบจองที่ปิดการขายแล้วอัตโนมัติ</div></div>`
+        : `<div class="empty-state" style="padding:48px"><div class="empty-icon">🏆</div><div class="empty-title">ไม่มีข้อมูลค่าคอม</div></div>`
       return
     }
 
@@ -199,7 +189,6 @@ export default async function CommissionPage(container) {
           <div class="page-title">🏆 ค่าคอมมิชชั่น</div>
           <div style="display:flex;gap:10px;align-items:center">
             <div class="page-subtitle">ค่าคอมเซลส์ทุกช่องทาง</div>
-            <span style="font-size:0.76rem;color:var(--warning);font-weight:600" id="comm-demo-indicator"></span>
           </div>
         </div>
         <div class="page-actions">

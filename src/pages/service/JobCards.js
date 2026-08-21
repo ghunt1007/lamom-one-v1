@@ -31,13 +31,6 @@ const JOB_TYPE = {
 
 const BAYS = ['เบย์ 1', 'เบย์ 2', 'เบย์ 3', 'เบย์ 4', 'เบย์ลิฟต์', 'เบย์ล้าง']
 
-const DEMO_JOBS = [
-  { id:'j1', jobNo:'JOB-2025-001', custName:'วิชัย สุขใจ', phone:'0812345678', brand:'BYD', model:'Seal', plate:'กข-1234 กรุงเทพ', vin:'LGXCE4C10PA000001', mileage:15200, type:'service', status:'inprogress', bay:'เบย์ 1', techName:'สมชาย ช่างดี', desc:'เปลี่ยนน้ำมันเบรก ตรวจสภาพรถ 10,000 km', parts:[], labor:800, createdAt: new Date(Date.now()-7200000).toISOString() },
-  { id:'j2', jobNo:'JOB-2025-002', custName:'อรนุช พรหมมา', phone:'0898765432', brand:'MG', model:'MG4', plate:'คง-5678 เชียงใหม่', vin:'SDUZZZEF5PA000003', mileage:3400, type:'warranty', status:'diagnosing', bay:'เบย์ 2', techName:'วิชัย ช่างเก่ง', desc:'ระบบ AC ไม่เย็น', parts:[], labor:0, createdAt: new Date(Date.now()-3600000).toISOString() },
-  { id:'j3', jobNo:'JOB-2025-003', custName:'กิตติพงษ์ วรรณศิลป์', phone:'0876543210', brand:'NETA', model:'V II', plate:'งจ-9012 ขอนแก่น', vin:'LNBSCCAD0PA000005', mileage:8900, type:'repair', status:'waiting_parts', bay:'เบย์ 3', techName:'สมชาย ช่างดี', desc:'เปลี่ยนยาง + อัพเดต Firmware', parts:['ยางหน้า x2'], labor:1200, createdAt: new Date(Date.now()-86400000).toISOString() },
-  { id:'j4', jobNo:'JOB-2025-004', custName:'พิมพ์ชนก ทองสุข', phone:'0823456789', brand:'BYD', model:'Atto 3', plate:'จด-3456 กรุงเทพ', vin:'LGXCE4C10PA000002', mileage:22100, type:'accident', status:'done', bay:'-', techName:'วิชัย ช่างเก่ง', desc:'งานชน ซ่อมกันชนหน้า', parts:['กันชนหน้า','กระจังหน้า'], labor:3500, createdAt: new Date(Date.now()-86400000*3).toISOString() },
-]
-
 let jobCounter = 5
 
 // (v1.0.459) หน้าลูกค้า (Customers.js) เขียน sessionStorage key นี้เป็น JSON {customerId, custName, phone}
@@ -59,7 +52,6 @@ export default async function JobCardsPage(container) {
   let filtered = []
   let statusFilter = 'all'
   let search = ''
-  let isDemoData = false
 
   // (v1.0.437) ต่อจากหน้าลูกค้า/ใบจอง (v1.0.432/436) — ช่าง/พนักงานทั่วไปเห็นเฉพาะ Job Card ที่ตัวเองรับผิดชอบ
   // เป็นค่าเริ่มต้น ผูกกับ techName (ชื่อพิมพ์เอง เทียบแบบ normalize) ตรงกับ "แต่ละตำแหน่งเห็นเฉพาะงานตัวเอง"
@@ -76,16 +68,12 @@ export default async function JobCardsPage(container) {
   // บริษัทเห็น Job Card ข้ามบริษัทได้หมด ต่างจาก Bookings.js/Customers.js/Staff.js ที่ทำไปแล้ว — แก้ให้ตรงกัน
   // ต้องยกเลิก subscription เดิมแล้วยิงใหม่ทุกครั้งที่ activeCompanyFilter (ตัวกรอง Topbar) เปลี่ยนด้วย เหมือน
   // แพทเทิร์นเดียวกับ Bookings.js/Customers.js ไม่งั้นตัวกรอง Topbar จะหยุดทำงานเงียบๆ
-  let firstSnapshot = true
   let unsubJobs = () => {}
   function startWatchJobs() {
     unsubJobs()
     unsubJobs = watchDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc', 500, rows => {
       if (container.__routerGen !== myGen) { unsubJobs(); return }
       jobs = rows.filter(j => !j.deleted)
-      isDemoData = !jobs.length && firstSnapshot
-      if (isDemoData) DEMO_JOBS.forEach(j => jobs.push({ ...j }))
-      firstSnapshot = false
       updateStats(); applyFilter()
     })
   }
@@ -106,8 +94,6 @@ export default async function JobCardsPage(container) {
     const revEl = document.getElementById('job-revenue')
     const rev = scoped.filter(j => j.status === 'done' || j.status === 'delivered').reduce((s, j) => s + (j.labor || 0), 0)
     if (revEl) revEl.textContent = `รายได้: ${formatCurrency(rev)}`
-    const demoEl = document.getElementById('job-demo-indicator')
-    if (demoEl) demoEl.textContent = isDemoData ? '⚠️ ข้อมูลตัวอย่าง (ยังไม่มี Job Card จริงในระบบ)' : ''
   }
 
   function applyFilter() {
@@ -125,7 +111,9 @@ export default async function JobCardsPage(container) {
     if (!wrap) return
 
     if (!filtered.length) {
-      wrap.innerHTML = `<div class="empty-state" style="padding:48px"><div class="empty-icon">🔧</div><div class="empty-title">ไม่พบ Job Card</div></div>`
+      wrap.innerHTML = !jobs.length
+        ? `<div class="empty-state" style="padding:48px"><div class="empty-icon">🔧</div><div class="empty-title">ยังไม่มี Job Card เลย</div><div class="empty-desc">กด "➕ เปิด Job Card" เพื่อเริ่มบันทึก</div></div>`
+        : `<div class="empty-state" style="padding:48px"><div class="empty-icon">🔧</div><div class="empty-title">ไม่พบ Job Card</div></div>`
       return
     }
 
@@ -348,7 +336,6 @@ export default async function JobCardsPage(container) {
           <div style="display:flex;gap:12px;align-items:center">
             <span class="page-subtitle" id="job-total">กำลังโหลด...</span>
             <span style="font-size:0.8rem;color:var(--accent)" id="job-revenue"></span>
-            <span style="font-size:0.76rem;color:var(--warning);font-weight:600" id="job-demo-indicator"></span>
           </div>
         </div>
         <div class="page-actions">

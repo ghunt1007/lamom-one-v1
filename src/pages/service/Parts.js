@@ -11,14 +11,6 @@ import { exportToExcel } from '../../utils/importExport.js'
 
 const PART_CATEGORIES = ['น้ำมันและของเหลว','ระบบเบรก','ระบบกันสะเทือน','ระบบไฟฟ้า','แบตเตอรี่ EV','ยางและล้อ','ตัวถัง','ฟิลเตอร์','อุปกรณ์เสริม','อื่นๆ']
 
-const DEMO_PARTS = [
-  { id:'p1', sku:'BYD-SEAL-BF001', name:'น้ำมันเบรก DOT4 BYD Original', brand:'BYD', category:'น้ำมันและของเหลว', unit:'ขวด', qty:24, minQty:5, unitCost:280, unitPrice:450, location:'ชั้น A1', createdAt:'2025-01-10' },
-  { id:'p2', sku:'BYD-SEAL-BP002', name:'ผ้าเบรกหน้า BYD Seal', brand:'BYD', category:'ระบบเบรก', unit:'ชุด', qty:8, minQty:2, unitCost:1800, unitPrice:3200, location:'ชั้น B2', createdAt:'2025-01-15' },
-  { id:'p3', sku:'MG-MG4-TY001', name:'ยางหน้า Michelin 235/45R18', brand:'Michelin', category:'ยางและล้อ', unit:'เส้น', qty:12, minQty:4, unitCost:3200, unitPrice:4800, location:'โกดัง', createdAt:'2025-02-01' },
-  { id:'p4', sku:'NETA-V-AC001', name:'คอมเพรสเซอร์แอร์ NETA V II', brand:'NETA', category:'ระบบไฟฟ้า', unit:'ชิ้น', qty:2, minQty:1, unitCost:12000, unitPrice:18500, location:'ชั้น C1', createdAt:'2025-02-10' },
-  { id:'p5', sku:'UNI-FL001', name:'น้ำหล่อเย็น EV Coolant', brand:'Universal', category:'น้ำมันและของเหลว', unit:'ลิตร', qty:3, minQty:10, unitCost:450, unitPrice:700, location:'ชั้น A2', createdAt:'2025-01-20' },
-]
-
 export default async function PartsPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
@@ -28,20 +20,15 @@ export default async function PartsPage(container) {
   let catFilter = 'all'
   let search = ''
   let lowStockOnly = false
-  let isDemoData = false
 
   // Real-time: อัปเดตสดเมื่อมีคนแก้ไขคลังอะไหล่จากเครื่องอื่น — renderTable() แก้แค่ #parts-content
   // และ #parts-total/#parts-low/#parts-value เท่านั้น ไม่แตะช่องค้นหาเลย จึงปลอดภัย
-  let firstSnapshot = true
   let unsubParts = () => {}
   function startWatchParts() {
     unsubParts()
     unsubParts = watchDocs('parts', companyScopeFilters(), 'name', 'asc', 1000, rows => {
       if (container.__routerGen !== myGen) { unsubParts(); return }
       parts = rows.filter(p => !p.deleted)
-      isDemoData = !parts.length && firstSnapshot
-      if (isDemoData) DEMO_PARTS.forEach(p => parts.push({ ...p }))
-      firstSnapshot = false
       updateStats(); applyFilter()
     })
   }
@@ -58,8 +45,6 @@ export default async function PartsPage(container) {
     if (lowEl) { lowEl.textContent = `⚠️ ใกล้หมด ${low} รายการ`; lowEl.style.color = low > 0 ? 'var(--danger)' : 'var(--text-muted)' }
     const valEl = document.getElementById('parts-value')
     if (valEl) valEl.textContent = `มูลค่าคลัง: ${formatCurrency(value)}`
-    const demoEl = document.getElementById('parts-demo-indicator')
-    if (demoEl) demoEl.textContent = isDemoData ? '⚠️ ข้อมูลตัวอย่าง (ยังไม่มีอะไหล่จริงในระบบ)' : ''
   }
 
   function applyFilter() {
@@ -79,7 +64,9 @@ export default async function PartsPage(container) {
     if (cEl) cEl.textContent = `แสดง ${filtered.length} รายการ`
 
     if (!filtered.length) {
-      wrap.innerHTML = `<div class="empty-state" style="padding:48px"><div class="empty-icon">🔩</div><div class="empty-title">ไม่พบอะไหล่</div></div>`
+      wrap.innerHTML = !parts.length
+        ? `<div class="empty-state" style="padding:48px"><div class="empty-icon">🔩</div><div class="empty-title">ยังไม่มีอะไหล่ในคลังเลย</div><div class="empty-desc">กด "➕ เพิ่มอะไหล่" เพื่อเริ่มบันทึก</div></div>`
+        : `<div class="empty-state" style="padding:48px"><div class="empty-icon">🔩</div><div class="empty-title">ไม่พบอะไหล่</div></div>`
       return
     }
 
@@ -282,7 +269,6 @@ export default async function PartsPage(container) {
             <span class="page-subtitle" id="parts-total">กำลังโหลด...</span>
             <span style="font-size:0.8rem" id="parts-low"></span>
             <span style="font-size:0.8rem;color:var(--accent)" id="parts-value"></span>
-            <span style="font-size:0.76rem;color:var(--warning);font-weight:600" id="parts-demo-indicator"></span>
           </div>
         </div>
         <div class="page-actions">

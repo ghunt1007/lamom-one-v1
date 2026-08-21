@@ -5,13 +5,6 @@ import { showToast } from '../../core/store.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
-const DEMO_SALES = [
-  { id:'s1', date:'2025-03-15', custName:'ธีรพงศ์ แสงทอง', brand:'BYD', model:'Seal AWD', plate:'กข-1234 กรุงเทพ', salePrice:1299000, cost:1150000, finance:150000, insurance:28000, accessory:35000, discount:20000, salesName:'อรนุช เซลส์ดี', createdAt:'2025-03-15' },
-  { id:'s2', date:'2025-03-20', custName:'อรนุช พรหมมา', brand:'MG', model:'MG4 X', plate:'คง-5678 เชียงใหม่', salePrice:949000, cost:840000, finance:95000, insurance:22000, accessory:15000, discount:10000, salesName:'วิชัย ขายเก่ง', createdAt:'2025-03-20' },
-  { id:'s3', date:'2025-04-01', custName:'กิตติพงษ์ วรรณศิลป์', brand:'DEEPAL', model:'S7 Pro', plate:'งจ-9012 ขอนแก่น', salePrice:1479000, cost:1320000, finance:200000, insurance:35000, accessory:60000, discount:30000, salesName:'อรนุช เซลส์ดี', createdAt:'2025-04-01' },
-  { id:'s4', date:'2025-04-10', custName:'พิมพ์ชนก ทองสุข', brand:'NETA', model:'V II 400', plate:'จด-3456 กรุงเทพ', salePrice:769000, cost:680000, finance:80000, insurance:18000, accessory:12000, discount:5000, salesName:'วิชัย ขายเก่ง', createdAt:'2025-04-10' },
-]
-
 function calcMargin(s) {
   const gross = (s.salePrice || 0) - (s.cost || 0)
   const net = gross + (s.finance || 0) + (s.insurance || 0) + (s.accessory || 0) - (s.discount || 0)
@@ -26,14 +19,9 @@ export default async function MarginPage(container) {
   let sales = []
   let filtered = []
   let monthFilter = 'all'
-  // เดิมไม่มีการแจ้งเลยว่า DEMO_SALES ที่โผล่มาแทนตอนยังไม่มีใบจองจริงเป็นข้อมูลปลอม (dormant อยู่ตอนนี้
-  // เพราะมีใบจองจริงแล้ว แต่ยังเป็นบั๊กแฝงถ้าใบจองจริงหายไปชั่วคราว/ยังไม่มีในระบบใหม่)
-  let isDemoData = false
 
   async function loadData() {
     try { sales = await getSalesData() } catch {}
-    isDemoData = !sales.length
-    if (isDemoData) DEMO_SALES.forEach(s => sales.push({ ...s }))
     applyFilter()
   }
 
@@ -56,8 +44,6 @@ export default async function MarginPage(container) {
     const pctEl = document.getElementById('sum-pct')
     if (pctEl) { pctEl.textContent = `${avgPct}%`; pctEl.style.color = Number(avgPct) >= 10 ? 'var(--success)' : 'var(--danger)' }
     const cntEl = document.getElementById('sum-count'); if (cntEl) cntEl.textContent = `${filtered.length} คัน`
-    const demoEl = document.getElementById('margin-demo-indicator')
-    if (demoEl) demoEl.textContent = isDemoData ? '⚠️ ข้อมูลตัวอย่าง (ยังไม่มีใบจองจริง)' : ''
   }
 
   function renderTable() {
@@ -65,7 +51,9 @@ export default async function MarginPage(container) {
     if (!wrap) return
 
     if (!filtered.length) {
-      wrap.innerHTML = `<div class="empty-state" style="padding:48px"><div class="empty-icon">📊</div><div class="empty-title">ไม่มีข้อมูล</div></div>`
+      wrap.innerHTML = !sales.length
+        ? `<div class="empty-state" style="padding:48px"><div class="empty-icon">📊</div><div class="empty-title">ยังไม่มีใบจองจริงในระบบ</div><div class="empty-desc">กำไร/มาร์จิ้นคำนวณจากใบจองอัตโนมัติ</div></div>`
+        : `<div class="empty-state" style="padding:48px"><div class="empty-icon">📊</div><div class="empty-title">ไม่มีข้อมูล</div></div>`
       return
     }
 
@@ -112,7 +100,6 @@ export default async function MarginPage(container) {
           <div class="page-title">📊 Margin per Car</div>
           <div style="display:flex;gap:10px;align-items:center">
             <span class="page-subtitle">กำไรต่อคัน วิเคราะห์ยอดขาย</span>
-            <span style="font-size:0.76rem;color:var(--warning);font-weight:600" id="margin-demo-indicator"></span>
           </div>
         </div>
         <div class="page-actions">

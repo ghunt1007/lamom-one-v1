@@ -177,14 +177,6 @@ function genPassword() {
   return p + '#' + Math.floor(Math.random() * 90 + 10)
 }
 
-const DEMO_STAFF = [
-  { id:'st1', firstName:'ทวีศักดิ์', lastName:'สุขสมบัติเสถียร', nickname:'เจ้าของ', role:'owner', dept:'ผู้บริหาร', phone:'0812345678', email:'owner@lamom.com', startDate:'2020-01-01', salary:0, status:'active', avatar:'' },
-  { id:'st2', firstName:'อรนุช', lastName:'เซลส์ดี', nickname:'นุ้ย', role:'sales', dept:'ฝ่ายขาย', phone:'0823456789', email:'nun@lamom.com', startDate:'2022-03-01', salary:25000, status:'active', avatar:'' },
-  { id:'st3', firstName:'วิชัย', lastName:'ขายเก่ง', nickname:'วิ', role:'sales', dept:'ฝ่ายขาย', phone:'0834567890', email:'wichai@lamom.com', startDate:'2023-06-01', salary:22000, status:'active', avatar:'' },
-  { id:'st4', firstName:'สมชาย', lastName:'ช่างดี', nickname:'ชาย', role:'service', dept:'ฝ่ายบริการ', phone:'0845678901', email:'somchai@lamom.com', startDate:'2021-09-01', salary:20000, status:'active', avatar:'' },
-  { id:'st5', firstName:'วิชัย', lastName:'ช่างเก่ง', nickname:'เก่ง', role:'service', dept:'ฝ่ายบริการ', phone:'0856789012', email:'wichai2@lamom.com', startDate:'2022-12-01', salary:18000, status:'probation', avatar:'' },
-]
-
 export default async function StaffPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
@@ -215,28 +207,22 @@ export default async function StaffPage(container) {
   // companyScopeFilters() อยู่แล้ว) แต่ไม่เคยแสดง/แก้ไขชื่อบริษัทที่หน้าจอเลยสักจุด ("พนักงานคนนี้อยู่บริษัท
   // อะไร" ตอบไม่ได้จากหน้านี้) — โหลดมาเพื่อแสดง+แก้ไขได้จริง
   let companiesList = []
-  // เดิม DEMO_STAFF (ผสมชื่อเจ้าของจริงกับเงินเดือนสมมติ 4 คน) ถูก push เข้า staff list เงียบๆทุกครั้งที่
-  // collection จริงว่างเปล่า โดยไม่มีตัวบอกบนหน้าจอเลยว่านี่คือข้อมูลตัวอย่าง (ต่างจาก ExpenseOcr.js ที่ label
-  // "Demo" ไว้ชัดเจน) ผู้ใช้อาจเข้าใจผิดว่าเป็นพนักงานจริง — เพิ่มตัวแปรนี้ไว้โชว์ป้าย "ข้อมูลตัวอย่าง" แทน
-  let isDemoData = false
   let scope = null // ผลลัพธ์ล่าสุดจาก getVisibilityScope() — ใช้โชว์แบนเนอร์บอกขอบเขตที่เห็นอยู่
 
   async function loadData() {
     // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true — ถ้าไม่กรองออก พนักงานที่ "ลบ" ไปแล้วจะยังโผล่
     // กลับมาในรายชื่อทุกครั้งที่โหลดหน้านี้ใหม่ (และยังเข้าเกณฑ์ลงเวลา/คำนวณเงินเดือนที่หน้าอื่นต่อไปด้วย)
     try { staff = (await listDocs('staff', companyScopeFilters(), 'startDate', 'asc', 500)).filter(s => !s.deleted) } catch {}
-    isDemoData = !staff.length
-    if (isDemoData) {
-      DEMO_STAFF.forEach(s => staff.push({ ...s }))
-    } else {
-      // (v1.0.465) "ระดับสิทธิ์ผู้ใช้งานเห็นเฉพาะผู้ใต้บังคับบัญชาลงไปเท่านั้น...อิงจากผังองค์กร" — กรองซ้ำ
-      // อีกชั้นหลัง companyScopeFilters() (ที่กรองแค่ระดับบริษัท) ด้วยสายบังคับบัญชาจริง (managerId) เจ้าของ
-      // โปรแกรม/แอดมิน/เจ้าของบริษัทไม่ถูกกรองชั้นนี้ (ดู getVisibilityScope())
-      try {
-        scope = await getVisibilityScope()
-        staff = staff.filter(s => scopeIncludesStaff(scope, s))
-      } catch {}
-    }
+    // (v1.0.530) เดิมถ้า collection ว่างจริงจะเติม DEMO_STAFF (ผสมชื่อเจ้าของจริงกับเงินเดือนสมมติ 4 คน) เข้า
+    // มาแสดงแทนโดยไม่มีตัวบอกชัดเจนพอ — ตรวจสอบฐานข้อมูลจริงแล้วยืนยันว่ามีพนักงานจริงอยู่แล้ว (ไม่เคยว่างเปล่า
+    // ในทางปฏิบัติ) เอา fallback ปลอมออกให้สอดคล้องกับสต็อกรถ/PDI/คำสั่งซื้อ/ค่าคอม/Job Card/อะไหล่ที่แก้ไปแล้ว
+    // (v1.0.465) "ระดับสิทธิ์ผู้ใช้งานเห็นเฉพาะผู้ใต้บังคับบัญชาลงไปเท่านั้น...อิงจากผังองค์กร" — กรองซ้ำ
+    // อีกชั้นหลัง companyScopeFilters() (ที่กรองแค่ระดับบริษัท) ด้วยสายบังคับบัญชาจริง (managerId) เจ้าของ
+    // โปรแกรม/แอดมิน/เจ้าของบริษัทไม่ถูกกรองชั้นนี้ (ดู getVisibilityScope())
+    try {
+      scope = await getVisibilityScope()
+      staff = staff.filter(s => scopeIncludesStaff(scope, s))
+    } catch {}
     // เงินเดือนย้ายไปเก็บที่ staff_salaries แยกต่างหากแล้ว (v1.0.303) — ดึงมาผสานทับ s.salary เฉพาะตอนมี
     // สิทธิ์เห็นเท่านั้น (staff_salaries อ่านได้แค่ HR/การเงิน/ผู้จัดการ ยิงคำขอไปก็ได้แค่ permission-denied
     // เปล่าๆถ้าไม่มีสิทธิ์) เอกสารเก่าที่ยังไม่ได้ย้ายข้อมูลออกจะ fallback ไปใช้ค่าเดิมที่ฝังใน staff doc ต่อไป
@@ -269,8 +255,6 @@ export default async function StaffPage(container) {
     const active = staff.filter(s => s.status === 'active').length
     const totalEl = document.getElementById('staff-total')
     if (totalEl) totalEl.textContent = `${staff.length} คน (ปฏิบัติงาน ${active} คน)`
-    const demoEl = document.getElementById('staff-demo-indicator')
-    if (demoEl) demoEl.textContent = isDemoData ? '⚠️ ข้อมูลตัวอย่าง (ยังไม่มีพนักงานจริงในระบบ)' : ''
     const salaryEl = document.getElementById('staff-salary')
     if (salaryEl) {
       if (!canViewSalary) { salaryEl.textContent = ''; return }
@@ -723,31 +707,13 @@ export default async function StaffPage(container) {
       } : null
       try {
         let staffId = existing?.id
-        // ถ้ากำลังแก้ "พนักงาน" ที่จริงๆเป็นแค่ DEMO_STAFF (isDemoData — ไม่มีพนักงานจริงในระบบเลย ระบบเลยโชว์
-        // ตัวอย่างแทน) existing.id จะเป็น id ปลอม (st1-st5) ที่ไม่เคยมีเอกสารจริงใน Firestore เลย เรียก
-        // updateDocData ตรงๆ จะพัง "No document to update" (บั๊กจริงที่เจอในระบบ error log การผลิต) ต้องสร้าง
-        // เป็นเอกสารจริงใหม่แทนการอัปเดต เพื่อให้สิ่งที่ผู้ใช้กรอกแก้ไขถูกบันทึกจริง ไม่หายไปเงียบๆ
-        if (isEdit && !isDemoData) { await updateDocData('staff', existing.id, data); Object.assign(existing, data) }
-        else if (isEdit && isDemoData) {
-          // กำลัง "แก้ไข" พนักงานตัวอย่าง (DEMO_STAFF) อยู่ — สร้างเป็นเอกสารจริงแทนการอัปเดต (ดูคอมเมนต์ด้านบน)
-          // แล้วโหลดข้อมูลใหม่ทั้งหมด เพราะตอนนี้ collection มีเอกสารจริงแล้ว isDemoData จะกลายเป็น false
-          // ไม่ต้องใช้ DEMO_STAFF fallback อีกต่อไป — ต้อง reload กันรายการตัวอย่างเดิม (รวมตัวที่เพิ่งแก้)
-          // ค้างซ้ำอยู่กับของจริงที่เพิ่งสร้าง
-          const payload = { ...data, companyId: data.companyId ?? myEffectiveCompanyId(), companyIds: data.companyIds?.length ? data.companyIds : (myEffectiveCompanyId() ? [myEffectiveCompanyId()] : []) }
-          staffId = await createDoc('staff', payload)
-          await loadData()
-        } else {
+        if (isEdit) { await updateDocData('staff', existing.id, data); Object.assign(existing, data) }
+        else {
           // Phase 2 หลายบริษัท — ติด companyId ของบริษัทหลักที่พนักงานคนสร้างสังกัดอยู่ (ถ้ามี) พนักงานเดิม
           // ที่ไม่มี companyId ยังเห็นได้ทุกคนเหมือนเดิม (ไม่ถูกกรองออก)
           const payload = { ...data, companyId: data.companyId ?? myEffectiveCompanyId(), companyIds: data.companyIds?.length ? data.companyIds : (myEffectiveCompanyId() ? [myEffectiveCompanyId()] : []) }
           staffId = await createDoc('staff', payload)
-          // (v1.0.448) เดิมกดปุ่ม "เพิ่มพนักงาน" (ไม่ใช่แก้ไข) ตอน isDemoData=true (ยังไม่มีพนักงานจริงเลย
-          // ระบบเลยโชว์ DEMO_STAFF 5 คนตัวอย่างแทน) จะแค่ unshift พนักงานจริงที่เพิ่งสร้างเข้าไปปนกับของตัวอย่าง
-          // เดิมในหน่วยความจำ โดยไม่รีเซ็ต isDemoData/reload เลย ผลคือป้าย "⚠️ ข้อมูลตัวอย่าง" กับพนักงานปลอม
-          // 5 คนยังค้างแสดงอยู่ปนกับพนักงานจริงที่เพิ่งเพิ่ม จนกว่าจะรีเฟรชหน้าเอง — ใช้ pattern เดียวกับตอนแก้ไข
-          // พนักงานตัวอย่างด้านบน คือ reload ใหม่ทั้งหมดทันทีถ้าเพิ่งสร้างพนักงานจริงคนแรก
-          if (isDemoData) await loadData()
-          else staff.unshift({ ...payload, id: staffId })
+          staff.unshift({ ...payload, id: staffId })
         }
         if (newSalary != null) {
           await setDocData('staff_salaries', staffId, { salary: newSalary })
@@ -814,7 +780,6 @@ export default async function StaffPage(container) {
           <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
             <span class="page-subtitle" id="staff-total">กำลังโหลด...</span>
             <span style="font-size:0.8rem;color:var(--accent)" id="staff-salary"></span>
-            <span style="font-size:0.76rem;color:var(--warning);font-weight:600" id="staff-demo-indicator"></span>
           </div>
         </div>
         <div class="page-actions">
