@@ -59,6 +59,16 @@ export function setTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme)
 }
 
+// (v1.0.532) โหมดสว่าง/มืด — แยกอิสระจาก setTheme() (สีธีม) เพราะ mode คือความสว่างของพื้นหลัง/ตัวอักษร
+// ไม่ใช่โทนสี ปัจจุบันมี CSS override โหมดสว่างจริงแค่ธีม Midnight (ค่าเริ่มต้น) เท่านั้นใน themes.css —
+// ธีมอื่นที่ยังไม่มี override จะไม่พังหรือแสดงผลผิด แค่ยังคงเป็นโทนมืดต่อไปเฉยๆ (CSS variable ที่ไม่ถูก
+// override ก็ใช้ค่าเดิมของธีมนั้น) ปลอดภัยที่จะเปิดใช้แบบค่อยเป็นค่อยไปทีละธีม
+export function setMode(mode) {
+  setState('mode', mode)
+  try { localStorage.setItem('lamom_mode', mode) } catch {}
+  document.documentElement.setAttribute('data-mode', mode)
+}
+
 export function setLanguage(lang) {
   setState('language', lang)
   try { localStorage.setItem('lamom_lang', lang) } catch {}

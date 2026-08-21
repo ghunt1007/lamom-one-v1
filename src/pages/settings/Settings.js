@@ -1,18 +1,17 @@
 import { navigate } from '../../core/router.js'
-import { getState, setState } from '../../core/store.js'
+import { getState, setState, setTheme, setMode } from '../../core/store.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-const THEMES = [
-  { key:'default', name:'💜 LAMOM Purple', primary:'#7C3AED' },
-  { key:'blue', name:'💙 Ocean Blue', primary:'#2563EB' },
-  { key:'green', name:'💚 Forest Green', primary:'#059669' },
-  { key:'red', name:'❤️ Ruby Red', primary:'#DC2626' },
-  { key:'orange', name:'🧡 Sunset Orange', primary:'#EA580C' },
-  { key:'teal', name:'🩵 Teal', primary:'#0891B2' },
-]
+// (v1.0.532) เดิมรายการ Theme ตรงนี้ (default/blue/green/red/orange/teal) เป็นรายการปลอม — ไม่ตรงกับ
+// data-theme ตัวไหนใน src/styles/themes.css เลยสักตัว (ธีมจริงมี 33 แบบ คนละชุดกับตรงนี้) และ handler เดิม
+// เขียน localStorage key ผิดด้วย ('lamom-theme' ขีดกลาง ทั้งที่ตัวจริงที่ main.js อ่านตอนบูตคือ 'lamom_theme'
+// ขีดล่าง) พูดง่ายๆคือปุ่มเลือก Theme ในหน้านี้กดไปก็ไม่มีอะไรเกิดขึ้นจริงมาตั้งแต่สร้าง ส่วนตัวเลือกธีมจริงที่
+// ใช้งานได้จริงอยู่ที่ปุ่ม 🎨 บน Topbar (Topbar.js openThemePicker) — แทนที่จะซ้ำรายการ 33 ธีมอีกรอบที่นี่
+// เปลี่ยนเป็นปุ่มลิงก์ไปเปิดตัวเลือกจริงแทน ลดจุดที่ต้องดูแลให้ตรงกันเหลือจุดเดียว
+
 
 const NAV_ITEMS = [
   { icon:'🏢', label:'ข้อมูลบริษัท', path:'/settings/company' },
@@ -22,7 +21,7 @@ const NAV_ITEMS = [
 
 export default function SettingsPage(container) {
   const user = getState('user')
-  const currentTheme = document.documentElement.getAttribute('data-theme') || 'default'
+  const currentMode = document.documentElement.getAttribute('data-mode') || 'dark'
 
   container.innerHTML = `
     <div class="page-content animate-slide">
@@ -48,15 +47,15 @@ export default function SettingsPage(container) {
         <div style="font-weight:600;margin-bottom:16px">🎨 Appearance</div>
         <div style="margin-bottom:14px">
           <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:8px">Theme สี</div>
-          <div style="display:flex;gap:10px;flex-wrap:wrap">
-            ${THEMES.map(t => `
-              <div class="theme-swatch ${t.key === currentTheme ? 'active' : ''}" data-theme="${t.key}"
-                style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:var(--radius-md);border:2px solid ${t.key === currentTheme ? 'var(--primary)' : 'var(--border)'};cursor:pointer;background:var(--surface-2)">
-                <div style="width:14px;height:14px;border-radius:50%;background:${t.primary};flex-shrink:0"></div>
-                <span style="font-size:0.82rem">${t.name}</span>
-              </div>
-            `).join('')}
+          <button class="btn btn-secondary btn-sm" id="open-theme-picker-btn">🎨 เลือก Theme สี (33 แบบ)</button>
+        </div>
+        <div>
+          <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:8px">โหมดสี</div>
+          <div style="display:flex;gap:10px">
+            <button class="btn btn-sm mode-btn ${currentMode === 'dark' ? 'btn-primary' : 'btn-secondary'}" data-mode="dark">🌙 มืด (Dark)</button>
+            <button class="btn btn-sm mode-btn ${currentMode === 'light' ? 'btn-primary' : 'btn-secondary'}" data-mode="light">☀️ สว่าง (Light)</button>
           </div>
+          <div style="font-size:0.72rem;color:var(--text-muted);margin-top:6px">⚠️ ตอนนี้โหมดสว่างรองรับเฉพาะ Theme "Midnight" (ค่าเริ่มต้น) เท่านั้น — Theme อื่นจะยังแสดงเป็นโทนมืดต่อไปแม้เปิดโหมดสว่าง</div>
         </div>
       </div>
 
@@ -101,16 +100,18 @@ export default function SettingsPage(container) {
     navigate('/login')
   })
 
-  document.querySelectorAll('.theme-swatch').forEach(swatch => {
-    swatch.addEventListener('click', () => {
-      const theme = swatch.dataset.theme
-      document.documentElement.setAttribute('data-theme', theme)
-      try { localStorage.setItem('lamom-theme', theme) } catch {}
-      document.querySelectorAll('.theme-swatch').forEach(s => {
-        s.style.borderColor = s.dataset.theme === theme ? 'var(--primary)' : 'var(--border)'
-        s.classList.toggle('active', s.dataset.theme === theme)
+  document.getElementById('open-theme-picker-btn')?.addEventListener('click', () => {
+    document.getElementById('theme-btn')?.click()
+  })
+
+  document.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      setMode(btn.dataset.mode)
+      document.querySelectorAll('.mode-btn').forEach(b => {
+        b.classList.toggle('btn-primary', b.dataset.mode === btn.dataset.mode)
+        b.classList.toggle('btn-secondary', b.dataset.mode !== btn.dataset.mode)
       })
-      import('../../core/store.js').then(m => m.showToast(`🎨 เปลี่ยน Theme เป็น ${THEMES.find(t=>t.key===theme)?.name}`, 'success')).catch(() => {})
+      import('../../core/store.js').then(m => m.showToast(btn.dataset.mode === 'light' ? '☀️ เปลี่ยนเป็นโหมดสว่างแล้ว' : '🌙 เปลี่ยนเป็นโหมดมืดแล้ว', 'success')).catch(() => {})
     })
   })
 }

@@ -30,6 +30,10 @@ ToastContainer(document.body)
 const savedTheme = localStorage.getItem('lamom_theme') || 'midnight'
 document.documentElement.setAttribute('data-theme', savedTheme)
 
+// Apply saved light/dark mode immediately (v1.0.532) — เหมือนธีม ต้องตั้งก่อน render แรกเพื่อกันการกระพริบ
+const savedMode = localStorage.getItem('lamom_mode') || 'dark'
+document.documentElement.setAttribute('data-mode', savedMode)
+
 // Loading screen
 app.innerHTML = `
   <div class="loading-overlay" id="initial-loader">

@@ -48,6 +48,45 @@
 }
 [data-theme="midnight"] { --bg-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20520%20520%22%3E%0A%20%20%20%20%3Ccircle%20cx%3D%22410%22%20cy%3D%22380%22%20r%3D%2280%22%20fill%3D%22%233B82F6%22%20opacity%3D%220.16%22%2F%3E%0A%20%20%20%20%3Ccircle%20cx%3D%22385%22%20cy%3D%22405%22%20r%3D%226%22%20fill%3D%22%233B82F6%22%20opacity%3D%220.22%22%2F%3E%0A%20%20%20%20%3Ccircle%20cx%3D%22440%22%20cy%3D%22420%22%20r%3D%224%22%20fill%3D%22%233B82F6%22%20opacity%3D%220.22%22%2F%3E%0A%20%20%20%20%3Cpath%20d%3D%22M380%20365%20q8%2010%2016%200%22%20stroke%3D%22%233B82F6%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22%20fill%3D%22none%22%20opacity%3D%220.28%22%2F%3E%0A%20%20%20%20%3Cpath%20d%3D%22M424%20365%20q8%2010%2016%200%22%20stroke%3D%22%233B82F6%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22%20fill%3D%22none%22%20opacity%3D%220.28%22%2F%3E%0A%20%20%20%20%3Cpath%20d%3D%22M395%20395%20q15%2012%2030%200%22%20stroke%3D%22%233B82F6%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22%20fill%3D%22none%22%20opacity%3D%220.28%22%2F%3E%0A%20%20%20%20%3Ccircle%20cx%3D%22320%22%20cy%3D%22270%22%20r%3D%223%22%20fill%3D%22%233B82F6%22%20opacity%3D%220.18%22%2F%3E%0A%20%20%20%20%3Ccircle%20cx%3D%22470%22%20cy%3D%22250%22%20r%3D%224%22%20fill%3D%22%233B82F6%22%20opacity%3D%220.18%22%2F%3E%0A%20%20%20%20%3Ccircle%20cx%3D%22350%22%20cy%3D%22480%22%20r%3D%223%22%20fill%3D%22%233B82F6%22%20opacity%3D%220.18%22%2F%3E%0A%20%20%3C%2Fsvg%3E"); }
 
+/* ── Light Mode (v1.0.532) — เริ่มจากธีม Midnight (ค่าเริ่มต้น) ก่อน ─────────────
+   เจ้าของขอ "โปรเจกต์ใหญ่ทั้งหมด" รวม Light Mode — ธีมสีมีทั้งหมด 33 แบบ การออกแบบ palette แบบสว่างที่ผ่าน
+   WCAG AA ให้ครบทุกธีมในรอบเดียวเป็นงานหลายวัน (ต้องเช็ค contrast ทีละคู่สี เหมือนที่ทำตอนแก้ text-muted
+   v1.0.362) เริ่มจากธีมเริ่มต้น (Midnight) ที่คนส่วนใหญ่ใช้ก่อน ธีมอื่นที่ยังไม่มี override ตรงนี้จะไม่พัง —
+   แค่ยังคงแสดงเป็นโทนมืดต่อไปเฉยๆเมื่อเปิดโหมดสว่าง (ค่า CSS variable ที่ไม่ถูก override ใช้ค่าเดิมของธีมนั้น)
+   เพิ่ม override สำหรับธีมอื่นได้ทีละธีมในอนาคตด้วยแพทเทิร์นเดียวกันนี้ — เลือกสี primary/accent/success/
+   warning/danger/info ให้เข้มขึ้นกว่าเวอร์ชันมืด (ตัวอย่าง primary #3B82F6→#2563EB) เพราะสีสว่างที่คมชัดบน
+   พื้นมืดจะจางเกินไปเมื่อวางบนพื้นขาว ต้องเข้มขึ้นเพื่อให้ยังผ่าน contrast บนพื้นสว่าง */
+:root[data-mode="light"],
+[data-theme="midnight"][data-mode="light"] {
+  --bg:          #F8FAFC;
+  --surface:     #FFFFFF;
+  --surface-2:   #F1F5F9;
+  --surface-3:   #E2E8F0;
+  --border:      #CBD5E1;
+  --border-light:#94A3B8;
+  --primary:     #2563EB;
+  --primary-dim: rgba(37,99,235,0.08);
+  --primary-glow:rgba(37,99,235,0.22);
+  --accent:      #7C3AED;
+  --accent-dim:  rgba(124,58,237,0.08);
+  --success:     #059669;
+  --success-dim: rgba(5,150,105,0.08);
+  --warning:     #D97706;
+  --warning-dim: rgba(217,119,6,0.08);
+  --danger:      #DC2626;
+  --danger-dim:  rgba(220,38,38,0.08);
+  --info:        #0891B2;
+  --info-dim:    rgba(8,145,178,0.08);
+  --text:        #0F172A;
+  --text-2:      #334155;
+  /* text-3 ไม่ได้บังคับผ่าน AA เต็ม (ใช้จุดตกแต่ง/รอง เหมือนแพทเทิร์นเดิมของธีมมืด) ส่วน text-muted
+     ต้องผ่าน 4.5:1 บนพื้นหลังที่สว่างที่สุด (--surface-3 #E2E8F0) เสมอ — #475569 ให้ contrast ~7.5:1 */
+  --text-3:      #64748B;
+  --text-muted:  #475569;
+  --border-subtle:#EEF2F7;
+  --bg-image: none;
+}
+
 /* ── Neon ───────────────────────────────────────── */
 [data-theme="neon"] {
   --bg:          #050510;
