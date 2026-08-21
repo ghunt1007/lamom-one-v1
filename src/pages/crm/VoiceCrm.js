@@ -6,6 +6,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { formatDateTime, todayBangkok } from '../../utils/format.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { myEffectiveCompanyId } from '../../core/companyScope.js'
 import { uploadFile } from '../../utils/storage.js'
 import { analyzeVoiceNote } from '../../utils/ai.js'
 import { startMicRecording, stopMicRecording, blobToWavBase64, extFromMime } from '../../utils/audio.js'
@@ -143,7 +144,7 @@ export default async function VoiceCrmPage(container) {
           vehicleModel: '', salesperson: me.displayName || me.email || '',
           type: 'call', purpose: (n.followUps && n.followUps[0]) || 'ติดตามจาก Voice-to-CRM',
           dueDate: addDays(1), status: 'pending',
-          note: n.summary || '', result: '',
+          note: n.summary || '', result: '', companyId: myEffectiveCompanyId(),
         })
         await updateDocData('voice_notes', n.id, { savedToCrm: true })
         showToast(`💾 บันทึก Follow-up จาก ${n.customer} เข้าระบบ CRM แล้ว`, 'success')

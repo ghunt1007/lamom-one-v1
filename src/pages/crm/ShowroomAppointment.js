@@ -3,6 +3,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { getSalesStaff } from '../../data/masterData.js'
 
 function escHtml(s) {
@@ -44,7 +45,7 @@ export default async function ShowroomAppointmentPage(container) {
 
   async function loadData() {
     loading = true
-    try { appts = await listDocs('appointments', [], 'date', 'desc', 300) } catch (e) { appts = [] }
+    try { appts = await listDocs('appointments', companyScopeFilters(), 'date', 'desc', 300) } catch (e) { appts = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -274,7 +275,7 @@ export default async function ShowroomAppointmentPage(container) {
       btn.disabled = true
       try {
         if (appt) await updateDocData('appointments', appt.id, data)
-        else await createDoc('appointments', { ...data, status: 'scheduled', email: '' })
+        else await createDoc('appointments', { ...data, status: 'scheduled', email: '', companyId: myEffectiveCompanyId() })
         showToast('📅 บันทึกนัดหมายแล้ว', 'success'); close()
         await loadData()
       } catch (e) { btn.disabled = false; showToast('บันทึกไม่สำเร็จ', 'error') }

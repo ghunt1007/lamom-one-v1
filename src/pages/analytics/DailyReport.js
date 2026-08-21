@@ -5,6 +5,7 @@
 import { formatCurrency, formatDate, todayBangkok, toDateStr } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData, listDocs } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 import { exportToExcel } from '../../utils/importExport.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
@@ -94,7 +95,7 @@ export default async function DailyReportPage(container) {
       listDocs('job_cards', [], 'createdAt', 'desc', 500).catch(() => []),
       listDocs('walk_ins', [], 'visitTime', 'desc', 500).catch(() => []),
       listDocs('test_drive_records', [], 'date', 'desc', 500).catch(() => []),
-      listDocs('appointments', [], 'date', 'desc', 500).catch(() => []),
+      listDocs('appointments', companyScopeFilters(), 'date', 'desc', 500).catch(() => []),
     ])
     if (container.__routerGen !== myGen) return
     if (sales.length >= 1) { allSales = sales; dataSource = 'live' }

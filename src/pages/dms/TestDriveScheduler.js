@@ -4,8 +4,9 @@
  */
 import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, on } from '../../core/store.js'
 import { watchDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -49,7 +50,7 @@ export default async function TestDriveSchedulerPage(container) {
   let unsubBookings = () => {}
   function startWatch() {
     unsubBookings()
-    unsubBookings = watchDocs('test_drives', [], 'date', 'asc', 200, docs => {
+    unsubBookings = watchDocs('test_drives', companyScopeFilters(), 'date', 'asc', 200, docs => {
       if (container.__routerGen !== myGen) { unsubBookings(); return }
       bookings = docs
       loading = false
@@ -238,7 +239,7 @@ export default async function TestDriveSchedulerPage(container) {
             model: document.getElementById('tf-model')?.value||DEMO_VEHICLES[0],
             date, time,
             staff: document.getElementById('tf-staff')?.value||STAFF_LIST[0],
-            status: 'scheduled', notes: ''
+            status: 'scheduled', notes: '', companyId: myEffectiveCompanyId()
           })
           showToast('✅ นัดทดลองขับแล้ว!', 'success')
           await loadData()
@@ -248,7 +249,8 @@ export default async function TestDriveSchedulerPage(container) {
   }
 
   startWatch()
-  return function cleanupTestDriveScheduler() { unsubBookings() }
+  const offCompanyFilter = on('activeCompanyFilter', startWatch)
+  return function cleanupTestDriveScheduler() { unsubBookings(); offCompanyFilter() }
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

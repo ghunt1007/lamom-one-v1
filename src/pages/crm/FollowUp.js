@@ -3,6 +3,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -46,7 +47,7 @@ export default async function FollowUpPage(container) {
   async function loadData() {
     loading = true
     try {
-      const stored = await listDocs('followups', [], 'dueDate', 'asc', 300)
+      const stored = await listDocs('followups', companyScopeFilters(), 'dueDate', 'asc', 300)
       let virtual = []
       try {
         const bookings = await listDocs('bookings', [], 'createdAt', 'desc', 200)
@@ -169,7 +170,7 @@ export default async function FollowUpPage(container) {
       try {
         if (f._source === 'booking') {
           const { _source, id, ...rest } = f
-          await createDoc('followups', { ...rest, status: 'skipped' })
+          await createDoc('followups', { ...rest, status: 'skipped', companyId: myEffectiveCompanyId() })
         } else {
           await updateDocData('followups', f.id, { status: 'skipped' })
         }
@@ -242,12 +243,12 @@ export default async function FollowUpPage(container) {
         try {
           if (f._source === 'booking') {
             const { _source, id, ...rest } = f
-            await createDoc('followups', { ...rest, status: 'done', result })
+            await createDoc('followups', { ...rest, status: 'done', result, companyId: myEffectiveCompanyId() })
           } else {
             await updateDocData('followups', f.id, { status: 'done', result })
           }
           if (nextDate && nextPurpose) {
-            await createDoc('followups', { customerId: f.customerId, customerName: f.customerName, phone: f.phone, vehicleModel: f.vehicleModel, salesperson: f.salesperson, type: f.type, purpose: nextPurpose, dueDate: nextDate, status: 'pending', note: '', result: '' })
+            await createDoc('followups', { customerId: f.customerId, customerName: f.customerName, phone: f.phone, vehicleModel: f.vehicleModel, salesperson: f.salesperson, type: f.type, purpose: nextPurpose, dueDate: nextDate, status: 'pending', note: '', result: '', companyId: myEffectiveCompanyId() })
           }
           showToast('✅ บันทึกผล Follow-up แล้ว!', 'success')
           await loadData()
@@ -297,7 +298,7 @@ export default async function FollowUpPage(container) {
         const name = document.getElementById('ff-name')?.value?.trim()
         if (!name) { showToast('❗ กรุณากรอกชื่อลูกค้า', 'error'); return false }
         try {
-          await createDoc('followups', { customerId: '', customerName: name, phone: document.getElementById('ff-phone')?.value||'', vehicleModel: document.getElementById('ff-car')?.value||'', salesperson: salespersons[0]||'', type: document.getElementById('ff-type')?.value, purpose: document.getElementById('ff-purpose')?.value, dueDate: document.getElementById('ff-date')?.value||today, status: 'pending', note: document.getElementById('ff-note')?.value||'', result: '' })
+          await createDoc('followups', { customerId: '', customerName: name, phone: document.getElementById('ff-phone')?.value||'', vehicleModel: document.getElementById('ff-car')?.value||'', salesperson: salespersons[0]||'', type: document.getElementById('ff-type')?.value, purpose: document.getElementById('ff-purpose')?.value, dueDate: document.getElementById('ff-date')?.value||today, status: 'pending', note: document.getElementById('ff-note')?.value||'', result: '', companyId: myEffectiveCompanyId() })
           showToast('✅ เพิ่ม Follow-up แล้ว!', 'success')
           tab = 'today'
           await loadData()

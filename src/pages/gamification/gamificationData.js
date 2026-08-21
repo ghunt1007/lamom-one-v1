@@ -74,7 +74,7 @@ export async function getMyStatsContext() {
   let bookings = [], tasks = [], commLogs = [], attendance = []
   try { bookings = await getSalesData() } catch {}
   try { tasks = await listDocs('tasks', companyScopeFilters(), 'dueDate', 'desc', 500) } catch {}
-  try { commLogs = await listDocs('comm_logs', [], 'createdAt', 'desc', 500) } catch {}
+  try { commLogs = await listDocs('comm_logs', companyScopeFilters(), 'createdAt', 'desc', 500) } catch {}
   try { attendance = await listDocs('attendance', [], 'date', 'desc', 500) } catch {}
   const myDelivered = bookings.filter(b => b.delivered && b.salesName === name)
   const delivered = myDelivered.length

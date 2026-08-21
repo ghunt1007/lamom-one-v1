@@ -6,6 +6,7 @@ import { formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData, listDocs, createDoc } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { sendSms } from '../../utils/comms.js'
 
 function escHtml(s) {
@@ -53,7 +54,7 @@ export default async function BirthdayGreetingsPage(container) {
     if (delivered.length) {
       // เช็คว่าครบรอบปีนี้ของลูกค้าคนนี้ ส่งไปแล้วจริงหรือยัง (greeting_sends) — เดิมเป็น sent:false
       // ในหน่วยความจำเฉยๆ รีเฟรชหน้าแล้วหายหมด ไม่รู้เลยว่าส่งไปแล้วหรือยัง
-      const sentLog = await listDocs('greeting_sends', [], 'sentAt', 'desc', 1000).catch(() => [])
+      const sentLog = await listDocs('greeting_sends', companyScopeFilters(), 'sentAt', 'desc', 1000).catch(() => [])
       const sentKey = (name, date) => `${name}|${date}`
       const sentSet = new Set(sentLog.map(l => sentKey(l.customer, l.eventDate)))
       events = delivered.map((s, i) => {
@@ -154,7 +155,7 @@ export default async function BirthdayGreetingsPage(container) {
         const msg = buildGreetingMsg(e)
         try {
           await sendSms([e.phone], msg)
-          await createDoc('greeting_sends', { customer: e.customer, phone: e.phone, eventDate: e.date, type: e.type, channel: 'SMS', sentAt: new Date().toISOString() })
+          await createDoc('greeting_sends', { customer: e.customer, phone: e.phone, eventDate: e.date, type: e.type, channel: 'SMS', sentAt: new Date().toISOString(), companyId: myEffectiveCompanyId() })
           e.sent = true; e.channel = 'SMS'; ok++
         } catch { /* ส่งไม่สำเร็จรายนี้ ข้ามไปรายต่อไป */ }
       }
@@ -195,7 +196,7 @@ export default async function BirthdayGreetingsPage(container) {
         if (!e.phone) { showToast('❗ ไม่มีเบอร์โทรลูกค้ารายนี้', 'error'); return false }
         try {
           await sendSms([e.phone], msg)
-          await createDoc('greeting_sends', { customer: e.customer, phone: e.phone, eventDate: e.date, type: e.type, channel: 'SMS', sentAt: new Date().toISOString() })
+          await createDoc('greeting_sends', { customer: e.customer, phone: e.phone, eventDate: e.date, type: e.type, channel: 'SMS', sentAt: new Date().toISOString(), companyId: myEffectiveCompanyId() })
           e.sent = true; e.channel = 'SMS'
           showToast(`✅ ส่งคำอวยพรถึง ${e.customer} ทาง SMS แล้ว`, 'success')
         } catch (err) { showToast('❗ ส่งไม่สำเร็จ — ' + (err.message || 'ตรวจสอบว่าตั้งค่าผู้ให้บริการ SMS แล้วหรือยัง'), 'error'); return false }

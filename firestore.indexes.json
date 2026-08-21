@@ -63,7 +63,16 @@
     { "collectionGroup": "vehicles", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "arrivedAt", "order": "DESCENDING" }] },
     { "collectionGroup": "tasks", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "dueDate", "order": "ASCENDING" }] },
     { "collectionGroup": "attendance", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "date", "order": "DESCENDING" }] },
-    { "collectionGroup": "payroll_records", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "month", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "ASCENDING" }] }
+    { "collectionGroup": "payroll_records", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "month", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "ASCENDING" }] },
+
+    { "collectionGroup": "appointments", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "date", "order": "DESCENDING" }] },
+    { "collectionGroup": "greeting_sends", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "sentAt", "order": "DESCENDING" }] },
+    { "collectionGroup": "followups", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "dueDate", "order": "ASCENDING" }] },
+    { "collectionGroup": "quotations", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "createdDate", "order": "DESCENDING" }] },
+    { "collectionGroup": "quotations", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "customerId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] },
+    { "collectionGroup": "test_drives", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "date", "order": "ASCENDING" }] },
+    { "collectionGroup": "comm_logs", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] },
+    { "collectionGroup": "comm_logs", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "customerId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] }
   ],
   "fieldOverrides": []
 }

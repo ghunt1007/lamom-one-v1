@@ -16,6 +16,7 @@ import { navigate } from '../../core/router.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 import { getAccessories, getSalesStaff } from '../../data/masterData.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -89,7 +90,7 @@ export default async function QuotationBuilderPage(container) {
 
   async function loadData() {
     loading = true
-    try { quotes = (await listDocs('quotations', [], 'createdDate', 'desc', 200)).filter(q => !q.deleted) } catch (e) { quotes = [] }
+    try { quotes = (await listDocs('quotations', companyScopeFilters(), 'createdDate', 'desc', 200)).filter(q => !q.deleted) } catch (e) { quotes = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -444,7 +445,8 @@ export default async function QuotationBuilderPage(container) {
             discount, tradeIn, finalPrice, monthlyPayment: monthly,
             status: 'draft', createdDate: addDays(0), validUntil: addDays(30),
             salesperson: document.getElementById('qf-sales')?.value || '',
-            notes: document.getElementById('qf-notes')?.value || ''
+            notes: document.getElementById('qf-notes')?.value || '',
+            companyId: myEffectiveCompanyId()
           })
           showToast('✅ สร้างใบเสนอราคาแล้ว!', 'success')
           await loadData()

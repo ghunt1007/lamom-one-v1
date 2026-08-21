@@ -360,7 +360,7 @@ export default async function CustomersPage(container) {
     const el = document.getElementById('wk-timeline')
     if (!el) return
     let logs = [], notes = []
-    try { logs = await listDocs('comm_logs', [['customerId', '==', c.id]], 'createdAt', 'desc', 30) } catch {}
+    try { logs = await listDocs('comm_logs', [['customerId', '==', c.id], ...companyScopeFilters()], 'createdAt', 'desc', 30) } catch {}
     try { notes = await listDocs('customer_notes', [], 'time', 'desc', 300) } catch {}
     notes = notes.filter(n => n.customer === fullName(c))
     const merged = [
@@ -386,7 +386,7 @@ export default async function CustomersPage(container) {
     const el = document.getElementById('wk-followup-panel')
     if (!el) return
     let commLogs = []
-    try { commLogs = await listDocs('comm_logs', [['customerId', '==', c.id]], 'createdAt', 'desc', 30) } catch {}
+    try { commLogs = await listDocs('comm_logs', [['customerId', '==', c.id], ...companyScopeFilters()], 'createdAt', 'desc', 30) } catch {}
     let stockAvailable = null
     let overBudget = false
     try {
@@ -490,7 +490,7 @@ export default async function CustomersPage(container) {
     const el = document.getElementById('wk-quote-panel')
     if (!el) return
     let quotes = []
-    try { quotes = await listDocs('quotations', [['customerId', '==', c.id]], 'createdAt', 'desc', 20) } catch { quotes = [] }
+    try { quotes = await listDocs('quotations', [['customerId', '==', c.id], ...companyScopeFilters()], 'createdAt', 'desc', 20) } catch { quotes = [] }
     if (!document.getElementById('wk-quote-panel')) return
     if (!quotes.length) {
       el.innerHTML = `<div style="font-weight:600;margin-bottom:6px;font-size:0.85rem">🧾 ใบเสนอราคาที่เกี่ยวข้อง</div><div style="font-size:0.8rem;color:var(--text-muted)">ยังไม่มีใบเสนอราคา</div>`
@@ -681,7 +681,7 @@ export default async function CustomersPage(container) {
       if (!note) { document.getElementById('log-err').textContent = 'กรุณาระบุรายละเอียด'; return }
       try {
         const me = getState('user') || {}
-        await createDoc('comm_logs', { customerId: c.id, type: document.getElementById('log-type').value, note, createdBy: me.displayName || me.email || me.uid || '' })
+        await createDoc('comm_logs', { customerId: c.id, type: document.getElementById('log-type').value, note, createdBy: me.displayName || me.email || me.uid || '', companyId: myEffectiveCompanyId() })
         close(); showToast('บันทึกแล้ว', 'success')
         onSaved?.()
       } catch { showToast('เกิดข้อผิดพลาด', 'error') }
