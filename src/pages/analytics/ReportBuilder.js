@@ -49,7 +49,8 @@ export default async function ReportBuilderPage(container) {
   let reportRows = null // ผลลัพธ์จริงหลังกด Run — null = ยังไม่ Run
 
   const myRole = getState('role') || getState('user')?.role || 'staff'
-  const canViewSalary = SALARY_VIEW_ROLES.includes(myRole)
+  // (v1.0.520) extraGrants — ผู้ได้สิทธิ์เสริม 'hr' ต้องเห็นเงินเดือนได้ด้วย (isHR() รับรู้ extraGrants แล้ว)
+  const canViewSalary = SALARY_VIEW_ROLES.includes(myRole) || (getState('user')?.extraGrants || []).includes('hr')
 
   async function loadData() {
     loading = true

@@ -22,6 +22,11 @@ export function getModuleForPath(path) {
   return MODULES.find(m => m.prefixes.some(p => path === p || path.startsWith(p + '/'))) || null
 }
 
+// (v1.0.520) extraGrants — สิทธิ์เสริมรายบุคคลนอกเหนือจาก role (เพิ่มเท่านั้น ไม่แทนที่) ค่าที่เป็นไปได้:
+// 'finance'/'hr'/'sales'/'service' เท่านั้น (ไม่รวม manager/admin — ดูเหตุผลใน firestore.rules myGrants()) ผูกกับ
+// module เดียวกับที่ role นั้นเปิดใช้งานตามปกติ ใช้แพทเทิร์นเดียวกับ firestore.rules myGrants()/isFinance()
+export const GRANT_MODULE_MAP = { finance: 'finance', hr: 'hr', sales: 'sales', service: 'service' }
+
 let cache = null
 let cachePromise = null
 
@@ -42,11 +47,14 @@ export async function loadRolePermissions(force = false) {
 export function invalidateRolePermissionsCache() { cache = null; cachePromise = null }
 
 // Synchronous check using whatever is currently cached — call loadRolePermissions() first to warm the cache
-export function hasModuleAccess(role, moduleKey) {
+export function hasModuleAccess(role, moduleKey, extraGrants) {
   if (!moduleKey) return true // ungated paths (dashboard, etc.)
   if (!role) return true // no role info yet — fail open rather than lock out during load
   if (!cache) return true // permissions not loaded yet — fail open, real check happens after load
   const modules = cache[role]
   if (modules === undefined) return true // role has no configured restriction — default full access
-  return modules.includes('*') || modules.includes(moduleKey)
+  if (modules.includes('*') || modules.includes(moduleKey)) return true
+  // (v1.0.520) role เดิมไม่ผ่าน — เช็คสิทธิ์เสริมรายบุคคล (extraGrants) เพิ่มอีกชั้น ก่อนตัดสิทธิ์จริง
+  if (extraGrants?.some(g => GRANT_MODULE_MAP[g] === moduleKey)) return true
+  return false
 }

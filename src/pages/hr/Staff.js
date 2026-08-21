@@ -75,6 +75,17 @@ function renderAccessPanel(existing, loginAccounts, staffList) {
         <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;margin-top:8px;cursor:pointer">
           <input type="checkbox" id="sf-acc-groupwide" ${linkedUser.groupWide?'checked':''}> เห็นข้อมูลทุกบริษัท (Group-wide)
         </label>
+        ${(linkedUser.role !== 'owner' && linkedUser.role !== 'admin') ? `
+        <div style="margin-top:8px">
+          <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:4px">🧩 สิทธิ์เพิ่มเติมนอกเหนือจาก Role (ไม่แทนที่ role เดิม แค่เปิดเพิ่ม)</div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap">
+            ${[['finance','💰 การเงิน'],['hr','👨‍💼 HR'],['sales','💼 เซลส์'],['service','🔧 ช่าง/บริการ']].map(([k,l]) => `
+              <label style="display:flex;align-items:center;gap:5px;font-size:0.76rem;cursor:pointer">
+                <input type="checkbox" class="sf-acc-grant" value="${k}" ${(linkedUser.extraGrants||[]).includes(k)?'checked':''}> ${l}
+              </label>
+            `).join('')}
+          </div>
+        </div>` : ''}
         <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
           <button type="button" class="btn btn-xs btn-warning" id="sf-acc-resetpw" data-email="${escHtml(linkedUser.email)}">🔑 รีเซ็ตรหัสผ่าน</button>
           <button type="button" class="btn btn-xs ${active?'btn-danger':'btn-success'}" id="sf-acc-toggle" data-uid="${linkedUser.id}" data-active="${active}">${active?'⛔ ระงับ':'✅ เปิดใช้งาน'}</button>
@@ -178,7 +189,11 @@ export default async function StaffPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
   const myRole = getState('role') || getState('user')?.role || 'staff'
-  const canViewSalary = SALARY_VIEW_ROLES.includes(myRole)
+  // (v1.0.520) extraGrants — ผู้ที่ได้สิทธิ์เสริม 'hr'/'finance' (ติ๊กมอบที่ Settings > พนักงาน) ต้องเห็น UI
+  // ที่ตรงกับสิทธิ์จริงที่ Firestore Rules เปิดให้แล้วด้วย (isHR()/isFinance() รับรู้ extraGrants อยู่แล้ว)
+  // ไม่งั้นจะกดได้แต่ query ล้มเหลวเงียบๆ เหมือนปัญหาเดิมที่คอมเมนต์ด้านล่างอธิบายไว้
+  const myGrants = getState('user')?.extraGrants || []
+  const canViewSalary = SALARY_VIEW_ROLES.includes(myRole) || myGrants.includes('hr')
   const canRunMigration = MIGRATION_ROLES.includes(myRole)
   // เชื่อม staff↔users ต้องดึง collection users ทั้งหมดมาเลือก (มีอีเมล/ข้อมูลอ่อนไหวของทุกคน) — Firestore
   // Rules อนุญาตอ่านทั้ง collection นี้เฉพาะ isManager() (owner/admin/manager) เท่านั้น ต่างจาก canViewSalary
@@ -189,7 +204,7 @@ export default async function StaffPage(container) {
   // canLinkAccount ที่รวม manager/hr ด้วย ถ้าเผลอใช้ตัวแปรเดียวกันปุ่มจะโชว์ให้ manager/hr กด แต่ query จะ
   // permission-denied เงียบๆ (จับ error ไว้แล้วไม่ throw) ทำให้เห็น "ไม่พบประวัติ" ทั้งที่จริงมีประวัติอยู่
   const canViewHistory = ['owner', 'admin'].includes(myRole)
-  const canViewPII = PII_VIEW_ROLES.includes(myRole)
+  const canViewPII = PII_VIEW_ROLES.includes(myRole) || myGrants.includes('hr') || myGrants.includes('finance')
 
   let staff = []
   let filtered = []
@@ -768,7 +783,10 @@ export default async function StaffPage(container) {
               } else {
                 await updateDocData('users', existing.uid, {
                   displayName: `${fn} ${ln}`, role: data.role,
-                  ...(data.role !== 'owner' && data.role !== 'admin' ? { groupWide: el.querySelector('#sf-acc-groupwide')?.checked === true } : {}),
+                  ...(data.role !== 'owner' && data.role !== 'admin' ? {
+                    groupWide: el.querySelector('#sf-acc-groupwide')?.checked === true,
+                    extraGrants: [...el.querySelectorAll('.sf-acc-grant:checked')].map(cb => cb.value),
+                  } : {}),
                 })
                 const memberships = selectedCompanyIds.map(companyId => ({ companyId, role: data.role, department: data.dept, position: data.position, managerId: null }))
                 const cmResult = await updateCompanyMemberships(existing.uid, memberships)

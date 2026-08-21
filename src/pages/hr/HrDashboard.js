@@ -121,7 +121,8 @@ export default async function HrDashboard(container) {
   // เดิมแสดงยอดเงินเดือนรวมให้ทุกคนเห็นไม่ว่าตำแหน่งอะไร — จำกัดเฉพาะผู้บริหาร/ผู้จัดการ/HR เหมือนหน้า
   // Staff/Payroll ที่แก้ไปแล้ว
   const myRole = getState('role') || getState('user')?.role || 'staff'
-  const canViewSalary = SALARY_VIEW_ROLES.includes(myRole)
+  // (v1.0.520) extraGrants — ผู้ได้สิทธิ์เสริม 'hr' ต้องเห็นเงินเดือนได้ด้วย (isHR() รับรู้ extraGrants แล้ว)
+  const canViewSalary = SALARY_VIEW_ROLES.includes(myRole) || (getState('user')?.extraGrants || []).includes('hr')
   let salaryCard = ''
   if (canViewSalary) {
     // เงินเดือนย้ายไปเก็บที่ staff_salaries แยกต่างหากแล้ว (v1.0.303) — เอกสารเก่าที่ยังไม่ได้ย้ายข้อมูลออก

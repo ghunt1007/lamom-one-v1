@@ -443,10 +443,10 @@ export function Sidebar(container) {
   // ไม่มีอะไรให้แอดมิน/เจ้าของบริษัทอื่นดูจริงถ้าเปิดเข้าไป (permission-denied ทันที) จึงซ่อนออกจากเมนูไปเลย
   // ต่างจากเพจที่แค่ "บาง action" ถูกจำกัด (เช่น API Keys/Webhook Builder/Security ที่อ่านได้บางส่วน) — พวกนั้น
   // ยังโชว์เมนูตามปกติ แค่ปุ่มแก้ไขจะถูกซ่อน/มีข้อความอธิบายในหน้าเอง
-  function visibleNav(role) {
+  function visibleNav(role, extraGrants) {
     const ownerOnlyOk = isProgramOwner()
     return NAV
-      .map(g => ({ ...g, items: g.items.filter(i => hasModuleAccess(role, getModuleForPath(i.path)?.key) && (!i.programOwnerOnly || ownerOnlyOk)) }))
+      .map(g => ({ ...g, items: g.items.filter(i => hasModuleAccess(role, getModuleForPath(i.path)?.key, extraGrants) && (!i.programOwnerOnly || ownerOnlyOk)) }))
       .filter(g => g.items.length > 0)
   }
 
@@ -463,7 +463,7 @@ export function Sidebar(container) {
     const user = getState('user')
     const lang = getState('language') || 'th'
     const grpState = loadGroupState()
-    const nav = visibleNav(user?.role)
+    const nav = visibleNav(user?.role, user?.extraGrants)
     const gLabel = g => (lang === 'en' ? g.groupEn : lang === 'zh' ? g.groupZh : null) || g.group
     const iLabel = i => (lang === 'en' ? i.labelEn : lang === 'zh' ? i.labelZh : null) || i.label
 

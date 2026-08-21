@@ -593,7 +593,7 @@ async function render(appEl) {
   if (user) {
     await loadRolePermissions()
     const moduleKey = getModuleForPath(path)?.key
-    if (moduleKey && !hasModuleAccess(user.role, moduleKey)) {
+    if (moduleKey && !hasModuleAccess(user.role, moduleKey, user.extraGrants)) {
       showToast('🚫 คุณไม่มีสิทธิ์เข้าถึงหน้านี้', 'error')
       navigate('/')
       return

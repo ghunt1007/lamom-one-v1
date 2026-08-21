@@ -120,7 +120,7 @@ export default async function DashboardPage(container) {
   const normName = s => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ')
   await loadRolePermissions()
   if (container.__routerGen !== myGen) return
-  const visibleLinks = QUICK_LINKS.filter(l => hasModuleAccess(myRole, getModuleForPath(l.path)?.key))
+  const visibleLinks = QUICK_LINKS.filter(l => hasModuleAccess(myRole, getModuleForPath(l.path)?.key, user?.extraGrants))
 
   container.innerHTML = `
     <div class="page-content animate-slide">
