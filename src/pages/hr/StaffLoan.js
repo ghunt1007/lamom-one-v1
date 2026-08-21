@@ -4,9 +4,16 @@
  */
 import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData, incrementField, readDoc } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+
+// (v1.0.537) เดิม dropdown "พนักงาน" ตอนยื่นขอกู้/เบิกล่วงหน้า hardcode รายชื่อ+เงินเดือนปลอม 4 คนเสมอ
+// (ไม่ตรงกับพนักงานจริงคนไหนเลย) ทำให้วงเงินกู้สูงสุดที่คำนวณ (% ของเงินเดือน) อิงจากเงินเดือนปลอมเสมอ — เป็น
+// ความเสี่ยงทางการเงินจริง (คำนวณวงเงินกู้จากตัวเลขที่ไม่ใช่ของจริง) เหมือนเหตุผลที่ TechKpi.js ปิดปุ่มอนุมัติ
+// Bonus ไว้ก่อน — ตรงนี้แก้เป็นดึงพนักงาน+เงินเดือนจริงแทน (staff_salaries อ่านได้เฉพาะ HR/การเงิน/ผู้จัดการ
+// เหมือนที่ Staff.js ใช้อยู่แล้ว หน้านี้เป็นหน้า HR ที่เกี่ยวกับเงินเดือนโดยตรงอยู่แล้วจึงใช้เงื่อนไขเดียวกัน)
+const SALARY_VIEW_ROLES = ['owner', 'admin', 'manager', 'hr']
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -35,11 +42,29 @@ export default async function StaffLoanPage(container) {
   seedDemoData()
 
   let loans = []
+  let staffOptions = []
   let loading = true
+
+  const myRole = getState('role') || getState('user')?.role || 'staff'
+  const myGrants = getState('user')?.extraGrants || []
+  const canViewSalary = SALARY_VIEW_ROLES.includes(myRole) || myGrants.includes('hr')
 
   async function loadData() {
     loading = true
     try { loans = (await listDocs('staff_loans', companyScopeFilters(), 'date', 'desc', 300)).filter(l => !l.deleted) } catch (e) { loans = [] }
+    if (canViewSalary) {
+      try {
+        const [staffDocs, salaryDocs] = await Promise.all([
+          listDocs('staff', companyScopeFilters(), 'createdAt', 'desc', 500),
+          listDocs('staff_salaries', [], 'updatedAt', 'desc', 500).catch(() => []),
+        ])
+        const salaryMap = Object.fromEntries(salaryDocs.map(d => [d.id, d.salary]))
+        staffOptions = staffDocs.filter(s => !s.deleted && s.status !== 'inactive').map(s => ({
+          name: ((s.firstName || '') + ' ' + (s.lastName || '')).trim() || s.name || 'พนักงาน',
+          salary: salaryMap[s.id] ?? s.salary ?? 0,
+        }))
+      } catch { staffOptions = [] }
+    }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -169,16 +194,15 @@ export default async function StaffLoanPage(container) {
       } catch (e) { showToast('ลบไม่สำเร็จ', 'error') }
     }))
     document.getElementById('add-loan-btn')?.addEventListener('click', () => {
+      if (!canViewSalary) { showToast('🔒 ต้องมีสิทธิ์ HR/การเงิน/ผู้จัดการเพื่อยื่นขอกู้ให้พนักงาน', 'error'); return }
+      if (!staffOptions.length) { showToast('❗ ยังไม่มีข้อมูลพนักงานในระบบ', 'error'); return }
       openModal({
         title: '+ ยื่นขอกู้/เบิกล่วงหน้า',
         size: 'sm',
         body: `<div style="display:grid;gap:10px">
           <div class="input-group"><label class="input-label">พนักงาน *</label>
             <select class="input" id="ln-staff">
-              <option data-sal="18000">มานะ ขยัน (฿18,000)</option>
-              <option data-sal="24000">ธนา เก่ง (฿24,000)</option>
-              <option data-sal="32000">วิชัย ยอดขาย (฿32,000)</option>
-              <option data-sal="15000">สมบัติ ขับดี (฿15,000)</option>
+              ${staffOptions.map(s => `<option data-sal="${s.salary}">${escHtml(s.name)} (${formatCurrency(s.salary)})</option>`).join('')}
             </select>
           </div>
           <div class="input-group"><label class="input-label">ประเภท</label>

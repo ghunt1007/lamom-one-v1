@@ -5,7 +5,7 @@
 import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, on } from '../../core/store.js'
-import { watchDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { watchDocs, listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) {
@@ -31,7 +31,6 @@ const TD_RESULT = {
 }
 
 const DEMO_VEHICLES = ['BYD Seal AWD', 'BYD Atto 3', 'MG ZS EV', 'BYD Dolphin']
-const STAFF_LIST = ['วิชัย ยอดขาย', 'สุดา มาดี', 'ธนา เก่ง', 'ปทิตา ที่ปรึกษา']
 
 // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
 // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
@@ -51,8 +50,13 @@ export default async function TestDriveSchedulerPage(container) {
   seedDemoData()
 
   let bookings = []
+  let staffNames = []
   let viewDate = addDays(0)
   let loading = true
+
+  // (v1.0.537) เดิม STAFF_LIST hardcode รายชื่อปลอม 4 คนเสมอ — การนัดทดลองขับจริงที่บันทึกผ่านฟอร์มนี้จะผูก
+  // กับพนักงานปลอมเสมอ ไม่ตรงกับใครจริง
+  try { staffNames = (await listDocs('staff', companyScopeFilters(), 'createdAt', 'desc', 500)).filter(s => !s.deleted).map(s => ((s.firstName || '') + ' ' + (s.lastName || '')).trim() || s.name || 'พนักงาน') } catch { staffNames = [] }
 
   // (v1.0.477) เปลี่ยนจาก listDocs เป็น watchDocs (real-time) — คนขายสองคนอาจจองรถคันเดียวกันในช่วงเวลาเดียวกัน
   // ซ้อนกันได้ถ้าไม่เห็นการจองล่าสุดของกันและกันทันที
@@ -215,6 +219,7 @@ export default async function TestDriveSchedulerPage(container) {
   }
 
   function openBookForm(defaultTime = '') {
+    if (!staffNames.length) { showToast('❗ ยังไม่มีข้อมูลพนักงานในระบบ', 'error'); return }
     openModal({
       title: '+ นัดทดลองขับ',
       size: 'md',
@@ -226,7 +231,7 @@ export default async function TestDriveSchedulerPage(container) {
             <select class="input" id="tf-model">${DEMO_VEHICLES.map(v=>`<option>${v}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">เซลส์</label>
-            <select class="input" id="tf-staff">${STAFF_LIST.map(s=>`<option>${s}</option>`).join('')}</select>
+            <select class="input" id="tf-staff">${staffNames.map(s=>`<option>${escHtml(s)}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">วันที่</label><input type="date" class="input" id="tf-date" value="${viewDate}"></div>
           <div class="input-group"><label class="input-label">เวลา</label>
@@ -250,7 +255,7 @@ export default async function TestDriveSchedulerPage(container) {
             phone: document.getElementById('tf-phone')?.value||'',
             model: document.getElementById('tf-model')?.value||DEMO_VEHICLES[0],
             date, time,
-            staff: document.getElementById('tf-staff')?.value||STAFF_LIST[0],
+            staff: document.getElementById('tf-staff')?.value||staffNames[0]||'—',
             status: 'scheduled', notes: '', companyId: myEffectiveCompanyId()
           })
           showToast('✅ นัดทดลองขับแล้ว!', 'success')

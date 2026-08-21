@@ -34,10 +34,14 @@ const DOC_TYPES = {
 export default async function StaffDocumentsPage(container) {
   const myGen = container.__routerGen
   let docs = []
+  let staffNames = []
   let typeFilter = 'all'
   let search = ''
 
   try { docs = (await listDocs('staff_documents', companyScopeFilters(), 'uploaded', 'desc', 200)).filter(d => !d.deleted) } catch { docs = [] }
+  // (v1.0.537) เดิม dropdown "พนักงาน" ตอนอัปโหลดเอกสาร hardcode รายชื่อปลอม 5 คนเสมอ — เอกสารพนักงานจริง
+  // (สัญญาจ้าง/บัตรประชาชน/ใบขับขี่ ฯลฯ) ที่เคยอัปโหลดผ่านฟอร์มนี้จะถูกผูกกับชื่อปลอมเสมอ ไม่ตรงกับใครจริง
+  try { staffNames = (await listDocs('staff', companyScopeFilters(), 'createdAt', 'desc', 500)).filter(s => !s.deleted).map(s => ((s.firstName || '') + ' ' + (s.lastName || '')).trim() || s.name || 'พนักงาน') } catch { staffNames = [] }
   if (container.__routerGen !== myGen) return
 
   function expiryState(d) {
@@ -168,14 +172,14 @@ export default async function StaffDocumentsPage(container) {
   }
 
   function openUploadForm() {
+    if (!staffNames.length) { showToast('❗ ยังไม่มีข้อมูลพนักงานในระบบ', 'error'); return }
     const { el, close } = openModal({
       title: '+ อัปโหลดเอกสาร',
       size: 'sm',
       body: `<div style="display:grid;gap:10px">
         <div class="input-group"><label class="input-label">พนักงาน *</label>
           <select class="input" id="doc-staff">
-            <option>วิชัย ยอดขาย</option><option>สุดา มาดี</option><option>ธนา เก่ง</option>
-            <option>วิทยา ช่างใหญ่</option><option>ปิยะ ดีงาม</option>
+            ${staffNames.map(n => `<option>${escHtml(n)}</option>`).join('')}
           </select>
         </div>
         <div class="input-group"><label class="input-label">ชื่อเอกสาร *</label><input class="input" id="doc-name"></div>

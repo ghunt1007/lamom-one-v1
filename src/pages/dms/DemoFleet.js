@@ -6,6 +6,7 @@ import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -28,11 +29,14 @@ export default async function DemoFleetPage(container) {
   seedDemoData()
 
   let cars = []
+  let staffNames = []
   let loading = true
 
   async function loadData() {
     loading = true
     try { cars = await listDocs('demo_fleet', [], 'model', 'asc', 100) } catch (e) { cars = [] }
+    // (v1.0.537) เดิม dropdown "เซลส์ที่ไปด้วย" hardcode รายชื่อปลอม 3 คนเสมอ
+    try { staffNames = (await listDocs('staff', companyScopeFilters(), 'createdAt', 'desc', 500)).filter(s => !s.deleted).map(s => ((s.firstName || '') + ' ' + (s.lastName || '')).trim() || s.name || 'พนักงาน') } catch { staffNames = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -122,7 +126,7 @@ export default async function DemoFleetPage(container) {
         body: `<div style="display:grid;gap:10px">
           <div class="input-group"><label class="input-label">ชื่อลูกค้า *</label><input class="input" id="td-customer"></div>
           <div class="input-group"><label class="input-label">เซลส์ที่ไปด้วย</label>
-            <select class="input" id="td-staff"><option>วิชัย ยอดขาย</option><option>สุดา มาดี</option><option>ธนา เก่ง</option></select>
+            <select class="input" id="td-staff">${staffNames.length ? staffNames.map(n => `<option>${escHtml(n)}</option>`).join('') : '<option value="">ไม่มีข้อมูลพนักงาน</option>'}</select>
           </div>
           <div style="font-size:0.72rem;color:var(--text-muted)">📋 เช็คก่อนออก: ใบขับขี่ลูกค้า + ถ่ายรูปรอบคัน</div>
         </div>`,

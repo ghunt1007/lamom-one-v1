@@ -5,7 +5,8 @@
 import { timeAgo } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { watchDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { watchDocs, listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -20,7 +21,12 @@ export default async function KeyManagementPage(container) {
   seedDemoData()
 
   let keys = []
+  let staffNames = []
   let loading = true
+
+  // (v1.0.537) เดิม dropdown "ผู้เบิก" hardcode รายชื่อปลอม 6 คนเสมอ — log การเบิกกุญแจจริง (ใครถือกุญแจรถ
+  // คันไหนอยู่ตอนนี้ — ฟีเจอร์ความปลอดภัยจริง) จะผูกกับชื่อปลอมเสมอ ไม่ตรงกับใครจริงเลย
+  try { staffNames = (await listDocs('staff', companyScopeFilters(), 'createdAt', 'desc', 500)).filter(s => !s.deleted).map(s => ((s.firstName || '') + ' ' + (s.lastName || '')).trim() || s.name || 'พนักงาน') } catch { staffNames = [] }
 
   // (v1.0.477) เปลี่ยนจาก listDocs เป็น watchDocs (real-time) — หน้านี้ต้องรู้เสมอว่ากุญแจแต่ละคันอยู่ตู้หรือถูก
   // เบิกออก เดิมสองคนเปิดพร้อมกัน คนหนึ่งเพิ่งเบิกไปอีกคนจะยังเห็นสถานะเก่าค้างจนกว่าจะรีเฟรชเอง เสี่ยงเบิกซ้ำ
@@ -101,12 +107,13 @@ export default async function KeyManagementPage(container) {
 
     container.querySelectorAll('.out-btn').forEach(b => b.addEventListener('click', () => {
       const k = keys.find(x => x.id === b.dataset.id)
+      if (!staffNames.length) { showToast('❗ ยังไม่มีข้อมูลพนักงานในระบบ', 'error'); return }
       if (k) openModal({
         title: '🔑 เบิกกุญแจ: ' + escHtml(k.vehicle),
         size: 'sm',
         body: `<div style="display:grid;gap:10px">
           <div class="input-group"><label class="input-label">ผู้เบิก *</label>
-            <select class="input" id="ky-holder"><option>วิชัย ยอดขาย</option><option>สุดา มาดี</option><option>ธนา เก่ง</option><option>วิทยา ช่างใหญ่</option><option>มานะ ขยัน</option><option>สมบัติ ขับดี</option></select>
+            <select class="input" id="ky-holder">${staffNames.map(n => `<option>${escHtml(n)}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">เหตุผล *</label>
             <select class="input" id="ky-purpose"><option>พาลูกค้าดูรถ</option><option>Test Drive ลูกค้า</option><option>ย้ายรถเข้า Bay</option><option>นำรถไปล้าง</option><option>รับ-ส่งเอกสาร</option></select>

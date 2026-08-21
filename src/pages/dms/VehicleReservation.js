@@ -4,7 +4,7 @@
  */
 import { formatDate, formatCurrency, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { watchDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 
 function escHtml(s) {
@@ -177,8 +177,11 @@ export default async function VehicleReservationPage(container) {
             await updateDocData('vehicle_reservations', existing.id, data)
             showToast('✅ แก้ไขการจองแล้ว','success')
           } else {
+            // (v1.0.537) เดิม hardcode ชื่อพนักงานปลอมเสมอ ('วิชัย ยอดขาย') ไม่ว่าใครล็อกอินอยู่จริง — ทุกการจอง
+            // ที่เคยสร้างผ่านฟอร์มนี้จะถูกบันทึกเป็นของพนักงานคนเดียวกันทั้งหมด ใช้ผู้ใช้ที่ล็อกอินจริงแทน
+            const me = getState('user')
             await createDoc('vehicle_reservations', {
-              ...data, staff:'วิชัย ยอดขาย', status:dep>0?'deposit':'active', created:new Date().toISOString(), stockId:null
+              ...data, staff: me?.displayName || me?.email || 'ไม่ระบุ', status:dep>0?'deposit':'active', created:new Date().toISOString(), stockId:null
             })
             showToast('✅ สร้างการจองแล้ว','success')
           }

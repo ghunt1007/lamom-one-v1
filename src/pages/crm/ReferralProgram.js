@@ -30,13 +30,6 @@ const REWARD_TIERS = [
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString() }
 
-// Fallback ตัวอย่างล้วน — ใช้แสดงเฉพาะตอนยังไม่มี referral จริงใน Firestore เลย
-const TOP_REFERRERS_DEMO = [
-  { name: 'วิชัย มีโชค', count: 5, earned: 12000, tier: 'Gold' },
-  { name: 'สุดา อารมณ์ดี', count: 3, earned: 7500, tier: 'Silver' },
-  { name: 'ธนา เก่งกว่า', count: 1, earned: 2500, tier: 'Bronze' },
-]
-
 function tierNameFor(count) {
   let tier = null
   for (const t of REWARD_TIERS) if (count >= t.minRef) tier = t.tier
@@ -62,10 +55,13 @@ export default async function ReferralProgramPage(container) {
     if (container.__routerGen === myGen) renderPage()
   }
 
-  // (v1.0.xxx) เดิม TOP_REFERRERS เป็น array ปั้นตายตัว ไม่ขยับตาม referrals จริงที่หน้านี้โหลดมาอยู่แล้ว
-  // คำนวณจริงจากข้อมูล referrals: count = จำนวนครั้งที่ผ่านเกณฑ์/จ่ายแล้ว, earned = ยอดที่จ่ายจริงรวม
+  // เดิม TOP_REFERRERS เป็น array ปั้นตายตัว ไม่ขยับตาม referrals จริงที่หน้านี้โหลดมาอยู่แล้ว คำนวณจริงจาก
+  // ข้อมูล referrals: count = จำนวนครั้งที่ผ่านเกณฑ์/จ่ายแล้ว, earned = ยอดที่จ่ายจริงรวม — (v1.0.537) เดิม
+  // ไม่มี referral จริงเลยจะ fallback ไปโชว์ชื่อลูกค้าปลอม 3 คนเป็น "Top Referrer" แบบไม่มีป้ายกำกับว่าเป็น
+  // ตัวอย่างเลย (ต่างจาก isDemoData badge ที่ใช้ที่อื่นในระบบ) แก้ให้คืนค่าว่างตรงๆแทน ไปเข้า empty-state
+  // ที่มีอยู่แล้วในหน้านี้ ('ยังไม่มีข้อมูล')
   function computeTopReferrers() {
-    if (!referrals.length) return TOP_REFERRERS_DEMO
+    if (!referrals.length) return []
     const byName = {}
     referrals.forEach(r => {
       const name = r.referrer || 'ไม่ระบุ'

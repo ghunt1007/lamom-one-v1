@@ -6,6 +6,7 @@ import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 const CERT_STATUS = {
   active:  { label: 'ใช้งาน', color: 'success' },
@@ -20,6 +21,8 @@ const CERTS = [
   { id: 'C004', name: 'Customer Service Pro', issuer: 'Thailand Automotive', level: 'Certified', icon: '🤝', validMonths: 12 },
 ]
 
+function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+
 function addDays(n) {
   const [y, m, d] = todayBangkok().split('-').map(Number)
   return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
@@ -30,12 +33,23 @@ export default async function CertificationPage(container) {
   seedDemoData()
 
   let staffCerts = []
+  let staffList = []
   let statusFilter = 'all'
   let loading = true
 
+  // (v1.0.537) เดิม dropdown "พนักงาน" ในฟอร์มออกใบรับรอง hardcode รายชื่อพนักงานปลอม 4 คน (S001-S004)
+  // ไม่เคยผูกกับ staff จริงในระบบเลยตั้งแต่สร้าง — ทุกใบรับรองที่เคยออกผ่านฟอร์มนี้จะได้ staffId ปลอมที่ไม่มี
+  // อยู่จริงเสมอ ดึงรายชื่อพนักงานจริงมาแทน
   async function loadData() {
     loading = true
-    try { staffCerts = await listDocs('staff_certifications', [], 'expDate', 'asc', 300) } catch (e) { staffCerts = [] }
+    try {
+      const [certs, staff] = await Promise.all([
+        listDocs('staff_certifications', [], 'expDate', 'asc', 300),
+        listDocs('staff', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
+      ])
+      staffCerts = certs
+      staffList = staff.filter(s => !s.deleted).map(s => ({ id: s.id, name: ((s.firstName || '') + ' ' + (s.lastName || '')).trim() || s.name || 'พนักงาน' }))
+    } catch (e) { staffCerts = []; staffList = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -164,6 +178,7 @@ export default async function CertificationPage(container) {
   }
 
   function openIssueCert() {
+    if (!staffList.length) { showToast('❗ ยังไม่มีข้อมูลพนักงานในระบบ', 'error'); return }
     openModal({
       title: '+ ออกใบรับรอง',
       size: 'sm',
@@ -171,10 +186,7 @@ export default async function CertificationPage(container) {
         <div style="display:grid;gap:10px">
           <div class="input-group"><label class="input-label">พนักงาน</label>
             <select class="input" id="ic-staff">
-              <option value="S001">วิชัย ยอดขาย</option>
-              <option value="S002">สุดา มาดี</option>
-              <option value="S003">ธนา เก่ง</option>
-              <option value="S004">วิทยา ช่าง</option>
+              ${staffList.map(s => `<option value="${s.id}">${escHtml(s.name)}</option>`).join('')}
             </select>
           </div>
           <div class="input-group"><label class="input-label">ใบรับรอง</label>
