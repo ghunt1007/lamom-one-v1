@@ -51,7 +51,8 @@ export function printBooking(b) {
     sec('💰 เงื่อนไขการชำระเงิน') +
     '<table class="grid"><tbody>' +
       '<tr><td>ราคารถ</td><td class="num">' + money(b.price) + ' บาท</td></tr>' +
-      '<tr><td>เงินจอง / เงินดาวน์</td><td class="num">' + money(b.down) + ' บาท</td></tr>' +
+      '<tr><td>เงินจอง</td><td class="num">' + money(b.bookingDeposit || 0) + ' บาท</td></tr>' +
+      '<tr><td>เงินดาวน์</td><td class="num">' + money(b.down) + ' บาท</td></tr>' +
       (isCash
         ? '<tr><td>วิธีชำระ</td><td class="num">ซื้อเงินสด</td></tr>'
         : '<tr><td>บริษัทไฟแนนซ์ / สถานะ</td><td class="num">' + esc(b.financeCo || '-') + ' · ' + esc(b.finStatus || '-') + '</td></tr>' +
@@ -85,7 +86,7 @@ export function printBooking(b) {
 export function printCancellation(b, info = {}) {
   if (!b) return
   const car = [b.brand, b.model, b.variant].filter(Boolean).join(' ')
-  const refund = info.refund != null ? info.refund : (b.down || 0)
+  const refund = info.refund != null ? info.refund : (Number(b.bookingDeposit) || Number(b.down) || 0)
 
   const html =
     '<div class="doc">' +
@@ -114,7 +115,7 @@ export function printCancellation(b, info = {}) {
 
     sec('💸 การคืนเงิน') +
     '<table class="grid"><tbody>' +
-      '<tr><td>เงินจอง/ดาวน์ที่ชำระไว้</td><td class="num">' + money(b.down) + ' บาท</td></tr>' +
+      '<tr><td>เงินจอง/ดาวน์ที่ชำระไว้</td><td class="num">' + money(refund) + ' บาท</td></tr>' +
       (info.deduct ? '<tr><td>หักค่าดำเนินการ</td><td class="num">- ' + money(info.deduct) + ' บาท</td></tr>' : '') +
       '<tr class="total-row"><td>ยอดเงินคืนสุทธิ</td><td class="num">' + money(refund - (info.deduct || 0)) + ' บาท</td></tr>' +
     '</tbody></table>' +

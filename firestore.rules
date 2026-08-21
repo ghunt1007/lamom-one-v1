@@ -275,11 +275,11 @@ service cloud.firestore {
       // (เฉพาะฝ่ายขาย/การเงิน/ผู้จัดการที่ทำเอกสารไฟแนนซ์จริงเท่านั้นที่ต้องใช้) ห้ามเขียน/แก้ nid ผ่าน doc นี้
       // อีกต่อไป แต่เอกสารเก่าที่ยังฝัง nid อยู่ยังแก้ field อื่นได้ปกติ (เช็คเทียบค่าเดิมเหมือน staff.salary)
       allow create: if isStaff()
-        && nonNegIfPresent('price') && nonNegIfPresent('cost') && nonNegIfPresent('down')
+        && nonNegIfPresent('price') && nonNegIfPresent('cost') && nonNegIfPresent('down') && nonNegIfPresent('bookingDeposit')
         && nonNegIfPresent('financeAmount') && nonNegIfPresent('refundAmount')
         && !('nid' in request.resource.data) && canSeeCompanyDoc(request.resource.data);
       allow update: if isStaff()
-        && nonNegIfPresent('price') && nonNegIfPresent('cost') && nonNegIfPresent('down')
+        && nonNegIfPresent('price') && nonNegIfPresent('cost') && nonNegIfPresent('down') && nonNegIfPresent('bookingDeposit')
         && nonNegIfPresent('financeAmount') && nonNegIfPresent('refundAmount')
         && (!('nid' in request.resource.data) || request.resource.data.nid == resource.data.get('nid', null))
         && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);

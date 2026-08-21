@@ -70,6 +70,12 @@ function calcMonthly(financeAmount, installments, ratePerYear) {
   return Math.round(total / installments)
 }
 
+// (v1.0.518) เงินจอง (bookingDeposit) แยกจากเงินดาวน์ (down) — ใบจองเก่าก่อนหน้านี้มีแค่ down ตัวเดียว
+// (ตีความรวมเป็นทั้งเงินจอง/เงินดาวน์) ใช้ฟังก์ชันนี้ทุกจุดที่หมายถึง "เงินที่ลูกค้าชำระไว้ตอนจอง" (badge,
+// ถอนจอง/คืนเงิน, แจ้งการเงินตรวจยอด) — ไม่ใช่ทุกจุดที่หมายถึง "เงินดาวน์สำหรับคำนวณไฟแนนซ์" (ยังคงอ่าน
+// b.down ตรงๆ เหมือนเดิม เพราะคนละความหมายกัน)
+function depositAmt(b) { return Number(b?.bookingDeposit) || Number(b?.down) || 0 }
+
 // ── ตัวเลือกลูกค้าเดิมจาก collection `customers` — เชื่อมใบจองกับลูกค้าจริง (ไม่บังคับ) ──
 function openCustomerPicker(onPick) {
   let q = ''
@@ -459,7 +465,7 @@ export default async function BookingsPage(container) {
     return `<tr class="bk-row" data-id="${b.id}" style="${rowStyle(b)}cursor:pointer">
       <td><input type="checkbox" class="bk-row-check" data-id="${b.id}" ${selectedIds.has(b.id) ? 'checked' : ''}></td>
       <td><span style="font-weight:700;color:var(--primary);font-size:0.76rem">${escHtml(b.bookingNo)}</span></td>
-      <td class="bk-status-cell" data-id="${b.id}" style="cursor:pointer">${statusBadge(b.status)}<span style="font-size:0.6rem;opacity:.4;margin-left:2px">▼</span>${b.status === 'ถอนจอง' ? `<div style="font-size:0.6rem;font-weight:700;margin-top:2px;color:${(b.refundStatus || (Number(b.down) > 0 ? 'รอคืนเงิน' : 'ไม่ต้องคืน')) === 'คืนเงินแล้ว' ? 'var(--success)' : (b.refundStatus || (Number(b.down) > 0 ? 'รอคืนเงิน' : '')) === 'รอคืนเงิน' ? 'var(--warning)' : 'var(--text-muted)'}">💸 ${escHtml(b.refundStatus || (Number(b.down) > 0 ? 'รอคืนเงิน' : 'ไม่ต้องคืน'))}</div>` : ''}</td>
+      <td class="bk-status-cell" data-id="${b.id}" style="cursor:pointer">${statusBadge(b.status)}<span style="font-size:0.6rem;opacity:.4;margin-left:2px">▼</span>${b.status === 'ถอนจอง' ? `<div style="font-size:0.6rem;font-weight:700;margin-top:2px;color:${(b.refundStatus || (depositAmt(b) > 0 ? 'รอคืนเงิน' : 'ไม่ต้องคืน')) === 'คืนเงินแล้ว' ? 'var(--success)' : (b.refundStatus || (depositAmt(b) > 0 ? 'รอคืนเงิน' : '')) === 'รอคืนเงิน' ? 'var(--warning)' : 'var(--text-muted)'}">💸 ${escHtml(b.refundStatus || (depositAmt(b) > 0 ? 'รอคืนเงิน' : 'ไม่ต้องคืน'))}</div>` : ''}</td>
       <td><span class="badge badge-primary" style="font-size:0.66rem">${escHtml(b.salesName || '')}</span></td>
       <td style="font-size:0.72rem;white-space:nowrap">${formatDate(b.bookingDate)}</td>
       <td style="font-size:0.72rem;white-space:nowrap">${deliveryCell(b)}</td>
@@ -550,7 +556,7 @@ export default async function BookingsPage(container) {
   // ── ถอนจอง: บันทึกวันที่ เหตุผล และเปิดเรื่องคืนเงินจองให้การเงิน ─────────
   function openWithdrawModal(b) {
     if (!b) return
-    const downAmt = Number(b.down) || 0
+    const downAmt = depositAmt(b)
     const hasMoney = downAmt > 0 && !b.rightsOnly
     // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
     const today = todayBangkok()
@@ -607,7 +613,7 @@ export default async function BookingsPage(container) {
   // ── modal กรอกเหตุผล + ยอดหักก่อนพิมพ์ใบถอนจอง ────────────────────────────
   function openCancelPrintModal(b) {
     if (!b) return
-    const downAmt = Number(b.down) || 0
+    const downAmt = depositAmt(b)
     const { el, close } = openModal({
       title: '🖨 พิมพ์ใบถอนจอง ' + escHtml(b.bookingNo),
       size: 'sm',
@@ -697,7 +703,7 @@ export default async function BookingsPage(container) {
   // ── Booking Wizard (4 ขั้นตอน) ────────────────────────────────────────────
   function openWizard() {
     let step = 1
-    const w = { custName: '', phone: '', salesName: getSalesStaff()[0] || '', brand: '', model: '', variant: '', price: 0, discount: 0, accessories: 0, down: 0, installments: 60, interestRate: 2.99, customerId: null }
+    const w = { custName: '', phone: '', salesName: getSalesStaff()[0] || '', brand: '', model: '', variant: '', price: 0, discount: 0, accessories: 0, bookingDeposit: 0, down: 0, installments: 60, interestRate: 2.99, customerId: null }
     const bkNo = 'SK' + new Date().toISOString().slice(2, 10).replace(/-/g, '') + String(Math.floor(Math.random() * 900) + 100)
     const stepLabels = ['ข้อมูลลูกค้า', 'ราคา & รุ่น', 'ไฟแนนซ์', 'ยืนยัน']
 
@@ -743,11 +749,12 @@ export default async function BookingsPage(container) {
       }
       if (step === 3) {
         return `<div class="grid-2">
-            <div class="input-group"><label class="input-label">เงินจอง / เงินดาวน์ (บาท) *</label><input class="input" type="number" id="wz-down" value="${w.down || ''}"></div>
-            <div class="input-group"><label class="input-label">ระยะผ่อน</label><select class="input" id="wz-install">${[24, 36, 48, 60, 72, 84].map(m => `<option value="${m}" ${m === w.installments ? 'selected' : ''}>${m} เดือน</option>`).join('')}</select></div>
+            <div class="input-group"><label class="input-label">เงินจอง (บาท) *</label><input class="input" type="number" id="wz-deposit" value="${w.bookingDeposit || ''}"></div>
+            <div class="input-group"><label class="input-label">เงินดาวน์ (บาท)</label><input class="input" type="number" id="wz-down" value="${w.down || ''}"></div>
           </div>
+          <div class="input-group"><label class="input-label">ระยะผ่อน</label><select class="input" id="wz-install">${[24, 36, 48, 60, 72, 84].map(m => `<option value="${m}" ${m === w.installments ? 'selected' : ''}>${m} เดือน</option>`).join('')}</select></div>
           <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;cursor:pointer;padding:2px 0"><input type="checkbox" id="wz-rights" ${w.rightsOnly ? 'checked' : ''} style="accent-color:var(--accent);width:15px;height:15px"> 🎫 จองสิทธิ์ — ยังไม่จ่ายเงินจอง (ไม่บังคับกรอกเงินจอง)</label>
-          <span class="input-error" id="wz-down-e"></span>
+          <span class="input-error" id="wz-deposit-e"></span>
           <div class="input-group"><label class="input-label">ดอกเบี้ย (%/ปี)</label><input class="input" type="number" step="0.01" id="wz-rate" value="${w.interestRate}"></div>
           <div style="background:var(--surface-2);border-radius:8px;padding:12px;margin-top:8px">
             <div style="font-size:0.7rem;color:var(--text-muted)">ยอดจัดไฟแนนซ์: ${formatCurrency(Math.max(total() - w.down, 0))}</div>
@@ -756,7 +763,7 @@ export default async function BookingsPage(container) {
       }
       const rows = [['ลูกค้า', w.custName], ['เบอร์', w.phone], ['พนักงานขาย', w.salesName], ['รุ่นรถ', `${w.brand} ${w.model} ${w.variant || ''}`.trim()],
         ['ราคาขาย', formatCurrency(w.price)], ['ส่วนลด', formatCurrency(w.discount)], ['อุปกรณ์เสริม', formatCurrency(w.accessories)],
-        ['ยอดสุทธิ', formatCurrency(total())], ['เงินดาวน์', formatCurrency(w.down)], ['ผ่อน', w.installments + ' เดือน'], ['ค่างวด/เดือน', formatCurrency(monthly())]]
+        ['ยอดสุทธิ', formatCurrency(total())], ['เงินจอง', formatCurrency(w.bookingDeposit)], ['เงินดาวน์', formatCurrency(w.down)], ['ผ่อน', w.installments + ' เดือน'], ['ค่างวด/เดือน', formatCurrency(monthly())]]
       return `<div style="background:var(--surface-2);border-radius:10px;padding:12px">${rows.map(r => `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border-subtle);font-size:0.78rem"><span style="color:var(--text-muted)">${r[0]}</span><b>${escHtml(String(r[1] || '-'))}</b></div>`).join('')}</div>`
     }
 
@@ -777,7 +784,7 @@ export default async function BookingsPage(container) {
       const g = id => m.el.querySelector('#' + id)
       if (step === 1) { w.custName = g('wz-cust')?.value.trim() || ''; w.phone = g('wz-phone')?.value.trim() || ''; w.salesName = g('wz-sales')?.value || w.salesName }
       else if (step === 2) { w.price = Number(g('wz-price')?.value) || 0; w.discount = Number(g('wz-disc')?.value) || 0; w.accessories = Number(g('wz-acc')?.value) || 0 }
-      else if (step === 3) { w.down = Number(g('wz-down')?.value) || 0; w.rightsOnly = g('wz-rights')?.checked || false; w.installments = Number(g('wz-install')?.value) || 60; w.interestRate = Number(g('wz-rate')?.value) || 0 }
+      else if (step === 3) { w.bookingDeposit = Number(g('wz-deposit')?.value) || 0; w.down = Number(g('wz-down')?.value) || 0; w.rightsOnly = g('wz-rights')?.checked || false; w.installments = Number(g('wz-install')?.value) || 60; w.interestRate = Number(g('wz-rate')?.value) || 0 }
     }
     function bind() {
       m.el.querySelector('#wz-pick')?.addEventListener('click', () => pickVehicle(v => {
@@ -796,17 +803,17 @@ export default async function BookingsPage(container) {
         readStep()
         if (step === 1 && !w.custName) { showToast('กรุณาใส่ชื่อลูกค้า', 'error'); return }
         if (step === 2 && !w.model) { showToast('กรุณาเลือกรุ่นรถ', 'error'); return }
-        if (step === 3 && !w.down && !w.rightsOnly) { const e = m.el.querySelector('#wz-down-e'); if (e) e.textContent = '⚠️ กรุณาระบุจำนวนเงินจอง (หรือติ๊ก "จองสิทธิ์" หากยังไม่จ่าย)'; return }
+        if (step === 3 && !w.bookingDeposit && !w.rightsOnly) { const e = m.el.querySelector('#wz-deposit-e'); if (e) e.textContent = '⚠️ กรุณาระบุจำนวนเงินจอง (หรือติ๊ก "จองสิทธิ์" หากยังไม่จ่าย)'; return }
         step++; rerender()
       })
       m.el.querySelector('#wz-back')?.addEventListener('click', () => { readStep(); step--; rerender() })
       m.el.querySelector('#wz-save')?.addEventListener('click', async () => {
-        if (!w.down && !w.rightsOnly) { showToast('กรุณาระบุจำนวนเงินจอง (หรือติ๊ก "จองสิทธิ์")', 'error'); return }
+        if (!w.bookingDeposit && !w.rightsOnly) { showToast('กรุณาระบุจำนวนเงินจอง (หรือติ๊ก "จองสิทธิ์")', 'error'); return }
         const t = total()
         const data = {
           bookingNo: bkNo, custName: w.custName, phone: w.phone, salesName: w.salesName, customerId: w.customerId || null,
           brand: w.brand, model: w.model, variant: w.variant, rightsOnly: w.rightsOnly || false,
-          price: w.price, down: w.down, financeAmount: Math.max(t - w.down, 0), installments: w.installments, interestRate: w.interestRate, monthly: monthly(),
+          price: w.price, bookingDeposit: w.bookingDeposit, down: w.down, financeAmount: Math.max(t - w.down, 0), installments: w.installments, interestRate: w.interestRate, monthly: monthly(),
           margin: 0, budgetUsed: 0, com70: commission(), comFinance: 0, marginLeft: 0, totalIncome: commission(),
           bookingDate: todayBangkok(), status: 'ยอดจองคงค้าง', notes: '',
           createdAt: new Date().toISOString(),
@@ -847,7 +854,7 @@ export default async function BookingsPage(container) {
         sec('🚗 รถ') +
         dRow('รุ่น', (detectBrand(b.brand, b.model) || b.brand || '') + ' ' + (b.model || '') + ' ' + (b.variant || '')) + dRow('สีนอก / ใน', (b.colorOut || '-') + ' / ' + (b.colorIn || '-')) + dRow('เลขตัวถัง (VIN)', b.vin || '-') + dRow('เลขมอเตอร์', b.motorNo || '-') + dRow('เลขแบต', b.batNo || '-') + dRow('เลขเครื่องยนต์', b.engineNo || '-') + dRow('ป้ายแดง / ป้ายขาว', (b.redPlate || '-') + ' / ' + (b.whitePlate || '-')) +
         sec('💰 การเงิน / ไฟแนนซ์') +
-        dRow('ราคารถ', formatCurrency(b.price)) + dRow('เงินดาวน์', formatCurrency(b.down)) +
+        dRow('ราคารถ', formatCurrency(b.price)) + dRow('เงินจอง', formatCurrency(b.bookingDeposit || 0)) + dRow('เงินดาวน์', formatCurrency(b.down)) +
         (isCash ? dRow('การชำระ', 'ซื้อเงินสด') :
           dRow('ไฟแนนซ์', (b.financeCo || '-') + ' · ' + (b.finStatus || '')) + dRow('ยอดจัด', formatCurrency(b.financeAmount)) + dRow('งวด / ดอกเบี้ย', (b.installments || 0) + ' งวด · ' + (b.interestRate || 0) + '%') + dRow('ค่างวด/เดือน', formatCurrency(b.monthly))) +
         dRow('แคมเปญ', b.campaign || '-') +
@@ -863,7 +870,7 @@ export default async function BookingsPage(container) {
         dRow('เซลส์', b.salesName || '-') +
         (b.rightsOnly ? '<div style="background:var(--accent)11;border:1px solid var(--accent)44;padding:8px 10px;border-radius:8px;font-size:0.78rem;margin-top:6px;color:var(--accent);font-weight:700">🎫 จองสิทธิ์ — ยังไม่ชำระเงินจอง</div>' : '') +
         (b.status === 'ถอนจอง' ? (function () {
-          const rs = b.refundStatus || ((Number(b.down) > 0 && !b.rightsOnly) ? 'รอคืนเงิน' : 'ไม่ต้องคืน')
+          const rs = b.refundStatus || ((depositAmt(b) > 0 && !b.rightsOnly) ? 'รอคืนเงิน' : 'ไม่ต้องคืน')
           const rc = rs === 'คืนเงินแล้ว' ? 'var(--success)' : rs === 'รอคืนเงิน' ? 'var(--warning)' : 'var(--text-muted)'
           return sec('❌ ข้อมูลถอนจอง / การคืนเงินจอง') +
             dRow('วันที่ถอนจอง', formatDate(b.cancelDate) || '-') +
@@ -873,7 +880,7 @@ export default async function BookingsPage(container) {
             '<span style="font-size:0.74rem;font-weight:700;padding:2px 10px;border-radius:10px;background:' + rc + '22;color:' + rc + ';border:1px solid ' + rc + '55">💸 ' + escHtml(rs) + '</span></div>' +
             (b.refundedAt ? dRow('การเงินโอนคืนเมื่อ', formatDate(b.refundedAt)) : (rs === 'รอคืนเงิน' ? '<div style="font-size:0.72rem;color:var(--text-muted);padding:2px 0">⏳ รอฝ่ายการเงินโอนคืน — ติดตามที่หน้า การเงิน → คืนเงิน</div>' : ''))
         })() : '') +
-        (Number(b.down) > 0 && !b.rightsOnly && b.status !== 'ถอนจอง' ? (function () {
+        (depositAmt(b) > 0 && !b.rightsOnly && b.status !== 'ถอนจอง' ? (function () {
           const ps = b.paymentVerifyStatus
           return sec('💸 การตรวจสอบยอดโอน (เงินจอง/ดาวน์)') + (
             ps === 'ยืนยันแล้ว' ? '<div style="font-size:0.78rem;color:var(--success);font-weight:700">✅ การเงินยืนยันแล้วว่ามีเงินโอนเข้ามาจริง' + (b.paymentVerifiedAt ? ' (' + formatDate(b.paymentVerifiedAt) + ')' : '') + '</div>' :
@@ -886,7 +893,7 @@ export default async function BookingsPage(container) {
       footer: '<button class="btn btn-secondary" onclick="this.closest(\'.modal-overlay\').remove()">ปิด</button>' +
               '<button class="btn btn-secondary" id="bk-edit2">✏️ แก้ไข</button>' +
               '<button class="btn btn-secondary" id="bk-note2">📝 โน๊ต</button>' +
-              (Number(b.down) > 0 && !b.rightsOnly && b.status !== 'ถอนจอง' && b.paymentVerifyStatus !== 'ยืนยันแล้ว' && b.paymentVerifyStatus !== 'รอการเงินยืนยัน'
+              (depositAmt(b) > 0 && !b.rightsOnly && b.status !== 'ถอนจอง' && b.paymentVerifyStatus !== 'ยืนยันแล้ว' && b.paymentVerifyStatus !== 'รอการเงินยืนยัน'
                 ? '<button class="btn btn-secondary" id="bk-verify-pay" style="color:var(--warning)">💸 แจ้งการเงินตรวจยอด</button>' : '') +
               '<button class="btn btn-secondary" id="bk-print">🖨 พิมพ์ใบจอง</button>' +
               (!isCash ? '<button class="btn btn-secondary" id="bk-finance-btn">🏦 ยื่นไฟแนนซ์</button>' : '') +
@@ -913,7 +920,7 @@ export default async function BookingsPage(container) {
         await updateDocData('bookings', b.id, patch)
         Object.assign(b, patch)
         await notifyDept('💸 เซลส์แจ้งตรวจสอบยอดโอน (เงินจอง/ดาวน์)',
-          `${b.custName || b.bookingNo} ใบจอง ${b.bookingNo} · ยอด ${formatCurrency(b.down)} — กรุณาตรวจสอบว่ามีเงินโอนเข้าบัญชีจริงแล้วยืนยันให้เซลส์`,
+          `${b.custName || b.bookingNo} ใบจอง ${b.bookingNo} · ยอด ${formatCurrency(depositAmt(b))} — กรุณาตรวจสอบว่ามีเงินโอนเข้าบัญชีจริงแล้วยืนยันให้เซลส์`,
           '/finance/refund')
         document.querySelectorAll('.modal-overlay').forEach(m => m.remove())
         showToast('💸 แจ้งฝ่ายการเงินตรวจสอบยอดโอนแล้ว', 'success')
@@ -995,9 +1002,10 @@ export default async function BookingsPage(container) {
         '<div class="grid-2">' + inp('bf-redplate', 'เลขป้ายแดง (ชั่วคราว)', e.redPlate) + inp('bf-whiteplate', 'เลขป้ายขาว (ทะเบียนถาวร)', e.whitePlate) + '</div>' +
         sec('💰 การเงิน / ไฟแนนซ์') +
         '<div class="grid-2">' + selOf('bf-finco', 'บริษัทไฟแนนซ์', getFinanceCompanies(), e.financeCo) + selOf('bf-finstatus', 'สถานะไฟแนนซ์', getFinanceStatus(), e.finStatus) + '</div>' +
-        '<div class="grid-2">' + inp('bf-down', 'เงินจอง / เงินดาวน์ (บาท) *', e.down, 'number') + inp('bf-finamount', 'ยอดจัดไฟแนนซ์', e.financeAmount, 'number') + '</div>' +
+        '<div class="grid-2">' + inp('bf-deposit', 'เงินจอง (บาท) *', e.bookingDeposit, 'number') + inp('bf-down', 'เงินดาวน์ (บาท)', e.down, 'number') + '</div>' +
+        inp('bf-finamount', 'ยอดจัดไฟแนนซ์', e.financeAmount, 'number') +
         '<label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;cursor:pointer;padding:2px 0"><input type="checkbox" id="bf-rights" ' + (e.rightsOnly ? 'checked' : '') + ' style="accent-color:var(--accent);width:15px;height:15px"> 🎫 จองสิทธิ์ — ยังไม่จ่ายเงินจอง (ไม่บังคับกรอกเงินจอง)</label>' +
-        '<span class="input-error" id="bf-down-e"></span>' +
+        '<span class="input-error" id="bf-deposit-e"></span>' +
         '<div class="grid-2">' + inp('bf-install', 'จำนวนงวด', e.installments, 'number') + inp('bf-rate', 'ดอกเบี้ย (%/ปี)', e.interestRate, 'number') + '</div>' +
         '<div class="grid-2">' + selOf('bf-campaign', 'แคมเปญ', getCampaigns(), e.campaign) + inp('bf-cost', 'ต้นทุนรถ (บาท)', e.cost, 'number') + '</div>' +
         '<div style="font-size:0.72rem;color:var(--text-muted)">💡 ค่างวด/เดือน คำนวณอัตโนมัติจาก ยอดจัด × งวด × ดอกเบี้ย</div>' +
@@ -1056,7 +1064,7 @@ export default async function BookingsPage(container) {
         const g = id => el.querySelector('#' + id)
         const num = id => Number(g(id).value) || 0
         const rightsOnly = g('bf-rights').checked
-        if (!rightsOnly && !num('bf-down')) { el.querySelector('#bf-down-e').textContent = '⚠️ กรุณาระบุจำนวนเงินจอง (หรือติ๊ก "จองสิทธิ์" หากยังไม่จ่าย)'; return }
+        if (!rightsOnly && !num('bf-deposit')) { el.querySelector('#bf-deposit-e').textContent = '⚠️ กรุณาระบุจำนวนเงินจอง (หรือติ๊ก "จองสิทธิ์" หากยังไม่จ่าย)'; return }
         const financeAmount = num('bf-finamount'), installments = num('bf-install'), rate = num('bf-rate')
         // เลขบัตรประชาชนเก็บแยกที่ booking_national_ids เสมอ (v1.0.304) ไม่เขียนลง bookings doc อีกต่อไปเลย
         // (Firestore Rules บล็อกไว้แล้วด้วย) — ช่อง #bf-nid ไม่ถูกสร้างใน DOM เลยถ้าไม่มีสิทธิ์เห็น
@@ -1073,7 +1081,7 @@ export default async function BookingsPage(container) {
           brand: g('bf-brand').value.trim(), model: g('bf-model').value.trim(), variant: g('bf-variant').value.trim(),
           colorOut: g('bf-colorout').value.trim(), colorIn: g('bf-colorin').value.trim(), vin: g('bf-vin').value.trim(), motorNo: g('bf-motor').value.trim(), batNo: g('bf-bat').value.trim(),
           engineNo: g('bf-engineno').value.trim(), redPlate: g('bf-redplate').value.trim(), whitePlate: g('bf-whiteplate').value.trim(),
-          price: num('bf-price'), cost: num('bf-cost'), down: num('bf-down'), financeCo: g('bf-finco').value, financeAmount, finStatus: g('bf-finstatus').value,
+          price: num('bf-price'), cost: num('bf-cost'), bookingDeposit: num('bf-deposit'), down: num('bf-down'), financeCo: g('bf-finco').value, financeAmount, finStatus: g('bf-finstatus').value,
           installments, interestRate: rate, monthly: calcMonthly(financeAmount, installments, rate), campaign: g('bf-campaign').value,
           margin: num('bf-margin'), budgetUsed: num('bf-budget'), com70: num('bf-com70'), comFinance: num('bf-comfin'),
           insuranceAmount: num('bf-insamt'), accessoryAmount: num('bf-accamt'),

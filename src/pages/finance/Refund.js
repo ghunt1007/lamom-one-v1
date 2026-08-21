@@ -18,6 +18,10 @@ function myName() {
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
+// (v1.0.518) เงินจอง (bookingDeposit) แยกจากเงินดาวน์ (down) — ใบจองเก่ามีแค่ down ตัวเดียว ยอดที่เซลส์เก็บ
+// ไว้ตอนจอง/รอคืนตอนถอนจองคือเงินจองเสมอ ใช้ helper นี้แทน b.down ตรงๆ ทุกจุดในหน้านี้
+function depositAmt(b) { return Number(b?.bookingDeposit) || Number(b?.down) || 0 }
+
 const STATUS_CFG = {
   pending:     { label:'รออนุมัติ',   bg:'var(--warning)', icon:'⏳' },
   approved:    { label:'อนุมัติแล้ว', bg:'var(--primary)', icon:'✅' },
@@ -51,7 +55,7 @@ export default async function RefundPage(container) {
   }
 
   function refundStatusOf(b) {
-    return b.refundStatus || ((Number(b.down) > 0 && !b.rightsOnly) ? 'รอคืนเงิน' : 'ไม่ต้องคืน')
+    return b.refundStatus || ((depositAmt(b) > 0 && !b.rightsOnly) ? 'รอคืนเงิน' : 'ไม่ต้องคืน')
   }
 
   function render() {
@@ -65,7 +69,7 @@ export default async function RefundPage(container) {
     const verifyQueue = bookings.filter(b => b.paymentVerifyStatus === 'รอการเงินยืนยัน')
     const recentVerified = bookings.filter(b => b.paymentVerifyStatus === 'ยืนยันแล้ว').slice(0, 5)
     const pendingReq = refunds.filter(r => r.status === 'pending')
-    const waitAmount = waitRefund.reduce((s, b) => s + (Number(b.refundAmount) || Number(b.down) || 0), 0)
+    const waitAmount = waitRefund.reduce((s, b) => s + (Number(b.refundAmount) || depositAmt(b)), 0)
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -98,13 +102,13 @@ export default async function RefundPage(container) {
                 <div style="font-size:0.7rem;color:var(--text-muted)">${escHtml((b.brand || '') + ' ' + (b.model || ''))} · เซลส์ ${escHtml(b.salesName || '—')} · แจ้งเมื่อ ${formatDate(b.paymentVerifyRequestedAt) || '—'}</div>
               </div>
               <div style="text-align:right;flex-shrink:0">
-                <div style="font-size:0.95rem;font-weight:900;color:var(--success)">+${formatCurrency(b.down)}</div>
+                <div style="font-size:0.95rem;font-weight:900;color:var(--success)">+${formatCurrency(depositAmt(b))}</div>
                 <button class="btn btn-xs btn-primary verify-ok-btn" data-id="${b.id}" style="margin-top:4px;background:var(--success);border-color:var(--success)">✅ ยืนยันเงินเข้าจริง</button>
               </div>
             </div>
           </div>`).join('')}
           ${!verifyQueue.length ? '<div style="font-size:0.76rem;color:var(--text-muted);padding:8px 4px">ไม่มีรายการรอตรวจสอบ</div>' : ''}
-          ${recentVerified.length ? `<div style="font-size:0.7rem;color:var(--text-muted);padding:2px 4px">✅ ยืนยันล่าสุด: ${recentVerified.map(b => escHtml(b.custName || b.bookingNo) + ' (' + formatCurrency(b.down) + ')').join(' · ')}</div>` : ''}
+          ${recentVerified.length ? `<div style="font-size:0.7rem;color:var(--text-muted);padding:2px 4px">✅ ยืนยันล่าสุด: ${recentVerified.map(b => escHtml(b.custName || b.bookingNo) + ' (' + formatCurrency(depositAmt(b)) + ')').join(' · ')}</div>` : ''}
         </div>
 
         <!-- Section 2: คืนเงินจองจากการถอนจอง -->
@@ -112,7 +116,7 @@ export default async function RefundPage(container) {
         <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px">
           ${withdrawals.map(b => {
             const rs = refundStatusOf(b)
-            const amt = Number(b.refundAmount) || Number(b.down) || 0
+            const amt = Number(b.refundAmount) || depositAmt(b)
             const rc = rs === 'คืนเงินแล้ว' ? 'var(--success)' : rs === 'รอคืนเงิน' ? 'var(--warning)' : 'var(--text-muted)'
             return `<div class="card" style="padding:12px 14px;border-left:3px solid ${rc}">
               <div style="display:flex;align-items:center;gap:12px">
@@ -149,7 +153,7 @@ export default async function RefundPage(container) {
     container.querySelectorAll('.verify-ok-btn').forEach(btn => btn.addEventListener('click', async () => {
       const b = bookings.find(x => x.id === btn.dataset.id)
       if (!b) return
-      const ok = await confirmDialog({ title: '✅ ยืนยันยอดโอนเข้า', message: `ยืนยันว่าเงิน ${formatCurrency(b.down)} ของ "${escHtml(b.custName || b.bookingNo)}" โอนเข้าบัญชีจริงแล้ว? เซลส์จะได้รับแจ้งทันที`, confirmText: 'ยืนยัน' })
+      const ok = await confirmDialog({ title: '✅ ยืนยันยอดโอนเข้า', message: `ยืนยันว่าเงิน ${formatCurrency(depositAmt(b))} ของ "${escHtml(b.custName || b.bookingNo)}" โอนเข้าบัญชีจริงแล้ว? เซลส์จะได้รับแจ้งทันที`, confirmText: 'ยืนยัน' })
       if (!ok) return
       // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
       // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
@@ -157,7 +161,7 @@ export default async function RefundPage(container) {
       try {
         await updateDocData('bookings', b.id, { paymentVerifyStatus: 'ยืนยันแล้ว', paymentVerifiedAt: today })
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return }
-      try { await notifySales('✅ การเงินยืนยันยอดโอนแล้ว', `ใบจอง ${b.bookingNo} — ${b.custName || ''} ยอด ${formatCurrency(b.down)} มีเงินโอนเข้ามาจริง เซลส์ดำเนินการต่อได้`) } catch { /* แจ้งเตือนพลาดได้ ไม่กระทบสถานะที่บันทึกไปแล้ว */ }
+      try { await notifySales('✅ การเงินยืนยันยอดโอนแล้ว', `ใบจอง ${b.bookingNo} — ${b.custName || ''} ยอด ${formatCurrency(depositAmt(b))} มีเงินโอนเข้ามาจริง เซลส์ดำเนินการต่อได้`) } catch { /* แจ้งเตือนพลาดได้ ไม่กระทบสถานะที่บันทึกไปแล้ว */ }
       showToast('✅ ยืนยันยอดโอนแล้ว — แจ้งเซลส์เรียบร้อย', 'success')
       await loadData()
     }))
@@ -165,7 +169,7 @@ export default async function RefundPage(container) {
     container.querySelectorAll('.refund-done-btn').forEach(btn => btn.addEventListener('click', async () => {
       const b = bookings.find(x => x.id === btn.dataset.id)
       if (!b) return
-      const amt = Number(b.refundAmount) || Number(b.down) || 0
+      const amt = Number(b.refundAmount) || depositAmt(b)
       const ok = await confirmDialog({ title: '💸 ยืนยันโอนเงินคืนลูกค้า', message: `ยืนยันว่าโอนเงินจอง ${formatCurrency(amt)} คืนให้ "${escHtml(b.custName || b.bookingNo)}" แล้ว? ฝ่ายขายจะเห็นสถานะ "คืนเงินแล้ว" ทันที`, confirmText: 'โอนคืนแล้ว' })
       if (!ok) return
       const today = todayBangkok()

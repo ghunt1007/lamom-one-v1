@@ -219,7 +219,7 @@ export default async function DeliveryCalendarPage(container) {
               status: LOCAL_TO_BOOKING_STATUS.preparing, salesName: myName(), prep: [false,false,false,false,false],
               bookingNo: '', address: '', province: '', source: 'Walk-in',
               brand: '', variant: '', colorIn: '', motorNo: '', batNo: '',
-              price: 0, cost: 0, down: 0, financeCo: '', financeAmount: 0, finStatus: '', installments: 0, interestRate: 0, monthly: 0, campaign: '',
+              price: 0, cost: 0, bookingDeposit: 0, down: 0, financeCo: '', financeAmount: 0, finStatus: '', installments: 0, interestRate: 0, monthly: 0, campaign: '',
               margin: 0, budgetUsed: 0, com70: 0, comFinance: 0, marginLeft: 0, totalIncome: 0,
               bookingDate: addDays(0), submitDate: '', approveDate: '', signDate: '', cutDate: '', actualDeliveryDate: '', notes: '',
               companyId: myEffectiveCompanyId(),

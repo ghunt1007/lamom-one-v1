@@ -616,7 +616,7 @@ export default async function CustomersPage(container) {
           <div><label style="font-size:0.72rem;color:var(--text-muted)">ราคาขาย (บาท)</label>
             <input class="input" id="cb-price" type="number" value="${c.budget || ''}" placeholder="0" style="width:100%;margin-top:4px"></div>
           <div><label style="font-size:0.72rem;color:var(--text-muted)">เงินจอง (บาท) *</label>
-            <input class="input" id="cb-down" type="number" placeholder="5000" style="width:100%;margin-top:4px"></div>
+            <input class="input" id="cb-deposit" type="number" placeholder="5000" style="width:100%;margin-top:4px"></div>
           <div><label style="font-size:0.72rem;color:var(--text-muted)">พนักงานขาย</label>
             <select class="input" id="cb-sales" style="width:100%;margin-top:4px">${getSalesStaff().map(s => `<option ${s === c.assignedTo ? 'selected' : ''}>${escHtml(s)}</option>`).join('')}</select></div>
           <span class="input-error" id="cb-err"></span>
@@ -628,16 +628,18 @@ export default async function CustomersPage(container) {
     el.querySelector('#cb-s').addEventListener('click', async () => {
       const model = el.querySelector('#cb-model').value.trim()
       const price = Number(el.querySelector('#cb-price').value) || 0
-      const down = Number(el.querySelector('#cb-down').value) || 0
+      const deposit = Number(el.querySelector('#cb-deposit').value) || 0
       const salesName = el.querySelector('#cb-sales').value
       if (!model) { el.querySelector('#cb-err').textContent = '⚠️ กรุณาระบุรุ่นรถ'; return }
-      if (!down) { el.querySelector('#cb-err').textContent = '⚠️ กรุณาระบุเงินจอง'; return }
+      if (!deposit) { el.querySelector('#cb-err').textContent = '⚠️ กรุณาระบุเงินจอง'; return }
       const btn = el.querySelector('#cb-s'); btn.disabled = true
       try {
         const bookingNo = 'SK' + new Date().toISOString().slice(2, 10).replace(/-/g, '') + String(Math.floor(Math.random() * 900) + 100)
         const bookingData = {
+          // (v1.0.518) สร้างจากหน้า Customer Workspace เป็น flow แบบเร็ว เก็บแค่เงินจองตอนนี้ ยังไม่รู้เงินดาวน์
+          // (จะกำหนดตอนเซ็นสัญญา) financeAmount จึงเท่ากับราคาเต็มไปก่อน แก้ไขยอดจัดไฟแนนซ์ได้อีกทีตอนกรอกเงินดาวน์จริง
           bookingNo, custName: fullName(c), phone: c.phone || '', customerId: c.id,
-          model, price, cost: 0, down, financeAmount: Math.max(price - down, 0), finStatus: '',
+          model, price, cost: 0, bookingDeposit: deposit, down: 0, financeAmount: price, finStatus: '',
           salesName, source: c.source || '', status: 'ยอดจองคงค้าง',
           margin: 0, budgetUsed: 0, com70: 0, comFinance: 0, marginLeft: 0, totalIncome: 0,
           // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
