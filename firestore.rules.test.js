@@ -91,6 +91,44 @@ describe('accessExpiresAt — time-limited access is enforced at the rules level
   })
 })
 
+// v1.0.520 — extraGrants: per-user capability grants (finance/hr/sales/service) additive on top of role,
+// checked inside isFinance()/isHR()/isSales()/isService() via myGrants(). Uses 'commissions' (isFinance()
+// gated, no company scoping involved) as the plain isFinance()-gate test target, and 'customers' (isSales()
+// gated read) for the isSales() grant case.
+describe('extraGrants — per-user capability grants beyond role (v1.0.520)', () => {
+  it('a plain sales user (no extraGrants) CANNOT write to a finance-gated collection — regression guard', async () => {
+    await seedUser('eg1', { role: 'sales', active: true, groupWide: true })
+    const db = testEnv.authenticatedContext('eg1').firestore()
+    await assertFails(db.doc('commissions/d1').set({ amount: 100 }))
+  })
+
+  it('a sales user granted extraGrants:["finance"] CAN write to a finance-gated collection', async () => {
+    await seedUser('eg2', { role: 'sales', active: true, groupWide: true, extraGrants: ['finance'] })
+    const db = testEnv.authenticatedContext('eg2').firestore()
+    await assertSucceeds(db.doc('commissions/d2').set({ amount: 100 }))
+  })
+
+  it('extraGrants is additive only — an unrelated grant (e.g. "hr") does NOT unlock finance', async () => {
+    await seedUser('eg3', { role: 'sales', active: true, groupWide: true, extraGrants: ['hr'] })
+    const db = testEnv.authenticatedContext('eg3').firestore()
+    await assertFails(db.doc('commissions/d3').set({ amount: 100 }))
+  })
+
+  it('an expired user with extraGrants:["finance"] is still denied — expiry overrides grants too', async () => {
+    await seedUser('eg4', { role: 'sales', active: true, accessExpiresAt: pastDate(), extraGrants: ['finance'] })
+    const db = testEnv.authenticatedContext('eg4').firestore()
+    await assertFails(db.doc('commissions/d4').set({ amount: 100 }))
+  })
+
+  it('a "manager" grant is not a supported value — myGrants() only recognizes finance/hr/sales/service, so it never satisfies isManager()', async () => {
+    await seedUser('eg5', { role: 'sales', active: true, groupWide: true, extraGrants: ['manager'] })
+    const db = testEnv.authenticatedContext('eg5').firestore()
+    // isManager() has no myGrants() OR-clause at all (by design — see firestore.rules comment), so this
+    // must fail regardless of what extraGrants contains.
+    await assertFails(db.collection('users').get())
+  })
+})
+
 describe('isManager() fix — users collection access matches the UI\'s stated "manager and above" design', () => {
   it('a manager can read the users collection (was broken — only isAdmin() before this fix)', async () => {
     await seedUser('mgr1', { role: 'manager', active: true })

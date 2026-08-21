@@ -50,20 +50,30 @@ service cloud.firestore {
       return isSignedIn() && userRole() in ['owner', 'admin', 'manager', 'sales', 'service', 'finance', 'hr', 'staff'];
     }
 
+    // (v1.0.520) extraGrants — สิทธิ์เสริมรายบุคคลนอกเหนือจาก role (ติ๊กมอบเพิ่มได้ที่ Settings > พนักงาน)
+    // ค่าที่เป็นไปได้: 'finance'/'hr'/'sales'/'service' เท่านั้น — จงใจไม่รวม 'manager'/'admin' เพราะ isManager()
+    // เปิดสิทธิ์อ่าน users ทุกคนแบบไม่จำกัดบริษัท + update/delete ข้ามบริษัทในหลาย collection ที่ไม่มี
+    // canSeeCompanyDoc() กำกับ กว้างเกินกว่าจะเป็น checkbox เดี่ยวได้อย่างปลอดภัย (ต้องเปลี่ยน role จริงเท่านั้น)
+    // ต้องเช็ค userRole() != 'expired' ด้วยเสมอ ไม่งั้นพนักงานที่หมดอายุการเข้าถึงแล้ว (accessExpiresAt) จะยัง
+    // ใช้ extraGrants เข้าถึงข้อมูลต่อได้ทั้งที่ role หลักถูกล็อกไปแล้ว
+    function myGrants() {
+      return (isSignedIn() && userRole() != 'expired') ? myProfile().get('extraGrants', []) : [];
+    }
+
     function isFinance() {
-      return isSignedIn() && userRole() in ['owner', 'admin', 'manager', 'finance'];
+      return isSignedIn() && (userRole() in ['owner', 'admin', 'manager', 'finance'] || 'finance' in myGrants());
     }
 
     function isHR() {
-      return isSignedIn() && userRole() in ['owner', 'admin', 'manager', 'hr'];
+      return isSignedIn() && (userRole() in ['owner', 'admin', 'manager', 'hr'] || 'hr' in myGrants());
     }
 
     function isService() {
-      return isSignedIn() && userRole() in ['owner', 'admin', 'manager', 'service'];
+      return isSignedIn() && (userRole() in ['owner', 'admin', 'manager', 'service'] || 'service' in myGrants());
     }
 
     function isSales() {
-      return isSignedIn() && userRole() in ['owner', 'admin', 'manager', 'sales'];
+      return isSignedIn() && (userRole() in ['owner', 'admin', 'manager', 'sales'] || 'sales' in myGrants());
     }
 
     // ── Company data scoping (v1.0.453) ──────────────────────────────────────
