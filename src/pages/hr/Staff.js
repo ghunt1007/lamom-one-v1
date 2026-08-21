@@ -702,6 +702,9 @@ export default async function StaffPage(container) {
         emergencyContactPhone: el.querySelector('#sf-emc-phone').value.trim(),
         bankName: el.querySelector('#sf-bank-name').value.trim(),
         bankAccount: el.querySelector('#sf-bank-acc').value.trim(),
+        // (v1.0.517) staff_pii บังคับ canSeeCompanyDoc() มาตั้งแต่ v1.0.507 แต่จุดนี้ไม่เคยติด companyId เลย —
+        // ทำให้ HR/การเงิน/ผู้จัดการที่ถูกจำกัดสิทธิ์ตามบริษัทบันทึก PII พนักงานไม่ได้เลย (permission-denied ทุกครั้ง)
+        companyId: data.companyId ?? existing?.companyId ?? myEffectiveCompanyId(),
       } : null
       try {
         let staffId = existing?.id
