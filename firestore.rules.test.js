@@ -620,15 +620,18 @@ describe('disciplinary_records — rule now matches the real collection name (wa
 })
 
 describe('pdpa_dsr_requests — legal data-subject-request deadlines need manager sign-off to close', () => {
+  // (v1.0.498) groupWide:true — ไม่ใช่การแยกบริษัท (ดู "company scoping — Phase 2" ด้านล่าง)
   it('plain staff can read but not close a DSR request', async () => {
-    await seedUser('pdpaGap1', { role: 'sales', active: true })
+    await seedUser('pdpaGap1', { role: 'sales', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('pdpaGap1').firestore()
     await assertSucceeds(db.collection('pdpa_dsr_requests').get())
     await assertFails(db.collection('pdpa_dsr_requests').add({ status: 'processing' }))
   })
 
   it('a manager can close a DSR request', async () => {
-    await seedUser('pdpaGap2', { role: 'manager', active: true })
+    // (v1.0.498) groupWide:true — เทสนี้ทดสอบสิทธิ์ role manager ไม่ใช่การแยกบริษัท (ดู "company scoping —
+    // Phase 2" ด้านล่างสำหรับเทสแยกบริษัทโดยเฉพาะ) หลัง canSeeCompanyDoc() เปิดใช้กับ collection นี้
+    await seedUser('pdpaGap2', { role: 'manager', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('pdpaGap2').firestore()
     await assertSucceeds(db.collection('pdpa_dsr_requests').add({ status: 'processing' }))
   })
@@ -1154,8 +1157,9 @@ describe('tax_filings — persisted filing status log', () => {
 })
 
 describe('feedback_responses — persisted customer feedback replies', () => {
+  // (v1.0.498) groupWide:true — ไม่ใช่การแยกบริษัท (ดู "company scoping — Phase 2" ด้านล่าง)
   it('a staff member can log and read a feedback response', async () => {
-    await seedUser('auditGap60', { role: 'sales', active: true })
+    await seedUser('auditGap60', { role: 'sales', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('auditGap60').firestore()
     await assertSucceeds(db.collection('feedback_responses').add({ feedbackId: 'FB001', customerName: 'x', response: 'ขอบคุณครับ' }))
     await assertSucceeds(db.collection('feedback_responses').get())
@@ -1163,8 +1167,9 @@ describe('feedback_responses — persisted customer feedback replies', () => {
 })
 
 describe('customer_feedback — manually-added feedback entries', () => {
+  // (v1.0.498) groupWide:true — ไม่ใช่การแยกบริษัท (ดู "company scoping — Phase 2" ด้านล่าง)
   it('a staff member can log and read a manual feedback entry', async () => {
-    await seedUser('auditGap61', { role: 'sales', active: true })
+    await seedUser('auditGap61', { role: 'sales', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('auditGap61').firestore()
     await assertSucceeds(db.collection('customer_feedback').add({ customerName: 'x', type: 'csat', score: 5 }))
     await assertSucceeds(db.collection('customer_feedback').get())
@@ -1173,7 +1178,8 @@ describe('customer_feedback — manually-added feedback entries', () => {
 
 describe('price_negotiations — discount approval requires a manager', () => {
   it('plain sales staff can request a discount but cannot approve their own', async () => {
-    await seedUser('auditGap62', { role: 'sales', active: true })
+    // (v1.0.498) groupWide:true — ไม่ใช่การแยกบริษัท (ดู "company scoping — Phase 2" ด้านล่าง)
+    await seedUser('auditGap62', { role: 'sales', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('auditGap62').firestore()
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await ctx.firestore().doc('price_negotiations/pn1').set({ customer: 'x', status: 'pending' })
@@ -1183,7 +1189,8 @@ describe('price_negotiations — discount approval requires a manager', () => {
   })
 
   it('a manager can approve a discount request', async () => {
-    await seedUser('auditGap63', { role: 'manager', active: true })
+    // (v1.0.498) groupWide:true — ไม่ใช่การแยกบริษัท (ดู "company scoping — Phase 2" ด้านล่าง)
+    await seedUser('auditGap63', { role: 'manager', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('auditGap63').firestore()
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await ctx.firestore().doc('price_negotiations/pn2').set({ customer: 'x', status: 'pending' })
@@ -1215,7 +1222,8 @@ describe('invoices — marking paid requires finance/manager', () => {
 
 describe('referrers — paying commission requires finance/manager', () => {
   it('plain sales staff can create a referrer but cannot mark commission paid', async () => {
-    await seedUser('auditGap66', { role: 'sales', active: true })
+    // (v1.0.498) groupWide:true — ไม่ใช่การแยกบริษัท (ดู "company scoping — Phase 2" ด้านล่าง)
+    await seedUser('auditGap66', { role: 'sales', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('auditGap66').firestore()
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await ctx.firestore().doc('referrers/ref1').set({ name: 'x', commission: 5000, paid: 0 })
@@ -1225,7 +1233,8 @@ describe('referrers — paying commission requires finance/manager', () => {
   })
 
   it('finance can mark referrer commission paid', async () => {
-    await seedUser('auditGap67', { role: 'finance', active: true })
+    // (v1.0.498) groupWide:true — ไม่ใช่การแยกบริษัท (ดู "company scoping — Phase 2" ด้านล่าง)
+    await seedUser('auditGap67', { role: 'finance', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('auditGap67').firestore()
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await ctx.firestore().doc('referrers/ref2').set({ name: 'x', commission: 5000, paid: 0 })
@@ -1236,7 +1245,8 @@ describe('referrers — paying commission requires finance/manager', () => {
 
 describe('referrals — qualifying/paying a referral requires finance/manager', () => {
   it('plain sales staff can log a referral but cannot approve or pay it', async () => {
-    await seedUser('auditGap68', { role: 'sales', active: true })
+    // (v1.0.498) groupWide:true — ไม่ใช่การแยกบริษัท (ดู "company scoping — Phase 2" ด้านล่าง)
+    await seedUser('auditGap68', { role: 'sales', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('auditGap68').firestore()
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await ctx.firestore().doc('referrals/rl1').set({ referrer: 'x', status: 'pending' })
@@ -1246,7 +1256,8 @@ describe('referrals — qualifying/paying a referral requires finance/manager', 
   })
 
   it('a manager can qualify and pay a referral', async () => {
-    await seedUser('auditGap69', { role: 'manager', active: true })
+    // (v1.0.498) groupWide:true — ไม่ใช่การแยกบริษัท (ดู "company scoping — Phase 2" ด้านล่าง)
+    await seedUser('auditGap69', { role: 'manager', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('auditGap69').firestore()
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await ctx.firestore().doc('referrals/rl2').set({ referrer: 'x', status: 'pending' })
@@ -1889,6 +1900,76 @@ describe('company scoping — Phase 1, remaining CRM collections (v1.0.496)', ()
   })
 })
 
+// v1.0.498 — Phase 2: canSeeCompanyDoc() เปิดใช้งานจริงกับอีก 9 collection ของ feedback/compliance/referral
+// (complaints, feedback_responses, customer_feedback, pdpa_consents, pdpa_dsr_requests, compliance_events,
+// price_negotiations, referrers, referrals) โค้ดแอปทุกหน้าที่อ่าน/เขียน collection เหล่านี้แก้ให้ใช้
+// companyScopeFilters()/myEffectiveCompanyId() ครบแล้วใน v1.0.497 — read rule ของทั้ง 9 collection เหมือนกัน
+// หมด (isStaff() && canSeeCompanyDoc()) แม้ write rule บาง collection จะแยกสิทธิ์ role ต่างกัน (เช่น
+// price_negotiations/referrers/referrals ต้อง isManager()/isFinance() ถึงจะ update/delete ได้ — คงไว้เหมือนเดิม
+// ไม่แตะ) จึงวนซ้ำ 6 เคสหลักเดิมที่ทดสอบเฉพาะฝั่ง read/list ได้ตรงกันทั้ง 9 collection
+describe('company scoping — Phase 2, feedback/compliance/referral collections (v1.0.498)', () => {
+  const collections = ['complaints', 'feedback_responses', 'customer_feedback', 'pdpa_consents', 'pdpa_dsr_requests', 'compliance_events', 'price_negotiations', 'referrers', 'referrals']
+
+  collections.forEach((col) => {
+    describe(col, () => {
+      it('the program-owner account (by email) sees a doc from a company they are not a member of', async () => {
+        await seedUser(`csp2p1_${col}`, { role: 'owner', active: true })
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.firestore().doc(`${col}/d1`).set({ note: 'x', companyId: 'companyB' })
+        })
+        const db = testEnv.authenticatedContext(`csp2p1_${col}`, { email: 'ghunt1007@gmail.com' }).firestore()
+        await assertSucceeds(db.doc(`${col}/d1`).get())
+        await assertSucceeds(db.collection(col).get())
+      })
+
+      it('a plain owner-role account that is NOT the program-owner email is company-scoped like anyone else', async () => {
+        await seedUser(`csp2p2_${col}`, { role: 'owner', active: true, companyIds: ['companyA'] })
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.firestore().doc(`${col}/d2`).set({ note: 'x', companyId: 'companyB' })
+        })
+        const db = testEnv.authenticatedContext(`csp2p2_${col}`, { email: 'somsak@lamom.one' }).firestore()
+        await assertFails(db.doc(`${col}/d2`).get())
+        await assertFails(db.collection(col).get())
+        await assertSucceeds(db.collection(col).where('companyId', 'in', ['companyA']).get())
+      })
+
+      it('a groupWide:true user sees a doc from a company they are not a member of', async () => {
+        await seedUser(`csp2p3_${col}`, { role: 'hr', active: true, companyIds: ['companyA'], groupWide: true })
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.firestore().doc(`${col}/d3`).set({ note: 'x', companyId: 'companyB' })
+        })
+        const db = testEnv.authenticatedContext(`csp2p3_${col}`).firestore()
+        await assertSucceeds(db.doc(`${col}/d3`).get())
+        await assertSucceeds(db.collection(col).get())
+      })
+
+      it('a company-scoped sales user CANNOT open a doc belonging to a different company directly', async () => {
+        await seedUser(`csp2p4_${col}`, { role: 'sales', active: true, companyIds: ['companyA'] })
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.firestore().doc(`${col}/d4`).set({ note: 'x', companyId: 'companyB' })
+        })
+        const db = testEnv.authenticatedContext(`csp2p4_${col}`).firestore()
+        await assertFails(db.doc(`${col}/d4`).get())
+      })
+
+      it('a company-scoped sales user CAN list docs when the query is properly scoped with a matching where clause', async () => {
+        await seedUser(`csp2p5_${col}`, { role: 'sales', active: true, companyIds: ['companyA'] })
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.firestore().doc(`${col}/d5`).set({ note: 'x', companyId: 'companyA' })
+        })
+        const db = testEnv.authenticatedContext(`csp2p5_${col}`).firestore()
+        await assertSucceeds(db.collection(col).where('companyId', 'in', ['companyA']).get())
+      })
+
+      it('a company-scoped sales user CANNOT list docs with no where clause at all', async () => {
+        await seedUser(`csp2p6_${col}`, { role: 'sales', active: true, companyIds: ['companyA'] })
+        const db = testEnv.authenticatedContext(`csp2p6_${col}`).firestore()
+        await assertFails(db.collection(col).get())
+      })
+    })
+  })
+})
+
 describe('courtesy_car_jobs (v1.0.304) — pickup/delivery customer address scoped to service/manager', () => {
   it('an HR-role staff member cannot read a customer pickup address', async () => {
     await seedUser('pii7', { role: 'hr', active: true })
@@ -2129,7 +2210,8 @@ describe('parts_rma + custom_orders + compliance_events + gov_bids (v1.0.312) �
   })
 
   it('compliance_events: manager can mark a compliance deadline as done', async () => {
-    await seedUser('ceGap2', { role: 'manager', active: true })
+    // (v1.0.498) groupWide:true — ไม่ใช่การแยกบริษัท (ดู "company scoping — Phase 2" ด้านล่าง)
+    await seedUser('ceGap2', { role: 'manager', active: true, groupWide: true })
     const db = testEnv.authenticatedContext('ceGap2').firestore()
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await ctx.firestore().doc('compliance_events/e2').set({ title: 'x', status: 'pending' })

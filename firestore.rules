@@ -320,11 +320,17 @@ service cloud.firestore {
     }
 
     match /feedback_responses/{docId} {
-      allow read, write: if isStaff();
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
+      allow create: if isStaff() && canSeeCompanyDoc(request.resource.data);
+      allow update: if isStaff() && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isStaff() && canSeeCompanyDoc(resource.data);
     }
 
     match /customer_feedback/{docId} {
-      allow read, write: if isStaff();
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
+      allow create: if isStaff() && canSeeCompanyDoc(request.resource.data);
+      allow update: if isStaff() && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isStaff() && canSeeCompanyDoc(resource.data);
     }
 
     // แชทกลุ่ม (general/sales/service/management/announcements) เปิดให้ staff ทุกคนอ่าน/เขียนเหมือนเดิม
@@ -539,10 +545,10 @@ service cloud.firestore {
     // catch-all isStaff() กว้างเกินไป) ทั้งที่ควรเป็นสิทธิ์ผู้จัดการเท่านั้น — เปิดให้ staff ยื่นขอได้ (create)
     // แต่อนุมัติ/ปฏิเสธ (update) ต้องผู้จัดการขึ้นไปเท่านั้น
     match /price_negotiations/{docId} {
-      allow read: if isStaff();
-      allow create: if isStaff();
-      allow update: if isManager();
-      allow delete: if isManager();
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
+      allow create: if isStaff() && canSeeCompanyDoc(request.resource.data);
+      allow update: if isManager() && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isManager() && canSeeCompanyDoc(resource.data);
     }
 
     // ใบแจ้งหนี้/ใบเสร็จรับเงิน — เดิมพนักงานคนไหนก็กด "บันทึกรับชำระ" (ปิดยอดค้างรับ) ได้เลย ตกอยู่ใต้
@@ -557,19 +563,19 @@ service cloud.firestore {
     // ผู้แนะนำ (referral QR) — เดิมพนักงานคนไหนก็กด "จ่าย Commission" ให้ผู้แนะนำเองได้เลย ตกอยู่ใต้
     // catch-all กว้างเกินไป สร้างผู้แนะนำใหม่ยังเปิดให้ staff ได้ แต่ทำเครื่องหมายจ่ายแล้วต้องการเงิน/ผู้จัดการ
     match /referrers/{docId} {
-      allow read: if isStaff();
-      allow create: if isStaff();
-      allow update: if isFinance() || isManager();
-      allow delete: if isFinance() || isManager();
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
+      allow create: if isStaff() && canSeeCompanyDoc(request.resource.data);
+      allow update: if (isFinance() || isManager()) && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if (isFinance() || isManager()) && canSeeCompanyDoc(resource.data);
     }
 
     // โปรแกรมแนะนำเพื่อน — เดิมพนักงานคนไหนก็กด "ผ่านเกณฑ์/ไม่ผ่านเกณฑ์/จ่ายรางวัล" ได้เลย ตกอยู่ใต้
     // catch-all กว้างเกินไป บันทึกการแนะนำใหม่ยังเปิดให้ staff ได้ แต่การอนุมัติ/จ่ายเงินต้องการเงิน/ผู้จัดการ
     match /referrals/{docId} {
-      allow read: if isStaff();
-      allow create: if isStaff();
-      allow update: if isFinance() || isManager();
-      allow delete: if isFinance() || isManager();
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
+      allow create: if isStaff() && canSeeCompanyDoc(request.resource.data);
+      allow update: if (isFinance() || isManager()) && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if (isFinance() || isManager()) && canSeeCompanyDoc(resource.data);
     }
 
     // พบระหว่างตรวจสอบ Firestore Rules ทั้งไฟล์อย่างเป็นระบบ (v1.0.299) — เจอ collection ที่มีการอนุมัติ/
@@ -997,7 +1003,10 @@ service cloud.firestore {
 
     // ── Quality & Compliance ─────────────────────────────────────────────────
     match /complaints/{docId} {
-      allow read, write: if isStaff();
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
+      allow create: if isStaff() && canSeeCompanyDoc(request.resource.data);
+      allow update: if isStaff() && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isStaff() && canSeeCompanyDoc(resource.data);
     }
 
     match /inspections/{docId} {
@@ -1216,12 +1225,17 @@ service cloud.firestore {
 
     // ── PDPA — พนักงานบันทึกความยินยอมได้ตามงานปกติ แต่คำขอสิทธิ์ตามกฎหมาย (DSR) ต้องผู้จัดการปิดงาน ──
     match /pdpa_consents/{docId} {
-      allow read, write: if isStaff();
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
+      allow create: if isStaff() && canSeeCompanyDoc(request.resource.data);
+      allow update: if isStaff() && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isStaff() && canSeeCompanyDoc(resource.data);
     }
 
     match /pdpa_dsr_requests/{docId} {
-      allow read: if isStaff();
-      allow write: if isManager();
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
+      allow create: if isManager() && canSeeCompanyDoc(request.resource.data);
+      allow update: if isManager() && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isManager() && canSeeCompanyDoc(resource.data);
     }
 
     // ── Quality/Compliance audits — findings อาจครอบคลุมเรื่อง PDPA ด้วย จึงเข้มเท่า legal_references ──
@@ -1234,10 +1248,10 @@ service cloud.firestore {
     // ปลอมบันทึกว่าต่อใบอนุญาต/ยื่นภาษี/เรื่องแรงงาน/สัญญาที่ครบกำหนดแล้วเสร็จจริงได้เอง ปกปิดปัญหากฎหมาย/
     // ภาษีจนโดนค่าปรับจริงได้ ล็อกเฉพาะสถานะ "done" ให้ต้องผ่านผู้จัดการ
     match /compliance_events/{docId} {
-      allow read: if isStaff();
-      allow create: if isStaff();
-      allow update: if isStaff() && statusLockRequiresManager('done');
-      allow delete: if isManager();
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
+      allow create: if isStaff() && canSeeCompanyDoc(request.resource.data);
+      allow update: if isStaff() && statusLockRequiresManager('done') && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isManager() && canSeeCompanyDoc(resource.data);
     }
 
     // ── System integrations/backups/webhooks — admin เท่านั้น ──────────────────
@@ -1319,6 +1333,7 @@ service cloud.firestore {
         'staff', 'staff_salaries', 'staff_pii', 'staff_loans', 'leave_requests', 'attendance', 'performance_reviews', 'team_targets',
         'employee_evaluations', 'disciplinary_records', 'staff_grievances', 'recruitment', 'onboarding_staff', 'offboarding_staff',
         'notifications', 'inspections', 'courtesy_car_jobs', 'sop_documents', 'legal_references', 'kb_articles', 'product_knowledge',
+        'complaints', 'feedback_responses', 'customer_feedback',
         'master_data', 'company_profile', 'whitelabel_settings', 'sms_otp_settings',
         'bank_partner_info', 'insurance_rate_cards', 'ai_officer_chats',
         'api_keys', 'security_policies', 'security_sessions',
