@@ -442,6 +442,14 @@ service cloud.firestore {
       allow delete: if isStaff() && canSeeCompanyDoc(resource.data);
     }
 
+    // เดิมไม่มี match block เจาะจงเลย ตกอยู่ใต้ catch-all isStaff() กว้าง — คงสิทธิ์เดิมไว้ (isStaff() ทุกจุด) เพิ่มแค่การกรองตามบริษัท
+    match /vehicle_receiving/{docId} {
+      allow read: if isStaff() && canSeeCompanyDoc(resource.data);
+      allow create: if isStaff() && canSeeCompanyDoc(request.resource.data);
+      allow update: if isStaff() && canSeeCompanyDoc(resource.data) && canSeeCompanyDoc(request.resource.data);
+      allow delete: if isStaff() && canSeeCompanyDoc(resource.data);
+    }
+
     match /vehicle_inspections/{docId} {
       allow read: if isStaff() && canSeeCompanyDoc(resource.data);
       allow create: if isStaff() && canSeeCompanyDoc(request.resource.data);
@@ -1542,7 +1550,7 @@ service cloud.firestore {
         'price_negotiations', 'invoices', 'referrers', 'referrals',
         'vehicles', 'bookings', 'booking_national_ids', 'tasks', 'customers',
         'comm_logs', 'quotations', 'followups', 'greeting_sends', 'test_drives', 'appointments',
-        'vehicle_orders', 'parts', 'pdi', 'service_appointments', 'vehicle_inspections', 'job_cards',
+        'vehicle_orders', 'parts', 'pdi', 'vehicle_receiving', 'service_appointments', 'vehicle_inspections', 'job_cards',
         'cashier_shift_closes', 'charging_sessions', 'energy_readings', 'auto_receipts', 'auto_send_rules', 'vendors', 'compliance_checklist',
         'recruitment_jobs', 'shift_schedules', 'staff_skills', 'team_meetings',
         'refund_requests', 'purchase_orders', 'supplier_pos', 'debts', 'deposits',

@@ -2132,6 +2132,66 @@ describe('company scoping — job_cards (v1.0.502)', () => {
   })
 })
 
+// v1.0.514 — vehicle_receiving (รับรถเข้า/ตรวจ PDI): collection ใหม่ที่เพิ่งพบว่าไม่เคยแยกบริษัทเลยทั้งไฟล์
+// (VehicleReceiving.js) แก้โค้ดแอปครบแล้วใน v1.0.513 เดิมไม่มี match block เจาะจง ตกอยู่ใต้ catch-all isStaff()
+// จึงใช้ role 'sales' เดิมได้ตรงๆ เหมือนแพทเทิร์น job_cards
+describe('company scoping — vehicle_receiving (v1.0.514)', () => {
+  it('the program-owner account (by email) sees a doc from a company they are not a member of', async () => {
+    await seedUser('csvr1', { role: 'owner', active: true })
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('vehicle_receiving/d1').set({ note: 'x', companyId: 'companyB' })
+    })
+    const db = testEnv.authenticatedContext('csvr1', { email: 'ghunt1007@gmail.com' }).firestore()
+    await assertSucceeds(db.doc('vehicle_receiving/d1').get())
+    await assertSucceeds(db.collection('vehicle_receiving').get())
+  })
+
+  it('a plain owner-role account that is NOT the program-owner email is company-scoped like anyone else', async () => {
+    await seedUser('csvr2', { role: 'owner', active: true, companyIds: ['companyA'] })
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('vehicle_receiving/d2').set({ note: 'x', companyId: 'companyB' })
+    })
+    const db = testEnv.authenticatedContext('csvr2', { email: 'somsak@lamom.one' }).firestore()
+    await assertFails(db.doc('vehicle_receiving/d2').get())
+    await assertFails(db.collection('vehicle_receiving').get())
+    await assertSucceeds(db.collection('vehicle_receiving').where('companyId', 'in', ['companyA']).get())
+  })
+
+  it('a groupWide:true user sees a doc from a company they are not a member of', async () => {
+    await seedUser('csvr3', { role: 'hr', active: true, companyIds: ['companyA'], groupWide: true })
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('vehicle_receiving/d3').set({ note: 'x', companyId: 'companyB' })
+    })
+    const db = testEnv.authenticatedContext('csvr3').firestore()
+    await assertSucceeds(db.doc('vehicle_receiving/d3').get())
+    await assertSucceeds(db.collection('vehicle_receiving').get())
+  })
+
+  it('a company-scoped sales user CANNOT open a doc belonging to a different company directly', async () => {
+    await seedUser('csvr4', { role: 'sales', active: true, companyIds: ['companyA'] })
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('vehicle_receiving/d4').set({ note: 'x', companyId: 'companyB' })
+    })
+    const db = testEnv.authenticatedContext('csvr4').firestore()
+    await assertFails(db.doc('vehicle_receiving/d4').get())
+  })
+
+  it('a company-scoped sales user CAN list docs when the query is properly scoped with a matching where clause', async () => {
+    await seedUser('csvr5', { role: 'sales', active: true, companyIds: ['companyA'] })
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('vehicle_receiving/d5').set({ note: 'x', companyId: 'companyA' })
+    })
+    const db = testEnv.authenticatedContext('csvr5').firestore()
+    await assertSucceeds(db.collection('vehicle_receiving').where('companyId', 'in', ['companyA']).get())
+  })
+
+  it('a company-scoped sales user CANNOT list docs with no where clause at all', async () => {
+    await seedUser('csvr6', { role: 'sales', active: true, companyIds: ['companyA'] })
+    const db = testEnv.authenticatedContext('csvr6').firestore()
+    await assertFails(db.collection('vehicle_receiving').get())
+  })
+})
+
 // v1.0.504 — Phase 4: canSeeCompanyDoc() เปิดใช้งานจริงกับ 35 collection ฝั่งการเงิน โค้ดแอปทุกหน้าที่อ่าน/
 // เขียน collection เหล่านี้แก้ให้ใช้ companyScopeFilters()/myEffectiveCompanyId() ครบแล้วใน v1.0.503 —
 // role gate เดิมของแต่ละ collection หลากหลายมาก (isStaff/isFinance/isManager/isService ผสมกัน) แต่ role
