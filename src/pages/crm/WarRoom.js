@@ -14,6 +14,8 @@
 import { formatCurrency } from '../../utils/format.js'
 import { getSalesData, watchDocs, seedDemoData } from '../../core/db.js'
 import { navigate } from '../../core/router.js'
+import { on } from '../../core/store.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -171,9 +173,9 @@ export default async function WarRoomPage(container) {
   let firstBookingsLoaded = false
   let unsubCustomers = () => {}
   let unsubBookings = () => {}
-  function startWatch() {
+  function startWatchCustomers() {
     unsubCustomers()
-    unsubCustomers = watchDocs('customers', [], 'createdAt', 'desc', 500, docs => {
+    unsubCustomers = watchDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 500, docs => {
       if (container.__routerGen !== myGen) { unsubCustomers(); return }
       // softDelete() ไม่ได้ลบเอกสารจริง — ต้องกรอง !deleted ออกเอง ไม่งั้นลูกค้าที่ลบไปแล้วจะยังถูกนับใน
       // Pipeline tab และ Win/Loss/funnel
@@ -181,13 +183,19 @@ export default async function WarRoomPage(container) {
       firstCustomersLoaded = true
       if (firstBookingsLoaded) { recomputeDerived(); renderPage() }
     })
+  }
+  function startWatchBookingsWr() {
     unsubBookings()
-    unsubBookings = watchDocs('bookings', [], 'createdAt', 'desc', 500, docs => {
+    unsubBookings = watchDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 500, docs => {
       if (container.__routerGen !== myGen) { unsubBookings(); return }
       bookings = docs
       firstBookingsLoaded = true
       if (firstCustomersLoaded) { recomputeDerived(); renderPage() }
     })
+  }
+  function startWatch() {
+    startWatchCustomers()
+    startWatchBookingsWr()
   }
   try { sales = await getSalesData() } catch { sales = [] }
   if (container.__routerGen !== myGen) return
@@ -414,7 +422,9 @@ export default async function WarRoomPage(container) {
   }
 
   startWatch()
-  return function cleanupWarRoom() { unsubCustomers(); unsubBookings() }
+  const offCompanyFilterCustomers = on('activeCompanyFilter', startWatchCustomers)
+  const offCompanyFilterBookingsWr = on('activeCompanyFilter', startWatchBookingsWr)
+  return function cleanupWarRoom() { unsubCustomers(); unsubBookings(); offCompanyFilterCustomers(); offCompanyFilterBookingsWr() }
 }
 
 function kpi(title, value, color) {

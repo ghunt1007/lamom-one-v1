@@ -2,6 +2,7 @@ import { formatCurrency, formatDate, todayBangkok, toDateStr } from '../../utils
 import { exportToExcel } from '../../utils/importExport.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData, getCommissionData, listDocs } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 const REPORT_CATEGORIES = {
   sales:    { label: '💰 ยอดขาย', icon: '💰', color: 'success' },
@@ -155,7 +156,7 @@ export default async function ReportCenterPage(container) {
     no_contact: 'ติดต่อไม่ได้', other: 'อื่นๆ',
   }
   try {
-    const bookings = await listDocs('bookings', [], 'createdAt', 'desc', 500).catch(() => [])
+    const bookings = await listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => [])
     if (container.__routerGen !== myGen) return
     const r008 = bookings
       .filter(b => !b.deleted && b.status === 'ถอนจอง')

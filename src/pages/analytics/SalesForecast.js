@@ -2,6 +2,7 @@ import { formatCurrency, toDateStr } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getSalesData, listDocs } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 const MONTHS_TH = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 
@@ -62,7 +63,7 @@ export default async function SalesForecastPage(container) {
   try {
     const [sales, customersRaw] = await Promise.all([
       getSalesData(),
-      listDocs('customers', [], 'createdAt', 'desc', 2000).catch(() => []),
+      listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 2000).catch(() => []),
     ])
     if (container.__routerGen !== myGen) return
     // softDelete() ไม่ลบเอกสารจริง แค่ตั้ง deleted:true — กรองออกกันลูกค้าที่ลบไปแล้วปนในพยากรณ์ยอดขาย

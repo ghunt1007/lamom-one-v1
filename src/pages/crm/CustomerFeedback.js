@@ -48,7 +48,7 @@ export default async function CustomerFeedbackPage(container) {
   let dataSource = 'demo'
 
   try {
-    const bookings = await listDocs('bookings', [], 'createdAt', 'desc', 300).catch(() => [])
+    const bookings = await listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 300).catch(() => [])
     if (container.__routerGen !== myGen) return
     const delivered = bookings.filter(b => b.status === 'ส่งมอบแล้ว')
     // แสดงเฉพาะ Feedback จริงเมื่อมีจริง — ห้ามเอา DEMO_FEEDBACK มาปนกับข้อมูลจริง

@@ -30,7 +30,7 @@ export default async function VinDecoderPage(container) {
   async function loadData() {
     loading = true
     let bookings = [], jobs = [], policies = []
-    try { bookings = await listAllDocs('bookings', [], 'createdAt', 'desc') } catch {}
+    try { bookings = await listAllDocs('bookings', companyScopeFilters(), 'createdAt', 'desc') } catch {}
     try { jobs = await listAllDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc') } catch {}
     try { policies = await listDocs('insurance_policies', [], 'endDate', 'desc', 500) } catch {}
     if (container.__routerGen !== myGen) return

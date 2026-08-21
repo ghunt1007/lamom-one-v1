@@ -76,7 +76,7 @@ export default async function AnalyticsDashboard(container) {
 
   try {
     const [customersRaw, sales, jobsRaw, commission] = await Promise.all([
-      listDocs('customers', [], 'createdAt', 'desc', 2000).catch(() => []),
+      listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 2000).catch(() => []),
       getSalesData().catch(() => []),
       listDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc', 2000).catch(() => []),
       getCommissionData().catch(() => []),

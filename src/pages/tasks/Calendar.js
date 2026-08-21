@@ -61,12 +61,20 @@ export default async function CalendarPage(container) {
   startWatchTasks()
   const offCompanyFilter = on('activeCompanyFilter', startWatchTasks)
 
+  let unsubBookings = () => {}
+  function startWatchBookings() {
+    unsubBookings()
+    unsubBookings = watchDocs('bookings', companyScopeFilters(), 'deliveryDate', 'asc', 500, rows => {
+      if (container.__routerGen !== myGen) { unsubBookings(); return }
+      bookings = rows; renderCalendar()
+    })
+  }
+  startWatchBookings()
+  const offCompanyFilterBookings = on('activeCompanyFilter', startWatchBookings)
+
   const unsubs = [
     () => unsubTasks(),
-    watchDocs('bookings', [], 'deliveryDate', 'asc', 500, rows => {
-      if (container.__routerGen !== myGen) { unsubs.forEach(u => u()); return }
-      bookings = rows; renderCalendar()
-    }),
+    () => unsubBookings(),
     watchDocs('calendar_events', [], 'date', 'asc', 500, rows => {
       if (container.__routerGen !== myGen) { unsubs.forEach(u => u()); return }
       events = rows; renderCalendar()
@@ -346,5 +354,5 @@ export default async function CalendarPage(container) {
     renderCalendar()
   })
 
-  return function cleanupCalendar() { unsubs.forEach(u => u()); offCompanyFilter() }
+  return function cleanupCalendar() { unsubs.forEach(u => u()); offCompanyFilter(); offCompanyFilterBookings() }
 }

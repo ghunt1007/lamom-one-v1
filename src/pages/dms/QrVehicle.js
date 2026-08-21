@@ -6,6 +6,7 @@ import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -25,7 +26,7 @@ export default async function QrVehiclePage(container) {
     try {
       // เดิม query collection 'stock' ซึ่งไม่มีอยู่จริงในระบบ — สต็อกจริงอยู่ใน 'vehicles' (เขียนโดย
       // Stock.js) ทำให้หน้านี้หาไม่พบรถจริงเลย แก้ให้อ่านจาก 'vehicles' เหมือนหน้าอื่นๆ ที่แสดงสต็อกจริง
-      const docs = await listDocs('vehicles', [], 'arrivedAt', 'desc', 100)
+      const docs = await listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 100)
       vehicles = docs.filter(d => !d.deleted).map((d, i) => ({
         id: d.id,
         vin: d.vin || `VIN-${i+1}`,

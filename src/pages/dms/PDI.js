@@ -246,7 +246,7 @@ export default async function PdiPage(container) {
     // มีอยู่ในสต็อก) ไม่มี vehicleId ผูกกับรถจริงเลย ทำให้ผ่าน PDI แล้วอัปเดตสถานะรถจริงกลับไม่ได้ (ดู
     // pdi-pass ด้านบน) แก้ให้ต้องเลือกรถจริงจาก 'vehicles' เท่านั้น แล้วเก็บ vehicleId ไว้ในเอกสาร pdi
     let stockVehicles = []
-    try { stockVehicles = (await listDocs('vehicles', [], 'arrivedAt', 'desc', 300)).filter(v => !v.deleted) } catch (e) { stockVehicles = [] }
+    try { stockVehicles = (await listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 300)).filter(v => !v.deleted) } catch (e) { stockVehicles = [] }
 
     const { el, close } = openModal({
       title: '➕ เปิด PDI ใหม่', size: 'md',

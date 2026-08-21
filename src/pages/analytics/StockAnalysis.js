@@ -6,6 +6,7 @@ import { formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -37,7 +38,7 @@ export default async function StockAnalysisPage(container) {
   try {
     // เดิม orderBy('createdAt') — รถจริงในระบบไม่มี field นี้ (มีแต่ arrivedAt) ทำให้ Firestore orderBy
     // ตัดออกจากผลลัพธ์ไปเงียบๆทั้งหมด เห็นสต็อกรถ 0 คันตลอด ต้องใช้ arrivedAt ให้ตรงกับ Stock.js
-    const vehicles = await listDocs('vehicles', [], 'arrivedAt', 'desc', 500).catch(() => [])
+    const vehicles = await listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 500).catch(() => [])
     if (container.__routerGen !== myGen) return
     if (vehicles.length >= 2) {
       const grouped = {}

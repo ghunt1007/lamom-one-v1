@@ -2,6 +2,7 @@ import { formatCurrency, toDateStr } from '../../utils/format.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs } from '../../core/db.js'
 import { openModal } from '../../utils/modal.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -43,8 +44,8 @@ export default async function LostDealAnalysisPage(container) {
   // Load real lost deals: 'ถอนจอง' bookings + 'lost' leads
   try {
     const [bookings, leads] = await Promise.all([
-      listDocs('bookings', [], 'createdAt', 'desc', 500).catch(() => []),
-      listDocs('customers', [], 'createdAt', 'desc', 500).catch(() => []),
+      listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
+      listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
     ])
     if (container.__routerGen !== myGen) return
 

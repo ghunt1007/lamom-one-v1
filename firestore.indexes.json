@@ -154,7 +154,9 @@
     { "collectionGroup": "team_meetings", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "date", "order": "DESCENDING" }] },
     { "collectionGroup": "welfare_items", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "name", "order": "ASCENDING" }] },
     { "collectionGroup": "team_targets", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "department", "order": "ASCENDING" }] },
-    { "collectionGroup": "team_targets", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "period", "order": "DESCENDING" }] }
+    { "collectionGroup": "team_targets", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "period", "order": "DESCENDING" }] },
+    { "collectionGroup": "bookings", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "deliveryDate", "order": "ASCENDING" }] },
+    { "collectionGroup": "vehicles", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "arrivedAt", "order": "ASCENDING" }] }
   ],
   "fieldOverrides": []
 }

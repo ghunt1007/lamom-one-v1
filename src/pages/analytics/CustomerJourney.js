@@ -5,6 +5,7 @@
 import { formatDate, formatCurrency, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { getSalesData, listDocs } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 const JOURNEY_STAGES = [
   { id: 'awareness',     label: 'รู้จัก', icon: '👁', color: '#8b5cf6', count: 2840, dropPct: 62 },
@@ -43,7 +44,7 @@ export default async function CustomerJourneyPage(container) {
   try {
     const [sales, leads] = await Promise.all([
       getSalesData().catch(() => []),
-      listDocs('customers', [], 'createdAt', 'desc', 500).catch(() => []),
+      listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
     ])
     if (container.__routerGen !== myGen) return
 

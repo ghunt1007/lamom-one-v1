@@ -6,6 +6,7 @@ import { formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -32,7 +33,7 @@ export default async function PriceListPage(container) {
     // ของจริงเลย ไม่ได้สะท้อนสต็อกจริงในโชว์รูม แก้ให้คำนวณสดจากจำนวนรถจริงใน 'vehicles' แทน (รวมทุกรุ่น
     // ไม่แยกต่อโมเดล เพราะชื่อรุ่นใน vehicle_models เป็น free text ไม่ได้ผูก id กับ vehicles.model จริง —
     // การจับคู่ต่อรุ่นแม่นยำต้องทำ data-model merge ที่ใหญ่กว่านี้)
-    try { realStockCount = (await listDocs('vehicles', [], 'arrivedAt', 'desc', 500)).filter(v => !v.deleted && v.status !== 'sold').length }
+    try { realStockCount = (await listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 500)).filter(v => !v.deleted && v.status !== 'sold').length }
     catch (e) { realStockCount = null }
     loading = false
     if (container.__routerGen === myGen) renderPage()

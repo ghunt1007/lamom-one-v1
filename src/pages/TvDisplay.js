@@ -10,6 +10,7 @@
  */
 import { listDocs, getSalesData, getCommissionData, seedDemoData } from '../core/db.js'
 import { formatCurrency, todayBangkok, toDateStr } from '../utils/format.js'
+import { companyScopeFilters } from '../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -388,7 +389,7 @@ export default async function TvDisplayPage(container) {
     let bookings = [], sales = [], commission = []
     try {
       ;[bookings, sales, commission] = await Promise.all([
-        listDocs('bookings', [], 'createdAt', 'desc', 500).catch(() => []),
+        listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
         getSalesData().catch(() => []),
         getCommissionData().catch(() => []),
       ])

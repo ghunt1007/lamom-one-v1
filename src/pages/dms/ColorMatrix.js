@@ -45,7 +45,7 @@ export default async function ColorMatrixPage(container) {
 
   async function loadData() {
     loading = true
-    try { vehicles = await listDocs('vehicles', [], 'arrivedAt', 'desc', 1000) } catch { vehicles = [] }
+    try { vehicles = await listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 1000) } catch { vehicles = [] }
     try { orders = await listDocs('vehicle_orders', companyScopeFilters(), 'createdAt', 'desc', 500) } catch { orders = [] }
     computeMatrix()
     loading = false

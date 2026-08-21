@@ -4,10 +4,11 @@
  */
 import { formatCurrency, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, on } from '../../core/store.js'
 import { navigate } from '../../core/router.js'
 import { watchDocs } from '../../core/db.js'
 import { analyzeCustomer, isAiEnabled } from '../../utils/ai.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -53,11 +54,17 @@ export default async function LeadScoringPage(container) {
   container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
 
   // Real-time: ลูกค้าที่ยังเป็น lead/pp — ไม่มีช่องค้นหาในหน้านี้จึงไม่ต้องกันโฟกัส
-  const unsubLeads = watchDocs('customers', [], 'createdAt', 'desc', 500, rows => {
-    if (container.__routerGen !== myGen) { unsubLeads(); return }
-    leads = rows.filter(c => (c.stage === 'lead' || c.stage === 'pp') && c.status !== 'lost')
-    renderPage()
-  })
+  let unsubLeads = () => {}
+  function startWatchLeads() {
+    unsubLeads()
+    unsubLeads = watchDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 500, rows => {
+      if (container.__routerGen !== myGen) { unsubLeads(); return }
+      leads = rows.filter(c => (c.stage === 'lead' || c.stage === 'pp') && c.status !== 'lost')
+      renderPage()
+    })
+  }
+  startWatchLeads()
+  const offCompanyFilter = on('activeCompanyFilter', startWatchLeads)
 
   function renderPage() {
     const scored = leads.map(l => ({ ...l, ...heuristicScore(l) }))
@@ -156,7 +163,7 @@ export default async function LeadScoringPage(container) {
     }))
   }
 
-  return function cleanupLeadScoring() { unsubLeads() }
+  return function cleanupLeadScoring() { unsubLeads(); offCompanyFilter() }
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

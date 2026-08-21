@@ -43,7 +43,7 @@ export default async function SentimentPage(container) {
   async function loadData() {
     loading = true
     let customers = [], logs = [], notes = []
-    try { customers = await listDocs('customers', [], 'createdAt', 'desc', 1000) } catch {}
+    try { customers = await listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 1000) } catch {}
     try { logs = await listDocs('comm_logs', companyScopeFilters(), 'createdAt', 'desc', 500) } catch {}
     try { notes = await listDocs('customer_notes', [], 'time', 'desc', 500) } catch {}
 

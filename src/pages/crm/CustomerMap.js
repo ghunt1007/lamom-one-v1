@@ -6,6 +6,7 @@ import { formatCurrency } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { listAllDocs } from '../../core/db.js'
 import { exportToExcel } from '../../utils/importExport.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -27,7 +28,7 @@ export default async function CustomerMapPage(container) {
   async function loadData() {
     loading = true
     let bookings = []
-    try { bookings = await listAllDocs('bookings', [], 'createdAt', 'desc') } catch {}
+    try { bookings = await listAllDocs('bookings', companyScopeFilters(), 'createdAt', 'desc') } catch {}
     if (container.__routerGen !== myGen) return
 
     const real = bookings.filter(b => !b.deleted && b.status !== 'ถอนจอง')

@@ -5,6 +5,7 @@ import { navigate } from '../../core/router.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 import { heuristicScore } from '../ai/LeadScoring.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
@@ -50,7 +51,7 @@ export default async function LeadGenerationPage(container) {
     try {
       const [campaignsData, leadsRaw] = await Promise.all([
         listDocs('lead_gen_campaigns', [], 'startDate', 'desc', 500).catch(() => []),
-        listDocs('customers', [], 'createdAt', 'desc', 100).catch(() => []),
+        listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 100).catch(() => []),
       ])
       campaigns = campaignsData
       recentLeads = leadsRaw

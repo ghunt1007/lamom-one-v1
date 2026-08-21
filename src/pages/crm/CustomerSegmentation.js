@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData, listDocs, listAllDocs, createDoc, softDelete } from '../../core/db.js'
 import { OCCUPATIONS } from '../../utils/financeMatch.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') }
 
@@ -46,7 +47,7 @@ export default async function CustomerSegmentationPage(container) {
   let occupationSegments = []
 
   try {
-    const customers = (await listDocs('customers', [], 'createdAt', 'desc', 1000).catch(() => [])).filter(c => !c.deleted)
+    const customers = (await listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 1000).catch(() => [])).filter(c => !c.deleted)
     if (container.__routerGen !== myGen) return
     const byOcc = {}
     customers.forEach(c => {
@@ -114,7 +115,7 @@ export default async function CustomerSegmentationPage(container) {
   } catch {}
 
   try {
-    const bookings = await listAllDocs('bookings', [], 'createdAt', 'desc')
+    const bookings = await listAllDocs('bookings', companyScopeFilters(), 'createdAt', 'desc')
     if (container.__routerGen !== myGen) return
     const real = bookings.filter(b => !b.deleted && b.status !== 'ถอนจอง')
     const byProvince = {}

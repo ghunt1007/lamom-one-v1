@@ -80,7 +80,7 @@ export default async function ReportBuilderPage(container) {
 
     let entities = []
     if (primaryGroup === 'CRM') {
-      const customers = await listDocs('customers', [], 'createdAt', 'desc', 300)
+      const customers = await listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 300)
       entities = customers.filter(c => !c.deleted).map(c => ({ key: c.id, get: (f) => {
         if (f === 'ชื่อลูกค้า') return `${c.firstName||''} ${c.lastName||''}`.trim() || '-'
         if (f === 'รุ่นที่สนใจ') return c.interestedModel || '-'

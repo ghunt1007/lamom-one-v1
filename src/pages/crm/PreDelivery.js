@@ -5,6 +5,7 @@ import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { printDocument, docHeader, docFooter, esc } from '../../utils/print.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 // เช็คลิสต์ฝั่งเซลส์ (กลุ่ม) — แต่ละข้อ pass/fail/na
 const CHECKLIST = {
@@ -34,7 +35,7 @@ export default async function PreDeliveryPage(container) {
   let filter = 'pending'  // pending | ready | all
 
   async function loadData() {
-    try { bookings = await listDocs('bookings', [], 'createdAt', 'desc', 500) } catch {}
+    try { bookings = await listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 500) } catch {}
     bookings = bookings.filter(b => !b.deleted && b.status !== 'ถอนจอง')
     bookings.forEach(b => { if (!b.pdItems) b.pdItems = buildItems() })
     render()

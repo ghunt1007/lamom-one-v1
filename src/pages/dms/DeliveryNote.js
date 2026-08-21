@@ -4,6 +4,7 @@ import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getBranches, getSalesStaff } from '../../data/masterData.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -69,7 +70,7 @@ export default async function DeliveryNotePage(container) {
 
   // Load from bookings
   try {
-    const bookings = await listDocs('bookings', [], 'createdAt', 'desc', 500)
+    const bookings = await listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 500)
     if (container.__routerGen !== myGen) return
     const relevant = bookings.filter(b => ['รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ', 'ส่งมอบแล้ว', 'ถอนจอง'].includes(b.status))
     if (relevant.length) {

@@ -142,8 +142,8 @@ export default async function AiOfficersPage(container) {
   let stats = { customers: 0, vehicles: 0, jobs: 0, leads: 0 }
   try {
     const [cust, veh, jobs] = await Promise.all([
-      listDocs('customers', [], 'createdAt', 'desc', 200).catch(() => []),
-      listAllDocs('vehicles', [], 'arrivedAt', 'desc').catch(() => []),
+      listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 200).catch(() => []),
+      listAllDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc').catch(() => []),
       listAllDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc').catch(() => []),
     ])
     const leads = cust.filter(c => c.stage === 'lead' || c.stage === 'pp')

@@ -1,7 +1,8 @@
 import { watchDocs, updateDocData, seedDemoData } from '../../core/db.js'
-import { showToast } from '../../core/store.js'
+import { showToast, on } from '../../core/store.js'
 import { formatCurrency, initials, fullName, timeAgo } from '../../utils/format.js'
 import { navigate } from '../../core/router.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -237,12 +238,18 @@ export default async function PipelinePage(container) {
   document.getElementById('pl-add-btn').addEventListener('click', () => navigate('/crm/customers'))
 
   let firstSnapshot = true
-  const unsubCustomers = watchDocs('customers', [], 'createdAt', 'desc', 500, rows => {
-    if (container.__routerGen !== myGen) { unsubCustomers(); return }
-    customers = rows.filter(c => !c.deleted)
-    if (firstSnapshot) { firstSnapshot = false; renderBoard() }
-    else safeRenderBoard()
-  })
+  let unsubCustomers = () => {}
+  function startWatchCustomers() {
+    unsubCustomers()
+    unsubCustomers = watchDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 500, rows => {
+      if (container.__routerGen !== myGen) { unsubCustomers(); return }
+      customers = rows.filter(c => !c.deleted)
+      if (firstSnapshot) { firstSnapshot = false; renderBoard() }
+      else safeRenderBoard()
+    })
+  }
+  startWatchCustomers()
+  const offCompanyFilter = on('activeCompanyFilter', startWatchCustomers)
 
-  return function cleanupPipeline() { unsubCustomers() }
+  return function cleanupPipeline() { unsubCustomers(); offCompanyFilter() }
 }

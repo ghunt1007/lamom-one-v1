@@ -4,6 +4,7 @@ import { loadMemories, addMemory, deleteMemory, saveMessage, loadRecentMessages,
 import { getState, showToast } from '../../core/store.js'
 import { getSalesData, listDocs } from '../../core/db.js'
 import { todayBangkok, formatCurrency } from '../../utils/format.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
 
@@ -41,7 +42,7 @@ export default async function PersonalAIPage(container) {
     try {
       const [sales, vehicles] = await Promise.all([
         getSalesData().catch(() => []),
-        listDocs('vehicles', [], 'arrivedAt', 'desc', 500).catch(() => []),
+        listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 500).catch(() => []),
       ])
       const today = todayBangkok()
       const thisMonth = today.slice(0, 7)

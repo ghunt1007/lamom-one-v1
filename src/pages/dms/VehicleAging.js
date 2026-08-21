@@ -6,6 +6,7 @@ import { formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, updateDocData, createDoc, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 const SALES_NOTIFY_ROLES = ['sales', 'manager', 'owner', 'admin']
 async function notifySalesTeam(title, body, link) {
@@ -41,7 +42,7 @@ export default async function VehicleAgingPage(container) {
     try {
       // เดิม query collection 'stock' ซึ่งไม่มีอยู่จริงในระบบ (ไม่มีหน้าไหนเขียนลง collection นี้เลย) —
       // สต็อกจริงอยู่ใน 'vehicles' (เขียนโดย Stock.js) ทำให้หน้านี้ว่างเปล่าตลอดเวลาในทางปฏิบัติ
-      const docs = await listDocs('vehicles', [], 'arrivedAt', 'asc', 200)
+      const docs = await listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'asc', 200)
       stock = docs.filter(d => !d.deleted && d.status !== 'sold').map((d, i) => ({
         id: d.id,
         vin: d.vin || `VIN-${i+1}`,

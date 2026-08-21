@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -232,7 +233,7 @@ export default async function RecallTrackerPage(container) {
         searchTimer = setTimeout(async () => {
           if (q.length < 2) { el.querySelector('#av-results').innerHTML = ''; return }
           let bookings = []
-          try { bookings = await listDocs('bookings', [], 'createdAt', 'desc', 500) } catch { bookings = [] }
+          try { bookings = await listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 500) } catch { bookings = [] }
           matches = bookings.filter(b => !b.deleted && (
             (b.vin || '').toLowerCase().includes(q) || (b.whitePlate || '').toLowerCase().includes(q) || (b.custName || '').toLowerCase().includes(q)
           )).slice(0, 8)

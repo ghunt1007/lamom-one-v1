@@ -6,6 +6,7 @@ import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 function myName() {
   const me = getState('user') || {}
@@ -43,7 +44,7 @@ export default async function DeliveryCalendarPage(container) {
   async function loadData() {
     loading = true
     try {
-      const docs = await listDocs('bookings', [], 'deliveryDate', 'asc', 200)
+      const docs = await listDocs('bookings', companyScopeFilters(), 'deliveryDate', 'asc', 200)
       const pending = docs.filter(d => d.deliveryDate && ['จองแล้ว','รอส่งมอบ','ตัดตัวเลขรอส่งมอบ','ส่งมอบแล้ว'].includes(d.status))
       deliveries = pending.map(d => ({
         id: d.id,

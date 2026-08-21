@@ -6,6 +6,7 @@ import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 function myName() {
   const me = getState('user') || {}
@@ -182,7 +183,7 @@ export default async function VehicleTransferPage(container) {
     // เดิมฟอร์มนี้ให้พิมพ์ทะเบียน/รุ่นเป็น free text เอง ไม่ได้เลือกรถจริงจากสต็อกเลย และ vin/color ถูก
     // เซ็ตเป็นสตริงว่างตายตัวเสมอ — แก้ให้ต้องเลือกรถจริงจาก 'vehicles' เท่านั้น ดึง vin/color จริงมาเก็บ
     let realVehicles = []
-    try { realVehicles = (await listDocs('vehicles', [], 'arrivedAt', 'desc', 300)).filter(v => !v.deleted) } catch (e) { realVehicles = [] }
+    try { realVehicles = (await listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 300)).filter(v => !v.deleted) } catch (e) { realVehicles = [] }
     openModal({
       title: '+ ขอโอนรถ',
       size: 'md',

@@ -6,6 +6,7 @@ import { formatCurrency, formatDate, timeAgo, fullName, todayBangkok } from '../
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData, listDocs, createDoc, updateDocData } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -59,7 +60,7 @@ export default async function CustomerLifecyclePage(container) {
   // instead of the old hardcoded DEMO_CUSTOMERS array.
   try {
     const [realCustomersRaw, sales] = await Promise.all([
-      listDocs('customers', [], 'createdAt', 'desc', 500).catch(() => []),
+      listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
       getSalesData().catch(() => []),
     ])
     if (container.__routerGen !== myGen) return

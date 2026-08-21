@@ -66,7 +66,7 @@ async function computeRealSignals(currSales, growth) {
   } catch {}
 
   try {
-    const vehicles = await listDocs('vehicles', [], 'arrivedAt', 'asc', 500)
+    const vehicles = await listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'asc', 500)
     const aging = vehicles.filter(v => !v.deleted && (v.status === 'available' || v.status === 'demo') && v.arrivedAt && (now - new Date(v.arrivedAt)) / 86400000 > 90)
     if (aging.length) {
       const value = aging.reduce((a,v) => a + (v.price || 0), 0)

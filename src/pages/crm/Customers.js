@@ -390,7 +390,7 @@ export default async function CustomersPage(container) {
     let stockAvailable = null
     let overBudget = false
     try {
-      const vehicles = await listDocs('vehicles', [], 'arrivedAt', 'desc', 500)
+      const vehicles = await listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 500)
       if (c.interestedModel) {
         stockAvailable = isModelInStock(c.interestedModel, vehicles)
         const needle = c.interestedModel.toLowerCase()

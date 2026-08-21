@@ -50,7 +50,7 @@ export default async function FollowUpPage(container) {
       const stored = await listDocs('followups', companyScopeFilters(), 'dueDate', 'asc', 300)
       let virtual = []
       try {
-        const bookings = await listDocs('bookings', [], 'createdAt', 'desc', 200)
+        const bookings = await listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 200)
         const delivered = bookings.filter(b => b.status === 'ส่งมอบแล้ว')
         virtual = delivered
           .filter(b => !stored.some(s => s.sourceBookingId === b.id))

@@ -6,6 +6,7 @@ import { formatCurrency } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData, listDocs } from '../../core/db.js'
 import { exportToExcel } from '../../utils/importExport.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 const FUNNEL_STAGES = [
   { stage: 'Lead เข้ามา', count: 420, icon: '🧲', color: '#3b82f6' },
@@ -40,7 +41,7 @@ export default async function ConversionFunnelPage(container) {
   try {
     const [sales, customers] = await Promise.all([
       getSalesData().catch(() => []),
-      listDocs('customers', [], 'createdAt', 'desc', 500).catch(() => []),
+      listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
     ])
     const leads = customers
     if (container.__routerGen !== myGen) return

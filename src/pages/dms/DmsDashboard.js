@@ -87,7 +87,7 @@ export default async function DmsDashboard(container) {
   let stock = [], orders = [], pdis = [], sales = [], tradeIns = []
   try {
     ;[stock, orders, pdis, sales, tradeIns] = await Promise.all([
-      listDocs('vehicles', [], 'arrivedAt', 'desc', 500).catch(() => []),
+      listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 500).catch(() => []),
       listDocs('vehicle_orders', companyScopeFilters(), 'createdAt', 'desc', 100).catch(() => []),
       listDocs('pdi', companyScopeFilters(), 'startDate', 'desc', 100).catch(() => []),
       getSalesData().catch(() => []),

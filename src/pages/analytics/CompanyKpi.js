@@ -2,6 +2,7 @@ import { formatCurrency, toDateStr } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getSalesData, listDocs } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 // เป้าหมายอ้างอิงมาตรฐานอุตสาหกรรม — หมวดที่ไม่มี ✅ ยังไม่มีข้อมูลจริงเชื่อมในระบบ (Service/HR/Finance/Marketing)
 // แสดงเป็น "เป้าหมายอ้างอิง" เท่านั้น ไม่นับรวมใน Overall Score เพื่อไม่ให้ปนกับหมวดที่มีข้อมูลจริง (Sales/CRM)
@@ -104,7 +105,7 @@ export default async function CompanyKpiPage(container) {
   let customers = []
 
   try {
-    const [s, c] = await Promise.all([getSalesData().catch(() => []), listDocs('customers', [], 'createdAt', 'desc', 3000).catch(() => [])])
+    const [s, c] = await Promise.all([getSalesData().catch(() => []), listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 3000).catch(() => [])])
     if (container.__routerGen !== myGen) return
     sales = s
     // softDelete() ไม่ลบเอกสารจริง แค่ตั้ง deleted:true — กรองออกกันลูกค้าที่ลบไปแล้วปนอยู่ใน KPI

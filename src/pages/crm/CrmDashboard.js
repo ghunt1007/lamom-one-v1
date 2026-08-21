@@ -1,6 +1,7 @@
 import { listDocs, seedDemoData, getSalesData } from '../../core/db.js'
 import { navigate } from '../../core/router.js'
 import { formatCurrency, toDate } from '../../utils/format.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 const QUICK_LINKS = [
   { icon:'👥', label:'ลูกค้า', sub:'ฐานข้อมูลลูกค้า', path:'/crm/customers', color:'primary' },
@@ -72,7 +73,7 @@ export default async function CrmDashboard(container) {
   let customers = [], sales = []
   try {
     ;[customers, sales] = await Promise.all([
-      listDocs('customers', [], 'createdAt', 'desc', 500).catch(() => []),
+      listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
       getSalesData().catch(() => []),
     ])
     customers = customers.filter(c => !c.deleted)

@@ -6,6 +6,7 @@ import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 function addDays(n) {
   const [y, m, d] = todayBangkok().split('-').map(Number)
@@ -35,7 +36,7 @@ export default async function StockAuditPage(container) {
       // กับรถจริงในระบบ แก้ให้ตรวจนับเทียบกับ 'vehicles' จริง (เขียนโดย Stock.js) — เก็บ checked/foundLoc
       // เป็น field เสริมบนตัวเอกสารรถจริงเลย (ไม่แยก collection) กันไม่ให้ audit หลุดจากสต็อกจริงอีก
       // ไม่รวมรถที่ขายแล้ว/ลบแล้ว เพราะไม่ได้อยู่ในโชว์รูมให้เดินตรวจนับจริง
-      const docs = await listDocs('vehicles', [], 'arrivedAt', 'asc', 300)
+      const docs = await listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'asc', 300)
       stock = docs.filter(v => !v.deleted && v.status !== 'sold').map(v => ({
         id: v.id,
         vin: v.vin || '-',

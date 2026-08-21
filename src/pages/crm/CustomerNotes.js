@@ -6,6 +6,7 @@ import { timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 function myName() {
   const me = getState('user') || {}
@@ -42,7 +43,7 @@ export default async function CustomerNotesPage(container) {
   async function loadData() {
     loading = true
     try { notes = await listDocs('customer_notes', [], 'time', 'desc', 500) } catch (e) { notes = [] }
-    try { customers = (await listDocs('customers', [], 'createdAt', 'desc', 500)).filter(c => !c.deleted) } catch (e) { customers = [] }
+    try { customers = (await listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 500)).filter(c => !c.deleted) } catch (e) { customers = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }

@@ -54,13 +54,13 @@ export default async function OperationsDashboardPage(container) {
     const [vehicles, jobs, staffList, attendance, bookings, suppliers, pos, parts] = await Promise.all([
       // เดิม orderBy('createdAt') — รถจริงในระบบไม่มี field นี้ (มีแต่ arrivedAt) ทำให้ Firestore orderBy
       // ตัดออกจากผลลัพธ์ไปเงียบๆทั้งหมด เห็นสต็อกรถ 0 คันตลอด ต้องใช้ arrivedAt ให้ตรงกับ Stock.js
-      listDocs('vehicles', [], 'arrivedAt', 'desc', 500).catch(() => []),
+      listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 500).catch(() => []),
       listDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
       // เดิม orderBy('name') — พนักงานจริงเก็บเป็น firstName/lastName แยกกัน ไม่มี field 'name' รวมเลย
       // (ดู Staff.js) ทำให้ Firestore orderBy ตัดพนักงานทุกคนออกจากผลลัพธ์ เห็นพนักงาน 0 คนตลอด
       listDocs('staff', companyScopeFilters(), 'firstName', 'asc', 500).catch(() => []),
       listDocs('attendance', [['date', '==', today]], 'date', 'desc', 500).catch(() => []),
-      listDocs('bookings', [], 'createdAt', 'desc', 1000).catch(() => []),
+      listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 1000).catch(() => []),
       listDocs('suppliers', [], 'name', 'asc', 300).catch(() => []),
       listDocs('purchase_orders', companyScopeFilters(), 'requestDate', 'desc', 300).catch(() => []),
       listDocs('parts', companyScopeFilters(), 'name', 'asc', 1000).catch(() => []),

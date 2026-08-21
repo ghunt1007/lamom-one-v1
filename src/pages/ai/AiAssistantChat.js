@@ -46,8 +46,8 @@ export default async function AiAssistantChatPage(container) {
       const thisMonth = today.slice(0, 7)
       const [sales, vehicles, customers, debts, csat, staff, jobs] = await Promise.all([
         getSalesData().catch(() => []),
-        listDocs('vehicles', [], 'arrivedAt', 'desc', 500).catch(() => []),
-        listDocs('customers', [], 'createdAt', 'desc', 500).catch(() => []),
+        listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 500).catch(() => []),
+        listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
         listDocs('debts', companyScopeFilters(), 'dueDate', 'asc', 200).catch(() => []),
         listDocs('csat', [], 'createdAt', 'desc', 100).catch(() => []),
         listDocs('staff', companyScopeFilters(), 'createdAt', 'desc', 200).catch(() => []),
