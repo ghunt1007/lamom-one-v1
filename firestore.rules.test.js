@@ -2192,6 +2192,76 @@ describe('company scoping — vehicle_receiving (v1.0.514)', () => {
   })
 })
 
+// v1.0.516 — action_plans (แผนติดตามลูกค้า), recall_campaigns/recall_campaign_vehicles (แคมเปญ Recall):
+// 3 collection ที่เพิ่งพบว่าไม่เคยแยกบริษัทเลย แก้โค้ดแอปครบแล้วใน v1.0.515 เดิมไม่มี match block เจาะจง
+// ตกอยู่ใต้ catch-all isStaff() จึงใช้ role 'sales' เดิมได้ตรงๆ เหมือนแพทเทิร์น vehicle_receiving
+describe('company scoping — action_plans / recall_campaigns / recall_campaign_vehicles (v1.0.516)', () => {
+  for (const col of ['action_plans', 'recall_campaigns', 'recall_campaign_vehicles']) {
+    describe(col, () => {
+      it('the program-owner account (by email) sees a doc from a company they are not a member of', async () => {
+        const uid = `cs_${col}_1`
+        await seedUser(uid, { role: 'owner', active: true })
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.firestore().doc(`${col}/d1`).set({ note: 'x', companyId: 'companyB' })
+        })
+        const db = testEnv.authenticatedContext(uid, { email: 'ghunt1007@gmail.com' }).firestore()
+        await assertSucceeds(db.doc(`${col}/d1`).get())
+        await assertSucceeds(db.collection(col).get())
+      })
+
+      it('a plain owner-role account that is NOT the program-owner email is company-scoped like anyone else', async () => {
+        const uid = `cs_${col}_2`
+        await seedUser(uid, { role: 'owner', active: true, companyIds: ['companyA'] })
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.firestore().doc(`${col}/d2`).set({ note: 'x', companyId: 'companyB' })
+        })
+        const db = testEnv.authenticatedContext(uid, { email: 'somsak@lamom.one' }).firestore()
+        await assertFails(db.doc(`${col}/d2`).get())
+        await assertFails(db.collection(col).get())
+        await assertSucceeds(db.collection(col).where('companyId', 'in', ['companyA']).get())
+      })
+
+      it('a groupWide:true user sees a doc from a company they are not a member of', async () => {
+        const uid = `cs_${col}_3`
+        await seedUser(uid, { role: 'hr', active: true, companyIds: ['companyA'], groupWide: true })
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.firestore().doc(`${col}/d3`).set({ note: 'x', companyId: 'companyB' })
+        })
+        const db = testEnv.authenticatedContext(uid).firestore()
+        await assertSucceeds(db.doc(`${col}/d3`).get())
+        await assertSucceeds(db.collection(col).get())
+      })
+
+      it('a company-scoped sales user CANNOT open a doc belonging to a different company directly', async () => {
+        const uid = `cs_${col}_4`
+        await seedUser(uid, { role: 'sales', active: true, companyIds: ['companyA'] })
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.firestore().doc(`${col}/d4`).set({ note: 'x', companyId: 'companyB' })
+        })
+        const db = testEnv.authenticatedContext(uid).firestore()
+        await assertFails(db.doc(`${col}/d4`).get())
+      })
+
+      it('a company-scoped sales user CAN list docs when the query is properly scoped with a matching where clause', async () => {
+        const uid = `cs_${col}_5`
+        await seedUser(uid, { role: 'sales', active: true, companyIds: ['companyA'] })
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.firestore().doc(`${col}/d5`).set({ note: 'x', companyId: 'companyA' })
+        })
+        const db = testEnv.authenticatedContext(uid).firestore()
+        await assertSucceeds(db.collection(col).where('companyId', 'in', ['companyA']).get())
+      })
+
+      it('a company-scoped sales user CANNOT list docs with no where clause at all', async () => {
+        const uid = `cs_${col}_6`
+        await seedUser(uid, { role: 'sales', active: true, companyIds: ['companyA'] })
+        const db = testEnv.authenticatedContext(uid).firestore()
+        await assertFails(db.collection(col).get())
+      })
+    })
+  }
+})
+
 // v1.0.504 — Phase 4: canSeeCompanyDoc() เปิดใช้งานจริงกับ 35 collection ฝั่งการเงิน โค้ดแอปทุกหน้าที่อ่าน/
 // เขียน collection เหล่านี้แก้ให้ใช้ companyScopeFilters()/myEffectiveCompanyId() ครบแล้วใน v1.0.503 —
 // role gate เดิมของแต่ละ collection หลากหลายมาก (isStaff/isFinance/isManager/isService ผสมกัน) แต่ role
