@@ -1,5 +1,6 @@
 import { getState, on } from '../core/store.js'
 import { listDocs, watchDocs, seedDemoData, getSalesData } from '../core/db.js'
+import { companyScopeFilters } from '../core/companyScope.js'
 import { formatCurrency, timeAgo, todayBangkok, toDateStr, toDate } from '../utils/format.js'
 import { navigate } from '../core/router.js'
 import { generateMorningBriefing } from '../utils/ai.js'
@@ -435,7 +436,7 @@ export default async function DashboardPage(container) {
     const [customers, sales, pdi, allCustomersForLeads, vehicles, teamTargets] = await Promise.all([
       listDocs('customers', [], 'createdAt', 'desc', 5).catch(() => []),
       getSalesData().catch(() => []),
-      listDocs('pdi', [], 'createdAt', 'desc', 50).catch(() => []),
+      listDocs('pdi', companyScopeFilters(), 'createdAt', 'desc', 50).catch(() => []),
       listDocs('customers', [], 'createdAt', 'desc', 500).catch(() => []),
       // เดิม orderBy('createdAt') — รถจริงส่วนใหญ่ในระบบไม่มี field นี้ (มีแต่ arrivedAt) ทำให้ Firestore
       // orderBy ตัดออกจากผลลัพธ์ไปเงียบๆทั้งหมด เห็นสต็อกรถ 0 คันตลอด ต้องใช้ arrivedAt ให้ตรงกับ Stock.js

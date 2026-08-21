@@ -2,6 +2,7 @@ import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -35,7 +36,7 @@ export default async function ServiceAppointmentPage(container) {
 
   async function loadData() {
     loading = true
-    try { appts = await listDocs('service_appointments', [], 'date', 'desc', 500) } catch (e) { appts = [] }
+    try { appts = await listDocs('service_appointments', companyScopeFilters(), 'date', 'desc', 500) } catch (e) { appts = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -224,7 +225,7 @@ export default async function ServiceAppointmentPage(container) {
       btn.disabled = true
       try {
         if (appt) await updateDocData('service_appointments', appt.id, data)
-        else await createDoc('service_appointments', { ...data, status:'scheduled' })
+        else await createDoc('service_appointments', { ...data, status:'scheduled', companyId: myEffectiveCompanyId() })
         showToast('📅 บันทึกนัดหมายแล้ว', 'success'); close(); await loadData()
       } catch (e) { btn.disabled = false; showToast('บันทึกไม่สำเร็จ', 'error') }
     })

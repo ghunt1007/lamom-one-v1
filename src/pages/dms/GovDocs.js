@@ -5,6 +5,7 @@
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { todayBangkok } from '../../utils/format.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
@@ -20,7 +21,7 @@ export default async function GovDocsPage(container) {
 
   async function loadData() {
     loading = true
-    try { govDocs = await listDocs('gov_docs', [], 'dueDate', 'asc', 200) } catch (e) { govDocs = [] }
+    try { govDocs = await listDocs('gov_docs', companyScopeFilters(), 'dueDate', 'asc', 200) } catch (e) { govDocs = [] }
     loading = false
     if (container.__routerGen === myGen) render()
   }
@@ -191,6 +192,7 @@ export default async function GovDocsPage(container) {
           dueDate: document.getElementById('gd-due')?.value || today,
           officer: document.getElementById('gd-off')?.value.trim() || 'ฝ่ายทะเบียน',
           note: document.getElementById('gd-note')?.value.trim() || '',
+          companyId: myEffectiveCompanyId(),
         })
         document.querySelector('.modal-overlay')?.remove()
         showToast('✅ เพิ่มงานเอกสารแล้ว', 'success')

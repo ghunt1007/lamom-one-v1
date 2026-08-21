@@ -373,7 +373,7 @@ export default async function StockPage(container) {
     const el = document.getElementById('v-pdi-panel')
     if (!el) return
     let pdis = []
-    try { pdis = await listDocs('pdi', [], 'startDate', 'desc', 300) } catch { pdis = [] }
+    try { pdis = await listDocs('pdi', companyScopeFilters(), 'startDate', 'desc', 300) } catch { pdis = [] }
     if (!document.getElementById('v-pdi-panel')) return
     const p = pdis.find(x => x.vehicleId === v.id)
     if (!p) { el.innerHTML = `<div style="font-size:0.8rem;color:var(--text-muted)">🔧 ยังไม่มีประวัติ PDI</div>`; return }

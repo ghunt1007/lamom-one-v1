@@ -3,6 +3,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -67,7 +68,7 @@ export default async function VehicleInspectionPage(container) {
   async function loadData() {
     loading = true
     try {
-      const rows = await listDocs('vehicle_inspections', [], 'date', 'desc', 500)
+      const rows = await listDocs('vehicle_inspections', companyScopeFilters(), 'date', 'desc', 500)
       inspections = rows.map(ins => ({ ...ins, items: ins.items || buildDefaultItems() }))
     } catch (e) { inspections = [] }
     loading = false
@@ -315,7 +316,8 @@ export default async function VehicleInspectionPage(container) {
             techId: 'T001', techName: 'ธีรยุทธ เก่งกาจ',
             date: document.getElementById('if-date')?.value||today,
             status: 'pending', mileage: +document.getElementById('if-km')?.value||0,
-            overallResult: null, notes: '', items: buildDefaultItems()
+            overallResult: null, notes: '', items: buildDefaultItems(),
+            companyId: myEffectiveCompanyId(),
           })
           showToast('✅ สร้างการตรวจแล้ว', 'success')
           await loadData()

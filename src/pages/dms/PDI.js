@@ -1,5 +1,6 @@
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { showToast } from '../../core/store.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { navigate } from '../../core/router.js'
@@ -42,7 +43,7 @@ export default async function PdiPage(container) {
   let isDemoData = false
 
   async function loadData() {
-    try { pdis = await listDocs('pdi', [], 'startDate', 'desc', 200) } catch {}
+    try { pdis = await listDocs('pdi', companyScopeFilters(), 'startDate', 'desc', 200) } catch {}
     isDemoData = !pdis.length
     if (isDemoData) DEMO_PDI.forEach(p => pdis.push({ ...p }))
     updateStats(); applyFilter()
@@ -278,6 +279,7 @@ export default async function PdiPage(container) {
         // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
         // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
         startDate: todayBangkok(), notes: '',
+        companyId: myEffectiveCompanyId(),
       }
       try {
         const id = await createDoc('pdi', data)

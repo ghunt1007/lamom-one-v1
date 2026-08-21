@@ -6,6 +6,7 @@ import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -39,7 +40,7 @@ export default async function CourtesyCarPage(container) {
 
   async function loadData() {
     loading = true
-    try { jobs = await listDocs('courtesy_car_jobs', [], 'scheduledAt', 'desc', 500) } catch (e) { jobs = [] }
+    try { jobs = await listDocs('courtesy_car_jobs', companyScopeFilters(), 'scheduledAt', 'desc', 500) } catch (e) { jobs = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -147,7 +148,7 @@ export default async function CourtesyCarPage(container) {
           const name = document.getElementById('pd-name')?.value?.trim()
           if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return false }
           try {
-            await createDoc('courtesy_car_jobs', { customer:name, phone:'—', plate:document.getElementById('pd-plate')?.value||'—', address:document.getElementById('pd-address')?.value||'—', distance:parseInt(document.getElementById('pd-distance')?.value)||5, type:document.getElementById('pd-type')?.value||'pickup', status:'scheduled', driver:null, scheduledAt:new Date().toISOString(), service:document.getElementById('pd-service')?.value||'—' })
+            await createDoc('courtesy_car_jobs', { customer:name, phone:'—', plate:document.getElementById('pd-plate')?.value||'—', address:document.getElementById('pd-address')?.value||'—', distance:parseInt(document.getElementById('pd-distance')?.value)||5, type:document.getElementById('pd-type')?.value||'pickup', status:'scheduled', driver:null, scheduledAt:new Date().toISOString(), service:document.getElementById('pd-service')?.value||'—', companyId: myEffectiveCompanyId() })
             showToast('✅ นัดรับ-ส่งแล้ว', 'success')
             await loadData()
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }

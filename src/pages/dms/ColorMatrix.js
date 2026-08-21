@@ -8,6 +8,7 @@
 import { listDocs, createDoc } from '../../core/db.js'
 import { formatCurrency } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -45,7 +46,7 @@ export default async function ColorMatrixPage(container) {
   async function loadData() {
     loading = true
     try { vehicles = await listDocs('vehicles', [], 'arrivedAt', 'desc', 1000) } catch { vehicles = [] }
-    try { orders = await listDocs('vehicle_orders', [], 'createdAt', 'desc', 500) } catch { orders = [] }
+    try { orders = await listDocs('vehicle_orders', companyScopeFilters(), 'createdAt', 'desc', 500) } catch { orders = [] }
     computeMatrix()
     loading = false
     if (container.__routerGen === myGen) render()
@@ -169,6 +170,7 @@ export default async function ColorMatrixPage(container) {
             qty: 1, unitCost: g.cost || 0, status: 'draft', expectedDate: expected,
             supplier: '', notes: 'สั่งอัตโนมัติจากหน้า Color & Option Matrix (สีที่ไม่มีสต็อกและไม่มีคำสั่งซื้อค้าง)',
             createdAt: today.toISOString().slice(0, 10),
+            companyId: myEffectiveCompanyId(),
           })
         }
         showToast(`📦 ส่งใบสั่ง ${gaps.length} สีที่ขาดสต็อกไปยังคำสั่งซื้อ (vehicle_orders) แล้ว`, 'success')

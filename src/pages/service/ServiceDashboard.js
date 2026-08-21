@@ -1,6 +1,7 @@
 import { listDocs, seedDemoData } from '../../core/db.js'
 import { navigate } from '../../core/router.js'
 import { formatCurrency, todayBangkok } from '../../utils/format.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -93,8 +94,8 @@ export default async function ServiceDashboard(container) {
   try {
     ;[jobs, parts, appts] = await Promise.all([
       listDocs('job_cards', [], 'createdAt', 'desc', 500).catch(() => []),
-      listDocs('parts', [], 'name', 'asc', 1000).catch(() => []),
-      listDocs('service_appointments', [], 'date', 'desc', 300).catch(() => []),
+      listDocs('parts', companyScopeFilters(), 'name', 'asc', 1000).catch(() => []),
+      listDocs('service_appointments', companyScopeFilters(), 'date', 'desc', 300).catch(() => []),
     ])
     // softDelete() ไม่ลบเอกสารจริง แค่ตั้ง deleted:true — กรองออกกันงานซ่อมที่ลบไปแล้วปนในสถิติ
     jobs = jobs.filter(x => !x.deleted)

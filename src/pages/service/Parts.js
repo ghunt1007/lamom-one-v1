@@ -1,5 +1,6 @@
 import { watchDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
-import { showToast } from '../../core/store.js'
+import { showToast, on } from '../../core/store.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -32,14 +33,20 @@ export default async function PartsPage(container) {
   // Real-time: อัปเดตสดเมื่อมีคนแก้ไขคลังอะไหล่จากเครื่องอื่น — renderTable() แก้แค่ #parts-content
   // และ #parts-total/#parts-low/#parts-value เท่านั้น ไม่แตะช่องค้นหาเลย จึงปลอดภัย
   let firstSnapshot = true
-  const unsubParts = watchDocs('parts', [], 'name', 'asc', 1000, rows => {
-    if (container.__routerGen !== myGen) { unsubParts(); return }
-    parts = rows.filter(p => !p.deleted)
-    isDemoData = !parts.length && firstSnapshot
-    if (isDemoData) DEMO_PARTS.forEach(p => parts.push({ ...p }))
-    firstSnapshot = false
-    updateStats(); applyFilter()
-  })
+  let unsubParts = () => {}
+  function startWatchParts() {
+    unsubParts()
+    unsubParts = watchDocs('parts', companyScopeFilters(), 'name', 'asc', 1000, rows => {
+      if (container.__routerGen !== myGen) { unsubParts(); return }
+      parts = rows.filter(p => !p.deleted)
+      isDemoData = !parts.length && firstSnapshot
+      if (isDemoData) DEMO_PARTS.forEach(p => parts.push({ ...p }))
+      firstSnapshot = false
+      updateStats(); applyFilter()
+    })
+  }
+  startWatchParts()
+  const offCompanyFilter = on('activeCompanyFilter', startWatchParts)
 
   function updateStats() {
     const total = parts.length
@@ -258,7 +265,7 @@ export default async function PartsPage(container) {
       }
       try {
         if (isEdit) { await updateDocData('parts', existing.id, data); Object.assign(existing, data) }
-        else { const id = await createDoc('parts', data); parts.unshift({ ...data, id }) }
+        else { const id = await createDoc('parts', { ...data, companyId: myEffectiveCompanyId() }); parts.unshift({ ...data, id }) }
         showToast(isEdit ? 'แก้ไขแล้ว' : '✅ เพิ่มอะไหล่แล้ว', 'success')
         close(); updateStats(); applyFilter()
       } catch { showToast('บันทึกไม่สำเร็จ','error') }
@@ -318,7 +325,7 @@ export default async function PartsPage(container) {
     showToast('Export แล้ว', 'success')
   })
 
-  return function cleanupParts() { unsubParts() }
+  return function cleanupParts() { unsubParts(); offCompanyFilter() }
 }
 
 function dRow(icon, label, value) {

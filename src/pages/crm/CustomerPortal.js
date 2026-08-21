@@ -2,6 +2,7 @@ import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, readDoc, createDoc } from '../../core/db.js'
+import { myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -201,6 +202,7 @@ export default async function CustomerPortalPage(container) {
           time: timeSel?.value || '09:00',
           note: noteInp?.value?.trim() || '',
           status: 'scheduled',
+          companyId: myEffectiveCompanyId(),
         })
         showToast('📅 ส่งคำขอนัดหมายแล้ว ทีมงานจะติดต่อยืนยัน', 'success')
         tab = 'home'; renderPage()

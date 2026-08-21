@@ -1,6 +1,7 @@
 import { listDocs, seedDemoData, getSalesData } from '../../core/db.js'
 import { navigate } from '../../core/router.js'
 import { formatCurrency } from '../../utils/format.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -87,8 +88,8 @@ export default async function DmsDashboard(container) {
   try {
     ;[stock, orders, pdis, sales, tradeIns] = await Promise.all([
       listDocs('vehicles', [], 'arrivedAt', 'desc', 500).catch(() => []),
-      listDocs('vehicle_orders', [], 'createdAt', 'desc', 100).catch(() => []),
-      listDocs('pdi', [], 'startDate', 'desc', 100).catch(() => []),
+      listDocs('vehicle_orders', companyScopeFilters(), 'createdAt', 'desc', 100).catch(() => []),
+      listDocs('pdi', companyScopeFilters(), 'startDate', 'desc', 100).catch(() => []),
       getSalesData().catch(() => []),
       listDocs('trade_ins', [], 'date', 'desc', 200).catch(() => []),
     ])

@@ -81,7 +81,15 @@
     { "collectionGroup": "compliance_events", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "dueDate", "order": "ASCENDING" }] },
     { "collectionGroup": "price_negotiations", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "date", "order": "DESCENDING" }] },
     { "collectionGroup": "referrals", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "submitDate", "order": "DESCENDING" }] },
-    { "collectionGroup": "referrers", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "sales", "order": "DESCENDING" }] }
+    { "collectionGroup": "referrers", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "sales", "order": "DESCENDING" }] },
+    { "collectionGroup": "vehicle_orders", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] },
+    { "collectionGroup": "parts", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "name", "order": "ASCENDING" }] },
+    { "collectionGroup": "pdi", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "startDate", "order": "DESCENDING" }] },
+    { "collectionGroup": "pdi", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] },
+    { "collectionGroup": "service_appointments", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "date", "order": "DESCENDING" }] },
+    { "collectionGroup": "vehicle_inspections", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "date", "order": "DESCENDING" }] },
+    { "collectionGroup": "courtesy_car_jobs", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "scheduledAt", "order": "DESCENDING" }] },
+    { "collectionGroup": "gov_docs", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "dueDate", "order": "ASCENDING" }] }
   ],
   "fieldOverrides": []
 }

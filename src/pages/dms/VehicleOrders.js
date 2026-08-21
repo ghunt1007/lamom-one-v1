@@ -1,11 +1,12 @@
 import { watchDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 // เดิมเลขที่คำสั่งซื้อ (orderNo) สร้างจาก counter ในหน่วยความจำ (orderCounter++) — ถ้ามี 2 คนสร้างคำสั่งซื้อ
 // พร้อมกัน (เช่น เปิด 2 แท็บ/2 เครื่อง) จะได้เลขซ้ำกันได้ (race condition) เปลี่ยนมาใช้ timestamp+random
 // (ตรงกับรูปแบบที่ ColorMatrix.js ในโฟลเดอร์เดียวกันใช้อยู่แล้วสำหรับ orderNo) กัน id ชนกันจริง
 function genOrderNo() {
   return 'ORD-' + new Date().getFullYear() + '-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 5).toUpperCase()
 }
-import { showToast } from '../../core/store.js'
+import { showToast, on } from '../../core/store.js'
 import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -46,14 +47,20 @@ export default async function VehicleOrdersPage(container) {
   // Real-time: อัปเดตสดเมื่อมีคนแก้ไขคำสั่งซื้อรถจากเครื่องอื่น — renderTable()/updateStats() แก้แค่
   // #orders-content/#orders-filtered/#ostat-*/#order-value/#order-total เท่านั้น ไม่แตะช่องค้นหาเลย
   let firstSnapshot = true
-  const unsubOrders = watchDocs('vehicle_orders', [], 'createdAt', 'desc', 200, rows => {
-    if (container.__routerGen !== myGen) { unsubOrders(); return }
-    orders = rows
-    isDemoData = !orders.length && firstSnapshot
-    if (isDemoData) DEMO_ORDERS.forEach(o => orders.push({ ...o }))
-    firstSnapshot = false
-    updateStats(); applyFilter()
-  })
+  let unsubOrders = () => {}
+  function startWatchOrders() {
+    unsubOrders()
+    unsubOrders = watchDocs('vehicle_orders', companyScopeFilters(), 'createdAt', 'desc', 200, rows => {
+      if (container.__routerGen !== myGen) { unsubOrders(); return }
+      orders = rows
+      isDemoData = !orders.length && firstSnapshot
+      if (isDemoData) DEMO_ORDERS.forEach(o => orders.push({ ...o }))
+      firstSnapshot = false
+      updateStats(); applyFilter()
+    })
+  }
+  startWatchOrders()
+  const offCompanyFilter = on('activeCompanyFilter', startWatchOrders)
 
   function updateStats() {
     Object.keys(STATUS).forEach(k => {
@@ -283,7 +290,7 @@ export default async function VehicleOrdersPage(container) {
       }
       try {
         if (isEdit) { await updateDocData('vehicle_orders', existing.id, data); Object.assign(existing, data) }
-        else { const id = await createDoc('vehicle_orders', data); orders.unshift({ ...data, id }) }
+        else { const id = await createDoc('vehicle_orders', { ...data, companyId: myEffectiveCompanyId() }); orders.unshift({ ...data, id }) }
         showToast(isEdit ? 'แก้ไขแล้ว' : '✅ สั่งรถแล้ว', 'success')
         close(); updateStats(); applyFilter()
       } catch { showToast('บันทึกไม่สำเร็จ','error') }
@@ -352,7 +359,7 @@ export default async function VehicleOrdersPage(container) {
     applyFilter()
   }))
 
-  return function cleanupVehicleOrders() { unsubOrders() }
+  return function cleanupVehicleOrders() { unsubOrders(); offCompanyFilter() }
 }
 
 function dRow(icon, label, value) {
