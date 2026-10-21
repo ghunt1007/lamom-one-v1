@@ -15,9 +15,13 @@
 //      (managerId) เท่านั้น — เห็นคนที่อยู่สูงกว่าไม่ได้ ข้ามทีมไม่ได้ ข้ามบริษัทที่ตัวเองไม่ได้สังกัดไม่ได้
 import { listDocs } from './db.js'
 import { getState } from './store.js'
+import { companyScopeFilters } from './companyScope.js'
 
+// (v1.0.542) ตัดคำนำหน้าชื่อ (นาย/นาง/นางสาว/น.ส./คุณ/Mr./Ms.) ออกก่อนเทียบ — เดิม "คุณสมชาย ใจดี" กับ "สมชาย ใจดี"
+// ถือเป็นคนละคน หัวหน้าเลยมองไม่เห็นงานของลูกทีมที่ถูกพิมพ์ชื่อแบบมีคำนำหน้า
+const NAME_PREFIX = /^(นางสาว|นาง|นาย|น\.ส\.|ด\.ช\.|ด\.ญ\.|คุณ|mrs\.?|mr\.?|ms\.?|miss)\s*/i
 export function normName(s) {
-  return String(s || '').trim().toLowerCase().replace(/\s+/g, ' ')
+  return String(s || '').trim().toLowerCase().replace(/\s+/g, ' ').replace(NAME_PREFIX, '').trim()
 }
 
 function fullName(s) {
@@ -49,7 +53,10 @@ export async function getVisibilityScope() {
   const role = getState('role') || me?.role || 'staff'
 
   let staffList = []
-  try { staffList = await listDocs('staff', [], 'firstName', 'asc', 1000) } catch { staffList = [] }
+  // (v1.0.542) ต้องกรองบริษัทใน query ด้วย — เดิม query staff ทั้ง collection โดยไม่มี where companyId ซึ่ง Firestore
+  // Rules ปฏิเสธทั้ง query สำหรับทุกคนที่ไม่ใช่เจ้าของโปรแกรม/groupWide ตกไป catch ได้รายชื่อว่างเสมอ ทำให้หัวหน้า
+  // ทุกคนไม่มี "ลูกทีม" ในสายตาระบบเลย = มองไม่เห็นข้อมูลที่ลูกทีมสร้าง (สาเหตุหลักที่เจ้าของแจ้ง)
+  try { staffList = await listDocs('staff', companyScopeFilters(), 'firstName', 'asc', 1000) } catch { staffList = [] }
   const myStaff = staffList.find(s => s.uid === me?.uid && !s.deleted) || null
   const myCompanyIds = myStaff ? staffCompanyIds(myStaff) : (me?.companyIds || [])
 
@@ -63,9 +70,10 @@ export async function getVisibilityScope() {
 
   // อื่นๆ — ตัวเอง + ลูกทีมทุกระดับ (transitive) ผ่าน managerId เท่านั้น
   const names = new Set()
+  const uids = new Set(me?.uid ? [me.uid] : [])
   if (me?.displayName) names.add(normName(me.displayName))
-  if (!myStaff) return { names, staffIds: new Set(), companyIds: myCompanyIds, hasSubordinates: false }
-  names.add(normName(fullName(myStaff)))
+  if (!myStaff) return { names, uids, staffIds: new Set(), companyIds: myCompanyIds, hasSubordinates: false }
+  addStaffNames(names, myStaff)
   const staffIds = new Set([myStaff.id])
   const byManager = {}
   // (v1.0.475) พนักงาน 1 คนอาจอยู่ใต้หัวหน้างานหลายคน — เก็บลูกทีมไว้ใน "ทุก" หัวหน้าที่มีสิทธิ์เห็นจริง
@@ -78,12 +86,30 @@ export async function getVisibilityScope() {
     if (visited.has(id)) continue
     visited.add(id)
     ;(byManager[id] || []).forEach(child => {
-      names.add(normName(fullName(child)))
+      addStaffNames(names, child)
+      if (child.uid) uids.add(child.uid)
       staffIds.add(child.id)
       queue.push(child.id)
     })
   }
-  return { names, staffIds, companyIds: myCompanyIds, hasSubordinates: staffIds.size > 1 }
+  return { names, uids, staffIds, companyIds: myCompanyIds, hasSubordinates: staffIds.size > 1 }
+}
+
+// ชื่อที่อาจถูกใช้แทนพนักงานคนหนึ่งในช่องชื่อผู้รับผิดชอบ: ชื่อ-นามสกุลเต็ม + ชื่อเล่น (ถ้าตั้งไว้)
+function addStaffNames(names, s) {
+  const full = normName(fullName(s))
+  if (full) names.add(full)
+  if (s.nickname && normName(s.nickname)) names.add(normName(s.nickname))
+}
+
+// (v1.0.542) เช็คว่า scope เห็นเอกสารนี้ได้หรือไม่ — ชื่อผู้รับผิดชอบตรง (assignedTo/salesName/techName) หรือเป็น
+// เอกสารที่ตัวเอง/ลูกทีมเป็นคนสร้าง (createdByUid ที่ createDoc() ประทับให้ทุกเอกสารใหม่) — เดิมเทียบแค่ชื่อ
+// ข้อความ ลูกทีมสร้างลูกค้าโดยไม่เลือก "ผู้ดูแล" หรือเลือกชื่อจาก Master Data ที่สะกดไม่ตรงกับข้อมูลพนักงาน
+// หัวหน้าจึงมองไม่เห็นข้อมูลใหม่ของลูกทีมเลย
+export function scopeIncludesRecord(scope, ownerName, rec) {
+  if (!scope || scope.unrestricted || scope.companyOnly) return true
+  if (ownerName && scope.names?.has(normName(ownerName))) return true
+  return !!(rec?.createdByUid && scope.uids?.has(rec.createdByUid))
 }
 
 // เช็คว่า scope ที่ได้จาก getVisibilityScope() เห็นพนักงานคนนี้ได้หรือไม่ (ใช้กรองรายชื่อ/การ์ด/แถวตาราง)

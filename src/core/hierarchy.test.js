@@ -10,7 +10,7 @@ vi.mock('./db.js', () => ({
   listDocs: vi.fn(async () => mockStaffList),
 }))
 
-const { normName, isProgramOwner, getVisibilityScope, scopeIncludesStaff, PROGRAM_OWNER_EMAIL } = await import('./hierarchy.js')
+const { normName, isProgramOwner, getVisibilityScope, scopeIncludesStaff, scopeIncludesRecord, PROGRAM_OWNER_EMAIL } = await import('./hierarchy.js')
 
 function staff(overrides) {
   return { firstName: '', lastName: '', managerId: null, deleted: false, ...overrides }
@@ -179,5 +179,39 @@ describe('scopeIncludesStaff', () => {
   it('treats a staff member with no companyIds as visible to any single-company scope (unassigned, not excluded)', () => {
     const scope = { companyOnly: true, companyIds: ['c1'] }
     expect(scopeIncludesStaff(scope, staff({ id: 'x' }))).toBe(true)
+  })
+})
+
+describe('v1.0.542 — supervisors see subordinate new records', () => {
+  beforeEach(() => {
+    mockState.user = { uid: 'u-mgr', email: 'mgr@example.test', displayName: 'หัวหน้า ทดสอบ' }
+    mockState.role = 'manager'
+    mockStaffList = [
+      staff({ id: 's-mgr', uid: 'u-mgr', firstName: 'หัวหน้า', lastName: 'ทดสอบ', companyId: 'c1' }),
+      staff({ id: 's-a', uid: 'u-a', firstName: 'ลูกทีม', lastName: 'หนึ่ง', nickname: 'เอ', managerId: 's-mgr', companyId: 'c1' }),
+      staff({ id: 's-x', uid: 'u-x', firstName: 'คนอื่น', lastName: 'ทีมอื่น', companyId: 'c1' }),
+    ]
+  })
+  it('strips Thai/English name prefixes when comparing names', () => {
+    expect(normName('นางสาว ลูกทีม หนึ่ง')).toBe('ลูกทีม หนึ่ง')
+    expect(normName('คุณลูกทีม หนึ่ง')).toBe('ลูกทีม หนึ่ง')
+    expect(normName('Mr. John Doe')).toBe('john doe')
+  })
+  it('sees a subordinate record by name, nickname, or by who created it', async () => {
+    const scope = await getVisibilityScope()
+    expect(scopeIncludesRecord(scope, 'นาย ลูกทีม หนึ่ง', {})).toBe(true)
+    expect(scopeIncludesRecord(scope, 'เอ', {})).toBe(true)
+    // ลูกทีมสร้างโดยไม่ได้เลือกชื่อผู้รับผิดชอบ หรือสะกดไม่ตรง
+    expect(scopeIncludesRecord(scope, '', { createdByUid: 'u-a' })).toBe(true)
+    expect(scopeIncludesRecord(scope, 'สะกดผิด', { createdByUid: 'u-a' })).toBe(true)
+  })
+  it('still hides records of people outside the team', async () => {
+    const scope = await getVisibilityScope()
+    expect(scopeIncludesRecord(scope, 'คนอื่น ทีมอื่น', { createdByUid: 'u-x' })).toBe(false)
+    expect(scopeIncludesRecord(scope, '', {})).toBe(false)
+  })
+  it('company-wide scopes see every record', () => {
+    expect(scopeIncludesRecord({ companyOnly: true }, '', {})).toBe(true)
+    expect(scopeIncludesRecord({ unrestricted: true }, '', {})).toBe(true)
   })
 })

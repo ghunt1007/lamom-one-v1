@@ -4,7 +4,7 @@
 import { listDocs, watchDocs, createDoc, updateDocData, softDelete, readDoc, seedDemoData } from '../../core/db.js'
 import { showToast, getState, on } from '../../core/store.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
-import { getVisibilityScope } from '../../core/hierarchy.js'
+import { getVisibilityScope, scopeIncludesRecord, normName } from '../../core/hierarchy.js'
 import { formatDate, timeAgo, formatPhone, formatCurrency, initials, fullName, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel, openImportModal } from '../../utils/importExport.js'
@@ -71,7 +71,6 @@ export default async function CustomersPage(container) {
   // เสมอ ไม่มี fallback เห็นกว้างขึ้นอีกต่อไป — เทียบชื่อแบบ normalize เหมือนเดิมเพราะ assignedTo เป็นข้อความ
   // อิสระที่พิมพ์เอง ไม่ใช่ uid ผูกตรงๆ
   const myDisplayName = getState('user')?.displayName || ''
-  const normName = s => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ')
   const visScope = await getVisibilityScope()
   const ownScopeActive = !visScope.unrestricted && !visScope.companyOnly
   const myTeamNames = visScope.names || new Set([normName(myDisplayName)])
@@ -113,7 +112,7 @@ export default async function CustomersPage(container) {
       const matchStage = stageFilter === 'all' || c.stage === stageFilter
       const matchLost = !lostOnly || c.isLost
       const matchSales = !salesFilter || c.assignedTo === salesFilter
-      const matchOwn = !ownScopeActive || myTeamNames.has(normName(c.assignedTo))
+      const matchOwn = !ownScopeActive || scopeIncludesRecord(visScope, c.assignedTo, c)
       return matchSearch && matchStage && matchLost && matchSales && matchOwn
     })
     const rank = { high: 0, medium: 1, low: 2 }

@@ -39,6 +39,24 @@ const SALES = ['เซลส์ หนึ่ง', 'เซลส์ สอง', '
 const COMPANIES = [['co-deepal', 'DEEPAL ทดสอบ', 'DEEPAL'], ['co-aion', 'AION ทดสอบ', 'AION'], ['co-omoda', 'OMODA & JAECOO ทดสอบ', 'OMODA & JAECOO']]
 const coFor = brand => COMPANIES.find(c => c[2] === brand)[0]
 
+// ผังองค์กรทดสอบ: ผจก.ขาย A ดูแลเซลส์ A1, A2 (A2 อยู่ใต้ หัวหน้าทีม A2 อีกชั้น) / ผจก.ขาย B ดูแลเซลส์ B1 /
+// ผจก.บริการ ดูแลช่าง 1 / แอดมินบริษัท / HR ดูแลทุกบริษัท (groupWide) / บัญชี / พนักงานทั่วไป
+export const ORG_USERS = [
+  { key: 'admin', email: 'admin@example.test', name: 'แอดมิน บริษัท', role: 'admin', company: 'co-deepal', dept: 'บริหาร', position: 'Admin' },
+  { key: 'mgrA', email: 'mgr.a@example.test', name: 'ผจก ขายเอ', role: 'manager', company: 'co-deepal', dept: 'ขาย', position: 'Sales Manager' },
+  { key: 'leadA', email: 'lead.a@example.test', name: 'หัวหน้าทีม เอสอง', role: 'manager', company: 'co-deepal', dept: 'ขาย', position: 'Team Leader', manager: 'mgrA' },
+  { key: 'salesA1', email: 'sales.a1@example.test', name: 'เซลส์ เอหนึ่ง', nickname: 'แอน', role: 'sales', company: 'co-deepal', dept: 'ขาย', position: 'Sales Consultant', manager: 'mgrA' },
+  { key: 'salesA2', email: 'sales.a2@example.test', name: 'เซลส์ เอสอง', role: 'sales', company: 'co-deepal', dept: 'ขาย', position: 'Sales Consultant', manager: 'leadA' },
+  { key: 'mgrB', email: 'mgr.b@example.test', name: 'ผจก ขายบี', role: 'manager', company: 'co-deepal', dept: 'ขาย', position: 'Sales Manager' },
+  { key: 'salesB1', email: 'sales.b1@example.test', name: 'เซลส์ บีหนึ่ง', role: 'sales', company: 'co-deepal', dept: 'ขาย', position: 'Sales Consultant', manager: 'mgrB' },
+  { key: 'svcMgr', email: 'svc.mgr@example.test', name: 'ผจก บริการ', role: 'manager', company: 'co-deepal', dept: 'บริการ', position: 'Service Manager' },
+  { key: 'tech1', email: 'tech1@example.test', name: 'ช่าง ทดสอบหนึ่ง', role: 'service', company: 'co-deepal', dept: 'บริการ', position: 'Technician', manager: 'svcMgr' },
+  { key: 'hr', email: 'hr@example.test', name: 'เอชอาร์ กลุ่ม', role: 'hr', company: 'co-deepal', dept: 'HR', position: 'HR Manager', groupWide: true },
+  { key: 'fin', email: 'fin@example.test', name: 'บัญชี ทดสอบ', role: 'finance', company: 'co-deepal', dept: 'บัญชี', position: 'Accountant' },
+  { key: 'staff', email: 'staff@example.test', name: 'พนักงาน ทั่วไป', role: 'staff', company: 'co-deepal', dept: 'ธุรการ', position: 'Staff' },
+  { key: 'salesAion', email: 'sales.aion@example.test', name: 'เซลส์ ไอออน', role: 'sales', company: 'co-aion', dept: 'ขาย', position: 'Sales Consultant', manager: 'mgrA' },
+]
+
 async function main() {
   // บัญชีทดสอบบน auth emulator
   const su = await fetch(`http://${AUTH}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=demo`, {
@@ -122,6 +140,21 @@ async function main() {
       companyId: 'co-deepal', createdAt: ts(-int(1, 20)) })
     await put('leave_requests', 'lv' + i, { staff: pick(staffNames), type: pick(['ลาป่วย', 'ลากิจ', 'ลาพักร้อน']), from: day(int(-20, 10)), to: day(int(-19, 11)), days: int(1, 3),
       status: pick(['pending', 'approved']), companyId: 'co-deepal', createdAt: ts(-int(1, 30)) })
+  }
+  // (v1.0.542) บัญชีทดสอบตามตำแหน่ง/สิทธิ์ต่างๆ + สายบังคับบัญชา (managerIds) สำหรับทดสอบการมองเห็นข้อมูล
+  // รหัสผ่านเดียวกับ TEST_LOGIN — ใช้บน emulator เท่านั้น
+  for (const u of ORG_USERS) {
+    const r = await fetch(`http://${AUTH}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=demo`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: u.email, password: TEST_LOGIN.password, returnSecureToken: true }),
+    }).then(r => r.json())
+    if (!r.localId) throw new Error('signUp ' + u.email + ': ' + JSON.stringify(r))
+    const [fn, ln] = u.name.split(' ')
+    await put('users', r.localId, { uid: r.localId, email: u.email, displayName: u.name, role: u.role, active: true, groupWide: !!u.groupWide,
+      companyMemberships: [{ companyId: u.company, role: u.role, department: u.dept, position: u.position, managerId: null }],
+      companyIds: [u.company], primaryCompanyId: u.company, createdAt: ts(-100) })
+    await put('staff', 'org-' + u.key, { uid: r.localId, firstName: fn, lastName: ln, nickname: u.nickname || '', role: u.role, position: u.position, dept: u.dept,
+      status: 'active', email: u.email, companyId: u.company, companyIds: [u.company],
+      managerIds: u.manager ? ['org-' + u.manager] : [], managerId: u.manager ? 'org-' + u.manager : null, createdAt: ts(-100) })
   }
   console.log(`emulator-seed: done (login ${TEST_LOGIN.email} / ${TEST_LOGIN.password})`)
 }

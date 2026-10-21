@@ -1,7 +1,7 @@
 import { listDocs, listAllDocs, watchDocs, createDoc, updateDocData, softDelete, seedDemoData, setDocData } from '../../core/db.js'
 import { showToast, getState, setState, on } from '../../core/store.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
-import { getVisibilityScope, isProgramOwner } from '../../core/hierarchy.js'
+import { getVisibilityScope, isProgramOwner, scopeIncludesRecord, normName } from '../../core/hierarchy.js'
 import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -273,7 +273,6 @@ export default async function BookingsPage(container) {
   // (v1.0.467) เปลี่ยนจาก getMyTeamNames() (fallback ผ่อนปรน) มาใช้ getVisibilityScope() ตามนโยบายเข้มงวด
   // แพทเทิร์นเดียวกับ Customers.js เป๊ะ (ดูคอมเมนต์ที่นั่น) — ไม่มี fallback เห็นกว้างขึ้นอีกต่อไป
   const myDisplayName = getState('user')?.displayName || ''
-  const normName = s => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ')
   const visScope = await getVisibilityScope()
   const ownScopeActive = !visScope.unrestricted && !visScope.companyOnly
   const myTeamNames = visScope.names || new Set([normName(myDisplayName)])
@@ -335,7 +334,7 @@ export default async function BookingsPage(container) {
     if (dateFrom && (b.bookingDate || '') < dateFrom) return false
     if (dateTo && (b.bookingDate || '') > dateTo) return false
     if (sellerFilter && b.salesName !== sellerFilter) return false
-    if (ownScopeActive && !myTeamNames.has(normName(b.salesName))) return false
+    if (ownScopeActive && !scopeIncludesRecord(visScope, b.salesName, b)) return false
     if (brandFilter && detectBrand(b.brand, b.model) !== brandFilter) return false
     if (!ignoreStatus && statusFilter && b.status !== statusFilter) return false
     if (search) {

@@ -1,7 +1,7 @@
 import { watchDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { showToast, getState, on } from '../../core/store.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
-import { getVisibilityScope } from '../../core/hierarchy.js'
+import { getVisibilityScope, scopeIncludesRecord, normName } from '../../core/hierarchy.js'
 import { formatDate, formatCurrency, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -58,7 +58,6 @@ export default async function JobCardsPage(container) {
   // (v1.0.467) เปลี่ยนจาก getMyTeamNames() (fallback ผ่อนปรน) มาใช้ getVisibilityScope() ตามนโยบายเข้มงวด
   // แพทเทิร์นเดียวกับ Customers.js/Bookings.js เป๊ะ — ไม่มี fallback เห็นกว้างขึ้นอีกต่อไป
   const myDisplayName = getState('user')?.displayName || ''
-  const normName = s => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ')
   const visScope = await getVisibilityScope()
   const ownScopeActive = !visScope.unrestricted && !visScope.companyOnly
   const myTeamNames = visScope.names || new Set([normName(myDisplayName)])
@@ -83,7 +82,7 @@ export default async function JobCardsPage(container) {
   function updateStats() {
     // ตัวเลขสรุปด้านบนต้องสอดคล้องกับตารางด้านล่าง — ถ้ากำลังกรองเฉพาะงานตัวเองอยู่ (ownScopeActive) ต้องนับ
     // จากขอบเขตเดียวกัน ไม่ใช่ยอดรวมทั้งบริษัทที่จะไม่ตรงกับตารางที่เห็นจริงจนดูเหมือนเลขผิด
-    const scoped = ownScopeActive ? jobs.filter(j => myTeamNames.has(normName(j.techName))) : jobs
+    const scoped = ownScopeActive ? jobs.filter(j => scopeIncludesRecord(visScope, j.techName, j)) : jobs
     Object.keys(JOB_STATUS).forEach(k => {
       const el = document.getElementById(`jstat-${k}`)
       if (el) el.textContent = scoped.filter(j => j.status === k).length
@@ -100,7 +99,7 @@ export default async function JobCardsPage(container) {
     filtered = jobs.filter(j => {
       const ss = statusFilter === 'all' || j.status === statusFilter
       const qs = !search || `${j.jobNo} ${j.custName} ${j.brand} ${j.model} ${j.plate}`.toLowerCase().includes(search)
-      const os = !ownScopeActive || myTeamNames.has(normName(j.techName))
+      const os = !ownScopeActive || scopeIncludesRecord(visScope, j.techName, j)
       return ss && qs && os
     })
     renderTable()
