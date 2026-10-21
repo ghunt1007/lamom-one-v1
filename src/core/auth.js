@@ -15,6 +15,7 @@ import { navigate } from './router.js'
 import { deepSanitize, createDoc, listDocs, updateDocData } from './db.js'
 import { getClientIp } from '../utils/comms.js'
 import { todayBangkok } from '../utils/format.js'
+import { markPostLogin, clearPostLogin } from './whiteLabel.js'
 
 // (v1.0.350) IP Whitelist — จุดนี้ (หลัง login สำเร็จ) ยังคงเป็นแค่บันทึก/เตือนเท่านั้น (best-effort ห้ามทำให้
 // login ล้มเหลวไม่ว่า Worker/Firestore จะพังแบบไหนก็ตาม) เพราะ Firestore Rules มองไม่เห็น IP ผู้เรียกได้เลย —
@@ -84,6 +85,7 @@ export async function register(email, password) {
 }
 
 export async function login(email, password) {
+  markPostLogin()
   try {
     setState('loading', true)
     const cred = await signInWithEmailAndPassword(auth, email, password)
@@ -93,6 +95,7 @@ export async function login(email, password) {
     showToast('เข้าสู่ระบบสำเร็จ', 'success')
     navigate('/')
   } catch (e) {
+    clearPostLogin()
     setState('loading', false)
     const msg = authErrorMessage(e.code)
     showToast(msg, 'error', 6000)

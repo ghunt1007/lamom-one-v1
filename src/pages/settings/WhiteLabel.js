@@ -2,6 +2,7 @@ import { showToast } from '../../core/store.js'
 import { openModal } from '../../utils/modal.js'
 import { listDocs, createDoc, updateDocData } from '../../core/db.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
+import { applyBrand, applyLayoutDefault } from '../../core/whiteLabel.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
@@ -21,7 +22,7 @@ const WL_KEY = 'lamom-whitelabel' // localStorage key เดิม — ใช้
 
 // องค์กร-ไวด์ Branding เดิมเก็บใน localStorage เครื่องเดียว ทำให้พนักงานคนละเครื่อง/สาขา เห็น brand ไม่ตรงกัน
 // ย้ายไป Firestore collection เดียว doc เดียว ('whitelabel_settings') → sync ข้ามอุปกรณ์จริง
-// (ไม่ต้อง preload ตอน bootstrap — main.js ไม่มีที่ไหนอ่านค่านี้ตอน boot ใช้เฉพาะภายในหน้านี้เท่านั้น)
+// (v1.0.539) core/whiteLabel.js โหลดค่านี้ตอน bootstrapShell แล้ว apply ชื่อแบรนด์/โลโก้/favicon/Layout/Default Route ทั้งระบบ
 let _docId = null
 
 async function loadConfig() {
@@ -228,7 +229,6 @@ export default async function WhiteLabelPage(container) {
     const layoutOpts = [
       { id: 'sidebar-compact', label: 'Sidebar แบบ Compact', desc: 'แสดงเฉพาะ icon ตลอดเวลา' },
       { id: 'sidebar-full', label: 'Sidebar แบบเต็ม', desc: 'แสดงชื่อเมนูเต็ม' },
-      { id: 'topnav', label: 'Top Navigation', desc: 'เมนูอยู่ด้านบน (Coming Soon)' },
     ]
     return `
       <div style="display:flex;flex-direction:column;gap:14px;max-width:560px">
@@ -317,6 +317,9 @@ export default async function WhiteLabelPage(container) {
     // ไม่ใช่ innerHTML จึงไม่มีช่องโหว่ XSS ตรงนี้ — ห้าม escHtml() เพราะจะทำให้ชื่อ brand
     // ที่มี & หรือเครื่องหมายคำพูดโชว์เป็น &amp; ตัวเป็นๆ บน tab เบราว์เซอร์ผิดจากที่ตั้งใจ
     document.title = cfg.brandName
+    // อัปเดตชื่อ/โลโก้ใน Sidebar + favicon ทันทีโดยไม่ต้องรีเฟรช
+    applyBrand(cfg)
+    applyLayoutDefault(cfg.layoutId)
 
     showToast('💾 บันทึก White-label Settings แล้ว!', 'success')
     renderPage()

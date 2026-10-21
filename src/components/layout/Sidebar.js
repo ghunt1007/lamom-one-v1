@@ -474,11 +474,16 @@ export function Sidebar(container) {
       }
     })
 
+    // (v1.0.539) ชื่อแบรนด์/โลโก้จากหน้า White-label (core/whiteLabel.js) — เดิม hardcode 'LAMOM ONE' เสมอ
+    const brand = getState('brand') || { brandName: 'LAMOM ONE', logoUrl: '' }
+    const logoIcon = brand.logoUrl
+      ? `<img src="${escHtml(brand.logoUrl)}" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:inherit">`
+      : escHtml(brand.brandName.charAt(0) || 'L')
     const html = `
       <aside class="sidebar ${collapsed ? 'collapsed' : ''}" id="sidebar">
         <div class="sidebar-logo">
-          <div class="sidebar-logo-icon">L</div>
-          ${!collapsed ? '<span class="sidebar-logo-text">LAMOM ONE</span>' : ''}
+          <div class="sidebar-logo-icon">${logoIcon}</div>
+          ${!collapsed ? `<span class="sidebar-logo-text">${escHtml(brand.brandName)}</span>` : ''}
           ${!collapsed && !isMobileViewport ? `<button class="sidebar-toggle" id="sidebar-toggle" title="${t('collapseSidebar')}">◀</button>` : ''}
         </div>
 
@@ -601,6 +606,7 @@ export function Sidebar(container) {
   unsubs.push(on('currentRoute', render))
   unsubs.push(on('user', render))
   unsubs.push(on('language', render))
+  unsubs.push(on('brand', render))
 
   return () => unsubs.forEach(fn => fn())
 }
