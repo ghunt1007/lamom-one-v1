@@ -18,15 +18,6 @@ const DEFAULT_TARGETS = [9000000, 8500000, 12000000, 10000000, 13000000, 9000000
 // งบแถม/FOC default รายเดือน
 const DEFAULT_FOC_BUDGET = [300000, 250000, 400000, 350000, 450000, 300000, 350000, 380000, 350000, 380000, 450000, 600000]
 
-// ข้อมูลเซลส์ demo (ใช้เมื่อไม่มีข้อมูลจริง)
-const DEMO_SALES_BY_MONTH = {
-  0: { revenue: 9200000, units: 8, foc: 180000 },
-  1: { revenue: 6800000, units: 6, foc: 120000 },
-  2: { revenue: 13100000, units: 11, foc: 380000 },
-  3: { revenue: 10200000, units: 9, foc: 290000 },
-  4: { revenue: 15400000, units: 13, foc: 410000 },
-  5: { revenue: 8300000, units: 7, foc: 140000 },
-}
 
 // เก็บใน Firestore collection 'sales_budgets' (1 doc ต่อปี กรองด้วยฟิลด์ year) → sync ข้ามอุปกรณ์จริง
 // เดิมเก็บใน localStorage เครื่องเดียว ทำให้พนักงาน 2 เครื่องเห็นเป้า/งบไม่ตรงกัน (หน้า Target vs Actual
@@ -69,6 +60,8 @@ export default async function SalesBudgetPage(container) {
     const sales = await getSalesData()
     if (container.__routerGen !== myGen) return
     sales.forEach(s => {
+      // เดิมไม่กรองปี — ยอดขายปีก่อนๆ ถูกรวมเข้าเดือนเดียวกันของปีนี้ด้วย
+      if ((s.date || '').slice(0, 4) !== String(YEAR)) return
       const mo = parseInt((s.date || '').slice(5, 7)) - 1
       if (isNaN(mo) || mo < 0 || mo > 11) return
       if (!actualByMonth[mo]) actualByMonth[mo] = { revenue: 0, units: 0, foc: 0, salesPersons: {} }
@@ -80,21 +73,11 @@ export default async function SalesBudgetPage(container) {
       actualByMonth[mo].salesPersons[sp].revenue += s.salePrice || 0
       actualByMonth[mo].salesPersons[sp].units++
     })
-    // ถ้าไม่มีข้อมูลจริงใช้ demo
-    if (Object.keys(actualByMonth).length < 2) {
-      actualByMonth = { ...DEMO_SALES_BY_MONTH }
-      Object.keys(actualByMonth).forEach(k => {
-        if (!actualByMonth[k].salesPersons) {
-          actualByMonth[k].salesPersons = {
-            'อรนุช เซลส์ดี': { revenue: Math.round(actualByMonth[k].revenue * 0.6), units: Math.ceil(actualByMonth[k].units * 0.6) },
-            'วิชัย ขายเก่ง': { revenue: Math.round(actualByMonth[k].revenue * 0.4), units: Math.floor(actualByMonth[k].units * 0.4) },
-          }
-        }
-      })
-    }
+    // (v1.0.539) เดิมถ้ายอดขายจริงมีไม่ถึง 2 เดือน จะเอายอดขายปลอม + ชื่อเซลส์สมมติ 2 คนมาแทนที่ข้อมูลจริงทั้งหมด
+    // โดยไม่มีป้ายบอก — เอาออกแล้ว แสดงเฉพาะยอดขายจริงเสมอ (เดือนที่ยังไม่มียอดขายก็เป็น 0 ตามจริง)
   } catch {
     if (container.__routerGen !== myGen) return
-    actualByMonth = { ...DEMO_SALES_BY_MONTH }
+    showToast('❗ โหลดยอดขายจริงไม่สำเร็จ', 'error')
   }
 
   function calcTotals() {

@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast, on } from '../../core/store.js'
 import { watchDocs, listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { getVehicles } from '../../data/vehicleDatabase.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -30,7 +31,11 @@ const TD_RESULT = {
   booked:      { label: '📝 จองแล้ว!', color: 'success' },
 }
 
-const DEMO_VEHICLES = ['BYD Seal AWD', 'BYD Atto 3', 'MG ZS EV', 'BYD Dolphin']
+// เดิมรายการรุ่นเป็น DEMO_VEHICLES 4 รุ่นตายตัว (BYD/MG) — นัดทดลองขับรุ่นอื่นที่โชว์รูมขายจริงไม่ได้เลย
+// ใช้ฐานข้อมูลรุ่นรถกลางเดียวกับ /crm/test-drive (TestDrive.js) แทน
+function modelOptions() {
+  return [...new Set(getVehicles().map(v => [v.brand, v.model, v.variant].filter(Boolean).join(' ')))]
+}
 
 // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
 // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
@@ -228,7 +233,7 @@ export default async function TestDriveSchedulerPage(container) {
           <div class="input-group"><label class="input-label">ชื่อลูกค้า *</label><input class="input" id="tf-name"></div>
           <div class="input-group"><label class="input-label">โทรศัพท์</label><input class="input" id="tf-phone"></div>
           <div class="input-group"><label class="input-label">รุ่นที่สนใจ</label>
-            <select class="input" id="tf-model">${DEMO_VEHICLES.map(v=>`<option>${v}</option>`).join('')}</select>
+            <select class="input" id="tf-model">${modelOptions().map(v=>`<option>${escHtml(v)}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">เซลส์</label>
             <select class="input" id="tf-staff">${staffNames.map(s=>`<option>${escHtml(s)}</option>`).join('')}</select>
@@ -253,7 +258,7 @@ export default async function TestDriveSchedulerPage(container) {
           await createDoc('test_drives', {
             customerName: name,
             phone: document.getElementById('tf-phone')?.value||'',
-            model: document.getElementById('tf-model')?.value||DEMO_VEHICLES[0],
+            model: document.getElementById('tf-model')?.value||'',
             date, time,
             staff: document.getElementById('tf-staff')?.value||staffNames[0]||'—',
             status: 'scheduled', notes: '', companyId: myEffectiveCompanyId()

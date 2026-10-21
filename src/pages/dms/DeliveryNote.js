@@ -32,29 +32,8 @@ function addDays(n) {
   return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
 }
 
-const DEMO_DNS = [
-  { id:'DN001', bookingId:'BK001', _fbId:null, customerName:'วิชาญ มีโชค', phone:'081-234-5678',
-    brand:'BYD', model:'Seal', variant:'AWD Performance', color:'Cosmos Black', year:2024,
-    vin:'LBWAB2EB7PD001002', plate:'กก 1234 BKK', price:1449000, salesperson:'อรนุช สายใจ',
-    deliveryDate:addDays(-5), deliveryTime:'10:00', location:'โชว์รูม LAMOM สาขาหลัก',
-    status:'done', signedAt:addDays(-5), notes:'ลูกค้าพอใจมาก',
-    accessories:['ฟิล์มกันรอย','แผ่นยางรองเท้า','พรมรถ','Car Charger Type 2'],
-    checklist:{ docs:true, keys:true, charger:true, manual:true, mats:true, spare:true } },
-  { id:'DN002', bookingId:'BK002', _fbId:null, customerName:'อรนุช สาวสวย', phone:'082-345-6789',
-    brand:'MG', model:'ZS EV', variant:'Grand Luxury', color:'Pearl White', year:2024,
-    vin:'LSJWSRAR7NE001008', plate:'', price:1059000, salesperson:'วิชาญ มีโชค',
-    deliveryDate:addDays(2), deliveryTime:'13:00', location:'โชว์รูม LAMOM สาขาหลัก',
-    status:'scheduled', signedAt:null, notes:'',
-    accessories:['ฟิล์มกันรอย','พรมรถ'],
-    checklist:{ docs:false, keys:false, charger:false, manual:false, mats:false, spare:false } },
-  { id:'DN003', bookingId:'BK003', _fbId:null, customerName:'ธีรยุทธ เก่งกาจ', phone:'083-456-7890',
-    brand:'BYD', model:'Atto 3', variant:'Extended Range', color:'Sky Blue', year:2024,
-    vin:'LBWAB2EB7PD001003', plate:'', price:1099000, salesperson:'อรนุช สายใจ',
-    deliveryDate:addDays(7), deliveryTime:'10:30', location:'บ้านลูกค้า (ส่งถึงบ้าน)',
-    status:'pending', signedAt:null, notes:'ลูกค้าขอส่งถึงบ้าน',
-    accessories:['ฟิล์มกันรอย','แผ่นยางรองเท้า','Wall Charger 7kW'],
-    checklist:{ docs:false, keys:false, charger:false, manual:false, mats:false, spare:false } },
-]
+// (v1.0.539) เดิมมี DEMO_DNS ใบส่งมอบปลอม 3 ใบ (ชื่อลูกค้า/VIN สมมติ) โผล่เงียบๆ ไม่มีป้ายบอกเมื่อยังไม่มีใบส่งมอบจริง
+// เอาออกแล้ว — ไม่มีข้อมูลจริงก็แสดง "ไม่พบรายการ" ตามจริง
 
 export default async function DeliveryNotePage(container) {
   const myGen = container.__routerGen
@@ -130,7 +109,6 @@ export default async function DeliveryNotePage(container) {
     })
   } catch {}
 
-  if (!notes.length) notes = [...DEMO_DNS]
   if (container.__routerGen !== myGen) return
 
   const today = addDays(0)
