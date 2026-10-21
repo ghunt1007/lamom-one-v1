@@ -2,7 +2,7 @@
  * VIN Decoder & Vehicle Lookup — ค้นหารถจาก VIN/ทะเบียน
  * Route: /dms/vin-lookup
  */
-import { formatDate, formatCurrency, todayBangkok, toDateStr } from '../../utils/format.js'
+import { formatDate, formatCurrency, todayBangkok, toDateStr, toDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listAllDocs, listDocs, createDoc } from '../../core/db.js'
@@ -39,7 +39,7 @@ export default async function VinDecoderPage(container) {
     vehicles = realBookings.map(b => {
       const plate = b.whitePlate || b.redPlate || ''
       const matchedJobs = jobs.filter(j => (plate && j.plate === plate) || (b.custName && j.custName === b.custName))
-        .sort((a, z) => (z.createdAt || '').localeCompare(a.createdAt || ''))
+        .sort((a, z) => (toDate(z.createdAt)?.getTime() || 0) - (toDate(a.createdAt)?.getTime() || 0))
       const matchedPolicy = policies.find(p => (plate && p.plate === plate) || p.custName === b.custName)
       return {
         vin: b.vin || '',

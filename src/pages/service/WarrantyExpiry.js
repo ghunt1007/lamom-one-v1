@@ -68,7 +68,7 @@ export default async function WarrantyExpiryPage(container) {
     loading = true
     try {
       const [warranties, kmByVin] = await Promise.all([loadWarranties(), loadLatestMileageByVin()])
-      VEHICLES = warranties.map(w => mapWarranty(w, kmByVin)).filter(v => v.warrantyEnd).sort((a, b) => a.warrantyEnd.localeCompare(b.warrantyEnd))
+      VEHICLES = warranties.map(w => mapWarranty(w, kmByVin)).filter(v => v.warrantyEnd).sort((a, b) => String(a.warrantyEnd || '').localeCompare(String(b.warrantyEnd || '')))
     } catch (e) { VEHICLES = [] }
     loading = false
     if (container.__routerGen === myGen) render()

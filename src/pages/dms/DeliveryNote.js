@@ -115,7 +115,7 @@ export default async function DeliveryNotePage(container) {
 
   function filtered() {
     return notes.filter(n => statusFilter === 'all' || n.status === statusFilter)
-      .sort((a, b) => a.deliveryDate.localeCompare(b.deliveryDate))
+      .sort((a, b) => String(a.deliveryDate || '').localeCompare(String(b.deliveryDate || '')))
   }
 
   function renderPage() {

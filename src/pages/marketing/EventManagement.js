@@ -84,7 +84,7 @@ export default async function EventManagementPage(container) {
       if (typeFilter !== 'all' && e.type !== typeFilter) return false
       if (statusFilter !== 'all' && e.status !== statusFilter) return false
       return true
-    }).sort((a, b) => a.startDate.localeCompare(b.startDate))
+    }).sort((a, b) => String(a.startDate || '').localeCompare(String(b.startDate || '')))
   }
 
   function renderPage() {

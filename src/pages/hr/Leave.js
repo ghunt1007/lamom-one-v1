@@ -158,7 +158,7 @@ export default async function LeavePage(container) {
           <thead><tr><th>พนักงาน</th><th>ประเภท</th><th>วันที่</th><th>จำนวน</th><th>เหตุผล</th><th>สถานะ</th><th></th></tr></thead>
           <tbody>
             ${filtered.map(l => {
-              const tp = LEAVE_TYPES[l.type]
+              const tp = LEAVE_TYPES[l.type] || { badge: 'secondary', label: escHtml(l.type || '-') }
               const st = LEAVE_STATUS[l.status]
               return `<tr>
                 <td style="font-weight:600">${escHtml(l.staff)}</td>

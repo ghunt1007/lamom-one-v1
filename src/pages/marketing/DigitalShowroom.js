@@ -68,7 +68,7 @@ export default async function DigitalShowroomPage(container) {
     const totViews  = SHOWROOM_CARS.reduce((s,c)=>s+c.views,0)
     const totLeads  = SHOWROOM_CARS.reduce((s,c)=>s+c.leads,0)
     const feat      = SHOWROOM_CARS.filter(c=>c.featured).length
-    const avgConv   = (totLeads/totViews*100).toFixed(1)
+    const avgConv   = totViews ? (totLeads/totViews*100).toFixed(1) : '0.0'
 
     const badges = ['all','EV','NEW']
     const filterBtns = badges.map(b=>{

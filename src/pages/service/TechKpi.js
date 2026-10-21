@@ -2,7 +2,7 @@
  * Technician KPI — KPI ช่างรายบุคคล / รายเดือน
  * Route: /service/tech-kpi
  */
-import { formatCurrency, todayBangkok } from '../../utils/format.js'
+import { formatCurrency, todayBangkok, toDateStr } from '../../utils/format.js'
 import { listAllDocs, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 
@@ -51,7 +51,7 @@ export default async function TechKpiPage(container) {
   // สรุปผลงานจริงต่อช่างสำหรับเดือนที่เลือก จากชื่อช่างที่กรอกจริงใน job_cards (ไม่ hardcode รายชื่อ)
   function techStatsForMonth(monthIdx) {
     const period = `${selYear}-${String(monthIdx + 1).padStart(2, '0')}`
-    const monthJobs = allJobs.filter(j => (j.createdAt || '').slice(0, 7) === period && (j.techName || '').trim())
+    const monthJobs = allJobs.filter(j => toDateStr(j.createdAt).slice(0, 7) === period && (j.techName || '').trim())
     const byTech = {}
     monthJobs.forEach(j => {
       const name = j.techName.trim()

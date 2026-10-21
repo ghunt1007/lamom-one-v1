@@ -2,7 +2,7 @@
  * Duplicate Manager — จัดการข้อมูลลูกค้าซ้ำ
  * Route: /crm/duplicates
  */
-import { formatDate, todayBangkok } from '../../utils/format.js'
+import { formatDate, todayBangkok, toDate } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, updateDocData, softDelete } from '../../core/db.js'
@@ -60,7 +60,7 @@ function findLiveDuplicates(customers) {
   })
   Object.values(byPhone).forEach(list => {
     if (list.length < 2) return
-    const sorted = [...list].sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''))
+    const sorted = [...list].sort((a, b) => (toDate(a.createdAt)?.getTime() || 0) - (toDate(b.createdAt)?.getTime() || 0))
     groups.push({
       id: `LDUP${idx++}`, confidence: 95, reason: 'เบอร์โทรตรงกัน', _live: true,
       records: sorted.map(c => ({
@@ -82,7 +82,7 @@ function findLiveDuplicates(customers) {
   Object.values(byName).forEach(list => {
     if (list.length < 2) return
     // ต้องไม่ใช่เบอร์เดียวกัน (ไม่งั้นจะถูกจับใน byPhone ไปแล้ว) — เช็คว่ามีอย่างน้อย 2 เบอร์ต่างกัน หรือมีเบอร์ว่าง
-    const sorted = [...list].sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''))
+    const sorted = [...list].sort((a, b) => (toDate(a.createdAt)?.getTime() || 0) - (toDate(b.createdAt)?.getTime() || 0))
     groups.push({
       id: `LDUP${idx++}`, confidence: 80, reason: 'ชื่อ-นามสกุลตรงกัน', _live: true,
       records: sorted.map(c => ({

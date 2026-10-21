@@ -42,7 +42,7 @@ export default async function ServiceReminderPage(container) {
       return
     }
     const list = reminders.filter(r => typeFilter === 'all' || r.type === typeFilter)
-      .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+      .sort((a, b) => String(a.dueDate || '').localeCompare(String(b.dueDate || '')))
     const overdue = reminders.filter(r => r.dueDate < addDays(0) && !r.booked).length
     const pending = reminders.filter(r => !r.contacted).length
     const bookedCount = reminders.filter(r => r.booked).length

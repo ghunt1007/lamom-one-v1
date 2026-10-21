@@ -2,7 +2,7 @@
  * Waiting Lounge — จัดการลูกค้านั่งรอ + จอแสดงคิว
  * Route: /service/lounge
  */
-import { timeAgo } from '../../utils/format.js'
+import { timeAgo, toDate } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { watchDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
@@ -46,7 +46,7 @@ export default async function WaitingLoungePage(container) {
     }
     const waiting = queue.filter(q => q.stage !== 'ready').length
     const ready = queue.filter(q => q.stage === 'ready' && !q.notified).length
-    const avgWait = Math.round(queue.reduce((a, q) => a + (Date.now() - new Date(q.checkin)) / 60000, 0) / queue.length)
+    const avgWait = queue.length ? Math.round(queue.reduce((a, q) => a + (Date.now() - (toDate(q.checkin)?.getTime() || Date.now())) / 60000, 0) / queue.length) : 0
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -71,7 +71,7 @@ export default async function WaitingLoungePage(container) {
         <div style="display:flex;flex-direction:column;gap:10px">
           ${queue.map(q => {
             const st = JOB_STAGES[q.stage]
-            const waitMins = Math.round((Date.now() - new Date(q.checkin)) / 60000)
+            const waitMins = Math.round((Date.now() - (toDate(q.checkin)?.getTime() || Date.now())) / 60000)
             const overdue = waitMins > q.estMins && q.stage !== 'ready'
             const stageIdx = STAGE_ORDER.indexOf(q.stage)
             const next = STAGE_ORDER[stageIdx + 1]

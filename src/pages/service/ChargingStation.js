@@ -158,7 +158,7 @@ export default async function ChargingStationPage(container) {
       </div>
     `
 
-    document.getElementById('start-session-btn')?.addEventListener('click', openStartSession)
+    document.getElementById('start-session-btn')?.addEventListener('click', () => openStartSession())
     document.getElementById('add-charger-btn')?.addEventListener('click', openAddCharger)
     container.querySelectorAll('.del-charger-btn').forEach(b => b.addEventListener('click', async () => {
       const c = chargers.find(x => x.id === b.dataset.id)

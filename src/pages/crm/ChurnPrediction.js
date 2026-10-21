@@ -40,7 +40,7 @@ function risk(score) {
   if (score >= 40) return 'medium'
   return 'low'
 }
-function daysSince(d) { return Math.floor((Date.now() - new Date(d).getTime()) / 86400000) }
+function daysSince(d) { const t = new Date(d).getTime(); return isNaN(t) ? 0 : Math.floor((Date.now() - t) / 86400000) }
 
 export default async function ChurnPredictionPage(container) {
   const myGen = container.__routerGen

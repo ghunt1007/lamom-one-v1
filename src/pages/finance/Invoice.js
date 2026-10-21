@@ -80,7 +80,7 @@ export default async function InvoicePage(container) {
     if (typeFilter !== 'all') list = list.filter(d => d.type === typeFilter)
     if (statusFilter !== 'all') list = list.filter(d => d.status === statusFilter)
     if (search) list = list.filter(d => (d.custName || '').includes(search) || (d.no || '').includes(search))
-    return list.sort((a, b) => b.date.localeCompare(a.date))
+    return list.sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
   }
 
   function getSummary() {

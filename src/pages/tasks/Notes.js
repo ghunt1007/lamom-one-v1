@@ -2,7 +2,7 @@
 // Route: /notes
 import { watchDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { showToast, getState } from '../../core/store.js'
-import { timeAgo } from '../../utils/format.js'
+import { timeAgo, toDate } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 
 function escHtml(s) {
@@ -47,7 +47,7 @@ export default async function NotesPage(container) {
     }
     list.sort((a, b) => {
       if (!!b.pinned !== !!a.pinned) return b.pinned ? 1 : -1
-      return (b.updatedAt || '').localeCompare(a.updatedAt || '')
+      return (toDate(b.updatedAt)?.getTime() || 0) - (toDate(a.updatedAt)?.getTime() || 0)
     })
     return list
   }

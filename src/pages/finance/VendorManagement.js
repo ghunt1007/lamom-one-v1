@@ -260,7 +260,7 @@ export default async function VendorManagementPage(container) {
     let list = filterCat === 'all' ? VENDORS : VENDORS.filter(v => v.category === filterCat)
     const totalSpend = VENDORS.reduce((s,v) => s + v.ytdSpend, 0)
     const active = VENDORS.filter(v => v.status === 'active').length
-    const avgRating = (VENDORS.reduce((s,v) => s + v.rating, 0) / VENDORS.length).toFixed(1)
+    const avgRating = VENDORS.length ? (VENDORS.reduce((s,v) => s + (Number(v.rating) || 0), 0) / VENDORS.length).toFixed(1) : '-'
     const catBtns = ['all', ...CATEGORIES].map(c =>
       `<button class="btn btn-sm ${filterCat===c?'btn-primary':'btn-secondary'} cat-btn" data-c="${c}">${c==='all'?'ทั้งหมด':c}</button>`
     ).join('')
