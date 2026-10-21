@@ -9,6 +9,7 @@ import { navigate } from '../../core/router.js'
 import { pickVehicle } from '../../utils/vehiclePicker.js'
 import { getSalesStaff, getColors, getFinanceCompanies, getFinanceStatus, getCampaigns, getBookingStatus, getLeadSources } from '../../data/masterData.js'
 import { printBooking, printCancellation } from '../../utils/bookingDocs.js'
+import { readBookingSheet, planBookingImport, newBookingDoc, newCustomerDoc, companyForBrand } from '../../utils/bookingImport.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -160,6 +161,113 @@ export default async function BookingsPage(container) {
     showToast(`✅ เติมเงินจองแล้ว ${done} รายการ${errors ? ` (พลาด ${errors} รายการ)` : ''}`, errors ? 'warning' : 'success')
   }
 
+  // (v1.0.540) นำเข้า/อัปเดตใบจองจากไฟล์ Excel "DATA Booking" — ดู utils/bookingImport.js สำหรับกติกาการจับคู่/อัปเดต
+  // อ่านไฟล์ในเบราว์เซอร์ของคนที่ login อยู่เท่านั้น แสดงสรุปก่อน แล้วค่อยเขียนเมื่อกดยืนยัน
+  const canImportExcel = ['owner', 'admin', 'manager'].includes(myRole) || isProgramOwner()
+  function openExcelImport() {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.xlsx'
+    input.addEventListener('change', async () => {
+      const file = input.files?.[0]
+      if (!file) return
+      showToast('⏳ กำลังอ่านไฟล์และเทียบกับใบจองในระบบ...', 'info')
+      let sheet, plan, customers = [], companies = []
+      try {
+        const mod = await import('exceljs')
+        const ExcelJS = mod.default || mod
+        const wb = new ExcelJS.Workbook()
+        await wb.xlsx.load(await file.arrayBuffer())
+        sheet = readBookingSheet(wb)
+        const [allBookings, allCustomers, orgCompanies] = await Promise.all([
+          listAllDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 500),
+          listAllDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
+          listDocs('org_companies', [], 'name', 'asc', 50).catch(() => []),
+        ])
+        customers = allCustomers.filter(c => !c.deleted)
+        companies = orgCompanies.filter(c => !c.deleted)
+        plan = planBookingImport(sheet.rows, allBookings)
+      } catch (e) {
+        showToast('❌ ' + (e?.message || 'อ่านไฟล์ไม่สำเร็จ'), 'error', 6000)
+        return
+      }
+      const { creates, updates, unchanged, skippedNoNumber, duplicates } = plan
+      const nidOnly = canViewNid ? unchanged.filter(x => x.nid && nidMap[x.id] !== x.nid) : []
+      const nidCount = canViewNid ? creates.filter(x => x.nid).length + updates.filter(x => x.nid && nidMap[x.id] !== x.nid).length + nidOnly.length : 0
+      const changeCount = {}
+      updates.forEach(u => u.changes.forEach(f => { changeCount[f] = (changeCount[f] || 0) + 1 }))
+      const FIELD_TH = { status: 'สถานะ', finStatus: 'สถานะเช่าซื้อ', actualDeliveryDate: 'วันที่รับจริง', deliveryDate: 'กำหนดส่งมอบ', vin: 'VIN',
+        approveDate: 'วันที่ผ่าน', cutDate: 'วันที่ตัดตัวเลข', margin: 'มาจิ้น', budgetUsed: 'งบที่ใช้', phone: 'เบอร์โทร', address: 'ที่อยู่', price: 'ราคารถ',
+        salesName: 'ชื่อเซลล์', financeCo: 'ไฟแนนซ์', down: 'ดาวน์', model: 'รุ่นรถ', custName: 'ชื่อลูกค้า' }
+      const topChanges = Object.entries(changeCount).sort((a, b) => b[1] - a[1]).slice(0, 8)
+        .map(([f, n]) => `${escHtml(FIELD_TH[f] || f)} ${n} ใบ`).join(' · ')
+      const total = creates.length + updates.length + nidOnly.length
+      const box = (n, label, color) => `<div style="background:var(--surface-2);border-radius:8px;padding:10px"><div style="font-size:1.4rem;font-weight:800;color:${color}">${n}</div>${label}</div>`
+      openModal({
+        title: '📥 นำเข้าใบจองจาก Excel',
+        size: 'md',
+        body: `
+          <div style="font-size:0.85rem;line-height:1.7">
+            <div>ไฟล์: <b>${escHtml(file.name)}</b> (แท็บ ${escHtml(sheet.sheetName)}, ${sheet.rows.length} แถว)</div>
+            <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              ${box(creates.length, 'ใบจองใหม่ (จะสร้าง)', 'var(--success)')}
+              ${box(updates.length, 'ใบจองเดิมที่ข้อมูลเปลี่ยน (จะอัปเดต)', 'var(--warning)')}
+              ${box(unchanged.length, 'ตรงกับในระบบแล้ว', 'var(--text-primary)')}
+              ${box(skippedNoNumber.length, 'ไม่มีเลขใบจอง (ข้าม)', 'var(--text-muted)')}
+            </div>
+            ${topChanges ? `<div style="margin-top:10px;font-size:0.78rem;color:var(--text-muted)">ช่องที่เปลี่ยน: ${topChanges}</div>` : ''}
+            ${duplicates.length ? `<div style="margin-top:6px;font-size:0.78rem;color:var(--warning)">⚠️ เลขใบจองซ้ำในไฟล์ ${duplicates.length} แถว (ใช้แถวแรก): ${duplicates.slice(0, 10).map(escHtml).join(', ')}</div>` : ''}
+            ${skippedNoNumber.length ? `<div style="margin-top:6px;font-size:0.78rem;color:var(--text-muted)">แถวที่ข้ามในไฟล์ (ยังไม่มีเลขใบจอง): แถวที่ ${skippedNoNumber.slice(0, 15).map(s => s.row).join(', ')}${skippedNoNumber.length > 15 ? ' …' : ''}</div>` : ''}
+            ${nidCount ? `<div style="margin-top:6px;font-size:0.78rem;color:var(--text-muted)">🔒 เลขบัตรประชาชน ${nidCount} รายการ เก็บแยกในที่ปลอดภัยเหมือนการกรอกในฟอร์มปกติ</div>` : ''}
+            <div style="margin-top:10px;font-size:0.78rem;color:var(--text-muted)">ช่องที่ว่างในไฟล์จะไม่ลบข้อมูลที่มีในโปรแกรม และไม่แตะเงินจอง / F&amp;I / หมายเหตุที่แก้ในโปรแกรมแล้ว</div>
+          </div>`,
+        confirmText: `✅ ยืนยันนำเข้า ${total} รายการ`,
+        footer: total ? '' : '<span style="font-size:0.8rem;color:var(--text-muted)">ข้อมูลในไฟล์ตรงกับในระบบหมดแล้ว ไม่มีอะไรต้องนำเข้า</span>',
+        onConfirm: total ? async () => {
+          const custByPhone = new Map(customers.filter(c => c.phone).map(c => [String(c.phone).replace(/\D/g, ''), c]))
+          let created = 0, updated = 0, newCustomers = 0, errors = 0
+          for (const m of creates) {
+            try {
+              const companyId = companyForBrand(m.brand, companies, myEffectiveCompanyId())
+              let customerId = null
+              if (m.phone) {
+                const ex = custByPhone.get(m.phone)
+                if (ex) customerId = ex.id
+                else {
+                  customerId = await createDoc('customers', newCustomerDoc(m, { companyId }))
+                  custByPhone.set(m.phone, { id: customerId, phone: m.phone })
+                  newCustomers++
+                }
+              }
+              const id = await createDoc('bookings', newBookingDoc(m, { companyId, customerId }))
+              if (customerId) await updateDocData('customers', customerId, { bookingId: id }).catch(() => {})
+              if (canViewNid && m.nid) await setDocData('booking_national_ids', id, { nid: m.nid, companyId }).catch(() => {})
+              created++
+            } catch { errors++ }
+          }
+          for (const u of updates) {
+            try {
+              await updateDocData('bookings', u.id, { ...u.patch, updatedAt: new Date().toISOString() })
+              if (u.patch.status === 'ส่งมอบแล้ว' && u.statusFrom !== 'ส่งมอบแล้ว') await maybeMarkCustomerDelivered(u.existing)
+              if (canViewNid && u.nid && nidMap[u.id] !== u.nid) {
+                await setDocData('booking_national_ids', u.id, { nid: u.nid, companyId: u.existing.companyId || myEffectiveCompanyId() }).catch(() => {})
+              }
+              updated++
+            } catch { errors++ }
+          }
+          for (const x of nidOnly) {
+            const ex = bookings.find(b => b.id === x.id)
+            await setDocData('booking_national_ids', x.id, { nid: x.nid, companyId: ex?.companyId || myEffectiveCompanyId() }).catch(() => { errors++ })
+          }
+          showToast(`✅ นำเข้าเสร็จ: ใบจองใหม่ ${created} · อัปเดต ${updated} · ลูกค้าใหม่ ${newCustomers}${errors ? ` · พลาด ${errors}` : ''}`, errors ? 'warning' : 'success', 8000)
+          await loadData()
+          return true
+        } : undefined,
+      })
+    })
+    input.click()
+  }
+
   // (v1.0.436) ต่อจากหน้าลูกค้า (v1.0.432) — เซลส์/ช่าง/พนักงานทั่วไปเห็นเฉพาะใบจองของตัวเองเป็นค่าเริ่มต้น
   // เหมือนกัน ผูกกับ salesName (ชื่อพิมพ์เอง เทียบแบบ normalize) เพราะ Bookings ไม่มี uid ผูกตรงๆเหมือนกัน
   // (v1.0.467) เปลี่ยนจาก getMyTeamNames() (fallback ผ่อนปรน) มาใช้ getVisibilityScope() ตามนโยบายเข้มงวด
@@ -187,10 +295,11 @@ export default async function BookingsPage(container) {
   async function loadData() {
     // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true — ถ้าไม่กรองออก ใบจองที่ "ลบ" ไปแล้วจะยังโผล่กลับมา
     // ทุกครั้งที่โหลดหน้านี้ใหม่ (ขัดกับข้อความยืนยันลบที่บอกผู้ใช้ว่า "จะไม่ปรากฏในระบบอีกต่อไป")
-    try { bookings = (await listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 500)).filter(b => !b.deleted) } catch (e) {}
+    // (v1.0.540) เดิม listDocs(..., 500) ตัดใบจองที่เกิน 500 ใบทิ้งเงียบๆ — ใช้ listAllDocs (ทยอยโหลดทีละ 500) แทน
+    try { bookings = (await listAllDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 500)).filter(b => !b.deleted) } catch (e) {}
     if (canViewNid) {
       try {
-        const nidDocs = await listDocs('booking_national_ids', companyScopeFilters(), 'updatedAt', 'desc', 500)
+        const nidDocs = await listAllDocs('booking_national_ids', companyScopeFilters(), 'updatedAt', 'desc', 500)
         nidMap = Object.fromEntries(nidDocs.map(d => [d.id, d.nid]))
       } catch {}
     }
@@ -340,6 +449,7 @@ export default async function BookingsPage(container) {
             <div class="page-subtitle">แสดง ${filtered.length} / ${bookings.length} รายการ</div>
           </div>
           <div class="page-actions">
+            ${canImportExcel ? `<button class="btn btn-secondary btn-sm" id="bk-import-excel-btn">📥 นำเข้าจาก Excel</button>` : ''}
             ${canFillDeposit ? `<button class="btn btn-warning btn-sm" id="bk-fill-deepal-deposit-btn">🔧 เติมเงินจอง DEEPAL 4,000</button>` : ''}
             <button class="btn btn-primary" id="bk-wizard-btn">✨ จองใหม่ (Wizard)</button>
           </div>
@@ -380,6 +490,7 @@ export default async function BookingsPage(container) {
 
     document.getElementById('bk-wizard-btn').addEventListener('click', () => openWizard())
     document.getElementById('bk-fill-deepal-deposit-btn')?.addEventListener('click', () => fillDeepalDeposit())
+    document.getElementById('bk-import-excel-btn')?.addEventListener('click', () => openExcelImport())
     document.getElementById('bk-add-btn').addEventListener('click', () => openForm())
     document.getElementById('bk-search').addEventListener('input', ev => { search = ev.target.value.trim().toLowerCase(); render() })
     document.getElementById('bk-f-seller').addEventListener('change', ev => { sellerFilter = ev.target.value; render() })
