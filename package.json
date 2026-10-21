@@ -1,10 +1,11 @@
 {
   "name": "lamom-one-v1",
-  "version": "1.0.540",
+  "version": "1.0.541",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:emulator": "firebase emulators:exec --only firestore,auth --project demo-lamom \"node scripts/emulator-seed.mjs && vite --mode emulator\"",
     "build": "vite build && node scripts/stamp-sw.js",
     "preview": "vite preview",
     "test": "vitest run",

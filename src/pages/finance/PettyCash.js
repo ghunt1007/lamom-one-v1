@@ -56,7 +56,7 @@ export default async function PettyCashPage(container) {
     const spentMonth = settled.filter(t => t.type === 'out').reduce((a, t) => a + t.amount, 0)
     const noReceipt = settled.filter(t => t.type === 'out' && !t.receipt).length
     const lowBalance = bal < FLOAT_AMOUNT * 0.25
-    const sorted = [...settled].sort((a, b) => b.time.localeCompare(a.time))
+    const sorted = [...settled].sort((a, b) => String(b.time || '').localeCompare(String(a.time || '')))
 
     // spending by category
     const byCat = Object.keys(PC_CATS).map(k => ({
@@ -94,7 +94,7 @@ export default async function PettyCashPage(container) {
         <div class="card" style="padding:14px;margin-bottom:12px;border:1px solid var(--warning)">
           <div style="font-size:0.8rem;font-weight:700;margin-bottom:8px">⏳ รายการรออนุมัติ (${pending.length})</div>
           ${pending.map(t => {
-            const pc = PC_CATS[t.cat]
+            const pc = PC_CATS[t.cat] || { icon: '📌', label: escHtml(t.cat || 'อื่นๆ') }
             return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
               <div>
                 <div style="font-size:0.8rem;font-weight:600">${pc?.icon} ${escHtml(t.desc)}</div>
@@ -112,7 +112,7 @@ export default async function PettyCashPage(container) {
           <!-- Transactions -->
           <div style="display:flex;flex-direction:column;gap:8px">
             ${sorted.map(t => {
-              const pc = PC_CATS[t.cat]
+              const pc = PC_CATS[t.cat] || { icon: '📌', label: escHtml(t.cat || 'อื่นๆ') }
               const isIn = t.type === 'in'
               return `<div class="card" style="padding:11px 14px;display:flex;justify-content:space-between;align-items:center;border-left:3px solid var(--${isIn?'success':'border'})">
                 <div>
@@ -128,7 +128,7 @@ export default async function PettyCashPage(container) {
           <div class="card" style="padding:14px;height:fit-content">
             <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">📊 ใช้จ่ายแยกหมวด</div>
             ${byCat.map(c => {
-              const pc = PC_CATS[c.cat]
+              const pc = PC_CATS[c.cat] || { icon: '📌', label: escHtml(c.cat || 'อื่นๆ') }
               const pct = Math.round(c.total / maxCat * 100)
               return `<div style="margin-bottom:8px">
                 <div style="display:flex;justify-content:space-between;font-size:0.72rem;margin-bottom:3px">

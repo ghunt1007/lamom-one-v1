@@ -99,7 +99,7 @@ export default async function ProductKnowledgePage(container) {
     }
     let rows = filterBrand === 'all' ? PRODUCTS : PRODUCTS.filter(p=>p.brand===filterBrand)
     const brands = [...new Set(PRODUCTS.map(p=>p.brand))]
-    const avgMastered = Math.round(PRODUCTS.reduce((s,p)=>s+p.mastered,0)/PRODUCTS.length)
+    const avgMastered = PRODUCTS.length ? Math.round(PRODUCTS.reduce((s,p)=>s+(Number(p.mastered)||0),0)/PRODUCTS.length) : 0
     const highCount = PRODUCTS.filter(p=>p.mastered>=80).length
     const lowCount  = PRODUCTS.filter(p=>p.mastered<60).length
 

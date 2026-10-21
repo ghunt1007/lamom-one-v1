@@ -1,6 +1,6 @@
 import { initializeApp, getApps, deleteApp } from 'firebase/app'
-import { getAuth } from 'firebase/auth'
-import { getFirestore } from 'firebase/firestore'
+import { getAuth, connectAuthEmulator } from 'firebase/auth'
+import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore'
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check'
 // Firebase Storage ไม่ได้ใช้ — ใช้ Cloudflare R2 แทน (src/utils/storage.js)
 
@@ -27,6 +27,14 @@ if (appCheckKey) {
 
 export const auth = getAuth(app)
 export const db = getFirestore(app)
+
+// (v1.0.541) ทดสอบทั้งระบบแบบ local กับ Firebase Emulator (ข้อมูลสมมติ ไม่แตะฐานข้อมูลจริง) — เปิดเฉพาะตอน
+// `npm run dev:emulator` (import.meta.env.DEV + VITE_USE_EMULATOR=1) build production ไม่มีทางเข้าเงื่อนไขนี้
+export const USE_EMULATOR = import.meta.env.DEV && import.meta.env.VITE_USE_EMULATOR === '1'
+if (USE_EMULATOR) {
+  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true })
+  connectFirestoreEmulator(db, '127.0.0.1', 8080)
+}
 export default app
 
 // Secondary app instance — used to create staff accounts from an admin session without
@@ -34,7 +42,9 @@ export default app
 export function getSecondaryAuth() {
   const existing = getApps().find(a => a.name === 'secondary')
   const secondaryApp = existing || initializeApp(firebaseConfig, 'secondary')
-  return getAuth(secondaryApp)
+  const a = getAuth(secondaryApp)
+  if (USE_EMULATOR && !existing) connectAuthEmulator(a, 'http://127.0.0.1:9099', { disableWarnings: true })
+  return a
 }
 
 // (v1.0.449) เดิม createStaffAccount() (core/auth.js) เรียกแค่ signOut(secondaryAuth) หลังสร้างบัญชีเสร็จ —

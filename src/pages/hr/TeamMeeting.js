@@ -42,7 +42,7 @@ export default async function TeamMeetingPage(container) {
       container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
       return
     }
-    const sorted = [...meetings].sort((a, b) => b.date.localeCompare(a.date))
+    const sorted = [...meetings].sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
     const openActions = meetings.flatMap(m => m.actions||[]).filter(a => !a.done).length
     const upcoming = meetings.filter(m => !m.done && m.date >= addDays(0)).length
 

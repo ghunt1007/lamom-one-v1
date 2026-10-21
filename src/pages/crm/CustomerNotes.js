@@ -55,7 +55,7 @@ export default async function CustomerNotesPage(container) {
     }
     const list = notes
       .filter(n => (customerFilter === 'all' || n.customer === customerFilter) && (typeFilter === 'all' || n.type === typeFilter))
-      .sort((a, b) => (b.pinned - a.pinned) || b.time.localeCompare(a.time))
+      .sort((a, b) => (b.pinned - a.pinned) || String(b.time || '').localeCompare(String(a.time || '')))
     const pinnedCount = notes.filter(n => n.pinned).length
 
     container.innerHTML = `

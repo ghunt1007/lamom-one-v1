@@ -134,7 +134,7 @@ export default async function CashFlowPage(container) {
 
   function renderPage() {
     const s = getSummary()
-    const sorted = [...flows].sort((a, b) => a.date.localeCompare(b.date))
+    const sorted = [...flows].sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')))
     const running = calcRunning(sorted)
     const filtered = showType === 'all' ? running : running.filter(f => f.type === showType)
     const maxAmt = Math.max(...flows.map(f => f.amount))
@@ -167,7 +167,7 @@ export default async function CashFlowPage(container) {
         <div class="card" style="padding:20px;margin-bottom:16px">
           <div style="font-weight:700;margin-bottom:14px">📊 Cash Flow Chart</div>
           <div style="display:flex;align-items:flex-end;gap:3px;height:140px;border-bottom:1px solid var(--border);padding-bottom:8px;overflow-x:auto">
-            ${flows.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(f => {
+            ${flows.slice().sort((a,b)=>String(a.date || '').localeCompare(String(b.date || ''))).map(f => {
               const h = Math.max(4, Math.round(f.amount / maxAmt * 120))
               const isIncome = f.type === 'income'
               return `<div style="flex:1;min-width:24px;display:flex;flex-direction:column;align-items:center;gap:2px">

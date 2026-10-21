@@ -74,7 +74,7 @@ export default async function StockAnalysisPage(container) {
   function renderPage() {
     const sorted = [...liveModels].sort((a, b) => {
       const mul = sortDir === 'desc' ? -1 : 1
-      if (sortBy === 'name') return mul * a.name.localeCompare(b.name)
+      if (sortBy === 'name') return mul * String(a.name || '').localeCompare(String(b.name || ''))
       return mul * (a[sortBy] - b[sortBy])
     })
     const totalStock = liveModels.reduce((a, m) => a + m.stock, 0)

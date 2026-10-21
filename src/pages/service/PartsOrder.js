@@ -43,7 +43,7 @@ export default async function PartsOrderPage(container) {
 
   function filtered() {
     return orders.filter(o => statusFilter === 'all' || o.status === statusFilter)
-      .sort((a, b) => b.createdDate.localeCompare(a.createdDate))
+      .sort((a, b) => String(b.createdDate || '').localeCompare(String(a.createdDate || '')))
   }
 
   const today = addDays(0)

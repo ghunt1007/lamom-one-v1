@@ -114,7 +114,7 @@ export default async function LegalReferencePage(container) {
     document.getElementById('search-input')?.addEventListener('input', e => { search = e.target.value.toLowerCase(); render() })
     container.querySelectorAll('.df-btn').forEach(b => b.addEventListener('click', () => { domainFilter = b.dataset.d; catFilter = 'all'; render() }))
     container.querySelectorAll('.cf-btn').forEach(b => b.addEventListener('click', () => { catFilter = b.dataset.c; render() }))
-    document.getElementById('add-law-btn')?.addEventListener('click', openAddForm)
+    document.getElementById('add-law-btn')?.addEventListener('click', () => openAddForm())
     container.querySelectorAll('.law-card').forEach(c => c.addEventListener('click', () => {
       const a = articles.find(x => x.id === c.dataset.id); if (a) openDetail(a)
     }))
@@ -188,7 +188,7 @@ export default async function LegalReferencePage(container) {
           else await createDoc('legal_references', payload)
           showToast(edit ? '✅ แก้ไขแล้ว' : '✅ เพิ่มรายการกฎหมายแล้ว', 'success')
           await loadData()
-        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+        } catch (e) { console.error('[LegalReference] save failed', e); showToast('บันทึกไม่สำเร็จ', 'error') }
       }
     })
   }

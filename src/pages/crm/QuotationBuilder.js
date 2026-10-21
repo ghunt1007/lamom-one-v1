@@ -97,7 +97,7 @@ export default async function QuotationBuilderPage(container) {
 
   function filtered() {
     return quotes.filter(q => statusFilter === 'all' || q.status === statusFilter)
-      .sort((a, b) => b.createdDate.localeCompare(a.createdDate))
+      .sort((a, b) => String(b.createdDate || '').localeCompare(String(a.createdDate || '')))
   }
 
   function renderPage() {

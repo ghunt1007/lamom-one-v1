@@ -43,7 +43,7 @@ export default async function DebtCollectionPage(container) {
       return
     }
     const list = debts.filter(d => statusFilter === 'all' || d.status === statusFilter)
-      .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+      .sort((a, b) => String(a.dueDate || '').localeCompare(String(b.dueDate || '')))
     const outstanding = debts.filter(d => d.status !== 'paid').reduce((a, d) => a + d.amount, 0)
     const critical = debts.filter(d => d.status === 'overdue90')
     const criticalAmt = critical.reduce((a, d) => a + d.amount, 0)

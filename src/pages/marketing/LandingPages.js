@@ -73,7 +73,7 @@ export default async function LandingPagesPage(container) {
     const active  = PAGES.filter(p=>p.status==='active').length
     const totVis  = PAGES.reduce((s,p)=>s+p.visits,0)
     const totLead = PAGES.reduce((s,p)=>s+p.leads,0)
-    const avgConv = (totLead/totVis*100).toFixed(1)
+    const avgConv = totVis ? (totLead/totVis*100).toFixed(1) : '0.0'
 
     container.innerHTML = `
       <div class="page-content animate-slide">

@@ -78,7 +78,7 @@ export default async function ColorMatrixPage(container) {
     rows = Object.values(map).map(r => {
       const status = r.stockQty > 0 ? 'stock' : (r.pendingLeadDays != null ? 'order' : 'none')
       return { ...r, status, leadDays: r.pendingLeadDays || 0 }
-    }).sort((a, b) => a.displayModel.localeCompare(b.displayModel) || a.color.localeCompare(b.color))
+    }).sort((a, b) => String(a.displayModel || '').localeCompare(String(b.displayModel || '')) || String(a.color || '').localeCompare(String(b.color || '')))
   }
 
   function colorChip(r) {

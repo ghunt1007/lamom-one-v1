@@ -40,8 +40,8 @@ export default async function HolidayCalendarPage(container) {
     const today = todayBangkok()
     const list = holidays
       .filter(h => typeFilter === 'all' || h.type === typeFilter)
-      .sort((a, b) => a.date.localeCompare(b.date))
-    const upcoming = holidays.filter(h => h.date >= today).sort((a, b) => a.date.localeCompare(b.date))
+      .sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')))
+    const upcoming = holidays.filter(h => h.date >= today).sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')))
     const next = upcoming[0]
     const closedDays = holidays.filter(h => !h.showroomOpen).length
 

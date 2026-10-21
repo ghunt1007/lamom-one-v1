@@ -187,7 +187,7 @@ export default async function TechnicianSchedulePage(container) {
     `
 
     container.querySelectorAll('.skill-btn').forEach(b => b.addEventListener('click', () => { skillFilter = b.dataset.s; renderPage() }))
-    document.getElementById('assign-job-btn')?.addEventListener('click', openAssignModal)
+    document.getElementById('assign-job-btn')?.addEventListener('click', () => openAssignModal())
     container.querySelectorAll('.assign-btn').forEach(b => b.addEventListener('click', () => {
       const t = techs.find(x => x.id === b.dataset.id); if (t) openAssignModal(t)
     }))

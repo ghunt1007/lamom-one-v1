@@ -249,13 +249,14 @@ export default async function PayrollPage(container) {
     })
 
     document.getElementById('pay-all-btn')?.addEventListener('click', async (e) => {
+      // (v1.0.541) เก็บปุ่มไว้ก่อน await — หลัง await แล้ว e.currentTarget เป็น null เสมอ ทำให้กดยืนยัน 'จ่ายทั้งหมด' แล้วพังเงียบๆ ไม่มีใครได้รับการบันทึกจ่าย
+      const btn = e.currentTarget
       if (usingDemoStaff) { showToast('⚠️ ไม่สามารถจ่ายเงินได้ — กำลังแสดงข้อมูลตัวอย่าง', 'error'); return }
       const pending = staffList.filter(s => s.status === 'pending')
       if (!pending.length) { showToast('จ่ายครบแล้ว', 'success'); return }
       if (!await confirmDialog({ title: 'จ่ายเงินเดือน', message: `ยืนยันจ่ายเงินเดือน ${pending.length} คน รวม ${formatCurrency(pending.reduce((a,s)=>a+netPay(s),0))}?`, confirmText: 'ยืนยัน' })) return
       // เดิมไม่ disable ปุ่มระหว่างรอบันทึก กดซ้ำเร็วๆหลังยืนยันจะยิง Promise.all 2 ชุดซ้อนกัน สร้างรายการ
       // จ่ายเงินเดือนซ้ำให้พนักงานคนเดียวกันได้
-      const btn = e.currentTarget
       btn.disabled = true
       const paidAt = new Date().toISOString()
       const results = await Promise.all(pending.map(s => savePayrollRecord({ ...s, status: 'paid', paidAt })))

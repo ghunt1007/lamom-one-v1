@@ -144,7 +144,7 @@ export default async function TaxReportPage(container) {
 
   function filteredFilings() {
     return filings.filter(f => filingFilter === 'all' || f.status === filingFilter)
-      .sort((a, b) => b.dueDate.localeCompare(a.dueDate))
+      .sort((a, b) => String(b.dueDate || '').localeCompare(String(a.dueDate || '')))
   }
 
   const today = todayBangkok()

@@ -106,7 +106,7 @@ export default async function ExpenseClaimsPage(container) {
 
     document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => { tab = b.dataset.t; renderPage() }))
     document.getElementById('new-claim-btn')?.addEventListener('click', () => openClaimForm())
-    document.getElementById('ex-export')?.addEventListener('click', () => exportToExcel(filtered.map(c => ({ วันที่:c.date, พนักงาน:c.staffName, หมวด:CLAIM_CATS[c.cat].label, รายละเอียด:c.desc, จำนวน:c.amount, สถานะ:CLAIM_STATUS[c.status].label })), 'ExpenseClaims'))
+    document.getElementById('ex-export')?.addEventListener('click', () => exportToExcel(filtered.map(c => ({ วันที่:c.date, พนักงาน:c.staffName, หมวด:CLAIM_CATS[c.cat]?.label || c.cat || '', รายละเอียด:c.desc, จำนวน:c.amount, สถานะ:CLAIM_STATUS[c.status]?.label || c.status || '' })), 'ExpenseClaims'))
     document.querySelectorAll('.sf-btn').forEach(b => b.addEventListener('click', () => { statusFilter = b.dataset.s; renderPage() }))
     document.querySelectorAll('.df-btn').forEach(b => b.addEventListener('click', () => { deptFilter = b.dataset.d; renderPage() }))
     document.querySelectorAll('.approve-btn').forEach(btn => {
@@ -175,7 +175,7 @@ export default async function ExpenseClaimsPage(container) {
           <thead><tr><th>วันที่</th><th>พนักงาน</th><th>หมวด</th><th>รายละเอียด</th><th class="text-right">จำนวน</th><th>ใบเสร็จ</th><th>สถานะ</th><th></th></tr></thead>
           <tbody>
             ${filtered.map(c => {
-              const cat = CLAIM_CATS[c.cat]; const st = CLAIM_STATUS[c.status]
+              const cat = CLAIM_CATS[c.cat] || { color: 'secondary', label: escHtml(c.cat || '-') }; const st = CLAIM_STATUS[c.status] || { color: 'secondary', label: escHtml(c.status || '-') }
               return `<tr>
                 <td style="font-size:0.8rem;white-space:nowrap">${escHtml(c.date)}</td>
                 <td style="font-size:0.85rem;font-weight:600">${escHtml(c.staffName)}</td>
@@ -209,7 +209,7 @@ export default async function ExpenseClaimsPage(container) {
     return `
       <div style="display:flex;flex-direction:column;gap:10px">
         ${sorted.map(([k, v]) => {
-          const cat = CLAIM_CATS[k]; const pct = Math.round(v / total * 100)
+          const cat = CLAIM_CATS[k] || { color: 'secondary', label: escHtml(k) }; const pct = Math.round(v / total * 100)
           return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:12px 16px">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
               <span style="font-weight:600;font-size:0.85rem">${cat.label}</span>

@@ -34,7 +34,7 @@ export default async function EnergyUtilityPage(container) {
     if (container.__routerGen === myGen) render()
   }
 
-  function barW(val, max) { return Math.round(val/max*100) }
+  function barW(val, max) { return max > 0 ? Math.round(val/max*100) : 0 }
 
   function monthBar(m) {
     const maxElec = Math.max(...READINGS.map(r=>r.elec))
@@ -69,10 +69,25 @@ export default async function EnergyUtilityPage(container) {
       container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
       return
     }
+    // (v1.0.541) เดิมยังไม่มีการบันทึกมิเตอร์เลย (collection ว่าง) cur เป็น undefined แล้วหน้าพังค้างที่ "กำลังโหลด..."
+    // ตลอด กดปุ่มบันทึกมิเตอร์ครั้งแรกไม่ได้ — แสดงหน้าว่างพร้อมปุ่มบันทึกแทน
+    if (!READINGS.length) {
+      container.innerHTML = `
+        <div class="page-content animate-slide">
+          <div class="page-header">
+            <div><div class="page-title">⚡ Energy & Utility</div><div class="page-subtitle">ค่าไฟ น้ำ เน็ต</div></div>
+            <div class="page-actions"><button class="btn btn-primary" id="add-reading-btn">+ บันทึกมิเตอร์</button></div>
+          </div>
+          <div class="empty-state"><div class="empty-icon">⚡</div><div class="empty-title">ยังไม่มีการบันทึกค่าไฟ/น้ำ/เน็ต</div><div class="empty-desc">กด "+ บันทึกมิเตอร์" เพื่อเริ่มบันทึกเดือนแรก</div></div>
+        </div>`
+      document.getElementById('add-reading-btn')?.addEventListener('click', () => openAddModal())
+      return
+    }
     const cur = READINGS.find(r=>r.month===selMonth) || READINGS[READINGS.length-1]
     const prev = READINGS[READINGS.indexOf(cur)-1]
+    cur.zone = cur.zone || { showroom: 0, service: 0, office: 0, parking: 0 }
     const totalUtil = cur.elec + cur.water + cur.net
-    const elecChg = prev ? Math.round((cur.elec-prev.elec)/prev.elec*100) : 0
+    const elecChg = prev && prev.elec ? Math.round((cur.elec-prev.elec)/prev.elec*100) : 0
     const elecChgColor = elecChg > 0 ? 'var(--danger)' : 'var(--success)'
     const elecChgStr = (elecChg>0?'+':'')+elecChg+'%'
 

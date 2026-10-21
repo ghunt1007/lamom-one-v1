@@ -86,7 +86,7 @@ export default async function CustomerFeedbackPage(container) {
 
   function filtered() {
     return feedbacks.filter(f => typeFilter === 'all' || f.type === typeFilter)
-      .sort((a, b) => b.date.localeCompare(a.date))
+      .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
   }
 
   function renderPage() {

@@ -7,7 +7,7 @@ function genOrderNo() {
   return 'ORD-' + new Date().getFullYear() + '-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 5).toUpperCase()
 }
 import { showToast, on } from '../../core/store.js'
-import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
+import { formatDate, formatCurrency, todayBangkok, toDateStr } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { navigate } from '../../core/router.js'
@@ -202,7 +202,7 @@ export default async function VehicleOrdersPage(container) {
                 mileage: 0, location: 'โชว์รูมหลัก', arrivedAt: todayBangkok(),
                 // (v1.0.519) ไทม์ไลน์รถ — vehicle_orders ไม่มี field VIN เลย (สั่งเป็นล็อต qty คัน ไม่รู้ VIN
                 // จนกว่าจะถึงจริง) จึงเติม vin ให้ตรงไม่ได้ แต่ orderDate เติมได้จริงจากวันที่สร้างคำสั่งซื้อนี้เอง
-                orderDate: (o.createdAt || '').slice(0, 10) || todayBangkok(),
+                orderDate: toDateStr(o.createdAt) || todayBangkok(),
                 notes: `รับจากคำสั่งซื้อ ${o.orderNo}`,
                 companyId: o.companyId || myEffectiveCompanyId(),
               })

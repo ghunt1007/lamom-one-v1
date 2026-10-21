@@ -176,7 +176,7 @@ export default async function PromotionEnginePage(container) {
         '</div>' +
       '</div>'
 
-    container.querySelector('#add-promo-btn').addEventListener('click', openAddForm)
+    container.querySelector('#add-promo-btn').addEventListener('click', () => openAddForm())
     container.querySelector('#ai-import-btn').addEventListener('click', openAiImportModal)
     container.querySelector('#pe-export').addEventListener('click', () => {
       exportToExcel(promos.map(p => {

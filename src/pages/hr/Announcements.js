@@ -90,7 +90,7 @@ export default async function AnnouncementsPage(container) {
     }
     const list = anns
       .filter(a => typeFilter === 'all' || a.type === typeFilter)
-      .sort((a, b) => (b.pinned - a.pinned) || b.time.localeCompare(a.time))
+      .sort((a, b) => (b.pinned - a.pinned) || String(b.time || '').localeCompare(String(a.time || '')))
     const unreadIssues = anns.filter(a => a.readBy < a.totalStaff)
 
     container.innerHTML = `
