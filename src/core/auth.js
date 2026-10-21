@@ -176,7 +176,9 @@ async function loadUserProfile(firebaseUser) {
         const validIds = companies.map(c => c.id)
         const currentFilter = getState('activeCompanyFilter') || []
         const filterStillValid = currentFilter.length && currentFilter.every(id => validIds.includes(id))
-        setActiveCompanyFilter(filterStillValid ? currentFilter : validIds)
+        // (v1.0.542) groupWide (HR/ตรวจสอบที่ดูแลทุกบริษัท) — ค่าเริ่มต้นต้องเป็น "ทุกบริษัท" ([] = ไม่กรอง) เดิมตั้งเป็น
+        // เฉพาะบริษัทที่ตัวเองสังกัด ทำให้มองไม่เห็นข้อมูลของบริษัทอื่นทั้งที่มีสิทธิ์
+        setActiveCompanyFilter(filterStillValid ? currentFilter : (profile.groupWide === true ? [] : validIds))
       } else {
         setCompanies([])
         setActiveCompanyFilter([])

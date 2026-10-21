@@ -202,6 +202,13 @@ export async function createDoc(colName, data, actorOverride) {
   // (แก้ไข/ลบ record หลังจากนั้นจะพลาดเป้าแบบเงียบๆ)
   const { id: _ignoredId, ...rest } = data || {}
   const clean = deepSanitize(rest)
+  // (v1.0.542) ประทับผู้สร้างจริง (uid) ทุกเอกสาร — หัวหน้าเห็นข้อมูลที่ลูกทีมสร้างได้แม้ช่องชื่อผู้รับผิดชอบ
+  // (assignedTo/salesName/techName) จะว่างหรือพิมพ์ไม่ตรงกับชื่อในข้อมูลพนักงาน (ดู scopeIncludesRecord ใน hierarchy.js)
+  const me = getState('user')
+  if (me?.uid && clean.createdByUid == null) {
+    clean.createdByUid = me.uid
+    if (clean.createdByName == null) clean.createdByName = me.displayName || me.email || ''
+  }
   const ref = await addDoc(collection(db, colName), { ...clean, createdAt: serverTimestamp(), updatedAt: serverTimestamp() })
   logAction('create', colName, ref.id, `สร้างข้อมูลใหม่ใน ${colName}`, actorOverride)
   awardGamePoints('create', colName, ref.id, clean).catch(() => {})
