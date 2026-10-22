@@ -372,9 +372,17 @@ export async function hardDeleteDoc(colName, id) {
   logAction('delete', colName, id, `ลบถาวรจาก ${colName} (Data Retention)`)
 }
 
+// (v1.0.543) ข้อมูลหลักของธุรกิจ (ใบจอง/ลูกค้า/Job Card/สต็อกรถ) — หลายหน้าเรียกด้วย limit 300-500 ตายตัว พอข้อมูลจริง
+// เกินจำนวนนั้น ตัวเลขสรุปและตารางจะ "ไม่ครบ" แบบเงียบๆ ยกเพดานขั้นต่ำเป็น 3000 ให้ทุกจุดในที่เดียว (ยกเว้นการขอ
+// "N รายการล่าสุด" จำนวนน้อยๆ ≤ 50 ที่ตั้งใจดึงแค่ไม่กี่รายการ)
+const CORE_COLLECTIONS = ['bookings', 'customers', 'job_cards', 'vehicles']
+function effectiveLimit(colName, maxDocs) {
+  return CORE_COLLECTIONS.includes(colName) && maxDocs > 50 ? Math.max(maxDocs, 3000) : maxDocs
+}
+
 export async function listDocs(colName, filters = [], sortBy = 'createdAt', sortDir = 'desc', maxDocs = 100) {
   let q = collection(db, colName)
-  const constraints = [...filters.map(([f, op, v]) => where(f, op, v)), orderBy(sortBy, sortDir), limit(maxDocs)]
+  const constraints = [...filters.map(([f, op, v]) => where(f, op, v)), orderBy(sortBy, sortDir), limit(effectiveLimit(colName, maxDocs))]
   q = query(q, ...constraints)
   const snap = await getDocs(q)
   return snap.docs.map(d => ({ id: d.id, ...d.data() }))
@@ -404,7 +412,7 @@ export async function listAllDocs(colName, filters = [], sortBy = 'createdAt', s
 // คืนค่า unsubscribe — หน้าที่เรียกต้องเก็บไว้เรียกตอนออกจากหน้า ไม่งั้น listener จะรั่วค้างไปเรื่อยๆ
 export function watchDocs(colName, filters = [], sortBy = 'createdAt', sortDir = 'desc', maxDocs = 100, callback) {
   let q = collection(db, colName)
-  const constraints = [...filters.map(([f, op, v]) => where(f, op, v)), orderBy(sortBy, sortDir), limit(maxDocs)]
+  const constraints = [...filters.map(([f, op, v]) => where(f, op, v)), orderBy(sortBy, sortDir), limit(effectiveLimit(colName, maxDocs))]
   q = query(q, ...constraints)
   return onSnapshot(q, snap => {
     callback(snap.docs.map(d => ({ id: d.id, ...d.data() })))

@@ -9,7 +9,7 @@ import { navigate } from '../../core/router.js'
 import { pickVehicle } from '../../utils/vehiclePicker.js'
 import { getSalesStaff, getColors, getFinanceCompanies, getFinanceStatus, getCampaigns, getBookingStatus, getLeadSources } from '../../data/masterData.js'
 import { printBooking, printCancellation } from '../../utils/bookingDocs.js'
-import { readBookingSheet, planBookingImport, newBookingDoc, newCustomerDoc, companyForBrand } from '../../utils/bookingImport.js'
+import { readBookingSheet, planBookingImport, newBookingDoc, newCustomerDoc, companyForBrand, brandCompanyMap } from '../../utils/bookingImport.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -128,6 +128,30 @@ async function maybeMarkCustomerDelivered(booking) {
   } catch { /* ไม่กระทบการบันทึกใบจองหลัก ถ้าอัปเดตลูกค้าไม่สำเร็จ */ }
 }
 
+// (v1.0.543) เชื่อมใบจอง ↔ สต็อกรถด้วย VIN — เดิมส่งมอบรถในใบจองแล้ว รถคันเดียวกันในหน้าสต็อกยังเป็น "พร้อมขาย"
+// อยู่ ตัวเลขสต็อกบน Dashboard/หน้าสต็อก/อายุสต็อก จึงไม่ตรงกับยอดขายจริง: ส่งมอบแล้ว → ขายแล้ว, ใบจองที่ยังเดินอยู่ →
+// จองแล้ว (เฉพาะคันที่ยังพร้อมขาย), ถอนจอง → กลับเป็นพร้อมขาย (เฉพาะคันที่ค้างสถานะจองแล้ว)
+export function stockStatusForBooking(bookingStatus, vehicleStatus) {
+  if (bookingStatus === 'ส่งมอบแล้ว') return vehicleStatus === 'sold' ? null : 'sold'
+  if (bookingStatus === 'ถอนจอง') return vehicleStatus === 'reserved' ? 'available' : null
+  return vehicleStatus === 'available' ? 'reserved' : null
+}
+async function syncStockForBookings(list, vehiclesCache) {
+  const withVin = (list || []).filter(b => String(b?.vin || '').trim())
+  if (!withVin.length) return 0
+  let vehicles = vehiclesCache
+  if (!vehicles) { try { vehicles = (await listAllDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 500)).filter(v => !v.deleted) } catch { return 0 } }
+  const byVin = new Map(vehicles.filter(v => v.vin).map(v => [String(v.vin).trim().toUpperCase(), v]))
+  let n = 0
+  for (const b of withVin) {
+    const v = byVin.get(String(b.vin).trim().toUpperCase())
+    const next = v && stockStatusForBooking(b.status, v.status)
+    if (!next) continue
+    try { await updateDocData('vehicles', v.id, { status: next }); v.status = next; n++ } catch { /* ไม่กระทบการบันทึกใบจอง */ }
+  }
+  return n
+}
+
 export default async function BookingsPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
@@ -172,21 +196,25 @@ export default async function BookingsPage(container) {
       const file = input.files?.[0]
       if (!file) return
       showToast('⏳ กำลังอ่านไฟล์และเทียบกับใบจองในระบบ...', 'info')
-      let sheet, plan, customers = [], companies = []
+      let sheet, plan, customers = [], companies = [], learned = {}, everyBooking = [], stockVehicles = []
       try {
         const mod = await import('exceljs')
         const ExcelJS = mod.default || mod
         const wb = new ExcelJS.Workbook()
         await wb.xlsx.load(await file.arrayBuffer())
         sheet = readBookingSheet(wb)
-        const [allBookings, allCustomers, orgCompanies] = await Promise.all([
+        const [allBookings, allCustomers, orgCompanies, allVehicles] = await Promise.all([
           listAllDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 500),
           listAllDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
           listDocs('org_companies', [], 'name', 'asc', 50).catch(() => []),
+          listAllDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 500).catch(() => []),
         ])
+        stockVehicles = allVehicles.filter(v => !v.deleted)
         customers = allCustomers.filter(c => !c.deleted)
         companies = orgCompanies.filter(c => !c.deleted)
-        plan = planBookingImport(sheet.rows, allBookings)
+        everyBooking = allBookings.filter(b => !b.deleted)
+        learned = brandCompanyMap(allBookings)
+        plan = planBookingImport(sheet.rows, allBookings, { companyFor: brand => companyForBrand(brand, companies, null, learned) })
       } catch (e) {
         showToast('❌ ' + (e?.message || 'อ่านไฟล์ไม่สำเร็จ'), 'error', 6000)
         return
@@ -198,10 +226,14 @@ export default async function BookingsPage(container) {
       updates.forEach(u => u.changes.forEach(f => { changeCount[f] = (changeCount[f] || 0) + 1 }))
       const FIELD_TH = { status: 'สถานะ', finStatus: 'สถานะเช่าซื้อ', actualDeliveryDate: 'วันที่รับจริง', deliveryDate: 'กำหนดส่งมอบ', vin: 'VIN',
         approveDate: 'วันที่ผ่าน', cutDate: 'วันที่ตัดตัวเลข', margin: 'มาจิ้น', budgetUsed: 'งบที่ใช้', phone: 'เบอร์โทร', address: 'ที่อยู่', price: 'ราคารถ',
-        salesName: 'ชื่อเซลล์', financeCo: 'ไฟแนนซ์', down: 'ดาวน์', model: 'รุ่นรถ', custName: 'ชื่อลูกค้า' }
+        salesName: 'ชื่อเซลล์', companyId: 'บริษัท (ซ่อมให้ตรงแบรนด์)', financeCo: 'ไฟแนนซ์', down: 'ดาวน์', model: 'รุ่นรถ', custName: 'ชื่อลูกค้า' }
       const topChanges = Object.entries(changeCount).sort((a, b) => b[1] - a[1]).slice(0, 8)
         .map(([f, n]) => `${escHtml(FIELD_TH[f] || f)} ${n} ใบ`).join(' · ')
-      const total = creates.length + updates.length + nidOnly.length
+      // รถในสต็อกที่สถานะยังไม่ตรงกับใบจอง (นับไว้แสดง + ให้กดยืนยันได้แม้ข้อมูลใบจองจะตรงหมดแล้ว)
+      const vinStatus = new Map(stockVehicles.filter(v => v.vin).map(v => [String(v.vin).trim().toUpperCase(), v.status]))
+      const patchedAll = new Map(updates.map(u => [u.id, { ...u.existing, ...u.patch }]))
+      const stockTodo = [...creates, ...everyBooking.map(b => patchedAll.get(b.id) || b)].filter(b => b.vin && vinStatus.has(String(b.vin).trim().toUpperCase()) && stockStatusForBooking(b.status, vinStatus.get(String(b.vin).trim().toUpperCase()))).length
+      const total = creates.length + updates.length + nidOnly.length + stockTodo
       const box = (n, label, color) => `<div style="background:var(--surface-2);border-radius:8px;padding:10px"><div style="font-size:1.4rem;font-weight:800;color:${color}">${n}</div>${label}</div>`
       openModal({
         title: '📥 นำเข้าใบจองจาก Excel',
@@ -218,6 +250,7 @@ export default async function BookingsPage(container) {
             ${topChanges ? `<div style="margin-top:10px;font-size:0.78rem;color:var(--text-muted)">ช่องที่เปลี่ยน: ${topChanges}</div>` : ''}
             ${duplicates.length ? `<div style="margin-top:6px;font-size:0.78rem;color:var(--warning)">⚠️ เลขใบจองซ้ำในไฟล์ ${duplicates.length} แถว (ใช้แถวแรก): ${duplicates.slice(0, 10).map(escHtml).join(', ')}</div>` : ''}
             ${skippedNoNumber.length ? `<div style="margin-top:6px;font-size:0.78rem;color:var(--text-muted)">แถวที่ข้ามในไฟล์ (ยังไม่มีเลขใบจอง): แถวที่ ${skippedNoNumber.slice(0, 15).map(s => s.row).join(', ')}${skippedNoNumber.length > 15 ? ' …' : ''}</div>` : ''}
+            ${stockTodo ? `<div style="margin-top:6px;font-size:0.78rem;color:var(--text-muted)">🚗 รถในสต็อก ${stockTodo} คัน จะอัปเดตสถานะให้ตรงกับใบจอง (ส่งมอบแล้ว → ขายแล้ว)</div>` : ''}
             ${nidCount ? `<div style="margin-top:6px;font-size:0.78rem;color:var(--text-muted)">🔒 เลขบัตรประชาชน ${nidCount} รายการ เก็บแยกในที่ปลอดภัยเหมือนการกรอกในฟอร์มปกติ</div>` : ''}
             <div style="margin-top:10px;font-size:0.78rem;color:var(--text-muted)">ช่องที่ว่างในไฟล์จะไม่ลบข้อมูลที่มีในโปรแกรม และไม่แตะเงินจอง / F&amp;I / หมายเหตุที่แก้ในโปรแกรมแล้ว</div>
           </div>`,
@@ -228,7 +261,7 @@ export default async function BookingsPage(container) {
           let created = 0, updated = 0, newCustomers = 0, errors = 0
           for (const m of creates) {
             try {
-              const companyId = companyForBrand(m.brand, companies, myEffectiveCompanyId())
+              const companyId = companyForBrand(m.brand, companies, myEffectiveCompanyId(), learned)
               let customerId = null
               if (m.phone) {
                 const ex = custByPhone.get(m.phone)
@@ -249,6 +282,11 @@ export default async function BookingsPage(container) {
             try {
               await updateDocData('bookings', u.id, { ...u.patch, updatedAt: new Date().toISOString() })
               if (u.patch.status === 'ส่งมอบแล้ว' && u.statusFrom !== 'ส่งมอบแล้ว') await maybeMarkCustomerDelivered(u.existing)
+              // ลูกค้าที่ถูกสร้างจากการนำเข้าครั้งก่อนพร้อมใบจองใบนี้ ต้องย้ายไปบริษัทเดียวกันด้วย ไม่งั้นคนในบริษัทนั้นมองไม่เห็นลูกค้า
+              if (u.patch.companyId && u.existing.customerId) {
+                const cust = customers.find(c => c.id === u.existing.customerId)
+                if (cust?.importedFromExcel && cust.companyId !== u.patch.companyId) await updateDocData('customers', cust.id, { companyId: u.patch.companyId }).catch(() => {})
+              }
               if (canViewNid && u.nid && nidMap[u.id] !== u.nid) {
                 await setDocData('booking_national_ids', u.id, { nid: u.nid, companyId: u.existing.companyId || myEffectiveCompanyId() }).catch(() => {})
               }
@@ -259,7 +297,10 @@ export default async function BookingsPage(container) {
             const ex = bookings.find(b => b.id === x.id)
             await setDocData('booking_national_ids', x.id, { nid: x.nid, companyId: ex?.companyId || myEffectiveCompanyId() }).catch(() => { errors++ })
           }
-          showToast(`✅ นำเข้าเสร็จ: ใบจองใหม่ ${created} · อัปเดต ${updated} · ลูกค้าใหม่ ${newCustomers}${errors ? ` · พลาด ${errors}` : ''}`, errors ? 'warning' : 'success', 8000)
+          // ซิงก์สต็อกจากใบจองทุกใบ (รวมใบที่ไม่เปลี่ยน) — ใบจองที่ส่งมอบไปก่อนมีการเชื่อมสต็อก จะได้ถูกแก้ไปในคราวเดียว
+          const patched = new Map(updates.map(u => [u.id, { ...u.existing, ...u.patch }]))
+          const stockSynced = await syncStockForBookings([...creates, ...everyBooking.map(b => patched.get(b.id) || b)], stockVehicles)
+          showToast(`✅ นำเข้าเสร็จ: ใบจองใหม่ ${created} · อัปเดต ${updated} · ลูกค้าใหม่ ${newCustomers}${stockSynced ? ` · อัปเดตสต็อก ${stockSynced} คัน` : ''}${errors ? ` · พลาด ${errors}` : ''}`, errors ? 'warning' : 'success', 8000)
           await loadData()
           return true
         } : undefined,
@@ -631,6 +672,7 @@ export default async function BookingsPage(container) {
         await updateDocData('bookings', b.id, { status: newStatus, updatedAt: new Date().toISOString() })
         b.status = newStatus
         if (newStatus === 'ส่งมอบแล้ว') await maybeMarkCustomerDelivered(b)
+        await syncStockForBookings([b])
         showToast(`✅ อัปเดตเป็น "${newStatus}" แล้ว`, 'success')
         render()
       } catch { showToast('อัปเดตไม่สำเร็จ', 'error') }
@@ -707,6 +749,7 @@ export default async function BookingsPage(container) {
       try {
         await updateDocData('bookings', b.id, patch)
         Object.assign(b, patch)
+        await syncStockForBookings([b])
         if (refundAmount > 0) {
           await notifyDept('💸 ถอนจอง — รอคืนเงินจองลูกค้า',
             `${b.custName || b.bookingNo} ถอนจอง ${b.bookingNo} · ยอดคืน ${formatCurrency(refundAmount)} · เหตุผล: ${reason}`,
@@ -1247,6 +1290,7 @@ export default async function BookingsPage(container) {
           if (data.status === 'ส่งมอบแล้ว') await maybeMarkCustomerDelivered(data)
           else await updateDocData('customers', data.customerId, { stage: 'booking', stageChangedAt: new Date().toISOString(), bookingId }).catch(() => {})
         }
+        await syncStockForBookings([{ ...existing, ...data }])
         showToast(isEdit ? '✏️ แก้ไขใบจองแล้ว' : '✅ สร้างใบจองแล้ว', 'success')
         close(); render()
       } catch (err) {

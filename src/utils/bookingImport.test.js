@@ -121,3 +121,26 @@ describe('new docs + company', () => {
     expect(companyForBrand('AION', cos, 'f')).toBe('f')
   })
 })
+
+describe('v1.0.543 — company repair', () => {
+  it('learns brand -> company from existing (non-imported) bookings', async () => {
+    const { brandCompanyMap, companyForBrand } = await import('./bookingImport.js')
+    const learned = brandCompanyMap([
+      { model: 'S07', companyId: 'deepal-co' }, { model: 'LUMIN', companyId: 'deepal-co' }, { model: 'S05', companyId: 'other' },
+      { model: 'AION V', companyId: 'aion-co' }, { model: 'S07', companyId: 'wrong', importedFromExcel: true },
+    ])
+    expect(learned).toEqual({ DEEPAL: 'deepal-co', AION: 'aion-co' })
+    expect(companyForBrand('DEEPAL', [], 'fb', learned)).toBe('deepal-co')
+    expect(companyForBrand('OMODA & JAECOO', [{ id: 'om', name: 'OMODA บางบัวทอง' }], 'fb', learned)).toBe('om')
+  })
+  it('re-import fixes companyId of imported/no-company bookings but not deliberate ones', async () => {
+    const s = readBookingSheet(await makeWorkbook([ROW_A, ROW_B]))
+    const a = mapBookingRow(s.rows[0]), b = mapBookingRow(s.rows[1])
+    const p = planBookingImport(s.rows, [
+      { id: '1', ...a, companyId: 'owner-co', importedFromExcel: true },
+      { id: '2', ...b, companyId: 'manual-co' },
+    ], { companyFor: br => ({ DEEPAL: 'deepal-co', AION: 'aion-co' })[br] })
+    expect(p.updates.map(u => [u.id, u.patch.companyId])).toEqual([['1', 'deepal-co']])
+    expect(p.unchanged.map(u => u.id)).toEqual(['2'])
+  })
+})
