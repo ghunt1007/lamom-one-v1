@@ -443,15 +443,15 @@ export default async function DashboardPage(container) {
       listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 5).catch(() => []),
       getSalesData().catch(() => []),
       listDocs('pdi', companyScopeFilters(), 'createdAt', 'desc', 50).catch(() => []),
-      listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
+      listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 3000).catch(() => []),
       // เดิม orderBy('createdAt') — รถจริงส่วนใหญ่ในระบบไม่มี field นี้ (มีแต่ arrivedAt) ทำให้ Firestore
       // orderBy ตัดออกจากผลลัพธ์ไปเงียบๆทั้งหมด เห็นสต็อกรถ 0 คันตลอด ต้องใช้ arrivedAt ให้ตรงกับ Stock.js
-      listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 500).catch(() => []),
+      listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 3000).catch(() => []),
       listDocs('team_targets', companyScopeFilters(), 'period', 'desc', 200).catch(() => []),
       // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true — ถ้าไม่กรองออกตรงนี้ งานซ่อม/ใบจอง/งานที่ถูกลบ
       // ไปแล้วจะยังโผล่เป็นแจ้งเตือน "ค้าง" บน Dashboard และถูกนับรวมในตัวเลข KPI ด้านบนต่อไปเงียบๆ
-      watchOnce('job_cards', 'createdAt', 'desc', 500, rows => { jobs = rows.filter(r => !r.deleted) }),
-      watchOnce('bookings', 'createdAt', 'desc', 500, rows => { bookings = rows.filter(r => !r.deleted) }),
+      watchOnce('job_cards', 'createdAt', 'desc', 3000, rows => { jobs = rows.filter(r => !r.deleted) }),
+      watchOnce('bookings', 'createdAt', 'desc', 3000, rows => { bookings = rows.filter(r => !r.deleted) }),
       watchOnce('tasks', 'createdAt', 'desc', 100, rows => { tasks = rows.filter(r => !r.deleted) }),
     ])
     const leads = allCustomersForLeads.filter(c => !c.deleted && (c.stage === 'lead' || c.stage === 'pp')).map(c => ({ ...c, status: c.stage === 'lead' ? 'new' : c.stage }))
@@ -998,9 +998,9 @@ export default async function DashboardPage(container) {
     function renderFunnel() {
       const el = document.getElementById('funnel-body')
       if (el) {
-        const leadsInM = leads.filter(l => (l.createdAt || l.date || '').startsWith(selectedMonth)).length
+        const leadsInM = leads.filter(l => (toDateStr(l.createdAt) || l.date || '').startsWith(selectedMonth)).length
         const bookedInM = bookings.filter(b => (b.bookingDate || '').startsWith(selectedMonth)).length
-        const dlvInM = bookings.filter(b => b.status === 'ส่งมอบแล้ว' && ((b.actualDeliveryDate || '').startsWith(selectedMonth) || (b.bookingDate || '').startsWith(selectedMonth))).length
+        const dlvInM = bookings.filter(b => ['ส่งมอบแล้ว', 'ตัดตัวเลขรอส่งมอบ'].includes(b.status) && (b.cutDate || b.actualDeliveryDate || '').startsWith(selectedMonth)).length
         const stages = [
           { label: '🧲 Leads เข้าใหม่', count: leadsInM, color: 'info' },
           { label: '📝 เปิดใบจอง', count: bookedInM, color: 'primary' },
@@ -1294,10 +1294,10 @@ export default async function DashboardPage(container) {
 
     // Activity Feed — ประกอบจาก recent docs ทุก collection
     const feed = []
-    customers.slice(0, 3).forEach(c => feed.push({ icon:'👥', text:`ลูกค้า: ${escHtml(c.firstName||'')} ${escHtml(c.lastName||'')}`, time: timeAgo(c.createdAt), color:'primary' }))
-    jobs.slice(0, 3).forEach(j => feed.push({ icon:'🔧', text:`Job Card: ${escHtml(j.licensePlate||j.vin||j.id||'')} — ${escHtml(j.serviceType||j.type||'งานซ่อม')}`, time: timeAgo(j.createdAt), color:'warning' }))
-    bookings.slice(0, 3).forEach(b => feed.push({ icon:'📝', text:`จอง: ${escHtml(b.customerName||'')} — ${escHtml(b.model||b.vehicleModel||'')}`, time: timeAgo(b.createdAt), color:'accent' }))
-    tasks.slice(0, 2).forEach(t => feed.push({ icon:'✅', text:`Task: ${escHtml(t.title||t.name||'')}`, time: timeAgo(t.createdAt), color:'success' }))
+    customers.slice(0, 3).forEach(c => feed.push({ icon:'👥', text:`ลูกค้า: ${escHtml(c.firstName||'')} ${escHtml(c.lastName||'')}`, time: timeAgo(c.createdAt), rawTime: toDate(c.createdAt)?.getTime() || 0, color:'primary' }))
+    jobs.slice(0, 3).forEach(j => feed.push({ icon:'🔧', text:`Job Card: ${escHtml(j.jobNo||j.plate||j.licensePlate||j.vin||'')} ${escHtml(j.custName||'')} — ${escHtml(j.serviceType||j.type||'งานซ่อม')}`, time: timeAgo(j.createdAt), rawTime: toDate(j.createdAt)?.getTime() || 0, color:'warning' }))
+    bookings.slice(0, 3).forEach(b => feed.push({ icon:'📝', text:`จอง: ${escHtml(b.custName||b.customerName||'')} — ${escHtml(b.model||b.vehicleModel||'')}`, time: timeAgo(b.createdAt), rawTime: toDate(b.createdAt)?.getTime() || 0, color:'accent' }))
+    tasks.slice(0, 2).forEach(t => feed.push({ icon:'✅', text:`Task: ${escHtml(t.title||t.name||'')}`, time: timeAgo(t.createdAt), rawTime: toDate(t.createdAt)?.getTime() || 0, color:'success' }))
     // Sort by time descending (most recent first)
     feed.sort((a, b) => (b.rawTime || 0) - (a.rawTime || 0))
     const feedEl = document.getElementById('activity-feed')

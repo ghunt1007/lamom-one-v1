@@ -165,7 +165,10 @@ function same(a, b) {
 }
 
 // เทียบข้อมูลในไฟล์กับใบจองในโปรแกรม → แผนว่าจะสร้าง/อัปเดตอะไรบ้าง (ยังไม่เขียนอะไรทั้งนั้น)
-export function planBookingImport(sheetRows, existingBookings) {
+// (v1.0.543) companyFor(brand) = บริษัทที่ควรเป็นเจ้าของใบจองแบรนด์นี้ — ถ้าส่งมา จะซ่อม companyId ของใบจองเดิมที่
+// ไม่มีบริษัท หรือเป็นใบจองที่นำเข้าจาก Excel แต่ได้บริษัทไม่ตรงแบรนด์ (นำเข้ารอบแรกเลือกบริษัทจากชื่อบริษัท ถ้าชื่อ
+// ไม่มีคำว่า DEEPAL/AION ฯลฯ จะตกไปบริษัทหลักของคนกด — ใบจองพวกนั้นหายไปจากหน้าจอของคนในบริษัทที่ถูกต้อง)
+export function planBookingImport(sheetRows, existingBookings, { companyFor } = {}) {
   const byNo = new Map()
   existingBookings.filter(b => !b.deleted && b.bookingNo).forEach(b => {
     const k = String(b.bookingNo).trim()
@@ -201,6 +204,10 @@ export function planBookingImport(sheetRows, existingBookings) {
       const price = patch.price ?? ex.price ?? 0
       const down = patch.down ?? ex.down ?? 0
       patch.financeAmount = Math.max(price - down, 0)
+    }
+    if (companyFor) {
+      const want = companyFor(patch.brand || ex.brand || m.brand)
+      if (want && want !== ex.companyId && (!ex.companyId || ex.importedFromExcel)) { patch.companyId = want; changes.push('companyId') }
     }
     const nidChanged = !!m.nid
     if (changes.length) updates.push({ id: ex.id, bookingNo: m.bookingNo, patch, changes, statusFrom: ex.status, nid: m.nid, existing: ex })
@@ -251,8 +258,26 @@ export function newCustomerDoc(m, { companyId = null } = {}) {
   }
 }
 
+// (v1.0.543) แบรนด์ → บริษัท เรียนรู้จากใบจองที่มีอยู่แล้วในระบบ (บริษัทที่ใบจองแบรนด์นั้นอยู่มากที่สุด) — แม่นกว่าเดา
+// จากชื่อบริษัท เพราะชื่อบริษัทจริงอาจไม่มีชื่อแบรนด์อยู่เลย
+export function brandCompanyMap(existingBookings) {
+  const count = {}
+  for (const b of existingBookings || []) {
+    if (b.deleted || !b.companyId || b.importedFromExcel) continue
+    const brand = detectBrandFromModel(b.model) || String(b.brand || '').toUpperCase()
+    if (!brand) continue
+    const k = brand.split(' ')[0]
+    ;(count[k] ||= {})[b.companyId] = (count[k][b.companyId] || 0) + 1
+  }
+  const map = {}
+  for (const [k, byCo] of Object.entries(count)) map[k] = Object.entries(byCo).sort((a, b) => b[1] - a[1])[0][0]
+  return map
+}
+
 // เลือก companyId ตามแบรนด์ของรุ่นรถ — จับคู่กับบริษัทในระบบที่ชื่อ/แบรนด์ตรงกัน (ไม่ hardcode id)
-export function companyForBrand(brand, companies, fallback = null) {
+export function companyForBrand(brand, companies, fallback = null, learned = null) {
+  const learnedId = brand && learned ? learned[String(brand).split(' ')[0].toUpperCase()] : null
+  if (learnedId) return learnedId
   if (!brand) return fallback
   const key = brand.split(' ')[0].toLowerCase()
   const hit = (companies || []).find(c => `${c.brand || ''} ${c.name || ''}`.toLowerCase().includes(key))
