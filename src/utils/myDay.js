@@ -40,7 +40,7 @@ export function buildMyDay({ customers = [], followups = [], bookings = [], test
   alive(customers).filter(c => (c.stage === 'lead' || c.stage === 'pp') && !c.isLost && mine(c.assignedTo, c)).forEach(c => {
     const created = bangkokDate(c.createdAt)
     if (created === today) { out.newLeads.push({ ...c, name: custName(c) }); return }
-    const last = [c.updatedAt, c.stageChangedAt, c.createdAt].map(bangkokDate).filter(Boolean).sort().pop()
+    const last = [c.lastContactAt, c.updatedAt, c.stageChangedAt, c.createdAt].map(bangkokDate).filter(Boolean).sort().pop()
     if (last && daysBetween(last, today) >= STALE_LEAD_DAYS) out.stale.push({ ...c, name: custName(c), days: daysBetween(last, today) })
   })
 

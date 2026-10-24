@@ -1,6 +1,6 @@
 // นัดติดตามของลูกค้ารายเดียว — ใช้ในหน้ารายละเอียดลูกค้า (Customers.js) ให้เซลส์เห็นว่ามีนัดค้างอะไรอยู่
 // และเพิ่มนัดใหม่ได้ทันทีโดยไม่ต้องสลับไปหน้า Follow-up — ฟังก์ชันล้วน ไม่แตะฐานข้อมูล เทสได้
-import { daysBetween } from './myDay.js'
+import { daysBetween, bangkokDate } from './myDay.js'
 
 export const FOLLOWUP_PURPOSES = ['ติดตาม Lead ใหม่', 'ติดตามหลังทดลองขับ', 'ติดตามใบเสนอราคา', 'หลังส่งมอบรถ', 'ตรวจสอบความพึงพอใจ', 'แจ้งบริการถึงกำหนด', 'เสนอต่ออายุประกัน', 'แนะนำรุ่นใหม่', 'กิจกรรม/โปรโมชัน', 'วันเกิด/เทศกาล', 'ทั่วไป']
 
@@ -54,9 +54,23 @@ export function followupStatusByCustomer(followups, today) {
   return map
 }
 
-// ตัวกรองหน้าลูกค้า: 'none' = Lead/Prospect ที่ยังไม่เสียดีลแต่ไม่มีนัดค้างเลย (เสี่ยงหลุด), 'late' = มีนัดเลยกำหนด
-export function matchFollowupFilter(c, filter, statusMap) {
+export const QUIET_DAYS = 7
+
+// กี่วันแล้วที่ไม่มีความเคลื่อนไหวกับลูกค้ารายนี้ (ติดต่อล่าสุด/แก้ไข/เปลี่ยนสถานะ/วันที่เพิ่ม — เอาวันล่าสุด)
+export function quietDays(c, today) {
+  const last = [c?.lastContactAt, c?.updatedAt, c?.stageChangedAt, c?.createdAt].map(bangkokDate).filter(Boolean).sort().pop()
+  return last ? daysBetween(last, today) : null
+}
+
+// ตัวกรองหน้าลูกค้า: 'none' = Lead/Prospect ที่ยังไม่เสียดีลแต่ไม่มีนัดค้างเลย (เสี่ยงหลุด), 'late' = มีนัดเลยกำหนด,
+// 'quiet' = Lead/Prospect ที่เงียบไปตั้งแต่ QUIET_DAYS วันขึ้นไป (ไม่ต้องโหลดนัดติดตาม)
+export function matchFollowupFilter(c, filter, statusMap, today) {
   if (!filter) return true
+  if (filter === 'quiet') {
+    if (!['lead', 'pp'].includes(c.stage) || c.isLost || !today) return false
+    const d = quietDays(c, today)
+    return d != null && d >= QUIET_DAYS
+  }
   const s = statusMap?.get(c.id)
   if (filter === 'none') return ['lead', 'pp'].includes(c.stage) && !c.isLost && !s
   if (filter === 'late') return !!(s && s.late)
