@@ -12,7 +12,7 @@ import { printBooking, printCancellation } from '../../utils/bookingDocs.js'
 import { scheduleAfterSales } from '../../utils/afterSales.js'
 import { closeAutoLeadFollowups } from '../../utils/leadFollowups.js'
 import { afterWithdraw } from '../../utils/bookingWithdraw.js'
-import { askDeliveryIncome, needsIncome, statusDatePatch } from '../../utils/deliveryIncome.js'
+import { askDeliveryIncome, needsIncome, statusDatePatch, DELIVERED_STATUSES } from '../../utils/deliveryIncome.js'
 import { readBookingSheet, planBookingImport, newBookingDoc, newCustomerDoc, companyForBrand, brandCompanyMap } from '../../utils/bookingImport.js'
 
 function escHtml(s) {
@@ -822,13 +822,15 @@ export default async function BookingsPage(container) {
     const thM = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
     const dateStr = `${now.getDate()} ${thM[now.getMonth()]} ${now.getFullYear() + 543}`
     const newToday = bookings.filter(b => (b.bookingDate || '') === todayStr)
-    const delToday = bookings.filter(b => (b.actualDeliveryDate || '').slice(0, 10) === todayStr)
+    // นิยามเดียวกับรายงาน 18:00 / หน้ารายได้: สถานะส่งมอบแล้วหรือตัดตัวเลขแล้ว นับตามวันตัดตัวเลข (หรือวันส่งมอบจริง)
+    const dlvDate = b => DELIVERED_STATUSES.includes(b.status) ? (b.cutDate || b.actualDeliveryDate || '').slice(0, 10) : ''
+    const delToday = bookings.filter(b => dlvDate(b) === todayStr)
     const active = bookings.filter(b => !TERMINAL_STATUSES.includes(b.status))
     const bySt = {}
     active.forEach(b => { bySt[b.status] = (bySt[b.status] || 0) + 1 })
     const curMonth = todayStr.slice(0, 7)
     const monthBks = bookings.filter(b => (b.bookingDate || '').slice(0, 7) === curMonth)
-    const monthDel = bookings.filter(b => (b.actualDeliveryDate || '').slice(0, 7) === curMonth)
+    const monthDel = bookings.filter(b => dlvDate(b).slice(0, 7) === curMonth)
     const urgent = bookings.filter(isUrgent)
     const lines = []
     lines.push('📊 สรุปยอดประจำวัน')
