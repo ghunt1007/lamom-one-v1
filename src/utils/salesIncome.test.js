@@ -34,3 +34,16 @@ describe('lastMonths', () => {
     expect(lastMonths('2026-02', 4)).toEqual(['2026-02', '2026-01', '2025-12', '2025-11'])
   })
 })
+
+describe('summarizeSalesIncome — ถอนจอง', () => {
+  it('นับถอนจองตามวันถอนในเดือนนั้น', async () => {
+    const { summarizeSalesIncome } = await import('./salesIncome.js')
+    const { rows, total } = summarizeSalesIncome([
+      { status: 'ถอนจอง', salesName: 'A', bookingDate: '2026-09-20', cancelDate: '2026-10-03' },
+      { status: 'ยกเลิก', salesName: 'A', bookingDate: '2026-10-05' },
+      { status: 'ถอนจอง', salesName: 'B', bookingDate: '2026-10-01', cancelDate: '2026-11-01' },
+    ], '2026-10')
+    expect(rows.find(r => r.name === 'A')).toMatchObject({ cancelled: 2, booked: 0 })
+    expect(total.cancelled).toBe(2)
+  })
+})

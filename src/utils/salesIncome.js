@@ -12,10 +12,12 @@ export function summarizeSalesIncome(bookings, month) {
   const rows = {}
   const seller = name => {
     const key = (name || '').trim() || '(ไม่ระบุเซลส์)'
-    return (rows[key] ||= { name: key, booked: 0, delivered: 0, missing: 0, marginLeft: 0, com70: 0, comFinance: 0, income: 0, cars: [] })
+    return (rows[key] ||= { name: key, booked: 0, cancelled: 0, delivered: 0, missing: 0, marginLeft: 0, com70: 0, comFinance: 0, income: 0, cars: [] })
   }
   ;(bookings || []).filter(b => b && !b.deleted).forEach(b => {
     if ((b.bookingDate || '').startsWith(month) && !CANCELLED.includes(b.status)) seller(b.salesName).booked++
+    // ถอนจอง/ยกเลิกในเดือนนี้ (นับตามวันถอนจริง ถ้าไม่มีใช้วันจอง)
+    if (CANCELLED.includes(b.status) && (b.cancelDate || b.bookingDate || '').startsWith(month)) seller(b.salesName).cancelled++
     if (DELIVERED_STATUSES.includes(b.status) && deliveredMonth(b) === month) {
       const r = seller(b.salesName)
       r.delivered++
@@ -29,9 +31,9 @@ export function summarizeSalesIncome(bookings, month) {
   })
   const list = Object.values(rows).sort((a, b) => b.income - a.income || b.delivered - a.delivered || a.name.localeCompare(b.name))
   const total = list.reduce((t, r) => {
-    ;['booked', 'delivered', 'missing', 'marginLeft', 'com70', 'comFinance', 'income'].forEach(k => { t[k] += r[k] })
+    ;['booked', 'cancelled', 'delivered', 'missing', 'marginLeft', 'com70', 'comFinance', 'income'].forEach(k => { t[k] += r[k] })
     return t
-  }, { booked: 0, delivered: 0, missing: 0, marginLeft: 0, com70: 0, comFinance: 0, income: 0 })
+  }, { booked: 0, cancelled: 0, delivered: 0, missing: 0, marginLeft: 0, com70: 0, comFinance: 0, income: 0 })
   return { rows: list, total }
 }
 
