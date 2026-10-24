@@ -2,7 +2,7 @@
 // เปิดมาเจอทันทีว่าวันนี้ต้องโทรใคร/ทำอะไร (เกณฑ์เดียวกับข้อความเตือน 9 โมงเช้า ดู utils/myDay.js) และกดทำได้จากหน้านี้เลย
 // เซลส์เห็นเฉพาะงานตัวเอง/ลูกทีม (getVisibilityScope) — เจ้าของ/ผู้จัดการเลือกดูรายคนได้
 import { listAllDocs, listDocs, updateDocData, readDoc } from '../../core/db.js'
-import { companyScopeFilters } from '../../core/companyScope.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { getVisibilityScope, scopeIncludesRecord, normName } from '../../core/hierarchy.js'
 import { showToast, getState } from '../../core/store.js'
 import { formatDate, todayBangkok } from '../../utils/format.js'
@@ -12,6 +12,7 @@ import { askDeliveryIncome } from '../../utils/deliveryIncome.js'
 import { QUICK_SOURCES } from '../../utils/quickLead.js'
 import { SALES_TARGETS_COLLECTION, targetFor, goalProgress } from '../../utils/salesTargets.js'
 import { DELIVERED_STATUSES } from '../../utils/deliveryIncome.js'
+import { staffChoices, findStaffCompany, assignCustomer } from '../../utils/leadAssign.js'
 import { buildMyDay, STALE_LEAD_DAYS, STUCK_BOOKING_DAYS, UPCOMING_DELIVERY_DAYS } from '../../utils/myDay.js'
 
 const UNASSIGNED = '(ยังไม่มีผู้ดูแล)'
@@ -27,6 +28,7 @@ export default async function MyDayPage(container) {
   let data = { customers: [], followups: [], bookings: [] }
   let seller = 'all'
   let targets = {}
+  let staff = []
 
   container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
   const scope = await getVisibilityScope()
@@ -42,6 +44,7 @@ export default async function MyDayPage(container) {
     if (!customers || !followups || !bookings) showToast('โหลดข้อมูลบางส่วนไม่สำเร็จ', 'warning')
     data = { customers: customers || [], followups: followups || [], bookings: bookings || [] }
     try { targets = (await readDoc(SALES_TARGETS_COLLECTION, todayBangkok().slice(0, 7)))?.targets || {} } catch { targets = {} }
+    try { staff = staffChoices(await listDocs('staff', companyScopeFilters(), 'firstName', 'asc', 1000)) } catch { staff = [] }
   }
   await load()
   if (container.__routerGen !== myGen) return
@@ -75,6 +78,7 @@ export default async function MyDayPage(container) {
       <div style="flex:1;min-width:180px"><div style="font-weight:600;font-size:0.86rem">${main}</div><div style="font-size:0.72rem;color:var(--text-muted)">${sub}</div></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">${actions}</div></div>`
   const callBtn = phone => tel(phone) ? `<a class="btn btn-secondary btn-xs" href="tel:${escHtml(tel(phone))}">📞 โทร</a>` : ''
+  const takeBtns = c => String(c.assignedTo || '').trim() ? '' : `${me.displayName ? `<button class="btn btn-primary btn-xs md-take" data-id="${escHtml(c.id)}">🙋 รับดูแล</button>` : ''}${canPick && staff.length ? `<button class="btn btn-secondary btn-xs md-give" data-id="${escHtml(c.id)}">👉 มอบให้</button>` : ''}`
   const ownerTag = n => seller === 'all' && canPick ? ` · 👤 ${escHtml((n || '').trim() || UNASSIGNED)}` : ''
 
   // เป้าส่งมอบเดือนนี้ของคนที่เลือก (ตัวเอง ถ้าดูทุกคน) — ตั้งเป้าได้ที่หน้ารายได้รายเซลส์
@@ -119,12 +123,12 @@ export default async function MyDayPage(container) {
         ${section('🧲', 'Lead ใหม่วันนี้', 'โทรหาภายในวันนี้ โอกาสปิดสูงสุด', d.newLeads, c => line(
           `${escHtml(c.name)}${c.interestedModel ? ` · ${escHtml(c.interestedModel)}` : ''}`,
           `${escHtml(SOURCE_LABEL[c.source] || c.source || '')}${c.phone ? ` · ${escHtml(c.phone)}` : c.lineId ? ` · ${escHtml(c.lineId)}` : ''}${ownerTag(c.assignedTo)}`,
-          `${callBtn(c.phone)}${!String(c.assignedTo || '').trim() && me.displayName ? `<button class="btn btn-primary btn-xs md-take" data-id="${escHtml(c.id)}">🙋 รับดูแล</button>` : ''}<button class="btn btn-secondary btn-xs md-open" data-id="${escHtml(c.id)}">เปิด</button>`), 'success')}
+          `${callBtn(c.phone)}${takeBtns(c)}<button class="btn btn-secondary btn-xs md-open" data-id="${escHtml(c.id)}">เปิด</button>`), 'success')}
 
         ${section('⏰', `Lead ไม่ได้ติดตามเกิน ${STALE_LEAD_DAYS} วัน`, 'กด "ติดตามแล้ว" เพื่อบันทึกว่าคุยแล้ววันนี้', d.stale, c => line(
           `${escHtml(c.name)}${c.interestedModel ? ` · ${escHtml(c.interestedModel)}` : ''} <span class="badge badge-warning" style="font-size:0.62rem">${c.days} วัน</span>`,
           `${c.phone ? escHtml(c.phone) : c.lineId ? escHtml(c.lineId) : 'ไม่มีเบอร์'}${ownerTag(c.assignedTo)}`,
-          `${callBtn(c.phone)}${!String(c.assignedTo || '').trim() && me.displayName ? `<button class="btn btn-primary btn-xs md-take" data-id="${escHtml(c.id)}">🙋 รับดูแล</button>` : ''}<button class="btn btn-success btn-xs md-touch" data-id="${escHtml(c.id)}">✅ ติดตามแล้ว</button><button class="btn btn-secondary btn-xs md-open" data-id="${escHtml(c.id)}">เปิด</button>`), 'warning')}
+          `${callBtn(c.phone)}${takeBtns(c)}<button class="btn btn-success btn-xs md-touch" data-id="${escHtml(c.id)}">✅ ติดตามแล้ว</button><button class="btn btn-secondary btn-xs md-open" data-id="${escHtml(c.id)}">เปิด</button>`), 'warning')}
 
         ${section('🚗', `นัดส่งมอบ ${UPCOMING_DELIVERY_DAYS} วันข้างหน้า`, 'เตรียมรถ/เอกสารให้พร้อม', d.deliveries, b => line(
           `${escHtml(b.custName || 'ลูกค้า')} · ${escHtml([b.brand, b.model].filter(Boolean).join(' ') || '—')}`,
@@ -156,14 +160,36 @@ export default async function MyDayPage(container) {
         showToast('✅ บันทึกการติดตามแล้ว', 'success'); render()
       } catch { showToast('บันทึกไม่สำเร็จ', 'error'); b.disabled = false }
     }))
+    const giveTo = async (c, name) => {
+      const n = await assignCustomer(c, name, findStaffCompany(staff, name) || (name === me.displayName ? myEffectiveCompanyId() : null), data.followups)
+      if (n) await load() // โหลดนัดติดตามที่เพิ่งสร้างให้ขึ้นในหน้านี้
+      return n
+    }
     $$('.md-take').forEach(b => b.addEventListener('click', async () => {
+      const c = data.customers.find(x => x.id === b.dataset.id)
+      if (!c) return
       b.disabled = true
       try {
-        await updateDocData('customers', b.dataset.id, { assignedTo: me.displayName })
-        const c = data.customers.find(x => x.id === b.dataset.id)
-        if (c) { c.assignedTo = me.displayName; c.updatedAt = new Date().toISOString() }
-        showToast('🙋 รับดูแลลูกค้ารายนี้แล้ว', 'success'); render()
+        const n = await giveTo(c, me.displayName)
+        showToast(`🙋 รับดูแลลูกค้ารายนี้แล้ว${n ? ` · นัดติดตาม ${n} ครั้ง` : ''}`, 'success'); render()
       } catch { showToast('บันทึกไม่สำเร็จ', 'error'); b.disabled = false }
+    }))
+    $$('.md-give').forEach(b => b.addEventListener('click', () => {
+      const c = data.customers.find(x => x.id === b.dataset.id)
+      if (!c) return
+      openModal({
+        title: `👉 มอบ ${escHtml([c.firstName, c.lastName].filter(Boolean).join(' ') || 'ลูกค้า')} ให้เซลส์`, size: 'sm',
+        body: `<div class="input-group"><label class="input-label">เลือกเซลส์</label><select class="input" id="md-give-name">${staff.map(x => `<option value="${escHtml(x.name)}">${escHtml(x.name)}${x.nickname ? ` (${escHtml(x.nickname)})` : ''}</option>`).join('')}</select></div>
+          <div style="font-size:0.72rem;color:var(--text-muted);margin-top:8px">ระบบจะนัดติดตามวันที่ 1, 3, 7 ให้เซลส์คนนั้นด้วย (ถ้ายังไม่มีนัด)</div>`,
+        async onConfirm() {
+          const name = document.getElementById('md-give-name')?.value
+          if (!name) return false
+          try {
+            const n = await giveTo(c, name)
+            showToast(`👉 มอบให้ ${name} แล้ว${n ? ` · นัดติดตาม ${n} ครั้ง` : ''}`, 'success'); render()
+          } catch { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
+        },
+      })
     }))
     $$('.md-inc').forEach(btn => btn.addEventListener('click', async () => {
       const b = data.bookings.find(x => x.id === btn.dataset.id)
