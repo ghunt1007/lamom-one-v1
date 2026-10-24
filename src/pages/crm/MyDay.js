@@ -14,6 +14,7 @@ import { SALES_TARGETS_COLLECTION, targetFor, goalProgress } from '../../utils/s
 import { DELIVERED_STATUSES } from '../../utils/deliveryIncome.js'
 import { staffChoices, findStaffCompany, assignCustomer } from '../../utils/leadAssign.js'
 import { bangkokDate, buildMyDay, STALE_LEAD_DAYS, STUCK_BOOKING_DAYS, UPCOMING_DELIVERY_DAYS, FINANCE_WAIT_DAYS } from '../../utils/myDay.js'
+import { followupWindowFilters } from '../../utils/customerFollowups.js'
 
 const UNASSIGNED = '(ยังไม่มีผู้ดูแล)'
 function escHtml(s) {
@@ -38,7 +39,7 @@ export default async function MyDayPage(container) {
     const f = companyScopeFilters()
     const [customers, followups, bookings, testDrives] = await Promise.all([
       listAllDocs('customers', f, 'createdAt', 'desc').catch(() => null),
-      listDocs('followups', f, 'dueDate', 'asc', 1000).catch(() => null),
+      listDocs('followups', [...f, ...followupWindowFilters(todayBangkok())], 'dueDate', 'asc', 2000).catch(() => null),
       listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => null),
       listDocs('test_drives', f, 'date', 'desc', 200).catch(() => []),
     ])

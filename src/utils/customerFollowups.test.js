@@ -35,3 +35,11 @@ describe('addDays / buildManualFollowup', () => {
     expect(FOLLOWUP_PURPOSES).toContain('ทั่วไป')
   })
 })
+
+describe('followupWindowFilters', () => {
+  it('ดึงนัดย้อนหลังไม่เกิน 120 วัน (ค่าเริ่มต้น)', async () => {
+    const { followupWindowFilters } = await import('./customerFollowups.js')
+    expect(followupWindowFilters('2026-10-25')).toEqual([['dueDate', '>=', '2026-06-27']])
+    expect(followupWindowFilters('2026-10-25', 30)).toEqual([['dueDate', '>=', '2026-09-25']])
+  })
+})

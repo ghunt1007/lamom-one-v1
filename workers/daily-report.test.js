@@ -720,3 +720,17 @@ describe('speed to lead in the 18:00 report', () => {
     expect(buildReport({ bookings: [], customers: customers.slice(0, 1), followups: [], testDrives: [] }, { today: '2026-10-25' })).toContain('ติดต่อแล้ว 1/1 ราย 👍')
   })
 })
+
+describe('buildStructuredQuery', () => {
+  it('ไม่มีตัวกรอง = ไม่มี where', async () => {
+    const { buildStructuredQuery } = await import('./daily-report.js')
+    const q = buildStructuredQuery('followups', null, null, 10, ['dueDate'])
+    expect(q).toEqual({ from: [{ collectionId: 'followups' }], limit: 10, select: { fields: [{ fieldPath: 'dueDate' }] } })
+  })
+  it('กรองเท่ากับ status = pending', async () => {
+    const { buildStructuredQuery } = await import('./daily-report.js')
+    const q = buildStructuredQuery('followups', null, null, 10, null, ['status', 'pending'])
+    expect(q.where).toEqual({ fieldFilter: { field: { fieldPath: 'status' }, op: 'EQUAL', value: { stringValue: 'pending' } } })
+    expect(q.orderBy).toBeUndefined()
+  })
+})
