@@ -710,6 +710,23 @@ describe('weekly summary — lead sources', () => {
   })
 })
 
+describe('weekly summary — quiet leads', () => {
+  it('counts lead/prospect with no activity for 7+ days per owner', () => {
+    const customers = [
+      { stage: 'lead', assignedTo: 'วิชัย', createdAt: '2026-10-01T03:00:00Z' },
+      { stage: 'pp', assignedTo: 'วิชัย', createdAt: '2026-10-01T03:00:00Z' },
+      { stage: 'pp', assignedTo: 'นภา', createdAt: '2026-10-01T03:00:00Z', lastContactAt: '2026-10-24T03:00:00Z' },
+      { stage: 'lead', assignedTo: '', createdAt: '2026-10-02T03:00:00Z' },
+      { stage: 'lead', assignedTo: 'นภา', createdAt: '2026-10-01T03:00:00Z', isLost: true },
+      { stage: 'booking', assignedTo: 'นภา', createdAt: '2026-10-01T03:00:00Z' },
+    ]
+    const text = buildWeeklyReport({ bookings: [], customers }, { today: '2026-10-26' })
+    expect(text).toContain('💤 Lead/Prospect เงียบ 7 วัน+: 3 ราย')
+    expect(text).toContain('มากสุด: วิชัย 2 · (ยังไม่มีผู้ดูแล) 1')
+    expect(buildWeeklyReport({ bookings: [], customers: [] }, { today: '2026-10-26' })).not.toContain('เงียบ')
+  })
+})
+
 describe('finance waiting in the 09:00 reminder', () => {
   it('lists rejected and long-waiting finance per salesperson', () => {
     const [sec] = buildMorningSections({ customers: [], followups: [], bookings: [
