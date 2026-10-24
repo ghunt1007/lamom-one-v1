@@ -2,7 +2,7 @@
  * Customer Map — ลูกค้าตามพื้นที่
  * Route: /crm/map
  */
-import { formatCurrency } from '../../utils/format.js'
+import { formatCurrency, toDate } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { listAllDocs } from '../../core/db.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -40,7 +40,7 @@ export default async function CustomerMapPage(container) {
       const g = grouped[province]
       g.customers++
       g.revenue += b.price || 0
-      const y = new Date(b.createdAt || b.bookingDate || 0).getFullYear()
+      const y = (toDate(b.bookingDate) || toDate(b.createdAt))?.getFullYear() // createdAt เป็น Timestamp — new Date() ตรงๆ ได้ NaN
       if (y === thisYear) g.thisYearCount++
       else if (y === thisYear - 1) g.lastYearCount++
     })

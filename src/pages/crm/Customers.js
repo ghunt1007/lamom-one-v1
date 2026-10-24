@@ -5,7 +5,7 @@ import { listDocs, listAllDocs, watchDocs, createDoc, updateDocData, softDelete,
 import { showToast, getState, on } from '../../core/store.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { getVisibilityScope, scopeIncludesRecord, normName } from '../../core/hierarchy.js'
-import { formatDate, timeAgo, formatPhone, formatCurrency, initials, fullName, todayBangkok } from '../../utils/format.js'
+import { formatDate, timeAgo, formatPhone, formatCurrency, initials, fullName, todayBangkok, toDate } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel, openImportModal } from '../../utils/importExport.js'
 import { SmartSheet } from '../../components/SmartSheet.js'
@@ -71,6 +71,7 @@ export default async function CustomersPage(container) {
   let salesFilter = ''
   let sourceFilter = ''
   let fuFilter = ''
+  let sortMode = 'urgent' // urgent = ด่วนก่อน (เดิม) · quiet = เงียบนานสุดก่อน · new = เพิ่มล่าสุดก่อน
   let fuStatus = null // โหลดนัดติดตามเฉพาะตอนเลือกตัวกรองนัดครั้งแรก (ไม่ให้ทุกคนเสียเวลาโหลด)
 
   // (v1.0.467) เปลี่ยนจาก getMyTeamNames() (มี fallback ผ่อนปรนให้ manager ที่ไม่มีลูกทีมจริงเห็นทุกคนแทน)
@@ -130,11 +131,15 @@ export default async function CustomersPage(container) {
       return matchSearch && matchStage && matchLost && matchSales && matchSource && matchOwn && matchFu
     })
     const rank = { high: 0, medium: 1, low: 2 }
+    const qd = c => quietDays(c, today) ?? -1
     filtered.sort((a, b) => {
       if (!!a.isLost !== !!b.isLost) return a.isLost ? 1 : -1
+      if (sortMode === 'quiet') return qd(b) - qd(a)
+      const newer = (toDate(b.createdAt)?.getTime() || 0) - (toDate(a.createdAt)?.getTime() || 0) // createdAt เป็น Timestamp — new Date() ตรงๆ ได้ NaN
+      if (sortMode === 'new') return newer
       const ua = rank[quickUrgency(a)], ub = rank[quickUrgency(b)]
       if (ua !== ub) return ua - ub
-      return new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+      return newer
     })
     renderStats()
     renderTable()
@@ -928,6 +933,11 @@ export default async function CustomersPage(container) {
             <option value="">📌 ทุกช่องทาง</option>
             ${Object.entries(SOURCE).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}
           </select>
+          <select class="input" id="cust-sort" style="width:auto;min-width:120px" title="เรียงลำดับ">
+            <option value="urgent">↕️ ด่วนก่อน</option>
+            <option value="quiet">💤 เงียบนานสุดก่อน</option>
+            <option value="new">🆕 เพิ่มล่าสุดก่อน</option>
+          </select>
           <select class="input" id="cust-fu-filter" style="width:auto;min-width:130px" title="กรองตามนัดติดตาม">
             <option value="">📅 นัดติดตาม: ทั้งหมด</option>
             <option value="none">⚠️ Lead/Prospect ที่ไม่มีนัดเลย</option>
@@ -1082,6 +1092,7 @@ export default async function CustomersPage(container) {
   document.getElementById('cust-search').addEventListener('input', e => { search = e.target.value.trim().toLowerCase(); applyFilter() })
   document.getElementById('cust-sales-filter').addEventListener('change', e => { salesFilter = e.target.value; applyFilter() })
   document.getElementById('cust-source-filter').addEventListener('change', e => { sourceFilter = e.target.value; applyFilter() })
+  document.getElementById('cust-sort').addEventListener('change', e => { sortMode = e.target.value; applyFilter() })
   document.getElementById('cust-fu-filter').addEventListener('change', async e => {
     fuFilter = e.target.value
     if ((fuFilter === 'none' || fuFilter === 'late') && !fuStatus) {
