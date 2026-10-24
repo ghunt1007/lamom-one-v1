@@ -173,7 +173,10 @@ async function handleLineWebhook(request, env, cors) {
               runQuery(env, accessToken, 'customers', null, null, 5000, ['firstName', 'lastName', 'phone', 'lineId', 'stage', 'assignedTo', 'interestedModel', 'isLost', 'deleted']),
               runQuery(env, accessToken, 'followups', null, null, 5000, ['dueDate', 'status', 'customerId', 'deleted'], ['status', 'pending']),
             ])
-            reply = findCustomersText(customers, followups, cmd.q, todayBangkok())
+            // นโยบายการมองเห็นเดียวกับในแอป: เซลส์เห็นเฉพาะลูกค้าที่ตัวเองดูแล — เจ้าของเห็นทั้งหมด
+            const isOwner = owner && owner === userId
+            const mine = isOwner ? customers : customers.filter(c => normSalesName(c.assignedTo) === normSalesName(me?.name))
+            reply = findCustomersText(mine, followups, cmd.q, todayBangkok())
           } catch { reply = '⚠️ ค้นหาไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
         }
       } else otherMessage = true
