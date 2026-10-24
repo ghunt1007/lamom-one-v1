@@ -1,3 +1,4 @@
+import { toDate } from './format.js'
 // เหตุผลเสียดีล/ถอนจองที่เซลส์พิมพ์เป็นข้อความ (หรือกดปุ่มเลือกในหน้าลูกค้า เช่น "ราคา - อีกร้านลดมากกว่า")
 // → จัดเข้ากลุ่มเพื่อนับสถิติในหน้าวิเคราะห์ดีลที่เสีย เดิมทุกข้อความกลายเป็นกลุ่มของตัวเอง กราฟเลยใช้ไม่ได้
 export const LOST_REASON_KEYS = ['price', 'competitor', 'model', 'finance', 'timing', 'service', 'location', 'changed_mind', 'no_contact', 'other']
@@ -22,4 +23,26 @@ export function classifyLostReason(text) {
   for (const [key, re] of RULES) if (re.test(head)) return key
   for (const [key, re] of RULES) if (re.test(s)) return key
   return 'other'
+}
+
+export const LOST_REASON_LABELS = {
+  price: 'ราคา', competitor: 'ซื้อคู่แข่ง', model: 'ไม่มีรุ่นที่ต้องการ', finance: 'ไฟแนนซ์ไม่ผ่าน', timing: 'ยังไม่พร้อม',
+  service: 'ไม่พอใจบริการ', location: 'ไกล', changed_mind: 'เปลี่ยนใจ/เปลี่ยนรุ่น', no_contact: 'ติดต่อไม่ได้', other: 'อื่นๆ',
+}
+
+// เสียดีลในเดือน 'YYYY-MM' (ตามวันที่กดเสียดีล เวลาไทย) แยกตามผู้ดูแล พร้อมเหตุผลที่เจอบ่อยสุด
+export function lostBySeller(customers, month) {
+  const bkk = v => { const d = toDate(v); return d ? new Date(d.getTime() + 7 * 3600 * 1000).toISOString().slice(0, 7) : '' }
+  const rows = {}
+  ;(customers || []).filter(c => c && !c.deleted && c.isLost && bkk(c.lostAt) === month).forEach(c => {
+    const name = String(c.assignedTo || '').trim() || '(ไม่มีผู้ดูแล)'
+    const r = (rows[name] ||= { name, total: 0, reasons: {} })
+    r.total++
+    const k = classifyLostReason(c.lostReason)
+    r.reasons[k] = (r.reasons[k] || 0) + 1
+  })
+  return Object.values(rows).map(r => ({
+    ...r,
+    top: Object.entries(r.reasons).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, v]) => ({ key: k, label: LOST_REASON_LABELS[k] || k, count: v })),
+  })).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name))
 }

@@ -13,6 +13,7 @@ import { summarizeSalesIncome, lastMonths, undatedDeliveries } from '../../utils
 import { askDeliveryIncome, needsIncome } from '../../utils/deliveryIncome.js'
 import { followupDiscipline, monthRange } from '../../utils/followupDiscipline.js'
 import { speedToLead } from '../../utils/speedToLead.js'
+import { lostBySeller } from '../../utils/lostReason.js'
 import { lineRegistrationStatus } from '../../utils/lineRegistration.js'
 import { getSalesStaff } from '../../data/masterData.js'
 
@@ -119,6 +120,19 @@ export default async function SalesIncomePage(container) {
             <td style="text-align:right;font-weight:800;color:var(--${r.rate >= 80 ? 'success' : r.rate >= 50 ? 'warning' : 'danger'})">${r.rate}%</td>
           </tr>`).join('')}</tbody></table></div></div>`
     }
+    const lostCard = () => {
+      if (!recentCustomers) return ''
+      const list = lostBySeller(recentCustomers, month)
+      if (!list.length) return ''
+      return `<div class="card" style="padding:0;overflow:hidden;margin-top:16px">
+        <div style="padding:12px 16px;font-weight:700">💔 เสียดีล${escHtml(monthLabel(month))} <span style="font-weight:400;font-size:0.75rem;color:var(--text-muted)">ลูกค้า Lead/Prospect ที่กดเสียดีล แยกตามผู้ดูแล · ดูรายละเอียดที่หน้า Lost Deal</span></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>ผู้ดูแล</th><th style="text-align:right">เสียดีล</th><th>เหตุผลหลัก</th></tr></thead>
+          <tbody>${list.map(r => `<tr>
+            <td style="font-weight:600">${escHtml(r.name)}</td><td style="text-align:right;font-weight:700;color:var(--danger)">${r.total}</td>
+            <td style="font-size:0.8rem">${r.top.map(t => `${escHtml(t.label)} ${t.count}`).join(' · ')}</td>
+          </tr>`).join('')}</tbody></table></div></div>`
+    }
     const lineCard = () => {
       if (!lineRegs) return ''
       const st = lineRegistrationStatus(getSalesStaff().filter(n => scopeIncludesRecord(scope, n, {})), lineRegs)
@@ -172,6 +186,7 @@ export default async function SalesIncomePage(container) {
         ${undatedCard()}
         ${disciplineCard()}
         ${speedCard()}
+        ${lostCard()}
         <div class="card" style="padding:12px 16px;margin-top:16px;font-size:0.8rem;color:var(--text-2)">
           📲 <b>ให้เซลส์รับเตือนงานค้างทาง LINE ของตัวเองทุก 9 โมงเช้า:</b> ทัก LINE OA ของบริษัท แล้วพิมพ์ <code>ลงทะเบียน ชื่อเซลส์</code> (ชื่อต้องตรงกับชื่อในช่องเซลส์/ผู้ดูแลของแอป เช่น <code>ลงทะเบียน ${escHtml(rows[0]?.name && !rows[0].name.startsWith('(') ? rows[0].name : 'สมชาย')}</code>) · พิมพ์ <code>งาน</code> เพื่อดูงานค้างได้ทุกเวลา · <code>พรุ่งนี้</code> งานพรุ่งนี้ · <code>ยอด</code> ยอดของตัวเองเดือนนี้ · <code>หา 08xxxxxxxx</code> ค้นหาลูกค้า · <code>โทรแล้ว 08xxxxxxxx</code> บันทึกว่าติดต่อแล้ว · <code>นัด 08xxxxxxxx พรุ่งนี้</code> นัดติดตาม · <code>คำสั่ง</code> ดูคำสั่งทั้งหมด · พิมพ์ <code>ยกเลิก</code> เพื่อหยุดรับ
           ${lineCard()}
