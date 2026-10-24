@@ -150,3 +150,13 @@ describe('buildMyDay — ลองติดต่อใหม่หลังเ�
     expect(d.total).toBe(0)
   })
 })
+
+describe('buildMyDay — Hot ขึ้นก่อน', () => {
+  it('Lead เงียบที่เป็น Hot อยู่บนสุด', () => {
+    const d = buildMyDay({ customers: [
+      { id: 'a', stage: 'pp', createdAt: '2026-10-01T03:00:00Z' },
+      { id: 'b', stage: 'pp', temperature: 'hot', createdAt: '2026-10-20T03:00:00Z' },
+    ] }, { today: '2026-10-25' })
+    expect(d.stale.map(c => c.id)).toEqual(['b', 'a'])
+  })
+})

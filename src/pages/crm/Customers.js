@@ -246,7 +246,9 @@ export default async function CustomersPage(container) {
                   <div style="font-size:1.2rem;font-weight:700">${escHtml(fullName(c))}${c.vip ? ' ⭐' : ''}</div>
                   <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">
                     <span class="badge badge-${STAGE[c.stage]?.badge || 'secondary'}">${STAGE[c.stage]?.label || escHtml(c.stage)}</span>
-                    ${c.temperature ? `<span class="badge badge-${TEMP[c.temperature]?.badge}">${TEMP[c.temperature]?.label}</span>` : ''}
+                    ${!c.isLost && ['lead', 'pp'].includes(c.stage)
+                      ? `<span id="wk-temp" style="display:inline-flex;gap:3px" title="ความสนใจของลูกค้า — กดเพื่อเปลี่ยน">${Object.entries(TEMP).map(([k, v]) => `<button type="button" class="btn btn-xs wk-temp ${c.temperature === k ? `btn-${v.badge}` : 'btn-ghost'}" data-t="${k}">${v.label}</button>`).join('')}</span>`
+                      : c.temperature ? `<span class="badge badge-${TEMP[c.temperature]?.badge}">${TEMP[c.temperature]?.label}</span>` : ''}
                     ${c.isLost ? `<span class="badge badge-secondary">⬛ เสียดีล</span>` : ''}
                   </div>
                 </div>
@@ -341,6 +343,18 @@ export default async function CustomersPage(container) {
         showToast('✅ บันทึกว่าติดต่อลูกค้าแล้ว', 'success')
       } else { b.disabled = false; showToast('บันทึกไม่สำเร็จ', 'error') }
     })
+    // ตั้งความสนใจ (Hot/Warm/Cold) ได้ในคลิกเดียว — กดซ้ำปุ่มเดิมเพื่อล้าง
+    el.querySelectorAll('.wk-temp').forEach(btn => btn.addEventListener('click', async () => {
+      const t = c.temperature === btn.dataset.t ? null : btn.dataset.t
+      try {
+        await updateDocData('customers', c.id, { temperature: t })
+        c.temperature = t
+        const row = customers.find(x => x.id === c.id)
+        if (row) row.temperature = t
+        el.querySelectorAll('.wk-temp').forEach(x => { x.className = `btn btn-xs wk-temp ${x.dataset.t === t ? `btn-${TEMP[t].badge}` : 'btn-ghost'}` })
+        renderTable()
+      } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
+    }))
     el.querySelector('#wk-edit-btn')?.addEventListener('click', () => {
       close(); openForm(c, { onSaved: updated => openDetail(updated) })
     })
