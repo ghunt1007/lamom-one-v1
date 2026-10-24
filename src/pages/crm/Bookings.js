@@ -10,6 +10,7 @@ import { pickVehicle } from '../../utils/vehiclePicker.js'
 import { getSalesStaff, getColors, getFinanceCompanies, getFinanceStatus, getCampaigns, getBookingStatus, getLeadSources } from '../../data/masterData.js'
 import { printBooking, printCancellation } from '../../utils/bookingDocs.js'
 import { scheduleAfterSales } from '../../utils/afterSales.js'
+import { closeAutoLeadFollowups } from '../../utils/leadFollowups.js'
 import { askDeliveryIncome, needsIncome } from '../../utils/deliveryIncome.js'
 import { readBookingSheet, planBookingImport, newBookingDoc, newCustomerDoc, companyForBrand, brandCompanyMap } from '../../utils/bookingImport.js'
 
@@ -994,6 +995,7 @@ export default async function BookingsPage(container) {
           bookings.unshift({ ...data, id })
           if (data.customerId) {
             await updateDocData('customers', data.customerId, { stage: 'booking', stageChangedAt: new Date().toISOString(), bookingId: id }).catch(() => {})
+            closeAutoLeadFollowups(data.customerId, 'ปิดอัตโนมัติ: ลูกค้าจองแล้ว')
           }
           m.close()
           showToast(`✅ สร้างใบจอง ${bkNo} สำเร็จ!`, 'success')
@@ -1305,6 +1307,7 @@ export default async function BookingsPage(container) {
         if (data.customerId) {
           if (data.status === 'ส่งมอบแล้ว') await maybeMarkCustomerDelivered(data)
           else await updateDocData('customers', data.customerId, { stage: 'booking', stageChangedAt: new Date().toISOString(), bookingId }).catch(() => {})
+          closeAutoLeadFollowups(data.customerId, 'ปิดอัตโนมัติ: ลูกค้าจองแล้ว')
         }
         await syncStockForBookings([{ ...existing, ...data }])
         if (data.status === 'ส่งมอบแล้ว' && !wasDelivered) await scheduleAfterSales(existing || bookings.find(x => x.id === bookingId) || { ...data, id: bookingId })

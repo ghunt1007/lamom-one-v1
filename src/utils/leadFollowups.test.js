@@ -23,3 +23,18 @@ describe('buildLeadFollowups', () => {
     expect(addDaysTo('2026-12-30', 7)).toBe('2027-01-06')
   })
 })
+
+describe('autoLeadFollowupsToClose', () => {
+  it('เฉพาะนัด Lead อัตโนมัติที่ค้างของลูกค้ารายนี้', async () => {
+    const { autoLeadFollowupsToClose } = await import('./leadFollowups.js')
+    const rows = [
+      { id: 'a', customerId: 'c1', autoLead: true, status: 'pending' },
+      { id: 'b', customerId: 'c1', autoLead: true, status: 'done' },
+      { id: 'c', customerId: 'c1', status: 'pending' },
+      { id: 'd', customerId: 'c2', autoLead: true, status: 'pending' },
+      { id: 'e', customerId: 'c1', autoLead: true, status: 'pending', deleted: true },
+    ]
+    expect(autoLeadFollowupsToClose(rows, 'c1').map(f => f.id)).toEqual(['a'])
+    expect(autoLeadFollowupsToClose(rows, '')).toEqual([])
+  })
+})
