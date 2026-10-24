@@ -1,7 +1,7 @@
 // Unified Customer Workspace — merges the old Customers.js + Leads.js into one page/collection.
 // Route: /crm/customers (also aliased from /crm/leads — see router.js)
 // Collection: `customers` — single source of truth, stage-based pipeline (lead → pp → booking → delivered)
-import { listDocs, watchDocs, createDoc, updateDocData, softDelete, readDoc, seedDemoData } from '../../core/db.js'
+import { listDocs, listAllDocs, watchDocs, createDoc, updateDocData, softDelete, readDoc, seedDemoData } from '../../core/db.js'
 import { showToast, getState, on } from '../../core/store.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { getVisibilityScope, scopeIncludesRecord, normName } from '../../core/hierarchy.js'
@@ -17,6 +17,8 @@ import {
 } from '../../core/customerInsights.js'
 import { analyzeCustomer, isAiEnabled } from '../../utils/ai.js'
 import { OCCUPATIONS } from '../../utils/financeMatch.js'
+import { openQuickLead } from '../../utils/quickLead.js'
+import { planLeadImport } from '../../utils/leadImport.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -790,6 +792,7 @@ export default async function CustomersPage(container) {
           <button class="btn btn-ghost btn-sm" id="sheet-view-btn" title="Spreadsheet View">📊 Sheet</button>
           <button class="btn btn-ghost btn-sm" id="import-cust-btn">📤 Import</button>
           <button class="btn btn-secondary btn-sm" id="export-cust-btn">📥 Export</button>
+          <button class="btn btn-secondary" id="quick-lead-page-btn">🧲 Lead ด่วน</button>
           <button class="btn btn-primary" id="add-cust-btn">➕ เพิ่มลูกค้า</button>
         </div>
       </div>
@@ -916,6 +919,7 @@ export default async function CustomersPage(container) {
   })
 
   document.getElementById('add-cust-btn').addEventListener('click', () => openForm())
+  document.getElementById('quick-lead-page-btn').addEventListener('click', () => openQuickLead())
   document.getElementById('pipeline-link-btn').addEventListener('click', () => navigate('/crm/pipeline'))
 
   document.getElementById('export-cust-btn').addEventListener('click', () => {
@@ -933,31 +937,33 @@ export default async function CustomersPage(container) {
     showToast(`Export ${rows.length} รายการแล้ว`, 'success')
   })
 
-  const IMPORT_COLS = ['ชื่อ', 'นามสกุล', 'โทรศัพท์', 'LINE ID', 'Email', 'รถที่สนใจ', 'ที่มา']
+  const IMPORT_COLS = ['ชื่อ', 'นามสกุล', 'โทรศัพท์', 'LINE ID', 'Email', 'รถที่สนใจ', 'ที่มา', 'ผู้ดูแล', 'หมายเหตุ']
   document.getElementById('import-cust-btn').addEventListener('click', () => {
     openImportModal({
-      title: 'นำเข้าข้อมูลลูกค้า',
+      title: 'นำเข้า Lead / ลูกค้า',
       columns: IMPORT_COLS,
       onImport: async (rows) => {
-        let added = 0
-        for (const row of rows) {
-          const first = row['ชื่อ']?.trim()
-          const last = row['นามสกุล']?.trim()
-          if (!first && !last) continue
-          const fields = {
-            firstName: first || '', lastName: last || '',
-            phone: row['โทรศัพท์'] || '', lineId: row['LINE ID'] || '',
-            email: row['Email'] || '', interestedModel: row['รถที่สนใจ'] || '',
-            source: row['ที่มา'] || 'other', tags: [],
-          }
-          await createDoc('customers', {
-            ...fields, stage: deriveInitialStage(fields), stageChangedAt: new Date().toISOString(),
-            isLost: false, lostReason: '', lostAt: null, bookingId: null,
-            companyId: myEffectiveCompanyId(),
-          }).catch(() => {})
-          added++
+        // เช็คซ้ำกับลูกค้าทั้งหมดในระบบ (ไม่ใช่แค่ 400 รายล่าสุดที่หน้านี้โหลดไว้) — ถ้าโหลดไม่ได้ใช้เท่าที่มี
+        let all = customers
+        try { all = (await listAllDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 500)).filter(c => !c.deleted) } catch {}
+        const plan = planLeadImport(rows, all, { assignedTo: myDisplayName })
+        let added = 0, failed = 0
+        for (const doc of plan.creates) {
+          try {
+            await createDoc('customers', { ...doc, stageChangedAt: new Date().toISOString(), companyId: myEffectiveCompanyId() })
+            added++
+          } catch { failed++ }
         }
-        showToast(`นำเข้า ${added} รายการสำเร็จ`, 'success')
+        showToast(`นำเข้า ${added} ราย${plan.duplicates.length ? ` · ข้ามซ้ำ ${plan.duplicates.length}` : ''}${failed ? ` · พลาด ${failed}` : ''}`, failed ? 'warning' : 'success', 8000)
+        if (plan.duplicates.length) {
+          openModal({
+            title: `⚠️ ข้ามรายชื่อซ้ำ ${plan.duplicates.length} ราย`, size: 'md',
+            body: `<div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:8px">รายชื่อเหล่านี้มีอยู่แล้ว ระบบจึงไม่เพิ่มซ้ำ (แถวตามไฟล์ Excel)</div>
+              <div class="table-wrap" style="max-height:320px;overflow:auto"><table><thead><tr><th>แถว</th><th>ชื่อ</th><th>เหตุผล</th></tr></thead><tbody>
+              ${plan.duplicates.map(d => `<tr><td>${d.row}</td><td>${escHtml(d.name)}</td><td style="font-size:0.75rem">${escHtml(d.reason)}</td></tr>`).join('')}
+              </tbody></table></div>`,
+          })
+        }
         await loadData()
       },
     })

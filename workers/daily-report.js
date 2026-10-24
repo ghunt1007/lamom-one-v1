@@ -37,6 +37,9 @@ const PENDING_STATUSES = ['จัดไฟแนนซ์ก่อนจอง',
 const PENDING_ALWAYS_SHOWN = ['รอผลไฟแนนซ์', 'ยอดจองคงค้าง', 'รอรถ', 'รอส่งมอบ']
 const CANCELLED_STATUSES = ['ถอนจอง', 'ยกเลิก']
 const STAFF_ROLES = ['owner', 'admin', 'manager', 'sales', 'service', 'finance', 'hr', 'staff']
+// 02:00 UTC = 09:00 เวลาไทย — ต้องตรงกับบรรทัดใน [triggers] crons ของ wrangler-daily-report.toml
+const MORNING_CRON = '0 2 * * *'
+const STALE_LEAD_DAYS = 3
 
 export default {
   async fetch(request, env) {
@@ -51,8 +54,10 @@ export default {
 
     try {
       if (request.method === 'POST' && url.pathname === '/line/webhook') return await handleLineWebhook(request, env, cors)
-      if (url.pathname === '/test-send') return await handleTestSend(request, env, cors)
-      if (url.pathname === '/preview') return await handlePreview(request, env, cors)
+      // ?kind=morning = ข้อความเตือนตอนเช้า (ไม่ใส่ = รายงานสรุป 18:00 เหมือนเดิม)
+      const morning = url.searchParams.get('kind') === 'morning'
+      if (url.pathname === '/test-send') return await handleTestSend(request, env, cors, morning)
+      if (url.pathname === '/preview') return await handlePreview(request, env, cors, morning)
       return json({ error: 'Not found' }, 404, cors)
     } catch (err) {
       return json({ error: err.message || 'Daily report worker error' }, 500, cors)
@@ -60,16 +65,17 @@ export default {
   },
 
   // Cron Trigger เรียกจุดนี้ตามตารางเวลาใน wrangler-daily-report.toml (ไม่มี HTTP request ผูกมาด้วยเลย)
+  // มี 2 รอบ: 09:00 เตือนงานค้างรายคน, 18:00 สรุปประจำวัน — แยกด้วย event.cron
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(runDailyReport(env))
+    ctx.waitUntil(event.cron === MORNING_CRON ? runDailyReport(env, true) : runDailyReport(env))
   },
 }
 
 // ── รายงานหลัก — ใช้ร่วมกันทั้ง scheduled() และ /test-send ─────────────────────
-async function runDailyReport(env) {
+async function runDailyReport(env, morning = false) {
   const accessToken = await getFirestoreAccessToken(env)
   if (!accessToken) return { error: 'อ่าน Firestore ไม่ได้ — ตรวจสอบ secret FIRESTORE_SERVICE_ACCOUNT_JSON' }
-  const text = await buildReportText(env, accessToken)
+  const text = morning ? await buildMorningText(env, accessToken) : await buildReportText(env, accessToken)
   const [telegram, line] = await Promise.all([
     sendTelegram(env, text),
     sendLineTarget(env, accessToken, text),
@@ -77,18 +83,18 @@ async function runDailyReport(env) {
   return { text, telegram, line }
 }
 
-async function handleTestSend(request, env, cors) {
+async function handleTestSend(request, env, cors, morning = false) {
   const auth = await requireStaff(request, env)
   if (auth.error) return json({ error: auth.error }, auth.status, cors)
-  return json(await runDailyReport(env), 200, cors)
+  return json(await runDailyReport(env, morning), 200, cors)
 }
 
-async function handlePreview(request, env, cors) {
+async function handlePreview(request, env, cors, morning = false) {
   const auth = await requireStaff(request, env)
   if (auth.error) return json({ error: auth.error }, auth.status, cors)
   const accessToken = await getFirestoreAccessToken(env)
   if (!accessToken) return json({ error: 'อ่าน Firestore ไม่ได้ — ตรวจสอบ secret FIRESTORE_SERVICE_ACCOUNT_JSON' }, 500, cors)
-  return json({ text: await buildReportText(env, accessToken) }, 200, cors)
+  return json({ text: morning ? await buildMorningText(env, accessToken) : await buildReportText(env, accessToken) }, 200, cors)
 }
 
 // ── LINE webhook — จับ userId ของคนที่ทัก LINE OA มาเก็บเป็นปลายทางส่งรายงาน ──────
@@ -255,6 +261,78 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
   lines.push('', `❌ ถอนจองเดือนนี้: ${cancelMonth} คัน | ปีนี้: ${cancelYear} คัน`,
     '', '─────────────────────', '🤖 LAMOM ONE Auto Report')
   return lines.filter(l => l !== null).join('\n')
+}
+
+// ── เตือนงานค้างตอนเช้า (09:00) — แยกรายเซลส์ ─────────────────────────────────
+async function buildMorningText(env, accessToken) {
+  const [bookings, customers, followups] = await Promise.all([
+    runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'cutDate', 'actualDeliveryDate', 'salesName', 'custName', 'model', 'totalIncome', 'deleted']),
+    runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'isLost', 'createdAt', 'updatedAt', 'stageChangedAt', 'deleted']),
+    runQuery(env, accessToken, 'followups', null, null, 3000, ['dueDate', 'status', 'salesperson', 'customerName', 'deleted']),
+  ])
+  return buildMorningReminder({ bookings, customers, followups }, { today: todayBangkok() })
+}
+
+// สร้างข้อความเตือนจากข้อมูลล้วนๆ (export ไว้เทส) — ต่อเซลส์ 1 คน มี 3 เรื่อง:
+//   1) Lead/Prospect ที่ไม่มีใครแตะเกิน STALE_LEAD_DAYS วัน (ดูจาก updatedAt/stageChangedAt/createdAt ล่าสุด
+//      — แก้ข้อมูลหรือบันทึกการติดต่อในหน้าลูกค้าแล้ว updatedAt จะขยับเอง)
+//   2) Follow-up ที่ครบกำหนดวันนี้หรือเลยมาแล้ว
+//   3) คันที่ส่งมอบเดือนนี้แต่ยังไม่กรอกรายได้ (นิยามเดียวกับ buildReport)
+// ระบบยังไม่มี LINE ของเซลส์แต่ละคน จึงส่งรวมเป็นข้อความเดียวเข้าแชทเดียวกับรายงาน 18:00 แบ่งหัวข้อตามชื่อ
+export function buildMorningReminder(data, { today, staleDays = STALE_LEAD_DAYS, maxNames = 5 }) {
+  const thisMonth = today.slice(0, 7)
+  const alive = rows => (rows || []).filter(r => r && !r.deleted)
+  const dayNum = d => { const [y, m, dd] = d.split('-').map(Number); return Date.UTC(y, m - 1, dd) / 86400000 }
+  const people = {}
+  const person = n => (people[(n || '').trim() || '(ยังไม่มีผู้ดูแล)'] ||= { stale: [], fu: [], income: [] })
+
+  alive(data.customers)
+    .filter(c => (c.stage === 'lead' || c.stage === 'pp') && !c.isLost)
+    .forEach(c => {
+      const last = [c.updatedAt, c.stageChangedAt, c.createdAt].map(toBangkokDate).filter(Boolean).sort().pop()
+      if (!last) return
+      const days = dayNum(today) - dayNum(last)
+      if (days >= staleDays) person(c.assignedTo).stale.push({ name: [c.firstName, c.lastName].filter(Boolean).join(' ') || 'ไม่มีชื่อ', days, model: c.interestedModel })
+    })
+  alive(data.followups)
+    .filter(f => f.status === 'pending' && f.dueDate && f.dueDate <= today)
+    .forEach(f => person(f.salesperson).fu.push({ name: f.customerName || 'ลูกค้า', late: f.dueDate < today }))
+  alive(data.bookings)
+    .filter(b => DELIVERED_STATUSES.includes(b.status) && (b.cutDate || b.actualDeliveryDate || '').startsWith(thisMonth) && !(Number(b.totalIncome) || 0))
+    .forEach(b => person(b.salesName).income.push({ name: b.custName || 'ลูกค้า', model: b.model }))
+
+  const list = items => {
+    const shown = items.slice(0, maxNames).map(i => `      - ${i}`)
+    if (items.length > maxNames) shown.push(`      - …และอีก ${items.length - maxNames} ราย`)
+    return shown
+  }
+  const sections = Object.entries(people)
+    .map(([n, p]) => ({ n, p, total: p.stale.length + p.fu.length + p.income.length }))
+    .filter(x => x.total)
+    .sort((a, b) => b.total - a.total || a.n.localeCompare(b.n))
+    .map(({ n, p }) => {
+      const out = [`👤 ${n}`]
+      if (p.stale.length) {
+        p.stale.sort((a, b) => b.days - a.days)
+        out.push(`  🧲 Lead ไม่ได้ติดตามเกิน ${staleDays} วัน: ${p.stale.length} ราย`, ...list(p.stale.map(s => `${s.name}${s.model ? ` (${s.model})` : ''} · ${s.days} วัน`)))
+      }
+      if (p.fu.length) out.push(`  📞 Follow-up วันนี้/เลยกำหนด: ${p.fu.length} ราย`, ...list(p.fu.map(f => `${f.name}${f.late ? ' ⚠️ เลยกำหนด' : ''}`)))
+      if (p.income.length) out.push(`  💰 ส่งมอบแล้วยังไม่กรอกรายได้: ${p.income.length} คัน`, ...list(p.income.map(i => `${i.name}${i.model ? ` (${i.model})` : ''}`)))
+      return out.join('\n')
+    })
+
+  const text = [
+    '☀️ LAMOM ONE เตือนงานเช้านี้',
+    `🗓 ${formatThaiDate(today)}`,
+    '─────────────────────',
+    '',
+    ...(sections.length ? sections.flatMap((s, i) => i ? ['', s] : [s]) : ['✅ ไม่มีงานค้าง ขอให้ขายดีทั้งวันครับ 🎉']),
+    '',
+    '─────────────────────',
+    '🤖 LAMOM ONE Auto Reminder',
+  ].join('\n')
+  // LINE รับข้อความได้ไม่เกิน 5,000 ตัวอักษร — ทีมใหญ่/งานค้างเยอะให้ตัดท้ายแทนที่จะส่งไม่ออกทั้งข้อความ
+  return text.length > 4900 ? text.slice(0, 4850) + '\n…(ตัดข้อความ ดูต่อในแอป)' : text
 }
 
 function fmtBaht(n) { return `${Math.round(n || 0).toLocaleString('en-US')} บาท` }
