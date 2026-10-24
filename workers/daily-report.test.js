@@ -601,3 +601,27 @@ describe('LINE OA leads handed to salespeople in turn (AUTO_ASSIGN_LINE_LEADS)',
     expect(push[2]).toContain('/crm/customers?id=NEWID')
   })
 })
+
+describe('upcoming deliveries in the 09:00 reminder and 18:00 report', () => {
+  const bookings = [
+    { status: 'จองแล้ว', deliveryDate: '2026-10-25', deliveryTime: '14:00', custName: 'ก', model: 'Seal', salesName: 'วิชัย', bookingDate: '2026-10-20' },
+    { status: 'รอส่งมอบ', deliveryDate: '2026-10-26', custName: 'ข', salesName: 'วิชัย', bookingDate: '2026-10-20' },
+    { status: 'จองแล้ว', deliveryDate: '2026-10-27', custName: 'ค', salesName: 'วิชัย', bookingDate: '2026-10-20' },
+    { status: 'ถอนจอง', deliveryDate: '2026-10-25', custName: 'ง', salesName: 'วิชัย', bookingDate: '2026-10-20' },
+  ]
+  it('morning section lists today and tomorrow only, first', () => {
+    const [sec] = buildMorningSections({ bookings, customers: [], followups: [] }, { today: '2026-10-25' })
+    expect(sec.name).toBe('วิชัย')
+    expect(sec.text.split('\n')[1]).toContain('นัดส่งมอบวันนี้/พรุ่งนี้: 2 คัน')
+    expect(sec.text).toContain('วันนี้ 14:00 · ก (Seal)')
+    expect(sec.text).toContain('พรุ่งนี้ · ข')
+    expect(sec.text).not.toContain('· ค')
+    expect(sec.text).not.toContain('· ง')
+  })
+  it('evening report lists tomorrow deliveries across month end', () => {
+    const text = buildReport({ bookings: [{ status: 'จองแล้ว', deliveryDate: '2026-11-01', deliveryTime: '10:00', custName: 'จ', model: 'Dolphin', salesName: 'นภา', bookingDate: '2026-10-01' }], customers: [], followups: [], testDrives: [] }, { today: '2026-10-31' })
+    expect(text).toContain('📅 นัดส่งมอบพรุ่งนี้: 1 คัน')
+    expect(text).toContain('10:00 จ (Dolphin) · นภา')
+    expect(buildReport({ bookings: [], customers: [], followups: [], testDrives: [] }, { today: '2026-10-31' })).not.toContain('นัดส่งมอบพรุ่งนี้')
+  })
+})
