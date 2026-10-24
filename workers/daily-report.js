@@ -323,7 +323,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
   // นัดส่งมอบพรุ่งนี้ (ใบจองที่ยังไม่ส่งมอบ/ไม่ถอน ที่ตั้งวันส่งมอบไว้ในปฏิทินส่งมอบ)
   const [ty, tm, td] = today.split('-').map(Number)
   const tomorrow = new Date(Date.UTC(ty, tm - 1, td + 1)).toISOString().slice(0, 10)
-  const dlvTomorrow = bookings.filter(b => (b.deliveryDate || '').slice(0, 10) === tomorrow && !DELIVERED_STATUSES.includes(b.status) && !isCancelled(b))
+  const dlvTomorrow = bookings.filter(b => (b.deliveryDate || '').slice(0, 10) === tomorrow && b.status !== 'ส่งมอบแล้ว' && !isCancelled(b))
 
   // ถอนจอง
   const cancelled = bookings.filter(isCancelled)
@@ -429,7 +429,7 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
   const alive = rows => (rows || []).filter(r => r && !r.deleted)
   const dayNum = d => { const [y, m, dd] = d.split('-').map(Number); return Date.UTC(y, m - 1, dd) / 86400000 }
   const people = {}
-  const person = n => (people[(n || '').trim() || '(ยังไม่มีผู้ดูแล)'] ||= { deliver: [], td: [], fin: [], stale: [], fu: [], income: [], stuck: [] })
+  const person = n => (people[(n || '').trim() || '(ยังไม่มีผู้ดูแล)'] ||= { deliver: [], unsched: [], td: [], fin: [], stale: [], fu: [], income: [], stuck: [] })
 
   alive(data.customers)
     .filter(c => (c.stage === 'lead' || c.stage === 'pp') && !c.isLost)
@@ -461,11 +461,20 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
     })
 
   // นัดส่งมอบวันนี้/พรุ่งนี้ — ขึ้นก่อนเรื่องอื่น เพราะต้องเตรียมรถ/เอกสาร
+  // "ตัดตัวเลขรอส่งมอบ" ยังไม่ได้ส่งรถจริง ต้องเตือนด้วย — ตัดออกเฉพาะที่ส่งมอบแล้วจริง/ถอนจอง
   alive(data.bookings)
-    .filter(b => !DELIVERED_STATUSES.includes(b.status) && !CANCELLED_STATUSES.includes(b.status) && /^\d{4}-\d{2}-\d{2}/.test(b.deliveryDate || ''))
+    .filter(b => b.status !== 'ส่งมอบแล้ว' && !CANCELLED_STATUSES.includes(b.status) && /^\d{4}-\d{2}-\d{2}/.test(b.deliveryDate || ''))
     .forEach(b => {
       const inDays = dayNum(b.deliveryDate.slice(0, 10)) - dayNum(today)
       if (inDays === 0 || inDays === 1) person(b.salesName).deliver.push({ name: b.custName || 'ลูกค้า', model: b.model, time: b.deliveryTime, inDays })
+    })
+  // รถพร้อมส่ง (รอส่งมอบ/ตัดตัวเลขแล้ว) แต่ยังไม่ได้นัดวันส่งมอบ หรือวันนัดผ่านไปแล้ว (เกณฑ์เดียวกับ src/utils/myDay.js)
+  alive(data.bookings)
+    .filter(b => ['รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ'].includes(b.status))
+    .forEach(b => {
+      const dd = (b.deliveryDate || '').slice(0, 10)
+      const has = /^\d{4}-\d{2}-\d{2}$/.test(dd)
+      if (!has || dd < today) person(b.salesName).unsched.push({ name: b.custName || 'ลูกค้า', model: b.model, missed: has })
     })
 
   // ไฟแนนซ์รอผลเกิน 3 วัน / ไม่ผ่านแต่ยังไม่ถอนจอง (เกณฑ์เดียวกับ src/utils/myDay.js)
@@ -489,7 +498,7 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
     return shown
   }
   return Object.entries(people)
-    .map(([n, p]) => ({ n, p, total: p.deliver.length + p.td.length + p.fin.length + p.stale.length + p.fu.length + p.income.length + p.stuck.length }))
+    .map(([n, p]) => ({ n, p, total: p.deliver.length + p.unsched.length + p.td.length + p.fin.length + p.stale.length + p.fu.length + p.income.length + p.stuck.length }))
     .filter(x => x.total)
     .sort((a, b) => b.total - a.total || a.n.localeCompare(b.n))
     .map(({ n, p }) => {
@@ -497,6 +506,9 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
       if (p.deliver.length) {
         p.deliver.sort((a, b) => a.inDays - b.inDays || String(a.time || '').localeCompare(String(b.time || '')))
         out.push(`  🚗 นัดส่งมอบวันนี้/พรุ่งนี้: ${p.deliver.length} คัน`, ...list(p.deliver.map(d => `${d.inDays ? 'พรุ่งนี้' : 'วันนี้'}${d.time ? ' ' + d.time : ''} · ${d.name}${d.model ? ` (${d.model})` : ''}`)))
+      }
+      if (p.unsched.length) {
+        out.push(`  📆 รถพร้อมส่งแต่ยังไม่นัดวันส่งมอบ: ${p.unsched.length} คัน`, ...list(p.unsched.map(d => `${d.name}${d.model ? ` (${d.model})` : ''}${d.missed ? ' · เลยวันนัดแล้ว' : ''}`)))
       }
       if (p.td.length) {
         p.td.sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')))

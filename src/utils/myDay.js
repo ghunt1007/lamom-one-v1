@@ -51,15 +51,16 @@ export function buildMyDay({ customers = [], followups = [], bookings = [], test
     if (UNSCHEDULED_STATUSES.includes(b.status) && !(/^\d{4}-\d{2}-\d{2}$/.test(dd0) && dd0 >= today)) {
       out.unscheduled.push({ ...b, missed: /^\d{4}-\d{2}-\d{2}$/.test(dd0) })
     }
+    // นัดส่งมอบที่กำลังจะถึง — รวม "ตัดตัวเลขรอส่งมอบ" (ยังไม่ได้ส่งรถจริง) ด้วย
+    const dd = (b.deliveryDate || '').slice(0, 10)
+    if (b.status !== 'ส่งมอบแล้ว' && !CANCELLED.includes(b.status) && /^\d{4}-\d{2}-\d{2}$/.test(dd) && daysBetween(today, dd) >= 0 && daysBetween(today, dd) <= UPCOMING_DELIVERY_DAYS) {
+      out.deliveries.push({ ...b, inDays: daysBetween(today, dd) })
+    }
     if (DELIVERED_STATUSES.includes(b.status)) {
       if ((b.cutDate || b.actualDeliveryDate || '').startsWith(thisMonth) && needsIncome(b)) out.income.push(b)
       return
     }
     if (CANCELLED.includes(b.status)) return
-    const dd = (b.deliveryDate || '').slice(0, 10)
-    if (/^\d{4}-\d{2}-\d{2}$/.test(dd) && daysBetween(today, dd) >= 0 && daysBetween(today, dd) <= UPCOMING_DELIVERY_DAYS) {
-      out.deliveries.push({ ...b, inDays: daysBetween(today, dd) })
-    }
     // ไฟแนนซ์: ยื่นแล้วรอผลเกิน FINANCE_WAIT_DAYS วัน (นับจากวันยื่น ถ้าไม่มีนับจากวันจอง) หรือไม่ผ่านแต่ยังไม่ถอนจอง
     const sent = /^\d{4}-\d{2}-\d{2}/.test(b.submitDate || '') ? b.submitDate.slice(0, 10) : (b.bookingDate || '').slice(0, 10)
     if (b.finStatus === 'ไม่ผ่าน') out.finance.push({ ...b, rejected: true, days: sent ? daysBetween(sent, today) : 0 })
