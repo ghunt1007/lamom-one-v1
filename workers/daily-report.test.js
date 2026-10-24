@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import worker, { daysSinceBangkok, formatThaiDate, todayBangkok, decodeFsValue } from './daily-report.js'
+import worker, { daysSinceBangkok, formatThaiDate, todayBangkok, decodeFsValue, buildReport } from './daily-report.js'
 
 const BASE_ENV = { FIREBASE_API_KEY: 'fake-public-key', FIREBASE_PROJECT_ID: 'fake-project', ALLOWED_ORIGIN: 'https://lamom-one.pages.dev' }
 
@@ -135,5 +135,57 @@ describe('daily-report worker — Telegram/LINE gracefully report "not configure
     // signing fails against a fake PEM → getFirestoreAccessToken() returns null → runDailyReport() short-circuits
     // with a clear error instead of a raw exception (the behavior a cron job must have: fail loud in logs, never crash)
     expect(data.error).toMatch(/FIRESTORE_SERVICE_ACCOUNT_JSON/)
+  })
+})
+
+describe('daily-report worker — buildReport (pure, same definitions as Dashboard.js)', () => {
+  const today = '2026-10-22'
+  const data = {
+    bookings: [
+      { bookingDate: '2026-10-22', status: 'รอผลไฟแนนซ์', salesName: 'บี' },
+      { bookingDate: '2026-10-05', status: 'ส่งมอบแล้ว', cutDate: '2026-10-22', salesName: 'เอ', totalIncome: 30000 },
+      { bookingDate: '2026-09-20', status: 'ตัดตัวเลขรอส่งมอบ', cutDate: '2026-10-10', salesName: 'บี', totalIncome: 0 },
+      { bookingDate: '2026-03-01', status: 'ส่งมอบแล้ว', cutDate: '2026-03-15', salesName: 'เอ', totalIncome: 50000 },
+      { bookingDate: '2026-10-03', status: 'ยกเลิก', salesName: 'เอ' },
+      { bookingDate: '2026-10-04', status: 'รอรถ', salesName: 'เอ', deleted: true },
+    ],
+    customers: [
+      { stage: 'lead', createdAt: '2026-10-21T18:30:00Z' }, // 01:30 น. วันที่ 22 เวลาไทย
+      { stage: 'pp', createdAt: '2026-10-01T03:00:00Z' },
+      { stage: 'customer', createdAt: '2026-10-22T03:00:00Z' },
+    ],
+    followups: [{ dueDate: today, status: 'pending' }, { dueDate: '2026-10-01', status: 'pending' }, { dueDate: today, status: 'done' }],
+    testDrives: [{ date: today }],
+    teamTargets: [{ period: '2026-10', metric: 'units', target: 12 }, { period: '2026-10', metric: 'units', target: 8 }, { period: '2026-10', metric: 'revenue', target: 9000000 }],
+  }
+  const text = buildReport(data, { today, time: '18:00', defaultTarget: 15 })
+
+  it('counts leads from customers in lead/pp stage, using Bangkok dates for createdAt', () => {
+    expect(text).toContain('Lead ใหม่วันนี้: 1 ราย')
+    expect(text).toContain('Lead ที่ดูแลอยู่: 2 ราย')
+    expect(text).toContain('Follow-up วันนี้: 1 ราย')
+    expect(text).toContain('Follow-up เลยกำหนด: 1 ราย')
+    expect(text).toContain('ทดลองขับวันนี้: 1 ราย')
+  })
+  it('counts deliveries by cutDate incl. ตัดตัวเลขรอส่งมอบ, skips deleted and cancelled', () => {
+    expect(text).toContain('ส่งมอบวันนี้: 1 คัน')
+    expect(text).toContain('ส่งมอบเดือนนี้: 2 คัน')
+    expect(text).toContain('ส่งมอบปีนี้: 3 คัน')
+    expect(text).toContain('จองใหม่เดือนนี้: 2 คัน')
+    expect(text).toContain('ถอนจองเดือนนี้: 1 คัน')
+    expect(text).not.toContain('รอรถ: 1')
+  })
+  it('sums revenue from totalIncome and flags deliveries with no income entered', () => {
+    expect(text).toContain('รายได้เดือนนี้: 30,000 บาท')
+    expect(text).toContain('ยังไม่กรอกรายได้ 1 จาก 2 คัน')
+    expect(text).toContain('รายได้ปีนี้: 80,000 บาท')
+  })
+  it('lists every salesperson and sums unit targets from team_targets', () => {
+    expect(text).toContain('เอ: ส่งมอบ 1 · จอง 1')
+    expect(text).toContain('บี: ส่งมอบ 1 · จอง 1')
+    expect(text).toContain('เป้าเดือนนี้: 20 คัน')
+  })
+  it('falls back to the default target when no unit target is set', () => {
+    expect(buildReport({ ...data, teamTargets: [] }, { today, defaultTarget: 15 })).toContain('เป้าเดือนนี้: 15 คัน')
   })
 })

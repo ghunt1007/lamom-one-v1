@@ -32,7 +32,10 @@
  */
 
 const FIRESTORE_SCOPE = 'https://www.googleapis.com/auth/datastore'
-const FINAL_BOOKING_STATUS = ['ส่งมอบแล้ว', 'ถอนจอง']
+const DELIVERED_STATUSES = ['ส่งมอบแล้ว', 'ตัดตัวเลขรอส่งมอบ']
+const PENDING_STATUSES = ['จัดไฟแนนซ์ก่อนจอง', 'รอผลไฟแนนซ์', 'ยอดจองคงค้าง', 'รอรถ', 'รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ']
+const PENDING_ALWAYS_SHOWN = ['รอผลไฟแนนซ์', 'ยอดจองคงค้าง', 'รอรถ', 'รอส่งมอบ']
+const CANCELLED_STATUSES = ['ถอนจอง', 'ยกเลิก']
 const STAFF_ROLES = ['owner', 'admin', 'manager', 'sales', 'service', 'finance', 'hr', 'staff']
 
 export default {
@@ -132,36 +135,137 @@ async function verifyLineSignature(rawBody, signature, channelSecret) {
 // ไม่ใช้ where()+orderBy() คนละฟิลด์ (ต้องมี composite index — ปัญหาที่เจอซ้ำหลายรอบในโปรเจกต์นี้) ดึงมา
 // เรียงตาม field เดียวแล้วกรองวันที่ฝั่งนี้แทน เหมือน listDocs()/pattern ฝั่ง client ทั้งหมด
 async function buildReportText(env, accessToken) {
-  const today = todayBangkok()
-  const thisMonth = today.slice(0, 7)
-  const [bookingsRaw, jobsRaw] = await Promise.all([
-    runQuery(env, accessToken, 'bookings', 'bookingDate', 'DESCENDING', 1000),
-    runQuery(env, accessToken, 'job_cards', 'createdAt', 'DESCENDING', 500),
+  // select เฉพาะ field ที่รายงานใช้ — ใบจองหลายพันใบทั้งเอกสารใหญ่เกินจน parse JSON เกินโควตา CPU ของ cron
+  const [bookings, customers, followups, testDrives, teamTargets] = await Promise.all([
+    runQuery(env, accessToken, 'bookings', null, null, 5000, ['bookingDate', 'status', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'salesName', 'totalIncome', 'deleted']),
+    runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'createdAt', 'deleted']),
+    runQuery(env, accessToken, 'followups', null, null, 3000, ['dueDate', 'status', 'deleted']),
+    runQuery(env, accessToken, 'test_drives', null, null, 3000, ['date', 'deleted']),
+    runQuery(env, accessToken, 'team_targets', null, null, 500, ['period', 'metric', 'target']),
   ])
-  const bookings = bookingsRaw.filter(b => !b.deleted)
-  const jobs = jobsRaw.filter(j => !j.deleted)
+  return buildReport({ bookings, customers, followups, testDrives, teamTargets }, {
+    today: todayBangkok(),
+    time: new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' }).format(new Date()),
+    defaultTarget: parseInt(env.MONTHLY_DELIVERY_TARGET) || 0,
+  })
+}
 
-  const newToday = bookings.filter(b => (b.bookingDate || '').startsWith(today))
-  const deliveredToday = bookings.filter(b => b.status === 'ส่งมอบแล้ว' && (b.actualDeliveryDate || '').startsWith(today))
-  const monthBookings = bookings.filter(b => (b.bookingDate || '').startsWith(thisMonth) && b.status !== 'ถอนจอง')
-  const stuck = bookings.filter(b => !FINAL_BOOKING_STATUS.includes(b.status) && b.bookingDate && daysSinceBangkok(b.bookingDate) >= 14)
-  const jobsToday = jobs.filter(j => (j.createdAt || '').startsWith(today))
-  const jobsActive = jobs.filter(j => !['done', 'delivered'].includes(j.status))
+// ── สร้างข้อความรายงานจากข้อมูลล้วนๆ (ไม่แตะเครือข่าย) — export ไว้เทสตรงๆ ──────────────
+// นิยามตัวเลขทุกตัวตาม Dashboard.js: "ส่งมอบ" = ส่งมอบแล้ว/ตัดตัวเลขรอส่งมอบ นับตามวันตัดตัวเลข (cutDate),
+// รายได้ = totalIncome (มาร์จิ้นคงเหลือ + คอม) ของคันที่ส่งมอบ, Lead = ลูกค้า stage lead/pp, เซลส์ = salesName
+export function buildReport(data, { today, time, defaultTarget = 0 }) {
+  const thisMonth = today.slice(0, 7)
+  const thisYear = today.slice(0, 4)
+  const alive = rows => (rows || []).filter(r => r && !r.deleted)
+  const bookings = alive(data.bookings)
+  const customers = alive(data.customers)
+  const followups = alive(data.followups)
+  const testDrives = alive(data.testDrives)
 
-  const newTotal = newToday.reduce((s, b) => s + (b.price || 0), 0)
-  const monthTotal = monthBookings.reduce((s, b) => s + (b.price || 0), 0)
+  const isCancelled = b => CANCELLED_STATUSES.includes(b.status)
+  const bkDate = b => (b.bookingDate || '').slice(0, 10)
+  const cutDate = b => (b.cutDate || b.actualDeliveryDate || '').slice(0, 10)
+  const cancelDate = b => (b.cancelDate || b.bookingDate || '').slice(0, 10)
 
-  return [
-    '📊 รายงานประจำวัน — LAMOM ONE',
-    `📅 ${formatThaiDate(today)}`,
+  // Lead
+  const leads = customers.filter(c => c.stage === 'lead' || c.stage === 'pp')
+  const newLeadsToday = leads.filter(c => toBangkokDate(c.createdAt) === today).length
+  const followUpToday = followups.filter(f => f.status === 'pending' && f.dueDate === today).length
+  const followUpOverdue = followups.filter(f => f.status === 'pending' && f.dueDate && f.dueDate < today).length
+  const testDriveToday = testDrives.filter(t => (t.date || '').slice(0, 10) === today).length
+
+  // จอง
+  const newBkToday = bookings.filter(b => bkDate(b) === today && !isCancelled(b)).length
+  const newBkMonth = bookings.filter(b => bkDate(b).startsWith(thisMonth) && !isCancelled(b)).length
+  const cnt = s => bookings.filter(b => b.status === s).length
+  const totalPending = bookings.filter(b => PENDING_STATUSES.includes(b.status)).length
+
+  // ส่งมอบ + รายได้
+  const delivered = bookings.filter(b => DELIVERED_STATUSES.includes(b.status) && cutDate(b))
+  const dlvToday = delivered.filter(b => cutDate(b) === today)
+  const dlvMonth = delivered.filter(b => cutDate(b).startsWith(thisMonth))
+  const dlvYear = delivered.filter(b => cutDate(b).startsWith(thisYear))
+  const income = b => Number(b.totalIncome) || 0
+  const revMonth = dlvMonth.reduce((s, b) => s + income(b), 0)
+  const revYear = dlvYear.reduce((s, b) => s + income(b), 0)
+  const noIncomeMonth = dlvMonth.filter(b => !income(b)).length
+
+  // ถอนจอง
+  const cancelled = bookings.filter(isCancelled)
+  const cancelMonth = cancelled.filter(b => cancelDate(b).startsWith(thisMonth)).length
+  const cancelYear = cancelled.filter(b => cancelDate(b).startsWith(thisYear)).length
+
+  // เป้า: เป้าแบบ "ยอดขาย (คัน)" ของเดือนนี้จากหน้าเป้าหมายทีม รวมทุกทีม ถ้าไม่มีใช้ค่าตั้งต้นของ worker
+  const unitTargets = (data.teamTargets || []).filter(t => t.period === thisMonth && t.metric === 'units')
+  const target = unitTargets.reduce((s, t) => s + (Number(t.target) || 0), 0) || defaultTarget
+  const [y, m, d] = today.split('-').map(Number)
+  const daysLeft = new Date(Date.UTC(y, m, 0)).getUTCDate() - d
+
+  // ทีมขาย
+  const sellers = {}
+  const seller = b => (b.salesName || '').trim() || '(ไม่ระบุ)'
+  const bump = (k, f) => { (sellers[k] = sellers[k] || { bk: 0, dlv: 0 })[f]++ }
+  bookings.forEach(b => { if (bkDate(b).startsWith(thisMonth) && !isCancelled(b)) bump(seller(b), 'bk') })
+  dlvMonth.forEach(b => bump(seller(b), 'dlv'))
+  const medals = ['🥇', '🥈', '🥉']
+  const sellerLines = Object.entries(sellers)
+    .sort(([, a], [, b]) => b.dlv - a.dlv || b.bk - a.bk)
+    .map(([n, v], i) => `  ${medals[i] || '•'} ${n}: ส่งมอบ ${v.dlv} · จอง ${v.bk}`)
+
+  const lines = [
+    '📊 LAMOM ONE สรุปประจำวัน',
+    `🗓 ${formatThaiDate(today)}${time ? ` เวลา ${time}` : ''}`,
+    '─────────────────────',
     '',
-    `📝 จองใหม่วันนี้: ${newToday.length} คัน (฿${newTotal.toLocaleString()})`,
-    `✅ ส่งมอบวันนี้: ${deliveredToday.length} คัน`,
-    `🔧 Job Card เปิดวันนี้: ${jobsToday.length} งาน`,
-    `🔧 งานซ่อมค้างอยู่ (ยังไม่เสร็จ/ยังไม่ส่งคืน): ${jobsActive.length} งาน`,
-    `⏳ ใบจองค้างเกิน 14 วัน: ${stuck.length} รายการ`,
-    `💰 ยอดขายสะสมเดือนนี้: ฿${monthTotal.toLocaleString()} (${monthBookings.length} คัน)`,
-  ].join('\n')
+    '👥 LEADS',
+    `  • Lead ใหม่วันนี้: ${newLeadsToday} ราย`,
+    `  • Lead ที่ดูแลอยู่: ${leads.length} ราย`,
+    `  • Follow-up วันนี้: ${followUpToday} ราย`,
+    followUpOverdue ? `  • ⚠️ Follow-up เลยกำหนด: ${followUpOverdue} ราย` : null,
+    `  • ทดลองขับวันนี้: ${testDriveToday} ราย`,
+    '',
+    '📋 การจอง',
+    `  • จองใหม่วันนี้: ${newBkToday} คัน`,
+    `  • จองใหม่เดือนนี้: ${newBkMonth} คัน`,
+    '',
+    '🚗 สถานะปัจจุบัน',
+    ...PENDING_STATUSES.filter(s => cnt(s) > 0 || PENDING_ALWAYS_SHOWN.includes(s)).map(s => `  • ${s}: ${cnt(s)} คัน`),
+    `  • รวมทั้งหมด: ${totalPending} คัน`,
+    '',
+    '✅ ส่งมอบ',
+    `  • ส่งมอบวันนี้: ${dlvToday.length} คัน${dlvToday.length ? ' 🎉' : ''}`,
+    `  • ส่งมอบเดือนนี้: ${dlvMonth.length} คัน`,
+    `  • ส่งมอบปีนี้: ${dlvYear.length} คัน`,
+  ]
+  if (target > 0) {
+    const pct = Math.round(dlvMonth.length / target * 100)
+    const need = Math.max(0, target - dlvMonth.length)
+    const filled = Math.round(Math.min(pct, 100) / 100 * 12)
+    lines.push('', `🎯 เป้าเดือนนี้: ${target} คัน`,
+      `  [${'█'.repeat(filled)}${'░'.repeat(12 - filled)}] ${dlvMonth.length}/${target} (${pct}%)`,
+      need > 0
+        ? `  ต้องทำอีก ${need} คัน ใน ${daysLeft} วัน${daysLeft > 0 ? ` (${(need / daysLeft).toFixed(1)} คัน/วัน)` : ''}`
+        : '  ทำได้ครบเป้าแล้ว! 🎉')
+  }
+  lines.push('',
+    `💰 รายได้เดือนนี้: ${fmtBaht(revMonth)}`,
+    noIncomeMonth ? `  ⚠️ ยังไม่กรอกรายได้ ${noIncomeMonth} จาก ${dlvMonth.length} คันที่ส่งมอบเดือนนี้` : null,
+    `💰 รายได้ปีนี้: ${fmtBaht(revYear)}`)
+  if (sellerLines.length) lines.push('', '👤 ทีมขาย (เดือนนี้)', ...sellerLines)
+  lines.push('', `❌ ถอนจองเดือนนี้: ${cancelMonth} คัน | ปีนี้: ${cancelYear} คัน`,
+    '', '─────────────────────', '🤖 LAMOM ONE Auto Report')
+  return lines.filter(l => l !== null).join('\n')
+}
+
+function fmtBaht(n) { return `${Math.round(n || 0).toLocaleString('en-US')} บาท` }
+
+// createdAt เก็บเป็น timestamp (UTC) — ต้องแปลงเป็นวันที่ไทยก่อนเทียบกับ "วันนี้" ไม่งั้นช่วง 00:00–07:00 จะตกวันผิด
+export function toBangkokDate(v) {
+  if (!v || typeof v !== 'string') return ''
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v
+  const t = Date.parse(v)
+  if (Number.isNaN(t)) return v.slice(0, 10)
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(t))
 }
 
 // ── ส่ง Telegram ────────────────────────────────────────────────
@@ -219,18 +323,16 @@ async function writeLineTarget(env, accessToken, userId) {
   } catch { /* ครั้งหน้าทักมาใหม่ก็จับได้อีก ไม่ critical ถ้าครั้งนี้เขียนไม่สำเร็จ */ }
 }
 
-// ── Firestore REST — runQuery (orderBy เดียว ไม่มี where — กัน composite index) ──
-async function runQuery(env, accessToken, collectionId, orderField, direction, limit) {
+// ── Firestore REST — runQuery (ไม่มี where — กัน composite index) ──
+async function runQuery(env, accessToken, collectionId, orderField, direction, limit, fields) {
+  const structuredQuery = { from: [{ collectionId }], limit }
+  // orderBy ตัดเอกสารที่ไม่มี field นั้นทิ้งเงียบๆ — ส่ง null เมื่อต้องการทุกเอกสารจริง
+  if (orderField) structuredQuery.orderBy = [{ field: { fieldPath: orderField }, direction }]
+  if (fields) structuredQuery.select = { fields: fields.map(fieldPath => ({ fieldPath })) }
   const res = await fetch(`https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents:runQuery`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      structuredQuery: {
-        from: [{ collectionId }],
-        orderBy: [{ field: { fieldPath: orderField }, direction }],
-        limit,
-      },
-    }),
+    body: JSON.stringify({ structuredQuery }),
   })
   if (!res.ok) throw new Error(`Firestore runQuery(${collectionId}) ${res.status}`)
   const rows = await res.json()
