@@ -1,7 +1,7 @@
 // งานของฉันวันนี้ — Route: /crm/my-day
 // เปิดมาเจอทันทีว่าวันนี้ต้องโทรใคร/ทำอะไร (เกณฑ์เดียวกับข้อความเตือน 9 โมงเช้า ดู utils/myDay.js) และกดทำได้จากหน้านี้เลย
 // เซลส์เห็นเฉพาะงานตัวเอง/ลูกทีม (getVisibilityScope) — เจ้าของ/ผู้จัดการเลือกดูรายคนได้
-import { listAllDocs, listDocs, updateDocData } from '../../core/db.js'
+import { listAllDocs, listDocs, updateDocData, readDoc } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { getVisibilityScope, scopeIncludesRecord, normName } from '../../core/hierarchy.js'
 import { showToast, getState } from '../../core/store.js'
@@ -10,6 +10,8 @@ import { openModal } from '../../utils/modal.js'
 import { navigate } from '../../core/router.js'
 import { askDeliveryIncome } from '../../utils/deliveryIncome.js'
 import { QUICK_SOURCES } from '../../utils/quickLead.js'
+import { SALES_TARGETS_COLLECTION, targetFor, goalProgress } from '../../utils/salesTargets.js'
+import { DELIVERED_STATUSES } from '../../utils/deliveryIncome.js'
 import { buildMyDay, STALE_LEAD_DAYS, STUCK_BOOKING_DAYS, UPCOMING_DELIVERY_DAYS } from '../../utils/myDay.js'
 
 const UNASSIGNED = '(ยังไม่มีผู้ดูแล)'
@@ -24,6 +26,7 @@ export default async function MyDayPage(container) {
   const me = getState('user') || {}
   let data = { customers: [], followups: [], bookings: [] }
   let seller = 'all'
+  let targets = {}
 
   container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
   const scope = await getVisibilityScope()
@@ -38,6 +41,7 @@ export default async function MyDayPage(container) {
     ])
     if (!customers || !followups || !bookings) showToast('โหลดข้อมูลบางส่วนไม่สำเร็จ', 'warning')
     data = { customers: customers || [], followups: followups || [], bookings: bookings || [] }
+    try { targets = (await readDoc(SALES_TARGETS_COLLECTION, todayBangkok().slice(0, 7)))?.targets || {} } catch { targets = {} }
   }
   await load()
   if (container.__routerGen !== myGen) return
@@ -73,6 +77,25 @@ export default async function MyDayPage(container) {
   const callBtn = phone => tel(phone) ? `<a class="btn btn-secondary btn-xs" href="tel:${escHtml(tel(phone))}">📞 โทร</a>` : ''
   const ownerTag = n => seller === 'all' && canPick ? ` · 👤 ${escHtml((n || '').trim() || UNASSIGNED)}` : ''
 
+  // เป้าส่งมอบเดือนนี้ของคนที่เลือก (ตัวเอง ถ้าดูทุกคน) — ตั้งเป้าได้ที่หน้ารายได้รายเซลส์
+  function goalCard(today) {
+    const who = seller !== 'all' && seller !== UNASSIGNED ? seller : me.displayName
+    const t = targetFor(targets, who)
+    if (!t) return ''
+    const month = today.slice(0, 7)
+    const done = data.bookings.filter(b => !b.deleted && DELIVERED_STATUSES.includes(b.status) && (b.cutDate || b.actualDeliveryDate || '').startsWith(month) && normName(b.salesName) === normName(who)).length
+    const g = goalProgress(done, t)
+    const [y, m, dd] = today.split('-').map(Number)
+    const daysLeft = new Date(Date.UTC(y, m, 0)).getUTCDate() - dd
+    return `<div class="card" style="padding:14px 16px;margin-bottom:14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+      <div style="font-size:1.6rem">🎯</div>
+      <div style="flex:1;min-width:200px">
+        <div style="font-weight:800">เป้าส่งมอบเดือนนี้${who !== me.displayName ? ` · ${escHtml(who)}` : ''}: <span style="color:var(--${g.color})">${done}/${t} คัน (${g.pct}%)</span></div>
+        <div style="height:8px;background:var(--surface-2);border-radius:4px;margin:6px 0"><div style="height:100%;width:${Math.min(100, g.pct)}%;background:var(--${g.color});border-radius:4px"></div></div>
+        <div style="font-size:0.75rem;color:var(--text-muted)">${g.left ? `เหลืออีก ${g.left} คัน ใน ${daysLeft} วัน` : 'ถึงเป้าแล้ว เยี่ยมมาก! 🎉'}</div>
+      </div></div>`
+  }
+
   function render() {
     const today = todayBangkok()
     const d = buildMyDay(data, { today, mine })
@@ -87,6 +110,7 @@ export default async function MyDayPage(container) {
           </div>
         </div>
 
+        ${goalCard(today)}
         ${section('📞', 'Follow-up วันนี้/เลยกำหนด', 'กด ✅ เมื่อติดต่อแล้ว', d.followups, f => line(
           `${escHtml(f.customerName || 'ลูกค้า')}${f.late > 0 ? ` <span class="badge badge-danger" style="font-size:0.62rem">เลย ${f.late} วัน</span>` : ''}`,
           `${escHtml(f.purpose || '')}${f.vehicleModel ? ` · ${escHtml(f.vehicleModel)}` : ''}${ownerTag(f.salesperson)}`,

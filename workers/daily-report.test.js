@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import worker, { daysSinceBangkok, formatThaiDate, todayBangkok, decodeFsValue, buildReport, buildMorningReminder, buildMorningSections, buildPersonalReminder, matchSalesTargets, parseLineCommand, buildWeeklyReport, isMonday, buildLineLeadFields, pickNextSales, staffCompanyFor, buildLineFollowupFields, buildNewLineLeadNotice } from './daily-report.js'
+import worker, { daysSinceBangkok, formatThaiDate, todayBangkok, decodeFsValue, buildReport, buildMorningReminder, buildMorningSections, buildPersonalReminder, matchSalesTargets, parseLineCommand, buildWeeklyReport, isMonday, buildLineLeadFields, pickNextSales, staffCompanyFor, buildLineFollowupFields, buildNewLineLeadNotice, sellerGoal } from './daily-report.js'
 
 const BASE_ENV = { FIREBASE_API_KEY: 'fake-public-key', FIREBASE_PROJECT_ID: 'fake-project', ALLOWED_ORIGIN: 'https://lamom-one.pages.dev' }
 
@@ -623,5 +623,24 @@ describe('upcoming deliveries in the 09:00 reminder and 18:00 report', () => {
     expect(text).toContain('📅 นัดส่งมอบพรุ่งนี้: 1 คัน')
     expect(text).toContain('10:00 จ (Dolphin) · นภา')
     expect(buildReport({ bookings: [], customers: [], followups: [], testDrives: [] }, { today: '2026-10-31' })).not.toContain('นัดส่งมอบพรุ่งนี้')
+  })
+})
+
+describe('monthly goal in the personal 09:00 message', () => {
+  it('sellerGoal counts this month deliveries against the target', () => {
+    const data = { bookings: [
+      { status: 'ส่งมอบแล้ว', cutDate: '2026-10-03', salesName: 'วิชัย ใจดี' },
+      { status: 'ตัดตัวเลขรอส่งมอบ', cutDate: '2026-10-10', salesName: 'วิชัยใจดี' },
+      { status: 'ส่งมอบแล้ว', cutDate: '2026-09-30', salesName: 'วิชัย ใจดี' },
+      { status: 'จองแล้ว', salesName: 'วิชัย ใจดี' },
+    ] }
+    expect(sellerGoal(data, { 'วิชัย ใจดี': 5 }, 'คุณวิชัย ใจดี', '2026-10-25')).toEqual({ done: 2, target: 5 })
+    expect(sellerGoal(data, {}, 'วิชัย ใจดี', '2026-10-25')).toBe(null)
+  })
+  it('shows the goal line only when a target exists', () => {
+    const section = { name: 'A', text: '👤 A' }
+    expect(buildPersonalReminder(section, '2026-10-25', '', { done: 2, target: 5 })).toContain('🎯 เป้าเดือนนี้: ส่งมอบแล้ว 2/5 คัน (เหลือ 3 คัน)')
+    expect(buildPersonalReminder(section, '2026-10-25', '', { done: 5, target: 5 })).toContain('ถึงเป้าแล้ว')
+    expect(buildPersonalReminder(section, '2026-10-25')).not.toContain('🎯')
   })
 })
