@@ -846,6 +846,7 @@ describe('ค้นหาลูกค้า / help ทาง LINE', () => {
     expect(byName).toContain('⚠️ ยังไม่มี')
     expect(findCustomersText(customers, [], 'ไม่มีคนนี้', '2026-10-25')).toContain('ไม่พบลูกค้า')
     expect(findCustomersText(customers, [], '+66 81 234 5678', '2026-10-25')).toContain('สมชาย ทดสอบ')
+    expect(findCustomersText([{ id: 'z', firstName: 'มีบันทึก', phone: '0811111111', lastContactAt: '2026-10-24T03:00:00Z' }], [], 'มีบันทึก', '2026-10-25')).toContain('ติดต่อล่าสุด: 24 ต.ค. 2569')
     expect(findCustomersText([{ id: 'x', firstName: 'เก็บแบบ66', phone: '+66899990000' }], [], '0899990000', '2026-10-25')).toContain('เก็บแบบ66')
   })
 })

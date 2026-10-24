@@ -172,7 +172,7 @@ async function handleLineWebhook(request, env, cors) {
         else {
           try {
             const [customers, followups] = await Promise.all([
-              runQuery(env, accessToken, 'customers', null, null, 5000, ['firstName', 'lastName', 'phone', 'lineId', 'stage', 'assignedTo', 'interestedModel', 'isLost', 'deleted']),
+              runQuery(env, accessToken, 'customers', null, null, 5000, ['firstName', 'lastName', 'phone', 'lineId', 'stage', 'assignedTo', 'interestedModel', 'isLost', 'lastContactAt', 'deleted']),
               runQuery(env, accessToken, 'followups', null, null, 5000, ['dueDate', 'status', 'customerId', 'deleted'], ['status', 'pending']),
             ])
             // นโยบายการมองเห็นเดียวกับในแอป: เซลส์เห็นเฉพาะลูกค้าที่ตัวเองดูแล — เจ้าของเห็นทั้งหมด
@@ -954,7 +954,8 @@ export function findCustomersText(customers, followups, q, today) {
     const n = next(c.id)
     return [`👤 ${[c.firstName, c.lastName].filter(Boolean).join(' ') || 'ไม่มีชื่อ'}${c.isLost ? ' (เสียดีล)' : ''} · ${CUST_STAGE[c.stage] || c.stage || '-'}`,
       `   📱 ${c.phone || '-'}${c.interestedModel ? ` · 🚗 ${c.interestedModel}` : ''}`,
-      `   ผู้ดูแล: ${String(c.assignedTo || '').trim() || '⚠️ ยังไม่มี'}${n ? ` · นัดถัดไป ${n < today ? `⚠️ เลยกำหนด (${formatThaiDate(n)})` : formatThaiDate(n)}` : ''}`].join('\n')
+      `   ผู้ดูแล: ${String(c.assignedTo || '').trim() || '⚠️ ยังไม่มี'}${n ? ` · นัดถัดไป ${n < today ? `⚠️ เลยกำหนด (${formatThaiDate(n)})` : formatThaiDate(n)}` : ''}`,
+      /^\d{4}-\d{2}-\d{2}$/.test(toBangkokDate(c.lastContactAt)) ? `   ติดต่อล่าสุด: ${formatThaiDate(toBangkokDate(c.lastContactAt))}` : null].filter(Boolean).join('\n')
   })
   return [`🔍 พบ ${list.length} ราย${list.length > 5 ? ' (แสดง 5 รายแรก)' : ''}`, ...lines].join('\n')
 }
