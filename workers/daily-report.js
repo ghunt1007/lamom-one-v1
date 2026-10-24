@@ -386,7 +386,7 @@ async function buildReportText(env, accessToken) {
   const fuFields = ['dueDate', 'status', 'customerId', 'updatedAt', 'deleted']
   const [bookings, customers, fuPending, fuDone, testDrives, teamTargets] = await Promise.all([
     runQuery(env, accessToken, 'bookings', null, null, 5000, ['bookingDate', 'status', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'salesName', 'totalIncome', 'deliveryDate', 'deliveryTime', 'custName', 'model', 'cancelReason', 'deleted']),
-    runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'createdAt', 'source', 'assignedTo', 'isLost', 'lostAt', 'lostReason', 'lastContactAt', 'deleted']),
+    runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'createdAt', 'source', 'assignedTo', 'temperature', 'isLost', 'lostAt', 'lostReason', 'lastContactAt', 'deleted']),
     // แยกดึงนัดค้าง/นัดที่ทำแล้ว — ถ้าดึงรวมแบบจำกัดจำนวน พอนัดอัตโนมัติสะสมเยอะจะตกหล่นนัดของวันนี้
     runQuery(env, accessToken, 'followups', null, null, 5000, fuFields, ['status', 'pending']),
     runQuery(env, accessToken, 'followups', null, null, 5000, fuFields, ['status', 'done']),
@@ -448,6 +448,10 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
   const lostBy = {}
   lostToday.forEach(c => { const k = lostReasonHead(c.lostReason); lostBy[k] = (lostBy[k] || 0) + 1 })
   const lostLine = Object.entries(lostBy).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, v]) => `${k} ${v}`).join(' · ')
+  // ลูกค้า Hot (Lead/Prospect) และกี่รายที่ยังไม่มีนัดติดตามเลย — โอกาสปิดสูงแต่ไม่มีแผนต่อ
+  const pendingFor = new Set(followups.filter(f => f.status === 'pending' && f.customerId).map(f => f.customerId))
+  const hotList = leads.filter(c => c.temperature === 'hot' && !c.isLost)
+  const hotNoPlan = hotList.filter(c => !pendingFor.has(c.id)).length
   const followUpToday = followups.filter(f => f.status === 'pending' && f.dueDate === today).length
   const followUpOverdue = followups.filter(f => f.status === 'pending' && f.dueDate && f.dueDate < today).length
   const testDriveToday = testDrives.filter(t => (t.date || '').slice(0, 10) === today).length
@@ -508,6 +512,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
     `  • Lead ที่ดูแลอยู่: ${leads.length} ราย`,
     unassigned ? `  • ⚠️ ยังไม่มีผู้ดูแล: ${unassigned} ราย (มอบให้เซลส์ได้ที่หน้า "งานของฉันวันนี้")` : null,
     `  • ติดต่อลูกค้าวันนี้: ${contactedAll.length} ราย${contactLine ? ` (${contactLine})` : ''}`,
+    hotList.length ? `  • 🔴 ลูกค้า Hot: ${hotList.length} ราย${hotNoPlan ? ` · ⚠️ ยังไม่มีนัดติดตาม ${hotNoPlan} ราย` : ''}` : null,
     lostToday.length ? `  • 💔 เสียดีลวันนี้: ${lostToday.length} ราย (${lostLine})` : null,
     `  • Follow-up วันนี้: ${followUpToday} ราย`,
     followUpOverdue ? `  • ⚠️ Follow-up เลยกำหนด: ${followUpOverdue} ราย` : null,

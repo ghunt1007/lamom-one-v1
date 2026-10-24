@@ -1204,3 +1204,18 @@ describe('LINE ร้อน/อุ่น/เย็น', () => {
     expect(parseLineCommand('เย็น นี้ ว่าง').type).toBe('none')
   })
 })
+
+describe('buildReport — ลูกค้า Hot', () => {
+  it('นับ Hot และที่ยังไม่มีนัด', () => {
+    const customers = [
+      { id: 'a', stage: 'pp', temperature: 'hot' },
+      { id: 'b', stage: 'lead', temperature: 'hot' },
+      { id: 'c', stage: 'pp', temperature: 'hot', isLost: true },
+      { id: 'd', stage: 'booking', temperature: 'hot' },
+    ]
+    const followups = [{ status: 'pending', customerId: 'a', dueDate: '2026-10-26' }]
+    const text = buildReport({ customers, followups, bookings: [] }, { today: '2026-10-24' })
+    expect(text).toContain('🔴 ลูกค้า Hot: 2 ราย · ⚠️ ยังไม่มีนัดติดตาม 1 ราย')
+    expect(buildReport({ customers: [], bookings: [] }, { today: '2026-10-24' })).not.toContain('ลูกค้า Hot')
+  })
+})
