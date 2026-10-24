@@ -20,7 +20,7 @@ import { OCCUPATIONS } from '../../utils/financeMatch.js'
 import { openQuickLead, findDuplicate } from '../../utils/quickLead.js'
 import { planLeadImport } from '../../utils/leadImport.js'
 import { scheduleLeadFollowups, closeAutoLeadFollowups } from '../../utils/leadFollowups.js'
-import { pendingFollowupsFor, followupWindowFilters } from '../../utils/customerFollowups.js'
+import { pendingFollowupsFor, followupWindowFilters, followupStatusByCustomer, matchFollowupFilter } from '../../utils/customerFollowups.js'
 import { openAddFollowup } from '../../utils/addFollowupModal.js'
 
 function escHtml(s) {
@@ -68,6 +68,8 @@ export default async function CustomersPage(container) {
   let lostOnly = false
   let salesFilter = ''
   let sourceFilter = ''
+  let fuFilter = ''
+  let fuStatus = null // โหลดนัดติดตามเฉพาะตอนเลือกตัวกรองนัดครั้งแรก (ไม่ให้ทุกคนเสียเวลาโหลด)
 
   // (v1.0.467) เปลี่ยนจาก getMyTeamNames() (มี fallback ผ่อนปรนให้ manager ที่ไม่มีลูกทีมจริงเห็นทุกคนแทน)
   // มาใช้ getVisibilityScope() ตามนโยบายที่เจ้าของระบบยืนยันไว้เข้มงวด — "เห็นเฉพาะผู้ใต้บังคับบัญชาโดยตรง
@@ -121,7 +123,8 @@ export default async function CustomersPage(container) {
       const matchSales = !salesFilter || (salesFilter === '__none' ? !String(c.assignedTo || '').trim() : c.assignedTo === salesFilter)
       const matchSource = !sourceFilter || (sourceFilter === 'other' ? !SOURCE[c.source] || c.source === 'other' : c.source === sourceFilter)
       const matchOwn = !ownScopeActive || scopeIncludesRecord(visScope, c.assignedTo, c)
-      return matchSearch && matchStage && matchLost && matchSales && matchSource && matchOwn
+      const matchFu = matchFollowupFilter(c, fuFilter, fuStatus)
+      return matchSearch && matchStage && matchLost && matchSales && matchSource && matchOwn && matchFu
     })
     const rank = { high: 0, medium: 1, low: 2 }
     filtered.sort((a, b) => {
@@ -897,6 +900,11 @@ export default async function CustomersPage(container) {
             <option value="">📌 ทุกช่องทาง</option>
             ${Object.entries(SOURCE).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}
           </select>
+          <select class="input" id="cust-fu-filter" style="width:auto;min-width:130px" title="กรองตามนัดติดตาม">
+            <option value="">📅 นัดติดตาม: ทั้งหมด</option>
+            <option value="none">⚠️ Lead/Prospect ที่ไม่มีนัดเลย</option>
+            <option value="late">🔴 มีนัดเลยกำหนด</option>
+          </select>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
             ${['all', ...STAGE_ORDER].map(s => `
               <button class="btn btn-sm sf ${s === 'all' ? 'btn-primary' : 'btn-secondary'}" data-s="${s}">
@@ -1042,6 +1050,16 @@ export default async function CustomersPage(container) {
   document.getElementById('cust-search').addEventListener('input', e => { search = e.target.value.trim().toLowerCase(); applyFilter() })
   document.getElementById('cust-sales-filter').addEventListener('change', e => { salesFilter = e.target.value; applyFilter() })
   document.getElementById('cust-source-filter').addEventListener('change', e => { sourceFilter = e.target.value; applyFilter() })
+  document.getElementById('cust-fu-filter').addEventListener('change', async e => {
+    fuFilter = e.target.value
+    if (fuFilter && !fuStatus) {
+      const today = todayBangkok()
+      try {
+        fuStatus = followupStatusByCustomer(await listDocs('followups', [...companyScopeFilters(), ...followupWindowFilters(today)], 'dueDate', 'asc', 3000), today)
+      } catch { showToast('โหลดนัดติดตามไม่สำเร็จ', 'error'); fuStatus = new Map() }
+    }
+    applyFilter()
+  })
   document.querySelectorAll('.sf').forEach(btn => btn.addEventListener('click', () => {
     stageFilter = btn.dataset.s
     document.querySelectorAll('.sf').forEach(b => b.className = `btn btn-sm sf ${b.dataset.s === stageFilter ? 'btn-primary' : 'btn-secondary'}`)
