@@ -651,3 +651,17 @@ describe('LINE lead document id', () => {
     expect(lineLeadDocId('U1/../x')).toBe('line_U1x')
   })
 })
+
+describe('unassigned leads in the 18:00 report', () => {
+  it('warns about leads nobody owns', () => {
+    const customers = [
+      { stage: 'pp', assignedTo: '', createdAt: '2026-10-25T03:00:00Z' },
+      { stage: 'lead', createdAt: '2026-10-20T03:00:00Z' },
+      { stage: 'pp', assignedTo: 'A', createdAt: '2026-10-20T03:00:00Z' },
+      { stage: 'pp', isLost: true, createdAt: '2026-10-20T03:00:00Z' },
+      { stage: 'pp', createdAt: '2026-08-01T03:00:00Z' },
+    ]
+    expect(buildReport({ bookings: [], customers, followups: [], testDrives: [] }, { today: '2026-10-25' })).toContain('⚠️ ยังไม่มีผู้ดูแล: 2 ราย')
+    expect(buildReport({ bookings: [], customers: [customers[2]], followups: [], testDrives: [] }, { today: '2026-10-25' })).not.toContain('ยังไม่มีผู้ดูแล')
+  })
+})
