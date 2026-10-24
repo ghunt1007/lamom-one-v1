@@ -173,7 +173,7 @@ export default async function InvoicePage(container) {
     document.querySelectorAll('.tf-btn').forEach(b => b.addEventListener('click', () => { typeFilter = b.dataset.t; renderPage() }))
     document.querySelectorAll('.sf-btn').forEach(b => b.addEventListener('click', () => { statusFilter = b.dataset.s; renderPage() }))
     document.getElementById('new-inv-btn')?.addEventListener('click', () => openDocForm())
-    document.getElementById('inv-export')?.addEventListener('click', () => exportToExcel(filtered.map(d => { const {total,vat,subtotal}=calcDoc(d); return { เลขที่:d.no, ประเภท:DOC_TYPES[d.type].label, ลูกค้า:d.custName, วันที่:d.date, ครบกำหนด:d.dueDate, ก่อนVAT:subtotal, VAT:vat, รวม:total, สถานะ:DOC_STATUS[d.status].label } }), 'Invoices'))
+    document.getElementById('inv-export')?.addEventListener('click', () => exportToExcel(filtered.map(d => { const {total,vat,subtotal}=calcDoc(d); return { เลขที่:d.no, ประเภท:(DOC_TYPES[d.type]?.label || d.type || ""), ลูกค้า:d.custName, วันที่:d.date, ครบกำหนด:d.dueDate, ก่อนVAT:subtotal, VAT:vat, รวม:total, สถานะ:(DOC_STATUS[d.status]?.label || d.status || "") } }), 'Invoices'))
     document.querySelectorAll('.doc-row').forEach(row => {
       row.addEventListener('click', e => { if (e.target.tagName === 'BUTTON') return; const d = allDocs().find(x => x.id === row.dataset.id); if (d) openDocDetail(d) })
     })
