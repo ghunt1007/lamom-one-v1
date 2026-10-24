@@ -19,7 +19,7 @@ import { analyzeCustomer, isAiEnabled } from '../../utils/ai.js'
 import { OCCUPATIONS } from '../../utils/financeMatch.js'
 import { openQuickLead } from '../../utils/quickLead.js'
 import { planLeadImport } from '../../utils/leadImport.js'
-import { scheduleLeadFollowups } from '../../utils/leadFollowups.js'
+import { scheduleLeadFollowups, closeAutoLeadFollowups } from '../../utils/leadFollowups.js'
 import { pendingFollowupsFor, addDays, buildManualFollowup, FOLLOWUP_PURPOSES, followupWindowFilters } from '../../utils/customerFollowups.js'
 
 function escHtml(s) {
@@ -683,6 +683,7 @@ export default async function CustomersPage(container) {
         const patch = { isLost: true, lostReason: reason, lostAt: new Date().toISOString() }
         await updateDocData('customers', c.id, patch)
         Object.assign(c, patch)
+        closeAutoLeadFollowups(c.id, `ปิดอัตโนมัติ: เสียดีล (${reason})`)
         close(); showToast('⬛ มาร์คเป็นเสียดีลแล้ว', 'warning')
         onDone?.()
       } catch { showToast('เกิดข้อผิดพลาด', 'error') }
@@ -734,6 +735,7 @@ export default async function CustomersPage(container) {
         const stageChangedAt = new Date().toISOString()
         await updateDocData('customers', c.id, { stage: 'booking', stageChangedAt, bookingId })
         Object.assign(c, { stage: 'booking', stageChangedAt, bookingId })
+        closeAutoLeadFollowups(c.id, 'ปิดอัตโนมัติ: ลูกค้าจองแล้ว')
         close()
         showToast(`📝 สร้างใบจอง ${bookingNo} แล้ว — อัปเดตสถานะลูกค้าเป็น "จองแล้ว"`, 'success')
         onDone?.(c)

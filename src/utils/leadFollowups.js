@@ -2,8 +2,8 @@
 // วันที่ +1, +3, +7 นับจากวันนี้ (เวลาไทย) ผู้ติดตาม = ผู้ดูแลลูกค้า งานพวกนี้ขึ้นในหน้า Follow-up และในข้อความ
 // เตือน 9 โมงเช้าเหมือนงานที่สร้างเอง — ติด autoLead:true ไว้ เพื่อให้การเตือนตอนเช้าข้ามงานของลูกค้าที่จองไปแล้ว
 // หรือเสียดีลไปแล้ว (ดู workers/daily-report.js) แก้จำนวนวัน/ข้อความได้ที่ LEAD_FOLLOWUP_PLAN ด้านล่าง
-import { createDoc } from '../core/db.js'
-import { myEffectiveCompanyId } from '../core/companyScope.js'
+import { createDoc, listDocs, updateDocData } from '../core/db.js'
+import { myEffectiveCompanyId, companyScopeFilters } from '../core/companyScope.js'
 import { todayBangkok } from './format.js'
 
 export const LEAD_FOLLOWUP_PURPOSE = 'ติดตาม Lead ใหม่'
@@ -38,6 +38,26 @@ export async function scheduleLeadFollowups(customer, customerId) {
   let n = 0
   for (const f of buildLeadFollowups(customer, customerId)) {
     try { await createDoc('followups', { ...f, companyId: customer.companyId ?? myEffectiveCompanyId() }); n++ } catch { /* ข้าม */ }
+  }
+  return n
+}
+
+// นัด Lead อัตโนมัติที่ค้างอยู่ของลูกค้ารายนี้ (ปิดเมื่อลูกค้าจองแล้ว/เสียดีล ไม่ให้ค้างในหน้า Follow-up)
+export function autoLeadFollowupsToClose(followups, customerId) {
+  if (!customerId) return []
+  return (followups || []).filter(f => f && !f.deleted && f.autoLead && f.status === 'pending' && f.customerId === customerId)
+}
+
+// ปิดจริงใน Firestore (status = skipped พร้อมเหตุผล) — ไม่ throw คืนจำนวนที่ปิดได้
+export async function closeAutoLeadFollowups(customerId, reason) {
+  if (!customerId) return 0
+  let rows = []
+  try {
+    rows = await listDocs('followups', [...companyScopeFilters(), ['dueDate', '>=', addDaysTo(todayBangkok(), -30)]], 'dueDate', 'asc', 2000)
+  } catch { return 0 }
+  let n = 0
+  for (const f of autoLeadFollowupsToClose(rows, customerId)) {
+    try { await updateDocData('followups', f.id, { status: 'skipped', result: reason || 'ปิดอัตโนมัติ' }); n++ } catch { /* ข้าม */ }
   }
   return n
 }
