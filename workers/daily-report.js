@@ -678,7 +678,8 @@ async function captureLineLead(env, accessToken, userId, firstText) {
 
   const now = new Date().toISOString()
   const fields = buildLineLeadFields({ userId, displayName, firstText, now, companyId, assignedTo: assignee?.name || '' })
-  const res = await fetch(`${base}/customers`, { method: 'POST', headers, body: JSON.stringify({ fields }) })
+  // id ตายตัวต่อ LINE userId — ลูกค้าพิมพ์รัวหลายข้อความพร้อมกัน webhook มาหลายครั้งพร้อมกันก็สร้างได้คนเดียว (ซ้ำ = 409)
+  const res = await fetch(`${base}/customers?documentId=${encodeURIComponent(lineLeadDocId(userId))}`, { method: 'POST', headers, body: JSON.stringify({ fields }) })
   if (!res.ok) return false
   if (!assignee) return true
   const created = await res.json().catch(() => ({}))
@@ -690,6 +691,8 @@ async function captureLineLead(env, accessToken, userId, firstText) {
   await pushLine(env, assignee.userId, buildNewLineLeadNotice({ customerName, firstText, customerId, appUrl: env.ALLOWED_ORIGIN }))
   return true
 }
+
+export const lineLeadDocId = userId => `line_${String(userId).replace(/[^A-Za-z0-9_-]/g, '')}`
 
 // วนคิวเซลส์: เรียงตามชื่อ (ตัดชื่อซ้ำ) แล้วเลือกคนถัดจากคนที่ได้ล่าสุด — export ไว้เทส
 export function pickNextSales(targets, lastName) {

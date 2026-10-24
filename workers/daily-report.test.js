@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import worker, { daysSinceBangkok, formatThaiDate, todayBangkok, decodeFsValue, buildReport, buildMorningReminder, buildMorningSections, buildPersonalReminder, matchSalesTargets, parseLineCommand, buildWeeklyReport, isMonday, buildLineLeadFields, pickNextSales, staffCompanyFor, buildLineFollowupFields, buildNewLineLeadNotice, sellerGoal } from './daily-report.js'
+import worker, { daysSinceBangkok, formatThaiDate, todayBangkok, decodeFsValue, buildReport, buildMorningReminder, buildMorningSections, buildPersonalReminder, matchSalesTargets, parseLineCommand, buildWeeklyReport, isMonday, buildLineLeadFields, pickNextSales, staffCompanyFor, buildLineFollowupFields, buildNewLineLeadNotice, sellerGoal, lineLeadDocId } from './daily-report.js'
 
 const BASE_ENV = { FIREBASE_API_KEY: 'fake-public-key', FIREBASE_PROJECT_ID: 'fake-project', ALLOWED_ORIGIN: 'https://lamom-one.pages.dev' }
 
@@ -642,5 +642,12 @@ describe('monthly goal in the personal 09:00 message', () => {
     expect(buildPersonalReminder(section, '2026-10-25', '', { done: 2, target: 5 })).toContain('🎯 เป้าเดือนนี้: ส่งมอบแล้ว 2/5 คัน (เหลือ 3 คัน)')
     expect(buildPersonalReminder(section, '2026-10-25', '', { done: 5, target: 5 })).toContain('ถึงเป้าแล้ว')
     expect(buildPersonalReminder(section, '2026-10-25')).not.toContain('🎯')
+  })
+})
+
+describe('LINE lead document id', () => {
+  it('is fixed per LINE user so concurrent webhooks cannot create duplicates', () => {
+    expect(lineLeadDocId('U1234abcd')).toBe('line_U1234abcd')
+    expect(lineLeadDocId('U1/../x')).toBe('line_U1x')
   })
 })
