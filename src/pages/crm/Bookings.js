@@ -849,7 +849,7 @@ export default async function BookingsPage(container) {
   // ── Booking Wizard (4 ขั้นตอน) ────────────────────────────────────────────
   function openWizard() {
     let step = 1
-    const w = { custName: '', phone: '', salesName: getSalesStaff()[0] || '', brand: '', model: '', variant: '', price: 0, discount: 0, accessories: 0, bookingDeposit: 0, down: 0, installments: 60, interestRate: 2.99, customerId: null }
+    const w = { custName: '', phone: '', salesName: (getSalesStaff().includes(myDisplayName) ? myDisplayName : getSalesStaff()[0]) || '', brand: '', model: '', variant: '', price: 0, discount: 0, accessories: 0, bookingDeposit: 0, down: 0, installments: 60, interestRate: 2.99, customerId: null }
     const bkNo = 'SK' + new Date().toISOString().slice(2, 10).replace(/-/g, '') + String(Math.floor(Math.random() * 900) + 100)
     const stepLabels = ['ข้อมูลลูกค้า', 'ราคา & รุ่น', 'ไฟแนนซ์', 'ยืนยัน']
 
@@ -1189,7 +1189,7 @@ export default async function BookingsPage(container) {
         '<div class="grid-2">' + inp('bf-cut', 'วันตัดรถ', e.cutDate, 'date') + inp('bf-delivery', 'วันนัดส่งมอบ', e.deliveryDate, 'date') + '</div>' +
         inp('bf-actual', 'วันส่งมอบจริง', e.actualDeliveryDate, 'date') +
         sec('📌 สรุป') +
-        '<div class="grid-2">' + selOf('bf-sales', 'เซลส์', getSalesStaff(), e.salesName) + selOf('bf-status', 'สถานะใบจอง', getBookingStatus(), e.status || 'ยอดจองคงค้าง') + '</div>' +
+        '<div class="grid-2">' + selOf('bf-sales', 'เซลส์', getSalesStaff(), e.salesName || (isEdit ? '' : myDisplayName)) + selOf('bf-status', 'สถานะใบจอง', getBookingStatus(), e.status || 'ยอดจองคงค้าง') + '</div>' +
         '<div class="input-group"><label class="input-label">📝 โน๊ต / หมายเหตุเพิ่มเติม</label><textarea class="input" id="bf-notes" rows="3" placeholder="บันทึกข้อมูลเพิ่มเติมของการจองนี้ เช่น ความต้องการพิเศษ, ของแถม, นัดหมาย...">' + escHtml(e.notes || '') + '</textarea></div>' +
         '<span class="input-error" id="bf-cust-e"></span>' +
       '</div>',
