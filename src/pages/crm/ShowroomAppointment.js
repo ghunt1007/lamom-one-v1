@@ -131,7 +131,7 @@ export default async function ShowroomAppointmentPage(container) {
     document.getElementById('sales-sel')?.addEventListener('change', e => { salesFilter = e.target.value; renderPage() })
     document.getElementById('status-sel')?.addEventListener('change', e => { statusFilter = e.target.value; renderPage() })
     document.getElementById('new-sa-btn')?.addEventListener('click', () => openForm())
-    document.getElementById('sa-export')?.addEventListener('click', () => exportToExcel(filtered.map(a => ({ วันที่:a.date, เวลา:a.time, ลูกค้า:a.custName, วัตถุประสงค์:a.purpose, รุ่นที่สนใจ:a.interestedIn, เซลส์:a.salesperson, สถานะ:APPT_STATUS[a.status].label })), 'ShowroomAppts'))
+    document.getElementById('sa-export')?.addEventListener('click', () => exportToExcel(filtered.map(a => ({ วันที่:a.date, เวลา:a.time, ลูกค้า:a.custName, วัตถุประสงค์:a.purpose, รุ่นที่สนใจ:a.interestedIn, เซลส์:a.salesperson, สถานะ:(APPT_STATUS[a.status] || APPT_STATUS.scheduled).label })), 'ShowroomAppts'))
     document.querySelectorAll('.status-quick-btn').forEach(btn => {
       btn.addEventListener('click', async e => {
         e.stopPropagation()
