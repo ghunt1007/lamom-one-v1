@@ -23,6 +23,7 @@ import { scheduleLeadFollowups, closeAutoLeadFollowups } from '../../utils/leadF
 import { pendingFollowupsFor, followupWindowFilters, followupStatusByCustomer, matchFollowupFilter, QUIET_DAYS, quietDays } from '../../utils/customerFollowups.js'
 import { openAddFollowup } from '../../utils/addFollowupModal.js'
 import { touchCustomerContact } from '../../utils/customerContact.js'
+import { moveFollowupsOnReassign } from '../../utils/leadAssign.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -832,9 +833,14 @@ export default async function CustomersPage(container) {
           const promote = shouldAutoPromoteToPP(existing, fields)
           const patch = { ...fields }
           if (promote) { patch.stage = 'pp'; patch.stageChangedAt = new Date().toISOString() }
+          const prevOwner = existing.assignedTo || ''
           await updateDocData('customers', existing.id, patch)
           Object.assign(existing, patch)
           close()
+          if (fields.assignedTo && normName(fields.assignedTo) !== normName(prevOwner)) {
+            const moved = await moveFollowupsOnReassign(existing.id, prevOwner, fields.assignedTo)
+            if (moved) showToast(`ย้ายนัดติดตาม ${moved} นัดไปให้ ${fields.assignedTo} แล้ว`, 'info')
+          }
           if (promote) showToast('🎉 อัปเกรดเป็น Prospect อัตโนมัติ (ได้เบอร์ติดต่อ/LINE แล้ว)', 'success')
           else showToast(`แก้ไข ${first} ${last} แล้ว`, 'success')
           await loadData()

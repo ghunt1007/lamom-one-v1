@@ -150,7 +150,7 @@ export default async function ServiceAppointmentPage(container) {
   }
 
   function renderApptCard(a) {
-    const st = APPT_STATUS[a.status]
+    const st = APPT_STATUS[a.status] || APPT_STATUS.scheduled
     const isToday = a.date === todayBangkok()
     return `
       <div class="appt-card" data-id="${a.id}" style="
@@ -251,7 +251,7 @@ export default async function ServiceAppointmentPage(container) {
   }
 
   function openApptDetail(a) {
-    const st = APPT_STATUS[a.status]
+    const st = APPT_STATUS[a.status] || APPT_STATUS.scheduled
     openModal({
       title: '📅 ' + escHtml(a.custName) + ' — ' + escHtml(a.date) + ' ' + escHtml(a.time), size: 'md',
       body: `

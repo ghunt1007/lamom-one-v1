@@ -8,7 +8,7 @@ vi.mock('../core/db.js', () => ({
 }))
 vi.mock('../core/companyScope.js', () => ({ myEffectiveCompanyId: () => 'mine', companyScopeFilters: () => [] }))
 
-const { staffChoices, findStaffCompany, assignCustomer } = await import('./leadAssign.js')
+const { staffChoices, findStaffCompany, assignCustomer, followupsToMove } = await import('./leadAssign.js')
 
 beforeEach(() => { calls.length = 0 })
 
@@ -47,5 +47,23 @@ describe('lead assignment', () => {
       ['update', 'followups', 'f1', { salesperson: 'นภา' }],
     ])
     expect(fus[0].salesperson).toBe('นภา')
+  })
+})
+
+describe('ย้ายนัดเมื่อเปลี่ยนผู้ดูแล', () => {
+  const fus = [
+    { id: 'a', customerId: 'C1', status: 'pending', salesperson: 'วิชัย' },
+    { id: 'b', customerId: 'C1', status: 'pending', salesperson: '' },
+    { id: 'c', customerId: 'C1', status: 'pending', salesperson: 'ฝ่ายบริการ' },
+    { id: 'd', customerId: 'C1', status: 'done', salesperson: 'วิชัย' },
+    { id: 'e', customerId: 'C2', status: 'pending', salesperson: 'วิชัย' },
+    { id: 'f', customerId: 'C1', status: 'pending', salesperson: 'วิชัย', deleted: true },
+  ]
+  it('ย้ายเฉพาะนัดค้างของคนเดิม/ไม่มีผู้ดูแล ของลูกค้ารายนี้', () => {
+    expect(followupsToMove(fus, 'C1', 'วิชัย', 'นภา').map(f => f.id)).toEqual(['a', 'b'])
+  })
+  it('ไม่ย้ายถ้าไม่มีผู้ดูแลคนใหม่ หรือไม่มีลูกค้า', () => {
+    expect(followupsToMove(fus, 'C1', 'วิชัย', '')).toEqual([])
+    expect(followupsToMove(fus, '', 'วิชัย', 'นภา')).toEqual([])
   })
 })
