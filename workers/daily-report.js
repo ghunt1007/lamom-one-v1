@@ -595,6 +595,8 @@ async function deleteSalesTarget(env, accessToken, userId) {
   }).catch(() => {})
 }
 // ลูกค้าทัก LINE OA → สร้างลูกค้าใหม่ (ที่มา LINE) ครั้งแรกครั้งเดียวต่อ LINE userId ไม่สร้างให้เซลส์ที่ลงทะเบียนไว้
+// ถ้าเปิด AUTO_ASSIGN_LINE_LEADS="1" ด้วย: แจกให้เซลส์ที่ลงทะเบียน LINE ไว้แบบวนคิว (คนละรายเรียงตามชื่อ)
+// สร้างนัดติดตามวันที่ 1/3/7 (แผนเดียวกับ src/utils/leadFollowups.js) และส่ง LINE บอกเซลส์คนนั้นทันที
 async function captureLineLead(env, accessToken, userId, firstText) {
   const base = `https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents`
   const headers = { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
@@ -611,21 +613,99 @@ async function captureLineLead(env, accessToken, userId, firstText) {
     const p = await fetch(`https://api.line.me/v2/bot/profile/${encodeURIComponent(userId)}`, { headers: { Authorization: `Bearer ${env.LINE_CHANNEL_ACCESS_TOKEN}` } })
     if (p.ok) displayName = (await p.json()).displayName || ''
   } catch { /* ไม่มีชื่อก็สร้างได้ */ }
-  const fields = buildLineLeadFields({ userId, displayName, firstText, now: new Date().toISOString(), companyId: env.LINE_LEAD_COMPANY_ID || null })
+
+  let assignee = null
+  let companyId = env.LINE_LEAD_COMPANY_ID || null
+  if (env.AUTO_ASSIGN_LINE_LEADS === '1') {
+    const targets = await runQuery(env, accessToken, 'line_sales_targets', null, null, 500, ['name', 'userId']).catch(() => [])
+    const rr = await fetch(`${base}/system_integrations/line_lead_rr`, { headers }).then(r => (r.ok ? r.json() : {})).catch(() => ({}))
+    assignee = pickNextSales(targets, rr.fields?.lastName?.stringValue || '')
+    if (assignee) {
+      await fetch(`${base}/system_integrations/line_lead_rr`, {
+        method: 'PATCH', headers, body: JSON.stringify({ fields: { lastName: { stringValue: assignee.name }, at: { timestampValue: new Date().toISOString() } } }),
+      }).catch(() => {})
+      // ใส่บริษัทของเซลส์คนนั้นให้ลูกค้า (ไม่งั้นกฎความปลอดภัยของฐานข้อมูลจะซ่อนลูกค้าจากเซลส์)
+      if (!companyId) {
+        const staff = await runQuery(env, accessToken, 'staff', null, null, 1000, ['firstName', 'lastName', 'nickname', 'companyId', 'companyIds']).catch(() => [])
+        companyId = staffCompanyFor(staff, assignee.name)
+      }
+    }
+  }
+
+  const now = new Date().toISOString()
+  const fields = buildLineLeadFields({ userId, displayName, firstText, now, companyId, assignedTo: assignee?.name || '' })
   const res = await fetch(`${base}/customers`, { method: 'POST', headers, body: JSON.stringify({ fields }) })
-  return res.ok
+  if (!res.ok) return false
+  if (!assignee) return true
+  const created = await res.json().catch(() => ({}))
+  const customerId = String(created.name || '').split('/').pop()
+  const customerName = fields.firstName.stringValue + (fields.lastName.stringValue ? ' ' + fields.lastName.stringValue : '')
+  for (const f of buildLineFollowupFields({ customerId, customerName, salesperson: assignee.name, companyId, today: todayBangkok(), now })) {
+    await fetch(`${base}/followups`, { method: 'POST', headers, body: JSON.stringify({ fields: f }) }).catch(() => {})
+  }
+  await pushLine(env, assignee.userId, buildNewLineLeadNotice({ customerName, firstText, customerId, appUrl: env.ALLOWED_ORIGIN }))
+  return true
+}
+
+// วนคิวเซลส์: เรียงตามชื่อ (ตัดชื่อซ้ำ) แล้วเลือกคนถัดจากคนที่ได้ล่าสุด — export ไว้เทส
+export function pickNextSales(targets, lastName) {
+  const seen = new Set()
+  const list = (targets || [])
+    .filter(t => t && t.userId && String(t.name || '').trim())
+    .filter(t => { const k = normSalesName(t.name); if (seen.has(k)) return false; seen.add(k); return true })
+    .sort((a, b) => normSalesName(a.name).localeCompare(normSalesName(b.name)))
+  if (!list.length) return null
+  const i = list.findIndex(t => normSalesName(t.name) === normSalesName(lastName))
+  return list[(i + 1) % list.length]
+}
+
+// หา companyId ของพนักงานจากชื่อ (ชื่อ-นามสกุล หรือชื่อเล่น) — ไม่เจอคืน null
+export function staffCompanyFor(staff, name) {
+  const key = normSalesName(name)
+  const s = (staff || []).find(x => [`${x.firstName || ''}${x.lastName || ''}`, x.firstName, x.nickname].some(n => n && normSalesName(n) === key))
+  if (!s) return null
+  return (Array.isArray(s.companyIds) && s.companyIds[0]) || s.companyId || null
+}
+
+// นัดติดตาม 3 ครั้ง (+1, +3, +7 วัน) ในรูป Firestore REST fields — ต้องตรงกับ LEAD_FOLLOWUP_PLAN ใน src/utils/leadFollowups.js
+const LINE_FOLLOWUP_PLAN = [
+  { days: 1, type: 'call', note: 'ครั้งที่ 1: โทรแนะนำตัว ถามความต้องการ งบ และรุ่นที่สนใจ' },
+  { days: 3, type: 'line', note: 'ครั้งที่ 2: ส่งรูป สเปก และโปรโมชันรุ่นที่สนใจทาง LINE' },
+  { days: 7, type: 'call', note: 'ครั้งที่ 3: ชวนทดลองขับ หรือนัดเข้าโชว์รูม' },
+]
+export function buildLineFollowupFields({ customerId, customerName, salesperson, companyId = null, today, now }) {
+  const str = v => ({ stringValue: String(v ?? '') })
+  const [y, m, d] = today.split('-').map(Number)
+  return LINE_FOLLOWUP_PLAN.map(p => ({
+    customerId: str(customerId), customerName: str(customerName), phone: str(''), vehicleModel: str(''),
+    salesperson: str(salesperson), type: str(p.type), purpose: str('ติดตาม Lead ใหม่'), note: str(p.note),
+    dueDate: str(new Date(Date.UTC(y, m - 1, d + p.days)).toISOString().slice(0, 10)), status: str('pending'), result: str(''),
+    autoLead: { booleanValue: true }, companyId: companyId ? str(companyId) : { nullValue: null },
+    createdAt: { timestampValue: now }, updatedAt: { timestampValue: now },
+  }))
+}
+
+export function buildNewLineLeadNotice({ customerName, firstText, customerId, appUrl = '' }) {
+  return clipLine([
+    '🧲 ลูกค้าใหม่จาก LINE OA มอบให้คุณดูแล',
+    `👤 ${customerName}`,
+    firstText ? `💬 "${String(firstText).slice(0, 300)}"` : '',
+    '📞 นัดติดตามให้แล้ว: พรุ่งนี้, อีก 3 วัน, อีก 7 วัน',
+    'ตอบลูกค้าได้ในแอป LINE Official Account',
+    appUrl && customerId ? `👉 ${String(appUrl).replace(/\/+$/, '')}/crm/customers?id=${encodeURIComponent(customerId)}` : '',
+  ].filter(Boolean).join('\n'))
 }
 
 // เอกสารลูกค้าแบบเดียวกับที่แอปสร้าง (ดู src/utils/quickLead.js) ในรูป Firestore REST fields — export ไว้เทส
 // companyId ว่าง = เห็นเฉพาะเจ้าของโปรแกรม/ผู้ดูทั้งกลุ่ม (ตาม firestore.rules) — ตั้ง var LINE_LEAD_COMPANY_ID ให้เซลส์บริษัทนั้นเห็นด้วย
-export function buildLineLeadFields({ userId, displayName, firstText, now, companyId = null }) {
+export function buildLineLeadFields({ userId, displayName, firstText, now, companyId = null, assignedTo = '' }) {
   const str = v => ({ stringValue: String(v ?? '') })
   const parts = String(displayName || '').trim().split(/\s+/).filter(Boolean)
   const note = firstText ? `ทักมาทาง LINE OA: "${String(firstText).slice(0, 200)}"` : 'ทักมาทาง LINE OA'
   return {
     firstName: str(parts[0] || 'ลูกค้า LINE'), lastName: str(parts.slice(1).join(' ')),
     phone: str(''), lineId: str(displayName ? `LINE: ${displayName}` : 'LINE OA'), lineUserId: str(userId), email: str(''),
-    interestedModel: str(''), source: str('line'), temperature: { nullValue: null }, assignedTo: str(''),
+    interestedModel: str(''), source: str('line'), temperature: { nullValue: null }, assignedTo: str(assignedTo),
     vip: { booleanValue: false }, notes: str(note), budget: { integerValue: '0' }, occupation: str(''), monthlyIncome: { integerValue: '0' },
     stage: str('pp'), isLost: { booleanValue: false }, lostReason: str(''), lostAt: { nullValue: null }, bookingId: { nullValue: null },
     tags: { arrayValue: { values: [str('LINE OA')] } }, companyId: companyId ? str(companyId) : { nullValue: null },
