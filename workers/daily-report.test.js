@@ -531,6 +531,14 @@ describe('LINE OA auto lead (opt-in AUTO_LEAD_FROM_LINE)', () => {
     expect(creates(await post('hi', 'USALES', { AUTO_LEAD_FROM_LINE: '1' }, { isSales: true }))).toHaveLength(0)
     expect(creates(await post('hi', 'UOLD', { AUTO_LEAD_FROM_LINE: '1' }, { existing: true }))).toHaveLength(0)
   })
+
+  it('คนนอกพิมพ์คำสั่งเซลส์ ("หา รถ", "งาน", "สรุป") ไม่ได้ข้อมูล และยังถูกจับเป็น Lead ตามปกติ', async () => {
+    for (const text of ['หา รถไฟฟ้า', 'งาน', 'สรุป', 'คำสั่ง']) {
+      const calls = await post(text, 'UCUST', { AUTO_LEAD_FROM_LINE: '1' })
+      expect(calls).not.toContain('reply')
+      expect(creates(calls)).toHaveLength(1)
+    }
+  })
 })
 
 describe('LINE OA leads handed to salespeople in turn (AUTO_ASSIGN_LINE_LEADS)', () => {
@@ -775,5 +783,52 @@ describe('คำสั่ง "สรุป" ทาง LINE', () => {
     expect(parseLineCommand('สรุป')).toEqual({ type: 'report' })
     expect(parseLineCommand('รายงาน')).toEqual({ type: 'report' })
     expect(parseLineCommand('สรุปยอดหน่อย')).toEqual({ type: 'none' })
+  })
+})
+
+describe('ค้นหาลูกค้า / help ทาง LINE', () => {
+  it('parseLineCommand find/help', () => {
+    expect(parseLineCommand('หา 0812345678')).toEqual({ type: 'find', q: '0812345678' })
+    expect(parseLineCommand('ค้นหา สมชาย')).toEqual({ type: 'find', q: 'สมชาย' })
+    expect(parseLineCommand('หา ก')).toEqual({ type: 'none' })
+    expect(parseLineCommand('คำสั่ง')).toEqual({ type: 'help' })
+  })
+  it('findCustomersText ค้นจากเบอร์และชื่อ พร้อมนัดถัดไป', async () => {
+    const { findCustomersText } = await import('./daily-report.js')
+    const customers = [
+      { id: 'c1', firstName: 'สมชาย', lastName: 'ทดสอบ', phone: '081-234-5678', stage: 'pp', assignedTo: 'เซลส์ A', interestedModel: 'Seal' },
+      { id: 'c2', firstName: 'สมหญิง', phone: '0899999999', stage: 'lead' },
+      { id: 'c3', firstName: 'ลบแล้ว', phone: '0812345678', deleted: true },
+    ]
+    const fus = [{ customerId: 'c1', status: 'pending', dueDate: '2026-10-20' }, { customerId: 'c1', status: 'pending', dueDate: '2026-10-28' }]
+    const byPhone = findCustomersText(customers, fus, '5678', '2026-10-25')
+    expect(byPhone).toContain('พบ 1 ราย')
+    expect(byPhone).toContain('สมชาย ทดสอบ · Prospect')
+    expect(byPhone).toContain('เลยกำหนด')
+    const byName = findCustomersText(customers, [], 'สม', '2026-10-25')
+    expect(byName).toContain('พบ 2 ราย')
+    expect(byName).toContain('⚠️ ยังไม่มี')
+    expect(findCustomersText(customers, [], 'ไม่มีคนนี้', '2026-10-25')).toContain('ไม่พบลูกค้า')
+  })
+})
+
+describe('LINE webhook — เซลส์ค้นหาลูกค้า', () => {
+  it('เซลส์ที่ลงทะเบียนพิมพ์ "หา เบอร์" ได้คำตอบ', async () => {
+    const replies = []
+    stubFetch([
+      ['oauth2.googleapis.com', () => ({ ok: true, json: async () => ({ access_token: 'fs' }) })],
+      ['system_integrations/line_daily_report', () => ({ ok: true, json: async () => ({ fields: { userId: { stringValue: 'UOWNER' } } }) })],
+      ['line_sales_targets/', () => ({ ok: true, json: async () => ({ fields: { name: { stringValue: 'เซลส์ A' } } }) })],
+      [':runQuery', (url, opts) => ({ ok: true, json: async () => (JSON.parse(opts.body).structuredQuery.from[0].collectionId === 'customers'
+        ? [{ document: { name: 'p/customers/c1', fields: { firstName: { stringValue: 'สมชาย' }, phone: { stringValue: '0812345678' }, stage: { stringValue: 'pp' } } } }]
+        : []) })],
+      ['api.line.me/v2/bot/message/reply', (url, opts) => { replies.push(JSON.parse(opts.body).messages[0].text); return { ok: true, json: async () => ({}) } }],
+    ])
+    const body = JSON.stringify({ events: [{ type: 'message', replyToken: 'rt', source: { userId: 'USALES' }, message: { type: 'text', text: 'หา 0812345678' } }] })
+    const env = { ...BASE_ENV, LINE_CHANNEL_SECRET: 'sec', LINE_CHANNEL_ACCESS_TOKEN: 'tok', FIRESTORE_SERVICE_ACCOUNT_JSON: await fakeServiceAccount() }
+    const res = await worker.fetch(new Request('https://w/line/webhook', { method: 'POST', headers: { 'X-Line-Signature': await lineSig(body, 'sec') }, body }), env)
+    expect(res.status).toBe(200)
+    expect(replies).toHaveLength(1)
+    expect(replies[0]).toContain('สมชาย · Prospect')
   })
 })

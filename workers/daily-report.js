@@ -147,6 +147,7 @@ async function handleLineWebhook(request, env, cors) {
     if (!userId || !accessToken) continue
     const cmd = parseLineCommand(ev.type === 'message' && ev.message?.type === 'text' ? ev.message.text : '')
     let reply = null
+    let otherMessage = false
     if (cmd.type === 'register') {
       // เซลส์ลงทะเบียนชื่อตัวเอง → เช้าวันถัดไปได้งานค้างของตัวเองทาง LINE (ชื่อต้องตรงกับชื่อเซลส์/ผู้ดูแลในแอป)
       await writeSalesTarget(env, accessToken, userId, cmd.name)
@@ -159,15 +160,36 @@ async function handleLineWebhook(request, env, cors) {
         reply = '✅ ลงทะเบียนรับรายงานประจำวัน LAMOM ONE เรียบร้อยแล้วครับ (พิมพ์ "สรุป" อีกครั้งเพื่อดูรายงานตอนนี้)'
       } else if (owner === userId) {
         try { reply = clipLine(await buildReportText(env, accessToken)) } catch { reply = '⚠️ ดึงรายงานไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
-      }
+      } else otherMessage = true
+    } else if (cmd.type === 'find' || cmd.type === 'help') {
+      // เฉพาะเซลส์ที่ลงทะเบียน/เจ้าของ — ข้อมูลลูกค้าไม่ตอบให้คนนอก
+      const me = await readSalesTarget(env, accessToken, userId)
+      const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
+      if (me?.name || (owner && owner === userId)) {
+        if (cmd.type === 'help') reply = LINE_HELP_TEXT
+        else {
+          try {
+            const [customers, followups] = await Promise.all([
+              runQuery(env, accessToken, 'customers', null, null, 5000, ['firstName', 'lastName', 'phone', 'lineId', 'stage', 'assignedTo', 'interestedModel', 'isLost', 'deleted']),
+              runQuery(env, accessToken, 'followups', null, null, 5000, ['dueDate', 'status', 'customerId', 'deleted'], ['status', 'pending']),
+            ])
+            reply = findCustomersText(customers, followups, cmd.q, todayBangkok())
+          } catch { reply = '⚠️ ค้นหาไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
+        }
+      } else otherMessage = true
     } else if (cmd.type === 'tasks') {
       // ตอบเฉพาะคนที่ลงทะเบียนเป็นเซลส์แล้ว — คนอื่น (เช่น ลูกค้าพิมพ์คำว่า "งาน") ไม่ตอบ ไม่ให้ข้อมูลภายในหลุด
       const me = await readSalesTarget(env, accessToken, userId)
       if (me?.name) reply = await buildTasksReply(env, accessToken, me.name)
+      else otherMessage = true
     } else if (cmd.type === 'unregister') {
       await deleteSalesTarget(env, accessToken, userId)
       reply = '✅ ยกเลิกการรับเตือนงานค้างแล้วครับ'
     } else {
+      otherMessage = true
+    }
+    // ข้อความทั่วไป หรือคำสั่งที่คนพิมพ์ไม่มีสิทธิ์ใช้ (เช่น ลูกค้าพิมพ์ "หา รถ") → ทำแบบข้อความปกติ (จับ Lead ได้ตามเดิม)
+    if (otherMessage) {
       const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
       if (!owner) {
         // ยังไม่มีปลายทางรายงานเจ้าของ → คนแรกที่ทักคือเจ้าของ (พฤติกรรมเดิม) — เดิมทุกข้อความที่เข้ามาจะเขียนทับ
@@ -199,6 +221,10 @@ export function parseLineCommand(text) {
   if (/^(?:ยกเลิก|unregister)$/i.test(t)) return { type: 'unregister' }
   // เจ้าของขอดูรายงานสรุปตอนนี้ (เนื้อหาเดียวกับรายงาน 18:00)
   if (/^(?:สรุป|รายงาน|สรุปวันนี้|report)$/i.test(t.replace(/\s+/g, ''))) return { type: 'report' }
+  // ค้นหาลูกค้าจากเบอร์/ชื่อ: "หา 0812345678" / "ค้นหา สมชาย"
+  const f = t.match(/^(?:หา|ค้นหา|find)\s+(.+)$/i)
+  if (f && f[1].trim().length >= 2) return { type: 'find', q: f[1].trim().slice(0, 40) }
+  if (/^(?:ช่วยเหลือ|คำสั่ง|help|\?)$/i.test(t)) return { type: 'help' }
   // เซลส์ขอดูงานค้างของตัวเองตอนไหนก็ได้ (ไม่ต้องรอ 9 โมง)
   if (/^(?:งาน|งานวันนี้|งานค้าง|งานของฉัน|tasks?|todo)$/i.test(t.replace(/\s+/g, ''))) return { type: 'tasks' }
   return { type: 'none' }
@@ -709,6 +735,34 @@ async function writeSalesTarget(env, accessToken, userId, name) {
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ fields: { name: { stringValue: name }, userId: { stringValue: userId }, registeredAt: { timestampValue: new Date().toISOString() } } }),
   }).catch(() => {})
+}
+export const LINE_HELP_TEXT = [
+  '📖 คำสั่งที่ใช้ได้ใน LINE นี้',
+  '• งาน — ดูงานค้างของคุณตอนนี้',
+  '• หา 0812345678 / หา สมชาย — ค้นหาลูกค้า',
+  '• สรุป — รายงานยอดวันนี้ (เฉพาะเจ้าของ)',
+  '• ลงทะเบียน ชื่อเซลส์ — รับงานค้างทุก 9 โมงเช้า',
+  '• ยกเลิก — หยุดรับ',
+].join('\n')
+const CUST_STAGE = { lead: 'Lead', pp: 'Prospect', booking: 'จองแล้ว', delivered: 'ส่งมอบแล้ว' }
+// ค้นหาลูกค้า: ตัวเลข ≥ 4 หลัก = เทียบเบอร์ (เฉพาะตัวเลข) ไม่งั้นเทียบชื่อ/LINE ID แบบมีคำนี้อยู่ — ตอบสูงสุด 5 ราย
+export function findCustomersText(customers, followups, q, today) {
+  const digits = String(q).replace(/\D/g, '')
+  const needle = String(q).trim().toLowerCase()
+  const byPhone = digits.length >= 4 && digits.length === String(q).replace(/[\s\-]/g, '').length
+  const list = (customers || []).filter(c => c && !c.deleted).filter(c => byPhone
+    ? String(c.phone || '').replace(/\D/g, '').includes(digits)
+    : `${c.firstName || ''} ${c.lastName || ''}`.toLowerCase().includes(needle) || String(c.lineId || '').toLowerCase().includes(needle))
+  if (!list.length) return `🔍 ไม่พบลูกค้า "${q}"`
+  const next = id => (followups || []).filter(f => f && !f.deleted && f.status === 'pending' && f.customerId === id && f.dueDate)
+    .map(f => String(f.dueDate).slice(0, 10)).sort()[0]
+  const lines = list.slice(0, 5).map(c => {
+    const n = next(c.id)
+    return [`👤 ${[c.firstName, c.lastName].filter(Boolean).join(' ') || 'ไม่มีชื่อ'}${c.isLost ? ' (เสียดีล)' : ''} · ${CUST_STAGE[c.stage] || c.stage || '-'}`,
+      `   📱 ${c.phone || '-'}${c.interestedModel ? ` · 🚗 ${c.interestedModel}` : ''}`,
+      `   ผู้ดูแล: ${String(c.assignedTo || '').trim() || '⚠️ ยังไม่มี'}${n ? ` · นัดถัดไป ${n < today ? `⚠️ เลยกำหนด (${formatThaiDate(n)})` : formatThaiDate(n)}` : ''}`].join('\n')
+  })
+  return [`🔍 พบ ${list.length} ราย${list.length > 5 ? ' (แสดง 5 รายแรก)' : ''}`, ...lines].join('\n')
 }
 async function readSalesTarget(env, accessToken, userId) {
   try {
