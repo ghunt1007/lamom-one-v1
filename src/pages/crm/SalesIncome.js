@@ -9,7 +9,7 @@ import { openModal } from '../../utils/modal.js'
 import { SALES_TARGETS_COLLECTION, targetFor, goalProgress } from '../../utils/salesTargets.js'
 import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { exportToExcel } from '../../utils/importExport.js'
-import { summarizeSalesIncome, lastMonths } from '../../utils/salesIncome.js'
+import { summarizeSalesIncome, lastMonths, undatedDeliveries } from '../../utils/salesIncome.js'
 import { askDeliveryIncome, needsIncome } from '../../utils/deliveryIncome.js'
 import { followupDiscipline, monthRange } from '../../utils/followupDiscipline.js'
 
@@ -72,6 +72,14 @@ export default async function SalesIncomePage(container) {
       if (!t) return `<span style="color:var(--text-muted)">—</span>${edit}`
       return `<div style="display:flex;align-items:center;gap:6px;justify-content:flex-end"><span style="font-weight:700;color:var(--${g.color})">${r.delivered}/${t}</span><div style="width:50px;height:6px;background:var(--surface-2);border-radius:3px"><div style="height:100%;width:${Math.min(100, g.pct)}%;background:var(--${g.color});border-radius:3px"></div></div>${edit}</div>`
     }
+    const undatedCard = () => {
+      const list = undatedDeliveries(bookings)
+      if (!list.length) return ''
+      return `<div class="card" style="padding:12px 16px;margin-top:16px;border-left:3px solid var(--warning);font-size:0.8rem">
+        <div style="font-weight:700;margin-bottom:4px">⚠️ ส่งมอบแล้ว ${list.length} คัน แต่ไม่มีวันตัดตัวเลข/วันส่งมอบจริง — ยังไม่ถูกนับในยอดของเดือนไหน</div>
+        <div style="color:var(--text-2)">${list.slice(0, 10).map(b => `${escHtml(b.custName || 'ลูกค้า')}${b.bookingNo ? ` (${escHtml(b.bookingNo)})` : ''} · ${escHtml(b.salesName || '—')}`).join(' · ')}${list.length > 10 ? ` · …และอีก ${list.length - 10} คัน` : ''}</div>
+        <div style="color:var(--text-muted);margin-top:4px">แก้ได้ที่หน้าใบจอง → แก้ไข → ใส่ "วันตัดรถ" หรือ "วันส่งมอบจริง"</div></div>`
+    }
     const disciplineCard = () => {
       if (!monthFollowups) return ''
       const list = followupDiscipline(monthFollowups, month, todayBangkok())
@@ -124,6 +132,7 @@ export default async function SalesIncomePage(container) {
             </tr>`).join('') : ''}`).join('')}
           </tbody></table></div></div>`
         : `<div class="empty-state" style="padding:48px"><div class="empty-icon">💰</div><div class="empty-title">ยังไม่มีรถส่งมอบใน${escHtml(monthLabel(month))}</div></div>`}
+        ${undatedCard()}
         ${disciplineCard()}
         <div class="card" style="padding:12px 16px;margin-top:16px;font-size:0.8rem;color:var(--text-2)">
           📲 <b>ให้เซลส์รับเตือนงานค้างทาง LINE ของตัวเองทุก 9 โมงเช้า:</b> ทัก LINE OA ของบริษัท แล้วพิมพ์ <code>ลงทะเบียน ชื่อเซลส์</code> (ชื่อต้องตรงกับชื่อในช่องเซลส์/ผู้ดูแลของแอป เช่น <code>ลงทะเบียน ${escHtml(rows[0]?.name && !rows[0].name.startsWith('(') ? rows[0].name : 'สมชาย')}</code>) · พิมพ์ <code>งาน</code> เพื่อดูงานค้างได้ทุกเวลา · <code>หา 08xxxxxxxx</code> ค้นหาลูกค้า · <code>คำสั่ง</code> ดูคำสั่งทั้งหมด · พิมพ์ <code>ยกเลิก</code> เพื่อหยุดรับ
