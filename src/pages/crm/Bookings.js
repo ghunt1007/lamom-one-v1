@@ -1298,6 +1298,8 @@ export default async function BookingsPage(container) {
           salesName: g('bf-sales').value, status: g('bf-status').value, notes: g('bf-notes').value.trim(),
           createdAt: existing?.createdAt || new Date().toISOString(),
         }
+        // เพิ่งเปลี่ยนเป็นส่งมอบแล้ว/ตัดตัวเลข แต่เว้นวันที่ไว้ → เติมวันนี้ (ไม่งั้นไม่ถูกนับยอดของเดือนไหนเลย)
+        if (data.status !== existing?.status) Object.assign(data, statusDatePatch(data, data.status, todayBangkok()))
         btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
         let bookingId = existing?.id
         const wasDelivered = existing?.status === 'ส่งมอบแล้ว'

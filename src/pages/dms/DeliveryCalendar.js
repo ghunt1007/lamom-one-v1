@@ -7,7 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, listAllDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
-import { askDeliveryIncome, needsIncome } from '../../utils/deliveryIncome.js'
+import { askDeliveryIncome, needsIncome, statusDatePatch } from '../../utils/deliveryIncome.js'
 import { scheduleAfterSales } from '../../utils/afterSales.js'
 
 function myName() {
@@ -175,7 +175,7 @@ export default async function DeliveryCalendarPage(container) {
       const d = deliveries.find(x => x.id === b.dataset.id)
       if (!d) return
       try {
-        await updateDocData('bookings', d.id, { status: LOCAL_TO_BOOKING_STATUS.ready })
+        await updateDocData('bookings', d.id, { status: LOCAL_TO_BOOKING_STATUS.ready, ...statusDatePatch(d.raw, LOCAL_TO_BOOKING_STATUS.ready, todayBangkok()) })
         showToast('✅ พร้อมส่งมอบ — แจ้งลูกค้าแล้ว', 'success')
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
