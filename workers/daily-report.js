@@ -223,6 +223,15 @@ async function handleLineWebhook(request, env, cors) {
           } else reply = t.reply
         } catch { reply = '⚠️ บันทึกไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
       } else otherMessage = true
+    } else if (cmd.type === 'mystats') {
+      const me = await readSalesTarget(env, accessToken, userId)
+      if (me?.name) {
+        try {
+          const { data, today } = await buildMorningData(env, accessToken)
+          const goals = await readSalesGoals(env, accessToken, today.slice(0, 7))
+          reply = myStatsText(data, me.name, today, sellerGoal(data, goals, me.name, today))
+        } catch { reply = '⚠️ ดึงยอดไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
+      } else otherMessage = true
     } else if (cmd.type === 'tomorrow') {
       const me = await readSalesTarget(env, accessToken, userId)
       if (me?.name) {
@@ -285,6 +294,8 @@ export function parseLineCommand(text) {
   const tc = t.match(/^(?:โทรแล้ว|ติดต่อแล้ว|ทักแล้ว|called)\s+(.+)$/i)
   if (tc && tc[1].trim().length >= 2) return { type: 'touch', q: tc[1].trim().slice(0, 40) }
   if (/^(?:ช่วยเหลือ|คำสั่ง|help|\?)$/i.test(t)) return { type: 'help' }
+  // เซลส์ดูยอดของตัวเองเดือนนี้ (ส่งมอบ/รายได้/จอง/เป้า)
+  if (/^(?:ยอด|ยอดฉัน|ยอดของฉัน|ยอดเดือนนี้|mystats)$/i.test(t.replace(/\s+/g, ''))) return { type: 'mystats' }
   // เซลส์ดูแผนพรุ่งนี้ของตัวเอง (นัดติดตาม/ส่งมอบ/ทดลองขับ)
   if (/^(?:พรุ่งนี้|งานพรุ่งนี้|tomorrow)$/i.test(t.replace(/\s+/g, ''))) return { type: 'tomorrow' }
   // เซลส์ขอดูงานค้างของตัวเองตอนไหนก็ได้ (ไม่ต้องรอ 9 โมง)
@@ -852,6 +863,7 @@ export const LINE_HELP_TEXT = [
   '📖 คำสั่งที่ใช้ได้ใน LINE นี้',
   '• งาน — ดูงานค้างของคุณตอนนี้',
   '• พรุ่งนี้ — ดูนัด/ส่งมอบ/ทดลองขับของพรุ่งนี้',
+  '• ยอด — ดูยอดส่งมอบ/รายได้/จองของคุณเดือนนี้',
   '• หา 0812345678 / หา สมชาย — ค้นหาลูกค้า',
   '• โทรแล้ว 0812345678 / โทรแล้ว สมชาย — บันทึกว่าติดต่อลูกค้าแล้ว',
   '• นัด 0812345678 พรุ่งนี้ / นัด สมชาย 28/10 — นัดติดตามลูกค้า',
@@ -961,6 +973,27 @@ async function buildTasksReply(env, accessToken, name) {
     const goals = await readSalesGoals(env, accessToken, today.slice(0, 7))
     return tasksReplyText(sections, name, today, env.ALLOWED_ORIGIN, sellerGoal(data, goals, name, today))
   } catch { return '⚠️ ดึงงานค้างไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
+}
+// คำสั่ง "ยอด" — ตัวเลขเดือนนี้ของเซลส์คนนี้ (นิยามเดียวกับรายงาน 18:00/หน้ารายได้รายเซลส์: ส่งมอบนับตามวันตัดตัวเลข)
+export function myStatsText(data, name, today, goal = null) {
+  const TH = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
+  const month = today.slice(0, 7)
+  const [y, m] = month.split('-').map(Number)
+  const me = normSalesName(name)
+  const mine = (data.bookings || []).filter(b => b && !b.deleted && normSalesName(b.salesName) === me)
+  const dlv = mine.filter(b => DELIVERED_STATUSES.includes(b.status) && (b.cutDate || b.actualDeliveryDate || '').startsWith(month))
+  const income = dlv.reduce((t, b) => t + (Number(b.totalIncome) || 0), 0)
+  const missing = dlv.filter(b => !(Number(b.totalIncome) || 0)).length
+  const booked = mine.filter(b => (b.bookingDate || '').startsWith(month) && !CANCELLED_STATUSES.includes(b.status)).length
+  const cancelled = mine.filter(b => CANCELLED_STATUSES.includes(b.status) && (b.cancelDate || b.bookingDate || '').startsWith(month)).length
+  const pending = mine.filter(b => PENDING_STATUSES.includes(b.status) && b.status !== 'ตัดตัวเลขรอส่งมอบ').length
+  return [
+    `📊 ยอดของคุณ${TH[m - 1]} ${y + 543}`,
+    goal?.target ? `🎯 เป้าส่งมอบ: ${goal.done}/${goal.target} คัน (${Math.round(goal.done / goal.target * 100)}%)${goal.done >= goal.target ? ' ถึงเป้าแล้ว! 🎉' : ''}` : null,
+    `✅ ส่งมอบ: ${dlv.length} คัน · 💰 รายได้ ${fmtBaht(income)}${missing ? ` (ยังไม่กรอกรายได้ ${missing} คัน)` : ''}`,
+    `📋 จองใหม่: ${booked} คัน${cancelled ? ` · ❌ ถอนจอง ${cancelled} คัน` : ''}`,
+    `🚗 ใบจองที่ยังไม่ส่งมอบ: ${pending} คัน`,
+  ].filter(Boolean).join('\n')
 }
 // คำสั่ง "พรุ่งนี้" — นัดติดตาม/ส่งมอบ/ทดลองขับของเซลส์คนนี้ในวันพรุ่งนี้ (เทียบชื่อแบบเดียวกับเตือน 9 โมง)
 export function buildTomorrowText(data, name, today) {

@@ -982,6 +982,28 @@ describe('LINE "พรุ่งนี้"', () => {
   })
 })
 
+describe('LINE "ยอด"', () => {
+  it('สรุปยอดเดือนนี้ของเซลส์คนเดียว', async () => {
+    const { myStatsText } = await import('./daily-report.js')
+    expect(parseLineCommand('ยอด')).toEqual({ type: 'mystats' })
+    expect(parseLineCommand('ยอดของฉัน')).toEqual({ type: 'mystats' })
+    const bookings = [
+      { status: 'ส่งมอบแล้ว', cutDate: '2026-10-05', salesName: 'เซลส์ A', totalIncome: 30000, bookingDate: '2026-09-20' },
+      { status: 'ตัดตัวเลขรอส่งมอบ', cutDate: '2026-10-20', salesName: 'เซลส์ A', totalIncome: 0, bookingDate: '2026-10-02' },
+      { status: 'รอรถ', bookingDate: '2026-10-10', salesName: 'เซลส์ A' },
+      { status: 'ถอนจอง', bookingDate: '2026-10-11', cancelDate: '2026-10-15', salesName: 'เซลส์ A' },
+      { status: 'ส่งมอบแล้ว', cutDate: '2026-10-05', salesName: 'เซลส์ B', totalIncome: 99999 },
+    ]
+    const text = myStatsText({ bookings }, 'เซลส์ A', '2026-10-25', { done: 2, target: 4 })
+    expect(text).toContain('📊 ยอดของคุณตุลาคม 2569')
+    expect(text).toContain('🎯 เป้าส่งมอบ: 2/4 คัน (50%)')
+    expect(text).toContain('✅ ส่งมอบ: 2 คัน · 💰 รายได้ 30,000 บาท (ยังไม่กรอกรายได้ 1 คัน)')
+    expect(text).toContain('📋 จองใหม่: 2 คัน · ❌ ถอนจอง 1 คัน')
+    expect(text).toContain('🚗 ใบจองที่ยังไม่ส่งมอบ: 1 คัน')
+    expect(text).not.toContain('99,999')
+  })
+})
+
 describe('runQuery แบ่งหน้า', () => {
   it('buildStructuredQuery หน้าถัดไปเรียงตาม __name__ และเริ่มหลังเอกสารสุดท้าย', async () => {
     const { buildStructuredQuery } = await import('./daily-report.js')
