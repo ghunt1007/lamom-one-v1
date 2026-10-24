@@ -612,6 +612,7 @@ export function buildPersonalReminder(section, today, appUrl = '', goal = null) 
     '',
     section.text,
     '',
+    '💡 โทรเสร็จพิมพ์ "โทรแล้ว เบอร์" · นัดต่อพิมพ์ "นัด เบอร์ พรุ่งนี้"',
     appUrl ? `👉 กดทำงานได้ที่: ${String(appUrl).replace(/\/+$/, '')}/crm/my-day` : 'เปิดแอป LAMOM ONE เพื่อจัดการได้เลยครับ 💪',
   ].filter(l => l !== null).join('\n'))
 }
