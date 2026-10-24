@@ -17,7 +17,7 @@ import {
 } from '../../core/customerInsights.js'
 import { analyzeCustomer, isAiEnabled } from '../../utils/ai.js'
 import { OCCUPATIONS } from '../../utils/financeMatch.js'
-import { openQuickLead } from '../../utils/quickLead.js'
+import { openQuickLead, findDuplicate } from '../../utils/quickLead.js'
 import { planLeadImport } from '../../utils/leadImport.js'
 import { scheduleLeadFollowups, closeAutoLeadFollowups } from '../../utils/leadFollowups.js'
 import { pendingFollowupsFor, followupWindowFilters } from '../../utils/customerFollowups.js'
@@ -797,7 +797,7 @@ export default async function CustomersPage(container) {
       if (!first) { document.getElementById('ff-e').textContent = 'กรุณาระบุชื่อ'; ok = false }
       if (!last) { document.getElementById('fl-e').textContent = 'กรุณาระบุนามสกุล'; ok = false }
       if (!ok) return
-      const btn = el.querySelector('#fok'); btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
+      const btn = el.querySelector('#fok'); const btnHtml = btn.innerHTML; btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
       const fields = {
         firstName: first, lastName: last,
         phone: document.getElementById('fp').value.trim(),
@@ -826,6 +826,11 @@ export default async function CustomersPage(container) {
           await loadData()
           onSaved?.(existing)
         } else {
+          // เตือนก่อนถ้าเบอร์/LINE ซ้ำกับลูกค้าที่มีอยู่แล้ว (เหมือนฟอร์ม + Lead) — กันลูกค้าคนเดียวมีสองแฟ้ม/สองผู้ดูแล
+          const dup = findDuplicate({ phone: fields.phone, lineId: fields.lineId }, customers)
+          if (dup && !window.confirm(`เบอร์/LINE นี้มีอยู่แล้ว: ${fullName(dup)}${dup.assignedTo ? ` (ผู้ดูแล ${dup.assignedTo})` : ''}\nยังต้องการเพิ่มเป็นลูกค้าใหม่อีกคนหรือไม่?`)) {
+            btn.disabled = false; btn.innerHTML = btnHtml; return
+          }
           const stage = deriveInitialStage(fields)
           // Phase 2 หลายบริษัท — ติด companyId ของบริษัทหลักที่พนักงานคนสร้างสังกัดอยู่ (ถ้ามี) เพื่อให้กรอง
           // ตามบริษัทได้ในอนาคต ลูกค้าเดิมที่ไม่มี companyId ยังเห็นได้ทุกคนเหมือนเดิม (ไม่ถูกกรองออก)
