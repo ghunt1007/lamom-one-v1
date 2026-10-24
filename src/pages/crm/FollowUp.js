@@ -1,6 +1,7 @@
 import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
+import { getVisibilityScope, scopeIncludesRecord } from '../../core/hierarchy.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
@@ -47,6 +48,9 @@ export default async function FollowUpPage(container) {
   let followups = []
   let salespersons = []
   let loading = true
+  // เซลส์เห็นเฉพาะนัดของตัวเอง/ลูกทีม (นโยบายเดียวกับหน้าลูกค้า) — ผู้บริหาร/เจ้าของเห็นทั้งหมด
+  const visScope = await getVisibilityScope()
+  const myDisplayName = getState('user')?.displayName || ''
 
   async function loadData() {
     loading = true
@@ -82,7 +86,7 @@ export default async function FollowUpPage(container) {
             }
           })
       } catch (e) {}
-      followups = [...stored, ...virtual]
+      followups = [...stored, ...virtual].filter(f => scopeIncludesRecord(visScope, f.salesperson, f))
     } catch (e) { followups = [] }
     salespersons = [...new Set(followups.map(f => f.salesperson).filter(Boolean))]
     loading = false
@@ -308,7 +312,7 @@ export default async function FollowUpPage(container) {
         const name = document.getElementById('ff-name')?.value?.trim()
         if (!name) { showToast('❗ กรุณากรอกชื่อลูกค้า', 'error'); return false }
         try {
-          await createDoc('followups', { customerId: '', customerName: name, phone: document.getElementById('ff-phone')?.value||'', vehicleModel: document.getElementById('ff-car')?.value||'', salesperson: salespersons[0]||'', type: document.getElementById('ff-type')?.value, purpose: document.getElementById('ff-purpose')?.value, dueDate: document.getElementById('ff-date')?.value||today, status: 'pending', note: document.getElementById('ff-note')?.value||'', result: '', companyId: myEffectiveCompanyId() })
+          await createDoc('followups', { customerId: '', customerName: name, phone: document.getElementById('ff-phone')?.value||'', vehicleModel: document.getElementById('ff-car')?.value||'', salesperson: myDisplayName || salespersons[0] || '', type: document.getElementById('ff-type')?.value, purpose: document.getElementById('ff-purpose')?.value, dueDate: document.getElementById('ff-date')?.value||today, status: 'pending', note: document.getElementById('ff-note')?.value||'', result: '', companyId: myEffectiveCompanyId() })
           showToast('✅ เพิ่ม Follow-up แล้ว!', 'success')
           tab = 'today'
           await loadData()
