@@ -11,6 +11,7 @@ import { getSalesStaff, getColors, getFinanceCompanies, getFinanceStatus, getCam
 import { printBooking, printCancellation } from '../../utils/bookingDocs.js'
 import { scheduleAfterSales } from '../../utils/afterSales.js'
 import { closeAutoLeadFollowups } from '../../utils/leadFollowups.js'
+import { afterWithdraw } from '../../utils/bookingWithdraw.js'
 import { askDeliveryIncome, needsIncome } from '../../utils/deliveryIncome.js'
 import { readBookingSheet, planBookingImport, newBookingDoc, newCustomerDoc, companyForBrand, brandCompanyMap } from '../../utils/bookingImport.js'
 
@@ -766,13 +767,14 @@ export default async function BookingsPage(container) {
         await updateDocData('bookings', b.id, patch)
         Object.assign(b, patch)
         await syncStockForBookings([b])
+        const wb = await afterWithdraw(b, reason)
         if (refundAmount > 0) {
           await notifyDept('💸 ถอนจอง — รอคืนเงินจองลูกค้า',
             `${b.custName || b.bookingNo} ถอนจอง ${b.bookingNo} · ยอดคืน ${formatCurrency(refundAmount)} · เหตุผล: ${reason}`,
             '/finance/refund')
         }
         close()
-        showToast(refundAmount > 0 ? '❌ ถอนจองแล้ว — เปิดเรื่องคืนเงินให้ฝ่ายการเงินแล้ว' : '❌ ถอนจองแล้ว', 'success')
+        showToast(`${refundAmount > 0 ? '❌ ถอนจองแล้ว — เปิดเรื่องคืนเงินให้ฝ่ายการเงินแล้ว' : '❌ ถอนจองแล้ว'}${wb.followup ? ' · นัดเซลส์โทรกลับใน 3 วัน' : ''}`, 'success')
         render()
       } catch { btn.disabled = false; showToast('บันทึกไม่สำเร็จ', 'error') }
     })
