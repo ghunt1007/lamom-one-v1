@@ -120,3 +120,15 @@ describe('buildMyDay — นัดพรุ่งนี้', () => {
     expect(buildMyDay({}, { today: '2026-12-31' }).tomorrow).toBe(0)
   })
 })
+
+describe('buildMyDay — ติดต่อแล้ววันนี้', () => {
+  it('นับลูกค้าของฉันที่ติดต่อวันนี้', () => {
+    const d = buildMyDay({ customers: [
+      { id: 'a', stage: 'booking', assignedTo: 'A', lastContactAt: '2026-10-25T03:00:00Z' },
+      { id: 'b', stage: 'pp', assignedTo: 'B', lastContactAt: '2026-10-25T03:00:00Z' },
+      { id: 'c', stage: 'pp', assignedTo: 'A', lastContactAt: '2026-10-24T03:00:00Z' },
+      { id: 'd', stage: 'pp', assignedTo: 'A', lastContactAt: '2026-10-25T03:00:00Z', deleted: true },
+    ] }, { today: '2026-10-25', mine: n => n === 'A' })
+    expect(d.contactedToday).toBe(1)
+  })
+})
