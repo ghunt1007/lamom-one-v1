@@ -1,4 +1,5 @@
 import { listDocs, listAllDocs, watchDocs, createDoc, updateDocData, softDelete, seedDemoData, setDocData } from '../../core/db.js'
+import { reasonChipsHtml, bindReasonChips } from '../../utils/lostReason.js'
 import { showToast, getState, setState, on } from '../../core/store.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { getVisibilityScope, isProgramOwner, scopeIncludesRecord, normName } from '../../core/hierarchy.js'
@@ -710,7 +711,8 @@ export default async function BookingsPage(container) {
           <input class="input" type="date" id="wd-date" value="${escHtml(b.cancelDate || today)}">
         </div>
         <div class="input-group"><label class="input-label">เหตุผลที่ถอนจอง *</label>
-          <textarea class="input" id="wd-reason" rows="3" placeholder="ระบุเหตุผลที่ลูกค้าขอถอนจอง...">${escHtml(b.cancelReason || '')}</textarea>
+          ${reasonChipsHtml('wd-chip')}
+          <textarea class="input" id="wd-reason" rows="3" placeholder="เลือกเหตุผลด้านบน แล้วพิมพ์รายละเอียดต่อได้">${escHtml(b.cancelReason || '')}</textarea>
         </div>
         ${hasMoney ? `
           <div class="input-group"><label class="input-label">ยอดเงินจองที่ต้องคืน (บาท)</label>
@@ -726,8 +728,9 @@ export default async function BookingsPage(container) {
       footer: '<button class="btn btn-secondary" id="wd-c">ยกเลิก</button><button class="btn btn-danger" id="wd-s">❌ ยืนยันถอนจอง</button>',
     })
     el.querySelector('#wd-c').addEventListener('click', close)
+    bindReasonChips(el, 'wd-chip', el.querySelector('#wd-reason'))
     el.querySelector('#wd-s').addEventListener('click', async () => {
-      const reason = el.querySelector('#wd-reason').value.trim()
+      const reason = el.querySelector('#wd-reason').value.trim().replace(/\s*[-–—:]$/, '').trim()
       if (!reason) { showToast('⚠️ กรุณาระบุเหตุผลที่ถอนจอง', 'warning'); return }
       const cancelDate = el.querySelector('#wd-date').value || today
       const refundAmount = hasMoney ? (Number(el.querySelector('#wd-refund').value) || 0) : 0

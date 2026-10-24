@@ -46,3 +46,25 @@ export function lostBySeller(customers, month) {
     top: Object.entries(r.reasons).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, v]) => ({ key: k, label: LOST_REASON_LABELS[k] || k, count: v })),
   })).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name))
 }
+
+// ปุ่มเหตุผลยอดนิยม (หน้าลูกค้า: เสียดีล, หน้าใบจอง: ถอนจอง) — กดแล้วใส่คำนำหน้าในช่องเหตุผล พิมพ์รายละเอียดต่อได้
+// คำนำหน้าตรงกับกลุ่มใน classifyLostReason() รายงาน/หน้าวิเคราะห์จึงนับแยกเหตุผลได้ถูก
+export const LOST_REASON_CHIPS = ['ราคา', 'ซื้อคู่แข่ง', 'ไฟแนนซ์ไม่ผ่าน', 'ยังไม่พร้อม', 'ติดต่อไม่ได้', 'เปลี่ยนรุ่น/ยี่ห้อ']
+
+export function reasonChipsHtml(cls) {
+  return `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">${LOST_REASON_CHIPS.map(r => `<button type="button" class="btn btn-secondary btn-xs ${cls}">${r}</button>`).join('')}</div>`
+}
+
+// แทนคำนำหน้าเดิม (ถ้ามี) ด้วยเหตุผลที่กด แล้วต่อรายละเอียดที่พิมพ์ไว้
+export function applyReasonChip(current, chip) {
+  const esc = s => s.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')
+  const rest = String(current || '').replace(new RegExp(`^(?:${LOST_REASON_CHIPS.map(esc).join('|')})\\s*-?\\s*`), '')
+  return chip + (rest ? ' - ' + rest : ' - ')
+}
+
+export function bindReasonChips(root, cls, textarea) {
+  root.querySelectorAll('.' + cls).forEach(b => b.addEventListener('click', () => {
+    textarea.value = applyReasonChip(textarea.value, b.textContent)
+    textarea.focus()
+  }))
+}
