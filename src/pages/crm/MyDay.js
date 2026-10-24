@@ -30,6 +30,7 @@ export default async function MyDayPage(container) {
   let data = { customers: [], followups: [], bookings: [] }
   let seller = 'all'
   let targets = {}
+  let lineRegistered = true
   let staff = []
 
   container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
@@ -48,6 +49,12 @@ export default async function MyDayPage(container) {
     data = { customers: customers || [], followups: followups || [], bookings: bookings || [], testDrives: testDrives || [] }
     try { targets = (await readDoc(SALES_TARGETS_COLLECTION, todayBangkok().slice(0, 7)))?.targets || {} } catch { targets = {} }
     try { staff = staffChoices(await listDocs('staff', companyScopeFilters(), 'firstName', 'asc', 1000)) } catch { staff = [] }
+    // ลงทะเบียนรับงานทาง LINE แล้วหรือยัง (ทัก LINE OA พิมพ์ "ลงทะเบียน ชื่อ") — โหลดไม่ได้ = ไม่แสดงคำแนะนำ
+    try {
+      const regs = await listDocs('line_sales_targets', [], 'registeredAt', 'desc', 500)
+      const key = n => String(n || '').toLowerCase().replace(/^คุณ/, '').replace(/[\s.]/g, '') // เทียบแบบเดียวกับ worker
+      lineRegistered = !me.displayName || regs.some(r => key(r.name) === key(me.displayName))
+    } catch { lineRegistered = true }
   }
   await load()
   if (container.__routerGen !== myGen) return
@@ -117,6 +124,8 @@ export default async function MyDayPage(container) {
           </div>
         </div>
 
+        ${lineRegistered ? '' : `<div class="card mb-4" style="padding:10px 16px;font-size:0.8rem;color:var(--text-2);border-left:3px solid var(--success)">
+          📲 รับงานค้างทาง LINE ทุก 9 โมงเช้า: ทัก LINE OA ของบริษัท แล้วพิมพ์ <code>ลงทะเบียน ${escHtml(me.displayName)}</code> · หลังจากนั้นพิมพ์ <code>งาน</code> เพื่อดูงานได้ทุกเวลา</div>`}
         ${goalCard(today)}
         ${section('📞', 'Follow-up วันนี้/เลยกำหนด', 'กด ✅ เมื่อติดต่อแล้ว', d.followups, f => line(
           `${escHtml(f.customerName || 'ลูกค้า')}${f.late > 0 ? ` <span class="badge badge-danger" style="font-size:0.62rem">เลย ${f.late} วัน</span>` : ''}`,
