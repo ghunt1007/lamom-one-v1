@@ -9,6 +9,7 @@ import { navigate } from '../../core/router.js'
 import { pickVehicle } from '../../utils/vehiclePicker.js'
 import { getSalesStaff, getColors, getFinanceCompanies, getFinanceStatus, getCampaigns, getBookingStatus, getLeadSources } from '../../data/masterData.js'
 import { printBooking, printCancellation } from '../../utils/bookingDocs.js'
+import { askDeliveryIncome, needsIncome } from '../../utils/deliveryIncome.js'
 import { readBookingSheet, planBookingImport, newBookingDoc, newCustomerDoc, companyForBrand, brandCompanyMap } from '../../utils/bookingImport.js'
 
 function escHtml(s) {
@@ -330,6 +331,7 @@ export default async function BookingsPage(container) {
   let search = ''
   let dateFrom = ''
   let dateTo = ''
+  let noIncomeOnly = false
   const selectedIds = new Set()
 
   async function loadData() {
@@ -378,6 +380,7 @@ export default async function BookingsPage(container) {
     if (ownScopeActive && !scopeIncludesRecord(visScope, b.salesName, b)) return false
     if (brandFilter && detectBrand(b.brand, b.model) !== brandFilter) return false
     if (!ignoreStatus && statusFilter && b.status !== statusFilter) return false
+    if (noIncomeOnly && !needsIncome(b)) return false
     if (search) {
       const hay = [b.bookingNo, b.custName, b.brand, b.model, b.salesName, b.phone, b.nid].filter(Boolean).join(' ').toLowerCase()
       if (!hay.includes(search)) return false
@@ -431,6 +434,7 @@ export default async function BookingsPage(container) {
     const curMonth = todayBangkok().slice(0, 7)
     const delMonth = bookings.filter(b => TERMINAL_STATUSES.slice(0, 2).includes(b.status) && (b.cutDate || b.deliveryDate || '').startsWith(curMonth)).length
     const urgentCount = bookings.filter(isUrgent).length
+    const noIncomeCount = bookings.filter(b => needsIncome(b) && (!ownScopeActive || scopeIncludesRecord(visScope, b.salesName, b))).length
     const deliveredAll = bookings.filter(b => b.status === 'ส่งมอบแล้ว')
     const activeNonTerminal = bookings.filter(b => !['ถอนจอง', 'ยกเลิก', 'ส่งมอบแล้ว'].includes(b.status))
 
@@ -454,6 +458,7 @@ export default async function BookingsPage(container) {
       ${pipelineVal > 0 ? `<span>💰 Pipeline <b style="color:var(--success)">${formatCurrency(pipelineVal / 1000000)}M</b></span>` : ''}
       <span>🚗 ส่งมอบเดือนนี้ <b style="color:var(--success)">${delMonth}</b></span>
       ${urgentCount > 0 ? `<span>🔥 ด่วน <b style="color:var(--danger)">${urgentCount}</b></span>` : ''}
+      ${noIncomeCount > 0 || noIncomeOnly ? `<span id="bk-noincome-chip" style="cursor:pointer;${noIncomeOnly ? 'font-weight:700;text-decoration:underline' : ''}" title="ส่งมอบแล้วแต่ยังไม่กรอกมาร์จิ้น/ค่าคอม — กดเพื่อดูเฉพาะรายการนี้">💰 ยังไม่กรอกรายได้ <b style="color:var(--danger)">${noIncomeCount}</b>${noIncomeOnly ? ' ×' : ''}</span>` : ''}
     </div>`
 
     // ทุกยี่ห้อที่มีการคีย์จองเข้ามาต้องขึ้นการ์ด — ยี่ห้อหลักเรียงก่อน ยี่ห้ออื่น (เช่น Toyota) ต่อท้าย
@@ -543,6 +548,7 @@ export default async function BookingsPage(container) {
     document.getElementById('bk-bulk-export')?.addEventListener('click', () => exportRows(bookings.filter(b => selectedIds.has(b.id)), 'bookings-selected'))
     document.getElementById('bk-bulk-clear')?.addEventListener('click', () => { selectedIds.clear(); render() })
     container.querySelectorAll('.bk-status-chip').forEach(chip => chip.addEventListener('click', () => { statusFilter = chip.dataset.s; render() }))
+    document.getElementById('bk-noincome-chip')?.addEventListener('click', () => { noIncomeOnly = !noIncomeOnly; render() })
     container.querySelectorAll('.bk-brand-card').forEach(card => card.addEventListener('click', () => { brandFilter = card.dataset.br; render() }))
   }
 
@@ -586,11 +592,16 @@ export default async function BookingsPage(container) {
       render()
     }))
     wrap.querySelectorAll('.bk-row').forEach(row => row.addEventListener('click', e => {
-      if (e.target.closest('.bk-status-cell') || e.target.closest('input') || e.target.closest('.edit-bk') || e.target.closest('.print-bk') || e.target.closest('.copy-bk') || e.target.closest('.del-bk')) return
+      if (e.target.closest('.bk-status-cell') || e.target.closest('input') || e.target.closest('.edit-bk') || e.target.closest('.print-bk') || e.target.closest('.copy-bk') || e.target.closest('.del-bk') || e.target.closest('.income-bk')) return
       openDetail(bookings.find(b => b.id === row.dataset.id))
     }))
     wrap.querySelectorAll('.bk-status-cell').forEach(cell => cell.addEventListener('click', e => openQuickStatus(cell.dataset.id, e)))
     wrap.querySelectorAll('.edit-bk').forEach(btn => btn.addEventListener('click', e => { e.stopPropagation(); openForm(bookings.find(b => b.id === btn.dataset.id)) }))
+    wrap.querySelectorAll('.income-bk').forEach(btn => btn.addEventListener('click', async e => {
+      e.stopPropagation()
+      const b = bookings.find(x => x.id === btn.dataset.id)
+      if (b && await askDeliveryIncome(b)) { showToast('💰 บันทึกรายได้แล้ว', 'success'); render() }
+    }))
     wrap.querySelectorAll('.print-bk').forEach(btn => btn.addEventListener('click', e => { e.stopPropagation(); printBooking(bookings.find(b => b.id === btn.dataset.id)) }))
     wrap.querySelectorAll('.copy-bk').forEach(btn => btn.addEventListener('click', e => { e.stopPropagation(); copySummary(bookings.find(b => b.id === btn.dataset.id)) }))
     wrap.querySelectorAll('.del-bk').forEach(btn => btn.addEventListener('click', async e => {
@@ -627,6 +638,7 @@ export default async function BookingsPage(container) {
       <td style="font-size:0.76rem">${b.colorIn ? escHtml(b.colorIn) : '<span style="color:var(--text-muted)">—</span>'}</td>
       <td style="font-size:0.76rem">${b.source ? escHtml(b.source) : '<span style="color:var(--text-muted)">—</span>'}</td>
       <td style="white-space:nowrap">
+        ${needsIncome(b) ? `<button class="btn btn-warning btn-xs income-bk" data-id="${b.id}" title="ส่งมอบแล้วแต่ยังไม่กรอกรายได้">💰 กรอกรายได้</button>` : ''}
         <button class="btn btn-ghost btn-xs edit-bk" data-id="${b.id}" title="แก้ไข">✏️</button>
         <button class="btn btn-ghost btn-xs print-bk" data-id="${b.id}" title="พิมพ์ใบจอง">🖨</button>
         <button class="btn btn-ghost btn-xs copy-bk" data-id="${b.id}" title="คัดลอกสรุป">📋</button>
@@ -675,6 +687,8 @@ export default async function BookingsPage(container) {
         await syncStockForBookings([b])
         showToast(`✅ อัปเดตเป็น "${newStatus}" แล้ว`, 'success')
         render()
+        // ส่งมอบ/ตัดตัวเลขแล้วแต่ยังไม่มีรายได้ → ถามมาร์จิ้น/ค่าคอมเลยตอนนี้ (ข้ามได้)
+        if (needsIncome(b) && await askDeliveryIncome(b, { title: '🎉 ส่งมอบแล้ว — กรอกรายได้คันนี้' })) render()
       } catch { showToast('อัปเดตไม่สำเร็จ', 'error') }
     }))
     setTimeout(() => { document.addEventListener('click', onDocClick) }, 30)

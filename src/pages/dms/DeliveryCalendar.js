@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { askDeliveryIncome, needsIncome } from '../../utils/deliveryIncome.js'
 
 function myName() {
   const me = getState('user') || {}
@@ -58,6 +59,7 @@ export default async function DeliveryCalendarPage(container) {
         status: d.status === 'ส่งมอบแล้ว' ? 'delivered' : (d.status === 'รอส่งมอบ' || d.status === 'ตัดตัวเลขรอส่งมอบ') ? 'ready' : 'preparing',
         staff: d.salesName || d.salesPerson || '',
         prep: Array.isArray(d.prep) ? d.prep : [false, false, false, false, false],
+        raw: d,
       }))
     } catch (e) { deliveries = [] }
     loading = false
@@ -174,6 +176,8 @@ export default async function DeliveryCalendarPage(container) {
         await updateDocData('bookings', d.id, { status: LOCAL_TO_BOOKING_STATUS.delivered, actualDeliveryDate: addDays(0) })
         showToast('🎉 ส่งมอบสำเร็จ! ระบบนัดเช็คระยะแรกอัตโนมัติ', 'success')
         await loadData()
+        const bk = { ...d.raw, id: d.id, status: LOCAL_TO_BOOKING_STATUS.delivered }
+        if (needsIncome(bk)) await askDeliveryIncome(bk, { title: '🎉 ส่งมอบแล้ว — กรอกรายได้คันนี้' })
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.postpone-btn').forEach(b => b.addEventListener('click', () => {

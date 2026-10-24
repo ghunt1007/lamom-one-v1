@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import worker, { daysSinceBangkok, formatThaiDate, todayBangkok, decodeFsValue, buildReport } from './daily-report.js'
+import worker, { daysSinceBangkok, formatThaiDate, todayBangkok, decodeFsValue, buildReport, buildMorningReminder } from './daily-report.js'
 
 const BASE_ENV = { FIREBASE_API_KEY: 'fake-public-key', FIREBASE_PROJECT_ID: 'fake-project', ALLOWED_ORIGIN: 'https://lamom-one.pages.dev' }
 
@@ -187,5 +187,60 @@ describe('daily-report worker — buildReport (pure, same definitions as Dashboa
   })
   it('falls back to the default target when no unit target is set', () => {
     expect(buildReport({ ...data, teamTargets: [] }, { today, defaultTarget: 15 })).toContain('เป้าเดือนนี้: 15 คัน')
+  })
+})
+
+describe('buildMorningReminder (09:00 per-salesperson reminder)', () => {
+
+  const data = {
+    customers: [
+      { stage: 'pp', firstName: 'สมชาย', lastName: 'ใจดี', assignedTo: 'วิชัย', interestedModel: 'BYD Seal', createdAt: '2026-10-10T03:00:00Z', updatedAt: '2026-10-19T03:00:00Z' },
+      { stage: 'lead', firstName: 'มานี', assignedTo: 'วิชัย', createdAt: '2026-10-22T03:00:00Z' }, // 2 วัน — ยังไม่ถึงเกณฑ์
+      { stage: 'lead', firstName: 'ปิติ', assignedTo: '', createdAt: '2026-10-01T03:00:00Z' },
+      { stage: 'pp', firstName: 'เสียดีล', assignedTo: 'วิชัย', isLost: true, createdAt: '2026-10-01T03:00:00Z' },
+      { stage: 'booking', firstName: 'จองแล้ว', assignedTo: 'วิชัย', createdAt: '2026-10-01T03:00:00Z' },
+      { stage: 'lead', firstName: 'ลบแล้ว', assignedTo: 'วิชัย', createdAt: '2026-10-01T03:00:00Z', deleted: true },
+    ],
+    followups: [
+      { status: 'pending', dueDate: '2026-10-24', salesperson: 'นภา', customerName: 'คุณเอ' },
+      { status: 'pending', dueDate: '2026-10-20', salesperson: 'นภา', customerName: 'คุณบี' },
+      { status: 'done', dueDate: '2026-10-20', salesperson: 'นภา', customerName: 'เสร็จแล้ว' },
+      { status: 'pending', dueDate: '2026-10-30', salesperson: 'นภา', customerName: 'ยังไม่ถึง' },
+    ],
+    bookings: [
+      { status: 'ส่งมอบแล้ว', cutDate: '2026-10-15', salesName: 'วิชัย', custName: 'คุณซี', model: 'Atto 3', totalIncome: 0 },
+      { status: 'ส่งมอบแล้ว', cutDate: '2026-10-15', salesName: 'วิชัย', custName: 'กรอกแล้ว', totalIncome: 30000 },
+      { status: 'ส่งมอบแล้ว', cutDate: '2026-09-15', salesName: 'วิชัย', custName: 'เดือนก่อน', totalIncome: 0 },
+    ],
+  }
+
+  it('groups stale leads, due follow-ups and missing income by person', () => {
+    const text = buildMorningReminder(data, { today: '2026-10-24' })
+    expect(text).toContain('👤 วิชัย')
+    expect(text).toContain('Lead ไม่ได้ติดตามเกิน 3 วัน: 1 ราย')
+    expect(text).toContain('สมชาย ใจดี (BYD Seal) · 5 วัน')
+    expect(text).not.toContain('มานี')
+    expect(text).not.toContain('เสียดีล')
+    expect(text).not.toContain('จองแล้ว')
+    expect(text).not.toContain('ลบแล้ว')
+    expect(text).toContain('👤 (ยังไม่มีผู้ดูแล)')
+    expect(text).toContain('ปิติ · 23 วัน')
+    expect(text).toContain('👤 นภา')
+    expect(text).toContain('Follow-up วันนี้/เลยกำหนด: 2 ราย')
+    expect(text).toContain('คุณบี ⚠️ เลยกำหนด')
+    expect(text).not.toContain('ยังไม่ถึง')
+    expect(text).toContain('ส่งมอบแล้วยังไม่กรอกรายได้: 1 คัน')
+    expect(text).toContain('คุณซี (Atto 3)')
+    expect(text).not.toContain('เดือนก่อน')
+  })
+
+  it('caps each list and says how many more there are', () => {
+    const many = Array.from({ length: 8 }, (_, i) => ({ stage: 'lead', firstName: 'L' + i, assignedTo: 'A', createdAt: '2026-10-01T03:00:00Z' }))
+    const text = buildMorningReminder({ customers: many }, { today: '2026-10-24', maxNames: 5 })
+    expect(text).toContain('…และอีก 3 ราย')
+  })
+
+  it('says there is nothing pending when everything is up to date', () => {
+    expect(buildMorningReminder({}, { today: '2026-10-24' })).toContain('ไม่มีงานค้าง')
   })
 })
