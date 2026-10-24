@@ -609,6 +609,16 @@ describe('upcoming deliveries in the 09:00 reminder and 18:00 report', () => {
     { status: 'จองแล้ว', deliveryDate: '2026-10-27', custName: 'ค', salesName: 'วิชัย', bookingDate: '2026-10-20' },
     { status: 'ถอนจอง', deliveryDate: '2026-10-25', custName: 'ง', salesName: 'วิชัย', bookingDate: '2026-10-20' },
   ]
+  it('morning section lists today\'s test drives', () => {
+    const [sec] = buildMorningSections({ bookings: [], customers: [], followups: [], testDrives: [
+      { date: '2026-10-25', time: '13:00', status: 'scheduled', staff: 'นภา', customerName: 'ฉ', model: 'Seal' },
+      { date: '2026-10-25', time: '09:30', status: 'done', staff: 'นภา', customerName: 'ช' },
+    ] }, { today: '2026-10-25' })
+    expect(sec.name).toBe('นภา')
+    expect(sec.text).toContain('🚙 นัดทดลองขับวันนี้: 1 ราย')
+    expect(sec.text).toContain('13:00 · ฉ (Seal)')
+  })
+
   it('morning section lists today and tomorrow only, first', () => {
     const [sec] = buildMorningSections({ bookings, customers: [], followups: [] }, { today: '2026-10-25' })
     expect(sec.name).toBe('วิชัย')

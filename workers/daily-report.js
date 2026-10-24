@@ -346,13 +346,14 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
 
 // ── เตือนงานค้างตอนเช้า (09:00) — แยกรายเซลส์ ─────────────────────────────────
 async function buildMorningData(env, accessToken) {
-  const [bookings, customers, followups] = await Promise.all([
+  const [bookings, customers, followups, testDrives] = await Promise.all([
     runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'model', 'totalIncome', 'deleted']),
     runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'isLost', 'createdAt', 'updatedAt', 'stageChangedAt', 'deleted']),
     runQuery(env, accessToken, 'followups', null, null, 3000, ['dueDate', 'status', 'salesperson', 'customerName', 'customerId', 'autoLead', 'deleted']),
+    runQuery(env, accessToken, 'test_drives', null, null, 3000, ['date', 'time', 'status', 'staff', 'customerName', 'model', 'deleted']).catch(() => []),
   ])
   const today = todayBangkok()
-  const data = { bookings, customers, followups }
+  const data = { bookings, customers, followups, testDrives }
   return { today, data, text: buildMorningReminder(data, { today }), sections: buildMorningSections(data, { today }) }
 }
 
@@ -368,7 +369,7 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
   const alive = rows => (rows || []).filter(r => r && !r.deleted)
   const dayNum = d => { const [y, m, dd] = d.split('-').map(Number); return Date.UTC(y, m - 1, dd) / 86400000 }
   const people = {}
-  const person = n => (people[(n || '').trim() || '(ยังไม่มีผู้ดูแล)'] ||= { deliver: [], stale: [], fu: [], income: [], stuck: [] })
+  const person = n => (people[(n || '').trim() || '(ยังไม่มีผู้ดูแล)'] ||= { deliver: [], td: [], stale: [], fu: [], income: [], stuck: [] })
 
   alive(data.customers)
     .filter(c => (c.stage === 'lead' || c.stage === 'pp') && !c.isLost)
@@ -407,13 +408,18 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
       if (inDays === 0 || inDays === 1) person(b.salesName).deliver.push({ name: b.custName || 'ลูกค้า', model: b.model, time: b.deliveryTime, inDays })
     })
 
+  // นัดทดลองขับวันนี้ที่ยังไม่จบ
+  alive(data.testDrives)
+    .filter(t => (t.date || '').slice(0, 10) === today && ['scheduled', 'confirmed', 'in_progress'].includes(t.status || 'scheduled'))
+    .forEach(t => person(t.staff).td.push({ name: t.customerName || 'ลูกค้า', model: t.model, time: t.time }))
+
   const list = items => {
     const shown = items.slice(0, maxNames).map(i => `      - ${i}`)
     if (items.length > maxNames) shown.push(`      - …และอีก ${items.length - maxNames} ราย`)
     return shown
   }
   return Object.entries(people)
-    .map(([n, p]) => ({ n, p, total: p.deliver.length + p.stale.length + p.fu.length + p.income.length + p.stuck.length }))
+    .map(([n, p]) => ({ n, p, total: p.deliver.length + p.td.length + p.stale.length + p.fu.length + p.income.length + p.stuck.length }))
     .filter(x => x.total)
     .sort((a, b) => b.total - a.total || a.n.localeCompare(b.n))
     .map(({ n, p }) => {
@@ -421,6 +427,10 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
       if (p.deliver.length) {
         p.deliver.sort((a, b) => a.inDays - b.inDays || String(a.time || '').localeCompare(String(b.time || '')))
         out.push(`  🚗 นัดส่งมอบวันนี้/พรุ่งนี้: ${p.deliver.length} คัน`, ...list(p.deliver.map(d => `${d.inDays ? 'พรุ่งนี้' : 'วันนี้'}${d.time ? ' ' + d.time : ''} · ${d.name}${d.model ? ` (${d.model})` : ''}`)))
+      }
+      if (p.td.length) {
+        p.td.sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')))
+        out.push(`  🚙 นัดทดลองขับวันนี้: ${p.td.length} ราย`, ...list(p.td.map(t => `${t.time ? t.time + ' · ' : ''}${t.name}${t.model ? ` (${t.model})` : ''}`)))
       }
       if (p.stale.length) {
         p.stale.sort((a, b) => b.days - a.days)

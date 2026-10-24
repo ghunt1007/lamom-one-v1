@@ -36,13 +36,14 @@ export default async function MyDayPage(container) {
 
   async function load() {
     const f = companyScopeFilters()
-    const [customers, followups, bookings] = await Promise.all([
+    const [customers, followups, bookings, testDrives] = await Promise.all([
       listAllDocs('customers', f, 'createdAt', 'desc').catch(() => null),
       listDocs('followups', f, 'dueDate', 'asc', 1000).catch(() => null),
       listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => null),
+      listDocs('test_drives', f, 'date', 'desc', 200).catch(() => []),
     ])
     if (!customers || !followups || !bookings) showToast('โหลดข้อมูลบางส่วนไม่สำเร็จ', 'warning')
-    data = { customers: customers || [], followups: followups || [], bookings: bookings || [] }
+    data = { customers: customers || [], followups: followups || [], bookings: bookings || [], testDrives: testDrives || [] }
     try { targets = (await readDoc(SALES_TARGETS_COLLECTION, todayBangkok().slice(0, 7)))?.targets || {} } catch { targets = {} }
     try { staff = staffChoices(await listDocs('staff', companyScopeFilters(), 'firstName', 'asc', 1000)) } catch { staff = [] }
   }
@@ -120,6 +121,11 @@ export default async function MyDayPage(container) {
           `${escHtml(f.purpose || '')}${f.vehicleModel ? ` · ${escHtml(f.vehicleModel)}` : ''}${ownerTag(f.salesperson)}`,
           `${callBtn(f.phone)}<button class="btn btn-success btn-xs md-fu" data-id="${escHtml(f.id)}">✅ ทำแล้ว</button>`), 'danger')}
 
+        ${d.testDrives.length ? section('🚙', 'นัดทดลองขับวันนี้', 'บันทึกผลที่หน้า Test Drive แล้วระบบนัดโทรตามให้', d.testDrives, t => line(
+          `${escHtml(t.time || '')} · ${escHtml(t.customerName || 'ลูกค้า')}`,
+          `${escHtml(t.model || '')}${ownerTag(t.staff)}`,
+          `${callBtn(t.phone)}<button class="btn btn-secondary btn-xs md-td">Test Drive</button>`), 'primary') : ''}
+
         ${section('🧲', 'Lead ใหม่วันนี้', 'โทรหาภายในวันนี้ โอกาสปิดสูงสุด', d.newLeads, c => line(
           `${escHtml(c.name)}${c.interestedModel ? ` · ${escHtml(c.interestedModel)}` : ''}`,
           `${escHtml(SOURCE_LABEL[c.source] || c.source || '')}${c.phone ? ` · ${escHtml(c.phone)}` : c.lineId ? ` · ${escHtml(c.lineId)}` : ''}${ownerTag(c.assignedTo)}`,
@@ -151,6 +157,7 @@ export default async function MyDayPage(container) {
     container.querySelector('#md-reload').addEventListener('click', async () => { await load(); render() })
     $$('.md-open').forEach(b => b.addEventListener('click', () => navigate(`/crm/customers?id=${encodeURIComponent(b.dataset.id)}`)))
     $$('.md-bk').forEach(b => b.addEventListener('click', () => navigate('/crm/bookings')))
+    $$('.md-td').forEach(b => b.addEventListener('click', () => navigate('/crm/testdrive')))
     $$('.md-touch').forEach(b => b.addEventListener('click', async () => {
       b.disabled = true
       try {
