@@ -2,6 +2,7 @@ import { listDocs, seedDemoData, getSalesData } from '../../core/db.js'
 import { navigate } from '../../core/router.js'
 import { formatCurrency, toDate } from '../../utils/format.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
+import { getVisibilityScope, scopeIncludesRecord } from '../../core/hierarchy.js'
 
 const QUICK_LINKS = [
   { icon:'👥', label:'ลูกค้า', sub:'ฐานข้อมูลลูกค้า', path:'/crm/customers', color:'primary' },
@@ -72,11 +73,15 @@ export default async function CrmDashboard(container) {
 
   let customers = [], sales = []
   try {
-    ;[customers, sales] = await Promise.all([
-      listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
+    let visScope = null
+    ;[customers, sales, visScope] = await Promise.all([
+      listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 1000).catch(() => []),
       getSalesData().catch(() => []),
+      getVisibilityScope().catch(() => null),
     ])
-    customers = customers.filter(c => !c.deleted)
+    // เซลส์เห็นตัวเลขของตัวเอง/ลูกทีม (เดิมเห็นจำนวนลูกค้าและยอดขายรวมของทั้งบริษัท)
+    customers = customers.filter(c => !c.deleted && scopeIncludesRecord(visScope, c.assignedTo, c))
+    sales = sales.filter(s => scopeIncludesRecord(visScope, s.salesName, s))
   } catch {}
 
   if (container.__routerGen !== myGen) return
@@ -108,8 +113,8 @@ function renderAlerts(customers, sales) {
   const daysSince = d => { const dt = toDate(d); return dt ? Math.floor((now - dt.getTime()) / 86400000) : -Infinity }
   const alerts = []
 
-  // Lead ใหม่ยังไม่ได้ติดตาม (ยังไม่มีเบอร์/LINE) เกิน 3 วัน
-  const staleLeads = customers.filter(c => c.stage === 'lead' && !c.isLost && c.createdAt && daysSince(c.createdAt) >= 3)
+  // Lead ใหม่ยังไม่ได้ติดตาม (ยังไม่มีเบอร์/LINE และยังไม่เคยกด "ติดต่อแล้ว") เกิน 3 วัน
+  const staleLeads = customers.filter(c => c.stage === 'lead' && !c.isLost && !c.lastContactAt && c.createdAt && daysSince(c.createdAt) >= 3)
   if (staleLeads.length) alerts.push({ type: 'danger', icon: '🧲', nav: '/crm/customers', msg: `Lead ใหม่ยังไม่ติดตามเกิน 3 วัน: ${staleLeads.length} ราย` })
 
   // ลูกค้า Hot ที่ยังไม่ได้ติดต่อต่อเนื่องเกิน 3 วัน
