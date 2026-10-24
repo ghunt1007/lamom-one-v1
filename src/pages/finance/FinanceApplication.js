@@ -124,7 +124,7 @@ export default async function FinanceApplicationPage(container) {
     document.querySelectorAll('.sf-btn').forEach(b => b.addEventListener('click', () => { statusFilter = b.dataset.s; renderPage() }))
     document.getElementById('new-app-btn')?.addEventListener('click', () => openAppForm())
     if (prefillData) { openAppForm(prefillData); prefillData = null }
-    document.getElementById('fa-export')?.addEventListener('click', () => exportToExcel(filtered.map(a => ({ ลูกค้า:a.custName, รถ:a.vehicle, วงเงิน:a.loanAmount, งวด:a.tenure, ธนาคาร:a.bank, ผ่อน:a.monthlyPayment, สถานะ:APP_STATUS[a.status].label })), 'FinanceApps'))
+    document.getElementById('fa-export')?.addEventListener('click', () => exportToExcel(filtered.map(a => ({ ลูกค้า:a.custName, รถ:a.vehicle, วงเงิน:a.loanAmount, งวด:a.tenure, ธนาคาร:a.bank, ผ่อน:a.monthlyPayment, สถานะ:(APP_STATUS[a.status]?.label || a.status || "") })), 'FinanceApps'))
     document.querySelectorAll('.app-card').forEach(card => {
       card.addEventListener('click', () => { const a = apps.find(x => x.id === card.dataset.id); if (a) openAppDetail(a) })
     })

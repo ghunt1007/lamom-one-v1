@@ -985,7 +985,7 @@ export default async function CustomersPage(container) {
       addBtn.style.display = 'none'
       sheet = new SmartSheet(sheetWrap, {
         columns: SHEET_COLS,
-        rows: customers,
+        rows: filtered, // เฉพาะที่เห็นบนหน้าจอ (ตัวกรอง + สิทธิ์การมองเห็น)
         onSave: async (row) => {
           try {
             if (row.id) await updateDocData('customers', row.id, row)
@@ -998,7 +998,7 @@ export default async function CustomersPage(container) {
               const id = await createDoc('customers', row); row.id = id
             }
             showToast('บันทึกแล้ว', 'success')
-            await loadData(); sheet.setRows(customers)
+            await loadData(); sheet.setRows(filtered)
           } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
         },
         onDelete: async (row) => {
@@ -1020,15 +1020,18 @@ export default async function CustomersPage(container) {
   document.getElementById('pipeline-link-btn').addEventListener('click', () => navigate('/crm/pipeline'))
 
   document.getElementById('export-cust-btn').addEventListener('click', () => {
-    if (!customers.length) { showToast('ไม่มีข้อมูลสำหรับ Export', 'warning'); return }
-    const rows = customers.map(c => ({
+    // Export เฉพาะรายการที่เห็นบนหน้าจอ (ตามตัวกรอง + สิทธิ์การมองเห็น) — เซลส์ไม่ควรดึงลูกค้าของทีมอื่นออกไปได้
+    if (!filtered.length) { showToast('ไม่มีข้อมูลสำหรับ Export', 'warning'); return }
+    const rows = filtered.map(c => ({
       'ชื่อ': c.firstName || '', 'นามสกุล': c.lastName || '',
       'โทรศัพท์': c.phone || '', 'LINE ID': c.lineId || '', 'Email': c.email || '',
       'รถที่สนใจ': c.interestedModel || '', 'งบประมาณ': c.budget || '',
       'สถานะ': STAGE[c.stage]?.short || c.stage || '', 'อุณหภูมิ': c.temperature || '',
       'VIP': c.vip ? 'ใช่' : '', 'เสียดีล': c.isLost ? 'ใช่' : '',
       'ที่มา': c.source || '', 'แท็ก': (c.tags || []).join(', '),
+      'ผู้ดูแล': c.assignedTo || '',
       'วันที่เพิ่ม': formatDate(c.createdAt),
+      'ติดต่อล่าสุด': c.lastContactAt ? formatDate(c.lastContactAt) : '',
     }))
     exportToExcel(rows, `customers-${todayBangkok()}.xlsx`, 'ลูกค้า')
     showToast(`Export ${rows.length} รายการแล้ว`, 'success')
