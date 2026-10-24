@@ -9,6 +9,7 @@ import { navigate } from '../../core/router.js'
 import { pickVehicle } from '../../utils/vehiclePicker.js'
 import { getSalesStaff, getColors, getFinanceCompanies, getFinanceStatus, getCampaigns, getBookingStatus, getLeadSources } from '../../data/masterData.js'
 import { printBooking, printCancellation } from '../../utils/bookingDocs.js'
+import { scheduleAfterSales } from '../../utils/afterSales.js'
 import { askDeliveryIncome, needsIncome } from '../../utils/deliveryIncome.js'
 import { readBookingSheet, planBookingImport, newBookingDoc, newCustomerDoc, companyForBrand, brandCompanyMap } from '../../utils/bookingImport.js'
 
@@ -683,7 +684,7 @@ export default async function BookingsPage(container) {
       try {
         await updateDocData('bookings', b.id, { status: newStatus, updatedAt: new Date().toISOString() })
         b.status = newStatus
-        if (newStatus === 'ส่งมอบแล้ว') await maybeMarkCustomerDelivered(b)
+        if (newStatus === 'ส่งมอบแล้ว') { await maybeMarkCustomerDelivered(b); await scheduleAfterSales(b) }
         await syncStockForBookings([b])
         showToast(`✅ อัปเดตเป็น "${newStatus}" แล้ว`, 'success')
         render()
@@ -1293,6 +1294,7 @@ export default async function BookingsPage(container) {
         }
         btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
         let bookingId = existing?.id
+        const wasDelivered = existing?.status === 'ส่งมอบแล้ว'
         if (isEdit) { await updateDocData('bookings', existing.id, data); Object.assign(existing, data) }
         else { bookingId = await createDoc('bookings', data); bookings.unshift({ ...data, id: bookingId }) }
         if (newNid != null) {
@@ -1305,6 +1307,7 @@ export default async function BookingsPage(container) {
           else await updateDocData('customers', data.customerId, { stage: 'booking', stageChangedAt: new Date().toISOString(), bookingId }).catch(() => {})
         }
         await syncStockForBookings([{ ...existing, ...data }])
+        if (data.status === 'ส่งมอบแล้ว' && !wasDelivered) await scheduleAfterSales(existing || bookings.find(x => x.id === bookingId) || { ...data, id: bookingId })
         showToast(isEdit ? '✏️ แก้ไขใบจองแล้ว' : '✅ สร้างใบจองแล้ว', 'success')
         close(); render()
       } catch (err) {
