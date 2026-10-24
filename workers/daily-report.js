@@ -348,7 +348,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
 async function buildMorningData(env, accessToken) {
   const [bookings, customers, followups, testDrives] = await Promise.all([
     runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'model', 'totalIncome', 'deleted']),
-    runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'isLost', 'createdAt', 'updatedAt', 'stageChangedAt', 'deleted']),
+    runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'isLost', 'createdAt', 'updatedAt', 'stageChangedAt', 'source', 'bookingId', 'deleted']),
     runQuery(env, accessToken, 'followups', null, null, 3000, ['dueDate', 'status', 'salesperson', 'customerName', 'customerId', 'autoLead', 'deleted']),
     runQuery(env, accessToken, 'test_drives', null, null, 3000, ['date', 'time', 'status', 'staff', 'customerName', 'model', 'deleted']).catch(() => []),
   ])
@@ -558,18 +558,36 @@ export function buildWeeklyReport(data, { today }) {
     .sort(([, a], [, b]) => b.dlv - a.dlv || b.inc - a.inc || b.bk - a.bk)
     .map(([n, v], i) => `  ${medals[i] || '•'} ${n}: ส่งมอบ ${v.dlv} · จอง ${v.bk} · รายได้ ${fmtBaht(v.inc)}`)
 
+  // ช่องทาง: Lead ใหม่สัปดาห์ที่แล้วมาจากไหน + 90 วันล่าสุดช่องทางไหนปิดเป็นใบจองได้ดีที่สุด (ต้องมีอย่างน้อย 3 ราย)
+  const srcName = c => SOURCE_LABELS[c.source] || SOURCE_LABELS.other
+  const weekSrc = {}
+  customers.filter(c => inRange(toBangkokDate(c.createdAt), weeks[0])).forEach(c => { weekSrc[srcName(c)] = (weekSrc[srcName(c)] || 0) + 1 })
+  const srcWeekLine = Object.entries(weekSrc).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(' · ')
+  const conv = {}
+  customers.filter(c => inRange(toBangkokDate(c.createdAt), [shift(today, -90), shift(today, -1)])).forEach(c => {
+    const r = (conv[srcName(c)] ||= { n: 0, bk: 0 })
+    r.n++
+    if (['booking', 'delivered'].includes(c.stage) || c.bookingId) r.bk++
+  })
+  const convLines = Object.entries(conv).filter(([, v]) => v.n >= 3)
+    .map(([k, v]) => ({ k, ...v, pct: Math.round(v.bk / v.n * 100) }))
+    .sort((a, b) => b.pct - a.pct || b.n - a.n).slice(0, 5)
+    .map(r => `  • ${r.k}: จอง ${r.bk}/${r.n} ราย (${r.pct}%)`)
+
   return [
     '📅 LAMOM ONE สรุปสัปดาห์ที่แล้ว',
     `🗓 ${formatThaiDate(weeks[0][0])} – ${formatThaiDate(weeks[0][1])}`,
     '─────────────────────',
     '',
     `👥 Lead ใหม่: ${cur.leads} ราย (${diff(cur.leads, prev.leads)})`,
+    srcWeekLine ? `    มาจาก: ${srcWeekLine}` : null,
     `📋 จองใหม่: ${cur.booked} คัน (${diff(cur.booked, prev.booked)})`,
     `✅ ส่งมอบ: ${cur.delivered} คัน (${diff(cur.delivered, prev.delivered)})`,
     `💰 รายได้: ${fmtBaht(cur.income)} (${diffBaht(cur.income, prev.income)})`,
     cur.missing ? `  ⚠️ ยังไม่กรอกรายได้ ${cur.missing} คัน — ตัวเลขจริงสูงกว่านี้` : null,
     `❌ ถอนจอง: ${cur.cancelled} คัน (${diff(cur.cancelled, prev.cancelled)})`,
     ...(sellerLines.length ? ['', '👤 ทีมขาย (สัปดาห์ที่แล้ว)', ...sellerLines] : []),
+    ...(convLines.length ? ['', '🎯 ช่องทางที่ปิดจองได้ดี (Lead 90 วันล่าสุด)', ...convLines] : []),
     '',
     '─────────────────────',
     '🤖 LAMOM ONE Weekly Report',

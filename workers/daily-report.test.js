@@ -675,3 +675,20 @@ describe('unassigned leads in the 18:00 report', () => {
     expect(buildReport({ bookings: [], customers: [customers[2]], followups: [], testDrives: [] }, { today: '2026-10-25' })).not.toContain('ยังไม่มีผู้ดูแล')
   })
 })
+
+describe('weekly summary — lead sources', () => {
+  it('shows where last week leads came from and 90-day booking rates', () => {
+    const C = (d, source, stage = 'pp') => ({ createdAt: `${d}T03:00:00Z`, source, stage })
+    const customers = [
+      C('2026-10-20', 'facebook'), C('2026-10-21', 'facebook'), C('2026-10-22', 'line'),
+      C('2026-09-01', 'facebook', 'booking'), C('2026-09-02', 'walk-in', 'delivered'), C('2026-09-03', 'walk-in', 'booking'), C('2026-09-04', 'walk-in'),
+      C('2026-05-01', 'walk-in', 'booking'),
+    ]
+    const text = buildWeeklyReport({ bookings: [], customers }, { today: '2026-10-26' })
+    expect(text).toContain('มาจาก: Facebook 2 · LINE 1')
+    expect(text).toContain('🎯 ช่องทางที่ปิดจองได้ดี')
+    expect(text).toContain('Walk-in: จอง 2/3 ราย (67%)')
+    expect(text).toContain('Facebook: จอง 1/3 ราย (33%)')
+    expect(text).not.toContain('LINE: จอง')
+  })
+})
