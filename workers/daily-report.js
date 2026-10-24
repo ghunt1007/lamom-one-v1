@@ -154,6 +154,16 @@ async function handleLineWebhook(request, env, cors) {
       // เซลส์ลงทะเบียนชื่อตัวเอง → เช้าวันถัดไปได้งานค้างของตัวเองทาง LINE (ชื่อต้องตรงกับชื่อเซลส์/ผู้ดูแลในแอป)
       await writeSalesTarget(env, accessToken, userId, cmd.name)
       reply = `✅ ลงทะเบียนชื่อ "${cmd.name}" แล้วครับ\nทุกเช้า 9 โมงจะส่งงานค้างของคุณมาที่นี่ หรือพิมพ์ "งาน" เพื่อดูได้ทันที\n(ชื่อต้องตรงกับชื่อเซลส์ในแอป LAMOM ONE — พิมพ์ "ยกเลิก" เพื่อหยุดรับ)`
+      // เตือนทันทีถ้าชื่อนี้ไม่เคยเป็นผู้ดูแลลูกค้า/เซลส์ในใบจองเลย (มักพิมพ์ผิด) — ไม่งั้นจะไม่ได้รับงานโดยไม่รู้ตัว
+      try {
+        const [cs, bs] = await Promise.all([
+          runQuery(env, accessToken, 'customers', null, null, 5000, ['assignedTo']),
+          runQuery(env, accessToken, 'bookings', null, null, 5000, ['salesName']),
+        ])
+        if (!nameIsKnown(cmd.name, [...cs.map(c => c.assignedTo), ...bs.map(b => b.salesName)])) {
+          reply += `\n\n⚠️ ยังไม่พบชื่อ "${cmd.name}" เป็นผู้ดูแลลูกค้าหรือเซลส์ในใบจองเลย — ถ้าพิมพ์ผิด ให้พิมพ์ "ลงทะเบียน ชื่อที่ถูกต้อง" ใหม่ได้เลย (ชื่อต้องตรงกับช่องผู้ดูแล/เซลส์ในแอป)`
+        }
+      } catch { /* ตรวจไม่ได้ก็ไม่เป็นไร */ }
     } else if (cmd.type === 'report') {
       // เฉพาะเจ้าของ (ปลายทางรายงานประจำวัน) เท่านั้น — คนอื่นพิมพ์มาไม่ตอบ
       const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
@@ -665,6 +675,10 @@ export function sellerGoal(data, goals, name, today) {
 }
 
 // เทียบชื่อแบบไม่สนช่องว่าง/ตัวพิมพ์ คำนำหน้า "คุณ" — ชื่อที่ลงทะเบียนต้องตรงกับชื่อเซลส์/ผู้ดูแลในแอป
+export function nameIsKnown(name, names) {
+  const k = normSalesName(name)
+  return !!k && (names || []).some(n => normSalesName(n) === k)
+}
 export function normSalesName(n) {
   return String(n || '').toLowerCase().replace(/^คุณ/, '').replace(/[\s.]/g, '')
 }

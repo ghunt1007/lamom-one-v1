@@ -17,6 +17,7 @@ import { bangkokDate, buildMyDay, STALE_LEAD_DAYS, STUCK_BOOKING_DAYS, UPCOMING_
 import { followupWindowFilters } from '../../utils/customerFollowups.js'
 import { openAddFollowup } from '../../utils/addFollowupModal.js'
 import { touchCustomerContact } from '../../utils/customerContact.js'
+import { lineNameKey } from '../../utils/lineRegistration.js'
 
 const UNASSIGNED = '(ยังไม่มีผู้ดูแล)'
 function escHtml(s) {
@@ -53,8 +54,7 @@ export default async function MyDayPage(container) {
     // ลงทะเบียนรับงานทาง LINE แล้วหรือยัง (ทัก LINE OA พิมพ์ "ลงทะเบียน ชื่อ") — โหลดไม่ได้ = ไม่แสดงคำแนะนำ
     try {
       const regs = await listDocs('line_sales_targets', [], 'registeredAt', 'desc', 500)
-      const key = n => String(n || '').toLowerCase().replace(/^คุณ/, '').replace(/[\s.]/g, '') // เทียบแบบเดียวกับ worker
-      lineRegistered = !me.displayName || regs.some(r => key(r.name) === key(me.displayName))
+      lineRegistered = !me.displayName || regs.some(r => lineNameKey(r.name) === lineNameKey(me.displayName)) // เทียบแบบเดียวกับ worker
     } catch { lineRegistered = true }
   }
   await load()

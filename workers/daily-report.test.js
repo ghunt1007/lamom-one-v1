@@ -1005,6 +1005,33 @@ describe('LINE "ยอด"', () => {
   })
 })
 
+describe('ลงทะเบียนด้วยชื่อที่ไม่มีในระบบ', () => {
+  it('nameIsKnown เทียบแบบไม่สนคำนำหน้า/ช่องว่าง', async () => {
+    const { nameIsKnown } = await import('./daily-report.js')
+    expect(nameIsKnown('คุณวิชัย  ขายเก่ง', ['วิชัย ขายเก่ง', 'นภา'])).toBe(true)
+    expect(nameIsKnown('วิไช', ['วิชัย ขายเก่ง'])).toBe(false)
+    expect(nameIsKnown('', [''])).toBe(false)
+  })
+  it('ตอบเตือนเมื่อชื่อไม่ตรงกับผู้ดูแล/เซลส์คนไหน', async () => {
+    const replies = []
+    stubFetch([
+      ['oauth2.googleapis.com', () => ({ ok: true, json: async () => ({ access_token: 'fs' }) })],
+      ['line_sales_targets/', () => ({ ok: true, json: async () => ({}) })],
+      [':runQuery', (url, opts) => ({ ok: true, json: async () => (JSON.parse(opts.body).structuredQuery.from[0].collectionId === 'customers'
+        ? [{ document: { name: 'p/customers/c1', fields: { assignedTo: { stringValue: 'วิชัย ขายเก่ง' } } } }] : []) })],
+      ['api.line.me/v2/bot/message/reply', (url, opts) => { replies.push(JSON.parse(opts.body).messages[0].text); return { ok: true, json: async () => ({}) } }],
+    ])
+    const env = { ...BASE_ENV, LINE_CHANNEL_SECRET: 'sec', LINE_CHANNEL_ACCESS_TOKEN: 'tok', FIRESTORE_SERVICE_ACCOUNT_JSON: await fakeServiceAccount() }
+    for (const text of ['ลงทะเบียน วิไช', 'ลงทะเบียน วิชัย ขายเก่ง']) {
+      const body = JSON.stringify({ events: [{ type: 'message', replyToken: 'rt', source: { userId: 'U1' }, message: { type: 'text', text } }] })
+      await worker.fetch(new Request('https://w/line/webhook', { method: 'POST', headers: { 'X-Line-Signature': await lineSig(body, 'sec') }, body }), env)
+    }
+    expect(replies[0]).toContain('⚠️ ยังไม่พบชื่อ "วิไช"')
+    expect(replies[1]).toContain('✅ ลงทะเบียนชื่อ "วิชัย ขายเก่ง"')
+    expect(replies[1]).not.toContain('ยังไม่พบชื่อ')
+  })
+})
+
 describe('runQuery แบ่งหน้า', () => {
   it('buildStructuredQuery หน้าถัดไปเรียงตาม __name__ และเริ่มหลังเอกสารสุดท้าย', async () => {
     const { buildStructuredQuery } = await import('./daily-report.js')
