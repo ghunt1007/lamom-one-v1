@@ -7,6 +7,7 @@ import { DELIVERED_STATUSES, needsIncome } from './deliveryIncome.js'
 export const STALE_LEAD_DAYS = 3
 export const STUCK_BOOKING_DAYS = 14
 export const UPCOMING_DELIVERY_DAYS = 7
+export const FINANCE_WAIT_DAYS = 3
 const CANCELLED = ['ถอนจอง', 'ยกเลิก']
 
 // วันที่ตามเวลาไทย 'YYYY-MM-DD' ของค่าวันที่ทุกแบบ (Timestamp / ISO / 'YYYY-MM-DD')
@@ -22,7 +23,7 @@ const custName = c => [c.firstName, c.lastName].filter(Boolean).join(' ') || '�
 // mine(ownerName, rec) → true ถ้าเป็นงานที่ผู้ใช้คนนี้ควรเห็น (หน้าเพจส่ง scopeIncludesRecord + ตัวกรองเซลส์มาให้)
 export function buildMyDay({ customers = [], followups = [], bookings = [], testDrives = [] }, { today, mine = () => true }) {
   const alive = rows => (rows || []).filter(r => r && !r.deleted)
-  const out = { followups: [], stale: [], newLeads: [], income: [], stuck: [], deliveries: [], testDrives: [] }
+  const out = { followups: [], stale: [], newLeads: [], income: [], stuck: [], deliveries: [], testDrives: [], finance: [] }
 
   const custById = new Map((customers || []).map(c => [c.id, c]))
   alive(followups)
@@ -53,6 +54,12 @@ export function buildMyDay({ customers = [], followups = [], bookings = [], test
     if (/^\d{4}-\d{2}-\d{2}$/.test(dd) && daysBetween(today, dd) >= 0 && daysBetween(today, dd) <= UPCOMING_DELIVERY_DAYS) {
       out.deliveries.push({ ...b, inDays: daysBetween(today, dd) })
     }
+    // ไฟแนนซ์: ยื่นแล้วรอผลเกิน FINANCE_WAIT_DAYS วัน (นับจากวันยื่น ถ้าไม่มีนับจากวันจอง) หรือไม่ผ่านแต่ยังไม่ถอนจอง
+    const sent = /^\d{4}-\d{2}-\d{2}/.test(b.submitDate || '') ? b.submitDate.slice(0, 10) : (b.bookingDate || '').slice(0, 10)
+    if (b.finStatus === 'ไม่ผ่าน') out.finance.push({ ...b, rejected: true, days: sent ? daysBetween(sent, today) : 0 })
+    else if ((b.finStatus === 'รอผล' || b.status === 'รอผลไฟแนนซ์') && /^\d{4}-\d{2}-\d{2}$/.test(sent) && daysBetween(sent, today) >= FINANCE_WAIT_DAYS) {
+      out.finance.push({ ...b, rejected: false, days: daysBetween(sent, today) })
+    }
     const bd = (b.bookingDate || '').slice(0, 10)
     if (/^\d{4}-\d{2}-\d{2}$/.test(bd) && daysBetween(bd, today) >= STUCK_BOOKING_DAYS) out.stuck.push({ ...b, days: daysBetween(bd, today) })
   })
@@ -66,7 +73,8 @@ export function buildMyDay({ customers = [], followups = [], bookings = [], test
   out.followups.sort((a, b) => b.late - a.late)
   out.stale.sort((a, b) => b.days - a.days)
   out.stuck.sort((a, b) => b.days - a.days)
+  out.finance.sort((a, b) => Number(b.rejected) - Number(a.rejected) || b.days - a.days)
   out.deliveries.sort((a, b) => a.inDays - b.inDays)
-  out.total = out.followups.length + out.stale.length + out.income.length + out.stuck.length
+  out.total = out.followups.length + out.stale.length + out.income.length + out.stuck.length + out.finance.length
   return out
 }
