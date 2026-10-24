@@ -17,6 +17,7 @@ import { navigate } from '../../core/router.js'
 import { on } from '../../core/store.js'
 import { classifyLostReason } from '../../utils/lostReason.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
+import { getVisibilityScope, scopeIncludesRecord } from '../../core/hierarchy.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -180,7 +181,7 @@ export default async function WarRoomPage(container) {
       if (container.__routerGen !== myGen) { unsubCustomers(); return }
       // softDelete() ไม่ได้ลบเอกสารจริง — ต้องกรอง !deleted ออกเอง ไม่งั้นลูกค้าที่ลบไปแล้วจะยังถูกนับใน
       // Pipeline tab และ Win/Loss/funnel
-      customers = docs.filter(c => !c.deleted)
+      customers = docs.filter(c => !c.deleted && scopeIncludesRecord(visScope, c.assignedTo, c))
       firstCustomersLoaded = true
       if (firstBookingsLoaded) { recomputeDerived(); renderPage() }
     })
@@ -189,7 +190,7 @@ export default async function WarRoomPage(container) {
     unsubBookings()
     unsubBookings = watchDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 500, docs => {
       if (container.__routerGen !== myGen) { unsubBookings(); return }
-      bookings = docs
+      bookings = docs.filter(b => scopeIncludesRecord(visScope, b.salesName, b))
       firstBookingsLoaded = true
       if (firstCustomersLoaded) { recomputeDerived(); renderPage() }
     })
@@ -198,7 +199,10 @@ export default async function WarRoomPage(container) {
     startWatchCustomers()
     startWatchBookingsWr()
   }
-  try { sales = await getSalesData() } catch { sales = [] }
+  // เซลส์เห็นเฉพาะลูกค้า/ใบจอง/ยอดขายของตัวเองและลูกทีม (นโยบายเดียวกับหน้าลูกค้า/ใบจอง)
+  let visScope = null
+  try { visScope = await getVisibilityScope() } catch { visScope = null }
+  try { sales = (await getSalesData()).filter(s => scopeIncludesRecord(visScope, s.salesName, s)) } catch { sales = [] }
   if (container.__routerGen !== myGen) return
 
   // ── Derived numbers for the top summary strip ──────────────────────────────
