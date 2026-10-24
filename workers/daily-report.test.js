@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import worker, { daysSinceBangkok, formatThaiDate, todayBangkok, decodeFsValue, buildReport, buildMorningReminder, buildMorningSections, buildPersonalReminder, matchSalesTargets, parseLineCommand } from './daily-report.js'
+import worker, { daysSinceBangkok, formatThaiDate, todayBangkok, decodeFsValue, buildReport, buildMorningReminder, buildMorningSections, buildPersonalReminder, matchSalesTargets, parseLineCommand, buildWeeklyReport, isMonday } from './daily-report.js'
 
 const BASE_ENV = { FIREBASE_API_KEY: 'fake-public-key', FIREBASE_PROJECT_ID: 'fake-project', ALLOWED_ORIGIN: 'https://lamom-one.pages.dev' }
 
@@ -338,7 +338,7 @@ describe('09:00 cron — summary to owner plus personal pushes', () => {
   it('sends the full summary to Telegram/owner LINE and each registered salesperson their own part', async () => {
     const today = todayBangkok()
     const pushes = []
-    let telegram = null
+    const telegrams = []
     const doc = (fields) => ({ document: { name: 'projects/x/databases/(default)/documents/c/' + Math.random(), fields } })
     stubFetch([
       ['oauth2.googleapis.com', () => ({ ok: true, json: async () => ({ access_token: 'fs' }) })],
@@ -354,7 +354,7 @@ describe('09:00 cron — summary to owner plus personal pushes', () => {
         return { ok: true, json: async () => rows }
       }],
       ['system_integrations/line_daily_report', () => ({ ok: true, json: async () => ({ fields: { userId: { stringValue: 'UOWNER' } } }) })],
-      ['api.telegram.org', (url, opts) => { telegram = JSON.parse(opts.body).text; return { ok: true, json: async () => ({}) } }],
+      ['api.telegram.org', (url, opts) => { telegrams.push(JSON.parse(opts.body).text); return { ok: true, json: async () => ({}) } }],
       ['api.line.me/v2/bot/message/push', (url, opts) => { const b = JSON.parse(opts.body); pushes.push([b.to, b.messages[0].text]); return { ok: true, json: async () => ({}) } }],
     ])
     const waits = []
@@ -363,15 +363,16 @@ describe('09:00 cron — summary to owner plus personal pushes', () => {
       TELEGRAM_BOT_TOKEN: 't', TELEGRAM_CHAT_ID: 'c', LINE_CHANNEL_ACCESS_TOKEN: 'tok',
     }, { waitUntil: p => waits.push(p) })
     await Promise.all(waits)
-    expect(telegram).toContain('เตือนงานเช้านี้')
+    const telegram = telegrams.find(t => t.includes('เตือนงานเช้านี้'))
     expect(telegram).toContain('คุณบี')
-    const owner = pushes.find(p => p[0] === 'UOWNER')
+    const owner = pushes.find(p => p[0] === 'UOWNER' && p[1].includes('เตือนงานเช้านี้'))
     expect(owner[1]).toContain('คุณเอ')
     const personal = pushes.find(p => p[0] === 'UV')
     expect(personal[1]).toContain('งานค้างของคุณเช้านี้')
     expect(personal[1]).toContain('คุณเอ')
     expect(personal[1]).not.toContain('คุณบี')
-    expect(pushes).toHaveLength(2)
+    // วันจันทร์จะมีสรุปสัปดาห์ตามไปอีก 1 ข้อความถึงเจ้าของ — ไม่นับในเทสนี้
+    expect(pushes.filter(p => !p[1].includes('สรุปสัปดาห์'))).toHaveLength(2)
   })
 })
 
@@ -395,5 +396,84 @@ describe('auto lead follow-ups in the morning reminder', () => {
     expect(text).toContain('นัดเอง')
     expect(text).not.toContain('- จองแล้ว')
     expect(text).not.toContain('เสียดีล')
+  })
+})
+
+describe('round 3 — stuck bookings and lead sources', () => {
+  it('lists bookings stuck 14+ days per salesperson in the morning reminder', () => {
+    const text = buildMorningReminder({ bookings: [
+      { salesName: 'A', custName: 'ค้างนาน', status: 'รอรถ', bookingDate: '2026-09-01' },
+      { salesName: 'A', custName: 'ยังไม่นาน', status: 'รอรถ', bookingDate: '2026-10-20' },
+      { salesName: 'A', custName: 'ส่งแล้ว', status: 'ส่งมอบแล้ว', bookingDate: '2026-09-01', cutDate: '2026-09-30', totalIncome: 1 },
+      { salesName: 'A', custName: 'ถอน', status: 'ถอนจอง', bookingDate: '2026-09-01' },
+    ] }, { today: '2026-10-24' })
+    expect(text).toContain('ใบจองค้างเกิน 14 วัน: 1 ใบ')
+    expect(text).toContain('ค้างนาน · รอรถ · 53 วัน')
+    expect(text).not.toContain('ยังไม่นาน')
+    expect(text).not.toContain('- ถอน')
+  })
+
+  it('breaks down today\'s new leads by source in the 18:00 report', () => {
+    const text = buildReport({ customers: [
+      { stage: 'lead', source: 'facebook', createdAt: '2026-10-24T03:00:00Z' },
+      { stage: 'pp', source: 'facebook', createdAt: '2026-10-24T04:00:00Z' },
+      { stage: 'pp', source: 'walk-in', createdAt: '2026-10-24T05:00:00Z' },
+      { stage: 'pp', createdAt: '2026-10-24T05:00:00Z' },
+    ] }, { today: '2026-10-24', time: '18:00' })
+    expect(text).toContain('Lead ใหม่วันนี้: 4 ราย')
+    expect(text).toContain('มาจาก: Facebook 2 · Walk-in 1 · อื่นๆ 1')
+  })
+})
+
+describe('weekly summary (Monday mornings)', () => {
+  it('knows which days are Mondays', () => {
+    expect(isMonday('2026-10-26')).toBe(true)
+    expect(isMonday('2026-10-24')).toBe(false)
+  })
+
+  it('summarises last Monday–Sunday against the week before', () => {
+    const text = buildWeeklyReport({
+      customers: [
+        { createdAt: '2026-10-20T03:00:00Z' }, { createdAt: '2026-10-25T03:00:00Z' }, // สัปดาห์นี้ 2
+        { createdAt: '2026-10-14T03:00:00Z' }, // สัปดาห์ก่อน 1
+        { createdAt: '2026-10-26T03:00:00Z' }, // วันนี้ ไม่นับ
+      ],
+      bookings: [
+        { salesName: 'วิชัย', status: 'ส่งมอบแล้ว', bookingDate: '2026-10-01', cutDate: '2026-10-21', totalIncome: 40000 },
+        { salesName: 'นภา', status: 'ส่งมอบแล้ว', bookingDate: '2026-10-19', cutDate: '2026-10-22', totalIncome: 0 },
+        { salesName: 'นภา', status: 'รอรถ', bookingDate: '2026-10-23' },
+        { salesName: 'นภา', status: 'ถอนจอง', bookingDate: '2026-10-05', cancelDate: '2026-10-24' },
+        { salesName: 'วิชัย', status: 'ส่งมอบแล้ว', cutDate: '2026-10-15', totalIncome: 60000 },
+      ],
+    }, { today: '2026-10-26' })
+    expect(text).toContain('19 ต.ค. 2569 – 25 ต.ค. 2569')
+    expect(text).toContain('Lead ใหม่: 2 ราย (🔺 +1)')
+    expect(text).toContain('จองใหม่: 2 คัน (🔺 +2)')
+    expect(text).toContain('ส่งมอบ: 2 คัน (🔺 +1)')
+    expect(text).toContain('รายได้: 40,000 บาท (🔻 −20,000 บาท)')
+    expect(text).toContain('ยังไม่กรอกรายได้ 1 คัน')
+    expect(text).toContain('ถอนจอง: 1 คัน (🔺 +1)')
+    expect(text).toContain('🥇 วิชัย: ส่งมอบ 1 · จอง 0 · รายได้ 40,000 บาท')
+    expect(text).toContain('🥈 นภา: ส่งมอบ 1 · จอง 2 · รายได้ 0 บาท')
+  })
+})
+
+describe('Monday 09:00 run also sends the weekly summary', () => {
+  it('sends the weekly report after the morning reminder only on Mondays', async () => {
+    for (const [iso, expectWeekly] of [['2026-10-26T02:00:00Z', true], ['2026-10-27T02:00:00Z', false]]) {
+      vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date(iso))
+      const telegrams = []
+      stubFetch([
+        ['oauth2.googleapis.com', () => ({ ok: true, json: async () => ({ access_token: 'fs' }) })],
+        ['documents:runQuery', () => ({ ok: true, json: async () => [] })],
+        ['api.telegram.org', (url, opts) => { telegrams.push(JSON.parse(opts.body).text); return { ok: true, json: async () => ({}) } }],
+      ])
+      const waits = []
+      await worker.scheduled({ cron: '0 2 * * *' }, { ...BASE_ENV, FIRESTORE_SERVICE_ACCOUNT_JSON: await fakeServiceAccount(), TELEGRAM_BOT_TOKEN: 't', TELEGRAM_CHAT_ID: 'c' }, { waitUntil: p => waits.push(p) })
+      await Promise.all(waits)
+      vi.useRealTimers()
+      expect(telegrams[0]).toContain('เตือนงานเช้านี้')
+      expect(telegrams.some(t => t.includes('สรุปสัปดาห์ที่แล้ว'))).toBe(expectWeekly)
+    }
   })
 })
