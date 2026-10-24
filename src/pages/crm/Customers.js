@@ -264,6 +264,7 @@ export default async function CustomersPage(container) {
                 ${detail('📅 เพิ่มเมื่อ', formatDate(c.createdAt))}
                 ${detail('📞 ติดต่อล่าสุด', `<span id="wk-last-contact">${c.lastContactAt ? timeAgo(c.lastContactAt) : 'ยังไม่มีบันทึก'}</span> <button class="btn btn-ghost btn-xs" id="wk-touch-btn" title="โทร/ทักลูกค้าแล้ว กดบันทึกไว้">✅ ติดต่อแล้ว</button>`)}
                 ${c.isLost ? detail('❌ เหตุผลเสียดีล', escHtml(c.lostReason || '-')) : ''}
+                ${!c.isLost && c.prevLostReason ? detail('↩️ เคยเสียดีล', escHtml(c.prevLostReason)) : ''}
               </div>
               <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px">
                 <button class="btn btn-secondary btn-sm" id="wk-edit-btn">✏️ แก้ไขข้อมูล</button>
@@ -357,11 +358,14 @@ export default async function CustomersPage(container) {
       const ok = await confirmDialog({ title: 'ยกเลิกสถานะเสียดีล', message: `นำ "${fullName(c)}" กลับมาเป็นลูกค้าที่ยังติดตามอยู่?`, confirmText: 'ยกเลิกเสียดีล' })
       if (!ok) return
       try {
-        const patch = { isLost: false, lostReason: '', lostAt: null }
+        // เริ่มนับความเงียบใหม่จากวันนี้ (ไม่งั้นขึ้นว่า "เงียบ 60 วัน" ทันทีที่ดึงกลับมา) และเก็บเหตุผลเดิมไว้ดูย้อนหลัง
+        const now = new Date().toISOString()
+        const patch = { isLost: false, lostReason: '', lostAt: null, stageChangedAt: now, prevLostReason: c.lostReason || '', revivedAt: now }
         await updateDocData('customers', c.id, patch)
         Object.assign(c, patch)
-        showToast('↩️ ยกเลิกสถานะเสียดีลแล้ว', 'success')
+        showToast('↩️ ยกเลิกสถานะเสียดีลแล้ว · นัดติดตามครั้งถัดไปได้เลย', 'success')
         close(); await loadData(); openDetail(c)
+        openAddFollowup(c, { me: myDisplayName, onSaved: () => refreshFollowupList(c) })
       } catch { showToast('เกิดข้อผิดพลาด', 'error') }
     })
     el.querySelector('#wk-delete-btn')?.addEventListener('click', async () => {
