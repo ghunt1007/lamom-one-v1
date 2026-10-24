@@ -4,17 +4,21 @@ import { listDocs, seedDemoData } from '../../core/db.js'
 import { navigate } from '../../core/router.js'
 import { formatCurrency } from '../../utils/format.js'
 import { getState } from '../../core/store.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
+import { getVisibilityScope, scopeIncludesRecord } from '../../core/hierarchy.js'
 import { t as tr } from '../../i18n/index.js'
 // (v1.0.354) t เป็นชื่อ parameter ของ SOURCES/tasks item ในไฟล์นี้อยู่แล้ว (เช่น t => t.title) เปลี่ยนชื่อ
 // import เป็น tr กันชนกับ t local variable ในหลายจุดของไฟล์นี้
 
 // แต่ละ collection: วิธีดึงข้อความค้นหา + แสดงผล + ปลายทางเมื่อคลิก (groupKey อ้าง i18n key แปลชื่อกลุ่ม)
 const SOURCES = [
-  { col: 'bookings', icon: '📝', groupKey: 'grpBookings', route: '/crm/bookings',
+  // scoped: ดึงตามบริษัทที่มีสิทธิ์ (companyScopeFilters — index companyId+createdAt มีอยู่แล้วจากหน้า Customers/Bookings)
+  // แล้วกรองตามสิทธิ์การมองเห็นของเซลส์ (owner = ชื่อผู้ดูแล) เหมือนหน้าลูกค้า/ใบจอง
+  { col: 'bookings', icon: '📝', groupKey: 'grpBookings', route: '/crm/bookings', scoped: true, owner: b => b.salesName,
     text: b => [b.bookingNo, b.custName, b.brand, b.model, b.variant, b.vin, b.phone, b.salesName].join(' '),
     title: b => (b.bookingNo || '') + ' · ' + (b.custName || ''),
     sub: b => [b.brand, b.model, b.variant].filter(Boolean).join(' ') + ' · ' + (b.status || '') + ' · ' + formatCurrency(b.price) },
-  { col: 'customers', icon: '👤', groupKey: 'grpCustomers', route: '/crm/customers',
+  { col: 'customers', icon: '👤', groupKey: 'grpCustomers', route: c => '/crm/customers?id=' + encodeURIComponent(c.id), scoped: true, owner: c => c.assignedTo,
     text: c => [c.firstName, c.lastName, c.phone, c.email, c.lineId, c.interestedModel].join(' '),
     title: c => [c.firstName, c.lastName].filter(Boolean).join(' '),
     sub: c => (c.phone || '') + (c.interestedModel ? ' · สนใจ ' + c.interestedModel : '') },
@@ -97,6 +101,7 @@ export function openGlobalSearch() {
   if (existing) { existing.querySelector('#gsearch-input')?.focus(); return }
 
   seedDemoData()
+  let visScopePromise = null // สิทธิ์การมองเห็นของผู้ใช้ — โหลดครั้งเดียวต่อการเปิดหน้าค้นหา
 
   const div = document.createElement('div')
   div.id = 'gsearch-overlay'
@@ -154,13 +159,17 @@ export function openGlobalSearch() {
     // ข้อมูลในแต่ละ collection — ดึงขนานกันทุก collection พร้อมกัน
     // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true — ถ้าไม่กรองออก ลูกค้า/ใบจอง/พนักงาน/รถที่ "ลบ"
     // ไปแล้วจะยังค้นเจอและกดเปิดได้จาก Global Search (Ctrl+K) ทั่วทั้งแอปต่อไปเรื่อยๆ
+    if (!visScopePromise) visScopePromise = getVisibilityScope().catch(() => ({ names: new Set(), uids: new Set() }))
+    const visScope = await visScopePromise
     const fetched = await Promise.all(
-      SOURCES.map(src => listDocs(src.col, [], 'createdAt', 'desc', 500).then(rows => rows.filter(r => !r.deleted)).catch(() => []))
+      SOURCES.map(src => listDocs(src.col, src.scoped ? companyScopeFilters() : [], 'createdAt', 'desc', 500)
+        .then(rows => rows.filter(r => !r.deleted && (!src.owner || scopeIncludesRecord(visScope, src.owner(r), r))))
+        .catch(() => []))
     )
     SOURCES.forEach((src, i) => {
       fetched[i].forEach(r => {
         if (matchAll(src.text(r))) {
-          results.push({ type: 'data', icon: src.icon, group: srcGroup(src), title: src.title(r) || tr('noName'), sub: src.sub(r), route: src.route })
+          results.push({ type: 'data', icon: src.icon, group: srcGroup(src), title: src.title(r) || tr('noName'), sub: src.sub(r), route: typeof src.route === 'function' ? src.route(r) : src.route })
         }
       })
     })
