@@ -692,3 +692,17 @@ describe('weekly summary — lead sources', () => {
     expect(text).not.toContain('LINE: จอง')
   })
 })
+
+describe('finance waiting in the 09:00 reminder', () => {
+  it('lists rejected and long-waiting finance per salesperson', () => {
+    const [sec] = buildMorningSections({ customers: [], followups: [], bookings: [
+      { status: 'รอผลไฟแนนซ์', submitDate: '2026-10-20', bookingDate: '2026-10-19', salesName: 'วิชัย', custName: 'ก', financeCo: 'KL' },
+      { status: 'จองแล้ว', finStatus: 'ไม่ผ่าน', bookingDate: '2026-10-22', salesName: 'วิชัย', custName: 'ข' },
+      { status: 'จองแล้ว', finStatus: 'รอผล', submitDate: '2026-10-24', bookingDate: '2026-10-24', salesName: 'วิชัย', custName: 'ค' },
+    ] }, { today: '2026-10-25' })
+    expect(sec.text).toContain('🏦 ไฟแนนซ์รอผลนาน/ไม่ผ่าน: 2 ราย')
+    expect(sec.text).toContain('ข · ไม่ผ่าน ❗')
+    expect(sec.text).toContain('ก (KL) · รอ 5 วัน')
+    expect(sec.text).not.toContain('ค ·')
+  })
+})

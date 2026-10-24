@@ -63,7 +63,7 @@ export default async function FollowUpPage(container) {
             })()
             return {
               id: 'FU-' + b.id, customerId: b.id, sourceBookingId: b.id,
-              customerName: b.custName || 'ลูกค้า', phone: b.custPhone || '',
+              customerName: b.custName || 'ลูกค้า', phone: b.custPhone || b.phone || '',
               vehicleModel: ((b.brand || '') + ' ' + (b.model || '')).trim() || 'รถ',
               salesperson: b.salesName || '', type: 'call',
               purpose: 'หลังส่งมอบรถ', dueDate,

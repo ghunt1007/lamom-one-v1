@@ -20,7 +20,7 @@ export function buildAfterSalesFollowups(booking, today = todayBangkok()) {
   if (delivered > today || addDaysTo(delivered, MAX_BACKDATE_DAYS) < today) return []
   return AFTER_SALES_PLAN.map(p => ({
     customerId: booking.customerId || '', sourceBookingId: booking.id,
-    customerName: booking.custName || 'ลูกค้า', phone: booking.custPhone || '',
+    customerName: booking.custName || 'ลูกค้า', phone: booking.phone || booking.custPhone || '',
     vehicleModel: [booking.brand, booking.model].filter(Boolean).join(' '),
     salesperson: booking.salesName || '', type: p.type, purpose: p.purpose, note: p.note,
     dueDate: addDaysTo(delivered, p.days), status: 'pending', result: '', afterSales: true,

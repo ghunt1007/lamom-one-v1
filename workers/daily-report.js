@@ -347,7 +347,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
 // ── เตือนงานค้างตอนเช้า (09:00) — แยกรายเซลส์ ─────────────────────────────────
 async function buildMorningData(env, accessToken) {
   const [bookings, customers, followups, testDrives] = await Promise.all([
-    runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'model', 'totalIncome', 'deleted']),
+    runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'model', 'totalIncome', 'finStatus', 'submitDate', 'financeCo', 'deleted']),
     runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'isLost', 'createdAt', 'updatedAt', 'stageChangedAt', 'source', 'bookingId', 'deleted']),
     runQuery(env, accessToken, 'followups', null, null, 3000, ['dueDate', 'status', 'salesperson', 'customerName', 'customerId', 'autoLead', 'deleted']),
     runQuery(env, accessToken, 'test_drives', null, null, 3000, ['date', 'time', 'status', 'staff', 'customerName', 'model', 'deleted']).catch(() => []),
@@ -369,7 +369,7 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
   const alive = rows => (rows || []).filter(r => r && !r.deleted)
   const dayNum = d => { const [y, m, dd] = d.split('-').map(Number); return Date.UTC(y, m - 1, dd) / 86400000 }
   const people = {}
-  const person = n => (people[(n || '').trim() || '(ยังไม่มีผู้ดูแล)'] ||= { deliver: [], td: [], stale: [], fu: [], income: [], stuck: [] })
+  const person = n => (people[(n || '').trim() || '(ยังไม่มีผู้ดูแล)'] ||= { deliver: [], td: [], fin: [], stale: [], fu: [], income: [], stuck: [] })
 
   alive(data.customers)
     .filter(c => (c.stage === 'lead' || c.stage === 'pp') && !c.isLost)
@@ -408,6 +408,16 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
       if (inDays === 0 || inDays === 1) person(b.salesName).deliver.push({ name: b.custName || 'ลูกค้า', model: b.model, time: b.deliveryTime, inDays })
     })
 
+  // ไฟแนนซ์รอผลเกิน 3 วัน / ไม่ผ่านแต่ยังไม่ถอนจอง (เกณฑ์เดียวกับ src/utils/myDay.js)
+  alive(data.bookings)
+    .filter(b => !DELIVERED_STATUSES.includes(b.status) && !CANCELLED_STATUSES.includes(b.status))
+    .forEach(b => {
+      const sent = /^\d{4}-\d{2}-\d{2}/.test(b.submitDate || '') ? b.submitDate.slice(0, 10) : (b.bookingDate || '').slice(0, 10)
+      const days = /^\d{4}-\d{2}-\d{2}$/.test(sent) ? dayNum(today) - dayNum(sent) : 0
+      if (b.finStatus === 'ไม่ผ่าน') person(b.salesName).fin.push({ name: b.custName || 'ลูกค้า', co: b.financeCo, rejected: true, days })
+      else if ((b.finStatus === 'รอผล' || b.status === 'รอผลไฟแนนซ์') && days >= 3) person(b.salesName).fin.push({ name: b.custName || 'ลูกค้า', co: b.financeCo, rejected: false, days })
+    })
+
   // นัดทดลองขับวันนี้ที่ยังไม่จบ
   alive(data.testDrives)
     .filter(t => (t.date || '').slice(0, 10) === today && ['scheduled', 'confirmed', 'in_progress'].includes(t.status || 'scheduled'))
@@ -419,7 +429,7 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
     return shown
   }
   return Object.entries(people)
-    .map(([n, p]) => ({ n, p, total: p.deliver.length + p.td.length + p.stale.length + p.fu.length + p.income.length + p.stuck.length }))
+    .map(([n, p]) => ({ n, p, total: p.deliver.length + p.td.length + p.fin.length + p.stale.length + p.fu.length + p.income.length + p.stuck.length }))
     .filter(x => x.total)
     .sort((a, b) => b.total - a.total || a.n.localeCompare(b.n))
     .map(({ n, p }) => {
@@ -431,6 +441,10 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
       if (p.td.length) {
         p.td.sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')))
         out.push(`  🚙 นัดทดลองขับวันนี้: ${p.td.length} ราย`, ...list(p.td.map(t => `${t.time ? t.time + ' · ' : ''}${t.name}${t.model ? ` (${t.model})` : ''}`)))
+      }
+      if (p.fin.length) {
+        p.fin.sort((a, b) => Number(b.rejected) - Number(a.rejected) || b.days - a.days)
+        out.push(`  🏦 ไฟแนนซ์รอผลนาน/ไม่ผ่าน: ${p.fin.length} ราย`, ...list(p.fin.map(f => `${f.name}${f.co ? ` (${f.co})` : ''} · ${f.rejected ? 'ไม่ผ่าน ❗' : `รอ ${f.days} วัน`}`)))
       }
       if (p.stale.length) {
         p.stale.sort((a, b) => b.days - a.days)

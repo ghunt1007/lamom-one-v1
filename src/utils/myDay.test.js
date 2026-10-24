@@ -69,6 +69,19 @@ describe('buildMyDay', () => {
     expect(buildMyDay({ testDrives }, { today, mine: n => n === 'A' }).testDrives.map(t => t.id)).toEqual(['t2', 't1'])
   })
 
+  it('flags finance waiting too long or rejected', () => {
+    const bookings = [
+      { id: 'w1', status: 'รอผลไฟแนนซ์', submitDate: '2026-10-20', salesName: 'A' },
+      { id: 'w2', status: 'จองแล้ว', finStatus: 'รอผล', submitDate: '2026-10-24', salesName: 'A' },
+      { id: 'r1', status: 'จองแล้ว', finStatus: 'ไม่ผ่าน', bookingDate: '2026-10-22', salesName: 'A' },
+      { id: 'r2', status: 'ถอนจอง', finStatus: 'ไม่ผ่าน', salesName: 'A' },
+      { id: 'ok', status: 'จองแล้ว', finStatus: 'ผ่าน', submitDate: '2026-10-01', salesName: 'A' },
+    ]
+    const d = buildMyDay({ bookings }, { today })
+    expect(d.finance.map(b => b.id)).toEqual(['r1', 'w1'])
+    expect(d.finance[1].days).toBe(5)
+  })
+
   it('works with empty data', () => {
     expect(buildMyDay({}, { today }).total).toBe(0)
   })
