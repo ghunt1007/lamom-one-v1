@@ -39,7 +39,10 @@ const CANCELLED_STATUSES = ['ถอนจอง', 'ยกเลิก']
 const STAFF_ROLES = ['owner', 'admin', 'manager', 'sales', 'service', 'finance', 'hr', 'staff']
 // 02:00 UTC = 09:00 เวลาไทย — ต้องตรงกับบรรทัดใน [triggers] crons ของ wrangler-daily-report.toml
 const MORNING_CRON = '0 2 * * *'
+// ป้ายช่องทางที่มาของลูกค้า — key เดียวกับหน้าลูกค้า (Customers.js SOURCE)
+const SOURCE_LABELS = { facebook: 'Facebook', line: 'LINE', tiktok: 'TikTok', 'walk-in': 'Walk-in', referral: 'แนะนำ', google: 'Google', website: 'เว็บไซต์', phone: 'โทรเข้า', other: 'อื่นๆ' }
 const STALE_LEAD_DAYS = 3
+const STUCK_BOOKING_DAYS = 14
 
 export default {
   async fetch(request, env) {
@@ -86,11 +89,18 @@ async function runDailyReport(env, morning = false) {
 
 // 09:00 — สรุปรวมทุกคนส่งเจ้าของ (Telegram + LINE เดิม) แล้วส่งส่วนของใครของมันให้เซลส์ที่ลงทะเบียน LINE ไว้
 async function runMorningReminder(env, accessToken) {
-  const { text, sections, today } = await buildMorningData(env, accessToken)
+  const { text, sections, today, data } = await buildMorningData(env, accessToken)
   const [telegram, line] = await Promise.all([
     sendTelegram(env, text),
     sendLineTarget(env, accessToken, text),
   ])
+  // วันจันทร์: ส่งสรุปสัปดาห์ที่แล้วตามไปอีกข้อความ (แทนสรุปรายสัปดาห์ของ CRM เก่าที่ปิดไปแล้ว)
+  let weekly = null
+  if (isMonday(today)) {
+    const wText = buildWeeklyReport(data, { today })
+    const [wt, wl] = await Promise.all([sendTelegram(env, wText), sendLineTarget(env, accessToken, wText)])
+    weekly = { text: wText, telegram: wt, line: wl }
+  }
   const personal = []
   if (env.LINE_CHANNEL_ACCESS_TOKEN) {
     const targets = await runQuery(env, accessToken, 'line_sales_targets', null, null, 500, ['name', 'userId']).catch(() => [])
@@ -99,7 +109,7 @@ async function runMorningReminder(env, accessToken) {
       personal.push({ name: m.name, ...r })
     }
   }
-  return { text, telegram, line, personal }
+  return { text, telegram, line, personal, weekly }
 }
 
 async function handleTestSend(request, env, cors, morning = false) {
@@ -188,7 +198,7 @@ async function buildReportText(env, accessToken) {
   // select เฉพาะ field ที่รายงานใช้ — ใบจองหลายพันใบทั้งเอกสารใหญ่เกินจน parse JSON เกินโควตา CPU ของ cron
   const [bookings, customers, followups, testDrives, teamTargets] = await Promise.all([
     runQuery(env, accessToken, 'bookings', null, null, 5000, ['bookingDate', 'status', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'salesName', 'totalIncome', 'deleted']),
-    runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'createdAt', 'deleted']),
+    runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'createdAt', 'source', 'deleted']),
     runQuery(env, accessToken, 'followups', null, null, 3000, ['dueDate', 'status', 'deleted']),
     runQuery(env, accessToken, 'test_drives', null, null, 3000, ['date', 'deleted']),
     runQuery(env, accessToken, 'team_targets', null, null, 500, ['period', 'metric', 'target']),
@@ -219,7 +229,11 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
 
   // Lead
   const leads = customers.filter(c => c.stage === 'lead' || c.stage === 'pp')
-  const newLeadsToday = leads.filter(c => toBangkokDate(c.createdAt) === today).length
+  const newLeadsTodayList = leads.filter(c => toBangkokDate(c.createdAt) === today)
+  const newLeadsToday = newLeadsTodayList.length
+  const srcCount = {}
+  newLeadsTodayList.forEach(c => { const k = SOURCE_LABELS[c.source] || SOURCE_LABELS.other; srcCount[k] = (srcCount[k] || 0) + 1 })
+  const srcLine = Object.entries(srcCount).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(' · ')
   const followUpToday = followups.filter(f => f.status === 'pending' && f.dueDate === today).length
   const followUpOverdue = followups.filter(f => f.status === 'pending' && f.dueDate && f.dueDate < today).length
   const testDriveToday = testDrives.filter(t => (t.date || '').slice(0, 10) === today).length
@@ -269,6 +283,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
     '',
     '👥 LEADS',
     `  • Lead ใหม่วันนี้: ${newLeadsToday} ราย`,
+    srcLine ? `    มาจาก: ${srcLine}` : null,
     `  • Lead ที่ดูแลอยู่: ${leads.length} ราย`,
     `  • Follow-up วันนี้: ${followUpToday} ราย`,
     followUpOverdue ? `  • ⚠️ Follow-up เลยกำหนด: ${followUpOverdue} ราย` : null,
@@ -310,13 +325,13 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
 // ── เตือนงานค้างตอนเช้า (09:00) — แยกรายเซลส์ ─────────────────────────────────
 async function buildMorningData(env, accessToken) {
   const [bookings, customers, followups] = await Promise.all([
-    runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'cutDate', 'actualDeliveryDate', 'salesName', 'custName', 'model', 'totalIncome', 'deleted']),
+    runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'salesName', 'custName', 'model', 'totalIncome', 'deleted']),
     runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'isLost', 'createdAt', 'updatedAt', 'stageChangedAt', 'deleted']),
     runQuery(env, accessToken, 'followups', null, null, 3000, ['dueDate', 'status', 'salesperson', 'customerName', 'customerId', 'autoLead', 'deleted']),
   ])
   const today = todayBangkok()
   const data = { bookings, customers, followups }
-  return { today, text: buildMorningReminder(data, { today }), sections: buildMorningSections(data, { today }) }
+  return { today, data, text: buildMorningReminder(data, { today }), sections: buildMorningSections(data, { today }) }
 }
 
 // สร้างข้อความเตือนจากข้อมูลล้วนๆ (export ไว้เทส) — ต่อเซลส์ 1 คน มี 3 เรื่อง:
@@ -331,7 +346,7 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
   const alive = rows => (rows || []).filter(r => r && !r.deleted)
   const dayNum = d => { const [y, m, dd] = d.split('-').map(Number); return Date.UTC(y, m - 1, dd) / 86400000 }
   const people = {}
-  const person = n => (people[(n || '').trim() || '(ยังไม่มีผู้ดูแล)'] ||= { stale: [], fu: [], income: [] })
+  const person = n => (people[(n || '').trim() || '(ยังไม่มีผู้ดูแล)'] ||= { stale: [], fu: [], income: [], stuck: [] })
 
   alive(data.customers)
     .filter(c => (c.stage === 'lead' || c.stage === 'pp') && !c.isLost)
@@ -354,6 +369,13 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
   alive(data.bookings)
     .filter(b => DELIVERED_STATUSES.includes(b.status) && (b.cutDate || b.actualDeliveryDate || '').startsWith(thisMonth) && !(Number(b.totalIncome) || 0))
     .forEach(b => person(b.salesName).income.push({ name: b.custName || 'ลูกค้า', model: b.model }))
+  // ใบจองที่ยังไม่ส่งมอบ/ไม่ถอน จองมาเกิน STUCK_BOOKING_DAYS วัน — เกณฑ์เดียวกับ Intelligence Center บน Dashboard
+  alive(data.bookings)
+    .filter(b => !DELIVERED_STATUSES.includes(b.status) && !CANCELLED_STATUSES.includes(b.status) && /^\d{4}-\d{2}-\d{2}/.test(b.bookingDate || ''))
+    .forEach(b => {
+      const days = dayNum(today) - dayNum(b.bookingDate.slice(0, 10))
+      if (days >= STUCK_BOOKING_DAYS) person(b.salesName).stuck.push({ name: b.custName || 'ลูกค้า', status: b.status || '—', days })
+    })
 
   const list = items => {
     const shown = items.slice(0, maxNames).map(i => `      - ${i}`)
@@ -361,7 +383,7 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
     return shown
   }
   return Object.entries(people)
-    .map(([n, p]) => ({ n, p, total: p.stale.length + p.fu.length + p.income.length }))
+    .map(([n, p]) => ({ n, p, total: p.stale.length + p.fu.length + p.income.length + p.stuck.length }))
     .filter(x => x.total)
     .sort((a, b) => b.total - a.total || a.n.localeCompare(b.n))
     .map(({ n, p }) => {
@@ -372,6 +394,10 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
       }
       if (p.fu.length) out.push(`  📞 Follow-up วันนี้/เลยกำหนด: ${p.fu.length} ราย`, ...list(p.fu.map(f => `${f.name}${f.late ? ' ⚠️ เลยกำหนด' : ''}`)))
       if (p.income.length) out.push(`  💰 ส่งมอบแล้วยังไม่กรอกรายได้: ${p.income.length} คัน`, ...list(p.income.map(i => `${i.name}${i.model ? ` (${i.model})` : ''}`)))
+      if (p.stuck.length) {
+        p.stuck.sort((a, b) => b.days - a.days)
+        out.push(`  ⏳ ใบจองค้างเกิน ${STUCK_BOOKING_DAYS} วัน: ${p.stuck.length} ใบ`, ...list(p.stuck.map(b => `${b.name} · ${b.status} · ${b.days} วัน`)))
+      }
       return { name: n, text: out.join('\n') }
     })
 }
@@ -422,6 +448,65 @@ export function matchSalesTargets(sections, targets) {
     if (section) out.push({ name: section.name, userId: t.userId, section })
   })
   return out
+}
+
+export function isMonday(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay() === 1
+}
+
+// ── สรุปรายสัปดาห์ (ส่งเช้าวันจันทร์) — 7 วันก่อนหน้า (จันทร์–อาทิตย์) เทียบกับสัปดาห์ก่อนนั้น ──────
+export function buildWeeklyReport(data, { today }) {
+  const shift = (d, n) => { const [y, m, dd] = d.split('-').map(Number); return new Date(Date.UTC(y, m - 1, dd + n)).toISOString().slice(0, 10) }
+  const weeks = [[shift(today, -7), shift(today, -1)], [shift(today, -14), shift(today, -8)]]
+  const alive = rows => (rows || []).filter(r => r && !r.deleted)
+  const bookings = alive(data.bookings)
+  const customers = alive(data.customers)
+  const inRange = (d, [a, b]) => !!d && d >= a && d <= b
+  const isCancelled = b => CANCELLED_STATUSES.includes(b.status)
+  const cut = b => (b.cutDate || b.actualDeliveryDate || '').slice(0, 10)
+
+  const stats = range => {
+    const delivered = bookings.filter(b => DELIVERED_STATUSES.includes(b.status) && inRange(cut(b), range))
+    return {
+      leads: customers.filter(c => inRange(toBangkokDate(c.createdAt), range)).length,
+      booked: bookings.filter(b => inRange((b.bookingDate || '').slice(0, 10), range) && !isCancelled(b)).length,
+      delivered: delivered.length,
+      income: delivered.reduce((t, b) => t + (Number(b.totalIncome) || 0), 0),
+      missing: delivered.filter(b => !(Number(b.totalIncome) || 0)).length,
+      cancelled: bookings.filter(b => isCancelled(b) && inRange((b.cancelDate || b.bookingDate || '').slice(0, 10), range)).length,
+      delivList: delivered,
+    }
+  }
+  const [cur, prev] = weeks.map(stats)
+  const diff = (a, b) => a === b ? '➖ เท่าเดิม' : a > b ? `🔺 +${a - b}` : `🔻 −${b - a}`
+  const diffBaht = (a, b) => a === b ? '➖ เท่าเดิม' : a > b ? `🔺 +${fmtBaht(a - b)}` : `🔻 −${fmtBaht(b - a)}`
+
+  const sellers = {}
+  const seller = n => (sellers[(n || '').trim() || '(ไม่ระบุ)'] ||= { bk: 0, dlv: 0, inc: 0 })
+  bookings.forEach(b => { if (inRange((b.bookingDate || '').slice(0, 10), weeks[0]) && !isCancelled(b)) seller(b.salesName).bk++ })
+  cur.delivList.forEach(b => { const s = seller(b.salesName); s.dlv++; s.inc += Number(b.totalIncome) || 0 })
+  const medals = ['🥇', '🥈', '🥉']
+  const sellerLines = Object.entries(sellers)
+    .sort(([, a], [, b]) => b.dlv - a.dlv || b.inc - a.inc || b.bk - a.bk)
+    .map(([n, v], i) => `  ${medals[i] || '•'} ${n}: ส่งมอบ ${v.dlv} · จอง ${v.bk} · รายได้ ${fmtBaht(v.inc)}`)
+
+  return [
+    '📅 LAMOM ONE สรุปสัปดาห์ที่แล้ว',
+    `🗓 ${formatThaiDate(weeks[0][0])} – ${formatThaiDate(weeks[0][1])}`,
+    '─────────────────────',
+    '',
+    `👥 Lead ใหม่: ${cur.leads} ราย (${diff(cur.leads, prev.leads)})`,
+    `📋 จองใหม่: ${cur.booked} คัน (${diff(cur.booked, prev.booked)})`,
+    `✅ ส่งมอบ: ${cur.delivered} คัน (${diff(cur.delivered, prev.delivered)})`,
+    `💰 รายได้: ${fmtBaht(cur.income)} (${diffBaht(cur.income, prev.income)})`,
+    cur.missing ? `  ⚠️ ยังไม่กรอกรายได้ ${cur.missing} คัน — ตัวเลขจริงสูงกว่านี้` : null,
+    `❌ ถอนจอง: ${cur.cancelled} คัน (${diff(cur.cancelled, prev.cancelled)})`,
+    ...(sellerLines.length ? ['', '👤 ทีมขาย (สัปดาห์ที่แล้ว)', ...sellerLines] : []),
+    '',
+    '─────────────────────',
+    '🤖 LAMOM ONE Weekly Report',
+  ].filter(l => l !== null).join('\n')
 }
 
 function fmtBaht(n) { return `${Math.round(n || 0).toLocaleString('en-US')} บาท` }
