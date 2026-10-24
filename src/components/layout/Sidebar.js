@@ -19,6 +19,7 @@ const NAV = [
   {
     group: 'การขาย', groupEn: 'Sales', groupZh: '销售',
     items: [
+      { icon: '☀️', label: 'งานของฉันวันนี้', labelEn: 'My Day', labelZh: '我的今日任务', path: '/crm/my-day' },
       { icon: '📊', label: 'CRM Dashboard', path: '/crm' },
       { icon: '👥', label: 'ลูกค้า (รวม Lead)', labelEn: 'Customers (incl. Leads)', labelZh: '客户（含潜在客户）', path: '/crm/customers' },
       { icon: '📋', label: 'Pipeline', path: '/crm/pipeline' },

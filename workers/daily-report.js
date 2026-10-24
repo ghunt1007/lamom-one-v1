@@ -105,7 +105,7 @@ async function runMorningReminder(env, accessToken) {
   if (env.LINE_CHANNEL_ACCESS_TOKEN) {
     const targets = await runQuery(env, accessToken, 'line_sales_targets', null, null, 500, ['name', 'userId']).catch(() => [])
     for (const m of matchSalesTargets(sections, targets)) {
-      const r = await pushLine(env, m.userId, buildPersonalReminder(m.section, today))
+      const r = await pushLine(env, m.userId, buildPersonalReminder(m.section, today, env.ALLOWED_ORIGIN))
       personal.push({ name: m.name, ...r })
     }
   }
@@ -431,14 +431,15 @@ function clipLine(text) {
 }
 
 // ข้อความส่วนตัวของเซลส์ 1 คน (ส่วนของตัวเองจาก buildMorningSections)
-export function buildPersonalReminder(section, today) {
+// appUrl = origin ของแอป (env.ALLOWED_ORIGIN) — ใส่ลิงก์เปิดหน้า "งานของฉันวันนี้" ที่กดทำงานได้ทันที
+export function buildPersonalReminder(section, today, appUrl = '') {
   return clipLine([
     '☀️ งานค้างของคุณเช้านี้',
     `🗓 ${formatThaiDate(today)}`,
     '',
     section.text,
     '',
-    'เปิดแอป LAMOM ONE เพื่อจัดการได้เลยครับ 💪',
+    appUrl ? `👉 กดทำงานได้ที่: ${String(appUrl).replace(/\/+$/, '')}/crm/my-day` : 'เปิดแอป LAMOM ONE เพื่อจัดการได้เลยครับ 💪',
   ].join('\n'))
 }
 

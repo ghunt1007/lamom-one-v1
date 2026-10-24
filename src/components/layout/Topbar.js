@@ -31,6 +31,7 @@ const BREADCRUMBS = {
   '/finance/margin': 'Finance / Margin',
   '/finance/commission': 'Finance / Commission',
   '/crm/sales-income': 'CRM / รายได้รายเซลส์',
+  '/crm/my-day': 'CRM / งานของฉันวันนี้',
   '/marketing': 'Marketing',
   '/hr': 'HR',
   '/training': 'Training',
