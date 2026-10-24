@@ -28,6 +28,8 @@ import { moveFollowupsOnReassign } from '../../utils/leadAssign.js'
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
+// หมวดเหตุผลเสียดีลยอดนิยม (ปุ่มลัดในหน้าต่างมาร์คเสียดีล) — รายงานสัปดาห์นับรวมตามคำแรกก่อนเครื่องหมาย "-"
+const LOST_REASONS = ['ราคา', 'ซื้อคู่แข่ง', 'ไฟแนนซ์ไม่ผ่าน', 'ยังไม่พร้อม', 'ติดต่อไม่ได้', 'เปลี่ยนรุ่น/ยี่ห้อ']
 
 const STAGE = {
   lead:      { label: '🧲 Lead',        short: 'Lead',       badge: 'accent',  color: '#06B6D4' },
@@ -675,15 +677,23 @@ export default async function CustomersPage(container) {
       title: `⬛ มาร์คเสียดีล — ${escHtml(fullName(c))}`, size: 'sm',
       body: `
         <div class="input-group"><label class="input-label">เหตุผลที่เสียดีล <span class="required">*</span></label>
-          <textarea class="input" id="lost-reason" rows="3" placeholder="ราคา / คู่แข่ง / ไฟแนนซ์ไม่ผ่าน / เปลี่ยนใจ..."></textarea>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">${LOST_REASONS.map(r => `<button type="button" class="btn btn-secondary btn-xs lost-chip">${r}</button>`).join('')}</div>
+          <textarea class="input" id="lost-reason" rows="3" placeholder="เลือกเหตุผลด้านบน แล้วพิมพ์รายละเอียดต่อได้ เช่น ราคา - อีกร้านลดมากกว่า 20,000"></textarea>
           <span class="input-error" id="lost-reason-e"></span>
         </div>
       `,
       footer: `<button class="btn btn-secondary" id="lm-c">ยกเลิก</button><button class="btn btn-danger" id="lm-s">⬛ ยืนยันเสียดีล</button>`,
     })
+    // ปุ่มเหตุผลยอดนิยม — ขึ้นต้นข้อความด้วยหมวดเดียวกันเสมอ รายงานสัปดาห์จะนับรวมตามหมวดได้
+    el.querySelectorAll('.lost-chip').forEach(b => b.addEventListener('click', () => {
+      const ta = el.querySelector('#lost-reason')
+      const rest = ta.value.replace(new RegExp(`^(?:${LOST_REASONS.join('|')})\\s*-?\\s*`), '')
+      ta.value = b.textContent + (rest ? ' - ' + rest : ' - ')
+      ta.focus()
+    }))
     el.querySelector('#lm-c').addEventListener('click', close)
     el.querySelector('#lm-s').addEventListener('click', async () => {
-      const reason = el.querySelector('#lost-reason').value.trim()
+      const reason = el.querySelector('#lost-reason').value.trim().replace(/\s*[-–—:]$/, '').trim()
       if (!reason) { el.querySelector('#lost-reason-e').textContent = 'กรุณาระบุเหตุผล'; return }
       try {
         const patch = { isLost: true, lostReason: reason, lostAt: new Date().toISOString() }
