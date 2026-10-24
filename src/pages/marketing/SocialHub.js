@@ -106,7 +106,7 @@ export default async function SocialHubPage(container) {
     document.querySelectorAll('.use-template-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const t = CONTENT_TEMPLATES.find(x => x.id === btn.dataset.id)
-        if (t) { tab = 'composer'; renderPage(); setTimeout(() => { const ta = document.getElementById('post-content'); if (ta) ta.value = t.body; updateCharCount() }, 50) }
+        if (t) { tab = 'composer'; renderPage(); setTimeout(() => { const ta = document.getElementById('post-content'); if (ta) { ta.value = t.body; ta.dispatchEvent(new Event('input')) } }, 50) }
       })
     })
     document.querySelectorAll('.post-card').forEach(card => {
