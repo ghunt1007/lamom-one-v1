@@ -223,6 +223,14 @@ async function handleLineWebhook(request, env, cors) {
           } else reply = t.reply
         } catch { reply = '⚠️ บันทึกไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
       } else otherMessage = true
+    } else if (cmd.type === 'tomorrow') {
+      const me = await readSalesTarget(env, accessToken, userId)
+      if (me?.name) {
+        try {
+          const { data, today } = await buildMorningData(env, accessToken)
+          reply = clipLine(buildTomorrowText(data, me.name, today))
+        } catch { reply = '⚠️ ดึงงานพรุ่งนี้ไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
+      } else otherMessage = true
     } else if (cmd.type === 'tasks') {
       // ตอบเฉพาะคนที่ลงทะเบียนเป็นเซลส์แล้ว — คนอื่น (เช่น ลูกค้าพิมพ์คำว่า "งาน") ไม่ตอบ ไม่ให้ข้อมูลภายในหลุด
       const me = await readSalesTarget(env, accessToken, userId)
@@ -277,6 +285,8 @@ export function parseLineCommand(text) {
   const tc = t.match(/^(?:โทรแล้ว|ติดต่อแล้ว|ทักแล้ว|called)\s+(.+)$/i)
   if (tc && tc[1].trim().length >= 2) return { type: 'touch', q: tc[1].trim().slice(0, 40) }
   if (/^(?:ช่วยเหลือ|คำสั่ง|help|\?)$/i.test(t)) return { type: 'help' }
+  // เซลส์ดูแผนพรุ่งนี้ของตัวเอง (นัดติดตาม/ส่งมอบ/ทดลองขับ)
+  if (/^(?:พรุ่งนี้|งานพรุ่งนี้|tomorrow)$/i.test(t.replace(/\s+/g, ''))) return { type: 'tomorrow' }
   // เซลส์ขอดูงานค้างของตัวเองตอนไหนก็ได้ (ไม่ต้องรอ 9 โมง)
   if (/^(?:งาน|งานวันนี้|งานค้าง|งานของฉัน|tasks?|todo)$/i.test(t.replace(/\s+/g, ''))) return { type: 'tasks' }
   return { type: 'none' }
@@ -841,6 +851,7 @@ async function writeSalesTarget(env, accessToken, userId, name) {
 export const LINE_HELP_TEXT = [
   '📖 คำสั่งที่ใช้ได้ใน LINE นี้',
   '• งาน — ดูงานค้างของคุณตอนนี้',
+  '• พรุ่งนี้ — ดูนัด/ส่งมอบ/ทดลองขับของพรุ่งนี้',
   '• หา 0812345678 / หา สมชาย — ค้นหาลูกค้า',
   '• โทรแล้ว 0812345678 / โทรแล้ว สมชาย — บันทึกว่าติดต่อลูกค้าแล้ว',
   '• นัด 0812345678 พรุ่งนี้ / นัด สมชาย 28/10 — นัดติดตามลูกค้า',
@@ -950,6 +961,27 @@ async function buildTasksReply(env, accessToken, name) {
     const goals = await readSalesGoals(env, accessToken, today.slice(0, 7))
     return tasksReplyText(sections, name, today, env.ALLOWED_ORIGIN, sellerGoal(data, goals, name, today))
   } catch { return '⚠️ ดึงงานค้างไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
+}
+// คำสั่ง "พรุ่งนี้" — นัดติดตาม/ส่งมอบ/ทดลองขับของเซลส์คนนี้ในวันพรุ่งนี้ (เทียบชื่อแบบเดียวกับเตือน 9 โมง)
+export function buildTomorrowText(data, name, today) {
+  const [y, m, d] = today.split('-').map(Number)
+  const tmr = new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10)
+  const me = normSalesName(name)
+  const isMe = n => normSalesName(n) === me
+  const alive = rows => (rows || []).filter(r => r && !r.deleted)
+  const fus = alive(data.followups).filter(f => f.status === 'pending' && String(f.dueDate || '').slice(0, 10) === tmr && isMe(f.salesperson))
+  const dlv = alive(data.bookings).filter(b => (b.deliveryDate || '').slice(0, 10) === tmr && b.status !== 'ส่งมอบแล้ว' && !CANCELLED_STATUSES.includes(b.status) && isMe(b.salesName))
+    .sort((a, b) => String(a.deliveryTime || '').localeCompare(String(b.deliveryTime || '')))
+  const tds = alive(data.testDrives).filter(t => (t.date || '').slice(0, 10) === tmr && ['scheduled', 'confirmed'].includes(t.status || 'scheduled') && isMe(t.staff))
+    .sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')))
+  if (!fus.length && !dlv.length && !tds.length) return `📅 พรุ่งนี้ (${formatThaiDate(tmr)}) ยังไม่มีนัดของ "${name}" ครับ\nพิมพ์ "นัด เบอร์ พรุ่งนี้" เพื่อนัดลูกค้าได้เลย`
+  const cap = (arr, f) => [...arr.slice(0, 10).map(f), ...(arr.length > 10 ? [`  - …และอีก ${arr.length - 10} ราย`] : [])]
+  return [
+    `📅 งานพรุ่งนี้ของคุณ (${formatThaiDate(tmr)})`,
+    ...(dlv.length ? ['', `🚗 ส่งมอบรถ ${dlv.length} คัน`, ...cap(dlv, b => `  - ${b.deliveryTime ? b.deliveryTime + ' ' : ''}${b.custName || 'ลูกค้า'}${b.model ? ` (${b.model})` : ''}`)] : []),
+    ...(tds.length ? ['', `🔑 ทดลองขับ ${tds.length} ราย`, ...cap(tds, t => `  - ${t.time ? t.time + ' ' : ''}${t.customerName || 'ลูกค้า'}${t.model ? ` (${t.model})` : ''}`)] : []),
+    ...(fus.length ? ['', `📞 นัดติดตาม ${fus.length} ราย`, ...cap(fus, f => `  - ${f.customerName || 'ลูกค้า'}`)] : []),
+  ].join('\n')
 }
 export function tasksReplyText(sections, name, today, appUrl = '', goal = null) {
   const m = matchSalesTargets(sections, [{ name, userId: '-' }])[0]

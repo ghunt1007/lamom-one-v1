@@ -960,6 +960,28 @@ describe('LINE "นัด" — นัดติดตามลูกค้า', (
   })
 })
 
+describe('LINE "พรุ่งนี้"', () => {
+  it('parse และสรุปงานพรุ่งนี้ของเซลส์คนเดียว', async () => {
+    const { buildTomorrowText } = await import('./daily-report.js')
+    expect(parseLineCommand('พรุ่งนี้')).toEqual({ type: 'tomorrow' })
+    expect(parseLineCommand('งาน พรุ่งนี้')).toEqual({ type: 'tomorrow' })
+    const data = {
+      followups: [{ status: 'pending', dueDate: '2026-10-26', salesperson: 'เซลส์ A', customerName: 'คุณหนึ่ง' }, { status: 'pending', dueDate: '2026-10-26', salesperson: 'เซลส์ B', customerName: 'ของคนอื่น' }, { status: 'done', dueDate: '2026-10-26', salesperson: 'เซลส์ A', customerName: 'ทำแล้ว' }],
+      bookings: [{ status: 'รอส่งมอบ', deliveryDate: '2026-10-26', deliveryTime: '10:00', salesName: 'เซลส์ A', custName: 'คุณสอง', model: 'Seal' }, { status: 'ถอนจอง', deliveryDate: '2026-10-26', salesName: 'เซลส์ A', custName: 'ถอนแล้ว' }],
+      testDrives: [{ date: '2026-10-26', time: '14:00', status: 'scheduled', staff: 'เซลส์ A', customerName: 'คุณสาม', model: 'Dolphin' }],
+    }
+    const text = buildTomorrowText(data, 'เซลส์ A', '2026-10-25')
+    expect(text).toContain('🚗 ส่งมอบรถ 1 คัน')
+    expect(text).toContain('10:00 คุณสอง (Seal)')
+    expect(text).toContain('🔑 ทดลองขับ 1 ราย')
+    expect(text).toContain('📞 นัดติดตาม 1 ราย')
+    expect(text).not.toContain('ของคนอื่น')
+    expect(text).not.toContain('ทำแล้ว')
+    expect(text).not.toContain('ถอนแล้ว')
+    expect(buildTomorrowText({}, 'เซลส์ A', '2026-10-25')).toContain('ยังไม่มีนัด')
+  })
+})
+
 describe('runQuery แบ่งหน้า', () => {
   it('buildStructuredQuery หน้าถัดไปเรียงตาม __name__ และเริ่มหลังเอกสารสุดท้าย', async () => {
     const { buildStructuredQuery } = await import('./daily-report.js')
