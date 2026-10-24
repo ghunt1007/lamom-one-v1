@@ -15,6 +15,8 @@ export const QUICK_SOURCES = [
 ]
 
 export const digitsOnly = s => String(s ?? '').replace(/\D/g, '')
+// เบอร์สำหรับเทียบซ้ำ: ตัวเลขล้วน และ +66xxxxxxxxx = 0xxxxxxxxx (คนละรูปแบบแต่เบอร์เดียวกัน)
+export const phoneKey = s => { const d = digitsOnly(s); return d.startsWith('66') && d.length === 11 ? '0' + d.slice(2) : d }
 
 // ช่อง "เบอร์หรือ LINE" ช่องเดียว: ถ้าเป็นตัวเลขล้วน 9–10 หลัก (หลังตัดขีด/ช่องว่าง, รับ +66 ด้วย) = เบอร์โทร
 // นอกนั้นถือเป็น LINE ID
@@ -47,10 +49,10 @@ export function buildQuickLead({ name = '', contact = '', model = '', source = '
 // หา ลูกค้าที่ซ้ำ: เบอร์ (เทียบเฉพาะตัวเลข) หรือ LINE ID (ไม่สนตัวพิมพ์เล็ก/ใหญ่และ @ นำหน้า)
 export function findDuplicate(lead, customers) {
   const normLine = s => String(s ?? '').trim().toLowerCase().replace(/^@/, '')
-  const phone = digitsOnly(lead.phone)
+  const phone = phoneKey(lead.phone)
   const line = normLine(lead.lineId)
   return (customers || []).find(c => !c.deleted && (
-    (phone && digitsOnly(c.phone) === phone) || (line && normLine(c.lineId) === line)
+    (phone && phoneKey(c.phone) === phone) || (line && normLine(c.lineId) === line)
   )) || null
 }
 

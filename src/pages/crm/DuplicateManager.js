@@ -42,7 +42,7 @@ const DEMO_DUPLICATES = [
   },
 ]
 
-function normPhone(p) { return String(p || '').replace(/\D/g, '') }
+function normPhone(p) { const d = String(p || '').replace(/\D/g, ''); return d.startsWith('66') && d.length === 11 ? '0' + d.slice(2) : d } // +66 = 0
 function normName(f, l) { return ((f || '') + (l || '')).trim().toLowerCase() }
 
 // สแกนหาลูกค้าซ้ำจริงจาก collection `customers` — จับคู่ตาม (1) เบอร์โทรตรงกัน หรือ (2) ชื่อ-นามสกุลตรงกันทุกตัวอักษร
