@@ -109,3 +109,14 @@ describe('buildMyDay — ตัดตัวเลขรอส่งมอบท�
     expect(d.deliveries.map(b => b.id)).toEqual(['c1'])
   })
 })
+
+describe('buildMyDay — นัดพรุ่งนี้', () => {
+  it('นับนัดค้างที่ครบกำหนดพรุ่งนี้', () => {
+    const d = buildMyDay({ followups: [
+      { status: 'pending', dueDate: '2026-10-26' }, { status: 'pending', dueDate: '2026-10-26' },
+      { status: 'done', dueDate: '2026-10-26' }, { status: 'pending', dueDate: '2026-10-27' },
+    ] }, { today: '2026-10-25' })
+    expect(d.tomorrow).toBe(2)
+    expect(buildMyDay({}, { today: '2026-12-31' }).tomorrow).toBe(0)
+  })
+})
