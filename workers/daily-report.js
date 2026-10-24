@@ -182,7 +182,7 @@ async function handleLineWebhook(request, env, cors) {
         else {
           try {
             const [customers, followups] = await Promise.all([
-              runQuery(env, accessToken, 'customers', null, null, 5000, ['firstName', 'lastName', 'phone', 'lineId', 'stage', 'assignedTo', 'interestedModel', 'isLost', 'lastContactAt', 'deleted']),
+              runQuery(env, accessToken, 'customers', null, null, 5000, ['firstName', 'lastName', 'phone', 'lineId', 'stage', 'assignedTo', 'interestedModel', 'temperature', 'isLost', 'lostReason', 'lastContactAt', 'deleted']),
               runQuery(env, accessToken, 'followups', null, null, 5000, ['dueDate', 'status', 'customerId', 'deleted'], ['status', 'pending']),
             ])
             // นโยบายการมองเห็นเดียวกับในแอป: เซลส์เห็นเฉพาะลูกค้าที่ตัวเองดูแล — เจ้าของเห็นทั้งหมด
@@ -258,6 +258,28 @@ async function handleLineWebhook(request, env, cors) {
           } catch { reply = '⚠️ บันทึกไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
         }
       } else otherMessage = true
+    } else if (cmd.type === 'temp') {
+      // ตั้ง Hot/Warm/Cold — สิทธิ์เดียวกับ "โทรแล้ว" (เซลส์: ลูกค้าของตัวเอง / เจ้าของ: ทุกคน) ต้องเจอรายเดียว
+      const me = await readSalesTarget(env, accessToken, userId)
+      const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
+      const isOwner = owner && owner === userId
+      if (me?.name || isOwner) {
+        try {
+          const customers = await runQuery(env, accessToken, 'customers', null, null, 5000, ['firstName', 'lastName', 'phone', 'lineId', 'assignedTo', 'isLost', 'deleted'])
+          const mine = isOwner ? customers : customers.filter(c => normSalesName(c.assignedTo) === normSalesName(me?.name))
+          const t = pickTouchTarget(mine, cmd.q)
+          if (!t.customer) reply = t.reply.replace('"โทรแล้ว 0812345678"', '"ร้อน 0812345678"')
+          else {
+            const nowIso = new Date().toISOString()
+            const res = await fetch(`https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents/customers/${encodeURIComponent(t.customer.id)}?updateMask.fieldPaths=temperature&updateMask.fieldPaths=updatedAt&currentDocument.exists=true`, {
+              method: 'PATCH', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ fields: { temperature: { stringValue: cmd.temp }, updatedAt: { timestampValue: nowIso } } }),
+            }).catch(() => null)
+            const label = { hot: '🔴 Hot', warm: '🟡 Warm', cold: '🔵 Cold' }[cmd.temp]
+            reply = res?.ok ? `✅ ตั้ง ${custFullName(t.customer)} เป็น ${label} แล้วครับ` : '⚠️ บันทึกไม่สำเร็จ ลองใหม่อีกครั้งครับ'
+          }
+        } catch { reply = '⚠️ บันทึกไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
+      } else otherMessage = true
     } else if (cmd.type === 'mystats') {
       const me = await readSalesTarget(env, accessToken, userId)
       if (me?.name) {
@@ -332,6 +354,9 @@ export function parseLineCommand(text) {
   const lo = t.match(/^เสียดีล\s+(\S+)\s+(.+)$/)
   if (lo && lo[1].length >= 2) return { type: 'lost', q: lo[1].slice(0, 40), reason: lo[2].trim().replace(/^[-–—:]\s*/, '').slice(0, 200) }
   if (/^เสียดีล(?:\s+\S+)?$/.test(t)) return { type: 'lost', q: '', reason: '' }
+  // เซลส์ตั้งความสนใจลูกค้า: "ร้อน 0812345678" / "อุ่น สมชาย" / "เย็น 0812345678"
+  const tp = t.match(/^(ร้อน|อุ่น|เย็น|hot|warm|cold)\s+(\S+)$/i)
+  if (tp && tp[2].length >= 2) return { type: 'temp', temp: { ร้อน: 'hot', อุ่น: 'warm', เย็น: 'cold' }[tp[1]] || tp[1].toLowerCase(), q: tp[2].slice(0, 40) }
   if (/^(?:ช่วยเหลือ|คำสั่ง|help|\?)$/i.test(t)) return { type: 'help' }
   // เซลส์ดูยอดของตัวเองเดือนนี้ (ส่งมอบ/รายได้/จอง/เป้า)
   if (/^(?:ยอด|ยอดฉัน|ยอดของฉัน|ยอดเดือนนี้|mystats)$/i.test(t.replace(/\s+/g, ''))) return { type: 'mystats' }
@@ -942,6 +967,7 @@ export const LINE_HELP_TEXT = [
   '• โทรแล้ว 0812345678 / โทรแล้ว สมชาย — บันทึกว่าติดต่อลูกค้าแล้ว',
   '• นัด 0812345678 พรุ่งนี้ / นัด สมชาย 28/10 — นัดติดตามลูกค้า',
   '• เสียดีล 0812345678 ราคา — บันทึกว่าเสียดีลพร้อมเหตุผล',
+  '• ร้อน / อุ่น / เย็น 0812345678 — ตั้งความสนใจลูกค้า (Hot/Warm/Cold)',
   '• สรุป — รายงานยอดวันนี้ (เฉพาะเจ้าของ)',
   '• ลงทะเบียน ชื่อเซลส์ — รับงานค้างทุก 9 โมงเช้า',
   '• ยกเลิก — หยุดรับ',
@@ -1033,7 +1059,8 @@ export function findCustomersText(customers, followups, q, today) {
     .map(f => String(f.dueDate).slice(0, 10)).sort()[0]
   const lines = list.slice(0, 5).map(c => {
     const n = next(c.id)
-    return [`👤 ${[c.firstName, c.lastName].filter(Boolean).join(' ') || 'ไม่มีชื่อ'}${c.isLost ? ' (เสียดีล)' : ''} · ${CUST_STAGE[c.stage] || c.stage || '-'}`,
+    const temp = { hot: ' 🔴 Hot', warm: ' 🟡 Warm', cold: ' 🔵 Cold' }[c.temperature] || ''
+    return [`👤 ${[c.firstName, c.lastName].filter(Boolean).join(' ') || 'ไม่มีชื่อ'}${c.isLost ? ` (เสียดีล${c.lostReason ? `: ${lostReasonHead(c.lostReason)}` : ''})` : temp} · ${CUST_STAGE[c.stage] || c.stage || '-'}`,
       `   📱 ${c.phone || '-'}${c.interestedModel ? ` · 🚗 ${c.interestedModel}` : ''}`,
       `   ผู้ดูแล: ${String(c.assignedTo || '').trim() || '⚠️ ยังไม่มี'}${n ? ` · นัดถัดไป ${n < today ? `⚠️ เลยกำหนด (${formatThaiDate(n)})` : formatThaiDate(n)}` : ''}`,
       /^\d{4}-\d{2}-\d{2}$/.test(toBangkokDate(c.lastContactAt)) ? `   ติดต่อล่าสุด: ${formatThaiDate(toBangkokDate(c.lastContactAt))}` : null].filter(Boolean).join('\n')
