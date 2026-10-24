@@ -769,3 +769,11 @@ describe('คำสั่ง "งาน" ทาง LINE', () => {
     expect(none).toContain('1/3')
   })
 })
+
+describe('คำสั่ง "สรุป" ทาง LINE', () => {
+  it('parseLineCommand รู้จักคำสั่งรายงาน', () => {
+    expect(parseLineCommand('สรุป')).toEqual({ type: 'report' })
+    expect(parseLineCommand('รายงาน')).toEqual({ type: 'report' })
+    expect(parseLineCommand('สรุปยอดหน่อย')).toEqual({ type: 'none' })
+  })
+})
