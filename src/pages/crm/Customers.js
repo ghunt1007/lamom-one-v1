@@ -65,6 +65,7 @@ export default async function CustomersPage(container) {
   let stageFilter = 'all'
   let lostOnly = false
   let salesFilter = ''
+  let sourceFilter = ''
 
   // (v1.0.467) เปลี่ยนจาก getMyTeamNames() (มี fallback ผ่อนปรนให้ manager ที่ไม่มีลูกทีมจริงเห็นทุกคนแทน)
   // มาใช้ getVisibilityScope() ตามนโยบายที่เจ้าของระบบยืนยันไว้เข้มงวด — "เห็นเฉพาะผู้ใต้บังคับบัญชาโดยตรง
@@ -114,9 +115,11 @@ export default async function CustomersPage(container) {
         (c.interestedModel || '').toLowerCase().includes(search)
       const matchStage = stageFilter === 'all' || c.stage === stageFilter
       const matchLost = !lostOnly || c.isLost
-      const matchSales = !salesFilter || c.assignedTo === salesFilter
+      // '__none' = ลูกค้าที่ยังไม่มีผู้ดูแล (เช่น ทัก LINE OA เข้ามาเอง) — มอบให้เซลส์ได้ที่หน้า "งานของฉันวันนี้"
+      const matchSales = !salesFilter || (salesFilter === '__none' ? !String(c.assignedTo || '').trim() : c.assignedTo === salesFilter)
+      const matchSource = !sourceFilter || (sourceFilter === 'other' ? !SOURCE[c.source] || c.source === 'other' : c.source === sourceFilter)
       const matchOwn = !ownScopeActive || scopeIncludesRecord(visScope, c.assignedTo, c)
-      return matchSearch && matchStage && matchLost && matchSales && matchOwn
+      return matchSearch && matchStage && matchLost && matchSales && matchSource && matchOwn
     })
     const rank = { high: 0, medium: 1, low: 2 }
     filtered.sort((a, b) => {
@@ -826,7 +829,12 @@ export default async function CustomersPage(container) {
           </div>
           <select class="input" id="cust-sales-filter" style="width:auto;min-width:140px" title="กรองตามผู้ดูแล">
             <option value="">👤 ผู้ดูแลทั้งหมด</option>
+            <option value="__none">⚠️ ยังไม่มีผู้ดูแล</option>
             ${getSalesStaff().map(s => `<option value="${escHtml(s)}">${escHtml(s)}</option>`).join('')}
+          </select>
+          <select class="input" id="cust-source-filter" style="width:auto;min-width:120px" title="กรองตามที่มา">
+            <option value="">📌 ทุกช่องทาง</option>
+            ${Object.entries(SOURCE).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}
           </select>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
             ${['all', ...STAGE_ORDER].map(s => `
@@ -972,6 +980,7 @@ export default async function CustomersPage(container) {
   })
   document.getElementById('cust-search').addEventListener('input', e => { search = e.target.value.trim().toLowerCase(); applyFilter() })
   document.getElementById('cust-sales-filter').addEventListener('change', e => { salesFilter = e.target.value; applyFilter() })
+  document.getElementById('cust-source-filter').addEventListener('change', e => { sourceFilter = e.target.value; applyFilter() })
   document.querySelectorAll('.sf').forEach(btn => btn.addEventListener('click', () => {
     stageFilter = btn.dataset.s
     document.querySelectorAll('.sf').forEach(b => b.className = `btn btn-sm sf ${b.dataset.s === stageFilter ? 'btn-primary' : 'btn-secondary'}`)
