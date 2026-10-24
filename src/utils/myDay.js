@@ -3,11 +3,17 @@
 // ใบจองค้างเกิน 14 วัน) + นัดส่งมอบ 7 วันข้างหน้า และ Lead ใหม่วันนี้ — ฟังก์ชันล้วน ไม่แตะฐานข้อมูล เทสได้
 import { toDate } from './format.js'
 import { DELIVERED_STATUSES, needsIncome } from './deliveryIncome.js'
+import { classifyLostReason } from './lostReason.js'
 
 export const STALE_LEAD_DAYS = 3
 export const STUCK_BOOKING_DAYS = 14
 export const UPCOMING_DELIVERY_DAYS = 7
 export const FINANCE_WAIT_DAYS = 3
+// ลูกค้าที่เสียดีลเพราะเหตุผลที่ "เปลี่ยนได้ตามเวลา" (ยังไม่พร้อม/ไฟแนนซ์/ราคา/ติดต่อไม่ได้) ครบ 30 วัน → ลองติดต่อใหม่
+// ไม่รวมคนที่ซื้อคู่แข่งไปแล้ว ดูแค่ช่วง 30–120 วัน (เก่ากว่านั้นถือว่าหมดโอกาส) และยังไม่ได้ติดต่อหลังเสียดีล
+export const REVISIT_MIN_DAYS = 30
+export const REVISIT_MAX_DAYS = 120
+const REVISIT_REASONS = ['timing', 'finance', 'price', 'no_contact']
 const CANCELLED = ['ถอนจอง', 'ยกเลิก']
 const UNSCHEDULED_STATUSES = ['รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ']
 
@@ -80,6 +86,17 @@ export function buildMyDay({ customers = [], followups = [], bookings = [], test
   // นัดพรุ่งนี้ (ไว้วางแผน ไม่นับเป็นงานค้าง)
   const tomorrow = new Date((dayNum(today) + 1) * 86400000).toISOString().slice(0, 10)
   out.tomorrow = alive(followups).filter(f => f.status === 'pending' && String(f.dueDate || '').slice(0, 10) === tomorrow && mine(f.salesperson, f)).length
+
+  // ลองติดต่อใหม่ (ไม่นับเป็นงานค้าง — เป็นโอกาสเพิ่ม)
+  out.revisit = alive(customers).filter(c => c.isLost && mine(c.assignedTo, c)).map(c => {
+    const lost = bangkokDate(c.lostAt)
+    if (!lost) return null
+    const days = daysBetween(lost, today)
+    if (days < REVISIT_MIN_DAYS || days > REVISIT_MAX_DAYS) return null
+    if (!REVISIT_REASONS.includes(classifyLostReason(c.lostReason))) return null
+    if (bangkokDate(c.lastContactAt) > lost) return null
+    return { ...c, name: custName(c), days }
+  }).filter(Boolean).sort((a, b) => a.days - b.days)
 
   out.followups.sort((a, b) => b.late - a.late)
   out.stale.sort((a, b) => b.days - a.days)
