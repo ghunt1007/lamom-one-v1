@@ -102,3 +102,10 @@ describe('buildMyDay — รอส่งมอบแต่ยังไม่น�
     expect(d.deliveries.map(b => b.id)).toEqual(['u3'])
   })
 })
+
+describe('buildMyDay — ตัดตัวเลขรอส่งมอบที่มีวันนัด', () => {
+  it('ขึ้นในนัดส่งมอบที่กำลังจะถึงด้วย', () => {
+    const d = buildMyDay({ bookings: [{ id: 'c1', status: 'ตัดตัวเลขรอส่งมอบ', deliveryDate: '2026-10-26', cutDate: '2026-10-20', totalIncome: 1 }, { id: 'c2', status: 'ส่งมอบแล้ว', deliveryDate: '2026-10-26' }] }, { today: '2026-10-25' })
+    expect(d.deliveries.map(b => b.id)).toEqual(['c1'])
+  })
+})

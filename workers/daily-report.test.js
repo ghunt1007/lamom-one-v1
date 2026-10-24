@@ -892,3 +892,22 @@ describe('สรุปสัปดาห์ — การติดตามล�
     expect(buildWeeklyReport({ followups: [{ status: 'pending', dueDate: '2026-10-20' }] }, { today: '2026-10-26' })).not.toContain('ติดตามลูกค้าตามนัด')
   })
 })
+
+describe('เตือนส่งมอบ — ตัดตัวเลขรอส่งมอบ', () => {
+  it('เช้า: นัดส่งมอบพรุ่งนี้ของใบที่ตัดตัวเลขแล้ว + รถพร้อมส่งที่ยังไม่นัด', () => {
+    const sections = buildMorningSections({ bookings: [
+      { status: 'ตัดตัวเลขรอส่งมอบ', deliveryDate: '2026-10-26', salesName: 'A', custName: 'ลูกค้า ก', model: 'Seal', totalIncome: 5 },
+      { status: 'รอส่งมอบ', salesName: 'A', custName: 'ลูกค้า ข' },
+      { status: 'ส่งมอบแล้ว', deliveryDate: '2026-10-26', salesName: 'A', custName: 'ลูกค้า ค', totalIncome: 5, cutDate: '2026-09-01' },
+    ] }, { today: '2026-10-25' })
+    const a = sections.find(s => s.name === 'A')
+    expect(a.text).toContain('นัดส่งมอบวันนี้/พรุ่งนี้: 1 คัน')
+    expect(a.text).toContain('ลูกค้า ก (Seal)')
+    expect(a.text).toContain('รถพร้อมส่งแต่ยังไม่นัดวันส่งมอบ: 1 คัน')
+    expect(a.text).not.toContain('ลูกค้า ค')
+  })
+  it('18:00: นัดส่งมอบพรุ่งนี้รวมใบที่ตัดตัวเลขแล้ว', () => {
+    const txt = buildReport({ bookings: [{ status: 'ตัดตัวเลขรอส่งมอบ', deliveryDate: '2026-10-26', custName: 'ลูกค้า ก', cutDate: '2026-10-20' }] }, { today: '2026-10-25', time: '18:00' })
+    expect(txt).toContain('นัดส่งมอบพรุ่งนี้: 1 คัน')
+  })
+})
