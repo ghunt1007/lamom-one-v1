@@ -8,6 +8,7 @@ import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { askDeliveryIncome, needsIncome } from '../../utils/deliveryIncome.js'
+import { scheduleAfterSales } from '../../utils/afterSales.js'
 
 function myName() {
   const me = getState('user') || {}
@@ -174,7 +175,8 @@ export default async function DeliveryCalendarPage(container) {
       if (!d) return
       try {
         await updateDocData('bookings', d.id, { status: LOCAL_TO_BOOKING_STATUS.delivered, actualDeliveryDate: addDays(0) })
-        showToast('🎉 ส่งมอบสำเร็จ! ระบบนัดเช็คระยะแรกอัตโนมัติ', 'success')
+        const fu = await scheduleAfterSales({ ...d.raw, id: d.id, actualDeliveryDate: addDays(0) })
+        showToast(`🎉 ส่งมอบสำเร็จ!${fu ? ' ระบบนัดโทรหาลูกค้า 7 วัน / 30 วัน / เช็กระยะ 6 เดือนให้แล้ว' : ''}`, 'success')
         await loadData()
         const bk = { ...d.raw, id: d.id, status: LOCAL_TO_BOOKING_STATUS.delivered }
         if (needsIncome(bk)) await askDeliveryIncome(bk, { title: '🎉 ส่งมอบแล้ว — กรอกรายได้คันนี้' })
