@@ -966,6 +966,7 @@ export default async function CustomersPage(container) {
             <option value="none">⚠️ Lead/Prospect ที่ไม่มีนัดเลย</option>
             <option value="late">🔴 มีนัดเลยกำหนด</option>
             <option value="quiet">💤 Lead/Prospect เงียบ ${QUIET_DAYS} วัน+</option>
+            <option value="hot">🔥 Lead/Prospect ที่เป็น Hot</option>
           </select>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
             ${['all', ...STAGE_ORDER].map(s => `

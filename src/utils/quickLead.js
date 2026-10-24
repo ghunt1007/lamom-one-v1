@@ -32,7 +32,7 @@ export function splitContact(raw) {
 }
 
 // แปลงค่าจากฟอร์มเป็นเอกสารลูกค้า (ยังไม่มี companyId/เวลา — ใส่ตอนบันทึก)
-export function buildQuickLead({ name = '', contact = '', model = '', source = 'walk-in', note = '' } = {}, { assignedTo = '' } = {}) {
+export function buildQuickLead({ name = '', contact = '', model = '', source = 'walk-in', note = '', hot = false } = {}, { assignedTo = '' } = {}) {
   const parts = String(name).trim().split(/\s+/).filter(Boolean)
   const firstName = parts[0] || ''
   const lastName = parts.slice(1).join(' ')
@@ -40,7 +40,7 @@ export function buildQuickLead({ name = '', contact = '', model = '', source = '
   const fields = {
     firstName, lastName, phone, lineId, email: '',
     interestedModel: String(model).trim(), source: source || 'other',
-    temperature: null, assignedTo, vip: false, notes: String(note).trim(),
+    temperature: hot ? 'hot' : null, assignedTo, vip: false, notes: String(note).trim(),
     budget: 0, occupation: '', monthlyIncome: 0,
   }
   return { ...fields, stage: deriveInitialStage(fields), isLost: false, lostReason: '', lostAt: null, bookingId: null, tags: [] }
@@ -97,6 +97,7 @@ export function openQuickLead() {
         <div class="input-group"><label class="input-label">มาจากไหน</label>
           <div id="ql-sources" style="display:flex;flex-wrap:wrap;gap:6px">${QUICK_SOURCES.map(([k, v]) => `<button type="button" class="btn btn-sm ql-src ${k === source ? 'btn-primary' : 'btn-secondary'}" data-k="${k}">${v}</button>`).join('')}</div>
         </div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;cursor:pointer"><input type="checkbox" id="ql-hot"> 🔴 สนใจมาก (Hot) — พร้อมซื้อเร็ว</label>
         <div style="font-size:0.7rem;color:var(--text-muted)">ผู้ดูแล: ${escHtml(me.displayName || me.email || '—')} · กรอกข้อมูลเพิ่มเติมทีหลังได้ในหน้าลูกค้า</div>
       </div>`,
     footer: `<button class="btn btn-secondary" id="ql-more">เพิ่มอีกคน</button><button class="btn btn-primary" id="ql-save">💾 บันทึก</button>`,
@@ -114,7 +115,7 @@ export function openQuickLead() {
   async function save(keepOpen) {
     const name = $('ql-name').value.trim()
     if (!name) { $('ql-name-e').textContent = 'กรุณาใส่ชื่อ'; $('ql-name').focus(); return }
-    const lead = buildQuickLead({ name, contact: $('ql-contact').value, model: $('ql-model').value, source }, { assignedTo: me.displayName || '' })
+    const lead = buildQuickLead({ name, contact: $('ql-contact').value, model: $('ql-model').value, source, hot: $('ql-hot').checked }, { assignedTo: me.displayName || '' })
     const dup = existing && findDuplicate(lead, existing)
     if (dup && !window.confirm(`ลูกค้าเบอร์/LINE นี้มีอยู่แล้ว (${[dup.firstName, dup.lastName].filter(Boolean).join(' ')}) ยังต้องการเพิ่มซ้ำอีกคนหรือไม่?`)) return
     const btns = [$('ql-save'), $('ql-more')]
@@ -127,6 +128,7 @@ export function openQuickLead() {
       showToast(`✅ เพิ่ม ${name} แล้ว (${doc.stage === 'lead' ? 'Lead' : 'Prospect'})${fu ? ` · นัดติดตาม ${fu} ครั้ง` : ''}`, 'success')
       if (keepOpen) {
         ;['ql-name', 'ql-contact', 'ql-model'].forEach(i => { $(i).value = '' })
+        $('ql-hot').checked = false
         $('ql-dup').textContent = ''; $('ql-name-e').textContent = ''
         $('ql-name').focus()
       } else close()
