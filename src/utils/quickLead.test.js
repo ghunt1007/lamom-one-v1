@@ -43,3 +43,13 @@ describe('findDuplicate', () => {
     expect(findDuplicate({ phone: '', lineId: '' }, customers)).toBeNull()
   })
 })
+
+describe('topModels', () => {
+  it('lists the most requested models with their usual spelling', async () => {
+    const { topModels } = await import('./quickLead.js')
+    const cs = [{ interestedModel: 'BYD Seal' }, { interestedModel: 'byd  seal' }, { interestedModel: 'BYD Seal' }, { interestedModel: 'Dolphin' }, { interestedModel: '' }, { interestedModel: 'Atto 3', deleted: true }]
+    expect(topModels(cs)).toEqual(['BYD Seal', 'Dolphin'])
+    expect(topModels(cs, 1)).toEqual(['BYD Seal'])
+    expect(topModels(null)).toEqual([])
+  })
+})

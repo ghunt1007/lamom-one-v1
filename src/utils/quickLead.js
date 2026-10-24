@@ -54,6 +54,21 @@ export function findDuplicate(lead, customers) {
   )) || null
 }
 
+// รุ่นที่ถูกกรอกบ่อยสุด (ไม่สนตัวพิมพ์/ช่องว่าง) ใช้ตัวสะกดที่เจอบ่อยสุดของแต่ละรุ่น
+export function topModels(customers, max = 30) {
+  const count = new Map()
+  ;(customers || []).forEach(c => {
+    const m = String(c?.interestedModel || '').trim().replace(/\s+/g, ' ')
+    if (!m || c.deleted) return
+    const k = m.toLowerCase()
+    const e = count.get(k) || { n: 0, spell: {} }
+    e.n++; e.spell[m] = (e.spell[m] || 0) + 1
+    count.set(k, e)
+  })
+  return [...count.values()].sort((a, b) => b.n - a.n).slice(0, max)
+    .map(e => Object.entries(e.spell).sort((a, b) => b[1] - a[1])[0][0])
+}
+
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
@@ -63,7 +78,12 @@ export function openQuickLead() {
   let source = 'walk-in'
   let existing = null
   // โหลดลูกค้าล่าสุดไว้เช็คซ้ำ (ไม่บล็อกการเปิดฟอร์ม — ถ้าโหลดไม่ทันก็บันทึกได้ตามปกติ)
-  listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 1000).then(r => { existing = r }).catch(() => {})
+  listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 1000).then(r => {
+    existing = r
+    // รุ่นที่ลูกค้าสนใจบ่อยที่สุด → ตัวเลือกให้กดแทนพิมพ์เอง (พิมพ์รุ่นอื่นได้ตามเดิม)
+    const dl = document.getElementById('ql-models')
+    if (dl) dl.innerHTML = topModels(r).map(m => `<option value="${escHtml(m)}">`).join('')
+  }).catch(() => {})
 
   const { el, close } = openModal({
     title: '🧲 เพิ่ม Lead ด่วน', size: 'sm',
@@ -71,7 +91,7 @@ export function openQuickLead() {
       <div style="display:flex;flex-direction:column;gap:12px">
         <div class="input-group"><label class="input-label">ชื่อลูกค้า <span class="required">*</span></label><input class="input" id="ql-name" placeholder="เช่น สมชาย ใจดี" autocomplete="off"><span class="input-error" id="ql-name-e"></span></div>
         <div class="input-group"><label class="input-label">เบอร์โทร หรือ LINE ID</label><input class="input" id="ql-contact" placeholder="0812345678 หรือ @lineid" autocomplete="off" inputmode="text"><span class="input-error" id="ql-dup" style="color:var(--warning)"></span></div>
-        <div class="input-group"><label class="input-label">รถที่สนใจ</label><input class="input" id="ql-model" placeholder="เช่น BYD Seal" autocomplete="off"></div>
+        <div class="input-group"><label class="input-label">รถที่สนใจ</label><input class="input" id="ql-model" placeholder="เช่น BYD Seal" autocomplete="off" list="ql-models"><datalist id="ql-models"></datalist></div>
         <div class="input-group"><label class="input-label">มาจากไหน</label>
           <div id="ql-sources" style="display:flex;flex-wrap:wrap;gap:6px">${QUICK_SOURCES.map(([k, v]) => `<button type="button" class="btn btn-sm ql-src ${k === source ? 'btn-primary' : 'btn-secondary'}" data-k="${k}">${v}</button>`).join('')}</div>
         </div>
