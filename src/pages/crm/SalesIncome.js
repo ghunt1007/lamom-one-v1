@@ -156,7 +156,7 @@ export default async function SalesIncomePage(container) {
         ${disciplineCard()}
         ${speedCard()}
         <div class="card" style="padding:12px 16px;margin-top:16px;font-size:0.8rem;color:var(--text-2)">
-          📲 <b>ให้เซลส์รับเตือนงานค้างทาง LINE ของตัวเองทุก 9 โมงเช้า:</b> ทัก LINE OA ของบริษัท แล้วพิมพ์ <code>ลงทะเบียน ชื่อเซลส์</code> (ชื่อต้องตรงกับชื่อในช่องเซลส์/ผู้ดูแลของแอป เช่น <code>ลงทะเบียน ${escHtml(rows[0]?.name && !rows[0].name.startsWith('(') ? rows[0].name : 'สมชาย')}</code>) · พิมพ์ <code>งาน</code> เพื่อดูงานค้างได้ทุกเวลา · <code>หา 08xxxxxxxx</code> ค้นหาลูกค้า · <code>โทรแล้ว 08xxxxxxxx</code> บันทึกว่าติดต่อแล้ว · <code>นัด 08xxxxxxxx พรุ่งนี้</code> นัดติดตาม · <code>คำสั่ง</code> ดูคำสั่งทั้งหมด · พิมพ์ <code>ยกเลิก</code> เพื่อหยุดรับ
+          📲 <b>ให้เซลส์รับเตือนงานค้างทาง LINE ของตัวเองทุก 9 โมงเช้า:</b> ทัก LINE OA ของบริษัท แล้วพิมพ์ <code>ลงทะเบียน ชื่อเซลส์</code> (ชื่อต้องตรงกับชื่อในช่องเซลส์/ผู้ดูแลของแอป เช่น <code>ลงทะเบียน ${escHtml(rows[0]?.name && !rows[0].name.startsWith('(') ? rows[0].name : 'สมชาย')}</code>) · พิมพ์ <code>งาน</code> เพื่อดูงานค้างได้ทุกเวลา · <code>พรุ่งนี้</code> งานพรุ่งนี้ · <code>ยอด</code> ยอดของตัวเองเดือนนี้ · <code>หา 08xxxxxxxx</code> ค้นหาลูกค้า · <code>โทรแล้ว 08xxxxxxxx</code> บันทึกว่าติดต่อแล้ว · <code>นัด 08xxxxxxxx พรุ่งนี้</code> นัดติดตาม · <code>คำสั่ง</code> ดูคำสั่งทั้งหมด · พิมพ์ <code>ยกเลิก</code> เพื่อหยุดรับ
         </div>
       </div>`
 
