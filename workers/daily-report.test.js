@@ -750,3 +750,22 @@ describe('buildReport — ถอนจองวันนี้', () => {
     expect(buildReport({ bookings: [] }, { today: '2026-10-25', time: '18:00' })).not.toContain('วันนี้ 0 คัน')
   })
 })
+
+describe('คำสั่ง "งาน" ทาง LINE', () => {
+  it('parseLineCommand รู้จักคำสั่งดูงาน', () => {
+    expect(parseLineCommand('งาน')).toEqual({ type: 'tasks' })
+    expect(parseLineCommand(' งาน วันนี้ ')).toEqual({ type: 'tasks' })
+    expect(parseLineCommand('งานค้าง')).toEqual({ type: 'tasks' })
+    expect(parseLineCommand('มีงานอะไรบ้าง')).toEqual({ type: 'none' })
+  })
+  it('tasksReplyText: มีงาน / ไม่มีงาน', async () => {
+    const { tasksReplyText } = await import('./daily-report.js')
+    const withTask = tasksReplyText([{ name: 'เซลส์ A', text: '📞 Follow-up 2 ราย' }], 'เซลส์ A', '2026-10-25', 'https://x.dev')
+    expect(withTask).toContain('📋 งานค้างของคุณตอนนี้')
+    expect(withTask).toContain('📞 Follow-up 2 ราย')
+    expect(withTask).toContain('https://x.dev/crm/my-day')
+    const none = tasksReplyText([], 'เซลส์ B', '2026-10-25', '', { done: 1, target: 3 })
+    expect(none).toContain('ไม่มีงานค้างของ "เซลส์ B"')
+    expect(none).toContain('1/3')
+  })
+})
