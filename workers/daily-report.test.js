@@ -269,6 +269,7 @@ describe('per-salesperson LINE reminders', () => {
     expect(text).toContain('งานค้างของคุณเช้านี้')
     expect(text).toContain('👤 วิชัย ใจดี')
     expect(text).not.toContain('Napa')
+    expect(buildPersonalReminder(m[0].section, '2026-10-24', 'https://lamom-one.pages.dev/')).toContain('https://lamom-one.pages.dev/crm/my-day')
   })
 })
 

@@ -13,6 +13,7 @@ const routes = {
   '/crm/customers': () => import('../pages/crm/Customers.js'),
   '/crm/bookings':  () => import('../pages/crm/Bookings.js'),
   '/crm/sales-income': () => import('../pages/crm/SalesIncome.js'),
+  '/crm/my-day': () => import('../pages/crm/MyDay.js'),
   '/crm/action-plan': () => import('../pages/crm/ActionPlan.js'),
   '/crm/predelivery': () => import('../pages/crm/PreDelivery.js'),
   // M2 DMS
