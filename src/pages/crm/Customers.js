@@ -588,7 +588,7 @@ export default async function CustomersPage(container) {
   // (v1.0.459) ประวัติ Job Card ของลูกค้าคนนี้ — job_cards ยังไม่มี field customerId มาก่อน (พึ่งเพิ่มใหม่)
   // เลยจับคู่แบบ best-effort ด้วยเบอร์โทร (เชื่อถือได้กว่าชื่อ เพราะพิมพ์ผิด/สะกดต่างกันได้) ควบกับ customerId
   // จริงสำหรับ Job Card ที่เปิดจากปุ่ม "🔧 เปิด Job Card" ในหน้านี้นับจากนี้ไป
-  function normPhone(p) { return String(p || '').replace(/\D/g, '') }
+  function normPhone(p) { const d = String(p || '').replace(/\D/g, ''); return d.startsWith('66') && d.length === 11 ? '0' + d.slice(2) : d } // +66 = 0
   async function refreshJobCardPanel(c) {
     const el = document.getElementById('wk-jobcard-panel')
     if (!el) return

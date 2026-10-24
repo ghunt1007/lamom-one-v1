@@ -38,6 +38,10 @@ describe('findDuplicate', () => {
     expect(findDuplicate({ phone: '0812345678' }, customers)?.id).toBe('a')
     expect(findDuplicate({ lineId: 'beeline' }, customers)?.id).toBe('b')
   })
+  it('treats +66 and 0 prefixes as the same number', () => {
+    expect(findDuplicate({ phone: '+66 81 234 5678' }, customers)?.id).toBe('a')
+    expect(findDuplicate({ phone: '0812345678' }, [{ id: 'x', phone: '+66812345678' }])?.id).toBe('x')
+  })
   it('ignores deleted customers and empty contacts', () => {
     expect(findDuplicate({ phone: '0899999999' }, customers)).toBeNull()
     expect(findDuplicate({ phone: '', lineId: '' }, customers)).toBeNull()

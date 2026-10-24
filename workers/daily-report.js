@@ -795,11 +795,12 @@ export const LINE_HELP_TEXT = [
 const CUST_STAGE = { lead: 'Lead', pp: 'Prospect', booking: 'จองแล้ว', delivered: 'ส่งมอบแล้ว' }
 // ค้นหาลูกค้า: ตัวเลข ≥ 4 หลัก = เทียบเบอร์ (เฉพาะตัวเลข) ไม่งั้นเทียบชื่อ/LINE ID แบบมีคำนี้อยู่ — ตอบสูงสุด 5 ราย
 export function findCustomersText(customers, followups, q, today) {
-  const digits = String(q).replace(/\D/g, '')
+  const pkey = p => { const d = String(p || '').replace(/\D/g, ''); return d.startsWith('66') && d.length === 11 ? '0' + d.slice(2) : d } // +66 = 0
+  const digits = pkey(q)
   const needle = String(q).trim().toLowerCase()
-  const byPhone = digits.length >= 4 && digits.length === String(q).replace(/[\s\-]/g, '').length
+  const byPhone = digits.length >= 4 && /^\+?[\d\s\-]+$/.test(String(q).trim())
   const list = (customers || []).filter(c => c && !c.deleted).filter(c => byPhone
-    ? String(c.phone || '').replace(/\D/g, '').includes(digits)
+    ? pkey(c.phone).includes(digits)
     : `${c.firstName || ''} ${c.lastName || ''}`.toLowerCase().includes(needle) || String(c.lineId || '').toLowerCase().includes(needle))
   if (!list.length) return `🔍 ไม่พบลูกค้า "${q}"`
   const next = id => (followups || []).filter(f => f && !f.deleted && f.status === 'pending' && f.customerId === id && f.dueDate)
