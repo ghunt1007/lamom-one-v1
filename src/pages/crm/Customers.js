@@ -796,7 +796,7 @@ export default async function CustomersPage(container) {
             <div class="input-group"><label class="input-label">อุณหภูมิ</label><select class="input" id="ft"><option value="">-</option>${Object.entries(TEMP).map(([k, v]) => `<option value="${k}" ${existing?.temperature === k ? 'selected' : ''}>${v.label}</option>`).join('')}</select></div>
           </div>
           <div class="grid-2">
-            <div class="input-group"><label class="input-label">ผู้ดูแล</label><select class="input" id="fa"><option value="">-</option>${getSalesStaff().map(s => `<option ${existing?.assignedTo === s ? 'selected' : ''}>${escHtml(s)}</option>`).join('')}</select></div>
+            <div class="input-group"><label class="input-label">ผู้ดูแล</label><select class="input" id="fa"><option value="">-</option>${getSalesStaff().map(s => `<option ${(existing ? existing.assignedTo : myDisplayName) === s ? 'selected' : ''}>${escHtml(s)}</option>`).join('')}</select></div>
             <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;margin-top:22px;cursor:pointer"><input type="checkbox" id="fvip" ${existing?.vip ? 'checked' : ''}> ⭐ ลูกค้า VIP</label>
           </div>
           <div class="input-group"><label class="input-label">หมายเหตุ</label><textarea class="input" id="fn" rows="2" placeholder="บันทึกข้อมูลเพิ่มเติม...">${escHtml(existing?.notes || '')}</textarea></div>

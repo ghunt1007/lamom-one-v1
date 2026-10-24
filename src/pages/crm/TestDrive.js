@@ -1,5 +1,5 @@
 import { listDocs, listAllDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
@@ -291,7 +291,7 @@ export default async function TestDrivePage(container) {
           <div class="input-group"><label class="input-label">เวลา</label><input class="input" type="time" id="nf-time" value="10:00"></div>
         </div>
         <div class="input-group"><label class="input-label">Sales ที่รับผิดชอบ</label>
-          <select class="input" id="nf-staff">${getSalesStaff().map(s => `<option>${s}</option>`).join('')}</select>
+          <select class="input" id="nf-staff">${getSalesStaff().map(s => `<option ${s === (getState("user")?.displayName || "") ? "selected" : ""}>${s}</option>`).join('')}</select>
         </div>
       </div>`,
       footer: `<button class="btn btn-secondary" id="nfc">ยกเลิก</button><button class="btn btn-primary" id="nfs">📅 นัดหมาย</button>`
