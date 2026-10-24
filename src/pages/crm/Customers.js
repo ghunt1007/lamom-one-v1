@@ -20,7 +20,8 @@ import { OCCUPATIONS } from '../../utils/financeMatch.js'
 import { openQuickLead } from '../../utils/quickLead.js'
 import { planLeadImport } from '../../utils/leadImport.js'
 import { scheduleLeadFollowups, closeAutoLeadFollowups } from '../../utils/leadFollowups.js'
-import { pendingFollowupsFor, addDays, buildManualFollowup, FOLLOWUP_PURPOSES, followupWindowFilters } from '../../utils/customerFollowups.js'
+import { pendingFollowupsFor, followupWindowFilters } from '../../utils/customerFollowups.js'
+import { openAddFollowup } from '../../utils/addFollowupModal.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -394,7 +395,7 @@ export default async function CustomersPage(container) {
         </div>`).join('')}</div>`
         : `<div style="font-size:0.78rem;color:var(--text-muted);padding:6px 2px">ไม่มีนัดค้าง${!c.isLost && ['lead', 'pp'].includes(c.stage) ? ' — ควรนัดติดตามครั้งถัดไปไว้ จะได้ไม่ลืม' : ''}</div>`}
     `
-    el.querySelector('#wk-fu-add-btn')?.addEventListener('click', () => openAddFollowup(c, () => refreshFollowupList(c)))
+    el.querySelector('#wk-fu-add-btn')?.addEventListener('click', () => openAddFollowup(c, { me: myDisplayName, onSaved: () => refreshFollowupList(c) }))
     el.querySelectorAll('.wk-fu-done').forEach(btn => btn.addEventListener('click', () => {
       const f = list.find(x => x.id === btn.dataset.id)
       if (!f) return
@@ -412,31 +413,6 @@ export default async function CustomersPage(container) {
       })
       setTimeout(() => document.getElementById('wk-fu-result')?.focus(), 50)
     }))
-  }
-
-  function openAddFollowup(c, onSaved) {
-    const tomorrow = addDays(todayBangkok(), 1)
-    openModal({
-      title: `➕ นัดติดตาม ${escHtml(fullName(c))}`, size: 'sm',
-      body: `
-        <div class="input-group"><label class="input-label">วันที่นัด *</label><input class="input" type="date" id="wk-nf-date" value="${tomorrow}"></div>
-        <div class="input-group"><label class="input-label">เรื่อง</label><select class="input" id="wk-nf-purpose">${FOLLOWUP_PURPOSES.map(p => `<option${p === (c.stage === 'lead' ? 'ติดตาม Lead ใหม่' : 'ทั่วไป') ? ' selected' : ''}>${p}</option>`).join('')}</select></div>
-        <div class="input-group"><label class="input-label">ช่องทาง</label><select class="input" id="wk-nf-type"><option value="call">📞 โทร</option><option value="line">💚 LINE</option><option value="visit">🏠 นัดพบ</option></select></div>
-        <div class="input-group"><label class="input-label">หมายเหตุ</label><input class="input" id="wk-nf-note" placeholder="เช่น โทรหลังเที่ยง"></div>
-      `,
-      async onConfirm() {
-        const dueDate = document.getElementById('wk-nf-date')?.value
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate || '')) { showToast('❗ กรุณาเลือกวันที่', 'error'); return false }
-        const f = buildManualFollowup(c, {
-          dueDate, purpose: document.getElementById('wk-nf-purpose')?.value, type: document.getElementById('wk-nf-type')?.value,
-          note: document.getElementById('wk-nf-note')?.value, me: myDisplayName,
-        })
-        try {
-          await createDoc('followups', { ...f, companyId: c.companyId ?? myEffectiveCompanyId() })
-          showToast(`📅 นัดติดตามวันที่ ${formatDate(dueDate)} แล้ว`, 'success'); onSaved?.()
-        } catch { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
-      },
-    })
   }
 
   async function refreshTimeline(c) {
