@@ -906,6 +906,50 @@ describe('LINE "โทรแล้ว" — บันทึกว่าติด�
   })
 })
 
+describe('LINE "นัด" — นัดติดตามลูกค้า', () => {
+  it('parse คำสั่งและวันนัด', async () => {
+    const { parseThaiDue } = await import('./daily-report.js')
+    expect(parseLineCommand('นัด 0812345678 พรุ่งนี้')).toEqual({ type: 'plan', q: '0812345678', when: 'พรุ่งนี้' })
+    expect(parseLineCommand('นัด สมชาย ใจดี 28/10')).toEqual({ type: 'plan', q: 'สมชาย ใจดี', when: '28/10' })
+    expect(parseLineCommand('นัด')).toEqual({ type: 'none' })
+    const T = '2026-10-25'
+    expect(parseThaiDue('วันนี้', T)).toBe('2026-10-25')
+    expect(parseThaiDue('พรุ่งนี้', T)).toBe('2026-10-26')
+    expect(parseThaiDue('มะรืน', T)).toBe('2026-10-27')
+    expect(parseThaiDue('10วัน', T)).toBe('2026-11-04')
+    expect(parseThaiDue('+3', T)).toBe('2026-10-28')
+    expect(parseThaiDue('28/10', T)).toBe('2026-10-28')
+    expect(parseThaiDue('5/1', T)).toBe('2027-01-05') // ผ่านไปแล้วปีนี้ → ปีหน้า
+    expect(parseThaiDue('28/10/69', T)).toBe('2026-10-28')
+    expect(parseThaiDue('1/11/2569', T)).toBe('2026-11-01')
+    expect(parseThaiDue('1/11/2026', T)).toBe('2026-11-01')
+    expect(parseThaiDue('31/2', T)).toBe(null)
+    expect(parseThaiDue('เร็วๆนี้', T)).toBe(null)
+  })
+  it('เซลส์พิมพ์ "นัด เบอร์ พรุ่งนี้" → สร้างนัดให้ลูกค้าของตัวเอง', async () => {
+    const replies = []; const posts = []
+    stubFetch([
+      ['oauth2.googleapis.com', () => ({ ok: true, json: async () => ({ access_token: 'fs' }) })],
+      ['system_integrations/line_daily_report', () => ({ ok: true, json: async () => ({ fields: { userId: { stringValue: 'UOWNER' } } }) })],
+      ['line_sales_targets/', () => ({ ok: true, json: async () => ({ fields: { name: { stringValue: 'เซลส์ A' } } }) })],
+      [':runQuery', () => ({ ok: true, json: async () => [
+        { document: { name: 'p/customers/c1', fields: { firstName: { stringValue: 'สมชาย' }, phone: { stringValue: '0812345678' }, assignedTo: { stringValue: 'เซลส์ A' }, companyId: { stringValue: 'co1' } } } },
+        { document: { name: 'p/customers/c2', fields: { firstName: { stringValue: 'คนอื่น' }, phone: { stringValue: '0812345000' }, assignedTo: { stringValue: 'เซลส์ B' } } } }] })],
+      ['/documents/followups', (url, opts) => { posts.push(JSON.parse(opts.body).fields); return { ok: true, json: async () => ({}) } }],
+      ['api.line.me/v2/bot/message/reply', (url, opts) => { replies.push(JSON.parse(opts.body).messages[0].text); return { ok: true, json: async () => ({}) } }],
+    ])
+    const body = JSON.stringify({ events: [{ type: 'message', replyToken: 'rt', source: { userId: 'USALES' }, message: { type: 'text', text: 'นัด 0812345 พรุ่งนี้' } }] })
+    const env = { ...BASE_ENV, LINE_CHANNEL_SECRET: 'sec', LINE_CHANNEL_ACCESS_TOKEN: 'tok', FIRESTORE_SERVICE_ACCOUNT_JSON: await fakeServiceAccount() }
+    await worker.fetch(new Request('https://w/line/webhook', { method: 'POST', headers: { 'X-Line-Signature': await lineSig(body, 'sec') }, body }), env)
+    expect(posts).toHaveLength(1)
+    expect(posts[0].customerId).toEqual({ stringValue: 'c1' })
+    expect(posts[0].salesperson).toEqual({ stringValue: 'เซลส์ A' })
+    expect(posts[0].companyId).toEqual({ stringValue: 'co1' })
+    expect(posts[0].status).toEqual({ stringValue: 'pending' })
+    expect(replies[0]).toContain('📅 นัดติดตาม สมชาย')
+  })
+})
+
 describe('runQuery แบ่งหน้า', () => {
   it('buildStructuredQuery หน้าถัดไปเรียงตาม __name__ และเริ่มหลังเอกสารสุดท้าย', async () => {
     const { buildStructuredQuery } = await import('./daily-report.js')
