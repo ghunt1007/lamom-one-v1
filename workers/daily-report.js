@@ -151,6 +151,15 @@ async function handleLineWebhook(request, env, cors) {
       // เซลส์ลงทะเบียนชื่อตัวเอง → เช้าวันถัดไปได้งานค้างของตัวเองทาง LINE (ชื่อต้องตรงกับชื่อเซลส์/ผู้ดูแลในแอป)
       await writeSalesTarget(env, accessToken, userId, cmd.name)
       reply = `✅ ลงทะเบียนชื่อ "${cmd.name}" แล้วครับ\nทุกเช้า 9 โมงจะส่งงานค้างของคุณมาที่นี่ หรือพิมพ์ "งาน" เพื่อดูได้ทันที\n(ชื่อต้องตรงกับชื่อเซลส์ในแอป LAMOM ONE — พิมพ์ "ยกเลิก" เพื่อหยุดรับ)`
+    } else if (cmd.type === 'report') {
+      // เฉพาะเจ้าของ (ปลายทางรายงานประจำวัน) เท่านั้น — คนอื่นพิมพ์มาไม่ตอบ
+      const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
+      if (!owner) {
+        await writeLineTarget(env, accessToken, userId)
+        reply = '✅ ลงทะเบียนรับรายงานประจำวัน LAMOM ONE เรียบร้อยแล้วครับ (พิมพ์ "สรุป" อีกครั้งเพื่อดูรายงานตอนนี้)'
+      } else if (owner === userId) {
+        try { reply = clipLine(await buildReportText(env, accessToken)) } catch { reply = '⚠️ ดึงรายงานไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
+      }
     } else if (cmd.type === 'tasks') {
       // ตอบเฉพาะคนที่ลงทะเบียนเป็นเซลส์แล้ว — คนอื่น (เช่น ลูกค้าพิมพ์คำว่า "งาน") ไม่ตอบ ไม่ให้ข้อมูลภายในหลุด
       const me = await readSalesTarget(env, accessToken, userId)
@@ -188,6 +197,8 @@ export function parseLineCommand(text) {
   const m = t.match(/^(?:ลงทะเบียน|register)\s*(?:เซลส์|เซลล์|sales)?\s*[:：]?\s*(.+)$/i)
   if (m && m[1].trim()) return { type: 'register', name: m[1].trim().slice(0, 60) }
   if (/^(?:ยกเลิก|unregister)$/i.test(t)) return { type: 'unregister' }
+  // เจ้าของขอดูรายงานสรุปตอนนี้ (เนื้อหาเดียวกับรายงาน 18:00)
+  if (/^(?:สรุป|รายงาน|สรุปวันนี้|report)$/i.test(t.replace(/\s+/g, ''))) return { type: 'report' }
   // เซลส์ขอดูงานค้างของตัวเองตอนไหนก็ได้ (ไม่ต้องรอ 9 โมง)
   if (/^(?:งาน|งานวันนี้|งานค้าง|งานของฉัน|tasks?|todo)$/i.test(t.replace(/\s+/g, ''))) return { type: 'tasks' }
   return { type: 'none' }
