@@ -47,3 +47,15 @@ describe('summarizeSalesIncome — ถอนจอง', () => {
     expect(total.cancelled).toBe(2)
   })
 })
+
+describe('undatedDeliveries', () => {
+  it('ส่งมอบแล้วแต่ไม่มีวัน', async () => {
+    const { undatedDeliveries } = await import('./salesIncome.js')
+    expect(undatedDeliveries([
+      { id: 'a', status: 'ส่งมอบแล้ว' },
+      { id: 'b', status: 'ส่งมอบแล้ว', cutDate: '2026-10-01' },
+      { id: 'c', status: 'ตัดตัวเลขรอส่งมอบ', actualDeliveryDate: '' },
+      { id: 'd', status: 'รอรถ' },
+    ]).map(b => b.id)).toEqual(['a', 'c'])
+  })
+})

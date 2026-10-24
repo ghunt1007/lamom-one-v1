@@ -45,3 +45,8 @@ export function lastMonths(current, count = 12) {
     return d.toISOString().slice(0, 7)
   })
 }
+
+// ส่งมอบแล้ว/ตัดตัวเลขแล้ว แต่ไม่มีทั้งวันตัดตัวเลขและวันส่งมอบจริง → ไม่ถูกนับเป็นยอดของเดือนไหนเลย
+export function undatedDeliveries(bookings) {
+  return (bookings || []).filter(b => b && !b.deleted && DELIVERED_STATUSES.includes(b.status) && !deliveredMonth(b))
+}
