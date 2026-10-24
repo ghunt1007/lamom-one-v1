@@ -824,8 +824,11 @@ export default async function DashboardPage(container) {
       if (picker && document.activeElement !== picker) picker.value = prevM
       const cur = bookings.filter(b => (b.bookingDate || '').startsWith(selectedMonth))
       const prev = bookings.filter(b => (b.bookingDate || '').startsWith(prevM))
-      const dlvCur = bookings.filter(b => b.status === 'ส่งมอบแล้ว' && (b.actualDeliveryDate || '').startsWith(selectedMonth)).length
-      const dlvPrev = bookings.filter(b => b.status === 'ส่งมอบแล้ว' && (b.actualDeliveryDate || '').startsWith(prevM)).length
+      // นับส่งมอบแบบเดียวกับการ์ด KPI ด้านบน (ตัดตัวเลข/ส่งมอบ ตามวันตัดตัวเลข) — เดิมนับแค่ "ส่งมอบแล้ว" ตามวันส่งมอบจริง
+      // ทำให้ตัวเลขเทียบเดือนไม่ตรงกับการ์ดด้านบนและรายงาน LINE
+      const dlvIn = m => bookings.filter(b => ['ส่งมอบแล้ว', 'ตัดตัวเลขรอส่งมอบ'].includes(b.status) && (b.cutDate || b.actualDeliveryDate || '').startsWith(m)).length
+      const dlvCur = dlvIn(selectedMonth)
+      const dlvPrev = dlvIn(prevM)
       const revCur = cur.reduce((s, b) => s + (b.price || 0), 0)
       const revPrev = prev.reduce((s, b) => s + (b.price || 0), 0)
       const mgCur = cur.reduce((s, b) => s + (b.margin || 0), 0)
