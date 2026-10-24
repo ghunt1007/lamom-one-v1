@@ -131,6 +131,7 @@ export default async function DashboardPage(container) {
           <div class="page-subtitle">${formatThaiDate()} · LAMOM ONE</div>
         </div>
         <div class="page-actions">
+          ${hasModuleAccess(myRole, getModuleForPath('/crm/my-day')?.key, user?.extraGrants) ? `<button class="btn btn-warning btn-sm" data-nav="/crm/my-day">☀️ งานของฉันวันนี้</button>` : ''}
           <button class="btn btn-secondary btn-sm" data-nav="/analytics">📊 Analytics</button>
           <button class="btn btn-primary btn-sm" id="dash-new-lead-btn" data-nav="/crm/leads">➕ ${t('newLead')}</button>
         </div>
