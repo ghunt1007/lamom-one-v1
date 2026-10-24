@@ -75,12 +75,31 @@ export default {
 async function runDailyReport(env, morning = false) {
   const accessToken = await getFirestoreAccessToken(env)
   if (!accessToken) return { error: 'อ่าน Firestore ไม่ได้ — ตรวจสอบ secret FIRESTORE_SERVICE_ACCOUNT_JSON' }
-  const text = morning ? await buildMorningText(env, accessToken) : await buildReportText(env, accessToken)
+  if (morning) return runMorningReminder(env, accessToken)
+  const text = await buildReportText(env, accessToken)
   const [telegram, line] = await Promise.all([
     sendTelegram(env, text),
     sendLineTarget(env, accessToken, text),
   ])
   return { text, telegram, line }
+}
+
+// 09:00 — สรุปรวมทุกคนส่งเจ้าของ (Telegram + LINE เดิม) แล้วส่งส่วนของใครของมันให้เซลส์ที่ลงทะเบียน LINE ไว้
+async function runMorningReminder(env, accessToken) {
+  const { text, sections, today } = await buildMorningData(env, accessToken)
+  const [telegram, line] = await Promise.all([
+    sendTelegram(env, text),
+    sendLineTarget(env, accessToken, text),
+  ])
+  const personal = []
+  if (env.LINE_CHANNEL_ACCESS_TOKEN) {
+    const targets = await runQuery(env, accessToken, 'line_sales_targets', null, null, 500, ['name', 'userId']).catch(() => [])
+    for (const m of matchSalesTargets(sections, targets)) {
+      const r = await pushLine(env, m.userId, buildPersonalReminder(m.section, today))
+      personal.push({ name: m.name, ...r })
+    }
+  }
+  return { text, telegram, line, personal }
 }
 
 async function handleTestSend(request, env, cors, morning = false) {
@@ -94,7 +113,7 @@ async function handlePreview(request, env, cors, morning = false) {
   if (auth.error) return json({ error: auth.error }, auth.status, cors)
   const accessToken = await getFirestoreAccessToken(env)
   if (!accessToken) return json({ error: 'อ่าน Firestore ไม่ได้ — ตรวจสอบ secret FIRESTORE_SERVICE_ACCOUNT_JSON' }, 500, cors)
-  return json({ text: morning ? await buildMorningText(env, accessToken) : await buildReportText(env, accessToken) }, 200, cors)
+  return json({ text: morning ? (await buildMorningData(env, accessToken)).text : await buildReportText(env, accessToken) }, 200, cors)
 }
 
 // ── LINE webhook — จับ userId ของคนที่ทัก LINE OA มาเก็บเป็นปลายทางส่งรายงาน ──────
@@ -114,16 +133,41 @@ async function handleLineWebhook(request, env, cors) {
   const accessToken = await getFirestoreAccessToken(env)
   for (const ev of events) {
     const userId = ev.source?.userId
-    if (userId && accessToken) await writeLineTarget(env, accessToken, userId)
-    if (ev.replyToken && env.LINE_CHANNEL_ACCESS_TOKEN) {
+    if (!userId || !accessToken) continue
+    const cmd = parseLineCommand(ev.type === 'message' && ev.message?.type === 'text' ? ev.message.text : '')
+    let reply = null
+    if (cmd.type === 'register') {
+      // เซลส์ลงทะเบียนชื่อตัวเอง → เช้าวันถัดไปได้งานค้างของตัวเองทาง LINE (ชื่อต้องตรงกับชื่อเซลส์/ผู้ดูแลในแอป)
+      await writeSalesTarget(env, accessToken, userId, cmd.name)
+      reply = `✅ ลงทะเบียนชื่อ "${cmd.name}" แล้วครับ\nทุกเช้า 9 โมงจะส่งงานค้างของคุณมาที่นี่\n(ชื่อต้องตรงกับชื่อเซลส์ในแอป LAMOM ONE — พิมพ์ "ยกเลิก" เพื่อหยุดรับ)`
+    } else if (cmd.type === 'unregister') {
+      await deleteSalesTarget(env, accessToken, userId)
+      reply = '✅ ยกเลิกการรับเตือนงานค้างแล้วครับ'
+    } else if (!env.LINE_TARGET_ID && !(await readLineTarget(env, accessToken))) {
+      // ยังไม่มีปลายทางรายงานเจ้าของ → คนแรกที่ทักคือเจ้าของ (พฤติกรรมเดิม) — เดิมทุกข้อความที่เข้ามาจะเขียนทับ
+      // ปลายทางเจ้าของทุกครั้ง พอเซลส์เริ่มทัก OA รายงานเจ้าของจะไปเข้า LINE เซลส์แทน จึงเขียนครั้งแรกครั้งเดียว
+      await writeLineTarget(env, accessToken, userId)
+      reply = '✅ ลงทะเบียนรับรายงานประจำวัน LAMOM ONE เรียบร้อยแล้วครับ'
+    }
+    // ข้อความอื่น (เช่น ลูกค้าทักมา) ไม่ตอบอะไร — OA นี้อาจเป็นช่องทางคุยกับลูกค้าด้วย
+    if (reply && ev.replyToken && env.LINE_CHANNEL_ACCESS_TOKEN) {
       await fetch('https://api.line.me/v2/bot/message/reply', {
         method: 'POST',
         headers: { Authorization: `Bearer ${env.LINE_CHANNEL_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ replyToken: ev.replyToken, messages: [{ type: 'text', text: '✅ ลงทะเบียนรับรายงานประจำวัน LAMOM ONE เรียบร้อยแล้วครับ' }] }),
+        body: JSON.stringify({ replyToken: ev.replyToken, messages: [{ type: 'text', text: reply }] }),
       }).catch(() => {})
     }
   }
   return json({ ok: true }, 200, cors)
+}
+
+// "ลงทะเบียน สมชาย" / "ลงทะเบียนเซลส์: สมชาย" / "register Somchai" → { type:'register', name }, "ยกเลิก" → unregister
+export function parseLineCommand(text) {
+  const t = String(text || '').trim()
+  const m = t.match(/^(?:ลงทะเบียน|register)\s*(?:เซลส์|เซลล์|sales)?\s*[:：]?\s*(.+)$/i)
+  if (m && m[1].trim()) return { type: 'register', name: m[1].trim().slice(0, 60) }
+  if (/^(?:ยกเลิก|unregister)$/i.test(t)) return { type: 'unregister' }
+  return { type: 'none' }
 }
 
 async function verifyLineSignature(rawBody, signature, channelSecret) {
@@ -264,13 +308,15 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
 }
 
 // ── เตือนงานค้างตอนเช้า (09:00) — แยกรายเซลส์ ─────────────────────────────────
-async function buildMorningText(env, accessToken) {
+async function buildMorningData(env, accessToken) {
   const [bookings, customers, followups] = await Promise.all([
     runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'cutDate', 'actualDeliveryDate', 'salesName', 'custName', 'model', 'totalIncome', 'deleted']),
     runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'isLost', 'createdAt', 'updatedAt', 'stageChangedAt', 'deleted']),
-    runQuery(env, accessToken, 'followups', null, null, 3000, ['dueDate', 'status', 'salesperson', 'customerName', 'deleted']),
+    runQuery(env, accessToken, 'followups', null, null, 3000, ['dueDate', 'status', 'salesperson', 'customerName', 'customerId', 'autoLead', 'deleted']),
   ])
-  return buildMorningReminder({ bookings, customers, followups }, { today: todayBangkok() })
+  const today = todayBangkok()
+  const data = { bookings, customers, followups }
+  return { today, text: buildMorningReminder(data, { today }), sections: buildMorningSections(data, { today }) }
 }
 
 // สร้างข้อความเตือนจากข้อมูลล้วนๆ (export ไว้เทส) — ต่อเซลส์ 1 คน มี 3 เรื่อง:
@@ -278,8 +324,9 @@ async function buildMorningText(env, accessToken) {
 //      — แก้ข้อมูลหรือบันทึกการติดต่อในหน้าลูกค้าแล้ว updatedAt จะขยับเอง)
 //   2) Follow-up ที่ครบกำหนดวันนี้หรือเลยมาแล้ว
 //   3) คันที่ส่งมอบเดือนนี้แต่ยังไม่กรอกรายได้ (นิยามเดียวกับ buildReport)
-// ระบบยังไม่มี LINE ของเซลส์แต่ละคน จึงส่งรวมเป็นข้อความเดียวเข้าแชทเดียวกับรายงาน 18:00 แบ่งหัวข้อตามชื่อ
-export function buildMorningReminder(data, { today, staleDays = STALE_LEAD_DAYS, maxNames = 5 }) {
+// สรุปรวมทุกคนส่งเข้าแชทเจ้าของ (แชทเดียวกับรายงาน 18:00) ส่วนเซลส์ที่ลงทะเบียน LINE ไว้ได้เฉพาะส่วนของตัวเองด้วย
+// คืน [{ name, text }] เรียงคนที่งานค้างมากสุดก่อน
+export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS, maxNames = 5 }) {
   const thisMonth = today.slice(0, 7)
   const alive = rows => (rows || []).filter(r => r && !r.deleted)
   const dayNum = d => { const [y, m, dd] = d.split('-').map(Number); return Date.UTC(y, m - 1, dd) / 86400000 }
@@ -294,8 +341,15 @@ export function buildMorningReminder(data, { today, staleDays = STALE_LEAD_DAYS,
       const days = dayNum(today) - dayNum(last)
       if (days >= staleDays) person(c.assignedTo).stale.push({ name: [c.firstName, c.lastName].filter(Boolean).join(' ') || 'ไม่มีชื่อ', days, model: c.interestedModel })
     })
+  // นัดติดตาม Lead อัตโนมัติ (autoLead) ของลูกค้าที่จองไปแล้ว/เสียดีลแล้ว ไม่ต้องเตือนต่อ
+  const custById = new Map((data.customers || []).map(c => [c.id, c]))
+  const autoDone = f => {
+    if (!f.autoLead) return false
+    const c = custById.get(f.customerId)
+    return !!c && (c.deleted || c.isLost || !['lead', 'pp'].includes(c.stage))
+  }
   alive(data.followups)
-    .filter(f => f.status === 'pending' && f.dueDate && f.dueDate <= today)
+    .filter(f => f.status === 'pending' && f.dueDate && f.dueDate <= today && !autoDone(f))
     .forEach(f => person(f.salesperson).fu.push({ name: f.customerName || 'ลูกค้า', late: f.dueDate < today }))
   alive(data.bookings)
     .filter(b => DELIVERED_STATUSES.includes(b.status) && (b.cutDate || b.actualDeliveryDate || '').startsWith(thisMonth) && !(Number(b.totalIncome) || 0))
@@ -306,7 +360,7 @@ export function buildMorningReminder(data, { today, staleDays = STALE_LEAD_DAYS,
     if (items.length > maxNames) shown.push(`      - …และอีก ${items.length - maxNames} ราย`)
     return shown
   }
-  const sections = Object.entries(people)
+  return Object.entries(people)
     .map(([n, p]) => ({ n, p, total: p.stale.length + p.fu.length + p.income.length }))
     .filter(x => x.total)
     .sort((a, b) => b.total - a.total || a.n.localeCompare(b.n))
@@ -318,8 +372,13 @@ export function buildMorningReminder(data, { today, staleDays = STALE_LEAD_DAYS,
       }
       if (p.fu.length) out.push(`  📞 Follow-up วันนี้/เลยกำหนด: ${p.fu.length} ราย`, ...list(p.fu.map(f => `${f.name}${f.late ? ' ⚠️ เลยกำหนด' : ''}`)))
       if (p.income.length) out.push(`  💰 ส่งมอบแล้วยังไม่กรอกรายได้: ${p.income.length} คัน`, ...list(p.income.map(i => `${i.name}${i.model ? ` (${i.model})` : ''}`)))
-      return out.join('\n')
+      return { name: n, text: out.join('\n') }
     })
+}
+
+export function buildMorningReminder(data, opts) {
+  const { today } = opts
+  const sections = buildMorningSections(data, opts).map(s => s.text)
 
   const text = [
     '☀️ LAMOM ONE เตือนงานเช้านี้',
@@ -331,8 +390,38 @@ export function buildMorningReminder(data, { today, staleDays = STALE_LEAD_DAYS,
     '─────────────────────',
     '🤖 LAMOM ONE Auto Reminder',
   ].join('\n')
-  // LINE รับข้อความได้ไม่เกิน 5,000 ตัวอักษร — ทีมใหญ่/งานค้างเยอะให้ตัดท้ายแทนที่จะส่งไม่ออกทั้งข้อความ
+  return clipLine(text)
+}
+
+// LINE รับข้อความได้ไม่เกิน 5,000 ตัวอักษร — ตัดท้ายแทนที่จะส่งไม่ออกทั้งข้อความ
+function clipLine(text) {
   return text.length > 4900 ? text.slice(0, 4850) + '\n…(ตัดข้อความ ดูต่อในแอป)' : text
+}
+
+// ข้อความส่วนตัวของเซลส์ 1 คน (ส่วนของตัวเองจาก buildMorningSections)
+export function buildPersonalReminder(section, today) {
+  return clipLine([
+    '☀️ งานค้างของคุณเช้านี้',
+    `🗓 ${formatThaiDate(today)}`,
+    '',
+    section.text,
+    '',
+    'เปิดแอป LAMOM ONE เพื่อจัดการได้เลยครับ 💪',
+  ].join('\n'))
+}
+
+// เทียบชื่อแบบไม่สนช่องว่าง/ตัวพิมพ์ คำนำหน้า "คุณ" — ชื่อที่ลงทะเบียนต้องตรงกับชื่อเซลส์/ผู้ดูแลในแอป
+export function normSalesName(n) {
+  return String(n || '').toLowerCase().replace(/^คุณ/, '').replace(/[\s.]/g, '')
+}
+export function matchSalesTargets(sections, targets) {
+  const out = []
+  ;(targets || []).forEach(t => {
+    const key = normSalesName(t.name)
+    const section = key && t.userId && (sections || []).find(s => normSalesName(s.name) === key)
+    if (section) out.push({ name: section.name, userId: t.userId, section })
+  })
+  return out
 }
 
 function fmtBaht(n) { return `${Math.round(n || 0).toLocaleString('en-US')} บาท` }
@@ -399,6 +488,29 @@ async function writeLineTarget(env, accessToken, userId) {
       body: JSON.stringify({ fields: { userId: { stringValue: userId }, capturedAt: { timestampValue: new Date().toISOString() } } }),
     })
   } catch { /* ครั้งหน้าทักมาใหม่ก็จับได้อีก ไม่ critical ถ้าครั้งนี้เขียนไม่สำเร็จ */ }
+}
+// LINE ของเซลส์แต่ละคน: collection line_sales_targets/{userId} = { name, userId }
+async function writeSalesTarget(env, accessToken, userId, name) {
+  await fetch(`https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents/line_sales_targets/${encodeURIComponent(userId)}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fields: { name: { stringValue: name }, userId: { stringValue: userId }, registeredAt: { timestampValue: new Date().toISOString() } } }),
+  }).catch(() => {})
+}
+async function deleteSalesTarget(env, accessToken, userId) {
+  await fetch(`https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents/line_sales_targets/${encodeURIComponent(userId)}`, {
+    method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` },
+  }).catch(() => {})
+}
+async function pushLine(env, to, text) {
+  const res = await fetch('https://api.line.me/v2/bot/message/push', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${env.LINE_CHANNEL_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ to, messages: [{ type: 'text', text }] }),
+  }).catch(() => null)
+  if (res?.ok) return { sent: true }
+  const data = res ? await res.json().catch(() => ({})) : {}
+  return { sent: false, error: data.message || `LINE ${res?.status || 'network error'}` }
 }
 
 // ── Firestore REST — runQuery (ไม่มี where — กัน composite index) ──

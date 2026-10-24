@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import worker, { daysSinceBangkok, formatThaiDate, todayBangkok, decodeFsValue, buildReport, buildMorningReminder } from './daily-report.js'
+import worker, { daysSinceBangkok, formatThaiDate, todayBangkok, decodeFsValue, buildReport, buildMorningReminder, buildMorningSections, buildPersonalReminder, matchSalesTargets, parseLineCommand } from './daily-report.js'
 
 const BASE_ENV = { FIREBASE_API_KEY: 'fake-public-key', FIREBASE_PROJECT_ID: 'fake-project', ALLOWED_ORIGIN: 'https://lamom-one.pages.dev' }
 
@@ -242,5 +242,158 @@ describe('buildMorningReminder (09:00 per-salesperson reminder)', () => {
 
   it('says there is nothing pending when everything is up to date', () => {
     expect(buildMorningReminder({}, { today: '2026-10-24' })).toContain('ไม่มีงานค้าง')
+  })
+})
+
+describe('per-salesperson LINE reminders', () => {
+  it('parses register / unregister commands sent to the LINE OA', () => {
+    expect(parseLineCommand('ลงทะเบียน สมชาย')).toEqual({ type: 'register', name: 'สมชาย' })
+    expect(parseLineCommand('ลงทะเบียนเซลส์: วิชัย ใจดี')).toEqual({ type: 'register', name: 'วิชัย ใจดี' })
+    expect(parseLineCommand('register Somchai')).toEqual({ type: 'register', name: 'Somchai' })
+    expect(parseLineCommand('ยกเลิก')).toEqual({ type: 'unregister' })
+    expect(parseLineCommand('สวัสดีครับ สนใจรถ')).toEqual({ type: 'none' })
+    expect(parseLineCommand('ลงทะเบียน')).toEqual({ type: 'none' })
+  })
+
+  it('matches registered names to sections ignoring spaces, case and the คุณ prefix', () => {
+    const sections = buildMorningSections({
+      customers: [{ stage: 'lead', firstName: 'ก', assignedTo: 'วิชัย ใจดี', createdAt: '2026-10-01T03:00:00Z' }],
+      followups: [{ status: 'pending', dueDate: '2026-10-24', salesperson: 'Napa', customerName: 'ข' }],
+    }, { today: '2026-10-24' })
+    expect(sections.map(s => s.name)).toEqual(['Napa', 'วิชัย ใจดี'].sort((a, b) => a.localeCompare(b)))
+    const m = matchSalesTargets(sections, [
+      { name: 'คุณวิชัยใจดี', userId: 'U1' }, { name: 'napa', userId: 'U2' }, { name: 'ไม่มีงาน', userId: 'U3' },
+    ])
+    expect(m.map(x => [x.name, x.userId])).toEqual([['วิชัย ใจดี', 'U1'], ['Napa', 'U2']])
+    const text = buildPersonalReminder(m[0].section, '2026-10-24')
+    expect(text).toContain('งานค้างของคุณเช้านี้')
+    expect(text).toContain('👤 วิชัย ใจดี')
+    expect(text).not.toContain('Napa')
+  })
+})
+
+async function fakeServiceAccount() {
+  const kp = await crypto.subtle.generateKey({ name: 'RSASSA-PKCS1-v1_5', modulusLength: 1024, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' }, true, ['sign', 'verify'])
+  const der = new Uint8Array(await crypto.subtle.exportKey('pkcs8', kp.privateKey))
+  let bin = ''; der.forEach(b => { bin += String.fromCharCode(b) })
+  return JSON.stringify({ client_email: 'sa@x.iam.gserviceaccount.com', private_key: `-----BEGIN PRIVATE KEY-----\n${btoa(bin)}\n-----END PRIVATE KEY-----\n` })
+}
+async function lineSig(body, secret) {
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+  const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(body)))
+  let bin = ''; sig.forEach(b => { bin += String.fromCharCode(b) })
+  return btoa(bin)
+}
+
+describe('LINE webhook — owner capture and salesperson registration', () => {
+  async function post(events, env, { ownerStored = true } = {}) {
+    const calls = []
+    stubFetch([
+      ['oauth2.googleapis.com', () => ({ ok: true, json: async () => ({ access_token: 'fs' }) })],
+      ['system_integrations/line_daily_report', (url, opts) => {
+        calls.push(['owner', opts?.method || 'GET', opts?.body])
+        return ownerStored && !opts?.method ? { ok: true, json: async () => ({ fields: { userId: { stringValue: 'UOWNER' } } }) } : { ok: !opts?.method ? false : true, json: async () => ({}) }
+      }],
+      ['line_sales_targets/', (url, opts) => { calls.push(['sales', opts.method, decodeURIComponent(String(url).split('/').pop()), opts.body]); return { ok: true, json: async () => ({}) } }],
+      ['api.line.me/v2/bot/message/reply', (url, opts) => { calls.push(['reply', JSON.parse(opts.body).messages[0].text]); return { ok: true, json: async () => ({}) } }],
+    ])
+    const body = JSON.stringify({ events })
+    const env2 = { ...BASE_ENV, LINE_CHANNEL_SECRET: 'sec', LINE_CHANNEL_ACCESS_TOKEN: 'tok', FIRESTORE_SERVICE_ACCOUNT_JSON: await fakeServiceAccount(), ...env }
+    const res = await worker.fetch(new Request('https://w/line/webhook', { method: 'POST', headers: { 'X-Line-Signature': await lineSig(body, 'sec') }, body }), env2)
+    expect(res.status).toBe(200)
+    return calls
+  }
+  const msg = (text, userId = 'USALES') => ({ type: 'message', replyToken: 'rt', source: { userId }, message: { type: 'text', text } })
+
+  it('registers a salesperson by name and confirms', async () => {
+    const calls = await post([msg('ลงทะเบียน วิชัย')])
+    const w = calls.find(c => c[0] === 'sales')
+    expect(w[1]).toBe('PATCH')
+    expect(w[2]).toBe('USALES')
+    expect(JSON.parse(w[3]).fields.name.stringValue).toBe('วิชัย')
+    expect(calls.find(c => c[0] === 'reply')[1]).toContain('ลงทะเบียนชื่อ "วิชัย" แล้ว')
+    expect(calls.some(c => c[0] === 'owner' && c[1] === 'PATCH')).toBe(false)
+  })
+
+  it('unregisters on ยกเลิก', async () => {
+    const calls = await post([msg('ยกเลิก')])
+    expect(calls.find(c => c[0] === 'sales')[1]).toBe('DELETE')
+  })
+
+  it('no longer overwrites the owner report destination when someone else chats, and stays silent', async () => {
+    const calls = await post([msg('สนใจรถครับ', 'UCUSTOMER')])
+    expect(calls.some(c => c[0] === 'owner' && c[1] === 'PATCH')).toBe(false)
+    expect(calls.some(c => c[0] === 'reply')).toBe(false)
+  })
+
+  it('still captures the first person as owner when no destination is stored yet', async () => {
+    const calls = await post([msg('สวัสดี', 'UFIRST')], {}, { ownerStored: false })
+    const w = calls.find(c => c[0] === 'owner' && c[1] === 'PATCH')
+    expect(JSON.parse(w[2]).fields.userId.stringValue).toBe('UFIRST')
+    expect(calls.find(c => c[0] === 'reply')[1]).toContain('ลงทะเบียนรับรายงานประจำวัน')
+  })
+})
+
+describe('09:00 cron — summary to owner plus personal pushes', () => {
+  it('sends the full summary to Telegram/owner LINE and each registered salesperson their own part', async () => {
+    const today = todayBangkok()
+    const pushes = []
+    let telegram = null
+    const doc = (fields) => ({ document: { name: 'projects/x/databases/(default)/documents/c/' + Math.random(), fields } })
+    stubFetch([
+      ['oauth2.googleapis.com', () => ({ ok: true, json: async () => ({ access_token: 'fs' }) })],
+      ['documents:runQuery', (url, opts) => {
+        const col = JSON.parse(opts.body).structuredQuery.from[0].collectionId
+        const rows = {
+          followups: [
+            doc({ status: { stringValue: 'pending' }, dueDate: { stringValue: today }, salesperson: { stringValue: 'วิชัย' }, customerName: { stringValue: 'คุณเอ' } }),
+            doc({ status: { stringValue: 'pending' }, dueDate: { stringValue: today }, salesperson: { stringValue: 'นภา' }, customerName: { stringValue: 'คุณบี' } }),
+          ],
+          line_sales_targets: [doc({ name: { stringValue: 'วิชัย' }, userId: { stringValue: 'UV' } })],
+        }[col] || []
+        return { ok: true, json: async () => rows }
+      }],
+      ['system_integrations/line_daily_report', () => ({ ok: true, json: async () => ({ fields: { userId: { stringValue: 'UOWNER' } } }) })],
+      ['api.telegram.org', (url, opts) => { telegram = JSON.parse(opts.body).text; return { ok: true, json: async () => ({}) } }],
+      ['api.line.me/v2/bot/message/push', (url, opts) => { const b = JSON.parse(opts.body); pushes.push([b.to, b.messages[0].text]); return { ok: true, json: async () => ({}) } }],
+    ])
+    const waits = []
+    await worker.scheduled({ cron: '0 2 * * *' }, {
+      ...BASE_ENV, FIRESTORE_SERVICE_ACCOUNT_JSON: await fakeServiceAccount(),
+      TELEGRAM_BOT_TOKEN: 't', TELEGRAM_CHAT_ID: 'c', LINE_CHANNEL_ACCESS_TOKEN: 'tok',
+    }, { waitUntil: p => waits.push(p) })
+    await Promise.all(waits)
+    expect(telegram).toContain('เตือนงานเช้านี้')
+    expect(telegram).toContain('คุณบี')
+    const owner = pushes.find(p => p[0] === 'UOWNER')
+    expect(owner[1]).toContain('คุณเอ')
+    const personal = pushes.find(p => p[0] === 'UV')
+    expect(personal[1]).toContain('งานค้างของคุณเช้านี้')
+    expect(personal[1]).toContain('คุณเอ')
+    expect(personal[1]).not.toContain('คุณบี')
+    expect(pushes).toHaveLength(2)
+  })
+})
+
+describe('auto lead follow-ups in the morning reminder', () => {
+  it('skips automatic follow-ups for customers who already booked or were lost, keeps the rest', () => {
+    const text = buildMorningReminder({
+      customers: [
+        { id: 'c1', stage: 'booking', firstName: 'จองแล้ว' },
+        { id: 'c2', stage: 'pp', isLost: true, firstName: 'เสียดีล' },
+        { id: 'c3', stage: 'pp', firstName: 'ยังติดตาม', updatedAt: '2026-10-24T01:00:00Z' },
+      ],
+      followups: [
+        { status: 'pending', dueDate: '2026-10-24', salesperson: 'A', customerName: 'จองแล้ว', customerId: 'c1', autoLead: true },
+        { status: 'pending', dueDate: '2026-10-24', salesperson: 'A', customerName: 'เสียดีล', customerId: 'c2', autoLead: true },
+        { status: 'pending', dueDate: '2026-10-24', salesperson: 'A', customerName: 'ยังติดตาม', customerId: 'c3', autoLead: true },
+        { status: 'pending', dueDate: '2026-10-24', salesperson: 'A', customerName: 'นัดเอง', customerId: 'c1' },
+      ],
+    }, { today: '2026-10-24' })
+    expect(text).toContain('Follow-up วันนี้/เลยกำหนด: 2 ราย')
+    expect(text).toContain('ยังติดตาม')
+    expect(text).toContain('นัดเอง')
+    expect(text).not.toContain('- จองแล้ว')
+    expect(text).not.toContain('เสียดีล')
   })
 })

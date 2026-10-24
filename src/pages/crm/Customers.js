@@ -19,6 +19,7 @@ import { analyzeCustomer, isAiEnabled } from '../../utils/ai.js'
 import { OCCUPATIONS } from '../../utils/financeMatch.js'
 import { openQuickLead } from '../../utils/quickLead.js'
 import { planLeadImport } from '../../utils/leadImport.js'
+import { scheduleLeadFollowups } from '../../utils/leadFollowups.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -774,7 +775,8 @@ export default async function CustomersPage(container) {
           const created = { ...payload, id }
           customers.unshift(created)
           close()
-          showToast(`เพิ่ม ${first} ${last} แล้ว (${STAGE[stage]?.short})`, 'success')
+          const fu = await scheduleLeadFollowups(payload, id)
+          showToast(`เพิ่ม ${first} ${last} แล้ว (${STAGE[stage]?.short})${fu ? ` · นัดติดตาม ${fu} ครั้ง` : ''}`, 'success')
           applyFilter()
           onSaved?.(created)
         }
