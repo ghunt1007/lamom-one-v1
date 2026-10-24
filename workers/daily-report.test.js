@@ -234,6 +234,15 @@ describe('buildMorningReminder (09:00 per-salesperson reminder)', () => {
     expect(text).not.toContain('เดือนก่อน')
   })
 
+  it('does not flag a lead contacted recently (lastContactAt)', () => {
+    const text = buildMorningReminder({ customers: [
+      { stage: 'lead', firstName: 'โทรแล้ว', assignedTo: 'A', createdAt: '2026-10-01T03:00:00Z', lastContactAt: '2026-10-23T03:00:00Z' },
+      { stage: 'lead', firstName: 'ยังไม่โทร', assignedTo: 'A', createdAt: '2026-10-01T03:00:00Z' },
+    ] }, { today: '2026-10-24' })
+    expect(text).toContain('ยังไม่โทร')
+    expect(text).not.toContain('โทรแล้ว')
+  })
+
   it('caps each list and says how many more there are', () => {
     const many = Array.from({ length: 8 }, (_, i) => ({ stage: 'lead', firstName: 'L' + i, assignedTo: 'A', createdAt: '2026-10-01T03:00:00Z' }))
     const text = buildMorningReminder({ customers: many }, { today: '2026-10-24', maxNames: 5 })

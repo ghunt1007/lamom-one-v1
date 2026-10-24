@@ -407,7 +407,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
 async function buildMorningData(env, accessToken) {
   const [bookings, customers, followups, testDrives] = await Promise.all([
     runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'model', 'totalIncome', 'finStatus', 'submitDate', 'financeCo', 'deleted']),
-    runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'isLost', 'createdAt', 'updatedAt', 'stageChangedAt', 'source', 'bookingId', 'deleted']),
+    runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'isLost', 'createdAt', 'updatedAt', 'stageChangedAt', 'lastContactAt', 'source', 'bookingId', 'deleted']),
     // เฉพาะนัดที่ยังไม่ทำ — นัดอัตโนมัติ (Lead/หลังส่งมอบ) สะสมเร็ว ถ้าดึงทั้งหมดแบบจำกัดจำนวนจะตกหล่นนัดของวันนี้
     runQuery(env, accessToken, 'followups', null, null, 5000, ['dueDate', 'status', 'salesperson', 'customerName', 'customerId', 'autoLead', 'deleted'], ['status', 'pending']),
     runQuery(env, accessToken, 'test_drives', null, null, 3000, ['date', 'time', 'status', 'staff', 'customerName', 'model', 'deleted']).catch(() => []),
@@ -418,7 +418,7 @@ async function buildMorningData(env, accessToken) {
 }
 
 // สร้างข้อความเตือนจากข้อมูลล้วนๆ (export ไว้เทส) — ต่อเซลส์ 1 คน มี 3 เรื่อง:
-//   1) Lead/Prospect ที่ไม่มีใครแตะเกิน STALE_LEAD_DAYS วัน (ดูจาก updatedAt/stageChangedAt/createdAt ล่าสุด
+//   1) Lead/Prospect ที่ไม่มีใครแตะเกิน STALE_LEAD_DAYS วัน (ดูจาก lastContactAt/updatedAt/stageChangedAt/createdAt ล่าสุด
 //      — แก้ข้อมูลหรือบันทึกการติดต่อในหน้าลูกค้าแล้ว updatedAt จะขยับเอง)
 //   2) Follow-up ที่ครบกำหนดวันนี้หรือเลยมาแล้ว
 //   3) คันที่ส่งมอบเดือนนี้แต่ยังไม่กรอกรายได้ (นิยามเดียวกับ buildReport)
@@ -434,7 +434,7 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
   alive(data.customers)
     .filter(c => (c.stage === 'lead' || c.stage === 'pp') && !c.isLost)
     .forEach(c => {
-      const last = [c.updatedAt, c.stageChangedAt, c.createdAt].map(toBangkokDate).filter(Boolean).sort().pop()
+      const last = [c.lastContactAt, c.updatedAt, c.stageChangedAt, c.createdAt].map(toBangkokDate).filter(Boolean).sort().pop()
       if (!last) return
       const days = dayNum(today) - dayNum(last)
       if (days >= staleDays) person(c.assignedTo).stale.push({ name: [c.firstName, c.lastName].filter(Boolean).join(' ') || 'ไม่มีชื่อ', days, model: c.interestedModel })

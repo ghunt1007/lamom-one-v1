@@ -20,7 +20,7 @@ import { OCCUPATIONS } from '../../utils/financeMatch.js'
 import { openQuickLead, findDuplicate } from '../../utils/quickLead.js'
 import { planLeadImport } from '../../utils/leadImport.js'
 import { scheduleLeadFollowups, closeAutoLeadFollowups } from '../../utils/leadFollowups.js'
-import { pendingFollowupsFor, followupWindowFilters, followupStatusByCustomer, matchFollowupFilter, QUIET_DAYS } from '../../utils/customerFollowups.js'
+import { pendingFollowupsFor, followupWindowFilters, followupStatusByCustomer, matchFollowupFilter, QUIET_DAYS, quietDays } from '../../utils/customerFollowups.js'
 import { openAddFollowup } from '../../utils/addFollowupModal.js'
 import { touchCustomerContact } from '../../utils/customerContact.js'
 
@@ -157,6 +157,12 @@ export default async function CustomersPage(container) {
       tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-icon">👥</div><div class="empty-title">ไม่พบลูกค้า</div><div class="empty-desc">${search ? 'ลองเปลี่ยนคำค้นหา' : 'เริ่มเพิ่มลูกค้าคนแรก'}</div></div></td></tr>`
       return
     }
+    const today = todayBangkok()
+    const quietBadge = c => {
+      if (c.isLost || !['lead', 'pp'].includes(c.stage)) return ''
+      const d = quietDays(c, today)
+      return d != null && d >= QUIET_DAYS ? `<div style="color:var(--warning);font-size:0.68rem;margin-top:2px">💤 เงียบ ${d} วัน</div>` : ''
+    }
     tbody.innerHTML = filtered.map(c => {
       const st = STAGE[c.stage] || { label: c.stage || 'ไม่ระบุ', badge: 'secondary' }
       const urgency = URGENCY[quickUrgency(c)]
@@ -180,7 +186,7 @@ export default async function CustomersPage(container) {
         <td style="color:var(--text-2)">${escHtml(c.interestedModel || '-')}</td>
         <td style="color:var(--text-3);font-size:0.8rem">${SOURCE[c.source] || escHtml(c.source) || '-'}</td>
         <td>${!c.isLost ? `<span class="badge badge-${urgency.badge}" style="font-size:0.65rem">${urgency.label}</span>` : ''}</td>
-        <td style="color:var(--text-muted);font-size:0.8rem">${timeAgo(c.createdAt)}</td>
+        <td style="color:var(--text-muted);font-size:0.8rem">${timeAgo(c.createdAt)}${quietBadge(c)}</td>
         <td>
           <div style="display:flex;gap:4px">
             <button class="btn btn-ghost btn-sm edit-btn" data-id="${c.id}" title="แก้ไข">✏️</button>
