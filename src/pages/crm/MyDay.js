@@ -188,7 +188,7 @@ export default async function MyDayPage(container) {
     $$('.md-touch').forEach(b => b.addEventListener('click', async () => {
       b.disabled = true
       try {
-        await updateDocData('customers', b.dataset.id, { lastContactAt: new Date().toISOString() })
+        if (!(await touchCustomerContact(b.dataset.id))) throw new Error('touch failed')
         const c = data.customers.find(x => x.id === b.dataset.id)
         if (c) { c.updatedAt = new Date().toISOString(); c.lastContactAt = c.updatedAt }
         showToast('✅ บันทึกการติดตามแล้ว', 'success'); render()

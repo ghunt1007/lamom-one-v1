@@ -12,6 +12,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { summarizeSalesIncome, lastMonths, undatedDeliveries } from '../../utils/salesIncome.js'
 import { askDeliveryIncome, needsIncome } from '../../utils/deliveryIncome.js'
 import { followupDiscipline, monthRange } from '../../utils/followupDiscipline.js'
+import { speedToLead } from '../../utils/speedToLead.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -28,6 +29,7 @@ export default async function SalesIncomePage(container) {
   const role = getState('role') || getState('user')?.role || 'staff'
   const canSetTarget = ['owner', 'admin', 'manager'].includes(role)
   let monthFollowups = null // null = โหลดไม่ได้ (ไม่แสดงส่วนวินัยการติดตาม)
+  let recentCustomers = null // ลูกค้าล่าสุด (ใช้วัดความเร็วติดต่อ Lead ใหม่) — null = โหลดไม่ได้
   async function loadTargets() {
     try { targets = (await readDoc(SALES_TARGETS_COLLECTION, month))?.targets || {} } catch { targets = {} }
     // นัดติดตามที่ครบกำหนดในเดือนที่เลือก (กรองช่วงบน dueDate ใช้ index เดิม companyId+dueDate)
@@ -40,6 +42,10 @@ export default async function SalesIncomePage(container) {
 
   container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
   const scope = await getVisibilityScope()
+  try {
+    recentCustomers = (await listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 1000))
+      .filter(c => !c.deleted && scopeIncludesRecord(scope, c.assignedTo, c))
+  } catch { recentCustomers = null }
   try {
     bookings = (await listAllDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 500))
       .filter(b => !b.deleted && scopeIncludesRecord(scope, b.salesName, b))
@@ -94,6 +100,20 @@ export default async function SalesIncomePage(container) {
             <td style="text-align:right;font-weight:800;color:var(--${r.rate === null ? 'text-muted' : r.rate >= 80 ? 'success' : r.rate >= 50 ? 'warning' : 'danger'})">${r.rate === null ? '—' : r.rate + '%'}</td>
           </tr>`).join('')}</tbody></table></div></div>`
     }
+    const speedCard = () => {
+      if (!recentCustomers) return ''
+      const list = speedToLead(recentCustomers, month)
+      if (!list.length) return ''
+      return `<div class="card" style="padding:0;overflow:hidden;margin-top:16px">
+        <div style="padding:12px 16px;font-weight:700">⚡ ความเร็วติดต่อ Lead ใหม่${escHtml(monthLabel(month))} <span style="font-weight:400;font-size:0.75rem;color:var(--text-muted)">ติดต่อครั้งแรก (ทำนัดเสร็จ/บันทึกการคุย/กด "ติดต่อแล้ว") ภายใน 24 ชม. หลังเพิ่ม Lead</span></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>เซลส์</th><th style="text-align:right">Lead ใหม่</th><th style="text-align:right">ภายใน 24 ชม.</th><th style="text-align:right">ช้ากว่า</th><th style="text-align:right">ยังไม่ติดต่อ</th><th style="text-align:right">%</th></tr></thead>
+          <tbody>${list.map(r => `<tr>
+            <td style="font-weight:600">${escHtml(r.name)}</td><td style="text-align:right">${r.total}</td><td style="text-align:right">${r.fast}</td><td style="text-align:right">${r.slow}</td>
+            <td style="text-align:right;${r.none ? 'color:var(--danger);font-weight:700' : ''}">${r.none}</td>
+            <td style="text-align:right;font-weight:800;color:var(--${r.rate >= 80 ? 'success' : r.rate >= 50 ? 'warning' : 'danger'})">${r.rate}%</td>
+          </tr>`).join('')}</tbody></table></div></div>`
+    }
     const card = (icon, label, value, color, sub = '') => `<div class="card" style="padding:14px 16px">
       <div style="font-size:0.75rem;color:var(--text-muted)">${icon} ${label}</div>
       <div style="font-size:1.35rem;font-weight:800;color:var(--${color})">${value}</div>${sub ? `<div style="font-size:0.7rem;color:var(--text-muted)">${sub}</div>` : ''}</div>`
@@ -134,6 +154,7 @@ export default async function SalesIncomePage(container) {
         : `<div class="empty-state" style="padding:48px"><div class="empty-icon">💰</div><div class="empty-title">ยังไม่มีรถส่งมอบใน${escHtml(monthLabel(month))}</div></div>`}
         ${undatedCard()}
         ${disciplineCard()}
+        ${speedCard()}
         <div class="card" style="padding:12px 16px;margin-top:16px;font-size:0.8rem;color:var(--text-2)">
           📲 <b>ให้เซลส์รับเตือนงานค้างทาง LINE ของตัวเองทุก 9 โมงเช้า:</b> ทัก LINE OA ของบริษัท แล้วพิมพ์ <code>ลงทะเบียน ชื่อเซลส์</code> (ชื่อต้องตรงกับชื่อในช่องเซลส์/ผู้ดูแลของแอป เช่น <code>ลงทะเบียน ${escHtml(rows[0]?.name && !rows[0].name.startsWith('(') ? rows[0].name : 'สมชาย')}</code>) · พิมพ์ <code>งาน</code> เพื่อดูงานค้างได้ทุกเวลา · <code>หา 08xxxxxxxx</code> ค้นหาลูกค้า · <code>คำสั่ง</code> ดูคำสั่งทั้งหมด · พิมพ์ <code>ยกเลิก</code> เพื่อหยุดรับ
         </div>
