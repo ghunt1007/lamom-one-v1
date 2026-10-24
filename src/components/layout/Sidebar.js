@@ -24,6 +24,7 @@ const NAV = [
       { icon: '📋', label: 'Pipeline', path: '/crm/pipeline' },
       { icon: '🎯', label: 'Sales War Room', path: '/crm/warroom' },
       { icon: '📝', label: 'จองรถ', labelEn: 'Bookings', labelZh: '订车', path: '/crm/bookings' },
+      { icon: '💰', label: 'รายได้รายเซลส์', labelEn: 'Sales Income', labelZh: '销售收入', path: '/crm/sales-income' },
       { icon: '🗂️', label: 'Action Plan', path: '/crm/action-plan' },
       { icon: '✅', label: 'ตรวจรถก่อนส่งมอบ', labelEn: 'Pre-Delivery Inspection', labelZh: '交车前检查', path: '/crm/predelivery' },
       { icon: '🚗', label: 'Test Drive', path: '/crm/testdrive' },

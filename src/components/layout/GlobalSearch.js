@@ -60,6 +60,7 @@ const PAGES = [
   ['อะไหล่', '/service/parts', '⚙️', 'Parts', '配件'],
   ['กำไร Margin', '/finance/margin', '💰', 'Margin', '利润率'],
   ['คอมมิชชั่น', '/finance/commission', '💵', 'Commission', '提成'],
+  ['รายได้รายเซลส์', '/crm/sales-income', '💰', 'Sales Income', '销售收入'],
   ['กฎคอมมิชชั่น', '/finance/commission-rules', '📐', 'Commission Rules', '提成规则'],
   ['งบประมาณ', '/finance/budget', '🧮', 'Budget', '预算'],
   ['เงินเดือน Payroll', '/finance/payroll', '🧾', 'Payroll', '工资单'],

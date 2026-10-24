@@ -7,6 +7,7 @@ import { showToast, getState } from '../core/store.js'
 import { listDocs, createDoc } from '../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../core/companyScope.js'
 import { deriveInitialStage } from '../core/customerInsights.js'
+import { scheduleLeadFollowups } from './leadFollowups.js'
 
 export const QUICK_SOURCES = [
   ['walk-in', '🚶 Walk-in'], ['phone', '📱 โทรเข้า'], ['facebook', '📘 Facebook'], ['line', '💚 LINE'],
@@ -100,7 +101,8 @@ export function openQuickLead() {
       const doc = { ...lead, stageChangedAt: new Date().toISOString(), companyId: myEffectiveCompanyId() }
       const id = await createDoc('customers', doc)
       if (existing) existing.unshift({ ...doc, id })
-      showToast(`✅ เพิ่ม ${name} แล้ว (${doc.stage === 'lead' ? 'Lead' : 'Prospect'})`, 'success')
+      const fu = await scheduleLeadFollowups(doc, id)
+      showToast(`✅ เพิ่ม ${name} แล้ว (${doc.stage === 'lead' ? 'Lead' : 'Prospect'})${fu ? ` · นัดติดตาม ${fu} ครั้ง` : ''}`, 'success')
       if (keepOpen) {
         ;['ql-name', 'ql-contact', 'ql-model'].forEach(i => { $(i).value = '' })
         $('ql-dup').textContent = ''; $('ql-name-e').textContent = ''
