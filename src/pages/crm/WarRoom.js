@@ -15,6 +15,7 @@ import { formatCurrency } from '../../utils/format.js'
 import { getSalesData, watchDocs, seedDemoData } from '../../core/db.js'
 import { navigate } from '../../core/router.js'
 import { on } from '../../core/store.js'
+import { classifyLostReason } from '../../utils/lostReason.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 
 function escHtml(s) {
@@ -147,7 +148,7 @@ export default async function WarRoomPage(container) {
         custName: b.custName || '',
         interestedIn: [b.brand, b.model].filter(Boolean).join(' '),
         budget: b.price || 0,
-        lostReason: b.cancelReason || 'other',
+        lostReason: classifyLostReason(b.cancelReason),
         lostTo: b.cancelLostTo || null,
       }))
     const fromLeads = customers
@@ -157,7 +158,7 @@ export default async function WarRoomPage(container) {
         custName: [l.firstName, l.lastName].filter(Boolean).join(' ') || l.custName || l.name || '',
         interestedIn: l.interestedModel || [l.brand, l.model].filter(Boolean).join(' ') || l.interest || '',
         budget: l.budget || 0,
-        lostReason: l.lostReason || 'other',
+        lostReason: classifyLostReason(l.lostReason),
         lostTo: l.lostTo || null,
       }))
     const live = [...fromBookings, ...fromLeads]

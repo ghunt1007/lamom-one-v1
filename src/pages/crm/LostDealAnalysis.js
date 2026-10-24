@@ -3,6 +3,8 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs } from '../../core/db.js'
 import { openModal } from '../../utils/modal.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
+import { getVisibilityScope, scopeIncludesRecord } from '../../core/hierarchy.js'
+import { classifyLostReason } from '../../utils/lostReason.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -43,38 +45,41 @@ export default async function LostDealAnalysisPage(container) {
 
   // Load real lost deals: 'ถอนจอง' bookings + 'lost' leads
   try {
-    const [bookings, leads] = await Promise.all([
-      listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
-      listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
+    // เซลส์เห็นเฉพาะดีลของตัวเอง/ลูกทีม (นโยบายเดียวกับหน้าลูกค้าและใบจอง)
+    const [bookings, leads, visScope] = await Promise.all([
+      listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 1000).catch(() => []),
+      listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 1000).catch(() => []),
+      getVisibilityScope().catch(() => null),
     ])
     if (container.__routerGen !== myGen) return
 
     const fromBookings = bookings
-      .filter(b => !b.deleted && b.status === 'ถอนจอง')
+      .filter(b => !b.deleted && b.status === 'ถอนจอง' && scopeIncludesRecord(visScope, b.salesName, b))
       .map(b => ({
         id: b.bookingNo || b.id,
         custName: b.custName || '',
         phone: b.custPhone || '',
         interestedIn: [b.brand, b.model].filter(Boolean).join(' '),
         budget: b.price || 0,
-        lostReason: b.cancelReason || 'other',
+        // เหตุผลเป็นข้อความที่พิมพ์เอง → จัดกลุ่ม ส่วนข้อความเต็มไปอยู่ในหมายเหตุ
+        lostReason: classifyLostReason(b.cancelReason),
         lostTo: b.cancelLostTo || null,
-        lostDate: b.bookingDate || toDateStr(b.updatedAt || b.createdAt),
+        lostDate: b.cancelDate || b.bookingDate || toDateStr(b.updatedAt || b.createdAt),
         salesperson: b.salesName || '',
         stage: 'booking',
-        note: b.cancelNote || b.notes || '',
+        note: b.cancelReason || b.cancelNote || b.notes || '',
         _source: 'booking',
       }))
 
     const fromLeads = leads
-      .filter(l => !l.deleted && l.isLost === true)
+      .filter(l => !l.deleted && l.isLost === true && scopeIncludesRecord(visScope, l.assignedTo, l))
       .map(l => ({
         id: l.id,
         custName: [l.firstName, l.lastName].filter(Boolean).join(' ') || l.custName || l.name || '',
         phone: l.phone || '',
         interestedIn: l.interestedModel || [l.brand, l.model].filter(Boolean).join(' ') || l.interest || '',
         budget: l.budget || 0,
-        lostReason: l.lostReason || 'other',
+        lostReason: classifyLostReason(l.lostReason),
         lostTo: l.lostTo || null,
         lostDate: toDateStr(l.lostAt || l.updatedAt || l.createdAt),
         salesperson: l.assignedTo || l.salesName || '',
