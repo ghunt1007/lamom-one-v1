@@ -232,7 +232,7 @@ export default async function CustomersPage(container) {
                 </div>
               </div>
               <div style="display:flex;flex-direction:column;gap:8px">
-                ${detail('📱 โทร', formatPhone(c.phone) || '-')}
+                ${detail('📱 โทร', c.phone && String(c.phone).replace(/[^\d+]/g, '') ? `<a href="tel:${String(c.phone).replace(/[^\d+]/g, '')}" style="color:var(--primary)">${formatPhone(c.phone)}</a>` : (formatPhone(c.phone) || '-'))}
                 ${detail('💚 LINE', escHtml(c.lineId || '-'))}
                 ${detail('📧 Email', escHtml(c.email || '-'))}
                 ${detail('🚗 สนใจ', escHtml(c.interestedModel || '-'))}

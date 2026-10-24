@@ -26,6 +26,8 @@ const FU_STATUS = {
 }
 
 const PURPOSES = FOLLOWUP_PURPOSES
+// เบอร์โทรกดโทรออกได้เลยบนมือถือ
+const telLink = p => { const n = String(p || '').replace(/[^\d+]/g, ''); return n ? `<a href="tel:${n}" style="color:inherit;text-decoration:underline">📞 ${escHtml(p)}</a>` : '' }
 
 function addDays(n) {
   const [y, m, d] = todayBangkok().split('-').map(Number)
@@ -183,8 +185,8 @@ export default async function FollowUpPage(container) {
   }
 
   function renderCard(f) {
-    const tp = FOLLOWUP_TYPES[f.type]
-    const st = FU_STATUS[f.status]
+    const tp = FOLLOWUP_TYPES[f.type] || FOLLOWUP_TYPES.call
+    const st = FU_STATUS[f.status] || FU_STATUS.pending
     const overdue = isOverdue(f)
     const isT = isToday(f)
     const borderColor = overdue ? 'var(--danger)' : isT ? 'var(--warning)' : f.status === 'done' ? 'var(--success)' : 'var(--border)'
@@ -200,7 +202,7 @@ export default async function FollowUpPage(container) {
             ${overdue ? `<span class="badge badge-danger" style="font-size:0.65rem">⚠️ เกินกำหนด</span>` : ''}
             ${isT && f.status === 'pending' ? `<span class="badge badge-warning" style="font-size:0.65rem">📅 วันนี้</span>` : ''}
           </div>
-          <div style="font-size:0.8rem;color:var(--text-muted)">${escHtml(f.vehicleModel)} · ${escHtml(f.salesperson)} · ${escHtml(f.phone)}</div>
+          <div style="font-size:0.8rem;color:var(--text-muted)">${escHtml(f.vehicleModel)} · ${escHtml(f.salesperson)} · ${telLink(f.phone)}</div>
           <div style="font-size:0.82rem;margin-top:4px"><strong>${escHtml(f.purpose)}</strong>${f.note ? ` — ${escHtml(f.note)}` : ''}</div>
           ${f.result ? `<div style="font-size:0.8rem;margin-top:4px;color:var(--success)">✓ ${escHtml(f.result)}</div>` : ''}
         </div>
@@ -259,13 +261,13 @@ export default async function FollowUpPage(container) {
   }
 
   function openFUDetail(f) {
-    const tp = FOLLOWUP_TYPES[f.type]
-    const st = FU_STATUS[f.status]
+    const tp = FOLLOWUP_TYPES[f.type] || FOLLOWUP_TYPES.call
+    const st = FU_STATUS[f.status] || FU_STATUS.pending
     openModal({
       title: `📞 ${f.id} — Follow-up Detail`,
       size: 'md',
       body: `
-        ${rowD('ลูกค้า', escHtml(f.customerName))}${rowD('โทร', escHtml(f.phone))}${rowD('รถ', escHtml(f.vehicleModel))}${rowD('เซลส์', escHtml(f.salesperson))}
+        ${rowD('ลูกค้า', escHtml(f.customerName))}${rowD('โทร', telLink(f.phone))}${rowD('รถ', escHtml(f.vehicleModel))}${rowD('เซลส์', escHtml(f.salesperson))}
         ${rowD('ประเภท', `${tp.icon} ${tp.label}`)}
         ${rowD('วัตถุประสงค์', escHtml(f.purpose))}
         ${rowD('กำหนดวันที่', formatDate(f.dueDate))}
