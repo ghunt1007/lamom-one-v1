@@ -706,3 +706,17 @@ describe('finance waiting in the 09:00 reminder', () => {
     expect(sec.text).not.toContain('ค ·')
   })
 })
+
+describe('speed to lead in the 18:00 report', () => {
+  it('counts new leads already contacted today', () => {
+    const customers = [
+      { id: 'a', stage: 'pp', assignedTo: 'A', createdAt: '2026-10-25T02:00:00Z', lastContactAt: '2026-10-25T05:00:00Z' },
+      { id: 'b', stage: 'pp', assignedTo: 'A', createdAt: '2026-10-25T03:00:00Z' },
+      { id: 'c', stage: 'lead', assignedTo: 'A', createdAt: '2026-10-25T04:00:00Z' },
+    ]
+    const followups = [{ status: 'done', customerId: 'b', updatedAt: '2026-10-25T06:00:00Z' }, { status: 'pending', customerId: 'c' }]
+    const text = buildReport({ bookings: [], customers, followups, testDrives: [] }, { today: '2026-10-25' })
+    expect(text).toContain('ติดต่อแล้ว 2/3 ราย ⚠️')
+    expect(buildReport({ bookings: [], customers: customers.slice(0, 1), followups: [], testDrives: [] }, { today: '2026-10-25' })).toContain('ติดต่อแล้ว 1/1 ราย 👍')
+  })
+})
