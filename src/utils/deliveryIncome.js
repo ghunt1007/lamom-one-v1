@@ -64,3 +64,11 @@ export function askDeliveryIncome(b, { title = '💰 กรอกรายได
     setTimeout(() => el.querySelector('#di-margin')?.focus(), 50)
   })
 }
+
+// เปลี่ยนสถานะเร็ว (ไม่ผ่านฟอร์ม) → เติมวันที่ที่รายงานใช้นับ ถ้ายังว่าง: ส่งมอบแล้ว = วันส่งมอบจริง,
+// ตัดตัวเลขรอส่งมอบ = วันตัดตัวเลข — ไม่งั้นคันนั้นไม่ถูกนับเป็นยอดส่งมอบของเดือนไหนเลย (นับตาม cutDate/actualDeliveryDate)
+export function statusDatePatch(b, newStatus, today) {
+  if (newStatus === 'ส่งมอบแล้ว' && !/^\d{4}-\d{2}-\d{2}/.test(b?.actualDeliveryDate || '')) return { actualDeliveryDate: today }
+  if (newStatus === 'ตัดตัวเลขรอส่งมอบ' && !/^\d{4}-\d{2}-\d{2}/.test(b?.cutDate || '')) return { cutDate: today }
+  return {}
+}

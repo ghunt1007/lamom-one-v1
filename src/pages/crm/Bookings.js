@@ -12,7 +12,7 @@ import { printBooking, printCancellation } from '../../utils/bookingDocs.js'
 import { scheduleAfterSales } from '../../utils/afterSales.js'
 import { closeAutoLeadFollowups } from '../../utils/leadFollowups.js'
 import { afterWithdraw } from '../../utils/bookingWithdraw.js'
-import { askDeliveryIncome, needsIncome } from '../../utils/deliveryIncome.js'
+import { askDeliveryIncome, needsIncome, statusDatePatch } from '../../utils/deliveryIncome.js'
 import { readBookingSheet, planBookingImport, newBookingDoc, newCustomerDoc, companyForBrand, brandCompanyMap } from '../../utils/bookingImport.js'
 
 function escHtml(s) {
@@ -684,8 +684,10 @@ export default async function BookingsPage(container) {
       if (newStatus === b.status) return
       if (newStatus === 'ถอนจอง') { openWithdrawModal(b); return }
       try {
-        await updateDocData('bookings', b.id, { status: newStatus, updatedAt: new Date().toISOString() })
+        const datePatch = statusDatePatch(b, newStatus, todayBangkok())
+        await updateDocData('bookings', b.id, { status: newStatus, ...datePatch, updatedAt: new Date().toISOString() })
         b.status = newStatus
+        Object.assign(b, datePatch)
         if (newStatus === 'ส่งมอบแล้ว') { await maybeMarkCustomerDelivered(b); await scheduleAfterSales(b) }
         await syncStockForBookings([b])
         showToast(`✅ อัปเดตเป็น "${newStatus}" แล้ว`, 'success')

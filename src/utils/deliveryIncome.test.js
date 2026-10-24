@@ -25,3 +25,13 @@ describe('needsIncome', () => {
     expect(needsIncome(null)).toBe(false)
   })
 })
+
+describe('statusDatePatch', () => {
+  it('เติมวันส่งมอบจริง/วันตัดตัวเลขเมื่อยังว่าง', async () => {
+    const { statusDatePatch } = await import('./deliveryIncome.js')
+    expect(statusDatePatch({}, 'ส่งมอบแล้ว', '2026-10-25')).toEqual({ actualDeliveryDate: '2026-10-25' })
+    expect(statusDatePatch({ actualDeliveryDate: '2026-10-01' }, 'ส่งมอบแล้ว', '2026-10-25')).toEqual({})
+    expect(statusDatePatch({ cutDate: '' }, 'ตัดตัวเลขรอส่งมอบ', '2026-10-25')).toEqual({ cutDate: '2026-10-25' })
+    expect(statusDatePatch({}, 'รอรถ', '2026-10-25')).toEqual({})
+  })
+})
