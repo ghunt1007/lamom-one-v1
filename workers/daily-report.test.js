@@ -734,3 +734,19 @@ describe('buildStructuredQuery', () => {
     expect(q.orderBy).toBeUndefined()
   })
 })
+
+describe('buildReport — ถอนจองวันนี้', () => {
+  it('แสดงรายชื่อและเหตุผลเมื่อมีถอนจองวันนี้', () => {
+    const txt = buildReport({ bookings: [
+      { status: 'ถอนจอง', bookingDate: '2026-10-01', cancelDate: '2026-10-25', custName: 'ลูกค้า ก', model: 'Seal', salesName: 'เซลส์ A', cancelReason: 'ไฟแนนซ์ไม่ผ่าน' },
+      { status: 'ถอนจอง', bookingDate: '2026-10-25', cancelDate: '2026-10-20', custName: 'ลูกค้า ข' },
+    ] }, { today: '2026-10-25', time: '18:00' })
+    expect(txt).toContain('ถอนจองเดือนนี้: 2 คัน')
+    expect(txt).toContain('วันนี้ 1 คัน:')
+    expect(txt).toContain('• ลูกค้า ก (Seal) · เซลส์ A — ไฟแนนซ์ไม่ผ่าน')
+    expect(txt).not.toContain('• ลูกค้า ข')
+  })
+  it('ไม่มีถอนจองวันนี้ → ไม่มีบรรทัดวันนี้', () => {
+    expect(buildReport({ bookings: [] }, { today: '2026-10-25', time: '18:00' })).not.toContain('วันนี้ 0 คัน')
+  })
+})

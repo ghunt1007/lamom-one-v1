@@ -205,7 +205,7 @@ async function buildReportText(env, accessToken) {
   // select เฉพาะ field ที่รายงานใช้ — ใบจองหลายพันใบทั้งเอกสารใหญ่เกินจน parse JSON เกินโควตา CPU ของ cron
   const fuFields = ['dueDate', 'status', 'customerId', 'updatedAt', 'deleted']
   const [bookings, customers, fuPending, fuDone, testDrives, teamTargets] = await Promise.all([
-    runQuery(env, accessToken, 'bookings', null, null, 5000, ['bookingDate', 'status', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'salesName', 'totalIncome', 'deliveryDate', 'deliveryTime', 'custName', 'model', 'deleted']),
+    runQuery(env, accessToken, 'bookings', null, null, 5000, ['bookingDate', 'status', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'salesName', 'totalIncome', 'deliveryDate', 'deliveryTime', 'custName', 'model', 'cancelReason', 'deleted']),
     runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'createdAt', 'source', 'assignedTo', 'isLost', 'lastContactAt', 'deleted']),
     // แยกดึงนัดค้าง/นัดที่ทำแล้ว — ถ้าดึงรวมแบบจำกัดจำนวน พอนัดอัตโนมัติสะสมเยอะจะตกหล่นนัดของวันนี้
     runQuery(env, accessToken, 'followups', null, null, 5000, fuFields, ['status', 'pending']),
@@ -281,6 +281,8 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
   const cancelled = bookings.filter(isCancelled)
   const cancelMonth = cancelled.filter(b => cancelDate(b).startsWith(thisMonth)).length
   const cancelYear = cancelled.filter(b => cancelDate(b).startsWith(thisYear)).length
+  // ถอนจองวันนี้ พร้อมเหตุผล — ผู้จัดการเห็นทันทีว่าเสียเพราะอะไร (ใช้ cancelDate จริงเท่านั้น ไม่เดาจากวันจอง)
+  const cancelTodayList = cancelled.filter(b => (b.cancelDate || '').slice(0, 10) === today)
 
   // เป้า: เป้าแบบ "ยอดขาย (คัน)" ของเดือนนี้จากหน้าเป้าหมายทีม รวมทุกทีม ถ้าไม่มีใช้ค่าตั้งต้นของ worker
   const unitTargets = (data.teamTargets || []).filter(t => t.period === thisMonth && t.metric === 'units')
@@ -348,6 +350,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
     `💰 รายได้ปีนี้: ${fmtBaht(revYear)}`)
   if (sellerLines.length) lines.push('', '👤 ทีมขาย (เดือนนี้)', ...sellerLines)
   lines.push('', `❌ ถอนจองเดือนนี้: ${cancelMonth} คัน | ปีนี้: ${cancelYear} คัน`,
+    ...(cancelTodayList.length ? [`  วันนี้ ${cancelTodayList.length} คัน:`, ...cancelTodayList.slice(0, 5).map(b => `  • ${b.custName || 'ลูกค้า'}${b.model ? ` (${b.model})` : ''} · ${(b.salesName || '').trim() || '(ไม่ระบุ)'}${b.cancelReason ? ` — ${String(b.cancelReason).trim().slice(0, 60)}` : ''}`)] : []),
     '', '─────────────────────', '🤖 LAMOM ONE Auto Report')
   return lines.filter(l => l !== null).join('\n')
 }
