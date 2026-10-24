@@ -255,7 +255,7 @@ export default async function CustomersPage(container) {
                 ${detail('📌 ที่มา', SOURCE[c.source] || escHtml(c.source) || '-')}
                 ${detail('👤 ผู้ดูแล', escHtml(c.assignedTo || '-'))}
                 ${detail('📅 เพิ่มเมื่อ', formatDate(c.createdAt))}
-                ${detail('📞 ติดต่อล่าสุด', c.lastContactAt ? timeAgo(c.lastContactAt) : 'ยังไม่มีบันทึก')}
+                ${detail('📞 ติดต่อล่าสุด', `<span id="wk-last-contact">${c.lastContactAt ? timeAgo(c.lastContactAt) : 'ยังไม่มีบันทึก'}</span> <button class="btn btn-ghost btn-xs" id="wk-touch-btn" title="โทร/ทักลูกค้าแล้ว กดบันทึกไว้">✅ ติดต่อแล้ว</button>`)}
                 ${c.isLost ? detail('❌ เหตุผลเสียดีล', escHtml(c.lostReason || '-')) : ''}
               </div>
               <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px">
@@ -322,6 +322,17 @@ export default async function CustomersPage(container) {
       `,
     })
 
+    el.querySelector('#wk-touch-btn')?.addEventListener('click', async e => {
+      const b = e.currentTarget
+      b.disabled = true
+      const now = new Date().toISOString()
+      if (await touchCustomerContact(c.id, now)) {
+        c.lastContactAt = now
+        const span = el.querySelector('#wk-last-contact')
+        if (span) span.textContent = timeAgo(now)
+        showToast('✅ บันทึกว่าติดต่อลูกค้าแล้ว', 'success')
+      } else { b.disabled = false; showToast('บันทึกไม่สำเร็จ', 'error') }
+    })
     el.querySelector('#wk-edit-btn')?.addEventListener('click', () => {
       close(); openForm(c, { onSaved: updated => openDetail(updated) })
     })
