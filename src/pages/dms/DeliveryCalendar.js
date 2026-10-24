@@ -5,7 +5,7 @@
 import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
-import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, listAllDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { askDeliveryIncome, needsIncome } from '../../utils/deliveryIncome.js'
 import { scheduleAfterSales } from '../../utils/afterSales.js'
@@ -41,6 +41,7 @@ export default async function DeliveryCalendarPage(container) {
   seedDemoData()
 
   let deliveries = []
+  let unscheduled = [] // รถพร้อมส่ง (รอส่งมอบ/ตัดตัวเลขแล้ว) ที่ยังไม่มีวันนัดส่งมอบ
   let loading = true
 
   async function loadData() {
@@ -63,6 +64,10 @@ export default async function DeliveryCalendarPage(container) {
         raw: d,
       }))
     } catch (e) { deliveries = [] }
+    try {
+      unscheduled = (await listAllDocs('bookings', companyScopeFilters(), 'createdAt', 'desc'))
+        .filter(d => !d.deleted && ['รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ'].includes(d.status) && !/^\d{4}-\d{2}-\d{2}/.test(d.deliveryDate || ''))
+    } catch (e) { unscheduled = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -99,6 +104,11 @@ export default async function DeliveryCalendarPage(container) {
           ${kpi('✅ เดือนนี้', done.length + ' คัน', 'success')}
         </div>
 
+        ${unscheduled.length ? `<div style="font-size:0.8rem;font-weight:700;color:var(--warning);margin:14px 0 8px">📭 รถพร้อมส่งแต่ยังไม่ได้นัดวัน (${unscheduled.length})</div>
+        <div class="card" style="padding:0;overflow:hidden">${unscheduled.map(b => `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap">
+          <div style="flex:1;min-width:180px"><div style="font-weight:700;font-size:0.85rem">${escHtml(b.custName || b.customerName || 'ลูกค้า')} · ${escHtml([b.brand, b.model].filter(Boolean).join(' ') || '—')}</div>
+          <div style="font-size:0.72rem;color:var(--text-muted)">${escHtml(b.status)}${b.bookingNo ? ` · ${escHtml(b.bookingNo)}` : ''} · เซลส์: ${escHtml(b.salesName || '—')}${b.phone ? ` · 📞 ${escHtml(b.phone)}` : ''}</div></div>
+          <button class="btn btn-primary btn-xs dc-sched" data-id="${escHtml(b.id)}">📅 นัดวันส่งมอบ</button></div>`).join('')}</div>` : ''}
         ${section('⚠️ เลยกำหนด', overdue)}
         ${section('🎉 วันนี้', deliveries.filter(d => d.date === today))}
         ${section('📅 กำลังจะถึง', upcoming)}
@@ -200,6 +210,24 @@ export default async function DeliveryCalendarPage(container) {
             await loadData()
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
+      })
+    }))
+    container.querySelectorAll('.dc-sched').forEach(btn => btn.addEventListener('click', () => {
+      const b = unscheduled.find(x => x.id === btn.dataset.id)
+      if (!b) return
+      openModal({
+        title: `📅 นัดวันส่งมอบ ${escHtml(b.custName || 'ลูกค้า')}`, size: 'sm',
+        body: `<div class="input-group"><label class="input-label">วันส่งมอบ *</label><input class="input" type="date" id="dc-date" value="${addDays(3)}"></div>
+          <div class="input-group"><label class="input-label">เวลา</label><input class="input" type="time" id="dc-time" value="10:00"></div>`,
+        async onConfirm() {
+          const deliveryDate = document.getElementById('dc-date')?.value
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(deliveryDate || '')) { showToast('❗ กรุณาเลือกวัน', 'error'); return false }
+          try {
+            await updateDocData('bookings', b.id, { deliveryDate, deliveryTime: document.getElementById('dc-time')?.value || '10:00' })
+            showToast(`📅 นัดส่งมอบ ${formatDate(deliveryDate)} แล้ว`, 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
+        },
       })
     }))
     document.getElementById('add-dlv-btn')?.addEventListener('click', () => {
