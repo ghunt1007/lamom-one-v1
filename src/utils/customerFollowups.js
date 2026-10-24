@@ -38,3 +38,27 @@ export function buildManualFollowup(c, { dueDate, purpose, type = 'call', note =
     type, purpose: purpose || 'ทั่วไป', dueDate, status: 'pending', note: String(note || '').trim(), result: '',
   }
 }
+
+// สรุปนัดค้างต่อลูกค้า: Map(customerId → { pending: จำนวนนัดค้าง, late: จำนวนนัดที่เลยกำหนด, next: วันนัดถัดไป })
+export function followupStatusByCustomer(followups, today) {
+  const map = new Map()
+  ;(followups || []).forEach(f => {
+    if (!f || f.deleted || f.status !== 'pending' || !f.customerId || !/^\d{4}-\d{2}-\d{2}/.test(f.dueDate || '')) return
+    const d = f.dueDate.slice(0, 10)
+    const s = map.get(f.customerId) || { pending: 0, late: 0, next: '' }
+    s.pending++
+    if (d < today) s.late++
+    else if (!s.next || d < s.next) s.next = d
+    map.set(f.customerId, s)
+  })
+  return map
+}
+
+// ตัวกรองหน้าลูกค้า: 'none' = Lead/Prospect ที่ยังไม่เสียดีลแต่ไม่มีนัดค้างเลย (เสี่ยงหลุด), 'late' = มีนัดเลยกำหนด
+export function matchFollowupFilter(c, filter, statusMap) {
+  if (!filter) return true
+  const s = statusMap?.get(c.id)
+  if (filter === 'none') return ['lead', 'pp'].includes(c.stage) && !c.isLost && !s
+  if (filter === 'late') return !!(s && s.late)
+  return true
+}

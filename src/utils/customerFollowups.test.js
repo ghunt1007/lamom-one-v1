@@ -43,3 +43,24 @@ describe('followupWindowFilters', () => {
     expect(followupWindowFilters('2026-10-25', 30)).toEqual([['dueDate', '>=', '2026-09-25']])
   })
 })
+
+describe('followupStatusByCustomer / matchFollowupFilter', () => {
+  it('นับนัดค้าง เลยกำหนด และนัดถัดไป', async () => {
+    const { followupStatusByCustomer, matchFollowupFilter } = await import('./customerFollowups.js')
+    const m = followupStatusByCustomer([
+      { customerId: 'c1', status: 'pending', dueDate: '2026-10-20' },
+      { customerId: 'c1', status: 'pending', dueDate: '2026-10-28' },
+      { customerId: 'c1', status: 'pending', dueDate: '2026-10-26' },
+      { customerId: 'c2', status: 'done', dueDate: '2026-10-20' },
+    ], '2026-10-25')
+    expect(m.get('c1')).toEqual({ pending: 3, late: 1, next: '2026-10-26' })
+    expect(m.has('c2')).toBe(false)
+    expect(matchFollowupFilter({ id: 'c2', stage: 'pp' }, 'none', m)).toBe(true)
+    expect(matchFollowupFilter({ id: 'c2', stage: 'pp', isLost: true }, 'none', m)).toBe(false)
+    expect(matchFollowupFilter({ id: 'c2', stage: 'booking' }, 'none', m)).toBe(false)
+    expect(matchFollowupFilter({ id: 'c1', stage: 'pp' }, 'none', m)).toBe(false)
+    expect(matchFollowupFilter({ id: 'c1' }, 'late', m)).toBe(true)
+    expect(matchFollowupFilter({ id: 'c2' }, 'late', m)).toBe(false)
+    expect(matchFollowupFilter({ id: 'x' }, '', m)).toBe(true)
+  })
+})
