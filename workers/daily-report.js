@@ -104,8 +104,9 @@ async function runMorningReminder(env, accessToken) {
   const personal = []
   if (env.LINE_CHANNEL_ACCESS_TOKEN) {
     const targets = await runQuery(env, accessToken, 'line_sales_targets', null, null, 500, ['name', 'userId']).catch(() => [])
+    const goals = await readSalesGoals(env, accessToken, today.slice(0, 7))
     for (const m of matchSalesTargets(sections, targets)) {
-      const r = await pushLine(env, m.userId, buildPersonalReminder(m.section, today, env.ALLOWED_ORIGIN))
+      const r = await pushLine(env, m.userId, buildPersonalReminder(m.section, today, env.ALLOWED_ORIGIN, sellerGoal(data, goals, m.name, today)))
       personal.push({ name: m.name, ...r })
     }
   }
@@ -453,15 +454,37 @@ function clipLine(text) {
 
 // ข้อความส่วนตัวของเซลส์ 1 คน (ส่วนของตัวเองจาก buildMorningSections)
 // appUrl = origin ของแอป (env.ALLOWED_ORIGIN) — ใส่ลิงก์เปิดหน้า "งานของฉันวันนี้" ที่กดทำงานได้ทันที
-export function buildPersonalReminder(section, today, appUrl = '') {
+// goal = { done, target } เป้าส่งมอบเดือนนี้ของเซลส์คนนี้ (ตั้งที่หน้ารายได้รายเซลส์) — ไม่มีเป้าไม่แสดง
+export function buildPersonalReminder(section, today, appUrl = '', goal = null) {
   return clipLine([
     '☀️ งานค้างของคุณเช้านี้',
     `🗓 ${formatThaiDate(today)}`,
+    goal?.target ? `🎯 เป้าเดือนนี้: ส่งมอบแล้ว ${goal.done}/${goal.target} คัน${goal.done >= goal.target ? ' ถึงเป้าแล้ว! 🎉' : ` (เหลือ ${goal.target - goal.done} คัน)`}` : null,
     '',
     section.text,
     '',
     appUrl ? `👉 กดทำงานได้ที่: ${String(appUrl).replace(/\/+$/, '')}/crm/my-day` : 'เปิดแอป LAMOM ONE เพื่อจัดการได้เลยครับ 💪',
-  ].join('\n'))
+  ].filter(l => l !== null).join('\n'))
+}
+
+// เป้ารายเซลส์: sales_targets/{YYYY-MM} = { targets: { ชื่อ: คัน } } (ดู src/utils/salesTargets.js)
+async function readSalesGoals(env, accessToken, month) {
+  try {
+    const res = await fetch(`https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents/sales_targets/${month}`, { headers: { Authorization: `Bearer ${accessToken}` } })
+    if (!res.ok) return {}
+    const doc = await res.json()
+    return doc.fields?.targets ? decodeFsValue(doc.fields.targets) || {} : {}
+  } catch { return {} }
+}
+export function sellerGoal(data, goals, name, today) {
+  const key = normSalesName(name)
+  const entry = Object.entries(goals || {}).find(([n]) => normSalesName(n) === key)
+  const target = entry ? Number(entry[1]) || 0 : 0
+  if (!target) return null
+  const month = today.slice(0, 7)
+  const done = (data.bookings || []).filter(b => b && !b.deleted && DELIVERED_STATUSES.includes(b.status)
+    && (b.cutDate || b.actualDeliveryDate || '').startsWith(month) && normSalesName(b.salesName) === key).length
+  return { done, target }
 }
 
 // เทียบชื่อแบบไม่สนช่องว่าง/ตัวพิมพ์ คำนำหน้า "คุณ" — ชื่อที่ลงทะเบียนต้องตรงกับชื่อเซลส์/ผู้ดูแลในแอป
