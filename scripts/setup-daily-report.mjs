@@ -1,6 +1,6 @@
 // ตั้งค่าลับ (secret) ของ worker รายงานประจำวัน LAMOM ONE ครั้งเดียว — รันผ่าน setup-daily-report.bat
 // 1) FIRESTORE_SERVICE_ACCOUNT_JSON: ไฟล์ key ที่โหลดจาก Firebase Console (หาไฟล์ *firebase-adminsdk*.json ล่าสุดใน Downloads ให้เอง)
-// 2) LINE_CHANNEL_ACCESS_TOKEN / LINE_TARGET_ID: ใช้ LINE OA และผู้รับเดียวกับรายงานของ LAMOM CRM เดิม
+// 2) LINE_CHANNEL_ACCESS_TOKEN / LINE_TARGET_ID / TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID: ปลายทางเดียวกับรายงานของ LAMOM CRM เดิม
 // ค่าลับส่งเข้า wrangler ทาง stdin ตรงๆ ไม่พิมพ์ออกหน้าจอ และไม่เขียนลงไฟล์ใด
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
@@ -43,7 +43,17 @@ const crm = readFileSync(CRM_WORKER, 'utf8')
 const lineToken = crm.match(/const LINE_CHANNEL_TOKEN\s*=\s*'([^']+)'/)?.[1]
 const lineTo = crm.match(/const LINE_DEFAULT_TO\s*=\s*'([^']+)'/)?.[1]
 
+const tgToken = crm.match(/const TELEGRAM_BOT_TOKEN\s*=\s*'([^']+)'/)?.[1]
+const tgChat = crm.match(/const TELEGRAM_CHAT_ID\s*=\s*'([^']+)'/)?.[1]
+
+if (process.argv.includes('--telegram-only')) {
+  const ok = [putSecret('TELEGRAM_BOT_TOKEN', tgToken || ''), putSecret('TELEGRAM_CHAT_ID', tgChat || '')].every(Boolean)
+  console.log(ok ? '\n🎉 เสร็จแล้ว' : '\nมีบางอย่างไม่สำเร็จ ถ่ายรูปหน้าจอนี้ส่งให้ Claude')
+  process.exit(ok ? 0 : 1)
+}
+
 const results = [
+  tgToken && tgChat ? putSecret('TELEGRAM_BOT_TOKEN', tgToken) && putSecret('TELEGRAM_CHAT_ID', tgChat) : (console.log('❌ ไม่พบบอท Telegram ในไฟล์ CRM เดิม'), false),
   putSecret('FIRESTORE_SERVICE_ACCOUNT_JSON', JSON.stringify(sa)),
   lineToken ? putSecret('LINE_CHANNEL_ACCESS_TOKEN', lineToken) : (console.log('❌ ไม่พบ LINE token ในไฟล์ CRM เดิม'), false),
   lineTo ? putSecret('LINE_TARGET_ID', lineTo) : (console.log('❌ ไม่พบผู้รับ LINE ในไฟล์ CRM เดิม'), false),
