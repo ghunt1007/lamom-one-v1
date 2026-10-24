@@ -1182,3 +1182,25 @@ describe('buildMorningSections — Hot ขึ้นก่อน', () => {
     expect(text.indexOf('🔴 ร้อน')).toBeLessThan(text.indexOf('เก่า'))
   })
 })
+
+describe('findCustomersText — Hot/เหตุผลเสียดีล', () => {
+  it('แสดง Hot และเหตุผลเสียดีล', async () => {
+    const { findCustomersText } = await import('./daily-report.js')
+    const t = findCustomersText([
+      { id: '1', firstName: 'ร้อน', phone: '0811111111', stage: 'pp', temperature: 'hot' },
+      { id: '2', firstName: 'เสีย', phone: '0811111112', stage: 'pp', isLost: true, lostReason: 'ราคา - แพง', temperature: 'hot' },
+    ], [], '08111111', '2026-10-25')
+    expect(t).toContain('👤 ร้อน 🔴 Hot · Prospect')
+    expect(t).toContain('👤 เสีย (เสียดีล: ราคา) · Prospect')
+  })
+})
+
+describe('LINE ร้อน/อุ่น/เย็น', () => {
+  it('แปลงคำสั่งตั้งความสนใจ', () => {
+    expect(parseLineCommand('ร้อน 0812345678')).toEqual({ type: 'temp', temp: 'hot', q: '0812345678' })
+    expect(parseLineCommand('อุ่น สมชาย')).toEqual({ type: 'temp', temp: 'warm', q: 'สมชาย' })
+    expect(parseLineCommand('Cold 0812345678')).toEqual({ type: 'temp', temp: 'cold', q: '0812345678' })
+    expect(parseLineCommand('เย็นนี้ว่างไหมครับ').type).toBe('none')
+    expect(parseLineCommand('เย็น นี้ ว่าง').type).toBe('none')
+  })
+})
