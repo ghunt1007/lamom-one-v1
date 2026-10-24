@@ -153,11 +153,17 @@ async function handleLineWebhook(request, env, cors) {
     } else if (cmd.type === 'unregister') {
       await deleteSalesTarget(env, accessToken, userId)
       reply = '✅ ยกเลิกการรับเตือนงานค้างแล้วครับ'
-    } else if (!env.LINE_TARGET_ID && !(await readLineTarget(env, accessToken))) {
-      // ยังไม่มีปลายทางรายงานเจ้าของ → คนแรกที่ทักคือเจ้าของ (พฤติกรรมเดิม) — เดิมทุกข้อความที่เข้ามาจะเขียนทับ
-      // ปลายทางเจ้าของทุกครั้ง พอเซลส์เริ่มทัก OA รายงานเจ้าของจะไปเข้า LINE เซลส์แทน จึงเขียนครั้งแรกครั้งเดียว
-      await writeLineTarget(env, accessToken, userId)
-      reply = '✅ ลงทะเบียนรับรายงานประจำวัน LAMOM ONE เรียบร้อยแล้วครับ'
+    } else {
+      const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
+      if (!owner) {
+        // ยังไม่มีปลายทางรายงานเจ้าของ → คนแรกที่ทักคือเจ้าของ (พฤติกรรมเดิม) — เดิมทุกข้อความที่เข้ามาจะเขียนทับ
+        // ปลายทางเจ้าของทุกครั้ง พอเซลส์เริ่มทัก OA รายงานเจ้าของจะไปเข้า LINE เซลส์แทน จึงเขียนครั้งแรกครั้งเดียว
+        await writeLineTarget(env, accessToken, userId)
+        reply = '✅ ลงทะเบียนรับรายงานประจำวัน LAMOM ONE เรียบร้อยแล้วครับ'
+      } else if (env.AUTO_LEAD_FROM_LINE === '1' && userId !== owner && ev.type === 'message') {
+        // (เปิดเองด้วย var AUTO_LEAD_FROM_LINE="1") คนที่ไม่ใช่เจ้าของ/เซลส์ทักเข้ามา = ลูกค้าใหม่ → สร้าง Lead ให้
+        await captureLineLead(env, accessToken, userId, ev.message?.type === 'text' ? ev.message.text : '').catch(() => {})
+      }
     }
     // ข้อความอื่น (เช่น ลูกค้าทักมา) ไม่ตอบอะไร — OA นี้อาจเป็นช่องทางคุยกับลูกค้าด้วย
     if (reply && ev.replyToken && env.LINE_CHANNEL_ACCESS_TOKEN) {
@@ -587,6 +593,45 @@ async function deleteSalesTarget(env, accessToken, userId) {
     method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` },
   }).catch(() => {})
 }
+// ลูกค้าทัก LINE OA → สร้างลูกค้าใหม่ (ที่มา LINE) ครั้งแรกครั้งเดียวต่อ LINE userId ไม่สร้างให้เซลส์ที่ลงทะเบียนไว้
+async function captureLineLead(env, accessToken, userId, firstText) {
+  const base = `https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents`
+  const headers = { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+  const sales = await fetch(`${base}/line_sales_targets/${encodeURIComponent(userId)}`, { headers })
+  if (sales.ok) return null
+  const q = await fetch(`${base}:runQuery`, {
+    method: 'POST', headers,
+    body: JSON.stringify({ structuredQuery: { from: [{ collectionId: 'customers' }], where: { fieldFilter: { field: { fieldPath: 'lineUserId' }, op: 'EQUAL', value: { stringValue: userId } } }, limit: 1 } }),
+  })
+  const found = q.ok ? await q.json() : []
+  if (!q.ok || (Array.isArray(found) && found.some(r => r.document))) return null
+  let displayName = ''
+  try {
+    const p = await fetch(`https://api.line.me/v2/bot/profile/${encodeURIComponent(userId)}`, { headers: { Authorization: `Bearer ${env.LINE_CHANNEL_ACCESS_TOKEN}` } })
+    if (p.ok) displayName = (await p.json()).displayName || ''
+  } catch { /* ไม่มีชื่อก็สร้างได้ */ }
+  const fields = buildLineLeadFields({ userId, displayName, firstText, now: new Date().toISOString(), companyId: env.LINE_LEAD_COMPANY_ID || null })
+  const res = await fetch(`${base}/customers`, { method: 'POST', headers, body: JSON.stringify({ fields }) })
+  return res.ok
+}
+
+// เอกสารลูกค้าแบบเดียวกับที่แอปสร้าง (ดู src/utils/quickLead.js) ในรูป Firestore REST fields — export ไว้เทส
+// companyId ว่าง = เห็นเฉพาะเจ้าของโปรแกรม/ผู้ดูทั้งกลุ่ม (ตาม firestore.rules) — ตั้ง var LINE_LEAD_COMPANY_ID ให้เซลส์บริษัทนั้นเห็นด้วย
+export function buildLineLeadFields({ userId, displayName, firstText, now, companyId = null }) {
+  const str = v => ({ stringValue: String(v ?? '') })
+  const parts = String(displayName || '').trim().split(/\s+/).filter(Boolean)
+  const note = firstText ? `ทักมาทาง LINE OA: "${String(firstText).slice(0, 200)}"` : 'ทักมาทาง LINE OA'
+  return {
+    firstName: str(parts[0] || 'ลูกค้า LINE'), lastName: str(parts.slice(1).join(' ')),
+    phone: str(''), lineId: str(displayName ? `LINE: ${displayName}` : 'LINE OA'), lineUserId: str(userId), email: str(''),
+    interestedModel: str(''), source: str('line'), temperature: { nullValue: null }, assignedTo: str(''),
+    vip: { booleanValue: false }, notes: str(note), budget: { integerValue: '0' }, occupation: str(''), monthlyIncome: { integerValue: '0' },
+    stage: str('pp'), isLost: { booleanValue: false }, lostReason: str(''), lostAt: { nullValue: null }, bookingId: { nullValue: null },
+    tags: { arrayValue: { values: [str('LINE OA')] } }, companyId: companyId ? str(companyId) : { nullValue: null },
+    stageChangedAt: str(now), createdAt: { timestampValue: now }, updatedAt: { timestampValue: now },
+  }
+}
+
 async function pushLine(env, to, text) {
   const res = await fetch('https://api.line.me/v2/bot/message/push', {
     method: 'POST',
