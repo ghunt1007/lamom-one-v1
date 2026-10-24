@@ -99,7 +99,8 @@ export function buildMyDay({ customers = [], followups = [], bookings = [], test
   }).filter(Boolean).sort((a, b) => a.days - b.days)
 
   out.followups.sort((a, b) => b.late - a.late)
-  out.stale.sort((a, b) => b.days - a.days)
+  // ลูกค้า Hot ขึ้นก่อน (โอกาสปิดสูงสุด) แล้วค่อยเรียงตามจำนวนวันที่เงียบ
+  out.stale.sort((a, b) => Number(b.temperature === 'hot') - Number(a.temperature === 'hot') || b.days - a.days)
   out.stuck.sort((a, b) => b.days - a.days)
   out.finance.sort((a, b) => Number(b.rejected) - Number(a.rejected) || b.days - a.days)
   out.deliveries.sort((a, b) => a.inDays - b.inDays)
