@@ -870,3 +870,25 @@ describe('runQuery ดึงครบทุกหน้า', () => {
     expect(n).toBe(1)
   })
 })
+
+describe('สรุปสัปดาห์ — การติดตามลูกค้า', () => {
+  it('แสดง % นัดที่ทำแล้วของสัปดาห์ที่แล้ว และคนที่ค้างมากสุด', () => {
+    const txt = buildWeeklyReport({
+      followups: [
+        { status: 'pending', dueDate: '2026-10-20', salesperson: 'B' },
+        { status: 'pending', dueDate: '2026-10-21', salesperson: 'B' },
+        { status: 'pending', dueDate: '2026-10-27', salesperson: 'A' }, // สัปดาห์นี้ ไม่นับ
+      ],
+      followupsDone: [
+        { status: 'done', dueDate: '2026-10-19', salesperson: 'A' },
+        { status: 'done', dueDate: '2026-10-25', salesperson: 'A' },
+        { status: 'done', dueDate: '2026-10-12', salesperson: 'A' }, // สัปดาห์ก่อน ไม่นับ
+      ],
+    }, { today: '2026-10-26' })
+    expect(txt).toContain('ติดตามลูกค้าตามนัด: ทำแล้ว 2/4 นัด (50%)')
+    expect(txt).toContain('ยังค้าง: B 2')
+  })
+  it('ไม่มีข้อมูลนัดที่ทำแล้ว → ไม่แสดงส่วนนี้', () => {
+    expect(buildWeeklyReport({ followups: [{ status: 'pending', dueDate: '2026-10-20' }] }, { today: '2026-10-26' })).not.toContain('ติดตามลูกค้าตามนัด')
+  })
+})

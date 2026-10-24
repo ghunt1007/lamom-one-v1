@@ -97,7 +97,9 @@ async function runMorningReminder(env, accessToken) {
   // วันจันทร์: ส่งสรุปสัปดาห์ที่แล้วตามไปอีกข้อความ (แทนสรุปรายสัปดาห์ของ CRM เก่าที่ปิดไปแล้ว)
   let weekly = null
   if (isMonday(today)) {
-    const wText = buildWeeklyReport(data, { today })
+    // นัดที่ทำแล้ว (ข้อมูลเช้าดึงเฉพาะนัดค้าง) — ใช้คิด % การติดตามของสัปดาห์ที่แล้ว
+    const followupsDone = await runQuery(env, accessToken, 'followups', null, null, 5000, ['dueDate', 'status', 'salesperson', 'deleted'], ['status', 'done']).catch(() => null)
+    const wText = buildWeeklyReport({ ...data, followupsDone }, { today })
     const [wt, wl] = await Promise.all([sendTelegram(env, wText), sendLineTarget(env, accessToken, wText)])
     weekly = { text: wText, telegram: wt, line: wl }
   }
@@ -646,6 +648,21 @@ export function buildWeeklyReport(data, { today }) {
     .sort((a, b) => b.pct - a.pct || b.n - a.n).slice(0, 5)
     .map(r => `  • ${r.k}: จอง ${r.bk}/${r.n} ราย (${r.pct}%)`)
 
+  // การติดตามลูกค้า: นัดที่ครบกำหนดสัปดาห์ที่แล้ว ทำแล้วกี่ % (ต้องมีข้อมูลนัดที่ทำแล้วส่งมาด้วย) + ใครค้างมากสุด
+  let fuLines = []
+  if (Array.isArray(data.followupsDone)) {
+    const inWeek = f => inRange(String(f.dueDate || '').slice(0, 10), weeks[0])
+    const done = alive(data.followupsDone).filter(f => f.status === 'done' && inWeek(f))
+    const late = alive(data.followups).filter(f => f.status === 'pending' && inWeek(f))
+    if (done.length + late.length) {
+      const pct = Math.round(done.length / (done.length + late.length) * 100)
+      const bySeller = {}
+      late.forEach(f => { const k = (f.salesperson || '').trim() || '(ไม่ระบุ)'; bySeller[k] = (bySeller[k] || 0) + 1 })
+      const worst = Object.entries(bySeller).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, v]) => `${k} ${v}`).join(' · ')
+      fuLines = ['', `📞 ติดตามลูกค้าตามนัด: ทำแล้ว ${done.length}/${done.length + late.length} นัด (${pct}%)`, worst ? `    ยังค้าง: ${worst}` : null]
+    }
+  }
+
   return [
     '📅 LAMOM ONE สรุปสัปดาห์ที่แล้ว',
     `🗓 ${formatThaiDate(weeks[0][0])} – ${formatThaiDate(weeks[0][1])}`,
@@ -659,6 +676,7 @@ export function buildWeeklyReport(data, { today }) {
     cur.missing ? `  ⚠️ ยังไม่กรอกรายได้ ${cur.missing} คัน — ตัวเลขจริงสูงกว่านี้` : null,
     `❌ ถอนจอง: ${cur.cancelled} คัน (${diff(cur.cancelled, prev.cancelled)})`,
     ...(sellerLines.length ? ['', '👤 ทีมขาย (สัปดาห์ที่แล้ว)', ...sellerLines] : []),
+    ...fuLines,
     ...(convLines.length ? ['', '🎯 ช่องทางที่ปิดจองได้ดี (Lead 90 วันล่าสุด)', ...convLines] : []),
     '',
     '─────────────────────',
