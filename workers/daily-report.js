@@ -205,8 +205,8 @@ async function buildReportText(env, accessToken) {
   // select เฉพาะ field ที่รายงานใช้ — ใบจองหลายพันใบทั้งเอกสารใหญ่เกินจน parse JSON เกินโควตา CPU ของ cron
   const [bookings, customers, followups, testDrives, teamTargets] = await Promise.all([
     runQuery(env, accessToken, 'bookings', null, null, 5000, ['bookingDate', 'status', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'salesName', 'totalIncome', 'deliveryDate', 'deliveryTime', 'custName', 'model', 'deleted']),
-    runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'createdAt', 'source', 'assignedTo', 'isLost', 'deleted']),
-    runQuery(env, accessToken, 'followups', null, null, 3000, ['dueDate', 'status', 'deleted']),
+    runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'createdAt', 'source', 'assignedTo', 'isLost', 'lastContactAt', 'deleted']),
+    runQuery(env, accessToken, 'followups', null, null, 3000, ['dueDate', 'status', 'customerId', 'updatedAt', 'deleted']),
     runQuery(env, accessToken, 'test_drives', null, null, 3000, ['date', 'deleted']),
     runQuery(env, accessToken, 'team_targets', null, null, 500, ['period', 'metric', 'target']),
   ])
@@ -240,6 +240,9 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
   const newLeadsToday = newLeadsTodayList.length
   const srcCount = {}
   newLeadsTodayList.forEach(c => { const k = SOURCE_LABELS[c.source] || SOURCE_LABELS.other; srcCount[k] = (srcCount[k] || 0) + 1 })
+  // Lead ใหม่วันนี้ที่ติดต่อแล้ว: กด "ติดตามแล้ว" (lastContactAt) หรือบันทึกผล Follow-up ของลูกค้ารายนั้นแล้ววันนี้
+  const touchedToday = new Set(followups.filter(f => f.status === 'done' && f.customerId && toBangkokDate(f.updatedAt) === today).map(f => f.customerId))
+  const contactedToday = newLeadsTodayList.filter(c => toBangkokDate(c.lastContactAt) === today || touchedToday.has(c.id)).length
   const srcLine = Object.entries(srcCount).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(' · ')
   // ลูกค้าที่ยังไม่มีผู้ดูแล (เช่น ทัก LINE OA เข้ามาเอง) — ถ้าไม่มีใครรับ จะไม่มีใครโทรหา
   // นับเฉพาะที่เข้ามาใน 30 วันล่าสุด — ลูกค้าเก่าที่นำเข้าจาก Excel โดยไม่มีผู้ดูแลจะไม่ทำให้ตัวเลขนี้ล้น
@@ -300,6 +303,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
     '👥 LEADS',
     `  • Lead ใหม่วันนี้: ${newLeadsToday} ราย`,
     srcLine ? `    มาจาก: ${srcLine}` : null,
+    newLeadsToday ? `    ติดต่อแล้ว ${contactedToday}/${newLeadsToday} ราย${contactedToday < newLeadsToday ? ' ⚠️ ที่เหลือควรโทรก่อนพรุ่งนี้' : ' 👍'}` : null,
     `  • Lead ที่ดูแลอยู่: ${leads.length} ราย`,
     unassigned ? `  • ⚠️ ยังไม่มีผู้ดูแล: ${unassigned} ราย (มอบให้เซลส์ได้ที่หน้า "งานของฉันวันนี้")` : null,
     `  • Follow-up วันนี้: ${followUpToday} ราย`,

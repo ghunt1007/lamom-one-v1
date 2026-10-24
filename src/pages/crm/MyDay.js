@@ -13,7 +13,7 @@ import { QUICK_SOURCES } from '../../utils/quickLead.js'
 import { SALES_TARGETS_COLLECTION, targetFor, goalProgress } from '../../utils/salesTargets.js'
 import { DELIVERED_STATUSES } from '../../utils/deliveryIncome.js'
 import { staffChoices, findStaffCompany, assignCustomer } from '../../utils/leadAssign.js'
-import { buildMyDay, STALE_LEAD_DAYS, STUCK_BOOKING_DAYS, UPCOMING_DELIVERY_DAYS, FINANCE_WAIT_DAYS } from '../../utils/myDay.js'
+import { bangkokDate, buildMyDay, STALE_LEAD_DAYS, STUCK_BOOKING_DAYS, UPCOMING_DELIVERY_DAYS, FINANCE_WAIT_DAYS } from '../../utils/myDay.js'
 
 const UNASSIGNED = '(ยังไม่มีผู้ดูแล)'
 function escHtml(s) {
@@ -129,7 +129,7 @@ export default async function MyDayPage(container) {
         ${section('🧲', 'Lead ใหม่วันนี้', 'โทรหาภายในวันนี้ โอกาสปิดสูงสุด', d.newLeads, c => line(
           `${escHtml(c.name)}${c.interestedModel ? ` · ${escHtml(c.interestedModel)}` : ''}`,
           `${escHtml(SOURCE_LABEL[c.source] || c.source || '')}${c.phone ? ` · ${escHtml(c.phone)}` : c.lineId ? ` · ${escHtml(c.lineId)}` : ''}${ownerTag(c.assignedTo)}`,
-          `${callBtn(c.phone)}${takeBtns(c)}<button class="btn btn-secondary btn-xs md-open" data-id="${escHtml(c.id)}">เปิด</button>`), 'success')}
+          `${callBtn(c.phone)}${takeBtns(c)}${bangkokDate(c.lastContactAt) === today ? '<span class="badge badge-success" style="font-size:0.62rem">ติดต่อแล้ว</span>' : `<button class="btn btn-success btn-xs md-touch" data-id="${escHtml(c.id)}">✅ ติดต่อแล้ว</button>`}<button class="btn btn-secondary btn-xs md-open" data-id="${escHtml(c.id)}">เปิด</button>`), 'success')}
 
         ${section('⏰', `Lead ไม่ได้ติดตามเกิน ${STALE_LEAD_DAYS} วัน`, 'กด "ติดตามแล้ว" เพื่อบันทึกว่าคุยแล้ววันนี้', d.stale, c => line(
           `${escHtml(c.name)}${c.interestedModel ? ` · ${escHtml(c.interestedModel)}` : ''} <span class="badge badge-warning" style="font-size:0.62rem">${c.days} วัน</span>`,
@@ -168,7 +168,7 @@ export default async function MyDayPage(container) {
       try {
         await updateDocData('customers', b.dataset.id, { lastContactAt: new Date().toISOString() })
         const c = data.customers.find(x => x.id === b.dataset.id)
-        if (c) c.updatedAt = new Date().toISOString()
+        if (c) { c.updatedAt = new Date().toISOString(); c.lastContactAt = c.updatedAt }
         showToast('✅ บันทึกการติดตามแล้ว', 'success'); render()
       } catch { showToast('บันทึกไม่สำเร็จ', 'error'); b.disabled = false }
     }))
