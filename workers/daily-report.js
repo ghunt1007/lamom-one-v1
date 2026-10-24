@@ -930,24 +930,41 @@ async function pushLine(env, to, text) {
 
 // ── Firestore REST — runQuery (ไม่มี where — กัน composite index) ──
 // equal = [field, 'ค่า string'] — กรองเท่ากับ 1 field (ใช้ index ฟิลด์เดียวที่ Firestore สร้างให้อัตโนมัติ ไม่ต้องเพิ่ม composite index)
-export function buildStructuredQuery(collectionId, orderField, direction, limit, fields, equal) {
+// after = ชื่อเอกสารเต็มตัวสุดท้ายของหน้าก่อน (ดึงหน้าถัดไปเรียงตาม __name__ — ค่าเริ่มต้นของ Firestore อยู่แล้ว
+// จึงไม่ต้องมี index เพิ่ม)
+export function buildStructuredQuery(collectionId, orderField, direction, limit, fields, equal, after = null) {
   const structuredQuery = { from: [{ collectionId }], limit }
   // orderBy ตัดเอกสารที่ไม่มี field นั้นทิ้งเงียบๆ — ส่ง null เมื่อต้องการทุกเอกสารจริง
   if (orderField) structuredQuery.orderBy = [{ field: { fieldPath: orderField }, direction }]
   if (fields) structuredQuery.select = { fields: fields.map(fieldPath => ({ fieldPath })) }
   if (equal) structuredQuery.where = { fieldFilter: { field: { fieldPath: equal[0] }, op: 'EQUAL', value: { stringValue: String(equal[1]) } } }
+  if (after && !orderField) {
+    structuredQuery.orderBy = [{ field: { fieldPath: '__name__' }, direction: 'ASCENDING' }]
+    structuredQuery.startAt = { values: [{ referenceValue: after }], before: false }
+  }
   return structuredQuery
 }
-async function runQuery(env, accessToken, collectionId, orderField, direction, limit, fields, equal) {
-  const structuredQuery = buildStructuredQuery(collectionId, orderField, direction, limit, fields, equal)
-  const res = await fetch(`https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents:runQuery`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ structuredQuery }),
-  })
-  if (!res.ok) throw new Error(`Firestore runQuery(${collectionId}) ${res.status}`)
-  const rows = await res.json()
-  return (Array.isArray(rows) ? rows : []).filter(r => r.document).map(r => docToObject(r.document))
+// ไม่ได้เรียงตาม field (orderField = null) แล้วได้ครบ limit พอดี = อาจมีมากกว่านั้น → ดึงหน้าถัดไปต่อ (สูงสุด MAX_QUERY_PAGES หน้า)
+// เดิมดึงแค่ limit แรก ข้อมูลเกินนั้นหายเงียบๆ จากรายงาน (ใบจอง/ลูกค้าเกิน 5,000)
+export const MAX_QUERY_PAGES = 4
+export async function runQuery(env, accessToken, collectionId, orderField, direction, limit, fields, equal) {
+  const out = []
+  let after = null
+  for (let page = 0; page < (orderField ? 1 : MAX_QUERY_PAGES); page++) {
+    const structuredQuery = buildStructuredQuery(collectionId, orderField, direction, limit, fields, equal, after)
+    const res = await fetch(`https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents:runQuery`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ structuredQuery }),
+    })
+    if (!res.ok) throw new Error(`Firestore runQuery(${collectionId}) ${res.status}`)
+    const rows = await res.json()
+    const docs = (Array.isArray(rows) ? rows : []).filter(r => r.document).map(r => r.document)
+    docs.forEach(d => out.push(docToObject(d)))
+    if (docs.length < limit || !docs[docs.length - 1]?.name) break
+    after = docs[docs.length - 1].name
+  }
+  return out
 }
 function docToObject(doc) {
   const obj = { id: doc.name.split('/').pop() }
