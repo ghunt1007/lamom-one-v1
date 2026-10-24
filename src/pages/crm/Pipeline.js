@@ -3,6 +3,7 @@ import { showToast, on } from '../../core/store.js'
 import { formatCurrency, initials, fullName, timeAgo } from '../../utils/format.js'
 import { navigate } from '../../core/router.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
+import { getVisibilityScope, scopeIncludesRecord } from '../../core/hierarchy.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -237,13 +238,17 @@ export default async function PipelinePage(container) {
   document.getElementById('pl-list-btn').addEventListener('click', () => navigate('/crm/customers'))
   document.getElementById('pl-add-btn').addEventListener('click', () => navigate('/crm/customers'))
 
+  // เซลส์เห็นเฉพาะลูกค้าของตัวเอง/ลูกทีม (นโยบายเดียวกับหน้าลูกค้า) — ผู้บริหาร/เจ้าของเห็นทั้งหมด
+  const visScope = await getVisibilityScope()
+  if (container.__routerGen !== myGen) return
+
   let firstSnapshot = true
   let unsubCustomers = () => {}
   function startWatchCustomers() {
     unsubCustomers()
     unsubCustomers = watchDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 500, rows => {
       if (container.__routerGen !== myGen) { unsubCustomers(); return }
-      customers = rows.filter(c => !c.deleted)
+      customers = rows.filter(c => !c.deleted && scopeIncludesRecord(visScope, c.assignedTo, c))
       if (firstSnapshot) { firstSnapshot = false; renderBoard() }
       else safeRenderBoard()
     })
