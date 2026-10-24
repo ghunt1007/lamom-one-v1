@@ -332,7 +332,7 @@ async function buildReportText(env, accessToken) {
   const fuFields = ['dueDate', 'status', 'customerId', 'updatedAt', 'deleted']
   const [bookings, customers, fuPending, fuDone, testDrives, teamTargets] = await Promise.all([
     runQuery(env, accessToken, 'bookings', null, null, 5000, ['bookingDate', 'status', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'salesName', 'totalIncome', 'deliveryDate', 'deliveryTime', 'custName', 'model', 'cancelReason', 'deleted']),
-    runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'createdAt', 'source', 'assignedTo', 'isLost', 'lastContactAt', 'deleted']),
+    runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'createdAt', 'source', 'assignedTo', 'isLost', 'lostAt', 'lostReason', 'lastContactAt', 'deleted']),
     // แยกดึงนัดค้าง/นัดที่ทำแล้ว — ถ้าดึงรวมแบบจำกัดจำนวน พอนัดอัตโนมัติสะสมเยอะจะตกหล่นนัดของวันนี้
     runQuery(env, accessToken, 'followups', null, null, 5000, fuFields, ['status', 'pending']),
     runQuery(env, accessToken, 'followups', null, null, 5000, fuFields, ['status', 'done']),
@@ -350,6 +350,11 @@ async function buildReportText(env, accessToken) {
 // ── สร้างข้อความรายงานจากข้อมูลล้วนๆ (ไม่แตะเครือข่าย) — export ไว้เทสตรงๆ ──────────────
 // นิยามตัวเลขทุกตัวตาม Dashboard.js: "ส่งมอบ" = ส่งมอบแล้ว/ตัดตัวเลขรอส่งมอบ นับตามวันตัดตัวเลข (cutDate),
 // รายได้ = totalIncome (มาร์จิ้นคงเหลือ + คอม) ของคันที่ส่งมอบ, Lead = ลูกค้า stage lead/pp, เซลส์ = salesName
+// หัวข้อเหตุผลเสียดีล: คำหน้าเครื่องหมาย " - " (เช่น "ราคา - คู่แข่งลดให้ 20,000" → "ราคา") ใช้นับแยกตามเหตุผล
+export function lostReasonHead(reason) {
+  return String(reason || '').split(/\s+[-–—:]\s+/)[0].replace(/\s*[-–—:]$/, '').trim().slice(0, 30) || '(ไม่ระบุเหตุผล)'
+}
+
 export function buildReport(data, { today, time, defaultTarget = 0 }) {
   const thisMonth = today.slice(0, 7)
   const thisYear = today.slice(0, 4)
@@ -384,6 +389,11 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
   const contactBy = {}
   contactedAll.forEach(c => { const k = String(c.assignedTo || '').trim() || '(ไม่มีผู้ดูแล)'; contactBy[k] = (contactBy[k] || 0) + 1 })
   const contactLine = Object.entries(contactBy).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([k, v]) => `${k} ${v}`).join(' · ')
+  // เสียดีลวันนี้ แยกตามเหตุผล (กดปุ่มเสียดีลในหน้าลูกค้า)
+  const lostToday = customers.filter(c => c.isLost && toBangkokDate(c.lostAt) === today)
+  const lostBy = {}
+  lostToday.forEach(c => { const k = lostReasonHead(c.lostReason); lostBy[k] = (lostBy[k] || 0) + 1 })
+  const lostLine = Object.entries(lostBy).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, v]) => `${k} ${v}`).join(' · ')
   const followUpToday = followups.filter(f => f.status === 'pending' && f.dueDate === today).length
   const followUpOverdue = followups.filter(f => f.status === 'pending' && f.dueDate && f.dueDate < today).length
   const testDriveToday = testDrives.filter(t => (t.date || '').slice(0, 10) === today).length
@@ -444,6 +454,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
     `  • Lead ที่ดูแลอยู่: ${leads.length} ราย`,
     unassigned ? `  • ⚠️ ยังไม่มีผู้ดูแล: ${unassigned} ราย (มอบให้เซลส์ได้ที่หน้า "งานของฉันวันนี้")` : null,
     `  • ติดต่อลูกค้าวันนี้: ${contactedAll.length} ราย${contactLine ? ` (${contactLine})` : ''}`,
+    lostToday.length ? `  • 💔 เสียดีลวันนี้: ${lostToday.length} ราย (${lostLine})` : null,
     `  • Follow-up วันนี้: ${followUpToday} ราย`,
     followUpOverdue ? `  • ⚠️ Follow-up เลยกำหนด: ${followUpOverdue} ราย` : null,
     `  • ทดลองขับวันนี้: ${testDriveToday} ราย`,
@@ -783,7 +794,7 @@ export function buildWeeklyReport(data, { today }) {
   let lostN = 0
   customers.filter(c => c.isLost && inRange(toBangkokDate(c.lostAt), weeks[0])).forEach(c => {
     lostN++
-    const k = String(c.lostReason || '').split(/\s+[-–—:]\s+/)[0].replace(/\s*[-–—:]$/, '').trim().slice(0, 30) || '(ไม่ระบุเหตุผล)'
+    const k = lostReasonHead(c.lostReason)
     lostBy[k] = (lostBy[k] || 0) + 1
   })
   const lostTop = Object.entries(lostBy).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, v]) => `${k} ${v}`).join(' · ')
