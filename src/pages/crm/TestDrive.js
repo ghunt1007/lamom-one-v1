@@ -6,6 +6,7 @@ import { getVehicles } from '../../data/vehicleDatabase.js'
 import { getSalesStaff } from '../../data/masterData.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
+import { scheduleTestDriveFollowup } from '../../utils/testDriveFollowup.js'
 
 // (v1.0.523) เดิมหน้านี้เขียน collection แยก 'test_drive_records' ของตัวเอง ในขณะที่ TestDriveScheduler.js
 // (/dms/testdrive-schedule) เขียน collection 'test_drives' คนละตัวโดยสิ้นเชิง — ทำระบบเดียวกัน (นัด→ทดลองขับ→
@@ -266,7 +267,8 @@ export default async function TestDrivePage(container) {
       }
       try {
         await updateDocData('test_drives', t.id, fields)
-        showToast('✅ บันทึกผล Test Drive แล้ว', 'success'); close()
+        const fu = await scheduleTestDriveFollowup(t, fields)
+        showToast(`✅ บันทึกผล Test Drive แล้ว${fu ? ' · นัดโทรตามพรุ่งนี้ให้แล้ว' : ''}`, 'success'); close()
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     })

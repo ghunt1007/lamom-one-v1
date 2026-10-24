@@ -8,6 +8,7 @@ import { showToast, on } from '../../core/store.js'
 import { watchDocs, listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
+import { scheduleTestDriveFollowup } from '../../utils/testDriveFollowup.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -201,7 +202,11 @@ export default async function TestDriveSchedulerPage(container) {
     container.querySelectorAll('.done-btn').forEach(b => b.addEventListener('click', async () => {
       const bk = bookings.find(x => x.id === b.dataset.id)
       if (!bk) return
-      try { await updateDocData('test_drives', bk.id, { status: 'done' }); showToast('✅ บันทึกเสร็จสิ้น', 'success'); await loadData() }
+      try {
+        await updateDocData('test_drives', bk.id, { status: 'done' })
+        const fu = bk.status !== 'done' && await scheduleTestDriveFollowup(bk, { status: 'done', result: bk.result || null })
+        showToast(`✅ บันทึกเสร็จสิ้น${fu ? ' · นัดโทรตามพรุ่งนี้ให้แล้ว' : ''}`, 'success'); await loadData()
+      }
       catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
   }
