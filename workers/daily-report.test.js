@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import worker, { daysSinceBangkok, formatThaiDate, todayBangkok, decodeFsValue, buildReport, buildMorningReminder, buildMorningSections, buildPersonalReminder, matchSalesTargets, parseLineCommand, buildWeeklyReport, isMonday, buildLineLeadFields } from './daily-report.js'
+import worker, { daysSinceBangkok, formatThaiDate, todayBangkok, decodeFsValue, buildReport, buildMorningReminder, buildMorningSections, buildPersonalReminder, matchSalesTargets, parseLineCommand, buildWeeklyReport, isMonday, buildLineLeadFields, pickNextSales, staffCompanyFor, buildLineFollowupFields, buildNewLineLeadNotice } from './daily-report.js'
 
 const BASE_ENV = { FIREBASE_API_KEY: 'fake-public-key', FIREBASE_PROJECT_ID: 'fake-project', ALLOWED_ORIGIN: 'https://lamom-one.pages.dev' }
 
@@ -530,5 +530,74 @@ describe('LINE OA auto lead (opt-in AUTO_LEAD_FROM_LINE)', () => {
     expect(creates(await post('hi', 'UOWNER', { AUTO_LEAD_FROM_LINE: '1' }))).toHaveLength(0)
     expect(creates(await post('hi', 'USALES', { AUTO_LEAD_FROM_LINE: '1' }, { isSales: true }))).toHaveLength(0)
     expect(creates(await post('hi', 'UOLD', { AUTO_LEAD_FROM_LINE: '1' }, { existing: true }))).toHaveLength(0)
+  })
+})
+
+describe('LINE OA leads handed to salespeople in turn (AUTO_ASSIGN_LINE_LEADS)', () => {
+  it('pickNextSales rotates by name and skips duplicates', () => {
+    const t = [{ name: 'บี', userId: 'U2' }, { name: 'เอ', userId: 'U1' }, { name: 'คุณเอ', userId: 'U9' }, { name: '', userId: 'U3' }]
+    expect(pickNextSales(t, '')?.userId).toBe('U2') // 'บี' < 'เอ' ตามลำดับตัวอักษรไทย
+    expect(pickNextSales(t, 'บี')?.userId).toBe('U1')
+    expect(pickNextSales(t, 'เอ')?.userId).toBe('U2')
+    expect(pickNextSales([], 'x')).toBe(null)
+  })
+
+  it('staffCompanyFor matches full name or nickname', () => {
+    const staff = [{ firstName: 'วิชัย', lastName: 'ใจดี', nickname: 'ชัย', companyIds: ['c1'] }, { firstName: 'นภา', companyId: 'c2' }]
+    expect(staffCompanyFor(staff, 'วิชัย ใจดี')).toBe('c1')
+    expect(staffCompanyFor(staff, 'ชัย')).toBe('c1')
+    expect(staffCompanyFor(staff, 'นภา')).toBe('c2')
+    expect(staffCompanyFor(staff, 'ไม่มี')).toBe(null)
+  })
+
+  it('builds 3 follow-ups and a notice with a link', () => {
+    const f = buildLineFollowupFields({ customerId: 'X', customerName: 'A', salesperson: 'วิชัย', companyId: 'c1', today: '2026-10-31', now: 'n' })
+    expect(f.map(x => x.dueDate.stringValue)).toEqual(['2026-11-01', '2026-11-03', '2026-11-07'])
+    expect(f[0].autoLead.booleanValue).toBe(true)
+    expect(f[0].companyId.stringValue).toBe('c1')
+    const n = buildNewLineLeadNotice({ customerName: 'A', firstText: 'สนใจ', customerId: 'X', appUrl: 'https://app/' })
+    expect(n).toContain('https://app/crm/customers?id=X')
+    expect(n).toContain('สนใจ')
+  })
+
+  it('webhook assigns the next salesperson, schedules follow-ups and tells them on LINE', async () => {
+    const calls = []
+    stubFetch([
+      ['oauth2.googleapis.com', () => ({ ok: true, json: async () => ({ access_token: 'fs' }) })],
+      ['system_integrations/line_daily_report', () => ({ ok: true, json: async () => ({ fields: { userId: { stringValue: 'UOWNER' } } }) })],
+      ['system_integrations/line_lead_rr', (url, opts) => {
+        if (opts?.method === 'PATCH') { calls.push(['rr', JSON.parse(opts.body).fields.lastName.stringValue]); return { ok: true, json: async () => ({}) } }
+        return { ok: true, json: async () => ({ fields: { lastName: { stringValue: 'บี' } } }) }
+      }],
+      ['line_sales_targets/', () => ({ ok: false, json: async () => ({}) })],
+      [':runQuery', (url, opts) => {
+        const col = JSON.parse(opts.body).structuredQuery.from[0].collectionId
+        const doc = (id, fields) => ({ document: { name: `x/${id}`, fields } })
+        const s = v => ({ stringValue: v })
+        if (col === 'customers') return { ok: true, json: async () => [{}] }
+        if (col === 'line_sales_targets') return { ok: true, json: async () => [doc('U1', { name: s('เอ'), userId: s('U1') }), doc('U2', { name: s('บี'), userId: s('U2') })] }
+        if (col === 'staff') return { ok: true, json: async () => [doc('s1', { firstName: s('เอ'), companyId: s('comp-A') })] }
+        return { ok: true, json: async () => [] }
+      }],
+      ['api.line.me/v2/bot/profile/', () => ({ ok: true, json: async () => ({ displayName: 'Khun A' }) })],
+      ['/documents/customers', (url, opts) => { calls.push(['customer', JSON.parse(opts.body).fields]); return { ok: true, json: async () => ({ name: 'projects/p/databases/(default)/documents/customers/NEWID' }) } }],
+      ['/documents/followups', (url, opts) => { calls.push(['fu', JSON.parse(opts.body).fields]); return { ok: true, json: async () => ({}) } }],
+      ['api.line.me/v2/bot/message/push', (url, opts) => { const b = JSON.parse(opts.body); calls.push(['push', b.to, b.messages[0].text]); return { ok: true, json: async () => ({}) } }],
+    ])
+    const body = JSON.stringify({ events: [{ type: 'message', replyToken: 'rt', source: { userId: 'UCUST' }, message: { type: 'text', text: 'ขอราคา Seal' } }] })
+    const env = { ...BASE_ENV, LINE_CHANNEL_SECRET: 'sec', LINE_CHANNEL_ACCESS_TOKEN: 'tok', FIRESTORE_SERVICE_ACCOUNT_JSON: await fakeServiceAccount(), AUTO_LEAD_FROM_LINE: '1', AUTO_ASSIGN_LINE_LEADS: '1' }
+    const res = await worker.fetch(new Request('https://w/line/webhook', { method: 'POST', headers: { 'X-Line-Signature': await lineSig(body, 'sec') }, body }), env)
+    expect(res.status).toBe(200)
+    const cust = calls.find(c => c[0] === 'customer')[1]
+    expect(cust.assignedTo.stringValue).toBe('เอ')
+    expect(cust.companyId.stringValue).toBe('comp-A')
+    expect(calls.find(c => c[0] === 'rr')[1]).toBe('เอ')
+    const fus = calls.filter(c => c[0] === 'fu')
+    expect(fus).toHaveLength(3)
+    expect(fus[0][1].customerId.stringValue).toBe('NEWID')
+    expect(fus[0][1].salesperson.stringValue).toBe('เอ')
+    const push = calls.find(c => c[0] === 'push')
+    expect(push[1]).toBe('U1')
+    expect(push[2]).toContain('/crm/customers?id=NEWID')
   })
 })
