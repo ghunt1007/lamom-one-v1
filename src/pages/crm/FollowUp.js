@@ -50,13 +50,18 @@ export default async function FollowUpPage(container) {
   async function loadData() {
     loading = true
     try {
-      const stored = await listDocs('followups', [...companyScopeFilters(), ...followupWindowFilters(todayBangkok())], 'dueDate', 'asc', 2000)
+      const fuWindow = followupWindowFilters(todayBangkok())
+      const windowFrom = fuWindow[0][2]
+      const stored = await listDocs('followups', [...companyScopeFilters(), ...fuWindow], 'dueDate', 'asc', 2000)
       let virtual = []
       try {
         const bookings = await listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 200)
         const delivered = bookings.filter(b => b.status === 'ส่งมอบแล้ว')
         virtual = delivered
-          .filter(b => !stored.some(s => s.sourceBookingId === b.id))
+          // ข้ามใบที่ระบบสร้างนัดหลังส่งมอบจริงไว้แล้ว (afterSalesScheduled) และใบที่ส่งมอบนานเกินช่วงที่โหลดนัดมา
+          // (นัดที่ทำไปแล้วของใบเก่าอยู่นอกช่วง จะทำให้นัดเสมือนเด้งกลับมาเป็น "เกินกำหนด" ซ้ำ)
+          .filter(b => !b.afterSalesScheduled && !stored.some(s => s.sourceBookingId === b.id))
+          .filter(b => { const d = String(b.actualDeliveryDate || b.cutDate || ''); return !/^\d{4}-\d{2}-\d{2}/.test(d) || d.slice(0, 10) >= windowFrom })
           .map(b => {
             const deliveryDate = b.actualDeliveryDate
               || (b.updatedAt?.toDate ? b.updatedAt.toDate().toISOString().slice(0, 10) : null)
