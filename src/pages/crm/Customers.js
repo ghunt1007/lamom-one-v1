@@ -20,7 +20,7 @@ import { OCCUPATIONS } from '../../utils/financeMatch.js'
 import { openQuickLead } from '../../utils/quickLead.js'
 import { planLeadImport } from '../../utils/leadImport.js'
 import { scheduleLeadFollowups } from '../../utils/leadFollowups.js'
-import { pendingFollowupsFor, addDays, buildManualFollowup, FOLLOWUP_PURPOSES } from '../../utils/customerFollowups.js'
+import { pendingFollowupsFor, addDays, buildManualFollowup, FOLLOWUP_PURPOSES, followupWindowFilters } from '../../utils/customerFollowups.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -372,9 +372,9 @@ export default async function CustomersPage(container) {
   async function refreshFollowupList(c) {
     const el = document.getElementById('wk-fu-list-panel')
     if (!el) return
-    let rows = []
-    try { rows = await listDocs('followups', companyScopeFilters(), 'dueDate', 'asc', 1000) } catch {}
     const today = todayBangkok()
+    let rows = []
+    try { rows = await listDocs('followups', [...companyScopeFilters(), ...followupWindowFilters(today)], 'dueDate', 'asc', 2000) } catch {}
     const list = pendingFollowupsFor(rows, c.id, today)
     if (!document.getElementById('wk-fu-list-panel')) return
     el.innerHTML = `

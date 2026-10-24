@@ -19,6 +19,14 @@ export function addDays(date, n) {
   return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
 }
 
+// ตัวกรองดึงนัดติดตามเฉพาะช่วงใกล้ๆ (เลยกำหนดไม่เกิน days วัน + อนาคตทั้งหมด) — นัดอัตโนมัติ (Lead 3 ครั้ง,
+// หลังส่งมอบ 3 ครั้ง ฯลฯ) สะสมเร็ว ถ้าดึงแบบเรียงจากวันเก่าสุดแล้วจำกัดจำนวน นัดเก่าที่ทำไปแล้วจะกินโควตาหมด
+// จนนัดของวันนี้ตกหล่น — กรองช่วงบน field เดียวกับที่เรียง (dueDate) ใช้ index เดิม (companyId+dueDate) ได้เลย
+export const FOLLOWUP_WINDOW_DAYS = 120
+export function followupWindowFilters(today, days = FOLLOWUP_WINDOW_DAYS) {
+  return [['dueDate', '>=', addDays(today, -days)]]
+}
+
 // สร้างข้อมูลนัดติดตามใหม่จากลูกค้า (ยังไม่บันทึก) — ผู้ดูแล = ผู้ดูแลลูกค้า ถ้าไม่มีใช้ชื่อผู้กด
 export function buildManualFollowup(c, { dueDate, purpose, type = 'call', note = '', me = '' }) {
   return {

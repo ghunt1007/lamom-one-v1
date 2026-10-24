@@ -4,7 +4,7 @@ import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
-import { FOLLOWUP_PURPOSES } from '../../utils/customerFollowups.js'
+import { FOLLOWUP_PURPOSES, followupWindowFilters } from '../../utils/customerFollowups.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -50,7 +50,7 @@ export default async function FollowUpPage(container) {
   async function loadData() {
     loading = true
     try {
-      const stored = await listDocs('followups', companyScopeFilters(), 'dueDate', 'asc', 300)
+      const stored = await listDocs('followups', [...companyScopeFilters(), ...followupWindowFilters(todayBangkok())], 'dueDate', 'asc', 2000)
       let virtual = []
       try {
         const bookings = await listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 200)

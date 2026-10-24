@@ -203,13 +203,17 @@ async function verifyLineSignature(rawBody, signature, channelSecret) {
 // เรียงตาม field เดียวแล้วกรองวันที่ฝั่งนี้แทน เหมือน listDocs()/pattern ฝั่ง client ทั้งหมด
 async function buildReportText(env, accessToken) {
   // select เฉพาะ field ที่รายงานใช้ — ใบจองหลายพันใบทั้งเอกสารใหญ่เกินจน parse JSON เกินโควตา CPU ของ cron
-  const [bookings, customers, followups, testDrives, teamTargets] = await Promise.all([
+  const fuFields = ['dueDate', 'status', 'customerId', 'updatedAt', 'deleted']
+  const [bookings, customers, fuPending, fuDone, testDrives, teamTargets] = await Promise.all([
     runQuery(env, accessToken, 'bookings', null, null, 5000, ['bookingDate', 'status', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'salesName', 'totalIncome', 'deliveryDate', 'deliveryTime', 'custName', 'model', 'deleted']),
     runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'createdAt', 'source', 'assignedTo', 'isLost', 'lastContactAt', 'deleted']),
-    runQuery(env, accessToken, 'followups', null, null, 3000, ['dueDate', 'status', 'customerId', 'updatedAt', 'deleted']),
+    // แยกดึงนัดค้าง/นัดที่ทำแล้ว — ถ้าดึงรวมแบบจำกัดจำนวน พอนัดอัตโนมัติสะสมเยอะจะตกหล่นนัดของวันนี้
+    runQuery(env, accessToken, 'followups', null, null, 5000, fuFields, ['status', 'pending']),
+    runQuery(env, accessToken, 'followups', null, null, 5000, fuFields, ['status', 'done']),
     runQuery(env, accessToken, 'test_drives', null, null, 3000, ['date', 'deleted']),
     runQuery(env, accessToken, 'team_targets', null, null, 500, ['period', 'metric', 'target']),
   ])
+  const followups = [...fuPending, ...fuDone]
   return buildReport({ bookings, customers, followups, testDrives, teamTargets }, {
     today: todayBangkok(),
     time: new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' }).format(new Date()),
@@ -353,7 +357,8 @@ async function buildMorningData(env, accessToken) {
   const [bookings, customers, followups, testDrives] = await Promise.all([
     runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'model', 'totalIncome', 'finStatus', 'submitDate', 'financeCo', 'deleted']),
     runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'isLost', 'createdAt', 'updatedAt', 'stageChangedAt', 'source', 'bookingId', 'deleted']),
-    runQuery(env, accessToken, 'followups', null, null, 3000, ['dueDate', 'status', 'salesperson', 'customerName', 'customerId', 'autoLead', 'deleted']),
+    // เฉพาะนัดที่ยังไม่ทำ — นัดอัตโนมัติ (Lead/หลังส่งมอบ) สะสมเร็ว ถ้าดึงทั้งหมดแบบจำกัดจำนวนจะตกหล่นนัดของวันนี้
+    runQuery(env, accessToken, 'followups', null, null, 5000, ['dueDate', 'status', 'salesperson', 'customerName', 'customerId', 'autoLead', 'deleted'], ['status', 'pending']),
     runQuery(env, accessToken, 'test_drives', null, null, 3000, ['date', 'time', 'status', 'staff', 'customerName', 'model', 'deleted']).catch(() => []),
   ])
   const today = todayBangkok()
@@ -824,11 +829,17 @@ async function pushLine(env, to, text) {
 }
 
 // ── Firestore REST — runQuery (ไม่มี where — กัน composite index) ──
-async function runQuery(env, accessToken, collectionId, orderField, direction, limit, fields) {
+// equal = [field, 'ค่า string'] — กรองเท่ากับ 1 field (ใช้ index ฟิลด์เดียวที่ Firestore สร้างให้อัตโนมัติ ไม่ต้องเพิ่ม composite index)
+export function buildStructuredQuery(collectionId, orderField, direction, limit, fields, equal) {
   const structuredQuery = { from: [{ collectionId }], limit }
   // orderBy ตัดเอกสารที่ไม่มี field นั้นทิ้งเงียบๆ — ส่ง null เมื่อต้องการทุกเอกสารจริง
   if (orderField) structuredQuery.orderBy = [{ field: { fieldPath: orderField }, direction }]
   if (fields) structuredQuery.select = { fields: fields.map(fieldPath => ({ fieldPath })) }
+  if (equal) structuredQuery.where = { fieldFilter: { field: { fieldPath: equal[0] }, op: 'EQUAL', value: { stringValue: String(equal[1]) } } }
+  return structuredQuery
+}
+async function runQuery(env, accessToken, collectionId, orderField, direction, limit, fields, equal) {
+  const structuredQuery = buildStructuredQuery(collectionId, orderField, direction, limit, fields, equal)
   const res = await fetch(`https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents:runQuery`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
