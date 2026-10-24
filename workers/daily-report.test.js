@@ -1126,3 +1126,17 @@ describe('buildWeeklyReport — เสียดีลแยกตามเหต
     expect(buildWeeklyReport({ bookings: [], customers: [] }, { today: '2026-10-26' })).not.toContain('เสียดีล')
   })
 })
+
+describe('buildReport — เสียดีลวันนี้', () => {
+  it('นับเสียดีลวันนี้แยกเหตุผล', () => {
+    const customers = [
+      { stage: 'pp', isLost: true, lostAt: '2026-10-24T03:00:00Z', lostReason: 'ราคา - แพงกว่าร้านอื่น' },
+      { stage: 'pp', isLost: true, lostAt: '2026-10-24T05:00:00Z', lostReason: 'ราคา' },
+      { stage: 'lead', isLost: true, lostAt: '2026-10-24T06:00:00Z', lostReason: 'ติดต่อไม่ได้' },
+      { stage: 'pp', isLost: true, lostAt: '2026-10-23T03:00:00Z', lostReason: 'ราคา' },
+    ]
+    const text = buildReport({ customers, bookings: [] }, { today: '2026-10-24' })
+    expect(text).toContain('💔 เสียดีลวันนี้: 3 ราย (ราคา 2 · ติดต่อไม่ได้ 1)')
+    expect(buildReport({ customers: [], bookings: [] }, { today: '2026-10-24' })).not.toContain('เสียดีลวันนี้')
+  })
+})
