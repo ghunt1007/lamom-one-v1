@@ -13,6 +13,8 @@ import { summarizeSalesIncome, lastMonths, undatedDeliveries } from '../../utils
 import { askDeliveryIncome, needsIncome } from '../../utils/deliveryIncome.js'
 import { followupDiscipline, monthRange } from '../../utils/followupDiscipline.js'
 import { speedToLead } from '../../utils/speedToLead.js'
+import { lineRegistrationStatus } from '../../utils/lineRegistration.js'
+import { getSalesStaff } from '../../data/masterData.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -42,6 +44,9 @@ export default async function SalesIncomePage(container) {
 
   container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
   const scope = await getVisibilityScope()
+  // ใครลงทะเบียนรับงานทาง LINE แล้วบ้าง (เฉพาะหัวหน้า/เจ้าของ — ใช้ตามให้เซลส์ลงทะเบียนให้ครบ)
+  let lineRegs = null
+  if (canSetTarget) { try { lineRegs = await listDocs('line_sales_targets', [], 'registeredAt', 'desc', 500) } catch { lineRegs = null } }
   try {
     recentCustomers = (await listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 1000))
       .filter(c => !c.deleted && scopeIncludesRecord(scope, c.assignedTo, c))
@@ -114,6 +119,18 @@ export default async function SalesIncomePage(container) {
             <td style="text-align:right;font-weight:800;color:var(--${r.rate >= 80 ? 'success' : r.rate >= 50 ? 'warning' : 'danger'})">${r.rate}%</td>
           </tr>`).join('')}</tbody></table></div></div>`
     }
+    const lineCard = () => {
+      if (!lineRegs) return ''
+      const st = lineRegistrationStatus(getSalesStaff().filter(n => scopeIncludesRecord(scope, n, {})), lineRegs)
+      // ชื่อที่ไม่ตรงกับใครเลยต้องเทียบกับเซลส์ทุกคน (หัวหน้าทีมเห็นแค่ลูกทีม — คนทีมอื่นไม่ใช่ "ชื่อผิด")
+      st.unknown = lineRegistrationStatus(getSalesStaff(), lineRegs).unknown
+      const names = list => list.map(n => escHtml(n)).join(', ')
+      return `<div style="margin-top:8px">
+        <div>✅ ลงทะเบียนแล้ว ${st.registered.length} คน${st.registered.length ? `: ${names(st.registered)}` : ''}</div>
+        ${st.missing.length ? `<div style="color:var(--warning)">⏳ ยังไม่ลงทะเบียน ${st.missing.length} คน: ${names(st.missing)}</div>` : ''}
+        ${st.unknown.length ? `<div style="color:var(--danger)">⚠️ ชื่อที่ลงทะเบียนไม่ตรงกับเซลส์คนไหน (จะไม่ได้รับงาน ให้พิมพ์ "ยกเลิก" แล้วลงทะเบียนใหม่ด้วยชื่อที่ถูก): ${names(st.unknown)}</div>` : ''}
+      </div>`
+    }
     const card = (icon, label, value, color, sub = '') => `<div class="card" style="padding:14px 16px">
       <div style="font-size:0.75rem;color:var(--text-muted)">${icon} ${label}</div>
       <div style="font-size:1.35rem;font-weight:800;color:var(--${color})">${value}</div>${sub ? `<div style="font-size:0.7rem;color:var(--text-muted)">${sub}</div>` : ''}</div>`
@@ -157,6 +174,7 @@ export default async function SalesIncomePage(container) {
         ${speedCard()}
         <div class="card" style="padding:12px 16px;margin-top:16px;font-size:0.8rem;color:var(--text-2)">
           📲 <b>ให้เซลส์รับเตือนงานค้างทาง LINE ของตัวเองทุก 9 โมงเช้า:</b> ทัก LINE OA ของบริษัท แล้วพิมพ์ <code>ลงทะเบียน ชื่อเซลส์</code> (ชื่อต้องตรงกับชื่อในช่องเซลส์/ผู้ดูแลของแอป เช่น <code>ลงทะเบียน ${escHtml(rows[0]?.name && !rows[0].name.startsWith('(') ? rows[0].name : 'สมชาย')}</code>) · พิมพ์ <code>งาน</code> เพื่อดูงานค้างได้ทุกเวลา · <code>พรุ่งนี้</code> งานพรุ่งนี้ · <code>ยอด</code> ยอดของตัวเองเดือนนี้ · <code>หา 08xxxxxxxx</code> ค้นหาลูกค้า · <code>โทรแล้ว 08xxxxxxxx</code> บันทึกว่าติดต่อแล้ว · <code>นัด 08xxxxxxxx พรุ่งนี้</code> นัดติดตาม · <code>คำสั่ง</code> ดูคำสั่งทั้งหมด · พิมพ์ <code>ยกเลิก</code> เพื่อหยุดรับ
+          ${lineCard()}
         </div>
       </div>`
 
