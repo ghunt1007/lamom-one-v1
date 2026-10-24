@@ -147,6 +147,11 @@ export default async function MyDayPage(container) {
           `${c.phone ? escHtml(c.phone) : c.lineId ? escHtml(c.lineId) : 'ไม่มีเบอร์'}${ownerTag(c.assignedTo)}`,
           `${callBtn(c.phone)}${takeBtns(c)}<button class="btn btn-success btn-xs md-touch" data-id="${escHtml(c.id)}">✅ ติดตามแล้ว</button><button class="btn btn-secondary btn-xs md-plan" data-id="${escHtml(c.id)}">📅 นัด</button><button class="btn btn-secondary btn-xs md-open" data-id="${escHtml(c.id)}">เปิด</button>`), 'warning')}
 
+        ${d.unscheduled.length ? section('📆', 'รถพร้อมส่งแต่ยังไม่ได้นัดวันส่งมอบ', 'โทรนัดลูกค้า แล้วลงวันในปฏิทินส่งมอบ', d.unscheduled, b => line(
+          `${escHtml(b.custName || 'ลูกค้า')} · ${escHtml([b.brand, b.model].filter(Boolean).join(' ') || '—')}`,
+          `${escHtml(b.status || '')}${b.missed ? ` · <b style="color:var(--danger)">เลยวันนัด ${formatDate(b.deliveryDate)}</b>` : ' · ยังไม่มีวันนัด'}${ownerTag(b.salesName)}`,
+          `${callBtn(b.phone || b.custPhone)}<button class="btn btn-primary btn-xs md-cal">📅 ปฏิทินส่งมอบ</button>`), 'warning') : ''}
+
         ${section('🚗', `นัดส่งมอบ ${UPCOMING_DELIVERY_DAYS} วันข้างหน้า`, 'เตรียมรถ/เอกสารให้พร้อม', d.deliveries, b => line(
           `${escHtml(b.custName || 'ลูกค้า')} · ${escHtml([b.brand, b.model].filter(Boolean).join(' ') || '—')}`,
           `${formatDate(b.deliveryDate)}${b.deliveryTime ? ' ' + escHtml(b.deliveryTime) : ''} · ${b.inDays === 0 ? '<b style="color:var(--danger)">วันนี้</b>' : b.inDays === 1 ? 'พรุ่งนี้' : `อีก ${b.inDays} วัน`} · ${escHtml(b.status || '')}${ownerTag(b.salesName)}`,
@@ -173,6 +178,7 @@ export default async function MyDayPage(container) {
     container.querySelector('#md-reload').addEventListener('click', async () => { await load(); render() })
     $$('.md-open').forEach(b => b.addEventListener('click', () => navigate(`/crm/customers?id=${encodeURIComponent(b.dataset.id)}`)))
     $$('.md-bk').forEach(b => b.addEventListener('click', () => navigate('/crm/bookings')))
+    $$('.md-cal').forEach(b => b.addEventListener('click', () => navigate('/dms/delivery-calendar')))
     $$('.md-td').forEach(b => b.addEventListener('click', () => navigate('/crm/testdrive')))
     $$('.md-plan').forEach(b => b.addEventListener('click', () => {
       const c = data.customers.find(x => x.id === b.dataset.id)

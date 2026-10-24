@@ -86,3 +86,19 @@ describe('buildMyDay', () => {
     expect(buildMyDay({}, { today }).total).toBe(0)
   })
 })
+
+describe('buildMyDay — รอส่งมอบแต่ยังไม่นัดวัน', () => {
+  it('รอส่งมอบ/ตัดตัวเลขรอส่งมอบ ที่ไม่มีวันนัดหรือวันนัดผ่านไปแล้ว', () => {
+    const today = '2026-10-25'
+    const d = buildMyDay({ bookings: [
+      { id: 'u1', status: 'รอส่งมอบ' },
+      { id: 'u2', status: 'ตัดตัวเลขรอส่งมอบ', deliveryDate: '2026-10-20' },
+      { id: 'u3', status: 'รอส่งมอบ', deliveryDate: '2026-10-27' },
+      { id: 'u4', status: 'ส่งมอบแล้ว' },
+      { id: 'u5', status: 'รอรถ' },
+    ] }, { today })
+    expect(d.unscheduled.map(b => b.id)).toEqual(['u1', 'u2'])
+    expect(d.unscheduled[1].missed).toBe(true)
+    expect(d.deliveries.map(b => b.id)).toEqual(['u3'])
+  })
+})

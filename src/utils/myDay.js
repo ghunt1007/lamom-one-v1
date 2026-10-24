@@ -9,6 +9,7 @@ export const STUCK_BOOKING_DAYS = 14
 export const UPCOMING_DELIVERY_DAYS = 7
 export const FINANCE_WAIT_DAYS = 3
 const CANCELLED = ['ถอนจอง', 'ยกเลิก']
+const UNSCHEDULED_STATUSES = ['รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ']
 
 // วันที่ตามเวลาไทย 'YYYY-MM-DD' ของค่าวันที่ทุกแบบ (Timestamp / ISO / 'YYYY-MM-DD')
 export function bangkokDate(v) {
@@ -23,7 +24,7 @@ const custName = c => [c.firstName, c.lastName].filter(Boolean).join(' ') || '�
 // mine(ownerName, rec) → true ถ้าเป็นงานที่ผู้ใช้คนนี้ควรเห็น (หน้าเพจส่ง scopeIncludesRecord + ตัวกรองเซลส์มาให้)
 export function buildMyDay({ customers = [], followups = [], bookings = [], testDrives = [] }, { today, mine = () => true }) {
   const alive = rows => (rows || []).filter(r => r && !r.deleted)
-  const out = { followups: [], stale: [], newLeads: [], income: [], stuck: [], deliveries: [], testDrives: [], finance: [] }
+  const out = { followups: [], stale: [], newLeads: [], income: [], stuck: [], deliveries: [], testDrives: [], finance: [], unscheduled: [] }
 
   const custById = new Map((customers || []).map(c => [c.id, c]))
   alive(followups)
@@ -45,6 +46,11 @@ export function buildMyDay({ customers = [], followups = [], bookings = [], test
 
   const thisMonth = today.slice(0, 7)
   alive(bookings).filter(b => mine(b.salesName, b)).forEach(b => {
+    const dd0 = (b.deliveryDate || '').slice(0, 10)
+    // รถพร้อมส่ง (รอส่งมอบ/ตัดตัวเลขแล้ว) แต่ยังไม่ได้นัดวันส่งมอบ หรือวันนัดผ่านไปแล้ว → ต้องโทรนัดลูกค้า
+    if (UNSCHEDULED_STATUSES.includes(b.status) && !(/^\d{4}-\d{2}-\d{2}$/.test(dd0) && dd0 >= today)) {
+      out.unscheduled.push({ ...b, missed: /^\d{4}-\d{2}-\d{2}$/.test(dd0) })
+    }
     if (DELIVERED_STATUSES.includes(b.status)) {
       if ((b.cutDate || b.actualDeliveryDate || '').startsWith(thisMonth) && needsIncome(b)) out.income.push(b)
       return
@@ -75,6 +81,6 @@ export function buildMyDay({ customers = [], followups = [], bookings = [], test
   out.stuck.sort((a, b) => b.days - a.days)
   out.finance.sort((a, b) => Number(b.rejected) - Number(a.rejected) || b.days - a.days)
   out.deliveries.sort((a, b) => a.inDays - b.inDays)
-  out.total = out.followups.length + out.stale.length + out.income.length + out.stuck.length + out.finance.length
+  out.total = out.followups.length + out.stale.length + out.income.length + out.stuck.length + out.finance.length + out.unscheduled.length
   return out
 }
