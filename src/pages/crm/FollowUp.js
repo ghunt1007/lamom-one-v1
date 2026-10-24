@@ -5,6 +5,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { FOLLOWUP_PURPOSES, followupWindowFilters } from '../../utils/customerFollowups.js'
+import { touchCustomerContact } from '../../utils/customerContact.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -254,6 +255,7 @@ export default async function FollowUpPage(container) {
             await createDoc('followups', { ...rest, status: 'done', result, companyId: myEffectiveCompanyId() })
           } else {
             await updateDocData('followups', f.id, { status: 'done', result })
+            touchCustomerContact(f.customerId) // นัดเสมือนจากใบจองใช้ id ใบจองเป็น customerId จึงไม่แตะ
           }
           if (nextDate && nextPurpose) {
             await createDoc('followups', { customerId: f.customerId, customerName: f.customerName, phone: f.phone, vehicleModel: f.vehicleModel, salesperson: f.salesperson, type: f.type, purpose: nextPurpose, dueDate: nextDate, status: 'pending', note: '', result: '', companyId: myEffectiveCompanyId() })

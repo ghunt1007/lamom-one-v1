@@ -16,6 +16,7 @@ import { staffChoices, findStaffCompany, assignCustomer } from '../../utils/lead
 import { bangkokDate, buildMyDay, STALE_LEAD_DAYS, STUCK_BOOKING_DAYS, UPCOMING_DELIVERY_DAYS, FINANCE_WAIT_DAYS } from '../../utils/myDay.js'
 import { followupWindowFilters } from '../../utils/customerFollowups.js'
 import { openAddFollowup } from '../../utils/addFollowupModal.js'
+import { touchCustomerContact } from '../../utils/customerContact.js'
 
 const UNASSIGNED = '(ยังไม่มีผู้ดูแล)'
 function escHtml(s) {
@@ -239,6 +240,7 @@ export default async function MyDayPage(container) {
           if (!result) { showToast('❗ กรุณากรอกผลการติดต่อ', 'error'); return false }
           try {
             await updateDocData('followups', f.id, { status: 'done', result })
+            touchCustomerContact(f.customerId)
             f.status = 'done'; f.result = result
             showToast('✅ บันทึกผล Follow-up แล้ว', 'success'); render()
           } catch { showToast('บันทึกไม่สำเร็จ', 'error'); return false }

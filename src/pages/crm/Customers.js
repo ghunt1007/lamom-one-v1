@@ -22,6 +22,7 @@ import { planLeadImport } from '../../utils/leadImport.js'
 import { scheduleLeadFollowups, closeAutoLeadFollowups } from '../../utils/leadFollowups.js'
 import { pendingFollowupsFor, followupWindowFilters, followupStatusByCustomer, matchFollowupFilter } from '../../utils/customerFollowups.js'
 import { openAddFollowup } from '../../utils/addFollowupModal.js'
+import { touchCustomerContact } from '../../utils/customerContact.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -410,6 +411,7 @@ export default async function CustomersPage(container) {
           if (!result) { showToast('❗ กรุณากรอกผลการติดต่อ', 'error'); return false }
           try {
             await updateDocData('followups', f.id, { status: 'done', result })
+            touchCustomerContact(f.customerId)
             showToast('✅ บันทึกผลแล้ว', 'success'); refreshFollowupList(c)
           } catch { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
         },
