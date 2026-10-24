@@ -10,7 +10,8 @@
  */
 import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
+import { getVisibilityScope, scopeIncludesRecord } from '../../core/hierarchy.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { navigate } from '../../core/router.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
@@ -88,10 +89,13 @@ export default async function QuotationBuilderPage(container) {
   let quotes = []
   let statusFilter = 'all'
   let loading = true
+  // เซลส์เห็นเฉพาะใบเสนอราคาของตัวเอง/ลูกทีม (หรือที่ตัวเองสร้าง) — ผู้บริหาร/เจ้าของเห็นทั้งหมด
+  const visScope = await getVisibilityScope()
+  const myDisplayName = getState('user')?.displayName || ''
 
   async function loadData() {
     loading = true
-    try { quotes = (await listDocs('quotations', companyScopeFilters(), 'createdDate', 'desc', 200)).filter(q => !q.deleted) } catch (e) { quotes = [] }
+    try { quotes = (await listDocs('quotations', companyScopeFilters(), 'createdDate', 'desc', 200)).filter(q => !q.deleted && scopeIncludesRecord(visScope, q.salesperson, q)) } catch (e) { quotes = [] }
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -412,7 +416,7 @@ export default async function QuotationBuilderPage(container) {
             <div id="qf-custom-list" style="margin-top:6px;display:flex;flex-direction:column;gap:4px"></div>
           </div>
 
-          <div class="input-group"><label class="input-label">เซลส์</label><select class="input" id="qf-sales">${getSalesStaff().map(s => `<option>${s}</option>`).join('')}</select></div>
+          <div class="input-group"><label class="input-label">เซลส์</label><select class="input" id="qf-sales">${getSalesStaff().map(s => `<option ${s === (prefill?.salesperson || myDisplayName) ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
           <div class="input-group"><label class="input-label">หมายเหตุ</label><input class="input" id="qf-notes" placeholder="บันทึก..."></div>
 
           <div class="input-group" style="grid-column:1/-1;background:var(--bg-2);border-radius:var(--radius-sm);padding:10px">
