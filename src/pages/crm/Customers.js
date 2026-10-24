@@ -751,6 +751,7 @@ export default async function CustomersPage(container) {
       try {
         const me = getState('user') || {}
         await createDoc('comm_logs', { customerId: c.id, type: document.getElementById('log-type').value, note, createdBy: me.displayName || me.email || me.uid || '', companyId: myEffectiveCompanyId() })
+        touchCustomerContact(c.id)
         close(); showToast('บันทึกแล้ว', 'success')
         onSaved?.()
       } catch { showToast('เกิดข้อผิดพลาด', 'error') }

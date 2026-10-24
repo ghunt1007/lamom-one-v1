@@ -77,6 +77,10 @@ export function buildMyDay({ customers = [], followups = [], bookings = [], test
     .forEach(t => out.testDrives.push(t))
   out.testDrives.sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')))
 
+  // นัดพรุ่งนี้ (ไว้วางแผน ไม่นับเป็นงานค้าง)
+  const tomorrow = new Date((dayNum(today) + 1) * 86400000).toISOString().slice(0, 10)
+  out.tomorrow = alive(followups).filter(f => f.status === 'pending' && String(f.dueDate || '').slice(0, 10) === tomorrow && mine(f.salesperson, f)).length
+
   out.followups.sort((a, b) => b.late - a.late)
   out.stale.sort((a, b) => b.days - a.days)
   out.stuck.sort((a, b) => b.days - a.days)
