@@ -182,6 +182,31 @@ async function handleLineWebhook(request, env, cors) {
           } catch { reply = '⚠️ ค้นหาไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
         }
       } else otherMessage = true
+    } else if (cmd.type === 'plan') {
+      // นัดติดตามลูกค้าผ่าน LINE — สิทธิ์เดียวกับ "โทรแล้ว" (เซลส์: ลูกค้าของตัวเอง / เจ้าของ: ทุกคน) ต้องเจอรายเดียว
+      const me = await readSalesTarget(env, accessToken, userId)
+      const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
+      const isOwner = owner && owner === userId
+      if (me?.name || isOwner) {
+        const today = todayBangkok()
+        const due = parseThaiDue(cmd.when, today)
+        if (!due) reply = `⚠️ ไม่เข้าใจวันนัด "${cmd.when}" — ใช้ได้เช่น พรุ่งนี้ / มะรืน / 3วัน / 28/10 / 28/10/69`
+        else if (due < today) reply = '⚠️ วันนัดผ่านไปแล้ว ลองใหม่อีกครั้งครับ'
+        else {
+          try {
+            const customers = await runQuery(env, accessToken, 'customers', null, null, 5000, ['firstName', 'lastName', 'phone', 'lineId', 'assignedTo', 'interestedModel', 'companyId', 'isLost', 'deleted'])
+            const mine = isOwner ? customers : customers.filter(c => normSalesName(c.assignedTo) === normSalesName(me?.name))
+            const t = pickTouchTarget(mine, cmd.q)
+            if (t.customer) {
+              const fields = buildPlannedFollowupFields(t.customer, { dueDate: due, salesperson: String(t.customer.assignedTo || '').trim() || me?.name || '', now: new Date().toISOString() })
+              const res = await fetch(`https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents/followups`, {
+                method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ fields }),
+              }).catch(() => null)
+              reply = res?.ok ? `📅 นัดติดตาม ${custFullName(t.customer)} วันที่ ${formatThaiDate(due)} แล้วครับ` : '⚠️ บันทึกนัดไม่สำเร็จ ลองใหม่อีกครั้งครับ'
+            } else reply = t.reply.replace('"โทรแล้ว 0812345678"', '"นัด 0812345678 พรุ่งนี้"')
+          } catch { reply = '⚠️ บันทึกนัดไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
+        }
+      } else otherMessage = true
     } else if (cmd.type === 'touch') {
       // บันทึก "ติดต่อลูกค้าแล้ว" — เฉพาะเซลส์ที่ลงทะเบียน (ลูกค้าของตัวเอง) / เจ้าของ (ทุกคน) ต้องเจอลูกค้ารายเดียวเท่านั้น
       const me = await readSalesTarget(env, accessToken, userId)
@@ -245,6 +270,9 @@ export function parseLineCommand(text) {
   // ค้นหาลูกค้าจากเบอร์/ชื่อ: "หา 0812345678" / "ค้นหา สมชาย"
   const f = t.match(/^(?:หา|ค้นหา|find)\s+(.+)$/i)
   if (f && f[1].trim().length >= 2) return { type: 'find', q: f[1].trim().slice(0, 40) }
+  // เซลส์นัดติดตามลูกค้าผ่าน LINE: "นัด 0812345678 พรุ่งนี้" / "นัด สมชาย 28/10" (คำสุดท้าย = วันนัด)
+  const pl = t.match(/^นัด(?:ติดตาม)?\s+(.+?)\s+(\S+)$/)
+  if (pl && pl[1].trim().length >= 2) return { type: 'plan', q: pl[1].trim().slice(0, 40), when: pl[2] }
   // เซลส์บันทึกว่าโทร/ทักลูกค้าแล้ว: "โทรแล้ว 0812345678" / "ติดต่อแล้ว สมชาย"
   const tc = t.match(/^(?:โทรแล้ว|ติดต่อแล้ว|ทักแล้ว|called)\s+(.+)$/i)
   if (tc && tc[1].trim().length >= 2) return { type: 'touch', q: tc[1].trim().slice(0, 40) }
@@ -808,6 +836,7 @@ export const LINE_HELP_TEXT = [
   '• งาน — ดูงานค้างของคุณตอนนี้',
   '• หา 0812345678 / หา สมชาย — ค้นหาลูกค้า',
   '• โทรแล้ว 0812345678 / โทรแล้ว สมชาย — บันทึกว่าติดต่อลูกค้าแล้ว',
+  '• นัด 0812345678 พรุ่งนี้ / นัด สมชาย 28/10 — นัดติดตามลูกค้า',
   '• สรุป — รายงานยอดวันนี้ (เฉพาะเจ้าของ)',
   '• ลงทะเบียน ชื่อเซลส์ — รับงานค้างทุก 9 โมงเช้า',
   '• ยกเลิก — หยุดรับ',
@@ -849,6 +878,42 @@ async function patchCustomerContact(env, accessToken, customer, nowIso) {
     })
     return res.ok
   } catch { return false }
+}
+// วันนัดจากคำที่เซลส์พิมพ์ → 'YYYY-MM-DD' (null = ไม่เข้าใจ): วันนี้/พรุ่งนี้/มะรืน, "3วัน"/"+3", "28/10", "28/10/69" (พ.ศ. 2 หลัก),
+// "28/10/2569" หรือ "28/10/2026" — วัน/เดือนที่ไม่ระบุปีและผ่านไปแล้วปีนี้ = ปีหน้า
+export function parseThaiDue(token, today) {
+  const t = String(token || '').trim()
+  const [ty, tm, td] = today.split('-').map(Number)
+  const plus = n => new Date(Date.UTC(ty, tm - 1, td + n)).toISOString().slice(0, 10)
+  if (t === 'วันนี้') return today
+  if (t === 'พรุ่งนี้') return plus(1)
+  if (/^มะรืน(?:นี้)?$/.test(t)) return plus(2)
+  const n = t.match(/^\+?(\d{1,3})\s*วัน$/) || t.match(/^\+(\d{1,3})$/)
+  if (n) return plus(Number(n[1]))
+  const m = t.match(/^(\d{1,2})[/.-](\d{1,2})(?:[/.-](\d{2}|\d{4}))?$/)
+  if (!m) return null
+  const d = Number(m[1]), mo = Number(m[2])
+  let y = ty
+  if (m[3]) {
+    y = Number(m[3])
+    if (m[3].length === 2) y = y >= 50 ? 2500 + y - 543 : 2000 + y
+    else if (y > 2400) y -= 543
+  }
+  const dt = new Date(Date.UTC(y, mo - 1, d))
+  if (dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return null // เช่น 31/02
+  let out = dt.toISOString().slice(0, 10)
+  if (!m[3] && out < today) out = new Date(Date.UTC(y + 1, mo - 1, d)).toISOString().slice(0, 10)
+  return out
+}
+export function buildPlannedFollowupFields(customer, { dueDate, salesperson, now }) {
+  const str = v => ({ stringValue: String(v ?? '') })
+  return {
+    customerId: str(customer.id), customerName: str(custFullName(customer)), phone: str(customer.phone), vehicleModel: str(customer.interestedModel),
+    salesperson: str(salesperson), type: str('call'), purpose: str('ทั่วไป'), note: str('นัดผ่าน LINE'),
+    dueDate: str(dueDate), status: str('pending'), result: str(''),
+    companyId: customer.companyId ? str(customer.companyId) : { nullValue: null },
+    createdAt: { timestampValue: now }, updatedAt: { timestampValue: now },
+  }
 }
 export function findCustomersText(customers, followups, q, today) {
   const list = matchCustomers(customers, q)
