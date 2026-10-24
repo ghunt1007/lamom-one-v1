@@ -348,6 +348,11 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
   const [uy, um, ud] = today.split('-').map(Number)
   const since30 = new Date(Date.UTC(uy, um - 1, ud - 30)).toISOString().slice(0, 10)
   const unassigned = leads.filter(c => !c.isLost && !String(c.assignedTo || '').trim() && (toBangkokDate(c.createdAt) || '') >= since30).length
+  // ลูกค้าที่ทีมติดต่อวันนี้ (ทุกสถานะ) — กด "ติดต่อแล้ว"/บันทึกการคุย/ทำนัดเสร็จ/พิมพ์ "โทรแล้ว" ใน LINE แยกตามผู้ดูแล
+  const contactedAll = customers.filter(c => toBangkokDate(c.lastContactAt) === today || touchedToday.has(c.id))
+  const contactBy = {}
+  contactedAll.forEach(c => { const k = String(c.assignedTo || '').trim() || '(ไม่มีผู้ดูแล)'; contactBy[k] = (contactBy[k] || 0) + 1 })
+  const contactLine = Object.entries(contactBy).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([k, v]) => `${k} ${v}`).join(' · ')
   const followUpToday = followups.filter(f => f.status === 'pending' && f.dueDate === today).length
   const followUpOverdue = followups.filter(f => f.status === 'pending' && f.dueDate && f.dueDate < today).length
   const testDriveToday = testDrives.filter(t => (t.date || '').slice(0, 10) === today).length
@@ -407,6 +412,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
     newLeadsToday ? `    ติดต่อแล้ว ${contactedToday}/${newLeadsToday} ราย${contactedToday < newLeadsToday ? ' ⚠️ ที่เหลือควรโทรก่อนพรุ่งนี้' : ' 👍'}` : null,
     `  • Lead ที่ดูแลอยู่: ${leads.length} ราย`,
     unassigned ? `  • ⚠️ ยังไม่มีผู้ดูแล: ${unassigned} ราย (มอบให้เซลส์ได้ที่หน้า "งานของฉันวันนี้")` : null,
+    `  • ติดต่อลูกค้าวันนี้: ${contactedAll.length} ราย${contactLine ? ` (${contactLine})` : ''}`,
     `  • Follow-up วันนี้: ${followUpToday} ราย`,
     followUpOverdue ? `  • ⚠️ Follow-up เลยกำหนด: ${followUpOverdue} ราย` : null,
     `  • ทดลองขับวันนี้: ${testDriveToday} ราย`,

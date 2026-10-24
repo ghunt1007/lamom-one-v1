@@ -753,6 +753,16 @@ describe('speed to lead in the 18:00 report', () => {
     expect(text).toContain('ติดต่อแล้ว 2/3 ราย ⚠️')
     expect(buildReport({ bookings: [], customers: customers.slice(0, 1), followups: [], testDrives: [] }, { today: '2026-10-25' })).toContain('ติดต่อแล้ว 1/1 ราย 👍')
   })
+  it('counts every customer the team contacted today by owner', () => {
+    const customers = [
+      { id: 'a', stage: 'booking', assignedTo: 'A', createdAt: '2026-09-01T02:00:00Z', lastContactAt: '2026-10-25T05:00:00Z' },
+      { id: 'b', stage: 'pp', assignedTo: 'B', createdAt: '2026-09-01T02:00:00Z' },
+      { id: 'c', stage: 'pp', assignedTo: 'A', createdAt: '2026-09-01T02:00:00Z', lastContactAt: '2026-10-24T05:00:00Z' },
+    ]
+    const followups = [{ status: 'done', customerId: 'b', updatedAt: '2026-10-25T06:00:00Z' }]
+    expect(buildReport({ bookings: [], customers, followups, testDrives: [] }, { today: '2026-10-25' })).toContain('ติดต่อลูกค้าวันนี้: 2 ราย (A 1 · B 1)')
+    expect(buildReport({ bookings: [], customers: [], followups: [], testDrives: [] }, { today: '2026-10-25' })).toContain('ติดต่อลูกค้าวันนี้: 0 ราย\n')
+  })
 })
 
 describe('buildStructuredQuery', () => {
