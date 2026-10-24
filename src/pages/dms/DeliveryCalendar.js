@@ -9,6 +9,7 @@ import { listDocs, listAllDocs, createDoc, updateDocData, seedDemoData } from '.
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { askDeliveryIncome, needsIncome, statusDatePatch } from '../../utils/deliveryIncome.js'
 import { scheduleAfterSales } from '../../utils/afterSales.js'
+import { maybeMarkCustomerDelivered, syncStockForBookings } from '../../utils/bookingSync.js'
 
 function myName() {
   const me = getState('user') || {}
@@ -185,6 +186,10 @@ export default async function DeliveryCalendarPage(container) {
       if (!d) return
       try {
         await updateDocData('bookings', d.id, { status: LOCAL_TO_BOOKING_STATUS.delivered, actualDeliveryDate: addDays(0) })
+        // เหมือนเปลี่ยนสถานะในหน้าใบจอง: ลูกค้า → ส่งมอบแล้ว, รถในสต็อก (VIN ตรงกัน) → ขายแล้ว
+        const delivered = { ...d.raw, id: d.id, status: LOCAL_TO_BOOKING_STATUS.delivered }
+        await maybeMarkCustomerDelivered(delivered)
+        await syncStockForBookings([delivered])
         const fu = await scheduleAfterSales({ ...d.raw, id: d.id, actualDeliveryDate: addDays(0) })
         showToast(`🎉 ส่งมอบสำเร็จ!${fu ? ' ระบบนัดโทรหาลูกค้า 7 วัน / 30 วัน / เช็กระยะ 6 เดือนให้แล้ว' : ''}`, 'success')
         await loadData()
