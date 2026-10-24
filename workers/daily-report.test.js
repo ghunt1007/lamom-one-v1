@@ -835,3 +835,38 @@ describe('LINE webhook — เซลส์ค้นหาลูกค้า', ()
     expect(replies[0]).not.toContain('คนอื่น') // ลูกค้าของเซลส์คนอื่นไม่แสดง
   })
 })
+
+describe('runQuery แบ่งหน้า', () => {
+  it('buildStructuredQuery หน้าถัดไปเรียงตาม __name__ และเริ่มหลังเอกสารสุดท้าย', async () => {
+    const { buildStructuredQuery } = await import('./daily-report.js')
+    const q = buildStructuredQuery('bookings', null, null, 2, null, null, 'projects/p/databases/(default)/documents/bookings/b2')
+    expect(q.orderBy).toEqual([{ field: { fieldPath: '__name__' }, direction: 'ASCENDING' }])
+    expect(q.startAt).toEqual({ values: [{ referenceValue: 'projects/p/databases/(default)/documents/bookings/b2' }], before: false })
+  })
+})
+
+describe('runQuery ดึงครบทุกหน้า', () => {
+  it('ได้ครบ limit → ดึงหน้าถัดไปจนหมด', async () => {
+    const { runQuery } = await import('./daily-report.js')
+    const bodies = []
+    const doc = id => ({ document: { name: `projects/p/databases/(default)/documents/bookings/${id}`, fields: { status: { stringValue: 'จองแล้ว' } } } })
+    stubFetch([[':runQuery', (url, opts) => {
+      const q = JSON.parse(opts.body).structuredQuery
+      bodies.push(q)
+      const page = bodies.length
+      return { ok: true, json: async () => (page === 1 ? [doc('b1'), doc('b2')] : page === 2 ? [doc('b3'), doc('b4')] : [doc('b5')]) }
+    }]])
+    const rows = await runQuery({ FIREBASE_PROJECT_ID: 'p' }, 'tok', 'bookings', null, null, 2, ['status'])
+    expect(rows.map(r => r.id)).toEqual(['b1', 'b2', 'b3', 'b4', 'b5'])
+    expect(bodies).toHaveLength(3)
+    expect(bodies[0].startAt).toBeUndefined()
+    expect(bodies[2].startAt.values[0].referenceValue).toContain('/bookings/b4')
+  })
+  it('เรียงตาม field → หน้าเดียวเหมือนเดิม', async () => {
+    const { runQuery } = await import('./daily-report.js')
+    let n = 0
+    stubFetch([[':runQuery', () => { n++; return { ok: true, json: async () => [{ document: { name: 'x/a', fields: {} } }] } }]])
+    await runQuery({ FIREBASE_PROJECT_ID: 'p' }, 'tok', 'x', 'createdAt', 'DESCENDING', 1)
+    expect(n).toBe(1)
+  })
+})
