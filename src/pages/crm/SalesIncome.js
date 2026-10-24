@@ -47,6 +47,15 @@ export default async function SalesIncomePage(container) {
         rows.push({ name: n, booked: 0, delivered: 0, missing: 0, marginLeft: 0, com70: 0, comFinance: 0, income: 0, cars: [] })
       }
     })
+    // เทียบเดือนก่อน (รายได้และจำนวนคันส่งมอบ) — ช่วยดูว่าใครกำลังขึ้น/ลง
+    const prevMonth = lastMonths(month, 2)[1]
+    const prev = summarizeSalesIncome(bookings, prevMonth)
+    const prevOf = name => prev.rows.find(p => targetFor({ [p.name]: 1 }, name)) || { income: 0, delivered: 0 }
+    const delta = (cur, old, money) => {
+      if (cur === old) return ''
+      const up = cur > old
+      return `<div style="font-size:0.66rem;font-weight:600;color:var(--${up ? 'success' : 'danger'})">${up ? '▲' : '▼'} ${money ? formatCurrency(Math.abs(cur - old)) : Math.abs(cur - old)}</div>`
+    }
     const teamTarget = rows.reduce((t, r) => t + targetFor(targets, r.name), 0)
     const goalCell = r => {
       const t = targetFor(targets, r.name)
@@ -69,7 +78,7 @@ export default async function SalesIncomePage(container) {
           </div>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-bottom:16px">
-          ${card('💰', 'รายได้รวม', formatCurrency(total.income), 'accent')}
+          ${card('💰', 'รายได้รวม', formatCurrency(total.income), 'accent', `เดือนก่อน ${formatCurrency(prev.total.income)}`)}
           ${card('🚗', 'ส่งมอบ', total.delivered + ' คัน', 'success', `จองใหม่ ${total.booked} คัน${teamTarget ? ` · เป้ารวม ${teamTarget} คัน (${goalProgress(total.delivered, teamTarget).pct}%)` : ''}`)}
           ${card('👤', 'คอมเซลส์', formatCurrency(total.com70), 'primary')}
           ${card('🏦', 'คอมไฟแนนซ์', formatCurrency(total.comFinance), 'primary')}
@@ -81,9 +90,9 @@ export default async function SalesIncomePage(container) {
           <tbody>${rows.map(r => `
             <tr class="si-row" data-n="${escHtml(r.name)}" style="cursor:pointer">
               <td style="font-weight:700">${open.has(r.name) ? '▾' : '▸'} ${escHtml(r.name)}${r.missing ? ` <span class="badge badge-danger" style="font-size:0.62rem">ยังไม่กรอก ${r.missing}</span>` : ''}</td>
-              <td style="text-align:right">${r.booked}</td><td style="text-align:right">${r.delivered}</td><td style="text-align:right">${goalCell(r)}</td>
+              <td style="text-align:right">${r.booked}</td><td style="text-align:right">${r.delivered}${delta(r.delivered, prevOf(r.name).delivered)}</td><td style="text-align:right">${goalCell(r)}</td>
               <td style="text-align:right">${formatCurrency(r.marginLeft)}</td><td style="text-align:right">${formatCurrency(r.com70)}</td>
-              <td style="text-align:right">${formatCurrency(r.comFinance)}</td><td style="text-align:right;font-weight:800;color:var(--accent)">${formatCurrency(r.income)}</td>
+              <td style="text-align:right">${formatCurrency(r.comFinance)}</td><td style="text-align:right;font-weight:800;color:var(--accent)">${formatCurrency(r.income)}${delta(r.income, prevOf(r.name).income, true)}</td>
             </tr>
             ${open.has(r.name) ? r.cars.map(b => `<tr style="background:var(--surface-2);font-size:0.78rem">
               <td style="padding-left:28px">${escHtml(b.custName || '—')} · ${escHtml([b.brand, b.model].filter(Boolean).join(' ') || '—')}<div style="font-size:0.68rem;color:var(--text-muted)">${escHtml(b.bookingNo || '')} · ส่งมอบ ${formatDate(b.cutDate || b.actualDeliveryDate)}</div></td>
