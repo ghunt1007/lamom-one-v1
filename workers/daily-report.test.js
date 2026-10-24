@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import worker, { daysSinceBangkok, formatThaiDate, todayBangkok, decodeFsValue, buildReport, buildMorningReminder, buildMorningSections, buildPersonalReminder, matchSalesTargets, parseLineCommand, buildWeeklyReport, isMonday } from './daily-report.js'
+import worker, { daysSinceBangkok, formatThaiDate, todayBangkok, decodeFsValue, buildReport, buildMorningReminder, buildMorningSections, buildPersonalReminder, matchSalesTargets, parseLineCommand, buildWeeklyReport, isMonday, buildLineLeadFields } from './daily-report.js'
 
 const BASE_ENV = { FIREBASE_API_KEY: 'fake-public-key', FIREBASE_PROJECT_ID: 'fake-project', ALLOWED_ORIGIN: 'https://lamom-one.pages.dev' }
 
@@ -475,5 +475,59 @@ describe('Monday 09:00 run also sends the weekly summary', () => {
       expect(telegrams[0]).toContain('เตือนงานเช้านี้')
       expect(telegrams.some(t => t.includes('สรุปสัปดาห์ที่แล้ว'))).toBe(expectWeekly)
     }
+  })
+})
+
+describe('LINE OA auto lead (opt-in AUTO_LEAD_FROM_LINE)', () => {
+  it('buildLineLeadFields makes a Prospect from LINE with the first message as a note', () => {
+    const f = buildLineLeadFields({ userId: 'U1', displayName: 'Somchai Test', firstText: 'สนใจ Seal', now: '2026-10-24T03:00:00.000Z' })
+    expect(f.firstName.stringValue).toBe('Somchai')
+    expect(f.lastName.stringValue).toBe('Test')
+    expect(f.source.stringValue).toBe('line')
+    expect(f.stage.stringValue).toBe('pp')
+    expect(f.lineUserId.stringValue).toBe('U1')
+    expect(f.notes.stringValue).toContain('สนใจ Seal')
+    expect(f.companyId).toEqual({ nullValue: null })
+    expect(f.createdAt.timestampValue).toBe('2026-10-24T03:00:00.000Z')
+    expect(buildLineLeadFields({ userId: 'U2', displayName: '', firstText: '', now: 'x', companyId: 'c1' }).firstName.stringValue).toBe('ลูกค้า LINE')
+    expect(buildLineLeadFields({ userId: 'U2', now: 'x', companyId: 'c1' }).companyId.stringValue).toBe('c1')
+  })
+
+  async function post(text, userId, env, { isSales = false, existing = false } = {}) {
+    const calls = []
+    stubFetch([
+      ['oauth2.googleapis.com', () => ({ ok: true, json: async () => ({ access_token: 'fs' }) })],
+      ['system_integrations/line_daily_report', () => ({ ok: true, json: async () => ({ fields: { userId: { stringValue: 'UOWNER' } } }) })],
+      ['line_sales_targets/', () => { calls.push('salesCheck'); return { ok: isSales, json: async () => ({}) } }],
+      [':runQuery', () => { calls.push('query'); return { ok: true, json: async () => (existing ? [{ document: { name: 'x' } }] : [{}]) } }],
+      ['api.line.me/v2/bot/profile/', () => ({ ok: true, json: async () => ({ displayName: 'Khun A' }) })],
+      ['/documents/customers', (url, opts) => { calls.push(['create', JSON.parse(opts.body).fields]); return { ok: true, json: async () => ({}) } }],
+      ['api.line.me/v2/bot/message/reply', () => { calls.push('reply'); return { ok: true, json: async () => ({}) } }],
+    ])
+    const body = JSON.stringify({ events: [{ type: 'message', replyToken: 'rt', source: { userId }, message: { type: 'text', text } }] })
+    const env2 = { ...BASE_ENV, LINE_CHANNEL_SECRET: 'sec', LINE_CHANNEL_ACCESS_TOKEN: 'tok', FIRESTORE_SERVICE_ACCOUNT_JSON: await fakeServiceAccount(), ...env }
+    const res = await worker.fetch(new Request('https://w/line/webhook', { method: 'POST', headers: { 'X-Line-Signature': await lineSig(body, 'sec') }, body }), env2)
+    expect(res.status).toBe(200)
+    return calls
+  }
+  const creates = calls => calls.filter(c => Array.isArray(c) && c[0] === 'create')
+
+  it('creates a customer when enabled and a new person chats', async () => {
+    const calls = await post('สนใจรถครับ', 'UCUST', { AUTO_LEAD_FROM_LINE: '1' })
+    const c = creates(calls)
+    expect(c).toHaveLength(1)
+    expect(c[0][1].firstName.stringValue).toBe('Khun')
+    expect(c[0][1].lineUserId.stringValue).toBe('UCUST')
+    expect(calls).not.toContain('reply')
+  })
+
+  it('does nothing when the setting is off', async () => {
+    expect(creates(await post('สนใจรถครับ', 'UCUST', {}))).toHaveLength(0)
+  })
+
+  it('skips the owner, registered salespeople and people already in the system', async () => {
+    expect(creates(await post('hi', 'UOWNER', { AUTO_LEAD_FROM_LINE: '1' }))).toHaveLength(0)
+    expect(creates(await post('hi', 'USALES', { AUTO_LEAD_FROM_LINE: '1' }, { isSales: true }))).toHaveLength(0)
+    expect(creates(await post('hi', 'UOLD', { AUTO_LEAD_FROM_LINE: '1' }, { existing: true }))).toHaveLength(0)
   })
 })
