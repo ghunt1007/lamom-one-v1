@@ -205,7 +205,7 @@ async function buildReportText(env, accessToken) {
   // select เฉพาะ field ที่รายงานใช้ — ใบจองหลายพันใบทั้งเอกสารใหญ่เกินจน parse JSON เกินโควตา CPU ของ cron
   const [bookings, customers, followups, testDrives, teamTargets] = await Promise.all([
     runQuery(env, accessToken, 'bookings', null, null, 5000, ['bookingDate', 'status', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'salesName', 'totalIncome', 'deliveryDate', 'deliveryTime', 'custName', 'model', 'deleted']),
-    runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'createdAt', 'source', 'deleted']),
+    runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'createdAt', 'source', 'assignedTo', 'isLost', 'deleted']),
     runQuery(env, accessToken, 'followups', null, null, 3000, ['dueDate', 'status', 'deleted']),
     runQuery(env, accessToken, 'test_drives', null, null, 3000, ['date', 'deleted']),
     runQuery(env, accessToken, 'team_targets', null, null, 500, ['period', 'metric', 'target']),
@@ -241,6 +241,11 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
   const srcCount = {}
   newLeadsTodayList.forEach(c => { const k = SOURCE_LABELS[c.source] || SOURCE_LABELS.other; srcCount[k] = (srcCount[k] || 0) + 1 })
   const srcLine = Object.entries(srcCount).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(' · ')
+  // ลูกค้าที่ยังไม่มีผู้ดูแล (เช่น ทัก LINE OA เข้ามาเอง) — ถ้าไม่มีใครรับ จะไม่มีใครโทรหา
+  // นับเฉพาะที่เข้ามาใน 30 วันล่าสุด — ลูกค้าเก่าที่นำเข้าจาก Excel โดยไม่มีผู้ดูแลจะไม่ทำให้ตัวเลขนี้ล้น
+  const [uy, um, ud] = today.split('-').map(Number)
+  const since30 = new Date(Date.UTC(uy, um - 1, ud - 30)).toISOString().slice(0, 10)
+  const unassigned = leads.filter(c => !c.isLost && !String(c.assignedTo || '').trim() && (toBangkokDate(c.createdAt) || '') >= since30).length
   const followUpToday = followups.filter(f => f.status === 'pending' && f.dueDate === today).length
   const followUpOverdue = followups.filter(f => f.status === 'pending' && f.dueDate && f.dueDate < today).length
   const testDriveToday = testDrives.filter(t => (t.date || '').slice(0, 10) === today).length
@@ -296,6 +301,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
     `  • Lead ใหม่วันนี้: ${newLeadsToday} ราย`,
     srcLine ? `    มาจาก: ${srcLine}` : null,
     `  • Lead ที่ดูแลอยู่: ${leads.length} ราย`,
+    unassigned ? `  • ⚠️ ยังไม่มีผู้ดูแล: ${unassigned} ราย (มอบให้เซลส์ได้ที่หน้า "งานของฉันวันนี้")` : null,
     `  • Follow-up วันนี้: ${followUpToday} ราย`,
     followUpOverdue ? `  • ⚠️ Follow-up เลยกำหนด: ${followUpOverdue} ราย` : null,
     `  • ทดลองขับวันนี้: ${testDriveToday} ราย`,
