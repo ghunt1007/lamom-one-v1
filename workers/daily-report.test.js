@@ -820,15 +820,18 @@ describe('LINE webhook — เซลส์ค้นหาลูกค้า', ()
       ['system_integrations/line_daily_report', () => ({ ok: true, json: async () => ({ fields: { userId: { stringValue: 'UOWNER' } } }) })],
       ['line_sales_targets/', () => ({ ok: true, json: async () => ({ fields: { name: { stringValue: 'เซลส์ A' } } }) })],
       [':runQuery', (url, opts) => ({ ok: true, json: async () => (JSON.parse(opts.body).structuredQuery.from[0].collectionId === 'customers'
-        ? [{ document: { name: 'p/customers/c1', fields: { firstName: { stringValue: 'สมชาย' }, phone: { stringValue: '0812345678' }, stage: { stringValue: 'pp' } } } }]
+        ? [{ document: { name: 'p/customers/c1', fields: { firstName: { stringValue: 'สมชาย' }, phone: { stringValue: '0812345678' }, stage: { stringValue: 'pp' }, assignedTo: { stringValue: 'เซลส์ A' } } } },
+           { document: { name: 'p/customers/c2', fields: { firstName: { stringValue: 'คนอื่น' }, phone: { stringValue: '0812345000' }, stage: { stringValue: 'pp' }, assignedTo: { stringValue: 'เซลส์ B' } } } }]
         : []) })],
       ['api.line.me/v2/bot/message/reply', (url, opts) => { replies.push(JSON.parse(opts.body).messages[0].text); return { ok: true, json: async () => ({}) } }],
     ])
-    const body = JSON.stringify({ events: [{ type: 'message', replyToken: 'rt', source: { userId: 'USALES' }, message: { type: 'text', text: 'หา 0812345678' } }] })
+    const body = JSON.stringify({ events: [{ type: 'message', replyToken: 'rt', source: { userId: 'USALES' }, message: { type: 'text', text: 'หา 081234' } }] })
     const env = { ...BASE_ENV, LINE_CHANNEL_SECRET: 'sec', LINE_CHANNEL_ACCESS_TOKEN: 'tok', FIRESTORE_SERVICE_ACCOUNT_JSON: await fakeServiceAccount() }
     const res = await worker.fetch(new Request('https://w/line/webhook', { method: 'POST', headers: { 'X-Line-Signature': await lineSig(body, 'sec') }, body }), env)
     expect(res.status).toBe(200)
     expect(replies).toHaveLength(1)
     expect(replies[0]).toContain('สมชาย · Prospect')
+    expect(replies[0]).toContain('พบ 1 ราย')
+    expect(replies[0]).not.toContain('คนอื่น') // ลูกค้าของเซลส์คนอื่นไม่แสดง
   })
 })
