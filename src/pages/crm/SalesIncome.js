@@ -44,7 +44,7 @@ export default async function SalesIncomePage(container) {
     // เซลส์ที่ตั้งเป้าไว้แต่ยังไม่มีจอง/ส่งมอบในเดือนนี้ ให้ขึ้นแถวด้วย (เห็นว่ายังเป็น 0)
     Object.entries(targets).forEach(([n, v]) => {
       if (Number(v) > 0 && !rows.some(r => targetFor({ [n]: 1 }, r.name)) && scopeIncludesRecord(scope, n, {})) {
-        rows.push({ name: n, booked: 0, delivered: 0, missing: 0, marginLeft: 0, com70: 0, comFinance: 0, income: 0, cars: [] })
+        rows.push({ name: n, booked: 0, cancelled: 0, delivered: 0, missing: 0, marginLeft: 0, com70: 0, comFinance: 0, income: 0, cars: [] })
       }
     })
     // เทียบเดือนก่อน (รายได้และจำนวนคันส่งมอบ) — ช่วยดูว่าใครกำลังขึ้น/ลง
@@ -79,24 +79,24 @@ export default async function SalesIncomePage(container) {
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-bottom:16px">
           ${card('💰', 'รายได้รวม', formatCurrency(total.income), 'accent', `เดือนก่อน ${formatCurrency(prev.total.income)}`)}
-          ${card('🚗', 'ส่งมอบ', total.delivered + ' คัน', 'success', `จองใหม่ ${total.booked} คัน${teamTarget ? ` · เป้ารวม ${teamTarget} คัน (${goalProgress(total.delivered, teamTarget).pct}%)` : ''}`)}
+          ${card('🚗', 'ส่งมอบ', total.delivered + ' คัน', 'success', `จองใหม่ ${total.booked} คัน${total.cancelled ? ` · ถอนจอง ${total.cancelled} คัน` : ''}${teamTarget ? ` · เป้ารวม ${teamTarget} คัน (${goalProgress(total.delivered, teamTarget).pct}%)` : ''}`)}
           ${card('👤', 'คอมเซลส์', formatCurrency(total.com70), 'primary')}
           ${card('🏦', 'คอมไฟแนนซ์', formatCurrency(total.comFinance), 'primary')}
           ${card('📈', 'มาร์จิ้นคงเหลือ', formatCurrency(total.marginLeft), 'warning')}
           ${total.missing ? card('⚠️', 'ยังไม่กรอกรายได้', total.missing + ' คัน', 'danger', 'กดชื่อเซลส์เพื่อกรอก') : ''}
         </div>
         ${rows.length ? `<div class="card" style="padding:0;overflow:hidden"><div class="table-wrap"><table>
-          <thead><tr><th>เซลส์</th><th style="text-align:right">จอง</th><th style="text-align:right">ส่งมอบ</th><th style="text-align:right">เป้า (คัน)</th><th style="text-align:right">มาร์จิ้นคงเหลือ</th><th style="text-align:right">คอมเซลส์</th><th style="text-align:right">คอมไฟแนนซ์</th><th style="text-align:right">รายได้รวม</th></tr></thead>
+          <thead><tr><th>เซลส์</th><th style="text-align:right">จอง</th><th style="text-align:right">ถอนจอง</th><th style="text-align:right">ส่งมอบ</th><th style="text-align:right">เป้า (คัน)</th><th style="text-align:right">มาร์จิ้นคงเหลือ</th><th style="text-align:right">คอมเซลส์</th><th style="text-align:right">คอมไฟแนนซ์</th><th style="text-align:right">รายได้รวม</th></tr></thead>
           <tbody>${rows.map(r => `
             <tr class="si-row" data-n="${escHtml(r.name)}" style="cursor:pointer">
               <td style="font-weight:700">${open.has(r.name) ? '▾' : '▸'} ${escHtml(r.name)}${r.missing ? ` <span class="badge badge-danger" style="font-size:0.62rem">ยังไม่กรอก ${r.missing}</span>` : ''}</td>
-              <td style="text-align:right">${r.booked}</td><td style="text-align:right">${r.delivered}${delta(r.delivered, prevOf(r.name).delivered)}</td><td style="text-align:right">${goalCell(r)}</td>
+              <td style="text-align:right">${r.booked}</td><td style="text-align:right;${r.cancelled ? 'color:var(--danger)' : 'color:var(--text-muted)'}">${r.cancelled}</td><td style="text-align:right">${r.delivered}${delta(r.delivered, prevOf(r.name).delivered)}</td><td style="text-align:right">${goalCell(r)}</td>
               <td style="text-align:right">${formatCurrency(r.marginLeft)}</td><td style="text-align:right">${formatCurrency(r.com70)}</td>
               <td style="text-align:right">${formatCurrency(r.comFinance)}</td><td style="text-align:right;font-weight:800;color:var(--accent)">${formatCurrency(r.income)}${delta(r.income, prevOf(r.name).income, true)}</td>
             </tr>
             ${open.has(r.name) ? r.cars.map(b => `<tr style="background:var(--surface-2);font-size:0.78rem">
               <td style="padding-left:28px">${escHtml(b.custName || '—')} · ${escHtml([b.brand, b.model].filter(Boolean).join(' ') || '—')}<div style="font-size:0.68rem;color:var(--text-muted)">${escHtml(b.bookingNo || '')} · ส่งมอบ ${formatDate(b.cutDate || b.actualDeliveryDate)}</div></td>
-              <td></td><td></td><td></td>
+              <td></td><td></td><td></td><td></td>
               <td style="text-align:right">${formatCurrency(b.marginLeft || 0)}</td><td style="text-align:right">${formatCurrency(b.com70 || 0)}</td><td style="text-align:right">${formatCurrency(b.comFinance || 0)}</td>
               <td style="text-align:right">${needsIncome(b) ? `<button class="btn btn-warning btn-xs si-income" data-id="${escHtml(b.id)}">💰 กรอกรายได้</button>` : formatCurrency(b.totalIncome || 0)}</td>
             </tr>`).join('') : ''}`).join('')}
