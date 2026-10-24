@@ -20,7 +20,7 @@ import { OCCUPATIONS } from '../../utils/financeMatch.js'
 import { openQuickLead, findDuplicate } from '../../utils/quickLead.js'
 import { planLeadImport } from '../../utils/leadImport.js'
 import { scheduleLeadFollowups, closeAutoLeadFollowups } from '../../utils/leadFollowups.js'
-import { pendingFollowupsFor, followupWindowFilters, followupStatusByCustomer, matchFollowupFilter } from '../../utils/customerFollowups.js'
+import { pendingFollowupsFor, followupWindowFilters, followupStatusByCustomer, matchFollowupFilter, QUIET_DAYS } from '../../utils/customerFollowups.js'
 import { openAddFollowup } from '../../utils/addFollowupModal.js'
 import { touchCustomerContact } from '../../utils/customerContact.js'
 
@@ -113,6 +113,7 @@ export default async function CustomersPage(container) {
   function applyFilter() {
     // (v1.0.453) การกรองตามบริษัทย้ายเข้า query จริงแล้ว (companyScopeFilters() ใน loadData()/
     // startWatchCustomers()) — ไม่ต้องกรองซ้ำที่นี่อีก
+    const today = todayBangkok()
     filtered = customers.filter(c => {
       const name = fullName(c).toLowerCase()
       const matchSearch = !search || name.includes(search) ||
@@ -124,7 +125,7 @@ export default async function CustomersPage(container) {
       const matchSales = !salesFilter || (salesFilter === '__none' ? !String(c.assignedTo || '').trim() : c.assignedTo === salesFilter)
       const matchSource = !sourceFilter || (sourceFilter === 'other' ? !SOURCE[c.source] || c.source === 'other' : c.source === sourceFilter)
       const matchOwn = !ownScopeActive || scopeIncludesRecord(visScope, c.assignedTo, c)
-      const matchFu = matchFollowupFilter(c, fuFilter, fuStatus)
+      const matchFu = matchFollowupFilter(c, fuFilter, fuStatus, today)
       return matchSearch && matchStage && matchLost && matchSales && matchSource && matchOwn && matchFu
     })
     const rank = { high: 0, medium: 1, low: 2 }
@@ -247,6 +248,7 @@ export default async function CustomersPage(container) {
                 ${detail('📌 ที่มา', SOURCE[c.source] || escHtml(c.source) || '-')}
                 ${detail('👤 ผู้ดูแล', escHtml(c.assignedTo || '-'))}
                 ${detail('📅 เพิ่มเมื่อ', formatDate(c.createdAt))}
+                ${detail('📞 ติดต่อล่าสุด', c.lastContactAt ? timeAgo(c.lastContactAt) : 'ยังไม่มีบันทึก')}
                 ${c.isLost ? detail('❌ เหตุผลเสียดีล', escHtml(c.lostReason || '-')) : ''}
               </div>
               <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px">
@@ -907,6 +909,7 @@ export default async function CustomersPage(container) {
             <option value="">📅 นัดติดตาม: ทั้งหมด</option>
             <option value="none">⚠️ Lead/Prospect ที่ไม่มีนัดเลย</option>
             <option value="late">🔴 มีนัดเลยกำหนด</option>
+            <option value="quiet">💤 Lead/Prospect เงียบ ${QUIET_DAYS} วัน+</option>
           </select>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
             ${['all', ...STAGE_ORDER].map(s => `
@@ -1055,7 +1058,7 @@ export default async function CustomersPage(container) {
   document.getElementById('cust-source-filter').addEventListener('change', e => { sourceFilter = e.target.value; applyFilter() })
   document.getElementById('cust-fu-filter').addEventListener('change', async e => {
     fuFilter = e.target.value
-    if (fuFilter && !fuStatus) {
+    if ((fuFilter === 'none' || fuFilter === 'late') && !fuStatus) {
       const today = todayBangkok()
       try {
         fuStatus = followupStatusByCustomer(await listDocs('followups', [...companyScopeFilters(), ...followupWindowFilters(today)], 'dueDate', 'asc', 3000), today)

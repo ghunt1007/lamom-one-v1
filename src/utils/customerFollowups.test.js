@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { pendingFollowupsFor, addDays, buildManualFollowup, FOLLOWUP_PURPOSES } from './customerFollowups.js'
+import { pendingFollowupsFor, addDays, buildManualFollowup, FOLLOWUP_PURPOSES, quietDays, matchFollowupFilter, QUIET_DAYS } from './customerFollowups.js'
 
 describe('pendingFollowupsFor', () => {
   const rows = [
@@ -62,5 +62,21 @@ describe('followupStatusByCustomer / matchFollowupFilter', () => {
     expect(matchFollowupFilter({ id: 'c1' }, 'late', m)).toBe(true)
     expect(matchFollowupFilter({ id: 'c2' }, 'late', m)).toBe(false)
     expect(matchFollowupFilter({ id: 'x' }, '', m)).toBe(true)
+  })
+})
+
+describe('ตัวกรองลูกค้าเงียบ (quiet)', () => {
+  const today = '2026-10-25'
+  it('นับวันจากความเคลื่อนไหวล่าสุด รวม lastContactAt', () => {
+    expect(quietDays({ createdAt: '2026-10-01T03:00:00Z', lastContactAt: '2026-10-20T03:00:00Z' }, today)).toBe(5)
+    expect(quietDays({}, today)).toBe(null)
+  })
+  it('เลือกเฉพาะ Lead/Prospect ที่ยังไม่เสียดีลและเงียบตั้งแต่ QUIET_DAYS วัน', () => {
+    const old = { stage: 'lead', createdAt: '2026-10-01T03:00:00Z' }
+    expect(matchFollowupFilter(old, 'quiet', null, today)).toBe(true)
+    expect(matchFollowupFilter({ ...old, lastContactAt: '2026-10-24T03:00:00Z' }, 'quiet', null, today)).toBe(false)
+    expect(matchFollowupFilter({ ...old, isLost: true }, 'quiet', null, today)).toBe(false)
+    expect(matchFollowupFilter({ ...old, stage: 'customer' }, 'quiet', null, today)).toBe(false)
+    expect(matchFollowupFilter({ stage: 'pp', createdAt: `2026-10-${25 - QUIET_DAYS}T03:00:00Z` }, 'quiet', null, today)).toBe(true)
   })
 })
