@@ -148,6 +148,11 @@ export default async function MyDayPage(container) {
           `${c.phone ? escHtml(c.phone) : c.lineId ? escHtml(c.lineId) : 'ไม่มีเบอร์'}${ownerTag(c.assignedTo)}`,
           `${callBtn(c.phone)}${takeBtns(c)}<button class="btn btn-success btn-xs md-touch" data-id="${escHtml(c.id)}">✅ ติดตามแล้ว</button><button class="btn btn-secondary btn-xs md-plan" data-id="${escHtml(c.id)}">📅 นัด</button><button class="btn btn-secondary btn-xs md-open" data-id="${escHtml(c.id)}">เปิด</button>`), 'warning')}
 
+        ${d.revisit.length ? section('🔄', 'ลองติดต่อใหม่ (เสียดีลไปแล้ว 30 วัน+)', 'เหตุผลเดิมอาจเปลี่ยนแล้ว เช่น ไฟแนนซ์/ยังไม่พร้อม', d.revisit, c => line(
+          `${escHtml(c.name)}${c.interestedModel ? ` · ${escHtml(c.interestedModel)}` : ''} <span class="badge badge-secondary" style="font-size:0.62rem">${c.days} วัน</span>`,
+          `เหตุผล: ${escHtml(c.lostReason || '-')}${c.phone ? ` · ${escHtml(c.phone)}` : ''}${ownerTag(c.assignedTo)}`,
+          `${callBtn(c.phone)}<button class="btn btn-success btn-xs md-touch" data-id="${escHtml(c.id)}">✅ ติดต่อแล้ว</button><button class="btn btn-secondary btn-xs md-open" data-id="${escHtml(c.id)}">เปิด</button>`), 'primary') : ''}
+
         ${d.unscheduled.length ? section('📆', 'รถพร้อมส่งแต่ยังไม่ได้นัดวันส่งมอบ', 'โทรนัดลูกค้า แล้วลงวันในปฏิทินส่งมอบ', d.unscheduled, b => line(
           `${escHtml(b.custName || 'ลูกค้า')} · ${escHtml([b.brand, b.model].filter(Boolean).join(' ') || '—')}`,
           `${escHtml(b.status || '')}${b.missed ? ` · <b style="color:var(--danger)">เลยวันนัด ${formatDate(b.deliveryDate)}</b>` : ' · ยังไม่มีวันนัด'}${ownerTag(b.salesName)}`,

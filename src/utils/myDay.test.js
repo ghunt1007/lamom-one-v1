@@ -132,3 +132,21 @@ describe('buildMyDay — ติดต่อแล้ววันนี้', () =
     expect(d.contactedToday).toBe(1)
   })
 })
+
+describe('buildMyDay — ลองติดต่อใหม่หลังเสียดีล', () => {
+  it('เสียดีลเพราะยังไม่พร้อม/ไฟแนนซ์/ราคา 30–120 วันและยังไม่ได้ติดต่อ', () => {
+    const d = buildMyDay({ customers: [
+      { id: 'r1', isLost: true, lostAt: '2026-09-20T03:00:00Z', lostReason: 'ยังไม่พร้อม - รอโบนัส', assignedTo: 'A' },
+      { id: 'r2', isLost: true, lostAt: '2026-08-01T03:00:00Z', lostReason: 'ไฟแนนซ์ไม่ผ่าน', assignedTo: 'A' },
+      { id: 'x1', isLost: true, lostAt: '2026-10-10T03:00:00Z', lostReason: 'ราคา', assignedTo: 'A' },
+      { id: 'x2', isLost: true, lostAt: '2026-09-01T03:00:00Z', lostReason: 'ซื้อคู่แข่ง', assignedTo: 'A' },
+      { id: 'x3', isLost: true, lostAt: '2026-09-01T03:00:00Z', lostReason: 'ราคา', assignedTo: 'A', lastContactAt: '2026-10-01T03:00:00Z' },
+      { id: 'x4', isLost: true, lostAt: '2026-05-01T03:00:00Z', lostReason: 'ราคา', assignedTo: 'A' },
+      { id: 'x5', isLost: true, lostAt: '2026-09-01T03:00:00Z', lostReason: 'ราคา', assignedTo: 'B' },
+      { id: 'x6', isLost: false, lostAt: '2026-09-01T03:00:00Z', lostReason: 'ราคา', assignedTo: 'A' },
+    ] }, { today: '2026-10-25', mine: n => n === 'A' })
+    expect(d.revisit.map(c => c.id)).toEqual(['r1', 'r2'])
+    expect(d.revisit[0].days).toBe(35)
+    expect(d.total).toBe(0)
+  })
+})
