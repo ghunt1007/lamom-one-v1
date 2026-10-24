@@ -203,7 +203,7 @@ async function verifyLineSignature(rawBody, signature, channelSecret) {
 async function buildReportText(env, accessToken) {
   // select เฉพาะ field ที่รายงานใช้ — ใบจองหลายพันใบทั้งเอกสารใหญ่เกินจน parse JSON เกินโควตา CPU ของ cron
   const [bookings, customers, followups, testDrives, teamTargets] = await Promise.all([
-    runQuery(env, accessToken, 'bookings', null, null, 5000, ['bookingDate', 'status', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'salesName', 'totalIncome', 'deleted']),
+    runQuery(env, accessToken, 'bookings', null, null, 5000, ['bookingDate', 'status', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'salesName', 'totalIncome', 'deliveryDate', 'deliveryTime', 'custName', 'model', 'deleted']),
     runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'createdAt', 'source', 'deleted']),
     runQuery(env, accessToken, 'followups', null, null, 3000, ['dueDate', 'status', 'deleted']),
     runQuery(env, accessToken, 'test_drives', null, null, 3000, ['date', 'deleted']),
@@ -259,6 +259,10 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
   const revMonth = dlvMonth.reduce((s, b) => s + income(b), 0)
   const revYear = dlvYear.reduce((s, b) => s + income(b), 0)
   const noIncomeMonth = dlvMonth.filter(b => !income(b)).length
+  // นัดส่งมอบพรุ่งนี้ (ใบจองที่ยังไม่ส่งมอบ/ไม่ถอน ที่ตั้งวันส่งมอบไว้ในปฏิทินส่งมอบ)
+  const [ty, tm, td] = today.split('-').map(Number)
+  const tomorrow = new Date(Date.UTC(ty, tm - 1, td + 1)).toISOString().slice(0, 10)
+  const dlvTomorrow = bookings.filter(b => (b.deliveryDate || '').slice(0, 10) === tomorrow && !DELIVERED_STATUSES.includes(b.status) && !isCancelled(b))
 
   // ถอนจอง
   const cancelled = bookings.filter(isCancelled)
@@ -308,6 +312,11 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
     `  • ส่งมอบเดือนนี้: ${dlvMonth.length} คัน`,
     `  • ส่งมอบปีนี้: ${dlvYear.length} คัน`,
   ]
+  if (dlvTomorrow.length) {
+    lines.push('', `📅 นัดส่งมอบพรุ่งนี้: ${dlvTomorrow.length} คัน`,
+      ...dlvTomorrow.slice(0, 10).map(b => `  • ${b.deliveryTime ? b.deliveryTime + ' ' : ''}${b.custName || 'ลูกค้า'}${b.model ? ` (${b.model})` : ''} · ${(b.salesName || '').trim() || '(ไม่ระบุ)'}`),
+      dlvTomorrow.length > 10 ? `  • …และอีก ${dlvTomorrow.length - 10} คัน` : null)
+  }
   if (target > 0) {
     const pct = Math.round(dlvMonth.length / target * 100)
     const need = Math.max(0, target - dlvMonth.length)
@@ -331,7 +340,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
 // ── เตือนงานค้างตอนเช้า (09:00) — แยกรายเซลส์ ─────────────────────────────────
 async function buildMorningData(env, accessToken) {
   const [bookings, customers, followups] = await Promise.all([
-    runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'salesName', 'custName', 'model', 'totalIncome', 'deleted']),
+    runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'model', 'totalIncome', 'deleted']),
     runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'isLost', 'createdAt', 'updatedAt', 'stageChangedAt', 'deleted']),
     runQuery(env, accessToken, 'followups', null, null, 3000, ['dueDate', 'status', 'salesperson', 'customerName', 'customerId', 'autoLead', 'deleted']),
   ])
@@ -352,7 +361,7 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
   const alive = rows => (rows || []).filter(r => r && !r.deleted)
   const dayNum = d => { const [y, m, dd] = d.split('-').map(Number); return Date.UTC(y, m - 1, dd) / 86400000 }
   const people = {}
-  const person = n => (people[(n || '').trim() || '(ยังไม่มีผู้ดูแล)'] ||= { stale: [], fu: [], income: [], stuck: [] })
+  const person = n => (people[(n || '').trim() || '(ยังไม่มีผู้ดูแล)'] ||= { deliver: [], stale: [], fu: [], income: [], stuck: [] })
 
   alive(data.customers)
     .filter(c => (c.stage === 'lead' || c.stage === 'pp') && !c.isLost)
@@ -383,17 +392,29 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
       if (days >= STUCK_BOOKING_DAYS) person(b.salesName).stuck.push({ name: b.custName || 'ลูกค้า', status: b.status || '—', days })
     })
 
+  // นัดส่งมอบวันนี้/พรุ่งนี้ — ขึ้นก่อนเรื่องอื่น เพราะต้องเตรียมรถ/เอกสาร
+  alive(data.bookings)
+    .filter(b => !DELIVERED_STATUSES.includes(b.status) && !CANCELLED_STATUSES.includes(b.status) && /^\d{4}-\d{2}-\d{2}/.test(b.deliveryDate || ''))
+    .forEach(b => {
+      const inDays = dayNum(b.deliveryDate.slice(0, 10)) - dayNum(today)
+      if (inDays === 0 || inDays === 1) person(b.salesName).deliver.push({ name: b.custName || 'ลูกค้า', model: b.model, time: b.deliveryTime, inDays })
+    })
+
   const list = items => {
     const shown = items.slice(0, maxNames).map(i => `      - ${i}`)
     if (items.length > maxNames) shown.push(`      - …และอีก ${items.length - maxNames} ราย`)
     return shown
   }
   return Object.entries(people)
-    .map(([n, p]) => ({ n, p, total: p.stale.length + p.fu.length + p.income.length + p.stuck.length }))
+    .map(([n, p]) => ({ n, p, total: p.deliver.length + p.stale.length + p.fu.length + p.income.length + p.stuck.length }))
     .filter(x => x.total)
     .sort((a, b) => b.total - a.total || a.n.localeCompare(b.n))
     .map(({ n, p }) => {
       const out = [`👤 ${n}`]
+      if (p.deliver.length) {
+        p.deliver.sort((a, b) => a.inDays - b.inDays || String(a.time || '').localeCompare(String(b.time || '')))
+        out.push(`  🚗 นัดส่งมอบวันนี้/พรุ่งนี้: ${p.deliver.length} คัน`, ...list(p.deliver.map(d => `${d.inDays ? 'พรุ่งนี้' : 'วันนี้'}${d.time ? ' ' + d.time : ''} · ${d.name}${d.model ? ` (${d.model})` : ''}`)))
+      }
       if (p.stale.length) {
         p.stale.sort((a, b) => b.days - a.days)
         out.push(`  🧲 Lead ไม่ได้ติดตามเกิน ${staleDays} วัน: ${p.stale.length} ราย`, ...list(p.stale.map(s => `${s.name}${s.model ? ` (${s.model})` : ''} · ${s.days} วัน`)))
