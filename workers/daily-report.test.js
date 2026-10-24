@@ -864,6 +864,48 @@ describe('LINE webhook — เซลส์ค้นหาลูกค้า', ()
   })
 })
 
+describe('LINE "โทรแล้ว" — บันทึกว่าติดต่อลูกค้าแล้ว', () => {
+  it('parse คำสั่ง', () => {
+    expect(parseLineCommand('โทรแล้ว 0812345678')).toEqual({ type: 'touch', q: '0812345678' })
+    expect(parseLineCommand('ติดต่อแล้ว สมชาย')).toEqual({ type: 'touch', q: 'สมชาย' })
+    expect(parseLineCommand('โทรแล้ว')).toEqual({ type: 'none' })
+  })
+  it('ต้องเจอลูกค้ารายเดียว และ patch เฉพาะ field ที่ระบุ', async () => {
+    const { pickTouchTarget, customerContactPatch } = await import('./daily-report.js')
+    const cs = [{ id: 'a', firstName: 'สมชาย', phone: '0811111111' }, { id: 'b', firstName: 'สมหญิง', phone: '0822222222' }]
+    expect(pickTouchTarget(cs, '0811111111').customer.id).toBe('a')
+    expect(pickTouchTarget(cs, 'สม').reply).toContain('พบ 2 ราย')
+    expect(pickTouchTarget(cs, 'ไม่มี').reply).toContain('ไม่พบลูกค้า')
+    const p1 = customerContactPatch({ id: 'a' }, 'T')
+    expect(p1.query).toBe('updateMask.fieldPaths=lastContactAt&updateMask.fieldPaths=updatedAt&updateMask.fieldPaths=firstContactAt&currentDocument.exists=true')
+    expect(p1.body.fields.firstContactAt).toEqual({ stringValue: 'T' })
+    expect(customerContactPatch({ id: 'a', firstContactAt: 'X' }, 'T').body.fields.firstContactAt).toBeUndefined()
+  })
+  it('เซลส์ที่ลงทะเบียนพิมพ์ "โทรแล้ว เบอร์" → PATCH ลูกค้าของตัวเองแบบมี updateMask', async () => {
+    const replies = []; const patches = []
+    stubFetch([
+      ['oauth2.googleapis.com', () => ({ ok: true, json: async () => ({ access_token: 'fs' }) })],
+      ['system_integrations/line_daily_report', () => ({ ok: true, json: async () => ({ fields: { userId: { stringValue: 'UOWNER' } } }) })],
+      ['line_sales_targets/', () => ({ ok: true, json: async () => ({ fields: { name: { stringValue: 'เซลส์ A' } } }) })],
+      [':runQuery', () => ({ ok: true, json: async () => [
+        { document: { name: 'p/customers/c1', fields: { firstName: { stringValue: 'สมชาย' }, phone: { stringValue: '0812345678' }, assignedTo: { stringValue: 'เซลส์ A' } } } },
+        { document: { name: 'p/customers/c2', fields: { firstName: { stringValue: 'คนอื่น' }, phone: { stringValue: '0812345000' }, assignedTo: { stringValue: 'เซลส์ B' } } } }] })],
+      ['/documents/customers/', (url, opts) => { patches.push([url, opts.method, JSON.parse(opts.body)]); return { ok: true, json: async () => ({}) } }],
+      ['api.line.me/v2/bot/message/reply', (url, opts) => { replies.push(JSON.parse(opts.body).messages[0].text); return { ok: true, json: async () => ({}) } }],
+    ])
+    const body = JSON.stringify({ events: [{ type: 'message', replyToken: 'rt', source: { userId: 'USALES' }, message: { type: 'text', text: 'โทรแล้ว 0812345' } }] })
+    const env = { ...BASE_ENV, LINE_CHANNEL_SECRET: 'sec', LINE_CHANNEL_ACCESS_TOKEN: 'tok', FIRESTORE_SERVICE_ACCOUNT_JSON: await fakeServiceAccount() }
+    const res = await worker.fetch(new Request('https://w/line/webhook', { method: 'POST', headers: { 'X-Line-Signature': await lineSig(body, 'sec') }, body }), env)
+    expect(res.status).toBe(200)
+    expect(patches).toHaveLength(1) // เจอแค่ c1 (c2 เป็นของเซลส์ B)
+    expect(patches[0][0]).toContain('/customers/c1?updateMask.fieldPaths=lastContactAt')
+    expect(patches[0][0]).toContain('currentDocument.exists=true')
+    expect(patches[0][1]).toBe('PATCH')
+    expect(Object.keys(patches[0][2].fields).sort()).toEqual(['firstContactAt', 'lastContactAt', 'updatedAt'])
+    expect(replies[0]).toContain('บันทึกว่าติดต่อ สมชาย แล้ว')
+  })
+})
+
 describe('runQuery แบ่งหน้า', () => {
   it('buildStructuredQuery หน้าถัดไปเรียงตาม __name__ และเริ่มหลังเอกสารสุดท้าย', async () => {
     const { buildStructuredQuery } = await import('./daily-report.js')
