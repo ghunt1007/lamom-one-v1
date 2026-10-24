@@ -20,9 +20,9 @@ export const daysBetween = (from, to) => dayNum(to) - dayNum(from)
 const custName = c => [c.firstName, c.lastName].filter(Boolean).join(' ') || 'ไม่มีชื่อ'
 
 // mine(ownerName, rec) → true ถ้าเป็นงานที่ผู้ใช้คนนี้ควรเห็น (หน้าเพจส่ง scopeIncludesRecord + ตัวกรองเซลส์มาให้)
-export function buildMyDay({ customers = [], followups = [], bookings = [] }, { today, mine = () => true }) {
+export function buildMyDay({ customers = [], followups = [], bookings = [], testDrives = [] }, { today, mine = () => true }) {
   const alive = rows => (rows || []).filter(r => r && !r.deleted)
-  const out = { followups: [], stale: [], newLeads: [], income: [], stuck: [], deliveries: [] }
+  const out = { followups: [], stale: [], newLeads: [], income: [], stuck: [], deliveries: [], testDrives: [] }
 
   const custById = new Map((customers || []).map(c => [c.id, c]))
   alive(followups)
@@ -56,6 +56,12 @@ export function buildMyDay({ customers = [], followups = [], bookings = [] }, { 
     const bd = (b.bookingDate || '').slice(0, 10)
     if (/^\d{4}-\d{2}-\d{2}$/.test(bd) && daysBetween(bd, today) >= STUCK_BOOKING_DAYS) out.stuck.push({ ...b, days: daysBetween(bd, today) })
   })
+
+  // นัดทดลองขับวันนี้ที่ยังไม่จบ (ผู้ดูแล = staff ของนัด)
+  alive(testDrives)
+    .filter(t => (t.date || '').slice(0, 10) === today && ['scheduled', 'confirmed', 'in_progress'].includes(t.status || 'scheduled') && mine(t.staff, t))
+    .forEach(t => out.testDrives.push(t))
+  out.testDrives.sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')))
 
   out.followups.sort((a, b) => b.late - a.late)
   out.stale.sort((a, b) => b.days - a.days)

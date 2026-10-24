@@ -58,6 +58,17 @@ describe('buildMyDay', () => {
     expect(d.stale.map(c => c.id).sort()).toEqual(['c2', 'c6'])
   })
 
+  it('lists today\'s test drives in time order', () => {
+    const testDrives = [
+      { id: 't1', date: today, time: '15:00', status: 'confirmed', staff: 'A' },
+      { id: 't2', date: today, time: '10:00', status: 'scheduled', staff: 'A' },
+      { id: 't3', date: today, time: '11:00', status: 'done', staff: 'A' },
+      { id: 't4', date: '2026-10-26', status: 'scheduled', staff: 'A' },
+      { id: 't5', date: today, status: 'scheduled', staff: 'B' },
+    ]
+    expect(buildMyDay({ testDrives }, { today, mine: n => n === 'A' }).testDrives.map(t => t.id)).toEqual(['t2', 't1'])
+  })
+
   it('works with empty data', () => {
     expect(buildMyDay({}, { today }).total).toBe(0)
   })
