@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { classifyLostReason, lostBySeller } from './lostReason.js'
+import { classifyLostReason, lostBySeller, applyReasonChip } from './lostReason.js'
 
 describe('classifyLostReason', () => {
   it('จัดกลุ่มจากปุ่มเลือกในหน้าลูกค้า', () => {
@@ -40,5 +40,14 @@ describe('lostBySeller', () => {
     expect(rows.map(r => [r.name, r.total])).toEqual([['A', 3], ['B', 2]])
     expect(rows[0].top[0]).toEqual({ key: 'price', label: 'ราคา', count: 2 })
     expect(lostBySeller([], '2026-10')).toEqual([])
+  })
+})
+
+describe('applyReasonChip', () => {
+  it('แทนคำนำหน้าเดิมและเก็บรายละเอียด', () => {
+    expect(applyReasonChip('', 'ราคา')).toBe('ราคา - ')
+    expect(applyReasonChip('ราคา - อีกร้านถูกกว่า', 'ซื้อคู่แข่ง')).toBe('ซื้อคู่แข่ง - อีกร้านถูกกว่า')
+    expect(applyReasonChip('เปลี่ยนรุ่น/ยี่ห้อ - ', 'ราคา')).toBe('ราคา - ')
+    expect(applyReasonChip('ลูกค้าย้ายบ้าน', 'ยังไม่พร้อม')).toBe('ยังไม่พร้อม - ลูกค้าย้ายบ้าน')
   })
 })
