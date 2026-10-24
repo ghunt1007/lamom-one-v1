@@ -81,6 +81,7 @@ export function Topbar(container) {
 
         <div class="topbar-actions">
           ${getState('companies').length > 1 ? `<button class="topbar-btn" id="company-filter-btn" title="${t('filterCompany')}">🏢</button>` : ''}
+          <button class="topbar-btn" id="quick-lead-btn" title="เพิ่ม Lead ด่วน" style="width:auto;padding:0 10px;font-size:0.78rem;font-weight:700;white-space:nowrap">🧲 + Lead</button>
           <button class="topbar-btn" id="lang-btn" title="${t('selectLanguage')}">${curLangInfo.flag}</button>
           <button class="topbar-btn" id="theme-btn" title="${t('changeTheme')}">🎨</button>
           <button class="topbar-btn" id="notif-btn" title="${t('notifications')}">
@@ -115,6 +116,7 @@ export function Topbar(container) {
     document.getElementById('theme-btn')?.addEventListener('click', openThemePicker)
     document.getElementById('notif-btn')?.addEventListener('click', (e) => openNotifPanel(e.currentTarget))
     document.getElementById('lami-chat-btn')?.addEventListener('click', () => navigate('/ai/ask'))
+    document.getElementById('quick-lead-btn')?.addEventListener('click', () => import('../../utils/quickLead.js').then(m => m.openQuickLead()))
   }
 
   render()
