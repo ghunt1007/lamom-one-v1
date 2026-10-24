@@ -4,6 +4,7 @@ import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { FOLLOWUP_PURPOSES } from '../../utils/customerFollowups.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -24,7 +25,7 @@ const FU_STATUS = {
   escalated: { label: 'Escalate', color: 'danger' },
 }
 
-const PURPOSES = ['ติดตาม Lead ใหม่', 'ติดตามหลังทดลองขับ', 'ติดตามใบเสนอราคา', 'หลังส่งมอบรถ', 'ตรวจสอบความพึงพอใจ', 'แจ้งบริการถึงกำหนด', 'เสนอต่ออายุประกัน', 'แนะนำรุ่นใหม่', 'กิจกรรม/โปรโมชัน', 'วันเกิด/เทศกาล', 'ทั่วไป']
+const PURPOSES = FOLLOWUP_PURPOSES
 
 function addDays(n) {
   const [y, m, d] = todayBangkok().split('-').map(Number)
