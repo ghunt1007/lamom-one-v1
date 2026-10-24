@@ -86,6 +86,8 @@ export function buildMyDay({ customers = [], followups = [], bookings = [], test
   out.stuck.sort((a, b) => b.days - a.days)
   out.finance.sort((a, b) => Number(b.rejected) - Number(a.rejected) || b.days - a.days)
   out.deliveries.sort((a, b) => a.inDays - b.inDays)
+  // ลูกค้าของฉันที่ติดต่อแล้ววันนี้ (ทุกสถานะ) — ให้กำลังใจ/วัดกิจกรรมของวัน
+  out.contactedToday = alive(customers).filter(c => bangkokDate(c.lastContactAt) === today && mine(c.assignedTo, c)).length
   out.total = out.followups.length + out.stale.length + out.income.length + out.stuck.length + out.finance.length + out.unscheduled.length
   return out
 }
