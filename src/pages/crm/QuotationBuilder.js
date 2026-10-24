@@ -17,6 +17,7 @@ import { getVehicles } from '../../data/vehicleDatabase.js'
 import { getAccessories, getSalesStaff } from '../../data/masterData.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { scheduleQuoteFollowup } from '../../utils/quoteFollowup.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -189,7 +190,11 @@ export default async function QuotationBuilderPage(container) {
     container.querySelectorAll('.send-qt-btn').forEach(b => b.addEventListener('click', async () => {
       const q = quotes.find(x => x.id === b.dataset.id)
       if (!q) return
-      try { await updateDocData('quotations', q.id, { status: 'sent' }); showToast(`📤 ส่งใบเสนอราคา ${q.id} แล้ว!`, 'success'); await loadData() }
+      try {
+        await updateDocData('quotations', q.id, { status: 'sent' })
+        const fu = await scheduleQuoteFollowup(q)
+        showToast(`📤 ส่งใบเสนอราคา ${q.id} แล้ว!${fu ? ' · นัดโทรถามผลอีก 2 วัน' : ''}`, 'success'); await loadData()
+      }
       catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
     container.querySelectorAll('.accept-qt-btn').forEach(b => b.addEventListener('click', async () => {
