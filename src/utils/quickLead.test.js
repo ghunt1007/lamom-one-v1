@@ -57,3 +57,10 @@ describe('topModels', () => {
     expect(topModels(null)).toEqual([])
   })
 })
+
+describe('buildQuickLead — hot', () => {
+  it('ติ๊ก Hot แล้วได้ temperature hot', () => {
+    expect(buildQuickLead({ name: 'ก', hot: true }).temperature).toBe('hot')
+    expect(buildQuickLead({ name: 'ก' }).temperature).toBe(null)
+  })
+})

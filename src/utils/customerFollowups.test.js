@@ -80,3 +80,12 @@ describe('ตัวกรองลูกค้าเงียบ (quiet)', () =>
     expect(matchFollowupFilter({ stage: 'pp', createdAt: `2026-10-${25 - QUIET_DAYS}T03:00:00Z` }, 'quiet', null, today)).toBe(true)
   })
 })
+
+describe('matchFollowupFilter — hot', () => {
+  it('เฉพาะ Lead/Prospect ที่เป็น Hot และยังไม่เสียดีล', () => {
+    expect(matchFollowupFilter({ stage: 'pp', temperature: 'hot' }, 'hot')).toBe(true)
+    expect(matchFollowupFilter({ stage: 'pp', temperature: 'hot', isLost: true }, 'hot')).toBe(false)
+    expect(matchFollowupFilter({ stage: 'booking', temperature: 'hot' }, 'hot')).toBe(false)
+    expect(matchFollowupFilter({ stage: 'lead', temperature: 'warm' }, 'hot')).toBe(false)
+  })
+})

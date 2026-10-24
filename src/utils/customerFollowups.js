@@ -71,6 +71,7 @@ export function matchFollowupFilter(c, filter, statusMap, today) {
     const d = quietDays(c, today)
     return d != null && d >= QUIET_DAYS
   }
+  if (filter === 'hot') return c.temperature === 'hot' && !c.isLost && ['lead', 'pp'].includes(c.stage)
   const s = statusMap?.get(c.id)
   if (filter === 'none') return ['lead', 'pp'].includes(c.stage) && !c.isLost && !s
   if (filter === 'late') return !!(s && s.late)
