@@ -1156,3 +1156,17 @@ describe('LINE เสียดีล', () => {
     expect(p.query).toContain('currentDocument.exists=true')
   })
 })
+
+describe('buildWeeklyReport — เหตุผลถอนจอง', () => {
+  it('แยกเหตุผลถอนจองสัปดาห์ที่แล้ว', () => {
+    const bookings = [
+      { status: 'ถอนจอง', cancelDate: '2026-10-20', cancelReason: 'ไฟแนนซ์ไม่ผ่าน - รายได้ไม่ถึง' },
+      { status: 'ถอนจอง', cancelDate: '2026-10-21', cancelReason: 'ไฟแนนซ์ไม่ผ่าน' },
+      { status: 'ถอนจอง', cancelDate: '2026-10-22', cancelReason: '' },
+      { status: 'ถอนจอง', cancelDate: '2026-10-10', cancelReason: 'ราคา' },
+    ]
+    const text = buildWeeklyReport({ bookings, customers: [] }, { today: '2026-10-26' })
+    expect(text).toContain('เหตุผล: ไฟแนนซ์ไม่ผ่าน 2 · (ไม่ระบุเหตุผล) 1')
+    expect(buildWeeklyReport({ bookings: [], customers: [] }, { today: '2026-10-26' })).not.toContain('เหตุผล:')
+  })
+})

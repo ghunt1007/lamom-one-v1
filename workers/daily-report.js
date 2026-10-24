@@ -530,7 +530,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
 // ── เตือนงานค้างตอนเช้า (09:00) — แยกรายเซลส์ ─────────────────────────────────
 async function buildMorningData(env, accessToken) {
   const [bookings, customers, followups, testDrives] = await Promise.all([
-    runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'model', 'totalIncome', 'finStatus', 'submitDate', 'financeCo', 'deleted']),
+    runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'cancelReason', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'model', 'totalIncome', 'finStatus', 'submitDate', 'financeCo', 'deleted']),
     runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'isLost', 'lostAt', 'lostReason', 'createdAt', 'updatedAt', 'stageChangedAt', 'lastContactAt', 'source', 'bookingId', 'deleted']),
     // เฉพาะนัดที่ยังไม่ทำ — นัดอัตโนมัติ (Lead/หลังส่งมอบ) สะสมเร็ว ถ้าดึงทั้งหมดแบบจำกัดจำนวนจะตกหล่นนัดของวันนี้
     runQuery(env, accessToken, 'followups', null, null, 5000, ['dueDate', 'status', 'salesperson', 'customerName', 'customerId', 'autoLead', 'deleted'], ['status', 'pending']),
@@ -827,6 +827,13 @@ export function buildWeeklyReport(data, { today }) {
     lostBy[k] = (lostBy[k] || 0) + 1
   })
   const lostTop = Object.entries(lostBy).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, v]) => `${k} ${v}`).join(' · ')
+  // ถอนจองสัปดาห์ที่แล้ว แยกเหตุผล (หลักการเดียวกับเสียดีล)
+  const cancelBy = {}
+  bookings.filter(b => isCancelled(b) && inRange((b.cancelDate || b.bookingDate || '').slice(0, 10), weeks[0])).forEach(b => {
+    const k = lostReasonHead(b.cancelReason)
+    cancelBy[k] = (cancelBy[k] || 0) + 1
+  })
+  const cancelWhy = Object.entries(cancelBy).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, v]) => `${k} ${v}`).join(' · ')
   const lostLines = lostN ? ['', `💔 เสียดีล: ${lostN} ราย`, `    เหตุผล: ${lostTop}`] : []
 
   return [
@@ -841,6 +848,7 @@ export function buildWeeklyReport(data, { today }) {
     `💰 รายได้: ${fmtBaht(cur.income)} (${diffBaht(cur.income, prev.income)})`,
     cur.missing ? `  ⚠️ ยังไม่กรอกรายได้ ${cur.missing} คัน — ตัวเลขจริงสูงกว่านี้` : null,
     `❌ ถอนจอง: ${cur.cancelled} คัน (${diff(cur.cancelled, prev.cancelled)})`,
+    cancelWhy ? `    เหตุผล: ${cancelWhy}` : null,
     ...(sellerLines.length ? ['', '👤 ทีมขาย (สัปดาห์ที่แล้ว)', ...sellerLines] : []),
     ...fuLines,
     ...quietLines,
