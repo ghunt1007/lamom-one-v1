@@ -1107,3 +1107,22 @@ describe('เตือนส่งมอบ — ตัดตัวเลขร�
     expect(txt).toContain('นัดส่งมอบพรุ่งนี้: 1 คัน')
   })
 })
+
+describe('buildWeeklyReport — เสียดีลแยกตามเหตุผล', () => {
+  it('นับเสียดีลสัปดาห์ที่แล้วตามคำหน้า " - "', () => {
+    const customers = [
+      { stage: 'pp', isLost: true, lostAt: '2026-10-20T03:00:00Z', lostReason: 'ราคา - คู่แข่งลดให้มากกว่า' },
+      { stage: 'pp', isLost: true, lostAt: '2026-10-21T03:00:00Z', lostReason: 'ราคา' },
+      { stage: 'lead', isLost: true, lostAt: '2026-10-22T03:00:00Z', lostReason: 'ไฟแนนซ์ไม่ผ่าน -' },
+      { stage: 'lead', isLost: true, lostAt: '2026-10-23T03:00:00Z', lostReason: '' },
+      { stage: 'pp', isLost: true, lostAt: '2026-10-10T03:00:00Z', lostReason: 'ราคา' },
+      { stage: 'pp', isLost: true, lostAt: '2026-10-20T03:00:00Z', lostReason: 'ราคา', deleted: true },
+    ]
+    const text = buildWeeklyReport({ bookings: [], customers }, { today: '2026-10-26' })
+    expect(text).toContain('💔 เสียดีล: 4 ราย')
+    expect(text).toContain('เหตุผล: ราคา 2 · ')
+    expect(text).toContain('ไฟแนนซ์ไม่ผ่าน 1')
+    expect(text).toContain('(ไม่ระบุเหตุผล) 1')
+    expect(buildWeeklyReport({ bookings: [], customers: [] }, { today: '2026-10-26' })).not.toContain('เสียดีล')
+  })
+})

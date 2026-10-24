@@ -491,7 +491,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
 async function buildMorningData(env, accessToken) {
   const [bookings, customers, followups, testDrives] = await Promise.all([
     runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'model', 'totalIncome', 'finStatus', 'submitDate', 'financeCo', 'deleted']),
-    runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'isLost', 'createdAt', 'updatedAt', 'stageChangedAt', 'lastContactAt', 'source', 'bookingId', 'deleted']),
+    runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'isLost', 'lostAt', 'lostReason', 'createdAt', 'updatedAt', 'stageChangedAt', 'lastContactAt', 'source', 'bookingId', 'deleted']),
     // เฉพาะนัดที่ยังไม่ทำ — นัดอัตโนมัติ (Lead/หลังส่งมอบ) สะสมเร็ว ถ้าดึงทั้งหมดแบบจำกัดจำนวนจะตกหล่นนัดของวันนี้
     runQuery(env, accessToken, 'followups', null, null, 5000, ['dueDate', 'status', 'salesperson', 'customerName', 'customerId', 'autoLead', 'deleted'], ['status', 'pending']),
     runQuery(env, accessToken, 'test_drives', null, null, 3000, ['date', 'time', 'status', 'staff', 'customerName', 'model', 'deleted']).catch(() => []),
@@ -778,6 +778,17 @@ export function buildWeeklyReport(data, { today }) {
   const quietTop = Object.entries(quietBy).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, v]) => `${k} ${v}`).join(' · ')
   const quietLines = quietN ? ['', `💤 Lead/Prospect เงียบ 7 วัน+: ${quietN} ราย`, `    มากสุด: ${quietTop}`] : []
 
+  // เสียดีลสัปดาห์ที่แล้ว แยกตามเหตุผล (ใช้คำหน้าเครื่องหมาย " - " เช่น "ราคา - คู่แข่งลดให้ 20,000" นับเป็น "ราคา")
+  const lostBy = {}
+  let lostN = 0
+  customers.filter(c => c.isLost && inRange(toBangkokDate(c.lostAt), weeks[0])).forEach(c => {
+    lostN++
+    const k = String(c.lostReason || '').split(/\s+[-–—:]\s+/)[0].replace(/\s*[-–—:]$/, '').trim().slice(0, 30) || '(ไม่ระบุเหตุผล)'
+    lostBy[k] = (lostBy[k] || 0) + 1
+  })
+  const lostTop = Object.entries(lostBy).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, v]) => `${k} ${v}`).join(' · ')
+  const lostLines = lostN ? ['', `💔 เสียดีล: ${lostN} ราย`, `    เหตุผล: ${lostTop}`] : []
+
   return [
     '📅 LAMOM ONE สรุปสัปดาห์ที่แล้ว',
     `🗓 ${formatThaiDate(weeks[0][0])} – ${formatThaiDate(weeks[0][1])}`,
@@ -793,6 +804,7 @@ export function buildWeeklyReport(data, { today }) {
     ...(sellerLines.length ? ['', '👤 ทีมขาย (สัปดาห์ที่แล้ว)', ...sellerLines] : []),
     ...fuLines,
     ...quietLines,
+    ...lostLines,
     ...(convLines.length ? ['', '🎯 ช่องทางที่ปิดจองได้ดี (Lead 90 วันล่าสุด)', ...convLines] : []),
     '',
     '─────────────────────',
