@@ -1,9 +1,10 @@
 import { watchDocs, updateDocData, seedDemoData } from '../../core/db.js'
 import { showToast, on } from '../../core/store.js'
-import { formatCurrency, initials, fullName, timeAgo } from '../../utils/format.js'
+import { formatCurrency, initials, fullName, timeAgo, todayBangkok } from '../../utils/format.js'
 import { navigate } from '../../core/router.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { getVisibilityScope, scopeIncludesRecord } from '../../core/hierarchy.js'
+import { quietDays, QUIET_DAYS } from '../../utils/customerFollowups.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -46,7 +47,8 @@ export default async function PipelinePage(container) {
     if (el) el.textContent = `💰 มูลค่ารวม (งบประมาณลูกค้า): ${formatCurrency(totalBudget)}`
 
     board.innerHTML = STAGES.map(stage => {
-      const cards = active.filter(c => c.stage === stage.key)
+      // Hot ขึ้นก่อน (โอกาสปิดสูงสุด) ที่เหลือคงลำดับเดิม
+      const cards = active.filter(c => c.stage === stage.key).sort((a, b) => Number(b.temperature === 'hot') - Number(a.temperature === 'hot'))
       const stageValue = cards.reduce((s, c) => s + (c.budget || 0), 0)
       return `
         <div class="pipeline-col" data-stage="${stage.key}" style="
@@ -79,6 +81,7 @@ export default async function PipelinePage(container) {
   }
 
   function cardHTML(c, stage) {
+    const quiet = ['lead', 'pp'].includes(c.stage) ? quietDays(c, todayBangkok()) : null
     return `
       <div class="pipeline-card" draggable="${stage.droppable}" data-id="${c.id}"
         style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);
@@ -86,8 +89,9 @@ export default async function PipelinePage(container) {
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
           <div class="avatar avatar-sm" style="background:var(--${stage.color}-dim);color:var(--${stage.color});font-size:0.75rem;flex-shrink:0">${escHtml(initials(c.firstName, c.lastName))}</div>
           <div style="flex:1;min-width:0">
-            <div style="font-weight:600;font-size:0.83rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(fullName(c))}${c.vip ? ' ⭐' : ''}</div>
+            <div style="font-weight:600;font-size:0.83rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.temperature === 'hot' ? '🔴 ' : ''}${escHtml(fullName(c))}${c.vip ? ' ⭐' : ''}</div>
           </div>
+          ${quiet != null && quiet >= QUIET_DAYS ? `<span class="badge badge-warning" style="font-size:0.6rem;flex-shrink:0" title="ไม่มีการติดต่อ/อัปเดต">💤 ${quiet} วัน</span>` : ''}
         </div>
         <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:4px">🚗 ${escHtml(c.interestedModel || '-')}</div>
         <div style="display:flex;align-items:center;justify-content:space-between">
