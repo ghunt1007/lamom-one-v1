@@ -1,7 +1,7 @@
 // สรุปรายได้รายเซลส์ — Route: /crm/sales-income
 // รวมรายได้/คอมที่กรอกไว้ในใบจองของคันที่ส่งมอบในเดือนที่เลือก แยกตามเซลส์ (ดูสูตรใน utils/salesIncome.js)
 // เซลส์ทั่วไปเห็นเฉพาะของตัวเอง/ลูกทีม ตามกติกาเดียวกับหน้าใบจอง (getVisibilityScope)
-import { listAllDocs, readDoc, setDocData } from '../../core/db.js'
+import { listAllDocs, listDocs, readDoc, setDocData } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { getVisibilityScope, scopeIncludesRecord } from '../../core/hierarchy.js'
 import { showToast, getState } from '../../core/store.js'
@@ -11,6 +11,7 @@ import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { summarizeSalesIncome, lastMonths } from '../../utils/salesIncome.js'
 import { askDeliveryIncome, needsIncome } from '../../utils/deliveryIncome.js'
+import { followupDiscipline, monthRange } from '../../utils/followupDiscipline.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -26,8 +27,15 @@ export default async function SalesIncomePage(container) {
   let targets = {}
   const role = getState('role') || getState('user')?.role || 'staff'
   const canSetTarget = ['owner', 'admin', 'manager'].includes(role)
+  let monthFollowups = null // null = โหลดไม่ได้ (ไม่แสดงส่วนวินัยการติดตาม)
   async function loadTargets() {
     try { targets = (await readDoc(SALES_TARGETS_COLLECTION, month))?.targets || {} } catch { targets = {} }
+    // นัดติดตามที่ครบกำหนดในเดือนที่เลือก (กรองช่วงบน dueDate ใช้ index เดิม companyId+dueDate)
+    try {
+      const [from, to] = monthRange(month)
+      monthFollowups = (await listDocs('followups', [...companyScopeFilters(), ['dueDate', '>=', from], ['dueDate', '<=', to]], 'dueDate', 'asc', 5000))
+        .filter(f => scopeIncludesRecord(scope, f.salesperson, f))
+    } catch { monthFollowups = null }
   }
 
   container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
@@ -63,6 +71,20 @@ export default async function SalesIncomePage(container) {
       const edit = canSetTarget && !r.name.startsWith('(') ? ` <button class="btn btn-ghost btn-xs si-target" data-n="${escHtml(r.name)}" title="ตั้งเป้า">✏️</button>` : ''
       if (!t) return `<span style="color:var(--text-muted)">—</span>${edit}`
       return `<div style="display:flex;align-items:center;gap:6px;justify-content:flex-end"><span style="font-weight:700;color:var(--${g.color})">${r.delivered}/${t}</span><div style="width:50px;height:6px;background:var(--surface-2);border-radius:3px"><div style="height:100%;width:${Math.min(100, g.pct)}%;background:var(--${g.color});border-radius:3px"></div></div>${edit}</div>`
+    }
+    const disciplineCard = () => {
+      if (!monthFollowups) return ''
+      const list = followupDiscipline(monthFollowups, month, todayBangkok())
+      if (!list.length) return ''
+      return `<div class="card" style="padding:0;overflow:hidden;margin-top:16px">
+        <div style="padding:12px 16px;font-weight:700">📞 การติดตามลูกค้า${escHtml(monthLabel(month))} <span style="font-weight:400;font-size:0.75rem;color:var(--text-muted)">นัดที่ครบกำหนดแล้ว — ทำแล้วกี่ % (นัดที่ระบบปิดเองไม่นับ)</span></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>เซลส์</th><th style="text-align:right">ครบกำหนด</th><th style="text-align:right">ทำแล้ว</th><th style="text-align:right">ค้าง (เลยกำหนด)</th><th style="text-align:right">ทำแล้ว %</th></tr></thead>
+          <tbody>${list.map(r => `<tr>
+            <td style="font-weight:600">${escHtml(r.name)}</td><td style="text-align:right">${r.due}</td><td style="text-align:right">${r.done}</td>
+            <td style="text-align:right;${r.overdue ? 'color:var(--danger);font-weight:700' : ''}">${r.overdue}</td>
+            <td style="text-align:right;font-weight:800;color:var(--${r.rate === null ? 'text-muted' : r.rate >= 80 ? 'success' : r.rate >= 50 ? 'warning' : 'danger'})">${r.rate === null ? '—' : r.rate + '%'}</td>
+          </tr>`).join('')}</tbody></table></div></div>`
     }
     const card = (icon, label, value, color, sub = '') => `<div class="card" style="padding:14px 16px">
       <div style="font-size:0.75rem;color:var(--text-muted)">${icon} ${label}</div>
@@ -102,6 +124,7 @@ export default async function SalesIncomePage(container) {
             </tr>`).join('') : ''}`).join('')}
           </tbody></table></div></div>`
         : `<div class="empty-state" style="padding:48px"><div class="empty-icon">💰</div><div class="empty-title">ยังไม่มีรถส่งมอบใน${escHtml(monthLabel(month))}</div></div>`}
+        ${disciplineCard()}
         <div class="card" style="padding:12px 16px;margin-top:16px;font-size:0.8rem;color:var(--text-2)">
           📲 <b>ให้เซลส์รับเตือนงานค้างทาง LINE ของตัวเองทุก 9 โมงเช้า:</b> ทัก LINE OA ของบริษัท แล้วพิมพ์ <code>ลงทะเบียน ชื่อเซลส์</code> (ชื่อต้องตรงกับชื่อในช่องเซลส์/ผู้ดูแลของแอป เช่น <code>ลงทะเบียน ${escHtml(rows[0]?.name && !rows[0].name.startsWith('(') ? rows[0].name : 'สมชาย')}</code>) · พิมพ์ <code>งาน</code> เพื่อดูงานค้างได้ทุกเวลา · <code>หา 08xxxxxxxx</code> ค้นหาลูกค้า · <code>คำสั่ง</code> ดูคำสั่งทั้งหมด · พิมพ์ <code>ยกเลิก</code> เพื่อหยุดรับ
         </div>
