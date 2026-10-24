@@ -182,6 +182,22 @@ async function handleLineWebhook(request, env, cors) {
           } catch { reply = '⚠️ ค้นหาไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
         }
       } else otherMessage = true
+    } else if (cmd.type === 'touch') {
+      // บันทึก "ติดต่อลูกค้าแล้ว" — เฉพาะเซลส์ที่ลงทะเบียน (ลูกค้าของตัวเอง) / เจ้าของ (ทุกคน) ต้องเจอลูกค้ารายเดียวเท่านั้น
+      const me = await readSalesTarget(env, accessToken, userId)
+      const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
+      const isOwner = owner && owner === userId
+      if (me?.name || isOwner) {
+        try {
+          const customers = await runQuery(env, accessToken, 'customers', null, null, 5000, ['firstName', 'lastName', 'phone', 'lineId', 'assignedTo', 'isLost', 'firstContactAt', 'deleted'])
+          const mine = isOwner ? customers : customers.filter(c => normSalesName(c.assignedTo) === normSalesName(me?.name))
+          const t = pickTouchTarget(mine, cmd.q)
+          if (t.customer) {
+            const ok = await patchCustomerContact(env, accessToken, t.customer, new Date().toISOString())
+            reply = ok ? `✅ บันทึกว่าติดต่อ ${custFullName(t.customer)} แล้วครับ` : '⚠️ บันทึกไม่สำเร็จ ลองใหม่อีกครั้งครับ'
+          } else reply = t.reply
+        } catch { reply = '⚠️ บันทึกไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
+      } else otherMessage = true
     } else if (cmd.type === 'tasks') {
       // ตอบเฉพาะคนที่ลงทะเบียนเป็นเซลส์แล้ว — คนอื่น (เช่น ลูกค้าพิมพ์คำว่า "งาน") ไม่ตอบ ไม่ให้ข้อมูลภายในหลุด
       const me = await readSalesTarget(env, accessToken, userId)
@@ -229,6 +245,9 @@ export function parseLineCommand(text) {
   // ค้นหาลูกค้าจากเบอร์/ชื่อ: "หา 0812345678" / "ค้นหา สมชาย"
   const f = t.match(/^(?:หา|ค้นหา|find)\s+(.+)$/i)
   if (f && f[1].trim().length >= 2) return { type: 'find', q: f[1].trim().slice(0, 40) }
+  // เซลส์บันทึกว่าโทร/ทักลูกค้าแล้ว: "โทรแล้ว 0812345678" / "ติดต่อแล้ว สมชาย"
+  const tc = t.match(/^(?:โทรแล้ว|ติดต่อแล้ว|ทักแล้ว|called)\s+(.+)$/i)
+  if (tc && tc[1].trim().length >= 2) return { type: 'touch', q: tc[1].trim().slice(0, 40) }
   if (/^(?:ช่วยเหลือ|คำสั่ง|help|\?)$/i.test(t)) return { type: 'help' }
   // เซลส์ขอดูงานค้างของตัวเองตอนไหนก็ได้ (ไม่ต้องรอ 9 โมง)
   if (/^(?:งาน|งานวันนี้|งานค้าง|งานของฉัน|tasks?|todo)$/i.test(t.replace(/\s+/g, ''))) return { type: 'tasks' }
@@ -788,20 +807,51 @@ export const LINE_HELP_TEXT = [
   '📖 คำสั่งที่ใช้ได้ใน LINE นี้',
   '• งาน — ดูงานค้างของคุณตอนนี้',
   '• หา 0812345678 / หา สมชาย — ค้นหาลูกค้า',
+  '• โทรแล้ว 0812345678 / โทรแล้ว สมชาย — บันทึกว่าติดต่อลูกค้าแล้ว',
   '• สรุป — รายงานยอดวันนี้ (เฉพาะเจ้าของ)',
   '• ลงทะเบียน ชื่อเซลส์ — รับงานค้างทุก 9 โมงเช้า',
   '• ยกเลิก — หยุดรับ',
 ].join('\n')
 const CUST_STAGE = { lead: 'Lead', pp: 'Prospect', booking: 'จองแล้ว', delivered: 'ส่งมอบแล้ว' }
 // ค้นหาลูกค้า: ตัวเลข ≥ 4 หลัก = เทียบเบอร์ (เฉพาะตัวเลข) ไม่งั้นเทียบชื่อ/LINE ID แบบมีคำนี้อยู่ — ตอบสูงสุด 5 ราย
-export function findCustomersText(customers, followups, q, today) {
+export function matchCustomers(customers, q) {
   const pkey = p => { const d = String(p || '').replace(/\D/g, ''); return d.startsWith('66') && d.length === 11 ? '0' + d.slice(2) : d } // +66 = 0
   const digits = pkey(q)
   const needle = String(q).trim().toLowerCase()
   const byPhone = digits.length >= 4 && /^\+?[\d\s\-]+$/.test(String(q).trim())
-  const list = (customers || []).filter(c => c && !c.deleted).filter(c => byPhone
+  return (customers || []).filter(c => c && !c.deleted).filter(c => byPhone
     ? pkey(c.phone).includes(digits)
     : `${c.firstName || ''} ${c.lastName || ''}`.toLowerCase().includes(needle) || String(c.lineId || '').toLowerCase().includes(needle))
+}
+const custFullName = c => [c.firstName, c.lastName].filter(Boolean).join(' ') || 'ไม่มีชื่อ'
+// คำสั่ง "โทรแล้ว ..." ต้องเจอลูกค้ารายเดียว — เจอหลายรายให้พิมพ์เจาะจงขึ้น (กันบันทึกผิดคน)
+export function pickTouchTarget(customers, q) {
+  const list = matchCustomers(customers, q)
+  if (list.length === 1) return { customer: list[0] }
+  if (!list.length) return { reply: `🔍 ไม่พบลูกค้า "${q}" (ค้นเฉพาะลูกค้าที่คุณดูแล)` }
+  return { reply: [`พบ ${list.length} ราย — พิมพ์ให้เจาะจงขึ้น เช่น "โทรแล้ว 0812345678"`, ...list.slice(0, 5).map(c => `• ${custFullName(c)} · 📱 ${c.phone || '-'}`)].join('\n') }
+}
+// แก้เฉพาะ field ที่ระบุ (updateMask) และต้องมีเอกสารอยู่แล้ว (currentDocument.exists) — ห้าม PATCH ทั้งเอกสาร
+// เพราะจะลบ field อื่นของลูกค้าทิ้งหมด / firstContactAt ใส่เฉพาะครั้งแรก (ใช้วัดความเร็วติดต่อ Lead ในแอป)
+export function customerContactPatch(customer, nowIso) {
+  const fields = { lastContactAt: { stringValue: nowIso }, updatedAt: { timestampValue: nowIso } }
+  if (!customer.firstContactAt) fields.firstContactAt = { stringValue: nowIso }
+  const mask = Object.keys(fields).map(f => `updateMask.fieldPaths=${f}`).join('&')
+  return { query: `${mask}&currentDocument.exists=true`, body: { fields } }
+}
+async function patchCustomerContact(env, accessToken, customer, nowIso) {
+  const { query, body } = customerContactPatch(customer, nowIso)
+  try {
+    const res = await fetch(`https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents/customers/${encodeURIComponent(customer.id)}?${query}`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    return res.ok
+  } catch { return false }
+}
+export function findCustomersText(customers, followups, q, today) {
+  const list = matchCustomers(customers, q)
   if (!list.length) return `🔍 ไม่พบลูกค้า "${q}"`
   const next = id => (followups || []).filter(f => f && !f.deleted && f.status === 'pending' && f.customerId === id && f.dueDate)
     .map(f => String(f.dueDate).slice(0, 10)).sort()[0]
