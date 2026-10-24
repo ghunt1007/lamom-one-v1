@@ -233,6 +233,31 @@ async function handleLineWebhook(request, env, cors) {
           } else reply = t.reply
         } catch { reply = '⚠️ บันทึกไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
       } else otherMessage = true
+    } else if (cmd.type === 'lost') {
+      // บันทึกเสียดีล — สิทธิ์เดียวกับ "โทรแล้ว" ต้องเจอลูกค้ารายเดียว และต้องเป็น Lead/Prospect ที่ยังไม่เสียดีล
+      const me = await readSalesTarget(env, accessToken, userId)
+      const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
+      const isOwner = owner && owner === userId
+      if (me?.name || isOwner) {
+        if (!cmd.q || !cmd.reason) reply = '⚠️ พิมพ์แบบนี้ครับ: เสียดีล 0812345678 ราคา\n(เหตุผลเช่น ราคา / ซื้อคู่แข่ง / ไฟแนนซ์ไม่ผ่าน / ยังไม่พร้อม / ติดต่อไม่ได้)'
+        else {
+          try {
+            const customers = await runQuery(env, accessToken, 'customers', null, null, 5000, ['firstName', 'lastName', 'phone', 'lineId', 'assignedTo', 'stage', 'isLost', 'deleted'])
+            const mine = isOwner ? customers : customers.filter(c => normSalesName(c.assignedTo) === normSalesName(me?.name))
+            const t = pickTouchTarget(mine, cmd.q)
+            if (!t.customer) reply = t.reply.replace('"โทรแล้ว 0812345678"', '"เสียดีล 0812345678 ราคา"')
+            else if (t.customer.isLost) reply = `ℹ️ ${custFullName(t.customer)} เป็นเสียดีลอยู่แล้วครับ`
+            else if (!['lead', 'pp'].includes(t.customer.stage)) reply = `⚠️ ${custFullName(t.customer)} จองแล้ว/ส่งมอบแล้ว — ถ้าลูกค้าถอนจอง ให้ทำในหน้าใบจองของแอปครับ`
+            else {
+              const { query, body } = customerLostPatch(cmd.reason, new Date().toISOString())
+              const res = await fetch(`https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents/customers/${encodeURIComponent(t.customer.id)}?${query}`, {
+                method: 'PATCH', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+              }).catch(() => null)
+              reply = res?.ok ? `⬛ บันทึก ${custFullName(t.customer)} เป็นเสียดีลแล้ว (${cmd.reason})\nถ้าลูกค้ากลับมา กด "ยกเลิกเสียดีล" ในหน้าลูกค้าได้ครับ` : '⚠️ บันทึกไม่สำเร็จ ลองใหม่อีกครั้งครับ'
+            }
+          } catch { reply = '⚠️ บันทึกไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
+        }
+      } else otherMessage = true
     } else if (cmd.type === 'mystats') {
       const me = await readSalesTarget(env, accessToken, userId)
       if (me?.name) {
@@ -303,6 +328,10 @@ export function parseLineCommand(text) {
   // เซลส์บันทึกว่าโทร/ทักลูกค้าแล้ว: "โทรแล้ว 0812345678" / "ติดต่อแล้ว สมชาย"
   const tc = t.match(/^(?:โทรแล้ว|ติดต่อแล้ว|ทักแล้ว|called)\s+(.+)$/i)
   if (tc && tc[1].trim().length >= 2) return { type: 'touch', q: tc[1].trim().slice(0, 40) }
+  // เซลส์บันทึกเสียดีล: "เสียดีล 0812345678 ราคา" / "เสียดีล สมชาย ไฟแนนซ์ไม่ผ่าน" (คำแรก = ลูกค้า ที่เหลือ = เหตุผล)
+  const lo = t.match(/^เสียดีล\s+(\S+)\s+(.+)$/)
+  if (lo && lo[1].length >= 2) return { type: 'lost', q: lo[1].slice(0, 40), reason: lo[2].trim().replace(/^[-–—:]\s*/, '').slice(0, 200) }
+  if (/^เสียดีล(?:\s+\S+)?$/.test(t)) return { type: 'lost', q: '', reason: '' }
   if (/^(?:ช่วยเหลือ|คำสั่ง|help|\?)$/i.test(t)) return { type: 'help' }
   // เซลส์ดูยอดของตัวเองเดือนนี้ (ส่งมอบ/รายได้/จอง/เป้า)
   if (/^(?:ยอด|ยอดฉัน|ยอดของฉัน|ยอดเดือนนี้|mystats)$/i.test(t.replace(/\s+/g, ''))) return { type: 'mystats' }
@@ -904,6 +933,7 @@ export const LINE_HELP_TEXT = [
   '• หา 0812345678 / หา สมชาย — ค้นหาลูกค้า',
   '• โทรแล้ว 0812345678 / โทรแล้ว สมชาย — บันทึกว่าติดต่อลูกค้าแล้ว',
   '• นัด 0812345678 พรุ่งนี้ / นัด สมชาย 28/10 — นัดติดตามลูกค้า',
+  '• เสียดีล 0812345678 ราคา — บันทึกว่าเสียดีลพร้อมเหตุผล',
   '• สรุป — รายงานยอดวันนี้ (เฉพาะเจ้าของ)',
   '• ลงทะเบียน ชื่อเซลส์ — รับงานค้างทุก 9 โมงเช้า',
   '• ยกเลิก — หยุดรับ',
@@ -932,6 +962,12 @@ export function pickTouchTarget(customers, q) {
 export function customerContactPatch(customer, nowIso) {
   const fields = { lastContactAt: { stringValue: nowIso }, updatedAt: { timestampValue: nowIso } }
   if (!customer.firstContactAt) fields.firstContactAt = { stringValue: nowIso }
+  const mask = Object.keys(fields).map(f => `updateMask.fieldPaths=${f}`).join('&')
+  return { query: `${mask}&currentDocument.exists=true`, body: { fields } }
+}
+// เสียดีล: แก้เฉพาะ isLost/lostReason/lostAt (รูปแบบเดียวกับปุ่มในแอป — lostAt เป็นข้อความ ISO)
+export function customerLostPatch(reason, nowIso) {
+  const fields = { isLost: { booleanValue: true }, lostReason: { stringValue: String(reason || '').trim() }, lostAt: { stringValue: nowIso }, updatedAt: { timestampValue: nowIso } }
   const mask = Object.keys(fields).map(f => `updateMask.fieldPaths=${f}`).join('&')
   return { query: `${mask}&currentDocument.exists=true`, body: { fields } }
 }
