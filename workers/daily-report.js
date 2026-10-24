@@ -150,7 +150,11 @@ async function handleLineWebhook(request, env, cors) {
     if (cmd.type === 'register') {
       // เซลส์ลงทะเบียนชื่อตัวเอง → เช้าวันถัดไปได้งานค้างของตัวเองทาง LINE (ชื่อต้องตรงกับชื่อเซลส์/ผู้ดูแลในแอป)
       await writeSalesTarget(env, accessToken, userId, cmd.name)
-      reply = `✅ ลงทะเบียนชื่อ "${cmd.name}" แล้วครับ\nทุกเช้า 9 โมงจะส่งงานค้างของคุณมาที่นี่\n(ชื่อต้องตรงกับชื่อเซลส์ในแอป LAMOM ONE — พิมพ์ "ยกเลิก" เพื่อหยุดรับ)`
+      reply = `✅ ลงทะเบียนชื่อ "${cmd.name}" แล้วครับ\nทุกเช้า 9 โมงจะส่งงานค้างของคุณมาที่นี่ หรือพิมพ์ "งาน" เพื่อดูได้ทันที\n(ชื่อต้องตรงกับชื่อเซลส์ในแอป LAMOM ONE — พิมพ์ "ยกเลิก" เพื่อหยุดรับ)`
+    } else if (cmd.type === 'tasks') {
+      // ตอบเฉพาะคนที่ลงทะเบียนเป็นเซลส์แล้ว — คนอื่น (เช่น ลูกค้าพิมพ์คำว่า "งาน") ไม่ตอบ ไม่ให้ข้อมูลภายในหลุด
+      const me = await readSalesTarget(env, accessToken, userId)
+      if (me?.name) reply = await buildTasksReply(env, accessToken, me.name)
     } else if (cmd.type === 'unregister') {
       await deleteSalesTarget(env, accessToken, userId)
       reply = '✅ ยกเลิกการรับเตือนงานค้างแล้วครับ'
@@ -184,6 +188,8 @@ export function parseLineCommand(text) {
   const m = t.match(/^(?:ลงทะเบียน|register)\s*(?:เซลส์|เซลล์|sales)?\s*[:：]?\s*(.+)$/i)
   if (m && m[1].trim()) return { type: 'register', name: m[1].trim().slice(0, 60) }
   if (/^(?:ยกเลิก|unregister)$/i.test(t)) return { type: 'unregister' }
+  // เซลส์ขอดูงานค้างของตัวเองตอนไหนก็ได้ (ไม่ต้องรอ 9 โมง)
+  if (/^(?:งาน|งานวันนี้|งานค้าง|งานของฉัน|tasks?|todo)$/i.test(t.replace(/\s+/g, ''))) return { type: 'tasks' }
   return { type: 'none' }
 }
 
@@ -692,6 +698,29 @@ async function writeSalesTarget(env, accessToken, userId, name) {
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ fields: { name: { stringValue: name }, userId: { stringValue: userId }, registeredAt: { timestampValue: new Date().toISOString() } } }),
   }).catch(() => {})
+}
+async function readSalesTarget(env, accessToken, userId) {
+  try {
+    const res = await fetch(`https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents/line_sales_targets/${encodeURIComponent(userId)}`, { headers: { Authorization: `Bearer ${accessToken}` } })
+    if (!res.ok) return null
+    const doc = await res.json()
+    return { name: doc.fields?.name?.stringValue || '' }
+  } catch { return null }
+}
+// ตอบคำสั่ง "งาน" — งานค้างของเซลส์คนนี้ ณ ตอนนี้ (เนื้อหาเดียวกับข้อความ 9 โมงเช้า)
+async function buildTasksReply(env, accessToken, name) {
+  try {
+    const { sections, today, data } = await buildMorningData(env, accessToken)
+    const goals = await readSalesGoals(env, accessToken, today.slice(0, 7))
+    return tasksReplyText(sections, name, today, env.ALLOWED_ORIGIN, sellerGoal(data, goals, name, today))
+  } catch { return '⚠️ ดึงงานค้างไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
+}
+export function tasksReplyText(sections, name, today, appUrl = '', goal = null) {
+  const m = matchSalesTargets(sections, [{ name, userId: '-' }])[0]
+  if (m) return buildPersonalReminder(m.section, today, appUrl, goal).replace('☀️ งานค้างของคุณเช้านี้', '📋 งานค้างของคุณตอนนี้')
+  return [`✅ ตอนนี้ไม่มีงานค้างของ "${name}" ครับ`,
+    goal?.target ? `🎯 เป้าเดือนนี้: ส่งมอบแล้ว ${goal.done}/${goal.target} คัน` : null,
+    '(ถ้าคิดว่ามีงาน ตรวจว่าชื่อที่ลงทะเบียนตรงกับชื่อเซลส์/ผู้ดูแลในแอป)'].filter(Boolean).join('\n')
 }
 async function deleteSalesTarget(env, accessToken, userId) {
   await fetch(`https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents/line_sales_targets/${encodeURIComponent(userId)}`, {
