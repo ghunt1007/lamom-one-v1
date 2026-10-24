@@ -1140,3 +1140,19 @@ describe('buildReport — เสียดีลวันนี้', () => {
     expect(buildReport({ customers: [], bookings: [] }, { today: '2026-10-24' })).not.toContain('เสียดีลวันนี้')
   })
 })
+
+describe('LINE เสียดีล', () => {
+  it('แยกลูกค้ากับเหตุผล', () => {
+    expect(parseLineCommand('เสียดีล 0812345678 ราคา - อีกร้านถูกกว่า')).toEqual({ type: 'lost', q: '0812345678', reason: 'ราคา - อีกร้านถูกกว่า' })
+    expect(parseLineCommand('เสียดีล สมชาย ไฟแนนซ์ไม่ผ่าน')).toEqual({ type: 'lost', q: 'สมชาย', reason: 'ไฟแนนซ์ไม่ผ่าน' })
+    expect(parseLineCommand('เสียดีล 0812345678')).toEqual({ type: 'lost', q: '', reason: '' })
+    expect(parseLineCommand('เสียดีล')).toEqual({ type: 'lost', q: '', reason: '' })
+  })
+  it('patch แก้เฉพาะช่องเสียดีล', async () => {
+    const { customerLostPatch } = await import('./daily-report.js')
+    const p = customerLostPatch(' ราคา ', '2026-10-25T02:00:00.000Z')
+    expect(p.body.fields).toEqual({ isLost: { booleanValue: true }, lostReason: { stringValue: 'ราคา' }, lostAt: { stringValue: '2026-10-25T02:00:00.000Z' }, updatedAt: { timestampValue: '2026-10-25T02:00:00.000Z' } })
+    expect(p.query).toContain('updateMask.fieldPaths=isLost')
+    expect(p.query).toContain('currentDocument.exists=true')
+  })
+})

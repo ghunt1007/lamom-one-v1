@@ -125,7 +125,7 @@ export default async function MyDayPage(container) {
           </div>
         </div>
 
-        ${lineRegistered ? `<div style="font-size:0.72rem;color:var(--text-muted);margin:-6px 0 10px">💬 คำสั่งใน LINE OA: <code>งาน</code> · <code>พรุ่งนี้</code> · <code>ยอด</code> · <code>หา เบอร์</code> · <code>โทรแล้ว เบอร์</code> · <code>นัด เบอร์ พรุ่งนี้</code></div>` : `<div class="card mb-4" style="padding:10px 16px;font-size:0.8rem;color:var(--text-2);border-left:3px solid var(--success)">
+        ${lineRegistered ? `<div style="font-size:0.72rem;color:var(--text-muted);margin:-6px 0 10px">💬 คำสั่งใน LINE OA: <code>งาน</code> · <code>พรุ่งนี้</code> · <code>ยอด</code> · <code>หา เบอร์</code> · <code>โทรแล้ว เบอร์</code> · <code>นัด เบอร์ พรุ่งนี้</code> · <code>เสียดีล เบอร์ เหตุผล</code></div>` : `<div class="card mb-4" style="padding:10px 16px;font-size:0.8rem;color:var(--text-2);border-left:3px solid var(--success)">
           📲 รับงานค้างทาง LINE ทุก 9 โมงเช้า: ทัก LINE OA ของบริษัท แล้วพิมพ์ <code>ลงทะเบียน ${escHtml(me.displayName)}</code> · หลังจากนั้นพิมพ์ <code>งาน</code> เพื่อดูงานได้ทุกเวลา, <code>โทรแล้ว เบอร์</code> บันทึกการติดต่อ, <code>นัด เบอร์ พรุ่งนี้</code> นัดติดตาม</div>`}
         ${goalCard(today)}
         ${section('📞', 'Follow-up วันนี้/เลยกำหนด', 'กด ✅ เมื่อติดต่อแล้ว', d.followups, f => line(
