@@ -675,6 +675,20 @@ export function buildWeeklyReport(data, { today }) {
     }
   }
 
+  // Lead/Prospect ที่เงียบไป 7 วันขึ้นไป (ไม่มีการติดต่อ/แก้ไข/เปลี่ยนสถานะ) — เสี่ยงหลุด แยกตามผู้ดูแล
+  const dayNum = d => { const [y, m, dd] = d.split('-').map(Number); return Date.UTC(y, m - 1, dd) / 86400000 }
+  const quietBy = {}
+  let quietN = 0
+  customers.filter(c => ['lead', 'pp'].includes(c.stage) && !c.isLost).forEach(c => {
+    const last = [c.lastContactAt, c.updatedAt, c.stageChangedAt, c.createdAt].map(toBangkokDate).filter(Boolean).sort().pop()
+    if (!last || dayNum(today) - dayNum(last) < 7) return
+    quietN++
+    const k = (c.assignedTo || '').trim() || '(ยังไม่มีผู้ดูแล)'
+    quietBy[k] = (quietBy[k] || 0) + 1
+  })
+  const quietTop = Object.entries(quietBy).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, v]) => `${k} ${v}`).join(' · ')
+  const quietLines = quietN ? ['', `💤 Lead/Prospect เงียบ 7 วัน+: ${quietN} ราย`, `    มากสุด: ${quietTop}`] : []
+
   return [
     '📅 LAMOM ONE สรุปสัปดาห์ที่แล้ว',
     `🗓 ${formatThaiDate(weeks[0][0])} – ${formatThaiDate(weeks[0][1])}`,
@@ -689,6 +703,7 @@ export function buildWeeklyReport(data, { today }) {
     `❌ ถอนจอง: ${cur.cancelled} คัน (${diff(cur.cancelled, prev.cancelled)})`,
     ...(sellerLines.length ? ['', '👤 ทีมขาย (สัปดาห์ที่แล้ว)', ...sellerLines] : []),
     ...fuLines,
+    ...quietLines,
     ...(convLines.length ? ['', '🎯 ช่องทางที่ปิดจองได้ดี (Lead 90 วันล่าสุด)', ...convLines] : []),
     '',
     '─────────────────────',
