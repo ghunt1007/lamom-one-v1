@@ -531,7 +531,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
 async function buildMorningData(env, accessToken) {
   const [bookings, customers, followups, testDrives] = await Promise.all([
     runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'cancelReason', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'model', 'totalIncome', 'finStatus', 'submitDate', 'financeCo', 'deleted']),
-    runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'isLost', 'lostAt', 'lostReason', 'createdAt', 'updatedAt', 'stageChangedAt', 'lastContactAt', 'source', 'bookingId', 'deleted']),
+    runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'temperature', 'isLost', 'lostAt', 'lostReason', 'createdAt', 'updatedAt', 'stageChangedAt', 'lastContactAt', 'source', 'bookingId', 'deleted']),
     // เฉพาะนัดที่ยังไม่ทำ — นัดอัตโนมัติ (Lead/หลังส่งมอบ) สะสมเร็ว ถ้าดึงทั้งหมดแบบจำกัดจำนวนจะตกหล่นนัดของวันนี้
     runQuery(env, accessToken, 'followups', null, null, 5000, ['dueDate', 'status', 'salesperson', 'customerName', 'customerId', 'autoLead', 'deleted'], ['status', 'pending']),
     runQuery(env, accessToken, 'test_drives', null, null, 3000, ['date', 'time', 'status', 'staff', 'customerName', 'model', 'deleted']).catch(() => []),
@@ -561,7 +561,7 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
       const last = [c.lastContactAt, c.updatedAt, c.stageChangedAt, c.createdAt].map(toBangkokDate).filter(Boolean).sort().pop()
       if (!last) return
       const days = dayNum(today) - dayNum(last)
-      if (days >= staleDays) person(c.assignedTo).stale.push({ name: [c.firstName, c.lastName].filter(Boolean).join(' ') || 'ไม่มีชื่อ', days, model: c.interestedModel })
+      if (days >= staleDays) person(c.assignedTo).stale.push({ name: [c.firstName, c.lastName].filter(Boolean).join(' ') || 'ไม่มีชื่อ', days, model: c.interestedModel, hot: c.temperature === 'hot' })
     })
   // นัดติดตาม Lead อัตโนมัติ (autoLead) ของลูกค้าที่จองไปแล้ว/เสียดีลแล้ว ไม่ต้องเตือนต่อ
   const custById = new Map((data.customers || []).map(c => [c.id, c]))
@@ -643,8 +643,8 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
         out.push(`  🏦 ไฟแนนซ์รอผลนาน/ไม่ผ่าน: ${p.fin.length} ราย`, ...list(p.fin.map(f => `${f.name}${f.co ? ` (${f.co})` : ''} · ${f.rejected ? 'ไม่ผ่าน ❗' : `รอ ${f.days} วัน`}`)))
       }
       if (p.stale.length) {
-        p.stale.sort((a, b) => b.days - a.days)
-        out.push(`  🧲 Lead ไม่ได้ติดตามเกิน ${staleDays} วัน: ${p.stale.length} ราย`, ...list(p.stale.map(s => `${s.name}${s.model ? ` (${s.model})` : ''} · ${s.days} วัน`)))
+        p.stale.sort((a, b) => Number(b.hot) - Number(a.hot) || b.days - a.days)
+        out.push(`  🧲 Lead ไม่ได้ติดตามเกิน ${staleDays} วัน: ${p.stale.length} ราย`, ...list(p.stale.map(s => `${s.hot ? '🔴 ' : ''}${s.name}${s.model ? ` (${s.model})` : ''} · ${s.days} วัน`)))
       }
       if (p.fu.length) out.push(`  📞 Follow-up วันนี้/เลยกำหนด: ${p.fu.length} ราย`, ...list(p.fu.map(f => `${f.name}${f.late ? ' ⚠️ เลยกำหนด' : ''}`)))
       if (p.income.length) out.push(`  💰 ส่งมอบแล้วยังไม่กรอกรายได้: ${p.income.length} คัน`, ...list(p.income.map(i => `${i.name}${i.model ? ` (${i.model})` : ''}`)))

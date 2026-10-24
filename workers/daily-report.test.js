@@ -1170,3 +1170,15 @@ describe('buildWeeklyReport — เหตุผลถอนจอง', () => {
     expect(buildWeeklyReport({ bookings: [], customers: [] }, { today: '2026-10-26' })).not.toContain('เหตุผล:')
   })
 })
+
+describe('buildMorningSections — Hot ขึ้นก่อน', () => {
+  it('Lead เงียบที่เป็น Hot อยู่บนสุดพร้อม 🔴', () => {
+    const customers = [
+      { stage: 'pp', firstName: 'เก่า', assignedTo: 'A', createdAt: '2026-10-01T03:00:00Z' },
+      { stage: 'pp', firstName: 'ร้อน', assignedTo: 'A', temperature: 'hot', createdAt: '2026-10-20T03:00:00Z' },
+    ]
+    const text = buildMorningSections({ customers, bookings: [], followups: [], testDrives: [] }, { today: '2026-10-25' }).map(s => s.text).join('\n')
+    expect(text.indexOf('🔴 ร้อน')).toBeGreaterThan(-1)
+    expect(text.indexOf('🔴 ร้อน')).toBeLessThan(text.indexOf('เก่า'))
+  })
+})
