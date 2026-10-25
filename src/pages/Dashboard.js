@@ -143,6 +143,11 @@ export default async function DashboardPage(container) {
 
       <!-- Command HUD strip -->
       <style>
+        .dash-jump { display:none; }
+        @media (max-width: 640px) {
+          .dash-jump { display:flex; gap:6px; overflow-x:auto; position:sticky; top:var(--topbar-height, 56px); z-index:5; margin:0 -12px 12px; padding:8px 12px; background:var(--bg, var(--surface)); border-bottom:1px solid var(--border); }
+          .page-content .card { scroll-margin-top:calc(var(--topbar-height, 56px) + 52px); }
+        }
         @keyframes dashRadarSpin { to { transform: rotate(360deg); } }
         @keyframes dashBlip { 0%,100% { opacity: 0.15; } 50% { opacity: 1; } }
         @keyframes dashPulseDot { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
@@ -172,6 +177,12 @@ export default async function DashboardPage(container) {
           <button class="btn btn-ghost btn-sm" id="briefing-regen" title="สร้างสรุปใหม่จากข้อมูลล่าสุด">🔄 สร้างใหม่</button>
           <button class="btn btn-ghost btn-sm" data-nav="/ai/personal">คุยกับ LAMI →</button>
         </div>
+      </div>
+
+      <!-- มือถือ: หน้านี้ยาวมาก → แถบทางลัดกระโดดไปหัวข้อที่อยากดู (ติดอยู่บนจอเวลาเลื่อน) -->
+      <div class="dash-jump">
+        ${[['alerts-body', '🚨 เรื่องด่วน'], ['targets-body', '🎯 เป้า'], ['pipeline-card', '🚗 ยอดจอง'], ['monthly-chart-card', '📊 กราฟ'], ['top-sales', '🥇 ท็อปเซลส์'], ['funnel-body', '📶 Funnel']]
+          .map(([id, label]) => `<button class="btn btn-secondary btn-xs" data-jump="${id}" style="border-radius:999px;flex-shrink:0">${label}</button>`).join('')}
       </div>
 
       <!-- Operations radar + ring gauges -->
@@ -376,6 +387,8 @@ export default async function DashboardPage(container) {
   container.addEventListener('click', e => {
     const el = e.target.closest('[data-nav]')
     if (el) navigate(el.dataset.nav)
+    const j = e.target.closest('[data-jump]')
+    if (j) document.getElementById(j.dataset.jump)?.closest('.card')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   })
 
   // ── HUD: นาฬิกาเดินจริง (เคลียร์ตัวเองเมื่อออกจากหน้า) ──
