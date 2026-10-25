@@ -1096,6 +1096,7 @@ export default async function BookingsPage(container) {
       footer: '<button class="btn btn-secondary" onclick="this.closest(\'.modal-overlay\').remove()">ปิด</button>' +
               '<button class="btn btn-secondary" id="bk-edit2">✏️ แก้ไข</button>' +
               '<button class="btn btn-secondary" id="bk-note2">📝 โน๊ต</button>' +
+              (customerStatusMessage(b, b.status) ? '<button class="btn btn-secondary" id="bk-tell">💬 แจ้งลูกค้า</button>' : '') +
               (depositAmt(b) > 0 && !b.rightsOnly && b.status !== 'ถอนจอง' && b.paymentVerifyStatus !== 'ยืนยันแล้ว' && b.paymentVerifyStatus !== 'รอการเงินยืนยัน'
                 ? '<button class="btn btn-secondary" id="bk-verify-pay" style="color:var(--warning)">💸 แจ้งการเงินตรวจยอด</button>' : '') +
               '<button class="btn btn-secondary" id="bk-print">🖨 พิมพ์ใบจอง</button>' +
@@ -1108,6 +1109,7 @@ export default async function BookingsPage(container) {
     })
     if (!isCash) refreshFinAppPanel(b)
     document.getElementById('bk-replan')?.addEventListener('click', () => openReplan(b))
+    document.getElementById('bk-tell')?.addEventListener('click', () => offerCustomerNotice(b, b.status))
     document.getElementById('bk-finance-btn')?.addEventListener('click', () => {
       sessionStorage.setItem('lamom_finance_prefill', JSON.stringify({
         bookingId: b.id, customerId: b.customerId || null, custName: b.custName || '', phone: b.phone || '',
