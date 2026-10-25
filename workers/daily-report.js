@@ -730,8 +730,26 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
         p.stuck.sort((a, b) => b.days - a.days)
         out.push(`  ⏳ ใบจองค้างเกิน ${STUCK_BOOKING_DAYS} วัน: ${p.stuck.length} ใบ`, ...list(p.stuck.map(b => `${b.name} · ${b.status} · ${b.days} วัน`)))
       }
-      return { name: n, text: out.join('\n') }
+      return { name: n, text: out.join('\n'), focus: focusLines(p) }
     })
+}
+
+// "เริ่มจาก 3 อย่างนี้ก่อน" — ลำดับเดียวกับการ์ดในหน้า "งานของฉันวันนี้" (topPriorities ใน src/utils/myDay.js):
+// ส่งมอบวันนี้ > ลูกค้า Hot ที่เงียบ > นัดเลยกำหนด > ไฟแนนซ์ไม่ผ่าน > รถพร้อมส่งยังไม่นัด > ทดลองขับวันนี้ > ที่เหลือ
+export function focusLines(p, limit = 3) {
+  const out = []
+  const push = (score, text) => out.push({ score, text })
+  p.deliver.filter(d => !d.inDays).forEach(d => push(95, `ส่งมอบรถ ${d.name}${d.time ? ` เวลา ${d.time}` : ''} วันนี้`))
+  p.stale.filter(s => s.hot).forEach(s => push(85 + Math.min(10, s.days), `ทักลูกค้า Hot ${s.name} (เงียบมา ${s.days} วัน)`))
+  p.fu.forEach(f => push(f.late ? 82 : 78, `ติดต่อ ${f.name}${f.late ? ' (เลยกำหนดแล้ว)' : ' ตามนัดวันนี้'}`))
+  p.fin.forEach(f => push(f.rejected ? 76 : 60 + Math.min(10, f.days), f.rejected ? `หาไฟแนนซ์ใหม่ให้ ${f.name}` : `ตามผลไฟแนนซ์ ${f.name} (รอ ${f.days} วัน)`))
+  p.unsched.forEach(d => push(d.missed ? 74 : 68, `โทรนัดวันส่งมอบ ${d.name}`))
+  p.td.forEach(t => push(70, `ทดลองขับ ${t.name}${t.time ? ` เวลา ${t.time}` : ''}`))
+  p.stale.filter(s => !s.hot).forEach(s => push(40 + Math.min(10, s.days), `ทักลูกค้าที่เงียบไป ${s.name} (${s.days} วัน)`))
+  p.income.forEach(i => push(45, `กรอกรายได้ ${i.name}`))
+  p.stuck.forEach(b => push(30, `เคลียร์ใบจอง ${b.name} (ค้าง ${b.days} วัน)`))
+  const seen = new Set()
+  return out.sort((a, b) => b.score - a.score).map(x => x.text).filter(t => !seen.has(t) && seen.add(t)).slice(0, limit)
 }
 
 export function buildMorningReminder(data, opts) {
@@ -765,6 +783,7 @@ export function buildPersonalReminder(section, today, appUrl = '', goal = null) 
     `🗓 ${formatThaiDate(today)}`,
     goal?.target ? `🎯 เป้าเดือนนี้: ส่งมอบแล้ว ${goal.done}/${goal.target} คัน${goal.done >= goal.target ? ' ถึงเป้าแล้ว! 🎉' : ` (เหลือ ${goal.target - goal.done} คัน)`}` : null,
     '',
+    section.focus?.length ? ['⭐ เริ่มจาก ' + section.focus.length + ' อย่างนี้ก่อน:', ...section.focus.map((f, i) => `  ${i + 1}. ${f}`), ''].join('\n') : null,
     section.text,
     '',
     '💡 โทรเสร็จพิมพ์ "โทรแล้ว เบอร์" · นัดต่อพิมพ์ "นัด เบอร์ พรุ่งนี้" · ลูกค้าสนใจมากพิมพ์ "ร้อน เบอร์"',
