@@ -22,7 +22,7 @@ import { getVehicles } from '../../data/vehicleDatabase.js'
 import { maskContacts } from '../../utils/leadText.js'
 import { enhanceMics } from '../../utils/micInput.js'
 import { matchesSearch } from '../../utils/customerSearch.js'
-import { stockFacts } from '../../utils/bizFacts.js'
+import { stockLine } from '../../utils/stockLine.js'
 import { heuristicScore } from '../../utils/leadScore.js'
 import { OCCUPATIONS } from '../../utils/financeMatch.js'
 import { openQuickLead, findDuplicate } from '../../utils/quickLead.js'
@@ -617,9 +617,7 @@ export default async function CustomersPage(container) {
         const brief = buildCustomerBrief(c, { history: await loadHistory(c), today: todayBangkok(), vehicles: getVehicles() })
         // รุ่นที่ลูกค้าถามอาจไม่ใช่รุ่นที่บันทึกไว้ → แนบข้อมูลรุ่นที่อยู่ในคำถามด้วย
         // แนบรถพร้อมขายแยกรุ่น/สี ด้วย — ลูกค้ามักถาม "สีขาวมีพร้อมส่งไหม" (โหลดไม่ได้ก็ร่างต่อโดยไม่มีข้อมูลสต็อก)
-        let stock = ''
-        try { stock = Object.values(stockFacts(await listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 500)))[0] } catch {}
-        const catalog = [catalogContext(q, getVehicles()), stock ? `รถพร้อมขายในสต็อกตอนนี้: ${stock}` : ''].filter(Boolean).join('\n')
+        const catalog = [catalogContext(q, getVehicles()), await stockLine()].filter(Boolean).join('\n')
         const draft = await suggestCustomerReply(q, { channel: 'LINE', sender: c.firstName || 'ลูกค้า', customerInfo: brief, catalog })
         if (!document.getElementById('wk-ai-reply-out')) return
         if (!draft) { out.innerHTML = `<div style="font-size:0.78rem;color:var(--danger);margin-top:6px">AI ร่างไม่สำเร็จ ลองใหม่อีกครั้ง</div>`; return }
