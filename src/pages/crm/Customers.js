@@ -950,6 +950,14 @@ export default async function CustomersPage(container) {
     })
   }
 
+  // รุ่นที่ลูกค้าโชว์รูมนี้สนใจบ่อยขึ้นก่อน ตามด้วยรุ่นจากฐานข้อมูลรถ (ช่วยพิมพ์ให้ชื่อรุ่นตรงกัน)
+  function modelSuggestions() {
+    const freq = new Map()
+    customers.forEach(c => { const m = String(c.interestedModel || '').trim(); if (m) freq.set(m, (freq.get(m) || 0) + 1) })
+    const top = [...freq.entries()].sort((a, b) => b[1] - a[1]).map(([m]) => m).slice(0, 15)
+    return [...new Set([...top, ...getVehicles().map(v => [v.brand, v.model].filter(Boolean).join(' '))])].slice(0, 60)
+  }
+
   function openForm(existing = null, { onSaved } = {}) {
     const isEdit = !!existing
     const { el, close } = openModal({
@@ -958,16 +966,16 @@ export default async function CustomersPage(container) {
         <div style="display:flex;flex-direction:column;gap:14px">
           <div class="grid-2">
             <div class="input-group"><label class="input-label">ชื่อ <span class="required">*</span></label><input class="input" id="ff" value="${escHtml(existing?.firstName || '')}" placeholder="ชื่อ"><span class="input-error" id="ff-e"></span></div>
-            <div class="input-group"><label class="input-label">นามสกุล <span class="required">*</span></label><input class="input" id="fl" value="${escHtml(existing?.lastName || '')}" placeholder="นามสกุล"><span class="input-error" id="fl-e"></span></div>
+            <div class="input-group"><label class="input-label">นามสกุล</label><input class="input" id="fl" value="${escHtml(existing?.lastName || '')}" placeholder="ไม่รู้ก็เว้นไว้ได้"><span class="input-error" id="fl-e"></span></div>
           </div>
           <div class="grid-2">
-            <div class="input-group"><label class="input-label">โทรศัพท์</label><input class="input" id="fp" value="${escHtml(existing?.phone || '')}" placeholder="0812345678"></div>
+            <div class="input-group"><label class="input-label">โทรศัพท์</label><input class="input" id="fp" type="tel" inputmode="tel" autocomplete="off" value="${escHtml(existing?.phone || '')}" placeholder="08x-xxx-xxxx"></div>
             <div class="input-group"><label class="input-label">LINE ID</label><input class="input" id="fl2" value="${escHtml(existing?.lineId || '')}" placeholder="@lineid"></div>
           </div>
           <div style="font-size:0.72rem;color:var(--text-muted);margin-top:-8px">💡 ถ้ายังไม่มีทั้งเบอร์โทรและ LINE ID ระบบจะเก็บเป็นสถานะ "Lead" — เมื่อกรอกอย่างใดอย่างหนึ่งจะขึ้นเป็น "Prospect" อัตโนมัติ</div>
           <div class="input-group"><label class="input-label">Email</label><input class="input" id="fe" type="email" value="${escHtml(existing?.email || '')}" placeholder="email@example.com"></div>
           <div class="grid-2">
-            <div class="input-group"><label class="input-label">รถที่สนใจ</label><input class="input" id="fm" value="${escHtml(existing?.interestedModel || '')}" placeholder="เช่น BYD Seal"></div>
+            <div class="input-group"><label class="input-label">รถที่สนใจ</label><input class="input" id="fm" list="fm-models" autocomplete="off" value="${escHtml(existing?.interestedModel || '')}" placeholder="เช่น DEEPAL S07"><datalist id="fm-models">${modelSuggestions().map(m => `<option value="${escHtml(m)}">`).join('')}</datalist></div>
             <div class="input-group"><label class="input-label">งบประมาณ (บาท)</label><input class="input" type="number" id="fb" value="${existing?.budget || ''}" placeholder="1000000"></div>
           </div>
           <div class="grid-2">
@@ -993,7 +1001,6 @@ export default async function CustomersPage(container) {
       const last = document.getElementById('fl').value.trim()
       let ok = true
       if (!first) { document.getElementById('ff-e').textContent = 'กรุณาระบุชื่อ'; ok = false }
-      if (!last) { document.getElementById('fl-e').textContent = 'กรุณาระบุนามสกุล'; ok = false }
       if (!ok) return
       const btn = el.querySelector('#fok'); const btnHtml = btn.innerHTML; btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
       const fields = {
