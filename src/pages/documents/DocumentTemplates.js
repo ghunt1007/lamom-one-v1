@@ -66,7 +66,7 @@ export default async function DocumentTemplatesPage(container) {
         </div>
 
         <!-- Template cards -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(280px, 100%),1fr));gap:12px">
           ${list.map(t => {
             const tc = TPL_CATS[t.cat]
             return `<div class="card" style="padding:14px${t.active?'':';opacity:0.6'}">

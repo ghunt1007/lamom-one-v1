@@ -80,7 +80,7 @@ export default async function EVBatteryPage(container) {
         </div>
 
         <!-- Vehicle battery list -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px, 100%),1fr));gap:12px">
           ${list.map(v => {
             const status = getBatteryStatus(v.soh)
             const bs = BATTERY_STATUS[status]

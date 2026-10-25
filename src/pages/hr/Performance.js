@@ -118,7 +118,7 @@ export default async function PerformancePage(container) {
         </div>
 
         <!-- Employee Cards -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin-bottom:16px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px, 100%),1fr));gap:14px;margin-bottom:16px">
           ${list.map(e => {
             const pr = PERF_RATING[e.rating]
             return `<div class="card" style="padding:14px;cursor:pointer;border-left:3px solid var(--${pr?.color})" data-id="${e.id}" onclick="document.querySelector('[data-id=\'${e.id}\']')?.dispatchEvent(new CustomEvent('open-detail', {bubbles:true}))">

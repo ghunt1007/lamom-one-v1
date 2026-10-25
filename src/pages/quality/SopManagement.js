@@ -98,7 +98,7 @@ export default async function SopManagementPage(container) {
           </select>
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(320px, 100%),1fr));gap:12px">
           ${list.map(s => {
             const sc = SOP_CATS[s.category]
             const ss = SOP_STATUS[s.status]

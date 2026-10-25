@@ -285,7 +285,14 @@ tbody tr:hover { background: var(--surface-2); box-shadow: inset 3px 0 0 var(--p
   .grid-4, .grid-3, .grid-2 { grid-template-columns: 1fr; }
   /* จอแคบ: ยุบ grid ที่กำหนดคอลัมน์ผ่าน inline style (รวมพวกคอลัมน์ fix-px เช่น "1fr 340px")
      ให้เหลือคอลัมน์เดียว — !important ใน stylesheet ชนะ inline style จึงคุมได้จากจุดเดียว */
-  .page-content div[style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
+  .page-content div[style*="grid-template-columns"]:not([style*="auto-fit"]):not([style*="auto-fill"]) { grid-template-columns: 1fr !important; }
+  /* grid แบบ auto-fit/auto-fill ปรับจำนวนคอลัมน์ตามจอเองอยู่แล้ว (เช่น วงแหวน 4 วงบน Dashboard) — ไม่ต้องยุบเหลือคอลัมน์เดียว */
+  /* ยกเว้นแถวการ์ดตัวเลขเล็กๆ (3–6 คอลัมน์ เช่น สรุปจำนวน Lead/Prospect/จองแล้ว) — แบบคอลัมน์เดียวต้องเลื่อนยาวทั้งจอ
+     ให้เหลือ 2 คอลัมน์แทน (grid แบบ auto-fit ปรับตัวเองอยู่แล้ว ไม่โดนกฎนี้) */
+  .page-content div[style*="grid-template-columns:repeat(3"], .page-content div[style*="grid-template-columns:repeat(4"],
+  .page-content div[style*="grid-template-columns:repeat(5"], .page-content div[style*="grid-template-columns:repeat(6"],
+  .page-content div[style*="grid-template-columns: repeat(3"], .page-content div[style*="grid-template-columns: repeat(4"],
+  .page-content div[style*="grid-template-columns: repeat(5"], .page-content div[style*="grid-template-columns: repeat(6"] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
   /* จอแคบ: บังคับแถบปุ่ม/filter แบบ flex ให้ขึ้นบรรทัดใหม่แทนที่จะดันหน้าให้กว้าง
      ยกเว้นแถวที่ตั้งใจเลื่อนแนวนอน (kanban/timeline ที่มี overflow-x กำกับไว้) */
   /* หมายเหตุ: ต้อง exclude flex-direction:column — ถ้าบังคับ wrap กับ column ที่ความสูงถูกจำกัด

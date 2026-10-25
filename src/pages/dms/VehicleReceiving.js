@@ -84,7 +84,7 @@ export default async function VehicleReceivingPage(container) {
           ${Object.entries(RECV_STATUS).map(([k,v]) => `<button class="btn btn-sm ${statusFilter===k?'btn-'+v.color:'btn-secondary'} sf-btn" data-s="${k}">${v.label}</button>`).join('')}
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px, 100%),1fr));gap:12px">
           ${list.map(v => renderVehicleCard(v)).join('')}
           ${!list.length ? `<div class="empty-state" style="grid-column:1/-1"><div class="empty-state-icon">📦</div><div>ไม่พบรายการ</div></div>` : ''}
         </div>

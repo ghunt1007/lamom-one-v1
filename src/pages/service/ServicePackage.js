@@ -64,7 +64,7 @@ export default async function ServicePackagePage(container) {
           ${Object.entries(PKG_TYPES).map(([k,v]) => `<button class="btn btn-xs ${typeFilter===k?'btn-'+v.color:'btn-secondary'} tf-btn" data-t="${k}">${v.icon} ${v.label}</button>`).join('')}
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px, 100%),1fr));gap:12px">
           ${list.map(p => {
             const t = PKG_TYPES[p.type]
             return `<div class="card" style="padding:0;overflow:hidden;opacity:${p.active?1:0.6}">

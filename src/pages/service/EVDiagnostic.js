@@ -82,7 +82,7 @@ export default async function EVDiagnosticPage(container) {
           ${Object.entries(DIAG_STATUS).filter(([k]) => k !== 'unknown').map(([k,v]) => `<button class="btn btn-xs ${statusFilter===k?'btn-'+v.color:'btn-secondary'} sf-btn" data-s="${k}">${v.icon} ${v.label}</button>`).join('')}
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(340px, 100%),1fr));gap:14px">
           ${list.map(s => {
             const st = DIAG_STATUS[s.status]
             return `<div class="card" style="padding:14px;border-left:3px solid var(--${st?.color})">

@@ -220,7 +220,7 @@ export default async function ReportCenterPage(container) {
       </div>
 
       <!-- Report cards grid -->
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(280px, 100%),1fr));gap:12px">
         ${filtered.map(r => {
           const cat = REPORT_CATEGORIES[r.cat]
           return `<div class="card" style="padding:16px">

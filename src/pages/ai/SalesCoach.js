@@ -120,7 +120,7 @@ export default async function SalesCoachPage(container) {
         <div style="margin-bottom:14px;padding:12px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:0.83rem">
           🎭 เลือกสถานการณ์ฝึก Roleplay กับ AI — ซ้อมก่อนเจอลูกค้าจริง
         </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(280px, 100%),1fr));gap:10px">
           ${ROLEPLAY_SCENARIOS.map(s => {
             const dc = s.difficulty === 'ง่าย' ? 'success' : s.difficulty === 'ยาก' ? 'danger' : 'warning'
             return `<div class="card" style="padding:14px">

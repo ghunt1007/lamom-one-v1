@@ -193,12 +193,12 @@ export default async function CustomersPage(container) {
           <div style="display:flex;align-items:center;gap:10px">
             <div class="avatar avatar-md" style="background:${avatarColor(c)};color:#fff">${escHtml(initials(c.firstName, c.lastName))}</div>
             <div>
-              <div style="font-weight:600;color:var(--text)">${escHtml(fullName(c))}${c.vip ? ' <span title="VIP">⭐</span>' : ''}</div>
+              <div style="font-weight:600;color:var(--text);white-space:nowrap">${escHtml(fullName(c))}${c.vip ? ' <span title="VIP">⭐</span>' : ''}</div>
               <div style="font-size:0.75rem;color:var(--text-muted)">${escHtml(c.email || '')}</div>
             </div>
           </div>
         </td>
-        <td>${formatPhone(c.phone) || '<span style="color:var(--text-muted)">-</span>'}${c.lineId ? `<div style="font-size:0.7rem;color:var(--text-muted)">💚 ${escHtml(c.lineId)}</div>` : ''}</td>
+        <td style="white-space:nowrap">${formatPhone(c.phone) || '<span style="color:var(--text-muted)">-</span>'}${c.lineId ? `<div style="font-size:0.7rem;color:var(--text-muted)">💚 ${escHtml(c.lineId)}</div>` : ''}</td>
         <td>
           <span class="badge badge-${st.badge}">${escHtml(st.label)}</span>
           ${c.isLost ? `<div style="margin-top:3px"><span class="badge badge-secondary" style="font-size:0.62rem">⬛ เสียดีล</span></div>` : ''}

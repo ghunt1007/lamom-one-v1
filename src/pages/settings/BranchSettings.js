@@ -91,7 +91,7 @@ export default async function BranchSettingsPage(container) {
   function renderBranches() {
     const activeBranches = branches.filter(b => b.status === 'active').length
     return `
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px, 100%),1fr));gap:12px">
         ${branches.map(b => `
           <div class="card" style="padding:16px;position:relative;${b.isMain?'border:1px solid var(--primary);':b.status==='planned'?'opacity:0.7':''}">
             ${b.isMain ? `<span class="badge badge-primary" style="position:absolute;top:12px;right:12px;font-size:0.65rem">สาขาหลัก</span>` : ''}

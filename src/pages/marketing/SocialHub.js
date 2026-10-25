@@ -243,7 +243,7 @@ export default async function SocialHubPage(container) {
 
   function renderTemplates() {
     return `
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(280px, 100%),1fr));gap:12px">
         ${CONTENT_TEMPLATES.map(t => `
           <div class="card" style="padding:16px">
             <div style="font-weight:700;margin-bottom:8px;font-size:0.9rem">${t.name}</div>

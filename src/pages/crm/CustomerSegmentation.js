@@ -202,7 +202,7 @@ export default async function CustomerSegmentationPage(container) {
 
   function renderRFM(total) {
     return `
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(280px, 100%),1fr));gap:12px">
         ${rfmTiers.map(t => {
           const pct = Math.round(t.count / total * 100)
           return `<div class="card seg-card" data-id="${t.id}" style="padding:16px;cursor:pointer;border-left:4px solid ${t.color}">

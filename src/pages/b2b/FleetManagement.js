@@ -74,7 +74,7 @@ export default async function FleetManagementPage(container) {
           ${Object.entries(FLEET_STATUS).map(([k,v]) => `<button class="btn btn-sm ${statusFilter===k?'btn-'+v.color:'btn-secondary'} sf-btn" data-s="${k}">${v.label}</button>`).join('')}
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(340px, 100%),1fr));gap:14px">
           ${list.map(f => {
             const fs = FLEET_STATUS[f.status]
             const evPct = f.fleetSize ? Math.round(f.evCount / f.fleetSize * 100) : 0

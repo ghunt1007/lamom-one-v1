@@ -113,7 +113,7 @@ export default async function B2BPortalPage(container) {
   function renderPartners(filtered) {
     if (!filtered.length) return `<div class="empty-state"><div class="empty-icon">🤝</div><div class="empty-title">ยังไม่มีพาร์ทเนอร์</div></div>`
     return `
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px, 100%),1fr));gap:14px">
         ${filtered.map(p => {
           const tp = PARTNER_TYPES[p.type]
           return `<div class="card" style="padding:16px">

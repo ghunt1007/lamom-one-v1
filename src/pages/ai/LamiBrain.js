@@ -291,7 +291,7 @@ export default async function LamiBrainPage(container) {
 
   function renderSkills() {
     return `
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(280px, 100%),1fr));gap:12px">
         ${LAMI_SKILLS.map(s => `
           <div class="card card-lift" data-nav="${s.nav}" style="padding:14px;cursor:pointer">
             <div style="font-size:1.4rem;margin-bottom:8px">${s.icon}</div>

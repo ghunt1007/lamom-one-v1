@@ -76,7 +76,7 @@ export default async function DemoFleetPage(container) {
           </div>
         ` : ''}
 
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(280px, 100%),1fr));gap:12px">
           ${cars.map(c => {
             const ds = DEMO_STATUS[c.status]
             const socColor = c.soc >= 60 ? 'success' : c.soc >= 30 ? 'warning' : 'danger'
