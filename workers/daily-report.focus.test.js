@@ -12,6 +12,10 @@ describe('focusLines', () => {
     }
     expect(focusLines(p)).toEqual(['ส่งมอบรถ จ เวลา 10:00 วันนี้', 'ทักลูกค้า Hot ค (เงียบมา 4 วัน)', 'ติดต่อ ข (เลยกำหนดแล้ว)'])
   })
+  it('same customer only once', () => {
+    const p = { ...empty, stale: [{ name: 'ค', days: 4, hot: true }], fu: [{ name: 'ค', late: true }, { name: 'ง', late: false }] }
+    expect(focusLines(p)).toEqual(['ทักลูกค้า Hot ค (เงียบมา 4 วัน)', 'ติดต่อ ง ตามนัดวันนี้'])
+  })
   it('empty gives none', () => { expect(focusLines(empty)).toEqual([]) })
 })
 describe('buildPersonalReminder focus', () => {

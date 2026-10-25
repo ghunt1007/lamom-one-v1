@@ -738,18 +738,19 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
 // ส่งมอบวันนี้ > ลูกค้า Hot ที่เงียบ > นัดเลยกำหนด > ไฟแนนซ์ไม่ผ่าน > รถพร้อมส่งยังไม่นัด > ทดลองขับวันนี้ > ที่เหลือ
 export function focusLines(p, limit = 3) {
   const out = []
-  const push = (score, text) => out.push({ score, text })
-  p.deliver.filter(d => !d.inDays).forEach(d => push(95, `ส่งมอบรถ ${d.name}${d.time ? ` เวลา ${d.time}` : ''} วันนี้`))
-  p.stale.filter(s => s.hot).forEach(s => push(85 + Math.min(10, s.days), `ทักลูกค้า Hot ${s.name} (เงียบมา ${s.days} วัน)`))
-  p.fu.forEach(f => push(f.late ? 82 : 78, `ติดต่อ ${f.name}${f.late ? ' (เลยกำหนดแล้ว)' : ' ตามนัดวันนี้'}`))
-  p.fin.forEach(f => push(f.rejected ? 76 : 60 + Math.min(10, f.days), f.rejected ? `หาไฟแนนซ์ใหม่ให้ ${f.name}` : `ตามผลไฟแนนซ์ ${f.name} (รอ ${f.days} วัน)`))
-  p.unsched.forEach(d => push(d.missed ? 74 : 68, `โทรนัดวันส่งมอบ ${d.name}`))
-  p.td.forEach(t => push(70, `ทดลองขับ ${t.name}${t.time ? ` เวลา ${t.time}` : ''}`))
-  p.stale.filter(s => !s.hot).forEach(s => push(40 + Math.min(10, s.days), `ทักลูกค้าที่เงียบไป ${s.name} (${s.days} วัน)`))
-  p.income.forEach(i => push(45, `กรอกรายได้ ${i.name}`))
-  p.stuck.forEach(b => push(30, `เคลียร์ใบจอง ${b.name} (ค้าง ${b.days} วัน)`))
+  const push = (score, text, who) => out.push({ score, text, who })
+  p.deliver.filter(d => !d.inDays).forEach(d => push(95, `ส่งมอบรถ ${d.name}${d.time ? ` เวลา ${d.time}` : ''} วันนี้`, d.name))
+  p.stale.filter(s => s.hot).forEach(s => push(85 + Math.min(10, s.days), `ทักลูกค้า Hot ${s.name} (เงียบมา ${s.days} วัน)`, s.name))
+  p.fu.forEach(f => push(f.late ? 82 : 78, `ติดต่อ ${f.name}${f.late ? ' (เลยกำหนดแล้ว)' : ' ตามนัดวันนี้'}`, f.name))
+  p.fin.forEach(f => push(f.rejected ? 76 : 60 + Math.min(10, f.days), f.rejected ? `หาไฟแนนซ์ใหม่ให้ ${f.name}` : `ตามผลไฟแนนซ์ ${f.name} (รอ ${f.days} วัน)`, f.name))
+  p.unsched.forEach(d => push(d.missed ? 74 : 68, `โทรนัดวันส่งมอบ ${d.name}`, d.name))
+  p.td.forEach(t => push(70, `ทดลองขับ ${t.name}${t.time ? ` เวลา ${t.time}` : ''}`, t.name))
+  p.stale.filter(s => !s.hot).forEach(s => push(40 + Math.min(10, s.days), `ทักลูกค้าที่เงียบไป ${s.name} (${s.days} วัน)`, s.name))
+  p.income.forEach(i => push(45, `กรอกรายได้ ${i.name}`, i.name))
+  p.stuck.forEach(b => push(30, `เคลียร์ใบจอง ${b.name} (ค้าง ${b.days} วัน)`, b.name))
   const seen = new Set()
-  return out.sort((a, b) => b.score - a.score).map(x => x.text).filter(t => !seen.has(t) && seen.add(t)).slice(0, limit)
+  // คนเดียวกันขึ้นแค่ครั้งเดียว (เช่น ลูกค้า Hot ที่มีนัดเลยกำหนดด้วย)
+  return out.sort((a, b) => b.score - a.score).filter(x => !seen.has(x.who) && seen.add(x.who)).map(x => x.text).slice(0, limit)
 }
 
 export function buildMorningReminder(data, opts) {
