@@ -141,6 +141,25 @@ export default async function AiAssistantChatPage(container) {
     </div>`
   }
 
+  // หน้าแรกของแชท (ยังไม่เคยถาม) — การ์ดคำถามแนะนำขนาดใหญ่ กดแล้วถามได้ทันที
+  function welcomeHtml() {
+    const name = getState('user')?.displayName
+    const cards = [
+      ['☀️', 'วันนี้ทำอะไรก่อน', 'จัดลำดับงานของคุณจากข้อมูลจริง', CATEGORIES[0].q],
+      ['🎯', 'ช่วยปิดการขาย', 'ลูกค้าคนไหนน่าปิดที่สุด พูดอะไรดี', CATEGORIES[1].q],
+      ['📊', 'ยอดขายเดือนนี้', 'สรุปยอดและกำไรเดือนนี้', 'สรุปยอดขายและกำไรเดือนนี้ให้หน่อย เทียบกับที่ควรเป็น และควรเร่งอะไร'],
+      ['🔥', 'Hot Lead', 'ลูกค้าที่สนใจมากตอนนี้', 'มี Hot Lead กี่ราย และควรตามใครก่อน?'],
+    ]
+    return `<div style="margin:auto;max-width:640px;width:100%;text-align:center;padding:16px 0">
+      <div style="width:64px;height:64px;margin:0 auto 10px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--success));display:flex;align-items:center;justify-content:center;font-size:2rem;box-shadow:0 8px 30px color-mix(in srgb, var(--primary) 40%, transparent)">🤖</div>
+      <div style="font-size:1.25rem;font-weight:800">สวัสดีค่ะ${name ? ` คุณ${esc(name)}` : ''} วันนี้ให้ LAMI ช่วยอะไรดีคะ</div>
+      <div style="font-size:0.8rem;color:var(--text-muted);margin:4px 0 16px">LAMI ตอบจากข้อมูลจริงในระบบ ทั้งยอดขาย ลูกค้า งานค้างของคุณ และอื่นๆ</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;text-align:left">
+        ${cards.map(([icon, title, sub, q]) => `<button class="card cat-btn" data-q="${esc(q)}" style="padding:14px;cursor:pointer;text-align:left;border:1px solid var(--border);display:flex;gap:10px;align-items:flex-start;color:var(--text)">
+          <span style="font-size:1.4rem">${icon}</span><span><b style="font-size:0.88rem">${title}</b><br><span style="font-size:0.74rem;color:var(--text-muted)">${sub}</span></span></button>`).join('')}
+      </div></div>`
+  }
+
   function typingHtml() {
     return `<div style="display:flex;align-items:flex-start;gap:8px" id="typing-bubble">
       <div style="width:30px;height:30px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:1rem">🤖</div>
@@ -176,13 +195,13 @@ export default async function AiAssistantChatPage(container) {
         </div>
 
         <!-- Category chips -->
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0;padding-bottom:8px;border-bottom:1px solid var(--border)">
-          ${CATEGORIES.map(c => `<button class="btn btn-xs btn-secondary cat-btn" data-q="${c.q}">${c.label}</button>`).join('')}
+        <div style="display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:8px 0;padding-bottom:8px;border-bottom:1px solid var(--border)">
+          ${CATEGORIES.map(c => `<button class="btn btn-xs btn-secondary cat-btn" style="flex-shrink:0" data-q="${esc(c.q)}">${c.label}</button>`).join('')}
         </div>
 
         <!-- Chat messages -->
         <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding:12px 0" id="chat-area">
-          ${messages.map(msgHtml).join('')}
+          ${messages.some(m => m.role === 'user') || waiting ? messages.map(msgHtml).join('') : welcomeHtml()}
           ${waiting ? typingHtml() : ''}
         </div>
 
