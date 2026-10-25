@@ -175,6 +175,8 @@ export function openGlobalSearch() {
     })
 
     resultsCache = results.slice(0, 60)
+    // พิมพ์เป็นคำถามได้เลย — แถวสุดท้ายส่งคำถามไปให้ LAMI ตอบจากข้อมูลจริง (ถ้าไม่เจออะไรเลยจะเป็นแถวแรก)
+    if (qRaw.trim().length >= 2) resultsCache.push({ type: 'ai', icon: '🤖', group: 'ถาม AI', title: 'ถาม LAMI: ' + qRaw.trim(), sub: 'ให้ AI ตอบจากข้อมูลในระบบ', route: '/ai/ask?q=' + encodeURIComponent(qRaw.trim()) })
     activeIdx = 0
     renderResults(qRaw)
   }

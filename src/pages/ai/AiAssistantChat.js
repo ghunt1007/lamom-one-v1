@@ -237,4 +237,11 @@ export default async function AiAssistantChatPage(container) {
   }
 
   await Promise.all([loadData(), loadBusinessContext()])
+  // เปิดจากช่องค้นหา (Ctrl+K) "ถาม LAMI: ..." → ส่งคำถามให้ทันที แล้วลบ ?q= ออกกันส่งซ้ำตอนรีเฟรช
+  const q = new URLSearchParams(window.location.search).get('q')
+  if (q && container.__routerGen === myGen) {
+    window.history.replaceState({}, '', window.location.pathname)
+    const input = document.getElementById('chat-input')
+    if (input) { input.value = q; document.getElementById('send-btn')?.click() }
+  }
 }
