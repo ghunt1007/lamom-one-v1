@@ -3,6 +3,7 @@
 // ไม่ส่งเบอร์โทร/อีเมล/LINE ID ออกไปนอกระบบ — AI ไม่จำเป็นต้องรู้เพื่อให้คำแนะนำ
 import { toDateStr } from './format.js'
 import { flatMonthly } from './installment.js'
+import { maskContacts } from './leadText.js'
 
 const STAGE_TH = { lead: 'Lead (ยังไม่ได้คุยจริงจัง)', pp: 'Prospect (คุยแล้ว มีช่องทางติดต่อ)', booking: 'จองแล้ว', delivered: 'ส่งมอบแล้ว' }
 const TEMP_TH = { hot: 'ร้อน (สนใจมาก)', warm: 'อุ่น', cold: 'เย็น' }
@@ -71,12 +72,13 @@ export function buildCustomerBrief(c, { history = [], followups = [], today, veh
   const hist = history.filter(h => h && (h.text || h.label)).slice(0, 8)
   if (hist.length) {
     lines.push('ประวัติการติดต่อ (ล่าสุดก่อน):')
-    hist.forEach(h => lines.push(`- ${toDateStr(h.ts) || '-'} ${h.label || ''}: ${String(h.text || '').slice(0, 160)}`))
+    // บันทึกการคุยอาจมีเบอร์/LINE ID ลูกค้าติดมา → ปิดก่อนส่งให้ AI
+    hist.forEach(h => lines.push(`- ${toDateStr(h.ts) || '-'} ${h.label || ''}: ${maskContacts(String(h.text || '')).slice(0, 160)}`))
   }
   const fus = followups.slice(0, 5)
   if (fus.length) {
     lines.push('นัดติดตามที่ค้างอยู่:')
-    fus.forEach(f => lines.push(`- ${f.dueDate || '-'} ${f.purpose || 'ติดตาม'}${f.note ? ` (${String(f.note).slice(0, 80)})` : ''}`))
+    fus.forEach(f => lines.push(`- ${f.dueDate || '-'} ${f.purpose || 'ติดตาม'}${f.note ? ` (${maskContacts(String(f.note)).slice(0, 80)})` : ''}`))
   }
   const facts = modelFacts(c.interestedModel, vehicles)
   if (facts.length) {

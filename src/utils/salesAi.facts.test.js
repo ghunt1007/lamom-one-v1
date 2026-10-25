@@ -58,3 +58,12 @@ describe('catalogContext installments', () => {
     expect(catalogContext('S05 lite', V)).toContain('ตัวอย่างค่างวด ~10,364 บาท/เดือน (ดาวน์ 20% 72 งวด')
   })
 })
+
+describe('brief privacy', () => {
+  it('masks phone numbers in contact history and follow-up notes', () => {
+    const b = buildCustomerBrief({ stage: 'pp' }, { today: '2026-10-26', history: [{ ts: '2026-10-20', label: 'โทร', text: 'ให้โทรกลับเบอร์ 081-234-5678' }], followups: [{ dueDate: '2026-10-27', note: 'ไลน์ @somchai99' }] })
+    expect(b).not.toContain('5678')
+    expect(b).not.toContain('somchai99')
+    expect(b).toContain('[เบอร์]')
+  })
+})
