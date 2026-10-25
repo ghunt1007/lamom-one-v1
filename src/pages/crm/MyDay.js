@@ -125,7 +125,7 @@ export default async function MyDayPage(container) {
       ${top.map((t, i) => `<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-top:1px solid var(--border);flex-wrap:wrap">
         <div style="width:28px;height:28px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0">${i + 1}</div>
         <div style="flex:1;min-width:180px"><div style="font-weight:700;font-size:0.88rem">${t.icon} ${escHtml(t.title)}</div><div style="font-size:0.72rem;color:var(--text-muted)">${escHtml(t.why)}</div></div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">${callBtn(t.phone)}${t.customerId ? `<button class="btn btn-primary btn-xs md-open" data-id="${escHtml(t.customerId)}">เปิดลูกค้า</button>` : t.key.startsWith('inc:') ? `<button class="btn btn-warning btn-xs md-inc" data-id="${escHtml(t.bookingId)}">💰 กรอกรายได้</button>` : t.key.startsWith('uns:') ? '<button class="btn btn-primary btn-xs md-cal">📅 ปฏิทินส่งมอบ</button>' : '<button class="btn btn-secondary btn-xs md-bk">ใบจอง</button>'}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">${callBtn(t.phone)}${t.customerId ? `<button class="btn btn-secondary btn-xs md-ai" data-id="${escHtml(t.customerId)}" title="ให้ AI คิดว่าควรพูดอะไร และร่างข้อความ LINE ให้">🤖 AI ช่วย</button><button class="btn btn-primary btn-xs md-open" data-id="${escHtml(t.customerId)}">เปิดลูกค้า</button>` : t.key.startsWith('inc:') ? `<button class="btn btn-warning btn-xs md-inc" data-id="${escHtml(t.bookingId)}">💰 กรอกรายได้</button>` : t.key.startsWith('uns:') ? '<button class="btn btn-primary btn-xs md-cal">📅 ปฏิทินส่งมอบ</button>' : '<button class="btn btn-secondary btn-xs md-bk">ใบจอง</button>'}</div>
       </div>`).join('')}
     </div>`
   }
@@ -222,6 +222,7 @@ export default async function MyDayPage(container) {
     container.querySelector('#md-seller')?.addEventListener('change', e => { seller = e.target.value; render() })
     container.querySelector('#md-reload').addEventListener('click', async () => { await load(); render() })
     $$('.md-open').forEach(b => b.addEventListener('click', () => navigate(`/crm/customers?id=${encodeURIComponent(b.dataset.id)}`)))
+    $$('.md-ai').forEach(b => b.addEventListener('click', () => navigate(`/crm/customers?id=${encodeURIComponent(b.dataset.id)}&ai=1`)))
     $$('.md-bk').forEach(b => b.addEventListener('click', () => navigate('/crm/bookings')))
     $$('.md-cal').forEach(b => b.addEventListener('click', () => navigate('/dms/delivery-calendar')))
     $$('.md-td').forEach(b => b.addEventListener('click', () => navigate('/crm/testdrive')))

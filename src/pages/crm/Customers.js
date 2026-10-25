@@ -84,6 +84,7 @@ export default async function CustomersPage(container) {
   let salesFilter = ''
   let sourceFilter = ''
   let fuFilter = ''
+  let autoAiOnce = false // เปิดจากหน้า "งานของฉันวันนี้" ด้วย ?ai=1 → กด "AI ช่วยปิดการขาย" ให้อัตโนมัติครั้งเดียว
   let sortMode = 'urgent' // urgent = ด่วนก่อน (เดิม) · quiet = เงียบนานสุดก่อน · new = เพิ่มล่าสุดก่อน
   let fuStatus = null // โหลดนัดติดตามเฉพาะตอนเลือกตัวกรองนัดครั้งแรก (ไม่ให้ทุกคนเสียเวลาโหลด)
 
@@ -541,6 +542,7 @@ export default async function CustomersPage(container) {
       </div>
       <div id="wk-ai-analysis"></div>
     `
+    if (autoAiOnce) { autoAiOnce = false; setTimeout(() => document.getElementById('wk-ai-analyze-btn')?.click(), 0) }
     // AI ผู้ช่วยปิดการขาย (Gemini) — เรียกเฉพาะตอนกดปุ่ม ไม่เรียกอัตโนมัติทุกครั้งที่เปิดดูลูกค้า (แพง/ช้า และไม่ควร
     // ส่งข้อมูลลูกค้าออกไปโดยไม่จำเป็น) ส่งแค่สรุปสถานะ/ประวัติการติดต่อ ไม่ส่งเบอร์/อีเมล/LINE ID (ดู utils/salesAi.js)
     document.getElementById('wk-ai-analyze-btn')?.addEventListener('click', async () => {
@@ -1191,6 +1193,7 @@ export default async function CustomersPage(container) {
   const deepLinkId = new URLSearchParams(window.location.search).get('id')
   if (deepLinkId) {
     const c = customers.find(x => x.id === deepLinkId)
+    autoAiOnce = !!c && new URLSearchParams(window.location.search).get('ai') === '1' && isAiEnabled()
     if (c) openDetail(c)
     else showToast('ไม่พบลูกค้ารายนี้ (อาจถูกลบไปแล้ว)', 'warning')
   }
