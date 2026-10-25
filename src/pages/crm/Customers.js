@@ -1064,7 +1064,7 @@ export default async function CustomersPage(container) {
       </div>
       ` : ''}
 
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px">
+      <div class="cust-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(84px,1fr));gap:8px;margin-bottom:16px">
         ${STAGE_ORDER.map(k => `
           <div class="card stat-pill" data-s="${k}" style="padding:10px 12px;text-align:center;cursor:pointer">
             <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:4px">${STAGE[k].label}</div>

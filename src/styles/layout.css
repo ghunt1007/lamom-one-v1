@@ -455,9 +455,9 @@
   .dash-briefing-actions { flex-direction: row !important; width: 100%; justify-content: flex-end; }
 }
 
-/* ใบจองบนมือถือ: การ์ดแทนตารางกว้าง */
+/* ใบจองบนมือถือ/แท็บเล็ต: การ์ดแทนตารางกว้าง (ตาราง 10+ คอลัมน์บีบจนอ่านไม่ออกถ้าจอแคบกว่า ~900px) */
 .bk-cards { display: none; }
-@media (max-width: 640px) {
+@media (max-width: 900px) {
   .bk-cards { display: flex; flex-direction: column; gap: 8px; }
   .bk-table-card { display: none; }
   .bk-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; cursor: pointer; }
@@ -474,8 +474,8 @@
   .cust-row-avatar { display: none !important; }
 }
 
-/* รายชื่อลูกค้าบนมือถือ: แต่ละแถวกลายเป็นการ์ด เห็นครบ (ชื่อ สถานะ เบอร์ รุ่นรถ ความเร่งด่วน) ไม่ต้องเลื่อนตารางไปด้านข้าง */
-@media (max-width: 640px) {
+/* รายชื่อลูกค้าบนมือถือ/แท็บเล็ต: แต่ละแถวกลายเป็นการ์ด เห็นครบ (ชื่อ สถานะ เบอร์ รุ่นรถ ความเร่งด่วน) ไม่ต้องเลื่อนตารางไปด้านข้าง */
+@media (max-width: 900px) {
   .cust-table-wrap { border: none; background: transparent; overflow: visible; }
   .cust-table, .cust-table tbody { display: block; width: 100%; }
   .cust-table thead { display: none; }
@@ -495,4 +495,18 @@
   .cust-table tr.cust-row td.cc-blank { display: none; }
   .cust-table .cc-age, .cust-table .cc-src { white-space: nowrap; }
   .cust-table .cc-act .btn { padding: 2px 6px; }
+}
+/* แท็บเล็ต (641–900px): การ์ดลูกค้า/ใบจองเรียง 2 ใบต่อแถว ใช้พื้นที่จอคุ้มขึ้น */
+@media (min-width: 641px) and (max-width: 900px) {
+  .cust-table tbody { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .cust-table tr.cust-row { margin-bottom: 0; }
+  .bk-cards { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* มือถือ: ตัวเลขสถานะลูกค้าเรียงตามความกว้างจอ (auto-fit) การ์ดเตี้ยลง ไม่กินจอ */
+@media (max-width: 640px) {
+  .cust-stats { gap: 6px !important; }
+  .cust-stats .stat-pill { padding: 8px 4px !important; }
+  .cust-stats .stat-pill > div:first-child { font-size: 0.66rem !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cust-stats .stat-pill > div:last-child { font-size: 1.25rem !important; }
 }
