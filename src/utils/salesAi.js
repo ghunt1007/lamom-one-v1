@@ -53,7 +53,10 @@ export function modelMatches(interested, vehicles = [], limit = 4) {
   return sorted.slice(0, limit)
 }
 
-export function buildCustomerBrief(c, { history = [], followups = [], today, vehicles = [] }) {
+const TD_STATUS_TH = { scheduled: 'นัดไว้', confirmed: 'ยืนยันนัดแล้ว', in_progress: 'กำลังลองขับ', done: 'ลองขับแล้ว', cancelled: 'ยกเลิกนัด', no_show: 'นัดแล้วไม่มา' }
+const TD_RESULT_TH = { interested: 'สนใจมาก', maybe: 'ยังลังเล', notinterested: 'ไม่ค่อยสนใจ', booked: 'จองแล้ว' }
+
+export function buildCustomerBrief(c, { history = [], followups = [], today, vehicles = [], testDrives = null }) {
   const created = toDateStr(c.createdAt)
   const last = toDateStr(c.lastContactAt)
   const lines = [
@@ -80,6 +83,14 @@ export function buildCustomerBrief(c, { history = [], followups = [], today, veh
     lines.push('นัดติดตามที่ค้างอยู่:')
     fus.forEach(f => lines.push(`- ${f.dueDate || '-'} ${f.purpose || 'ติดตาม'}${f.note ? ` (${maskContacts(String(f.note)).slice(0, 80)})` : ''}`))
   }
+  // ทดลองขับ (null = ไม่ได้โหลดมา ไม่ต้องบอก AI) — ช่วยให้ AI รู้ว่าควรชวนลองขับ หรือตามผลหลังลองขับ
+  if (Array.isArray(testDrives)) {
+    if (!testDrives.length) lines.push('ทดลองขับ: ยังไม่เคยนัดทดลองขับ')
+    else {
+      lines.push('ทดลองขับ:')
+      testDrives.slice(0, 3).forEach(t => lines.push(`- ${t.date || '-'} ${t.time || ''} ${t.model || ''} · ${TD_STATUS_TH[t.status] || t.status || '-'}${t.result ? ` · ผล: ${TD_RESULT_TH[t.result] || t.result}` : ''}`.replace(/\s+·/g, ' ·')))
+    }
+  }
   const facts = modelFacts(c.interestedModel, vehicles)
   if (facts.length) {
     lines.push('ข้อมูลรถรุ่นที่สนใจ (ราคาตั้งจากระบบ ยังไม่รวมโปรโมชั่น):')
@@ -92,6 +103,8 @@ export function buildCloserPrompt(brief) {
   return `คุณคือโค้ชการขายรถยนต์ไฟฟ้ามือหนึ่งของโชว์รูมในไทย ช่วยเซลส์ปิดการขายลูกค้ารายนี้
 ข้อมูลลูกค้าจากระบบ (ใช้เฉพาะข้อมูลนี้ ห้ามแต่งข้อเท็จจริงเพิ่ม):
 ${brief}
+
+หลักคิด: ลูกค้าที่ยังไม่เคยทดลองขับมักตัดสินใจช้า ถ้าสนใจอยู่ให้ชวนมาทดลองขับก่อน · ถ้าลองขับแล้วให้ต่อยอดจากผลการลองขับ (เช่น เสนอแผนผ่อน/นัดคุยเงื่อนไข)
 
 ตอบเป็น JSON object อย่างเดียว ภาษาไทย กระชับ ใช้ได้จริงวันนี้:
 {"score": โอกาสปิดการขาย 0-100,

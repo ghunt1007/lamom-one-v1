@@ -35,3 +35,18 @@ describe('AI ผู้ช่วยปิดการขาย', () => {
     expect(addDaysIso('2026-10-30', 0)).toBe('2026-10-30')
   })
 })
+
+describe('buildCustomerBrief test drives', () => {
+  const c = { firstName: 'สมชาย', stage: 'lead', interestedModel: 'S07' }
+  it('ไม่ได้โหลด → ไม่พูดถึงลองขับ', () => {
+    expect(buildCustomerBrief(c, { today: '2026-10-26' })).not.toContain('ทดลองขับ')
+  })
+  it('ยังไม่เคยนัด', () => {
+    expect(buildCustomerBrief(c, { today: '2026-10-26', testDrives: [] })).toContain('ยังไม่เคยนัดทดลองขับ')
+  })
+  it('มีประวัติลองขับพร้อมผล', () => {
+    const b = buildCustomerBrief(c, { today: '2026-10-26', testDrives: [{ date: '2026-10-20', time: '10:00', model: 'DEEPAL S07', status: 'done', result: 'maybe', phone: '0812345678' }] })
+    expect(b).toContain('2026-10-20 10:00 DEEPAL S07 · ลองขับแล้ว · ผล: ยังลังเล')
+    expect(b).not.toContain('0812345678')
+  })
+})

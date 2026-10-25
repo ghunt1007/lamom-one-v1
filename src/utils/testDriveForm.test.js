@@ -5,7 +5,7 @@ vi.mock('../core/companyScope.js', () => ({ companyScopeFilters: () => [], myEff
 vi.mock('./modal.js', () => ({ openModal: vi.fn() }))
 vi.mock('../data/vehicleDatabase.js', () => ({ getVehicles: () => [] }))
 vi.mock('../data/masterData.js', () => ({ getSalesStaff: () => [] }))
-import { mentionsTestDrive, guessTestDriveSlot, pickVehicleOption, upcomingTestDriveFor } from './testDriveForm.js'
+import { mentionsTestDrive, guessTestDriveSlot, pickVehicleOption, upcomingTestDriveFor, testDrivesFor } from './testDriveForm.js'
 
 // 2026-10-26 เป็นวันจันทร์
 const TODAY = '2026-10-26'
@@ -73,5 +73,17 @@ describe('upcomingTestDriveFor', () => {
   it('ยกเลิกแล้ว/ไม่มีนัด → null', () => {
     expect(upcomingTestDriveFor({ id: 'c3' }, tds, TODAY)).toBe(null)
     expect(upcomingTestDriveFor({ id: 'zz', phone: '' }, tds, TODAY)).toBe(null)
+  })
+})
+
+describe('testDrivesFor', () => {
+  it('ทั้งหมดของลูกค้า ใหม่สุดก่อน', () => {
+    const r = testDrivesFor({ id: 'c1', phone: '081-234-5678' }, [
+      { id: 'a', customerId: 'c1', date: '2026-10-01' },
+      { id: 'b', phone: '0812345678', date: '2026-10-20' },
+      { id: 'c', customerId: 'c9', date: '2026-10-25' },
+      { id: 'd', customerId: 'c1', date: '2026-10-10', deleted: true },
+    ])
+    expect(r.map(t => t.id)).toEqual(['b', 'a'])
   })
 })

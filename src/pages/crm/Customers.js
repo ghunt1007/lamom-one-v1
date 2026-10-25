@@ -33,7 +33,7 @@ import { reasonChipsHtml, bindReasonChips } from '../../utils/lostReason.js'
 import { openAddFollowup, offerNextFollowup } from '../../utils/addFollowupModal.js'
 import { touchCustomerContact } from '../../utils/customerContact.js'
 import { armCallLog } from '../../utils/callLogger.js'
-import { openTestDriveForm, loadUpcomingTestDrive } from '../../utils/testDriveForm.js'
+import { openTestDriveForm, loadUpcomingTestDrive, loadTestDrivesFor } from '../../utils/testDriveForm.js'
 import { moveFollowupsOnReassign } from '../../utils/leadAssign.js'
 
 const pendingFuCount = new WeakMap() // ลูกค้า → จำนวนนัดค้าง (ใช้ตัดสินว่าควรเสนอนัดครั้งถัดไปหลังโทรไหม)
@@ -628,7 +628,7 @@ export default async function CustomersPage(container) {
       if (!isAiEnabled()) { showToast('ต้องล็อกอินด้วยบัญชีจริงเพื่อใช้ AI', 'warning'); return }
       btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span> กำลังร่าง...'
       try {
-        const brief = buildCustomerBrief(c, { history: await loadHistory(c), today: todayBangkok(), vehicles: getVehicles() })
+        const brief = buildCustomerBrief(c, { history: await loadHistory(c), today: todayBangkok(), vehicles: getVehicles(), testDrives: await loadTestDrivesFor(c).catch(() => null) })
         // รุ่นที่ลูกค้าถามอาจไม่ใช่รุ่นที่บันทึกไว้ → แนบข้อมูลรุ่นที่อยู่ในคำถามด้วย
         // แนบรถพร้อมขายแยกรุ่น/สี ด้วย — ลูกค้ามักถาม "สีขาวมีพร้อมส่งไหม" (โหลดไม่ได้ก็ร่างต่อโดยไม่มีข้อมูลสต็อก)
         const catalog = [catalogContext(q, getVehicles()), await stockLine()].filter(Boolean).join('\n')
@@ -658,7 +658,7 @@ export default async function CustomersPage(container) {
         const today = todayBangkok()
         let fuRows = []
         try { fuRows = await listDocs('followups', [...companyScopeFilters(), ...followupWindowFilters(today)], 'dueDate', 'asc', 2000) } catch {}
-        const brief = buildCustomerBrief(c, { history: await loadHistory(c), followups: pendingFollowupsFor(fuRows, c.id, today), today, vehicles: getVehicles() })
+        const brief = buildCustomerBrief(c, { history: await loadHistory(c), followups: pendingFollowupsFor(fuRows, c.id, today), today, vehicles: getVehicles(), testDrives: await loadTestDrivesFor(c).catch(() => null) })
         const r = await aiSalesCloser(brief)
         if (!document.getElementById('wk-ai-analysis')) return
         if (!r) { fail(); return }

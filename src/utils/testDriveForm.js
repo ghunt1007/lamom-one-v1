@@ -101,6 +101,14 @@ export function openTestDriveForm(c = {}, { hint = '', onSaved } = {}) {
   })
 }
 
+// นัดลองขับทั้งหมดของลูกค้าคนนี้ ใหม่สุดก่อน (จับคู่ด้วย customerId หรือเบอร์โทร)
+export function testDrivesFor(c, tds = []) {
+  const digits = s => String(s || '').replace(/\D/g, '')
+  const ph = digits(c?.phone)
+  return tds.filter(t => t && !t.deleted && ((c?.id && t.customerId === c.id) || (ph.length >= 9 && digits(t.phone) === ph)))
+    .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
+}
+
 // นัดลองขับที่ยังไม่ถึงของลูกค้าคนนี้ (จับคู่ด้วย customerId หรือเบอร์โทร สำหรับนัดเก่าที่ไม่มี id)
 export function upcomingTestDriveFor(c, tds = [], today) {
   const digits = s => String(s || '').replace(/\D/g, '')
@@ -111,10 +119,12 @@ export function upcomingTestDriveFor(c, tds = [], today) {
 }
 
 let tdCache = { at: 0, list: null }
-export async function loadUpcomingTestDrive(c) {
+async function allTestDrives() {
   if (!tdCache.list || Date.now() - tdCache.at > 60000) {
     tdCache = { at: Date.now(), list: await listDocs('test_drives', companyScopeFilters(), 'date', 'desc', 200) }
   }
-  return upcomingTestDriveFor(c, tdCache.list, todayBangkok())
+  return tdCache.list
 }
+export async function loadUpcomingTestDrive(c) { return upcomingTestDriveFor(c, await allTestDrives(), todayBangkok()) }
+export async function loadTestDrivesFor(c) { return testDrivesFor(c, await allTestDrives()) }
 export function forgetTestDriveCache() { tdCache = { at: 0, list: null } }
