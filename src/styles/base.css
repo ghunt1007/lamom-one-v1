@@ -315,7 +315,7 @@ tbody tr:hover { background: var(--surface-2); box-shadow: inset 3px 0 0 var(--p
   .page-content div[style*="display:flex"]:not([style*="overflow-x"]):not([style*="flex-direction:column"]) { flex-wrap: wrap !important; }
   .page-actions { flex-wrap: wrap; }
   /* token ยาวไม่มีจุดตัด (path โค้ด, URL, VIN) ให้ตัดขึ้นบรรทัดใหม่ได้ ไม่ดันหน้าให้กว้าง */
-  .page-content { overflow-wrap: anywhere; }
+  .page-content { overflow-wrap: break-word; }
 }
 
 /* ── Flex Utilities ── */
