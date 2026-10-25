@@ -369,6 +369,12 @@ tbody tr:hover { background: var(--surface-2); box-shadow: inset 3px 0 0 var(--p
 /* (v1.0.492) ใช้ใน 30+ หน้าเป็นแถบครอบปุ่มแท็บ (.tab-btn) แต่ไม่เคยมี base rule — ปุ่มแท็บยังพอมองเห็นได้
    เพราะ .btn เป็น inline-flex อยู่แล้ว แค่ไม่มี gap/wrap ทำให้ปุ่มชิดกันเกินไปและไม่ขึ้นบรรทัดใหม่บนจอแคบ */
 .tab-nav { display: flex; gap: 4px; flex-wrap: wrap; }
+/* ปุ่มแท็บที่ไม่ได้ใส่ .btn (War Room, Feedback, Tax ฯลฯ) เดิมเป็นปุ่มเบราว์เซอร์ดิบๆ — ให้เป็นปุ่มทรงแคปซูลเหมือนที่อื่น */
+button.tab-btn:not(.btn) { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); font: inherit; font-size: 0.8rem; cursor: pointer; }
+button.tab-btn:not(.btn):hover { border-color: var(--primary); color: var(--text); }
+button.tab-btn:not(.btn).active { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; }
+/* ตัวเลข KPI บนมือถือ: เล็กลงพอให้ "฿1,200,000" อยู่บรรทัดเดียวในการ์ดครึ่งจอ */
+@media (max-width: 640px) { .kpi-value { font-size: 1.3rem; } }
 
 /* ── Loading Overlay ── */
 .loading-overlay {
