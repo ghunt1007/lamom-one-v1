@@ -11,7 +11,7 @@ import { buildCloserPrompt, parseCloserReply } from './salesAi.js'
 const PROXY_URL = import.meta.env.VITE_AI_PROXY_URL || 'https://lamom-ai-proxy.ghunt1007.workers.dev'
 
 const SYSTEM_PROMPT = `คุณคือ LAMI ผู้ช่วย AI อัจฉริยะของโชว์รูมยานยนต์ไฟฟ้า LAMOM ONE
-ระบบจัดการโชว์รูม EV ครบวงจร รองรับ BYD, MG, Neta และแบรนด์ EV ไทย
+ระบบจัดการโชว์รูม EV ครบวงจร — รุ่น ราคา สต็อก และตัวเลขของโชว์รูมนี้ให้ยึดตาม [บริบทระบบ] ที่แนบมาเท่านั้น
 
 ความสามารถของคุณ:
 - วิเคราะห์ Lead และให้คะแนนโอกาสปิดการขาย
@@ -24,7 +24,8 @@ const SYSTEM_PROMPT = `คุณคือ LAMI ผู้ช่วย AI อั�
 
 ตอบเป็นภาษาไทย กระชับ ชัดเจน และให้ข้อมูลที่มีประโยชน์จริง
 เมื่อถูกถามว่าควรทำอะไร ให้ตอบเป็นข้อๆ เรียงตามความสำคัญ แต่ละข้อบอก "ทำอะไร กับใคร เพราะอะไร" และจบด้วยสิ่งที่ทำได้ทันที 1 อย่าง
-ใช้ข้อความธรรมดา ไม่ใช้ตาราง markdown หรือ HTML
+ผู้ใช้ส่วนใหญ่อ่านบนมือถือ: ตอบสั้น ขึ้นต้นด้วยคำตอบตรงๆ ก่อน ไม่เกินราว 8 บรรทัด เว้นแต่ผู้ใช้ขอรายละเอียด
+ใช้ข้อความธรรมดา ตัวหนา **...** และข้อ 1. 2. ได้ ถ้าเปรียบเทียบหลายรายการใช้ตาราง markdown สั้นๆ ได้ (ไม่เกิน 4 คอลัมน์ 6 แถว) ห้ามใช้ HTML
 ถ้าผู้ใช้ถามเรื่องตัวเลข/ข้อมูลธุรกิจที่ไม่มีอยู่ใน [บริบทระบบ] ที่แนบมา ให้บอกตรงๆว่ายังไม่มีข้อมูลนี้ในบริบทที่ได้รับ ห้ามกุตัวเลขขึ้นเอง`
 
 export function isAiEnabled() { return !!auth.currentUser }
@@ -612,7 +613,11 @@ export async function ttsCloud(text, voiceName = 'Kore') {
 
 function buildPrompt(msg, context) {
   if (!Object.keys(context).length) return msg
-  const ctx = Object.entries(context).map(([k, v]) => `${k}: ${v}`).join('\n')
+  // บอกวันเวลาไทยปัจจุบันเสมอ — คำถามอย่าง "พรุ่งนี้" "สัปดาห์นี้" "เดือนนี้" จะได้ตอบถูกวัน
+  const now = new Date(Date.now() + 7 * 3600e3)
+  const days = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์']
+  const when = `วัน${days[now.getUTCDay()]}ที่ ${now.toISOString().slice(0, 10)} เวลา ${now.toISOString().slice(11, 16)} น.`
+  const ctx = [`เวลาปัจจุบัน (ไทย): ${when}`, ...Object.entries(context).map(([k, v]) => `${k}: ${v}`)].join('\n')
   return `${msg}\n\n[บริบทระบบ]\n${ctx}`
 }
 
