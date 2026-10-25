@@ -17,3 +17,15 @@ describe('formatAiText', () => {
     expect(formatAiText('<img src=x onerror=alert(1)>')).not.toContain('<img')
   })
 })
+
+import { splitFollowups } from './AiAssistantChat.js'
+describe('splitFollowups', () => {
+  it('pulls suggested next questions off the last line', () => {
+    const r = splitFollowups('ยอดเดือนนี้ 12 คัน\n\n**ถามต่อ:** เทียบเดือนก่อน | ใครขายเยอะสุด | "ควรเร่งรุ่นไหน"')
+    expect(r.text).toBe('ยอดเดือนนี้ 12 คัน')
+    expect(r.next).toEqual(['เทียบเดือนก่อน', 'ใครขายเยอะสุด', 'ควรเร่งรุ่นไหน'])
+  })
+  it('leaves answers without suggestions alone', () => {
+    expect(splitFollowups('สวัสดีค่ะ')).toEqual({ text: 'สวัสดีค่ะ', next: [] })
+  })
+})

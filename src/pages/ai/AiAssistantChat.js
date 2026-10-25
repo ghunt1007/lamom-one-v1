@@ -29,6 +29,16 @@ const CATEGORIES = [
   { label:'👥 HR', q:'ข้อมูลพนักงานวันนี้?' },
 ]
 
+// AI ปิดท้ายคำตอบด้วย "ถามต่อ: ก | ข | ค" → แยกเป็นปุ่มคำถามแนะนำ (ไม่แสดงบรรทัดนั้นในคำตอบ)
+export const NEXT_Q_HINT = 'ปิดท้ายคำตอบด้วยบรรทัดใหม่ "ถามต่อ: คำถาม1 | คำถาม2 | คำถาม3" เป็นคำถามสั้นๆ ที่ผู้ใช้น่าจะอยากถามคุณต่อ (เขียนในมุมผู้ใช้ ไม่เกิน 40 ตัวอักษรต่อข้อ)'
+export function splitFollowups(answer) {
+  const lines = String(answer || '').split('\n')
+  const idx = lines.findLastIndex(l => /^\s*[*_]*\s*(?:👉\s*)?ถามต่อ\s*[*_]*\s*[:：]/.test(l))
+  if (idx < 0) return { text: String(answer || '').trim(), next: [] }
+  const next = lines[idx].replace(/^[^:：]*[:：]/, '').split('|').map(q => q.replace(/[*_"“”]/g, '').trim()).filter(q => q && q.length <= 80).slice(0, 3)
+  return { text: lines.filter((_, i) => i !== idx).join('\n').trim(), next }
+}
+
 // คำตอบ AI: escape ก่อนเสมอ แล้วค่อยแปลง **ตัวหนา** กับขึ้นบรรทัดใหม่ให้อ่านง่าย (ไม่มี HTML จาก AI หลุดเข้ามา)
 export function formatAiText(t) {
   return esc(t)
@@ -135,10 +145,12 @@ export default async function AiAssistantChatPage(container) {
     // ธรรมดา (ไม่มี <strong>/HTML ที่ตั้งใจ) จึง escape เหมือนกับข้อความผู้ใช้เพื่อกัน XSS จาก AI ตอบ raw HTML
     // กลับมาโดยไม่ตั้งใจ ยกเว้น GREETING ที่ยัง hardcode ไว้ในไฟล์นี้เองเท่านั้น
     const text = isUser ? esc(m.text) : m.text !== GREETING ? formatAiText(m.text) : m.text
-    return `<div style="display:flex;${isUser?'justify-content:flex-end':'align-items:flex-start;gap:8px'}">
+    // overflow-x:visible = ยกเว้นจากกฎ "flex ขึ้นบรรทัดใหม่" บนมือถือ (base.css) ให้รูป 🤖 อยู่ข้างข้อความเสมอ
+    return `<div style="display:flex;overflow-x:visible;${isUser?'justify-content:flex-end':'align-items:flex-start;gap:8px'}">
       ${!isUser ? `<div style="width:30px;height:30px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0">🤖</div>` : ''}
-      <div>
+      <div style="min-width:0">
         <div style="max-width:74vw;padding:10px 14px;border-radius:${isUser?'16px 16px 4px 16px':'4px 16px 16px 16px'};background:${isUser?'var(--primary)':'var(--surface-2)'};color:${isUser?'white':'var(--text)'};font-size:0.84rem;line-height:1.65">${text}</div>
+        ${!isUser && i === messages.length - 1 && !waiting && Array.isArray(m.next) && m.next.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">${m.next.map(q => `<button class="btn btn-secondary btn-xs cat-btn" data-q="${esc(q)}" style="border-radius:999px">💬 ${esc(q)}</button>`).join('')}</div>` : ''}
         <div style="font-size:0.66rem;color:var(--text-muted);margin-top:3px;${isUser?'text-align:right':''}">${esc(m.time)}${!isUser && m.text !== GREETING && i >= 0 ? ` · <button class="chat-copy" data-i="${i}" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.66rem;padding:0">📋 คัดลอก</button>` : ''}</div>
       </div>
     </div>`
@@ -239,8 +251,9 @@ export default async function AiAssistantChatPage(container) {
         const recent = [text, ...messages.filter(m => m.role === 'user').slice(-3, -1).map(m => m.text)].join(' ')
         let cat = ''
         try { cat = catalogContext(recent, getVehicles()) } catch {}
-        const answer = await askLami(text, history, cat ? { ...businessContext, 'ข้อมูลรถ': cat } : businessContext)
-        try { await createDoc('chat_ai_assistant', { role:'ai', text: answer, time:now(), uid }) } catch (e) {}
+        const raw = await askLami(text, history, { ...businessContext, ...(cat ? { 'ข้อมูลรถ': cat } : {}), 'รูปแบบท้ายคำตอบ': NEXT_Q_HINT })
+        const { text: answer, next } = splitFollowups(raw)
+        try { await createDoc('chat_ai_assistant', { role:'ai', text: answer, next, time:now(), uid }) } catch (e) {}
       } catch (err) {
         try { await createDoc('chat_ai_assistant', { role:'ai', text: '⚠️ เกิดข้อผิดพลาด: ' + err.message, time:now(), uid }) } catch (e) {}
       } finally {
