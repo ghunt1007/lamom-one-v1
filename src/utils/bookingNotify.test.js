@@ -21,3 +21,12 @@ describe('customerStatusMessage', () => {
     expect(customerStatusMessage(b, 'ถอนจอง')).toBe('')
   })
 })
+
+import { revisitMessage } from './bookingNotify.js'
+describe('revisitMessage', () => {
+  it('fits the old lost reason', () => {
+    expect(revisitMessage({ firstName: 'วิภา', interestedModel: 'S05' }, 'finance')).toContain('ไฟแนนซ์')
+    expect(revisitMessage({ name: 'วิภา ทดลอง', interestedModel: 'S05' }, 'price')).toContain('คุณวิภา')
+    expect(revisitMessage({}, 'other')).toMatch(/^สวัสดีครับ ผม/)
+  })
+})

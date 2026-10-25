@@ -20,6 +20,8 @@ import { touchCustomerContact } from '../../utils/customerContact.js'
 import { armCallLog } from '../../utils/callLogger.js'
 import { lineNameKey } from '../../utils/lineRegistration.js'
 import { buildBatchNudgePrompt, parseBatchNudgeReply } from '../../utils/salesAi.js'
+import { revisitMessage } from '../../utils/bookingNotify.js'
+import { classifyLostReason } from '../../utils/lostReason.js'
 
 const NUDGE_MAX = 8
 
@@ -154,7 +156,7 @@ export default async function MyDayPage(container) {
     </div>`
   }
 
-  let lastDay = { stale: [] }
+  let lastDay = { stale: [], revisit: [] }
   // AI ร่างข้อความ LINE ทักลูกค้าที่เงียบหลายคนพร้อมกัน — เซลส์อ่าน/แก้ แล้วคัดลอกไปส่งเอง (ไม่ส่งอัตโนมัติ)
   async function openNudgeDrafts(list) {
     if (!list.length) return
@@ -263,7 +265,7 @@ export default async function MyDayPage(container) {
         ${d.revisit.length ? section('🔄', 'ลองติดต่อใหม่ (เสียดีลไปแล้ว 30 วัน+)', 'เหตุผลเดิมอาจเปลี่ยนแล้ว เช่น ไฟแนนซ์/ยังไม่พร้อม', d.revisit, c => line(
           `${escHtml(c.name)}${c.interestedModel ? ` · ${escHtml(c.interestedModel)}` : ''} <span class="badge badge-secondary" style="font-size:0.62rem">${c.days} วัน</span>`,
           `เหตุผล: ${escHtml(c.lostReason || '-')}${c.phone ? ` · ${escHtml(c.phone)}` : ''}${ownerTag(c.assignedTo)}`,
-          `${callBtn(c.phone, c.id)}<button class="btn btn-success btn-xs md-touch" data-id="${escHtml(c.id)}">✅ ติดต่อแล้ว</button><button class="btn btn-secondary btn-xs md-open" data-id="${escHtml(c.id)}">เปิด</button>`), 'primary') : ''}
+          `${callBtn(c.phone, c.id)}<button class="btn btn-secondary btn-xs md-revisit" data-id="${escHtml(c.id)}" title="ข้อความทักกลับตามเหตุผลที่เสียดีล">💬 ข้อความ</button><button class="btn btn-success btn-xs md-touch" data-id="${escHtml(c.id)}">✅ ติดต่อแล้ว</button><button class="btn btn-secondary btn-xs md-open" data-id="${escHtml(c.id)}">เปิด</button>`), 'primary') : ''}
 
         ${d.unscheduled.length ? section('📆', 'รถพร้อมส่งแต่ยังไม่ได้นัดวันส่งมอบ', 'โทรนัดลูกค้า แล้วลงวันในปฏิทินส่งมอบ', d.unscheduled, b => line(
           `${escHtml(b.custName || 'ลูกค้า')} · ${escHtml([b.brand, b.model].filter(Boolean).join(' ') || '—')}`,
@@ -311,6 +313,19 @@ export default async function MyDayPage(container) {
     $$('.md-plan').forEach(b => b.addEventListener('click', () => {
       const c = data.customers.find(x => x.id === b.dataset.id)
       if (c) openAddFollowup(c, { me: me.displayName || '', onSaved: f => { data.followups.push(f); render() } })
+    }))
+    $$('.md-revisit').forEach(b => b.addEventListener('click', () => {
+      const c = (lastDay.revisit || []).find(x => x.id === b.dataset.id)
+      if (!c) return
+      const { el, close } = openModal({
+        title: `💬 ทักกลับ ${escHtml(c.name)}`, size: 'sm',
+        body: `<div style="font-size:0.74rem;color:var(--text-muted);margin-bottom:6px">เหตุผลเดิม: ${escHtml(c.lostReason || '-')} · แก้ข้อความได้ก่อนคัดลอก</div><textarea class="input" id="rv-msg" data-no-mic rows="4" style="width:100%;font-size:16px">${escHtml(revisitMessage(c, classifyLostReason(c.lostReason)))}</textarea>`,
+        footer: `<button class="btn btn-secondary" id="rv-close">ปิด</button><button class="btn btn-primary" id="rv-copy">📋 คัดลอกไปส่ง</button>`,
+      })
+      el.querySelector('#rv-close').addEventListener('click', close)
+      el.querySelector('#rv-copy').addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(el.querySelector('#rv-msg').value); showToast('📋 คัดลอกแล้ว ส่งแล้วกด ✅ ติดต่อแล้ว', 'success'); close() } catch { showToast('คัดลอกไม่สำเร็จ — กดค้างที่ข้อความแล้วคัดลอกเอง', 'warning') }
+      })
     }))
     $$('.md-ai-nudge').forEach(b => b.addEventListener('click', () => openNudgeDrafts(lastDay.stale.slice(0, NUDGE_MAX))))
     $$('.md-touch').forEach(b => b.addEventListener('click', async () => {
