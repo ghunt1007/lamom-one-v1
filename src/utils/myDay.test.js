@@ -160,3 +160,19 @@ describe('buildMyDay — Hot ขึ้นก่อน', () => {
     expect(d.stale.map(c => c.id)).toEqual(['b', 'a'])
   })
 })
+
+describe('buildMyDay — Hot ที่ยังไม่มีนัด', () => {
+  it('เฉพาะ Hot ของฉันที่ไม่มีนัดค้าง', () => {
+    const d = buildMyDay({
+      customers: [
+        { id: 'h1', stage: 'pp', temperature: 'hot', assignedTo: 'A' },
+        { id: 'h2', stage: 'pp', temperature: 'hot', assignedTo: 'A' },
+        { id: 'h3', stage: 'pp', temperature: 'hot', assignedTo: 'B' },
+        { id: 'h4', stage: 'booking', temperature: 'hot', assignedTo: 'A' },
+        { id: 'h5', stage: 'lead', temperature: 'warm', assignedTo: 'A' },
+      ],
+      followups: [{ status: 'pending', customerId: 'h2', dueDate: '2026-10-30', salesperson: 'A' }, { status: 'done', customerId: 'h1', dueDate: '2026-10-20' }],
+    }, { today: '2026-10-25', mine: n => n === 'A' })
+    expect(d.hotNoPlan.map(c => c.id)).toEqual(['h1'])
+  })
+})

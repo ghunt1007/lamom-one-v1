@@ -87,6 +87,11 @@ export function buildMyDay({ customers = [], followups = [], bookings = [], test
   const tomorrow = new Date((dayNum(today) + 1) * 86400000).toISOString().slice(0, 10)
   out.tomorrow = alive(followups).filter(f => f.status === 'pending' && String(f.dueDate || '').slice(0, 10) === tomorrow && mine(f.salesperson, f)).length
 
+  // ลูกค้า Hot ที่ยังไม่มีนัดติดตามเลย — โอกาสปิดสูงแต่ไม่มีแผนต่อ (ไม่นับเป็นงานค้าง)
+  const planned = new Set(alive(followups).filter(f => f.status === 'pending' && f.customerId).map(f => f.customerId))
+  out.hotNoPlan = alive(customers).filter(c => c.temperature === 'hot' && !c.isLost && ['lead', 'pp'].includes(c.stage) && !planned.has(c.id) && mine(c.assignedTo, c))
+    .map(c => ({ ...c, name: custName(c) }))
+
   // ลองติดต่อใหม่ (ไม่นับเป็นงานค้าง — เป็นโอกาสเพิ่ม)
   out.revisit = alive(customers).filter(c => c.isLost && mine(c.assignedTo, c)).map(c => {
     const lost = bangkokDate(c.lostAt)
