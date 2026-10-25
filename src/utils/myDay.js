@@ -189,6 +189,6 @@ export function leadWait(c, now = Date.now()) {
   const contacted = toDate(c.lastContactAt)
   if (contacted && contacted.getTime() > created.getTime() + 60000) return null
   const mins = Math.max(0, Math.floor((now - created.getTime()) / 60000))
-  const label = mins < 60 ? `รอ ${mins} นาที` : `รอ ${Math.floor(mins / 60)} ชม.${mins % 60 ? ` ${mins % 60} นาที` : ''}`
+  const label = mins < 1 ? 'เพิ่งเข้ามา' : mins < 60 ? `รอ ${mins} นาที` : `รอ ${Math.floor(mins / 60)} ชม.${mins % 60 ? ` ${mins % 60} นาที` : ''}`
   return { mins, label, level: mins < 15 ? 'ok' : mins < 60 ? 'warn' : 'late' }
 }
