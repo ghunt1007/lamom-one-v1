@@ -27,8 +27,8 @@ export function maybeShowWhatsNew({ navigate, openQuickLead } = {}) {
     body: `<div style="display:flex;flex-direction:column;gap:8px">${HIGHLIGHTS.map((h, i) => `
       <div class="card" style="padding:10px 12px;display:flex;gap:10px;align-items:flex-start">
         <div style="font-size:1.5rem;line-height:1">${h.icon}</div>
-        <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:0.88rem">${esc(h.title)}</div><div style="font-size:0.76rem;color:var(--text-muted);line-height:1.5">${esc(h.desc)}</div></div>
-        <button class="btn btn-secondary btn-xs wn-go" data-i="${i}" style="flex-shrink:0">ลองเลย</button>
+        <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:0.88rem">${esc(h.title)}</div><div style="font-size:0.78rem;color:var(--text-muted);line-height:1.55">${esc(h.desc)}</div>
+          <button class="btn btn-secondary btn-xs wn-go" data-i="${i}" style="margin-top:6px">ลองเลย →</button></div>
       </div>`).join('')}</div>`,
     footer: `<button class="btn btn-primary" id="wn-ok">เข้าใจแล้ว 👍</button>`,
   })
