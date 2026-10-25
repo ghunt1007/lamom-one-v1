@@ -384,8 +384,9 @@ export default async function CustomersPage(container) {
         </div>
       `,
       footer: `
+        <button class="btn btn-ghost btn-sm" id="wk-delete-btn" style="color:var(--danger);margin-right:auto">🗑️ ลบ</button>
         <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">ปิด</button>
-        <button class="btn btn-danger" id="wk-delete-btn">🗑️ ลบลูกค้า</button>
+        ${String(c.phone || '').replace(/[^\d+]/g, '') ? `<a class="btn btn-primary" id="wk-tel2" href="tel:${String(c.phone).replace(/[^\d+]/g, '')}">📞 โทรหาลูกค้า</a>` : ''}
       `,
     })
 
@@ -402,10 +403,13 @@ export default async function CustomersPage(container) {
       } else { b.disabled = false; showToast('บันทึกไม่สำเร็จ', 'error') }
     })
     // โทรจากเบอร์ในหน้านี้ → วางสายกลับมาที่แอป ระบบถามผลการโทร (utils/callLogger.js)
-    el.querySelector('#wk-tel')?.addEventListener('click', () => armCallLog(c, {
+    const armCall = () => armCallLog(c, {
       hasPending: () => (pendingFuCount.get(c) || 0) > 0,
       onSaved: () => { refreshFollowupList(c); const span = document.getElementById('wk-last-contact'); if (span && c.lastContactAt) span.textContent = timeAgo(c.lastContactAt) },
-    }))
+    })
+    el.querySelector('#wk-tel')?.addEventListener('click', armCall)
+    // ปุ่มโทรใหญ่ด้านล่าง (บนมือถือเบอร์ด้านบนเลื่อนหายไปเร็ว) · ปุ่มลบย่อลงไว้ซ้าย กันกดพลาด
+    el.querySelector('#wk-tel2')?.addEventListener('click', armCall)
     // ตั้งความสนใจ (Hot/Warm/Cold) ได้ในคลิกเดียว — กดซ้ำปุ่มเดิมเพื่อล้าง
     el.querySelectorAll('.wk-temp').forEach(btn => btn.addEventListener('click', async () => {
       const t = c.temperature === btn.dataset.t ? null : btn.dataset.t
