@@ -374,10 +374,16 @@ export default async function BookingsPage(container) {
     return counts
   }
 
+  // นับวันตามปฏิทินไทยเสมอ (เดิมใช้เวลาของเครื่อง — เครื่องที่ตั้งโซนเวลาอื่นนับคลาดไป 1 วัน)
   function dayDiff(dateStr) {
-    const today = new Date(); today.setHours(0, 0, 0, 0)
-    const d = new Date(dateStr); d.setHours(0, 0, 0, 0)
-    return Math.round((d - today) / 86400000)
+    const ds = String(dateStr || '').slice(0, 10)
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ds)) {
+      const today = new Date(); today.setHours(0, 0, 0, 0)
+      const d = new Date(dateStr); d.setHours(0, 0, 0, 0)
+      return Math.round((d - today) / 86400000)
+    }
+    const n = x => Date.UTC(+x.slice(0, 4), +x.slice(5, 7) - 1, +x.slice(8, 10)) / 86400000
+    return n(ds) - n(todayBangkok())
   }
   function isUrgent(b) {
     if (TERMINAL_STATUSES.includes(b.status) || !b.deliveryDate) return false

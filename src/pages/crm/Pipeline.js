@@ -5,6 +5,7 @@ import { navigate } from '../../core/router.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { getVisibilityScope, scopeIncludesRecord } from '../../core/hierarchy.js'
 import { quietDays, QUIET_DAYS } from '../../utils/customerFollowups.js'
+import { heuristicScore } from '../../utils/leadScore.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -48,7 +49,9 @@ export default async function PipelinePage(container) {
 
     board.innerHTML = STAGES.map(stage => {
       // Hot ขึ้นก่อน (โอกาสปิดสูงสุด) ที่เหลือคงลำดับเดิม
-      const cards = active.filter(c => c.stage === stage.key).sort((a, b) => Number(b.temperature === 'hot') - Number(a.temperature === 'hot'))
+      const cards = active.filter(c => c.stage === stage.key)
+        // Lead/Prospect เรียงตามโอกาสปิดการขาย (utils/leadScore.js) — คนที่น่าปิดที่สุดอยู่บนสุด
+        .sort((a, b) => (['lead', 'pp'].includes(stage.key) ? heuristicScore(b).score - heuristicScore(a).score : 0) || Number(b.temperature === 'hot') - Number(a.temperature === 'hot'))
       const stageValue = cards.reduce((s, c) => s + (c.budget || 0), 0)
       return `
         <div class="pipeline-col" data-stage="${stage.key}" style="
@@ -95,7 +98,7 @@ export default async function PipelinePage(container) {
         </div>
         <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:4px">🚗 ${escHtml(c.interestedModel || '-')}</div>
         <div style="display:flex;align-items:center;justify-content:space-between">
-          <span style="font-size:0.78rem;font-weight:600;color:var(--accent)">${c.budget ? '฿' + Number(c.budget).toLocaleString() : '-'}</span>
+          <span style="font-size:0.78rem;font-weight:600;color:var(--accent)">${c.budget ? '฿' + Number(c.budget).toLocaleString() : ''}${['lead', 'pp'].includes(c.stage) && !c.isLost ? (sc => `<span title="โอกาสปิดการขาย" style="margin-left:${c.budget ? 6 : 0}px;font-size:0.68rem;color:${sc >= 80 ? 'var(--danger)' : sc >= 60 ? 'var(--warning)' : 'var(--text-muted)'}">🎯 ${sc}%</span>`)(heuristicScore(c).score) : ''}</span>
           <span style="font-size:0.7rem;color:var(--text-muted)">${timeAgo(c.createdAt)}</span>
         </div>
       </div>
