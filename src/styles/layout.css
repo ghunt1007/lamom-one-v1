@@ -473,3 +473,26 @@
 @media (max-width: 640px) {
   .cust-row-avatar { display: none !important; }
 }
+
+/* รายชื่อลูกค้าบนมือถือ: แต่ละแถวกลายเป็นการ์ด เห็นครบ (ชื่อ สถานะ เบอร์ รุ่นรถ ความเร่งด่วน) ไม่ต้องเลื่อนตารางไปด้านข้าง */
+@media (max-width: 640px) {
+  .cust-table-wrap { border: none; background: transparent; overflow: visible; }
+  .cust-table, .cust-table tbody { display: block; width: 100%; }
+  .cust-table thead { display: none; }
+  .cust-table tr.cust-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
+  .cust-table tr.cust-row td { display: block; padding: 0; border: none; background: transparent !important; }
+  .cust-table .cc-name { flex: 1 1 calc(100% - 130px); min-width: 0; order: 1; }
+  .cust-table .cc-name div { white-space: normal !important; }
+  .cust-table .cc-stage { order: 2; text-align: right; }
+  .cust-table .cc-contact { order: 3; flex: 1 1 100%; font-size: 0.82rem; color: var(--text-2); }
+  .cust-table .cc-model { order: 4; font-size: 0.78rem; }
+  .cust-table .cc-model::before { content: '🚗 '; }
+  .cust-table .cc-temp { order: 5; }
+  .cust-table .cc-urg { order: 6; }
+  .cust-table .cc-src { order: 7; font-size: 0.72rem !important; }
+  .cust-table .cc-age { order: 8; font-size: 0.72rem !important; }
+  .cust-table .cc-act { order: 9; margin-left: auto; }
+  .cust-table tr.cust-row td.cc-blank { display: none; }
+  .cust-table .cc-age, .cust-table .cc-src { white-space: nowrap; }
+  .cust-table .cc-act .btn { padding: 2px 6px; }
+}

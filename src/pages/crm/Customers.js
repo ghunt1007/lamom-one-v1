@@ -228,7 +228,7 @@ export default async function CustomersPage(container) {
       const urgency = URGENCY[quickUrgency(c)]
       return `
       <tr class="cust-row ${c.isLost ? 'is-lost' : ''}" data-id="${c.id}">
-        <td>
+        <td class="cc-name">
           <div style="display:flex;align-items:center;gap:10px">
             <div class="avatar avatar-md cust-row-avatar" style="background:${avatarColor(c)};color:#fff">${escHtml(initials(c.firstName, c.lastName))}</div>
             <div>
@@ -237,17 +237,17 @@ export default async function CustomersPage(container) {
             </div>
           </div>
         </td>
-        <td style="white-space:nowrap">${formatPhone(c.phone) || '<span style="color:var(--text-muted)">-</span>'}${c.lineId ? `<div style="font-size:0.7rem;color:var(--text-muted)">💚 ${escHtml(c.lineId)}</div>` : ''}</td>
-        <td>
+        <td class="cc-contact${c.phone || c.lineId ? '' : ' cc-blank'}" style="white-space:nowrap">${formatPhone(c.phone) || '<span style="color:var(--text-muted)">-</span>'}${c.lineId ? `<div style="font-size:0.7rem;color:var(--text-muted)">💚 ${escHtml(c.lineId)}</div>` : ''}</td>
+        <td class="cc-stage">
           <span class="badge badge-${st.badge}">${escHtml(st.label)}</span>
           ${c.isLost ? `<div style="margin-top:3px"><span class="badge badge-secondary" style="font-size:0.62rem">⬛ เสียดีล</span></div>` : ''}
         </td>
-        <td>${c.temperature ? `<span class="badge badge-${TEMP[c.temperature]?.badge}" style="font-size:0.68rem">${TEMP[c.temperature]?.label}</span>` : '<span style="color:var(--text-muted)">-</span>'}${scoreBar(c)}</td>
-        <td style="color:var(--text-2)">${escHtml(c.interestedModel || '-')}</td>
-        <td style="color:var(--text-3);font-size:0.8rem">${SOURCE[c.source] || escHtml(c.source) || '-'}</td>
-        <td>${!c.isLost ? `<span class="badge badge-${urgency.badge}" style="font-size:0.65rem">${urgency.label}</span>` : ''}</td>
-        <td style="color:var(--text-muted);font-size:0.8rem">${timeAgo(c.createdAt)}${quietBadge(c)}</td>
-        <td>
+        <td class="cc-temp${c.temperature || scoreBar(c) ? '' : ' cc-blank'}">${c.temperature ? `<span class="badge badge-${TEMP[c.temperature]?.badge}" style="font-size:0.68rem">${TEMP[c.temperature]?.label}</span>` : '<span style="color:var(--text-muted)">-</span>'}${scoreBar(c)}</td>
+        <td class="cc-model${c.interestedModel ? '' : ' cc-blank'}" style="color:var(--text-2)">${escHtml(c.interestedModel || '-')}</td>
+        <td class="cc-src${c.source ? '' : ' cc-blank'}" style="color:var(--text-3);font-size:0.8rem">${SOURCE[c.source] || escHtml(c.source) || '-'}</td>
+        <td class="cc-urg">${!c.isLost ? `<span class="badge badge-${urgency.badge}" style="font-size:0.65rem">${urgency.label}</span>` : ''}</td>
+        <td class="cc-age" style="color:var(--text-muted);font-size:0.8rem">${timeAgo(c.createdAt)}${quietBadge(c)}</td>
+        <td class="cc-act">
           <div style="display:flex;gap:4px">
             <button class="btn btn-ghost btn-sm edit-btn" data-id="${c.id}" title="แก้ไข">✏️</button>
             <button class="btn btn-ghost btn-sm del-btn" data-id="${c.id}" title="ลบ" style="color:var(--danger)">🗑</button>
@@ -1100,8 +1100,8 @@ export default async function CustomersPage(container) {
         </div>
       </div>
 
-      <div class="table-wrap">
-        <table>
+      <div class="table-wrap cust-table-wrap">
+        <table class="cust-table">
           <thead><tr>
             <th>ลูกค้า</th><th>ติดต่อ</th><th>สถานะ</th><th>อุณหภูมิ</th><th>รถที่สนใจ</th><th>ที่มา</th><th>ความเร่งด่วน</th><th>เพิ่มเมื่อ</th><th></th>
           </tr></thead>
