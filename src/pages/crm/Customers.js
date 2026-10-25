@@ -16,7 +16,7 @@ import {
   deriveInitialStage, shouldAutoPromoteToPP,
 } from '../../core/customerInsights.js'
 import { aiSalesCloser, isAiEnabled, suggestCustomerReply } from '../../utils/ai.js'
-import { buildCustomerBrief, addDaysIso, catalogContext } from '../../utils/salesAi.js'
+import { buildCustomerBrief, addDaysIso, catalogContext, modelFacts } from '../../utils/salesAi.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 import { maskContacts } from '../../utils/leadText.js'
 import { enhanceMics } from '../../utils/micInput.js'
@@ -278,6 +278,7 @@ export default async function CustomersPage(container) {
                 ${detail('💚 LINE', escHtml(c.lineId || '-'))}
                 ${detail('📧 Email', escHtml(c.email || '-'))}
                 ${detail('🚗 สนใจ', escHtml(c.interestedModel || '-'))}
+                ${(() => { const f = c.interestedModel ? modelFacts(c.interestedModel, getVehicles(), 4) : []; return f.length ? `<details style="margin:-2px 0 2px;font-size:0.76rem"><summary style="cursor:pointer;color:var(--primary)">📋 ราคา/สเปครุ่นนี้ (ไว้ตอบลูกค้า)</summary><div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">${f.map(x => `<div style="padding:6px 8px;border-radius:8px;background:var(--surface-2);line-height:1.45">${escHtml(x)}</div>`).join('')}<div style="font-size:0.66rem;color:var(--text-muted)">ราคาตั้งจากฐานข้อมูลรถ ยังไม่รวมโปรโมชั่น</div></div></details>` : '' })()}
                 ${detail('💰 งบประมาณ', c.budget ? formatCurrency(c.budget) : '-')}
                 ${detail('💼 อาชีพ', escHtml(c.occupation || '-'))}
                 ${detail('💵 รายได้ต่อเดือน', c.monthlyIncome ? formatCurrency(c.monthlyIncome) : '-')}
