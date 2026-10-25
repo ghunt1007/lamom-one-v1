@@ -1,5 +1,6 @@
 import { listDocs, listAllDocs, watchDocs, createDoc, updateDocData, softDelete, seedDemoData, setDocData } from '../../core/db.js'
 import { customerStatusMessage } from '../../utils/bookingNotify.js'
+import { openReplan, bookingTotal } from '../../utils/replanModal.js'
 import { reasonChipsHtml, bindReasonChips } from '../../utils/lostReason.js'
 import { showToast, getState, setState, on } from '../../core/store.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
@@ -1099,12 +1100,14 @@ export default async function BookingsPage(container) {
                 ? '<button class="btn btn-secondary" id="bk-verify-pay" style="color:var(--warning)">💸 แจ้งการเงินตรวจยอด</button>' : '') +
               '<button class="btn btn-secondary" id="bk-print">🖨 พิมพ์ใบจอง</button>' +
               (!isCash ? '<button class="btn btn-secondary" id="bk-finance-btn">🏦 ยื่นไฟแนนซ์</button>' : '') +
+              (b.finStatus === 'ไม่ผ่าน' && bookingTotal(b) > 0 ? '<button class="btn btn-secondary" id="bk-replan">💡 แผนผ่อนใหม่</button>' : '') +
               (b.status === 'ถอนจอง'
                 ? '<button class="btn btn-danger" id="bk-print-cancel">🖨 พิมพ์ใบถอนจอง</button>'
                 : '<button class="btn btn-primary" id="bk-to-doc">📄 สร้างเอกสาร</button>') +
               '<button class="btn btn-danger" id="bk-delete2">🗑️ ลบใบจอง</button>'
     })
     if (!isCash) refreshFinAppPanel(b)
+    document.getElementById('bk-replan')?.addEventListener('click', () => openReplan(b))
     document.getElementById('bk-finance-btn')?.addEventListener('click', () => {
       sessionStorage.setItem('lamom_finance_prefill', JSON.stringify({
         bookingId: b.id, customerId: b.customerId || null, custName: b.custName || '', phone: b.phone || '',
