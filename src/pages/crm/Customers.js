@@ -33,6 +33,7 @@ import { reasonChipsHtml, bindReasonChips } from '../../utils/lostReason.js'
 import { openAddFollowup, offerNextFollowup } from '../../utils/addFollowupModal.js'
 import { touchCustomerContact } from '../../utils/customerContact.js'
 import { armCallLog } from '../../utils/callLogger.js'
+import { openTestDriveForm } from '../../utils/testDriveForm.js'
 import { moveFollowupsOnReassign } from '../../utils/leadAssign.js'
 
 const pendingFuCount = new WeakMap() // ลูกค้า → จำนวนนัดค้าง (ใช้ตัดสินว่าควรเสนอนัดครั้งถัดไปหลังโทรไหม)
@@ -314,7 +315,7 @@ export default async function CustomersPage(container) {
                 ${detail('📱 โทร', c.phone && String(c.phone).replace(/[^\d+]/g, '') ? `<a id="wk-tel" href="tel:${String(c.phone).replace(/[^\d+]/g, '')}" style="color:var(--primary)">${formatPhone(c.phone)}</a>` : (formatPhone(c.phone) || '-'))}
                 ${detail('💚 LINE', escHtml(c.lineId || '-'))}
                 ${detail('📧 Email', escHtml(c.email || '-'))}
-                ${detail('🚗 สนใจ', escHtml(c.interestedModel || '-'))}
+                ${detail('🚗 สนใจ', escHtml(c.interestedModel || '-') + (c.isLost ? '' : ' <button class="btn btn-ghost btn-xs" id="wk-td-btn" title="นัดลูกค้ามาทดลองขับ">🚙 นัดทดลองขับ</button>'))}
                 ${(() => { const f = c.interestedModel ? modelFacts(c.interestedModel, getVehicles(), 4) : []; return f.length ? `<details style="margin:-2px 0 2px;font-size:0.76rem"><summary style="cursor:pointer;color:var(--primary)">📋 ราคา/สเปครุ่นนี้ (ไว้ตอบลูกค้า)</summary><div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">${f.map(x => `<div style="padding:6px 8px;border-radius:8px;background:var(--surface-2);line-height:1.45">${escHtml(x)}</div>`).join('')}<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:0.66rem;color:var(--text-muted)">ราคาตั้งจากฐานข้อมูลรถ ยังไม่รวมโปรโมชั่น</span><button type="button" class="btn btn-secondary btn-xs" id="wk-facts-copy">📋 คัดลอกสเปคส่งลูกค้า</button></div>${calcHtml(c)}</div></details>` : '' })()}
                 ${detail('💰 งบประมาณ', c.budget ? formatCurrency(c.budget) : '-')}
                 ${detail('💼 อาชีพ', escHtml(c.occupation || '-'))}
@@ -398,6 +399,7 @@ export default async function CustomersPage(container) {
       const text = [`ข้อมูล ${c.interestedModel} ครับ`, ...lines.map(x => '• ' + x), '*ราคาตั้ง ยังไม่รวมโปรโมชั่น สอบถามโปรล่าสุดได้เลยครับ'].join('\n')
       try { await navigator.clipboard.writeText(text); showToast('📋 คัดลอกแล้ว วางใน LINE ได้เลย', 'success') } catch { showToast('คัดลอกไม่สำเร็จ', 'warning') }
     })
+    el.querySelector('#wk-td-btn')?.addEventListener('click', () => openTestDriveForm(c))
     el.querySelector('#wk-touch-btn')?.addEventListener('click', async e => {
       const b = e.currentTarget
       b.disabled = true
