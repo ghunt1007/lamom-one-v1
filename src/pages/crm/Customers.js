@@ -49,11 +49,14 @@ function scoreBar(c) {
 function calcHtml(c) {
   const vs = modelMatches(c.interestedModel, getVehicles(), 6).filter(v => v.price > 0)
   if (!vs.length) return ''
+  // มีงบในใจ → เลือกรุ่นย่อยแพงสุดที่ไม่เกินงบให้ก่อน (ไม่มีรุ่นไหนอยู่ในงบ = รุ่นถูกสุด)
+  const budget = Number(c.budget) || 0
+  const fit = budget ? vs.reduce((best, v, i) => v.price <= budget && (best < 0 || v.price > vs[best].price) ? i : best, -1) : -1
   const opt = (arr, sel, fmt) => arr.map(x => `<option value="${x}" ${x === sel ? 'selected' : ''}>${fmt(x)}</option>`).join('')
   return `<div id="wk-calc" style="margin-top:6px;padding:8px;border:1px dashed var(--border);border-radius:8px">
     <div style="font-weight:600;margin-bottom:6px">🧮 ผ่อนเดือนละเท่าไหร่ (คร่าวๆ)</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(120px,100%),1fr));gap:6px">
-      <select class="input" id="wk-calc-v" style="font-size:0.76rem">${vs.map((v, i) => `<option value="${i}" data-p="${v.price}">${escHtml(v.variant || v.model)} · ${Number(v.price).toLocaleString('en-US')}</option>`).join('')}</select>
+      <select class="input" id="wk-calc-v" style="font-size:0.76rem">${vs.map((v, i) => `<option value="${i}" data-p="${v.price}" ${i === fit ? 'selected' : ''}>${escHtml(v.variant || v.model)} · ${Number(v.price).toLocaleString('en-US')}</option>`).join('')}</select>
       <select class="input" id="wk-calc-d" style="font-size:0.76rem">${opt([0, 10, 15, 20, 25, 30, 40], 20, x => `ดาวน์ ${x}%`)}</select>
       <select class="input" id="wk-calc-m" style="font-size:0.76rem">${opt([48, 60, 72, 84], 72, x => `${x} งวด`)}</select>
       <label style="display:flex;align-items:center;gap:4px;font-size:0.72rem;white-space:nowrap">ดอก <input class="input" id="wk-calc-r" type="number" step="0.01" value="2.79" style="width:72px;font-size:0.76rem" title="ดอกเบี้ยต่อปี (flat)"> %/ปี</label>
