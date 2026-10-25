@@ -22,6 +22,10 @@ import { lineNameKey } from '../../utils/lineRegistration.js'
 import { buildBatchNudgePrompt, parseBatchNudgeReply } from '../../utils/salesAi.js'
 import { revisitMessage } from '../../utils/bookingNotify.js'
 import { classifyLostReason } from '../../utils/lostReason.js'
+import { replanOptions, replanText } from '../../utils/installment.js'
+
+// ราคารวมของใบจอง (ราคา − ส่วนลด + อุปกรณ์เสริม) ใช้คำนวณแผนผ่อนใหม่ตอนไฟแนนซ์ไม่ผ่าน
+const bookingTotal = b => (Number(b.price) || 0) - (Number(b.discount) || 0) + (Number(b.accessories) || 0)
 
 const NUDGE_MAX = 8
 
@@ -280,7 +284,7 @@ export default async function MyDayPage(container) {
         ${d.finance.length ? section('🏦', `ไฟแนนซ์รอผลเกิน ${FINANCE_WAIT_DAYS} วัน / ไม่ผ่าน`, 'ตามผลกับไฟแนนซ์ หรือหาไฟแนนซ์ใหม่ให้ลูกค้า', d.finance, b => line(
           `${escHtml(b.custName || 'ลูกค้า')} · ${escHtml([b.brand, b.model].filter(Boolean).join(' ') || '—')} ${b.rejected ? '<span class="badge badge-danger" style="font-size:0.62rem">ไม่ผ่าน</span>' : `<span class="badge badge-warning" style="font-size:0.62rem">รอ ${b.days} วัน</span>`}`,
           `${escHtml(b.financeCo || 'ไม่ระบุไฟแนนซ์')}${ownerTag(b.salesName)}`,
-          `${callBtn(b.phone || b.custPhone)}<button class="btn btn-secondary btn-xs md-bk">ใบจอง</button>`), 'warning') : ''}
+          `${callBtn(b.phone || b.custPhone)}${b.rejected && bookingTotal(b) > 0 ? `<button class="btn btn-primary btn-xs md-replan" data-id="${escHtml(b.id)}">💡 แผนผ่อนใหม่</button>` : ''}<button class="btn btn-secondary btn-xs md-bk">ใบจอง</button>`), 'warning') : ''}
 
         ${section('💰', 'ส่งมอบแล้วยังไม่กรอกรายได้ (เดือนนี้)', 'รายงานรายได้จะไม่ครบถ้าไม่กรอก', d.income, b => line(
           `${escHtml(b.custName || 'ลูกค้า')} · ${escHtml([b.brand, b.model].filter(Boolean).join(' ') || '—')}`,
@@ -325,6 +329,26 @@ export default async function MyDayPage(container) {
       el.querySelector('#rv-close').addEventListener('click', close)
       el.querySelector('#rv-copy').addEventListener('click', async () => {
         try { await navigator.clipboard.writeText(el.querySelector('#rv-msg').value); showToast('📋 คัดลอกแล้ว ส่งแล้วกด ✅ ติดต่อแล้ว', 'success'); close() } catch { showToast('คัดลอกไม่สำเร็จ — กดค้างที่ข้อความแล้วคัดลอกเอง', 'warning') }
+      })
+    }))
+    $$('.md-replan').forEach(btn => btn.addEventListener('click', () => {
+      const b = (lastDay.finance || []).find(x => x.id === btn.dataset.id)
+      if (!b) return
+      const total = bookingTotal(b), rate = Number(b.interestRate) || 2.79
+      const rows = replanOptions(total, b.down, rate)
+      const fmt = n => Number(n).toLocaleString('th-TH')
+      const { el, close } = openModal({
+        title: `💡 แผนผ่อนใหม่ — ${escHtml(b.custName || 'ลูกค้า')}`, size: 'sm',
+        body: `<div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:8px">ราคารวม ${fmt(total)} บาท · ดาวน์เดิม ${fmt(b.down || 0)} บาท. ดาวน์มากขึ้น = ยอดจัดน้อยลง มักช่วยให้ไฟแนนซ์พิจารณาง่ายขึ้น (หรือลองยื่นไฟแนนซ์เจ้าอื่น)</div>
+          ${rows.length ? `<div class="table-wrap"><table style="font-size:0.8rem"><thead><tr><th>ดาวน์</th><th>เพิ่มจากเดิม</th><th>72 งวด</th><th>84 งวด</th></tr></thead><tbody>
+            ${rows.map(r => `<tr><td><b>${r.pct}%</b><div style="font-size:0.7rem;color:var(--text-muted)">${fmt(r.down)}</div></td><td>+${fmt(r.more)}</td><td>${fmt(r.m72)}</td><td>${fmt(r.m84)}</td></tr>`).join('')}
+          </tbody></table></div>
+          <div style="font-size:0.7rem;color:var(--text-muted);margin-top:6px">ตัวเลขประมาณการ ดอกเบี้ย ${rate}% ต่อปีแบบคงที่ อัตราจริงขึ้นกับไฟแนนซ์</div>` : '<div>ดาวน์เดิมสูงอยู่แล้ว ลองยื่นไฟแนนซ์เจ้าอื่นหรือเพิ่มผู้ค้ำ</div>'}`,
+        footer: `<button class="btn btn-secondary" id="rp-close">ปิด</button>${rows.length ? '<button class="btn btn-primary" id="rp-copy">📋 คัดลอกส่งลูกค้า</button>' : ''}`,
+      })
+      el.querySelector('#rp-close').addEventListener('click', close)
+      el.querySelector('#rp-copy')?.addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(replanText(rows, rate)); showToast('📋 คัดลอกแล้ว', 'success'); close() } catch { showToast('คัดลอกไม่สำเร็จ', 'warning') }
       })
     }))
     $$('.md-ai-nudge').forEach(b => b.addEventListener('click', () => openNudgeDrafts(lastDay.stale.slice(0, NUDGE_MAX))))
