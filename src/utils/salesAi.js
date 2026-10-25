@@ -192,3 +192,16 @@ export function parseBatchNudgeReply(text, n) {
   }
   return out.sort((a, b) => a.i - b.i)
 }
+
+// มูลค่าดีลโดยประมาณ: งบที่ลูกค้าบอก ถ้าไม่มีใช้ราคาตั้งของรุ่นที่สนใจ (รุ่นย่อยถูกสุด ถ้าไม่ระบุรุ่นย่อย)
+// cache = Map ไว้จำผลต่อชื่อรุ่น (บอร์ดมีลูกค้าเยอะ ชื่อรุ่นซ้ำกันมาก)
+export function dealValue(c, vehicles = [], cache = null) {
+  if (Number(c?.budget) > 0) return Number(c.budget)
+  const key = String(c?.interestedModel || '').trim()
+  if (!key) return 0
+  if (cache?.has(key)) return cache.get(key)
+  const v = modelMatches(key, vehicles, 1)[0]
+  const price = Number(v?.price) || 0
+  cache?.set(key, price)
+  return price
+}

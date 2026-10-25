@@ -67,3 +67,15 @@ describe('brief privacy', () => {
     expect(b).toContain('[เบอร์]')
   })
 })
+
+import { dealValue } from './salesAi.js'
+describe('dealValue', () => {
+  it('prefers the customer budget, else the cheapest matching variant', () => {
+    const cache = new Map()
+    expect(dealValue({ budget: 1000000, interestedModel: 'S05' }, V)).toBe(1000000)
+    expect(dealValue({ interestedModel: 'Deepal S05' }, V, cache)).toBe(799000)
+    expect(dealValue({ interestedModel: 'S05 max' }, V)).toBe(899000)
+    expect(dealValue({ interestedModel: 'Tesla' }, V)).toBe(0)
+    expect(cache.get('Deepal S05')).toBe(799000)
+  })
+})

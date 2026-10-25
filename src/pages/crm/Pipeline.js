@@ -6,6 +6,8 @@ import { companyScopeFilters } from '../../core/companyScope.js'
 import { getVisibilityScope, scopeIncludesRecord } from '../../core/hierarchy.js'
 import { quietDays, QUIET_DAYS } from '../../utils/customerFollowups.js'
 import { heuristicScore } from '../../utils/leadScore.js'
+import { dealValue } from '../../utils/salesAi.js'
+import { getVehicles } from '../../data/vehicleDatabase.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -27,6 +29,10 @@ export default async function PipelinePage(container) {
 
   let customers = []
   let dragging = null
+  let vehicles = []
+  try { vehicles = getVehicles() } catch {}
+  const valCache = new Map() // ชื่อรุ่น → ราคา (ลูกค้าหลายคนสนใจรุ่นเดียวกัน)
+  const val = c => dealValue(c, vehicles, valCache)
 
   // (v1.0.xxx) เดิมใช้ listDocs() ครั้งเดียวตอนโหลดหน้า — ถ้ามีคนอื่นแก้ stage ลูกค้าจากเครื่องอื่น (เช่น
   // หน้า Customers) บอร์ดนี้จะไม่ขยับตามจนกว่าจะรีเฟรชหน้าเอง ต่างจาก Customers.js/Bookings.js ที่ใช้
@@ -43,16 +49,22 @@ export default async function PipelinePage(container) {
     if (!board) return
 
     const active = customers.filter(c => !c.isLost)
-    const totalBudget = active.reduce((s, c) => s + (c.budget || 0), 0)
+    // มูลค่าดีล = งบลูกค้า ถ้าไม่มีใช้ราคารุ่นที่สนใจจากฐานข้อมูลรถ · "คาดว่าปิดได้" = มูลค่า × โอกาสปิด (เฉพาะ Lead/Prospect)
+    const open = active.filter(c => ['lead', 'pp'].includes(c.stage))
+    const totalOpen = open.reduce((s, c) => s + val(c), 0)
+    const expected = open.reduce((s, c) => s + val(c) * heuristicScore(c).score / 100, 0)
     const el = document.getElementById('pipeline-total')
-    if (el) el.textContent = `💰 มูลค่ารวม (งบประมาณลูกค้า): ${formatCurrency(totalBudget)}`
+    if (el) {
+      el.innerHTML = `💰 ดีลที่กำลังคุย ${formatCurrency(totalOpen)} · <b style="color:var(--success)">🎯 คาดว่าปิดได้ ≈ ${formatCurrency(Math.round(expected / 1000) * 1000)}</b>`
+      el.title = 'มูลค่าใช้งบที่ลูกค้าบอก ถ้าไม่มีใช้ราคาตั้งรุ่นที่สนใจ · คาดว่าปิดได้ = มูลค่า × โอกาสปิดการขายของแต่ละคน'
+    }
 
     board.innerHTML = STAGES.map(stage => {
       // Hot ขึ้นก่อน (โอกาสปิดสูงสุด) ที่เหลือคงลำดับเดิม
       const cards = active.filter(c => c.stage === stage.key)
         // Lead/Prospect เรียงตามโอกาสปิดการขาย (utils/leadScore.js) — คนที่น่าปิดที่สุดอยู่บนสุด
         .sort((a, b) => (['lead', 'pp'].includes(stage.key) ? heuristicScore(b).score - heuristicScore(a).score : 0) || Number(b.temperature === 'hot') - Number(a.temperature === 'hot'))
-      const stageValue = cards.reduce((s, c) => s + (c.budget || 0), 0)
+      const stageValue = cards.reduce((s, c) => s + val(c), 0)
       return `
         <div class="pipeline-col" data-stage="${stage.key}" style="
           min-width:220px; flex:1; max-width:260px;
@@ -98,7 +110,7 @@ export default async function PipelinePage(container) {
         </div>
         <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:4px">🚗 ${escHtml(c.interestedModel || '-')}</div>
         <div style="display:flex;align-items:center;justify-content:space-between">
-          <span style="font-size:0.78rem;font-weight:600;color:var(--accent)">${c.budget ? '฿' + Number(c.budget).toLocaleString() : ''}${['lead', 'pp'].includes(c.stage) && !c.isLost ? (sc => `<span title="โอกาสปิดการขาย" style="margin-left:${c.budget ? 6 : 0}px;font-size:0.68rem;color:${sc >= 80 ? 'var(--danger)' : sc >= 60 ? 'var(--warning)' : 'var(--text-muted)'}">🎯 ${sc}%</span>`)(heuristicScore(c).score) : ''}</span>
+          <span style="font-size:0.78rem;font-weight:600;color:var(--accent)">${c.budget ? '฿' + Number(c.budget).toLocaleString() : val(c) ? `<span title="ราคาตั้งรุ่นที่สนใจ (ลูกค้ายังไม่บอกงบ)" style="color:var(--text-muted);font-weight:500">≈฿${val(c).toLocaleString()}</span>` : ''}${['lead', 'pp'].includes(c.stage) && !c.isLost ? (sc => `<span title="โอกาสปิดการขาย" style="margin-left:${c.budget || val(c) ? 6 : 0}px;font-size:0.68rem;color:${sc >= 80 ? 'var(--danger)' : sc >= 60 ? 'var(--warning)' : 'var(--text-muted)'}">🎯 ${sc}%</span>`)(heuristicScore(c).score) : ''}</span>
           <span style="font-size:0.7rem;color:var(--text-muted)">${timeAgo(c.createdAt)}</span>
         </div>
       </div>
