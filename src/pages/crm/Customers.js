@@ -15,7 +15,8 @@ import {
   getFollowUpRecommendation, getBookingDiagnosis, isModelInStock,
   deriveInitialStage, shouldAutoPromoteToPP,
 } from '../../core/customerInsights.js'
-import { analyzeCustomer, isAiEnabled } from '../../utils/ai.js'
+import { aiSalesCloser, isAiEnabled } from '../../utils/ai.js'
+import { buildCustomerBrief, addDaysIso } from '../../utils/salesAi.js'
 import { OCCUPATIONS } from '../../utils/financeMatch.js'
 import { openQuickLead, findDuplicate } from '../../utils/quickLead.js'
 import { planLeadImport } from '../../utils/leadImport.js'
@@ -465,17 +466,22 @@ export default async function CustomersPage(container) {
     }))
   }
 
-  async function refreshTimeline(c) {
-    const el = document.getElementById('wk-timeline')
-    if (!el) return
+  // ไทม์ไลน์การติดต่อ (comm_logs + customer_notes) ใหม่สุดก่อน — ใช้ทั้งหน้าไทม์ไลน์และ AI ผู้ช่วยปิดการขาย
+  async function loadHistory(c) {
     let logs = [], notes = []
     try { logs = await listDocs('comm_logs', [['customerId', '==', c.id], ...companyScopeFilters()], 'createdAt', 'desc', 30) } catch {}
     try { notes = await listDocs('customer_notes', [], 'time', 'desc', 300) } catch {}
     notes = notes.filter(n => n.customer === fullName(c))
-    const merged = [
+    return [
       ...logs.map(l => ({ ts: l.createdAt, icon: LOG_ICONS[l.type] || '📌', label: LOG_LABELS[l.type] || l.type, text: l.note || '' })),
       ...notes.map(n => ({ ts: n.time, icon: NOTE_TYPE_ICONS[n.type] || '📌', label: NOTE_TYPE_LABELS[n.type] || n.type, text: n.text || '', pinned: n.pinned })),
     ].sort((a, b) => new Date(b.ts || 0) - new Date(a.ts || 0))
+  }
+
+  async function refreshTimeline(c) {
+    const el = document.getElementById('wk-timeline')
+    if (!el) return
+    const merged = await loadHistory(c)
     if (!document.getElementById('wk-timeline')) return
     if (!merged.length) { el.innerHTML = `<div class="empty-state" style="padding:12px"><div class="empty-icon" style="font-size:1.5rem">📝</div><div class="empty-title" style="font-size:0.85rem">ยังไม่มีบันทึก</div></div>`; return }
     el.innerHTML = merged.map(m => `
@@ -513,7 +519,7 @@ export default async function CustomersPage(container) {
     el.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
         <span style="font-weight:600;font-size:0.85rem">🧭 คำแนะนำการติดตาม</span>
-        <button class="btn btn-ghost btn-xs" id="wk-ai-analyze-btn">🤖 วิเคราะห์เจาะลึกด้วย AI</button>
+        <button class="btn btn-ghost btn-xs" id="wk-ai-analyze-btn">🤖 AI ช่วยปิดการขาย</button>
       </div>
       <div class="card" style="padding:12px 14px;border-left:3px solid var(--${u.badge})">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
@@ -524,31 +530,53 @@ export default async function CustomersPage(container) {
       </div>
       <div id="wk-ai-analysis"></div>
     `
-    // วิเคราะห์เจาะลึกด้วย AI จริง (Gemini) — เรียกเฉพาะลูกค้ารายนี้เท่านั้นตอนกดปุ่ม ไม่เรียกอัตโนมัติ
-    // ทุกครั้งที่เปิดดูลูกค้า (จะแพง/ช้าเกินจำเป็น และส่งข้อมูลลูกค้าไปให้ Gemini โดยไม่มีเหตุผลที่ชัดเจน)
+    // AI ผู้ช่วยปิดการขาย (Gemini) — เรียกเฉพาะตอนกดปุ่ม ไม่เรียกอัตโนมัติทุกครั้งที่เปิดดูลูกค้า (แพง/ช้า และไม่ควร
+    // ส่งข้อมูลลูกค้าออกไปโดยไม่จำเป็น) ส่งแค่สรุปสถานะ/ประวัติการติดต่อ ไม่ส่งเบอร์/อีเมล/LINE ID (ดู utils/salesAi.js)
     document.getElementById('wk-ai-analyze-btn')?.addEventListener('click', async () => {
       const btn = document.getElementById('wk-ai-analyze-btn')
       const box = document.getElementById('wk-ai-analysis')
       if (!isAiEnabled()) { showToast('ต้องล็อกอินด้วยบัญชีจริงเพื่อใช้ AI วิเคราะห์', 'warning'); return }
-      btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
+      btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span> AI กำลังคิด...'
+      const fail = () => { if (document.getElementById('wk-ai-analysis')) box.innerHTML = `<div style="font-size:0.78rem;color:var(--danger);margin-top:6px">AI วิเคราะห์ไม่สำเร็จ ลองใหม่อีกครั้ง</div>` }
       try {
-        const result = await analyzeCustomer({
-          name: fullName(c), interestedIn: c.interestedModel, source: c.source, budget: c.budget,
-        })
+        const today = todayBangkok()
+        let fuRows = []
+        try { fuRows = await listDocs('followups', [...companyScopeFilters(), ...followupWindowFilters(today)], 'dueDate', 'asc', 2000) } catch {}
+        const brief = buildCustomerBrief(c, { history: await loadHistory(c), followups: pendingFollowupsFor(fuRows, c.id, today), today })
+        const r = await aiSalesCloser(brief)
         if (!document.getElementById('wk-ai-analysis')) return
-        if (result) {
-          box.innerHTML = `<div class="card" style="padding:10px 14px;margin-top:8px;background:var(--primary-dim);border:1px solid var(--primary)">
-            <div style="font-size:0.72rem;color:var(--primary);font-weight:700;margin-bottom:3px">🤖 AI วิเคราะห์ — คะแนนโอกาสปิดดีล ${result.score ?? '-'}%</div>
-            <div style="font-size:0.8rem;color:var(--text-2);line-height:1.5">${escHtml(result.reason || '')}</div>
-            ${result.nextAction ? `<div style="font-size:0.78rem;color:var(--primary);margin-top:4px">→ ${escHtml(result.nextAction)}</div>` : ''}
-          </div>`
-        } else {
-          box.innerHTML = `<div style="font-size:0.78rem;color:var(--danger);margin-top:6px">AI วิเคราะห์ไม่สำเร็จ ลองใหม่อีกครั้ง</div>`
-        }
-      } catch {
-        if (document.getElementById('wk-ai-analysis')) box.innerHTML = `<div style="font-size:0.78rem;color:var(--danger);margin-top:6px">AI วิเคราะห์ไม่สำเร็จ ลองใหม่อีกครั้ง</div>`
+        if (!r) { fail(); return }
+        const ch = { call: '📞 โทร', line: '💚 LINE', visit: '🏠 นัดพบ' }[r.channel] || ''
+        const scoreColor = r.score >= 70 ? 'success' : r.score >= 40 ? 'warning' : 'danger'
+        box.innerHTML = `<div class="card ai-closer" style="padding:12px 14px;margin-top:8px;background:var(--primary-dim);border:1px solid var(--primary)">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span style="font-size:0.75rem;color:var(--primary);font-weight:700">🤖 AI ผู้ช่วยปิดการขาย</span>
+            ${r.score !== null ? `<span class="badge badge-${scoreColor}" style="margin-left:auto">โอกาสปิด ${r.score}%</span>` : ''}
+          </div>
+          ${r.score !== null ? `<div style="height:5px;border-radius:3px;background:var(--surface-2);overflow:hidden;margin-bottom:8px"><div style="height:100%;width:${r.score}%;background:var(--${scoreColor})"></div></div>` : ''}
+          ${r.summary ? `<div style="font-size:0.8rem;color:var(--text-2);line-height:1.5">${escHtml(r.summary)}</div>` : ''}
+          ${r.nextAction ? `<div style="font-size:0.82rem;font-weight:600;color:var(--primary);margin-top:6px">→ ${escHtml(r.nextAction)}${r.when || ch ? `<span style="font-weight:400;color:var(--text-muted)"> · ${escHtml([ch, r.when].filter(Boolean).join(' · '))}</span>` : ''}</div>` : ''}
+          ${r.objections.length ? `<div style="margin-top:8px;font-size:0.75rem;color:var(--text-muted)">ลูกค้าอาจกังวลเรื่อง:</div><ul style="margin:2px 0 0 18px;padding:0;font-size:0.78rem;color:var(--text-2);line-height:1.5">${r.objections.map(o => `<li>${escHtml(o)}</li>`).join('')}</ul>` : ''}
+          ${r.lineMessage ? `<div style="margin-top:8px;font-size:0.75rem;color:var(--text-muted)">💚 ข้อความ LINE ที่ส่งได้เลย (แก้ได้):</div>
+            <textarea class="input" id="wk-ai-line" rows="3" style="width:100%;margin-top:3px;font-size:0.8rem">${escHtml(r.lineMessage)}</textarea>` : ''}
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+            ${r.lineMessage ? `<button class="btn btn-primary btn-xs" id="wk-ai-copy">📋 คัดลอกข้อความ</button>` : ''}
+            ${!c.isLost && r.followUpDays !== null ? `<button class="btn btn-secondary btn-xs" id="wk-ai-plan">📅 นัดตามที่ AI แนะนำ (${r.followUpDays === 0 ? 'วันนี้' : `อีก ${r.followUpDays} วัน`})</button>` : ''}
+          </div>
+        </div>`
+        box.querySelector('#wk-ai-copy')?.addEventListener('click', async () => {
+          const text = box.querySelector('#wk-ai-line')?.value || r.lineMessage
+          try { await navigator.clipboard.writeText(text); showToast('📋 คัดลอกแล้ว วางใน LINE ได้เลย', 'success') } catch { showToast('คัดลอกไม่สำเร็จ — กดค้างที่ข้อความแล้วคัดลอกเอง', 'warning') }
+        })
+        box.querySelector('#wk-ai-plan')?.addEventListener('click', () => openAddFollowup(c, {
+          me: myDisplayName, dueDate: addDaysIso(today, r.followUpDays), type: r.channel, note: r.nextAction.slice(0, 120),
+          onSaved: () => refreshFollowupList(c),
+        }))
+      } catch (e) {
+        if (e?.code === 'NOT_ENABLED') showToast('ต้องล็อกอินด้วยบัญชีจริงเพื่อใช้ AI วิเคราะห์', 'warning')
+        fail()
       } finally {
-        if (document.getElementById('wk-ai-analyze-btn')) { btn.disabled = false; btn.innerHTML = '🤖 วิเคราะห์เจาะลึกด้วย AI' }
+        if (document.getElementById('wk-ai-analyze-btn')) { btn.disabled = false; btn.innerHTML = '🤖 AI ช่วยปิดการขาย' }
       }
     })
   }

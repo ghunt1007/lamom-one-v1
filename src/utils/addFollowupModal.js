@@ -11,16 +11,17 @@ function escHtml(s) {
 }
 
 // c = ลูกค้า (ต้องมี id) — me = ชื่อผู้กด (ใช้เป็นผู้ติดตามถ้าลูกค้ายังไม่มีผู้ดูแล) — onSaved(followup) หลังบันทึกสำเร็จ
-export function openAddFollowup(c, { me = '', onSaved } = {}) {
+// dueDate/type/note (ไม่บังคับ) = ค่าเริ่มต้นในฟอร์ม เช่น วัน/ช่องทางที่ AI ผู้ช่วยปิดการขายแนะนำ
+export function openAddFollowup(c, { me = '', onSaved, dueDate: defDate = '', type: defType = '', note: defNote = '' } = {}) {
   const name = [c.firstName, c.lastName].filter(Boolean).join(' ') || c.name || 'ลูกค้า'
   const defPurpose = c.stage === 'lead' || c.stage === 'pp' ? 'ติดตาม Lead ใหม่' : 'ทั่วไป'
   openModal({
     title: `➕ นัดติดตาม ${escHtml(name)}`, size: 'sm',
     body: `
-      <div class="input-group"><label class="input-label">วันที่นัด *</label><input class="input" type="date" id="wk-nf-date" value="${addDays(todayBangkok(), 1)}"></div>
+      <div class="input-group"><label class="input-label">วันที่นัด *</label><input class="input" type="date" id="wk-nf-date" value="${/^\d{4}-\d{2}-\d{2}$/.test(defDate) ? defDate : addDays(todayBangkok(), 1)}"></div>
       <div class="input-group"><label class="input-label">เรื่อง</label><select class="input" id="wk-nf-purpose">${FOLLOWUP_PURPOSES.map(p => `<option${p === defPurpose ? ' selected' : ''}>${p}</option>`).join('')}</select></div>
-      <div class="input-group"><label class="input-label">ช่องทาง</label><select class="input" id="wk-nf-type"><option value="call">📞 โทร</option><option value="line">💚 LINE</option><option value="visit">🏠 นัดพบ</option></select></div>
-      <div class="input-group"><label class="input-label">หมายเหตุ</label><input class="input" id="wk-nf-note" placeholder="เช่น โทรหลังเที่ยง"></div>
+      <div class="input-group"><label class="input-label">ช่องทาง</label><select class="input" id="wk-nf-type">${[['call', '📞 โทร'], ['line', '💚 LINE'], ['visit', '🏠 นัดพบ']].map(([v, l]) => `<option value="${v}"${v === defType ? ' selected' : ''}>${l}</option>`).join('')}</select></div>
+      <div class="input-group"><label class="input-label">หมายเหตุ</label><input class="input" id="wk-nf-note" placeholder="เช่น โทรหลังเที่ยง" value="${escHtml(defNote)}"></div>
     `,
     async onConfirm() {
       const dueDate = document.getElementById('wk-nf-date')?.value

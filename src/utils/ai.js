@@ -6,6 +6,7 @@
 // session จริง) จึงใช้คำตอบสำรอง (fallback) เหมือนเดิม ไม่เรียก proxy เลย
 import { auth } from '../core/firebase.js'
 import { retrieveRagContext } from './rag.js'
+import { buildCloserPrompt, parseCloserReply } from './salesAi.js'
 
 const PROXY_URL = import.meta.env.VITE_AI_PROXY_URL || 'https://lamom-ai-proxy.ghunt1007.workers.dev'
 
@@ -117,6 +118,12 @@ export async function analyzeCustomer(customer) {
 ให้คะแนน 0-100 และเหตุผล 2-3 ประโยค ในรูปแบบ JSON: {"score": 85, "reason": "...", "nextAction": "..."}`
   const reply = await askLami(prompt)
   try { return JSON.parse(reply.match(/\{[\s\S]*\}/)?.[0] || '{}') } catch { return null }
+}
+
+// ── AI ผู้ช่วยปิดการขาย — brief จาก buildCustomerBrief() (utils/salesAi.js) → คำแนะนำ + ร่างข้อความ LINE
+// คืน null เมื่ออ่านคำตอบไม่ได้ · throw เมื่อยังไม่ได้ล็อกอินบัญชีจริง (code NOT_ENABLED) หรือ proxy ล้ม
+export async function aiSalesCloser(brief) {
+  return parseCloserReply(await askJsonPrompt(buildCloserPrompt(brief), 3000))
 }
 
 // ── แนะนำไฟแนนซ์ที่เหมาะกับเคสนี้ — เสริมความเห็นภาษาธรรมชาติต่อจากคะแนนที่คำนวณแล้วด้วย
