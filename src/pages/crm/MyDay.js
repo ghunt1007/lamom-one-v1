@@ -74,15 +74,16 @@ export default async function MyDayPage(container) {
     return [...s].filter(n => n === UNASSIGNED || scopeIncludesRecord(scope, n, {})).sort((a, b) => a.localeCompare(b, 'th'))
   }
 
+  let cleared = [] // หัวข้อที่ไม่มีงานค้าง — ย่อรวมไว้บรรทัดเดียวท้ายหน้าแทนการ์ดว่างๆ ยาวทั้งหน้า
   function section(icon, title, hint, items, row, color = 'primary') {
+    if (!items.length) { cleared.push(`${icon} ${title}`); return '' }
     return `<div class="card" style="padding:0;margin-bottom:14px;overflow:hidden">
       <div style="padding:12px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border)">
         <span style="font-size:1.1rem">${icon}</span><b>${title}</b>
         <span class="badge badge-${items.length ? color : 'secondary'}">${items.length}</span>
         <span style="margin-left:auto;font-size:0.7rem;color:var(--text-muted)">${hint}</span>
       </div>
-      ${items.length ? items.slice(0, 50).map(row).join('') + (items.length > 50 ? `<div style="padding:8px 16px;font-size:0.75rem;color:var(--text-muted)">…และอีก ${items.length - 50} รายการ</div>` : '')
-        : `<div style="padding:14px 16px;font-size:0.8rem;color:var(--text-muted)">✅ ไม่มีงานค้าง</div>`}
+      ${items.slice(0, 50).map(row).join('') + (items.length > 50 ? `<div style="padding:8px 16px;font-size:0.75rem;color:var(--text-muted)">…และอีก ${items.length - 50} รายการ</div>` : '')}
     </div>`
   }
   const line = (main, sub, actions) => `<div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap">
@@ -118,7 +119,7 @@ export default async function MyDayPage(container) {
     return `<div class="card" style="padding:0;margin-bottom:14px;overflow:hidden;border:1px solid color-mix(in srgb, var(--primary) 35%, transparent)">
       <div style="padding:14px 16px;background:linear-gradient(135deg, color-mix(in srgb, var(--primary) 18%, transparent), transparent);display:flex;align-items:center;gap:10px">
         <span style="font-size:1.4rem">🎯</span>
-        <div><div style="font-weight:800;font-size:1rem">ทำ ${top.length} อย่างนี้ก่อน</div>
+        <div style="flex:1;min-width:0"><div style="font-weight:800;font-size:1rem">ทำ ${top.length} อย่างนี้ก่อน</div>
         <div style="font-size:0.72rem;color:var(--text-muted)">ระบบเลือกจากงานทั้งหมด ${d.total} รายการ ตามโอกาสปิดการขายและความเร่งด่วน</div></div>
       </div>
       ${top.map((t, i) => `<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-top:1px solid var(--border);flex-wrap:wrap">
@@ -132,6 +133,12 @@ export default async function MyDayPage(container) {
   function render() {
     const today = todayBangkok()
     const d = buildMyDay(data, { today, mine })
+    cleared = []
+    // ความคืบหน้าวันนี้ = ลูกค้าที่ติดต่อแล้ว เทียบกับ (ติดต่อแล้ว + งานค้าง)
+    const doneToday = d.contactedToday || 0
+    const pct = doneToday + d.total ? Math.round(doneToday / (doneToday + d.total) * 100) : 100
+    const stat = (icon, label, value, color) => `<div style="flex:1;min-width:72px;padding:8px 12px;border-radius:12px;background:var(--surface-2)">
+      <div style="font-size:0.68rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${icon} ${label}</div><div style="font-size:1.35rem;font-weight:800;color:var(--${color})">${value}</div></div>`
     const hello = me.displayName ? `สวัสดีครับคุณ${escHtml(me.displayName)}` : 'สวัสดีครับ'
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -145,6 +152,13 @@ export default async function MyDayPage(container) {
 
         ${lineRegistered ? `<div style="font-size:0.72rem;color:var(--text-muted);margin:-6px 0 10px">💬 คำสั่งใน LINE OA: <code>งาน</code> · <code>พรุ่งนี้</code> · <code>ยอด</code> · <code>หา เบอร์</code> · <code>โทรแล้ว เบอร์</code> · <code>นัด เบอร์ พรุ่งนี้</code> · <code>เสียดีล เบอร์ เหตุผล</code></div>` : `<div class="card mb-4" style="padding:10px 16px;font-size:0.8rem;color:var(--text-2);border-left:3px solid var(--success)">
           📲 รับงานค้างทาง LINE ทุก 9 โมงเช้า: ทัก LINE OA ของบริษัท แล้วพิมพ์ <code>ลงทะเบียน ${escHtml(me.displayName)}</code> · หลังจากนั้นพิมพ์ <code>งาน</code> เพื่อดูงานได้ทุกเวลา, <code>โทรแล้ว เบอร์</code> บันทึกการติดต่อ, <code>นัด เบอร์ พรุ่งนี้</code> นัดติดตาม</div>`}
+        <div class="card" style="padding:12px;margin-bottom:14px;display:flex;gap:8px;align-items:center">
+          <div title="ความคืบหน้าวันนี้" style="width:58px;height:58px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:conic-gradient(var(--success) ${pct * 3.6}deg, var(--surface-2) 0)">
+            <div style="width:44px;height:44px;border-radius:50%;background:var(--surface);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.8rem">${pct}%</div></div>
+          ${stat('📋', 'งานค้าง', d.total, d.total ? 'warning' : 'success')}
+          ${stat('💪', 'ติดต่อแล้ว', doneToday, 'success')}
+          ${stat('📅', 'นัดพรุ่งนี้', d.tomorrow || 0, 'primary')}
+        </div>
         ${focusCard(d)}
         ${goalCard(today)}
         ${section('📞', 'Follow-up วันนี้/เลยกำหนด', 'กด ✅ เมื่อติดต่อแล้ว', d.followups, f => line(
@@ -201,6 +215,7 @@ export default async function MyDayPage(container) {
           `${escHtml(b.custName || 'ลูกค้า')} · ${escHtml([b.brand, b.model].filter(Boolean).join(' ') || '—')} <span class="badge badge-warning" style="font-size:0.62rem">${b.days} วัน</span>`,
           `${escHtml(b.status || '—')} · จอง ${formatDate(b.bookingDate)}${ownerTag(b.salesName)}`,
           `${callBtn(b.phone || b.custPhone)}<button class="btn btn-secondary btn-xs md-bk">ใบจอง</button>`), 'warning')}
+        ${cleared.length ? `<div style="font-size:0.75rem;color:var(--text-muted);padding:4px 2px 12px">✅ เคลียร์แล้ว ไม่มีงานค้าง: ${cleared.map(escHtml).join(' · ')}</div>` : ''}
       </div>`
 
     const $$ = sel => container.querySelectorAll(sel)
