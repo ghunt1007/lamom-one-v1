@@ -17,6 +17,7 @@ import {
 } from '../../core/customerInsights.js'
 import { aiSalesCloser, isAiEnabled } from '../../utils/ai.js'
 import { buildCustomerBrief, addDaysIso } from '../../utils/salesAi.js'
+import { getVehicles } from '../../data/vehicleDatabase.js'
 import { heuristicScore } from '../../utils/leadScore.js'
 import { OCCUPATIONS } from '../../utils/financeMatch.js'
 import { openQuickLead, findDuplicate } from '../../utils/quickLead.js'
@@ -566,7 +567,7 @@ export default async function CustomersPage(container) {
         const today = todayBangkok()
         let fuRows = []
         try { fuRows = await listDocs('followups', [...companyScopeFilters(), ...followupWindowFilters(today)], 'dueDate', 'asc', 2000) } catch {}
-        const brief = buildCustomerBrief(c, { history: await loadHistory(c), followups: pendingFollowupsFor(fuRows, c.id, today), today })
+        const brief = buildCustomerBrief(c, { history: await loadHistory(c), followups: pendingFollowupsFor(fuRows, c.id, today), today, vehicles: getVehicles() })
         const r = await aiSalesCloser(brief)
         if (!document.getElementById('wk-ai-analysis')) return
         if (!r) { fail(); return }

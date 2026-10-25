@@ -13,7 +13,39 @@ function daysBetween(a, b) {
 }
 
 // c = เอกสารลูกค้า, history = [{ ts, label, text }] ใหม่สุดก่อน, followups = นัดที่ค้าง [{ dueDate, purpose, note }]
-export function buildCustomerBrief(c, { history = [], followups = [], today }) {
+const norm = s => String(s || '').toLowerCase().replace(/\(.*?\)/g, ' ').replace(/[^a-z0-9ก-๙]+/g, '')
+
+// หารุ่นใน catalog ที่ตรงกับ "รุ่นที่สนใจ" (เช่น 'Deepal S07', 's05 max') → คืนบรรทัดข้อมูลจริง สูงสุด limit รุ่นย่อย
+// ใช้ชื่อรุ่นที่ยาวที่สุดที่เจอในข้อความ เพื่อไม่ให้ 'S07' ไปจับ 'S07 (2026)' ผิดยี่ห้อ
+export function modelFacts(interested, vehicles = [], limit = 4) {
+  const q = norm(interested)
+  if (!q || !vehicles.length) return []
+  let best = 0
+  const hits = []
+  for (const v of vehicles) {
+    const m = norm(v.model)
+    if (m.length < 2 || !q.includes(m)) continue
+    const brandHit = q.includes(norm(v.brand))
+    const score = m.length + (brandHit ? 100 : 0)
+    if (score > best) { best = score; hits.length = 0 }
+    if (score === best) hits.push(v)
+  }
+  // ถ้าระบุรุ่นย่อยด้วย (เช่น 'max') ให้รุ่นย่อยนั้นขึ้นก่อน
+  const words = v => String(v.variant || '').toLowerCase().split(/[^a-z0-9ก-๙]+/).filter(w => w.length >= 2)
+  const common = w => hits.every(h => words(h).includes(w))
+  const vHit = v => words(v).filter(w => !common(w) && q.includes(w)).length
+  const sorted = hits.slice().sort((a, b) => vHit(b) - vHit(a) || (a.price || 0) - (b.price || 0))
+  return sorted.slice(0, limit).map(v => [
+    `${v.brand} ${v.model} ${v.variant || ''}`.trim(),
+    v.price ? `ราคา ${Number(v.price).toLocaleString('en-US')} บาท` : null,
+    v.range ? `วิ่งได้ ${v.range} กม.` : null,
+    v.battery ? `แบต ${v.battery}` : null,
+    v.chargeDC ? `ชาร์จเร็ว DC ${v.chargeDC} kW` : null,
+    v.warranty ? `รับประกัน ${v.warranty}` : null,
+  ].filter(Boolean).join(' · '))
+}
+
+export function buildCustomerBrief(c, { history = [], followups = [], today, vehicles = [] }) {
   const created = toDateStr(c.createdAt)
   const last = toDateStr(c.lastContactAt)
   const lines = [
@@ -39,6 +71,11 @@ export function buildCustomerBrief(c, { history = [], followups = [], today }) {
     lines.push('นัดติดตามที่ค้างอยู่:')
     fus.forEach(f => lines.push(`- ${f.dueDate || '-'} ${f.purpose || 'ติดตาม'}${f.note ? ` (${String(f.note).slice(0, 80)})` : ''}`))
   }
+  const facts = modelFacts(c.interestedModel, vehicles)
+  if (facts.length) {
+    lines.push('ข้อมูลรถรุ่นที่สนใจ (ราคาตั้งจากระบบ ยังไม่รวมโปรโมชั่น):')
+    facts.forEach(f => lines.push(`- ${f}`))
+  }
   return lines.filter(Boolean).join('\n')
 }
 
@@ -53,7 +90,7 @@ ${brief}
  "nextAction": "สิ่งที่ควรทำต่อทันที 1 อย่าง ชัดเจน",
  "when": "ควรทำเมื่อไหร่ เช่น วันนี้ก่อนเที่ยง / พรุ่งนี้",
  "channel": "call หรือ line หรือ visit",
- "lineMessage": "ข้อความ LINE ที่เซลส์ส่งให้ลูกค้าได้เลย สุภาพ เป็นกันเอง ไม่เกิน 3 ประโยค ไม่ใส่ราคาหรือโปรที่ไม่มีในข้อมูล",
+ "lineMessage": "ข้อความ LINE ที่เซลส์ส่งให้ลูกค้าได้เลย สุภาพ เป็นกันเอง ไม่เกิน 3 ประโยค ถ้าจำเป็นใช้ได้เฉพาะราคาและสเปคที่อยู่ใน \"ข้อมูลรถรุ่นที่สนใจ\" ห้ามแต่งโปรโมชั่น/ส่วนลด",
  "objections": ["ข้อกังวลที่ลูกค้าน่าจะมี พร้อมวิธีตอบสั้นๆ", "..."],
  "followUpDays": จำนวนวันจากวันนี้ที่ควรนัดติดตามครั้งถัดไป 0-14}`
 }
