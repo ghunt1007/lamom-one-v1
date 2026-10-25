@@ -125,7 +125,7 @@ export default async function AiAssistantChatPage(container) {
     if (container.__routerGen === myGen) renderPage()
   }
 
-  function msgHtml(m) {
+  function msgHtml(m, i = -1) {
     const isUser = m.role === 'user'
     // ข้อความจากผู้ใช้เป็น free-text ต้อง escape ก่อน render เสมอ (กัน stored XSS)
     // คำตอบ AI ตอนนี้มาจาก askLami() จริง (Gemini ผ่าน proxy) ไม่ใช่ CANNED hardcode แล้ว — เป็นข้อความ
@@ -136,7 +136,7 @@ export default async function AiAssistantChatPage(container) {
       ${!isUser ? `<div style="width:30px;height:30px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0">🤖</div>` : ''}
       <div>
         <div style="max-width:74vw;padding:10px 14px;border-radius:${isUser?'16px 16px 4px 16px':'4px 16px 16px 16px'};background:${isUser?'var(--primary)':'var(--surface-2)'};color:${isUser?'white':'var(--text)'};font-size:0.84rem;line-height:1.65">${text}</div>
-        <div style="font-size:0.66rem;color:var(--text-muted);margin-top:3px;${isUser?'text-align:right':''}">${esc(m.time)}</div>
+        <div style="font-size:0.66rem;color:var(--text-muted);margin-top:3px;${isUser?'text-align:right':''}">${esc(m.time)}${!isUser && m.text !== GREETING && i >= 0 ? ` · <button class="chat-copy" data-i="${i}" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.66rem;padding:0">📋 คัดลอก</button>` : ''}</div>
       </div>
     </div>`
   }
@@ -173,6 +173,8 @@ export default async function AiAssistantChatPage(container) {
     </div>`
   }
 
+  const hasMic = typeof window !== 'undefined' && !!(window.SpeechRecognition || window.webkitSpeechRecognition)
+
   function renderPage() {
     if (loading) {
       container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
@@ -201,13 +203,14 @@ export default async function AiAssistantChatPage(container) {
 
         <!-- Chat messages -->
         <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding:12px 0" id="chat-area">
-          ${messages.some(m => m.role === 'user') || waiting ? messages.map(msgHtml).join('') : welcomeHtml()}
+          ${messages.some(m => m.role === 'user') || waiting ? messages.map((m, i) => msgHtml(m, i)).join('') : welcomeHtml()}
           ${waiting ? typingHtml() : ''}
         </div>
 
         <!-- Input bar -->
         <div style="padding:10px 0;border-top:1px solid var(--border);display:flex;gap:8px">
           <input class="input" id="chat-input" placeholder="พิมพ์คำถาม เช่น ยอดขายวันนี้ / Hot Lead / กำไรเดือนนี้..." style="flex:1" ${waiting?'disabled':''}>
+          ${hasMic ? `<button class="btn btn-secondary" id="mic-btn" ${waiting?'disabled':''} title="พูดคำถาม (ภาษาไทย)" style="flex-shrink:0">🎤</button>` : ''}
           <button class="btn btn-primary" id="send-btn" ${waiting?'disabled':''} style="white-space:nowrap">📤 ส่ง</button>
         </div>
       </div>
@@ -239,6 +242,26 @@ export default async function AiAssistantChatPage(container) {
       }
     }
 
+    // พูดแทนพิมพ์ (Chrome/Android รองรับภาษาไทย) — พูดจบส่งคำถามให้ทันที
+    document.getElementById('mic-btn')?.addEventListener('click', async e => {
+      const btn = e.currentTarget
+      const { createSTT } = await import('../../utils/voice.js')
+      const input = document.getElementById('chat-input')
+      const rec = createSTT({
+        onInterim: t => { if (input) input.value = t },
+        onFinal: t => { if (input) input.value = t; send(t) },
+        onEnd: () => { btn.textContent = '🎤'; btn.classList.remove('btn-danger') },
+        onError: () => showToast('ไม่ได้ยินเสียง ลองใหม่อีกครั้ง หรืออนุญาตให้ใช้ไมโครโฟน', 'warning'),
+      })
+      if (!rec) return
+      btn.textContent = '🔴'; btn.classList.add('btn-danger')
+      try { rec.start() } catch { btn.textContent = '🎤' }
+    })
+    container.querySelectorAll('.chat-copy').forEach(b => b.addEventListener('click', async () => {
+      const m = messages[+b.dataset.i]
+      if (!m) return
+      try { await navigator.clipboard.writeText(m.text); showToast('📋 คัดลอกแล้ว', 'success') } catch { showToast('คัดลอกไม่สำเร็จ', 'error') }
+    }))
     document.getElementById('send-btn')?.addEventListener('click', () => send(document.getElementById('chat-input')?.value || ''))
     document.getElementById('chat-input')?.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(e.target.value) } })
     container.querySelectorAll('.cat-btn').forEach(b => b.addEventListener('click', () => send(b.dataset.q)))
