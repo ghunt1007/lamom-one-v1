@@ -5,6 +5,7 @@ import { showToast } from '../core/store.js'
 import { openModal } from './modal.js'
 import { formatDate, todayBangkok } from './format.js'
 import { addDays, buildManualFollowup, FOLLOWUP_PURPOSES } from './customerFollowups.js'
+import { suggestNextDue } from './nextFollowup.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -37,4 +38,13 @@ export function openAddFollowup(c, { me = '', onSaved, dueDate: defDate = '', ty
       } catch { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
     },
   })
+}
+
+// หลังบันทึกผลการติดต่อ — ถ้ายังเป็น Lead/Prospect และไม่มีนัดค้างอื่น เปิดหน้านัดครั้งถัดไปให้เลย
+// พร้อมวันที่เดาจากผลที่พิมพ์ (เช่น "นัดเสาร์นี้" → วันเสาร์) ลูกค้าจะไม่หลุดจากการติดตาม
+export function offerNextFollowup(c, result, { me = '', hasPending = false, onSaved } = {}) {
+  if (!c || c.isLost || !['lead', 'pp'].includes(c.stage) || hasPending) return
+  const s = suggestNextDue(result, todayBangkok())
+  if (s.skip) { showToast('💡 ถ้าลูกค้าไม่ไปต่อแล้ว กด "มาร์คเสียดีล" ในหน้าลูกค้า ระบบจะได้ไม่เตือนอีก', 'info'); return }
+  setTimeout(() => openAddFollowup(c, { me, onSaved, dueDate: s.dueDate, note: s.why }), 300)
 }

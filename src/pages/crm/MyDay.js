@@ -15,7 +15,7 @@ import { DELIVERED_STATUSES } from '../../utils/deliveryIncome.js'
 import { staffChoices, findStaffCompany, assignCustomer } from '../../utils/leadAssign.js'
 import { bangkokDate, buildMyDay, topPriorities, STALE_LEAD_DAYS, STUCK_BOOKING_DAYS, UPCOMING_DELIVERY_DAYS, FINANCE_WAIT_DAYS } from '../../utils/myDay.js'
 import { followupWindowFilters } from '../../utils/customerFollowups.js'
-import { openAddFollowup } from '../../utils/addFollowupModal.js'
+import { openAddFollowup, offerNextFollowup } from '../../utils/addFollowupModal.js'
 import { touchCustomerContact } from '../../utils/customerContact.js'
 import { lineNameKey } from '../../utils/lineRegistration.js'
 
@@ -290,6 +290,11 @@ export default async function MyDayPage(container) {
             if (fc) fc.lastContactAt = new Date().toISOString()
             f.status = 'done'; f.result = result
             showToast('✅ บันทึกผล Follow-up แล้ว', 'success'); render()
+            offerNextFollowup(fc, result, {
+              me: me.displayName || '',
+              hasPending: data.followups.some(x => x.customerId === f.customerId && x.status === 'pending' && !x.deleted),
+              onSaved: nf => { data.followups.push(nf); render() },
+            })
           } catch { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
         },
       })

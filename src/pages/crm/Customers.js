@@ -24,7 +24,7 @@ import { planLeadImport } from '../../utils/leadImport.js'
 import { scheduleLeadFollowups, closeAutoLeadFollowups } from '../../utils/leadFollowups.js'
 import { pendingFollowupsFor, followupWindowFilters, followupStatusByCustomer, matchFollowupFilter, QUIET_DAYS, quietDays } from '../../utils/customerFollowups.js'
 import { reasonChipsHtml, bindReasonChips } from '../../utils/lostReason.js'
-import { openAddFollowup } from '../../utils/addFollowupModal.js'
+import { openAddFollowup, offerNextFollowup } from '../../utils/addFollowupModal.js'
 import { touchCustomerContact } from '../../utils/customerContact.js'
 import { moveFollowupsOnReassign } from '../../utils/leadAssign.js'
 
@@ -472,6 +472,7 @@ export default async function CustomersPage(container) {
             await updateDocData('followups', f.id, { status: 'done', result })
             touchCustomerContact(f.customerId)
             showToast('✅ บันทึกผลแล้ว', 'success'); refreshFollowupList(c)
+            offerNextFollowup(c, result, { me: myDisplayName, hasPending: list.some(x => x.id !== f.id), onSaved: () => refreshFollowupList(c) })
           } catch { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
         },
       })

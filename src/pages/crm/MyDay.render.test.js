@@ -17,7 +17,7 @@ vi.mock('../../core/hierarchy.js', () => ({ getVisibilityScope: async () => ({ u
 vi.mock('../../core/store.js', () => ({ showToast: () => {}, getState: () => ({ displayName: 'เซลส์ A' }) }))
 vi.mock('../../utils/modal.js', () => ({ openModal: () => {} }))
 vi.mock('../../core/router.js', () => ({ navigate: () => {} }))
-vi.mock('../../utils/addFollowupModal.js', () => ({ openAddFollowup: () => {} }))
+vi.mock('../../utils/addFollowupModal.js', () => ({ openAddFollowup: () => {}, offerNextFollowup: () => {} }))
 vi.mock('../../utils/customerContact.js', () => ({ touchCustomerContact: async () => true }))
 
 const el = () => ({ addEventListener() {}, value: '', disabled: false })
