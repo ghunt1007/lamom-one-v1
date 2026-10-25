@@ -231,6 +231,7 @@ export default async function PipelinePage(container) {
           <div class="page-subtitle" id="pipeline-total">กำลังโหลด...</div>
         </div>
         <div class="page-actions">
+          <button class="btn btn-secondary btn-sm" id="pl-ask-lami" title="ให้ LAMI เลือกดีลที่ควรปิดก่อน">🤖 ดีลไหนควรปิดก่อน</button>
           <button class="btn btn-ghost btn-sm" id="pl-list-btn">📋 List View</button>
           <button class="btn btn-primary" id="pl-add-btn">➕ เพิ่มลูกค้า</button>
         </div>
@@ -255,6 +256,7 @@ export default async function PipelinePage(container) {
   }
 
   document.getElementById('pl-list-btn').addEventListener('click', () => navigate('/crm/customers'))
+  document.getElementById('pl-ask-lami')?.addEventListener('click', () => navigate('/ai/ask?q=' + encodeURIComponent('จากดีลที่กำลังคุยทั้งหมด ดีลไหนควรเร่งปิดภายในสัปดาห์นี้ 3 อันดับแรก เพราะอะไร และควรทำอะไรต่อ?')))
   document.getElementById('pl-add-btn').addEventListener('click', () => navigate('/crm/customers'))
 
   // เซลส์เห็นเฉพาะลูกค้าของตัวเอง/ลูกทีม (นโยบายเดียวกับหน้าลูกค้า) — ผู้บริหาร/เจ้าของเห็นทั้งหมด

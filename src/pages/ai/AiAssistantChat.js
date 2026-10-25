@@ -5,9 +5,9 @@ import { askLami, isAiEnabled } from '../../utils/ai.js'
 import { formatCurrency, todayBangkok, toDateStr } from '../../utils/format.js'
 import { heuristicScore } from './LeadScoring.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
-import { normName } from '../../core/hierarchy.js'
+import { normName, getVisibilityScope, scopeIncludesRecord } from '../../core/hierarchy.js'
 import { buildMyDay, myDayDigest } from '../../utils/myDay.js'
-import { followupWindowFilters } from '../../utils/customerFollowups.js'
+import { followupWindowFilters, quietDays } from '../../utils/customerFollowups.js'
 import { catalogContext, dealValue } from '../../utils/salesAi.js'
 import { businessFacts, stockFacts } from '../../utils/bizFacts.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
@@ -121,6 +121,15 @@ export default async function AiAssistantChatPage(container) {
         const total = open.reduce((s, c) => s + dealValue(c, vs, cache), 0)
         const exp = open.reduce((s, c) => s + dealValue(c, vs, cache) * heuristicScore(c).score / 100, 0)
         businessContext['ดีลที่กำลังคุย (Lead+Prospect)'] = `${open.length} ราย มูลค่ารวม ${formatCurrency(total)} · คาดว่าปิดได้ประมาณ ${formatCurrency(Math.round(exp / 1000) * 1000)} (มูลค่า × โอกาสปิดของแต่ละคน)`
+        // ดีลที่น่าปิดที่สุด (เฉพาะลูกค้าที่ผู้ใช้คนนี้มีสิทธิ์เห็น ตามนโยบายเห็นเฉพาะทีมตัวเอง) — ให้ตอบ "ดีลไหนควรปิดก่อน" ได้
+        const vis = await getVisibilityScope().catch(() => null)
+        const canSee = c => !!vis && (vis.unrestricted || vis.companyOnly || scopeIncludesRecord(vis, c.assignedTo, c))
+        const best = open.filter(canSee).map(c => ({ c, v: dealValue(c, vs, cache), s: heuristicScore(c).score }))
+          .sort((a, b) => b.v * b.s - a.v * a.s).slice(0, 6)
+        if (best.length) businessContext['ดีลที่น่าปิดที่สุด (มูลค่า × โอกาสปิด)'] = best.map(({ c, v, s }) => {
+          const q = quietDays(c, today)
+          return `${c.firstName || 'ลูกค้า'} — ${c.interestedModel || 'ยังไม่รู้รุ่น'} · โอกาสปิด ${s}% · ≈${formatCurrency(v)}${q != null ? ` · ไม่ได้คุย ${q} วัน` : ''}${c.assignedTo ? ` · ผู้ดูแล ${c.assignedTo}` : ''}`
+        }).join('\n')
       } catch {}
       // งานของผู้ใช้คนนี้วันนี้ (เกณฑ์เดียวกับหน้า "งานของฉันวันนี้") — ให้ LAMI ตอบ "วันนี้ควรทำอะไรก่อน" ได้จากข้อมูลจริง
       const myName = getState('user')?.displayName
