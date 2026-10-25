@@ -45,10 +45,23 @@ export function splitFollowups(answer) {
 
 // คำตอบ AI: escape ก่อนเสมอ แล้วค่อยแปลง **ตัวหนา** กับขึ้นบรรทัดใหม่ให้อ่านง่าย (ไม่มี HTML จาก AI หลุดเข้ามา)
 export function formatAiText(t) {
-  return esc(t)
-    .replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>')
-    .replace(/^\s*[*-]\s+/gm, '• ')
-    .replace(/\n/g, '<br>')
+  const bold = x => x.replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>')
+  const cells = l => l.trim().replace(/^\||\|$/g, '').split('|').map(c => bold(c.trim()))
+  // ตาราง Markdown (| a | b |) → ตารางจริง เลื่อนข้างได้ในกรอบตัวเอง อ่านง่ายบนมือถือ
+  const out = [], lines = esc(t).split('\n')
+  for (let i = 0; i < lines.length; i++) {
+    if (/^\s*\|.*\|\s*$/.test(lines[i]) && /^\s*\|?\s*:?-{2,}/.test(lines[i + 1] || '')) {
+      const head = cells(lines[i]); const body = []
+      i += 2
+      while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) body.push(cells(lines[i++]))
+      i--
+      out.push('<div class="ai-tbl"><table><thead><tr>' + head.map(h => `<th>${h}</th>`).join('') + '</tr></thead><tbody>' +
+        body.map(r => '<tr>' + r.map(c => `<td>${c}</td>`).join('') + '</tr>').join('') + '</tbody></table></div>')
+      continue
+    }
+    out.push(bold(lines[i]).replace(/^\s*#{1,4}\s+(.+)$/, '<b>$1</b>').replace(/^\s*[*-]\s+/, '• ') + '\n')
+  }
+  return out.join('').replace(/\n+$/, '').replace(/\n/g, '<br>').replace(/(<\/div>)<br>/g, '$1')
 }
 
 function now() {
@@ -227,16 +240,16 @@ export default async function AiAssistantChatPage(container) {
     container.innerHTML = `
       <style>@keyframes pulse{0%,80%,100%{opacity:.25}40%{opacity:1}}</style>
       <div class="page-content animate-slide" style="display:flex;flex-direction:column;height:calc(100vh - 56px - var(--bottom-nav-h, 0px));padding-bottom:0">
-        <div class="page-header" style="padding-bottom:8px;margin-bottom:0">
-          <div style="display:flex;align-items:center;gap:10px">
+        <div class="page-header lami-head" style="padding-bottom:8px;margin-bottom:0">
+          <div style="display:flex;align-items:center;gap:10px;overflow-x:visible;min-width:0">
             <div style="width:36px;height:36px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:1.3rem">🤖</div>
             <div>
-              <div class="page-title" style="margin:0">LAMI — AI Business Assistant</div>
+              <div class="page-title" style="margin:0">LAMI<span class="hide-sm"> — AI Business Assistant</span><span class="show-sm"> ผู้ช่วย AI</span></div>
               <div style="font-size:0.72rem;color:var(--success);font-weight:600">${isAiEnabled() ? '● พร้อมใช้งาน · ขับเคลื่อนด้วย Gemini AI จริง' : '● Demo Mode · ล็อกอินด้วยบัญชีจริงเพื่อเปิดใช้งาน AI จริง'}</div>
             </div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-secondary btn-sm" id="clear-chat">🗑 ล้างแชท</button>
+            <button class="btn btn-secondary btn-sm" id="clear-chat" title="ล้างแชท">🗑<span class="hide-sm"> ล้างแชท</span></button>
           </div>
         </div>
 

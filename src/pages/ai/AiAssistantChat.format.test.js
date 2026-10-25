@@ -29,3 +29,19 @@ describe('splitFollowups', () => {
     expect(splitFollowups('สวัสดีค่ะ')).toEqual({ text: 'สวัสดีค่ะ', next: [] })
   })
 })
+
+describe('formatAiText tables', () => {
+  it('turns markdown tables into real tables', () => {
+    const h = formatAiText('สรุป\n\n| เซลส์ | ยอด |\n|---|---|\n| **เอ** | 5 |\n| บี | 2 |\nจบ')
+    expect(h).toContain('<div class="ai-tbl"><table><thead><tr><th>เซลส์</th><th>ยอด</th></tr></thead><tbody><tr><td><b>เอ</b></td><td>5</td></tr><tr><td>บี</td><td>2</td></tr></tbody></table></div>')
+    expect(h.startsWith('สรุป<br><br><div')).toBe(true)
+    expect(h.endsWith('</div>จบ')).toBe(true)
+  })
+  it('leaves lone pipes alone and escapes cells', () => {
+    expect(formatAiText('a | b')).toBe('a | b')
+    expect(formatAiText('| <x> |\n|---|\n| y |')).not.toContain('<x>')
+  })
+  it('headings become bold', () => {
+    expect(formatAiText('### หัวข้อ\nข้อความ')).toBe('<b>หัวข้อ</b><br>ข้อความ')
+  })
+})

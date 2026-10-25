@@ -572,3 +572,18 @@
 /* รายละเอียดใบจอง: แถวที่ยังไม่มีข้อมูลจางลง ข้อมูลจริงเด่นขึ้น */
 .d-row.d-empty { opacity: 0.45; }
 @media (max-width: 640px) { .d-row.d-empty { font-size: 0.76rem !important; line-height: 1.5; } }
+
+/* ตารางในคำตอบ LAMI: เลื่อนข้างได้ในกรอบ ไม่ดันจอ */
+.ai-tbl { overflow-x: auto; margin: 6px 0; max-width: 100%; }
+.ai-tbl table { border-collapse: collapse; font-size: 0.8rem; min-width: 100%; }
+.ai-tbl th, .ai-tbl td { padding: 5px 8px; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+.ai-tbl th { color: var(--text-muted); font-weight: 600; font-size: 0.74rem; }
+
+/* ข้อความที่โชว์เฉพาะจอใหญ่/จอเล็ก */
+.show-sm { display: none; }
+@media (max-width: 640px) {
+  .hide-sm { display: none !important; }
+  .show-sm { display: inline; }
+  .lami-head { flex-wrap: nowrap !important; align-items: center; }
+  .lami-head .page-actions { flex-shrink: 0; }
+}
