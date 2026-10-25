@@ -2,6 +2,7 @@
 // ฟังก์ชันล้วน ไม่แตะฐานข้อมูล · ไม่มีชื่อ/เบอร์ลูกค้า (มีแค่ชื่อเซลส์ ซึ่งเป็นข้อมูลภายในทีม)
 import { DELIVERED_STATUSES } from './deliveryIncome.js'
 import { bangkokDate } from './myDay.js'
+import { classifyLostReason, LOST_REASON_LABELS } from './lostReason.js'
 
 const CANCELLED = ['ถอนจอง', 'ยกเลิก']
 const SOURCE_TH = { facebook: 'Facebook', line: 'LINE', tiktok: 'TikTok', 'walk-in': 'Walk-in', referral: 'แนะนำ', google: 'Google', website: 'เว็บไซต์', phone: 'โทรเข้า', other: 'อื่นๆ' }
@@ -36,10 +37,18 @@ export function businessFacts({ customers = [], bookings = [] }, today) {
     .map(([k, v]) => `${k} ${v.n} ราย ปิดเป็นใบจอง ${v.won} (${Math.round(v.won / v.n * 100)}%)`).join(' · ')
 
   const stage = s => cs.filter(c => c.stage === s && !c.isLost).length
+  // เหตุผลเสียดีล 90 วันล่าสุด (ตามวันที่กดเสียดีล) — ให้ LAMI ตอบได้ว่า "ทำไมเสียดีล ควรแก้อะไร"
+  const lostWhy = {}
+  cs.filter(c => c.isLost && (bangkokDate(c.lostAt) || bangkokDate(c.updatedAt)) >= since).forEach(c => {
+    const k = LOST_REASON_LABELS[classifyLostReason(c.lostReason)] || 'อื่นๆ'
+    lostWhy[k] = (lostWhy[k] || 0) + 1
+  })
+  const lostLine = Object.entries(lostWhy).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(' · ')
   return {
     'ใบจองเดือนนี้ (จากระบบจองรถ)': `จอง ${booked(ym).length} ใบ (เดือนก่อน ${booked(pm).length}) · ส่งมอบ/ตัดตัวเลข ${delivered(ym).length} คัน (เดือนก่อน ${delivered(pm).length})${cancelled ? ` · ถอนจองเดือนนี้ ${cancelled}` : ''}`,
     ...(perLine ? { 'ผลงานรายเซลส์เดือนนี้': perLine } : {}),
     ...(srcLine ? { 'Lead 90 วันล่าสุดแยกตามที่มา': srcLine } : {}),
+    ...(lostLine ? { 'เหตุผลเสียดีล 90 วันล่าสุด': lostLine } : {}),
     'ลูกค้าในแต่ละขั้น': `Lead ${stage('lead')} · Prospect ${stage('pp')} · จองแล้ว ${stage('booking')} · เสียดีล ${cs.filter(c => c.isLost).length}`,
   }
 }

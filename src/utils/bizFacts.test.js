@@ -13,7 +13,7 @@ describe('businessFacts', () => {
   const customers = [
     { source: 'facebook', stage: 'booking', createdAt: '2026-10-01' },
     { source: 'facebook', stage: 'lead', createdAt: '2026-10-03' },
-    { source: 'walk-in', stage: 'pp', createdAt: '2026-10-04', isLost: true },
+    { source: 'walk-in', stage: 'pp', createdAt: '2026-10-04', isLost: true, lostAt: '2026-10-08', lostReason: 'ไฟแนนซ์ไม่ผ่าน - งานอิสระ' },
     { source: 'line', stage: 'lead', createdAt: '2025-01-01' },
   ]
   const f = businessFacts({ customers, bookings }, today)
@@ -28,5 +28,8 @@ describe('businessFacts', () => {
   })
   it('stage counts skip lost deals', () => {
     expect(f['ลูกค้าในแต่ละขั้น']).toBe('Lead 2 · Prospect 0 · จองแล้ว 1 · เสียดีล 1')
+  })
+  it('summarises lost reasons', () => {
+    expect(f['เหตุผลเสียดีล 90 วันล่าสุด']).toBe('ไฟแนนซ์ไม่ผ่าน 1')
   })
 })
