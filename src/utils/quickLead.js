@@ -76,6 +76,22 @@ function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
+// เพิ่ม Lead ที่มีเบอร์แล้ว → ชวนโทรทันที (โทรภายในไม่กี่นาทีโอกาสปิดสูงกว่ามาก) · กลับมาที่แอประบบถามผลการโทรให้
+function offerCallNow(c) {
+  const tel = String(c.phone).replace(/[^\d+]/g, '')
+  if (!tel) return
+  const { el, close } = openModal({
+    title: `📞 โทรหา ${escHtml(c.firstName || 'ลูกค้า')} ตอนนี้เลยไหม?`, size: 'sm',
+    body: `<div style="font-size:0.85rem;line-height:1.6">ยิ่งโทรเร็วตอนลูกค้ายังสนใจอยู่ โอกาสปิดการขายยิ่งสูง<br><span style="color:var(--text-muted);font-size:0.76rem">โทรเสร็จกลับมาที่แอป ระบบจะถามผลการโทรให้บันทึก</span></div>`,
+    footer: `<button class="btn btn-secondary" id="qc-later">ไว้ทีหลัง</button><a class="btn btn-primary" id="qc-call" href="tel:${escHtml(tel)}">📞 โทรเลย ${escHtml(tel)}</a>`,
+  })
+  el.querySelector('#qc-later').addEventListener('click', close)
+  el.querySelector('#qc-call').addEventListener('click', async () => {
+    try { const { armCallLog } = await import('./callLogger.js'); armCallLog(c, { hasPending: () => true }) } catch {}
+    setTimeout(close, 300)
+  })
+}
+
 export function openQuickLead() {
   const me = getState('user') || {}
   let source = 'walk-in'
@@ -184,7 +200,11 @@ export function openQuickLead() {
         $('ql-hot').checked = false
         $('ql-dup').textContent = ''; $('ql-name-e').textContent = ''
         $('ql-name').focus()
-      } else close()
+      } else {
+        close()
+        // ลูกค้า Walk-in อยู่ที่โชว์รูมแล้ว และคอมพิวเตอร์โทรออกไม่ได้ → ชวนโทรเฉพาะบนมือถือ
+        if (doc.phone && doc.source !== 'walk-in' && window.matchMedia?.('(pointer: coarse)').matches) offerCallNow({ ...doc, id })
+      }
     } catch {
       showToast('บันทึกไม่สำเร็จ', 'error')
     } finally { btns.forEach(b => { b.disabled = false }) }
