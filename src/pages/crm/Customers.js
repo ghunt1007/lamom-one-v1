@@ -21,6 +21,7 @@ import { flatMonthly } from '../../utils/installment.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 import { maskContacts } from '../../utils/leadText.js'
 import { enhanceMics } from '../../utils/micInput.js'
+import { matchesSearch } from '../../utils/customerSearch.js'
 import { heuristicScore } from '../../utils/leadScore.js'
 import { OCCUPATIONS } from '../../utils/financeMatch.js'
 import { openQuickLead, findDuplicate } from '../../utils/quickLead.js'
@@ -172,10 +173,7 @@ export default async function CustomersPage(container) {
     // startWatchCustomers()) — ไม่ต้องกรองซ้ำที่นี่อีก
     const today = todayBangkok()
     filtered = customers.filter(c => {
-      const name = fullName(c).toLowerCase()
-      const matchSearch = !search || name.includes(search) ||
-        (c.phone || '').includes(search) || (c.lineId || '').toLowerCase().includes(search) ||
-        (c.interestedModel || '').toLowerCase().includes(search)
+      const matchSearch = matchesSearch(c, search, fullName)
       const matchStage = stageFilter === 'all' || c.stage === stageFilter
       const matchLost = !lostOnly || c.isLost
       // '__none' = ลูกค้าที่ยังไม่มีผู้ดูแล (เช่น ทัก LINE OA เข้ามาเอง) — มอบให้เซลส์ได้ที่หน้า "งานของฉันวันนี้"
@@ -1067,7 +1065,7 @@ export default async function CustomersPage(container) {
         <div class="cust-filters" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
           <div style="position:relative;flex:1;min-width:200px">
             <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted)">🔍</span>
-            <input class="input" id="cust-search" placeholder="ค้นหาชื่อ เบอร์โทร LINE รถที่สนใจ..." style="padding-left:32px">
+            <input class="input" id="cust-search" placeholder="ค้นหาชื่อ เบอร์ LINE รุ่นรถ เซลส์ (หลายคำได้ เช่น s07 สมชาย)" style="padding-left:32px">
           </div>
           <select class="input" id="cust-sales-filter" style="width:auto;min-width:140px" title="กรองตามผู้ดูแล">
             <option value="">👤 ผู้ดูแลทั้งหมด</option>
