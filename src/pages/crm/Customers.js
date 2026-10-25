@@ -257,6 +257,7 @@ export default async function CustomersPage(container) {
                 <div class="avatar avatar-xl" style="background:${avatarColor(c)};color:#fff;font-size:1.4rem">${escHtml(initials(c.firstName, c.lastName))}</div>
                 <div>
                   <div style="font-size:1.2rem;font-weight:700">${escHtml(fullName(c))}${c.vip ? ' ⭐' : ''}</div>
+                  ${!c.isLost && ['lead', 'pp'].includes(c.stage) ? (sc => `<div title="${escHtml(sc.signals.join('\n'))}" style="font-size:0.72rem;color:var(--text-muted);margin-top:2px">🎯 โอกาสปิดการขาย <b style="color:${sc.score >= 80 ? 'var(--danger)' : sc.score >= 60 ? 'var(--warning)' : 'var(--text-2)'}">${sc.score}%</b></div>`)(heuristicScore(c)) : ''}
                   <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">
                     <span class="badge badge-${STAGE[c.stage]?.badge || 'secondary'}">${STAGE[c.stage]?.label || escHtml(c.stage)}</span>
                     ${!c.isLost && ['lead', 'pp'].includes(c.stage)
@@ -531,7 +532,7 @@ export default async function CustomersPage(container) {
     el.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
         <span style="font-weight:600;font-size:0.85rem">🧭 คำแนะนำการติดตาม</span>
-        <button class="btn btn-ghost btn-xs" id="wk-ai-analyze-btn">🤖 AI ช่วยปิดการขาย</button>
+        <button class="btn btn-primary btn-xs" id="wk-ai-analyze-btn" style="background:linear-gradient(135deg,#8B5CF6,#3B82F6);border:none;box-shadow:0 2px 10px rgba(99,102,241,.35)">✨ AI ช่วยปิดการขาย</button>
       </div>
       <div class="card" style="padding:12px 14px;border-left:3px solid var(--${u.badge})">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
