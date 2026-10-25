@@ -34,7 +34,7 @@ describe('businessFacts', () => {
   })
 })
 
-import { stockFacts } from './bizFacts.js'
+import { stockFacts, testDriveFacts } from './bizFacts.js'
 describe('stockFacts', () => {
   it('groups ready cars by model and colour', () => {
     const f = stockFacts([
@@ -49,5 +49,32 @@ describe('stockFacts', () => {
   })
   it('empty stock', () => {
     expect(stockFacts([])['รถพร้อมขายในสต็อก (แยกรุ่น/สี)']).toBe('0 คัน')
+  })
+})
+
+describe('testDriveFacts', () => {
+  const today = '2026-10-26'
+  it('นัด 7 วันข้างหน้า เรียงตามเวลา ใช้ชื่อต้น ไม่มีเบอร์', () => {
+    const f = testDriveFacts([
+      { date: '2026-10-28', time: '14:00', customerName: 'สมชาย ใจดี', phone: '0812345678', model: 'S07', status: 'scheduled' },
+      { date: '2026-10-26', time: '10:00', customerName: 'วิภา', model: 'L07', staff: 'เอ', status: 'scheduled' },
+      { date: '2026-11-10', time: '10:00', customerName: 'ไกล', status: 'scheduled' },
+      { date: '2026-10-27', time: '09:00', customerName: 'ยกเลิก', status: 'cancelled' },
+    ], today)
+    const v = f['นัดทดลองขับ 7 วันข้างหน้า']
+    expect(v.startsWith('2 นัด')).toBe(true)
+    expect(v.indexOf('วิภา')).toBeLessThan(v.indexOf('สมชาย'))
+    expect(v).toContain('วันนี้ 10:00')
+    expect(v).not.toContain('ใจดี')
+    expect(v).not.toContain('0812345678')
+  })
+  it('อัตราลองขับแล้วจอง', () => {
+    const f = testDriveFacts([
+      { date: '2026-10-01', status: 'done', result: 'booked' },
+      { date: '2026-10-02', status: 'done', result: 'interested' },
+      { date: '2026-05-01', status: 'done', result: 'booked' },
+    ], today)
+    expect(f['ทดลองขับแล้วจอง (90 วันล่าสุด)']).toBe('ลองขับ 2 ครั้ง จองแล้ว 1 ครั้ง (50%)')
+    expect(testDriveFacts([], today)['นัดทดลองขับ 7 วันข้างหน้า']).toBe('ยังไม่มีนัด')
   })
 })

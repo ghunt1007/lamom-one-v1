@@ -68,3 +68,21 @@ export function stockFacts(vehicles = []) {
     .map(([m, cs]) => `${m}: ${Object.entries(cs).map(([c, n]) => `${c} ${n}`).join(', ')}`).join(' · ')
   return { 'รถพร้อมขายในสต็อก (แยกรุ่น/สี)': `${ready.length} คัน${line ? ` — ${line}` : ''}${transit ? ` · กำลังขนส่งมา ${transit} คัน` : ''}` }
 }
+
+// นัดทดลองขับ 7 วันข้างหน้า + ลองขับแล้วจองกี่ % (90 วันล่าสุด) — ให้ LAMI ตอบ "สัปดาห์นี้มีใครมาลองขับ" ได้
+// ใช้แค่ชื่อต้น ไม่ส่งเบอร์โทรออกไป
+export function testDriveFacts(tds = [], today) {
+  const DAY = 86400000
+  const add = n => new Date(Date.parse(today + 'T00:00:00Z') + n * DAY).toISOString().slice(0, 10)
+  const live = tds.filter(t => t && !t.deleted && t.date)
+  const until = add(7), since = add(-90)
+  const up = live.filter(t => t.date >= today && t.date <= until && !['done', 'cancelled', 'no_show'].includes(t.status))
+    .sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')))
+  const first = n => String(n || 'ลูกค้า').trim().split(/\s+/)[0]
+  const list = up.slice(0, 10).map(t => `${t.date === today ? 'วันนี้' : t.date} ${t.time || ''} · ${first(t.customerName)} · ${t.model || 'ไม่ระบุรุ่น'}${t.staff ? ` · ${t.staff}` : ''}`.replace(/\s+·/g, ' ·')).join('\n')
+  const done = live.filter(t => t.date >= since && t.date <= today && t.status === 'done')
+  const booked = done.filter(t => t.result === 'booked').length
+  const out = { 'นัดทดลองขับ 7 วันข้างหน้า': up.length ? `${up.length} นัด\n${list}` : 'ยังไม่มีนัด' }
+  if (done.length) out['ทดลองขับแล้วจอง (90 วันล่าสุด)'] = `ลองขับ ${done.length} ครั้ง จองแล้ว ${booked} ครั้ง (${Math.round(booked / done.length * 100)}%)`
+  return out
+}

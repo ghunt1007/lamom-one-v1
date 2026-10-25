@@ -9,7 +9,7 @@ import { normName, getVisibilityScope, scopeIncludesRecord } from '../../core/hi
 import { buildMyDay, myDayDigest } from '../../utils/myDay.js'
 import { followupWindowFilters, quietDays } from '../../utils/customerFollowups.js'
 import { catalogContext, dealValue } from '../../utils/salesAi.js'
-import { businessFacts, stockFacts } from '../../utils/bizFacts.js'
+import { businessFacts, stockFacts, testDriveFacts } from '../../utils/bizFacts.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 
 function esc(s) {
@@ -21,6 +21,7 @@ const CATEGORIES = [
   { label:'🎯 ช่วยปิดการขาย', q:'จากงานของฉันวันนี้ ลูกค้าคนไหนมีโอกาสปิดการขายสูงสุด และควรพูดอะไรกับเขา?' },
   { label:'🚗 เทียบรุ่นรถ', q:'Deepal S05 กับ S07 ต่างกันยังไง เหมาะกับลูกค้าแบบไหน?' },
   { label:'🏆 ผลงานทีม', q:'เดือนนี้ใครจอง/ส่งมอบได้มากสุด เทียบกับเดือนก่อนเป็นยังไง และ Lead จากช่องทางไหนปิดได้ดีที่สุด?' },
+  { label:'🚙 นัดลองขับ', q:'สัปดาห์นี้มีนัดทดลองขับกี่นัด ใครบ้าง ควรเตรียมอะไร และที่ผ่านมาลองขับแล้วจองกี่เปอร์เซ็นต์?' },
   { label:'💔 ทำไมเสียดีล', q:'ช่วง 3 เดือนที่ผ่านมาเราเสียดีลเพราะอะไรมากที่สุด และควรแก้อะไรเป็นอันดับแรก?' },
   { label:'📊 ยอดขาย', q:'ยอดขายเดือนนี้เท่าไหร่?' },
   { label:'📦 สต็อก', q:'สต็อกรถเหลือกี่คัน?' },
@@ -75,7 +76,7 @@ export default async function AiAssistantChatPage(container) {
     try {
       const today = todayBangkok()
       const thisMonth = today.slice(0, 7)
-      const [sales, vehicles, customers, debts, csat, staff, jobs, followups, bookings] = await Promise.all([
+      const [sales, vehicles, customers, debts, csat, staff, jobs, followups, bookings, testDrives] = await Promise.all([
         getSalesData().catch(() => []),
         listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 500).catch(() => []),
         listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
@@ -85,6 +86,7 @@ export default async function AiAssistantChatPage(container) {
         listDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
         listDocs('followups', [...companyScopeFilters(), ...followupWindowFilters(today)], 'dueDate', 'asc', 1000).catch(() => []),
         listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
+        listDocs('test_drives', companyScopeFilters(), 'date', 'desc', 300).catch(() => []),
       ])
       const monthSales = sales.filter(s => (s.date || '').startsWith(thisMonth))
       // totalIncome ต่อใบจอง = กำไรสุทธิจริง (แพทเทิร์นเดียวกับ Margin.js/Commission.js/MarketingROI.js
@@ -113,6 +115,7 @@ export default async function AiAssistantChatPage(container) {
         'พนักงานที่ยังทำงานอยู่': `${activeStaff} คน`,
         ...businessFacts({ customers, bookings }, today),
         ...stockFacts(vehicles),
+        ...testDriveFacts(testDrives, today),
       }
       // มูลค่าดีลที่กำลังคุย และยอดที่คาดว่าปิดได้ (มูลค่า × โอกาสปิด) — สูตรเดียวกับหน้า Pipeline
       try {
@@ -135,7 +138,7 @@ export default async function AiAssistantChatPage(container) {
       const myName = getState('user')?.displayName
       if (myName) {
         const mine = n => normName(n) === normName(myName)
-        const d = buildMyDay({ customers, followups, bookings, testDrives: [] }, { today, mine })
+        const d = buildMyDay({ customers, followups, bookings, testDrives }, { today, mine })
         businessContext[`งานของ ${myName} วันนี้`] = myDayDigest(d)
         welcomeStats.todo = d.total
       }
