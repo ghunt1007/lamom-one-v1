@@ -338,7 +338,8 @@ export async function generateMorningBriefing(context = {}) {
     agingStock = 0, revenueThisMonth = 0, targetPct = null,
   } = context
 
-  const prompt = `สร้างสรุปสถานการณ์ประจำวันเช้าของโชว์รูมรถ EV จากข้อมูลจริงต่อไปนี้:
+  const h = bangkokHour()
+  const prompt = `สร้างสรุปสถานการณ์ประจำวันของโชว์รูมรถ EV ตอนนี้เวลา ${h}:00 น. (${h < 12 ? 'ช่วงเช้า เน้นวางแผนวันนี้' : h < 17 ? 'ช่วงบ่าย เน้นสิ่งที่ยังทันทำวันนี้' : 'ช่วงเย็น เน้นสิ่งที่ควรปิดก่อนจบวันและเตรียมพรุ่งนี้'} ทักทายให้ตรงช่วงเวลา) จากข้อมูลจริงต่อไปนี้:
 - นัดหมาย/ส่งมอบวันนี้: ${todayCount} รายการ
 - ใบจองค้างสถานะเกิน 14 วัน: ${stuckBookings} ใบ
 - งานซ่อมค้างเกิน 7 วัน: ${overdueJobs} งาน
@@ -369,6 +370,10 @@ export async function generateMorningBriefing(context = {}) {
   }
 }
 
+// ชั่วโมงตามเวลาไทย (ไม่ขึ้นกับ timezone ของเครื่อง) และคำทักทายตามช่วงเวลา
+export function bangkokHour(now = Date.now()) { return new Date(now + 7 * 3600e3).getUTCHours() }
+export function thaiGreeting(h) { return h < 12 ? 'อรุณสวัสดิ์' : h < 17 ? 'สวัสดีตอนบ่าย' : 'สวัสดีตอนเย็น' }
+
 function generateFallbackBriefing(context = {}) {
   const {
     todayCount = 0, stuckBookings = 0, overdueJobs = 0, staleLeads = 0,
@@ -377,8 +382,8 @@ function generateFallbackBriefing(context = {}) {
 
   const openItems = stuckBookings + overdueJobs + staleLeads + agingStock
   const opening = todayCount > 0
-    ? `อรุณสวัสดิ์ครับ วันนี้มีนัดหมาย/รายการส่งมอบ ${todayCount} รายการที่ต้องติดตาม`
-    : `อรุณสวัสดิ์ครับ วันนี้ยังไม่มีนัดหมายหรือส่งมอบที่ตั้งไว้`
+    ? `${thaiGreeting(bangkokHour())}ครับ วันนี้มีนัดหมาย/รายการส่งมอบ ${todayCount} รายการที่ต้องติดตาม`
+    : `${thaiGreeting(bangkokHour())}ครับ วันนี้ยังไม่มีนัดหมายหรือส่งมอบที่ตั้งไว้`
   const targetLine = targetPct !== null
     ? ` ยอดขายเดือนนี้อยู่ที่ ${targetPct}% ของเป้าหมาย`
     : (revenueThisMonth > 0 ? ` มูลค่าใบจองสะสมเดือนนี้ ฿${Math.round(revenueThisMonth).toLocaleString()}` : '')

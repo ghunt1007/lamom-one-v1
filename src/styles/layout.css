@@ -448,3 +448,9 @@
   #quick-lead-btn { display: none; }
   .topbar-search-btn { display: flex; }
 }
+
+/* Dashboard: สรุปของ LAMI บนมือถือ — ปุ่มลงไปอยู่บรรทัดล่าง ข้อความได้เต็มความกว้าง */
+@media (max-width: 640px) {
+  .dash-briefing { flex-wrap: wrap; }
+  .dash-briefing-actions { flex-direction: row !important; width: 100%; justify-content: flex-end; }
+}

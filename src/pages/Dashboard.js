@@ -113,6 +113,8 @@ export default async function DashboardPage(container) {
   // (v1.0.353) รองรับหลายภาษา — เฉพาะส่วน "เปลือก" ของหน้านี้ (คำทักทาย/ปุ่ม) เท่านั้น เนื้อหา KPI/กราฟ/
   // สถานะต่างๆด้านในยังเป็นภาษาไทยล้วน (เป็นเนื้อหาเชิงลึกของหน้า ไม่ใช่ขอบเขต "เมนู/ส่วนกลาง" ที่ตกลงกันไว้)
   const greeting = hour < 12 ? t('greetingMorning') : hour < 17 ? t('greetingAfternoon') : t('greetingEvening')
+  const briefIcon = hour < 12 ? '🌅' : hour < 17 ? '☀️' : '🌙'
+  const briefLabel = hour < 12 ? 'สรุปเช้านี้' : hour < 17 ? 'สรุประหว่างวัน' : 'สรุปวันนี้'
 
   // Quick Access เดิมโชว์ทุกโมดูลให้ทุก role เหมือนกันหมด ทั้งที่ Sidebar กรองเมนูตามสิทธิ์โมดูล (hasModuleAccess)
   // อยู่แล้ว ทำให้พนักงานบางคนเห็น shortcut ที่กดแล้วถูกบล็อกทันที (ไม่ตรงกับสิทธิ์จริง) แก้ให้กรองด้วยระบบเดียวกัน
@@ -155,16 +157,16 @@ export default async function DashboardPage(container) {
       </div>
 
       <!-- Morning Briefing: สรุปเชิงรุกทุกเช้าจากข้อมูลจริง แคชไว้ต่อวัน/ผู้ใช้ -->
-      <div style="display:flex;align-items:flex-start;gap:12px;background:var(--primary-dim);border:1px solid var(--primary);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:20px">
-        <span style="font-size:1.5rem;flex-shrink:0">🌅</span>
+      <div class="dash-briefing" style="display:flex;align-items:flex-start;gap:12px;background:var(--primary-dim);border:1px solid var(--primary);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:20px">
+        <span style="font-size:1.5rem;flex-shrink:0">${briefIcon}</span>
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px">
-            <span style="font-size:0.72rem;color:var(--primary);font-weight:700">LAMI — Morning Briefing</span>
+            <span style="font-size:0.72rem;color:var(--primary);font-weight:700">LAMI — ${briefLabel}</span>
             <span id="briefing-time" style="font-size:0.64rem;color:var(--text-muted);font-family:'Share Tech Mono',monospace"></span>
           </div>
           <div id="briefing-text" style="font-size:0.875rem;color:var(--text-2);line-height:1.6;white-space:pre-line;min-height:1.3em">กำลังวิเคราะห์ข้อมูลเช้านี้...</div>
         </div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
+        <div class="dash-briefing-actions" style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
           <button class="btn btn-ghost btn-sm" id="briefing-regen" title="สร้างสรุปใหม่จากข้อมูลล่าสุด">🔄 สร้างใหม่</button>
           <button class="btn btn-ghost btn-sm" data-nav="/ai/personal">คุยกับ LAMI →</button>
         </div>
