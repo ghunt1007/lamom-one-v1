@@ -33,7 +33,7 @@ import { reasonChipsHtml, bindReasonChips } from '../../utils/lostReason.js'
 import { openAddFollowup, offerNextFollowup } from '../../utils/addFollowupModal.js'
 import { touchCustomerContact } from '../../utils/customerContact.js'
 import { armCallLog } from '../../utils/callLogger.js'
-import { openTestDriveForm, loadUpcomingTestDrive, loadTestDrivesFor } from '../../utils/testDriveForm.js'
+import { openTestDriveForm, loadUpcomingTestDrive, loadTestDrivesFor, mentionsTestDrive } from '../../utils/testDriveForm.js'
 import { moveFollowupsOnReassign } from '../../utils/leadAssign.js'
 
 const pendingFuCount = new WeakMap() // ลูกค้า → จำนวนนัดค้าง (ใช้ตัดสินว่าควรเสนอนัดครั้งถัดไปหลังโทรไหม)
@@ -677,6 +677,7 @@ export default async function CustomersPage(container) {
             <textarea class="input" id="wk-ai-line" rows="3" style="width:100%;margin-top:3px;font-size:0.8rem">${escHtml(r.lineMessage)}</textarea>` : ''}
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
             ${r.lineMessage ? `<button class="btn btn-primary btn-xs" id="wk-ai-copy">📋 คัดลอกข้อความ</button>` : ''}
+            ${!c.isLost && mentionsTestDrive(r.nextAction + ' ' + (r.when || '')) ? `<button class="btn btn-secondary btn-xs" id="wk-ai-td">🚙 นัดทดลองขับเลย</button>` : ''}
             ${!c.isLost && r.followUpDays !== null ? `<button class="btn btn-secondary btn-xs" id="wk-ai-plan">📅 นัดตามที่ AI แนะนำ (${r.followUpDays === 0 ? 'วันนี้' : `อีก ${r.followUpDays} วัน`})</button>` : ''}
           </div>
         </div>`
@@ -684,6 +685,8 @@ export default async function CustomersPage(container) {
           const text = box.querySelector('#wk-ai-line')?.value || r.lineMessage
           try { await navigator.clipboard.writeText(text); showToast('📋 คัดลอกแล้ว วางใน LINE ได้เลย', 'success') } catch { showToast('คัดลอกไม่สำเร็จ — กดค้างที่ข้อความแล้วคัดลอกเอง', 'warning') }
         })
+        // AI แนะนำให้ชวนลองขับ → เปิดฟอร์มนัดที่เติมวันจากคำแนะนำ (เช่น "พรุ่งนี้" "เสาร์นี้") ให้เลย
+        box.querySelector('#wk-ai-td')?.addEventListener('click', () => openTestDriveForm(c, { hint: `ลองขับ ${r.when || ''}` }))
         box.querySelector('#wk-ai-plan')?.addEventListener('click', () => openAddFollowup(c, {
           me: myDisplayName, dueDate: addDaysIso(today, r.followUpDays), type: r.channel, note: r.nextAction.slice(0, 120),
           onSaved: () => refreshFollowupList(c),
