@@ -8,7 +8,7 @@ export function maskContacts(text) {
 
 export function parseLeadText(text, models = []) {
   const t = String(text || '')
-  const out = { contact: '', model: '', source: '', hot: false }
+  const out = { contact: '', model: '', source: '', hot: false, name: '' }
   const ph = t.match(PHONE_RE)
   if (ph) {
     let d = ph[0].replace(/\D/g, '')
@@ -18,10 +18,16 @@ export function parseLeadText(text, models = []) {
     const line = t.match(/(@[\w.\-]{3,})/) || t.match(/(?:ไลน์|line\s*id|line)\s*[:：]?\s*([a-z0-9][\w.\-]{2,})/i)
     if (line) out.contact = line[1]
   }
+  // ชื่อที่บอกชัดๆ ("คุณสมชาย 08x..." / "ชื่อ วิภา ค่ะ") — ต้องมีช่องว่าง/ตัวเลข/คำลงท้ายตามหลัง กันกินคำอื่นติดมา
+  const nm = t.match(/(?:คุณ|ชื่อ)\s*([ก-๙a-zA-Z]{2,20}?)(?=\s|\d|$|[,.!?]|ค่ะ|คะ|ครับ|นะ)/)
+  if (nm && !/^(ลูกค้า|ครับ|ค่ะ)$/.test(nm[1])) out.name = nm[1]
   const low = t.toLowerCase()
   const hit = [...models].sort((a, b) => b.length - a.length).find(m => m && low.includes(String(m).toLowerCase()))
-  if (hit) out.model = hit
-  if (/facebook|เฟส|fb\b|เพจ/i.test(t)) out.source = 'facebook'
+  // พูด/พิมพ์แค่ชื่อรุ่นไม่มียี่ห้อ (เช่น "สนใจ S05") ก็ยังจับรุ่นเต็ม "DEEPAL S05" ได้
+  const tail = m => String(m).trim().split(/\s+/).slice(1).join(' ').toLowerCase()
+  const hit2 = hit || [...models].filter(m => tail(m).length >= 3).sort((a, b) => tail(b).length - tail(a).length).find(m => low.includes(tail(m)))
+  if (hit2) out.model = hit2
+  if (/facebook|เฟส|เฟซ|fb\b|เพจ/i.test(t)) out.source = 'facebook'
   else if (/tiktok|ติ๊กต็อก|ติ๊กตอก/i.test(t)) out.source = 'tiktok'
   else if (/ไลน์|line/i.test(t)) out.source = 'line'
   else if (/แนะนำ|เพื่อนบอก|ญาติบอก/.test(t)) out.source = 'referral'

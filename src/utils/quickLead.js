@@ -93,9 +93,10 @@ export function openQuickLead() {
     body: `
       <div style="display:flex;flex-direction:column;gap:12px">
         <details id="ql-paste-box" style="border:1px dashed var(--border);border-radius:10px;padding:8px 10px">
-          <summary style="cursor:pointer;font-size:0.82rem;font-weight:600">📋 วางข้อความแชทลูกค้า ให้ช่วยกรอกให้</summary>
-          <textarea class="input" id="ql-paste" rows="3" style="margin-top:8px;width:100%;font-size:16px" placeholder="ก๊อปข้อความจาก Facebook / LINE / TikTok มาวางที่นี่"></textarea>
+          <summary style="cursor:pointer;font-size:0.82rem;font-weight:600">📋 วางแชทลูกค้า หรือ 🎤 พูดบอก ให้ช่วยกรอกให้</summary>
+          <textarea class="input" id="ql-paste" rows="3" style="margin-top:8px;width:100%;font-size:16px" placeholder="ก๊อปข้อความจาก Facebook / LINE / TikTok มาวาง หรือกด 🎤 แล้วพูด เช่น &quot;คุณสมชาย 0812345678 สนใจ S05 มาจากเฟซบุ๊ก&quot;"></textarea>
           <button type="button" class="btn btn-primary btn-sm" id="ql-fill" style="margin-top:6px;background:linear-gradient(135deg,#8B5CF6,#3B82F6);border:none">✨ กรอกให้</button>
+          <button type="button" class="btn btn-secondary btn-sm" id="ql-mic" style="margin-top:6px" title="พูดแทนพิมพ์">🎤 พูด</button>
           <span id="ql-fill-msg" style="font-size:0.72rem;color:var(--text-muted);margin-left:6px"></span>
         </details>
         <div class="input-group"><label class="input-label">ชื่อลูกค้า <span class="required">*</span></label><input class="input" id="ql-name" placeholder="เช่น สมชาย ใจดี" autocomplete="off"><span class="input-error" id="ql-name-e"></span></div>
@@ -119,6 +120,22 @@ export function openQuickLead() {
     $('ql-dup').textContent = dup ? `⚠️ เบอร์/LINE นี้มีในระบบแล้ว: ${[dup.firstName, dup.lastName].filter(Boolean).join(' ')}${dup.assignedTo ? ` (ผู้ดูแล ${dup.assignedTo})` : ''}` : ''
   })
 
+  // 🎤 พูดข้อมูลลูกค้า (Chrome/Android รองรับภาษาไทย) — พูดจบแล้วกรอกให้ทันที; เครื่องที่ไม่รองรับซ่อนปุ่ม
+  let rec = null
+  $('ql-mic').addEventListener('click', async () => {
+    if (rec) { try { rec.stop() } catch {} return }
+    const { createSTT } = await import('./voice.js')
+    rec = createSTT({
+      onInterim: t => { $('ql-fill-msg').textContent = '🎙️ ' + t },
+      onFinal: t => { $('ql-paste').value = [$('ql-paste').value.trim(), t].filter(Boolean).join(' '); $('ql-fill').click() },
+      onEnd: () => { rec = null; $('ql-mic').textContent = '🎤 พูด' },
+      onError: () => { rec = null; $('ql-mic').textContent = '🎤 พูด'; $('ql-fill-msg').textContent = 'ไม่ได้ยินเสียง ลองใหม่อีกครั้ง' },
+    })
+    if (!rec) { $('ql-mic').style.display = 'none'; $('ql-fill-msg').textContent = 'เครื่องนี้ยังพูดแทนพิมพ์ไม่ได้ ใช้วางข้อความแทนนะ'; return }
+    $('ql-mic').textContent = '⏹ หยุด'; $('ql-fill-msg').textContent = '🎙️ กำลังฟัง...'
+    try { rec.start() } catch { rec = null; $('ql-mic').textContent = '🎤 พูด' }
+  })
+
   let pastedNote = ''
   $('ql-fill').addEventListener('click', async () => {
     const text = $('ql-paste').value.trim()
@@ -129,8 +146,9 @@ export function openQuickLead() {
     if (r.model && !$('ql-model').value) $('ql-model').value = r.model
     if (r.source) el.querySelector(`.ql-src[data-k="${r.source}"]`)?.click()
     if (r.hot) $('ql-hot').checked = true
+    if (r.name && !$('ql-name').value) $('ql-name').value = r.name
     pastedNote = text.slice(0, 500)
-    const found = [r.contact && 'เบอร์/LINE', r.model && 'รุ่นรถ', r.source && 'ที่มา', r.hot && 'สนใจมาก'].filter(Boolean)
+    const found = [r.name && 'ชื่อ', r.contact && 'เบอร์/LINE', r.model && 'รุ่นรถ', r.source && 'ที่มา', r.hot && 'สนใจมาก'].filter(Boolean)
     $('ql-fill-msg').textContent = found.length ? `เจอ: ${found.join(', ')}` : 'ไม่เจอเบอร์/รุ่นในข้อความ'
     if (!$('ql-name').value) $('ql-name').focus()
     // ชื่อลูกค้า/รุ่นที่สะกดแปลกๆ ให้ AI ช่วยอ่าน (ปิดเบอร์โทร/LINE ก่อนส่ง) — ไม่ได้ล็อกอินจริงก็ข้ามไป
