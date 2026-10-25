@@ -146,7 +146,12 @@ export function openGlobalSearch() {
     if (!q) { renderEmpty(); return }
 
     const terms = q.split(/\s+/)
-    const matchAll = txt => { const t = norm(txt); return terms.every(term => t.includes(term)) }
+    // เบอร์โทร: พิมพ์ "081-234" หรือ "081 234 5678" ก็เจอ 0812345678 (ตัดขีด/เว้นวรรคออกก่อนเทียบ)
+    const isPhoneTerm = term => /^[\d\-+().]{3,}$/.test(term)
+    const matchAll = txt => {
+      const t = norm(txt), squeezed = t.replace(/[\s\-().]/g, '')
+      return terms.every(term => t.includes(term) || (isPhoneTerm(term) && squeezed.includes(term.replace(/\D/g, ''))))
+    }
 
     const results = []
 
