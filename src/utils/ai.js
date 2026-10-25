@@ -23,6 +23,8 @@ const SYSTEM_PROMPT = `คุณคือ LAMI ผู้ช่วย AI อั�
 - ตอบคำถามเกี่ยวกับ EV เทคนิค และการขาย
 
 ตอบเป็นภาษาไทย กระชับ ชัดเจน และให้ข้อมูลที่มีประโยชน์จริง
+เมื่อถูกถามว่าควรทำอะไร ให้ตอบเป็นข้อๆ เรียงตามความสำคัญ แต่ละข้อบอก "ทำอะไร กับใคร เพราะอะไร" และจบด้วยสิ่งที่ทำได้ทันที 1 อย่าง
+ใช้ข้อความธรรมดา ไม่ใช้ตาราง markdown หรือ HTML
 ถ้าผู้ใช้ถามเรื่องตัวเลข/ข้อมูลธุรกิจที่ไม่มีอยู่ใน [บริบทระบบ] ที่แนบมา ให้บอกตรงๆว่ายังไม่มีข้อมูลนี้ในบริบทที่ได้รับ ห้ามกุตัวเลขขึ้นเอง`
 
 export function isAiEnabled() { return !!auth.currentUser }
@@ -63,9 +65,11 @@ export async function askLami(userMessage, history = [], context = {}) {
   const data = await callProxy('/generate', {
     systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
     contents,
-    generationConfig: { maxOutputTokens: 600, temperature: 0.7 },
+    // gemini-2.5-flash ใช้ token ไปกับการคิด (thought) ก่อนตอบ — เดิมให้ 600 คำตอบจึงถูกตัดกลางประโยคบ่อย
+    generationConfig: { maxOutputTokens: 2500, temperature: 0.6 },
   })
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || 'ไม่ได้รับคำตอบจาก AI'
+  const text = data.candidates?.[0]?.content?.parts?.filter(p => !p.thought).map(p => p.text || '').join('').trim()
+  return text || 'ไม่ได้รับคำตอบจาก AI'
 }
 
 // ── AI Officers (9 personas) — real Gemini call with per-officer persona ──────

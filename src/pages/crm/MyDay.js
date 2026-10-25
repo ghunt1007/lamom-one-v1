@@ -13,7 +13,7 @@ import { QUICK_SOURCES } from '../../utils/quickLead.js'
 import { SALES_TARGETS_COLLECTION, targetFor, goalProgress } from '../../utils/salesTargets.js'
 import { DELIVERED_STATUSES } from '../../utils/deliveryIncome.js'
 import { staffChoices, findStaffCompany, assignCustomer } from '../../utils/leadAssign.js'
-import { bangkokDate, buildMyDay, STALE_LEAD_DAYS, STUCK_BOOKING_DAYS, UPCOMING_DELIVERY_DAYS, FINANCE_WAIT_DAYS } from '../../utils/myDay.js'
+import { bangkokDate, buildMyDay, topPriorities, STALE_LEAD_DAYS, STUCK_BOOKING_DAYS, UPCOMING_DELIVERY_DAYS, FINANCE_WAIT_DAYS } from '../../utils/myDay.js'
 import { followupWindowFilters } from '../../utils/customerFollowups.js'
 import { openAddFollowup } from '../../utils/addFollowupModal.js'
 import { touchCustomerContact } from '../../utils/customerContact.js'
@@ -111,6 +111,24 @@ export default async function MyDayPage(container) {
       </div></div>`
   }
 
+  // "ทำ 3 อย่างนี้ก่อน" — เปิดหน้ามาเห็นทันทีว่าควรเริ่มจากอะไร (จัดลำดับด้วย topPriorities ใน utils/myDay.js)
+  function focusCard(d) {
+    const top = topPriorities(d, 3)
+    if (!top.length) return ''
+    return `<div class="card" style="padding:0;margin-bottom:14px;overflow:hidden;border:1px solid color-mix(in srgb, var(--primary) 35%, transparent)">
+      <div style="padding:14px 16px;background:linear-gradient(135deg, color-mix(in srgb, var(--primary) 18%, transparent), transparent);display:flex;align-items:center;gap:10px">
+        <span style="font-size:1.4rem">🎯</span>
+        <div><div style="font-weight:800;font-size:1rem">ทำ ${top.length} อย่างนี้ก่อน</div>
+        <div style="font-size:0.72rem;color:var(--text-muted)">ระบบเลือกจากงานทั้งหมด ${d.total} รายการ ตามโอกาสปิดการขายและความเร่งด่วน</div></div>
+      </div>
+      ${top.map((t, i) => `<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-top:1px solid var(--border);flex-wrap:wrap">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0">${i + 1}</div>
+        <div style="flex:1;min-width:180px"><div style="font-weight:700;font-size:0.88rem">${t.icon} ${escHtml(t.title)}</div><div style="font-size:0.72rem;color:var(--text-muted)">${escHtml(t.why)}</div></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">${callBtn(t.phone)}${t.customerId ? `<button class="btn btn-primary btn-xs md-open" data-id="${escHtml(t.customerId)}">เปิดลูกค้า</button>` : t.key.startsWith('inc:') ? `<button class="btn btn-warning btn-xs md-inc" data-id="${escHtml(t.bookingId)}">💰 กรอกรายได้</button>` : t.key.startsWith('uns:') ? '<button class="btn btn-primary btn-xs md-cal">📅 ปฏิทินส่งมอบ</button>' : '<button class="btn btn-secondary btn-xs md-bk">ใบจอง</button>'}</div>
+      </div>`).join('')}
+    </div>`
+  }
+
   function render() {
     const today = todayBangkok()
     const d = buildMyDay(data, { today, mine })
@@ -127,6 +145,7 @@ export default async function MyDayPage(container) {
 
         ${lineRegistered ? `<div style="font-size:0.72rem;color:var(--text-muted);margin:-6px 0 10px">💬 คำสั่งใน LINE OA: <code>งาน</code> · <code>พรุ่งนี้</code> · <code>ยอด</code> · <code>หา เบอร์</code> · <code>โทรแล้ว เบอร์</code> · <code>นัด เบอร์ พรุ่งนี้</code> · <code>เสียดีล เบอร์ เหตุผล</code></div>` : `<div class="card mb-4" style="padding:10px 16px;font-size:0.8rem;color:var(--text-2);border-left:3px solid var(--success)">
           📲 รับงานค้างทาง LINE ทุก 9 โมงเช้า: ทัก LINE OA ของบริษัท แล้วพิมพ์ <code>ลงทะเบียน ${escHtml(me.displayName)}</code> · หลังจากนั้นพิมพ์ <code>งาน</code> เพื่อดูงานได้ทุกเวลา, <code>โทรแล้ว เบอร์</code> บันทึกการติดต่อ, <code>นัด เบอร์ พรุ่งนี้</code> นัดติดตาม</div>`}
+        ${focusCard(d)}
         ${goalCard(today)}
         ${section('📞', 'Follow-up วันนี้/เลยกำหนด', 'กด ✅ เมื่อติดต่อแล้ว', d.followups, f => line(
           `${escHtml(f.customerName || 'ลูกค้า')}${f.late > 0 ? ` <span class="badge badge-danger" style="font-size:0.62rem">เลย ${f.late} วัน</span>` : ''}`,

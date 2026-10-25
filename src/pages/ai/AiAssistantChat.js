@@ -5,12 +5,17 @@ import { askLami, isAiEnabled } from '../../utils/ai.js'
 import { formatCurrency, todayBangkok, toDateStr } from '../../utils/format.js'
 import { heuristicScore } from './LeadScoring.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
+import { normName } from '../../core/hierarchy.js'
+import { buildMyDay, myDayDigest } from '../../utils/myDay.js'
+import { followupWindowFilters } from '../../utils/customerFollowups.js'
 
 function esc(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
 }
 
 const CATEGORIES = [
+  { label:'☀️ วันนี้ทำอะไรก่อน', q:'วันนี้ฉันควรทำอะไรก่อน? จัดลำดับให้หน่อย พร้อมเหตุผลสั้นๆ' },
+  { label:'🎯 ช่วยปิดการขาย', q:'จากงานของฉันวันนี้ ลูกค้าคนไหนมีโอกาสปิดการขายสูงสุด และควรพูดอะไรกับเขา?' },
   { label:'📊 ยอดขาย', q:'ยอดขายเดือนนี้เท่าไหร่?' },
   { label:'📦 สต็อก', q:'สต็อกรถเหลือกี่คัน?' },
   { label:'🔥 Hot Lead', q:'มี Hot Lead ไหม?' },
@@ -20,6 +25,14 @@ const CATEGORIES = [
   { label:'💰 กำไร', q:'กำไรเดือนนี้เท่าไหร่?' },
   { label:'👥 HR', q:'ข้อมูลพนักงานวันนี้?' },
 ]
+
+// คำตอบ AI: escape ก่อนเสมอ แล้วค่อยแปลง **ตัวหนา** กับขึ้นบรรทัดใหม่ให้อ่านง่าย (ไม่มี HTML จาก AI หลุดเข้ามา)
+export function formatAiText(t) {
+  return esc(t)
+    .replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>')
+    .replace(/^\s*[*-]\s+/gm, '• ')
+    .replace(/\n/g, '<br>')
+}
 
 function now() {
   return new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})
@@ -44,7 +57,7 @@ export default async function AiAssistantChatPage(container) {
     try {
       const today = todayBangkok()
       const thisMonth = today.slice(0, 7)
-      const [sales, vehicles, customers, debts, csat, staff, jobs] = await Promise.all([
+      const [sales, vehicles, customers, debts, csat, staff, jobs, followups, bookings] = await Promise.all([
         getSalesData().catch(() => []),
         listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 500).catch(() => []),
         listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
@@ -52,6 +65,8 @@ export default async function AiAssistantChatPage(container) {
         listDocs('csat', [], 'createdAt', 'desc', 100).catch(() => []),
         listDocs('staff', companyScopeFilters(), 'createdAt', 'desc', 200).catch(() => []),
         listDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
+        listDocs('followups', [...companyScopeFilters(), ...followupWindowFilters(today)], 'dueDate', 'asc', 1000).catch(() => []),
+        listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
       ])
       const monthSales = sales.filter(s => (s.date || '').startsWith(thisMonth))
       // totalIncome ต่อใบจอง = กำไรสุทธิจริง (แพทเทิร์นเดียวกับ Margin.js/Commission.js/MarketingROI.js
@@ -77,6 +92,13 @@ export default async function AiAssistantChatPage(container) {
         'คะแนนความพึงพอใจลูกค้า (NPS เฉลี่ยล่าสุด)': avgNps !== null ? `${avgNps}/10 จาก ${npsScores.length} รายการ` : 'ยังไม่มีข้อมูลการประเมิน',
         'งานซ่อม/ศูนย์บริการวันนี้': `รับเข้า ${todayJobs.length} งาน (เสร็จ/ส่งมอบแล้ว ${doneToday} งาน)`,
         'พนักงานที่ยังทำงานอยู่': `${activeStaff} คน`,
+      }
+      // งานของผู้ใช้คนนี้วันนี้ (เกณฑ์เดียวกับหน้า "งานของฉันวันนี้") — ให้ LAMI ตอบ "วันนี้ควรทำอะไรก่อน" ได้จากข้อมูลจริง
+      const myName = getState('user')?.displayName
+      if (myName) {
+        const mine = n => normName(n) === normName(myName)
+        const d = buildMyDay({ customers, followups, bookings, testDrives: [] }, { today, mine })
+        businessContext[`งานของ ${myName} วันนี้`] = myDayDigest(d)
       }
     } catch (e) { businessContext = {} }
   }
@@ -109,7 +131,7 @@ export default async function AiAssistantChatPage(container) {
     // คำตอบ AI ตอนนี้มาจาก askLami() จริง (Gemini ผ่าน proxy) ไม่ใช่ CANNED hardcode แล้ว — เป็นข้อความ
     // ธรรมดา (ไม่มี <strong>/HTML ที่ตั้งใจ) จึง escape เหมือนกับข้อความผู้ใช้เพื่อกัน XSS จาก AI ตอบ raw HTML
     // กลับมาโดยไม่ตั้งใจ ยกเว้น GREETING ที่ยัง hardcode ไว้ในไฟล์นี้เองเท่านั้น
-    const text = (isUser || m.text !== GREETING) ? esc(m.text) : m.text
+    const text = isUser ? esc(m.text) : m.text !== GREETING ? formatAiText(m.text) : m.text
     return `<div style="display:flex;${isUser?'justify-content:flex-end':'align-items:flex-start;gap:8px'}">
       ${!isUser ? `<div style="width:30px;height:30px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0">🤖</div>` : ''}
       <div>
