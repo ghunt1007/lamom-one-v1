@@ -52,3 +52,19 @@ export function businessFacts({ customers = [], bookings = [] }, today) {
     'ลูกค้าในแต่ละขั้น': `Lead ${stage('lead')} · Prospect ${stage('pp')} · จองแล้ว ${stage('booking')} · เสียดีล ${cs.filter(c => c.isLost).length}`,
   }
 }
+
+// รถพร้อมขายในสต็อก แยกรุ่น/สี (ไม่มีเลขตัวถัง) — ให้ LAMI/AI ตอบได้ว่า "S07 สีขาวมีพร้อมส่งไหม"
+export function stockFacts(vehicles = []) {
+  const live = vehicles.filter(v => v && !v.deleted)
+  const ready = live.filter(v => v.status === 'available')
+  const transit = live.filter(v => v.status === 'transit').length
+  const by = {}
+  ready.forEach(v => {
+    const m = [v.brand && !String(v.model || '').toLowerCase().includes(String(v.brand).toLowerCase()) ? v.brand : '', v.model, v.variant].filter(Boolean).join(' ').trim() || 'ไม่ระบุรุ่น'
+    const c = String(v.color || '').trim() || 'ไม่ระบุสี'
+    ;((by[m] ||= {})[c] = (by[m][c] || 0) + 1)
+  })
+  const line = Object.entries(by).sort((a, b) => a[0].localeCompare(b[0])).slice(0, 20)
+    .map(([m, cs]) => `${m}: ${Object.entries(cs).map(([c, n]) => `${c} ${n}`).join(', ')}`).join(' · ')
+  return { 'รถพร้อมขายในสต็อก (แยกรุ่น/สี)': `${ready.length} คัน${line ? ` — ${line}` : ''}${transit ? ` · กำลังขนส่งมา ${transit} คัน` : ''}` }
+}

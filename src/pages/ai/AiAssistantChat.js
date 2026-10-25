@@ -9,7 +9,7 @@ import { normName } from '../../core/hierarchy.js'
 import { buildMyDay, myDayDigest } from '../../utils/myDay.js'
 import { followupWindowFilters } from '../../utils/customerFollowups.js'
 import { catalogContext, dealValue } from '../../utils/salesAi.js'
-import { businessFacts } from '../../utils/bizFacts.js'
+import { businessFacts, stockFacts } from '../../utils/bizFacts.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 
 function esc(s) {
@@ -110,6 +110,7 @@ export default async function AiAssistantChatPage(container) {
         'งานซ่อม/ศูนย์บริการวันนี้': `รับเข้า ${todayJobs.length} งาน (เสร็จ/ส่งมอบแล้ว ${doneToday} งาน)`,
         'พนักงานที่ยังทำงานอยู่': `${activeStaff} คน`,
         ...businessFacts({ customers, bookings }, today),
+        ...stockFacts(vehicles),
       }
       // มูลค่าดีลที่กำลังคุย และยอดที่คาดว่าปิดได้ (มูลค่า × โอกาสปิด) — สูตรเดียวกับหน้า Pipeline
       try {

@@ -33,3 +33,21 @@ describe('businessFacts', () => {
     expect(f['เหตุผลเสียดีล 90 วันล่าสุด']).toBe('ไฟแนนซ์ไม่ผ่าน 1')
   })
 })
+
+import { stockFacts } from './bizFacts.js'
+describe('stockFacts', () => {
+  it('groups ready cars by model and colour', () => {
+    const f = stockFacts([
+      { brand: 'DEEPAL', model: 'S07', color: 'ขาว', status: 'available' },
+      { brand: 'DEEPAL', model: 'S07', color: 'ขาว', status: 'available' },
+      { brand: 'DEEPAL', model: 'S07', color: 'ดำ', status: 'available' },
+      { brand: 'DEEPAL', model: 'L07', color: 'ขาว', status: 'reserved' },
+      { brand: 'DEEPAL', model: 'L07', status: 'transit' },
+      { brand: 'DEEPAL', model: 'S05', status: 'available', deleted: true },
+    ])
+    expect(f['รถพร้อมขายในสต็อก (แยกรุ่น/สี)']).toBe('3 คัน — DEEPAL S07: ขาว 2, ดำ 1 · กำลังขนส่งมา 1 คัน')
+  })
+  it('empty stock', () => {
+    expect(stockFacts([])['รถพร้อมขายในสต็อก (แยกรุ่น/สี)']).toBe('0 คัน')
+  })
+})
