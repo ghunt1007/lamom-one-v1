@@ -18,6 +18,18 @@ const norm = s => String(s || '').toLowerCase().replace(/\(.*?\)/g, ' ').replace
 // หารุ่นใน catalog ที่ตรงกับ "รุ่นที่สนใจ" (เช่น 'Deepal S07', 's05 max') → คืนบรรทัดข้อมูลจริง สูงสุด limit รุ่นย่อย
 // ใช้ชื่อรุ่นที่ยาวที่สุดที่เจอในข้อความ เพื่อไม่ให้ 'S07' ไปจับ 'S07 (2026)' ผิดยี่ห้อ
 export function modelFacts(interested, vehicles = [], limit = 4) {
+  return modelMatches(interested, vehicles, limit).map(v => [
+    `${v.brand} ${v.model} ${v.variant || ''}`.trim(),
+    v.price ? `ราคา ${Number(v.price).toLocaleString('en-US')} บาท` : null,
+    v.range ? `วิ่งได้ ${v.range} กม.` : null,
+    v.battery ? `แบต ${v.battery}` : null,
+    v.chargeDC ? `ชาร์จเร็ว DC ${v.chargeDC} kW` : null,
+    v.warranty ? `รับประกัน ${v.warranty}` : null,
+  ].filter(Boolean).join(' · '))
+}
+
+// รุ่นย่อยใน catalog ที่ตรงกับ "รุ่นที่สนใจ" (object รถเต็มๆ) — ใช้ทั้งสรุปสเปคและเครื่องคิดค่างวด
+export function modelMatches(interested, vehicles = [], limit = 4) {
   const q = norm(interested)
   if (!q || !vehicles.length) return []
   let best = 0
@@ -36,14 +48,7 @@ export function modelFacts(interested, vehicles = [], limit = 4) {
   const common = w => hits.every(h => words(h).includes(w))
   const vHit = v => words(v).filter(w => !common(w) && q.includes(w)).length
   const sorted = hits.slice().sort((a, b) => vHit(b) - vHit(a) || (a.price || 0) - (b.price || 0))
-  return sorted.slice(0, limit).map(v => [
-    `${v.brand} ${v.model} ${v.variant || ''}`.trim(),
-    v.price ? `ราคา ${Number(v.price).toLocaleString('en-US')} บาท` : null,
-    v.range ? `วิ่งได้ ${v.range} กม.` : null,
-    v.battery ? `แบต ${v.battery}` : null,
-    v.chargeDC ? `ชาร์จเร็ว DC ${v.chargeDC} kW` : null,
-    v.warranty ? `รับประกัน ${v.warranty}` : null,
-  ].filter(Boolean).join(' · '))
+  return sorted.slice(0, limit)
 }
 
 export function buildCustomerBrief(c, { history = [], followups = [], today, vehicles = [] }) {

@@ -16,7 +16,8 @@ import {
   deriveInitialStage, shouldAutoPromoteToPP,
 } from '../../core/customerInsights.js'
 import { aiSalesCloser, isAiEnabled, suggestCustomerReply } from '../../utils/ai.js'
-import { buildCustomerBrief, addDaysIso, catalogContext, modelFacts } from '../../utils/salesAi.js'
+import { buildCustomerBrief, addDaysIso, catalogContext, modelFacts, modelMatches } from '../../utils/salesAi.js'
+import { flatMonthly } from '../../utils/installment.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 import { maskContacts } from '../../utils/leadText.js'
 import { enhanceMics } from '../../utils/micInput.js'
@@ -41,6 +42,40 @@ function scoreBar(c) {
   const color = score >= 80 ? 'var(--danger)' : score >= 60 ? 'var(--warning)' : 'var(--text-muted)'
   return `<div title="โอกาสปิดการขาย ${score}%\n${escHtml(signals.join('\n'))}" style="margin-top:4px;display:flex;align-items:center;gap:4px;font-size:0.62rem;color:var(--text-muted)">
     <div style="width:44px;height:4px;border-radius:2px;background:var(--surface-2);overflow:hidden"><div style="height:100%;width:${score}%;background:${color}"></div></div>${score}%</div>`
+}
+
+// 🧮 คิดค่างวดคร่าวๆ ในหน้าลูกค้า (ลูกค้าถามบ่อยที่สุด "ผ่อนเดือนละเท่าไหร่") — ใช้ราคาจากฐานข้อมูลรถ
+function calcHtml(c) {
+  const vs = modelMatches(c.interestedModel, getVehicles(), 6).filter(v => v.price > 0)
+  if (!vs.length) return ''
+  const opt = (arr, sel, fmt) => arr.map(x => `<option value="${x}" ${x === sel ? 'selected' : ''}>${fmt(x)}</option>`).join('')
+  return `<div id="wk-calc" style="margin-top:6px;padding:8px;border:1px dashed var(--border);border-radius:8px">
+    <div style="font-weight:600;margin-bottom:6px">🧮 ผ่อนเดือนละเท่าไหร่ (คร่าวๆ)</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(120px,100%),1fr));gap:6px">
+      <select class="input" id="wk-calc-v" style="font-size:0.76rem">${vs.map((v, i) => `<option value="${i}" data-p="${v.price}">${escHtml(v.variant || v.model)} · ${Number(v.price).toLocaleString('en-US')}</option>`).join('')}</select>
+      <select class="input" id="wk-calc-d" style="font-size:0.76rem">${opt([0, 10, 15, 20, 25, 30, 40], 20, x => `ดาวน์ ${x}%`)}</select>
+      <select class="input" id="wk-calc-m" style="font-size:0.76rem">${opt([48, 60, 72, 84], 72, x => `${x} งวด`)}</select>
+      <label style="display:flex;align-items:center;gap:4px;font-size:0.72rem;white-space:nowrap">ดอก <input class="input" id="wk-calc-r" type="number" step="0.01" value="2.79" style="width:72px;font-size:0.76rem" title="ดอกเบี้ยต่อปี (flat)"> %/ปี</label>
+    </div>
+    <div id="wk-calc-out" style="margin-top:6px"></div>
+  </div>`
+}
+function bindCalc(root) {
+  const box = root.querySelector('#wk-calc')
+  if (!box) return
+  const $ = id => box.querySelector('#' + id)
+  const run = () => {
+    const sel = $('wk-calc-v').selectedOptions[0]
+    const price = Number(sel?.dataset.p) || 0
+    const r = flatMonthly(price, $('wk-calc-d').value, $('wk-calc-m').value, $('wk-calc-r').value)
+    const txt = `${sel?.textContent.split(' · ')[0] || ''} ราคา ${price.toLocaleString('en-US')} บาท\nดาวน์ ${$('wk-calc-d').value}% (${r.down.toLocaleString('en-US')} บาท) ผ่อน ${$('wk-calc-m').value} งวด\nประมาณเดือนละ ${r.monthly.toLocaleString('en-US')} บาท (ดอกเบี้ย ${$('wk-calc-r').value}% ต่อปี)\n*ตัวเลขเบื้องต้น อัตราจริงขึ้นกับการอนุมัติของไฟแนนซ์`
+    $('wk-calc-out').innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><div>ยอดจัด ${r.loan.toLocaleString('en-US')} · <b style="font-size:1rem;color:var(--primary)">≈ ${r.monthly.toLocaleString('en-US')} บาท/เดือน</b></div><button type="button" class="btn btn-secondary btn-xs" id="wk-calc-copy">📋 คัดลอกส่งลูกค้า</button></div>`
+    $('wk-calc-copy').addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(txt); showToast('📋 คัดลอกแล้ว วางใน LINE ได้เลย', 'success') } catch { showToast('คัดลอกไม่สำเร็จ', 'warning') }
+    })
+  }
+  ;['wk-calc-v', 'wk-calc-d', 'wk-calc-m', 'wk-calc-r'].forEach(id => $(id).addEventListener('input', run))
+  run()
 }
 
 function escHtml(s) {
@@ -278,7 +313,7 @@ export default async function CustomersPage(container) {
                 ${detail('💚 LINE', escHtml(c.lineId || '-'))}
                 ${detail('📧 Email', escHtml(c.email || '-'))}
                 ${detail('🚗 สนใจ', escHtml(c.interestedModel || '-'))}
-                ${(() => { const f = c.interestedModel ? modelFacts(c.interestedModel, getVehicles(), 4) : []; return f.length ? `<details style="margin:-2px 0 2px;font-size:0.76rem"><summary style="cursor:pointer;color:var(--primary)">📋 ราคา/สเปครุ่นนี้ (ไว้ตอบลูกค้า)</summary><div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">${f.map(x => `<div style="padding:6px 8px;border-radius:8px;background:var(--surface-2);line-height:1.45">${escHtml(x)}</div>`).join('')}<div style="font-size:0.66rem;color:var(--text-muted)">ราคาตั้งจากฐานข้อมูลรถ ยังไม่รวมโปรโมชั่น</div></div></details>` : '' })()}
+                ${(() => { const f = c.interestedModel ? modelFacts(c.interestedModel, getVehicles(), 4) : []; return f.length ? `<details style="margin:-2px 0 2px;font-size:0.76rem"><summary style="cursor:pointer;color:var(--primary)">📋 ราคา/สเปครุ่นนี้ (ไว้ตอบลูกค้า)</summary><div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">${f.map(x => `<div style="padding:6px 8px;border-radius:8px;background:var(--surface-2);line-height:1.45">${escHtml(x)}</div>`).join('')}<div style="font-size:0.66rem;color:var(--text-muted)">ราคาตั้งจากฐานข้อมูลรถ ยังไม่รวมโปรโมชั่น</div>${calcHtml(c)}</div></details>` : '' })()}
                 ${detail('💰 งบประมาณ', c.budget ? formatCurrency(c.budget) : '-')}
                 ${detail('💼 อาชีพ', escHtml(c.occupation || '-'))}
                 ${detail('💵 รายได้ต่อเดือน', c.monthlyIncome ? formatCurrency(c.monthlyIncome) : '-')}
@@ -353,6 +388,7 @@ export default async function CustomersPage(container) {
       `,
     })
 
+    bindCalc(el)
     el.querySelector('#wk-touch-btn')?.addEventListener('click', async e => {
       const b = e.currentTarget
       b.disabled = true

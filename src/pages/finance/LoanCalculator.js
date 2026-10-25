@@ -5,6 +5,7 @@
 import { formatCurrency } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { listDocs } from '../../core/db.js'
+import { getVehicles } from '../../data/vehicleDatabase.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -25,6 +26,25 @@ const BANKS = [
   { name: 'เกียรตินาคิน', rates: { 48: 2.55, 60: 2.75, 72: 2.95, 84: 3.15 } },
 ]
 
+// รุ่นรถ/ราคาจากฐานข้อมูลรถกลาง (Deepal ขึ้นก่อน) — ถ้าโหลดไม่ได้ใช้รายการตัวอย่างเดิม
+export function catalogPriceList(vehicles) {
+  const rows = (vehicles || []).filter(v => v && v.price > 0)
+    .map(v => [`${v.brand} ${v.model}${v.variant ? ` ${v.variant}` : ''}`.trim(), v.price, v.brand])
+    .sort((a, b) => Number(b[2] === 'Deepal') - Number(a[2] === 'Deepal') || String(a[2]).localeCompare(String(b[2])) || a[1] - b[1])
+  return rows.length ? Object.fromEntries(rows.map(r => [r[0], r[1]])) : null
+}
+// เปิดจากหน้าลูกค้า (?model=DEEPAL S05) → เลือกรุ่นที่ใกล้เคียงที่สุดให้
+export function pickModel(models, query) {
+  const keys = Object.keys(models)
+  const n = s => String(s || '').toLowerCase().replace(/\(.*?\)/g, ' ').replace(/[^a-z0-9ก-๙]+/g, '')
+  const q = n(query)
+  if (q) {
+    const hit = keys.find(k => n(k).includes(q)) || keys.find(k => q.includes(n(k.split(' ').slice(0, 2).join(' '))))
+    if (hit) return hit
+  }
+  return keys[0]
+}
+
 function monthly(principal, flatRate, months) {
   const years = months / 12
   const interest = principal * (flatRate / 100) * years
@@ -33,7 +53,9 @@ function monthly(principal, flatRate, months) {
 
 export default async function LoanCalculatorPage(container) {
   const myGen = container.__routerGen
-  let model = 'BYD Atto 3'
+  let models = MODELS
+  try { models = catalogPriceList(getVehicles()) || MODELS } catch {}
+  let model = pickModel(models, new URLSearchParams(window.location.search).get('model'))
   let customPrice = null
   let downPct = 20
   let term = 60
@@ -54,7 +76,7 @@ export default async function LoanCalculatorPage(container) {
   } catch {}
 
   function renderPage() {
-    const price = customPrice ?? MODELS[model]
+    const price = customPrice ?? models[model]
     const downAmt = Math.round(price * downPct / 100)
     const principal = price - downAmt
     const results = banks.map(b => ({
@@ -81,7 +103,7 @@ export default async function LoanCalculatorPage(container) {
             <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">⚙️ เงื่อนไข</div>
             <div class="input-group" style="margin-bottom:10px">
               <label class="input-label">รุ่นรถ</label>
-              <select class="input" id="lc-model">${Object.keys(MODELS).map(m => `<option ${model===m?'selected':''}>${m}</option>`).join('')}</select>
+              <select class="input" id="lc-model">${Object.keys(models).map(m => `<option ${model===m?'selected':''}>${m}</option>`).join('')}</select>
             </div>
             <div class="input-group" style="margin-bottom:10px">
               <label class="input-label">ราคารถ (แก้ได้)</label>
@@ -129,19 +151,19 @@ export default async function LoanCalculatorPage(container) {
     `
 
     document.getElementById('lc-model')?.addEventListener('change', e => { model = e.target.value; customPrice = null; renderPage() })
-    document.getElementById('lc-price')?.addEventListener('change', e => { customPrice = parseInt(e.target.value) || MODELS[model]; renderPage() })
+    document.getElementById('lc-price')?.addEventListener('change', e => { customPrice = parseInt(e.target.value) || models[model]; renderPage() })
     document.getElementById('lc-down')?.addEventListener('input', e => { downPct = parseInt(e.target.value); renderPage() })
     container.querySelectorAll('.term-btn').forEach(b => b.addEventListener('click', () => { term = parseInt(b.dataset.t); renderPage() }))
     document.getElementById('send-btn')?.addEventListener('click', () => {
-      const price = customPrice ?? MODELS[model]
+      const price = customPrice ?? models[model]
       const principal = Math.round(price * (1 - downPct / 100))
       const bestBank = banks.slice().sort((a, b) => (a.rates[term] || 99) - (b.rates[term] || 99))[0]
       const rate = bestBank?.rates[term] || 3
       const pay = monthly(principal, rate, term)
-      const summary = `${model} | ดาวน์ ${downPct}% (${formatCurrency(price * downPct / 100)}) | ${term} งวด | ฿${pay.toLocaleString()}/เดือน | ${bestBank?.name} ${rate}% Flat`
+      const summary = `ค่างวดโดยประมาณ ${model}\nราคา ${formatCurrency(price)} · ดาวน์ ${downPct}% (${formatCurrency(price * downPct / 100)})\nผ่อน ${term} งวด ประมาณ ฿${pay.toLocaleString()}/เดือน (ดอกเบี้ย ${rate}% ต่อปี)\n*ตัวเลขเบื้องต้น อัตราจริงขึ้นกับการอนุมัติของไฟแนนซ์`
       navigator.clipboard?.writeText(summary)
         .then(() => showToast(`📤 Copy สรุปค่างวดแล้ว — วางใน LINE ได้เลย`, 'success'))
-        .catch(() => showToast(`📤 ส่งตารางค่างวด ${model} ดาวน์ ${downPct}% ${term} งวด ฿${pay.toLocaleString()}/เดือน ทาง LINE แล้ว`, 'success'))
+        .catch(() => showToast('คัดลอกไม่สำเร็จ — จดตัวเลขจากหน้าจอแทน', 'warning'))
     })
   }
 
