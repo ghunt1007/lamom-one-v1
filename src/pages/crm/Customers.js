@@ -245,7 +245,7 @@ export default async function CustomersPage(container) {
           <span class="badge badge-${st.badge}">${escHtml(st.label)}</span>
           ${c.isLost ? `<div style="margin-top:3px"><span class="badge badge-secondary" style="font-size:0.62rem">⬛ เสียดีล</span></div>` : ''}
         </td>
-        <td class="cc-temp${c.temperature || scoreBar(c) ? '' : ' cc-blank'}">${c.temperature ? `<span class="badge badge-${TEMP[c.temperature]?.badge}" style="font-size:0.68rem">${TEMP[c.temperature]?.label}</span>` : '<span style="color:var(--text-muted)">-</span>'}${scoreBar(c)}</td>
+        <td class="cc-temp${c.temperature || scoreBar(c) ? '' : ' cc-blank'}">${c.temperature ? `<span class="badge badge-${TEMP[c.temperature]?.badge}" style="font-size:0.68rem">${TEMP[c.temperature]?.label}</span>` : scoreBar(c) ? '' : '<span style="color:var(--text-muted)">-</span>'}${scoreBar(c)}</td>
         <td class="cc-model${c.interestedModel ? '' : ' cc-blank'}" style="color:var(--text-2)">${escHtml(c.interestedModel || '-')}</td>
         <td class="cc-src${c.source ? '' : ' cc-blank'}" style="color:var(--text-3);font-size:0.8rem">${SOURCE[c.source] || escHtml(c.source) || '-'}</td>
         <td class="cc-urg">${!c.isLost ? `<span class="badge badge-${urgency.badge}" style="font-size:0.65rem">${urgency.label}</span>` : ''}</td>

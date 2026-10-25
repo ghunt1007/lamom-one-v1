@@ -439,7 +439,7 @@ export default async function BookingsPage(container) {
     const statsBar = `<div style="display:flex;gap:16px;flex-wrap:wrap;padding:6px 12px;background:var(--surface-2);border-radius:8px;margin-bottom:10px;font-size:0.68rem;color:var(--text-2)">
       <span>📋 ทั้งหมด <b style="color:var(--text-primary)">${bookings.length}</b></span>
       <span>🔄 Active <b style="color:var(--warning)">${activeAll.length}</b></span>
-      ${pipelineVal > 0 ? `<span>💰 Pipeline <b style="color:var(--success)">${formatCurrency(pipelineVal / 1000000)}M</b></span>` : ''}
+      ${pipelineVal > 0 ? `<span>💰 Pipeline <b style="color:var(--success)">฿${(pipelineVal / 1000000).toLocaleString('en-US', { maximumFractionDigits: 2 })} ล้าน</b></span>` : ''}
       <span>🚗 ส่งมอบเดือนนี้ <b style="color:var(--success)">${delMonth}</b></span>
       ${urgentCount > 0 ? `<span>🔥 ด่วน <b style="color:var(--danger)">${urgentCount}</b></span>` : ''}
       ${noIncomeCount > 0 || noIncomeOnly ? `<span id="bk-noincome-chip" style="cursor:pointer;${noIncomeOnly ? 'font-weight:700;text-decoration:underline' : ''}" title="ส่งมอบแล้วแต่ยังไม่กรอกมาร์จิ้น/ค่าคอม — กดเพื่อดูเฉพาะรายการนี้">💰 ยังไม่กรอกรายได้ <b style="color:var(--danger)">${noIncomeCount}</b>${noIncomeOnly ? ' ×' : ''}</span>` : ''}
