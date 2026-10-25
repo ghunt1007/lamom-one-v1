@@ -83,7 +83,7 @@ export default async function CommHubPage(container) {
 
   function renderPage() {
     container.innerHTML = `
-      <div style="display:flex;height:calc(100vh - 56px);overflow:hidden">
+      <div style="display:flex;height:calc(100vh - 56px - var(--bottom-nav-h, 0px));overflow:hidden">
         <!-- Channel list -->
         <div style="width:220px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--surface-2)">
           <div style="padding:14px 12px;font-weight:700;font-size:0.85rem;color:var(--text-muted);border-bottom:1px solid var(--border)">💬 Communication Hub</div>

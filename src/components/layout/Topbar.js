@@ -82,6 +82,7 @@ export function Topbar(container) {
         </div>
 
         <div class="topbar-actions">
+          <button class="topbar-btn topbar-search-btn" id="mobile-search-btn" title="ค้นหา / ถาม LAMI">🔍</button>
           ${getState('companies').length > 1 ? `<button class="topbar-btn" id="company-filter-btn" title="${t('filterCompany')}">🏢</button>` : ''}
           <button class="topbar-btn" id="quick-lead-btn" title="เพิ่ม Lead ด่วน" style="width:auto;padding:0 10px;font-size:0.78rem;font-weight:700;white-space:nowrap">🧲 + Lead</button>
           <button class="topbar-btn" id="lang-btn" title="${t('selectLanguage')}">${curLangInfo.flag}</button>
@@ -113,6 +114,7 @@ export function Topbar(container) {
   function bindEvents() {
     document.getElementById('mobile-menu-btn')?.addEventListener('click', toggleMobileMenu)
     document.getElementById('global-search')?.addEventListener('click', openSearch)
+    document.getElementById('mobile-search-btn')?.addEventListener('click', openSearch)
     document.getElementById('company-filter-btn')?.addEventListener('click', openCompanyFilter)
     document.getElementById('lang-btn')?.addEventListener('click', openLanguagePicker)
     document.getElementById('theme-btn')?.addEventListener('click', openThemePicker)

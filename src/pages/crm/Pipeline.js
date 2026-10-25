@@ -212,7 +212,7 @@ export default async function PipelinePage(container) {
   }
 
   container.innerHTML = `
-    <div class="page-content animate-slide" style="display:flex;flex-direction:column;height:calc(100vh - 56px);overflow:hidden">
+    <div class="page-content animate-slide" style="display:flex;flex-direction:column;height:calc(100vh - 56px - var(--bottom-nav-h, 0px));overflow:hidden">
       <div class="page-header" style="flex-shrink:0">
         <div>
           <div class="page-title">📋 Sales Pipeline</div>

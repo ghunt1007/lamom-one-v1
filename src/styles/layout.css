@@ -413,3 +413,38 @@
   .topbar-search { display: none; }
   .topbar-menu-btn { display: flex; }
 }
+
+/* ── Mobile bottom nav (BottomNav.js) ── */
+.bottom-nav { display: none; }
+.topbar-search-btn { display: none; }
+@media (max-width: 768px) {
+  :root { --bottom-nav-h: calc(64px + env(safe-area-inset-bottom, 0px)); }
+  .bottom-nav {
+    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 97;
+    height: calc(60px + env(safe-area-inset-bottom, 0px)); padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid var(--border);
+  }
+  .bottom-nav-item {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    background: none; border: none; color: var(--text-muted); font-size: 0.66rem; font-family: inherit; cursor: pointer;
+  }
+  .bottom-nav-item.active { color: var(--primary); font-weight: 700; }
+  .bottom-nav-icon { font-size: 1.2rem; line-height: 1; }
+  .bottom-nav-plus {
+    width: 42px; height: 42px; margin-top: -18px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; font-size: 1.2rem; color: #fff;
+    background: linear-gradient(135deg, var(--primary), #8B5CF6); box-shadow: 0 4px 14px color-mix(in srgb, var(--primary) 45%, transparent);
+  }
+  .main-wrap { padding-bottom: var(--bottom-nav-h); }
+  /* topbar มือถือ: ซ่อน "LAMOM ONE ›" ให้เหลือชื่อหน้า และไม่ให้ปุ่มขวาทับข้อความ */
+  .topbar { padding: 0 8px; gap: 4px; }
+  .topbar-breadcrumb { overflow: hidden; white-space: nowrap; }
+  .topbar-breadcrumb > span:first-child, .topbar-breadcrumb .sep { display: none; }
+  .topbar-breadcrumb span { overflow: hidden; text-overflow: ellipsis; }
+  .topbar-actions { gap: 0; flex-shrink: 0; }
+  .topbar-btn { width: 34px; }
+  #quick-lead-btn { display: none; }
+  .topbar-search-btn { display: flex; }
+}

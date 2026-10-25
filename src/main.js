@@ -13,6 +13,7 @@ import { loadWhiteLabel, postLoginRoute } from './core/whiteLabel.js'
 import { initSessionTimeout, destroySessionTimeout } from './utils/sessionTimeout.js'
 import { Sidebar } from './components/layout/Sidebar.js'
 import { Topbar } from './components/layout/Topbar.js'
+import { BottomNav } from './components/layout/BottomNav.js'
 import { ToastContainer } from './components/layout/Toast.js'
 import { initAutoTableTools } from './utils/tableTools.js'
 import { initErrorMonitor } from './utils/errorMonitor.js'
@@ -91,6 +92,7 @@ async function bootstrapShell() {
     main.className = `main-wrap ${v ? 'sidebar-collapsed' : ''}`
   })
 
+  BottomNav(app)
   initRouter(main)
   initAutoTableTools()  // เสริม sort+filter แบบ Excel ให้ทุกตารางอัตโนมัติ
 

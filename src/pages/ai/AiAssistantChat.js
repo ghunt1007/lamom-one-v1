@@ -180,7 +180,7 @@ export default async function AiAssistantChatPage(container) {
     }
     container.innerHTML = `
       <style>@keyframes pulse{0%,80%,100%{opacity:.25}40%{opacity:1}}</style>
-      <div class="page-content animate-slide" style="display:flex;flex-direction:column;height:calc(100vh - 56px);padding-bottom:0">
+      <div class="page-content animate-slide" style="display:flex;flex-direction:column;height:calc(100vh - 56px - var(--bottom-nav-h, 0px));padding-bottom:0">
         <div class="page-header" style="padding-bottom:8px;margin-bottom:0">
           <div style="display:flex;align-items:center;gap:10px">
             <div style="width:36px;height:36px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:1.3rem">🤖</div>
