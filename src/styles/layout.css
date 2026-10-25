@@ -549,3 +549,6 @@
   .kpi-grid { gap: 8px !important; }
   .kpi-grid > .kpi-card { padding: 10px 12px; }
 }
+
+/* จอสัมผัส: ไม่ต้องโชว์คำแนะนำปุ่มคีย์บอร์ด (↑↓ / Esc) ในหน้าค้นหา */
+@media (pointer: coarse) { .gsearch-hints { display: none !important; } }

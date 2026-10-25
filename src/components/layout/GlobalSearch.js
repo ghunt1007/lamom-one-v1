@@ -11,17 +11,19 @@ import { t as tr } from '../../i18n/index.js'
 // import เป็น tr กันชนกับ t local variable ในหลายจุดของไฟล์นี้
 
 // แต่ละ collection: วิธีดึงข้อความค้นหา + แสดงผล + ปลายทางเมื่อคลิก (groupKey อ้าง i18n key แปลชื่อกลุ่ม)
+const telDigits = v => String(v || '').replace(/[^\d+]/g, '').length >= 9 ? String(v).replace(/[^\d+]/g, '') : ''
+
 const SOURCES = [
   // scoped: ดึงตามบริษัทที่มีสิทธิ์ (companyScopeFilters — index companyId+createdAt มีอยู่แล้วจากหน้า Customers/Bookings)
   // แล้วกรองตามสิทธิ์การมองเห็นของเซลส์ (owner = ชื่อผู้ดูแล) เหมือนหน้าลูกค้า/ใบจอง
   { col: 'bookings', icon: '📝', groupKey: 'grpBookings', route: b => '/crm/bookings?id=' + encodeURIComponent(b.id), scoped: true, owner: b => b.salesName,
     text: b => [b.bookingNo, b.custName, b.brand, b.model, b.variant, b.vin, b.phone, b.salesName].join(' '),
     title: b => (b.bookingNo || '') + ' · ' + (b.custName || ''),
-    sub: b => [b.brand, b.model, b.variant].filter(Boolean).join(' ') + ' · ' + (b.status || '') + ' · ' + formatCurrency(b.price) },
+    sub: b => [b.brand, b.model, b.variant].filter(Boolean).join(' ') + ' · ' + (b.status || '') + ' · ' + formatCurrency(b.price), tel: b => b.phone },
   { col: 'customers', icon: '👤', groupKey: 'grpCustomers', route: c => '/crm/customers?id=' + encodeURIComponent(c.id), scoped: true, owner: c => c.assignedTo,
     text: c => [c.firstName, c.lastName, c.phone, c.email, c.lineId, c.interestedModel].join(' '),
     title: c => [c.firstName, c.lastName].filter(Boolean).join(' '),
-    sub: c => (c.phone || '') + (c.interestedModel ? ' · สนใจ ' + c.interestedModel : '') },
+    sub: c => (c.phone || '') + (c.interestedModel ? ' · สนใจ ' + c.interestedModel : ''), tel: c => c.phone, callLog: true },
   { col: 'vehicles', icon: '🚗', groupKey: 'grpStock', route: '/dms/stock',
     text: v => [v.brand, v.model, v.variant, v.color, v.vin, v.status, v.location].join(' '),
     title: v => [v.brand, v.model, v.variant].filter(Boolean).join(' '),
@@ -118,7 +120,7 @@ export function openGlobalSearch() {
         '<span class="topbar-search-kbd" style="cursor:pointer" id="gsearch-esc">Esc</span>' +
       '</div>' +
       '<div id="gsearch-results" style="max-height:62vh;overflow:auto;padding:6px"></div>' +
-      '<div style="padding:6px 14px;border-top:1px solid var(--border);font-size:0.7rem;color:var(--text-muted);display:flex;gap:14px">' +
+      '<div class="gsearch-hints" style="padding:6px 14px;border-top:1px solid var(--border);font-size:0.7rem;color:var(--text-muted);display:flex;gap:14px">' +
         '<span>' + tr('moveHint') + '</span><span>' + tr('openHint') + '</span><span>' + tr('closeHint') + '</span>' +
       '</div>' +
     '</div>'
@@ -174,7 +176,7 @@ export function openGlobalSearch() {
     SOURCES.forEach((src, i) => {
       fetched[i].forEach(r => {
         if (matchAll(src.text(r))) {
-          results.push({ type: 'data', icon: src.icon, group: srcGroup(src), title: src.title(r) || tr('noName'), sub: src.sub(r), route: typeof src.route === 'function' ? src.route(r) : src.route })
+          results.push({ type: 'data', icon: src.icon, group: srcGroup(src), title: src.title(r) || tr('noName'), sub: src.sub(r), route: typeof src.route === 'function' ? src.route(r) : src.route, tel: telDigits(src.tel?.(r)), rec: src.callLog ? r : null })
         }
       })
     })
@@ -218,14 +220,21 @@ export function openGlobalSearch() {
       '<div style="flex:1;min-width:0">' +
         '<div style="font-size:0.875rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(r.title) + '</div>' +
         '<div style="font-size:0.72rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(r.sub || '') + '</div>' +
-      '</div></div>'
+      '</div>' +
+      // โทรหาลูกค้าได้จากผลค้นหาเลย (มือถือ) ไม่ต้องเปิดหน้าลูกค้าก่อน
+      (r.tel ? '<a class="btn btn-secondary btn-sm gsearch-tel" href="tel:' + r.tel + '" data-idx="' + i + '" title="โทร" style="flex-shrink:0">📞</a>' : '') +
+      '</div>'
   }
 
   function bindRows() {
     resBox.querySelectorAll('.gsearch-row').forEach(row => {
       const idx = Number(row.dataset.idx)
       row.addEventListener('mouseenter', () => { activeIdx = idx; highlight() })
-      row.addEventListener('click', () => { activeIdx = idx; openActive() })
+      row.addEventListener('click', e => { if (e.target.closest('.gsearch-tel')) return; activeIdx = idx; openActive() })
+      row.querySelector('.gsearch-tel')?.addEventListener('click', () => {
+        const rec = resultsCache[idx]?.rec
+        if (rec) import('../../utils/callLogger.js').then(m => m.armCallLog(rec)).catch(() => {})
+      })
     })
     highlight()
   }
