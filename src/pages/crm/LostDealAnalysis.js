@@ -5,6 +5,7 @@ import { openModal } from '../../utils/modal.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { getVisibilityScope, scopeIncludesRecord } from '../../core/hierarchy.js'
 import { classifyLostReason } from '../../utils/lostReason.js'
+import { navigate } from '../../core/router.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -133,6 +134,7 @@ export default async function LostDealAnalysisPage(container) {
             <div class="page-subtitle">วิเคราะห์สาเหตุที่เสียดีล</div>
           </div>
           <div class="page-actions">
+            <button class="btn btn-primary" id="ld-ask-lami" title="ให้ LAMI วิเคราะห์ว่าควรแก้อะไรก่อน">🤖 ถาม LAMI ควรแก้อะไร</button>
             <button class="btn btn-secondary" id="ld-export">📥 Export</button>
           </div>
         </div>
@@ -248,6 +250,7 @@ export default async function LostDealAnalysisPage(container) {
       </div>
     `
 
+    document.getElementById('ld-ask-lami')?.addEventListener('click', () => navigate('/ai/ask?q=' + encodeURIComponent('ช่วง 3 เดือนที่ผ่านมาเราเสียดีลเพราะอะไรมากที่สุด และควรแก้อะไรเป็นอันดับแรก?')))
     document.getElementById('date-range-sel')?.addEventListener('change', e => { dateRange = e.target.value; renderPage() })
     document.getElementById('sales-sel')?.addEventListener('change', e => { salespersonFilter = e.target.value; renderPage() })
     document.querySelectorAll('.rf-btn').forEach(b => b.addEventListener('click', () => { reasonFilter = b.dataset.r; renderPage() }))
