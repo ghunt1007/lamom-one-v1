@@ -179,7 +179,7 @@ export default async function CustomerLifecyclePage(container) {
               return `<div style="display:flex;align-items:center;gap:10px">
                 <div style="width:120px;font-size:0.75rem;text-align:right">${ls?.icon} ${ls?.label}</div>
                 <div style="flex:1;background:var(--surface-2);border-radius:4px;height:20px;position:relative">
-                  <div style="width:${pct}%;background:var(--${ls?.color});height:20px;border-radius:4px;display:flex;align-items:center;padding-left:8px">
+                  <div style="width:${pct}%;background:var(--${ls?.color});min-width:max-content;padding-right:8px;height:20px;border-radius:4px;display:flex;align-items:center;padding-left:8px">
                     <span style="font-size:0.68rem;font-weight:700;color:white">${f.count} ราย</span>
                   </div>
                 </div>

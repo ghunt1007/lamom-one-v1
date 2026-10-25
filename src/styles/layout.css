@@ -118,6 +118,8 @@
   white-space: nowrap;
   position: relative;
 }
+/* ชื่อเมนูยาวไม่ล้นออกนอกแถบเมนู: ตัดเป็น … (ชื่อเต็มอยู่ใน title ตอนชี้เมาส์) */
+.nav-item .nav-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
 .nav-item:hover {
   background: var(--surface-2);
@@ -509,4 +511,25 @@
   .cust-stats .stat-pill { padding: 8px 4px !important; }
   .cust-stats .stat-pill > div:first-child { font-size: 0.66rem !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cust-stats .stat-pill > div:last-child { font-size: 1.25rem !important; }
+}
+
+/* แดชบอร์ด: วงแหวน 4 วงเรียง 2x2 บนแท็บเล็ต (ไม่เหลือวงเดียวโดดในแถวล่าง) */
+@media (min-width: 641px) and (max-width: 1100px) {
+  #ring-gauges { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+}
+
+/* หน้าแบบ "รายการซ้าย + แชตขวา" (AI Officers, Communication Hub) บนมือถือ:
+   ย้ายรายการขึ้นไปไว้ด้านบน ให้ช่องแชตได้ความกว้างเต็มจอ ตัวหนังสือไม่ถูกบีบเป็นแนวตั้ง */
+@media (max-width: 640px) {
+  .split-pane { flex-direction: column; }
+  .split-side { width: 100% !important; max-height: 32vh; border-right: 0 !important; border-bottom: 1px solid var(--border); overflow-y: auto; flex-shrink: 0; }
+  .split-side > div:first-child { display: none; }
+  .split-strip { display: flex; flex-direction: row; overflow-x: auto !important; overflow-y: hidden !important; flex: 0 0 auto !important; }
+  .split-strip > * { flex: 0 0 auto; border-right: 0 !important; border-bottom: 2px solid transparent; }
+  .split-strip > .active { border-bottom-color: var(--primary); }
+  .split-strip .officer-item > div > div:last-child { display: none; }
+  .split-pane > :last-child { min-height: 0; min-width: 0; }
+  .split-head { flex-wrap: wrap; padding: 10px 12px !important; }
+  .split-head > div:last-child { margin-left: 0 !important; width: 100%; flex-wrap: nowrap !important; overflow-x: auto; }
+  .split-head > div:last-child > * { flex: 0 0 auto; }
 }

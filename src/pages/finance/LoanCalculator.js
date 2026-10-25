@@ -115,8 +115,8 @@ export default async function LoanCalculatorPage(container) {
             </div>
             <div class="input-group" style="margin-bottom:14px">
               <label class="input-label">ระยะผ่อน</label>
-              <div style="display:flex;gap:4px">
-                ${[48,60,72,84].map(t => `<button class="btn btn-xs ${term===t?'btn-primary':'btn-secondary'} term-btn" data-t="${t}" style="flex:1">${t} งวด</button>`).join('')}
+              <div style="display:flex;flex-wrap:wrap;gap:4px">
+                ${[48,60,72,84].map(t => `<button class="btn btn-xs ${term===t?'btn-primary':'btn-secondary'} term-btn" data-t="${t}" style="flex:1 1 64px">${t} งวด</button>`).join('')}
               </div>
             </div>
             <div style="background:var(--surface-2);padding:10px 12px;border-radius:var(--radius-sm);font-size:0.78rem">
