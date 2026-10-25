@@ -212,7 +212,7 @@ export default async function FollowUpPage(container) {
             ${overdue ? `<span class="badge badge-danger" style="font-size:0.65rem">⚠️ เกินกำหนด</span>` : ''}
             ${isT && f.status === 'pending' ? `<span class="badge badge-warning" style="font-size:0.65rem">📅 วันนี้</span>` : ''}
           </div>
-          <div style="font-size:0.8rem;color:var(--text-muted)">${escHtml(f.vehicleModel)} · ${escHtml(f.salesperson)} · ${telLink(f.phone)}</div>
+          <div style="font-size:0.8rem;color:var(--text-muted)">${[f.vehicleModel ? escHtml(f.vehicleModel) : '', f.salesperson ? '👤 ' + escHtml(f.salesperson) : '', telLink(f.phone)].filter(Boolean).join(' · ')}</div>
           <div style="font-size:0.82rem;margin-top:4px"><strong>${escHtml(f.purpose)}</strong>${f.note ? ` — ${escHtml(f.note)}` : ''}</div>
           ${f.result ? `<div style="font-size:0.8rem;margin-top:4px;color:var(--success)">✓ ${escHtml(f.result)}</div>` : ''}
         </div>
