@@ -1367,5 +1367,7 @@ export default async function BookingsPage(container) {
 }
 
 function dRow(label, value) {
-  return '<div style="font-size:0.82rem;display:flex;gap:6px;padding:2px 0"><span style="color:var(--text-muted);min-width:110px;flex-shrink:0">' + label + '</span><span style="color:var(--text-2)">' + escHtml(String(value ?? '')) + '</span></div>'
+  // ช่องที่ยังไม่มีข้อมูล ("-", "- / -") แสดงจางลง ให้ข้อมูลจริงเด่นอ่านง่าย
+  const empty = /^[\s\-/]*$/.test(String(value ?? ''))
+  return '<div class="' + (empty ? 'd-row d-empty' : 'd-row') + '" style="font-size:0.82rem;display:flex;gap:6px;padding:2px 0"><span style="color:var(--text-muted);min-width:110px;flex-shrink:0">' + label + '</span><span style="color:var(--text-2)">' + escHtml(String(value ?? '')) + '</span></div>'
 }

@@ -568,3 +568,7 @@
   .modal:has(> .modal-footer > :nth-child(5)) > .modal-header { position: sticky; top: 0; z-index: 2; background: var(--surface); }
   .modal:has(> .modal-footer > :nth-child(5)) > .modal-footer { padding-bottom: 16px; }
 }
+
+/* รายละเอียดใบจอง: แถวที่ยังไม่มีข้อมูลจางลง ข้อมูลจริงเด่นขึ้น */
+.d-row.d-empty { opacity: 0.45; }
+@media (max-width: 640px) { .d-row.d-empty { font-size: 0.76rem !important; line-height: 1.5; } }
