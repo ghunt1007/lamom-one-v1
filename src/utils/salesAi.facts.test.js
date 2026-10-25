@@ -52,3 +52,9 @@ describe('catalogContext', () => {
     expect(catalogContext('ยอดขายเดือนนี้เท่าไหร่', V)).toBe('')
   })
 })
+
+describe('catalogContext installments', () => {
+  it('adds an example monthly payment with its assumptions', () => {
+    expect(catalogContext('S05 lite', V)).toContain('ตัวอย่างค่างวด ~10,364 บาท/เดือน (ดาวน์ 20% 72 งวด')
+  })
+})

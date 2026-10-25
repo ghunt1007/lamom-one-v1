@@ -2,6 +2,7 @@
 // เป็นข้อความสั้นๆ ส่งให้ Gemini ช่วยคิดว่า "ควรทำอะไรต่อ" และร่างข้อความ LINE ให้พร้อมส่ง
 // ไม่ส่งเบอร์โทร/อีเมล/LINE ID ออกไปนอกระบบ — AI ไม่จำเป็นต้องรู้เพื่อให้คำแนะนำ
 import { toDateStr } from './format.js'
+import { flatMonthly } from './installment.js'
 
 const STAGE_TH = { lead: 'Lead (ยังไม่ได้คุยจริงจัง)', pp: 'Prospect (คุยแล้ว มีช่องทางติดต่อ)', booking: 'จองแล้ว', delivered: 'ส่งมอบแล้ว' }
 const TEMP_TH = { hot: 'ร้อน (สนใจมาก)', warm: 'อุ่น', cold: 'เย็น' }
@@ -134,8 +135,14 @@ export function addDaysIso(today, days) {
 // สำหรับแชท LAMI: ถ้าคำถามพูดถึงรุ่นรถ → แนบสเปค/ราคาจริงจาก catalog; ถ้าพูดถึงแค่ยี่ห้อ → แนบรายชื่อรุ่น + ช่วงราคา
 // คืน '' ถ้าคำถามไม่เกี่ยวกับรถ (ไม่เพิ่ม context ฟรีๆ)
 export function catalogContext(text, vehicles = []) {
-  const facts = modelFacts(text, vehicles, 6)
-  if (facts.length) return 'ข้อมูลรถจากระบบ (ราคาตั้ง ยังไม่รวมโปร):\n' + facts.map(f => `- ${f}`).join('\n')
+  const hits = modelMatches(text, vehicles, 6)
+  if (hits.length) {
+    const facts = modelFacts(text, vehicles, 6)
+    return 'ข้อมูลรถจากระบบ (ราคาตั้ง ยังไม่รวมโปร):\n' + facts.map((f, i) => {
+      const m = hits[i].price ? flatMonthly(hits[i].price, 20, 72, 2.79).monthly : 0
+      return `- ${f}${m ? ` · ตัวอย่างค่างวด ~${m.toLocaleString('en-US')} บาท/เดือน (ดาวน์ 20% 72 งวด ดอกเบี้ย 2.79% ต่อปี เป็นตัวเลขเบื้องต้น)` : ''}`
+    }).join('\n')
+  }
   const q = norm(text)
   const brands = [...new Set(vehicles.map(v => v.brand).filter(Boolean))].filter(b => norm(b).length >= 3 && q.includes(norm(b)))
   if (!brands.length) return ''
