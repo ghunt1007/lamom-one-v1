@@ -30,3 +30,14 @@ describe('revisitMessage', () => {
     expect(revisitMessage({}, 'other')).toMatch(/^สวัสดีครับ ผม/)
   })
 })
+
+import { testDriveThanks } from './bookingNotify.js'
+describe('testDriveThanks', () => {
+  it('fits the result', () => {
+    const t = { customerName: 'สมชาย ใจดี', model: 'DEEPAL S07', staff: 'เซลส์ เอ' }
+    expect(testDriveThanks(t, 'booked')).toContain('จอง DEEPAL S07')
+    expect(testDriveThanks(t, 'interested')).toContain('คำนวณค่างวด')
+    expect(testDriveThanks(t, '')).toMatch(/^สวัสดีครับคุณสมชาย/)
+    expect(testDriveThanks(t, 'maybe')).toContain('เซลส์ เอ')
+  })
+})
