@@ -91,8 +91,26 @@ export default async function PipelinePage(container) {
       `
     }).join('')
 
+    // มือถือ: แท็บสถานะ (จำนวนคน) แตะแล้วเลื่อนไปคอลัมน์นั้น — ไม่ต้องปัดหาเอง
+    const tabs = document.getElementById('pl-tabs')
+    if (tabs) {
+      tabs.innerHTML = STAGES.map((st, i) => `<button class="btn btn-secondary btn-xs pl-tab" data-i="${i}" style="border-radius:999px;flex-shrink:0">${st.label} <b>${active.filter(c => c.stage === st.key).length}</b></button>`).join('')
+      tabs.querySelectorAll('.pl-tab').forEach(b => b.addEventListener('click', () => {
+        board.children[+b.dataset.i]?.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' })
+      }))
+      markTab()
+    }
+
     bindDragDrop()
     bindCardEvents()
+  }
+
+  function markTab() {
+    const board = document.getElementById('pipeline-board')
+    const col = board?.children[0]
+    if (!col) return
+    const i = Math.round(board.scrollLeft / (col.offsetWidth + 12))
+    document.querySelectorAll('#pl-tabs .pl-tab').forEach((b, j) => { b.classList.toggle('btn-primary', j === i); b.classList.toggle('btn-secondary', j !== i) })
   }
 
   function cardHTML(c, stage) {
@@ -185,7 +203,7 @@ export default async function PipelinePage(container) {
     popup.id = 'lead-quick-popup'
     popup.style.cssText = `position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:400;
       background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);
-      padding:20px;width:300px;box-shadow:0 12px 48px rgba(0,0,0,0.5);animation:slideDown 150ms ease`
+      padding:20px;width:min(300px,calc(100vw - 24px));box-sizing:border-box;box-shadow:0 12px 48px rgba(0,0,0,0.5);animation:slideDown 150ms ease`
     popup.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
         <div>
@@ -199,7 +217,8 @@ export default async function PipelinePage(container) {
         <div>💰 ${c.budget ? '฿' + Number(c.budget).toLocaleString() : '-'}</div>
         <div>📱 ${escHtml(c.phone || '-')}</div>
       </div>
-      <div style="display:flex;gap:8px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${c.phone ? `<a class="btn btn-secondary btn-sm" href="tel:${escHtml(String(c.phone).replace(/[^\d+]/g, ''))}" style="flex:1;justify-content:center">📞 โทร</a>` : ''}
         ${nextStage ? `<button class="btn btn-primary btn-sm" id="qp-next" style="flex:1;justify-content:center">→ ${nextStage.label}</button>` : ''}
         <button class="btn btn-secondary btn-sm" id="qp-detail" style="flex:1;justify-content:center">ดูรายละเอียด</button>
       </div>
@@ -210,7 +229,7 @@ export default async function PipelinePage(container) {
     function closePopup() { popup.remove(); document.removeEventListener('click', onDocClick) }
     function onDocClick(e) { if (!popup.contains(e.target)) closePopup() }
     popup.querySelector('#qp-close').addEventListener('click', () => closePopup())
-    popup.querySelector('#qp-detail').addEventListener('click', () => { closePopup(); navigate('/crm/customers') })
+    popup.querySelector('#qp-detail').addEventListener('click', () => { closePopup(); navigate('/crm/customers?id=' + encodeURIComponent(c.id)) })
     popup.querySelector('#qp-next')?.addEventListener('click', async () => {
       if (!nextStage) return
       try {
@@ -237,6 +256,7 @@ export default async function PipelinePage(container) {
         </div>
       </div>
 
+      <div id="pl-tabs" class="pl-tabs"></div>
       <!-- Board -->
       <div id="pipeline-board" style="display:flex;gap:12px;overflow-x:auto;flex:1;padding-bottom:16px;align-items:flex-start">
         ${STAGES.map(() => `<div class="skeleton" style="min-width:220px;height:300px;border-radius:var(--radius-lg)"></div>`).join('')}
@@ -251,10 +271,17 @@ export default async function PipelinePage(container) {
       .pipeline-card:hover { transform:translateY(-2px); box-shadow:0 4px 16px rgba(0,0,0,0.3); }
       .pipeline-card:active { cursor:grabbing; }
       .pipeline-board-wrap::-webkit-scrollbar { height:6px; }
+      .pl-tabs { display:none; }
+      @media (max-width: 640px) {
+        .pl-tabs { display:flex; gap:6px; overflow-x:auto; flex-shrink:0; margin-bottom:10px; padding-bottom:2px; }
+        #pipeline-board { scroll-snap-type:x mandatory; }
+        .pipeline-col { min-width:calc(100vw - 56px) !important; max-width:none !important; scroll-snap-align:start; }
+      }
     `
     document.head.appendChild(s)
   }
 
+  document.getElementById('pipeline-board')?.addEventListener('scroll', markTab, { passive: true })
   document.getElementById('pl-list-btn').addEventListener('click', () => navigate('/crm/customers'))
   document.getElementById('pl-ask-lami')?.addEventListener('click', () => navigate('/ai/ask?q=' + encodeURIComponent('จากดีลที่กำลังคุยทั้งหมด ดีลไหนควรเร่งปิดภายในสัปดาห์นี้ 3 อันดับแรก เพราะอะไร และควรทำอะไรต่อ?')))
   document.getElementById('pl-add-btn').addEventListener('click', () => navigate('/crm/customers'))
