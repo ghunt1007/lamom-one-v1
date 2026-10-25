@@ -552,7 +552,8 @@ export default async function BookingsPage(container) {
     if (!wrap) return
     if (!filtered.length) { wrap.innerHTML = '<div class="empty-state" style="padding:48px"><div class="empty-icon">📋</div><div class="empty-title">ไม่มีรายการจอง</div><div class="empty-desc">กด "+ บันทึกจอง" หรือ "✨ จองใหม่ (Wizard)" เพื่อเพิ่มรายการใหม่</div></div>'; return }
     const allSelected = filtered.length > 0 && filtered.every(b => selectedIds.has(b.id))
-    wrap.innerHTML = `<div class="card" style="padding:0;overflow:hidden">
+    wrap.innerHTML = `<div class="bk-cards">${filtered.map(b => cardRow(b)).join('')}</div>
+    <div class="card bk-table-card" style="padding:0;overflow:hidden">
       <div class="table-wrap"><table>
         <thead><tr>
           <th style="width:28px"><input type="checkbox" id="bk-select-all" ${allSelected ? 'checked' : ''}></th>
@@ -564,7 +565,7 @@ export default async function BookingsPage(container) {
       </table></div>
     </div>`
 
-    document.getElementById('bk-select-all').addEventListener('change', ev => {
+    document.getElementById('bk-select-all')?.addEventListener('change', ev => {
       filtered.forEach(b => { if (ev.target.checked) selectedIds.add(b.id); else selectedIds.delete(b.id) })
       render()
     })
@@ -601,6 +602,26 @@ export default async function BookingsPage(container) {
     showToast('🗑️ ลบใบจองแล้ว', 'success')
     document.querySelectorAll('.modal-overlay').forEach(m => m.remove())
     await loadData()
+  }
+
+  // มือถือ: ตารางกว้าง 14 คอลัมน์ต้องเลื่อนข้างจนไม่เห็นชื่อลูกค้า → แสดงเป็นการ์ดแทน (ใช้ class เดียวกับตาราง
+  // .bk-row/.bk-status-cell/.income-bk จึงได้ปุ่มกดเหมือนกันทุกอย่าง — แตะการ์ดเปิดรายละเอียด แตะสถานะเพื่อเปลี่ยน)
+  function cardRow(b) {
+    const br = detectBrand(b.brand, b.model)
+    return `<div class="bk-row bk-card" data-id="${b.id}" style="${rowStyle(b)}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div style="min-width:0">
+          <div style="font-weight:700;font-size:0.92rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(b.custName || '—')}${b.rightsOnly ? ' <span style="font-size:0.62rem;color:var(--accent)">🎫 จองสิทธิ์</span>' : ''}</div>
+          <div style="font-size:0.76rem;color:var(--text-2);margin-top:2px">🚗 ${br ? escHtml(br) + ' ' : ''}${escHtml(b.model || '—')}${b.colorOut ? ` · ${escHtml(b.colorOut)}` : ''}</div>
+        </div>
+        <div class="bk-status-cell" data-id="${b.id}" style="cursor:pointer;flex-shrink:0;text-align:right">${statusBadge(b.status)}<span style="font-size:0.6rem;opacity:.4;margin-left:2px">▼</span></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:8px;margin-top:8px;font-size:0.72rem;color:var(--text-muted)">
+        <div>👤 ${escHtml(b.salesName || '—')} · จอง ${formatDate(b.bookingDate)}${b.bookingNo ? ` · <span style="color:var(--primary)">${escHtml(b.bookingNo)}</span>` : ''}</div>
+        <div style="text-align:right;white-space:nowrap">${b.deliveryDate ? `ส่งมอบ ${deliveryCell(b)}` : ''}</div>
+      </div>
+      ${needsIncome(b) ? `<button class="btn btn-warning btn-xs income-bk" data-id="${b.id}" style="margin-top:8px">💰 กรอกรายได้</button>` : ''}
+    </div>`
   }
 
   function tableRow(b) {

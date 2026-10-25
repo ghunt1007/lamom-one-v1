@@ -454,3 +454,12 @@
   .dash-briefing { flex-wrap: wrap; }
   .dash-briefing-actions { flex-direction: row !important; width: 100%; justify-content: flex-end; }
 }
+
+/* ใบจองบนมือถือ: การ์ดแทนตารางกว้าง */
+.bk-cards { display: none; }
+@media (max-width: 640px) {
+  .bk-cards { display: flex; flex-direction: column; gap: 8px; }
+  .bk-table-card { display: none; }
+  .bk-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; cursor: pointer; }
+  .bk-card:active { transform: scale(.99); }
+}
