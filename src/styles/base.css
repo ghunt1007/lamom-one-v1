@@ -283,6 +283,8 @@ tbody tr:hover { background: var(--surface-2); box-shadow: inset 3px 0 0 var(--p
 }
 @media (max-width: 640px) {
   .grid-4, .grid-3, .grid-2 { grid-template-columns: 1fr; }
+  /* แถวการ์ดตัวเลข (ไม่มีช่องกรอก/ตาราง/กราฟ) เรียง 2 ช่องต่อแถว — คอลัมน์เดียวต้องเลื่อนยาวเกินจำเป็น */
+  .grid-4:not(:has(input, select, textarea, table, canvas, svg)), .grid-3:not(:has(input, select, textarea, table, canvas, svg)) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   /* จอแคบ: ยุบ grid ที่กำหนดคอลัมน์ผ่าน inline style (รวมพวกคอลัมน์ fix-px เช่น "1fr 340px")
      ให้เหลือคอลัมน์เดียว — !important ใน stylesheet ชนะ inline style จึงคุมได้จากจุดเดียว */
   /* ปฏิทิน 7 คอลัมน์ (จันทร์–อาทิตย์) ต้องคงไว้ 7 ช่อง */
