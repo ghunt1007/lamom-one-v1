@@ -430,3 +430,9 @@ button.tab-btn:not(.btn).active { background: var(--primary); border-color: var(
   }
   html { scroll-behavior: auto; }
 }
+
+/* จอสัมผัส (มือถือ/แท็บเล็ต): ปุ่มเล็กกดง่ายขึ้น ตัวหนังสือไม่จิ๋วเกินไป */
+@media (pointer: coarse) and (max-width: 1024px) {
+  .btn-xs { padding: 6px 10px; font-size: 0.76rem; min-height: 30px; }
+  .btn-sm { min-height: 34px; }
+}
