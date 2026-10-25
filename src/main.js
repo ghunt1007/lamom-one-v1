@@ -96,6 +96,14 @@ async function bootstrapShell() {
   initRouter(main)
   initAutoTableTools()  // เสริม sort+filter แบบ Excel ให้ทุกตารางอัตโนมัติ
 
+  // ✨ มีอะไรใหม่ — ครั้งเดียวต่อเครื่องหลังอัปเดตใหญ่ (รอให้หน้าแรกโหลดก่อน)
+  setTimeout(() => {
+    import('./utils/whatsNew.js').then(async m => {
+      const { openQuickLead } = await import('./utils/quickLead.js')
+      m.maybeShowWhatsNew({ navigate, openQuickLead })
+    }).catch(() => {})
+  }, 2500)
+
   // แปลคำศัพท์ที่ใช้ซ้ำทั่วระบบ (ปุ่ม/label/สถานะ) อัตโนมัติตามภาษาที่เลือก — ดู autoTranslate.js
   // สำหรับข้อจำกัด (ไม่ใช่การแปลเนื้อหาเฉพาะหน้าแบบ contextual เต็มรูปแบบ)
   const onLangChange = initAutoI18n(() => getState('language'))
