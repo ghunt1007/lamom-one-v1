@@ -62,6 +62,7 @@ export default async function AiAssistantChatPage(container) {
 
   let messages = []
   let waiting = false
+  let voiceAsked = false // คำถามล่าสุดมาจากไมค์ → อ่านคำตอบให้ฟังเอง
   let loading = true
   let businessContext = {}
 
@@ -271,6 +272,17 @@ export default async function AiAssistantChatPage(container) {
       } finally {
         waiting = false
         await loadData()
+        // ถามด้วยเสียง → อ่านคำตอบให้ฟังอัตโนมัติ (ขับรถ/มือไม่ว่างก็คุยกับ LAMI ได้)
+        if (voiceAsked) {
+          voiceAsked = false
+          const last = [...messages].reverse().find(m => m.role === 'ai')
+          if (last) {
+            try {
+              const v = await import('../../utils/voice.js')
+              v.speak(String(last.text).replace(/[*_#`]/g, ''), { onNoVoice: () => {} })
+            } catch {}
+          }
+        }
       }
     }
 
@@ -281,7 +293,7 @@ export default async function AiAssistantChatPage(container) {
       const input = document.getElementById('chat-input')
       const rec = createSTT({
         onInterim: t => { if (input) input.value = t },
-        onFinal: t => { if (input) input.value = t; send(t) },
+        onFinal: t => { if (input) input.value = t; voiceAsked = true; send(t) },
         onEnd: () => { btn.textContent = '🎤'; btn.classList.remove('btn-danger') },
         onError: () => showToast('ไม่ได้ยินเสียง ลองใหม่อีกครั้ง หรืออนุญาตให้ใช้ไมโครโฟน', 'warning'),
       })
