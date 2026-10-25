@@ -37,3 +37,18 @@ describe('modelFacts', () => {
     expect(b).toContain('BEV LITE')
   })
 })
+
+import { catalogContext } from './salesAi.js'
+describe('catalogContext', () => {
+  it('gives model facts when a model is named', () => {
+    expect(catalogContext('S05 max วิ่งได้กี่โล', V)).toContain('BEV MAX')
+  })
+  it('lists models with price range for brand-only questions', () => {
+    const t = catalogContext('deepal มีรุ่นอะไรบ้าง', V)
+    expect(t).toContain('Deepal S05 ราคา 799,000–899,000 บาท (2 รุ่นย่อย)')
+    expect(t).toContain('S07 (2024)')
+  })
+  it('is empty for unrelated questions', () => {
+    expect(catalogContext('ยอดขายเดือนนี้เท่าไหร่', V)).toBe('')
+  })
+})

@@ -8,6 +8,8 @@ import { companyScopeFilters } from '../../core/companyScope.js'
 import { normName } from '../../core/hierarchy.js'
 import { buildMyDay, myDayDigest } from '../../utils/myDay.js'
 import { followupWindowFilters } from '../../utils/customerFollowups.js'
+import { catalogContext } from '../../utils/salesAi.js'
+import { getVehicles } from '../../data/vehicleDatabase.js'
 
 function esc(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
@@ -16,6 +18,7 @@ function esc(s) {
 const CATEGORIES = [
   { label:'☀️ วันนี้ทำอะไรก่อน', q:'วันนี้ฉันควรทำอะไรก่อน? จัดลำดับให้หน่อย พร้อมเหตุผลสั้นๆ' },
   { label:'🎯 ช่วยปิดการขาย', q:'จากงานของฉันวันนี้ ลูกค้าคนไหนมีโอกาสปิดการขายสูงสุด และควรพูดอะไรกับเขา?' },
+  { label:'🚗 เทียบรุ่นรถ', q:'Deepal S05 กับ S07 ต่างกันยังไง เหมาะกับลูกค้าแบบไหน?' },
   { label:'📊 ยอดขาย', q:'ยอดขายเดือนนี้เท่าไหร่?' },
   { label:'📦 สต็อก', q:'สต็อกรถเหลือกี่คัน?' },
   { label:'🔥 Hot Lead', q:'มี Hot Lead ไหม?' },
@@ -232,7 +235,11 @@ export default async function AiAssistantChatPage(container) {
       // ต้องแปลง role 'ai' ในไฟล์นี้เป็น 'lami' ตามที่ askLami() คาดหวัง (ไม่กระทบ role ที่เก็บจริงใน Firestore)
       const history = messages.slice(0, -1).map(m => ({ role: m.role === 'ai' ? 'lami' : m.role, text: m.text }))
       try {
-        const answer = await askLami(text, history, businessContext)
+        // ถามเรื่องรุ่น/ยี่ห้อรถ → แนบราคา/สเปคจริงจาก catalog (รวมคำถามก่อนหน้า 2 ข้อ เผื่อถามต่อ เช่น "แล้วรุ่น max ล่ะ")
+        const recent = [text, ...messages.filter(m => m.role === 'user').slice(-3, -1).map(m => m.text)].join(' ')
+        let cat = ''
+        try { cat = catalogContext(recent, getVehicles()) } catch {}
+        const answer = await askLami(text, history, cat ? { ...businessContext, 'ข้อมูลรถ': cat } : businessContext)
         try { await createDoc('chat_ai_assistant', { role:'ai', text: answer, time:now(), uid }) } catch (e) {}
       } catch (err) {
         try { await createDoc('chat_ai_assistant', { role:'ai', text: '⚠️ เกิดข้อผิดพลาด: ' + err.message, time:now(), uid }) } catch (e) {}

@@ -26,6 +26,7 @@ export function modelFacts(interested, vehicles = [], limit = 4) {
     const m = norm(v.model)
     if (m.length < 2 || !q.includes(m)) continue
     const brandHit = q.includes(norm(v.brand))
+    if (m.length <= 2 && !brandHit) continue // รุ่นชื่อสั้น (D9, M6, X1) ต้องมียี่ห้อด้วย กันจับผิด
     const score = m.length + (brandHit ? 100 : 0)
     if (score > best) { best = score; hits.length = 0 }
     if (score === best) hits.push(v)
@@ -123,4 +124,26 @@ export function parseCloserReply(text) {
 export function addDaysIso(today, days) {
   const d = new Date(Date.UTC(+today.slice(0, 4), +today.slice(5, 7) - 1, +today.slice(8, 10) + (days || 0)))
   return d.toISOString().slice(0, 10)
+}
+
+// สำหรับแชท LAMI: ถ้าคำถามพูดถึงรุ่นรถ → แนบสเปค/ราคาจริงจาก catalog; ถ้าพูดถึงแค่ยี่ห้อ → แนบรายชื่อรุ่น + ช่วงราคา
+// คืน '' ถ้าคำถามไม่เกี่ยวกับรถ (ไม่เพิ่ม context ฟรีๆ)
+export function catalogContext(text, vehicles = []) {
+  const facts = modelFacts(text, vehicles, 6)
+  if (facts.length) return 'ข้อมูลรถจากระบบ (ราคาตั้ง ยังไม่รวมโปร):\n' + facts.map(f => `- ${f}`).join('\n')
+  const q = norm(text)
+  const brands = [...new Set(vehicles.map(v => v.brand).filter(Boolean))].filter(b => norm(b).length >= 3 && q.includes(norm(b)))
+  if (!brands.length) return ''
+  const out = []
+  for (const b of brands.slice(0, 2)) {
+    const byModel = {}
+    vehicles.filter(v => v.brand === b).forEach(v => { (byModel[v.model] ||= []).push(v.price || 0) })
+    const rows = Object.entries(byModel).slice(0, 12).map(([m, ps]) => {
+      const p = ps.filter(Boolean)
+      const fmt = n => Number(n).toLocaleString('en-US')
+      return `- ${b} ${m}${p.length ? ` ราคา ${fmt(Math.min(...p))}${Math.max(...p) !== Math.min(...p) ? `–${fmt(Math.max(...p))}` : ''} บาท` : ''} (${ps.length} รุ่นย่อย)`
+    })
+    out.push(`รุ่นของ ${b} ในระบบ:`, ...rows)
+  }
+  return out.join('\n')
 }
