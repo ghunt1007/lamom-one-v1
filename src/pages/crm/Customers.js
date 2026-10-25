@@ -26,7 +26,10 @@ import { pendingFollowupsFor, followupWindowFilters, followupStatusByCustomer, m
 import { reasonChipsHtml, bindReasonChips } from '../../utils/lostReason.js'
 import { openAddFollowup, offerNextFollowup } from '../../utils/addFollowupModal.js'
 import { touchCustomerContact } from '../../utils/customerContact.js'
+import { armCallLog } from '../../utils/callLogger.js'
 import { moveFollowupsOnReassign } from '../../utils/leadAssign.js'
+
+const pendingFuCount = new WeakMap() // ลูกค้า → จำนวนนัดค้าง (ใช้ตัดสินว่าควรเสนอนัดครั้งถัดไปหลังโทรไหม)
 
 // แถบ "โอกาสปิด" เล็กๆ ใต้อุณหภูมิ — เฉพาะ Lead/Prospect ที่ยังไม่เสียดีล (สูตรใน utils/leadScore.js)
 function scoreBar(c) {
@@ -268,7 +271,7 @@ export default async function CustomersPage(container) {
                 </div>
               </div>
               <div style="display:flex;flex-direction:column;gap:8px">
-                ${detail('📱 โทร', c.phone && String(c.phone).replace(/[^\d+]/g, '') ? `<a href="tel:${String(c.phone).replace(/[^\d+]/g, '')}" style="color:var(--primary)">${formatPhone(c.phone)}</a>` : (formatPhone(c.phone) || '-'))}
+                ${detail('📱 โทร', c.phone && String(c.phone).replace(/[^\d+]/g, '') ? `<a id="wk-tel" href="tel:${String(c.phone).replace(/[^\d+]/g, '')}" style="color:var(--primary)">${formatPhone(c.phone)}</a>` : (formatPhone(c.phone) || '-'))}
                 ${detail('💚 LINE', escHtml(c.lineId || '-'))}
                 ${detail('📧 Email', escHtml(c.email || '-'))}
                 ${detail('🚗 สนใจ', escHtml(c.interestedModel || '-'))}
@@ -357,6 +360,11 @@ export default async function CustomersPage(container) {
         showToast('✅ บันทึกว่าติดต่อลูกค้าแล้ว', 'success')
       } else { b.disabled = false; showToast('บันทึกไม่สำเร็จ', 'error') }
     })
+    // โทรจากเบอร์ในหน้านี้ → วางสายกลับมาที่แอป ระบบถามผลการโทร (utils/callLogger.js)
+    el.querySelector('#wk-tel')?.addEventListener('click', () => armCallLog(c, {
+      hasPending: () => (pendingFuCount.get(c) || 0) > 0,
+      onSaved: () => { refreshFollowupList(c); const span = document.getElementById('wk-last-contact'); if (span && c.lastContactAt) span.textContent = timeAgo(c.lastContactAt) },
+    }))
     // ตั้งความสนใจ (Hot/Warm/Cold) ได้ในคลิกเดียว — กดซ้ำปุ่มเดิมเพื่อล้าง
     el.querySelectorAll('.wk-temp').forEach(btn => btn.addEventListener('click', async () => {
       const t = c.temperature === btn.dataset.t ? null : btn.dataset.t
@@ -440,6 +448,7 @@ export default async function CustomersPage(container) {
     let rows = []
     try { rows = await listDocs('followups', [...companyScopeFilters(), ...followupWindowFilters(today)], 'dueDate', 'asc', 2000) } catch {}
     const list = pendingFollowupsFor(rows, c.id, today)
+    pendingFuCount.set(c, list.length)
     if (!document.getElementById('wk-fu-list-panel')) return
     el.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
