@@ -8,6 +8,7 @@ import { listDocs, createDoc } from '../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../core/companyScope.js'
 import { deriveInitialStage } from '../core/customerInsights.js'
 import { scheduleLeadFollowups } from './leadFollowups.js'
+import { parseLeadText, maskContacts, buildLeadNamePrompt, parseLeadNameReply } from './leadText.js'
 
 export const QUICK_SOURCES = [
   ['walk-in', '🚶 Walk-in'], ['phone', '📱 โทรเข้า'], ['facebook', '📘 Facebook'], ['line', '💚 LINE'],
@@ -91,6 +92,12 @@ export function openQuickLead() {
     title: '🧲 เพิ่ม Lead ด่วน', size: 'sm',
     body: `
       <div style="display:flex;flex-direction:column;gap:12px">
+        <details id="ql-paste-box" style="border:1px dashed var(--border);border-radius:10px;padding:8px 10px">
+          <summary style="cursor:pointer;font-size:0.82rem;font-weight:600">📋 วางข้อความแชทลูกค้า ให้ช่วยกรอกให้</summary>
+          <textarea class="input" id="ql-paste" rows="3" style="margin-top:8px;width:100%;font-size:16px" placeholder="ก๊อปข้อความจาก Facebook / LINE / TikTok มาวางที่นี่"></textarea>
+          <button type="button" class="btn btn-primary btn-sm" id="ql-fill" style="margin-top:6px;background:linear-gradient(135deg,#8B5CF6,#3B82F6);border:none">✨ กรอกให้</button>
+          <span id="ql-fill-msg" style="font-size:0.72rem;color:var(--text-muted);margin-left:6px"></span>
+        </details>
         <div class="input-group"><label class="input-label">ชื่อลูกค้า <span class="required">*</span></label><input class="input" id="ql-name" placeholder="เช่น สมชาย ใจดี" autocomplete="off"><span class="input-error" id="ql-name-e"></span></div>
         <div class="input-group"><label class="input-label">เบอร์โทร หรือ LINE ID</label><input class="input" id="ql-contact" placeholder="0812345678 หรือ @lineid" autocomplete="off" inputmode="text"><span class="input-error" id="ql-dup" style="color:var(--warning)"></span></div>
         <div class="input-group"><label class="input-label">รถที่สนใจ</label><input class="input" id="ql-model" placeholder="เช่น BYD Seal" autocomplete="off" list="ql-models"><datalist id="ql-models"></datalist></div>
@@ -112,10 +119,37 @@ export function openQuickLead() {
     $('ql-dup').textContent = dup ? `⚠️ เบอร์/LINE นี้มีในระบบแล้ว: ${[dup.firstName, dup.lastName].filter(Boolean).join(' ')}${dup.assignedTo ? ` (ผู้ดูแล ${dup.assignedTo})` : ''}` : ''
   })
 
+  let pastedNote = ''
+  $('ql-fill').addEventListener('click', async () => {
+    const text = $('ql-paste').value.trim()
+    if (!text) { $('ql-paste').focus(); return }
+    const models = [...$('ql-models').options].map(o => o.value)
+    const r = parseLeadText(text, models)
+    if (r.contact && !$('ql-contact').value) { $('ql-contact').value = r.contact; $('ql-contact').dispatchEvent(new Event('input')) }
+    if (r.model && !$('ql-model').value) $('ql-model').value = r.model
+    if (r.source) el.querySelector(`.ql-src[data-k="${r.source}"]`)?.click()
+    if (r.hot) $('ql-hot').checked = true
+    pastedNote = text.slice(0, 500)
+    const found = [r.contact && 'เบอร์/LINE', r.model && 'รุ่นรถ', r.source && 'ที่มา', r.hot && 'สนใจมาก'].filter(Boolean)
+    $('ql-fill-msg').textContent = found.length ? `เจอ: ${found.join(', ')}` : 'ไม่เจอเบอร์/รุ่นในข้อความ'
+    if (!$('ql-name').value) $('ql-name').focus()
+    // ชื่อลูกค้า/รุ่นที่สะกดแปลกๆ ให้ AI ช่วยอ่าน (ปิดเบอร์โทร/LINE ก่อนส่ง) — ไม่ได้ล็อกอินจริงก็ข้ามไป
+    try {
+      const ai = await import('./ai.js')
+      if (!ai.isAiEnabled()) return
+      $('ql-fill-msg').textContent += ' · ✨ AI กำลังอ่านชื่อ...'
+      const g = parseLeadNameReply(await ai.askJsonPrompt(buildLeadNamePrompt(maskContacts(text)), 1500))
+      if (g?.name && !$('ql-name').value) $('ql-name').value = g.name
+      if (g?.model && !$('ql-model').value) $('ql-model').value = g.model
+      if (g?.summary) pastedNote = `${g.summary}\n---\n${pastedNote}`
+      $('ql-fill-msg').textContent = $('ql-fill-msg').textContent.replace(' · ✨ AI กำลังอ่านชื่อ...', g?.name ? ' · ✨ AI ใส่ชื่อให้แล้ว' : '')
+    } catch { $('ql-fill-msg').textContent = $('ql-fill-msg').textContent.replace(' · ✨ AI กำลังอ่านชื่อ...', '') }
+  })
+
   async function save(keepOpen) {
     const name = $('ql-name').value.trim()
     if (!name) { $('ql-name-e').textContent = 'กรุณาใส่ชื่อ'; $('ql-name').focus(); return }
-    const lead = buildQuickLead({ name, contact: $('ql-contact').value, model: $('ql-model').value, source, hot: $('ql-hot').checked }, { assignedTo: me.displayName || '' })
+    const lead = buildQuickLead({ name, contact: $('ql-contact').value, model: $('ql-model').value, source, hot: $('ql-hot').checked, note: pastedNote }, { assignedTo: me.displayName || '' })
     const dup = existing && findDuplicate(lead, existing)
     if (dup && !window.confirm(`ลูกค้าเบอร์/LINE นี้มีอยู่แล้ว (${[dup.firstName, dup.lastName].filter(Boolean).join(' ')}) ยังต้องการเพิ่มซ้ำอีกคนหรือไม่?`)) return
     const btns = [$('ql-save'), $('ql-more')]
@@ -127,7 +161,8 @@ export function openQuickLead() {
       const fu = await scheduleLeadFollowups(doc, id)
       showToast(`✅ เพิ่ม ${name} แล้ว (${doc.stage === 'lead' ? 'Lead' : 'Prospect'})${fu ? ` · นัดติดตาม ${fu} ครั้ง` : ''}`, 'success')
       if (keepOpen) {
-        ;['ql-name', 'ql-contact', 'ql-model'].forEach(i => { $(i).value = '' })
+        ;['ql-name', 'ql-contact', 'ql-model', 'ql-paste'].forEach(i => { $(i).value = '' })
+        pastedNote = ''; $('ql-fill-msg').textContent = ''
         $('ql-hot').checked = false
         $('ql-dup').textContent = ''; $('ql-name-e').textContent = ''
         $('ql-name').focus()
