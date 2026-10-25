@@ -147,3 +147,34 @@ export function catalogContext(text, vehicles = []) {
   }
   return out.join('\n')
 }
+
+// "ร่างข้อความทักลูกค้าที่เงียบ ทีละหลายคน" — ส่ง AI แค่ชื่อต้น รุ่นที่สนใจ จำนวนวันที่เงียบ (ไม่มีเบอร์/LINE ID)
+// list = [{ firstName, name, interestedModel, days, temperature }] → prompt; คำตอบ JSON [{ i, msg }]
+export function buildBatchNudgePrompt(list) {
+  const rows = list.map((c, i) => {
+    const first = String(c.firstName || c.name || 'ลูกค้า').trim().split(/\s+/)[0]
+    return `${i + 1}. ${first} · สนใจ ${c.interestedModel || 'ยังไม่ระบุรุ่น'} · เงียบ ${c.days ?? '?'} วัน${c.temperature === 'hot' ? ' · สนใจมาก' : ''}`
+  })
+  return `คุณคือเซลส์รถยนต์ไฟฟ้าในไทยที่สุภาพ เป็นกันเอง ร่างข้อความ LINE สั้นๆ ทักลูกค้าแต่ละคนที่เงียบไป
+ให้แต่ละข้อความต่างกัน ไม่เกิน 2 ประโยค เรียกชื่อลูกค้า ("คุณ...") อ้างรุ่นที่สนใจ และชวนคุยต่อ/ชวนมาทดลองขับ
+ห้ามใส่ราคา ส่วนลด หรือโปรโมชั่น ห้ามใช้อีโมจิเกิน 1 ตัว
+ลูกค้า:
+${rows.join('\n')}
+
+ตอบเป็น JSON array อย่างเดียว: [{"i": ลำดับ, "msg": "ข้อความ"}]`
+}
+
+export function parseBatchNudgeReply(text, n) {
+  const raw = String(text || '').match(/\[[\s\S]*\]/)?.[0]
+  if (!raw) return []
+  let arr
+  try { arr = JSON.parse(raw) } catch { return [] }
+  if (!Array.isArray(arr)) return []
+  const out = []
+  for (const o of arr) {
+    const i = Number(o?.i)
+    const msg = typeof o?.msg === 'string' ? o.msg.trim() : ''
+    if (Number.isInteger(i) && i >= 1 && i <= n && msg && !out.some(x => x.i === i)) out.push({ i, msg: msg.slice(0, 400) })
+  }
+  return out.sort((a, b) => a.i - b.i)
+}

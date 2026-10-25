@@ -19,6 +19,9 @@ import { openAddFollowup, offerNextFollowup } from '../../utils/addFollowupModal
 import { touchCustomerContact } from '../../utils/customerContact.js'
 import { armCallLog } from '../../utils/callLogger.js'
 import { lineNameKey } from '../../utils/lineRegistration.js'
+import { buildBatchNudgePrompt, parseBatchNudgeReply } from '../../utils/salesAi.js'
+
+const NUDGE_MAX = 8
 
 const UNASSIGNED = '(ยังไม่มีผู้ดูแล)'
 function escHtml(s) {
@@ -149,9 +152,57 @@ export default async function MyDayPage(container) {
     </div>`
   }
 
+  let lastDay = { stale: [] }
+  // AI ร่างข้อความ LINE ทักลูกค้าที่เงียบหลายคนพร้อมกัน — เซลส์อ่าน/แก้ แล้วคัดลอกไปส่งเอง (ไม่ส่งอัตโนมัติ)
+  async function openNudgeDrafts(list) {
+    if (!list.length) return
+    const ai = await import('../../utils/ai.js')
+    if (!ai.isAiEnabled()) { showToast('ต้องล็อกอินด้วยบัญชีจริงเพื่อใช้ AI', 'warning'); return }
+    const { el, close } = openModal({
+      title: `✨ ข้อความทักลูกค้า ${list.length} คน`, size: 'md',
+      body: `<div id="nd-body" style="padding:20px;text-align:center;color:var(--text-muted)"><span class="spinner spinner-sm"></span> AI กำลังร่างข้อความ...</div>`,
+      footer: `<button class="btn btn-secondary" id="nd-close">ปิด</button>`,
+    })
+    el.querySelector('#nd-close').addEventListener('click', close)
+    let drafts = []
+    try { drafts = parseBatchNudgeReply(await ai.askJsonPrompt(buildBatchNudgePrompt(list), 4000), list.length) } catch {}
+    const body = el.querySelector('#nd-body')
+    if (!body) return
+    if (!drafts.length) { body.innerHTML = '<div style="color:var(--danger)">AI ร่างไม่สำเร็จ ลองใหม่อีกครั้ง</div>'; return }
+    body.style.cssText = 'display:flex;flex-direction:column;gap:10px;text-align:left'
+    body.innerHTML = '<div style="font-size:0.74rem;color:var(--text-muted)">อ่าน/แก้ได้ก่อนส่ง · กด 📋 แล้ววางในแชท LINE ของลูกค้า · ส่งแล้วกด ✅</div>' + drafts.map(({ i, msg }) => {
+      const c = list[i - 1]
+      return `<div class="card" style="padding:10px 12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px">
+          <b style="font-size:0.85rem">${escHtml(c.name)}</b><span style="font-size:0.7rem;color:var(--text-muted)">${escHtml(c.interestedModel || '')} · เงียบ ${c.days} วัน</span>
+        </div>
+        <textarea class="input nd-msg" data-i="${i}" rows="3" style="width:100%;font-size:0.84rem">${escHtml(msg)}</textarea>
+        <div style="display:flex;justify-content:flex-end;gap:6px;margin-top:6px">
+          <button class="btn btn-secondary btn-xs nd-copy" data-i="${i}">📋 คัดลอก</button>
+          <button class="btn btn-success btn-xs nd-sent" data-i="${i}">✅ ส่งแล้ว</button>
+        </div>
+      </div>`
+    }).join('')
+    body.querySelectorAll('.nd-copy').forEach(b => b.addEventListener('click', async () => {
+      const t = body.querySelector(`.nd-msg[data-i="${b.dataset.i}"]`)?.value || ''
+      try { await navigator.clipboard.writeText(t); showToast('📋 คัดลอกแล้ว วางใน LINE ได้เลย', 'success') } catch { showToast('คัดลอกไม่สำเร็จ — กดค้างที่ข้อความแล้วคัดลอกเอง', 'warning') }
+    }))
+    body.querySelectorAll('.nd-sent').forEach(b => b.addEventListener('click', async () => {
+      const c = list[Number(b.dataset.i) - 1]
+      b.disabled = true
+      if (await touchCustomerContact(c.id)) {
+        const cc = data.customers.find(x => x.id === c.id)
+        if (cc) { cc.updatedAt = new Date().toISOString(); cc.lastContactAt = cc.updatedAt }
+        b.textContent = '✔ บันทึกแล้ว'
+        render()
+      } else { b.disabled = false; showToast('บันทึกไม่สำเร็จ', 'error') }
+    }))
+  }
+
   function render() {
     const today = todayBangkok()
     const d = buildMyDay(data, { today, mine })
+    lastDay = d
     cleared = []
     // ความคืบหน้าวันนี้ = ลูกค้าที่ติดต่อแล้ว เทียบกับ (ติดต่อแล้ว + งานค้าง)
     const doneToday = d.contactedToday || 0
@@ -201,6 +252,7 @@ export default async function MyDayPage(container) {
           `${c.phone ? escHtml(c.phone) : c.lineId ? escHtml(c.lineId) : 'ไม่มีเบอร์'}${ownerTag(c.assignedTo)}`,
           `${callBtn(c.phone, c.id)}<button class="btn btn-primary btn-xs md-plan" data-id="${escHtml(c.id)}">📅 นัด</button><button class="btn btn-secondary btn-xs md-open" data-id="${escHtml(c.id)}">เปิด</button>`), 'danger') : ''}
 
+        ${d.stale.length ? `<div style="display:flex;justify-content:flex-end;margin:-4px 0 8px"><button class="btn btn-primary btn-sm md-ai-nudge" style="background:linear-gradient(135deg,#8B5CF6,#3B82F6);border:none">✨ ให้ AI ร่างข้อความ LINE ทัก ${Math.min(NUDGE_MAX, d.stale.length)} คนที่เงียบ</button></div>` : ''}
         ${section('⏰', `Lead ไม่ได้ติดตามเกิน ${STALE_LEAD_DAYS} วัน`, 'กด "ติดตามแล้ว" เพื่อบันทึกว่าคุยแล้ววันนี้', d.stale, c => line(
           `${c.temperature === 'hot' ? '🔴 ' : ''}${escHtml(c.name)}${c.interestedModel ? ` · ${escHtml(c.interestedModel)}` : ''} <span class="badge badge-warning" style="font-size:0.62rem">${c.days} วัน</span>`,
           `${c.phone ? escHtml(c.phone) : c.lineId ? escHtml(c.lineId) : 'ไม่มีเบอร์'}${ownerTag(c.assignedTo)}`,
@@ -258,6 +310,7 @@ export default async function MyDayPage(container) {
       const c = data.customers.find(x => x.id === b.dataset.id)
       if (c) openAddFollowup(c, { me: me.displayName || '', onSaved: f => { data.followups.push(f); render() } })
     }))
+    $$('.md-ai-nudge').forEach(b => b.addEventListener('click', () => openNudgeDrafts(lastDay.stale.slice(0, NUDGE_MAX))))
     $$('.md-touch').forEach(b => b.addEventListener('click', async () => {
       b.disabled = true
       try {
