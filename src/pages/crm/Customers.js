@@ -19,6 +19,7 @@ import { aiSalesCloser, isAiEnabled, suggestCustomerReply } from '../../utils/ai
 import { buildCustomerBrief, addDaysIso, catalogContext } from '../../utils/salesAi.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 import { maskContacts } from '../../utils/leadText.js'
+import { enhanceMics } from '../../utils/micInput.js'
 import { heuristicScore } from '../../utils/leadScore.js'
 import { OCCUPATIONS } from '../../utils/financeMatch.js'
 import { openQuickLead, findDuplicate } from '../../utils/quickLead.js'
@@ -475,7 +476,7 @@ export default async function CustomersPage(container) {
       if (!f) return
       openModal({
         title: '✅ บันทึกผลการติดตาม', size: 'sm',
-        body: `<div class="input-group"><label class="input-label">ผลการติดต่อ *</label><textarea class="input" id="wk-fu-result" rows="3" placeholder="เช่น สนใจ นัดทดลองขับเสาร์นี้"></textarea></div>`,
+        body: `<div class="input-group"><label class="input-label">ผลการติดต่อ *</label><textarea class="input" id="wk-fu-result" data-mic rows="3" placeholder="เช่น สนใจ นัดทดลองขับเสาร์นี้"></textarea></div>`,
         async onConfirm() {
           const result = document.getElementById('wk-fu-result')?.value?.trim()
           if (!result) { showToast('❗ กรุณากรอกผลการติดต่อ', 'error'); return false }
@@ -556,11 +557,12 @@ export default async function CustomersPage(container) {
       <div id="wk-ai-analysis"></div>
       <details id="wk-ai-reply" style="margin-top:8px">
         <summary style="cursor:pointer;font-size:0.8rem;font-weight:600;color:var(--primary)">💬 ลูกค้าถามมา — ให้ AI ช่วยร่างคำตอบ</summary>
-        <textarea id="wk-ai-reply-q" class="form-input" rows="3" style="margin-top:6px;width:100%;font-size:0.82rem" placeholder="วางข้อความที่ลูกค้าถาม เช่น &quot;S05 วิ่งได้กี่โล ชาร์จที่บ้านได้ไหม&quot;"></textarea>
+        <textarea id="wk-ai-reply-q" data-mic class="form-input" rows="3" style="margin-top:6px;width:100%;font-size:0.82rem" placeholder="วางข้อความที่ลูกค้าถาม เช่น &quot;S05 วิ่งได้กี่โล ชาร์จที่บ้านได้ไหม&quot;"></textarea>
         <div style="display:flex;justify-content:flex-end;margin-top:6px"><button class="btn btn-primary btn-xs" id="wk-ai-reply-btn">✨ ร่างคำตอบ</button></div>
         <div id="wk-ai-reply-out"></div>
       </details>
     `
+    enhanceMics(el)
     document.getElementById('wk-ai-reply-btn')?.addEventListener('click', async () => {
       const btn = document.getElementById('wk-ai-reply-btn')
       const out = document.getElementById('wk-ai-reply-out')
@@ -779,7 +781,7 @@ export default async function CustomersPage(container) {
       body: `
         <div class="input-group"><label class="input-label">เหตุผลที่เสียดีล <span class="required">*</span></label>
           ${reasonChipsHtml('lost-chip')}
-          <textarea class="input" id="lost-reason" rows="3" placeholder="เลือกเหตุผลด้านบน แล้วพิมพ์รายละเอียดต่อได้ เช่น ราคา - อีกร้านลดมากกว่า 20,000"></textarea>
+          <textarea class="input" id="lost-reason" data-mic rows="3" placeholder="เลือกเหตุผลด้านบน แล้วพิมพ์รายละเอียดต่อได้ เช่น ราคา - อีกร้านลดมากกว่า 20,000"></textarea>
           <span class="input-error" id="lost-reason-e"></span>
         </div>
       `,
@@ -868,7 +870,7 @@ export default async function CustomersPage(container) {
           </div>
           <div class="input-group">
             <label class="input-label">รายละเอียด <span class="required">*</span></label>
-            <textarea class="input" id="log-note" rows="3" placeholder="บันทึกสิ่งที่คุย..."></textarea>
+            <textarea class="input" id="log-note" data-mic rows="3" placeholder="บันทึกสิ่งที่คุย..."></textarea>
             <span class="input-error" id="log-err"></span>
           </div>
         </div>

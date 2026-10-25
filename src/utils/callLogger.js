@@ -54,7 +54,7 @@ function askOutcome({ customer: c, hasPending, onSaved }) {
     body: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" data-keep>
         ${CALL_OUTCOMES.map(o => `<button type="button" class="btn btn-secondary cl-o" data-k="${o.k}" style="padding:12px 8px">${o.label}</button>`).join('')}
       </div>
-      <textarea class="input" id="cl-note" rows="2" style="margin-top:10px;width:100%;font-size:16px" placeholder="รายละเอียดเพิ่ม (ไม่บังคับ) เช่น นัดทดลองขับเสาร์นี้"></textarea>`,
+      <textarea class="input" id="cl-note" data-mic rows="2" style="margin-top:10px;width:100%;font-size:16px" placeholder="รายละเอียดเพิ่ม (ไม่บังคับ) เช่น นัดทดลองขับเสาร์นี้"></textarea>`,
     footer: `<button class="btn btn-secondary" id="cl-skip">ข้าม</button><button class="btn btn-primary" id="cl-save" disabled>💾 บันทึก</button>`,
   })
   el.querySelectorAll('.cl-o').forEach(b => b.addEventListener('click', () => {
