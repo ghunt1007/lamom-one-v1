@@ -12,6 +12,8 @@ import { catalogContext, dealValue } from '../../utils/salesAi.js'
 import { businessFacts, stockFacts, testDriveFacts } from '../../utils/bizFacts.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 import { formatAiText } from '../../utils/aiFormat.js'
+import { pageLinksFor } from '../../utils/aiPageLinks.js'
+import { navigate } from '../../core/router.js'
 
 function esc(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
@@ -175,6 +177,7 @@ export default async function AiAssistantChatPage(container) {
       <div style="min-width:0">
         <div style="max-width:74vw;padding:10px 14px;border-radius:${isUser?'16px 16px 4px 16px':'4px 16px 16px 16px'};background:${isUser?'var(--primary)':'var(--surface-2)'};color:${isUser?'white':'var(--text)'};font-size:0.84rem;line-height:1.65">${text}</div>
         ${!isUser && i === messages.length - 1 && !waiting && Array.isArray(m.next) && m.next.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">${m.next.map(q => `<button class="btn btn-secondary btn-xs cat-btn" data-q="${esc(q)}" style="border-radius:999px">💬 ${esc(q)}</button>`).join('')}</div>` : ''}
+        ${!isUser && i === messages.length - 1 && !waiting && i > 0 && messages[i - 1]?.role === 'user' ? (() => { const l = pageLinksFor(messages[i - 1].text); return l.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">${l.map(x => `<button class="btn btn-primary btn-xs chat-go" data-path="${esc(x.path)}" style="border-radius:999px">${esc(x.label)} →</button>`).join('')}</div>` : '' })() : ''}
         <div style="font-size:0.66rem;color:var(--text-muted);margin-top:3px;${isUser?'text-align:right':''}">${esc(m.time)}${!isUser && m.text !== GREETING && i >= 0 ? ` · <button class="chat-copy" data-i="${i}" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.66rem;padding:0">📋 คัดลอก</button> · <button class="chat-speak" data-i="${i}" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.66rem;padding:0">🔊 ฟัง</button>` : ''}</div>
       </div>
     </div>`
@@ -333,6 +336,8 @@ export default async function AiAssistantChatPage(container) {
     document.getElementById('send-btn')?.addEventListener('click', () => send(document.getElementById('chat-input')?.value || ''))
     document.getElementById('chat-input')?.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(e.target.value) } })
     container.querySelectorAll('.cat-btn').forEach(b => b.addEventListener('click', () => send(b.dataset.q)))
+    // เปิดหน้าที่เกี่ยวกับคำถาม (เช่น ถามเรื่องลองขับ → ไปหน้านัดทดลองขับ)
+    container.querySelectorAll('.chat-go').forEach(b => b.addEventListener('click', () => navigate(b.dataset.path)))
     document.getElementById('clear-chat')?.addEventListener('click', async () => {
       const ok = await confirmDialog({ title: 'ล้างประวัติแชท', message: 'ต้องการล้างประวัติแชททั้งหมดหรือไม่? ไม่สามารถกู้คืนได้', confirmText: 'ล้างแชท', danger: true })
       if (!ok) return
