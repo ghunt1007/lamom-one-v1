@@ -559,3 +559,12 @@
   .pa-more-btn { display: inline-flex; }
   .page-actions:not(.pa-open) .pa-more { display: none; }
 }
+
+/* มือถือ: หน้าต่างที่มีปุ่มด้านล่างเยอะ (≥5 ปุ่ม เช่น รายละเอียดใบจอง) ปุ่มกินพื้นที่จนเหลือที่อ่านนิดเดียว
+   → ให้ทั้งหน้าต่างเลื่อนลงไปถึงปุ่มแทน หัวหน้าต่าง (ชื่อ + ✕) ค้างไว้ด้านบนเสมอ */
+@media (max-width: 640px) {
+  .modal:has(> .modal-footer > :nth-child(5)) { overflow-y: auto; }
+  .modal:has(> .modal-footer > :nth-child(5)) > .modal-body { overflow: visible; flex: none; }
+  .modal:has(> .modal-footer > :nth-child(5)) > .modal-header { position: sticky; top: 0; z-index: 2; background: var(--surface); }
+  .modal:has(> .modal-footer > :nth-child(5)) > .modal-footer { padding-bottom: 16px; }
+}
