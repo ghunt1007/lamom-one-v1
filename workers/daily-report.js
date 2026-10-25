@@ -109,9 +109,19 @@ async function runMorningReminder(env, accessToken) {
   if (env.LINE_CHANNEL_ACCESS_TOKEN) {
     const targets = await runQuery(env, accessToken, 'line_sales_targets', null, null, 500, ['name', 'userId']).catch(() => [])
     const goals = await readSalesGoals(env, accessToken, today.slice(0, 7))
-    for (const m of matchSalesTargets(sections, targets)) {
-      const r = await pushLine(env, m.userId, buildPersonalReminder(m.section, today, env.ALLOWED_ORIGIN, sellerGoal(data, goals, m.name, today)))
-      personal.push({ name: m.name, ...r })
+    // หัวหน้า/แอดมินได้งานของทั้งทีมตามผังองค์กร · LINE เจ้าของได้สรุปรวมด้านบนแล้ว ไม่ส่งซ้ำ
+    const [staff, users] = await readStaffAndUsers(env, accessToken)
+    const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
+    for (const t of targets) {
+      if (!t.userId || !t.name || t.userId === owner) continue
+      const mine = sectionsForScope(sections, teamScopeFor(t.name, staff, users), t.name)
+      if (!mine.length) continue
+      const team = mine.length > 1 || normSalesName(mine[0].name) !== normSalesName(t.name)
+      const text = team
+        ? teamTasksText(mine, today, env.ALLOWED_ORIGIN).replace('📋 งานค้างของทีมตอนนี้', '☀️ งานค้างของทีมเช้านี้')
+        : buildPersonalReminder(mine[0], today, env.ALLOWED_ORIGIN, sellerGoal(data, goals, t.name, today))
+      const r = await pushLine(env, t.userId, text)
+      personal.push({ name: t.name, team, ...r })
     }
   }
   return { text, telegram, line, personal, weekly }
@@ -301,8 +311,10 @@ async function handleLineWebhook(request, env, cors) {
       } else otherMessage = true
     } else if (cmd.type === 'tasks') {
       // ตอบเฉพาะคนที่ลงทะเบียนเป็นเซลส์แล้ว — คนอื่น (เช่น ลูกค้าพิมพ์คำว่า "งาน") ไม่ตอบ ไม่ให้ข้อมูลภายในหลุด
+      // เจ้าของ (ปลายทางรายงาน) เห็นงานทั้งทีมแม้ไม่ได้ลงทะเบียนชื่อ · หัวหน้า/แอดมินเห็นงานของลูกทีมตามผังองค์กร
       const me = await readSalesTarget(env, accessToken, userId)
-      if (me?.name) reply = await buildTasksReply(env, accessToken, me.name)
+      const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
+      if (me?.name || (owner && owner === userId)) reply = await buildTasksReply(env, accessToken, me?.name || '', owner === userId)
       else otherMessage = true
     } else if (cmd.type === 'unregister') {
       await deleteSalesTarget(env, accessToken, userId)
@@ -1117,9 +1129,14 @@ async function readSalesTarget(env, accessToken, userId) {
   } catch { return null }
 }
 // ตอบคำสั่ง "งาน" — งานค้างของเซลส์คนนี้ ณ ตอนนี้ (เนื้อหาเดียวกับข้อความ 9 โมงเช้า)
-async function buildTasksReply(env, accessToken, name) {
+async function buildTasksReply(env, accessToken, name, isOwner = false) {
   try {
     const { sections, today, data } = await buildMorningData(env, accessToken)
+    const scope = isOwner ? { all: true } : teamScopeFor(name, ...await readStaffAndUsers(env, accessToken))
+    const mine = sectionsForScope(sections, scope, name)
+    if (scope.all || mine.length > 1 || (mine.length === 1 && normSalesName(mine[0].name) !== normSalesName(name))) {
+      return teamTasksText(mine, today, env.ALLOWED_ORIGIN)
+    }
     const goals = await readSalesGoals(env, accessToken, today.slice(0, 7))
     return tasksReplyText(sections, name, today, env.ALLOWED_ORIGIN, sellerGoal(data, goals, name, today))
   } catch { return '⚠️ ดึงงานค้างไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
@@ -1166,6 +1183,57 @@ export function buildTomorrowText(data, name, today) {
     ...(fus.length ? ['', `📞 นัดติดตาม ${fus.length} ราย`, ...cap(fus, f => `  - ${f.customerName || 'ลูกค้า'}`)] : []),
   ].join('\n')
 }
+async function readStaffAndUsers(env, accessToken) {
+  const [staff, users] = await Promise.all([
+    runQuery(env, accessToken, 'staff', null, null, 1000, ['firstName', 'lastName', 'nickname', 'uid', 'managerId', 'managerIds', 'deleted']).catch(() => []),
+    runQuery(env, accessToken, 'users', null, null, 1000, ['role', 'displayName', 'groupWide']).catch(() => []),
+  ])
+  return [staff, users]
+}
+
+// ขอบเขตงานที่คนนี้ควรเห็นตามตำแหน่ง (ตรงกับ src/core/hierarchy.js): แอดมิน/เจ้าของบริษัท/groupWide = ทั้งทีม,
+// คนอื่น = ตัวเอง + ลูกทีมทุกระดับตาม staff.managerId/managerIds — คืน { all: true } หรือ { names: Set(ชื่อ normalize) }
+export function teamScopeFor(name, staff, users) {
+  const key = normSalesName(name)
+  const keysOf = s => [`${s.firstName || ''}${s.lastName || ''}`, s.firstName, s.nickname].map(normSalesName).filter(Boolean)
+  const alive = (staff || []).filter(s => s && !s.deleted)
+  const me = alive.find(s => normSalesName(`${s.firstName || ''}${s.lastName || ''}`) === key) || alive.find(s => keysOf(s).includes(key))
+  const user = (users || []).find(u => (me?.uid && u.id === me.uid) || (key && normSalesName(u.displayName) === key))
+  if (user && (['owner', 'admin'].includes(user.role) || user.groupWide === true)) return { all: true }
+  const names = new Set(key ? [key] : [])
+  if (!me) return { names }
+  keysOf(me).forEach(n => names.add(n))
+  const managers = s => (Array.isArray(s.managerIds) && s.managerIds.length ? s.managerIds : (s.managerId ? [s.managerId] : []))
+  const queue = [me.id]
+  const seen = new Set()
+  while (queue.length) {
+    const id = queue.shift()
+    if (seen.has(id)) continue
+    seen.add(id)
+    alive.filter(s => managers(s).includes(id)).forEach(c => { keysOf(c).forEach(n => names.add(n)); queue.push(c.id) })
+  }
+  return { names }
+}
+
+// ส่วนงานที่อยู่ในขอบเขต เรียงของตัวเองขึ้นก่อน
+export function sectionsForScope(sections, scope, selfName = '') {
+  const list = scope?.all ? [...(sections || [])] : (sections || []).filter(s => scope?.names?.has(normSalesName(s.name)))
+  const self = normSalesName(selfName)
+  return list.sort((a, b) => Number(normSalesName(b.name) === self) - Number(normSalesName(a.name) === self))
+}
+
+export function teamTasksText(sections, today, appUrl = '') {
+  if (!sections.length) return '✅ ตอนนี้ทีมของคุณไม่มีงานค้างครับ'
+  return clipLine([
+    '📋 งานค้างของทีมตอนนี้',
+    `🗓 ${formatThaiDate(today)} · 👥 ${sections.length} คน`,
+    '',
+    sections.map(s => s.text).join('\n\n'),
+    '',
+    appUrl ? `👉 ดูรายละเอียด: ${String(appUrl).replace(/\/+$/, '')}/crm/my-day` : null,
+  ].filter(l => l !== null).join('\n'))
+}
+
 export function tasksReplyText(sections, name, today, appUrl = '', goal = null) {
   const m = matchSalesTargets(sections, [{ name, userId: '-' }])[0]
   if (m) return buildPersonalReminder(m.section, today, appUrl, goal).replace('☀️ งานค้างของคุณเช้านี้', '📋 งานค้างของคุณตอนนี้')
