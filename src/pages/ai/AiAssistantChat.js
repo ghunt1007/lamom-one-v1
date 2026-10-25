@@ -9,6 +9,7 @@ import { normName } from '../../core/hierarchy.js'
 import { buildMyDay, myDayDigest } from '../../utils/myDay.js'
 import { followupWindowFilters } from '../../utils/customerFollowups.js'
 import { catalogContext } from '../../utils/salesAi.js'
+import { businessFacts } from '../../utils/bizFacts.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 
 function esc(s) {
@@ -19,6 +20,7 @@ const CATEGORIES = [
   { label:'☀️ วันนี้ทำอะไรก่อน', q:'วันนี้ฉันควรทำอะไรก่อน? จัดลำดับให้หน่อย พร้อมเหตุผลสั้นๆ' },
   { label:'🎯 ช่วยปิดการขาย', q:'จากงานของฉันวันนี้ ลูกค้าคนไหนมีโอกาสปิดการขายสูงสุด และควรพูดอะไรกับเขา?' },
   { label:'🚗 เทียบรุ่นรถ', q:'Deepal S05 กับ S07 ต่างกันยังไง เหมาะกับลูกค้าแบบไหน?' },
+  { label:'🏆 ผลงานทีม', q:'เดือนนี้ใครจอง/ส่งมอบได้มากสุด เทียบกับเดือนก่อนเป็นยังไง และ Lead จากช่องทางไหนปิดได้ดีที่สุด?' },
   { label:'📊 ยอดขาย', q:'ยอดขายเดือนนี้เท่าไหร่?' },
   { label:'📦 สต็อก', q:'สต็อกรถเหลือกี่คัน?' },
   { label:'🔥 Hot Lead', q:'มี Hot Lead ไหม?' },
@@ -105,6 +107,7 @@ export default async function AiAssistantChatPage(container) {
         'คะแนนความพึงพอใจลูกค้า (NPS เฉลี่ยล่าสุด)': avgNps !== null ? `${avgNps}/10 จาก ${npsScores.length} รายการ` : 'ยังไม่มีข้อมูลการประเมิน',
         'งานซ่อม/ศูนย์บริการวันนี้': `รับเข้า ${todayJobs.length} งาน (เสร็จ/ส่งมอบแล้ว ${doneToday} งาน)`,
         'พนักงานที่ยังทำงานอยู่': `${activeStaff} คน`,
+        ...businessFacts({ customers, bookings }, today),
       }
       // งานของผู้ใช้คนนี้วันนี้ (เกณฑ์เดียวกับหน้า "งานของฉันวันนี้") — ให้ LAMI ตอบ "วันนี้ควรทำอะไรก่อน" ได้จากข้อมูลจริง
       const myName = getState('user')?.displayName

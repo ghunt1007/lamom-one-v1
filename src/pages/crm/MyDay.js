@@ -207,8 +207,8 @@ export default async function MyDayPage(container) {
     // ความคืบหน้าวันนี้ = ลูกค้าที่ติดต่อแล้ว เทียบกับ (ติดต่อแล้ว + งานค้าง)
     const doneToday = d.contactedToday || 0
     const pct = doneToday + d.total ? Math.round(doneToday / (doneToday + d.total) * 100) : 100
-    const stat = (icon, label, value, color) => `<div style="flex:1;min-width:72px;padding:8px 12px;border-radius:12px;background:var(--surface-2)">
-      <div style="font-size:0.68rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${icon} ${label}</div><div style="font-size:1.35rem;font-weight:800;color:var(--${color})">${value}</div></div>`
+    const stat = (icon, label, value, color) => `<div style="flex:1;min-width:72px;padding:8px 10px;border-radius:12px;background:var(--surface-2)">
+      <div style="font-size:0.68rem;color:var(--text-muted);line-height:1.25">${icon} ${label}</div><div style="font-size:1.35rem;font-weight:800;color:var(--${color})">${value}</div></div>`
     const hello = me.displayName ? `สวัสดีครับคุณ${escHtml(me.displayName)}` : 'สวัสดีครับ'
     container.innerHTML = `
       <div class="page-content animate-slide">
