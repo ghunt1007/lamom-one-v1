@@ -15,9 +15,10 @@ import {
   getFollowUpRecommendation, getBookingDiagnosis, isModelInStock,
   deriveInitialStage, shouldAutoPromoteToPP,
 } from '../../core/customerInsights.js'
-import { aiSalesCloser, isAiEnabled } from '../../utils/ai.js'
-import { buildCustomerBrief, addDaysIso } from '../../utils/salesAi.js'
+import { aiSalesCloser, isAiEnabled, suggestCustomerReply } from '../../utils/ai.js'
+import { buildCustomerBrief, addDaysIso, catalogContext } from '../../utils/salesAi.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
+import { maskContacts } from '../../utils/leadText.js'
 import { heuristicScore } from '../../utils/leadScore.js'
 import { OCCUPATIONS } from '../../utils/financeMatch.js'
 import { openQuickLead, findDuplicate } from '../../utils/quickLead.js'
@@ -553,7 +554,36 @@ export default async function CustomersPage(container) {
         <div style="font-size:0.82rem;color:var(--text-2);line-height:1.5">${escHtml(rec.recommendation)}</div>
       </div>
       <div id="wk-ai-analysis"></div>
+      <details id="wk-ai-reply" style="margin-top:8px">
+        <summary style="cursor:pointer;font-size:0.8rem;font-weight:600;color:var(--primary)">💬 ลูกค้าถามมา — ให้ AI ช่วยร่างคำตอบ</summary>
+        <textarea id="wk-ai-reply-q" class="form-input" rows="3" style="margin-top:6px;width:100%;font-size:0.82rem" placeholder="วางข้อความที่ลูกค้าถาม เช่น &quot;S05 วิ่งได้กี่โล ชาร์จที่บ้านได้ไหม&quot;"></textarea>
+        <div style="display:flex;justify-content:flex-end;margin-top:6px"><button class="btn btn-primary btn-xs" id="wk-ai-reply-btn">✨ ร่างคำตอบ</button></div>
+        <div id="wk-ai-reply-out"></div>
+      </details>
     `
+    document.getElementById('wk-ai-reply-btn')?.addEventListener('click', async () => {
+      const btn = document.getElementById('wk-ai-reply-btn')
+      const out = document.getElementById('wk-ai-reply-out')
+      const q = maskContacts(document.getElementById('wk-ai-reply-q')?.value || '').trim()
+      if (!q) { showToast('วางข้อความที่ลูกค้าถามก่อน', 'warning'); return }
+      if (!isAiEnabled()) { showToast('ต้องล็อกอินด้วยบัญชีจริงเพื่อใช้ AI', 'warning'); return }
+      btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span> กำลังร่าง...'
+      try {
+        const brief = buildCustomerBrief(c, { history: await loadHistory(c), today: todayBangkok(), vehicles: getVehicles() })
+        // รุ่นที่ลูกค้าถามอาจไม่ใช่รุ่นที่บันทึกไว้ → แนบข้อมูลรุ่นที่อยู่ในคำถามด้วย
+        const draft = await suggestCustomerReply(q, { channel: 'LINE', sender: c.firstName || 'ลูกค้า', customerInfo: brief, catalog: catalogContext(q, getVehicles()) })
+        if (!document.getElementById('wk-ai-reply-out')) return
+        if (!draft) { out.innerHTML = `<div style="font-size:0.78rem;color:var(--danger);margin-top:6px">AI ร่างไม่สำเร็จ ลองใหม่อีกครั้ง</div>`; return }
+        out.innerHTML = `<div class="card" style="padding:10px 12px;margin-top:6px;background:var(--primary-dim);border:1px solid var(--primary)">
+          <div id="wk-ai-reply-text" style="font-size:0.84rem;line-height:1.55;white-space:pre-wrap">${escHtml(draft)}</div>
+          <div style="display:flex;justify-content:flex-end;gap:6px;margin-top:8px"><button class="btn btn-secondary btn-xs" id="wk-ai-reply-copy">📋 คัดลอกไปวางใน LINE</button></div>
+        </div>`
+        document.getElementById('wk-ai-reply-copy')?.addEventListener('click', async () => {
+          try { await navigator.clipboard.writeText(draft); showToast('📋 คัดลอกแล้ว วางใน LINE ได้เลย', 'success') } catch { showToast('คัดลอกไม่สำเร็จ — กดค้างที่ข้อความแล้วคัดลอกเอง', 'warning') }
+        })
+      } catch { if (out) out.innerHTML = `<div style="font-size:0.78rem;color:var(--danger);margin-top:6px">AI ร่างไม่สำเร็จ ลองใหม่อีกครั้ง</div>` }
+      finally { if (document.getElementById('wk-ai-reply-btn')) { btn.disabled = false; btn.innerHTML = '✨ ร่างคำตอบ' } }
+    })
     if (autoAiOnce) { autoAiOnce = false; setTimeout(() => document.getElementById('wk-ai-analyze-btn')?.click(), 0) }
     // AI ผู้ช่วยปิดการขาย (Gemini) — เรียกเฉพาะตอนกดปุ่ม ไม่เรียกอัตโนมัติทุกครั้งที่เปิดดูลูกค้า (แพง/ช้า และไม่ควร
     // ส่งข้อมูลลูกค้าออกไปโดยไม่จำเป็น) ส่งแค่สรุปสถานะ/ประวัติการติดต่อ ไม่ส่งเบอร์/อีเมล/LINE ID (ดู utils/salesAi.js)
@@ -601,7 +631,7 @@ export default async function CustomersPage(container) {
         if (e?.code === 'NOT_ENABLED') showToast('ต้องล็อกอินด้วยบัญชีจริงเพื่อใช้ AI วิเคราะห์', 'warning')
         fail()
       } finally {
-        if (document.getElementById('wk-ai-analyze-btn')) { btn.disabled = false; btn.innerHTML = '🤖 AI ช่วยปิดการขาย' }
+        if (document.getElementById('wk-ai-analyze-btn')) { btn.disabled = false; btn.innerHTML = '✨ AI ช่วยปิดการขาย' }
       }
     })
   }
