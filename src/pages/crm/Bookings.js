@@ -1,4 +1,5 @@
 import { listDocs, listAllDocs, watchDocs, createDoc, updateDocData, softDelete, seedDemoData, setDocData } from '../../core/db.js'
+import { customerStatusMessage } from '../../utils/bookingNotify.js'
 import { reasonChipsHtml, bindReasonChips } from '../../utils/lostReason.js'
 import { showToast, getState, setState, on } from '../../core/store.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
@@ -650,6 +651,23 @@ export default async function BookingsPage(container) {
     </tr>`
   }
 
+  // เปลี่ยนสถานะแล้ว → เสนอข้อความแจ้งลูกค้าทาง LINE (แก้ได้ คัดลอกไปส่งเอง ไม่ส่งอัตโนมัติ)
+  function offerCustomerNotice(b, status) {
+    const msg = customerStatusMessage(b, status)
+    if (!msg) return
+    const { el, close } = openModal({
+      title: '💬 แจ้งลูกค้าทาง LINE ไหม?', size: 'sm',
+      body: `<div style="font-size:0.76rem;color:var(--text-muted);margin-bottom:6px">ลูกค้าจะได้ไม่ต้องโทรถามว่ารถถึงไหนแล้ว · แก้ข้อความได้ก่อนคัดลอก</div>
+        <textarea class="input" id="bk-notice" rows="5" style="width:100%;font-size:16px">${escHtml(msg)}</textarea>`,
+      footer: `<button class="btn btn-secondary" id="bk-notice-skip">ไม่ต้อง</button><button class="btn btn-primary" id="bk-notice-copy">📋 คัดลอกไปส่ง</button>`,
+    })
+    el.querySelector('#bk-notice-skip').addEventListener('click', close)
+    el.querySelector('#bk-notice-copy').addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(el.querySelector('#bk-notice').value); showToast('📋 คัดลอกแล้ว วางในแชท LINE ของลูกค้าได้เลย', 'success'); close() }
+      catch { showToast('คัดลอกไม่สำเร็จ — กดค้างที่ข้อความแล้วคัดลอกเอง', 'warning') }
+    })
+  }
+
   // ── Quick status-change popover ──────────────────────────────────────────
   function openQuickStatus(bookingId, evt) {
     evt.stopPropagation()
@@ -694,6 +712,7 @@ export default async function BookingsPage(container) {
         render()
         // ส่งมอบ/ตัดตัวเลขแล้วแต่ยังไม่มีรายได้ → ถามมาร์จิ้น/ค่าคอมเลยตอนนี้ (ข้ามได้)
         if (needsIncome(b) && await askDeliveryIncome(b, { title: '🎉 ส่งมอบแล้ว — กรอกรายได้คันนี้' })) render()
+        offerCustomerNotice(b, newStatus)
       } catch { showToast('อัปเดตไม่สำเร็จ', 'error') }
     }))
     setTimeout(() => { document.addEventListener('click', onDocClick) }, 30)
