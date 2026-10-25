@@ -36,6 +36,8 @@ const DELIVERED_STATUSES = ['ส่งมอบแล้ว', 'ตัดตั�
 const PENDING_STATUSES = ['จัดไฟแนนซ์ก่อนจอง', 'รอผลไฟแนนซ์', 'ยอดจองคงค้าง', 'รอรถ', 'รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ']
 const PENDING_ALWAYS_SHOWN = ['รอผลไฟแนนซ์', 'ยอดจองคงค้าง', 'รอรถ', 'รอส่งมอบ']
 const CANCELLED_STATUSES = ['ถอนจอง', 'ยกเลิก']
+// รอรถ/รอส่งมอบ/ตัดตัวเลข/ส่งมอบแล้ว = ไฟแนนซ์ผ่านแล้วเสมอ (เจ้าของกำหนด) — ตรงกับ src/utils/finance.js
+const FIN_PASSED_STATUSES = ['รอรถ', 'รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ', 'ส่งมอบแล้ว']
 const STAFF_ROLES = ['owner', 'admin', 'manager', 'sales', 'service', 'finance', 'hr', 'staff']
 // 02:00 UTC = 09:00 เวลาไทย — ต้องตรงกับบรรทัดใน [triggers] crons ของ wrangler-daily-report.toml
 const MORNING_CRON = '0 2 * * *'
@@ -566,9 +568,40 @@ async function buildMorningData(env, accessToken) {
     runQuery(env, accessToken, 'followups', null, null, 5000, ['dueDate', 'status', 'salesperson', 'customerName', 'customerId', 'autoLead', 'deleted'], ['status', 'pending']),
     runQuery(env, accessToken, 'test_drives', null, null, 3000, ['date', 'time', 'status', 'staff', 'customerName', 'model', 'deleted']).catch(() => []),
   ])
+  // แก้สถานะไฟแนนซ์ที่ค้าง "รอผล" ของใบจองที่ไปถึงรอรถ/รอส่งมอบ/ส่งมอบแล้ว ให้เป็น "ผ่าน" ในฐานข้อมูลจริงทุกเช้า
+  const fixes = bookings.filter(b => b.id && finPassPatch(b))
+  if (fixes.length && await commitFinancePassed(env, accessToken, fixes.map(b => b.id))) fixes.forEach(b => { b.finStatus = 'ผ่าน' })
   const today = todayBangkok()
   const data = { bookings, customers, followups, testDrives }
   return { today, data, text: buildMorningReminder(data, { today }), sections: buildMorningSections(data, { today }) }
+}
+
+// คืน { finStatus: 'ผ่าน' } ถ้าใบจองนี้ต้องแก้สถานะไฟแนนซ์อัตโนมัติ (ไม่แตะซื้อสด) — ตรงกับ src/utils/finance.js
+export function finPassPatch(b) {
+  if (!b || b.deleted || !FIN_PASSED_STATUSES.includes(b.status)) return null
+  if (b.finStatus === 'ซื้อสด' || b.financeCo === 'ซื้อสด' || b.finStatus === 'ผ่าน') return null
+  return { finStatus: 'ผ่าน' }
+}
+
+// เขียน finStatus = 'ผ่าน' ทีละไม่เกิน 500 ใบในคำขอเดียว (Firestore commit) — แตะเฉพาะช่องนี้ช่องเดียว
+export function financePassedWrites(projectId, ids) {
+  return ids.slice(0, 500).map(id => ({
+    update: { name: `projects/${projectId}/databases/(default)/documents/bookings/${id}`, fields: { finStatus: { stringValue: 'ผ่าน' } } },
+    updateMask: { fieldPaths: ['finStatus'] },
+    currentDocument: { exists: true },
+  }))
+}
+
+async function commitFinancePassed(env, accessToken, ids) {
+  try {
+    const res = await fetch(`https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents:commit`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ writes: financePassedWrites(env.FIREBASE_PROJECT_ID, ids) }),
+    })
+    if (!res.ok) console.error('commitFinancePassed', res.status, await res.text().catch(() => ''))
+    return res.ok
+  } catch (e) { console.error('commitFinancePassed', e); return false }
 }
 
 // สร้างข้อความเตือนจากข้อมูลล้วนๆ (export ไว้เทส) — ต่อเซลส์ 1 คน มี 3 เรื่อง:
@@ -606,13 +639,6 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
   alive(data.bookings)
     .filter(b => DELIVERED_STATUSES.includes(b.status) && (b.cutDate || b.actualDeliveryDate || '').startsWith(thisMonth) && !(Number(b.totalIncome) || 0))
     .forEach(b => person(b.salesName).income.push({ name: b.custName || 'ลูกค้า', model: b.model }))
-  // ใบจองที่ยังไม่ส่งมอบ/ไม่ถอน จองมาเกิน STUCK_BOOKING_DAYS วัน — เกณฑ์เดียวกับ Intelligence Center บน Dashboard
-  alive(data.bookings)
-    .filter(b => !DELIVERED_STATUSES.includes(b.status) && !CANCELLED_STATUSES.includes(b.status) && /^\d{4}-\d{2}-\d{2}/.test(b.bookingDate || ''))
-    .forEach(b => {
-      const days = dayNum(today) - dayNum(b.bookingDate.slice(0, 10))
-      if (days >= STUCK_BOOKING_DAYS) person(b.salesName).stuck.push({ name: b.custName || 'ลูกค้า', status: b.status || '—', days })
-    })
 
   // นัดส่งมอบวันนี้/พรุ่งนี้ — ขึ้นก่อนเรื่องอื่น เพราะต้องเตรียมรถ/เอกสาร
   // "ตัดตัวเลขรอส่งมอบ" ยังไม่ได้ส่งรถจริง ต้องเตือนด้วย — ตัดออกเฉพาะที่ส่งมอบแล้วจริง/ถอนจอง
@@ -632,13 +658,23 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
     })
 
   // ไฟแนนซ์รอผลเกิน 3 วัน / ไม่ผ่านแต่ยังไม่ถอนจอง (เกณฑ์เดียวกับ src/utils/myDay.js)
+  // รอรถ/รอส่งมอบ = ไฟแนนซ์ผ่านแล้วเสมอ แม้ช่องสถานะไฟแนนซ์ยังค้าง "รอผล"
+  const inFin = new Set()
   alive(data.bookings)
-    .filter(b => !DELIVERED_STATUSES.includes(b.status) && !CANCELLED_STATUSES.includes(b.status))
+    .filter(b => !DELIVERED_STATUSES.includes(b.status) && !CANCELLED_STATUSES.includes(b.status) && !FIN_PASSED_STATUSES.includes(b.status) && b.finStatus !== 'ผ่าน')
     .forEach(b => {
       const sent = /^\d{4}-\d{2}-\d{2}/.test(b.submitDate || '') ? b.submitDate.slice(0, 10) : (b.bookingDate || '').slice(0, 10)
       const days = /^\d{4}-\d{2}-\d{2}$/.test(sent) ? dayNum(today) - dayNum(sent) : 0
-      if (b.finStatus === 'ไม่ผ่าน') person(b.salesName).fin.push({ name: b.custName || 'ลูกค้า', co: b.financeCo, rejected: true, days })
-      else if ((b.finStatus === 'รอผล' || b.status === 'รอผลไฟแนนซ์') && days >= 3) person(b.salesName).fin.push({ name: b.custName || 'ลูกค้า', co: b.financeCo, rejected: false, days })
+      if (b.finStatus === 'ไม่ผ่าน') { person(b.salesName).fin.push({ name: b.custName || 'ลูกค้า', co: b.financeCo, rejected: true, days }); inFin.add(b) }
+      else if ((b.finStatus === 'รอผล' || b.status === 'รอผลไฟแนนซ์') && days >= 3) { person(b.salesName).fin.push({ name: b.custName || 'ลูกค้า', co: b.financeCo, rejected: false, days }); inFin.add(b) }
+    })
+  // ใบจองที่ยังไม่ส่งมอบ/ไม่ถอน จองมาเกิน STUCK_BOOKING_DAYS วัน — เกณฑ์เดียวกับ Intelligence Center บน Dashboard
+  // ใบที่ขึ้นในหัวข้อไฟแนนซ์แล้วไม่ขึ้นซ้ำตรงนี้ (เดิมคนเดียวนับ 2 ครั้ง)
+  alive(data.bookings)
+    .filter(b => !inFin.has(b) && !DELIVERED_STATUSES.includes(b.status) && !CANCELLED_STATUSES.includes(b.status) && /^\d{4}-\d{2}-\d{2}/.test(b.bookingDate || ''))
+    .forEach(b => {
+      const days = dayNum(today) - dayNum(b.bookingDate.slice(0, 10))
+      if (days >= STUCK_BOOKING_DAYS) person(b.salesName).stuck.push({ name: b.custName || 'ลูกค้า', status: b.status || '—', days })
     })
 
   // นัดทดลองขับวันนี้ที่ยังไม่จบ

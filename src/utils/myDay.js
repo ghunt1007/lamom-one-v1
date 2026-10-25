@@ -4,6 +4,7 @@
 import { toDate } from './format.js'
 import { DELIVERED_STATUSES, needsIncome } from './deliveryIncome.js'
 import { classifyLostReason } from './lostReason.js'
+import { isFinancePassed } from './finance.js'
 
 export const STALE_LEAD_DAYS = 3
 export const STUCK_BOOKING_DAYS = 14
@@ -69,12 +70,17 @@ export function buildMyDay({ customers = [], followups = [], bookings = [], test
     if (CANCELLED.includes(b.status)) return
     // ไฟแนนซ์: ยื่นแล้วรอผลเกิน FINANCE_WAIT_DAYS วัน (นับจากวันยื่น ถ้าไม่มีนับจากวันจอง) หรือไม่ผ่านแต่ยังไม่ถอนจอง
     const sent = /^\d{4}-\d{2}-\d{2}/.test(b.submitDate || '') ? b.submitDate.slice(0, 10) : (b.bookingDate || '').slice(0, 10)
-    if (b.finStatus === 'ไม่ผ่าน') out.finance.push({ ...b, rejected: true, days: sent ? daysBetween(sent, today) : 0 })
-    else if ((b.finStatus === 'รอผล' || b.status === 'รอผลไฟแนนซ์') && /^\d{4}-\d{2}-\d{2}$/.test(sent) && daysBetween(sent, today) >= FINANCE_WAIT_DAYS) {
-      out.finance.push({ ...b, rejected: false, days: daysBetween(sent, today) })
+    // รอรถ/รอส่งมอบ = ไฟแนนซ์ผ่านแล้วเสมอ (isFinancePassed) แม้ช่องสถานะไฟแนนซ์ยังค้าง "รอผล"
+    const finBefore = out.finance.length
+    if (!isFinancePassed(b)) {
+      if (b.finStatus === 'ไม่ผ่าน') out.finance.push({ ...b, rejected: true, days: sent ? daysBetween(sent, today) : 0 })
+      else if ((b.finStatus === 'รอผล' || b.status === 'รอผลไฟแนนซ์') && /^\d{4}-\d{2}-\d{2}$/.test(sent) && daysBetween(sent, today) >= FINANCE_WAIT_DAYS) {
+        out.finance.push({ ...b, rejected: false, days: daysBetween(sent, today) })
+      }
     }
+    // ใบจองที่ขึ้นในหัวข้อไฟแนนซ์แล้ว ไม่ต้องขึ้นซ้ำใน "ใบจองค้าง" (เดิมคนเดียวนับ 2 ครั้ง)
     const bd = (b.bookingDate || '').slice(0, 10)
-    if (/^\d{4}-\d{2}-\d{2}$/.test(bd) && daysBetween(bd, today) >= STUCK_BOOKING_DAYS) out.stuck.push({ ...b, days: daysBetween(bd, today) })
+    if (out.finance.length === finBefore && /^\d{4}-\d{2}-\d{2}$/.test(bd) && daysBetween(bd, today) >= STUCK_BOOKING_DAYS) out.stuck.push({ ...b, days: daysBetween(bd, today) })
   })
 
   // นัดทดลองขับวันนี้ที่ยังไม่จบ (ผู้ดูแล = staff ของนัด)

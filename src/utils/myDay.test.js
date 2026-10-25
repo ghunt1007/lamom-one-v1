@@ -176,3 +176,14 @@ describe('buildMyDay — Hot ที่ยังไม่มีนัด', () => 
     expect(d.hotNoPlan.map(c => c.id)).toEqual(['h1'])
   })
 })
+
+describe('myDay: ไฟแนนซ์ผ่านอัตโนมัติ', () => {
+  it('รอรถ/รอส่งมอบไม่ขึ้นในไฟแนนซ์รอผล และไม่นับซ้ำกับใบจองค้าง', () => {
+    const out = buildMyDay({ bookings: [
+      { id: 'a', status: 'รอรถ', finStatus: 'รอผล', bookingDate: '2026-09-01' },
+      { id: 'b', status: 'รอผลไฟแนนซ์', finStatus: 'รอผล', bookingDate: '2026-09-01' },
+    ] }, { today })
+    expect(out.finance.map(b => b.id)).toEqual(['b'])
+    expect(out.stuck.map(b => b.id)).toEqual(['a'])
+  })
+})
