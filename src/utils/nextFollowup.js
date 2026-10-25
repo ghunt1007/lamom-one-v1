@@ -7,9 +7,9 @@ const WEEKDAYS = [['อาทิตย์', 0], ['จันทร์', 1], ['อ
 export function suggestNextDue(text, today) {
   const t = String(text || '')
   if (/ไม่สนใจ|ซื้อ(ที่|ร้าน|คัน)?อื่น|ซื้อไปแล้ว|ยกเลิก|ไม่ต้องติดต่อ|เลิกติดต่อ/.test(t)) return { skip: true }
-  if (/วันนี้|เย็นนี้|บ่ายนี้/.test(t)) return { dueDate: today, why: 'ลูกค้าบอกว่าวันนี้' }
-  if (/มะรืน/.test(t)) return { dueDate: iso(today, 2), why: 'ลูกค้าบอกว่ามะรืน' }
-  if (/พรุ่งนี้/.test(t)) return { dueDate: iso(today, 1), why: 'ลูกค้าบอกว่าพรุ่งนี้' }
+  if (/วันนี้|เย็นนี้|บ่ายนี้/.test(t)) return { dueDate: today, why: 'ติดตามวันนี้' }
+  if (/มะรืน/.test(t)) return { dueDate: iso(today, 2), why: 'ติดตามมะรืนนี้' }
+  if (/พรุ่งนี้/.test(t)) return { dueDate: iso(today, 1), why: 'ติดตามพรุ่งนี้' }
   const n = t.match(/(\d{1,2})\s*วัน/)
   if (n && +n[1] > 0 && +n[1] <= 60) return { dueDate: iso(today, +n[1]), why: `อีก ${+n[1]} วันตามที่คุยไว้` }
   if (/(สัปดาห์|อาทิตย์|วีค)หน้า/.test(t)) return { dueDate: iso(today, 7), why: 'สัปดาห์หน้า' }

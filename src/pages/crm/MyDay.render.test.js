@@ -19,6 +19,7 @@ vi.mock('../../utils/modal.js', () => ({ openModal: () => {} }))
 vi.mock('../../core/router.js', () => ({ navigate: () => {} }))
 vi.mock('../../utils/addFollowupModal.js', () => ({ openAddFollowup: () => {}, offerNextFollowup: () => {} }))
 vi.mock('../../utils/customerContact.js', () => ({ touchCustomerContact: async () => true }))
+vi.mock('../../utils/callLogger.js', () => ({ armCallLog: () => {} }))
 
 const el = () => ({ addEventListener() {}, value: '', disabled: false })
 describe('MyDay page render', () => {

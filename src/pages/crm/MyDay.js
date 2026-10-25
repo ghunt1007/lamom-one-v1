@@ -17,6 +17,7 @@ import { bangkokDate, buildMyDay, topPriorities, teamToday, STALE_LEAD_DAYS, STU
 import { followupWindowFilters } from '../../utils/customerFollowups.js'
 import { openAddFollowup, offerNextFollowup } from '../../utils/addFollowupModal.js'
 import { touchCustomerContact } from '../../utils/customerContact.js'
+import { armCallLog } from '../../utils/callLogger.js'
 import { lineNameKey } from '../../utils/lineRegistration.js'
 
 const UNASSIGNED = '(ยังไม่มีผู้ดูแล)'
@@ -89,7 +90,8 @@ export default async function MyDayPage(container) {
   const line = (main, sub, actions) => `<div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap">
       <div style="flex:1;min-width:180px"><div style="font-weight:600;font-size:0.86rem">${main}</div><div style="font-size:0.72rem;color:var(--text-muted)">${sub}</div></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">${actions}</div></div>`
-  const callBtn = phone => tel(phone) ? `<a class="btn btn-secondary btn-xs" href="tel:${escHtml(tel(phone))}">📞 โทร</a>` : ''
+  // cid = รหัสลูกค้า → กลับมาที่แอปหลังวางสาย ระบบถามผลการโทรให้บันทึก (utils/callLogger.js)
+  const callBtn = (phone, cid = '') => tel(phone) ? `<a class="btn btn-secondary btn-xs${cid ? ' md-call' : ''}" data-cid="${escHtml(cid)}" href="tel:${escHtml(tel(phone))}">📞 โทร</a>` : ''
   const takeBtns = c => String(c.assignedTo || '').trim() ? '' : `${me.displayName ? `<button class="btn btn-primary btn-xs md-take" data-id="${escHtml(c.id)}">🙋 รับดูแล</button>` : ''}${canPick && staff.length ? `<button class="btn btn-secondary btn-xs md-give" data-id="${escHtml(c.id)}">👉 มอบให้</button>` : ''}`
   const ownerTag = n => seller === 'all' && canPick ? ` · 👤 ${escHtml((n || '').trim() || UNASSIGNED)}` : ''
 
@@ -125,7 +127,7 @@ export default async function MyDayPage(container) {
       ${top.map((t, i) => `<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-top:1px solid var(--border);flex-wrap:wrap">
         <div style="width:28px;height:28px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0">${i + 1}</div>
         <div style="flex:1;min-width:180px"><div style="font-weight:700;font-size:0.88rem">${t.icon} ${escHtml(t.title)}</div><div style="font-size:0.72rem;color:var(--text-muted)">${escHtml(t.why)}</div></div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">${callBtn(t.phone)}${t.customerId ? `<button class="btn btn-secondary btn-xs md-ai" data-id="${escHtml(t.customerId)}" title="ให้ AI คิดว่าควรพูดอะไร และร่างข้อความ LINE ให้">🤖 AI ช่วย</button><button class="btn btn-primary btn-xs md-open" data-id="${escHtml(t.customerId)}">เปิดลูกค้า</button>` : t.key.startsWith('inc:') ? `<button class="btn btn-warning btn-xs md-inc" data-id="${escHtml(t.bookingId)}">💰 กรอกรายได้</button>` : t.key.startsWith('uns:') ? '<button class="btn btn-primary btn-xs md-cal">📅 ปฏิทินส่งมอบ</button>' : '<button class="btn btn-secondary btn-xs md-bk">ใบจอง</button>'}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">${callBtn(t.phone, t.customerId)}${t.customerId ? `<button class="btn btn-secondary btn-xs md-ai" data-id="${escHtml(t.customerId)}" title="ให้ AI คิดว่าควรพูดอะไร และร่างข้อความ LINE ให้">🤖 AI ช่วย</button><button class="btn btn-primary btn-xs md-open" data-id="${escHtml(t.customerId)}">เปิดลูกค้า</button>` : t.key.startsWith('inc:') ? `<button class="btn btn-warning btn-xs md-inc" data-id="${escHtml(t.bookingId)}">💰 กรอกรายได้</button>` : t.key.startsWith('uns:') ? '<button class="btn btn-primary btn-xs md-cal">📅 ปฏิทินส่งมอบ</button>' : '<button class="btn btn-secondary btn-xs md-bk">ใบจอง</button>'}</div>
       </div>`).join('')}
     </div>`
   }
@@ -182,7 +184,7 @@ export default async function MyDayPage(container) {
         ${section('📞', 'Follow-up วันนี้/เลยกำหนด', 'กด ✅ เมื่อติดต่อแล้ว', d.followups, f => line(
           `${escHtml(f.customerName || 'ลูกค้า')}${f.late > 0 ? ` <span class="badge badge-danger" style="font-size:0.62rem">เลย ${f.late} วัน</span>` : ''}`,
           `${escHtml(f.purpose || '')}${f.vehicleModel ? ` · ${escHtml(f.vehicleModel)}` : ''}${ownerTag(f.salesperson)}`,
-          `${callBtn(f.phone)}<button class="btn btn-success btn-xs md-fu" data-id="${escHtml(f.id)}">✅ ทำแล้ว</button>`), 'danger')}
+          `${callBtn(f.phone, f.customerId)}<button class="btn btn-success btn-xs md-fu" data-id="${escHtml(f.id)}">✅ ทำแล้ว</button>`), 'danger')}
 
         ${d.testDrives.length ? section('🚙', 'นัดทดลองขับวันนี้', 'บันทึกผลที่หน้า Test Drive แล้วระบบนัดโทรตามให้', d.testDrives, t => line(
           `${escHtml(t.time || '')} · ${escHtml(t.customerName || 'ลูกค้า')}`,
@@ -192,22 +194,22 @@ export default async function MyDayPage(container) {
         ${section('🧲', 'Lead ใหม่วันนี้', 'โทรหาภายในวันนี้ โอกาสปิดสูงสุด', d.newLeads, c => line(
           `${escHtml(c.name)}${c.interestedModel ? ` · ${escHtml(c.interestedModel)}` : ''}`,
           `${escHtml(SOURCE_LABEL[c.source] || c.source || '')}${c.phone ? ` · ${escHtml(c.phone)}` : c.lineId ? ` · ${escHtml(c.lineId)}` : ''}${ownerTag(c.assignedTo)}`,
-          `${callBtn(c.phone)}${takeBtns(c)}${bangkokDate(c.lastContactAt) === today ? '<span class="badge badge-success" style="font-size:0.62rem">ติดต่อแล้ว</span>' : `<button class="btn btn-success btn-xs md-touch" data-id="${escHtml(c.id)}">✅ ติดต่อแล้ว</button>`}<button class="btn btn-secondary btn-xs md-plan" data-id="${escHtml(c.id)}">📅 นัด</button><button class="btn btn-secondary btn-xs md-open" data-id="${escHtml(c.id)}">เปิด</button>`), 'success')}
+          `${callBtn(c.phone, c.id)}${takeBtns(c)}${bangkokDate(c.lastContactAt) === today ? '<span class="badge badge-success" style="font-size:0.62rem">ติดต่อแล้ว</span>' : `<button class="btn btn-success btn-xs md-touch" data-id="${escHtml(c.id)}">✅ ติดต่อแล้ว</button>`}<button class="btn btn-secondary btn-xs md-plan" data-id="${escHtml(c.id)}">📅 นัด</button><button class="btn btn-secondary btn-xs md-open" data-id="${escHtml(c.id)}">เปิด</button>`), 'success')}
 
         ${d.hotNoPlan.length ? section('🔴', 'ลูกค้า Hot ที่ยังไม่มีนัดติดตาม', 'โอกาสปิดสูง — นัดครั้งถัดไปไว้เลย', d.hotNoPlan, c => line(
           `${escHtml(c.name)}${c.interestedModel ? ` · ${escHtml(c.interestedModel)}` : ''}`,
           `${c.phone ? escHtml(c.phone) : c.lineId ? escHtml(c.lineId) : 'ไม่มีเบอร์'}${ownerTag(c.assignedTo)}`,
-          `${callBtn(c.phone)}<button class="btn btn-primary btn-xs md-plan" data-id="${escHtml(c.id)}">📅 นัด</button><button class="btn btn-secondary btn-xs md-open" data-id="${escHtml(c.id)}">เปิด</button>`), 'danger') : ''}
+          `${callBtn(c.phone, c.id)}<button class="btn btn-primary btn-xs md-plan" data-id="${escHtml(c.id)}">📅 นัด</button><button class="btn btn-secondary btn-xs md-open" data-id="${escHtml(c.id)}">เปิด</button>`), 'danger') : ''}
 
         ${section('⏰', `Lead ไม่ได้ติดตามเกิน ${STALE_LEAD_DAYS} วัน`, 'กด "ติดตามแล้ว" เพื่อบันทึกว่าคุยแล้ววันนี้', d.stale, c => line(
           `${c.temperature === 'hot' ? '🔴 ' : ''}${escHtml(c.name)}${c.interestedModel ? ` · ${escHtml(c.interestedModel)}` : ''} <span class="badge badge-warning" style="font-size:0.62rem">${c.days} วัน</span>`,
           `${c.phone ? escHtml(c.phone) : c.lineId ? escHtml(c.lineId) : 'ไม่มีเบอร์'}${ownerTag(c.assignedTo)}`,
-          `${callBtn(c.phone)}${takeBtns(c)}<button class="btn btn-success btn-xs md-touch" data-id="${escHtml(c.id)}">✅ ติดตามแล้ว</button><button class="btn btn-secondary btn-xs md-plan" data-id="${escHtml(c.id)}">📅 นัด</button><button class="btn btn-secondary btn-xs md-open" data-id="${escHtml(c.id)}">เปิด</button>`), 'warning')}
+          `${callBtn(c.phone, c.id)}${takeBtns(c)}<button class="btn btn-success btn-xs md-touch" data-id="${escHtml(c.id)}">✅ ติดตามแล้ว</button><button class="btn btn-secondary btn-xs md-plan" data-id="${escHtml(c.id)}">📅 นัด</button><button class="btn btn-secondary btn-xs md-open" data-id="${escHtml(c.id)}">เปิด</button>`), 'warning')}
 
         ${d.revisit.length ? section('🔄', 'ลองติดต่อใหม่ (เสียดีลไปแล้ว 30 วัน+)', 'เหตุผลเดิมอาจเปลี่ยนแล้ว เช่น ไฟแนนซ์/ยังไม่พร้อม', d.revisit, c => line(
           `${escHtml(c.name)}${c.interestedModel ? ` · ${escHtml(c.interestedModel)}` : ''} <span class="badge badge-secondary" style="font-size:0.62rem">${c.days} วัน</span>`,
           `เหตุผล: ${escHtml(c.lostReason || '-')}${c.phone ? ` · ${escHtml(c.phone)}` : ''}${ownerTag(c.assignedTo)}`,
-          `${callBtn(c.phone)}<button class="btn btn-success btn-xs md-touch" data-id="${escHtml(c.id)}">✅ ติดต่อแล้ว</button><button class="btn btn-secondary btn-xs md-open" data-id="${escHtml(c.id)}">เปิด</button>`), 'primary') : ''}
+          `${callBtn(c.phone, c.id)}<button class="btn btn-success btn-xs md-touch" data-id="${escHtml(c.id)}">✅ ติดต่อแล้ว</button><button class="btn btn-secondary btn-xs md-open" data-id="${escHtml(c.id)}">เปิด</button>`), 'primary') : ''}
 
         ${d.unscheduled.length ? section('📆', 'รถพร้อมส่งแต่ยังไม่ได้นัดวันส่งมอบ', 'โทรนัดลูกค้า แล้วลงวันในปฏิทินส่งมอบ', d.unscheduled, b => line(
           `${escHtml(b.custName || 'ลูกค้า')} · ${escHtml([b.brand, b.model].filter(Boolean).join(' ') || '—')}`,
@@ -240,6 +242,13 @@ export default async function MyDayPage(container) {
     container.querySelector('#md-seller')?.addEventListener('change', e => { seller = e.target.value; render() })
     container.querySelector('#md-reload').addEventListener('click', async () => { await load(); render() })
     $$('.md-open').forEach(b => b.addEventListener('click', () => navigate(`/crm/customers?id=${encodeURIComponent(b.dataset.id)}`)))
+    $$('.md-call').forEach(a => a.addEventListener('click', () => {
+      const c = data.customers.find(x => x.id === a.dataset.cid)
+      if (c) armCallLog(c, {
+        hasPending: () => data.followups.some(x => x.customerId === c.id && x.status === 'pending' && !x.deleted),
+        onSaved: nf => { if (nf?.id && nf.dueDate) data.followups.push(nf); render() },
+      })
+    }))
     $$('.md-who').forEach(b => b.addEventListener('click', () => { seller = b.dataset.name; render(); window.scrollTo({ top: 0, behavior: 'smooth' }) }))
     $$('.md-ai').forEach(b => b.addEventListener('click', () => navigate(`/crm/customers?id=${encodeURIComponent(b.dataset.id)}&ai=1`)))
     $$('.md-bk').forEach(b => b.addEventListener('click', () => navigate('/crm/bookings')))
