@@ -154,7 +154,7 @@ export default async function AiAssistantChatPage(container) {
       <div style="min-width:0">
         <div style="max-width:74vw;padding:10px 14px;border-radius:${isUser?'16px 16px 4px 16px':'4px 16px 16px 16px'};background:${isUser?'var(--primary)':'var(--surface-2)'};color:${isUser?'white':'var(--text)'};font-size:0.84rem;line-height:1.65">${text}</div>
         ${!isUser && i === messages.length - 1 && !waiting && Array.isArray(m.next) && m.next.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">${m.next.map(q => `<button class="btn btn-secondary btn-xs cat-btn" data-q="${esc(q)}" style="border-radius:999px">💬 ${esc(q)}</button>`).join('')}</div>` : ''}
-        <div style="font-size:0.66rem;color:var(--text-muted);margin-top:3px;${isUser?'text-align:right':''}">${esc(m.time)}${!isUser && m.text !== GREETING && i >= 0 ? ` · <button class="chat-copy" data-i="${i}" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.66rem;padding:0">📋 คัดลอก</button>` : ''}</div>
+        <div style="font-size:0.66rem;color:var(--text-muted);margin-top:3px;${isUser?'text-align:right':''}">${esc(m.time)}${!isUser && m.text !== GREETING && i >= 0 ? ` · <button class="chat-copy" data-i="${i}" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.66rem;padding:0">📋 คัดลอก</button> · <button class="chat-speak" data-i="${i}" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.66rem;padding:0">🔊 ฟัง</button>` : ''}</div>
       </div>
     </div>`
   }
@@ -280,6 +280,19 @@ export default async function AiAssistantChatPage(container) {
       btn.textContent = '🔴'; btn.classList.add('btn-danger')
       try { rec.start() } catch { btn.textContent = '🎤' }
     })
+    // 🔊 ฟังคำตอบ (เสียง AI จากคลาวด์ ถ้าไม่ได้ก็ใช้เสียงในเครื่อง) — กดซ้ำเพื่อหยุด
+    container.querySelectorAll('.chat-speak').forEach(b => b.addEventListener('click', async () => {
+      const m = messages[+b.dataset.i]
+      if (!m) return
+      const v = await import('../../utils/voice.js')
+      if (b.dataset.on) { v.stopSpeaking(); delete b.dataset.on; b.textContent = '🔊 ฟัง'; return }
+      container.querySelectorAll('.chat-speak[data-on]').forEach(x => { delete x.dataset.on; x.textContent = '🔊 ฟัง' })
+      b.dataset.on = '1'; b.textContent = '⏹ หยุด'
+      v.speak(String(m.text).replace(/[*_#`]/g, ''), {
+        onEnd: () => { delete b.dataset.on; b.textContent = '🔊 ฟัง' },
+        onNoVoice: () => showToast('เครื่องนี้ไม่มีเสียงภาษาไทย', 'warning'),
+      })
+    }))
     container.querySelectorAll('.chat-copy').forEach(b => b.addEventListener('click', async () => {
       const m = messages[+b.dataset.i]
       if (!m) return
