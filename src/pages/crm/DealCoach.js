@@ -6,6 +6,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { getSalesStaff } from '../../data/masterData.js'
+import { navigate } from '../../core/router.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -107,8 +108,14 @@ export default async function DealCoachPage(container) {
           </div>
         </div>
 
+        <div class="card" style="padding:12px 14px;margin-bottom:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;border-left:3px solid var(--primary)">
+          <div style="flex:1;min-width:200px;font-size:0.8rem">🤖 <b>โค้ช AI กับลูกค้าจริงในระบบ</b> — LAMI ดูโอกาสปิด มูลค่า และวันที่ไม่ได้คุยของทุกดีล แล้วบอกว่าควรปิดใครก่อน พูดอะไรดี</div>
+          <button class="btn btn-primary btn-sm" id="dc-ask-lami">🎯 ดีลไหนควรปิดก่อน</button>
+          <button class="btn btn-secondary btn-sm" id="dc-myday">☀️ งานของฉันวันนี้</button>
+        </div>
+
         ${!DEALS.length ? `<div style="padding:10px 14px;background:var(--surface-2);border-left:3px solid var(--warning);border-radius:var(--radius-sm);margin-bottom:14px;font-size:0.78rem">
-          ⚠️ ยังไม่มีดีลในระบบ collection <code>deals</code> ยังไม่มีจุดสร้างข้อมูลอัตโนมัติจากใบจอง/ลูกค้า — กด "+ เพิ่มดีล" เพื่อเริ่มบันทึกดีลจริงที่กำลังเจรจาอยู่
+          ⚠️ ยังไม่มีดีลที่บันทึกในหน้านี้ — กด "+ เพิ่มดีล" เพื่อบันทึกดีลที่กำลังเจรจา หรือกด "🎯 ดีลไหนควรปิดก่อน" ให้ AI ดูจากลูกค้าจริงได้เลย
         </div>` : ''}
 
         <div style="background:var(--surface-2);border:1px solid var(--primary);border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:0.78rem">
@@ -133,6 +140,8 @@ export default async function DealCoachPage(container) {
       </div>`
 
     container.querySelectorAll('.deal-card').forEach(c=>c.addEventListener('click',()=>{selDealId=c.dataset.id;render()}))
+    document.getElementById('dc-ask-lami')?.addEventListener('click', () => navigate('/ai/ask?q=' + encodeURIComponent('จากดีลที่กำลังคุยทั้งหมด ดีลไหนควรเร่งปิดภายในสัปดาห์นี้ 3 อันดับแรก เพราะอะไร และควรพูดอะไรกับแต่ละคน?')))
+    document.getElementById('dc-myday')?.addEventListener('click', () => navigate('/crm/my-day'))
     container.querySelectorAll('.sales-filter').forEach(b=>b.addEventListener('click',()=>{filterSales=b.dataset.s;selDealId=null;render()}))
     document.getElementById('log-action-btn')?.addEventListener('click',()=>openLogActionModal())
     document.getElementById('train-btn')?.addEventListener('click',()=>openTrainingModal())
