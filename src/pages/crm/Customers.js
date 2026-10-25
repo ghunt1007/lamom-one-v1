@@ -196,7 +196,7 @@ export default async function CustomersPage(container) {
       <tr class="cust-row ${c.isLost ? 'is-lost' : ''}" data-id="${c.id}">
         <td>
           <div style="display:flex;align-items:center;gap:10px">
-            <div class="avatar avatar-md" style="background:${avatarColor(c)};color:#fff">${escHtml(initials(c.firstName, c.lastName))}</div>
+            <div class="avatar avatar-md cust-row-avatar" style="background:${avatarColor(c)};color:#fff">${escHtml(initials(c.firstName, c.lastName))}</div>
             <div>
               <div style="font-weight:600;color:var(--text);white-space:nowrap">${escHtml(fullName(c))}${c.vip ? ' <span title="VIP">⭐</span>' : ''}</div>
               <div style="font-size:0.75rem;color:var(--text-muted)">${escHtml(c.email || '')}</div>
@@ -1025,7 +1025,7 @@ export default async function CustomersPage(container) {
       </div>
 
       <div class="card mb-4" style="padding:14px 20px">
-        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div class="cust-filters" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
           <div style="position:relative;flex:1;min-width:200px">
             <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted)">🔍</span>
             <input class="input" id="cust-search" placeholder="ค้นหาชื่อ เบอร์โทร LINE รถที่สนใจ..." style="padding-left:32px">

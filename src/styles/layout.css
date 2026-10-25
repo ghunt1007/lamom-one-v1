@@ -463,3 +463,13 @@
   .bk-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; cursor: pointer; }
   .bk-card:active { transform: scale(.99); }
 }
+
+/* หน้าลูกค้าบนมือถือ: ตัวกรอง 4 ช่องเรียง 2 ช่องต่อแถว (เดิมช่องละบรรทัด กินครึ่งจอ) */
+@media (max-width: 640px) {
+  .cust-filters { gap: 8px !important; }
+  .cust-filters > div:first-child { flex-basis: 100% !important; }
+  .cust-filters > select { flex: 1 1 calc(50% - 4px); min-width: 0 !important; font-size: 0.8rem; }
+}
+@media (max-width: 640px) {
+  .cust-row-avatar { display: none !important; }
+}
