@@ -552,3 +552,10 @@
 
 /* จอสัมผัส: ไม่ต้องโชว์คำแนะนำปุ่มคีย์บอร์ด (↑↓ / Esc) ในหน้าค้นหา */
 @media (pointer: coarse) { .gsearch-hints { display: none !important; } }
+
+/* ปุ่มรองบนหัวหน้า: คอมโชว์ครบ · มือถือซ่อนไว้ใต้ปุ่ม ⋯ อื่นๆ */
+.pa-more-btn { display: none; }
+@media (max-width: 640px) {
+  .pa-more-btn { display: inline-flex; }
+  .page-actions:not(.pa-open) .pa-more { display: none; }
+}

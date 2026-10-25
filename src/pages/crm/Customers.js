@@ -1064,10 +1064,11 @@ export default async function CustomersPage(container) {
       <div class="page-header">
         <div><div class="page-title">👥 ลูกค้า</div><div class="page-subtitle" id="cust-count">กำลังโหลด...</div></div>
         <div class="page-actions">
-          <button class="btn btn-ghost btn-sm" id="pipeline-link-btn">📋 Pipeline View</button>
-          <button class="btn btn-ghost btn-sm" id="sheet-view-btn" title="Spreadsheet View">📊 Sheet</button>
-          <button class="btn btn-ghost btn-sm" id="import-cust-btn">📤 Import</button>
-          <button class="btn btn-secondary btn-sm" id="export-cust-btn">📥 Export</button>
+          <button class="btn btn-ghost btn-sm pa-more" id="pipeline-link-btn">📋 Pipeline View</button>
+          <button class="btn btn-ghost btn-sm pa-more" id="sheet-view-btn" title="Spreadsheet View">📊 Sheet</button>
+          <button class="btn btn-ghost btn-sm pa-more" id="import-cust-btn">📤 Import</button>
+          <button class="btn btn-secondary btn-sm pa-more" id="export-cust-btn">📥 Export</button>
+          <button class="btn btn-ghost btn-sm pa-more-btn" type="button" title="เมนูเพิ่มเติม">⋯ อื่นๆ</button>
           <button class="btn btn-secondary" id="quick-lead-page-btn">🧲 Lead ด่วน</button>
           <button class="btn btn-primary" id="add-cust-btn">➕ เพิ่มลูกค้า</button>
         </div>
@@ -1214,6 +1215,8 @@ export default async function CustomersPage(container) {
   })
 
   document.getElementById('add-cust-btn').addEventListener('click', () => openForm())
+  // มือถือ: ปุ่มรอง (Pipeline/Sheet/Import/Export) ซ่อนไว้ใต้ ⋯ อื่นๆ หัวหน้าไม่รก
+  container.querySelector('.pa-more-btn')?.addEventListener('click', e => e.currentTarget.closest('.page-actions').classList.toggle('pa-open'))
   document.getElementById('quick-lead-page-btn').addEventListener('click', () => openQuickLead())
   document.getElementById('pipeline-link-btn').addEventListener('click', () => navigate('/crm/pipeline'))
 
