@@ -20,7 +20,7 @@ import { buildCustomerBrief, addDaysIso, catalogContext, modelFacts, modelMatche
 import { flatMonthly } from '../../utils/installment.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 import { maskContacts } from '../../utils/leadText.js'
-import { enhanceMics } from '../../utils/micInput.js'
+import { enhanceMics, bindMic, hasSpeechInput } from '../../utils/micInput.js'
 import { matchesSearch } from '../../utils/customerSearch.js'
 import { stockLine } from '../../utils/stockLine.js'
 import { heuristicScore } from '../../utils/leadScore.js'
@@ -1075,7 +1075,8 @@ export default async function CustomersPage(container) {
         <div class="cust-filters" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
           <div style="position:relative;flex:1;min-width:200px">
             <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted)">🔍</span>
-            <input class="input" id="cust-search" placeholder="ค้นหา ชื่อ เบอร์ รุ่นรถ (เช่น s07 สมชาย)" style="padding-left:32px">
+            <input class="input" id="cust-search" placeholder="ค้นหา ชื่อ เบอร์ รุ่นรถ (เช่น s07 สมชาย)" style="padding-left:32px${hasSpeechInput() ? ';padding-right:44px' : ''}">
+            ${hasSpeechInput() ? '<button type="button" class="btn btn-ghost btn-sm" id="cust-search-mic" title="พูดชื่อ/เบอร์ที่ต้องการหา" style="position:absolute;right:4px;top:50%;transform:translateY(-50%)">🎤</button>' : ''}
           </div>
           <select class="input" id="cust-sales-filter" style="width:auto;min-width:140px" title="กรองตามผู้ดูแล">
             <option value="">👤 ผู้ดูแลทั้งหมด</option>
@@ -1245,6 +1246,8 @@ export default async function CustomersPage(container) {
     })
   })
   document.getElementById('cust-search').addEventListener('input', e => { search = e.target.value.trim().toLowerCase(); applyFilter() })
+  // พูดแทนพิมพ์ในช่องค้นหา (มือถือ) — แทนที่คำค้นเดิม แล้วกรองทันที
+  bindMic(document.getElementById('cust-search-mic'), document.getElementById('cust-search'), { replace: true })
   document.getElementById('cust-sales-filter').addEventListener('change', e => { salesFilter = e.target.value; applyFilter() })
   document.getElementById('cust-source-filter').addEventListener('change', e => { sourceFilter = e.target.value; applyFilter() })
   document.getElementById('cust-sort').addEventListener('change', e => { sortMode = e.target.value; applyFilter() })

@@ -14,7 +14,8 @@ export function micButtonHtml(id, label = '🎤') {
 }
 
 // btn = ปุ่ม, input = textarea/input ที่จะเติมข้อความ, onFinal = เรียกหลังพูดจบ (ถ้าต้องการทำต่อ)
-export function bindMic(btn, input, { onFinal } = {}) {
+// replace = แทนที่ข้อความเดิม (เช่น ช่องค้นหา) แทนการต่อท้าย
+export function bindMic(btn, input, { onFinal, replace = false } = {}) {
   if (!btn || !input) return
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition
   if (!SR) { btn.style.display = 'none'; return }
@@ -28,7 +29,7 @@ export function bindMic(btn, input, { onFinal } = {}) {
     rec.onresult = e => {
       const t = [...e.results].filter(r => r.isFinal).map(r => r[0].transcript).join(' ')
       if (!t) return
-      input.value = appendSpoken(input.value, t)
+      input.value = replace ? String(t).trim() : appendSpoken(input.value, t)
       input.dispatchEvent(new Event('input'))
       onFinal?.(t)
     }
