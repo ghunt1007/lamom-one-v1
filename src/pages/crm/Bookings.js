@@ -658,7 +658,7 @@ export default async function BookingsPage(container) {
     const { el, close } = openModal({
       title: '💬 แจ้งลูกค้าทาง LINE ไหม?', size: 'sm',
       body: `<div style="font-size:0.76rem;color:var(--text-muted);margin-bottom:6px">ลูกค้าจะได้ไม่ต้องโทรถามว่ารถถึงไหนแล้ว · แก้ข้อความได้ก่อนคัดลอก</div>
-        <textarea class="input" id="bk-notice" rows="5" style="width:100%;font-size:16px">${escHtml(msg)}</textarea>`,
+        <textarea class="input" id="bk-notice" data-no-mic rows="5" style="width:100%;font-size:16px">${escHtml(msg)}</textarea>`,
       footer: `<button class="btn btn-secondary" id="bk-notice-skip">ไม่ต้อง</button><button class="btn btn-primary" id="bk-notice-copy">📋 คัดลอกไปส่ง</button>`,
     })
     el.querySelector('#bk-notice-skip').addEventListener('click', close)

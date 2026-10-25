@@ -110,7 +110,7 @@ export function openQuickLead() {
       <div style="display:flex;flex-direction:column;gap:12px">
         <details id="ql-paste-box" style="border:1px dashed var(--border);border-radius:10px;padding:8px 10px">
           <summary style="cursor:pointer;font-size:0.82rem;font-weight:600">📋 วางแชทลูกค้า หรือ 🎤 พูดบอก ให้ช่วยกรอกให้</summary>
-          <textarea class="input" id="ql-paste" rows="3" style="margin-top:8px;width:100%;font-size:16px" placeholder="ก๊อปข้อความจาก Facebook / LINE / TikTok มาวาง หรือกด 🎤 แล้วพูด เช่น &quot;คุณสมชาย 0812345678 สนใจ S05 มาจากเฟซบุ๊ก&quot;"></textarea>
+          <textarea class="input" id="ql-paste" data-no-mic rows="3" style="margin-top:8px;width:100%;font-size:16px" placeholder="ก๊อปข้อความจาก Facebook / LINE / TikTok มาวาง หรือกด 🎤 แล้วพูด เช่น &quot;คุณสมชาย 0812345678 สนใจ S05 มาจากเฟซบุ๊ก&quot;"></textarea>
           <button type="button" class="btn btn-primary btn-sm" id="ql-fill" style="margin-top:6px;background:linear-gradient(135deg,#8B5CF6,#3B82F6);border:none">✨ กรอกให้</button>
           <button type="button" class="btn btn-secondary btn-sm" id="ql-mic" style="margin-top:6px" title="พูดแทนพิมพ์">🎤 พูด</button>
           <span id="ql-fill-msg" style="font-size:0.72rem;color:var(--text-muted);margin-left:6px"></span>

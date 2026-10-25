@@ -39,10 +39,11 @@ export function bindMic(btn, input, { onFinal } = {}) {
   })
 }
 
-// ช่อง textarea ที่มี data-mic → เติมปุ่ม 🎤 ใต้ช่องให้อัตโนมัติ (openModal เรียกให้ทุกหน้าต่าง)
+// ช่องพิมพ์ยาว (textarea) ในหน้าต่าง → เติมปุ่ม 🎤 ใต้ช่องให้อัตโนมัติ (openModal เรียกให้ทุกหน้าต่าง)
+// ไม่เติมให้ช่องอ่านอย่างเดียว/ปิดใช้งาน หรือช่องที่ใส่ data-no-mic (เช่น ข้อความที่ AI ร่างไว้ให้คัดลอก)
 export function enhanceMics(root) {
   if (!root || !hasSpeechInput()) return
-  root.querySelectorAll('textarea[data-mic]:not([data-mic-ready])').forEach(ta => {
+  root.querySelectorAll('textarea:not([data-mic-ready]):not([readonly]):not([disabled]):not([data-no-mic])').forEach(ta => {
     ta.setAttribute('data-mic-ready', '1')
     const wrap = document.createElement('div')
     wrap.style.cssText = 'display:flex;justify-content:flex-end;margin-top:4px'
