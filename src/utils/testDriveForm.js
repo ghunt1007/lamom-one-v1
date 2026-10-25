@@ -94,8 +94,27 @@ export function openTestDriveForm(c = {}, { hint = '', onSaved } = {}) {
         status: 'scheduled', result: null, notes: '', km: 0, duration: 30,
         companyId: c.companyId ?? myEffectiveCompanyId(),
       })
+      forgetTestDriveCache()
       close(); showToast('📅 นัดทดลองขับแล้ว — ดูได้ที่หน้า Test Drive', 'success')
       onSaved?.({ date: d, time: tm })
     } catch { btn.disabled = false; showToast('บันทึกไม่สำเร็จ', 'error') }
   })
 }
+
+// นัดลองขับที่ยังไม่ถึงของลูกค้าคนนี้ (จับคู่ด้วย customerId หรือเบอร์โทร สำหรับนัดเก่าที่ไม่มี id)
+export function upcomingTestDriveFor(c, tds = [], today) {
+  const digits = s => String(s || '').replace(/\D/g, '')
+  const ph = digits(c?.phone)
+  return tds.filter(t => t && !t.deleted && t.date >= today && !['done', 'cancelled', 'no_show'].includes(t.status)
+      && ((c?.id && t.customerId === c.id) || (ph.length >= 9 && digits(t.phone) === ph)))
+    .sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')))[0] || null
+}
+
+let tdCache = { at: 0, list: null }
+export async function loadUpcomingTestDrive(c) {
+  if (!tdCache.list || Date.now() - tdCache.at > 60000) {
+    tdCache = { at: Date.now(), list: await listDocs('test_drives', companyScopeFilters(), 'date', 'desc', 200) }
+  }
+  return upcomingTestDriveFor(c, tdCache.list, todayBangkok())
+}
+export function forgetTestDriveCache() { tdCache = { at: 0, list: null } }

@@ -5,7 +5,7 @@ vi.mock('../core/companyScope.js', () => ({ companyScopeFilters: () => [], myEff
 vi.mock('./modal.js', () => ({ openModal: vi.fn() }))
 vi.mock('../data/vehicleDatabase.js', () => ({ getVehicles: () => [] }))
 vi.mock('../data/masterData.js', () => ({ getSalesStaff: () => [] }))
-import { mentionsTestDrive, guessTestDriveSlot, pickVehicleOption } from './testDriveForm.js'
+import { mentionsTestDrive, guessTestDriveSlot, pickVehicleOption, upcomingTestDriveFor } from './testDriveForm.js'
 
 // 2026-10-26 เป็นวันจันทร์
 const TODAY = '2026-10-26'
@@ -53,5 +53,25 @@ describe('pickVehicleOption', () => {
   it('ไม่มีรุ่น/ไม่ตรง → ว่าง', () => {
     expect(pickVehicleOption(opts, '')).toBe('')
     expect(pickVehicleOption(opts, 'Camry')).toBe('')
+  })
+})
+
+describe('upcomingTestDriveFor', () => {
+  const tds = [
+    { id: 'a', customerId: 'c1', date: '2026-10-30', time: '14:00', status: 'scheduled' },
+    { id: 'b', customerId: 'c1', date: '2026-10-27', time: '10:00', status: 'scheduled' },
+    { id: 'c', customerId: 'c1', date: '2026-10-20', status: 'scheduled' },
+    { id: 'd', phone: '081-234-5678', date: '2026-10-28', status: 'scheduled' },
+    { id: 'e', customerId: 'c3', date: '2026-10-28', status: 'cancelled' },
+  ]
+  it('เอานัดที่ใกล้ที่สุดที่ยังไม่ถึง', () => {
+    expect(upcomingTestDriveFor({ id: 'c1' }, tds, TODAY).id).toBe('b')
+  })
+  it('นัดเก่าที่ไม่มี id จับด้วยเบอร์', () => {
+    expect(upcomingTestDriveFor({ id: 'c2', phone: '0812345678' }, tds, TODAY).id).toBe('d')
+  })
+  it('ยกเลิกแล้ว/ไม่มีนัด → null', () => {
+    expect(upcomingTestDriveFor({ id: 'c3' }, tds, TODAY)).toBe(null)
+    expect(upcomingTestDriveFor({ id: 'zz', phone: '' }, tds, TODAY)).toBe(null)
   })
 })

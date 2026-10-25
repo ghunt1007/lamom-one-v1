@@ -33,7 +33,7 @@ import { reasonChipsHtml, bindReasonChips } from '../../utils/lostReason.js'
 import { openAddFollowup, offerNextFollowup } from '../../utils/addFollowupModal.js'
 import { touchCustomerContact } from '../../utils/customerContact.js'
 import { armCallLog } from '../../utils/callLogger.js'
-import { openTestDriveForm } from '../../utils/testDriveForm.js'
+import { openTestDriveForm, loadUpcomingTestDrive } from '../../utils/testDriveForm.js'
 import { moveFollowupsOnReassign } from '../../utils/leadAssign.js'
 
 const pendingFuCount = new WeakMap() // ลูกค้า → จำนวนนัดค้าง (ใช้ตัดสินว่าควรเสนอนัดครั้งถัดไปหลังโทรไหม)
@@ -399,7 +399,13 @@ export default async function CustomersPage(container) {
       const text = [`ข้อมูล ${c.interestedModel} ครับ`, ...lines.map(x => '• ' + x), '*ราคาตั้ง ยังไม่รวมโปรโมชั่น สอบถามโปรล่าสุดได้เลยครับ'].join('\n')
       try { await navigator.clipboard.writeText(text); showToast('📋 คัดลอกแล้ว วางใน LINE ได้เลย', 'success') } catch { showToast('คัดลอกไม่สำเร็จ', 'warning') }
     })
-    el.querySelector('#wk-td-btn')?.addEventListener('click', () => openTestDriveForm(c))
+    el.querySelector('#wk-td-btn')?.addEventListener('click', () => openTestDriveForm(c, { onSaved: showTd }))
+    // ถ้ามีนัดลองขับอยู่แล้ว ให้เห็นทันทีว่านัดวันไหน (ไม่ต้องไปเปิดหน้า Test Drive)
+    function showTd(t) {
+      const b = el.querySelector('#wk-td-btn')
+      if (b && t?.date) { b.textContent = `🚙 นัดลองขับ ${t.date === todayBangkok() ? 'วันนี้' : formatDate(t.date)}${t.time ? ' ' + t.time : ''}`; b.style.color = 'var(--success)' }
+    }
+    if (!c.isLost) loadUpcomingTestDrive(c).then(showTd).catch(() => {})
     el.querySelector('#wk-touch-btn')?.addEventListener('click', async e => {
       const b = e.currentTarget
       b.disabled = true
