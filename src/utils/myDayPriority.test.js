@@ -71,3 +71,16 @@ describe('teamToday', () => {
     ])
   })
 })
+
+import { leadWait } from './myDay.js'
+describe('leadWait', () => {
+  const now = Date.parse('2026-10-26T03:00:00Z')
+  it('counts minutes since the lead came in', () => {
+    expect(leadWait({ createdAt: '2026-10-26T02:50:00Z' }, now)).toEqual({ mins: 10, label: 'รอ 10 นาที', level: 'ok' })
+    expect(leadWait({ createdAt: '2026-10-26T02:20:00Z' }, now).level).toBe('warn')
+    expect(leadWait({ createdAt: '2026-10-26T00:45:00Z' }, now)).toEqual({ mins: 135, label: 'รอ 2 ชม. 15 นาที', level: 'late' })
+  })
+  it('is null once contacted', () => {
+    expect(leadWait({ createdAt: '2026-10-26T02:00:00Z', lastContactAt: '2026-10-26T02:30:00Z' }, now)).toBeNull()
+  })
+})

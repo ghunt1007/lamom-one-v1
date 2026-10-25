@@ -13,7 +13,7 @@ import { QUICK_SOURCES } from '../../utils/quickLead.js'
 import { SALES_TARGETS_COLLECTION, targetFor, goalProgress } from '../../utils/salesTargets.js'
 import { DELIVERED_STATUSES } from '../../utils/deliveryIncome.js'
 import { staffChoices, findStaffCompany, assignCustomer } from '../../utils/leadAssign.js'
-import { bangkokDate, buildMyDay, topPriorities, teamToday, STALE_LEAD_DAYS, STUCK_BOOKING_DAYS, UPCOMING_DELIVERY_DAYS, FINANCE_WAIT_DAYS } from '../../utils/myDay.js'
+import { bangkokDate, buildMyDay, topPriorities, teamToday, leadWait, STALE_LEAD_DAYS, STUCK_BOOKING_DAYS, UPCOMING_DELIVERY_DAYS, FINANCE_WAIT_DAYS } from '../../utils/myDay.js'
 import { followupWindowFilters } from '../../utils/customerFollowups.js'
 import { openAddFollowup, offerNextFollowup } from '../../utils/addFollowupModal.js'
 import { touchCustomerContact } from '../../utils/customerContact.js'
@@ -96,6 +96,8 @@ export default async function MyDayPage(container) {
   // cid = รหัสลูกค้า → กลับมาที่แอปหลังวางสาย ระบบถามผลการโทรให้บันทึก (utils/callLogger.js)
   const callBtn = (phone, cid = '') => tel(phone) ? `<a class="btn btn-secondary btn-xs${cid ? ' md-call' : ''}" data-cid="${escHtml(cid)}" href="tel:${escHtml(tel(phone))}">📞 โทร</a>` : ''
   const takeBtns = c => String(c.assignedTo || '').trim() ? '' : `${me.displayName ? `<button class="btn btn-primary btn-xs md-take" data-id="${escHtml(c.id)}">🙋 รับดูแล</button>` : ''}${canPick && staff.length ? `<button class="btn btn-secondary btn-xs md-give" data-id="${escHtml(c.id)}">👉 มอบให้</button>` : ''}`
+  // ⏱ Lead ใหม่รอมานานแค่ไหน (ยังไม่ได้ติดต่อ) — เขียว < 15 นาที, เหลือง < 1 ชม., แดง ชั่วโมงขึ้นไป
+  const waitTag = c => { const w = leadWait(c); return w ? ` <span class="badge badge-${{ ok: 'success', warn: 'warning', late: 'danger' }[w.level]}" style="font-size:0.62rem">⏱ ${w.label}</span>` : '' }
   const ownerTag = n => seller === 'all' && canPick ? ` · 👤 ${escHtml((n || '').trim() || UNASSIGNED)}` : ''
 
   // เป้าส่งมอบเดือนนี้ของคนที่เลือก (ตัวเอง ถ้าดูทุกคน) — ตั้งเป้าได้ที่หน้ารายได้รายเซลส์
@@ -243,7 +245,7 @@ export default async function MyDayPage(container) {
           `${callBtn(t.phone)}<button class="btn btn-secondary btn-xs md-td">Test Drive</button>`), 'primary') : ''}
 
         ${section('🧲', 'Lead ใหม่วันนี้', 'โทรหาภายในวันนี้ โอกาสปิดสูงสุด', d.newLeads, c => line(
-          `${escHtml(c.name)}${c.interestedModel ? ` · ${escHtml(c.interestedModel)}` : ''}`,
+          `${escHtml(c.name)}${c.interestedModel ? ` · ${escHtml(c.interestedModel)}` : ''}${waitTag(c)}`,
           `${escHtml(SOURCE_LABEL[c.source] || c.source || '')}${c.phone ? ` · ${escHtml(c.phone)}` : c.lineId ? ` · ${escHtml(c.lineId)}` : ''}${ownerTag(c.assignedTo)}`,
           `${callBtn(c.phone, c.id)}${takeBtns(c)}${bangkokDate(c.lastContactAt) === today ? '<span class="badge badge-success" style="font-size:0.62rem">ติดต่อแล้ว</span>' : `<button class="btn btn-success btn-xs md-touch" data-id="${escHtml(c.id)}">✅ ติดต่อแล้ว</button>`}<button class="btn btn-secondary btn-xs md-plan" data-id="${escHtml(c.id)}">📅 นัด</button><button class="btn btn-secondary btn-xs md-open" data-id="${escHtml(c.id)}">เปิด</button>`), 'success')}
 

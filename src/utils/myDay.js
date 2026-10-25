@@ -133,7 +133,7 @@ export function topPriorities(d, limit = 3, { short = false } = {}) {
     return short ? n.split(/\s+/)[0] : n
   }
   const car = b => [b.brand, b.model].filter(Boolean).join(' ')
-  ;(d.newLeads || []).forEach(c => add({ key: 'new:' + c.id, icon: '🧲', title: `โทรหา Lead ใหม่ ${nm(c)}`, why: `เข้ามาวันนี้${c.interestedModel ? ` สนใจ ${c.interestedModel}` : ''} · โทรภายในชั่วโมงแรกโอกาสปิดสูงสุด`, score: c.lastContactAt && bangkokDate(c.lastContactAt) === bangkokDate(c.createdAt) ? 20 : 100, customerId: c.id, phone: c.phone }))
+  ;(d.newLeads || []).forEach(c => add({ key: 'new:' + c.id, icon: '🧲', title: `โทรหา Lead ใหม่ ${nm(c)}`, why: `เข้ามาวันนี้${leadWait(c) ? ` (${leadWait(c).label})` : ''}${c.interestedModel ? ` สนใจ ${c.interestedModel}` : ''} · โทรภายในชั่วโมงแรกโอกาสปิดสูงสุด`, score: c.lastContactAt && bangkokDate(c.lastContactAt) === bangkokDate(c.createdAt) ? 20 : 100, customerId: c.id, phone: c.phone }))
   ;(d.deliveries || []).filter(b => b.inDays === 0).forEach(b => add({ key: 'dlv:' + b.id, icon: '🚗', title: `ส่งมอบรถ ${nm(b)} วันนี้`, why: `${car(b) || 'รถ'}${b.deliveryTime ? ` เวลา ${b.deliveryTime}` : ''} · เช็กรถและเอกสารให้พร้อม`, score: 95, bookingId: b.id, phone: b.phone || b.custPhone }))
   ;(d.hotNoPlan || []).forEach(c => add({ key: 'hot:' + c.id, icon: '🔴', title: `นัดลูกค้า Hot ${nm(c)}`, why: 'สนใจมากแต่ยังไม่มีนัดครั้งถัดไป', score: 90, customerId: c.id, phone: c.phone }))
   ;(d.followups || []).forEach(f => add({ key: 'fu:' + f.id, icon: '📞', title: `ติดต่อ ${nm(f)}`, why: `${f.purpose || 'นัดติดตาม'}${f.late > 0 ? ` · เลยกำหนด ${f.late} วัน` : ' · ครบกำหนดวันนี้'}`, score: 78 + Math.min(10, f.late || 0), customerId: f.customerId, phone: f.phone }))
@@ -179,4 +179,16 @@ export function teamToday(data, { today, names = [], same = (a, b) => String(a |
     return { name, total: d.total, contacted: d.contactedToday, newUntouched }
   }).filter(r => r.total || r.contacted || r.newUntouched)
     .sort((a, b) => b.total + b.newUntouched - (a.total + a.newUntouched) || a.name.localeCompare(b.name, 'th'))
+}
+
+// Lead ใหม่วันนี้: รอมากี่นาทีแล้ว (ยิ่งโทรเร็วยิ่งปิดได้) — คืน null ถ้าติดต่อแล้วหรือไม่มีเวลาสร้าง
+// level: ok (< 15 นาที) / warn (< 60 นาที) / late (ชั่วโมงขึ้นไป)
+export function leadWait(c, now = Date.now()) {
+  const created = toDate(c.createdAt)
+  if (!created) return null
+  const contacted = toDate(c.lastContactAt)
+  if (contacted && contacted.getTime() > created.getTime() + 60000) return null
+  const mins = Math.max(0, Math.floor((now - created.getTime()) / 60000))
+  const label = mins < 60 ? `รอ ${mins} นาที` : `รอ ${Math.floor(mins / 60)} ชม.${mins % 60 ? ` ${mins % 60} นาที` : ''}`
+  return { mins, label, level: mins < 15 ? 'ok' : mins < 60 ? 'warn' : 'late' }
 }
