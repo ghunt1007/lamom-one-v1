@@ -41,3 +41,13 @@ describe('testDriveThanks', () => {
     expect(testDriveThanks(t, 'maybe')).toContain('เซลส์ เอ')
   })
 })
+
+import { firstReplyMessage } from './bookingNotify.js'
+describe('firstReplyMessage', () => {
+  it('asks for a phone number', () => {
+    const m = firstReplyMessage({ firstName: 'นิด', interestedModel: 'DEEPAL S05' }, 'เอ')
+    expect(m).toMatch(/^สวัสดีครับคุณนิด ผมเอ ขอบคุณที่สนใจ DEEPAL S05/)
+    expect(m).toContain('ขอเบอร์โทร')
+    expect(firstReplyMessage({})).toContain('สนใจรถของเรา')
+  })
+})

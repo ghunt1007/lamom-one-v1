@@ -9,6 +9,7 @@ import { companyScopeFilters, myEffectiveCompanyId } from '../core/companyScope.
 import { deriveInitialStage } from '../core/customerInsights.js'
 import { scheduleLeadFollowups } from './leadFollowups.js'
 import { parseLeadText, maskContacts, buildLeadNamePrompt, parseLeadNameReply } from './leadText.js'
+import { firstReplyMessage } from './bookingNotify.js'
 
 export const QUICK_SOURCES = [
   ['walk-in', '🚶 Walk-in'], ['phone', '📱 โทรเข้า'], ['facebook', '📘 Facebook'], ['line', '💚 LINE'],
@@ -89,6 +90,18 @@ function offerCallNow(c) {
   el.querySelector('#qc-call').addEventListener('click', async () => {
     try { const { armCallLog } = await import('./callLogger.js'); armCallLog(c, { hasPending: () => true }) } catch {}
     setTimeout(close, 300)
+  })
+}
+
+function offerFirstReply(c, me) {
+  const { el, close } = openModal({
+    title: `💬 ตอบ ${escHtml(c.firstName || 'ลูกค้า')} ครั้งแรก`, size: 'sm',
+    body: `<div style="font-size:0.76rem;color:var(--text-muted);margin-bottom:6px">ตอบเร็ว + ขอเบอร์ไว้ โอกาสปิดการขายสูงขึ้นมาก · แก้ข้อความได้ก่อนคัดลอก</div><textarea class="input" id="qf-msg" data-no-mic rows="5" style="width:100%;font-size:16px">${escHtml(firstReplyMessage(c, me))}</textarea>`,
+    footer: `<button class="btn btn-secondary" id="qf-skip">ไม่ต้อง</button><button class="btn btn-primary" id="qf-copy">📋 คัดลอกไปตอบ</button>`,
+  })
+  el.querySelector('#qf-skip').addEventListener('click', close)
+  el.querySelector('#qf-copy').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(el.querySelector('#qf-msg').value); showToast('📋 คัดลอกแล้ว วางในแชทลูกค้าได้เลย', 'success'); close() } catch { showToast('คัดลอกไม่สำเร็จ — กดค้างที่ข้อความแล้วคัดลอกเอง', 'warning') }
   })
 }
 
@@ -204,6 +217,8 @@ export function openQuickLead() {
         close()
         // ลูกค้า Walk-in อยู่ที่โชว์รูมแล้ว และคอมพิวเตอร์โทรออกไม่ได้ → ชวนโทรเฉพาะบนมือถือ
         if (doc.phone && doc.source !== 'walk-in' && window.matchMedia?.('(pointer: coarse)').matches) offerCallNow({ ...doc, id })
+        // ทักมาทางแชทแต่ยังไม่มีเบอร์ → เสนอข้อความตอบครั้งแรก (ขอเบอร์ + ชวนทดลองขับ) คัดลอกไปตอบได้ทันที
+        else if (!doc.phone && doc.source !== 'walk-in') offerFirstReply(doc, me.displayName || '')
       }
     } catch {
       showToast('บันทึกไม่สำเร็จ', 'error')
