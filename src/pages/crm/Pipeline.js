@@ -108,7 +108,7 @@ export default async function PipelinePage(container) {
           </div>
           ${quiet != null && quiet >= QUIET_DAYS ? `<span class="badge badge-warning" style="font-size:0.6rem;flex-shrink:0" title="ไม่มีการติดต่อ/อัปเดต">💤 ${quiet} วัน</span>` : ''}
         </div>
-        <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:4px">🚗 ${escHtml(c.interestedModel || '-')}</div>
+        <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:4px">${c.interestedModel ? `🚗 ${escHtml(c.interestedModel)}` : '<span style="color:var(--warning)">❔ ยังไม่รู้รุ่นที่สนใจ</span>'}</div>
         <div style="display:flex;align-items:center;justify-content:space-between">
           <span style="font-size:0.78rem;font-weight:600;color:var(--accent)">${c.budget ? '฿' + Number(c.budget).toLocaleString() : val(c) ? `<span title="ราคาตั้งรุ่นที่สนใจ (ลูกค้ายังไม่บอกงบ)" style="color:var(--text-muted);font-weight:500">≈฿${val(c).toLocaleString()}</span>` : ''}${['lead', 'pp'].includes(c.stage) && !c.isLost ? (sc => `<span title="โอกาสปิดการขาย" style="margin-left:${c.budget || val(c) ? 6 : 0}px;font-size:0.68rem;color:${sc >= 80 ? 'var(--danger)' : sc >= 60 ? 'var(--warning)' : 'var(--text-muted)'}">🎯 ${sc}%</span>`)(heuristicScore(c).score) : ''}</span>
           <span style="font-size:0.7rem;color:var(--text-muted)">${timeAgo(c.createdAt)}</span>
