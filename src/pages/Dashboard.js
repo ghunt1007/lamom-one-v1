@@ -1327,16 +1327,18 @@ export default async function DashboardPage(container) {
     const STATUS_LABELS = { hot:'🔥 Hot', warm:'☀️ Warm', cold:'❄️ Cold', vip:'⭐ VIP', lost:'💨 Lost' }
     const list = document.getElementById('customers-list')
     if (list && customers.length) {
+      // อุณหภูมิอยู่ใน c.temperature (c.status เป็นฟิลด์เก่า) — เดิมป้ายขึ้น "-" ทุกคน · กดแล้วเปิดลูกค้าคนนั้นเลย
+      const tempKey = c => c.isLost ? 'lost' : c.vip ? 'vip' : (c.temperature || c.status || '')
       list.innerHTML = customers.slice(0, 5).map(c => `
-        <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer" data-nav="/crm/customers">
-          <div style="width:32px;height:32px;border-radius:50%;background:var(--${STATUS_COLORS[c.status] || 'secondary'}-dim);display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;color:var(--${STATUS_COLORS[c.status] || 'secondary'});flex-shrink:0">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer" data-nav="/crm/customers?id=${encodeURIComponent(c.id || '')}">
+          <div style="width:32px;height:32px;border-radius:50%;background:var(--${STATUS_COLORS[tempKey(c)] || 'secondary'}-dim);display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;color:var(--${STATUS_COLORS[tempKey(c)] || 'secondary'});flex-shrink:0">
             ${escHtml(c.firstName?.[0] || '?')}${escHtml(c.lastName?.[0] || '')}
           </div>
           <div style="flex:1;min-width:0">
             <div style="font-size:0.85rem;font-weight:600">${escHtml(c.firstName || '')} ${escHtml(c.lastName || '')}</div>
-            <div style="font-size:0.73rem;color:var(--text-muted)">${escHtml(c.interestedModel || '-')} · ${escHtml(c.phone || '-')}</div>
+            <div style="font-size:0.73rem;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml([c.interestedModel, c.phone].filter(Boolean).join(' · ') || '-')}</div>
           </div>
-          <span class="badge badge-${STATUS_COLORS[c.status] || 'secondary'}" style="font-size:0.68rem">${STATUS_LABELS[c.status] || escHtml(c.status) || '-'}</span>
+          ${STATUS_LABELS[tempKey(c)] ? `<span class="badge badge-${STATUS_COLORS[tempKey(c)]}" style="font-size:0.68rem;flex-shrink:0">${STATUS_LABELS[tempKey(c)]}</span>` : ''}
         </div>
       `).join('')
     }
