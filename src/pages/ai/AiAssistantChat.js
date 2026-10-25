@@ -63,6 +63,7 @@ export default async function AiAssistantChatPage(container) {
   let messages = []
   let waiting = false
   let voiceAsked = false // คำถามล่าสุดมาจากไมค์ → อ่านคำตอบให้ฟังเอง
+  let welcomeStats = {} // ตัวเลขจริงบนการ์ดต้อนรับ (งานค้างของฉัน / Hot Lead)
   let loading = true
   let businessContext = {}
 
@@ -100,6 +101,7 @@ export default async function AiAssistantChatPage(container) {
       const activeStaff = staff.filter(s => !s.deleted).length
       const todayJobs = jobs.filter(j => !j.deleted && toDateStr(j.createdAt) === today)
       const doneToday = todayJobs.filter(j => j.status === 'done' || j.status === 'delivered').length
+      welcomeStats.hot = hotLeads
       businessContext = {
         'ยอดขายเดือนนี้': `${monthSales.length} คัน มูลค่ารวม ${formatCurrency(monthSales.reduce((s, x) => s + (x.salePrice || 0), 0))}`,
         'กำไรเดือนนี้ (จากรถที่ส่งมอบแล้ว)': `${formatCurrency(monthProfit)} จาก ${monthSales.filter(s => s.delivered).length} คันที่ส่งมอบแล้ว`,
@@ -126,6 +128,7 @@ export default async function AiAssistantChatPage(container) {
         const mine = n => normName(n) === normName(myName)
         const d = buildMyDay({ customers, followups, bookings, testDrives: [] }, { today, mine })
         businessContext[`งานของ ${myName} วันนี้`] = myDayDigest(d)
+        welcomeStats.todo = d.total
       }
     } catch (e) { businessContext = {} }
   }
@@ -174,10 +177,10 @@ export default async function AiAssistantChatPage(container) {
   function welcomeHtml() {
     const name = getState('user')?.displayName
     const cards = [
-      ['☀️', 'วันนี้ทำอะไรก่อน', 'จัดลำดับงานของคุณจากข้อมูลจริง', CATEGORIES[0].q],
+      ['☀️', 'วันนี้ทำอะไรก่อน', welcomeStats.todo ? `คุณมีงานค้าง ${welcomeStats.todo} รายการ ให้ LAMI จัดลำดับ` : 'จัดลำดับงานของคุณจากข้อมูลจริง', CATEGORIES[0].q],
       ['🎯', 'ช่วยปิดการขาย', 'ลูกค้าคนไหนน่าปิดที่สุด พูดอะไรดี', CATEGORIES[1].q],
       ['📊', 'ยอดขายเดือนนี้', 'สรุปยอดและกำไรเดือนนี้', 'สรุปยอดขายและกำไรเดือนนี้ให้หน่อย เทียบกับที่ควรเป็น และควรเร่งอะไร'],
-      ['🔥', 'Hot Lead', 'ลูกค้าที่สนใจมากตอนนี้', 'มี Hot Lead กี่ราย และควรตามใครก่อน?'],
+      ['🔥', 'Hot Lead', welcomeStats.hot ? `ตอนนี้มี ${welcomeStats.hot} ราย ควรตามใครก่อน` : 'ลูกค้าที่สนใจมากตอนนี้', 'มี Hot Lead กี่ราย และควรตามใครก่อน?'],
     ]
     return `<div style="margin:auto;max-width:640px;width:100%;text-align:center;padding:16px 0">
       <div style="width:64px;height:64px;margin:0 auto 10px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--success));display:flex;align-items:center;justify-content:center;font-size:2rem;box-shadow:0 8px 30px color-mix(in srgb, var(--primary) 40%, transparent)">🤖</div>
@@ -337,6 +340,8 @@ export default async function AiAssistantChatPage(container) {
   }
 
   await Promise.all([loadData(), loadBusinessContext()])
+  // การ์ดต้อนรับแสดงตัวเลขจริงเมื่อโหลดข้อมูลธุรกิจเสร็จ (ยังไม่เริ่มคุยเท่านั้น ไม่รบกวนแชทที่กำลังพิมพ์)
+  if (container.__routerGen === myGen && !waiting && !messages.some(m => m.role === 'user') && (welcomeStats.todo || welcomeStats.hot)) renderPage()
   // เปิดจากช่องค้นหา (Ctrl+K) "ถาม LAMI: ..." → ส่งคำถามให้ทันที แล้วลบ ?q= ออกกันส่งซ้ำตอนรีเฟรช
   const q = new URLSearchParams(window.location.search).get('q')
   if (q && container.__routerGen === myGen) {
