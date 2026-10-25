@@ -244,7 +244,7 @@ export default async function StockPage(container) {
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
           <div>
             <div style="font-weight:700;font-size:1rem">${escHtml(v.brand)} ${escHtml(v.model)}</div>
-            <div style="font-size:0.78rem;color:var(--text-muted)">${escHtml([v.variant, v.year].filter(Boolean).join(' · ') || '—')}</div>
+            ${[v.variant, v.year].filter(Boolean).length ? `<div style="font-size:0.78rem;color:var(--text-muted)">${escHtml([v.variant, v.year].filter(Boolean).join(' · '))}</div>` : ''}
           </div>
           <span class="badge badge-${st.badge}">${st.label}</span>
         </div>
@@ -252,11 +252,11 @@ export default async function StockPage(container) {
           <div style="width:14px;height:14px;border-radius:50%;background:${colorDot(v.color)};border:1px solid var(--border);flex-shrink:0"></div>
           <span style="font-size:0.85rem;color:var(--text-2)">${escHtml(v.color || 'ไม่ระบุสี')}</span>
         </div>
-        <div style="font-size:0.72rem;color:var(--text-muted);font-family:monospace;margin-bottom:10px">${escHtml(v.vin || '-')}</div>
+        ${v.vin ? `<div style="font-size:0.72rem;color:var(--text-muted);font-family:monospace;margin-bottom:10px;overflow-wrap:anywhere">VIN ${escHtml(v.vin)}</div>` : ''}
         <div style="display:flex;justify-content:space-between;align-items:center">
           <div>
-            <div style="font-size:1.1rem;font-weight:700;color:var(--accent)">${formatCurrency(v.price)}</div>
-            <div style="font-size:0.75rem;color:${margin > 0 ? 'var(--success)' : 'var(--danger)'}">กำไร ${margin > 0 ? '+' : ''}${formatCurrency(margin)}</div>
+            ${v.price ? `<div style="font-size:1.1rem;font-weight:700;color:var(--accent)">${formatCurrency(v.price)}</div>` : '<div style="font-size:0.8rem;color:var(--text-muted)">ยังไม่ใส่ราคา</div>'}
+            ${v.price && v.cost ? `<div style="font-size:0.75rem;color:${margin > 0 ? 'var(--success)' : 'var(--danger)'}">กำไร ${margin > 0 ? '+' : ''}${formatCurrency(margin)}</div>` : ''}
           </div>
           <div style="display:flex;gap:4px">
             <button class="btn btn-ghost btn-sm edit-v" data-id="${v.id}">✏️</button>
