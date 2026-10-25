@@ -10,5 +10,6 @@ describe('Thai time greeting', () => {
     expect(thaiGreeting(8)).toBe('อรุณสวัสดิ์')
     expect(thaiGreeting(14)).toBe('สวัสดีตอนบ่าย')
     expect(thaiGreeting(19)).toBe('สวัสดีตอนเย็น')
+    expect(thaiGreeting(2)).toBe('สวัสดี')
   })
 })

@@ -3,7 +3,7 @@ import { listDocs, watchDocs, seedDemoData, getSalesData } from '../core/db.js'
 import { companyScopeFilters } from '../core/companyScope.js'
 import { formatCurrency, timeAgo, todayBangkok, toDateStr, toDate } from '../utils/format.js'
 import { navigate } from '../core/router.js'
-import { generateMorningBriefing } from '../utils/ai.js'
+import { generateMorningBriefing, bangkokHour } from '../utils/ai.js'
 import { getModuleForPath, hasModuleAccess, loadRolePermissions } from '../core/permissions.js'
 import { t } from '../i18n/index.js'
 
@@ -109,12 +109,14 @@ function formatThaiDate() {
 export default async function DashboardPage(container) {
   const myGen = container.__routerGen
   const user = getState('user')
-  const hour = new Date().getHours()
+  // ใช้เวลาไทยเสมอ (เครื่องที่ตั้งโซนเวลาอื่นไว้จะได้ไม่ทักผิดช่วง) · ตี 0–4 นับเป็น "ดึก" ไม่ใช่ "เช้า"
+  const hour = bangkokHour()
+  const night = hour < 5
   // (v1.0.353) รองรับหลายภาษา — เฉพาะส่วน "เปลือก" ของหน้านี้ (คำทักทาย/ปุ่ม) เท่านั้น เนื้อหา KPI/กราฟ/
   // สถานะต่างๆด้านในยังเป็นภาษาไทยล้วน (เป็นเนื้อหาเชิงลึกของหน้า ไม่ใช่ขอบเขต "เมนู/ส่วนกลาง" ที่ตกลงกันไว้)
-  const greeting = hour < 12 ? t('greetingMorning') : hour < 17 ? t('greetingAfternoon') : t('greetingEvening')
-  const briefIcon = hour < 12 ? '🌅' : hour < 17 ? '☀️' : '🌙'
-  const briefLabel = hour < 12 ? 'สรุปเช้านี้' : hour < 17 ? 'สรุประหว่างวัน' : 'สรุปวันนี้'
+  const greeting = night ? t('greetingEvening') : hour < 12 ? t('greetingMorning') : hour < 17 ? t('greetingAfternoon') : t('greetingEvening')
+  const briefIcon = night ? '🌙' : hour < 12 ? '🌅' : hour < 17 ? '☀️' : '🌙'
+  const briefLabel = night ? 'สรุปวันนี้' : hour < 12 ? 'สรุปเช้านี้' : hour < 17 ? 'สรุประหว่างวัน' : 'สรุปวันนี้'
 
   // Quick Access เดิมโชว์ทุกโมดูลให้ทุก role เหมือนกันหมด ทั้งที่ Sidebar กรองเมนูตามสิทธิ์โมดูล (hasModuleAccess)
   // อยู่แล้ว ทำให้พนักงานบางคนเห็น shortcut ที่กดแล้วถูกบล็อกทันที (ไม่ตรงกับสิทธิ์จริง) แก้ให้กรองด้วยระบบเดียวกัน

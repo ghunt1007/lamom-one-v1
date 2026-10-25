@@ -339,7 +339,7 @@ export async function generateMorningBriefing(context = {}) {
   } = context
 
   const h = bangkokHour()
-  const prompt = `สร้างสรุปสถานการณ์ประจำวันของโชว์รูมรถ EV ตอนนี้เวลา ${h}:00 น. (${h < 12 ? 'ช่วงเช้า เน้นวางแผนวันนี้' : h < 17 ? 'ช่วงบ่าย เน้นสิ่งที่ยังทันทำวันนี้' : 'ช่วงเย็น เน้นสิ่งที่ควรปิดก่อนจบวันและเตรียมพรุ่งนี้'} ทักทายให้ตรงช่วงเวลา) จากข้อมูลจริงต่อไปนี้:
+  const prompt = `สร้างสรุปสถานการณ์ประจำวันของโชว์รูมรถ EV ตอนนี้เวลา ${h}:00 น. (${h < 5 ? 'ช่วงดึก สรุปสั้นๆ เน้นเตรียมงานพรุ่งนี้เช้า' : h < 12 ? 'ช่วงเช้า เน้นวางแผนวันนี้' : h < 17 ? 'ช่วงบ่าย เน้นสิ่งที่ยังทันทำวันนี้' : 'ช่วงเย็น เน้นสิ่งที่ควรปิดก่อนจบวันและเตรียมพรุ่งนี้'} ทักทายให้ตรงช่วงเวลา) จากข้อมูลจริงต่อไปนี้:
 - นัดหมาย/ส่งมอบวันนี้: ${todayCount} รายการ
 - ใบจองค้างสถานะเกิน 14 วัน: ${stuckBookings} ใบ
 - งานซ่อมค้างเกิน 7 วัน: ${overdueJobs} งาน
@@ -372,7 +372,7 @@ export async function generateMorningBriefing(context = {}) {
 
 // ชั่วโมงตามเวลาไทย (ไม่ขึ้นกับ timezone ของเครื่อง) และคำทักทายตามช่วงเวลา
 export function bangkokHour(now = Date.now()) { return new Date(now + 7 * 3600e3).getUTCHours() }
-export function thaiGreeting(h) { return h < 12 ? 'อรุณสวัสดิ์' : h < 17 ? 'สวัสดีตอนบ่าย' : 'สวัสดีตอนเย็น' }
+export function thaiGreeting(h) { return h < 5 ? 'สวัสดี' : h < 12 ? 'อรุณสวัสดิ์' : h < 17 ? 'สวัสดีตอนบ่าย' : 'สวัสดีตอนเย็น' }
 
 function generateFallbackBriefing(context = {}) {
   const {

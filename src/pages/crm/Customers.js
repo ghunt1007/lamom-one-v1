@@ -1065,7 +1065,7 @@ export default async function CustomersPage(container) {
         <div class="cust-filters" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
           <div style="position:relative;flex:1;min-width:200px">
             <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted)">🔍</span>
-            <input class="input" id="cust-search" placeholder="ค้นหาชื่อ เบอร์ LINE รุ่นรถ เซลส์ (หลายคำได้ เช่น s07 สมชาย)" style="padding-left:32px">
+            <input class="input" id="cust-search" placeholder="ค้นหา ชื่อ เบอร์ รุ่นรถ (เช่น s07 สมชาย)" style="padding-left:32px">
           </div>
           <select class="input" id="cust-sales-filter" style="width:auto;min-width:140px" title="กรองตามผู้ดูแล">
             <option value="">👤 ผู้ดูแลทั้งหมด</option>
