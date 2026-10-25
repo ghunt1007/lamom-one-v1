@@ -344,7 +344,13 @@ export default async function BookingsPage(container) {
       if (container.__routerGen !== myGen) { unsubBookings(); return }
       bookings = rows.filter(b => !b.deleted)
       applyNidMap(bookings)
-      if (firstSnapshot) { firstSnapshot = false; render() }
+      if (firstSnapshot) {
+        firstSnapshot = false; render()
+        // เปิดใบจองที่ระบุมาทันที (?id= จากช่องค้นหารวม / งานของฉันวันนี้) แล้วลบ ?id ออกกันเปิดซ้ำตอนรีเฟรช
+        const deepId = new URLSearchParams(window.location.search).get('id')
+        const target = deepId && bookings.find(b => b.id === deepId)
+        if (target) { window.history.replaceState({}, '', window.location.pathname); openDetail(target) }
+      }
       else safeRender()
     })
   }

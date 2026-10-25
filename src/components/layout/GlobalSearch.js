@@ -14,7 +14,7 @@ import { t as tr } from '../../i18n/index.js'
 const SOURCES = [
   // scoped: ดึงตามบริษัทที่มีสิทธิ์ (companyScopeFilters — index companyId+createdAt มีอยู่แล้วจากหน้า Customers/Bookings)
   // แล้วกรองตามสิทธิ์การมองเห็นของเซลส์ (owner = ชื่อผู้ดูแล) เหมือนหน้าลูกค้า/ใบจอง
-  { col: 'bookings', icon: '📝', groupKey: 'grpBookings', route: '/crm/bookings', scoped: true, owner: b => b.salesName,
+  { col: 'bookings', icon: '📝', groupKey: 'grpBookings', route: b => '/crm/bookings?id=' + encodeURIComponent(b.id), scoped: true, owner: b => b.salesName,
     text: b => [b.bookingNo, b.custName, b.brand, b.model, b.variant, b.vin, b.phone, b.salesName].join(' '),
     title: b => (b.bookingNo || '') + ' · ' + (b.custName || ''),
     sub: b => [b.brand, b.model, b.variant].filter(Boolean).join(' ') + ' · ' + (b.status || '') + ' · ' + formatCurrency(b.price) },

@@ -135,7 +135,7 @@ export default async function MyDayPage(container) {
       ${top.map((t, i) => `<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-top:1px solid var(--border);flex-wrap:wrap">
         <div style="width:28px;height:28px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0">${i + 1}</div>
         <div style="flex:1;min-width:180px"><div style="font-weight:700;font-size:0.88rem">${t.icon} ${escHtml(t.title)}</div><div style="font-size:0.72rem;color:var(--text-muted)">${escHtml(t.why)}</div></div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">${callBtn(t.phone, t.customerId)}${/^(new|stl):/.test(t.key) ? `<button class="btn btn-success btn-xs md-touch" data-id="${escHtml(t.customerId)}" title="คุยกับลูกค้าแล้ว — ระบบจะเลือกงานถัดไปให้">✅ เสร็จ</button>` : ''}${t.key.startsWith('hot:') ? `<button class="btn btn-secondary btn-xs md-plan" data-id="${escHtml(t.customerId)}">📅 นัด</button>` : ''}${t.customerId ? `<button class="btn btn-secondary btn-xs md-ai" data-id="${escHtml(t.customerId)}" title="ให้ AI คิดว่าควรพูดอะไร และร่างข้อความ LINE ให้">🤖 AI ช่วย</button><button class="btn btn-primary btn-xs md-open" data-id="${escHtml(t.customerId)}">เปิดลูกค้า</button>` : t.key.startsWith('inc:') ? `<button class="btn btn-warning btn-xs md-inc" data-id="${escHtml(t.bookingId)}">💰 กรอกรายได้</button>` : t.key.startsWith('uns:') ? '<button class="btn btn-primary btn-xs md-cal">📅 ปฏิทินส่งมอบ</button>' : '<button class="btn btn-secondary btn-xs md-bk">ใบจอง</button>'}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">${callBtn(t.phone, t.customerId)}${/^(new|stl):/.test(t.key) ? `<button class="btn btn-success btn-xs md-touch" data-id="${escHtml(t.customerId)}" title="คุยกับลูกค้าแล้ว — ระบบจะเลือกงานถัดไปให้">✅ เสร็จ</button>` : ''}${t.key.startsWith('hot:') ? `<button class="btn btn-secondary btn-xs md-plan" data-id="${escHtml(t.customerId)}">📅 นัด</button>` : ''}${t.customerId ? `<button class="btn btn-secondary btn-xs md-ai" data-id="${escHtml(t.customerId)}" title="ให้ AI คิดว่าควรพูดอะไร และร่างข้อความ LINE ให้">🤖 AI ช่วย</button><button class="btn btn-primary btn-xs md-open" data-id="${escHtml(t.customerId)}">เปิดลูกค้า</button>` : t.key.startsWith('inc:') ? `<button class="btn btn-warning btn-xs md-inc" data-id="${escHtml(t.bookingId)}">💰 กรอกรายได้</button>` : t.key.startsWith('uns:') ? '<button class="btn btn-primary btn-xs md-cal">📅 ปฏิทินส่งมอบ</button>' : `<button class="btn btn-secondary btn-xs md-bk" data-id="${escHtml(t.bookingId || '')}">ใบจอง</button>`}</div>
       </div>`).join('')}
     </div>`
   }
@@ -276,12 +276,12 @@ export default async function MyDayPage(container) {
         ${section('🚗', `นัดส่งมอบ ${UPCOMING_DELIVERY_DAYS} วันข้างหน้า`, 'เตรียมรถ/เอกสารให้พร้อม', d.deliveries, b => line(
           `${escHtml(b.custName || 'ลูกค้า')} · ${escHtml([b.brand, b.model].filter(Boolean).join(' ') || '—')}`,
           `${formatDate(b.deliveryDate)}${b.deliveryTime ? ' ' + escHtml(b.deliveryTime) : ''} · ${b.inDays === 0 ? '<b style="color:var(--danger)">วันนี้</b>' : b.inDays === 1 ? 'พรุ่งนี้' : `อีก ${b.inDays} วัน`} · ${escHtml(b.status || '')}${ownerTag(b.salesName)}`,
-          `${callBtn(b.phone || b.custPhone)}<button class="btn btn-secondary btn-xs md-bk">ใบจอง</button>`))}
+          `${callBtn(b.phone || b.custPhone)}<button class="btn btn-secondary btn-xs md-bk" data-id="${escHtml(b.id)}">ใบจอง</button>`))}
 
         ${d.finance.length ? section('🏦', `ไฟแนนซ์รอผลเกิน ${FINANCE_WAIT_DAYS} วัน / ไม่ผ่าน`, 'ตามผลกับไฟแนนซ์ หรือหาไฟแนนซ์ใหม่ให้ลูกค้า', d.finance, b => line(
           `${escHtml(b.custName || 'ลูกค้า')} · ${escHtml([b.brand, b.model].filter(Boolean).join(' ') || '—')} ${b.rejected ? '<span class="badge badge-danger" style="font-size:0.62rem">ไม่ผ่าน</span>' : `<span class="badge badge-warning" style="font-size:0.62rem">รอ ${b.days} วัน</span>`}`,
           `${escHtml(b.financeCo || 'ไม่ระบุไฟแนนซ์')}${ownerTag(b.salesName)}`,
-          `${callBtn(b.phone || b.custPhone)}${b.rejected && bookingTotal(b) > 0 ? `<button class="btn btn-primary btn-xs md-replan" data-id="${escHtml(b.id)}">💡 แผนผ่อนใหม่</button>` : ''}<button class="btn btn-secondary btn-xs md-bk">ใบจอง</button>`), 'warning') : ''}
+          `${callBtn(b.phone || b.custPhone)}${b.rejected && bookingTotal(b) > 0 ? `<button class="btn btn-primary btn-xs md-replan" data-id="${escHtml(b.id)}">💡 แผนผ่อนใหม่</button>` : ''}<button class="btn btn-secondary btn-xs md-bk" data-id="${escHtml(b.id)}">ใบจอง</button>`), 'warning') : ''}
 
         ${section('💰', 'ส่งมอบแล้วยังไม่กรอกรายได้ (เดือนนี้)', 'รายงานรายได้จะไม่ครบถ้าไม่กรอก', d.income, b => line(
           `${escHtml(b.custName || 'ลูกค้า')} · ${escHtml([b.brand, b.model].filter(Boolean).join(' ') || '—')}`,
@@ -291,7 +291,7 @@ export default async function MyDayPage(container) {
         ${section('⏳', `ใบจองค้างเกิน ${STUCK_BOOKING_DAYS} วัน`, 'ตามไฟแนนซ์/รถ/เอกสาร', d.stuck, b => line(
           `${escHtml(b.custName || 'ลูกค้า')} · ${escHtml([b.brand, b.model].filter(Boolean).join(' ') || '—')} <span class="badge badge-warning" style="font-size:0.62rem">${b.days} วัน</span>`,
           `${escHtml(b.status || '—')} · จอง ${formatDate(b.bookingDate)}${ownerTag(b.salesName)}`,
-          `${callBtn(b.phone || b.custPhone)}<button class="btn btn-secondary btn-xs md-bk">ใบจอง</button>`), 'warning')}
+          `${callBtn(b.phone || b.custPhone)}<button class="btn btn-secondary btn-xs md-bk" data-id="${escHtml(b.id)}">ใบจอง</button>`), 'warning')}
         ${cleared.length ? `<div style="font-size:0.75rem;color:var(--text-muted);padding:4px 2px 12px">✅ เคลียร์แล้ว ไม่มีงานค้าง: ${cleared.map(escHtml).join(' · ')}</div>` : ''}
       </div>`
 
@@ -308,7 +308,7 @@ export default async function MyDayPage(container) {
     }))
     $$('.md-who').forEach(b => b.addEventListener('click', () => { seller = b.dataset.name; render(); window.scrollTo({ top: 0, behavior: 'smooth' }) }))
     $$('.md-ai').forEach(b => b.addEventListener('click', () => navigate(`/crm/customers?id=${encodeURIComponent(b.dataset.id)}&ai=1`)))
-    $$('.md-bk').forEach(b => b.addEventListener('click', () => navigate('/crm/bookings')))
+    $$('.md-bk').forEach(b => b.addEventListener('click', () => navigate(b.dataset.id ? `/crm/bookings?id=${encodeURIComponent(b.dataset.id)}` : '/crm/bookings')))
     $$('.md-cal').forEach(b => b.addEventListener('click', () => navigate('/dms/delivery-calendar')))
     $$('.md-td').forEach(b => b.addEventListener('click', () => navigate('/crm/testdrive')))
     $$('.md-plan').forEach(b => b.addEventListener('click', () => {
