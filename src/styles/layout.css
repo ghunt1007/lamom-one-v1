@@ -101,6 +101,10 @@
 .nav-grp-arrow { font-size: 0.65rem; opacity: 0.6; margin-left: 4px; }
 .nav-group-items { overflow: hidden; transition: all 0.2s ease; }
 .nav-group-items.grp-hidden { display: none; }
+.nav-group-items.grp-hidden.sb-force-open { display: block; }
+.sidebar-find { padding: 8px 12px 4px; }
+.sidebar-find input { width: 100%; box-sizing: border-box; font-size: 16px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2, var(--bg-secondary)); color: var(--text, inherit); }
+.sidebar-find input:focus { outline: none; border-color: var(--primary); }
 
 .nav-item {
   display: flex;
