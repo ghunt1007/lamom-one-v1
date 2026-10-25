@@ -8,7 +8,7 @@ import { companyScopeFilters } from '../../core/companyScope.js'
 import { normName } from '../../core/hierarchy.js'
 import { buildMyDay, myDayDigest } from '../../utils/myDay.js'
 import { followupWindowFilters } from '../../utils/customerFollowups.js'
-import { catalogContext } from '../../utils/salesAi.js'
+import { catalogContext, dealValue } from '../../utils/salesAi.js'
 import { businessFacts } from '../../utils/bizFacts.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 
@@ -109,6 +109,14 @@ export default async function AiAssistantChatPage(container) {
         'พนักงานที่ยังทำงานอยู่': `${activeStaff} คน`,
         ...businessFacts({ customers, bookings }, today),
       }
+      // มูลค่าดีลที่กำลังคุย และยอดที่คาดว่าปิดได้ (มูลค่า × โอกาสปิด) — สูตรเดียวกับหน้า Pipeline
+      try {
+        const vs = getVehicles(), cache = new Map()
+        const open = leads.filter(c => !c.isLost)
+        const total = open.reduce((s, c) => s + dealValue(c, vs, cache), 0)
+        const exp = open.reduce((s, c) => s + dealValue(c, vs, cache) * heuristicScore(c).score / 100, 0)
+        businessContext['ดีลที่กำลังคุย (Lead+Prospect)'] = `${open.length} ราย มูลค่ารวม ${formatCurrency(total)} · คาดว่าปิดได้ประมาณ ${formatCurrency(Math.round(exp / 1000) * 1000)} (มูลค่า × โอกาสปิดของแต่ละคน)`
+      } catch {}
       // งานของผู้ใช้คนนี้วันนี้ (เกณฑ์เดียวกับหน้า "งานของฉันวันนี้") — ให้ LAMI ตอบ "วันนี้ควรทำอะไรก่อน" ได้จากข้อมูลจริง
       const myName = getState('user')?.displayName
       if (myName) {
