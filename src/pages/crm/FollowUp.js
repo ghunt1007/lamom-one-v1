@@ -203,7 +203,7 @@ export default async function FollowUpPage(container) {
 
     return `<div class="card" style="padding:14px 16px;border-left:3px solid ${borderColor}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
-        <div style="flex:1">
+        <div class="fu-main" style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
             <span style="font-size:1rem">${tp.icon}</span>
             <span style="font-weight:700;font-size:0.9rem">${escHtml(f.customerName)}</span>
@@ -216,8 +216,8 @@ export default async function FollowUpPage(container) {
           <div style="font-size:0.82rem;margin-top:4px"><strong>${escHtml(f.purpose)}</strong>${f.note ? ` — ${escHtml(f.note)}` : ''}</div>
           ${f.result ? `<div style="font-size:0.8rem;margin-top:4px;color:var(--success)">✓ ${escHtml(f.result)}</div>` : ''}
         </div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
-          <div style="font-size:0.78rem;color:${overdue?'var(--danger)':'var(--text-muted)'}">${formatDate(f.dueDate)}</div>
+        <div class="fu-side" style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
+          <div style="font-size:0.78rem;color:${overdue?'var(--danger)':'var(--text-muted)'}">📅 ${formatDate(f.dueDate)}</div>
           <div style="display:flex;gap:4px">
             <button class="btn btn-xs btn-secondary fu-detail-btn" data-id="${f.id}">ดู</button>
             ${f.status === 'pending' ? `

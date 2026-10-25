@@ -587,3 +587,9 @@
   .lami-head { flex-wrap: nowrap !important; align-items: center; }
   .lami-head .page-actions { flex-shrink: 0; }
 }
+
+/* มือถือ: การ์ด Follow-up — วันที่และปุ่มลงไปเป็นแถวล่างเต็มกว้าง ไม่เบียดชื่อลูกค้า */
+@media (max-width: 640px) {
+  .fu-main { flex: 1 1 100% !important; }
+  .fu-side { flex-direction: row !important; width: 100%; justify-content: space-between; align-items: center !important; }
+}
