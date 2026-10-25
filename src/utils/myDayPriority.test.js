@@ -50,3 +50,24 @@ describe('myDayDigest', () => {
     expect(s).not.toContain('089')
   })
 })
+
+import { teamToday } from './myDay.js'
+describe('teamToday', () => {
+  it('counts per salesperson and sorts by workload', () => {
+    const today = '2026-10-26'
+    const data = {
+      customers: [
+        { id: 'a', stage: 'lead', createdAt: today, assignedTo: 'เอ' },
+        { id: 'b', stage: 'lead', createdAt: '2026-10-01', lastContactAt: today + 'T03:00:00Z', assignedTo: 'บี' },
+        { id: 'c', stage: 'lead', createdAt: '2026-10-01', lastContactAt: '2026-10-10', assignedTo: 'บี' },
+        { id: 'd', stage: 'lead', createdAt: '2026-10-01', lastContactAt: '2026-10-10', assignedTo: 'บี' },
+      ],
+      followups: [], bookings: [], testDrives: [],
+    }
+    const rows = teamToday(data, { today, names: ['เอ', 'บี', 'ซี'] })
+    expect(rows).toEqual([
+      { name: 'บี', total: 2, contacted: 1, newUntouched: 0 },
+      { name: 'เอ', total: 0, contacted: 0, newUntouched: 1 },
+    ])
+  })
+})

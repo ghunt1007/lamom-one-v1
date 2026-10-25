@@ -169,3 +169,14 @@ export function myDayDigest(d) {
   }
   return lines.join('\n')
 }
+
+// สรุปทีมวันนี้ (หัวหน้า/เจ้าของ) — ต่อคน: งานค้าง, ติดต่อลูกค้าแล้ววันนี้, Lead ใหม่ที่ยังไม่ได้ติดต่อ
+// same(a, b) = เทียบชื่อแบบเดียวกับหน้าเพจ (normName) — เรียงคนที่งานค้างมากสุดก่อน
+export function teamToday(data, { today, names = [], same = (a, b) => String(a || '').trim() === String(b || '').trim(), allowed = () => true }) {
+  return names.map(name => {
+    const d = buildMyDay(data, { today, mine: (n, rec) => allowed(n, rec) && same(n, name) })
+    const newUntouched = d.newLeads.filter(c => bangkokDate(c.lastContactAt) !== today).length
+    return { name, total: d.total, contacted: d.contactedToday, newUntouched }
+  }).filter(r => r.total || r.contacted || r.newUntouched)
+    .sort((a, b) => b.total + b.newUntouched - (a.total + a.newUntouched) || a.name.localeCompare(b.name, 'th'))
+}

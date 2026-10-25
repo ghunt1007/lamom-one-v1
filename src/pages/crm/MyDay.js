@@ -13,7 +13,7 @@ import { QUICK_SOURCES } from '../../utils/quickLead.js'
 import { SALES_TARGETS_COLLECTION, targetFor, goalProgress } from '../../utils/salesTargets.js'
 import { DELIVERED_STATUSES } from '../../utils/deliveryIncome.js'
 import { staffChoices, findStaffCompany, assignCustomer } from '../../utils/leadAssign.js'
-import { bangkokDate, buildMyDay, topPriorities, STALE_LEAD_DAYS, STUCK_BOOKING_DAYS, UPCOMING_DELIVERY_DAYS, FINANCE_WAIT_DAYS } from '../../utils/myDay.js'
+import { bangkokDate, buildMyDay, topPriorities, teamToday, STALE_LEAD_DAYS, STUCK_BOOKING_DAYS, UPCOMING_DELIVERY_DAYS, FINANCE_WAIT_DAYS } from '../../utils/myDay.js'
 import { followupWindowFilters } from '../../utils/customerFollowups.js'
 import { openAddFollowup, offerNextFollowup } from '../../utils/addFollowupModal.js'
 import { touchCustomerContact } from '../../utils/customerContact.js'
@@ -130,6 +130,23 @@ export default async function MyDayPage(container) {
     </div>`
   }
 
+  // ทีมวันนี้ — เฉพาะหัวหน้า/เจ้าของตอนดู "ทุกคน" กดชื่อเพื่อดูงานของคนนั้น
+  function teamCard(today) {
+    if (!canPick || seller !== 'all') return ''
+    const rows = teamToday(data, { today, names: sellerNames().filter(n => n !== UNASSIGNED), same: (a, b) => normName(a) === normName(b), allowed: (n, rec) => scopeIncludesRecord(scope, n, rec) })
+    if (rows.length < 2) return ''
+    const max = Math.max(...rows.map(r => r.total + r.newUntouched), 1)
+    return `<div class="card" style="padding:0;margin-bottom:14px;overflow:hidden">
+      <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px"><span style="font-size:1.1rem">👥</span><b>ทีมวันนี้</b>
+        <span style="margin-left:auto;font-size:0.7rem;color:var(--text-muted)">กดชื่อเพื่อดูงานของคนนั้น</span></div>
+      ${rows.map(r => `<div class="md-who" data-name="${escHtml(r.name)}" style="display:flex;align-items:center;gap:10px;padding:8px 16px;border-bottom:1px solid var(--border);cursor:pointer;flex-wrap:wrap">
+        <div style="width:130px;font-weight:600;font-size:0.84rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(r.name)}</div>
+        <div style="flex:1;min-width:90px;height:8px;background:var(--surface-2);border-radius:4px;overflow:hidden"><div style="height:100%;width:${Math.round((r.total + r.newUntouched) / max * 100)}%;background:var(--warning)"></div></div>
+        <div style="font-size:0.74rem;color:var(--text-muted);white-space:nowrap">📋 ค้าง <b style="color:var(--text)">${r.total}</b>${r.newUntouched ? ` · 🧲 Lead ใหม่ยังไม่โทร <b style="color:var(--danger)">${r.newUntouched}</b>` : ''} · 💪 ติดต่อแล้ว <b style="color:var(--success)">${r.contacted}</b></div>
+      </div>`).join('')}
+    </div>`
+  }
+
   function render() {
     const today = todayBangkok()
     const d = buildMyDay(data, { today, mine })
@@ -160,6 +177,7 @@ export default async function MyDayPage(container) {
           ${stat('📅', 'นัดพรุ่งนี้', d.tomorrow || 0, 'primary')}
         </div>
         ${focusCard(d)}
+        ${teamCard(today)}
         ${goalCard(today)}
         ${section('📞', 'Follow-up วันนี้/เลยกำหนด', 'กด ✅ เมื่อติดต่อแล้ว', d.followups, f => line(
           `${escHtml(f.customerName || 'ลูกค้า')}${f.late > 0 ? ` <span class="badge badge-danger" style="font-size:0.62rem">เลย ${f.late} วัน</span>` : ''}`,
@@ -222,6 +240,7 @@ export default async function MyDayPage(container) {
     container.querySelector('#md-seller')?.addEventListener('change', e => { seller = e.target.value; render() })
     container.querySelector('#md-reload').addEventListener('click', async () => { await load(); render() })
     $$('.md-open').forEach(b => b.addEventListener('click', () => navigate(`/crm/customers?id=${encodeURIComponent(b.dataset.id)}`)))
+    $$('.md-who').forEach(b => b.addEventListener('click', () => { seller = b.dataset.name; render(); window.scrollTo({ top: 0, behavior: 'smooth' }) }))
     $$('.md-ai').forEach(b => b.addEventListener('click', () => navigate(`/crm/customers?id=${encodeURIComponent(b.dataset.id)}&ai=1`)))
     $$('.md-bk').forEach(b => b.addEventListener('click', () => navigate('/crm/bookings')))
     $$('.md-cal').forEach(b => b.addEventListener('click', () => navigate('/dms/delivery-calendar')))
