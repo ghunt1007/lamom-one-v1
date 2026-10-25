@@ -17,6 +17,7 @@ import {
 } from '../../core/customerInsights.js'
 import { aiSalesCloser, isAiEnabled } from '../../utils/ai.js'
 import { buildCustomerBrief, addDaysIso } from '../../utils/salesAi.js'
+import { heuristicScore } from '../../utils/leadScore.js'
 import { OCCUPATIONS } from '../../utils/financeMatch.js'
 import { openQuickLead, findDuplicate } from '../../utils/quickLead.js'
 import { planLeadImport } from '../../utils/leadImport.js'
@@ -26,6 +27,15 @@ import { reasonChipsHtml, bindReasonChips } from '../../utils/lostReason.js'
 import { openAddFollowup } from '../../utils/addFollowupModal.js'
 import { touchCustomerContact } from '../../utils/customerContact.js'
 import { moveFollowupsOnReassign } from '../../utils/leadAssign.js'
+
+// แถบ "โอกาสปิด" เล็กๆ ใต้อุณหภูมิ — เฉพาะ Lead/Prospect ที่ยังไม่เสียดีล (สูตรใน utils/leadScore.js)
+function scoreBar(c) {
+  if (c.isLost || !['lead', 'pp'].includes(c.stage)) return ''
+  const { score, signals } = heuristicScore(c)
+  const color = score >= 80 ? 'var(--danger)' : score >= 60 ? 'var(--warning)' : 'var(--text-muted)'
+  return `<div title="โอกาสปิดการขาย ${score}%\n${escHtml(signals.join('\n'))}" style="margin-top:4px;display:flex;align-items:center;gap:4px;font-size:0.62rem;color:var(--text-muted)">
+    <div style="width:44px;height:4px;border-radius:2px;background:var(--surface-2);overflow:hidden"><div style="height:100%;width:${score}%;background:${color}"></div></div>${score}%</div>`
+}
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -140,6 +150,7 @@ export default async function CustomersPage(container) {
       if (sortMode === 'quiet') return qd(b) - qd(a)
       const newer = (toDate(b.createdAt)?.getTime() || 0) - (toDate(a.createdAt)?.getTime() || 0) // createdAt เป็น Timestamp — new Date() ตรงๆ ได้ NaN
       if (sortMode === 'new') return newer
+      if (sortMode === 'score') return heuristicScore(b).score - heuristicScore(a).score || newer
       const ua = rank[quickUrgency(a)], ub = rank[quickUrgency(b)]
       if (ua !== ub) return ua - ub
       return newer
@@ -191,7 +202,7 @@ export default async function CustomersPage(container) {
           <span class="badge badge-${st.badge}">${escHtml(st.label)}</span>
           ${c.isLost ? `<div style="margin-top:3px"><span class="badge badge-secondary" style="font-size:0.62rem">⬛ เสียดีล</span></div>` : ''}
         </td>
-        <td>${c.temperature ? `<span class="badge badge-${TEMP[c.temperature]?.badge}" style="font-size:0.68rem">${TEMP[c.temperature]?.label}</span>` : '<span style="color:var(--text-muted)">-</span>'}</td>
+        <td>${c.temperature ? `<span class="badge badge-${TEMP[c.temperature]?.badge}" style="font-size:0.68rem">${TEMP[c.temperature]?.label}</span>` : '<span style="color:var(--text-muted)">-</span>'}${scoreBar(c)}</td>
         <td style="color:var(--text-2)">${escHtml(c.interestedModel || '-')}</td>
         <td style="color:var(--text-3);font-size:0.8rem">${SOURCE[c.source] || escHtml(c.source) || '-'}</td>
         <td>${!c.isLost ? `<span class="badge badge-${urgency.badge}" style="font-size:0.65rem">${urgency.label}</span>` : ''}</td>
@@ -988,6 +999,7 @@ export default async function CustomersPage(container) {
             <option value="urgent">↕️ ด่วนก่อน</option>
             <option value="quiet">💤 เงียบนานสุดก่อน</option>
             <option value="new">🆕 เพิ่มล่าสุดก่อน</option>
+            <option value="score">🎯 โอกาสปิดสูงสุดก่อน</option>
           </select>
           <select class="input" id="cust-fu-filter" style="width:auto;min-width:130px" title="กรองตามนัดติดตาม">
             <option value="">📅 นัดติดตาม: ทั้งหมด</option>
