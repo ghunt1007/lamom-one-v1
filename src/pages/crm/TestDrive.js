@@ -172,8 +172,8 @@ export default async function TestDrivePage(container) {
         </div>
 
         <!-- Table -->
-        <div class="card" style="padding:0;overflow:hidden">
-          <div class="table-wrap"><table class="table">
+        <div class="card tbl-cards-wrap" style="padding:0;overflow:hidden">
+          <div class="table-wrap"><table class="table tbl-cards">
             <thead><tr><th>ลูกค้า</th><th>รถที่ Test Drive</th><th>วันที่/เวลา</th><th>Sales</th><th>สถานะ</th><th>ผลลัพธ์</th><th></th></tr></thead>
             <tbody>
               ${filtered.length ? filtered.map(t => {
@@ -185,7 +185,7 @@ export default async function TestDrivePage(container) {
                     <div style="font-size:0.73rem;color:var(--text-muted)">${escHtml(t.phone)}</div>
                   </td>
                   <td style="font-size:0.83rem">${escHtml(t.model)}</td>
-                  <td style="font-size:0.82rem;white-space:nowrap">${escHtml(t.date)} ${escHtml(t.time)}</td>
+                  <td style="font-size:0.82rem;white-space:nowrap">📅 ${t.date ? formatDate(t.date) : '-'} ${escHtml(t.time)}</td>
                   <td style="font-size:0.83rem;color:var(--text-muted)">${escHtml(t.staff)}</td>
                   <td><span class="badge badge-${st?.badge}">${st?.label}</span></td>
                   <td>${rs ? `<span class="badge badge-${rs.badge}">${rs.label}</span>` : '-'}</td>
