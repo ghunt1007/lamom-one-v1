@@ -58,7 +58,8 @@ export default async function StockPage(container) {
   let brandFilter = 'all'
   let search = ''
   // มือถือเริ่มที่แบบการ์ด (ตาราง 8 คอลัมน์บีบจนชื่อรุ่น/สีตกบรรทัดทีละตัวอักษร)
-  let viewMode = window.matchMedia?.('(max-width: 640px)').matches ? 'card' : 'table' // table | card
+  // มือถือ+แท็บเล็ต (≤900px) เริ่มที่แบบการ์ด — ตาราง 9 คอลัมน์ต้องเลื่อนข้างบนแท็บเล็ต · จำแบบที่เลือกไว้ในเครื่องนี้
+  let viewMode = (() => { try { const v = localStorage.getItem('lamom.stockView'); if (v === 'card' || v === 'table') return v } catch {} return window.matchMedia?.('(max-width: 900px)').matches ? 'card' : 'table' })() // table | card
 
   // Real-time: อัปเดตสดเมื่อมีคนแก้ไขสต็อกรถจากเครื่องอื่น — หน้านี้ renderContent()/updateStats()
   // แก้แค่ #stock-content/#stock-filtered/#vstat-*/#stock-total เท่านั้น ไม่แตะช่องค้นหาเลย จึงปลอดภัย
@@ -627,7 +628,7 @@ export default async function StockPage(container) {
           </div>
         </div>
         <div class="page-actions">
-          <button class="btn btn-ghost btn-sm" id="view-toggle-btn">${viewMode === 'table' ? '🃏 Card View' : '📋 Table View'}</button>
+          <button class="btn btn-ghost btn-sm" id="view-toggle-btn">${viewMode === 'table' ? '🃏 แบบการ์ด' : '📋 แบบตาราง'}</button>
           <button class="btn btn-secondary btn-sm" id="stock-export-btn">📥 Export</button>
           <button class="btn btn-primary" id="add-stock-btn">➕ เพิ่มรถ</button>
         </div>
@@ -683,7 +684,8 @@ export default async function StockPage(container) {
   document.getElementById('brand-filter').addEventListener('change', e => { brandFilter = e.target.value; applyFilter() })
   document.getElementById('view-toggle-btn').addEventListener('click', () => {
     viewMode = viewMode === 'table' ? 'card' : 'table'
-    document.getElementById('view-toggle-btn').textContent = viewMode === 'table' ? '🃏 Card View' : '📋 Table View'
+    try { localStorage.setItem('lamom.stockView', viewMode) } catch {}
+    document.getElementById('view-toggle-btn').textContent = viewMode === 'table' ? '🃏 แบบการ์ด' : '📋 แบบตาราง'
     applyFilter()
   })
   document.getElementById('stock-export-btn').addEventListener('click', () => {
