@@ -63,8 +63,8 @@ export default async function FinancialGoalsPage(container) {
 
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('🎯 เป้าหมายทั้งหมด', goals.length, 'primary')}
-          ${kpi('✅ On Track', onTrack, 'success')}
-          ${kpi('⚠️ At Risk', atRisk, atRisk > 0 ? 'danger' : 'secondary')}
+          ${kpi('✅ ตามแผน', onTrack, 'success')}
+          ${kpi('⚠️ เสี่ยงไม่ถึงเป้', atRisk, atRisk > 0 ? 'danger' : 'secondary')}
           ${kpi('📊 สำเร็จเฉลี่ย', (goals.length ? Math.round(goals.reduce((a, g) => a + pct(g), 0) / goals.length) : 0) + '%', 'primary')}
         </div>
 

@@ -77,7 +77,7 @@ export default async function RecallManagementPage(container) {
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('📋 Recall ทั้งหมด', recalls.length, 'primary')}
           ${kpi('🔴 เปิดอยู่', open, open > 0 ? 'danger' : 'secondary')}
-          ${kpi('⚠️ Critical', critical, critical > 0 ? 'danger' : 'secondary')}
+          ${kpi('⚠️ วิกฤต', critical, critical > 0 ? 'danger' : 'secondary')}
           ${kpi('🚗 รอซ่อม', totalPending + ' คัน', totalPending > 0 ? 'warning' : 'secondary')}
         </div>
 

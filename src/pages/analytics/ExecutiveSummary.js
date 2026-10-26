@@ -185,7 +185,7 @@ export default async function ExecutiveSummaryPage(container) {
           ${kpi('🚗 ยอดขาย', s.sales.actual + ' คัน (' + salesPct + '% เป้า)', 'success')}
           ${kpi('💰 รายได้รวม', formatCurrency(s.sales.revenue + s.service.revenue), 'primary')}
           ${kpi('📊 กำไรสุทธิ', formatCurrency(s.finance.netProfit) + ' (' + s.finance.margin + '%)', 'success', demoNote)}
-          ${kpi('📈 MoM Growth', (growth>0?'+':'') + growth + '%', growth >= 0 ? 'success' : 'danger')}
+          ${kpi('📈 โตเทียบเดือนก่อน', (growth>0?'+':'') + growth + '%', growth >= 0 ? 'success' : 'danger')}
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">

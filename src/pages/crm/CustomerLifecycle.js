@@ -164,8 +164,8 @@ export default async function CustomerLifecyclePage(container) {
 
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('👥 ลูกค้าทั้งหมด', customers.length + ' ราย', 'primary')}
-          ${kpi('👑 Champion', champions, 'warning')}
-          ${kpi('⚠️ At Risk', atRisk, atRisk > 0 ? 'danger' : 'secondary')}
+          ${kpi('👑 ลูกค้าชั้นดี', champions, 'warning')}
+          ${kpi('⚠️ เสี่ยงหาย', atRisk, atRisk > 0 ? 'danger' : 'secondary')}
           ${kpi('💰 มูลค่ารวม', formatCurrency(totalValue), 'success')}
         </div>
 

@@ -16,9 +16,9 @@ const AUDIT_TYPES = {
 }
 
 const FINDING_LEVELS = {
-  major: { label: '🔴 Major', badge: 'danger', order: 0 },
-  minor: { label: '🟡 Minor', badge: 'warning', order: 1 },
-  observation: { label: '🟢 Observation', badge: 'success', order: 2 },
+  major: { label: '🔴 ร้ายแรง', badge: 'danger', order: 0 },
+  minor: { label: '🟡 เล็กน้อย', badge: 'warning', order: 1 },
+  observation: { label: '🟢 ข้อสังเกต', badge: 'success', order: 2 },
 }
 
 const AUDIT_STATUS = {
@@ -103,10 +103,10 @@ export default async function QualityCompliancePage(container) {
 
         <!-- KPI -->
         <div class="kpi-grid" style="grid-template-columns:repeat(5,1fr);margin-bottom:20px">
-          ${kpi('📋 Audits', s.total, 'primary')}
+          ${kpi('📋 การตรวจทั้งหมด', s.total, 'primary')}
           ${kpi('✅ เสร็จแล้ว', s.completed, 'success')}
-          ${kpi('⚠️ Open Findings', s.openFindings, s.openFindings > 0 ? 'warning' : 'success')}
-          ${kpi('🔴 Major', s.majorFindings, s.majorFindings > 0 ? 'danger' : 'success')}
+          ${kpi('⚠️ ข้อบกพร่องค้าง', s.openFindings, s.openFindings > 0 ? 'warning' : 'success')}
+          ${kpi('🔴 ร้ายแรง', s.majorFindings, s.majorFindings > 0 ? 'danger' : 'success')}
           ${kpi('⭐ คะแนนเฉลี่ย', s.avgScore > 0 ? s.avgScore.toFixed(1) + '%' : 'N/A', s.avgScore >= 80 ? 'success' : 'warning')}
         </div>
 
@@ -114,7 +114,7 @@ export default async function QualityCompliancePage(container) {
         <div style="display:flex;gap:4px;margin-bottom:16px">
           ${['audits','checklist','findings'].map(t => `
             <button class="btn btn-sm ${activeTab===t?'btn-primary':'btn-secondary'} tab-btn" data-tab="${t}">
-              ${{ audits:'📋 Audits', checklist:'✅ Checklists', findings:'⚠️ Findings' }[t]}
+              ${{ audits:'📋 การตรวจ', checklist:'✅ เช็กลิสต์', findings:'⚠️ ข้อบกพร่อง' }[t]}
             </button>`).join('')}
         </div>
 
@@ -170,7 +170,7 @@ export default async function QualityCompliancePage(container) {
             </div>
           </div>`
         }).join('')}
-        ${!audits.length ? `<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">ยังไม่มี Audit</div></div>` : ''}
+        ${!audits.length ? `<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">ยังไม่มีการตรวจ</div></div>` : ''}
       </div>
     `
   }
@@ -204,12 +204,12 @@ export default async function QualityCompliancePage(container) {
     return `
       <div style="display:flex;flex-direction:column;gap:16px">
         <div>
-          <div style="font-weight:700;margin-bottom:10px">⚠️ Open Findings (${open.length})</div>
-          ${open.length ? open.map(f => findingCard(f)).join('') : `<div style="color:var(--text-muted);font-size:0.85rem">🎉 ไม่มี Open Findings</div>`}
+          <div style="font-weight:700;margin-bottom:10px">⚠️ ข้อบกพร่องค้าง (${open.length})</div>
+          ${open.length ? open.map(f => findingCard(f)).join('') : `<div style="color:var(--text-muted);font-size:0.85rem">🎉 ไม่มีข้อบกพร่องค้าง</div>`}
         </div>
         ${closed.length ? `
           <div>
-            <div style="font-weight:700;margin-bottom:10px;color:var(--text-muted)">✅ Closed Findings (${closed.length})</div>
+            <div style="font-weight:700;margin-bottom:10px;color:var(--text-muted)">✅ แก้แล้ว (${closed.length})</div>
             ${closed.map(f => findingCard(f, true)).join('')}
           </div>
         ` : ''}
@@ -285,7 +285,7 @@ export default async function QualityCompliancePage(container) {
             ${dr('⭐','คะแนน',audit.score != null ? audit.score + '%' : 'กำลังตรวจ')}
           </div>
           <div>
-            <div style="font-weight:700;margin-bottom:10px">⚠️ Findings (${audit.findings.length})</div>
+            <div style="font-weight:700;margin-bottom:10px">⚠️ ข้อบกพร่อง (${audit.findings.length})</div>
             ${audit.findings.length ? audit.findings.map(f => {
               const lv = FINDING_LEVELS[f.level]
               return `<div style="padding:10px;border-left:3px solid var(--${lv?.badge});background:var(--surface-2);margin-bottom:8px;border-radius:0 var(--radius-md) var(--radius-md) 0">

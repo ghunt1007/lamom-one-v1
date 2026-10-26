@@ -159,7 +159,7 @@ export default async function CashFlowPage(container) {
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
           ${kpi('💰 รายรับรวม', formatCurrency(s.income), 'success')}
           ${kpi('💸 รายจ่ายรวม', formatCurrency(s.expense), 'danger')}
-          ${kpi('📊 Net Cash Flow', formatCurrency(s.net), s.net >= 0 ? 'success' : 'danger')}
+          ${kpi('📊 กระแสเงินสดสุทธิ', formatCurrency(s.net), s.net >= 0 ? 'success' : 'danger')}
           ${kpi('🏦 ยอดคงเหลือ', formatCurrency(s.balance), 'primary')}
         </div>
 

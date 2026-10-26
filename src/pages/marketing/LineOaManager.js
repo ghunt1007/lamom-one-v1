@@ -69,9 +69,9 @@ export default async function LineOaManagerPage(container) {
         </div>
 
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
-          ${kpi('💚 Followers', oaInsight?.followers != null ? oaInsight.followers.toLocaleString() : '— ไม่มีข้อมูล', 'success')}
+          ${kpi('💚 ผู้ติดตาม', oaInsight?.followers != null ? oaInsight.followers.toLocaleString() : '— ไม่มีข้อมูล', 'success')}
           ${kpi('📈 เพิ่มเดือนนี้', oaInsight?.monthlyGrowth != null ? (oaInsight.monthlyGrowth >= 0 ? '+' : '') + oaInsight.monthlyGrowth : '— ไม่มีข้อมูล', 'primary')}
-          ${kpi('🚫 Block', oaInsight?.blocks != null ? oaInsight.blocks.toLocaleString() : '— ไม่มีข้อมูล', 'warning')}
+          ${kpi('🚫 บล็อก', oaInsight?.blocks != null ? oaInsight.blocks.toLocaleString() : '— ไม่มีข้อมูล', 'warning')}
           ${kpi('📢 Broadcast ส่งแล้ว', broadcasts.filter(b=>b.status==='sent').length, 'success')}
         </div>
         ${oaInsight && oaInsight.configured === false ? `<div style="padding:8px 14px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:0.72rem;color:var(--text-muted);margin-bottom:12px">⚠️ ${escHtml(oaInsight.error || 'LINE ยังไม่ได้ตั้งค่า')}</div>` : ''}

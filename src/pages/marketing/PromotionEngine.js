@@ -132,7 +132,7 @@ export default async function PromotionEnginePage(container) {
 
         // KPI cards
         '<div class="grid-4 mb-6">' +
-          kpi('🎪 Active', activeCount + '/' + promos.length, 'success') +
+          kpi('🎪 กำลังใช้', activeCount + '/' + promos.length, 'success') +
           kpi('💸 งบแถมใช้ไป', formatCurrency(totalBudgetUsed), 'warning') +
           kpi('💰 Revenue จากโปร', formatCurrency(totalRevenue), 'primary') +
           kpi('📈 ROI รวม', (overallRoi ? overallRoi + 'x' : '-'), overallRoi >= 5 ? 'success' : 'accent') +

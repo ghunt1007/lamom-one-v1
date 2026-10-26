@@ -76,9 +76,9 @@ export default async function SecuritySettingsPage(container) {
         </div>
 
         <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
-          ${kpi('🛡 Security Score', score + '%', score >= 80 ? 'success' : 'warning')}
+          ${kpi('🛡 คะแนนความปลอดภัย', score + '%', score >= 80 ? 'success' : 'warning')}
           ${kpi('⚠️ นโยบายสำคัญที่ปิดอยู่', criticalOff, criticalOff > 0 ? 'danger' : 'success')}
-          ${kpi('💻 Sessions active', amOwner ? sessions.length : '—', staleSessions.length > 0 ? 'warning' : 'primary')}
+          ${kpi('💻 กำลังใช้งาน', amOwner ? sessions.length : '—', staleSessions.length > 0 ? 'warning' : 'primary')}
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">

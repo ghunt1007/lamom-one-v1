@@ -96,7 +96,7 @@ export default async function LeadGenerationPage(container) {
           ${kpi('💸 ใช้งบ', formatCurrency(totalSpent), 'warning')}
           ${kpi('🧲 Leads รวม', totalLeads, 'primary')}
           ${kpi('✅ ปิดได้', totalClosed, 'success')}
-          ${kpi('💰 CPL avg', formatCurrency(avgCPL), 'secondary')}
+          ${kpi('💰 ต้นทุนต่อลีดเฉลี่ย', formatCurrency(avgCPL), 'secondary')}
           ${kpi('📈 อัตราเป็นลูกค้า', convRate + '%', +convRate >= 10 ? 'success' : 'warning')}
         </div>
 
@@ -244,14 +244,14 @@ export default async function LeadGenerationPage(container) {
           </div>
         </div>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
-          ${kpi('🧲 Leads', c.leads, 'primary')}
-          ${kpi('✅ Qualified', c.qualified, 'success')}
+          ${kpi('🧲 ลีด', c.leads, 'primary')}
+          ${kpi('✅ ลีดคุณภาพ', c.qualified, 'success')}
           ${kpi('💰 ปิดได้', c.closed, 'success')}
           ${kpi('📈 เป็นลูกค้า', convRate + '%', +convRate >= 10 ? 'success' : 'warning')}
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">
-          ${kpi('💸 CPL', formatCurrency(c.cpl), 'secondary')}
-          ${kpi('💸 CPA', formatCurrency(c.cpa), 'secondary')}
+          ${kpi('💸 ต้นทุนต่อลีด', formatCurrency(c.cpl), 'secondary')}
+          ${kpi('💸 ต้นทุนต่อการขาย', formatCurrency(c.cpa), 'secondary')}
         </div>
       `
     })

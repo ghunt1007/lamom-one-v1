@@ -95,7 +95,7 @@ export default async function BankReconciliationPage(container) {
         </div>
 
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
-          ${kpi('📊 Matched', reconPct + '%', reconPct === 100 ? 'success' : 'warning')}
+          ${kpi('📊 จับคู่แล้ว', reconPct + '%', reconPct === 100 ? 'success' : 'warning')}
           ${kpi('💰 ยอดกระทบแล้ว', formatCurrency(matchedAmt), 'primary')}
           ${kpi('❓ รายการธนาคารค้าง', unmatched.length, unmatched.length > 0 ? 'danger' : 'success')}
           ${kpi('📋 Invoice ยังไม่เจอเงิน', unmatchedBooks.length, unmatchedBooks.length > 0 ? 'warning' : 'success')}

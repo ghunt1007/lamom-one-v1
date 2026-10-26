@@ -80,7 +80,7 @@ export default async function AuditLogPage(container) {
           ${kpi('📋 ทั้งหมด', logs.length, 'primary')}
           ${kpi('📅 วันนี้', today, 'success')}
           ${kpi('👥 ผู้ใช้', users.length, 'secondary')}
-          ${kpi('⚠️ High Risk', highRisk, highRisk > 0 ? 'danger' : 'secondary')}
+          ${kpi('⚠️ เสี่ยงสูง', highRisk, highRisk > 0 ? 'danger' : 'secondary')}
         </div>
 
         <!-- Filters -->

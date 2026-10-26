@@ -169,8 +169,8 @@ export default async function BudgetPlanningPage(container) {
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
           ${kpi('💰 รายได้ Budget', formatCurrency(totalRevBudget), 'primary')}
           ${kpi('💰 รายได้ Actual', formatCurrency(totalRevActual), 'success')}
-          ${kpi('📊 Net Profit Budget', formatCurrency(totalNetBudget), 'primary')}
-          ${kpi('📊 Net Profit Actual', formatCurrency(totalNetActual), totalNetActual >= totalNetBudget ? 'success' : 'danger')}
+          ${kpi('📊 กำไรสุทธิตามงบ', formatCurrency(totalNetBudget), 'primary')}
+          ${kpi('📊 กำไรสุทธิจริง', formatCurrency(totalNetActual), totalNetActual >= totalNetBudget ? 'success' : 'danger')}
         </div>
 
         ${viewMode === 'annual' ? renderAnnual() : renderMonthly()}

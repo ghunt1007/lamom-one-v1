@@ -113,8 +113,8 @@ export default async function PLPage(container) {
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
           ${kpiCard('💰 รายได้รวม', formatCurrency(totals.revenue), 'primary')}
           ${kpiCard('📦 ต้นทุนสินค้า', formatCurrency(totals.cogs), 'warning', `COGS ${totals.revenue>0?(totals.cogs/totals.revenue*100).toFixed(1):0}%`)}
-          ${kpiCard('✅ Gross Profit', formatCurrency(tc.gross), tc.gross>=0?'success':'danger', `Margin ${tc.grossPct}%`)}
-          ${kpiCard('🏆 Net Profit', formatCurrency(tc.net), tc.net>=0?'success':'danger', `Net Margin ${tc.netPct}%`)}
+          ${kpiCard('✅ กำไรขั้นต้น', formatCurrency(tc.gross), tc.gross>=0?'success':'danger', `Margin ${tc.grossPct}%`)}
+          ${kpiCard('🏆 กำไรสุทธิ', formatCurrency(tc.net), tc.net>=0?'success':'danger', `Net Margin ${tc.netPct}%`)}
         </div>
 
         <!-- Chart + OPEX breakdown -->

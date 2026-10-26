@@ -57,7 +57,7 @@ export default async function ChatTemplatesPage(container) {
         </div>
 
         <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
-          ${kpi('💬 Templates', templates.length, 'primary')}
+          ${kpi('💬 เทมเพลต', templates.length, 'primary')}
           ${kpi('📊 ใช้งานรวม', totalUsage.toLocaleString() + ' ครั้ง', 'success')}
           ${kpi('🏆 ยอดนิยม', escHtml([...templates].sort((a,b)=>b.usage-a.usage)[0]?.title || '—'), 'secondary')}
         </div>

@@ -65,7 +65,7 @@ export default async function GovBiddingPage(container) {
 
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('📋 กำลังติดตาม', active.length + ' งาน', 'primary')}
-          ${kpi('💰 Pipeline', formatCurrency(pipeline), 'warning')}
+          ${kpi('💰 มูลค่าที่กำลังลุ้น', formatCurrency(pipeline), 'warning')}
           ${kpi('🏆 ชนะแล้ว (ปีนี้)', formatCurrency(wonValue), 'success')}
           ${kpi('📊 อัตราชนะประมูล', winRate + '%', winRate >= 40 ? 'success' : 'warning')}
         </div>

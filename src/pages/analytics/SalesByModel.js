@@ -124,7 +124,7 @@ export default async function SalesByModelPage(container) {
           ${kpi('🚗 รุ่นรถทั้งหมด', MODELS.length + ' รุ่น', 'primary')}
           ${kpi('📦 ยอดขาย ' + MONTH_LABELS[periodIdx], totalUnits + ' คัน', 'success')}
           ${kpi('💰 รายได้รวม', formatCurrency(totalRevenue), 'accent')}
-          ${kpi('⭐ Best Seller', best?.model?.split(' ').slice(1).join(' ') || '-', 'warning')}
+          ${kpi('⭐ ขายดีที่สุด', best?.model?.split(' ').slice(1).join(' ') || '-', 'warning')}
         </div>
 
         <!-- Period & Sort -->

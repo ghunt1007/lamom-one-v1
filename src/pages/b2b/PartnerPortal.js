@@ -68,7 +68,7 @@ export default async function PartnerPortalPage(container) {
 
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('🤝 พาร์ทเนอร์ทั้งหมด', partners.length, 'primary')}
-          ${kpi('✅ Active', active, 'success')}
+          ${kpi('✅ ใช้งานอยู่', active, 'success')}
           ${kpi('🧲 Leads รวม', totalLeads, 'primary')}
           ${kpi('💰 Revenue จากพาร์ทเนอร์', formatCurrency(totalRevenue), 'success')}
         </div>

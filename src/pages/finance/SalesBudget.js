@@ -126,7 +126,7 @@ export default async function SalesBudgetPage(container) {
         '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:20px">' +
           kpi('🎯 เป้ายอดขายรวม', formatCurrency(tot.totalTarget), 'primary') +
           kpi('💰 ยอดจริงรวม', formatCurrency(tot.totalActual), 'success') +
-          kpi('📈 Achievement', tot.pct + '%', tot.pct >= 100 ? 'success' : tot.pct >= 80 ? 'warning' : 'danger') +
+          kpi('📈 ทำได้ตามเป้า', tot.pct + '%', tot.pct >= 100 ? 'success' : tot.pct >= 80 ? 'warning' : 'danger') +
           kpi('💸 งบ FOC รวม', formatCurrency(tot.totalFocBudget), 'accent') +
           kpi('🎁 FOC ใช้ไป', formatCurrency(tot.totalFocUsed), 'warning') +
           kpi('📊 FOC%', tot.focPct + '%', tot.focPct <= 100 ? 'success' : 'danger') +

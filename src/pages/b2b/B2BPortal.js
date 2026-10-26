@@ -72,7 +72,7 @@ export default async function B2BPortalPage(container) {
           ${kpi('🤝 พาร์ทเนอร์', `${tot.partners}`, 'primary')}
           ${kpi('💼 ดีลทั้งหมด', `${tot.deals}`, 'accent')}
           ${kpi('💰 Revenue รวม', formatCurrency(tot.revenue), 'success')}
-          ${kpi('📊 Active', `${partners.filter(p=>p.status==='active').length}`, 'primary')}
+          ${kpi('📊 ใช้งานอยู่', `${partners.filter(p=>p.status==='active').length}`, 'primary')}
         </div>
 
         <!-- Tabs -->

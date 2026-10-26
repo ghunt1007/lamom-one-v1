@@ -171,7 +171,7 @@ export default async function MarketingROIPage(container) {
           ${kpi('💸 งบรวม', formatCurrency(totalSpend), 'warning')}
           ${kpi('🧲 Leads รวม', totalLeads.toLocaleString() + ' ราย', 'primary')}
           ${kpi('🎯 ลูกค้าใหม่', totalCustomers + ' ราย', 'success')}
-          ${kpi('📈 Blended ROI', blendedROI + '%', blendedROI >= 100 ? 'success' : 'warning')}
+          ${kpi('📈 ROI รวม', blendedROI + '%', blendedROI >= 100 ? 'success' : 'warning')}
         </div>
 
         <!-- AI Insight -->

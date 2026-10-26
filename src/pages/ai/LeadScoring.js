@@ -66,8 +66,8 @@ export default async function LeadScoringPage(container) {
         </div>
 
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
-          ${kpi('🔥 Hot Leads', hot, hot > 0 ? 'danger' : 'secondary')}
-          ${kpi('💰 Pipeline (Warm+)', formatCurrency(pipeline), 'success')}
+          ${kpi('🔥 ลีดร้อน', hot, hot > 0 ? 'danger' : 'secondary')}
+          ${kpi('💰 มูลค่าลีดอุ่นขึ้นไป', formatCurrency(pipeline), 'success')}
           ${kpi('📊 คะแนนเฉลี่ย', avgScore, avgScore >= 60 ? 'success' : 'warning')}
           ${kpi('🧲 Leads ทั้งหมด', leads.length, 'primary')}
         </div>

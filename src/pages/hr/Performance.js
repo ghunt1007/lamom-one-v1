@@ -102,7 +102,7 @@ export default async function PerformancePage(container) {
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('👥 ประเมินแล้ว', list.length + ' คน', 'primary')}
           ${kpi('📊 คะแนนเฉลี่ย', avgScore + '/100', +avgScore >= 85 ? 'success' : +avgScore >= 70 ? 'warning' : 'danger')}
-          ${kpi('⭐ Top Performer', escHtml(topPerformer?.name || '-'), 'success')}
+          ${kpi('⭐ ผลงานดีเด่น', escHtml(topPerformer?.name || '-'), 'success')}
           ${kpi('📅 งวด', period, 'secondary')}
         </div>
 

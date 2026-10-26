@@ -113,8 +113,8 @@ export default async function CustomerFeedbackPage(container) {
         </div>
 
         <div class="kpi-grid" style="grid-template-columns:repeat(5,1fr);margin-bottom:16px">
-          ${kpi('⭐ CSAT avg', `${avgScore}/5.0`, avgScore >= 4.5 ? 'success' : avgScore >= 3.5 ? 'warning' : 'danger')}
-          ${kpi('📊 NPS Score', nps + '%', nps >= 50 ? 'success' : nps >= 0 ? 'warning' : 'danger')}
+          ${kpi('⭐ ความพึงพอใจเฉลี่ย', `${avgScore}/5.0`, avgScore >= 4.5 ? 'success' : avgScore >= 3.5 ? 'warning' : 'danger')}
+          ${kpi('📊 คะแนน NPS', nps + '%', nps >= 50 ? 'success' : nps >= 0 ? 'warning' : 'danger')}
           ${kpi('💬 ทั้งหมด', feedbacks.length, 'primary')}
           ${kpi('❗ ร้องเรียนค้าง', complaints, complaints > 0 ? 'danger' : 'secondary')}
           ${kpi('📩 ยังไม่ตอบ', unresponded, unresponded > 0 ? 'warning' : 'secondary')}
