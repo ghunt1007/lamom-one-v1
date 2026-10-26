@@ -93,7 +93,7 @@ export default async function WinBackPage(container) {
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('🎯 เป้าหมาย', targets.length + ' ราย', 'primary')}
           ${kpi('🎉 กลับมาแล้ว', returned.length + ' ราย', 'success')}
-          ${kpi('📊 Win Rate', winRate + '%', winRate >= 30 ? 'success' : 'warning')}
+          ${kpi('📊 ดึงกลับสำเร็จ', winRate + '%', winRate >= 30 ? 'success' : 'warning')}
           ${kpi('💰 มูลค่ากู้คืน', formatCurrency(recoveredValue), 'success')}
         </div>
 

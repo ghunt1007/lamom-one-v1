@@ -77,7 +77,7 @@ export default async function InsuranceClaimsPage(container) {
           ${kpi('📋 เคลมทั้งหมด', claims.length, 'primary')}
           ${kpi('🔄 กำลังดำเนินการ', active, active > 0 ? 'warning' : 'secondary')}
           ${kpi('💰 อนุมัติรวม', formatCurrency(totalApproved), 'success')}
-          ${kpi('📊 Approval Rate', approvalRate + '%', approvalRate >= 80 ? 'success' : 'warning')}
+          ${kpi('📊 อัตราอนุมัติ', approvalRate + '%', approvalRate >= 80 ? 'success' : 'warning')}
         </div>
 
         <!-- Status filter -->

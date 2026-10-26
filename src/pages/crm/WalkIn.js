@@ -88,7 +88,7 @@ export default async function WalkInPage(container) {
           ${kpi('🚶 Walk-In วันนี้', walkins.length + ' คน', 'primary')}
           ${kpi('🔥 Hot Lead', hot, hot > 0 ? 'danger' : 'secondary')}
           ${kpi('🎯 จองแล้ว', booked, 'success')}
-          ${kpi('📊 Conv Rate', convRate + '%', convRate >= 30 ? 'success' : 'warning')}
+          ${kpi('📊 อัตราจอง', convRate + '%', convRate >= 30 ? 'success' : 'warning')}
         </div>
 
         <!-- Hourly traffic mini chart -->

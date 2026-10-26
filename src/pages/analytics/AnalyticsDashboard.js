@@ -183,7 +183,7 @@ export default async function AnalyticsDashboard(container) {
         <div class="kpi-grid" style="margin-bottom:16px">
           ${kpi('💰 รายได้รวม', formatCurrency(totalSales), 'success', dataSource === 'live' ? `ปี ${YEAR}` : 'ตัวอย่าง')}
           ${kpi('🚗 รถที่ขาย', `${totalUnits} คัน`, 'primary', `ปี ${YEAR}`)}
-          ${kpi('🧲 Conversion', `${convRate}%`, convRate >= 12 ? 'success' : 'warning', `จาก ${totalLeads} Leads`)}
+          ${kpi('🧲 อัตราปิดการขาย', `${convRate}%`, convRate >= 12 ? 'success' : 'warning', `จาก ${totalLeads} Leads`)}
           ${kpi('👥 ลูกค้าทั้งหมด', `${realData.customers}`, 'accent', 'ในระบบ')}
         </div>
 

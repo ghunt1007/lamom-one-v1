@@ -107,7 +107,7 @@ export default async function QualityCompliancePage(container) {
           ${kpi('✅ เสร็จแล้ว', s.completed, 'success')}
           ${kpi('⚠️ Open Findings', s.openFindings, s.openFindings > 0 ? 'warning' : 'success')}
           ${kpi('🔴 Major', s.majorFindings, s.majorFindings > 0 ? 'danger' : 'success')}
-          ${kpi('⭐ Avg Score', s.avgScore > 0 ? s.avgScore.toFixed(1) + '%' : 'N/A', s.avgScore >= 80 ? 'success' : 'warning')}
+          ${kpi('⭐ คะแนนเฉลี่ย', s.avgScore > 0 ? s.avgScore.toFixed(1) + '%' : 'N/A', s.avgScore >= 80 ? 'success' : 'warning')}
         </div>
 
         <!-- Tabs -->

@@ -109,9 +109,9 @@ export default async function CustomerInsightsPage(container) {
         ${liveTotalSales ? `<div style="margin-bottom:10px;padding:7px 12px;background:var(--surface-2);border-left:3px solid var(--success);border-radius:var(--radius-sm);font-size:0.78rem;color:var(--success)">● ข้อมูลจริง: ${liveTotalSales} ธุรกรรมจากใบจอง</div>` : ''}
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('👥 ลูกค้าทั้งหมด', totalCustomers + (liveTotalSales ? '' : ' (Demo)'), 'primary')}
-          ${kpi('✨ ใหม่เดือนนี้', newThisMonth + ' (ตัวอย่าง)', 'success')}
-          ${kpi('💰 Avg LTV', formatCurrency(avgLTV) + ' (ตัวอย่าง)', 'warning')}
-          ${kpi('🔄 Retention', retentionRate + '% (ตัวอย่าง)', retentionRate >= 90 ? 'success' : 'warning')}
+          ${kpi('✨ ใหม่เดือนนี้ (ตัวอย่าง)', newThisMonth, 'success')}
+          ${kpi('💰 มูลค่าเฉลี่ย/ลูกค้า (ตัวอย่าง)', formatCurrency(avgLTV), 'warning')}
+          ${kpi('🔄 กลับมาซื้อซ้ำ (ตัวอย่าง)', retentionRate + '%', retentionRate >= 90 ? 'success' : 'warning')}
         </div>
 
         <div class="tab-nav" style="margin-bottom:14px">
