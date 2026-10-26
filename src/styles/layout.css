@@ -667,3 +667,11 @@
 /* งานของฉันวันนี้: ปุ่ม "ดูอีก N รายการ" ท้ายแต่ละหมวด */
 .md-more { display: block; width: 100%; padding: 10px 16px; border: none; background: transparent; color: var(--primary); font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; text-align: center; }
 .md-more:hover { background: var(--surface-2); }
+
+/* แถวปุ่มกรองบนมือถือ: เลื่อนซ้าย-ขวาแถวเดียว แทนการตัดลงบรรทัดละปุ่ม (หน้ายาวและดูรก)
+   ใส่ overflow-x ใน style ด้วย ไม่งั้นกฎ "flex ทุกอันต้อง wrap บนมือถือ" ใน base.css จะชนะ */
+@media (max-width: 640px) {
+  .chip-scroll { flex-wrap: nowrap !important; overflow-x: auto; max-width: 100%; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .chip-scroll::-webkit-scrollbar { display: none; }
+  .chip-scroll > * { flex-shrink: 0; }
+}

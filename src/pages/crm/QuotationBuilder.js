@@ -134,7 +134,7 @@ export default async function QuotationBuilderPage(container) {
           ${kpi('📈 Conv.Rate', (isNaN(convRate) ? 0 : convRate) + '%', convRate >= 50 ? 'success' : 'warning')}
         </div>
 
-        <div style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap">
+        <div class="chip-scroll" style="overflow-x:auto;display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap">
           <button class="btn btn-sm ${statusFilter==='all'?'btn-primary':'btn-secondary'} sf-btn" data-s="all">ทั้งหมด</button>
           ${Object.entries(QT_STATUS).map(([k,v]) => `<button class="btn btn-sm ${statusFilter===k?'btn-'+v.color:'btn-secondary'} sf-btn" data-s="${k}">${v.label}</button>`).join('')}
         </div>

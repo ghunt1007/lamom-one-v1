@@ -342,17 +342,17 @@ export default async function TasksPage(container) {
 
       <!-- View Filter -->
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-        <div style="display:flex;gap:4px">
+        <div class="chip-scroll" style="overflow-x:auto;display:flex;gap:4px">
           <button class="btn btn-sm vf-btn btn-primary" data-vf="active">🔥 Active</button>
           <button class="btn btn-sm vf-btn btn-secondary" data-vf="mine">👤 งานของฉัน</button>
           <button class="btn btn-sm vf-btn btn-secondary" data-vf="all">ทั้งหมด</button>
           <button class="btn btn-sm vf-btn btn-secondary" data-vf="done">✅ เสร็จแล้ว</button>
         </div>
-        <div style="display:flex;gap:4px">
+        <div class="chip-scroll" style="overflow-x:auto;display:flex;gap:4px">
           <button class="btn btn-sm pf-btn btn-secondary" data-pf="all">ทุกระดับ</button>
           ${Object.entries(PRIORITY).map(([k,v]) => `<button class="btn btn-sm pf-btn btn-secondary" data-pf="${k}">${v.label}</button>`).join('')}
         </div>
-        <div style="display:flex;gap:4px;flex-wrap:wrap" id="dept-filter-row"></div>
+        <div class="chip-scroll" style="overflow-x:auto;display:flex;gap:4px;flex-wrap:wrap" id="dept-filter-row"></div>
       </div>
 
       <div id="tasks-board">
