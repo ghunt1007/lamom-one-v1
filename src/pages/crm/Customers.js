@@ -371,7 +371,7 @@ export default async function CustomersPage(container) {
           <div style="display:flex;flex-direction:column;gap:18px">
             <div style="display:flex;gap:6px;flex-wrap:wrap">
               <button class="btn btn-primary btn-sm" id="wk-quote-btn">🧾 สร้างใบเสนอราคา</button>
-              ${!c.bookingId && !c.isLost && c.stage !== 'lead' ? `<button class="btn btn-primary btn-sm" id="wk-booking-btn">📝 สร้างใบจอง</button>` : ''}
+              ${/* ลูกค้า walk-in จองเลยได้ตั้งแต่เป็น Lead ไม่ต้องย้ายเป็น Prospect ก่อน */ ''}${!c.bookingId && !c.isLost ? `<button class="btn btn-primary btn-sm" id="wk-booking-btn">📝 สร้างใบจอง</button>` : ''}
               <button class="btn btn-secondary btn-sm" id="wk-jobcard-btn">🔧 เปิด Job Card</button>
             </div>
 
@@ -761,10 +761,10 @@ export default async function CustomersPage(container) {
           ${diag.suggestedAction && diag.suggestedAction !== '-' ? `<div style="font-size:0.78rem;color:var(--text-2)">💡 ${escHtml(diag.suggestedAction)}</div>` : ''}
           ${c.stage === 'delivered' ? `<div style="margin-top:6px;display:flex;gap:6px"><button class="btn btn-ghost btn-xs" id="wk-followup-link">📞 Follow-up</button><button class="btn btn-ghost btn-xs" id="wk-winback-link">💝 Win-Back</button></div>` : ''}
         </div>
-        <button class="btn btn-secondary btn-sm" id="wk-view-booking" style="margin-top:10px;width:100%;justify-content:center">🔗 ดูรายการใบจองทั้งหมด</button>
+        <button class="btn btn-secondary btn-sm" id="wk-view-booking" style="margin-top:10px;width:100%;justify-content:center">🔗 เปิดใบจองนี้</button>
       </div>
     `
-    document.getElementById('wk-view-booking')?.addEventListener('click', () => { document.querySelectorAll('.modal-overlay').forEach(m => m.remove()); navigate('/crm/bookings') })
+    document.getElementById('wk-view-booking')?.addEventListener('click', () => { document.querySelectorAll('.modal-overlay').forEach(m => m.remove()); navigate('/crm/bookings?id=' + encodeURIComponent(c.bookingId)) })
     document.getElementById('wk-followup-link')?.addEventListener('click', () => { document.querySelectorAll('.modal-overlay').forEach(m => m.remove()); navigate('/crm/followup') })
     document.getElementById('wk-winback-link')?.addEventListener('click', () => { document.querySelectorAll('.modal-overlay').forEach(m => m.remove()); navigate('/crm/winback') })
   }
