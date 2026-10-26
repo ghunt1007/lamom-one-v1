@@ -411,13 +411,15 @@ export default async function BookingsPage(container) {
     if (diff <= 3) return 'background:rgba(245,158,11,.07);border-left:3px solid rgba(245,158,11,.65);'
     return ''
   }
-  function deliveryCell(b) {
+  // inline = การ์ดมือถือ: ป้ายนับวันต่อท้ายวันที่ในบรรทัดเดียว (ในตารางให้อยู่ใต้วันที่ คอลัมน์ไม่กว้าง)
+  function deliveryCell(b, inline = false) {
     if (!b.deliveryDate) return '<span style="color:var(--text-muted);opacity:.5">—</span>'
     if (b.status === 'ส่งมอบแล้ว') return `<span style="color:var(--success)">${formatDate(b.deliveryDate)}</span>`
     const diff = dayDiff(b.deliveryDate)
     const clr = diff < 0 ? 'var(--danger)' : diff <= 3 ? 'var(--warning)' : 'var(--success)'
-    const lbl = diff < 0 ? `เลย ${Math.abs(diff)}วัน` : diff === 0 ? 'วันนี้!' : `${diff}วัน`
-    return `${formatDate(b.deliveryDate)}<div style="font-size:0.62rem;font-weight:700;color:${clr}">📅 ${lbl}</div>`
+    const lbl = diff < 0 ? `เลย ${Math.abs(diff)} วัน` : diff === 0 ? 'วันนี้!' : `อีก ${diff} วัน`
+    const tag = `font-size:0.62rem;font-weight:700;color:${clr}`
+    return inline ? `${formatDate(b.deliveryDate)} <span style="${tag};margin-left:4px">📅 ${lbl}</span>` : `${formatDate(b.deliveryDate)}<div style="${tag}">📅 ${lbl}</div>`
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -635,7 +637,7 @@ export default async function BookingsPage(container) {
       </div>
       <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:8px;margin-top:8px;font-size:0.72rem;color:var(--text-muted)">
         <div>👤 ${escHtml(b.salesName || '—')} · จอง ${formatDate(b.bookingDate)}${b.bookingNo ? ` · <span style="color:var(--primary)">${escHtml(b.bookingNo)}</span>` : ''}</div>
-        <div style="text-align:right;white-space:nowrap">${b.deliveryDate ? `ส่งมอบ ${deliveryCell(b)}` : ''}</div>
+        <div style="text-align:right;white-space:nowrap">${b.deliveryDate ? `ส่งมอบ ${deliveryCell(b, true)}` : ''}</div>
       </div>
       ${needsIncome(b) ? `<button class="btn btn-warning btn-xs income-bk" data-id="${b.id}" style="margin-top:8px">💰 กรอกรายได้</button>` : ''}
     </div>`
