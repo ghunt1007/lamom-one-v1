@@ -188,7 +188,7 @@ export default async function DashboardPage(container) {
       <div class="dash-intel" style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px">
         <div class="card" style="padding:16px">
           <div style="font-weight:700;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
-            <span>🚨 Intelligence Center — เรื่องที่ต้องจัดการ</span>
+            <span>🚨 เรื่องที่ต้องจัดการ</span>
             <span id="alert-count" class="badge badge-danger" style="display:none"></span>
           </div>
           <div id="alerts-body"><div class="skeleton" style="height:120px;border-radius:var(--radius-md)"></div></div>
@@ -371,7 +371,7 @@ export default async function DashboardPage(container) {
       <!-- Funnel + source row -->
       <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-top:16px">
         <div class="card" style="padding:16px">
-          <div style="font-weight:700;margin-bottom:12px">📶 Conversion Funnel — <span class="fc-month" style="color:var(--primary);font-size:0.8rem"></span></div>
+          <div style="font-weight:700;margin-bottom:12px">📶 ลีด → จอง → ส่งมอบ — <span class="fc-month" style="color:var(--primary);font-size:0.8rem"></span></div>
           <div id="funnel-body"><div class="skeleton" style="height:120px;border-radius:var(--radius-md)"></div></div>
         </div>
         <div class="card" style="padding:16px">

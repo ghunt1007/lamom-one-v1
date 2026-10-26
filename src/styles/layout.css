@@ -694,3 +694,8 @@
 @media (max-width: 640px) {
   table:has(> tbody > tr:only-child > td[colspan]:only-child) > thead { display: none; }
 }
+/* มือถือ: ตารางที่แสดงเป็นการ์ด (ซ่อนหัวตาราง) กดปุ่ม "ตัวกรองคอลัมน์" แล้วไม่มีอะไรขึ้น เพราะช่องกรองอยู่ในหัวตาราง → ซ่อนปุ่ม */
+@media (max-width: 640px) {
+  .tt-toolbar:has(+ table.tbl-cards, + table.cust-table) .tt-btn { display: none; }
+  .tt-toolbar:has(+ table.tbl-cards, + table.cust-table):not(:has(.tt-search)) { display: none; }
+}
