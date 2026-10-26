@@ -299,7 +299,7 @@ export default async function TestDrivePage(container) {
           <div class="input-group"><label class="input-label">โทรศัพท์</label><input class="input" id="nf-phone" placeholder="08x-xxx-xxxx"></div>
         </div>
         <div class="input-group"><label class="input-label">รถที่ Test Drive</label>
-          <select class="input" id="nf-vehicle">${getVehicles().map(v => `<option>${v.brand} ${v.model} ${v.variant}</option>`).join('')}</select>
+          <select class="input" id="nf-vehicle">${tdVehicleOptions()}</select>
         </div>
         <div class="grid-2">
           <div class="input-group"><label class="input-label">วันที่</label><input class="input" type="date" id="nf-date" value="${today}"></div>
@@ -342,6 +342,15 @@ export default async function TestDrivePage(container) {
   }
 
   await loadData()
+}
+
+// รุ่นที่โชว์รูมขาย (Deepal) ขึ้นก่อน — เดิมเรียงตามฐานข้อมูลรถทั้งตลาด ค่าเริ่มต้นจึงเป็น Toyota Camry
+function tdVehicleOptions() {
+  const name = v => `${v.brand} ${v.model} ${v.variant || ''}`.trim()
+  const list = getVehicles()
+  const own = list.filter(v => v.brand === 'Deepal'), rest = list.filter(v => v.brand !== 'Deepal')
+  const opts = l => l.map(v => `<option>${name(v)}</option>`).join('')
+  return own.length ? `<optgroup label="รุ่นที่โชว์รูมขาย">${opts(own)}</optgroup><optgroup label="รุ่นอื่น">${opts(rest)}</optgroup>` : opts(rest)
 }
 
 function kpi(title, value, color) {
