@@ -637,7 +637,7 @@ export default async function StockPage(container) {
       <div id="stock-backfill-banner"></div>
 
       <!-- Status Stats = ตัวกรองสถานะในตัว (เดิมมีปุ่มกรองสถานะชุดเดียวกันซ้ำอีกแถวในกล่องค้นหา) -->
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+      <div class="chip-scroll" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;overflow-x:auto">
         <div class="card sf-card sf-on" data-sf="all" style="padding:8px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;flex-shrink:0;transition:all 150ms">
           <span id="vstat-all" style="font-size:1.2rem;font-weight:700">0</span>
           <span style="font-size:0.78rem;color:var(--text-muted)">ทั้งหมด</span>
