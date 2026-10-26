@@ -131,7 +131,7 @@ export default async function QuotationBuilderPage(container) {
           ${kpi('📄 ทั้งหมด', quotes.length, 'primary')}
           ${kpi('✅ ยอมรับ', quotes.filter(q=>q.status==='accepted').length, 'success')}
           ${kpi('💰 มูลค่ายอมรับ', formatCurrency(totalValue), 'success')}
-          ${kpi('📈 Conv.Rate', (isNaN(convRate) ? 0 : convRate) + '%', convRate >= 50 ? 'success' : 'warning')}
+          ${kpi('📈 อัตรายอมรับ', (isNaN(convRate) ? 0 : convRate) + '%', convRate >= 50 ? 'success' : 'warning')}
         </div>
 
         <div class="chip-scroll" style="overflow-x:auto;display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap">

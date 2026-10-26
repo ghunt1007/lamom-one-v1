@@ -689,3 +689,8 @@
 
 /* ฟอร์มในหน้าต่าง: ช่องที่เรียงต่อกันตรงๆ (ไม่ได้อยู่ใน grid) เว้นระยะ ไม่ให้ป้ายชื่อติดกล่องด้านบน */
 .modal-body > .input-group + .input-group, .modal-body > .input-group + div:not([class]) > .input-group:first-child { margin-top: 12px; }
+
+/* มือถือ: ตารางที่ยังไม่มีข้อมูล (มีแถวเดียวเป็นข้อความ "ไม่พบ...") ไม่ต้องโชว์หัวตารางที่ล้นจอเลื่อนข้าง */
+@media (max-width: 640px) {
+  table:has(> tbody > tr:only-child > td[colspan]:only-child) > thead { display: none; }
+}
