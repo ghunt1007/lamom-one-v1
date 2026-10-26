@@ -1121,7 +1121,7 @@ export default async function CustomersPage(container) {
         <div class="cust-filters" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
           <div style="position:relative;flex:1;min-width:200px">
             <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted)">🔍</span>
-            <input class="input" id="cust-search" placeholder="ค้นหา ชื่อ เบอร์ รุ่น หรือพิมพ์ เช่น ร้อน s07" title="พิมพ์ภาษาพูดได้: ร้อน/อุ่น/เย็น, lead, จอง, เงียบ, ไม่มีเบอร์, ไม่มีผู้ดูแล + ชื่อหรือรุ่นรถ" style="padding-left:32px${hasSpeechInput() ? ';padding-right:44px' : ''}">
+            <input class="input" id="cust-search" placeholder="ชื่อ เบอร์ รุ่น เช่น ร้อน s07" title="พิมพ์ภาษาพูดได้: ร้อน/อุ่น/เย็น, lead, จอง, เงียบ, ไม่มีเบอร์, ไม่มีผู้ดูแล + ชื่อหรือรุ่นรถ" style="padding-left:32px${hasSpeechInput() ? ';padding-right:44px' : ''}">
             ${hasSpeechInput() ? '<button type="button" class="btn btn-ghost btn-sm" id="cust-search-mic" title="พูดชื่อ/เบอร์ที่ต้องการหา" style="position:absolute;right:4px;top:50%;transform:translateY(-50%)">🎤</button>' : ''}
           </div>
           <div id="cust-smart" style="display:none;order:99;flex-basis:100%;font-size:0.76rem;color:var(--text-3);line-height:1.9"></div>

@@ -57,6 +57,7 @@ function injectStyle() {
   document.head.appendChild(st)
 }
 
+export const TOOLBAR_MIN_ROWS = 8
 export function enhanceTable(table) {
   if (!table || table.dataset.ttEnhanced || table.dataset.noEnhance === '1') return
   if (table.id === 'ss-table') return  // SmartSheet มี sort/filter ของตัวเองแล้ว
@@ -182,9 +183,10 @@ export function enhanceTable(table) {
     }
   })
 
-  // วาง toolbar เหนือตาราง (รองรับทั้งใน .table-wrap และ table เดี่ยว)
+  // วาง toolbar เหนือตาราง (รองรับทั้งใน .table-wrap และ table เดี่ยว) — ตารางไม่กี่แถว (เช่น รายได้ 3 เซลส์)
+  // เห็นครบอยู่แล้ว ช่องค้นหา/ปุ่มกรองเป็นแค่สิ่งรกตา จึงไม่ใส่ (หัวคอลัมน์ยังกดเรียงได้เหมือนเดิม)
   const host = table.parentElement
-  if (host) host.insertBefore(toolbar, table)
+  if (host && bodyRows.length >= TOOLBAR_MIN_ROWS) host.insertBefore(toolbar, table)
 }
 
 export const SHORT_CELL_MAX = 18
