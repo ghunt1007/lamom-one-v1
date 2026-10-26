@@ -576,8 +576,8 @@ export default async function BookingsPage(container) {
       <div class="table-wrap"><table>
         <thead><tr>
           <th style="width:28px"><input type="checkbox" id="bk-select-all" ${allSelected ? 'checked' : ''}></th>
-          <th>เลขจอง</th><th>สถานะ</th><th>เซลล์</th><th>วันที่จอง</th><th>กำหนดส่งมอบ</th>
-          <th>วันที่ตัดตัวเลข</th><th>ส่งมอบจริง</th><th>ชื่อลูกค้า</th><th>รุ่นรถ</th>
+          <th>เลขจอง</th><th>ชื่อลูกค้า</th><th>รุ่นรถ</th><th>สถานะ</th><th>เซลล์</th><th>วันที่จอง</th><th>กำหนดส่งมอบ</th>
+          <th>วันที่ตัดตัวเลข</th><th>ส่งมอบจริง</th>
           <th>สีภายนอก</th><th>สีภายใน</th><th>แหล่งที่มา</th><th></th>
         </tr></thead>
         <tbody>${filtered.map(b => tableRow(b)).join('')}</tbody>
@@ -648,14 +648,14 @@ export default async function BookingsPage(container) {
     return `<tr class="bk-row" data-id="${b.id}" style="${rowStyle(b)}cursor:pointer">
       <td><input type="checkbox" class="bk-row-check" data-id="${b.id}" ${selectedIds.has(b.id) ? 'checked' : ''}></td>
       <td style="white-space:nowrap"><span style="font-weight:700;color:var(--primary);font-size:0.76rem">${escHtml(b.bookingNo)}</span></td>
+      <td style="font-weight:600;font-size:0.8rem;min-width:150px">${escHtml(b.custName || '—')}${b.rightsOnly ? '<div style="font-size:0.6rem;color:var(--accent);font-weight:700">🎫 จองสิทธิ์</div>' : ''}</td>
+      <td style="font-size:0.78rem">${br ? brandBadge(br) + '<br>' : ''}${escHtml(b.model || '—')}</td>
       <td class="bk-status-cell" data-id="${b.id}" style="cursor:pointer">${statusBadge(b.status)}<span style="font-size:0.6rem;opacity:.4;margin-left:2px">▼</span>${b.status === 'ถอนจอง' ? `<div style="font-size:0.6rem;font-weight:700;margin-top:2px;color:${(b.refundStatus || (depositAmt(b) > 0 ? 'รอคืนเงิน' : 'ไม่ต้องคืน')) === 'คืนเงินแล้ว' ? 'var(--success)' : (b.refundStatus || (depositAmt(b) > 0 ? 'รอคืนเงิน' : '')) === 'รอคืนเงิน' ? 'var(--warning)' : 'var(--text-muted)'}">💸 ${escHtml(b.refundStatus || (depositAmt(b) > 0 ? 'รอคืนเงิน' : 'ไม่ต้องคืน'))}</div>` : ''}</td>
       <td><span class="badge badge-primary" style="font-size:0.66rem">${escHtml(b.salesName || '')}</span></td>
       <td style="font-size:0.72rem;white-space:nowrap">${formatDate(b.bookingDate)}</td>
       <td style="font-size:0.72rem;white-space:nowrap">${deliveryCell(b)}</td>
       <td style="font-size:0.72rem;white-space:nowrap">${b.cutDate ? `<span style="color:var(--warning);font-weight:600">${formatDate(b.cutDate)}</span>` : '<span style="color:var(--text-muted)">—</span>'}</td>
       <td style="font-size:0.72rem;white-space:nowrap">${b.actualDeliveryDate ? `<span style="color:var(--success);font-weight:600">${formatDate(b.actualDeliveryDate)}</span>` : '<span style="color:var(--text-muted)">—</span>'}</td>
-      <td style="font-weight:600;font-size:0.8rem;min-width:150px">${escHtml(b.custName || '—')}${b.rightsOnly ? '<div style="font-size:0.6rem;color:var(--accent);font-weight:700">🎫 จองสิทธิ์</div>' : ''}</td>
-      <td style="font-size:0.78rem">${br ? brandBadge(br) + '<br>' : ''}${escHtml(b.model || '—')}</td>
       <td style="font-size:0.76rem">${b.colorOut ? escHtml(b.colorOut) : '<span style="color:var(--text-muted)">—</span>'}</td>
       <td style="font-size:0.76rem">${b.colorIn ? escHtml(b.colorIn) : '<span style="color:var(--text-muted)">—</span>'}</td>
       <td style="font-size:0.76rem">${b.source ? escHtml(b.source) : '<span style="color:var(--text-muted)">—</span>'}</td>
