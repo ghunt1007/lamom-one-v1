@@ -70,19 +70,36 @@ export async function syncRagChunk(colName, id, data) {
   } catch { /* indexing พลาดได้ ไม่กระทบการบันทึกข้อมูลหลัก */ }
 }
 
+// คะแนนความเกี่ยวข้อง → ข้อความ chunk ที่ใกล้คำถามที่สุด (มากสุด topK) · ตัดที่ไม่เกี่ยวข้องจริงทิ้ง (score ≤ 0.3)
+// กันไม่ให้ AI ได้ context สุ่มๆ ที่ทำให้ตอบสับสน
+export function topChunks(qEmbed, chunks, topK = 5) {
+  return chunks
+    .map(c => ({ text: c.text, score: cosineSimilarity(qEmbed, c.embedding) }))
+    .filter(c => c.score > 0.3)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, topK)
+    .map(c => c.text)
+}
+
+// คลังความรู้เปลี่ยนไม่บ่อย — จำไว้ 10 นาที ไม่ต้องอ่าน rag_chunks ทั้งหมดใหม่ทุกคำถาม (LAMI ถามบ่อยกว่า AI Officers มาก)
+const CHUNK_TTL_MS = 10 * 60 * 1000
+let chunkCache = { key: '', at: 0, docs: [] }
+
+async function loadChunks(sourceCollections) {
+  const key = sourceCollections.join(',')
+  if (chunkCache.key === key && Date.now() - chunkCache.at < CHUNK_TTL_MS) return chunkCache.docs
+  const snap = await getDocs(query(collection(db, 'rag_chunks'), where('sourceCollection', 'in', sourceCollections)))
+  const docs = snap.docs.map(d => d.data())
+  chunkCache = { key, at: Date.now(), docs }
+  return docs
+}
+
 // คืน array ของข้อความ chunk ที่เกี่ยวข้องที่สุด (มากสุด topK รายการ) — [] ถ้าไม่มีอะไรเกี่ยวข้องพอ/ยังไม่ล็อกอิน
 export async function retrieveRagContext(queryText, sourceCollections = RAG_SOURCE_COLLECTIONS, topK = 5) {
   if (!sourceCollections.length) return []
   const qEmbed = await embedText(queryText, 'RETRIEVAL_QUERY')
   if (!qEmbed) return []
-  let snap
-  try {
-    snap = await getDocs(query(collection(db, 'rag_chunks'), where('sourceCollection', 'in', sourceCollections)))
-  } catch { return [] }
-  const scored = snap.docs
-    .map(d => d.data())
-    .map(c => ({ text: c.text, score: cosineSimilarity(qEmbed, c.embedding) }))
-    .filter(c => c.score > 0.3) // ตัดทิ้งที่ไม่เกี่ยวข้องจริง กันไม่ให้ AI ได้ context สุ่มๆที่ทำให้ตอบสับสน
-  scored.sort((a, b) => b.score - a.score)
-  return scored.slice(0, topK).map(c => c.text)
+  let docs
+  try { docs = await loadChunks(sourceCollections) } catch { return [] }
+  return topChunks(qEmbed, docs, topK)
 }

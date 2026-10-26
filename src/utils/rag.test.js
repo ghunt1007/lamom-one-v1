@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { cosineSimilarity, RAG_SOURCE_COLLECTIONS } from './rag.js'
+import { cosineSimilarity, topChunks, RAG_SOURCE_COLLECTIONS } from './rag.js'
 
 describe('cosineSimilarity', () => {
   it('returns 1 for identical vectors', () => {
@@ -35,5 +35,20 @@ describe('RAG_SOURCE_COLLECTIONS', () => {
     )
     expect(RAG_SOURCE_COLLECTIONS).not.toContain('customers')
     expect(RAG_SOURCE_COLLECTIONS).not.toContain('bookings')
+  })
+})
+
+describe('topChunks', () => {
+  const chunks = [
+    { text: 'SOP ส่งมอบรถ', embedding: [1, 0, 0] },
+    { text: 'สเปค DEEPAL S07', embedding: [0.9, 0.1, 0] },
+    { text: 'กฎหมาย PDPA', embedding: [0, 0, 1] },
+    { text: 'ไม่มี embedding' },
+  ]
+  it('ranks by similarity, drops unrelated and broken chunks', () => {
+    expect(topChunks([1, 0, 0], chunks)).toEqual(['SOP ส่งมอบรถ', 'สเปค DEEPAL S07'])
+  })
+  it('respects topK', () => {
+    expect(topChunks([1, 0, 0], chunks, 1)).toEqual(['SOP ส่งมอบรถ'])
   })
 })
