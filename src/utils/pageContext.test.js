@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { compactPageText, maskSensitive, pageContextFor, PAGE_ASKS } from './pageContext.js'
+import { compactPageText, maskSensitive, pageContextFor, pageAsksFor, PAGE_ASKS } from './pageContext.js'
 
 describe('compactPageText', () => {
   it('drops blank, duplicate and button-noise lines', () => {
@@ -31,5 +31,17 @@ describe('pageContextFor', () => {
   })
   it('has three quick asks', () => {
     expect(PAGE_ASKS.map(a => a.key)).toEqual(['sum', 'next', 'how'])
+  })
+})
+
+describe('pageAsksFor', () => {
+  it('puts the page-specific ask first on daily pages', () => {
+    expect(pageAsksFor('/crm/customers').map(a => a.key)).toEqual(['page', 'sum', 'next', 'how'])
+    expect(pageAsksFor('/crm/bookings/').map(a => a.key)[0]).toBe('page')
+    expect(pageAsksFor('/').map(a => a.key)[0]).toBe('page')
+  })
+  it('falls back to the general asks', () => {
+    expect(pageAsksFor('/settings/roles').map(a => a.key)).toEqual(['sum', 'next', 'how'])
+    expect(pageAsksFor('').map(a => a.key)[0]).toBe('page')
   })
 })
