@@ -145,7 +145,8 @@ a:hover { text-decoration: underline; }
    เดียวยืดยาวเกินจำเป็นหลายเท่า — กระทบทุกขนาดจอ (ไม่ใช่แค่มือถือ) แต่สังเกตชัดสุดบนมือถือที่พื้นที่จำกัดอยู่แล้ว
    กฎ mobile-collapse ที่มีอยู่แล้วด้านล่าง (@media max-width:640px, บรรทัด .page-content
    div[style*="grid-template-columns"]) ใช้ได้กับ class นี้ทันทีที่มี display:grid แล้ว ไม่ต้องแก้ที่อื่นเพิ่ม */
-.kpi-grid { display: grid; gap: 16px; }
+/* ค่าเริ่มต้นเมื่อหน้าไม่ได้กำหนดคอลัมน์เอง (หน้าภาพรวมแต่ละโมดูล) — เดิมไม่มี ทำให้จอคอมเรียงการ์ดทีละใบเต็มแถว */
+.kpi-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
 @media (max-width: 1024px) {
   .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
 }

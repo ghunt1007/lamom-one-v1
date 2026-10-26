@@ -40,7 +40,7 @@ export default async function ServiceDashboard(container) {
     <div class="page-content animate-slide">
       <div class="page-header">
         <div>
-          <div class="page-title">🔧 Service Dashboard</div>
+          <div class="page-title">🔧 ภาพรวมงานบริการ</div>
           <div class="page-subtitle">ภาพรวมงานซ่อม อะไหล่ และนัดหมาย</div>
         </div>
         <div class="page-actions">

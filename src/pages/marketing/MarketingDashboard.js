@@ -73,7 +73,7 @@ export default async function MarketingDashboard(container) {
     <div class="page-content animate-slide">
       <div class="page-header">
         <div>
-          <div class="page-title">📣 Marketing Dashboard</div>
+          <div class="page-title">📣 ภาพรวมการตลาด</div>
           <div class="page-subtitle">Campaigns และ Lead Generation</div>
         </div>
         <div class="page-actions">

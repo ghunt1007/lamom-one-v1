@@ -34,7 +34,7 @@ export default async function DmsDashboard(container) {
     <div class="page-content animate-slide">
       <div class="page-header">
         <div>
-          <div class="page-title">🚗 DMS Dashboard</div>
+          <div class="page-title">🚗 ภาพรวมโชว์รูม</div>
           <div class="page-subtitle">ภาพรวมโชว์รูมและสต็อกรถ</div>
         </div>
         <div class="page-actions">
