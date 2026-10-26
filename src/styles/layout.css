@@ -478,8 +478,13 @@
 /* หน้าลูกค้าบนมือถือ: ตัวกรอง 4 ช่องเรียง 2 ช่องต่อแถว (เดิมช่องละบรรทัด กินครึ่งจอ) */
 @media (max-width: 640px) {
   .cust-filters { gap: 8px !important; }
+  .card:has(> .cust-filters) { padding: 12px !important; }
   .cust-filters > div:first-child { flex-basis: 100% !important; }
-  .cust-filters > select { flex: 1 1 calc(50% - 4px); min-width: 0 !important; font-size: 0.8rem; }
+  .cust-filters > select { flex: 1 1 calc(50% - 4px); min-width: 0 !important; font-size: 0.8rem; padding-left: 8px; padding-right: 24px; }
+  /* ตัวกรองใบจอง: เซลล์/แบรนด์ครึ่งๆ ช่องค้นหาเต็มแถว วันที่ "จาก ถึง" อยู่แถวเดียว */
+  .bk-filters > select { flex: 1 1 calc(50% - 3px); min-width: 0; width: auto !important; }
+  .bk-filters > div { flex-basis: 100% !important; }
+  .bk-filters > input[type="date"] { flex: 1 1 0; min-width: 0; width: auto !important; padding-left: 6px; padding-right: 4px; }
 }
 @media (max-width: 640px) {
   .cust-row-avatar { display: none !important; }

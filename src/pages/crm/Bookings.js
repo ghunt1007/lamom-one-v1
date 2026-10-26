@@ -514,7 +514,7 @@ export default async function BookingsPage(container) {
         ` : ''}
 
         <div class="card mb-4" style="padding:10px 14px">
-          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <div class="bk-filters" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
             <select class="input" id="bk-f-seller" style="width:auto;font-size:0.76rem">${sellerOpts}</select>
             <select class="input" id="bk-f-brand" style="width:auto;font-size:0.76rem">${brandOpts}</select>
             <div style="position:relative;flex:1;min-width:180px">
