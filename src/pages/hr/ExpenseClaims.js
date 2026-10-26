@@ -81,7 +81,7 @@ export default async function ExpenseClaimsPage(container) {
             <div class="page-subtitle">การเบิกค่าใช้จ่าย</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-secondary" id="ex-export">📥 Export</button>
+            <button class="btn btn-secondary" id="ex-export">📥 ส่งออก</button>
             <button class="btn btn-primary" id="new-claim-btn">➕ ยื่นเบิก</button>
           </div>
         </div>

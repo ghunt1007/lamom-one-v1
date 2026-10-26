@@ -107,7 +107,7 @@ export default async function CustomerFeedbackPage(container) {
             <div class="page-subtitle">CSAT / NPS / รีวิว / แบบสอบถาม${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง (รอให้คะแนนหลังส่งมอบ)</span>' : ' <span style="color:var(--warning);font-size:0.75rem">● ตัวอย่างข้อมูล — ยังไม่มีใบจองที่ส่งมอบแล้ว</span>'}</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-secondary" id="export-btn">📥 Export</button>
+            <button class="btn btn-secondary" id="export-btn">📥 ส่งออก</button>
             <button class="btn btn-primary" id="add-fb-btn">+ บันทึก Feedback</button>
           </div>
         </div>
@@ -266,7 +266,7 @@ export default async function CustomerFeedbackPage(container) {
       </div>
       <div style="margin-top:16px;display:flex;gap:8px">
         <button class="btn btn-primary" id="send-survey-btn" style="flex:1">📤 ส่ง Survey ตอนนี้</button>
-        <button class="btn btn-secondary">👁 Preview</button>
+        <button class="btn btn-secondary">👁 ดูตัวอย่าง</button>
       </div>
     </div>`
   }

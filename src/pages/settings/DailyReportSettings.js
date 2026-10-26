@@ -51,7 +51,7 @@ export default async function DailyReportSettingsPage(container) {
             <li>ตั้ง Webhook URL ในหน้า Messaging API ของ LINE Console เป็นค่านี้ (กด Copy):
               <div style="display:flex;gap:6px;margin-top:6px">
                 <input class="input" value="${escHtml(webhookUrl)}" readonly style="flex:1;font-size:0.76rem;font-family:monospace">
-                <button class="btn btn-xs btn-secondary" id="copy-webhook-btn">📋 Copy</button>
+                <button class="btn btn-xs btn-secondary" id="copy-webhook-btn">📋 คัดลอก</button>
               </div>
             </li>
             <li>เปิดใช้ Webhook ในหน้า LINE Console แล้วแอด LINE OA เป็นเพื่อน ทักไปสักข้อความ — ระบบจะจับ LINE User ID ของคุณเก็บไว้อัตโนมัติ ไม่ต้องหาเอง</li>

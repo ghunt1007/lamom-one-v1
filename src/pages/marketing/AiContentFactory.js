@@ -107,7 +107,7 @@ export default async function AiContentFactoryPage(container) {
               </div>
               <div style="display:flex;gap:8px">
                 <button class="btn btn-secondary" id="copy-btn" style="flex:1">📋 Copy ทั้งหมด</button>
-                <button class="btn btn-primary" id="schedule-btn" style="flex:1">📅 Schedule Post</button>
+                <button class="btn btn-primary" id="schedule-btn" style="flex:1">📅 ตั้งเวลาโพสต์</button>
               </div>
               `}
             </div>

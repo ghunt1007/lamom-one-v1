@@ -79,7 +79,7 @@ export default async function LineOaManagerPage(container) {
 
         <!-- Tabs -->
         <div style="display:flex;gap:4px;margin-bottom:14px">
-          <button class="btn btn-xs ${activeTab==='broadcast'?'btn-primary':'btn-secondary'} tab-btn" data-t="broadcast">📢 Broadcasts</button>
+          <button class="btn btn-xs ${activeTab==='broadcast'?'btn-primary':'btn-secondary'} tab-btn" data-t="broadcast">📢 บรอดแคสต์</button>
           <button class="btn btn-xs ${activeTab==='auto'?'btn-primary':'btn-secondary'} tab-btn" data-t="auto">🤖 ตอบอัตโนมัติ (${autoReplies.filter(a=>a.active).length})</button>
         </div>
 

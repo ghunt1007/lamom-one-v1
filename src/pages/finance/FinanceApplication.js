@@ -90,7 +90,7 @@ export default async function FinanceApplicationPage(container) {
             <div class="page-subtitle">ยื่นขอสินเชื่อและติดตามสถานะ</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-secondary" id="fa-export">📥 Export</button>
+            <button class="btn btn-secondary" id="fa-export">📥 ส่งออก</button>
             <button class="btn btn-primary" id="new-app-btn">➕ ยื่นไฟแนนซ์ใหม่</button>
           </div>
         </div>

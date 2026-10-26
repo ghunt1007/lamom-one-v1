@@ -103,7 +103,7 @@ export default async function FormBuilderPage(container) {
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="back-btn">← กลับ</button>
-            <button class="btn btn-secondary" id="preview-btn">👁 Preview</button>
+            <button class="btn btn-secondary" id="preview-btn">👁 ดูตัวอย่าง</button>
             <button class="btn btn-primary" id="save-btn">💾 บันทึก</button>
           </div>
         </div>

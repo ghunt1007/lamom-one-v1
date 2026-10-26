@@ -72,7 +72,7 @@ export default async function AuditLogPage(container) {
             <div class="page-subtitle">บันทึกการใช้งานระบบ — ตรวจสอบย้อนหลัง</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-secondary" id="export-btn">📥 Export</button>
+            <button class="btn btn-secondary" id="export-btn">📥 ส่งออก</button>
           </div>
         </div>
 

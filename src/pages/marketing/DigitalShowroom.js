@@ -51,7 +51,7 @@ export default async function DigitalShowroomPage(container) {
           '</div>' +
         '</div>' +
         '<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">' +
-          '<button class="btn btn-xs btn-primary view-btn" data-id="' + car.id + '" style="font-size:0.68rem">👁 Preview</button>' +
+          '<button class="btn btn-xs btn-primary view-btn" data-id="' + car.id + '" style="font-size:0.68rem">👁 ดูตัวอย่าง</button>' +
           '<button class="btn btn-xs btn-secondary feat-btn" data-id="' + car.id + '" style="font-size:0.68rem">' + (car.featured ? '⭐ Unfeature' : '⭐ Feature') + '</button>' +
         '</div>' +
       '</div>' +

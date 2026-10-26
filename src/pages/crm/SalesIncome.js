@@ -155,7 +155,7 @@ export default async function SalesIncomePage(container) {
           <div class="page-actions">
             <select class="input" id="si-month" style="width:auto">${lastMonths(todayBangkok().slice(0, 7)).map(m => `<option value="${m}" ${m === month ? 'selected' : ''}>${monthLabel(m)}</option>`).join('')}</select>
             ${canSetTarget ? `<button class="btn btn-secondary btn-sm si-target" data-n="">🎯 ตั้งเป้า</button>` : ''}
-            <button class="btn btn-secondary btn-sm" id="si-export">📥 Export</button>
+            <button class="btn btn-secondary btn-sm" id="si-export">📥 ส่งออก</button>
           </div>
         </div>
         <div class="kpi-grid" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:16px">

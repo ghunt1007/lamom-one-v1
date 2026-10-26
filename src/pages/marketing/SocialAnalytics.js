@@ -57,7 +57,7 @@ export default async function SocialAnalyticsPage(container) {
             <div class="page-subtitle">วิเคราะห์ผล ${pub.length} Post ที่เผยแพร่จริง — ข้อมูลจริงจาก Social Hub</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-secondary" id="export-btn">📥 Export</button>
+            <button class="btn btn-secondary" id="export-btn">📥 ส่งออก</button>
             <button class="btn btn-primary" id="goto-hub-btn">📱 ไป Social Hub</button>
           </div>
         </div>

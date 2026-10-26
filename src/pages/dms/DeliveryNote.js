@@ -133,7 +133,7 @@ export default async function DeliveryNotePage(container) {
             <div class="page-subtitle">Vehicle Delivery Note — จัดการการส่งมอบรถ</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-secondary" id="export-btn">📥 Export</button>
+            <button class="btn btn-secondary" id="export-btn">📥 ส่งออก</button>
             <button class="btn btn-primary" id="add-dn-btn">+ สร้างใบส่งมอบ</button>
           </div>
         </div>

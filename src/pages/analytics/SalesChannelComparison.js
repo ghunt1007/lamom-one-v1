@@ -83,7 +83,7 @@ export default async function SalesChannelComparisonPage(container) {
             <div class="page-subtitle">วิเคราะห์ประสิทธิภาพแยกตามช่องทางขาย</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-secondary" id="scc-export">📥 Export</button>
+            <button class="btn btn-secondary" id="scc-export">📥 ส่งออก</button>
             <a class="btn btn-secondary" href="#" id="scc-setup">⚙️ ตั้งค่าช่องทางพนักงาน</a>
           </div>
         </div>

@@ -379,7 +379,7 @@ function openDocEditor(doc) {
           <div style="background:var(--surface-2);border-radius:8px;padding:8px 10px;font-family:monospace;font-size:0.7rem;word-break:break-all;margin-bottom:8px;color:var(--text-muted)">${shareUrl}</div>
           <div style="font-size:0.7rem;color:var(--warning);margin-bottom:14px">⚠️ ลิงก์นี้เป็นข้อมูลอ้างอิงภายในเท่านั้น — ระบบยังไม่มีหน้าเปิดดูสาธารณะจริง (เปิดลิงก์นี้จากภายนอกแอปจะไม่พบหน้าใดๆ) ห้ามส่งให้ลูกค้าเปิดดู</div>
           <div style="display:flex;gap:8px;justify-content:center">
-            <button class="btn btn-secondary" id="share-copy-btn">📋 Copy Link</button>
+            <button class="btn btn-secondary" id="share-copy-btn">📋 คัดลอกลิงก์</button>
           </div>
         </div>
       `

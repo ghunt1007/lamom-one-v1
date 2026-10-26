@@ -89,8 +89,8 @@ export default async function BankReconciliationPage(container) {
             </div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-secondary" id="import-btn">📥 Import Statement</button>
-            <button class="btn btn-primary" id="auto-match-btn">🤖 Auto-Match</button>
+            <button class="btn btn-secondary" id="import-btn">📥 นำเข้า Statement</button>
+            <button class="btn btn-primary" id="auto-match-btn">🤖 จับคู่อัตโนมัติ</button>
           </div>
         </div>
 

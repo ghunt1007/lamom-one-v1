@@ -67,7 +67,7 @@ export default async function VehicleReceivingPage(container) {
             <div class="page-subtitle">Vehicle Receiving — ติดตามการขนส่งและ PDI</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-secondary" id="export-btn">📥 Export</button>
+            <button class="btn btn-secondary" id="export-btn">📥 ส่งออก</button>
             <button class="btn btn-primary" id="add-btn">+ บันทึกรับรถ</button>
           </div>
         </div>

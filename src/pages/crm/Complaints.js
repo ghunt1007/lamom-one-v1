@@ -85,7 +85,7 @@ export default async function ComplaintsPage(container) {
             <div class="page-subtitle">จัดการเรื่องร้องเรียนและ Case ลูกค้า</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-secondary" id="cp-export">📥 Export</button>
+            <button class="btn btn-secondary" id="cp-export">📥 ส่งออก</button>
             <button class="btn btn-primary" id="new-cp-btn">➕ บันทึกเรื่องร้องเรียน</button>
           </div>
         </div>

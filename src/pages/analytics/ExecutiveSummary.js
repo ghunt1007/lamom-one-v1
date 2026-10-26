@@ -176,7 +176,7 @@ export default async function ExecutiveSummaryPage(container) {
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="share-btn">📤 ส่งให้เจ้าของ</button>
-            <button class="btn btn-primary" id="pdf-btn">📄 Export PDF</button>
+            <button class="btn btn-primary" id="pdf-btn">📄 ส่งออก PDF</button>
           </div>
         </div>
 
@@ -279,7 +279,7 @@ export default async function ExecutiveSummaryPage(container) {
             <div style="background:var(--surface-2);border-radius:8px;padding:10px;white-space:pre-line;font-size:0.72rem;margin-bottom:12px;color:var(--text-muted)">${text}</div>
             <div style="display:flex;gap:8px;justify-content:center">
               <button class="btn" id="exec-share-line" style="background:#06C755;color:#fff;border-color:#06C755">💚 แชร์ LINE</button>
-              <button class="btn btn-secondary" id="exec-copy-text">📋 Copy Text</button>
+              <button class="btn btn-secondary" id="exec-copy-text">📋 คัดลอกข้อความ</button>
             </div>
           </div>
         `

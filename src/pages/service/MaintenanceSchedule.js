@@ -78,7 +78,7 @@ export default async function MaintenanceSchedulePage(container) {
             <div class="page-subtitle">รายการเช็ค/เปลี่ยนตามระยะทาง-เวลา แยกตามยี่ห้อ/รุ่น พร้อมราคาอะไหล่+ค่าแรงต่อรายการ — ใช้อ้างอิงตอนเปิด Job Card</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-secondary" id="ms-export">📥 Export</button>
+            <button class="btn btn-secondary" id="ms-export">📥 ส่งออก</button>
             <button class="btn btn-primary" id="ms-add-btn">➕ เพิ่มระยะเช็ค</button>
           </div>
         </div>

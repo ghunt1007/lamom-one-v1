@@ -73,7 +73,7 @@ export default async function WhiteLabelPage(container) {
             <div class="page-subtitle">ปรับแต่ง Brand และ Theme${canEdit ? '' : ' · 🔒 ดูได้อย่างเดียว (เฉพาะเจ้าของโปรแกรมเท่านั้นที่แก้ไขได้)'}</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-secondary" id="wl-preview">👁 Preview</button>
+            <button class="btn btn-secondary" id="wl-preview">👁 ดูตัวอย่าง</button>
             ${canEdit
               ? `<button class="btn btn-primary" id="wl-save">💾 บันทึก</button>`
               : `<button class="btn btn-secondary" id="wl-save" disabled title="เฉพาะเจ้าของโปรแกรมเท่านั้นที่แก้ไขได้">🔒 บันทึก</button>`}

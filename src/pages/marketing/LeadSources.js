@@ -104,7 +104,7 @@ export default async function LeadSourcesPage(container) {
             <div class="page-subtitle">สรุปแหล่งที่มา Lead จาก ${campaigns.length} แคมเปญจริง — ข้อมูลจริงจาก Lead Generation</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-secondary" id="export-btn">📥 Export</button>
+            <button class="btn btn-secondary" id="export-btn">📥 ส่งออก</button>
             <button class="btn btn-primary" id="goto-leadgen-btn">🧲 จัดการแคมเปญ</button>
           </div>
         </div>

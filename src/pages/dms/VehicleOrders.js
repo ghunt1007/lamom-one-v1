@@ -303,7 +303,7 @@ export default async function VehicleOrdersPage(container) {
           </div>
         </div>
         <div class="page-actions">
-          <button class="btn btn-secondary btn-sm" id="order-export-btn">📥 Export</button>
+          <button class="btn btn-secondary btn-sm" id="order-export-btn">📥 ส่งออก</button>
           <button class="btn btn-primary" id="add-order-btn">➕ สั่งรถใหม่</button>
         </div>
       </div>

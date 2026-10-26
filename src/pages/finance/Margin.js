@@ -103,7 +103,7 @@ export default async function MarginPage(container) {
           </div>
         </div>
         <div class="page-actions">
-          <button class="btn btn-secondary btn-sm" id="margin-export">📥 Export</button>
+          <button class="btn btn-secondary btn-sm" id="margin-export">📥 ส่งออก</button>
         </div>
       </div>
 

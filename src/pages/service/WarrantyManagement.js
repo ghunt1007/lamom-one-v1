@@ -165,7 +165,7 @@ export default async function WarrantyManagementPage(container) {
             <div class="page-subtitle">จัดการรับประกันและการเคลมสินค้า</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-secondary" id="export-btn">📥 Export</button>
+            <button class="btn btn-secondary" id="export-btn">📥 ส่งออก</button>
             <button class="btn btn-primary" id="add-btn">+ เพิ่มรับประกัน</button>
           </div>
         </div>

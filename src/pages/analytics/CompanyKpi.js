@@ -190,7 +190,7 @@ export default async function CompanyKpiPage(container) {
             <select class="input" id="period-sel" style="width:140px">
               ${PERIODS.map(p => `<option value="${p}" ${period===p?'selected':''}>${p}</option>`).join('')}
             </select>
-            <button class="btn btn-secondary" id="export-btn">📥 Export</button>
+            <button class="btn btn-secondary" id="export-btn">📥 ส่งออก</button>
           </div>
         </div>
 

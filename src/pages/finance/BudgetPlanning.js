@@ -161,7 +161,7 @@ export default async function BudgetPlanningPage(container) {
               <button class="btn btn-sm ${viewMode==='annual'?'btn-primary':'btn-secondary'}" id="view-annual">📅 รายปี</button>
               <button class="btn btn-sm ${viewMode==='monthly'?'btn-primary':'btn-secondary'}" id="view-monthly">📆 รายเดือน</button>
             </div>
-            <button class="btn btn-secondary" id="export-btn">📥 Export</button>
+            <button class="btn btn-secondary" id="export-btn">📥 ส่งออก</button>
           </div>
         </div>
 

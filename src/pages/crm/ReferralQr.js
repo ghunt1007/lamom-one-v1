@@ -82,7 +82,7 @@ export default async function ReferralQrPage(container) {
               </div>
               <div style="font-size:0.7rem;text-align:center;color:var(--primary);margin-bottom:10px">${escHtml(sel.qrUrl)}</div>
               <div style="display:flex;gap:6px">
-                <button class="btn btn-secondary" id="copy-link" style="flex:1;font-size:0.74rem">📋 Copy Link</button>
+                <button class="btn btn-secondary" id="copy-link" style="flex:1;font-size:0.74rem">📋 คัดลอกลิงก์</button>
                 <button class="btn btn-primary" id="print-qr" style="flex:1;font-size:0.74rem">🖨 พิมพ์</button>
               </div>
             </div>

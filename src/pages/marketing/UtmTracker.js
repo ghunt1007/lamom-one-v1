@@ -43,7 +43,7 @@ export default async function UtmTrackerPage(container) {
             <span style="color:${convColor};font-weight:700">🔄 ${u.conv}%</span>
           </div>
         </div>
-        <button class="btn btn-xs btn-secondary copy-btn" data-id="${u.id}" style="font-size:0.68rem;flex-shrink:0">📋 Copy</button>
+        <button class="btn btn-xs btn-secondary copy-btn" data-id="${u.id}" style="font-size:0.68rem;flex-shrink:0">📋 คัดลอก</button>
       </div>
     </div>`
   }

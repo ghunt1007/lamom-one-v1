@@ -273,7 +273,7 @@ export default async function PartsPage(container) {
         </div>
         <div class="page-actions">
           <button class="btn btn-ghost btn-sm" id="low-toggle">⚠️ ใกล้หมด</button>
-          <button class="btn btn-secondary btn-sm" id="parts-export">📥 Export</button>
+          <button class="btn btn-secondary btn-sm" id="parts-export">📥 ส่งออก</button>
           <button class="btn btn-primary" id="add-part-btn">➕ เพิ่มอะไหล่</button>
         </div>
       </div>

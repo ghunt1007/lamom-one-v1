@@ -499,7 +499,7 @@ export default async function BookingsPage(container) {
           <div class="page-actions">
             <button class="btn btn-ghost btn-sm pa-more" id="bk-refresh">🔄 รีเฟรช</button>
             <button class="btn btn-ghost btn-sm pa-more" id="bk-eod">📊 สรุปวัน</button>
-            <button class="btn btn-ghost btn-sm pa-more" id="bk-export">📥 Export</button>
+            <button class="btn btn-ghost btn-sm pa-more" id="bk-export">📥 ส่งออก</button>
             ${canImportExcel ? `<button class="btn btn-ghost btn-sm pa-more" id="bk-import-excel-btn" title="นำเข้าใบจองจากไฟล์ Excel อื่น (ไฟล์ DATA Booking ใช้ปุ่มซิงก์ Sheet ได้เลย)">📤 นำเข้า Excel</button>` : ''}
             ${canFillDeposit ? `<button class="btn btn-ghost btn-sm pa-more" id="bk-fill-deepal-deposit-btn" title="เครื่องมือครั้งเดียว: เติมเงินจอง 4,000 ให้ใบจอง DEEPAL ที่ยังว่าง">🔧 เติมเงินจอง</button>` : ''}
             <button class="btn btn-ghost btn-sm pa-more-btn" type="button" title="เมนูเพิ่มเติม">⋯ อื่นๆ</button>

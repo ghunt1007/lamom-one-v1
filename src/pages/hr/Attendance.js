@@ -142,7 +142,7 @@ export default async function AttendancePage(container) {
             <div class="page-subtitle">ลงเวลาเข้า-ออกงาน</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-secondary" id="att-export">📥 Export</button>
+            <button class="btn btn-secondary" id="att-export">📥 ส่งออก</button>
           </div>
         </div>
 

@@ -47,7 +47,7 @@ export default async function WebhookBuilderPage(container) {
             <div class="page-subtitle">แจ้งระบบภายนอกอัตโนมัติเมื่อเกิด Event ในระบบ · ${webhooks.length} Webhooks · ${active} Active</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-secondary" id="test-all-btn">⚡ Test All</button>
+            <button class="btn btn-secondary" id="test-all-btn">⚡ ทดสอบทั้งหมด</button>
             ${canManage ? '<button class="btn btn-primary" id="new-btn">+ สร้าง Webhook</button>' : ''}
           </div>
         </div>
@@ -174,7 +174,7 @@ export default async function WebhookBuilderPage(container) {
         </div>
         <div style="display:flex;gap:6px;margin-top:10px">
           ${canManage ? `<button class="btn btn-xs ${w.active?'btn-secondary':'btn-primary'} toggle-btn" data-id="${w.id}">${w.active?'⏸ ปิด':'▶ เปิด'}</button>` : ''}
-          <button class="btn btn-xs btn-secondary test-btn" data-id="${w.id}">⚡ Test</button>
+          <button class="btn btn-xs btn-secondary test-btn" data-id="${w.id}">⚡ ทดสอบ</button>
           <button class="btn btn-xs btn-secondary detail-btn" data-id="${w.id}">${canManage?'⚙ แก้ไข':'🔍 ดูรายละเอียด'}</button>
           ${canManage ? `<button class="btn btn-xs btn-secondary del-btn" data-id="${w.id}" style="color:var(--danger)">🗑</button>` : ''}
         </div>

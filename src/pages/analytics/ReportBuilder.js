@@ -170,7 +170,7 @@ export default async function ReportBuilderPage(container) {
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="save-btn">💾 บันทึก</button>
-            <button class="btn btn-primary" id="run-btn">▶ Run Report</button>
+            <button class="btn btn-primary" id="run-btn">▶ สร้างรายงาน</button>
           </div>
         </div>
 

@@ -192,7 +192,7 @@ export default async function CommissionPage(container) {
           </div>
         </div>
         <div class="page-actions">
-          <button class="btn btn-secondary btn-sm" id="comm-export">📥 Export</button>
+          <button class="btn btn-secondary btn-sm" id="comm-export">📥 ส่งออก</button>
         </div>
       </div>
 

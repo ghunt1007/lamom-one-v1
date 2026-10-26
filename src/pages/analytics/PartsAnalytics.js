@@ -86,7 +86,7 @@ export default async function PartsAnalyticsPage(container) {
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="add-part-btn">➕ เพิ่มอะไหล่</button>
-            <button class="btn btn-primary" id="export-btn">📤 Export</button>
+            <button class="btn btn-primary" id="export-btn">📤 ส่งออก</button>
           </div>
         </div>
 

@@ -148,7 +148,7 @@ export default async function KpiManagementPage(container) {
             <select class="input" id="period-sel" style="width:140px">
               ${KPI_PERIODS.map(p => `<option value="${p}" ${period===p?'selected':''}>${p}</option>`).join('')}
             </select>
-            <button class="btn btn-secondary" id="kpi-export">📥 Export</button>
+            <button class="btn btn-secondary" id="kpi-export">📥 ส่งออก</button>
           </div>
         </div>
 
@@ -159,7 +159,7 @@ export default async function KpiManagementPage(container) {
 
         <!-- Tabs -->
         <div style="display:flex;gap:4px;margin-bottom:16px">
-          <button class="btn btn-sm ${tab==='overview'?'btn-primary':'btn-secondary'} tab-btn" data-t="overview">📊 Overview</button>
+          <button class="btn btn-sm ${tab==='overview'?'btn-primary':'btn-secondary'} tab-btn" data-t="overview">📊 ภาพรวม</button>
           <button class="btn btn-sm ${tab==='detail'?'btn-primary':'btn-secondary'} tab-btn" data-t="detail">📋 รายละเอียด</button>
         </div>
 

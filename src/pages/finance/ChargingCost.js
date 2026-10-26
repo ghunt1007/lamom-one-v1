@@ -93,7 +93,7 @@ export default async function ChargingCostPage(container) {
             <div class="page-subtitle">ต้นทุนค่าไฟชาร์จ — มิเตอร์ TOU (Peak ${RATE_PEAK} / Off-Peak ${RATE_OFFPEAK} บาท/หน่วย)</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-primary" id="export-btn">📤 Export</button>
+            <button class="btn btn-primary" id="export-btn">📤 ส่งออก</button>
           </div>
         </div>
 

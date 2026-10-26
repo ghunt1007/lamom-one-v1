@@ -164,7 +164,7 @@ export default async function PayrollPage(container) {
           </div>
           <div class="page-actions">
             <input type="month" class="input" id="pay-month" value="${selectedMonth}" style="width:160px">
-            <button class="btn btn-secondary" id="pay-export">📥 Export</button>
+            <button class="btn btn-secondary" id="pay-export">📥 ส่งออก</button>
             <button class="btn btn-primary" id="pay-all-btn" ${usingDemoStaff ? 'disabled title="ปิดใช้งาน — กำลังแสดงข้อมูลตัวอย่าง ยังไม่มีพนักงานจริง"' : ''}>✅ จ่ายทั้งหมด</button>
           </div>
         </div>

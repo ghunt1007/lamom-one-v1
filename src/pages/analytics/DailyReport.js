@@ -159,7 +159,7 @@ export default async function DailyReportPage(container) {
           <div class="page-actions">
             <button class="btn btn-secondary btn-xs" id="prev-day-btn">◀ เมื่อวาน</button>
             <button class="btn btn-secondary btn-xs" id="today-btn">วันนี้</button>
-            <button class="btn btn-primary" id="export-btn">📤 Export PDF</button>
+            <button class="btn btn-primary" id="export-btn">📤 ส่งออก PDF</button>
           </div>
         </div>
 

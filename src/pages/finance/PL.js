@@ -105,7 +105,7 @@ export default async function PLPage(container) {
               <button class="btn btn-sm ${viewMode==='quarter'?'btn-primary':'btn-secondary'}" data-vm="quarter">ราย Q</button>
               <button class="btn btn-sm ${viewMode==='year'?'btn-primary':'btn-secondary'}" data-vm="year">ทั้งปี</button>
             </div>
-            <button class="btn btn-secondary" id="pl-export">📥 Export</button>
+            <button class="btn btn-secondary" id="pl-export">📥 ส่งออก</button>
           </div>
         </div>
 

@@ -338,7 +338,7 @@ export default async function JobCardsPage(container) {
           </div>
         </div>
         <div class="page-actions">
-          <button class="btn btn-secondary btn-sm" id="job-export">📥 Export</button>
+          <button class="btn btn-secondary btn-sm" id="job-export">📥 ส่งออก</button>
           <button class="btn btn-primary" id="add-job-btn">➕ เปิด Job Card</button>
         </div>
       </div>

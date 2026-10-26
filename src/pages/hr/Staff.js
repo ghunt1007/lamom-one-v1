@@ -784,7 +784,7 @@ export default async function StaffPage(container) {
         </div>
         <div class="page-actions">
           ${canRunMigration ? `<button class="btn btn-secondary btn-sm" id="migrate-salary-btn" title="ย้ายเงินเดือนที่ยังฝังอยู่ใน staff doc เก่าไปเก็บที่ collection แยกต่างหาก">🔧 ย้ายข้อมูลเงินเดือน</button>` : ''}
-          <button class="btn btn-secondary btn-sm" id="staff-export">📥 Export</button>
+          <button class="btn btn-secondary btn-sm" id="staff-export">📥 ส่งออก</button>
           <button class="btn btn-primary" id="add-staff-btn">➕ เพิ่มพนักงาน</button>
         </div>
       </div>

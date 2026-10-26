@@ -100,7 +100,7 @@ export default async function ApiKeysPage(container) {
                   <td style="padding:8px 10px;font-size:0.72rem;color:var(--text-muted)">${timeAgo(k.lastUsed)}</td>
                   <td style="padding:8px 14px;text-align:right;white-space:nowrap">
                     ${k.active
-                      ? (canManage ? `<button class="btn btn-xs btn-danger revoke-btn" data-id="${k.id}">🚫 Revoke</button>` : '')
+                      ? (canManage ? `<button class="btn btn-xs btn-danger revoke-btn" data-id="${k.id}">🚫 ยกเลิกสิทธิ์</button>` : '')
                       : `<span class="badge badge-secondary" style="font-size:0.6rem">Revoked</span>`
                     }
                   </td>

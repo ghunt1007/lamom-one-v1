@@ -251,7 +251,7 @@ export default async function PipelinePage(container) {
         </div>
         <div class="page-actions">
           <button class="btn btn-secondary btn-sm" id="pl-ask-lami" title="ให้ LAMI เลือกดีลที่ควรปิดก่อน">🤖 ดีลไหนควรปิดก่อน</button>
-          <button class="btn btn-ghost btn-sm" id="pl-list-btn">📋 List View</button>
+          <button class="btn btn-ghost btn-sm" id="pl-list-btn">📋 แบบรายการ</button>
           <button class="btn btn-primary" id="pl-add-btn">➕ เพิ่มลูกค้า</button>
         </div>
       </div>

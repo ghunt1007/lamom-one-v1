@@ -87,7 +87,7 @@ export default async function LeadGenerationPage(container) {
             <div class="page-subtitle">แคมเปญสร้าง Lead — ติดตามผล ROI รายช่องทาง</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-secondary" id="export-btn">📥 Export</button>
+            <button class="btn btn-secondary" id="export-btn">📥 ส่งออก</button>
             <button class="btn btn-primary" id="add-campaign-btn">+ สร้างแคมเปญ</button>
           </div>
         </div>

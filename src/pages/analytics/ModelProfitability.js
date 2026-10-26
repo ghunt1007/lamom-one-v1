@@ -104,7 +104,7 @@ export default async function ModelProfitabilityPage(container) {
             <div class="page-subtitle">กำไรและ Margin แยกตามรุ่น · ${liveModels.length} รุ่น${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ยอดขาย/ต้นทุนจริง</span> <span style="color:var(--text-muted);font-size:0.68rem">(F&amp;I เป็นค่าประมาณ)</span>' : ''}</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-primary" id="export-btn">📤 Export</button>
+            <button class="btn btn-primary" id="export-btn">📤 ส่งออก</button>
           </div>
         </div>
 

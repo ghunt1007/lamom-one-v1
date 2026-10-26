@@ -116,7 +116,7 @@ export default async function SalesByModelPage(container) {
             <div class="page-subtitle">ยอดขายแยกตามรุ่นรถ — เปรียบเทียบรายเดือน${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-primary" id="export-btn">📤 Export</button>
+            <button class="btn btn-primary" id="export-btn">📤 ส่งออก</button>
           </div>
         </div>
 

@@ -99,7 +99,7 @@ export default async function AiInsightsPage(container) {
             <div class="page-subtitle">ข้อมูลเชิงลึกจาก AI — วิเคราะห์และแนะนำ</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-primary" id="refresh-insights-btn">🔄 Refresh</button>
+            <button class="btn btn-primary" id="refresh-insights-btn">🔄 รีเฟรช</button>
           </div>
         </div>
 

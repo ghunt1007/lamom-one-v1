@@ -89,7 +89,7 @@ export default async function ShowroomAppointmentPage(container) {
             <div class="page-subtitle">จัดการนัดหมายลูกค้าเข้าโชว์รูม</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-secondary" id="sa-export">📥 Export</button>
+            <button class="btn btn-secondary" id="sa-export">📥 ส่งออก</button>
             <button class="btn btn-primary" id="new-sa-btn">➕ นัดหมายใหม่</button>
           </div>
         </div>

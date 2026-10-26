@@ -51,7 +51,7 @@ export default async function PriceHistoryPage(container) {
             <div class="page-subtitle">ประวัติการเปลี่ยนราคาต่อรุ่น · Audit Trail · ${priceHistory.length} รายการ</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-secondary" id="export-btn">📥 Export</button>
+            <button class="btn btn-secondary" id="export-btn">📥 ส่งออก</button>
             <button class="btn btn-primary" id="add-btn">+ บันทึกราคาใหม่</button>
           </div>
         </div>

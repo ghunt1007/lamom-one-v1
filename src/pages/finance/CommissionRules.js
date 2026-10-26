@@ -190,7 +190,7 @@ export default async function CommissionRulesPage(container) {
             <div class="page-subtitle">ตั้งค่ากติกาคอมมิชชั่น + จำลองการคำนวณ${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-secondary btn-xs" id="reset-btn">↩ Reset</button>
+            <button class="btn btn-secondary btn-xs" id="reset-btn">↩ รีเซ็ต</button>
             <button class="btn btn-primary" id="add-rule-btn">+ เพิ่มกติกา</button>
           </div>
         </div>

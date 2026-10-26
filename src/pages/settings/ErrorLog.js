@@ -51,7 +51,7 @@ export default async function ErrorLogPage(container) {
             <div class="page-subtitle">Error ที่เกิดขึ้นจริงฝั่งผู้ใช้ — จับอัตโนมัติ ไม่ต้องรอลูกค้าแจ้ง</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-secondary" id="export-btn">📥 Export</button>
+            <button class="btn btn-secondary" id="export-btn">📥 ส่งออก</button>
             ${logs.length ? `<button class="btn btn-danger" id="clear-btn">🗑 ล้างทั้งหมด</button>` : ''}
           </div>
         </div>
