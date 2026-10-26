@@ -152,7 +152,7 @@ export default async function RecallTrackerPage(container) {
           <table style="width:100%;border-collapse:collapse;min-width:820px">
             <thead><tr style="border-bottom:2px solid var(--border);font-size:0.72rem;color:var(--text-muted)">
               <th style="padding:10px 12px;text-align:left">VIN / ทะเบียน</th>
-              <th>รุ่น</th><th>เจ้าของ</th><th>Recall</th>
+              <th>รุ่น</th><th>เจ้าของ</th><th>เรียกคืน</th>
               <th style="text-align:center">สถานะ</th><th></th>
             </tr></thead>
             <tbody>

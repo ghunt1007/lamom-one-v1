@@ -177,7 +177,7 @@ export default async function StockValuationPage(container) {
           <thead>
             <tr>
               <th>ID</th><th>รถ</th><th>สี / VIN</th><th>สาขา</th>
-              <th class="text-right">ต้นทุน</th><th class="text-right">ราคาขาย</th><th class="text-right">Margin</th><th class="text-right">%</th>
+              <th class="text-right">ต้นทุน</th><th class="text-right">ราคาขาย</th><th class="text-right">กำไร</th><th class="text-right">%</th>
               <th>วันในสต็อก</th><th>สถานะ</th>
             </tr>
           </thead>

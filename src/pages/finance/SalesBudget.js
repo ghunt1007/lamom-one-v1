@@ -214,9 +214,9 @@ export default async function SalesBudgetPage(container) {
           '<th style="min-width:70px">เดือน</th>' +
           '<th class="text-right" style="min-width:110px">เป้ายอดขาย</th>' +
           '<th class="text-right" style="min-width:110px">ยอดจริง</th>' +
-          '<th class="text-right" style="min-width:70px">Ach%</th>' +
+          '<th class="text-right" style="min-width:70px">ทำได้%</th>' +
           '<th class="text-right" style="min-width:80px">+/- (บาท)</th>' +
-          '<th style="min-width:100px">Progress</th>' +
+          '<th style="min-width:100px">ความคืบหน้า</th>' +
         '</tr></thead>' +
         '<tbody>' +
           MONTHS_TH.map((mo, m) => {
@@ -266,7 +266,7 @@ export default async function SalesBudgetPage(container) {
           '<th class="text-right" style="min-width:110px">ใช้จริง</th>' +
           '<th class="text-right" style="min-width:70px">%</th>' +
           '<th class="text-right" style="min-width:80px">คงเหลือ</th>' +
-          '<th style="min-width:100px">Progress</th>' +
+          '<th style="min-width:100px">ความคืบหน้า</th>' +
         '</tr></thead>' +
         '<tbody>' +
           MONTHS_TH.map((mo, m) => {
@@ -330,9 +330,9 @@ export default async function SalesBudgetPage(container) {
           '<th>เซลส์</th>' +
           '<th class="text-right">เป้าโดยประมาณ</th>' +
           '<th class="text-right">ยอดจริง</th>' +
-          '<th class="text-right">Achievement</th>' +
+          '<th class="text-right">ทำได้</th>' +
           '<th class="text-right">จำนวนคัน</th>' +
-          '<th class="text-right">Avg Deal</th>' +
+          '<th class="text-right">เฉลี่ย/ดีล</th>' +
           '<th>สัดส่วน</th>' +
         '</tr></thead>' +
         '<tbody>' +

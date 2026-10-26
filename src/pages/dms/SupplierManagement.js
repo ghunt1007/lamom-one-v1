@@ -146,7 +146,7 @@ export default async function SupplierManagementPage(container) {
 
       <div class="card" style="padding:0;overflow:hidden">
         <div class="table-wrap"><table class="table">
-          <thead><tr><th>ซัพพลายเออร์</th><th>หมวด</th><th>ผู้ติดต่อ</th><th>เทอม</th><th>วงเครดิต</th><th>ยอดรวม</th><th>Rating</th><th>สถานะ</th><th></th></tr></thead>
+          <thead><tr><th>ซัพพลายเออร์</th><th>หมวด</th><th>ผู้ติดต่อ</th><th>เทอม</th><th>วงเครดิต</th><th>ยอดรวม</th><th>คะแนน</th><th>สถานะ</th><th></th></tr></thead>
           <tbody>
             ${list.map(s => {
               const cat = SUPPLIER_CATS[s.category]

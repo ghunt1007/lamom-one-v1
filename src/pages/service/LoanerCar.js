@@ -153,7 +153,7 @@ export default async function LoanerCarPage(container) {
     const sorted = [...loans].sort((a, b) => String(b.loanDate || '').localeCompare(String(a.loanDate || '')))
     return `<div class="card" style="padding:0;overflow:hidden">
       <div class="table-wrap"><table class="table">
-        <thead><tr><th>ลูกค้า</th><th>รถสำรอง</th><th>Job Card</th><th>วันยืม</th><th>กำหนดคืน</th><th>สถานะ</th><th></th></tr></thead>
+        <thead><tr><th>ลูกค้า</th><th>รถสำรอง</th><th>ใบงาน</th><th>วันยืม</th><th>กำหนดคืน</th><th>สถานะ</th><th></th></tr></thead>
         <tbody>
           ${sorted.map(l => {
             const isOverdue = l.status === 'active' && l.returnDate < todayBangkok()

@@ -90,7 +90,7 @@ export default async function VehicleOrdersPage(container) {
       <table>
         <thead><tr>
           <th>เลขที่คำสั่ง</th><th>ยี่ห้อ/รุ่น</th><th>สี</th><th>จำนวน</th>
-          <th>ต้นทุน/คัน</th><th>มูลค่ารวม</th><th>สถานะ</th><th>วันรับคาด</th><th>Supplier</th><th></th>
+          <th>ต้นทุน/คัน</th><th>มูลค่ารวม</th><th>สถานะ</th><th>วันรับคาด</th><th>ผู้ขาย</th><th></th>
         </tr></thead>
         <tbody>${filtered.map(o => tableRow(o)).join('')}</tbody>
       </table>

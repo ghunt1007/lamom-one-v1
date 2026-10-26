@@ -154,7 +154,7 @@ export default async function B2BPortalPage(container) {
     return `
       <div class="card" style="padding:0;overflow:hidden">
         <div class="table-wrap"><table class="table">
-          <thead><tr><th>พาร์ทเนอร์</th><th>Deal</th><th class="text-right">คัน</th><th class="text-right">มูลค่า</th><th>สถานะ</th></tr></thead>
+          <thead><tr><th>พาร์ทเนอร์</th><th>ดีล</th><th class="text-right">คัน</th><th class="text-right">มูลค่า</th><th>สถานะ</th></tr></thead>
           <tbody>
             ${allDeals.map(d => {
               const st = DEAL_STATUS[d.status] || DEAL_STATUS.prospect

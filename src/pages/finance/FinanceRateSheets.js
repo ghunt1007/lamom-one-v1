@@ -145,7 +145,7 @@ export default async function FinanceRateSheetsPage(container) {
       <div class="table-wrap"><table>
         <thead><tr>
           <th>ธนาคาร</th><th>แคมเปญ</th><th>แบรนด์ / รุ่น</th><th>ปี / เดือน</th>
-          <th>ช่วงวันที่</th><th>เงื่อนไข</th><th>คอมไฟแนนซ์</th><th>Extra</th><th>Subsidy</th><th>สถานะ</th><th></th>
+          <th>ช่วงวันที่</th><th>เงื่อนไข</th><th>คอมไฟแนนซ์</th><th>เพิ่มเติม</th><th>เงินสนับสนุน</th><th>สถานะ</th><th></th>
         </tr></thead>
         <tbody>${filtered.map(s => tableRow(s)).join('')}</tbody>
       </table></div>

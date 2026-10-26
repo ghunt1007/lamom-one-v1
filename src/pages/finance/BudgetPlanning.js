@@ -305,7 +305,7 @@ export default async function BudgetPlanningPage(container) {
           <!-- Detailed table -->
           <div class="card" style="padding:0;overflow:hidden">
             <div class="table-wrap"><table class="table">
-              <thead><tr><th>รายการ</th><th class="text-right">Budget</th><th class="text-right">Actual</th><th class="text-right">+/-</th><th class="text-right">%</th></tr></thead>
+              <thead><tr><th>รายการ</th><th class="text-right">งบ</th><th class="text-right">จริง</th><th class="text-right">+/-</th><th class="text-right">%</th></tr></thead>
               <tbody>
                 ${Object.entries(CATEGORIES).map(([cat, catInfo]) => `
                   <tr style="background:var(--surface-2)">

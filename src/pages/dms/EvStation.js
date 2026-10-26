@@ -303,8 +303,8 @@ export default async function EvStationPage(container) {
                 <thead><tr style="border-bottom:2px solid var(--border);background:var(--surface-2)">
                   <th style="text-align:left;padding:10px;font-weight:600;color:var(--text-muted)">รุ่น/VIN</th>
                   <th style="text-align:left;padding:10px;font-weight:600;color:var(--text-muted)">เจ้าของ</th>
-                  <th style="text-align:left;padding:10px;font-weight:600;color:var(--text-muted)">Health</th>
-                  <th style="text-align:center;padding:10px;font-weight:600;color:var(--text-muted)">Cycles</th>
+                  <th style="text-align:left;padding:10px;font-weight:600;color:var(--text-muted)">สุขภาพแบต</th>
+                  <th style="text-align:center;padding:10px;font-weight:600;color:var(--text-muted)">รอบชาร์จ</th>
                   <th style="text-align:left;padding:10px;font-weight:600;color:var(--text-muted)">ตรวจล่าสุด</th>
                   <th style="padding:10px"></th>
                 </tr></thead>

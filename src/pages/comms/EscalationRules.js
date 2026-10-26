@@ -83,9 +83,9 @@ export default async function EscalationRulesPage(container) {
               <tr style="border-bottom:2px solid var(--border);background:var(--surface-2)">
                 <th style="text-align:left;padding:10px 10px;font-weight:600;color:var(--text-muted)">กฎ</th>
                 <th style="text-align:center;padding:10px 10px;font-weight:600;color:var(--text-muted)">หน่วงเวลา</th>
-                <th style="text-align:left;padding:10px 10px;font-weight:600;color:var(--text-muted)">Escalation Chain</th>
+                <th style="text-align:left;padding:10px 10px;font-weight:600;color:var(--text-muted)">ลำดับส่งต่อ</th>
                 <th style="text-align:center;padding:10px 10px;font-weight:600;color:var(--text-muted)">ช่องทาง</th>
-                <th style="text-align:center;padding:10px 10px;font-weight:600;color:var(--text-muted)">Triggered</th>
+                <th style="text-align:center;padding:10px 10px;font-weight:600;color:var(--text-muted)">ทำงานแล้ว</th>
                 <th style="text-align:center;padding:10px 10px;font-weight:600;color:var(--text-muted)">เปิด/ปิด</th>
                 <th style="padding:10px 10px"></th>
               </tr>

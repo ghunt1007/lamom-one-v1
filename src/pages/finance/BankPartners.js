@@ -198,7 +198,7 @@ export default async function BankPartnersPage(container) {
         body:`<div style="font-size:0.8rem">
           <table style="width:100%;border-collapse:collapse">
             <thead><tr style="color:var(--text-muted);font-size:0.7rem;border-bottom:1px solid var(--border)">
-              <th style="text-align:left;padding:6px">ธนาคาร</th><th style="text-align:right">Rate</th><th style="text-align:right">ปี</th><th style="text-align:right">Approval</th>
+              <th style="text-align:left;padding:6px">ธนาคาร</th><th style="text-align:right">Rate</th><th style="text-align:right">ปี</th><th style="text-align:right">อนุมัติ</th>
             </tr></thead>
             <tbody>${[...rated].sort((a,b)=>a.rate-b.rate).map(b=>`<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px">🏦 ${escHtml(b.bankName)}</td><td style="text-align:right;font-weight:700;color:var(--success)">${b.rate}%</td><td style="text-align:right">${b.maxYr||0}</td><td style="text-align:right">${b.approval||0}%</td></tr>`).join('')}</tbody>
           </table>

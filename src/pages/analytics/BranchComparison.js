@@ -121,7 +121,7 @@ export default async function BranchComparisonPage(container) {
                 <th style="padding:8px 10px;text-align:right">รายได้</th>
                 <th style="padding:8px 10px;text-align:right">บริการ</th>
                 <th style="padding:8px 10px;text-align:right">฿/พนักงาน</th>
-                <th style="padding:8px 10px;text-align:right">Leads</th>
+                <th style="padding:8px 10px;text-align:right">ลีด</th>
                 <th style="padding:8px 14px;text-align:right">CSAT</th>
               </tr>
             </thead>

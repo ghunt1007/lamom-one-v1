@@ -118,7 +118,7 @@ export default async function PartsAnalyticsPage(container) {
                 <th style="padding:8px 10px;text-align:right">ขาย 90 วัน</th>
                 <th style="padding:8px 10px;text-align:right">สต็อก</th>
                 <th style="padding:8px 10px;text-align:right">Turnover/เดือน</th>
-                <th style="padding:8px 10px;text-align:right">Margin</th>
+                <th style="padding:8px 10px;text-align:right">กำไร</th>
                 <th style="padding:8px 10px;text-align:right">ค้าง (วัน)</th>
                 <th style="padding:8px 14px">สถานะ</th>
                 <th style="padding:8px 14px"></th>

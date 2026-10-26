@@ -171,7 +171,7 @@ export default async function PartsOrderPage(container) {
         <div style="font-size:0.78rem;font-weight:700;margin-bottom:8px">รายการอะไหล่</div>
         <div class="card" style="padding:0;overflow:hidden">
           <div class="table-wrap"><table class="table">
-            <thead><tr><th>Part No.</th><th>รายการ</th><th>หมวด</th><th class="text-right">จำนวน</th><th class="text-right">ราคา/หน่วย</th><th class="text-right">รวม</th><th class="text-right">รับแล้ว</th></tr></thead>
+            <thead><tr><th>รหัสอะไหล่</th><th>รายการ</th><th>หมวด</th><th class="text-right">จำนวน</th><th class="text-right">ราคา/หน่วย</th><th class="text-right">รวม</th><th class="text-right">รับแล้ว</th></tr></thead>
             <tbody>
               ${o.items.map(i => `<tr>
                 <td style="font-family:monospace;font-size:0.78rem">${esc(i.partNo)}</td>

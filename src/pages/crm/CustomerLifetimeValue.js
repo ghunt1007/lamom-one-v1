@@ -118,8 +118,8 @@ export default async function CustomerLifetimeValuePage(container) {
             <thead><tr style="border-bottom:2px solid var(--border);font-size:0.72rem;color:var(--text-muted);text-align:left">
               <th style="padding:10px 12px">#</th><th>ลูกค้า</th>
               <th style="text-align:center">รถที่ซื้อ</th><th style="text-align:center">งานบริการ</th>
-              <th style="text-align:center">Referral</th><th style="text-align:center">โอกาสซื้อซ้ำ</th>
-              <th style="text-align:right">CLV</th><th style="text-align:center">Segment</th><th></th>
+              <th style="text-align:center">แนะนำ</th><th style="text-align:center">โอกาสซื้อซ้ำ</th>
+              <th style="text-align:right">CLV</th><th style="text-align:center">กลุ่ม</th><th></th>
             </tr></thead>
             <tbody>
               ${data.map((c, i) => {

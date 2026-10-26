@@ -200,7 +200,7 @@ export default async function CustomerLifecyclePage(container) {
             <thead>
               <tr style="border-bottom:1px solid var(--border);font-size:0.73rem;color:var(--text-muted)">
                 <th style="padding:8px 14px;text-align:left">ลูกค้า</th>
-                <th style="padding:8px 10px">Stage</th>
+                <th style="padding:8px 10px">ขั้น</th>
                 <th style="padding:8px 10px;text-align:right">ซื้อ</th>
                 <th style="padding:8px 10px;text-align:right">มูลค่า</th>
                 <th style="padding:8px 10px">ติดต่อล่าสุด</th>
