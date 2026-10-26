@@ -210,7 +210,7 @@ export default async function CustomerLoyaltyPage(container) {
                   <span style="font-size:1rem">${tier.icon}</span>
                   <span style="font-size:0.82rem;font-weight:700;color:${tier.color};margin-left:4px">${tier.label}</span>
                 </td>
-                <td style="font-size:0.78rem;color:var(--text-muted)">
+                <td style="font-size:0.78rem;color:var(--text-muted);min-width:150px">
                   ${ntInfo ? `อีก ${toNext.toLocaleString()} คะแนน → ${ntInfo.icon} ${ntInfo.label}` : '<span style="color:var(--primary)">สูงสุดแล้ว 🏆</span>'}
                 </td>
                 <td class="text-right" style="font-size:0.83rem;color:var(--success)">${formatCurrency(m.totalSpend)}</td>

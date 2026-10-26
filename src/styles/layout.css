@@ -556,7 +556,9 @@
   table.tbl-cards td:last-child { margin-left: auto; }
   /* การ์ดตัวเลขบนมือถือ: เตี้ยลง เห็นเนื้อหาหลักเร็วขึ้น */
   .kpi-grid { gap: 8px !important; }
-  .kpi-grid > .kpi-card { padding: 10px 12px; }
+  .kpi-grid > .kpi-card { padding: 10px 12px; container-type: inline-size; min-width: 0; }
+  /* เงินยาว (฿41,656,000) ย่อตามความกว้างการ์ดให้อยู่บรรทัดเดียว แทนการหักครึ่งตัวเลข */
+  .kpi-grid > .kpi-card .kpi-value { font-size: clamp(0.85rem, 14cqi, 1.3rem) !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }
 
 /* จอสัมผัส: ไม่ต้องโชว์คำแนะนำปุ่มคีย์บอร์ด (↑↓ / Esc) ในหน้าค้นหา */
@@ -650,3 +652,11 @@
 /* การ์ดสถิติที่กดกรองได้ (สต็อกรถ ฯลฯ) — การ์ดที่เลือกอยู่มีกรอบสีธีม */
 .sf-card.sf-on { border-color: var(--primary) !important; box-shadow: 0 0 0 1px var(--primary), 0 4px 18px color-mix(in srgb, var(--primary) 25%, transparent); }
 .sf-card:hover { transform: translateY(-1px); }
+
+/* ตารางกะ 7 วัน: มือถือเลื่อนซ้าย-ขวาได้ ช่องวันไม่บีบจนตัวหนังสือเรียงทีละตัว */
+.shift-grid { display: grid; grid-template-columns: 180px repeat(7, minmax(52px, 1fr)); }
+.shift-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+@media (max-width: 640px) {
+  .shift-inner { min-width: 480px; }
+  .shift-grid { grid-template-columns: 96px repeat(7, minmax(52px, 1fr)); }
+}

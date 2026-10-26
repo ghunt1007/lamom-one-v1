@@ -195,7 +195,15 @@ export function isShortCellText(t) {
 function keepShortCellsOnOneLine(ths, rows) {
   ths.forEach(th => { if (isShortCellText(th.textContent)) th.style.whiteSpace = 'nowrap' })
   rows.forEach(tr => [...tr.children].forEach(td => {
-    if (td.style.whiteSpace || td.querySelector('div,p,br,ul,table')) return
+    if (td.style.whiteSpace) return
+    // ช่องที่มีหลายบรรทัด (ชื่อ + ตำแหน่ง ฯลฯ) — แต่ละบรรทัดสั้นๆ ไม่หักกลางคำ แต่ยังขึ้นบรรทัดใหม่ระหว่างบรรทัดได้
+    if (td.querySelector('div,p,br,ul,table')) {
+      if (td.querySelector('table,ul,input,select,textarea,button')) return
+      td.querySelectorAll('div,p,span').forEach(el => {
+        if (!el.children.length && !el.style.whiteSpace && isShortCellText(el.textContent)) el.style.whiteSpace = 'nowrap'
+      })
+      return
+    }
     if (isShortCellText(td.textContent)) td.style.whiteSpace = 'nowrap'
   }))
 }

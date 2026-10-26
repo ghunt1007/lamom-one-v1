@@ -7,6 +7,11 @@ import { getState } from '../../core/store.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { getVisibilityScope, scopeIncludesRecord } from '../../core/hierarchy.js'
 import { t as tr } from '../../i18n/index.js'
+import { NAV } from '../../data/navMenu.js'
+import { getModuleForPath, hasModuleAccess } from '../../core/permissions.js'
+import { isProgramOwner } from '../../core/hierarchy.js'
+import { detectLeadIntent, matchMenuPages } from '../../utils/searchIntent.js'
+import { buildSimpleNav, readVisits } from '../../utils/navSimple.js'
 // (v1.0.354) t เป็นชื่อ parameter ของ SOURCES/tasks item ในไฟล์นี้อยู่แล้ว (เช่น t => t.title) เปลี่ยนชื่อ
 // import เป็น tr กันชนกับ t local variable ในหลายจุดของไฟล์นี้
 
@@ -76,7 +81,7 @@ const PAGES = [
   ['กำไรขาดทุน P&L', '/finance/pl', '📑', 'P&L', '损益表'],
   ['โปรโมชั่นส่งเสริมการขาย', '/marketing/promotions', '🎁', 'Promotions', '促销活动'],
   ['อีเว้นท์', '/marketing/events', '🎪', 'Events', '活动'],
-  ['Action Plan ขาย', '/finance/target-actual', '🗂️', 'Sales Action Plan', '销售行动计划'],
+  ['Action Plan ขาย', '/crm/action-plan', '🗂️', 'Sales Action Plan', '销售行动计划'],
   ['พยากรณ์ยอดขาย', '/analytics/forecast', '🔮', 'Sales Forecast', '销售预测'],
   ['พนักงาน', '/hr/staff', '🧑‍💼', 'Staff', '员工'],
   ['ตรวจรถก่อนส่งมอบ', '/service/inspection', '✅', 'Pre-Delivery Inspection', '交车前检查'],
@@ -94,6 +99,18 @@ function pageLabel(p) {
 }
 
 function norm(s) { return String(s || '').toLowerCase() }
+
+// เมนูที่ผู้ใช้คนนี้มีสิทธิ์เปิด (กติกาเดียวกับแถบเมนูซ้าย)
+function visibleMenu() {
+  const u = getState('user') || {}
+  const owner = isProgramOwner()
+  return NAV.map(g => ({ ...g, items: g.items.filter(i => hasModuleAccess(u.role, getModuleForPath(i.path)?.key, u.extraGrants) && (!i.programOwnerOnly || owner)) }))
+    .filter(g => g.items.length)
+}
+function navLabel(i) {
+  const lang = getState('language') || 'th'
+  return (lang === 'en' ? i.labelEn : lang === 'zh' ? i.labelZh : null) || i.label
+}
 
 let resultsCache = []
 let activeIdx = 0
@@ -157,10 +174,16 @@ export function openGlobalSearch() {
 
     const results = []
 
-    // หน้า/เมนู — ค้นหาเทียบกับชื่อภาษาไทย (source of truth) เสมอ แต่แสดงผลตามภาษาที่เลือกไว้
+    // หน้า/เมนู — ค้นจากเมนูทั้งหมดของแอป (เมนูเดียวกับแถบซ้าย มีคำไทยช่วยค้น เช่น "ทดลองขับ" เจอ Test Drive)
+    // + ชื่อเรียกไทยเพิ่มเติมใน PAGES · ไม่ซ้ำหน้าเดิม
+    const seenRoutes = new Set()
+    const menu = visibleMenu()
+    const allowed = new Set(menu.flatMap(g => g.items.map(i => i.path)))
+    matchMenuPages(menu, qRaw, 8).forEach(i => { seenRoutes.add(i.path); results.push({ type: 'page', icon: i.icon, group: tr('grpMenu'), title: navLabel(i), sub: i.group + ' · ' + i.path, route: i.path }) })
     PAGES.forEach(p => {
       const [label, route, icon] = p
-      if (matchAll(label)) results.push({ type: 'page', icon, group: tr('grpMenu'), title: pageLabel(p), sub: route, route })
+      if (seenRoutes.has(route) || (allowed.size && !allowed.has(route) && route !== '/hr/staff')) return
+      if (matchAll(label)) { seenRoutes.add(route); results.push({ type: 'page', icon, group: tr('grpMenu'), title: pageLabel(p), sub: route, route }) }
     })
 
     // ข้อมูลในแต่ละ collection — ดึงขนานกันทุก collection พร้อมกัน
@@ -181,6 +204,12 @@ export function openGlobalSearch() {
       })
     })
 
+    // พิมพ์ "ชื่อ + เบอร์" หรือ "เพิ่มลีด ..." = เพิ่มลูกค้าใหม่ได้ทันที (ถ้าเบอร์นี้ยังไม่มีในระบบ)
+    const custIdx = SOURCES.findIndex(s => s.col === 'customers')
+    const knownPhones = new Set((fetched[custIdx] || []).map(c => String(c.phone || '').replace(/\D/g, '')).filter(Boolean))
+    const lead = detectLeadIntent(qRaw, d => knownPhones.has(d))
+    if (lead) results.unshift({ type: 'lead', icon: '➕', group: 'คำสั่ง', title: 'เพิ่มเป็นลูกค้าใหม่: ' + lead.text, sub: 'เปิดฟอร์ม Lead แล้วกรอกชื่อ เบอร์ รุ่น จากที่พิมพ์ให้เลย', lead: lead.text, leadName: lead.name })
+
     resultsCache = results.slice(0, 60)
     // พิมพ์เป็นคำถามได้เลย — แถวสุดท้ายส่งคำถามไปให้ LAMI ตอบจากข้อมูลจริง (ถ้าไม่เจออะไรเลยจะเป็นแถวแรก)
     if (qRaw.trim().length >= 2) resultsCache.push({ type: 'ai', icon: '🤖', group: 'ถาม AI', title: 'ถาม LAMI: ' + qRaw.trim(), sub: 'ให้ AI ตอบจากข้อมูลในระบบ', route: '/ai/ask?q=' + encodeURIComponent(qRaw.trim()) })
@@ -189,12 +218,14 @@ export function openGlobalSearch() {
   }
 
   function renderEmpty() {
-    resultsCache = []
+    // ยังไม่พิมพ์: หน้าที่ใช้บ่อย + เมนูหลัก (ชุดเดียวกับเมนูซ้ายแบบเรียบง่าย) และคำแนะนำว่าพิมพ์อะไรได้บ้าง
+    const items = buildSimpleNav(visibleMenu(), readVisits()).flatMap(g => g.items).slice(0, 10)
+    resultsCache = items.map(i => ({ type: 'page', icon: i.icon, title: navLabel(i), sub: i.path, route: i.path }))
     resBox.innerHTML =
-      '<div style="padding:4px"><div style="font-size:0.7rem;color:var(--text-muted);padding:6px 10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">' + tr('goToPage') + '</div>' +
-      PAGES.slice(0, 10).map((p, i) => rowHtml({ icon: p[2], title: pageLabel(p), sub: p[1], group: tr('grpMenu') }, i)).join('') +
+      '<div style="padding:4px"><div style="font-size:0.72rem;color:var(--text-muted);padding:6px 10px 8px;line-height:1.6">💡 พิมพ์ชื่อ/เบอร์ลูกค้า เลขจอง รุ่นรถ ชื่อเมนู · พิมพ์ "ชื่อ + เบอร์" เพื่อเพิ่มลูกค้าใหม่ · หรือพิมพ์คำถามให้ LAMI ตอบ</div>' +
+      '<div style="font-size:0.7rem;color:var(--text-muted);padding:6px 10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">' + tr('goToPage') + '</div>' +
+      resultsCache.map((r, i) => rowHtml(r, i)).join('') +
       '</div>'
-    resultsCache = PAGES.slice(0, 10).map(p => ({ type: 'page', icon: p[2], title: pageLabel(p), sub: p[1], route: p[1] }))
     activeIdx = 0
     bindRows()
   }
@@ -257,6 +288,7 @@ export function openGlobalSearch() {
     const r = resultsCache[activeIdx]
     if (!r) return
     close()
+    if (r.type === 'lead') { import('../../utils/quickLead.js').then(m => m.openQuickLead({ pasteText: r.lead, name: r.leadName })); return }
     navigate(r.route)
   }
 

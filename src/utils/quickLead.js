@@ -105,12 +105,12 @@ function offerFirstReply(c, me) {
   })
 }
 
-export function openQuickLead({ onFull } = {}) {
+export function openQuickLead({ onFull, pasteText = '', name = '' } = {}) {
   const me = getState('user') || {}
   let source = 'walk-in'
   let existing = null
   // โหลดลูกค้าล่าสุดไว้เช็คซ้ำ (ไม่บล็อกการเปิดฟอร์ม — ถ้าโหลดไม่ทันก็บันทึกได้ตามปกติ)
-  listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 1000).then(r => {
+  const loaded = listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 1000).then(r => {
     existing = r
     // รุ่นที่ลูกค้าสนใจบ่อยที่สุด → ตัวเลือกให้กดแทนพิมพ์เอง (พิมพ์รุ่นอื่นได้ตามเดิม)
     const dl = document.getElementById('ql-models')
@@ -171,6 +171,15 @@ export function openQuickLead({ onFull } = {}) {
   })
 
   let pastedNote = ''
+  // เปิดจากช่องค้นหา Ctrl+K พร้อมข้อความ ("สมชาย 081... สนใจ S07") → วางให้แล้วกด "กรอกให้" อัตโนมัติ
+  // รอรายชื่อรุ่นรถโหลดก่อน (ไม่เกิน 1.5 วิ) จะได้จับรุ่นจากข้อความได้
+  if (pasteText) Promise.race([loaded, new Promise(r => setTimeout(r, 1500))]).finally(() => {
+    if (!el.isConnected) return
+    $('ql-paste-box').open = true
+    $('ql-paste').value = pasteText
+    if (name && !$('ql-name').value) $('ql-name').value = name
+    $('ql-fill').click()
+  })
   $('ql-fill').addEventListener('click', async () => {
     const text = $('ql-paste').value.trim()
     if (!text) { $('ql-paste').focus(); return }
