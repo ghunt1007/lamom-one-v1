@@ -2,7 +2,7 @@
  * Appointment Rescheduler AI — AI จัดตารางนัดใหม่อัตโนมัติเมื่อมีการยกเลิก
  * Route: /service/reschedule-ai
  */
-import { formatDate } from '../../utils/format.js'
+import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
@@ -218,7 +218,7 @@ export default async function RescheduleAiPage(container) {
         <div><label style="font-size:0.72rem;color:var(--text-muted)">บริการ</label>
           <input class="input" id="na-service" style="width:100%;margin-top:4px"></div>
         <div><label style="font-size:0.72rem;color:var(--text-muted)">วันที่</label>
-          <input class="input" id="na-date" type="date" value="${new Date().toISOString().slice(0,10)}" style="width:100%;margin-top:4px"></div>
+          <input class="input" id="na-date" type="date" value="${todayBangkok()}" style="width:100%;margin-top:4px"></div>
         <div><label style="font-size:0.72rem;color:var(--text-muted)">เวลา</label>
           <select class="input" id="na-slot" style="width:100%;margin-top:4px">${SLOTS.map(s=>`<option>${s}</option>`).join('')}</select></div>
         <div><label style="font-size:0.72rem;color:var(--text-muted)">Bay</label>

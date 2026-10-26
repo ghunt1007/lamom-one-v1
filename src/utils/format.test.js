@@ -146,3 +146,13 @@ describe('fullName', () => {
     expect(fullName({ firstName: 'สมชาย' })).toBe('สมชาย')
   })
 })
+
+import { monthBangkok } from './format.js'
+describe('monthBangkok', () => {
+  it('returns the Thai month with an offset across year ends', () => {
+    expect(monthBangkok(0, '2026-10-01')).toBe('2026-10')
+    expect(monthBangkok(-1, '2026-10-31')).toBe('2026-09')
+    expect(monthBangkok(-1, '2026-01-15')).toBe('2025-12')
+    expect(monthBangkok(2, '2026-11-30')).toBe('2027-01')
+  })
+})
