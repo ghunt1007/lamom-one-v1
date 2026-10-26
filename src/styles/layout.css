@@ -602,3 +602,8 @@
   .fu-main { flex: 1 1 100% !important; }
   .fu-side { flex-direction: row !important; width: 100%; justify-content: space-between; align-items: center !important; }
 }
+
+/* หน้าแรกบนมือถือ: แถบ SYSTEM ONLINE + นาฬิกาเป็นของตกแต่ง กินพื้นที่ครึ่งจอแรก → ซ่อนบนจอเล็ก (ตัวเลขเดียวกันอยู่ในการ์ดด้านล่างแล้ว) */
+@media (max-width: 640px) { .dash-status-strip { display: none !important; } }
+/* ลายน้ำของธีมมุมขวาล่าง บนมือถือโผล่เป็นวงกลมครึ่งๆ ข้างแถบเมนูล่าง ดูเหมือนปุ่มที่กดไม่ได้ → ซ่อนบนจอเล็ก */
+@media (max-width: 640px) { body::after { display: none; } }

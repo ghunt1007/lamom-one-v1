@@ -199,7 +199,8 @@ export default async function AiAssistantChatPage(container) {
       ['📊', 'ยอดขายเดือนนี้', 'สรุปยอดและกำไรเดือนนี้', 'สรุปยอดขายและกำไรเดือนนี้ให้หน่อย เทียบกับที่ควรเป็น และควรเร่งอะไร'],
       ['🔥', 'Hot Lead', welcomeStats.hot ? `ตอนนี้มี ${welcomeStats.hot} ราย ควรตามใครก่อน` : 'ลูกค้าที่สนใจมากตอนนี้', 'มี Hot Lead กี่ราย และควรตามใครก่อน?'],
     ]
-    return `<div style="margin:auto;max-width:640px;width:100%;text-align:center;padding:16px 0">
+    // margin:0 auto (ไม่ใช่ margin:auto) — ในกล่อง flex ที่เลื่อนได้ margin บนแบบ auto ทำให้หัวข้อต้อนรับโดนตัดหายเมื่อจอเตี้ย
+    return `<div style="margin:0 auto;max-width:640px;width:100%;text-align:center;padding:16px 0">
       <div style="width:64px;height:64px;margin:0 auto 10px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--success));display:flex;align-items:center;justify-content:center;font-size:2rem;box-shadow:0 8px 30px color-mix(in srgb, var(--primary) 40%, transparent)">🤖</div>
       <div style="font-size:1.25rem;font-weight:800">สวัสดีค่ะ${name ? ` คุณ${esc(name)}` : ''} วันนี้ให้ LAMI ช่วยอะไรดีคะ</div>
       <div style="font-size:0.8rem;color:var(--text-muted);margin:4px 0 16px">LAMI ตอบจากข้อมูลจริงในระบบ ทั้งยอดขาย ลูกค้า งานค้างของคุณ และอื่นๆ</div>
@@ -246,8 +247,8 @@ export default async function AiAssistantChatPage(container) {
           </div>
         </div>
 
-        <!-- Category chips -->
-        <div style="display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:8px 0;padding-bottom:8px;border-bottom:1px solid var(--border)">
+        <!-- Category chips — ตอนยังไม่เริ่มคุย การ์ดต้อนรับมีคำถามชุดเดียวกันอยู่แล้ว จึงโชว์แถบนี้หลังเริ่มคุยเท่านั้น -->
+        <div style="${messages.some(m => m.role === 'user') || waiting ? '' : 'display:none !important;'}display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:8px 0;padding-bottom:8px;border-bottom:1px solid var(--border)">
           ${CATEGORIES.map(c => `<button class="btn btn-xs btn-secondary cat-btn" style="flex-shrink:0" data-q="${esc(c.q)}">${c.label}</button>`).join('')}
         </div>
 
@@ -259,7 +260,7 @@ export default async function AiAssistantChatPage(container) {
 
         <!-- Input bar -->
         <div style="padding:10px 0;border-top:1px solid var(--border);display:flex;gap:8px">
-          <input class="input" id="chat-input" placeholder="พิมพ์คำถาม เช่น ยอดขายวันนี้ / Hot Lead / กำไรเดือนนี้..." style="flex:1" ${waiting?'disabled':''}>
+          <input class="input" id="chat-input" placeholder="ถามหรือสั่ง LAMI ได้เลย…" title="เช่น ยอดขายวันนี้ / Hot Lead / นัดลองขับสมชายพรุ่งนี้บ่าย 2" style="flex:1" ${waiting?'disabled':''}>
           ${hasMic ? `<button class="btn btn-secondary" id="mic-btn" ${waiting?'disabled':''} title="พูดคำถาม (ภาษาไทย)" style="flex-shrink:0">🎤</button>` : ''}
           <button class="btn btn-primary" id="send-btn" ${waiting?'disabled':''} style="white-space:nowrap">📤 ส่ง</button>
         </div>
