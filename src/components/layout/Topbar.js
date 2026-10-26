@@ -4,6 +4,8 @@ import { openNotifPanel } from './NotifPanel.js'
 import { openGlobalSearch } from './GlobalSearch.js'
 import { listDocs, seedDemoData } from '../../core/db.js'
 import { t, LANGUAGES } from '../../i18n/index.js'
+import { NAV } from '../../data/navMenu.js'
+import { breadcrumbFor } from '../../utils/breadcrumb.js'
 
 export async function refreshUnreadCount() {
   try {
@@ -11,46 +13,6 @@ export async function refreshUnreadCount() {
     const notifs = await listDocs('notifications', [], 'createdAt', 'desc', 50)
     setState('unreadCount', notifs.filter(n => !n.read).length)
   } catch { /* เงียบไว้ — จุดแจ้งเตือนแค่ไม่อัปเดต ไม่กระทบส่วนอื่น */ }
-}
-
-const BREADCRUMBS = {
-  '/': 'Dashboard',
-  '/crm': 'CRM',
-  '/crm/leads': 'CRM / Lead',
-  '/crm/pipeline': 'CRM / Pipeline',
-  '/crm/customers': 'CRM / ลูกค้า',
-  '/crm/bookings': 'CRM / จองรถ',
-  '/dms': 'DMS',
-  '/dms/stock': 'DMS / สต็อกรถ',
-  '/dms/orders': 'DMS / สั่งรถใหม่',
-  '/dms/pdi': 'DMS / PDI',
-  '/service': 'Service',
-  '/service/jobs': 'Service / Job Card',
-  '/service/parts': 'Service / อะไหล่',
-  '/finance': 'Finance',
-  '/finance/margin': 'Finance / Margin',
-  '/finance/commission': 'Finance / Commission',
-  '/crm/sales-income': 'CRM / รายได้รายเซลส์',
-  '/crm/my-day': 'CRM / งานของฉันวันนี้',
-  '/marketing': 'Marketing',
-  '/hr': 'HR',
-  '/training': 'Training',
-  '/analytics': 'Analytics',
-  '/gamification': 'Gamification',
-  '/settings': 'ตั้งค่า',
-}
-
-// (v1.0.353) แปลเฉพาะส่วนที่เป็นภาษาไทยล้วนใน breadcrumb ด้านบน — ส่วนที่เป็นภาษาอังกฤษอยู่แล้วไม่ต้องแปล
-const BREADCRUMB_TH_PART = {
-  'ลูกค้า': { en: 'Customers', zh: '客户' },
-  'จองรถ': { en: 'Bookings', zh: '订车' },
-  'สต็อกรถ': { en: 'Stock', zh: '库存' },
-  'สั่งรถใหม่': { en: 'New Orders', zh: '新车订购' },
-  'อะไหล่': { en: 'Parts', zh: '配件' },
-  'ตั้งค่า': { en: 'Settings', zh: '设置' },
-}
-function translateBreadcrumbPart(part, lang) {
-  return BREADCRUMB_TH_PART[part]?.[lang] || part
 }
 
 export function Topbar(container) {
@@ -61,7 +23,7 @@ export function Topbar(container) {
     const collapsed = getState('sidebarCollapsed')
     const route = getState('currentRoute')
     const lang = getState('language') || 'th'
-    const crumbs = (BREADCRUMBS[route] || '').split(' / ').map(c => translateBreadcrumbPart(c, lang))
+    const crumbs = breadcrumbFor(NAV, route, lang)
     const curLangInfo = LANGUAGES.find(l => l.id === lang) || LANGUAGES[0]
 
     const html = `
