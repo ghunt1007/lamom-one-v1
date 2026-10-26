@@ -171,7 +171,7 @@ export default async function CustomerLifecyclePage(container) {
 
         <!-- Funnel visualization -->
         <div class="card" style="padding:14px;margin-bottom:14px">
-          <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">🔄 Lifecycle Funnel</div>
+          <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">🔄 ลำดับช่วงชีวิตลูกค้า</div>
           <div style="display:flex;flex-direction:column;gap:6px">
             ${funnel.map(f => {
               const ls = LIFECYCLE_STAGES[f.stage]

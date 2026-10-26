@@ -197,7 +197,7 @@ export default async function CompanyKpiPage(container) {
         <!-- Overall Score -->
         <div style="display:grid;grid-template-columns:280px 1fr;gap:16px;margin-bottom:20px;align-items:start">
           <div class="card" style="padding:20px;text-align:center">
-            <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">Overall Score</div>
+            <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">คะแนนรวม</div>
             <div style="font-size:3.5rem;font-weight:900;color:${overall==null?'var(--text-muted)':overall>=90?'var(--success)':overall>=70?'var(--warning)':'var(--danger)'};line-height:1">${overall ?? '—'}</div>
             <div style="font-size:0.75rem;color:var(--text-muted)">${overall==null ? 'ยังไม่มีข้อมูลจริงในช่วงนี้' : '/100 (เฉพาะหมวดข้อมูลจริง)'}</div>
             <div style="margin:10px 0">

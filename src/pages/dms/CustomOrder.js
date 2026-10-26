@@ -156,7 +156,7 @@ export default async function CustomOrderPage(container) {
       <div style="font-size:0.78rem;font-weight:700;margin-bottom:6px">📨 ส่งต่อแผนกที่เกี่ยวข้อง</div>
       <div class="card" style="padding:10px 14px;background:var(--surface-2);margin-bottom:14px">${deptChecklist(o)}</div>
 
-      <div style="font-size:0.78rem;font-weight:700;margin-bottom:6px">📋 Purchase Order (PO)</div>
+      <div style="font-size:0.78rem;font-weight:700;margin-bottom:6px">📋 ใบสั่งซื้อ (PO)</div>
       <div class="card" style="padding:12px;background:var(--surface-2);margin-bottom:14px">
         ${o.poNo ? `
           <table class="kv" style="width:100%;font-size:0.78rem">

@@ -94,7 +94,7 @@ export default async function QualityCompliancePage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">📋 Quality & Compliance</div>
-            <div class="page-subtitle">Audit Management & PDPA Compliance</div>
+            <div class="page-subtitle">ตรวจสอบคุณภาพและ PDPA</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="new-audit-btn">➕ Audit ใหม่</button>

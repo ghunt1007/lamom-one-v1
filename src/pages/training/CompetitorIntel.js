@@ -44,7 +44,7 @@ export default async function CompetitorIntelPage(container) {
 
         <!-- Quick Compare -->
         <div class="card" style="padding:14px;margin-bottom:14px">
-          <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">⚖️ Quick Compare</div>
+          <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">⚖️ เทียบเร็ว</div>
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
             <select class="input" id="cmpA" style="flex:1;min-width:140px">${MODELS_DATA.map(m=>`<option ${m.model===compareA?'selected':''}>${m.model}</option>`).join('')}</select>
             <span style="color:var(--text-muted);font-weight:700">VS</span>

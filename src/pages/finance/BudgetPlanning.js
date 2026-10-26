@@ -347,7 +347,7 @@ export default async function BudgetPlanningPage(container) {
 
             <!-- Waterfall chart (simple) -->
             <div class="card" style="padding:16px">
-              <div style="font-weight:700;font-size:0.85rem;margin-bottom:10px">📈 Profit Waterfall</div>
+              <div style="font-weight:700;font-size:0.85rem;margin-bottom:10px">📈 ที่มาของกำไร</div>
               ${[['รายได้', revA, 'success'],['ต้นทุน', -cogsA, 'warning'],['ค่าใช้จ่าย', -opexA, 'danger'],['Net Profit', npA, npA>=0?'success':'danger']].map(([label, val, color]) => {
                 const maxVal = revA || 1
                 const pct = Math.abs(Math.round(val / maxVal * 100))

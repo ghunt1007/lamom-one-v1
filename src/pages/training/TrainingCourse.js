@@ -60,7 +60,7 @@ export default async function TrainingCoursePage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🎓 หลักสูตรอบรม</div>
-            <div class="page-subtitle">Training Course Management</div>
+            <div class="page-subtitle">จัดการหลักสูตรอบรม</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="add-course-btn">+ เพิ่มหลักสูตร</button>

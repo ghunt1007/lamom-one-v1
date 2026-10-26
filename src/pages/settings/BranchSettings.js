@@ -147,7 +147,7 @@ export default async function BranchSettingsPage(container) {
     return `
       <div style="max-width:600px;display:flex;flex-direction:column;gap:12px">
         <div class="card" style="padding:16px">
-          <div style="font-weight:700;margin-bottom:4px">🔒 PDPA Settings</div>
+          <div style="font-weight:700;margin-bottom:4px">🔒 ตั้งค่า PDPA</div>
           <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:10px">ข้อความอธิบายนโยบายองค์กรเท่านั้น ไม่ใช่ค่าที่ตั้งค่า/แก้ไขได้จากหน้านี้</div>
           ${[
             ['เก็บข้อมูลลูกค้าพร้อมคำยินยอม', true],
@@ -164,7 +164,7 @@ export default async function BranchSettingsPage(container) {
           `).join('')}
         </div>
         <div class="card hub-link-card" id="go-data-retention" style="padding:16px;cursor:pointer;transition:transform .15s">
-          <div style="font-weight:700;margin-bottom:4px">📋 Data Retention Policy</div>
+          <div style="font-weight:700;margin-bottom:4px">📋 นโยบายเก็บรักษาข้อมูล</div>
           <div style="font-size:0.78rem;color:var(--text-muted)">การกำหนดอายุการเก็บข้อมูล/ลบข้อมูลเก่าจริง ย้ายไปอยู่ที่หน้า Data Retention Policy แล้ว (เชื่อม Firestore จริง ตรวจสอบก่อนลบทุกครั้ง) — กดเพื่อไปที่หน้านั้น →</div>
         </div>
       </div>

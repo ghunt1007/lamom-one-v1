@@ -44,7 +44,7 @@ export default function SettingsPage(container) {
 
       <!-- Appearance -->
       <div class="card mb-4" style="padding:20px">
-        <div style="font-weight:600;margin-bottom:16px">🎨 Appearance</div>
+        <div style="font-weight:600;margin-bottom:16px">🎨 หน้าตา</div>
         <div style="margin-bottom:14px">
           <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:8px">Theme สี</div>
           <button class="btn btn-secondary btn-sm" id="open-theme-picker-btn">🎨 เลือก Theme สี (33 แบบ)</button>

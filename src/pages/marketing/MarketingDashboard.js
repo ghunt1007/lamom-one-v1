@@ -103,7 +103,7 @@ export default async function MarketingDashboard(container) {
 
       <!-- Sales Funnel -->
       <div class="card" style="padding:16px 20px;margin-bottom:16px">
-        <div style="font-weight:600;margin-bottom:14px;font-size:0.88rem">🔻 Sales Funnel</div>
+        <div style="font-weight:600;margin-bottom:14px;font-size:0.88rem">🔻 กรวยการขาย</div>
         <div style="display:flex;flex-direction:column;gap:6px">
           ${[
             { label:'Impressions', val:45200, color:'primary', pct:100 },

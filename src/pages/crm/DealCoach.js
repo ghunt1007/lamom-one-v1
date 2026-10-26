@@ -74,7 +74,7 @@ export default async function DealCoachPage(container) {
       '<div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:14px">฿'+d.price.toLocaleString()+' · Win Rate: <span style="color:'+winColor(d.winPct)+';font-weight:700">'+d.winPct+'%</span></div>' +
       '<div style="font-size:0.76rem;font-weight:700;margin-bottom:8px;color:var(--primary)">💡 แนะนำขั้นตอนต่อไป</div>' +
       advHtml +
-      '<div style="font-size:0.76rem;font-weight:700;margin:12px 0 6px;color:var(--danger)">⚠️ Objections</div>' +
+      '<div style="font-size:0.76rem;font-weight:700;margin:12px 0 6px;color:var(--danger)">⚠️ ข้อโต้แย้งของลูกค้า</div>' +
       '<div style="margin-bottom:10px">'+objHtml+'</div>' +
       '<div style="font-size:0.76rem;font-weight:700;margin-bottom:6px;color:var(--text-muted)">🏁 คู่แข่ง</div>' +
       '<div style="margin-bottom:14px">'+compHtml+'</div>' +
@@ -119,7 +119,7 @@ export default async function DealCoachPage(container) {
         </div>` : ''}
 
         <div style="background:var(--surface-2);border:1px solid var(--primary);border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:0.78rem">
-          <span style="color:var(--primary);font-weight:700">💡 Tip of the day:</span> ${tipOfDay}
+          <span style="color:var(--primary);font-weight:700">💡 เคล็ดลับวันนี้:</span> ${tipOfDay}
         </div>
 
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px">

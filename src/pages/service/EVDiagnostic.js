@@ -160,7 +160,7 @@ export default async function EVDiagnosticPage(container) {
           </div>
         </div>
         ${s.faultCodes.length ? `
-          <div style="font-size:0.78rem;font-weight:700;margin-bottom:6px;color:var(--danger)">❗ Fault Codes</div>
+          <div style="font-size:0.78rem;font-weight:700;margin-bottom:6px;color:var(--danger)">❗ รหัสความผิดปกติ</div>
           ${s.faultCodes.map(fc => {
             const f = FAULT_CODES[fc]
             return `<div style="padding:8px 10px;background:rgba(239,68,68,.1);border-radius:var(--radius-sm);margin-bottom:6px">

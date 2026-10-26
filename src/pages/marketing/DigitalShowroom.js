@@ -31,7 +31,7 @@ export default async function DigitalShowroomPage(container) {
   function carCard(car) {
     const v360  = car.views360 ? '<span style="font-size:0.62rem;background:#1976d2;color:#fff;padding:1px 7px;border-radius:8px">360°</span>' : ''
     const vVid  = car.video    ? '<span style="font-size:0.62rem;background:#e53935;color:#fff;padding:1px 7px;border-radius:8px">VIDEO</span>' : ''
-    const featR = car.featured ? '<div style="position:absolute;top:8px;right:8px;font-size:0.62rem;background:var(--warning);color:#000;padding:1px 8px;border-radius:8px;font-weight:700">⭐ Featured</div>' : ''
+    const featR = car.featured ? '<div style="position:absolute;top:8px;right:8px;font-size:0.62rem;background:var(--warning);color:#000;padding:1px 8px;border-radius:8px;font-weight:700">⭐ แนะนำ</div>' : ''
     const badge = '<span style="font-size:0.62rem;background:var(--success);color:#fff;padding:1px 7px;border-radius:8px">' + car.badge + '</span>'
     const dots  = colorDots(car.colors)
     return '<div class="card" style="padding:14px;position:relative">' +

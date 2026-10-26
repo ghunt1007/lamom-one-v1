@@ -175,7 +175,7 @@ export default async function LeadGenerationPage(container) {
     const maxVal = campaigns.reduce((a,c)=>a+c.impressions,0)
     return `
       <div class="card" style="padding:20px;max-width:560px;margin:0 auto">
-        <div style="font-weight:700;font-size:0.88rem;margin-bottom:16px">🔽 Marketing Funnel</div>
+        <div style="font-weight:700;font-size:0.88rem;margin-bottom:16px">🔽 กรวยการตลาด</div>
         ${stages.map(s => `
           <div style="margin-bottom:12px">
             <div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:4px">

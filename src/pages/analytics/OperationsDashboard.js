@@ -204,7 +204,7 @@ export default async function OperationsDashboardPage(container) {
 
           <!-- Bottlenecks -->
           <div class="card" style="padding:14px">
-            <div style="font-weight:700;font-size:0.85rem;margin-bottom:10px">⚠️ Bottlenecks <span style="font-weight:400;color:var(--text-muted);font-size:0.7rem">(จริง — รถค้าง&gt;60วัน / ใบจองค้าง&gt;14วัน / PO ล่าช้า)</span></div>
+            <div style="font-weight:700;font-size:0.85rem;margin-bottom:10px">⚠️ จุดติดขัด <span style="font-weight:400;color:var(--text-muted);font-size:0.7rem">(จริง — รถค้าง&gt;60วัน / ใบจองค้าง&gt;14วัน / PO ล่าช้า)</span></div>
             ${bottlenecks.length ? bottlenecks.map(b => `
               <div style="display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">
                 <span style="font-size:0.7rem;padding:2px 6px;border-radius:3px;background:var(--${b.impact==='high'?'danger':b.impact==='medium'?'warning':'secondary'}-dim,var(--surface-2));color:var(--${b.impact==='high'?'danger':b.impact==='medium'?'warning':'text-muted'});flex-shrink:0">${b.impact.toUpperCase()}</span>
@@ -247,7 +247,7 @@ export default async function OperationsDashboardPage(container) {
 
           <!-- Supply -->
           <div class="card" style="padding:14px">
-            <div style="font-weight:700;font-size:0.82rem;margin-bottom:10px">🛒 Supply Chain</div>
+            <div style="font-weight:700;font-size:0.82rem;margin-bottom:10px">🛒 ห่วงโซ่อุปทาน</div>
             <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:0.78rem">
               <span style="color:var(--text-muted)">ซัพพลายเออร์ที่ใช้งานอยู่</span><strong>${d.supply.activeSuppliers}</strong>
             </div>

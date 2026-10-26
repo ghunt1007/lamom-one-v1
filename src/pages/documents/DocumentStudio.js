@@ -326,7 +326,7 @@ function openDocEditor(doc) {
             </div>
           </div>
           <div class="card" style="padding:12px">
-            <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:6px">Dynamic Fields</div>
+            <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:6px">ช่องข้อมูลอัตโนมัติ</div>
             <div style="font-size:0.75rem;color:var(--text-muted);line-height:1.6">
               พิมพ์ <code style="background:var(--surface-3);padding:1px 4px;border-radius:4px">{{ชื่อ}}</code> เพื่อแทรกข้อมูลลูกค้าอัตโนมัติ
             </div>

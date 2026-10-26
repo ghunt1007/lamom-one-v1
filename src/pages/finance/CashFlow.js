@@ -165,7 +165,7 @@ export default async function CashFlowPage(container) {
 
         <!-- Cash Flow Chart (waterfall-style) -->
         <div class="card" style="padding:20px;margin-bottom:16px">
-          <div style="font-weight:700;margin-bottom:14px">📊 Cash Flow Chart</div>
+          <div style="font-weight:700;margin-bottom:14px">📊 กราฟกระแสเงินสด</div>
           <div style="display:flex;align-items:flex-end;gap:3px;height:140px;border-bottom:1px solid var(--border);padding-bottom:8px;overflow-x:auto">
             ${flows.slice().sort((a,b)=>String(a.date || '').localeCompare(String(b.date || ''))).map(f => {
               const h = Math.max(4, Math.round(f.amount / maxAmt * 120))
