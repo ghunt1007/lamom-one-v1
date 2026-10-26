@@ -115,16 +115,17 @@ export default async function ShiftSchedulePage(container) {
         </div>
 
         <!-- Dept filter -->
-        <div style="display:flex;gap:4px;margin-bottom:16px;align-items:center">
+        <div style="display:flex;gap:4px;margin-bottom:16px;align-items:center;flex-wrap:wrap">
           ${['all','sales','service','admin'].map(d => `<button class="btn btn-sm ${deptFilter===d?'btn-primary':'btn-secondary'} dept-btn" data-d="${d}">${{all:'ทุกแผนก',sales:'Sales',service:'Service',admin:'Admin'}[d]}</button>`).join('')}
           <!-- Shift legend -->
-          <div style="margin-left:auto;display:flex;gap:8px">
+          <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
             ${Object.entries(SHIFTS).map(([k,v]) => `<span style="font-size:0.72rem;padding:2px 8px;border-radius:99px;background:var(--${v.color}-dim);color:var(--${v.color})">${v.icon} ${v.label} ${v.time!=='-'?v.time:''}</span>`).join('')}
           </div>
         </div>
 
+        <div class="shift-scroll"><div class="shift-inner">
         <!-- Summary row -->
-        <div style="display:grid;grid-template-columns:180px repeat(7,1fr);gap:4px;margin-bottom:4px">
+        <div class="shift-grid" style="gap:4px;margin-bottom:4px">
           <div style="font-size:0.72rem;color:var(--text-muted);padding:4px 8px">แผนก / พนักงาน</div>
           ${dates.map((d, i) => {
             const isToday = d === today; const isWeekend = [5,6].includes(i)
@@ -138,7 +139,7 @@ export default async function ShiftSchedulePage(container) {
         <!-- Schedule grid -->
         <div style="display:flex;flex-direction:column;gap:3px">
           ${staff.map(s => `
-            <div style="display:grid;grid-template-columns:180px repeat(7,1fr);gap:4px;align-items:center">
+            <div class="shift-grid" style="gap:4px;align-items:center">
               <div style="padding:6px 8px">
                 <div style="font-size:0.82rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(s.name)}</div>
                 <div style="font-size:0.68rem;color:var(--text-muted)">${escHtml(s.position)}</div>
@@ -160,13 +161,14 @@ export default async function ShiftSchedulePage(container) {
         </div>
 
         <!-- Daily summary -->
-        <div style="display:grid;grid-template-columns:180px repeat(7,1fr);gap:4px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+        <div class="shift-grid" style="gap:4px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
           <div style="font-size:0.72rem;color:var(--text-muted);padding:4px 8px">รวมคน (ไม่นับหยุด)</div>
           ${dates.map(d => {
             const working = staff.filter(s => getShift(d, s.id, s) !== 'off').length
             return `<div style="text-align:center;font-size:0.8rem;font-weight:700;color:${working<2?'var(--danger)':'var(--success)'}">${working}</div>`
           }).join('')}
         </div>
+        </div></div>
       </div>
     `
 
