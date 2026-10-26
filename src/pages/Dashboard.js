@@ -202,7 +202,7 @@ export default async function DashboardPage(container) {
       <!-- Operations radar + ring gauges -->
       <div class="card mb-4 dash-radar" style="padding:16px">
         <div style="font-weight:700;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
-          <span>🛰 Operations Radar — จุดบนจอ = รายการค้างจริง คลิกเพื่อไปจัดการ</span>
+          <span>🛰 เรดาร์งานค้าง — จุดบนจอ = รายการค้างจริง คลิกเพื่อไปจัดการ</span>
           <span id="radar-month" style="font-size:0.72rem;color:var(--primary);font-family:'Share Tech Mono',monospace;letter-spacing:0.08em"></span>
         </div>
         <div style="display:grid;grid-template-columns:230px 1fr;gap:20px;align-items:center">
@@ -537,6 +537,9 @@ export default async function DashboardPage(container) {
 
       const body = document.getElementById('dept-detail-body')
       if (!body) return
+      // ไม่มีทั้ง Job Card และข้อมูลไฟแนนซ์เดือนนี้ → ซ่อนทั้งการ์ด ไม่ต้องโชว์กล่องว่างสองกล่อง
+      const card = document.getElementById('dept-detail-card')
+      if (card) card.style.display = jobsInMonth.length || bookingsInMonth.length ? '' : 'none'
       body.innerHTML = `
         <div style="background:var(--surface-2);border-radius:10px;padding:14px;cursor:pointer" data-nav="/service/jobs">
           <div style="font-weight:700;font-size:0.85rem;margin-bottom:10px">🔧 ศูนย์บริการ — Job Card เดือนนี้ (${jobsInMonth.length})</div>
@@ -814,7 +817,7 @@ export default async function DashboardPage(container) {
         ringGauge('ส่งมอบสำเร็จ', inMonth.length ? delivered / inMonth.length * 100 : 0, 'success', `${delivered}/${inMonth.length} ใบจอง`) +
         ringGauge('ไฟแนนซ์ผ่าน', withFin.length ? finPassed / withFin.length * 100 : 0, 'primary', `${finPassed}/${withFin.length} เคส`) +
         ringGauge('งานซ่อมเสร็จ', jobsInMonth.length ? jobsDone / jobsInMonth.length * 100 : 0, 'warning', `${jobsDone}/${jobsInMonth.length} งาน`) +
-        ringGauge('Tasks เสร็จ', tasks.length ? tasksDone / tasks.length * 100 : 0, 'accent', `${tasksDone}/${tasks.length} งาน`)
+        ringGauge('งานมอบหมายเสร็จ', tasks.length ? tasksDone / tasks.length * 100 : 0, 'accent', `${tasksDone}/${tasks.length} งาน`)
     }
 
     // ── MoM: เปรียบเทียบเดือนที่เลือกกับเดือนก่อนหน้า ──
@@ -1299,9 +1302,9 @@ export default async function DashboardPage(container) {
     if (todayEl) {
       const todayItems = [
         { label:'นัดหมาย/จอง', value:`${todayBookings.length || bookings.filter(b=>b.status==='จอง').length} รายการ`, icon:'📅', color:'primary', nav:'/crm/bookings' },
-        { label:'Job Cards เปิด', value:`${openJobs} งาน`, icon:'🔧', color:'warning', nav:'/service/jobs' },
+        { label:'งานซ่อมเปิดอยู่', value:`${openJobs} งาน`, icon:'🔧', color:'warning', nav:'/service/jobs' },
         { label:'PDI รอตรวจ', value:`${pendingPdi.length || 0} คัน`, icon:'✅', color:'accent', nav:'/dms/pdi' },
-        { label:'Tasks ค้าง', value:`${pendingTasks} งาน`, icon:'📋', color: pendingTasks > 3 ? 'danger' : 'accent', nav:'/tasks' },
+        { label:'งานมอบหมายค้าง', value:`${pendingTasks} งาน`, icon:'📋', color: pendingTasks > 3 ? 'danger' : 'accent', nav:'/tasks' },
       ]
       todayEl.innerHTML = todayItems.map(s => `
         <div style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:8px;border-radius:var(--radius-md);background:var(--surface-2)" data-nav="${s.nav}">
