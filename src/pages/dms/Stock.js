@@ -58,8 +58,8 @@ export default async function StockPage(container) {
   let brandFilter = 'all'
   let search = ''
   // มือถือเริ่มที่แบบการ์ด (ตาราง 8 คอลัมน์บีบจนชื่อรุ่น/สีตกบรรทัดทีละตัวอักษร)
-  // มือถือ+แท็บเล็ต (≤900px) เริ่มที่แบบการ์ด — ตาราง 9 คอลัมน์ต้องเลื่อนข้างบนแท็บเล็ต · จำแบบที่เลือกไว้ในเครื่องนี้
-  let viewMode = (() => { try { const v = localStorage.getItem('lamom.stockView'); if (v === 'card' || v === 'table') return v } catch {} return window.matchMedia?.('(max-width: 900px)').matches ? 'card' : 'table' })() // table | card
+  // มือถือ+แท็บเล็ต (≤1180px รวม iPad แนวนอน) เริ่มที่แบบการ์ด — ตาราง 9 คอลัมน์ต้องเลื่อนข้างบนแท็บเล็ต · จำแบบที่เลือกไว้ในเครื่องนี้
+  let viewMode = (() => { try { const v = localStorage.getItem('lamom.stockView'); if (v === 'card' || v === 'table') return v } catch {} return window.matchMedia?.('(max-width: 1180px)').matches ? 'card' : 'table' })() // table | card
 
   // Real-time: อัปเดตสดเมื่อมีคนแก้ไขสต็อกรถจากเครื่องอื่น — หน้านี้ renderContent()/updateStats()
   // แก้แค่ #stock-content/#stock-filtered/#vstat-*/#stock-total เท่านั้น ไม่แตะช่องค้นหาเลย จึงปลอดภัย
