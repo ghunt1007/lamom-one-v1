@@ -188,7 +188,8 @@ export default async function CustomersPage(container) {
     }
     filtered = customers.filter(c => {
       const matchSearch = matchesSearch(c, search, fullName, smartOpts)
-      const matchStage = stageFilter === 'all' || c.stage === stageFilter
+      // ตรงกับตัวเลขบนการ์ด: การ์ดสถานะไม่นับลูกค้าที่เสียดีลแล้ว (ดูได้ที่การ์ด ⬛ เสียดีล)
+      const matchStage = stageFilter === 'all' || (c.stage === stageFilter && !c.isLost)
       const matchLost = !lostOnly || c.isLost
       // '__none' = ลูกค้าที่ยังไม่มีผู้ดูแล (เช่น ทัก LINE OA เข้ามาเอง) — มอบให้เซลส์ได้ที่หน้า "งานของฉันวันนี้"
       const matchSales = !salesFilter || (salesFilter === '__none' ? !String(c.assignedTo || '').trim() : c.assignedTo === salesFilter)
@@ -220,6 +221,8 @@ export default async function CustomersPage(container) {
     })
     const lostEl = document.getElementById('stat-lost')
     if (lostEl) lostEl.textContent = customers.filter(c => c.isLost).length
+    const allEl = document.getElementById('stat-all')
+    if (allEl) allEl.textContent = customers.length
     const countEl = document.getElementById('cust-count')
     if (countEl) countEl.textContent = `${filtered.length} / ${customers.length} รายการ`
   }
@@ -1096,14 +1099,19 @@ export default async function CustomersPage(container) {
       </div>
       ` : ''}
 
+ <!-- การ์ดตัวเลข = ตัวกรองสถานะ (เดิมมีปุ่มกรองชุดเดียวกันซ้ำอีกแถวในกล่องค้นหา) กดใบเดิมซ้ำ = ทั้งหมด -->
       <div class="cust-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(84px,1fr));gap:8px;margin-bottom:16px">
+        <div class="card stat-pill sf-card sf-on" data-s="all" role="button" tabindex="0" style="padding:10px 12px;text-align:center;cursor:pointer">
+          <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:4px">📋 ทั้งหมด</div>
+          <div id="stat-all" style="font-size:1.5rem;font-weight:800;color:var(--text)">0</div>
+        </div>
         ${STAGE_ORDER.map(k => `
-          <div class="card stat-pill" data-s="${k}" style="padding:10px 12px;text-align:center;cursor:pointer">
+          <div class="card stat-pill sf-card" data-s="${k}" role="button" tabindex="0" style="padding:10px 12px;text-align:center;cursor:pointer">
             <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:4px">${STAGE[k].label}</div>
             <div id="stat-${k}" style="font-size:1.5rem;font-weight:800;color:var(--${STAGE[k].badge})">0</div>
           </div>
         `).join('')}
-        <div class="card stat-pill" data-s="__lost" style="padding:10px 12px;text-align:center;cursor:pointer">
+        <div class="card stat-pill sf-card" data-s="__lost" role="button" tabindex="0" style="padding:10px 12px;text-align:center;cursor:pointer">
           <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:4px">⬛ เสียดีล</div>
           <div id="stat-lost" style="font-size:1.5rem;font-weight:800;color:var(--text-muted)">0</div>
         </div>
@@ -1139,14 +1147,6 @@ export default async function CustomersPage(container) {
             <option value="quiet">💤 Lead/Prospect เงียบ ${QUIET_DAYS} วัน+</option>
             <option value="hot">🔥 Lead/Prospect ที่เป็น Hot</option>
           </select>
-          <div style="display:flex;gap:6px;flex-wrap:wrap">
-            ${['all', ...STAGE_ORDER].map(s => `
-              <button class="btn btn-sm sf ${s === 'all' ? 'btn-primary' : 'btn-secondary'}" data-s="${s}">
-                ${s === 'all' ? 'ทั้งหมด' : (STAGE[s]?.short || s)}
-              </button>
-            `).join('')}
-            <button class="btn btn-sm btn-secondary sf-lost" id="lost-toggle">⬛ เสียดีลเท่านั้น</button>
-          </div>
         </div>
       </div>
 
@@ -1307,21 +1307,18 @@ export default async function CustomersPage(container) {
     }
     applyFilter()
   })
-  document.querySelectorAll('.sf').forEach(btn => btn.addEventListener('click', () => {
-    stageFilter = btn.dataset.s
-    document.querySelectorAll('.sf').forEach(b => b.className = `btn btn-sm sf ${b.dataset.s === stageFilter ? 'btn-primary' : 'btn-secondary'}`)
+  const pickStat = key => {
+    // กดใบที่เลือกอยู่ซ้ำ = กลับไปดูทั้งหมด
+    const cur = lostOnly ? '__lost' : stageFilter
+    if (key === cur && key !== 'all') key = 'all'
+    lostOnly = key === '__lost'
+    stageFilter = lostOnly ? 'all' : key
+    document.querySelectorAll('.stat-pill').forEach(c => c.classList.toggle('sf-on', c.dataset.s === key))
     applyFilter()
-  }))
-  document.querySelectorAll('.stat-pill').forEach(card => card.addEventListener('click', () => {
-    if (card.dataset.s === '__lost') { lostOnly = !lostOnly; card.style.outline = lostOnly ? '2px solid var(--danger)' : ''; applyFilter(); return }
-    stageFilter = card.dataset.s
-    document.querySelectorAll('.sf').forEach(b => b.className = `btn btn-sm sf ${b.dataset.s === stageFilter ? 'btn-primary' : 'btn-secondary'}`)
-    applyFilter()
-  }))
-  document.getElementById('lost-toggle').addEventListener('click', () => {
-    lostOnly = !lostOnly
-    document.getElementById('lost-toggle').className = `btn btn-sm sf-lost ${lostOnly ? 'btn-danger' : 'btn-secondary'}`
-    applyFilter()
+  }
+  document.querySelectorAll('.stat-pill').forEach(card => {
+    card.addEventListener('click', () => pickStat(card.dataset.s))
+    card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pickStat(card.dataset.s) } })
   })
 
   if (container.__routerGen !== myGen) { unsubCustomers(); return }
