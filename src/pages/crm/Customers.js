@@ -1070,7 +1070,7 @@ export default async function CustomersPage(container) {
     })
   }
 
-  // (v1.0.747) เทียบ/แก้ลูกค้าให้ตรงกับไฟล์ DATA Booking — ลบได้ จึงเปิดเฉพาะเจ้าของ/แอดมิน
+  // (v1.0.747) ซิงก์ลูกค้า/ใบจองให้ตรงกับไฟล์ DATA Booking — ลบได้ จึงเปิดเฉพาะเจ้าของ/แอดมิน (v1.0.748 ย้ายมาไว้นอกเมนู ⋯ ให้เห็นทันที)
   const canReconcileSheet = isProgramOwner() || ['owner', 'admin'].includes(getState('role') || getState('user')?.role)
 
   // ── Page HTML ─────────────────────────────────────
@@ -1083,8 +1083,8 @@ export default async function CustomersPage(container) {
           <button class="btn btn-ghost btn-sm pa-more" id="sheet-view-btn" title="Spreadsheet View">📊 Sheet</button>
           <button class="btn btn-ghost btn-sm pa-more" id="import-cust-btn">📤 Import</button>
           <button class="btn btn-secondary btn-sm pa-more" id="export-cust-btn">📥 Export</button>
-          ${canReconcileSheet ? `<button class="btn btn-ghost btn-sm pa-more" id="sheet-reconcile-btn" title="เทียบลูกค้ากับไฟล์ DATA Booking (Google Sheet)">🔍 เทียบกับ Sheet</button>` : ''}
           <button class="btn btn-ghost btn-sm pa-more-btn" type="button" title="เมนูเพิ่มเติม">⋯ อื่นๆ</button>
+          ${canReconcileSheet ? `<button class="btn btn-secondary btn-sm" id="sheet-reconcile-btn" title="ทำให้ลูกค้า/ใบจองตรงกับไฟล์ DATA Booking (Google Sheet) ในคลิกเดียว">🔄 ซิงก์ Sheet</button>` : ''}
           <button class="btn btn-secondary" id="quick-lead-page-btn">🧲 Lead ด่วน</button>
           <button class="btn btn-primary" id="add-cust-btn">➕ เพิ่มลูกค้า</button>
         </div>
