@@ -248,7 +248,7 @@ export default async function MyDayPage(container) {
         ${focusCard(d)}
         ${teamCard(today)}
         ${goalCard(today)}
-        ${section('📞', 'Follow-up วันนี้/เลยกำหนด', 'กด ✅ เมื่อติดต่อแล้ว', d.followups, f => line(
+        ${section('📞', 'นัดติดตามวันนี้/เลยกำหนด', 'กด ✅ เมื่อติดต่อแล้ว', d.followups, f => line(
           `${escHtml(f.customerName || 'ลูกค้า')}${f.late > 0 ? ` <span class="badge badge-danger" style="font-size:0.62rem">เลย ${f.late} วัน</span>` : ''}`,
           `${escHtml(f.purpose || '')}${f.vehicleModel ? ` · ${escHtml(f.vehicleModel)}` : ''}${ownerTag(f.salesperson)}`,
           `${callBtn(f.phone, f.customerId)}<button class="btn btn-success btn-xs md-fu" data-id="${escHtml(f.id)}">✅ ทำแล้ว</button>`), 'danger')}
@@ -268,7 +268,7 @@ export default async function MyDayPage(container) {
           `${c.phone ? escHtml(c.phone) : c.lineId ? escHtml(c.lineId) : 'ไม่มีเบอร์'}${ownerTag(c.assignedTo)}`,
           `${callBtn(c.phone, c.id)}<button class="btn btn-primary btn-xs md-plan" data-id="${escHtml(c.id)}">📅 นัด</button><button class="btn btn-secondary btn-xs md-open" data-id="${escHtml(c.id)}">เปิด</button>`), 'danger') : ''}
 
-        ${d.stale.length ? `<div style="display:flex;justify-content:flex-end;margin:-4px 0 8px"><button class="btn btn-primary btn-sm md-ai-nudge" style="background:linear-gradient(135deg,#8B5CF6,#3B82F6);border:none">✨ ให้ AI ร่างข้อความ LINE ทัก ${Math.min(NUDGE_MAX, d.stale.length)} คนที่เงียบ</button></div>` : ''}
+        ${d.stale.length ? `<div style="display:flex;justify-content:flex-end;margin:0 0 8px"><button class="btn btn-primary btn-sm md-ai-nudge" style="background:linear-gradient(135deg,#8B5CF6,#3B82F6);border:none">✨ ให้ AI ร่างข้อความ LINE ทัก ${Math.min(NUDGE_MAX, d.stale.length)} คนที่เงียบ</button></div>` : ''}
         ${section('⏰', `Lead ไม่ได้ติดตามเกิน ${STALE_LEAD_DAYS} วัน`, 'กด "ติดตามแล้ว" เพื่อบันทึกว่าคุยแล้ววันนี้', d.stale, c => line(
           `${c.temperature === 'hot' ? '🔴 ' : ''}${escHtml(c.name)}${c.interestedModel ? ` · ${escHtml(c.interestedModel)}` : ''} <span class="badge badge-warning" style="font-size:0.62rem">${c.days} วัน</span>`,
           `${c.phone ? escHtml(c.phone) : c.lineId ? escHtml(c.lineId) : 'ไม่มีเบอร์'}${ownerTag(c.assignedTo)}`,
