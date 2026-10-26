@@ -7,6 +7,7 @@ import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companySco
 import { getVisibilityScope, scopeIncludesRecord, normName, isProgramOwner } from '../../core/hierarchy.js'
 import { openSheetReconcile } from '../../utils/sheetReconcileModal.js'
 import { formatDate, timeAgo, formatPhone, formatCurrency, initials, fullName, todayBangkok, toDate } from '../../utils/format.js'
+import { newBookingNo } from '../../utils/bookingNo.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel, openImportModal } from '../../utils/importExport.js'
 import { SmartSheet } from '../../components/SmartSheet.js'
@@ -921,7 +922,7 @@ export default async function CustomersPage(container) {
       if (!deposit) { el.querySelector('#cb-err').textContent = '⚠️ กรุณาระบุเงินจอง'; return }
       const btn = el.querySelector('#cb-s'); btn.disabled = true
       try {
-        const bookingNo = 'SK' + new Date().toISOString().slice(2, 10).replace(/-/g, '') + String(Math.floor(Math.random() * 900) + 100)
+        const bookingNo = newBookingNo()
         const bookingData = {
           // (v1.0.518) สร้างจากหน้า Customer Workspace เป็น flow แบบเร็ว เก็บแค่เงินจองตอนนี้ ยังไม่รู้เงินดาวน์
           // (จะกำหนดตอนเซ็นสัญญา) financeAmount จึงเท่ากับราคาเต็มไปก่อน แก้ไขยอดจัดไฟแนนซ์ได้อีกทีตอนกรอกเงินดาวน์จริง
