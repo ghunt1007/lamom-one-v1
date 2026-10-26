@@ -95,7 +95,7 @@ export default async function GpFocPage(container) {
       '<div class="page-header"><div>' +
         '<div class="page-title">💎 GP & FOC — กำไรขั้นต้น และของแถม</div>' +
         '<div class="page-subtitle">วิเคราะห์ Gross Profit และ Free of Charge ต่อคัน (อิงใบจองกลาง)</div>' +
-      '</div><div class="page-actions"><button class="btn btn-secondary btn-sm" id="gpfoc-export">📥 Export</button></div></div>' +
+      '</div><div class="page-actions"><button class="btn btn-secondary btn-sm" id="gpfoc-export">📥 ส่งออก</button></div></div>' +
       '<div style="font-size:0.74rem;color:var(--text-muted);margin-bottom:10px">💡 GP = ราคาขาย − ต้นทุน · FOC = มูลค่าของแถม/งบที่ใช้แถม · GP สุทธิ = GP − FOC</div>' +
       '<div id="gpfoc-summary" class="grid-4 mb-6">' + [...Array(4)].map(() => '<div class="skeleton" style="height:88px;border-radius:var(--radius-lg)"></div>').join('') + '</div>' +
       '<div class="card mb-4" style="padding:10px 16px"><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">' +

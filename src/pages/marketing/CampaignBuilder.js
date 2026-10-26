@@ -74,7 +74,7 @@ export default async function CampaignBuilderPage(container) {
             <div class="page-subtitle">จัดการแคมเปญการตลาด</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-secondary" id="camp-export">📥 Export</button>
+            <button class="btn btn-secondary" id="camp-export">📥 ส่งออก</button>
             <button class="btn btn-primary" id="new-camp-btn">➕ แคมเปญใหม่</button>
           </div>
         </div>

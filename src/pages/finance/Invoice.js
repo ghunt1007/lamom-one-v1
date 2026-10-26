@@ -113,7 +113,7 @@ export default async function InvoicePage(container) {
             </div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-secondary" id="inv-export">📥 Export</button>
+            <button class="btn btn-secondary" id="inv-export">📥 ส่งออก</button>
             <button class="btn btn-primary" id="new-inv-btn">➕ สร้างเอกสาร</button>
           </div>
         </div>

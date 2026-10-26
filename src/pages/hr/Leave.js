@@ -88,7 +88,7 @@ export default async function LeavePage(container) {
           </div>
           <div class="page-actions">
             ${pending > 0 ? `<span class="badge badge-warning">⏳ รออนุมัติ ${pending}</span>` : ''}
-            <button class="btn btn-secondary" id="lv-export">📥 Export</button>
+            <button class="btn btn-secondary" id="lv-export">📥 ส่งออก</button>
             <button class="btn btn-primary" id="new-leave-btn">➕ ยื่นลา</button>
           </div>
         </div>

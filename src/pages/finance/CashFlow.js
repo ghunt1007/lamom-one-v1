@@ -149,7 +149,7 @@ export default async function CashFlowPage(container) {
             </div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-secondary" id="cf-export">📥 Export</button>
+            <button class="btn btn-secondary" id="cf-export">📥 ส่งออก</button>
             ${canManage ? `<button class="btn btn-secondary" id="edit-balance-btn">✏️ ยอดยกมา</button>` : ''}
             ${canManage ? `<button class="btn btn-primary" id="new-flow-btn">➕ บันทึกรายการ</button>` : ''}
           </div>

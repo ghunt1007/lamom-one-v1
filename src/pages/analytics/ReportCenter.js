@@ -188,7 +188,7 @@ export default async function ReportCenterPage(container) {
             <div class="page-subtitle">สร้างและ Export รายงาน</div>
           </div>
           <div class="page-actions">
-            ${activeReport ? `<button class="btn btn-secondary" id="back-btn">← กลับ</button><button class="btn btn-primary" id="export-report-btn">📥 Export Excel</button>` : ''}
+            ${activeReport ? `<button class="btn btn-secondary" id="back-btn">← กลับ</button><button class="btn btn-primary" id="export-report-btn">📥 ส่งออก Excel</button>` : ''}
           </div>
         </div>
 

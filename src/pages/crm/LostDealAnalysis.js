@@ -135,7 +135,7 @@ export default async function LostDealAnalysisPage(container) {
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="ld-ask-lami" title="ให้ LAMI วิเคราะห์ว่าควรแก้อะไรก่อน">🤖 ถาม LAMI ควรแก้อะไร</button>
-            <button class="btn btn-secondary" id="ld-export">📥 Export</button>
+            <button class="btn btn-secondary" id="ld-export">📥 ส่งออก</button>
           </div>
         </div>
 

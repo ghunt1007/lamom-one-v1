@@ -102,7 +102,7 @@ export default async function CustomerInsightsPage(container) {
             <div class="page-subtitle">วิเคราะห์พฤติกรรมและ Segment ลูกค้า</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-secondary" id="export-btn">📥 Export</button>
+            <button class="btn btn-secondary" id="export-btn">📥 ส่งออก</button>
           </div>
         </div>
 

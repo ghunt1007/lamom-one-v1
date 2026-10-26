@@ -149,8 +149,8 @@ export default async function OrgChartPage(container) {
           <div class="page-actions">
             <div style="display:flex;gap:6px">
               <button class="btn btn-xs ${viewMode==='company'?'btn-primary':'btn-secondary'}" id="view-company">🏢 บริษัท</button>
-              <button class="btn btn-xs ${viewMode==='tree'?'btn-primary':'btn-secondary'}" id="view-tree">🌳 Tree</button>
-              <button class="btn btn-xs ${viewMode==='list'?'btn-primary':'btn-secondary'}" id="view-list">📋 List</button>
+              <button class="btn btn-xs ${viewMode==='tree'?'btn-primary':'btn-secondary'}" id="view-tree">🌳 แผนผัง</button>
+              <button class="btn btn-xs ${viewMode==='list'?'btn-primary':'btn-secondary'}" id="view-list">📋 รายการ</button>
               <button class="btn btn-xs ${viewMode==='drag'?'btn-primary':'btn-secondary'}" id="view-drag">🕸️ ลากวาง</button>
             </div>
           </div>

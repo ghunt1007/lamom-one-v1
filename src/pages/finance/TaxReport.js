@@ -171,7 +171,7 @@ export default async function TaxReportPage(container) {
             <div class="page-subtitle">ภาษีมูลค่าเพิ่ม (VAT) และภาษีหัก ณ ที่จ่าย${liveVatBase ? ' <span style="color:var(--success);font-size:0.75rem">● VAT จากยอดขายจริง</span>' : ''}</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-secondary" id="export-btn">📥 Export</button>
+            <button class="btn btn-secondary" id="export-btn">📥 ส่งออก</button>
             <button class="btn btn-primary" id="add-filing-btn">+ บันทึกการยื่น</button>
           </div>
         </div>

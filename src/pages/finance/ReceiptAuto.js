@@ -42,7 +42,7 @@ export default async function ReceiptAutoPage(container) {
 
   function receiptRow(r) {
     const cfg     = STATUS_CFG[r.status]
-    const retryBtn = r.status==='failed'  ? '<button class="btn btn-xs btn-primary retry-btn" data-id="' + r.id + '" style="font-size:0.68rem">🔄 Retry</button>' : ''
+    const retryBtn = r.status==='failed'  ? '<button class="btn btn-xs btn-primary retry-btn" data-id="' + r.id + '" style="font-size:0.68rem">🔄 ลองใหม่</button>' : ''
     const sendBtn  = r.status==='pending' ? '<button class="btn btn-xs btn-primary send-btn" data-id="' + r.id + '" style="font-size:0.68rem">📤 ส่งเลย</button>' : ''
     const channelIcon = r.channel==='email'?'📧':r.channel==='line'?'💚':'📱'
     return '<div class="card" style="padding:12px">' +

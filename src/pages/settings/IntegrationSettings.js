@@ -141,7 +141,7 @@ export default async function IntegrationSettingsPage(container) {
           <div class="input-group"><label class="input-label">Webhook URL</label>
             <div style="display:flex;gap:6px">
               <input class="input" value="${escHtml(int.webhookUrl)}" readonly style="flex:1;font-size:0.78rem;font-family:monospace">
-              <button class="btn btn-xs btn-secondary" onclick="navigator.clipboard.writeText('${escHtml(int.webhookUrl).replace(/'/g, "\\'")}');window.__showToast?.('✅ Copied!','success')">Copy</button>
+              <button class="btn btn-xs btn-secondary" onclick="navigator.clipboard.writeText('${escHtml(int.webhookUrl).replace(/'/g, "\\'")}');window.__showToast?.('✅ Copied!','success')">คัดลอก</button>
             </div>
           </div>
         ` : ''}

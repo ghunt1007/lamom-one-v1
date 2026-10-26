@@ -115,7 +115,7 @@ export default async function StockValuationPage(container) {
               <button class="btn btn-sm ${viewMode==='table'?'btn-primary':'btn-secondary'}" id="view-table">📋 ตาราง</button>
               <button class="btn btn-sm ${viewMode==='summary'?'btn-primary':'btn-secondary'}" id="view-sum">📊 สรุป</button>
             </div>
-            <button class="btn btn-secondary" id="export-btn">📥 Export</button>
+            <button class="btn btn-secondary" id="export-btn">📥 ส่งออก</button>
           </div>
         </div>
 

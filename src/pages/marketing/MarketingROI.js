@@ -163,7 +163,7 @@ export default async function MarketingROIPage(container) {
               ${months.map(m => `<option value="${m}" ${m === monthFilter ? 'selected' : ''}>${m}</option>`).join('')}
             </select>
             <button class="btn btn-secondary btn-xs" id="edit-budget-btn">✏️ แก้ไขงบ</button>
-            <button class="btn btn-primary" id="export-btn">📤 Export</button>
+            <button class="btn btn-primary" id="export-btn">📤 ส่งออก</button>
           </div>
         </div>
 

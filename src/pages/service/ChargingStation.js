@@ -120,7 +120,7 @@ export default async function ChargingStationPage(container) {
               <div style="display:flex;gap:4px">
                 ${c.status === 'available' ? `<button class="btn btn-xs btn-success start-btn" data-id="${c.id}" style="flex:1">⚡ เริ่มชาร์จ</button>` : ''}
                 ${c.status === 'in_use' ? `<button class="btn btn-xs btn-danger stop-btn" data-id="${c.id}" style="flex:1">⏹ หยุด</button>` : ''}
-                ${c.status === 'offline' ? `<button class="btn btn-xs btn-primary restart-btn" data-id="${c.id}" style="flex:1">🔄 Restart</button>` : ''}
+                ${c.status === 'offline' ? `<button class="btn btn-xs btn-primary restart-btn" data-id="${c.id}" style="flex:1">🔄 รีสตาร์ท</button>` : ''}
               </div>
             </div>`
           }).join('')}

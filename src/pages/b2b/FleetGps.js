@@ -73,7 +73,7 @@ export default async function FleetGpsPage(container) {
             <div class="page-subtitle">ติดตามรถ ${FLEET.length} คัน (ข้อมูลบันทึกในระบบ — ยังไม่เชื่อมอุปกรณ์ GPS จริง) · ${moving} คันกำลังขับ</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-secondary" id="refresh-btn">🔄 Refresh</button>
+            <button class="btn btn-secondary" id="refresh-btn">🔄 รีเฟรช</button>
             <button class="btn btn-secondary" id="alert-btn">🔔 ตั้ง Alert</button>
             <button class="btn btn-primary" id="add-vehicle-btn">➕ เพิ่มรถเข้า Fleet</button>
           </div>

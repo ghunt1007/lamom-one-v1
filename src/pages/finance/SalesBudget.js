@@ -118,8 +118,8 @@ export default async function SalesBudgetPage(container) {
           '<div class="page-subtitle">เป้ายอดขาย vs จริง · งบ FOC/โปรโมชั่น vs ใช้ไป รายเดือน</div>' +
         '</div><div class="page-actions">' +
           '<button class="btn ' + (editMode?'btn-warning':'btn-secondary') + '" id="sb-edit">' + (editMode?'✅ บันทึกเป้า':'✏️ แก้ไขเป้า') + '</button>' +
-          '<button class="btn btn-secondary" id="sb-reset" style="' + (editMode?'':'display:none') + '">↺ Reset</button>' +
-          '<button class="btn btn-secondary" id="sb-export">📥 Export</button>' +
+          '<button class="btn btn-secondary" id="sb-reset" style="' + (editMode?'':'display:none') + '">↺ รีเซ็ต</button>' +
+          '<button class="btn btn-secondary" id="sb-export">📥 ส่งออก</button>' +
         '</div></div>' +
 
         // KPI Cards

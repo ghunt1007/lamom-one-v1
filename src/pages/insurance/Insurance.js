@@ -306,7 +306,7 @@ export default async function InsurancePage(container) {
           </div>
         </div>
         <div class="page-actions">
-          <button class="btn btn-secondary btn-sm" id="ins-export">📥 Export</button>
+          <button class="btn btn-secondary btn-sm" id="ins-export">📥 ส่งออก</button>
           <button class="btn btn-primary" id="add-ins-btn">➕ เพิ่มกรมธรรม์</button>
         </div>
       </div>

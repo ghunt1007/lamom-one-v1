@@ -97,7 +97,7 @@ export default async function MasterDataPage(container) {
             <div class="page-subtitle">ข้อมูลอ้างอิงกลาง — แก้ที่นี่ที่เดียว มีผลทั้งระบบ</div>
           </div>
           <div class="page-actions" style="gap:6px">
-            <button class="btn btn-secondary btn-sm" id="md-export">📥 Export</button>
+            <button class="btn btn-secondary btn-sm" id="md-export">📥 ส่งออก</button>
             ${canManage ? `<button class="btn btn-secondary btn-sm" id="md-reset">↩️ รีเซ็ต</button>` : ''}
           </div>
         </div>

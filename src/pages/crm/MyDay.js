@@ -256,7 +256,7 @@ export default async function MyDayPage(container) {
         ${d.testDrives.length ? section('🚙', 'นัดทดลองขับวันนี้', 'บันทึกผลที่หน้า Test Drive แล้วระบบนัดโทรตามให้', d.testDrives, t => line(
           `${escHtml(t.time || '')} · ${escHtml(t.customerName || 'ลูกค้า')}`,
           `${escHtml(t.model || '')}${ownerTag(t.staff)}`,
-          `${callBtn(t.phone)}<button class="btn btn-secondary btn-xs md-td">Test Drive</button>`), 'primary') : ''}
+          `${callBtn(t.phone)}<button class="btn btn-secondary btn-xs md-td">🚗 ทดลองขับ</button>`), 'primary') : ''}
 
         ${section('🧲', 'Lead ใหม่วันนี้', 'โทรหาภายในวันนี้ โอกาสปิดสูงสุด', d.newLeads, c => line(
           `${escHtml(c.name)}${c.interestedModel ? ` · ${escHtml(c.interestedModel)}` : ''}${waitTag(c)}`,

@@ -764,7 +764,7 @@ export default async function CustomersPage(container) {
             <span class="badge badge-${blockerBadge}" style="font-size:0.66rem">${escHtml(diag.message)}</span>
           </div>
           ${diag.suggestedAction && diag.suggestedAction !== '-' ? `<div style="font-size:0.78rem;color:var(--text-2)">💡 ${escHtml(diag.suggestedAction)}</div>` : ''}
-          ${c.stage === 'delivered' ? `<div style="margin-top:6px;display:flex;gap:6px"><button class="btn btn-ghost btn-xs" id="wk-followup-link">📞 Follow-up</button><button class="btn btn-ghost btn-xs" id="wk-winback-link">💝 Win-Back</button></div>` : ''}
+          ${c.stage === 'delivered' ? `<div style="margin-top:6px;display:flex;gap:6px"><button class="btn btn-ghost btn-xs" id="wk-followup-link">📞 ติดตามหลังส่งมอบ</button><button class="btn btn-ghost btn-xs" id="wk-winback-link">💝 ชวนกลับมาซื้อ</button></div>` : ''}
         </div>
         <button class="btn btn-secondary btn-sm" id="wk-view-booking" style="margin-top:10px;width:100%;justify-content:center">🔗 เปิดใบจองนี้</button>
       </div>
@@ -1103,10 +1103,10 @@ export default async function CustomersPage(container) {
       <div class="page-header">
         <div><div class="page-title">👥 ลูกค้า</div><div class="page-subtitle" id="cust-count">กำลังโหลด...</div></div>
         <div class="page-actions">
-          <button class="btn btn-ghost btn-sm pa-more" id="pipeline-link-btn">📋 Pipeline View</button>
-          <button class="btn btn-ghost btn-sm pa-more" id="sheet-view-btn" title="Spreadsheet View">📊 Sheet</button>
-          <button class="btn btn-ghost btn-sm pa-more" id="import-cust-btn">📤 Import</button>
-          <button class="btn btn-secondary btn-sm pa-more" id="export-cust-btn">📥 Export</button>
+          <button class="btn btn-ghost btn-sm pa-more" id="pipeline-link-btn">📋 ดูแบบไปป์ไลน์</button>
+          <button class="btn btn-ghost btn-sm pa-more" id="sheet-view-btn" title="Spreadsheet View">📊 แบบตาราง</button>
+          <button class="btn btn-ghost btn-sm pa-more" id="import-cust-btn">📤 นำเข้า</button>
+          <button class="btn btn-secondary btn-sm pa-more" id="export-cust-btn">📥 ส่งออก</button>
           <button class="btn btn-ghost btn-sm pa-more-btn" type="button" title="เมนูเพิ่มเติม">⋯ อื่นๆ</button>
           ${canReconcileSheet ? `<button class="btn btn-secondary btn-sm" id="sheet-reconcile-btn" title="ทำให้ลูกค้า/ใบจองตรงกับไฟล์ DATA Booking (Google Sheet) ในคลิกเดียว">🔄 ซิงก์ Sheet</button>` : ''}
           <button class="btn btn-primary" id="add-cust-btn" title="ฟอร์มสั้น กรอกแค่ชื่อกับเบอร์ก็บันทึกได้ · ต้องการกรอกครบทุกช่องกด 📝 กรอกแบบละเอียด ในฟอร์ม">➕ เพิ่มลูกค้า</button>

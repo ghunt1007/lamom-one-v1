@@ -54,9 +54,9 @@ export default async function LandingPagesPage(container) {
           </div>
         </div>
         <div style="display:flex;gap:4px;flex-shrink:0">
-          <button class="btn btn-xs btn-secondary preview-btn" data-id="${p.id}" style="font-size:0.68rem">👁 Preview</button>
+          <button class="btn btn-xs btn-secondary preview-btn" data-id="${p.id}" style="font-size:0.68rem">👁 ดูตัวอย่าง</button>
           ${editBtn}
-          <button class="btn btn-xs btn-secondary dup-btn" data-id="${p.id}" style="font-size:0.68rem">📋 Copy</button>
+          <button class="btn btn-xs btn-secondary dup-btn" data-id="${p.id}" style="font-size:0.68rem">📋 คัดลอก</button>
         </div>
       </div>
     </div>`

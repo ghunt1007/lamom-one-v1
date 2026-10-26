@@ -226,7 +226,7 @@ export default async function EvAdoptionPage(container) {
         <span style="font-size:0.72rem;color:var(--text-muted)">ข้อมูล ${liveMonthly.length} เดือนล่าสุด</span>
         <div style="display:flex;gap:8px">
           <button class="btn btn-secondary btn-sm" onclick="this.closest('.modal-overlay').remove()">ปิด</button>
-          <button class="btn btn-primary btn-sm" id="ev-export-btn">📥 Export Excel</button>
+          <button class="btn btn-primary btn-sm" id="ev-export-btn">📥 ส่งออก Excel</button>
         </div>
       `
     })

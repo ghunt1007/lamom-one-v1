@@ -93,7 +93,7 @@ export default async function MonthlyTrendPage(container) {
           <div class="page-actions">
             <button class="btn btn-secondary btn-xs" id="prev-yr">◀ ${year-1}</button>
             <button class="btn btn-secondary btn-xs" id="next-yr">${year+1} ▶</button>
-            <button class="btn btn-primary" id="export-btn">📤 Export</button>
+            <button class="btn btn-primary" id="export-btn">📤 ส่งออก</button>
           </div>
         </div>
 

@@ -105,7 +105,7 @@ export default async function FinanceRateSheetsPage(container) {
               <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:0.78rem">🔍</span>
               <input class="input" id="f-search" placeholder="ธนาคาร/แคมเปญ/รุ่น" value="${escHtml(search)}" style="padding-left:30px;font-size:0.78rem">
             </div>
-            <button class="btn btn-secondary btn-xs" id="export-btn">📥 Export</button>
+            <button class="btn btn-secondary btn-xs" id="export-btn">📥 ส่งออก</button>
           </div>
         </div>
 

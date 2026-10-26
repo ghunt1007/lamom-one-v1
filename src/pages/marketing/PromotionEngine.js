@@ -125,7 +125,7 @@ export default async function PromotionEnginePage(container) {
             (dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ' <span style="color:var(--text-muted);font-size:0.75rem">Demo (ยังไม่มีข้อมูลจริง)</span>') +
           '</div>' +
         '</div><div class="page-actions">' +
-          '<button class="btn btn-secondary" id="pe-export">📥 Export</button>' +
+          '<button class="btn btn-secondary" id="pe-export">📥 ส่งออก</button>' +
           '<button class="btn btn-secondary" id="ai-import-btn">🤖 นำเข้าจากประกาศ AI</button>' +
           '<button class="btn btn-primary" id="add-promo-btn">+ สร้างโปรโมชั่น</button>' +
         '</div></div>' +

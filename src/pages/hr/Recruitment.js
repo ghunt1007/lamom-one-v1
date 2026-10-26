@@ -67,7 +67,7 @@ export default async function RecruitmentPage(container) {
             <div class="page-subtitle">จัดการตำแหน่งงานว่างและใบสมัคร</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-secondary" id="export-btn">📥 Export</button>
+            <button class="btn btn-secondary" id="export-btn">📥 ส่งออก</button>
             <button class="btn btn-primary" id="add-job-btn">+ เปิดตำแหน่งงาน</button>
           </div>
         </div>

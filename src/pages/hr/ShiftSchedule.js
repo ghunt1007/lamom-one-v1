@@ -110,7 +110,7 @@ export default async function ShiftSchedulePage(container) {
             <button class="btn btn-secondary" id="prev-week">◀ สัปดาห์ก่อน</button>
             <button class="btn btn-secondary" id="this-week">วันนี้</button>
             <button class="btn btn-secondary" id="next-week">สัปดาห์ถัดไป ▶</button>
-            <button class="btn btn-secondary" id="sch-export">📥 Export</button>
+            <button class="btn btn-secondary" id="sch-export">📥 ส่งออก</button>
           </div>
         </div>
 

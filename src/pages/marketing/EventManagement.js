@@ -108,10 +108,10 @@ export default async function EventManagementPage(container) {
           '<div class="page-subtitle">จัดการงาน Event — ติดตาม ROI และ Conversion' + (dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : '') + '</div>' +
         '</div><div class="page-actions">' +
           '<div style="display:flex;gap:6px">' +
-            '<button class="btn btn-sm ' + (viewMode==='cards'?'btn-primary':'btn-secondary') + '" id="view-cards">🗂 Card</button>' +
-            '<button class="btn btn-sm ' + (viewMode==='calendar'?'btn-primary':'btn-secondary') + '" id="view-cal">📅 Timeline</button>' +
+            '<button class="btn btn-sm ' + (viewMode==='cards'?'btn-primary':'btn-secondary') + '" id="view-cards">🗂 การ์ด</button>' +
+            '<button class="btn btn-sm ' + (viewMode==='calendar'?'btn-primary':'btn-secondary') + '" id="view-cal">📅 ไทม์ไลน์</button>' +
           '</div>' +
-          '<button class="btn btn-secondary" id="export-btn">📥 Export</button>' +
+          '<button class="btn btn-secondary" id="export-btn">📥 ส่งออก</button>' +
           '<button class="btn btn-primary" id="add-ev-btn">+ สร้าง Event</button>' +
         '</div></div>' +
 

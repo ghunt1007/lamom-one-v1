@@ -62,7 +62,7 @@ export default async function B2BPortalPage(container) {
             <div class="page-subtitle">นายหน้า · Fleet · ราชการ · Leasing · Network</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-secondary" id="b2b-export">📥 Export</button>
+            <button class="btn btn-secondary" id="b2b-export">📥 ส่งออก</button>
             <button class="btn btn-primary" id="new-partner-btn">➕ พาร์ทเนอร์ใหม่</button>
           </div>
         </div>

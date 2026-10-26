@@ -175,7 +175,7 @@ export default async function AnalyticsDashboard(container) {
             </div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-secondary" id="a-export">📥 Export Report</button>
+            <button class="btn btn-secondary" id="a-export">📥 ส่งออกรายงาน</button>
           </div>
         </div>
 
@@ -418,7 +418,7 @@ export default async function AnalyticsDashboard(container) {
                   ${{ sales:'💰 Revenue', units:'🚗 คัน', leads:'🧲 Leads', jobs:'🔧 Jobs' }[k]}
                 </button>
               `).join('')}
-              <button class="btn btn-secondary btn-sm" id="rb-export">📥 Export</button>
+              <button class="btn btn-secondary btn-sm" id="rb-export">📥 ส่งออก</button>
             </div>
           </div>
           <div style="display:flex;align-items:flex-end;gap:6px;height:200px;border-bottom:1px solid var(--border);padding-bottom:8px">

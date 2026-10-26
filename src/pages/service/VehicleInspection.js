@@ -109,7 +109,7 @@ export default async function VehicleInspectionPage(container) {
             <div class="page-subtitle">ตรวจสภาพรถยนต์ — Checklist ละเอียด</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-secondary" id="export-btn">📥 Export</button>
+            <button class="btn btn-secondary" id="export-btn">📥 ส่งออก</button>
             <button class="btn btn-primary" id="add-ins-btn">+ สร้างการตรวจ</button>
           </div>
         </div>

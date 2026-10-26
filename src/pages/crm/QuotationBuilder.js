@@ -122,7 +122,7 @@ export default async function QuotationBuilderPage(container) {
             <div class="page-subtitle">สร้าง ส่ง และติดตามใบเสนอราคาให้ลูกค้า</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-secondary" id="export-btn">📥 Export</button>
+            <button class="btn btn-secondary" id="export-btn">📥 ส่งออก</button>
             <button class="btn btn-primary" id="add-qt-btn">+ สร้างใบเสนอราคา</button>
           </div>
         </div>

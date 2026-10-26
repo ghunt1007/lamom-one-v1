@@ -90,9 +90,9 @@ export default async function SocialHubPage(container) {
 
         <!-- Tabs -->
         <div style="display:flex;gap:4px;margin-bottom:16px">
-          <button class="btn btn-sm ${tab==='calendar'?'btn-primary':'btn-secondary'} tab-btn" data-t="calendar">📅 Content Calendar</button>
-          <button class="btn btn-sm ${tab==='composer'?'btn-primary':'btn-secondary'} tab-btn" data-t="composer">✍️ Composer</button>
-          <button class="btn btn-sm ${tab==='templates'?'btn-primary':'btn-secondary'} tab-btn" data-t="templates">📋 Templates</button>
+          <button class="btn btn-sm ${tab==='calendar'?'btn-primary':'btn-secondary'} tab-btn" data-t="calendar">📅 ปฏิทินคอนเทนต์</button>
+          <button class="btn btn-sm ${tab==='composer'?'btn-primary':'btn-secondary'} tab-btn" data-t="composer">✍️ เขียนโพสต์</button>
+          <button class="btn btn-sm ${tab==='templates'?'btn-primary':'btn-secondary'} tab-btn" data-t="templates">📋 เทมเพลต</button>
           <button class="btn btn-sm ${tab==='analytics'?'btn-primary':'btn-secondary'} tab-btn" data-t="analytics">📊 Analytics</button>
         </div>
 
@@ -203,8 +203,8 @@ export default async function SocialHubPage(container) {
           </div>
 
           <div style="display:flex;gap:8px">
-            <button class="btn btn-secondary" id="save-draft-btn">💾 Save Draft</button>
-            <button class="btn btn-primary" id="schedule-post-btn">📅 Schedule Post</button>
+            <button class="btn btn-secondary" id="save-draft-btn">💾 บันทึกร่าง</button>
+            <button class="btn btn-primary" id="schedule-post-btn">📅 ตั้งเวลาโพสต์</button>
             <button class="btn btn-success" id="publish-now-btn">✅ บันทึกว่าเผยแพร่แล้ว</button>
           </div>
           <div style="font-size:0.68rem;color:var(--text-muted);margin-top:6px">⚠️ ระบบยังไม่ได้เชื่อมต่อ Facebook/Instagram/TikTok/YouTube/LINE API จริง ปุ่มด้านบนบันทึกสถานะในระบบเท่านั้น — ต้องโพสต์เองบน Platform จริงด้วย</div>

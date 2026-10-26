@@ -87,7 +87,7 @@ export default async function SupplierManagementPage(container) {
             <div class="page-subtitle">จัดการซัพพลายเออร์และใบสั่งซื้อ</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-secondary" id="export-btn">📥 Export</button>
+            <button class="btn btn-secondary" id="export-btn">📥 ส่งออก</button>
             <button class="btn btn-primary" id="add-supplier-btn">+ เพิ่มซัพพลายเออร์</button>
           </div>
         </div>

@@ -629,7 +629,7 @@ export default async function StockPage(container) {
         </div>
         <div class="page-actions">
           <button class="btn btn-ghost btn-sm" id="view-toggle-btn">${viewMode === 'table' ? '🃏 แบบการ์ด' : '📋 แบบตาราง'}</button>
-          <button class="btn btn-secondary btn-sm" id="stock-export-btn">📥 Export</button>
+          <button class="btn btn-secondary btn-sm" id="stock-export-btn">📥 ส่งออก</button>
           <button class="btn btn-primary" id="add-stock-btn">➕ เพิ่มรถ</button>
         </div>
       </div>

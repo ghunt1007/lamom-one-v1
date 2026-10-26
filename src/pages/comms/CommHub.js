@@ -132,7 +132,7 @@ export default async function CommHubPage(container) {
             <div style="margin-left:auto">
               ${activeChannel.id === 'announcements'
                 ? `<button class="btn btn-primary btn-sm" id="new-announce-btn">📢 ประกาศใหม่</button>`
-                : `<button class="btn btn-secondary btn-sm" id="pin-msg-btn">📌 Pinned</button>`
+                : `<button class="btn btn-secondary btn-sm" id="pin-msg-btn">📌 ปักหมุด</button>`
               }
             </div>
           </div>
