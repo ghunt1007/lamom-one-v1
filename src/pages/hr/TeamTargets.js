@@ -2,14 +2,14 @@
  * Team & Department Targets — มอบหมายเป้าหมายรายเดือนต่อทีม/ฝ่าย พร้อมสรุปเป็น KPI
  * Route: /hr/targets
  */
-import { formatCurrency, formatDate } from '../../utils/format.js'
+import { formatCurrency, formatDate, monthBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
-function addMonths(n) { const d = new Date(); d.setMonth(d.getMonth() + n); return d.toISOString().slice(0, 7) }
+const addMonths = n => monthBangkok(n)
 
 const DEPARTMENTS = ['ฝ่ายขาย','ฝ่ายบริการ','ฝ่ายการเงิน','ฝ่าย HR','ฝ่าย IT','ผู้บริหาร','อื่นๆ']
 

@@ -2,7 +2,7 @@
  * LAMI Brain — ศูนย์บัญชาการ AI Officer LAMI
  * Route: /ai/lami
  */
-import { timeAgo, todayBangkok, toDate, toDateStr, formatCurrency } from '../../utils/format.js'
+import { timeAgo, todayBangkok, toDate, toDateStr, formatCurrency, monthBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { navigate } from '../../core/router.js'
@@ -67,8 +67,8 @@ function computeInsights({ leads, vehicleModels, jobCards, complaintsList, sales
       message: `Job Card ${overdueJobs.length} ใบค้างนาน > 5 วัน — ควรตรวจสอบและแจ้งลูกค้า` })
   }
 
-  const thisMonthStr = now.toISOString().slice(0, 7)
-  const lastMonthStr = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().slice(0, 7)
+  const thisMonthStr = monthBangkok()
+  const lastMonthStr = monthBangkok(-1)
   const thisMonthCount = salesRows.filter(s => (s.date || '').startsWith(thisMonthStr)).length
   const lastMonthCount = salesRows.filter(s => (s.date || '').startsWith(lastMonthStr)).length
   if (thisMonthCount > 0 || lastMonthCount > 0) {

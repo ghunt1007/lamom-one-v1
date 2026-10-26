@@ -20,6 +20,14 @@ export function todayBangkok() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
 }
 
+// เดือนปัจจุบันตามเวลาไทย 'YYYY-MM' (+offset เดือน เช่น -1 = เดือนก่อน) — คำนวณจากปี/เดือนตรงๆ
+// ไม่ผ่าน toISOString() ที่เป็น UTC (วันที่ 1 ก่อน 07:00 ได้เดือนก่อน, new Date(y,m,1) ในไทยได้เดือนก่อนหน้าเสมอ)
+export function monthBangkok(offset = 0, today = todayBangkok()) {
+  const [y, m] = today.split('-').map(Number)
+  const t = y * 12 + (m - 1) + offset
+  return `${Math.floor(t / 12)}-${String(t % 12 + 1).padStart(2, '0')}`
+}
+
 // เวลาปัจจุบัน (HH:MM) ตามเวลาไทยจริง — ใช้เทียบเวลาเข้างาน/สายได้ถูกต้องแม้เครื่อง/คีออสก์จะตั้ง timezone
 // ผิด (เช่น VM ที่ default เป็น UTC) ยกเว้นกรณีนาฬิกาเครื่องเดินผิดจริง (ไม่ใช่แค่ timezone) ซึ่งแก้ที่ฝั่ง
 // client ไม่ได้อยู่ดี

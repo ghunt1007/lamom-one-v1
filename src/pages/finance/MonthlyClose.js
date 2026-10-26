@@ -2,7 +2,7 @@
  * Monthly Close — ปิดงบประจำเดือน
  * Route: /finance/monthly-close
  */
-import { formatCurrency, formatDate } from '../../utils/format.js'
+import { formatCurrency, formatDate, monthBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
@@ -15,7 +15,7 @@ function myName() {
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
-function addMonths(n) { const d = new Date(); d.setMonth(d.getMonth() + n); return d.toISOString().slice(0, 7) }
+const addMonths = n => monthBangkok(n)
 
 const STATUS_MAP = {
   done:    { label: 'เสร็จ', color: 'success', icon: '✅' },
