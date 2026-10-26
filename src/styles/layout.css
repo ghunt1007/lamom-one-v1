@@ -675,3 +675,11 @@
   .chip-scroll::-webkit-scrollbar { display: none; }
   .chip-scroll > * { flex-shrink: 0; }
 }
+
+/* งานของฉันวันนี้: วิธีใช้ LINE แบบย่อ กดเปิด */
+.md-tip { font-size: 0.78rem; color: var(--text-2); }
+.md-tip > summary { cursor: pointer; list-style: none; color: var(--text-2); font-weight: 600; }
+.md-tip > summary::-webkit-details-marker { display: none; }
+.md-tip > summary::after { content: ' ▸'; color: var(--primary); }
+.md-tip[open] > summary::after { content: ' ▾'; }
+.md-tip > div { margin-top: 6px; line-height: 1.8; color: var(--text-muted); }
