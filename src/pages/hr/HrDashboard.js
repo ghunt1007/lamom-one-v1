@@ -35,7 +35,7 @@ export default async function HrDashboard(container) {
     <div class="page-content animate-slide">
       <div class="page-header">
         <div>
-          <div class="page-title">👤 HR Dashboard</div>
+          <div class="page-title">👤 ภาพรวมพนักงาน (HR)</div>
           <div class="page-subtitle">บริหารทรัพยากรบุคคล</div>
         </div>
         <div class="page-actions">

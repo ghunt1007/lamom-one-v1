@@ -3,22 +3,22 @@ import { navigate } from '../../core/router.js'
 import { formatCurrency, todayBangkok } from '../../utils/format.js'
 
 const QUICK_LINKS = [
-  { icon:'📊', label:'Margin', sub:'กำไรต่อคัน', path:'/finance/margin', color:'success' },
-  { icon:'🏆', label:'Commission', sub:'ค่าคอมเซลส์', path:'/finance/commission', color:'accent' },
-  { icon:'💎', label:'GP & FOC', sub:'กำไรรวมและของแถม', path:'/finance/gp-foc', color:'primary' },
+  { icon:'📊', label:'กำไรต่อคัน', sub:'Margin', path:'/finance/margin', color:'success' },
+  { icon:'🏆', label:'ค่าคอมเซลส์', sub:'Commission', path:'/finance/commission', color:'accent' },
+  { icon:'💎', label:'กำไรรวมและของแถม', sub:'GP & FOC', path:'/finance/gp-foc', color:'primary' },
   { icon:'🎯', label:'งบขาย & งบแถม', sub:'ตั้งงบประจำปี', path:'/finance/sales-budget', color:'warning' },
-  { icon:'📈', label:'Target vs Actual', sub:'เปรียบเทียบยอดจริง', path:'/finance/target-actual', color:'success' },
-  { icon:'📉', label:'P&L', sub:'กำไร-ขาดทุน', path:'/finance/pl', color:'danger' },
-  { icon:'💸', label:'Cash Flow', sub:'กระแสเงินสด', path:'/finance/cashflow', color:'primary' },
-  { icon:'⚙️', label:'Commission Rules', sub:'กฎคำนวณค่าคอม', path:'/finance/commission-rules', color:'accent' },
-  { icon:'💳', label:'Payroll', sub:'เงินเดือนพนักงาน', path:'/finance/payroll', color:'primary' },
-  { icon:'🧾', label:'Invoice', sub:'ใบแจ้งหนี้', path:'/finance/invoice', color:'warning' },
+  { icon:'📈', label:'เปรียบเทียบยอดจริง', sub:'Target vs Actual', path:'/finance/target-actual', color:'success' },
+  { icon:'📉', label:'กำไร-ขาดทุน', sub:'P&L', path:'/finance/pl', color:'danger' },
+  { icon:'💸', label:'กระแสเงินสด', sub:'Cash Flow', path:'/finance/cashflow', color:'primary' },
+  { icon:'⚙️', label:'กฎคำนวณค่าคอม', sub:'Commission Rules', path:'/finance/commission-rules', color:'accent' },
+  { icon:'💳', label:'เงินเดือนพนักงาน', sub:'Payroll', path:'/finance/payroll', color:'primary' },
+  { icon:'🧾', label:'ใบแจ้งหนี้', sub:'Invoice', path:'/finance/invoice', color:'warning' },
   { icon:'🏦', label:'ยื่นไฟแนนซ์', sub:'สินเชื่อรถยนต์', path:'/finance/application', color:'accent' },
-  { icon:'📋', label:'Budget Planning', sub:'วางแผนงบประมาณ', path:'/finance/budget', color:'success' },
-  { icon:'🧾', label:'Tax Report', sub:'รายงานภาษี', path:'/finance/tax', color:'danger' },
-  { icon:'💵', label:'Petty Cash', sub:'เงินสดย่อย', path:'/finance/petty-cash', color:'warning' },
-  { icon:'🏦', label:'Bank Recon', sub:'กระทบยอดธนาคาร', path:'/finance/bank-recon', color:'primary' },
-  { icon:'⚖️', label:'Break-even', sub:'จุดคุ้มทุน', path:'/finance/breakeven', color:'accent' },
+  { icon:'📋', label:'วางแผนงบประมาณ', sub:'Budget Planning', path:'/finance/budget', color:'success' },
+  { icon:'🧾', label:'รายงานภาษี', sub:'Tax Report', path:'/finance/tax', color:'danger' },
+  { icon:'💵', label:'เงินสดย่อย', sub:'Petty Cash', path:'/finance/petty-cash', color:'warning' },
+  { icon:'🏦', label:'กระทบยอดธนาคาร', sub:'Bank Recon', path:'/finance/bank-recon', color:'primary' },
+  { icon:'⚖️', label:'จุดคุ้มทุน', sub:'Break-even', path:'/finance/breakeven', color:'accent' },
 ]
 
 export default async function FinanceDashboard(container) {
@@ -29,7 +29,7 @@ export default async function FinanceDashboard(container) {
     <div class="page-content animate-slide">
       <div class="page-header">
         <div>
-          <div class="page-title">💰 Finance Dashboard</div>
+          <div class="page-title">💰 ภาพรวมการเงิน</div>
           <div class="page-subtitle">ภาพรวมการเงิน กำไร และค่าคอม</div>
         </div>
       </div>
@@ -73,19 +73,23 @@ export default async function FinanceDashboard(container) {
   const thisMonth = todayBangkok().slice(0, 7)
   const thisMonthSales = sales.filter(s => (s.date || '').startsWith(thisMonth))
   const revenue = sales.reduce((t, s) => t + (s.salePrice || 0), 0)
-  const net = sales.reduce((t, s) => {
+  // กำไรนับเฉพาะคันที่กรอกต้นทุนแล้ว — คันที่ยังไม่มีต้นทุนเคยถูกนับเป็นกำไรเต็มราคา ทำให้ Margin ขึ้น 100%
+  const costed = sales.filter(s => (s.cost || 0) > 0)
+  const costedRevenue = costed.reduce((t, s) => t + (s.salePrice || 0), 0)
+  const net = costed.reduce((t, s) => {
     const g = (s.salePrice || 0) - (s.cost || 0)
     return t + g + (s.finance || 0) + (s.insurance || 0) + (s.accessory || 0) - (s.discount || 0)
   }, 0)
-  const avgMargin = sales.length ? (net / revenue * 100).toFixed(1) : '0'
+  const avgMargin = costedRevenue ? (net / costedRevenue * 100).toFixed(1) + '%' : '—'
+  const costNote = costed.length === sales.length ? '' : costed.length ? `นับ ${costed.length}/${sales.length} คันที่กรอกต้นทุน` : 'ยังไม่ได้กรอกต้นทุนรถ'
   const thisMonthRevenue = thisMonthSales.reduce((t, s) => t + (s.salePrice || 0), 0)
 
   const kpiEl = document.getElementById('fin-kpis')
   if (kpiEl) kpiEl.innerHTML = `
     ${kCard('🚗', 'รถขายรวม', `${sales.length} คัน`, 'primary', '/finance/margin')}
     ${kCard('💵', 'ยอดขายรวม', formatCurrency(revenue), 'accent', '/finance/margin')}
-    ${kCard('📈', 'กำไรสุทธิรวม', formatCurrency(net), 'success', '/finance/margin')}
-    ${kCard('📊', 'Margin เฉลี่ย', `${avgMargin}%`, 'warning', '/finance/margin')}
+    ${kCard('📈', 'กำไรสุทธิรวม', costed.length ? formatCurrency(net) : '—', 'success', '/finance/margin', costNote)}
+    ${kCard('📊', 'กำไรเฉลี่ย (%)', avgMargin, 'warning', '/finance/margin')}
   `
 
   const moEl = document.getElementById('fin-monthly')
@@ -93,16 +97,16 @@ export default async function FinanceDashboard(container) {
     moEl.style.display = 'block'
     moEl.innerHTML = `
       <div style="font-size:0.77rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">📅 เดือนนี้ (${thisMonth})</div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+      <div class="fin-mini" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
         ${mini('🚗 ขายได้', thisMonthSales.length + ' คัน')}
         ${mini('💵 ยอดขาย', formatCurrency(thisMonthRevenue))}
-        ${mini('📈 Avg Deal', thisMonthSales.length > 0 ? formatCurrency(Math.round(thisMonthRevenue / thisMonthSales.length)) : '—')}
+        ${mini('📈 เฉลี่ยต่อคัน', thisMonthSales.length > 0 ? formatCurrency(Math.round(thisMonthRevenue / thisMonthSales.length)) : '—')}
       </div>
     `
   }
 }
 
-function kCard(icon, label, value, color, nav) {
+function kCard(icon, label, value, color, nav, note = '') {
   return `
     <div class="card card-lift" data-nav="${nav}" style="padding:16px 18px;cursor:pointer;border-left:3px solid var(--${color})">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
@@ -110,6 +114,7 @@ function kCard(icon, label, value, color, nav) {
         <span style="font-size:${value.length > 10 ? '0.85rem' : '1.5rem'};font-weight:800;color:var(--${color})">${value}</span>
       </div>
       <div style="font-size:0.8rem;color:var(--text-muted)">${label}</div>
+      ${note ? `<div style="font-size:0.68rem;color:var(--warning);margin-top:2px">${note}</div>` : ''}
     </div>
   `
 }
