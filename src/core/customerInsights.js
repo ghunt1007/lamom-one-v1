@@ -28,6 +28,7 @@ export function shouldAutoPromoteToPP(existing, patch) {
 }
 
 // ── Follow-up recommendation engine ─────────────────────────────────────────
+const LEAD_WITH_CONTACT_ADVICE = 'มีเบอร์/LINE แล้ว — โทรคุยความต้องการ แล้วนัดทดลองขับหรือส่งใบเสนอราคา'
 const STAGE_ADVICE = {
   lead: 'ยังไม่ได้เบอร์ติดต่อหรือ LINE ID — ลองขอเบอร์โทร/LINE เพื่อติดตามต่ออย่างจริงจัง',
   pp: 'ได้เบอร์ติดต่อ/LINE แล้วแต่ยังไม่จอง — ลองนัดทดลองขับ หรือส่งใบเสนอราคาให้พิจารณา',
@@ -70,7 +71,9 @@ export function getFollowUpRecommendation(customer, commLogs = [], opts = {}) {
   if (idleDays != null && idleDays >= 7) urgency = 'high'
   else if (idleDays != null && idleDays >= 3 && urgency === 'low') urgency = 'medium'
 
-  const parts = [STAGE_ADVICE[customer.stage] || STAGE_ADVICE.lead]
+  // Lead ที่มีเบอร์/LINE แล้ว (เช่น นำเข้าจาก Sheet) ไม่ควรถูกบอกว่า "ยังไม่ได้เบอร์"
+  const leadWithContact = (customer.stage || 'lead') === 'lead' && !!(customer.phone || customer.lineId)
+  const parts = [leadWithContact ? LEAD_WITH_CONTACT_ADVICE : (STAGE_ADVICE[customer.stage] || STAGE_ADVICE.lead)]
   if (idleDays != null) {
     if (idleDays === 0) parts.push('ติดต่อล่าสุดวันนี้')
     else parts.push(`ไม่ได้ติดต่อมา ${idleDays} วันแล้ว`)

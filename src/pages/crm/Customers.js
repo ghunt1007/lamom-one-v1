@@ -394,6 +394,7 @@ export default async function CustomersPage(container) {
               <div style="font-weight:600;margin-bottom:6px;font-size:0.85rem">⚠️ ประวัติร้องเรียน</div>
               <div class="skeleton" style="height:40px;border-radius:10px"></div>
             </div>
+            <div id="wk-empty-summary" style="display:none;font-size:0.78rem;color:var(--text-muted);padding:8px 10px;border:1px dashed var(--border);border-radius:10px"></div>
           </div>
         </div>
       `,
@@ -712,11 +713,25 @@ export default async function CustomersPage(container) {
     })
   }
 
+  // ส่วนที่ยังไม่มีข้อมูล (ใบจอง/ใบเสนอราคา/ซ่อม/ร้องเรียน) ไม่ต้องโชว์หัวข้อ + กล่องว่างทีละอัน ยาวเต็มจอ
+  // รวมเป็นบรรทัดเดียว "ยังไม่มี: …" แทน — ส่วนที่มีข้อมูลยังแสดงเต็มเหมือนเดิม
+  function markPanelEmpty(el, label) {
+    el.innerHTML = ''
+    el.style.display = 'none'
+    el.dataset.emptyLabel = label
+    const sum = document.getElementById('wk-empty-summary')
+    if (!sum) return
+    const labels = ['wk-booking-panel', 'wk-quote-panel', 'wk-jobcard-panel', 'wk-complaint-panel']
+      .map(id => document.getElementById(id)?.dataset.emptyLabel).filter(Boolean)
+    sum.textContent = 'ยังไม่มี: ' + labels.join(' · ')
+    sum.style.display = labels.length ? '' : 'none'
+  }
+
   async function refreshBookingPanel(c) {
     const el = document.getElementById('wk-booking-panel')
     if (!el) return
     if (!c.bookingId) {
-      el.innerHTML = `<div style="font-weight:600;margin-bottom:6px;font-size:0.85rem">🚗 ใบจองที่เชื่อมโยง</div><div class="empty-state" style="padding:16px"><div class="empty-icon" style="font-size:1.4rem">📋</div><div class="empty-title" style="font-size:0.82rem">ยังไม่มีใบจอง</div></div>`
+      markPanelEmpty(el, '🚗 ใบจอง')
       return
     }
     let booking = null
@@ -761,7 +776,7 @@ export default async function CustomersPage(container) {
     try { quotes = await listDocs('quotations', [['customerId', '==', c.id], ...companyScopeFilters()], 'createdAt', 'desc', 20) } catch { quotes = [] }
     if (!document.getElementById('wk-quote-panel')) return
     if (!quotes.length) {
-      el.innerHTML = `<div style="font-weight:600;margin-bottom:6px;font-size:0.85rem">🧾 ใบเสนอราคาที่เกี่ยวข้อง</div><div style="font-size:0.8rem;color:var(--text-muted)">ยังไม่มีใบเสนอราคา</div>`
+      markPanelEmpty(el, '🧾 ใบเสนอราคา')
       return
     }
     el.innerHTML = `
@@ -793,7 +808,7 @@ export default async function CustomersPage(container) {
     const matched = jobs.filter(j => !j.deleted && (j.customerId === c.id || (myPhone && normPhone(j.phone) === myPhone)))
     if (!document.getElementById('wk-jobcard-panel')) return
     if (!matched.length) {
-      el.innerHTML = `<div style="font-weight:600;margin-bottom:6px;font-size:0.85rem">🔧 ประวัติซ่อม/บริการ (Job Card)</div><div style="font-size:0.8rem;color:var(--text-muted)">ยังไม่มีประวัติ Job Card</div>`
+      markPanelEmpty(el, '🔧 ประวัติซ่อม')
       return
     }
     el.innerHTML = `
@@ -827,7 +842,7 @@ export default async function CustomersPage(container) {
     const matched = complaints.filter(x => myPhone && normPhone(x.phone) === myPhone)
     if (!document.getElementById('wk-complaint-panel')) return
     if (!matched.length) {
-      el.innerHTML = `<div style="font-weight:600;margin-bottom:6px;font-size:0.85rem">⚠️ ประวัติร้องเรียน</div><div style="font-size:0.8rem;color:var(--text-muted)">ยังไม่มีประวัติร้องเรียน</div>`
+      markPanelEmpty(el, '⚠️ ร้องเรียน')
       return
     }
     el.innerHTML = `
