@@ -70,32 +70,22 @@ const QUICK_LINKS = [
   { icon:'👥', label:'ลูกค้า', path:'/crm/customers', color:'primary' },
   { icon:'🚗', label:'สต็อกรถ', path:'/dms/stock', color:'accent' },
   { icon:'📝', label:'จองรถ', path:'/crm/bookings', color:'warning' },
-  { icon:'🔧', label:'Job Cards', path:'/service/jobs', color:'success' },
+  { icon:'🔧', label:'งานซ่อม', path:'/service/jobs', color:'success' },
   { icon:'🔩', label:'อะไหล่', path:'/service/parts', color:'primary' },
-  { icon:'💰', label:'Margin', path:'/finance/margin', color:'success' },
-  { icon:'📉', label:'P&L', path:'/finance/pl', color:'primary' },
-  { icon:'💳', label:'Payroll', path:'/finance/payroll', color:'accent' },
-  { icon:'🛡', label:'Insurance', path:'/insurance', color:'accent' },
+  { icon:'💰', label:'กำไรต่อคัน', path:'/finance/margin', color:'success' },
+  { icon:'📉', label:'กำไร-ขาดทุน', path:'/finance/pl', color:'primary' },
+  { icon:'💳', label:'เงินเดือน', path:'/finance/payroll', color:'accent' },
+  { icon:'🛡', label:'ประกันภัย', path:'/insurance', color:'accent' },
   { icon:'🤖', label:'ถาม LAMI', path:'/ai/ask', color:'primary' },
-  { icon:'💬', label:'Comm Hub', path:'/comms', color:'accent' },
-  { icon:'✅', label:'Tasks', path:'/tasks', color:'success' },
-  { icon:'🎓', label:'Training', path:'/training', color:'warning' },
-  { icon:'🎮', label:'Gamification', path:'/gamification', color:'accent' },
-  { icon:'📈', label:'Analytics', path:'/analytics', color:'primary' },
-  { icon:'🤝', label:'B2B Portal', path:'/b2b', color:'accent' },
-  { icon:'🔗', label:'Integrations', path:'/integrations', color:'primary' },
-  { icon:'📋', label:'Quality', path:'/quality', color:'warning' },
-  { icon:'🔄', label:'Migration', path:'/migration', color:'danger' },
-]
-
-const ACTIVITY_FEED = [
-  { icon:'🚗', text:'จองรถ BYD Seal AWD — คุณ สมศักดิ์ เจริญสุข', time:'5 นาทีที่แล้ว', color:'primary' },
-  { icon:'💰', text:'ปิดดีล MG4 X ฿1,199,000 — อรนุช เซลส์ดี', time:'23 นาทีที่แล้ว', color:'success' },
-  { icon:'🔧', text:'รับงานซ่อม BYD Atto 3 — ธีรยุทธ เก่งกาจ', time:'1 ชม.ที่แล้ว', color:'warning' },
-  { icon:'🧲', text:'Lead ใหม่จาก Facebook — DEEPAL S7', time:'2 ชม.ที่แล้ว', color:'accent' },
-  { icon:'✅', text:'PDI ผ่าน — BYD Atto 3 พร้อมส่งมอบ', time:'3 ชม.ที่แล้ว', color:'success' },
-  { icon:'🛡', text:'ต่อประกัน — Toyota Corolla (เก่า)', time:'เมื่อวาน', color:'accent' },
-  { icon:'📝', text:'เพิ่มลูกค้าใหม่ — นภา สุขใจ', time:'เมื่อวาน', color:'primary' },
+  { icon:'💬', label:'ข้อความรวม', path:'/comms', color:'accent' },
+  { icon:'✅', label:'งานมอบหมาย', path:'/tasks', color:'success' },
+  { icon:'🎓', label:'อบรม', path:'/training', color:'warning' },
+  { icon:'🎮', label:'แข่งยอด', path:'/gamification', color:'accent' },
+  { icon:'📈', label:'วิเคราะห์', path:'/analytics', color:'primary' },
+  { icon:'🤝', label:'ลูกค้าองค์กร', path:'/b2b', color:'accent' },
+  { icon:'🔗', label:'เชื่อมระบบ', path:'/integrations', color:'primary' },
+  { icon:'📋', label:'คุณภาพ', path:'/quality', color:'warning' },
+  { icon:'🔄', label:'ย้ายข้อมูล', path:'/migration', color:'danger' },
 ]
 
 function formatThaiDate() {
@@ -259,8 +249,8 @@ export default async function DashboardPage(container) {
           <!-- Module shortcuts -->
           <div class="card dash-quick" style="padding:16px">
             <div style="font-weight:700;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
-              ⚡ Quick Access
-              <span style="font-size:0.75rem;color:var(--text-muted)">${visibleLinks.length} modules</span>
+              ⚡ ทางลัด
+              <span style="font-size:0.75rem;color:var(--text-muted)">${visibleLinks.length} เมนู</span>
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px">
               ${visibleLinks.map(l => `
@@ -1320,13 +1310,14 @@ export default async function DashboardPage(container) {
     customers.slice(0, 3).forEach(c => feed.push({ icon:'👥', text:`ลูกค้า: ${escHtml(c.firstName||'')} ${escHtml(c.lastName||'')}`, time: timeAgo(c.createdAt), rawTime: toDate(c.createdAt)?.getTime() || 0, color:'primary' }))
     jobs.slice(0, 3).forEach(j => feed.push({ icon:'🔧', text:`Job Card: ${escHtml(j.jobNo||j.plate||j.licensePlate||j.vin||'')} ${escHtml(j.custName||'')} — ${escHtml(j.serviceType||j.type||'งานซ่อม')}`, time: timeAgo(j.createdAt), rawTime: toDate(j.createdAt)?.getTime() || 0, color:'warning' }))
     bookings.slice(0, 3).forEach(b => feed.push({ icon:'📝', text:`จอง: ${escHtml(b.custName||b.customerName||'')} — ${escHtml(b.model||b.vehicleModel||'')}`, time: timeAgo(b.createdAt), rawTime: toDate(b.createdAt)?.getTime() || 0, color:'accent' }))
-    tasks.slice(0, 2).forEach(t => feed.push({ icon:'✅', text:`Task: ${escHtml(t.title||t.name||'')}`, time: timeAgo(t.createdAt), rawTime: toDate(t.createdAt)?.getTime() || 0, color:'success' }))
+    tasks.slice(0, 2).forEach(t => feed.push({ icon:'✅', text:`งาน: ${escHtml(t.title||t.name||'')}`, time: timeAgo(t.createdAt), rawTime: toDate(t.createdAt)?.getTime() || 0, color:'success' }))
     // Sort by time descending (most recent first)
     feed.sort((a, b) => (b.rawTime || 0) - (a.rawTime || 0))
     const feedEl = document.getElementById('activity-feed')
-    const feedItems = feed.length ? feed : ACTIVITY_FEED
-    if (feedEl) {
-      feedEl.innerHTML = feedItems.slice(0, 10).map(a => `
+    // ไม่มีความเคลื่อนไหวจริง → บอกตรงๆ (เดิมโชว์รายการตัวอย่างปลอม เช่น "จองรถ BYD Seal — คุณสมศักดิ์" ทำให้เข้าใจผิด)
+    if (feedEl && !feed.length) feedEl.innerHTML = `<div style="padding:18px 16px;font-size:0.8rem;color:var(--text-muted)">ยังไม่มีความเคลื่อนไหว — เพิ่มลูกค้าหรือใบจองแล้วจะขึ้นที่นี่</div>`
+    else if (feedEl) {
+      feedEl.innerHTML = feed.slice(0, 10).map(a => `
         <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:flex-start">
           <div style="width:28px;height:28px;border-radius:50%;background:var(--${a.color}-dim);display:flex;align-items:center;justify-content:center;font-size:0.85rem;flex-shrink:0">${a.icon}</div>
           <div style="flex:1;min-width:0">
