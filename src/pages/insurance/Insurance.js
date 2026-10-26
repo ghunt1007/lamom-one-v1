@@ -325,7 +325,7 @@ export default async function InsurancePage(container) {
       <div class="card mb-4" style="padding:10px 16px">
         <div style="position:relative">
           <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted)">🔍</span>
-          <input class="input" id="ins-search" placeholder="ค้นหา เลขกรมธรรม์ ลูกค้า รถ ทะเบียน..." style="padding-left:32px">
+          <input class="input" id="ins-search" placeholder="กรมธรรม์ ลูกค้า รถ ทะเบียน" style="padding-left:32px">
         </div>
       </div>
 
