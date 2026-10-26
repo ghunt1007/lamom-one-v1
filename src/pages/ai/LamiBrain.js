@@ -6,7 +6,7 @@ import { timeAgo, todayBangkok, toDate, toDateStr, formatCurrency } from '../../
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { navigate } from '../../core/router.js'
-import { askLami, isAiEnabled } from '../../utils/ai.js'
+import { askLami, isAiEnabled, aiErrorText } from '../../utils/ai.js'
 import { formatAiText } from '../../utils/aiFormat.js'
 import { listDocs, createDoc, seedDemoData, getSalesData } from '../../core/db.js'
 import { heuristicScore } from './LeadScoring.js'
@@ -318,7 +318,7 @@ export default async function LamiBrainPage(container) {
       const reply = await askLami(text, chatHistory, businessContext)
       try { await createDoc('chat_lami_brain', { role: 'lami', text: reply, time: new Date().toISOString() }) } catch (e) {}
     } catch (err) {
-      try { await createDoc('chat_lami_brain', { role: 'lami', text: '⚠️ เกิดข้อผิดพลาด: ' + err.message, time: new Date().toISOString() }) } catch (e) {}
+      try { await createDoc('chat_lami_brain', { role: 'lami', text: '⚠️ ' + aiErrorText(err), time: new Date().toISOString() }) } catch (e) {}
     } finally {
       isTyping = false
       await loadChat()

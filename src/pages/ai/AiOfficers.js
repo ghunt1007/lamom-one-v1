@@ -1,7 +1,7 @@
 import { getState, showToast } from '../../core/store.js'
 import { listDocs, listAllDocs, createDoc, seedDemoData, getSalesData } from '../../core/db.js'
 import { formatCurrency, todayBangkok } from '../../utils/format.js'
-import { askAiOfficer, isAiEnabled } from '../../utils/ai.js'
+import { askAiOfficer, isAiEnabled, aiErrorText } from '../../utils/ai.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 
 function escHtml(s) {
@@ -237,7 +237,8 @@ export default async function AiOfficersPage(container) {
               </div>
               <div style="font-size:0.78rem;color:var(--${activeOfficer.color})">${activeOfficer.title}</div>
             </div>
-            <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
+            <!-- ปุ่มคำถามด่วนในหัวแชท ซ่อนตอนยังไม่มีข้อความ (หน้าว่างมีปุ่มชุดเดียวกันอยู่แล้ว ไม่ต้องโชว์ซ้ำ) -->
+            <div id="ao-head-chips" style="margin-left:auto;gap:6px;flex-wrap:wrap;display:${getHistory(activeOfficer.id).length ? 'flex' : 'none'}">
               ${QUICK_PROMPTS[activeOfficer.id]?.map(q => `<button class="btn btn-secondary btn-sm quick-prompt" data-q="${q}">${q}</button>`).join('') || ''}
             </div>
           </div>
@@ -337,7 +338,7 @@ export default async function AiOfficersPage(container) {
       const systemPrompt = buildSystemPrompt(activeOfficer)
       reply = await askAiOfficer(officerId, text, history, systemPrompt)
     } catch (err) {
-      reply = `⚠️ เกิดข้อผิดพลาดในการเชื่อมต่อ AI: ${err.message}`
+      reply = `⚠️ ${aiErrorText(err)}`
     }
     history.push({ role: 'assistant', content: reply })
     saveMessage(officerId, 'assistant', reply)
@@ -349,6 +350,9 @@ export default async function AiOfficersPage(container) {
     const msgs = document.getElementById('chat-messages')
     if (!msgs) return
     msgs.innerHTML = renderMessages()
+    const chips = document.getElementById('ao-head-chips')
+    if (chips) chips.style.display = getHistory(activeOfficer.id).length ? 'flex' : 'none'
+    msgs.querySelectorAll('.quick-prompt').forEach(btn => btn.addEventListener('click', () => sendMessage(btn.dataset.q)))
     scrollChat()
   }
 
