@@ -6,6 +6,7 @@ import { showToast, getState, setState, on } from '../../core/store.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { getVisibilityScope, isProgramOwner, scopeIncludesRecord, normName } from '../../core/hierarchy.js'
 import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
+import { newBookingNo } from '../../utils/bookingNo.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { navigate } from '../../core/router.js'
@@ -922,7 +923,7 @@ export default async function BookingsPage(container) {
   function openWizard() {
     let step = 1
     const w = { custName: '', phone: '', salesName: (getSalesStaff().includes(myDisplayName) ? myDisplayName : getSalesStaff()[0]) || '', brand: '', model: '', variant: '', price: 0, discount: 0, accessories: 0, bookingDeposit: 0, down: 0, installments: 60, interestRate: 2.99, customerId: null }
-    const bkNo = 'SK' + new Date().toISOString().slice(2, 10).replace(/-/g, '') + String(Math.floor(Math.random() * 900) + 100)
+    const bkNo = newBookingNo()
     const stepLabels = ['ข้อมูลลูกค้า', 'ราคา & รุ่น', 'ไฟแนนซ์', 'ยืนยัน']
 
     function total() { return (Number(w.price) || 0) - (Number(w.discount) || 0) + (Number(w.accessories) || 0) }
@@ -1202,7 +1203,7 @@ export default async function BookingsPage(container) {
     const isEdit = !!existing
     const e = existing || {}
     let linkedCustomerId = e.customerId || null
-    const bkNo = e.bookingNo || ('SK' + new Date().toISOString().slice(2, 10).replace(/-/g, '') + String(Math.floor(Math.random() * 900) + 100))
+    const bkNo = e.bookingNo || newBookingNo()
     const inp = (id, label, val, type) => '<div class="input-group"><label class="input-label">' + label + '</label><input class="input" id="' + id + '" ' + (type ? 'type="' + type + '"' : '') + ' value="' + (val == null ? '' : String(val).replace(/"/g, '&quot;')) + '"></div>'
     const selOf = (id, label, list, val) => '<div class="input-group"><label class="input-label">' + label + '</label><select class="input" id="' + id + '">' + list.map(o => '<option ' + (o === val ? 'selected' : '') + '>' + o + '</option>').join('') + '</select></div>'
     const datalist = (id, label, list, val) => '<div class="input-group"><label class="input-label">' + label + '</label><input class="input" id="' + id + '" list="' + id + '-l" value="' + (val || '') + '"><datalist id="' + id + '-l">' + list.map(o => '<option value="' + o + '">').join('') + '</datalist></div>'
