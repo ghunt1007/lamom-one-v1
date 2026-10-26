@@ -1,5 +1,6 @@
 import { getState, on, toggleSidebar } from '../../core/store.js'
 import { menuMatches } from '../../utils/menuSearch.js'
+import { buildSimpleNav, readNavMode, writeNavMode, readVisits, recordVisit, countItems } from '../../utils/navSimple.js'
 import { navigate } from '../../core/router.js'
 import { logout } from '../../core/auth.js'
 import { getModuleForPath, hasModuleAccess, loadRolePermissions } from '../../core/permissions.js'
@@ -439,6 +440,8 @@ function saveGroupState(s) {
 export function Sidebar(container) {
   let el = null
   const unsubs = []
+  // "ใช้บ่อย" คิดจากสถิติตอนเปิดแอป ไม่คำนวณใหม่ทุกคลิก — เมนูจะได้ไม่สลับตำแหน่งไปมาระหว่างใช้งาน
+  const visitsAtStart = readVisits()
 
   loadRolePermissions().then(() => render())
 
@@ -469,6 +472,31 @@ export function Sidebar(container) {
     const nav = visibleNav(user?.role, user?.extraGrants)
     const gLabel = g => (lang === 'en' ? g.groupEn : lang === 'zh' ? g.groupZh : null) || g.group
     const iLabel = i => (lang === 'en' ? i.labelEn : lang === 'zh' ? i.labelZh : null) || i.label
+    const mode = readNavMode()
+    const simpleNav = buildSimpleNav(nav, visitsAtStart)
+    const groupsHtml = (groups, cls) => groups.map(group => {
+      const isGroupCollapsed = !collapsed && !!grpState[group.group]
+      const hasActive = group.items.some(i => i.path === route)
+      return `
+            <div class="nav-group ${cls}">
+              ${!collapsed ? `
+                <div class="nav-group-label nav-group-toggle ${hasActive ? 'has-active' : ''}" data-grp="${escHtml(group.group)}">
+                  <span>${escHtml(gLabel(group))}</span>
+                  <span class="nav-grp-arrow">${isGroupCollapsed ? '▸' : '▾'}</span>
+                </div>
+              ` : ''}
+              <div class="nav-group-items ${isGroupCollapsed ? 'grp-hidden' : ''}">
+                ${group.items.map(item => `
+                  <div class="nav-item ${route === item.path ? 'active' : ''}"
+                       data-path="${item.path}"
+                       title="${escHtml(item.fullLabel ? `${iLabel(item)} · ${item.fullLabel}` : iLabel(item))}">
+                    <span class="nav-icon">${item.icon}</span>
+                    ${!collapsed ? `<span class="nav-label">${escHtml(iLabel(item))}</span>` : ''}
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `}).join('')
 
     // Auto-expand the group containing the active route
     nav.forEach(g => {
@@ -492,29 +520,9 @@ export function Sidebar(container) {
 
         ${!collapsed ? `<div class="sidebar-find"><input type="search" id="sb-find" placeholder="🔍 หาเมนู…" autocomplete="off" aria-label="หาเมนู"></div>` : ''}
         <nav class="sidebar-nav">
-          ${nav.map(group => {
-            const isGroupCollapsed = !collapsed && !!grpState[group.group]
-            const hasActive = group.items.some(i => i.path === route)
-            return `
-            <div class="nav-group">
-              ${!collapsed ? `
-                <div class="nav-group-label nav-group-toggle ${hasActive ? 'has-active' : ''}" data-grp="${escHtml(group.group)}">
-                  <span>${escHtml(gLabel(group))}</span>
-                  <span class="nav-grp-arrow">${isGroupCollapsed ? '▸' : '▾'}</span>
-                </div>
-              ` : ''}
-              <div class="nav-group-items ${isGroupCollapsed ? 'grp-hidden' : ''}">
-                ${group.items.map(item => `
-                  <div class="nav-item ${route === item.path ? 'active' : ''}"
-                       data-path="${item.path}"
-                       title="${escHtml(iLabel(item))}">
-                    <span class="nav-icon">${item.icon}</span>
-                    ${!collapsed ? `<span class="nav-label">${escHtml(iLabel(item))}</span>` : ''}
-                  </div>
-                `).join('')}
-              </div>
-            </div>
-          `}).join('')}
+          ${mode === 'simple' ? groupsHtml(simpleNav, 'nav-simple') : ''}
+          ${groupsHtml(nav, mode === 'simple' ? 'nav-full nav-full-hidden' : 'nav-full')}
+          ${!collapsed ? `<button class="nav-mode-toggle" id="nav-mode" type="button">${mode === 'simple' ? `📂 ดูเมนูทั้งหมด <span class="nav-mode-count">${countItems(nav)}</span>` : '✨ กลับเมนูหลัก'}</button>` : ''}
         </nav>
 
         <div class="sidebar-footer">
@@ -577,28 +585,36 @@ export function Sidebar(container) {
     el.querySelectorAll('.nav-item[data-path]').forEach(item => {
       item.addEventListener('click', () => navigate(item.dataset.path))
     })
+    el.querySelector('#nav-mode')?.addEventListener('click', () => {
+      writeNavMode(readNavMode() === 'simple' ? 'all' : 'simple')
+      render()
+      el.querySelector('.sidebar-nav')?.scrollTo({ top: 0 })
+    })
     // หาเมนูจากชื่อ (เมนูมีหลายร้อยรายการ) — พิมพ์แล้วกรองทันที กด Enter ไปเมนูแรกที่เจอ
     const find = el.querySelector('#sb-find')
     find?.addEventListener('input', () => {
       const q = find.value.trim()
-      el.querySelectorAll('.nav-group').forEach(g => {
+      // เมนูแบบเรียบง่าย: พิมพ์ค้นแล้วค้นจากเมนูทั้งหมด (ทุกหน้ายังหาเจอ) ลบคำค้นแล้วกลับเป็นเมนูหลัก
+      el.querySelectorAll('.nav-group.nav-simple').forEach(g => { g.style.display = q ? 'none' : '' })
+      el.querySelectorAll('.nav-group.nav-full').forEach(g => {
+        if (g.classList.contains('nav-full-hidden') && !q) { g.style.display = ''; return }
         let any = false
         g.querySelectorAll('.nav-item[data-path]').forEach(it => {
           const hit = menuMatches(it.getAttribute('title'), it.dataset.path, find.value)
           it.style.display = hit ? '' : 'none'
           any = any || hit
         })
-        g.style.display = any ? '' : 'none'
+        g.style.display = any ? 'block' : 'none'
         g.querySelector('.nav-group-items')?.classList.toggle('sb-force-open', !!q)
       })
     })
     find?.addEventListener('keydown', e => {
       if (e.key !== 'Enter') return
-      const first = [...el.querySelectorAll('.nav-item[data-path]')].find(it => it.style.display !== 'none' && it.closest('.nav-group').style.display !== 'none')
+      const first = [...el.querySelectorAll('.nav-full .nav-item[data-path]')].find(it => it.style.display !== 'none' && it.closest('.nav-group').style.display !== 'none' && it.offsetParent)
       if (first) navigate(first.dataset.path)
     })
-    // LAMI widget → ผู้ช่วยส่วนตัว
-    el.querySelector('#lami-widget')?.addEventListener('click', () => navigate('/ai/personal'))
+    // LAMI widget → ถาม LAMI (ที่เดียวกับปุ่ม 🤖 บนแถบบนและแถบล่างมือถือ — เดิมพาไปคนละหน้า ทำให้ดูเหมือนมี AI หลายตัว)
+    el.querySelector('#lami-widget')?.addEventListener('click', () => navigate('/ai/ask'))
     // เมนูผู้ใช้: บัญชีของฉัน / ออกจากระบบ
     el.querySelector('#user-mini')?.addEventListener('click', (e) => {
       e.stopPropagation()
@@ -627,7 +643,7 @@ export function Sidebar(container) {
   render()
 
   unsubs.push(on('sidebarCollapsed', render))
-  unsubs.push(on('currentRoute', render))
+  unsubs.push(on('currentRoute', r => { recordVisit(r); render() }))
   unsubs.push(on('user', render))
   unsubs.push(on('language', render))
   unsubs.push(on('brand', render))
