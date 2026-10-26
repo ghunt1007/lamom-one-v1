@@ -72,7 +72,12 @@ export function openLamiPanel({ navigate } = {}) {
       const { askLami } = await import('./ai.js')
       const ans = await askLami(q, history, pageContextFor(screen))
       history.push({ role: 'user', text: q }, { role: 'lami', text: ans })
-      wait.outerHTML = `<div class="lp-a">${formatAiText(ans)}</div>`
+      // ถามต่อได้ด้วยปุ่มเดียว: โชว์คำถามของหน้านี้ที่ยังไม่ได้ถาม (สูงสุด 3) ใต้คำตอบ
+      const asked = new Set(history.filter(h => h.role === 'user').map(h => h.text))
+      const next = asks.filter(a => !asked.has(a.q)).slice(0, 3)
+      body.querySelectorAll('.lp-asks').forEach(x => x.remove())
+      wait.outerHTML = `<div class="lp-a">${formatAiText(ans)}</div>` + (next.length ? `<div class="lp-asks lp-next">${next.map(a => `<button class="lp-ask" type="button" data-q="${esc(a.q)}">${a.label}</button>`).join('')}</div>` : '')
+      body.querySelectorAll('.lp-next .lp-ask').forEach(b => b.addEventListener('click', () => ask(b.dataset.q)))
     } catch (e) {
       const { aiErrorText } = await import('./ai.js').catch(() => ({ aiErrorText: () => 'LAMI ตอบไม่ได้ตอนนี้ ลองใหม่อีกครั้ง' }))
       wait.outerHTML = `<div class="lp-a lp-err">⚠️ ${esc(aiErrorText(e))}</div>`
