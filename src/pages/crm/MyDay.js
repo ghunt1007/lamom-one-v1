@@ -25,6 +25,7 @@ import { classifyLostReason } from '../../utils/lostReason.js'
 import { openReplan, bookingTotal } from '../../utils/replanModal.js'
 
 const NUDGE_MAX = 8
+const SECTION_PREVIEW = 5
 
 const UNASSIGNED = '(ยังไม่มีผู้ดูแล)'
 function escHtml(s) {
@@ -81,16 +82,21 @@ export default async function MyDayPage(container) {
     return [...s].filter(n => n === UNASSIGNED || scopeIncludesRecord(scope, n, {})).sort((a, b) => a.localeCompare(b, 'th'))
   }
 
+  const expanded = new Set() // หมวดที่กด "ดูอีก" แล้ว — คงเปิดไว้หลังกดปุ่มอื่นที่ทำให้หน้าวาดใหม่
   let cleared = [] // หัวข้อที่ไม่มีงานค้าง — ย่อรวมไว้บรรทัดเดียวท้ายหน้าแทนการ์ดว่างๆ ยาวทั้งหน้า
   function section(icon, title, hint, items, row, color = 'primary') {
     if (!items.length) { cleared.push(`${icon} ${title}`); return '' }
+    // หน้ายาวเกินไปบนมือถือ — แต่ละหมวดโชว์ 5 รายการแรก (เรียงด่วนสุดก่อนแล้ว) กดดูที่เหลือได้
+    const open = expanded.has(title) || items.length <= SECTION_PREVIEW + 1
     return `<div class="card" style="padding:0;margin-bottom:14px;overflow:hidden">
       <div style="padding:12px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border)">
         <span style="font-size:1.1rem">${icon}</span><b>${title}</b>
         <span class="badge badge-${items.length ? color : 'secondary'}">${items.length}</span>
         <span style="margin-left:auto;font-size:0.7rem;color:var(--text-muted)">${hint}</span>
       </div>
-      ${items.slice(0, 50).map(row).join('') + (items.length > 50 ? `<div style="padding:8px 16px;font-size:0.75rem;color:var(--text-muted)">…และอีก ${items.length - 50} รายการ</div>` : '')}
+      ${items.slice(0, open ? 50 : SECTION_PREVIEW).map(row).join('')}
+      ${!open && items.length > SECTION_PREVIEW ? `<button type="button" class="md-more" data-key="${escHtml(title)}">ดูอีก ${Math.min(items.length, 50) - SECTION_PREVIEW} รายการ ▾</button>` : ''}
+      ${items.length > 50 && open ? `<div style="padding:8px 16px;font-size:0.75rem;color:var(--text-muted)">…และอีก ${items.length - 50} รายการ</div>` : ''}
     </div>`
   }
   const line = (main, sub, actions) => `<div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap">
@@ -209,6 +215,9 @@ export default async function MyDayPage(container) {
     const d = buildMyDay(data, { today, mine })
     lastDay = d
     cleared = []
+    // ลูกค้า Hot ที่อยู่ในหมวด "Lead ใหม่วันนี้" / "ไม่ได้ติดตาม" แล้ว ไม่ต้องขึ้นซ้ำอีกหมวด (มีปุ่ม 📅 นัด อยู่แล้ว)
+    const listed = new Set([...d.newLeads, ...d.stale].map(c => c.id))
+    const hotOnly = d.hotNoPlan.filter(c => !listed.has(c.id))
     // ความคืบหน้าวันนี้ = ลูกค้าที่ติดต่อแล้ว เทียบกับ (ติดต่อแล้ว + งานค้าง)
     const doneToday = d.contactedToday || 0
     const pct = doneToday + d.total ? Math.round(doneToday / (doneToday + d.total) * 100) : 100
@@ -253,7 +262,7 @@ export default async function MyDayPage(container) {
           `${escHtml(SOURCE_LABEL[c.source] || c.source || '')}${c.phone ? ` · ${escHtml(c.phone)}` : c.lineId ? ` · ${escHtml(c.lineId)}` : ''}${ownerTag(c.assignedTo)}`,
           `${callBtn(c.phone, c.id)}${takeBtns(c)}${bangkokDate(c.lastContactAt) === today ? '<span class="badge badge-success" style="font-size:0.62rem">ติดต่อแล้ว</span>' : `<button class="btn btn-success btn-xs md-touch" data-id="${escHtml(c.id)}">✅ ติดต่อแล้ว</button>`}<button class="btn btn-secondary btn-xs md-plan" data-id="${escHtml(c.id)}">📅 นัด</button><button class="btn btn-secondary btn-xs md-open" data-id="${escHtml(c.id)}">เปิด</button>`), 'success')}
 
-        ${d.hotNoPlan.length ? section('🔴', 'ลูกค้า Hot ที่ยังไม่มีนัดติดตาม', 'โอกาสปิดสูง — นัดครั้งถัดไปไว้เลย', d.hotNoPlan, c => line(
+        ${hotOnly.length ? section('🔴', 'ลูกค้า Hot ที่ยังไม่มีนัดติดตาม', 'โอกาสปิดสูง — นัดครั้งถัดไปไว้เลย', hotOnly, c => line(
           `${escHtml(c.name)}${c.interestedModel ? ` · ${escHtml(c.interestedModel)}` : ''}`,
           `${c.phone ? escHtml(c.phone) : c.lineId ? escHtml(c.lineId) : 'ไม่มีเบอร์'}${ownerTag(c.assignedTo)}`,
           `${callBtn(c.phone, c.id)}<button class="btn btn-primary btn-xs md-plan" data-id="${escHtml(c.id)}">📅 นัด</button><button class="btn btn-secondary btn-xs md-open" data-id="${escHtml(c.id)}">เปิด</button>`), 'danger') : ''}
@@ -298,6 +307,7 @@ export default async function MyDayPage(container) {
 
     const $$ = sel => container.querySelectorAll(sel)
     container.querySelector('#md-seller')?.addEventListener('change', e => { seller = e.target.value; render() })
+    $$('.md-more').forEach(b => b.addEventListener('click', () => { expanded.add(b.dataset.key); const y = window.scrollY; render(); window.scrollTo(0, y) }))
     container.querySelector('#md-reload').addEventListener('click', async () => { await load(); render() })
     container.querySelector('#md-speak')?.addEventListener('click', async e => {
       const btn = e.currentTarget

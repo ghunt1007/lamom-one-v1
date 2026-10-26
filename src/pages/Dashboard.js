@@ -184,8 +184,23 @@ export default async function DashboardPage(container) {
           .map(([id, label]) => `<button class="btn btn-secondary btn-xs" data-jump="${id}" style="border-radius:999px;flex-shrink:0">${label}</button>`).join('')}
       </div>
 
+      <!-- Intelligence Center: แจ้งเตือนอัจฉริยะ + เป้า vs ผลจริง -->
+      <div class="dash-intel" style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px">
+        <div class="card" style="padding:16px">
+          <div style="font-weight:700;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
+            <span>🚨 Intelligence Center — เรื่องที่ต้องจัดการ</span>
+            <span id="alert-count" class="badge badge-danger" style="display:none"></span>
+          </div>
+          <div id="alerts-body"><div class="skeleton" style="height:120px;border-radius:var(--radius-md)"></div></div>
+        </div>
+        <div class="card" style="padding:16px">
+          <div style="font-weight:700;margin-bottom:12px">🎯 เป้า vs ผลจริง — <span class="fc-month" style="color:var(--primary);font-size:0.8rem"></span></div>
+          <div id="targets-body"><div class="skeleton" style="height:120px;border-radius:var(--radius-md)"></div></div>
+        </div>
+      </div>
+
       <!-- Operations radar + ring gauges -->
-      <div class="card mb-4" style="padding:16px">
+      <div class="card mb-4 dash-radar" style="padding:16px">
         <div style="font-weight:700;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
           <span>🛰 Operations Radar — จุดบนจอ = รายการค้างจริง คลิกเพื่อไปจัดการ</span>
           <span id="radar-month" style="font-size:0.72rem;color:var(--primary);font-family:'Share Tech Mono',monospace;letter-spacing:0.08em"></span>
@@ -209,21 +224,6 @@ export default async function DashboardPage(container) {
         </div>
         <div id="mom-strip" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
           ${[1,2,3,4].map(() => `<div class="skeleton" style="height:86px;border-radius:var(--radius-md)"></div>`).join('')}
-        </div>
-      </div>
-
-      <!-- Intelligence Center: แจ้งเตือนอัจฉริยะ + เป้า vs ผลจริง -->
-      <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px">
-        <div class="card" style="padding:16px">
-          <div style="font-weight:700;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
-            <span>🚨 Intelligence Center — เรื่องที่ต้องจัดการ</span>
-            <span id="alert-count" class="badge badge-danger" style="display:none"></span>
-          </div>
-          <div id="alerts-body"><div class="skeleton" style="height:120px;border-radius:var(--radius-md)"></div></div>
-        </div>
-        <div class="card" style="padding:16px">
-          <div style="font-weight:700;margin-bottom:12px">🎯 เป้า vs ผลจริง — <span class="fc-month" style="color:var(--primary);font-size:0.8rem"></span></div>
-          <div id="targets-body"><div class="skeleton" style="height:120px;border-radius:var(--radius-md)"></div></div>
         </div>
       </div>
 
@@ -257,7 +257,7 @@ export default async function DashboardPage(container) {
         <div style="display:flex;flex-direction:column;gap:16px">
 
           <!-- Module shortcuts -->
-          <div class="card" style="padding:16px">
+          <div class="card dash-quick" style="padding:16px">
             <div style="font-weight:700;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
               ⚡ Quick Access
               <span style="font-size:0.75rem;color:var(--text-muted)">${visibleLinks.length} modules</span>
