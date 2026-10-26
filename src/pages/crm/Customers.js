@@ -1141,12 +1141,12 @@ export default async function CustomersPage(container) {
           </div>
           <div id="cust-smart" style="display:none;order:99;flex-basis:100%;font-size:0.76rem;color:var(--text-3);line-height:1.9"></div>
           <select class="input" id="cust-sales-filter" style="width:auto;min-width:140px" title="กรองตามผู้ดูแล">
-            <option value="">👤 ผู้ดูแลทั้งหมด</option>
+            <option value="">👤 ผู้ดูแล</option>
             <option value="__none">⚠️ ยังไม่มีผู้ดูแล</option>
             ${getSalesStaff().map(s => `<option value="${escHtml(s)}">${escHtml(s)}</option>`).join('')}
           </select>
           <select class="input" id="cust-source-filter" style="width:auto;min-width:120px" title="กรองตามที่มา">
-            <option value="">📌 ทุกช่องทาง</option>
+            <option value="">📌 ที่มา</option>
             ${Object.entries(SOURCE).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}
           </select>
           <select class="input" id="cust-sort" style="width:auto;min-width:120px" title="เรียงลำดับ">
@@ -1156,7 +1156,7 @@ export default async function CustomersPage(container) {
             <option value="score">🎯 โอกาสปิดสูงสุดก่อน</option>
           </select>
           <select class="input" id="cust-fu-filter" style="width:auto;min-width:130px" title="กรองตามนัดติดตาม">
-            <option value="">📅 นัดติดตาม: ทั้งหมด</option>
+            <option value="">📅 นัด</option>
             <option value="none">⚠️ Lead/Prospect ที่ไม่มีนัดเลย</option>
             <option value="late">🔴 มีนัดเลยกำหนด</option>
             <option value="quiet">💤 Lead/Prospect เงียบ ${QUIET_DAYS} วัน+</option>
