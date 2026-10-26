@@ -176,7 +176,7 @@ export default async function WhiteLabelPage(container) {
       <div style="display:flex;flex-direction:column;gap:20px">
         <!-- Theme presets -->
         <div>
-          <div style="font-weight:700;font-size:0.88rem;margin-bottom:12px">🎨 Theme Presets</div>
+          <div style="font-weight:700;font-size:0.88rem;margin-bottom:12px">🎨 ธีมสำเร็จรูป</div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px">
             ${THEMES.map(t => `
               <div class="theme-card" data-tid="${t.id}" style="
@@ -198,7 +198,7 @@ export default async function WhiteLabelPage(container) {
 
         <!-- Custom colors -->
         <div class="card" style="padding:16px">
-          <div style="font-weight:700;font-size:0.88rem;margin-bottom:14px">🖌 Custom Colors</div>
+          <div style="font-weight:700;font-size:0.88rem;margin-bottom:14px">🖌 กำหนดสีเอง</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
             <div class="input-group">
               <label class="input-label">Primary Color</label>
@@ -217,7 +217,7 @@ export default async function WhiteLabelPage(container) {
           </div>
           <!-- Color preview bar -->
           <div style="margin-top:14px;height:32px;border-radius:var(--radius-sm);background:linear-gradient(90deg,${cfg.primaryColor},${cfg.accentColor});display:flex;align-items:center;justify-content:center">
-            <span style="font-size:0.75rem;color:white;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,.4)">Color Gradient Preview</span>
+            <span style="font-size:0.75rem;color:white;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,.4)">ตัวอย่างไล่สี</span>
           </div>
         </div>
       </div>
@@ -232,7 +232,7 @@ export default async function WhiteLabelPage(container) {
     ]
     return `
       <div style="display:flex;flex-direction:column;gap:14px;max-width:560px">
-        <div style="font-weight:700;font-size:0.88rem;margin-bottom:4px">📐 Layout Options</div>
+        <div style="font-weight:700;font-size:0.88rem;margin-bottom:4px">📐 ตัวเลือกเลย์เอาต์</div>
         ${layoutOpts.map(o => `
           <label style="display:flex;align-items:center;gap:12px;padding:14px 16px;border:1px solid var(--border);border-radius:var(--radius-md);cursor:pointer;background:var(--surface)">
             <input type="radio" name="layout-opt" value="${o.id}" ${cfg.layoutId===o.id?'checked':''} style="width:16px;height:16px" ${dis}>
@@ -265,7 +265,7 @@ export default async function WhiteLabelPage(container) {
     return `
       <div style="max-width:560px;display:flex;flex-direction:column;gap:12px">
         <div class="card" style="padding:16px">
-          <div style="font-weight:700;font-size:0.88rem;margin-bottom:4px">⚙️ Advanced Settings</div>
+          <div style="font-weight:700;font-size:0.88rem;margin-bottom:4px">⚙️ ตั้งค่าขั้นสูง</div>
           <div style="font-size:0.72rem;color:var(--warning);margin-bottom:12px">⚠️ ยังไม่รองรับการตั้งค่าเหล่านี้ในเวอร์ชันนี้ (ต้องแก้ไขหน้า Login/Sidebar โดยตรง) — เอาปุ่มที่ไม่ทำงานจริงออกไปก่อน เพื่อไม่ให้เข้าใจผิดว่าตั้งค่าได้</div>
           ${[
             'แสดงหน้า Login แบบ Custom',

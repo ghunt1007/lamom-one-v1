@@ -145,7 +145,7 @@ export default async function ReferralProgramPage(container) {
           <!-- Sidebar: reward tiers + top referrers -->
           <div>
             <div class="card" style="padding:14px;margin-bottom:12px">
-              <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">🏆 Reward Tiers</div>
+              <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">🏆 ระดับรางวัล</div>
               ${REWARD_TIERS.map(t => `
                 <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:0.8rem">
                   <span>${t.icon} ${t.tier} (${t.minRef}+ แนะนำ)</span>
@@ -155,7 +155,7 @@ export default async function ReferralProgramPage(container) {
             </div>
 
             <div class="card" style="padding:14px">
-              <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">⭐ Top Referrers</div>
+              <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">⭐ ผู้แนะนำยอดเยี่ยม</div>
               ${topReferrers.length ? topReferrers.map((r, i) => `
                 <div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
                   <div style="font-size:1.2rem">${['🥇','🥈','🥉'][i] || '🎗️'}</div>

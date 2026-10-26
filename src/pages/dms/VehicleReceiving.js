@@ -218,7 +218,7 @@ export default async function VehicleReceivingPage(container) {
           </div>
         </div>
         <div style="margin-top:12px">${row('สถานะ', `<span class="badge badge-${st?.color}">${st?.label}</span>`)}</div>
-        <div style="margin-top:12px;font-size:0.78rem;font-weight:700;margin-bottom:8px">✅ PDI Checklist</div>
+        <div style="margin-top:12px;font-size:0.78rem;font-weight:700;margin-bottom:8px">✅ เช็กลิสต์ PDI</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
           ${Object.entries(v.checklist).map(([k,val]) => `<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:0.8rem">
             <span>${val ? '✅' : '⬜'}</span><span style="${!val?'color:var(--text-muted)':''}">PDI ${k}</span>

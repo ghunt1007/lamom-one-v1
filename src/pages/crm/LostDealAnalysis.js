@@ -238,7 +238,7 @@ export default async function LostDealAnalysisPage(container) {
 
         <!-- Insights box -->
         <div style="margin-top:16px;background:var(--primary-dim);border:1px solid var(--primary);border-radius:var(--radius-md);padding:14px 16px">
-          <div style="font-weight:700;color:var(--primary);margin-bottom:8px">💡 Insights & Recommendations</div>
+          <div style="font-weight:700;color:var(--primary);margin-bottom:8px">💡 ข้อค้นพบและคำแนะนำ</div>
           <div style="display:flex;flex-direction:column;gap:6px;font-size:0.83rem">
             ${topReason?.[0] === 'price' ? '<div>🎯 เสียดีลเพราะราคาเยอะ — พิจารณา Special Price Package หรือ Bundle Offer ให้มีความน่าสนใจมากขึ้น</div>' : ''}
             ${topReason?.[0] === 'competitor' ? '<div>🏁 แพ้คู่แข่งบ่อย — ควรทำ Competitive Analysis และเตรียม Counter-offer ที่ชัดเจน</div>' : ''}

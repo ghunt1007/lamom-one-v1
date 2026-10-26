@@ -94,7 +94,7 @@ export default async function TrainingQuizPage(container) {
 
           <!-- Leaderboard -->
           <div class="card" style="padding:14px">
-            <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">🏆 Top Scores</div>
+            <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">🏆 คะแนนสูงสุด</div>
             ${(() => {
               const leaderboard = computeLeaderboard(history)
               if (!leaderboard.length) return `<div style="font-size:0.78rem;color:var(--text-muted)">ยังไม่มีผลการทำแบบทดสอบ</div>`

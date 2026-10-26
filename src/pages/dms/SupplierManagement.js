@@ -221,7 +221,7 @@ export default async function SupplierManagementPage(container) {
     const maxAmount = Math.max(...activeSups.map(s => s.totalAmount))
     return `
       <div style="display:flex;flex-direction:column;gap:12px">
-        <div style="font-weight:700;font-size:0.88rem;margin-bottom:4px">📊 Top Suppliers by Spend</div>
+        <div style="font-weight:700;font-size:0.88rem;margin-bottom:4px">📊 ผู้ขายที่ใช้จ่ายสูงสุด</div>
         ${activeSups.map(s => {
           const pct = Math.round(s.totalAmount / maxAmount * 100)
           const cat = SUPPLIER_CATS[s.category]

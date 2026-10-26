@@ -109,7 +109,7 @@ export default async function MeetingMinutesPage(container) {
         '<div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:10px">📅 ' + escHtml(m.date) + ' ' + escHtml(m.time) + ' · 🏢 ' + escHtml(m.dept) + ' · 👥 ' + m.attendees.map(a => escHtml(a)).join(', ') + '</div>' +
         '<div style="margin-bottom:10px"><div style="font-size:0.76rem;font-weight:700;margin-bottom:4px">📌 วาระการประชุม</div><ul style="padding-left:16px;margin:0">' + agendaList + '</ul></div>' +
         (m.minutes ? '<div style="background:var(--surface-2);padding:10px;border-radius:8px;margin-bottom:10px"><div style="font-size:0.68rem;color:var(--text-muted);margin-bottom:4px">📝 บันทึกการประชุม</div><div style="font-size:0.76rem;line-height:1.6">' + escHtml(m.minutes) + '</div></div>' : '') +
-        '<div><div style="font-size:0.76rem;font-weight:700;margin-bottom:4px">🎯 Action Items</div>' + actionsHtml + '</div>' +
+        '<div><div style="font-size:0.76rem;font-weight:700;margin-bottom:4px">🎯 งานที่ต้องทำ</div>' + actionsHtml + '</div>' +
       '</div>'
       openModal({ title: '📋 ' + escHtml(m.title), size: 'md', body, confirmText: 'ปิด', onConfirm: () => {} })
     }))

@@ -121,7 +121,7 @@ export default async function PLPage(container) {
         <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:20px">
           <!-- Bar Chart -->
           <div class="card" style="padding:20px">
-            <div style="font-weight:700;margin-bottom:16px">📊 Revenue vs Gross Profit</div>
+            <div style="font-weight:700;margin-bottom:16px">📊 รายได้เทียบกำไรขั้นต้น</div>
             <div style="display:flex;align-items:flex-end;gap:${viewMode==='month'?4:12}px;height:180px;border-bottom:1px solid var(--border);padding-bottom:8px">
               ${data.map(r => {
                 const c = calc(r)
@@ -145,7 +145,7 @@ export default async function PLPage(container) {
 
           <!-- OPEX Breakdown -->
           <div class="card" style="padding:20px">
-            <div style="font-weight:700;margin-bottom:4px">💸 OPEX Breakdown</div>
+            <div style="font-weight:700;margin-bottom:4px">💸 แยกค่าใช้จ่ายดำเนินงาน</div>
             <div style="font-size:0.7rem;color:var(--warning);margin-bottom:10px">⚠️ สัดส่วน % ยังเป็นตัวอย่าง — ยอดรวม OPEX ต่อเดือนที่มีเครื่องหมาย ✓ ด้านล่างรวมค่าใช้จ่ายจริงที่เบิกผ่านระบบแล้ว (Petty Cash + เบิกพนักงานที่อนุมัติ) แต่ยังไม่รวมเงินเดือน</div>
             <div style="font-size:0.88rem;font-weight:700;color:var(--warning);margin-bottom:12px">${formatCurrency(totals.opex)} / ปี</div>
             ${OPEX_BREAKDOWN.map(o => `

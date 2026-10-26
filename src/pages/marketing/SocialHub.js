@@ -228,7 +228,7 @@ export default async function SocialHubPage(container) {
 
           <!-- Quick templates -->
           <div class="card" style="padding:14px">
-            <div style="font-weight:700;font-size:0.82rem;margin-bottom:8px">⚡ Quick Templates</div>
+            <div style="font-weight:700;font-size:0.82rem;margin-bottom:8px">⚡ เทมเพลตด่วน</div>
             ${CONTENT_TEMPLATES.slice(0, 3).map(t => `
               <div style="padding:6px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
                 <span style="font-size:0.78rem">${t.name}</span>
@@ -286,7 +286,7 @@ export default async function SocialHubPage(container) {
 
         <!-- Top posts -->
         <div class="card" style="padding:16px">
-          <div style="font-weight:700;margin-bottom:12px">🏆 Top Posts</div>
+          <div style="font-weight:700;margin-bottom:12px">🏆 โพสต์ยอดนิยม</div>
           ${[...pub].sort((a,b) => b.reach - a.reach).slice(0,3).map((p, i) => `
             <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
               <div style="font-size:1.3rem">${['🥇','🥈','🥉'][i]}</div>

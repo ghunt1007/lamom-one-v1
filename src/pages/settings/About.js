@@ -148,7 +148,7 @@ export default function AboutPage(container) {
 
         <!-- Changelog -->
         <div class="card" style="padding:16px;margin-bottom:14px">
-          <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">📋 Changelog</div>
+          <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">📋 ประวัติการอัปเดต</div>
           <div id="ab-changelog-body">${renderChangelogSection()}</div>
         </div>
 

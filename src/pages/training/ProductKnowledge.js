@@ -287,7 +287,7 @@ export default async function ProductKnowledgePage(container) {
             <div><label style="font-size:0.74rem;color:var(--text-muted)">Badge</label>
               <select id="pk-badge" class="input"><option value="EV">EV</option><option value="NEW">NEW</option><option value="PHEV">PHEV</option></select></div>
           </div>
-          <div style="border-top:1px solid var(--border);padding-top:8px;font-size:0.76rem;font-weight:700">Specs</div>
+          <div style="border-top:1px solid var(--border);padding-top:8px;font-size:0.76rem;font-weight:700">สเปก</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div><label style="font-size:0.74rem;color:var(--text-muted)">แบตเตอรี่</label><input id="pk-bat" class="input" placeholder="82.5 kWh"></div>
             <div><label style="font-size:0.74rem;color:var(--text-muted)">พิสัย</label><input id="pk-range" class="input" placeholder="520 km"></div>
@@ -357,7 +357,7 @@ export default async function ProductKnowledgePage(container) {
                 <option value="PHEV" ${p.badge==='PHEV'?'selected':''}>PHEV</option>
               </select></div>
           </div>
-          <div style="border-top:1px solid var(--border);padding-top:8px;font-size:0.76rem;font-weight:700">Specs</div>
+          <div style="border-top:1px solid var(--border);padding-top:8px;font-size:0.76rem;font-weight:700">สเปก</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div><label style="font-size:0.74rem;color:var(--text-muted)">แบตเตอรี่</label><input id="pke-bat" class="input" value="${escHtml(p.specs.battery)}"></div>
             <div><label style="font-size:0.74rem;color:var(--text-muted)">พิสัย</label><input id="pke-range" class="input" value="${escHtml(p.specs.range)}"></div>

@@ -175,7 +175,7 @@ export default async function CustomerInsightsPage(container) {
 
         <!-- Churn trend -->
         <div class="card" style="padding:14px;grid-column:1/-1">
-          <div style="font-weight:700;font-size:0.85rem;margin-bottom:12px">📉 Churn Analysis <span style="font-weight:400;color:var(--text-muted);font-size:0.7rem">(ตัวอย่างข้อมูล)</span></div>
+          <div style="font-weight:700;font-size:0.85rem;margin-bottom:12px">📉 วิเคราะห์ลูกค้าที่หายไป <span style="font-weight:400;color:var(--text-muted);font-size:0.7rem">(ตัวอย่างข้อมูล)</span></div>
           <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px">
             ${MONTHLY_CHURN.slice(0,6).map((v, i) => `
               <div style="text-align:center;padding:10px;background:var(--surface-2);border-radius:var(--radius-sm)">
@@ -209,7 +209,7 @@ export default async function CustomerInsightsPage(container) {
           `).join('')}
         </div>
         <div class="card" style="padding:14px">
-          <div style="font-weight:700;font-size:0.85rem;margin-bottom:12px">🏆 Loyalty Tier Distribution <span style="font-weight:400;color:var(--text-muted);font-size:0.7rem">(ตัวอย่างข้อมูล)</span></div>
+          <div style="font-weight:700;font-size:0.85rem;margin-bottom:12px">🏆 สัดส่วนระดับสมาชิก <span style="font-weight:400;color:var(--text-muted);font-size:0.7rem">(ตัวอย่างข้อมูล)</span></div>
           ${[['Platinum',15,'danger',2500000],['Gold',42,'warning',1200000],['Silver',98,'secondary',800000],['Bronze',149,'secondary',400000]].map(([t,n,c,ltv]) => `
             <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
               <div style="display:flex;align-items:center;gap:8px">

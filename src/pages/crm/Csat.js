@@ -174,7 +174,7 @@ export default async function CsatPage(container) {
           <div style="display:flex;flex-direction:column;gap:12px">
             <!-- NPS breakdown -->
             <div class="card" style="padding:14px">
-              <div style="font-size:0.76rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">🎯 NPS Breakdown</div>
+              <div style="font-size:0.76rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">🎯 แยกคะแนน NPS</div>
               <div style="display:flex;gap:0;height:16px;border-radius:8px;overflow:hidden;margin-bottom:10px">
                 <div style="flex:${promoters};background:var(--success)" title="Promoters"></div>
                 <div style="flex:${liveRecent.filter(r=>r.nps>=7&&r.nps<=8).length};background:var(--warning)" title="Passive"></div>

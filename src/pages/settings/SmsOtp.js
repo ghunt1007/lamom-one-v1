@@ -128,7 +128,7 @@ export default async function SmsOtpPage(container) {
 
             <!-- Template -->
             <div class="card" style="padding:14px">
-              <div style="font-size:0.76rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">📝 SMS Template</div>
+              <div style="font-size:0.76rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">📝 แม่แบบ SMS</div>
               <textarea class="input" id="otp-tmpl" style="width:100%;height:70px;font-size:0.76rem;resize:none">${escHtml(OTP_SETTINGS.template)}</textarea>
               <div style="font-size:0.64rem;color:var(--text-muted);margin-top:4px">ตัวแปร: {otp} = รหัส OTP · {exp} = เวลาหมดอายุ</div>
             </div>
@@ -138,7 +138,7 @@ export default async function SmsOtpPage(container) {
           <div style="display:flex;flex-direction:column;gap:12px">
             <!-- Providers -->
             <div class="card" style="padding:14px">
-              <div style="font-size:0.76rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">📡 SMS Provider</div>
+              <div style="font-size:0.76rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">📡 ผู้ให้บริการ SMS</div>
               <div style="display:flex;flex-direction:column;gap:8px">
                 ${PROVIDERS.map(p=>`
                   <div style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:var(--radius-sm);border:2px solid ${p.id===active.id?'var(--primary)':'var(--border)'};background:${p.id===active.id?'var(--primary)11':'var(--surface-2)'}">

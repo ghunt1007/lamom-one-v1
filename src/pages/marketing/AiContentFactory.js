@@ -78,7 +78,7 @@ export default async function AiContentFactoryPage(container) {
               ${TEMPLATES.map(t => templateBtn(t, selectedTemplate.id === t.id)).join('')}
             </div>
             <div class="card" style="padding:14px">
-              <div style="font-size:0.8rem;font-weight:700;margin-bottom:8px">📱 Platform</div>
+              <div style="font-size:0.8rem;font-weight:700;margin-bottom:8px">📱 แพลตฟอร์ม</div>
               <div>${PLATFORMS.map(p => platformChip(p, selectedPlatforms.includes(p))).join('')}</div>
             </div>
           </div>
