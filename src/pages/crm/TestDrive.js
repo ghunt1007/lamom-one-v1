@@ -32,7 +32,7 @@ function escHtml(s) {
 const TD_STATUS = {
   scheduled:   { label: '📅 นัดแล้ว', badge: 'primary' },
   confirmed:   { label: '✔️ ยืนยันแล้ว', badge: 'success' },
-  in_progress: { label: '🚗 กำลัง Test Drive', badge: 'warning' },
+  in_progress: { label: '🚗 กำลังขับ', badge: 'warning' },
   done:        { label: '✅ เสร็จแล้ว', badge: 'success' },
   cancelled:   { label: '❌ ยกเลิก', badge: 'danger' },
   no_show:     { label: '👻 ไม่มา', badge: 'primary' },
@@ -218,7 +218,7 @@ export default async function TestDrivePage(container) {
     const st = TD_STATUS[t.status]
     const rs = TD_RESULT[t.result]
     openModal({
-      title: '🚗 ' + escHtml(t.customerName) + ' — Test Drive', size:'md',
+      title: '🚗 ' + escHtml(t.customerName) + ' — ทดลองขับ', size:'md',
       body: `<div style="display:flex;flex-direction:column;gap:10px">
         <div style="display:flex;gap:6px">${rs ? `<span class="badge badge-${rs.badge}">${rs.label}</span>` : ''}<span class="badge badge-${st?.badge}">${st?.label}</span></div>
         ${dr('🚗','รถ',t.model)}${dr('📅','วันที่',t.date+' '+t.time)}
@@ -233,7 +233,7 @@ export default async function TestDrivePage(container) {
 
   function openResultForm(t) {
     const { el, close } = openModal({
-      title: '✅ บันทึกผล Test Drive — ' + escHtml(t.customerName), size:'md',
+      title: '✅ บันทึกผลทดลองขับ — ' + escHtml(t.customerName), size:'md',
       body: `<div style="display:flex;flex-direction:column;gap:12px">
         <div style="font-size:0.85rem;color:var(--text-muted)">${escHtml(t.model)} · ${escHtml(t.date)} ${escHtml(t.time)}</div>
         <div class="input-group"><label class="input-label">สถานะ</label>
@@ -269,7 +269,7 @@ export default async function TestDrivePage(container) {
       try {
         await updateDocData('test_drives', t.id, fields)
         const fu = await scheduleTestDriveFollowup(t, fields)
-        showToast(`✅ บันทึกผล Test Drive แล้ว${fu ? ' · นัดโทรตามพรุ่งนี้ให้แล้ว' : ''}`, 'success'); close()
+        showToast(`✅ บันทึกผลทดลองขับแล้ว${fu ? ' · นัดโทรตามพรุ่งนี้ให้แล้ว' : ''}`, 'success'); close()
         await loadData()
         if (fields.status === 'done') offerThanks({ ...t, ...fields })
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
@@ -292,13 +292,13 @@ export default async function TestDrivePage(container) {
   function openNewForm() {
     const today = todayBangkok()
     const { el, close } = openModal({
-      title: '➕ นัด Test Drive ใหม่', size:'md',
+      title: '➕ นัดทดลองขับใหม่', size:'md',
       body: `<div style="display:flex;flex-direction:column;gap:12px">
         <div class="grid-2">
           <div class="input-group"><label class="input-label">ชื่อลูกค้า *</label><input class="input" id="nf-name" placeholder="ชื่อ-นามสกุล"></div>
           <div class="input-group"><label class="input-label">โทรศัพท์</label><input class="input" id="nf-phone" placeholder="08x-xxx-xxxx"></div>
         </div>
-        <div class="input-group"><label class="input-label">รถที่ Test Drive</label>
+        <div class="input-group"><label class="input-label">รถที่ทดลองขับ</label>
           <select class="input" id="nf-vehicle">${tdVehicleOptions()}</select>
         </div>
         <div class="grid-2">
@@ -335,7 +335,7 @@ export default async function TestDrivePage(container) {
           km: 0, duration: 30,
           companyId: myEffectiveCompanyId(),
         })
-        showToast('📅 นัด Test Drive แล้ว', 'success'); close()
+        showToast('📅 นัดทดลองขับแล้ว', 'success'); close()
         await loadData()
       } catch (e) { btn.disabled = false; showToast('บันทึกไม่สำเร็จ', 'error') }
     })
