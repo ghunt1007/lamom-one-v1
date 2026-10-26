@@ -187,3 +187,14 @@ describe('myDay: ไฟแนนซ์ผ่านอัตโนมัติ', 
     expect(out.stuck.map(b => b.id)).toEqual(['a'])
   })
 })
+
+import { spokenBriefing } from './myDay.js'
+describe('spokenBriefing', () => {
+  it('ไม่มีงาน → ชม', () => { expect(spokenBriefing({ total: 0 }, 'เอ')).toContain('ไม่มีงานค้าง') })
+  it('มีงาน → บอกจำนวนและข้อแรก ไม่มีเบอร์โทร', () => {
+    const t = spokenBriefing({ total: 2, newLeads: [{ id: 'a', name: 'สมชาย ใจดี', firstName: 'สมชาย', phone: '0812345678' }], tomorrow: 1 }, 'เอ')
+    expect(t).toContain('งานค้าง 2 รายการ')
+    expect(t).toContain('ข้อ 1 โทรหา Lead ใหม่ สมชาย')
+    expect(t).not.toContain('081')
+  })
+})

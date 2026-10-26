@@ -21,7 +21,7 @@ import { flatMonthly } from '../../utils/installment.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 import { maskContacts } from '../../utils/leadText.js'
 import { enhanceMics, bindMic, hasSpeechInput } from '../../utils/micInput.js'
-import { matchesSearch } from '../../utils/customerSearch.js'
+import { matchesSearch, parseSmartQuery } from '../../utils/customerSearch.js'
 import { stockLine } from '../../utils/stockLine.js'
 import { heuristicScore } from '../../utils/leadScore.js'
 import { OCCUPATIONS } from '../../utils/financeMatch.js'
@@ -177,8 +177,16 @@ export default async function CustomersPage(container) {
     // (v1.0.453) การกรองตามบริษัทย้ายเข้า query จริงแล้ว (companyScopeFilters() ใน loadData()/
     // startWatchCustomers()) — ไม่ต้องกรองซ้ำที่นี่อีก
     const today = todayBangkok()
+    const smartOpts = { isQuiet: c => ['lead', 'pp'].includes(c.stage) && !c.isLost && (quietDays(c, today) ?? 0) >= QUIET_DAYS }
+    // บอกผู้ใช้ว่าระบบเข้าใจคำพิมพ์ว่าอะไร (เช่น "ร้อน s07" → 🔴 ลูกค้าร้อน + หา "s07")
+    const smartEl = document.getElementById('cust-smart')
+    if (smartEl) {
+      const { labels, text } = parseSmartQuery(search)
+      smartEl.innerHTML = labels.length ? `🧠 เข้าใจว่า: ${labels.map(l => `<span class="badge badge-primary">${escHtml(l)}</span>`).join(' ')}${text.length ? ` + หา “${escHtml(text.join(' '))}”` : ''}` : ''
+      smartEl.style.display = labels.length ? '' : 'none'
+    }
     filtered = customers.filter(c => {
-      const matchSearch = matchesSearch(c, search, fullName)
+      const matchSearch = matchesSearch(c, search, fullName, smartOpts)
       const matchStage = stageFilter === 'all' || c.stage === stageFilter
       const matchLost = !lostOnly || c.isLost
       // '__none' = ลูกค้าที่ยังไม่มีผู้ดูแล (เช่น ทัก LINE OA เข้ามาเอง) — มอบให้เซลส์ได้ที่หน้า "งานของฉันวันนี้"
@@ -1100,9 +1108,10 @@ export default async function CustomersPage(container) {
         <div class="cust-filters" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
           <div style="position:relative;flex:1;min-width:200px">
             <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted)">🔍</span>
-            <input class="input" id="cust-search" placeholder="ค้นหา ชื่อ เบอร์ รุ่นรถ (เช่น s07 สมชาย)" style="padding-left:32px${hasSpeechInput() ? ';padding-right:44px' : ''}">
+            <input class="input" id="cust-search" placeholder="ค้นหา ชื่อ เบอร์ รุ่น หรือพิมพ์ เช่น ร้อน s07" title="พิมพ์ภาษาพูดได้: ร้อน/อุ่น/เย็น, lead, จอง, เงียบ, ไม่มีเบอร์, ไม่มีผู้ดูแล + ชื่อหรือรุ่นรถ" style="padding-left:32px${hasSpeechInput() ? ';padding-right:44px' : ''}">
             ${hasSpeechInput() ? '<button type="button" class="btn btn-ghost btn-sm" id="cust-search-mic" title="พูดชื่อ/เบอร์ที่ต้องการหา" style="position:absolute;right:4px;top:50%;transform:translateY(-50%)">🎤</button>' : ''}
           </div>
+          <div id="cust-smart" style="display:none;order:99;flex-basis:100%;font-size:0.76rem;color:var(--text-3);line-height:1.9"></div>
           <select class="input" id="cust-sales-filter" style="width:auto;min-width:140px" title="กรองตามผู้ดูแล">
             <option value="">👤 ผู้ดูแลทั้งหมด</option>
             <option value="__none">⚠️ ยังไม่มีผู้ดูแล</option>

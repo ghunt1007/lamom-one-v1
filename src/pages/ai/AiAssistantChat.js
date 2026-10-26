@@ -13,6 +13,7 @@ import { businessFacts, stockFacts, testDriveFacts } from '../../utils/bizFacts.
 import { getVehicles } from '../../data/vehicleDatabase.js'
 import { formatAiText } from '../../utils/aiFormat.js'
 import { pageLinksFor } from '../../utils/aiPageLinks.js'
+import { customerActionsFor } from '../../utils/aiActions.js'
 import { navigate } from '../../core/router.js'
 
 function esc(s) {
@@ -64,6 +65,7 @@ export default async function AiAssistantChatPage(container) {
   let welcomeStats = {} // ตัวเลขจริงบนการ์ดต้อนรับ (งานค้างของฉัน / Hot Lead)
   let loading = true
   let businessContext = {}
+  let chatCustomers = [] // ลูกค้าที่ผู้ใช้คนนี้มีสิทธิ์เห็น — ใช้ทำปุ่มโทร/นัดลองขับใต้คำตอบ (ไม่ส่งให้ AI)
 
   // (v1.0.428) หน้านี้มีปุ่มคำถามสำเร็จรูปตรงกับหัวข้อธุรกิจจริง (ยอดขาย/สต็อก/Hot Lead/ค้างชำระ/CSAT/ช่าง/
   // กำไร/HR) แต่เดิม askLami(text, history) ไม่เคยส่ง context เลย — Gemini จึงต้องเดา/กุตัวเลขทุกครั้งที่ตอบ
@@ -124,6 +126,7 @@ export default async function AiAssistantChatPage(container) {
         // ดีลที่น่าปิดที่สุด (เฉพาะลูกค้าที่ผู้ใช้คนนี้มีสิทธิ์เห็น ตามนโยบายเห็นเฉพาะทีมตัวเอง) — ให้ตอบ "ดีลไหนควรปิดก่อน" ได้
         const vis = await getVisibilityScope().catch(() => null)
         const canSee = c => !!vis && (vis.unrestricted || vis.companyOnly || scopeIncludesRecord(vis, c.assignedTo, c))
+        chatCustomers = customers.filter(c => !c.deleted && canSee(c))
         const best = open.filter(canSee).map(c => ({ c, v: dealValue(c, vs, cache), s: heuristicScore(c).score }))
           .sort((a, b) => b.v * b.s - a.v * a.s).slice(0, 6)
         if (best.length) businessContext['ดีลที่น่าปิดที่สุด (มูลค่า × โอกาสปิด)'] = best.map(({ c, v, s }) => {
@@ -177,7 +180,11 @@ export default async function AiAssistantChatPage(container) {
       <div style="min-width:0">
         <div style="max-width:74vw;padding:10px 14px;border-radius:${isUser?'16px 16px 4px 16px':'4px 16px 16px 16px'};background:${isUser?'var(--primary)':'var(--surface-2)'};color:${isUser?'white':'var(--text)'};font-size:0.84rem;line-height:1.65">${text}</div>
         ${!isUser && i === messages.length - 1 && !waiting && Array.isArray(m.next) && m.next.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">${m.next.map(q => `<button class="btn btn-secondary btn-xs cat-btn" data-q="${esc(q)}" style="border-radius:999px">💬 ${esc(q)}</button>`).join('')}</div>` : ''}
-        ${!isUser && i === messages.length - 1 && !waiting && i > 0 && messages[i - 1]?.role === 'user' ? (() => { const l = pageLinksFor(messages[i - 1].text); return l.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">${l.map(x => `<button class="btn btn-primary btn-xs chat-go" data-path="${esc(x.path)}" style="border-radius:999px">${esc(x.label)} →</button>`).join('')}</div>` : '' })() : ''}
+        ${!isUser && i === messages.length - 1 && !waiting && i > 0 && messages[i - 1]?.role === 'user' ? (() => {
+          const acts = customerActionsFor(messages[i - 1].text, chatCustomers)
+          const l = pageLinksFor(messages[i - 1].text)
+          return acts.length || l.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">${acts.map(a => `<button class="btn btn-primary btn-xs chat-act" data-kind="${a.kind}" data-id="${esc(a.id)}" data-phone="${esc(a.phone || '')}" style="border-radius:999px">${esc(a.label)}</button>`).join('')}${l.map(x => `<button class="btn btn-secondary btn-xs chat-go" data-path="${esc(x.path)}" style="border-radius:999px">${esc(x.label)} →</button>`).join('')}</div>` : ''
+        })() : ''}
         <div style="font-size:0.66rem;color:var(--text-muted);margin-top:3px;${isUser?'text-align:right':''}">${esc(m.time)}${!isUser && m.text !== GREETING && i >= 0 ? ` · <button class="chat-copy" data-i="${i}" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.66rem;padding:0">📋 คัดลอก</button> · <button class="chat-speak" data-i="${i}" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.66rem;padding:0">🔊 ฟัง</button>` : ''}</div>
       </div>
     </div>`
@@ -199,7 +206,8 @@ export default async function AiAssistantChatPage(container) {
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;text-align:left">
         ${cards.map(([icon, title, sub, q]) => `<button class="card cat-btn" data-q="${esc(q)}" style="padding:14px;cursor:pointer;text-align:left;border:1px solid var(--border);display:flex;gap:10px;align-items:flex-start;color:var(--text)">
           <span style="font-size:1.4rem">${icon}</span><span><b style="font-size:0.88rem">${title}</b><br><span style="font-size:0.74rem;color:var(--text-muted)">${sub}</span></span></button>`).join('')}
-      </div></div>`
+      </div>
+      <div style="font-size:0.76rem;color:var(--text-3);margin-top:14px;line-height:1.6">⚡ สั่งงานได้ด้วย เช่น พิมพ์ <b>“นัดลองขับ${esc(chatCustomers.find(c => ['lead', 'pp'].includes(c.stage) && !c.isLost && c.firstName)?.firstName || 'สมชาย')}พรุ่งนี้บ่าย 2”</b> แล้วกดปุ่มใต้คำตอบ ระบบเปิดฟอร์มกรอกให้ครบ</div></div>`
   }
 
   function typingHtml() {
@@ -338,6 +346,18 @@ export default async function AiAssistantChatPage(container) {
     container.querySelectorAll('.cat-btn').forEach(b => b.addEventListener('click', () => send(b.dataset.q)))
     // เปิดหน้าที่เกี่ยวกับคำถาม (เช่น ถามเรื่องลองขับ → ไปหน้านัดทดลองขับ)
     container.querySelectorAll('.chat-go').forEach(b => b.addEventListener('click', () => navigate(b.dataset.path)))
+    // ลงมือทำจากแชท: โทร / นัดลองขับ (เดาวันเวลาจากคำถาม) / เปิดข้อมูลลูกค้า
+    container.querySelectorAll('.chat-act').forEach(b => b.addEventListener('click', async () => {
+      const c = chatCustomers.find(x => x.id === b.dataset.id)
+      if (!c) return
+      if (b.dataset.kind === 'tel' && b.dataset.phone) { location.href = 'tel:' + b.dataset.phone; return }
+      if (b.dataset.kind === 'open') { navigate('/crm/customers?id=' + encodeURIComponent(c.id)); return }
+      if (b.dataset.kind === 'td') {
+        const q = [...messages].reverse().find(m => m.role === 'user')?.text || ''
+        const { openTestDriveForm } = await import('../../utils/testDriveForm.js')
+        openTestDriveForm(c, { hint: q })
+      }
+    }))
     document.getElementById('clear-chat')?.addEventListener('click', async () => {
       const ok = await confirmDialog({ title: 'ล้างประวัติแชท', message: 'ต้องการล้างประวัติแชททั้งหมดหรือไม่? ไม่สามารถกู้คืนได้', confirmText: 'ล้างแชท', danger: true })
       if (!ok) return

@@ -13,7 +13,7 @@ import { QUICK_SOURCES } from '../../utils/quickLead.js'
 import { SALES_TARGETS_COLLECTION, targetFor, goalProgress } from '../../utils/salesTargets.js'
 import { DELIVERED_STATUSES } from '../../utils/deliveryIncome.js'
 import { staffChoices, findStaffCompany, assignCustomer } from '../../utils/leadAssign.js'
-import { bangkokDate, buildMyDay, topPriorities, teamToday, leadWait, STALE_LEAD_DAYS, STUCK_BOOKING_DAYS, UPCOMING_DELIVERY_DAYS, FINANCE_WAIT_DAYS } from '../../utils/myDay.js'
+import { bangkokDate, buildMyDay, spokenBriefing, topPriorities, teamToday, leadWait, STALE_LEAD_DAYS, STUCK_BOOKING_DAYS, UPCOMING_DELIVERY_DAYS, FINANCE_WAIT_DAYS } from '../../utils/myDay.js'
 import { followupWindowFilters } from '../../utils/customerFollowups.js'
 import { openAddFollowup, offerNextFollowup } from '../../utils/addFollowupModal.js'
 import { touchCustomerContact } from '../../utils/customerContact.js'
@@ -221,6 +221,7 @@ export default async function MyDayPage(container) {
           <div><div class="page-title">☀️ งานของฉันวันนี้</div><div class="page-subtitle">${hello} · ${formatDate(today)} · ${d.total ? `มีงานค้าง ${d.total} รายการ` : 'ไม่มีงานค้าง 🎉'}${d.tomorrow ? ` · พรุ่งนี้มีนัด ${d.tomorrow} ราย` : ''}${d.contactedToday ? ` · วันนี้ติดต่อแล้ว ${d.contactedToday} ราย 💪` : ''}</div></div>
           <div class="page-actions">
             ${canPick ? `<select class="input" id="md-seller" style="width:auto"><option value="all">ทุกคน</option>${sellerNames().map(n => `<option value="${escHtml(n)}" ${n === seller ? 'selected' : ''}>${escHtml(n)}</option>`).join('')}</select>` : ''}
+            <button class="btn btn-secondary btn-sm" id="md-speak" title="ให้ LAMI อ่านงานวันนี้ให้ฟัง (ฟังตอนขับรถได้)">🔊 ฟังงานวันนี้</button>
             <button class="btn btn-secondary btn-sm" id="md-reload">🔄 รีเฟรช</button>
           </div>
         </div>
@@ -298,6 +299,17 @@ export default async function MyDayPage(container) {
     const $$ = sel => container.querySelectorAll(sel)
     container.querySelector('#md-seller')?.addEventListener('change', e => { seller = e.target.value; render() })
     container.querySelector('#md-reload').addEventListener('click', async () => { await load(); render() })
+    container.querySelector('#md-speak')?.addEventListener('click', async e => {
+      const btn = e.currentTarget
+      const v = await import('../../utils/voice.js')
+      const reset = () => { delete btn.dataset.on; btn.textContent = '🔊 ฟังงานวันนี้' }
+      if (btn.dataset.on) { v.stopSpeaking(); reset(); return }
+      btn.dataset.on = '1'; btn.textContent = '⏹ หยุด'
+      v.speak(spokenBriefing(d, String(me.displayName || '').split(/\s+/)[0]), {
+        onEnd: reset,
+        onNoVoice: () => { reset(); showToast('เครื่องนี้ไม่มีเสียงภาษาไทย', 'warning') },
+      })
+    })
     $$('.md-open').forEach(b => b.addEventListener('click', () => navigate(`/crm/customers?id=${encodeURIComponent(b.dataset.id)}`)))
     $$('.md-call').forEach(a => a.addEventListener('click', () => {
       const c = data.customers.find(x => x.id === a.dataset.cid)
