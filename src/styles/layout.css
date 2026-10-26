@@ -607,3 +607,35 @@
 @media (max-width: 640px) { .dash-status-strip { display: none !important; } }
 /* ลายน้ำของธีมมุมขวาล่าง บนมือถือโผล่เป็นวงกลมครึ่งๆ ข้างแถบเมนูล่าง ดูเหมือนปุ่มที่กดไม่ได้ → ซ่อนบนจอเล็ก */
 @media (max-width: 640px) { body::after { display: none; } }
+
+/* ── แผง LAMI ช่วยเรื่องหน้านี้ (utils/lamiPanel.js) — คอม: แผงขวา · มือถือ: แผ่นจากล่าง ── */
+.lami-panel-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 1090; opacity: 0; transition: opacity .2s; }
+.lami-panel-bg.open { opacity: 1; }
+.lami-panel { position: fixed; top: 0; right: 0; bottom: 0; width: min(420px, 100vw); z-index: 1100; display: flex; flex-direction: column; background: var(--surface); border-left: 1px solid var(--border); box-shadow: -12px 0 40px rgba(0,0,0,0.35); transform: translateX(105%); transition: transform .22s ease; }
+.lami-panel.open { transform: none; }
+.lp-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--border); }
+.lp-ava { width: 36px; height: 36px; flex-shrink: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; background: linear-gradient(135deg, var(--primary), var(--success)); }
+.lp-tt { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.35; }
+.lp-tt b { font-size: 0.95rem; }
+.lp-tt span { font-size: 0.74rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lp-x { background: none; border: none; color: var(--text-muted); font-size: 1.1rem; cursor: pointer; padding: 8px; border-radius: 8px; }
+.lp-x:hover { background: var(--surface-2); color: var(--text); }
+.lp-body { flex: 1; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.lp-hint { font-size: 0.8rem; color: var(--text-muted); line-height: 1.6; }
+.lp-asks { display: flex; flex-direction: column; gap: 8px; }
+.lp-ask { text-align: left; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font: inherit; font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: border-color .15s, transform .15s; }
+.lp-ask:hover { border-color: var(--primary); transform: translateY(-1px); }
+.lp-q { align-self: flex-end; max-width: 85%; padding: 8px 12px; border-radius: 14px 14px 4px 14px; background: var(--primary); color: #fff; font-size: 0.85rem; overflow-wrap: anywhere; }
+.lp-a { align-self: flex-start; max-width: 100%; padding: 10px 12px; border-radius: 4px 14px 14px 14px; background: var(--surface-2); font-size: 0.86rem; line-height: 1.65; overflow-wrap: break-word; }
+.lp-a .ai-tbl { overflow-x: auto; }
+.lp-err { color: var(--danger); }
+.lp-wait { display: inline-flex; gap: 4px; }
+.lp-wait span { width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); animation: lpDot 1s infinite; }
+.lp-wait span:nth-child(2) { animation-delay: .2s; } .lp-wait span:nth-child(3) { animation-delay: .4s; }
+@keyframes lpDot { 0%, 80%, 100% { opacity: .25 } 40% { opacity: 1 } }
+.lp-foot { display: flex; gap: 8px; padding: 10px 16px 6px; border-top: 1px solid var(--border); }
+.lp-foot .input { flex: 1; min-width: 0; font-size: 16px; }
+.lp-full { margin: 0 16px 14px; padding: 8px; background: none; border: none; color: var(--primary); font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; text-align: center; }
+@media (max-width: 640px) {
+  .lami-panel { top: auto; left: 0; width: 100vw; height: min(78vh, 620px); border-left: none; border-top: 1px solid var(--border); border-radius: 18px 18px 0 0; transform: translateY(105%); box-shadow: 0 -12px 40px rgba(0,0,0,0.35); padding-bottom: env(safe-area-inset-bottom); }
+}
