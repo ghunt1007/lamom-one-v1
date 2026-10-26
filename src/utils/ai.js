@@ -9,6 +9,11 @@ import { retrieveRagContext } from './rag.js'
 import { buildCloserPrompt, parseCloserReply } from './salesAi.js'
 
 export const RAG_CONTEXT_KEY = 'ความรู้ภายในบริษัท (SOP/คู่มือ/สเปครถ — ใช้ตอบเมื่อตรงกับคำถาม และบอกว่ามาจากคู่มือบริษัท)'
+// ข้อความคำตอบจริงจาก Gemini — ข้าม parts ที่เป็น "thought" (gemini-2.5-flash คิดก่อนตอบ) แล้วต่อทุก part ที่เหลือ
+export function answerText(data) {
+  return (data?.candidates?.[0]?.content?.parts || []).filter(p => !p.thought).map(p => p.text || '').join('').trim()
+}
+
 export function withTimeout(promise, ms, fallback) {
   return Promise.race([promise, new Promise(r => setTimeout(() => r(fallback), ms))])
 }
@@ -87,7 +92,7 @@ export async function askLami(userMessage, history = [], context = {}) {
     // gemini-2.5-flash ใช้ token ไปกับการคิด (thought) ก่อนตอบ — เดิมให้ 600 คำตอบจึงถูกตัดกลางประโยคบ่อย
     generationConfig: { maxOutputTokens: 2500, temperature: 0.6 },
   })
-  const text = data.candidates?.[0]?.content?.parts?.filter(p => !p.thought).map(p => p.text || '').join('').trim()
+  const text = answerText(data)
   return text || 'ไม่ได้รับคำตอบจาก AI'
 }
 
@@ -111,7 +116,8 @@ export async function askAiOfficer(officerId, prompt, history = [], systemPrompt
   // system prompt ก่อนถาม Gemini — ค้นหาพลาดได้ (ไม่ throw) ไม่ให้กระทบการตอบคำถามหลัก
   let systemWithContext = systemPrompt
   try {
-    const chunks = await retrieveRagContext(prompt)
+    // รอค้นความรู้ไม่เกิน 2.5 วินาทีเหมือน LAMI — ช้า/ไม่เจอ = ตอบต่อแบบไม่มีข้อมูลเพิ่ม
+    const chunks = await withTimeout(retrieveRagContext(prompt), 2500, [])
     if (chunks.length) {
       systemWithContext = `${systemPrompt}\n\n[ข้อมูลอ้างอิงภายในบริษัทที่เกี่ยวข้อง — ใช้ตอบถ้าตรงกับคำถาม ไม่ต้องใช้ถ้าไม่เกี่ยวข้อง]\n${chunks.map((c, i) => `${i + 1}. ${c}`).join('\n\n')}`
     }
@@ -120,9 +126,10 @@ export async function askAiOfficer(officerId, prompt, history = [], systemPrompt
   const data = await callProxy('/generate', {
     systemInstruction: { parts: [{ text: systemWithContext }] },
     contents,
-    generationConfig: { maxOutputTokens: 700, temperature: 0.7 },
+    // เดิม 700 token + อ่านแค่ parts[0] — gemini-2.5-flash ใช้ token ไปกับ "thought" ก่อน คำตอบ AI Officer จึงขาดกลางประโยค/ได้ข้อความคิดแทนคำตอบ
+    generationConfig: { maxOutputTokens: 2500, temperature: 0.7 },
   })
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || 'ไม่ได้รับคำตอบจาก AI'
+  return answerText(data) || 'ไม่ได้รับคำตอบจาก AI'
 }
 
 function generateOfficerFallback(officerId) {
@@ -223,7 +230,7 @@ export async function analyzeFinanceRateSheet(imageBase64, mimeType = 'image/jpe
     }],
     generationConfig: { maxOutputTokens: 2000, temperature: 0.1 },
   })
-  const text = data.candidates?.[0]?.content?.parts?.filter(p => !p.thought).map(p => p.text || '').join('') || '[]'
+  const text = answerText(data) || '[]'
   let rows = []
   try { rows = JSON.parse(text.match(/\[[\s\S]*\]/)?.[0] || '[]') } catch { rows = [] }
   return { demo: false, rows }
@@ -260,7 +267,7 @@ export async function analyzeExpenseReceipt(imageBase64, mimeType = 'image/jpeg'
     // (thoughtsTokenCount กิน 381/400 จนคำตอบขาดกลาง JSON) จึงตั้งสูงเหมือน analyzeFinanceRateSheet
     generationConfig: { maxOutputTokens: 2000, temperature: 0.1 },
   })
-  const text = data.candidates?.[0]?.content?.parts?.filter(p => !p.thought).map(p => p.text || '').join('') || '{}'
+  const text = answerText(data) || '{}'
   let result = {}
   try { result = JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] || '{}') } catch { result = {} }
   return { demo: false, vendor: result.vendor || '', date: result.date || '', amount: Number(result.amount) || 0, category: result.category || 'อื่นๆ', confidence: 95 }
@@ -305,7 +312,7 @@ export async function analyzeCampaignAnnouncement({ text = '', imageBase64 = nul
     contents: [{ role: 'user', parts }],
     generationConfig: { maxOutputTokens: 2000, temperature: 0.1 },
   })
-  const respText = data.candidates?.[0]?.content?.parts?.filter(p => !p.thought).map(p => p.text || '').join('') || '[]'
+  const respText = answerText(data) || '[]'
   let rows = []
   try { rows = JSON.parse(respText.match(/\[[\s\S]*\]/)?.[0] || '[]') } catch { rows = [] }
   return { demo: false, rows }
@@ -327,9 +334,9 @@ export async function generateSocialContent(templateName, fields = {}, platforms
   const prompt = `เทมเพลต: ${templateName}\nแพลตฟอร์ม: ${platforms.join(', ') || 'ทั่วไป'}\nข้อมูลที่กรอก:\n${fieldText}\n\n${CONTENT_FACTORY_PROMPT}`
   const data = await callProxy('/generate', {
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: { maxOutputTokens: 800, temperature: 0.7 },
+    generationConfig: { maxOutputTokens: 2000, temperature: 0.7 },
   })
-  const respText = data.candidates?.[0]?.content?.parts?.filter(p => !p.thought).map(p => p.text || '').join('') || '{}'
+  const respText = answerText(data) || '{}'
   let obj = {}
   try { obj = JSON.parse(respText.match(/\{[\s\S]*\}/)?.[0] || '{}') } catch { obj = {} }
   return { demo: false, caption: obj.caption || '', hashtags: obj.hashtags || '', alt: obj.alt || '' }
@@ -383,7 +390,7 @@ export async function generateMorningBriefing(context = {}) {
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       generationConfig: { maxOutputTokens: 1200, temperature: 0.7 },
     })
-    const text = data.candidates?.[0]?.content?.parts?.filter(p => !p.thought).map(p => p.text || '').join('').trim()
+    const text = answerText(data)
     return text || generateFallbackBriefing(context)
   } catch {
     return generateFallbackBriefing(context)
@@ -464,7 +471,7 @@ export async function analyzeVoiceNote(base64Audio, mimeType) {
     }],
     generationConfig: { maxOutputTokens: 1000, temperature: 0.3 },
   })
-  const text = data.candidates?.[0]?.content?.parts?.filter(p => !p.thought).map(p => p.text || '').join('') || '{}'
+  const text = answerText(data) || '{}'
   let result = {}
   try { result = JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] || '{}') } catch { result = {} }
   return {
@@ -521,7 +528,7 @@ export async function askPersonalAI(message, history = [], memoryContext = '', i
   const body = {
     systemInstruction: { parts: [{ text: systemWithMemory }] },
     contents,
-    generationConfig: { maxOutputTokens: 500, temperature: 0.85 },
+    generationConfig: { maxOutputTokens: 2000, temperature: 0.85 }, // เผื่อ token "คิดก่อนตอบ" ของ gemini-2.5-flash (เดิม 500 ตอบขาดกลางประโยค)
   }
 
   const auth_ = await authHeader()
@@ -594,9 +601,9 @@ AI: "${aiMsg}"
   try {
     const data = await callProxy('/generate', {
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: { maxOutputTokens: 200, temperature: 0 },
+      generationConfig: { maxOutputTokens: 1000, temperature: 0 },
     })
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '[]'
+    const text = answerText(data) || '[]'
     return JSON.parse(text.match(/\[[\s\S]*\]/)?.[0] || '[]')
   } catch { return [] }
 }
@@ -612,7 +619,7 @@ export async function askJsonPrompt(prompt, maxOutputTokens = 2000) {
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
     generationConfig: { maxOutputTokens, temperature: 0.2 },
   })
-  return data.candidates?.[0]?.content?.parts?.filter(p => !p.thought).map(p => p.text || '').join('') || ''
+  return answerText(data) || ''
 }
 
 // ── Cloud TTS (v1.0.444) — เสียง AI จริงจาก Gemini TTS แทน Web Speech API ────────
