@@ -44,11 +44,14 @@ function detectBrand(brand, model) {
   if (/ALMERA|KICKS|X-TRAIL|XTRAIL|TERRA|NAVARA/.test(m)) return 'NISSAN'
   return brand || ''
 }
+// ตัวหนังสือสีแบรนด์/สถานะ: ผสมกับสีตัวอักษรหลักของธีม 30% — โหมดสว่างเข้มขึ้น โหมดมืดสว่างขึ้น อ่านชัดทั้งสองแบบ
+// (สีสด #10b981 ตรงๆ บนพื้นขาวได้ contrast แค่ ~2.5:1)
+const ink = c => `color-mix(in srgb, ${c} 70%, var(--text))`
 function brandBadge(brand) {
   if (!brand) return ''
   const c = BRAND_COLORS[brand] || 'var(--text-muted)'
   const ic = BRAND_ICONS[brand] || '🏷️'
-  return `<span style="display:inline-flex;align-items:center;gap:3px;background:${c}22;color:${c};border:1px solid ${c}44;border-radius:10px;padding:1px 7px;font-size:0.62rem;font-weight:700;white-space:nowrap">${ic} ${escHtml(brand)}</span>`
+  return `<span style="display:inline-flex;align-items:center;gap:3px;background:${c}22;color:${ink(c)};border:1px solid ${c}44;border-radius:10px;padding:1px 7px;font-size:0.62rem;font-weight:700;white-space:nowrap">${ic} ${escHtml(brand)}</span>`
 }
 
 // ── สถานะใบจอง (pipeline แบบ LAMOM V8) ─────────────────────────────────────
@@ -59,7 +62,7 @@ const STATUS_COLORS = {
 }
 function statusBadge(status) {
   const c = STATUS_COLORS[status] || '#6b7280'
-  return `<span style="font-size:0.68rem;font-weight:700;padding:2px 9px;border-radius:10px;background:${c}22;color:${c};border:1px solid ${c}55;white-space:nowrap">${escHtml(status || '—')}</span>`
+  return `<span style="font-size:0.68rem;font-weight:700;padding:2px 9px;border-radius:10px;background:${c}22;color:${ink(c)};border:1px solid ${c}55;white-space:nowrap">${escHtml(status || '—')}</span>`
 }
 const TERMINAL_STATUSES = ['ส่งมอบแล้ว', 'ตัดตัวเลขรอส่งมอบ', 'ถอนจอง', 'ยกเลิก']
 const ACTIVE_PIPELINE = ['ยอดจองคงค้าง', 'จัดไฟแนนซ์ก่อนจอง', 'รอผลไฟแนนซ์', 'รอรถ', 'รอส่งมอบ']
@@ -470,8 +473,8 @@ export default async function BookingsPage(container) {
       const act = activeNonTerminal.filter(b => detectBrand(b.brand, b.model) === br).length
       const isActive = brandFilter === br
       return `<div class="bk-brand-card" data-br="${escHtml(isActive ? '' : br)}" style="display:flex;flex-direction:column;align-items:center;min-width:90px;padding:8px 12px;border-radius:10px;cursor:pointer;background:${isActive ? c + '22' : 'var(--surface-2)'};border:1.5px solid ${isActive ? c : 'var(--border)'};transition:all .2s">
-        <div style="font-size:0.62rem;font-weight:800;color:${c};margin-bottom:2px">${ic} ${escHtml(br)}</div>
-        <div style="font-size:1rem;font-weight:900;color:${c}">${del}</div>
+        <div style="font-size:0.62rem;font-weight:800;color:${ink(c)};margin-bottom:2px">${ic} ${escHtml(br)}</div>
+        <div style="font-size:1rem;font-weight:900;color:${ink(c)}">${del}</div>
         <div style="font-size:0.58rem;color:var(--text-muted)">ส่ง · <span style="color:var(--warning)">${act}</span> active</div>
       </div>`
     }).join('')
