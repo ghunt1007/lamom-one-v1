@@ -272,6 +272,11 @@ export default async function PipelinePage(container) {
       .pipeline-card:active { cursor:grabbing; }
       .pipeline-board-wrap::-webkit-scrollbar { height:6px; }
       .pl-tabs { display:none; }
+      /* แท็บเล็ต: 4 คอลัมน์ไม่พอจอ → จัด 2×2 เห็นครบทุกสถานะ ไม่ต้องปัดข้าง */
+      @media (min-width: 641px) and (max-width: 1100px) {
+        #pipeline-board { flex-wrap:wrap; overflow-y:auto; align-content:flex-start; }
+        .pipeline-col { min-width:calc(50% - 6px) !important; max-width:none !important; max-height:none !important; }
+      }
       @media (max-width: 640px) {
         .pl-tabs { display:flex; gap:6px; overflow-x:auto; flex-shrink:0; margin-bottom:10px; padding-bottom:2px; }
         #pipeline-board { scroll-snap-type:x mandatory; }
