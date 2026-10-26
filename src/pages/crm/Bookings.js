@@ -491,10 +491,14 @@ export default async function BookingsPage(container) {
             <div class="page-subtitle">แสดง ${filtered.length} / ${bookings.length} รายการ</div>
           </div>
           <div class="page-actions">
-            ${canImportExcel ? `<button class="btn btn-secondary btn-sm" id="bk-import-excel-btn">📥 นำเข้าจาก Excel</button>` : ''}
-            ${canReconcileSheet ? `<button class="btn btn-ghost btn-sm" id="bk-sheet-reconcile-btn" title="นำเข้า + ลบส่วนเกิน + แก้ข้อมูล ให้ตรงกับไฟล์ DATA Booking ในคลิกเดียว">🔄 ซิงก์ Sheet</button>` : ''}
-            ${canFillDeposit ? `<button class="btn btn-warning btn-sm" id="bk-fill-deepal-deposit-btn">🔧 เติมเงินจอง DEEPAL 4,000</button>` : ''}
-            <button class="btn btn-primary" id="bk-wizard-btn">✨ จองใหม่ (Wizard)</button>
+            <button class="btn btn-ghost btn-sm pa-more" id="bk-refresh">🔄 รีเฟรช</button>
+            <button class="btn btn-ghost btn-sm pa-more" id="bk-eod">📊 สรุปวัน</button>
+            <button class="btn btn-ghost btn-sm pa-more" id="bk-export">📥 Export</button>
+            ${canImportExcel ? `<button class="btn btn-ghost btn-sm pa-more" id="bk-import-excel-btn" title="นำเข้าใบจองจากไฟล์ Excel อื่น (ไฟล์ DATA Booking ใช้ปุ่มซิงก์ Sheet ได้เลย)">📤 นำเข้า Excel</button>` : ''}
+            ${canFillDeposit ? `<button class="btn btn-ghost btn-sm pa-more" id="bk-fill-deepal-deposit-btn" title="เครื่องมือครั้งเดียว: เติมเงินจอง 4,000 ให้ใบจอง DEEPAL ที่ยังว่าง">🔧 เติมเงินจอง</button>` : ''}
+            <button class="btn btn-ghost btn-sm pa-more-btn" type="button" title="เมนูเพิ่มเติม">⋯ อื่นๆ</button>
+            ${canReconcileSheet ? `<button class="btn btn-secondary btn-sm" id="bk-sheet-reconcile-btn" title="นำเข้า + ลบส่วนเกิน + แก้ข้อมูล ให้ตรงกับไฟล์ DATA Booking ในคลิกเดียว">🔄 ซิงก์ Sheet</button>` : ''}
+            <button class="btn btn-primary" id="bk-wizard-btn" title="จองทีละขั้น 4 ขั้น · อยากกรอกหน้าเดียวกด 📝 ฟอร์มเต็ม">➕ จองใหม่</button>
           </div>
         </div>
 
@@ -515,10 +519,6 @@ export default async function BookingsPage(container) {
             <input type="date" class="input" id="bk-date-from" value="${dateFrom}" style="width:auto;font-size:0.76rem">
             <span style="font-size:0.7rem;color:var(--text-muted)">ถึง</span>
             <input type="date" class="input" id="bk-date-to" value="${dateTo}" style="width:auto;font-size:0.76rem">
-            <button class="btn btn-secondary btn-xs" id="bk-refresh">🔄 รีเฟรช</button>
-            <button class="btn btn-secondary btn-xs" id="bk-eod">📊 สรุปวัน</button>
-            <button class="btn btn-secondary btn-xs" id="bk-export">📥 Export</button>
-            <button class="btn btn-primary btn-sm" id="bk-add-btn">+ บันทึกจอง</button>
           </div>
         </div>
 
@@ -535,7 +535,7 @@ export default async function BookingsPage(container) {
     document.getElementById('bk-fill-deepal-deposit-btn')?.addEventListener('click', () => fillDeepalDeposit())
     document.getElementById('bk-import-excel-btn')?.addEventListener('click', () => openExcelImport())
     document.getElementById('bk-sheet-reconcile-btn')?.addEventListener('click', () => openSheetReconcile({ onDone: () => loadData() }))
-    document.getElementById('bk-add-btn').addEventListener('click', () => openForm())
+    container.querySelector('.pa-more-btn')?.addEventListener('click', e => e.currentTarget.closest('.page-actions').classList.toggle('pa-open'))
     document.getElementById('bk-search').addEventListener('input', ev => { search = ev.target.value.trim().toLowerCase(); render() })
     document.getElementById('bk-f-seller').addEventListener('change', ev => { sellerFilter = ev.target.value; render() })
     document.getElementById('bk-f-brand').addEventListener('change', ev => { brandFilter = ev.target.value; render() })
@@ -567,7 +567,7 @@ export default async function BookingsPage(container) {
   function renderTable(filtered) {
     const wrap = document.getElementById('bk-content')
     if (!wrap) return
-    if (!filtered.length) { wrap.innerHTML = '<div class="empty-state" style="padding:48px"><div class="empty-icon">📋</div><div class="empty-title">ไม่มีรายการจอง</div><div class="empty-desc">กด "+ บันทึกจอง" หรือ "✨ จองใหม่ (Wizard)" เพื่อเพิ่มรายการใหม่</div></div>'; return }
+    if (!filtered.length) { wrap.innerHTML = '<div class="empty-state" style="padding:48px"><div class="empty-icon">📋</div><div class="empty-title">ไม่มีรายการจอง</div><div class="empty-desc">กด "➕ จองใหม่" เพื่อเพิ่มรายการใหม่</div></div>'; return }
     const allSelected = filtered.length > 0 && filtered.every(b => selectedIds.has(b.id))
     wrap.innerHTML = `<div class="bk-cards">${filtered.map(b => cardRow(b)).join('')}</div>
     <div class="card bk-table-card" style="padding:0;overflow:hidden">
@@ -645,14 +645,14 @@ export default async function BookingsPage(container) {
     const br = detectBrand(b.brand, b.model)
     return `<tr class="bk-row" data-id="${b.id}" style="${rowStyle(b)}cursor:pointer">
       <td><input type="checkbox" class="bk-row-check" data-id="${b.id}" ${selectedIds.has(b.id) ? 'checked' : ''}></td>
-      <td><span style="font-weight:700;color:var(--primary);font-size:0.76rem">${escHtml(b.bookingNo)}</span></td>
+      <td style="white-space:nowrap"><span style="font-weight:700;color:var(--primary);font-size:0.76rem">${escHtml(b.bookingNo)}</span></td>
       <td class="bk-status-cell" data-id="${b.id}" style="cursor:pointer">${statusBadge(b.status)}<span style="font-size:0.6rem;opacity:.4;margin-left:2px">▼</span>${b.status === 'ถอนจอง' ? `<div style="font-size:0.6rem;font-weight:700;margin-top:2px;color:${(b.refundStatus || (depositAmt(b) > 0 ? 'รอคืนเงิน' : 'ไม่ต้องคืน')) === 'คืนเงินแล้ว' ? 'var(--success)' : (b.refundStatus || (depositAmt(b) > 0 ? 'รอคืนเงิน' : '')) === 'รอคืนเงิน' ? 'var(--warning)' : 'var(--text-muted)'}">💸 ${escHtml(b.refundStatus || (depositAmt(b) > 0 ? 'รอคืนเงิน' : 'ไม่ต้องคืน'))}</div>` : ''}</td>
       <td><span class="badge badge-primary" style="font-size:0.66rem">${escHtml(b.salesName || '')}</span></td>
       <td style="font-size:0.72rem;white-space:nowrap">${formatDate(b.bookingDate)}</td>
       <td style="font-size:0.72rem;white-space:nowrap">${deliveryCell(b)}</td>
       <td style="font-size:0.72rem;white-space:nowrap">${b.cutDate ? `<span style="color:var(--warning);font-weight:600">${formatDate(b.cutDate)}</span>` : '<span style="color:var(--text-muted)">—</span>'}</td>
       <td style="font-size:0.72rem;white-space:nowrap">${b.actualDeliveryDate ? `<span style="color:var(--success);font-weight:600">${formatDate(b.actualDeliveryDate)}</span>` : '<span style="color:var(--text-muted)">—</span>'}</td>
-      <td style="font-weight:600;font-size:0.8rem">${escHtml(b.custName || '—')}${b.rightsOnly ? '<div style="font-size:0.6rem;color:var(--accent);font-weight:700">🎫 จองสิทธิ์</div>' : ''}</td>
+      <td style="font-weight:600;font-size:0.8rem;min-width:150px">${escHtml(b.custName || '—')}${b.rightsOnly ? '<div style="font-size:0.6rem;color:var(--accent);font-weight:700">🎫 จองสิทธิ์</div>' : ''}</td>
       <td style="font-size:0.78rem">${br ? brandBadge(br) + '<br>' : ''}${escHtml(b.model || '—')}</td>
       <td style="font-size:0.76rem">${b.colorOut ? escHtml(b.colorOut) : '<span style="color:var(--text-muted)">—</span>'}</td>
       <td style="font-size:0.76rem">${b.colorIn ? escHtml(b.colorIn) : '<span style="color:var(--text-muted)">—</span>'}</td>
@@ -979,14 +979,15 @@ export default async function BookingsPage(container) {
     }
 
     function footerHtml() {
-      return (step > 1 ? '<button class="btn btn-secondary" id="wz-back">← ย้อนกลับ</button>' : '') +
+      // ขั้นแรกมีทางไปฟอร์มเต็ม (เดิมเป็นปุ่ม "+ บันทึกจอง" แยกอีกปุ่มในหน้า ทำงานซ้ำกับปุ่มจองใหม่)
+      return (step > 1 ? '<button class="btn btn-secondary" id="wz-back">← ย้อนกลับ</button>' : '<button class="btn btn-ghost" id="wz-full" title="กรอกทุกช่องในหน้าเดียว (เลขตัวถัง ไฟแนนซ์ ของแถม ฯลฯ)">📝 ฟอร์มเต็ม</button>') +
         (step < 4 ? '<button class="btn btn-primary" id="wz-next">ถัดไป →</button>' : '<button class="btn btn-primary" id="wz-save">✅ บันทึกการจอง</button>')
     }
 
-    const m = openModal({ title: `🧙 Booking Wizard — ขั้นที่ ${step}/4`, size: 'md', body: stepsHtml() + bodyHtml(), footer: footerHtml() })
+    const m = openModal({ title: `➕ จองใหม่ — ขั้นที่ ${step}/4`, size: 'md', body: stepsHtml() + bodyHtml(), footer: footerHtml() })
 
     function rerender() {
-      m.el.querySelector('.modal-title').textContent = `🧙 Booking Wizard — ขั้นที่ ${step}/4`
+      m.el.querySelector('.modal-title').textContent = `➕ จองใหม่ — ขั้นที่ ${step}/4`
       m.el.querySelector('.modal-body').innerHTML = stepsHtml() + bodyHtml()
       m.el.querySelector('.modal-footer').innerHTML = footerHtml()
       bind()
@@ -1010,6 +1011,7 @@ export default async function BookingsPage(container) {
         rerender()
       }))
       m.el.querySelector('#wz-unpick-cust')?.addEventListener('click', () => { w.customerId = null; rerender() })
+      m.el.querySelector('#wz-full')?.addEventListener('click', () => { m.close(); openForm() })
       m.el.querySelector('#wz-next')?.addEventListener('click', () => {
         readStep()
         if (step === 1 && !w.custName) { showToast('กรุณาใส่ชื่อลูกค้า', 'error'); return }

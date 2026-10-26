@@ -152,7 +152,7 @@ export default async function DashboardPage(container) {
         @keyframes dashPulseDot { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
         @keyframes dashGaugeDraw { from { stroke-dasharray: 0 999; } }
       </style>
-      <div class="card" style="padding:10px 16px;margin-bottom:16px;display:flex;align-items:center;gap:18px;flex-wrap:wrap">
+      <div class="card dash-status-strip" style="padding:10px 16px;margin-bottom:16px;display:flex;align-items:center;gap:18px;flex-wrap:wrap">
         <div style="display:flex;align-items:center;gap:7px">
           <span style="width:8px;height:8px;border-radius:50%;background:var(--success);box-shadow:0 0 10px var(--success);animation:dashPulseDot 2s infinite;flex-shrink:0"></span>
           <span style="font-size:0.7rem;letter-spacing:0.14em;color:var(--success);font-weight:700;font-family:'Share Tech Mono',monospace">SYSTEM ONLINE</span>
