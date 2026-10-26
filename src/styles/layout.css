@@ -683,3 +683,6 @@
 .md-tip > summary::after { content: ' ▸'; color: var(--primary); }
 .md-tip[open] > summary::after { content: ' ▾'; }
 .md-tip > div { margin-top: 6px; line-height: 1.8; color: var(--text-muted); }
+
+/* ฟอร์มในหน้าต่าง: ช่องที่เรียงต่อกันตรงๆ (ไม่ได้อยู่ใน grid) เว้นระยะ ไม่ให้ป้ายชื่อติดกล่องด้านบน */
+.modal-body > .input-group + .input-group, .modal-body > .input-group + div:not([class]) > .input-group:first-child { margin-top: 12px; }
