@@ -156,15 +156,17 @@ export function enhanceTable(table) {
   // ── แถบเครื่องมือ (ค้นหา + ปุ่มกรอง) วางก่อนตาราง ──
   const toolbar = document.createElement('div')
   toolbar.className = 'tt-toolbar'
+  // หน้าที่มีช่องค้นหาของตัวเองอยู่แล้ว (ลูกค้า/ใบจอง/สต็อก ฯลฯ) ไม่ต้องมีช่อง "ค้นหาในตาราง" ซ้ำอีกช่อง — เหลือแค่ปุ่มกรองคอลัมน์
+  const ownSearch = pageHasOwnSearch(table)
   toolbar.innerHTML =
-    '<div class="tt-search"><span>🔍</span><input type="text" placeholder="ค้นหาในตาราง..."></div>' +
+    (ownSearch ? '' : '<div class="tt-search"><span>🔍</span><input type="text" placeholder="ค้นหาในตาราง..."></div>') +
     '<button class="tt-btn" type="button">🔽 ตัวกรองคอลัมน์</button>' +
     '<span class="tt-info"></span>'
   const searchInput = toolbar.querySelector('input')
   const filterBtn = toolbar.querySelector('.tt-btn')
   const info = toolbar.querySelector('.tt-info')
 
-  searchInput.addEventListener('input', () => { state.q = searchInput.value.trim().toLowerCase(); applyFilter() })
+  searchInput?.addEventListener('input', () => { state.q = searchInput.value.trim().toLowerCase(); applyFilter() })
   filterBtn.addEventListener('click', () => {
     state.showFilter = !state.showFilter
     filterRow.style.display = state.showFilter ? '' : 'none'
@@ -179,6 +181,17 @@ export function enhanceTable(table) {
   // วาง toolbar เหนือตาราง (รองรับทั้งใน .table-wrap และ table เดี่ยว)
   const host = table.parentElement
   if (host) host.insertBefore(toolbar, table)
+}
+
+// ช่องค้นหาที่หน้าทำเอง = input ค้นหาในหน้าเดียวกัน (ไม่นับช่องของ tableTools เอง และไม่นับในตารางอื่น/หัวตาราง)
+export function pageHasOwnSearch(table) {
+  const scope = table.closest('.modal, .modal-overlay, .page-content, main') || table.parentElement
+  if (!scope) return false
+  return [...scope.querySelectorAll('input')].some(i => {
+    if (i.closest('.tt-toolbar, .tt-filter-row, table')) return false
+    const ph = (i.getAttribute('placeholder') || '').toLowerCase()
+    return i.type === 'search' || /ค้นหา|search|🔍/.test(ph)
+  })
 }
 
 // เสริมตารางที่มีอยู่แล้วทั้งหมดในโหนด

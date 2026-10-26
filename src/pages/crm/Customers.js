@@ -970,39 +970,40 @@ export default async function CustomersPage(container) {
     return [...new Set([...top, ...getVehicles().map(v => [v.brand, v.model].filter(Boolean).join(' '))])].slice(0, 60)
   }
 
-  function openForm(existing = null, { onSaved } = {}) {
+  function openForm(existing = null, { onSaved, prefill } = {}) {
     const isEdit = !!existing
+    const pre = existing || prefill || null // prefill = ค่าที่พิมพ์มาจากฟอร์ม Lead ด่วน (ยังเป็นการเพิ่มใหม่)
     const { el, close } = openModal({
       title: isEdit ? `✏️ แก้ไข ${fullName(existing)}` : '➕ เพิ่มลูกค้าใหม่', size: 'md',
       body: `
         <div style="display:flex;flex-direction:column;gap:14px">
           <div class="grid-2">
-            <div class="input-group"><label class="input-label">ชื่อ <span class="required">*</span></label><input class="input" id="ff" value="${escHtml(existing?.firstName || '')}" placeholder="ชื่อ"><span class="input-error" id="ff-e"></span></div>
-            <div class="input-group"><label class="input-label">นามสกุล</label><input class="input" id="fl" value="${escHtml(existing?.lastName || '')}" placeholder="ไม่รู้ก็เว้นไว้ได้"><span class="input-error" id="fl-e"></span></div>
+            <div class="input-group"><label class="input-label">ชื่อ <span class="required">*</span></label><input class="input" id="ff" value="${escHtml(pre?.firstName || '')}" placeholder="ชื่อ"><span class="input-error" id="ff-e"></span></div>
+            <div class="input-group"><label class="input-label">นามสกุล</label><input class="input" id="fl" value="${escHtml(pre?.lastName || '')}" placeholder="ไม่รู้ก็เว้นไว้ได้"><span class="input-error" id="fl-e"></span></div>
           </div>
           <div class="grid-2">
-            <div class="input-group"><label class="input-label">โทรศัพท์</label><input class="input" id="fp" type="tel" inputmode="tel" autocomplete="off" value="${escHtml(existing?.phone || '')}" placeholder="08x-xxx-xxxx"></div>
-            <div class="input-group"><label class="input-label">LINE ID</label><input class="input" id="fl2" value="${escHtml(existing?.lineId || '')}" placeholder="@lineid"></div>
+            <div class="input-group"><label class="input-label">โทรศัพท์</label><input class="input" id="fp" type="tel" inputmode="tel" autocomplete="off" value="${escHtml(pre?.phone || '')}" placeholder="08x-xxx-xxxx"></div>
+            <div class="input-group"><label class="input-label">LINE ID</label><input class="input" id="fl2" value="${escHtml(pre?.lineId || '')}" placeholder="@lineid"></div>
           </div>
           <div style="font-size:0.72rem;color:var(--text-muted);margin-top:-8px">💡 ถ้ายังไม่มีทั้งเบอร์โทรและ LINE ID ระบบจะเก็บเป็นสถานะ "Lead" — เมื่อกรอกอย่างใดอย่างหนึ่งจะขึ้นเป็น "Prospect" อัตโนมัติ</div>
-          <div class="input-group"><label class="input-label">Email</label><input class="input" id="fe" type="email" value="${escHtml(existing?.email || '')}" placeholder="email@example.com"></div>
+          <div class="input-group"><label class="input-label">Email</label><input class="input" id="fe" type="email" value="${escHtml(pre?.email || '')}" placeholder="email@example.com"></div>
           <div class="grid-2">
-            <div class="input-group"><label class="input-label">รถที่สนใจ</label><input class="input" id="fm" list="fm-models" autocomplete="off" value="${escHtml(existing?.interestedModel || '')}" placeholder="เช่น DEEPAL S07"><datalist id="fm-models">${modelSuggestions().map(m => `<option value="${escHtml(m)}">`).join('')}</datalist></div>
-            <div class="input-group"><label class="input-label">งบประมาณ (บาท)</label><input class="input" type="number" id="fb" value="${existing?.budget || ''}" placeholder="1000000"></div>
+            <div class="input-group"><label class="input-label">รถที่สนใจ</label><input class="input" id="fm" list="fm-models" autocomplete="off" value="${escHtml(pre?.interestedModel || '')}" placeholder="เช่น DEEPAL S07"><datalist id="fm-models">${modelSuggestions().map(m => `<option value="${escHtml(m)}">`).join('')}</datalist></div>
+            <div class="input-group"><label class="input-label">งบประมาณ (บาท)</label><input class="input" type="number" id="fb" value="${pre?.budget || ''}" placeholder="1000000"></div>
           </div>
           <div class="grid-2">
-            <div class="input-group"><label class="input-label">อาชีพ</label><select class="input" id="fo"><option value="">-</option>${OCCUPATIONS.map(o => `<option value="${o}" ${existing?.occupation === o ? 'selected' : ''}>${o}</option>`).join('')}</select></div>
-            <div class="input-group"><label class="input-label">รายได้ต่อเดือน (บาท)</label><input class="input" type="number" id="fic" value="${existing?.monthlyIncome || ''}" placeholder="30000"></div>
+            <div class="input-group"><label class="input-label">อาชีพ</label><select class="input" id="fo"><option value="">-</option>${OCCUPATIONS.map(o => `<option value="${o}" ${pre?.occupation === o ? 'selected' : ''}>${o}</option>`).join('')}</select></div>
+            <div class="input-group"><label class="input-label">รายได้ต่อเดือน (บาท)</label><input class="input" type="number" id="fic" value="${pre?.monthlyIncome || ''}" placeholder="30000"></div>
           </div>
           <div class="grid-2">
-            <div class="input-group"><label class="input-label">ที่มา</label><select class="input" id="fso">${Object.entries(SOURCE).map(([k, v]) => `<option value="${k}" ${existing?.source === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
-            <div class="input-group"><label class="input-label">อุณหภูมิ</label><select class="input" id="ft"><option value="">-</option>${Object.entries(TEMP).map(([k, v]) => `<option value="${k}" ${existing?.temperature === k ? 'selected' : ''}>${v.label}</option>`).join('')}</select></div>
+            <div class="input-group"><label class="input-label">ที่มา</label><select class="input" id="fso">${Object.entries(SOURCE).map(([k, v]) => `<option value="${k}" ${pre?.source === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
+            <div class="input-group"><label class="input-label">อุณหภูมิ</label><select class="input" id="ft"><option value="">-</option>${Object.entries(TEMP).map(([k, v]) => `<option value="${k}" ${pre?.temperature === k ? 'selected' : ''}>${v.label}</option>`).join('')}</select></div>
           </div>
           <div class="grid-2">
             <div class="input-group"><label class="input-label">ผู้ดูแล</label><select class="input" id="fa"><option value="">-</option>${getSalesStaff().map(s => `<option ${(existing ? existing.assignedTo : myDisplayName) === s ? 'selected' : ''}>${escHtml(s)}</option>`).join('')}</select></div>
-            <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;margin-top:22px;cursor:pointer"><input type="checkbox" id="fvip" ${existing?.vip ? 'checked' : ''}> ⭐ ลูกค้า VIP</label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;margin-top:22px;cursor:pointer"><input type="checkbox" id="fvip" ${pre?.vip ? 'checked' : ''}> ⭐ ลูกค้า VIP</label>
           </div>
-          <div class="input-group"><label class="input-label">หมายเหตุ</label><textarea class="input" id="fn" rows="2" placeholder="บันทึกข้อมูลเพิ่มเติม...">${escHtml(existing?.notes || '')}</textarea></div>
+          <div class="input-group"><label class="input-label">หมายเหตุ</label><textarea class="input" id="fn" rows="2" placeholder="บันทึกข้อมูลเพิ่มเติม...">${escHtml(pre?.notes || '')}</textarea></div>
         </div>
       `,
       footer: `<button class="btn btn-secondary" id="fc">ยกเลิก</button><button class="btn btn-primary" id="fok">💾 ${isEdit ? 'บันทึก' : 'เพิ่ม'}</button>`,
@@ -1085,8 +1086,7 @@ export default async function CustomersPage(container) {
           <button class="btn btn-secondary btn-sm pa-more" id="export-cust-btn">📥 Export</button>
           <button class="btn btn-ghost btn-sm pa-more-btn" type="button" title="เมนูเพิ่มเติม">⋯ อื่นๆ</button>
           ${canReconcileSheet ? `<button class="btn btn-secondary btn-sm" id="sheet-reconcile-btn" title="ทำให้ลูกค้า/ใบจองตรงกับไฟล์ DATA Booking (Google Sheet) ในคลิกเดียว">🔄 ซิงก์ Sheet</button>` : ''}
-          <button class="btn btn-secondary" id="quick-lead-page-btn">🧲 Lead ด่วน</button>
-          <button class="btn btn-primary" id="add-cust-btn">➕ เพิ่มลูกค้า</button>
+          <button class="btn btn-primary" id="add-cust-btn" title="ฟอร์มสั้น กรอกแค่ชื่อกับเบอร์ก็บันทึกได้ · ต้องการกรอกครบทุกช่องกด 📝 กรอกแบบละเอียด ในฟอร์ม">➕ เพิ่มลูกค้า</button>
         </div>
       </div>
 
@@ -1231,10 +1231,14 @@ export default async function CustomersPage(container) {
     }
   })
 
-  document.getElementById('add-cust-btn').addEventListener('click', () => openForm())
+  // ปุ่มเดียว: เปิดฟอร์มสั้น (Lead ด่วน) ก่อน — เดิมมี 2 ปุ่ม "Lead ด่วน" กับ "เพิ่มลูกค้า" ทำงานซ้ำกัน ต้องเลือกเอง
+  // อยากกรอกครบกด "📝 กรอกแบบละเอียด" ในฟอร์ม ค่าที่พิมพ์ไว้ตามไปด้วย
+  document.getElementById('add-cust-btn').addEventListener('click', () => {
+    if (sheetMode) return
+    openQuickLead({ onFull: prefill => openForm(null, { prefill }) })
+  })
   // มือถือ: ปุ่มรอง (Pipeline/Sheet/Import/Export) ซ่อนไว้ใต้ ⋯ อื่นๆ หัวหน้าไม่รก
   container.querySelector('.pa-more-btn')?.addEventListener('click', e => e.currentTarget.closest('.page-actions').classList.toggle('pa-open'))
-  document.getElementById('quick-lead-page-btn').addEventListener('click', () => openQuickLead())
   document.getElementById('pipeline-link-btn').addEventListener('click', () => navigate('/crm/pipeline'))
 
   document.getElementById('sheet-reconcile-btn')?.addEventListener('click', () => openSheetReconcile({ onDone: () => loadData() }))

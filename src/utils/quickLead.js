@@ -105,7 +105,7 @@ function offerFirstReply(c, me) {
   })
 }
 
-export function openQuickLead() {
+export function openQuickLead({ onFull } = {}) {
   const me = getState('user') || {}
   let source = 'walk-in'
   let existing = null
@@ -118,7 +118,7 @@ export function openQuickLead() {
   }).catch(() => {})
 
   const { el, close } = openModal({
-    title: '🧲 เพิ่ม Lead ด่วน', size: 'sm',
+    title: '➕ เพิ่มลูกค้า / Lead', size: 'sm',
     body: `
       <div style="display:flex;flex-direction:column;gap:12px">
         <details id="ql-paste-box" style="border:1px dashed var(--border);border-radius:10px;padding:8px 10px">
@@ -137,9 +137,14 @@ export function openQuickLead() {
         <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;cursor:pointer"><input type="checkbox" id="ql-hot"> 🔴 สนใจมาก (Hot) — พร้อมซื้อเร็ว</label>
         <div style="font-size:0.7rem;color:var(--text-muted)">ผู้ดูแล: ${escHtml(me.displayName || me.email || '—')} · กรอกข้อมูลเพิ่มเติมทีหลังได้ในหน้าลูกค้า</div>
       </div>`,
-    footer: `<button class="btn btn-secondary" id="ql-more">เพิ่มอีกคน</button><button class="btn btn-primary" id="ql-save">💾 บันทึก</button>`,
+    footer: `${onFull ? '<button class="btn btn-ghost" id="ql-full" title="เปิดฟอร์มเต็ม อีเมล งบ อาชีพ รายได้ หมายเหตุ — ค่าที่พิมพ์ไว้ตามไปด้วย">📝 กรอกแบบละเอียด</button>' : ''}<button class="btn btn-secondary" id="ql-more">เพิ่มอีกคน</button><button class="btn btn-primary" id="ql-save">💾 บันทึก</button>`,
   })
   const $ = id => el.querySelector('#' + id)
+  $('ql-full')?.addEventListener('click', () => {
+    const lead = buildQuickLead({ name: $('ql-name').value, contact: $('ql-contact').value, model: $('ql-model').value, source, note: pastedNote, hot: $('ql-hot').checked }, { assignedTo: me.displayName || '' })
+    close()
+    onFull(lead)
+  })
   el.querySelectorAll('.ql-src').forEach(b => b.addEventListener('click', () => {
     source = b.dataset.k
     el.querySelectorAll('.ql-src').forEach(x => { x.className = `btn btn-sm ql-src ${x.dataset.k === source ? 'btn-primary' : 'btn-secondary'}` })
