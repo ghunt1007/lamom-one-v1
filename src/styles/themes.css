@@ -69,14 +69,16 @@
   --primary-glow:rgba(37,99,235,0.22);
   --accent:      #7C3AED;
   --accent-dim:  rgba(124,58,237,0.08);
-  --success:     #059669;
-  --success-dim: rgba(5,150,105,0.08);
-  --warning:     #D97706;
-  --warning-dim: rgba(217,119,6,0.08);
+  /* (v1.0.774) success/warning/info เข้มขึ้นอีกขั้น — ตัวหนังสือสีเหลือง/เขียวเล็กๆ (วันที่ ป้ายสถานะ) บนพื้นเทาอ่อน
+     เดิมได้ contrast แค่ ~2.9:1 อ่านยากกลางแดด ตอนนี้ ≥4.5:1 */
+  --success:     #047857;
+  --success-dim: rgba(4,120,87,0.08);
+  --warning:     #B45309;
+  --warning-dim: rgba(180,83,9,0.08);
   --danger:      #DC2626;
   --danger-dim:  rgba(220,38,38,0.08);
-  --info:        #0891B2;
-  --info-dim:    rgba(8,145,178,0.08);
+  --info:        #0E7490;
+  --info-dim:    rgba(14,116,144,0.08);
   --text:        #0F172A;
   --text-2:      #334155;
   /* text-3 ไม่ได้บังคับผ่าน AA เต็ม (ใช้จุดตกแต่ง/รอง เหมือนแพทเทิร์นเดิมของธีมมืด) ส่วน text-muted
