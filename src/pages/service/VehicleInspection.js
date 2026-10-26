@@ -1,6 +1,6 @@
 import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
@@ -300,10 +300,11 @@ export default async function VehicleInspectionPage(container) {
           <select class="input" id="if-type">${Object.entries(INSPECTION_TYPES).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
         </div>
         <div class="input-group"><label class="input-label">ทะเบียนรถ *</label><input class="input" id="if-plate" placeholder="กก 1234 BKK"></div>
-        <div class="input-group"><label class="input-label">รุ่นรถ</label><input class="input" id="if-model" placeholder="BYD Seal AWD"></div>
+        <div class="input-group"><label class="input-label">รุ่นรถ</label><input class="input" id="if-model" placeholder="DEEPAL S07"></div>
         <div class="input-group"><label class="input-label">ชื่อลูกค้า</label><input class="input" id="if-cname" placeholder="ชื่อลูกค้า"></div>
         <div class="input-group"><label class="input-label">วันที่ตรวจ</label><input type="date" class="input" id="if-date" value="${today}"></div>
         <div class="input-group"><label class="input-label">เลขไมล์ (กม.)</label><input type="number" class="input" id="if-km" placeholder="0"></div>
+        <div class="input-group"><label class="input-label">ช่างผู้ตรวจ</label><input class="input" id="if-tech" value="${escHtml(getState('user')?.displayName || '')}" placeholder="ชื่อช่าง"></div>
       </div>`,
       async onConfirm() {
         const plate = document.getElementById('if-plate')?.value?.trim()
@@ -313,7 +314,7 @@ export default async function VehicleInspectionPage(container) {
             type: document.getElementById('if-type')?.value,
             vehiclePlate: plate, brand: '', model: document.getElementById('if-model')?.value||'',
             vin: '', customerId: '', customerName: document.getElementById('if-cname')?.value||'',
-            techId: 'T001', techName: 'ธีรยุทธ เก่งกาจ',
+            techId: getState('user')?.uid || '', techName: document.getElementById('if-tech')?.value?.trim() || '',
             date: document.getElementById('if-date')?.value||today,
             status: 'pending', mileage: +document.getElementById('if-km')?.value||0,
             overallResult: null, notes: '', items: buildDefaultItems(),
