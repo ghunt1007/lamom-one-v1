@@ -242,7 +242,7 @@ export default async function MyDayPage(container) {
           <div title="ความคืบหน้าวันนี้" style="width:58px;height:58px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:conic-gradient(var(--success) ${pct * 3.6}deg, var(--surface-2) 0)">
             <div style="width:44px;height:44px;border-radius:50%;background:var(--surface);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.8rem">${pct}%</div></div>
           ${stat('📋', 'งานค้าง', d.total, d.total ? 'warning' : 'success')}
-          ${stat('💪', 'ติดต่อแล้ว', doneToday, 'success')}
+          ${stat('💪', 'ทำแล้ว', doneToday, 'success')}
           ${stat('📅', 'นัดพรุ่งนี้', d.tomorrow || 0, 'primary')}
         </div>
         ${focusCard(d)}
