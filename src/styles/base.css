@@ -158,6 +158,10 @@ a:hover { text-decoration: underline; }
   /* ตัวเลขเงินยาว (฿123,340,000) ย่อขนาดตามความกว้างการ์ด ไม่ล้นกรอบ */
   .kpi-grid > .kpi-card .kpi-value { font-size: clamp(0.95rem, 11cqi, 1.5rem) !important; overflow-wrap: break-word; }
 }
+/* แท็บเล็ตกว้าง (720px+) การ์ด 5 ใบพอดี 5 ช่อง ไม่เหลือใบที่ 5 อยู่แถวใหม่คนเดียว */
+@media (min-width: 720px) and (max-width: 1024px) {
+  .kpi-grid:has(> :nth-child(5):last-child) { grid-template-columns: repeat(5, minmax(0, 1fr)) !important; }
+}
 
 /* ── KPI Card ── */
 .kpi-card {

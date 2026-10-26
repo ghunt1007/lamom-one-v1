@@ -127,7 +127,7 @@ export default async function TestDrivePage(container) {
           </div>
           <div class="page-actions">
             ${todayTDs.length > 0 ? `<span class="badge badge-primary">📅 วันนี้ ${todayTDs.length} นัด</span>` : ''}
-            <button class="btn btn-primary" id="new-td-btn">➕ นัด Test Drive</button>
+            <button class="btn btn-primary" id="new-td-btn">➕ นัดทดลองขับ</button>
           </div>
         </div>
 
@@ -149,7 +149,7 @@ export default async function TestDrivePage(container) {
         <!-- Today's schedule -->
         ${todayTDs.length > 0 ? `
           <div class="card" style="padding:16px;margin-bottom:16px;border:1px solid var(--primary)">
-            <div style="font-weight:700;color:var(--primary);margin-bottom:12px">📅 นัด Test Drive วันนี้ (${todayTDs.length} รายการ)</div>
+            <div style="font-weight:700;color:var(--primary);margin-bottom:12px">📅 นัดทดลองขับวันนี้ (${todayTDs.length} รายการ)</div>
             <div style="display:flex;flex-direction:column;gap:8px">
               ${todayTDs.map(t => `
                 <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--primary-dim);border-radius:var(--radius-md)">
@@ -174,7 +174,7 @@ export default async function TestDrivePage(container) {
         <!-- Table -->
         <div class="card tbl-cards-wrap" style="padding:0;overflow:hidden">
           <div class="table-wrap"><table class="table tbl-cards">
-            <thead><tr><th>ลูกค้า</th><th>รถที่ Test Drive</th><th>วันที่/เวลา</th><th>Sales</th><th>สถานะ</th><th>ผลลัพธ์</th><th></th></tr></thead>
+            <thead><tr><th>ลูกค้า</th><th>รุ่นที่ขับ</th><th>วันที่/เวลา</th><th>เซลส์</th><th>สถานะ</th><th>ผลลัพธ์</th><th></th></tr></thead>
             <tbody>
               ${filtered.length ? filtered.map(t => {
                 const st = TD_STATUS[t.status]
@@ -222,7 +222,7 @@ export default async function TestDrivePage(container) {
       body: `<div style="display:flex;flex-direction:column;gap:10px">
         <div style="display:flex;gap:6px">${rs ? `<span class="badge badge-${rs.badge}">${rs.label}</span>` : ''}<span class="badge badge-${st?.badge}">${st?.label}</span></div>
         ${dr('🚗','รถ',t.model)}${dr('📅','วันที่',t.date+' '+t.time)}
-        ${dr('👤','Sales',t.staff)}${dr('📞','โทร',t.phone)}
+        ${dr('👤','เซลส์',t.staff)}${dr('📞','โทร',t.phone)}
         ${t.km ? dr('📏','ระยะทาง',t.km+' กม.') : ''}
         ${t.duration ? dr('⏱','ระยะเวลา',t.duration+' นาที') : ''}
         ${t.notes ? `<div style="background:var(--surface-2);padding:10px;border-radius:var(--radius-md);font-size:0.85rem">${escHtml(t.notes)}</div>` : ''}
