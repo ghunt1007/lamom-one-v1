@@ -155,7 +155,7 @@ export default async function ReserveLockPage(container) {
     openModal({
       title:'➕ เพิ่มรถเข้าระบบล็อคสต็อก', size:'sm',
       body:`<div style="font-size:0.8rem;display:flex;flex-direction:column;gap:8px">
-        <div><label style="font-size:0.72rem;color:var(--text-muted)">รุ่นรถ *</label><input class="input" id="ns-model" style="width:100%;margin-top:3px" placeholder="เช่น BYD Seal AWD"></div>
+        <div><label style="font-size:0.72rem;color:var(--text-muted)">รุ่นรถ *</label><input class="input" id="ns-model" style="width:100%;margin-top:3px" placeholder="เช่น DEEPAL S07"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           <div><label style="font-size:0.72rem;color:var(--text-muted)">สี</label><input class="input" id="ns-color" style="width:100%;margin-top:3px"></div>
           <div><label style="font-size:0.72rem;color:var(--text-muted)">ปี</label><input class="input" type="number" id="ns-year" value="${new Date().getFullYear()}" style="width:100%;margin-top:3px"></div>

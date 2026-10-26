@@ -198,7 +198,7 @@ export default async function ServiceAppointmentPage(container) {
           <div class="input-group"><label class="input-label">เบอร์โทร</label><input class="input" id="ap-phone" value="${escHtml(appt?.phone||'')}" placeholder="08x-xxx-xxxx"></div>
         </div>
         <div class="grid-2">
-          <div class="input-group"><label class="input-label">รุ่นรถ</label><input class="input" id="ap-model" value="${escHtml(appt?.model||'')}" placeholder="เช่น BYD Seal AWD"></div>
+          <div class="input-group"><label class="input-label">รุ่นรถ</label><input class="input" id="ap-model" value="${escHtml(appt?.model||'')}" placeholder="เช่น DEEPAL S07"></div>
           <div class="input-group"><label class="input-label">ทะเบียน</label><input class="input" id="ap-plate" value="${escHtml(appt?.plate||'')}" placeholder="กข-1234 กทม."></div>
         </div>
         <div class="input-group"><label class="input-label">ประเภทงาน *</label>

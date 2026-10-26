@@ -239,7 +239,7 @@ export default async function ShowroomAppointmentPage(container) {
               ${APPT_PURPOSE.map(p => `<option value="${p}" ${appt?.purpose===p?'selected':''}>${p}</option>`).join('')}
             </select>
           </div>
-          <div class="input-group"><label class="input-label">รุ่นรถที่สนใจ</label><input class="input" id="sa-interest" value="${escHtml(appt?.interestedIn||'')}" placeholder="เช่น BYD Seal AWD"></div>
+          <div class="input-group"><label class="input-label">รุ่นรถที่สนใจ</label><input class="input" id="sa-interest" value="${escHtml(appt?.interestedIn||'')}" placeholder="เช่น DEEPAL S07"></div>
         </div>
         <div class="grid-2">
           <div class="input-group"><label class="input-label">วันที่นัด *</label><input class="input" type="date" id="sa-date" value="${appt?.date||today}"></div>

@@ -51,8 +51,8 @@ export default async function CrmDashboard(container) {
       </div>
 
       <!-- Quick links -->
-      <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.05em">เมนูหลัก CRM</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:12px">
+      <div class="crm-quick" style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.05em">เมนูหลัก CRM</div>
+      <div class="crm-quick" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:12px">
         ${QUICK_LINKS.map(q => `
           <div class="card card-lift" data-nav="${q.path}" style="padding:15px 16px;cursor:pointer;border-top:3px solid var(--${q.color})">
             <div style="font-size:1.6rem;margin-bottom:6px">${q.icon}</div>

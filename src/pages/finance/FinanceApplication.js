@@ -216,7 +216,7 @@ export default async function FinanceApplicationPage(container) {
           <div class="input-group"><label class="input-label">เบอร์โทร</label><input class="input" id="fa-phone" placeholder="08x-xxx-xxxx" value="${escHtml(prefill?.phone||'')}"></div>
         </div>
         <div class="grid-2">
-          <div class="input-group"><label class="input-label">รุ่นรถ *</label><input class="input" id="fa-vehicle" placeholder="เช่น BYD Seal AWD" value="${escHtml(prefill?.vehicle||'')}"></div>
+          <div class="input-group"><label class="input-label">รุ่นรถ *</label><input class="input" id="fa-vehicle" placeholder="เช่น DEEPAL S07" value="${escHtml(prefill?.vehicle||'')}"></div>
           <div class="input-group"><label class="input-label">ราคารถ (฿)</label><input class="input" type="number" id="fa-price" placeholder="0" value="${prefill?.vehiclePrice||''}"></div>
         </div>
         <div class="grid-2">
