@@ -60,7 +60,7 @@ export default async function RolesPage(container) {
           <table style="width:100%;border-collapse:collapse;min-width:900px">
             <thead>
               <tr style="background:var(--surface-2)">
-                <th style="padding:10px 14px;text-align:left;font-size:0.8rem;border-bottom:2px solid var(--border);min-width:150px">Role</th>
+                <th style="padding:10px 14px;text-align:left;font-size:0.8rem;border-bottom:2px solid var(--border);min-width:150px">บทบาท</th>
                 ${MODULES.map(m => `<th style="padding:10px 6px;text-align:center;font-size:0.7rem;border-bottom:2px solid var(--border)">${m.label}</th>`).join('')}
                 <th style="padding:10px 6px;border-bottom:2px solid var(--border)"></th>
               </tr>

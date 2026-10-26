@@ -114,7 +114,7 @@ export default async function PayrollDetailPage(container) {
                 <tr style="border-bottom:1px solid var(--border);font-size:0.75rem;color:var(--text-muted)">
                   <th style="padding:10px 14px;text-align:left">พนักงาน</th>
                   <th style="padding:10px 10px;text-align:right">เงินเดือน</th>
-                  <th style="padding:10px 10px;text-align:right">Commission</th>
+                  <th style="padding:10px 10px;text-align:right">คอมมิชชั่น</th>
                   <th style="padding:10px 10px;text-align:right">โบนัส</th>
                   <th style="padding:10px 10px;text-align:right">OT</th>
                   <th style="padding:10px 10px;text-align:right">หัก</th>

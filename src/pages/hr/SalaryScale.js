@@ -134,11 +134,11 @@ export default async function SalaryScalePage(container) {
               <thead>
                 <tr style="border-bottom:1px solid var(--border);font-size:0.73rem;color:var(--text-muted)">
                   <th style="padding:8px 14px;text-align:left">พนักงาน</th>
-                  <th style="padding:8px 10px">Grade</th>
+                  <th style="padding:8px 10px">ระดับ</th>
                   <th style="padding:8px 10px;text-align:right">เงินเดือน</th>
                   <th style="padding:8px 10px;text-align:right">ตลาด</th>
                   <th style="padding:8px 10px;text-align:right">Compa</th>
-                  <th style="padding:8px 10px;text-align:right">Market Ratio</th>
+                  <th style="padding:8px 10px;text-align:right">เทียบตลาด</th>
                   <th style="padding:8px 14px"></th>
                 </tr>
               </thead>
@@ -226,7 +226,7 @@ export default async function SalaryScalePage(container) {
                   <th style="padding:7px 9px;text-align:left">แผนก</th>
                   <th style="padding:7px 9px;text-align:right">ปัจจุบัน</th>
                   <th style="padding:7px 9px;text-align:right">ตลาด</th>
-                  <th style="padding:7px 9px;text-align:right">Ratio</th>
+                  <th style="padding:7px 9px;text-align:right">อัตราส่วน</th>
                 </tr>
               </thead>
               <tbody>

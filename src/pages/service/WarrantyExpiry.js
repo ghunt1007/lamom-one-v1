@@ -127,7 +127,7 @@ export default async function WarrantyExpiryPage(container) {
               <th style="text-align:center">เหลือ (วัน)</th>
               <th style="text-align:right">KM ปัจจุบัน</th>
               <th style="text-align:center">สถานะ</th>
-              <th style="text-align:center">Action</th>
+              <th style="text-align:center">ดำเนินการ</th>
             </tr></thead>
             <tbody>
               ${rows.map(v => {

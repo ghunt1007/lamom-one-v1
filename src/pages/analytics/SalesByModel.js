@@ -173,7 +173,7 @@ export default async function SalesByModelPage(container) {
                   <th style="padding:8px 14px;text-align:left">รุ่น</th>
                   ${MONTH_LABELS.map((m, i) => `<th style="padding:6px 8px;text-align:right;${i===periodIdx?'color:var(--primary);font-weight:800':''}">${m}</th>`).join('')}
                   <th style="padding:8px 12px;text-align:right">YTD</th>
-                  <th style="padding:8px 12px;text-align:right">Margin</th>
+                  <th style="padding:8px 12px;text-align:right">กำไร</th>
                 </tr>
               </thead>
               <tbody>

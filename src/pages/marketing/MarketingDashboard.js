@@ -145,7 +145,7 @@ export default async function MarketingDashboard(container) {
         <div class="table-wrap">
           <table>
             <thead><tr>
-              <th>Campaign</th><th>ประเภท</th><th>งบ</th><th>Leads</th><th>ยอดขาย</th><th>ROI</th><th>สถานะ</th>
+              <th>แคมเปญ</th><th>ประเภท</th><th>งบ</th><th>ลีด</th><th>ยอดขาย</th><th>ROI</th><th>สถานะ</th>
             </tr></thead>
             <tbody>
               ${campaigns.map(c => {

@@ -125,7 +125,7 @@ export default async function ModelProfitabilityPage(container) {
                 <th style="text-align:right;padding:10px 10px;font-weight:600;color:var(--text-muted)">ขาย</th>
                 <th style="text-align:right;padding:10px 10px;font-weight:600;color:var(--text-muted)">Gross/คัน</th>
                 <th style="text-align:right;padding:10px 10px;font-weight:600;color:var(--primary)">+F&I</th>
-                <th style="text-align:right;padding:10px 10px;font-weight:600;color:var(--text-muted)">Margin%</th>
+                <th style="text-align:right;padding:10px 10px;font-weight:600;color:var(--text-muted)">กำไร%</th>
                 <th style="padding:10px 10px;font-weight:600;color:var(--text-muted)">กำไรรวม</th>
               </tr>
             </thead>
@@ -173,7 +173,7 @@ export default async function ModelProfitabilityPage(container) {
                   <th style="padding:7px 8px;text-align:left">รุ่นรถ</th>
                   <th style="padding:7px 8px;text-align:right">ขาย</th>
                   <th style="padding:7px 8px;text-align:right">กำไร/คัน</th>
-                  <th style="padding:7px 8px;text-align:right">Margin</th>
+                  <th style="padding:7px 8px;text-align:right">กำไร</th>
                   <th style="padding:7px 8px;text-align:right">กำไรรวม</th>
                 </tr>
               </thead>

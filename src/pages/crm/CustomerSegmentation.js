@@ -278,7 +278,7 @@ export default async function CustomerSegmentationPage(container) {
               <th style="padding:10px 14px;text-align:right">ลูกค้า</th>
               <th style="padding:10px 14px;text-align:right">สัดส่วน</th>
               <th style="padding:10px 14px;text-align:right">ซื้อซ้ำ</th>
-              <th style="padding:10px 14px;text-align:center">Bar</th>
+              <th style="padding:10px 14px;text-align:center">กราฟ</th>
             </tr>
           </thead>
           <tbody>
@@ -316,7 +316,7 @@ export default async function CustomerSegmentationPage(container) {
               <th style="padding:10px 14px;text-align:right">ลูกค้า</th>
               <th style="padding:10px 14px;text-align:right">สัดส่วน</th>
               <th style="padding:10px 14px;text-align:right">งบประมาณเฉลี่ย</th>
-              <th style="padding:10px 14px;text-align:center">Bar</th>
+              <th style="padding:10px 14px;text-align:center">กราฟ</th>
             </tr>
           </thead>
           <tbody>

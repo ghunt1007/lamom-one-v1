@@ -98,7 +98,7 @@ export default async function AuditLogPage(container) {
 
         <div class="card" style="padding:0;overflow:hidden">
           <div class="table-wrap"><table class="table">
-            <thead><tr><th>เวลา</th><th>ผู้ใช้</th><th>Action</th><th>Module</th><th>Resource</th><th>รายละเอียด</th><th>IP</th></tr></thead>
+            <thead><tr><th>เวลา</th><th>ผู้ใช้</th><th>ดำเนินการ</th><th>โมดูล</th><th>รายการ</th><th>รายละเอียด</th><th>IP</th></tr></thead>
             <tbody>
               ${list.map(l => {
                 const at = ACTION_TYPES[l.action] || { color: 'secondary', icon: '•', label: l.action || '-' }

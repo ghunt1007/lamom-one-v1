@@ -61,7 +61,7 @@ export default async function MarginPage(container) {
       <table>
         <thead><tr>
           <th>วันที่</th><th>ลูกค้า</th><th>รถ</th><th>ราคาขาย</th><th>ต้นทุนรถ</th>
-          <th>กำไรหยาบ</th><th>Finance</th><th>ประกัน</th><th>อุปกรณ์</th><th>ส่วนลด</th>
+          <th>กำไรหยาบ</th><th>ไฟแนนซ์</th><th>ประกัน</th><th>อุปกรณ์</th><th>ส่วนลด</th>
           <th>กำไรสุทธิ</th><th>%</th><th>เซลส์</th>
         </tr></thead>
         <tbody>${filtered.map(s => {

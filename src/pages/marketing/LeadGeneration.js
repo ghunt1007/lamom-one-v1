@@ -131,7 +131,7 @@ export default async function LeadGenerationPage(container) {
       </div>
       <div class="card" style="padding:0;overflow:hidden">
         <div class="table-wrap"><table class="table">
-          <thead><tr><th>แคมเปญ</th><th>ช่องทาง</th><th>งบ/ใช้ไป</th><th class="text-right">Leads</th><th class="text-right">Qualified</th><th class="text-right">ปิดได้</th><th class="text-right">CPL</th><th class="text-right">CPA</th><th>สถานะ</th><th></th></tr></thead>
+          <thead><tr><th>แคมเปญ</th><th>ช่องทาง</th><th>งบ/ใช้ไป</th><th class="text-right">ลีด</th><th class="text-right">ลีดคุณภาพ</th><th class="text-right">ปิดได้</th><th class="text-right">CPL</th><th class="text-right">CPA</th><th>สถานะ</th><th></th></tr></thead>
           <tbody>
             ${list.map(c => {
               const ch = CHANNEL_MAP[c.channel]

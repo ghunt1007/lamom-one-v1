@@ -79,7 +79,7 @@ export default async function ApiKeysPage(container) {
             <thead>
               <tr style="border-bottom:1px solid var(--border);font-size:0.73rem;color:var(--text-muted)">
                 <th style="padding:8px 14px;text-align:left">ชื่อ</th>
-                <th style="padding:8px 10px;text-align:left">Key</th>
+                <th style="padding:8px 10px;text-align:left">คีย์</th>
                 <th style="padding:8px 10px">สิทธิ์</th>
                 <th style="padding:8px 10px;text-align:right">Req 30 วัน</th>
                 <th style="padding:8px 10px">ใช้ล่าสุด</th>

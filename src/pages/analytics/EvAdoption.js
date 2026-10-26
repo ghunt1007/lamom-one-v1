@@ -193,7 +193,7 @@ export default async function EvAdoptionPage(container) {
                 <th style="padding:7px 9px;text-align:left">เดือน</th>
                 <th style="padding:7px 9px;text-align:right">ตลาด EV</th>
                 <th style="padding:7px 9px;text-align:right">LAMOM</th>
-                <th style="padding:7px 9px;text-align:right">Share%</th>
+                <th style="padding:7px 9px;text-align:right">ส่วนแบ่ง%</th>
                 <th style="padding:7px 9px;text-align:right">EV%</th>
                 <th style="padding:7px 9px">รุ่นขายดี</th>
               </tr>

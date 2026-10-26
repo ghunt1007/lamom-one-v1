@@ -370,8 +370,8 @@ export default async function AnalyticsDashboard(container) {
               <th>อันดับ</th><th>พนักงาน</th>
               <th class="text-right">คันที่ขาย</th>
               <th class="text-right">รายได้</th>
-              <th class="text-right">Commission</th>
-              <th>Performance Bar</th>
+              <th class="text-right">คอมมิชชั่น</th>
+              <th>กราฟผลงาน</th>
             </tr>
           </thead>
           <tbody>
@@ -433,7 +433,7 @@ export default async function AnalyticsDashboard(container) {
           </div>
           <div style="margin-top:14px">
             <table class="table" style="font-size:0.82rem">
-              <thead><tr><th>เดือน</th><th class="text-right">ค่า</th><th class="text-right">% MoM</th></tr></thead>
+              <thead><tr><th>เดือน</th><th class="text-right">ค่า</th><th class="text-right">% เทียบเดือนก่อน</th></tr></thead>
               <tbody>
                 ${data.map((d, i) => {
                   const prev = i > 0 ? data[i-1].value : d.value

@@ -149,8 +149,8 @@ export default async function ProfitAnalysisPage(container) {
                 <th style="padding:10px 14px;text-align:right">รายได้</th>
                 <th style="padding:10px 14px;text-align:right">ต้นทุน</th>
                 <th style="padding:10px 14px;text-align:right">กำไรขั้นต้น</th>
-                <th style="padding:10px 14px;text-align:right">Margin</th>
-                <th style="padding:10px 14px;text-align:center">Margin Bar</th>
+                <th style="padding:10px 14px;text-align:right">กำไร</th>
+                <th style="padding:10px 14px;text-align:center">กราฟกำไร</th>
               </tr>
             </thead>
             <tbody>

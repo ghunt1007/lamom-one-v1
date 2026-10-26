@@ -183,9 +183,9 @@ export default async function SalesForecastPage(container) {
                 <th>เดือน</th><th>ประเภท</th>
                 <th class="text-right">จำนวนคัน</th>
                 <th class="text-right">รายได้</th>
-                <th class="text-right">Avg Deal Size</th>
-                <th class="text-right">Leads</th>
-                <th class="text-right">Conversion%</th>
+                <th class="text-right">มูลค่าเฉลี่ย/ดีล</th>
+                <th class="text-right">ลีด</th>
+                <th class="text-right">ปิดได้%</th>
               </tr>
             </thead>
             <tbody>

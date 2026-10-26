@@ -167,13 +167,13 @@ export default async function PLPage(container) {
             <thead>
               <tr>
                 <th>ช่วงเวลา</th>
-                <th class="text-right">Revenue</th>
-                <th class="text-right">COGS</th>
-                <th class="text-right">Gross Profit</th>
+                <th class="text-right">รายได้</th>
+                <th class="text-right">ต้นทุนขาย</th>
+                <th class="text-right">กำไรขั้นต้น</th>
                 <th class="text-right">GP%</th>
-                <th class="text-right">OPEX</th>
-                <th class="text-right">Net Profit</th>
-                <th class="text-right">Net%</th>
+                <th class="text-right">ค่าใช้จ่าย</th>
+                <th class="text-right">กำไรสุทธิ</th>
+                <th class="text-right">สุทธิ%</th>
               </tr>
             </thead>
             <tbody>

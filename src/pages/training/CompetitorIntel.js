@@ -71,10 +71,10 @@ export default async function CompetitorIntelPage(container) {
         <div class="card" style="overflow-x:auto">
           <table style="width:100%;border-collapse:collapse;min-width:920px">
             <thead><tr style="border-bottom:2px solid var(--border);font-size:0.72rem;color:var(--text-muted);text-align:left">
-              <th style="padding:10px 12px">แบรนด์ / รุ่น</th><th>Segment</th>
+              <th style="padding:10px 12px">แบรนด์ / รุ่น</th><th>กลุ่ม</th>
               <th style="text-align:right">ราคา</th><th style="text-align:center">ระยะ</th>
               <th style="text-align:center">กำลัง</th><th style="text-align:center">0-100</th>
-              <th>Warranty</th><th>จุดเด่น</th>
+              <th>รับประกัน</th><th>จุดเด่น</th>
             </tr></thead>
             <tbody>
               ${filtered.map(m => `
