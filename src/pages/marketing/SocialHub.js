@@ -93,7 +93,7 @@ export default async function SocialHubPage(container) {
           <button class="btn btn-sm ${tab==='calendar'?'btn-primary':'btn-secondary'} tab-btn" data-t="calendar">📅 ปฏิทินคอนเทนต์</button>
           <button class="btn btn-sm ${tab==='composer'?'btn-primary':'btn-secondary'} tab-btn" data-t="composer">✍️ เขียนโพสต์</button>
           <button class="btn btn-sm ${tab==='templates'?'btn-primary':'btn-secondary'} tab-btn" data-t="templates">📋 เทมเพลต</button>
-          <button class="btn btn-sm ${tab==='analytics'?'btn-primary':'btn-secondary'} tab-btn" data-t="analytics">📊 Analytics</button>
+          <button class="btn btn-sm ${tab==='analytics'?'btn-primary':'btn-secondary'} tab-btn" data-t="analytics">📊 สถิติ</button>
         </div>
 
         ${tab === 'calendar' ? renderCalendar() : tab === 'composer' ? renderComposer() : tab === 'templates' ? renderTemplates() : renderAnalytics()}

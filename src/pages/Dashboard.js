@@ -125,7 +125,7 @@ export default async function DashboardPage(container) {
         </div>
         <div class="page-actions">
           ${hasModuleAccess(myRole, getModuleForPath('/crm/my-day')?.key, user?.extraGrants) ? `<button class="btn btn-warning btn-sm" data-nav="/crm/my-day">☀️ งานของฉันวันนี้</button>` : ''}
-          <button class="btn btn-secondary btn-sm" data-nav="/analytics">📊 Analytics</button>
+          <button class="btn btn-secondary btn-sm" data-nav="/analytics">📊 วิเคราะห์</button>
           <button class="btn btn-primary btn-sm" id="dash-new-lead-btn" data-nav="/crm/leads">➕ ${t('newLead')}</button>
         </div>
       </div>
@@ -145,7 +145,7 @@ export default async function DashboardPage(container) {
       <div class="card dash-status-strip" style="padding:10px 16px;margin-bottom:16px;display:flex;align-items:center;gap:18px;flex-wrap:wrap">
         <div style="display:flex;align-items:center;gap:7px">
           <span style="width:8px;height:8px;border-radius:50%;background:var(--success);box-shadow:0 0 10px var(--success);animation:dashPulseDot 2s infinite;flex-shrink:0"></span>
-          <span style="font-size:0.7rem;letter-spacing:0.14em;color:var(--success);font-weight:700;font-family:'Share Tech Mono',monospace">SYSTEM ONLINE</span>
+          <span style="font-size:0.7rem;letter-spacing:0.14em;color:var(--success);font-weight:700;">ระบบพร้อมใช้งาน</span>
         </div>
         <div id="hud-clock" style="font-size:0.76rem;color:var(--primary);letter-spacing:0.1em;font-family:'Share Tech Mono',monospace;font-weight:700">--:--:--</div>
         <div style="flex:1"></div>
@@ -307,7 +307,7 @@ export default async function DashboardPage(container) {
             <div style="display:flex;gap:4px">
               <button class="btn btn-sm btn-primary" id="trend-6">6 เดือน</button>
               <button class="btn btn-sm btn-secondary" id="trend-12">12 เดือน</button>
-              <button class="btn btn-secondary btn-sm" data-nav="/analytics">Analytics →</button>
+              <button class="btn btn-secondary btn-sm" data-nav="/analytics">ดูการวิเคราะห์ →</button>
             </div>
           </div>
           <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:12px">แท่ง: 🟢 ส่งมอบ · 🟡 ดำเนินการ · 🔴 ถอนจอง — เส้นเรืองแสง = มูลค่า · เส้นประม่วง = พยากรณ์ 3 เดือนข้างหน้า (คลิกแท่งเพื่อเลือกเดือน)</div>
@@ -768,10 +768,10 @@ export default async function DashboardPage(container) {
       const readEl = document.getElementById('hud-readouts')
       if (!readEl) return
       readEl.innerHTML = `
-        <span>BOOKINGS <b style="color:var(--primary)">${bookings.length}</b></span>
-        <span>JOBS <b style="color:var(--warning)">${jobs.length}</b></span>
-        <span>CUSTOMERS <b style="color:var(--accent)">${customers.length}+</b></span>
-        <span>TASKS <b style="color:var(--success)">${tasks.length}</b></span>`
+        <span>ใบจอง <b style="color:var(--primary)">${bookings.length}</b></span>
+        <span>งานซ่อม <b style="color:var(--warning)">${jobs.length}</b></span>
+        <span>ลูกค้า <b style="color:var(--accent)">${customers.length}+</b></span>
+        <span>งาน <b style="color:var(--success)">${tasks.length}</b></span>`
     }
 
     // ── Ring gauges: อัตราความสำเร็จของเดือนที่เลือก ──
