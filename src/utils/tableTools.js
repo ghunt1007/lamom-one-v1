@@ -200,6 +200,7 @@ function enhanceAllIn(root) {
   const tables = root.matches?.('table') ? [root] : [...(root.querySelectorAll?.('table') || [])]
   tables.forEach(t => {
     if (t.closest('#__lamom_print_frame')) return
+    if (t.closest('.ai-tbl')) return // ตารางในคำตอบ AI สั้นอยู่แล้ว ไม่ต้องมีปุ่มกรอง
     try { enhanceTable(t) } catch (e) {}
   })
 }

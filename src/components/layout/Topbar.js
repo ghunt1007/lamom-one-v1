@@ -91,7 +91,7 @@ export function Topbar(container) {
             🔔
             ${getState('unreadCount') > 0 ? '<span class="topbar-notif-dot"></span>' : ''}
           </button>
-          <button class="topbar-btn" id="lami-chat-btn" title="${t('chatWithLami')}">🤖</button>
+          <button class="topbar-btn" id="lami-chat-btn" title="LAMI ช่วยเรื่องหน้านี้ (สรุป · ควรทำอะไรต่อ · วิธีใช้)">🤖</button>
         </div>
       </header>
     `
@@ -119,7 +119,11 @@ export function Topbar(container) {
     document.getElementById('lang-btn')?.addEventListener('click', openLanguagePicker)
     document.getElementById('theme-btn')?.addEventListener('click', openThemePicker)
     document.getElementById('notif-btn')?.addEventListener('click', (e) => openNotifPanel(e.currentTarget))
-    document.getElementById('lami-chat-btn')?.addEventListener('click', () => navigate('/ai/ask'))
+    // 🤖 = LAMI ช่วยเรื่องหน้าที่เปิดอยู่ (แผงข้าง ไม่ต้องออกจากหน้า) · อยู่หน้าแชท LAMI อยู่แล้วก็แค่โฟกัสช่องพิมพ์
+    document.getElementById('lami-chat-btn')?.addEventListener('click', () => {
+      if (window.location.pathname === '/ai/ask') { document.getElementById('chat-input')?.focus(); return }
+      import('../../utils/lamiPanel.js').then(m => m.openLamiPanel({ navigate }))
+    })
     document.getElementById('quick-lead-btn')?.addEventListener('click', () => import('../../utils/quickLead.js').then(m => m.openQuickLead()))
   }
 
