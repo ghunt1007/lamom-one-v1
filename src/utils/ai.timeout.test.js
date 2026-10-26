@@ -22,3 +22,14 @@ describe('aiErrorText', () => {
     expect(aiErrorText(null)).toMatch(/ลองใหม่/)
   })
 })
+
+import { answerText } from './ai.js'
+describe('answerText', () => {
+  it('skips thought parts and joins the rest', () => {
+    const data = { candidates: [{ content: { parts: [{ thought: true, text: 'คิด...' }, { text: 'ตอบ ' }, { text: 'ครบ' }] } }] }
+    expect(answerText(data)).toBe('ตอบ ครบ')
+  })
+  it('returns empty text for an empty response', () => {
+    expect(answerText({})).toBe('')
+  })
+})
