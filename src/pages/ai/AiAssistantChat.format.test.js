@@ -7,6 +7,7 @@ vi.mock('./LeadScoring.js', () => ({}))
 vi.mock('../../core/companyScope.js', () => ({}))
 vi.mock('../../core/hierarchy.js', () => ({}))
 vi.mock('../../utils/customerFollowups.js', () => ({}))
+vi.mock('../../core/router.js', () => ({ navigate: () => {} }))
 const { formatAiText } = await import('./AiAssistantChat.js')
 
 describe('formatAiText', () => {
