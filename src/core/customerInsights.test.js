@@ -78,6 +78,11 @@ describe('getFollowUpRecommendation', () => {
     expect(getFollowUpRecommendation(null)).toEqual({ urgency: 'low', recommendation: '', diagnosedProblem: null })
   })
 
+  it('does not tell the user to get a phone number when the lead already has one', () => {
+    expect(getFollowUpRecommendation({ stage: 'lead', phone: '0811111111' }).recommendation).not.toContain('ยังไม่ได้เบอร์')
+    expect(getFollowUpRecommendation({ stage: 'lead' }).recommendation).toContain('ยังไม่ได้เบอร์')
+  })
+
   it('flags a lost deal as low urgency and surfaces the lost reason', () => {
     const r = getFollowUpRecommendation({ isLost: true, lostReason: 'ราคาสูงเกินไป' })
     expect(r.urgency).toBe('low')
