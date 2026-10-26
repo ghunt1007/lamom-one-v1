@@ -54,3 +54,12 @@ jobs:
           accountId: 8e526fad63ca65975137a980925e409f
           command: pages deploy dist --project-name lamom-one
 
+      # deploy ตัวส่งรายงาน (09:00 + 18:00 + LINE webhook) ด้วยทุกครั้งที่ merge เข้า master
+      # เดิมต้องรัน `npx wrangler deploy --config wrangler-daily-report.toml` เองที่เครื่อง Surface
+      # secret ของ worker (LINE/Telegram/Firebase) เก็บอยู่ใน Cloudflare ไม่ถูกแตะ — ขั้นนี้แค่อัปโหลดโค้ดใหม่
+      - name: Deploy daily report worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: 8e526fad63ca65975137a980925e409f
+          command: deploy --config wrangler-daily-report.toml
