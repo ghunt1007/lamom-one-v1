@@ -7,6 +7,7 @@ import { getSalesStaff } from '../../data/masterData.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
 import { scheduleTestDriveFollowup } from '../../utils/testDriveFollowup.js'
+import { testDriveThanks } from '../../utils/bookingNotify.js'
 
 // (v1.0.523) เดิมหน้านี้เขียน collection แยก 'test_drive_records' ของตัวเอง ในขณะที่ TestDriveScheduler.js
 // (/dms/testdrive-schedule) เขียน collection 'test_drives' คนละตัวโดยสิ้นเชิง — ทำระบบเดียวกัน (นัด→ทดลองขับ→
@@ -171,8 +172,8 @@ export default async function TestDrivePage(container) {
         </div>
 
         <!-- Table -->
-        <div class="card" style="padding:0;overflow:hidden">
-          <div class="table-wrap"><table class="table">
+        <div class="card tbl-cards-wrap" style="padding:0;overflow:hidden">
+          <div class="table-wrap"><table class="table tbl-cards">
             <thead><tr><th>ลูกค้า</th><th>รถที่ Test Drive</th><th>วันที่/เวลา</th><th>Sales</th><th>สถานะ</th><th>ผลลัพธ์</th><th></th></tr></thead>
             <tbody>
               ${filtered.length ? filtered.map(t => {
@@ -184,7 +185,7 @@ export default async function TestDrivePage(container) {
                     <div style="font-size:0.73rem;color:var(--text-muted)">${escHtml(t.phone)}</div>
                   </td>
                   <td style="font-size:0.83rem">${escHtml(t.model)}</td>
-                  <td style="font-size:0.82rem;white-space:nowrap">${escHtml(t.date)} ${escHtml(t.time)}</td>
+                  <td style="font-size:0.82rem;white-space:nowrap">📅 ${t.date ? formatDate(t.date) : '-'} ${escHtml(t.time)}</td>
                   <td style="font-size:0.83rem;color:var(--text-muted)">${escHtml(t.staff)}</td>
                   <td><span class="badge badge-${st?.badge}">${st?.label}</span></td>
                   <td>${rs ? `<span class="badge badge-${rs.badge}">${rs.label}</span>` : '-'}</td>
@@ -270,7 +271,21 @@ export default async function TestDrivePage(container) {
         const fu = await scheduleTestDriveFollowup(t, fields)
         showToast(`✅ บันทึกผล Test Drive แล้ว${fu ? ' · นัดโทรตามพรุ่งนี้ให้แล้ว' : ''}`, 'success'); close()
         await loadData()
+        if (fields.status === 'done') offerThanks({ ...t, ...fields })
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+    })
+  }
+
+  // ทดลองขับเสร็จ → เสนอข้อความขอบคุณให้คัดลอกไปส่ง LINE (ลูกค้าที่ได้รับข้อความวันเดียวกันมักตอบกลับและคุยต่อ)
+  function offerThanks(t) {
+    const { el, close } = openModal({
+      title: '💌 ส่งข้อความขอบคุณ ' + escHtml(t.customerName), size: 'sm',
+      body: `<div style="font-size:0.74rem;color:var(--text-muted);margin-bottom:6px">แก้ข้อความได้ก่อนคัดลอกไปส่งทาง LINE</div><textarea class="input" id="td-thanks" data-no-mic rows="5" style="width:100%;font-size:16px">${escHtml(testDriveThanks(t, t.result))}</textarea>`,
+      footer: `<button class="btn btn-secondary" id="tdt-skip">ไม่ต้อง</button><button class="btn btn-primary" id="tdt-copy">📋 คัดลอกไปส่ง</button>`,
+    })
+    el.querySelector('#tdt-skip').addEventListener('click', close)
+    el.querySelector('#tdt-copy').addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(el.querySelector('#td-thanks').value); showToast('📋 คัดลอกแล้ว', 'success'); close() } catch { showToast('คัดลอกไม่สำเร็จ — กดค้างที่ข้อความแล้วคัดลอกเอง', 'warning') }
     })
   }
 

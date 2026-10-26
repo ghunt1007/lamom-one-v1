@@ -7,6 +7,10 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { watchDocs, listAllDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { suggestCustomerReply, isAiEnabled } from '../../utils/ai.js'
+import { catalogContext } from '../../utils/salesAi.js'
+import { stockLine } from '../../utils/stockLine.js'
+import { maskContacts } from '../../utils/leadText.js'
+import { getVehicles } from '../../data/vehicleDatabase.js'
 import { sendSms, sendEmail } from '../../utils/comms.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
 
@@ -268,7 +272,7 @@ export default async function CommInboxPage(container) {
       const btn = e.currentTarget
       btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
       try {
-        const draft = await suggestCustomerReply(m.preview, { channel: CHANNELS[m.channel]?.label, sender: m.sender })
+        const draft = await suggestCustomerReply(maskContacts(m.preview), { channel: CHANNELS[m.channel]?.label, sender: m.sender, catalog: [catalogContext(m.preview, getVehicles()), await stockLine()].filter(Boolean).join('\n') })
         if (draft) el.querySelector('#reply-text').value = draft
         else showToast('AI ร่างคำตอบไม่สำเร็จ', 'error')
       } catch { showToast('AI ร่างคำตอบไม่สำเร็จ', 'error') }

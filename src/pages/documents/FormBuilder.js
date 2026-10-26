@@ -62,7 +62,7 @@ export default async function FormBuilderPage(container) {
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(280px, 100%),1fr));gap:14px">
           ${forms.map(f => formCard(f)).join('')}
         </div>
       </div>`

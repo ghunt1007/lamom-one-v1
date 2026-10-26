@@ -3,7 +3,7 @@ import { listDocs, watchDocs, seedDemoData, getSalesData } from '../core/db.js'
 import { companyScopeFilters } from '../core/companyScope.js'
 import { formatCurrency, timeAgo, todayBangkok, toDateStr, toDate } from '../utils/format.js'
 import { navigate } from '../core/router.js'
-import { generateMorningBriefing } from '../utils/ai.js'
+import { generateMorningBriefing, bangkokHour } from '../utils/ai.js'
 import { getModuleForPath, hasModuleAccess, loadRolePermissions } from '../core/permissions.js'
 import { t } from '../i18n/index.js'
 
@@ -109,10 +109,14 @@ function formatThaiDate() {
 export default async function DashboardPage(container) {
   const myGen = container.__routerGen
   const user = getState('user')
-  const hour = new Date().getHours()
+  // ใช้เวลาไทยเสมอ (เครื่องที่ตั้งโซนเวลาอื่นไว้จะได้ไม่ทักผิดช่วง) · ตี 0–4 นับเป็น "ดึก" ไม่ใช่ "เช้า"
+  const hour = bangkokHour()
+  const night = hour < 5
   // (v1.0.353) รองรับหลายภาษา — เฉพาะส่วน "เปลือก" ของหน้านี้ (คำทักทาย/ปุ่ม) เท่านั้น เนื้อหา KPI/กราฟ/
   // สถานะต่างๆด้านในยังเป็นภาษาไทยล้วน (เป็นเนื้อหาเชิงลึกของหน้า ไม่ใช่ขอบเขต "เมนู/ส่วนกลาง" ที่ตกลงกันไว้)
-  const greeting = hour < 12 ? t('greetingMorning') : hour < 17 ? t('greetingAfternoon') : t('greetingEvening')
+  const greeting = night ? t('greetingEvening') : hour < 12 ? t('greetingMorning') : hour < 17 ? t('greetingAfternoon') : t('greetingEvening')
+  const briefIcon = night ? '🌙' : hour < 12 ? '🌅' : hour < 17 ? '☀️' : '🌙'
+  const briefLabel = night ? 'สรุปวันนี้' : hour < 12 ? 'สรุปเช้านี้' : hour < 17 ? 'สรุประหว่างวัน' : 'สรุปวันนี้'
 
   // Quick Access เดิมโชว์ทุกโมดูลให้ทุก role เหมือนกันหมด ทั้งที่ Sidebar กรองเมนูตามสิทธิ์โมดูล (hasModuleAccess)
   // อยู่แล้ว ทำให้พนักงานบางคนเห็น shortcut ที่กดแล้วถูกบล็อกทันที (ไม่ตรงกับสิทธิ์จริง) แก้ให้กรองด้วยระบบเดียวกัน
@@ -139,6 +143,11 @@ export default async function DashboardPage(container) {
 
       <!-- Command HUD strip -->
       <style>
+        .dash-jump { display:none; }
+        @media (max-width: 640px) {
+          .dash-jump { display:flex; gap:6px; overflow-x:auto; position:sticky; top:var(--topbar-height, 56px); z-index:5; margin:0 -12px 12px; padding:8px 12px; background:var(--bg, var(--surface)); border-bottom:1px solid var(--border); }
+          .page-content .card { scroll-margin-top:calc(var(--topbar-height, 56px) + 52px); }
+        }
         @keyframes dashRadarSpin { to { transform: rotate(360deg); } }
         @keyframes dashBlip { 0%,100% { opacity: 0.15; } 50% { opacity: 1; } }
         @keyframes dashPulseDot { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
@@ -155,19 +164,25 @@ export default async function DashboardPage(container) {
       </div>
 
       <!-- Morning Briefing: สรุปเชิงรุกทุกเช้าจากข้อมูลจริง แคชไว้ต่อวัน/ผู้ใช้ -->
-      <div style="display:flex;align-items:flex-start;gap:12px;background:var(--primary-dim);border:1px solid var(--primary);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:20px">
-        <span style="font-size:1.5rem;flex-shrink:0">🌅</span>
+      <div class="dash-briefing" style="display:flex;align-items:flex-start;gap:12px;background:var(--primary-dim);border:1px solid var(--primary);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:20px">
+        <span style="font-size:1.5rem;flex-shrink:0">${briefIcon}</span>
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px">
-            <span style="font-size:0.72rem;color:var(--primary);font-weight:700">LAMI — Morning Briefing</span>
+            <span style="font-size:0.72rem;color:var(--primary);font-weight:700">LAMI — ${briefLabel}</span>
             <span id="briefing-time" style="font-size:0.64rem;color:var(--text-muted);font-family:'Share Tech Mono',monospace"></span>
           </div>
           <div id="briefing-text" style="font-size:0.875rem;color:var(--text-2);line-height:1.6;white-space:pre-line;min-height:1.3em">กำลังวิเคราะห์ข้อมูลเช้านี้...</div>
         </div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
+        <div class="dash-briefing-actions" style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
           <button class="btn btn-ghost btn-sm" id="briefing-regen" title="สร้างสรุปใหม่จากข้อมูลล่าสุด">🔄 สร้างใหม่</button>
           <button class="btn btn-ghost btn-sm" data-nav="/ai/personal">คุยกับ LAMI →</button>
         </div>
+      </div>
+
+      <!-- มือถือ: หน้านี้ยาวมาก → แถบทางลัดกระโดดไปหัวข้อที่อยากดู (ติดอยู่บนจอเวลาเลื่อน) -->
+      <div class="dash-jump">
+        ${[['alerts-body', '🚨 เรื่องด่วน'], ['targets-body', '🎯 เป้า'], ['pipeline-card', '🚗 ยอดจอง'], ['monthly-chart-card', '📊 กราฟ'], ['top-sales', '🥇 ท็อปเซลส์'], ['funnel-body', '📶 Funnel']]
+          .map(([id, label]) => `<button class="btn btn-secondary btn-xs" data-jump="${id}" style="border-radius:999px;flex-shrink:0">${label}</button>`).join('')}
       </div>
 
       <!-- Operations radar + ring gauges -->
@@ -372,6 +387,8 @@ export default async function DashboardPage(container) {
   container.addEventListener('click', e => {
     const el = e.target.closest('[data-nav]')
     if (el) navigate(el.dataset.nav)
+    const j = e.target.closest('[data-jump]')
+    if (j) document.getElementById(j.dataset.jump)?.closest('.card')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   })
 
   // ── HUD: นาฬิกาเดินจริง (เคลียร์ตัวเองเมื่อออกจากหน้า) ──
@@ -1323,16 +1340,18 @@ export default async function DashboardPage(container) {
     const STATUS_LABELS = { hot:'🔥 Hot', warm:'☀️ Warm', cold:'❄️ Cold', vip:'⭐ VIP', lost:'💨 Lost' }
     const list = document.getElementById('customers-list')
     if (list && customers.length) {
+      // อุณหภูมิอยู่ใน c.temperature (c.status เป็นฟิลด์เก่า) — เดิมป้ายขึ้น "-" ทุกคน · กดแล้วเปิดลูกค้าคนนั้นเลย
+      const tempKey = c => c.isLost ? 'lost' : c.vip ? 'vip' : (c.temperature || c.status || '')
       list.innerHTML = customers.slice(0, 5).map(c => `
-        <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer" data-nav="/crm/customers">
-          <div style="width:32px;height:32px;border-radius:50%;background:var(--${STATUS_COLORS[c.status] || 'secondary'}-dim);display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;color:var(--${STATUS_COLORS[c.status] || 'secondary'});flex-shrink:0">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer" data-nav="/crm/customers?id=${encodeURIComponent(c.id || '')}">
+          <div style="width:32px;height:32px;border-radius:50%;background:var(--${STATUS_COLORS[tempKey(c)] || 'secondary'}-dim);display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;color:var(--${STATUS_COLORS[tempKey(c)] || 'secondary'});flex-shrink:0">
             ${escHtml(c.firstName?.[0] || '?')}${escHtml(c.lastName?.[0] || '')}
           </div>
           <div style="flex:1;min-width:0">
             <div style="font-size:0.85rem;font-weight:600">${escHtml(c.firstName || '')} ${escHtml(c.lastName || '')}</div>
-            <div style="font-size:0.73rem;color:var(--text-muted)">${escHtml(c.interestedModel || '-')} · ${escHtml(c.phone || '-')}</div>
+            <div style="font-size:0.73rem;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml([c.interestedModel, c.phone].filter(Boolean).join(' · ') || '-')}</div>
           </div>
-          <span class="badge badge-${STATUS_COLORS[c.status] || 'secondary'}" style="font-size:0.68rem">${STATUS_LABELS[c.status] || escHtml(c.status) || '-'}</span>
+          ${STATUS_LABELS[tempKey(c)] ? `<span class="badge badge-${STATUS_COLORS[tempKey(c)]}" style="font-size:0.68rem;flex-shrink:0">${STATUS_LABELS[tempKey(c)]}</span>` : ''}
         </div>
       `).join('')
     }

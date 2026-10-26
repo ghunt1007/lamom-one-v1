@@ -93,7 +93,7 @@ export default async function VehicleComparisonPage(container) {
           <div style="font-weight:700;font-size:0.85rem;margin-bottom:10px">รถที่เลือกเปรียบเทียบ (${selected.length}/${MAX_SELECT})</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
             ${selectedRaw.length ? selectedRaw.map(v => `
-              <span class="badge badge-primary vehicle-chip" style="font-size:0.78rem;padding:6px 10px;cursor:default">
+              <span class="badge badge-primary vehicle-chip" style="font-size:0.78rem;padding:6px 10px;cursor:default;white-space:normal;max-width:100%;text-align:left">
                 ${escHtml(v.brand)} ${escHtml(v.model)} ${escHtml(v.variant)}
                 <button class="vehicle-remove" data-id="${escHtml(v.id)}" style="background:none;border:none;color:inherit;cursor:pointer;margin-left:4px;font-size:0.9rem;line-height:1">✕</button>
               </span>

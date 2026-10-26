@@ -6,11 +6,12 @@
 // session จริง) จึงใช้คำตอบสำรอง (fallback) เหมือนเดิม ไม่เรียก proxy เลย
 import { auth } from '../core/firebase.js'
 import { retrieveRagContext } from './rag.js'
+import { buildCloserPrompt, parseCloserReply } from './salesAi.js'
 
 const PROXY_URL = import.meta.env.VITE_AI_PROXY_URL || 'https://lamom-ai-proxy.ghunt1007.workers.dev'
 
 const SYSTEM_PROMPT = `คุณคือ LAMI ผู้ช่วย AI อัจฉริยะของโชว์รูมยานยนต์ไฟฟ้า LAMOM ONE
-ระบบจัดการโชว์รูม EV ครบวงจร รองรับ BYD, MG, Neta และแบรนด์ EV ไทย
+ระบบจัดการโชว์รูม EV ครบวงจร — รุ่น ราคา สต็อก และตัวเลขของโชว์รูมนี้ให้ยึดตาม [บริบทระบบ] ที่แนบมาเท่านั้น
 
 ความสามารถของคุณ:
 - วิเคราะห์ Lead และให้คะแนนโอกาสปิดการขาย
@@ -22,6 +23,9 @@ const SYSTEM_PROMPT = `คุณคือ LAMI ผู้ช่วย AI อั�
 - ตอบคำถามเกี่ยวกับ EV เทคนิค และการขาย
 
 ตอบเป็นภาษาไทย กระชับ ชัดเจน และให้ข้อมูลที่มีประโยชน์จริง
+เมื่อถูกถามว่าควรทำอะไร ให้ตอบเป็นข้อๆ เรียงตามความสำคัญ แต่ละข้อบอก "ทำอะไร กับใคร เพราะอะไร" และจบด้วยสิ่งที่ทำได้ทันที 1 อย่าง
+ผู้ใช้ส่วนใหญ่อ่านบนมือถือ: ตอบสั้น ขึ้นต้นด้วยคำตอบตรงๆ ก่อน ไม่เกินราว 8 บรรทัด เว้นแต่ผู้ใช้ขอรายละเอียด
+ใช้ข้อความธรรมดา ตัวหนา **...** และข้อ 1. 2. ได้ ถ้าเปรียบเทียบหลายรายการใช้ตาราง markdown สั้นๆ ได้ (ไม่เกิน 4 คอลัมน์ 6 แถว) ห้ามใช้ HTML
 ถ้าผู้ใช้ถามเรื่องตัวเลข/ข้อมูลธุรกิจที่ไม่มีอยู่ใน [บริบทระบบ] ที่แนบมา ให้บอกตรงๆว่ายังไม่มีข้อมูลนี้ในบริบทที่ได้รับ ห้ามกุตัวเลขขึ้นเอง`
 
 export function isAiEnabled() { return !!auth.currentUser }
@@ -62,9 +66,11 @@ export async function askLami(userMessage, history = [], context = {}) {
   const data = await callProxy('/generate', {
     systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
     contents,
-    generationConfig: { maxOutputTokens: 600, temperature: 0.7 },
+    // gemini-2.5-flash ใช้ token ไปกับการคิด (thought) ก่อนตอบ — เดิมให้ 600 คำตอบจึงถูกตัดกลางประโยคบ่อย
+    generationConfig: { maxOutputTokens: 2500, temperature: 0.6 },
   })
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || 'ไม่ได้รับคำตอบจาก AI'
+  const text = data.candidates?.[0]?.content?.parts?.filter(p => !p.thought).map(p => p.text || '').join('').trim()
+  return text || 'ไม่ได้รับคำตอบจาก AI'
 }
 
 // ── AI Officers (9 personas) — real Gemini call with per-officer persona ──────
@@ -119,6 +125,12 @@ export async function analyzeCustomer(customer) {
   try { return JSON.parse(reply.match(/\{[\s\S]*\}/)?.[0] || '{}') } catch { return null }
 }
 
+// ── AI ผู้ช่วยปิดการขาย — brief จาก buildCustomerBrief() (utils/salesAi.js) → คำแนะนำ + ร่างข้อความ LINE
+// คืน null เมื่ออ่านคำตอบไม่ได้ · throw เมื่อยังไม่ได้ล็อกอินบัญชีจริง (code NOT_ENABLED) หรือ proxy ล้ม
+export async function aiSalesCloser(brief) {
+  return parseCloserReply(await askJsonPrompt(buildCloserPrompt(brief), 3000))
+}
+
 // ── แนะนำไฟแนนซ์ที่เหมาะกับเคสนี้ — เสริมความเห็นภาษาธรรมชาติต่อจากคะแนนที่คำนวณแล้วด้วย
 // rankFinanceMatches() (rule-based, ไม่ต้องเรียก AI) เรียกฟังก์ชันนี้แบบ on-demand เท่านั้น
 // (กดปุ่มเพิ่มเติมใน FinanceApplication.js) เพื่อคุมค่าใช้จ่าย เหมือน analyzeCustomer() ด้านบน
@@ -141,7 +153,12 @@ export async function suggestCustomerReply(message, context = {}) {
 "${message}"
 ${context.customerInfo ? `\nข้อมูลลูกค้าที่มีในระบบ: ${context.customerInfo}` : ''}
 
-ช่วยร่างคำตอบสั้นๆ สุภาพ เป็นกันเอง เป็นภาษาไทย สำหรับพนักงานขายรถ EV ใช้ตอบลูกค้ารายนี้ (พนักงานจะอ่านทวนและแก้ไขก่อนส่งจริงเสมอ) ตอบแค่ข้อความที่จะส่ง ไม่ต้องมีคำอธิบายอื่น`
+${context.catalog ? `\n${context.catalog}\n` : ''}
+ช่วยร่างคำตอบสั้นๆ สุภาพ เป็นกันเอง เป็นภาษาไทย สำหรับพนักงานขายรถ EV ใช้ตอบลูกค้ารายนี้ (พนักงานจะอ่านทวนและแก้ไขก่อนส่งจริงเสมอ)
+ตอบตรงคำถาม ไม่เกิน 4 ประโยค ปิดท้ายด้วยการชวนคุยต่อหรือนัดดูรถ/ทดลองขับ 1 ประโยค
+ราคา สเปค และตัวอย่างค่างวด ใช้ได้เฉพาะที่อยู่ในข้อมูลด้านบน (ค่างวดต้องบอกว่าเป็นตัวเลขเบื้องต้นพร้อมเงื่อนไขดาวน์/งวด) ถ้าไม่มีข้อมูล (เช่น โปรโมชั่น ส่วนลด) ให้บอกว่าจะเช็กแล้วแจ้งกลับ ห้ามเดาตัวเลข
+เรื่องรถพร้อมส่ง/สีที่มี ตอบได้เฉพาะจากข้อมูลสต็อกด้านบน (บอกว่าจะยืนยันกับสต็อกอีกครั้ง) ถ้าไม่มีข้อมูลสต็อกให้บอกว่าจะเช็กให้
+ตอบแค่ข้อความที่จะส่ง ไม่ต้องมีคำอธิบายอื่น`
   try { return await askLami(prompt) } catch { return null }
 }
 
@@ -323,7 +340,8 @@ export async function generateMorningBriefing(context = {}) {
     agingStock = 0, revenueThisMonth = 0, targetPct = null,
   } = context
 
-  const prompt = `สร้างสรุปสถานการณ์ประจำวันเช้าของโชว์รูมรถ EV จากข้อมูลจริงต่อไปนี้:
+  const h = bangkokHour()
+  const prompt = `สร้างสรุปสถานการณ์ประจำวันของโชว์รูมรถ EV ตอนนี้เวลา ${h}:00 น. (${h < 5 ? 'ช่วงดึก สรุปสั้นๆ เน้นเตรียมงานพรุ่งนี้เช้า' : h < 12 ? 'ช่วงเช้า เน้นวางแผนวันนี้' : h < 17 ? 'ช่วงบ่าย เน้นสิ่งที่ยังทันทำวันนี้' : 'ช่วงเย็น เน้นสิ่งที่ควรปิดก่อนจบวันและเตรียมพรุ่งนี้'} ทักทายให้ตรงช่วงเวลา) จากข้อมูลจริงต่อไปนี้:
 - นัดหมาย/ส่งมอบวันนี้: ${todayCount} รายการ
 - ใบจองค้างสถานะเกิน 14 วัน: ${stuckBookings} ใบ
 - งานซ่อมค้างเกิน 7 วัน: ${overdueJobs} งาน
@@ -354,6 +372,10 @@ export async function generateMorningBriefing(context = {}) {
   }
 }
 
+// ชั่วโมงตามเวลาไทย (ไม่ขึ้นกับ timezone ของเครื่อง) และคำทักทายตามช่วงเวลา
+export function bangkokHour(now = Date.now()) { return new Date(now + 7 * 3600e3).getUTCHours() }
+export function thaiGreeting(h) { return h < 5 ? 'สวัสดี' : h < 12 ? 'อรุณสวัสดิ์' : h < 17 ? 'สวัสดีตอนบ่าย' : 'สวัสดีตอนเย็น' }
+
 function generateFallbackBriefing(context = {}) {
   const {
     todayCount = 0, stuckBookings = 0, overdueJobs = 0, staleLeads = 0,
@@ -362,8 +384,8 @@ function generateFallbackBriefing(context = {}) {
 
   const openItems = stuckBookings + overdueJobs + staleLeads + agingStock
   const opening = todayCount > 0
-    ? `อรุณสวัสดิ์ครับ วันนี้มีนัดหมาย/รายการส่งมอบ ${todayCount} รายการที่ต้องติดตาม`
-    : `อรุณสวัสดิ์ครับ วันนี้ยังไม่มีนัดหมายหรือส่งมอบที่ตั้งไว้`
+    ? `${thaiGreeting(bangkokHour())}ครับ วันนี้มีนัดหมาย/รายการส่งมอบ ${todayCount} รายการที่ต้องติดตาม`
+    : `${thaiGreeting(bangkokHour())}ครับ วันนี้ยังไม่มีนัดหมายหรือส่งมอบที่ตั้งไว้`
   const targetLine = targetPct !== null
     ? ` ยอดขายเดือนนี้อยู่ที่ ${targetPct}% ของเป้าหมาย`
     : (revenueThisMonth > 0 ? ` มูลค่าใบจองสะสมเดือนนี้ ฿${Math.round(revenueThisMonth).toLocaleString()}` : '')
@@ -591,7 +613,11 @@ export async function ttsCloud(text, voiceName = 'Kore') {
 
 function buildPrompt(msg, context) {
   if (!Object.keys(context).length) return msg
-  const ctx = Object.entries(context).map(([k, v]) => `${k}: ${v}`).join('\n')
+  // บอกวันเวลาไทยปัจจุบันเสมอ — คำถามอย่าง "พรุ่งนี้" "สัปดาห์นี้" "เดือนนี้" จะได้ตอบถูกวัน
+  const now = new Date(Date.now() + 7 * 3600e3)
+  const days = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์']
+  const when = `วัน${days[now.getUTCDay()]}ที่ ${now.toISOString().slice(0, 10)} เวลา ${now.toISOString().slice(11, 16)} น.`
+  const ctx = [`เวลาปัจจุบัน (ไทย): ${when}`, ...Object.entries(context).map(([k, v]) => `${k}: ${v}`)].join('\n')
   return `${msg}\n\n[บริบทระบบ]\n${ctx}`
 }
 

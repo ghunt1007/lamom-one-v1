@@ -9,35 +9,15 @@ import { navigate } from '../../core/router.js'
 import { watchDocs } from '../../core/db.js'
 import { analyzeCustomer, isAiEnabled } from '../../utils/ai.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
+import { heuristicScore } from '../../utils/leadScore.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-const STATUS_BASE = { vip: 90, hot: 85, warm: 60, cold: 35, lost: 5 }
-
 // คะแนนเบื้องต้นจากข้อมูลจริงที่มี (ไม่เรียก AI อัตโนมัติทุก Lead เพราะจะแพง/ช้าเกินไปตอนโหลดหน้า)
-// ต้องกด "🤖 วิเคราะห์เจาะลึก" ต่อ Lead ที่สนใจจริงๆถึงจะเรียก Gemini ผ่าน analyzeCustomer()
-export function heuristicScore(c) {
-  let score = STATUS_BASE[c.status] ?? 45
-  const signals = []
-  if (c.interestedModel) { score += 5; signals.push(`ระบุรถที่สนใจ: ${c.interestedModel}`) }
-  if (c.budget) { score += 5; signals.push(`ระบุงบประมาณ: ${formatCurrency(c.budget)}`) }
-  if (c.source) signals.push(`ที่มา: ${c.source}`)
-  if (c.status === 'vip') signals.push('ลูกค้า VIP')
-  if (c.status === 'hot') signals.push('จัดระดับความสนใจสูง (Hot)')
-  // อาชีพ/รายได้ครบ + รายได้เพียงพอเทียบงบประมาณที่ตั้งใจซื้อ = ประเมินโอกาสได้ไฟแนนซ์จริงได้ทันที
-  // ไม่ใช่แค่ "อยากซื้อ" แต่ "มีโอกาสซื้อได้จริง" ด้วย (เชื่อมกับ Workstream 3 — แนะนำไฟแนนซ์)
-  if (c.occupation && c.monthlyIncome) {
-    score += 5
-    signals.push('มีข้อมูลอาชีพ/รายได้ครบ — ประเมินไฟแนนซ์ได้ทันที')
-    if (!c.budget || c.monthlyIncome * 36 >= c.budget * 0.5) {
-      score += 5
-      signals.push('รายได้น่าจะเพียงพอสำหรับงบที่ตั้งใจซื้อ')
-    }
-  }
-  return { score: Math.min(100, Math.max(5, score)), signals }
-}
+// ต้องกด "🤖 วิเคราะห์เจาะลึก" ต่อ Lead ที่สนใจจริงๆถึงจะเรียก Gemini ผ่าน analyzeCustomer() — สูตรอยู่ใน utils/leadScore.js
+export { heuristicScore }
 
 function tier(score) {
   if (score >= 80) return { label: 'Hot 🔥', color: 'danger', action: 'โทรปิดดีลวันนี้!' }
@@ -59,7 +39,7 @@ export default async function LeadScoringPage(container) {
     unsubLeads()
     unsubLeads = watchDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 500, rows => {
       if (container.__routerGen !== myGen) { unsubLeads(); return }
-      leads = rows.filter(c => (c.stage === 'lead' || c.stage === 'pp') && c.status !== 'lost')
+      leads = rows.filter(c => (c.stage === 'lead' || c.stage === 'pp') && c.status !== 'lost' && !c.isLost)
       renderPage()
     })
   }

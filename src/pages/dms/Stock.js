@@ -57,7 +57,8 @@ export default async function StockPage(container) {
   let statusFilter = 'all'
   let brandFilter = 'all'
   let search = ''
-  let viewMode = 'table' // table | card
+  // มือถือเริ่มที่แบบการ์ด (ตาราง 8 คอลัมน์บีบจนชื่อรุ่น/สีตกบรรทัดทีละตัวอักษร)
+  let viewMode = window.matchMedia?.('(max-width: 640px)').matches ? 'card' : 'table' // table | card
 
   // Real-time: อัปเดตสดเมื่อมีคนแก้ไขสต็อกรถจากเครื่องอื่น — หน้านี้ renderContent()/updateStats()
   // แก้แค่ #stock-content/#stock-filtered/#vstat-*/#stock-total เท่านั้น ไม่แตะช่องค้นหาเลย จึงปลอดภัย
@@ -243,19 +244,19 @@ export default async function StockPage(container) {
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
           <div>
             <div style="font-weight:700;font-size:1rem">${escHtml(v.brand)} ${escHtml(v.model)}</div>
-            <div style="font-size:0.78rem;color:var(--text-muted)">${escHtml(v.variant || '')} · ${v.year}</div>
+            ${[v.variant, v.year].filter(Boolean).length ? `<div style="font-size:0.78rem;color:var(--text-muted)">${escHtml([v.variant, v.year].filter(Boolean).join(' · '))}</div>` : ''}
           </div>
           <span class="badge badge-${st.badge}">${st.label}</span>
         </div>
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
           <div style="width:14px;height:14px;border-radius:50%;background:${colorDot(v.color)};border:1px solid var(--border);flex-shrink:0"></div>
-          <span style="font-size:0.85rem;color:var(--text-2)">${escHtml(v.color)}</span>
+          <span style="font-size:0.85rem;color:var(--text-2)">${escHtml(v.color || 'ไม่ระบุสี')}</span>
         </div>
-        <div style="font-size:0.72rem;color:var(--text-muted);font-family:monospace;margin-bottom:10px">${escHtml(v.vin || '-')}</div>
+        ${v.vin ? `<div style="font-size:0.72rem;color:var(--text-muted);font-family:monospace;margin-bottom:10px;overflow-wrap:anywhere">VIN ${escHtml(v.vin)}</div>` : ''}
         <div style="display:flex;justify-content:space-between;align-items:center">
           <div>
-            <div style="font-size:1.1rem;font-weight:700;color:var(--accent)">${formatCurrency(v.price)}</div>
-            <div style="font-size:0.75rem;color:${margin > 0 ? 'var(--success)' : 'var(--danger)'}">กำไร ${margin > 0 ? '+' : ''}${formatCurrency(margin)}</div>
+            ${v.price ? `<div style="font-size:1.1rem;font-weight:700;color:var(--accent)">${formatCurrency(v.price)}</div>` : '<div style="font-size:0.8rem;color:var(--text-muted)">ยังไม่ใส่ราคา</div>'}
+            ${v.price && v.cost ? `<div style="font-size:0.75rem;color:${margin > 0 ? 'var(--success)' : 'var(--danger)'}">กำไร ${margin > 0 ? '+' : ''}${formatCurrency(margin)}</div>` : ''}
           </div>
           <div style="display:flex;gap:4px">
             <button class="btn btn-ghost btn-sm edit-v" data-id="${v.id}">✏️</button>
@@ -624,7 +625,7 @@ export default async function StockPage(container) {
           </div>
         </div>
         <div class="page-actions">
-          <button class="btn btn-ghost btn-sm" id="view-toggle-btn">🃏 Card View</button>
+          <button class="btn btn-ghost btn-sm" id="view-toggle-btn">${viewMode === 'table' ? '🃏 Card View' : '📋 Table View'}</button>
           <button class="btn btn-secondary btn-sm" id="stock-export-btn">📥 Export</button>
           <button class="btn btn-primary" id="add-stock-btn">➕ เพิ่มรถ</button>
         </div>

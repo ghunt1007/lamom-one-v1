@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { navigate } from '../../core/router.js'
 import { askLami, isAiEnabled } from '../../utils/ai.js'
+import { formatAiText } from '../../utils/aiFormat.js'
 import { listDocs, createDoc, seedDemoData, getSalesData } from '../../core/db.js'
 import { heuristicScore } from './LeadScoring.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
@@ -291,7 +292,7 @@ export default async function LamiBrainPage(container) {
 
   function renderSkills() {
     return `
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(280px, 100%),1fr));gap:12px">
         ${LAMI_SKILLS.map(s => `
           <div class="card card-lift" data-nav="${s.nav}" style="padding:14px;cursor:pointer">
             <div style="font-size:1.4rem;margin-bottom:8px">${s.icon}</div>
@@ -331,9 +332,9 @@ export default async function LamiBrainPage(container) {
 function renderBubble(m) {
   const isUser = m.role === 'user'
   return `<div style="display:flex;${isUser ? 'justify-content:flex-end' : 'justify-content:flex-start'}">
-    <div style="max-width:72%;padding:10px 14px;border-radius:${isUser ? 'var(--radius) var(--radius) 4px var(--radius)' : 'var(--radius) var(--radius) var(--radius) 4px'};background:${isUser ? 'var(--primary)' : 'var(--surface-2)'};font-size:0.85rem;line-height:1.5;white-space:pre-wrap;word-break:break-word">
+    <div style="max-width:min(88%, 680px);min-width:0;padding:10px 14px;border-radius:${isUser ? 'var(--radius) var(--radius) 4px var(--radius)' : 'var(--radius) var(--radius) var(--radius) 4px'};background:${isUser ? 'var(--primary)' : 'var(--surface-2)'};font-size:0.85rem;line-height:1.5;${isUser ? 'white-space:pre-wrap;' : ''}overflow-wrap:break-word">
       ${!isUser ? '<span style="font-size:0.72rem;font-weight:700;color:var(--primary);display:block;margin-bottom:3px">🤖 LAMI</span>' : ''}
-      ${escHtml(m.text)}
+      ${isUser ? escHtml(m.text) : formatAiText(m.text)}
       <div style="font-size:0.65rem;opacity:0.6;margin-top:4px;text-align:right">${timeAgo(m.time)}</div>
     </div>
   </div>`

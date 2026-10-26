@@ -5,6 +5,9 @@ import { navigate } from '../../core/router.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { getVisibilityScope, scopeIncludesRecord } from '../../core/hierarchy.js'
 import { quietDays, QUIET_DAYS } from '../../utils/customerFollowups.js'
+import { heuristicScore } from '../../utils/leadScore.js'
+import { dealValue } from '../../utils/salesAi.js'
+import { getVehicles } from '../../data/vehicleDatabase.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -26,6 +29,10 @@ export default async function PipelinePage(container) {
 
   let customers = []
   let dragging = null
+  let vehicles = []
+  try { vehicles = getVehicles() } catch {}
+  const valCache = new Map() // ชื่อรุ่น → ราคา (ลูกค้าหลายคนสนใจรุ่นเดียวกัน)
+  const val = c => dealValue(c, vehicles, valCache)
 
   // (v1.0.xxx) เดิมใช้ listDocs() ครั้งเดียวตอนโหลดหน้า — ถ้ามีคนอื่นแก้ stage ลูกค้าจากเครื่องอื่น (เช่น
   // หน้า Customers) บอร์ดนี้จะไม่ขยับตามจนกว่าจะรีเฟรชหน้าเอง ต่างจาก Customers.js/Bookings.js ที่ใช้
@@ -42,14 +49,22 @@ export default async function PipelinePage(container) {
     if (!board) return
 
     const active = customers.filter(c => !c.isLost)
-    const totalBudget = active.reduce((s, c) => s + (c.budget || 0), 0)
+    // มูลค่าดีล = งบลูกค้า ถ้าไม่มีใช้ราคารุ่นที่สนใจจากฐานข้อมูลรถ · "คาดว่าปิดได้" = มูลค่า × โอกาสปิด (เฉพาะ Lead/Prospect)
+    const open = active.filter(c => ['lead', 'pp'].includes(c.stage))
+    const totalOpen = open.reduce((s, c) => s + val(c), 0)
+    const expected = open.reduce((s, c) => s + val(c) * heuristicScore(c).score / 100, 0)
     const el = document.getElementById('pipeline-total')
-    if (el) el.textContent = `💰 มูลค่ารวม (งบประมาณลูกค้า): ${formatCurrency(totalBudget)}`
+    if (el) {
+      el.innerHTML = `💰 ดีลที่กำลังคุย ${formatCurrency(totalOpen)} · <b style="color:var(--success)">🎯 คาดว่าปิดได้ ≈ ${formatCurrency(Math.round(expected / 1000) * 1000)}</b>`
+      el.title = 'มูลค่าใช้งบที่ลูกค้าบอก ถ้าไม่มีใช้ราคาตั้งรุ่นที่สนใจ · คาดว่าปิดได้ = มูลค่า × โอกาสปิดการขายของแต่ละคน'
+    }
 
     board.innerHTML = STAGES.map(stage => {
       // Hot ขึ้นก่อน (โอกาสปิดสูงสุด) ที่เหลือคงลำดับเดิม
-      const cards = active.filter(c => c.stage === stage.key).sort((a, b) => Number(b.temperature === 'hot') - Number(a.temperature === 'hot'))
-      const stageValue = cards.reduce((s, c) => s + (c.budget || 0), 0)
+      const cards = active.filter(c => c.stage === stage.key)
+        // Lead/Prospect เรียงตามโอกาสปิดการขาย (utils/leadScore.js) — คนที่น่าปิดที่สุดอยู่บนสุด
+        .sort((a, b) => (['lead', 'pp'].includes(stage.key) ? heuristicScore(b).score - heuristicScore(a).score : 0) || Number(b.temperature === 'hot') - Number(a.temperature === 'hot'))
+      const stageValue = cards.reduce((s, c) => s + val(c), 0)
       return `
         <div class="pipeline-col" data-stage="${stage.key}" style="
           min-width:220px; flex:1; max-width:260px;
@@ -76,8 +91,26 @@ export default async function PipelinePage(container) {
       `
     }).join('')
 
+    // มือถือ: แท็บสถานะ (จำนวนคน) แตะแล้วเลื่อนไปคอลัมน์นั้น — ไม่ต้องปัดหาเอง
+    const tabs = document.getElementById('pl-tabs')
+    if (tabs) {
+      tabs.innerHTML = STAGES.map((st, i) => `<button class="btn btn-secondary btn-xs pl-tab" data-i="${i}" style="border-radius:999px;flex-shrink:0">${st.label} <b>${active.filter(c => c.stage === st.key).length}</b></button>`).join('')
+      tabs.querySelectorAll('.pl-tab').forEach(b => b.addEventListener('click', () => {
+        board.children[+b.dataset.i]?.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' })
+      }))
+      markTab()
+    }
+
     bindDragDrop()
     bindCardEvents()
+  }
+
+  function markTab() {
+    const board = document.getElementById('pipeline-board')
+    const col = board?.children[0]
+    if (!col) return
+    const i = Math.round(board.scrollLeft / (col.offsetWidth + 12))
+    document.querySelectorAll('#pl-tabs .pl-tab').forEach((b, j) => { b.classList.toggle('btn-primary', j === i); b.classList.toggle('btn-secondary', j !== i) })
   }
 
   function cardHTML(c, stage) {
@@ -93,9 +126,9 @@ export default async function PipelinePage(container) {
           </div>
           ${quiet != null && quiet >= QUIET_DAYS ? `<span class="badge badge-warning" style="font-size:0.6rem;flex-shrink:0" title="ไม่มีการติดต่อ/อัปเดต">💤 ${quiet} วัน</span>` : ''}
         </div>
-        <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:4px">🚗 ${escHtml(c.interestedModel || '-')}</div>
+        <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:4px">${c.interestedModel ? `🚗 ${escHtml(c.interestedModel)}` : '<span style="color:var(--warning)">❔ ยังไม่รู้รุ่นที่สนใจ</span>'}</div>
         <div style="display:flex;align-items:center;justify-content:space-between">
-          <span style="font-size:0.78rem;font-weight:600;color:var(--accent)">${c.budget ? '฿' + Number(c.budget).toLocaleString() : '-'}</span>
+          <span style="font-size:0.78rem;font-weight:600;color:var(--accent)">${c.budget ? '฿' + Number(c.budget).toLocaleString() : val(c) ? `<span title="ราคาตั้งรุ่นที่สนใจ (ลูกค้ายังไม่บอกงบ)" style="color:var(--text-muted);font-weight:500">≈฿${val(c).toLocaleString()}</span>` : ''}${['lead', 'pp'].includes(c.stage) && !c.isLost ? (sc => `<span title="โอกาสปิดการขาย" style="margin-left:${c.budget || val(c) ? 6 : 0}px;font-size:0.68rem;color:${sc >= 80 ? 'var(--danger)' : sc >= 60 ? 'var(--warning)' : 'var(--text-muted)'}">🎯 ${sc}%</span>`)(heuristicScore(c).score) : ''}</span>
           <span style="font-size:0.7rem;color:var(--text-muted)">${timeAgo(c.createdAt)}</span>
         </div>
       </div>
@@ -170,7 +203,7 @@ export default async function PipelinePage(container) {
     popup.id = 'lead-quick-popup'
     popup.style.cssText = `position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:400;
       background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);
-      padding:20px;width:300px;box-shadow:0 12px 48px rgba(0,0,0,0.5);animation:slideDown 150ms ease`
+      padding:20px;width:min(300px,calc(100vw - 24px));box-sizing:border-box;box-shadow:0 12px 48px rgba(0,0,0,0.5);animation:slideDown 150ms ease`
     popup.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
         <div>
@@ -184,7 +217,8 @@ export default async function PipelinePage(container) {
         <div>💰 ${c.budget ? '฿' + Number(c.budget).toLocaleString() : '-'}</div>
         <div>📱 ${escHtml(c.phone || '-')}</div>
       </div>
-      <div style="display:flex;gap:8px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${c.phone ? `<a class="btn btn-secondary btn-sm" href="tel:${escHtml(String(c.phone).replace(/[^\d+]/g, ''))}" style="flex:1;justify-content:center">📞 โทร</a>` : ''}
         ${nextStage ? `<button class="btn btn-primary btn-sm" id="qp-next" style="flex:1;justify-content:center">→ ${nextStage.label}</button>` : ''}
         <button class="btn btn-secondary btn-sm" id="qp-detail" style="flex:1;justify-content:center">ดูรายละเอียด</button>
       </div>
@@ -195,7 +229,7 @@ export default async function PipelinePage(container) {
     function closePopup() { popup.remove(); document.removeEventListener('click', onDocClick) }
     function onDocClick(e) { if (!popup.contains(e.target)) closePopup() }
     popup.querySelector('#qp-close').addEventListener('click', () => closePopup())
-    popup.querySelector('#qp-detail').addEventListener('click', () => { closePopup(); navigate('/crm/customers') })
+    popup.querySelector('#qp-detail').addEventListener('click', () => { closePopup(); navigate('/crm/customers?id=' + encodeURIComponent(c.id)) })
     popup.querySelector('#qp-next')?.addEventListener('click', async () => {
       if (!nextStage) return
       try {
@@ -209,18 +243,20 @@ export default async function PipelinePage(container) {
   }
 
   container.innerHTML = `
-    <div class="page-content animate-slide" style="display:flex;flex-direction:column;height:calc(100vh - 56px);overflow:hidden">
+    <div class="page-content animate-slide" style="display:flex;flex-direction:column;height:calc(100vh - 56px - var(--bottom-nav-h, 0px));overflow:hidden">
       <div class="page-header" style="flex-shrink:0">
         <div>
           <div class="page-title">📋 Sales Pipeline</div>
           <div class="page-subtitle" id="pipeline-total">กำลังโหลด...</div>
         </div>
         <div class="page-actions">
+          <button class="btn btn-secondary btn-sm" id="pl-ask-lami" title="ให้ LAMI เลือกดีลที่ควรปิดก่อน">🤖 ดีลไหนควรปิดก่อน</button>
           <button class="btn btn-ghost btn-sm" id="pl-list-btn">📋 List View</button>
           <button class="btn btn-primary" id="pl-add-btn">➕ เพิ่มลูกค้า</button>
         </div>
       </div>
 
+      <div id="pl-tabs" class="pl-tabs"></div>
       <!-- Board -->
       <div id="pipeline-board" style="display:flex;gap:12px;overflow-x:auto;flex:1;padding-bottom:16px;align-items:flex-start">
         ${STAGES.map(() => `<div class="skeleton" style="min-width:220px;height:300px;border-radius:var(--radius-lg)"></div>`).join('')}
@@ -235,11 +271,24 @@ export default async function PipelinePage(container) {
       .pipeline-card:hover { transform:translateY(-2px); box-shadow:0 4px 16px rgba(0,0,0,0.3); }
       .pipeline-card:active { cursor:grabbing; }
       .pipeline-board-wrap::-webkit-scrollbar { height:6px; }
+      .pl-tabs { display:none; }
+      /* แท็บเล็ต: 4 คอลัมน์ไม่พอจอ → จัด 2×2 เห็นครบทุกสถานะ ไม่ต้องปัดข้าง */
+      @media (min-width: 641px) and (max-width: 1100px) {
+        #pipeline-board { flex-wrap:wrap; overflow-y:auto; align-content:flex-start; }
+        .pipeline-col { min-width:calc(50% - 6px) !important; max-width:none !important; max-height:none !important; }
+      }
+      @media (max-width: 640px) {
+        .pl-tabs { display:flex; gap:6px; overflow-x:auto; flex-shrink:0; margin-bottom:10px; padding-bottom:2px; }
+        #pipeline-board { scroll-snap-type:x mandatory; }
+        .pipeline-col { min-width:calc(100vw - 56px) !important; max-width:none !important; scroll-snap-align:start; }
+      }
     `
     document.head.appendChild(s)
   }
 
+  document.getElementById('pipeline-board')?.addEventListener('scroll', markTab, { passive: true })
   document.getElementById('pl-list-btn').addEventListener('click', () => navigate('/crm/customers'))
+  document.getElementById('pl-ask-lami')?.addEventListener('click', () => navigate('/ai/ask?q=' + encodeURIComponent('จากดีลที่กำลังคุยทั้งหมด ดีลไหนควรเร่งปิดภายในสัปดาห์นี้ 3 อันดับแรก เพราะอะไร และควรทำอะไรต่อ?')))
   document.getElementById('pl-add-btn').addEventListener('click', () => navigate('/crm/customers'))
 
   // เซลส์เห็นเฉพาะลูกค้าของตัวเอง/ลูกทีม (นโยบายเดียวกับหน้าลูกค้า) — ผู้บริหาร/เจ้าของเห็นทั้งหมด

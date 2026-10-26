@@ -81,7 +81,7 @@ export default async function PriceListPage(container) {
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px, 100%),1fr));gap:12px">
           ${list.map(m => {
             const hasPromo = m.promotionPrice && m.promotionPrice < m.basePrice
             const inCompare = compareList.includes(m.id)

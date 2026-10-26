@@ -162,7 +162,7 @@ export default async function EventManagementPage(container) {
 
   function renderCards(list) {
     if (!list.length) return '<div class="empty-state"><div class="empty-state-icon">🎪</div><div>ไม่พบ Event</div></div>'
-    return '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px">' +
+    return '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px, 100%),1fr));gap:14px">' +
       list.map(e => {
         const tp = EVENT_TYPES[e.type]
         const st = EVENT_STATUS[e.status]

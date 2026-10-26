@@ -78,7 +78,7 @@ export default async function IntegrationSettingsPage(container) {
           ${Object.entries(INTEGRATION_CATS).map(([k,v]) => `<button class="btn btn-xs ${catFilter===k?'btn-primary':'btn-secondary'} cf-btn" data-c="${k}">${v.icon} ${v.label}</button>`).join('')}
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(320px, 100%),1fr));gap:12px">
           ${list.map(int => {
             const cat = INTEGRATION_CATS[int.cat]
             return `<div class="card" style="padding:14px;border-left:3px solid var(--${int.status==='connected'?'success':int.status==='error'?'danger':'border'})">

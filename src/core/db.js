@@ -8,6 +8,7 @@ import {
 import { getState } from './store.js'
 import { syncRagChunk, RAG_SOURCE_COLLECTIONS } from '../utils/rag.js'
 import { companyScopeFilters } from './companyScope.js'
+import { finPassPatch, FIN_PASSED_STATUSES } from '../utils/finance.js'
 
 // ── Input sanitization — strip stored XSS before Firestore writes ──
 // เดิม export แค่ผ่าน createDoc()/updateDocData() เท่านั้น — จุดที่เขียน Firestore ตรงๆนอก db.js (เช่น
@@ -209,6 +210,8 @@ export async function createDoc(colName, data, actorOverride) {
     clean.createdByUid = me.uid
     if (clean.createdByName == null) clean.createdByName = me.displayName || me.email || ''
   }
+  // ใบจองที่สร้างมาในสถานะรอรถ/รอส่งมอบ/ส่งมอบแล้ว = ไฟแนนซ์ผ่านแล้ว (ดู utils/finance.js)
+  if (colName === 'bookings') Object.assign(clean, finPassPatch(clean) || {})
   const ref = await addDoc(collection(db, colName), { ...clean, createdAt: serverTimestamp(), updatedAt: serverTimestamp() })
   logAction('create', colName, ref.id, `สร้างข้อมูลใหม่ใน ${colName}`, actorOverride)
   awardGamePoints('create', colName, ref.id, clean).catch(() => {})
@@ -346,8 +349,18 @@ export async function updateDocData(colName, id, data, actorOverride) {
   const isDelete = !!(data && data.deleted === true)
   const action = isDelete ? 'delete' : 'update'
   const detail = isDelete ? `ลบข้อมูลใน ${colName}` : `แก้ไขข้อมูลใน ${colName}`
+  // ฟอร์มใบจองส่งทั้งสถานะและสถานะไฟแนนซ์มาพร้อมกัน → แก้ให้ก่อนบันทึกเลย
+  const finFix = colName === 'bookings' && !isDelete && 'finStatus' in clean ? finPassPatch(clean) : null
+  if (finFix) Object.assign(clean, finFix)
   await updateDoc(doc(db, colName, id), { ...clean, updatedAt: serverTimestamp() })
   logAction(action, colName, id, detail, actorOverride)
+  // เปลี่ยนแค่สถานะ (ปฏิทินส่งมอบ/ป็อปอัพเปลี่ยนสถานะ) → อ่านใบจองจริงแล้วแก้สถานะไฟแนนซ์ตามหลัง
+  if (colName === 'bookings' && !isDelete && !('finStatus' in clean) && FIN_PASSED_STATUSES.includes(clean.status)) {
+    getDoc(doc(db, colName, id)).then(snap => {
+      const fix = snap.exists() ? finPassPatch(snap.data()) : null
+      if (fix) return updateDoc(doc(db, colName, id), fix)
+    }).catch(() => {})
+  }
   awardGamePoints(action, colName, id, clean).catch(() => {})
   if (isDelete) {
     syncRagChunk(colName, id, { deleted: true }).catch(() => {})

@@ -1,4 +1,6 @@
 import { listDocs, listAllDocs, watchDocs, createDoc, updateDocData, softDelete, seedDemoData, setDocData } from '../../core/db.js'
+import { customerStatusMessage } from '../../utils/bookingNotify.js'
+import { openReplan, bookingTotal } from '../../utils/replanModal.js'
 import { reasonChipsHtml, bindReasonChips } from '../../utils/lostReason.js'
 import { showToast, getState, setState, on } from '../../core/store.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
@@ -342,7 +344,13 @@ export default async function BookingsPage(container) {
       if (container.__routerGen !== myGen) { unsubBookings(); return }
       bookings = rows.filter(b => !b.deleted)
       applyNidMap(bookings)
-      if (firstSnapshot) { firstSnapshot = false; render() }
+      if (firstSnapshot) {
+        firstSnapshot = false; render()
+        // เปิดใบจองที่ระบุมาทันที (?id= จากช่องค้นหารวม / งานของฉันวันนี้) แล้วลบ ?id ออกกันเปิดซ้ำตอนรีเฟรช
+        const deepId = new URLSearchParams(window.location.search).get('id')
+        const target = deepId && bookings.find(b => b.id === deepId)
+        if (target) { window.history.replaceState({}, '', window.location.pathname); openDetail(target) }
+      }
       else safeRender()
     })
   }
@@ -374,10 +382,16 @@ export default async function BookingsPage(container) {
     return counts
   }
 
+  // นับวันตามปฏิทินไทยเสมอ (เดิมใช้เวลาของเครื่อง — เครื่องที่ตั้งโซนเวลาอื่นนับคลาดไป 1 วัน)
   function dayDiff(dateStr) {
-    const today = new Date(); today.setHours(0, 0, 0, 0)
-    const d = new Date(dateStr); d.setHours(0, 0, 0, 0)
-    return Math.round((d - today) / 86400000)
+    const ds = String(dateStr || '').slice(0, 10)
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ds)) {
+      const today = new Date(); today.setHours(0, 0, 0, 0)
+      const d = new Date(dateStr); d.setHours(0, 0, 0, 0)
+      return Math.round((d - today) / 86400000)
+    }
+    const n = x => Date.UTC(+x.slice(0, 4), +x.slice(5, 7) - 1, +x.slice(8, 10)) / 86400000
+    return n(ds) - n(todayBangkok())
   }
   function isUrgent(b) {
     if (TERMINAL_STATUSES.includes(b.status) || !b.deliveryDate) return false
@@ -431,7 +445,7 @@ export default async function BookingsPage(container) {
     const statsBar = `<div style="display:flex;gap:16px;flex-wrap:wrap;padding:6px 12px;background:var(--surface-2);border-radius:8px;margin-bottom:10px;font-size:0.68rem;color:var(--text-2)">
       <span>📋 ทั้งหมด <b style="color:var(--text-primary)">${bookings.length}</b></span>
       <span>🔄 Active <b style="color:var(--warning)">${activeAll.length}</b></span>
-      ${pipelineVal > 0 ? `<span>💰 Pipeline <b style="color:var(--success)">${formatCurrency(pipelineVal / 1000000)}M</b></span>` : ''}
+      ${pipelineVal > 0 ? `<span>💰 Pipeline <b style="color:var(--success)">฿${(pipelineVal / 1000000).toLocaleString('en-US', { maximumFractionDigits: 2 })} ล้าน</b></span>` : ''}
       <span>🚗 ส่งมอบเดือนนี้ <b style="color:var(--success)">${delMonth}</b></span>
       ${urgentCount > 0 ? `<span>🔥 ด่วน <b style="color:var(--danger)">${urgentCount}</b></span>` : ''}
       ${noIncomeCount > 0 || noIncomeOnly ? `<span id="bk-noincome-chip" style="cursor:pointer;${noIncomeOnly ? 'font-weight:700;text-decoration:underline' : ''}" title="ส่งมอบแล้วแต่ยังไม่กรอกมาร์จิ้น/ค่าคอม — กดเพื่อดูเฉพาะรายการนี้">💰 ยังไม่กรอกรายได้ <b style="color:var(--danger)">${noIncomeCount}</b>${noIncomeOnly ? ' ×' : ''}</span>` : ''}
@@ -546,7 +560,8 @@ export default async function BookingsPage(container) {
     if (!wrap) return
     if (!filtered.length) { wrap.innerHTML = '<div class="empty-state" style="padding:48px"><div class="empty-icon">📋</div><div class="empty-title">ไม่มีรายการจอง</div><div class="empty-desc">กด "+ บันทึกจอง" หรือ "✨ จองใหม่ (Wizard)" เพื่อเพิ่มรายการใหม่</div></div>'; return }
     const allSelected = filtered.length > 0 && filtered.every(b => selectedIds.has(b.id))
-    wrap.innerHTML = `<div class="card" style="padding:0;overflow:hidden">
+    wrap.innerHTML = `<div class="bk-cards">${filtered.map(b => cardRow(b)).join('')}</div>
+    <div class="card bk-table-card" style="padding:0;overflow:hidden">
       <div class="table-wrap"><table>
         <thead><tr>
           <th style="width:28px"><input type="checkbox" id="bk-select-all" ${allSelected ? 'checked' : ''}></th>
@@ -558,7 +573,7 @@ export default async function BookingsPage(container) {
       </table></div>
     </div>`
 
-    document.getElementById('bk-select-all').addEventListener('change', ev => {
+    document.getElementById('bk-select-all')?.addEventListener('change', ev => {
       filtered.forEach(b => { if (ev.target.checked) selectedIds.add(b.id); else selectedIds.delete(b.id) })
       render()
     })
@@ -597,6 +612,26 @@ export default async function BookingsPage(container) {
     await loadData()
   }
 
+  // มือถือ: ตารางกว้าง 14 คอลัมน์ต้องเลื่อนข้างจนไม่เห็นชื่อลูกค้า → แสดงเป็นการ์ดแทน (ใช้ class เดียวกับตาราง
+  // .bk-row/.bk-status-cell/.income-bk จึงได้ปุ่มกดเหมือนกันทุกอย่าง — แตะการ์ดเปิดรายละเอียด แตะสถานะเพื่อเปลี่ยน)
+  function cardRow(b) {
+    const br = detectBrand(b.brand, b.model)
+    return `<div class="bk-row bk-card" data-id="${b.id}" style="${rowStyle(b)}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div style="min-width:0">
+          <div style="font-weight:700;font-size:0.92rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(b.custName || '—')}${b.rightsOnly ? ' <span style="font-size:0.62rem;color:var(--accent)">🎫 จองสิทธิ์</span>' : ''}</div>
+          <div style="font-size:0.76rem;color:var(--text-2);margin-top:2px">🚗 ${br ? escHtml(br) + ' ' : ''}${escHtml(b.model || '—')}${b.colorOut ? ` · ${escHtml(b.colorOut)}` : ''}</div>
+        </div>
+        <div class="bk-status-cell" data-id="${b.id}" style="cursor:pointer;flex-shrink:0;text-align:right">${statusBadge(b.status)}<span style="font-size:0.6rem;opacity:.4;margin-left:2px">▼</span></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:8px;margin-top:8px;font-size:0.72rem;color:var(--text-muted)">
+        <div>👤 ${escHtml(b.salesName || '—')} · จอง ${formatDate(b.bookingDate)}${b.bookingNo ? ` · <span style="color:var(--primary)">${escHtml(b.bookingNo)}</span>` : ''}</div>
+        <div style="text-align:right;white-space:nowrap">${b.deliveryDate ? `ส่งมอบ ${deliveryCell(b)}` : ''}</div>
+      </div>
+      ${needsIncome(b) ? `<button class="btn btn-warning btn-xs income-bk" data-id="${b.id}" style="margin-top:8px">💰 กรอกรายได้</button>` : ''}
+    </div>`
+  }
+
   function tableRow(b) {
     const br = detectBrand(b.brand, b.model)
     return `<tr class="bk-row" data-id="${b.id}" style="${rowStyle(b)}cursor:pointer">
@@ -621,6 +656,23 @@ export default async function BookingsPage(container) {
         <button class="btn btn-ghost btn-xs del-bk" data-id="${b.id}" title="ลบ">🗑️</button>
       </td>
     </tr>`
+  }
+
+  // เปลี่ยนสถานะแล้ว → เสนอข้อความแจ้งลูกค้าทาง LINE (แก้ได้ คัดลอกไปส่งเอง ไม่ส่งอัตโนมัติ)
+  function offerCustomerNotice(b, status) {
+    const msg = customerStatusMessage(b, status)
+    if (!msg) return
+    const { el, close } = openModal({
+      title: '💬 แจ้งลูกค้าทาง LINE ไหม?', size: 'sm',
+      body: `<div style="font-size:0.76rem;color:var(--text-muted);margin-bottom:6px">ลูกค้าจะได้ไม่ต้องโทรถามว่ารถถึงไหนแล้ว · แก้ข้อความได้ก่อนคัดลอก</div>
+        <textarea class="input" id="bk-notice" data-no-mic rows="5" style="width:100%;font-size:16px">${escHtml(msg)}</textarea>`,
+      footer: `<button class="btn btn-secondary" id="bk-notice-skip">ไม่ต้อง</button><button class="btn btn-primary" id="bk-notice-copy">📋 คัดลอกไปส่ง</button>`,
+    })
+    el.querySelector('#bk-notice-skip').addEventListener('click', close)
+    el.querySelector('#bk-notice-copy').addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(el.querySelector('#bk-notice').value); showToast('📋 คัดลอกแล้ว วางในแชท LINE ของลูกค้าได้เลย', 'success'); close() }
+      catch { showToast('คัดลอกไม่สำเร็จ — กดค้างที่ข้อความแล้วคัดลอกเอง', 'warning') }
+    })
   }
 
   // ── Quick status-change popover ──────────────────────────────────────────
@@ -667,6 +719,7 @@ export default async function BookingsPage(container) {
         render()
         // ส่งมอบ/ตัดตัวเลขแล้วแต่ยังไม่มีรายได้ → ถามมาร์จิ้น/ค่าคอมเลยตอนนี้ (ข้ามได้)
         if (needsIncome(b) && await askDeliveryIncome(b, { title: '🎉 ส่งมอบแล้ว — กรอกรายได้คันนี้' })) render()
+        offerCustomerNotice(b, newStatus)
       } catch { showToast('อัปเดตไม่สำเร็จ', 'error') }
     }))
     setTimeout(() => { document.addEventListener('click', onDocClick) }, 30)
@@ -1049,16 +1102,20 @@ export default async function BookingsPage(container) {
       footer: '<button class="btn btn-secondary" onclick="this.closest(\'.modal-overlay\').remove()">ปิด</button>' +
               '<button class="btn btn-secondary" id="bk-edit2">✏️ แก้ไข</button>' +
               '<button class="btn btn-secondary" id="bk-note2">📝 โน๊ต</button>' +
+              (customerStatusMessage(b, b.status) ? '<button class="btn btn-secondary" id="bk-tell">💬 แจ้งลูกค้า</button>' : '') +
               (depositAmt(b) > 0 && !b.rightsOnly && b.status !== 'ถอนจอง' && b.paymentVerifyStatus !== 'ยืนยันแล้ว' && b.paymentVerifyStatus !== 'รอการเงินยืนยัน'
                 ? '<button class="btn btn-secondary" id="bk-verify-pay" style="color:var(--warning)">💸 แจ้งการเงินตรวจยอด</button>' : '') +
               '<button class="btn btn-secondary" id="bk-print">🖨 พิมพ์ใบจอง</button>' +
               (!isCash ? '<button class="btn btn-secondary" id="bk-finance-btn">🏦 ยื่นไฟแนนซ์</button>' : '') +
+              (b.finStatus === 'ไม่ผ่าน' && bookingTotal(b) > 0 ? '<button class="btn btn-secondary" id="bk-replan">💡 แผนผ่อนใหม่</button>' : '') +
               (b.status === 'ถอนจอง'
                 ? '<button class="btn btn-danger" id="bk-print-cancel">🖨 พิมพ์ใบถอนจอง</button>'
                 : '<button class="btn btn-primary" id="bk-to-doc">📄 สร้างเอกสาร</button>') +
               '<button class="btn btn-danger" id="bk-delete2">🗑️ ลบใบจอง</button>'
     })
     if (!isCash) refreshFinAppPanel(b)
+    document.getElementById('bk-replan')?.addEventListener('click', () => openReplan(b))
+    document.getElementById('bk-tell')?.addEventListener('click', () => offerCustomerNotice(b, b.status))
     document.getElementById('bk-finance-btn')?.addEventListener('click', () => {
       sessionStorage.setItem('lamom_finance_prefill', JSON.stringify({
         bookingId: b.id, customerId: b.customerId || null, custName: b.custName || '', phone: b.phone || '',
@@ -1310,5 +1367,7 @@ export default async function BookingsPage(container) {
 }
 
 function dRow(label, value) {
-  return '<div style="font-size:0.82rem;display:flex;gap:6px;padding:2px 0"><span style="color:var(--text-muted);min-width:110px;flex-shrink:0">' + label + '</span><span style="color:var(--text-2)">' + escHtml(String(value ?? '')) + '</span></div>'
+  // ช่องที่ยังไม่มีข้อมูล ("-", "- / -") แสดงจางลง ให้ข้อมูลจริงเด่นอ่านง่าย
+  const empty = /^[\s\-/]*$/.test(String(value ?? ''))
+  return '<div class="' + (empty ? 'd-row d-empty' : 'd-row') + '" style="font-size:0.82rem;display:flex;gap:6px;padding:2px 0"><span style="color:var(--text-muted);min-width:110px;flex-shrink:0">' + label + '</span><span style="color:var(--text-2)">' + escHtml(String(value ?? '')) + '</span></div>'
 }

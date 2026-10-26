@@ -217,18 +217,18 @@ export default async function AiOfficersPage(container) {
 
   function renderPage() {
     container.innerHTML = `
-      <div style="display:flex;height:calc(100vh - 56px);overflow:hidden">
+      <div class="split-pane" style="display:flex;height:calc(100vh - 56px - var(--bottom-nav-h, 0px));overflow:hidden">
         <!-- Officers sidebar -->
-        <div style="width:220px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;background:var(--surface-2)">
+        <div class="split-side" style="width:220px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;background:var(--surface-2)">
           <div style="padding:14px 12px;font-weight:700;font-size:0.85rem;color:var(--text-muted);border-bottom:1px solid var(--border)">🤖 AI Officers</div>
-          <div id="officers-list" style="flex:1;overflow-y:auto">
+          <div id="officers-list" class="split-strip" style="flex:1;overflow-y:auto">
             ${OFFICERS.map(o => officerItem(o)).join('')}
           </div>
         </div>
         <!-- Chat area -->
         <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
           <!-- Header -->
-          <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0;background:var(--surface)">
+          <div class="split-head" style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0;background:var(--surface)">
             <div style="font-size:2rem">${activeOfficer.emoji}</div>
             <div>
               <div style="display:flex;align-items:center;gap:8px">

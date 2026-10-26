@@ -97,7 +97,7 @@ export default async function DigitalShowroomPage(container) {
 
         <div style="display:flex;gap:6px;margin-bottom:14px">${filterBtns}</div>
 
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(340px, 100%),1fr));gap:10px">
           ${rows.map(c=>carCard(c)).join('')}
           ${rows.length===0?'<div style="text-align:center;padding:30px;color:var(--text-muted);grid-column:1/-1">ไม่พบรายการ</div>':''}
         </div>

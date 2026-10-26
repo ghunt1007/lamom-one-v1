@@ -123,7 +123,7 @@ export default async function SalesBudgetPage(container) {
         '</div></div>' +
 
         // KPI Cards
-        '<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:20px">' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:20px">' +
           kpi('🎯 เป้ายอดขายรวม', formatCurrency(tot.totalTarget), 'primary') +
           kpi('💰 ยอดจริงรวม', formatCurrency(tot.totalActual), 'success') +
           kpi('📈 Achievement', tot.pct + '%', tot.pct >= 100 ? 'success' : tot.pct >= 80 ? 'warning' : 'danger') +

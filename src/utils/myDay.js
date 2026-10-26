@@ -4,6 +4,7 @@
 import { toDate } from './format.js'
 import { DELIVERED_STATUSES, needsIncome } from './deliveryIncome.js'
 import { classifyLostReason } from './lostReason.js'
+import { isFinancePassed } from './finance.js'
 
 export const STALE_LEAD_DAYS = 3
 export const STUCK_BOOKING_DAYS = 14
@@ -69,12 +70,17 @@ export function buildMyDay({ customers = [], followups = [], bookings = [], test
     if (CANCELLED.includes(b.status)) return
     // ไฟแนนซ์: ยื่นแล้วรอผลเกิน FINANCE_WAIT_DAYS วัน (นับจากวันยื่น ถ้าไม่มีนับจากวันจอง) หรือไม่ผ่านแต่ยังไม่ถอนจอง
     const sent = /^\d{4}-\d{2}-\d{2}/.test(b.submitDate || '') ? b.submitDate.slice(0, 10) : (b.bookingDate || '').slice(0, 10)
-    if (b.finStatus === 'ไม่ผ่าน') out.finance.push({ ...b, rejected: true, days: sent ? daysBetween(sent, today) : 0 })
-    else if ((b.finStatus === 'รอผล' || b.status === 'รอผลไฟแนนซ์') && /^\d{4}-\d{2}-\d{2}$/.test(sent) && daysBetween(sent, today) >= FINANCE_WAIT_DAYS) {
-      out.finance.push({ ...b, rejected: false, days: daysBetween(sent, today) })
+    // รอรถ/รอส่งมอบ = ไฟแนนซ์ผ่านแล้วเสมอ (isFinancePassed) แม้ช่องสถานะไฟแนนซ์ยังค้าง "รอผล"
+    const finBefore = out.finance.length
+    if (!isFinancePassed(b)) {
+      if (b.finStatus === 'ไม่ผ่าน') out.finance.push({ ...b, rejected: true, days: sent ? daysBetween(sent, today) : 0 })
+      else if ((b.finStatus === 'รอผล' || b.status === 'รอผลไฟแนนซ์') && /^\d{4}-\d{2}-\d{2}$/.test(sent) && daysBetween(sent, today) >= FINANCE_WAIT_DAYS) {
+        out.finance.push({ ...b, rejected: false, days: daysBetween(sent, today) })
+      }
     }
+    // ใบจองที่ขึ้นในหัวข้อไฟแนนซ์แล้ว ไม่ต้องขึ้นซ้ำใน "ใบจองค้าง" (เดิมคนเดียวนับ 2 ครั้ง)
     const bd = (b.bookingDate || '').slice(0, 10)
-    if (/^\d{4}-\d{2}-\d{2}$/.test(bd) && daysBetween(bd, today) >= STUCK_BOOKING_DAYS) out.stuck.push({ ...b, days: daysBetween(bd, today) })
+    if (out.finance.length === finBefore && /^\d{4}-\d{2}-\d{2}$/.test(bd) && daysBetween(bd, today) >= STUCK_BOOKING_DAYS) out.stuck.push({ ...b, days: daysBetween(bd, today) })
   })
 
   // นัดทดลองขับวันนี้ที่ยังไม่จบ (ผู้ดูแล = staff ของนัด)
@@ -113,4 +119,76 @@ export function buildMyDay({ customers = [], followups = [], bookings = [], test
   out.contactedToday = alive(customers).filter(c => bangkokDate(c.lastContactAt) === today && mine(c.assignedTo, c)).length
   out.total = out.followups.length + out.stale.length + out.income.length + out.stuck.length + out.finance.length + out.unscheduled.length
   return out
+}
+
+// "ทำ 3 อย่างนี้ก่อน" — จัดลำดับงานทั้งหมดของวันจากผลของ buildMyDay ให้เหลือไม่กี่อย่างที่สำคัญที่สุด
+// เกณฑ์: Lead ใหม่ (ยิ่งโทรเร็วยิ่งปิดได้) > ส่งมอบวันนี้ > ลูกค้า Hot > นัดที่เลยกำหนด > ไฟแนนซ์ไม่ผ่าน > ที่เหลือ
+// คืน [{ key, icon, title, why, score, customerId?, bookingId?, phone? }] เรียงคะแนนมากไปน้อย ไม่ซ้ำลูกค้า
+// short: true = ใช้ชื่อต้นอย่างเดียว (ไว้ส่งให้ AI ไม่ต้องรู้นามสกุล)
+export function topPriorities(d, limit = 3, { short = false } = {}) {
+  const items = []
+  const add = (it) => items.push(it)
+  const nm = r => {
+    const n = String((short ? r.firstName : '') || r.name || r.customerName || r.custName || 'ลูกค้า').trim()
+    return short ? n.split(/\s+/)[0] : n
+  }
+  const car = b => [b.brand, b.model].filter(Boolean).join(' ')
+  ;(d.newLeads || []).forEach(c => add({ key: 'new:' + c.id, icon: '🧲', title: `โทรหา Lead ใหม่ ${nm(c)}`, why: `เข้ามาวันนี้${leadWait(c) ? ` (${leadWait(c).label})` : ''}${c.interestedModel ? ` สนใจ ${c.interestedModel}` : ''} · โทรภายในชั่วโมงแรกโอกาสปิดสูงสุด`, score: c.lastContactAt && bangkokDate(c.lastContactAt) === bangkokDate(c.createdAt) ? 20 : 100, customerId: c.id, phone: c.phone }))
+  ;(d.deliveries || []).filter(b => b.inDays === 0).forEach(b => add({ key: 'dlv:' + b.id, icon: '🚗', title: `ส่งมอบรถ ${nm(b)} วันนี้`, why: `${car(b) || 'รถ'}${b.deliveryTime ? ` เวลา ${b.deliveryTime}` : ''} · เช็กรถและเอกสารให้พร้อม`, score: 95, bookingId: b.id, phone: b.phone || b.custPhone }))
+  ;(d.hotNoPlan || []).forEach(c => add({ key: 'hot:' + c.id, icon: '🔴', title: `นัดลูกค้า Hot ${nm(c)}`, why: 'สนใจมากแต่ยังไม่มีนัดครั้งถัดไป', score: 90, customerId: c.id, phone: c.phone }))
+  ;(d.followups || []).forEach(f => add({ key: 'fu:' + f.id, icon: '📞', title: `ติดต่อ ${nm(f)}`, why: `${f.purpose || 'นัดติดตาม'}${f.late > 0 ? ` · เลยกำหนด ${f.late} วัน` : ' · ครบกำหนดวันนี้'}`, score: 78 + Math.min(10, f.late || 0), customerId: f.customerId, phone: f.phone }))
+  ;(d.finance || []).forEach(b => add({ key: 'fin:' + b.id, icon: '🏦', title: b.rejected ? `หาไฟแนนซ์ใหม่ให้ ${nm(b)}` : `ตามผลไฟแนนซ์ ${nm(b)}`, why: b.rejected ? 'ไฟแนนซ์ไม่ผ่าน ลูกค้ายังรอรถอยู่' : `รอผลมา ${b.days} วันแล้ว`, score: b.rejected ? 76 : 60 + Math.min(10, b.days || 0), bookingId: b.id, phone: b.phone || b.custPhone }))
+  ;(d.unscheduled || []).forEach(b => add({ key: 'uns:' + b.id, icon: '📆', title: `โทรนัดวันส่งมอบ ${nm(b)}`, why: b.missed ? 'เลยวันนัดเดิมแล้ว' : 'รถพร้อมแต่ยังไม่มีวันนัด', score: b.missed ? 74 : 68, bookingId: b.id, phone: b.phone || b.custPhone }))
+  ;(d.stale || []).forEach(c => add({ key: 'stl:' + c.id, icon: '⏰', title: c.temperature === 'hot' ? `ทักลูกค้า Hot ${nm(c)}` : `ทักลูกค้าที่เงียบไป ${nm(c)}`, why: `ไม่ได้คุยมา ${c.days} วัน${c.interestedModel ? ` · สนใจ ${c.interestedModel}` : ''}`, score: (c.temperature === 'hot' ? 85 : 40) + Math.min(10, c.days || 0), customerId: c.id, phone: c.phone }))
+  ;(d.income || []).forEach(b => add({ key: 'inc:' + b.id, icon: '💰', title: `กรอกรายได้ ${nm(b)}`, why: 'ส่งมอบแล้วแต่รายงานรายได้ยังไม่ครบ', score: 45, bookingId: b.id }))
+  ;(d.stuck || []).forEach(b => add({ key: 'stk:' + b.id, icon: '⏳', title: `เคลียร์ใบจอง ${nm(b)}`, why: `ค้างมา ${b.days} วัน · ${b.status || ''}`.trim(), score: 30 + Math.min(10, Math.floor((b.days || 0) / 7)), bookingId: b.id, phone: b.phone || b.custPhone }))
+  items.sort((a, b) => b.score - a.score)
+  const seen = new Set()
+  const out = []
+  for (const it of items) {
+    const who = it.customerId || it.bookingId || it.key
+    if (seen.has(who)) continue
+    seen.add(who)
+    out.push(it)
+    if (out.length >= limit) break
+  }
+  return out
+}
+
+// สรุปงานของวันเป็นข้อความสั้นๆ ให้ LAMI ใช้ตอบคำถาม "วันนี้ควรทำอะไร" — ใช้แค่ชื่อเล่น/ชื่อต้น ไม่มีเบอร์โทร
+export function myDayDigest(d) {
+  const lines = [
+    `งานค้างทั้งหมด ${d.total || 0} รายการ · ติดต่อลูกค้าแล้ววันนี้ ${d.contactedToday || 0} ราย · พรุ่งนี้มีนัด ${d.tomorrow || 0} ราย`,
+    `Lead ใหม่วันนี้ ${(d.newLeads || []).length} · นัดติดตามถึงกำหนด/เลยกำหนด ${(d.followups || []).length} · Lead เงียบเกิน ${STALE_LEAD_DAYS} วัน ${(d.stale || []).length} · ลูกค้า Hot ไม่มีนัด ${(d.hotNoPlan || []).length}`,
+    `ไฟแนนซ์รอผล/ไม่ผ่าน ${(d.finance || []).length} · รถพร้อมส่งยังไม่นัด ${(d.unscheduled || []).length} · ส่งมอบ 7 วันข้างหน้า ${(d.deliveries || []).length} · ยังไม่กรอกรายได้ ${(d.income || []).length}`,
+  ]
+  const top = topPriorities(d, 5, { short: true })
+  if (top.length) {
+    lines.push('งานที่ควรทำก่อน (ระบบจัดลำดับแล้ว):')
+    top.forEach((t, i) => lines.push(`${i + 1}. ${t.title} — ${t.why}`))
+  }
+  return lines.join('\n')
+}
+
+// สรุปทีมวันนี้ (หัวหน้า/เจ้าของ) — ต่อคน: งานค้าง, ติดต่อลูกค้าแล้ววันนี้, Lead ใหม่ที่ยังไม่ได้ติดต่อ
+// same(a, b) = เทียบชื่อแบบเดียวกับหน้าเพจ (normName) — เรียงคนที่งานค้างมากสุดก่อน
+export function teamToday(data, { today, names = [], same = (a, b) => String(a || '').trim() === String(b || '').trim(), allowed = () => true }) {
+  return names.map(name => {
+    const d = buildMyDay(data, { today, mine: (n, rec) => allowed(n, rec) && same(n, name) })
+    const newUntouched = d.newLeads.filter(c => bangkokDate(c.lastContactAt) !== today).length
+    return { name, total: d.total, contacted: d.contactedToday, newUntouched }
+  }).filter(r => r.total || r.contacted || r.newUntouched)
+    .sort((a, b) => b.total + b.newUntouched - (a.total + a.newUntouched) || a.name.localeCompare(b.name, 'th'))
+}
+
+// Lead ใหม่วันนี้: รอมากี่นาทีแล้ว (ยิ่งโทรเร็วยิ่งปิดได้) — คืน null ถ้าติดต่อแล้วหรือไม่มีเวลาสร้าง
+// level: ok (< 15 นาที) / warn (< 60 นาที) / late (ชั่วโมงขึ้นไป)
+export function leadWait(c, now = Date.now()) {
+  const created = toDate(c.createdAt)
+  if (!created) return null
+  const contacted = toDate(c.lastContactAt)
+  if (contacted && contacted.getTime() > created.getTime() + 60000) return null
+  const mins = Math.max(0, Math.floor((now - created.getTime()) / 60000))
+  const label = mins < 1 ? 'เพิ่งเข้ามา' : mins < 60 ? `รอ ${mins} นาที` : `รอ ${Math.floor(mins / 60)} ชม.${mins % 60 ? ` ${mins % 60} นาที` : ''}`
+  return { mins, label, level: mins < 15 ? 'ok' : mins < 60 ? 'warn' : 'late' }
 }

@@ -78,7 +78,7 @@ export default async function PartnerPortalPage(container) {
           ${Object.entries(PARTNER_TYPES).map(([k,v]) => `<button class="btn btn-xs ${typeFilter===k?'btn-'+v.color:'btn-secondary'} tf-btn" data-t="${k}">${v.icon} ${v.label}</button>`).join('')}
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(340px, 100%),1fr));gap:12px">
           ${list.map(p => {
             const pt = PARTNER_TYPES[p.type]
             const ps = PARTNER_STATUS[p.status]

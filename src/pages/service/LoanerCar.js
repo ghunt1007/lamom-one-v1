@@ -115,7 +115,7 @@ export default async function LoanerCarPage(container) {
   }
 
   function renderFleet() {
-    return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">
+    return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(280px, 100%),1fr));gap:12px">
       ${cars.map(c => {
         const st = CAR_STATUS[c.status]
         return `<div class="card" style="padding:16px">

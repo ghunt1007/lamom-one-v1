@@ -52,7 +52,7 @@ export default async function OrgCompaniesPage(container) {
             <div style="font-size:0.82rem;color:var(--text-muted);margin-top:6px">กด "+ เพิ่มบริษัท" เพื่อเริ่มต้น เช่น แต่ละแบรนด์ที่แยกเป็นนิติบุคคล หรือบริษัทศูนย์สีที่แยกต่างหาก</div>
           </div>
         ` : `
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(280px, 100%),1fr));gap:12px">
           ${companies.map(c => `
             <div class="card" style="padding:16px;${c.active===false?'opacity:0.6':''}">
               <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">

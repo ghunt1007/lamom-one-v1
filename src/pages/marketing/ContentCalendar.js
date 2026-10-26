@@ -104,7 +104,7 @@ export default async function ContentCalendarPage(container) {
           </select>
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(320px, 100%),1fr));gap:12px">
           ${list.map(c => {
             const ct = CONTENT_TYPES[c.type]
             const cs = CONTENT_STATUS[c.status]

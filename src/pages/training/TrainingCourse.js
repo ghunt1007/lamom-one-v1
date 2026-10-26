@@ -79,7 +79,7 @@ export default async function TrainingCoursePage(container) {
           ${Object.entries(COURSE_TYPES).map(([k,v]) => `<button class="btn btn-xs ${typeFilter===k?'btn-'+v.color:'btn-secondary'} tf-btn" data-t="${k}">${v.icon} ${v.label}</button>`).join('')}
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(320px, 100%),1fr));gap:14px">
           ${list.map(c => {
             const ct = COURSE_TYPES[c.type]
             const enrolled = c.enrolled || []

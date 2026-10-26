@@ -1,4 +1,5 @@
 import { getState, on, toggleSidebar } from '../../core/store.js'
+import { menuMatches } from '../../utils/menuSearch.js'
 import { navigate } from '../../core/router.js'
 import { logout } from '../../core/auth.js'
 import { getModuleForPath, hasModuleAccess, loadRolePermissions } from '../../core/permissions.js'
@@ -489,6 +490,7 @@ export function Sidebar(container) {
           ${!collapsed && !isMobileViewport ? `<button class="sidebar-toggle" id="sidebar-toggle" title="${t('collapseSidebar')}">◀</button>` : ''}
         </div>
 
+        ${!collapsed ? `<div class="sidebar-find"><input type="search" id="sb-find" placeholder="🔍 หาเมนู เช่น ทดลองขับ" autocomplete="off" aria-label="หาเมนู"></div>` : ''}
         <nav class="sidebar-nav">
           ${nav.map(group => {
             const isGroupCollapsed = !collapsed && !!grpState[group.group]
@@ -574,6 +576,26 @@ export function Sidebar(container) {
 
     el.querySelectorAll('.nav-item[data-path]').forEach(item => {
       item.addEventListener('click', () => navigate(item.dataset.path))
+    })
+    // หาเมนูจากชื่อ (เมนูมีหลายร้อยรายการ) — พิมพ์แล้วกรองทันที กด Enter ไปเมนูแรกที่เจอ
+    const find = el.querySelector('#sb-find')
+    find?.addEventListener('input', () => {
+      const q = find.value.trim()
+      el.querySelectorAll('.nav-group').forEach(g => {
+        let any = false
+        g.querySelectorAll('.nav-item[data-path]').forEach(it => {
+          const hit = menuMatches(it.getAttribute('title'), it.dataset.path, find.value)
+          it.style.display = hit ? '' : 'none'
+          any = any || hit
+        })
+        g.style.display = any ? '' : 'none'
+        g.querySelector('.nav-group-items')?.classList.toggle('sb-force-open', !!q)
+      })
+    })
+    find?.addEventListener('keydown', e => {
+      if (e.key !== 'Enter') return
+      const first = [...el.querySelectorAll('.nav-item[data-path]')].find(it => it.style.display !== 'none' && it.closest('.nav-group').style.display !== 'none')
+      if (first) navigate(first.dataset.path)
     })
     // LAMI widget → ผู้ช่วยส่วนตัว
     el.querySelector('#lami-widget')?.addEventListener('click', () => navigate('/ai/personal'))

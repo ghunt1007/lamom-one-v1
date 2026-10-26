@@ -15,16 +15,74 @@ import {
   getFollowUpRecommendation, getBookingDiagnosis, isModelInStock,
   deriveInitialStage, shouldAutoPromoteToPP,
 } from '../../core/customerInsights.js'
-import { analyzeCustomer, isAiEnabled } from '../../utils/ai.js'
+import { aiSalesCloser, isAiEnabled, suggestCustomerReply } from '../../utils/ai.js'
+import { buildCustomerBrief, addDaysIso, catalogContext, modelFacts, modelMatches } from '../../utils/salesAi.js'
+import { flatMonthly } from '../../utils/installment.js'
+import { getVehicles } from '../../data/vehicleDatabase.js'
+import { maskContacts } from '../../utils/leadText.js'
+import { enhanceMics, bindMic, hasSpeechInput } from '../../utils/micInput.js'
+import { matchesSearch } from '../../utils/customerSearch.js'
+import { stockLine } from '../../utils/stockLine.js'
+import { heuristicScore } from '../../utils/leadScore.js'
 import { OCCUPATIONS } from '../../utils/financeMatch.js'
 import { openQuickLead, findDuplicate } from '../../utils/quickLead.js'
 import { planLeadImport } from '../../utils/leadImport.js'
 import { scheduleLeadFollowups, closeAutoLeadFollowups } from '../../utils/leadFollowups.js'
 import { pendingFollowupsFor, followupWindowFilters, followupStatusByCustomer, matchFollowupFilter, QUIET_DAYS, quietDays } from '../../utils/customerFollowups.js'
 import { reasonChipsHtml, bindReasonChips } from '../../utils/lostReason.js'
-import { openAddFollowup } from '../../utils/addFollowupModal.js'
+import { openAddFollowup, offerNextFollowup } from '../../utils/addFollowupModal.js'
 import { touchCustomerContact } from '../../utils/customerContact.js'
+import { armCallLog } from '../../utils/callLogger.js'
+import { openTestDriveForm, loadUpcomingTestDrive, loadTestDrivesFor, mentionsTestDrive } from '../../utils/testDriveForm.js'
 import { moveFollowupsOnReassign } from '../../utils/leadAssign.js'
+
+const pendingFuCount = new WeakMap() // ลูกค้า → จำนวนนัดค้าง (ใช้ตัดสินว่าควรเสนอนัดครั้งถัดไปหลังโทรไหม)
+
+// แถบ "โอกาสปิด" เล็กๆ ใต้อุณหภูมิ — เฉพาะ Lead/Prospect ที่ยังไม่เสียดีล (สูตรใน utils/leadScore.js)
+function scoreBar(c) {
+  if (c.isLost || !['lead', 'pp'].includes(c.stage)) return ''
+  const { score, signals } = heuristicScore(c)
+  const color = score >= 80 ? 'var(--danger)' : score >= 60 ? 'var(--warning)' : 'var(--text-muted)'
+  return `<div title="โอกาสปิดการขาย ${score}%\n${escHtml(signals.join('\n'))}" style="margin-top:4px;display:flex;align-items:center;gap:4px;font-size:0.62rem;color:var(--text-muted)">
+    <div style="width:44px;height:4px;border-radius:2px;background:var(--surface-2);overflow:hidden"><div style="height:100%;width:${score}%;background:${color}"></div></div>${score}%</div>`
+}
+
+// 🧮 คิดค่างวดคร่าวๆ ในหน้าลูกค้า (ลูกค้าถามบ่อยที่สุด "ผ่อนเดือนละเท่าไหร่") — ใช้ราคาจากฐานข้อมูลรถ
+function calcHtml(c) {
+  const vs = modelMatches(c.interestedModel, getVehicles(), 6).filter(v => v.price > 0)
+  if (!vs.length) return ''
+  // มีงบในใจ → เลือกรุ่นย่อยแพงสุดที่ไม่เกินงบให้ก่อน (ไม่มีรุ่นไหนอยู่ในงบ = รุ่นถูกสุด)
+  const budget = Number(c.budget) || 0
+  const fit = budget ? vs.reduce((best, v, i) => v.price <= budget && (best < 0 || v.price > vs[best].price) ? i : best, -1) : -1
+  const opt = (arr, sel, fmt) => arr.map(x => `<option value="${x}" ${x === sel ? 'selected' : ''}>${fmt(x)}</option>`).join('')
+  return `<div id="wk-calc" style="margin-top:6px;padding:8px;border:1px dashed var(--border);border-radius:8px">
+    <div style="font-weight:600;margin-bottom:6px">🧮 ผ่อนเดือนละเท่าไหร่ (คร่าวๆ)</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(120px,100%),1fr));gap:6px">
+      <select class="input" id="wk-calc-v" style="font-size:0.76rem">${vs.map((v, i) => `<option value="${i}" data-p="${v.price}" ${i === fit ? 'selected' : ''}>${escHtml(v.variant || v.model)} · ${Number(v.price).toLocaleString('en-US')}</option>`).join('')}</select>
+      <select class="input" id="wk-calc-d" style="font-size:0.76rem">${opt([0, 10, 15, 20, 25, 30, 40], 20, x => `ดาวน์ ${x}%`)}</select>
+      <select class="input" id="wk-calc-m" style="font-size:0.76rem">${opt([48, 60, 72, 84], 72, x => `${x} งวด`)}</select>
+      <label style="display:flex;align-items:center;gap:4px;font-size:0.72rem;white-space:nowrap">ดอก <input class="input" id="wk-calc-r" type="number" step="0.01" value="2.79" style="width:72px;font-size:0.76rem" title="ดอกเบี้ยต่อปี (flat)"> %/ปี</label>
+    </div>
+    <div id="wk-calc-out" style="margin-top:6px"></div>
+  </div>`
+}
+function bindCalc(root) {
+  const box = root.querySelector('#wk-calc')
+  if (!box) return
+  const $ = id => box.querySelector('#' + id)
+  const run = () => {
+    const sel = $('wk-calc-v').selectedOptions[0]
+    const price = Number(sel?.dataset.p) || 0
+    const r = flatMonthly(price, $('wk-calc-d').value, $('wk-calc-m').value, $('wk-calc-r').value)
+    const txt = `${sel?.textContent.split(' · ')[0] || ''} ราคา ${price.toLocaleString('en-US')} บาท\nดาวน์ ${$('wk-calc-d').value}% (${r.down.toLocaleString('en-US')} บาท) ผ่อน ${$('wk-calc-m').value} งวด\nประมาณเดือนละ ${r.monthly.toLocaleString('en-US')} บาท (ดอกเบี้ย ${$('wk-calc-r').value}% ต่อปี)\n*ตัวเลขเบื้องต้น อัตราจริงขึ้นกับการอนุมัติของไฟแนนซ์`
+    $('wk-calc-out').innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><div>ยอดจัด ${r.loan.toLocaleString('en-US')} · <b style="font-size:1rem;color:var(--primary)">≈ ${r.monthly.toLocaleString('en-US')} บาท/เดือน</b></div><button type="button" class="btn btn-secondary btn-xs" id="wk-calc-copy">📋 คัดลอกส่งลูกค้า</button></div>`
+    $('wk-calc-copy').addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(txt); showToast('📋 คัดลอกแล้ว วางใน LINE ได้เลย', 'success') } catch { showToast('คัดลอกไม่สำเร็จ', 'warning') }
+    })
+  }
+  ;['wk-calc-v', 'wk-calc-d', 'wk-calc-m', 'wk-calc-r'].forEach(id => $(id).addEventListener('input', run))
+  run()
+}
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -73,6 +131,7 @@ export default async function CustomersPage(container) {
   let salesFilter = ''
   let sourceFilter = ''
   let fuFilter = ''
+  let autoAiOnce = false // เปิดจากหน้า "งานของฉันวันนี้" ด้วย ?ai=1 → กด "AI ช่วยปิดการขาย" ให้อัตโนมัติครั้งเดียว
   let sortMode = 'urgent' // urgent = ด่วนก่อน (เดิม) · quiet = เงียบนานสุดก่อน · new = เพิ่มล่าสุดก่อน
   let fuStatus = null // โหลดนัดติดตามเฉพาะตอนเลือกตัวกรองนัดครั้งแรก (ไม่ให้ทุกคนเสียเวลาโหลด)
 
@@ -119,10 +178,7 @@ export default async function CustomersPage(container) {
     // startWatchCustomers()) — ไม่ต้องกรองซ้ำที่นี่อีก
     const today = todayBangkok()
     filtered = customers.filter(c => {
-      const name = fullName(c).toLowerCase()
-      const matchSearch = !search || name.includes(search) ||
-        (c.phone || '').includes(search) || (c.lineId || '').toLowerCase().includes(search) ||
-        (c.interestedModel || '').toLowerCase().includes(search)
+      const matchSearch = matchesSearch(c, search, fullName)
       const matchStage = stageFilter === 'all' || c.stage === stageFilter
       const matchLost = !lostOnly || c.isLost
       // '__none' = ลูกค้าที่ยังไม่มีผู้ดูแล (เช่น ทัก LINE OA เข้ามาเอง) — มอบให้เซลส์ได้ที่หน้า "งานของฉันวันนี้"
@@ -139,6 +195,7 @@ export default async function CustomersPage(container) {
       if (sortMode === 'quiet') return qd(b) - qd(a)
       const newer = (toDate(b.createdAt)?.getTime() || 0) - (toDate(a.createdAt)?.getTime() || 0) // createdAt เป็น Timestamp — new Date() ตรงๆ ได้ NaN
       if (sortMode === 'new') return newer
+      if (sortMode === 'score') return heuristicScore(b).score - heuristicScore(a).score || newer
       const ua = rank[quickUrgency(a)], ub = rank[quickUrgency(b)]
       if (ua !== ub) return ua - ub
       return newer
@@ -176,26 +233,26 @@ export default async function CustomersPage(container) {
       const urgency = URGENCY[quickUrgency(c)]
       return `
       <tr class="cust-row ${c.isLost ? 'is-lost' : ''}" data-id="${c.id}">
-        <td>
+        <td class="cc-name">
           <div style="display:flex;align-items:center;gap:10px">
-            <div class="avatar avatar-md" style="background:${avatarColor(c)};color:#fff">${escHtml(initials(c.firstName, c.lastName))}</div>
+            <div class="avatar avatar-md cust-row-avatar" style="background:${avatarColor(c)};color:#fff">${escHtml(initials(c.firstName, c.lastName))}</div>
             <div>
-              <div style="font-weight:600;color:var(--text)">${escHtml(fullName(c))}${c.vip ? ' <span title="VIP">⭐</span>' : ''}</div>
+              <div style="font-weight:600;color:var(--text);white-space:nowrap">${escHtml(fullName(c))}${c.vip ? ' <span title="VIP">⭐</span>' : ''}</div>
               <div style="font-size:0.75rem;color:var(--text-muted)">${escHtml(c.email || '')}</div>
             </div>
           </div>
         </td>
-        <td>${formatPhone(c.phone) || '<span style="color:var(--text-muted)">-</span>'}${c.lineId ? `<div style="font-size:0.7rem;color:var(--text-muted)">💚 ${escHtml(c.lineId)}</div>` : ''}</td>
-        <td>
+        <td class="cc-contact${c.phone || c.lineId ? '' : ' cc-blank'}" style="white-space:nowrap">${formatPhone(c.phone) || '<span style="color:var(--text-muted)">-</span>'}${c.lineId ? `<div style="font-size:0.7rem;color:var(--text-muted)">💚 ${escHtml(c.lineId)}</div>` : ''}</td>
+        <td class="cc-stage">
           <span class="badge badge-${st.badge}">${escHtml(st.label)}</span>
           ${c.isLost ? `<div style="margin-top:3px"><span class="badge badge-secondary" style="font-size:0.62rem">⬛ เสียดีล</span></div>` : ''}
         </td>
-        <td>${c.temperature ? `<span class="badge badge-${TEMP[c.temperature]?.badge}" style="font-size:0.68rem">${TEMP[c.temperature]?.label}</span>` : '<span style="color:var(--text-muted)">-</span>'}</td>
-        <td style="color:var(--text-2)">${escHtml(c.interestedModel || '-')}</td>
-        <td style="color:var(--text-3);font-size:0.8rem">${SOURCE[c.source] || escHtml(c.source) || '-'}</td>
-        <td>${!c.isLost ? `<span class="badge badge-${urgency.badge}" style="font-size:0.65rem">${urgency.label}</span>` : ''}</td>
-        <td style="color:var(--text-muted);font-size:0.8rem">${timeAgo(c.createdAt)}${quietBadge(c)}</td>
-        <td>
+        <td class="cc-temp${c.temperature || scoreBar(c) ? '' : ' cc-blank'}">${c.temperature ? `<span class="badge badge-${TEMP[c.temperature]?.badge}" style="font-size:0.68rem">${TEMP[c.temperature]?.label}</span>` : scoreBar(c) ? '' : '<span style="color:var(--text-muted)">-</span>'}${scoreBar(c)}</td>
+        <td class="cc-model${c.interestedModel ? '' : ' cc-blank'}" style="color:var(--text-2)">${escHtml(c.interestedModel || '-')}</td>
+        <td class="cc-src${c.source ? '' : ' cc-blank'}" style="color:var(--text-3);font-size:0.8rem">${SOURCE[c.source] || escHtml(c.source) || '-'}</td>
+        <td class="cc-urg">${!c.isLost ? `<span class="badge badge-${urgency.badge}" style="font-size:0.65rem">${urgency.label}</span>` : ''}</td>
+        <td class="cc-age" style="color:var(--text-muted);font-size:0.8rem">${timeAgo(c.createdAt)}${quietBadge(c)}</td>
+        <td class="cc-act">
           <div style="display:flex;gap:4px">
             <button class="btn btn-ghost btn-sm edit-btn" data-id="${c.id}" title="แก้ไข">✏️</button>
             <button class="btn btn-ghost btn-sm del-btn" data-id="${c.id}" title="ลบ" style="color:var(--danger)">🗑</button>
@@ -244,6 +301,7 @@ export default async function CustomersPage(container) {
                 <div class="avatar avatar-xl" style="background:${avatarColor(c)};color:#fff;font-size:1.4rem">${escHtml(initials(c.firstName, c.lastName))}</div>
                 <div>
                   <div style="font-size:1.2rem;font-weight:700">${escHtml(fullName(c))}${c.vip ? ' ⭐' : ''}</div>
+                  ${!c.isLost && ['lead', 'pp'].includes(c.stage) ? (sc => `<div title="${escHtml(sc.signals.join('\n'))}" style="font-size:0.72rem;color:var(--text-muted);margin-top:2px">🎯 โอกาสปิดการขาย <b style="color:${sc.score >= 80 ? 'var(--danger)' : sc.score >= 60 ? 'var(--warning)' : 'var(--text-2)'}">${sc.score}%</b></div>`)(heuristicScore(c)) : ''}
                   <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">
                     <span class="badge badge-${STAGE[c.stage]?.badge || 'secondary'}">${STAGE[c.stage]?.label || escHtml(c.stage)}</span>
                     ${!c.isLost && ['lead', 'pp'].includes(c.stage)
@@ -254,10 +312,11 @@ export default async function CustomersPage(container) {
                 </div>
               </div>
               <div style="display:flex;flex-direction:column;gap:8px">
-                ${detail('📱 โทร', c.phone && String(c.phone).replace(/[^\d+]/g, '') ? `<a href="tel:${String(c.phone).replace(/[^\d+]/g, '')}" style="color:var(--primary)">${formatPhone(c.phone)}</a>` : (formatPhone(c.phone) || '-'))}
+                ${detail('📱 โทร', c.phone && String(c.phone).replace(/[^\d+]/g, '') ? `<a id="wk-tel" href="tel:${String(c.phone).replace(/[^\d+]/g, '')}" style="color:var(--primary)">${formatPhone(c.phone)}</a>` : (formatPhone(c.phone) || '-'))}
                 ${detail('💚 LINE', escHtml(c.lineId || '-'))}
                 ${detail('📧 Email', escHtml(c.email || '-'))}
-                ${detail('🚗 สนใจ', escHtml(c.interestedModel || '-'))}
+                ${detail('🚗 สนใจ', escHtml(c.interestedModel || '-') + (c.isLost ? '' : ' <button class="btn btn-ghost btn-xs" id="wk-td-btn" title="นัดลูกค้ามาทดลองขับ">🚙 นัดทดลองขับ</button>'))}
+                ${(() => { const f = c.interestedModel ? modelFacts(c.interestedModel, getVehicles(), 4) : []; return f.length ? `<details style="margin:-2px 0 2px;font-size:0.76rem"><summary style="cursor:pointer;color:var(--primary)">📋 ราคา/สเปครุ่นนี้ (ไว้ตอบลูกค้า)</summary><div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">${f.map(x => `<div style="padding:6px 8px;border-radius:8px;background:var(--surface-2);line-height:1.45">${escHtml(x)}</div>`).join('')}<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:0.66rem;color:var(--text-muted)">ราคาตั้งจากฐานข้อมูลรถ ยังไม่รวมโปรโมชั่น</span><button type="button" class="btn btn-secondary btn-xs" id="wk-facts-copy">📋 คัดลอกสเปคส่งลูกค้า</button></div>${calcHtml(c)}</div></details>` : '' })()}
                 ${detail('💰 งบประมาณ', c.budget ? formatCurrency(c.budget) : '-')}
                 ${detail('💼 อาชีพ', escHtml(c.occupation || '-'))}
                 ${detail('💵 รายได้ต่อเดือน', c.monthlyIncome ? formatCurrency(c.monthlyIncome) : '-')}
@@ -327,11 +386,26 @@ export default async function CustomersPage(container) {
         </div>
       `,
       footer: `
+        <button class="btn btn-ghost btn-sm" id="wk-delete-btn" style="color:var(--danger);margin-right:auto">🗑️ ลบ</button>
         <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">ปิด</button>
-        <button class="btn btn-danger" id="wk-delete-btn">🗑️ ลบลูกค้า</button>
+        ${String(c.phone || '').replace(/[^\d+]/g, '') ? `<a class="btn btn-primary" id="wk-tel2" href="tel:${String(c.phone).replace(/[^\d+]/g, '')}">📞 โทรหาลูกค้า</a>` : ''}
       `,
     })
 
+    bindCalc(el)
+    // ส่งราคา/สเปครุ่นที่สนใจให้ลูกค้าทาง LINE ในคลิกเดียว (ข้อมูลเดียวกับที่โชว์ ไม่มีข้อมูลลูกค้าปน)
+    el.querySelector('#wk-facts-copy')?.addEventListener('click', async () => {
+      const lines = modelFacts(c.interestedModel, getVehicles(), 4)
+      const text = [`ข้อมูล ${c.interestedModel} ครับ`, ...lines.map(x => '• ' + x), '*ราคาตั้ง ยังไม่รวมโปรโมชั่น สอบถามโปรล่าสุดได้เลยครับ'].join('\n')
+      try { await navigator.clipboard.writeText(text); showToast('📋 คัดลอกแล้ว วางใน LINE ได้เลย', 'success') } catch { showToast('คัดลอกไม่สำเร็จ', 'warning') }
+    })
+    el.querySelector('#wk-td-btn')?.addEventListener('click', () => openTestDriveForm(c, { onSaved: showTd }))
+    // ถ้ามีนัดลองขับอยู่แล้ว ให้เห็นทันทีว่านัดวันไหน (ไม่ต้องไปเปิดหน้า Test Drive)
+    function showTd(t) {
+      const b = el.querySelector('#wk-td-btn')
+      if (b && t?.date) { b.textContent = `🚙 นัดลองขับ ${t.date === todayBangkok() ? 'วันนี้' : formatDate(t.date)}${t.time ? ' ' + t.time : ''}`; b.style.color = 'var(--success)' }
+    }
+    if (!c.isLost) loadUpcomingTestDrive(c).then(showTd).catch(() => {})
     el.querySelector('#wk-touch-btn')?.addEventListener('click', async e => {
       const b = e.currentTarget
       b.disabled = true
@@ -343,6 +417,14 @@ export default async function CustomersPage(container) {
         showToast('✅ บันทึกว่าติดต่อลูกค้าแล้ว', 'success')
       } else { b.disabled = false; showToast('บันทึกไม่สำเร็จ', 'error') }
     })
+    // โทรจากเบอร์ในหน้านี้ → วางสายกลับมาที่แอป ระบบถามผลการโทร (utils/callLogger.js)
+    const armCall = () => armCallLog(c, {
+      hasPending: () => (pendingFuCount.get(c) || 0) > 0,
+      onSaved: () => { refreshFollowupList(c); const span = document.getElementById('wk-last-contact'); if (span && c.lastContactAt) span.textContent = timeAgo(c.lastContactAt) },
+    })
+    el.querySelector('#wk-tel')?.addEventListener('click', armCall)
+    // ปุ่มโทรใหญ่ด้านล่าง (บนมือถือเบอร์ด้านบนเลื่อนหายไปเร็ว) · ปุ่มลบย่อลงไว้ซ้าย กันกดพลาด
+    el.querySelector('#wk-tel2')?.addEventListener('click', armCall)
     // ตั้งความสนใจ (Hot/Warm/Cold) ได้ในคลิกเดียว — กดซ้ำปุ่มเดิมเพื่อล้าง
     el.querySelectorAll('.wk-temp').forEach(btn => btn.addEventListener('click', async () => {
       const t = c.temperature === btn.dataset.t ? null : btn.dataset.t
@@ -426,6 +508,7 @@ export default async function CustomersPage(container) {
     let rows = []
     try { rows = await listDocs('followups', [...companyScopeFilters(), ...followupWindowFilters(today)], 'dueDate', 'asc', 2000) } catch {}
     const list = pendingFollowupsFor(rows, c.id, today)
+    pendingFuCount.set(c, list.length)
     if (!document.getElementById('wk-fu-list-panel')) return
     el.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
@@ -450,7 +533,7 @@ export default async function CustomersPage(container) {
       if (!f) return
       openModal({
         title: '✅ บันทึกผลการติดตาม', size: 'sm',
-        body: `<div class="input-group"><label class="input-label">ผลการติดต่อ *</label><textarea class="input" id="wk-fu-result" rows="3" placeholder="เช่น สนใจ นัดทดลองขับเสาร์นี้"></textarea></div>`,
+        body: `<div class="input-group"><label class="input-label">ผลการติดต่อ *</label><textarea class="input" id="wk-fu-result" data-mic rows="3" placeholder="เช่น สนใจ นัดทดลองขับเสาร์นี้"></textarea></div>`,
         async onConfirm() {
           const result = document.getElementById('wk-fu-result')?.value?.trim()
           if (!result) { showToast('❗ กรุณากรอกผลการติดต่อ', 'error'); return false }
@@ -458,6 +541,7 @@ export default async function CustomersPage(container) {
             await updateDocData('followups', f.id, { status: 'done', result })
             touchCustomerContact(f.customerId)
             showToast('✅ บันทึกผลแล้ว', 'success'); refreshFollowupList(c)
+            offerNextFollowup(c, result, { me: myDisplayName, hasPending: list.some(x => x.id !== f.id), onSaved: () => refreshFollowupList(c) })
           } catch { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
         },
       })
@@ -465,17 +549,22 @@ export default async function CustomersPage(container) {
     }))
   }
 
-  async function refreshTimeline(c) {
-    const el = document.getElementById('wk-timeline')
-    if (!el) return
+  // ไทม์ไลน์การติดต่อ (comm_logs + customer_notes) ใหม่สุดก่อน — ใช้ทั้งหน้าไทม์ไลน์และ AI ผู้ช่วยปิดการขาย
+  async function loadHistory(c) {
     let logs = [], notes = []
     try { logs = await listDocs('comm_logs', [['customerId', '==', c.id], ...companyScopeFilters()], 'createdAt', 'desc', 30) } catch {}
     try { notes = await listDocs('customer_notes', [], 'time', 'desc', 300) } catch {}
     notes = notes.filter(n => n.customer === fullName(c))
-    const merged = [
+    return [
       ...logs.map(l => ({ ts: l.createdAt, icon: LOG_ICONS[l.type] || '📌', label: LOG_LABELS[l.type] || l.type, text: l.note || '' })),
       ...notes.map(n => ({ ts: n.time, icon: NOTE_TYPE_ICONS[n.type] || '📌', label: NOTE_TYPE_LABELS[n.type] || n.type, text: n.text || '', pinned: n.pinned })),
     ].sort((a, b) => new Date(b.ts || 0) - new Date(a.ts || 0))
+  }
+
+  async function refreshTimeline(c) {
+    const el = document.getElementById('wk-timeline')
+    if (!el) return
+    const merged = await loadHistory(c)
     if (!document.getElementById('wk-timeline')) return
     if (!merged.length) { el.innerHTML = `<div class="empty-state" style="padding:12px"><div class="empty-icon" style="font-size:1.5rem">📝</div><div class="empty-title" style="font-size:0.85rem">ยังไม่มีบันทึก</div></div>`; return }
     el.innerHTML = merged.map(m => `
@@ -513,7 +602,7 @@ export default async function CustomersPage(container) {
     el.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
         <span style="font-weight:600;font-size:0.85rem">🧭 คำแนะนำการติดตาม</span>
-        <button class="btn btn-ghost btn-xs" id="wk-ai-analyze-btn">🤖 วิเคราะห์เจาะลึกด้วย AI</button>
+        <button class="btn btn-primary btn-xs" id="wk-ai-analyze-btn" style="background:linear-gradient(135deg,#8B5CF6,#3B82F6);border:none;box-shadow:0 2px 10px rgba(99,102,241,.35)">✨ AI ช่วยปิดการขาย</button>
       </div>
       <div class="card" style="padding:12px 14px;border-left:3px solid var(--${u.badge})">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
@@ -523,32 +612,90 @@ export default async function CustomersPage(container) {
         <div style="font-size:0.82rem;color:var(--text-2);line-height:1.5">${escHtml(rec.recommendation)}</div>
       </div>
       <div id="wk-ai-analysis"></div>
+      <details id="wk-ai-reply" style="margin-top:8px">
+        <summary style="cursor:pointer;font-size:0.8rem;font-weight:600;color:var(--primary)">💬 ลูกค้าถามมา — ให้ AI ช่วยร่างคำตอบ</summary>
+        <textarea id="wk-ai-reply-q" data-mic class="form-input" rows="3" style="margin-top:6px;width:100%;font-size:0.82rem" placeholder="วางข้อความที่ลูกค้าถาม เช่น &quot;S05 วิ่งได้กี่โล ชาร์จที่บ้านได้ไหม&quot;"></textarea>
+        <div style="display:flex;justify-content:flex-end;margin-top:6px"><button class="btn btn-primary btn-xs" id="wk-ai-reply-btn">✨ ร่างคำตอบ</button></div>
+        <div id="wk-ai-reply-out"></div>
+      </details>
     `
-    // วิเคราะห์เจาะลึกด้วย AI จริง (Gemini) — เรียกเฉพาะลูกค้ารายนี้เท่านั้นตอนกดปุ่ม ไม่เรียกอัตโนมัติ
-    // ทุกครั้งที่เปิดดูลูกค้า (จะแพง/ช้าเกินจำเป็น และส่งข้อมูลลูกค้าไปให้ Gemini โดยไม่มีเหตุผลที่ชัดเจน)
+    enhanceMics(el)
+    document.getElementById('wk-ai-reply-btn')?.addEventListener('click', async () => {
+      const btn = document.getElementById('wk-ai-reply-btn')
+      const out = document.getElementById('wk-ai-reply-out')
+      const q = maskContacts(document.getElementById('wk-ai-reply-q')?.value || '').trim()
+      if (!q) { showToast('วางข้อความที่ลูกค้าถามก่อน', 'warning'); return }
+      if (!isAiEnabled()) { showToast('ต้องล็อกอินด้วยบัญชีจริงเพื่อใช้ AI', 'warning'); return }
+      btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span> กำลังร่าง...'
+      try {
+        const brief = buildCustomerBrief(c, { history: await loadHistory(c), today: todayBangkok(), vehicles: getVehicles(), testDrives: await loadTestDrivesFor(c).catch(() => null) })
+        // รุ่นที่ลูกค้าถามอาจไม่ใช่รุ่นที่บันทึกไว้ → แนบข้อมูลรุ่นที่อยู่ในคำถามด้วย
+        // แนบรถพร้อมขายแยกรุ่น/สี ด้วย — ลูกค้ามักถาม "สีขาวมีพร้อมส่งไหม" (โหลดไม่ได้ก็ร่างต่อโดยไม่มีข้อมูลสต็อก)
+        const catalog = [catalogContext(q, getVehicles()), await stockLine()].filter(Boolean).join('\n')
+        const draft = await suggestCustomerReply(q, { channel: 'LINE', sender: c.firstName || 'ลูกค้า', customerInfo: brief, catalog })
+        if (!document.getElementById('wk-ai-reply-out')) return
+        if (!draft) { out.innerHTML = `<div style="font-size:0.78rem;color:var(--danger);margin-top:6px">AI ร่างไม่สำเร็จ ลองใหม่อีกครั้ง</div>`; return }
+        out.innerHTML = `<div class="card" style="padding:10px 12px;margin-top:6px;background:var(--primary-dim);border:1px solid var(--primary)">
+          <div id="wk-ai-reply-text" style="font-size:0.84rem;line-height:1.55;white-space:pre-wrap">${escHtml(draft)}</div>
+          <div style="display:flex;justify-content:flex-end;gap:6px;margin-top:8px"><button class="btn btn-secondary btn-xs" id="wk-ai-reply-copy">📋 คัดลอกไปวางใน LINE</button></div>
+        </div>`
+        document.getElementById('wk-ai-reply-copy')?.addEventListener('click', async () => {
+          try { await navigator.clipboard.writeText(draft); showToast('📋 คัดลอกแล้ว วางใน LINE ได้เลย', 'success') } catch { showToast('คัดลอกไม่สำเร็จ — กดค้างที่ข้อความแล้วคัดลอกเอง', 'warning') }
+        })
+      } catch { if (out) out.innerHTML = `<div style="font-size:0.78rem;color:var(--danger);margin-top:6px">AI ร่างไม่สำเร็จ ลองใหม่อีกครั้ง</div>` }
+      finally { if (document.getElementById('wk-ai-reply-btn')) { btn.disabled = false; btn.innerHTML = '✨ ร่างคำตอบ' } }
+    })
+    if (autoAiOnce) { autoAiOnce = false; setTimeout(() => document.getElementById('wk-ai-analyze-btn')?.click(), 0) }
+    // AI ผู้ช่วยปิดการขาย (Gemini) — เรียกเฉพาะตอนกดปุ่ม ไม่เรียกอัตโนมัติทุกครั้งที่เปิดดูลูกค้า (แพง/ช้า และไม่ควร
+    // ส่งข้อมูลลูกค้าออกไปโดยไม่จำเป็น) ส่งแค่สรุปสถานะ/ประวัติการติดต่อ ไม่ส่งเบอร์/อีเมล/LINE ID (ดู utils/salesAi.js)
     document.getElementById('wk-ai-analyze-btn')?.addEventListener('click', async () => {
       const btn = document.getElementById('wk-ai-analyze-btn')
       const box = document.getElementById('wk-ai-analysis')
       if (!isAiEnabled()) { showToast('ต้องล็อกอินด้วยบัญชีจริงเพื่อใช้ AI วิเคราะห์', 'warning'); return }
-      btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
+      btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span> AI กำลังคิด...'
+      const fail = () => { if (document.getElementById('wk-ai-analysis')) box.innerHTML = `<div style="font-size:0.78rem;color:var(--danger);margin-top:6px">AI วิเคราะห์ไม่สำเร็จ ลองใหม่อีกครั้ง</div>` }
       try {
-        const result = await analyzeCustomer({
-          name: fullName(c), interestedIn: c.interestedModel, source: c.source, budget: c.budget,
-        })
+        const today = todayBangkok()
+        let fuRows = []
+        try { fuRows = await listDocs('followups', [...companyScopeFilters(), ...followupWindowFilters(today)], 'dueDate', 'asc', 2000) } catch {}
+        const brief = buildCustomerBrief(c, { history: await loadHistory(c), followups: pendingFollowupsFor(fuRows, c.id, today), today, vehicles: getVehicles(), testDrives: await loadTestDrivesFor(c).catch(() => null) })
+        const r = await aiSalesCloser(brief)
         if (!document.getElementById('wk-ai-analysis')) return
-        if (result) {
-          box.innerHTML = `<div class="card" style="padding:10px 14px;margin-top:8px;background:var(--primary-dim);border:1px solid var(--primary)">
-            <div style="font-size:0.72rem;color:var(--primary);font-weight:700;margin-bottom:3px">🤖 AI วิเคราะห์ — คะแนนโอกาสปิดดีล ${result.score ?? '-'}%</div>
-            <div style="font-size:0.8rem;color:var(--text-2);line-height:1.5">${escHtml(result.reason || '')}</div>
-            ${result.nextAction ? `<div style="font-size:0.78rem;color:var(--primary);margin-top:4px">→ ${escHtml(result.nextAction)}</div>` : ''}
-          </div>`
-        } else {
-          box.innerHTML = `<div style="font-size:0.78rem;color:var(--danger);margin-top:6px">AI วิเคราะห์ไม่สำเร็จ ลองใหม่อีกครั้ง</div>`
-        }
-      } catch {
-        if (document.getElementById('wk-ai-analysis')) box.innerHTML = `<div style="font-size:0.78rem;color:var(--danger);margin-top:6px">AI วิเคราะห์ไม่สำเร็จ ลองใหม่อีกครั้ง</div>`
+        if (!r) { fail(); return }
+        const ch = { call: '📞 โทร', line: '💚 LINE', visit: '🏠 นัดพบ' }[r.channel] || ''
+        const scoreColor = r.score >= 70 ? 'success' : r.score >= 40 ? 'warning' : 'danger'
+        box.innerHTML = `<div class="card ai-closer" style="padding:12px 14px;margin-top:8px;background:var(--primary-dim);border:1px solid var(--primary)">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span style="font-size:0.75rem;color:var(--primary);font-weight:700">🤖 AI ผู้ช่วยปิดการขาย</span>
+            ${r.score !== null ? `<span class="badge badge-${scoreColor}" style="margin-left:auto">โอกาสปิด ${r.score}%</span>` : ''}
+          </div>
+          ${r.score !== null ? `<div style="height:5px;border-radius:3px;background:var(--surface-2);overflow:hidden;margin-bottom:8px"><div style="height:100%;width:${r.score}%;background:var(--${scoreColor})"></div></div>` : ''}
+          ${r.summary ? `<div style="font-size:0.8rem;color:var(--text-2);line-height:1.5">${escHtml(r.summary)}</div>` : ''}
+          ${r.nextAction ? `<div style="font-size:0.82rem;font-weight:600;color:var(--primary);margin-top:6px">→ ${escHtml(r.nextAction)}${r.when || ch ? `<span style="font-weight:400;color:var(--text-muted)"> · ${escHtml([ch, r.when].filter(Boolean).join(' · '))}</span>` : ''}</div>` : ''}
+          ${r.objections.length ? `<div style="margin-top:8px;font-size:0.75rem;color:var(--text-muted)">ลูกค้าอาจกังวลเรื่อง:</div><ul style="margin:2px 0 0 18px;padding:0;font-size:0.78rem;color:var(--text-2);line-height:1.5">${r.objections.map(o => `<li>${escHtml(o)}</li>`).join('')}</ul>` : ''}
+          ${r.lineMessage ? `<div style="margin-top:8px;font-size:0.75rem;color:var(--text-muted)">💚 ข้อความ LINE ที่ส่งได้เลย (แก้ได้):</div>
+            <textarea class="input" id="wk-ai-line" rows="3" style="width:100%;margin-top:3px;font-size:0.8rem">${escHtml(r.lineMessage)}</textarea>` : ''}
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+            ${r.lineMessage ? `<button class="btn btn-primary btn-xs" id="wk-ai-copy">📋 คัดลอกข้อความ</button>` : ''}
+            ${!c.isLost && mentionsTestDrive(r.nextAction + ' ' + (r.when || '')) ? `<button class="btn btn-secondary btn-xs" id="wk-ai-td">🚙 นัดทดลองขับเลย</button>` : ''}
+            ${!c.isLost && r.followUpDays !== null ? `<button class="btn btn-secondary btn-xs" id="wk-ai-plan">📅 นัดตามที่ AI แนะนำ (${r.followUpDays === 0 ? 'วันนี้' : `อีก ${r.followUpDays} วัน`})</button>` : ''}
+          </div>
+        </div>`
+        box.querySelector('#wk-ai-copy')?.addEventListener('click', async () => {
+          const text = box.querySelector('#wk-ai-line')?.value || r.lineMessage
+          try { await navigator.clipboard.writeText(text); showToast('📋 คัดลอกแล้ว วางใน LINE ได้เลย', 'success') } catch { showToast('คัดลอกไม่สำเร็จ — กดค้างที่ข้อความแล้วคัดลอกเอง', 'warning') }
+        })
+        // AI แนะนำให้ชวนลองขับ → เปิดฟอร์มนัดที่เติมวันจากคำแนะนำ (เช่น "พรุ่งนี้" "เสาร์นี้") ให้เลย
+        box.querySelector('#wk-ai-td')?.addEventListener('click', () => openTestDriveForm(c, { hint: `ลองขับ ${r.when || ''}` }))
+        box.querySelector('#wk-ai-plan')?.addEventListener('click', () => openAddFollowup(c, {
+          me: myDisplayName, dueDate: addDaysIso(today, r.followUpDays), type: r.channel, note: r.nextAction.slice(0, 120),
+          onSaved: () => refreshFollowupList(c),
+        }))
+      } catch (e) {
+        if (e?.code === 'NOT_ENABLED') showToast('ต้องล็อกอินด้วยบัญชีจริงเพื่อใช้ AI วิเคราะห์', 'warning')
+        fail()
       } finally {
-        if (document.getElementById('wk-ai-analyze-btn')) { btn.disabled = false; btn.innerHTML = '🤖 วิเคราะห์เจาะลึกด้วย AI' }
+        if (document.getElementById('wk-ai-analyze-btn')) { btn.disabled = false; btn.innerHTML = '✨ AI ช่วยปิดการขาย' }
       }
     })
   }
@@ -696,7 +843,7 @@ export default async function CustomersPage(container) {
       body: `
         <div class="input-group"><label class="input-label">เหตุผลที่เสียดีล <span class="required">*</span></label>
           ${reasonChipsHtml('lost-chip')}
-          <textarea class="input" id="lost-reason" rows="3" placeholder="เลือกเหตุผลด้านบน แล้วพิมพ์รายละเอียดต่อได้ เช่น ราคา - อีกร้านลดมากกว่า 20,000"></textarea>
+          <textarea class="input" id="lost-reason" data-mic rows="3" placeholder="เลือกเหตุผลด้านบน แล้วพิมพ์รายละเอียดต่อได้ เช่น ราคา - อีกร้านลดมากกว่า 20,000"></textarea>
           <span class="input-error" id="lost-reason-e"></span>
         </div>
       `,
@@ -785,7 +932,7 @@ export default async function CustomersPage(container) {
           </div>
           <div class="input-group">
             <label class="input-label">รายละเอียด <span class="required">*</span></label>
-            <textarea class="input" id="log-note" rows="3" placeholder="บันทึกสิ่งที่คุย..."></textarea>
+            <textarea class="input" id="log-note" data-mic rows="3" placeholder="บันทึกสิ่งที่คุย..."></textarea>
             <span class="input-error" id="log-err"></span>
           </div>
         </div>
@@ -806,6 +953,14 @@ export default async function CustomersPage(container) {
     })
   }
 
+  // รุ่นที่ลูกค้าโชว์รูมนี้สนใจบ่อยขึ้นก่อน ตามด้วยรุ่นจากฐานข้อมูลรถ (ช่วยพิมพ์ให้ชื่อรุ่นตรงกัน)
+  function modelSuggestions() {
+    const freq = new Map()
+    customers.forEach(c => { const m = String(c.interestedModel || '').trim(); if (m) freq.set(m, (freq.get(m) || 0) + 1) })
+    const top = [...freq.entries()].sort((a, b) => b[1] - a[1]).map(([m]) => m).slice(0, 15)
+    return [...new Set([...top, ...getVehicles().map(v => [v.brand, v.model].filter(Boolean).join(' '))])].slice(0, 60)
+  }
+
   function openForm(existing = null, { onSaved } = {}) {
     const isEdit = !!existing
     const { el, close } = openModal({
@@ -814,16 +969,16 @@ export default async function CustomersPage(container) {
         <div style="display:flex;flex-direction:column;gap:14px">
           <div class="grid-2">
             <div class="input-group"><label class="input-label">ชื่อ <span class="required">*</span></label><input class="input" id="ff" value="${escHtml(existing?.firstName || '')}" placeholder="ชื่อ"><span class="input-error" id="ff-e"></span></div>
-            <div class="input-group"><label class="input-label">นามสกุล <span class="required">*</span></label><input class="input" id="fl" value="${escHtml(existing?.lastName || '')}" placeholder="นามสกุล"><span class="input-error" id="fl-e"></span></div>
+            <div class="input-group"><label class="input-label">นามสกุล</label><input class="input" id="fl" value="${escHtml(existing?.lastName || '')}" placeholder="ไม่รู้ก็เว้นไว้ได้"><span class="input-error" id="fl-e"></span></div>
           </div>
           <div class="grid-2">
-            <div class="input-group"><label class="input-label">โทรศัพท์</label><input class="input" id="fp" value="${escHtml(existing?.phone || '')}" placeholder="0812345678"></div>
+            <div class="input-group"><label class="input-label">โทรศัพท์</label><input class="input" id="fp" type="tel" inputmode="tel" autocomplete="off" value="${escHtml(existing?.phone || '')}" placeholder="08x-xxx-xxxx"></div>
             <div class="input-group"><label class="input-label">LINE ID</label><input class="input" id="fl2" value="${escHtml(existing?.lineId || '')}" placeholder="@lineid"></div>
           </div>
           <div style="font-size:0.72rem;color:var(--text-muted);margin-top:-8px">💡 ถ้ายังไม่มีทั้งเบอร์โทรและ LINE ID ระบบจะเก็บเป็นสถานะ "Lead" — เมื่อกรอกอย่างใดอย่างหนึ่งจะขึ้นเป็น "Prospect" อัตโนมัติ</div>
           <div class="input-group"><label class="input-label">Email</label><input class="input" id="fe" type="email" value="${escHtml(existing?.email || '')}" placeholder="email@example.com"></div>
           <div class="grid-2">
-            <div class="input-group"><label class="input-label">รถที่สนใจ</label><input class="input" id="fm" value="${escHtml(existing?.interestedModel || '')}" placeholder="เช่น BYD Seal"></div>
+            <div class="input-group"><label class="input-label">รถที่สนใจ</label><input class="input" id="fm" list="fm-models" autocomplete="off" value="${escHtml(existing?.interestedModel || '')}" placeholder="เช่น DEEPAL S07"><datalist id="fm-models">${modelSuggestions().map(m => `<option value="${escHtml(m)}">`).join('')}</datalist></div>
             <div class="input-group"><label class="input-label">งบประมาณ (บาท)</label><input class="input" type="number" id="fb" value="${existing?.budget || ''}" placeholder="1000000"></div>
           </div>
           <div class="grid-2">
@@ -849,7 +1004,6 @@ export default async function CustomersPage(container) {
       const last = document.getElementById('fl').value.trim()
       let ok = true
       if (!first) { document.getElementById('ff-e').textContent = 'กรุณาระบุชื่อ'; ok = false }
-      if (!last) { document.getElementById('fl-e').textContent = 'กรุณาระบุนามสกุล'; ok = false }
       if (!ok) return
       const btn = el.querySelector('#fok'); const btnHtml = btn.innerHTML; btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
       const fields = {
@@ -913,10 +1067,11 @@ export default async function CustomersPage(container) {
       <div class="page-header">
         <div><div class="page-title">👥 ลูกค้า</div><div class="page-subtitle" id="cust-count">กำลังโหลด...</div></div>
         <div class="page-actions">
-          <button class="btn btn-ghost btn-sm" id="pipeline-link-btn">📋 Pipeline View</button>
-          <button class="btn btn-ghost btn-sm" id="sheet-view-btn" title="Spreadsheet View">📊 Sheet</button>
-          <button class="btn btn-ghost btn-sm" id="import-cust-btn">📤 Import</button>
-          <button class="btn btn-secondary btn-sm" id="export-cust-btn">📥 Export</button>
+          <button class="btn btn-ghost btn-sm pa-more" id="pipeline-link-btn">📋 Pipeline View</button>
+          <button class="btn btn-ghost btn-sm pa-more" id="sheet-view-btn" title="Spreadsheet View">📊 Sheet</button>
+          <button class="btn btn-ghost btn-sm pa-more" id="import-cust-btn">📤 Import</button>
+          <button class="btn btn-secondary btn-sm pa-more" id="export-cust-btn">📥 Export</button>
+          <button class="btn btn-ghost btn-sm pa-more-btn" type="button" title="เมนูเพิ่มเติม">⋯ อื่นๆ</button>
           <button class="btn btn-secondary" id="quick-lead-page-btn">🧲 Lead ด่วน</button>
           <button class="btn btn-primary" id="add-cust-btn">➕ เพิ่มลูกค้า</button>
         </div>
@@ -928,7 +1083,7 @@ export default async function CustomersPage(container) {
       </div>
       ` : ''}
 
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px">
+      <div class="cust-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(84px,1fr));gap:8px;margin-bottom:16px">
         ${STAGE_ORDER.map(k => `
           <div class="card stat-pill" data-s="${k}" style="padding:10px 12px;text-align:center;cursor:pointer">
             <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:4px">${STAGE[k].label}</div>
@@ -942,10 +1097,11 @@ export default async function CustomersPage(container) {
       </div>
 
       <div class="card mb-4" style="padding:14px 20px">
-        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div class="cust-filters" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
           <div style="position:relative;flex:1;min-width:200px">
             <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted)">🔍</span>
-            <input class="input" id="cust-search" placeholder="ค้นหาชื่อ เบอร์โทร LINE รถที่สนใจ..." style="padding-left:32px">
+            <input class="input" id="cust-search" placeholder="ค้นหา ชื่อ เบอร์ รุ่นรถ (เช่น s07 สมชาย)" style="padding-left:32px${hasSpeechInput() ? ';padding-right:44px' : ''}">
+            ${hasSpeechInput() ? '<button type="button" class="btn btn-ghost btn-sm" id="cust-search-mic" title="พูดชื่อ/เบอร์ที่ต้องการหา" style="position:absolute;right:4px;top:50%;transform:translateY(-50%)">🎤</button>' : ''}
           </div>
           <select class="input" id="cust-sales-filter" style="width:auto;min-width:140px" title="กรองตามผู้ดูแล">
             <option value="">👤 ผู้ดูแลทั้งหมด</option>
@@ -960,6 +1116,7 @@ export default async function CustomersPage(container) {
             <option value="urgent">↕️ ด่วนก่อน</option>
             <option value="quiet">💤 เงียบนานสุดก่อน</option>
             <option value="new">🆕 เพิ่มล่าสุดก่อน</option>
+            <option value="score">🎯 โอกาสปิดสูงสุดก่อน</option>
           </select>
           <select class="input" id="cust-fu-filter" style="width:auto;min-width:130px" title="กรองตามนัดติดตาม">
             <option value="">📅 นัดติดตาม: ทั้งหมด</option>
@@ -979,8 +1136,8 @@ export default async function CustomersPage(container) {
         </div>
       </div>
 
-      <div class="table-wrap">
-        <table>
+      <div class="table-wrap cust-table-wrap">
+        <table class="cust-table">
           <thead><tr>
             <th>ลูกค้า</th><th>ติดต่อ</th><th>สถานะ</th><th>อุณหภูมิ</th><th>รถที่สนใจ</th><th>ที่มา</th><th>ความเร่งด่วน</th><th>เพิ่มเมื่อ</th><th></th>
           </tr></thead>
@@ -1061,6 +1218,8 @@ export default async function CustomersPage(container) {
   })
 
   document.getElementById('add-cust-btn').addEventListener('click', () => openForm())
+  // มือถือ: ปุ่มรอง (Pipeline/Sheet/Import/Export) ซ่อนไว้ใต้ ⋯ อื่นๆ หัวหน้าไม่รก
+  container.querySelector('.pa-more-btn')?.addEventListener('click', e => e.currentTarget.closest('.page-actions').classList.toggle('pa-open'))
   document.getElementById('quick-lead-page-btn').addEventListener('click', () => openQuickLead())
   document.getElementById('pipeline-link-btn').addEventListener('click', () => navigate('/crm/pipeline'))
 
@@ -1114,6 +1273,8 @@ export default async function CustomersPage(container) {
     })
   })
   document.getElementById('cust-search').addEventListener('input', e => { search = e.target.value.trim().toLowerCase(); applyFilter() })
+  // พูดแทนพิมพ์ในช่องค้นหา (มือถือ) — แทนที่คำค้นเดิม แล้วกรองทันที
+  bindMic(document.getElementById('cust-search-mic'), document.getElementById('cust-search'), { replace: true })
   document.getElementById('cust-sales-filter').addEventListener('change', e => { salesFilter = e.target.value; applyFilter() })
   document.getElementById('cust-source-filter').addEventListener('change', e => { sourceFilter = e.target.value; applyFilter() })
   document.getElementById('cust-sort').addEventListener('change', e => { sortMode = e.target.value; applyFilter() })
@@ -1151,6 +1312,7 @@ export default async function CustomersPage(container) {
   const deepLinkId = new URLSearchParams(window.location.search).get('id')
   if (deepLinkId) {
     const c = customers.find(x => x.id === deepLinkId)
+    autoAiOnce = !!c && new URLSearchParams(window.location.search).get('ai') === '1' && isAiEnabled()
     if (c) openDetail(c)
     else showToast('ไม่พบลูกค้ารายนี้ (อาจถูกลบไปแล้ว)', 'warning')
   }

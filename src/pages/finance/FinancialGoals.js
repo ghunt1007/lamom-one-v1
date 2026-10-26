@@ -79,7 +79,7 @@ export default async function FinancialGoalsPage(container) {
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(320px, 100%),1fr));gap:12px">
           ${list.map(g => {
             const cat = GOAL_CATS[g.cat]
             const p = pct(g)

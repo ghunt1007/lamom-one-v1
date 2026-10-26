@@ -36,6 +36,8 @@ const DELIVERED_STATUSES = ['ส่งมอบแล้ว', 'ตัดตั�
 const PENDING_STATUSES = ['จัดไฟแนนซ์ก่อนจอง', 'รอผลไฟแนนซ์', 'ยอดจองคงค้าง', 'รอรถ', 'รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ']
 const PENDING_ALWAYS_SHOWN = ['รอผลไฟแนนซ์', 'ยอดจองคงค้าง', 'รอรถ', 'รอส่งมอบ']
 const CANCELLED_STATUSES = ['ถอนจอง', 'ยกเลิก']
+// รอรถ/รอส่งมอบ/ตัดตัวเลข/ส่งมอบแล้ว = ไฟแนนซ์ผ่านแล้วเสมอ (เจ้าของกำหนด) — ตรงกับ src/utils/finance.js
+const FIN_PASSED_STATUSES = ['รอรถ', 'รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ', 'ส่งมอบแล้ว']
 const STAFF_ROLES = ['owner', 'admin', 'manager', 'sales', 'service', 'finance', 'hr', 'staff']
 // 02:00 UTC = 09:00 เวลาไทย — ต้องตรงกับบรรทัดใน [triggers] crons ของ wrangler-daily-report.toml
 const MORNING_CRON = '0 2 * * *'
@@ -107,9 +109,19 @@ async function runMorningReminder(env, accessToken) {
   if (env.LINE_CHANNEL_ACCESS_TOKEN) {
     const targets = await runQuery(env, accessToken, 'line_sales_targets', null, null, 500, ['name', 'userId']).catch(() => [])
     const goals = await readSalesGoals(env, accessToken, today.slice(0, 7))
-    for (const m of matchSalesTargets(sections, targets)) {
-      const r = await pushLine(env, m.userId, buildPersonalReminder(m.section, today, env.ALLOWED_ORIGIN, sellerGoal(data, goals, m.name, today)))
-      personal.push({ name: m.name, ...r })
+    // หัวหน้า/แอดมินได้งานของทั้งทีมตามผังองค์กร · LINE เจ้าของได้สรุปรวมด้านบนแล้ว ไม่ส่งซ้ำ
+    const [staff, users] = await readStaffAndUsers(env, accessToken)
+    const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
+    for (const t of targets) {
+      if (!t.userId || !t.name || t.userId === owner) continue
+      const mine = sectionsForScope(sections, teamScopeFor(t.name, staff, users), t.name)
+      if (!mine.length) continue
+      const team = mine.length > 1 || normSalesName(mine[0].name) !== normSalesName(t.name)
+      const text = team
+        ? teamTasksText(mine, today, env.ALLOWED_ORIGIN).replace('📋 งานค้างของทีมตอนนี้', '☀️ งานค้างของทีมเช้านี้')
+        : buildPersonalReminder(mine[0], today, env.ALLOWED_ORIGIN, sellerGoal(data, goals, t.name, today))
+      const r = await pushLine(env, t.userId, text)
+      personal.push({ name: t.name, team, ...r })
     }
   }
   return { text, telegram, line, personal, weekly }
@@ -299,8 +311,10 @@ async function handleLineWebhook(request, env, cors) {
       } else otherMessage = true
     } else if (cmd.type === 'tasks') {
       // ตอบเฉพาะคนที่ลงทะเบียนเป็นเซลส์แล้ว — คนอื่น (เช่น ลูกค้าพิมพ์คำว่า "งาน") ไม่ตอบ ไม่ให้ข้อมูลภายในหลุด
+      // เจ้าของ (ปลายทางรายงาน) เห็นงานทั้งทีมแม้ไม่ได้ลงทะเบียนชื่อ · หัวหน้า/แอดมินเห็นงานของลูกทีมตามผังองค์กร
       const me = await readSalesTarget(env, accessToken, userId)
-      if (me?.name) reply = await buildTasksReply(env, accessToken, me.name)
+      const owner = env.LINE_TARGET_ID || await readLineTarget(env, accessToken)
+      if (me?.name || (owner && owner === userId)) reply = await buildTasksReply(env, accessToken, me?.name || '', owner === userId)
       else otherMessage = true
     } else if (cmd.type === 'unregister') {
       await deleteSalesTarget(env, accessToken, userId)
@@ -566,9 +580,40 @@ async function buildMorningData(env, accessToken) {
     runQuery(env, accessToken, 'followups', null, null, 5000, ['dueDate', 'status', 'salesperson', 'customerName', 'customerId', 'autoLead', 'deleted'], ['status', 'pending']),
     runQuery(env, accessToken, 'test_drives', null, null, 3000, ['date', 'time', 'status', 'staff', 'customerName', 'model', 'deleted']).catch(() => []),
   ])
+  // แก้สถานะไฟแนนซ์ที่ค้าง "รอผล" ของใบจองที่ไปถึงรอรถ/รอส่งมอบ/ส่งมอบแล้ว ให้เป็น "ผ่าน" ในฐานข้อมูลจริงทุกเช้า
+  const fixes = bookings.filter(b => b.id && finPassPatch(b))
+  if (fixes.length && await commitFinancePassed(env, accessToken, fixes.map(b => b.id))) fixes.forEach(b => { b.finStatus = 'ผ่าน' })
   const today = todayBangkok()
   const data = { bookings, customers, followups, testDrives }
   return { today, data, text: buildMorningReminder(data, { today }), sections: buildMorningSections(data, { today }) }
+}
+
+// คืน { finStatus: 'ผ่าน' } ถ้าใบจองนี้ต้องแก้สถานะไฟแนนซ์อัตโนมัติ (ไม่แตะซื้อสด) — ตรงกับ src/utils/finance.js
+export function finPassPatch(b) {
+  if (!b || b.deleted || !FIN_PASSED_STATUSES.includes(b.status)) return null
+  if (b.finStatus === 'ซื้อสด' || b.financeCo === 'ซื้อสด' || b.finStatus === 'ผ่าน') return null
+  return { finStatus: 'ผ่าน' }
+}
+
+// เขียน finStatus = 'ผ่าน' ทีละไม่เกิน 500 ใบในคำขอเดียว (Firestore commit) — แตะเฉพาะช่องนี้ช่องเดียว
+export function financePassedWrites(projectId, ids) {
+  return ids.slice(0, 500).map(id => ({
+    update: { name: `projects/${projectId}/databases/(default)/documents/bookings/${id}`, fields: { finStatus: { stringValue: 'ผ่าน' } } },
+    updateMask: { fieldPaths: ['finStatus'] },
+    currentDocument: { exists: true },
+  }))
+}
+
+async function commitFinancePassed(env, accessToken, ids) {
+  try {
+    const res = await fetch(`https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents:commit`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ writes: financePassedWrites(env.FIREBASE_PROJECT_ID, ids) }),
+    })
+    if (!res.ok) console.error('commitFinancePassed', res.status, await res.text().catch(() => ''))
+    return res.ok
+  } catch (e) { console.error('commitFinancePassed', e); return false }
 }
 
 // สร้างข้อความเตือนจากข้อมูลล้วนๆ (export ไว้เทส) — ต่อเซลส์ 1 คน มี 3 เรื่อง:
@@ -606,13 +651,6 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
   alive(data.bookings)
     .filter(b => DELIVERED_STATUSES.includes(b.status) && (b.cutDate || b.actualDeliveryDate || '').startsWith(thisMonth) && !(Number(b.totalIncome) || 0))
     .forEach(b => person(b.salesName).income.push({ name: b.custName || 'ลูกค้า', model: b.model }))
-  // ใบจองที่ยังไม่ส่งมอบ/ไม่ถอน จองมาเกิน STUCK_BOOKING_DAYS วัน — เกณฑ์เดียวกับ Intelligence Center บน Dashboard
-  alive(data.bookings)
-    .filter(b => !DELIVERED_STATUSES.includes(b.status) && !CANCELLED_STATUSES.includes(b.status) && /^\d{4}-\d{2}-\d{2}/.test(b.bookingDate || ''))
-    .forEach(b => {
-      const days = dayNum(today) - dayNum(b.bookingDate.slice(0, 10))
-      if (days >= STUCK_BOOKING_DAYS) person(b.salesName).stuck.push({ name: b.custName || 'ลูกค้า', status: b.status || '—', days })
-    })
 
   // นัดส่งมอบวันนี้/พรุ่งนี้ — ขึ้นก่อนเรื่องอื่น เพราะต้องเตรียมรถ/เอกสาร
   // "ตัดตัวเลขรอส่งมอบ" ยังไม่ได้ส่งรถจริง ต้องเตือนด้วย — ตัดออกเฉพาะที่ส่งมอบแล้วจริง/ถอนจอง
@@ -632,13 +670,23 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
     })
 
   // ไฟแนนซ์รอผลเกิน 3 วัน / ไม่ผ่านแต่ยังไม่ถอนจอง (เกณฑ์เดียวกับ src/utils/myDay.js)
+  // รอรถ/รอส่งมอบ = ไฟแนนซ์ผ่านแล้วเสมอ แม้ช่องสถานะไฟแนนซ์ยังค้าง "รอผล"
+  const inFin = new Set()
   alive(data.bookings)
-    .filter(b => !DELIVERED_STATUSES.includes(b.status) && !CANCELLED_STATUSES.includes(b.status))
+    .filter(b => !DELIVERED_STATUSES.includes(b.status) && !CANCELLED_STATUSES.includes(b.status) && !FIN_PASSED_STATUSES.includes(b.status) && b.finStatus !== 'ผ่าน')
     .forEach(b => {
       const sent = /^\d{4}-\d{2}-\d{2}/.test(b.submitDate || '') ? b.submitDate.slice(0, 10) : (b.bookingDate || '').slice(0, 10)
       const days = /^\d{4}-\d{2}-\d{2}$/.test(sent) ? dayNum(today) - dayNum(sent) : 0
-      if (b.finStatus === 'ไม่ผ่าน') person(b.salesName).fin.push({ name: b.custName || 'ลูกค้า', co: b.financeCo, rejected: true, days })
-      else if ((b.finStatus === 'รอผล' || b.status === 'รอผลไฟแนนซ์') && days >= 3) person(b.salesName).fin.push({ name: b.custName || 'ลูกค้า', co: b.financeCo, rejected: false, days })
+      if (b.finStatus === 'ไม่ผ่าน') { person(b.salesName).fin.push({ name: b.custName || 'ลูกค้า', co: b.financeCo, rejected: true, days }); inFin.add(b) }
+      else if ((b.finStatus === 'รอผล' || b.status === 'รอผลไฟแนนซ์') && days >= 3) { person(b.salesName).fin.push({ name: b.custName || 'ลูกค้า', co: b.financeCo, rejected: false, days }); inFin.add(b) }
+    })
+  // ใบจองที่ยังไม่ส่งมอบ/ไม่ถอน จองมาเกิน STUCK_BOOKING_DAYS วัน — เกณฑ์เดียวกับ Intelligence Center บน Dashboard
+  // ใบที่ขึ้นในหัวข้อไฟแนนซ์แล้วไม่ขึ้นซ้ำตรงนี้ (เดิมคนเดียวนับ 2 ครั้ง)
+  alive(data.bookings)
+    .filter(b => !inFin.has(b) && !DELIVERED_STATUSES.includes(b.status) && !CANCELLED_STATUSES.includes(b.status) && /^\d{4}-\d{2}-\d{2}/.test(b.bookingDate || ''))
+    .forEach(b => {
+      const days = dayNum(today) - dayNum(b.bookingDate.slice(0, 10))
+      if (days >= STUCK_BOOKING_DAYS) person(b.salesName).stuck.push({ name: b.custName || 'ลูกค้า', status: b.status || '—', days })
     })
 
   // นัดทดลองขับวันนี้ที่ยังไม่จบ
@@ -682,8 +730,27 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
         p.stuck.sort((a, b) => b.days - a.days)
         out.push(`  ⏳ ใบจองค้างเกิน ${STUCK_BOOKING_DAYS} วัน: ${p.stuck.length} ใบ`, ...list(p.stuck.map(b => `${b.name} · ${b.status} · ${b.days} วัน`)))
       }
-      return { name: n, text: out.join('\n') }
+      return { name: n, text: out.join('\n'), focus: focusLines(p) }
     })
+}
+
+// "เริ่มจาก 3 อย่างนี้ก่อน" — ลำดับเดียวกับการ์ดในหน้า "งานของฉันวันนี้" (topPriorities ใน src/utils/myDay.js):
+// ส่งมอบวันนี้ > ลูกค้า Hot ที่เงียบ > นัดเลยกำหนด > ไฟแนนซ์ไม่ผ่าน > รถพร้อมส่งยังไม่นัด > ทดลองขับวันนี้ > ที่เหลือ
+export function focusLines(p, limit = 3) {
+  const out = []
+  const push = (score, text, who) => out.push({ score, text, who })
+  p.deliver.filter(d => !d.inDays).forEach(d => push(95, `ส่งมอบรถ ${d.name}${d.time ? ` เวลา ${d.time}` : ''} วันนี้`, d.name))
+  p.stale.filter(s => s.hot).forEach(s => push(85 + Math.min(10, s.days), `ทักลูกค้า Hot ${s.name} (เงียบมา ${s.days} วัน)`, s.name))
+  p.fu.forEach(f => push(f.late ? 82 : 78, `ติดต่อ ${f.name}${f.late ? ' (เลยกำหนดแล้ว)' : ' ตามนัดวันนี้'}`, f.name))
+  p.fin.forEach(f => push(f.rejected ? 76 : 60 + Math.min(10, f.days), f.rejected ? `หาไฟแนนซ์ใหม่ให้ ${f.name}` : `ตามผลไฟแนนซ์ ${f.name} (รอ ${f.days} วัน)`, f.name))
+  p.unsched.forEach(d => push(d.missed ? 74 : 68, `โทรนัดวันส่งมอบ ${d.name}`, d.name))
+  p.td.forEach(t => push(70, `ทดลองขับ ${t.name}${t.time ? ` เวลา ${t.time}` : ''}`, t.name))
+  p.stale.filter(s => !s.hot).forEach(s => push(40 + Math.min(10, s.days), `ทักลูกค้าที่เงียบไป ${s.name} (${s.days} วัน)`, s.name))
+  p.income.forEach(i => push(45, `กรอกรายได้ ${i.name}`, i.name))
+  p.stuck.forEach(b => push(30, `เคลียร์ใบจอง ${b.name} (ค้าง ${b.days} วัน)`, b.name))
+  const seen = new Set()
+  // คนเดียวกันขึ้นแค่ครั้งเดียว (เช่น ลูกค้า Hot ที่มีนัดเลยกำหนดด้วย)
+  return out.sort((a, b) => b.score - a.score).filter(x => !seen.has(x.who) && seen.add(x.who)).map(x => x.text).slice(0, limit)
 }
 
 export function buildMorningReminder(data, opts) {
@@ -717,6 +784,7 @@ export function buildPersonalReminder(section, today, appUrl = '', goal = null) 
     `🗓 ${formatThaiDate(today)}`,
     goal?.target ? `🎯 เป้าเดือนนี้: ส่งมอบแล้ว ${goal.done}/${goal.target} คัน${goal.done >= goal.target ? ' ถึงเป้าแล้ว! 🎉' : ` (เหลือ ${goal.target - goal.done} คัน)`}` : null,
     '',
+    section.focus?.length ? ['⭐ เริ่มจาก ' + section.focus.length + ' อย่างนี้ก่อน:', ...section.focus.map((f, i) => `  ${i + 1}. ${f}`), ''].join('\n') : null,
     section.text,
     '',
     '💡 โทรเสร็จพิมพ์ "โทรแล้ว เบอร์" · นัดต่อพิมพ์ "นัด เบอร์ พรุ่งนี้" · ลูกค้าสนใจมากพิมพ์ "ร้อน เบอร์"',
@@ -1081,9 +1149,14 @@ async function readSalesTarget(env, accessToken, userId) {
   } catch { return null }
 }
 // ตอบคำสั่ง "งาน" — งานค้างของเซลส์คนนี้ ณ ตอนนี้ (เนื้อหาเดียวกับข้อความ 9 โมงเช้า)
-async function buildTasksReply(env, accessToken, name) {
+async function buildTasksReply(env, accessToken, name, isOwner = false) {
   try {
     const { sections, today, data } = await buildMorningData(env, accessToken)
+    const scope = isOwner ? { all: true } : teamScopeFor(name, ...await readStaffAndUsers(env, accessToken))
+    const mine = sectionsForScope(sections, scope, name)
+    if (scope.all || mine.length > 1 || (mine.length === 1 && normSalesName(mine[0].name) !== normSalesName(name))) {
+      return teamTasksText(mine, today, env.ALLOWED_ORIGIN)
+    }
     const goals = await readSalesGoals(env, accessToken, today.slice(0, 7))
     return tasksReplyText(sections, name, today, env.ALLOWED_ORIGIN, sellerGoal(data, goals, name, today))
   } catch { return '⚠️ ดึงงานค้างไม่สำเร็จ ลองใหม่อีกครั้งครับ' }
@@ -1130,6 +1203,57 @@ export function buildTomorrowText(data, name, today) {
     ...(fus.length ? ['', `📞 นัดติดตาม ${fus.length} ราย`, ...cap(fus, f => `  - ${f.customerName || 'ลูกค้า'}`)] : []),
   ].join('\n')
 }
+async function readStaffAndUsers(env, accessToken) {
+  const [staff, users] = await Promise.all([
+    runQuery(env, accessToken, 'staff', null, null, 1000, ['firstName', 'lastName', 'nickname', 'uid', 'managerId', 'managerIds', 'deleted']).catch(() => []),
+    runQuery(env, accessToken, 'users', null, null, 1000, ['role', 'displayName', 'groupWide']).catch(() => []),
+  ])
+  return [staff, users]
+}
+
+// ขอบเขตงานที่คนนี้ควรเห็นตามตำแหน่ง (ตรงกับ src/core/hierarchy.js): แอดมิน/เจ้าของบริษัท/groupWide = ทั้งทีม,
+// คนอื่น = ตัวเอง + ลูกทีมทุกระดับตาม staff.managerId/managerIds — คืน { all: true } หรือ { names: Set(ชื่อ normalize) }
+export function teamScopeFor(name, staff, users) {
+  const key = normSalesName(name)
+  const keysOf = s => [`${s.firstName || ''}${s.lastName || ''}`, s.firstName, s.nickname].map(normSalesName).filter(Boolean)
+  const alive = (staff || []).filter(s => s && !s.deleted)
+  const me = alive.find(s => normSalesName(`${s.firstName || ''}${s.lastName || ''}`) === key) || alive.find(s => keysOf(s).includes(key))
+  const user = (users || []).find(u => (me?.uid && u.id === me.uid) || (key && normSalesName(u.displayName) === key))
+  if (user && (['owner', 'admin'].includes(user.role) || user.groupWide === true)) return { all: true }
+  const names = new Set(key ? [key] : [])
+  if (!me) return { names }
+  keysOf(me).forEach(n => names.add(n))
+  const managers = s => (Array.isArray(s.managerIds) && s.managerIds.length ? s.managerIds : (s.managerId ? [s.managerId] : []))
+  const queue = [me.id]
+  const seen = new Set()
+  while (queue.length) {
+    const id = queue.shift()
+    if (seen.has(id)) continue
+    seen.add(id)
+    alive.filter(s => managers(s).includes(id)).forEach(c => { keysOf(c).forEach(n => names.add(n)); queue.push(c.id) })
+  }
+  return { names }
+}
+
+// ส่วนงานที่อยู่ในขอบเขต เรียงของตัวเองขึ้นก่อน
+export function sectionsForScope(sections, scope, selfName = '') {
+  const list = scope?.all ? [...(sections || [])] : (sections || []).filter(s => scope?.names?.has(normSalesName(s.name)))
+  const self = normSalesName(selfName)
+  return list.sort((a, b) => Number(normSalesName(b.name) === self) - Number(normSalesName(a.name) === self))
+}
+
+export function teamTasksText(sections, today, appUrl = '') {
+  if (!sections.length) return '✅ ตอนนี้ทีมของคุณไม่มีงานค้างครับ'
+  return clipLine([
+    '📋 งานค้างของทีมตอนนี้',
+    `🗓 ${formatThaiDate(today)} · 👥 ${sections.length} คน`,
+    '',
+    sections.map(s => s.text).join('\n\n'),
+    '',
+    appUrl ? `👉 ดูรายละเอียด: ${String(appUrl).replace(/\/+$/, '')}/crm/my-day` : null,
+  ].filter(l => l !== null).join('\n'))
+}
+
 export function tasksReplyText(sections, name, today, appUrl = '', goal = null) {
   const m = matchSalesTargets(sections, [{ name, userId: '-' }])[0]
   if (m) return buildPersonalReminder(m.section, today, appUrl, goal).replace('☀️ งานค้างของคุณเช้านี้', '📋 งานค้างของคุณตอนนี้')

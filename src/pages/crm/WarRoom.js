@@ -18,6 +18,12 @@ import { on } from '../../core/store.js'
 import { classifyLostReason } from '../../utils/lostReason.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { getVisibilityScope, scopeIncludesRecord } from '../../core/hierarchy.js'
+import { dealValue } from '../../utils/salesAi.js'
+import { getVehicles } from '../../data/vehicleDatabase.js'
+
+// มูลค่าดีล: งบลูกค้า หรือถ้าไม่ได้กรอกงบ ใช้ราคารุ่นที่สนใจจาก catalog (สูตรเดียวกับหน้า Pipeline)
+const valCache = new Map()
+const val = c => { try { return dealValue(c, getVehicles(), valCache) } catch { return c.budget || 0 } }
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -208,7 +214,7 @@ export default async function WarRoomPage(container) {
   // ── Derived numbers for the top summary strip ──────────────────────────────
   function computeSummary() {
     const activeCustomers = customers.filter(c => !c.isLost)
-    const pipelineValue = activeCustomers.reduce((s, c) => s + (c.budget || 0), 0)
+    const pipelineValue = activeCustomers.reduce((s, c) => s + val(c), 0)
 
     // เดิมไม่กันตัวหารเป็น 0 (ไม่มี Lead เลย) ทำให้โชว์ NaN%/Infinity% ให้ผู้ใช้เห็น
     const overallConv = Math.round(funnelStages[funnelStages.length - 1].count / (funnelStages[0].count || 1) * 1000) / 10
@@ -249,7 +255,7 @@ export default async function WarRoomPage(container) {
       <div style="display:flex;gap:12px;overflow-x:auto;align-items:flex-start;padding-bottom:8px">
         ${PIPE_STAGES.map(stage => {
           const cards = active.filter(c => c.stage === stage.key)
-          const stageValue = cards.reduce((s, c) => s + (c.budget || 0), 0)
+          const stageValue = cards.reduce((s, c) => s + val(c), 0)
           return `
             <div style="min-width:210px;flex:1;max-width:260px;background:var(--surface-2);border-radius:var(--radius-lg);padding:12px 14px">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
@@ -262,7 +268,7 @@ export default async function WarRoomPage(container) {
                   <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:8px 10px;border-left:3px solid var(--${stage.color})">
                     <div style="font-weight:600;font-size:0.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml([c.firstName, c.lastName].filter(Boolean).join(' ') || c.custName || '-')}${c.vip ? ' ⭐' : ''}</div>
                     <div style="font-size:0.72rem;color:var(--text-muted)">🚗 ${escHtml(c.interestedModel || '-')}</div>
-                    <div style="font-size:0.74rem;font-weight:600;color:var(--accent)">${c.budget ? '฿' + Number(c.budget).toLocaleString() : '-'}</div>
+                    <div style="font-size:0.74rem;font-weight:600;color:var(--accent)">${c.budget ? '฿' + Number(c.budget).toLocaleString() : val(c) ? '≈฿' + Number(val(c)).toLocaleString() : '-'}</div>
                   </div>
                 `).join('')}
                 ${!cards.length ? `<div style="border:2px dashed var(--border);border-radius:var(--radius-md);padding:12px;text-align:center;color:var(--text-muted);font-size:0.74rem">ไม่มีรายการ</div>` : ''}

@@ -101,6 +101,10 @@
 .nav-grp-arrow { font-size: 0.65rem; opacity: 0.6; margin-left: 4px; }
 .nav-group-items { overflow: hidden; transition: all 0.2s ease; }
 .nav-group-items.grp-hidden { display: none; }
+.nav-group-items.grp-hidden.sb-force-open { display: block; }
+.sidebar-find { padding: 8px 12px 4px; }
+.sidebar-find input { width: 100%; box-sizing: border-box; font-size: 16px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2, var(--bg-secondary)); color: var(--text, inherit); }
+.sidebar-find input:focus { outline: none; border-color: var(--primary); }
 
 .nav-item {
   display: flex;
@@ -118,6 +122,8 @@
   white-space: nowrap;
   position: relative;
 }
+/* ชื่อเมนูยาวไม่ล้นออกนอกแถบเมนู: ตัดเป็น … (ชื่อเต็มอยู่ใน title ตอนชี้เมาส์) */
+.nav-item .nav-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
 .nav-item:hover {
   background: var(--surface-2);
@@ -412,4 +418,182 @@
   .main-wrap { margin-left: 0; }
   .topbar-search { display: none; }
   .topbar-menu-btn { display: flex; }
+}
+
+/* ── Mobile bottom nav (BottomNav.js) ── */
+.bottom-nav { display: none; }
+.topbar-search-btn { display: none; }
+@media (max-width: 768px) {
+  :root { --bottom-nav-h: calc(64px + env(safe-area-inset-bottom, 0px)); }
+  .bottom-nav {
+    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 97;
+    height: calc(60px + env(safe-area-inset-bottom, 0px)); padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid var(--border);
+  }
+  .bottom-nav-item {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    background: none; border: none; color: var(--text-muted); font-size: 0.66rem; font-family: inherit; cursor: pointer;
+  }
+  .bottom-nav-item.active { color: var(--primary); font-weight: 700; }
+  .bottom-nav-icon { font-size: 1.2rem; line-height: 1; }
+  .bottom-nav-plus {
+    width: 42px; height: 42px; margin-top: -18px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; font-size: 1.2rem; color: #fff;
+    background: linear-gradient(135deg, var(--primary), #8B5CF6); box-shadow: 0 4px 14px color-mix(in srgb, var(--primary) 45%, transparent);
+  }
+  .main-wrap { padding-bottom: var(--bottom-nav-h); }
+  /* topbar มือถือ: ซ่อน "LAMOM ONE ›" ให้เหลือชื่อหน้า และไม่ให้ปุ่มขวาทับข้อความ */
+  .topbar { padding: 0 8px; gap: 4px; }
+  .topbar-breadcrumb { overflow: hidden; white-space: nowrap; }
+  .topbar-breadcrumb > span:first-child, .topbar-breadcrumb .sep { display: none; }
+  .topbar-breadcrumb span { overflow: hidden; text-overflow: ellipsis; }
+  .topbar-actions { gap: 0; flex-shrink: 0; }
+  .topbar-btn { width: 34px; }
+  #quick-lead-btn { display: none; }
+  .topbar-search-btn { display: flex; }
+}
+
+/* Dashboard: สรุปของ LAMI บนมือถือ — ปุ่มลงไปอยู่บรรทัดล่าง ข้อความได้เต็มความกว้าง */
+@media (max-width: 640px) {
+  .dash-briefing { flex-wrap: wrap; }
+  .dash-briefing-actions { flex-direction: row !important; width: 100%; justify-content: flex-end; }
+}
+
+/* ใบจองบนมือถือ/แท็บเล็ต: การ์ดแทนตารางกว้าง (ตาราง 10+ คอลัมน์บีบจนอ่านไม่ออกถ้าจอแคบกว่า ~900px) */
+.bk-cards { display: none; }
+@media (max-width: 900px) {
+  .bk-cards { display: flex; flex-direction: column; gap: 8px; }
+  .bk-table-card { display: none; }
+  .bk-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; cursor: pointer; }
+  .bk-card:active { transform: scale(.99); }
+}
+
+/* หน้าลูกค้าบนมือถือ: ตัวกรอง 4 ช่องเรียง 2 ช่องต่อแถว (เดิมช่องละบรรทัด กินครึ่งจอ) */
+@media (max-width: 640px) {
+  .cust-filters { gap: 8px !important; }
+  .cust-filters > div:first-child { flex-basis: 100% !important; }
+  .cust-filters > select { flex: 1 1 calc(50% - 4px); min-width: 0 !important; font-size: 0.8rem; }
+}
+@media (max-width: 640px) {
+  .cust-row-avatar { display: none !important; }
+}
+
+/* รายชื่อลูกค้าบนมือถือ/แท็บเล็ต: แต่ละแถวกลายเป็นการ์ด เห็นครบ (ชื่อ สถานะ เบอร์ รุ่นรถ ความเร่งด่วน) ไม่ต้องเลื่อนตารางไปด้านข้าง */
+@media (max-width: 900px) {
+  .cust-table-wrap { border: none; background: transparent; overflow: visible; }
+  .cust-table, .cust-table tbody { display: block; width: 100%; }
+  .cust-table thead { display: none; }
+  .cust-table tr.cust-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
+  .cust-table tr.cust-row td { display: block; padding: 0; border: none; background: transparent !important; }
+  .cust-table .cc-name { flex: 1 1 calc(100% - 130px); min-width: 0; order: 1; }
+  .cust-table .cc-name div { white-space: normal !important; }
+  .cust-table .cc-stage { order: 2; text-align: right; }
+  .cust-table .cc-contact { order: 3; flex: 1 1 100%; font-size: 0.82rem; color: var(--text-2); }
+  .cust-table .cc-model { order: 4; font-size: 0.78rem; }
+  .cust-table .cc-model::before { content: '🚗 '; }
+  .cust-table .cc-temp { order: 5; }
+  .cust-table .cc-urg { order: 6; }
+  .cust-table .cc-src { order: 7; font-size: 0.72rem !important; }
+  .cust-table .cc-age { order: 8; font-size: 0.72rem !important; }
+  .cust-table .cc-act { order: 9; margin-left: auto; }
+  .cust-table tr.cust-row td.cc-blank { display: none; }
+  .cust-table .cc-age, .cust-table .cc-src { white-space: nowrap; }
+  .cust-table .cc-act .btn { padding: 2px 6px; }
+}
+/* แท็บเล็ต (641–900px): การ์ดลูกค้า/ใบจองเรียง 2 ใบต่อแถว ใช้พื้นที่จอคุ้มขึ้น */
+@media (min-width: 641px) and (max-width: 900px) {
+  .cust-table tbody { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .cust-table tr.cust-row { margin-bottom: 0; }
+  .bk-cards { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* มือถือ: ตัวเลขสถานะลูกค้าเรียงตามความกว้างจอ (auto-fit) การ์ดเตี้ยลง ไม่กินจอ */
+@media (max-width: 640px) {
+  .cust-stats { gap: 6px !important; }
+  .cust-stats .stat-pill { padding: 8px 4px !important; }
+  .cust-stats .stat-pill > div:first-child { font-size: 0.66rem !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cust-stats .stat-pill > div:last-child { font-size: 1.25rem !important; }
+}
+
+/* แดชบอร์ด: วงแหวน 4 วงเรียง 2x2 บนแท็บเล็ต (ไม่เหลือวงเดียวโดดในแถวล่าง) */
+@media (min-width: 641px) and (max-width: 1100px) {
+  #ring-gauges { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+}
+
+/* หน้าแบบ "รายการซ้าย + แชตขวา" (AI Officers, Communication Hub) บนมือถือ:
+   ย้ายรายการขึ้นไปไว้ด้านบน ให้ช่องแชตได้ความกว้างเต็มจอ ตัวหนังสือไม่ถูกบีบเป็นแนวตั้ง */
+@media (max-width: 640px) {
+  .split-pane { flex-direction: column; }
+  .split-side { width: 100% !important; max-height: 32vh; border-right: 0 !important; border-bottom: 1px solid var(--border); overflow-y: auto; flex-shrink: 0; }
+  .split-side > div:first-child { display: none; }
+  .split-strip { display: flex; flex-direction: row; overflow-x: auto !important; overflow-y: hidden !important; flex: 0 0 auto !important; }
+  .split-strip > * { flex: 0 0 auto; border-right: 0 !important; border-bottom: 2px solid transparent; }
+  .split-strip > .active { border-bottom-color: var(--primary); }
+  .split-strip .officer-item > div > div:last-child { display: none; }
+  .split-pane > :last-child { min-height: 0; min-width: 0; }
+  .split-head { flex-wrap: wrap; padding: 10px 12px !important; }
+  .split-head > div:last-child { margin-left: 0 !important; width: 100%; flex-wrap: nowrap !important; overflow-x: auto; }
+  .split-head > div:last-child > * { flex: 0 0 auto; }
+}
+
+/* มือถือ: ตารางที่ติด class tbl-cards แสดงเป็นการ์ดทีละแถว (ช่องแรก = หัวการ์ดเต็มบรรทัด ปุ่มช่องสุดท้ายชิดขวา)
+   แทนตารางที่ต้องเลื่อนข้างและตัวหนังสือถูกบีบ */
+@media (max-width: 640px) {
+  .tbl-cards-wrap { border: none !important; background: transparent !important; box-shadow: none !important; overflow: visible !important; }
+  .tbl-cards-wrap > .table-wrap { overflow: visible; border: none; }
+  table.tbl-cards, table.tbl-cards tbody { display: block; width: 100%; }
+  table.tbl-cards thead { display: none; }
+  table.tbl-cards tr { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
+  table.tbl-cards td { display: block; padding: 0 !important; border: none !important; background: transparent !important; }
+  table.tbl-cards td:first-child, table.tbl-cards td[colspan] { flex: 1 1 100%; }
+  table.tbl-cards td:last-child { margin-left: auto; }
+  /* การ์ดตัวเลขบนมือถือ: เตี้ยลง เห็นเนื้อหาหลักเร็วขึ้น */
+  .kpi-grid { gap: 8px !important; }
+  .kpi-grid > .kpi-card { padding: 10px 12px; }
+}
+
+/* จอสัมผัส: ไม่ต้องโชว์คำแนะนำปุ่มคีย์บอร์ด (↑↓ / Esc) ในหน้าค้นหา */
+@media (pointer: coarse) { .gsearch-hints { display: none !important; } }
+
+/* ปุ่มรองบนหัวหน้า: คอมโชว์ครบ · มือถือซ่อนไว้ใต้ปุ่ม ⋯ อื่นๆ */
+.pa-more-btn { display: none; }
+@media (max-width: 640px) {
+  .pa-more-btn { display: inline-flex; }
+  .page-actions:not(.pa-open) .pa-more { display: none; }
+}
+
+/* มือถือ: หน้าต่างที่มีปุ่มด้านล่างเยอะ (≥5 ปุ่ม เช่น รายละเอียดใบจอง) ปุ่มกินพื้นที่จนเหลือที่อ่านนิดเดียว
+   → ให้ทั้งหน้าต่างเลื่อนลงไปถึงปุ่มแทน หัวหน้าต่าง (ชื่อ + ✕) ค้างไว้ด้านบนเสมอ */
+@media (max-width: 640px) {
+  .modal:has(> .modal-footer > :nth-child(5)) { overflow-y: auto; }
+  .modal:has(> .modal-footer > :nth-child(5)) > .modal-body { overflow: visible; flex: none; }
+  .modal:has(> .modal-footer > :nth-child(5)) > .modal-header { position: sticky; top: 0; z-index: 2; background: var(--surface); }
+  .modal:has(> .modal-footer > :nth-child(5)) > .modal-footer { padding-bottom: 16px; }
+}
+
+/* รายละเอียดใบจอง: แถวที่ยังไม่มีข้อมูลจางลง ข้อมูลจริงเด่นขึ้น */
+.d-row.d-empty { opacity: 0.45; }
+@media (max-width: 640px) { .d-row.d-empty { font-size: 0.76rem !important; line-height: 1.5; } }
+
+/* ตารางในคำตอบ LAMI: เลื่อนข้างได้ในกรอบ ไม่ดันจอ */
+.ai-tbl { overflow-x: auto; margin: 6px 0; max-width: 100%; }
+.ai-tbl table { border-collapse: collapse; font-size: 0.8rem; min-width: 100%; }
+.ai-tbl th, .ai-tbl td { padding: 5px 8px; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+.ai-tbl th { color: var(--text-muted); font-weight: 600; font-size: 0.74rem; }
+
+/* ข้อความที่โชว์เฉพาะจอใหญ่/จอเล็ก */
+.show-sm { display: none; }
+@media (max-width: 640px) {
+  .hide-sm { display: none !important; }
+  .show-sm { display: inline; }
+  .lami-head { flex-wrap: nowrap !important; align-items: center; }
+  .lami-head .page-actions { flex-shrink: 0; }
+}
+
+/* มือถือ: การ์ด Follow-up — วันที่และปุ่มลงไปเป็นแถวล่างเต็มกว้าง ไม่เบียดชื่อลูกค้า */
+@media (max-width: 640px) {
+  .fu-main { flex: 1 1 100% !important; }
+  .fu-side { flex-direction: row !important; width: 100%; justify-content: space-between; align-items: center !important; }
 }

@@ -1,3 +1,4 @@
+import { enhanceMics } from './micInput.js'
 // Modal & Dialog utilities
 
 export function openModal({ title, body, footer = '', size = 'md', onClose, onConfirm, confirmText = '✅ บันทึก', cancelText = 'ยกเลิก' } = {}) {
@@ -36,6 +37,7 @@ export function openModal({ title, body, footer = '', size = 'md', onClose, onCo
     }
   })
   document.body.appendChild(div)
+  enhanceMics(div)
   return { id, el: div, close: () => div.remove() }
 }
 
