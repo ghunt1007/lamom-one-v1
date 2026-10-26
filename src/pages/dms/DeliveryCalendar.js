@@ -89,7 +89,7 @@ export default async function DeliveryCalendarPage(container) {
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
-            <div class="page-title">🎉 Delivery Calendar</div>
+            <div class="page-title">🎉 ปฏิทินส่งมอบ</div>
             <div class="page-subtitle">ปฏิทินส่งมอบรถ — เตรียมความพร้อมทุกคัน</div>
           </div>
           <div class="page-actions">

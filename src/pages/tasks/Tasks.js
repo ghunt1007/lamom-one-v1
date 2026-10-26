@@ -332,7 +332,7 @@ export default async function TasksPage(container) {
     <div class="page-content animate-slide">
       <div class="page-header">
         <div>
-          <div class="page-title">✅ Tasks</div>
+          <div class="page-title">✅ งานที่ต้องทำ</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px" id="tasks-stat"></div>
         </div>
         <div class="page-actions">

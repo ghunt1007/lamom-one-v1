@@ -557,6 +557,8 @@
   /* การ์ดตัวเลขบนมือถือ: เตี้ยลง เห็นเนื้อหาหลักเร็วขึ้น */
   .kpi-grid { gap: 8px !important; }
   .kpi-grid > .kpi-card { padding: 10px 12px; container-type: inline-size; min-width: 0; }
+  /* การ์ดเลขคี่ใบสุดท้ายไม่เหลือโดดครึ่งแถว ช่องว่างข้างๆ ดูเหมือนหน้าโหลดไม่ครบ → ยืดเต็มแถว */
+  .kpi-grid > .kpi-card:last-child:nth-child(odd) { grid-column: 1 / -1; }
   /* เงินยาว (฿41,656,000) ย่อตามความกว้างการ์ดให้อยู่บรรทัดเดียว แทนการหักครึ่งตัวเลข */
   .kpi-grid > .kpi-card .kpi-value { font-size: clamp(0.85rem, 14cqi, 1.3rem) !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }

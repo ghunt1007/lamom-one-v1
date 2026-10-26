@@ -246,7 +246,7 @@ export default async function PipelinePage(container) {
     <div class="page-content animate-slide" style="display:flex;flex-direction:column;height:calc(100vh - 56px - var(--bottom-nav-h, 0px));overflow:hidden">
       <div class="page-header" style="flex-shrink:0">
         <div>
-          <div class="page-title">📋 Sales Pipeline</div>
+          <div class="page-title">📋 Pipeline ดีล</div>
           <div class="page-subtitle" id="pipeline-total">กำลังโหลด...</div>
         </div>
         <div class="page-actions">

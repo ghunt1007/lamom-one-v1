@@ -89,7 +89,7 @@ export default async function LoanCalculatorPage(container) {
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
-            <div class="page-title">🧮 Loan Calculator</div>
+            <div class="page-title">🧮 คำนวณค่างวด</div>
             <div class="page-subtitle">คำนวณค่างวด — เทียบ ${banks.length} ไฟแนนซ์${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
           </div>
           <div class="page-actions">
