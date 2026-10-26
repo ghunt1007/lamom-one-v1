@@ -731,3 +731,10 @@
 @media (max-width: 1365px) {
   .bk-table th:nth-child(9), .bk-table td:nth-child(9) { display: none; }
 }
+
+/* ตารางคอลัมน์เยอะ (10+) บนจอคอม: ลดช่องไฟให้พอดีจอ 1280 ไม่ต้องเลื่อนขวา (หน้าการเงิน: มาร์จิ้น, GP/FOC, เงินเดือน) */
+@media (min-width: 641px) {
+  table:has(> thead > tr > th:nth-child(10)) th, table:has(> thead > tr > th:nth-child(10)) td { padding-left: 8px; padding-right: 8px; }
+  table:has(> thead > tr > th:nth-child(12)) td { font-size: 0.8rem; }
+  table:has(> thead > tr > th:nth-child(13)) th, table:has(> thead > tr > th:nth-child(13)) td { padding-left: 6px; padding-right: 6px; }
+}
