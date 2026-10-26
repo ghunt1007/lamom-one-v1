@@ -641,7 +641,7 @@ export default async function BookingsPage(container) {
         <div class="bk-status-cell" data-id="${b.id}" style="cursor:pointer;flex-shrink:0;text-align:right">${statusBadge(b.status)}<span style="font-size:0.6rem;opacity:.4;margin-left:2px">▼</span></div>
       </div>
       <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:8px;margin-top:8px;font-size:0.72rem;color:var(--text-muted)">
-        <div>👤 ${escHtml(b.salesName || '—')} · จอง ${formatDate(b.bookingDate)}${b.bookingNo ? ` · <span style="color:var(--primary)">${escHtml(b.bookingNo)}</span>` : ''}</div>
+        <div>👤 ${escHtml(b.salesName || '—')} · จอง ${formatDate(b.bookingDate)}${b.bookingNo ? ` · <span style="color:var(--primary);white-space:nowrap">${escHtml(b.bookingNo)}</span>` : ''}</div>
         <div style="text-align:right;white-space:nowrap">${b.deliveryDate ? `ส่งมอบ ${deliveryCell(b, true)}` : ''}</div>
       </div>
       ${needsIncome(b) ? `<button class="btn btn-warning btn-xs income-bk" data-id="${b.id}" style="margin-top:8px">💰 กรอกรายได้</button>` : ''}

@@ -152,7 +152,8 @@ a:hover { text-decoration: underline; }
 }
 /* แท็บเล็ต (641–1024px): การ์ด KPI เรียงตามความกว้างจริง (ปกติ 4 ใบต่อแถว) แทน 2 ใบ — ไม่ต้องเลื่อนยาว */
 @media (min-width: 641px) and (max-width: 1024px) {
-  .kpi-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) !important; gap: 12px; }
+  /* 155px: แท็บเล็ต 768 วาง 4 ใบได้ครบแถว (เดิม 180px ได้ 3 ใบ ใบที่ 4 ตกไปอยู่แถวใหม่คนเดียว) */
+  .kpi-grid { grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)) !important; gap: 12px; }
   .kpi-grid > .kpi-card { padding: 14px 16px; container-type: inline-size; }
   /* ตัวเลขเงินยาว (฿123,340,000) ย่อขนาดตามความกว้างการ์ด ไม่ล้นกรอบ */
   .kpi-grid > .kpi-card .kpi-value { font-size: clamp(0.95rem, 11cqi, 1.5rem) !important; overflow-wrap: break-word; }
