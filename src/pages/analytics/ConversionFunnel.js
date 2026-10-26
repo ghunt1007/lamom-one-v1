@@ -100,7 +100,7 @@ export default async function ConversionFunnelPage(container) {
         <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
           ${kpi('🧲 Lead ทั้งหมด', stages[0].count, 'primary')}
           ${kpi('🏁 ปิดได้', stages[stages.length-1].count + ' ดีล', 'success')}
-          ${kpi('📊 Overall Conversion', overall + '%', overall >= 8 ? 'success' : 'warning')}
+          ${kpi('📊 ปิดการขายรวม', overall + '%', overall >= 8 ? 'success' : 'warning')}
         </div>
 
         <div style="padding:10px 14px;background:var(--surface-2);border-left:3px solid var(--warning);border-radius:var(--radius-sm);margin-bottom:14px;font-size:0.78rem">

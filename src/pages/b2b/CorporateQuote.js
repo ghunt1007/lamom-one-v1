@@ -70,7 +70,7 @@ export default async function CorporateQuotePage(container) {
           ${kpi('📄 Quote ทั้งหมด', quotes.length, 'primary')}
           ${kpi('💰 มูลค่ารวม', formatCurrency(totalValue), 'primary')}
           ${kpi('✅ ได้งานรวม', formatCurrency(wonValue), 'success')}
-          ${kpi('🎯 Win Rate', wonRate + '%', wonRate >= 50 ? 'success' : 'warning')}
+          ${kpi('🎯 อัตราได้งาน', wonRate + '%', wonRate >= 50 ? 'success' : 'warning')}
         </div>
 
         <div style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap">

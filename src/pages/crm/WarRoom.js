@@ -242,7 +242,7 @@ export default async function WarRoomPage(container) {
     return `
       <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
         ${kpi('💰 มูลค่า Pipeline รวม', formatCurrency(s.pipelineValue), 'primary')}
-        ${kpi('📊 Conversion รวม', s.overallConv + '%', s.overallConv >= 8 ? 'success' : 'warning')}
+        ${kpi('📊 ปิดการขายรวม', s.overallConv + '%', s.overallConv >= 8 ? 'success' : 'warning')}
         ${kpi('⚠️ จุดรั่วใหญ่สุด', s.worstDropLabel, 'danger')}
         ${kpi('❌ เหตุผลเสียดีลหลัก', s.topReasonLabel.replace(/^[^\s]+ /, ''), 'warning')}
       </div>

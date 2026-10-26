@@ -302,7 +302,7 @@ export default async function ReportCenterPage(container) {
         ${kpi('🚗 รวมคัน', totUnits + (isLive ? ' ●' : ''), 'primary')}
         ${kpi('💰 ยอดขายรวม', formatCurrency(totSales), 'success')}
         ${kpi('📊 กำไรรวม', formatCurrency(totProfit), 'success')}
-        ${kpi('📈 Avg Margin', avgMargin + '%', 'primary')}
+        ${kpi('📈 กำไรเฉลี่ย', avgMargin + '%', 'primary')}
       </div>`
     }
     if (r.id === 'R002') {

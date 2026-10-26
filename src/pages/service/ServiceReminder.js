@@ -65,7 +65,7 @@ export default async function ServiceReminderPage(container) {
           ${kpi('🔔 รายการแจ้งเตือน', reminders.length, 'primary')}
           ${kpi('❗ เกินกำหนด', overdue, overdue > 0 ? 'danger' : 'success')}
           ${kpi('📞 ยังไม่ติดต่อ', pending, pending > 0 ? 'warning' : 'success')}
-          ${kpi('📊 Booking Rate', bookRate + '%', bookRate >= 50 ? 'success' : 'warning')}
+          ${kpi('📊 อัตรานัดเข้า', bookRate + '%', bookRate >= 50 ? 'success' : 'warning')}
         </div>
 
         <!-- Type filter -->

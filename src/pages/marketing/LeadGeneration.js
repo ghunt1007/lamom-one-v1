@@ -97,7 +97,7 @@ export default async function LeadGenerationPage(container) {
           ${kpi('🧲 Leads รวม', totalLeads, 'primary')}
           ${kpi('✅ ปิดได้', totalClosed, 'success')}
           ${kpi('💰 CPL avg', formatCurrency(avgCPL), 'secondary')}
-          ${kpi('📈 Conv.Rate', convRate + '%', +convRate >= 10 ? 'success' : 'warning')}
+          ${kpi('📈 อัตราเป็นลูกค้า', convRate + '%', +convRate >= 10 ? 'success' : 'warning')}
         </div>
 
         <div class="tab-nav" style="margin-bottom:14px">
@@ -247,7 +247,7 @@ export default async function LeadGenerationPage(container) {
           ${kpi('🧲 Leads', c.leads, 'primary')}
           ${kpi('✅ Qualified', c.qualified, 'success')}
           ${kpi('💰 ปิดได้', c.closed, 'success')}
-          ${kpi('📈 Conv.', convRate + '%', +convRate >= 10 ? 'success' : 'warning')}
+          ${kpi('📈 เป็นลูกค้า', convRate + '%', +convRate >= 10 ? 'success' : 'warning')}
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">
           ${kpi('💸 CPL', formatCurrency(c.cpl), 'secondary')}

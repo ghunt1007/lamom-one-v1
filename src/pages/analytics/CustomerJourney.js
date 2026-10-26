@@ -90,9 +90,9 @@ export default async function CustomerJourneyPage(container) {
         ${dataSource === 'live' ? '<div style="margin-bottom:10px;padding:6px 12px;background:var(--surface-2);border-left:3px solid var(--success);border-radius:var(--radius-sm);font-size:0.78rem;color:var(--success)">● Funnel อิงข้อมูลจริงจากใบจอง/Leads</div>' : ''}
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('👁 Awareness', stages[0].count.toLocaleString(), 'primary')}
-          ${kpi('🚗 Conversions', stages[4].count, 'success')}
-          ${kpi('📊 Conv. Rate', totalConv + '%', totalConv >= 10 ? 'success' : 'warning')}
-          ${kpi('⏱ Avg. Journey', Math.round(avgDays) + ' วัน', 'secondary')}
+          ${kpi('🚗 ซื้อแล้ว', stages[4].count, 'success')}
+          ${kpi('📊 อัตราปิดการขาย', totalConv + '%', totalConv >= 10 ? 'success' : 'warning')}
+          ${kpi('⏱ เฉลี่ยจนซื้อ', Math.round(avgDays) + ' วัน', 'secondary')}
         </div>
 
         <!-- Funnel visualization -->

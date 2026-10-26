@@ -67,7 +67,7 @@ export default async function GovBiddingPage(container) {
           ${kpi('📋 กำลังติดตาม', active.length + ' งาน', 'primary')}
           ${kpi('💰 Pipeline', formatCurrency(pipeline), 'warning')}
           ${kpi('🏆 ชนะแล้ว (ปีนี้)', formatCurrency(wonValue), 'success')}
-          ${kpi('📊 Win Rate', winRate + '%', winRate >= 40 ? 'success' : 'warning')}
+          ${kpi('📊 อัตราชนะประมูล', winRate + '%', winRate >= 40 ? 'success' : 'warning')}
         </div>
 
         <!-- Status filter -->

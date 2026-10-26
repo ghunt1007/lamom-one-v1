@@ -95,7 +95,7 @@ export default async function TradeInPage(container) {
           ${kpi('🔄 กำลังดำเนินการ', active, 'primary')}
           ${kpi('💰 มูลค่ารับเทิร์นสุทธิ', formatCurrency(totalOffered), 'warning')}
           ${kpi('🏦 หนี้ค้างชำระรวม', formatCurrency(totalLoans), totalLoans > 0 ? 'danger' : 'secondary')}
-          ${kpi('📊 Conversion', conversionRate + '%', conversionRate >= 60 ? 'success' : 'warning')}
+          ${kpi('📊 อัตราปิดดีล', conversionRate + '%', conversionRate >= 60 ? 'success' : 'warning')}
           ${kpi('📋 ทั้งหมด', items.length, 'secondary')}
         </div>
 

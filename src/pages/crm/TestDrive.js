@@ -143,7 +143,7 @@ export default async function TestDrivePage(container) {
           ${kpi('📅 นัดแล้ว', s.scheduled, 'accent')}
           ${kpi('✅ เสร็จแล้ว', s.done, 'success')}
           ${kpi('📝 จองต่อ', s.booked, 'success')}
-          ${kpi('🎯 Conversion', s.convRate + '%', s.convRate >= 30 ? 'success' : 'warning')}
+          ${kpi('🎯 ขับแล้วจอง', s.convRate + '%', s.convRate >= 30 ? 'success' : 'warning')}
         </div>
 
         <!-- Today's schedule -->
