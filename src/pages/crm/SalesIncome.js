@@ -158,7 +158,7 @@ export default async function SalesIncomePage(container) {
             <button class="btn btn-secondary btn-sm" id="si-export">📥 Export</button>
           </div>
         </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:16px">
+        <div class="kpi-grid" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:16px">
           ${card('💰', 'รายได้รวม', formatCurrency(total.income), 'accent', `เดือนก่อน ${formatCurrency(prev.total.income)}`)}
           ${card('🚗', 'ส่งมอบ', total.delivered + ' คัน', 'success', `จองใหม่ ${total.booked} คัน${total.cancelled ? ` · ถอนจอง ${total.cancelled} คัน` : ''}${teamTarget ? ` · เป้ารวม ${teamTarget} คัน (${goalProgress(total.delivered, teamTarget).pct}%)` : ''}`)}
           ${card('👤', 'คอมเซลส์', formatCurrency(total.com70), 'primary')}

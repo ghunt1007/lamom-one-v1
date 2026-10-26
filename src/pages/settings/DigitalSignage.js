@@ -225,7 +225,7 @@ export default async function DigitalSignagePage(container) {
             <option value="promo">Promotion</option><option value="model">Model Showcase</option>
             <option value="service">Service</option><option value="queue">Queue Display</option>
           </select></div>
-        <div><label style="font-size:0.72rem;color:var(--text-muted)">หัวข้อ</label><input class="input" id="sl-title" placeholder="เช่น BYD Seal" style="width:100%;margin-top:4px"></div>
+        <div><label style="font-size:0.72rem;color:var(--text-muted)">หัวข้อ</label><input class="input" id="sl-title" placeholder="เช่น DEEPAL S07" style="width:100%;margin-top:4px"></div>
         <div><label style="font-size:0.72rem;color:var(--text-muted)">คำอธิบาย</label><input class="input" id="sl-desc" placeholder="รายละเอียด..." style="width:100%;margin-top:4px"></div>
         <div><label style="font-size:0.72rem;color:var(--text-muted)">ราคา (ถ้ามี)</label><input class="input" id="sl-price" type="number" placeholder="0" style="width:100%;margin-top:4px"></div>
         <div><label style="font-size:0.72rem;color:var(--text-muted)">สีพื้นหลัง</label>

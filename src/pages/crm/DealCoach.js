@@ -160,7 +160,7 @@ export default async function DealCoachPage(container) {
       body: `
         <div style="display:flex;flex-direction:column;gap:10px;font-size:0.82rem">
           <div><label style="font-size:0.74rem;color:var(--text-muted)">ลูกค้า *</label><input id="ad-cust" class="input" placeholder="ชื่อลูกค้า"></div>
-          <div><label style="font-size:0.74rem;color:var(--text-muted)">รุ่นรถ</label><input id="ad-model" class="input" placeholder="เช่น BYD Seal AWD"></div>
+          <div><label style="font-size:0.74rem;color:var(--text-muted)">รุ่นรถ</label><input id="ad-model" class="input" placeholder="เช่น DEEPAL S07"></div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div><label style="font-size:0.74rem;color:var(--text-muted)">ราคา (บ.)</label><input id="ad-price" type="number" class="input" value="0"></div>
             <div><label style="font-size:0.74rem;color:var(--text-muted)">เซลส์</label>

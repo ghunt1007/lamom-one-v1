@@ -207,7 +207,7 @@ export default async function ReferralProgramPage(container) {
           <div class="input-group"><label class="input-label">โทรศัพท์ผู้แนะนำ</label><input class="input" id="rf-ref-phone"></div>
           <div class="input-group"><label class="input-label">ผู้ถูกแนะนำ *</label><input class="input" id="rf-referee"></div>
           <div class="input-group"><label class="input-label">โทรศัพท์ผู้ถูกแนะนำ</label><input class="input" id="rf-ree-phone"></div>
-          <div class="input-group"><label class="input-label">รุ่นรถที่ซื้อ</label><input class="input" id="rf-model" value="BYD Seal AWD"></div>
+          <div class="input-group"><label class="input-label">รุ่นรถที่ซื้อ</label><input class="input" id="rf-model" placeholder="เช่น DEEPAL S07"></div>
           <div class="input-group"><label class="input-label">รางวัล (บาท)</label><input type="number" class="input" id="rf-reward" value="3000"></div>
         </div>
       `,
@@ -219,7 +219,7 @@ export default async function ReferralProgramPage(container) {
           await createDoc('referrals', {
             referrer, referrerPhone: document.getElementById('rf-ref-phone')?.value||'',
             referee, refereePhone: document.getElementById('rf-ree-phone')?.value||'',
-            model: document.getElementById('rf-model')?.value||'BYD Seal AWD',
+            model: document.getElementById('rf-model')?.value.trim() || '',
             status: 'pending', reward: +document.getElementById('rf-reward')?.value||3000,
             submitDate: new Date().toISOString(),
             companyId: myEffectiveCompanyId()

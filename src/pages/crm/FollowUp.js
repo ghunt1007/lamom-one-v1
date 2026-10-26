@@ -298,7 +298,7 @@ export default async function FollowUpPage(container) {
       body: `<div style="display:flex;flex-direction:column;gap:12px">
         <div class="input-group"><label class="input-label">ชื่อลูกค้า *</label><input class="input" id="ff-name" placeholder="ชื่อลูกค้า"></div>
         <div class="input-group"><label class="input-label">โทรศัพท์</label><input class="input" id="ff-phone" placeholder="08x-xxx-xxxx"></div>
-        <div class="input-group"><label class="input-label">รุ่นรถ</label><input class="input" id="ff-car" placeholder="เช่น BYD Seal AWD"></div>
+        <div class="input-group"><label class="input-label">รุ่นรถ</label><input class="input" id="ff-car" placeholder="เช่น DEEPAL S07"></div>
         <div class="input-group"><label class="input-label">ประเภทการติดต่อ</label>
           <select class="input" id="ff-type">${Object.entries(FOLLOWUP_TYPES).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
         </div>

@@ -884,7 +884,7 @@ export default async function CustomersPage(container) {
       body: `
         <div style="display:flex;flex-direction:column;gap:10px;font-size:0.8rem">
           <div><label style="font-size:0.72rem;color:var(--text-muted)">รุ่นรถ</label>
-            <input class="input" id="cb-model" value="${escHtml(c.interestedModel || '')}" placeholder="เช่น BYD Seal AWD" style="width:100%;margin-top:4px"></div>
+            <input class="input" id="cb-model" value="${escHtml(c.interestedModel || '')}" placeholder="เช่น DEEPAL S07" style="width:100%;margin-top:4px"></div>
           <div><label style="font-size:0.72rem;color:var(--text-muted)">ราคาขาย (บาท)</label>
             <input class="input" id="cb-price" type="number" value="${c.budget || ''}" placeholder="0" style="width:100%;margin-top:4px"></div>
           <div><label style="font-size:0.72rem;color:var(--text-muted)">เงินจอง (บาท) *</label>

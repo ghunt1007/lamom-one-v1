@@ -130,7 +130,7 @@ export function openQuickLead({ onFull, pasteText = '', name = '' } = {}) {
         </details>
         <div class="input-group"><label class="input-label">ชื่อลูกค้า <span class="required">*</span></label><input class="input" id="ql-name" placeholder="เช่น สมชาย ใจดี" autocomplete="off"><span class="input-error" id="ql-name-e"></span></div>
         <div class="input-group"><label class="input-label">เบอร์โทร หรือ LINE ID</label><input class="input" id="ql-contact" placeholder="0812345678 หรือ @lineid" autocomplete="off" inputmode="text"><span class="input-error" id="ql-dup" style="color:var(--warning)"></span></div>
-        <div class="input-group"><label class="input-label">รถที่สนใจ</label><input class="input" id="ql-model" placeholder="เช่น BYD Seal" autocomplete="off" list="ql-models"><datalist id="ql-models"></datalist></div>
+        <div class="input-group"><label class="input-label">รถที่สนใจ</label><input class="input" id="ql-model" placeholder="เช่น DEEPAL S07" autocomplete="off" list="ql-models"><datalist id="ql-models"></datalist></div>
         <div class="input-group"><label class="input-label">มาจากไหน</label>
           <div id="ql-sources" style="display:flex;flex-wrap:wrap;gap:6px">${QUICK_SOURCES.map(([k, v]) => `<button type="button" class="btn btn-sm ql-src ${k === source ? 'btn-primary' : 'btn-secondary'}" data-k="${k}">${v}</button>`).join('')}</div>
         </div>

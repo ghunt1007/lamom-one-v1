@@ -163,7 +163,7 @@ export default async function ServiceReminderPage(container) {
           <div class="input-group"><label class="input-label">ชื่อลูกค้า *</label><input class="input" id="sr-customer" placeholder="ชื่อ-นามสกุล"></div>
           <div class="input-group"><label class="input-label">เบอร์โทร</label><input class="input" id="sr-phone" placeholder="08x-xxx-xxxx"></div>
           <div class="input-group"><label class="input-label">ทะเบียนรถ *</label><input class="input" id="sr-plate" placeholder="1กข-1234"></div>
-          <div class="input-group"><label class="input-label">รุ่นรถ</label><input class="input" id="sr-model" placeholder="เช่น BYD Seal"></div>
+          <div class="input-group"><label class="input-label">รุ่นรถ</label><input class="input" id="sr-model" placeholder="เช่น DEEPAL S07"></div>
           <div class="input-group"><label class="input-label">ประเภท</label>
             <select class="input" id="sr-type">${Object.entries(REMINDER_TYPES).map(([k,v]) => `<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
           </div>
