@@ -2,6 +2,7 @@ import './styles/themes.css'
 import './styles/base.css'
 import './styles/layout.css'
 import './styles/scifi-fx.css'
+import './styles/polish.css'
 
 import { initAuth, logout } from './core/auth.js'
 import { initRouter, navigate } from './core/router.js'

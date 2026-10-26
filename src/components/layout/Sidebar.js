@@ -490,7 +490,7 @@ export function Sidebar(container) {
           ${!collapsed && !isMobileViewport ? `<button class="sidebar-toggle" id="sidebar-toggle" title="${t('collapseSidebar')}">◀</button>` : ''}
         </div>
 
-        ${!collapsed ? `<div class="sidebar-find"><input type="search" id="sb-find" placeholder="🔍 หาเมนู เช่น ทดลองขับ" autocomplete="off" aria-label="หาเมนู"></div>` : ''}
+        ${!collapsed ? `<div class="sidebar-find"><input type="search" id="sb-find" placeholder="🔍 หาเมนู…" autocomplete="off" aria-label="หาเมนู"></div>` : ''}
         <nav class="sidebar-nav">
           ${nav.map(group => {
             const isGroupCollapsed = !collapsed && !!grpState[group.group]

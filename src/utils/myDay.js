@@ -155,6 +155,18 @@ export function topPriorities(d, limit = 3, { short = false } = {}) {
   return out
 }
 
+// ข้อความสั้นสำหรับอ่านออกเสียง (ปุ่ม 🔊 ฟังงานวันนี้) — ฟังตอนขับรถได้ ไม่ต้องดูจอ
+export function spokenBriefing(d, name = '') {
+  const top = topPriorities(d, 3, { short: true })
+  const hi = `สวัสดีครับ${name ? 'คุณ' + name : ''}`
+  if (!d.total) return `${hi} วันนี้ไม่มีงานค้างเลยครับ เยี่ยมมาก`
+  const parts = [`${hi} วันนี้มีงานค้าง ${d.total} รายการ`]
+  if (d.contactedToday) parts.push(`ติดต่อลูกค้าไปแล้ว ${d.contactedToday} ราย`)
+  if (top.length) parts.push(`ควรเริ่มจาก ${top.map((t, i) => `ข้อ ${i + 1} ${t.title}`).join(' ')}`)
+  if (d.tomorrow) parts.push(`พรุ่งนี้มีนัด ${d.tomorrow} ราย`)
+  return parts.join(' ') + ' สู้ๆ ครับ'
+}
+
 // สรุปงานของวันเป็นข้อความสั้นๆ ให้ LAMI ใช้ตอบคำถาม "วันนี้ควรทำอะไร" — ใช้แค่ชื่อเล่น/ชื่อต้น ไม่มีเบอร์โทร
 export function myDayDigest(d) {
   const lines = [

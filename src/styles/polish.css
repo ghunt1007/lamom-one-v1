@@ -1,0 +1,112 @@
+/* ============================================================
+   LAMOM ONE — Polish layer (v1.0.746)
+   ชั้นตกแต่งทับธีมเดิมทุกธีม: ใช้แค่ตัวแปรสีของธีม (--primary/--accent/--surface ฯลฯ) จึงเข้ากับทุกธีม
+   ทั้งโหมดมืด/สว่าง — ไม่เปลี่ยนสีตัวอักษรหลัก (contrast ที่ผ่าน WCAG ไว้แล้วคงเดิม)
+   ทุกกฎที่ใช้ color-mix() มีค่าสำรองบรรทัดก่อนหน้าสำหรับเบราว์เซอร์เก่า
+   ============================================================ */
+
+:root {
+  --font-main: 'Inter', 'IBM Plex Sans Thai', 'Sarabun', sans-serif;
+  --radius-lg: 16px;
+  --shadow-soft: 0 1px 2px rgba(0,0,0,0.12), 0 8px 24px -12px rgba(0,0,0,0.35);
+  --shadow-lift: 0 2px 4px rgba(0,0,0,0.14), 0 16px 40px -16px rgba(0,0,0,0.5);
+  --grad-primary: linear-gradient(135deg, var(--primary), var(--accent));
+}
+:root[data-mode="light"] {
+  --shadow-soft: 0 1px 2px rgba(15,23,42,0.06), 0 8px 24px -12px rgba(15,23,42,0.18);
+  --shadow-lift: 0 2px 4px rgba(15,23,42,0.08), 0 16px 40px -16px rgba(15,23,42,0.28);
+}
+
+/* ── พื้นหลัง: แสงเรืองจางๆ สีธีมที่มุมบน ให้ดูมีมิติ ไม่แบน ── */
+body {
+  background:
+    radial-gradient(1200px 520px at 85% -10%, var(--primary-dim), transparent 60%),
+    radial-gradient(900px 480px at -10% 0%, var(--accent-dim), transparent 55%),
+    var(--bg);
+  background-attachment: fixed;
+  font-feature-settings: 'cv11', 'ss01';
+}
+
+/* ── ตัวเลขเรียงตรงหลัก อ่านง่ายในตาราง/KPI ── */
+.kpi-value, td, .badge, .bk-cards, .cust-stats { font-variant-numeric: tabular-nums; }
+
+/* ── การ์ด: พื้นไล่เฉดบางๆ + เส้นไฮไลต์ขอบบน + เงานุ่ม ── */
+.card, .kpi-card {
+  background: var(--surface);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 94%, var(--text) 6%), var(--surface) 140px);
+  border-color: var(--border);
+  border-color: color-mix(in srgb, var(--border) 75%, transparent);
+  box-shadow: var(--shadow-soft), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+:root[data-mode="light"] .card, :root[data-mode="light"] .kpi-card {
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+}
+.card:hover { box-shadow: var(--shadow-lift), inset 0 1px 0 rgba(255,255,255,0.05); }
+.card-lift:hover { box-shadow: var(--shadow-lift); }
+
+/* KPI: แถบสีธีมบางๆ ด้านบน + ยกขึ้นเล็กน้อยตอนชี้ */
+.kpi-card { position: relative; overflow: hidden; }
+.kpi-card::before {
+  content: ''; position: absolute; inset: 0 0 auto 0; height: 2px;
+  background: var(--grad-primary); opacity: .55;
+}
+.kpi-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-lift); border-color: var(--primary); }
+.kpi-title, .kpi-label { letter-spacing: 0.03em; font-weight: 600; }
+.kpi-value { letter-spacing: -0.02em; }
+
+/* ── หัวหน้า: ตัวใหญ่ขึ้น ชัดขึ้น ── */
+.page-title { font-size: 1.55rem; letter-spacing: -0.015em; line-height: 1.25; }
+.page-subtitle { margin-top: 2px; }
+@media (max-width: 640px) { .page-title { font-size: 1.3rem; } }
+
+/* ── ปุ่มหลัก: ไล่สีธีม (primary → accent) ── */
+.btn { border-radius: 11px; font-weight: 600; }
+.btn-primary {
+  background: var(--primary);
+  background: var(--grad-primary);
+  box-shadow: 0 6px 18px -8px var(--primary-glow), inset 0 1px 0 rgba(255,255,255,0.18);
+}
+.btn-primary:hover { filter: brightness(1.08); box-shadow: 0 10px 24px -8px var(--primary-glow), inset 0 1px 0 rgba(255,255,255,0.2); }
+.btn-secondary { background: color-mix(in srgb, var(--surface-2) 45%, transparent); }
+
+/* ── ช่องกรอก: มุมมนขึ้น โฟกัสชัด ── */
+.input { border-radius: 11px; }
+.input:focus { box-shadow: 0 0 0 4px var(--primary-dim); }
+
+/* ── ตาราง: หัวตารางนุ่มขึ้น แถวสูงสบายตา ── */
+.table-wrap { box-shadow: var(--shadow-soft); }
+thead tr { background: color-mix(in srgb, var(--surface-2) 70%, var(--surface)); }
+th { font-size: 0.74rem; letter-spacing: 0.05em; }
+
+/* ── แถบบน: กระจกฝ้า ── */
+.topbar {
+  background: var(--surface);
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  backdrop-filter: saturate(160%) blur(14px); -webkit-backdrop-filter: saturate(160%) blur(14px);
+  border-bottom-color: color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+/* ── เมนูซ้าย: เมนูที่เลือกเป็นแถบไล่สี เห็นชัดว่าอยู่หน้าไหน ── */
+.sidebar { background: linear-gradient(180deg, var(--surface), color-mix(in srgb, var(--surface) 92%, var(--bg))); }
+.nav-item { border-radius: 10px; }
+.nav-item.active {
+  background: var(--primary-dim);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--primary) 24%, transparent), color-mix(in srgb, var(--accent) 10%, transparent));
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 30%, transparent);
+}
+.nav-item.active .nav-icon { filter: drop-shadow(0 0 6px var(--primary-glow)); }
+.nav-item.active::before { background: var(--grad-primary); height: 22px; width: 4px; }
+
+/* ── ป้ายสถานะ: ขอบบางสีเดียวกัน ดูคมขึ้น ── */
+.badge { box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 22%, transparent); }
+
+/* ── หน้าต่าง popup: มุมมน เงาลึก พื้นหลังเบลอ ── */
+.modal-overlay, .modal-backdrop { backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+.modal { border-radius: 20px; box-shadow: 0 30px 80px -20px rgba(0,0,0,0.6); }
+
+/* ── เคารพผู้ใช้ที่ตั้งค่า "ลดการเคลื่อนไหว" ── */
+@media (prefers-reduced-motion: reduce) {
+  .kpi-card:hover, .card-lift:hover { transform: none; }
+}

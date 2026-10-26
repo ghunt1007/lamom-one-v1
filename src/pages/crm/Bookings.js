@@ -366,8 +366,12 @@ export default async function BookingsPage(container) {
     if (!ignoreStatus && statusFilter && b.status !== statusFilter) return false
     if (noIncomeOnly && !needsIncome(b)) return false
     if (search) {
-      const hay = [b.bookingNo, b.custName, b.brand, b.model, b.salesName, b.phone, b.nid].filter(Boolean).join(' ').toLowerCase()
-      if (!hay.includes(search)) return false
+      // พิมพ์หลายคำได้ (ต้องเจอทุกคำ เช่น "s07 สมชาย" หรือ "รอรถ ttb") · เบอร์พิมพ์มีขีด/ไม่มีขีดก็เจอ
+      const hay = [b.bookingNo, b.custName, b.brand, b.model, b.salesName, b.phone, b.nid, b.status, b.financeCo].filter(Boolean).join(' ').toLowerCase()
+      const digits = s => String(s || '').replace(/\D/g, '')
+      const phone = digits(b.phone || b.custPhone)
+      const ok = search.split(/\s+/).filter(Boolean).every(t => hay.includes(t) || (/^[\d\-+() ]+$/.test(t) && digits(t).length >= 3 && phone.includes(digits(t))))
+      if (!ok) return false
     }
     // (v1.0.453) การกรองตามบริษัทย้ายเข้า query จริงแล้ว (companyScopeFilters() ใน loadData()/
     // startWatchBookings()) — ไม่ต้องกรองซ้ำที่นี่อีก ผลลัพธ์ที่ได้มาถูกกรองมาถูกต้องตั้งแต่ query แล้ว
@@ -502,7 +506,7 @@ export default async function BookingsPage(container) {
             <select class="input" id="bk-f-brand" style="width:auto;font-size:0.76rem">${brandOpts}</select>
             <div style="position:relative;flex:1;min-width:180px">
               <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:0.78rem">🔍</span>
-              <input class="input" id="bk-search" placeholder="ค้นหาชื่อ/รุ่น/เลขจอง..." value="${escHtml(search)}" style="padding-left:30px;font-size:0.78rem">
+              <input class="input" id="bk-search" placeholder="ค้นหา ชื่อ รุ่น เบอร์ สถานะ เช่น s07 รอรถ" value="${escHtml(search)}" style="padding-left:30px;font-size:0.78rem">
             </div>
             <input type="date" class="input" id="bk-date-from" value="${dateFrom}" style="width:auto;font-size:0.76rem">
             <span style="font-size:0.7rem;color:var(--text-muted)">ถึง</span>
