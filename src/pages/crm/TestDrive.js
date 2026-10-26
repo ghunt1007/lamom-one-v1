@@ -122,7 +122,7 @@ export default async function TestDrivePage(container) {
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
-            <div class="page-title">🚗 Test Drive Management</div>
+            <div class="page-title">🚗 ทดลองขับ</div>
             <div class="page-subtitle">นัดหมาย · ติดตาม · บันทึกผล</div>
           </div>
           <div class="page-actions">

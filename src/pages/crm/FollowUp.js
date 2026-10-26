@@ -125,7 +125,7 @@ export default async function FollowUpPage(container) {
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
-            <div class="page-title">📞 After-Sales Follow-up</div>
+            <div class="page-title">📞 ติดตามลูกค้า</div>
             <div class="page-subtitle">ติดตามหลังการขาย — รักษาความสัมพันธ์ลูกค้า</div>
           </div>
           <div class="page-actions">
@@ -136,10 +136,10 @@ export default async function FollowUpPage(container) {
 
         <!-- KPIs -->
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
-          ${kpi('🔴 เกินกำหนด', overdueList.length, 'danger')}
-          ${kpi('📅 วันนี้', todayList.length, 'warning')}
-          ${kpi('📆 กำลังมา', upcomingList.length, 'primary')}
-          ${kpi('✅ ดำเนินการแล้ว', doneList.length, 'success')}
+          ${kpi('🔴 เกินกำหนด', overdueList.length, 'danger', 'today')}
+          ${kpi('📅 วันนี้', todayList.length, 'warning', 'today')}
+          ${kpi('📆 กำลังมา', upcomingList.length, 'primary', 'upcoming')}
+          ${kpi('✅ ดำเนินการแล้ว', doneList.length, 'success', 'done')}
         </div>
 
         <!-- Tabs -->
@@ -324,8 +324,9 @@ export default async function FollowUpPage(container) {
   await loadData()
 }
 
-function kpi(title, value, color) {
-  return `<div class="kpi-card"><div class="kpi-title">${title}</div><div class="kpi-value" style="color:var(--${color})">${value}</div></div>`
+// การ์ดตัวเลขกดได้ = เปิดแท็บรายการนั้นเลย (ไม่ต้องหาปุ่มแท็บด้านล่าง)
+function kpi(title, value, color, t = '') {
+  return `<div class="kpi-card${t ? ' tab-btn' : ''}"${t ? ` data-t="${t}" role="button" tabindex="0" style="cursor:pointer"` : ''}><div class="kpi-title">${title}</div><div class="kpi-value" style="color:var(--${color})">${value}</div></div>`
 }
 
 function rowD(label, value) {

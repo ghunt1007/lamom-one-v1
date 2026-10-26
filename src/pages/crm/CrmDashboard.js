@@ -31,7 +31,7 @@ export default async function CrmDashboard(container) {
     <div class="page-content animate-slide">
       <div class="page-header">
         <div>
-          <div class="page-title">👥 CRM Dashboard</div>
+          <div class="page-title">👥 ภาพรวมการขาย</div>
           <div class="page-subtitle">บริหารการขายครบวงจร</div>
         </div>
         <div class="page-actions">

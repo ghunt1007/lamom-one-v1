@@ -78,7 +78,7 @@ export default async function NotificationCenterPage(container) {
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
-            <div class="page-title">🔔 Notification Center</div>
+            <div class="page-title">🔔 การแจ้งเตือน</div>
             <div class="page-subtitle">การแจ้งเตือนทั้งหมด</div>
           </div>
           <div class="page-actions">
