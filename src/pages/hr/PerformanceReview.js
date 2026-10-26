@@ -151,8 +151,9 @@ export default async function PerformanceReviewPage(container) {
       const period = `${half}/${beYear}`
       const rangeLabel = isH1 ? `ม.ค.–มิ.ย. ${now.getFullYear()}` : `ก.ค.–ธ.ค. ${now.getFullYear()}`
       const startMonth = isH1 ? 0 : 6
-      const selfDeadline = new Date(now.getFullYear(), startMonth + 2, 0).toISOString().slice(0, 10)
-      const mgmtDeadline = new Date(now.getFullYear(), startMonth + 3, 0).toISOString().slice(0, 10)
+      // Date.UTC: วันสุดท้ายของเดือนตรงตัว (new Date(y,m,0) เวลาไทยแปลงเป็น ISO แล้วถอยไป 1 วัน เช่น 31 → 30)
+      const selfDeadline = new Date(Date.UTC(now.getFullYear(), startMonth + 2, 0)).toISOString().slice(0, 10)
+      const mgmtDeadline = new Date(Date.UTC(now.getFullYear(), startMonth + 3, 0)).toISOString().slice(0, 10)
       openModal({
         title: `🔄 เริ่มรอบประเมิน ${period}`,
         size: 'sm',
