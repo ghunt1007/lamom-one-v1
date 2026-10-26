@@ -103,6 +103,11 @@
 .nav-group-items.grp-hidden { display: none; }
 .nav-group-items.grp-hidden.sb-force-open { display: block; }
 .sidebar-find { padding: 8px 12px 4px; }
+/* เมนูแบบเรียบง่าย: เมนูเต็มซ่อนไว้ ใช้ตอนค้นหา (ดู utils/navSimple.js) */
+.nav-group.nav-full-hidden { display: none; }
+.nav-mode-toggle { display: flex; align-items: center; justify-content: center; gap: 8px; width: calc(100% - 24px); margin: 10px 12px 14px; padding: 10px 12px; border-radius: 12px; border: 1px dashed var(--border); background: transparent; color: var(--text-muted); font: inherit; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: background .15s, color .15s, border-color .15s; }
+.nav-mode-toggle:hover { background: var(--surface-2, rgba(255,255,255,0.04)); color: var(--text); border-color: var(--primary); }
+.nav-mode-count { font-size: 0.7rem; padding: 1px 7px; border-radius: 99px; background: var(--surface-2, rgba(255,255,255,0.06)); color: var(--text-2, var(--text-muted)); }
 .sidebar-find input { width: 100%; box-sizing: border-box; font-size: 16px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2, var(--bg-secondary)); color: var(--text, inherit); }
 .sidebar-find input:focus { outline: none; border-color: var(--primary); }
 

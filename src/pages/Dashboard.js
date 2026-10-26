@@ -68,7 +68,6 @@ const FIN_STATUS_META = {
 
 const QUICK_LINKS = [
   { icon:'👥', label:'ลูกค้า', path:'/crm/customers', color:'primary' },
-  { icon:'🧲', label:'Leads', path:'/crm/leads', color:'accent' },
   { icon:'🚗', label:'สต็อกรถ', path:'/dms/stock', color:'accent' },
   { icon:'📝', label:'จองรถ', path:'/crm/bookings', color:'warning' },
   { icon:'🔧', label:'Job Cards', path:'/service/jobs', color:'success' },
@@ -77,7 +76,7 @@ const QUICK_LINKS = [
   { icon:'📉', label:'P&L', path:'/finance/pl', color:'primary' },
   { icon:'💳', label:'Payroll', path:'/finance/payroll', color:'accent' },
   { icon:'🛡', label:'Insurance', path:'/insurance', color:'accent' },
-  { icon:'🤖', label:'AI Officers', path:'/ai', color:'primary' },
+  { icon:'🤖', label:'ถาม LAMI', path:'/ai/ask', color:'primary' },
   { icon:'💬', label:'Comm Hub', path:'/comms', color:'accent' },
   { icon:'✅', label:'Tasks', path:'/tasks', color:'success' },
   { icon:'🎓', label:'Training', path:'/training', color:'warning' },
@@ -175,7 +174,7 @@ export default async function DashboardPage(container) {
         </div>
         <div class="dash-briefing-actions" style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
           <button class="btn btn-ghost btn-sm" id="briefing-regen" title="สร้างสรุปใหม่จากข้อมูลล่าสุด">🔄 สร้างใหม่</button>
-          <button class="btn btn-ghost btn-sm" data-nav="/ai/personal">คุยกับ LAMI →</button>
+          <button class="btn btn-ghost btn-sm" data-nav="/ai/ask">คุยกับ LAMI →</button>
         </div>
       </div>
 
