@@ -393,9 +393,8 @@ export const NAV = [
       { icon: '🏬', label: 'จัดการบริษัทในเครือ', labelEn: 'Manage Affiliated Companies', labelZh: '管理关联公司', path: '/settings/org-companies' },
       { icon: '🗂', label: 'Master Data', path: '/settings/master-data' },
       { icon: '🎨', label: 'White-label', path: '/settings/whitelabel' },
-      { icon: '📋', label: 'Audit Log', path: '/settings/audit', programOwnerOnly: true },
+      { icon: '📋', label: 'Audit Log', path: '/settings/audit', programOwnerOnly: true },  // (รวม User Activity เดิม — หน้าเดียวกัน /settings/activity ยังเปิดได้)
       { icon: '🐞', label: 'Error Log', path: '/settings/errors' },
-      { icon: '🔍', label: 'User Activity', path: '/settings/activity' },
       { icon: '💾', label: 'Backup & Restore', path: '/settings/backup', programOwnerOnly: true },
       { icon: '🔑', label: 'API Keys', path: '/settings/api-keys' },
       { icon: '📅', label: 'Holiday Calendar', path: '/settings/holidays' },

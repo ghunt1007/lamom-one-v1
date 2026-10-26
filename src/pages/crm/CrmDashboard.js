@@ -5,8 +5,7 @@ import { companyScopeFilters } from '../../core/companyScope.js'
 import { getVisibilityScope, scopeIncludesRecord } from '../../core/hierarchy.js'
 
 const QUICK_LINKS = [
-  { icon:'👥', label:'ลูกค้า', sub:'ฐานข้อมูลลูกค้า', path:'/crm/customers', color:'primary' },
-  { icon:'🧲', label:'Lead/Prospect', sub:'ติดตามลูกค้าใหม่ (รวมใน ลูกค้า)', path:'/crm/customers', color:'accent' },
+  { icon:'👥', label:'ลูกค้า / Lead', sub:'ลูกค้าทั้งหมด รวม Lead/Prospect', path:'/crm/customers', color:'primary' },
   { icon:'📋', label:'Pipeline', sub:'Kanban Sales', path:'/crm/pipeline', color:'success' },
   { icon:'📝', label:'จองรถ', sub:'ใบจองและสัญญา', path:'/crm/bookings', color:'warning' },
   { icon:'🗂️', label:'Action Plan', sub:'แผนการขายรายวัน', path:'/crm/action-plan', color:'primary' },
