@@ -3,7 +3,7 @@
 import { SIMPLE_LABELS } from './navSimple.js'
 
 // route ที่ใช้หน้าเดียวกับเมนูอื่น (core/router.js) แต่ไม่มีในเมนู
-const SAME_PAGE = { '/crm/leads': '/crm/customers', '/service/parts-inventory': '/service/parts', '/crm/anniversary': '/crm/birthdays' }
+const SAME_PAGE = { '/crm/leads': '/crm/customers', '/service/parts-inventory': '/service/parts', '/crm/anniversary': '/crm/birthdays', '/settings/activity': '/settings/audit' }
 
 function findItem(nav, path) {
   for (const g of nav) for (const i of g.items) if (i.path === path) return { g, i }
