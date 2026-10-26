@@ -33,6 +33,15 @@ const SYSTEM_PROMPT = `คุณคือ LAMI ผู้ช่วย AI อั�
 ใช้ข้อความธรรมดา ตัวหนา **...** และข้อ 1. 2. ได้ ถ้าเปรียบเทียบหลายรายการใช้ตาราง markdown สั้นๆ ได้ (ไม่เกิน 4 คอลัมน์ 6 แถว) ห้ามใช้ HTML
 ถ้าผู้ใช้ถามเรื่องตัวเลข/ข้อมูลธุรกิจที่ไม่มีอยู่ใน [บริบทระบบ] ที่แนบมา ให้บอกตรงๆว่ายังไม่มีข้อมูลนี้ในบริบทที่ได้รับ ห้ามกุตัวเลขขึ้นเอง`
 
+// ข้อความ error ที่คนอ่านเข้าใจ แทน "Failed to fetch"/"AI Proxy Error 503" ที่โชว์ในแชท
+export function aiErrorText(err) {
+  const m = String(err?.message || err || '')
+  if (/failed to fetch|networkerror|load failed|network request failed/i.test(m)) return 'ต่อ AI ไม่ได้ตอนนี้ (อินเทอร์เน็ตหลุดหรือช้า) ลองใหม่อีกครั้งครับ'
+  if (/429|quota|rate.?limit|resource.?exhausted/i.test(m)) return 'AI ถูกใช้งานเยอะอยู่ รอสักครู่แล้วลองใหม่ครับ'
+  if (/AI Proxy Error 5\d\d|timeout|timed out/i.test(m)) return 'ระบบ AI ขัดข้องชั่วคราว ลองใหม่อีกครั้งครับ'
+  return m || 'AI ตอบไม่ได้ตอนนี้ ลองใหม่อีกครั้งครับ'
+}
+
 export function isAiEnabled() { return !!auth.currentUser }
 
 async function authHeader() {

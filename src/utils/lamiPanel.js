@@ -74,7 +74,8 @@ export function openLamiPanel({ navigate } = {}) {
       history.push({ role: 'user', text: q }, { role: 'lami', text: ans })
       wait.outerHTML = `<div class="lp-a">${formatAiText(ans)}</div>`
     } catch (e) {
-      wait.outerHTML = `<div class="lp-a lp-err">⚠️ ${esc(e.message || 'LAMI ตอบไม่ได้ตอนนี้ ลองใหม่อีกครั้ง')}</div>`
+      const { aiErrorText } = await import('./ai.js').catch(() => ({ aiErrorText: () => 'LAMI ตอบไม่ได้ตอนนี้ ลองใหม่อีกครั้ง' }))
+      wait.outerHTML = `<div class="lp-a lp-err">⚠️ ${esc(aiErrorText(e))}</div>`
     } finally {
       busy = false
       body.scrollTop = body.scrollHeight

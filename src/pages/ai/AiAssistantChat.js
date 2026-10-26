@@ -1,7 +1,7 @@
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, softDelete, seedDemoData, getSalesData } from '../../core/db.js'
 import { confirmDialog } from '../../utils/modal.js'
-import { askLami, isAiEnabled } from '../../utils/ai.js'
+import { askLami, isAiEnabled, aiErrorText } from '../../utils/ai.js'
 import { formatCurrency, todayBangkok, toDateStr } from '../../utils/format.js'
 import { heuristicScore } from './LeadScoring.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
@@ -291,7 +291,7 @@ export default async function AiAssistantChatPage(container) {
         const { text: answer, next } = splitFollowups(raw)
         try { await createDoc('chat_ai_assistant', { role:'ai', text: answer, next, time:now(), uid }) } catch (e) {}
       } catch (err) {
-        try { await createDoc('chat_ai_assistant', { role:'ai', text: '⚠️ เกิดข้อผิดพลาด: ' + err.message, time:now(), uid }) } catch (e) {}
+        try { await createDoc('chat_ai_assistant', { role:'ai', text: '⚠️ ' + aiErrorText(err), time:now(), uid }) } catch (e) {}
       } finally {
         waiting = false
         await loadData()
