@@ -56,6 +56,10 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        # ค่าเริ่มต้นของ action นี้ติดตั้งแพ็กเกจ 'tools' ที่ Google เลิกแจกแล้ว (sdkmanager ล้ม exit 1 ทุกรอบตั้งแต่ 2026-10-24)
+        # ขอแค่ platform-tools ส่วน build-tools/platform ที่ gradle ต้องใช้ ให้ gradle ติดตั้งเองตามที่ build.gradle ระบุ
+        with:
+          packages: 'platform-tools'
 
       - name: Sync Capacitor Android project with latest web build
         run: npx cap sync android
