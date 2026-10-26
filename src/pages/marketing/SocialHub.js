@@ -84,8 +84,8 @@ export default async function SocialHubPage(container) {
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
           ${kpi('👁 Reach รวม', s.totalReach.toLocaleString(), 'primary')}
           ${kpi('❤️ Likes รวม', s.totalLikes.toLocaleString(), 'danger')}
-          ${kpi('🔄 Shares', s.totalShares.toLocaleString(), 'success')}
-          ${kpi('📅 Scheduled', s.scheduled, 'warning')}
+          ${kpi('🔄 แชร์', s.totalShares.toLocaleString(), 'success')}
+          ${kpi('📅 ตั้งเวลาไว้', s.scheduled, 'warning')}
         </div>
 
         <!-- Tabs -->

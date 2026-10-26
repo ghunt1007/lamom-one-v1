@@ -109,7 +109,7 @@ export default async function MonthlyTrendPage(container) {
           ${kpi('📊 รวม ' + year, m?.format(total) || total, m?.color || 'primary')}
           ${kpi('📅 สูงสุด', MONTHS[maxIdx], 'success')}
           ${kpi('📅 ต่ำสุด', MONTHS[minIdx], 'warning')}
-          ${kpi('📈 YoY Growth', (growth > 0 ? '+' : '') + growth + '%', growth >= 0 ? 'success' : 'danger', prevIsFake ? '(ปีเทียบเป็นข้อมูลตัวอย่าง)' : '')}
+          ${kpi('📈 โตเทียบปีก่อน', (growth > 0 ? '+' : '') + growth + '%', growth >= 0 ? 'success' : 'danger', prevIsFake ? '(ปีเทียบเป็นข้อมูลตัวอย่าง)' : '')}
         </div>
 
         <!-- Bar chart -->

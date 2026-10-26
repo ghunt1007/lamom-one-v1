@@ -104,7 +104,7 @@ export default async function TestDriveSchedulerPage(container) {
           ${kpi('📅 นัดทั้งหมด', bookings.length, 'primary')}
           ${kpi('⏳ รอขับ', scheduled, 'primary')}
           ${kpi('✅ ขับแล้ววันนี้', doneToday, 'success')}
-          ${kpi('❌ No Show', noShow, noShow > 0 ? 'danger' : 'secondary')}
+          ${kpi('❌ ไม่มาตามนัด', noShow, noShow > 0 ? 'danger' : 'secondary')}
         </div>
 
         <!-- Date navigator -->

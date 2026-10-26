@@ -69,7 +69,7 @@ export default async function BayManagementPage(container) {
           ${statCard('🟢 ว่าง', free, 'var(--success)')}
           ${statCard('🔵 กำลังซ่อม', busy, 'var(--primary)')}
           ${statCard('⏳ คิวรอ', QUEUE.length, 'var(--warning)')}
-          ${statCard('📊 Utilization', util + '%', util > 80 ? 'var(--danger)' : 'var(--primary)')}
+          ${statCard('📊 อัตราใช้ช่องซ่อม', util + '%', util > 80 ? 'var(--danger)' : 'var(--primary)')}
         </div>
 
         <div style="display:grid;grid-template-columns:2fr 1fr;gap:14px">

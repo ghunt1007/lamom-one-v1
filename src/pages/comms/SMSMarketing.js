@@ -66,7 +66,7 @@ export default async function SMSMarketingPage(container) {
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('📱 ส่งแล้วทั้งหมด', totalSent.toLocaleString() + ' ข้อความ', 'primary')}
           ${kpi('⏰ กำหนดส่ง', active + ' รายการ', 'warning')}
-          ${kpi('📊 Campaigns', campaigns.length, 'secondary')}
+          ${kpi('📊 แคมเปญ', campaigns.length, 'secondary')}
           ${kpi('💳 เครดิต', credits.toLocaleString(), credits < 200 ? 'danger' : 'success')}
         </div>
 

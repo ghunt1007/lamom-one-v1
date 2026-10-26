@@ -54,7 +54,7 @@ export default async function DocumentTemplatesPage(container) {
         </div>
 
         <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
-          ${kpi('📑 Templates', templates.length + ' แบบ', 'primary')}
+          ${kpi('📑 เทมเพลต', templates.length + ' แบบ', 'primary')}
           ${kpi('✅ ใช้งานอยู่', activeCount, 'success')}
           ${kpi('📊 สร้างเอกสารแล้ว', totalUsage.toLocaleString() + ' ครั้ง', 'secondary')}
         </div>

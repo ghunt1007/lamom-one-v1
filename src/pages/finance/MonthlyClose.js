@@ -98,7 +98,7 @@ export default async function MonthlyClosePage(container) {
           ${kpi('💰 รายรับรวม', formatCurrency(revenue), 'primary')}
           ${kpi('📉 ต้นทุน+ค่าใช้จ่าย', formatCurrency(Math.abs(costs)), 'warning')}
           ${kpi('📊 กำไรสุทธิ', formatCurrency(netProfit), netProfit >= 0 ? 'success' : 'danger')}
-          ${kpi('📈 Net Margin', margin + '%', margin >= 15 ? 'success' : margin >= 8 ? 'warning' : 'danger')}
+          ${kpi('📈 อัตรากำไรสุทธิ', margin + '%', margin >= 15 ? 'success' : margin >= 8 ? 'warning' : 'danger')}
         </div>
 
         <!-- Items by category -->

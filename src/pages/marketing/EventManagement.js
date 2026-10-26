@@ -117,7 +117,7 @@ export default async function EventManagementPage(container) {
 
         // KPIs
         '<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:20px">' +
-          kpi('🎪 Events', events.length + '', 'primary') +
+          kpi('🎪 อีเวนต์', events.length + '', 'primary') +
           kpi('📆 กำลังจะมา', upcoming + '', 'warning') +
           kpi('💰 Budget รวม', formatCurrency(totalBudget), 'primary') +
           kpi('🧲 Leads รวม', totalLeads + '', 'success') +

@@ -130,8 +130,8 @@ export default async function SalesForecastPage(container) {
 
         <!-- KPIs -->
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
-          ${kpi('💰 Actual H1', formatCurrency(actualRevTotal), 'success')}
-          ${kpi('🔮 Forecast H2', formatCurrency(forecastRevTotal), sc.color)}
+          ${kpi('💰 ยอดจริงครึ่งปีแรก', formatCurrency(actualRevTotal), 'success')}
+          ${kpi('🔮 คาดการณ์ครึ่งปีหลัง', formatCurrency(forecastRevTotal), sc.color)}
           ${kpi('📅 รวมทั้งปี', formatCurrency(yearTotal), 'primary')}
           ${kpi('🚗 คาดคัน H2', forecastUnits + ' คัน', sc.color)}
         </div>

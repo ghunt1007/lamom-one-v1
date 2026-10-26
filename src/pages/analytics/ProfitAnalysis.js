@@ -93,9 +93,9 @@ export default async function ProfitAnalysisPage(container) {
 
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('💰 รายได้รวม', formatCurrency(totalRevenue), 'primary')}
-          ${kpi('📊 Gross Profit', formatCurrency(grossProfit), 'success')}
-          ${kpi('💵 Net Profit', formatCurrency(netProfit), netProfit > 0 ? 'success' : 'danger')}
-          ${kpi('📉 Net Margin', netMargin + '%', netMargin >= 10 ? 'success' : netMargin >= 5 ? 'warning' : 'danger')}
+          ${kpi('📊 กำไรขั้นต้น', formatCurrency(grossProfit), 'success')}
+          ${kpi('💵 กำไรสุทธิ', formatCurrency(netProfit), netProfit > 0 ? 'success' : 'danger')}
+          ${kpi('📉 อัตรากำไรสุทธิ', netMargin + '%', netMargin >= 10 ? 'success' : netMargin >= 5 ? 'warning' : 'danger')}
         </div>
 
         <!-- P&L Summary card -->

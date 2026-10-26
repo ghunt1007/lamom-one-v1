@@ -104,7 +104,7 @@ export default async function TechnicianSchedulePage(container) {
           ${kpi('👷 ช่างทั้งหมด', techs.length + ' คน', 'primary')}
           ${kpi('✅ อยู่ปฏิบัติงาน', onDuty + ' คน', 'success')}
           ${kpi('🔧 งานวันนี้', totalJobs + ' งาน', 'warning')}
-          ${kpi('📊 Efficiency', avgEff + '%', avgEff >= 85 ? 'success' : 'warning')}
+          ${kpi('📊 ประสิทธิภาพ', avgEff + '%', avgEff >= 85 ? 'success' : 'warning')}
         </div>
 
         <!-- Skill filter -->

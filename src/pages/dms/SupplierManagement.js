@@ -97,7 +97,7 @@ export default async function SupplierManagementPage(container) {
           ${kpi('🤝 ซัพพลายเออร์ Active', totalSuppliers, 'success')}
           ${kpi('💰 ยอดซื้อรวม', formatCurrency(totalSpend), 'primary')}
           ${kpi('📋 PO รอยืนยัน', pendingPO, 'warning')}
-          ${kpi('🚫 Blacklist', blacklisted, 'danger')}
+          ${kpi('🚫 บัญชีดำ', blacklisted, 'danger')}
         </div>
 
         <!-- Tabs -->

@@ -93,7 +93,7 @@ export default async function PartsAnalyticsPage(container) {
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('💰 ยอดขาย 90 วัน', formatCurrency(revenue90), 'primary')}
           ${kpi('📊 กำไร 90 วัน', formatCurrency(profit90), 'success')}
-          ${kpi('🔴 Dead Stock', deadStock.length + ' SKU', deadStock.length > 0 ? 'danger' : 'success')}
+          ${kpi('🔴 ของค้างนาน', deadStock.length + ' SKU', deadStock.length > 0 ? 'danger' : 'success')}
           ${kpi('💸 ทุนจมใน Dead Stock', formatCurrency(deadValue), deadValue > 0 ? 'warning' : 'success')}
         </div>
 

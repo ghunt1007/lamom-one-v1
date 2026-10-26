@@ -144,8 +144,8 @@ export default async function EVDiagnosticPage(container) {
       size: 'lg',
       body: `
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
-          ${kpi('🔋 SOC', d.battSOC + '%', d.battSOC >= 50 ? 'success' : 'warning')}
-          ${kpi('❤️ SOH', d.battSOH + '%', d.battSOH >= 90 ? 'success' : d.battSOH >= 80 ? 'warning' : 'danger')}
+          ${kpi('🔋 แบตคงเหลือ (SOC)', d.battSOC + '%', d.battSOC >= 50 ? 'success' : 'warning')}
+          ${kpi('❤️ สุขภาพแบต (SOH)', d.battSOH + '%', d.battSOH >= 90 ? 'success' : d.battSOH >= 80 ? 'warning' : 'danger')}
           ${kpi('🌡 แบตอุณหภูมิ', d.battTemp != null ? d.battTemp + '°C' : 'ยังไม่วัด', d.battTemp == null ? 'secondary' : d.battTemp <= 35 ? 'success' : 'warning')}
           ${kpi('🛣 พิสัย', d.range + ' กม.', 'primary')}
         </div>

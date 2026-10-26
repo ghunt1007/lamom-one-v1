@@ -151,9 +151,9 @@ export default async function CustomerSegmentationPage(container) {
 
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('👥 ลูกค้าทั้งหมด', totalCustomers.toLocaleString(), 'primary')}
-          ${kpi('👑 Champions', rfmTiers[0].count, 'warning')}
-          ${kpi('⚠️ At Risk', rfmTiers[4].count, rfmTiers[4].count > 0 ? 'danger' : 'secondary')}
-          ${kpi('📊 Segments', rfmTiers.length, 'secondary')}
+          ${kpi('👑 ลูกค้าชั้นดี', rfmTiers[0].count, 'warning')}
+          ${kpi('⚠️ เสี่ยงหาย', rfmTiers[4].count, rfmTiers[4].count > 0 ? 'danger' : 'secondary')}
+          ${kpi('📊 กลุ่มลูกค้า', rfmTiers.length, 'secondary')}
         </div>
 
         ${savedSegments.length ? `

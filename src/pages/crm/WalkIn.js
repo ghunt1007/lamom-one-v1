@@ -86,7 +86,7 @@ export default async function WalkInPage(container) {
 
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('🚶 Walk-In วันนี้', walkins.length + ' คน', 'primary')}
-          ${kpi('🔥 Hot Lead', hot, hot > 0 ? 'danger' : 'secondary')}
+          ${kpi('🔥 ลีดร้อน', hot, hot > 0 ? 'danger' : 'secondary')}
           ${kpi('🎯 จองแล้ว', booked, 'success')}
           ${kpi('📊 อัตราจอง', convRate + '%', convRate >= 30 ? 'success' : 'warning')}
         </div>

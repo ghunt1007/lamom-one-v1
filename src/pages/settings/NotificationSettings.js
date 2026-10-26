@@ -78,7 +78,7 @@ export default async function NotificationSettingsPage(container) {
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('📋 เหตุการณ์ทั้งหมด', NOTIF_EVENTS.length, 'primary')}
           ${kpi('✅ เปิดอยู่', enabledCount, 'success')}
-          ${kpi('🚨 Critical', NOTIF_EVENTS.filter(e=>e.critical).length, 'danger')}
+          ${kpi('🚨 วิกฤต', NOTIF_EVENTS.filter(e=>e.critical).length, 'danger')}
           ${kpi('📱 ช่องทาง', Object.keys(NOTIF_CHANNELS).length, 'secondary')}
         </div>
 

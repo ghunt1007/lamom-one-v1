@@ -101,7 +101,7 @@ export default async function ReferralProgramPage(container) {
           ${kpi('🤝 แนะนำทั้งหมด', referrals.length, 'primary')}
           ${kpi('⏳ รอดำเนินการ', pending, pending > 0 ? 'warning' : 'secondary')}
           ${kpi('💰 จ่ายรางวัลรวม', formatCurrency(totalPaid), 'success')}
-          ${kpi('⭐ Top Referrer', topReferrers[0]?.name?.split(' ')[0] || '-', 'warning')}
+          ${kpi('⭐ ผู้แนะนำอันดับ 1', topReferrers[0]?.name?.split(' ')[0] || '-', 'warning')}
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 280px;gap:14px">

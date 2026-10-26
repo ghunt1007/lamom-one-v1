@@ -104,9 +104,9 @@ export default async function AiInsightsPage(container) {
         </div>
 
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
-          ${kpi('🔮 Insights', insights.length + (dataSource === 'live' ? ' ●' : ''), 'primary')}
+          ${kpi('🔮 ข้อค้นพบ', insights.length + (dataSource === 'live' ? ' ●' : ''), 'primary')}
           ${kpi('🚨 Priority สูง', highPriority, highPriority > 0 ? 'danger' : 'secondary')}
-          ${kpi('⭐ Avg Confidence', (insights.length ? Math.round(insights.reduce((a, i) => a + i.confidence, 0) / insights.length) : 0) + '%', 'success')}
+          ${kpi('⭐ ความมั่นใจเฉลี่ย', (insights.length ? Math.round(insights.reduce((a, i) => a + i.confidence, 0) / insights.length) : 0) + '%', 'success')}
           ${kpi('📊 หมวดหมู่', Object.keys(INSIGHT_CATS).length, 'secondary')}
         </div>
 

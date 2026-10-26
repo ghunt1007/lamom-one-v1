@@ -88,7 +88,7 @@ export default async function ServiceAnalyticsPage(container) {
           ${kpi('🔧 งานเดือนนี้', jobsNow + ' งาน (' + (jobsChg>0?'+':'') + jobsChg + '%)', jobsChg >= 0 ? 'success' : 'danger')}
           ${kpi('💰 รายได้', formatCurrency(revNow), 'primary')}
           ${kpi('⏱ เวลาเฉลี่ย/งาน', MONTHLY.avgTime[li] + ' ชม.', MONTHLY.avgTime[li] <= 2.2 ? 'success' : 'warning')}
-          ${kpi('⭐ CSAT', MONTHLY.csat[li] + '/5', 'success')}
+          ${kpi('⭐ ความพึงพอใจ (CSAT)', MONTHLY.csat[li] + '/5', 'success')}
         </div>
 
         <!-- Trend chart -->

@@ -67,7 +67,7 @@ export default async function SkillMatrixPage(container) {
         <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
           ${kpi('👥 พนักงาน', staff.length + ' คน', 'primary')}
           ${kpi('🏆 ระดับเชี่ยวชาญ', expertCount + ' ทักษะ', 'success')}
-          ${kpi('⚠️ Skill Gap', gaps.length + ' ทักษะ', gaps.length > 0 ? 'danger' : 'success')}
+          ${kpi('⚠️ ทักษะที่ขาด', gaps.length + ' ทักษะ', gaps.length > 0 ? 'danger' : 'success')}
         </div>
 
         ${gaps.length > 0 ? `
