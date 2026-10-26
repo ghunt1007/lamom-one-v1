@@ -166,7 +166,7 @@ export default async function TestDrivePage(container) {
         ` : ''}
 
         <!-- Filter -->
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+        <div class="chip-scroll" style="overflow-x:auto;display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
           <button class="btn btn-sm ${filterStatus==='all'?'btn-primary':'btn-secondary'} fs-btn" data-s="all">ทั้งหมด</button>
           ${Object.entries(TD_STATUS).map(([k,v]) => `<button class="btn btn-sm ${filterStatus===k?'btn-primary':'btn-secondary'} fs-btn" data-s="${k}">${v.label}</button>`).join('')}
         </div>

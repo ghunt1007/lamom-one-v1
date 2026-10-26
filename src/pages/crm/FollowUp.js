@@ -143,7 +143,7 @@ export default async function FollowUpPage(container) {
         </div>
 
         <!-- Tabs -->
-        <div style="display:flex;gap:4px;margin-bottom:14px;flex-wrap:wrap">
+        <div class="chip-scroll" style="overflow-x:auto;display:flex;gap:4px;margin-bottom:14px;flex-wrap:wrap">
           <button class="btn btn-sm ${tab==='today'?'btn-primary':'btn-secondary'} tab-btn" data-t="today">🔥 วันนี้&เกินกำหนด ${overdueList.length+todayList.length > 0 ? `<span style="background:var(--danger);border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:0.68rem;margin-left:4px">${overdueList.length+todayList.length}</span>` : ''}</button>
           <button class="btn btn-sm ${tab==='upcoming'?'btn-primary':'btn-secondary'} tab-btn" data-t="upcoming">📆 กำลังมา</button>
           <button class="btn btn-sm ${tab==='all'?'btn-primary':'btn-secondary'} tab-btn" data-t="all">📋 ทั้งหมด</button>
