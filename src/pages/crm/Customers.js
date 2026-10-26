@@ -4,7 +4,8 @@
 import { listDocs, listAllDocs, watchDocs, createDoc, updateDocData, softDelete, readDoc, seedDemoData } from '../../core/db.js'
 import { showToast, getState, on } from '../../core/store.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
-import { getVisibilityScope, scopeIncludesRecord, normName } from '../../core/hierarchy.js'
+import { getVisibilityScope, scopeIncludesRecord, normName, isProgramOwner } from '../../core/hierarchy.js'
+import { openSheetReconcile } from '../../utils/sheetReconcileModal.js'
 import { formatDate, timeAgo, formatPhone, formatCurrency, initials, fullName, todayBangkok, toDate } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel, openImportModal } from '../../utils/importExport.js'
@@ -1069,6 +1070,9 @@ export default async function CustomersPage(container) {
     })
   }
 
+  // (v1.0.747) เทียบ/แก้ลูกค้าให้ตรงกับไฟล์ DATA Booking — ลบได้ จึงเปิดเฉพาะเจ้าของ/แอดมิน
+  const canReconcileSheet = isProgramOwner() || ['owner', 'admin'].includes(getState('role') || getState('user')?.role)
+
   // ── Page HTML ─────────────────────────────────────
   container.innerHTML = `
     <div class="page-content animate-slide">
@@ -1079,6 +1083,7 @@ export default async function CustomersPage(container) {
           <button class="btn btn-ghost btn-sm pa-more" id="sheet-view-btn" title="Spreadsheet View">📊 Sheet</button>
           <button class="btn btn-ghost btn-sm pa-more" id="import-cust-btn">📤 Import</button>
           <button class="btn btn-secondary btn-sm pa-more" id="export-cust-btn">📥 Export</button>
+          ${canReconcileSheet ? `<button class="btn btn-ghost btn-sm pa-more" id="sheet-reconcile-btn" title="เทียบลูกค้ากับไฟล์ DATA Booking (Google Sheet)">🔍 เทียบกับ Sheet</button>` : ''}
           <button class="btn btn-ghost btn-sm pa-more-btn" type="button" title="เมนูเพิ่มเติม">⋯ อื่นๆ</button>
           <button class="btn btn-secondary" id="quick-lead-page-btn">🧲 Lead ด่วน</button>
           <button class="btn btn-primary" id="add-cust-btn">➕ เพิ่มลูกค้า</button>
@@ -1232,6 +1237,7 @@ export default async function CustomersPage(container) {
   document.getElementById('quick-lead-page-btn').addEventListener('click', () => openQuickLead())
   document.getElementById('pipeline-link-btn').addEventListener('click', () => navigate('/crm/pipeline'))
 
+  document.getElementById('sheet-reconcile-btn')?.addEventListener('click', () => openSheetReconcile({ onDone: () => loadData() }))
   document.getElementById('export-cust-btn').addEventListener('click', () => {
     // Export เฉพาะรายการที่เห็นบนหน้าจอ (ตามตัวกรอง + สิทธิ์การมองเห็น) — เซลส์ไม่ควรดึงลูกค้าของทีมอื่นออกไปได้
     if (!filtered.length) { showToast('ไม่มีข้อมูลสำหรับ Export', 'warning'); return }

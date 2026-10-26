@@ -17,6 +17,7 @@ import { closeAutoLeadFollowups } from '../../utils/leadFollowups.js'
 import { afterWithdraw } from '../../utils/bookingWithdraw.js'
 import { maybeMarkCustomerDelivered, syncStockForBookings, stockStatusForBooking } from '../../utils/bookingSync.js'
 import { askDeliveryIncome, needsIncome, statusDatePatch, DELIVERED_STATUSES } from '../../utils/deliveryIncome.js'
+import { openSheetReconcile } from '../../utils/sheetReconcileModal.js'
 import { readBookingSheet, planBookingImport, newBookingDoc, newCustomerDoc, companyForBrand, brandCompanyMap } from '../../utils/bookingImport.js'
 
 function escHtml(s) {
@@ -167,6 +168,8 @@ export default async function BookingsPage(container) {
   // (v1.0.540) นำเข้า/อัปเดตใบจองจากไฟล์ Excel "DATA Booking" — ดู utils/bookingImport.js สำหรับกติกาการจับคู่/อัปเดต
   // อ่านไฟล์ในเบราว์เซอร์ของคนที่ login อยู่เท่านั้น แสดงสรุปก่อน แล้วค่อยเขียนเมื่อกดยืนยัน
   const canImportExcel = ['owner', 'admin', 'manager'].includes(myRole) || isProgramOwner()
+  // (v1.0.747) เทียบกับ Sheet แล้วลบส่วนเกินได้ → เฉพาะเจ้าของ/แอดมิน (ดู utils/sheetReconcileModal.js)
+  const canReconcileSheet = ['owner', 'admin'].includes(myRole) || isProgramOwner()
   function openExcelImport() {
     const input = document.createElement('input')
     input.type = 'file'
@@ -489,6 +492,7 @@ export default async function BookingsPage(container) {
           </div>
           <div class="page-actions">
             ${canImportExcel ? `<button class="btn btn-secondary btn-sm" id="bk-import-excel-btn">📥 นำเข้าจาก Excel</button>` : ''}
+            ${canReconcileSheet ? `<button class="btn btn-ghost btn-sm" id="bk-sheet-reconcile-btn" title="หาใบจอง/ลูกค้าที่เกินหรือไม่ตรงกับไฟล์ DATA Booking">🔍 เทียบกับ Sheet</button>` : ''}
             ${canFillDeposit ? `<button class="btn btn-warning btn-sm" id="bk-fill-deepal-deposit-btn">🔧 เติมเงินจอง DEEPAL 4,000</button>` : ''}
             <button class="btn btn-primary" id="bk-wizard-btn">✨ จองใหม่ (Wizard)</button>
           </div>
@@ -530,6 +534,7 @@ export default async function BookingsPage(container) {
     document.getElementById('bk-wizard-btn').addEventListener('click', () => openWizard())
     document.getElementById('bk-fill-deepal-deposit-btn')?.addEventListener('click', () => fillDeepalDeposit())
     document.getElementById('bk-import-excel-btn')?.addEventListener('click', () => openExcelImport())
+    document.getElementById('bk-sheet-reconcile-btn')?.addEventListener('click', () => openSheetReconcile({ onDone: () => loadData() }))
     document.getElementById('bk-add-btn').addEventListener('click', () => openForm())
     document.getElementById('bk-search').addEventListener('input', ev => { search = ev.target.value.trim().toLowerCase(); render() })
     document.getElementById('bk-f-seller').addEventListener('change', ev => { sellerFilter = ev.target.value; render() })
