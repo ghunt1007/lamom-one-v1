@@ -268,7 +268,9 @@ export default async function AiAssistantChatPage(container) {
     `
 
     const chatArea = document.getElementById('chat-area')
-    if (chatArea) chatArea.scrollTop = chatArea.scrollHeight
+    // หน้าต้อนรับ (ยังไม่เคยถาม) ให้เห็นหัวข้อตั้งแต่บนสุด · มีบทสนทนาแล้วค่อยเลื่อนลงข้อความล่าสุด
+    const hasChat = messages.some(m => m.role === 'user') || waiting
+    if (chatArea) chatArea.scrollTop = hasChat ? chatArea.scrollHeight : 0
 
     async function send(q) {
       const text = q.trim()
