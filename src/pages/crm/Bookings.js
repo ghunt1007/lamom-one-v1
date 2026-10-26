@@ -516,7 +516,7 @@ export default async function BookingsPage(container) {
             <select class="input" id="bk-f-brand" style="width:auto;font-size:0.76rem">${brandOpts}</select>
             <div style="position:relative;flex:1;min-width:180px">
               <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:0.78rem">🔍</span>
-              <input class="input" id="bk-search" placeholder="ค้นหา ชื่อ รุ่น เบอร์ สถานะ เช่น s07 รอรถ" value="${escHtml(search)}" style="padding-left:30px;font-size:0.78rem">
+              <input class="input" id="bk-search" placeholder="ชื่อ รุ่น เบอร์ สถานะ เช่น s07 รอรถ" value="${escHtml(search)}" style="padding-left:30px;font-size:0.78rem">
             </div>
             <input type="date" class="input" id="bk-date-from" value="${dateFrom}" style="width:auto;font-size:0.76rem">
             <span style="font-size:0.7rem;color:var(--text-muted)">ถึง</span>

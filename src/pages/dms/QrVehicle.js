@@ -69,7 +69,7 @@ export default async function QrVehiclePage(container) {
         <div class="card" style="padding:14px;margin-bottom:14px;border:2px dashed var(--border)">
           <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">🔍 ทดสอบสแกน QR (ใส่ VIN)</div>
           <div style="display:flex;gap:8px">
-            <input class="input" id="scan-input" placeholder="ใส่ VIN เพื่อจำลองการสแกน..." value="${escHtml(scanInput)}" style="flex:1">
+            <input class="input" id="scan-input" placeholder="ใส่ VIN จำลองสแกน" value="${escHtml(scanInput)}" style="flex:1">
             <button class="btn btn-primary" id="scan-btn">📷 สแกน</button>
           </div>
         </div>

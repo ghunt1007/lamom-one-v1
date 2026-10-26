@@ -78,7 +78,7 @@ export default async function VinDecoderPage(container) {
         <!-- Search box -->
         <div class="card" style="padding:20px;max-width:560px;margin:0 auto 16px">
           <div style="display:flex;gap:8px">
-            <input class="input" id="vin-input" placeholder="พิมพ์ VIN หรือทะเบียน เช่น 1กข-1234" value="${escHtml(query)}" style="flex:1;font-size:0.9rem;padding:10px 12px">
+            <input class="input" id="vin-input" placeholder="VIN หรือทะเบียน 1กข-1234" value="${escHtml(query)}" style="flex:1;font-size:0.9rem;padding:10px 12px">
             <button class="btn btn-primary" id="search-btn">🔎 ค้นหา</button>
           </div>
           <div style="font-size:0.7rem;color:var(--text-muted);margin-top:8px">
