@@ -606,7 +606,8 @@
 }
 
 /* หน้าแรกบนมือถือ: แถบ SYSTEM ONLINE + นาฬิกาเป็นของตกแต่ง กินพื้นที่ครึ่งจอแรก → ซ่อนบนจอเล็ก (ตัวเลขเดียวกันอยู่ในการ์ดด้านล่างแล้ว) */
-@media (max-width: 640px) { .dash-status-strip { display: none !important; } }
+/* มือถือ: หน้าแรกเหลือเฉพาะที่ใช้ตัดสินใจ — เรดาร์ซ้ำกับ "เรื่องที่ต้องจัดการ", Quick Access ซ้ำกับเมนู/แถบล่าง */
+@media (max-width: 640px) { .dash-status-strip, .dash-radar, .dash-quick { display: none !important; } }
 /* ลายน้ำของธีมมุมขวาล่าง บนมือถือโผล่เป็นวงกลมครึ่งๆ ข้างแถบเมนูล่าง ดูเหมือนปุ่มที่กดไม่ได้ → ซ่อนบนจอเล็ก */
 @media (max-width: 640px) { body::after { display: none; } }
 
@@ -660,3 +661,7 @@
   .shift-inner { min-width: 480px; }
   .shift-grid { grid-template-columns: 96px repeat(7, minmax(52px, 1fr)); }
 }
+
+/* งานของฉันวันนี้: ปุ่ม "ดูอีก N รายการ" ท้ายแต่ละหมวด */
+.md-more { display: block; width: 100%; padding: 10px 16px; border: none; background: transparent; color: var(--primary); font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; text-align: center; }
+.md-more:hover { background: var(--surface-2); }
