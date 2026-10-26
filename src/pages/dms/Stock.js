@@ -156,6 +156,8 @@ export default async function StockPage(container) {
       const el = document.getElementById(`vstat-${k}`)
       if (el) el.textContent = counts[k]
     })
+    const allEl = document.getElementById('vstat-all')
+    if (allEl) allEl.textContent = stock.length
     const totalEl = document.getElementById('stock-total')
     if (totalEl) totalEl.textContent = `${stock.length} คัน`
 
@@ -633,10 +635,14 @@ export default async function StockPage(container) {
 
       <div id="stock-backfill-banner"></div>
 
-      <!-- Status Stats -->
+      <!-- Status Stats = ตัวกรองสถานะในตัว (เดิมมีปุ่มกรองสถานะชุดเดียวกันซ้ำอีกแถวในกล่องค้นหา) -->
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+        <div class="card sf-card sf-on" data-sf="all" style="padding:8px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;flex-shrink:0;transition:all 150ms">
+          <span id="vstat-all" style="font-size:1.2rem;font-weight:700">0</span>
+          <span style="font-size:0.78rem;color:var(--text-muted)">ทั้งหมด</span>
+        </div>
         ${Object.entries(STATUS).map(([k,v]) => `
-          <div class="card" data-sf="${k}" style="padding:8px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;flex-shrink:0;transition:all 150ms">
+          <div class="card sf-card" data-sf="${k}" style="padding:8px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;flex-shrink:0;transition:all 150ms">
             <span id="vstat-${k}" style="font-size:1.2rem;font-weight:700;color:var(--${v.badge})">0</span>
             <span style="font-size:0.78rem;color:var(--text-muted)">${v.label}</span>
           </div>
@@ -654,10 +660,6 @@ export default async function StockPage(container) {
             <option value="all">ทุกยี่ห้อ</option>
             ${BRANDS.map(b => `<option value="${b}">${b}</option>`).join('')}
           </select>
-          <div style="display:flex;gap:5px;flex-wrap:wrap">
-            <button class="btn btn-sm sf-stock btn-primary" data-sf="all">ทั้งหมด</button>
-            ${Object.entries(STATUS).map(([k,v]) => `<button class="btn btn-sm sf-stock btn-secondary" data-sf="${k}">${v.label}</button>`).join('')}
-          </div>
         </div>
       </div>
       <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:8px" id="stock-filtered"></div>
@@ -691,15 +693,10 @@ export default async function StockPage(container) {
     exportToExcel(stock.map(v => ({ ยี่ห้อ:v.brand, รุ่น:v.model, Variant:v.variant, ปี:v.year, สี:v.color, VIN:v.vin, ราคา:v.price, ต้นทุน:v.cost, กำไร:(v.price||0)-(v.cost||0), สถานะ:STATUS[v.status]?.label||v.status, ที่ตั้ง:v.location, สั่งซื้อ:v.orderDate?formatDate(v.orderDate):'-', ตัดฟอร์แพลน:v.floorPlanCutDate?formatDate(v.floorPlanCutDate):'-', รับมา:formatDate(v.arrivedAt), คีย์ขาย:v.saleDate?formatDate(v.saleDate):'-', ส่งมอบ:v.deliveryDate?formatDate(v.deliveryDate):'-' })), `stock-${todayBangkok()}.xlsx`, 'สต็อกรถ')
     showToast('Export แล้ว', 'success')
   })
-  document.querySelectorAll('.sf-stock').forEach(btn => btn.addEventListener('click', () => {
-    statusFilter = btn.dataset.sf
-    document.querySelectorAll('.sf-stock').forEach(b => b.className = `btn btn-sm sf-stock ${b.dataset.sf === statusFilter ? 'btn-primary' : 'btn-secondary'}`)
-    applyFilter()
-  }))
-  document.querySelectorAll('[data-sf]').forEach(card => card.addEventListener('click', e => {
-    if (!e.currentTarget.classList.contains('card')) return
-    statusFilter = card.dataset.sf
-    document.querySelectorAll('.sf-stock').forEach(b => b.className = `btn btn-sm sf-stock ${b.dataset.sf === statusFilter ? 'btn-primary' : 'btn-secondary'}`)
+  document.querySelectorAll('.sf-card[data-sf]').forEach(card => card.addEventListener('click', () => {
+    // กดการ์ดที่เลือกอยู่ซ้ำ = กลับไปดูทั้งหมด
+    statusFilter = statusFilter === card.dataset.sf ? 'all' : card.dataset.sf
+    document.querySelectorAll('.sf-card').forEach(c => c.classList.toggle('sf-on', c.dataset.sf === statusFilter))
     applyFilter()
   }))
 
