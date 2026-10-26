@@ -517,13 +517,15 @@ export default async function BookingsPage(container) {
           <div class="bk-filters" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
             <select class="input" id="bk-f-seller" style="width:auto;font-size:0.76rem">${sellerOpts}</select>
             <select class="input" id="bk-f-brand" style="width:auto;font-size:0.76rem">${brandOpts}</select>
-            <div style="position:relative;flex:1;min-width:180px">
+            <div style="position:relative;flex:1;min-width:150px">
               <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:0.78rem">🔍</span>
               <input class="input" id="bk-search" placeholder="ชื่อ รุ่น เบอร์ สถานะ เช่น s07 รอรถ" value="${escHtml(search)}" style="padding-left:30px;font-size:0.78rem">
             </div>
-            <input type="date" class="input" id="bk-date-from" value="${dateFrom}" style="width:auto;font-size:0.76rem">
-            <span style="font-size:0.7rem;color:var(--text-muted)">ถึง</span>
-            <input type="date" class="input" id="bk-date-to" value="${dateTo}" style="width:auto;font-size:0.76rem">
+            <span class="bk-dates" style="display:flex;gap:6px;align-items:center">
+              <input type="date" class="input" id="bk-date-from" value="${dateFrom}" style="width:auto;font-size:0.76rem">
+              <span style="font-size:0.7rem;color:var(--text-muted)">ถึง</span>
+              <input type="date" class="input" id="bk-date-to" value="${dateTo}" style="width:auto;font-size:0.76rem">
+            </span>
           </div>
         </div>
 
