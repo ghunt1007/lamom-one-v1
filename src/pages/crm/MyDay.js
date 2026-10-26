@@ -235,8 +235,9 @@ export default async function MyDayPage(container) {
           </div>
         </div>
 
-        ${lineRegistered ? `<div style="font-size:0.72rem;color:var(--text-muted);margin:-6px 0 10px">💬 คำสั่งใน LINE OA: <code>งาน</code> · <code>พรุ่งนี้</code> · <code>ยอด</code> · <code>หา เบอร์</code> · <code>โทรแล้ว เบอร์</code> · <code>นัด เบอร์ พรุ่งนี้</code> · <code>เสียดีล เบอร์ เหตุผล</code></div>` : `<div class="card mb-4" style="padding:10px 16px;font-size:0.8rem;color:var(--text-2);border-left:3px solid var(--success)">
-          📲 รับงานค้างทาง LINE ทุก 9 โมงเช้า: ทัก LINE OA ของบริษัท แล้วพิมพ์ <code>ลงทะเบียน ${escHtml(me.displayName)}</code> · หลังจากนั้นพิมพ์ <code>งาน</code> เพื่อดูงานได้ทุกเวลา, <code>โทรแล้ว เบอร์</code> บันทึกการติดต่อ, <code>นัด เบอร์ พรุ่งนี้</code> นัดติดตาม</div>`}
+        ${/* วิธีใช้ LINE ย่อเหลือบรรทัดเดียว กดเปิดดูได้ (เดิมกล่องยาวกินที่ครึ่งจอแรกบนมือถือทุกวัน) */ ''}
+        ${lineRegistered ? `<details class="md-tip" style="margin:-6px 0 10px"><summary>💬 คำสั่งใน LINE OA</summary><div><code>งาน</code> · <code>พรุ่งนี้</code> · <code>ยอด</code> · <code>หา เบอร์</code> · <code>โทรแล้ว เบอร์</code> · <code>นัด เบอร์ พรุ่งนี้</code> · <code>เสียดีล เบอร์ เหตุผล</code></div></details>` : `<details class="md-tip card mb-4" style="padding:10px 16px;border-left:3px solid var(--success)"><summary>📲 รับงานค้างทาง LINE ทุก 9 โมงเช้า — ดูวิธีตั้งค่า</summary>
+          <div>ทัก LINE OA ของบริษัท แล้วพิมพ์ <code>ลงทะเบียน ${escHtml(me.displayName)}</code> · หลังจากนั้นพิมพ์ <code>งาน</code> เพื่อดูงานได้ทุกเวลา, <code>โทรแล้ว เบอร์</code> บันทึกการติดต่อ, <code>นัด เบอร์ พรุ่งนี้</code> นัดติดตาม</div></details>`}
         <div class="card" style="padding:12px 10px;margin-bottom:14px;display:flex;gap:6px;align-items:center;overflow-x:visible">
           <div title="ความคืบหน้าวันนี้" style="width:58px;height:58px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:conic-gradient(var(--success) ${pct * 3.6}deg, var(--surface-2) 0)">
             <div style="width:44px;height:44px;border-radius:50%;background:var(--surface);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.8rem">${pct}%</div></div>
