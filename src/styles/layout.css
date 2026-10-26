@@ -639,3 +639,14 @@
 @media (max-width: 640px) {
   .lami-panel { top: auto; left: 0; width: 100vw; height: min(78vh, 620px); border-left: none; border-top: 1px solid var(--border); border-radius: 18px 18px 0 0; transform: translateY(105%); box-shadow: 0 -12px 40px rgba(0,0,0,0.35); padding-bottom: env(safe-area-inset-bottom); }
 }
+
+/* มือถือ: ข้อความ "ไม่พบข้อมูล" ในตารางกว้าง (td colspan) เดิมจัดกลางตามความกว้างตาราง → ตกขอบจอ อ่านไม่ครบ
+   ให้ติดซ้ายและกว้างเท่าจอที่เห็น ข้อความอยู่กลางจอเสมอแม้ตารางจะเลื่อนข้างได้ */
+@media (max-width: 640px) {
+  .table-wrap tbody td[colspan] { text-align: left !important; }
+  .table-wrap tbody td[colspan] > * { position: sticky; left: 0; max-width: calc(100vw - 72px); margin-inline: 0; }
+  .table-wrap tbody td[colspan]:not(:has(> *)) { padding-left: 16px !important; }
+}
+/* การ์ดสถิติที่กดกรองได้ (สต็อกรถ ฯลฯ) — การ์ดที่เลือกอยู่มีกรอบสีธีม */
+.sf-card.sf-on { border-color: var(--primary) !important; box-shadow: 0 0 0 1px var(--primary), 0 4px 18px color-mix(in srgb, var(--primary) 25%, transparent); }
+.sf-card:hover { transform: translateY(-1px); }

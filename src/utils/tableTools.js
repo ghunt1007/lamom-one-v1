@@ -73,6 +73,10 @@ export function enhanceTable(table) {
   injectStyle()
   table.dataset.ttEnhanced = '1'
 
+  // ข้อความสั้น (วันที่ ยอดเงิน ชื่อเซลส์ รุ่นรถ) ห้ามตัดขึ้นบรรทัดใหม่ — บนจอแคบคอลัมน์ถูกบีบจน "21 ต.ค. 2569" เหลือ
+  // บรรทัดละคำ อ่านยาก ให้ตารางกว้างขึ้นแล้วเลื่อนข้างในกรอบแทน (ข้อความยาวยังตัดบรรทัดได้ตามปกติ)
+  keepShortCellsOnOneLine(ths, bodyRows)
+
   // เก็บลำดับเดิมไว้ (สำหรับ reset dir=0)
   bodyRows.forEach((tr, i) => { tr.dataset.ttIdx = i })
 
@@ -181,6 +185,19 @@ export function enhanceTable(table) {
   // วาง toolbar เหนือตาราง (รองรับทั้งใน .table-wrap และ table เดี่ยว)
   const host = table.parentElement
   if (host) host.insertBefore(toolbar, table)
+}
+
+export const SHORT_CELL_MAX = 18
+export function isShortCellText(t) {
+  const s = String(t || '').replace(/\s+/g, ' ').trim()
+  return s.length > 0 && s.length <= SHORT_CELL_MAX
+}
+function keepShortCellsOnOneLine(ths, rows) {
+  ths.forEach(th => { if (isShortCellText(th.textContent)) th.style.whiteSpace = 'nowrap' })
+  rows.forEach(tr => [...tr.children].forEach(td => {
+    if (td.style.whiteSpace || td.querySelector('div,p,br,ul,table')) return
+    if (isShortCellText(td.textContent)) td.style.whiteSpace = 'nowrap'
+  }))
 }
 
 // ช่องค้นหาที่หน้าทำเอง = input ค้นหาในหน้าเดียวกัน (ไม่นับช่องของ tableTools เอง และไม่นับในตารางอื่น/หัวตาราง)
