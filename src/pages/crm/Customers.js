@@ -326,19 +326,22 @@ export default async function CustomersPage(container) {
               </div>
               <div style="display:flex;flex-direction:column;gap:8px">
                 ${detail('📱 โทร', c.phone && String(c.phone).replace(/[^\d+]/g, '') ? `<a id="wk-tel" href="tel:${String(c.phone).replace(/[^\d+]/g, '')}" style="color:var(--primary)">${formatPhone(c.phone)}</a>` : (formatPhone(c.phone) || '-'))}
-                ${detail('💚 LINE', escHtml(c.lineId || '-'))}
-                ${detail('📧 Email', escHtml(c.email || '-'))}
+                ${c.lineId ? detail('💚 LINE', escHtml(c.lineId)) : ''}
+                ${c.email ? detail('📧 Email', escHtml(c.email)) : ''}
                 ${detail('🚗 สนใจ', escHtml(c.interestedModel || '-') + (c.isLost ? '' : ' <button class="btn btn-ghost btn-xs" id="wk-td-btn" title="นัดลูกค้ามาทดลองขับ">🚙 นัดทดลองขับ</button>'))}
                 ${(() => { const f = c.interestedModel ? modelFacts(c.interestedModel, getVehicles(), 4) : []; return f.length ? `<details style="margin:-2px 0 2px;font-size:0.76rem"><summary style="cursor:pointer;color:var(--primary)">📋 ราคา/สเปครุ่นนี้ (ไว้ตอบลูกค้า)</summary><div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">${f.map(x => `<div style="padding:6px 8px;border-radius:8px;background:var(--surface-2);line-height:1.45">${escHtml(x)}</div>`).join('')}<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:0.66rem;color:var(--text-muted)">ราคาตั้งจากฐานข้อมูลรถ ยังไม่รวมโปรโมชั่น</span><button type="button" class="btn btn-secondary btn-xs" id="wk-facts-copy">📋 คัดลอกสเปคส่งลูกค้า</button></div>${calcHtml(c)}</div></details>` : '' })()}
-                ${detail('💰 งบประมาณ', c.budget ? formatCurrency(c.budget) : '-')}
-                ${detail('💼 อาชีพ', escHtml(c.occupation || '-'))}
-                ${detail('💵 รายได้ต่อเดือน', c.monthlyIncome ? formatCurrency(c.monthlyIncome) : '-')}
+                ${c.budget ? detail('💰 งบประมาณ', formatCurrency(c.budget)) : ''}
+                ${c.occupation ? detail('💼 อาชีพ', escHtml(c.occupation)) : ''}
+                ${c.monthlyIncome ? detail('💵 รายได้ต่อเดือน', formatCurrency(c.monthlyIncome)) : ''}
                 ${detail('📌 ที่มา', SOURCE[c.source] || escHtml(c.source) || '-')}
                 ${detail('👤 ผู้ดูแล', escHtml(c.assignedTo || '-'))}
                 ${detail('📅 เพิ่มเมื่อ', formatDate(c.createdAt))}
                 ${detail('📞 ติดต่อล่าสุด', `<span id="wk-last-contact">${c.lastContactAt ? timeAgo(c.lastContactAt) : 'ยังไม่มีบันทึก'}</span> <button class="btn btn-ghost btn-xs" id="wk-touch-btn" title="โทร/ทักลูกค้าแล้ว กดบันทึกไว้">✅ ติดต่อแล้ว</button>`)}
                 ${c.isLost ? detail('❌ เหตุผลเสียดีล', escHtml(c.lostReason || '-')) : ''}
                 ${!c.isLost && c.prevLostReason ? detail('↩️ เคยเสียดีล', escHtml(c.prevLostReason)) : ''}
+                ${(() => { /* ช่องที่ยังว่างรวมเป็นบรรทัดเดียว (เดิมขึ้น "-" ทีละแถว) กดแล้วเปิดแก้ไข */
+                  const miss = [[c.lineId, '💚 LINE'], [c.budget, '💰 งบ'], [c.email, '📧 Email'], [c.occupation, '💼 อาชีพ'], [c.monthlyIncome, '💵 รายได้']].filter(([v]) => !v).map(([, l]) => l)
+                  return miss.length ? `<button type="button" id="wk-missing" class="btn btn-ghost btn-xs" style="justify-content:flex-start;text-align:left;white-space:normal;font-weight:400;color:var(--text-muted);border:1px dashed var(--border);padding:6px 10px">ยังไม่ได้กรอก: ${miss.join(' · ')} — กดเพื่อเติม</button>` : '' })()}
               </div>
               <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px">
                 <button class="btn btn-secondary btn-sm" id="wk-edit-btn">✏️ แก้ไขข้อมูล</button>
@@ -496,6 +499,7 @@ export default async function CustomersPage(container) {
       document.querySelectorAll('.modal-overlay').forEach(m => m.remove())
       navigate('/crm/quotation')
     })
+    el.querySelector('#wk-missing')?.addEventListener('click', () => el.querySelector('#wk-edit-btn')?.click())
     el.querySelector('#wk-booking-btn')?.addEventListener('click', () => openCreateBookingModal(c, updated => { close(); loadData().then(() => openDetail(updated)) }))
     el.querySelector('#wk-jobcard-btn')?.addEventListener('click', () => {
       sessionStorage.setItem('lamom_jobcard_prefill', JSON.stringify({
