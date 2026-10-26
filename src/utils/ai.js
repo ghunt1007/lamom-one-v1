@@ -8,6 +8,11 @@ import { auth } from '../core/firebase.js'
 import { retrieveRagContext } from './rag.js'
 import { buildCloserPrompt, parseCloserReply } from './salesAi.js'
 
+export const RAG_CONTEXT_KEY = 'ความรู้ภายในบริษัท (SOP/คู่มือ/สเปครถ — ใช้ตอบเมื่อตรงกับคำถาม และบอกว่ามาจากคู่มือบริษัท)'
+export function withTimeout(promise, ms, fallback) {
+  return Promise.race([promise, new Promise(r => setTimeout(() => r(fallback), ms))])
+}
+
 const PROXY_URL = import.meta.env.VITE_AI_PROXY_URL || 'https://lamom-ai-proxy.ghunt1007.workers.dev'
 
 const SYSTEM_PROMPT = `คุณคือ LAMI ผู้ช่วย AI อัจฉริยะของโชว์รูมยานยนต์ไฟฟ้า LAMOM ONE
@@ -61,7 +66,11 @@ export async function askLami(userMessage, history = [], context = {}) {
     if (h.role === 'user')  contents.push({ role: 'user',  parts: [{ text: h.text }] })
     if (h.role === 'lami')  contents.push({ role: 'model', parts: [{ text: h.text }] })
   })
-  contents.push({ role: 'user', parts: [{ text: buildPrompt(userMessage, context) }] })
+  // ความรู้ภายในบริษัท (SOP/คู่มือ/สเปครถ/กฎหมาย) ที่ตรงกับคำถาม — เดิมมีแค่ AI Officers ตอนนี้ LAMI ใช้ด้วย
+  // รอไม่เกิน 2.5 วินาที ค้นไม่เจอ/ช้า = ตอบแบบเดิม ไม่ให้คำถามหลักช้าหรือล้ม
+  const chunks = await withTimeout(retrieveRagContext(userMessage, undefined, 4).catch(() => []), 2500, [])
+  const ctx = chunks.length ? { ...context, [RAG_CONTEXT_KEY]: chunks.map((c, i) => `${i + 1}. ${c}`).join('\n\n') } : context
+  contents.push({ role: 'user', parts: [{ text: buildPrompt(userMessage, ctx) }] })
 
   const data = await callProxy('/generate', {
     systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
