@@ -1,6 +1,6 @@
 // แผง "LAMI ช่วยเรื่องหน้านี้" — กด 🤖 ที่แถบบนจากหน้าไหนก็ได้ LAMI อ่านสิ่งที่เห็นบนจอ (ปิดเบอร์/LINE/เลขบัตรก่อน)
 // แล้วสรุป บอกสิ่งที่ควรทำต่อ หรืออธิบายวิธีใช้หน้านั้น โดยไม่ต้องออกจากหน้าที่ทำงานอยู่ · คุยต่อแบบเต็มได้ที่ /ai/ask
-import { PAGE_ASKS, pageContextFor } from './pageContext.js'
+import { pageAsksFor, pageContextFor } from './pageContext.js'
 import { formatAiText } from './aiFormat.js'
 
 const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -21,6 +21,7 @@ export function closeLamiPanel() {
 export function openLamiPanel({ navigate } = {}) {
   if (document.getElementById('lami-panel')) { closeLamiPanel(); return }
   const screen = readScreen()
+  const asks = pageAsksFor(screen.path)
   const history = []
   const bg = document.createElement('div')
   bg.id = 'lami-panel-bg'
@@ -38,7 +39,7 @@ export function openLamiPanel({ navigate } = {}) {
     </div>
     <div class="lp-body" id="lp-body">
       <div class="lp-hint">LAMI อ่านสิ่งที่อยู่บนหน้าจอนี้ให้ (เบอร์โทร LINE เลขบัตร ถูกปิดไว้ก่อนส่ง) เลือกได้เลย</div>
-      <div class="lp-asks">${PAGE_ASKS.map(a => `<button class="lp-ask" type="button" data-q="${esc(a.q)}">${a.label}</button>`).join('')}</div>
+      <div class="lp-asks">${asks.map(a => `<button class="lp-ask" type="button" data-q="${esc(a.q)}">${a.label}</button>`).join('')}</div>
     </div>
     <div class="lp-foot">
       <input class="input" id="lp-input" placeholder="ถามเรื่องหน้านี้…" autocomplete="off">
@@ -64,7 +65,7 @@ export function openLamiPanel({ navigate } = {}) {
     busy = true
     input.value = ''
     body.querySelector('.lp-hint')?.remove()
-    body.insertAdjacentHTML('beforeend', `<div class="lp-q">${esc(q.length > 80 && PAGE_ASKS.some(a => a.q === q) ? PAGE_ASKS.find(a => a.q === q).label : q)}</div><div class="lp-a lp-wait"><span></span><span></span><span></span></div>`)
+    body.insertAdjacentHTML('beforeend', `<div class="lp-q">${esc(asks.find(a => a.q === q)?.label || q)}</div><div class="lp-a lp-wait"><span></span><span></span><span></span></div>`)
     body.scrollTop = body.scrollHeight
     const wait = body.querySelector('.lp-wait')
     try {
