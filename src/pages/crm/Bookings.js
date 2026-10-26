@@ -457,8 +457,8 @@ export default async function BookingsPage(container) {
 
     const statsBar = `<div style="display:flex;gap:16px;flex-wrap:wrap;padding:6px 12px;background:var(--surface-2);border-radius:8px;margin-bottom:10px;font-size:0.68rem;color:var(--text-2)">
       <span>📋 ทั้งหมด <b style="color:var(--text-primary)">${bookings.length}</b></span>
-      <span>🔄 Active <b style="color:var(--warning)">${activeAll.length}</b></span>
-      ${pipelineVal > 0 ? `<span>💰 Pipeline <b style="color:var(--success)">฿${(pipelineVal / 1000000).toLocaleString('en-US', { maximumFractionDigits: 2 })} ล้าน</b></span>` : ''}
+      <span>🔄 กำลังดำเนินการ <b style="color:var(--warning)">${activeAll.length}</b></span>
+      ${pipelineVal > 0 ? `<span>💰 มูลค่ารอส่งมอบ <b style="color:var(--success)">฿${(pipelineVal / 1000000).toLocaleString('en-US', { maximumFractionDigits: 2 })} ล้าน</b></span>` : ''}
       <span>🚗 ส่งมอบเดือนนี้ <b style="color:var(--success)">${delMonth}</b></span>
       ${urgentCount > 0 ? `<span>🔥 ด่วน <b style="color:var(--danger)">${urgentCount}</b></span>` : ''}
       ${noIncomeCount > 0 || noIncomeOnly ? `<span id="bk-noincome-chip" style="cursor:pointer;${noIncomeOnly ? 'font-weight:700;text-decoration:underline' : ''}" title="ส่งมอบแล้วแต่ยังไม่กรอกมาร์จิ้น/ค่าคอม — กดเพื่อดูเฉพาะรายการนี้">💰 ยังไม่กรอกรายได้ <b style="color:var(--danger)">${noIncomeCount}</b>${noIncomeOnly ? ' ×' : ''}</span>` : ''}
@@ -476,7 +476,7 @@ export default async function BookingsPage(container) {
       return `<div class="bk-brand-card" data-br="${escHtml(isActive ? '' : br)}" style="display:flex;flex-direction:column;align-items:center;min-width:90px;padding:8px 12px;border-radius:10px;cursor:pointer;background:${isActive ? c + '22' : 'var(--surface-2)'};border:1.5px solid ${isActive ? c : 'var(--border)'};transition:all .2s">
         <div style="font-size:0.62rem;font-weight:800;color:${ink(c)};margin-bottom:2px">${ic} ${escHtml(br)}</div>
         <div style="font-size:1rem;font-weight:900;color:${ink(c)}">${del}</div>
-        <div style="font-size:0.58rem;color:var(--text-muted)">ส่ง · <span style="color:var(--warning)">${act}</span> active</div>
+        <div style="font-size:0.58rem;color:var(--text-muted)">ส่งแล้ว · ค้าง <span style="color:var(--warning)">${act}</span></div>
       </div>`
     }).join('')
 
@@ -579,7 +579,7 @@ export default async function BookingsPage(container) {
     const allSelected = filtered.length > 0 && filtered.every(b => selectedIds.has(b.id))
     wrap.innerHTML = `<div class="bk-cards">${filtered.map(b => cardRow(b)).join('')}</div>
     <div class="card bk-table-card" style="padding:0;overflow:hidden">
-      <div class="table-wrap"><table>
+      <div class="table-wrap"><table class="bk-table">
         <thead><tr>
           <th style="width:28px"><input type="checkbox" id="bk-select-all" ${allSelected ? 'checked' : ''}></th>
           <th>เลขจอง</th><th>ชื่อลูกค้า</th><th>รุ่นรถ</th><th>สถานะ</th><th>เซลล์</th><th>วันที่จอง</th><th>กำหนดส่งมอบ</th>

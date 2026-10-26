@@ -711,3 +711,23 @@
 }
 /* ทีมวันนี้ (งานของฉันวันนี้): ตัวเลขด้านขวากว้างเท่ากันทุกแถว แถบงานค้างจึงยาวเทียบกันได้จริง */
 @media (min-width: 641px) { .md-who-stats { flex: 0 0 330px; text-align: right; overflow: hidden; text-overflow: ellipsis; } }
+
+/* เดสก์ท็อป: ตัวกรองหน้าลูกค้ากว้างเท่ากันทุกช่อง อยู่แถวเดียวกับช่องค้นหา (เดิมช่อง "นัด" กว้างตามตัวเลือกยาวสุดจนตกไปอยู่แถวใหม่คนเดียว) */
+@media (min-width: 641px) {
+  .cust-filters > select { flex: 1 1 130px; width: auto !important; min-width: 0 !important; max-width: 200px; }
+  .cust-filters > div:first-child { flex: 3 1 240px !important; }
+  .cust-table th, .cust-table td { padding-left: 10px; padding-right: 10px; }
+  .cust-table .cc-model, .cust-table .cc-age { white-space: nowrap; }
+}
+@media (min-width: 641px) and (max-width: 1099px) {
+  .cust-filters > div:first-child { flex-basis: 100% !important; }
+  .cust-filters > select { max-width: none; }
+}
+/* ตารางใบจอง 14 คอลัมน์กว้างเกินจอโน้ตบุ๊ก: ซ่อนสีภายนอก/สีภายใน/แหล่งที่มา (ดูได้ในรายละเอียดใบจอง) และวันที่ตัดตัวเลขบนจอ < 1366 */
+@media (max-width: 1599px) {
+  .bk-table th:nth-child(n+11):nth-child(-n+13), .bk-table td:nth-child(n+11):nth-child(-n+13) { display: none; }
+  .bk-table th, .bk-table td { padding-left: 10px; padding-right: 10px; }
+}
+@media (max-width: 1365px) {
+  .bk-table th:nth-child(9), .bk-table td:nth-child(9) { display: none; }
+}
