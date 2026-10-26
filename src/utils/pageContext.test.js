@@ -39,6 +39,7 @@ describe('pageAsksFor', () => {
     expect(pageAsksFor('/crm/customers').map(a => a.key)).toEqual(['page', 'sum', 'next', 'how'])
     expect(pageAsksFor('/crm/bookings/').map(a => a.key)[0]).toBe('page')
     expect(pageAsksFor('/').map(a => a.key)[0]).toBe('page')
+    expect(pageAsksFor('/finance?tab=1')[0].label).toMatch(/กำไร/)
   })
   it('falls back to the general asks', () => {
     expect(pageAsksFor('/settings/roles').map(a => a.key)).toEqual(['sum', 'next', 'how'])
