@@ -122,11 +122,19 @@ export default async function QuotationBuilderPage(container) {
             <div class="page-subtitle">สร้าง ส่ง และติดตามใบเสนอราคาให้ลูกค้า</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-secondary" id="export-btn">📥 ส่งออก</button>
+            ${quotes.length ? '<button class="btn btn-secondary" id="export-btn">📥 ส่งออก</button>' : ''}
             <button class="btn btn-primary" id="add-qt-btn">+ สร้างใบเสนอราคา</button>
           </div>
         </div>
 
+        ${!quotes.length ? `<div class="card empty-state" style="padding:40px 20px;text-align:center">
+          <div class="empty-icon">📄</div>
+          <div class="empty-title">ยังไม่มีใบเสนอราคา</div>
+          <div class="empty-desc" style="margin-bottom:14px">สร้างใบแรกได้เลย ระบบคำนวณดาวน์/ผ่อนให้ และนัดโทรถามผลให้อัตโนมัติหลังกดส่ง</div>
+          <button class="btn btn-primary" id="add-qt-empty">+ สร้างใบเสนอราคา</button>
+        </div>` : ''}
+        <!-- ยังไม่มีใบเสนอราคาเลย: ซ่อนตัวเลข 0 / ปุ่มกรอง / ตารางว่าง ให้เหลือการ์ดชวนสร้างใบแรกอย่างเดียว -->
+        <div ${quotes.length ? '' : 'hidden'}>
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('📄 ทั้งหมด', quotes.length, 'primary')}
           ${kpi('✅ ยอมรับ', quotes.filter(q=>q.status==='accepted').length, 'success')}
@@ -175,11 +183,13 @@ export default async function QuotationBuilderPage(container) {
             </tbody>
           </table></div>
         </div>
+        </div>
       </div>
     `
 
     container.querySelectorAll('.sf-btn').forEach(b => b.addEventListener('click', () => { statusFilter = b.dataset.s; renderPage() }))
     document.getElementById('add-qt-btn')?.addEventListener('click', () => openCreateForm())
+    document.getElementById('add-qt-empty')?.addEventListener('click', () => openCreateForm())
     document.getElementById('export-btn')?.addEventListener('click', () => {
       exportToExcel(quotes.map(q => ({
         เลขที่: q.id, ลูกค้า: q.customerName, customerId: q.customerId || '', รถ: q.vehicleLabel,
