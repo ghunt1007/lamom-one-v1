@@ -358,6 +358,8 @@ export default async function BookingsPage(container) {
         const deepId = new URLSearchParams(window.location.search).get('id')
         const target = deepId && bookings.find(b => b.id === deepId)
         if (target) { window.history.replaceState({}, '', window.location.pathname); openDetail(target) }
+        // ?new=1 (คำสั่ง "จองใหม่" จากช่องค้นหารวม) = เปิดฟอร์มจองทีละขั้นทันที
+        else if (new URLSearchParams(window.location.search).get('new') === '1') { window.history.replaceState({}, '', window.location.pathname); openWizard() }
       }
       else safeRender()
     })

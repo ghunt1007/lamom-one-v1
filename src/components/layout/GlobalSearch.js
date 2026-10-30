@@ -208,6 +208,8 @@ export function openGlobalSearch() {
     const custIdx = SOURCES.findIndex(s => s.col === 'customers')
     const knownPhones = new Set((fetched[custIdx] || []).map(c => String(c.phone || '').replace(/\D/g, '')).filter(Boolean))
     const lead = detectLeadIntent(qRaw, d => knownPhones.has(d))
+    // พิมพ์ "จองใหม่" / "เปิดจอง" / "ออกใบจอง" = เปิดฟอร์มจองทีละขั้นได้เลย ไม่ต้องไปหน้าใบจองแล้วหาปุ่มเอง
+    if (/^(?:\+|➕)?\s*(?:จองใหม่|เปิดจอง|ออกใบจอง|ทำใบจอง|เพิ่มใบจอง|new booking)/i.test(qRaw.trim())) results.unshift({ type: 'page', icon: '➕', group: 'คำสั่ง', title: 'จองใหม่ (ทีละขั้น)', sub: 'เปิดฟอร์มจอง 4 ขั้นทันที', route: '/crm/bookings?new=1' })
     if (lead) results.unshift({ type: 'lead', icon: '➕', group: 'คำสั่ง', title: 'เพิ่มเป็นลูกค้าใหม่: ' + lead.text, sub: 'เปิดฟอร์ม Lead แล้วกรอกชื่อ เบอร์ รุ่น จากที่พิมพ์ให้เลย', lead: lead.text, leadName: lead.name })
 
     resultsCache = results.slice(0, 60)
@@ -222,7 +224,7 @@ export function openGlobalSearch() {
     const items = buildSimpleNav(visibleMenu(), readVisits()).flatMap(g => g.items).slice(0, 10)
     resultsCache = items.map(i => ({ type: 'page', icon: i.icon, title: navLabel(i), sub: i.path, route: i.path }))
     resBox.innerHTML =
-      '<div style="padding:4px"><div style="font-size:0.72rem;color:var(--text-muted);padding:6px 10px 8px;line-height:1.6">💡 พิมพ์ชื่อ/เบอร์ลูกค้า เลขจอง รุ่นรถ ชื่อเมนู · พิมพ์ "ชื่อ + เบอร์" เพื่อเพิ่มลูกค้าใหม่ · หรือพิมพ์คำถามให้ LAMI ตอบ</div>' +
+      '<div style="padding:4px"><div style="font-size:0.72rem;color:var(--text-muted);padding:6px 10px 8px;line-height:1.6">💡 พิมพ์ชื่อ/เบอร์ลูกค้า เลขจอง รุ่นรถ ชื่อเมนู · พิมพ์ "ชื่อ + เบอร์" เพื่อเพิ่มลูกค้าใหม่ · พิมพ์ "จองใหม่" เพื่อเปิดใบจอง · หรือพิมพ์คำถามให้ LAMI ตอบ</div>' +
       '<div style="font-size:0.7rem;color:var(--text-muted);padding:6px 10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">' + tr('goToPage') + '</div>' +
       resultsCache.map((r, i) => rowHtml(r, i)).join('') +
       '</div>'
