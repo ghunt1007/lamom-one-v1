@@ -103,8 +103,8 @@ export default async function VehicleAgingPage(container) {
         ${aged.length ? `<span style="font-size:0.76rem;color:var(--danger);font-weight:700">⚠️ ${aged.length} คันค้างเกิน 90 วัน — ควรจัดโปรเร่งระบาย</span>` : ''}
       </div>
 
-      <div class="card" style="overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse;min-width:760px">
+      <div class="card tbl-cards-wrap" style="overflow-x:auto">
+        <table class="tbl-cards" style="width:100%;border-collapse:collapse;min-width:760px">
           <thead><tr style="border-bottom:2px solid var(--border);font-size:0.72rem;color:var(--text-muted);text-align:left">
             <th style="padding:10px 12px">VIN</th><th>รุ่น / สี</th><th style="text-align:right">ต้นทุน</th>
             <th style="text-align:center">ค้างสต็อก</th><th style="text-align:center">กลุ่มอายุ</th>

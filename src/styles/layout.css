@@ -564,7 +564,7 @@
 @media (max-width: 640px) {
   .tbl-cards-wrap { border: none !important; background: transparent !important; box-shadow: none !important; overflow: visible !important; }
   .tbl-cards-wrap > .table-wrap { overflow: visible; border: none; }
-  table.tbl-cards, table.tbl-cards tbody { display: block; width: 100%; }
+  table.tbl-cards, table.tbl-cards tbody { display: block; width: 100%; min-width: 0 !important; }
   table.tbl-cards thead { display: none; }
   table.tbl-cards tr { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
   table.tbl-cards td { display: block; padding: 0 !important; border: none !important; background: transparent !important; }
