@@ -53,7 +53,13 @@ export default async function ActionPlanPage(container) {
           '<div class="page-title">🗂️ Action Plan — แผนปฏิบัติการขาย</div>' +
           '<div class="page-subtitle">กิจกรรมที่ต้องทำเพื่อปิดเป้า · ติดตามความคืบหน้ารายเซลส์</div>' +
         '</div><div class="page-actions"><button class="btn btn-primary" id="ap-add">➕ เพิ่มกิจกรรม</button></div></div>' +
-        '<div class="grid-4 mb-6">' +
+        (!plans.length
+          // ยังไม่มีกิจกรรมเลย: การ์ด 0 สี่ใบ + แถวกรองไม่บอกอะไร → แสดงจุดเริ่มต้นจุดเดียวแทน
+          ? '<div class="card" style="padding:36px 20px;text-align:center"><div style="font-size:2.4rem;margin-bottom:6px">🗂️</div>' +
+              '<div style="font-weight:700;font-size:1rem">ยังไม่มีแผนกิจกรรม</div>' +
+              '<div style="font-size:0.82rem;color:var(--text-muted);margin:6px auto 14px;max-width:360px;line-height:1.6">จดสิ่งที่ต้องทำเพื่อปิดเป้า เช่น โทรตามลูกค้า Hot · จัดบูธ · นัดทดลองขับ แล้วติดตามว่าใครทำถึงไหน</div>' +
+              '<button class="btn btn-primary" id="ap-add-empty">➕ เพิ่มกิจกรรมแรก</button></div>'
+          : '<div class="grid-4 mb-6">' +
           card('📋 ทั้งหมด', total + ' รายการ', 'primary') +
           card('🔄 กำลังทำ', doing + ' รายการ', 'accent') +
           card('✅ เสร็จแล้ว', done + ' รายการ', 'success') +
@@ -68,13 +74,14 @@ export default async function ActionPlanPage(container) {
           '<button class="btn btn-sm ap-stf btn-primary" data-s="all">ทั้งหมด</button>' +
           Object.entries(STATUS).map(([k, v]) => '<button class="btn btn-sm ap-stf btn-secondary" data-s="' + k + '">' + v.label + '</button>').join('') +
           '<button class="btn btn-sm ap-stf btn-secondary" data-s="overdue">⚠️ เลยกำหนด</button>' +
-        '</div>' +
+        '</div>') +
         '<div id="ap-table"></div>' +
       '</div>'
 
-    renderTable()
-
     container.querySelector('#ap-add').addEventListener('click', () => openForm())
+    container.querySelector('#ap-add-empty')?.addEventListener('click', () => openForm())
+    if (!plans.length) return
+    renderTable()
     container.querySelectorAll('.ap-sf').forEach(b => b.addEventListener('click', () => {
       salesFilter = b.dataset.s
       container.querySelectorAll('.ap-sf').forEach(x => x.className = 'btn btn-sm ap-sf ' + (x.dataset.s === salesFilter ? 'btn-primary' : 'btn-secondary'))

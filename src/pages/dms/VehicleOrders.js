@@ -59,7 +59,7 @@ export default async function VehicleOrdersPage(container) {
     })
     const totalCost = orders.filter(o => !['cancelled'].includes(o.status)).reduce((s, o) => s + (o.unitCost || 0) * (o.qty || 1), 0)
     const el = document.getElementById('order-value')
-    if (el) el.textContent = `มูลค่าคำสั่งซื้อรวม: ${formatCurrency(totalCost)}`
+    if (el) el.textContent = totalCost ? `มูลค่าคำสั่งซื้อรวม: ${formatCurrency(totalCost)}` : ''
     const totEl = document.getElementById('order-total')
     if (totEl) totEl.textContent = `${orders.length} รายการ`
   }
@@ -77,12 +77,15 @@ export default async function VehicleOrdersPage(container) {
     const wrap = document.getElementById('orders-content')
     if (!wrap) return
     const cEl = document.getElementById('orders-filtered')
-    if (cEl) cEl.textContent = `แสดง ${filtered.length} รายการ`
+    if (cEl) cEl.textContent = orders.length ? `แสดง ${filtered.length} รายการ` : ''
+    // ยังไม่มีคำสั่งซื้อเลย: ซ่อนแถวตัวเลข 0 ทั้ง 7 ช่องและแถวกรอง เหลือแค่จุดเริ่มต้น
+    ;['ord-pills', 'ord-filter'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = !orders.length ? 'none' : id === 'ord-pills' ? 'flex' : '' })
 
     if (!filtered.length) {
       wrap.innerHTML = !orders.length
-        ? `<div class="empty-state" style="padding:48px"><div class="empty-icon">🛒</div><div class="empty-title">ยังไม่มีคำสั่งซื้อรถเลย</div><div class="empty-desc">กด "➕ สั่งรถใหม่" เพื่อเริ่มบันทึก</div></div>`
+        ? `<div class="empty-state" style="padding:48px"><div class="empty-icon">🛒</div><div class="empty-title">ยังไม่มีคำสั่งซื้อรถเลย</div><div class="empty-desc">บันทึกรถที่สั่งจากโรงงาน แล้วติดตามตั้งแต่สั่ง → ผลิต → ขนส่ง → ถึงโชว์รูม</div><button class="btn btn-primary" id="add-order-empty" style="margin-top:12px">➕ สั่งรถคันแรก</button></div>`
         : `<div class="empty-state" style="padding:48px"><div class="empty-icon">🛒</div><div class="empty-title">ไม่พบคำสั่งซื้อ</div></div>`
+      wrap.querySelector('#add-order-empty')?.addEventListener('click', () => openForm())
       return
     }
 
@@ -309,7 +312,7 @@ export default async function VehicleOrdersPage(container) {
       </div>
 
       <!-- Status Pills -->
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+      <div id="ord-pills" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
         ${Object.entries(STATUS).map(([k,v]) => `
           <div class="card" style="padding:8px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;flex-shrink:0">
             <span id="ostat-${k}" style="font-size:1.2rem;font-weight:700;color:var(--${v.badge})">0</span>
@@ -319,7 +322,7 @@ export default async function VehicleOrdersPage(container) {
       </div>
 
       <!-- Filter -->
-      <div class="card mb-4" style="padding:12px 16px">
+      <div id="ord-filter" class="card mb-4" style="padding:12px 16px">
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
           <div style="position:relative;flex:1;min-width:180px">
             <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted)">🔍</span>
