@@ -68,17 +68,10 @@ export default async function PreDeliveryPage(container) {
       '<div class="page-content animate-slide">' +
         '<div class="page-header"><div>' +
           '<div class="page-title">✅ เซลล์ตรวจรถก่อนส่งมอบ</div>' +
-          '<div class="page-subtitle">Sales Pre-Delivery Check — ตรวจความพร้อมก่อนส่งมอบลูกค้า (อิงใบจอง)</div>' +
+          '<div class="page-subtitle">ตรวจความพร้อมก่อนส่งมอบลูกค้า (อิงใบจอง) · ' + flat(buildItems()).length + ' ข้อ/คัน</div>' +
         '</div></div>' +
-        '<div class="grid-4 mb-6">' +
-          card('🚗 ใบจองทั้งหมด', bookings.length + ' คัน', 'primary') +
-          card('⏳ รอตรวจ/ส่งมอบ', pending + ' คัน', pending ? 'warning' : 'secondary') +
-          card('✅ พร้อมส่งมอบ', ready + ' คัน', 'success') +
-          card('📋 รายการตรวจ', flat(buildItems()).length + ' ข้อ/คัน', 'accent') +
-        '</div>' +
-        '<div class="card mb-4" style="padding:10px 16px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">' +
-          '<span style="font-size:0.82rem;color:var(--text-muted)">แสดง:</span>' +
-          tab('pending', '⏳ รอตรวจ') + tab('ready', '✅ พร้อมส่งมอบ') + tab('all', 'ทั้งหมด') +
+        '<div class="chip-scroll mb-4" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">' +
+          tab('pending', '⏳ รอตรวจ ' + pending) + tab('ready', '✅ พร้อมส่งมอบ ' + ready) + tab('all', 'ทั้งหมด ' + bookings.length) +
         '</div>' +
         '<div id="pd-list" style="display:flex;flex-direction:column;gap:8px"></div>' +
       '</div>'
@@ -216,10 +209,4 @@ export default async function PreDeliveryPage(container) {
   }
 
   if (container.__routerGen === myGen) await loadData()
-}
-
-function card(label, value, color) {
-  return '<div class="card" style="padding:16px 18px;border-left:3px solid var(--' + color + ')">' +
-    '<div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:4px">' + label + '</div>' +
-    '<div style="font-size:1.3rem;font-weight:800;color:var(--' + color + ')">' + value + '</div></div>'
 }
