@@ -6,7 +6,7 @@ import { timeAgo, todayBangkok, toDate, toDateStr, formatCurrency, monthBangkok 
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { navigate } from '../../core/router.js'
-import { askLami, isAiEnabled, aiErrorText } from '../../utils/ai.js'
+import { isAiEnabled } from '../../utils/ai.js'
 import { formatAiText } from '../../utils/aiFormat.js'
 import { listDocs, createDoc, seedDemoData, getSalesData } from '../../core/db.js'
 import { heuristicScore } from './LeadScoring.js'
@@ -116,8 +116,7 @@ export default async function LamiBrainPage(container) {
   let chatHistory = []
   let insights = []
   let businessContext = {}
-  let activeTab = 'chat'
-  let isTyping = false
+  let activeTab = 'insights'
   let loading = true
   const aiMode = isAiEnabled() ? '🟢 Gemini AI' : '🟡 Demo Mode'
 
@@ -217,7 +216,7 @@ export default async function LamiBrainPage(container) {
 
         <!-- Tabs -->
         <div style="display:flex;gap:2px;margin-bottom:14px;border-bottom:1px solid var(--border)">
-          ${['chat', 'insights', 'skills'].map(tab => `<button class="btn btn-xs ${activeTab===tab?'btn-primary':'btn-ghost'} tab-btn" data-tab="${tab}" style="border-radius:var(--radius) var(--radius) 0 0">${tab==='chat'?'💬 สนทนา':tab==='insights'?'💡 Insights':'⚡ Skills'}</button>`).join('')}
+          ${['chat', 'insights', 'skills'].map(tab => `<button class="btn btn-xs ${activeTab===tab?'btn-primary':'btn-ghost'} tab-btn" data-tab="${tab}" style="border-radius:var(--radius) var(--radius) 0 0">${tab==='chat'?'💬 ถาม LAMI':tab==='insights'?'💡 Insights':'⚡ Skills'}</button>`).join('')}
         </div>
 
         ${activeTab === 'chat' ? renderChat() : activeTab === 'insights' ? renderInsights() : renderSkills()}
@@ -246,7 +245,6 @@ export default async function LamiBrainPage(container) {
         <div class="card" style="padding:0;overflow:hidden;display:flex;flex-direction:column;height:500px">
           <div id="chat-messages" style="flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px">
             ${chatHistory.map(m => renderBubble(m)).join('')}
-            ${isTyping ? `<div style="display:flex;justify-content:flex-start"><div style="padding:10px 14px;border-radius:var(--radius) var(--radius) var(--radius) 4px;background:var(--surface-2);font-size:0.85rem"><span style="font-size:0.72rem;font-weight:700;color:var(--primary);display:block;margin-bottom:3px">🤖 LAMI</span><span style="color:var(--text-muted)">⏳ กำลังคิด...</span></div></div>` : ''}
           </div>
           <div style="padding:12px;border-top:1px solid var(--border);display:flex;gap:8px">
             <input class="input" id="chat-input" placeholder="พิมพ์คำถาม หรือสั่งงาน LAMI..." style="flex:1">
@@ -305,25 +303,11 @@ export default async function LamiBrainPage(container) {
     `
   }
 
-  async function sendMessage() {
-    const inp = document.getElementById('chat-input')
-    const text = inp?.value?.trim()
-    if (!text || isTyping) return
-    inp.value = ''
-    try { await createDoc('chat_lami_brain', { role: 'user', text, time: new Date().toISOString() }) } catch (e) {}
-    chatHistory.push({ role: 'user', text, time: new Date().toISOString() })
-    isTyping = true
-    renderPage()
-    try {
-      const reply = await askLami(text, chatHistory, businessContext)
-      try { await createDoc('chat_lami_brain', { role: 'lami', text: reply, time: new Date().toISOString() }) } catch (e) {}
-    } catch (err) {
-      try { await createDoc('chat_lami_brain', { role: 'lami', text: '⚠️ ' + aiErrorText(err), time: new Date().toISOString() }) } catch (e) {}
-    } finally {
-      isTyping = false
-      await loadChat()
-      if (container.__routerGen === myGen) renderPage()
-    }
+  // (v1.0.846) แชทหลักของ LAMI อยู่ที่ /ai/ask ซึ่งเห็นข้อมูลธุรกิจครบกว่า (ใบจอง สต็อก ทดลองขับ คาดการณ์)
+  // ส่งคำถามไปที่นั่นแทนการมีแชท LAMI สองที่ที่ตอบไม่เหมือนกัน ประวัติแชทเดิมของหน้านี้ยังเปิดดูได้
+  function sendMessage() {
+    const text = document.getElementById('chat-input')?.value?.trim()
+    if (text) navigate('/ai/ask?q=' + encodeURIComponent(text))
   }
 
   await loadAll()
