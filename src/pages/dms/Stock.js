@@ -184,7 +184,8 @@ export default async function StockPage(container) {
     const wrap = document.getElementById('stock-content')
     if (!wrap) return
     const countEl = document.getElementById('stock-filtered')
-    if (countEl) countEl.textContent = `แสดง ${filtered.length} คัน`
+    // ไม่กรองอะไร = ตัวเลขเดียวกับชิป "ทั้งหมด" ด้านบนอยู่แล้ว ไม่ต้องบอกซ้ำ · กรองแล้วบอกว่าเหลือกี่คันจากทั้งหมด
+    if (countEl) countEl.textContent = filtered.length === stock.length ? '' : `แสดง ${filtered.length} จาก ${stock.length} คัน`
 
     if (!filtered.length) {
       // (v1.0.528) แยกข้อความให้ชัดว่า "สต็อกว่างจริงยังไม่มีรถเลย" กับ "มีรถแต่ตัวกรองไม่ตรง" ไม่ใช่แบบเดียวกัน
