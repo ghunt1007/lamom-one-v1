@@ -189,12 +189,12 @@ export default async function AnalyticsDashboard(container) {
 
         <!-- Quick links -->
         <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.05em">เมนูหลัก Analytics</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:12px;margin-bottom:24px">
+        <div class="an-links" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:12px;margin-bottom:24px">
           ${QUICK_LINKS.map(q => `
             <div class="card card-lift" data-nav="${q.path}" style="padding:15px 16px;cursor:pointer;border-top:3px solid var(--${q.color})">
-              <div style="font-size:1.6rem;margin-bottom:6px">${q.icon}</div>
+              <div class="an-ic" style="font-size:1.6rem;margin-bottom:6px">${q.icon}</div>
               <div style="font-weight:700;font-size:0.86rem">${q.label}</div>
-              <div style="font-size:0.71rem;color:var(--text-muted)">${q.sub}</div>
+              <div class="an-sub" style="font-size:0.71rem;color:var(--text-muted)">${q.sub}</div>
             </div>
           `).join('')}
         </div>
@@ -263,7 +263,7 @@ export default async function AnalyticsDashboard(container) {
             ${MONTHLY_DATA.map(d => {
               const h = Math.round(d.sales / maxSales * 160)
               return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
-                <div style="font-size:0.62rem;color:var(--text-muted)">${(d.sales/1000000).toFixed(1)}M</div>
+                <div style="font-size:0.62rem;color:var(--text-muted)">${d.sales ? (d.sales/1000000).toFixed(1) + 'M' : ''}</div>
                 <div style="width:100%;height:${h}px;background:linear-gradient(to top,var(--primary),var(--primary-dim));border-radius:4px 4px 0 0" title="${d.m}: ${formatCurrency(d.sales)}"></div>
                 <div style="font-size:0.62rem;color:var(--text-muted);white-space:nowrap">${d.m}</div>
               </div>`
@@ -338,7 +338,7 @@ export default async function AnalyticsDashboard(container) {
             ${allData.map(d => {
               const h = Math.round(d.sales / maxSales * 160)
               return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
-                <div style="font-size:0.58rem;color:var(--text-muted)">${(d.sales/1000000).toFixed(1)}M</div>
+                <div style="font-size:0.58rem;color:var(--text-muted)">${d.sales ? (d.sales/1000000).toFixed(1) + 'M' : ''}</div>
                 <div style="width:100%;height:${h}px;background:${d.forecast ? 'linear-gradient(to top,var(--accent),var(--accent-dim))' : 'linear-gradient(to top,var(--primary),var(--primary-dim))'};border-radius:4px 4px 0 0;${d.forecast?'opacity:0.8;border:1px dashed var(--accent)':''}"></div>
                 <div style="font-size:0.55rem;color:var(--text-muted);white-space:nowrap">${d.m}</div>
               </div>`

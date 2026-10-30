@@ -123,7 +123,7 @@ export default async function ProfitAnalysisPage(container) {
               const revenueH = Math.round(m.revenue / maxRevenue * 120)
               const grossH = Math.round((m.revenue - m.cogs) / maxRevenue * 120)
               return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
-                <div style="font-size:0.65rem;color:var(--text-muted)">${(m.revenue/1000000).toFixed(1)}M</div>
+                <div style="font-size:0.65rem;color:var(--text-muted)">${m.revenue ? (m.revenue/1000000).toFixed(1) + 'M' : ''}</div>
                 <div style="width:100%;display:flex;flex-direction:column;justify-content:flex-end;height:${revenueH}px;position:relative">
                   <div style="position:absolute;bottom:0;width:100%;background:var(--primary);opacity:0.3;height:${revenueH}px;border-radius:2px 2px 0 0"></div>
                   <div style="position:absolute;bottom:0;width:100%;background:var(--success);height:${grossH}px;border-radius:2px 2px 0 0"></div>
