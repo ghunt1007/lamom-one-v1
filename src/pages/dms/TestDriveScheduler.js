@@ -22,6 +22,8 @@ const TD_STATUS = {
   no_show:   { label: 'ไม่มา', color: 'danger' },
   cancelled: { label: 'ยกเลิก', color: 'secondary' },
 }
+// สถานะที่ไม่อยู่ในตาราง (เช่นข้อมูลเก่า 'completed') ไม่ให้ขึ้นคำว่า undefined
+const tdStatus = s => TD_STATUS[s] || (s === 'completed' ? TD_STATUS.done : { label: s || 'ไม่ระบุ', color: 'secondary' })
 
 // (v1.0.523) field ใหม่ที่มากับข้อมูลที่รวมมาจาก TestDrive.js (/crm/test-drive ใช้ collection เดียวกันแล้ว) —
 // หน้านี้ไม่มีฟอร์มบันทึกผลของตัวเอง แต่ควรโชว์ผลที่อีกหน้าบันทึกไว้ให้เห็นในตารางเดียวกันด้วย
@@ -120,7 +122,7 @@ export default async function TestDriveSchedulerPage(container) {
           <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:0.8rem;font-weight:700;color:var(--text-muted)">⏰ Timeline ${formatDate(viewDate)}</div>
           ${TIME_SLOTS.map(slot => {
             const booking = todayList.find(b => b.time === slot)
-            const st = booking ? TD_STATUS[booking.status] : null
+            const st = booking ? tdStatus(booking.status) : null
             return `<div style="display:flex;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);min-height:52px;align-items:center">
               <div style="min-width:50px;font-size:0.82rem;font-weight:700;color:var(--text-muted)">${slot}</div>
               ${booking ? `
@@ -155,7 +157,7 @@ export default async function TestDriveSchedulerPage(container) {
             </thead>
             <tbody>
               ${bookings.map(b => {
-                const st = TD_STATUS[b.status]
+                const st = tdStatus(b.status)
                 const rs = TD_RESULT[b.result]
                 return `<tr style="border-bottom:1px solid var(--border)">
                   <td style="padding:8px 14px;font-size:0.83rem">
@@ -212,7 +214,7 @@ export default async function TestDriveSchedulerPage(container) {
   }
 
   function openDetail(b) {
-    const st = TD_STATUS[b.status]
+    const st = tdStatus(b.status)
     openModal({
       title: '🚗 ' + escHtml(b.id) + ' — ' + escHtml(b.customerName),
       size: 'sm',
