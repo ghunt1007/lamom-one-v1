@@ -89,7 +89,7 @@ export default async function JobCardsPage(container) {
     })
     const active = scoped.filter(j => !['done','delivered'].includes(j.status)).length
     const totEl = document.getElementById('job-total')
-    if (totEl) totEl.textContent = `${scoped.length} งาน (active: ${active})`
+    if (totEl) totEl.textContent = `${scoped.length} งาน · กำลังทำ ${active}`
     const revEl = document.getElementById('job-revenue')
     const rev = scoped.filter(j => j.status === 'done' || j.status === 'delivered').reduce((s, j) => s + (j.labor || 0), 0)
     if (revEl) revEl.textContent = `รายได้: ${formatCurrency(rev)}`
@@ -350,7 +350,7 @@ export default async function JobCardsPage(container) {
       ` : ''}
 
       <!-- Status Pills -->
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;overflow-x:auto;padding-bottom:4px">
+      <div class="chip-scroll" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;overflow-x:auto;padding-bottom:4px">
         <button class="btn btn-sm jf-btn btn-primary" data-sf="all">ทั้งหมด</button>
         ${Object.entries(JOB_STATUS).map(([k,v]) => `
           <button class="btn btn-sm jf-btn btn-secondary" data-sf="${k}" style="white-space:nowrap">

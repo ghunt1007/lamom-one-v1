@@ -127,7 +127,7 @@ export default async function EventManagementPage(container) {
 
         // Filters
         '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;align-items:center">' +
-          '<div style="display:flex;gap:4px;flex-wrap:wrap">' +
+          '<div class="chip-scroll" style="display:flex;gap:4px;flex-wrap:wrap;overflow-x:auto">' +
             '<button class="btn btn-xs ' + (typeFilter==='all'?'btn-primary':'btn-secondary') + ' type-btn" data-t="all">ทั้งหมด</button>' +
             Object.entries(EVENT_TYPES).map(([k,v]) => '<button class="btn btn-xs ' + (typeFilter===k?'btn-primary':'btn-secondary') + ' type-btn" data-t="' + k + '">' + v.icon + ' ' + v.label + '</button>').join('') +
           '</div>' +

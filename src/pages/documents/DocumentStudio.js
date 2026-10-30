@@ -153,7 +153,7 @@ export default async function DocumentStudioPage(container) {
             <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted)">🔍</span>
             <input class="input" id="doc-search" placeholder="ค้นหาชื่อเอกสาร..." style="padding-left:32px">
           </div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <div class="chip-scroll" style="display:flex;gap:6px;flex-wrap:wrap;overflow-x:auto">
             <button class="btn btn-sm dt-btn btn-primary" data-t="all">ทั้งหมด</button>
             ${Object.entries(DOC_TYPES).map(([k,v])=>`<button class="btn btn-sm dt-btn btn-secondary" data-t="${k}">${v.label}</button>`).join('')}
           </div>

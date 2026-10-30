@@ -325,7 +325,7 @@ export default async function VehicleOrdersPage(container) {
             <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted)">🔍</span>
             <input class="input" id="order-search" placeholder="ค้นหา เลขที่ ยี่ห้อ Supplier..." style="padding-left:32px">
           </div>
-          <div style="display:flex;gap:5px;flex-wrap:wrap">
+          <div class="chip-scroll" style="display:flex;gap:5px;flex-wrap:wrap;overflow-x:auto">
             <button class="btn btn-sm sf-ord btn-primary" data-sf="all">ทั้งหมด</button>
             ${Object.entries(STATUS).map(([k,v]) => `<button class="btn btn-sm sf-ord btn-secondary" data-sf="${k}">${v.label}</button>`).join('')}
           </div>

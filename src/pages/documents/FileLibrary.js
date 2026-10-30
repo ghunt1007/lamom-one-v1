@@ -69,7 +69,7 @@ export default async function FileLibraryPage(container) {
   }
 
   function render() {
-    const catChips = `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+    const catChips = `<div class="chip-scroll" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;overflow-x:auto">
       <button class="btn btn-sm cat-chip ${catFilter === '' ? 'btn-primary' : 'btn-secondary'}" data-c="">ทั้งหมด (${files.length})</button>
       ${Object.entries(CATEGORIES).map(([k, v]) => {
         const n = files.filter(f => f.category === k).length
