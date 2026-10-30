@@ -187,7 +187,7 @@ export default async function ChurnPredictionPage(container) {
   }
 
   function sc(l, v, c) {
-    return `<div class="card" style="padding:14px 16px"><div style="font-size:0.72rem;color:var(--text-muted)">${l}</div><div style="font-size:1.3rem;font-weight:900;color:${c};margin-top:2px">${v}</div></div>`
+    return `<div class="card" style="padding:14px 16px"><div style="font-size:0.72rem;color:var(--text-muted)">${l}</div><div class="kpi-num" style="font-size:1.3rem;font-weight:900;color:${c};margin-top:2px">${v}</div></div>`
   }
 
   render()

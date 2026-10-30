@@ -147,7 +147,7 @@ export default async function SalesIncomePage(container) {
     }
     const card = (icon, label, value, color, sub = '') => `<div class="card" style="padding:14px 16px">
       <div style="font-size:0.75rem;color:var(--text-muted)">${icon} ${label}</div>
-      <div style="font-size:1.35rem;font-weight:800;color:var(--${color})">${value}</div>${sub ? `<div style="font-size:0.7rem;color:var(--text-muted)">${sub}</div>` : ''}</div>`
+      <div class="kpi-num" style="font-size:1.35rem;font-weight:800;color:var(--${color})">${value}</div>${sub ? `<div style="font-size:0.7rem;color:var(--text-muted)">${sub}</div>` : ''}</div>`
     container.innerHTML = `
       <div class="page-content animate-slide">
         <div class="page-header">

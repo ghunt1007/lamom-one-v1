@@ -134,7 +134,7 @@ export default async function GpFocPage(container) {
 function card(icon, label, value, color, sub) {
   return '<div class="card" style="padding:16px 18px;border-left:3px solid var(--' + color + ')">' +
     '<div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:4px">' + icon + ' ' + label + '</div>' +
-    '<div style="font-size:1.15rem;font-weight:800;color:var(--' + color + ')">' + value + '</div>' +
+    '<div class="kpi-num" style="font-size:1.15rem;font-weight:800;color:var(--' + color + ')">' + value + '</div>' +
     '<div style="font-size:0.7rem;color:var(--text-muted);margin-top:3px">' + sub + '</div>' +
   '</div>'
 }

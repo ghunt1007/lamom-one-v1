@@ -111,19 +111,19 @@ export default async function MarginPage(container) {
       <div class="grid-4 mb-6">
         <div class="card" style="padding:16px 18px;border-left:3px solid var(--primary)">
           <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:4px">รถที่ขาย</div>
-          <div style="font-size:1.6rem;font-weight:800;color:var(--primary)" id="sum-count">-</div>
+          <div class="kpi-num" style="font-size:1.6rem;font-weight:800;color:var(--primary)" id="sum-count">-</div>
         </div>
         <div class="card" style="padding:16px 18px;border-left:3px solid var(--accent)">
           <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:4px">ยอดขายรวม</div>
-          <div style="font-size:1.1rem;font-weight:800;color:var(--accent)" id="sum-sales">-</div>
+          <div class="kpi-num" style="font-size:1.1rem;font-weight:800;color:var(--accent)" id="sum-sales">-</div>
         </div>
         <div class="card" style="padding:16px 18px;border-left:3px solid var(--success)">
           <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:4px">กำไรสุทธิรวม</div>
-          <div style="font-size:1.1rem;font-weight:800;color:var(--success)" id="sum-net">-</div>
+          <div class="kpi-num" style="font-size:1.1rem;font-weight:800;color:var(--success)" id="sum-net">-</div>
         </div>
         <div class="card" style="padding:16px 18px;border-left:3px solid var(--warning)">
           <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:4px">Margin เฉลี่ย</div>
-          <div style="font-size:1.6rem;font-weight:800" id="sum-pct">-</div>
+          <div class="kpi-num" style="font-size:1.6rem;font-weight:800" id="sum-pct">-</div>
         </div>
       </div>
 

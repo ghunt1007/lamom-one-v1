@@ -158,7 +158,7 @@ export default async function ServiceAnalyticsPage(container) {
                 <tr style="border-bottom:1px solid var(--border);font-size:0.8rem">
                   <td style="padding:8px 14px;width:36px">${['🥇','🥈','🥉','4.'][i]}</td>
                   <td style="padding:8px 6px;font-weight:600">${t.name}</td>
-                  <td style="padding:8px 10px;text-align:right">${t.jobs} งาน</td>
+                  <td style="padding:8px 10px;text-align:right;white-space:nowrap">${t.jobs} งาน</td>
                   <td style="padding:8px 10px;text-align:right;font-weight:700;color:var(--success)">${formatCurrency(t.revenue)}</td>
                   <td style="padding:8px 14px;text-align:right;color:var(--${t.csat>=4.6?'success':'warning'})">⭐ ${t.csat}</td>
                 </tr>

@@ -597,7 +597,7 @@ export default async function PromotionEnginePage(container) {
 function kpi(t, v, c) {
   return '<div class="card" style="padding:14px 16px;border-left:3px solid var(--' + c + ')">' +
     '<div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:2px">' + t + '</div>' +
-    '<div style="font-size:1.2rem;font-weight:800;color:var(--' + c + ')">' + v + '</div></div>'
+    '<div class="kpi-num" style="font-size:1.2rem;font-weight:800;color:var(--' + c + ')">' + v + '</div></div>'
 }
 
 function miniKpi(label, value, color) {
