@@ -256,9 +256,9 @@ export default async function MyDayPage(container) {
         ${teamCard(today)}
         ${goalCard(today)}
         ${section('📞', 'นัดติดตามวันนี้/เลยกำหนด', 'กด ✅ เมื่อติดต่อแล้ว', d.followups, f => line(
-          `${escHtml(f.customerName || 'ลูกค้า')}${f.late > 0 ? ` <span class="badge badge-danger" style="font-size:0.62rem">เลย ${f.late} วัน</span>` : ''}`,
+          `${escHtml(f.customerName || 'ลูกค้า')}${f.late > 0 ? ` <span class="badge badge-danger" style="font-size:0.62rem">เลย ${f.late} วัน</span>` : ''}${f.also?.length ? ` <span class="badge badge-secondary" style="font-size:0.62rem" title="ลูกค้าคนนี้มีนัดค้างอีก ${f.also.length} นัด — กดทำแล้วครั้งเดียวปิดทั้งหมด">+${f.also.length} นัด</span>` : ''}`,
           `${escHtml(f.purpose || '')}${f.vehicleModel ? ` · ${escHtml(f.vehicleModel)}` : ''}${ownerTag(f.salesperson)}`,
-          `${callBtn(f.phone, f.customerId)}<button class="btn btn-success btn-xs md-fu" data-id="${escHtml(f.id)}">✅ ทำแล้ว</button>`), 'danger')}
+          `${callBtn(f.phone, f.customerId)}<button class="btn btn-success btn-xs md-fu" data-id="${escHtml(f.id)}" data-also="${escHtml((f.also || []).join(','))}">✅ ทำแล้ว</button>`), 'danger')}
 
         ${d.testDrives.length ? section('🚙', 'นัดทดลองขับวันนี้', 'บันทึกผลที่หน้า Test Drive แล้วระบบนัดโทรตามให้', d.testDrives, t => line(
           `${escHtml(t.time || '')} · ${escHtml(t.customerName || 'ลูกค้า')}`,
@@ -427,6 +427,11 @@ export default async function MyDayPage(container) {
           if (!result) { showToast('❗ กรุณากรอกผลการติดต่อ', 'error'); return false }
           try {
             await updateDocData('followups', f.id, { status: 'done', result })
+            // นัดค้างอื่นของลูกค้าคนเดียวกัน (รวมแถวไว้) ปิดพร้อมกันด้วยผลเดียวกัน
+            for (const id of (btn.dataset.also || '').split(',').filter(Boolean)) {
+              await updateDocData('followups', id, { status: 'done', result }).catch(() => {})
+              const o = data.followups.find(x => x.id === id); if (o) { o.status = 'done'; o.result = result }
+            }
             touchCustomerContact(f.customerId)
             const fc = data.customers.find(x => x.id === f.customerId)
             if (fc) fc.lastContactAt = new Date().toISOString()
