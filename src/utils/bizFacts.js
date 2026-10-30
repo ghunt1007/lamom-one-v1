@@ -44,9 +44,26 @@ export function businessFacts({ customers = [], bookings = [] }, today) {
     lostWhy[k] = (lostWhy[k] || 0) + 1
   })
   const lostLine = Object.entries(lostWhy).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(' · ')
+  // ใบจองที่ยังค้าง (ยังไม่ส่งมอบ/ไม่ถอน) แยกตามสถานะ + ค้างนานสุดกี่วัน — ให้ตอบ "ตอนนี้มีใบจองค้างอะไรบ้าง ติดตรงไหน"
+  const DAY = 86400000, t0 = Date.parse(today + 'T00:00:00Z')
+  const open = bk.filter(b => !CANCELLED.includes(b.status) && !DELIVERED_STATUSES.includes(b.status))
+  const byStatus = {}
+  open.forEach(b => {
+    const k = b.status || 'ไม่ระบุสถานะ'
+    const d = Date.parse(String(b.bookingDate || bangkokDate(b.createdAt) || '').slice(0, 10) + 'T00:00:00Z')
+    const o = (byStatus[k] ||= { n: 0, max: 0 }); o.n++
+    if (!isNaN(d)) o.max = Math.max(o.max, Math.round((t0 - d) / DAY))
+  })
+  const openLine = Object.entries(byStatus).sort((a, b) => b[1].n - a[1].n)
+    .map(([k, v]) => `${k} ${v.n}${v.max ? ` (นานสุด ${v.max} วัน)` : ''}`).join(' · ')
+  // แนวโน้ม 6 เดือน (จอง/ส่งมอบ) — ให้ตอบ "ยอดขายช่วงนี้ขึ้นหรือลง"
+  const months = [ym]; for (let i = 0; i < 5; i++) months.unshift(prevMonth(months[0]))
+  const trendLine = months.map(m => `${m} จอง ${booked(m).length}/ส่งมอบ ${delivered(m).length}`).join(' · ')
   return {
     'ใบจองเดือนนี้ (จากระบบจองรถ)': `จอง ${booked(ym).length} ใบ (เดือนก่อน ${booked(pm).length}) · ส่งมอบ/ตัดตัวเลข ${delivered(ym).length} คัน (เดือนก่อน ${delivered(pm).length})${cancelled ? ` · ถอนจองเดือนนี้ ${cancelled}` : ''}`,
     ...(perLine ? { 'ผลงานรายเซลส์เดือนนี้': perLine } : {}),
+    ...(openLine ? { [`ใบจองที่ยังค้าง ${open.length} ใบ แยกตามสถานะ`]: openLine } : {}),
+    'แนวโน้ม 6 เดือน (จอง/ส่งมอบ)': trendLine,
     ...(srcLine ? { 'Lead 90 วันล่าสุดแยกตามที่มา': srcLine } : {}),
     ...(lostLine ? { 'เหตุผลเสียดีล 90 วันล่าสุด': lostLine } : {}),
     'ลูกค้าในแต่ละขั้น': `Lead ${stage('lead')} · Prospect ${stage('pp')} · จองแล้ว ${stage('booking')} · เสียดีล ${cs.filter(c => c.isLost).length}`,
