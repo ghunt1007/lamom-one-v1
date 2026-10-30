@@ -3,6 +3,7 @@
 import { DELIVERED_STATUSES } from './deliveryIncome.js'
 import { bangkokDate } from './myDay.js'
 import { classifyLostReason, LOST_REASON_LABELS } from './lostReason.js'
+import { stockAgeDays } from './stockAge.js'
 
 const CANCELLED = ['ถอนจอง', 'ยกเลิก']
 const SOURCE_TH = { facebook: 'Facebook', line: 'LINE', tiktok: 'TikTok', 'walk-in': 'Walk-in', referral: 'แนะนำ', google: 'Google', website: 'เว็บไซต์', phone: 'โทรเข้า', other: 'อื่นๆ' }
@@ -92,7 +93,8 @@ export function businessFacts({ customers = [], bookings = [] }, today) {
 }
 
 // รถพร้อมขายในสต็อก แยกรุ่น/สี (ไม่มีเลขตัวถัง) — ให้ LAMI/AI ตอบได้ว่า "S07 สีขาวมีพร้อมส่งไหม"
-export function stockFacts(vehicles = []) {
+// ส่ง today มาด้วย จะได้รายการรถที่ค้างสต็อก 60 วันขึ้นไปเพิ่ม — ให้ตอบ "คันไหนค้างนาน ควรเร่งขาย"
+export function stockFacts(vehicles = [], today) {
   const live = vehicles.filter(v => v && !v.deleted)
   const ready = live.filter(v => v.status === 'available')
   const transit = live.filter(v => v.status === 'transit').length
@@ -104,7 +106,13 @@ export function stockFacts(vehicles = []) {
   })
   const line = Object.entries(by).sort((a, b) => a[0].localeCompare(b[0])).slice(0, 20)
     .map(([m, cs]) => `${m}: ${Object.entries(cs).map(([c, n]) => `${c} ${n}`).join(', ')}`).join(' · ')
-  return { 'รถพร้อมขายในสต็อก (แยกรุ่น/สี)': `${ready.length} คัน${line ? ` — ${line}` : ''}${transit ? ` · กำลังขนส่งมา ${transit} คัน` : ''}` }
+  const out = { 'รถพร้อมขายในสต็อก (แยกรุ่น/สี)': `${ready.length} คัน${line ? ` — ${line}` : ''}${transit ? ` · กำลังขนส่งมา ${transit} คัน` : ''}` }
+  if (today) {
+    const aged = ready.map(v => ({ v, d: stockAgeDays(v.arrivedAt, today) })).filter(x => x.d >= 60).sort((a, b) => b.d - a.d)
+    if (aged.length) out['รถพร้อมขายค้างสต็อก 60 วันขึ้นไป'] = `${aged.length} คัน — ` + aged.slice(0, 8)
+      .map(({ v, d }) => `${[v.brand, v.model].filter(Boolean).join(' ')} ${v.color || ''} ${d} วัน`.replace(/\s+/g, ' ')).join(' · ')
+  }
+  return out
 }
 
 // นัดทดลองขับ 7 วันข้างหน้า + ลองขับแล้วจองกี่ % (90 วันล่าสุด) — ให้ LAMI ตอบ "สัปดาห์นี้มีใครมาลองขับ" ได้

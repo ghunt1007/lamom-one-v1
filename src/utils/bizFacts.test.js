@@ -66,6 +66,15 @@ describe('stockFacts', () => {
     ])
     expect(f['รถพร้อมขายในสต็อก (แยกรุ่น/สี)']).toBe('3 คัน — DEEPAL S07: ขาว 2, ดำ 1 · กำลังขนส่งมา 1 คัน')
   })
+  it('lists cars waiting 60+ days when given today', () => {
+    const f = stockFacts([
+      { brand: 'DEEPAL', model: 'S07', color: 'ขาว', status: 'available', arrivedAt: '2026-07-01' },
+      { brand: 'DEEPAL', model: 'L07', color: 'ดำ', status: 'available', arrivedAt: '2026-10-01' },
+      { brand: 'DEEPAL', model: 'S05', status: 'reserved', arrivedAt: '2026-01-01' },
+    ], '2026-10-31')
+    expect(f['รถพร้อมขายค้างสต็อก 60 วันขึ้นไป']).toBe('1 คัน — DEEPAL S07 ขาว 122 วัน')
+    expect(stockFacts([], '2026-10-31')['รถพร้อมขายค้างสต็อก 60 วันขึ้นไป']).toBeUndefined()
+  })
   it('empty stock', () => {
     expect(stockFacts([])['รถพร้อมขายในสต็อก (แยกรุ่น/สี)']).toBe('0 คัน')
   })
