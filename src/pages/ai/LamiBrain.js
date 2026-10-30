@@ -40,7 +40,7 @@ function computeInsights({ leads, vehicleModels, jobCards, complaintsList, sales
 
   const hottest = leads.map(l => ({ ...l, ...heuristicScore(l) })).sort((a, b) => b.score - a.score).find(l => l.score >= 80)
   if (hottest) {
-    insights.push({ icon: '🎯', priority: 'high', time: hottest.createdAt || now.toISOString(), nav: '/ai/lead-scoring', action: 'ดู Lead',
+    insights.push({ icon: '🎯', priority: 'high', time: hottest.createdAt || now.toISOString(), nav: hottest.id ? '/crm/customers?id=' + encodeURIComponent(hottest.id) : '/ai/lead-scoring', action: 'เปิดลูกค้า',
       message: `${hottest.stage === 'pp' ? 'Prospect' : 'Lead'} ${hottest.custName || [hottest.firstName, hottest.lastName].filter(Boolean).join(' ') || hottest.name || 'ไม่ระบุชื่อ'} มีโอกาสปิดสูง ${hottest.score}% — แนะนำติดต่อโดยเร็ว` })
   }
 
