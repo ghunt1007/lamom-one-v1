@@ -489,6 +489,13 @@
   .bk-filters > .bk-dates { flex-basis: 100%; min-width: 0; }
   .bk-dates > input[type="date"] { flex: 1 1 0; min-width: 0; width: auto !important; padding-left: 6px; padding-right: 4px; }
 }
+.bk-date-toggle { display: none; }
+/* มือถือ: ยังไม่ได้เลือกวัน → ซ่อนแถววันที่ เหลือปุ่ม 📅 ท้ายแถวเซลล์/แบรนด์ */
+@media (max-width: 640px) {
+  .bk-nodate > .bk-dates { display: none !important; }
+  .bk-nodate > select { flex: 1 1 0; }
+  .bk-nodate > .bk-date-toggle { display: inline-flex; flex: 0 0 auto; min-width: 40px; min-height: 38px; align-items: center; justify-content: center; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius-sm, 8px); background: var(--surface); }
+}
 @media (max-width: 640px) {
   .cust-row-avatar { display: none !important; }
 }
