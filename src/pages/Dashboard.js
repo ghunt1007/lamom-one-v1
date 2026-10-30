@@ -802,11 +802,17 @@ export default async function DashboardPage(container) {
       const jobsInMonth = jobs.filter(j => toDateStr(j.createdAt).startsWith(selectedMonth))
       const jobsDone = jobsInMonth.filter(j => ['done', 'completed', 'delivered'].includes(j.status)).length
       const tasksDone = tasks.filter(t => t.status === 'done').length
-      el.innerHTML =
-        ringGauge('ส่งมอบสำเร็จ', inMonth.length ? delivered / inMonth.length * 100 : null, 'success', `${delivered}/${inMonth.length} ใบจอง`) +
-        ringGauge('ไฟแนนซ์ผ่าน', withFin.length ? finPassed / withFin.length * 100 : null, 'primary', `${finPassed}/${withFin.length} เคส`) +
-        ringGauge('งานซ่อมเสร็จ', jobsInMonth.length ? jobsDone / jobsInMonth.length * 100 : null, 'warning', `${jobsDone}/${jobsInMonth.length} งาน`) +
-        ringGauge('งานมอบหมายเสร็จ', tasks.length ? tasksDone / tasks.length * 100 : null, 'accent', `${tasksDone}/${tasks.length} งาน`)
+      const gauges = [
+        ['ส่งมอบสำเร็จ', inMonth.length ? delivered / inMonth.length * 100 : null, 'success', `${delivered}/${inMonth.length} ใบจอง`],
+        ['ไฟแนนซ์ผ่าน', withFin.length ? finPassed / withFin.length * 100 : null, 'primary', `${finPassed}/${withFin.length} เคส`],
+        ['งานซ่อมเสร็จ', jobsInMonth.length ? jobsDone / jobsInMonth.length * 100 : null, 'warning', `${jobsDone}/${jobsInMonth.length} งาน`],
+        ['งานมอบหมายเสร็จ', tasks.length ? tasksDone / tasks.length * 100 : null, 'accent', `${tasksDone}/${tasks.length} งาน`],
+      ]
+      // วงที่ยังไม่มีข้อมูล (0/0) ไม่ต้องวาดเป็นวงว่าง "—" ให้เปลืองที่ — รวมชื่อไว้บรรทัดเดียวแทน
+      const has = gauges.filter(g => g[1] != null), none = gauges.filter(g => g[1] == null).map(g => g[0])
+      el.style.gridTemplateColumns = `repeat(${Math.max(1, has.length)},minmax(110px,1fr))`
+      el.innerHTML = has.map(g => ringGauge(...g)).join('') +
+        (none.length ? `<div style="grid-column:1/-1;font-size:0.7rem;color:var(--text-muted);text-align:center">ยังไม่มีข้อมูลเดือนนี้: ${none.join(' · ')}</div>` : '')
     }
 
     // ── MoM: เปรียบเทียบเดือนที่เลือกกับเดือนก่อนหน้า ──
