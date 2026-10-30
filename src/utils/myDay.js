@@ -110,6 +110,18 @@ export function buildMyDay({ customers = [], followups = [], bookings = [], test
   }).filter(Boolean).sort((a, b) => a.days - b.days)
 
   out.followups.sort((a, b) => b.late - a.late)
+  // ลูกค้าคนเดียวมีหลายนัดค้าง (เช่น นัดซ้ำจากหลายหน้า) → แสดงแถวเดียว (นัดที่เลยนานสุด) และเก็บ id นัดอื่นไว้ใน also
+  // กด ✅ ทำแล้วครั้งเดียวปิดได้ทุกนัดของคนนั้น ไม่ต้องกดซ้ำหลายแถว
+  const fuByCust = new Map()
+  out.followups = out.followups.filter(f => {
+    // นัดจากทดลองขับบางอันไม่มี customerId แต่มีเบอร์ — ใช้เบอร์แทน
+    const tel = String(f.phone || '').replace(/\D/g, '')
+    const key = f.customerId || (tel.length >= 9 ? 'tel:' + tel : '')
+    if (!key) return true
+    const first = fuByCust.get(key)
+    if (!first) { fuByCust.set(key, f); f.also = []; return true }
+    first.also.push(f.id); return false
+  })
   // ลูกค้า Hot ขึ้นก่อน (โอกาสปิดสูงสุด) แล้วค่อยเรียงตามจำนวนวันที่เงียบ
   out.stale.sort((a, b) => Number(b.temperature === 'hot') - Number(a.temperature === 'hot') || b.days - a.days)
   out.stuck.sort((a, b) => b.days - a.days)

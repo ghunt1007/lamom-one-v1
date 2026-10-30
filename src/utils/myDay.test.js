@@ -110,6 +110,23 @@ describe('buildMyDay — ตัดตัวเลขรอส่งมอบท�
   })
 })
 
+describe('buildMyDay — นัดซ้ำลูกค้าคนเดียว', () => {
+  it('รวมเป็นแถวเดียว เก็บ id นัดอื่นไว้', () => {
+    const d = buildMyDay({ followups: [
+      { id: 'a', status: 'pending', dueDate: '2026-10-24', customerId: 'k1' },
+      { id: 'b', status: 'pending', dueDate: '2026-10-22', customerId: 'k1' },
+      { id: 'c', status: 'pending', dueDate: '2026-10-23', customerId: 'k2' },
+      { id: 'd', status: 'pending', dueDate: '2026-10-25' },
+      { id: 'e', status: 'pending', dueDate: '2026-10-25' },
+      { id: 'f', status: 'pending', dueDate: '2026-10-25', phone: '081-234-5678' },
+      { id: 'g', status: 'pending', dueDate: '2026-10-25', phone: '0812345678' },
+    ] }, { today: '2026-10-25' })
+    expect(d.followups.map(f => f.id)).toEqual(['b', 'c', 'd', 'e', 'f'])
+    expect(d.followups[4].also).toEqual(['g'])
+    expect(d.followups[0].also).toEqual(['a'])
+  })
+})
+
 describe('buildMyDay — นัดพรุ่งนี้', () => {
   it('นับนัดค้างที่ครบกำหนดพรุ่งนี้', () => {
     const d = buildMyDay({ followups: [
