@@ -217,7 +217,8 @@ export function pageHasOwnSearch(table) {
   return [...scope.querySelectorAll('input')].some(i => {
     if (i.closest('.tt-toolbar, .tt-filter-row, table')) return false
     const ph = (i.getAttribute('placeholder') || '').toLowerCase()
-    return i.type === 'search' || /ค้นหา|search|🔍/.test(ph)
+    // ช่องที่ placeholder ไม่มีคำว่า "ค้นหา" แต่ id บอกว่าเป็นช่องค้นหา (เช่น #bk-search "ชื่อ รุ่น เบอร์...") ก็นับด้วย
+    return i.type === 'search' || /ค้นหา|search|🔍/.test(ph) || /search|(^|-)q$/i.test(i.id || '')
   })
 }
 
