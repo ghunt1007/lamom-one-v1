@@ -8,6 +8,7 @@ import { getBranches } from '../../data/masterData.js'
 import { pickVehicle } from '../../utils/vehiclePicker.js'
 import { navigate } from '../../core/router.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
+import { stockAgeDays, stockAgeTone } from '../../utils/stockAge.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -255,6 +256,12 @@ export default async function StockPage(container) {
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
           <div style="width:14px;height:14px;border-radius:50%;background:${colorDot(v.color)};border:1px solid var(--border);flex-shrink:0"></div>
           <span style="font-size:0.85rem;color:var(--text-2)">${escHtml(v.color || 'ไม่ระบุสี')}</span>
+          ${(() => { /* รถพร้อมขาย: บอกว่าอยู่ในสต็อกมากี่วัน 60+ วันเหลือง 90+ วันแดง */
+            const age = v.status === 'available' ? stockAgeDays(v.arrivedAt, todayBangkok()) : null
+            if (age == null) return ''
+            const tone = stockAgeTone(age)
+            return `<span title="นับจากวันรับรถ" style="margin-left:auto;font-size:0.72rem;white-space:nowrap;color:var(--${tone === 'muted' ? 'text-muted' : tone});${tone === 'muted' ? '' : 'font-weight:700'}">${tone === 'danger' ? '⚠️ ' : ''}ในสต็อก ${age} วัน</span>`
+          })()}
         </div>
         ${v.vin ? `<div style="font-size:0.72rem;color:var(--text-muted);font-family:monospace;margin-bottom:10px;overflow-wrap:anywhere">VIN ${escHtml(v.vin)}</div>` : ''}
         <div style="display:flex;justify-content:space-between;align-items:center">
