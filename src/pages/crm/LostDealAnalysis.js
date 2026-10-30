@@ -161,7 +161,7 @@ export default async function LostDealAnalysisPage(container) {
             <option value="all">ทุกเซลส์</option>
             ${allSalespeople.map(s => `<option value="${escHtml(s)}">${escHtml(s)}</option>`).join('')}
           </select>
-          <div style="display:flex;gap:4px;flex-wrap:wrap">
+          <div class="chip-scroll" style="display:flex;gap:4px;flex-wrap:wrap;overflow-x:auto">
             <button class="btn btn-sm ${reasonFilter==='all'?'btn-primary':'btn-secondary'} rf-btn" data-r="all">ทั้งหมด</button>
             ${Object.entries(LOST_REASONS).slice(0,5).map(([k,v]) => `<button class="btn btn-sm ${reasonFilter===k?'btn-primary':'btn-secondary'} rf-btn" data-r="${k}">${v.label}</button>`).join('')}
           </div>

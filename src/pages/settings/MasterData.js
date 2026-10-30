@@ -103,7 +103,7 @@ export default async function MasterDataPage(container) {
         </div>
 
         <!-- Tabs -->
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">${tabs()}</div>
+        <div class="chip-scroll" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;overflow-x:auto">${tabs()}</div>
 
         ${!canManage ? `<div class="card" style="padding:12px 14px;margin-bottom:14px;border-left:3px solid var(--warning);font-size:0.8rem">🔒 แก้ไขข้อมูลอ้างอิงกลางได้เฉพาะเจ้าของโปรแกรมเท่านั้น — ดูข้อมูลได้ตามปกติ</div>` : ''}
 

@@ -83,7 +83,7 @@ export default async function LegalReferencePage(container) {
             ${Object.entries(DOMAINS).map(([k,v]) => `<button class="btn btn-xs ${domainFilter===k?'btn-'+v.color:'btn-secondary'} df-btn" data-d="${k}">${v.icon} ${v.label}</button>`).join('')}
           </div>
         </div>
-        <div style="display:flex;gap:4px;margin-bottom:14px;flex-wrap:wrap">
+        <div class="chip-scroll" style="display:flex;gap:4px;margin-bottom:14px;flex-wrap:wrap;overflow-x:auto">
           <button class="btn btn-xs ${catFilter==='all'?'btn-primary':'btn-secondary'} cf-btn" data-c="all">ทุกหมวด</button>
           ${catOptions.map(([k,v]) => `<button class="btn btn-xs ${catFilter===k?'btn-primary':'btn-secondary'} cf-btn" data-c="${k}">${v.icon} ${v.label}</button>`).join('')}
         </div>

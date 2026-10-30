@@ -70,7 +70,7 @@ export default async function WithholdingTaxPage(container) {
           ${kpi('📉 ภาษีที่หักรวม', formatCurrency(totalWithheld), 'warning')}
         </div>
 
-        <div style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap">
+        <div class="chip-scroll" style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap;overflow-x:auto">
           <button class="btn btn-xs ${typeFilter==='all'?'btn-primary':'btn-secondary'} tf-btn" data-t="all">ทั้งหมด</button>
           ${Object.entries(INCOME_TYPES).map(([k,v]) => `<button class="btn btn-xs ${typeFilter===k?'btn-primary':'btn-secondary'} tf-btn" data-t="${k}">${v.label.split(' (')[0]}</button>`).join('')}
         </div>

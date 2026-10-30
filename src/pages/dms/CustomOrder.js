@@ -233,7 +233,7 @@ export default async function CustomOrderPage(container) {
           ${kpi('💰 มูลค่ารวม', formatCurrency(totalValue), 'primary')}
         </div>
 
-        <div style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap">
+        <div class="chip-scroll" style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap;overflow-x:auto">
           <button class="btn btn-xs ${statusFilter==='all'?'btn-primary':'btn-secondary'} sf-btn" data-s="all">ทั้งหมด</button>
           ${Object.entries(ORDER_STATUS).map(([k,v]) => `<button class="btn btn-xs ${statusFilter===k?'btn-'+v.color:'btn-secondary'} sf-btn" data-s="${k}">${v.icon} ${v.label}</button>`).join('')}
         </div>

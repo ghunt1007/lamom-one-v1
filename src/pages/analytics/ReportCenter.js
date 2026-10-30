@@ -214,9 +214,9 @@ export default async function ReportCenterPage(container) {
   function renderReportList(filtered) {
     return `
       <!-- Category filter -->
-      <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:16px">
+      <div class="chip-scroll" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:16px;overflow-x:auto">
         <button class="btn btn-sm ${catFilter==='all'?'btn-primary':'btn-secondary'} cat-btn" data-c="all">ทั้งหมด</button>
-        ${Object.entries(REPORT_CATEGORIES).map(([k,v]) => `<button class="btn btn-sm ${catFilter===k?'btn-primary':'btn-secondary'} cat-btn" data-c="${k}">${v.icon} ${v.label}</button>`).join('')}
+        ${Object.entries(REPORT_CATEGORIES).map(([k,v]) => `<button class="btn btn-sm ${catFilter===k?'btn-primary':'btn-secondary'} cat-btn" data-c="${k}">${v.label}</button>`).join('')}
       </div>
 
       <!-- Report cards grid -->

@@ -299,7 +299,7 @@ export default async function PdiPage(container) {
       </div>
 
       <!-- Status Tabs -->
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+      <div class="chip-scroll" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;overflow-x:auto">
         <button class="btn btn-sm pf-btn btn-primary" data-sf="all">ทั้งหมด</button>
         ${Object.entries(PDI_STATUS).map(([k,v]) => `
           <button class="btn btn-sm pf-btn btn-secondary" data-sf="${k}">
