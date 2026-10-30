@@ -478,7 +478,7 @@ export default async function BookingsPage(container) {
       const del = deliveredAll.filter(b => detectBrand(b.brand, b.model) === br).length
       const act = activeNonTerminal.filter(b => detectBrand(b.brand, b.model) === br).length
       const isActive = brandFilter === br
-      return `<div class="bk-brand-card" data-br="${escHtml(isActive ? '' : br)}" style="display:flex;flex-direction:column;align-items:center;min-width:90px;padding:8px 12px;border-radius:10px;cursor:pointer;background:${isActive ? c + '22' : 'var(--surface-2)'};border:1.5px solid ${isActive ? c : 'var(--border)'};transition:all .2s">
+      return `<div class="bk-brand-card" data-br="${escHtml(isActive ? '' : br)}" style="display:flex;flex-direction:column;align-items:center;flex:1 1 90px;max-width:180px;min-width:90px;padding:8px 12px;border-radius:10px;cursor:pointer;background:${isActive ? c + '22' : 'var(--surface-2)'};border:1.5px solid ${isActive ? c : 'var(--border)'};transition:all .2s">
         <div style="font-size:0.62rem;font-weight:800;color:${ink(c)};margin-bottom:2px">${ic} ${escHtml(br)}</div>
         <div style="font-size:1rem;font-weight:900;color:${ink(c)}">${del}</div>
         <div style="font-size:0.58rem;color:var(--text-muted)">ส่งแล้ว · ค้าง <span style="color:var(--warning)">${act}</span></div>
