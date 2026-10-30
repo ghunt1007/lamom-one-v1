@@ -6,6 +6,7 @@ import { navigate } from '../core/router.js'
 import { generateMorningBriefing, bangkokHour } from '../utils/ai.js'
 import { getModuleForPath, hasModuleAccess, loadRolePermissions } from '../core/permissions.js'
 import { t } from '../i18n/index.js'
+import { DELIVERED_STATUSES as DELIVERED_ST } from '../utils/deliveryIncome.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -780,14 +781,17 @@ export default async function DashboardPage(container) {
     // ── Ring gauges: อัตราความสำเร็จของเดือนที่เลือก ──
     function ringGauge(label, pct, color, sub) {
       const R = 40, C = 2 * Math.PI * R
-      const p = Math.max(0, Math.min(100, pct || 0))
+      // pct = null → ยังไม่มีข้อมูลเดือนนี้ (0/0) แสดง "—" สีจาง แทน 0% ที่ดูเหมือนผลงานแย่
+      const none = pct == null
+      if (none) color = 'text-muted'
+      const p = none ? 0 : Math.max(0, Math.min(100, pct || 0))
       return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px">
         <svg viewBox="0 0 100 100" style="width:94px;height:94px">
           <circle cx="50" cy="50" r="${R}" fill="none" stroke="var(--surface-3)" stroke-width="8"/>
           <circle cx="50" cy="50" r="${R}" fill="none" stroke="var(--${color})" stroke-width="8" stroke-linecap="round"
             stroke-dasharray="${(p / 100 * C).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 50 50)"
             style="filter:drop-shadow(0 0 5px var(--${color}));animation:dashGaugeDraw 900ms ease-out"/>
-          <text x="50" y="55" text-anchor="middle" font-size="19" font-weight="800" fill="var(--${color})">${Math.round(p)}%</text>
+          <text x="50" y="55" text-anchor="middle" font-size="19" font-weight="800" fill="var(--${color})">${none ? '—' : Math.round(p) + '%'}</text>
         </svg>
         <div style="font-size:0.72rem;font-weight:700;color:var(--text-2);text-align:center">${label}</div>
         <div style="font-size:0.64rem;color:var(--text-muted);text-align:center;font-family:'Share Tech Mono',monospace">${sub}</div>
@@ -800,17 +804,17 @@ export default async function DashboardPage(container) {
       const mEl = document.getElementById('radar-month')
       if (mEl) mEl.textContent = ymLabel(selectedMonth).toUpperCase()
       const inMonth = bookings.filter(b => (b.bookingDate || '').startsWith(selectedMonth))
-      const delivered = inMonth.filter(b => b.status === 'ส่งมอบแล้ว').length
+      const delivered = inMonth.filter(b => DELIVERED_ST.includes(b.status)).length
       const withFin = inMonth.filter(b => b.finStatus)
       const finPassed = withFin.filter(b => b.finStatus === 'ผ่าน').length
       const jobsInMonth = jobs.filter(j => toDateStr(j.createdAt).startsWith(selectedMonth))
       const jobsDone = jobsInMonth.filter(j => ['done', 'completed', 'delivered'].includes(j.status)).length
       const tasksDone = tasks.filter(t => t.status === 'done').length
       el.innerHTML =
-        ringGauge('ส่งมอบสำเร็จ', inMonth.length ? delivered / inMonth.length * 100 : 0, 'success', `${delivered}/${inMonth.length} ใบจอง`) +
-        ringGauge('ไฟแนนซ์ผ่าน', withFin.length ? finPassed / withFin.length * 100 : 0, 'primary', `${finPassed}/${withFin.length} เคส`) +
-        ringGauge('งานซ่อมเสร็จ', jobsInMonth.length ? jobsDone / jobsInMonth.length * 100 : 0, 'warning', `${jobsDone}/${jobsInMonth.length} งาน`) +
-        ringGauge('งานมอบหมายเสร็จ', tasks.length ? tasksDone / tasks.length * 100 : 0, 'accent', `${tasksDone}/${tasks.length} งาน`)
+        ringGauge('ส่งมอบสำเร็จ', inMonth.length ? delivered / inMonth.length * 100 : null, 'success', `${delivered}/${inMonth.length} ใบจอง`) +
+        ringGauge('ไฟแนนซ์ผ่าน', withFin.length ? finPassed / withFin.length * 100 : null, 'primary', `${finPassed}/${withFin.length} เคส`) +
+        ringGauge('งานซ่อมเสร็จ', jobsInMonth.length ? jobsDone / jobsInMonth.length * 100 : null, 'warning', `${jobsDone}/${jobsInMonth.length} งาน`) +
+        ringGauge('งานมอบหมายเสร็จ', tasks.length ? tasksDone / tasks.length * 100 : null, 'accent', `${tasksDone}/${tasks.length} งาน`)
     }
 
     // ── MoM: เปรียบเทียบเดือนที่เลือกกับเดือนก่อนหน้า ──
