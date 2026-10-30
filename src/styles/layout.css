@@ -767,3 +767,9 @@
 @media (max-width: 400px) {
   .kpi-num { white-space: nowrap; font-size: clamp(0.95rem, 4.6vw, 1.35rem) !important; }
 }
+
+/* LAMI หน้าแรก: มือถือการ์ดคำถาม 2 คอลัมน์ ไอคอนอยู่บน — เห็นครบ 6 ข้อโดยไม่ต้องเลื่อนยาว */
+@media (max-width: 480px) {
+  .lami-cards .cat-btn { flex-direction: column; gap: 4px !important; padding: 10px 12px !important; }
+  .lami-cards .cat-btn > span:first-child { font-size: 1.2rem !important; }
+}
