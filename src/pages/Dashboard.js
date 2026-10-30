@@ -885,7 +885,12 @@ export default async function DashboardPage(container) {
       // เดิม new Date().toISOString().slice(0,7) คืนเดือนตาม UTC เสมอ — แก้ให้ยึดเดือนไทยจริงจาก todayBangkok()
       const nowYm = todayBangkok().slice(0, 7)
       let runRate = ''
-      if (selectedMonth === nowYm) {
+      // การ์ด "เป้า vs ผลจริง" แสดงคาดการณ์สิ้นเดือนอยู่แล้ว (ตอนใช้เป้าแนะนำ) — ไม่ต้องโชว์ซ้ำที่นี่
+      const [fy, fm] = selectedMonth.split('-').map(Number)
+      const hadPrev3 = [1, 2, 3].some(k => { const d = new Date(fy, fm - 1 - k, 1), ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+        return bookings.some(b => String(b.bookingDate || '').startsWith(ym) && !['ถอนจอง', 'ยกเลิก'].includes(b.status)) })
+      const paceInTargets = hadPrev3 && !teamTargets.some(t => t.period === selectedMonth)
+      if (selectedMonth === nowYm && !paceInTargets) {
         const d = new Date()
         const dayNow = d.getDate()
         const daysInM = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
@@ -1326,18 +1331,20 @@ export default async function DashboardPage(container) {
     const todayEl = document.getElementById('today-stats')
     if (todayEl) {
       const todayItems = [
-        { label:'นัดหมาย/จอง', value:`${todayBookings.length || bookings.filter(b=>b.status==='จอง').length} รายการ`, icon:'📅', color:'primary', nav:'/crm/bookings' },
-        { label:'งานซ่อมเปิดอยู่', value:`${openJobs} งาน`, icon:'🔧', color:'warning', nav:'/service/jobs' },
-        { label:'PDI รอตรวจ', value:`${pendingPdi.length || 0} คัน`, icon:'✅', color:'accent', nav:'/dms/pdi' },
-        { label:'งานมอบหมายค้าง', value:`${pendingTasks} งาน`, icon:'📋', color: pendingTasks > 3 ? 'danger' : 'accent', nav:'/tasks' },
+        { label:'นัดหมาย/จอง', n: todayBookings.length || bookings.filter(b=>b.status==='จอง').length, unit:'รายการ', icon:'📅', color:'primary', nav:'/crm/bookings' },
+        { label:'งานซ่อมเปิดอยู่', n: openJobs, unit:'งาน', icon:'🔧', color:'warning', nav:'/service/jobs' },
+        { label:'PDI รอตรวจ', n: pendingPdi.length || 0, unit:'คัน', icon:'✅', color:'accent', nav:'/dms/pdi' },
+        { label:'งานมอบหมายค้าง', n: pendingTasks, unit:'งาน', icon:'📋', color: pendingTasks > 3 ? 'danger' : 'accent', nav:'/tasks' },
       ]
-      todayEl.innerHTML = todayItems.map(s => `
+      // แถวที่เป็น 0 รวมเป็นบรรทัดเดียว ไม่ต้องโชว์ "0 งาน" ซ้ำ ๆ
+      const busy = todayItems.filter(s => +s.n), idle = todayItems.filter(s => !+s.n)
+      todayEl.innerHTML = busy.map(s => `
         <div style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:8px;border-radius:var(--radius-md);background:var(--surface-2)" data-nav="${s.nav}">
           <span style="font-size:1.1rem">${s.icon}</span>
           <span style="flex:1;font-size:0.83rem">${s.label}</span>
-          <span style="font-weight:700;color:var(--${s.color})">${s.value}</span>
+          <span style="font-weight:700;color:var(--${s.color})">${s.n} ${s.unit}</span>
         </div>
-      `).join('')
+      `).join('') + (idle.length ? `<div style="font-size:0.76rem;color:var(--text-muted);padding:6px 8px;line-height:1.6">✅ ไม่มีค้าง: ${idle.map(s => `<span data-nav="${s.nav}" style="cursor:pointer">${s.icon} ${s.label}</span>`).join(' · ')}</div>` : '')
     }
 
     // Activity Feed — ประกอบจาก recent docs ทุก collection
