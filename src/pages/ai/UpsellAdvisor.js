@@ -123,7 +123,7 @@ export default async function UpsellAdvisorPage(container) {
           ${sc('📋 โอกาสทั้งหมด', allOpps.length+' รายการ', 'var(--text)')}
         </div>
 
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <div class="chip-scroll" style="display:flex;gap:8px;flex-wrap:wrap;overflow-x:auto;margin-bottom:12px">
           ${['all', ...Object.keys(OPP_TYPES)].map(t=>`
             <button class="btn btn-xs ${filterType===t?'btn-primary':'btn-secondary'} type-btn" data-t="${t}">
               ${t==='all'?'ทุกประเภท':OPP_TYPES[t].icon+' '+OPP_TYPES[t].label}
@@ -198,13 +198,13 @@ export default async function UpsellAdvisorPage(container) {
     const t = OPP_TYPES[o.type]
     const p = PRIORITY[t.priority]
     return `
-      <div style="display:flex;align-items:center;gap:10px;background:var(--surface-2);padding:10px 12px;border-radius:var(--radius-sm);border-left:3px solid ${p.color}">
+      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:10px;background:var(--surface-2);padding:10px 12px;border-radius:var(--radius-sm);border-left:3px solid ${p.color}">
         <span style="font-size:1.3rem">${t.icon}</span>
-        <div style="flex:1">
+        <div style="flex:1 1 150px;min-width:0">
           <div style="font-weight:700;font-size:0.82rem">${t.label}</div>
           <div style="font-size:0.7rem;color:var(--text-muted)">${esc(o.reason)}</div>
         </div>
-        <div style="text-align:right;flex-shrink:0">
+        <div style="text-align:right;flex-shrink:0;margin-left:auto">
           <div style="font-weight:700;color:var(--primary);font-size:0.82rem">${o.price > 0 ? formatCurrency(o.price) : 'ติดต่อเพื่อเสนอราคา'}</div>
           <span style="font-size:0.62rem;background:${p.color};color:#fff;padding:1px 6px;border-radius:8px">${p.label}</span>
         </div>
