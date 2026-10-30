@@ -570,6 +570,8 @@
   table.tbl-cards td { display: block; padding: 0 !important; border: none !important; background: transparent !important; }
   table.tbl-cards td:first-child, table.tbl-cards td[colspan] { flex: 1 1 100%; }
   table.tbl-cards td:last-child { margin-left: auto; }
+  /* การ์ดลูกค้าบนมือถือ: ปุ่มลบ 🗑 อยู่ใกล้นิ้วเกินไป กดพลาดง่าย — ลบได้จากหน้ารายละเอียดลูกค้า (ปุ่ม 🗑️ ลบ) */
+  .cust-row .del-btn { display: none !important; }
   /* การ์ดตัวเลขบนมือถือ: เตี้ยลง เห็นเนื้อหาหลักเร็วขึ้น */
   .kpi-grid { gap: 8px !important; }
   .kpi-grid > .kpi-card { padding: 10px 12px; container-type: inline-size; min-width: 0; }
