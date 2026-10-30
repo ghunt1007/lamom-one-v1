@@ -1163,7 +1163,27 @@ export default async function DashboardPage(container) {
       if (!el) return
       const entries = teamTargets.filter(t => t.period === selectedMonth)
       if (!entries.length) {
-        el.innerHTML = `<div style="font-size:0.78rem;color:var(--text-muted);padding:14px 0;text-align:center">ไม่มีเป้าหมายเดือนนี้<br><button class="btn btn-sm btn-secondary" data-nav="/hr/targets" style="margin-top:8px">ตั้งเป้าหมาย →</button></div>`
+        // ยังไม่ได้ตั้งเป้า: แนะนำเป้าอัตโนมัติจากยอดจองเฉลี่ย 3 เดือนก่อน +10% แทนการ์ดว่าง
+        const ymOf = (y, m) => `${y}-${String(m).padStart(2, '0')}`
+        const [sy, sm] = selectedMonth.split('-').map(Number)
+        const prev3 = [1, 2, 3].map(k => { const d = new Date(sy, sm - 1 - k, 1); return ymOf(d.getFullYear(), d.getMonth() + 1) })
+        const bookedIn = ym => bookings.filter(b => String(b.bookingDate || '').startsWith(ym) && !['ถอนจอง', 'ยกเลิก'].includes(b.status)).length
+        const avg = prev3.reduce((a, ym) => a + bookedIn(ym), 0) / 3
+        const goal = Math.max(1, Math.ceil(avg * 1.1))
+        const now = bookedIn(selectedMonth), pct = Math.round(now / goal * 100)
+        const color = pct >= 100 ? 'success' : pct >= 80 ? 'primary' : pct >= 50 ? 'warning' : 'danger'
+        el.innerHTML = avg > 0 ? `<div data-nav="/crm/bookings" style="cursor:pointer">
+            <div style="display:flex;justify-content:space-between;font-size:0.73rem;margin-bottom:3px;gap:8px">
+              <span style="color:var(--text-2)">🤖 เป้าแนะนำ: ยอดจอง ${goal} คัน</span>
+              <b style="color:var(--${color});font-family:'Share Tech Mono',monospace">${pct}%</b>
+            </div>
+            <div style="background:var(--surface-2);border-radius:3px;height:8px;overflow:hidden">
+              <div style="width:${Math.min(100, pct)}%;height:100%;background:var(--${color})"></div>
+            </div>
+            <div style="font-size:0.66rem;color:var(--text-muted);margin-top:4px">จองแล้ว ${now} คัน · ${now >= goal ? 'ถึงเป้าแล้ว 🎉' : `ขาดอีก ${goal - now} คัน`} · คิดจากเฉลี่ย 3 เดือนก่อน (${avg.toFixed(1)} คัน) +10%</div>
+          </div>
+          <div style="text-align:center;margin-top:10px"><button class="btn btn-xs btn-ghost" data-nav="/hr/targets">ตั้งเป้าเอง →</button></div>`
+          : `<div style="font-size:0.78rem;color:var(--text-muted);padding:14px 0;text-align:center">ไม่มีเป้าหมายเดือนนี้<br><button class="btn btn-sm btn-secondary" data-nav="/hr/targets" style="margin-top:8px">ตั้งเป้าหมาย →</button></div>`
         return
       }
       el.innerHTML = entries.slice(0, 5).map(t => {
