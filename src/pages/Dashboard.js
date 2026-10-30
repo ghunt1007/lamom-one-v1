@@ -1181,6 +1181,12 @@ export default async function DashboardPage(container) {
               <div style="width:${Math.min(100, pct)}%;height:100%;background:var(--${color})"></div>
             </div>
             <div style="font-size:0.66rem;color:var(--text-muted);margin-top:4px">จองแล้ว ${now} คัน · ${now >= goal ? 'ถึงเป้าแล้ว 🎉' : `ขาดอีก ${goal - now} คัน`} · คิดจากเฉลี่ย 3 เดือนก่อน (${avg.toFixed(1)} คัน) +10%</div>
+            ${(() => { /* เดือนปัจจุบันเท่านั้น: คาดการณ์สิ้นเดือนจากจังหวะที่จองอยู่ */
+              const t = new Date(), cur = ymOf(t.getFullYear(), t.getMonth() + 1)
+              if (selectedMonth !== cur) return ''
+              const dim = new Date(sy, sm, 0).getDate(), proj = Math.round(now / t.getDate() * dim)
+              return `<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:var(--surface-2);font-size:0.72rem;line-height:1.5">📈 จังหวะตอนนี้ สิ้นเดือนน่าจะได้ราว <b style="color:var(--${proj >= goal ? 'success' : 'warning'})">${proj} คัน</b>${proj >= goal ? ' — ทันเป้า' : ` — ต้องเร่งอีกวันละ ${((goal - now) / Math.max(1, dim - t.getDate() + 1)).toFixed(1)} คัน`}</div>`
+            })()}
           </div>
           <div style="text-align:center;margin-top:10px"><button class="btn btn-xs btn-ghost" data-nav="/hr/targets">ตั้งเป้าเอง →</button></div>`
           : `<div style="font-size:0.78rem;color:var(--text-muted);padding:14px 0;text-align:center">ไม่มีเป้าหมายเดือนนี้<br><button class="btn btn-sm btn-secondary" data-nav="/hr/targets" style="margin-top:8px">ตั้งเป้าหมาย →</button></div>`
