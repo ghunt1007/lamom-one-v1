@@ -110,6 +110,9 @@ a:hover { text-decoration: underline; }
   background: color-mix(in srgb, var(--warning) 70%, #000);
 }
 .btn-warning:hover { filter: brightness(1.1); box-shadow: 0 0 16px var(--warning-dim); }
+/* โหมดสว่าง: --success/--warning เข้มพอให้ตัวหนังสือขาวอ่านชัดอยู่แล้ว (≥4.5:1) ถ้าผสมดำอีก 30% จะกลายเป็นสีน้ำตาลหม่น */
+[data-mode="light"] .btn-success { background: var(--success); }
+[data-mode="light"] .btn-warning { background: var(--warning); }
 
 /* (v1.0.490) btn-xs ใช้จริงใน 225 หน้าทั่วแอป (ปุ่มเล็กในตาราง/แถวการ์ด) มากกว่า btn-xs เองไม่เคยมี base rule
    เลยเช่นกัน (มีแค่ btn-sm/btn-lg) ทำให้ปุ่มที่ตั้งใจให้เล็กกะทัดรัดกลับมีขนาดเท่าปุ่มปกติเสมอมา คับแคบ/ล้น
