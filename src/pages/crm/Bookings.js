@@ -657,6 +657,7 @@ export default async function BookingsPage(container) {
         <div>👤 ${escHtml(b.salesName || '—')} · จอง ${formatDate(b.bookingDate)}${b.bookingNo ? ` · <span style="color:var(--primary);white-space:nowrap">${escHtml(b.bookingNo)}</span>` : ''}</div>
         <div style="text-align:right;white-space:nowrap">${b.deliveryDate ? `ส่งมอบ ${deliveryCell(b, true)}` : ''}</div>
       </div>
+      ${(n => n && n.tone === 'warning' ? `<div style="margin-top:6px;font-size:0.7rem;line-height:1.45;color:var(--warning)">🧭 ${escHtml(n.text)}</div>` : '')(bookingNextStep(b, todayBangkok()))}
       ${needsIncome(b) ? `<button class="btn btn-warning btn-xs income-bk" data-id="${b.id}" style="margin-top:8px">💰 กรอกรายได้</button>` : ''}
     </div>`
   }
