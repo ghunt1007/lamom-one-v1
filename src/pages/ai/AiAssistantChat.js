@@ -209,9 +209,9 @@ export default async function AiAssistantChatPage(container) {
       <div style="width:64px;height:64px;margin:0 auto 10px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--success));display:flex;align-items:center;justify-content:center;font-size:2rem;box-shadow:0 8px 30px color-mix(in srgb, var(--primary) 40%, transparent)">🤖</div>
       <div style="font-size:1.25rem;font-weight:800">สวัสดีค่ะ${name ? ` คุณ${esc(name)}` : ''} วันนี้ให้ LAMI ช่วยอะไรดีคะ</div>
       <div style="font-size:0.8rem;color:var(--text-muted);margin:4px 0 16px">LAMI ตอบจากข้อมูลจริงในระบบ ทั้งยอดขาย ลูกค้า งานค้างของคุณ และอื่นๆ</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;text-align:left">
+      <div class="lami-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(220px,46%),1fr));gap:10px;text-align:left">
         ${cards.map(([icon, title, sub, q]) => `<button class="card cat-btn" data-q="${esc(q)}" style="padding:14px;cursor:pointer;text-align:left;border:1px solid var(--border);display:flex;gap:10px;align-items:flex-start;color:var(--text)">
-          <span style="font-size:1.4rem">${icon}</span><span><b style="font-size:0.88rem">${title}</b><br><span style="font-size:0.74rem;color:var(--text-muted)">${sub}</span></span></button>`).join('')}
+          <span style="font-size:1.4rem">${icon}</span><span style="min-width:0"><b style="font-size:0.88rem">${title}</b><br><span style="font-size:0.74rem;color:var(--text-muted)">${sub}</span></span></button>`).join('')}
       </div>
       <div style="font-size:0.76rem;color:var(--text-3);margin-top:14px;line-height:1.6">⚡ สั่งงานได้ด้วย เช่น พิมพ์ <b>“นัดลองขับ${esc(chatCustomers.find(c => ['lead', 'pp'].includes(c.stage) && !c.isLost && c.firstName)?.firstName || 'สมชาย')}พรุ่งนี้บ่าย 2”</b> แล้วกดปุ่มใต้คำตอบ ระบบเปิดฟอร์มกรอกให้ครบ</div></div>`
   }
