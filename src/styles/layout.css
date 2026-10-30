@@ -787,3 +787,9 @@
 /* ช่องที่เป็น 0 ในแถวที่มีตัวเลขจริง — จาง + ตัวเลขสีเทา (ไม่ให้ 0 สีแดง/เขียวแย่งสายตา) */
 .kpi-card.kpi-zero { opacity: 0.6; }
 .kpi-card.kpi-zero .kpi-value { color: var(--text-muted) !important; }
+
+/* งานของฉันวันนี้ บนจอกว้าง: หมวดงานเรียง 2 คอลัมน์ (หน้าสั้นลงครึ่งหนึ่ง) · มือถือ/แท็บเล็ตเรียงคอลัมน์เดียวเหมือนเดิม */
+@media (min-width: 1100px) {
+  .md-grid { columns: 2; column-gap: 14px; }
+  .md-grid > .md-sec { break-inside: avoid; display: inline-block; width: 100%; }
+}

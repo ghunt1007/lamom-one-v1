@@ -255,6 +255,7 @@ export default async function MyDayPage(container) {
         ${focusCard(d)}
         ${teamCard(today)}
         ${goalCard(today)}
+        <div class="md-grid">
         ${section('📞', 'นัดติดตามวันนี้/เลยกำหนด', 'กด ✅ เมื่อติดต่อแล้ว', d.followups, f => line(
           `${escHtml(f.customerName || 'ลูกค้า')}${f.late > 0 ? ` <span class="badge badge-danger" style="font-size:0.62rem">เลย ${f.late} วัน</span>` : ''}${f.also?.length ? ` <span class="badge badge-secondary" style="font-size:0.62rem" title="ลูกค้าคนนี้มีนัดค้างอีก ${f.also.length} นัด — กดทำแล้วครั้งเดียวปิดทั้งหมด">+${f.also.length} นัด</span>` : ''}`,
           `${escHtml(f.purpose || '')}${f.vehicleModel ? ` · ${escHtml(f.vehicleModel)}` : ''}${ownerTag(f.salesperson)}`,
@@ -310,6 +311,7 @@ export default async function MyDayPage(container) {
           `${escHtml(b.custName || 'ลูกค้า')} · ${escHtml([b.brand, b.model].filter(Boolean).join(' ') || '—')} <span class="badge badge-warning" style="font-size:0.62rem">${b.days} วัน</span>`,
           `${escHtml(b.status || '—')} · จอง ${formatDate(b.bookingDate)}${ownerTag(b.salesName)}`,
           `${callBtn(b.phone || b.custPhone)}<button class="btn btn-secondary btn-xs md-bk" data-id="${escHtml(b.id)}">ใบจอง</button>`), 'warning')}
+        </div>
         ${cleared.length ? `<div style="font-size:0.75rem;color:var(--text-muted);padding:4px 2px 12px">✅ เคลียร์แล้ว ไม่มีงานค้าง: ${cleared.map(escHtml).join(' · ')}</div>` : ''}
       </div>`
 
