@@ -8,6 +8,7 @@ import { getModuleForPath, hasModuleAccess, loadRolePermissions } from '../core/
 import { t } from '../i18n/index.js'
 import { DELIVERED_STATUSES as DELIVERED_ST } from '../utils/deliveryIncome.js'
 import { businessFacts } from '../utils/bizFacts.js'
+import { SOURCE_INFO, normSource } from '../utils/sourcePerformance.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -1046,10 +1047,21 @@ export default async function DashboardPage(container) {
       if (sEl) {
         const inMonth = bookings.filter(b => (b.bookingDate || '').startsWith(selectedMonth))
         const bySrc = {}
-        inMonth.forEach(b => { const k = b.source || 'ไม่ระบุ'; bySrc[k] = (bySrc[k] || 0) + 1 })
+        // ใบจองส่วนใหญ่ (จาก Sheet) ไม่ได้กรอกที่มา — ดูจากลูกค้าคนเดียวกัน (customerId หรือเบอร์โทร) แทน
+        const digits = v => String(v || '').replace(/\D/g, '')
+        const custById = new Map(), custByPhone = new Map()
+        allCustomersForLeads.forEach(c => { if (c.deleted) return; custById.set(c.id, c); if (digits(c.phone).length >= 9) custByPhone.set(digits(c.phone), c) })
+        const srcOf = b => {
+          if (b.source) return b.source
+          const c = custById.get(b.customerId) || custByPhone.get(digits(b.phone))
+          return c?.source ? (SOURCE_INFO[normSource(c.source)]?.[1] || c.source) : 'ไม่ระบุ'
+        }
+        inMonth.forEach(b => { const k = srcOf(b); bySrc[k] = (bySrc[k] || 0) + 1 })
         const entries = Object.entries(bySrc).sort((a, b) => b[1] - a[1]).slice(0, 6)
         const max = Math.max(...entries.map(e => e[1]), 1)
-        sEl.innerHTML = entries.length ? entries.map(([k, v]) => `
+        const onlyUnknown = entries.length === 1 && entries[0][0] === 'ไม่ระบุ'
+        sEl.innerHTML = onlyUnknown ? `<div style="font-size:0.78rem;color:var(--text-muted);line-height:1.6;padding:6px 0">ใบจองเดือนนี้ ${entries[0][1]} ใบยังไม่ได้ระบุที่มา — ใส่ช่อง "แหล่งที่มา" ตอนจอง แล้วการ์ดนี้จะบอกว่าช่องทางไหนได้ลูกค้ามากสุด</div>`
+          : entries.length ? entries.map(([k, v]) => `
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:0.75rem">
             <span style="width:80px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(k)}</span>
             <div style="flex:1;background:var(--surface-2);border-radius:3px;height:8px;overflow:hidden">
