@@ -348,6 +348,8 @@ export default async function TestDrivePage(container) {
   }
 
   await loadData()
+  // ?new=1 (คำสั่งจากช่องค้นหารวม) = เปิดฟอร์มเพิ่มใหม่ทันที
+  if (container.__routerGen === myGen && new URLSearchParams(window.location.search).get('new') === '1') { window.history.replaceState({}, '', window.location.pathname); openNewForm() }
 }
 
 // รุ่นที่โชว์รูมขาย (Deepal) ขึ้นก่อน — เดิมเรียงตามฐานข้อมูลรถทั้งตลาด ค่าเริ่มต้นจึงเป็น Toyota Camry
