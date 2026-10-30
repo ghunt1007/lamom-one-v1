@@ -207,34 +207,27 @@ export default async function DashboardPage(container) {
         </div>
       </div>
 
-      <!-- MoM comparison -->
-      <div class="card mb-4" style="padding:16px" id="mom-card">
-        <div style="font-weight:700;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-          <span>📡 เปรียบเทียบ เดือนที่เลือก vs <span style="font-weight:400;color:var(--text-muted);font-size:0.78rem">(เลือกเดือน/ปีเทียบเองได้)</span></span>
-          <div style="display:flex;align-items:center;gap:8px">
-            <input type="month" id="mom-compare-picker" class="input" style="width:150px;font-size:0.76rem;padding:5px 8px" title="เลือกเดือน/ปีที่ต้องการเทียบ">
-            <span id="mom-label" style="font-size:0.72rem;color:var(--primary);font-family:'Share Tech Mono',monospace;letter-spacing:0.06em"></span>
-          </div>
-        </div>
-        <div id="mom-strip" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
-          ${[1,2,3,4].map(() => `<div class="skeleton" style="height:86px;border-radius:var(--radius-md)"></div>`).join('')}
-        </div>
-      </div>
-
-      <!-- Sales/Booking Pipeline Detail -->
+      <!-- ยอดจอง/ยอดขายรายเดือน: เดิมแยก 2 การ์ด (เทียบเดือน + รายละเอียดรายเดือน) ที่ใช้เดือนเดียวกันและโชว์ "จองใหม่/ส่งมอบ" ซ้ำกัน
+           รวมเป็นการ์ดเดียว ปุ่ม ◀ ▶ เลือกเดือน ส่วนช่องเดือนใช้เลือกเดือนที่จะเทียบ -->
       <div class="card mb-4" style="padding:16px" id="pipeline-card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-          <div style="font-weight:700">🚗 ยอดจอง/ยอดขาย — รายละเอียดรายเดือน</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+          <div style="font-weight:700">🚗 ยอดจอง/ยอดขายรายเดือน</div>
           <div style="display:flex;align-items:center;gap:6px">
-            <button class="btn btn-ghost btn-sm" id="pm-prev">◀</button>
+            <button class="btn btn-ghost btn-sm" id="pm-prev" title="เดือนก่อน">◀</button>
             <span id="pm-label" style="font-size:0.85rem;font-weight:700;min-width:90px;text-align:center">...</span>
-            <button class="btn btn-ghost btn-sm" id="pm-next">▶</button>
+            <button class="btn btn-ghost btn-sm" id="pm-next" title="เดือนถัดไป">▶</button>
             <button class="btn btn-secondary btn-sm" data-nav="/crm/bookings" style="margin-left:6px">ดูใบจอง →</button>
           </div>
         </div>
-        <div id="pipeline-body">
-          ${[1,2,3,4,5].map(() => `<div class="skeleton" style="height:60px;border-radius:var(--radius-md);margin-bottom:8px"></div>`).join('')}
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;font-size:0.74rem;color:var(--text-muted)">
+          <span>📡 เทียบกับ</span>
+          <input type="month" id="mom-compare-picker" class="input" style="width:150px;font-size:0.76rem;padding:5px 8px" title="เลือกเดือน/ปีที่ต้องการเทียบ">
+          <span id="mom-label" style="font-size:0.72rem;color:var(--primary);font-family:'Share Tech Mono',monospace;letter-spacing:0.06em"></span>
         </div>
+        <div id="mom-strip" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(150px,44%),1fr));gap:10px">
+          ${[1,2,3,4].map(() => `<div class="skeleton" style="height:86px;border-radius:var(--radius-md)"></div>`).join('')}
+        </div>
+        <div id="pipeline-body" style="margin-top:12px"></div>
       </div>
 
       <!-- Other Departments Detail -->
@@ -490,7 +483,7 @@ export default async function DashboardPage(container) {
       // อาจไม่ตรงกับวันส่งมอบจริง (actualDeliveryDate) ที่มักช้ากว่า) ใช้ pattern เดียวกับที่ Bookings.js ใช้
       // อยู่แล้วจริง (TERMINAL_STATUSES 2 ตัวแรก: ส่งมอบแล้ว + ตัดตัวเลขรอส่งมอบ) เดิม Dashboard ใช้แค่
       // actualDeliveryDate + เฉพาะสถานะ "ส่งมอบแล้ว" ตัวเลขจึงไม่ตรงกับที่ทีมขายเข้าใจว่าตัดตัวเลขเดือนไหนจริง
-      const deliveredInMonth = bookings.filter(b => ['ส่งมอบแล้ว', 'ตัดตัวเลขรอส่งมอบ'].includes(b.status) && (b.cutDate || b.actualDeliveryDate || '').startsWith(selectedMonth))
+      // จองใหม่/ส่งมอบของเดือนนี้อยู่ในแถบเทียบเดือน (renderMoM) ด้านบนในการ์ดเดียวกันแล้ว
       // ยอดรอส่งมอบ/รอรถ/รอผลไฟแนนซ์ ต้องเป็นยอดค้างจริงทั้งหมดที่ยังไม่จบ ไม่ใช่แค่ที่จองมาในเดือนที่เลือกดู —
       // เดิมกรองจาก inMonth ทำให้ตัวเลข "ยอดค้าง" ดูน้อยกว่าจริงมาก เพราะยอดค้างจริงสะสมมาจากหลายเดือนก่อน
       // หน้านี้ด้วย ไม่ใช่แค่เดือนที่กำลังดูอยู่ ส่วนถอนจองยังคงนับเฉพาะเดือนที่เลือกเหมือนเดิม (ไม่มี field
@@ -503,9 +496,7 @@ export default async function DashboardPage(container) {
       const body = document.getElementById('pipeline-body')
       if (!body) return
       body.innerHTML = `
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:14px">
-          ${pCard('📝', 'จองมาเดือนนี้', inMonth.length, 'primary', '/crm/bookings')}
-          ${pCard('✅', 'ตัดตัวเลข/ส่งมอบเดือนนี้', deliveredInMonth.length, 'success', '/crm/bookings')}
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(140px,44%),1fr));gap:10px;margin-bottom:14px">
           ${pCard('📦', 'รอส่งมอบ (ค้างทั้งหมด)', (byStatusAll['รอส่งมอบ'] || 0) + (byStatusAll['ตัดตัวเลขรอส่งมอบ'] || 0), 'warning', '/crm/bookings')}
           ${pCard('🚗', 'รอรถ (ค้างทั้งหมด)', byStatusAll['รอรถ'] || 0, 'accent', '/crm/bookings')}
           ${pCard('🏦', 'รอผลไฟแนนซ์ (ค้างทั้งหมด)', byStatusAll['รอผลไฟแนนซ์'] || 0, 'primary', '/crm/bookings')}
@@ -853,10 +844,10 @@ export default async function DashboardPage(container) {
         <div style="background:var(--surface-2);border-radius:10px;padding:12px;border-left:3px solid var(--${color})">
           <div style="font-size:0.68rem;color:var(--text-muted);margin-bottom:4px">${icon} ${label}</div>
           <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
-            <span style="font-size:1.25rem;font-weight:800;color:var(--${color})">${curDisplay}</span>
+            <span class="kpi-num" style="font-size:1.25rem;font-weight:800;color:var(--${color})">${curDisplay}</span>
             ${momDelta(curV, prevV)}
           </div>
-          <div style="font-size:0.64rem;color:var(--text-muted);margin-top:3px;font-family:'Share Tech Mono',monospace">เดือนก่อน: ${prevDisplay}</div>
+          <div style="font-size:0.64rem;color:var(--text-muted);margin-top:3px;font-family:'Share Tech Mono',monospace">${ymLabel(prevM)}: ${prevDisplay}</div>
         </div>`
       el.innerHTML =
         item('📝', 'จองใหม่', cur.length, prev.length, cur.length + ' คัน', prev.length + ' คัน', 'primary') +
