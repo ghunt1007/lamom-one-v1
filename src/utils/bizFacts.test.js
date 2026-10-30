@@ -23,6 +23,9 @@ describe('businessFacts', () => {
   it('lists open bookings by status with the oldest age', () => {
     expect(f['ใบจองที่ยังค้าง 2 ใบ แยกตามสถานะ']).toBe('รอรถ 1 (นานสุด 24 วัน) · รอส่งมอบ 1 (นานสุด 55 วัน)')
   })
+  it('projects the month-end bookings and a suggested target', () => {
+    expect(f['คาดการณ์ยอดจองสิ้นเดือน']).toBe('ผ่านไป 26/31 วัน จองแล้ว 1 ใบ → ถ้ารักษาจังหวะนี้ สิ้นเดือนน่าจะได้ราว 1 ใบ · เป้าแนะนำ 1 ใบ (เฉลี่ย 3 เดือนก่อน 0.7 +10%) ถึงเป้าแล้ว')
+  })
   it('gives a 6-month trend', () => {
     expect(f['แนวโน้ม 6 เดือน (จอง/ส่งมอบ)']).toMatch(/^2026-05 .* 2026-10 จอง 1\/ส่งมอบ 1$/)
   })

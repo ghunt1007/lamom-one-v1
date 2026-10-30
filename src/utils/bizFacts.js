@@ -71,12 +71,19 @@ export function businessFacts({ customers = [], bookings = [] }, today) {
   const in7 = new Date(t0 + 7 * DAY).toISOString().slice(0, 10)
   const due = open.map(b => String(b.deliveryDate || '').slice(0, 10)).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d))
   const late = due.filter(d => d < today).length, soon = due.filter(d => d >= today && d <= in7).length
+  // จังหวะเดือนนี้ → คาดการณ์สิ้นเดือน + เป้าแนะนำ (เฉลี่ย 3 เดือนก่อน +10%) — ให้ตอบ "เดือนนี้จะได้กี่คัน ถึงเป้าไหม"
+  const dayN = +today.slice(8, 10), dim = new Date(Date.UTC(+ym.slice(0, 4), +ym.slice(5, 7), 0)).getUTCDate()
+  const nowB = booked(ym).length, p3 = [pm, prevMonth(pm), prevMonth(prevMonth(pm))]
+  const avg3 = p3.reduce((a, m) => a + booked(m).length, 0) / 3, goal = Math.max(1, Math.ceil(avg3 * 1.1))
+  const paceLine = `ผ่านไป ${dayN}/${dim} วัน จองแล้ว ${nowB} ใบ → ถ้ารักษาจังหวะนี้ สิ้นเดือนน่าจะได้ราว ${Math.round(nowB / dayN * dim)} ใบ`
+    + (avg3 > 0 ? ` · เป้าแนะนำ ${goal} ใบ (เฉลี่ย 3 เดือนก่อน ${avg3.toFixed(1)} +10%) ${nowB >= goal ? 'ถึงเป้าแล้ว' : `ขาดอีก ${goal - nowB} ใบ`}` : '')
   return {
     ...(late || soon ? { 'กำหนดส่งมอบ (ใบจองที่ยังไม่ส่ง)': `เลยกำหนดแล้ว ${late} คัน · ภายใน 7 วันข้างหน้า ${soon} คัน` } : {}),
     ...(modelLine ? { 'รุ่นที่ถูกจองมากสุด 90 วันล่าสุด': modelLine } : {}),
     'ใบจองเดือนนี้ (จากระบบจองรถ)': `จอง ${booked(ym).length} ใบ (เดือนก่อน ${booked(pm).length}) · ส่งมอบ/ตัดตัวเลข ${delivered(ym).length} คัน (เดือนก่อน ${delivered(pm).length})${cancelled ? ` · ถอนจองเดือนนี้ ${cancelled}` : ''}`,
     ...(perLine ? { 'ผลงานรายเซลส์เดือนนี้': perLine } : {}),
     ...(openLine ? { [`ใบจองที่ยังค้าง ${open.length} ใบ แยกตามสถานะ`]: openLine } : {}),
+    'คาดการณ์ยอดจองสิ้นเดือน': paceLine,
     'แนวโน้ม 6 เดือน (จอง/ส่งมอบ)': trendLine,
     ...(srcLine ? { 'Lead 90 วันล่าสุดแยกตามที่มา': srcLine } : {}),
     ...(lostLine ? { 'เหตุผลเสียดีล 90 วันล่าสุด': lostLine } : {}),
