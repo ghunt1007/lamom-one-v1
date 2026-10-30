@@ -20,6 +20,7 @@ import { maybeMarkCustomerDelivered, syncStockForBookings, stockStatusForBooking
 import { askDeliveryIncome, needsIncome, statusDatePatch, DELIVERED_STATUSES } from '../../utils/deliveryIncome.js'
 import { openSheetReconcile } from '../../utils/sheetReconcileModal.js'
 import { readBookingSheet, planBookingImport, newBookingDoc, newCustomerDoc, companyForBrand, brandCompanyMap } from '../../utils/bookingImport.js'
+import { bookingNextStep } from '../../utils/bookingNext.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -1082,6 +1083,7 @@ export default async function BookingsPage(container) {
           statusBadge(b.status) +
           '<span style="font-size:1.25rem;font-weight:800;color:var(--accent)">' + formatCurrency(b.price) + '</span>' +
         '</div>' +
+        ((n) => n ? '<div style="margin:6px 0 4px;padding:8px 10px;border-radius:10px;font-size:0.8rem;line-height:1.5;background:color-mix(in srgb, var(--' + (n.tone === 'info' ? 'primary' : n.tone) + ') 12%, transparent);border-left:3px solid var(--' + (n.tone === 'info' ? 'primary' : n.tone) + ')">🧭 <b>ขั้นต่อไป:</b> ' + escHtml(n.text) + '</div>' : '')(bookingNextStep(b, todayBangkok())) +
         sec('👤 ลูกค้า') +
         dRow('ชื่อ', b.custName || '-') + (canViewNid ? dRow('เลขบัตร ปชช.', b.nid || '-') : '') + dRow('โทร', b.phone || '-') + dRow('ที่อยู่', (b.address || '-') + ' ' + (b.province || '')) + dRow('แหล่งที่มา', b.source || '-') +
         sec('🚗 รถ') +
