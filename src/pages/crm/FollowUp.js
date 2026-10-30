@@ -134,20 +134,10 @@ export default async function FollowUpPage(container) {
           </div>
         </div>
 
-        <!-- KPIs -->
-        <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
-          ${kpi('🔴 เกินกำหนด', overdueList.length, 'danger', 'today')}
-          ${kpi('📅 วันนี้', todayList.length, 'warning', 'today')}
-          ${kpi('📆 กำลังมา', upcomingList.length, 'primary', 'upcoming')}
-          ${kpi('✅ ดำเนินการแล้ว', doneList.length, 'success', 'done')}
-        </div>
-
         <!-- Tabs -->
         <div class="chip-scroll" style="overflow-x:auto;display:flex;gap:4px;margin-bottom:14px;flex-wrap:wrap">
-          <button class="btn btn-sm ${tab==='today'?'btn-primary':'btn-secondary'} tab-btn" data-t="today">🔥 วันนี้&เกินกำหนด ${overdueList.length+todayList.length > 0 ? `<span style="background:var(--danger);border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:0.68rem;margin-left:4px">${overdueList.length+todayList.length}</span>` : ''}</button>
-          <button class="btn btn-sm ${tab==='upcoming'?'btn-primary':'btn-secondary'} tab-btn" data-t="upcoming">📆 กำลังมา</button>
-          <button class="btn btn-sm ${tab==='all'?'btn-primary':'btn-secondary'} tab-btn" data-t="all">📋 ทั้งหมด</button>
-          <button class="btn btn-sm ${tab==='done'?'btn-primary':'btn-secondary'} tab-btn" data-t="done">✅ ดำเนินการแล้ว</button>
+          ${[['today', `🔥 วันนี้ ${todayList.length}${overdueList.length ? `<span style="background:var(--danger);color:#fff;border-radius:999px;padding:1px 7px;margin-left:6px;font-size:0.7rem;font-weight:700">เกิน ${overdueList.length}</span>` : ''}`], ['upcoming', `📆 กำลังมา ${upcomingList.length}`], ['all', `📋 ทั้งหมด ${followups.length}`], ['done', `✅ ทำแล้ว ${doneList.length}`]]
+            .map(([t, l]) => `<button class="btn btn-sm ${tab === t ? 'btn-primary' : 'btn-secondary'} tab-btn" data-t="${t}">${l}</button>`).join('')}
         </div>
 
         <!-- Sub-filters -->
@@ -324,11 +314,6 @@ export default async function FollowUpPage(container) {
   await loadData()
   // ?new=1 (คำสั่งจากช่องค้นหารวม) = เปิดฟอร์มเพิ่มใหม่ทันที
   if (container.__routerGen === myGen && new URLSearchParams(window.location.search).get('new') === '1') { window.history.replaceState({}, '', window.location.pathname); openFUForm(null) }
-}
-
-// การ์ดตัวเลขกดได้ = เปิดแท็บรายการนั้นเลย (ไม่ต้องหาปุ่มแท็บด้านล่าง)
-function kpi(title, value, color, t = '') {
-  return `<div class="kpi-card${t ? ' tab-btn' : ''}"${t ? ` data-t="${t}" role="button" tabindex="0" style="cursor:pointer"` : ''}><div class="kpi-title">${title}</div><div class="kpi-value" style="color:var(--${color})">${value}</div></div>`
 }
 
 function rowD(label, value) {
