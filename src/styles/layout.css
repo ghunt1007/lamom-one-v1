@@ -742,3 +742,15 @@
   table:has(> thead > tr > th:nth-child(12)) td { font-size: 0.8rem; }
   table:has(> thead > tr > th:nth-child(13)) th, table:has(> thead > tr > th:nth-child(13)) td { padding-left: 6px; padding-right: 6px; }
 }
+
+/* มือถือ: ช่องค้นหาที่กำหนดความกว้างตายตัว (180–240px) ยืดเต็มแถว พิมพ์และอ่านง่ายขึ้น */
+@media (max-width: 640px) {
+  .tt-search { flex: 1 1 100%; }
+  .tt-search input { width: 100% !important; max-width: none !important; }
+  #main-content input[placeholder*="ค้นหา"]:is([style*="width:"], [style*="width: "]):not(table input, .tt-filter-row input, .modal-overlay input) { width: 100% !important; max-width: none !important; flex: 1 1 100%; }
+}
+
+/* จอแคบมาก: ตัวเลขยอดเงินในการ์ดสรุปไม่ถูกตัดกลางตัวเลข (฿15,902,0 / 00) ย่อขนาดตามจอแทน */
+@media (max-width: 400px) {
+  .kpi-num { white-space: nowrap; font-size: clamp(0.95rem, 4.6vw, 1.35rem) !important; }
+}
