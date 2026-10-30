@@ -41,7 +41,7 @@ function computeInsights({ leads, vehicleModels, jobCards, complaintsList, sales
   const hottest = leads.map(l => ({ ...l, ...heuristicScore(l) })).sort((a, b) => b.score - a.score).find(l => l.score >= 80)
   if (hottest) {
     insights.push({ icon: '🎯', priority: 'high', time: hottest.createdAt || now.toISOString(), nav: '/ai/lead-scoring', action: 'ดู Lead',
-      message: `Lead ${hottest.custName || 'ไม่ระบุชื่อ'} มีโอกาสปิดสูง ${hottest.score}% — แนะนำติดต่อโดยเร็ว` })
+      message: `${hottest.stage === 'pp' ? 'Prospect' : 'Lead'} ${hottest.custName || [hottest.firstName, hottest.lastName].filter(Boolean).join(' ') || hottest.name || 'ไม่ระบุชื่อ'} มีโอกาสปิดสูง ${hottest.score}% — แนะนำติดต่อโดยเร็ว` })
   }
 
   let lowStockPick = null
@@ -115,6 +115,7 @@ export default async function LamiBrainPage(container) {
 
   let chatHistory = []
   let insights = []
+  let hotLeadCount = 0
   let businessContext = {}
   let activeTab = 'insights'
   let loading = true
@@ -143,6 +144,7 @@ export default async function LamiBrainPage(container) {
         listDocs('staff', companyScopeFilters(), 'createdAt', 'desc', 200).catch(() => []),
       ])
       const leads = leadsRaw.filter(c => !c.deleted && (c.stage === 'lead' || c.stage === 'pp') && c.status !== 'lost')
+      hotLeadCount = leads.filter(c => heuristicScore(c).score >= 80).length
       insights = computeInsights({ leads, vehicleModels, jobCards: jobCards.filter(j => !j.deleted), complaintsList, salesRows })
       businessContext = buildBusinessContext({ leads, vehicleModels, jobCards, salesRows, debts, csat, staff })
     } catch (e) { insights = [] }
@@ -190,10 +192,6 @@ export default async function LamiBrainPage(container) {
     }
     const totalInsights = insights.length
     const highPriority = insights.filter(i => i.priority === 'high').length
-    // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
-    // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
-    const todayStr = todayBangkok()
-    const chatToday = chatHistory.filter(m => (m.time || '').slice(0, 10) === todayStr).length
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -202,7 +200,7 @@ export default async function LamiBrainPage(container) {
             <div style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--primary),#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:1.6rem">🤖</div>
             <div>
               <div class="page-title">LAMI — AI Officer</div>
-              <div class="page-subtitle" style="color:var(--success)">● ออนไลน์ · ${aiMode} · ตอบสนองเฉลี่ย &lt; 1 วินาที</div>
+              <div class="page-subtitle" style="color:var(--success)">● ออนไลน์ · ${aiMode}</div>
             </div>
           </div>
         </div>
@@ -211,7 +209,7 @@ export default async function LamiBrainPage(container) {
           ${kpi('💡 Insights วันนี้', totalInsights, 'primary')}
           ${kpi('🚨 ต้องการดูแล', highPriority, highPriority > 0 ? 'danger' : 'secondary')}
           ${kpi('⚡ Skills พร้อมใช้', LAMI_SKILLS.length, 'success')}
-          ${kpi('💬 สนทนาวันนี้', chatToday, 'primary')}
+          ${kpi('🔥 Hot Lead', hotLeadCount, hotLeadCount ? 'danger' : 'secondary')}
         </div>
 
         <!-- Tabs -->
