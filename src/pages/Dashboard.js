@@ -1254,7 +1254,7 @@ export default async function DashboardPage(container) {
       // ข้อมูลใบจองเชิงลึก (ค้างแยกสถานะ/แนวโน้ม 6 เดือน/ยอดเดือนนี้เทียบเดือนก่อน) — ให้สรุปเจาะจงขึ้น ไม่ใช่แค่นับรวม
       // หน้านี้โหลดลูกค้าแค่บางส่วน จึงใช้เฉพาะหัวข้อที่คิดจากใบจองล้วน
       let facts = {}
-      try { facts = Object.fromEntries(Object.entries(businessFacts({ customers: [], bookings }, today)).filter(([k]) => /^(ใบจอง|แนวโน้ม)/.test(k))) } catch { /* ไม่มีก็สรุปแบบเดิม */ }
+      try { facts = Object.fromEntries(Object.entries(businessFacts({ customers: [], bookings }, today)).filter(([k]) => /^(ใบจอง|แนวโน้ม|กำหนดส่งมอบ|รุ่นที่ถูกจอง)/.test(k))) } catch { /* ไม่มีก็สรุปแบบเดิม */ }
       const briefingCtx = { todayCount, stuckBookings: stuckBookingsCount, overdueJobs: overdueJobsCount, staleLeads: staleLeadsCount, agingStock: agingStockCount, revenueThisMonth, targetPct, facts }
       const cacheKey = `lamom_morning_briefing_${user?.uid || 'anon'}_${today}`
 

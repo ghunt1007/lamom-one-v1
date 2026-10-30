@@ -59,7 +59,21 @@ export function businessFacts({ customers = [], bookings = [] }, today) {
   // แนวโน้ม 6 เดือน (จอง/ส่งมอบ) — ให้ตอบ "ยอดขายช่วงนี้ขึ้นหรือลง"
   const months = [ym]; for (let i = 0; i < 5; i++) months.unshift(prevMonth(months[0]))
   const trendLine = months.map(m => `${m} จอง ${booked(m).length}/ส่งมอบ ${delivered(m).length}`).join(' · ')
+  // รุ่นที่ถูกจองมากสุด 90 วันล่าสุด — ให้ตอบ "รุ่นไหนขายดี ควรสั่งรถรุ่นไหนเพิ่ม"
+  const byModel = {}
+  bk.filter(b => !CANCELLED.includes(b.status) && String(b.bookingDate || bangkokDate(b.createdAt)).slice(0, 10) >= since).forEach(b => {
+    const m = String(b.model || '').trim(); if (!m) return
+    const k = b.brand && !m.toUpperCase().includes(String(b.brand).toUpperCase()) ? `${b.brand} ${m}` : m
+    byModel[k] = (byModel[k] || 0) + 1
+  })
+  const modelLine = Object.entries(byModel).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, n]) => `${k} ${n}`).join(' · ')
+  // กำหนดส่งมอบ: เลยกำหนดแล้วยังไม่ส่ง + ภายใน 7 วันข้างหน้า — ให้ตอบ "สัปดาห์นี้ต้องส่งรถกี่คัน มีคันไหนเลยกำหนด"
+  const in7 = new Date(t0 + 7 * DAY).toISOString().slice(0, 10)
+  const due = open.map(b => String(b.deliveryDate || '').slice(0, 10)).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d))
+  const late = due.filter(d => d < today).length, soon = due.filter(d => d >= today && d <= in7).length
   return {
+    ...(late || soon ? { 'กำหนดส่งมอบ (ใบจองที่ยังไม่ส่ง)': `เลยกำหนดแล้ว ${late} คัน · ภายใน 7 วันข้างหน้า ${soon} คัน` } : {}),
+    ...(modelLine ? { 'รุ่นที่ถูกจองมากสุด 90 วันล่าสุด': modelLine } : {}),
     'ใบจองเดือนนี้ (จากระบบจองรถ)': `จอง ${booked(ym).length} ใบ (เดือนก่อน ${booked(pm).length}) · ส่งมอบ/ตัดตัวเลข ${delivered(ym).length} คัน (เดือนก่อน ${delivered(pm).length})${cancelled ? ` · ถอนจองเดือนนี้ ${cancelled}` : ''}`,
     ...(perLine ? { 'ผลงานรายเซลส์เดือนนี้': perLine } : {}),
     ...(openLine ? { [`ใบจองที่ยังค้าง ${open.length} ใบ แยกตามสถานะ`]: openLine } : {}),

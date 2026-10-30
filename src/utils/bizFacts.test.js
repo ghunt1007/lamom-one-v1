@@ -35,6 +35,16 @@ describe('businessFacts', () => {
   it('stage counts skip lost deals', () => {
     expect(f['ลูกค้าในแต่ละขั้น']).toBe('Lead 2 · Prospect 0 · จองแล้ว 1 · เสียดีล 1')
   })
+  it('ranks booked models and counts due deliveries', () => {
+    const g = businessFacts({ customers: [], bookings: [
+      { brand: 'DEEPAL', model: 'S07', bookingDate: '2026-10-01', status: 'รอรถ', deliveryDate: '2026-10-20' },
+      { brand: 'DEEPAL', model: 'DEEPAL S05', bookingDate: '2026-10-02', status: 'รอส่งมอบ', deliveryDate: '2026-10-30' },
+      { brand: 'DEEPAL', model: 'S07', bookingDate: '2026-09-15', status: 'ส่งมอบแล้ว', deliveryDate: '2026-10-01' },
+      { brand: 'AVATR', model: '11', bookingDate: '2026-10-05', status: 'ถอนจอง', deliveryDate: '2026-10-28' },
+    ] }, today)
+    expect(g['รุ่นที่ถูกจองมากสุด 90 วันล่าสุด']).toBe('DEEPAL S07 2 · DEEPAL S05 1')
+    expect(g['กำหนดส่งมอบ (ใบจองที่ยังไม่ส่ง)']).toBe('เลยกำหนดแล้ว 1 คัน · ภายใน 7 วันข้างหน้า 1 คัน')
+  })
   it('summarises lost reasons', () => {
     expect(f['เหตุผลเสียดีล 90 วันล่าสุด']).toBe('ไฟแนนซ์ไม่ผ่าน 1')
   })
