@@ -458,8 +458,8 @@ export default async function BookingsPage(container) {
       }).join('')}
     </div>`
 
+    // "ทั้งหมด N" มีอยู่แล้วบนชิปสถานะ "ทั้งหมด (N)" — แถบนี้จึงเหลือแค่ตัวเลขที่ชิปไม่ได้บอก
     const statsBar = `<div style="display:flex;gap:16px;flex-wrap:wrap;padding:6px 12px;background:var(--surface-2);border-radius:8px;margin-bottom:10px;font-size:0.68rem;color:var(--text-2)">
-      <span>📋 ทั้งหมด <b style="color:var(--text-primary)">${bookings.length}</b></span>
       <span>🔄 กำลังดำเนินการ <b style="color:var(--warning)">${activeAll.length}</b></span>
       ${pipelineVal > 0 ? `<span>💰 มูลค่ารอส่งมอบ <b style="color:var(--success)">฿${(pipelineVal / 1000000).toLocaleString('en-US', { maximumFractionDigits: 2 })} ล้าน</b></span>` : ''}
       <span>🚗 ส่งมอบเดือนนี้ <b style="color:var(--success)">${delMonth}</b></span>
@@ -518,9 +518,10 @@ export default async function BookingsPage(container) {
         ` : ''}
 
         <div class="card mb-4" style="padding:10px 14px">
-          <div class="bk-filters" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <div class="bk-filters${dateFrom || dateTo ? '' : ' bk-nodate'}" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
             <select class="input" id="bk-f-seller" style="width:auto;font-size:0.76rem">${sellerOpts}</select>
             <select class="input" id="bk-f-brand" style="width:auto;font-size:0.76rem">${brandOpts}</select>
+            <button type="button" class="btn btn-ghost bk-date-toggle" id="bk-date-toggle" title="กรองตามช่วงวันที่จอง">📅</button>
             <div style="position:relative;flex:1;min-width:150px">
               <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:0.78rem">🔍</span>
               <input class="input" id="bk-search" placeholder="ชื่อ รุ่น เบอร์ สถานะ เช่น s07 รอรถ" value="${escHtml(search)}" style="padding-left:30px;font-size:0.78rem">
@@ -550,6 +551,11 @@ export default async function BookingsPage(container) {
     document.getElementById('bk-search').addEventListener('input', ev => { search = ev.target.value.trim().toLowerCase(); render() })
     document.getElementById('bk-f-seller').addEventListener('change', ev => { sellerFilter = ev.target.value; render() })
     document.getElementById('bk-f-brand').addEventListener('change', ev => { brandFilter = ev.target.value; render() })
+    // มือถือ: ช่องวันที่ซ่อนไว้จนกว่าจะกด 📅 (ประหยัดหนึ่งแถวเต็ม) — ถ้าเลือกวันไว้แล้วจะโชว์ตลอด
+    document.getElementById('bk-date-toggle')?.addEventListener('click', () => {
+      document.querySelector('.bk-filters')?.classList.remove('bk-nodate')
+      document.getElementById('bk-date-from')?.focus()
+    })
     document.getElementById('bk-date-from').addEventListener('change', ev => { dateFrom = ev.target.value; render() })
     document.getElementById('bk-date-to').addEventListener('change', ev => { dateTo = ev.target.value; render() })
     document.getElementById('bk-refresh').addEventListener('click', () => loadData())
