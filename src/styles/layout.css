@@ -773,3 +773,11 @@
   .lami-cards .cat-btn { flex-direction: column; gap: 4px !important; padding: 10px 12px !important; }
   .lami-cards .cat-btn > span:first-child { font-size: 1.2rem !important; }
 }
+
+/* แถวการ์ดตัวเลขที่เป็น 0 ทั้งหมด (หน้ายังไม่มีข้อมูล) — ย่อเป็นแถบเล็ก จางลง ไม่กินครึ่งจอ (คลาสใส่โดย utils/kpiQuiet.js) · ใช้ #main-content เพื่อชนะกฎบังคับ 2 คอลัมน์บนมือถือของ .page-content div[style*=grid-template-columns] */
+#main-content .kpi-grid.kpi-quiet, .kpi-grid.kpi-quiet { grid-template-columns: repeat(auto-fit, minmax(60px, 1fr)) !important; gap: 6px !important; opacity: 0.7; }
+.kpi-grid.kpi-quiet > .kpi-card { padding: 6px 10px !important; min-height: 0 !important; }
+#main-content .kpi-grid.kpi-quiet > :last-child { grid-column: auto !important; }
+.kpi-grid.kpi-quiet .kpi-value { font-size: 1rem !important; margin: 2px 0 0 !important; }
+.kpi-grid.kpi-quiet .kpi-title { font-size: 0.62rem !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kpi-grid.kpi-quiet .kpi-sub, .kpi-grid.kpi-quiet .kpi-change { display: none !important; }
