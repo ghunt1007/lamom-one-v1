@@ -442,8 +442,10 @@ export default async function BookingsPage(container) {
     const deliveredAll = bookings.filter(b => b.status === 'ส่งมอบแล้ว')
     const activeNonTerminal = bookings.filter(b => !['ถอนจอง', 'ยกเลิก', 'ส่งมอบแล้ว'].includes(b.status))
 
-    const statusActs = ['ทั้งหมด'].concat(getBookingStatus())
-    const stChips = `<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
+    // สถานะที่ไม่มีใบจองเลยไม่ต้องโชว์ (เดิม 11 ปุ่ม ล้นลงมาหลายบรรทัด ส่วนใหญ่เป็น (0)) — ยกเว้นตัวที่เลือกอยู่
+    const knownSt = getBookingStatus()
+    const statusActs = ['ทั้งหมด'].concat(knownSt.concat(Object.keys(statusCounts).filter(s => s && !knownSt.includes(s))).filter(s => (statusCounts[s] || 0) > 0 || statusFilter === s))
+    const stChips = `<div class="chip-scroll" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;align-items:center;overflow-x:auto">
       <span style="font-size:0.68rem;font-weight:600;color:var(--text-muted);white-space:nowrap;margin-right:2px">📊 สถานะ:</span>
       ${statusActs.map(s => {
         const isAll = s === 'ทั้งหมด'
