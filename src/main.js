@@ -19,6 +19,9 @@ import { ToastContainer } from './components/layout/Toast.js'
 import { initAutoTableTools } from './utils/tableTools.js'
 import { initErrorMonitor } from './utils/errorMonitor.js'
 import { initAutoI18n } from './i18n/autoTranslate.js'
+import { initStaleChunkReload } from './utils/staleChunk.js'
+
+initStaleChunkReload()
 
 const app = document.getElementById('app')
 
