@@ -142,7 +142,7 @@ export function getBookingDiagnosis(booking) {
     }
   }
 
-  if (booking.status === 'รอรถ') {
+  if (['รอรถ', 'ผ่านไฟแนนซ์รอเบิก', 'ซื้อสดรอเบิกรถ'].includes(booking.status)) {
     return {
       blockerType: 'stock_shortage',
       message: 'รอรถเข้าสต็อก',

@@ -60,13 +60,14 @@ const STATUS_COLORS = {
   'ส่งมอบแล้ว': '#10b981', 'ถอนจอง': '#ef4444', 'ยกเลิก': '#ef4444', 'รอส่งมอบ': '#f59e0b',
   'ตัดตัวเลขรอส่งมอบ': '#06b6d4', 'รอผลไฟแนนซ์': '#3b82f6', 'รอรถ': '#8b5cf6',
   'ยอดจองคงค้าง': '#6b7280', 'จัดไฟแนนซ์ก่อนจอง': '#f97316',
+  'ผ่านไฟแนนซ์รอจอง': '#14b8a6', 'ผ่านไฟแนนซ์รอเบิก': '#6366f1', 'ซื้อสดรอเบิกรถ': '#a855f7',
 }
 function statusBadge(status) {
   const c = STATUS_COLORS[status] || '#6b7280'
   return `<span style="font-size:0.68rem;font-weight:700;padding:2px 9px;border-radius:10px;background:${c}22;color:${ink(c)};border:1px solid ${c}55;white-space:nowrap">${escHtml(status || '—')}</span>`
 }
 const TERMINAL_STATUSES = ['ส่งมอบแล้ว', 'ตัดตัวเลขรอส่งมอบ', 'ถอนจอง', 'ยกเลิก']
-const ACTIVE_PIPELINE = ['ยอดจองคงค้าง', 'จัดไฟแนนซ์ก่อนจอง', 'รอผลไฟแนนซ์', 'รอรถ', 'รอส่งมอบ']
+const ACTIVE_PIPELINE = ['ยอดจองคงค้าง', 'จัดไฟแนนซ์ก่อนจอง', 'ผ่านไฟแนนซ์รอจอง', 'รอผลไฟแนนซ์', 'ผ่านไฟแนนซ์รอเบิก', 'ซื้อสดรอเบิกรถ', 'รอรถ', 'รอส่งมอบ']
 
 function calcMonthly(financeAmount, installments, ratePerYear) {
   if (!financeAmount || !installments) return 0

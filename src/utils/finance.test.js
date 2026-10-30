@@ -15,3 +15,14 @@ describe('finance utils', () => {
     expect(isCashBooking({ financeCo: 'ซื้อสด' })).toBe(true)
   })
 })
+
+describe('สถานะใหม่จาก Sheet (30 ต.ค. 69)', () => {
+  it('ผ่านไฟแนนซ์รอเบิก/รอจอง = ไฟแนนซ์ผ่าน', () => {
+    expect(isFinancePassed({ status: 'ผ่านไฟแนนซ์รอเบิก' })).toBe(true)
+    expect(finPassPatch({ status: 'ผ่านไฟแนนซ์รอจอง', finStatus: 'รอผล' })).toEqual({ finStatus: 'ผ่าน' })
+  })
+  it('ซื้อสดรอเบิกรถ = ซื้อสด ไม่ถูกตั้งไฟแนนซ์ผ่าน', () => {
+    expect(isCashBooking({ status: 'ซื้อสดรอเบิกรถ' })).toBe(true)
+    expect(finPassPatch({ status: 'ซื้อสดรอเบิกรถ' })).toBeNull()
+  })
+})
