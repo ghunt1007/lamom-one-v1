@@ -441,4 +441,6 @@ button.tab-btn:not(.btn).active { background: var(--primary); border-color: var(
 @media (pointer: coarse) and (max-width: 1024px) {
   .btn-xs { padding: 6px 10px; font-size: 0.76rem; min-height: 30px; }
   .btn-sm { min-height: 34px; }
+  /* ปุ่ม ✕ ลบรถออกจากการเปรียบเทียบ เดิมสูงแค่ 13px นิ้วกดไม่โดน */
+  .vehicle-remove, .remove-veh-btn { min-width: 30px; min-height: 30px; display: inline-flex; align-items: center; justify-content: center; }
 }
