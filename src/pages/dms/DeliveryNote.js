@@ -123,9 +123,6 @@ export default async function DeliveryNotePage(container) {
 
   function renderPage() {
     const list = filtered()
-    const pending   = notes.filter(n => n.status === 'pending').length
-    const scheduled = notes.filter(n => n.status === 'scheduled').length
-    const done      = notes.filter(n => n.status === 'done').length
     const todayList = notes.filter(n => n.deliveryDate === today && n.status !== 'cancelled')
 
     container.innerHTML = `
@@ -133,19 +130,12 @@ export default async function DeliveryNotePage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🚗 ใบส่งมอบรถ</div>
-            <div class="page-subtitle">Vehicle Delivery Note — จัดการการส่งมอบรถ</div>
+            <div class="page-subtitle">จัดการใบส่งมอบรถ นัดวัน และส่งมอบให้ลูกค้า</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="export-btn">📥 ส่งออก</button>
             <button class="btn btn-primary" id="add-dn-btn">+ สร้างใบส่งมอบ</button>
           </div>
-        </div>
-
-        <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
-          ${kpi('📋 รอส่งมอบ', pending, 'warning')}
-          ${kpi('📅 นัดหมายแล้ว', scheduled, 'primary')}
-          ${kpi('✅ ส่งมอบแล้ว', done, 'success')}
-          ${kpi('📅 วันนี้', todayList.length, todayList.length > 0 ? 'warning' : 'secondary')}
         </div>
 
         ${todayList.length ? `<div class="card" style="padding:12px 14px;margin-bottom:14px;border-left:3px solid var(--warning)">
@@ -155,13 +145,15 @@ export default async function DeliveryNotePage(container) {
           </div>
         </div>` : ''}
 
-        <div style="display:flex;gap:4px;margin-bottom:12px">
-          <button class="btn btn-sm ${statusFilter==='all'?'btn-primary':'btn-secondary'} sf-btn" data-s="all">ทั้งหมด</button>
-          ${Object.entries(DN_STATUS).map(([k,v]) => `<button class="btn btn-sm ${statusFilter===k?'btn-'+v.color:'btn-secondary'} sf-btn" data-s="${k}">${v.label}</button>`).join('')}
+        <!-- ตัวเลขแต่ละสถานะอยู่บนปุ่มกรอง (เดิมมีการ์ดตัวเลขซ้ำอีกแถว) · ส่งมอบวันนี้อยู่ในกล่องด้านบน -->
+        <div class="chip-scroll" style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap">
+          <button class="btn btn-sm ${statusFilter==='all'?'btn-primary':'btn-secondary'} sf-btn" data-s="all">ทั้งหมด ${notes.length}</button>
+          ${Object.entries(DN_STATUS).map(([k,v]) => [k, v, notes.filter(n => n.status === k).length]).filter(([k, , n]) => n || statusFilter === k)
+            .map(([k, v, n]) => `<button class="btn btn-sm ${statusFilter===k?'btn-'+v.color:'btn-secondary'} sf-btn" data-s="${k}">${v.label} ${n}</button>`).join('')}
         </div>
 
-        <div class="card" style="padding:0;overflow:hidden">
-          <div class="table-wrap"><table class="table">
+        <div class="card tbl-cards-wrap" style="padding:0;overflow:hidden">
+          <div class="table-wrap"><table class="table tbl-cards">
             <thead>
               <tr><th>ใบส่งมอบ</th><th>ลูกค้า</th><th>รถ</th><th>วันส่งมอบ</th><th>สถานที่</th><th>เซลส์</th><th>สถานะ</th><th></th></tr>
             </thead>
@@ -181,7 +173,7 @@ export default async function DeliveryNotePage(container) {
                   </td>
                   <td>
                     <div style="font-size:0.85rem;font-weight:600">${escHtml(n.brand)} ${escHtml(n.model)}</div>
-                    <div style="font-size:0.73rem;color:var(--text-muted)">${escHtml(n.variant)} · ${escHtml(n.color)}</div>
+                    <div style="font-size:0.73rem;color:var(--text-muted)">${escHtml([n.variant, n.color].filter(Boolean).join(' · '))}</div>
                   </td>
                   <td>
                     <div style="font-size:0.83rem;font-weight:${isToday?700:400};color:${isToday?'var(--warning)':isOverdue?'var(--danger)':'inherit'}">${formatDate(n.deliveryDate)}</div>
@@ -431,5 +423,4 @@ export default async function DeliveryNotePage(container) {
   renderPage()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
 function row(l, v) { return `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:0.82rem"><span style="color:var(--text-muted)">${l}</span><span>${v}</span></div>` }
