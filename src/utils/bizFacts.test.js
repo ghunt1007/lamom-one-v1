@@ -48,6 +48,18 @@ describe('businessFacts', () => {
     expect(g['รุ่นที่ถูกจองมากสุด 90 วันล่าสุด']).toBe('DEEPAL S07 2 · DEEPAL S05 1')
     expect(g['กำหนดส่งมอบ (ใบจองที่ยังไม่ส่ง)']).toBe('เลยกำหนดแล้ว 1 คัน · ภายใน 7 วันข้างหน้า 1 คัน')
   })
+  it('counts quiet leads per salesperson without customer names', () => {
+    const g = businessFacts({ bookings: [], customers: [
+      { stage: 'lead', assignedTo: 'เอ', name: 'ลับ', createdAt: '2026-10-01', lastContactAt: '2026-10-20' },
+      { stage: 'pp', assignedTo: 'เอ', createdAt: '2026-10-01', lastContactAt: '2026-10-25' },
+      { stage: 'lead', createdAt: '2026-10-10' },
+      { stage: 'lead', assignedTo: 'บี', createdAt: '2026-10-01', isLost: true },
+      { stage: 'booking', assignedTo: 'บี', createdAt: '2026-10-01' },
+    ] }, today)
+    const k = 'Lead/Prospect ที่ไม่ได้ติดต่อ 3 วันขึ้นไป 2 ราย แยกตามเซลส์'
+    expect(g[k]).toBe('ยังไม่มีเจ้าของ 1 ราย (นานสุด 16 วัน) · เอ 1 ราย (นานสุด 6 วัน)')
+    expect(g[k]).not.toContain('ลับ')
+  })
   it('summarises lost reasons', () => {
     expect(f['เหตุผลเสียดีล 90 วันล่าสุด']).toBe('ไฟแนนซ์ไม่ผ่าน 1')
   })
