@@ -680,6 +680,12 @@
 /* งานของฉันวันนี้: ปุ่ม "ดูอีก N รายการ" ท้ายแต่ละหมวด */
 .md-more { display: block; width: 100%; padding: 10px 16px; border: none; background: transparent; color: var(--primary); font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; text-align: center; }
 .md-more:hover { background: var(--surface-2); }
+/* งานของฉันวันนี้: แถบปุ่มกระโดดไปแต่ละหมวด (มือถือติดใต้แถบบนตอนเลื่อน) */
+.md-jump { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.md-sec { scroll-margin-top: calc(var(--topbar-height, 56px) + 56px); }
+@media (max-width: 640px) {
+  .md-jump { position: sticky; top: var(--topbar-height, 56px); z-index: 5; margin: 0 -12px 12px; padding: 8px 12px; background: var(--bg, var(--surface)); border-bottom: 1px solid var(--border); overflow-x: auto; }
+}
 
 /* แถวปุ่มกรองบนมือถือ: เลื่อนซ้าย-ขวาแถวเดียว แทนการตัดลงบรรทัดละปุ่ม (หน้ายาวและดูรก)
    ใส่ overflow-x ใน style ด้วย ไม่งั้นกฎ "flex ทุกอันต้อง wrap บนมือถือ" ใน base.css จะชนะ */
