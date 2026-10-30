@@ -322,6 +322,8 @@ export default async function FollowUpPage(container) {
   }
 
   await loadData()
+  // ?new=1 (คำสั่งจากช่องค้นหารวม) = เปิดฟอร์มเพิ่มใหม่ทันที
+  if (container.__routerGen === myGen && new URLSearchParams(window.location.search).get('new') === '1') { window.history.replaceState({}, '', window.location.pathname); openFUForm(null) }
 }
 
 // การ์ดตัวเลขกดได้ = เปิดแท็บรายการนั้นเลย (ไม่ต้องหาปุ่มแท็บด้านล่าง)
