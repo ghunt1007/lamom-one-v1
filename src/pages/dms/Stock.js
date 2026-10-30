@@ -151,13 +151,19 @@ export default async function StockPage(container) {
     await checkBackfillCandidates()
   }
 
+  // รถพร้อมขายที่อยู่ในสต็อก 60 วันขึ้นไป (เกณฑ์เดียวกับป้าย "ในสต็อก N วัน" สีเหลือง/แดง) — ควรเร่งขาย/จัดโปร
+  const isAged = v => v.status === 'available' && (stockAgeDays(v.arrivedAt, todayBangkok()) ?? 0) >= 60
   function updateStats() {
     const counts = {}
     Object.keys(STATUS).forEach(k => counts[k] = stock.filter(v => v.status === k).length)
     Object.keys(STATUS).forEach(k => {
       const el = document.getElementById(`vstat-${k}`)
       if (el) el.textContent = counts[k]
+      // สถานะที่ไม่มีรถเลยไม่ต้องโชว์ (แถวสั้นลง เลื่อนน้อยลง) — ยกเว้นตัวที่เลือกอยู่
+      const card = el?.closest('.sf-card'); if (card) card.style.display = counts[k] || statusFilter === k ? 'flex' : 'none'
     })
+    const aged = stock.filter(isAged).length, agedCard = document.querySelector('.sf-card[data-sf="aged"]')
+    if (agedCard) { agedCard.style.display = aged || statusFilter === 'aged' ? 'flex' : 'none'; agedCard.querySelector('#vstat-aged').textContent = aged }
     const allEl = document.getElementById('vstat-all')
     if (allEl) allEl.textContent = stock.length
     const totalEl = document.getElementById('stock-total')
@@ -173,7 +179,7 @@ export default async function StockPage(container) {
     // (v1.0.453) การกรองตามบริษัทย้ายเข้า query จริงแล้ว (companyScopeFilters() ใน startWatchStock()) —
     // ไม่ต้องกรองซ้ำที่นี่อีก
     filtered = stock.filter(v => {
-      const ms = statusFilter === 'all' || v.status === statusFilter
+      const ms = statusFilter === 'all' || v.status === statusFilter || (statusFilter === 'aged' && isAged(v))
       const bs = brandFilter === 'all' || v.brand === brandFilter
       const ss = !search || `${v.brand} ${v.model} ${v.color} ${v.vin}`.toLowerCase().includes(search)
       return ms && bs && ss
@@ -649,6 +655,10 @@ export default async function StockPage(container) {
         <div class="card sf-card sf-on" data-sf="all" style="padding:8px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;flex-shrink:0;transition:all 150ms">
           <span id="vstat-all" style="font-size:1.2rem;font-weight:700">0</span>
           <span style="font-size:0.78rem;color:var(--text-muted)">ทั้งหมด</span>
+        </div>
+        <div class="card sf-card" data-sf="aged" title="รถพร้อมขายที่อยู่ในสต็อก 60 วันขึ้นไป — ควรเร่งขาย/จัดโปร" style="padding:8px 14px;cursor:pointer;display:none;align-items:center;gap:8px;flex-shrink:0;transition:all 150ms;border-color:var(--warning)">
+          <span id="vstat-aged" style="font-size:1.2rem;font-weight:700;color:var(--warning)">0</span>
+          <span style="font-size:0.78rem;color:var(--text-muted)">⏳ ค้าง 60 วัน+</span>
         </div>
         ${Object.entries(STATUS).map(([k,v]) => `
           <div class="card sf-card" data-sf="${k}" style="padding:8px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;flex-shrink:0;transition:all 150ms">
