@@ -26,6 +26,8 @@ import { openReplan, bookingTotal } from '../../utils/replanModal.js'
 
 const NUDGE_MAX = 8
 const SECTION_PREVIEW = 5
+// ชื่อสั้นบนแถบกระโดดไปหมวด (ตาม icon ของหมวด)
+const JUMP_LABEL = { '📞': 'นัดติดตาม', '🚙': 'ลองขับ', '🧲': 'Lead ใหม่', '🔴': 'Hot', '⏰': 'ไม่ได้ตาม', '🔄': 'ติดต่อใหม่', '📆': 'ยังไม่นัดส่ง', '🚗': 'ส่งมอบ', '🏦': 'ไฟแนนซ์', '💰': 'กรอกรายได้', '⏳': 'ใบจองค้าง' }
 
 const UNASSIGNED = '(ยังไม่มีผู้ดูแล)'
 function escHtml(s) {
@@ -83,12 +85,15 @@ export default async function MyDayPage(container) {
   }
 
   const expanded = new Set() // หมวดที่กด "ดูอีก" แล้ว — คงเปิดไว้หลังกดปุ่มอื่นที่ทำให้หน้าวาดใหม่
+  let jumps = [] // หมวดที่มีงาน → แถบปุ่มกระโดดไปหมวดนั้น (หน้ายาวมากบนมือถือ)
   let cleared = [] // หัวข้อที่ไม่มีงานค้าง — ย่อรวมไว้บรรทัดเดียวท้ายหน้าแทนการ์ดว่างๆ ยาวทั้งหน้า
   function section(icon, title, hint, items, row, color = 'primary') {
     if (!items.length) { cleared.push(`${icon} ${title}`); return '' }
     // หน้ายาวเกินไปบนมือถือ — แต่ละหมวดโชว์ 5 รายการแรก (เรียงด่วนสุดก่อนแล้ว) กดดูที่เหลือได้
     const open = expanded.has(title) || items.length <= SECTION_PREVIEW + 1
-    return `<div class="card" style="padding:0;margin-bottom:14px;overflow:hidden">
+    const id = `md-sec-${jumps.length}`
+    jumps.push({ id, label: `${icon} ${JUMP_LABEL[icon] || title}`, n: items.length, color })
+    return `<div class="card md-sec" id="${id}" style="padding:0;margin-bottom:14px;overflow:hidden">
       <div style="padding:12px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border)">
         <span style="font-size:1.1rem">${icon}</span><b>${title}</b>
         <span class="badge badge-${items.length ? color : 'secondary'}">${items.length}</span>
@@ -215,6 +220,7 @@ export default async function MyDayPage(container) {
     const d = buildMyDay(data, { today, mine })
     lastDay = d
     cleared = []
+    jumps = []
     // ลูกค้า Hot ที่อยู่ในหมวด "Lead ใหม่วันนี้" / "ไม่ได้ติดตาม" แล้ว ไม่ต้องขึ้นซ้ำอีกหมวด (มีปุ่ม 📅 นัด อยู่แล้ว)
     const listed = new Set([...d.newLeads, ...d.stale].map(c => c.id))
     const hotOnly = d.hotNoPlan.filter(c => !listed.has(c.id))
@@ -245,6 +251,7 @@ export default async function MyDayPage(container) {
           ${stat('💪', 'ทำแล้ว', doneToday, 'success')}
           ${stat('📅', 'นัดพรุ่งนี้', d.tomorrow || 0, 'primary')}
         </div>
+        <div id="md-jump"></div>
         ${focusCard(d)}
         ${teamCard(today)}
         ${goalCard(today)}
@@ -306,6 +313,15 @@ export default async function MyDayPage(container) {
         ${cleared.length ? `<div style="font-size:0.75rem;color:var(--text-muted);padding:4px 2px 12px">✅ เคลียร์แล้ว ไม่มีงานค้าง: ${cleared.map(escHtml).join(' · ')}</div>` : ''}
       </div>`
 
+    const jumpEl = container.querySelector('#md-jump')
+    if (jumpEl && jumps.length >= 3) {
+      jumpEl.className = 'md-jump chip-scroll'
+      jumpEl.innerHTML = jumps.map(j => `<button type="button" class="btn btn-secondary btn-xs" data-jump="${j.id}" style="border-radius:999px;flex-shrink:0">${escHtml(j.label)} <b style="color:var(--${j.color})">${j.n}</b></button>`).join('')
+      jumpEl.addEventListener('click', e => {
+        const b = e.target.closest('[data-jump]')
+        if (b) container.querySelector('#' + b.dataset.jump)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      })
+    }
     const $$ = sel => container.querySelectorAll(sel)
     container.querySelector('#md-seller')?.addEventListener('change', e => { seller = e.target.value; render() })
     $$('.md-more').forEach(b => b.addEventListener('click', () => { expanded.add(b.dataset.key); const y = window.scrollY; render(); window.scrollTo(0, y) }))
