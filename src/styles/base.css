@@ -99,11 +99,15 @@ a:hover { text-decoration: underline; }
    กำกับสถานะ) มาตลอด ไม่ใช่แค่บนมือถือ */
 .btn-success {
   background: var(--success); color: #fff;
+  /* ตัวอักษรขาวบนเขียว/ส้มสดอ่านยาก (contrast ~2.2–2.5) — เข้มขึ้นราว 30% ให้อ่านชัด (~4:1) แต่ยังเป็นสีเดิม */
+  background: color-mix(in srgb, var(--success) 70%, #000);
 }
 .btn-success:hover { filter: brightness(1.1); box-shadow: 0 0 16px var(--success-dim); }
 
 .btn-warning {
   background: var(--warning); color: #fff;
+  /* ตัวอักษรขาวบนเขียว/ส้มสดอ่านยาก (contrast ~2.2–2.5) — เข้มขึ้นราว 30% ให้อ่านชัด (~4:1) แต่ยังเป็นสีเดิม */
+  background: color-mix(in srgb, var(--warning) 70%, #000);
 }
 .btn-warning:hover { filter: brightness(1.1); box-shadow: 0 0 16px var(--warning-dim); }
 

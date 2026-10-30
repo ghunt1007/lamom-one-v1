@@ -1200,7 +1200,7 @@ export default async function DashboardPage(container) {
       el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">
         ${counts.map((c, i) => {
           const op = c ? (0.25 + 0.75 * c / max).toFixed(2) : 0
-          return `<div title="${i + 1} ${ymLabel(selectedMonth)}: ${c} ใบจอง" style="aspect-ratio:1;border-radius:3px;background:${c ? `rgba(0,180,255,${op})` : 'var(--surface-2)'};border:1px solid var(--border-subtle);display:flex;align-items:center;justify-content:center;font-size:0.55rem;color:${c ? 'var(--text)' : 'var(--text-muted)'};font-family:'Share Tech Mono',monospace;${c ? `box-shadow:0 0 6px rgba(0,180,255,${op})` : ''}">${i + 1}</div>`
+          return `<div title="${i + 1} ${ymLabel(selectedMonth)}: ${c} ใบจอง" style="aspect-ratio:1;border-radius:3px;background:${c ? `rgba(0,180,255,${op})` : 'var(--surface-2)'};border:1px solid var(--border-subtle);display:flex;align-items:center;justify-content:center;font-size:0.55rem;color:${c ? (op > 0.55 ? '#04202e' : 'var(--text)') : 'var(--text-muted)'};${op > 0.55 ? 'font-weight:700;' : ''}font-family:'Share Tech Mono',monospace;${c ? `box-shadow:0 0 6px rgba(0,180,255,${op})` : ''}">${i + 1}</div>`
         }).join('')}
       </div>
       <div style="font-size:0.62rem;color:var(--text-muted);margin-top:6px">เข้มมาก = จองเยอะ · สูงสุด ${max} ใบจอง/วัน</div>`
