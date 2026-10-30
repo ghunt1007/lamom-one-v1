@@ -97,7 +97,7 @@ export default async function TestDrivePage(container) {
   }
 
   function getStats() {
-    const done = testdrives.filter(t => t.status === 'done').length
+    const done = testdrives.filter(t => t.status === 'done' || t.status === 'completed').length
     const booked = testdrives.filter(t => t.result === 'booked').length
     return {
       total: testdrives.length,
@@ -116,7 +116,7 @@ export default async function TestDrivePage(container) {
       return
     }
     const s = getStats()
-    const filtered = filterStatus === 'all' ? testdrives : testdrives.filter(t => t.status === filterStatus)
+    const filtered = filterStatus === 'all' ? testdrives : testdrives.filter(t => (t.status === 'completed' ? 'done' : t.status) === filterStatus)
     // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
     // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
     const today = todayBangkok()
@@ -142,14 +142,8 @@ export default async function TestDrivePage(container) {
           <button class="btn btn-warning btn-sm" id="migrate-legacy-btn" ${migrating ? 'disabled' : ''}>${migrating ? '⏳ กำลังย้าย...' : '🔧 ย้ายข้อมูลเก่ามารวม'}</button>
         </div>` : ''}
 
-        <!-- KPI -->
-        <div class="kpi-grid" style="grid-template-columns:repeat(5,1fr);margin-bottom:20px">
-          ${kpi('📋 ทั้งหมด', s.total, 'primary')}
-          ${kpi('📅 นัดแล้ว', s.scheduled, 'accent')}
-          ${kpi('✅ เสร็จแล้ว', s.done, 'success')}
-          ${kpi('📝 จองต่อ', s.booked, 'success')}
-          ${kpi('🎯 ขับแล้วจอง', s.convRate + '%', s.convRate >= 30 ? 'success' : 'warning')}
-        </div>
+        <!-- ผลลัพธ์สั้น ๆ บรรทัดเดียว (ตัวเลขแต่ละสถานะอยู่บนปุ่มกรองด้านล่างแล้ว) -->
+        ${s.done ? `<div style="font-size:0.82rem;color:var(--text-2);margin-bottom:14px">🎯 ขับแล้วจอง <b style="color:var(--${s.convRate >= 30 ? 'success' : 'warning'})">${s.convRate}%</b> <span style="color:var(--text-muted)">(จองต่อ ${s.booked} จากที่ขับเสร็จ ${s.done} ครั้ง)</span></div>` : ''}
 
         <!-- Today's schedule -->
         ${todayTDs.length > 0 ? `
@@ -172,8 +166,10 @@ export default async function TestDrivePage(container) {
 
         <!-- Filter -->
         <div class="chip-scroll" style="overflow-x:auto;display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
-          <button class="btn btn-sm ${filterStatus==='all'?'btn-primary':'btn-secondary'} fs-btn" data-s="all">ทั้งหมด</button>
-          ${Object.entries(TD_STATUS).map(([k,v]) => `<button class="btn btn-sm ${filterStatus===k?'btn-primary':'btn-secondary'} fs-btn" data-s="${k}">${v.label}</button>`).join('')}
+          <button class="btn btn-sm ${filterStatus==='all'?'btn-primary':'btn-secondary'} fs-btn" data-s="all">ทั้งหมด ${s.total}</button>
+          ${Object.entries(TD_STATUS).map(([k,v]) => [k, v, testdrives.filter(t => (t.status === 'completed' ? 'done' : t.status) === k).length])
+            .filter(([k, , n]) => n || filterStatus === k)
+            .map(([k, v, n]) => `<button class="btn btn-sm ${filterStatus===k?'btn-primary':'btn-secondary'} fs-btn" data-s="${k}">${v.label} ${n}</button>`).join('')}
         </div>
 
         <!-- Table -->
@@ -361,9 +357,6 @@ function tdVehicleOptions() {
   return own.length ? `<optgroup label="รุ่นที่โชว์รูมขาย">${opts(own)}</optgroup><optgroup label="รุ่นอื่น">${opts(rest)}</optgroup>` : opts(rest)
 }
 
-function kpi(title, value, color) {
-  return `<div class="kpi-card"><div class="kpi-title">${title}</div><div class="kpi-value" style="color:var(--${color})">${value}</div></div>`
-}
 function dr(icon, label, val) {
   return `<div style="font-size:0.83rem;display:flex;gap:6px"><span>${icon}</span><span style="color:var(--text-muted);min-width:70px">${label}</span><span>${escHtml(String(val ?? ''))}</span></div>`
 }
