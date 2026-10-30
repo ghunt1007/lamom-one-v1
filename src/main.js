@@ -21,6 +21,7 @@ import { initErrorMonitor } from './utils/errorMonitor.js'
 import { initAutoI18n } from './i18n/autoTranslate.js'
 import { initStaleChunkReload } from './utils/staleChunk.js'
 import { initKpiQuiet } from './utils/kpiQuiet.js'
+import { initChipRows } from './utils/chipRows.js'
 
 initStaleChunkReload()
 
@@ -101,6 +102,7 @@ async function bootstrapShell() {
   initRouter(main)
   initAutoTableTools()  // เสริม sort+filter แบบ Excel ให้ทุกตารางอัตโนมัติ
   initKpiQuiet()       // แถวการ์ดตัวเลขที่เป็น 0 ทั้งแถว ย่อให้เล็กลง
+  initChipRows()       // มือถือ: แถวปุ่มกรองที่ล้นหลายบรรทัด → เลื่อนแถวเดียว
 
   // ✨ มีอะไรใหม่ — ครั้งเดียวต่อเครื่องหลังอัปเดตใหญ่ (รอให้หน้าแรกโหลดก่อน)
   setTimeout(() => {
