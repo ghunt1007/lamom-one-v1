@@ -461,7 +461,7 @@ export default async function BookingsPage(container) {
     </div>`
 
     // "ทั้งหมด N" มีอยู่แล้วบนชิปสถานะ "ทั้งหมด (N)" — แถบนี้จึงเหลือแค่ตัวเลขที่ชิปไม่ได้บอก
-    const statsBar = `<div style="display:flex;gap:16px;flex-wrap:wrap;padding:6px 12px;background:var(--surface-2);border-radius:8px;margin-bottom:10px;font-size:0.68rem;color:var(--text-2)">
+    const statsBar = `<div class="chip-scroll" style="display:flex;gap:16px;flex-wrap:wrap;overflow-x:auto;white-space:nowrap;padding:6px 12px;background:var(--surface-2);border-radius:8px;margin-bottom:10px;font-size:0.68rem;color:var(--text-2)">
       <span>🔄 กำลังดำเนินการ <b style="color:var(--warning)">${activeAll.length}</b></span>
       ${pipelineVal > 0 ? `<span>💰 มูลค่ารอส่งมอบ <b style="color:var(--success)">฿${(pipelineVal / 1000000).toLocaleString('en-US', { maximumFractionDigits: 2 })} ล้าน</b></span>` : ''}
       <span>🚗 ส่งมอบเดือนนี้ <b style="color:var(--success)">${delMonth}</b></span>
