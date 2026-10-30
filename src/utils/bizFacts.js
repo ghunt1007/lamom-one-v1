@@ -1,7 +1,7 @@
 // ตัวเลขธุรกิจจากใบจอง/ลูกค้าจริง สำหรับให้ LAMI ตอบคำถามผู้จัดการ เช่น "ใครขายเก่งสุดเดือนนี้" "Lead จากไหนปิดได้ดีสุด"
 // ฟังก์ชันล้วน ไม่แตะฐานข้อมูล · ไม่มีชื่อ/เบอร์ลูกค้า (มีแค่ชื่อเซลส์ ซึ่งเป็นข้อมูลภายในทีม)
 import { DELIVERED_STATUSES } from './deliveryIncome.js'
-import { bangkokDate } from './myDay.js'
+import { bangkokDate, STALE_LEAD_DAYS } from './myDay.js'
 import { classifyLostReason, LOST_REASON_LABELS } from './lostReason.js'
 import { stockAgeDays } from './stockAge.js'
 
@@ -78,6 +78,16 @@ export function businessFacts({ customers = [], bookings = [] }, today) {
   const avg3 = p3.reduce((a, m) => a + booked(m).length, 0) / 3, goal = Math.max(1, Math.ceil(avg3 * 1.1))
   const paceLine = `ผ่านไป ${dayN}/${dim} วัน จองแล้ว ${nowB} ใบ → ถ้ารักษาจังหวะนี้ สิ้นเดือนน่าจะได้ราว ${Math.round(nowB / dayN * dim)} ใบ`
     + (avg3 > 0 ? ` · เป้าแนะนำ ${goal} ใบ (เฉลี่ย 3 เดือนก่อน ${avg3.toFixed(1)} +10%) ${nowB >= goal ? 'ถึงเป้าแล้ว' : `ขาดอีก ${goal - nowB} ใบ`}` : '')
+  // Lead/Prospect ที่ไม่ได้ติดต่อ 3 วันขึ้นไป แยกตามเซลส์ (นับอย่างเดียว ไม่มีชื่อลูกค้า) — ให้ตอบ "ใครปล่อยลูกค้าค้าง ควรตามใครก่อน"
+  const quiet = {}
+  cs.filter(c => ['lead', 'pp'].includes(c.stage) && !c.isLost).forEach(c => {
+    const last = [c.lastContactAt, c.updatedAt, c.stageChangedAt, c.createdAt].map(bangkokDate).filter(Boolean).sort().pop()
+    const d = last ? Math.round((t0 - Date.parse(last + 'T00:00:00Z')) / DAY) : NaN
+    if (!(d >= STALE_LEAD_DAYS)) return
+    const o = (quiet[(c.assignedTo || 'ยังไม่มีเจ้าของ').trim()] ||= { n: 0, max: 0 }); o.n++; o.max = Math.max(o.max, d)
+  })
+  const quietN = Object.values(quiet).reduce((a, v) => a + v.n, 0)
+  const quietLine = Object.entries(quiet).sort((a, b) => (b[1].n - a[1].n) || (b[1].max - a[1].max)).slice(0, 12).map(([k, v]) => `${k} ${v.n} ราย (นานสุด ${v.max} วัน)`).join(' · ')
   return {
     ...(late || soon ? { 'กำหนดส่งมอบ (ใบจองที่ยังไม่ส่ง)': `เลยกำหนดแล้ว ${late} คัน · ภายใน 7 วันข้างหน้า ${soon} คัน` } : {}),
     ...(modelLine ? { 'รุ่นที่ถูกจองมากสุด 90 วันล่าสุด': modelLine } : {}),
@@ -87,6 +97,7 @@ export function businessFacts({ customers = [], bookings = [] }, today) {
     'คาดการณ์ยอดจองสิ้นเดือน': paceLine,
     'แนวโน้ม 6 เดือน (จอง/ส่งมอบ)': trendLine,
     ...(srcLine ? { 'Lead 90 วันล่าสุดแยกตามที่มา': srcLine } : {}),
+    ...(quietN ? { [`Lead/Prospect ที่ไม่ได้ติดต่อ ${STALE_LEAD_DAYS} วันขึ้นไป ${quietN} ราย แยกตามเซลส์`]: quietLine } : {}),
     ...(lostLine ? { 'เหตุผลเสียดีล 90 วันล่าสุด': lostLine } : {}),
     'ลูกค้าในแต่ละขั้น': `Lead ${stage('lead')} · Prospect ${stage('pp')} · จองแล้ว ${stage('booking')} · เสียดีล ${cs.filter(c => c.isLost).length}`,
   }
