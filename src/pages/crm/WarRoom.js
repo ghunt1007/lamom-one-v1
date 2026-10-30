@@ -243,8 +243,8 @@ export default async function WarRoomPage(container) {
       <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
         ${kpi('💰 มูลค่า Pipeline รวม', formatCurrency(s.pipelineValue), 'primary')}
         ${kpi('📊 ปิดการขายรวม', s.overallConv + '%', s.overallConv >= 8 ? 'success' : 'warning')}
-        ${kpi('⚠️ จุดรั่วใหญ่สุด', s.worstDropLabel, 'danger')}
-        ${kpi('❌ เหตุผลเสียดีลหลัก', s.topReasonLabel.replace(/^[^\s]+ /, ''), 'warning')}
+        ${kpi('⚠️ จุดรั่วใหญ่สุด', s.worstDropLabel, 'danger', true)}
+        ${kpi('❌ เหตุผลเสียดีลหลัก', s.topReasonLabel.replace(/^[^\s]+ /, ''), 'warning', true)}
       </div>
     `
   }
@@ -438,6 +438,7 @@ export default async function WarRoomPage(container) {
   return function cleanupWarRoom() { unsubCustomers(); unsubBookings(); offCompanyFilterCustomers(); offCompanyFilterBookingsWr() }
 }
 
-function kpi(title, value, color) {
-  return `<div class="kpi-card"><div class="kpi-title">${title}</div><div class="kpi-value" style="color:var(--${color})">${value}</div></div>`
+// text = ค่าเป็นข้อความ (เช่น ชื่อขั้น/เหตุผล) ให้ตัดบรรทัดได้ ไม่ถูกตัดเป็น … บนมือถือ
+function kpi(title, value, color, text = false) {
+  return `<div class="kpi-card"><div class="kpi-title">${title}</div><div class="kpi-value" style="color:var(--${color})${text ? ';font-size:1.05rem;line-height:1.4;white-space:normal;overflow:visible;text-overflow:clip' : ''}">${value}</div></div>`
 }
