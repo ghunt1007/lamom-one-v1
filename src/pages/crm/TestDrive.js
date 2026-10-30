@@ -38,6 +38,9 @@ const TD_STATUS = {
   no_show:     { label: '👻 ไม่มา', badge: 'primary' },
 }
 
+// สถานะที่ไม่อยู่ในรายการ (ข้อมูลเก่า/นำเข้า เช่น completed) ไม่ให้ขึ้นป้าย "undefined"
+const tdStatus = s => TD_STATUS[s] || (s === 'completed' ? TD_STATUS.done : { label: s || 'ไม่ระบุ', badge: 'secondary' })
+
 const TD_RESULT = {
   interested:  { label: '🔥 สนใจมาก', badge: 'danger' },
   maybe:       { label: '🤔 อาจจะ', badge: 'warning' },
@@ -177,7 +180,7 @@ export default async function TestDrivePage(container) {
             <thead><tr><th>ลูกค้า</th><th>รุ่นที่ขับ</th><th>วันที่/เวลา</th><th>เซลส์</th><th>สถานะ</th><th>ผลลัพธ์</th><th></th></tr></thead>
             <tbody>
               ${filtered.length ? filtered.map(t => {
-                const st = TD_STATUS[t.status]
+                const st = tdStatus(t.status)
                 const rs = TD_RESULT[t.result]
                 return `<tr>
                   <td>
@@ -215,7 +218,7 @@ export default async function TestDrivePage(container) {
   }
 
   function openDetail(t) {
-    const st = TD_STATUS[t.status]
+    const st = tdStatus(t.status)
     const rs = TD_RESULT[t.result]
     openModal({
       title: '🚗 ' + escHtml(t.customerName) + ' — ทดลองขับ', size:'md',
