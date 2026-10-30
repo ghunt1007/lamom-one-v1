@@ -313,6 +313,7 @@ export default async function BookingsPage(container) {
 
   let bookings = []
   let statusFilter = ''
+  let actionOnly = false // ชิป "🧭 ต้องจัดการ" = เฉพาะใบจองที่ขั้นต่อไปเป็นเรื่องเร่ง (เลยกำหนด/ค้างนาน/ขาดข้อมูล)
   let brandFilter = ''
   let sellerFilter = ''
   let search = ''
@@ -375,6 +376,7 @@ export default async function BookingsPage(container) {
     if (ownScopeActive && !scopeIncludesRecord(visScope, b.salesName, b)) return false
     if (brandFilter && detectBrand(b.brand, b.model) !== brandFilter) return false
     if (!ignoreStatus && statusFilter && b.status !== statusFilter) return false
+    if (!ignoreStatus && actionOnly && !needsAction(b)) return false
     if (noIncomeOnly && !needsIncome(b)) return false
     if (search) {
       // พิมพ์หลายคำได้ (ต้องเจอทุกคำ เช่น "s07 สมชาย" หรือ "รอรถ ttb") · เบอร์พิมพ์มีขีด/ไม่มีขีดก็เจอ
@@ -391,6 +393,7 @@ export default async function BookingsPage(container) {
   function getFiltered() {
     return bookings.filter(b => matchesFilters(b)).sort((a, b) => (b.bookingDate || '').localeCompare(a.bookingDate || ''))
   }
+  function needsAction(b) { const n = bookingNextStep(b, todayBangkok()); return !!n && n.tone !== 'info' }
   function getStatusCounts() {
     const counts = {}
     bookings.filter(b => matchesFilters(b, { ignoreStatus: true })).forEach(b => { counts[b.status] = (counts[b.status] || 0) + 1 })
@@ -435,6 +438,7 @@ export default async function BookingsPage(container) {
     const filtered = getFiltered()
     const statusCounts = getStatusCounts()
     const statusTotal = Object.values(statusCounts).reduce((s, n) => s + n, 0)
+    const actionCount = bookings.filter(b => matchesFilters(b, { ignoreStatus: true }) && needsAction(b)).length
     const activeAll = bookings.filter(b => ACTIVE_PIPELINE.includes(b.status))
     const pipelineVal = activeAll.reduce((s, b) => s + (b.price || 0), 0)
     // เดิม new Date().toISOString().slice(0,7) คืนเดือนตาม UTC เสมอ — แก้ให้ยึดเดือนไทยจริงจาก todayBangkok()
@@ -450,9 +454,10 @@ export default async function BookingsPage(container) {
     const statusActs = ['ทั้งหมด'].concat(knownSt.concat(Object.keys(statusCounts).filter(s => s && !knownSt.includes(s))).filter(s => (statusCounts[s] || 0) > 0 || statusFilter === s))
     const stChips = `<div class="chip-scroll" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;align-items:center;overflow-x:auto">
       <span style="font-size:0.68rem;font-weight:600;color:var(--text-muted);white-space:nowrap;margin-right:2px">📊 สถานะ:</span>
+      ${actionCount || actionOnly ? `<span class="bk-action-chip" style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:99px;cursor:pointer;font-size:0.68rem;font-weight:${actionOnly ? 700 : 600};border:1.5px solid var(--warning);background:${actionOnly ? 'color-mix(in srgb, var(--warning) 18%, transparent)' : 'transparent'};color:var(--warning);white-space:nowrap" title="ใบจองที่เลยกำหนด/ค้างนาน/ขาดข้อมูล ตามคำแนะนำ 🧭 ขั้นต่อไป">🧭 ต้องจัดการ<span style="opacity:.8">(${actionCount})</span>${actionOnly ? '<span style="opacity:.55">×</span>' : ''}</span>` : ''}
       ${statusActs.map(s => {
         const isAll = s === 'ทั้งหมด'
-        const isActive = isAll ? (statusFilter === '') : statusFilter === s
+        const isActive = isAll ? (statusFilter === '' && !actionOnly) : statusFilter === s
         const c = isAll ? 'var(--primary)' : (STATUS_COLORS[s] || '#6b7280')
         const cnt = isAll ? statusTotal : (statusCounts[s] || 0)
         return `<span class="bk-status-chip" data-s="${escHtml(isAll ? '' : s)}" style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:99px;cursor:pointer;font-size:0.68rem;font-weight:${isActive ? 700 : 500};border:1.5px solid ${isActive ? c : c + '55'};background:${isActive ? c + '18' : 'transparent'};color:${isActive ? c : 'var(--text-2)'};white-space:nowrap">
@@ -566,7 +571,8 @@ export default async function BookingsPage(container) {
     document.getElementById('bk-export').addEventListener('click', () => exportRows(filtered, 'bookings'))
     document.getElementById('bk-bulk-export')?.addEventListener('click', () => exportRows(bookings.filter(b => selectedIds.has(b.id)), 'bookings-selected'))
     document.getElementById('bk-bulk-clear')?.addEventListener('click', () => { selectedIds.clear(); render() })
-    container.querySelectorAll('.bk-status-chip').forEach(chip => chip.addEventListener('click', () => { statusFilter = chip.dataset.s; render() }))
+    container.querySelectorAll('.bk-status-chip').forEach(chip => chip.addEventListener('click', () => { statusFilter = chip.dataset.s; actionOnly = false; render() }))
+    container.querySelector('.bk-action-chip')?.addEventListener('click', () => { actionOnly = !actionOnly; statusFilter = ''; render() })
     document.getElementById('bk-noincome-chip')?.addEventListener('click', () => { noIncomeOnly = !noIncomeOnly; render() })
     container.querySelectorAll('.bk-brand-card').forEach(card => card.addEventListener('click', () => { brandFilter = card.dataset.br; render() }))
   }
