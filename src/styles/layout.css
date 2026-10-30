@@ -782,3 +782,6 @@
 .kpi-grid.kpi-quiet .kpi-value { font-size: 1rem !important; margin: 2px 0 0 !important; }
 .kpi-grid.kpi-quiet .kpi-title { font-size: 0.62rem !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .kpi-grid.kpi-quiet .kpi-sub, .kpi-grid.kpi-quiet .kpi-change { display: none !important; }
+/* ช่องที่เป็น 0 ในแถวที่มีตัวเลขจริง — จาง + ตัวเลขสีเทา (ไม่ให้ 0 สีแดง/เขียวแย่งสายตา) */
+.kpi-card.kpi-zero { opacity: 0.6; }
+.kpi-card.kpi-zero .kpi-value { color: var(--text-muted) !important; }
