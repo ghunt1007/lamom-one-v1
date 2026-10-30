@@ -7,6 +7,7 @@ import { generateMorningBriefing, bangkokHour } from '../utils/ai.js'
 import { getModuleForPath, hasModuleAccess, loadRolePermissions } from '../core/permissions.js'
 import { t } from '../i18n/index.js'
 import { DELIVERED_STATUSES as DELIVERED_ST } from '../utils/deliveryIncome.js'
+import { businessFacts } from '../utils/bizFacts.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -1259,7 +1260,11 @@ export default async function DashboardPage(container) {
       const targetSum = monthTargets.reduce((s, t) => s + (t.target || 0), 0)
       const targetPct = monthTargets.length && targetSum ? Math.round(monthTargets.reduce((s, t) => s + (t.actual || 0), 0) / targetSum * 100) : null
 
-      const briefingCtx = { todayCount, stuckBookings: stuckBookingsCount, overdueJobs: overdueJobsCount, staleLeads: staleLeadsCount, agingStock: agingStockCount, revenueThisMonth, targetPct }
+      // ข้อมูลใบจองเชิงลึก (ค้างแยกสถานะ/แนวโน้ม 6 เดือน/ยอดเดือนนี้เทียบเดือนก่อน) — ให้สรุปเจาะจงขึ้น ไม่ใช่แค่นับรวม
+      // หน้านี้โหลดลูกค้าแค่บางส่วน จึงใช้เฉพาะหัวข้อที่คิดจากใบจองล้วน
+      let facts = {}
+      try { facts = Object.fromEntries(Object.entries(businessFacts({ customers: [], bookings }, today)).filter(([k]) => /^(ใบจอง|แนวโน้ม)/.test(k))) } catch { /* ไม่มีก็สรุปแบบเดิม */ }
+      const briefingCtx = { todayCount, stuckBookings: stuckBookingsCount, overdueJobs: overdueJobsCount, staleLeads: staleLeadsCount, agingStock: agingStockCount, revenueThisMonth, targetPct, facts }
       const cacheKey = `lamom_morning_briefing_${user?.uid || 'anon'}_${today}`
 
       function showBriefing(text, generatedAt) {
