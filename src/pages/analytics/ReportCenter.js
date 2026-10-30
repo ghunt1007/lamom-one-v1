@@ -328,7 +328,7 @@ export default async function ReportCenterPage(container) {
           ${data.map(d => {
             const h = Math.max(4, Math.round((d.ยอดขาย||0) / maxVal * 100))
             return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
-              <div style="font-size:0.58rem;color:var(--text-muted)">${((d.ยอดขาย||0)/1000000).toFixed(1)}M</div>
+              <div style="font-size:0.58rem;color:var(--text-muted)">${d.ยอดขาย ? (d.ยอดขาย/1000000).toFixed(1) + 'M' : ''}</div>
               <div style="width:100%;height:${h}px;background:var(--primary);border-radius:3px 3px 0 0;opacity:0.8"></div>
             </div>`
           }).join('')}

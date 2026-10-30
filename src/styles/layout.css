@@ -793,3 +793,12 @@
   .md-grid { columns: 2; column-gap: 14px; }
   .md-grid > .md-sec { break-inside: avoid; display: inline-block; width: 100%; }
 }
+
+/* Analytics 360 บนมือถือ: เมนู 16 การ์ดใหญ่กินเกือบ 2 จอก่อนถึงกราฟ → ไทล์เล็ก 3 คอลัมน์ ไอคอน+ชื่อ */
+@media (max-width: 640px) {
+  #main-content .an-links { grid-template-columns: repeat(3, 1fr) !important; gap: 8px !important; }
+  .an-links > .card { padding: 10px 6px !important; text-align: center; }
+  .an-links .an-ic { font-size: 1.25rem !important; margin-bottom: 2px !important; }
+  .an-links .an-sub { display: none; }
+  .an-links > .card > div:nth-child(2) { font-size: 0.72rem !important; line-height: 1.25; overflow-wrap: anywhere; }
+}
