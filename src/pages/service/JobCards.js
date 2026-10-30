@@ -90,6 +90,11 @@ export default async function JobCardsPage(container) {
     const active = scoped.filter(j => !['done','delivered'].includes(j.status)).length
     const totEl = document.getElementById('job-total')
     if (totEl) totEl.textContent = `${scoped.length} งาน · กำลังทำ ${active}`
+    // ยังไม่มีงานเลย: ไม่ต้องโชว์ปุ่มสถานะ 9 ปุ่มที่เป็น 0 ทั้งหมด (และช่องค้นหา) ให้เหลือแค่ข้อความเริ่มต้น
+    const pills = document.getElementById('job-pills')
+    if (pills) pills.style.display = scoped.length ? 'flex' : 'none'
+    const sc = document.getElementById('job-search-card')
+    if (sc) sc.style.display = scoped.length ? '' : 'none'
     const revEl = document.getElementById('job-revenue')
     const rev = scoped.filter(j => j.status === 'done' || j.status === 'delivered').reduce((s, j) => s + (j.labor || 0), 0)
     if (revEl) revEl.textContent = `รายได้: ${formatCurrency(rev)}`
@@ -350,7 +355,7 @@ export default async function JobCardsPage(container) {
       ` : ''}
 
       <!-- Status Pills -->
-      <div class="chip-scroll" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;overflow-x:auto;padding-bottom:4px">
+      <div id="job-pills" class="chip-scroll" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;overflow-x:auto;padding-bottom:4px">
         <button class="btn btn-sm jf-btn btn-primary" data-sf="all">ทั้งหมด</button>
         ${Object.entries(JOB_STATUS).map(([k,v]) => `
           <button class="btn btn-sm jf-btn btn-secondary" data-sf="${k}" style="white-space:nowrap">
@@ -360,7 +365,7 @@ export default async function JobCardsPage(container) {
       </div>
 
       <!-- Search -->
-      <div class="card mb-4" style="padding:10px 16px">
+      <div class="card mb-4" id="job-search-card" style="padding:10px 16px">
         <div style="position:relative">
           <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted)">🔍</span>
           <input class="input" id="job-search" placeholder="ค้นหา เลขงาน ลูกค้า รถ ทะเบียน..." style="padding-left:32px">
