@@ -100,7 +100,7 @@ export default async function DeliveryCalendarPage(container) {
         <div class="kpi-grid" style="grid-template-columns:repeat(5,1fr);margin-bottom:16px">
           ${kpi('⚠️ เลยกำหนด', overdue.length + ' คัน', overdue.length > 0 ? 'danger' : 'success')}
           ${kpi('🎉 ส่งมอบวันนี้', todayList.length + ' คัน', 'primary')}
-          ${kpi('⚠️ ยังไม่พร้อม', notReady, notReady > 0 ? 'danger' : 'success')}
+          ${kpi('⚠️ ยังไม่พร้อม', notReady + ' คัน', notReady > 0 ? 'danger' : 'success')}
           ${kpi('📅 คิวถัดไป', upcoming.length + ' คัน', 'secondary')}
           ${kpi('✅ เดือนนี้', done.length + ' คัน', 'success')}
         </div>

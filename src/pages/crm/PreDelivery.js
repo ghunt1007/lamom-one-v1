@@ -36,7 +36,7 @@ export default async function PreDeliveryPage(container) {
 
   async function loadData() {
     try { bookings = await listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 500) } catch {}
-    bookings = bookings.filter(b => !b.deleted && b.status !== 'ถอนจอง')
+    bookings = bookings.filter(b => !b.deleted && !['ถอนจอง', 'ยกเลิก'].includes(b.status))
     bookings.forEach(b => { if (!b.pdItems) b.pdItems = buildItems() })
     render()
   }
@@ -48,18 +48,20 @@ export default async function PreDeliveryPage(container) {
     const pass = all.filter(i => i.status === 'pass').length
     return { total: all.length, checked, failed, pass, pct: all.length ? Math.round(checked / all.length * 100) : 0 }
   }
+  // รอตรวจ = ยังไม่ติ๊กพร้อม และยังไม่ได้ส่งมอบ (คันที่ส่งมอบไปแล้วไม่ต้องตรวจก่อนส่งมอบอีก)
+  const isPending = b => !b.pdReady && b.status !== 'ส่งมอบแล้ว'
   function isReady(b) { const r = readiness(b); return r.failed === 0 && r.checked === r.total }
 
   function getList() {
     return bookings.filter(b => {
       if (filter === 'all') return true
       if (filter === 'ready') return b.pdReady
-      return !b.pdReady  // pending
+      return isPending(b)
     })
   }
 
   function render() {
-    const pending = bookings.filter(b => !b.pdReady).length
+    const pending = bookings.filter(isPending).length
     const ready = bookings.filter(b => b.pdReady).length
 
     container.innerHTML =
