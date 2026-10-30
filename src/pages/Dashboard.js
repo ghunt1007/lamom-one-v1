@@ -709,7 +709,7 @@ export default async function DashboardPage(container) {
     // ── กราฟแท่งเดี่ยวขนาดเล็ก ใช้ร่วมกันระหว่างกราฟยอดส่งมอบ/ยอดถอนจอง (v1.0.446) — คลิกแท่งเลือกเดือนได้
     // เหมือนกราฟหลัก (renderTrendChart) เพื่อให้ทุกกราฟบนหน้านี้ทำงานสัมพันธ์กัน คลิกจุดไหนก็ได้แล้วข้อมูล
     // ทั้งหน้าเปลี่ยนตามเดือนเดียวกันเสมอ
-    function miniBarChart(elId, monthsArr, counts, color) {
+    function miniBarChart(elId, monthsArr, counts, color, emptyText = 'ไม่มีข้อมูลในช่วงนี้') {
       const el = document.getElementById(elId)
       if (!el) return
       const W = 400, H = 150, padL = 6, padR = 6, padT = 20, padB = 26
@@ -737,6 +737,7 @@ export default async function DashboardPage(container) {
       el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
         <line x1="${padL}" y1="${yBase}" x2="${W - padR}" y2="${yBase}" stroke="var(--border)" stroke-width="1"/>
         ${bars}${labels}
+        ${counts.some(Boolean) ? '' : `<text x="${W / 2}" y="${padT + plotH / 2}" text-anchor="middle" font-size="12" fill="var(--text-muted)">${emptyText}</text>`}
       </svg>`
       el.querySelectorAll('[data-month]').forEach(g => g.addEventListener('click', () => setSelectedMonth(g.dataset.month)))
     }
@@ -755,7 +756,7 @@ export default async function DashboardPage(container) {
       const months = []
       for (let i = trendRange - 1; i >= 0; i--) months.push(shiftMonth(selectedMonth, -i))
       const counts = months.map(m => bookings.filter(b => b.status === 'ถอนจอง' && (b.bookingDate || '').startsWith(m)).length)
-      miniBarChart('cancel-chart', months, counts, 'danger')
+      miniBarChart('cancel-chart', months, counts, 'danger', `ไม่มีถอนจองเลยใน ${trendRange} เดือน 👍`)
     }
 
     // ── HUD readouts (ตัวเลขรวมทั้งระบบ) — เรียกซ้ำใน renderAll() เพื่ออัปเดตสด ──
