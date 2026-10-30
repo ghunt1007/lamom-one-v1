@@ -143,9 +143,9 @@ export default async function TestDriveSchedulerPage(container) {
         </div>
 
         <!-- All bookings list -->
-        <div class="card" style="overflow:hidden">
+        <div class="card tbl-cards-wrap" style="overflow:hidden">
           <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:0.8rem;font-weight:700;color:var(--text-muted)">📋 รายการทั้งหมด</div>
-          <table style="width:100%;border-collapse:collapse">
+          <table class="tbl-cards" style="width:100%;border-collapse:collapse">
             <thead>
               <tr style="border-bottom:1px solid var(--border);font-size:0.75rem;color:var(--text-muted)">
                 <th style="padding:8px 14px;text-align:left">ลูกค้า</th>
