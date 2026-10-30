@@ -1090,7 +1090,7 @@ export default async function DashboardPage(container) {
         .map(b => ({ ...b, age: daysSince(b.bookingDate) }))
         .sort((a, b) => b.age - a.age)
       stuck.slice(0, 4).forEach(b => alerts.push({
-        icon: '⏳', sev: b.age >= 30 ? 'danger' : 'warning', nav: '/crm/bookings',
+        icon: '⏳', sev: b.age >= 30 ? 'danger' : 'warning', nav: '/crm/bookings?id=' + encodeURIComponent(b.id), // เปิดใบจองนั้นเลย
         text: `ใบจอง ${escHtml(b.custName || b.bookingNo || b.id)} (${escHtml((b.brand || '') + ' ' + (b.model || ''))}) ค้าง "${escHtml(b.status)}"`,
         age: b.age,
       }))
