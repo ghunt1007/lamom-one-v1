@@ -59,6 +59,8 @@ export default async function PdiPage(container) {
   function renderTable() {
     const wrap = document.getElementById('pdi-content')
     if (!wrap) return
+    // ยังไม่มี PDI เลย: ซ่อนแถวกรองสถานะ (ทุกปุ่มเป็น 0) เหลือแค่จุดเริ่มต้น
+    const chips = document.getElementById('pdi-chips'); if (chips) chips.style.display = pdis.length ? 'flex' : 'none'
 
     if (!filtered.length) {
       wrap.innerHTML = !pdis.length
@@ -299,7 +301,7 @@ export default async function PdiPage(container) {
       </div>
 
       <!-- Status Tabs -->
-      <div class="chip-scroll" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;overflow-x:auto">
+      <div class="chip-scroll" id="pdi-chips" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;overflow-x:auto">
         <button class="btn btn-sm pf-btn btn-primary" data-sf="all">ทั้งหมด</button>
         ${Object.entries(PDI_STATUS).map(([k,v]) => `
           <button class="btn btn-sm pf-btn btn-secondary" data-sf="${k}">
