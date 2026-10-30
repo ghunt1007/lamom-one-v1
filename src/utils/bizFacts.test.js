@@ -20,6 +20,12 @@ describe('businessFacts', () => {
   it('counts bookings and deliveries for this and last month', () => {
     expect(f['ใบจองเดือนนี้ (จากระบบจองรถ)']).toBe('จอง 1 ใบ (เดือนก่อน 2) · ส่งมอบ/ตัดตัวเลข 1 คัน (เดือนก่อน 0) · ถอนจองเดือนนี้ 1')
   })
+  it('lists open bookings by status with the oldest age', () => {
+    expect(f['ใบจองที่ยังค้าง 2 ใบ แยกตามสถานะ']).toBe('รอรถ 1 (นานสุด 24 วัน) · รอส่งมอบ 1 (นานสุด 55 วัน)')
+  })
+  it('gives a 6-month trend', () => {
+    expect(f['แนวโน้ม 6 เดือน (จอง/ส่งมอบ)']).toMatch(/^2026-05 .* 2026-10 จอง 1\/ส่งมอบ 1$/)
+  })
   it('ranks salespeople', () => {
     expect(f['ผลงานรายเซลส์เดือนนี้']).toBe('เอ จอง 1 ส่งมอบ 1')
   })
