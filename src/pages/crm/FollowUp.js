@@ -154,7 +154,7 @@ export default async function FollowUpPage(container) {
         <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
           <div style="display:flex;gap:4px">
             <button class="btn btn-xs ${typeFilter==='all'?'btn-primary':'btn-secondary'} type-btn" data-t="all">ทั้งหมด</button>
-            ${Object.entries(FOLLOWUP_TYPES).map(([k,v]) => `<button class="btn btn-xs ${typeFilter===k?'btn-primary':'btn-secondary'} type-btn" data-t="${k}">${v.icon}</button>`).join('')}
+            ${Object.entries(FOLLOWUP_TYPES).map(([k,v]) => `<button class="btn btn-xs ${typeFilter===k?'btn-primary':'btn-secondary'} type-btn" data-t="${k}" title="${v.label}" aria-label="${v.label}">${v.icon}${typeFilter===k ? ' ' + v.label : ''}</button>`).join('')}
           </div>
           <select class="input" id="sales-filter" style="width:170px">
             <option value="all">เซลส์ทั้งหมด</option>
