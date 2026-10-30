@@ -37,7 +37,7 @@ const DEFAULTS = {
   financeCompanies: ['BAY', 'TTB', 'KBANK', 'TISCO', 'SCB', 'ICBC', 'ORIX', 'KKP', 'นิสสันลีสซิ่ง', 'ซื้อสด'],
   financeStatus: ['รอผล', 'รอเซ็นสัญญา', 'ผ่าน', 'ไม่ผ่าน', 'ซื้อสด', 'รอส่ง'],
   campaigns: ['ดอกเบี้ยปกติ', 'ดอกเบี้ยพิเศษ', 'ฟรีดาวน์', 'ซื้อสด'],
-  bookingStatus: ['จัดไฟแนนซ์ก่อนจอง', 'ยอดจองคงค้าง', 'รอผลไฟแนนซ์', 'รอรถ', 'รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ', 'ส่งมอบแล้ว', 'ถอนจอง'],
+  bookingStatus: ['จัดไฟแนนซ์ก่อนจอง', 'ผ่านไฟแนนซ์รอจอง', 'ยอดจองคงค้าง', 'รอผลไฟแนนซ์', 'ผ่านไฟแนนซ์รอเบิก', 'ซื้อสดรอเบิกรถ', 'รอรถ', 'รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ', 'ส่งมอบแล้ว', 'ถอนจอง'],
   insurers: ['เมืองไทยประกันภัย', 'วิริยะประกันภัย', 'กรุงเทพประกันภัย', 'ทิพยประกันภัย', 'สินมั่นคงประกันภัย', 'อาคเนย์ประกันภัย', 'MSIG', 'AXA'],
   insuranceTypes: ['ชั้น 1', 'ชั้น 2+', 'ชั้น 2', 'ชั้น 3+', 'ชั้น 3', 'พ.ร.บ.'],
   leadSources: ['facebook', 'line', 'walk-in', 'website', 'referral', 'tiktok', 'google', 'event'],
@@ -191,7 +191,12 @@ export const getBanks = () => getList('banks')
 export const getFinanceCompanies = () => getList('financeCompanies')
 export const getFinanceStatus = () => getList('financeStatus')
 export const getCampaigns = () => getList('campaigns')
-export const getBookingStatus = () => getList('bookingStatus')
+// สถานะใบจองไม่มีหน้าแก้ใน Master Data แต่ doc ใน Firestore เก็บรายการเก่าไว้ตอนสร้าง
+// ใช้ลำดับจาก DEFAULTS เสมอ (สถานะใหม่ที่เพิ่มในโค้ดจะขึ้นทันที) + ของที่มีเฉพาะใน Firestore ต่อท้าย
+export const getBookingStatus = () => {
+  const base = DEFAULTS.bookingStatus
+  return base.concat(getList('bookingStatus').filter(s => !base.includes(s)))
+}
 export const getInsurers = () => getList('insurers')
 export const getInsuranceTypes = () => getList('insuranceTypes')
 export const getLeadSources = () => getList('leadSources')

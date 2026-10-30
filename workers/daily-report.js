@@ -33,11 +33,11 @@
 
 const FIRESTORE_SCOPE = 'https://www.googleapis.com/auth/datastore'
 const DELIVERED_STATUSES = ['ส่งมอบแล้ว', 'ตัดตัวเลขรอส่งมอบ']
-const PENDING_STATUSES = ['จัดไฟแนนซ์ก่อนจอง', 'รอผลไฟแนนซ์', 'ยอดจองคงค้าง', 'รอรถ', 'รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ']
+const PENDING_STATUSES = ['จัดไฟแนนซ์ก่อนจอง', 'ผ่านไฟแนนซ์รอจอง', 'รอผลไฟแนนซ์', 'ยอดจองคงค้าง', 'ผ่านไฟแนนซ์รอเบิก', 'ซื้อสดรอเบิกรถ', 'รอรถ', 'รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ']
 const PENDING_ALWAYS_SHOWN = ['รอผลไฟแนนซ์', 'ยอดจองคงค้าง', 'รอรถ', 'รอส่งมอบ']
 const CANCELLED_STATUSES = ['ถอนจอง', 'ยกเลิก']
 // รอรถ/รอส่งมอบ/ตัดตัวเลข/ส่งมอบแล้ว = ไฟแนนซ์ผ่านแล้วเสมอ (เจ้าของกำหนด) — ตรงกับ src/utils/finance.js
-const FIN_PASSED_STATUSES = ['รอรถ', 'รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ', 'ส่งมอบแล้ว']
+const FIN_PASSED_STATUSES = ['ผ่านไฟแนนซ์รอจอง', 'ผ่านไฟแนนซ์รอเบิก', 'รอรถ', 'รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ', 'ส่งมอบแล้ว']
 const STAFF_ROLES = ['owner', 'admin', 'manager', 'sales', 'service', 'finance', 'hr', 'staff']
 // 02:00 UTC = 09:00 เวลาไทย — ต้องตรงกับบรรทัดใน [triggers] crons ของ wrangler-daily-report.toml
 const MORNING_CRON = '0 2 * * *'
@@ -673,7 +673,7 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
   // รอรถ/รอส่งมอบ = ไฟแนนซ์ผ่านแล้วเสมอ แม้ช่องสถานะไฟแนนซ์ยังค้าง "รอผล"
   const inFin = new Set()
   alive(data.bookings)
-    .filter(b => !DELIVERED_STATUSES.includes(b.status) && !CANCELLED_STATUSES.includes(b.status) && !FIN_PASSED_STATUSES.includes(b.status) && b.finStatus !== 'ผ่าน')
+    .filter(b => !DELIVERED_STATUSES.includes(b.status) && !CANCELLED_STATUSES.includes(b.status) && !FIN_PASSED_STATUSES.includes(b.status) && b.status !== 'ซื้อสดรอเบิกรถ' && b.finStatus !== 'ผ่าน')
     .forEach(b => {
       const sent = /^\d{4}-\d{2}-\d{2}/.test(b.submitDate || '') ? b.submitDate.slice(0, 10) : (b.bookingDate || '').slice(0, 10)
       const days = /^\d{4}-\d{2}-\d{2}$/.test(sent) ? dayNum(today) - dayNum(sent) : 0
