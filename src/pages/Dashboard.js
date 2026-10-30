@@ -298,7 +298,7 @@ export default async function DashboardPage(container) {
       </div>
 
       <!-- Charts row: trend combo (past+forecast) + status donut -->
-      <div style="display:grid;grid-template-columns:1fr 320px;gap:16px">
+      <div style="display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:start">
         <div class="card" style="padding:20px" id="monthly-chart-card">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px">
             <div style="font-weight:700" id="monthly-chart-title">📊 อดีต → ปัจจุบัน → อนาคต: ยอดจอง & มูลค่า</div>
