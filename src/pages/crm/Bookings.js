@@ -1089,7 +1089,7 @@ export default async function BookingsPage(container) {
         sec('💰 การเงิน / ไฟแนนซ์') +
         dRow('ราคารถ', formatCurrency(b.price)) + dRow('เงินจอง', formatCurrency(b.bookingDeposit || 0)) + dRow('เงินดาวน์', formatCurrency(b.down)) +
         (isCash ? dRow('การชำระ', 'ซื้อเงินสด') :
-          dRow('ไฟแนนซ์', (b.financeCo || '-') + ' · ' + (b.finStatus || '')) + dRow('ยอดจัด', formatCurrency(b.financeAmount)) + dRow('งวด / ดอกเบี้ย', (b.installments || 0) + ' งวด · ' + (b.interestRate || 0) + '%') + dRow('ค่างวด/เดือน', formatCurrency(b.monthly))) +
+          dRow('ไฟแนนซ์', (b.financeCo || '-') + (b.finStatus ? ' · ' + b.finStatus : '')) + dRow('ยอดจัด', formatCurrency(b.financeAmount)) + dRow('งวด / ดอกเบี้ย', b.installments || b.interestRate ? (b.installments || 0) + ' งวด · ' + (b.interestRate || 0) + '%' : '-') + dRow('ค่างวด/เดือน', formatCurrency(b.monthly))) +
         dRow('แคมเปญ', b.campaign || '-') +
         (!isCash ? sec('🏦 สถานะยื่นไฟแนนซ์ (Finance Application)') + '<div id="bk-finapp-panel"><div class="skeleton" style="height:34px;border-radius:10px"></div></div>' : '') +
         sec('💵 กำไร / คอมมิชชั่น') +
@@ -1144,6 +1144,7 @@ export default async function BookingsPage(container) {
               '<button class="btn btn-danger" id="bk-delete2">🗑️ ลบใบจอง</button>'
     })
     if (!isCash) refreshFinAppPanel(b)
+    collapseEmptyRows([...document.querySelectorAll('.modal-overlay')].pop())
     document.getElementById('bk-replan')?.addEventListener('click', () => openReplan(b))
     document.getElementById('bk-tell')?.addEventListener('click', () => offerCustomerNotice(b, b.status))
     document.getElementById('bk-finance-btn')?.addEventListener('click', () => {
@@ -1394,6 +1395,28 @@ export default async function BookingsPage(container) {
   container.innerHTML = '<div class="page-content animate-slide">' + [...Array(3)].map(() => '<div class="skeleton" style="height:44px;border-radius:6px;margin-bottom:8px"></div>').join('') + '</div>'
 
   return function cleanupBookings() { unsubBookings(); offCompanyFilter() }
+}
+
+// ช่องว่างหลายช่องติดกัน (เลขบัตร ที่อยู่ VIN เลขแบต ...) เดิมเป็นแถว "-" เรียงยาวจนต้องเลื่อนหาข้อมูลจริง
+// รวมเป็นบรรทัดเดียว "ยังไม่กรอก: ..." ต่อหมวด (แบบเดียวกับหน้ารายละเอียดลูกค้า)
+function collapseEmptyRows(root) {
+  if (!root) return
+  const runs = []
+  let run = []
+  root.querySelectorAll('.d-row').forEach(r => {
+    const prev = run[run.length - 1]
+    if (r.classList.contains('d-empty') && (!prev || prev.nextElementSibling === r)) run.push(r)
+    else { if (run.length) runs.push(run); run = r.classList.contains('d-empty') ? [r] : [] }
+  })
+  if (run.length) runs.push(run)
+  runs.filter(x => x.length >= 2).forEach(x => {
+    const line = document.createElement('div')
+    line.className = 'd-missing'
+    line.style.cssText = 'font-size:0.72rem;color:var(--text-muted);padding:3px 0;line-height:1.5'
+    line.textContent = 'ยังไม่กรอก: ' + x.map(r => r.firstElementChild?.textContent.trim()).filter(Boolean).join(' · ')
+    x[0].before(line)
+    x.forEach(r => r.remove())
+  })
 }
 
 function dRow(label, value) {
