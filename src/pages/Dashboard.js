@@ -1109,7 +1109,7 @@ export default async function DashboardPage(container) {
 
       // Lead ใหม่ไม่ถูกติดตามเกิน 3 วัน (สรุปรวม)
       const staleLeads = leads.filter(l => l.status === 'new' && l.createdAt && daysSince(l.createdAt) >= 3)
-      if (staleLeads.length) alerts.push({ icon: '🧲', sev: 'warning', nav: '/crm/leads', text: `Lead ใหม่ยังไม่ติดตามเกิน 3 วัน: ${staleLeads.length} ราย`, age: null })
+      if (staleLeads.length) alerts.push({ icon: '🧲', sev: 'warning', nav: '/crm/my-day' /* มีรายการ "Lead ไม่ได้ติดตามเกิน 3 วัน" พร้อมปุ่มโทร */, text: `Lead ใหม่ยังไม่ติดตามเกิน 3 วัน: ${staleLeads.length} ราย`, age: null })
 
       // รถค้างสต็อกเกิน 90 วัน (สรุปรวม)
       const agingStock = vehicles.filter(v => !['sold', 'ขายแล้ว', 'ส่งมอบแล้ว'].includes(v.status) && !v.deleted && v.createdAt && daysSince(v.createdAt) >= 90)
