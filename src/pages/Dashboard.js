@@ -9,6 +9,7 @@ import { t } from '../i18n/index.js'
 import { DELIVERED_STATUSES as DELIVERED_ST } from '../utils/deliveryIncome.js'
 import { businessFacts } from '../utils/bizFacts.js'
 import { SOURCE_INFO, normSource } from '../utils/sourcePerformance.js'
+import { monthStats, openBookings, isCancelled, isDelivered, stockSince } from '../utils/dashStats.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -566,10 +567,9 @@ export default async function DashboardPage(container) {
       for (let i = trendRange - 1; i >= 0; i--) months.push(shiftMonth(selectedMonth, -i))
       const data = months.map(m => {
         const inM = bookings.filter(b => (b.bookingDate || '').startsWith(m))
-        const delivered = inM.filter(b => b.status === 'ส่งมอบแล้ว').length
-        const withdrawn = inM.filter(b => b.status === 'ถอนจอง').length
-        return { m, total: inM.length, delivered, withdrawn,
-                 revenue: inM.reduce((s, b) => s + (b.price || 0), 0) }
+        // มูลค่าไม่รวมใบที่ถอน/ยกเลิก (นิยามเดียวกับการ์ดตัวเลขด้านบน — utils/dashStats.js)
+        return { m, total: inM.length, delivered: inM.filter(isDelivered).length, withdrawn: inM.filter(isCancelled).length,
+                 revenue: monthStats(bookings, m).value }
       })
       const FC = 3
       const fCounts = linForecast(data.map(d => d.total), FC)
@@ -767,7 +767,7 @@ export default async function DashboardPage(container) {
       readEl.innerHTML = `
         <span>ใบจอง <b style="color:var(--primary)">${bookings.length}</b></span>
         <span>งานซ่อม <b style="color:var(--warning)">${jobs.length}</b></span>
-        <span>ลูกค้า <b style="color:var(--accent)">${customers.length}+</b></span>
+        <span>ลูกค้า <b style="color:var(--accent)">${allCustomersForLeads.filter(c => !c.deleted).length}</b></span>
         <span>งาน <b style="color:var(--success)">${tasks.length}</b></span>`
     }
 
@@ -844,10 +844,9 @@ export default async function DashboardPage(container) {
       const dlvIn = m => bookings.filter(b => ['ส่งมอบแล้ว', 'ตัดตัวเลขรอส่งมอบ'].includes(b.status) && (b.cutDate || b.actualDeliveryDate || '').startsWith(m)).length
       const dlvCur = dlvIn(selectedMonth)
       const dlvPrev = dlvIn(prevM)
-      const revCur = cur.reduce((s, b) => s + (b.price || 0), 0)
-      const revPrev = prev.reduce((s, b) => s + (b.price || 0), 0)
-      const mgCur = cur.reduce((s, b) => s + (b.margin || 0), 0)
-      const mgPrev = prev.reduce((s, b) => s + (b.margin || 0), 0)
+      // มูลค่า/Margin ไม่รวมใบที่ถอนจองแล้ว (เดิมรวม ทำให้สูงเกินจริง)
+      const { value: revCur, margin: mgCur } = monthStats(bookings, selectedMonth)
+      const { value: revPrev, margin: mgPrev } = monthStats(bookings, prevM)
       const item = (icon, label, curV, prevV, curDisplay, prevDisplay, color) => `
         <div style="background:var(--surface-2);border-radius:10px;padding:12px;border-left:3px solid var(--${color})">
           <div style="font-size:0.68rem;color:var(--text-muted);margin-bottom:4px">${icon} ${label}</div>
@@ -869,8 +868,8 @@ export default async function DashboardPage(container) {
       const el = document.getElementById('forecast-body')
       if (!el) return
       const hist = [...Array(6)].map((_, i) => shiftMonth(selectedMonth, i - 5)).map(m => {
-        const inM = bookings.filter(b => (b.bookingDate || '').startsWith(m))
-        return { m, count: inM.length, revenue: inM.reduce((s, b) => s + (b.price || 0), 0) }
+        const st = monthStats(bookings, m)
+        return { m, count: st.booked, revenue: st.value }
       })
       const counts = hist.map(h => h.count)
       const [fcCount] = linForecast(counts, 1)
@@ -892,9 +891,8 @@ export default async function DashboardPage(container) {
         return bookings.some(b => String(b.bookingDate || '').startsWith(ym) && !['ถอนจอง', 'ยกเลิก'].includes(b.status)) })
       const paceInTargets = hadPrev3 && !teamTargets.some(t => t.period === selectedMonth)
       if (selectedMonth === nowYm && !paceInTargets) {
-        const d = new Date()
-        const dayNow = d.getDate()
-        const daysInM = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
+        const dayNow = Number(todayBangkok().slice(8, 10))
+        const daysInM = new Date(fy, fm, 0).getDate()
         const soFar = bookings.filter(b => (b.bookingDate || '').startsWith(selectedMonth)).length
         const proj = dayNow ? Math.round(soFar / dayNow * daysInM) : 0
         runRate = `<div style="background:var(--primary-dim);border:1px solid var(--primary);border-radius:8px;padding:9px 11px;margin-top:8px">
@@ -910,7 +908,8 @@ export default async function DashboardPage(container) {
         ? Math.round(deliveredPairs.reduce((s, b) => s + Math.max(0, (new Date(b.actualDeliveryDate) - new Date(b.bookingDate)) / 86400000), 0) / deliveredPairs.length)
         : null
       // มูลค่าใบจองที่ยังไม่ปิด (ไม่ส่งมอบ/ไม่ถอน) — เงินในอนาคตที่รออยู่
-      const outstanding = bookings.filter(b => !['ส่งมอบแล้ว', 'ถอนจอง'].includes(b.status)).reduce((s, b) => s + (b.price || 0), 0)
+      // ไม่นับใบที่ตัดตัวเลขแล้ว/ยกเลิก (เดิมนับรวม)
+      const outstanding = openBookings(bookings).reduce((s, b) => s + (Number(b.price) || 0), 0)
 
       const rowStyle = 'display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border-subtle);font-size:0.78rem'
       el.innerHTML = `
@@ -977,7 +976,7 @@ export default async function DashboardPage(container) {
     }
 
     function renderTops() {
-      const inMonth = bookings.filter(b => (b.bookingDate || '').startsWith(selectedMonth) && b.status !== 'ถอนจอง')
+      const inMonth = bookings.filter(b => (b.bookingDate || '').startsWith(selectedMonth) && !isCancelled(b))
       const deliveredInMonthAll = bookings.filter(b => ['ส่งมอบแล้ว', 'ตัดตัวเลขรอส่งมอบ'].includes(b.status) && (b.cutDate || b.actualDeliveryDate || '').startsWith(selectedMonth))
       const byModel = {}, bySales = {}
       inMonth.forEach(b => {
@@ -1084,9 +1083,9 @@ export default async function DashboardPage(container) {
       const alerts = []
 
       // ใบจองค้างสถานะเกิน 14 วัน (ยังไม่ส่งมอบ/ไม่ถอน)
-      const FINAL = ['ส่งมอบแล้ว', 'ถอนจอง']
-      const stuck = bookings
-        .filter(b => !FINAL.includes(b.status) && b.bookingDate && daysSince(b.bookingDate) >= 14)
+      // ใบที่ตัดตัวเลขแล้ว/ยกเลิก ไม่ใช่งานค้าง (เดิมนับรวม)
+      const stuck = openBookings(bookings)
+        .filter(b => b.bookingDate && daysSince(b.bookingDate) >= 14)
         .map(b => ({ ...b, age: daysSince(b.bookingDate) }))
         .sort((a, b) => b.age - a.age)
       stuck.slice(0, 4).forEach(b => alerts.push({
@@ -1112,7 +1111,7 @@ export default async function DashboardPage(container) {
       if (staleLeads.length) alerts.push({ icon: '🧲', sev: 'warning', nav: '/crm/my-day' /* มีรายการ "Lead ไม่ได้ติดตามเกิน 3 วัน" พร้อมปุ่มโทร */, text: `Lead ใหม่ยังไม่ติดตามเกิน 3 วัน: ${staleLeads.length} ราย`, age: null })
 
       // รถค้างสต็อกเกิน 90 วัน (สรุปรวม)
-      const agingStock = vehicles.filter(v => !['sold', 'ขายแล้ว', 'ส่งมอบแล้ว'].includes(v.status) && !v.deleted && v.createdAt && daysSince(v.createdAt) >= 90)
+      const agingStock = vehicles.filter(v => !['sold', 'ขายแล้ว', 'ส่งมอบแล้ว'].includes(v.status) && !v.deleted && stockSince(v) && daysSince(stockSince(v)) >= 90)
       if (agingStock.length) alerts.push({ icon: '🚗', sev: 'warning', nav: '/dms/aging', text: `รถค้างสต็อกเกิน 90 วัน: ${agingStock.length} คัน`, age: null })
 
       const badge = document.getElementById('alert-count')
@@ -1136,9 +1135,8 @@ export default async function DashboardPage(container) {
       if (!el) return
       const now = Date.now()
       const daysSince = d => { const dt = toDate(d); return dt ? Math.floor((now - dt.getTime()) / 86400000) : -Infinity }
-      const FINAL = ['ส่งมอบแล้ว', 'ถอนจอง']
       const items = []
-      bookings.filter(b => !FINAL.includes(b.status) && b.bookingDate && daysSince(b.bookingDate) >= 14).forEach(b => {
+      openBookings(bookings).filter(b => b.bookingDate && daysSince(b.bookingDate) >= 14).forEach(b => {
         const age = daysSince(b.bookingDate)
         items.push({ nav: '/crm/bookings', sev: age >= 30 ? 'danger' : 'warning', u: Math.min(1, age / 45),
           label: `📝 ใบจอง ${b.custName || b.bookingNo || b.id} ค้าง "${b.status}" ${age} วัน` })
@@ -1153,8 +1151,8 @@ export default async function DashboardPage(container) {
         items.push({ nav: '/crm/leads', sev: 'warning', u: Math.min(1, age / 10),
           label: `🧲 Lead ${l.firstName || ''} ${l.lastName || ''} ยังไม่ติดตาม ${age} วัน` })
       })
-      vehicles.filter(v => !['sold', 'ขายแล้ว', 'ส่งมอบแล้ว'].includes(v.status) && !v.deleted && v.createdAt && daysSince(v.createdAt) >= 90).slice(0, 4).forEach(v => {
-        const age = daysSince(v.createdAt)
+      vehicles.filter(v => !['sold', 'ขายแล้ว', 'ส่งมอบแล้ว'].includes(v.status) && !v.deleted && stockSince(v) && daysSince(stockSince(v)) >= 90).slice(0, 4).forEach(v => {
+        const age = daysSince(stockSince(v))
         items.push({ nav: '/dms/aging', sev: 'warning', u: Math.min(1, age / 365),
           label: `🚗 ${(v.brand || '') + ' ' + (v.model || '')} ค้างสต็อก ${age} วัน` })
       })
@@ -1205,10 +1203,11 @@ export default async function DashboardPage(container) {
             </div>
             <div style="font-size:0.66rem;color:var(--text-muted);margin-top:4px">จองแล้ว ${now} คัน · ${now >= goal ? 'ถึงเป้าแล้ว 🎉' : `ขาดอีก ${goal - now} คัน`} · คิดจากเฉลี่ย 3 เดือนก่อน (${avg.toFixed(1)} คัน) +10%</div>
             ${(() => { /* เดือนปัจจุบันเท่านั้น: คาดการณ์สิ้นเดือนจากจังหวะที่จองอยู่ */
-              const t = new Date(), cur = ymOf(t.getFullYear(), t.getMonth() + 1)
-              if (selectedMonth !== cur) return ''
-              const dim = new Date(sy, sm, 0).getDate(), proj = Math.round(now / t.getDate() * dim)
-              return `<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:var(--surface-2);font-size:0.72rem;line-height:1.5">📈 จังหวะตอนนี้ สิ้นเดือนน่าจะได้ราว <b style="color:var(--${proj >= goal ? 'success' : 'warning'})">${proj} คัน</b>${proj >= goal ? ' — ทันเป้า' : ` — ต้องเร่งอีกวันละ ${((goal - now) / Math.max(1, dim - t.getDate() + 1)).toFixed(1)} คัน`}</div>`
+              // วันที่ไทยเสมอ (เดิม new Date() ตามเครื่อง)
+              if (selectedMonth !== todayBangkok().slice(0, 7)) return ''
+              const dayNow = Number(todayBangkok().slice(8, 10))
+              const dim = new Date(sy, sm, 0).getDate(), proj = Math.round(now / dayNow * dim)
+              return `<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:var(--surface-2);font-size:0.72rem;line-height:1.5">📈 จังหวะตอนนี้ สิ้นเดือนน่าจะได้ราว <b style="color:var(--${proj >= goal ? 'success' : 'warning'})">${proj} คัน</b>${proj >= goal ? ' — ทันเป้า' : ` — ต้องเร่งอีกวันละ ${((goal - now) / Math.max(1, dim - dayNow + 1)).toFixed(1)} คัน`}</div>`
             })()}
           </div>
           <div style="text-align:center;margin-top:10px"><button class="btn btn-xs btn-ghost" data-nav="/hr/targets">ตั้งเป้าเอง →</button></div>`
@@ -1277,7 +1276,9 @@ export default async function DashboardPage(container) {
     renderAll()
 
     // Today panel — ใช้ข้อมูลจริง
-    const todayBookings = bookings.filter(b => (b.pickupDate || b.appointmentDate || toDateStr(b.createdAt)).startsWith(today))
+    // จองใหม่วันนี้ = bookingDate วันนี้ (เดิมดูวันนัด/วันสร้างเอกสาร ซึ่งนับใบที่นำเข้าจาก Sheet วันนี้เป็น "จองวันนี้" ด้วย)
+    const todayBookings = bookings.filter(b => b.bookingDate === today)
+    const dueToday = openBookings(bookings).filter(b => String(b.deliveryDate || '').startsWith(today))
     const pendingPdi = pdi.filter(p => p.status !== 'passed' && p.status !== 'completed')
 
     // ── Morning Briefing: สรุปเชิงรุกจากข้อมูลจริง — mirror ตรรกะเดียวกับ Intelligence Center ──
@@ -1289,14 +1290,13 @@ export default async function DashboardPage(container) {
       if (!textEl) return
 
       const daysSinceNow = d => { const dt = toDate(d); return dt ? Math.floor((Date.now() - dt.getTime()) / 86400000) : -Infinity }
-      const FINAL_ST = ['ส่งมอบแล้ว', 'ถอนจอง']
-      const stuckBookingsCount = bookings.filter(b => !FINAL_ST.includes(b.status) && b.bookingDate && daysSinceNow(b.bookingDate) >= 14).length
+      const stuckBookingsCount = openBookings(bookings).filter(b => b.bookingDate && daysSinceNow(b.bookingDate) >= 14).length
       const overdueJobsCount = jobs.filter(j => !['done', 'completed', 'delivered'].includes(j.status) && j.createdAt && daysSinceNow(j.createdAt) >= 7).length
       const staleLeadsCount = leads.filter(l => l.status === 'new' && l.createdAt && daysSinceNow(l.createdAt) >= 3).length
-      const agingStockCount = vehicles.filter(v => !['sold', 'ขายแล้ว', 'ส่งมอบแล้ว'].includes(v.status) && !v.deleted && v.createdAt && daysSinceNow(v.createdAt) >= 90).length
+      const agingStockCount = vehicles.filter(v => !['sold', 'ขายแล้ว', 'ส่งมอบแล้ว'].includes(v.status) && !v.deleted && stockSince(v) && daysSinceNow(stockSince(v)) >= 90).length
       const deliveredToday = bookings.filter(b => b.status === 'ส่งมอบแล้ว' && (b.actualDeliveryDate || '').startsWith(today)).length
       const todayCount = todayBookings.length + deliveredToday
-      const revenueThisMonth = bookings.filter(b => (b.bookingDate || '').startsWith(thisMonth)).reduce((s, b) => s + (b.price || 0), 0)
+      const revenueThisMonth = monthStats(bookings, thisMonth).value
       const monthTargets = teamTargets.filter(t => t.period === thisMonth && t.metric === 'units')
       const targetSum = monthTargets.reduce((s, t) => s + (t.target || 0), 0)
       const targetPct = monthTargets.length && targetSum ? Math.round(monthTargets.reduce((s, t) => s + (t.actual || 0), 0) / targetSum * 100) : null
@@ -1343,7 +1343,8 @@ export default async function DashboardPage(container) {
     const todayEl = document.getElementById('today-stats')
     if (todayEl) {
       const todayItems = [
-        { label:'นัดหมาย/จอง', n: todayBookings.length || bookings.filter(b=>b.status==='จอง').length, unit:'รายการ', icon:'📅', color:'primary', nav:'/crm/bookings' },
+        { label:'จองใหม่วันนี้', n: todayBookings.length, unit:'ใบ', icon:'📝', color:'primary', nav:'/crm/bookings' },
+        { label:'นัดส่งมอบวันนี้', n: dueToday.length, unit:'คัน', icon:'🚗', color:'success', nav:'/crm/bookings' },
         { label:'งานซ่อมเปิดอยู่', n: openJobs, unit:'งาน', icon:'🔧', color:'warning', nav:'/service/jobs' },
         { label:'PDI รอตรวจ', n: pendingPdi.length || 0, unit:'คัน', icon:'✅', color:'accent', nav:'/dms/pdi' },
         { label:'งานมอบหมายค้าง', n: pendingTasks, unit:'งาน', icon:'📋', color: pendingTasks > 3 ? 'danger' : 'accent', nav:'/tasks' },
