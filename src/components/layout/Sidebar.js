@@ -71,7 +71,7 @@ export function Sidebar(container) {
                 ${group.items.map(item => `
                   <div class="nav-item ${route === item.path ? 'active' : ''}"
                        data-path="${item.path}"
-                       title="${escHtml(item.fullLabel ? `${iLabel(item)} · ${item.fullLabel}` : iLabel(item))}">
+                       title="${escHtml([iLabel(item), item.fullLabel, item.labelEn !== iLabel(item) && item.labelEn].filter(Boolean).join(' · '))}">
                     <span class="nav-icon">${item.icon}</span>
                     ${!collapsed ? `<span class="nav-label">${escHtml(iLabel(item))}</span>` : ''}
                   </div>
