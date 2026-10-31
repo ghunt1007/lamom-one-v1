@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { monthStats, openBookings, monthSeries, stockSince, pctChange, sparkPath, shiftYm } from './dashStats.js'
+import { periodMonths, prevPeriodAnchor, periodLabel, statRows, rangeStats, monthStats, openBookings, monthSeries, stockSince, pctChange, sparkPath, shiftYm } from './dashStats.js'
 
 const B = [
   { bookingDate: '2026-10-02', status: 'รอรถ', price: 1000000, margin: 50000 },
@@ -47,5 +47,28 @@ describe('helpers', () => {
   it('sparkPath empty for all-zero series', () => {
     expect(sparkPath([0, 0, 0])).toBe('')
     expect(sparkPath([1, 2, 3])).toMatch(/^M0\.0,/)
+  })
+})
+
+describe('periods', () => {
+  it('periodMonths covers quarter and year', () => {
+    expect(periodMonths('2026-11', 'quarter')).toEqual(['2026-10', '2026-11', '2026-12'])
+    expect(periodMonths('2026-02', 'year')).toHaveLength(12)
+    expect(periodMonths('2026-02')).toEqual(['2026-02'])
+  })
+  it('prevPeriodAnchor and labels', () => {
+    expect(prevPeriodAnchor('2026-10', 'quarter')).toBe('2026-07')
+    expect(prevPeriodAnchor('2026-10', 'year')).toBe('2025-10')
+    expect(periodLabel('2026-10', 'quarter')).toBe('ไตรมาส 4/2569')
+    expect(periodLabel('2026-10', 'year')).toBe('ปี 2569')
+    expect(periodLabel('2026-10')).toBe('ต.ค. 2569')
+  })
+  it('rangeStats over a quarter sums the months and statRows matches counts', () => {
+    const q = periodMonths('2026-10', 'quarter')
+    const s = rangeStats(B, ['2026-09', ...q])
+    expect(s.booked).toBe(5)
+    expect(s.delivered).toBe(2)
+    expect(statRows(B, q, 'value').length).toBe(rangeStats(B, q).active)
+    expect(statRows(B, q, 'withdrawn').map(b => b.status)).toEqual(['ถอนจอง'])
   })
 })
