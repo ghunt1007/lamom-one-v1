@@ -94,3 +94,40 @@ export function sparkPath(values, w = 100, h = 28) {
   const step = values.length > 1 ? w / (values.length - 1) : 0
   return values.map((v, i) => `${i ? 'L' : 'M'}${(i * step).toFixed(1)},${(h - 2 - (v - min) / span * (h - 4)).toFixed(1)}`).join(' ')
 }
+
+// ขั้นของใบจองที่ยังไม่จบ เรียงตามลำดับงานจริง (ไฟแนนซ์ → รอรถ → เบิกรถ → ส่งมอบ) — ใช้วาด "เส้นทางใบจอง"
+// บนหน้าภาพรวม ให้เห็นว่ารถค้างอยู่ขั้นไหน กี่คัน มูลค่าเท่าไร ค้างเฉลี่ยกี่วัน
+export const PIPELINE_ORDER = ['จัดไฟแนนซ์ก่อนจอง', 'รอผลไฟแนนซ์', 'ผ่านไฟแนนซ์รอจอง', 'ยอดจองคงค้าง', 'รอรถ', 'ผ่านไฟแนนซ์รอเบิก', 'ซื้อสดรอเบิกรถ', 'รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ']
+export function pipelineStages(bookings = [], today = '') {
+  const t = Date.parse(today) || Date.now()
+  const age = b => { const d = Date.parse(b.bookingDate); return Number.isFinite(d) ? Math.max(0, Math.floor((t - d) / 86400000)) : null }
+  const live = bookings.filter(b => !isCancelled(b) && b.status !== 'ส่งมอบแล้ว')
+  const known = new Set(PIPELINE_ORDER)
+  const groups = PIPELINE_ORDER.map(status => ({ status, rows: live.filter(b => b.status === status) }))
+  const other = live.filter(b => !known.has(b.status))
+  if (other.length) groups.push({ status: 'อื่นๆ', rows: other })
+  return groups.filter(g => g.rows.length).map(g => {
+    const ages = g.rows.map(age).filter(a => a != null)
+    return {
+      status: g.status, rows: g.rows, count: g.rows.length,
+      value: g.rows.reduce((s, b) => s + (Number(b.price) || 0), 0),
+      avgAge: ages.length ? Math.round(ages.reduce((a, b) => a + b, 0) / ages.length) : null,
+      maxAge: ages.length ? Math.max(...ages) : null,
+    }
+  })
+}
+
+// อันดับเซลส์: ส่งมอบ (นับตามวันตัดตัวเลข) + จองใหม่ ในช่วงเดือนที่เลือก — ชื่อว่าง = "ไม่ระบุ"
+export function salesBoard(bookings = [], months) {
+  const by = {}
+  const row = n => (by[n] = by[n] || { name: n, delivered: 0, booked: 0, income: 0, value: 0 })
+  statRows(bookings, months, 'delivered').forEach(b => {
+    const r = row(String(b.salesName || '').trim() || 'ไม่ระบุ')
+    r.delivered++; r.income += b.totalIncome != null ? Number(b.totalIncome) || 0 : Number(b.price) || 0
+  })
+  statRows(bookings, months, 'active').forEach(b => {
+    const r = row(String(b.salesName || '').trim() || 'ไม่ระบุ')
+    r.booked++; r.value += Number(b.price) || 0
+  })
+  return Object.values(by).sort((a, b) => b.delivered - a.delivered || b.booked - a.booked || b.income - a.income)
+}
