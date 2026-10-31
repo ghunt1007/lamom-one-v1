@@ -1,7 +1,7 @@
 import { getState, on } from '../core/store.js'
 import { listDocs, watchDocs, seedDemoData, getSalesData } from '../core/db.js'
 import { companyScopeFilters } from '../core/companyScope.js'
-import { formatCurrency, timeAgo, todayBangkok, toDateStr, toDate } from '../utils/format.js'
+import { formatCurrency, timeAgo, todayBangkok, toDateStr, toDate, formatDate } from '../utils/format.js'
 import { navigate } from '../core/router.js'
 import { generateMorningBriefing, bangkokHour } from '../utils/ai.js'
 import { getModuleForPath, hasModuleAccess, loadRolePermissions } from '../core/permissions.js'
@@ -9,7 +9,8 @@ import { t } from '../i18n/index.js'
 import { DELIVERED_STATUSES as DELIVERED_ST } from '../utils/deliveryIncome.js'
 import { businessFacts } from '../utils/bizFacts.js'
 import { SOURCE_INFO, normSource } from '../utils/sourcePerformance.js'
-import { monthStats, openBookings, isCancelled, isDelivered, stockSince, monthSeries, pctChange, sparkPath } from '../utils/dashStats.js'
+import { monthStats, openBookings, isCancelled, isDelivered, stockSince, pctChange, sparkPath, rangeStats, statRows, periodMonths, prevPeriodAnchor, periodLabel, shiftYm } from '../utils/dashStats.js'
+import { exportToExcel } from '../utils/importExport.js'
 import { DASH_SECTIONS, loadDashLayout, saveDashLayout, applyDashLayout, moveSection, normalizeLayout } from '../utils/dashLayout.js'
 import { openModal } from '../utils/modal.js'
 
@@ -174,6 +175,21 @@ export default async function DashboardPage(container) {
         .dash-flow { display:flex; flex-direction:column; gap:16px; }
         .dash-flow > [data-sec] { margin:0 !important; }
         .dash-flow > [data-sec].dash-off { display:none !important; }
+        .dash-hero-head { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+        .dash-hero-title { font-weight:700; font-size:0.86rem; }
+        .dash-hero-title small { font-weight:500; color:var(--text-muted); font-size:0.74rem; margin-left:6px; }
+        .dash-hero-hint { margin-left:auto; font-size:0.7rem; color:var(--text-muted); }
+        .dash-seg { display:inline-flex; padding:3px; gap:2px; background:var(--surface-2); border:1px solid var(--border); border-radius:999px; }
+        .dash-seg button { border:0; background:transparent; color:var(--text-2); font:inherit; font-size:0.76rem; font-weight:600; padding:4px 12px; border-radius:999px; cursor:pointer; }
+        .dash-seg button.on { background:var(--primary); color:#fff; }
+        .dash-tip { position:fixed; z-index:2000; display:none; pointer-events:none; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:8px 10px; font-size:0.74rem; line-height:1.55; color:var(--text-2); box-shadow:0 8px 24px rgba(0,0,0,0.3); max-width:260px; }
+        .dash-tip b { color:var(--text); display:block; margin-bottom:2px; }
+        .dash-drill-sum { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
+        .dash-drill-sum span { background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:6px 10px; font-size:0.78rem; }
+        .dash-drill-sum b { color:var(--primary); }
+        .dash-drill tr[data-id] { cursor:pointer; }
+        .dash-drill td { font-size:0.8rem; }
+        @media (max-width: 640px) { .dash-hero-hint { display:none; } }
         .dash-hero-grid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:12px; }
         .dash-kpi { position:relative; display:flex; flex-direction:column; text-align:left; font:inherit; color:inherit; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:14px 14px 8px; cursor:pointer; overflow:hidden; transition:transform .15s, border-color .15s, box-shadow .15s; min-width:0; }
         .dash-kpi::before { content:''; position:absolute; left:0; right:0; top:0; height:3px; background:var(--c); }
@@ -215,6 +231,13 @@ export default async function DashboardPage(container) {
       <div class="dash-flow">
       <!-- ตัวเลขหลักของเดือน: ใหญ่ อ่านง่าย มี % เทียบเดือนที่เลือก + กราฟเส้นเล็ก 6 เดือน กดแล้วไปหน้านั้น -->
       <div data-sec="hero" id="hero-sec">
+        <div class="dash-hero-head">
+          <div class="dash-seg" role="tablist" aria-label="ช่วงเวลา">
+            <button type="button" data-period="month">เดือน</button><button type="button" data-period="quarter">ไตรมาส</button><button type="button" data-period="year">ปี</button>
+          </div>
+          <span id="hero-period" class="dash-hero-title"></span>
+          <span class="dash-hero-hint">กดตัวเลขเพื่อดูรายการใบจองที่นับ</span>
+        </div>
         <div id="hero-kpis" class="dash-hero-grid">
           ${[1,2,3,4,5,6].map(() => `<div class="skeleton" style="height:112px;border-radius:var(--radius-lg)"></div>`).join('')}
         </div>
@@ -226,7 +249,7 @@ export default async function DashboardPage(container) {
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px">
             <span style="font-size:0.72rem;color:var(--primary);font-weight:700">LAMI — ${briefLabel}</span>
-            <span id="briefing-time" style="font-size:0.64rem;color:var(--text-muted);font-family:'Share Tech Mono',monospace"></span>
+            <span id="briefing-time" style="font-size:0.64rem;color:var(--text-muted);font-variant-numeric:tabular-nums"></span>
           </div>
           <div id="briefing-text" style="font-size:0.875rem;color:var(--text-2);line-height:1.6;white-space:pre-line;min-height:1.3em">กำลังวิเคราะห์ข้อมูลเช้านี้...</div>
         </div>
@@ -255,7 +278,7 @@ export default async function DashboardPage(container) {
       <div class="card mb-4 dash-radar" data-sec="radar" style="padding:16px">
         <div style="font-weight:700;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
           <span>🛰 เรดาร์งานค้าง — จุดบนจอ = รายการค้างจริง คลิกเพื่อไปจัดการ</span>
-          <span id="radar-month" style="font-size:0.72rem;color:var(--primary);font-family:'Share Tech Mono',monospace;letter-spacing:0.08em"></span>
+          <span id="radar-month" style="font-size:0.72rem;color:var(--primary);font-variant-numeric:tabular-nums;letter-spacing:0.08em"></span>
         </div>
         <div style="display:grid;grid-template-columns:230px 1fr;gap:20px;align-items:center">
           <div id="radar-scope"></div>
@@ -356,15 +379,14 @@ export default async function DashboardPage(container) {
           <div id="monthly-chart">
             <div class="skeleton" style="width:100%;height:180px;border-radius:var(--radius-md)"></div>
           </div>
+          <div style="font-size:0.76rem;font-weight:700;color:var(--text-2);margin:14px 0 8px">📅 จองรายวัน — <span class="fc-month" style="color:var(--primary)"></span></div>
+          <div id="day-heatmap"></div>
         </div>
         <div class="card" style="padding:20px">
           <div style="font-weight:700;margin-bottom:12px">🎯 สัดส่วนสถานะ — <span id="donut-month-label" style="color:var(--primary)">...</span></div>
           <div id="status-donut">
             <div class="skeleton" style="width:100%;height:160px;border-radius:var(--radius-md)"></div>
           </div>
-          <div class="divider"></div>
-          <div style="font-size:0.76rem;font-weight:700;color:var(--text-2);margin-bottom:8px">📅 ความถี่การจองรายวัน</div>
-          <div id="day-heatmap"></div>
         </div>
       </div>
 
@@ -428,6 +450,21 @@ export default async function DashboardPage(container) {
   const flowEl = container.querySelector('.dash-flow')
   applyDashLayout(flowEl, layout)
   document.getElementById('dash-print')?.addEventListener('click', () => window.print())
+  // ป้ายตัวเลขตอนชี้กราฟ (data-tip="หัว|บรรทัด|บรรทัด") — ใช้ร่วมกันทุกกราฟในหน้า
+  const tipEl = document.createElement('div')
+  tipEl.className = 'dash-tip'
+  container.appendChild(tipEl)
+  container.addEventListener('pointermove', e => {
+    const t = e.target.closest?.('[data-tip]')
+    if (!t || e.pointerType === 'touch') { tipEl.style.display = 'none'; return }
+    const [head, ...lines] = t.dataset.tip.split('|')
+    tipEl.innerHTML = `<b>${escHtml(head)}</b>${lines.map(l => `<div>${escHtml(l)}</div>`).join('')}`
+    tipEl.style.display = 'block'
+    const w = tipEl.offsetWidth, h = tipEl.offsetHeight
+    tipEl.style.left = Math.min(window.innerWidth - w - 8, e.clientX + 14) + 'px'
+    tipEl.style.top = Math.max(8, e.clientY - h - 12) + 'px'
+  })
+  container.addEventListener('pointerleave', () => { tipEl.style.display = 'none' })
   document.getElementById('dash-custom')?.addEventListener('click', () => {
     const rows = () => layout.order.map((k, i) => `
       <div class="dash-cust-row">
@@ -663,7 +700,8 @@ export default async function DashboardPage(container) {
         const wH = d.total ? Math.round(hTotal * d.withdrawn / d.total) : 0
         const pH = Math.max(0, hTotal - dH - wH)
         const sel = d.m === selectedMonth
-        bars += `<g data-month="${d.m}" style="cursor:pointer">
+        const tip = `${ymLabel(d.m)}|📝 จอง ${d.total} คัน|✅ ส่งมอบแล้ว ${d.delivered} · 🟡 ดำเนินการ ${d.total - d.delivered - d.withdrawn} · ❌ ถอน ${d.withdrawn}|💰 มูลค่า ${moneyTxt(d.revenue)}`
+        bars += `<g data-month="${d.m}" data-tip="${escHtml(tip)}" style="cursor:pointer">
           <rect x="${cx - groupW / 2}" y="${padT - 6}" width="${groupW}" height="${plotH + 6}" fill="transparent"/>
           <rect x="${x}" y="${yBase - dH}" width="${barW}" height="${dH}" fill="var(--success)" opacity="0.9"/>
           <rect x="${x}" y="${yBase - dH - pH}" width="${barW}" height="${pH}" fill="var(--warning)" opacity="0.85"/>
@@ -690,7 +728,7 @@ export default async function DashboardPage(container) {
         // แท่งเดือนจริงทางซ้ายที่คลิกได้ทุกแท่ง — ผลคือถ้าผู้ใช้คลิกแท่งย้อนหลังไปเดือนก่อนๆ (selectedMonth ขยับ
         // ถอยหลัง) หน้าต่างกราฟทั้งหมดจะเลื่อนตามไปอยู่ที่เดือนนั้น ไม่มีแท่งไหนในกราฟให้คลิกเพื่อ "เดินหน้า" กลับมา
         // อีกเลย (ต้องออกไปกดปุ่ม ▶ นอกกราฟแทน) เพิ่ม data-month ให้แท่งพยากรณ์คลิกได้เหมือนแท่งจริงเพื่อเดินหน้าได้
-        fBars += `<g data-month="${m}" style="cursor:pointer">
+        fBars += `<g data-month="${m}" data-tip="${escHtml(`${ymLabel(m)} (คาดการณ์)|📝 ≈ ${Math.round(cnt)} คัน|💰 ≈ ${moneyTxt(Math.round(fRevs[j]))}`)}" style="cursor:pointer">
           <rect x="${cx - groupW / 2}" y="${padT - 6}" width="${groupW}" height="${plotH + 6}" fill="transparent"/>
           <rect x="${x}" y="${yBase - hTotal}" width="${barW}" height="${hTotal}" fill="var(--info)" opacity="0.10" stroke="var(--info)" stroke-width="1.2" stroke-dasharray="4 3" rx="2"/>
           <text x="${cx}" y="${yBase - hTotal - 8}" text-anchor="middle" font-size="10" font-weight="700" fill="var(--info)">~${Math.round(cnt)}</text>
@@ -752,7 +790,7 @@ export default async function DashboardPage(container) {
         const seg = `<circle cx="80" cy="80" r="${R}" fill="none" stroke="${colorVar(e.color)}" stroke-width="16"
           stroke-dasharray="${Math.max(0.5, frac * CIRC - 1.5).toFixed(1)} ${CIRC.toFixed(1)}"
           stroke-dashoffset="${(-acc * CIRC).toFixed(1)}" transform="rotate(-90 80 80)" opacity="0.92"
-          style="filter:drop-shadow(0 0 3px ${colorVar(e.color)})"/>`
+          />`
         acc += frac
         return seg
       }).join('')
@@ -767,7 +805,7 @@ export default async function DashboardPage(container) {
           <div style="display:flex;flex-direction:column;gap:5px;width:100%">
             ${entries.map(e => `
               <div style="display:flex;align-items:center;gap:6px;font-size:0.73rem">
-                <span style="width:9px;height:9px;border-radius:2px;background:${colorVar(e.color)};flex-shrink:0;box-shadow:0 0 5px ${colorVar(e.color)}"></span>
+                <span style="width:9px;height:9px;border-radius:2px;background:${colorVar(e.color)};flex-shrink:0"></span>
                 <span style="flex:1;color:var(--text-2)">${e.icon} ${e.label}</span>
                 <b style="color:${colorVar(e.color)}">${e.count}</b>
               </div>`).join('')}
@@ -795,7 +833,7 @@ export default async function DashboardPage(container) {
         const v = counts[i]
         const h = v ? Math.max(4, Math.round(v / max * plotH)) : 0
         const sel = m === selectedMonth
-        bars += `<g data-month="${m}" style="cursor:pointer">
+        bars += `<g data-month="${m}" data-tip="${escHtml(`${ymLabel(m)}|${v} คัน`)}" style="cursor:pointer">
           <rect x="${cx - groupW / 2}" y="${padT}" width="${groupW}" height="${plotH}" fill="transparent"/>
           <rect x="${x}" y="${yBase - h}" width="${barW}" height="${h}" fill="var(--${color})" opacity="0.88" rx="2"/>
           ${sel ? `<rect x="${x - 3}" y="${yBase - h - 4}" width="${barW + 6}" height="${h + 4}" fill="none" stroke="var(--primary)" stroke-width="1.3" rx="3"/>` : ''}
@@ -831,13 +869,24 @@ export default async function DashboardPage(container) {
     // ── ตัวเลขหลักของเดือน (แทนแถบ HUD/นาฬิกาเดิม) — สูตรจาก utils/dashStats.js ตัวเดียวกับทั้งหน้า ──
     const money = n => n >= 1e6 ? `฿${(n / 1e6).toFixed(2)}<small>ล้าน</small>` : formatCurrency(n)
     const moneyTxt = n => n >= 1e6 ? `฿${(n / 1e6).toFixed(2)} ล้าน` : formatCurrency(n)
-    const leadsIn = ym => leads.filter(l => (toDateStr(l.createdAt) || l.date || '').startsWith(ym)).length
+    // ช่วงเวลาของแถบตัวเลขบนสุด: เดือน / ไตรมาส / ปี (จำไว้ในเครื่อง) — เดือนใช้ "เทียบกับ" ที่เลือกเอง ส่วนไตรมาส/ปีเทียบช่วงก่อนหน้าที่ยาวเท่ากัน
+    let period = 'month'
+    try { const v = localStorage.getItem('lamom_dash_period'); if (['month', 'quarter', 'year'].includes(v)) period = v } catch { /* ใช้ค่าเริ่มต้น */ }
+    const curMonths = () => periodMonths(selectedMonth, period)
+    const cmpMonths = () => period === 'month' ? [compareMonth] : periodMonths(prevPeriodAnchor(selectedMonth, period), period)
+    const cmpLabel = () => period === 'month' ? ymLabel(compareMonth) : periodLabel(prevPeriodAnchor(selectedMonth, period), period)
+    const leadsInRange = months => { const set = new Set(months); return leads.filter(l => set.has(String(toDateStr(l.createdAt) || l.date || '').slice(0, 7))) }
     function renderHero() {
       const el = document.getElementById('hero-kpis')
       if (!el) return
-      const cur = monthStats(bookings, selectedMonth), prev = monthStats(bookings, compareMonth)
+      container.querySelectorAll('[data-period]').forEach(b => b.classList.toggle('on', b.dataset.period === period))
+      const cmpWrap = container.querySelector('.dash-compare')
+      if (cmpWrap) cmpWrap.style.display = period === 'month' ? '' : 'none'
+      const cmp = cmpLabel()
+      const ttl = document.getElementById('hero-period')
+      if (ttl) ttl.innerHTML = `${periodLabel(selectedMonth, period)}<small>เทียบ ${cmp}</small>`
+      const cur = rangeStats(bookings, curMonths()), prev = rangeStats(bookings, cmpMonths())
       const open = openBookings(bookings)
-      const cmp = ymLabel(compareMonth)
       const delta = (c, p) => {
         const pct = pctChange(c, p)
         if (pct == null) return c ? `<span class="dash-delta up">ใหม่</span>` : `<span class="dash-delta flat">—</span>`
@@ -848,24 +897,85 @@ export default async function DashboardPage(container) {
         const d = sparkPath(vals, 100, 26)
         return d ? `<svg viewBox="0 0 100 26" preserveAspectRatio="none" aria-hidden="true"><path d="${d} L100,26 L0,26 Z" fill="var(--${color})" opacity="0.12"/><path d="${d}" fill="none" stroke="var(--${color})" stroke-width="1.8" vector-effect="non-scaling-stroke"/></svg>` : '<svg viewBox="0 0 100 26"></svg>'
       }
-      const series = key => monthSeries(bookings, selectedMonth, 6, key)
-      const leadSeries = [5, 4, 3, 2, 1, 0].map(k => leadsIn(shiftMonth(selectedMonth, -k)))
+      // กราฟเล็ก: 6 ช่วงย้อนหลัง (6 เดือน / 6 ไตรมาส / 6 ปี)
+      const step = period === 'year' ? 12 : period === 'quarter' ? 3 : 1
+      const back = [5, 4, 3, 2, 1, 0].map(k => periodMonths(shiftYm(selectedMonth, -k * step), period))
+      const series = key => back.map(ms => rangeStats(bookings, ms)[key])
+      const leadsCur = leadsInRange(curMonths()).length, leadsPrev = leadsInRange(cmpMonths()).length
       const tiles = [
-        { icon: '📝', label: 'จองใหม่', val: `${cur.booked}<small>คัน</small>`, d: delta(cur.booked, prev.booked), sub: `${cmp}: ${prev.booked} คัน`, sp: spark(series('booked'), 'primary'), color: 'primary', nav: '/crm/bookings' },
-        { icon: '✅', label: 'ส่งมอบ', val: `${cur.delivered}<small>คัน</small>`, d: delta(cur.delivered, prev.delivered), sub: `${cmp}: ${prev.delivered} คัน`, sp: spark(series('delivered'), 'success'), color: 'success', nav: '/crm/bookings' },
-        { icon: '💰', label: 'มูลค่าจอง', val: money(cur.value), d: delta(cur.value, prev.value), sub: `${cmp}: ${moneyTxt(prev.value)}`, sp: spark(series('value'), 'accent'), color: 'accent', nav: '/crm/bookings' },
-        { icon: '📈', label: 'Margin', val: money(cur.margin), d: delta(cur.margin, prev.margin), sub: `${cmp}: ${moneyTxt(prev.margin)}`, sp: spark(series('margin'), 'warning'), color: 'warning', nav: '/finance/margin' },
-        { icon: '⏳', label: 'ค้างส่งมอบ', val: `${open.length}<small>คัน</small>`, d: '', sub: 'รวมทุกเดือน · ' + moneyTxt(open.reduce((s, b) => s + (Number(b.price) || 0), 0)), sp: '', color: 'info', nav: '/crm/bookings' },
-        { icon: '🧲', label: 'Lead ใหม่', val: `${leadsIn(selectedMonth)}<small>ราย</small>`, d: delta(leadsIn(selectedMonth), leadsIn(compareMonth)), sub: `${cmp}: ${leadsIn(compareMonth)} ราย`, sp: spark(leadSeries, 'danger'), color: 'danger', nav: '/crm/leads' },
+        { icon: '📝', label: 'จองใหม่', val: `${cur.booked}<small>คัน</small>`, d: delta(cur.booked, prev.booked), sub: `${cmp}: ${prev.booked} คัน`, sp: spark(series('booked'), 'primary'), color: 'primary', drill: 'booked' },
+        { icon: '✅', label: 'ส่งมอบ', val: `${cur.delivered}<small>คัน</small>`, d: delta(cur.delivered, prev.delivered), sub: `${cmp}: ${prev.delivered} คัน`, sp: spark(series('delivered'), 'success'), color: 'success', drill: 'delivered' },
+        { icon: '💰', label: 'มูลค่าจอง', val: money(cur.value), d: delta(cur.value, prev.value), sub: `${cmp}: ${moneyTxt(prev.value)}`, sp: spark(series('value'), 'accent'), color: 'accent', drill: 'value' },
+        { icon: '📈', label: 'Margin', val: money(cur.margin), d: delta(cur.margin, prev.margin), sub: `${cmp}: ${moneyTxt(prev.margin)}`, sp: spark(series('margin'), 'warning'), color: 'warning', drill: 'margin' },
+        { icon: '⏳', label: 'ค้างส่งมอบ', val: `${open.length}<small>คัน</small>`, d: '', sub: 'รวมทุกเดือน · ' + moneyTxt(open.reduce((s, b) => s + (Number(b.price) || 0), 0)), sp: '', color: 'info', drill: 'open' },
+        { icon: '🧲', label: 'Lead ใหม่', val: `${leadsCur}<small>ราย</small>`, d: delta(leadsCur, leadsPrev), sub: `${cmp}: ${leadsPrev} ราย`, sp: spark(back.map(ms => leadsInRange(ms).length), 'danger'), color: 'danger', nav: '/crm/leads' },
       ]
       el.innerHTML = tiles.map(t => `
-        <button type="button" class="dash-kpi" data-nav="${t.nav}" style="--c:var(--${t.color})" title="${t.label} — กดเพื่อดูรายละเอียด">
+        <button type="button" class="dash-kpi" ${t.drill ? `data-drill="${t.drill}"` : `data-nav="${t.nav}"`} style="--c:var(--${t.color})" title="${t.label} — กดเพื่อดูรายการ">
           <span class="dash-kpi-top"><span class="dash-kpi-label">${t.icon} ${t.label}</span>${t.d}</span>
           <span class="dash-kpi-val">${t.val}</span>
           <span class="dash-kpi-sub">${t.sub}</span>
           ${t.sp || '<svg viewBox="0 0 100 26"></svg>'}
         </button>`).join('')
     }
+
+    // ── กดตัวเลข → รายการใบจองที่นับจริง (ตรวจได้ว่าตัวเลขมาจากใบไหน) + ค้นหา + ส่งออก Excel ──
+    const DRILL_TITLE = { booked: '📝 จองใหม่', delivered: '✅ ส่งมอบ/ตัดตัวเลข', value: '💰 มูลค่าจอง (ไม่รวมถอนจอง)', margin: '📈 Margin (ไม่รวมถอนจอง)', open: '⏳ ค้างส่งมอบ (ทุกเดือน)' }
+    const dateOf = b => String(b.cutDate || b.actualDeliveryDate || '')
+    function openDrill(key) {
+      const byDate = (a, b) => String(b.bookingDate || '').localeCompare(String(a.bookingDate || ''))
+      const sorter = key === 'margin' ? (a, b) => (Number(b.margin) || 0) - (Number(a.margin) || 0)
+        : key === 'delivered' ? (a, b) => dateOf(b).localeCompare(dateOf(a)) : byDate
+      const rows = statRows(bookings, curMonths(), key).slice().sort(sorter)
+      const sum = (list, f) => list.reduce((s, b) => s + (Number(b[f]) || 0), 0)
+      const when = key === 'open' ? 'ทุกเดือน' : periodLabel(selectedMonth, period)
+      const table = list => list.length ? `<div class="table-wrap"><table class="table tbl-cards dash-drill">
+          <thead><tr><th>ลูกค้า</th><th>รุ่น</th><th>เซลส์</th><th>วันที่</th><th>สถานะ</th><th style="text-align:right">ราคา</th><th style="text-align:right">Margin</th></tr></thead>
+          <tbody>${list.slice(0, 300).map(b => `<tr data-id="${escHtml(b.id)}">
+            <td><div style="font-weight:600">${escHtml(b.custName || b.customerName || '-')}</div><div style="font-size:0.7rem;color:var(--text-muted)">${escHtml(b.bookingNo || '')}</div></td>
+            <td>${escHtml([b.brand, b.model].filter(Boolean).join(' ') || '-')}</td>
+            <td style="color:var(--text-muted)">👤 ${escHtml(b.salesName || '-')}</td>
+            <td style="white-space:nowrap">📅 ${b.bookingDate ? formatDate(b.bookingDate) : '-'}${b.cutDate ? `<div style="font-size:0.7rem;color:var(--text-muted)">✂️ ตัด ${formatDate(b.cutDate)}</div>` : ''}</td>
+            <td><span class="badge badge-${(BOOKING_STATUS_META[b.status] || {}).color || 'secondary'}">${escHtml(b.status || '-')}</span></td>
+            <td style="text-align:right;white-space:nowrap;font-weight:700">${formatCurrency(Number(b.price) || 0)}</td>
+            <td style="text-align:right;white-space:nowrap;color:var(--warning)">${b.margin ? formatCurrency(Number(b.margin)) : ''}</td>
+          </tr>`).join('')}</tbody></table></div>${list.length > 300 ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-top:6px">แสดง 300 จาก ${list.length} ใบ — ส่งออก Excel เพื่อดูทั้งหมด</div>` : ''}`
+        : `<div style="padding:24px;text-align:center;color:var(--text-muted)">ไม่มีใบจองในช่วงนี้</div>`
+      const summary = list => `<span>📄 <b>${list.length}</b> ใบ</span><span>💰 มูลค่า <b>${formatCurrency(sum(list, 'price'))}</b></span><span>📈 Margin <b>${formatCurrency(sum(list, 'margin'))}</b></span>`
+      const m = openModal({
+        title: `${DRILL_TITLE[key]} — ${when}`, size: 'xl',
+        body: `<div class="dash-drill-sum" id="drill-sum">${summary(rows)}</div>
+          <input class="input" id="drill-q" placeholder="🔍 ค้นหาชื่อลูกค้า / รุ่น / เซลส์ / เลขที่" style="margin-bottom:10px">
+          <div id="drill-list">${table(rows)}</div>`,
+        footer: `<button class="btn btn-secondary" id="drill-xls" ${rows.length ? '' : 'disabled'}>📥 ส่งออก Excel</button><button class="btn btn-primary" id="drill-all">เปิดหน้าใบจอง →</button>`,
+      })
+      let shown = rows
+      m.el.querySelector('#drill-q')?.addEventListener('input', e => {
+        const q = e.target.value.trim().toLowerCase()
+        shown = q ? rows.filter(b => [b.custName, b.customerName, b.brand, b.model, b.salesName, b.bookingNo, b.status].join(' ').toLowerCase().includes(q)) : rows
+        m.el.querySelector('#drill-list').innerHTML = table(shown)
+        m.el.querySelector('#drill-sum').innerHTML = summary(shown)
+      })
+      m.el.addEventListener('click', e => {
+        const tr = e.target.closest('tr[data-id]')
+        if (tr) { m.close(); navigate('/crm/bookings?id=' + encodeURIComponent(tr.dataset.id)) }
+        if (e.target.closest('#drill-all')) { m.close(); navigate('/crm/bookings') }
+        if (e.target.closest('#drill-xls') && shown.length) exportToExcel(shown.map(b => ({
+          'เลขที่': b.bookingNo || '', 'ลูกค้า': b.custName || b.customerName || '', 'ยี่ห้อ': b.brand || '', 'รุ่น': b.model || '', 'เซลส์': b.salesName || '',
+          'วันจอง': b.bookingDate || '', 'วันตัดตัวเลข': b.cutDate || '', 'สถานะ': b.status || '', 'ราคา': Number(b.price) || 0, 'Margin': Number(b.margin) || 0,
+        })), `dashboard-${key}-${selectedMonth}.xlsx`, 'ใบจอง')
+      })
+    }
+    container.addEventListener('click', e => {
+      const d = e.target.closest('[data-drill]')
+      if (d) openDrill(d.dataset.drill)
+      const p = e.target.closest('[data-period]')
+      if (p && p.dataset.period !== period) {
+        period = p.dataset.period
+        try { localStorage.setItem('lamom_dash_period', period) } catch { /* ไม่จำก็ได้ */ }
+        renderHero()
+      }
+    })
 
     // ── Ring gauges: อัตราความสำเร็จของเดือนที่เลือก ──
     function ringGauge(label, pct, color, sub) {
@@ -883,7 +993,7 @@ export default async function DashboardPage(container) {
           <text x="50" y="55" text-anchor="middle" font-size="19" font-weight="800" fill="var(--${color})">${none ? '—' : Math.round(p) + '%'}</text>
         </svg>
         <div style="font-size:0.72rem;font-weight:700;color:var(--text-2);text-align:center">${label}</div>
-        <div style="font-size:0.64rem;color:var(--text-muted);text-align:center;font-family:'Share Tech Mono',monospace">${sub}</div>
+        <div style="font-size:0.64rem;color:var(--text-muted);text-align:center;font-variant-numeric:tabular-nums">${sub}</div>
       </div>`
     }
 
@@ -967,7 +1077,7 @@ export default async function DashboardPage(container) {
         const soFar = bookings.filter(b => (b.bookingDate || '').startsWith(selectedMonth)).length
         const proj = dayNow ? Math.round(soFar / dayNow * daysInM) : 0
         runRate = `<div style="background:var(--primary-dim);border:1px solid var(--primary);border-radius:8px;padding:9px 11px;margin-top:8px">
-          <div style="font-size:0.66rem;color:var(--primary);font-weight:700;font-family:'Share Tech Mono',monospace">RUN-RATE เดือนนี้</div>
+          <div style="font-size:0.66rem;color:var(--primary);font-weight:700;font-variant-numeric:tabular-nums">RUN-RATE เดือนนี้</div>
           <div style="font-size:0.76rem;color:var(--text-2);margin-top:2px">ผ่านไป ${dayNow}/${daysInM} วัน จองแล้ว <b>${soFar}</b> คัน → คาดปิดเดือน ≈ <b style="color:var(--primary)">${proj} คัน</b></div>
         </div>`
       }
@@ -986,11 +1096,11 @@ export default async function DashboardPage(container) {
       el.innerHTML = `
         <div style="${rowStyle}">
           <span style="color:var(--text-muted)">📅 ${ymLabel(shiftMonth(selectedMonth, 1))} (คาดการณ์)</span>
-          <b style="color:var(--info);font-family:'Share Tech Mono',monospace">≈ ${Math.round(fcCount)} คัน</b>
+          <b style="color:var(--info);font-variant-numeric:tabular-nums">≈ ${Math.round(fcCount)} คัน</b>
         </div>
         <div style="${rowStyle}">
           <span style="color:var(--text-muted)">💰 มูลค่าคาดการณ์</span>
-          <b style="color:var(--info);font-family:'Share Tech Mono',monospace">≈ ${formatCurrency(Math.round(fcRev))}</b>
+          <b style="color:var(--info);font-variant-numeric:tabular-nums">≈ ${formatCurrency(Math.round(fcRev))}</b>
         </div>
         <div style="${rowStyle}">
           <span style="color:var(--text-muted)">📊 โมเมนตัม 6 เดือน</span>
@@ -1002,11 +1112,11 @@ export default async function DashboardPage(container) {
         </div>
         <div style="${rowStyle}">
           <span style="color:var(--text-muted)">⏱ เฉลี่ยจอง→ส่งมอบ</span>
-          <b style="color:var(--text-2);font-family:'Share Tech Mono',monospace">${avgDeliverDays !== null ? avgDeliverDays + ' วัน' : '—'}</b>
+          <b style="color:var(--text-2);font-variant-numeric:tabular-nums">${avgDeliverDays !== null ? avgDeliverDays + ' วัน' : '—'}</b>
         </div>
         <div style="${rowStyle};border-bottom:none">
           <span style="color:var(--text-muted)">💼 มูลค่าค้างส่งมอบ</span>
-          <b style="color:var(--warning);font-family:'Share Tech Mono',monospace">${formatCurrency(outstanding)}</b>
+          <b style="color:var(--warning);font-variant-numeric:tabular-nums">${formatCurrency(outstanding)}</b>
         </div>
         ${runRate}
         <div style="font-size:0.62rem;color:var(--text-muted);margin-top:8px">* พยากรณ์จาก linear regression ยอดจองจริง 6 เดือนล่าสุด</div>`
@@ -1020,10 +1130,10 @@ export default async function DashboardPage(container) {
         <div style="margin-bottom:9px">
           <div style="display:flex;justify-content:space-between;font-size:0.75rem;margin-bottom:3px">
             <span style="font-weight:${i === 0 ? '700' : '500'};color:${i === 0 ? `var(--${color})` : 'var(--text-2)'}">${i + 1}. ${escHtml(e.name)}</span>
-            <span style="font-family:'Share Tech Mono',monospace;color:var(--text-3)">${e.count} ${unit} · ${formatCurrency(e.revenue)}</span>
+            <span style="font-variant-numeric:tabular-nums;color:var(--text-3)">${e.count} ${unit} · ${formatCurrency(e.revenue)}</span>
           </div>
           <div style="background:var(--surface-2);border-radius:3px;height:7px;overflow:hidden">
-            <div style="width:${Math.round(e.count / max * 100)}%;height:100%;background:var(--${color});box-shadow:0 0 8px var(--${color});border-radius:3px"></div>
+            <div style="width:${Math.round(e.count / max * 100)}%;height:100%;background:var(--${color});border-radius:3px"></div>
           </div>
         </div>`).join('')
     }
@@ -1038,10 +1148,10 @@ export default async function DashboardPage(container) {
         <div style="margin-bottom:9px">
           <div style="display:flex;justify-content:space-between;font-size:0.75rem;margin-bottom:3px">
             <span style="font-weight:${i === 0 ? '700' : '500'};color:${i === 0 ? 'var(--accent)' : 'var(--text-2)'}">${i + 1}. ${escHtml(e.name)}</span>
-            <span style="font-family:'Share Tech Mono',monospace;color:var(--text-3)">📝${e.count} · ✅${e.delivered} · ${formatCurrency(e.revenue)}</span>
+            <span style="font-variant-numeric:tabular-nums;color:var(--text-3)">📝${e.count} · ✅${e.delivered} · ${formatCurrency(e.revenue)}</span>
           </div>
           <div style="background:var(--surface-2);border-radius:3px;height:7px;overflow:hidden">
-            <div style="width:${Math.round(e.count / max * 100)}%;height:100%;background:var(--accent);box-shadow:0 0 8px var(--accent);border-radius:3px"></div>
+            <div style="width:${Math.round(e.count / max * 100)}%;height:100%;background:var(--accent);border-radius:3px"></div>
           </div>
         </div>`).join('')
     }
@@ -1106,11 +1216,11 @@ export default async function DashboardPage(container) {
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:${i < 2 ? '4px' : '0'}">
             <div style="width:120px;font-size:0.75rem;color:var(--text-2);flex-shrink:0">${s.label}</div>
             <div style="flex:1;background:var(--surface-2);border-radius:4px;height:26px;overflow:hidden;position:relative">
-              <div style="width:${Math.max(4, Math.round(s.count / max * 100))}%;height:100%;background:var(--${s.color});opacity:0.8;box-shadow:0 0 12px var(--${s.color});border-radius:4px"></div>
-              <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:0.78rem;font-weight:800;color:var(--text);font-family:'Share Tech Mono',monospace">${s.count}</span>
+              <div style="width:${Math.max(4, Math.round(s.count / max * 100))}%;height:100%;background:var(--${s.color});opacity:0.8;border-radius:4px"></div>
+              <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:0.78rem;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums">${s.count}</span>
             </div>
           </div>
-          ${i < 2 ? `<div style="margin:2px 0 6px 130px;font-size:0.66rem;color:var(--text-muted);font-family:'Share Tech Mono',monospace">↓ อัตราแปลง ${conv(stages[i].count, stages[i + 1].count)}</div>` : ''}
+          ${i < 2 ? `<div style="margin:2px 0 6px 130px;font-size:0.66rem;color:var(--text-muted);font-variant-numeric:tabular-nums">↓ อัตราแปลง ${conv(stages[i].count, stages[i + 1].count)}</div>` : ''}
         `).join('')
       }
       const sEl = document.getElementById('source-body')
@@ -1135,9 +1245,9 @@ export default async function DashboardPage(container) {
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:0.75rem">
             <span style="width:80px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(k)}</span>
             <div style="flex:1;background:var(--surface-2);border-radius:3px;height:8px;overflow:hidden">
-              <div style="width:${Math.round(v / max * 100)}%;height:100%;background:var(--accent);box-shadow:0 0 8px var(--accent)"></div>
+              <div style="width:${Math.round(v / max * 100)}%;height:100%;background:var(--accent)"></div>
             </div>
-            <b style="color:var(--accent);font-family:'Share Tech Mono',monospace">${v}</b>
+            <b style="color:var(--accent);font-variant-numeric:tabular-nums">${v}</b>
           </div>`).join('') : `<div style="font-size:0.78rem;color:var(--text-muted);padding:20px 0;text-align:center">ไม่มีข้อมูลเดือนนี้</div>`
       }
     }
@@ -1195,7 +1305,7 @@ export default async function DashboardPage(container) {
         <div data-nav="${a.nav}" style="display:flex;align-items:center;gap:10px;padding:8px 10px;margin-bottom:6px;background:var(--${a.sev}-dim);border-left:3px solid var(--${a.sev});border-radius:6px;cursor:pointer">
           <span style="font-size:1rem;flex-shrink:0">${a.icon}</span>
           <span style="flex:1;font-size:0.78rem;color:var(--text-2)">${a.text}</span>
-          ${a.age !== null ? `<span style="font-size:0.7rem;font-weight:800;color:var(--${a.sev});font-family:'Share Tech Mono',monospace;flex-shrink:0">${a.age} วัน</span>` : `<span style="font-size:0.72rem;color:var(--${a.sev});flex-shrink:0">ดู →</span>`}
+          ${a.age !== null ? `<span style="font-size:0.7rem;font-weight:800;color:var(--${a.sev});font-variant-numeric:tabular-nums;flex-shrink:0">${a.age} วัน</span>` : `<span style="font-size:0.72rem;color:var(--${a.sev});flex-shrink:0">ดู →</span>`}
         </div>`).join('')
         : `<div style="display:flex;align-items:center;gap:10px;padding:16px;background:var(--success-dim);border-radius:8px;font-size:0.82rem;color:var(--success)"><span style="font-size:1.2rem">✅</span> ระบบปกติ — ไม่มีเรื่องค้างเกินกำหนด</div>`
     }
@@ -1267,7 +1377,7 @@ export default async function DashboardPage(container) {
         el.innerHTML = avg > 0 ? `<div data-nav="/crm/bookings" style="cursor:pointer">
             <div style="display:flex;justify-content:space-between;font-size:0.73rem;margin-bottom:3px;gap:8px">
               <span style="color:var(--text-2)">🤖 เป้าแนะนำ: ยอดจอง ${goal} คัน</span>
-              <b style="color:var(--${color});font-family:'Share Tech Mono',monospace">${pct}%</b>
+              <b style="color:var(--${color});font-variant-numeric:tabular-nums">${pct}%</b>
             </div>
             <div style="background:var(--surface-2);border-radius:3px;height:8px;overflow:hidden">
               <div style="width:${Math.min(100, pct)}%;height:100%;background:var(--${color})"></div>
@@ -1292,12 +1402,12 @@ export default async function DashboardPage(container) {
         return `<div style="margin-bottom:10px" data-nav="/hr/targets">
           <div style="display:flex;justify-content:space-between;font-size:0.73rem;margin-bottom:3px">
             <span style="color:var(--text-2)">${escHtml(t.department)}${t.team ? ' · ' + escHtml(t.team) : ''} — ${METRIC_LABEL[t.metric] || escHtml(t.metric)}</span>
-            <b style="color:var(--${color});font-family:'Share Tech Mono',monospace">${pct}%</b>
+            <b style="color:var(--${color});font-variant-numeric:tabular-nums">${pct}%</b>
           </div>
           <div style="background:var(--surface-2);border-radius:3px;height:8px;overflow:hidden">
-            <div style="width:${Math.min(100, pct)}%;height:100%;background:var(--${color});box-shadow:0 0 8px var(--${color})"></div>
+            <div style="width:${Math.min(100, pct)}%;height:100%;background:var(--${color})"></div>
           </div>
-          <div style="font-size:0.64rem;color:var(--text-muted);margin-top:2px;font-family:'Share Tech Mono',monospace">${fmt(t.actual || 0)} / ${fmt(t.target)}</div>
+          <div style="font-size:0.64rem;color:var(--text-muted);margin-top:2px;font-variant-numeric:tabular-nums">${fmt(t.actual || 0)} / ${fmt(t.target)}</div>
         </div>`
       }).join('')
     }
@@ -1316,10 +1426,10 @@ export default async function DashboardPage(container) {
         }
       })
       const max = Math.max(...counts, 1)
-      el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">
+      el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(24px,1fr));gap:3px">
         ${counts.map((c, i) => {
           const op = c ? (0.25 + 0.75 * c / max).toFixed(2) : 0
-          return `<div title="${i + 1} ${ymLabel(selectedMonth)}: ${c} ใบจอง" style="aspect-ratio:1;border-radius:3px;background:${c ? `rgba(0,180,255,${op})` : 'var(--surface-2)'};border:1px solid var(--border-subtle);display:flex;align-items:center;justify-content:center;font-size:0.55rem;color:${c ? (op > 0.55 ? '#04202e' : 'var(--text)') : 'var(--text-muted)'};${op > 0.55 ? 'font-weight:700;' : ''}font-family:'Share Tech Mono',monospace;${c ? `box-shadow:0 0 6px rgba(0,180,255,${op})` : ''}">${i + 1}</div>`
+          return `<div data-tip="${i + 1} ${ymLabel(selectedMonth)}|${c} ใบจอง" style="height:26px;border-radius:5px;background:${c ? `rgba(0,180,255,${op})` : 'var(--surface-2)'};border:1px solid var(--border-subtle);display:flex;align-items:center;justify-content:center;font-size:0.55rem;color:${c ? (op > 0.55 ? '#04202e' : 'var(--text)') : 'var(--text-muted)'};${op > 0.55 ? 'font-weight:700;' : ''}font-variant-numeric:tabular-nums">${i + 1}</div>`
         }).join('')}
       </div>
       <div style="font-size:0.62rem;color:var(--text-muted);margin-top:6px">เข้มมาก = จองเยอะ · สูงสุด ${max} ใบจอง/วัน</div>`
