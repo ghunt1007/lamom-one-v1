@@ -1,5 +1,6 @@
 import { getState, on, toggleSidebar } from '../../core/store.js'
 import { menuMatches } from '../../utils/menuSearch.js'
+import { isMergedPath } from '../../utils/linkedViews.js'
 import { buildSimpleNav, readNavMode, writeNavMode, readVisits, recordVisit, countItems } from '../../utils/navSimple.js'
 import { navigate } from '../../core/router.js'
 import { logout } from '../../core/auth.js'
@@ -33,7 +34,7 @@ export function Sidebar(container) {
   function visibleNav(role, extraGrants) {
     const ownerOnlyOk = isProgramOwner()
     return NAV
-      .map(g => ({ ...g, items: g.items.filter(i => hasModuleAccess(role, getModuleForPath(i.path)?.key, extraGrants) && (!i.programOwnerOnly || ownerOnlyOk)) }))
+      .map(g => ({ ...g, items: g.items.filter(i => !isMergedPath(i.path) && hasModuleAccess(role, getModuleForPath(i.path)?.key, extraGrants) && (!i.programOwnerOnly || ownerOnlyOk)) }))
       .filter(g => g.items.length > 0)
   }
 
