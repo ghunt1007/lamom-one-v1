@@ -72,3 +72,23 @@ describe('periods', () => {
     expect(statRows(B, q, 'withdrawn').map(b => b.status)).toEqual(['ถอนจอง'])
   })
 })
+
+describe('pipelineStages / salesBoard', () => {
+  it('orders open stages by workflow and skips finished ones', async () => {
+    const { pipelineStages } = await import('./dashStats.js')
+    const st = pipelineStages([...B, { bookingDate: '2026-10-20', status: 'รอรถ', price: 100 }, { bookingDate: '2026-10-01', status: 'แปลกๆ' }], '2026-10-30')
+    expect(st.map(s => s.status)).toEqual(['รอรถ', 'ตัดตัวเลขรอส่งมอบ', 'อื่นๆ'])
+    expect(st[0]).toMatchObject({ count: 2, value: 1000100, avgAge: 19, maxAge: 28 })
+  })
+  it('salesBoard ranks by deliveries then bookings', async () => {
+    const { salesBoard } = await import('./dashStats.js')
+    const rows = [
+      { salesName: 'เอ', bookingDate: '2026-10-01', status: 'รอรถ', price: 1 },
+      { salesName: 'บี', bookingDate: '2026-09-01', status: 'ส่งมอบแล้ว', cutDate: '2026-10-03', price: 5, totalIncome: 2 },
+      { salesName: '', bookingDate: '2026-10-02', status: 'ถอนจอง', price: 9 },
+    ]
+    const b = salesBoard(rows, ['2026-10'])
+    expect(b.map(r => r.name)).toEqual(['บี', 'เอ'])
+    expect(b[0]).toMatchObject({ delivered: 1, income: 2, booked: 0 })
+  })
+})
