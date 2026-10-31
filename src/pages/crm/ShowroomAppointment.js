@@ -27,7 +27,7 @@ const APPT_PURPOSE = [
 // เดิม hardcode ชื่อปลอม 2 คน — เปลี่ยนใช้ getSalesStaff() จริงเหมือน Bookings.js/ActionPlan.js
 function salespersonOptions() {
   const staff = getSalesStaff()
-  return [...(staff.length ? staff : ['อรนุช เซลส์ดี', 'วิชัย ขายเก่ง']), 'ยังไม่ระบุ']
+  return [...staff, 'ยังไม่ระบุ']
 }
 
 export default async function ShowroomAppointmentPage(container) {

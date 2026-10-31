@@ -159,7 +159,7 @@ export default async function WalkInPage(container) {
           </div>
           <div class="input-group"><label class="input-label">เซลส์ที่ดูแล</label>
             <select class="input" id="wi-staff">
-              ${(getSalesStaff().length ? getSalesStaff() : ['อรนุช เซลส์ดี', 'วิชัย ขายเก่ง']).map(s => `<option>${escHtml(s)}</option>`).join('')}
+              ${(getSalesStaff().length ? getSalesStaff() : ['ยังไม่ระบุ']).map(s => `<option>${escHtml(s)}</option>`).join('')}
             </select>
           </div>
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">หมายเหตุ</label><input class="input" id="wi-notes"></div>
