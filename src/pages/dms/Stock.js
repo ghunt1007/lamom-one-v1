@@ -3,7 +3,8 @@ import { showToast, getState, on } from '../../core/store.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
-import { exportToExcel } from '../../utils/importExport.js'
+import { exportToExcel, openImportModal } from '../../utils/importExport.js'
+import { STOCK_IMPORT_COLS, planStockImport } from '../../utils/stockImport.js'
 import { getBranches } from '../../data/masterData.js'
 import { pickVehicle } from '../../utils/vehiclePicker.js'
 import { navigate } from '../../core/router.js'
@@ -197,7 +198,7 @@ export default async function StockPage(container) {
     if (!filtered.length) {
       // (v1.0.528) แยกข้อความให้ชัดว่า "สต็อกว่างจริงยังไม่มีรถเลย" กับ "มีรถแต่ตัวกรองไม่ตรง" ไม่ใช่แบบเดียวกัน
       wrap.innerHTML = !stock.length
-        ? `<div class="empty-state" style="padding:48px"><div class="empty-icon">🚗</div><div class="empty-title">ยังไม่มีรถในสต็อกเลย</div><div class="empty-desc">กด "➕ เพิ่มรถ" เพื่อเริ่มบันทึกรถเข้าสต็อก${canBackfill ? ' หรือใช้ปุ่มดึงจากใบจองเก่าด้านบน (ถ้ามี)' : ''}</div></div>`
+        ? `<div class="empty-state" style="padding:48px"><div class="empty-icon">🚗</div><div class="empty-title">ยังไม่มีรถในสต็อกเลย</div><div class="empty-desc">กด "📂 นำเข้า Excel" เพื่อลงรถทั้งล็อตทีเดียว หรือ "➕ เพิ่มรถ" ทีละคัน${canBackfill ? ' หรือใช้ปุ่มดึงจากใบจองเก่าด้านบน (ถ้ามี)' : ''}</div></div>`
         : `<div class="empty-state" style="padding:48px"><div class="empty-icon">🚗</div><div class="empty-title">ไม่พบรถ</div><div class="empty-desc">ลองเปลี่ยนตัวกรอง</div></div>`
       return
     }
@@ -643,6 +644,7 @@ export default async function StockPage(container) {
         </div>
         <div class="page-actions">
           <button class="btn btn-ghost btn-sm" id="view-toggle-btn">${viewMode === 'table' ? '🃏 แบบการ์ด' : '📋 แบบตาราง'}</button>
+          <button class="btn btn-secondary btn-sm" id="stock-import-btn">📂 นำเข้า Excel</button>
           <button class="btn btn-secondary btn-sm" id="stock-export-btn">📥 ส่งออก</button>
           <button class="btn btn-primary" id="add-stock-btn">➕ เพิ่มรถ</button>
         </div>
@@ -706,6 +708,32 @@ export default async function StockPage(container) {
     document.getElementById('view-toggle-btn').textContent = viewMode === 'table' ? '🃏 แบบการ์ด' : '📋 แบบตาราง'
     applyFilter()
   })
+  document.getElementById('stock-import-btn').addEventListener('click', () => {
+    openImportModal({
+      title: 'นำเข้ารถเข้าสต็อก',
+      columns: STOCK_IMPORT_COLS,
+      onImport: async (rows) => {
+        // เช็ค VIN ซ้ำกับรถทั้งหมดในระบบ (ไม่ใช่แค่ที่หน้านี้โหลดไว้) — ถ้าโหลดไม่ได้ใช้เท่าที่มี
+        let all = stock
+        try { all = (await listAllDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 500)).filter(v => !v.deleted) } catch {}
+        const plan = planStockImport(rows, all, { today: todayBangkok(), defaultLocation: getBranches()[0] || '' })
+        let added = 0, failed = 0
+        for (const doc of plan.creates) {
+          try { await createDoc('vehicles', { ...doc, companyId: myEffectiveCompanyId() }); added++ } catch { failed++ }
+        }
+        showToast(`นำเข้ารถ ${added} คัน${plan.skipped.length ? ` · ข้าม ${plan.skipped.length}` : ''}${failed ? ` · พลาด ${failed}` : ''}`, failed ? 'warning' : 'success', 8000)
+        if (plan.skipped.length) {
+          openModal({
+            title: `⚠️ ข้าม ${plan.skipped.length} แถว`, size: 'md',
+            body: `<div class="table-wrap" style="max-height:320px;overflow:auto"><table><thead><tr><th>แถว</th><th>รถ</th><th>เหตุผล</th></tr></thead><tbody>
+              ${plan.skipped.map(d => `<tr><td>${d.row}</td><td>${escHtml(d.name)}</td><td style="font-size:0.75rem">${escHtml(d.reason)}</td></tr>`).join('')}
+              </tbody></table></div>`,
+          })
+        }
+      },
+    })
+  })
+
   document.getElementById('stock-export-btn').addEventListener('click', () => {
     if (!stock.length) return
     // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
