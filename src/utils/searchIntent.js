@@ -28,7 +28,7 @@ export function detectLeadIntent(q, phoneKnown = () => false) {
 export function matchMenuPages(nav, q, limit = 8) {
   const seen = new Set(), out = []
   for (const g of nav) for (const i of g.items) {
-    if (seen.has(i.path) || !menuMatches(i.label, i.path, q)) continue
+    if (seen.has(i.path) || !menuMatches(`${i.label} ${i.labelEn || ''}`, i.path, q)) continue
     seen.add(i.path)
     out.push({ ...i, group: g.group })
     if (out.length >= limit) return out

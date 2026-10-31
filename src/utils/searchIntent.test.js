@@ -31,3 +31,11 @@ describe('matchMenuPages', () => {
     expect(matchMenuPages(NAV, 'ติดตาม')[0].group).toBe('การขาย')
   })
 })
+
+describe('matchMenuPages — Thai menu names', () => {
+  it('still finds a menu by its old English name', async () => {
+    const { NAV } = await import('../data/navMenu.js')
+    expect(matchMenuPages(NAV, 'payroll').map(p => p.path)).toContain('/finance/payroll')
+    expect(matchMenuPages(NAV, 'เงินเดือน').map(p => p.path)).toContain('/finance/payroll')
+  })
+})
