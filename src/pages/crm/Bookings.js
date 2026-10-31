@@ -1325,12 +1325,21 @@ export default async function BookingsPage(container) {
     el.querySelector('#bfs').addEventListener('click', async () => {
       const btn = el.querySelector('#bfs')
       try {
+        // ช่องที่ต้องกรอกอยู่บนสุดของฟอร์ม แต่ปุ่มบันทึกอยู่ล่างสุด — เดิมข้อความเตือนขึ้นข้างบนที่มองไม่เห็น
+        // ผู้ใช้เลยเห็นว่า "กดบันทึกไม่ได้" · ตอนนี้เด้งขึ้นไปที่ช่องนั้น + toast บอกชัดๆ
+        const invalid = (id, msg) => {
+          el.querySelector('#' + id + '-e').textContent = msg
+          const f = el.querySelector('#' + id)
+          f?.scrollIntoView({ behavior: 'smooth', block: 'center' }); f?.focus({ preventScroll: true })
+          showToast(msg, 'warning')
+        }
         const cust = el.querySelector('#bf-cust').value.trim()
-        if (!cust) { el.querySelector('#bf-cust-e').textContent = '⚠️ กรุณาระบุชื่อลูกค้า'; return }
+        if (!cust) return invalid('bf-cust', '⚠️ กรุณาระบุชื่อลูกค้า')
         const g = id => el.querySelector('#' + id)
         const num = id => Number(g(id).value) || 0
         const rightsOnly = g('bf-rights').checked
-        if (!rightsOnly && !num('bf-deposit')) { el.querySelector('#bf-deposit-e').textContent = '⚠️ กรุณาระบุจำนวนเงินจอง (หรือติ๊ก "จองสิทธิ์" หากยังไม่จ่าย)'; return }
+        // ใบจองเดิม (เช่นที่ซิงก์มาจาก Google Sheet) มักไม่มียอดเงินจอง — ไม่บังคับตอนแก้ไข บังคับเฉพาะตอนจองใหม่
+        if (!isEdit && !rightsOnly && !num('bf-deposit')) return invalid('bf-deposit', '⚠️ กรุณาระบุจำนวนเงินจอง (หรือติ๊ก "จองสิทธิ์" หากยังไม่จ่าย)')
         const financeAmount = num('bf-finamount'), installments = num('bf-install'), rate = num('bf-rate')
         // (v1.0.524) รวมรายการ F&I ที่ติ๊ก/กรอกไว้จริงเท่านั้น (เก็บ type ไว้ทุกแถวเพื่อรู้ว่าแถวไหนคือชนิดไหน
         // แม้ยังไม่ติ๊กขาย — ใช้ตอนแก้ไขครั้งถัดไปให้ค่าที่เคยกรอกไม่หาย) ถ้าไม่มีรายการไหนติ๊ก/กรอกเลย (ฟอร์ม
