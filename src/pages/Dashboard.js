@@ -9,7 +9,9 @@ import { t } from '../i18n/index.js'
 import { DELIVERED_STATUSES as DELIVERED_ST } from '../utils/deliveryIncome.js'
 import { businessFacts } from '../utils/bizFacts.js'
 import { SOURCE_INFO, normSource } from '../utils/sourcePerformance.js'
-import { monthStats, openBookings, isCancelled, isDelivered, stockSince } from '../utils/dashStats.js'
+import { monthStats, openBookings, isCancelled, isDelivered, stockSince, monthSeries, pctChange, sparkPath } from '../utils/dashStats.js'
+import { DASH_SECTIONS, loadDashLayout, saveDashLayout, applyDashLayout, moveSection, normalizeLayout } from '../utils/dashLayout.js'
+import { openModal } from '../utils/modal.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -136,6 +138,21 @@ export default async function DashboardPage(container) {
         </div>
       </div>
 
+      <!-- เดือนเดียวคุมทั้งหน้า: ทุกการ์ด/กราฟเปลี่ยนตามเดือนนี้ (เดิมปุ่ม ◀ ▶ ซ่อนอยู่กลางหน้าในการ์ดยอดจอง) -->
+      <div class="dash-toolbar">
+        <div class="dash-month">
+          <button class="btn btn-ghost btn-sm" id="pm-prev" title="เดือนก่อน" aria-label="เดือนก่อน">◀</button>
+          <span id="pm-label">...</span>
+          <button class="btn btn-ghost btn-sm" id="pm-next" title="เดือนถัดไป" aria-label="เดือนถัดไป">▶</button>
+          <button class="btn btn-ghost btn-xs" id="pm-now" style="display:none">กลับเดือนนี้</button>
+        </div>
+        <label class="dash-compare">เทียบกับ <select id="mom-compare-picker" class="input"></select></label>
+        <div style="flex:1"></div>
+        <span class="dash-live" title="ตัวเลขอัปเดตเองทันทีเมื่อมีคนแก้ใบจอง/งานซ่อม"><i></i>อัปเดตสด</span>
+        <button class="btn btn-ghost btn-sm" id="dash-custom" title="เลือกการ์ดที่จะแสดงและลำดับ">⚙️ ปรับแต่ง</button>
+        <button class="btn btn-ghost btn-sm" id="dash-print" title="พิมพ์หรือบันทึกเป็น PDF">🖨 พิมพ์</button>
+      </div>
+
       <!-- Command HUD strip -->
       <style>
         .dash-jump { display:none; }
@@ -147,19 +164,64 @@ export default async function DashboardPage(container) {
         @keyframes dashBlip { 0%,100% { opacity: 0.15; } 50% { opacity: 1; } }
         @keyframes dashPulseDot { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
         @keyframes dashGaugeDraw { from { stroke-dasharray: 0 999; } }
+        .dash-toolbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:-4px 0 16px; padding:8px 12px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); }
+        .dash-month { display:flex; align-items:center; gap:4px; }
+        .dash-month #pm-label { font-weight:800; font-size:0.95rem; min-width:96px; text-align:center; color:var(--primary); }
+        .dash-compare { display:flex; align-items:center; gap:6px; font-size:0.74rem; color:var(--text-muted); }
+        .dash-compare select { width:auto; font-size:0.76rem; padding:4px 8px; }
+        .dash-live { display:flex; align-items:center; gap:6px; font-size:0.7rem; color:var(--success); font-weight:700; }
+        .dash-live i { width:7px; height:7px; border-radius:50%; background:var(--success); box-shadow:0 0 8px var(--success); animation:dashPulseDot 2s infinite; }
+        .dash-flow { display:flex; flex-direction:column; gap:16px; }
+        .dash-flow > [data-sec] { margin:0 !important; }
+        .dash-flow > [data-sec].dash-off { display:none !important; }
+        .dash-hero-grid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:12px; }
+        .dash-kpi { position:relative; display:flex; flex-direction:column; text-align:left; font:inherit; color:inherit; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:14px 14px 8px; cursor:pointer; overflow:hidden; transition:transform .15s, border-color .15s, box-shadow .15s; min-width:0; }
+        .dash-kpi::before { content:''; position:absolute; left:0; right:0; top:0; height:3px; background:var(--c); }
+        .dash-kpi:hover { transform:translateY(-2px); border-color:var(--c); box-shadow:0 6px 18px color-mix(in srgb, var(--c) 18%, transparent); }
+        .dash-kpi-label { font-size:0.74rem; color:var(--text-muted); font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .dash-kpi-val { font-size:clamp(1.15rem, 0.9rem + 0.8vw, 1.6rem); font-weight:800; color:var(--text); margin-top:2px; white-space:nowrap; line-height:1.25; }
+        .dash-kpi-val small { font-size:0.6em; font-weight:700; color:var(--text-muted); margin-left:3px; }
+        .dash-kpi-top { display:flex; justify-content:space-between; align-items:center; gap:6px; min-width:0; }
+        .dash-kpi-sub { font-size:0.66rem; color:var(--text-muted); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .dash-delta { font-weight:800; padding:1px 7px; border-radius:999px; font-size:0.66rem; flex-shrink:0; }
+        .dash-delta.up { color:var(--success); background:var(--success-dim); }
+        .dash-delta.down { color:var(--danger); background:var(--danger-dim); }
+        .dash-delta.flat { color:var(--text-muted); background:var(--surface-2); }
+        .dash-kpi svg { display:block; width:100%; height:26px; margin-top:6px; }
+        @media (max-width: 1180px) { .dash-hero-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+        @media (max-width: 640px) {
+          .dash-hero-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+          .dash-kpi { padding:11px 11px 6px; }
+          .dash-toolbar { gap:6px; padding:6px 8px; }
+          .dash-live, #dash-print { display:none; }
+        }
+        @media (max-width: 400px) { .dash-kpi-top { flex-wrap:wrap; row-gap:3px; } .dash-kpi-top .dash-delta { order:2; } }
+        .dash-cust-row { display:flex; align-items:center; gap:8px; padding:8px 10px; border:1px solid var(--border); border-radius:8px; margin-bottom:6px; background:var(--surface-2); }
+        .dash-cust-row span { flex:1; font-size:0.84rem; }
+        @media print {
+          #sidebar, #topbar, .bottom-nav, .dash-toolbar button, .dash-jump, .dash-briefing-actions, .page-actions, .lami-fab, #lami-fab { display:none !important; }
+          .main-wrap, .main-content, #main-content, .page-content { margin:0 !important; padding:0 !important; max-width:none !important; }
+          .dash-flow > [data-sec] { break-inside:avoid; }
+          .card, .dash-kpi { box-shadow:none !important; }
+          * { animation:none !important; }
+        }
       </style>
-      <div class="card dash-status-strip" style="padding:10px 16px;margin-bottom:16px;display:flex;align-items:center;gap:18px;flex-wrap:wrap">
-        <div style="display:flex;align-items:center;gap:7px">
-          <span style="width:8px;height:8px;border-radius:50%;background:var(--success);box-shadow:0 0 10px var(--success);animation:dashPulseDot 2s infinite;flex-shrink:0"></span>
-          <span style="font-size:0.7rem;letter-spacing:0.14em;color:var(--success);font-weight:700;">ระบบพร้อมใช้งาน</span>
+      <!-- มือถือ: หน้านี้ยาวมาก → แถบทางลัดกระโดดไปหัวข้อที่อยากดู (ติดอยู่บนจอเวลาเลื่อน) -->
+      <div class="dash-jump">
+        ${[['hero-kpis', '📊 ตัวเลข'], ['alerts-body', '🚨 เรื่องด่วน'], ['targets-body', '🎯 เป้า'], ['pipeline-card', '🚗 ยอดจอง'], ['monthly-chart-card', '📊 กราฟ'], ['top-sales', '🥇 ท็อปเซลส์'], ['funnel-body', '📶 Funnel']]
+          .map(([id, label]) => `<button class="btn btn-secondary btn-xs" data-jump="${id}" style="border-radius:999px;flex-shrink:0">${label}</button>`).join('')}
+      </div>
+
+      <div class="dash-flow">
+      <!-- ตัวเลขหลักของเดือน: ใหญ่ อ่านง่าย มี % เทียบเดือนที่เลือก + กราฟเส้นเล็ก 6 เดือน กดแล้วไปหน้านั้น -->
+      <div data-sec="hero" id="hero-sec">
+        <div id="hero-kpis" class="dash-hero-grid">
+          ${[1,2,3,4,5,6].map(() => `<div class="skeleton" style="height:112px;border-radius:var(--radius-lg)"></div>`).join('')}
         </div>
-        <div id="hud-clock" style="font-size:0.76rem;color:var(--primary);letter-spacing:0.1em;font-family:'Share Tech Mono',monospace;font-weight:700">--:--:--</div>
-        <div style="flex:1"></div>
-        <div id="hud-readouts" style="display:flex;gap:16px;font-family:'Share Tech Mono',monospace;font-size:0.7rem;letter-spacing:0.08em;color:var(--text-3);flex-wrap:wrap"></div>
       </div>
 
       <!-- Morning Briefing: สรุปเชิงรุกทุกเช้าจากข้อมูลจริง แคชไว้ต่อวัน/ผู้ใช้ -->
-      <div class="dash-briefing" style="display:flex;align-items:flex-start;gap:12px;background:var(--primary-dim);border:1px solid var(--primary);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:20px">
+      <div class="dash-briefing" data-sec="briefing" style="display:flex;align-items:flex-start;gap:12px;background:var(--primary-dim);border:1px solid var(--primary);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:20px">
         <span style="font-size:1.5rem;flex-shrink:0">${briefIcon}</span>
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px">
@@ -174,14 +236,8 @@ export default async function DashboardPage(container) {
         </div>
       </div>
 
-      <!-- มือถือ: หน้านี้ยาวมาก → แถบทางลัดกระโดดไปหัวข้อที่อยากดู (ติดอยู่บนจอเวลาเลื่อน) -->
-      <div class="dash-jump">
-        ${[['alerts-body', '🚨 เรื่องด่วน'], ['targets-body', '🎯 เป้า'], ['pipeline-card', '🚗 ยอดจอง'], ['monthly-chart-card', '📊 กราฟ'], ['top-sales', '🥇 ท็อปเซลส์'], ['funnel-body', '📶 Funnel']]
-          .map(([id, label]) => `<button class="btn btn-secondary btn-xs" data-jump="${id}" style="border-radius:999px;flex-shrink:0">${label}</button>`).join('')}
-      </div>
-
       <!-- Intelligence Center: แจ้งเตือนอัจฉริยะ + เป้า vs ผลจริง -->
-      <div class="dash-intel" style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px">
+      <div class="dash-intel" data-sec="intel" style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px">
         <div class="card" style="padding:16px">
           <div style="font-weight:700;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
             <span>🚨 เรื่องที่ต้องจัดการ</span>
@@ -196,7 +252,7 @@ export default async function DashboardPage(container) {
       </div>
 
       <!-- Operations radar + ring gauges -->
-      <div class="card mb-4 dash-radar" style="padding:16px">
+      <div class="card mb-4 dash-radar" data-sec="radar" style="padding:16px">
         <div style="font-weight:700;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
           <span>🛰 เรดาร์งานค้าง — จุดบนจอ = รายการค้างจริง คลิกเพื่อไปจัดการ</span>
           <span id="radar-month" style="font-size:0.72rem;color:var(--primary);font-family:'Share Tech Mono',monospace;letter-spacing:0.08em"></span>
@@ -211,29 +267,16 @@ export default async function DashboardPage(container) {
 
       <!-- ยอดจอง/ยอดขายรายเดือน: เดิมแยก 2 การ์ด (เทียบเดือน + รายละเอียดรายเดือน) ที่ใช้เดือนเดียวกันและโชว์ "จองใหม่/ส่งมอบ" ซ้ำกัน
            รวมเป็นการ์ดเดียว ปุ่ม ◀ ▶ เลือกเดือน ส่วนช่องเดือนใช้เลือกเดือนที่จะเทียบ -->
-      <div class="card mb-4" style="padding:16px" id="pipeline-card">
+      <div class="card mb-4" data-sec="pipeline" style="padding:16px" id="pipeline-card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
-          <div style="font-weight:700">🚗 ยอดจอง/ยอดขายรายเดือน</div>
-          <div style="display:flex;align-items:center;gap:6px">
-            <button class="btn btn-ghost btn-sm" id="pm-prev" title="เดือนก่อน">◀</button>
-            <span id="pm-label" style="font-size:0.85rem;font-weight:700;min-width:90px;text-align:center">...</span>
-            <button class="btn btn-ghost btn-sm" id="pm-next" title="เดือนถัดไป">▶</button>
-            <button class="btn btn-secondary btn-sm" data-nav="/crm/bookings" style="margin-left:6px">ดูใบจอง →</button>
-          </div>
+          <div style="font-weight:700">🚗 สถานะใบจอง — <span class="fc-month" style="color:var(--primary);font-size:0.8rem"></span></div>
+          <button class="btn btn-secondary btn-sm" data-nav="/crm/bookings">ดูใบจอง →</button>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;font-size:0.74rem;color:var(--text-muted)">
-          <span>📡 เทียบกับ</span>
-          <input type="month" id="mom-compare-picker" class="input" style="width:150px;font-size:0.76rem;padding:5px 8px" title="เลือกเดือน/ปีที่ต้องการเทียบ">
-          <span id="mom-label" style="font-size:0.72rem;color:var(--primary);font-family:'Share Tech Mono',monospace;letter-spacing:0.06em"></span>
-        </div>
-        <div id="mom-strip" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(150px,44%),1fr));gap:10px">
-          ${[1,2,3,4].map(() => `<div class="skeleton" style="height:86px;border-radius:var(--radius-md)"></div>`).join('')}
-        </div>
-        <div id="pipeline-body" style="margin-top:12px"></div>
+        <div id="pipeline-body"></div>
       </div>
 
       <!-- Other Departments Detail -->
-      <div class="card mb-4" style="padding:16px" id="dept-detail-card">
+      <div class="card mb-4" data-sec="dept" style="padding:16px" id="dept-detail-card">
         <div style="font-weight:700;margin-bottom:14px">🏭 แผนกอื่น — รายละเอียดเดือนเดียวกัน</div>
         <div id="dept-detail-body" style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
           ${[1,2].map(() => `<div class="skeleton" style="height:140px;border-radius:var(--radius-md)"></div>`).join('')}
@@ -241,7 +284,7 @@ export default async function DashboardPage(container) {
       </div>
 
       <!-- Main 2-col layout -->
-      <div style="display:grid;grid-template-columns:1fr 340px;gap:16px;margin-bottom:16px">
+      <div data-sec="main" style="display:grid;grid-template-columns:1fr 340px;gap:16px;margin-bottom:16px">
         <!-- Left: Quick Modules -->
         <div style="display:flex;flex-direction:column;gap:16px">
 
@@ -299,7 +342,7 @@ export default async function DashboardPage(container) {
       </div>
 
       <!-- Charts row: trend combo (past+forecast) + status donut -->
-      <div style="display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:start">
+      <div data-sec="trend" style="display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:start">
         <div class="card" style="padding:20px" id="monthly-chart-card">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px">
             <div style="font-weight:700" id="monthly-chart-title">📊 อดีต → ปัจจุบัน → อนาคต: ยอดจอง & มูลค่า</div>
@@ -327,7 +370,7 @@ export default async function DashboardPage(container) {
 
       <!-- (v1.0.446) กราฟยอดส่งมอบ/ยอดถอนจองแยกเดี่ยว ตามที่ขอ ("เพิ่มกราฟแสดงยอดส่งมอบ", "เพิ่มกราฟแสดงยอดถอนจอง")
            — เดิมมีแค่ตัวเลขรวมในการ์ด KPI ด้านบน ไม่มีกราฟแนวโน้มรายเดือนแยกให้ดูย้อนหลังเหมือนกราฟยอดจองหลัก -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">
+      <div data-sec="dlv" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">
         <div class="card" style="padding:16px">
           <div style="font-weight:700;margin-bottom:2px">✅ ยอดส่งมอบรายเดือน <span style="font-size:0.65rem;color:var(--text-muted);font-weight:400">(นับตามวันตัดตัวเลข)</span></div>
           <div style="font-size:0.66rem;color:var(--text-muted);margin-bottom:8px">คลิกแท่งเพื่อเลือกดูเดือนนั้น</div>
@@ -341,7 +384,7 @@ export default async function DashboardPage(container) {
       </div>
 
       <!-- Analysis row: forecast + rankings -->
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:16px">
+      <div data-sec="analysis" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:16px">
         <div class="card" style="padding:16px">
           <div style="font-weight:700;margin-bottom:10px">🔮 พยากรณ์อนาคต</div>
           <div id="forecast-body"><div class="skeleton" style="height:150px;border-radius:var(--radius-md)"></div></div>
@@ -358,7 +401,7 @@ export default async function DashboardPage(container) {
       </div>
 
       <!-- Funnel + source row -->
-      <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-top:16px">
+      <div data-sec="funnel" style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-top:16px">
         <div class="card" style="padding:16px">
           <div style="font-weight:700;margin-bottom:12px">📶 ลีด → จอง → ส่งมอบ — <span class="fc-month" style="color:var(--primary);font-size:0.8rem"></span></div>
           <div id="funnel-body"><div class="skeleton" style="height:120px;border-radius:var(--radius-md)"></div></div>
@@ -367,6 +410,7 @@ export default async function DashboardPage(container) {
           <div style="font-weight:700;margin-bottom:12px">🧲 แหล่งที่มาใบจอง</div>
           <div id="source-body"><div class="skeleton" style="height:120px;border-radius:var(--radius-md)"></div></div>
         </div>
+      </div>
       </div>
     </div>
   `
@@ -379,13 +423,37 @@ export default async function DashboardPage(container) {
     if (j) document.getElementById(j.dataset.jump)?.closest('.card')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   })
 
-  // ── HUD: นาฬิกาเดินจริง (เคลียร์ตัวเองเมื่อออกจากหน้า) ──
-  const clockEl = document.getElementById('hud-clock')
-  const clockTimer = setInterval(() => {
-    if (!clockEl || !clockEl.isConnected) { clearInterval(clockTimer); return }
-    const d = new Date()
-    clockEl.textContent = `${d.toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' })} · ${d.toLocaleTimeString('th-TH', { hour12: false })} · GMT+7`
-  }, 1000)
+  // ── ปรับแต่งหน้า (เลือกการ์ด/ลำดับ ต่อเครื่อง) + พิมพ์ ──
+  let layout = loadDashLayout()
+  const flowEl = container.querySelector('.dash-flow')
+  applyDashLayout(flowEl, layout)
+  document.getElementById('dash-print')?.addEventListener('click', () => window.print())
+  document.getElementById('dash-custom')?.addEventListener('click', () => {
+    const rows = () => layout.order.map((k, i) => `
+      <div class="dash-cust-row">
+        <input type="checkbox" data-k="${k}" ${layout.hidden.includes(k) ? '' : 'checked'} aria-label="แสดง">
+        <span>${(DASH_SECTIONS.find(x => x[0] === k) || [k, k])[1]}</span>
+        <button class="btn btn-ghost btn-xs" data-up="${k}" ${i ? '' : 'disabled'} aria-label="เลื่อนขึ้น">▲</button>
+        <button class="btn btn-ghost btn-xs" data-down="${k}" ${i < layout.order.length - 1 ? '' : 'disabled'} aria-label="เลื่อนลง">▼</button>
+      </div>`).join('')
+    const m = openModal({
+      title: '⚙️ ปรับแต่งหน้าภาพรวม',
+      body: `<div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:10px">ติ๊กเพื่อแสดง/ซ่อน · ▲▼ เลื่อนลำดับ — มีผลทันทีและจำไว้ในเครื่องนี้</div><div id="dash-cust-list">${rows()}</div>`,
+      footer: `<button class="btn btn-secondary" id="dash-cust-reset">↺ ค่าเริ่มต้น</button><button class="btn btn-primary" id="dash-cust-done">✅ เสร็จ</button>`,
+    })
+    const update = next => { layout = normalizeLayout(next); saveDashLayout(layout); applyDashLayout(flowEl, layout); m.el.querySelector('#dash-cust-list').innerHTML = rows() }
+    m.el.addEventListener('click', e => {
+      const up = e.target.closest('[data-up]'), down = e.target.closest('[data-down]')
+      if (up) update(moveSection(layout, up.dataset.up, -1))
+      if (down) update(moveSection(layout, down.dataset.down, 1))
+      if (e.target.closest('#dash-cust-reset')) update({ order: [], hidden: [] })
+      if (e.target.closest('#dash-cust-done')) m.close()
+    })
+    m.el.addEventListener('change', e => {
+      const k = e.target.dataset?.k
+      if (k) update({ ...layout, hidden: e.target.checked ? layout.hidden.filter(x => x !== k) : [...layout.hidden, k] })
+    })
+  })
 
   // ── Radar scope: โครงจอ (วงแหวน + เส้นกวาด) ระหว่างรอข้อมูล — จุดจริงเติมโดย renderRadar() ──
   const radarShell = blipsMarkup => `
@@ -760,15 +828,43 @@ export default async function DashboardPage(container) {
       miniBarChart('cancel-chart', months, counts, 'danger', `ไม่มีถอนจองเลยใน ${trendRange} เดือน 👍`)
     }
 
-    // ── HUD readouts (ตัวเลขรวมทั้งระบบ) — เรียกซ้ำใน renderAll() เพื่ออัปเดตสด ──
-    function renderHud() {
-      const readEl = document.getElementById('hud-readouts')
-      if (!readEl) return
-      readEl.innerHTML = `
-        <span>ใบจอง <b style="color:var(--primary)">${bookings.length}</b></span>
-        <span>งานซ่อม <b style="color:var(--warning)">${jobs.length}</b></span>
-        <span>ลูกค้า <b style="color:var(--accent)">${allCustomersForLeads.filter(c => !c.deleted).length}</b></span>
-        <span>งาน <b style="color:var(--success)">${tasks.length}</b></span>`
+    // ── ตัวเลขหลักของเดือน (แทนแถบ HUD/นาฬิกาเดิม) — สูตรจาก utils/dashStats.js ตัวเดียวกับทั้งหน้า ──
+    const money = n => n >= 1e6 ? `฿${(n / 1e6).toFixed(2)}<small>ล้าน</small>` : formatCurrency(n)
+    const moneyTxt = n => n >= 1e6 ? `฿${(n / 1e6).toFixed(2)} ล้าน` : formatCurrency(n)
+    const leadsIn = ym => leads.filter(l => (toDateStr(l.createdAt) || l.date || '').startsWith(ym)).length
+    function renderHero() {
+      const el = document.getElementById('hero-kpis')
+      if (!el) return
+      const cur = monthStats(bookings, selectedMonth), prev = monthStats(bookings, compareMonth)
+      const open = openBookings(bookings)
+      const cmp = ymLabel(compareMonth)
+      const delta = (c, p) => {
+        const pct = pctChange(c, p)
+        if (pct == null) return c ? `<span class="dash-delta up">ใหม่</span>` : `<span class="dash-delta flat">—</span>`
+        if (Math.abs(pct) < 0.5) return `<span class="dash-delta flat">เท่าเดิม</span>`
+        return `<span class="dash-delta ${pct > 0 ? 'up' : 'down'}">${pct > 0 ? '▲' : '▼'} ${Math.abs(pct).toFixed(0)}%</span>`
+      }
+      const spark = (vals, color) => {
+        const d = sparkPath(vals, 100, 26)
+        return d ? `<svg viewBox="0 0 100 26" preserveAspectRatio="none" aria-hidden="true"><path d="${d} L100,26 L0,26 Z" fill="var(--${color})" opacity="0.12"/><path d="${d}" fill="none" stroke="var(--${color})" stroke-width="1.8" vector-effect="non-scaling-stroke"/></svg>` : '<svg viewBox="0 0 100 26"></svg>'
+      }
+      const series = key => monthSeries(bookings, selectedMonth, 6, key)
+      const leadSeries = [5, 4, 3, 2, 1, 0].map(k => leadsIn(shiftMonth(selectedMonth, -k)))
+      const tiles = [
+        { icon: '📝', label: 'จองใหม่', val: `${cur.booked}<small>คัน</small>`, d: delta(cur.booked, prev.booked), sub: `${cmp}: ${prev.booked} คัน`, sp: spark(series('booked'), 'primary'), color: 'primary', nav: '/crm/bookings' },
+        { icon: '✅', label: 'ส่งมอบ', val: `${cur.delivered}<small>คัน</small>`, d: delta(cur.delivered, prev.delivered), sub: `${cmp}: ${prev.delivered} คัน`, sp: spark(series('delivered'), 'success'), color: 'success', nav: '/crm/bookings' },
+        { icon: '💰', label: 'มูลค่าจอง', val: money(cur.value), d: delta(cur.value, prev.value), sub: `${cmp}: ${moneyTxt(prev.value)}`, sp: spark(series('value'), 'accent'), color: 'accent', nav: '/crm/bookings' },
+        { icon: '📈', label: 'Margin', val: money(cur.margin), d: delta(cur.margin, prev.margin), sub: `${cmp}: ${moneyTxt(prev.margin)}`, sp: spark(series('margin'), 'warning'), color: 'warning', nav: '/finance/margin' },
+        { icon: '⏳', label: 'ค้างส่งมอบ', val: `${open.length}<small>คัน</small>`, d: '', sub: 'รวมทุกเดือน · ' + moneyTxt(open.reduce((s, b) => s + (Number(b.price) || 0), 0)), sp: '', color: 'info', nav: '/crm/bookings' },
+        { icon: '🧲', label: 'Lead ใหม่', val: `${leadsIn(selectedMonth)}<small>ราย</small>`, d: delta(leadsIn(selectedMonth), leadsIn(compareMonth)), sub: `${cmp}: ${leadsIn(compareMonth)} ราย`, sp: spark(leadSeries, 'danger'), color: 'danger', nav: '/crm/leads' },
+      ]
+      el.innerHTML = tiles.map(t => `
+        <button type="button" class="dash-kpi" data-nav="${t.nav}" style="--c:var(--${t.color})" title="${t.label} — กดเพื่อดูรายละเอียด">
+          <span class="dash-kpi-top"><span class="dash-kpi-label">${t.icon} ${t.label}</span>${t.d}</span>
+          <span class="dash-kpi-val">${t.val}</span>
+          <span class="dash-kpi-sub">${t.sub}</span>
+          ${t.sp || '<svg viewBox="0 0 100 26"></svg>'}
+        </button>`).join('')
     }
 
     // ── Ring gauges: อัตราความสำเร็จของเดือนที่เลือก ──
@@ -826,41 +922,16 @@ export default async function DashboardPage(container) {
       return `<span style="color:var(--${up ? 'success' : 'danger'});font-size:0.72rem;font-weight:700">${up ? '▲' : '▼'} ${Math.abs(pct).toFixed(0)}%</span>`
     }
 
+    // ช่องเลือกเดือนที่จะเทียบ: เดิมเป็น input type=month ที่บางเครื่องโชว์ภาษาอังกฤษ (September 2026) → ใช้รายการเดือนไทยแทน
     function renderMoM() {
-      const el = document.getElementById('mom-strip')
-      if (!el) return
-      // (v1.0.446) เดิม prevM ล็อกตายเป็นเดือนก่อนหน้าเสมอ — ตอนนี้ใช้ compareMonth ที่เลือกเองได้ผ่าน
-      // picker (ค่าเริ่มต้นยังเป็นเดือนก่อนหน้าเหมือนเดิมทุกประการ ไม่กระทบพฤติกรรมเดิม)
-      const prevM = compareMonth
-      const lbl = document.getElementById('mom-label')
-      if (lbl) lbl.textContent = `${ymLabel(selectedMonth)} VS ${ymLabel(prevM)}`
       const picker = document.getElementById('mom-compare-picker')
-      // ไม่ทับค่าที่ผู้ใช้กำลังพิมพ์/เลือกอยู่เองในช่อง (document.activeElement) กัน UX สะดุด
-      if (picker && document.activeElement !== picker) picker.value = prevM
-      const cur = bookings.filter(b => (b.bookingDate || '').startsWith(selectedMonth))
-      const prev = bookings.filter(b => (b.bookingDate || '').startsWith(prevM))
-      // นับส่งมอบแบบเดียวกับการ์ด KPI ด้านบน (ตัดตัวเลข/ส่งมอบ ตามวันตัดตัวเลข) — เดิมนับแค่ "ส่งมอบแล้ว" ตามวันส่งมอบจริง
-      // ทำให้ตัวเลขเทียบเดือนไม่ตรงกับการ์ดด้านบนและรายงาน LINE
-      const dlvIn = m => bookings.filter(b => ['ส่งมอบแล้ว', 'ตัดตัวเลขรอส่งมอบ'].includes(b.status) && (b.cutDate || b.actualDeliveryDate || '').startsWith(m)).length
-      const dlvCur = dlvIn(selectedMonth)
-      const dlvPrev = dlvIn(prevM)
-      // มูลค่า/Margin ไม่รวมใบที่ถอนจองแล้ว (เดิมรวม ทำให้สูงเกินจริง)
-      const { value: revCur, margin: mgCur } = monthStats(bookings, selectedMonth)
-      const { value: revPrev, margin: mgPrev } = monthStats(bookings, prevM)
-      const item = (icon, label, curV, prevV, curDisplay, prevDisplay, color) => `
-        <div style="background:var(--surface-2);border-radius:10px;padding:12px;border-left:3px solid var(--${color})">
-          <div style="font-size:0.68rem;color:var(--text-muted);margin-bottom:4px">${icon} ${label}</div>
-          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
-            <span class="kpi-num" style="font-size:1.25rem;font-weight:800;color:var(--${color})">${curDisplay}</span>
-            ${momDelta(curV, prevV)}
-          </div>
-          <div style="font-size:0.64rem;color:var(--text-muted);margin-top:3px;font-family:'Share Tech Mono',monospace">${ymLabel(prevM)}: ${prevDisplay}</div>
-        </div>`
-      el.innerHTML =
-        item('📝', 'จองใหม่', cur.length, prev.length, cur.length + ' คัน', prev.length + ' คัน', 'primary') +
-        item('✅', 'ส่งมอบ', dlvCur, dlvPrev, dlvCur + ' คัน', dlvPrev + ' คัน', 'success') +
-        item('💰', 'มูลค่าใบจอง', revCur, revPrev, formatCurrency(revCur), formatCurrency(revPrev), 'accent') +
-        item('📈', 'Margin รวม', mgCur, mgPrev, formatCurrency(mgCur), formatCurrency(mgPrev), 'warning')
+      if (!picker || document.activeElement === picker) return
+      const opts = []
+      for (let i = 1; i <= 24; i++) opts.push(shiftMonth(selectedMonth, -i))
+      if (!opts.includes(compareMonth)) opts.push(compareMonth)
+      picker.innerHTML = opts.map(m => `<option value="${m}"${m === compareMonth ? ' selected' : ''}>${ymLabel(m)}${m === shiftMonth(selectedMonth, -12) ? ' (ปีก่อน)' : ''}</option>`).join('')
+      const nowBtn = document.getElementById('pm-now')
+      if (nowBtn) nowBtn.style.display = selectedMonth === todayBangkok().slice(0, 7) ? 'none' : ''
     }
 
     // ── พยากรณ์อนาคต: เดือนหน้า + โมเมนตัม + run-rate + สถิติสูงสุด ──
@@ -1255,7 +1326,7 @@ export default async function DashboardPage(container) {
     }
 
     function renderAll() {
-      renderHud()
+      renderHero()
       renderPipeline(); renderDeptDetail(); renderTrendChart(); renderDonut(); renderGauges()
       renderMoM(); renderForecast(); renderTops(); renderFunnel()
       renderAlerts(); renderTargets(); renderHeatmap(); renderRadar()
@@ -1265,8 +1336,9 @@ export default async function DashboardPage(container) {
 
     document.getElementById('pm-prev')?.addEventListener('click', () => setSelectedMonth(shiftMonth(selectedMonth, -1)))
     document.getElementById('pm-next')?.addEventListener('click', () => setSelectedMonth(shiftMonth(selectedMonth, 1)))
+    document.getElementById('pm-now')?.addEventListener('click', () => setSelectedMonth(todayBangkok().slice(0, 7)))
     document.getElementById('mom-compare-picker')?.addEventListener('change', e => {
-      if (e.target.value) { compareMonth = e.target.value; renderMoM() }
+      if (e.target.value) { compareMonth = e.target.value; renderHero() }
     })
     // (v1.0.446) ต้องรีเฟรชกราฟส่งมอบ/ถอนจองด้วย — ใช้ trendRange เดียวกับกราฟหลัก ถ้าเรียกแค่ renderTrendChart()
     // อย่างเดียวเหมือนเดิม กราฟ 2 อันใหม่จะค้างช่วงเดือนเก่าไม่ตรงกับกราฟหลักที่เพิ่งสลับ 6/12 เดือน
@@ -1406,7 +1478,6 @@ export default async function DashboardPage(container) {
   } catch {}
 
   return function cleanupDashboard() {
-    clearInterval(clockTimer)
     unsubscribers.forEach(u => { try { u() } catch {} })
   }
 }
