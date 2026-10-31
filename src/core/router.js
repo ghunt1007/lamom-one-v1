@@ -577,6 +577,7 @@ export function navigate(path) {
   if (target) render(target)
 }
 
+let lastRenderedPath = null
 async function render(appEl) {
   const gen = ++renderGen
   const path = window.location.pathname
@@ -611,6 +612,12 @@ async function render(appEl) {
     if (gen !== renderGen) return  // navigation happened while loading — abort
     setState('loading', false)
     const page = mod.default
+    // เปลี่ยนหน้า (ไม่ใช่วาดซ้ำหน้าเดิม) → ค่อยๆ เลื่อนขึ้นจางเข้า 0.25 วิ (CSS .route-enter ใน polish.css)
+    if (path !== lastRenderedPath) {
+      lastRenderedPath = path
+      appEl.classList.remove('route-enter'); void appEl.offsetWidth; appEl.classList.add('route-enter')
+      clearTimeout(appEl.__enterT); appEl.__enterT = setTimeout(() => appEl.classList.remove('route-enter'), 450)
+    }
     if (typeof page === 'function') {
       // wrap async pages so they check gen before writing innerHTML
       appEl.__routerGen = gen

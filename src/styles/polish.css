@@ -235,3 +235,63 @@ th { color: var(--text-muted); font-weight: 600; }
 .ts-prev.has-wall .ts-side { background: color-mix(in srgb, var(--surface) 80%, transparent); }
 .ts-prev.has-wall .ts-kpis i { background: color-mix(in srgb, var(--surface) 85%, transparent); }
 @media (max-width: 640px) { .ts-walls { grid-template-columns: repeat(3, minmax(0, 1fr)); } .ts-wall { height: 60px; } }
+
+/* ============================================================
+   Polish v3 (v1.0.890) — ทั้งแอป: เมนูข้าง · ปุ่มหัวหน้า · ตาราง · การเปลี่ยนหน้า
+   ============================================================ */
+/* เปลี่ยนหน้า: เนื้อหาค่อยๆ เลื่อนขึ้นและจางเข้า (เฉพาะตอนเปลี่ยนหน้า ไม่เล่นซ้ำตอนข้อมูลอัปเดต) */
+@keyframes routeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.route-enter > * { animation: routeIn .28s cubic-bezier(.2,.7,.2,1) both; }
+@media (prefers-reduced-motion: reduce) { .route-enter > * { animation: none; } }
+
+/* เมนูข้าง: ไอคอนอยู่ในกล่องมนเล็กๆ · เมนูที่เปิดอยู่ไล่สีธีม + กล่องไอคอนสีเต็ม */
+.nav-item .nav-icon {
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  width: 28px; height: 28px; border-radius: 8px; font-size: 0.95rem;
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  transition: background .15s, transform .15s;
+}
+.nav-item:hover .nav-icon { background: color-mix(in srgb, var(--primary) 18%, transparent); transform: scale(1.06); }
+.nav-item.active {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--primary) 22%, transparent), color-mix(in srgb, var(--primary) 4%, transparent));
+  color: var(--text);
+}
+.nav-item.active .nav-icon { background: var(--grad-primary); filter: none; box-shadow: 0 4px 12px -4px var(--primary-glow); }
+:root[data-mode="light"] .nav-item.active { color: var(--primary); }
+.nav-item { padding-top: 6px; padding-bottom: 6px; }
+.sidebar.collapsed .nav-item .nav-icon { width: 32px; height: 32px; }
+[data-density="compact"] .nav-item .nav-icon { width: 24px; height: 24px; border-radius: 7px; }
+.nav-group-label { letter-spacing: 0.06em; }
+
+/* ปุ่มบนหัวหน้า: ปุ่มรองทุกปุ่มหน้าตาเดียวกัน (มีกรอบบาง สูงเท่ากัน) ไม่ใช่บางปุ่มมีกรอบบางปุ่มไม่มี */
+.page-actions { align-items: center; }
+.page-actions > .btn-ghost, .page-actions > .btn-secondary {
+  border: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 70%, transparent);
+  min-height: 34px; border-radius: 10px;
+}
+.page-actions > .btn-ghost:hover, .page-actions > .btn-secondary:hover { border-color: var(--primary); color: var(--text); background: var(--primary-dim); }
+.page-actions > .btn-primary { min-height: 38px; border-radius: 11px; padding-left: 16px; padding-right: 16px; }
+.page-title { font-weight: 800; }
+
+/* ตาราง: หัวตารางพื้นอ่อน · แถวสลับสีจางมาก · ปุ่มแก้ไข/ลบท้ายแถวจางไว้ ชี้แถวแล้วค่อยชัด (ลดความรก) */
+.table thead th { background: color-mix(in srgb, var(--text) 4%, var(--surface)); font-size: 0.74rem; letter-spacing: 0.02em; }
+.table tbody tr:nth-child(even) > td { background: color-mix(in srgb, var(--text) 1.5%, transparent); }
+@media (hover: hover) and (min-width: 641px) {
+  #main-content table tbody tr > td:last-child :is(.btn-ghost, .btn-icon) { opacity: .4; transition: opacity .15s; }
+  #main-content table tbody tr:hover > td:last-child :is(.btn-ghost, .btn-icon),
+  #main-content table tbody tr > td:last-child :is(.btn-ghost, .btn-icon):focus-visible { opacity: 1; }
+}
+
+/* การ์ดตัวกรองสถานะ (ลูกค้า ฯลฯ) และชิปกรอง: ชี้แล้วยก */
+.chip, .filter-chip, .status-chip { transition: transform .12s, border-color .12s, background .12s; }
+.chip:hover, .filter-chip:hover, .status-chip:hover { transform: translateY(-1px); }
+
+/* ช่องกรอก/เลือก: ขอบนุ่ม โฟกัสมีวงแสงสีธีม */
+.input, .select, select.input, textarea.input { transition: border-color .15s, box-shadow .15s; }
+.input:focus, .select:focus, select.input:focus, textarea.input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-dim); outline: none; }
+
+/* แถบเมนูล่างบนมือถือ: เมนูที่เปิดอยู่มีจุดไฟเล็กๆ ด้านบน */
+@media (max-width: 768px) {
+  .bottom-nav-item { position: relative; }
+  .bottom-nav-item.active::before { content: ''; position: absolute; top: 2px; left: 50%; width: 18px; height: 3px; margin-left: -9px; border-radius: 3px; background: var(--grad-primary); box-shadow: 0 0 8px var(--primary-glow); }
+}
