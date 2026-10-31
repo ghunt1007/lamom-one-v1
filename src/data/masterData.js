@@ -14,11 +14,30 @@
  * ใช้งาน: import { getSalesStaff, getAccessories, getBanks } from '../../data/masterData.js'
  */
 import { listDocs, createDoc, updateDocData } from '../core/db.js'
+import { companyScopeFilters } from '../core/companyScope.js'
 
 const KEY = 'lamom_master_data' // localStorage key เดิม — ใช้ตอน migrate ครั้งแรกเท่านั้น ไม่ลบทิ้งหลังจากนั้น (ไม่มีผลเสีย)
 
+// ชื่อเซลส์ตัวอย่างที่ระบบเคยใส่ไว้ตั้งแต่ติดตั้ง (ไม่ใช่คนจริง) — doc master_data ที่สร้างไว้ก่อนหน้านี้ยังเก็บชื่อพวกนี้อยู่
+// ทำให้ช่องเลือกเซลส์ทุกหน้าโชว์ชื่อปลอม · ตัดออกตอนอ่าน (ไม่เขียนทับ Firestore) แล้วใช้ชื่อเซลส์จริงจากใบจองแทน
+export const DEMO_SALES_STAFF = ['อรนุช เซลส์ดี', 'วิชัย ขายเก่ง', 'ปวีณา สายขาย', 'ธนกร โชคดี', 'สุดารัตน์ ใจบุญ']
+
+export function realSalesStaff(list, bookings = []) {
+  const kept = (list || []).filter(n => n && !DEMO_SALES_STAFF.includes(n))
+  if (kept.length) return kept
+  // ยังไม่ได้ตั้งชื่อเซลส์เอง → ใช้ชื่อเซลส์ที่อยู่ในใบจองจริง เรียงจากคนที่มีใบจองมากสุด
+  const count = new Map()
+  for (const b of bookings) {
+    const n = String(b?.salesName || '').trim()
+    if (!n || b.deleted || DEMO_SALES_STAFF.includes(n)) continue
+    count.set(n, (count.get(n) || 0) + 1)
+  }
+  return [...count].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'th')).map(([n]) => n)
+}
+
 const DEFAULTS = {
-  salesStaff: ['อรนุช เซลส์ดี', 'วิชัย ขายเก่ง', 'ปวีณา สายขาย', 'ธนกร โชคดี', 'สุดารัตน์ ใจบุญ'],
+  // ว่างไว้ — ชื่อเซลส์จริงตั้งในหน้า Master Data หรือดึงจากใบจองอัตโนมัติ (ดู realSalesStaff ด้านล่าง)
+  salesStaff: [],
   branches: ['โชว์รูมหลัก (สำนักงานใหญ่)', 'สาขา 2', 'สาขา 3', 'ศูนย์บริการ'],
   colors: ['ขาว Pearl', 'ดำ', 'เทา', 'เงิน', 'น้ำเงิน', 'แดง', 'เขียว', 'ส้ม', 'ฟ้า'],
   // price = ราคาเริ่มต้น (fallback); priceByVehicle = ราคาที่ต่างกันตามรุ่น/ยี่ห้อรถ (ไม่ระบุ = ใช้ price เริ่มต้น)
@@ -125,6 +144,7 @@ export async function loadMasterData() {
       _docId = await createDoc('master_data', seed)
       _cache = seed
     }
+    await fixSalesStaff()
     _loaded = true
   } catch (e) {
     // โหลดพัง (offline/permission ฯลฯ) — ใช้ DEFAULTS ต่อไปเพื่อไม่ให้แอปค้าง, _loaded ยัง mark true
@@ -133,6 +153,14 @@ export async function loadMasterData() {
   }
 }
 export function isMasterDataLoaded() { return _loaded }
+
+async function fixSalesStaff() {
+  const own = realSalesStaff(_cache.salesStaff)
+  if (own.length) { _cache.salesStaff = own; return }
+  let bookings = []
+  try { bookings = await listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 1000) } catch { /* อ่านใบจองไม่ได้ — ปล่อยว่าง */ }
+  _cache.salesStaff = realSalesStaff([], bookings)
+}
 
 async function ensureDocId() {
   if (!_docId) await loadMasterData()

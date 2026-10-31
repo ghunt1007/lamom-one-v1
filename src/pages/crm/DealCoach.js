@@ -153,7 +153,7 @@ export default async function DealCoachPage(container) {
   // (เลือกวิธีนี้แทนการชี้ไปอ่าน bookings/customers เพราะ schema ของหน้านี้ต้องมี winPct/advice/objections/
   // competitors ที่ bookings/customers ไม่มี — ปั้นค่าพวกนั้นขึ้นมาเองจะกลายเป็นข้อมูลปลอมอีกชุดแทน)
   function openAddDealModal() {
-    const salesList = getSalesStaff().length ? getSalesStaff() : ['อรนุช เซลส์ดี', 'วิชัย ขายเก่ง']
+    const salesList = getSalesStaff().length ? getSalesStaff() : ['ยังไม่ระบุ']
     openModal({
       title: '+ เพิ่มดีลที่กำลังเจรจา',
       size: 'sm',

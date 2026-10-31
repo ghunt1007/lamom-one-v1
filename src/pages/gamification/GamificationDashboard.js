@@ -11,13 +11,6 @@ const LEVELS = [
   { min:10000,max:99999, name:'🏆 Legend',      color:'warning' },
 ]
 
-// fallback demo — ใช้เฉพาะตอนยังไม่มีข้อมูลจริงในระบบเลย (ledger ว่างเปล่าจริงๆ)
-const DEMO_LEADERBOARD = [
-  { name:'อรนุช เซลส์ดี', xp:7850, sales:14, avatar:'อ', color:'primary' },
-  { name:'วิชัย ขายเก่ง', xp:5200, sales:9, avatar:'ว', color:'accent' },
-  { name:'สมชาย ช่างดี', xp:3100, sales:0, avatar:'ส', color:'success' },
-  { name:'วิชาญ มีโชค', xp:1800, sales:4, avatar:'ว', color:'warning' },
-]
 
 const LAMI_STAGES = [
   { level:1, name:'🥚 ไข่', xp:0, desc:'LAMI ยังอยู่ในไข่... รอการฟักออกมา' },
@@ -323,8 +316,10 @@ export default async function GamificationDashboard(container) {
     }
 
     function renderLeaderboard() {
-      const board = liveLeaderboard && liveLeaderboard.length ? liveLeaderboard : DEMO_LEADERBOARD
-      const isLive = !!(liveLeaderboard && liveLeaderboard.length)
+      // ไม่มีแต้มจริงเลย → บอกตรงๆ แทนการโชว์อันดับของเซลส์ตัวอย่าง (ชื่อปลอม)
+      const board = liveLeaderboard || []
+      const isLive = board.length > 0
+      if (!isLive) return `<div class="card"><div class="empty-state"><div class="empty-icon">🏆</div><div class="empty-title">ยังไม่มีอันดับ</div><div class="empty-desc">อันดับจะขึ้นเองเมื่อเซลส์เริ่มสะสมแต้มหรือมียอดขาย</div></div></div>`
       const medals = ['🥇','🥈','🥉','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟']
       return `
         <div class="card" style="overflow:hidden;padding:0">

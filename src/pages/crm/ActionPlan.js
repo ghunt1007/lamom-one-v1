@@ -146,7 +146,7 @@ export default async function ActionPlanPage(container) {
       body: '<div style="display:flex;flex-direction:column;gap:8px">' +
         inp('af-title', 'กิจกรรม *', e.title) +
         '<div class="grid-2">' + sel('af-type', 'ประเภท', TYPES, e.type) + inp('af-cust', 'ลูกค้า', e.custName) + '</div>' +
-        '<div class="grid-2">' + sel('af-sales', 'เซลส์', getSalesStaff().length ? getSalesStaff() : ['อรนุช เซลส์ดี', 'วิชัย ขายเก่ง'], e.salesName) + inp('af-due', 'กำหนดเสร็จ', e.dueDate || today(), 'date') + '</div>' +
+        '<div class="grid-2">' + sel('af-sales', 'เซลส์', getSalesStaff().length ? getSalesStaff() : ['ยังไม่ระบุ'], e.salesName) + inp('af-due', 'กำหนดเสร็จ', e.dueDate || today(), 'date') + '</div>' +
         '<div class="grid-2">' + selKV('af-priority', 'ความสำคัญ', PRIORITY, e.priority || 'medium') + selKV('af-status', 'สถานะ', STATUS, e.status || 'todo') + '</div>' +
         inp('af-note', 'หมายเหตุ', e.note) +
         '<span class="input-error" id="af-err"></span>' +
