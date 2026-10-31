@@ -184,3 +184,54 @@ th { color: var(--text-muted); font-weight: 600; }
 .ts-line { flex: 1; height: 5px; border-radius: 3px; background: var(--surface-3); }
 .ts-btn { width: 30%; height: 11px; border-radius: 6px; background: linear-gradient(135deg, var(--primary), var(--accent)); }
 @media (max-width: 640px) { .ts-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ts-prev { height: 64px; } }
+
+/* ============================================================
+   ภาพพื้นหลัง (ภาพวาด / 3D / รูปของฉัน) + การ์ดแบบ 3D — v1.0.889
+   ภาพอยู่ใน #lamom-wall (fixed หลังทุกอย่าง) ทับด้วยม่านสีพื้นธีม (--wall-dim) ให้ตัวหนังสืออ่านง่าย
+   การ์ด/แถบเมนูเป็นกระจกฝ้า: สีพื้นการ์ดทึบ ~88% จึงคง contrast ตัวหนังสือเดิมไว้
+   ============================================================ */
+#lamom-wall { position: fixed; inset: 0; z-index: -2; background: center / cover no-repeat; pointer-events: none; }
+#lamom-wall::after { content: ''; position: absolute; inset: 0; background: var(--bg); opacity: var(--wall-dim, 40%); }
+:root:not([data-wall]) #lamom-wall { display: none; }
+:root[data-wall] body { background: var(--bg); }
+:root[data-wall] body::after, :root[data-wall] body::before { display: none; }
+:root[data-wall] :is(.main-content, #main-content, .page-content, .app-layout, .main-wrapper) { background: transparent; }
+:root[data-wall] :is(.card, .kpi-card, .dash-kpi) {
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  -webkit-backdrop-filter: blur(14px) saturate(1.25); backdrop-filter: blur(14px) saturate(1.25);
+}
+:root[data-wall] :is(.sidebar, .topbar) {
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(1.3); backdrop-filter: blur(18px) saturate(1.3);
+}
+/* หัวข้อหน้าที่วางบนภาพโดยตรง: เงาตัวอักษรบางๆ ให้อ่านออกทุกภาพ */
+:root[data-wall] :is(.page-title, .page-subtitle, .page-header h1) { text-shadow: 0 1px 12px var(--bg), 0 0 2px var(--bg); }
+[data-effects="off"] #lamom-wall { display: none; }
+@media print { #lamom-wall { display: none; } }
+
+/* การ์ด 3D: เงาหลายชั้น + ขอบแสงด้านบน + ยกขึ้นตอนชี้ · การ์ดตัวเลขเอียงตามเมาส์ (ค่า --rx/--ry จาก appearance.js) */
+:root[data-fx3d="on"] { --depth: 0 1px 0 rgba(255,255,255,0.10) inset, 0 -2px 0 rgba(0,0,0,0.22) inset, 0 2px 3px rgba(0,0,0,0.18), 0 14px 28px -10px rgba(0,0,0,0.45), 0 34px 60px -34px rgba(0,0,0,0.55); }
+:root[data-fx3d="on"][data-mode="light"] { --depth: 0 1px 0 rgba(255,255,255,0.9) inset, 0 -2px 0 rgba(15,23,42,0.06) inset, 0 2px 3px rgba(15,23,42,0.08), 0 14px 28px -12px rgba(15,23,42,0.22), 0 34px 60px -34px rgba(15,23,42,0.3); }
+:root[data-fx3d="on"] :is(.card, .kpi-card, .dash-kpi) { box-shadow: var(--depth); }
+:root[data-fx3d="on"] :is(.kpi-card, .dash-kpi, .stat-card) {
+  transform: perspective(800px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(0);
+  transition: transform .18s ease-out, box-shadow .2s;
+}
+:root[data-fx3d="on"] :is(.kpi-card, .dash-kpi, .stat-card):hover { transform: perspective(800px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(-4px); }
+:root[data-fx3d="on"] .btn-primary { box-shadow: 0 3px 0 color-mix(in srgb, var(--primary) 55%, #000), 0 8px 16px -6px var(--primary-glow); transition: transform .08s, box-shadow .08s; }
+:root[data-fx3d="on"] .btn-primary:active { transform: translateY(2px); box-shadow: 0 1px 0 color-mix(in srgb, var(--primary) 55%, #000); }
+:root[data-fx3d="on"] .nav-item.active { box-shadow: 0 1px 0 rgba(255,255,255,0.08) inset, 0 6px 14px -6px var(--primary-glow); }
+@media (prefers-reduced-motion: reduce) { :root[data-fx3d="on"] :is(.kpi-card, .dash-kpi, .stat-card) { transform: none !important; } }
+
+/* หน้าต่างปรับหน้าตา: แถวภาพพื้นหลัง */
+.ts-walls { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+.ts-wall { position: relative; height: 72px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--surface-2) center / cover no-repeat; cursor: pointer; overflow: hidden; padding: 0; font: inherit; color: #fff; transition: transform .15s, border-color .15s; }
+.ts-wall:hover { transform: translateY(-2px); border-color: var(--primary); }
+.ts-wall.on { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-dim); }
+.ts-wall span { position: absolute; inset: auto 0 0 0; padding: 14px 6px 4px; font-size: 0.7rem; font-weight: 600; text-align: left; background: linear-gradient(transparent, rgba(0,0,0,0.65)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ts-wall.plain span { position: static; background: none; color: var(--text-2); padding: 0; text-align: center; }
+.ts-wall.plain { display: flex; align-items: center; justify-content: center; gap: 4px; flex-direction: column; font-size: 1.2rem; }
+.ts-prev.has-wall { background-size: cover; background-position: center; }
+.ts-prev.has-wall .ts-side { background: color-mix(in srgb, var(--surface) 80%, transparent); }
+.ts-prev.has-wall .ts-kpis i { background: color-mix(in srgb, var(--surface) 85%, transparent); }
+@media (max-width: 640px) { .ts-walls { grid-template-columns: repeat(3, minmax(0, 1fr)); } .ts-wall { height: 60px; } }
