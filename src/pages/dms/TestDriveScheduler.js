@@ -9,7 +9,6 @@ import { watchDocs, listDocs, createDoc, updateDocData, seedDemoData } from '../
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 import { scheduleTestDriveFollowup } from '../../utils/testDriveFollowup.js'
-import { navigate } from '../../core/router.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -99,7 +98,6 @@ export default async function TestDriveSchedulerPage(container) {
             <div class="page-subtitle">นัดชุดเดียวกับหน้าทดลองขับ ดูเป็นช่วงเวลารายวัน</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-ghost btn-sm" id="td-view-list" title="ดูรายการและผลทดลองขับทั้งหมด">📋 รายการ/ผล</button>
             <button class="btn btn-primary" id="book-td-btn">+ นัดทดลองขับ</button>
           </div>
         </div>
@@ -193,7 +191,6 @@ export default async function TestDriveSchedulerPage(container) {
     })
     document.getElementById('today-btn')?.addEventListener('click', () => { viewDate = addDays(0); renderPage() })
     document.getElementById('book-td-btn')?.addEventListener('click', () => openBookForm())
-    document.getElementById('td-view-list')?.addEventListener('click', () => navigate('/crm/testdrive'))
     container.querySelectorAll('.td-slot-item').forEach(el => el.addEventListener('click', () => {
       const b = bookings.find(x => x.id === el.dataset.id); if (b) openDetail(b)
     }))

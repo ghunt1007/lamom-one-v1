@@ -21,6 +21,8 @@ import { initErrorMonitor } from './utils/errorMonitor.js'
 import { initAutoI18n } from './i18n/autoTranslate.js'
 import { initStaleChunkReload } from './utils/staleChunk.js'
 import { initKpiQuiet } from './utils/kpiQuiet.js'
+import { initViewTabs } from './utils/linkedViews.js'
+import { getModuleForPath, hasModuleAccess } from './core/permissions.js'
 import { initChipRows } from './utils/chipRows.js'
 
 initStaleChunkReload()
@@ -72,6 +74,12 @@ initAuth(() => {
   bootstrapShell()
 })
 
+// แท็บสลับมุมมองโชว์เฉพาะหน้าที่ผู้ใช้คนนี้มีสิทธิ์เปิด (กติกาเดียวกับแถบเมนูซ้าย)
+function canOpenPath(path) {
+  const u = getState('user') || {}
+  return hasModuleAccess(u.role, getModuleForPath(path)?.key, u.extraGrants)
+}
+
 async function bootstrapShell() {
   // seed demo data (lazy chunk) + โหลด vehicle catalog overrides + master data ให้เสร็จก่อน initRouter — กัน race หน้าแรกอ่านข้อมูลว่าง
   const [, , , brand] = await Promise.all([seedDemoData(), loadVehicleOverrides(), loadMasterData(), loadWhiteLabel()])
@@ -102,6 +110,7 @@ async function bootstrapShell() {
   initRouter(main)
   initAutoTableTools()  // เสริม sort+filter แบบ Excel ให้ทุกตารางอัตโนมัติ
   initKpiQuiet()       // แถวการ์ดตัวเลขที่เป็น 0 ทั้งแถว ย่อให้เล็กลง
+  initViewTabs({ navigate, canOpen: canOpenPath })  // หน้าที่รวมกันแล้ว: แท็บสลับมุมมองใต้หัวหน้า
   initChipRows()       // มือถือ: แถวปุ่มกรองที่ล้นหลายบรรทัด → เลื่อนแถวเดียว
 
   // ✨ มีอะไรใหม่ — ครั้งเดียวต่อเครื่องหลังอัปเดตใหญ่ (รอให้หน้าแรกโหลดก่อน)

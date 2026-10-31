@@ -7,7 +7,6 @@ import { getSalesStaff } from '../../data/masterData.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
 import { scheduleTestDriveFollowup } from '../../utils/testDriveFollowup.js'
-import { navigate } from '../../core/router.js'
 import { testDriveThanks } from '../../utils/bookingNotify.js'
 
 // (v1.0.523) เดิมหน้านี้เขียน collection แยก 'test_drive_records' ของตัวเอง ในขณะที่ TestDriveScheduler.js
@@ -131,7 +130,6 @@ export default async function TestDrivePage(container) {
           </div>
           <div class="page-actions">
             ${todayTDs.length > 0 ? `<span class="badge badge-primary">📅 วันนี้ ${todayTDs.length} นัด</span>` : ''}
-            <button class="btn btn-ghost btn-sm" id="td-view-slots" title="ดูนัดเดียวกันเป็นตารางเวลารายวัน">🗓 ตารางเวลา</button>
             <button class="btn btn-primary" id="new-td-btn">➕ นัดทดลองขับ</button>
           </div>
         </div>
@@ -205,7 +203,6 @@ export default async function TestDrivePage(container) {
     `
 
     document.getElementById('new-td-btn')?.addEventListener('click', openNewForm)
-    document.getElementById('td-view-slots')?.addEventListener('click', () => navigate('/dms/testdrive-schedule'))
     document.querySelectorAll('.fs-btn').forEach(b => b.addEventListener('click', () => { filterStatus = b.dataset.s; renderPage() }))
     document.querySelectorAll('.td-view-btn').forEach(b => {
       b.addEventListener('click', () => { const t = testdrives.find(x => x.id === b.dataset.id); if (t) openDetail(t) })
