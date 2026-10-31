@@ -1,3 +1,4 @@
+import { applyMode } from '../utils/appearance.js'
 // Global State Store — Reactive without framework
 const listeners = {}
 
@@ -62,10 +63,11 @@ export function setTheme(theme) {
 // (v1.0.532) โหมดสว่าง/มืด — แยกอิสระจาก setTheme() (สีธีม) เพราะ mode คือความสว่างของพื้นหลัง/ตัวอักษร
 // ไม่ใช่โทนสี — (v1.0.535) ตอนนี้มี CSS override โหมดสว่างครบทั้ง 33 ธีมแล้วใน themes.css (เริ่มจาก Midnight
 // เดี่ยวๆ ใน v1.0.532 แล้วสร้างที่เหลือด้วย scripts/gen-light-themes.mjs)
+// (v1.0.887) รองรับ 'auto' = ตามการตั้งค่ามืด/สว่างของเครื่อง (utils/appearance.js)
 export function setMode(mode) {
   setState('mode', mode)
   try { localStorage.setItem('lamom_mode', mode) } catch {}
-  document.documentElement.setAttribute('data-mode', mode)
+  applyMode(mode)
 }
 
 export function setLanguage(lang) {

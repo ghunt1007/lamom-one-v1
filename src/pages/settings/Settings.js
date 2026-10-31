@@ -1,5 +1,5 @@
 import { navigate } from '../../core/router.js'
-import { getState, setState, setTheme, setMode } from '../../core/store.js'
+import { getState, setState } from '../../core/store.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -21,7 +21,6 @@ const NAV_ITEMS = [
 
 export default function SettingsPage(container) {
   const user = getState('user')
-  const currentMode = document.documentElement.getAttribute('data-mode') || 'dark'
 
   container.innerHTML = `
     <div class="page-content animate-slide">
@@ -45,18 +44,8 @@ export default function SettingsPage(container) {
       <!-- Appearance -->
       <div class="card mb-4" style="padding:20px">
         <div style="font-weight:600;margin-bottom:16px">🎨 หน้าตา</div>
-        <div style="margin-bottom:14px">
-          <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:8px">Theme สี</div>
-          <button class="btn btn-secondary btn-sm" id="open-theme-picker-btn">🎨 เลือก Theme สี (33 แบบ)</button>
-        </div>
-        <div>
-          <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:8px">โหมดสี</div>
-          <div style="display:flex;gap:10px">
-            <button class="btn btn-sm mode-btn ${currentMode === 'dark' ? 'btn-primary' : 'btn-secondary'}" data-mode="dark">🌙 มืด (Dark)</button>
-            <button class="btn btn-sm mode-btn ${currentMode === 'light' ? 'btn-primary' : 'btn-secondary'}" data-mode="light">☀️ สว่าง (Light)</button>
-          </div>
-          <div style="font-size:0.72rem;color:var(--text-muted);margin-top:6px">โหมดสว่างรองรับครบทุก Theme สีแล้ว — สลับ Theme ได้อิสระ พื้นหลังจะยังคงสว่างตามที่เลือกไว้</div>
-        </div>
+        <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:10px">ธีมสี 37 แบบ (ดูภาพตัวอย่างก่อนเลือก) · โหมด มืด/สว่าง/ตามเครื่อง · ขนาดตัวอักษร · มุมการ์ด · ระยะห่าง</div>
+        <button class="btn btn-primary btn-sm" id="open-theme-picker-btn">🎨 ปรับหน้าตาโปรแกรม</button>
       </div>
 
       <!-- Profile -->
@@ -101,17 +90,6 @@ export default function SettingsPage(container) {
   })
 
   document.getElementById('open-theme-picker-btn')?.addEventListener('click', () => {
-    document.getElementById('theme-btn')?.click()
-  })
-
-  document.querySelectorAll('.mode-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      setMode(btn.dataset.mode)
-      document.querySelectorAll('.mode-btn').forEach(b => {
-        b.classList.toggle('btn-primary', b.dataset.mode === btn.dataset.mode)
-        b.classList.toggle('btn-secondary', b.dataset.mode !== btn.dataset.mode)
-      })
-      import('../../core/store.js').then(m => m.showToast(btn.dataset.mode === 'light' ? '☀️ เปลี่ยนเป็นโหมดสว่างแล้ว' : '🌙 เปลี่ยนเป็นโหมดมืดแล้ว', 'success')).catch(() => {})
-    })
+    import('../../components/ThemeStudio.js').then(m => m.openThemeStudio())
   })
 }

@@ -7,6 +7,7 @@ import './styles/polish.css'
 import { initAuth, logout } from './core/auth.js'
 import { initRouter, navigate } from './core/router.js'
 import { getState, on, setTheme } from './core/store.js'
+import { applyMode, applyUi, loadUi } from './utils/appearance.js'
 import { seedDemoData } from './core/db.js'
 import { loadVehicleOverrides } from './data/vehicleDatabase.js'
 import { loadMasterData } from './data/masterData.js'
@@ -41,8 +42,9 @@ const savedTheme = localStorage.getItem('lamom_theme') || 'midnight'
 document.documentElement.setAttribute('data-theme', savedTheme)
 
 // Apply saved light/dark mode immediately (v1.0.532) — เหมือนธีม ต้องตั้งก่อน render แรกเพื่อกันการกระพริบ
-const savedMode = localStorage.getItem('lamom_mode') || 'dark'
-document.documentElement.setAttribute('data-mode', savedMode)
+// (v1.0.887) 'auto' = ตามเครื่อง · พร้อมขนาดตัวอักษร/มุม/ระยะห่าง/เอฟเฟกต์ที่ตั้งไว้ในหน้าต่าง "ปรับหน้าตา"
+applyMode(localStorage.getItem('lamom_mode') || 'dark')
+applyUi(loadUi())
 
 // Loading screen
 app.innerHTML = `
