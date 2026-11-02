@@ -35,25 +35,27 @@ export function periodLabel(ym, period = 'month') {
 }
 
 // ใบจองที่อยู่เบื้องหลังตัวเลขแต่ละช่อง — ใช้ทั้งนับและแสดงรายการ (กดตัวเลขแล้วเห็นว่านับใบไหนบ้าง)
-export function statRows(bookings = [], months, key) {
+// upToDay (ไม่บังคับ): นับเฉพาะวันที่ 1..upToDay ของเดือน — ใช้เทียบ "เดือนนี้ถึงวันนี้" กับช่วงเดียวกันของเดือนก่อน
+export function statRows(bookings = [], months, key, upToDay) {
   const set = new Set(Array.isArray(months) ? months : [months])
-  const bookedIn = bookings.filter(b => set.has(String(b.bookingDate || '').slice(0, 7)))
+  const okDay = d => !upToDay || Number(String(d || '').slice(8, 10)) <= upToDay
+  const bookedIn = bookings.filter(b => set.has(String(b.bookingDate || '').slice(0, 7)) && okDay(b.bookingDate))
   if (key === 'booked') return bookedIn
   if (key === 'value' || key === 'margin' || key === 'active') return bookedIn.filter(b => !isCancelled(b))
   if (key === 'withdrawn') return bookedIn.filter(isCancelled)
-  if (key === 'delivered') return bookings.filter(b => isDelivered(b) && set.has(deliveredMonth(b)))
+  if (key === 'delivered') return bookings.filter(b => isDelivered(b) && set.has(deliveredMonth(b)) && okDay(b.cutDate || b.actualDeliveryDate))
   if (key === 'open') return openBookings(bookings)
   return []
 }
 
-export function rangeStats(bookings = [], months) {
-  const live = statRows(bookings, months, 'active')
-  const booked = statRows(bookings, months, 'booked').length
+export function rangeStats(bookings = [], months, upToDay) {
+  const live = statRows(bookings, months, 'active', upToDay)
+  const booked = statRows(bookings, months, 'booked', upToDay).length
   return {
     booked,
     active: live.length,
     withdrawn: booked - live.length,
-    delivered: statRows(bookings, months, 'delivered').length,
+    delivered: statRows(bookings, months, 'delivered', upToDay).length,
     value: live.reduce((s, b) => s + (Number(b.price) || 0), 0),
     margin: live.reduce((s, b) => s + (Number(b.margin) || 0), 0),
   }

@@ -907,17 +907,20 @@ export default async function DashboardPage(container) {
     const curMonths = () => periodMonths(selectedMonth, period)
     const cmpMonths = () => period === 'month' ? [compareMonth] : periodMonths(prevPeriodAnchor(selectedMonth, period), period)
     const cmpLabel = () => period === 'month' ? ymLabel(compareMonth) : periodLabel(prevPeriodAnchor(selectedMonth, period), period)
-    const leadsInRange = months => { const set = new Set(months); return leads.filter(l => set.has(String(toDateStr(l.createdAt) || l.date || '').slice(0, 7))) }
+    const leadsInRange = (months, upToDay) => { const set = new Set(months); return leads.filter(l => { const d = String(toDateStr(l.createdAt) || l.date || ''); return set.has(d.slice(0, 7)) && (!upToDay || Number(d.slice(8, 10)) <= upToDay) }) }
     function renderHero() {
       const el = document.getElementById('hero-kpis')
       if (!el) return
       container.querySelectorAll('[data-period]').forEach(b => b.classList.toggle('on', b.dataset.period === period))
       const cmpWrap = container.querySelector('.dash-compare')
       if (cmpWrap) cmpWrap.style.display = period === 'month' ? '' : 'none'
-      const cmp = cmpLabel()
+      // เดือนนี้ยังไม่จบ → เทียบกับ "ช่วงวันเดียวกัน" ของเดือนที่เลือกเทียบ (เดิมเทียบทั้งเดือน ต้นเดือนเลยขึ้น ▼100% ทุกการ์ด)
+      const todayTh = todayBangkok()
+      const upTo = period === 'month' && selectedMonth === todayTh.slice(0, 7) && compareMonth < selectedMonth ? Number(todayTh.slice(8, 10)) : undefined
+      const cmp = cmpLabel() + (upTo ? ` (1–${upTo})` : '')
       const ttl = document.getElementById('hero-period')
       if (ttl) ttl.innerHTML = `${periodLabel(selectedMonth, period)}<small>เทียบ ${cmp}</small>`
-      const cur = rangeStats(bookings, curMonths()), prev = rangeStats(bookings, cmpMonths())
+      const cur = rangeStats(bookings, curMonths()), prev = rangeStats(bookings, cmpMonths(), upTo)
       const open = openBookings(bookings)
       const delta = (c, p) => {
         const pct = pctChange(c, p)
@@ -933,7 +936,7 @@ export default async function DashboardPage(container) {
       const step = period === 'year' ? 12 : period === 'quarter' ? 3 : 1
       const back = [5, 4, 3, 2, 1, 0].map(k => periodMonths(shiftYm(selectedMonth, -k * step), period))
       const series = key => back.map(ms => rangeStats(bookings, ms)[key])
-      const leadsCur = leadsInRange(curMonths()).length, leadsPrev = leadsInRange(cmpMonths()).length
+      const leadsCur = leadsInRange(curMonths()).length, leadsPrev = leadsInRange(cmpMonths(), upTo).length
       const tiles = [
         { icon: '📝', label: 'จองใหม่', val: `${cur.booked}<small>คัน</small>`, d: delta(cur.booked, prev.booked), sub: `${cmp}: ${prev.booked} คัน`, sp: spark(series('booked'), 'primary'), color: 'primary', drill: 'booked' },
         { icon: '✅', label: 'ส่งมอบ', val: `${cur.delivered}<small>คัน</small>`, d: delta(cur.delivered, prev.delivered), sub: `${cmp}: ${prev.delivered} คัน`, sp: spark(series('delivered'), 'success'), color: 'success', drill: 'delivered' },

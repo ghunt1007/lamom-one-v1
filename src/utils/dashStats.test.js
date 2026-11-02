@@ -92,3 +92,20 @@ describe('pipelineStages / salesBoard', () => {
     expect(b[0]).toMatchObject({ delivered: 1, income: 2, booked: 0 })
   })
 })
+
+describe('rangeStats upToDay', () => {
+  it('counts only days 1..N when comparing an unfinished month', () => {
+    const bk = [
+      { bookingDate: '2026-10-01', status: 'รอรถ', price: 100 },
+      { bookingDate: '2026-10-03', status: 'รอรถ', price: 100 },
+      { bookingDate: '2026-10-20', status: 'รอรถ', price: 100 },
+      { bookingDate: '2026-09-01', status: 'ส่งมอบแล้ว', actualDeliveryDate: '2026-10-02' },
+      { bookingDate: '2026-09-01', status: 'ส่งมอบแล้ว', actualDeliveryDate: '2026-10-25' },
+    ]
+    expect(rangeStats(bk, ['2026-10']).booked).toBe(3)
+    const r = rangeStats(bk, ['2026-10'], 3)
+    expect(r.booked).toBe(2)
+    expect(r.delivered).toBe(1)
+    expect(r.value).toBe(200)
+  })
+})
