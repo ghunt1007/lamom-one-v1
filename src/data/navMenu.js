@@ -396,6 +396,7 @@ export const NAV = [
       { icon: '📋', label: 'ประวัติการใช้งาน', labelEn: 'Audit Log', path: '/settings/audit', programOwnerOnly: true },  // (รวม User Activity เดิม — หน้าเดียวกัน /settings/activity ยังเปิดได้)
       { icon: '🐞', label: 'บันทึกข้อผิดพลาด', labelEn: 'Error Log', path: '/settings/errors' },
       { icon: '💾', label: 'สำรอง/กู้คืนข้อมูล', labelEn: 'Backup & Restore', path: '/settings/backup', programOwnerOnly: true },
+      { icon: '📊', label: 'หน้าไหนมีข้อมูลจริง', labelEn: 'Page Usage', path: '/settings/page-usage', programOwnerOnly: true },
       { icon: '🔑', label: 'คีย์ API', labelEn: 'API Keys', path: '/settings/api-keys' },
       { icon: '📅', label: 'ปฏิทินวันหยุด', labelEn: 'Holiday Calendar', path: '/settings/holidays' },
       { icon: '💟', label: 'สถานะระบบ', labelEn: 'System Health', path: '/settings/health' },
