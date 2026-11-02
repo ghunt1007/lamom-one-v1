@@ -294,7 +294,7 @@ export const NAV = [
       { icon: '⚙️', label: 'การดำเนินงาน', labelEn: 'Operations', path: '/analytics/operations' },
       { icon: '📈', label: 'วิเคราะห์กำไร', labelEn: 'Profit Analysis', path: '/analytics/profit' },
       { icon: '🗺️', label: 'เส้นทางลูกค้า', labelEn: 'Customer Journey', path: '/analytics/journey' },
-      { icon: '🚗', label: 'ยอดขายตามรุ่น', labelEn: 'Sales By Model', path: '/analytics/by-model' },
+      { icon: '🚗', label: 'วิเคราะห์ยอดขาย', labelEn: 'Sales Analysis', path: '/analytics/by-model' },
       { icon: '📅', label: 'รายงานประจำวัน', labelEn: 'Daily Report', path: '/analytics/daily' },
       { icon: '📦', label: 'วิเคราะห์สต็อก', labelEn: 'Stock Analysis', path: '/analytics/stock' },
       { icon: '📈', label: 'แนวโน้มรายเดือน', labelEn: 'Monthly Trend', path: '/analytics/monthly' },
