@@ -248,7 +248,7 @@ export default async function CustomerFeedbackPage(container) {
       </div>
       <div style="margin-top:16px;display:flex;gap:8px">
         <button class="btn btn-primary" id="send-survey-btn" style="flex:1">📤 ส่ง Survey ตอนนี้</button>
-        <button class="btn btn-secondary">👁 ดูตัวอย่าง</button>
+        <button class="btn btn-secondary" id="sv-preview-btn" type="button">👁 ดูตัวอย่าง</button>
       </div>
     </div>`
   }
@@ -370,6 +370,19 @@ export default async function CustomerFeedbackPage(container) {
   }
 
   container.addEventListener('click', async e => {
+    // (v1.0.920) ปุ่ม "ดูตัวอย่าง" เดิมกดแล้วไม่เกิดอะไร — โชว์ข้อความที่ลูกค้าจะได้รับจริง (แทนชื่อตัวอย่าง)
+    if (e.target.closest?.('#sv-preview-btn')) {
+      const msg = bulkText(container.querySelector('#sv-msg')?.value || '')
+      const chs = Array.from(container.querySelectorAll('.sv-channel:checked')).map(c => ({ sms: '📱 SMS', line: '💬 LINE', email: '📧 Email' })[c.value] || c.value)
+      const type = container.querySelector('#sv-type')?.selectedOptions?.[0]?.textContent || ''
+      openModal({
+        title: '👁 ตัวอย่างข้อความที่ลูกค้าจะได้รับ', size: 'sm',
+        body: `<div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:8px">${escHtml(type)} · ส่งทาง ${escHtml(chs.join(', ') || '— ยังไม่ได้เลือกช่องทาง —')}</div>
+          <div style="background:var(--surface-2);border-radius:14px 14px 14px 4px;padding:12px 14px;font-size:0.88rem;line-height:1.6;white-space:pre-wrap">${escHtml(msg || '(ยังไม่มีข้อความ)')}</div>
+          <div style="font-size:0.72rem;color:var(--text-muted);margin-top:8px">ส่งข้อความเดียวกันถึงทุกคน — [ชื่อลูกค้า] จะกลายเป็น "ลูกค้า" · ถ้าจะให้ลูกค้ากดให้คะแนน ใส่ลิงก์แบบสอบถามไว้ในข้อความด้วย</div>`,
+      })
+      return
+    }
     if (e.target.id === 'send-survey-btn') {
       // (v1.0.xxx) เดิม toast "(Demo)" เฉยๆ ไม่ส่งจริงเลยไม่ว่าเลือกช่องทางไหน — ตอนนี้ SMS ส่งจริงผ่าน
       // comms.js ไปยังเบอร์โทรลูกค้าจริงที่มีอยู่ในรายการ feedbacks ที่โหลดมา ส่วน LINE/Email ระบบนี้ยังไม่มี
@@ -377,7 +390,7 @@ export default async function CustomerFeedbackPage(container) {
       // เก็บอีเมลลูกค้าไว้เลย) จึงแจ้งตรงไปตรงมาแทนอ้างว่าส่งแล้ว
       const channels = Array.from(container.querySelectorAll('.sv-channel:checked')).map(c => c.value)
       if (!channels.length) { showToast('❗ กรุณาเลือกช่องทางอย่างน้อย 1 ช่องทาง', 'error'); return }
-      const msg = container.querySelector('#sv-msg')?.value?.trim() || ''
+      const msg = bulkText(container.querySelector('#sv-msg')?.value?.trim() || '')
       if (!msg) { showToast('❗ กรุณากรอกข้อความนำ', 'error'); return }
       const phones = [...new Set(feedbacks.map(f => f.phone).filter(Boolean))]
       const btn = e.target
@@ -401,5 +414,8 @@ export default async function CustomerFeedbackPage(container) {
 
   renderPage()
 }
+
+// ส่งข้อความเดียวถึงทุกคน → ไม่ส่ง "[ชื่อลูกค้า]" ตัวอักษรตรงๆ ไปให้ลูกค้าเห็น
+function bulkText(msg) { return String(msg || '').replace(/\s*\[ชื่อลูกค้า\]/g, 'ลูกค้า') }
 
 function row(l, v) { return `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:0.82rem"><span style="color:var(--text-muted)">${l}</span><span>${v}</span></div>` }

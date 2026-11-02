@@ -57,7 +57,7 @@ export default async function DataMappingPage(container) {
           </div>
         </div>
 
-        <div class="card" style="overflow:hidden">
+        <div class="card" style="overflow-x:auto">
           <table style="width:100%;border-collapse:collapse">
             <thead>
               <tr style="border-bottom:1px solid var(--border);font-size:0.75rem;color:var(--text-muted)">

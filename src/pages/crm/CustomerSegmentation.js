@@ -253,7 +253,7 @@ export default async function CustomerSegmentationPage(container) {
     const vehicles = vehicleSegments
     return `
       <div style="font-size:0.72rem;color:var(--success);margin-bottom:8px">● ข้อมูลจริงจากยอดขาย</div>
-      <div class="card" style="overflow:hidden">
+      <div class="card" style="overflow-x:auto">
         <table style="width:100%;border-collapse:collapse">
           <thead>
             <tr style="border-bottom:1px solid var(--border);font-size:0.75rem;color:var(--text-muted)">
@@ -291,7 +291,7 @@ export default async function CustomerSegmentationPage(container) {
     const totalWithOcc = occupationSegments.reduce((a, o) => a + o.count, 0)
     const maxCount = Math.max(...occupationSegments.map(o => o.count))
     return `
-      <div class="card" style="overflow:hidden">
+      <div class="card" style="overflow-x:auto">
         <table style="width:100%;border-collapse:collapse">
           <thead>
             <tr style="border-bottom:1px solid var(--border);font-size:0.75rem;color:var(--text-muted)">

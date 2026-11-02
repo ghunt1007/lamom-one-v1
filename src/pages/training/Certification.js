@@ -85,7 +85,7 @@ export default async function CertificationPage(container) {
           ${Object.entries(CERT_STATUS).map(([k,v]) => `<button class="btn btn-xs ${statusFilter===k?'btn-'+v.color:'btn-secondary'} sf-btn" data-s="${k}">${v.label}</button>`).join('')}
         </div>
 
-        <div class="card" style="overflow:hidden;margin-bottom:14px">
+        <div class="card" style="overflow-x:auto;margin-bottom:14px">
           <table style="width:100%;border-collapse:collapse">
             <thead>
               <tr style="border-bottom:1px solid var(--border);font-size:0.75rem;color:var(--text-muted)">

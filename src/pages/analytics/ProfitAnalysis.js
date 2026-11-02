@@ -140,7 +140,7 @@ export default async function ProfitAnalysisPage(container) {
         </div>
 
         <!-- Product profitability -->
-        <div class="card" style="overflow:hidden">
+        <div class="card" style="overflow-x:auto">
           <div style="padding:12px 14px;border-bottom:1px solid var(--border);font-size:0.8rem;font-weight:700;color:var(--text-muted)">🏆 กำไรตามสินค้า/บริการ</div>
           <table style="width:100%;border-collapse:collapse">
             <thead>

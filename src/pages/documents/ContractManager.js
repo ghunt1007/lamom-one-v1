@@ -105,7 +105,7 @@ export default async function ContractManagerPage(container) {
           </select>
         </div>
 
-        <div class="card" style="overflow:hidden">
+        <div class="card" style="overflow-x:auto">
           <table style="width:100%;border-collapse:collapse">
             <thead>
               <tr style="border-bottom:1px solid var(--border);font-size:0.78rem;color:var(--text-muted)">

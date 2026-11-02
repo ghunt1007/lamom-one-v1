@@ -125,7 +125,7 @@ export default async function PdpaConsentPage(container) {
           <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted)">✅ ทะเบียนความยินยอม</div>
           <input class="input" id="search-input" placeholder="ค้นหาลูกค้า..." value="${escHtml(search)}" style="width:180px;padding:5px 10px;font-size:0.78rem">
         </div>
-        <div class="card" style="overflow:hidden">
+        <div class="card" style="overflow-x:auto">
           <table style="width:100%;border-collapse:collapse">
             <thead>
               <tr style="border-bottom:1px solid var(--border);font-size:0.7rem;color:var(--text-muted)">

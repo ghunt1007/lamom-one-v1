@@ -94,7 +94,7 @@ export default async function NotificationSettingsPage(container) {
           ${GROUPS.map(g => `<button class="btn btn-xs ${groupFilter===g?'btn-primary':'btn-secondary'} gf-btn" data-g="${g}">${g}</button>`).join('')}
         </div>
 
-        <div class="card" style="overflow:hidden">
+        <div class="card" style="overflow-x:auto">
           <table style="width:100%;border-collapse:collapse">
             <thead>
               <tr style="border-bottom:1px solid var(--border);font-size:0.75rem;color:var(--text-muted)">

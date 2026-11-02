@@ -104,7 +104,7 @@ export default async function MonthlyClosePage(container) {
         <!-- Items by category -->
         ${cats.map(cat => {
           const catItems = items.filter(i => i.category === cat)
-          return `<div class="card" style="overflow:hidden;margin-bottom:10px">
+          return `<div class="card" style="overflow-x:auto;margin-bottom:10px">
             <div style="padding:8px 14px;border-bottom:1px solid var(--border);background:var(--surface-2);font-size:0.78rem;font-weight:700">${escHtml(cat)}</div>
             <table style="width:100%;border-collapse:collapse">
               <tbody>

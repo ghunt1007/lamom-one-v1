@@ -122,6 +122,9 @@ export function openGlobalSearch() {
 
   seedDemoData()
   let visScopePromise = null // สิทธิ์การมองเห็นของผู้ใช้ — โหลดครั้งเดียวต่อการเปิดหน้าค้นหา
+  // (v1.0.920) ข้อมูลทุกหมวดดึงครั้งเดียวต่อการเปิดหน้าค้นหา (เดิมดึงใหม่ทุกตัวอักษรที่พิมพ์ = อ่านฐานข้อมูลหลายพันแถวต่อการกด 1 ครั้ง ช้าและเปลือง)
+  let fetchedPromise = null
+  let searchSeq = 0 // ผลของการพิมพ์ก่อนหน้าที่มาช้า ห้ามทับผลล่าสุด
 
   const div = document.createElement('div')
   div.id = 'gsearch-overlay'
@@ -163,7 +166,7 @@ export function openGlobalSearch() {
 
   async function doSearch(qRaw) {
     const q = norm(qRaw).trim()
-    if (!q) { renderEmpty(); return }
+    if (!q) { searchSeq++; renderEmpty(); return }
 
     const terms = q.split(/\s+/)
     // เบอร์โทร: พิมพ์ "081-234" หรือ "081 234 5678" ก็เจอ 0812345678 (ตัดขีด/เว้นวรรคออกก่อนเทียบ)
@@ -190,13 +193,17 @@ export function openGlobalSearch() {
     // ข้อมูลในแต่ละ collection — ดึงขนานกันทุก collection พร้อมกัน
     // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true — ถ้าไม่กรองออก ลูกค้า/ใบจอง/พนักงาน/รถที่ "ลบ"
     // ไปแล้วจะยังค้นเจอและกดเปิดได้จาก Global Search (Ctrl+K) ทั่วทั้งแอปต่อไปเรื่อยๆ
-    if (!visScopePromise) visScopePromise = getVisibilityScope().catch(() => ({ names: new Set(), uids: new Set() }))
-    const visScope = await visScopePromise
-    const fetched = await Promise.all(
-      SOURCES.map(src => listDocs(src.col, src.scoped ? companyScopeFilters() : [], 'createdAt', 'desc', 500)
-        .then(rows => rows.filter(r => !r.deleted && (!src.owner || scopeIncludesRecord(visScope, src.owner(r), r))))
-        .catch(() => []))
-    )
+    const seq = ++searchSeq
+    if (!fetchedPromise) {
+      if (!visScopePromise) visScopePromise = getVisibilityScope().catch(() => ({ names: new Set(), uids: new Set() }))
+      fetchedPromise = visScopePromise.then(visScope => Promise.all(
+        SOURCES.map(src => listDocs(src.col, src.scoped ? companyScopeFilters() : [], 'createdAt', 'desc', 500)
+          .then(rows => rows.filter(r => !r.deleted && (!src.owner || scopeIncludesRecord(visScope, src.owner(r), r))))
+          .catch(() => []))
+      ))
+    }
+    const fetched = await fetchedPromise
+    if (seq !== searchSeq || !div.isConnected) return
     SOURCES.forEach((src, i) => {
       fetched[i].forEach(r => {
         if (matchAll(src.text(r))) {
