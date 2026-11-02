@@ -1,3 +1,4 @@
+import { carOf } from './carLabel.js'
 // ถามรายได้ตอนกดส่งมอบ — เดิมกด "ส่งมอบแล้ว" จากปฏิทินส่งมอบหรือป็อปอัพเปลี่ยนสถานะในหน้าใบจอง จะไม่มีที่ให้กรอก
 // มาร์จิ้น/ค่าคอมเลย totalIncome ค้างเป็น 0 จนรายงานประจำวันขึ้น "ยังไม่กรอกรายได้" ทุกวัน ต้องไปเปิดฟอร์มใบจอง
 // เต็มๆ แก้ทีหลังเอง (ซึ่งมักลืม) — ตัวนี้เด้งช่องกรอก 4 ช่องเดียวกับฟอร์มใบจองขึ้นมาทันทีที่ส่งมอบ ข้ามได้ถ้ายังไม่รู้ตัวเลข
@@ -34,7 +35,7 @@ export function askDeliveryIncome(b, { title = '💰 กรอกรายได
     const { el } = openModal({
       title, size: 'sm',
       body: `
-        <div style="font-size:0.8rem;color:var(--text-2);margin-bottom:10px">🚗 ${escHtml(b.custName || '—')} · ${escHtml([b.brand, b.model].filter(Boolean).join(' ') || '—')}${b.salesName ? ` · 👤 ${escHtml(b.salesName)}` : ''}</div>
+        <div style="font-size:0.8rem;color:var(--text-2);margin-bottom:10px">🚗 ${escHtml(b.custName || '—')} · ${escHtml(carOf(b) || '—')}${b.salesName ? ` · 👤 ${escHtml(b.salesName)}` : ''}</div>
         <div class="grid-2">${field('di-margin', 'กำไรขั้นต้น Margin', b.margin)}${field('di-budget', 'งบการตลาดที่ใช้', b.budgetUsed)}</div>
         <div class="grid-2">${field('di-com70', 'คอมเซลส์', b.com70)}${field('di-comfin', 'คอมไฟแนนซ์', b.comFinance)}</div>
         <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;margin-top:6px;background:var(--surface-2);border-radius:8px">

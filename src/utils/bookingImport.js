@@ -1,3 +1,4 @@
+import { todayBangkok } from './format.js'
 // (v1.0.540) นำเข้า/อัปเดตใบจองจากไฟล์ Excel "DATA Booking" ของโชว์รูม (แท็บ Booking, หัวตารางอยู่แถว 3)
 // เดิมการนำเข้าทำผ่านสคริปต์ภายนอกครั้งเดียว (ส.ค. 2569) — ไฟล์นี้ทำให้เจ้าของ/ผู้จัดการอัปเดตเองได้ในโปรแกรม
 // โดยข้อมูลลูกค้าไม่ต้องออกจากเครื่องที่ login อยู่เลย
@@ -236,7 +237,7 @@ export function newBookingDoc(m, { companyId = null, customerId = null } = {}) {
     totalIncome: rest.marginLeft + rest.comFinance,
     cancelReason: rest.status === 'ถอนจอง' ? 'other' : '',
     notes: '',
-    createdAt: (rest.bookingDate || new Date().toISOString().slice(0, 10)) + 'T00:00:00.000Z',
+    createdAt: (rest.bookingDate || todayBangkok()) + 'T00:00:00.000Z',
     importedFromExcel: true,
   }
 }
@@ -247,7 +248,7 @@ export function newCustomerDoc(m, { companyId = null } = {}) {
   const firstName = parts.join(' ') || m.custName || '(ไม่ระบุ)'
   const delivered = m.status === 'ส่งมอบแล้ว'
   const lost = m.status === 'ถอนจอง'
-  const at = (m.bookingDate || new Date().toISOString().slice(0, 10)) + 'T00:00:00.000Z'
+  const at = (m.bookingDate || todayBangkok()) + 'T00:00:00.000Z'
   return {
     firstName, lastName, phone: m.phone, lineId: '', email: '',
     interestedModel: m.model, budget: m.price, occupation: '', monthlyIncome: 0,

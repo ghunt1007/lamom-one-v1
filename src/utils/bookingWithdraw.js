@@ -1,3 +1,4 @@
+import { carOf } from './carLabel.js'
 // ลูกค้าถอนจอง — ไม่ปล่อยให้ลูกค้าค้างสถานะ "จองแล้ว" ทั้งที่ไม่มีใบจองแล้ว: พาลูกค้ากลับเป็น Prospect
 // (เฉพาะถ้าใบจองที่ผูกไว้คือใบนี้ — ถ้าผูกใบอื่นอยู่แปลว่ามีใบจองใหม่แล้ว ไม่ไปแตะ) และนัดเซลส์โทรกลับ
 // ภายใน WIN_BACK_DAYS วัน เพื่อเสนอทางเลือกใหม่ (รุ่นอื่น/ไฟแนนซ์อื่น/โปร) ก่อนลูกค้าไปซื้อที่อื่น
@@ -17,7 +18,7 @@ export function withdrawCustomerPatch(customer, bookingId, now = new Date().toIS
 export function buildWinBackFollowup(b, reason, today = todayBangkok()) {
   return {
     customerId: b.customerId || '', customerName: b.custName || 'ลูกค้า',
-    phone: b.phone || b.custPhone || '', vehicleModel: [b.brand, b.model].filter(Boolean).join(' '),
+    phone: b.phone || b.custPhone || '', vehicleModel: carOf(b),
     salesperson: b.salesName || '', type: 'call', purpose: 'ทั่วไป',
     note: `ลูกค้าถอนจอง${reason ? ` (${String(reason).trim()})` : ''} — โทรเสนอทางเลือกใหม่ เช่น รุ่นอื่น ไฟแนนซ์อื่น หรือโปรโมชัน`,
     dueDate: addDays(today, WIN_BACK_DAYS), status: 'pending', result: '', winBack: true,

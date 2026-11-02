@@ -1,3 +1,4 @@
+import { carOf } from '../../utils/carLabel.js'
 /**
  * Warranty Expiry Tracker — ติดตามวันหมดประกันรายคัน
  * Route: /service/warranty-expiry
@@ -21,7 +22,7 @@ const daysLeft = endDate => daysFromToday(endDate)
 // จริงชุดเดียวกันทั้งสองหน้า (mapWarranty() ด้านล่างแปลง field name ให้ตรงกับ template เดิมของไฟล์นี้)
 function mapWarranty(w, kmByVin) {
   return {
-    id: w.id, vin: w.vin || '', plate: w.vehiclePlate || '-', model: [w.brand, w.model].filter(Boolean).join(' ') || '-',
+    id: w.id, vin: w.vin || '', plate: w.vehiclePlate || '-', model: carOf(w) || '-',
     owner: w.customerName || '-', phone: w.phone || '', warrantyEnd: w.endDate || '', sale: w.startDate || '',
     kmCurrent: kmByVin[w.vin] || 0, kmWarranty: w.km || 100000, status: w.status || 'active', notified: !!w.notified,
     _raw: w,

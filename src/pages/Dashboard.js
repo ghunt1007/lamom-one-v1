@@ -1,3 +1,4 @@
+import { carOf } from '../utils/carLabel.js'
 import { getState, on } from '../core/store.js'
 import { listDocs, watchDocs, seedDemoData, getSalesData } from '../core/db.js'
 import { companyScopeFilters } from '../core/companyScope.js'
@@ -966,7 +967,7 @@ export default async function DashboardPage(container) {
           <thead><tr><th>ลูกค้า</th><th>รุ่น</th><th>เซลส์</th><th>วันที่</th><th>สถานะ</th><th style="text-align:right">ราคา</th><th style="text-align:right">Margin</th></tr></thead>
           <tbody>${list.slice(0, 300).map(b => `<tr data-id="${escHtml(b.id)}">
             <td><div style="font-weight:600">${escHtml(b.custName || b.customerName || '-')}</div><div style="font-size:0.7rem;color:var(--text-muted)">${escHtml(b.bookingNo || '')}</div></td>
-            <td>${escHtml([b.brand, b.model].filter(Boolean).join(' ') || '-')}</td>
+            <td>${escHtml(carOf(b) || '-')}</td>
             <td style="color:var(--text-muted)">👤 ${escHtml(b.salesName || '-')}</td>
             <td style="white-space:nowrap">📅 ${b.bookingDate ? formatDate(b.bookingDate) : '-'}${b.cutDate ? `<div style="font-size:0.7rem;color:var(--text-muted)">✂️ ตัด ${formatDate(b.cutDate)}</div>` : ''}</td>
             <td><span class="badge badge-${(BOOKING_STATUS_META[b.status] || {}).color || 'secondary'}">${escHtml(b.status || '-')}</span></td>

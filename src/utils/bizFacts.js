@@ -1,3 +1,4 @@
+import { carOf } from './carLabel.js'
 // ตัวเลขธุรกิจจากใบจอง/ลูกค้าจริง สำหรับให้ LAMI ตอบคำถามผู้จัดการ เช่น "ใครขายเก่งสุดเดือนนี้" "Lead จากไหนปิดได้ดีสุด"
 // ฟังก์ชันล้วน ไม่แตะฐานข้อมูล · ไม่มีชื่อ/เบอร์ลูกค้า (มีแค่ชื่อเซลส์ ซึ่งเป็นข้อมูลภายในทีม)
 import { DELIVERED_STATUSES } from './deliveryIncome.js'
@@ -121,7 +122,7 @@ export function stockFacts(vehicles = [], today) {
   if (today) {
     const aged = ready.map(v => ({ v, d: stockAgeDays(v.arrivedAt, today) })).filter(x => x.d >= 60).sort((a, b) => b.d - a.d)
     if (aged.length) out['รถพร้อมขายค้างสต็อก 60 วันขึ้นไป'] = `${aged.length} คัน — ` + aged.slice(0, 8)
-      .map(({ v, d }) => `${[v.brand, v.model].filter(Boolean).join(' ')} ${v.color || ''} ${d} วัน`.replace(/\s+/g, ' ')).join(' · ')
+      .map(({ v, d }) => `${carOf(v)} ${v.color || ''} ${d} วัน`.replace(/\s+/g, ' ')).join(' · ')
   }
   return out
 }

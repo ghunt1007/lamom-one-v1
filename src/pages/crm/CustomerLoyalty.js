@@ -1,3 +1,4 @@
+import { carOf } from '../../utils/carLabel.js'
 import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
@@ -78,7 +79,7 @@ export default async function CustomerLoyaltyPage(container) {
         const m = byCustomer[name]
         m.totalSpend += s.salePrice || 0
         m.points += Math.floor((s.salePrice || 0) / 1000)
-        const veh = ((s.brand || '') + ' ' + (s.model || '')).trim()
+        const veh = carOf(s)
         if (veh && !m.vehicles.includes(veh)) m.vehicles.push(veh)
         const d = s.date ? s.date.slice(0, 10) : ''
         if (d > m.lastActivity) m.lastActivity = d

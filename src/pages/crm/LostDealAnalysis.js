@@ -1,3 +1,4 @@
+import { carOf } from '../../utils/carLabel.js'
 import { formatCurrency, formatDate, toDateStr } from '../../utils/format.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs } from '../../core/db.js'
@@ -50,7 +51,7 @@ export default async function LostDealAnalysisPage(container) {
         id: b.bookingNo || b.id,
         custName: b.custName || '',
         phone: b.custPhone || '',
-        interestedIn: [b.brand, b.model].filter(Boolean).join(' '),
+        interestedIn: carOf(b),
         budget: b.price || 0,
         // เหตุผลเป็นข้อความที่พิมพ์เอง → จัดกลุ่ม ส่วนข้อความเต็มไปอยู่ในหมายเหตุ
         lostReason: classifyLostReason(b.cancelReason),
@@ -68,7 +69,7 @@ export default async function LostDealAnalysisPage(container) {
         id: l.id,
         custName: [l.firstName, l.lastName].filter(Boolean).join(' ') || l.custName || l.name || '',
         phone: l.phone || '',
-        interestedIn: l.interestedModel || [l.brand, l.model].filter(Boolean).join(' ') || l.interest || '',
+        interestedIn: l.interestedModel || carOf(l) || l.interest || '',
         budget: l.budget || 0,
         lostReason: classifyLostReason(l.lostReason),
         lostTo: l.lostTo || null,

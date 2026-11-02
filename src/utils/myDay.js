@@ -1,3 +1,4 @@
+import { carOf } from './carLabel.js'
 // "งานของฉันวันนี้" — รวมงานที่เซลส์ต้องทำวันนี้ไว้หน้าเดียว (เกณฑ์เดียวกับข้อความเตือน 9 โมงเช้าใน
 // workers/daily-report.js: Lead ไม่ได้ติดตามเกิน 3 วัน, Follow-up ถึงกำหนด/เลยกำหนด, ส่งมอบแล้วยังไม่กรอกรายได้,
 // ใบจองค้างเกิน 14 วัน) + นัดส่งมอบ 7 วันข้างหน้า และ Lead ใหม่วันนี้ — ฟังก์ชันล้วน ไม่แตะฐานข้อมูล เทสได้
@@ -144,7 +145,7 @@ export function topPriorities(d, limit = 3, { short = false } = {}) {
     const n = String((short ? r.firstName : '') || r.name || r.customerName || r.custName || 'ลูกค้า').trim()
     return short ? n.split(/\s+/)[0] : n
   }
-  const car = b => [b.brand, b.model].filter(Boolean).join(' ')
+  const car = b => carOf(b)
   ;(d.newLeads || []).forEach(c => add({ key: 'new:' + c.id, icon: '🧲', title: `โทรหา Lead ใหม่ ${nm(c)}`, why: `เข้ามาวันนี้${leadWait(c) ? ` (${leadWait(c).label})` : ''}${c.interestedModel ? ` สนใจ ${c.interestedModel}` : ''} · โทรภายในชั่วโมงแรกโอกาสปิดสูงสุด`, score: c.lastContactAt && bangkokDate(c.lastContactAt) === bangkokDate(c.createdAt) ? 20 : 100, customerId: c.id, phone: c.phone }))
   ;(d.deliveries || []).filter(b => b.inDays === 0).forEach(b => add({ key: 'dlv:' + b.id, icon: '🚗', title: `ส่งมอบรถ ${nm(b)} วันนี้`, why: `${car(b) || 'รถ'}${b.deliveryTime ? ` เวลา ${b.deliveryTime}` : ''} · เช็กรถและเอกสารให้พร้อม`, score: 95, bookingId: b.id, phone: b.phone || b.custPhone }))
   ;(d.hotNoPlan || []).forEach(c => add({ key: 'hot:' + c.id, icon: '🔴', title: `นัดลูกค้า Hot ${nm(c)}`, why: 'สนใจมากแต่ยังไม่มีนัดครั้งถัดไป', score: 90, customerId: c.id, phone: c.phone }))

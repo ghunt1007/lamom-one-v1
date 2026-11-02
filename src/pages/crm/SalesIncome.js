@@ -1,3 +1,4 @@
+import { carOf } from '../../utils/carLabel.js'
 // สรุปรายได้รายเซลส์ — Route: /crm/sales-income
 // รวมรายได้/คอมที่กรอกไว้ในใบจองของคันที่ส่งมอบในเดือนที่เลือก แยกตามเซลส์ (ดูสูตรใน utils/salesIncome.js)
 // เซลส์ทั่วไปเห็นเฉพาะของตัวเอง/ลูกทีม ตามกติกาเดียวกับหน้าใบจอง (getVisibilityScope)
@@ -175,7 +176,7 @@ export default async function SalesIncomePage(container) {
               <td style="text-align:right">${formatCurrency(r.comFinance)}</td><td style="text-align:right;font-weight:800;color:var(--accent)">${formatCurrency(r.income)}${delta(r.income, prevOf(r.name).income, true)}</td>
             </tr>
             ${open.has(r.name) ? r.cars.map(b => `<tr style="background:var(--surface-2);font-size:0.78rem">
-              <td style="padding-left:28px">${escHtml(b.custName || '—')} · ${escHtml([b.brand, b.model].filter(Boolean).join(' ') || '—')}<div style="font-size:0.68rem;color:var(--text-muted)">${escHtml(b.bookingNo || '')} · ส่งมอบ ${formatDate(b.cutDate || b.actualDeliveryDate)}</div></td>
+              <td style="padding-left:28px">${escHtml(b.custName || '—')} · ${escHtml(carOf(b) || '—')}<div style="font-size:0.68rem;color:var(--text-muted)">${escHtml(b.bookingNo || '')} · ส่งมอบ ${formatDate(b.cutDate || b.actualDeliveryDate)}</div></td>
               <td></td><td></td><td></td><td></td>
               <td style="text-align:right">${formatCurrency(b.marginLeft || 0)}</td><td style="text-align:right">${formatCurrency(b.com70 || 0)}</td><td style="text-align:right">${formatCurrency(b.comFinance || 0)}</td>
               <td style="text-align:right">${needsIncome(b) ? `<button class="btn btn-warning btn-xs si-income" data-id="${escHtml(b.id)}">💰 กรอกรายได้</button>` : formatCurrency(b.totalIncome || 0)}</td>
@@ -217,7 +218,7 @@ export default async function SalesIncomePage(container) {
     }))
     container.querySelector('#si-export').addEventListener('click', () => {
       const out = rows.flatMap(r => r.cars.map(b => ({
-        เดือน: month, เซลส์: r.name, เป้า: targetFor(targets, r.name) || '', ลูกค้า: b.custName, รุ่น: [b.brand, b.model].filter(Boolean).join(' '), เลขจอง: b.bookingNo,
+        เดือน: month, เซลส์: r.name, เป้า: targetFor(targets, r.name) || '', ลูกค้า: b.custName, รุ่น: carOf(b), เลขจอง: b.bookingNo,
         วันส่งมอบ: b.cutDate || b.actualDeliveryDate, มาร์จิ้นคงเหลือ: b.marginLeft || 0, คอมเซลส์: b.com70 || 0, คอมไฟแนนซ์: b.comFinance || 0, รายได้รวม: b.totalIncome || 0,
       })))
       if (!out.length) { showToast('ไม่มีข้อมูลให้ Export', 'warning'); return }

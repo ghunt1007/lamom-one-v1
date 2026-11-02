@@ -1,3 +1,4 @@
+import { carOf } from '../../utils/carLabel.js'
 import { listDocs, listAllDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { showToast, getState } from '../../core/store.js'
 import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
@@ -346,7 +347,7 @@ export default async function TestDrivePage(container) {
 
 // รุ่นที่โชว์รูมขาย (Deepal) ขึ้นก่อน — เดิมเรียงตามฐานข้อมูลรถทั้งตลาด ค่าเริ่มต้นจึงเป็น Toyota Camry
 function tdVehicleOptions() {
-  const name = v => `${v.brand} ${v.model} ${v.variant || ''}`.trim()
+  const name = v => carOf(v, true)
   const list = getVehicles()
   const own = list.filter(v => v.brand === 'Deepal'), rest = list.filter(v => v.brand !== 'Deepal')
   const opts = l => l.map(v => `<option>${name(v)}</option>`).join('')

@@ -1,3 +1,4 @@
+import { carOf } from '../../utils/carLabel.js'
 import { formatCurrency, formatDate, todayBangkok, toDateStr } from '../../utils/format.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { showToast } from '../../core/store.js'
@@ -135,7 +136,7 @@ export default async function ReportCenterPage(container) {
         // จะพัง (เงียบๆ เพราะ block นี้อยู่ใน try/catch) ทำให้รายงานนี้ไม่เคยโชว์ข้อมูลจริงเลยสักครั้ง
         วันที่: b.cutDate || b.bookingDate || toDateStr(b.updatedAt || b.createdAt),
         ลูกค้า: b.custName || '',
-        รุ่น: [b.brand, b.model].filter(Boolean).join(' '),
+        รุ่น: carOf(b),
         สาเหตุ: LOST_REASON_LABELS[b.cancelReason] || 'ไม่ระบุ',
         มูลค่า: b.price || 0,
       }))
