@@ -101,7 +101,7 @@ export default async function ExpenseApprovalPage(container) {
             ${Object.entries(EXP_STATUS).map(([k,v]) => `<button class="btn btn-xs ${statusFilter===k?'btn-'+v.color:'btn-secondary'} sf-btn" data-s="${k}">${v.label}</button>`).join('')}
           </div>
           <div style="display:flex;gap:4px">
-            ${Object.entries(EXP_CATS).map(([k,v]) => `<button class="btn btn-xs ${catFilter===k?'btn-'+v.color:'btn-secondary'} cf-btn" data-c="${k}">${v.icon}</button>`).join('')}
+            ${Object.entries(EXP_CATS).map(([k,v]) => `<button class="btn btn-xs ${catFilter===k?'btn-'+v.color:'btn-secondary'} cf-btn" data-c="${k}" title="${v.label || k}">${v.icon}</button>`).join('')}
             <button class="btn btn-xs ${catFilter==='all'?'btn-primary':'btn-secondary'} cf-btn" data-c="all">ทั้งหมด</button>
           </div>
         </div>

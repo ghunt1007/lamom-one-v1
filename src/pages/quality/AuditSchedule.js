@@ -80,7 +80,7 @@ export default async function AuditSchedulePage(container) {
         <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
           <div style="display:flex;gap:4px">
             <button class="btn btn-xs ${typeFilter==='all'?'btn-primary':'btn-secondary'} tf-btn" data-t="all">ทุกประเภท</button>
-            ${Object.entries(AUDIT_TYPES).map(([k,v]) => `<button class="btn btn-xs ${typeFilter===k?'btn-'+v.color:'btn-secondary'} tf-btn" data-t="${k}">${v.icon}</button>`).join('')}
+            ${Object.entries(AUDIT_TYPES).map(([k,v]) => `<button class="btn btn-xs ${typeFilter===k?'btn-'+v.color:'btn-secondary'} tf-btn" data-t="${k}" title="${v.label || k}">${v.icon}</button>`).join('')}
           </div>
           <div style="display:flex;gap:4px">
             ${Object.entries(AUDIT_STATUS).map(([k,v]) => `<button class="btn btn-xs ${statusFilter===k?'btn-'+v.color:'btn-secondary'} sf-btn" data-s="${k}">${v.icon} ${v.label}</button>`).join('')}

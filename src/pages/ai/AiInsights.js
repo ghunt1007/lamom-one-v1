@@ -114,7 +114,7 @@ export default async function AiInsightsPage(container) {
         <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
           <div style="display:flex;gap:4px">
             <button class="btn btn-xs ${catFilter==='all'?'btn-primary':'btn-secondary'} cf-btn" data-c="all">ทั้งหมด</button>
-            ${Object.entries(INSIGHT_CATS).map(([k,v]) => `<button class="btn btn-xs ${catFilter===k?'btn-'+v.color:'btn-secondary'} cf-btn" data-c="${k}">${v.icon}</button>`).join('')}
+            ${Object.entries(INSIGHT_CATS).map(([k,v]) => `<button class="btn btn-xs ${catFilter===k?'btn-'+v.color:'btn-secondary'} cf-btn" data-c="${k}" title="${v.label || k}">${v.icon}</button>`).join('')}
           </div>
           <div style="display:flex;gap:4px">
             <button class="btn btn-xs ${priorityFilter==='all'?'btn-primary':'btn-secondary'} pf-btn" data-p="all">ทุก Priority</button>

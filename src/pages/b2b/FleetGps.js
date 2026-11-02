@@ -120,7 +120,7 @@ export default async function FleetGpsPage(container) {
           <div style="display:flex;flex-direction:column;gap:0">
             <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap">
               <button class="btn btn-xs ${filterStatus==='all'?'btn-primary':'btn-secondary'} fs-btn" data-s="all">ทั้งหมด</button>
-              ${Object.entries(STATUS_MAP).map(([k,v])=>`<button class="btn btn-xs ${filterStatus===k?'btn-primary':'btn-secondary'} fs-btn" data-s="${k}">${v.icon}</button>`).join('')}
+              ${Object.entries(STATUS_MAP).map(([k,v])=>`<button class="btn btn-xs ${filterStatus===k?'btn-primary':'btn-secondary'} fs-btn" data-s="${k}" title="${v.label || k}">${v.icon}</button>`).join('')}
             </div>
             <div style="display:flex;flex-direction:column;gap:8px;max-height:380px;overflow-y:auto">
               ${rows.map(f => fleetRow(f)).join('')}

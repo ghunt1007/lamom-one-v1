@@ -75,7 +75,7 @@ export default async function FinancialGoalsPage(container) {
             ${GOAL_PERIODS.map(p => `<button class="btn btn-xs ${periodFilter===p?'btn-primary':'btn-secondary'} pf-btn" data-p="${p}">${p}</button>`).join('')}
           </div>
           <div style="display:flex;gap:4px">
-            ${Object.entries(GOAL_CATS).map(([k,v]) => `<button class="btn btn-xs ${catFilter===k?'btn-primary':'btn-secondary'} cf-btn" data-c="${k}">${v.icon}</button>`).join('')}
+            ${Object.entries(GOAL_CATS).map(([k,v]) => `<button class="btn btn-xs ${catFilter===k?'btn-primary':'btn-secondary'} cf-btn" data-c="${k}" title="${v.label || k}">${v.icon}</button>`).join('')}
             <button class="btn btn-xs ${catFilter==='all'?'btn-primary':'btn-secondary'} cf-btn" data-c="all">ทั้งหมด</button>
           </div>
         </div>
