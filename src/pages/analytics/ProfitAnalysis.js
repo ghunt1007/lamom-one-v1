@@ -5,6 +5,7 @@
 import { formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { getSalesData } from '../../core/db.js'
+import { saleCost, costEstimateNote } from '../../utils/saleCost.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -26,10 +27,14 @@ export default async function ProfitAnalysisPage(container) {
   let activeTab = 'overview'
   let liveMonthly = null
   let liveProducts = null
+  // ปีปัจจุบันเท่านั้น — เดิมรวมทุกปีเข้าเดือนเดียวกัน (ม.ค. ปีนี้ + ม.ค. ปีก่อน) และหัวข้อเขียนตายตัว "ครึ่งปีแรก 2568"
+  const year = new Date().getFullYear()
+  let costNote = ''
 
   try {
-    const sales = await getSalesData()
+    const sales = (await getSalesData()).filter(s => String(s.date || '').startsWith(String(year)))
     if (container.__routerGen !== myGen) return
+    costNote = costEstimateNote(sales)
     if (sales.length) {
       const MONTHS_TH = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
       const byMonth = {}
@@ -40,7 +45,7 @@ export default async function ProfitAnalysisPage(container) {
         byMonth[mo].revenue += s.salePrice || 0
         // ต้นทุนจริงต่อคัน (s.cost จากใบจอง) ถ้าไม่มีค่อย fallback ประมาณ 82% ของราคาขาย — pattern เดียวกับ
         // CashFlow.js/VatReport.js ไม่ใช่ประมาณ 80% ตายตัวทุกคันอีกต่อไป
-        byMonth[mo].cogs += s.cost || Math.round((s.salePrice || 0) * 0.82)
+        byMonth[mo].cogs += saleCost(s)
       })
       const built = Object.values(byMonth).sort((a, b) => MONTHS_TH.indexOf(a.month) - MONTHS_TH.indexOf(b.month))
       if (built.length >= 1) liveMonthly = built
@@ -55,7 +60,7 @@ export default async function ProfitAnalysisPage(container) {
         const p = byModel[key]
         p.units++
         p.revenue += s.salePrice || 0
-        p.cogs += s.cost || Math.round((s.salePrice || 0) * 0.82)
+        p.cogs += saleCost(s)
       })
       liveProducts = Object.values(byModel).map(p => ({ ...p, gross: p.revenue - p.cogs })).sort((a, b) => b.revenue - a.revenue)
     }
@@ -72,15 +77,16 @@ export default async function ProfitAnalysisPage(container) {
     const grossMargin = totalRevenue ? Math.round(grossProfit / totalRevenue * 100) : 0
     const netMargin = totalRevenue ? Math.round(netProfit / totalRevenue * 100) : 0
 
-    const maxRevenue = Math.max(...data.map(m => m.revenue))
+    const maxRevenue = Math.max(1, ...data.map(m => m.revenue))
 
     container.innerHTML = `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
             <div class="page-title">📈 Profit Analysis</div>
-            <div class="page-subtitle">วิเคราะห์กำไร-ขาดทุนเชิงลึก ครึ่งปีแรก 2568
+            <div class="page-subtitle">วิเคราะห์กำไร-ขาดทุน ปี ${year + 543}
               ${liveMonthly ? '<span style="font-size:0.72rem;color:var(--success);margin-left:8px">● ข้อมูลจริงจากใบจอง</span>' : '<span style="font-size:0.72rem;color:var(--text-muted);margin-left:8px">ยังไม่มีข้อมูล</span>'}
+              ${costNote}
             </div>
           </div>
         </div>
@@ -94,7 +100,7 @@ export default async function ProfitAnalysisPage(container) {
 
         <!-- P&L Summary card -->
         <div class="card" style="padding:16px;margin-bottom:14px">
-          <div style="font-size:0.8rem;font-weight:700;margin-bottom:10px;color:var(--text-muted)">📋 สรุป P&L ครึ่งปีแรก</div>
+          <div style="font-size:0.8rem;font-weight:700;margin-bottom:10px;color:var(--text-muted)">📋 สรุป P&L ปีนี้</div>
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
             ${plBar('รายได้รวม', totalRevenue, totalRevenue, 'primary')}
             ${plBar('ต้นทุนสินค้า (COGS)', totalCogs, totalRevenue, 'warning')}

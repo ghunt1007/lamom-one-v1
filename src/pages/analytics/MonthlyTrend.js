@@ -6,6 +6,7 @@ import { formatCurrency } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData } from '../../core/db.js'
 import { exportToExcel } from '../../utils/importExport.js'
+import { saleCost } from '../../utils/saleCost.js'
 
 const MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
 
@@ -57,7 +58,7 @@ export default async function MonthlyTrendPage(container) {
           liveData[y].revenue[mo] = (liveData[y].revenue[mo] || 0) + rev
           // กำไรขั้นต้นจริงต่อคัน (rev - ต้นทุนจริง s.cost) ถ้าไม่มี cost ค่อย fallback ประมาณ 82% ของราคาขาย
           // (pattern เดียวกับ CashFlow.js/VatReport.js) ไม่ใช่ประมาณ margin 12% ตายตัวทุกคันอีกต่อไป
-          liveData[y].gross[mo] = (liveData[y].gross[mo] || 0) + (rev - (s.cost || Math.round(rev * 0.82)))
+          liveData[y].gross[mo] = (liveData[y].gross[mo] || 0) + (rev - saleCost(s))
         }
       })
       dataSource = 'live'

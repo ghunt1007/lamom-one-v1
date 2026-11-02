@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { getSalesData } from '../../core/db.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
+import { saleCost } from '../../utils/saleCost.js'
 
 const MONTH_LABELS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 
@@ -45,7 +46,7 @@ export default async function SalesByModelPage(container) {
         if (!realMonthly[key]) realMonthly[key] = { brand, model, units: Array(12).fill(0), revenue: Array(12).fill(0), cost: Array(12).fill(0) }
         realMonthly[key].units[mo]++
         realMonthly[key].revenue[mo] += s.salePrice || 0
-        realMonthly[key].cost[mo] += s.cost || Math.round((s.salePrice || 0) * 0.82) // ใช้ต้นทุนจริงถ้ามี ไม่มีค่อยประมาณ (pattern เดียวกับ CashFlow.js/VatReport.js)
+        realMonthly[key].cost[mo] += saleCost(s) // ใช้ต้นทุนจริงถ้ามี ไม่มีค่อยประมาณ (utils/saleCost.js)
       })
       dataSource = 'live'
       // สร้างรายการรุ่นรถจากยอดขายจริงทั้งหมด ไม่จำกัดแค่ 5 รุ่นใน DEMO_MODELS อีกต่อไป — ลองจับคู่กับ

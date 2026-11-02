@@ -66,7 +66,7 @@ export default async function TaxReportPage(container) {
     if (sales.length >= 2) {
       const now = new Date()
       const thisMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`
-      const currSales = sales.filter(s => (s.bookingDate || s.deliveryDate || '').startsWith(thisMonth))
+      const currSales = sales.filter(s => (s.date || '').startsWith(thisMonth))
       if (currSales.length) {
         const totalRev = currSales.reduce((a, s) => a + (s.salePrice || 0), 0)
         liveVatBase = { taxBase: Math.round(totalRev / 1.07), vatAmount: Math.round(totalRev / 1.07 * 0.07) }

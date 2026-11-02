@@ -3,6 +3,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData, getCommissionData, listDocs } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
+import { saleCost } from '../../utils/saleCost.js'
 
 const REPORT_CATEGORIES = {
   sales:    { label: '💰 ยอดขาย', icon: '💰', color: 'success' },
@@ -57,7 +58,7 @@ export default async function ReportCenterPage(container) {
       byMonth[mo].ยอดขาย += s.salePrice || 0
       // ต้นทุนจริงต่อคัน (s.cost จากใบจอง) ถ้าไม่มีค่อย fallback ประมาณ 82% ของราคาขาย — pattern เดียวกับ
       // CashFlow.js/VatReport.js ไม่ใช่ประมาณ 82% ตายตัวทุกคันอีกต่อไป
-      byMonth[mo].ต้นทุน += s.cost || Math.round((s.salePrice || 0) * 0.82)
+      byMonth[mo].ต้นทุน += saleCost(s)
     })
     const r001 = Object.keys(byMonth).sort((a, b) => +a - +b).map(k => {
       const m = byMonth[k]
@@ -84,7 +85,8 @@ export default async function ReportCenterPage(container) {
         if (!byName[c.salesName]) byName[c.salesName] = { เซลส์: c.salesName, จำนวนคัน: 0, ยอดขาย: 0, Commission: 0, 'Conversion Rate': '-' }
         byName[c.salesName].จำนวนคัน += c.carsSold || 0
         byName[c.salesName].ยอดขาย += c.incomeTotal || 0
-        byName[c.salesName].Commission += c.commissionTotal || Math.round((c.incomeTotal || 0) * 0.01)
+        // ค่าคอมจริง = com70 + คอมไฟแนนซ์ (สูตรเดียวกับหน้า Payroll/Analytics) — เดิมเดาเป็น 1% ของรายได้
+        byName[c.salesName].Commission += (c.com70Total || 0) + (c.comFinanceTotal || 0)
       })
       const r002 = Object.values(byName).sort((a, b) => b.จำนวนคัน - a.จำนวนคัน)
       if (r002.length) { reportData.R002 = r002; liveR002 = true }

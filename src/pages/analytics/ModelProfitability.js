@@ -6,6 +6,7 @@ import { showToast } from '../../core/store.js'
 import { getSalesData } from '../../core/db.js'
 import { openModal } from '../../utils/modal.js'
 import { exportToExcel, exportToCSV } from '../../utils/importExport.js'
+import { saleCost } from '../../utils/saleCost.js'
 
 const MODELS = [
   { model:'BYD Seal AWD', brand:'BYD', sold:16, avgPrice:1899900, avgCost:1540000, accessories:85000, finance:42000, insurance:28000 },
@@ -43,7 +44,7 @@ export default async function ModelProfitabilityPage(container) {
         byCar[key].totalRev += s.salePrice || 0
         // ต้นทุนจริงต่อคัน (s.cost จากใบจอง) ถ้าไม่มีค่อย fallback ประมาณ 82% ของราคาขาย — pattern เดียวกับ
         // CashFlow.js/VatReport.js ไม่ใช่ avgCost ปลอมจาก MODELS demo อีกต่อไป
-        byCar[key].totalCost += s.cost || Math.round((s.salePrice || 0) * 0.82)
+        byCar[key].totalCost += saleCost(s)
       }
       liveModels = liveModels.map(m => {
         const data = byCar[m.model]

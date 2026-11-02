@@ -222,10 +222,9 @@ export default async function AnalyticsDashboard(container) {
           { label: 'จองแล้ว', value: FUNNEL.booking, color: 'warning' },
           { label: 'ส่งมอบแล้ว', value: FUNNEL.delivered, color: 'success' },
         ]
+      // ไม่มีข้อมูลสถานะลูกค้า: โชว์เฉพาะตัวเลขที่มีจริง (เดิมเดา Contacted 68% / Qualified 35% ของ Lead)
       : [
           { label: 'Leads', value: totalLeads, color: 'primary' },
-          { label: 'Contacted', value: Math.round(totalLeads * 0.68), color: 'accent' },
-          { label: 'Qualified', value: Math.round(totalLeads * 0.35), color: 'warning' },
           { label: 'Sold', value: totalUnits, color: 'success' },
         ]
     const maxFunnel = Math.max(1, ...funnelSteps.map(f => f.value))
