@@ -31,3 +31,12 @@ describe('breadcrumbFor aliases', () => {
     expect(breadcrumbFor(NAV, '/crm/leads')).toEqual(['การขาย', 'ลูกค้า / Lead'])
   })
 })
+
+describe('breadcrumbFor exact', () => {
+  it('does not fall back to a parent page when exact is set', async () => {
+    const { breadcrumbFor } = await import('./breadcrumb.js')
+    const nav = [{ group: 'ก', items: [{ path: '/a', label: 'หน้าเอ' }] }]
+    expect(breadcrumbFor(nav, '/a/b')).toEqual(['ก', 'หน้าเอ'])
+    expect(breadcrumbFor(nav, '/a/b', 'th', { exact: true })).toEqual([])
+  })
+})

@@ -26,6 +26,9 @@ import { initViewTabs } from './utils/linkedViews.js'
 import { getModuleForPath, hasModuleAccess } from './core/permissions.js'
 import { initChipRows } from './utils/chipRows.js'
 import { initIconTitles } from './utils/iconTitles.js'
+import { initThaiTitles } from './utils/thaiTitle.js'
+import { breadcrumbFor } from './utils/breadcrumb.js'
+import { NAV } from './data/navMenu.js'
 import { initFocusGuard } from './utils/keepFocus.js'
 
 initStaleChunkReload()
@@ -116,6 +119,8 @@ async function bootstrapShell() {
   initKpiQuiet()       // แถวการ์ดตัวเลขที่เป็น 0 ทั้งแถว ย่อให้เล็กลง
   initViewTabs({ navigate, canOpen: canOpenPath })  // หน้าที่รวมกันแล้ว: แท็บสลับมุมมองใต้หัวหน้า
   initIconTitles()     // ปุ่มไอคอนล้วน (✏️ 🗑 ◀ ▶) มีคำอธิบายไทยเวลาชี้
+  // หัวข้อหน้าภาษาอังกฤษ → ชื่อไทยตามเมนู (เฉพาะตอนใช้ภาษาไทย)
+  initThaiTitles(() => (getState('language') || 'th') === 'th' ? breadcrumbFor(NAV, window.location.pathname, 'th', { exact: true })[1] || '' : '')
   initChipRows()       // มือถือ: แถวปุ่มกรองที่ล้นหลายบรรทัด → เลื่อนแถวเดียว
 
   // ✨ มีอะไรใหม่ — ครั้งเดียวต่อเครื่องหลังอัปเดตใหญ่ (รอให้หน้าแรกโหลดก่อน)

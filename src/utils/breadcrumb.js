@@ -10,12 +10,12 @@ function findItem(nav, path) {
   return null
 }
 
-export function breadcrumbFor(nav, route, lang = 'th') {
+export function breadcrumbFor(nav, route, lang = 'th', { exact = false } = {}) {
   const raw = String(route || '/').split('?')[0].replace(/\/+$/, '') || '/'
   const path = SAME_PAGE[raw] || raw
   // หน้าย่อยที่ไม่มีในเมนู (เช่น /crm/leads) ใช้ชื่อหน้าแม่ที่ใกล้ที่สุด
   let p = path, hit = findItem(nav, p)
-  while (!hit && p.lastIndexOf('/') > 0) { p = p.slice(0, p.lastIndexOf('/')); hit = findItem(nav, p) }
+  while (!exact && !hit && p.lastIndexOf('/') > 0) { p = p.slice(0, p.lastIndexOf('/')); hit = findItem(nav, p) }
   if (!hit) return []
   const { g, i } = hit
   const group = (lang === 'en' ? g.groupEn : lang === 'zh' ? g.groupZh : null) || g.group
