@@ -2,7 +2,7 @@
  * Stock Reservation Lock — ล็อคสต็อกรอโอน / ป้องกันซ้ำซ้อน
  * Route: /dms/reserve-lock
  */
-import { formatDate, todayBangkok } from '../../utils/format.js'
+import { formatDate, todayBangkok, daysFromToday } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { watchDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
@@ -17,7 +17,7 @@ const STATUS_CFG = {
 
 function daysLeft(expiry) {
   if(!expiry) return null
-  return Math.round((new Date(expiry)-new Date())/86400000)
+  return daysFromToday(expiry)
 }
 
 export default async function ReserveLockPage(container) {

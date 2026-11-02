@@ -1,4 +1,4 @@
-import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok, daysFromToday } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -37,10 +37,9 @@ const MFG_CLAIM_STATUS = {
   draft: 'ร่าง', submitted: 'ส่งค่ายแล้ว', approved: 'ค่ายอนุมัติ', rejected: 'ค่ายปฏิเสธ', reimbursed: 'รับเงินคืนแล้ว',
 }
 
-const today = new Date()
 
 function addDays(d, n) { const dt = new Date(d); dt.setDate(dt.getDate() + n); return dt }
-function daysLeft(endDate) { return Math.round((new Date(endDate) - today) / 86400000) }
+const daysLeft = endDate => daysFromToday(endDate)
 
 const EV_BRANDS = ['BYD', 'MG', 'Neta', 'ORA', 'AION', 'Tesla', 'Ora', 'DEEPAL']
 function addYears(d, y) { const dt = new Date(d); dt.setFullYear(dt.getFullYear() + y); return dt.toISOString().slice(0, 10) }

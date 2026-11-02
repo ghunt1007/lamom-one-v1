@@ -111,3 +111,20 @@ export function addDaysBangkok(n) {
   const [y, m, d] = todayBangkok().split('-').map(Number)
   return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
 }
+
+// วันที่ (ตามเวลาไทย) ของค่าใดๆ → 'YYYY-MM-DD' หรือ '' — 'YYYY-MM-DD' ล้วนคืนตัวเดิม (ไม่เลื่อนวัน)
+export function ymdBangkok(v) {
+  if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) return v
+  const d = toDate(v)
+  return d ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d) : ''
+}
+
+// อีกกี่วันถึงวันนั้น (นับเป็น "วัน" ตามปฏิทินไทย: พรุ่งนี้ = 1, วันนี้ = 0, เมื่อวาน = -1) — คืน NaN ถ้าวันที่ผิด
+// (เดิมแต่ละหน้าใช้ (new Date(x) - new Date()) / 86400000 ซึ่งนับตามชั่วโมง เลยเพี้ยน 1 วันช่วงหัวค่ำ/เช้ามืด)
+export function daysFromToday(v, today = todayBangkok()) {
+  const s = ymdBangkok(v)
+  if (!s) return NaN
+  const [y, m, d] = s.split('-').map(Number)
+  const [ty, tm, td] = today.split('-').map(Number)
+  return Math.round((Date.UTC(y, m - 1, d) - Date.UTC(ty, tm - 1, td)) / 86400000)
+}

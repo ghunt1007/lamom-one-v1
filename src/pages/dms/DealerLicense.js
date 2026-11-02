@@ -2,7 +2,7 @@
  * Dealer License Tracking — ต่ออายุใบอนุญาตตัวแทนจำหน่าย
  * Route: /dms/licenses
  */
-import { formatDate, todayBangkok } from '../../utils/format.js'
+import { formatDate, todayBangkok, daysFromToday } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
@@ -16,7 +16,7 @@ async function notifyLicenseReminder(title, body, link) {
   return targets.length
 }
 
-function daysLeft(expiry) { return Math.ceil((new Date(expiry) - Date.now()) / 86400000) }
+const daysLeft = expiry => daysFromToday(expiry)
 function calcStatus(l) {
   const d = daysLeft(l.expiry)
   if (d < 0) return 'expired'
