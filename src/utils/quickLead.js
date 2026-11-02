@@ -11,6 +11,7 @@ import { scheduleLeadFollowups } from './leadFollowups.js'
 import { parseLeadText, maskContacts, buildLeadNamePrompt, parseLeadNameReply } from './leadText.js'
 import { firstReplyMessage } from './bookingNotify.js'
 import { copyText } from './copyText.js'
+import { escHtml } from './escape.js'
 
 export const QUICK_SOURCES = [
   ['walk-in', '🚶 Walk-in'], ['phone', '📱 โทรเข้า'], ['facebook', '📘 Facebook'], ['line', '💚 LINE'],
@@ -72,10 +73,6 @@ export function topModels(customers, max = 30) {
   })
   return [...count.values()].sort((a, b) => b.n - a.n).slice(0, max)
     .map(e => Object.entries(e.spell).sort((a, b) => b[1] - a[1])[0][0])
-}
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
 // เพิ่ม Lead ที่มีเบอร์แล้ว → ชวนโทรทันที (โทรภายในไม่กี่นาทีโอกาสปิดสูงกว่ามาก) · กลับมาที่แอประบบถามผลการโทรให้

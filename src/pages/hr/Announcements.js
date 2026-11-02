@@ -9,16 +9,13 @@ import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.
 import { db } from '../../core/firebase.js'
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { escHtml } from '../../utils/escape.js'
 
 const HANDLER_ROLES = ['hr', 'manager', 'admin', 'owner']
 
 function myName() {
   const me = getState('user') || {}
   return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
-}
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
 }
 
 const ANN_TYPES = {

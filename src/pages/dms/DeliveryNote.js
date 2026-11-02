@@ -5,10 +5,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { getBranches, getSalesStaff } from '../../data/masterData.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 const BOOKING_TO_DN = {
   'รอส่งมอบ': 'pending',

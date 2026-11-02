@@ -6,6 +6,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { formatDate } from '../../utils/format.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { escHtml } from '../../utils/escape.js'
 
 const STATUS_CFG = {
   waiting:     { label:'รอคิว',      bg:'var(--surface-2)',  icon:'⏳', textColor:'var(--text-muted)' },
@@ -14,8 +15,6 @@ const STATUS_CFG = {
 }
 
 const SERVICES = ['เปลี่ยนถ่ายน้ำมัน','เติมลม / ตรวจยาง','เปลี่ยนไส้กรองอากาศ','ตรวจเช็ก EV Battery','เปลี่ยนน้ำกลั่น','ตรวจสภาพรวดเร็ว 30 จุด','เปลี่ยนหลอดไฟ','ล้างหัวฉีด']
-
-function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
 export default async function QuickLanePage(container) {
   const myGen = container.__routerGen

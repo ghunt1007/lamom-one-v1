@@ -7,8 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
-
-function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+import { escHtml } from '../../utils/escape.js'
 
 // เดิม "บัญชีในระบบ" ผูกกับ DEMO_BOOK_ENTRIES ตายตัว 6 รายการ ไม่เคยเชื่อมกับ invoices/purchase_orders จริง
 // เลยสักครั้ง — เปลี่ยนมาดึงจริงจาก 2 collection นี้แทน: invoices (type:'invoice', status ยังไม่ 'paid'/'cancelled'

@@ -6,8 +6,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { getCurrentUser, getMyTotalPoints } from './gamificationData.js'
-
-function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+import { escHtml } from '../../utils/escape.js'
 
 const SPECIAL = [
   { id:'S1', title:'🔥 Hot Streak! ปิด 3 ดีลติดกัน', xp:1000, icon:'🔥', unlocked:false, desc:'ปิดดีล 3 ดีลติดต่อกันโดยไม่มี Lost Deal' },

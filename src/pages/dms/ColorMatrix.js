@@ -9,10 +9,7 @@ import { listDocs, createDoc } from '../../core/db.js'
 import { formatCurrency } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 function colorDot(color = '') {
   const map = { ขาว: '#f5f5f5', น้ำเงิน: '#1976D2', แดง: '#E53935', ดำ: '#212121', เทา: '#9E9E9E', เขียว: '#43A047', เงิน: '#BDBDBD', ทอง: '#FDD835', ชมพู: '#e91e63', เหลือง: '#ffd600' }

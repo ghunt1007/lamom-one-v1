@@ -6,10 +6,7 @@ import { formatDate, formatCurrency } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData } from '../../core/db.js'
 import { sendSms } from '../../utils/comms.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 const RISK = {
   high:   { label: '🔴 เสี่ยงสูง',    color: 'var(--danger)',   action: 'โทรหาด่วน + เสนอโปรพิเศษ' },

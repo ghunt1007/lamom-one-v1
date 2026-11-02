@@ -11,8 +11,8 @@ import {
   printCustomOrderPO, printCustomReceipt, printCustomTempReceipt,
   printCustomTaxInvoice, printCustomCreditNote, printRegistrationInquiry, printInsuranceNotify,
 } from '../../utils/customOrderDocs.js'
+import { escHtml as esc } from '../../utils/escape.js'
 
-function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 // เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
 // เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok()
 function today() { return todayBangkok() }

@@ -9,8 +9,7 @@ import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '..
 import { sendSms, sendEmail } from '../../utils/comms.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
-
-function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+import { escHtml } from '../../utils/escape.js'
 
 const STATUS_CFG = {
   sent:    { label:'ส่งแล้ว',    bg:'var(--success)',     icon:'✅' },

@@ -2,8 +2,7 @@
 // แล้วสรุป บอกสิ่งที่ควรทำต่อ หรืออธิบายวิธีใช้หน้านั้น โดยไม่ต้องออกจากหน้าที่ทำงานอยู่ · คุยต่อแบบเต็มได้ที่ /ai/ask
 import { pageAsksFor, pageContextFor } from './pageContext.js'
 import { formatAiText } from './aiFormat.js'
-
-const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+import { escHtml as esc } from './escape.js'
 
 function readScreen() {
   const main = document.getElementById('main-content')

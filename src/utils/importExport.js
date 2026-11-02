@@ -1,3 +1,4 @@
+import { escHtml } from './escape.js'
 // Import/Export Engine — Excel (ExcelJS) / CSV
 // ExcelJS loaded dynamically — ไม่เพิ่ม bundle หน้าแรก
 
@@ -265,10 +266,6 @@ export function openImportModal({ title = 'นำเข้าข้อมูล'
 }
 
 // ── HELPERS ──────────────────────────────────────────────────
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
 
 function escapeCSV(val) {
   if (val == null) return ''

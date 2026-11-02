@@ -15,6 +15,7 @@ import { sendSms, sendEmail } from '../../utils/comms.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
+import { escHtml } from '../../utils/escape.js'
 
 // (v1.0.349) เดิมโหลดข้อความด้วย listDocs() ครั้งเดียวตอนเปิดหน้า ไม่ใช่ real-time จริง (ต้องกดรีเฟรชเอง
 // ถึงจะเห็นข้อความใหม่) และปุ่ม "ตอบกลับ"/"เขียนข้อความ" ไม่เคยส่งออกจริงเลยไม่ว่าช่องทางไหน (แค่ตั้งค่า
@@ -22,10 +23,6 @@ import { renderKeepFocus } from '../../utils/keepFocus.js'
 // sendSms/sendEmail (utils/comms.js) เมื่อมีเบอร์โทร/อีเมลผู้รับจริง — LINE Messaging API ที่ระบบนี้เชื่อม
 // ไว้เป็นแบบ Broadcast อย่างเดียว (ไม่มีการเก็บ LINE userId ต่อลูกค้า) และ Facebook/ภายใน ไม่มี integration
 // เชื่อมจริงเลย จึงบอกตรงไปตรงมาว่ายังส่งอัตโนมัติไม่ได้สำหรับช่องทางเหล่านี้ ไม่ใช่อ้างว่าส่งแล้วเหมือนเดิม
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
 
 const CHANNELS = {
   line:     { label: 'LINE', color: '#06b6d4', icon: '💬' },

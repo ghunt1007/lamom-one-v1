@@ -8,6 +8,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { escHtml } from '../../utils/escape.js'
 
 const CERT_STATUS = {
   active:  { label: 'ใช้งาน', color: 'success' },
@@ -21,8 +22,6 @@ const CERTS = [
   { id: 'C003', name: 'Sales Excellence Level 2', issuer: 'LAMOM Academy', level: 'Certified', icon: '📈', validMonths: 18 },
   { id: 'C004', name: 'Customer Service Pro', issuer: 'Thailand Automotive', level: 'Certified', icon: '🤝', validMonths: 12 },
 ]
-
-function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
 function addDays(n) {
   const [y, m, d] = todayBangkok().split('-').map(Number)

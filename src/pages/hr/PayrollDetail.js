@@ -7,10 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { printPayslip } from '../../utils/payrollDocs.js'
 import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 // พบว่าหน้านี้ไม่มีการเช็คสิทธิ์เลยแม้แต่จุดเดียว (เหมือน Payroll.js/hr Staff.js ก่อนแก้) — พนักงานทุกคนที่
 // เปิดถึงหน้านี้ได้เห็นเงินเดือนพื้นฐาน/คอมมิชชั่น/โบนัส/OT/ภาษี/ประกันสังคม/เงินสุทธิของเพื่อนร่วมงาน "ทุกคน"

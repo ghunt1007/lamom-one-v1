@@ -14,8 +14,7 @@ import { navigate } from '../../core/router.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
 import { genPassword } from '../../utils/secureRandom.js'
 import { escHtml as __escA } from '../../utils/escape.js'
-
-function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+import { escHtml as esc } from '../../utils/escape.js'
 
 const ROLES = {
   owner:   { label: 'เจ้าของ',      icon: '🏆', level: 100 },
@@ -58,7 +57,6 @@ function canCreate(myRole, targetRole) {
   const targetLevel = ROLES[targetRole]?.level || 0
   return myLevel >= MIN_CREATE_LEVEL && myLevel > targetLevel
 }
-
 
 export default async function UserManagementPage(container) {
   const myGen = container.__routerGen

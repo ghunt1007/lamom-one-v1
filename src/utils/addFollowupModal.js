@@ -7,10 +7,7 @@ import { formatDate, todayBangkok } from './format.js'
 import { addDays, buildManualFollowup, FOLLOWUP_PURPOSES } from './customerFollowups.js'
 import { suggestNextDue } from './nextFollowup.js'
 import { mentionsTestDrive, openTestDriveForm } from './testDriveForm.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from './escape.js'
 
 // c = ลูกค้า (ต้องมี id) — me = ชื่อผู้กด (ใช้เป็นผู้ติดตามถ้าลูกค้ายังไม่มีผู้ดูแล) — onSaved(followup) หลังบันทึกสำเร็จ
 // dueDate/type/note (ไม่บังคับ) = ค่าเริ่มต้นในฟอร์ม เช่น วัน/ช่องทางที่ AI ผู้ช่วยปิดการขายแนะนำ

@@ -7,10 +7,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 import { todayBangkok } from '../../utils/format.js'
 import { escHtml as __escA } from '../../utils/escape.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 function statusBadge(s) {
   const m = { upcoming:{l:'กำหนดการ',c:'var(--primary)'}, in_progress:{l:'กำลังประชุม',c:'var(--warning)'}, completed:{l:'เสร็จแล้ว',c:'var(--success)'} }

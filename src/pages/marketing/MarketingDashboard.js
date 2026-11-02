@@ -1,10 +1,7 @@
 import { navigate } from '../../core/router.js'
 import { getSalesData, listDocs } from '../../core/db.js'
 import { formatCurrency } from '../../utils/format.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 const QUICK_LINKS = [
   { icon:'🎯', label:'Campaigns', sub:'สร้างและจัดการแคมเปญ', path:'/marketing/campaigns', color:'primary' },

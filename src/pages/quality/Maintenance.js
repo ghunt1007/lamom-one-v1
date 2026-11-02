@@ -7,9 +7,9 @@ import { showToast } from '../../core/store.js'
 import { formatDate, todayBangkok } from '../../utils/format.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { escHtml } from '../../utils/escape.js'
 
 // ป้องกัน XSS — ชื่ออุปกรณ์/ช่างผู้รับผิดชอบเป็นข้อความพิมพ์เองในฟอร์มเพิ่มอุปกรณ์ ต้อง escape ก่อนแสดงผลเสมอ
-function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
 const STATUS_CFG = {
   ok:       { label:'ปกติ',       bg:'var(--success)',    icon:'✅' },

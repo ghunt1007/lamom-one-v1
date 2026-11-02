@@ -10,10 +10,7 @@ import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companySco
 import { getVehicles } from '../../data/vehicleDatabase.js'
 import { scheduleTestDriveFollowup } from '../../utils/testDriveFollowup.js'
 import { escHtml as __escA } from '../../utils/escape.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 const TD_STATUS = {
   scheduled: { label: 'นัดแล้ว', color: 'primary' },

@@ -5,6 +5,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { getSalesStaff } from '../../data/masterData.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as esc } from '../../utils/escape.js'
 
 const TYPES = ['โทรติดตาม', 'นัดหมาย', 'ทดลองขับ', 'เสนอราคา', 'ติดตามไฟแนนซ์', 'ปิดการขาย', 'ดูแลหลังขาย', 'อื่นๆ']
 const STATUS = {
@@ -192,4 +193,4 @@ function card(label, value, color) {
     '<div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:4px">' + label + '</div>' +
     '<div style="font-size:1.3rem;font-weight:800;color:var(--' + color + ')">' + value + '</div></div>'
 }
-function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') }
+

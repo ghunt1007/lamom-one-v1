@@ -7,6 +7,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, updateDocData, createDoc, softDelete, seedDemoData } from '../../core/db.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { escHtml } from '../../utils/escape.js'
 
 const SALES_NOTIFY_ROLES = ['sales', 'manager', 'owner', 'admin']
 async function notifySalesTeam(title, body, link) {
@@ -14,10 +15,6 @@ async function notifySalesTeam(title, body, link) {
   const targets = users.filter(u => u.uid && SALES_NOTIFY_ROLES.includes(u.role))
   await Promise.all(targets.map(u => createDoc('notifications', { type: 'system', title, body, userId: u.uid, read: false, link }).catch(() => {})))
   return targets.length
-}
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
 const ST = {

@@ -8,6 +8,7 @@ import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { escHtml } from '../../utils/escape.js'
 
 function myName() {
   const me = getState('user') || {}
@@ -28,10 +29,6 @@ const PO_CATS = {
   parts:   { label: 'อะไหล่', icon: '🔩' },
   supplies:{ label: 'อุปกรณ์', icon: '📦' },
   service: { label: 'บริการ', icon: '🔧' },
-}
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
 function addDays(n) {

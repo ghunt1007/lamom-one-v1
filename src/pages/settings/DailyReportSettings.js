@@ -9,8 +9,7 @@ import { showToast } from '../../core/store.js'
 import { previewDailyReport, sendDailyReportNow, getDailyReportWebhookUrl } from '../../utils/dailyReport.js'
 import { openModal } from '../../utils/modal.js'
 import { copyText } from '../../utils/copyText.js'
-
-function escHtml(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') }
+import { escHtml } from '../../utils/escape.js'
 
 export default async function DailyReportSettingsPage(container) {
   const webhookUrl = getDailyReportWebhookUrl()

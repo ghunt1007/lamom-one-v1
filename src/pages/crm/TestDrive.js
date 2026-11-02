@@ -10,6 +10,7 @@ import { scheduleTestDriveFollowup } from '../../utils/testDriveFollowup.js'
 import { testDriveThanks } from '../../utils/bookingNotify.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { copyText } from '../../utils/copyText.js'
+import { escHtml } from '../../utils/escape.js'
 
 // (v1.0.523) เดิมหน้านี้เขียน collection แยก 'test_drive_records' ของตัวเอง ในขณะที่ TestDriveScheduler.js
 // (/dms/testdrive-schedule) เขียน collection 'test_drives' คนละตัวโดยสิ้นเชิง — ทำระบบเดียวกัน (นัด→ทดลองขับ→
@@ -25,10 +26,6 @@ function toShared(old) {
     status: statusMap[old.status] || old.status || 'scheduled',
     result: old.result || null, notes: old.note || '', km: old.km || 0, duration: old.duration || 30,
   }
-}
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
 const TD_STATUS = {

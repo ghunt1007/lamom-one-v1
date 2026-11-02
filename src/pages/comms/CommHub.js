@@ -2,6 +2,7 @@ import { watchDocs, createDoc, updateDocData, listDocs, seedDemoData } from '../
 import { showToast, getState } from '../../core/store.js'
 import { formatDate, timeAgo, initials } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
+import { escHtml } from '../../utils/escape.js'
 
 const ONLINE_WINDOW_MS = 5 * 60 * 1000 // ถือว่า "ออนไลน์" ถ้า lastActive ภายใน 5 นาทีที่แล้ว
 function isOnline(u) {
@@ -10,10 +11,6 @@ function isOnline(u) {
 }
 function dmChannelId(uidA, uidB) {
   return 'dm_' + [uidA, uidB].sort().join('_')
-}
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
 const CHANNELS = [

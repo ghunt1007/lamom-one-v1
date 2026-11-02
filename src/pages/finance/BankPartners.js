@@ -20,8 +20,7 @@ import { getBanks } from '../../data/masterData.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { navigate } from '../../core/router.js'
 import { OCCUPATIONS } from '../../utils/financeMatch.js'
-
-function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+import { escHtml } from '../../utils/escape.js'
 
 const APP_STATUS_LABEL = {
   draft: 'Draft', submitted: 'ส่งแล้ว', pending: 'รอ', approved: 'อนุมัติ', rejected: 'ปฏิเสธ', cancelled: 'ยกเลิก',

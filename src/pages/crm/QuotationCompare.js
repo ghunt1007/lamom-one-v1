@@ -9,10 +9,7 @@ import { getVehicles } from '../../data/vehicleDatabase.js'
 import { sendEmail } from '../../utils/comms.js'
 import { printDocument, docHeader, docFooter, esc } from '../../utils/print.js'
 import { escHtml as __escA } from '../../utils/escape.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 const PROMO_DISCOUNT = 0.04 // โปรเดือนนี้ (ส่วนลดตัวอย่างสำหรับคำนวณ ไม่ใช่ราคาจริงจากผู้ผลิต)
 

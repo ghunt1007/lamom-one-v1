@@ -21,14 +21,11 @@ import { companyScopeFilters } from '../../core/companyScope.js'
 import { getVisibilityScope, scopeIncludesRecord } from '../../core/hierarchy.js'
 import { dealValue } from '../../utils/salesAi.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
+import { escHtml } from '../../utils/escape.js'
 
 // มูลค่าดีล: งบลูกค้า หรือถ้าไม่ได้กรอกงบ ใช้ราคารุ่นที่สนใจจาก catalog (สูตรเดียวกับหน้า Pipeline)
 const valCache = new Map()
 const val = c => { try { return dealValue(c, getVehicles(), valCache) } catch { return c.budget || 0 } }
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
 
 // ── Pipeline (condensed kanban) ─────────────────────────────────────────────
 const PIPE_STAGES = [

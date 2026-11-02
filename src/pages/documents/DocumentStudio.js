@@ -1,10 +1,6 @@
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { showToast } from '../../core/store.js'
 
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
-
 // เดิม doc.content (เนื้อหา rich text จาก contenteditable editor) ถูกใส่ตรงเข้า innerHTML โดยไม่กรองเลย
 // ทั้งตอนโหลดเข้า editor และตอนพิมพ์ — ใช้ escHtml() ตรงๆไม่ได้เพราะจะทำลาย formatting ที่ตั้งใจให้เป็น
 // HTML จริง (ตัวหนา/หัวข้อ/ตาราง) แก้ด้วยการกรองเฉพาะแท็ก/attribute ที่รันโค้ดได้ออกก่อนเก็บและก่อนแสดงผล
@@ -26,6 +22,7 @@ import { formatDate, formatDateTime } from '../../utils/format.js'
 import { confirmDialog, openModal } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { escHtml } from '../../utils/escape.js'
 
 const DOC_TYPES = {
   booking:       { label: '📝 ใบจอง',           color: 'primary' },

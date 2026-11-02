@@ -4,10 +4,7 @@ import { listDocs, createDoc, updateDocData } from '../../core/db.js'
 import { validateTaxId } from '../../utils/thaiId.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
 import { escHtml as __escA } from '../../utils/escape.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 const COMPANY_DEFAULTS = {
   name: 'LAMOM ออโต้ จำกัด',

@@ -11,6 +11,7 @@ import { formatAiText } from '../../utils/aiFormat.js'
 import { listDocs, createDoc, seedDemoData, getSalesData } from '../../core/db.js'
 import { heuristicScore } from './LeadScoring.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
+import { escHtml } from '../../utils/escape.js'
 
 // (v1.0.341) เดิม status/accuracy ต่อ Skill เป็นตัวเลข hardcode ล้วน ไม่มีระบบวัดความแม่นยำจริงในระบบเลย
 // (ต้องมี ground-truth ผลจริงเทียบคำแนะนำ AI ถึงจะวัดได้ — งานสร้างระบบวัดผลใหม่ทั้งหมด ไม่ใช่ scope การแก้
@@ -320,10 +321,6 @@ function renderBubble(m) {
       <div style="font-size:0.65rem;opacity:0.6;margin-top:4px;text-align:right">${timeAgo(m.time)}</div>
     </div>
   </div>`
-}
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

@@ -15,8 +15,8 @@ import { showToast } from '../../core/store.js'
 import { listDocs, listAllDocs, createDoc, softDelete, hardDeleteDoc } from '../../core/db.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { escHtml } from '../../utils/escape.js'
 
-function escHtml(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') }
 function toDate(v) { return v?.toDate ? v.toDate() : new Date(v) }
 
 const RETAINABLE_COLLECTIONS = {

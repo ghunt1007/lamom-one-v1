@@ -23,8 +23,7 @@ import { listDocs, createDoc, setDocData, seedDemoData } from '../../core/db.js'
 import { runCloudBackup, downloadLatestCloudBackup } from '../../utils/dailyReport.js'
 import { ALL_COLLECTIONS, exportAllData, downloadBackupFile, summarizeBackupData, restoreFromBackupData } from '../../core/backup.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
-
-function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+import { escHtml as esc } from '../../utils/escape.js'
 
 const BACKUP_STATUS = {
   success: { label: 'สำเร็จ', color: 'success', icon: '✅' },

@@ -9,8 +9,7 @@ import { getSalesData, listDocs, listAllDocs, createDoc, softDelete } from '../.
 import { OCCUPATIONS } from '../../utils/financeMatch.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { rfmSegments, RFM_RULES } from '../../utils/rfm.js'
-
-function escHtml(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') }
+import { escHtml } from '../../utils/escape.js'
 
 // (v1.0.336) เดิมแท็บ RFM คำนวณ "count" จริงจากยอดขายแล้ว แต่ "avgValue" ทุก tier และ tier "Lost" (ไม่ซื้อ
 // มานาน) ยังเป็นตัวเลข hardcode เสมอแม้ตอน dataSource==='live' — แท็บ "พื้นที่" (GEO_SEGMENTS) และ "รถที่ซื้อ"

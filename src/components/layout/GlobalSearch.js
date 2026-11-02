@@ -12,6 +12,7 @@ import { getModuleForPath, hasModuleAccess } from '../../core/permissions.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
 import { detectLeadIntent, matchMenuPages } from '../../utils/searchIntent.js'
 import { buildSimpleNav, readVisits } from '../../utils/navSimple.js'
+import { escHtml } from '../../utils/escape.js'
 // (v1.0.354) t เป็นชื่อ parameter ของ SOURCES/tasks item ในไฟล์นี้อยู่แล้ว (เช่น t => t.title) เปลี่ยนชื่อ
 // import เป็น tr กันชนกับ t local variable ในหลายจุดของไฟล์นี้
 
@@ -300,5 +301,4 @@ export function openGlobalSearch() {
   setTimeout(() => input.focus(), 50)
 }
 
-function escHtml(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }
 function escAttr(s) { return escHtml(s) }

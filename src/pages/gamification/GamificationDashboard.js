@@ -2,6 +2,7 @@ import { showToast, getState } from '../../core/store.js'
 import { todayBangkok } from '../../utils/format.js'
 import { getCommissionData, listDocs, updateDocData, createDoc } from '../../core/db.js'
 import { getCurrentUser, getMyTotalPoints, getRealLeaderboard, computeMyBadges } from './gamificationData.js'
+import { escHtml as esc } from '../../utils/escape.js'
 
 const LEVELS = [
   { min:0,    max:999,   name:'🌱 Rookie',     color:'primary' },
@@ -10,7 +11,6 @@ const LEVELS = [
   { min:6000, max:9999,  name:'💎 Diamond',     color:'accent'  },
   { min:10000,max:99999, name:'🏆 Legend',      color:'warning' },
 ]
-
 
 const LAMI_STAGES = [
   { level:1, name:'🥚 ไข่', xp:0, desc:'LAMI ยังอยู่ในไข่... รอการฟักออกมา' },
@@ -30,8 +30,6 @@ const MOODS = [
 
 function getLevel(xp) { return LEVELS.filter(l => xp >= l.min).pop() || LEVELS[0] }
 function getLamiStage(xp) { return LAMI_STAGES.filter(s => xp >= s.xp).pop() || LAMI_STAGES[0] }
-
-function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
 export default async function GamificationDashboard(container) {
   const myGen = container.__routerGen

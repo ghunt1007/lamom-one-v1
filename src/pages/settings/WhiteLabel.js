@@ -4,10 +4,7 @@ import { listDocs, createDoc, updateDocData } from '../../core/db.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
 import { applyBrand, applyLayoutDefault } from '../../core/whiteLabel.js'
 import { escHtml as __escA } from '../../utils/escape.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 const THEMES = [
   { id: 'default', name: 'LAMOM Purple', primary: '#6c63ff', accent: '#f857a6', bg: '#0f0f1a' },

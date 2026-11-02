@@ -2,13 +2,11 @@ import { watchDocs, createDoc, updateDocData, softDelete, seedDemoData } from '.
 import { showToast, on } from '../../core/store.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
 import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { escHtml } from '../../utils/escape.js'
 
 const PART_CATEGORIES = ['น้ำมันและของเหลว','ระบบเบรก','ระบบกันสะเทือน','ระบบไฟฟ้า','แบตเตอรี่ EV','ยางและล้อ','ตัวถัง','ฟิลเตอร์','อุปกรณ์เสริม','อื่นๆ']
 

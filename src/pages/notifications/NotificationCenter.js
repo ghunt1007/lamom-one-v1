@@ -2,10 +2,7 @@ import { watchDocs, updateDocData, seedDemoData } from '../../core/db.js'
 import { showToast, setState } from '../../core/store.js'
 import { timeAgo } from '../../utils/format.js'
 import { navigate } from '../../core/router.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 const NOTIF_TYPES = {
   lead:       { icon: '🧲', color: 'accent', label: 'Lead ใหม่' },

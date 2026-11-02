@@ -4,10 +4,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs, readDoc, createDoc } from '../../core/db.js'
 import { myEffectiveCompanyId, companyScopeFilters } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 function fullName(c) {
   return `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.custName || c.name || 'ลูกค้า'

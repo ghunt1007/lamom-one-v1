@@ -6,8 +6,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 import { todayBangkok } from '../../utils/format.js'
-
-function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+import { escHtml as esc } from '../../utils/escape.js'
 
 export default async function UtmTrackerPage(container) {
   const myGen = container.__routerGen

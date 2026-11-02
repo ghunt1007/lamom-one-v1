@@ -8,12 +8,13 @@ import { getSalesData } from '../../core/db.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 import { saleCost } from '../../utils/saleCost.js'
+import { escHtml } from '../../utils/escape.js'
 
 const MONTH_LABELS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 
 // ก่อนหน้านี้ m.model/m.brand เป็น string hardcode เสมอ ไม่มีความเสี่ยง XSS — ตอนนี้มาจากยี่ห้อ/รุ่นที่พนักงาน
 // พิมพ์เองตอนสร้างใบจอง (real, free-text) ต้อง escape ก่อน render และก่อนใช้เป็นค่าใน attribute เสมอ
-function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+
 function escAttr(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/"/g,'&quot;') }
 
 // ใช้เฉพาะตอนยังไม่มียอดขายจริงเลย (บริษัทใหม่/ยังไม่มีข้อมูล) — เดิมลิสต์นี้ตายตัวแค่ 5 รุ่นและถูกใช้เสมอไม่

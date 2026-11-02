@@ -6,10 +6,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { printCommissionSlip } from '../../utils/payrollDocs.js'
 import { calcCommission, loadOrSeedRules } from './CommissionRules.js'
 import { navigate } from '../../core/router.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 export default async function CommissionPage(container) {
   const myGen = container.__routerGen

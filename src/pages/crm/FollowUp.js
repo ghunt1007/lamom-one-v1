@@ -8,10 +8,7 @@ import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companySco
 import { FOLLOWUP_PURPOSES, followupWindowFilters } from '../../utils/customerFollowups.js'
 import { touchCustomerContact } from '../../utils/customerContact.js'
 import { escHtml as __escA } from '../../utils/escape.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 const FOLLOWUP_TYPES = {
   call:     { label: 'โทรศัพท์', icon: '📞', color: 'primary' },

@@ -8,10 +8,7 @@ import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.
 import { openModal } from '../../utils/modal.js'
 import { sendSms } from '../../utils/comms.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 // เดิม status ในระบบเขียนแค่ 'current'/'completed' เท่านั้น ไม่มีจุดไหนเขียน 'overdue' เลยแม้แต่ครั้งเดียว
 // (รวมถึงฟิลด์ overdue ที่นับจำนวนวันก็ไม่เคยถูกคำนวณใหม่เลย ค้างที่ 0 ตลอดตั้งแต่สร้างสัญญา) ทำให้แท็บ

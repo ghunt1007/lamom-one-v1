@@ -24,6 +24,7 @@ import { revisitMessage } from '../../utils/bookingNotify.js'
 import { classifyLostReason } from '../../utils/lostReason.js'
 import { openReplan, bookingTotal } from '../../utils/replanModal.js'
 import { copyText } from '../../utils/copyText.js'
+import { escHtml } from '../../utils/escape.js'
 
 const NUDGE_MAX = 8
 const SECTION_PREVIEW = 5
@@ -31,9 +32,7 @@ const SECTION_PREVIEW = 5
 const JUMP_LABEL = { '📞': 'นัดติดตาม', '🚙': 'ลองขับ', '🧲': 'Lead ใหม่', '🔴': 'Hot', '⏰': 'ไม่ได้ตาม', '🔄': 'ติดต่อใหม่', '📆': 'ยังไม่นัดส่ง', '🚗': 'ส่งมอบ', '🏦': 'ไฟแนนซ์', '💰': 'กรอกรายได้', '⏳': 'ใบจองค้าง' }
 
 const UNASSIGNED = '(ยังไม่มีผู้ดูแล)'
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+
 const SOURCE_LABEL = Object.fromEntries(QUICK_SOURCES)
 const tel = p => String(p || '').replace(/[^\d+]/g, '')
 

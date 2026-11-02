@@ -3,8 +3,7 @@ import { openModal } from './modal.js'
 import { showToast } from '../core/store.js'
 import { replanOptions, replanText } from './installment.js'
 import { copyText } from './copyText.js'
-
-const escHtml = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+import { escHtml } from './escape.js'
 
 // ราคารวมของใบจอง (ราคา − ส่วนลด + อุปกรณ์เสริม)
 export const bookingTotal = b => (Number(b.price) || 0) - (Number(b.discount) || 0) + (Number(b.accessories) || 0)

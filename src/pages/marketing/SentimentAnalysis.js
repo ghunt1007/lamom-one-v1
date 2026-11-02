@@ -9,10 +9,7 @@ import { listDocs } from '../../core/db.js'
 import { fullName, toDateStr } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 // comm_logs.type / customer_notes.type → ช่องทางที่แสดงผล
 const CHANNEL_MAP = { call: 'โทรศัพท์', line: 'LINE', chat: 'LINE', email: 'Email', visit: 'เข้าโชว์รูม', note: 'อื่นๆ', internal: 'อื่นๆ' }

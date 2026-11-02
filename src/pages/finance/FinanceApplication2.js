@@ -10,8 +10,7 @@ import { listDocs, listAllDocs, createDoc, updateDocData, softDelete, seedDemoDa
 import { isProgramOwner } from '../../core/hierarchy.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
-
-function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+import { escHtml } from '../../utils/escape.js'
 
 const APP_STATUS = {
   preparing:  { label: 'เตรียมเอกสาร', color: 'secondary', step: 1 },

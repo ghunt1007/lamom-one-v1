@@ -5,6 +5,7 @@
 import { formatCurrency, todayBangkok, toDateStr } from '../../utils/format.js'
 import { listAllDocs, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
+import { escHtml } from '../../utils/escape.js'
 
 const MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 
@@ -186,5 +187,4 @@ export default async function TechKpiPage(container) {
   await loadData()
 }
 
-function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
 function escAttr(s) { return escHtml(s).replace(/"/g,'&quot;') }

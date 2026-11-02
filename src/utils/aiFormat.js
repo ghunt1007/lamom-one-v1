@@ -1,7 +1,5 @@
+import { escHtml as esc } from './escape.js'
 // แปลงคำตอบ AI (ข้อความธรรมดา/Markdown บางส่วน) เป็น HTML ที่ปลอดภัย — ใช้ร่วมกันทุกหน้าที่แสดงคำตอบ LAMI
-function esc(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
-}
 
 // คำตอบ AI: escape ก่อนเสมอ แล้วค่อยแปลง **ตัวหนา** กับขึ้นบรรทัดใหม่ให้อ่านง่าย (ไม่มี HTML จาก AI หลุดเข้ามา)
 export function formatAiText(t) {

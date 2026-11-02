@@ -2,10 +2,7 @@ import { listDocs, seedDemoData, getSalesData } from '../../core/db.js'
 import { navigate } from '../../core/router.js'
 import { formatCurrency } from '../../utils/format.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 const QUICK_LINKS = [
   { icon:'📦', label:'สต็อกรถ', sub:'จัดการสินค้าคงคลัง', path:'/dms/stock', color:'primary' },

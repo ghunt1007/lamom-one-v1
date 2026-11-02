@@ -6,8 +6,7 @@ import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
-
-function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+import { escHtml } from '../../utils/escape.js'
 
 // เดิม new Date().toISOString() คืนวันที่ตาม UTC เสมอ ผิดไป 1 วันทุกครั้งที่เวลาไทยยังไม่ถึง 07:00 น.
 // (บั๊กคลาสเดียวกับที่แก้ใน TestDriveScheduler.js/Attendance.js — ยึดวันที่ไทยจริงจาก todayBangkok() เสมอ)

@@ -8,6 +8,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete } from '../../core/db.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
+import { escHtml } from '../../utils/escape.js'
 
 // ข้อมูลที่แบบฟอร์มขายรถใช้ (utils/dealerForms.js companyOf)
 const PRINT_FIELDS = [
@@ -16,10 +17,6 @@ const PRINT_FIELDS = [
   ['bankName', 'ธนาคาร (รับโอน)', 'เช่น กสิกรไทย'], ['bankAccount', 'เลขบัญชี', ''], ['bankAccountName', 'ชื่อบัญชี', ''],
   ['signerName', 'ผู้ลงนามแทนบริษัท', ''], ['signerTitle', 'ตำแหน่งผู้ลงนาม', 'กรรมการบริษัท'],
 ]
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
 
 export default async function OrgCompaniesPage(container) {
   const myGen = container.__routerGen

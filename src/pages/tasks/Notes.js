@@ -4,10 +4,7 @@ import { watchDocs, createDoc, updateDocData, softDelete, seedDemoData } from '.
 import { showToast, getState } from '../../core/store.js'
 import { timeAgo, toDate } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 const NOTE_COLORS = ['primary', 'success', 'warning', 'accent', 'danger', 'secondary']
 function colorFor(id) {

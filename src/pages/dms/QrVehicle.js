@@ -7,10 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 const ST = { available: { label: 'มีสต็อก', color: 'var(--success)' }, reserved: { label: 'จองแล้ว', color: 'var(--primary)' }, sold: { label: 'ขายแล้ว', color: 'var(--text-muted)' } }
 

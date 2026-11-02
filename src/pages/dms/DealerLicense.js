@@ -6,6 +6,7 @@ import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { escHtml } from '../../utils/escape.js'
 
 const LICENSE_NOTIFY_ROLES = ['manager', 'owner', 'admin']
 async function notifyLicenseReminder(title, body, link) {
@@ -14,8 +15,6 @@ async function notifyLicenseReminder(title, body, link) {
   await Promise.all(targets.map(u => createDoc('notifications', { type: 'system', title, body, userId: u.uid, read: false, link }).catch(() => {})))
   return targets.length
 }
-
-function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
 function daysLeft(expiry) { return Math.ceil((new Date(expiry) - Date.now()) / 86400000) }
 function calcStatus(l) {

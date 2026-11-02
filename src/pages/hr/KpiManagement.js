@@ -5,10 +5,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, getCommissionData } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 // สร้างรายชื่อไตรมาสจากวันที่จริงปัจจุบัน (4 ไตรมาสล่าสุดจนถึงไตรมาสนี้) — เดิม hardcode ไว้แค่ปี 2025
 // ทำให้เลือกไตรมาสปัจจุบันไม่ได้เลยเมื่อข้ามปี

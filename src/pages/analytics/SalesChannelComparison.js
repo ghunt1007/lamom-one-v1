@@ -10,10 +10,7 @@ import { showToast } from '../../core/store.js'
 import { navigate } from '../../core/router.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 const CHANNELS = {
   showroom: { label: '🏢 ทีมหน้าร้าน', color: 'primary' },

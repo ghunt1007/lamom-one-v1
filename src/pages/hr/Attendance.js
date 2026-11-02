@@ -5,10 +5,7 @@ import { companyScopeFilters } from '../../core/companyScope.js'
 import { getVisibilityScope, scopeIncludesStaff } from '../../core/hierarchy.js'
 import { todayBangkok, nowBangkokTime } from '../../utils/format.js'
 import { escHtml as __escA } from '../../utils/escape.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 // เดิมใช้ new Date().toISOString().slice(0,10) ซึ่งคืนวันที่ตาม UTC เสมอ — ผิดไป 1 วันทุกครั้งที่พนักงาน
 // ลงเวลาเข้างานก่อน 07:00 น. เวลาไทย (กะเช้าของศูนย์บริการ/แผนกขายเปิดเช้าเป็นเรื่องปกติ) ทำให้บันทึกการ

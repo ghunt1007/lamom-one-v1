@@ -3,6 +3,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getSalesData, listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { escHtml as esc } from '../../utils/escape.js'
 
 const EVENT_TYPES = {
   launch:     { label: 'Launch Event', icon: '🚀', color: 'primary' },
@@ -396,4 +397,3 @@ function row(label, value) {
   return '<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:0.82rem"><span style="color:var(--text-muted)">' + label + '</span><span>' + value + '</span></div>'
 }
 
-function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }

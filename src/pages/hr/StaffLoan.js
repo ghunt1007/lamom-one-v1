@@ -8,6 +8,7 @@ import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData, incrementField, readDoc } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { escHtml } from '../../utils/escape.js'
 
 // (v1.0.537) เดิม dropdown "พนักงาน" ตอนยื่นขอกู้/เบิกล่วงหน้า hardcode รายชื่อ+เงินเดือนปลอม 4 คนเสมอ
 // (ไม่ตรงกับพนักงานจริงคนไหนเลย) ทำให้วงเงินกู้สูงสุดที่คำนวณ (% ของเงินเดือน) อิงจากเงินเดือนปลอมเสมอ — เป็น
@@ -15,10 +16,6 @@ import { escHtml as __escA } from '../../utils/escape.js'
 // Bonus ไว้ก่อน — ตรงนี้แก้เป็นดึงพนักงาน+เงินเดือนจริงแทน (staff_salaries อ่านได้เฉพาะ HR/การเงิน/ผู้จัดการ
 // เหมือนที่ Staff.js ใช้อยู่แล้ว หน้านี้เป็นหน้า HR ที่เกี่ยวกับเงินเดือนโดยตรงอยู่แล้วจึงใช้เงื่อนไขเดียวกัน)
 const SALARY_VIEW_ROLES = ['owner', 'admin', 'manager', 'hr']
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
 
 function addDays(n) {
   const [y, m, d] = todayBangkok().split('-').map(Number)

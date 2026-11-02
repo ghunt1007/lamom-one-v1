@@ -8,13 +8,12 @@ import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { escHtml } from '../../utils/escape.js'
 
 function myName() {
   const me = getState('user') || {}
   return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
 }
-
-function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
 // วันที่ (Asia/Bangkok) ของ timestamp ใดๆ — ใช้กรอง "วันนี้" ให้ตรงเวลาไทยจริง ไม่ผูกกับ timezone เครื่อง
 // (ตาม pattern เดียวกับ todayBangkok() ใน utils/format.js ที่แก้บั๊ก UTC-vs-เวลาไทยไว้แล้ว)

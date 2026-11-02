@@ -9,8 +9,7 @@ import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.
 import { isProgramOwner } from '../../core/hierarchy.js'
 import { genApiKey as genKey } from '../../utils/secureRandom.js'
 import { escHtml as __escA } from '../../utils/escape.js'
-
-function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+import { escHtml as esc } from '../../utils/escape.js'
 
 // API Key เป็นข้อมูลอ่อนไหวระดับ credential เข้าถึงระบบภายนอกได้ และเป็นการตั้งค่าระดับระบบทั้งแพลตฟอร์ม
 // (ไม่ใช่ข้อมูลของบริษัทใดบริษัทหนึ่ง) — Firestore Rules จำกัดทั้งอ่าน/เขียนให้ isProgramOwner() เท่านั้น
@@ -20,7 +19,6 @@ const KEY_SCOPES = {
   write: { label: 'อ่าน + เขียน', color: 'warning', icon: '✏️' },
   admin: { label: 'Admin เต็มสิทธิ์', color: 'danger', icon: '🔑' },
 }
-
 
 export default async function ApiKeysPage(container) {
   const myGen = container.__routerGen

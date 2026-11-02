@@ -13,10 +13,7 @@ import { uploadFile } from '../../utils/storage.js'
 import { getFinanceCompanies, getCampaigns } from '../../data/masterData.js'
 import { getBrands } from '../../data/vehicleDatabase.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 const MONTHS_TH = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
 const STATUS_MAP = { confirmed: { label: 'ยืนยันแล้ว', cls: 'success' }, pending: { label: 'รอตรวจสอบ', cls: 'warning' } }

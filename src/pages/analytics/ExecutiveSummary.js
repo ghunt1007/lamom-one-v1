@@ -9,8 +9,7 @@ import { getSalesData, getCommissionData, listDocs } from '../../core/db.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { saleCost } from '../../utils/saleCost.js'
-
-function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+import { escHtml } from '../../utils/escape.js'
 
 const SUMMARY = {
   month: 'มิถุนายน 2569',

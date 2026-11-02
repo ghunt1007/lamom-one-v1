@@ -5,10 +5,7 @@ import { openModal } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getInsurers, getInsuranceTypes } from '../../data/masterData.js'
 import { escHtml as __escA } from '../../utils/escape.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 const INS_STATUS = {
   active:   { label: '✅ คุ้มครองอยู่',  badge: 'success' },

@@ -9,6 +9,7 @@ import {
   printJobOrder, printContract, printContractAttachment, printExpenseNotice, printDeliveryNote,
   printRegistrationIntent, printCommissionSheet, printWithdrawRequest,
 } from './dealerForms.js'
+import { escHtml as esc } from './escape.js'
 
 // (2026-11-02) แบบฟอร์มตามตัวอย่างจริงของโชว์รูม เรียงตามขั้นตอนการขาย — print(b, company)
 export const BOOKING_PRINTS = [
@@ -30,7 +31,6 @@ async function companyFor(b) {
 }
 
 export const MAX_FILE_MB = 15
-const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
 // รายการไฟล์ที่จะเก็บในใบจอง (ไม่เก็บตัวไฟล์ใน Firestore เก็บแค่ลิงก์)
 export function fileEntry(file, res, by, at = new Date().toISOString()) {

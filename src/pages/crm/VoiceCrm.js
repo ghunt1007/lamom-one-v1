@@ -10,6 +10,7 @@ import { myEffectiveCompanyId } from '../../core/companyScope.js'
 import { uploadFile } from '../../utils/storage.js'
 import { analyzeVoiceNote } from '../../utils/ai.js'
 import { startMicRecording, stopMicRecording, blobToWavBase64, extFromMime } from '../../utils/audio.js'
+import { escHtml } from '../../utils/escape.js'
 
 // วิเคราะห์เสียงด้วย AI จริงแบบ "ปลอดภัย" — แปลงเป็น WAV ก่อนส่งเสมอ (Gemini ไม่รับ audio/webm)
 // ถ้าแปลงไม่ได้/ไฟล์ยาวเกินงบ 20MB inline ของ Gemini หรือ AI พัง คืน null ให้ผู้เรียก fallback เอง
@@ -21,8 +22,6 @@ async function analyzeVoiceNoteSafe(blob) {
     return await analyzeVoiceNote(wav.base64, wav.mimeType)
   } catch (e) { return null }
 }
-
-function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
 function addDays(n) {
   const [y, m, d] = todayBangkok().split('-').map(Number)

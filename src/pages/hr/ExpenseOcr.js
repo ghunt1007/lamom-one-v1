@@ -9,10 +9,10 @@ import { listDocs, createDoc, updateDocData, softDelete } from '../../core/db.js
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { uploadFile, deleteFile } from '../../utils/storage.js'
 import { analyzeExpenseReceipt } from '../../utils/ai.js'
+import { escHtml as esc } from '../../utils/escape.js'
 
 // ป้องกัน XSS — ข้อมูล vendor/note/staff ฯลฯ มาจากผู้ใช้พิมพ์เอง หรือ AI OCR อ่านจากรูปที่อัปโหลด
 // (ผู้ไม่หวังดีอาจปลอมใบเสร็จให้ AI อ่านค่าที่มี HTML/JS ปนมาได้) ต้อง escape ทุกครั้งก่อนแสดงผล
-function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
 let RECEIPTS = [
   { id:'R001', staff:'นภา มีสุข', dept:'ฝ่ายขาย', date:'2026-06-12', vendor:'ร้านอาหาร MK Suki', amount:1240, cat:'เลี้ยงรับรองลูกค้า', status:'approved', note:'', confidence:97 },
