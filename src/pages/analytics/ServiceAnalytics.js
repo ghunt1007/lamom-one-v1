@@ -17,11 +17,11 @@ const MONTHLY = {
 const MONTH_LABELS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.']
 
 const BY_SERVICE_TYPE = [
-  { type: 'เช็คระยะ', jobs: 52, revenue: 182000, avgTicket: 3500, color: '#3b82f6' },
-  { type: 'ซ่อมทั่วไป', jobs: 28, revenue: 168000, avgTicket: 6000, color: '#f59e0b' },
-  { type: 'EV Diagnostic', jobs: 14, revenue: 70000, avgTicket: 5000, color: '#10b981' },
-  { type: 'ยาง/ช่วงล่าง', jobs: 12, revenue: 96000, avgTicket: 8000, color: '#ef4444' },
-  { type: 'อื่นๆ (ล้าง/ฟิล์ม)', jobs: 12, revenue: 36000, avgTicket: 3000, color: '#8b5cf6' },
+  { type: 'เช็คระยะ', jobs: 0, revenue: 0, avgTicket: 3500, color: '#3b82f6' },
+  { type: 'ซ่อมทั่วไป', jobs: 0, revenue: 0, avgTicket: 6000, color: '#f59e0b' },
+  { type: 'EV Diagnostic', jobs: 0, revenue: 0, avgTicket: 5000, color: '#10b981' },
+  { type: 'ยาง/ช่วงล่าง', jobs: 0, revenue: 0, avgTicket: 8000, color: '#ef4444' },
+  { type: 'อื่นๆ (ล้าง/ฟิล์ม)', jobs: 0, revenue: 0, avgTicket: 3000, color: '#8b5cf6' },
 ]
 
 const BAY_UTILIZATION = [
@@ -31,12 +31,7 @@ const BAY_UTILIZATION = [
   { bay: 'Bay 4 (ด่วน)', util: 91 },
 ]
 
-const TOP_TECHS = [
-  { name: 'วิทยา ช่างใหญ่', jobs: 34, revenue: 178000, csat: 4.8 },
-  { name: 'สุรชัย มือดี', jobs: 31, revenue: 162000, csat: 4.7 },
-  { name: 'ชาตรี แข็งแกร่ง', jobs: 28, revenue: 134000, csat: 4.6 },
-  { name: 'มานะ ขยัน', jobs: 25, revenue: 98000, csat: 4.4 },
-]
+const TOP_TECHS = [] // (2026-11-02) เอาข้อมูลสมมติออก
 
 export default async function ServiceAnalyticsPage(container) {
   const myGen = container.__routerGen

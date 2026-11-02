@@ -9,13 +9,7 @@ function escHtml(s) {
 }
 import { exportToExcel } from '../../utils/importExport.js'
 
-const DEMO_STAFF_PAY = [
-  { id: 'ST001', name: 'อรนุช สายใจ', position: 'Sales Manager', dept: 'ขาย', base: 25000, ot: 2000, allowance: 3000, deduction: 1250, ssf: 750, status: 'paid' },
-  { id: 'ST002', name: 'วิชาญ มีโชค', position: 'Sales Executive', dept: 'ขาย', base: 18000, ot: 1500, allowance: 2000, deduction: 900, ssf: 540, status: 'paid' },
-  { id: 'ST003', name: 'ธีรยุทธ เก่งกาจ', position: 'Service Advisor', dept: 'บริการ', base: 20000, ot: 3000, allowance: 2500, deduction: 1000, ssf: 600, status: 'pending' },
-  { id: 'ST004', name: 'สมหมาย รักงาน', position: 'Technician', dept: 'บริการ', base: 16000, ot: 2500, allowance: 1500, deduction: 800, ssf: 480, status: 'pending' },
-  { id: 'ST005', name: 'นภา จันทร์งาม', position: 'Finance Officer', dept: 'การเงิน', base: 22000, ot: 0, allowance: 2000, deduction: 1100, ssf: 660, status: 'paid' },
-]
+const DEMO_STAFF_PAY = [] // (2026-11-02) เอาข้อมูลสมมติออก — ไม่มีข้อมูลจริงให้โชว์ว่าง ไม่ใช่ตัวเลขปลอม
 
 const MONTHS_TH = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 

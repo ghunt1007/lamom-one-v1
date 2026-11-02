@@ -25,20 +25,7 @@ function addDays(n) {
   return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
 }
 
-const DEMO_FEEDBACK = [
-  { id: 'FB001', type: 'csat', customerId: 'C001', customerName: 'วิชาญ มีโชค', phone: '081-234-5678',
-    department: 'delivery', score: 5, maxScore: 5, comment: 'บริการดีมาก ส่งมอบรถตรงเวลา พนักงานสุภาพ', date: addDays(-2), salesperson: 'อรนุช สายใจ', responded: true, response: 'ขอบคุณมากครับ ยินดีให้บริการเสมอ' },
-  { id: 'FB002', type: 'nps', customerId: 'C002', customerName: 'อรนุช สาวสวย', phone: '082-345-6789',
-    department: 'service', score: 9, maxScore: 10, comment: 'ศูนย์บริการทำงานเร็ว แต่ที่จอดรถน้อยไปหน่อย', date: addDays(-5), salesperson: 'วิชาญ มีโชค', responded: false, response: '' },
-  { id: 'FB003', type: 'review', customerId: 'C003', customerName: 'ธีรยุทธ เก่งกาจ', phone: '083-456-7890',
-    department: 'sales', score: 4, maxScore: 5, comment: 'โชว์รูมสวย สต็อกเยอะ แต่รอรับรถนานหน่อย', date: addDays(-7), salesperson: 'อรนุช สายใจ', responded: true, response: 'ขออภัยที่ทำให้รอนาน เราจะปรับปรุงครับ' },
-  { id: 'FB004', type: 'complaint', customerId: 'C004', customerName: 'สมใจ รักรถ', phone: '084-567-8901',
-    department: 'service', score: 2, maxScore: 5, comment: 'นำรถเข้าซ่อมแล้วใช้เวลานานกว่าที่แจ้งไว้ 3 วัน ไม่มีการแจ้งล่วงหน้า', date: addDays(-1), salesperson: 'วิชาญ ช่างซ่อม', responded: false, response: '' },
-  { id: 'FB005', type: 'csat', customerId: 'C005', customerName: 'ประยุทธ ดีใจ', phone: '085-678-9012',
-    department: 'sales', score: 5, maxScore: 5, comment: 'เซลส์อธิบายดีมาก ทดลองขับรถสนุกมาก ซื้อเลย!', date: addDays(-10), salesperson: 'อรนุช สายใจ', responded: true, response: 'ขอบคุณมากครับ!' },
-  { id: 'FB006', type: 'survey', customerId: 'C006', customerName: 'มาลี สุขสันต์', phone: '086-789-0123',
-    department: 'finance', score: 4, maxScore: 5, comment: 'ดำเนินการไฟแนนซ์เร็วดี เอกสารชัดเจน', date: addDays(-14), salesperson: 'นิภา บัญชีดี', responded: false, response: '' },
-]
+const DEMO_FEEDBACK = [] // (2026-11-02) เอาข้อมูลสมมติออก — ไม่มีข้อมูลจริงให้โชว์ว่าง ไม่ใช่ตัวเลขปลอม
 
 export default async function CustomerFeedbackPage(container) {
   const myGen = container.__routerGen

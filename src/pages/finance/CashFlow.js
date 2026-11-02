@@ -39,22 +39,7 @@ const CATEGORIES = {
 const CASH_FLOW_MANAGE_ROLES = ['owner', 'admin', 'manager', 'finance']
 
 // Demo weekly data (ใช้แสดงตัวอย่างเฉพาะตอนยังไม่มีข้อมูลจริงเลยเท่านั้น)
-const DEMO_FLOWS = [
-  // Week 1 June 2025
-  { id:'CF001', date:'2025-06-02', type:'income', cat:'vehicle_sale', desc:'ขาย BYD Seal AWD — สมศักดิ์', amount:1299000 },
-  { id:'CF002', date:'2025-06-02', type:'expense', cat:'cogs', desc:'ต้นทุน BYD Seal AWD', amount:1100000 },
-  { id:'CF003', date:'2025-06-03', type:'income', cat:'service', desc:'ค่าซ่อม Job#002-2025', amount:4500 },
-  { id:'CF004', date:'2025-06-04', type:'expense', cat:'salary', desc:'เงินเดือนพนักงาน มิ.ย.', amount:89250 },
-  { id:'CF005', date:'2025-06-05', type:'income', cat:'finance_comm', desc:'Commission KBank Fleet', amount:26000 },
-  { id:'CF006', date:'2025-06-06', type:'expense', cat:'rent', desc:'ค่าเช่าโชว์รูม มิ.ย.', amount:68000 },
-  // Week 2
-  { id:'CF007', date:'2025-06-09', type:'income', cat:'vehicle_sale', desc:'ขาย MG4 X — วิชาญ ขาย', amount:1199000 },
-  { id:'CF008', date:'2025-06-09', type:'expense', cat:'cogs', desc:'ต้นทุน MG4 X', amount:1040000 },
-  { id:'CF009', date:'2025-06-10', type:'income', cat:'insurance', desc:'Commission ประกัน AXA', amount:12000 },
-  { id:'CF010', date:'2025-06-10', type:'expense', cat:'marketing', desc:'Boost TikTok', amount:15000 },
-  { id:'CF011', date:'2025-06-11', type:'income', cat:'parts', desc:'ขายอะไหล่ปลีก', amount:8500 },
-  { id:'CF012', date:'2025-06-12', type:'expense', cat:'utilities', desc:'ค่าไฟ+น้ำ', amount:22000 },
-]
+const DEMO_FLOWS = [] // (2026-11-02) เอาข้อมูลสมมติออก — ไม่มีข้อมูลจริงให้โชว์ว่าง ไม่ใช่ตัวเลขปลอม
 
 export default async function CashFlowPage(container) {
   const myGen = container.__routerGen

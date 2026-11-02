@@ -26,15 +26,7 @@ const LOST_REASONS = {
 
 const BRANDS = ['BYD', 'MG', 'DEEPAL', 'Neta', 'อื่นๆ']
 
-const DEMO_LOST_DEALS = [
-  { id:'LD001', custName:'มานะ ลองดู', phone:'0811111111', interestedIn:'BYD Seal AWD', budget:1200000, lostReason:'price', lostTo:'Tesla Model 3', lostDate:'2025-05-15', salesperson:'วิชาญ มีโชค', stage:'negotiating', note:'ลูกค้าบอกว่า Tesla ราคาใกล้เคียงแต่ feature ดีกว่า' },
-  { id:'LD002', custName:'สวรรค์ ฝันอยาก', phone:'0822222222', interestedIn:'MG4 X', budget:1000000, lostReason:'finance', lostTo:null, lostDate:'2025-05-20', salesperson:'อรนุช สายใจ', stage:'booking', note:'ไฟแนนซ์ไม่ผ่าน รายได้ไม่ถึงเกณฑ์' },
-  { id:'LD003', custName:'ธรรมนูญ เที่ยว', phone:'0833333333', interestedIn:'BYD Atto3', budget:900000, lostReason:'timing', lostTo:null, lostDate:'2025-05-25', salesperson:'วิชาญ มีโชค', stage:'leads', note:'บอกว่าจะรอดูรุ่นใหม่ปลายปี' },
-  { id:'LD004', custName:'ปาณิสรา งดงาม', phone:'0844444444', interestedIn:'DEEPAL S07', budget:1100000, lostReason:'competitor', lostTo:'BYD Seal', lostDate:'2025-06-01', salesperson:'อรนุช สายใจ', stage:'testdrive', note:'ลูกค้าทดลองขับแล้วชอบ BYD มากกว่า' },
-  { id:'LD005', custName:'กฤษณะ หล่อมาก', phone:'0855555555', interestedIn:'MG ZS EV', budget:800000, lostReason:'price', lostTo:'BYD Seagull', lostDate:'2025-06-03', salesperson:'วิชาญ มีโชค', stage:'negotiating', note:'งบไม่พอ ต้องการราคาต่ำกว่านี้' },
-  { id:'LD006', custName:'อรทัย ดีงาม', phone:'0866666666', interestedIn:'BYD Seal AWD', budget:1300000, lostReason:'service', lostTo:'Toyota', lostDate:'2025-06-05', salesperson:'อรนุช สายใจ', stage:'negotiating', note:'ไม่พอใจที่รอนานมาก เซลส์ไม่ติดต่อกลับ' },
-  { id:'LD007', custName:'บรรพต ฝากไว้', phone:'0877777777', interestedIn:'MG4 X', budget:1100000, lostReason:'model', lostTo:null, lostDate:'2025-06-07', salesperson:'วิชาญ มีโชค', stage:'leads', note:'ต้องการรุ่น AWD แต่ยังไม่มีในไทย' },
-]
+const DEMO_LOST_DEALS = [] // (2026-11-02) เอาข้อมูลสมมติออก — ไม่มีข้อมูลจริงให้โชว์ว่าง ไม่ใช่ตัวเลขปลอม
 
 export default async function LostDealAnalysisPage(container) {
   const myGen = container.__routerGen

@@ -44,21 +44,9 @@ function extractVat(fullPrice) {
   return { amount: (fullPrice || 0) - vat, vat }
 }
 
-const DEMO_FILINGS = [
-  { id: 'TX001', type: 'pp30', period: addMonths(-1), dueDate: `${addMonths(-1)}-15`, filedDate: `${addMonths(-1)}-14`, status: 'filed', taxBase: 4820000, vatAmount: 337400, refundable: 0, notes: 'ยื่นออนไลน์', officer: 'นิภา บัญชีดี' },
-  { id: 'TX002', type: 'pnd53', period: addMonths(-1), dueDate: `${addMonths(-1)}-07`, filedDate: `${addMonths(-1)}-07`, status: 'filed', taxBase: 285000, vatAmount: 28500, refundable: 0, notes: '', officer: 'นิภา บัญชีดี' },
-  { id: 'TX003', type: 'pnd1', period: addMonths(-1), dueDate: `${addMonths(-1)}-07`, filedDate: `${addMonths(-1)}-06`, status: 'filed', taxBase: 520000, vatAmount: 38400, refundable: 0, notes: 'เงินเดือนพนักงาน 12 คน', officer: 'นิภา บัญชีดี' },
-  { id: 'TX004', type: 'pp30', period: thisMonth(), dueDate: `${thisMonth()}-15`, filedDate: null, status: 'pending', taxBase: 5120000, vatAmount: 358400, refundable: 0, notes: '', officer: 'นิภา บัญชีดี' },
-  { id: 'TX005', type: 'pnd1', period: thisMonth(), dueDate: `${thisMonth()}-07`, filedDate: null, status: 'pending', taxBase: 540000, vatAmount: 39200, refundable: 0, notes: '', officer: 'นิภา บัญชีดี' },
-  { id: 'TX006', type: 'pnd51', period: addMonths(-6), dueDate: `${addMonths(-6)}-31`, filedDate: `${addMonths(-6)}-29`, status: 'filed', taxBase: 3200000, vatAmount: 320000, refundable: 0, notes: 'ภาษีกลางปี', officer: 'นิภา บัญชีดี' },
-]
+const DEMO_FILINGS = [] // (2026-11-02) เอาข้อมูลสมมติออก — ไม่มีข้อมูลจริงให้โชว์ว่าง ไม่ใช่ตัวเลขปลอม
 
-const DEMO_INVOICES = [
-  { id: 'INV001', vendor: 'BYD Auto Thailand', date: `${addMonths(-1)}-05`, ...extractVat(8740000), withheld: 87400, type: 'purchase', taxInvNo: 'TIV0001234' },
-  { id: 'INV002', vendor: 'LAMOM ONE (ขาย)', date: `${addMonths(-1)}-08`, ...extractVat(1449000), withheld: 0, type: 'sale', taxInvNo: 'TSV0009821' },
-  { id: 'INV003', vendor: 'AIS Fiber', date: `${addMonths(-1)}-01`, ...extractVat(3200), withheld: 96, type: 'purchase', taxInvNo: 'TIV0001235' },
-  { id: 'INV004', vendor: 'สำนักงานบัญชีดี', date: `${addMonths(-1)}-01`, ...extractVat(15000), withheld: 1500, type: 'purchase', taxInvNo: 'TIV0001236' },
-]
+const DEMO_INVOICES = [] // (2026-11-02) เอาข้อมูลสมมติออก — ไม่มีข้อมูลจริงให้โชว์ว่าง ไม่ใช่ตัวเลขปลอม
 
 export default async function TaxReportPage(container) {
   const myGen = container.__routerGen

@@ -9,43 +9,38 @@ const MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','�
 
 // Demo data — customer segments and behavior
 const AGE_SEGMENTS = [
-  { label: '18-25 ปี', count: 42, pct: 14, avgSpend: 890000, color: 'primary' },
-  { label: '26-35 ปี', count: 98, pct: 32, avgSpend: 1120000, color: 'success' },
-  { label: '36-45 ปี', count: 88, pct: 29, avgSpend: 1380000, color: 'warning' },
-  { label: '46-55 ปี', count: 52, pct: 17, avgSpend: 1250000, color: 'secondary' },
-  { label: '56+ ปี', count: 24, pct: 8, avgSpend: 980000, color: 'danger' },
+  { label: '18-25 ปี', count: 0, pct: 0, avgSpend: 890000, color: 'primary' },
+  { label: '26-35 ปี', count: 0, pct: 0, avgSpend: 1120000, color: 'success' },
+  { label: '36-45 ปี', count: 0, pct: 0, avgSpend: 1380000, color: 'warning' },
+  { label: '46-55 ปี', count: 0, pct: 0, avgSpend: 1250000, color: 'secondary' },
+  { label: '56+ ปี', count: 0, pct: 0, avgSpend: 980000, color: 'danger' },
 ]
 
 const BUYER_TYPES = [
-  { label: 'First-time EV', count: 172, pct: 56, color: 'primary' },
-  { label: 'Upgrade จาก ICE', count: 89, pct: 29, color: 'success' },
-  { label: 'เปลี่ยนรุ่น EV', count: 26, pct: 9, color: 'warning' },
-  { label: 'Fleet/Corporate', count: 17, pct: 6, color: 'secondary' },
+  { label: 'First-time EV', count: 0, pct: 0, color: 'primary' },
+  { label: 'Upgrade จาก ICE', count: 0, pct: 0, color: 'success' },
+  { label: 'เปลี่ยนรุ่น EV', count: 0, pct: 0, color: 'warning' },
+  { label: 'Fleet/Corporate', count: 0, pct: 0, color: 'secondary' },
 ]
 
 const SOURCE_DATA = [
-  { label: 'Facebook Ads', count: 112, pct: 36, cost: 280000, cpa: 2500, color: 'primary' },
-  { label: 'Walk-in', count: 76, pct: 25, cost: 0, cpa: 0, color: 'success' },
-  { label: 'Referral', count: 58, pct: 19, cost: 145000, cpa: 2500, color: 'warning' },
-  { label: 'LINE/Social', count: 38, pct: 12, cost: 95000, cpa: 2500, color: 'secondary' },
-  { label: 'อื่นๆ', count: 20, pct: 8, cost: 50000, cpa: 2500, color: 'danger' },
+  { label: 'Facebook Ads', count: 0, pct: 0, cost: 0, cpa: 2500, color: 'primary' },
+  { label: 'Walk-in', count: 0, pct: 0, cost: 0, cpa: 0, color: 'success' },
+  { label: 'Referral', count: 0, pct: 0, cost: 0, cpa: 2500, color: 'warning' },
+  { label: 'LINE/Social', count: 0, pct: 0, cost: 0, cpa: 2500, color: 'secondary' },
+  { label: 'อื่นๆ', count: 0, pct: 0, cost: 0, cpa: 2500, color: 'danger' },
 ]
 
 const MONTHLY_NEW = [28,22,35,30,42,25,0,0,0,0,0,0]
 const MONTHLY_RETURNING = [8,6,10,9,12,7,0,0,0,0,0,0]
 const MONTHLY_CHURN = [3,4,2,5,3,6,0,0,0,0,0,0]
 
-const TOP_CUSTOMERS = [
-  { name: 'บริษัท ABC จำกัด', type: 'Corporate', purchases: 5, totalSpend: 6850000, lastDate: '2025-05-15', tier: 'Platinum' },
-  { name: 'วิชาญ มีโชค', type: 'Individual', purchases: 3, totalSpend: 3890000, lastDate: '2025-06-02', tier: 'Gold' },
-  { name: 'บริษัท XYZ EV', type: 'Corporate', purchases: 2, totalSpend: 2890000, lastDate: '2025-04-18', tier: 'Gold' },
-  { name: 'อรนุช สาวสวย', type: 'Individual', purchases: 2, totalSpend: 2180000, lastDate: '2025-05-25', tier: 'Silver' },
-  { name: 'ธีรยุทธ เก่งกาจ', type: 'Individual', purchases: 1, totalSpend: 1449000, lastDate: '2025-06-01', tier: 'Silver' },
-]
+const TOP_CUSTOMERS = [] // (2026-11-02) เอาลูกค้าสมมติออก
 
 export default async function CustomerInsightsPage(container) {
   const myGen = container.__routerGen
-  let tab = 'overview'
+  // (2026-11-02) แท็บ Overview/Segments เป็นข้อมูลตัวอย่างล้วน (อายุ/ประเภทผู้ซื้อ/ลูกค้าหาย) ไม่มีข้อมูลจริงรองรับ → ซ่อนไว้
+  let tab = 'sources'
 
   let liveSourceData = null
   let liveTopBuyers = null
@@ -89,10 +84,10 @@ export default async function CustomerInsightsPage(container) {
   } catch {}
 
   function renderPage() {
-    const totalCustomers = liveDistinctCustomers || AGE_SEGMENTS.reduce((a, s) => a + s.count, 0)
-    const avgLTV = Math.round(AGE_SEGMENTS.reduce((a, s) => a + s.count * s.avgSpend, 0) / AGE_SEGMENTS.reduce((a, s) => a + s.count, 0))
-    const newThisMonth = MONTHLY_NEW[5]
-    const retentionRate = Math.round(((AGE_SEGMENTS.reduce((a,s)=>a+s.count,0) - MONTHLY_CHURN.reduce((a,v)=>a+v,0)) / AGE_SEGMENTS.reduce((a,s)=>a+s.count,0)) * 100)
+    const totalCustomers = liveDistinctCustomers
+    const totalRevenue = (liveSourceData || []).reduce((a, x) => a + x.revenue, 0)
+    const avgLTV = totalCustomers ? Math.round(totalRevenue / totalCustomers) : 0
+    const repeat = liveDistinctCustomers ? Math.round((liveTotalSales - liveDistinctCustomers) / liveDistinctCustomers * 100) : 0
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -108,14 +103,14 @@ export default async function CustomerInsightsPage(container) {
 
         ${liveTotalSales ? `<div style="margin-bottom:10px;padding:7px 12px;background:var(--surface-2);border-left:3px solid var(--success);border-radius:var(--radius-sm);font-size:0.78rem;color:var(--success)">● ข้อมูลจริง: ${liveTotalSales} ธุรกรรมจากใบจอง</div>` : ''}
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
-          ${kpi('👥 ลูกค้าทั้งหมด', totalCustomers + (liveTotalSales ? '' : ' (Demo)'), 'primary')}
-          ${kpi('✨ ใหม่เดือนนี้ (ตัวอย่าง)', newThisMonth, 'success')}
-          ${kpi('💰 มูลค่าเฉลี่ย/ลูกค้า (ตัวอย่าง)', formatCurrency(avgLTV), 'warning')}
-          ${kpi('🔄 กลับมาซื้อซ้ำ (ตัวอย่าง)', retentionRate + '%', retentionRate >= 90 ? 'success' : 'warning')}
+          ${kpi('👥 ลูกค้าทั้งหมด', totalCustomers, 'primary')}
+          ${kpi('🧾 ใบจอง', liveTotalSales, 'success')}
+          ${kpi('💰 มูลค่าเฉลี่ย/ลูกค้า', formatCurrency(avgLTV), 'warning')}
+          ${kpi('🔄 ซื้อซ้ำ', repeat + '%', 'secondary')}
         </div>
 
         <div class="tab-nav" style="margin-bottom:14px">
-          ${[['overview','📊 Overview'],['segments','👥 Segments'],['sources','🔍 Sources'],['top','🏆 Top Customers']].map(([t,l]) => `<button class="tab-btn ${tab===t?'active':''}" data-tab="${t}">${l}</button>`).join('')}
+          ${[['sources','🔍 ที่มาลูกค้า'],['top','🏆 ลูกค้าซื้อมากสุด']].map(([t,l]) => `<button class="tab-btn ${tab===t?'active':''}" data-tab="${t}">${l}</button>`).join('')}
         </div>
 
         ${tab === 'overview' ? renderOverview() : tab === 'segments' ? renderSegments() : tab === 'sources' ? renderSources() : renderTop()}

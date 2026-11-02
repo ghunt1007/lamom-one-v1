@@ -67,6 +67,8 @@ async function main() {
   await put('users', uid, { uid, email: TEST_LOGIN.email, displayName: 'เจ้าของ ทดสอบ', role: 'owner', active: true, createdAt: ts(-300) })
 
   for (const [id, name, brand] of COMPANIES) await put('org_companies', id, { name, brand, createdAt: ts(-400) })
+  // SEED_EMPTY=1: มีแค่บัญชีเจ้าของ + บริษัท — ใช้ตรวจหน้าตาตอนยังไม่มีข้อมูล (ต้องว่าง ไม่ใช่ตัวเลขสมมติ)
+  if (process.env.SEED_EMPTY === '1') { console.log('emulator-seed: empty mode (owner + companies only)'); return }
 
   const staffNames = [...SALES, 'ช่าง หนึ่ง', 'ช่าง สอง', 'บัญชี หนึ่ง', 'ผู้จัดการ ทดสอบ', 'HR ทดสอบ']
   const depts = ['ขาย', 'ขาย', 'ขาย', 'บริการ', 'บริการ', 'บัญชี', 'บริหาร', 'HR']

@@ -42,20 +42,9 @@ function extractVat(fullPrice) {
 // และกรองตามเดือนที่เลือกจริงแล้ว (ไม่ใช่รวมทุกเดือนเข้าด้วยกันเหมือนเดิม)
 const PO_CAT_LABELS = { vehicle: 'รถยนต์', parts: 'อะไหล่', supplies: 'อุปกรณ์', service: 'บริการ' }
 
-const DEMO_INVOICES_OUT = [ // ขาออก
-  { id: 'INV001', date: addDays(-5), customer: 'สมชาย ใจดี', ...extractVat(1299000), category: 'รถยนต์' },
-  { id: 'INV002', date: addDays(-7), customer: 'มาลี สุขใจ', ...extractVat(899000), category: 'รถยนต์' },
-  { id: 'INV003', date: addDays(-10), customer: 'ABC Co Ltd', ...extractVat(12500), category: 'บริการ' },
-  { id: 'INV004', date: addDays(-12), customer: 'ธนพล เที่ยงตรง', ...extractVat(3500), category: 'อะไหล่' },
-  { id: 'INV005', date: addDays(-15), customer: 'SCG Group', ...extractVat(75000), category: 'ประกัน' },
-]
+const DEMO_INVOICES_OUT = [] // (2026-11-02) เอาข้อมูลสมมติออก — ไม่มีข้อมูลจริงให้โชว์ว่าง ไม่ใช่ตัวเลขปลอม
 
-const DEMO_INVOICES_IN = [ // ขาเข้า
-  { id: 'PO001', date: addDays(-3), supplier: 'BYD Auto Thailand', ...extractVat(8990000), category: 'ต้นทุนรถ' },
-  { id: 'PO002', date: addDays(-8), supplier: 'บริษัทอะไหล่ไทย', ...extractVat(45000), category: 'อะไหล่' },
-  { id: 'PO003', date: addDays(-10), supplier: 'True Corp', ...extractVat(3500), category: 'ค่าโทรศัพท์' },
-  { id: 'PO004', date: addDays(-14), supplier: 'AXA Insurance', ...extractVat(18000), category: 'ประกันบริษัท' },
-]
+const DEMO_INVOICES_IN = [] // (2026-11-02) เอาข้อมูลสมมติออก — ไม่มีข้อมูลจริงให้โชว์ว่าง ไม่ใช่ตัวเลขปลอม
 
 export default async function VatReportPage(container) {
   const myGen = container.__routerGen

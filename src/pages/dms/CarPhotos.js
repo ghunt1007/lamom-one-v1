@@ -16,13 +16,7 @@ function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d
 
 const PHOTO_ANGLES = ['หน้าตรง', 'หน้าเฉียงซ้าย', 'หน้าเฉียงขวา', 'ข้างซ้าย', 'ข้างขวา', 'หลังตรง', 'ภายใน-คอนโซล', 'ภายใน-เบาะหน้า', 'ภายใน-เบาะหลัง', 'ห้องเก็บของ', 'ล้อ/แม็กซ์', 'จอ/ระบบ Infotainment']
 
-const DEMO_CARS = [
-  { id: 'CP01', model: 'BYD Dolphin สีน้ำเงิน', vin: '...1122', photos: 12, photoUrls: {}, photoKeys: {}, posted: { fb: true, line: true, web: true }, lastShoot: addDays(-5), _persisted: false },
-  { id: 'CP02', model: 'BYD Atto 3 สีขาว', vin: '...3344', photos: 8, photoUrls: {}, photoKeys: {}, posted: { fb: true, line: false, web: true }, lastShoot: addDays(-10), _persisted: false },
-  { id: 'CP03', model: 'BYD Seal AWD สีดำ', vin: '...5566', photos: 0, photoUrls: {}, photoKeys: {}, posted: { fb: false, line: false, web: false }, lastShoot: null, _persisted: false },
-  { id: 'CP04', model: 'MG4 Electric สีแดง', vin: '...7788', photos: 12, photoUrls: {}, photoKeys: {}, posted: { fb: true, line: true, web: false }, lastShoot: addDays(-2), _persisted: false },
-  { id: 'CP05', model: 'BYD Han สีขาว', vin: '...9900', photos: 5, photoUrls: {}, photoKeys: {}, posted: { fb: false, line: false, web: false }, lastShoot: addDays(-20), _persisted: false },
-]
+const DEMO_CARS = [] // (2026-11-02) เอาข้อมูลสมมติออก — ไม่มีข้อมูลจริงให้โชว์ว่าง ไม่ใช่ตัวเลขปลอม
 
 export default async function CarPhotosPage(container) {
   const myGen = container.__routerGen

@@ -36,22 +36,9 @@ const EARN_RATES = [
   { label: 'รีวิว Google', pointsPer: '50 คะแนน', icon: '⭐' },
 ]
 
-const DEMO_MEMBERS = [
-  { id: 'LM001', name: 'วิชาญ มีโชค', phone: '081-234-5678', email: 'wichan@mail.com', joinDate: '2023-01-15', points: 18500, vehicles: ['BYD Seal AWD', 'BYD Atto 3'], totalSpend: 2450000, lastActivity: '2025-06-08' },
-  { id: 'LM002', name: 'อรนุช สายใจ', phone: '082-345-6789', email: 'ornuch@mail.com', joinDate: '2023-06-20', points: 6750, vehicles: ['MG ZS EV'], totalSpend: 1150000, lastActivity: '2025-05-20' },
-  { id: 'LM003', name: 'ธีรยุทธ เก่งกาจ', phone: '083-456-7890', email: 'teerayut@mail.com', joinDate: '2024-01-10', points: 3200, vehicles: ['Neta V'], totalSpend: 680000, lastActivity: '2025-04-15' },
-  { id: 'LM004', name: 'สมหญิง รักรถ', phone: '084-567-8901', email: 'somying@mail.com', joinDate: '2024-03-05', points: 850, vehicles: ['ORA Good Cat'], totalSpend: 320000, lastActivity: '2025-06-01' },
-  { id: 'LM005', name: 'มานะ กล้าหาญ', phone: '085-678-9012', email: 'mana@mail.com', joinDate: '2022-09-15', points: 12400, vehicles: ['BYD Seal', 'BYD Tang EV'], totalSpend: 3200000, lastActivity: '2025-05-28' },
-  { id: 'LM006', name: 'สาวิตรี มีเงิน', phone: '086-789-0123', email: 'sawit2@mail.com', joinDate: '2023-11-20', points: 4500, vehicles: ['MG ZS EV Grand Luxury'], totalSpend: 1059000, lastActivity: '2025-03-10' },
-]
+const DEMO_MEMBERS = [] // (2026-11-02) เอาข้อมูลสมมติออก — ไม่มีข้อมูลจริงให้โชว์ว่าง ไม่ใช่ตัวเลขปลอม
 
-const DEMO_HISTORY = [
-  { custName: 'วิชาญ มีโชค', date: '2025-06-08', type: 'earn', points: 500, desc: 'ซ่อมบำรุงรายไตรมาส - BYD Seal', balance: 18500 },
-  { custName: 'วิชาญ มีโชค', date: '2025-04-20', type: 'earn', points: 1000, desc: 'แนะนำลูกค้าใหม่ - อรนุช สายใจ', balance: 18000 },
-  { custName: 'วิชาญ มีโชค', date: '2025-03-01', type: 'redeem', points: -500, desc: 'แลกรับ ฟรีล้างรถ 2 ครั้ง', balance: 17000 },
-  { custName: 'อรนุช สายใจ', date: '2025-05-20', type: 'earn', points: 200, desc: 'ซ่อมบำรุง - MG ZS EV', balance: 6750 },
-  { custName: 'อรนุช สายใจ', date: '2025-01-15', type: 'earn', points: 100, desc: 'ต่ออายุประกันภัย', balance: 6550 },
-]
+const DEMO_HISTORY = [] // (2026-11-02) เอาข้อมูลสมมติออก — ไม่มีข้อมูลจริงให้โชว์ว่าง ไม่ใช่ตัวเลขปลอม
 
 const REDEEM_CATALOG = [
   { id: 'R001', name: 'ฟรีล้างรถ (1 ครั้ง)', points: 200, icon: '🚿' },

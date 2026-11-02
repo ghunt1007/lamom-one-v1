@@ -16,24 +16,24 @@ const MONTH_ABBR = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.'
 
 // Fallback ตัวอย่างล้วน — ใช้แสดงเฉพาะตอนยังไม่มีข้อมูลจริงใน collection csat เลย (liveRecent ว่าง)
 const MONTHLY_CSAT_DEMO = [
-  { month:'ม.ค.', csat:87, nps:42, responses:48 },
-  { month:'ก.พ.', csat:89, nps:45, responses:55 },
-  { month:'มี.ค.', csat:84, nps:38, responses:62 },
-  { month:'เม.ย.', csat:91, nps:51, responses:58 },
-  { month:'พ.ค.', csat:93, nps:55, responses:71 },
-  { month:'มิ.ย.', csat:90, nps:49, responses:43 },
+  { month:'ม.ค.', csat:0, nps:0, responses:48 },
+  { month:'ก.พ.', csat:0, nps:0, responses:55 },
+  { month:'มี.ค.', csat:0, nps:0, responses:62 },
+  { month:'เม.ย.', csat:0, nps:0, responses:58 },
+  { month:'พ.ค.', csat:0, nps:0, responses:71 },
+  { month:'มิ.ย.', csat:0, nps:0, responses:43 },
 ]
 
 // (v1.0.xxx) csat collection ไม่มี field แยกคะแนนรายหมวด (มีแค่ csat/nps รวมเดียว) จึงไม่มีข้อมูลจริงพอจะ
 // คำนวณกราฟนี้ได้ — คงไว้เป็นตัวอย่างล้วน (ต่างจาก "CSAT รายเดือน" ด้านล่างที่คำนวณจากข้อมูลจริงได้แล้ว)
 // และติดป้าย "(ตัวอย่าง)" ให้ตรงกับความจริงที่ UI แทนการแสดงเหมือนเป็นข้อมูลจริง
 const CATEGORIES_DEMO = [
-  { cat:'ความสะอาด',       score:94 },
-  { cat:'ความรวดเร็ว',     score:82 },
-  { cat:'ความเป็นมืออาชีพ', score:91 },
-  { cat:'ราคาคุ้มค่า',     score:78 },
-  { cat:'การสื่อสาร',      score:88 },
-  { cat:'คุณภาพงาน',       score:93 },
+  { cat:'ความสะอาด',       score:0 },
+  { cat:'ความรวดเร็ว',     score:0 },
+  { cat:'ความเป็นมืออาชีพ', score:0 },
+  { cat:'ราคาคุ้มค่า',     score:0 },
+  { cat:'การสื่อสาร',      score:0 },
+  { cat:'คุณภาพงาน',       score:0 },
 ]
 
 export function npsType(score) {

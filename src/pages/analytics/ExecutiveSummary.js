@@ -13,10 +13,10 @@ function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,
 
 const SUMMARY = {
   month: 'มิถุนายน 2569',
-  sales: { actual: 41, target: 39, revenue: 51960000, lastMonth: 38 },
-  service: { jobs: 118, revenue: 472000, csat: 4.7 },
-  finance: { grossProfit: 6235000, netProfit: 1990000, margin: 14.6, cashflow: 8200000, ar: 585800 },
-  people: { headcount: 16, attendance: 96, topSales: 'วิชัย ยอดขาย (9 คัน)', topTech: 'วิทยา ช่างใหญ่ (Eff 94%)' },
+  sales: { actual: 0, target: 0, revenue: 0, lastMonth: 0 },
+  service: { jobs: 0, revenue: 0, csat: 0 },
+  finance: { grossProfit: 0, netProfit: 0, margin: 0, cashflow: 0, ar: 0 },
+  people: { headcount: 0, attendance: 0, topSales: '-', topTech: '-' },
 }
 
 // ตัวอย่างล้วน — ใช้เฉพาะตอนยังไม่มีข้อมูลจริงพอจะคำนวณ (บริษัทใหม่/ยังไม่มีข้อมูล) ก่อน v1.0.360 สามค่านี้
@@ -154,7 +154,7 @@ export default async function ExecutiveSummaryPage(container) {
 
   function renderPage() {
     const s = summary
-    const salesPct = Math.round(s.sales.actual / s.sales.target * 100)
+    const salesPct = s.sales.target ? Math.round(s.sales.actual / s.sales.target * 100) : 0
     const growth = s.sales.lastMonth ? Math.round((s.sales.actual - s.sales.lastMonth) / s.sales.lastMonth * 100) : 0
     // (v1.0.360) HIGHLIGHTS/CONCERNS/DECISIONS_NEEDED คำนวณจากสัญญาณจริงแล้ว (ดู computeRealSignals ด้านบน)
     // ส่วนที่ยังปลอมอยู่ตอนนี้เหลือแค่ service.jobs/csat, finance.netProfit/margin/ar, people.headcount/

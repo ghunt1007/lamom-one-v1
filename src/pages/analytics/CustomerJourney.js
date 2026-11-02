@@ -4,37 +4,32 @@
  */
 import { formatDate, formatCurrency, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
-import { getSalesData, listDocs } from '../../core/db.js'
+import { getSalesData, listDocs, listAllDocs } from '../../core/db.js'
+import { realFunnel, repeatBuyers } from '../../utils/realFunnel.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 
 const JOURNEY_STAGES = [
-  { id: 'awareness',     label: 'รู้จัก', icon: '👁', color: '#8b5cf6', count: 2840, dropPct: 62 },
-  { id: 'interest',      label: 'สนใจ', icon: '💡', color: '#3b82f6', count: 1080, dropPct: 54 },
-  { id: 'consideration', label: 'พิจารณา', icon: '🤔', color: '#06b6d4', count: 495, dropPct: 40 },
-  { id: 'intent',        label: 'ตัดสินใจ', icon: '🎯', color: '#10b981', count: 298, dropPct: 22 },
-  { id: 'purchase',      label: 'ซื้อ', icon: '🚗', color: '#f59e0b', count: 232, dropPct: 0 },
-  { id: 'loyalty',       label: 'ลูกค้าประจำ', icon: '👑', color: '#ef4444', count: 89, dropPct: 0 },
+  { id: 'awareness',     label: 'ลูกค้า/Lead', icon: '👁', color: '#8b5cf6', count: 0, dropPct: 0 },
+  { id: 'interest',      label: 'สนใจ/จอง', icon: '💡', color: '#3b82f6', count: 0, dropPct: 0 },
+  { id: 'consideration', label: 'ลองขับ', icon: '🚗', color: '#06b6d4', count: 0, dropPct: 0 },
+  { id: 'intent',        label: 'ใบเสนอราคา', icon: '📄', color: '#10b981', count: 0, dropPct: 0 },
+  { id: 'purchase',      label: 'ซื้อ', icon: '🚗', color: '#f59e0b', count: 0, dropPct: 0 },
+  { id: 'loyalty',       label: 'ซื้อซ้ำ', icon: '👑', color: '#ef4444', count: 0, dropPct: 0 },
 ]
 
 const TOUCHPOINTS = {
-  'Facebook Ad':    { stage: 'awareness', count: 1240, icon: '📘' },
-  'Google Search':  { stage: 'awareness', count: 880, icon: '🔍' },
-  'Walk-in':        { stage: 'interest', count: 320, icon: '🚶' },
-  'LINE Chat':      { stage: 'interest', count: 420, icon: '💬' },
-  'Test Drive':     { stage: 'consideration', count: 248, icon: '🚗' },
-  'Quote Request':  { stage: 'intent', count: 180, icon: '📄' },
-  'Finance Apply':  { stage: 'intent', count: 118, icon: '💳' },
-  'Purchase':       { stage: 'purchase', count: 232, icon: '🤝' },
-  'Service Visit':  { stage: 'loyalty', count: 180, icon: '🔧' },
-  'Referral':       { stage: 'loyalty', count: 45, icon: '👥' },
+  'Facebook Ad':    { stage: 'awareness', count: 0, icon: '📘' },
+  'Google Search':  { stage: 'awareness', count: 0, icon: '🔍' },
+  'Walk-in':        { stage: 'interest', count: 0, icon: '🚶' },
+  'LINE Chat':      { stage: 'interest', count: 0, icon: '💬' },
+  'Test Drive':     { stage: 'consideration', count: 0, icon: '🚗' },
+  'Quote Request':  { stage: 'intent', count: 0, icon: '📄' },
+  'Finance Apply':  { stage: 'intent', count: 0, icon: '💳' },
+  'Purchase':       { stage: 'purchase', count: 0, icon: '🤝' },
+  'Service Visit':  { stage: 'loyalty', count: 0, icon: '🔧' },
+  'Referral':       { stage: 'loyalty', count: 0, icon: '👥' },
 }
 
-const AVG_JOURNEY = {
-  awareness_to_interest: 3.2,
-  interest_to_consider:  5.8,
-  consider_to_intent:    7.1,
-  intent_to_purchase:    2.4,
-}
 
 export default async function CustomerJourneyPage(container) {
   const myGen = container.__routerGen
@@ -42,41 +37,29 @@ export default async function CustomerJourneyPage(container) {
   let dataSource = 'demo'
 
   try {
-    const [sales, leads] = await Promise.all([
+    const [sales, leads, testDrives, quotations] = await Promise.all([
       getSalesData().catch(() => []),
-      listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
+      listAllDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
+      listDocs('test_drives', companyScopeFilters(), 'createdAt', 'desc', 3000).catch(() => []),
+      listDocs('quotations', companyScopeFilters(), 'createdAt', 'desc', 3000).catch(() => []),
     ])
     if (container.__routerGen !== myGen) return
-
-    if (sales.length || leads.length) {
-      const purchased = sales.length
-      // Same funnel-monotonicity guard as ConversionFunnel.js: `leads.length` now reflects
-      // only the unified `customers` collection (small, current-state), while `purchased`
-      // (getSalesData/bookings) can be a larger, independent historical count. Without
-      // clamping, a downstream stage (e.g. quotes derived from `purchased`) could exceed
-      // an upstream one (e.g. hotLeads derived from `leads`), producing a >100% "drop".
-      const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi)
-      const allLeads = Math.max(leads.length, purchased) || Math.max(purchased * 4, 10)
-      const hotLeads = clamp(leads.filter(l => l.temperature === 'hot' || l.stage === 'pp').length || Math.round(allLeads * 0.46), purchased, allLeads)
-      const testDrives = leads.filter(l => l.testDrive || l.testDriveDate).length || Math.round(allLeads * 0.23)
-      const quotes = clamp(leads.filter(l => l.quoteSent || l.quoteDate).length || Math.round(purchased * 1.5), purchased, hotLeads)
-      const loyal = Math.min(Math.round(purchased * 0.38), purchased)
-
-      if (purchased >= 1) {
-        stages[0].count = Math.max(allLeads * 3, purchased * 12)
-        stages[1].count = allLeads
-        stages[2].count = hotLeads
-        stages[3].count = quotes
-        stages[4].count = purchased
-        stages[5].count = loyal
-        dataSource = 'live'
-      }
-    }
+    // (2026-11-02) นับจากข้อมูลจริงเท่านั้น — เลิกเดา "รู้จักแบรนด์ = Lead × 3" และอัตราสมมติอื่นๆ
+    const f = Object.fromEntries(realFunnel({ customers: leads, sales, testDrives, quotations }).map(x => [x.key, x.count]))
+    const live = leads.filter(l => !l.deleted)
+    const hot = live.filter(l => l.temperature === 'hot' || l.stage === 'pp' || l.stage === 'booking' || l.stage === 'delivered').length
+    const counts = [f.lead, hot, f.td, f.quote, f.booked, repeatBuyers(sales)]
+    counts.forEach((n, i) => { stages[i].count = n })
+    // จุดสัมผัส: นับจากที่มาลูกค้าจริง + ขั้นที่บันทึกจริง
+    const bySrc = re => live.filter(l => re.test(String(l.source || ''))).length
+    const real = { 'Facebook Ad': bySrc(/facebook|fb|เฟส/i), 'Google Search': bySrc(/google|กูเกิล/i), 'Walk-in': bySrc(/walk|หน้าร้าน|โชว์รูม/i), 'LINE Chat': bySrc(/line|ไลน์/i),
+      'Test Drive': f.td, 'Quote Request': f.quote, 'Finance Apply': sales.filter(x => x.financeCo).length, 'Purchase': f.booked, 'Service Visit': 0, 'Referral': bySrc(/refer|แนะนำ/i) }
+    Object.entries(real).forEach(([k, n]) => { if (TOUCHPOINTS[k]) TOUCHPOINTS[k].count = n })
+    if (f.lead) dataSource = 'live'
   } catch {}
 
   function renderPage() {
-    const totalConv = Math.round(stages[4].count / stages[0].count * 100 * 10) / 10
-    const avgDays = Object.values(AVG_JOURNEY).reduce((a, v) => a + v, 0)
+    const totalConv = stages[0].count ? Math.round(stages[4].count / stages[0].count * 100 * 10) / 10 : 0
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -89,10 +72,10 @@ export default async function CustomerJourneyPage(container) {
 
         ${dataSource === 'live' ? '<div style="margin-bottom:10px;padding:6px 12px;background:var(--surface-2);border-left:3px solid var(--success);border-radius:var(--radius-sm);font-size:0.78rem;color:var(--success)">● Funnel อิงข้อมูลจริงจากใบจอง/Leads</div>' : ''}
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
-          ${kpi('👁 รู้จักแบรนด์', stages[0].count.toLocaleString(), 'primary')}
+          ${kpi('🧲 ลูกค้า/Lead', stages[0].count.toLocaleString(), 'primary')}
           ${kpi('🚗 ซื้อแล้ว', stages[4].count, 'success')}
           ${kpi('📊 อัตราปิดการขาย', totalConv + '%', totalConv >= 10 ? 'success' : 'warning')}
-          ${kpi('⏱ เฉลี่ยจนซื้อ', Math.round(avgDays) + ' วัน', 'secondary')}
+          ${kpi('👑 ซื้อซ้ำ', stages[5].count, 'secondary')}
         </div>
 
         <!-- Funnel visualization -->
@@ -100,9 +83,9 @@ export default async function CustomerJourneyPage(container) {
           <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:16px">🔽 กรวยการขาย</div>
           <div style="display:flex;flex-direction:column;gap:8px">
             ${stages.map((stage, i) => {
-              const barWidth = Math.round(stage.count / stages[0].count * 100)
+              const barWidth = stages[0].count ? Math.round(stage.count / stages[0].count * 100) : 0
               const nextStage = stages[i + 1]
-              const convRate = nextStage ? Math.round(nextStage.count / stage.count * 100) : null
+              const convRate = i > 0 && stages[0].count ? Math.min(100, Math.round(stage.count / stages[0].count * 100)) : null // % ของลูกค้าทั้งหมด
               return `<div>
                 <div style="display:flex;align-items:center;gap:12px">
                   <div style="width:100px;font-size:0.8rem;text-align:right;color:var(--text-muted)">${stage.icon} ${stage.label}</div>
@@ -112,7 +95,7 @@ export default async function CustomerJourneyPage(container) {
                     </div>
                   </div>
                   <div style="width:80px;text-align:right;font-size:0.75rem">
-                    ${convRate !== null ? `<span style="color:${convRate>=60?'var(--success)':convRate>=40?'var(--warning)':'var(--danger)'}">↓ ${convRate}%</span>` : ''}
+                    ${convRate !== null ? `<span style="color:${convRate>=60?'var(--success)':convRate>=40?'var(--warning)':'var(--danger)'}">${convRate}% ของลูกค้า</span>` : ''}
                   </div>
                 </div>
               </div>`
@@ -123,10 +106,10 @@ export default async function CustomerJourneyPage(container) {
         <!-- Touchpoints & Time analysis -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
           <div class="card" style="padding:16px">
-            <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">📍 จุดสัมผัสลูกค้า <span style="font-size:0.62rem;font-weight:400;color:var(--text-muted)">(ตัวอย่าง — ยังไม่คำนวณจากข้อมูลจริง)</span></div>
+            <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">📍 จุดสัมผัสลูกค้า</div>
             ${Object.entries(TOUCHPOINTS).map(([name, tp]) => {
               const maxCount = Math.max(...Object.values(TOUCHPOINTS).map(x => x.count))
-              const pct = Math.round(tp.count / maxCount * 100)
+              const pct = maxCount ? Math.round(tp.count / maxCount * 100) : 0
               return `<div style="margin-bottom:10px">
                 <div style="display:flex;justify-content:space-between;font-size:0.78rem;margin-bottom:3px">
                   <span>${tp.icon} ${name}</span>
@@ -139,31 +122,6 @@ export default async function CustomerJourneyPage(container) {
             }).join('')}
           </div>
 
-          <div class="card" style="padding:16px">
-            <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">⏱ ระยะเวลาในแต่ละ Stage</div>
-            ${Object.entries(AVG_JOURNEY).map(([key, days]) => {
-              const labels = {
-                awareness_to_interest: 'รู้จัก → สนใจ',
-                interest_to_consider:  'สนใจ → พิจารณา',
-                consider_to_intent:    'พิจารณา → ตัดสินใจ',
-                intent_to_purchase:    'ตัดสินใจ → ซื้อ'
-              }
-              const maxDays = Math.max(...Object.values(AVG_JOURNEY))
-              return `<div style="margin-bottom:12px">
-                <div style="display:flex;justify-content:space-between;font-size:0.78rem;margin-bottom:3px">
-                  <span>${labels[key]}</span>
-                  <span style="font-weight:700">${days} วัน</span>
-                </div>
-                <div style="background:var(--surface-2);border-radius:3px;height:6px">
-                  <div style="width:${Math.round(days/maxDays*100)}%;background:var(--warning);height:6px;border-radius:3px"></div>
-                </div>
-              </div>`
-            }).join('')}
-            <div style="margin-top:14px;padding:10px;background:var(--surface-2);border-radius:var(--radius-sm)">
-              <div style="font-size:0.75rem;color:var(--text-muted)">เวลาเฉลี่ยตั้งแต่รู้จักจนซื้อ</div>
-              <div style="font-size:1.4rem;font-weight:800;color:var(--primary)">${Math.round(avgDays)} วัน</div>
-            </div>
-          </div>
         </div>
       </div>
     `
