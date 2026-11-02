@@ -8,6 +8,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 const CASE_TYPES = {
   battery_dead: { label: 'แบต 12V หมด', icon: '🔋' },
@@ -191,4 +192,3 @@ export default async function RoadsideAssistPage(container) {
   await loadData()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

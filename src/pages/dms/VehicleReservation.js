@@ -8,11 +8,8 @@ import { showToast, getState } from '../../core/store.js'
 import { watchDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
-
-function addDays(n) {
-  const [y, m, d] = todayBangkok().split('-').map(Number)
-  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
-}
+import { kpi } from '../../utils/kpiCard.js'
+import { addDaysBangkok as addDays } from '../../utils/format.js'
 
 const RESERVATION_STATUS = {
   active:   { label: 'จองแล้ว', color: 'primary', icon: '📋' },
@@ -193,4 +190,3 @@ export default async function VehicleReservationPage(container) {
   return function cleanupVehicleReservation() { unsubReservations() }
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

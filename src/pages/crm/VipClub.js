@@ -8,11 +8,8 @@ import { showToast } from '../../core/store.js'
 import { getSalesData, listDocs, createDoc } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { escHtml } from '../../utils/escape.js'
-
-function addDays(n) {
-  const [y, m, d] = todayBangkok().split('-').map(Number)
-  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
-}
+import { kpi } from '../../utils/kpiCard.js'
+import { addDaysBangkok as addDays } from '../../utils/format.js'
 
 const VIP_TIERS = {
   platinum: { label: 'Platinum', color: 'primary', icon: '💎', minSpend: 3000000, benefits: ['ผู้จัดการดูแลส่วนตัว', 'รถสำรองฟรีทุกครั้ง', 'ส่วนลดบริการ 25%', 'เชิญงาน Exclusive ทุกงาน'] },
@@ -237,4 +234,3 @@ export default async function VipClubPage(container) {
   renderPage()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

@@ -10,6 +10,8 @@ import { isProgramOwner } from '../../core/hierarchy.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
 import { escHtml } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
+import { addDaysBangkok as addDays } from '../../utils/format.js'
 
 const ACTION_TYPES = {
   login:    { label: 'Login', color: 'primary', icon: '🔐' },
@@ -24,11 +26,6 @@ const ACTION_TYPES = {
 }
 
 const MODULES = ['CRM', 'DMS', 'Service', 'Finance', 'HR', 'Marketing', 'Analytics', 'Settings', 'System']
-
-function addDays(n) {
-  const [y, m, d] = todayBangkok().split('-').map(Number)
-  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
-}
 
 export default async function AuditLogPage(container) {
   if (!isProgramOwner()) {
@@ -138,4 +135,3 @@ export default async function AuditLogPage(container) {
   renderPage()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

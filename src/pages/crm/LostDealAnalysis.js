@@ -7,6 +7,7 @@ import { getVisibilityScope, scopeIncludesRecord } from '../../core/hierarchy.js
 import { classifyLostReason } from '../../utils/lostReason.js'
 import { navigate } from '../../core/router.js'
 import { escHtml } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 const LOST_REASONS = {
   price:       { label: '💸 ราคาแพงเกินไป', color: 'danger' },
@@ -274,6 +275,3 @@ export default async function LostDealAnalysisPage(container) {
   renderPage()
 }
 
-function kpi(title, value, color) {
-  return `<div class="kpi-card"><div class="kpi-title">${title}</div><div class="kpi-value" style="color:var(--${color})">${value}</div></div>`
-}

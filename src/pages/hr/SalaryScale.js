@@ -9,6 +9,7 @@ import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '..
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 // พบว่าหน้านี้ไม่มีการเช็คสิทธิ์เลยแม้แต่จุดเดียว — พนักงานทุกคนเห็นตารางเงินเดือนรายบุคคล + เทียบตลาดของ
 // เพื่อนร่วมงานทุกคน และกดปุ่ม "ปรับเงินเดือน" เขียนเงินเดือนใหม่ลง Firestore ตรงๆได้เลย ไม่ต่างจาก
@@ -287,5 +288,4 @@ export default async function SalaryScalePage(container) {
   await loadData()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
 function row(l, v) { return `<div style="display:flex;justify-content:space-between;font-size:0.8rem;padding:4px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text-muted)">${l}</span><span>${v}</span></div>` }

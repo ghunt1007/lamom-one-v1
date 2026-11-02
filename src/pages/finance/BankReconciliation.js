@@ -8,6 +8,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 // เดิม "บัญชีในระบบ" ผูกกับ DEMO_BOOK_ENTRIES ตายตัว 6 รายการ ไม่เคยเชื่อมกับ invoices/purchase_orders จริง
 // เลยสักครั้ง — เปลี่ยนมาดึงจริงจาก 2 collection นี้แทน: invoices (type:'invoice', status ยังไม่ 'paid'/'cancelled'
@@ -242,4 +243,3 @@ export default async function BankReconciliationPage(container) {
   await loadData()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

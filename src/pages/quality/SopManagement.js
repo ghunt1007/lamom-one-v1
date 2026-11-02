@@ -9,6 +9,8 @@ import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.
 import { escHtml as __escA } from '../../utils/escape.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
 import { escHtml as esc } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
+import { addDaysBangkok as addDays } from '../../utils/format.js'
 
 const SOP_CATS = {
   sales:    { label: 'การขาย', color: 'primary', icon: '🎯' },
@@ -25,11 +27,6 @@ const SOP_STATUS = {
   review:   { label: 'รอรีวิว', color: 'warning' },
   approved: { label: 'อนุมัติแล้ว', color: 'success' },
   archived: { label: 'เก็บเข้าคลัง', color: 'secondary' },
-}
-
-function addDays(n) {
-  const [y, m, d] = todayBangkok().split('-').map(Number)
-  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
 }
 
 export default async function SopManagementPage(container) {
@@ -208,4 +205,3 @@ export default async function SopManagementPage(container) {
   await loadData()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

@@ -10,6 +10,7 @@ import { companyScopeFilters } from '../../core/companyScope.js'
 import { realFunnel, stepRate } from '../../utils/realFunnel.js'
 import { isCancelled } from '../../utils/bookingStatus.js'
 import { escHtml } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 export default async function ConversionFunnelPage(container) {
   const myGen = container.__routerGen
@@ -159,4 +160,3 @@ export default async function ConversionFunnelPage(container) {
   renderPage()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

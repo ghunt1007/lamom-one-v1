@@ -8,6 +8,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml as esc } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 // ป้องกัน XSS — ข้อความรีวิว (text) อาจมาจาก Platform ภายนอก (Google/Facebook) ซึ่งควบคุมเนื้อหาไม่ได้ ต้อง escape ก่อนแสดงผลเสมอ
 
@@ -253,4 +254,3 @@ export default async function CustomerReviewPage(container) {
   await loadData()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

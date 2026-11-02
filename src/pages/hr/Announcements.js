@@ -10,6 +10,7 @@ import { db } from '../../core/firebase.js'
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 const HANDLER_ROLES = ['hr', 'manager', 'admin', 'owner']
 
@@ -243,4 +244,3 @@ export default async function AnnouncementsPage(container) {
   await loadData()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

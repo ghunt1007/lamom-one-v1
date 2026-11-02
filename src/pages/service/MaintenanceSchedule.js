@@ -10,6 +10,7 @@ import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '..
 import { escHtml as __escA } from '../../utils/escape.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
 import { escHtml } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 const BRANDS = ['DEEPAL', 'AION', 'OMODA & JAECOO', 'SUZUKI', 'NISSAN']
 const BRAND_ICONS = { DEEPAL: '🔵', AION: '🟢', 'OMODA & JAECOO': '🟡', SUZUKI: '🔴', NISSAN: '🟣' }
@@ -249,6 +250,3 @@ export default async function MaintenanceSchedulePage(container) {
   await loadData()
 }
 
-function kpi(title, value, color) {
-  return `<div class="kpi-card"><div class="kpi-title">${title}</div><div class="kpi-value" style="color:var(--${color})">${value}</div></div>`
-}

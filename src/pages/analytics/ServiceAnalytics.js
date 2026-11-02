@@ -7,6 +7,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs } from '../../core/db.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 const MONTHLY = {
   jobs: [98, 112, 105, 124, 131, 118],
@@ -184,4 +185,3 @@ export default async function ServiceAnalyticsPage(container) {
   renderPage()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

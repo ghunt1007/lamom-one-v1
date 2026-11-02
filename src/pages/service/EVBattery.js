@@ -8,17 +8,14 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
+import { addDaysBangkok as addDays } from '../../utils/format.js'
 
 const BATTERY_STATUS = {
   excellent: { label: 'ดีมาก', color: 'success', icon: '🟢', threshold: 90 },
   good:      { label: 'ดี', color: 'primary', icon: '🔵', threshold: 80 },
   fair:      { label: 'พอใช้', color: 'warning', icon: '🟡', threshold: 70 },
   poor:      { label: 'ต้องเฝ้าระวัง', color: 'danger', icon: '🔴', threshold: 0 },
-}
-
-function addDays(n) {
-  const [y, m, d] = todayBangkok().split('-').map(Number)
-  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
 }
 
 export function getBatteryStatus(soh) {
@@ -253,5 +250,4 @@ export default async function EVBatteryPage(container) {
   await loadData()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
 function mini(l, v) { return `<div style="background:var(--surface-2);padding:5px 7px;border-radius:var(--radius-sm)"><div style="color:var(--text-muted);font-size:0.65rem">${l}</div><div style="font-weight:700">${v}</div></div>` }

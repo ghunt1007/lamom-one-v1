@@ -11,6 +11,7 @@ import { analyzeCustomer, isAiEnabled } from '../../utils/ai.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { heuristicScore } from '../../utils/leadScore.js'
 import { escHtml } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 // คะแนนเบื้องต้นจากข้อมูลจริงที่มี (ไม่เรียก AI อัตโนมัติทุก Lead เพราะจะแพง/ช้าเกินไปตอนโหลดหน้า)
 // ต้องกด "🤖 วิเคราะห์เจาะลึก" ต่อ Lead ที่สนใจจริงๆถึงจะเรียก Gemini ผ่าน analyzeCustomer() — สูตรอยู่ใน utils/leadScore.js
@@ -143,4 +144,3 @@ export default async function LeadScoringPage(container) {
   return function cleanupLeadScoring() { unsubLeads(); offCompanyFilter() }
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

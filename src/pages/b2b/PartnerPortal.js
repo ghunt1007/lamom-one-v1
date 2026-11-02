@@ -8,6 +8,8 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml as esc } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
+import { addDaysBangkok as addDays } from '../../utils/format.js'
 
 const PARTNER_TYPES = {
   reseller:  { label: 'Reseller', color: 'primary', icon: '🤝' },
@@ -22,11 +24,6 @@ const PARTNER_STATUS = {
   active:  { label: 'Active', color: 'success' },
   pending: { label: 'รออนุมัติ', color: 'warning' },
   inactive:{ label: 'Inactive', color: 'secondary' },
-}
-
-function addDays(n) {
-  const [y, m, d] = todayBangkok().split('-').map(Number)
-  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
 }
 
 export default async function PartnerPortalPage(container) {
@@ -192,6 +189,5 @@ export default async function PartnerPortalPage(container) {
   await loadData()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
 function miniStat(l, v) { return `<div style="text-align:center;padding:6px;background:var(--surface-2);border-radius:var(--radius-sm)"><div style="font-size:0.65rem;color:var(--text-muted)">${l}</div><div style="font-size:0.85rem;font-weight:700">${v}</div></div>` }
 function row(l, v) { return `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:0.82rem"><span style="color:var(--text-muted)">${l}</span><span>${v}</span></div>` }

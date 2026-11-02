@@ -7,6 +7,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { escHtml } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 // เดิม new Date().toISOString() คืนวันที่ตาม UTC เสมอ ผิดไป 1 วันทุกครั้งที่เวลาไทยยังไม่ถึง 07:00 น.
 // (บั๊กคลาสเดียวกับที่แก้ใน TestDriveScheduler.js/Attendance.js — ยึดวันที่ไทยจริงจาก todayBangkok() เสมอ)
@@ -196,4 +197,3 @@ export default async function FiveSPage(container) {
   await loadData()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

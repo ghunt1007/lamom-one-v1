@@ -105,3 +105,9 @@ export function fullName(obj) {
 }
 
 function pad(n) { return String(n).padStart(2, '0') }
+
+// วันที่ (เวลาไทย) บวก/ลบ n วันจากวันนี้ → 'YYYY-MM-DD' — ใช้ร่วมกันทุกหน้า (เดิมเขียนซ้ำ 58 ไฟล์)
+export function addDaysBangkok(n) {
+  const [y, m, d] = todayBangkok().split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
+}

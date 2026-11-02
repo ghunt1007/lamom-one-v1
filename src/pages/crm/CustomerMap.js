@@ -8,6 +8,7 @@ import { listAllDocs } from '../../core/db.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { escHtml } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 const PALETTE = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#6b7280', '#06b6d4', '#ef4444']
 
@@ -143,4 +144,3 @@ export default async function CustomerMapPage(container) {
   await loadData()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

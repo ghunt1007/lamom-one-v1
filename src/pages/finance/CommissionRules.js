@@ -10,6 +10,7 @@ import { getPositions } from '../../data/masterData.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 export const RULE_TYPES = {
   per_unit:  { label: 'ต่อคัน', icon: '🚗' },
@@ -420,4 +421,3 @@ export default async function CommissionRulesPage(container) {
   renderPage()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

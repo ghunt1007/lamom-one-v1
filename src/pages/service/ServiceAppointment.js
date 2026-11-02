@@ -5,6 +5,7 @@ import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 const APPT_STATUS = {
   scheduled: { label: 'นัดแล้ว', color: 'primary' },
@@ -289,6 +290,3 @@ export default async function ServiceAppointmentPage(container) {
   await loadData()
 }
 
-function kpi(title, value, color) {
-  return `<div class="kpi-card"><div class="kpi-title">${title}</div><div class="kpi-value" style="color:var(--${color})">${value}</div></div>`
-}

@@ -9,6 +9,7 @@ import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 const BRANDS = ['BYD', 'MG', 'Neta']
 const TYPES = { EV: 'EV', PHEV: 'PHEV', HEV: 'HEV' }
@@ -296,6 +297,5 @@ export default async function PriceListPage(container) {
   await loadData()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
 function row(l, v) { return `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:0.83rem"><span style="color:var(--text-muted)">${l}</span><span>${v}</span></div>` }
 function spec(icon, val, label) { return `<div style="text-align:center;padding:6px;background:var(--surface-2);border-radius:var(--radius-sm)"><div style="font-size:0.7rem;color:var(--text-muted)">${icon} ${label}</div><div style="font-size:0.78rem;font-weight:700">${val}</div></div>` }

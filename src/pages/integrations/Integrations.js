@@ -4,6 +4,7 @@
 // แก้ให้เป็นหน้ารวมที่ดึงตัวเลขจริงมาสรุป แล้วพาไปหน้าที่ใช้งานจริงแทน ไม่ซ้ำงาน
 import { listDocs } from '../../core/db.js'
 import { navigate } from '../../core/router.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 const LINKS = [
   { icon: '⚙️', title: 'ตั้งค่าการเชื่อมต่อ', path: '/integrations/settings', desc: 'เชื่อมต่อ/ตัดการเชื่อม Payment, Messaging, CRM, Accounting, AI, Logistics' },
@@ -58,6 +59,3 @@ export default async function IntegrationsPage(container) {
   renderPage()
 }
 
-function kpi(title, value, color) {
-  return `<div class="kpi-card"><div class="kpi-title">${title}</div><div class="kpi-value" style="color:var(--${color})">${value}</div></div>`
-}

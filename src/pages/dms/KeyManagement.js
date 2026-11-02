@@ -8,6 +8,7 @@ import { showToast } from '../../core/store.js'
 import { watchDocs, listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { escHtml } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 const KEY_STATUS = {
   in_cabinet: { label: 'อยู่ในตู้', color: 'success', icon: '🔐' },
@@ -200,4 +201,3 @@ export default async function KeyManagementPage(container) {
   return function cleanupKeyManagement() { unsubKeys() }
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

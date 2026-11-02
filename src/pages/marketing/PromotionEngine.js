@@ -9,6 +9,7 @@ import { showToast, getState, setState } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { analyzeCampaignAnnouncement } from '../../utils/ai.js'
 import { escHtml as esc } from '../../utils/escape.js'
+import { addDaysBangkok as addDays } from '../../utils/format.js'
 
 const BRANDS = ['BYD', 'MG', 'DEEPAL', 'AION', 'NETA', 'OMODA & JAECOO', 'SUZUKI', 'NISSAN', 'อื่นๆ']
 
@@ -25,11 +26,6 @@ const PROMO_STATUS = {
   active:   { label: 'ใช้งาน', color: 'success' },
   upcoming: { label: 'เร็วๆ นี้', color: 'primary' },
   ended:    { label: 'สิ้นสุดแล้ว', color: 'secondary' },
-}
-
-function addDays(n) {
-  const [y, m, d] = todayBangkok().split('-').map(Number)
-  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
 }
 
 const DEMO_PROMOS = [] // (2026-11-02) เอาข้อมูลสมมติออก — ไม่มีข้อมูลจริงให้โชว์ว่าง ไม่ใช่ตัวเลขปลอม

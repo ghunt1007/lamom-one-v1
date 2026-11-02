@@ -12,6 +12,7 @@ import { listDocs, createDoc, seedDemoData, getSalesData } from '../../core/db.j
 import { heuristicScore } from './LeadScoring.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { escHtml } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 // (v1.0.341) เดิม status/accuracy ต่อ Skill เป็นตัวเลข hardcode ล้วน ไม่มีระบบวัดความแม่นยำจริงในระบบเลย
 // (ต้องมี ground-truth ผลจริงเทียบคำแนะนำ AI ถึงจะวัดได้ — งานสร้างระบบวัดผลใหม่ทั้งหมด ไม่ใช่ scope การแก้
@@ -323,4 +324,3 @@ function renderBubble(m) {
   </div>`
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
