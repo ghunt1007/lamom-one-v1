@@ -1,3 +1,4 @@
+import { monthBangkok } from '../../utils/format.js'
 /**
  * Carbon Footprint Tracker — ติดตาม CO2 EV vs ICE
  * Route: /analytics/carbon
@@ -8,14 +9,12 @@ import { getSalesData, listDocs, createDoc, seedDemoData } from '../../core/db.j
 import { exportToExcel } from '../../utils/importExport.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 
-const MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.']
-
-const DATA = {
-  evFleet: [2.1, 2.4, 2.8, 2.3, 3.1, 3.6],     // ton CO2 จากไฟฟ้า (grid emission)
-  iceEqv:  [14.2,16.2,18.9,15.5,20.9,24.3],     // ton CO2 ถ้าใช้รถน้ำมันเทียบเท่า
-  carsSold:[28,  32,  35,  30,  38,  42],
-  kmDriven:[142000,161000,187000,152000,205000,241000],
-}
+// 6 เดือนล่าสุดตามเวลาไทย (เดิมชื่อเดือนตายตัว ม.ค.–มิ.ย. แต่ข้อมูลเป็น 6 เดือนล่าสุด และมีตัวเลขตัวอย่างโชว์ตอนยังไม่มีข้อมูล)
+const TH_M = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
+const LAST6 = [5, 4, 3, 2, 1, 0].map(k => monthBangkok(-k))
+const MONTHS = LAST6.map(m => TH_M[Number(m.slice(5, 7)) - 1])
+const ZERO6 = () => Array(6).fill(0)
+const DATA = { evFleet: ZERO6(), iceEqv: ZERO6(), carsSold: ZERO6(), kmDriven: ZERO6() }
 
 export default async function CarbonFootprintPage(container) {
   const myGen = container.__routerGen
@@ -34,16 +33,10 @@ export default async function CarbonFootprintPage(container) {
     try {
       const sales = await getSalesData().catch(() => [])
       if (sales.length >= 2) {
-        const now = new Date()
-        const byMonth = Array(6).fill(0)
+        const byMonth = ZERO6()
         for (const s of sales) {
-          const d = s.bookingDate || s.deliveryDate || ''
-          if (!d) continue
-          const yr = parseInt(d.slice(0,4)), mo = parseInt(d.slice(5,7))-1
-          for (let i = 0; i < 6; i++) {
-            const tgt = new Date(now); tgt.setMonth(tgt.getMonth()-(5-i))
-            if (yr === tgt.getFullYear() && mo === tgt.getMonth()) { byMonth[i]++; break }
-          }
+          const i = LAST6.indexOf(String(s.bookingDate || s.deliveryDate || '').slice(0, 7))
+          if (i >= 0) byMonth[i]++
         }
         if (byMonth.some(v => v > 0)) {
           liveData = {

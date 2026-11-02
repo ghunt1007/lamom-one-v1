@@ -17,7 +17,7 @@ export const LINKED_VIEWS = [
   [{ path: '/analytics', label: '📈 ภาพรวม' }, { path: '/analytics/executive', label: '📋 สรุปผู้บริหาร' }, { path: '/analytics/daily', label: '📅 รายวัน' },
     { path: '/analytics/kpi', label: '🎯 KPI' }, { path: '/analytics/monthly', label: '📈 รายเดือน' }, { path: '/analytics/seasonal', label: '🗓 ตามฤดูกาล' }, { path: '/analytics/forecast', label: '🔮 พยากรณ์' }],
   [{ path: '/analytics/by-model', label: '🚗 ตามรุ่น' }, { path: '/analytics/funnel', label: '🔻 อัตราปิดการขาย' }, { path: '/analytics/sales-channel', label: '⚖️ หน้าร้าน vs ออนไลน์' },
-    { path: '/analytics/branches', label: '🏢 เทียบสาขา' }, { path: '/analytics/market-share', label: '📊 ส่วนแบ่งตลาด' }],
+    { path: '/analytics/branches', label: '🏢 เทียบสาขา' }, { path: '/analytics/market-share', label: '📊 สัดส่วนยี่ห้อ' }],
   [{ path: '/analytics/profit', label: '📈 กำไรรวม' }, { path: '/analytics/model-profit', label: '🚗 กำไรตามรุ่น' }],
   [{ path: '/analytics/customers', label: '🧠 วิเคราะห์ลูกค้า' }, { path: '/analytics/journey', label: '🗺️ เส้นทางลูกค้า' }],
   [{ path: '/analytics/operations', label: '⚙️ ภาพรวม' }, { path: '/analytics/dept-ops', label: '🏭 รายแผนก' }, { path: '/analytics/service', label: '🔧 งานบริการ' },

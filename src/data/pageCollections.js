@@ -985,7 +985,9 @@ export const PAGE_COLLECTIONS = {
   "users"
  ],
  "/training/competitor": [],
- "/analytics/market-share": [],
+ "/analytics/market-share": [
+  "bookings"
+ ],
  "/dms/qr-vehicle": [
   "stock",
   "vehicles"
