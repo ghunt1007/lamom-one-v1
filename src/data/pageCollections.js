@@ -769,7 +769,6 @@ export const PAGE_COLLECTIONS = {
   "staff"
  ],
  "/analytics/service": [
-  "csat",
   "job_cards"
  ],
  "/dms/plates": [

@@ -1,79 +1,81 @@
 /**
  * Service Analytics — วิเคราะห์ศูนย์บริการ
  * Route: /analytics/service
+ *
+ * (v1.0.941) ใช้ข้อมูลจริงจากใบงานซ่อม (job_cards) อย่างเดียว — เดิมเดือนที่ไม่มีงานยังโชว์ตัวเลขตัวอย่าง
+ * (98/112/105... งาน) ปนกับของจริงทั้งที่ป้ายบอก "ข้อมูลจริง" ชื่อเดือนตายตัว ม.ค.–มิ.ย. ไม่ตรงกับ 6 เดือนล่าสุด
+ * และเวลาเฉลี่ย/CSAT/อัตราใช้ Bay เป็นตัวเลขสมมติทั้งหมด
  */
-import { formatCurrency } from '../../utils/format.js'
+import { formatCurrency, todayBangkok, monthBangkok, toDate } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { listDocs } from '../../core/db.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { escHtml } from '../../utils/escape.js'
 
-const MONTHLY = {
-  jobs: [98, 112, 105, 124, 131, 118],
-  revenue: [392000, 448000, 420000, 496000, 524000, 472000],
-  avgTime: [2.4, 2.2, 2.5, 2.1, 2.0, 2.2], // ชม./งาน
-  csat: [4.3, 4.4, 4.5, 4.5, 4.6, 4.7],
+const TH_M = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+const TYPE_COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#06b6d4']
+const DONE = ['done', 'delivered', 'completed', 'เสร็จ', 'ส่งมอบแล้ว']
+
+// เดือน (เวลาไทย) ของใบงาน: jobDate ถ้ามี ไม่งั้น createdAt
+function jobMonth(j) {
+  if (typeof j.jobDate === 'string' && /^\d{4}-\d{2}/.test(j.jobDate)) return j.jobDate.slice(0, 7)
+  const d = toDate(j.createdAt)
+  return d ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit' }).format(d).slice(0, 7) : ''
 }
-const MONTH_LABELS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.']
-
-const BY_SERVICE_TYPE = [
-  { type: 'เช็คระยะ', jobs: 0, revenue: 0, avgTicket: 3500, color: '#3b82f6' },
-  { type: 'ซ่อมทั่วไป', jobs: 0, revenue: 0, avgTicket: 6000, color: '#f59e0b' },
-  { type: 'EV Diagnostic', jobs: 0, revenue: 0, avgTicket: 5000, color: '#10b981' },
-  { type: 'ยาง/ช่วงล่าง', jobs: 0, revenue: 0, avgTicket: 8000, color: '#ef4444' },
-  { type: 'อื่นๆ (ล้าง/ฟิล์ม)', jobs: 0, revenue: 0, avgTicket: 3000, color: '#8b5cf6' },
-]
-
-const BAY_UTILIZATION = [
-  { bay: 'Bay 1 (ทั่วไป)', util: 88 },
-  { bay: 'Bay 2 (ทั่วไป)', util: 82 },
-  { bay: 'Bay 3 (EV/HV)', util: 64 },
-  { bay: 'Bay 4 (ด่วน)', util: 91 },
-]
-
-const TOP_TECHS = [] // (2026-11-02) เอาข้อมูลสมมติออก
+// ยอดเงินของใบงาน: total ถ้ามี ไม่งั้น ค่าแรง + อะไหล่
+export function jobAmount(j) {
+  if (Number(j.total) > 0) return Number(j.total)
+  const parts = Array.isArray(j.parts) ? j.parts.reduce((a, p) => a + (Number(p.qty) || 1) * (Number(p.price) || 0), 0) : Number(j.partsCost) || 0
+  return (Number(j.labor) || 0) + parts
+}
 
 export default async function ServiceAnalyticsPage(container) {
   const myGen = container.__routerGen
-  let liveMonthly = JSON.parse(JSON.stringify(MONTHLY))
-  let dataSource = 'demo'
+  const today = todayBangkok()
+  const months = [5, 4, 3, 2, 1, 0].map(k => monthBangkok(-k, today))
+  const labels = months.map(m => TH_M[Number(m.slice(5, 7)) - 1])
+  const nowYm = months[5]
+  let jobs = []
   let metric = 'jobs'
 
   try {
-    const jobs = await listDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc', 1000).catch(() => [])
+    jobs = (await listDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc', 1000).catch(() => [])).filter(j => !j.deleted)
     if (container.__routerGen !== myGen) return
-    if (jobs.length >= 2) {
-      const now = new Date()
-      for (let i = 0; i < 6; i++) {
-        const d = new Date(now); d.setMonth(d.getMonth() - (5 - i))
-        const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
-        const monthJobs = jobs.filter(j => (j.jobDate || j.createdAt?.toDate?.()?.toISOString() || '').startsWith(key))
-        if (monthJobs.length) {
-          liveMonthly.jobs[i] = monthJobs.length
-          liveMonthly.revenue[i] = monthJobs.reduce((a, j) => a + (j.total || j.partsCost || 0), 0) || liveMonthly.revenue[i]
-        }
-      }
-      dataSource = 'live'
-    }
   } catch {}
 
+  const byMonth = months.map(m => jobs.filter(j => jobMonth(j) === m))
+  const monthly = {
+    jobs: byMonth.map(l => l.length),
+    revenue: byMonth.map(l => l.reduce((a, j) => a + jobAmount(j), 0)),
+  }
+  const thisMonth = byMonth[5]
+
+  function group(list, key, fallback) {
+    const g = {}
+    list.forEach(j => { const k = String(j[key] || '').trim() || fallback; (g[k] ||= { name: k, jobs: 0, revenue: 0 }); g[k].jobs++; g[k].revenue += jobAmount(j) })
+    return Object.values(g).sort((a, b) => b.jobs - a.jobs || b.revenue - a.revenue)
+  }
+
   function renderPage() {
-    const li = liveMonthly.jobs.length - 1
-    const jobsNow = liveMonthly.jobs[li], jobsPrev = liveMonthly.jobs[li-1]
-    const revNow = liveMonthly.revenue[li]
-    // เดิมหารด้วย jobsPrev ตรงๆ ไม่กันศูนย์ — ถ้าเดือนก่อนไม่มีงานจริงเลย (jobsPrev=0) จะโชว์ NaN%/Infinity%
-    const jobsChg = jobsPrev > 0 ? Math.round((jobsNow - jobsPrev) / jobsPrev * 100) : (jobsNow > 0 ? 100 : 0)
-    const data = liveMonthly[metric]
-    const maxV = Math.max(...data)
-    const totalJobs = BY_SERVICE_TYPE.reduce((a, s) => a + s.jobs, 0)
+    const jobsNow = monthly.jobs[5] // เดือนนี้ยังไม่จบ ไม่โชว์ % เทียบเดือนก่อน (ต้นเดือนจะขึ้น -100% เสมอ)
+    const revNow = monthly.revenue[5]
+    const openNow = jobs.filter(j => !DONE.includes(j.status)).length
+    const avgTicket = jobsNow ? Math.round(revNow / jobsNow) : 0
+    const data = monthly[metric]
+    const maxV = Math.max(...data, 1)
+    const types = group(thisMonth, 'type', 'ไม่ระบุประเภท')
+    const techs = group(thisMonth, 'techName', 'ไม่ระบุช่าง').slice(0, 5)
+    const bays = group(jobs.filter(j => !DONE.includes(j.status)), 'bay', 'ไม่ระบุช่องซ่อม')
+    const empty = '<div style="padding:14px;text-align:center;font-size:0.76rem;color:var(--text-muted)">ยังไม่มีใบงานเดือนนี้</div>'
 
     container.innerHTML = `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
-            <div class="page-title">🔧 Service Analytics</div>
-            <div class="page-subtitle">วิเคราะห์ศูนย์บริการ — 6 เดือนล่าสุด${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
+            <div class="page-title">🔧 วิเคราะห์ศูนย์บริการ</div>
+            <div class="page-subtitle">จากใบงานซ่อมจริง — 6 เดือนล่าสุด${jobs.length ? '' : ' · ยังไม่มีใบงาน'}</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="export-btn">📤 ส่งออก</button>
@@ -81,19 +83,18 @@ export default async function ServiceAnalyticsPage(container) {
         </div>
 
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
-          ${kpi('🔧 งานเดือนนี้', jobsNow + ' งาน (' + (jobsChg>0?'+':'') + jobsChg + '%)', jobsChg >= 0 ? 'success' : 'danger')}
-          ${kpi('💰 รายได้', formatCurrency(revNow), 'primary')}
-          ${kpi('⏱ เวลาเฉลี่ย/งาน', MONTHLY.avgTime[li] + ' ชม.', MONTHLY.avgTime[li] <= 2.2 ? 'success' : 'warning')}
-          ${kpi('⭐ ความพึงพอใจ (CSAT)', MONTHLY.csat[li] + '/5', 'success')}
+          ${kpi('🔧 งานเดือนนี้', jobsNow + ' งาน', 'success')}
+          ${kpi('💰 รายได้เดือนนี้', formatCurrency(revNow), 'primary')}
+          ${kpi('🧾 เฉลี่ยต่องาน', jobsNow ? formatCurrency(avgTicket) : '—', 'accent')}
+          ${kpi('⏳ งานที่ยังไม่เสร็จ', openNow + ' งาน', openNow ? 'warning' : 'success')}
         </div>
 
-        <!-- Trend chart -->
         <div class="card" style="padding:14px;margin-bottom:14px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px;flex-wrap:wrap">
             <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted)">📈 แนวโน้ม 6 เดือน</div>
             <div style="display:flex;gap:4px">
-              ${[['jobs','งาน'],['revenue','รายได้'],['avgTime','เวลา/งาน'],['csat','CSAT']].map(([k,l]) =>
-                `<button class="btn btn-xs ${metric===k?'btn-primary':'btn-secondary'} mx-btn" data-m="${k}">${l}</button>`).join('')}
+              ${[['jobs', 'งาน'], ['revenue', 'รายได้']].map(([k, l]) =>
+                `<button class="btn btn-xs ${metric === k ? 'btn-primary' : 'btn-secondary'} mx-btn" data-m="${k}">${l}</button>`).join('')}
             </div>
           </div>
           <div style="display:flex;gap:8px;align-items:flex-end;height:90px">
@@ -101,66 +102,50 @@ export default async function ServiceAnalyticsPage(container) {
               const pct = Math.round(v / maxV * 100)
               const isLast = i === data.length - 1
               return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
-                <div style="font-size:0.62rem;color:var(--${isLast?'primary':'text-muted'});font-weight:${isLast?700:400}">${metric==='revenue'?Math.round(v/1000)+'K':v}</div>
-                <div style="width:100%;background:${isLast?'var(--primary)':'var(--surface-2)'};border:1px solid ${isLast?'var(--primary)':'var(--border)'};border-radius:3px 3px 0 0;height:${pct*0.65}px;min-height:4px"></div>
-                <div style="font-size:0.6rem;color:var(--text-muted)">${MONTH_LABELS[i]}</div>
+                <div style="font-size:0.62rem;color:var(--${isLast ? 'primary' : 'text-muted'});font-weight:${isLast ? 700 : 400}">${metric === 'revenue' ? Math.round(v / 1000) + 'K' : v}</div>
+                <div style="width:100%;background:${isLast ? 'var(--primary)' : 'var(--surface-2)'};border:1px solid ${isLast ? 'var(--primary)' : 'var(--border)'};border-radius:3px 3px 0 0;height:${pct * 0.65}px;min-height:4px"></div>
+                <div style="font-size:0.6rem;color:var(--text-muted)">${labels[i]}</div>
               </div>`
             }).join('')}
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
-          <!-- By service type -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-bottom:14px">
           <div class="card" style="padding:14px">
             <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">📊 แยกตามประเภทงาน (เดือนนี้)</div>
-            ${BY_SERVICE_TYPE.map(s => {
-              const pct = Math.round(s.jobs / totalJobs * 100)
+            ${types.length ? types.map((s, i) => {
+              const pct = Math.round(s.jobs / Math.max(jobsNow, 1) * 100)
               return `<div style="margin-bottom:8px">
-                <div style="display:flex;justify-content:space-between;font-size:0.73rem;margin-bottom:3px">
-                  <span>${s.type}</span>
-                  <span style="color:var(--text-muted)">${s.jobs} งาน · ${formatCurrency(s.revenue)}</span>
+                <div style="display:flex;justify-content:space-between;gap:8px;font-size:0.73rem;margin-bottom:3px">
+                  <span>${escHtml(s.name)}</span>
+                  <span style="color:var(--text-muted);white-space:nowrap">${s.jobs} งาน · ${formatCurrency(s.revenue)}</span>
                 </div>
                 <div style="background:var(--surface-2);border-radius:3px;height:9px">
-                  <div style="width:${pct}%;background:${s.color};height:9px;border-radius:3px"></div>
+                  <div style="width:${pct}%;background:${TYPE_COLORS[i % TYPE_COLORS.length]};height:9px;border-radius:3px"></div>
                 </div>
               </div>`
-            }).join('')}
+            }).join('') : empty}
           </div>
 
-          <!-- Bay utilization -->
           <div class="card" style="padding:14px">
-            <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">🏗 อัตราใช้งาน Bay</div>
-            ${BAY_UTILIZATION.map(b => {
-              const color = b.util >= 85 ? 'danger' : b.util >= 70 ? 'warning' : 'success'
-              return `<div style="margin-bottom:10px">
-                <div style="display:flex;justify-content:space-between;font-size:0.73rem;margin-bottom:3px">
-                  <span>${b.bay}</span><strong style="color:var(--${color})">${b.util}%</strong>
-                </div>
-                <div style="background:var(--surface-2);border-radius:3px;height:9px">
-                  <div style="width:${b.util}%;background:var(--${color});height:9px;border-radius:3px"></div>
-                </div>
-              </div>`
-            }).join('')}
-            <p style="font-size:0.66rem;color:var(--text-muted);margin-top:6px">💡 Bay 4 (ด่วน) ใกล้เต็ม — Bay 3 (EV) ยังว่าง ควรจัดโปรตรวจแบตฟรีดึงงานเข้า</p>
+            <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">🏗 งานที่ยังไม่เสร็จ แยกตามช่องซ่อม</div>
+            ${bays.length ? bays.map(b => `<div style="display:flex;justify-content:space-between;font-size:0.76rem;padding:5px 0;border-bottom:1px solid var(--border-subtle)">
+                <span>${escHtml(b.name)}</span><strong>${b.jobs} งาน</strong></div>`).join('')
+              : '<div style="padding:14px;text-align:center;font-size:0.76rem;color:var(--text-muted)">ไม่มีงานค้าง</div>'}
           </div>
         </div>
 
-        <!-- Top techs -->
         <div class="card" style="overflow-x:auto">
           <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:0.8rem;font-weight:700;color:var(--text-muted)">🏆 ผลงานช่าง (เดือนนี้)</div>
-          <table style="width:100%;border-collapse:collapse">
-            <tbody>
-              ${TOP_TECHS.map((t, i) => `
+          ${techs.length ? `<table style="width:100%;border-collapse:collapse"><tbody>
+              ${techs.map((t, i) => `
                 <tr style="border-bottom:1px solid var(--border);font-size:0.8rem">
-                  <td style="padding:8px 14px;width:36px">${['🥇','🥈','🥉','4.'][i]}</td>
-                  <td style="padding:8px 6px;font-weight:600">${t.name}</td>
+                  <td style="padding:8px 14px;width:36px">${['🥇', '🥈', '🥉'][i] || (i + 1) + '.'}</td>
+                  <td style="padding:8px 6px;font-weight:600">${escHtml(t.name)}</td>
                   <td style="padding:8px 10px;text-align:right;white-space:nowrap">${t.jobs} งาน</td>
-                  <td style="padding:8px 10px;text-align:right;font-weight:700;color:var(--success)">${formatCurrency(t.revenue)}</td>
-                  <td style="padding:8px 14px;text-align:right;color:var(--${t.csat>=4.6?'success':'warning'})">⭐ ${t.csat}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
+                  <td style="padding:8px 14px;text-align:right;font-weight:700;color:var(--success);white-space:nowrap">${formatCurrency(t.revenue)}</td>
+                </tr>`).join('')}
+            </tbody></table>` : empty}
         </div>
       </div>
     `
@@ -168,20 +153,13 @@ export default async function ServiceAnalyticsPage(container) {
     container.querySelectorAll('.mx-btn').forEach(b => b.addEventListener('click', () => { metric = b.dataset.m; renderPage() }))
     document.getElementById('export-btn')?.addEventListener('click', () => {
       exportToExcel(
-        MONTH_LABELS.map((m, i) => ({
-          'เดือน': m,
-          'จำนวนงาน': liveMonthly.jobs[i],
-          'รายได้ (บาท)': liveMonthly.revenue[i],
-          'เวลาเฉลี่ย (ชม.)': liveMonthly.avgTime[i],
-          'CSAT': liveMonthly.csat[i],
-        })),
-        'Service_Analytics.xlsx',
+        months.map((m, i) => ({ 'เดือน': `${labels[i]} ${Number(m.slice(0, 4)) + 543}`, 'จำนวนงาน': monthly.jobs[i], 'รายได้ (บาท)': monthly.revenue[i] })),
+        `Service_Analytics_${nowYm}.xlsx`,
         'Service'
       )
-      showToast('📥 Export Service Analytics แล้ว', 'success')
+      showToast('📥 ส่งออกแล้ว', 'success')
     })
   }
 
   renderPage()
 }
-
