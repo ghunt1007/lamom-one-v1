@@ -187,7 +187,7 @@ export default async function TestDrivePage(container) {
                   <td style="font-size:0.82rem;white-space:nowrap">📅 ${t.date ? formatDate(t.date) : '-'} ${escHtml(t.time)}</td>
                   <td style="font-size:0.83rem;color:var(--text-muted)">${escHtml(t.staff)}</td>
                   <td><span class="badge badge-${st?.badge}">${st?.label}</span></td>
-                  <td>${rs ? `<span class="badge badge-${rs.badge}">${rs.label}</span>` : '-'}</td>
+                  <td>${rs ? `<span class="badge badge-${rs.badge}">${rs.label}</span>` : '<span class="tbl-empty">-</span>'}</td>
                   <td>
                     <div style="display:flex;gap:3px">
                       <button class="btn btn-ghost btn-sm td-view-btn" data-id="${t.id}">📋</button>

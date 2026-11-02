@@ -1,3 +1,4 @@
+import { carOf } from '../../utils/carLabel.js'
 import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
@@ -199,7 +200,7 @@ export default async function DeliveryNotePage(container) {
     document.querySelectorAll('.sf-btn').forEach(b => b.addEventListener('click', () => { statusFilter = b.dataset.s; renderPage() }))
     document.getElementById('add-dn-btn')?.addEventListener('click', () => openDNForm())
     document.getElementById('export-btn')?.addEventListener('click', () => {
-      exportToExcel(list.map(n => ({ ID:n.id, ลูกค้า:n.customerName, รถ:`${n.brand} ${n.model}`, สี:n.color, VIN:n.vin, ทะเบียน:n.plate, ราคา:n.price, วันส่งมอบ:n.deliveryDate, สถานะ:DN_STATUS[n.status]?.label })), 'delivery_notes')
+      exportToExcel(list.map(n => ({ ID:n.id, ลูกค้า:n.customerName, รถ:carOf(n), สี:n.color, VIN:n.vin, ทะเบียน:n.plate, ราคา:n.price, วันส่งมอบ:n.deliveryDate, สถานะ:DN_STATUS[n.status]?.label })), 'delivery_notes')
       showToast('📥 Export แล้ว!', 'success')
     })
     document.querySelectorAll('.open-dn-btn').forEach(b => b.addEventListener('click', () => { const n = notes.find(x => x.id === b.dataset.id); if (n) openDNDetail(n) }))
@@ -225,7 +226,7 @@ export default async function DeliveryNotePage(container) {
           </div>
           <div>
             <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">ข้อมูลรถ</div>
-            ${row('รุ่น',escHtml(`${n.brand} ${n.model} ${n.variant}`))}${row('สี',escHtml(n.color))}
+            ${row('รุ่น',escHtml(carOf(n, true)))}${row('สี',escHtml(n.color))}
             ${row('VIN',`<span style="font-family:monospace;font-size:0.78rem">${escHtml(n.vin||'-')}</span>`)}
             ${row('ทะเบียน',escHtml(n.plate||'(รอออก)'))}
             ${row('ราคา',`<strong style="color:var(--success)">${formatCurrency(n.price)}</strong>`)}
@@ -355,7 +356,7 @@ export default async function DeliveryNotePage(container) {
           } catch { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
         }
         Object.assign(n, { status: 'done', signedAt, plate, notes: notes2, checklist })
-        showToast(`✅ ส่งมอบ ${n.brand} ${n.model} ให้ ${n.customerName} เรียบร้อย!`, 'success')
+        showToast(`✅ ส่งมอบ ${carOf(n)} ให้ ${n.customerName} เรียบร้อย!`, 'success')
         renderPage()
       }
     })

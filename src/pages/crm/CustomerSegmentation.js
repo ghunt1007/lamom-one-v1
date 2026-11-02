@@ -1,3 +1,4 @@
+import { carOf } from '../../utils/carLabel.js'
 /**
  * Customer Segmentation — แบ่งกลุ่มลูกค้า
  * Route: /crm/segments
@@ -84,7 +85,7 @@ export default async function CustomerSegmentationPage(container) {
 
       const byModel = {}
       sales.forEach(s => {
-        const key = `${s.brand || ''} ${s.model || ''}`.trim() || 'ไม่ระบุรุ่น'
+        const key = carOf(s) || 'ไม่ระบุรุ่น'
         if (!byModel[key]) byModel[key] = { model: key, count: 0 }
         byModel[key].count++
       })
@@ -92,7 +93,7 @@ export default async function CustomerSegmentationPage(container) {
       vehicleSegments = Object.values(byModel).map(v => ({
         ...v,
         pct: Math.round(v.count / totalVeh * 100),
-        repeat: sales.filter(s => `${s.brand||''} ${s.model||''}`.trim() === v.model && byCustomer[s.custName || 'ไม่ระบุ']?.count > 1).length,
+        repeat: sales.filter(s => carOf(s) === v.model && byCustomer[s.custName || 'ไม่ระบุ']?.count > 1).length,
       })).sort((a, b) => b.count - a.count)
     }
   } catch {}

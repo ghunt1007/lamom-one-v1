@@ -812,7 +812,7 @@ export default async function DashboardPage(container) {
         .map(([k, v]) => ({ ...v, count: byStatus[k] }))
       const total = inMonth.length
       if (!total) {
-        el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:160px;font-size:0.8rem;color:var(--text-muted)">ไม่มีใบจองเดือนนี้</div>`
+        el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:56px;font-size:0.8rem;color:var(--text-muted)">ไม่มีใบจองเดือนนี้</div>`
         return
       }
       const R = 54, CIRC = 2 * Math.PI * R
@@ -1162,7 +1162,7 @@ export default async function DashboardPage(container) {
     // ขอให้เห็นทั้งยอดจองและยอดส่งมอบคู่กัน เพิ่มยอดส่งมอบเข้าไปด้วย นับตามเกณฑ์เดียวกับการ์ด KPI ด้านบน
     // (cutDate/actualDeliveryDate ตรงกับเดือนที่เลือกดู ไม่ใช่ของที่จองเดือนนี้แล้วเพิ่งส่งมอบทีหลัง)
     function modelRankBars(entries) {
-      if (!entries.length) return `<div style="font-size:0.78rem;color:var(--text-muted);padding:20px 0;text-align:center">ไม่มีข้อมูลเดือนนี้</div>`
+      if (!entries.length) return `<div style="font-size:0.78rem;color:var(--text-muted);padding:6px 0;text-align:center">ไม่มีข้อมูลเดือนนี้</div>`
       const max = Math.max(...entries.map(e => e.count), 1)
       return entries.map((e, i) => `
         <div style="margin-bottom:9px">
@@ -1226,7 +1226,7 @@ export default async function DashboardPage(container) {
                 <div class="dash-board-bar"><span style="width:${Math.max(4, Math.round((r.delivered * 1000 + r.booked) / top * 100))}%"></span></div>
                 <div class="dash-board-sub">รายได้ ${formatCurrency(r.income)} · มูลค่าจอง ${moneyTxt(r.value)}</div>
               </div>
-            </div>`).join('')}</div>` : `<div style="font-size:0.78rem;color:var(--text-muted);padding:20px 0;text-align:center">ยังไม่มีข้อมูลเดือนนี้</div>`
+            </div>`).join('')}</div>` : `<div style="font-size:0.78rem;color:var(--text-muted);padding:6px 0;text-align:center">ยังไม่มีข้อมูลเดือนนี้</div>`
         }
       }
     }
@@ -1281,7 +1281,7 @@ export default async function DashboardPage(container) {
               <div style="width:${Math.round(v / max * 100)}%;height:100%;background:var(--accent)"></div>
             </div>
             <b style="color:var(--accent);font-variant-numeric:tabular-nums">${v}</b>
-          </div>`).join('') : `<div style="font-size:0.78rem;color:var(--text-muted);padding:20px 0;text-align:center">ไม่มีข้อมูลเดือนนี้</div>`
+          </div>`).join('') : `<div style="font-size:0.78rem;color:var(--text-muted);padding:6px 0;text-align:center">ไม่มีข้อมูลเดือนนี้</div>`
       }
     }
 
@@ -1304,7 +1304,7 @@ export default async function DashboardPage(container) {
         .sort((a, b) => b.age - a.age)
       stuck.slice(0, 4).forEach(b => alerts.push({
         icon: '⏳', sev: b.age >= 30 ? 'danger' : 'warning', nav: '/crm/bookings?id=' + encodeURIComponent(b.id), // เปิดใบจองนั้นเลย
-        text: `ใบจอง ${escHtml(b.custName || b.bookingNo || b.id)} (${escHtml((b.brand || '') + ' ' + (b.model || ''))}) ค้าง "${escHtml(b.status)}"`,
+        text: `ใบจอง ${escHtml(b.custName || b.bookingNo || b.id)} (${escHtml(carOf(b))}) ค้าง "${escHtml(b.status)}"`,
         age: b.age,
       }))
       if (stuck.length > 4) alerts.push({ icon: '⏳', sev: 'warning', nav: '/crm/bookings', text: `ใบจองค้างสถานะเกิน 14 วัน อีก ${stuck.length - 4} รายการ`, age: null })

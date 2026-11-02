@@ -1,3 +1,4 @@
+import { carOf } from '../../utils/carLabel.js'
 /**
  * Stock Audit — ตรวจนับรถจริง vs ระบบ
  * Route: /dms/stock-audit
@@ -34,7 +35,7 @@ export default async function StockAuditPage(container) {
       stock = docs.filter(v => !v.deleted && v.status !== 'sold').map(v => ({
         id: v.id,
         vin: v.vin || '-',
-        model: `${v.brand || ''} ${v.model || ''}`.trim(),
+        model: carOf(v),
         systemLoc: v.location || '-',
         checked: v.auditChecked || false,
         foundLoc: v.auditFoundLoc || null,
