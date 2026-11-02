@@ -22,14 +22,7 @@ function getSegment(clv) {
   return 'bronze'
 }
 
-const CUSTOMERS = [
-  { id: 'C001', name: 'คุณสมชาย วงศ์ดี',  cars: 3, services: 28, avgDeal: 1200000, years: 6, referrals: 4,  likelihood: 90 },
-  { id: 'C002', name: 'บ.รุ่งเรือง จำกัด', cars: 8, services: 15, avgDeal: 1100000, years: 4, referrals: 1,  likelihood: 75 },
-  { id: 'C003', name: 'คุณมาลี รักดี',     cars: 2, services: 42, avgDeal: 890000,  years: 8, referrals: 6,  likelihood: 95 },
-  { id: 'C004', name: 'คุณวีระ สมบัติ',    cars: 1, services: 5,  avgDeal: 1550000, years: 1, referrals: 0,  likelihood: 40 },
-  { id: 'C005', name: 'คุณนิภา ใจดี',      cars: 1, services: 12, avgDeal: 899000,  years: 3, referrals: 2,  likelihood: 65 },
-  { id: 'C006', name: 'คุณอนุชา ดีเด่น',   cars: 4, services: 55, avgDeal: 1099000, years: 10, referrals: 8, likelihood: 98 },
-]
+const CUSTOMERS = [] // (2026-11-03) เอารายชื่อ/ตัวเลขตัวอย่างออก — ไม่มียอดจริงก็แสดงว่าง
 
 // CLV = (ยอดซื้อรวม) + (ค่าบริการสะสม) + (มูลค่า Referral) + (ประมาณการอนาคต)
 function calcClv(c) {

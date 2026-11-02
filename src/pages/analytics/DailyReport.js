@@ -10,7 +10,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 
-const DEFAULT_TARGET = 10000000
+const DEFAULT_TARGET = 0 // ยังไม่ตั้งเป้า = 0 (เดิม 10 ล้านสมมติ)
 
 function dateStr(d) { return d.toISOString().slice(0, 10) }
 // เดิม todayStr() ใช้ dateStr(new Date()) ซึ่งคืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่เวลา
@@ -42,12 +42,6 @@ function buildWeek(sales, endDate) {
   })
 }
 
-function buildDemoWeek(endDate) {
-  return [2, 4, 1, 3, 5, 2, 3].map((u, i) => {
-    const d = new Date(endDate); d.setUTCDate(d.getUTCDate() - (6 - i))
-    return { date: dateStr(d), units: u, revenue: u * 1299000 }
-  })
-}
 
 function buildTop(sales, date) {
   const day = sales.filter(s => (s.date || s.bookingDate || s.deliveryDate || '').slice(0, 10) === date)
@@ -60,14 +54,12 @@ function buildTop(sales, date) {
   return Object.values(by).sort((a, b) => b.revenue - a.revenue).slice(0, 3)
 }
 
-function buildAlerts(dayUnits, dayTarget, monthRevenue, monthTarget) {
+function buildAlerts(dayUnits, monthRevenue, monthTarget) {
   const alerts = []
-  const pct = Math.round(monthRevenue / monthTarget * 100)
-  if (dayUnits < dayTarget)
-    alerts.push({ type: 'warning', msg: `ยอดขายวันนี้ ${dayUnits}/${dayTarget} คัน — ต้องการอีก ${dayTarget - dayUnits} คันถึงเป้า` })
-  else
-    alerts.push({ type: 'success', msg: `ยอดขายวันนี้ ${dayUnits} คัน ✅ ถึงเป้าแล้ว` })
-  if (monthRevenue > 0)
+  // (2026-11-03) ไม่มีเป้ารายวันจริงในระบบ — เดิมตั้งตายตัว 5 คัน/วัน ขึ้นเตือน "ต่ำกว่าเป้า" ทุกวัน
+  const pct = monthTarget ? Math.round(monthRevenue / monthTarget * 100) : 0
+  if (dayUnits) alerts.push({ type: 'success', msg: `วันนี้ขายได้ ${dayUnits} คัน` })
+  if (monthRevenue > 0 && monthTarget)
     alerts.push({ type: pct >= 80 ? 'success' : 'info', msg: `ยอดสะสมเดือนนี้ ${formatCurrency(monthRevenue)} (${pct}% ของเป้า ${formatCurrency(monthTarget)})` })
   return alerts
 }
@@ -98,7 +90,7 @@ export default async function DailyReportPage(container) {
       listDocs('appointments', companyScopeFilters(), 'date', 'desc', 500).catch(() => []),
     ])
     if (container.__routerGen !== myGen) return
-    if (sales.length >= 1) { allSales = sales; dataSource = 'live' }
+    allSales = sales; dataSource = 'live' // ไม่มียอดก็แสดง 0 (เดิมโชว์ตัวเลข/ชื่อเซลส์ตัวอย่าง)
     if (budgetDocs.length > 0) _monthlyTargets = budgetDocs[0].targets || null
     // softDelete() ไม่ลบเอกสารจริง แค่ตั้ง deleted:true — กรองออกกันงานซ่อมที่ลบไปแล้วปนในรายงาน
     allJobs = jobs.filter(x => !x.deleted)
@@ -113,20 +105,19 @@ export default async function DailyReportPage(container) {
     const month = viewDate.slice(0, 7)
     const monthTarget = getMonthTarget(month)
 
-    const weekData = dataSource === 'live' ? buildWeek(allSales, viewDate) : buildDemoWeek(viewDate)
+    const weekData = buildWeek(allSales, viewDate)
 
     const daySales = dataSource === 'live'
       ? allSales.filter(s => (s.date || s.bookingDate || s.deliveryDate || '').slice(0, 10) === viewDate)
       : []
     const dayUnits = dataSource === 'live' ? daySales.length : 3
     const dayRevenue = dataSource === 'live' ? daySales.reduce((a, s) => a + (s.salePrice || 0), 0) : 3897000
-    const dayTarget = 5
 
     const monthSales = dataSource === 'live'
       ? allSales.filter(s => (s.date || s.bookingDate || s.deliveryDate || '').slice(0, 7) === month)
       : []
     const monthRevenue = dataSource === 'live' ? monthSales.reduce((a, s) => a + (s.salePrice || 0), 0) : 39000000
-    const monthPct = Math.min(100, Math.round(monthRevenue / monthTarget * 100))
+    const monthPct = monthTarget ? Math.min(100, Math.round(monthRevenue / monthTarget * 100)) : 0
     const monthUnits = dataSource === 'live' ? monthSales.length : 30
 
     const topPerformers = dataSource === 'live'
@@ -134,7 +125,7 @@ export default async function DailyReportPage(container) {
       : [{ name: 'วิชัย ยอดขาย', units: 2, revenue: 2598000 }, { name: 'สุดา มาดี', units: 1, revenue: 1299000 }]
 
     const alerts = dataSource === 'live'
-      ? buildAlerts(dayUnits, dayTarget, monthRevenue, monthTarget)
+      ? buildAlerts(dayUnits, monthRevenue, monthTarget)
       : [
         { type: 'warning', msg: 'ยอดขายต่ำกว่าเป้า 40% — ต้องการ 2 คันเพิ่มเพื่อถึงเป้าวันนี้' },
         { type: 'info', msg: 'มีนัด Service 3 คันในช่วงบ่าย' },
@@ -142,7 +133,6 @@ export default async function DailyReportPage(container) {
       ]
 
     const maxRev = Math.max(...weekData.map(d => d.revenue), 1)
-    const salePct = Math.round(dayUnits / dayTarget * 100)
 
     const dayJobs = allJobs.filter(j => toDateStr(j.createdAt) === viewDate)
     const dayWalkIns = allWalkIns.filter(w => (w.visitTime || '').slice(0, 10) === viewDate)
@@ -153,8 +143,8 @@ export default async function DailyReportPage(container) {
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
-            <div class="page-title">📊 Daily Report</div>
-            <div class="page-subtitle">รายงานประจำวัน — ${formatDate(viewDate)}${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● Live</span>' : ''}</div>
+            <div class="page-title">📊 รายงานประจำวัน</div>
+            <div class="page-subtitle">${formatDate(viewDate)}${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary btn-xs" id="prev-day-btn">◀ เมื่อวาน</button>
@@ -173,20 +163,20 @@ export default async function DailyReportPage(container) {
         <div class="card" style="padding:12px 16px;margin-bottom:12px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
             <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted)">📅 ยอดสะสมเดือน ${month} (${monthUnits} คัน)</div>
-            <div style="font-size:0.8rem;font-weight:800;color:var(--${monthPct >= 80 ? 'success' : monthPct >= 50 ? 'warning' : 'danger'})">${monthPct}%</div>
+            <div style="font-size:0.8rem;font-weight:800;color:var(--${!monthTarget ? 'text-muted' : monthPct >= 80 ? 'success' : monthPct >= 50 ? 'warning' : 'danger'})">${monthTarget ? monthPct + '%' : '—'}</div>
           </div>
           <div style="background:var(--surface-2);border-radius:4px;height:8px;margin-bottom:6px">
             <div style="background:var(--${monthPct >= 80 ? 'success' : monthPct >= 50 ? 'warning' : 'danger'});width:${monthPct}%;height:8px;border-radius:4px;transition:width 0.5s"></div>
           </div>
           <div style="display:flex;justify-content:space-between;font-size:0.71rem;color:var(--text-muted)">
             <span>${formatCurrency(monthRevenue)}</span>
-            <span>เป้า ${formatCurrency(monthTarget)}</span>
+            <span>${monthTarget ? 'เป้า ' + formatCurrency(monthTarget) : 'ยังไม่ได้ตั้งเป้า'}</span>
           </div>
         </div>
 
         <!-- KPI row -->
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
-          ${kpi('🚗 ขายได้', dayUnits + '/' + dayTarget + ' คัน', salePct >= 80 ? 'success' : salePct >= 50 ? 'warning' : 'danger')}
+          ${kpi('🚗 ขายได้วันนี้', dayUnits + ' คัน', dayUnits ? 'success' : 'text-muted')}
           ${kpi('💰 รายได้วันนี้', formatCurrency(dayRevenue), 'primary')}
           ${kpi('🚶 Walk-In', dayWalkIns.length + ' คน', 'secondary')}
           ${kpi('📅 คันเดือนนี้', monthUnits + ' คัน', 'accent')}
@@ -274,7 +264,7 @@ export default async function DailyReportPage(container) {
         `Daily_Report_${viewDate}.xlsx`,
         'Daily'
       )
-      showToast(`📥 Export Daily Report ${viewDate} แล้ว`, 'success')
+      showToast(`📥 ส่งออกรายงาน ${viewDate} แล้ว`, 'success')
     })
     document.getElementById('prev-day-btn')?.addEventListener('click', () => { viewDate = addDays(viewDate, -1); renderPage() })
     document.getElementById('today-btn')?.addEventListener('click', () => { viewDate = todayStr(); renderPage() })
