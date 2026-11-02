@@ -1,17 +1,33 @@
 // (2026-11-02) ปุ่มเดียว "📄 เอกสาร" ในใบจอง — พิมพ์เอกสารทุกแบบจากข้อมูลใบจอง + แนบไฟล์เอกสารจริง (สแกน/รูป/PDF)
 import { openModal } from './modal.js'
 import { showToast, getState } from '../core/store.js'
-import { updateDocData } from '../core/db.js'
+import { updateDocData, readDoc } from '../core/db.js'
 import { uploadFile } from './storage.js'
-import { printBooking, printAccessoryOrder, printSaleContract, printRegistrationRequest } from './bookingDocs.js'
+import { printBooking } from './bookingDocs.js'
+import { openSaleEditor } from './saleEditor.js'
+import {
+  printJobOrder, printContract, printContractAttachment, printExpenseNotice, printDeliveryNote,
+  printRegistrationIntent, printCommissionSheet, printWithdrawRequest,
+} from './dealerForms.js'
 
+// (2026-11-02) แบบฟอร์มตามตัวอย่างจริงของโชว์รูม เรียงตามขั้นตอนการขาย — print(b, company)
 export const BOOKING_PRINTS = [
-  { key: 'booking', icon: '📝', label: 'ใบจอง', print: printBooking },
-  { key: 'accessory', icon: '🎨', label: 'ใบสั่งแต่ง', print: printAccessoryOrder },
-  { key: 'contract', icon: '📜', label: 'สัญญาจะซื้อจะขาย', print: printSaleContract },
-  { key: 'withdraw', icon: '❌', label: 'ใบถอนจอง', print: null }, // ถามเหตุผล/ยอดหักก่อน (onWithdraw)
-  { key: 'registration', icon: '🪪', label: 'ใบขอจดทะเบียน', print: printRegistrationRequest },
+  { key: 'booking', icon: '📝', label: 'ใบจอง', print: b => printBooking(b) },
+  { key: 'joborder', icon: '🎨', label: 'ใบสั่งแต่ง (Job Order)', print: printJobOrder },
+  { key: 'contract', icon: '📜', label: 'สัญญาซื้อขาย', print: printContract },
+  { key: 'attachment', icon: '📎', label: 'แนบท้ายสัญญา', print: printContractAttachment },
+  { key: 'expense', icon: '💵', label: 'แจ้งค่าใช้จ่าย', print: printExpenseNotice },
+  { key: 'registration', icon: '🪪', label: 'แจ้งจดทะเบียน', print: printRegistrationIntent },
+  { key: 'delivery', icon: '🚗', label: 'ใบส่งมอบรถ', print: printDeliveryNote },
+  { key: 'commission', icon: '💰', label: 'ใบค่าคอม', print: printCommissionSheet },
+  { key: 'withdraw', icon: '❌', label: 'ใบขอยกเลิกจอง', print: null }, // ถามเหตุผลก่อน
 ]
+
+// ข้อมูลบริษัทของใบจอง (หัวกระดาษ/บัญชี/ผู้ลงนาม) — ไม่มีก็พิมพ์ได้ เว้นช่องไว้
+async function companyFor(b) {
+  if (!b?.companyId) return {}
+  try { return (await readDoc('org_companies', b.companyId)) || {} } catch { return {} }
+}
 
 export const MAX_FILE_MB = 15
 const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -21,7 +37,25 @@ export function fileEntry(file, res, by, at = new Date().toISOString()) {
   return { name: String(file?.name || 'ไฟล์').slice(0, 120), url: res.url, key: res.key, type: file?.type || '', size: file?.size || 0, at, by: by || '' }
 }
 
-export function openBookingDocs(b, { onWithdraw, onChange } = {}) {
+function askWithdraw(b, co, onChange) {
+  const { el, close } = openModal({
+    title: '❌ ใบขอยกเลิกจอง ' + esc(b.bookingNo || ''), size: 'sm',
+    body: `<div class="input-group"><label class="input-label">เหตุผลที่ขอยกเลิก</label>
+      <textarea class="input" id="wd-reason" rows="3" placeholder="เช่น ไฟแนนซ์ไม่อนุมัติ">${esc(b.cancelReason || '')}</textarea></div>`,
+    footer: `<button class="btn btn-secondary" id="wd-c">ยกเลิก</button><button class="btn btn-primary" id="wd-p">🖨️ พิมพ์</button>`,
+  })
+  el.querySelector('#wd-c').addEventListener('click', close)
+  el.querySelector('#wd-p').addEventListener('click', async () => {
+    const reason = el.querySelector('#wd-reason').value.trim()
+    if (reason && reason !== b.cancelReason) {
+      try { await updateDocData('bookings', b.id, { cancelReason: reason }); b.cancelReason = reason; onChange?.(b) } catch {}
+    }
+    close()
+    printWithdrawRequest(b, co, { reason })
+  })
+}
+
+export function openBookingDocs(b, { onChange } = {}) {
   if (!b) return
   const me = getState('user') || {}
   const { el } = openModal({
@@ -35,7 +69,10 @@ export function openBookingDocs(b, { onWithdraw, onChange } = {}) {
   function render(busy = '') {
     const files = b.files || []
     body.innerHTML = `
-      <div style="font-weight:700;margin-bottom:8px">🖨️ พิมพ์ (ดึงข้อมูลจากใบจองให้เอง)</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px">
+        <div style="font-weight:700;flex:1 1 160px">🖨️ พิมพ์ (ดึงข้อมูลจากใบจองให้เอง)</div>
+        <button class="btn btn-primary btn-sm" id="bd-edit">✏️ ข้อมูลเอกสารขาย${b.sale ? ' ✓' : ''}</button>
+      </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:16px">
         ${BOOKING_PRINTS.map(p => `<button class="btn btn-secondary" data-print="${p.key}" style="justify-content:flex-start;white-space:normal;text-align:left">${p.icon} ${p.label}</button>`).join('')}
       </div>
@@ -54,10 +91,12 @@ export function openBookingDocs(b, { onWithdraw, onChange } = {}) {
           <button class="btn btn-ghost btn-sm" data-del="${i}" title="เอาออก">✕</button>
         </div>`).join('') : '<div style="font-size:0.8rem;color:var(--text-muted);padding:8px 0">ยังไม่มีไฟล์แนบ</div>'}`
 
-    body.querySelectorAll('[data-print]').forEach(btn => btn.addEventListener('click', () => {
+    body.querySelector('#bd-edit')?.addEventListener('click', () => openSaleEditor(b, { onSaved: x => { onChange?.(x); render() } }))
+    body.querySelectorAll('[data-print]').forEach(btn => btn.addEventListener('click', async () => {
       const p = BOOKING_PRINTS.find(x => x.key === btn.dataset.print)
-      if (p.key === 'withdraw') { onWithdraw ? onWithdraw(b) : null; return }
-      p.print(b)
+      const co = await companyFor(b)
+      if (p.key === 'withdraw') return askWithdraw(b, co, onChange)
+      p.print(b, co)
     }))
     body.querySelector('#bd-file')?.addEventListener('change', e => upload([...e.target.files]))
     body.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', async () => {

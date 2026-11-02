@@ -1181,7 +1181,7 @@ export default async function BookingsPage(container) {
         render()
       } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
-    document.getElementById('bk-print')?.addEventListener('click', () => openBookingDocs(b, { onWithdraw: openCancelPrintModal }))
+    document.getElementById('bk-print')?.addEventListener('click', () => openBookingDocs(b))
     document.getElementById('bk-print-cancel')?.addEventListener('click', () => openCancelPrintModal(b))
     document.getElementById('bk-to-doc')?.addEventListener('click', () => { document.querySelector('.modal-overlay')?.remove(); navigate('/documents') })
     document.getElementById('bk-delete2')?.addEventListener('click', () => deleteBooking(b))
