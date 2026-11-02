@@ -5,7 +5,7 @@
  */
 import { formatCurrency, formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import {
   printCustomOrderPO, printCustomReceipt, printCustomTempReceipt,
@@ -300,7 +300,7 @@ export default async function CustomOrderPage(container) {
           <div class="input-group"><label class="input-label">โทรศัพท์</label><input class="input" id="co-phone"></div>
           <div class="input-group"><label class="input-label">รุ่นรถ *</label><input class="input" id="co-model"></div>
           <div class="input-group"><label class="input-label">ทะเบียน/VIN</label><input class="input" id="co-plate"></div>
-          <div class="input-group"><label class="input-label">พนักงานขาย</label><input class="input" id="co-sales" value="คุณ (Demo)"></div>
+          <div class="input-group"><label class="input-label">พนักงานขาย</label><input class="input" id="co-sales" value="${(getState('user')?.displayName || '').replace(/"/g, '&quot;')}"></div>
           <div class="input-group"><label class="input-label">ส่วนลด (บาท)</label><input type="number" class="input" id="co-discount" value="0"></div>
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">หมายเหตุส่วนลด</label><input class="input" id="co-discount-note" placeholder="เช่น โปรโมชั่นเดือนนี้"></div>
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">ของแถม (คั่นด้วย , เช่น ฟิล์มกรองแสง, พรมยาง)</label><input class="input" id="co-freebies"></div>
@@ -444,7 +444,7 @@ export default async function CustomOrderPage(container) {
         ${['receipt','tax_invoice','temp_receipt','credit_note'].includes(type) ? `<div class="input-group"><label class="input-label">จำนวนเงิน (บาท)</label><input type="number" class="input" id="doc-amount" value="${type==='credit_note'?0:total}"></div>` : ''}
         ${type === 'credit_note' ? `<div class="input-group"><label class="input-label">เหตุผลการลดหนี้</label><textarea class="input" id="doc-note" rows="2"></textarea></div>` : ''}
         ${type === 'insurance' ? `<div class="input-group"><label class="input-label">บริษัทประกันภัย</label><input class="input" id="doc-insurer"></div>` : ''}
-        <div class="input-group"><label class="input-label">ผู้ออกเอกสาร</label><input class="input" id="doc-issuer" value="คุณ (Demo)"></div>
+        <div class="input-group"><label class="input-label">ผู้ออกเอกสาร</label><input class="input" id="doc-issuer" value="${(getState('user')?.displayName || '').replace(/"/g, '&quot;')}"></div>
       `,
       confirmText: `${dt.icon} ออกเอกสาร + พิมพ์`,
       async onConfirm() {
