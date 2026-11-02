@@ -3,16 +3,18 @@
 // ทุกอย่างติ๊กไว้ให้แล้ว ยกเว้น Lead ที่ยังไม่จอง กติกาการจับคู่อยู่ใน sheetReconcile.js
 // - ก่อนแก้ ดาวน์โหลดไฟล์สำรองลูกค้า+ใบจองทั้งหมดให้อัตโนมัติ
 // - "ลบ" = soft delete (deleted:true) ติดป้าย deletedBy:'sheet-sync' ไว้ กดกู้คืนจากหน้าจอนี้ได้ภายหลัง
+// - (2026-11-02) ใบจองที่ทีมคีย์ในแอปแต่ยังไม่อยู่ใน Sheet ไม่ลบแล้ว (เจ้าของคีย์ Sheet คนเดียว ทีมใช้แอป) โชว์เป็น "รอลง Sheet"
+//   พร้อมปุ่มดาวน์โหลดแถวไปวางต่อใน Sheet
 // - ข้อมูลลูกค้าอ่านในเบราว์เซอร์ของคนที่ login อยู่เท่านั้น ไม่ส่งไปที่อื่น
 import { listDocs, listAllDocs, createDoc, updateDocData, setDocData } from '../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../core/companyScope.js'
 import { showToast, getState } from '../core/store.js'
 import { openModal, confirmDialog } from './modal.js'
-import { exportMultiSheet } from './importExport.js'
+import { exportMultiSheet, exportToExcel } from './importExport.js'
 import { todayBangkok } from './format.js'
 import { readBookingSheet, planBookingImport, newBookingDoc, newCustomerDoc, companyForBrand, brandCompanyMap } from './bookingImport.js'
 import { maybeMarkCustomerDelivered, syncStockForBookings } from './bookingSync.js'
-import { planSheetReconcile, customerFullName, normPhone, normPersonName } from './sheetReconcile.js'
+import { planSheetReconcile, sheetRowsForBookings, customerFullName, normPhone, normPersonName } from './sheetReconcile.js'
 
 export const SYNC_TAG = 'sheet-sync'
 
@@ -89,7 +91,7 @@ export function openSheetReconcile({ onDone } = {}) {
       ...allBookings.filter(b => b.deleted && b.deletedBy === SYNC_TAG).map(d => ({ col: 'bookings', d })),
       ...allCustomers.filter(c => c.deleted && c.deletedBy === SYNC_TAG).map(d => ({ col: 'customers', d })),
     ]
-    const { extraBookings, renumberBookings, extraCustomers, leads, customerFixes, missingCustomers, linkOnly } = plan
+    const { extraBookings, renumberBookings, extraCustomers, leads, customerFixes, missingCustomers, linkOnly, appOnlyBookings, appOnlyCustomers, stampBookings, stampCustomers } = plan
     const { creates, updates, unchanged } = imp
     const nidTodo = canNid ? [...updates, ...unchanged].filter(x => x.nid && nidMap[x.id] !== x.nid) : []
     const box = (n, label, color) => `<div style="background:var(--surface-2);border-radius:8px;padding:8px 10px;min-width:0"><div style="font-size:1.3rem;font-weight:800;color:${color}">${n}</div><div style="font-size:0.75rem">${label}</div></div>`
@@ -105,6 +107,7 @@ export function openSheetReconcile({ onDone } = {}) {
     const lists = {
       nb: creates, ub: updates, xb: extraBookings, rn: renumberBookings, xc: extraCustomers, fx: customerFixes, mc: missingCustomers,
       ld: leads.map(c => ({ customer: c })),
+      ao: appOnlyBookings,
     }
     const delTotal = extraBookings.length + extraCustomers.length
     const fixTotal = updates.length + renumberBookings.length + customerFixes.length
@@ -130,13 +133,21 @@ export function openSheetReconcile({ onDone } = {}) {
           ${section('xc', '🗑️ ลูกค้าที่ไม่มีในไฟล์ / ซ้ำ', extraCustomers, custLine, { hint: 'ลูกค้าซ้ำ: เก็บคนที่ผูกกับใบจองไว้ ลบคนที่ซ้ำ' })}
           ${section('fx', '✏️ ลูกค้าที่ชื่อ/เบอร์/สถานะไม่ตรงไฟล์', customerFixes, fixLine)}
           ${section('mc', '➕ สร้างลูกค้าให้ใบจองที่ยังไม่มีลูกค้า', missingCustomers, missLine)}
+          ${appOnlyBookings.length ? `<div style="margin-top:10px;padding:8px 10px;border:1px solid var(--info, var(--border));border-radius:8px;font-size:0.8rem">📝 ทีมคีย์ใบจองในแอป ยังไม่อยู่ใน Sheet <b>${appOnlyBookings.length}</b> ใบ (เก็บไว้ ไม่ลบ) <button type="button" class="btn btn-ghost btn-sm" id="srm-ao-xlsx">📥 ดาวน์โหลดไปวางใน Sheet</button></div>` : ''}
+          ${section('ao', '📝 ใบจองที่คีย์ในแอป รอลง Sheet', appOnlyBookings, bkLine, { checked: false, hint: `เก็บไว้ทั้งหมด${appOnlyCustomers.length ? ` (ลูกค้าที่ผูกอยู่ ${appOnlyCustomers.length} คนก็เก็บไว้)` : ''} · ติ๊กเฉพาะใบที่อยากลบจริง` })}
           ${section('ld', '🧲 Lead ที่ยังไม่จอง (เก็บไว้ ไม่ลบ)', lists.ld, x => leadLine(x.customer), { checked: false, hint: 'ไฟล์ DATA Booking มีแต่ลูกค้าที่จองแล้ว Lead จึงไม่อยู่ในไฟล์เป็นปกติ จะลบก็ต่อเมื่อติ๊กเอง' })}
           <div style="margin-top:10px;font-size:0.75rem;color:var(--text-muted)">💾 ระบบดาวน์โหลดไฟล์สำรองให้ก่อนแก้ทุกครั้ง · ลบผิดกดกู้คืนได้จากหน้าจอนี้</div>
           ${restorable.length ? `<div style="margin-top:10px;padding:8px 10px;border:1px dashed var(--border);border-radius:8px;font-size:0.8rem">↩️ ลบไปจากการซิงก์ครั้งก่อน ${restorable.length} รายการ <button class="btn btn-ghost btn-sm" id="srm-restore">กู้คืนทั้งหมด</button></div>` : ''}
         </div>`,
       confirmText: totalTodo ? `✅ ซิงก์ให้ตรงกับ Sheet` : 'ปิด',
       onConfirm: async () => {
-        if (!totalTodo) return true
+        // ประทับ "เคยอยู่ใน Sheet" ให้ใบจอง/ลูกค้าที่ตรงกับไฟล์ (ครั้งหน้าถ้าหายจากไฟล์ จะรู้ว่าลบตามไฟล์ได้)
+        const stampAll = async () => {
+          const at = new Date().toISOString()
+          for (const b of stampBookings) await updateDocData('bookings', b.id, { sheetSeenAt: at }).catch(() => {})
+          for (const c of stampCustomers) await updateDocData('customers', c.id, { sheetSeenAt: at }).catch(() => {})
+        }
+        if (!totalTodo) { stampAll(); return true }
         const pick = key => [...el.querySelectorAll(`input[data-sec="${key}"]:checked`)].map(i => lists[key][Number(i.dataset.i)])
         const sel = Object.fromEntries(Object.keys(lists).map(k => [k, pick(k)]))
         try {
@@ -157,7 +168,7 @@ export function openSheetReconcile({ onDone } = {}) {
         const deletedCustIds = new Set([...sel.xc, ...sel.ld].map(x => x.customer.id))
 
         for (const r of sel.rn) await run(() => updateDocData('bookings', r.booking.id, r.patch))
-        for (const x of sel.xb) await run(() => updateDocData('bookings', x.booking.id, del))
+        for (const x of [...sel.xb, ...sel.ao]) await run(() => updateDocData('bookings', x.booking.id, del))
         for (const x of [...sel.xc, ...sel.ld]) await run(() => updateDocData('customers', x.customer.id, del))
         for (const f of sel.fx) await run(() => updateDocData('customers', f.customer.id, f.patch.stage ? { ...f.patch, stageChangedAt: now } : f.patch))
         for (const l of linkOnly) {
@@ -214,8 +225,9 @@ export function openSheetReconcile({ onDone } = {}) {
         }
         // สต็อกรถให้ตรงกับสถานะใบจอง (ส่งมอบแล้ว → ขายแล้ว ฯลฯ)
         const patched = new Map(sel.ub.map(u => [u.id, { ...u.existing, ...u.patch }]))
-        const dropped = new Set(sel.xb.map(x => x.booking.id))
+        const dropped = new Set([...sel.xb, ...sel.ao].map(x => x.booking.id))
         const stock = await syncStockForBookings([...sel.nb, ...allBookings.filter(b => !b.deleted && !dropped.has(b.id)).map(b => patched.get(b.id) || b)], vehicles).catch(() => 0)
+        await stampAll()
         showToast(`✅ ซิงก์กับ Sheet เสร็จ ${done} รายการ${stock ? ` · สต็อก ${stock} คัน` : ''}${errors ? ` · พลาด ${errors}` : ''}`, errors ? 'warning' : 'success', 8000)
         onDone?.()
         return true
@@ -224,6 +236,11 @@ export function openSheetReconcile({ onDone } = {}) {
     el.querySelectorAll('input[data-all]').forEach(all => all.addEventListener('change', () => {
       el.querySelectorAll(`input[data-sec="${all.dataset.all}"]`).forEach(i => { i.checked = all.checked })
     }))
+    el.querySelector('#srm-ao-xlsx')?.addEventListener('click', async e => {
+      e.preventDefault()
+      try { await exportToExcel(sheetRowsForBookings(appOnlyBookings.map(x => x.booking)), `รอลง-Sheet-${todayBangkok()}.xlsx`, 'Booking') }
+      catch { showToast('❌ สร้างไฟล์ไม่สำเร็จ', 'error') }
+    })
     el.querySelector('#srm-restore')?.addEventListener('click', async () => {
       const ok = await confirmDialog({ title: 'กู้คืนรายการที่ลบ', message: `กู้คืน ${restorable.length} รายการที่ลบจากการซิงก์กับ Sheet ครั้งก่อน?`, confirmText: 'กู้คืน' })
       if (!ok) return

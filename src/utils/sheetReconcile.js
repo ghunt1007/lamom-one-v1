@@ -33,6 +33,31 @@ export function splitFullName(full) {
   return { firstName: parts.join(' '), lastName }
 }
 
+// (2026-11-02) เจ้าของคีย์ Sheet คนเดียว ทีมขายคีย์ในแอป — ใบจอง/ลูกค้าที่ "เคยมาจาก Sheet" (นำเข้าจากไฟล์
+// หรือเคยตรงกับไฟล์ตอนซิงก์) แล้วหายจากไฟล์ = ลบตามไฟล์ได้ ส่วนที่ทีมสร้างในแอปเองและยังไม่อยู่ในไฟล์ = "รอลง Sheet" ห้ามลบ
+export function cameFromSheet(d) {
+  return !!(d && (d.importedFromExcel || d.sheetSeenAt))
+}
+
+// แถวสำหรับวางต่อท้ายใน Sheet (หัวคอลัมน์ตรงกับไฟล์ DATA Booking) ของใบจองที่ยังไม่อยู่ในไฟล์
+export function sheetRowsForBookings(bookings) {
+  return bookings.map(b => ({
+    'เลขใบจอง': b.bookingNo || '',
+    'วันที่จอง': b.bookingDate || '',
+    'สถานะ': b.status || '',
+    'ชื่อลูกค้า-นามสกุล': b.custName || '',
+    'หมายเลขโทรศัพท์': b.phone || '',
+    'แหล่งที่มา': b.source || '',
+    'รุ่นรถ': b.model || '',
+    'สีภายนอก': b.colorOut || '',
+    'สีภายใน': b.colorIn || '',
+    'ราคารถ': b.price || '',
+    'ไฟแนนซ์': b.financeCo || '',
+    'กำหนดส่งมอบ': b.deliveryDate || '',
+    'ชื่อเซลล์': b.salesName || '',
+  }))
+}
+
 export function isTempBookingNo(no) {
   const s = String(no ?? '').trim()
   return !s || /-TEMP$/i.test(s)
@@ -73,6 +98,10 @@ export function planSheetReconcile(sheetRows, bookings, customers) {
 
   // ── ใบจอง ──
   const extraBookings = []
+  const appOnlyBookings = [] // { booking, note } — ทีมคีย์ในแอป ยังไม่อยู่ในไฟล์ → เก็บไว้ ไม่ลบ
+  const notInSheet = (b, note) => cameFromSheet(b)
+    ? extraBookings.push({ booking: b, reason: 'not-in-sheet', note })
+    : appOnlyBookings.push({ booking: b, note: 'คีย์ในแอป ยังไม่อยู่ใน Sheet' })
   const keptBookings = [] // { booking, sheet }
   const byNo = new Map()
   const tempWithRealNo = []
@@ -85,7 +114,7 @@ export function planSheetReconcile(sheetRows, bookings, customers) {
     const hit = sheetRowFor(b.custName, b.phone)
     if (hit && !hit.bookingNo) keptBookings.push({ booking: b, sheet: hit })
     else if (hit) tempWithRealNo.push({ booking: b, sheet: hit })
-    else extraBookings.push({ booking: b, reason: 'not-in-sheet', note: 'ใบจองเลขชั่วคราว ไม่มีในไฟล์' })
+    else notInSheet(b, 'ใบจองเลขชั่วคราว ไม่มีในไฟล์')
   }
   // ใบจองเลขชั่วคราวที่ตอนนี้ไฟล์ออกเลขจริงให้แล้ว: ถ้าโปรแกรมยังไม่มีเลขจริงนั้น → เปลี่ยนเลขให้ (เก็บเงินจอง/F&I ที่กรอกไว้)
   // ถ้ามีเลขจริงอยู่แล้ว → ใบชั่วคราวเป็นของซ้ำ
@@ -97,7 +126,7 @@ export function planSheetReconcile(sheetRows, bookings, customers) {
   }
   for (const [no, list] of byNo) {
     const s = sheetByNo.get(no)
-    if (!s) { list.forEach(b => extraBookings.push({ booking: b, reason: 'not-in-sheet', note: 'เลขใบจองนี้ไม่มีในไฟล์' })); continue }
+    if (!s) { list.forEach(b => notInSheet(b, 'เลขใบจองนี้ไม่มีในไฟล์')); continue }
     const keep = pickKeeper(list, b => (b.customerId && custById.has(b.customerId)) ? 1 : 0)
     keptBookings.push({ booking: keep, sheet: s })
     list.filter(b => b !== keep).forEach(b => extraBookings.push({ booking: b, reason: 'dup-number', note: `เลขใบจอง ${no} ซ้ำในโปรแกรม` }))
@@ -106,6 +135,7 @@ export function planSheetReconcile(sheetRows, bookings, customers) {
   // ── ลูกค้า ──
   const keptBookingIds = new Set(keptBookings.map(k => k.booking.id))
   const extraBookingIds = new Set(extraBookings.map(x => x.booking.id))
+  const appOnlyBookingIds = new Set(appOnlyBookings.map(x => x.booking.id))
   const sheetForCustomer = new Map() // customerId → แถวในไฟล์ (ผ่านใบจองที่ผูก)
   for (const k of keptBookings) {
     if (k.booking.customerId && custById.has(k.booking.customerId) && !sheetForCustomer.has(k.booking.customerId)) sheetForCustomer.set(k.booking.customerId, k.sheet)
@@ -121,11 +151,14 @@ export function planSheetReconcile(sheetRows, bookings, customers) {
   const matchedCustomers = [] // { customer, sheet }
   const extraCustomers = []
   const leads = []
+  const appOnlyCustomers = [] // จอง/ส่งมอบในแอป ยังไม่อยู่ในไฟล์ → เก็บไว้
   for (const c of liveCustomers) {
     const s = sheetForCustomer.get(c.id) || sheetRowFor(customerFullName(c), c.phone)
     if (s) { matchedCustomers.push({ customer: c, sheet: s }); continue }
     const booked = c.stage === 'booking' || c.stage === 'delivered' || c.importedFromExcel || (c.bookingId && extraBookingIds.has(c.bookingId))
-    if (booked) extraCustomers.push({ customer: c, reason: 'not-in-sheet', note: 'ลูกค้าที่จอง/ส่งมอบแล้ว แต่ไม่มีในไฟล์' })
+    const appOnly = (c.bookingId && appOnlyBookingIds.has(c.bookingId)) || !(cameFromSheet(c) || (c.bookingId && extraBookingIds.has(c.bookingId)))
+    if (booked && !appOnly) extraCustomers.push({ customer: c, reason: 'not-in-sheet', note: 'ลูกค้าที่จอง/ส่งมอบแล้ว แต่ไม่มีในไฟล์' })
+    else if (booked) appOnlyCustomers.push(c)
     else leads.push(c)
   }
   // ลูกค้าซ้ำ: ตรงกับแถวเดียวกันในไฟล์หลายคน → เก็บคนที่ผูกใบจอง/เก่าสุด ที่เหลือเป็นส่วนเกิน
@@ -169,8 +202,13 @@ export function planSheetReconcile(sheetRows, bookings, customers) {
   renumberBookings.forEach(r => liveNos.add(r.patch.bookingNo))
   const missingBookings = [...sheetByNo.values()].filter(m => !liveNos.has(m.bookingNo))
 
+  // ใบจอง/ลูกค้าที่ตรงกับไฟล์แต่ยังไม่มีป้าย "เคยอยู่ใน Sheet" — ประทับไว้ตอนซิงก์ ครั้งหน้าถ้าหายจากไฟล์จะลบตามไฟล์ได้
+  const stampBookings = keptBookings.map(k => k.booking).filter(b => !cameFromSheet(b))
+  const stampCustomers = keptCustomers.map(k => k.customer).filter(c => !cameFromSheet(c))
+
   return {
     sheetCount: sheet.length,
+    appOnlyBookings, appOnlyCustomers, stampBookings, stampCustomers,
     extraBookings, renumberBookings, extraCustomers, leads, customerFixes, missingCustomers, linkOnly, missingBookings,
     keptBookingCount: keptBookings.length, keptCustomerCount: keptCustomers.length,
   }
