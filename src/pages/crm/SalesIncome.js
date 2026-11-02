@@ -17,10 +17,8 @@ import { lostBySeller } from '../../utils/lostReason.js'
 import { lineRegistrationStatus } from '../../utils/lineRegistration.js'
 import { getSalesStaff } from '../../data/masterData.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { escHtml } from '../../utils/escape.js'
 
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
 const TH_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
 const monthLabel = ym => { const [y, m] = ym.split('-').map(Number); return `${TH_MONTHS[m - 1]} ${y + 543}` }
 

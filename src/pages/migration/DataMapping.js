@@ -7,8 +7,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs, setDocData } from '../../core/db.js'
 import { COLLECTIONS } from './V8Migration.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
-
-function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+import { escHtml as esc } from '../../utils/escape.js'
 
 // (v1.0.325) เดิมทั้งหน้านี้เป็นตารางสถานะ Migration ปลอมทั้งหมด — จำนวน records/mapped/issues ต่อ module
 // (เช่น "ลูกค้า 1,842 รายการ นำเข้าแล้ว") เป็นตัวเลข hardcode ที่ไม่มีความเกี่ยวข้องกับความจริงเลย (V8

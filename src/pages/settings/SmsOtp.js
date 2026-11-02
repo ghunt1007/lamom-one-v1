@@ -7,10 +7,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData } from '../../core/db.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
 import { escHtml as __escA } from '../../utils/escape.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 const PROVIDERS = [
   { id:'twilio', name:'Twilio', logo:'📱', price:'฿1.50/SMS', latency:'< 5 วิ', coverage:'190+ ประเทศ' },

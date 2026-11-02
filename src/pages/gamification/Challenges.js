@@ -8,13 +8,12 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData, getSalesData } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { escHtml as esc } from '../../utils/escape.js'
 
 function addDays(n) {
   const [y, m, d] = todayBangkok().split('-').map(Number)
   return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
 }
-
-function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
 const CHALLENGE_TYPES = {
   sales:   { label: 'ยอดขาย', color: 'success', icon: '💰' },

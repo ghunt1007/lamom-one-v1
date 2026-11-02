@@ -8,8 +8,7 @@ import { showToast } from '../../core/store.js'
 import { listAllDocs, listDocs, createDoc } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
-
-function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+import { escHtml } from '../../utils/escape.js'
 
 // (v1.0.335) เดิมรถปลอม 4 คัน (DEMO_VEHICLES) ถูกผสมเข้ากับผลค้นหาจริงถาวรเสมอ (ไม่ใช่แค่ตอนไม่มีข้อมูล
 // จริง) และปุ่ม "ประวัติซ่อม" สร้างประวัติซ่อมปลอมขึ้นมาทุกครั้งไม่ว่าจะเป็นรถจริงหรือปลอม ปุ่ม "นัดเช็คระยะ"

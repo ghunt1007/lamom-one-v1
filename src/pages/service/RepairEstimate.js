@@ -8,10 +8,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, softDelete } from '../../core/db.js'
 import { sendSms } from '../../utils/comms.js'
 import { escHtml as __escA } from '../../utils/escape.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 const LABOR_RATE = 500 // บาท/ชม.
 

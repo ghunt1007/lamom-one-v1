@@ -18,10 +18,7 @@ import { listDocs, createDoc, updateDocData } from '../../core/db.js'
 import { getInsurers } from '../../data/masterData.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 import { escHtml as __escA } from '../../utils/escape.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 export default async function InsuranceComparePage(container) {
   const myGen = container.__routerGen

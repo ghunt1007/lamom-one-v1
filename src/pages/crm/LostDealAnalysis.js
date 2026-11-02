@@ -6,10 +6,7 @@ import { companyScopeFilters } from '../../core/companyScope.js'
 import { getVisibilityScope, scopeIncludesRecord } from '../../core/hierarchy.js'
 import { classifyLostReason } from '../../utils/lostReason.js'
 import { navigate } from '../../core/router.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 const LOST_REASONS = {
   price:       { label: '💸 ราคาแพงเกินไป', color: 'danger' },

@@ -12,10 +12,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { navigate } from '../../core/router.js'
 import { escHtml as __escA } from '../../utils/escape.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 const STATUS = {
   draft:      { label: '✏️ ร่าง',          badge: 'primary' },

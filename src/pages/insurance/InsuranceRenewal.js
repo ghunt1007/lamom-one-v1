@@ -9,10 +9,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { getInsurers } from '../../data/masterData.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { escHtml as __escA } from '../../utils/escape.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 const INS_TYPE = {
   class1:    { label: 'ประกันชั้น 1', color: 'success' },

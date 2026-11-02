@@ -15,16 +15,13 @@ import { doc, updateDoc, arrayUnion } from 'firebase/firestore'
 import { printDocument, docHeader, docFooter, esc as pesc } from '../../utils/print.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
+import { escHtml } from '../../utils/escape.js'
 
 const HANDLER_ROLES = ['hr', 'manager', 'admin', 'owner']
 
 function myName() {
   const me = getState('user') || {}
   return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
-}
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
 }
 
 // เลขที่บันทึก — วันที่+เลขสุ่ม (แพทเทิร์นเดียวกับ bookingNo/quoteNo ในระบบ ไม่ใช้ counter ต่อเนื่อง กันปัญหา

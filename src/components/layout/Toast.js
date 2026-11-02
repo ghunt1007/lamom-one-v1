@@ -1,10 +1,7 @@
 import { on } from '../../core/store.js'
+import { escHtml } from '../../utils/escape.js'
 
 const ICONS = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' }
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
 
 export function ToastContainer(container) {
   const wrap = document.createElement('div')

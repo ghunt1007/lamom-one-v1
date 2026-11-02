@@ -9,6 +9,7 @@ import { listDocs, softDelete } from '../../core/db.js'
 import { confirmDialog } from '../../utils/modal.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
+import { escHtml as esc } from '../../utils/escape.js'
 
 function addDays(n) {
   const [y, m, d] = todayBangkok().split('-').map(Number)
@@ -129,4 +130,4 @@ export default async function ErrorLogPage(container) {
 }
 
 function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
-function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }
+

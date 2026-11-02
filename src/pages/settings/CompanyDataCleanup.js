@@ -17,8 +17,8 @@
 import { showToast } from '../../core/store.js'
 import { listAllDocs, backfillCompanyId } from '../../core/db.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
+import { escHtml as esc } from '../../utils/escape.js'
 
-function esc(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') }
 function normPhone(p) { const d = String(p || '').replace(/\D/g, ''); return d.startsWith('66') && d.length === 11 ? '0' + d.slice(2) : d } // +66 = 0
 
 // mode 'customerId' = ผูกผ่าน customerId เท่านั้น (มี FK ตรงจริง)

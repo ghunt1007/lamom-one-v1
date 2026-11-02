@@ -8,9 +8,9 @@ import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '..
 import { testSendWebhook } from '../../utils/webhookTest.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { escHtml as esc } from '../../utils/escape.js'
 
 // ป้องกัน XSS — ชื่อ/URL/secret ของ Webhook เป็นข้อมูลที่ผู้ใช้พิมพ์เอง ต้อง escape ก่อนแสดงผลเสมอ
-function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
 const EVENTS =['sale.created','sale.updated','service.booked','service.completed','lead.created','lead.converted','payment.received','invoice.issued','customer.created','stock.updated']
 

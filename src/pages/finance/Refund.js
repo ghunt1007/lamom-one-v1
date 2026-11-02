@@ -10,13 +10,12 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState, setState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml } from '../../utils/escape.js'
 
 function myName() {
   const me = getState('user') || {}
   return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
 }
-
-function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
 // (v1.0.518) เงินจอง (bookingDeposit) แยกจากเงินดาวน์ (down) — ใบจองเก่ามีแค่ down ตัวเดียว ยอดที่เซลส์เก็บ
 // ไว้ตอนจอง/รอคืนตอนถอนจองคือเงินจองเสมอ ใช้ helper นี้แทน b.down ตรงๆ ทุกจุดในหน้านี้

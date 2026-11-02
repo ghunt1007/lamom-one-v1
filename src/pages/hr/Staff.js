@@ -11,10 +11,8 @@ import { validateThaiId } from '../../utils/thaiId.js'
 import { linkNewAccountForStaff, updateCompanyMemberships, sendStaffPasswordReset } from '../../core/auth.js'
 import { genPassword } from '../../utils/secureRandom.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { escHtml } from '../../utils/escape.js'
 
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
 function companyNameOf(companiesList, companyId) {
   if (!companyId) return ''
   return companiesList.find(c => c.id === companyId)?.name || ''

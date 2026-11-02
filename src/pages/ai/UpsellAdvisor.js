@@ -8,8 +8,7 @@ import { showToast } from '../../core/store.js'
 import { getSalesData, listDocs, createDoc } from '../../core/db.js'
 import { sendSms } from '../../utils/comms.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
-
-function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+import { escHtml as esc } from '../../utils/escape.js'
 
 // (v1.0.328) เดิม CUSTOMERS 3 คนพร้อมโอกาส upsell ทั้งหมด (ราคา/เหตุผล/% ความน่าจะซื้อ) เป็นข้อมูลปลอม
 // ตายตัวทั้งหมด และปุ่ม "ส่ง LINE ทุกราย"/"ส่ง Offer" แค่ตั้ง u.sent=true ในหน่วยความจำ ไม่ได้เรียกฟังก์ชัน

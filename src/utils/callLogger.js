@@ -6,6 +6,7 @@ import { myEffectiveCompanyId } from '../core/companyScope.js'
 import { openModal } from './modal.js'
 import { touchCustomerContact } from './customerContact.js'
 import { offerNextFollowup } from './addFollowupModal.js'
+import { escHtml } from './escape.js'
 
 export const CALL_OUTCOMES = [
   { k: 'interested', label: '😊 คุยแล้ว สนใจ', contacted: true, next: '' },
@@ -43,8 +44,6 @@ export function armCallLog(customer, { hasPending = () => false, onSaved } = {})
   pending = { customer, hasPending, onSaved, at: Date.now() }
   if (!listening) { document.addEventListener('visibilitychange', onVisible); listening = true }
 }
-
-function escHtml(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') }
 
 function askOutcome({ customer: c, hasPending, onSaved }) {
   const name = [c.firstName, c.lastName].filter(Boolean).join(' ') || c.name || c.customerName || 'ลูกค้า'

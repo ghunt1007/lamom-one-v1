@@ -4,8 +4,7 @@ import { seedDemoData, getSalesData } from '../../core/db.js'
 import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { showToast } from '../../core/store.js'
-
-function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+import { escHtml } from '../../utils/escape.js'
 
 // GP = ราคาขาย - ต้นทุน (กำไรขั้นต้น) ; FOC = ของแถม/งบที่ใช้แถม (budgetUsed)
 function calcGpFoc(s) {

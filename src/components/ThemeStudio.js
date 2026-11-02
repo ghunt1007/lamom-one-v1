@@ -6,8 +6,7 @@ import { setTheme, setMode, showToast } from '../core/store.js'
 import { THEME_GROUPS } from '../data/themes.js'
 import { UI_OPTIONS, loadUi, saveUi, applyUi, wallImage, saveWallImage, WALL_IMG_KEY } from '../utils/appearance.js'
 import { WALLPAPERS, wallpaperCss } from '../data/wallpapers.js'
-
-const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+import { escHtml as esc } from '../utils/escape.js'
 
 function modePref() {
   try { return localStorage.getItem('lamom_mode') || 'dark' } catch { return 'dark' }

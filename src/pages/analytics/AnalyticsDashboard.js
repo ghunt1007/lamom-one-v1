@@ -3,8 +3,7 @@ import { navigate } from '../../core/router.js'
 import { formatCurrency, toDateStr } from '../../utils/format.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
-
-function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+import { escHtml } from '../../utils/escape.js'
 
 // (2026-11-02) เอาตัวเลขรายเดือนสมมติออก — ยังไม่มียอดขายจริงในปีนี้ = กราฟเป็น 0 ไม่ใช่ตัวเลขปลอม
 const MONTH_LABELS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']

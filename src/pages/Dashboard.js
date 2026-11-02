@@ -14,10 +14,7 @@ import { exportToExcel } from '../utils/importExport.js'
 import { DASH_SECTIONS, loadDashLayout, saveDashLayout, applyDashLayout, moveSection, normalizeLayout } from '../utils/dashLayout.js'
 import { openModal } from '../utils/modal.js'
 import { escHtml as __escA } from '../utils/escape.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
+import { escHtml } from '../utils/escape.js'
 
 const TH_MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 function ymLabel(ym) {
@@ -690,7 +687,6 @@ export default async function DashboardPage(container) {
         </div>
       `
     }
-
 
     // สีสถานะ → CSS variable (secondary ไม่มี var จริง ใช้ text-muted แทน)
     const colorVar = c => c === 'secondary' ? 'var(--text-muted)' : `var(--${c})`

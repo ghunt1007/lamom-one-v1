@@ -5,8 +5,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { getSalesData, listDocs, listAllDocs, createDoc, updateDocData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
-
-function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+import { escHtml } from '../../utils/escape.js'
 
 const TAX_TYPES = {
   pp30:  { label: 'ภพ.30 (VAT)', color: 'primary', due: 15 },

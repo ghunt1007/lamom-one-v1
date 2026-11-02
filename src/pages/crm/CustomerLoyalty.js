@@ -4,10 +4,7 @@ import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getSalesData, listDocs, createDoc } from '../../core/db.js'
 import { escHtml as __escA } from '../../utils/escape.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 const TIERS = {
   bronze:   { label: 'Bronze', icon: '🥉', color: '#cd7f32', minPoints: 0,     maxPoints: 999,   benefit: 'ลด 1% ค่าบริการ' },

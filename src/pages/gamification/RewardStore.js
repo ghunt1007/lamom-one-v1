@@ -7,6 +7,7 @@ import { showToast } from '../../core/store.js'
 import { timeAgo } from '../../utils/format.js'
 import { listDocs, createDoc, softDelete, incrementField, seedDemoData } from '../../core/db.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { escHtml as esc } from '../../utils/escape.js'
 
 const REWARD_CATS = {
   cash:    { label: 'เงิน/บัตรกำนัล', icon: '💰' },
@@ -14,8 +15,6 @@ const REWARD_CATS = {
   item:    { label: 'ของรางวัล', icon: '🎁' },
   perk:    { label: 'สิทธิพิเศษ', icon: '✨' },
 }
-
-function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
 export default async function RewardStorePage(container) {
   const myGen = container.__routerGen

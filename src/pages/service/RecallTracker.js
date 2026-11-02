@@ -9,8 +9,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
-
-function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+import { escHtml } from '../../utils/escape.js'
 
 // เดิมหน้านี้มี RECALLS เป็น const array ปลอมแยกต่างหาก ไม่เชื่อมกับระบบ Recall จริงที่ RecallManagement.js ใช้
 // (collection 'recall_campaigns') ทำให้ recall ที่สร้าง/อัปเดตจริงจากหน้า RecallManagement ไม่โผล่ที่นี่เลย

@@ -2,8 +2,7 @@ import { formatCurrency, formatDate } from '../../utils/format.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData } from '../../core/db.js'
-
-function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+import { escHtml } from '../../utils/escape.js'
 
 const MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 

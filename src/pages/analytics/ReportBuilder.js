@@ -6,8 +6,7 @@ import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, getSalesData } from '../../core/db.js'
 import { formatCurrency, formatDate } from '../../utils/format.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
-
-function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+import { escHtml as esc } from '../../utils/escape.js'
 
 const SALARY_VIEW_ROLES = ['owner', 'admin', 'manager', 'hr']
 const STAGE_LABEL = { lead: '🧲 Lead', pp: '📇 Prospect', booking: '📝 จองแล้ว', delivered: '✅ ส่งมอบแล้ว' }

@@ -8,8 +8,7 @@ import { listDocs, updateDocData, setDocData, seedDemoData, seedDefaultRolePermi
 import { MODULES, invalidateRolePermissionsCache } from '../../core/permissions.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
 import { escHtml as __escA } from '../../utils/escape.js'
-
-function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+import { escHtml as esc } from '../../utils/escape.js'
 
 const ROLE_COLORS = { owner:'warning', admin:'primary', manager:'accent', finance:'success', hr:'accent', sales:'success', service:'accent', staff:'primary', pending:'secondary' }
 

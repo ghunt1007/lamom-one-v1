@@ -6,6 +6,7 @@ import { listDocs } from '../../core/db.js'
 import { formatCurrency, timeAgo, todayBangkok, toDate } from '../../utils/format.js'
 import { navigate } from '../../core/router.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
+import { escHtml } from '../../utils/escape.js'
 
 const DEPARTMENTS = {
   sales:     { label: 'ฝ่ายขาย', icon: '🚗' },
@@ -22,7 +23,6 @@ const STUCK_JOB_STATUSES = ['waiting_parts', 'diagnosing']
 const STUCK_BOOKING_STATUSES = ['รอผลไฟแนนซ์', 'จัดไฟแนนซ์ก่อนจอง', 'ยอดจองคงค้าง']
 const STUCK_DAYS_THRESHOLD = 5
 
-function escHtml(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }
 // dateStr มักเป็น Firestore serverTimestamp() object (b.createdAt/j.createdAt) — new Date(dateStr) ตรงๆ ได้
 // Invalid Date เงียบๆ (NaN) เทียบกับตัวเลขได้ false เสมอ ทำให้ตรวจจับจุดคอขวดไม่เคยเจอเลย ใช้ toDate() แทน
 function daysSince(dateStr) {

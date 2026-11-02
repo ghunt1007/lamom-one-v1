@@ -5,8 +5,8 @@
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { askAiOfficer, isAiEnabled } from '../../utils/ai.js'
+import { escHtml } from '../../utils/escape.js'
 
-function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
 // AI มักตอบด้วย **ตัวหนา** แม้ system prompt จะขอไม่ให้มี markdown ก็ตาม (โมเดลไม่เชื่อฟังเสมอไป) —
 // แปลงเป็น <b> หลัง escHtml() แล้วเท่านั้น (ปลอดภัยเพราะ escHtml ทำลาย tag จากข้อความ AI ไปก่อนแล้ว)
 function mdBold(s) { return escHtml(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>') }

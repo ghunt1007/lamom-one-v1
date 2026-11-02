@@ -9,6 +9,7 @@ import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { confirmDialog } from '../../utils/modal.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as esc } from '../../utils/escape.js'
 
 const MONTHS_TH = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 const YEAR = new Date().getFullYear() // เดิม hardcode ปี 2025 ทำให้เลือกปีปัจจุบันไม่ได้เลยเมื่อข้ามปี
@@ -17,7 +18,6 @@ const YEAR = new Date().getFullYear() // เดิม hardcode ปี 2025 ท�
 const DEFAULT_TARGETS = [9000000, 8500000, 12000000, 10000000, 13000000, 9000000, 10000000, 11000000, 10000000, 11000000, 13000000, 18000000]
 // งบแถม/FOC default รายเดือน
 const DEFAULT_FOC_BUDGET = [300000, 250000, 400000, 350000, 450000, 300000, 350000, 380000, 350000, 380000, 450000, 600000]
-
 
 // เก็บใน Firestore collection 'sales_budgets' (1 doc ต่อปี กรองด้วยฟิลด์ year) → sync ข้ามอุปกรณ์จริง
 // เดิมเก็บใน localStorage เครื่องเดียว ทำให้พนักงาน 2 เครื่องเห็นเป้า/งบไม่ตรงกัน (หน้า Target vs Actual
@@ -382,4 +382,3 @@ function kpi(t, v, c) {
     '<div style="font-size:1.0rem;font-weight:800;color:var(--' + c + ')">' + v + '</div></div>'
 }
 
-function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }

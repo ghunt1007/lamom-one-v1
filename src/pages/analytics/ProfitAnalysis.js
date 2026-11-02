@@ -6,8 +6,7 @@ import { formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { getSalesData } from '../../core/db.js'
 import { saleCost, costEstimateNote } from '../../utils/saleCost.js'
-
-function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+import { escHtml } from '../../utils/escape.js'
 
 const MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.']
 const PRODUCTS = [] // (2026-11-02) เอาข้อมูลสมมติออก

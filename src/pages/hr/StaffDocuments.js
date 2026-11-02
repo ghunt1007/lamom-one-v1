@@ -10,10 +10,7 @@ import { uploadFile, deleteFile } from '../../utils/storage.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 // เดิมใช้ new Date().toISOString().slice(0,10) เป็นฐาน "วันนี้" ซึ่งคืนวันที่ตาม UTC เสมอ — ผิดไป 1 วันทุก
 // ครั้งที่ตรวจสอบก่อน 07:00 น. เวลาไทย ทำให้เอกสารที่หมดอายุไปแล้วจริงยังโชว์ "ใกล้หมดอายุ" อยู่ช่วงสั้นๆ

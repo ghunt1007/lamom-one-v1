@@ -2,10 +2,7 @@
 // Usage: new SmartSheet(container, { columns, rows, onSave, onDelete, readOnly })
 
 import { confirmDialog } from '../utils/modal.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../utils/escape.js'
 
 export class SmartSheet {
   constructor(container, options = {}) {

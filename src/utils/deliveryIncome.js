@@ -7,6 +7,7 @@ import { updateDocData } from '../core/db.js'
 
 export { DELIVERED_STATUSES } from './bookingStatus.js'
 import { DELIVERED_STATUSES } from './bookingStatus.js'
+import { escHtml } from './escape.js'
 
 // สูตรเดียวกับฟอร์มใบจองใน Bookings.js: รายได้รวม = (มาร์จิ้น − งบการตลาด) + คอมเซลส์ + คอมไฟแนนซ์
 export function calcIncome({ margin = 0, budgetUsed = 0, com70 = 0, comFinance = 0 } = {}) {
@@ -21,10 +22,6 @@ export function calcIncome({ margin = 0, budgetUsed = 0, com70 = 0, comFinance =
 // นิยามเดียวกับรายงานประจำวัน (workers/daily-report.js): ส่งมอบแล้วแต่ totalIncome ยังเป็น 0/ว่าง
 export function needsIncome(b) {
   return !!b && !b.deleted && DELIVERED_STATUSES.includes(b.status) && !(Number(b.totalIncome) || 0)
-}
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
 // เปิดช่องกรอกรายได้ของใบจอง b — บันทึกลง Firestore แล้ว Object.assign กลับเข้า b ให้หน้าที่เรียกเห็นค่าใหม่เลย

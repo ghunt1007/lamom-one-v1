@@ -10,6 +10,7 @@ import { isProgramOwner } from '../../core/hierarchy.js'
 import { t } from '../../i18n/index.js'
 
 import { NAV } from '../../data/navMenu.js'
+import { escHtml } from '../../utils/escape.js'
 
 // ── Group collapse state (localStorage) ─────────────────────────────────────
 const GRP_KEY = 'lamom_sidebar_groups'
@@ -233,10 +234,6 @@ export function Sidebar(container) {
   unsubs.push(on('brand', render))
 
   return () => unsubs.forEach(fn => fn())
-}
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
 function getInitials(name) {

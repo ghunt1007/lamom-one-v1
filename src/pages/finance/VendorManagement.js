@@ -8,8 +8,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
-
-function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+import { escHtml } from '../../utils/escape.js'
 
 const CATEGORIES = ['อะไหล่','วัสดุซ่อมสี','สาธารณูปโภค','เครื่องมือ','น้ำมัน/สารหล่อลื่น','บริการ']
 const PAY_TERMS = ['ทันที','15 วัน','30 วัน','45 วัน','60 วัน']

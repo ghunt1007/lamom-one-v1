@@ -7,10 +7,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { todayBangkok } from '../../utils/format.js'
 import { escHtml as __escA } from '../../utils/escape.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 // เดิม status ในระบบเขียนแค่ 'active' เท่านั้นทุกที่ (สร้างใหม่/ต่อสัญญา) ไม่มีจุดไหนเขียน 'expired' เลย
 // ทำให้แท็บกรอง "หมดสัญญา" ว่างเปล่าตลอดแม้สัญญาจะเลยวันสิ้นสุดมานานแล้ว แก้ให้คำนวณสถานะจริงจากวันสิ้นสุด

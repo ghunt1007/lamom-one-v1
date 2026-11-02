@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { escHtml as esc } from '../../utils/escape.js'
 
 const INTEREST = {
   hot:    { label: 'Hot 🔥', color: 'danger' },
@@ -15,8 +16,6 @@ const INTEREST = {
 }
 
 const EVENT_INFO = { name: 'Motor Show บางนา 2569', booth: 'Booth A12', target: 150, staff: ['วิชัย', 'สุดา', 'ธนา'] }
-
-function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
 export default async function EventCheckinPage(container) {
   const myGen = container.__routerGen

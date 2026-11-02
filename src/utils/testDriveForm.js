@@ -9,6 +9,7 @@ import { todayBangkok } from './format.js'
 import { suggestNextDue } from './nextFollowup.js'
 import { getVehicles } from '../data/vehicleDatabase.js'
 import { getSalesStaff } from '../data/masterData.js'
+import { escHtml } from './escape.js'
 
 export function mentionsTestDrive(text) {
   return /ทดลองขับ|ลองขับ|เทสไดร[ฟ์]|test\s*-?drive/i.test(String(text || ''))
@@ -43,8 +44,6 @@ export function pickVehicleOption(options, interest) {
   if (!q) return ''
   return options.find(o => n(o) === q) || options.find(o => n(o).includes(q)) || options.find(o => q.includes(n(o).replace(/^deepal/, ''))) || ''
 }
-
-function escHtml(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') }
 
 // c = ลูกค้า (ใช้ id, ชื่อ, เบอร์, interestedModel) · hint = ข้อความที่ใช้เดาวันเวลา
 export function openTestDriveForm(c = {}, { hint = '', onSaved } = {}) {

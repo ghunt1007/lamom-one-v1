@@ -11,10 +11,7 @@
 import { listDocs, getSalesData, getCommissionData, seedDemoData } from '../core/db.js'
 import { formatCurrency, todayBangkok, toDateStr } from '../utils/format.js'
 import { companyScopeFilters } from '../core/companyScope.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
+import { escHtml } from '../utils/escape.js'
 
 const TH_MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 const TH_DAYS = ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์']

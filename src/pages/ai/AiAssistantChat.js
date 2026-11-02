@@ -17,10 +17,7 @@ import { pageLinksFor } from '../../utils/aiPageLinks.js'
 import { customerActionsFor } from '../../utils/aiActions.js'
 import { navigate } from '../../core/router.js'
 import { copyText } from '../../utils/copyText.js'
-
-function esc(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
-}
+import { escHtml as esc } from '../../utils/escape.js'
 
 const CATEGORIES = [
   { label:'☀️ วันนี้ทำอะไรก่อน', q:'วันนี้ฉันควรทำอะไรก่อน? จัดลำดับให้หน่อย พร้อมเหตุผลสั้นๆ' },

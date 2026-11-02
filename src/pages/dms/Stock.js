@@ -11,10 +11,7 @@ import { navigate } from '../../core/router.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
 import { stockAgeDays, stockAgeTone } from '../../utils/stockAge.js'
 import { escHtml as __escA } from '../../utils/escape.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 // ── ป้องกันขายซ้ำ (double-selling) ──────────────────────────────────────────────
 // ระบบนี้มี 3 จุดที่ "ล็อค/จอง" รถแยกกันไม่ sync กันเลย: ReserveLock.js เขียนลง collection 'reservations',

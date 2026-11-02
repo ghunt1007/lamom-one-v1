@@ -8,8 +8,7 @@ import { showToast } from '../../core/store.js'
 import { getSalesData, listAllDocs } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { exportToExcel } from '../../utils/importExport.js'
-
-function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+import { escHtml } from '../../utils/escape.js'
 
 function addMonths(n) {
   const [y, m, d] = todayBangkok().split('-').map(Number)

@@ -20,10 +20,7 @@ import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '..
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { scheduleQuoteFollowup } from '../../utils/quoteFollowup.js'
 import { escHtml as __escA } from '../../utils/escape.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 const QT_STATUS = {
   draft:    { label: 'ร่าง', color: 'secondary' },

@@ -10,10 +10,7 @@ import { watchDocs } from '../../core/db.js'
 import { analyzeCustomer, isAiEnabled } from '../../utils/ai.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { heuristicScore } from '../../utils/leadScore.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 // คะแนนเบื้องต้นจากข้อมูลจริงที่มี (ไม่เรียก AI อัตโนมัติทุก Lead เพราะจะแพง/ช้าเกินไปตอนโหลดหน้า)
 // ต้องกด "🤖 วิเคราะห์เจาะลึก" ต่อ Lead ที่สนใจจริงๆถึงจะเรียก Gemini ผ่าน analyzeCustomer() — สูตรอยู่ใน utils/leadScore.js

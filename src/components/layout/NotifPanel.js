@@ -3,12 +3,9 @@ import { timeAgo } from '../../utils/format.js'
 import { setState } from '../../core/store.js'
 import { navigate } from '../../core/router.js'
 import { t } from '../../i18n/index.js'
+import { escHtml } from '../../utils/escape.js'
 
 const NOTIF_ICONS = { lead: '🧲', reminder: '⏰', system: '⚙️', finance: '💰', service: '🔧', warning: '⚠️' }
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
 
 export async function openNotifPanel(anchorEl) {
   const existing = document.getElementById('notif-panel')

@@ -6,6 +6,7 @@ import { formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { getRealLeaderboard } from './gamificationData.js'
+import { escHtml as esc } from '../../utils/escape.js'
 
 const RANKS = [
   { min: 3000, label: 'Diamond', color: '#60a5fa', icon: '💎' },
@@ -16,8 +17,6 @@ const RANKS = [
 ]
 
 function getRank(pts) { return RANKS.find(r => pts >= r.min) || RANKS[4] }
-
-function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
 const DEMO_PLAYERS = [] // (2026-11-02) เอาข้อมูลสมมติออก — ไม่มีข้อมูลจริงให้โชว์ว่าง ไม่ใช่ตัวเลขปลอม
 

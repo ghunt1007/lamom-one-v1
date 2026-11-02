@@ -18,13 +18,10 @@ import { isProgramOwner } from '../core/hierarchy.js'
 import { fetchSheetFile } from './dailyReport.js'
 import { planSheetReconcile, splitUpdatesByRecency, sheetRowsForBookings, customerFullName, normPhone, normPersonName } from './sheetReconcile.js'
 import { copyText } from './copyText.js'
+import { escHtml as esc } from './escape.js'
 
 export const SYNC_TAG = 'sheet-sync'
 const SHEET_FILE_ID = '194PmgsKGdGytByQBau8MUhDrFrM-LBl0'
-
-function esc(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
 
 function fmtWhen(v) {
   const d = v ? new Date(v) : null

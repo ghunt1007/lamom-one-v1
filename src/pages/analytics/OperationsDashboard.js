@@ -5,10 +5,7 @@
 import { formatCurrency, todayBangkok, toDateStr } from '../../utils/format.js'
 import { listDocs } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 const THAI_MONTH_SHORT = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 const FINAL_BOOKING_STATUS = ['ส่งมอบแล้ว', 'ถอนจอง']

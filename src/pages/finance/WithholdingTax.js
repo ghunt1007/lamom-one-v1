@@ -9,8 +9,8 @@ import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 import { printWithholdingTaxCert } from '../../utils/taxDocs.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { escHtml as esc } from '../../utils/escape.js'
 
-function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 function today() { return todayBangkok() }
 function myName() {
   const me = getState('user') || {}

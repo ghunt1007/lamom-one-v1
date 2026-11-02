@@ -8,8 +8,7 @@ import { getState, showToast } from '../../core/store.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { getVisibilityScope, scopeIncludesStaff, staffManagerIds } from '../../core/hierarchy.js'
 import { ROLES } from './Staff.js'
-
-function esc(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') }
+import { escHtml as esc } from '../../utils/escape.js'
 
 const DEPT_COLORS = {
   'ผู้บริหาร': '#8b5cf6',

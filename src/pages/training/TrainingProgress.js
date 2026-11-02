@@ -6,8 +6,7 @@
  */
 import { formatDate } from '../../utils/format.js'
 import { watchDocs } from '../../core/db.js'
-
-function escHtml(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') }
+import { escHtml } from '../../utils/escape.js'
 
 const ENROLL_STATUS = {
   enrolled:    { label: 'ลงทะเบียน', color: 'secondary' },

@@ -39,6 +39,7 @@ import { openTestDriveForm, loadUpcomingTestDrive, loadTestDrivesFor, mentionsTe
 import { moveFollowupsOnReassign } from '../../utils/leadAssign.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { copyText } from '../../utils/copyText.js'
+import { escHtml } from '../../utils/escape.js'
 
 const pendingFuCount = new WeakMap() // ลูกค้า → จำนวนนัดค้าง (ใช้ตัดสินว่าควรเสนอนัดครั้งถัดไปหลังโทรไหม)
 
@@ -88,9 +89,6 @@ function bindCalc(root) {
   run()
 }
 
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
 // หมวดเหตุผลเสียดีลยอดนิยม (ปุ่มลัดในหน้าต่างมาร์คเสียดีล) — รายงานสัปดาห์นับรวมตามคำแรกก่อนเครื่องหมาย "-"
 
 const STAGE = {

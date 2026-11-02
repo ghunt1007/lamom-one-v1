@@ -7,8 +7,7 @@ import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 import { heuristicScore } from '../ai/LeadScoring.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
-
-function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+import { escHtml as esc } from '../../utils/escape.js'
 
 const CHANNEL_MAP = {
   facebook:  { label: 'Facebook Ads', color: 'primary', icon: '📘' },

@@ -9,11 +9,8 @@ import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
+import { escHtml } from '../../utils/escape.js'
 // createDoc นำเข้าไว้แล้วสำหรับ pdpa_dsr_requests เดิม — ใช้เพิ่มเติมกับ pdpa_consents ด้านล่าง (ดูปุ่ม "➕ เพิ่มลูกค้าในทะเบียน")
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
 
 // พบว่าหน้านี้ไม่มีการเช็คสิทธิ์เลย — ทุก role เห็น/แก้ไขความยินยอม PDPA + เบอร์โทรของลูกค้าทุกคนในระบบได้
 // จำกัดให้เห็น/จัดการได้เฉพาะผู้บริหาร/ผู้จัดการ/แอดมินเท่านั้น (งาน compliance/PDPA ไม่ใช่งานพนักงานทั่วไป)

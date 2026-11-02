@@ -7,8 +7,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 import { generateSocialContent } from '../../utils/ai.js'
 import { todayBangkok } from '../../utils/format.js'
-
-function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+import { escHtml as esc } from '../../utils/escape.js'
 
 const TEMPLATES = [
   { id:'T1', name:'โปรโมชั่นรถใหม่', icon:'🚗', fields:['รุ่นรถ','ราคา','โปรโมชั่น'] },

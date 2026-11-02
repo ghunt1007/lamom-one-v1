@@ -4,11 +4,9 @@ import { showToast, getState, on } from '../../core/store.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
 import { exportToExcel } from '../../utils/importExport.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { escHtml } from '../../utils/escape.js'
 
 const DEMO_STAFF_PAY = [] // (2026-11-02) เอาข้อมูลสมมติออก — ไม่มีข้อมูลจริงให้โชว์ว่าง ไม่ใช่ตัวเลขปลอม
 

@@ -7,6 +7,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
+import { escHtml } from '../../utils/escape.js'
 
 // (v1.0.330) เดิมปุ่ม "เชื่อมต่อ" รับ API Key อะไรก็ได้ที่ไม่ว่างเปล่า แล้วขึ้น "✅ เชื่อมต่อสำเร็จ!" ทันที
 // โดยไม่เคยเรียกไปตรวจสอบกับผู้ให้บริการจริงเลย (ไม่มี backend/worker เชื่อม provider จริงสำหรับ 6 หมวดนี้
@@ -14,8 +15,6 @@ import { isProgramOwner } from '../../core/hierarchy.js'
 // เฉพาะกองใหญ่เกินกว่าการแก้บัคเดียว) ปุ่ม "Sync" ก็แค่อัปเดต timestamp ไม่ได้ sync อะไรจริง — แก้ให้พูด
 // ตรงกับความจริง: เปลี่ยนเป็น "บันทึก API Key" (ไม่ใช่ "เชื่อมต่อสำเร็จ") ระบุชัดว่ายังไม่ได้ตรวจสอบกับผู้
 // ให้บริการจริงโดยอัตโนมัติ และตัดปุ่ม Sync ออก (ไม่มีอะไรให้ sync จริง)
-
-function escHtml(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;') }
 
 const INTEGRATION_CATS = {
   payment:   { label: 'การชำระเงิน', icon: '💳' },

@@ -6,6 +6,7 @@ import { listDocs, seedDemoData } from '../../core/db.js'
 import { t, LANGUAGES } from '../../i18n/index.js'
 import { NAV } from '../../data/navMenu.js'
 import { breadcrumbFor } from '../../utils/breadcrumb.js'
+import { escHtml } from '../../utils/escape.js'
 
 export async function refreshUnreadCount() {
   try {
@@ -142,8 +143,6 @@ function closeMobileMenu() {
   document.getElementById('sidebar')?.classList.remove('mobile-open')
   document.getElementById('sidebar-backdrop')?.classList.remove('active')
 }
-
-function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
 // ตัวกรองบริษัท — สำหรับพนักงาน shared-service (HR/บัญชี ฯลฯ) ที่ทำงานหลายบริษัท
 // ค่าเริ่มต้นคือ "ทั้งหมด" (เห็นข้อมูลทุกบริษัทพร้อมกัน) กดเลือกเพื่อกรองแคบลงได้

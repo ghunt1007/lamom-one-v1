@@ -1,9 +1,6 @@
 import { navigate } from '../../core/router.js'
 import { getState, setState } from '../../core/store.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 // (v1.0.532) เดิมรายการ Theme ตรงนี้ (default/blue/green/red/orange/teal) เป็นรายการปลอม — ไม่ตรงกับ
 // data-theme ตัวไหนใน src/styles/themes.css เลยสักตัว (ธีมจริงมี 33 แบบ คนละชุดกับตรงนี้) และ handler เดิม
@@ -11,7 +8,6 @@ function escHtml(s) {
 // ขีดล่าง) พูดง่ายๆคือปุ่มเลือก Theme ในหน้านี้กดไปก็ไม่มีอะไรเกิดขึ้นจริงมาตั้งแต่สร้าง ส่วนตัวเลือกธีมจริงที่
 // ใช้งานได้จริงอยู่ที่ปุ่ม 🎨 บน Topbar (Topbar.js openThemePicker) — แทนที่จะซ้ำรายการ 33 ธีมอีกรอบที่นี่
 // เปลี่ยนเป็นปุ่มลิงก์ไปเปิดตัวเลือกจริงแทน ลดจุดที่ต้องดูแลให้ตรงกันเหลือจุดเดียว
-
 
 const NAV_ITEMS = [
   { icon:'🏢', label:'ข้อมูลบริษัท', path:'/settings/company' },

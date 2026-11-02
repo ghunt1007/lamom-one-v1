@@ -5,6 +5,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { escHtml } from '../../utils/escape.js'
 
 // (v1.0.339) เดิม DEMO_QUOTA ด้านบนหน้าเป็นตัวเลข hardcode ของพนักงานสมมติ ไม่เกี่ยวกับข้อมูลลาจริงเลย
 // (ต่างจากแท็บ "สิทธิ์ลา" ที่คำนวณจากข้อมูลจริงอยู่แล้ว) และ dropdown "พนักงาน" ในฟอร์มยื่นลาเป็นชื่อปลอม
@@ -15,10 +16,6 @@ import { escHtml as __escA } from '../../utils/escape.js'
 function myName() {
   const me = getState('user') || {}
   return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
-}
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
 const LEAVE_TYPES = {

@@ -8,6 +8,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState, setState } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { analyzeCampaignAnnouncement } from '../../utils/ai.js'
+import { escHtml as esc } from '../../utils/escape.js'
 
 const BRANDS = ['BYD', 'MG', 'DEEPAL', 'AION', 'NETA', 'OMODA & JAECOO', 'SUZUKI', 'NISSAN', 'อื่นๆ']
 
@@ -604,4 +605,3 @@ function row(l, v) {
   return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:0.82rem"><span style="color:var(--text-muted)">' + l + '</span><span>' + v + '</span></div>'
 }
 
-function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }

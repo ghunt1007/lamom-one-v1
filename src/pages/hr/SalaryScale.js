@@ -8,8 +8,7 @@ import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
-
-function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+import { escHtml } from '../../utils/escape.js'
 
 // พบว่าหน้านี้ไม่มีการเช็คสิทธิ์เลยแม้แต่จุดเดียว — พนักงานทุกคนเห็นตารางเงินเดือนรายบุคคล + เทียบตลาดของ
 // เพื่อนร่วมงานทุกคน และกดปุ่ม "ปรับเงินเดือน" เขียนเงินเดือนใหม่ลง Firestore ตรงๆได้เลย ไม่ต่างจาก

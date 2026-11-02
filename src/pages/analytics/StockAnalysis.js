@@ -7,8 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
-
-function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+import { escHtml } from '../../utils/escape.js'
 
 const MODELS = [
   { id: 'M01', name: 'BYD Dolphin', stock: 0, reserved: 0, sold30: 0, targetStock: 10, price: 899000, color: '#3b82f6' },

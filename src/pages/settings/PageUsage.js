@@ -16,8 +16,8 @@ import { createDoc, updateDocData } from '../../core/db.js'
 import { applyBrand } from '../../core/whiteLabel.js'
 import { cleanHiddenMenus, hiddenMenuSet, NEVER_HIDE } from '../../utils/hiddenMenus.js'
 import { classifyPages, collectionsToCount, lastActivityByCollection, USAGE } from '../../utils/pageUsage.js'
+import { escHtml as esc } from '../../utils/escape.js'
 
-function esc(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') }
 function ago(ts) {
   if (!ts) return 'ไม่เคย'
   const d = Math.floor((Date.now() - new Date(ts).getTime()) / 86400000)

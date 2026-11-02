@@ -4,6 +4,7 @@ import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companySco
 import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { escHtml } from '../../utils/escape.js'
 
 const DEPARTMENTS = {
   sales:     { label: 'ฝ่ายขาย', icon: '🚗' },
@@ -14,10 +15,6 @@ const DEPARTMENTS = {
   hr:        { label: 'HR', icon: '👤' },
   quality:   { label: 'คุณภาพ/QA', icon: '✅' },
   general:   { label: 'ทั่วไป', icon: '📋' },
-}
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
 const PRIORITY = {

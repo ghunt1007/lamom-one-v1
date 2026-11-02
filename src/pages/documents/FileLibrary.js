@@ -9,10 +9,7 @@ import { formatDate } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { uploadFile, deleteFile, STORAGE_ENABLED } from '../../utils/storage.js'
 import { escHtml as __escA } from '../../utils/escape.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 const CATEGORIES = {
   general:  { label: 'ทั่วไป',   icon: '📁', color: 'secondary' },

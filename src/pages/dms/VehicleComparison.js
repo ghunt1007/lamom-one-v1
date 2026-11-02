@@ -2,10 +2,7 @@ import { formatCurrency } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { pickVehicle } from '../../utils/vehiclePicker.js'
 import { getVehicles, getVehicleById } from '../../data/vehicleDatabase.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 // แปลงข้อมูลรถจาก vehicleDatabase.js (แค็ตตาล็อกรถทุกรุ่นในไทย) ให้เข้ากับสเปกที่หน้านี้ต้องการ
 function mapDbVehicle(v) {

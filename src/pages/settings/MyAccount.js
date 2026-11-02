@@ -2,10 +2,7 @@ import { showToast, getState } from '../../core/store.js'
 import { changeOwnPassword } from '../../core/auth.js'
 import { listDocs } from '../../core/db.js'
 import { timeAgo } from '../../utils/format.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 const ROLES = {
   owner:   { label: 'เจ้าของ',      icon: '🏆' },

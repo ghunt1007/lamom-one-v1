@@ -25,10 +25,7 @@ import { bookingNextStep, bookingNextAction } from '../../utils/bookingNext.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
 import { copyText } from '../../utils/copyText.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 // ── แบรนด์หลักที่ตัวแทนขาย (ตาม LAMOM V8 — S.K. Bangbuathong) ──────────────
 const BRANDS = ['DEEPAL', 'AION', 'OMODA & JAECOO', 'SUZUKI', 'NISSAN']

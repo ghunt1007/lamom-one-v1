@@ -5,10 +5,7 @@ import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.
 import { todayBangkok } from '../../utils/format.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 const SHIFTS = {
   morning:   { label: 'เช้า', time: '06:00-14:00', color: 'warning', icon: '🌅' },

@@ -2,7 +2,6 @@
  * User Manual — คู่มือการใช้งานโปรแกรม LAMOM ONE
  * Route: /help
  */
-function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
 const GETTING_STARTED = {
   icon: '🚀', title: 'เริ่มต้นใช้งาน',
@@ -172,3 +171,4 @@ export default async function UserManualPage(container) {
 }
 
 import { renderKeepFocus } from '../../utils/keepFocus.js'
+import { escHtml as esc } from '../../utils/escape.js'

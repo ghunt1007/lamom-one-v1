@@ -5,8 +5,7 @@ import { getState, showToast } from '../../core/store.js'
 import { getSalesData, listDocs } from '../../core/db.js'
 import { todayBangkok, formatCurrency } from '../../utils/format.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
-
-function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+import { escHtml as esc } from '../../utils/escape.js'
 
 export default async function PersonalAIPage(container) {
   const user = getState('user')

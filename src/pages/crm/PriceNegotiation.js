@@ -8,13 +8,12 @@ import { formatDate, todayBangkok } from '../../utils/format.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml } from '../../utils/escape.js'
 
 function myName() {
   const me = getState('user') || {}
   return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
 }
-
-function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
 const STATUS_CFG = {
   approved: { label:'อนุมัติแล้ว', bg:'var(--success)',    icon:'✅' },

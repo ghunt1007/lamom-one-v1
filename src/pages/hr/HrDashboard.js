@@ -3,8 +3,7 @@ import { companyScopeFilters } from '../../core/companyScope.js'
 import { navigate } from '../../core/router.js'
 import { formatCurrency, todayBangkok } from '../../utils/format.js'
 import { getState } from '../../core/store.js'
-
-function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+import { escHtml } from '../../utils/escape.js'
 
 const SALARY_VIEW_ROLES = ['owner', 'admin', 'manager', 'hr']
 

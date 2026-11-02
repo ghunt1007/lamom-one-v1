@@ -8,10 +8,7 @@ import { quietDays, QUIET_DAYS } from '../../utils/customerFollowups.js'
 import { heuristicScore } from '../../utils/leadScore.js'
 import { dealValue } from '../../utils/salesAi.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escHtml } from '../../utils/escape.js'
 
 // Kanban over the unified `customers` collection (stage-based pipeline).
 // Only lead ⇄ pp is a valid drag target here — booking/delivered require the real actions
