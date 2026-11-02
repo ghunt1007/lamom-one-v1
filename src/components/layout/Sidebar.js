@@ -1,6 +1,7 @@
 import { getState, on, toggleSidebar } from '../../core/store.js'
 import { menuMatches } from '../../utils/menuSearch.js'
 import { isMergedPath } from '../../utils/linkedViews.js'
+import { hiddenMenuSet } from '../../utils/hiddenMenus.js'
 import { buildSimpleNav, readNavMode, writeNavMode, readVisits, recordVisit, countItems } from '../../utils/navSimple.js'
 import { navigate } from '../../core/router.js'
 import { logout } from '../../core/auth.js'
@@ -33,8 +34,9 @@ export function Sidebar(container) {
   // ยังโชว์เมนูตามปกติ แค่ปุ่มแก้ไขจะถูกซ่อน/มีข้อความอธิบายในหน้าเอง
   function visibleNav(role, extraGrants) {
     const ownerOnlyOk = isProgramOwner()
+    const hidden = hiddenMenuSet()
     return NAV
-      .map(g => ({ ...g, items: g.items.filter(i => !isMergedPath(i.path) && hasModuleAccess(role, getModuleForPath(i.path)?.key, extraGrants) && (!i.programOwnerOnly || ownerOnlyOk)) }))
+      .map(g => ({ ...g, items: g.items.filter(i => !isMergedPath(i.path) && !hidden.has(i.path.split('?')[0]) && hasModuleAccess(role, getModuleForPath(i.path)?.key, extraGrants) && (!i.programOwnerOnly || ownerOnlyOk)) }))
       .filter(g => g.items.length > 0)
   }
 
