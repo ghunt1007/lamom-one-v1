@@ -8,6 +8,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, softDelete } from '../../core/db.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { escHtml } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 const PARTS_DATA = [] // (2026-11-02) เอาข้อมูลสมมติออก
 
@@ -202,4 +203,3 @@ export default async function PartsAnalyticsPage(container) {
   await loadData()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

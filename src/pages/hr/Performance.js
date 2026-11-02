@@ -6,6 +6,7 @@ import { getCommissionData, listDocs, createDoc, updateDocData, softDelete, seed
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 const PERF_RATING = {
   5: { label: 'ดีเยี่ยม', color: 'success', icon: '⭐⭐⭐⭐⭐' },
@@ -315,5 +316,4 @@ export default async function PerformancePage(container) {
   })
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
 function row(l, v) { return `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:0.82rem"><span style="color:var(--text-muted)">${l}</span><span>${v}</span></div>` }

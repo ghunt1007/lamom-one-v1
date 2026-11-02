@@ -8,6 +8,7 @@ import { showToast, getState } from '../../core/store.js'
 import { printPayslip } from '../../utils/payrollDocs.js'
 import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 import { escHtml } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 // พบว่าหน้านี้ไม่มีการเช็คสิทธิ์เลยแม้แต่จุดเดียว (เหมือน Payroll.js/hr Staff.js ก่อนแก้) — พนักงานทุกคนที่
 // เปิดถึงหน้านี้ได้เห็นเงินเดือนพื้นฐาน/คอมมิชชั่น/โบนัส/OT/ภาษี/ประกันสังคม/เงินสุทธิของเพื่อนร่วมงาน "ทุกคน"
@@ -231,5 +232,4 @@ export default async function PayrollDetailPage(container) {
   await loadData()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
 function row(l, v) { return `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:0.83rem"><span style="color:var(--text-muted)">${l}</span><span>${v}</span></div>` }

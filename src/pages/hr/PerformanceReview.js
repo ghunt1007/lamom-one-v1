@@ -9,6 +9,7 @@ import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml as esc } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 // ป้องกัน XSS — ความคิดเห็น (comment) เป็นข้อความที่ผู้จัดการพิมพ์เอง ต้อง escape ก่อนแสดงผลเสมอ
 
@@ -263,4 +264,3 @@ export default async function PerformanceReviewPage(container) {
   await loadData()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

@@ -6,6 +6,7 @@ import { formatCurrency } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData } from '../../core/db.js'
 import { exportToExcel } from '../../utils/importExport.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 const BRANCHES = [] // (2026-11-02) เอาสาขาสมมติ (บางนา/รามอินทรา/รังสิต) ออก — โชว์เฉพาะสาขาจากยอดขายจริง
 
@@ -171,4 +172,3 @@ export default async function BranchComparisonPage(container) {
   renderPage()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

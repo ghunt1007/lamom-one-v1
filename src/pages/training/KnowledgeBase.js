@@ -9,6 +9,7 @@ import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '..
 import { escHtml as __escA } from '../../utils/escape.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
 import { escHtml } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 function myName() {
   const me = getState('user') || {}
@@ -196,4 +197,3 @@ export default async function KnowledgeBasePage(container) {
   await loadData()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

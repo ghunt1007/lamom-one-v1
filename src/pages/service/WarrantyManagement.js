@@ -7,6 +7,7 @@ import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companySco
 import { escHtml as __escA } from '../../utils/escape.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
 import { escHtml } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 const WARRANTY_STATUS = {
   active:   { label: 'มีผล', color: 'success' },
@@ -425,10 +426,6 @@ export default async function WarrantyManagementPage(container) {
   }
 
   await loadData()
-}
-
-function kpi(title, value, color) {
-  return `<div class="kpi-card"><div class="kpi-title">${title}</div><div class="kpi-value" style="color:var(--${color})">${value}</div></div>`
 }
 
 function row(label, value) {

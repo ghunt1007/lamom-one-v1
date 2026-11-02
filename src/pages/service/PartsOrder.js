@@ -5,6 +5,8 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml as esc } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
+import { addDaysBangkok as addDays } from '../../utils/format.js'
 
 // ป้องกัน XSS — หมายเหตุ (notes) เป็นข้อความที่ผู้ใช้พิมพ์เอง ต้อง escape ก่อนแสดงผลเสมอ
 
@@ -21,11 +23,6 @@ const PO_STATUS = {
 const PARTS_CATEGORIES = { brake: 'เบรก', filter: 'กรอง', coolant: 'ระบายความร้อน', ev: 'EV System', tyre: 'ยาง', body: 'ตัวถัง', electric: 'ไฟฟ้า', consumable: 'สิ้นเปลือง' }
 
 const SUPPLIERS = ['BYD Parts Thailand', 'Thai Auto Parts', 'MG Parts Center', 'EV Supply Co.', 'อะไหล่ไทยเซ็นทรัล']
-
-function addDays(n) {
-  const [y, m, d] = todayBangkok().split('-').map(Number)
-  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
-}
 
 export default async function PartsOrderPage(container) {
   const myGen = container.__routerGen
@@ -307,5 +304,4 @@ export default async function PartsOrderPage(container) {
   await loadData()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
 function row(l, v) { return `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:0.82rem"><span style="color:var(--text-muted)">${l}</span><span>${v}</span></div>` }

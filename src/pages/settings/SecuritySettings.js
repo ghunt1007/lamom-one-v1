@@ -8,6 +8,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
 import { escHtml } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 // (v1.0.350) เดิม RECENT_ALERTS เป็นข้อความ hardcode ตายตัว 3 รายการ (มีชื่อพนักงาน/บัญชีสมมติปนอยู่ด้วย)
 // ไม่เคยตรวจข้อมูลจริงเลย และ security_sessions ไม่มีจุดไหนในระบบเขียนจริงเลยแม้แต่จุดเดียว (ทั้งที่หน้านี้
@@ -226,4 +227,3 @@ export default async function SecuritySettingsPage(container) {
   await loadData()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

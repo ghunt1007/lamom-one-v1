@@ -10,6 +10,7 @@ import { printWithholdingTaxCert } from '../../utils/taxDocs.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml as esc } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 function today() { return todayBangkok() }
 function myName() {
@@ -156,4 +157,3 @@ export default async function WithholdingTaxPage(container) {
   await loadData()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

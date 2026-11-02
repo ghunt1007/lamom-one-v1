@@ -11,14 +11,12 @@ import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companySco
 import { escHtml as __escA } from '../../utils/escape.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
 import { escHtml } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
+import { addDaysBangkok as addDays } from '../../utils/format.js'
 
 // เดิมใช้ new Date().toISOString().slice(0,10) เป็นฐาน "วันนี้" ซึ่งคืนวันที่ตาม UTC เสมอ — ผิดไป 1 วันทุก
 // ครั้งที่ตรวจสอบก่อน 07:00 น. เวลาไทย ทำให้เอกสารที่หมดอายุไปแล้วจริงยังโชว์ "ใกล้หมดอายุ" อยู่ช่วงสั้นๆ
 // แก้ให้ยึดวันที่ตามเวลาไทยจริงเป็นฐานเสมอ
-function addDays(n) {
-  const [y, m, d] = todayBangkok().split('-').map(Number)
-  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
-}
 
 const DOC_TYPES = {
   resume:    { label: 'เรซูเม่/ประวัติย่อ', color: 'accent', icon: '📋' },
@@ -232,4 +230,3 @@ export default async function StaffDocumentsPage(container) {
   renderPage()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

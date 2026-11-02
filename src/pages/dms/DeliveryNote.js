@@ -6,6 +6,7 @@ import { getBranches, getSalesStaff } from '../../data/masterData.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { escHtml } from '../../utils/escape.js'
+import { addDaysBangkok as addDays } from '../../utils/format.js'
 
 const BOOKING_TO_DN = {
   'รอส่งมอบ': 'pending',
@@ -25,11 +26,6 @@ const DN_STATUS = {
   scheduled: { label: 'นัดหมายแล้ว', color: 'primary' },
   done:      { label: 'ส่งมอบแล้ว', color: 'success' },
   cancelled: { label: 'ยกเลิก', color: 'danger' },
-}
-
-function addDays(n) {
-  const [y, m, d] = todayBangkok().split('-').map(Number)
-  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
 }
 
 // (v1.0.539) เดิมมี DEMO_DNS ใบส่งมอบปลอม 3 ใบ (ชื่อลูกค้า/VIN สมมติ) โผล่เงียบๆ ไม่มีป้ายบอกเมื่อยังไม่มีใบส่งมอบจริง

@@ -2,6 +2,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, softDelete, seedDemoData } from '../../core/db.js'
 import { escHtml as esc } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 // ป้องกัน XSS — เนื้อหา Post เป็น textarea ที่ผู้ใช้พิมพ์ได้อิสระ ไม่จำกัด HTML ต้อง escape ก่อนแสดงผลเสมอ
 
@@ -400,6 +401,3 @@ export default async function SocialHubPage(container) {
   await loadData()
 }
 
-function kpi(title, value, color) {
-  return `<div class="kpi-card"><div class="kpi-title">${title}</div><div class="kpi-value" style="color:var(--${color})">${value}</div></div>`
-}

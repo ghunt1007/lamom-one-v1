@@ -4,6 +4,7 @@
 // แก้ให้เป็นหน้ารวมที่ดึงตัวเลขจริงมาสรุป แล้วพาไปหน้าเนื้อหาจริงแทน ไม่ซ้ำงาน
 import { listDocs } from '../../core/db.js'
 import { navigate } from '../../core/router.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 const LINKS = [
   { icon: '📚', title: 'หลักสูตรอบรม', path: '/training/courses', desc: 'คอร์สเรียน ลงทะเบียน ติดตามความคืบหน้า' },
@@ -74,6 +75,3 @@ export default async function TrainingDashboard(container) {
   renderPage()
 }
 
-function kpi(title, value, color) {
-  return `<div class="kpi-card"><div class="kpi-title">${title}</div><div class="kpi-value" style="color:var(--${color})">${value}</div></div>`
-}

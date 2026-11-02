@@ -10,6 +10,7 @@ import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 const RATE_PEAK = 5.8   // บาท/หน่วย On-Peak
 const RATE_OFFPEAK = 2.6 // บาท/หน่วย Off-Peak (TOU)
@@ -170,4 +171,3 @@ export default async function ChargingCostPage(container) {
   await loadData()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

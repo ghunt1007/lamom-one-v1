@@ -5,6 +5,7 @@
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData } from '../../core/db.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 const NOTIF_CHANNELS = {
   inapp:    { label: 'In-App', icon: '🔔', desc: 'แจ้งเตือนในระบบ' },
@@ -156,4 +157,3 @@ export default async function NotificationSettingsPage(container) {
   await loadSettings()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

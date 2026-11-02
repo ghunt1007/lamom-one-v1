@@ -9,6 +9,8 @@ import { listDocs, createDoc, updateDocData, softDelete, seedDemoData, increment
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
+import { addDaysBangkok as addDays } from '../../utils/format.js'
 
 // (v1.0.537) เดิม dropdown "พนักงาน" ตอนยื่นขอกู้/เบิกล่วงหน้า hardcode รายชื่อ+เงินเดือนปลอม 4 คนเสมอ
 // (ไม่ตรงกับพนักงานจริงคนไหนเลย) ทำให้วงเงินกู้สูงสุดที่คำนวณ (% ของเงินเดือน) อิงจากเงินเดือนปลอมเสมอ — เป็น
@@ -16,11 +18,6 @@ import { escHtml } from '../../utils/escape.js'
 // Bonus ไว้ก่อน — ตรงนี้แก้เป็นดึงพนักงาน+เงินเดือนจริงแทน (staff_salaries อ่านได้เฉพาะ HR/การเงิน/ผู้จัดการ
 // เหมือนที่ Staff.js ใช้อยู่แล้ว หน้านี้เป็นหน้า HR ที่เกี่ยวกับเงินเดือนโดยตรงอยู่แล้วจึงใช้เงื่อนไขเดียวกัน)
 const SALARY_VIEW_ROLES = ['owner', 'admin', 'manager', 'hr']
-
-function addDays(n) {
-  const [y, m, d] = todayBangkok().split('-').map(Number)
-  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
-}
 
 const LOAN_TYPES = {
   advance:   { label: 'เบิกเงินเดือนล่วงหน้า', icon: '💵', maxPct: 50, desc: 'สูงสุด 50% ของเงินเดือน หักคืนเดือนถัดไป' },
@@ -231,4 +228,3 @@ export default async function StaffLoanPage(container) {
   await loadData()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

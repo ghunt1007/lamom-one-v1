@@ -7,6 +7,7 @@
 import { formatDate } from '../../utils/format.js'
 import { watchDocs } from '../../core/db.js'
 import { escHtml } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 const ENROLL_STATUS = {
   enrolled:    { label: 'ลงทะเบียน', color: 'secondary' },
@@ -113,4 +114,3 @@ export default async function TrainingProgressPage(container) {
   return function cleanupTrainingProgress() { unsubCourses() }
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

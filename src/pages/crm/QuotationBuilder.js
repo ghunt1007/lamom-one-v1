@@ -21,6 +21,8 @@ import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companySco
 import { scheduleQuoteFollowup } from '../../utils/quoteFollowup.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
+import { addDaysBangkok as addDays } from '../../utils/format.js'
 
 const QT_STATUS = {
   draft:    { label: 'ร่าง', color: 'secondary' },
@@ -34,11 +36,6 @@ const QT_STATUS = {
 const DEFAULT_REG_FEE = 2900
 
 const PREFILL_KEY = 'lamom_quote_prefill'
-
-function addDays(n) {
-  const [y, m, d] = todayBangkok().split('-').map(Number)
-  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
-}
 
 // ราคาอุปกรณ์เสริมของรถรุ่นที่เลือก — ใช้ priceByVehicle[vehicleId] ถ้ามี ไม่งั้น fallback เป็นราคาเริ่มต้น
 function getAccessoryPrice(acc, vehicleId) {
@@ -508,5 +505,4 @@ export default async function QuotationBuilderPage(container) {
   if (prefillData) openCreateForm(prefillData)
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
 function row(l, v) { return `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:0.82rem"><span style="color:var(--text-muted)">${l}</span><span>${v}</span></div>` }

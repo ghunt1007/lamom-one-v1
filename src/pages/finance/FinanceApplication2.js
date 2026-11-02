@@ -11,6 +11,8 @@ import { isProgramOwner } from '../../core/hierarchy.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
+import { addDaysBangkok as addDays } from '../../utils/format.js'
 
 const APP_STATUS = {
   preparing:  { label: 'เตรียมเอกสาร', color: 'secondary', step: 1 },
@@ -23,11 +25,6 @@ const APP_STATUS = {
 }
 
 const BANKS = ['Krungthai LEASE','Ayudhya Capital','TISCO Financial','BBL Hire Purchase','KBank Leasing','SCB Auto','TTB Auto Finance','บัวหลวงลีสซิ่ง']
-
-function addDays(n) {
-  const [y, m, d] = todayBangkok().split('-').map(Number)
-  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
-}
 
 // (v1.0.481) รวม collection กับ FinanceApplication.js (finance_applications) ตามที่เจ้าของยืนยันว่าหน้า
 // "ยื่นไฟแนนซ์" เป็นหลัก — เดิมสองหน้านี้เขียนคนละ collection (finance_tracker) ทำให้สถานะที่อัปเดตในหน้า
@@ -342,5 +339,4 @@ export default async function FinanceTrackerPage(container) {
   await loadData()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
 function row(l, v) { return `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:0.82rem"><span style="color:var(--text-muted)">${l}</span><span>${v}</span></div>` }

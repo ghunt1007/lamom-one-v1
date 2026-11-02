@@ -10,11 +10,8 @@ import { confirmDialog } from '../../utils/modal.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
 import { escHtml as esc } from '../../utils/escape.js'
-
-function addDays(n) {
-  const [y, m, d] = todayBangkok().split('-').map(Number)
-  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
-}
+import { kpi } from '../../utils/kpiCard.js'
+import { addDaysBangkok as addDays } from '../../utils/format.js'
 
 // createdAt คือ Firestore serverTimestamp() (มี .toDate()) ไม่ใช่ string — เดิม (l.createdAt || '').startsWith(...)
 // เรียก .startsWith บน Timestamp object ตรงๆ ทำให้หน้าพังทั้งหน้าทันทีที่มี error_log จริงสักรายการ (TypeError:
@@ -128,6 +125,4 @@ export default async function ErrorLogPage(container) {
 
   renderPage()
 }
-
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
 

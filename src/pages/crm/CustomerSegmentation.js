@@ -10,6 +10,7 @@ import { OCCUPATIONS } from '../../utils/financeMatch.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { rfmSegments, RFM_RULES } from '../../utils/rfm.js'
 import { escHtml } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 // (v1.0.336) เดิมแท็บ RFM คำนวณ "count" จริงจากยอดขายแล้ว แต่ "avgValue" ทุก tier และ tier "Lost" (ไม่ซื้อ
 // มานาน) ยังเป็นตัวเลข hardcode เสมอแม้ตอน dataSource==='live' — แท็บ "พื้นที่" (GEO_SEGMENTS) และ "รถที่ซื้อ"
@@ -389,5 +390,4 @@ export default async function CustomerSegmentationPage(container) {
   renderPage()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
 function row(l, v) { return `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:0.83rem"><span style="color:var(--text-muted)">${l}</span><span>${v}</span></div>` }

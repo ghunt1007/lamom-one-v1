@@ -9,11 +9,8 @@ import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
-
-function addDays(n) {
-  const [y, m, d] = todayBangkok().split('-').map(Number)
-  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
-}
+import { kpi } from '../../utils/kpiCard.js'
+import { addDaysBangkok as addDays } from '../../utils/format.js'
 
 // (v1.0.522) ยอดสุทธิที่ร้านต้องจ่ายลูกค้าจริง = ราคาเสนอ - ยอดหนี้ค้างชำระที่ร้านต้องช่วยเคลียร์ให้ก่อน
 // (ปกติร้านโอนตรงไปปิดยอดกับไฟแนนซ์เดิมของลูกค้า ไม่ใช่จ่ายเงินสดเต็มราคาเสนอให้ลูกค้าถือ)
@@ -219,4 +216,3 @@ export default async function TradeInPage(container) {
   await loadData()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

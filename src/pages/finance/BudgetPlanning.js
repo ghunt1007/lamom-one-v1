@@ -5,6 +5,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { getSalesData, listDocs, createDoc, updateDocData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 const CATEGORIES = {
   revenue: {
@@ -401,6 +402,3 @@ export default async function BudgetPlanningPage(container) {
   renderPage()
 }
 
-function kpi(title, value, color) {
-  return `<div class="kpi-card"><div class="kpi-title">${title}</div><div class="kpi-value" style="color:var(--${color})">${value}</div></div>`
-}

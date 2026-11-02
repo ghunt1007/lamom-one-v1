@@ -6,6 +6,7 @@ import { formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { BADGE_CATEGORIES, BADGE_RARITY, computeMyBadges } from './gamificationData.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 export default async function BadgesPage(container) {
   const myGen = container.__routerGen
@@ -117,5 +118,4 @@ export default async function BadgesPage(container) {
   await loadData()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
 function row(l, v) { return `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:0.83rem"><span style="color:var(--text-muted)">${l}</span><span>${v}</span></div>` }

@@ -5,6 +5,7 @@ import { getSalesData, getCommissionData, listDocs } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { saleCost } from '../../utils/saleCost.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 const REPORT_CATEGORIES = {
   sales:    { label: '💰 ยอดขาย', icon: '💰', color: 'success' },
@@ -312,6 +313,3 @@ export default async function ReportCenterPage(container) {
   renderPage()
 }
 
-function kpi(title, value, color) {
-  return `<div class="kpi-card"><div class="kpi-title">${title}</div><div class="kpi-value" style="color:var(--${color})">${value}</div></div>`
-}

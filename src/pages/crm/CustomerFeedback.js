@@ -7,6 +7,8 @@ import { sendSms } from '../../utils/comms.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
+import { addDaysBangkok as addDays } from '../../utils/format.js'
 
 const FEEDBACK_TYPES = {
   csat:   { label: 'CSAT', color: 'primary', icon: '⭐' },
@@ -17,11 +19,6 @@ const FEEDBACK_TYPES = {
 }
 
 const DEPARTMENTS = { sales: 'ฝ่ายขาย', service: 'ศูนย์บริการ', delivery: 'ส่งมอบรถ', finance: 'ไฟแนนซ์', general: 'ทั่วไป' }
-
-function addDays(n) {
-  const [y, m, d] = todayBangkok().split('-').map(Number)
-  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
-}
 
 const DEMO_FEEDBACK = [] // (2026-11-02) เอาข้อมูลสมมติออก — ไม่มีข้อมูลจริงให้โชว์ว่าง ไม่ใช่ตัวเลขปลอม
 
@@ -405,5 +402,4 @@ export default async function CustomerFeedbackPage(container) {
   renderPage()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
 function row(l, v) { return `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:0.82rem"><span style="color:var(--text-muted)">${l}</span><span>${v}</span></div>` }

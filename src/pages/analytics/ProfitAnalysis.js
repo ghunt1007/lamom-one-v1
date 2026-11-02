@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { getSalesData } from '../../core/db.js'
 import { saleCost, costEstimateNote } from '../../utils/saleCost.js'
 import { escHtml } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 const MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.']
 const PRODUCTS = [] // (2026-11-02) เอาข้อมูลสมมติออก
@@ -181,7 +182,6 @@ export default async function ProfitAnalysisPage(container) {
   renderPage()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
 function plBar(label, value, total, color) {
   const pct = total ? Math.round(value / total * 100) : 0
   return `<div style="text-align:center;padding:12px;background:var(--surface-2);border-radius:var(--radius-sm)">

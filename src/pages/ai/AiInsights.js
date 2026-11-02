@@ -6,6 +6,7 @@ import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData, getCommissionData, listDocs, createDoc } from '../../core/db.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 const INSIGHT_CATS = {
   sales:    { label: 'ยอดขาย', icon: '📈', color: 'success' },
@@ -195,4 +196,3 @@ export default async function AiInsightsPage(container) {
   renderPage()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

@@ -8,11 +8,8 @@ import { showToast } from '../../core/store.js'
 import { listDocs, updateDocData, softDelete } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { escHtml } from '../../utils/escape.js'
-
-function addDays(n) {
-  const [y, m, d] = todayBangkok().split('-').map(Number)
-  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
-}
+import { kpi } from '../../utils/kpiCard.js'
+import { addDaysBangkok as addDays } from '../../utils/format.js'
 
 // ตัวอย่างข้อมูล — ใช้แสดงก็ต่อเมื่อยังไม่มีลูกค้าจริงในระบบเลย (collection ว่างเปล่าจริงๆ)
 const DEMO_DUPLICATES = [] // (2026-11-02) เอาข้อมูลสมมติออก — ไม่มีข้อมูลจริงให้โชว์ว่าง ไม่ใช่ตัวเลขปลอม
@@ -266,4 +263,3 @@ export default async function DuplicateManagerPage(container) {
   renderPage()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

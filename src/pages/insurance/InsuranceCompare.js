@@ -19,6 +19,7 @@ import { getInsurers } from '../../data/masterData.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 export default async function InsuranceComparePage(container) {
   const myGen = container.__routerGen
@@ -214,5 +215,4 @@ export default async function InsuranceComparePage(container) {
   await loadData()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }
 function covRow(l, v, good) { return `<div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">${l}</span><span style="color:var(--${good ? 'success' : 'warning'})">${escHtml(v)}</span></div>` }

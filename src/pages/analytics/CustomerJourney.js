@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { getSalesData, listDocs, listAllDocs } from '../../core/db.js'
 import { realFunnel, repeatBuyers } from '../../utils/realFunnel.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
+import { kpi } from '../../utils/kpiCard.js'
 
 const JOURNEY_STAGES = [
   { id: 'awareness',     label: 'ลูกค้า/Lead', icon: '👁', color: '#8b5cf6', count: 0, dropPct: 0 },
@@ -29,7 +30,6 @@ const TOUCHPOINTS = {
   'Service Visit':  { stage: 'loyalty', count: 0, icon: '🔧' },
   'Referral':       { stage: 'loyalty', count: 0, icon: '👥' },
 }
-
 
 export default async function CustomerJourneyPage(container) {
   const myGen = container.__routerGen
@@ -130,4 +130,3 @@ export default async function CustomerJourneyPage(container) {
   renderPage()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

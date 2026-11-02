@@ -9,14 +9,12 @@ import { getSalesData, listAllDocs } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { escHtml } from '../../utils/escape.js'
+import { kpi } from '../../utils/kpiCard.js'
+import { addDaysBangkok as addDays } from '../../utils/format.js'
 
 function addMonths(n) {
   const [y, m, d] = todayBangkok().split('-').map(Number)
   return new Date(Date.UTC(y, m - 1 + n, d)).toISOString().slice(0, 7)
-}
-function addDays(n) {
-  const [y, m, d] = todayBangkok().split('-').map(Number)
-  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
 }
 
 // (v1.0.487) ราคา/ต้นทุนรถและมูลค่า PO ในระบบเก็บเป็น "ราคารวม VAT แล้ว" เสมอ (ตามกฎหมายไทยที่ราคาสินค้า
@@ -221,4 +219,3 @@ export default async function VatReportPage(container) {
   renderPage()
 }
 
-function kpi(t, v, c) { return `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:var(--${c})">${v}</div></div>` }

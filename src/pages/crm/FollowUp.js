@@ -9,6 +9,7 @@ import { FOLLOWUP_PURPOSES, followupWindowFilters } from '../../utils/customerFo
 import { touchCustomerContact } from '../../utils/customerContact.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { addDaysBangkok as addDays } from '../../utils/format.js'
 
 const FOLLOWUP_TYPES = {
   call:     { label: 'โทรศัพท์', icon: '📞', color: 'primary' },
@@ -28,11 +29,6 @@ const FU_STATUS = {
 const PURPOSES = FOLLOWUP_PURPOSES
 // เบอร์โทรกดโทรออกได้เลยบนมือถือ
 const telLink = p => { const n = String(p || '').replace(/[^\d+]/g, ''); return n ? `<a href="tel:${n}" style="color:inherit;text-decoration:underline">📞 ${escHtml(p)}</a>` : '' }
-
-function addDays(n) {
-  const [y, m, d] = todayBangkok().split('-').map(Number)
-  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
-}
 
 const today = addDays(0)
 
