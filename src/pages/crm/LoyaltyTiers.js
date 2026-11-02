@@ -15,13 +15,7 @@ const TIERS = [
   { name:'Platinum',icon:'💎',color:'#E5E4E2', minPts:40000,maxPts:999999,discount:12,freeService:3, birthdayBonus:5000,  priority:'VIP' },
 ]
 
-const MEMBERS = [
-  { id:'M001', name:'นภา มีสุข', pts:18200, tier:'Gold', history:[{date:'2026-06-01',pts:1500,desc:'ซื้อ BYD Atto 3'},{date:'2026-05-10',pts:200,desc:'เช็คระยะ'},{date:'2026-04-01',pts:500,desc:'ต่อประกัน'}] },
-  { id:'M002', name:'สมชาย วิเศษ', pts:42800, tier:'Platinum', history:[{date:'2026-06-10',pts:2000,desc:'ซื้อ BYD Han'},{date:'2026-05-20',pts:300,desc:'Service Pack'}] },
-  { id:'M003', name:'มาลี จันทร์ดี', pts:4200, tier:'Bronze', history:[{date:'2026-06-05',pts:800,desc:'ซื้อ MG ZS EV'},{date:'2026-05-30',pts:100,desc:'เช็คระยะ'}] },
-  { id:'M004', name:'วิชัย รุ่งเรือง', pts:13500, tier:'Silver', history:[{date:'2026-05-15',pts:1200,desc:'ซื้อรถ'},{date:'2026-04-20',pts:150,desc:'เช็คระยะ'}] },
-  { id:'M005', name:'รัชนี สุขใจ', pts:6800, tier:'Silver', history:[{date:'2026-06-12',pts:400,desc:'ต่อประกัน'},{date:'2026-05-01',pts:600,desc:'อุปกรณ์เสริม'}] },
-]
+const MEMBERS = [] // (2026-11-03) เอารายชื่อ/ตัวเลขตัวอย่างออก — ไม่มียอดจริงก็แสดงว่าง
 
 function getTier(pts) { return TIERS.slice().reverse().find(t => pts >= t.minPts) || TIERS[0] }
 function getNext(pts) { return TIERS.find(t => pts < t.maxPts && pts >= t.minPts) }
@@ -54,7 +48,7 @@ export default async function LoyaltyTiersPage(container) {
       })
       // เดิมต่อสมาชิกตัวอย่างเข้ากับของจริงเสมอเมื่อมีของจริงอย่างน้อย 2 คน ทำให้สมาชิกปลอมปนกับของจริง
       // ถาวรตั้งแต่มีข้อมูลจริงเพียงพอ ไม่ใช่ fallback เฉพาะตอนไม่มีข้อมูลจริงเลยแบบที่ตั้งใจไว้
-      if (live.length >= 2) { liveMembers = live; dataSource = 'live' }
+      if (live.length) { liveMembers = live; dataSource = 'live' }
     }
 
     // (v1.0.344) เดิมปุ่ม "🎁 เพิ่มคะแนน Manual" แค่แก้ตัวแปรในหน่วยความจำ (m.pts, m.history) ไม่เขียน
