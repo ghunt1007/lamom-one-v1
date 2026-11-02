@@ -251,7 +251,7 @@ export default async function TechnicianSchedulePage(container) {
       async onConfirm() {
         const techId = document.getElementById('as-tech')?.value
         const t = techs.find(x => x.id === techId)
-        if (!t) return
+        if (!t) { showToast('❗ กรุณาเลือกช่าง (ยังไม่มีรายชื่อช่าง ให้เพิ่มพนักงานฝ่ายบริการก่อน)', 'error'); return false }
         const jobType = document.getElementById('as-type')?.value || ''
         const plate = document.getElementById('as-plate')?.value.trim() || ''
         try {

@@ -1,6 +1,6 @@
 import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
-import { showToast } from '../../core/store.js'
+import { showToast, getState } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getSalesData, listDocs, listAllDocs, createDoc, updateDocData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
@@ -371,7 +371,7 @@ export default async function TaxReportPage(container) {
           taxBase: +document.getElementById('ff-base')?.value||0,
           vatAmount: +document.getElementById('ff-tax')?.value||0,
           refundable: 0, notes: document.getElementById('ff-notes')?.value||'',
-          officer: 'นิภา บัญชีดี'
+          officer: getState('user')?.displayName || getState('user')?.email || ''
         }
         try {
           const id = await createDoc('tax_filings', { ...newFiling, companyId: myEffectiveCompanyId() })
