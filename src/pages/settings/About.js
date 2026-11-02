@@ -1,4 +1,5 @@
 import { showToast } from '../../core/store.js'
+import { formatDate } from '../../utils/format.js'
 
 const MODULES = [
   { icon:'👥', name:'CRM & การขาย', pages:37, color:'primary' },
@@ -55,7 +56,7 @@ export default function AboutPage(container) {
           <div style="border-left:2px solid var(--${c.label?'primary':'border'});padding-left:12px">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
               <span style="font-size:0.8rem;font-weight:700">v${c.ver}</span>
-              <span style="font-size:0.68rem;color:var(--text-muted)">${c.date}</span>
+              <span style="font-size:0.68rem;color:var(--text-muted)">${formatDate(c.date)}</span>
               ${c.label ? `<span class="badge badge-primary" style="font-size:0.6rem">${c.label}</span>` : ''}
             </div>
             <ul style="margin:0;padding-left:16px;font-size:0.72rem;color:var(--text-muted);line-height:1.8">
