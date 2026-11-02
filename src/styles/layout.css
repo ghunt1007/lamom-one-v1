@@ -512,12 +512,14 @@
   .cust-table .cc-stage { order: 2; text-align: right; }
   /* ปุ่มแก้ไข/ลบอยู่บรรทัดเดียวกับเบอร์โทร (เดิมตกไปอยู่บรรทัดท้ายการ์ดคนเดียว เปลืองที่) */
   .cust-table .cc-contact { order: 3; flex: 1 1 calc(100% - 90px); min-width: 0; font-size: 0.82rem; color: var(--text-2); }
-  .cust-table .cc-model { order: 4; font-size: 0.78rem; }
+  /* ขึ้นบรรทัดใหม่หลังเบอร์โทร+ปุ่มเสมอ (เดิมรุ่นรถสั้นๆ เช่น S05 แทรกขึ้นไปบรรทัดเบอร์ การ์ดแต่ละใบหน้าตาไม่เหมือนกัน) */
+  .cust-table tr.cust-row::after { content: ''; order: 4; flex-basis: 100%; height: 0; }
+  .cust-table .cc-model { order: 5; font-size: 0.78rem; }
   .cust-table .cc-model::before { content: '🚗 '; }
-  .cust-table .cc-temp { order: 5; }
-  .cust-table .cc-urg { order: 6; }
-  .cust-table .cc-src { order: 7; font-size: 0.72rem !important; }
-  .cust-table .cc-age { order: 8; font-size: 0.72rem !important; }
+  .cust-table .cc-temp { order: 6; }
+  .cust-table .cc-urg { order: 7; }
+  .cust-table .cc-src { order: 8; font-size: 0.72rem !important; }
+  .cust-table .cc-age { order: 9; font-size: 0.72rem !important; margin-left: auto; text-align: right; }
   .cust-table .cc-act { order: 3; margin-left: auto; align-self: flex-start; }
   .cust-table tr.cust-row td.cc-blank { display: none; }
   .cust-table .cc-age, .cust-table .cc-src { white-space: nowrap; }
