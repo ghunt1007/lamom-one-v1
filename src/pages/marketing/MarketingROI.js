@@ -11,22 +11,13 @@ import { escHtml as __escA } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 
 const BASE_CH = [
-  { id: 'fb',       name: 'Facebook Ads',     icon: '📘', defBudget: 45000,  leadsTarget: 100, color: '#3b82f6', keys: ['facebook','fb','meta'] },
-  { id: 'gg',       name: 'Google Ads',        icon: '🔵', defBudget: 38000,  leadsTarget: 80,  color: '#10b981', keys: ['google','google ads'] },
-  { id: 'tt',       name: 'TikTok',            icon: '🎵', defBudget: 25000,  leadsTarget: 150, color: '#ec4899', keys: ['tiktok'] },
-  { id: 'line',     name: 'LINE OA',           icon: '💚', defBudget: 12000,  leadsTarget: 50,  color: '#22c55e', keys: ['line','line oa'] },
-  { id: 'event',    name: 'Event/Motor Show',  icon: '🎪', defBudget: 150000, leadsTarget: 250, color: '#f59e0b', keys: ['event','motor show','motorshow','งาน'] },
-  { id: 'referral', name: 'Referral',          icon: '🤝', defBudget: 30000,  leadsTarget: 40,  color: '#8b5cf6', keys: ['referral','แนะนำ','refer'] },
+  { id: 'fb',       name: 'Facebook Ads',     icon: '📘', leadsTarget: 100, color: '#3b82f6', keys: ['facebook','fb','meta'] },
+  { id: 'gg',       name: 'Google Ads',        icon: '🔵', leadsTarget: 80,  color: '#10b981', keys: ['google','google ads'] },
+  { id: 'tt',       name: 'TikTok',            icon: '🎵', leadsTarget: 150, color: '#ec4899', keys: ['tiktok'] },
+  { id: 'line',     name: 'LINE OA',           icon: '💚', leadsTarget: 50,  color: '#22c55e', keys: ['line','line oa'] },
+  { id: 'event',    name: 'Event/Motor Show',  icon: '🎪', leadsTarget: 250, color: '#f59e0b', keys: ['event','motor show','motorshow','งาน','บูธ','booth'] },
+  { id: 'referral', name: 'Referral',          icon: '🤝', leadsTarget: 40,  color: '#8b5cf6', keys: ['referral','แนะนำ','refer'] },
 ]
-
-const DEMO_CH = {
-  fb:       { leads: 0, customers: 0,  revenue: 0 },
-  gg:       { leads: 0,  customers: 0,  revenue: 0 },
-  tt:       { leads: 0, customers: 0,  revenue: 0 },
-  line:     { leads: 0,  customers: 0,  revenue: 0 },
-  event:    { leads: 0, customers: 0, revenue: 0 },
-  referral: { leads: 0,  customers: 0,  revenue: 0 },
-}
 
 // เก็บใน Firestore collection เดียว doc เดียว ('marketing_budgets') → sync ข้ามอุปกรณ์จริง
 // เดิมเก็บใน localStorage เครื่องเดียว ทำให้ทีมมาร์เก็ตติ้งเห็นงบต่อช่องทาง (และ ROI% ที่คำนวณจากงบนี้) ไม่ตรงกันข้ามเครื่อง
@@ -94,7 +85,8 @@ export default async function MarketingROIPage(container) {
 
   function buildChannels(month) {
     return BASE_CH.map(ch => {
-      const spend = budgets[ch.id] ?? ch.defBudget
+      // (v1.0.945) ยังไม่ได้ใส่งบ = 0 (เดิมใช้งบสมมติ 45,000/38,000... บาท ทำให้ ROI ติดลบปลอม)
+      const spend = Number(budgets[ch.id]) || 0
       let leads, customers, revenue, profit
       // (แก้ไข) เดิม leads ในโหมด 'live' ยังคำนวณจาก DEMO_CH ratio อยู่ดี (ไม่ใช่ข้อมูลจริง) ทั้งที่ badge
       // หัวหน้า ● ข้อมูลจริง สื่อว่าทุกตัวเลขในหน้านี้เป็นข้อมูลจริง — ระบบไม่มี field จำนวน Lead ต่อช่องทาง
@@ -123,19 +115,18 @@ export default async function MarketingROIPage(container) {
         // (2026-11-02) ยังไม่มียอดขายจริง → โชว์ 0 ไม่ใช่ตัวเลขสมมติ
         leads = 0; customers = 0; revenue = 0; profit = 0
       }
-      const roiPct = spend > 0 ? Math.round((profit - spend) / spend * 100) : 0
+      const roiPct = spend > 0 ? Math.round((profit - spend) / spend * 100) : null
       const cplV = leads > 0 ? Math.round(spend / leads) : 0
       const cacV = customers > 0 ? Math.round(spend / customers) : 0
       const convV = leads > 0 ? Math.round(customers / leads * 1000) / 10 : 0
-      const spendPct = Math.min(100, Math.round(spend / Math.max(ch.defBudget, 1) * 100))
-      return { ...ch, spend, leads, leadsEstimated, customers, revenue, profit, roiPct, cplV, cacV, convV, spendPct }
-    })
+      return { ...ch, spend, leads, leadsEstimated, customers, revenue, profit, roiPct, cplV, cacV, convV }
+    }).map((c, _, all) => ({ ...c, spendPct: Math.round(c.spend / Math.max(...all.map(x => x.spend), 1) * 100) }))
   }
 
   function renderPage() {
     const channels = buildChannels(monthFilter)
     const sorted = [...channels].sort((a, b) => {
-      if (sortBy === 'roi') return b.roiPct - a.roiPct
+      if (sortBy === 'roi') return (b.roiPct ?? -Infinity) - (a.roiPct ?? -Infinity) || b.customers - a.customers
       if (sortBy === 'spend') return b.spend - a.spend
       if (sortBy === 'customers') return b.customers - a.customers
       return a.cplV - b.cplV
@@ -146,15 +137,16 @@ export default async function MarketingROIPage(container) {
     const totalRevenue = channels.reduce((a, c) => a + c.revenue, 0)
     const totalProfit = channels.reduce((a, c) => a + c.profit, 0)
     const blendedROI = totalSpend > 0 ? Math.round((totalProfit - totalSpend) / totalSpend * 100) : 0
-    const best = sorted[0]
-    const worst = sorted[sorted.length - 1]
+    const withRoi = channels.filter(c => c.roiPct !== null).sort((a, b) => b.roiPct - a.roiPct)
+    const best = withRoi[0]
+    const worst = withRoi[withRoi.length - 1]
     const months = getMonths()
 
     container.innerHTML = `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
-            <div class="page-title">📊 Marketing ROI</div>
+            <div class="page-title">📊 ผลตอบแทนการตลาด (ROI)</div>
             <div class="page-subtitle">วัดผลตอบแทน — แต่ละช่องทางการตลาด${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem" title="ลูกค้า/รายได้/กำไร คำนวณจากยอดขายจริงเสมอ — Leads เป็นข้อมูลจริงถ้าช่องทางนั้นมีแคมเปญบันทึกไว้ใน Lead Generation ไม่งั้น fallback เป็นค่าประมาณ (ดูป้าย ประมาณ กำกับ)">● ข้อมูลจริง</span>' : ''}</div>
           </div>
           <div class="page-actions">
@@ -171,13 +163,13 @@ export default async function MarketingROIPage(container) {
           ${kpi('💸 งบรวม', formatCurrency(totalSpend), 'warning')}
           ${kpi('🧲 Leads รวม', totalLeads.toLocaleString() + ' ราย', 'primary')}
           ${kpi('🎯 ลูกค้าใหม่', totalCustomers + ' ราย', 'success')}
-          ${kpi('📈 ROI รวม', blendedROI + '%', blendedROI >= 100 ? 'success' : 'warning')}
+          ${kpi('📈 ROI รวม', totalSpend > 0 ? blendedROI + '%' : '—', blendedROI >= 100 ? 'success' : 'warning')}
         </div>
 
         <!-- AI Insight -->
         <div style="padding:12px 14px;background:var(--surface-2);border-left:3px solid var(--primary);border-radius:var(--radius-sm);margin-bottom:14px;font-size:0.8rem">
           🤖 <strong>LAMI วิเคราะห์:</strong>
-          ${best ? `${best.icon} <strong>${best.name}</strong> ROI ดีที่สุด (${best.roiPct}%)` : ''}
+          ${best ? `${best.icon} <strong>${best.name}</strong> ROI ดีที่สุด (${best.roiPct}%)` : 'ยังไม่ได้ใส่งบการตลาด กด ✏️ แก้ไขงบ เพื่อดู ROI แต่ละช่องทาง'}
           ${worst && worst.id !== best?.id ? ` · ${worst.icon} ${worst.name} ROI ต่ำสุด (${worst.roiPct}%) ควรปรับกลยุทธ์` : ''}
           ${totalLeads > 0 ? ` · CPL เฉลี่ย ${formatCurrency(Math.round(totalSpend / totalLeads))} · Conversion ${Math.round(totalCustomers / totalLeads * 1000) / 10}%` : ''}
         </div>
@@ -191,19 +183,19 @@ export default async function MarketingROIPage(container) {
         <!-- Channel cards -->
         <div style="display:flex;flex-direction:column;gap:10px">
           ${sorted.map((c, i) => {
-            const r = c.roiPct
-            const barColor = r >= 100 ? 'var(--success)' : r >= 0 ? 'var(--warning)' : 'var(--danger)'
+            const r = c.roiPct ?? 0
+            const barColor = c.roiPct === null ? 'var(--text-muted)' : r >= 100 ? 'var(--success)' : r >= 0 ? 'var(--warning)' : 'var(--danger)'
             return `<div class="card" style="padding:13px 14px;border-left:3px solid ${c.color}">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
                 <div style="display:flex;gap:8px;align-items:center">
-                  ${i === 0 ? '<span style="font-size:1rem">👑</span>' : ''}
+                  ${i === 0 && c.roiPct !== null ? '<span style="font-size:1rem">👑</span>' : ''}
                   <div>
                     <div style="font-weight:700;font-size:0.88rem">${c.icon} ${c.name}</div>
                     <div style="font-size:0.68rem;color:var(--text-muted)">งบ ${formatCurrency(c.spend)} → รายได้ ${formatCurrency(c.revenue)}</div>
                   </div>
                 </div>
                 <div style="text-align:right">
-                  <div style="font-size:1.1rem;font-weight:900;color:${barColor}">${r > 0 ? '+' : ''}${r}%</div>
+                  <div style="font-size:1.1rem;font-weight:900;color:${barColor}">${c.roiPct === null ? '—' : (r > 0 ? '+' : '') + r + '%'}</div>
                   <div style="font-size:0.63rem;color:var(--text-muted)">ROI</div>
                 </div>
               </div>
@@ -227,12 +219,12 @@ export default async function MarketingROIPage(container) {
     document.getElementById('export-btn')?.addEventListener('click', () => {
       const rows = channels.map(c => ({
         channel: c.name, spend: c.spend, leads: c.leads, customers: c.customers,
-        revenue: c.revenue, roi: c.roiPct + '%', cpl: c.cplV, cac: c.cacV, conv: c.convV + '%'
+        revenue: c.revenue, roi: c.roiPct === null ? '' : c.roiPct + '%', cpl: c.cplV, cac: c.cacV, conv: c.convV + '%'
       }))
       exportToExcel(channels.map(c => ({
         'ช่องทาง': c.name, 'งบ (฿)': c.spend, 'Leads': c.leads,
         'ลูกค้าใหม่': c.customers, 'รายได้ (฿)': c.revenue,
-        'ROI': c.roiPct + '%', 'CPL (฿)': c.cplV, 'CAC (฿)': c.cacV, 'Conversion%': c.convV + '%'
+        'ROI': c.roiPct === null ? '' : c.roiPct + '%', 'CPL (฿)': c.cplV, 'CAC (฿)': c.cacV, 'Conversion%': c.convV + '%'
       })), 'marketing_roi')
     })
     document.getElementById('edit-budget-btn')?.addEventListener('click', () => {
@@ -242,7 +234,7 @@ export default async function MarketingROIPage(container) {
         body: `<div style="display:grid;gap:8px">${BASE_CH.map(ch => `
           <div class="input-group">
             <label class="input-label">${ch.icon} ${ch.name}</label>
-            <input class="input" type="number" id="bgt-${ch.id}" value="${budgets[ch.id] ?? ch.defBudget}" step="1000" min="0">
+            <input class="input" type="number" id="bgt-${ch.id}" value="${budgets[ch.id] ?? ''}" placeholder="0" step="1000" min="0">
           </div>`).join('')}
         </div>`,
         async onConfirm() {

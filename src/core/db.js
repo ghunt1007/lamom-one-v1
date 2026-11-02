@@ -505,6 +505,9 @@ export async function getSalesData() {
       margin: b.margin || 0, marginLeft: b.marginLeft || 0, totalIncome: b.totalIncome || 0,
       com70: b.com70 || 0, comFinance: b.comFinance || 0, budgetUsed: b.budgetUsed || 0,
       financeCo: b.financeCo || '', salesName: b.salesName || '', status: b.status || '',
+      // (v1.0.945) ช่องทางที่ลูกค้ามา — เดิมไม่ได้ส่งต่อ หน้า ROI การตลาด / ภาพรวมการตลาด / ข้อมูลเชิงลึกลูกค้า
+      // เลยเห็นทุกใบเป็น "อื่นๆ" หรือ "ยังไม่มีข้อมูลช่องทาง" ทั้งที่ฟอร์มจองมีช่องให้กรอก
+      source: b.source || b.leadSource || b.channel || '',
       delivered: b.status === 'ส่งมอบแล้ว',
       createdAt: b.createdAt,
     }))
