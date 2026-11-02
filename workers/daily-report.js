@@ -32,6 +32,7 @@
  */
 
 import { BACKUP_CRON, runNightlyBackup, handleLatestBackup, isProgramOwnerUser } from './nightly-backup.js'
+import { DRIVE_SCOPE, handleSheetPull } from './sheet-pull.js'
 
 const FIRESTORE_SCOPE = 'https://www.googleapis.com/auth/datastore'
 const DELIVERED_STATUSES = ['ส่งมอบแล้ว', 'ตัดตัวเลขรอส่งมอบ']
@@ -73,6 +74,15 @@ export default {
         if (!isProgramOwnerUser(verified)) return json({ error: 'เฉพาะเจ้าของโปรแกรม' }, 403, cors)
         const result = await runNightlyBackup(env, backupDeps(env))
         return json(result, result.ok ? 200 : 500, cors)
+      }
+      // ดึงไฟล์ DATA Booking จาก Google Drive ให้แอป (เจ้าของโปรแกรมเท่านั้น) — ดู workers/sheet-pull.js
+      if (url.pathname === '/sheet/latest' || url.pathname === '/sheet/status') {
+        const authHeader = request.headers.get('Authorization') || ''
+        const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
+        const verified = idToken ? await verifyFirebaseToken(idToken, env.FIREBASE_API_KEY) : null
+        if (!verified) return json({ error: 'Unauthorized' }, 401, cors)
+        if (!isProgramOwnerUser(verified)) return json({ error: 'เฉพาะเจ้าของโปรแกรม' }, 403, cors)
+        return await handleSheetPull(env, { getToken: () => getGoogleAccessToken(env, DRIVE_SCOPE) }, cors, { metaOnly: url.pathname === '/sheet/status' })
       }
       if (url.pathname === '/test-send') return await handleTestSend(request, env, cors, morning)
       if (url.pathname === '/preview') return await handlePreview(request, env, cors, morning)
@@ -1485,14 +1495,17 @@ export function decodeFsValue(v) {
 }
 
 // ── Firebase Service Account → Firestore access token (เหมือน getFcmAccessToken() ใน comms-send.js) ──
-async function getFirestoreAccessToken(env) {
+function getFirestoreAccessToken(env) {
+  return getGoogleAccessToken(env, FIRESTORE_SCOPE)
+}
+async function getGoogleAccessToken(env, scope) {
   let sa
   try { sa = JSON.parse(env.FIRESTORE_SERVICE_ACCOUNT_JSON) } catch { return null }
   if (!sa.client_email || !sa.private_key) return null
 
   const now = Math.floor(Date.now() / 1000)
   const header = { alg: 'RS256', typ: 'JWT' }
-  const claim = { iss: sa.client_email, scope: FIRESTORE_SCOPE, aud: 'https://oauth2.googleapis.com/token', iat: now, exp: now + 3600 }
+  const claim = { iss: sa.client_email, scope, aud: 'https://oauth2.googleapis.com/token', iat: now, exp: now + 3600 }
   const unsigned = `${b64url(JSON.stringify(header))}.${b64url(JSON.stringify(claim))}`
 
   let signature

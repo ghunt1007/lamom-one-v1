@@ -123,6 +123,9 @@ async function bootstrapShell() {
     }).catch(() => {})
   }, 2500)
 
+  // เจ้าของโปรแกรม: เช็ก Google Sheet ทุกชั่วโมง ถ้ามีแก้ไขเด้งปุ่มซิงก์ (ดู utils/sheetWatch.js)
+  import('./utils/sheetWatch.js').then(m => m.initSheetWatch()).catch(() => {})
+
   // แปลคำศัพท์ที่ใช้ซ้ำทั่วระบบ (ปุ่ม/label/สถานะ) อัตโนมัติตามภาษาที่เลือก — ดู autoTranslate.js
   // สำหรับข้อจำกัด (ไม่ใช่การแปลเนื้อหาเฉพาะหน้าแบบ contextual เต็มรูปแบบ)
   const onLangChange = initAutoI18n(() => getState('language'))
