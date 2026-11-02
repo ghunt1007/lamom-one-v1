@@ -5,7 +5,8 @@ import { openModal } from './modal.js'
 import { formatCurrency } from './format.js'
 import { updateDocData } from '../core/db.js'
 
-export const DELIVERED_STATUSES = ['ส่งมอบแล้ว', 'ตัดตัวเลขรอส่งมอบ']
+export { DELIVERED_STATUSES } from './bookingStatus.js'
+import { DELIVERED_STATUSES } from './bookingStatus.js'
 
 // สูตรเดียวกับฟอร์มใบจองใน Bookings.js: รายได้รวม = (มาร์จิ้น − งบการตลาด) + คอมเซลส์ + คอมไฟแนนซ์
 export function calcIncome({ margin = 0, budgetUsed = 0, com70 = 0, comFinance = 0 } = {}) {

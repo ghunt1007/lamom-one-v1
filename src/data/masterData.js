@@ -15,6 +15,7 @@
  */
 import { listDocs, createDoc, updateDocData } from '../core/db.js'
 import { companyScopeFilters } from '../core/companyScope.js'
+import { BOOKING_STATUSES } from '../utils/bookingStatus.js'
 
 const KEY = 'lamom_master_data' // localStorage key เดิม — ใช้ตอน migrate ครั้งแรกเท่านั้น ไม่ลบทิ้งหลังจากนั้น (ไม่มีผลเสีย)
 
@@ -56,7 +57,7 @@ const DEFAULTS = {
   financeCompanies: ['BAY', 'TTB', 'KBANK', 'TISCO', 'SCB', 'ICBC', 'ORIX', 'KKP', 'นิสสันลีสซิ่ง', 'ซื้อสด'],
   financeStatus: ['รอผล', 'รอเซ็นสัญญา', 'ผ่าน', 'ไม่ผ่าน', 'ซื้อสด', 'รอส่ง'],
   campaigns: ['ดอกเบี้ยปกติ', 'ดอกเบี้ยพิเศษ', 'ฟรีดาวน์', 'ซื้อสด'],
-  bookingStatus: ['จัดไฟแนนซ์ก่อนจอง', 'ผ่านไฟแนนซ์รอจอง', 'ยอดจองคงค้าง', 'รอผลไฟแนนซ์', 'ผ่านไฟแนนซ์รอเบิก', 'ซื้อสดรอเบิกรถ', 'รอรถ', 'รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ', 'ส่งมอบแล้ว', 'ถอนจอง'],
+  bookingStatus: [...BOOKING_STATUSES],
   insurers: ['เมืองไทยประกันภัย', 'วิริยะประกันภัย', 'กรุงเทพประกันภัย', 'ทิพยประกันภัย', 'สินมั่นคงประกันภัย', 'อาคเนย์ประกันภัย', 'MSIG', 'AXA'],
   insuranceTypes: ['ชั้น 1', 'ชั้น 2+', 'ชั้น 2', 'ชั้น 3+', 'ชั้น 3', 'พ.ร.บ.'],
   leadSources: ['facebook', 'line', 'walk-in', 'website', 'referral', 'tiktok', 'google', 'event'],

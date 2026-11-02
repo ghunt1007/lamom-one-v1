@@ -15,7 +15,7 @@ export const FINANCE_WAIT_DAYS = 3
 export const REVISIT_MIN_DAYS = 30
 export const REVISIT_MAX_DAYS = 120
 const REVISIT_REASONS = ['timing', 'finance', 'price', 'no_contact']
-const CANCELLED = ['ถอนจอง', 'ยกเลิก']
+import { CANCELLED_STATUSES as CANCELLED } from './bookingStatus.js'
 const UNSCHEDULED_STATUSES = ['รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ']
 
 // วันที่ตามเวลาไทย 'YYYY-MM-DD' ของค่าวันที่ทุกแบบ (Timestamp / ISO / 'YYYY-MM-DD')

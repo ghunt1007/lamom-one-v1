@@ -129,3 +129,14 @@ describe('planSheetReconcile', () => {
     expect(splitUpdatesByRecency(updates, null).appNewer.map(x => x.id)).toEqual(['appNew', 'sheetNew'])
   })
 })
+
+describe('createdAt clean-up', () => {
+  it('turns text createdAt into real dates and leaves Timestamps alone', async () => {
+    const { createdAtFixes } = await import('./sheetReconcile.js')
+    const out = createdAtFixes([{ id: 'a', createdAt: '2026-10-01T00:00:00.000Z' }, { id: 'b', createdAt: { seconds: 1 } }, { id: 'c', createdAt: 'xx' }, { id: 'd' }])
+    expect(out).toHaveLength(1)
+    expect(out[0].id).toBe('a')
+    expect(out[0].createdAt).toBeInstanceOf(Date)
+    expect(out[0].createdAt.toISOString()).toBe('2026-10-01T00:00:00.000Z')
+  })
+})

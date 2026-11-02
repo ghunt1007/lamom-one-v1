@@ -3,7 +3,7 @@
 // นิยามเดียวกับรายงานประจำวัน: ส่งมอบ = ส่งมอบแล้ว/ตัดตัวเลขรอส่งมอบ นับเดือนตามวันตัดตัวเลข (หรือวันส่งมอบจริง)
 import { DELIVERED_STATUSES, needsIncome } from './deliveryIncome.js'
 
-const CANCELLED = ['ถอนจอง', 'ยกเลิก']
+import { CANCELLED_STATUSES as CANCELLED } from './bookingStatus.js'
 const n = v => Number(v) || 0
 
 export function deliveredMonth(b) { return (b.cutDate || b.actualDeliveryDate || '').slice(0, 7) }

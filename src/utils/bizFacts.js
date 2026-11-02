@@ -5,7 +5,7 @@ import { bangkokDate, STALE_LEAD_DAYS } from './myDay.js'
 import { classifyLostReason, LOST_REASON_LABELS } from './lostReason.js'
 import { stockAgeDays } from './stockAge.js'
 
-const CANCELLED = ['ถอนจอง', 'ยกเลิก']
+import { CANCELLED_STATUSES as CANCELLED } from './bookingStatus.js'
 const SOURCE_TH = { facebook: 'Facebook', line: 'LINE', tiktok: 'TikTok', 'walk-in': 'Walk-in', referral: 'แนะนำ', google: 'Google', website: 'เว็บไซต์', phone: 'โทรเข้า', other: 'อื่นๆ' }
 
 const prevMonth = ym => { const [y, m] = ym.split('-').map(Number); return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}` }

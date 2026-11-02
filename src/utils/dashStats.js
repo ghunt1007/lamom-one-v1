@@ -2,12 +2,8 @@
 // · จองใหม่ = ใบจองที่ bookingDate อยู่ในเดือนนั้น (รวมที่ถอนไปแล้ว เพราะเป็น "ยอดเปิดใบจอง")
 // · มูลค่า/Margin = เฉพาะใบจองที่ยังไม่ถอน/ไม่ยกเลิก (เดิมรวมใบที่ถอนแล้วด้วย ทำให้มูลค่าสูงเกินจริง)
 // · ส่งมอบ = ส่งมอบแล้ว + ตัดตัวเลขรอส่งมอบ นับตามวันตัดตัวเลข (cutDate) เหมือนรายงาน LINE
-import { DELIVERED_STATUSES } from './deliveryIncome.js'
-
-export const CANCELLED_STATUSES = ['ถอนจอง', 'ยกเลิก']
-
-export const isCancelled = b => CANCELLED_STATUSES.includes(b?.status)
-export const isDelivered = b => DELIVERED_STATUSES.includes(b?.status)
+export { CANCELLED_STATUSES, isCancelled, isDelivered } from './bookingStatus.js'
+import { isCancelled, isDelivered } from './bookingStatus.js'
 export const deliveredMonth = b => String(b?.cutDate || b?.actualDeliveryDate || '').slice(0, 7)
 
 export function shiftYm(ym, delta) {
