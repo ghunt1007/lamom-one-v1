@@ -473,6 +473,9 @@
   .bk-table-card { display: none; }
   .bk-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; cursor: pointer; }
   .bk-card:active { transform: scale(.99); }
+  /* หัวการ์ด: ชื่อ+รุ่นซ้าย สถานะขวา อยู่แถวเดียวเสมอ (กฎ flex-wrap ทั่วไปของจอแคบทำให้สถานะตกลงไปใต้รุ่นรถบางใบ) */
+  .page-content .bk-card.bk-row > div[style*="display:flex"]:first-child { flex-wrap: nowrap !important; }
+  .page-content .bk-card > div:first-child > div:first-child { flex: 1 1 auto; }
 }
 
 /* หน้าลูกค้าบนมือถือ: ตัวกรอง 4 ช่องเรียง 2 ช่องต่อแถว (เดิมช่องละบรรทัด กินครึ่งจอ) */
