@@ -13,6 +13,17 @@ export const LINKED_VIEWS = [
     { path: '/ai/sales-coach', label: '🎯 โค้ชการขาย' }, { path: '/ai/lead-scoring', label: '📈 คะแนน Lead' },
     { path: '/ai/upsell', label: '➕ ขายเพิ่ม' }, { path: '/ai/pricing', label: '💲 แนะนำราคา' }],
   [{ path: '/marketing/leads', label: '🧲 แคมเปญหา Lead' }, { path: '/marketing/lead-sources', label: '📊 แหล่งที่มา Lead' }],
+  // (2026-11-02) หมวดวิเคราะห์ข้อมูล 25 เมนู → 7 เมนู (เรื่องเดียวกันอยู่หน้าเดียว สลับด้วยแท็บ)
+  [{ path: '/analytics', label: '📈 ภาพรวม' }, { path: '/analytics/executive', label: '📋 สรุปผู้บริหาร' }, { path: '/analytics/daily', label: '📅 รายวัน' },
+    { path: '/analytics/kpi', label: '🎯 KPI' }, { path: '/analytics/monthly', label: '📈 รายเดือน' }, { path: '/analytics/seasonal', label: '🗓 ตามฤดูกาล' }, { path: '/analytics/forecast', label: '🔮 พยากรณ์' }],
+  [{ path: '/analytics/by-model', label: '🚗 ตามรุ่น' }, { path: '/analytics/funnel', label: '🔻 อัตราปิดการขาย' }, { path: '/analytics/sales-channel', label: '⚖️ หน้าร้าน vs ออนไลน์' },
+    { path: '/analytics/branches', label: '🏢 เทียบสาขา' }, { path: '/analytics/market-share', label: '📊 ส่วนแบ่งตลาด' }],
+  [{ path: '/analytics/profit', label: '📈 กำไรรวม' }, { path: '/analytics/model-profit', label: '🚗 กำไรตามรุ่น' }],
+  [{ path: '/analytics/customers', label: '🧠 วิเคราะห์ลูกค้า' }, { path: '/analytics/journey', label: '🗺️ เส้นทางลูกค้า' }],
+  [{ path: '/analytics/operations', label: '⚙️ ภาพรวม' }, { path: '/analytics/dept-ops', label: '🏭 รายแผนก' }, { path: '/analytics/service', label: '🔧 งานบริการ' },
+    { path: '/analytics/parts', label: '🔩 อะไหล่' }, { path: '/analytics/stock', label: '📦 สต็อก' }],
+  [{ path: '/analytics/reports', label: '📊 ศูนย์รายงาน' }, { path: '/analytics/report-builder', label: '🔧 สร้างรายงานเอง' }],
+  [{ path: '/analytics/ev-adoption', label: '🔋 การใช้รถ EV' }, { path: '/analytics/carbon', label: '🌿 คาร์บอน' }],
 ]
 
 const clean = p => String(p || '').split('?')[0].replace(/\/+$/, '') || '/'
