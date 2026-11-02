@@ -1,3 +1,4 @@
+import { carOf, carLabel } from '../../utils/carLabel.js'
 import { listDocs, listAllDocs, watchDocs, createDoc, updateDocData, softDelete, seedDemoData, setDocData, readDoc } from '../../core/db.js'
 import { customerStatusMessage } from '../../utils/bookingNotify.js'
 import { openReplan, bookingTotal } from '../../utils/replanModal.js'
@@ -780,7 +781,7 @@ export default async function BookingsPage(container) {
     const lines = [
       `📋 สรุปการจอง #${b.bookingNo}`,
       `👤 ลูกค้า: ${b.custName || '—'}`,
-      `🚗 รุ่น: ${(detectBrand(b.brand, b.model) ? detectBrand(b.brand, b.model) + ' ' : '') + (b.model || '—')}`,
+      `🚗 รุ่น: ${carLabel(detectBrand(b.brand, b.model), b.model) || '—'}`,
       `💼 เซลส์: ${b.salesName || '—'}`,
       `📅 วันที่จอง: ${formatDate(b.bookingDate) || '—'}`,
       `📦 กำหนดส่ง: ${formatDate(b.deliveryDate) || '—'}`,
@@ -1007,7 +1008,7 @@ export default async function BookingsPage(container) {
       }
       if (step === 2) {
         return `<button type="button" class="btn btn-secondary btn-sm" id="wz-pick" style="margin-bottom:10px">🚘 เลือกรถจาก Catalog</button>
-          <div style="font-size:0.8rem;margin-bottom:8px">${w.model ? `<b>${escHtml(w.brand)} ${escHtml(w.model)}</b> ${escHtml(w.variant || '')}` : '<span style="color:var(--text-muted)">ยังไม่ได้เลือกรถ</span>'}</div>
+          <div style="font-size:0.8rem;margin-bottom:8px">${w.model ? `<b>${escHtml(carLabel(w.brand, w.model))}</b> ${escHtml(w.variant || '')}` : '<span style="color:var(--text-muted)">ยังไม่ได้เลือกรถ</span>'}</div>
           <div class="grid-2">
             <div class="input-group"><label class="input-label">ราคาขาย (บาท)</label><input class="input" type="number" id="wz-price" value="${__escA(w.price)}"></div>
             <div class="input-group"><label class="input-label">ส่วนลด (บาท)</label><input class="input" type="number" id="wz-disc" value="${__escA(w.discount)}"></div>
@@ -1029,7 +1030,7 @@ export default async function BookingsPage(container) {
             <div style="font-size:1.1rem;font-weight:800;color:var(--accent);margin-top:4px">ผ่อนเดือนละ ${formatCurrency(monthly())}</div>
           </div>`
       }
-      const rows = [['ลูกค้า', w.custName], ['เบอร์', w.phone], ['พนักงานขาย', w.salesName], ['รุ่นรถ', `${w.brand} ${w.model} ${w.variant || ''}`.trim()],
+      const rows = [['ลูกค้า', w.custName], ['เบอร์', w.phone], ['พนักงานขาย', w.salesName], ['รุ่นรถ', carOf(w, true)],
         ['ราคาขาย', formatCurrency(w.price)], ['ส่วนลด', formatCurrency(w.discount)], ['อุปกรณ์เสริม', formatCurrency(w.accessories)],
         ['ยอดสุทธิ', formatCurrency(total())], ['เงินจอง', formatCurrency(w.bookingDeposit)], ['เงินดาวน์', formatCurrency(w.down)], ['ผ่อน', w.installments + ' เดือน'], ['ค่างวด/เดือน', formatCurrency(monthly())]]
       return `<div style="background:var(--surface-2);border-radius:10px;padding:12px">${rows.map(r => `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border-subtle);font-size:0.78rem"><span style="color:var(--text-muted)">${r[0]}</span><b>${escHtml(String(r[1] || '-'))}</b></div>`).join('')}</div>`
@@ -1129,7 +1130,7 @@ export default async function BookingsPage(container) {
         sec('👤 ลูกค้า') +
         dRow('ชื่อ', b.custName || '-') + (canViewNid ? dRow('เลขบัตร ปชช.', b.nid || '-') : '') + dRow('โทร', b.phone || '-') + dRow('ที่อยู่', (b.address || '-') + ' ' + (b.province || '')) + dRow('แหล่งที่มา', b.source || '-') +
         sec('🚗 รถ') +
-        dRow('รุ่น', (detectBrand(b.brand, b.model) || b.brand || '') + ' ' + (b.model || '') + ' ' + (b.variant || '')) + dRow('สีนอก / ใน', (b.colorOut || '-') + ' / ' + (b.colorIn || '-')) + dRow('เลขตัวถัง (VIN)', b.vin || '-') + dRow('เลขมอเตอร์', b.motorNo || '-') + dRow('เลขแบต', b.batNo || '-') + dRow('เลขเครื่องยนต์', b.engineNo || '-') + dRow('ป้ายแดง / ป้ายขาว', (b.redPlate || '-') + ' / ' + (b.whitePlate || '-')) +
+        dRow('รุ่น', carLabel(detectBrand(b.brand, b.model) || b.brand, b.model, b.variant) || '-') + dRow('สีนอก / ใน', (b.colorOut || '-') + ' / ' + (b.colorIn || '-')) + dRow('เลขตัวถัง (VIN)', b.vin || '-') + dRow('เลขมอเตอร์', b.motorNo || '-') + dRow('เลขแบต', b.batNo || '-') + dRow('เลขเครื่องยนต์', b.engineNo || '-') + dRow('ป้ายแดง / ป้ายขาว', (b.redPlate || '-') + ' / ' + (b.whitePlate || '-')) +
         sec('💰 การเงิน / ไฟแนนซ์') +
         dRow('ราคารถ', formatCurrency(b.price)) + dRow('เงินจอง', formatCurrency(b.bookingDeposit || 0)) + dRow('เงินดาวน์', formatCurrency(b.down)) +
         (isCash ? dRow('การชำระ', 'ซื้อเงินสด') :
@@ -1192,7 +1193,7 @@ export default async function BookingsPage(container) {
     document.getElementById('bk-finance-btn')?.addEventListener('click', () => {
       sessionStorage.setItem('lamom_finance_prefill', JSON.stringify({
         bookingId: b.id, customerId: b.customerId || null, custName: b.custName || '', phone: b.phone || '',
-        vehicle: `${detectBrand(b.brand, b.model) || b.brand || ''} ${b.model || ''} ${b.variant || ''}`.trim(),
+        vehicle: carLabel(detectBrand(b.brand, b.model) || b.brand, b.model, b.variant),
         vehiclePrice: b.price || 0, downPayment: b.down || 0,
       }))
       document.querySelectorAll('.modal-overlay').forEach(m => m.remove())

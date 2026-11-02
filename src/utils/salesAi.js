@@ -1,3 +1,4 @@
+import { carOf } from './carLabel.js'
 // "AI ผู้ช่วยปิดการขาย" — สรุปข้อมูลลูกค้า 1 ราย (สถานะ ความสนใจ ประวัติการติดต่อ นัดที่ค้าง เหตุผลเสียดีล)
 // เป็นข้อความสั้นๆ ส่งให้ Gemini ช่วยคิดว่า "ควรทำอะไรต่อ" และร่างข้อความ LINE ให้พร้อมส่ง
 // ไม่ส่งเบอร์โทร/อีเมล/LINE ID ออกไปนอกระบบ — AI ไม่จำเป็นต้องรู้เพื่อให้คำแนะนำ
@@ -21,7 +22,7 @@ const norm = s => String(s || '').toLowerCase().replace(/\(.*?\)/g, ' ').replace
 // ใช้ชื่อรุ่นที่ยาวที่สุดที่เจอในข้อความ เพื่อไม่ให้ 'S07' ไปจับ 'S07 (2026)' ผิดยี่ห้อ
 export function modelFacts(interested, vehicles = [], limit = 4) {
   return modelMatches(interested, vehicles, limit).map(v => [
-    `${v.brand} ${v.model} ${v.variant || ''}`.trim(),
+    carOf(v, true),
     v.price ? `ราคา ${Number(v.price).toLocaleString('en-US')} บาท` : null,
     v.range ? `วิ่งได้ ${v.range} กม.` : null,
     v.battery ? `แบต ${v.battery}` : null,

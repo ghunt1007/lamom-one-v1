@@ -1,3 +1,4 @@
+import { carOf } from '../../utils/carLabel.js'
 // งานของฉันวันนี้ — Route: /crm/my-day
 // เปิดมาเจอทันทีว่าวันนี้ต้องโทรใคร/ทำอะไร (เกณฑ์เดียวกับข้อความเตือน 9 โมงเช้า ดู utils/myDay.js) และกดทำได้จากหน้านี้เลย
 // เซลส์เห็นเฉพาะงานตัวเอง/ลูกทีม (getVisibilityScope) — เจ้าของ/ผู้จัดการเลือกดูรายคนได้
@@ -288,27 +289,27 @@ export default async function MyDayPage(container) {
           `${callBtn(c.phone, c.id)}<button class="btn btn-secondary btn-xs md-revisit" data-id="${escHtml(c.id)}" title="ข้อความทักกลับตามเหตุผลที่เสียดีล">💬 ข้อความ</button><button class="btn btn-success btn-xs md-touch" data-id="${escHtml(c.id)}">✅ ติดต่อแล้ว</button><button class="btn btn-secondary btn-xs md-open" data-id="${escHtml(c.id)}">เปิด</button>`), 'primary') : ''}
 
         ${d.unscheduled.length ? section('📆', 'รถพร้อมส่งแต่ยังไม่ได้นัดวันส่งมอบ', 'โทรนัดลูกค้า แล้วลงวันในปฏิทินส่งมอบ', d.unscheduled, b => line(
-          `${escHtml(b.custName || 'ลูกค้า')} · ${escHtml([b.brand, b.model].filter(Boolean).join(' ') || '—')}`,
+          `${escHtml(b.custName || 'ลูกค้า')} · ${escHtml(carOf(b) || '—')}`,
           `${escHtml(b.status || '')}${b.missed ? ` · <b style="color:var(--danger)">เลยวันนัด ${formatDate(b.deliveryDate)}</b>` : ' · ยังไม่มีวันนัด'}${ownerTag(b.salesName)}`,
           `${callBtn(b.phone || b.custPhone)}<button class="btn btn-primary btn-xs md-cal">📅 ปฏิทินส่งมอบ</button>`), 'warning') : ''}
 
         ${section('🚗', `นัดส่งมอบ ${UPCOMING_DELIVERY_DAYS} วันข้างหน้า`, 'เตรียมรถ/เอกสารให้พร้อม', d.deliveries, b => line(
-          `${escHtml(b.custName || 'ลูกค้า')} · ${escHtml([b.brand, b.model].filter(Boolean).join(' ') || '—')}`,
+          `${escHtml(b.custName || 'ลูกค้า')} · ${escHtml(carOf(b) || '—')}`,
           `${formatDate(b.deliveryDate)}${b.deliveryTime ? ' ' + escHtml(b.deliveryTime) : ''} · ${b.inDays === 0 ? '<b style="color:var(--danger)">วันนี้</b>' : b.inDays === 1 ? 'พรุ่งนี้' : `อีก ${b.inDays} วัน`} · ${escHtml(b.status || '')}${ownerTag(b.salesName)}`,
           `${callBtn(b.phone || b.custPhone)}<button class="btn btn-secondary btn-xs md-bk" data-id="${escHtml(b.id)}">ใบจอง</button>`))}
 
         ${d.finance.length ? section('🏦', `ไฟแนนซ์รอผลเกิน ${FINANCE_WAIT_DAYS} วัน / ไม่ผ่าน`, 'ตามผลกับไฟแนนซ์ หรือหาไฟแนนซ์ใหม่ให้ลูกค้า', d.finance, b => line(
-          `${escHtml(b.custName || 'ลูกค้า')} · ${escHtml([b.brand, b.model].filter(Boolean).join(' ') || '—')} ${b.rejected ? '<span class="badge badge-danger" style="font-size:0.62rem">ไม่ผ่าน</span>' : `<span class="badge badge-warning" style="font-size:0.62rem">รอ ${b.days} วัน</span>`}`,
+          `${escHtml(b.custName || 'ลูกค้า')} · ${escHtml(carOf(b) || '—')} ${b.rejected ? '<span class="badge badge-danger" style="font-size:0.62rem">ไม่ผ่าน</span>' : `<span class="badge badge-warning" style="font-size:0.62rem">รอ ${b.days} วัน</span>`}`,
           `${escHtml(b.financeCo || 'ไม่ระบุไฟแนนซ์')}${ownerTag(b.salesName)}`,
           `${callBtn(b.phone || b.custPhone)}${b.rejected && bookingTotal(b) > 0 ? `<button class="btn btn-primary btn-xs md-replan" data-id="${escHtml(b.id)}">💡 แผนผ่อนใหม่</button>` : ''}<button class="btn btn-secondary btn-xs md-bk" data-id="${escHtml(b.id)}">ใบจอง</button>`), 'warning') : ''}
 
         ${section('💰', 'ส่งมอบแล้วยังไม่กรอกรายได้ (เดือนนี้)', 'รายงานรายได้จะไม่ครบถ้าไม่กรอก', d.income, b => line(
-          `${escHtml(b.custName || 'ลูกค้า')} · ${escHtml([b.brand, b.model].filter(Boolean).join(' ') || '—')}`,
+          `${escHtml(b.custName || 'ลูกค้า')} · ${escHtml(carOf(b) || '—')}`,
           `ส่งมอบ ${formatDate(b.cutDate || b.actualDeliveryDate)}${ownerTag(b.salesName)}`,
           `<button class="btn btn-warning btn-xs md-inc" data-id="${escHtml(b.id)}">💰 กรอกรายได้</button>`), 'danger')}
 
         ${section('⏳', `ใบจองค้างเกิน ${STUCK_BOOKING_DAYS} วัน`, 'ตามไฟแนนซ์/รถ/เอกสาร', d.stuck, b => line(
-          `${escHtml(b.custName || 'ลูกค้า')} · ${escHtml([b.brand, b.model].filter(Boolean).join(' ') || '—')} <span class="badge badge-warning" style="font-size:0.62rem">${b.days} วัน</span>`,
+          `${escHtml(b.custName || 'ลูกค้า')} · ${escHtml(carOf(b) || '—')} <span class="badge badge-warning" style="font-size:0.62rem">${b.days} วัน</span>`,
           `${escHtml(b.status || '—')} · จอง ${formatDate(b.bookingDate)}${ownerTag(b.salesName)}`,
           `${callBtn(b.phone || b.custPhone)}<button class="btn btn-secondary btn-xs md-bk" data-id="${escHtml(b.id)}">ใบจอง</button>`), 'warning')}
         </div>

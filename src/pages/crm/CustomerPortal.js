@@ -1,3 +1,4 @@
+import { carOf } from '../../utils/carLabel.js'
 import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
@@ -106,7 +107,7 @@ export default async function CustomerPortalPage(container) {
       const purchaseDate = b.actualDeliveryDate || b.deliveryDate || b.bookingDate || ''
       return {
         id: b.id,
-        model: `${b.brand || ''} ${b.model || ''} ${b.variant || ''}`.trim() || 'รถยนต์',
+        model: carOf(b, true) || 'รถยนต์',
         plate: b.whitePlate || b.redPlate || '-',
         color: b.colorOut || '-',
         year: purchaseDate ? purchaseDate.slice(0, 4) : '-',

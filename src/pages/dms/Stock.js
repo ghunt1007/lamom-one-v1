@@ -1,3 +1,4 @@
+import { carOf } from '../../utils/carLabel.js'
 import { listDocs, listAllDocs, watchDocs, createDoc, updateDocData, softDelete, seedDemoData, getSalesData } from '../../core/db.js'
 import { showToast, getState, on } from '../../core/store.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
@@ -226,7 +227,7 @@ export default async function StockPage(container) {
     return `
       <tr class="stock-row" data-id="${v.id}" style="cursor:pointer">
         <td>
-          <div style="font-weight:600">${escHtml(v.brand)} ${escHtml(v.model)}</div>
+          <div style="font-weight:600">${escHtml(carOf(v))}</div>
           <div style="font-size:0.75rem;color:var(--text-muted)">${escHtml(v.variant || '')}</div>
         </td>
         <td><div style="display:flex;align-items:center;gap:6px"><div style="width:12px;height:12px;border-radius:50%;background:${colorDot(v.color)};border:1px solid var(--border)"></div>${escHtml(v.color)}</div></td>
@@ -253,7 +254,7 @@ export default async function StockPage(container) {
       <div class="card card-lift stock-row" data-id="${v.id}" style="cursor:pointer;padding:14px">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
           <div>
-            <div style="font-weight:700;font-size:1rem">${escHtml(v.brand)} ${escHtml(v.model)}</div>
+            <div style="font-weight:700;font-size:1rem">${escHtml(carOf(v))}</div>
             ${[v.variant, v.year].filter(Boolean).length ? `<div style="font-size:0.78rem;color:var(--text-muted)">${escHtml([v.variant, v.year].filter(Boolean).join(' · '))}</div>` : ''}
           </div>
           <span class="badge badge-${st.badge}">${st.label}</span>
@@ -309,7 +310,7 @@ export default async function StockPage(container) {
     const st = STATUS[v.status] || { label: v.status, badge: 'primary' }
     const margin = (v.price || 0) - (v.cost || 0)
     openModal({
-      title: '🚗 ' + escHtml(v.brand) + ' ' + escHtml(v.model) + ' — ' + escHtml(v.color),
+      title: '🚗 ' + escHtml(carOf(v)) + ' — ' + escHtml(v.color),
       size: 'md',
       body: `
         <div style="display:flex;flex-direction:column;gap:14px">
@@ -318,7 +319,7 @@ export default async function StockPage(container) {
             <span style="font-size:1.2rem;font-weight:700;color:var(--accent)">${formatCurrency(v.price)}</span>
           </div>
           <div class="grid-2" style="gap:8px">
-            ${dRow('🚗','ยี่ห้อ/รุ่น', escHtml(`${v.brand} ${v.model} ${v.variant||''}`))}
+            ${dRow('🚗','ยี่ห้อ/รุ่น', escHtml(carOf(v, true)))}
             ${dRow('🎨','สี', escHtml(v.color))}
             ${dRow('🔢','VIN', escHtml(v.vin||'-'))}
             ${dRow('📅','ปีรถ',v.year||'-')}

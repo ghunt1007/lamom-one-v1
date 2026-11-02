@@ -1,3 +1,4 @@
+import { carLabel } from './carLabel.js'
 // (v1.0.913) LAMI ตอบเรื่องลูกค้า/ใบจอง "รายคน" ได้ — เช่น "มานีถึงไหนแล้ว" "ใบจอง SKT2605 สถานะอะไร"
 // "รถของคุณสมชายส่งมอบเมื่อไหร่" "เบอร์ 0890000027 คือใคร คุยล่าสุดเมื่อไหร่"
 //
@@ -59,7 +60,7 @@ export function customersByPhone(question, customers = []) {
 
 function bookingLine(b, today) {
   const parts = [`ใบจอง ${b.bookingNo || '(ไม่มีเลข)'}`]
-  if (b.model) parts.push(`${b.brand ? b.brand + ' ' : ''}${b.model}${b.color ? ' สี' + b.color : ''}`)
+  if (b.model) parts.push(`${carLabel(b.brand, b.model)}${b.color ? ' สี' + b.color : ''}`)
   if (b.status) parts.push(`สถานะ "${b.status}"`)
   if (b.bookingDate) parts.push(`จองเมื่อ ${thaiDate(b.bookingDate)}`)
   if (b.deliveryDate && !['ถอนจอง', 'ยกเลิก'].includes(b.status)) {

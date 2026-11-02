@@ -1,3 +1,4 @@
+import { carOf } from '../../utils/carLabel.js'
 // Global Search (Ctrl+K) — ค้นหาทุกอย่างในระบบเหมือน LAMOM V8
 // พิมพ์ครั้งเดียว → ค้นข้อมูลข้ามทุก collection + เมนู แล้วกด Enter เพื่อเปิด
 import { listDocs, seedDemoData } from '../../core/db.js'
@@ -41,7 +42,7 @@ const SOURCES = [
   { col: 'job_cards', icon: '🔧', group: 'Job Card', route: '/service/jobs',
     text: j => [j.jobNo, j.custName, j.brand, j.model, j.plate, j.vin, j.desc, j.techName, j.status].join(' '),
     title: j => (j.jobNo || '') + ' · ' + (j.custName || ''),
-    sub: j => [j.brand, j.model].filter(Boolean).join(' ') + ' · ' + (j.plate || '') + ' · ' + (j.status || '') },
+    sub: j => carOf(j) + ' · ' + (j.plate || '') + ' · ' + (j.status || '') },
   { col: 'parts', icon: '⚙️', groupKey: 'grpParts', route: '/service/parts',
     text: p => [p.sku, p.name, p.brand, p.category, p.location].join(' '),
     title: p => (p.name || ''),

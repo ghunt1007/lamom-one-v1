@@ -1,3 +1,4 @@
+import { carOf } from './carLabel.js'
 // นัดดูแลหลังการขาย — ส่งมอบรถแล้ว (กดเปลี่ยนสถานะ/บันทึกใบจอง/ปฏิทินส่งมอบ) ระบบสร้างนัดใน `followups` ให้ 3 ครั้ง:
 // +7 วัน ถามความพึงพอใจ, +30 วัน ขอรีวิว/แนะนำเพื่อน, +180 วัน ชวนเข้าเช็กระยะครั้งแรก — ผู้ติดตาม = เซลส์ในใบจอง
 // ใส่ sourceBookingId ไว้ หน้า Follow-up จึงไม่สร้างนัด "หลังส่งมอบรถ" แบบชั่วคราวซ้ำให้อีก และติด afterSalesScheduled
@@ -21,7 +22,7 @@ export function buildAfterSalesFollowups(booking, today = todayBangkok()) {
   return AFTER_SALES_PLAN.map(p => ({
     customerId: booking.customerId || '', sourceBookingId: booking.id,
     customerName: booking.custName || 'ลูกค้า', phone: booking.phone || booking.custPhone || '',
-    vehicleModel: [booking.brand, booking.model].filter(Boolean).join(' '),
+    vehicleModel: carOf(booking),
     salesperson: booking.salesName || '', type: p.type, purpose: p.purpose, note: p.note,
     dueDate: addDaysTo(delivered, p.days), status: 'pending', result: '', afterSales: true,
   }))

@@ -3235,6 +3235,7 @@ export const BODY_TYPES = [...new Set(VEHICLES.map(v => v.bodyType))].sort()
 // ที่โหลดครั้งเดียวตอนแอปเริ่มทำงาน (ดู loadVehicleOverrides() เรียกจาก main.js)
 // ═══════════════════════════════════════════════════════════════════════════
 import { listDocs, createDoc, updateDocData, softDelete } from '../core/db.js'
+import { todayBangkok } from '../utils/format.js'
 
 let _overridesCache = {}
 let _additionsCache = []
@@ -3262,7 +3263,7 @@ export async function loadVehicleOverrides() {
 export function isVehicleDataLoaded() { return _loaded }
 
 export async function saveOverride(id, fields, by) {
-  const payload = Object.assign({}, fields, { vehicleId: id, _verifiedBy: by, _verifiedAt: new Date().toISOString().slice(0, 10) })
+  const payload = Object.assign({}, fields, { vehicleId: id, _verifiedBy: by, _verifiedAt: todayBangkok() })
   const existing = _overridesCache[id]
   if (existing) await updateDocData('vehicle_catalog_overrides', existing.id, payload)
   else await createDoc('vehicle_catalog_overrides', payload)

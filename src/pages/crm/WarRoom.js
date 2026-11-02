@@ -1,3 +1,4 @@
+import { carOf } from '../../utils/carLabel.js'
 /**
  * Sales War Room — ศูนย์บัญชาการขาย
  * Route: /crm/warroom
@@ -106,7 +107,7 @@ export default async function WarRoomPage(container) {
       .map(b => ({
         id: b.bookingNo || b.id,
         custName: b.custName || '',
-        interestedIn: [b.brand, b.model].filter(Boolean).join(' '),
+        interestedIn: carOf(b),
         budget: b.price || 0,
         lostReason: classifyLostReason(b.cancelReason),
         lostTo: b.cancelLostTo || null,
@@ -116,7 +117,7 @@ export default async function WarRoomPage(container) {
       .map(l => ({
         id: l.id,
         custName: [l.firstName, l.lastName].filter(Boolean).join(' ') || l.custName || l.name || '',
-        interestedIn: l.interestedModel || [l.brand, l.model].filter(Boolean).join(' ') || l.interest || '',
+        interestedIn: l.interestedModel || carOf(l) || l.interest || '',
         budget: l.budget || 0,
         lostReason: classifyLostReason(l.lostReason),
         lostTo: l.lostTo || null,

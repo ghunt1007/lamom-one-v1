@@ -1,3 +1,4 @@
+import { carOf } from '../../utils/carLabel.js'
 import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
@@ -68,7 +69,7 @@ export default async function CashFlowPage(container) {
       sales.forEach(s => {
         if (!s.date || !(s.salePrice > 0)) return
         const d = s.date.slice(0, 10)
-        const label = ((s.brand || '') + ' ' + (s.model || '')).trim()
+        const label = carOf(s)
         liveFlows.push({ id: 'CF-' + s.id, date: d, type: 'income', cat: 'vehicle_sale',
           desc: 'ขาย ' + label + (s.salesName ? ' — ' + s.salesName : ''), amount: s.salePrice, _live: true })
         // (v1.0.347) เดิมประมาณต้นทุนที่ 82% ของราคาขายเสมอ ทั้งที่ getSalesData() มี field cost จริงต่อ

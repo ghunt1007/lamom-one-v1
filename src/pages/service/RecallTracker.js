@@ -1,3 +1,4 @@
+import { carOf } from '../../utils/carLabel.js'
 /**
  * Recall Tracker Detail — ติดตาม Recall ต่อ VIN + แจ้งลูกค้า
  * Route: /service/recall-tracker
@@ -16,7 +17,7 @@ import { escHtml } from '../../utils/escape.js'
 // แก้โดยอ่านจาก 'recall_campaigns' ตัวเดียวกันแทน (ดู loadData ด้านล่าง) — mapRecallFields() แปลง field name
 // ให้ตรงกับที่ template ในไฟล์นี้คาดหวัง (campaign/model/issue/announced) จากของจริง (recallNo/brand+model/fixDescription/issueDate)
 function mapRecallFields(r) {
-  return { id: r.id, campaign: r.recallNo || r.id, model: [r.brand, r.model].filter(Boolean).join(' ') || '—', issue: r.fixDescription || '', severity: r.severity || 'medium', announced: r.issueDate || '', deadline: r.deadline || '' }
+  return { id: r.id, campaign: r.recallNo || r.id, model: carOf(r) || '—', issue: r.fixDescription || '', severity: r.severity || 'medium', announced: r.issueDate || '', deadline: r.deadline || '' }
 }
 
 // (v1.0.483) รวมสคีมากับ recall_campaign_vehicles (RecallManagement.js) ตามที่เจ้าของยืนยัน — เดิมเก็บคนละ
@@ -244,7 +245,7 @@ export default async function RecallTrackerPage(container) {
             </button>`).join('') || '<div style="font-size:0.72rem;color:var(--text-muted)">ไม่พบ</div>'
           el.querySelectorAll('.av-pick').forEach(btn => btn.addEventListener('click', () => {
             const b = matches[parseInt(btn.dataset.i)]
-            picked = { vin: b.vin, plate: b.whitePlate || b.vin, model: [b.brand, b.model].filter(Boolean).join(' '), owner: b.custName, phone: b.phone || '' }
+            picked = { vin: b.vin, plate: b.whitePlate || b.vin, model: carOf(b), owner: b.custName, phone: b.phone || '' }
             el.querySelector('#av-picked').textContent = `✅ เลือกแล้ว: ${picked.owner} (${picked.model})`
           }))
         }, 300)

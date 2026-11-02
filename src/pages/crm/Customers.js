@@ -1,3 +1,4 @@
+import { carOf } from '../../utils/carLabel.js'
 // Unified Customer Workspace — merges the old Customers.js + Leads.js into one page/collection.
 // Route: /crm/customers (also aliased from /crm/leads — see router.js)
 // Collection: `customers` — single source of truth, stage-based pipeline (lead → pp → booking → delivered)
@@ -755,7 +756,7 @@ export default async function CustomersPage(container) {
           <span style="font-weight:700;font-size:0.85rem;color:var(--primary)">${escHtml(booking.bookingNo || '')}</span>
           <span style="font-size:0.78rem;font-weight:700;color:var(--accent)">${formatCurrency(booking.price || 0)}</span>
         </div>
-        ${detail('รุ่นรถ', escHtml(`${booking.brand || ''} ${booking.model || ''} ${booking.variant || ''}`.trim() || '-'))}
+        ${detail('รุ่นรถ', escHtml(carOf(booking, true) || '-'))}
         ${detail('สถานะ', escHtml(booking.status || '-'))}
         ${detail('ไฟแนนซ์', escHtml(booking.finStatus || '-'))}
         ${detail('นัดส่งมอบ', formatDate(booking.deliveryDate))}
@@ -823,7 +824,7 @@ export default async function CustomersPage(container) {
           <div class="card" style="padding:8px 12px;display:flex;justify-content:space-between;align-items:center">
             <div>
               <div style="font-size:0.8rem;font-weight:600">${escHtml(j.jobNo || '')}</div>
-              <div style="font-size:0.7rem;color:var(--text-muted)">${escHtml(`${j.brand||''} ${j.model||''}`.trim() || '-')} · ${formatDate(j.createdAt)}</div>
+              <div style="font-size:0.7rem;color:var(--text-muted)">${escHtml(carOf(j) || '-')} · ${formatDate(j.createdAt)}</div>
             </div>
             <span class="badge badge-secondary" style="font-size:0.68rem">${escHtml(j.status || '-')}</span>
           </div>
@@ -990,7 +991,7 @@ export default async function CustomersPage(container) {
     const freq = new Map()
     customers.forEach(c => { const m = String(c.interestedModel || '').trim(); if (m) freq.set(m, (freq.get(m) || 0) + 1) })
     const top = [...freq.entries()].sort((a, b) => b[1] - a[1]).map(([m]) => m).slice(0, 15)
-    return [...new Set([...top, ...getVehicles().map(v => [v.brand, v.model].filter(Boolean).join(' '))])].slice(0, 60)
+    return [...new Set([...top, ...getVehicles().map(v => carOf(v))])].slice(0, 60)
   }
 
   function openForm(existing = null, { onSaved, prefill } = {}) {

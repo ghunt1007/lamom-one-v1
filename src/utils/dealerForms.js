@@ -1,3 +1,4 @@
+import { carOf } from './carLabel.js'
 // (2026-11-02) แบบฟอร์มเอกสารขายรถ ตามตัวอย่างจริงของโชว์รูม (DEEPAL / CHANGAN บางบัวทอง)
 // ทุกแผ่นดึงข้อมูลจากใบจอง + bookings.sale (utils/saleDoc.js) และข้อมูลบริษัทจาก org_companies
 import { printDocument, money, bahtText, esc } from './print.js'
@@ -44,7 +45,7 @@ const CSS = `
 const f = (v, w = 30, cls = '') => `<span class="f ${cls}" style="min-width:${w}mm">${esc(v == null || v === '' ? '' : v)}</span>`
 const n = v => (v === '' || v == null || Number(v) === 0 ? '-' : money(v))
 const nOrBlank = v => (v === '' || v == null ? '' : (isNaN(Number(String(v).replace(/,/g, ''))) ? esc(v) : money(String(v).replace(/,/g, ''))))
-const car = b => [b.brand, b.model].filter(Boolean).join(' ')
+const car = b => carOf(b)
 const today = () => new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10)
 
 // ข้อมูลโชว์รูมตามตัวอย่างเอกสารจริงที่คุณกอล์ฟส่งมา (ข้อมูลบริษัท ไม่ใช่ข้อมูลลูกค้า)
@@ -317,7 +318,7 @@ export const printCommissionSheet = (b, co) => print(commissionSheetHtml(b, co),
 // ── 8. ใบคำขอยกเลิกการสั่งจองรถยนต์ ──
 export function withdrawRequestHtml(b, co, info = {}) {
   const s = saleOf(b), t = saleTotals(b, s)
-  const model = [b.brand, b.model].filter(Boolean).join(' ').toUpperCase()
+  const model = carOf(b).toUpperCase()
   const hit = WITHDRAW_MODELS.find(m => model.includes(m.split(' ').pop()))
   const box = on => `<span class="cb">${on ? '✓' : ''}</span>`
   const approve = (role, wide) => `<td style="vertical-align:top;padding:8px 12px;${wide ? '' : 'width:50%'}" ${wide ? 'colspan="2"' : ''}><u>ความเห็น</u><div class="ln" style="border-bottom:1px dotted #333;height:9mm"></div>${wide ? '' : '<div class="ln" style="border-bottom:1px dotted #333;height:9mm"></div>'}<div style="text-align:center;margin-top:12px">ลงชื่อ.............................................${wide ? role : ''}</div>${wide ? '' : `<div style="text-align:center">(${role})</div>`}</td>`
@@ -329,7 +330,7 @@ export function withdrawRequestHtml(b, co, info = {}) {
     <div class="row"><span>สถานที่ติดต่อ</span>${f(addrLine(s) || b.address, 150, 'l')}</div>
     <div class="row"><span>โทรศัพท์ (บ้าน)</span>${f(s.phoneHome, 34)}<span>(ที่ทำงาน)</span>${f('', 30)}<span>(มือถือ)</span>${f(b.phone, 40)}</div>
     <div class="row"><span style="margin-right:6mm">รถยนต์ รุ่นที่สั่งจอง</span>${WITHDRAW_MODELS.map(m => `<span style="margin-right:6mm">${box(hit === m)}${m}</span>`).join('')}</div>
-    <div class="row" style="margin-left:42mm">${box(!hit)}<span>รุ่นอื่น</span>${f(!hit ? [b.brand, b.model].filter(Boolean).join(' ') : '', 60, 'l')}</div>
+    <div class="row" style="margin-left:42mm">${box(!hit)}<span>รุ่นอื่น</span>${f(!hit ? carOf(b) : '', 60, 'l')}</div>
     <div class="row"><span>แบบรุ่นที่จอง</span>${f(b.variant, 50)}<span>สีที่จอง</span>${f(b.colorOut, 40)}</div>
     <div class="row"><span>โดยได้ชำระเงินมัดจำไว้ จำนวน</span>${f(dep ? money(dep) : '', 34)}<span>บาท (</span>${f(dep ? bahtText(dep) : '', 80)}<span>)</span></div>
     <div class="row"><span>มีความประสงค์ที่จะยกเลิกสัญญาจองรถยนต์ดังกล่าว และขอเงินที่ชำระมัดจำไว้คืน เนื่องจาก</span>${f(info.reason || b.cancelReason || '', 150, 'l')}</div>

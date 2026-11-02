@@ -1,3 +1,4 @@
+import { carOf } from '../../utils/carLabel.js'
 import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
@@ -71,7 +72,7 @@ export default async function FollowUpPage(container) {
             return {
               id: 'FU-' + b.id, customerId: b.id, sourceBookingId: b.id,
               customerName: b.custName || 'ลูกค้า', phone: b.custPhone || b.phone || '',
-              vehicleModel: ((b.brand || '') + ' ' + (b.model || '')).trim() || 'รถ',
+              vehicleModel: carOf(b) || 'รถ',
               salesperson: b.salesName || '', type: 'call',
               purpose: 'หลังส่งมอบรถ', dueDate,
               status: 'pending',
