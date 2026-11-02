@@ -1,10 +1,11 @@
+import { navigate } from '../../core/router.js'
 /**
  * Target vs Actual — เป้าหมาย vs ผลจริง รายเดือน / รายทีม
  * Route: /finance/target-actual
  */
 import { showToast } from '../../core/store.js'
 import { getSalesData, listDocs } from '../../core/db.js'
-import { formatCurrency } from '../../utils/format.js'
+import { formatCurrency, todayBangkok } from '../../utils/format.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { escHtml } from '../../utils/escape.js'
@@ -12,17 +13,17 @@ import { escHtml } from '../../utils/escape.js'
 const MONTH_LABELS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 
 // Default targets when no SalesBudget data
-const DEF_REVENUE = [9000000,8500000,12000000,10000000,13000000,9000000,10000000,11000000,10000000,11000000,13000000,18000000]
-const DEF_UNITS   = [8,7,10,9,11,8,9,10,9,10,11,15]
+// ยังไม่ได้ตั้งเป้า → เป้าเป็น 0 และขึ้นปุ่มให้ไปตั้ง (เดิมใช้ตัวเลขเป้าสมมติ ทำให้ % ถึงเป้าดูเหมือนของจริง)
+const ZERO12 = () => Array(12).fill(0)
 
 // อ่านจาก Firestore collection 'sales_budgets' เดียวกับหน้า Sales Budget — เดิมอ่านจาก localStorage
 // เครื่องเดียวกัน (key ผูกปีตายตัว 'lamom_sales_budget_2025') ทำให้เห็นเป้าคนละชุดกันข้ามเครื่อง/ข้ามปี
 async function loadBudget() {
   try {
-    const docs = await listDocs('sales_budgets', [['year', '==', new Date().getFullYear()], ...companyScopeFilters()], 'createdAt', 'asc', 1)
-    if (docs.length > 0) return { revenue: docs[0].targets || DEF_REVENUE, units: DEF_UNITS }
+    const docs = await listDocs('sales_budgets', [['year', '==', Number(todayBangkok().slice(0, 4))], ...companyScopeFilters()], 'createdAt', 'asc', 1)
+    if (docs.length > 0 && Array.isArray(docs[0].targets)) return { revenue: docs[0].targets, units: Array.isArray(docs[0].units) ? docs[0].units : ZERO12(), set: true }
   } catch {}
-  return { revenue: DEF_REVENUE, units: DEF_UNITS }
+  return { revenue: ZERO12(), units: ZERO12(), set: false }
 }
 
 function pctColor(pct) {
@@ -77,23 +78,13 @@ export default async function TargetActualPage(container) {
           rows[mi].revenueActual += s.salePrice || 0
         }
       })
-    } else {
-      // Demo fallback data
-      const demoUnits  = [10,13,14,17,16,15,0,0,0,0,0,0]
-      const demoRev    = [12100000,15600000,16800000,20400000,19200000,17850000,0,0,0,0,0,0]
-      rows.forEach((r, i) => { r.unitsActual = demoUnits[i]; r.revenueActual = demoRev[i] })
-    }
+    } // ไม่มียอดจริง → ยอดจริงเป็น 0 (เดิมใส่ตัวเลขสมมติ 6 เดือนแรก)
     return rows
   }
 
   // Build per-salesperson data
   function buildByPerson() {
-    if (!allSales.length) return [
-      { name:'อรนุช สายใจ', units:12, revenue:15800000 },
-      { name:'วิชาญ มีโชค', units:8, revenue:9200000 },
-      { name:'น.ส.ปวีณา', units:6, revenue:7100000 },
-      { name:'นาย สมศักดิ์', units:6, revenue:7500000 },
-    ]
+    if (!allSales.length) return [] // ไม่มียอดจริง → ไม่แสดงตัวเลขสมมติ
     const by = {}
     allSales.forEach(s => {
       const n = s.salesperson || s.salesName || 'ไม่ระบุ'
@@ -107,7 +98,10 @@ export default async function TargetActualPage(container) {
   try {
     const sales = await getSalesData().catch(() => [])
     if (container.__routerGen !== myGen) return
-    if (sales.length >= 1) { allSales = sales; dataSource = 'live' }
+    // ปีนี้ (เวลาไทย) เท่านั้น — เป้าเป็นของปีนี้ เดิมรวมยอดทุกปีเข้าเดือนเดียวกัน (ต.ค. ปีก่อน + ต.ค. ปีนี้)
+    const yr = todayBangkok().slice(0, 4)
+    const mine = sales.filter(s => String(s.date || s.bookingDate || '').startsWith(yr))
+    if (mine.length >= 1) { allSales = mine; dataSource = 'live' }
   } catch {}
 
   function render() {
@@ -157,9 +151,9 @@ export default async function TargetActualPage(container) {
                     return `<tr style="border-bottom:1px solid var(--border);cursor:pointer;background:${isSel ? 'var(--surface-2)' : 'transparent'}" class="month-row" data-mi="${i}">
                       <td style="padding:7px 12px;font-weight:${isSel ? '700' : '400'};color:${isSel ? 'var(--primary)' : ''}">${m.label}${isFuture ? ' <span style="font-size:0.6rem;color:var(--text-muted)">(ยังไม่ถึง)</span>' : ''}</td>
                       <td style="padding:7px 8px;text-align:right">${isFuture ? '—' : m.unitsActual}<span style="color:var(--text-muted)">/${m.unitsTarget}</span></td>
-                      <td style="padding:7px 8px;text-align:right">${isFuture ? '' : pctBadge(sp)}</td>
+                      <td style="padding:7px 8px;text-align:right">${isFuture ? '' : (m.unitsTarget ? pctBadge(sp) : '—')}</td>
                       <td style="padding:7px 8px;text-align:right">${isFuture ? '—' : (m.revenueActual/1000000).toFixed(1)}<span style="color:var(--text-muted)">/${(m.revenueTarget/1000000).toFixed(1)}</span></td>
-                      <td style="padding:7px 8px;text-align:right">${isFuture ? '' : pctBadge(rp)}</td>
+                      <td style="padding:7px 8px;text-align:right">${isFuture ? '' : (m.revenueTarget ? pctBadge(rp) : '—')}</td>
                     </tr>`
                   }).join('')}
                 </tbody>
@@ -190,6 +184,7 @@ export default async function TargetActualPage(container) {
       mainContent = `
         <div class="card" style="overflow:hidden">
           <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:0.8rem;font-weight:700;color:var(--text-muted)">👥 ผลรายเซลส์ (สะสมทั้งปี)</div>
+          ${bySales.length ? '' : '<div style="padding:20px;text-align:center;font-size:0.8rem;color:var(--text-muted)">ยังไม่มียอดขายปีนี้</div>'}
           ${bySales.map((p, i) => {
             const pct = Math.round(p.revenue / maxPersonRev * 100)
             return `<div style="padding:12px 14px;border-bottom:1px solid var(--border)">
@@ -260,7 +255,7 @@ export default async function TargetActualPage(container) {
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
-            <div class="page-title">🎯 Target vs Actual</div>
+            <div class="page-title">🎯 เป้า vs ยอดจริง</div>
             <div class="page-subtitle">เป้าหมาย vs ผลจริง รายเดือน / รายเซลส์${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
           </div>
           <div class="page-actions">
@@ -268,11 +263,14 @@ export default async function TargetActualPage(container) {
           </div>
         </div>
 
+        ${budget.set ? '' : `<div class="card" style="padding:12px 14px;margin-bottom:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;border-left:3px solid var(--warning)">
+          <span style="flex:1;min-width:200px;font-size:0.82rem">🎯 ยังไม่ได้ตั้งเป้ายอดขายปีนี้ — ตอนนี้แสดงแค่ยอดจริง</span>
+          <button class="btn btn-sm btn-primary" id="ta-set-budget">ตั้งเป้า</button></div>`}
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
-          ${sc('🚗 ยอดขาย', curM.unitsActual + '/' + curM.unitsTarget + ' คัน', pctColor(sPct))}
-          ${sc('📊 Achievement', sPct + '%', pctColor(sPct))}
+          ${sc('🚗 ยอดขาย ' + MONTH_LABELS[selMonthIdx], curM.unitsActual + (curM.unitsTarget ? '/' + curM.unitsTarget : '') + ' คัน', curM.unitsTarget ? pctColor(sPct) : 'var(--text)')}
+          ${sc('📊 ถึงเป้า (คัน)', curM.unitsTarget ? sPct + '%' : '—', curM.unitsTarget ? pctColor(sPct) : 'var(--text-muted)')}
           ${sc('💰 รายได้จริง', '฿' + (curM.revenueActual/1000000).toFixed(1) + 'M', 'var(--primary)')}
-          ${sc('📊 Revenue %', rPct + '%', pctColor(rPct))}
+          ${sc('📊 ถึงเป้า (รายได้)', curM.revenueTarget ? rPct + '%' : '—', curM.revenueTarget ? pctColor(rPct) : 'var(--text-muted)')}
         </div>
 
         <div style="display:flex;gap:8px;margin-bottom:14px">
@@ -286,6 +284,7 @@ export default async function TargetActualPage(container) {
 
     container.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => { tab = b.dataset.t; render() }))
     container.querySelectorAll('.month-row').forEach(r => r.addEventListener('click', () => { selMonthIdx = parseInt(r.dataset.mi); render() }))
+    document.getElementById('ta-set-budget')?.addEventListener('click', () => navigate('/finance/sales-budget'))
     document.getElementById('export-btn')?.addEventListener('click', () => {
       const monthly = buildMonthly()
       const rows = monthly.map(m => {

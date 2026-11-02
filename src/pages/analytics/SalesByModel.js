@@ -2,7 +2,7 @@
  * Sales By Model — ยอดขายแยกตามรุ่นรถ
  * Route: /analytics/by-model
  */
-import { formatCurrency } from '../../utils/format.js'
+import { formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { getSalesData } from '../../core/db.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -35,7 +35,9 @@ export default async function SalesByModelPage(container) {
   let MODELS = DEMO_MODELS
 
   try {
-    const sales = await getSalesData()
+    // ปีนี้ (เวลาไทย) เท่านั้น — ตารางเป็นรายเดือน ม.ค.–ธ.ค. เดิมรวมยอดทุกปีเข้าเดือนเดียวกัน
+    const yr = todayBangkok().slice(0, 4)
+    const sales = (await getSalesData()).filter(s => String(s.date || s.bookingDate || '').startsWith(yr))
     if (container.__routerGen !== myGen) return
     if (sales.length >= 1) {
       allSales = sales
