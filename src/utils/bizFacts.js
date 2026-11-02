@@ -1,6 +1,6 @@
 import { carOf } from './carLabel.js'
 // ตัวเลขธุรกิจจากใบจอง/ลูกค้าจริง สำหรับให้ LAMI ตอบคำถามผู้จัดการ เช่น "ใครขายเก่งสุดเดือนนี้" "Lead จากไหนปิดได้ดีสุด"
-// ฟังก์ชันล้วน ไม่แตะฐานข้อมูล · ไม่มีชื่อ/เบอร์ลูกค้า (มีแค่ชื่อเซลส์ ซึ่งเป็นข้อมูลภายในทีม)
+// ฟังก์ชันล้วน ไม่แตะฐานข้อมูล · ไม่มีเบอร์/นามสกุลลูกค้า (นัดส่งมอบรายคันใช้แค่ชื่อต้น)
 import { DELIVERED_STATUSES } from './deliveryIncome.js'
 import { bangkokDate, STALE_LEAD_DAYS } from './myDay.js'
 import { classifyLostReason, LOST_REASON_LABELS } from './lostReason.js'
@@ -65,7 +65,7 @@ export function businessFacts({ customers = [], bookings = [] }, today) {
   const byModel = {}
   bk.filter(b => !CANCELLED.includes(b.status) && String(b.bookingDate || bangkokDate(b.createdAt)).slice(0, 10) >= since).forEach(b => {
     const m = String(b.model || '').trim(); if (!m) return
-    const k = b.brand && !m.toUpperCase().includes(String(b.brand).toUpperCase()) ? `${b.brand} ${m}` : m
+    const k = carOf(b)
     byModel[k] = (byModel[k] || 0) + 1
   })
   const modelLine = Object.entries(byModel).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, n]) => `${k} ${n}`).join(' · ')
@@ -73,6 +73,14 @@ export function businessFacts({ customers = [], bookings = [] }, today) {
   const in7 = new Date(t0 + 7 * DAY).toISOString().slice(0, 10)
   const due = open.map(b => String(b.deliveryDate || '').slice(0, 10)).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d))
   const late = due.filter(d => d < today).length, soon = due.filter(d => d >= today && d <= in7).length
+  // รายคัน (ชื่อต้นลูกค้า + รุ่น + วัน + สถานะ + เซลส์) — ให้ตอบ "สัปดาห์นี้ส่งมอบใครบ้าง" ได้ ไม่ส่งเบอร์/นามสกุล
+  const first = n => String(n || 'ลูกค้า').trim().split(/\s+/)[0]
+  const dueList = open.map(b => ({ b, d: String(b.deliveryDate || '').slice(0, 10) })).filter(x => x.d >= today && x.d <= in7)
+    .sort((x, y) => x.d.localeCompare(y.d)).slice(0, 10)
+    .map(({ b, d }) => `${d === today ? 'วันนี้' : d} · ${first(b.custName)} · ${carOf(b) || 'ไม่ระบุรุ่น'}${b.status ? ` · ${b.status}` : ''}${b.salesName ? ` · เซลส์ ${b.salesName}` : ''}`).join('\n')
+  const lateList = open.map(b => ({ b, d: String(b.deliveryDate || '').slice(0, 10) })).filter(x => /^\d{4}-\d{2}-\d{2}$/.test(x.d) && x.d < today)
+    .sort((x, y) => x.d.localeCompare(y.d)).slice(0, 8)
+    .map(({ b, d }) => `นัด ${d} (เลยมา ${Math.round((t0 - Date.parse(d + 'T00:00:00Z')) / DAY)} วัน) · ${first(b.custName)} · ${carOf(b) || 'ไม่ระบุรุ่น'}${b.status ? ` · ${b.status}` : ''}${b.salesName ? ` · เซลส์ ${b.salesName}` : ''}`).join('\n')
   // จังหวะเดือนนี้ → คาดการณ์สิ้นเดือน + เป้าแนะนำ (เฉลี่ย 3 เดือนก่อน +10%) — ให้ตอบ "เดือนนี้จะได้กี่คัน ถึงเป้าไหม"
   const dayN = +today.slice(8, 10), dim = new Date(Date.UTC(+ym.slice(0, 4), +ym.slice(5, 7), 0)).getUTCDate()
   const nowB = booked(ym).length, p3 = [pm, prevMonth(pm), prevMonth(prevMonth(pm))]
@@ -91,6 +99,8 @@ export function businessFacts({ customers = [], bookings = [] }, today) {
   const quietLine = Object.entries(quiet).sort((a, b) => (b[1].n - a[1].n) || (b[1].max - a[1].max)).slice(0, 12).map(([k, v]) => `${k} ${v.n} ราย (นานสุด ${v.max} วัน)`).join(' · ')
   return {
     ...(late || soon ? { 'กำหนดส่งมอบ (ใบจองที่ยังไม่ส่ง)': `เลยกำหนดแล้ว ${late} คัน · ภายใน 7 วันข้างหน้า ${soon} คัน` } : {}),
+    ...(dueList ? { 'นัดส่งมอบ 7 วันข้างหน้า (รายคัน)': dueList } : {}),
+    ...(lateList ? { 'เลยกำหนดส่งมอบแล้ว (เก่าสุดก่อน สูงสุด 8 คัน)': lateList } : {}),
     ...(modelLine ? { 'รุ่นที่ถูกจองมากสุด 90 วันล่าสุด': modelLine } : {}),
     'ใบจองเดือนนี้ (จากระบบจองรถ)': `จอง ${booked(ym).length} ใบ (เดือนก่อน ${booked(pm).length}) · ส่งมอบ/ตัดตัวเลข ${delivered(ym).length} คัน (เดือนก่อน ${delivered(pm).length})${cancelled ? ` · ถอนจองเดือนนี้ ${cancelled}` : ''}`,
     ...(perLine ? { 'ผลงานรายเซลส์เดือนนี้': perLine } : {}),

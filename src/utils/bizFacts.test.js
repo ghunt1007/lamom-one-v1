@@ -118,3 +118,16 @@ describe('testDriveFacts', () => {
     expect(testDriveFacts([], today)['นัดทดลองขับ 7 วันข้างหน้า']).toBe('ยังไม่มีนัด')
   })
 })
+
+describe('businessFacts upcoming deliveries', () => {
+  it('lists open bookings due in the next 7 days with first name only', () => {
+    const bookings = [
+      { custName: 'มานี ใจดี', brand: 'AION', model: 'AION V', status: 'รอส่งมอบ', salesName: 'เอ', bookingDate: '2026-10-01', deliveryDate: '2026-10-28' },
+      { custName: 'ปิติ', model: 'S07', status: 'รอรถ', bookingDate: '2026-10-01', deliveryDate: '2026-10-26' },
+      { custName: 'ไกล', model: 'S05', status: 'รอรถ', bookingDate: '2026-10-01', deliveryDate: '2026-11-20' },
+      { custName: 'เสร็จ', model: 'S05', status: 'ส่งมอบแล้ว', bookingDate: '2026-10-01', deliveryDate: '2026-10-27' },
+    ]
+    const f = businessFacts({ customers: [], bookings }, '2026-10-26')
+    expect(f['นัดส่งมอบ 7 วันข้างหน้า (รายคัน)']).toBe('วันนี้ · ปิติ · S07 · รอรถ\n2026-10-28 · มานี · AION V · รอส่งมอบ · เซลส์ เอ')
+  })
+})
