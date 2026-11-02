@@ -193,7 +193,7 @@ export const NAV = [
       { icon: '📋', label: 'เคลมประกันภัย', labelEn: 'Claims', path: '/insurance/claims' },
       { icon: '⚖️', label: 'เทียบประกันภัย', labelEn: 'Compare', path: '/insurance/compare' },
       { icon: '🏅', label: 'ส่วนลดประวัติดี (NCB)', labelEn: 'No-Claim Bonus', path: '/insurance/ncb' },
-      { icon: '📋', label: 'กรมธรรม์', labelEn: 'Policy Management', path: '/insurance/policy' },
+      { icon: '📋', label: 'กรมธรรม์ & เคลม', labelEn: 'Policies & Claims', path: '/insurance/policy' },
     ]
   },
   {
@@ -201,8 +201,8 @@ export const NAV = [
     items: [
       { icon: '📣', label: 'ภาพรวมการตลาด', labelEn: 'Marketing', path: '/marketing' },
       { icon: '🎯', label: 'เป้าแคมเปญรายเดือน', path: '/marketing/monthly-goals' },
-      { icon: '🎯', label: 'แคมเปญ', labelEn: 'Campaigns', path: '/marketing/campaigns' },
-      { icon: '📱', label: 'โซเชียลมีเดีย', labelEn: 'Social Hub', path: '/marketing/social' },
+      { icon: '🎯', label: 'แคมเปญ & โปรโมชั่น', labelEn: 'Campaigns & Promotions', path: '/marketing/campaigns' },
+      { icon: '📱', label: 'โซเชียล & คอนเทนต์', labelEn: 'Social & Content', path: '/marketing/social' },
       { icon: '🎪', label: 'อีเวนต์', labelEn: 'Events', path: '/marketing/events' },
       { icon: '🧲', label: 'หา Lead', labelEn: 'Lead Generation', path: '/marketing/leads' },
       { icon: '📅', label: 'ปฏิทินคอนเทนต์', labelEn: 'Content Calendar', path: '/marketing/content' },
@@ -262,7 +262,7 @@ export const NAV = [
     group: 'ฝึกอบรม', groupEn: 'Training', groupZh: '培训',
     items: [
       { icon: '🎓', label: 'ภาพรวมการอบรม', labelEn: 'Training', path: '/training' },
-      { icon: '📚', label: 'หลักสูตร', labelEn: 'Courses', labelZh: '课程', path: '/training/courses' },
+      { icon: '📚', label: 'หลักสูตร & ทดสอบ', labelEn: 'Courses & Quizzes', labelZh: '课程', path: '/training/courses' },
       { icon: '📊', label: 'ความคืบหน้าการอบรม', labelEn: 'Training Progress', path: '/training/progress' },
       { icon: '🏆', label: 'ใบรับรอง', labelEn: 'Certification', path: '/training/certification' },
       { icon: '📝', label: 'แบบทดสอบ', labelEn: 'Training Quiz', path: '/training/quiz' },
@@ -276,7 +276,7 @@ export const NAV = [
     group: 'เกมมิฟิเคชัน', groupEn: 'Gamification', groupZh: '游戏化激励',
     items: [
       { icon: '🎮', label: 'ภาพรวมการแข่งขัน', labelEn: 'Gamification', path: '/gamification' },
-      { icon: '🏆', label: 'อันดับยอดขาย', labelEn: 'Leaderboard', path: '/gamification/leaderboard' },
+      { icon: '🏆', label: 'อันดับ & รางวัล', labelEn: 'Leaderboard & Rewards', path: '/gamification/leaderboard' },
       { icon: '🏅', label: 'เหรียญรางวัล', labelEn: 'Badges', path: '/gamification/badges' },
       { icon: '🎯', label: 'ภารกิจท้าทาย', labelEn: 'Challenges', path: '/gamification/challenges' },
       { icon: '🎁', label: 'แลกรางวัล', labelEn: 'Reward Store', path: '/gamification/rewards' },
@@ -317,10 +317,10 @@ export const NAV = [
     group: 'เอกสาร', groupEn: 'Documents', groupZh: '文档',
     items: [
       { icon: '📄', label: 'ภาพรวมเอกสาร', labelEn: 'Document Studio', path: '/documents' },
-      { icon: '🗂️', label: 'คลังเอกสาร', labelEn: 'Document Library', labelZh: '文档库', path: '/documents/library' },
+      { icon: '🗂️', label: 'คลังเอกสาร & สัญญา', labelEn: 'Library & Contracts', labelZh: '文档库', path: '/documents/library' },
       { icon: '📜', label: 'สัญญา', labelEn: 'Contracts', path: '/documents/contracts' },
       { icon: '📑', label: 'แม่แบบเอกสาร', labelEn: 'Templates', path: '/documents/templates' },
-      { icon: '📝', label: 'สร้างแบบฟอร์ม', labelEn: 'Form Builder', path: '/documents/form-builder' },
+      { icon: '📝', label: 'แบบฟอร์ม & เช็กลิสต์', labelEn: 'Forms & Checklists', path: '/documents/form-builder' },
       { icon: '✅', label: 'เช็กลิสต์', labelEn: 'Checklist Engine', path: '/documents/checklist' },
     ]
   },
@@ -346,10 +346,10 @@ export const NAV = [
     items: [
       { icon: '💬', label: 'ภาพรวมการสื่อสาร', labelEn: 'Comm Hub', path: '/comms' },
       { icon: '📬', label: 'กล่องข้อความ', labelEn: 'Inbox', path: '/comms/inbox' },
-      { icon: '📢', label: 'ส่งข้อความกลุ่ม', labelEn: 'Broadcast', path: '/comms/broadcast' },
+      { icon: '📢', label: 'ส่งข้อความ', labelEn: 'Messaging', path: '/comms/broadcast' },
       { icon: '📱', label: 'SMS การตลาด', labelEn: 'SMS Marketing', path: '/comms/sms' },
       { icon: '💬', label: 'ข้อความสำเร็จรูป', labelEn: 'Chat Templates', path: '/comms/templates' },
-      { icon: '☎️', label: 'บันทึกการโทร', labelEn: 'Call Log', path: '/comms/calls' },
+      { icon: '☎️', label: 'บันทึกการโทร & ประชุม', labelEn: 'Calls & Meetings', path: '/comms/calls' },
       { icon: '⚡', label: 'กฎส่งต่อเรื่อง', labelEn: 'Escalation Rules', path: '/comms/escalation' },
       { icon: '📋', label: 'บันทึกการประชุม', labelEn: 'Meeting Minutes', path: '/comms/meetings' },
     ]
@@ -358,12 +358,12 @@ export const NAV = [
     group: 'คุณภาพ', groupEn: 'Quality', groupZh: '质量',
     items: [
       { icon: '📋', label: 'คุณภาพและ PDPA', labelEn: 'Quality & PDPA', path: '/quality' },
-      { icon: '📖', label: 'ขั้นตอนมาตรฐาน (SOP)', labelEn: 'SOP', path: '/quality/sop' },
+      { icon: '📖', label: 'มาตรฐาน & กฎหมาย', labelEn: 'Standards & Compliance', path: '/quality/sop' },
       { icon: '✅', label: 'การปฏิบัติตามกฎ', labelEn: 'Compliance', path: '/quality/compliance' },
       { icon: '⚖️', label: 'กฎหมายที่เกี่ยวข้อง', labelEn: 'Legal Reference', labelZh: '法规参考', path: '/quality/legal-reference' },
       { icon: '⭐', label: 'ความพึงพอใจ', labelEn: 'Satisfaction', path: '/quality/satisfaction' },
       { icon: '🔍', label: 'ตารางตรวจสอบ', labelEn: 'Audit Schedule', path: '/quality/audit-schedule' },
-      { icon: '🚨', label: 'รายงานเหตุการณ์', labelEn: 'Incident Report', path: '/quality/incidents' },
+      { icon: '🚨', label: 'เหตุการณ์ & ซ่อมบำรุง', labelEn: 'Incidents & Upkeep', path: '/quality/incidents' },
       { icon: '🔒', label: 'ความยินยอม PDPA', labelEn: 'PDPA Consent', path: '/quality/pdpa' },
       { icon: '🧹', label: 'ตรวจ 5ส', labelEn: '5S Audit', path: '/quality/5s' },
       { icon: '🔧', label: 'ซ่อมบำรุงอุปกรณ์', labelEn: 'Equipment Maint.', path: '/quality/maintenance' },
@@ -373,10 +373,10 @@ export const NAV = [
     group: 'B2B & Partner', groupEn: 'B2B & Partner', groupZh: 'B2B 与合作伙伴',
     items: [
       { icon: '🤝', label: 'ภาพรวมลูกค้าองค์กร', labelEn: 'B2B Portal', path: '/b2b' },
-      { icon: '🏢', label: 'จัดการฟลีต', labelEn: 'Fleet Management', path: '/b2b/fleet' },
+      { icon: '🏢', label: 'ฟลีต & ลีสซิ่ง', labelEn: 'Fleet & Leasing', path: '/b2b/fleet' },
       { icon: '🚙', label: 'ลีสซิ่ง', labelEn: 'Leasing', path: '/b2b/leasing' },
       { icon: '🤝', label: 'พันธมิตร', labelEn: 'Partners', path: '/b2b/partners' },
-      { icon: '📄', label: 'ใบเสนอราคาองค์กร', labelEn: 'Corporate Quotes', path: '/b2b/quotes' },
+      { icon: '📄', label: 'ใบเสนอราคา & ประมูล', labelEn: 'Quotes & Bidding', path: '/b2b/quotes' },
       { icon: '🚌', label: 'ใบเสนอราคาฟลีต', labelEn: 'Fleet Quote', path: '/b2b/fleet-quote' },
       { icon: '🤝', label: 'ค่าคอมพันธมิตร', labelEn: 'Partner Commission', path: '/b2b/partner-commission' },
       { icon: '🏛', label: 'ประมูลงานราชการ', labelEn: 'Gov Bidding', path: '/b2b/gov-bidding' },
