@@ -7,6 +7,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { renderKeepFocus } from '../../utils/keepFocus.js'
 
 function myName() {
   const me = getState('user') || {}
@@ -49,7 +50,7 @@ export default async function KnowledgeBasePage(container) {
       .sort((a, b) => b.views - a.views)
     const totalViews = articles.reduce((a, x) => a + x.views, 0)
 
-    container.innerHTML = `
+    renderKeepFocus(container, `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
@@ -98,7 +99,7 @@ export default async function KnowledgeBasePage(container) {
           ${list.length === 0 ? '<div style="text-align:center;color:var(--text-muted);padding:30px;font-size:0.85rem">🔍 ไม่พบบทความ — ลองคำค้นอื่น</div>' : ''}
         </div>
       </div>
-    `
+    `)
 
     document.getElementById('search-input')?.addEventListener('input', e => { search = e.target.value.toLowerCase(); renderPage() })
     container.querySelectorAll('.cf-btn').forEach(b => b.addEventListener('click', () => { catFilter = b.dataset.c; renderPage() }))

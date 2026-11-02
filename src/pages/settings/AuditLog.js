@@ -8,6 +8,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs } from '../../core/db.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { renderKeepFocus } from '../../utils/keepFocus.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -65,7 +66,7 @@ export default async function AuditLogPage(container) {
     const today = logs.filter(l => (l.ts || '').startsWith(addDays(0))).length
     const highRisk = logs.filter(l => ['delete','reject'].includes(l.action)).length
 
-    container.innerHTML = `
+    renderKeepFocus(container, `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
@@ -126,7 +127,7 @@ export default async function AuditLogPage(container) {
         </div>
         <div style="font-size:0.75rem;color:var(--text-muted);margin-top:8px;text-align:right">แสดง ${list.length} จาก ${logs.length} รายการ</div>
       </div>
-    `
+    `)
 
     document.getElementById('user-search')?.addEventListener('input', e => { userFilter = e.target.value; renderPage() })
     document.getElementById('action-sel')?.addEventListener('change', e => { actionFilter = e.target.value; renderPage() })

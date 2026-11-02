@@ -8,6 +8,7 @@ import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { renderKeepFocus } from '../../utils/keepFocus.js'
 // createDoc นำเข้าไว้แล้วสำหรับ pdpa_dsr_requests เดิม — ใช้เพิ่มเติมกับ pdpa_consents ด้านล่าง (ดูปุ่ม "➕ เพิ่มลูกค้าในทะเบียน")
 
 function escHtml(s) {
@@ -75,7 +76,7 @@ export default async function PdpaConsentPage(container) {
     const pendingDsr = requests.filter(r => r.status !== 'done').length
     const urgentDsr = requests.filter(r => r.status !== 'done' && r.deadline <= addDays(7))
 
-    container.innerHTML = `
+    renderKeepFocus(container, `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
@@ -158,7 +159,7 @@ export default async function PdpaConsentPage(container) {
         </div>
         <p style="font-size:0.7rem;color:var(--text-muted);margin-top:6px;padding-left:4px">💡 คลิก ✅/❌ เพื่อบันทึกการเปลี่ยนความยินยอม (ต้องมีหลักฐานจากลูกค้า) · "แจ้งเตือนบริการ" เป็นฐานสัญญา ถอนไม่ได้</p>
       </div>
-    `
+    `)
 
     document.getElementById('search-input')?.addEventListener('input', e => { search = e.target.value.toLowerCase(); renderPage() })
     container.querySelectorAll('.consent-toggle:not([disabled])').forEach(b => b.addEventListener('click', async () => {

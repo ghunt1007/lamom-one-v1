@@ -8,6 +8,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs, softDelete } from '../../core/db.js'
 import { confirmDialog } from '../../utils/modal.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { renderKeepFocus } from '../../utils/keepFocus.js'
 
 function addDays(n) {
   const [y, m, d] = todayBangkok().split('-').map(Number)
@@ -44,7 +45,7 @@ export default async function ErrorLogPage(container) {
     const today = logs.filter(l => toBangkokDateStr(l.createdAt) === addDays(0)).length
     const affectedUsers = new Set(logs.map(l => l.userName)).size
 
-    container.innerHTML = `
+    renderKeepFocus(container, `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
@@ -95,7 +96,7 @@ export default async function ErrorLogPage(container) {
         `}
         <div style="font-size:0.75rem;color:var(--text-muted);margin-top:8px;text-align:right">แสดง ${list.length} จาก ${logs.length} รายการ</div>
       </div>
-    `
+    `)
 
     document.getElementById('search-inp')?.addEventListener('input', e => { search = e.target.value; renderPage() })
     document.getElementById('export-btn')?.addEventListener('click', () => {

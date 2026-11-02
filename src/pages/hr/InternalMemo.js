@@ -14,6 +14,7 @@ import { db } from '../../core/firebase.js'
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore'
 import { printDocument, docHeader, docFooter, esc as pesc } from '../../utils/print.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { renderKeepFocus } from '../../utils/keepFocus.js'
 
 const HANDLER_ROLES = ['hr', 'manager', 'admin', 'owner']
 
@@ -119,7 +120,7 @@ export default async function InternalMemoPage(container) {
       .sort((a, b) => (b.time || '').localeCompare(a.time || ''))
     const unreadIssues = memos.filter(m => m.readBy < m.totalStaff)
 
-    container.innerHTML = `
+    renderKeepFocus(container, `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
@@ -171,7 +172,7 @@ export default async function InternalMemoPage(container) {
           ${!list.length ? `<div class="empty-state"><div class="empty-icon">📄</div><div class="empty-title">ไม่มีบันทึกข้อความ</div></div>` : ''}
         </div>
       </div>
-    `
+    `)
 
     document.getElementById('memo-search')?.addEventListener('input', e => { search = e.target.value; renderPage() })
     container.querySelectorAll('.print-btn').forEach(b => b.addEventListener('click', () => {

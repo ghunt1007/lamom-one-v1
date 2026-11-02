@@ -23,6 +23,7 @@ import { openSheetReconcile } from '../../utils/sheetReconcileModal.js'
 import { readBookingSheet, planBookingImport, newBookingDoc, newCustomerDoc, companyForBrand, brandCompanyMap } from '../../utils/bookingImport.js'
 import { bookingNextStep, bookingNextAction } from '../../utils/bookingNext.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { renderKeepFocus } from '../../utils/keepFocus.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -514,7 +515,7 @@ export default async function BookingsPage(container) {
     const sellerOpts = `<option value="">ทุกเซลล์</option>` + getSalesStaff().map(s => `<option value="${escHtml(s)}" ${s === sellerFilter ? 'selected' : ''}>${escHtml(s)}</option>`).join('')
     const brandOpts = `<option value="">🏷️ ทุกแบรนด์</option>` + [...new Set([...BRANDS, ...detectedBrands])].map(br => `<option value="${escHtml(br)}" ${br === brandFilter ? 'selected' : ''}>${BRAND_ICONS[br] || '🏷️'} ${escHtml(br)}</option>`).join('')
 
-    container.innerHTML = `
+    renderKeepFocus(container, `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
@@ -561,7 +562,7 @@ export default async function BookingsPage(container) {
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding:0 2px">${brandKpi}</div>
         ${bulkBar}
         <div id="bk-content"></div>
-      </div>`
+      </div>`)
 
     renderTable(filtered)
 
