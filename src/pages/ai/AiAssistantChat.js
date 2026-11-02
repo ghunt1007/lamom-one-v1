@@ -1,3 +1,4 @@
+import { recordFacts } from '../../utils/recordFacts.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, softDelete, seedDemoData, getSalesData } from '../../core/db.js'
 import { confirmDialog } from '../../utils/modal.js'
@@ -68,6 +69,7 @@ export default async function AiAssistantChatPage(container) {
   let welcomeStats = {} // ตัวเลขจริงบนการ์ดต้อนรับ (งานค้างของฉัน / Hot Lead)
   let loading = true
   let businessContext = {}
+  let chatBookings = [], chatFollowups = [] // ใบจอง/นัดที่ผู้ใช้คนนี้เห็นได้ — ใช้ตอบเรื่องลูกค้ารายคน (recordFacts)
   let chatCustomers = [] // ลูกค้าที่ผู้ใช้คนนี้มีสิทธิ์เห็น — ใช้ทำปุ่มโทร/นัดลองขับใต้คำตอบ (ไม่ส่งให้ AI)
 
   // (v1.0.428) หน้านี้มีปุ่มคำถามสำเร็จรูปตรงกับหัวข้อธุรกิจจริง (ยอดขาย/สต็อก/Hot Lead/ค้างชำระ/CSAT/ช่าง/
@@ -130,6 +132,8 @@ export default async function AiAssistantChatPage(container) {
         const vis = await getVisibilityScope().catch(() => null)
         const canSee = c => !!vis && (vis.unrestricted || vis.companyOnly || scopeIncludesRecord(vis, c.assignedTo, c))
         chatCustomers = customers.filter(c => !c.deleted && canSee(c))
+        chatBookings = bookings.filter(b => !b.deleted && !!vis && (vis.unrestricted || vis.companyOnly || scopeIncludesRecord(vis, b.salesName, b)))
+        chatFollowups = followups
         const best = open.filter(canSee).map(c => ({ c, v: dealValue(c, vs, cache), s: heuristicScore(c).score }))
           .sort((a, b) => b.v * b.s - a.v * a.s).slice(0, 6)
         if (best.length) businessContext['ดีลที่น่าปิดที่สุด (มูลค่า × โอกาสปิด)'] = best.map(({ c, v, s }) => {
@@ -213,7 +217,7 @@ export default async function AiAssistantChatPage(container) {
         ${cards.map(([icon, title, sub, q]) => `<button class="card cat-btn" data-q="${esc(q)}" style="padding:14px;cursor:pointer;text-align:left;border:1px solid var(--border);display:flex;gap:10px;align-items:flex-start;color:var(--text)">
           <span style="font-size:1.4rem">${icon}</span><span style="min-width:0"><b style="font-size:0.88rem">${title}</b><br><span style="font-size:0.74rem;color:var(--text-muted)">${sub}</span></span></button>`).join('')}
       </div>
-      <div style="font-size:0.76rem;color:var(--text-3);margin-top:14px;line-height:1.6">⚡ สั่งงานได้ด้วย เช่น พิมพ์ <b>“นัดลองขับ${esc(chatCustomers.find(c => ['lead', 'pp'].includes(c.stage) && !c.isLost && c.firstName)?.firstName || 'สมชาย')}พรุ่งนี้บ่าย 2”</b> แล้วกดปุ่มใต้คำตอบ ระบบเปิดฟอร์มกรอกให้ครบ</div></div>`
+      <div style="font-size:0.76rem;color:var(--text-3);margin-top:14px;line-height:1.6">⚡ สั่งงานได้ด้วย เช่น พิมพ์ <b>“นัดลองขับ${esc(chatCustomers.find(c => ['lead', 'pp'].includes(c.stage) && !c.isLost && c.firstName)?.firstName || 'สมชาย')}พรุ่งนี้บ่าย 2”</b> แล้วกดปุ่มใต้คำตอบ ระบบเปิดฟอร์มกรอกให้ครบ<br>👤 ถามเรื่องลูกค้ารายคนได้ เช่น <b>“${esc(chatCustomers.find(c => c.firstName)?.firstName || 'สมชาย')}ถึงไหนแล้ว”</b> หรือพิมพ์เลขใบจอง/เบอร์โทร LAMI ตอบจากสถานะจริง</div></div>`
   }
 
   function typingHtml() {
@@ -294,7 +298,10 @@ export default async function AiAssistantChatPage(container) {
         const recent = [text, ...messages.filter(m => m.role === 'user').slice(-3, -1).map(m => m.text)].join(' ')
         let cat = ''
         try { cat = catalogContext(recent, getVehicles()) } catch {}
-        const raw = await askLami(text, history, { ...businessContext, ...(cat ? { 'ข้อมูลรถ': cat } : {}), 'รูปแบบท้ายคำตอบ': NEXT_Q_HINT })
+        // ถามถึงลูกค้า/ใบจองรายคน (ชื่อ เลขใบจอง เบอร์) → แนบสถานะจริงของคนนั้น (ไม่ส่งเบอร์/เลขบัตรให้ AI)
+        let rec = {}
+        try { rec = recordFacts(recent, { customers: chatCustomers, bookings: chatBookings, followups: chatFollowups }, todayBangkok()) } catch {}
+        const raw = await askLami(text, history, { ...businessContext, ...rec, ...(cat ? { 'ข้อมูลรถ': cat } : {}), 'รูปแบบท้ายคำตอบ': NEXT_Q_HINT })
         const { text: answer, next } = splitFollowups(raw)
         try { await createDoc('chat_ai_assistant', { role:'ai', text: answer, next, time:now(), uid }) } catch (e) {}
       } catch (err) {

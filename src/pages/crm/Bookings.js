@@ -441,6 +441,8 @@ export default async function BookingsPage(container) {
   function deliveryCell(b, inline = false) {
     if (!b.deliveryDate) return '<span style="color:var(--text-muted);opacity:.5">—</span>'
     if (b.status === 'ส่งมอบแล้ว') return `<span style="color:var(--success)">${formatDate(b.deliveryDate)}</span>`
+    // ใบจองที่ถอน/ยกเลิกแล้ว ไม่ต้องนับถอยหลังวันส่งมอบ (เดิมขึ้น "อีก 6 วัน" ทั้งที่ลูกค้าถอนไปแล้ว)
+    if (['ถอนจอง', 'ยกเลิก'].includes(b.status)) return `<span style="color:var(--text-muted);text-decoration:line-through">${formatDate(b.deliveryDate)}</span>`
     const diff = dayDiff(b.deliveryDate)
     const clr = diff < 0 ? 'var(--danger)' : diff <= 3 ? 'var(--warning)' : 'var(--success)'
     const lbl = diff < 0 ? `เลย ${Math.abs(diff)} วัน` : diff === 0 ? 'วันนี้!' : `อีก ${diff} วัน`
