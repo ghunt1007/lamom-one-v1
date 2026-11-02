@@ -1146,6 +1146,7 @@ export default async function CustomersPage(container) {
             ${hasSpeechInput() ? '<button type="button" class="btn btn-ghost btn-sm" id="cust-search-mic" title="พูดชื่อ/เบอร์ที่ต้องการหา" style="position:absolute;right:4px;top:50%;transform:translateY(-50%)">🎤</button>' : ''}
           </div>
           <div id="cust-smart" style="display:none;order:99;flex-basis:100%;font-size:0.76rem;color:var(--text-3);line-height:1.9"></div>
+          <button type="button" class="btn btn-ghost btn-sm cust-ftoggle" id="cust-ftoggle" title="ผู้ดูแล · ที่มา · เรียงลำดับ · นัด">⚙️ ตัวกรอง<span id="cust-fcount"></span></button>
           <select class="input" id="cust-sales-filter" style="width:auto;min-width:140px" title="กรองตามผู้ดูแล">
             <option value="">👤 ผู้ดูแล</option>
             <option value="__none">⚠️ ยังไม่มีผู้ดูแล</option>
@@ -1315,6 +1316,13 @@ export default async function CustomersPage(container) {
   document.getElementById('cust-search').addEventListener('input', e => { search = e.target.value.trim().toLowerCase(); applyFilter() })
   // พูดแทนพิมพ์ในช่องค้นหา (มือถือ) — แทนที่คำค้นเดิม แล้วกรองทันที
   bindMic(document.getElementById('cust-search-mic'), document.getElementById('cust-search'), { replace: true })
+  // มือถือ: ตัวกรอง 4 ช่องซ่อนไว้หลังปุ่ม ⚙️ (ช่องค้นหาและรายชื่อขึ้นมาอยู่ในจอแรก) — ตัวเลขบนปุ่มบอกว่าเปิดตัวกรองไว้กี่อัน
+  const fCount = () => {
+    const n = ['cust-sales-filter', 'cust-source-filter', 'cust-fu-filter'].filter(id => document.getElementById(id)?.value).length + (document.getElementById('cust-sort')?.value !== 'urgent' ? 1 : 0)
+    const el = document.getElementById('cust-fcount'); if (el) el.textContent = n ? ` (${n})` : ''
+  }
+  document.getElementById('cust-ftoggle')?.addEventListener('click', () => document.querySelector('.cust-filters')?.classList.toggle('cf-open'))
+  ;['cust-sales-filter', 'cust-source-filter', 'cust-sort', 'cust-fu-filter'].forEach(id => document.getElementById(id)?.addEventListener('change', fCount))
   document.getElementById('cust-sales-filter').addEventListener('change', e => { salesFilter = e.target.value; applyFilter() })
   document.getElementById('cust-source-filter').addEventListener('change', e => { sourceFilter = e.target.value; applyFilter() })
   document.getElementById('cust-sort').addEventListener('change', e => { sortMode = e.target.value; applyFilter() })
