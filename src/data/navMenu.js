@@ -327,6 +327,7 @@ export const NAV = [
   {
     group: 'AI & งาน', groupEn: 'AI & Tasks', groupZh: 'AI 与任务',
     items: [
+      { icon: '💬', label: 'ถาม LAMI', labelEn: 'Ask LAMI', path: '/ai/ask' },
       { icon: '💫', label: 'ผู้ช่วยส่วนตัว', labelEn: 'Personal Assistant', labelZh: '个人助理', path: '/ai/personal' },
       { icon: '🤖', label: 'ทีมผู้ช่วย AI', labelEn: 'AI Officers', path: '/ai' },
       { icon: '🧠', label: 'สมอง LAMI', labelEn: 'LAMI Brain', path: '/ai/lami' },
@@ -334,7 +335,6 @@ export const NAV = [
       { icon: '🔮', label: 'ข้อสังเกตจาก AI', labelEn: 'AI Insights', path: '/ai/insights' },
       { icon: '💲', label: 'แนะนำราคา (AI)', labelEn: 'Pricing Advisor', path: '/ai/pricing' },
       { icon: '🧠', label: 'ให้คะแนน Lead', labelEn: 'Lead Scoring', path: '/ai/lead-scoring' },
-      { icon: '💬', label: 'ถาม LAMI', labelEn: 'Ask LAMI', path: '/ai/ask' },
       { icon: '🎯', label: 'แนะนำขายเพิ่ม (AI)', labelEn: 'Upsell AI', path: '/ai/upsell' },
       { icon: '✅', label: 'งานที่ต้องทำ', labelEn: 'Tasks', path: '/tasks' },
       { icon: '📅', label: 'ปฏิทินงาน', labelEn: 'Calendar', labelZh: '日历', path: '/calendar' },

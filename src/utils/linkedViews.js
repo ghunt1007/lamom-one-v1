@@ -8,6 +8,10 @@ export const LINKED_VIEWS = [
   [{ path: '/service/warranty', label: '🛡 การรับประกัน' }, { path: '/service/warranty-claim', label: '📋 เคลมประกัน' }, { path: '/service/warranty-expiry', label: '⏳ ใกล้หมดประกัน' }],
   [{ path: '/finance/payroll', label: '💳 เงินเดือน' }, { path: '/finance/payroll-detail', label: '🧾 สลิปรายคน' }],
   [{ path: '/finance/commission', label: '🏆 ค่าคอม' }, { path: '/finance/commission-rules', label: '⚙️ กฎค่าคอม' }],
+  // (2026-11-02) หน้า AI 7 หน้า รวมเป็นเมนูเดียว "ถาม LAMI" — สลับมุมมองด้วยแท็บ
+  [{ path: '/ai/ask', label: '💬 ถาม LAMI' }, { path: '/ai/lami', label: '🧠 สมอง LAMI' }, { path: '/ai/insights', label: '🔮 ข้อสังเกต' },
+    { path: '/ai/sales-coach', label: '🎯 โค้ชการขาย' }, { path: '/ai/lead-scoring', label: '📈 คะแนน Lead' },
+    { path: '/ai/upsell', label: '➕ ขายเพิ่ม' }, { path: '/ai/pricing', label: '💲 แนะนำราคา' }],
   [{ path: '/marketing/leads', label: '🧲 แคมเปญหา Lead' }, { path: '/marketing/lead-sources', label: '📊 แหล่งที่มา Lead' }],
 ]
 
@@ -47,7 +51,7 @@ export function initViewTabs({ navigate, canOpen = () => true } = {}) {
     const header = main.querySelector('.page-header')
     if (!header) return
     const div = document.createElement('div')
-    div.className = 'view-tabs'
+    div.className = 'view-tabs' + ((html.match(/data-view=/g) || []).length > 3 ? ' many' : '')
     div.setAttribute('role', 'tablist')
     div.dataset.for = window.location.pathname
     div.innerHTML = html
