@@ -1,4 +1,4 @@
-import { formatCurrency, toDateStr } from '../../utils/format.js'
+import { formatCurrency, toDateStr, todayBangkok } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getSalesData, listDocs } from '../../core/db.js'
@@ -7,15 +7,6 @@ import { kpi } from '../../utils/kpiCard.js'
 
 const MONTHS_TH = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 
-// Historical actuals ตัวอย่าง (ครึ่งปีแรก) — ใช้เป็น placeholder เท่านั้นก่อนมีข้อมูลจริงจากใบจอง
-const ACTUALS = [
-  { month: 0, units: 0,  revenue: 0,  leads: 0,  conversion: 0 },
-  { month: 0, units: 0,  revenue: 0,  leads: 0,  conversion: 0 },
-  { month: 0, units: 0, revenue: 0, leads: 0,  conversion: 0 },
-  { month: 0, units: 0,  revenue: 0, leads: 0,  conversion: 0 },
-  { month: 0, units: 0, revenue: 0, leads: 0,  conversion: 0 },
-  { month: 0, units: 0,  revenue: 0,  leads: 0,  conversion: 0 },
-]
 
 // Simple moving-average forecast for remaining months
 function calcForecast(actuals, growthRate) {
@@ -53,10 +44,13 @@ const SCENARIOS = {
 
 export default async function SalesForecastPage(container) {
   const myGen = container.__routerGen
-  const YEAR = new Date().getFullYear()
+  // ปี/เดือนตามเวลาไทย · ข้อมูลจริง = เดือนที่จบแล้วของปีนี้ (ม.ค. ถึงเดือนก่อน) ครบทุกเดือน แม้เดือนนั้นจะเป็น 0
+  // (เดิมรวมยอดทุกปีไว้ในเดือนเดียวกัน เช่น ต.ค. ปีก่อน + ต.ค. ปีนี้ และข้ามเดือนที่ไม่มียอด ทำให้เดือนพยากรณ์เลื่อนผิด)
+  const YEAR = Number(todayBangkok().slice(0, 4))
+  const NOW_M = Number(todayBangkok().slice(5, 7)) - 1
   let scenario = 'base'
   let viewMetric = 'revenue'
-  let actuals = [...ACTUALS]
+  let actuals = Array.from({ length: NOW_M }, (_, m) => ({ month: m, units: 0, revenue: 0, leads: 0, conversion: 0 }))
   let dataSource = 'demo'
   let annualTarget = 0
 
@@ -69,11 +63,11 @@ export default async function SalesForecastPage(container) {
     if (container.__routerGen !== myGen) return
     // softDelete() ไม่ลบเอกสารจริง แค่ตั้ง deleted:true — กรองออกกันลูกค้าที่ลบไปแล้วปนในพยากรณ์ยอดขาย
     const customers = customersRaw.filter(x => !x.deleted)
-    const byMonth = {}
+    const byMonth = Object.fromEntries(actuals.map(a => [a.month, a]))
     sales.forEach(s => {
+      if (String(s.date || '').slice(0, 4) !== String(YEAR)) return
       const mo = parseInt((s.date || '').slice(5, 7)) - 1
-      if (isNaN(mo) || mo < 0 || mo > 11) return
-      if (!byMonth[mo]) byMonth[mo] = { month: mo, units: 0, revenue: 0, leads: 0, conversion: 0 }
+      if (isNaN(mo) || !byMonth[mo]) return
       byMonth[mo].units++
       byMonth[mo].revenue += s.salePrice || 0
     })
@@ -82,15 +76,12 @@ export default async function SalesForecastPage(container) {
     // AnalyticsDashboard.js ใช้ดึง Lead จริงจากคอลเลกชัน customers)
     customers.forEach(c => {
       const d = toDateStr(c.stageChangedAt || c.createdAt)
+      if (d.slice(0, 4) !== String(YEAR)) return
       const mo = parseInt(d.slice(5, 7), 10) - 1
-      if (mo >= 0 && mo < 12 && byMonth[mo]) byMonth[mo].leads++
+      if (byMonth[mo]) byMonth[mo].leads++
     })
-    const real = Object.values(byMonth).sort((a, b) => a.month - b.month)
-    if (real.length >= 2) {
-      real.forEach(d => { d.conversion = parseFloat((d.units / Math.max(d.leads || d.units * 8, 1) * 100).toFixed(1)) })
-      actuals = real
-      dataSource = 'live'
-    }
+    actuals.forEach(d => { d.conversion = d.leads ? parseFloat((d.units / d.leads * 100).toFixed(1)) : 0 })
+    if (actuals.some(d => d.units)) dataSource = 'live'
   } catch {}
 
   // ดึงเป้ายอดขายรายปีจริงจาก sales_budgets (ถ้ามี) แทนตัวเลขเป้าที่ hardcode ไว้ตายตัว
@@ -119,9 +110,9 @@ export default async function SalesForecastPage(container) {
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
-            <div class="page-title">🔮 Sales Forecast</div>
-            <div class="page-subtitle">พยากรณ์ยอดขาย ${YEAR} — Moving Average + Seasonality
-              ${dataSource === 'live' ? '<span style="font-size:0.72rem;color:var(--success);margin-left:8px">● ข้อมูลจริงจากใบจอง</span>' : '<span style="font-size:0.72rem;color:var(--text-muted);margin-left:8px">Demo</span>'}
+            <div class="page-title">🔮 พยากรณ์ยอดขาย</div>
+            <div class="page-subtitle">ปี ${YEAR + 543} — เฉลี่ย 3 เดือนล่าสุดที่จบแล้ว × ฤดูกาลตลาดรถ
+              ${dataSource === 'live' ? '<span style="font-size:0.72rem;color:var(--success);margin-left:8px">● ข้อมูลจริงจากใบจอง</span>' : '<span style="font-size:0.72rem;color:var(--text-muted);margin-left:8px">ยังไม่มียอดปีนี้</span>'}
             </div>
           </div>
           <div class="page-actions">
@@ -131,10 +122,10 @@ export default async function SalesForecastPage(container) {
 
         <!-- KPIs -->
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
-          ${kpi('💰 ยอดจริงครึ่งปีแรก', formatCurrency(actualRevTotal), 'success')}
-          ${kpi('🔮 คาดการณ์ครึ่งปีหลัง', formatCurrency(forecastRevTotal), sc.color)}
+          ${kpi(actuals.length ? `💰 ยอดจริง ม.ค.–${MONTHS_TH[actuals.length - 1]}` : '💰 ยอดจริงปีนี้', formatCurrency(actualRevTotal), 'success')}
+          ${kpi(`🔮 คาดการณ์ ${MONTHS_TH[actuals.length] || ''}–ธ.ค.`, formatCurrency(forecastRevTotal), sc.color)}
           ${kpi('📅 รวมทั้งปี', formatCurrency(yearTotal), 'primary')}
-          ${kpi('🚗 คาดคัน H2', forecastUnits + ' คัน', sc.color)}
+          ${kpi('🚗 คาดคัน (ที่เหลือของปี)', forecastUnits + ' คัน', sc.color)}
         </div>
 
         <!-- Scenario selector -->
@@ -154,7 +145,7 @@ export default async function SalesForecastPage(container) {
         <div class="card" style="padding:16px;margin-bottom:16px">
           <div style="font-weight:700;font-size:0.88rem;margin-bottom:14px">
             📊 พยากรณ์ ${viewMetric === 'revenue' ? 'รายได้' : viewMetric === 'units' ? 'จำนวนคัน' : 'Leads'} รายเดือน
-            <span style="font-size:0.72rem;font-weight:400;color:var(--text-muted);margin-left:8px">■ Actual &nbsp; ░ Forecast</span>
+            <span style="font-size:0.72rem;font-weight:400;color:var(--text-muted);margin-left:8px">■ ยอดจริง &nbsp; ░ คาดการณ์</span>
           </div>
           <div style="display:flex;align-items:flex-end;gap:4px;height:160px;border-bottom:1px solid var(--border);padding-bottom:8px">
             ${allMonths.map(d => {
@@ -194,11 +185,11 @@ export default async function SalesForecastPage(container) {
                 const avgDeal = d.units ? Math.round(d.revenue / d.units) : 0
                 const conv = d.isForecast ? (d.leads ? (d.units / d.leads * 100).toFixed(1) : '—') : d.conversion.toFixed(1)
                 return `<tr style="${d.isForecast ? 'opacity:0.8' : ''}">
-                  <td style="font-weight:600">${MONTHS_TH[d.month]} ${YEAR}</td>
+                  <td style="font-weight:600">${MONTHS_TH[d.month]} ${YEAR + 543}</td>
                   <td>
                     ${d.isForecast
-                      ? `<span class="badge badge-${sc.color}" style="font-size:0.65rem">${sc.icon} Forecast</span>`
-                      : `<span class="badge badge-primary" style="font-size:0.65rem">✅ Actual</span>`}
+                      ? `<span class="badge badge-${sc.color}" style="font-size:0.65rem">${sc.icon} คาดการณ์</span>`
+                      : `<span class="badge badge-primary" style="font-size:0.65rem">✅ ยอดจริง</span>`}
                   </td>
                   <td class="text-right" style="font-weight:${d.isForecast ? 400 : 700}">${d.units}</td>
                   <td class="text-right" style="color:var(--${d.isForecast ? sc.color : 'success'});font-weight:600">${formatCurrency(d.revenue)}</td>
@@ -210,7 +201,7 @@ export default async function SalesForecastPage(container) {
             </tbody>
             <tfoot>
               <tr style="background:var(--surface-2)">
-                <td colspan="2" style="font-weight:800;padding:10px 12px">รวมทั้งปี ${YEAR}</td>
+                <td colspan="2" style="font-weight:800;padding:10px 12px">รวมทั้งปี ${YEAR + 543}</td>
                 <td class="text-right" style="font-weight:800">${yearUnits} คัน</td>
                 <td class="text-right" style="font-weight:800;color:var(--success)">${formatCurrency(yearTotal)}</td>
                 <td class="text-right" style="font-size:0.83rem">${formatCurrency(yearUnits ? Math.round(yearTotal / yearUnits) : 0)}</td>
@@ -243,10 +234,10 @@ export default async function SalesForecastPage(container) {
     document.getElementById('export-btn')?.addEventListener('click', () => {
       const forecast = calcForecast(actuals, SCENARIOS[scenario].growth)
       exportToExcel([...actuals, ...forecast].map(d => ({
-        เดือน: MONTHS_TH[d.month] + ' ' + YEAR,
-        ประเภท: d.isForecast ? 'Forecast' : 'Actual',
+        เดือน: MONTHS_TH[d.month] + ' ' + (YEAR + 543),
+        ประเภท: d.isForecast ? 'คาดการณ์' : 'ยอดจริง',
         คัน: d.units, รายได้: d.revenue, Leads: d.leads
-      })), `sales_forecast_${new Date().getFullYear()}`)
+      })), `sales_forecast_${YEAR}`)
       showToast('📥 Export แล้ว!', 'success')
     })
   }
