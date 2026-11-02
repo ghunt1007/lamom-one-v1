@@ -1,5 +1,6 @@
 // Firestore helpers — thin wrapper with offline demo support
 import { db } from './firebase.js'
+import { trackPageWatcher } from './pageWatchers.js'
 import {
   collection, doc, addDoc, setDoc, updateDoc, deleteDoc,
   getDoc, getDocs, query, where, orderBy, limit, startAfter,
@@ -439,12 +440,13 @@ export function watchDocs(colName, filters = [], sortBy = 'createdAt', sortDir =
   let q = collection(db, colName)
   const constraints = [...filters.map(([f, op, v]) => where(f, op, v)), orderBy(sortBy, sortDir), limit(effectiveLimit(colName, maxDocs))]
   q = query(q, ...constraints)
-  return onSnapshot(q, snap => {
+  // ปิดอัตโนมัติเมื่อเปลี่ยนหน้า (router เรียก stopPageWatchers) — หน้าเรียก unsub เองซ้ำได้ ไม่เป็นไร
+  return trackPageWatcher(onSnapshot(q, snap => {
     callback(snap.docs.map(d => ({ id: d.id, ...d.data() })))
   }, err => {
     console.error('[watchDocs]', colName, err)
     callback([]) // แจ้ง [] แทนการปล่อยให้ผู้เรียกที่รอ snapshot แรกค้างตลอดไป (เช่น permission denied)
-  })
+  }))
 }
 
 // Demo mode ถูกลบออกจากระบบแล้ว (2026-07-23) — seedDemoData() คงไว้เป็น no-op เฉยๆ เพราะยังมี
