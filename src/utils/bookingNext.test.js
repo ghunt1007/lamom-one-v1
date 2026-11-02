@@ -28,3 +28,21 @@ describe('bookingNextStep', () => {
     expect(bookingNextStep({ status: 'อะไรสักอย่าง' }, today)).toBe(null)
   })
 })
+
+import { bookingNextAction } from './bookingNext.js'
+describe('bookingNextAction', () => {
+  const t = '2026-10-31'
+  it('gives one tap for the next step', () => {
+    expect(bookingNextAction({ status: 'ผ่านไฟแนนซ์รอจอง' }, t).key).toBe('print:contract')
+    expect(bookingNextAction({ status: 'จัดไฟแนนซ์ก่อนจอง' }, t).key).toBe('finance')
+    expect(bookingNextAction({ status: 'ซื้อสดรอเบิกรถ', vin: 'X' }, t).key).toBe('print:joborder')
+    expect(bookingNextAction({ status: 'ซื้อสดรอเบิกรถ' }, t).key).toBe('edit')
+    expect(bookingNextAction({ status: 'รอส่งมอบ', deliveryDate: '2026-11-01' }, t).key).toBe('print:delivery')
+    expect(bookingNextAction({ status: 'รอส่งมอบ', deliveryDate: '2026-11-20' }, t).key).toBe('print:expense')
+    expect(bookingNextAction({ status: 'รอรถ', deliveryDate: '2026-10-20' }, t).key).toBe('edit')
+  })
+  it('has nothing for finished or waiting bookings', () => {
+    expect(bookingNextAction({ status: 'ส่งมอบแล้ว' }, t)).toBe(null)
+    expect(bookingNextAction({ status: 'รอรถ' }, t)).toBe(null)
+  })
+})
