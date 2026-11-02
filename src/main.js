@@ -11,7 +11,7 @@ import { applyMode, applyUi, loadUi } from './utils/appearance.js'
 import { seedDemoData } from './core/db.js'
 import { loadVehicleOverrides } from './data/vehicleDatabase.js'
 import { loadMasterData } from './data/masterData.js'
-import { loadWhiteLabel, postLoginRoute } from './core/whiteLabel.js'
+import { loadWhiteLabel, postLoginRoute, roleHomeRoute } from './core/whiteLabel.js'
 import { initSessionTimeout, destroySessionTimeout } from './utils/sessionTimeout.js'
 import { Sidebar } from './components/layout/Sidebar.js'
 import { Topbar } from './components/layout/Topbar.js'
@@ -85,7 +85,7 @@ function canOpenPath(path) {
 async function bootstrapShell() {
   // seed demo data (lazy chunk) + โหลด vehicle catalog overrides + master data ให้เสร็จก่อน initRouter — กัน race หน้าแรกอ่านข้อมูลว่าง
   const [, , , brand] = await Promise.all([seedDemoData(), loadVehicleOverrides(), loadMasterData(), loadWhiteLabel()])
-  const landing = postLoginRoute(brand, window.location.pathname)
+  const landing = postLoginRoute(brand, window.location.pathname) || roleHomeRoute(getState('user')?.role, window.location.pathname, canOpenPath)
   if (landing) window.history.replaceState({}, '', landing)
   app.innerHTML = ''
   app.className = 'app-layout'
