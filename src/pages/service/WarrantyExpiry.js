@@ -2,7 +2,7 @@
  * Warranty Expiry Tracker — ติดตามวันหมดประกันรายคัน
  * Route: /service/warranty-expiry
  */
-import { formatDate, formatCurrency } from '../../utils/format.js'
+import { formatDate, formatCurrency, daysFromToday } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, seedDemoData } from '../../core/db.js'
@@ -12,9 +12,7 @@ import { escHtml } from '../../utils/escape.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
 
-function daysLeft(endDate) {
-  return Math.round((new Date(endDate) - new Date()) / 86400000)
-}
+const daysLeft = endDate => daysFromToday(endDate)
 
 // เดิมหน้านี้อ่าน collection 'warranty_expiry_vehicles' ของตัวเองแยกจาก WarrantyManagement.js โดยสิ้นเชิง —
 // เป็นข้อมูล seed ตายตัว ไม่มีจุดไหนเขียนจริงเข้า collection นี้เลย (ไม่ sync กับใบจองที่ส่งมอบจริง/ประกันที่

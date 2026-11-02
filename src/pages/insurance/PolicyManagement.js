@@ -5,13 +5,11 @@
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
-import { todayBangkok } from '../../utils/format.js'
+import { todayBangkok, daysFromToday } from '../../utils/format.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 
-function daysLeft(endDate) {
-  return Math.round((new Date(endDate) - new Date()) / 86400000)
-}
+const daysLeft = endDate => daysFromToday(endDate)
 
 function statusBadge(s) {
   const m = { active:{l:'มีผล',c:'var(--success)'}, expiring:{l:'ใกล้หมด',c:'var(--warning)'}, expired:{l:'หมดอายุ',c:'var(--danger)'} }
