@@ -82,7 +82,7 @@ export default async function FollowUpPage(container) {
               salesperson: b.salesName || '', type: 'call',
               purpose: 'หลังส่งมอบรถ', dueDate,
               status: 'pending',
-              note: 'ส่งมอบแล้ว ' + (deliveryDate || '') + ' — ตรวจสอบความพึงพอใจ 7 วัน',
+              note: 'ส่งมอบแล้ว ' + (deliveryDate ? formatDate(deliveryDate) : '') + ' — ตรวจสอบความพึงพอใจ 7 วัน',
               result: '', _source: 'booking',
             }
           })

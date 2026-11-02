@@ -9,6 +9,7 @@ import { isProgramOwner } from '../../core/hierarchy.js'
 import { scheduleTestDriveFollowup } from '../../utils/testDriveFollowup.js'
 import { testDriveThanks } from '../../utils/bookingNotify.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { copyText } from '../../utils/copyText.js'
 
 // (v1.0.523) เดิมหน้านี้เขียน collection แยก 'test_drive_records' ของตัวเอง ในขณะที่ TestDriveScheduler.js
 // (/dms/testdrive-schedule) เขียน collection 'test_drives' คนละตัวโดยสิ้นเชิง — ทำระบบเดียวกัน (นัด→ทดลองขับ→
@@ -285,7 +286,7 @@ export default async function TestDrivePage(container) {
     })
     el.querySelector('#tdt-skip').addEventListener('click', close)
     el.querySelector('#tdt-copy').addEventListener('click', async () => {
-      try { await navigator.clipboard.writeText(el.querySelector('#td-thanks').value); showToast('📋 คัดลอกแล้ว', 'success'); close() } catch { showToast('คัดลอกไม่สำเร็จ — กดค้างที่ข้อความแล้วคัดลอกเอง', 'warning') }
+      if (await copyText(el.querySelector('#td-thanks').value, '📋 คัดลอกแล้ว', 'คัดลอกไม่สำเร็จ — กดค้างที่ข้อความแล้วคัดลอกเอง')) close()
     })
   }
 

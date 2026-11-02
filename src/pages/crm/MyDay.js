@@ -23,6 +23,7 @@ import { buildBatchNudgePrompt, parseBatchNudgeReply } from '../../utils/salesAi
 import { revisitMessage } from '../../utils/bookingNotify.js'
 import { classifyLostReason } from '../../utils/lostReason.js'
 import { openReplan, bookingTotal } from '../../utils/replanModal.js'
+import { copyText } from '../../utils/copyText.js'
 
 const NUDGE_MAX = 8
 const SECTION_PREVIEW = 5
@@ -201,7 +202,7 @@ export default async function MyDayPage(container) {
     }).join('')
     body.querySelectorAll('.nd-copy').forEach(b => b.addEventListener('click', async () => {
       const t = body.querySelector(`.nd-msg[data-i="${b.dataset.i}"]`)?.value || ''
-      try { await navigator.clipboard.writeText(t); showToast('📋 คัดลอกแล้ว วางใน LINE ได้เลย', 'success') } catch { showToast('คัดลอกไม่สำเร็จ — กดค้างที่ข้อความแล้วคัดลอกเอง', 'warning') }
+      await copyText(t, '📋 คัดลอกแล้ว วางใน LINE ได้เลย', 'คัดลอกไม่สำเร็จ — กดค้างที่ข้อความแล้วคัดลอกเอง')
     }))
     body.querySelectorAll('.nd-sent').forEach(b => b.addEventListener('click', async () => {
       const c = list[Number(b.dataset.i) - 1]
@@ -366,7 +367,7 @@ export default async function MyDayPage(container) {
       })
       el.querySelector('#rv-close').addEventListener('click', close)
       el.querySelector('#rv-copy').addEventListener('click', async () => {
-        try { await navigator.clipboard.writeText(el.querySelector('#rv-msg').value); showToast('📋 คัดลอกแล้ว ส่งแล้วกด ✅ ติดต่อแล้ว', 'success'); close() } catch { showToast('คัดลอกไม่สำเร็จ — กดค้างที่ข้อความแล้วคัดลอกเอง', 'warning') }
+        if (await copyText(el.querySelector('#rv-msg').value, '📋 คัดลอกแล้ว ส่งแล้วกด ✅ ติดต่อแล้ว', 'คัดลอกไม่สำเร็จ — กดค้างที่ข้อความแล้วคัดลอกเอง')) close()
       })
     }))
     $$('.md-replan').forEach(btn => btn.addEventListener('click', () => {

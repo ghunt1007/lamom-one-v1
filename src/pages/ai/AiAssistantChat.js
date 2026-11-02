@@ -16,6 +16,7 @@ import { formatAiText } from '../../utils/aiFormat.js'
 import { pageLinksFor } from '../../utils/aiPageLinks.js'
 import { customerActionsFor } from '../../utils/aiActions.js'
 import { navigate } from '../../core/router.js'
+import { copyText } from '../../utils/copyText.js'
 
 function esc(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
@@ -354,7 +355,7 @@ export default async function AiAssistantChatPage(container) {
     container.querySelectorAll('.chat-copy').forEach(b => b.addEventListener('click', async () => {
       const m = messages[+b.dataset.i]
       if (!m) return
-      try { await navigator.clipboard.writeText(m.text); showToast('📋 คัดลอกแล้ว', 'success') } catch { showToast('คัดลอกไม่สำเร็จ', 'error') }
+      await copyText(m.text, '📋 คัดลอกแล้ว', 'คัดลอกไม่สำเร็จ')
     }))
     document.getElementById('send-btn')?.addEventListener('click', () => send(document.getElementById('chat-input')?.value || ''))
     document.getElementById('chat-input')?.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(e.target.value) } })

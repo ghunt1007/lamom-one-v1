@@ -6,6 +6,7 @@
 // ฟังก์ชันล้วน ไม่แตะฐานข้อมูล
 import { mentionedCustomers } from './aiActions.js'
 import { bookingNextStep } from './bookingNext.js'
+import { formatDate } from './format.js'
 
 const STAGE_TH = { lead: 'Lead', pp: 'Prospect (กำลังคุย)', booking: 'จองแล้ว', delivered: 'ส่งมอบแล้ว' }
 const TEMP_TH = { hot: 'ร้อน (พร้อมซื้อ)', warm: 'อุ่น', cold: 'เย็น' }
@@ -21,11 +22,10 @@ const ymd = v => {
   if (typeof v.seconds === 'number') return new Date(v.seconds * 1000).toISOString().slice(0, 10)
   return ''
 }
-const TH_MON = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+// วันที่แบบไทยใช้ formatDate ตัวเดียวกับทั้งแอป (ไม่เขียนสูตรซ้ำ)
 export function thaiDate(d) {
   const s = ymd(d)
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return ''
-  return `${+s.slice(8, 10)} ${TH_MON[+s.slice(5, 7) - 1]} ${+s.slice(0, 4) + 543}`
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? formatDate(s) : ''
 }
 function relDays(d, today) {
   const a = dayNum(d), b = dayNum(today)

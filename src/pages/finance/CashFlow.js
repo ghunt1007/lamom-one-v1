@@ -1,4 +1,4 @@
-import { formatCurrency, todayBangkok } from '../../utils/format.js'
+import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
@@ -223,7 +223,7 @@ export default async function CashFlowPage(container) {
                 const cat = allCats[f.cat]
                 const isIncome = f.type === 'income'
                 return `<tr>
-                  <td style="font-size:0.8rem;white-space:nowrap">${escHtml(f.date)}</td>
+                  <td style="font-size:0.8rem;white-space:nowrap">${formatDate(f.date)}</td>
                   <td><span class="badge badge-${cat?.color||'secondary'}" style="font-size:0.68rem">${cat?.label||escHtml(f.cat)}</span></td>
                   <td style="font-size:0.83rem">${escHtml(f.desc)}${f._manual ? '' : (f._live ? ' <span style="color:var(--text-muted);font-size:0.68rem">(ใบจอง)</span>' : ' <span style="color:var(--text-muted);font-size:0.68rem">(demo)</span>')}</td>
                   <td class="text-right" style="color:var(--success)">${isIncome ? formatCurrency(f.amount) : ''}</td>
