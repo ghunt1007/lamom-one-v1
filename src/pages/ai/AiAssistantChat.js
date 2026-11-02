@@ -303,7 +303,11 @@ export default async function AiAssistantChatPage(container) {
         const { text: answer, next } = splitFollowups(raw)
         try { await createDoc('chat_ai_assistant', { role:'ai', text: answer, next, time:now(), uid }) } catch (e) {}
       } catch (err) {
-        try { await createDoc('chat_ai_assistant', { role:'ai', text: '⚠️ ' + aiErrorText(err), time:now(), uid }) } catch (e) {}
+        // (v1.0.923) AI ตอบไม่ได้ (เน็ตหลุด/โควต้าเต็ม) แต่คำถามเอ่ยถึงลูกค้า/ใบจอง → ยังเห็นข้อมูลจริงจากระบบทันที ไม่ใช่แค่ข้อความ error
+        let facts = ''
+        try { facts = Object.values(recordFacts(text, { customers: chatCustomers, bookings: chatBookings, followups: chatFollowups }, todayBangkok()))[0] || '' } catch {}
+        const fallback = '⚠️ ' + aiErrorText(err) + (facts ? '\n\nข้อมูลจากระบบตอนนี้:\n' + facts : '')
+        try { await createDoc('chat_ai_assistant', { role:'ai', text: fallback, time:now(), uid }) } catch (e) {}
       } finally {
         waiting = false
         await loadData()
