@@ -1,5 +1,6 @@
 import { setState, getState, showToast } from './store.js'
 import { getModuleForPath, hasModuleAccess, loadRolePermissions } from './permissions.js'
+import { stopPageWatchers } from './pageWatchers.js'
 
 const routes = {
   '/':              () => import('../pages/Dashboard.js'),
@@ -605,6 +606,7 @@ async function render(appEl) {
   }
 
   if (currentCleanup) { currentCleanup(); currentCleanup = null }
+  stopPageWatchers()
 
   const loader = routes[path] || routes['/']
   try {
