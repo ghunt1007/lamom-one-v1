@@ -709,8 +709,12 @@ export default async function DashboardPage(container) {
                  revenue: monthStats(bookings, m).value }
       })
       const FC = 3
-      const fCounts = linForecast(data.map(d => d.total), FC)
-      const fRevs = linForecast(data.map(d => d.revenue), FC)
+      // เดือนนี้ยังไม่จบ → คิดแนวโน้มจากเดือนที่จบแล้วเท่านั้น (ไม่ให้เดือนที่เพิ่งผ่านไปไม่กี่วันดึงเส้นพยากรณ์ลง)
+      const partialNow = selectedMonth === todayBangkok().slice(0, 7)
+      const fit = partialNow ? data.slice(0, -1) : data
+      const fc = arr => partialNow ? linForecast(arr, FC + 1).slice(1) : linForecast(arr, FC)
+      const fCounts = fc(fit.map(d => d.total))
+      const fRevs = fc(fit.map(d => d.revenue))
       const fMonths = [...Array(FC)].map((_, j) => shiftMonth(selectedMonth, j + 1))
       const nGroups = trendRange + FC
       const maxTotal = Math.max(...data.map(d => d.total), ...fCounts, 1)
@@ -1085,7 +1089,11 @@ export default async function DashboardPage(container) {
     function renderForecast() {
       const el = document.getElementById('forecast-body')
       if (!el) return
-      const hist = [...Array(6)].map((_, i) => shiftMonth(selectedMonth, i - 5)).map(m => {
+      // เดือนนี้ยังไม่จบ → ใช้ 6 เดือนที่จบแล้ว (ถึงเดือนก่อน) แล้วพยากรณ์เดือนนี้ — เดิมนับเดือนนี้ที่เพิ่งผ่านไปไม่กี่วันรวมด้วย
+      // แนวโน้มเลยดิ่ง (ต้นเดือนขึ้น "ขาลง" ทุกครั้ง) และพยากรณ์ต่ำเกินจริง
+      const histEnd = selectedMonth === todayBangkok().slice(0, 7) ? shiftMonth(selectedMonth, -1) : selectedMonth
+      const fcMonth = shiftMonth(histEnd, 1)
+      const hist = [...Array(6)].map((_, i) => shiftMonth(histEnd, i - 5)).map(m => {
         const st = monthStats(bookings, m)
         return { m, count: st.booked, revenue: st.value }
       })
@@ -1132,7 +1140,7 @@ export default async function DashboardPage(container) {
       const rowStyle = 'display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border-subtle);font-size:0.78rem'
       el.innerHTML = `
         <div style="${rowStyle}">
-          <span style="color:var(--text-muted)">📅 ${ymLabel(shiftMonth(selectedMonth, 1))} (คาดการณ์)</span>
+          <span style="color:var(--text-muted)">📅 ${ymLabel(fcMonth)} (คาดการณ์)</span>
           <b style="color:var(--info);font-variant-numeric:tabular-nums">≈ ${Math.round(fcCount)} คัน</b>
         </div>
         <div style="${rowStyle}">
@@ -1156,7 +1164,7 @@ export default async function DashboardPage(container) {
           <b style="color:var(--warning);font-variant-numeric:tabular-nums">${formatCurrency(outstanding)}</b>
         </div>
         ${runRate}
-        <div style="font-size:0.62rem;color:var(--text-muted);margin-top:8px">* พยากรณ์จาก linear regression ยอดจองจริง 6 เดือนล่าสุด</div>`
+        <div style="font-size:0.62rem;color:var(--text-muted);margin-top:8px">* คำนวณจากแนวโน้มยอดจองจริง 6 เดือนที่จบแล้ว</div>`
     }
 
     // ── อันดับรุ่นขายดี + สุดยอดเซลส์ ของเดือนที่เลือก ──
