@@ -963,6 +963,20 @@ export default async function BookingsPage(container) {
     if (pre && pre.salesName && !getSalesStaff().includes(pre.salesName)) w.salesName = (getSalesStaff().includes(myDisplayName) ? myDisplayName : getSalesStaff()[0]) || pre.salesName
     const bkNo = newBookingNo()
     const stepLabels = ['ข้อมูลลูกค้า', 'ราคา & รุ่น', 'ไฟแนนซ์', 'ยืนยัน']
+    // (v1.0.915) พิมพ์เบอร์ที่ตรงกับลูกค้าในระบบ → เชื่อมลูกค้าเดิมให้เอง (ไม่ต้องกด 🔍 ค้นหา และสถานะลูกค้าเปลี่ยนเป็น "จองแล้ว" อัตโนมัติ)
+    let wzCustomers = null
+    listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 1000).then(rows => { wzCustomers = rows.filter(c => !c.deleted) }).catch(() => { wzCustomers = [] })
+    const phoneKey = p => String(p || '').replace(/\D/g, '')
+    function autoLinkByPhone() {
+      if (w.customerId || !wzCustomers) return null
+      const k = phoneKey(w.phone)
+      if (k.length < 9) return null
+      const hits = wzCustomers.filter(c => phoneKey(c.phone) === k)
+      if (hits.length !== 1) return null
+      w.customerId = hits[0].id
+      if (!w.custName) w.custName = `${hits[0].firstName || ''} ${hits[0].lastName || ''}`.trim()
+      return hits[0]
+    }
 
     function total() { return (Number(w.price) || 0) - (Number(w.discount) || 0) + (Number(w.accessories) || 0) }
     function commission() { return Math.round(total() * 0.03) }
@@ -1060,6 +1074,7 @@ export default async function BookingsPage(container) {
       m.el.querySelector('#wz-full')?.addEventListener('click', () => { m.close(); openForm() })
       m.el.querySelector('#wz-next')?.addEventListener('click', () => {
         readStep()
+        if (step === 1) { const linked = autoLinkByPhone(); if (linked) showToast(`🔗 เชื่อมกับลูกค้าเดิม ${linked.firstName || ''} ${linked.lastName || ''}`.trim(), 'success') }
         if (step === 1 && !w.custName) { showToast('กรุณาใส่ชื่อลูกค้า', 'error'); return }
         if (step === 2 && !w.model) { showToast('กรุณาเลือกรุ่นรถ', 'error'); return }
         if (step === 3 && !w.bookingDeposit && !w.rightsOnly) { const e = m.el.querySelector('#wz-deposit-e'); if (e) e.textContent = '⚠️ กรุณาระบุจำนวนเงินจอง (หรือติ๊ก "จองสิทธิ์" หากยังไม่จ่าย)'; return }

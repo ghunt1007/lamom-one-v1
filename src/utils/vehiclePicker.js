@@ -14,6 +14,14 @@ function priceStr(p) {
   return p >= 1000000 ? (p / 1000000).toFixed(2) + ' ล.' : (p / 1000).toFixed(0) + 'K'
 }
 
+// (v1.0.915) ยี่ห้อที่โชว์รูมขายจริงขึ้นก่อน (เดิมเรียงตามฐานข้อมูล รายการแรกเป็น Toyota) — ตรงกับ BRANDS หน้าใบจอง
+const DEALER_BRANDS = ['deepal', 'aion', 'omoda', 'jaecoo', 'suzuki', 'nissan']
+export function dealerRank(brand) {
+  const b = String(brand || '').toLowerCase()
+  const i = DEALER_BRANDS.findIndex(d => b.includes(d))
+  return i < 0 ? DEALER_BRANDS.length : i
+}
+
 export function pickVehicle(onPick) {
   let q = '', brand = ''
 
@@ -22,7 +30,7 @@ export function pickVehicle(onPick) {
       if (brand && v.brand !== brand) return false
       if (q) { const s = q.toLowerCase(); return (v.brand + ' ' + v.model + ' ' + v.variant).toLowerCase().includes(s) }
       return true
-    })
+    }).map((v, i) => ({ v, i, r: dealerRank(v.brand) })).sort((a, b) => a.r - b.r || a.i - b.i).map(x => x.v)
   }
 
   function rows() {
@@ -40,7 +48,7 @@ export function pickVehicle(onPick) {
   }
 
   function brandOpts() {
-    return '<option value="">ทุกยี่ห้อ</option>' + getBrands().map(b => '<option value="' + b + '">' + b + '</option>').join('')
+    return '<option value="">ทุกยี่ห้อ</option>' + [...getBrands()].sort((a, b) => dealerRank(a) - dealerRank(b)).map(b => '<option value="' + b + '">' + b + '</option>').join('')
   }
 
   const body = '<div style="font-size:0.82rem">' +
