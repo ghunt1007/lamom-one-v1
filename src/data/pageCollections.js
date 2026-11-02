@@ -53,6 +53,7 @@ export const PAGE_COLLECTIONS = {
   "finance_applications",
   "notifications",
   "org_companies",
+  "quotations",
   "staff",
   "vehicles"
  ],

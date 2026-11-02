@@ -174,6 +174,7 @@ export default async function QuotationBuilderPage(container) {
                       <button class="btn btn-xs btn-secondary open-qt-btn" data-id="${q.id}">ดู</button>
                       ${q.status === 'draft' ? `<button class="btn btn-xs btn-primary send-qt-btn" data-id="${q.id}">📤 ส่ง</button>` : ''}
                       ${q.status === 'sent' ? `<button class="btn btn-xs btn-success accept-qt-btn" data-id="${q.id}">✓ ยอมรับ</button>` : ''}
+                      ${q.bookingId ? `<button class="btn btn-xs btn-secondary book-qt-btn" data-id="${q.id}" title="เปิดใบจองของใบเสนอราคานี้">📝 ใบจอง</button>` : q.status !== 'rejected' ? `<button class="btn btn-xs btn-success book-qt-btn" data-id="${q.id}" title="จองจากใบเสนอราคานี้ ไม่ต้องกรอกซ้ำ">📝 จองเลย</button>` : ''}
                       <button class="btn btn-xs btn-danger del-qt-btn" data-id="${q.id}" title="ลบใบเสนอราคา">🗑</button>
                     </div>
                   </td>
@@ -216,6 +217,10 @@ export default async function QuotationBuilderPage(container) {
       if (!q) return
       try { await updateDocData('quotations', q.id, { status: 'accepted' }); showToast(`✅ ${q.customerName} ยอมรับใบเสนอราคาแล้ว!`, 'success'); await loadData() }
       catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+    }))
+    container.querySelectorAll('.book-qt-btn').forEach(b => b.addEventListener('click', () => {
+      const q = quotes.find(x => x.id === b.dataset.id)
+      navigate(q?.bookingId ? '/crm/bookings?id=' + encodeURIComponent(q.bookingId) : '/crm/bookings?fromQuote=' + encodeURIComponent(b.dataset.id))
     }))
     container.querySelectorAll('.del-qt-btn').forEach(b => b.addEventListener('click', async () => {
       const q = quotes.find(x => x.id === b.dataset.id)
@@ -458,6 +463,7 @@ export default async function QuotationBuilderPage(container) {
             customerId: customerId || null,
             customerName: name, phone: document.getElementById('qf-phone')?.value || '',
             vehicleLabel: `${vehicle?.brand} ${vehicle?.model} ${vehicle?.variant}`,
+            brand: vehicle?.brand || '', model: vehicle?.model || '', variant: vehicle?.variant || '',
             basePrice: vehicle?.price || 0, color: document.getElementById('qf-color')?.value || '',
             regFee,
             downPayment, term, rate, accessories,
