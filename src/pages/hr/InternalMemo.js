@@ -17,13 +17,10 @@ import { escHtml as __escA } from '../../utils/escape.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { myName } from '../../utils/myName.js'
 
 const HANDLER_ROLES = ['hr', 'manager', 'admin', 'owner']
 
-function myName() {
-  const me = getState('user') || {}
-  return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
-}
 
 // เลขที่บันทึก — วันที่+เลขสุ่ม (แพทเทิร์นเดียวกับ bookingNo/quoteNo ในระบบ ไม่ใช้ counter ต่อเนื่อง กันปัญหา
 // สองคนสร้างพร้อมกันแย่งเลขกัน ซึ่งไม่คุ้มความซับซ้อนสำหรับเอกสารภายในที่ไม่ผูกกับกฎหมาย/บัญชีโดยตรง)

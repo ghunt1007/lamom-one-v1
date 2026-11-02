@@ -9,11 +9,8 @@ import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { myName } from '../../utils/myName.js'
 
-function myName() {
-  const me = getState('user') || {}
-  return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
-}
 
 const CALL_TYPES = {
   inbound:  { label: 'สายเข้า', color: 'primary', icon: '📥' },

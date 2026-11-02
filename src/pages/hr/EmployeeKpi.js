@@ -10,11 +10,8 @@ import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companySco
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml as esc } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { myName } from '../../utils/myName.js'
 
-function myName() {
-  const me = getState('user') || {}
-  return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
-}
 
 const PERIOD_TYPES = {
   daily:   { label: 'รายวัน', icon: '📅', inputType: 'date' },

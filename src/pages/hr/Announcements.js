@@ -11,13 +11,10 @@ import { doc, updateDoc, arrayUnion } from 'firebase/firestore'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { myName } from '../../utils/myName.js'
 
 const HANDLER_ROLES = ['hr', 'manager', 'admin', 'owner']
 
-function myName() {
-  const me = getState('user') || {}
-  return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
-}
 
 const ANN_TYPES = {
   urgent:  { label: 'ด่วน', color: 'danger', icon: '🚨' },

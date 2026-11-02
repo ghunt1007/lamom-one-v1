@@ -10,11 +10,8 @@ import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companySco
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { myName } from '../../utils/myName.js'
 
-function myName() {
-  const me = getState('user') || {}
-  return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
-}
 
 const EXP_CATS = {
   travel:    { label: 'เดินทาง', icon: '✈️', color: 'primary' },
