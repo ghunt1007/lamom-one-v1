@@ -4,7 +4,7 @@ vi.mock('./db.js', () => ({ listDocs: vi.fn() }))
 
 import { listDocs } from './db.js'
 import { getState, setState } from './store.js'
-import { safeAssetUrl, applyBrand, applyLayoutDefault, markPostLogin, postLoginRoute, loadWhiteLabel } from './whiteLabel.js'
+import { safeAssetUrl, applyBrand, applyLayoutDefault, markPostLogin, postLoginRoute, loadWhiteLabel, roleHomeRoute } from './whiteLabel.js'
 
 const iconLink = { href: '/favicon.svg', removeAttribute: vi.fn() }
 const mem = new Map()
@@ -93,5 +93,19 @@ describe('loadWhiteLabel', () => {
   it('falls back to defaults when Firestore fails', async () => {
     listDocs.mockRejectedValueOnce(new Error('offline'))
     expect((await loadWhiteLabel()).brandName).toBe('LAMOM ONE')
+  })
+})
+
+describe('roleHomeRoute', () => {
+  it('sends sales to My Day once per tab, only from / and only if allowed', () => {
+    mem.clear()
+    expect(roleHomeRoute('sales', '/crm/bookings')).toBe(null) // เปิดลิงก์หน้าอื่นตรงๆ ไม่ดีด
+    mem.clear()
+    expect(roleHomeRoute('sales', '/')).toBe('/crm/my-day')
+    expect(roleHomeRoute('sales', '/')).toBe(null) // กด "ภาพรวม" ทีหลังเข้า Dashboard ได้
+    mem.clear()
+    expect(roleHomeRoute('owner', '/')).toBe(null)
+    mem.clear()
+    expect(roleHomeRoute('service', '/', () => false)).toBe(null)
   })
 })

@@ -62,6 +62,19 @@ export function postLoginRoute(brand, path) {
   return brand?.defaultRoute && brand.defaultRoute !== '/' ? brand.defaultRoute : null
 }
 
+// (2026-11-02) หน้าแรกตามตำแหน่งงาน — เปิดแอปแล้วเจองานของตัวเองทันที ไม่ต้องหาเมนู
+// ใช้ครั้งแรกที่เปิดแอปในแท็บนั้นเท่านั้น (กดเมนู "ภาพรวม" ทีหลังยังเข้า Dashboard ได้ตามปกติ)
+// เจ้าของ/แอดมิน/ผู้จัดการ และตำแหน่งอื่นอยู่ที่ Dashboard ตามเดิม
+export const ROLE_HOME = { sales: '/crm/my-day', service: '/service/jobs', finance: '/finance', hr: '/hr' }
+const ROLE_HOME_KEY = 'lamom_role_home_done'
+export function roleHomeRoute(role, path, canOpen = () => true) {
+  if (path !== '/') return null
+  let done = false
+  try { done = sessionStorage.getItem(ROLE_HOME_KEY) === '1'; sessionStorage.setItem(ROLE_HOME_KEY, '1') } catch {}
+  const to = ROLE_HOME[role]
+  return !done && to && canOpen(to) ? to : null
+}
+
 export async function loadWhiteLabel() {
   try {
     const docs = await listDocs('whitelabel_settings', [], 'createdAt', 'asc', 1)

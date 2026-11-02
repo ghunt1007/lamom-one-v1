@@ -99,7 +99,7 @@ export function openSheetReconcile({ onDone } = {}) {
       ...allBookings.filter(b => b.deleted && b.deletedBy === SYNC_TAG).map(d => ({ col: 'bookings', d })),
       ...allCustomers.filter(c => c.deleted && c.deletedBy === SYNC_TAG).map(d => ({ col: 'customers', d })),
     ]
-    const { extraBookings, renumberBookings, extraCustomers, leads, customerFixes, missingCustomers, linkOnly, appOnlyBookings, appOnlyCustomers, stampBookings, stampCustomers } = plan
+    const { extraBookings, renumberBookings, extraCustomers, leads, customerFixes, missingCustomers, linkOnly, appOnlyBookings, appOnlyCustomers, stampBookings, stampCustomers, dateFixBookings = [], dateFixCustomers = [] } = plan
     const { creates, unchanged } = imp
     // ข้อมูลไม่ตรงกัน: ฝั่งที่แก้ล่าสุดชนะ (แก้ในแอปหลังจาก Sheet → ใช้ค่าในแอป ไม่ทับ)
     const { sheetWins: updates, appNewer } = splitUpdatesByRecency(imp.updates, sheetModifiedAt)
@@ -158,6 +158,9 @@ export function openSheetReconcile({ onDone } = {}) {
           const at = new Date().toISOString()
           for (const b of stampBookings) await updateDocData('bookings', b.id, { sheetSeenAt: at, __fromSheet: true }).catch(() => {})
           for (const c of stampCustomers) await updateDocData('customers', c.id, { sheetSeenAt: at }).catch(() => {})
+          // แปลงวันที่สร้างแบบข้อความ (นำเข้ารุ่นแรก) เป็นวันที่จริง ให้เรียงลำดับร่วมกับรายการในแอปได้ถูก
+          for (const x of dateFixBookings) await updateDocData('bookings', x.id, { createdAt: x.createdAt, __fromSheet: true }).catch(() => {})
+          for (const x of dateFixCustomers) await updateDocData('customers', x.id, { createdAt: x.createdAt }).catch(() => {})
         }
         if (!totalTodo) { stampAll(); return true }
         const pick = key => [...el.querySelectorAll(`input[data-sec="${key}"]:checked`)].map(i => lists[key][Number(i.dataset.i)])

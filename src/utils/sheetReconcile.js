@@ -96,6 +96,15 @@ function pickKeeper(items, isLinked) {
  * @param bookings   ใบจองทั้งหมดในโปรแกรม (รวมที่ลบแล้วก็ได้ จะกรองออกเอง)
  * @param customers  ลูกค้าทั้งหมดในโปรแกรม (รวมที่ลบแล้วก็ได้)
  */
+// (2026-11-02) ใบจอง/ลูกค้าที่นำเข้าจาก Excel รุ่นแรกเก็บ createdAt เป็นข้อความ แต่ที่สร้างในแอปเป็น Timestamp
+// Firestore เรียงข้อความไว้ก่อน Timestamp เสมอ → เมื่อข้อมูลเกินเพดานที่ดึงมา รายการใหม่ในแอปจะหลุดก่อน
+// คืนรายการที่ต้องแปลงเป็นวันที่จริง (Date → Firestore เก็บเป็น Timestamp) ทำตอนกดซิงก์ Sheet ครั้งถัดไป
+export function createdAtFixes(docs) {
+  return (docs || [])
+    .filter(d => d?.id && typeof d.createdAt === 'string' && !Number.isNaN(Date.parse(d.createdAt)))
+    .map(d => ({ id: d.id, createdAt: new Date(d.createdAt) }))
+}
+
 export function planSheetReconcile(sheetRows, bookings, customers) {
   const sheet = sheetRows.map(r => ({ ...mapBookingRow(r), row: r.__row })).filter(m => m.custName || m.bookingNo)
   const sheetByNo = new Map()
@@ -224,6 +233,7 @@ export function planSheetReconcile(sheetRows, bookings, customers) {
   return {
     sheetCount: sheet.length,
     appOnlyBookings, appOnlyCustomers, stampBookings, stampCustomers,
+    dateFixBookings: createdAtFixes(bookings), dateFixCustomers: createdAtFixes(customers),
     extraBookings, renumberBookings, extraCustomers, leads, customerFixes, missingCustomers, linkOnly, missingBookings,
     keptBookingCount: keptBookings.length, keptCustomerCount: keptCustomers.length,
   }
