@@ -4,6 +4,7 @@ import { showToast, getState } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -199,14 +200,14 @@ export default async function InvoicePage(container) {
         <div class="grid-2">
           <div class="input-group"><label class="input-label">ประเภทเอกสาร</label>
             <select class="input" id="dc-type">
-              ${Object.entries(DOC_TYPES).map(([k,v]) => `<option value="${k}" ${(doc?.type||'invoice')===k?'selected':''}>${v.label}</option>`).join('')}
+              ${Object.entries(DOC_TYPES).map(([k,v]) => `<option value="${__escA(k)}" ${(doc?.type||'invoice')===k?'selected':''}>${v.label}</option>`).join('')}
             </select>
           </div>
           <div class="input-group"><label class="input-label">ชื่อลูกค้า *</label><input class="input" id="dc-cust" value="${escHtml(doc?.custName||'')}" placeholder="ชื่อลูกค้า"></div>
         </div>
         <div class="grid-2">
-          <div class="input-group"><label class="input-label">วันที่เอกสาร</label><input class="input" type="date" id="dc-date" value="${doc?.date||today}"></div>
-          <div class="input-group"><label class="input-label">ครบกำหนด</label><input class="input" type="date" id="dc-due" value="${doc?.dueDate||today}"></div>
+          <div class="input-group"><label class="input-label">วันที่เอกสาร</label><input class="input" type="date" id="dc-date" value="${__escA(doc?.date||today)}"></div>
+          <div class="input-group"><label class="input-label">ครบกำหนด</label><input class="input" type="date" id="dc-due" value="${__escA(doc?.dueDate||today)}"></div>
         </div>
         <div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px">
           <div style="font-weight:600;margin-bottom:8px;font-size:0.85rem">รายการสินค้า/บริการ</div>

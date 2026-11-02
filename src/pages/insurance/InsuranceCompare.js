@@ -17,6 +17,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData } from '../../core/db.js'
 import { getInsurers } from '../../data/masterData.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -78,7 +79,7 @@ export default async function InsuranceComparePage(container) {
           <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">🚗 เลือกรถที่ต้องการทำประกัน</div>
           <select class="input" id="veh-select" style="max-width:420px">
             ${brands.map(b => `<optgroup label="${escHtml(b)}">
-              ${VEHICLES.filter(v => v.brand === b).map(v => `<option value="${v.id}" ${v.id === selectedVehicleId ? 'selected' : ''}>${escHtml(v.model)} ${escHtml(v.variant)} — ${formatCurrency(v.price)}</option>`).join('')}
+              ${VEHICLES.filter(v => v.brand === b).map(v => `<option value="${__escA(v.id)}" ${v.id === selectedVehicleId ? 'selected' : ''}>${escHtml(v.model)} ${escHtml(v.variant)} — ${formatCurrency(v.price)}</option>`).join('')}
             </optgroup>`).join('')}
           </select>
         </div>

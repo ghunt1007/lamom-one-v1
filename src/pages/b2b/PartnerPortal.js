@@ -6,6 +6,7 @@ import { formatCurrency, formatDate, timeAgo, todayBangkok } from '../../utils/f
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
@@ -164,7 +165,7 @@ export default async function PartnerPortalPage(container) {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">ชื่อพาร์ทเนอร์ *</label><input class="input" id="pf-name"></div>
           <div class="input-group"><label class="input-label">ประเภท</label>
-            <select class="input" id="pf-type">${Object.entries(PARTNER_TYPES).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+            <select class="input" id="pf-type">${Object.entries(PARTNER_TYPES).map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">ค่าคอม (%)</label><input type="number" class="input" id="pf-comm" value="2.0" step="0.5"></div>
           <div class="input-group"><label class="input-label">ผู้ติดต่อ</label><input class="input" id="pf-contact"></div>

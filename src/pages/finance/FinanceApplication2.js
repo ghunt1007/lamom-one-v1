@@ -9,6 +9,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, listAllDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -261,7 +262,7 @@ export default async function FinanceTrackerPage(container) {
       body: `
         <div class="input-group"><label class="input-label">สถานะใหม่</label>
           <select class="input" id="su-status">
-            ${nextStatuses.map(([k,v]) => `<option value="${k}" ${a.status===k?'selected':''}>${v.label}</option>`).join('')}
+            ${nextStatuses.map(([k,v]) => `<option value="${__escA(k)}" ${a.status===k?'selected':''}>${v.label}</option>`).join('')}
           </select>
         </div>
         <div class="input-group" style="margin-top:10px"><label class="input-label">หมายเหตุ / เงื่อนไข</label>

@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 // ป้องกัน XSS — ความคิดเห็น (comment) เป็นข้อความที่ผู้จัดการพิมพ์เอง ต้อง escape ก่อนแสดงผลเสมอ
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
@@ -164,9 +165,9 @@ export default async function PerformanceReviewPage(container) {
               <div><b>พนักงานทั้งหมด:</b> ${reviews.length} คน</div>
             </div>
             <div><label style="font-size:0.72rem;color:var(--text-muted)">กำหนดส่งผลประเมินตัวเอง</label>
-              <input class="input" id="pr-self-deadline" type="date" value="${selfDeadline}" style="width:100%;margin-top:4px"></div>
+              <input class="input" id="pr-self-deadline" type="date" value="${__escA(selfDeadline)}" style="width:100%;margin-top:4px"></div>
             <div><label style="font-size:0.72rem;color:var(--text-muted)">กำหนดผู้จัดการส่งผล</label>
-              <input class="input" id="pr-mgmt-deadline" type="date" value="${mgmtDeadline}" style="width:100%;margin-top:4px"></div>
+              <input class="input" id="pr-mgmt-deadline" type="date" value="${__escA(mgmtDeadline)}" style="width:100%;margin-top:4px"></div>
           </div>
         `,
         confirmText: '🚀 เริ่มรอบประเมิน',

@@ -7,6 +7,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
@@ -179,7 +180,7 @@ export default async function SalaryScalePage(container) {
           ${row('Grade ปัจจุบัน', s.grade)}
           ${row('เงินเดือนปัจจุบัน', formatCurrency(s.salary))}
           ${row('อ้างอิงตลาด', formatCurrency(s.market))}
-          <div class="input-group"><label class="input-label">เงินเดือนใหม่</label><input class="input" type="number" id="new-sal" value="${s.salary}"></div>
+          <div class="input-group"><label class="input-label">เงินเดือนใหม่</label><input class="input" type="number" id="new-sal" value="${__escA(s.salary)}"></div>
         </div>`,
         async onConfirm() {
           const newSalary = parseInt(document.getElementById('new-sal')?.value)||s.salary
@@ -260,7 +261,7 @@ export default async function SalaryScalePage(container) {
         <div class="input-group"><label class="input-label">ชื่อ-นามสกุล *</label><input class="input" id="ns-name"></div>
         <div class="input-group"><label class="input-label">แผนก</label><input class="input" id="ns-dept"></div>
         <div class="input-group"><label class="input-label">Grade</label>
-          <select class="input" id="ns-grade">${SALARY_GRADES.map(g => `<option value="${g.grade}">${g.grade} — ${g.title}</option>`).join('')}</select>
+          <select class="input" id="ns-grade">${SALARY_GRADES.map(g => `<option value="${__escA(g.grade)}">${g.grade} — ${g.title}</option>`).join('')}</select>
         </div>
         <div class="input-group"><label class="input-label">เงินเดือน (บาท)</label><input class="input" type="number" id="ns-salary" value="20000"></div>
         <div class="input-group"><label class="input-label">เงินเดือนอ้างอิงตลาด (บาท)</label><input class="input" type="number" id="ns-market" value="22000"></div>

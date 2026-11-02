@@ -16,3 +16,19 @@ describe('bookingSync', () => {
     expect(stockStatusForBooking('ถอนจอง', 'reserved')).toBe('available')
   })
 })
+
+const { customerStageAfterSave } = await import('./bookingSync.js')
+describe('booking → stock/customer sync (v1.0.911)', () => {
+  it('a cancelled booking releases a reserved car and never reserves an available one', () => {
+    expect(stockStatusForBooking('ยกเลิก', 'reserved')).toBe('available')
+    expect(stockStatusForBooking('ยกเลิก', 'available')).toBe(null)
+  })
+  it('customer stage only changes when it should', () => {
+    expect(customerStageAfterSave('รอรถ', undefined, true)).toBe('booking')
+    expect(customerStageAfterSave('รอรถ', 'รอรถ', false)).toBe(null)
+    expect(customerStageAfterSave('รอรถ', 'ถอนจอง', false)).toBe('booking')
+    expect(customerStageAfterSave('ถอนจอง', 'รอรถ', false)).toBe(null)
+    expect(customerStageAfterSave('ส่งมอบแล้ว', 'รอรถ', false)).toBe('delivered')
+    expect(customerStageAfterSave('ส่งมอบแล้ว', 'ส่งมอบแล้ว', false)).toBe(null)
+  })
+})

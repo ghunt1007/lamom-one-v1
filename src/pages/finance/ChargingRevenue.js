@@ -11,6 +11,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { openModal } from '../../utils/modal.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -212,7 +213,7 @@ export default async function ChargingRevenuePage(container) {
       body: `
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="input-group"><label class="input-label">สถานี *</label>
-            <select class="input" id="cs-station">${STATIONS.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}</select>
+            <select class="input" id="cs-station">${STATIONS.map(s => `<option value="${__escA(s.id)}">${s.name}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">รถ/ทะเบียน *</label><input class="input" id="cs-vehicle" placeholder="เช่น BYD Atto 3"></div>
           <div class="input-group"><label class="input-label">ประเภทการใช้งาน</label>
@@ -227,7 +228,7 @@ export default async function ChargingRevenuePage(container) {
           <div class="input-group"><label class="input-label">kWh *</label><input type="number" step="0.1" class="input" id="cs-kwh" placeholder="0"></div>
           <div class="input-group"><label class="input-label">ระยะเวลา (นาที)</label><input type="number" class="input" id="cs-duration" placeholder="30"></div>
           <div class="input-group"><label class="input-label">วันที่</label><input type="date" class="input" id="cs-date" value="${now.toISOString().slice(0, 10)}"></div>
-          <div class="input-group"><label class="input-label">เวลา</label><input type="time" class="input" id="cs-time" value="${nowTime}"></div>
+          <div class="input-group"><label class="input-label">เวลา</label><input type="time" class="input" id="cs-time" value="${__escA(nowTime)}"></div>
           <div class="input-group"><label class="input-label">สถานะ</label>
             <select class="input" id="cs-status"><option value="done">✅ เสร็จแล้ว</option><option value="charging">⚡ กำลังชาร์จ</option></select>
           </div>

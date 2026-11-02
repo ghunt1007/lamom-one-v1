@@ -6,6 +6,7 @@ import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 // ป้องกัน XSS — ชื่อ Content (title) เป็นข้อความที่ผู้ใช้พิมพ์เอง ต้อง escape ก่อนแสดงผลเสมอ
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
@@ -100,7 +101,7 @@ export default async function ContentCalendarPage(container) {
           </div>
           <select class="input" id="status-sel" style="max-width:150px;font-size:0.82rem">
             <option value="all">ทุกสถานะ</option>
-            ${Object.entries(CONTENT_STATUS).map(([k,v])=>`<option value="${k}" ${statusFilter===k?'selected':''}>${v.label}</option>`).join('')}
+            ${Object.entries(CONTENT_STATUS).map(([k,v])=>`<option value="${__escA(k)}" ${statusFilter===k?'selected':''}>${v.label}</option>`).join('')}
           </select>
         </div>
 
@@ -200,12 +201,12 @@ export default async function ContentCalendarPage(container) {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">ชื่อ Content *</label><input class="input" id="cc-title" placeholder="หัวข้อ Content..."></div>
           <div class="input-group"><label class="input-label">ประเภท</label>
-            <select class="input" id="cc-type">${Object.entries(CONTENT_TYPES).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+            <select class="input" id="cc-type">${Object.entries(CONTENT_TYPES).map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">วันเผยแพร่</label><input type="date" class="input" id="cc-date" value="${addDays(7)}"></div>
           <div class="input-group"><label class="input-label">แพลตฟอร์ม</label>
             <div style="display:flex;gap:8px;flex-wrap:wrap;padding-top:4px">
-              ${Object.entries(PLATFORMS).map(([k,v]) => `<label style="display:flex;gap:4px;font-size:0.82rem;cursor:pointer"><input type="checkbox" name="plat" value="${k}"> ${v.icon} ${v.label}</label>`).join('')}
+              ${Object.entries(PLATFORMS).map(([k,v]) => `<label style="display:flex;gap:4px;font-size:0.82rem;cursor:pointer"><input type="checkbox" name="plat" value="${__escA(k)}"> ${v.icon} ${v.label}</label>`).join('')}
             </div>
           </div>
           <div class="input-group"><label class="input-label">ผู้รับผิดชอบ</label><input class="input" id="cc-author" placeholder="ชื่อผู้สร้าง"></div>

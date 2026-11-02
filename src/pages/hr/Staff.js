@@ -10,6 +10,7 @@ import { navigate } from '../../core/router.js'
 import { validateThaiId } from '../../utils/thaiId.js'
 import { linkNewAccountForStaff, updateCompanyMemberships, sendStaffPasswordReset } from '../../core/auth.js'
 import { genPassword } from '../../utils/secureRandom.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -82,7 +83,7 @@ function renderAccessPanel(existing, loginAccounts, staffList) {
           <div style="display:flex;gap:12px;flex-wrap:wrap">
             ${[['finance','💰 การเงิน'],['hr','👨‍💼 HR'],['sales','💼 เซลส์'],['service','🔧 ช่าง/บริการ']].map(([k,l]) => `
               <label style="display:flex;align-items:center;gap:5px;font-size:0.76rem;cursor:pointer">
-                <input type="checkbox" class="sf-acc-grant" value="${k}" ${(linkedUser.extraGrants||[]).includes(k)?'checked':''}> ${l}
+                <input type="checkbox" class="sf-acc-grant" value="${__escA(k)}" ${(linkedUser.extraGrants||[]).includes(k)?'checked':''}> ${l}
               </label>
             `).join('')}
           </div>
@@ -116,7 +117,7 @@ function renderAccessPanel(existing, loginAccounts, staffList) {
         <label class="input-label" style="font-size:0.7rem">หรือเชื่อมกับบัญชี login เก่าที่มีอยู่แล้ว (ย้อนหลัง)</label>
         <select class="input" id="sf-uid">
           <option value="">— ไม่เชื่อม —</option>
-          ${unlinkedAccounts.map(u => `<option value="${u.id}">${escHtml(u.displayName||u.email)} (${escHtml(u.email)})</option>`).join('')}
+          ${unlinkedAccounts.map(u => `<option value="${__escA(u.id)}">${escHtml(u.displayName||u.email)} (${escHtml(u.email)})</option>`).join('')}
         </select>
       </div>` : ''}
     </div>
@@ -444,7 +445,7 @@ export default async function StaffPage(container) {
             <div class="input-group"><label class="input-label">ชื่อเล่น</label><input class="input" id="sf-nn" value="${escHtml(existing?.nickname||'')}"></div>
             <div class="input-group"><label class="input-label">ระดับสิทธิ์ในระบบ</label>
               <select class="input" id="sf-role">
-                ${Object.entries(ROLES).map(([k,v]) => `<option value="${k}" ${existing?.role===k?'selected':''}>${v}</option>`).join('')}
+                ${Object.entries(ROLES).map(([k,v]) => `<option value="${__escA(k)}" ${existing?.role===k?'selected':''}>${v}</option>`).join('')}
               </select>
             </div>
           </div>
@@ -453,7 +454,7 @@ export default async function StaffPage(container) {
             return `<div class="input-group"><label class="input-label">บริษัท (เลือกได้หลายบริษัท) <span style="font-size:0.65rem;color:var(--text-muted)">(พนักงานคนนี้อยู่บริษัทไหนในเครือได้มากกว่า 1 บริษัท — แก้รายชื่อบริษัทได้ที่ Settings > บริษัทในเครือ)</span></label>
             <div style="display:flex;flex-wrap:wrap;gap:12px;padding:8px 0">
               ${companiesList.map(c => `<label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;cursor:pointer">
-                <input type="checkbox" class="sf-company-cb" value="${c.id}" ${selectedIds.includes(c.id) ? 'checked' : ''}> ${escHtml(c.name)}
+                <input type="checkbox" class="sf-company-cb" value="${__escA(c.id)}" ${selectedIds.includes(c.id) ? 'checked' : ''}> ${escHtml(c.name)}
               </label>`).join('')}
             </div>
           </div>`
@@ -469,12 +470,12 @@ export default async function StaffPage(container) {
           <div class="grid-2">
             <div class="input-group"><label class="input-label">แผนก</label>
               <select class="input" id="sf-dept">
-                ${DEPARTMENTS.map(d => `<option value="${d}" ${existing?.dept===d?'selected':''}>${d}</option>`).join('')}
+                ${DEPARTMENTS.map(d => `<option value="${__escA(d)}" ${existing?.dept===d?'selected':''}>${d}</option>`).join('')}
               </select>
             </div>
             <div class="input-group"><label class="input-label">สถานะ</label>
               <select class="input" id="sf-status">
-                ${Object.entries(STATUS_EMP).map(([k,v]) => `<option value="${k}" ${existing?.status===k?'selected':''}>${v}</option>`).join('')}
+                ${Object.entries(STATUS_EMP).map(([k,v]) => `<option value="${__escA(k)}" ${existing?.status===k?'selected':''}>${v}</option>`).join('')}
               </select>
             </div>
           </div>
@@ -484,25 +485,25 @@ export default async function StaffPage(container) {
           </div>
           <div class="grid-2">
             <div class="input-group"><label class="input-label">วันเริ่มงาน</label><input class="input" type="date" id="sf-start" value="${existing?.startDate||todayBangkok()}"></div>
-            <div class="input-group"><label class="input-label">สิ้นสุดสัญญา <span style="font-size:0.65rem;color:var(--text-muted)">(ถ้าเป็นสัญญาจ้างแบบมีกำหนดเวลา)</span></label><input class="input" type="date" id="sf-contract-end" value="${existing?.contractEndDate||''}"></div>
+            <div class="input-group"><label class="input-label">สิ้นสุดสัญญา <span style="font-size:0.65rem;color:var(--text-muted)">(ถ้าเป็นสัญญาจ้างแบบมีกำหนดเวลา)</span></label><input class="input" type="date" id="sf-contract-end" value="${__escA(existing?.contractEndDate||'')}"></div>
           </div>
           <div class="grid-2">
             <div class="input-group"><label class="input-label">เพศ</label>
               <select class="input" id="sf-gender">
                 <option value="">— ไม่ระบุ —</option>
-                ${Object.entries(GENDERS).map(([k,v]) => `<option value="${k}" ${existing?.gender===k?'selected':''}>${v}</option>`).join('')}
+                ${Object.entries(GENDERS).map(([k,v]) => `<option value="${__escA(k)}" ${existing?.gender===k?'selected':''}>${v}</option>`).join('')}
               </select>
             </div>
             <div class="input-group"><label class="input-label">วุฒิการศึกษา</label>
               <input class="input" id="sf-education" list="sf-education-options" value="${escHtml(existing?.education||'')}">
-              <datalist id="sf-education-options">${EDUCATION_LEVELS.map(e => `<option value="${e}">`).join('')}</datalist>
+              <datalist id="sf-education-options">${EDUCATION_LEVELS.map(e => `<option value="${__escA(e)}">`).join('')}</datalist>
             </div>
           </div>
           <div class="grid-2">
             <div class="input-group"><label class="input-label">สถาบันการศึกษา</label><input class="input" id="sf-edu-school" value="${escHtml(existing?.eduSchool||'')}" placeholder="เช่น มหาวิทยาลัยธรรมศาสตร์"></div>
             <div class="input-group"><label class="input-label">สาขาวิชา</label><input class="input" id="sf-edu-major" value="${escHtml(existing?.eduMajor||'')}" placeholder="เช่น บริหารธุรกิจ"></div>
           </div>
-          ${canViewSalary ? `<div class="input-group"><label class="input-label">เงินเดือน (บาท)</label><input class="input" type="number" id="sf-salary" value="${existing?.salary||''}"></div>` : ''}
+          ${canViewSalary ? `<div class="input-group"><label class="input-label">เงินเดือน (บาท)</label><input class="input" type="number" id="sf-salary" value="${__escA(existing?.salary||'')}"></div>` : ''}
           <div class="input-group">
             <label class="input-label">ประวัติการทำงาน (ที่อื่นก่อนหน้า)</label>
             <div id="sf-wh-list" style="display:flex;flex-direction:column;gap:8px">
@@ -527,7 +528,7 @@ export default async function StaffPage(container) {
             return `<div class="input-group"><label class="input-label">หัวหน้างาน (เลือกได้หลายคน — ใช้แสดงในแผนผังองค์กร)</label>
               <div style="display:flex;flex-direction:column;gap:6px;max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px">
                 ${options.length ? options.map(s => `<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;cursor:pointer">
-                  <input type="checkbox" class="sf-manager-cb" value="${s.id}" ${selectedManagerIds.includes(s.id) ? 'checked' : ''}> ${escHtml(s.firstName)} ${escHtml(s.lastName)}
+                  <input type="checkbox" class="sf-manager-cb" value="${__escA(s.id)}" ${selectedManagerIds.includes(s.id) ? 'checked' : ''}> ${escHtml(s.firstName)} ${escHtml(s.lastName)}
                 </label>`).join('') : `<span style="font-size:0.78rem;color:var(--text-muted)">— ไม่มีตัวเลือก (เป็นระดับสูงสุด) —</span>`}
               </div>
             </div>`
@@ -542,7 +543,7 @@ export default async function StaffPage(container) {
                 <span class="input-error" id="sf-nid-e"></span>
               </div>
               <div class="grid-2">
-                <div class="input-group"><label class="input-label">วันเกิด</label><input class="input" type="date" id="sf-dob" value="${existing?.birthDate||''}"></div>
+                <div class="input-group"><label class="input-label">วันเกิด</label><input class="input" type="date" id="sf-dob" value="${__escA(existing?.birthDate||'')}"></div>
                 <div></div>
               </div>
               <div class="input-group"><label class="input-label">ที่อยู่</label><textarea class="input" id="sf-address" rows="2">${escHtml(existing?.address||'')}</textarea></div>
@@ -793,7 +794,7 @@ export default async function StaffPage(container) {
           </div>
           <select class="input" id="dept-filter" style="width:160px">
             <option value="all">ทุกแผนก</option>
-            ${DEPARTMENTS.map(d => `<option value="${d}">${d}</option>`).join('')}
+            ${DEPARTMENTS.map(d => `<option value="${__escA(d)}">${d}</option>`).join('')}
           </select>
         </div>
       </div>

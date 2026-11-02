@@ -6,6 +6,7 @@ import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -169,7 +170,7 @@ export default async function CustomerSatisfactionPage(container) {
           <select class="input" id="rv-channel"><option>โทรศัพท์</option><option>Facebook</option><option>Google Review</option><option>LINE</option><option>ในร้าน</option></select>
         </div>
         <div class="input-group"><label class="input-label">คะแนน</label>
-          <select class="input" id="rv-score">${[5,4,3,2,1].map(s=>`<option value="${s}">${s} ดาว</option>`).join('')}</select>
+          <select class="input" id="rv-score">${[5,4,3,2,1].map(s=>`<option value="${__escA(s)}">${s} ดาว</option>`).join('')}</select>
         </div>
         <div class="input-group"><label class="input-label">ความคิดเห็น</label><textarea class="input" id="rv-comment" rows="3"></textarea></div>
       </div>`,

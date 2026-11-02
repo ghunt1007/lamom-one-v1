@@ -6,6 +6,7 @@ import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, setDocData, updateDocData, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 const TECH_SKILLS = {
   general: { label: 'ทั่วไป', color: 'secondary', icon: '🔧' },
@@ -235,7 +236,7 @@ export default async function TechnicianSchedulePage(container) {
       body: `
         <div style="display:grid;gap:10px">
           <div class="input-group"><label class="input-label">ช่าง</label>
-            <select class="input" id="as-tech">${techs.map(t=>`<option value="${t.id}" ${tech?.id===t.id?'selected':''}>${t.name} (${t.jobsToday} งาน)</option>`).join('')}</select>
+            <select class="input" id="as-tech">${techs.map(t=>`<option value="${__escA(t.id)}" ${tech?.id===t.id?'selected':''}>${t.name} (${t.jobsToday} งาน)</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">ประเภทงาน</label>
             <select class="input" id="as-type">

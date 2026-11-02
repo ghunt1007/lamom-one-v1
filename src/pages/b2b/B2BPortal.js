@@ -3,6 +3,7 @@ import { showToast } from '../../core/store.js'
 import { formatCurrency, formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -250,7 +251,7 @@ export default async function B2BPortalPage(container) {
         </div>
         <div class="input-group"><label class="input-label">สถานะ</label>
           <select class="input" id="df-status">
-            ${Object.entries(DEAL_STATUS).map(([k,v]) => `<option value="${k}">${v.label}</option>`).join('')}
+            ${Object.entries(DEAL_STATUS).map(([k,v]) => `<option value="${__escA(k)}">${v.label}</option>`).join('')}
           </select>
         </div>
       </div>`,
@@ -284,7 +285,7 @@ export default async function B2BPortalPage(container) {
         <div class="grid-2">
           <div class="input-group"><label class="input-label">ประเภท</label>
             <select class="input" id="pf-type">
-              ${Object.entries(PARTNER_TYPES).map(([k,v]) => `<option value="${k}">${v.label}</option>`).join('')}
+              ${Object.entries(PARTNER_TYPES).map(([k,v]) => `<option value="${__escA(k)}">${v.label}</option>`).join('')}
             </select>
           </div>
           <div class="input-group"><label class="input-label">Commission Rate (%)</label><input class="input" id="pf-comm" type="number" step="0.5" value="1"></div>

@@ -12,6 +12,7 @@ function myName() {
   return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
 }
 import { exportToExcel } from '../../utils/importExport.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -67,7 +68,7 @@ export default async function PriceHistoryPage(container) {
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
           <select class="input" id="model-sel" style="min-width:200px">
             <option value="all">ทุกรุ่น</option>
-            ${MODELS.map(m=>`<option value="${m}" ${filterModel===m?'selected':''}>${m}</option>`).join('')}
+            ${MODELS.map(m=>`<option value="${__escA(m)}" ${filterModel===m?'selected':''}>${m}</option>`).join('')}
           </select>
           ${currentPrice ? `<div style="font-size:0.8rem;font-weight:700;color:var(--primary)">ราคาปัจจุบัน: ${formatCurrency(currentPrice)}</div>` : ''}
         </div>

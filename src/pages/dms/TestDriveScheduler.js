@@ -9,6 +9,7 @@ import { watchDocs, listDocs, createDoc, updateDocData, seedDemoData } from '../
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 import { scheduleTestDriveFollowup } from '../../utils/testDriveFollowup.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -245,7 +246,7 @@ export default async function TestDriveSchedulerPage(container) {
           <div class="input-group"><label class="input-label">เซลส์</label>
             <select class="input" id="tf-staff">${staffNames.map(s=>`<option>${escHtml(s)}</option>`).join('')}</select>
           </div>
-          <div class="input-group"><label class="input-label">วันที่</label><input type="date" class="input" id="tf-date" value="${viewDate}"></div>
+          <div class="input-group"><label class="input-label">วันที่</label><input type="date" class="input" id="tf-date" value="${__escA(viewDate)}"></div>
           <div class="input-group"><label class="input-label">เวลา</label>
             <select class="input" id="tf-time">${TIME_SLOTS.map(t=>`<option ${t===defaultTime?'selected':''}>${t}</option>`).join('')}</select>
           </div>

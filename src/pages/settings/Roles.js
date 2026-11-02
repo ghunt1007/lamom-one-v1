@@ -7,6 +7,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs, updateDocData, setDocData, seedDemoData, seedDefaultRolePermissions } from '../../core/db.js'
 import { MODULES, invalidateRolePermissionsCache } from '../../core/permissions.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -124,7 +125,7 @@ export default async function RolesPage(container) {
         <div id="ar-modules" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           ${MODULES.map(m => `
             <label style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--surface-2);border-radius:6px;cursor:pointer;font-size:0.82rem">
-              <input type="checkbox" class="ar-mod-check" value="${m.key}"> ${m.label}
+              <input type="checkbox" class="ar-mod-check" value="${__escA(m.key)}"> ${m.label}
             </label>
           `).join('')}
         </div>
@@ -167,7 +168,7 @@ export default async function RolesPage(container) {
         <div id="re-modules" style="display:${isFull?'none':'grid'};grid-template-columns:1fr 1fr;gap:8px">
           ${MODULES.map(m => `
             <label style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--surface-2);border-radius:6px;cursor:pointer;font-size:0.82rem">
-              <input type="checkbox" class="re-mod-check" value="${m.key}" ${(r.modules||[]).includes(m.key)?'checked':''}> ${m.label}
+              <input type="checkbox" class="re-mod-check" value="${__escA(m.key)}" ${(r.modules||[]).includes(m.key)?'checked':''}> ${m.label}
             </label>
           `).join('')}
         </div>

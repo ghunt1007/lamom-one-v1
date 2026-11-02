@@ -3,6 +3,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, readDoc, createDoc } from '../../core/db.js'
 import { myEffectiveCompanyId, companyScopeFilters } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -436,7 +437,7 @@ export default async function CustomerPortalPage(container) {
             </select>
           </div>
           <div class="grid-2">
-            <div class="input-group"><label class="input-label">วันที่ต้องการ</label><input class="input" type="date" id="book-date" value="${today}"></div>
+            <div class="input-group"><label class="input-label">วันที่ต้องการ</label><input class="input" type="date" id="book-date" value="${__escA(today)}"></div>
             <div class="input-group"><label class="input-label">เวลาที่ต้องการ</label>
               <select class="input" id="book-time">
                 ${['08:00', '09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00'].map(t => `<option>${t}</option>`).join('')}

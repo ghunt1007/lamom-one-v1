@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function myName() {
   const me = getState('user') || {}
@@ -131,7 +132,7 @@ export default async function CustomerNotesPage(container) {
             <select class="input" id="nt-customer">${customers.length ? customers.map(c=>`<option value="${escHtml(c.id)}">${escHtml(custName(c))}</option>`).join('') : `<option value="">-- ไม่มีลูกค้าในระบบ --</option>`}</select>
           </div>
           <div class="input-group"><label class="input-label">ช่องทาง</label>
-            <select class="input" id="nt-type">${Object.entries(NOTE_TYPES).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+            <select class="input" id="nt-type">${Object.entries(NOTE_TYPES).map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">บันทึก *</label><textarea class="input" id="nt-text" rows="3"></textarea></div>
         </div>`,

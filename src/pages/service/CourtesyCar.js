@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -146,7 +147,7 @@ export default async function CourtesyCarPage(container) {
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">ที่อยู่รับ/ส่ง</label><input class="input" id="pd-address"></div>
           <div class="input-group"><label class="input-label">ระยะทาง (km)</label><input class="input" type="number" id="pd-distance" value="5"></div>
           <div class="input-group"><label class="input-label">ประเภท</label>
-            <select class="input" id="pd-type">${Object.entries(PD_TYPE).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+            <select class="input" id="pd-type">${Object.entries(PD_TYPE).map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">งานบริการ</label><input class="input" id="pd-service"></div>
         </div>`,

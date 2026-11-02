@@ -8,6 +8,7 @@ function escHtml(s) {
 import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 const PART_CATEGORIES = ['น้ำมันและของเหลว','ระบบเบรก','ระบบกันสะเทือน','ระบบไฟฟ้า','แบตเตอรี่ EV','ยางและล้อ','ตัวถัง','ฟิลเตอร์','อุปกรณ์เสริม','อื่นๆ']
 
@@ -172,7 +173,7 @@ export default async function PartsPage(container) {
           <div style="text-align:center;font-size:2rem;font-weight:800;color:var(--primary)">${p.qty||0} ${escHtml(p.unit||'')}</div>
           <div style="display:flex;gap:8px;align-items:center">
             <button class="btn btn-danger btn-sm" id="adj-minus" style="width:40px;font-size:1.2rem">−</button>
-            <input class="input" type="number" id="adj-qty" value="${p.qty||0}" style="text-align:center;font-size:1.1rem;font-weight:700">
+            <input class="input" type="number" id="adj-qty" value="${__escA(p.qty||0)}" style="text-align:center;font-size:1.1rem;font-weight:700">
             <button class="btn btn-success btn-sm" id="adj-plus" style="width:40px;font-size:1.2rem">+</button>
           </div>
           <div class="input-group"><label class="input-label">เหตุผล</label>
@@ -215,18 +216,18 @@ export default async function PartsPage(container) {
           <div class="grid-2">
             <div class="input-group"><label class="input-label">หมวดหมู่</label>
               <select class="input" id="pf-cat">
-                ${PART_CATEGORIES.map(c => `<option value="${c}" ${existing?.category===c?'selected':''}>${c}</option>`).join('')}
+                ${PART_CATEGORIES.map(c => `<option value="${__escA(c)}" ${existing?.category===c?'selected':''}>${c}</option>`).join('')}
               </select>
             </div>
             <div class="input-group"><label class="input-label">ยี่ห้อ</label><input class="input" id="pf-brand" value="${escHtml(existing?.brand||'')}"></div>
           </div>
           <div class="grid-2">
-            <div class="input-group"><label class="input-label">จำนวนคงเหลือ</label><input class="input" type="number" id="pf-qty" value="${existing?.qty||0}"></div>
-            <div class="input-group"><label class="input-label">ขั้นต่ำ (แจ้งเตือน)</label><input class="input" type="number" id="pf-min" value="${existing?.minQty||0}"></div>
+            <div class="input-group"><label class="input-label">จำนวนคงเหลือ</label><input class="input" type="number" id="pf-qty" value="${__escA(existing?.qty||0)}"></div>
+            <div class="input-group"><label class="input-label">ขั้นต่ำ (แจ้งเตือน)</label><input class="input" type="number" id="pf-min" value="${__escA(existing?.minQty||0)}"></div>
           </div>
           <div class="grid-2">
-            <div class="input-group"><label class="input-label">ราคาทุน (บาท)</label><input class="input" type="number" id="pf-cost" value="${existing?.unitCost||''}"></div>
-            <div class="input-group"><label class="input-label">ราคาขาย (บาท)</label><input class="input" type="number" id="pf-price" value="${existing?.unitPrice||''}"></div>
+            <div class="input-group"><label class="input-label">ราคาทุน (บาท)</label><input class="input" type="number" id="pf-cost" value="${__escA(existing?.unitCost||'')}"></div>
+            <div class="input-group"><label class="input-label">ราคาขาย (บาท)</label><input class="input" type="number" id="pf-price" value="${__escA(existing?.unitPrice||'')}"></div>
           </div>
           <div class="grid-2">
             <div class="input-group"><label class="input-label">หน่วย</label><input class="input" id="pf-unit" value="${escHtml(existing?.unit||'ชิ้น')}"></div>
@@ -287,7 +288,7 @@ export default async function PartsPage(container) {
           </div>
           <select class="input" id="cat-filter" style="width:180px">
             <option value="all">ทุกหมวดหมู่</option>
-            ${PART_CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('')}
+            ${PART_CATEGORIES.map(c => `<option value="${__escA(c)}">${c}</option>`).join('')}
           </select>
         </div>
       </div>

@@ -4,6 +4,7 @@ import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getSalesData, listDocs, createDoc, updateDocData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 const CATEGORIES = {
   revenue: {
@@ -297,7 +298,7 @@ export default async function BudgetPlanningPage(container) {
       <div>
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
           <select class="input" id="month-select" style="width:140px">
-            ${MONTHS.map((mo, i) => `<option value="${i}" ${i===m?'selected':''}>${mo} ${budget.year}</option>`).join('')}
+            ${MONTHS.map((mo, i) => `<option value="${__escA(i)}" ${i===m?'selected':''}>${mo} ${budget.year}</option>`).join('')}
           </select>
           <div style="font-size:0.85rem;color:var(--text-muted)">Actual vs Budget เดือน ${MONTHS[m]}</div>
         </div>

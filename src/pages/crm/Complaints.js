@@ -4,6 +4,7 @@ import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -171,12 +172,12 @@ export default async function ComplaintsPage(container) {
         <div class="grid-2">
           <div class="input-group"><label class="input-label">หมวดหมู่</label>
             <select class="input" id="cp-cat">
-              ${Object.entries(CATEGORIES).map(([k,v]) => `<option value="${k}" ${comp?.category===k?'selected':''}>${v}</option>`).join('')}
+              ${Object.entries(CATEGORIES).map(([k,v]) => `<option value="${__escA(k)}" ${comp?.category===k?'selected':''}>${v}</option>`).join('')}
             </select>
           </div>
           <div class="input-group"><label class="input-label">ความเร่งด่วน</label>
             <select class="input" id="cp-pri">
-              ${Object.entries(PRIORITY).map(([k,v]) => `<option value="${k}" ${(comp?.priority||'medium')===k?'selected':''}>${v.label}</option>`).join('')}
+              ${Object.entries(PRIORITY).map(([k,v]) => `<option value="${__escA(k)}" ${(comp?.priority||'medium')===k?'selected':''}>${v.label}</option>`).join('')}
             </select>
           </div>
         </div>

@@ -6,6 +6,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { todayBangkok } from '../../utils/format.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -198,8 +199,8 @@ export default async function PolicyManagementPage(container) {
             <div><label style="font-size:0.74rem;color:var(--text-muted)">วงเงินคุ้มครอง (฿)</label><input id="p-sum" type="number" class="input" placeholder="0"></div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div><label style="font-size:0.74rem;color:var(--text-muted)">วันเริ่มต้น</label><input id="p-start" type="date" class="input" value="${today}"></div>
-            <div><label style="font-size:0.74rem;color:var(--text-muted)">วันหมดอายุ</label><input id="p-end" type="date" class="input" value="${nextYear}"></div>
+            <div><label style="font-size:0.74rem;color:var(--text-muted)">วันเริ่มต้น</label><input id="p-start" type="date" class="input" value="${__escA(today)}"></div>
+            <div><label style="font-size:0.74rem;color:var(--text-muted)">วันหมดอายุ</label><input id="p-end" type="date" class="input" value="${__escA(nextYear)}"></div>
           </div>
         </div>
       `,

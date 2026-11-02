@@ -7,6 +7,7 @@ import { showToast } from '../../core/store.js'
 import { getSalesData, listDocs, createDoc, updateDocData } from '../../core/db.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { openModal } from '../../utils/modal.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 const BASE_CH = [
   { id: 'fb',       name: 'Facebook Ads',     icon: '📘', defBudget: 45000,  leadsTarget: 100, color: '#3b82f6', keys: ['facebook','fb','meta'] },
@@ -158,7 +159,7 @@ export default async function MarketingROIPage(container) {
           <div class="page-actions">
             <select class="input" id="month-filter" style="font-size:0.78rem;padding:4px 10px;height:auto">
               <option value="">ทั้งหมด</option>
-              ${months.map(m => `<option value="${m}" ${m === monthFilter ? 'selected' : ''}>${m}</option>`).join('')}
+              ${months.map(m => `<option value="${__escA(m)}" ${m === monthFilter ? 'selected' : ''}>${m}</option>`).join('')}
             </select>
             <button class="btn btn-secondary btn-xs" id="edit-budget-btn">✏️ แก้ไขงบ</button>
             <button class="btn btn-primary" id="export-btn">📤 ส่งออก</button>

@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -151,7 +152,7 @@ export default async function PettyCashPage(container) {
         body: `<div style="display:grid;gap:10px">
           <div class="input-group"><label class="input-label">รายการ *</label><input class="input" id="pt-desc"></div>
           <div class="input-group"><label class="input-label">หมวด</label>
-            <select class="input" id="pt-cat">${Object.entries(PC_CATS).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+            <select class="input" id="pt-cat">${Object.entries(PC_CATS).map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">จำนวนเงิน (บาท) *</label><input class="input" type="number" id="pt-amount"></div>
           <div class="input-group"><label class="input-label">ผู้เบิก</label><input class="input" id="pt-by"></div>

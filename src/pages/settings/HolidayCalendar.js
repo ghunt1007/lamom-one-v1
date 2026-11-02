@@ -6,6 +6,7 @@ import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
@@ -130,7 +131,7 @@ export default async function HolidayCalendarPage(container) {
         size: 'sm',
         body: `<div style="display:grid;gap:10px">
           <div class="input-group"><label class="input-label">ชื่อ *</label><input class="input" id="hd-name"></div>
-          <div class="input-group"><label class="input-label">วันที่</label><input class="input" type="date" id="hd-date" value="${today}"></div>
+          <div class="input-group"><label class="input-label">วันที่</label><input class="input" type="date" id="hd-date" value="${__escA(today)}"></div>
           <div class="input-group"><label class="input-label">ประเภท</label>
             <select class="input" id="hd-type"><option value="company">🏢 วันหยุดบริษัท</option><option value="special">🎉 กิจกรรมพิเศษ</option></select>
           </div>

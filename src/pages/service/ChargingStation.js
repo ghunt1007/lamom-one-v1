@@ -7,6 +7,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
@@ -220,7 +221,7 @@ export default async function ChargingStationPage(container) {
           <div class="input-group"><label class="input-label">หัวชาร์จ</label>
             <select class="input" id="cs-charger">${availableList.map(c => {
               const ct = CHARGER_TYPES[c.type]
-              return `<option value="${c.id}" ${charger?.id===c.id?'selected':''}>${escHtml(c.name)} — ${ct?.label}</option>`
+              return `<option value="${__escA(c.id)}" ${charger?.id===c.id?'selected':''}>${escHtml(c.name)} — ${ct?.label}</option>`
             }).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">ทะเบียนรถ</label><input class="input" id="cs-plate" placeholder="1กข-1234"></div>
@@ -251,7 +252,7 @@ export default async function ChargingStationPage(container) {
       body: `<div style="display:grid;gap:10px">
         <div class="input-group"><label class="input-label">ชื่อหัวชาร์จ *</label><input class="input" id="nc-name" placeholder="เช่น Charger-05"></div>
         <div class="input-group"><label class="input-label">ประเภท</label>
-          <select class="input" id="nc-type">${Object.entries(CHARGER_TYPES).map(([k,v]) => `<option value="${k}">${v.label}</option>`).join('')}</select>
+          <select class="input" id="nc-type">${Object.entries(CHARGER_TYPES).map(([k,v]) => `<option value="${__escA(k)}">${v.label}</option>`).join('')}</select>
         </div>
         <div class="input-group"><label class="input-label">กำลังไฟ (kW)</label><input class="input" type="number" id="nc-power" value="7"></div>
       </div>`,

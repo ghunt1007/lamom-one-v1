@@ -165,7 +165,7 @@ export default async function DigitalSignagePage(container) {
         </div>
         <div style="background:var(--surface-2);padding:8px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-            <span style="font-size:0.64rem;color:var(--text-muted)">${s.duration}s · ${s.type}</span>
+            <span style="font-size:0.64rem;color:var(--text-muted)">${esc(s.duration)}s · ${esc(s.type)}</span>
             <span style="width:7px;height:7px;border-radius:50%;background:${s.active?'var(--success)':'var(--text-muted)'}"></span>
           </div>
           <div style="display:flex;gap:4px">

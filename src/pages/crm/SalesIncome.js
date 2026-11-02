@@ -16,6 +16,7 @@ import { speedToLead } from '../../utils/speedToLead.js'
 import { lostBySeller } from '../../utils/lostReason.js'
 import { lineRegistrationStatus } from '../../utils/lineRegistration.js'
 import { getSalesStaff } from '../../data/masterData.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -153,7 +154,7 @@ export default async function SalesIncomePage(container) {
         <div class="page-header">
           <div><div class="page-title">💰 รายได้รายเซลส์</div><div class="page-subtitle">ตัวเลขจากใบจองที่ส่งมอบใน${escHtml(monthLabel(month))}</div></div>
           <div class="page-actions">
-            <select class="input" id="si-month" style="width:auto">${lastMonths(todayBangkok().slice(0, 7)).map(m => `<option value="${m}" ${m === month ? 'selected' : ''}>${monthLabel(m)}</option>`).join('')}</select>
+            <select class="input" id="si-month" style="width:auto">${lastMonths(todayBangkok().slice(0, 7)).map(m => `<option value="${__escA(m)}" ${m === month ? 'selected' : ''}>${monthLabel(m)}</option>`).join('')}</select>
             ${canSetTarget ? `<button class="btn btn-secondary btn-sm si-target" data-n="">🎯 ตั้งเป้า</button>` : ''}
             <button class="btn btn-secondary btn-sm" id="si-export">📥 ส่งออก</button>
           </div>

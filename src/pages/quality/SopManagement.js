@@ -6,6 +6,7 @@ import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
@@ -87,14 +88,14 @@ export default async function SopManagementPage(container) {
 
         <!-- Filters -->
         <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
-          <input class="input" id="search-inp" placeholder="🔍 ค้นหา..." style="max-width:200px" value="${search}">
+          <input class="input" id="search-inp" placeholder="🔍 ค้นหา..." style="max-width:200px" value="${__escA(search)}">
           <div style="display:flex;gap:4px;flex-wrap:wrap">
             <button class="btn btn-xs ${catFilter==='all'?'btn-primary':'btn-secondary'} cf-btn" data-c="all">ทั้งหมด</button>
             ${Object.entries(SOP_CATS).map(([k,v]) => `<button class="btn btn-xs ${catFilter===k?'btn-'+v.color:'btn-secondary'} cf-btn" data-c="${k}">${v.icon} ${v.label}</button>`).join('')}
           </div>
           <select class="input" id="status-sel" style="max-width:150px">
             <option value="all">ทุกสถานะ</option>
-            ${Object.entries(SOP_STATUS).map(([k,v]) => `<option value="${k}" ${statusFilter===k?'selected':''}>${v.label}</option>`).join('')}
+            ${Object.entries(SOP_STATUS).map(([k,v]) => `<option value="${__escA(k)}" ${statusFilter===k?'selected':''}>${v.label}</option>`).join('')}
           </select>
         </div>
 
@@ -180,7 +181,7 @@ export default async function SopManagementPage(container) {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">ชื่อ SOP *</label><input class="input" id="sf-title" placeholder="ขั้นตอน..."></div>
           <div class="input-group"><label class="input-label">หมวดหมู่</label>
-            <select class="input" id="sf-cat">${Object.entries(SOP_CATS).map(([k,v]) => `<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+            <select class="input" id="sf-cat">${Object.entries(SOP_CATS).map(([k,v]) => `<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">เจ้าของ</label><input class="input" id="sf-owner" placeholder="ผู้รับผิดชอบ"></div>
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">ขั้นตอน (แต่ละบรรทัด = 1 ขั้นตอน)</label>

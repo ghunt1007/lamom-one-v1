@@ -7,6 +7,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function myName() {
   const me = getState('user') || {}
@@ -166,7 +167,7 @@ export default async function CashierDeskPage(container) {
         size: 'sm',
         body: `<div style="display:grid;gap:10px;font-size:0.82rem">
           <div style="display:flex;justify-content:space-between"><span>💵 เงินสดตามระบบ</span><strong>${formatCurrency(cashInDrawer)}</strong></div>
-          <div class="input-group"><label class="input-label">นับเงินสดจริงได้ (บาท)</label><input class="input" type="number" id="cs-counted" value="${cashInDrawer}"></div>
+          <div class="input-group"><label class="input-label">นับเงินสดจริงได้ (บาท)</label><input class="input" type="number" id="cs-counted" value="${__escA(cashInDrawer)}"></div>
         </div>`,
         confirmText: '🔒 ปิดกะ',
         // เดิมแค่คำนวณผลต่างแล้ว toast บอกผลเฉยๆ ไม่เคยเขียนลง Firestore เลย — ปิดกะทุกครั้งไม่มี audit trail
@@ -199,9 +200,9 @@ export default async function CashierDeskPage(container) {
       body: `<div style="display:grid;gap:10px">
         <div class="input-group"><label class="input-label">ลูกค้า *</label><input class="input" id="py-customer" value="${escHtml(bill?.customer||'')}"></div>
         <div class="input-group"><label class="input-label">รายการ</label><input class="input" id="py-desc" value="${escHtml(bill?.desc||'')}"></div>
-        <div class="input-group"><label class="input-label">จำนวนเงิน *</label><input class="input" type="number" id="py-amount" value="${bill?.amount||''}"></div>
+        <div class="input-group"><label class="input-label">จำนวนเงิน *</label><input class="input" type="number" id="py-amount" value="${__escA(bill?.amount||'')}"></div>
         <div class="input-group"><label class="input-label">ช่องทาง</label>
-          <select class="input" id="py-method">${Object.entries(PAY_METHODS).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+          <select class="input" id="py-method">${Object.entries(PAY_METHODS).map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
         </div>
       </div>`,
       confirmText: '💵 รับเงิน + พิมพ์ใบเสร็จ',

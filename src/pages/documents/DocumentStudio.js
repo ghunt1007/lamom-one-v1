@@ -25,6 +25,7 @@ function sanitizeRichHtml(html) {
 import { formatDate, formatDateTime } from '../../utils/format.js'
 import { confirmDialog, openModal } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 const DOC_TYPES = {
   booking:       { label: '📝 ใบจอง',           color: 'primary' },
@@ -236,7 +237,7 @@ function openNewDocForm(preType = '') {
         <div class="input-group">
           <label class="input-label">ประเภทเอกสาร <span class="required">*</span></label>
           <select class="input" id="new-doc-type">
-            ${Object.entries(DOC_TYPES).map(([k,v])=>`<option value="${k}" ${k===preType?'selected':''}>${v.label}</option>`).join('')}
+            ${Object.entries(DOC_TYPES).map(([k,v])=>`<option value="${__escA(k)}" ${k===preType?'selected':''}>${v.label}</option>`).join('')}
           </select>
         </div>
         <div class="input-group">
@@ -299,7 +300,7 @@ function openDocEditor(doc) {
             <button class="btn btn-ghost btn-sm" data-fmt="ul" title="รายการ">≡</button>
             <span style="width:1px;background:var(--border);margin:0 4px"></span>
             <select class="input" id="doc-status-sel" style="height:28px;font-size:0.78rem;padding:2px 6px;width:130px">
-              ${Object.entries(STATUS_INFO).map(([k,v])=>`<option value="${k}" ${doc.status===k?'selected':''}>${v.label}</option>`).join('')}
+              ${Object.entries(STATUS_INFO).map(([k,v])=>`<option value="${__escA(k)}" ${doc.status===k?'selected':''}>${v.label}</option>`).join('')}
             </select>
           </div>
           <div id="doc-editor" contenteditable="true" spellcheck="false"

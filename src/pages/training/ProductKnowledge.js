@@ -5,6 +5,7 @@
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -349,7 +350,7 @@ export default async function ProductKnowledgePage(container) {
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div><label style="font-size:0.74rem;color:var(--text-muted)">ปีรุ่น</label>
-              <input id="pke-year" type="number" class="input" value="${p.year}"></div>
+              <input id="pke-year" type="number" class="input" value="${__escA(p.year)}"></div>
             <div><label style="font-size:0.74rem;color:var(--text-muted)">Badge</label>
               <select id="pke-badge" class="input">
                 <option value="EV" ${p.badge==='EV'?'selected':''}>EV</option>

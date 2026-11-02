@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function addDays(n) {
   const [y, m, d] = todayBangkok().split('-').map(Number)
@@ -159,7 +160,7 @@ export default async function TeamMeetingPage(container) {
         body: `<div style="display:grid;gap:10px">
           <div class="input-group"><label class="input-label">หัวข้อ *</label><input class="input" id="mt-title"></div>
           <div class="input-group"><label class="input-label">ประเภท</label>
-            <select class="input" id="mt-type">${Object.entries(MEETING_TYPES).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+            <select class="input" id="mt-type">${Object.entries(MEETING_TYPES).map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">วันที่</label><input class="input" type="date" id="mt-date" value="${addDays(1)}"></div>
           <div class="input-group"><label class="input-label">เวลา</label><input class="input" type="time" id="mt-time" value="09:00"></div>

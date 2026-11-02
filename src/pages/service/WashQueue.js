@@ -6,6 +6,7 @@ import { formatCurrency, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
@@ -149,7 +150,7 @@ export default async function WashQueuePage(container) {
           <div class="input-group"><label class="input-label">รุ่นรถ</label><input class="input" id="wq-model"></div>
           <div class="input-group"><label class="input-label">ชื่อลูกค้า</label><input class="input" id="wq-customer"></div>
           <div class="input-group"><label class="input-label">บริการ</label>
-            <select class="input" id="wq-service">${Object.entries(WASH_SERVICES).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label} — ${formatCurrency(v.price)}</option>`).join('')}</select>
+            <select class="input" id="wq-service">${Object.entries(WASH_SERVICES).map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label} — ${formatCurrency(v.price)}</option>`).join('')}</select>
           </div>
           <label style="display:flex;align-items:center;gap:6px;font-size:0.8rem;cursor:pointer">
             <input type="checkbox" id="wq-free" style="accent-color:var(--primary)"> ฟรี (ลูกค้าหลังบริการซ่อม)

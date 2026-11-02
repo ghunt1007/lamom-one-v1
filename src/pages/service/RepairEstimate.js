@@ -7,6 +7,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, softDelete } from '../../core/db.js'
 import { sendSms } from '../../utils/comms.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -125,7 +126,7 @@ export default async function RepairEstimatePage(container) {
                 <div style="display:flex;justify-content:space-between;align-items:center">
                   <span style="color:var(--text-muted)">ส่วนลด</span>
                   <select class="input" id="est-discount" style="width:90px;padding:3px 8px;font-size:0.75rem">
-                    ${[0,5,10,15,20,25].map(d => `<option value="${d}" ${discount===d?'selected':''}>${d}%</option>`).join('')}
+                    ${[0,5,10,15,20,25].map(d => `<option value="${__escA(d)}" ${discount===d?'selected':''}>${d}%</option>`).join('')}
                   </select>
                 </div>
                 ${discount > 0 ? sumRow('ส่วนลด ' + discount + '%', '−' + formatCurrency(discountAmt), 'danger') : ''}

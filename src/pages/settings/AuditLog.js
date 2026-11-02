@@ -7,6 +7,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { showToast } from '../../core/store.js'
 import { listDocs } from '../../core/db.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -85,10 +86,10 @@ export default async function AuditLogPage(container) {
 
         <!-- Filters -->
         <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
-          <input class="input" id="user-search" placeholder="🔍 ค้นหาผู้ใช้..." style="max-width:180px" value="${userFilter}">
+          <input class="input" id="user-search" placeholder="🔍 ค้นหาผู้ใช้..." style="max-width:180px" value="${__escA(userFilter)}">
           <select class="input" id="action-sel" style="max-width:150px">
             <option value="all">ทุก Action</option>
-            ${Object.entries(ACTION_TYPES).map(([k,v]) => `<option value="${k}" ${actionFilter===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}
+            ${Object.entries(ACTION_TYPES).map(([k,v]) => `<option value="${__escA(k)}" ${actionFilter===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}
           </select>
           <select class="input" id="module-sel" style="max-width:150px">
             <option value="all">ทุก Module</option>

@@ -6,6 +6,7 @@ import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
@@ -84,7 +85,7 @@ export default async function PartsRmaPage(container) {
                     Part# ${esc(r.partNo)} · ${r.qty} ${r.unit} · ${r.supplier}
                   </div>
                   <div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px">
-                    เหตุผล: ${r.reason} · วันที่: ${formatDate(r.date)}
+                    เหตุผล: ${esc(r.reason)} · วันที่: ${formatDate(r.date)}
                     ${r.refNo ? ` · Ref: ${r.refNo}` : ''}
                   </div>
                 </div>
@@ -135,7 +136,7 @@ export default async function PartsRmaPage(container) {
         <hr style="border-color:var(--border)">
         <label style="font-size:0.72rem;color:var(--text-muted)">อัปเดตสถานะ</label>
         <select class="input" id="status-upd" style="width:100%">
-          ${Object.entries(STATUS_CONFIG).map(([k,v])=>`<option value="${k}" ${k===r.status?'selected':''}>${v.label}</option>`).join('')}
+          ${Object.entries(STATUS_CONFIG).map(([k,v])=>`<option value="${__escA(k)}" ${k===r.status?'selected':''}>${v.label}</option>`).join('')}
         </select>
       </div>`,
       confirmText:'💾 บันทึก',

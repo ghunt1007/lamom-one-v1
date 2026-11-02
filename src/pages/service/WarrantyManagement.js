@@ -4,6 +4,7 @@ import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -213,11 +214,11 @@ export default async function WarrantyManagementPage(container) {
         <input class="input" id="search-w" placeholder="🔍 ค้นหา ชื่อ/ทะเบียน/รุ่น..." value="${escHtml(searchQ)}" style="width:220px">
         <select class="input" id="status-filter" style="width:150px">
           <option value="all">สถานะทั้งหมด</option>
-          ${Object.entries(WARRANTY_STATUS).map(([k,v]) => `<option value="${k}" ${statusFilter===k?'selected':''}>${v.label}</option>`).join('')}
+          ${Object.entries(WARRANTY_STATUS).map(([k,v]) => `<option value="${__escA(k)}" ${statusFilter===k?'selected':''}>${v.label}</option>`).join('')}
         </select>
         <select class="input" id="type-filter" style="width:170px">
           <option value="all">ประเภทรับประกันทั้งหมด</option>
-          ${Object.entries(WARRANTY_TYPES).map(([k,v]) => `<option value="${k}" ${typeFilter===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}
+          ${Object.entries(WARRANTY_TYPES).map(([k,v]) => `<option value="${__escA(k)}" ${typeFilter===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}
         </select>
       </div>
 
@@ -394,11 +395,11 @@ export default async function WarrantyManagementPage(container) {
         <div class="input-group"><label class="input-label">ทะเบียนรถ *</label><input class="input" id="wf-plate" value="${escHtml(w?.vehiclePlate||'')}"></div>
         <div class="input-group"><label class="input-label">รุ่นรถ</label><input class="input" id="wf-model" value="${escHtml(w?.model||'')}"></div>
         <div class="input-group"><label class="input-label">ประเภทรับประกัน</label>
-          <select class="input" id="wf-type">${Object.entries(WARRANTY_TYPES).map(([k,v]) => `<option value="${k}" ${w?.type===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}</select>
+          <select class="input" id="wf-type">${Object.entries(WARRANTY_TYPES).map(([k,v]) => `<option value="${__escA(k)}" ${w?.type===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}</select>
         </div>
-        <div class="input-group"><label class="input-label">ระยะทาง (กม.)</label><input type="number" class="input" id="wf-km" value="${w?.km||100000}"></div>
+        <div class="input-group"><label class="input-label">ระยะทาง (กม.)</label><input type="number" class="input" id="wf-km" value="${__escA(w?.km||100000)}"></div>
         <div class="input-group"><label class="input-label">วันเริ่ม</label><input type="date" class="input" id="wf-start" value="${w?.startDate||todayBangkok()}"></div>
-        <div class="input-group"><label class="input-label">วันหมดอายุ</label><input type="date" class="input" id="wf-end" value="${w?.endDate||''}"></div>
+        <div class="input-group"><label class="input-label">วันหมดอายุ</label><input type="date" class="input" id="wf-end" value="${__escA(w?.endDate||'')}"></div>
         <div class="input-group" style="grid-column:1/-1"><label class="input-label">หมายเหตุ</label><input class="input" id="wf-notes" value="${escHtml(w?.notes||'')}"></div>
       </div>`,
       async onConfirm() {

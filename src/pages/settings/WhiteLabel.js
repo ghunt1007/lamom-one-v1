@@ -3,6 +3,7 @@ import { openModal } from '../../utils/modal.js'
 import { listDocs, createDoc, updateDocData } from '../../core/db.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
 import { applyBrand, applyLayoutDefault } from '../../core/whiteLabel.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
@@ -203,15 +204,15 @@ export default async function WhiteLabelPage(container) {
             <div class="input-group">
               <label class="input-label">Primary Color</label>
               <div style="display:flex;gap:8px;align-items:center">
-                <input type="color" id="primary-color" value="${cfg.primaryColor}" style="width:48px;height:36px;padding:2px;border-radius:var(--radius-sm);border:1px solid var(--border);cursor:pointer;background:var(--surface)" ${dis}>
-                <input class="input" value="${cfg.primaryColor}" style="font-family:monospace;font-size:0.83rem" id="primary-hex" oninput="document.getElementById('primary-color').value=this.value" ${dis}>
+                <input type="color" id="primary-color" value="${__escA(cfg.primaryColor)}" style="width:48px;height:36px;padding:2px;border-radius:var(--radius-sm);border:1px solid var(--border);cursor:pointer;background:var(--surface)" ${dis}>
+                <input class="input" value="${__escA(cfg.primaryColor)}" style="font-family:monospace;font-size:0.83rem" id="primary-hex" oninput="document.getElementById('primary-color').value=this.value" ${dis}>
               </div>
             </div>
             <div class="input-group">
               <label class="input-label">Accent Color</label>
               <div style="display:flex;gap:8px;align-items:center">
-                <input type="color" id="accent-color" value="${cfg.accentColor}" style="width:48px;height:36px;padding:2px;border-radius:var(--radius-sm);border:1px solid var(--border);cursor:pointer;background:var(--surface)" ${dis}>
-                <input class="input" value="${cfg.accentColor}" style="font-family:monospace;font-size:0.83rem" id="accent-hex" oninput="document.getElementById('accent-color').value=this.value" ${dis}>
+                <input type="color" id="accent-color" value="${__escA(cfg.accentColor)}" style="width:48px;height:36px;padding:2px;border-radius:var(--radius-sm);border:1px solid var(--border);cursor:pointer;background:var(--surface)" ${dis}>
+                <input class="input" value="${__escA(cfg.accentColor)}" style="font-family:monospace;font-size:0.83rem" id="accent-hex" oninput="document.getElementById('accent-color').value=this.value" ${dis}>
               </div>
             </div>
           </div>
@@ -235,7 +236,7 @@ export default async function WhiteLabelPage(container) {
         <div style="font-weight:700;font-size:0.88rem;margin-bottom:4px">📐 ตัวเลือกเลย์เอาต์</div>
         ${layoutOpts.map(o => `
           <label style="display:flex;align-items:center;gap:12px;padding:14px 16px;border:1px solid var(--border);border-radius:var(--radius-md);cursor:pointer;background:var(--surface)">
-            <input type="radio" name="layout-opt" value="${o.id}" ${cfg.layoutId===o.id?'checked':''} style="width:16px;height:16px" ${dis}>
+            <input type="radio" name="layout-opt" value="${__escA(o.id)}" ${cfg.layoutId===o.id?'checked':''} style="width:16px;height:16px" ${dis}>
             <div>
               <div style="font-size:0.88rem;font-weight:600">${o.label}</div>
               <div style="font-size:0.75rem;color:var(--text-muted)">${o.desc}</div>
@@ -248,7 +249,7 @@ export default async function WhiteLabelPage(container) {
           <div class="input-group">
             <label class="input-label">Default Route หลัง Login</label>
             <select class="input" id="default-route" ${dis}>
-              ${[['/', 'Dashboard'],[ '/crm', 'CRM Dashboard'],['/service','Service Dashboard'],['/analytics','Analytics']].map(([v,l]) => `<option value="${v}" ${cfg.defaultRoute===v?'selected':''}>${l}</option>`).join('')}
+              ${[['/', 'Dashboard'],[ '/crm', 'CRM Dashboard'],['/service','Service Dashboard'],['/analytics','Analytics']].map(([v,l]) => `<option value="${__escA(v)}" ${cfg.defaultRoute===v?'selected':''}>${l}</option>`).join('')}
             </select>
           </div>
         </div>

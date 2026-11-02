@@ -9,6 +9,7 @@ import { formatCurrency, formatDateTime, toDate } from '../../utils/format.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData } from '../../core/db.js'
 import { openModal } from '../../utils/modal.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 // ค่าเริ่มต้นตอนยังไม่มีใครตั้งอัตราไว้ใน Firestore — seed ครั้งแรกเท่านั้น จากนั้นทีมงานแก้ไขเองได้
 const DEFAULT_RATES = [
@@ -116,7 +117,7 @@ export default async function MultiCurrencyPage(container) {
             <!-- Custom amount -->
             <div class="card" style="padding:14px">
               <div style="font-size:0.76rem;font-weight:700;color:var(--text-muted);margin-bottom:8px">✏️ ระบุราคาเอง (บาท)</div>
-              <input class="input" id="custom-amt" type="number" value="${amtTHB}" style="width:100%;font-size:16px;font-weight:700">
+              <input class="input" id="custom-amt" type="number" value="${__escA(amtTHB)}" style="width:100%;font-size:16px;font-weight:700">
             </div>
 
             <!-- Rate status -->
@@ -187,7 +188,7 @@ export default async function MultiCurrencyPage(container) {
         ${editable.map(c => `
           <div style="display:flex;align-items:center;gap:10px">
             <div style="width:76px;font-size:0.8rem;font-weight:700">${c.flag} ${c.code}</div>
-            <input class="input rate-input" data-id="${c.id}" type="number" step="0.0001" min="0" value="${c.rate}" style="flex:1">
+            <input class="input rate-input" data-id="${c.id}" type="number" step="0.0001" min="0" value="${__escA(c.rate)}" style="flex:1">
           </div>
         `).join('')}
       </div>

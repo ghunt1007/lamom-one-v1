@@ -6,6 +6,7 @@ import { formatDate, formatDateTime, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -59,7 +60,7 @@ export default async function TdCertPage(container) {
         </div>
 
         <div style="display:flex;gap:8px;margin-bottom:14px">
-          <input class="input" id="date-filter" type="date" value="${selDate}" style="width:180px">
+          <input class="input" id="date-filter" type="date" value="${__escA(selDate)}" style="width:180px">
           <button class="btn btn-secondary" id="clear-date">ทั้งหมด</button>
         </div>
 

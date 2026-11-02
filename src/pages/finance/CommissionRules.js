@@ -8,6 +8,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, getSalesData } from '../../core/db.js'
 import { getPositions } from '../../data/masterData.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -230,12 +231,12 @@ export default async function CommissionRulesPage(container) {
             <div class="card" style="padding:14px;margin-bottom:10px">
               <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">🧮 จำลองคอมมิชชั่น</div>
               <div style="display:grid;gap:10px;margin-bottom:12px">
-                <div class="input-group"><label class="input-label">ขายได้ (คัน/เดือน)</label><input class="input" type="number" id="sim-units" min="0" value="${sim.units}"></div>
-                <div class="input-group"><label class="input-label">รุ่น Premium (คัน)</label><input class="input" type="number" id="sim-premium" min="0" value="${sim.premium}"></div>
-                <div class="input-group"><label class="input-label">เกิน floor รวม (฿)</label><input class="input" type="number" id="sim-over" min="0" value="${sim.overFloor}"></div>
-                <div class="input-group"><label class="input-label">ยอดจัดไฟแนนซ์รวม (฿)</label><input class="input" type="number" id="sim-fin" min="0" value="${sim.financeTotal}"></div>
-                <div class="input-group"><label class="input-label">ยอดขายประกันรวม (฿)</label><input class="input" type="number" id="sim-ins" min="0" value="${sim.insuranceTotal}"></div>
-                <div class="input-group"><label class="input-label">ยอดขายอุปกรณ์รวม (฿)</label><input class="input" type="number" id="sim-acc" min="0" value="${sim.accessoryTotal}"></div>
+                <div class="input-group"><label class="input-label">ขายได้ (คัน/เดือน)</label><input class="input" type="number" id="sim-units" min="0" value="${__escA(sim.units)}"></div>
+                <div class="input-group"><label class="input-label">รุ่น Premium (คัน)</label><input class="input" type="number" id="sim-premium" min="0" value="${__escA(sim.premium)}"></div>
+                <div class="input-group"><label class="input-label">เกิน floor รวม (฿)</label><input class="input" type="number" id="sim-over" min="0" value="${__escA(sim.overFloor)}"></div>
+                <div class="input-group"><label class="input-label">ยอดจัดไฟแนนซ์รวม (฿)</label><input class="input" type="number" id="sim-fin" min="0" value="${__escA(sim.financeTotal)}"></div>
+                <div class="input-group"><label class="input-label">ยอดขายประกันรวม (฿)</label><input class="input" type="number" id="sim-ins" min="0" value="${__escA(sim.insuranceTotal)}"></div>
+                <div class="input-group"><label class="input-label">ยอดขายอุปกรณ์รวม (฿)</label><input class="input" type="number" id="sim-acc" min="0" value="${__escA(sim.accessoryTotal)}"></div>
                 <button class="btn btn-primary" id="sim-btn">🧮 คำนวณ</button>
               </div>
               <div style="display:flex;gap:4px;margin-bottom:12px">
@@ -305,16 +306,16 @@ export default async function CommissionRulesPage(container) {
         r.tiers.forEach((t, i) => {
           const label = t.to >= 99 ? `คันที่ ${t.from}+` : `คันที่ ${t.from}–${t.to}`
           bodyHtml += `<div class="input-group"><label class="input-label">${label}</label>
-            <input class="input" type="number" id="er-tier-${i}" value="${t.amt}" step="500" min="0"></div>`
+            <input class="input" type="number" id="er-tier-${i}" value="${__escA(t.amt)}" step="500" min="0"></div>`
         })
       } else if (r.type === 'percent') {
         bodyHtml += `<div class="input-group"><label class="input-label">% ของ</label>
-          <select class="input" id="er-base">${Object.entries(PERCENT_BASES).map(([k,v]) => `<option value="${k}"${(r.base||'floor')===k?' selected':''}>${v.label}</option>`).join('')}</select></div>` +
+          <select class="input" id="er-base">${Object.entries(PERCENT_BASES).map(([k,v]) => `<option value="${__escA(k)}"${(r.base||'floor')===k?' selected':''}>${v.label}</option>`).join('')}</select></div>` +
           `<div class="input-group"><label class="input-label">เปอร์เซ็นต์ (%)</label>
-          <input class="input" type="number" id="er-value" value="${r.value}" step="0.5" min="0" max="100"></div>`
+          <input class="input" type="number" id="er-value" value="${__escA(r.value)}" step="0.5" min="0" max="100"></div>`
       } else {
         bodyHtml += `<div class="input-group"><label class="input-label">ค่าคอม (บาท/คัน)</label>
-          <input class="input" type="number" id="er-value" value="${r.value}" step="500" min="0"></div>`
+          <input class="input" type="number" id="er-value" value="${__escA(r.value)}" step="500" min="0"></div>`
       }
       bodyHtml += `<div class="input-group"><label class="input-label">รายละเอียด</label>
         <input class="input" id="er-detail" value="${escHtml(r.detail || '')}"></div></div>`
@@ -375,7 +376,7 @@ export default async function CommissionRulesPage(container) {
           <div class="input-group"><label class="input-label">ชื่อกติกา *</label><input class="input" id="cr-name" placeholder="เช่น โบนัสรุ่นใหม่"></div>
           <div style="font-size:0.72rem;color:var(--text-muted)">💡 เพิ่มได้เฉพาะกติกาแบบ "% ของฐาน" — กติกาแบบต่อคัน/ขั้นบันได/โบนัสคงที่มี 3 แบบตั้งต้นให้แก้ไขค่าได้อยู่แล้ว (ปุ่ม ✏️ ที่รายการด้านซ้าย) ไม่สามารถเพิ่มแบบใหม่เองได้ในตอนนี้</div>
           <div class="input-group"><label class="input-label">% ของ</label>
-            <select class="input" id="cr-base">${Object.entries(PERCENT_BASES).map(([k,v]) => `<option value="${k}">${v.label}</option>`).join('')}</select>
+            <select class="input" id="cr-base">${Object.entries(PERCENT_BASES).map(([k,v]) => `<option value="${__escA(k)}">${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">เปอร์เซ็นต์ (%)</label><input class="input" type="number" id="cr-value" value="0" min="0" max="100" step="0.5"></div>
           <div class="input-group"><label class="input-label">รายละเอียด</label><input class="input" id="cr-detail" placeholder="อธิบายเงื่อนไข..."></div>

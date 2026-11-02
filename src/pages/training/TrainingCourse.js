@@ -6,6 +6,7 @@ import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -210,7 +211,7 @@ export default async function TrainingCoursePage(container) {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">ชื่อหลักสูตร *</label><input class="input" id="cof-title" placeholder="ชื่อหลักสูตร"></div>
           <div class="input-group"><label class="input-label">ประเภท</label>
-            <select class="input" id="cof-type">${Object.entries(COURSE_TYPES).map(([k,v]) => `<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+            <select class="input" id="cof-type">${Object.entries(COURSE_TYPES).map(([k,v]) => `<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">วิทยากร</label><input class="input" id="cof-inst" placeholder="ชื่อวิทยากร"></div>
           <div class="input-group"><label class="input-label">วันที่</label><input type="date" class="input" id="cof-date" value="${addDays(14)}"></div>
@@ -253,7 +254,7 @@ export default async function TrainingCoursePage(container) {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">ชื่อหลักสูตร *</label><input class="input" id="cef-title" value="${escHtml(c.title)}"></div>
           <div class="input-group"><label class="input-label">ประเภท</label>
-            <select class="input" id="cef-type">${Object.entries(COURSE_TYPES).map(([k,v]) => `<option value="${k}" ${c.type===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}</select>
+            <select class="input" id="cef-type">${Object.entries(COURSE_TYPES).map(([k,v]) => `<option value="${__escA(k)}" ${c.type===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">วิทยากร</label><input class="input" id="cef-inst" value="${escHtml(c.instructor)}"></div>
           <div class="input-group"><label class="input-label">วันที่</label><input type="date" class="input" id="cef-date" value="${c.startDate||addDays(14)}"></div>
@@ -263,8 +264,8 @@ export default async function TrainingCoursePage(container) {
               ${['Classroom','Online','Workshop','Hands-on Lab'].map(f => `<option ${c.format===f?'selected':''}>${f}</option>`).join('')}
             </select>
           </div>
-          <div class="input-group"><label class="input-label">จำนวนสูงสุด</label><input type="number" class="input" id="cef-max" value="${c.maxEnroll}"></div>
-          <div class="input-group"><label class="input-label">คะแนนผ่าน (%)</label><input type="number" class="input" id="cef-pass" value="${c.passScore}"></div>
+          <div class="input-group"><label class="input-label">จำนวนสูงสุด</label><input type="number" class="input" id="cef-max" value="${__escA(c.maxEnroll)}"></div>
+          <div class="input-group"><label class="input-label">คะแนนผ่าน (%)</label><input type="number" class="input" id="cef-pass" value="${__escA(c.passScore)}"></div>
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">รายละเอียด</label><textarea class="input" id="cef-desc" rows="3">${escHtml(c.description||'')}</textarea></div>
         </div>
       `,

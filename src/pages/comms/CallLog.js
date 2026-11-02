@@ -6,6 +6,7 @@ import { timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function myName() {
   const me = getState('user') || {}
@@ -145,10 +146,10 @@ export default async function CallLogPage(container) {
           <div class="input-group"><label class="input-label">ชื่อผู้โทร/ผู้รับ *</label><input class="input" id="cl-caller"></div>
           <div class="input-group"><label class="input-label">เบอร์โทร</label><input class="input" id="cl-phone"></div>
           <div class="input-group"><label class="input-label">ประเภท</label>
-            <select class="input" id="cl-type">${Object.entries(CALL_TYPES).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+            <select class="input" id="cl-type">${Object.entries(CALL_TYPES).map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">เรื่อง</label>
-            <select class="input" id="cl-topic">${Object.entries(CALL_TOPICS).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+            <select class="input" id="cl-topic">${Object.entries(CALL_TOPICS).map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">บันทึก</label><input class="input" id="cl-note"></div>
           <label style="display:flex;align-items:center;gap:6px;font-size:0.8rem;cursor:pointer">

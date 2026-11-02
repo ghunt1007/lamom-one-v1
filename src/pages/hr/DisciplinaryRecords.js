@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -133,7 +134,7 @@ export default async function DisciplinaryRecordsPage(container) {
         <div class="input-group"><label class="input-label">ชื่อพนักงาน *</label><input class="input" id="dr-staff"></div>
         <div style="display:flex;gap:8px">
           <div class="input-group" style="flex:1"><label class="input-label">แผนก</label><input class="input" id="dr-dept"></div>
-          <div class="input-group" style="flex:1"><label class="input-label">ระดับ *</label><select class="input" id="dr-level">${Object.entries(LEVELS).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('')}</select></div>
+          <div class="input-group" style="flex:1"><label class="input-label">ระดับ *</label><select class="input" id="dr-level">${Object.entries(LEVELS).map(([k,v])=>`<option value="${__escA(k)}">${v.label}</option>`).join('')}</select></div>
         </div>
         <div class="input-group"><label class="input-label">สาเหตุ *</label><textarea class="input" id="dr-reason" rows="2"></textarea></div>
         <div class="input-group"><label class="input-label">ผู้ออกใบเตือน</label><input class="input" id="dr-by" placeholder="ตำแหน่ง/ชื่อ"></div>

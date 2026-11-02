@@ -1,6 +1,7 @@
 import { formatCurrency } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { confirmDialog } from '../../utils/modal.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 const STORAGE_KEY = 'lamom-breakeven'
 
@@ -203,7 +204,7 @@ export default function BreakEvenPage(container) {
         <label style="font-size:0.76rem;color:var(--text-muted)">${label}</label>
         <strong style="font-size:0.76rem;color:var(--primary)" id="be-${id}-lbl">${display}</strong>
       </div>
-      <input type="range" id="be-${id}" min="${min}" max="${max}" step="${step}" value="${value}" style="width:100%;accent-color:var(--primary)">
+      <input type="range" id="be-${id}" min="${min}" max="${max}" step="${step}" value="${__escA(value)}" style="width:100%;accent-color:var(--primary)">
     </div>`
   }
 

@@ -5,6 +5,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc } from '../../core/db.js'
 import { sendSms } from '../../utils/comms.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -149,7 +150,7 @@ export default async function CustomerFeedbackPage(container) {
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
                   <span style="font-weight:700;font-size:0.88rem">${escHtml(f.customerName)}</span>
                   <span class="badge badge-${ft?.color}" style="font-size:0.68rem">${ft?.label}</span>
-                  <span class="badge badge-secondary" style="font-size:0.68rem">${DEPARTMENTS[f.department]||f.department}</span>
+                  <span class="badge badge-secondary" style="font-size:0.68rem">${escHtml(DEPARTMENTS[f.department]||f.department)}</span>
                   ${!f.responded ? `<span class="badge badge-warning" style="font-size:0.65rem">รอตอบ</span>` : ''}
                 </div>
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
@@ -237,7 +238,7 @@ export default async function CustomerFeedbackPage(container) {
       </div>
       <div class="input-group" style="margin-top:12px"><label class="input-label">ช่องทาง</label>
         <div style="display:flex;gap:8px">
-          ${[['📱 SMS','sms'],['💬 LINE','line'],['📧 Email','email']].map(([l,v]) => `<label style="display:flex;align-items:center;gap:6px;font-size:0.83rem;cursor:pointer"><input type="checkbox" value="${v}" class="sv-channel" ${v==='line'?'checked':''}> ${l}</label>`).join('')}
+          ${[['📱 SMS','sms'],['💬 LINE','line'],['📧 Email','email']].map(([l,v]) => `<label style="display:flex;align-items:center;gap:6px;font-size:0.83rem;cursor:pointer"><input type="checkbox" value="${__escA(v)}" class="sv-channel" ${v==='line'?'checked':''}> ${l}</label>`).join('')}
         </div>
       </div>
       <div class="input-group" style="margin-top:12px"><label class="input-label">กลุ่มเป้าหมาย</label>
@@ -267,13 +268,13 @@ export default async function CustomerFeedbackPage(container) {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:12px">
           <div>
             ${row('ประเภท', `<span class="badge badge-${ft?.color}">${ft?.label}</span>`)}
-            ${row('แผนก', DEPARTMENTS[f.department]||f.department)}
+            ${row('แผนก', escHtml(DEPARTMENTS[f.department]||f.department))}
             ${row('เซลส์/ช่าง', escHtml(f.salesperson))}
             ${row('วันที่', formatDate(f.date))}
           </div>
           <div>
-            ${row('คะแนน', `<span style="font-size:1.1rem;font-weight:800">${f.score}/${f.maxScore}</span>`)}
-            ${f.maxScore === 5 ? `<div style="font-size:1.2rem;margin:6px 0">` + '⭐'.repeat(f.score) + '☆'.repeat(5-f.score) + `</div>` : ''}
+            ${row('คะแนน', `<span style="font-size:1.1rem;font-weight:800">${escHtml(f.score)}/${escHtml(f.maxScore)}</span>`)}
+            ${f.maxScore === 5 ? `<div style="font-size:1.2rem;margin:6px 0">` + '⭐'.repeat(Math.max(0, Math.min(5, Number(f.score) || 0))) + '☆'.repeat(5 - Math.max(0, Math.min(5, Number(f.score) || 0))) + `</div>` : ''}
           </div>
         </div>
         ${f.comment ? `<div style="padding:12px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:0.85rem;line-height:1.6;margin-bottom:12px;border-left:3px solid var(--${ft?.color})">&quot;${escHtml(f.comment)}&quot;</div>` : ''}
@@ -334,11 +335,11 @@ export default async function CustomerFeedbackPage(container) {
           <div class="input-group"><label class="input-label">โทรศัพท์</label><input class="input" id="fbf-phone" placeholder="08x-xxx-xxxx"></div>
           <div class="input-group">
             <label class="input-label">ประเภท</label>
-            <select class="input" id="fbf-type">${Object.entries(FEEDBACK_TYPES).map(([k,v]) => `<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+            <select class="input" id="fbf-type">${Object.entries(FEEDBACK_TYPES).map(([k,v]) => `<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group">
             <label class="input-label">แผนก</label>
-            <select class="input" id="fbf-dept">${Object.entries(DEPARTMENTS).map(([k,v]) => `<option value="${k}">${v}</option>`).join('')}</select>
+            <select class="input" id="fbf-dept">${Object.entries(DEPARTMENTS).map(([k,v]) => `<option value="${__escA(k)}">${v}</option>`).join('')}</select>
           </div>
           <div class="input-group">
             <label class="input-label">คะแนน (1-5)</label>

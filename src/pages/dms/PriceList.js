@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -151,12 +152,12 @@ export default async function PriceListPage(container) {
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div><label style="font-size:0.74rem;color:var(--text-muted)">แบรนด์</label>
               <select id="am-brand" class="input">
-                ${BRANDS.map(b=>`<option value="${b}">${b}</option>`).join('')}
+                ${BRANDS.map(b=>`<option value="${__escA(b)}">${b}</option>`).join('')}
               </select>
             </div>
             <div><label style="font-size:0.74rem;color:var(--text-muted)">ประเภท</label>
               <select id="am-type" class="input">
-                ${Object.keys(TYPES).map(t=>`<option value="${t}">${t}</option>`).join('')}
+                ${Object.keys(TYPES).map(t=>`<option value="${__escA(t)}">${t}</option>`).join('')}
               </select>
             </div>
           </div>
@@ -244,8 +245,8 @@ export default async function PriceListPage(container) {
       size: 'sm',
       body: `
         <div style="display:grid;gap:10px">
-          <div class="input-group"><label class="input-label">ราคาปกติ (บาท)</label><input type="number" class="input" id="ep-base" value="${m.basePrice}"></div>
-          <div class="input-group"><label class="input-label">ราคาโปรโมชั่น (0 = ไม่มีโปร)</label><input type="number" class="input" id="ep-promo" value="${m.promotionPrice||0}"></div>
+          <div class="input-group"><label class="input-label">ราคาปกติ (บาท)</label><input type="number" class="input" id="ep-base" value="${__escA(m.basePrice)}"></div>
+          <div class="input-group"><label class="input-label">ราคาโปรโมชั่น (0 = ไม่มีโปร)</label><input type="number" class="input" id="ep-promo" value="${__escA(m.promotionPrice||0)}"></div>
         </div>
       `,
       async onConfirm() {

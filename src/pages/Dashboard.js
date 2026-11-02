@@ -13,6 +13,7 @@ import { monthStats, openBookings, isCancelled, isDelivered, stockSince, pctChan
 import { exportToExcel } from '../utils/importExport.js'
 import { DASH_SECTIONS, loadDashLayout, saveDashLayout, applyDashLayout, moveSection, normalizeLayout } from '../utils/dashLayout.js'
 import { openModal } from '../utils/modal.js'
+import { escHtml as __escA } from '../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -1075,7 +1076,7 @@ export default async function DashboardPage(container) {
       const opts = []
       for (let i = 1; i <= 24; i++) opts.push(shiftMonth(selectedMonth, -i))
       if (!opts.includes(compareMonth)) opts.push(compareMonth)
-      picker.innerHTML = opts.map(m => `<option value="${m}"${m === compareMonth ? ' selected' : ''}>${ymLabel(m)}${m === shiftMonth(selectedMonth, -12) ? ' (ปีก่อน)' : ''}</option>`).join('')
+      picker.innerHTML = opts.map(m => `<option value="${__escA(m)}"${m === compareMonth ? ' selected' : ''}>${ymLabel(m)}${m === shiftMonth(selectedMonth, -12) ? ' (ปีก่อน)' : ''}</option>`).join('')
       const nowBtn = document.getElementById('pm-now')
       if (nowBtn) nowBtn.style.display = selectedMonth === todayBangkok().slice(0, 7) ? 'none' : ''
     }

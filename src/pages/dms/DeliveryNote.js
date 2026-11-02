@@ -177,7 +177,7 @@ export default async function DeliveryNotePage(container) {
                   </td>
                   <td>
                     <div style="font-size:0.83rem;font-weight:${isToday?700:400};color:${isToday?'var(--warning)':isOverdue?'var(--danger)':'inherit'}">${formatDate(n.deliveryDate)}</div>
-                    <div style="font-size:0.73rem;color:var(--text-muted)">${n.deliveryTime}</div>
+                    <div style="font-size:0.73rem;color:var(--text-muted)">${escHtml(n.deliveryTime)}</div>
                   </td>
                   <td style="font-size:0.8rem;max-width:160px">${escHtml(n.location)}</td>
                   <td style="font-size:0.82rem">${escHtml(n.salesperson)}</td>
@@ -187,10 +187,10 @@ export default async function DeliveryNotePage(container) {
                   </td>
                   <td>
                     <div style="display:flex;gap:4px">
-                      <button class="btn btn-xs btn-secondary open-dn-btn" data-id="${n.id}">ดู</button>
+                      <button class="btn btn-xs btn-secondary open-dn-btn" data-id="${escHtml(n.id)}">ดู</button>
                       ${n.status !== 'done' && n.status !== 'cancelled'
-                        ? `<button class="btn btn-xs btn-primary schedule-dn-btn" data-id="${n.id}">📅 นัด</button>
-                           <button class="btn btn-xs btn-success confirm-dn-btn" data-id="${n.id}">✓</button>`
+                        ? `<button class="btn btn-xs btn-primary schedule-dn-btn" data-id="${escHtml(n.id)}">📅 นัด</button>
+                           <button class="btn btn-xs btn-success confirm-dn-btn" data-id="${escHtml(n.id)}">✓</button>`
                         : ''}
                     </div>
                   </td>

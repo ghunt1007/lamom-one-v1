@@ -8,6 +8,7 @@ import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getInsurers } from '../../data/masterData.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -205,10 +206,10 @@ export default async function InsuranceRenewalPage(container) {
             <select class="input" id="rn-insurer">${INSURERS.map(i => `<option ${i===p.insurer?'selected':''}>${i}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">ประเภทประกัน</label>
-            <select class="input" id="rn-type">${Object.entries(INS_TYPE).map(([k,v]) => `<option value="${k}" ${p.type===k?'selected':''}>${v.label}</option>`).join('')}</select>
+            <select class="input" id="rn-type">${Object.entries(INS_TYPE).map(([k,v]) => `<option value="${__escA(k)}" ${p.type===k?'selected':''}>${v.label}</option>`).join('')}</select>
           </div>
-          <div class="input-group"><label class="input-label">เบี้ยประกัน (บาท)</label><input type="number" class="input" id="rn-premium" value="${p.premium}"></div>
-          <div class="input-group"><label class="input-label">วันเริ่มกรมธรรม์ใหม่</label><input type="date" class="input" id="rn-start" value="${today}"></div>
+          <div class="input-group"><label class="input-label">เบี้ยประกัน (บาท)</label><input type="number" class="input" id="rn-premium" value="${__escA(p.premium)}"></div>
+          <div class="input-group"><label class="input-label">วันเริ่มกรมธรรม์ใหม่</label><input type="date" class="input" id="rn-start" value="${__escA(today)}"></div>
         </div>
       `,
       confirmText: '✅ บันทึกการต่อประกัน',
@@ -247,11 +248,11 @@ export default async function InsuranceRenewalPage(container) {
             <select class="input" id="inf-insurer">${INSURERS.map(i => `<option>${i}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">ประเภท</label>
-            <select class="input" id="inf-type">${Object.entries(INS_TYPE).map(([k,v]) => `<option value="${k}">${v.label}</option>`).join('')}</select>
+            <select class="input" id="inf-type">${Object.entries(INS_TYPE).map(([k,v]) => `<option value="${__escA(k)}">${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">เลขกรมธรรม์</label><input class="input" id="inf-policy" placeholder="ABC-2025-XXXXXX"></div>
           <div class="input-group"><label class="input-label">เบี้ยประกัน (บาท)</label><input type="number" class="input" id="inf-premium" placeholder="25000"></div>
-          <div class="input-group"><label class="input-label">วันเริ่ม</label><input type="date" class="input" id="inf-start" value="${today}"></div>
+          <div class="input-group"><label class="input-label">วันเริ่ม</label><input type="date" class="input" id="inf-start" value="${__escA(today)}"></div>
           <div class="input-group"><label class="input-label">เซลส์</label><input class="input" id="inf-sales" placeholder="ชื่อเซลส์"></div>
         </div>
       `,

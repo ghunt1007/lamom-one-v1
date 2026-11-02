@@ -8,6 +8,7 @@ function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 import { exportToExcel } from '../../utils/importExport.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 const DEMO_STAFF_PAY = [] // (2026-11-02) เอาข้อมูลสมมติออก — ไม่มีข้อมูลจริงให้โชว์ว่าง ไม่ใช่ตัวเลขปลอม
 
@@ -157,7 +158,7 @@ export default async function PayrollPage(container) {
             <div class="page-subtitle">รอบเงินเดือน ${monthLabel}${usingDemoStaff ? ' <span style="color:var(--warning);font-size:0.72rem;margin-left:8px">⚠️ ข้อมูลตัวอย่าง — ยังไม่มีพนักงานจริงในระบบ (ปิดปุ่มจ่ายเงินไว้)</span>' : ''}</div>
           </div>
           <div class="page-actions">
-            <input type="month" class="input" id="pay-month" value="${selectedMonth}" style="width:160px">
+            <input type="month" class="input" id="pay-month" value="${__escA(selectedMonth)}" style="width:160px">
             <button class="btn btn-secondary" id="pay-export">📥 ส่งออก</button>
             <button class="btn btn-primary" id="pay-all-btn" ${usingDemoStaff ? 'disabled title="ปิดใช้งาน — กำลังแสดงข้อมูลตัวอย่าง ยังไม่มีพนักงานจริง"' : ''}>✅ จ่ายทั้งหมด</button>
           </div>
@@ -331,14 +332,14 @@ export default async function PayrollPage(container) {
       body: `
         <div style="display:flex;flex-direction:column;gap:12px">
           <div class="grid-2">
-            <div class="input-group"><label class="input-label">เงินเดือนฐาน</label><input class="input" id="pf-base" type="number" value="${s.base}"></div>
-            <div class="input-group"><label class="input-label">OT</label><input class="input" id="pf-ot" type="number" value="${s.ot}"></div>
+            <div class="input-group"><label class="input-label">เงินเดือนฐาน</label><input class="input" id="pf-base" type="number" value="${__escA(s.base)}"></div>
+            <div class="input-group"><label class="input-label">OT</label><input class="input" id="pf-ot" type="number" value="${__escA(s.ot)}"></div>
           </div>
           <div class="grid-2">
-            <div class="input-group"><label class="input-label">เบี้ยเลี้ยง</label><input class="input" id="pf-allow" type="number" value="${s.allowance}"></div>
-            <div class="input-group"><label class="input-label">หักภาษี</label><input class="input" id="pf-ded" type="number" value="${s.deduction}"></div>
+            <div class="input-group"><label class="input-label">เบี้ยเลี้ยง</label><input class="input" id="pf-allow" type="number" value="${__escA(s.allowance)}"></div>
+            <div class="input-group"><label class="input-label">หักภาษี</label><input class="input" id="pf-ded" type="number" value="${__escA(s.deduction)}"></div>
           </div>
-          <div class="input-group"><label class="input-label">ประกันสังคม (5%)</label><input class="input" id="pf-ssf" type="number" value="${s.ssf}"></div>
+          <div class="input-group"><label class="input-label">ประกันสังคม (5%)</label><input class="input" id="pf-ssf" type="number" value="${__escA(s.ssf)}"></div>
           <div style="background:var(--surface-2);padding:12px;border-radius:var(--radius-md)">
             <div style="display:flex;justify-content:space-between">
               <span>สุทธิ (ประมาณ)</span>

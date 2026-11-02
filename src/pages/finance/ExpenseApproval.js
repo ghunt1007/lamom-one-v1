@@ -7,6 +7,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState, on } from '../../core/store.js'
 import { watchDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function myName() {
   const me = getState('user') || {}
@@ -207,7 +208,7 @@ export default async function ExpenseApprovalPage(container) {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">รายละเอียด *</label><input class="input" id="ef-title" placeholder="ค่าใช้จ่าย..."></div>
           <div class="input-group"><label class="input-label">ประเภท</label>
-            <select class="input" id="ef-cat">${Object.entries(EXP_CATS).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+            <select class="input" id="ef-cat">${Object.entries(EXP_CATS).map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">จำนวนเงิน (บาท) *</label><input type="number" class="input" id="ef-amount" placeholder="0"></div>
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">หมายเหตุ</label><input class="input" id="ef-notes" placeholder="รายละเอียดเพิ่มเติม"></div>

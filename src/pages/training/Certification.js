@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 const CERT_STATUS = {
   active:  { label: 'ใช้งาน', color: 'success' },
@@ -186,11 +187,11 @@ export default async function CertificationPage(container) {
         <div style="display:grid;gap:10px">
           <div class="input-group"><label class="input-label">พนักงาน</label>
             <select class="input" id="ic-staff">
-              ${staffList.map(s => `<option value="${s.id}">${escHtml(s.name)}</option>`).join('')}
+              ${staffList.map(s => `<option value="${__escA(s.id)}">${escHtml(s.name)}</option>`).join('')}
             </select>
           </div>
           <div class="input-group"><label class="input-label">ใบรับรอง</label>
-            <select class="input" id="ic-cert">${CERTS.map(c=>`<option value="${c.id}">${c.icon} ${c.name}</option>`).join('')}</select>
+            <select class="input" id="ic-cert">${CERTS.map(c=>`<option value="${__escA(c.id)}">${c.icon} ${c.name}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">คะแนน (%)</label><input type="number" class="input" id="ic-score" value="85" min="0" max="100"></div>
         </div>

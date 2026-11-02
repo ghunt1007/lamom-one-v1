@@ -2891,3 +2891,42 @@ describe('system_backup_config (v1.0.316) — same sensitivity level as system_b
     await assertFails(db.collection('system_backup_config').doc('default').set({ schedule: 'daily', retention: 30 }))
   })
 })
+
+describe('self-escalation via authorization fields (v1.0.911)', () => {
+  const PAYLOADS = [
+    ['extraGrants', { extraGrants: ['finance', 'hr'] }],
+    ['groupWide', { groupWide: true }],
+    ['companyIds', { companyIds: ['co-other'] }],
+    ['companyMemberships', { companyMemberships: [{ companyId: 'co-other' }] }],
+  ]
+  for (const [name, patch] of PAYLOADS) {
+    it(`a staff user cannot give themselves ${name}`, async () => {
+      await seedUser(`se-${name}`, { role: 'sales', active: true, companyIds: ['co-a'] })
+      const db = testEnv.authenticatedContext(`se-${name}`).firestore()
+      await assertFails(db.doc(`users/se-${name}`).update(patch))
+    })
+    it(`a new pending sign-up cannot include ${name}`, async () => {
+      await seedUser('someone-else', { role: 'owner', active: true })
+      const db = testEnv.authenticatedContext(`ps-${name}`).firestore()
+      await assertFails(db.doc(`users/ps-${name}`).set({ role: 'pending', active: false, permissions: [], ...patch }))
+    })
+  }
+
+  it('the normal pending sign-up (what the app sends) still works', async () => {
+    await seedUser('someone-else2', { role: 'owner', active: true })
+    const db = testEnv.authenticatedContext('ps-ok').firestore()
+    await assertSucceeds(db.doc('users/ps-ok').set({ uid: 'ps-ok', email: 'a@b.c', displayName: 'A', role: 'pending', permissions: [], active: false, companyMemberships: [], primaryCompanyId: null }))
+  })
+
+  it('a staff user can still edit their own display name', async () => {
+    await seedUser('se-ok', { role: 'sales', active: true, extraGrants: ['finance'], groupWide: true, companyIds: ['co-a'] })
+    const db = testEnv.authenticatedContext('se-ok').firestore()
+    await assertSucceeds(db.doc('users/se-ok').update({ displayName: 'New' }))
+  })
+
+  it('a pending user that somehow has extraGrants:["finance"] gets no finance access', async () => {
+    await seedUser('pend-fin', { role: 'pending', active: false, extraGrants: ['finance'], groupWide: true })
+    const db = testEnv.authenticatedContext('pend-fin').firestore()
+    await assertFails(db.doc('commissions/x1').set({ amount: 1 }))
+  })
+})

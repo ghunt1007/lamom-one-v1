@@ -4,6 +4,7 @@ import { confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { todayBangkok } from '../../utils/format.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
+import { escHtml } from '../../utils/escape.js'
 
 export default async function MasterDataPage(container) {
   const myGen = container.__routerGen
@@ -44,20 +45,20 @@ export default async function MasterDataPage(container) {
 
     if (!items.length) return `<div style="padding:32px;text-align:center;color:var(--text-muted)">
       <div style="font-size:2rem;margin-bottom:8px">🔍</div>
-      <div>ไม่พบ "<strong>${search}</strong>"</div>
+      <div>ไม่พบ "<strong>${escHtml(search)}</strong>"</div>
     </div>`
 
     return items.map((it, i) => {
       const realIdx = allItems.indexOf(it)
       const label = m.type === 'priced'
-        ? `<span style="font-weight:600">${it.name}</span> <span style="color:var(--text-muted);font-size:0.76rem">฿${(it.price||0).toLocaleString()}</span>`
-        : `<span>${it}</span>`
+        ? `<span style="font-weight:600">${escHtml(it.name)}</span> <span style="color:var(--text-muted);font-size:0.76rem">฿${(it.price||0).toLocaleString()}</span>`
+        : `<span>${escHtml(it)}</span>`
       const channelToggle = active === 'salesStaff' ? (() => {
         const ch = getSalesChannel(it)
         const isShowroom = ch === 'showroom'
         const label2 = isShowroom ? '🏢 หน้าร้าน' : '💻 ออนไลน์'
         return canManage
-          ? `<button class="btn btn-xs channel-toggle" data-name="${it}" style="margin-right:8px;background:${isShowroom?'var(--primary-dim)':'var(--success-dim)'};color:${isShowroom?'var(--primary)':'var(--success)'};border:1px solid ${isShowroom?'var(--primary)':'var(--success)'}">
+          ? `<button class="btn btn-xs channel-toggle" data-name="${escHtml(it)}" style="margin-right:8px;background:${isShowroom?'var(--primary-dim)':'var(--success-dim)'};color:${isShowroom?'var(--primary)':'var(--success)'};border:1px solid ${isShowroom?'var(--primary)':'var(--success)'}">
               ${label2}
             </button>`
           : `<span style="margin-right:8px;font-size:0.72rem;color:var(--text-muted)">${label2}</span>`
@@ -113,7 +114,7 @@ export default async function MasterDataPage(container) {
             <div style="font-weight:700;font-size:0.86rem">${m.icon||''} ${m.label}
               <span style="font-size:0.72rem;font-weight:400;color:var(--text-muted);margin-left:6px">${allItems.length} รายการ${search?' · แสดง '+shown.length:''}</span>
             </div>
-            <input id="md-search" class="input" placeholder="🔍 ค้นหา..." value="${search}" style="width:180px;font-size:0.78rem;padding:5px 10px">
+            <input id="md-search" class="input" placeholder="🔍 ค้นหา..." value="${escHtml(search)}" style="width:180px;font-size:0.78rem;padding:5px 10px">
           </div>
 
           <!-- Add row -->

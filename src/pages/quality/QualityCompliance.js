@@ -2,6 +2,7 @@ import { watchDocs, createDoc, updateDocData, seedDemoData } from '../../core/db
 import { showToast } from '../../core/store.js'
 import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -313,14 +314,14 @@ export default async function QualityCompliancePage(container) {
           <div class="grid-2">
             <div class="input-group"><label class="input-label">ประเภท</label>
               <select class="input" id="af-type">
-                ${Object.entries(AUDIT_TYPES).map(([k,v]) => `<option value="${k}" ${k===preType?'selected':''}>${v.label}</option>`).join('')}
+                ${Object.entries(AUDIT_TYPES).map(([k,v]) => `<option value="${__escA(k)}" ${k===preType?'selected':''}>${v.label}</option>`).join('')}
               </select>
             </div>
             <div class="input-group"><label class="input-label">แผนก</label><input class="input" id="af-dept" placeholder="เช่น Service"></div>
           </div>
           <div class="grid-2">
-            <div class="input-group"><label class="input-label">วันเริ่ม</label><input class="input" type="date" id="af-start" value="${today}"></div>
-            <div class="input-group"><label class="input-label">วันสิ้นสุด</label><input class="input" type="date" id="af-end" value="${today}"></div>
+            <div class="input-group"><label class="input-label">วันเริ่ม</label><input class="input" type="date" id="af-start" value="${__escA(today)}"></div>
+            <div class="input-group"><label class="input-label">วันสิ้นสุด</label><input class="input" type="date" id="af-end" value="${__escA(today)}"></div>
           </div>
           <div class="input-group"><label class="input-label">ผู้ตรวจ</label><input class="input" id="af-auditor" placeholder="ชื่อผู้ตรวจ"></div>
         </div>

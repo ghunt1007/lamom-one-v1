@@ -8,6 +8,8 @@ import { showToast } from '../../core/store.js'
 import { listDocs, seedDemoData } from '../../core/db.js'
 import { loadWarranties, persistWarranty } from './WarrantyManagement.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
+import { escHtml } from '../../utils/escape.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function daysLeft(endDate) {
   return Math.round((new Date(endDate) - new Date()) / 86400000)
@@ -114,7 +116,7 @@ export default async function WarrantyExpiryPage(container) {
             <button class="btn btn-xs ${filter===f?'btn-primary':'btn-secondary'} fil-btn" data-f="${f}">
               ${f==='all'?'ทั้งหมด':f==='active'?'✅ ปกติ':f==='expiring'?'⚠️ ใกล้หมด':'❌ หมดแล้ว'}
             </button>`).join('')}
-          <input class="input" id="search-box" placeholder="ค้นหาชื่อ / รุ่น / ทะเบียน..." value="${search}" style="flex:1;min-width:200px">
+          <input class="input" id="search-box" placeholder="ค้นหาชื่อ / รุ่น / ทะเบียน..." value="${__escA(search)}" style="flex:1;min-width:200px">
         </div>
 
         <!-- Table -->
@@ -134,14 +136,14 @@ export default async function WarrantyExpiryPage(container) {
                 const d = daysLeft(v.warrantyEnd)
                 const badge = statusBadge(getLiveStatus(v), d)
                 const kmPct = Math.min(Math.round(v.kmCurrent / v.kmWarranty * 100), 100)
-                return `<tr class="warranty-row" data-id="${v.id}" style="border-bottom:1px solid var(--border);font-size:0.78rem;cursor:pointer">
+                return `<tr class="warranty-row" data-id="${escHtml(v.id)}" style="border-bottom:1px solid var(--border);font-size:0.78rem;cursor:pointer">
                   <td style="padding:9px 12px">
-                    <div style="font-weight:700">${v.model}</div>
-                    <div style="font-size:0.68rem;color:var(--text-muted)">${v.plate} · ${v.vin.slice(-8)}</div>
+                    <div style="font-weight:700">${escHtml(v.model)}</div>
+                    <div style="font-size:0.68rem;color:var(--text-muted)">${escHtml(v.plate)} · ${escHtml(String(v.vin || '').slice(-8))}</div>
                   </td>
                   <td>
-                    <div style="font-weight:600">${v.owner}</div>
-                    <div style="font-size:0.68rem;color:var(--text-muted)">${v.phone}</div>
+                    <div style="font-weight:600">${escHtml(v.owner)}</div>
+                    <div style="font-size:0.68rem;color:var(--text-muted)">${escHtml(v.phone)}</div>
                   </td>
                   <td style="text-align:center">${formatDate(v.warrantyEnd)}</td>
                   <td style="text-align:center;font-weight:700;color:${d<=0?'var(--danger)':d<=60?'var(--warning)':'var(--success)'}">
@@ -157,7 +159,7 @@ export default async function WarrantyExpiryPage(container) {
                     <span style="font-size:0.62rem;background:${badge.bg};color:${badge.fg};padding:2px 8px;border-radius:10px">${badge.label}</span>
                   </td>
                   <td style="text-align:center">
-                    ${v.notified ? `<span style="font-size:0.66rem;color:var(--success)">✅ แจ้งแล้ว</span>` : `<button class="btn btn-xs btn-secondary notify-btn" data-id="${v.id}" style="font-size:0.68rem">📱 แจ้ง</button>`}
+                    ${v.notified ? `<span style="font-size:0.66rem;color:var(--success)">✅ แจ้งแล้ว</span>` : `<button class="btn btn-xs btn-secondary notify-btn" data-id="${escHtml(v.id)}" style="font-size:0.68rem">📱 แจ้ง</button>`}
                   </td>
                 </tr>`
               }).join('')}
@@ -196,11 +198,11 @@ export default async function WarrantyExpiryPage(container) {
   function openDetailModal(v) {
     const d = daysLeft(v.warrantyEnd)
     openModal({
-      title:`🛡 ประกัน — ${v.model}`,
+      title:`🛡 ประกัน — ${escHtml(v.model)}`,
       size:'sm',
       body:`<div style="font-size:0.8rem;display:flex;flex-direction:column;gap:8px">
-        ${row('รถ', v.model+' · '+v.plate)}
-        ${row('เจ้าของ', v.owner+' · '+v.phone)}
+        ${row('รถ', escHtml(v.model+' · '+v.plate))}
+        ${row('เจ้าของ', escHtml(v.owner+' · '+v.phone))}
         ${row('VIN', v.vin)}
         ${row('ซื้อวันที่', formatDate(v.sale))}
         ${row('ประกันหมด', formatDate(v.warrantyEnd))}

@@ -6,6 +6,7 @@ import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function myName() {
   const me = getState('user') || {}
@@ -96,14 +97,14 @@ export default async function ContractManagerPage(container) {
         </div>
 
         <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
-          <input class="input" id="search-inp" placeholder="🔍 ค้นหา..." style="max-width:200px" value="${search}">
+          <input class="input" id="search-inp" placeholder="🔍 ค้นหา..." style="max-width:200px" value="${__escA(search)}">
           <div style="display:flex;gap:4px;flex-wrap:wrap">
             <button class="btn btn-xs ${typeFilter==='all'?'btn-primary':'btn-secondary'} tf-btn" data-t="all">ทั้งหมด</button>
             ${Object.entries(CONTRACT_TYPES).map(([k,v]) => `<button class="btn btn-xs ${typeFilter===k?'btn-'+v.color:'btn-secondary'} tf-btn" data-t="${k}">${v.icon} ${v.label}</button>`).join('')}
           </div>
           <select class="input" id="status-sel" style="max-width:150px">
             <option value="all">ทุกสถานะ</option>
-            ${Object.entries(CONTRACT_STATUS).map(([k,v]) => `<option value="${k}" ${statusFilter===k?'selected':''}>${v.label}</option>`).join('')}
+            ${Object.entries(CONTRACT_STATUS).map(([k,v]) => `<option value="${__escA(k)}" ${statusFilter===k?'selected':''}>${v.label}</option>`).join('')}
           </select>
         </div>
 
@@ -200,7 +201,7 @@ export default async function ContractManagerPage(container) {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">ชื่อสัญญา *</label><input class="input" id="cf-title" placeholder="สัญญา..."></div>
           <div class="input-group"><label class="input-label">ประเภท</label>
-            <select class="input" id="cf-type">${Object.entries(CONTRACT_TYPES).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+            <select class="input" id="cf-type">${Object.entries(CONTRACT_TYPES).map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">คู่สัญญา *</label><input class="input" id="cf-party" placeholder="ชื่อ/บริษัท"></div>
           <div class="input-group"><label class="input-label">มูลค่า (บาท)</label><input type="number" class="input" id="cf-value" placeholder="0"></div>

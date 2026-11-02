@@ -5,6 +5,7 @@
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -64,7 +65,7 @@ export default async function ChatTemplatesPage(container) {
 
         <!-- Filters -->
         <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
-          <input class="input" id="search-input" placeholder="ค้นหา..." value="${search}" style="width:180px;padding:6px 10px;font-size:16px">
+          <input class="input" id="search-input" placeholder="ค้นหา..." value="${__escA(search)}" style="width:180px;padding:6px 10px;font-size:16px">
           <div style="display:flex;gap:4px">
             <button class="btn btn-xs ${catFilter==='all'?'btn-primary':'btn-secondary'} cf-btn" data-c="all">ทั้งหมด</button>
             ${Object.entries(TPL_CATS).map(([k,v]) => `<button class="btn btn-xs ${catFilter===k?'btn-'+v.color:'btn-secondary'} cf-btn" data-c="${k}">${v.icon} ${v.label}</button>`).join('')}
@@ -118,7 +119,7 @@ export default async function ChatTemplatesPage(container) {
       body: `<div style="display:grid;gap:10px">
         <div class="input-group"><label class="input-label">ชื่อ *</label><input class="input" id="ct-title" value="${escHtml(t?.title||'')}"></div>
         <div class="input-group"><label class="input-label">หมวด</label>
-          <select class="input" id="ct-cat">${Object.entries(TPL_CATS).map(([k,v])=>`<option value="${k}" ${t?.cat===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}</select>
+          <select class="input" id="ct-cat">${Object.entries(TPL_CATS).map(([k,v])=>`<option value="${__escA(k)}" ${t?.cat===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}</select>
         </div>
         <div class="input-group"><label class="input-label">ข้อความ</label><textarea class="input" id="ct-text" rows="4">${escHtml(t?.text||'')}</textarea></div>
       </div>`,

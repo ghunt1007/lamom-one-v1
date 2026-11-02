@@ -9,6 +9,7 @@
 import { timeAgo, todayBangkok, toDateStr } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { listDocs } from '../../core/db.js'
+import { escHtml } from '../../utils/escape.js'
 
 function todayStr() { return todayBangkok() }
 
@@ -80,7 +81,7 @@ export default async function SystemHealthPage(container) {
             const color = s.status === 'connected' ? 'success' : s.status === 'error' ? 'danger' : 'secondary'
             return `<div class="card" style="padding:12px 14px;border-left:3px solid var(--${color})">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-                <div style="font-weight:700;font-size:0.8rem">${s.icon || '🔌'} ${s.name}</div>
+                <div style="font-weight:700;font-size:0.8rem">${s.icon || '🔌'} ${escHtml(s.name)}</div>
                 <span style="width:10px;height:10px;border-radius:50%;background:var(--${color});display:inline-block"></span>
               </div>
               <div style="font-size:0.7rem;color:var(--text-muted)">

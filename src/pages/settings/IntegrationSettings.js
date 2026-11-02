@@ -84,9 +84,9 @@ export default async function IntegrationSettingsPage(container) {
             return `<div class="card" style="padding:14px;border-left:3px solid var(--${int.status==='connected'?'success':int.status==='error'?'danger':'border'})">
               <div style="display:flex;justify-content:space-between;margin-bottom:10px">
                 <div style="display:flex;gap:10px;align-items:center">
-                  <div style="font-size:1.5rem">${int.icon}</div>
+                  <div style="font-size:1.5rem">${escHtml(int.icon)}</div>
                   <div>
-                    <div style="font-weight:700;font-size:0.88rem">${int.name}</div>
+                    <div style="font-weight:700;font-size:0.88rem">${escHtml(int.name)}</div>
                     <div style="font-size:0.72rem;color:var(--text-muted)">${cat?.icon} ${cat?.label}</div>
                   </div>
                 </div>
@@ -94,7 +94,7 @@ export default async function IntegrationSettingsPage(container) {
                   ${int.status==='connected'?'🔑 บันทึก Key แล้ว':int.status==='error'?'● ผิดพลาด':'○ ยังไม่บันทึก'}
                 </span>
               </div>
-              <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:10px">${int.desc}</div>
+              <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:10px">${escHtml(int.desc)}</div>
               ${int.lastSync ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:10px">บันทึก Key ล่าสุด: ${timeAgo(int.lastSync)}</div>` : ''}
               <div style="display:flex;gap:6px">
                 ${int.status === 'connected' ? `
@@ -151,7 +151,7 @@ export default async function IntegrationSettingsPage(container) {
           </div>
         `).join('')}
         <div style="padding:10px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:0.78rem;color:var(--text-muted);margin-top:12px">
-          🔑 มี API Key บันทึกไว้แล้ว — ระบบยังไม่ได้ตรวจสอบกับ ${int.name} จริงโดยอัตโนมัติ กรุณาทดสอบการทำงานจริงด้วยตนเอง
+          🔑 มี API Key บันทึกไว้แล้ว — ระบบยังไม่ได้ตรวจสอบกับ ${escHtml(int.name)} จริงโดยอัตโนมัติ กรุณาทดสอบการทำงานจริงด้วยตนเอง
         </div>
       `
     })

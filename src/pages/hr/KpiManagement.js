@@ -4,6 +4,7 @@ import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, getCommissionData } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -146,7 +147,7 @@ export default async function KpiManagementPage(container) {
           </div>
           <div class="page-actions">
             <select class="input" id="period-sel" style="width:140px">
-              ${KPI_PERIODS.map(p => `<option value="${p}" ${period===p?'selected':''}>${p}</option>`).join('')}
+              ${KPI_PERIODS.map(p => `<option value="${__escA(p)}" ${period===p?'selected':''}>${p}</option>`).join('')}
             </select>
             <button class="btn btn-secondary" id="kpi-export">📥 ส่งออก</button>
           </div>

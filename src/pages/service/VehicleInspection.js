@@ -4,6 +4,7 @@ import { showToast, getState } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -128,7 +129,7 @@ export default async function VehicleInspectionPage(container) {
           <button class="btn btn-sm ${statusFilter==='all'?'btn-primary':'btn-secondary'} sf-btn" data-s="all">ทั้งหมด</button>
           <select class="input" id="type-filter" style="width:180px;margin-left:auto">
             <option value="all">ประเภททั้งหมด</option>
-            ${Object.entries(INSPECTION_TYPES).map(([k,v]) => `<option value="${k}" ${typeFilter===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}
+            ${Object.entries(INSPECTION_TYPES).map(([k,v]) => `<option value="${__escA(k)}" ${typeFilter===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}
           </select>
         </div>
 
@@ -297,12 +298,12 @@ export default async function VehicleInspectionPage(container) {
       size: 'md',
       body: `<div style="display:flex;flex-direction:column;gap:12px">
         <div class="input-group"><label class="input-label">ประเภทการตรวจ</label>
-          <select class="input" id="if-type">${Object.entries(INSPECTION_TYPES).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+          <select class="input" id="if-type">${Object.entries(INSPECTION_TYPES).map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
         </div>
         <div class="input-group"><label class="input-label">ทะเบียนรถ *</label><input class="input" id="if-plate" placeholder="กก 1234 BKK"></div>
         <div class="input-group"><label class="input-label">รุ่นรถ</label><input class="input" id="if-model" placeholder="DEEPAL S07"></div>
         <div class="input-group"><label class="input-label">ชื่อลูกค้า</label><input class="input" id="if-cname" placeholder="ชื่อลูกค้า"></div>
-        <div class="input-group"><label class="input-label">วันที่ตรวจ</label><input type="date" class="input" id="if-date" value="${today}"></div>
+        <div class="input-group"><label class="input-label">วันที่ตรวจ</label><input type="date" class="input" id="if-date" value="${__escA(today)}"></div>
         <div class="input-group"><label class="input-label">เลขไมล์ (กม.)</label><input type="number" class="input" id="if-km" placeholder="0"></div>
         <div class="input-group"><label class="input-label">ช่างผู้ตรวจ</label><input class="input" id="if-tech" value="${escHtml(getState('user')?.displayName || '')}" placeholder="ชื่อช่าง"></div>
       </div>`,

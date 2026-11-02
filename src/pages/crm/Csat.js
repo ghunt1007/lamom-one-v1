@@ -7,6 +7,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { sendSms } from '../../utils/comms.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -290,7 +291,7 @@ export default async function CsatPage(container) {
         <div class="input-group"><label class="input-label">เบอร์โทร</label><input class="input" id="nc-phone" placeholder="08xxxxxxxx"></div>
         <div class="input-group"><label class="input-label">รุ่นรถ</label><input class="input" id="nc-model"></div>
         <div class="input-group"><label class="input-label">คะแนน CSAT (1-5 ดาว)</label>
-          <select class="input" id="nc-csat">${[5,4,3,2,1].map(n => `<option value="${n}" ${n===5?'selected':''}>${starStr(n)} (${n})</option>`).join('')}</select>
+          <select class="input" id="nc-csat">${[5,4,3,2,1].map(n => `<option value="${__escA(n)}" ${n===5?'selected':''}>${starStr(n)} (${n})</option>`).join('')}</select>
         </div>
         <div class="input-group"><label class="input-label">NPS (0-10)</label><input class="input" type="number" id="nc-nps" min="0" max="10" value="7"></div>
         <div class="input-group"><label class="input-label">ความเห็นเพิ่มเติม</label><textarea class="input" id="nc-comment" rows="3"></textarea></div>

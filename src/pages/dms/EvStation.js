@@ -5,6 +5,7 @@
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
@@ -60,13 +61,13 @@ export default async function EvStationPage(container) {
             <div>
               <label style="font-size:0.74rem;color:var(--text-muted)">ประเภท Charger</label>
               <select id="ev-type" class="input">
-                ${STATION_TYPES.map(t=>`<option value="${t}" ${st?.type===t?'selected':''}>${t}</option>`).join('')}
+                ${STATION_TYPES.map(t=>`<option value="${__escA(t)}" ${st?.type===t?'selected':''}>${t}</option>`).join('')}
               </select>
             </div>
             <div>
               <label style="font-size:0.74rem;color:var(--text-muted)">กำลังไฟ</label>
               <select id="ev-power" class="input">
-                ${POWER_OPTIONS.map(p=>`<option value="${p}" ${st?.power===p?'selected':''}>${p}</option>`).join('')}
+                ${POWER_OPTIONS.map(p=>`<option value="${__escA(p)}" ${st?.power===p?'selected':''}>${p}</option>`).join('')}
               </select>
             </div>
           </div>
@@ -75,7 +76,7 @@ export default async function EvStationPage(container) {
             <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px">
               ${CONNECTOR_OPTIONS.map(c=>`
                 <label style="display:flex;align-items:center;gap:4px;font-size:0.76rem;cursor:pointer">
-                  <input type="checkbox" class="ev-conn-cb" value="${c}" ${st?.connectors?.includes(c)?'checked':''}>
+                  <input type="checkbox" class="ev-conn-cb" value="${__escA(c)}" ${st?.connectors?.includes(c)?'checked':''}>
                   ${c}
                 </label>`).join('')}
             </div>
@@ -84,12 +85,12 @@ export default async function EvStationPage(container) {
             <div>
               <label style="font-size:0.74rem;color:var(--text-muted)">สถานะ</label>
               <select id="ev-status" class="input">
-                ${STATUS_OPTIONS.map(s=>`<option value="${s}" ${st?.status===s?'selected':''}>${STATUS_LABELS[s]}</option>`).join('')}
+                ${STATUS_OPTIONS.map(s=>`<option value="${__escA(s)}" ${st?.status===s?'selected':''}>${STATUS_LABELS[s]}</option>`).join('')}
               </select>
             </div>
             <div>
               <label style="font-size:0.74rem;color:var(--text-muted)">ราคาชาร์จ (฿/kWh)</label>
-              <input id="ev-rate" type="number" class="input" placeholder="4.0" value="${st?.rate || 4}">
+              <input id="ev-rate" type="number" class="input" placeholder="4.0" value="${__escA(st?.rate || 4)}">
             </div>
           </div>
         </div>

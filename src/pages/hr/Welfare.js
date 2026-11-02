@@ -2,6 +2,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 // ป้องกัน XSS — ชื่อสวัสดิการ (name) เป็นข้อความที่ผู้ใช้พิมพ์เอง ต้อง escape ก่อนแสดงผลเสมอ
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
@@ -37,7 +38,7 @@ export default async function WelfarePage(container) {
         <div style="flex:1">
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap">
             <span style="font-weight:700;font-size:0.86rem">${esc(w.name)}</span>
-            <span class="badge badge-${catColor}" style="font-size:0.6rem">${w.category}</span>
+            <span class="badge badge-${catColor}" style="font-size:0.6rem">${esc(w.category)}</span>
             ${w.active
               ? '<span style="font-size:0.62rem;background:var(--success);color:#fff;padding:1px 7px;border-radius:8px">เปิดใช้</span>'
               : '<span style="font-size:0.62rem;background:var(--surface-2);padding:1px 7px;border-radius:8px;color:var(--text-muted)">ปิด</span>'}
@@ -145,7 +146,7 @@ export default async function WelfarePage(container) {
       body: `
         <div style="display:flex;flex-direction:column;gap:12px">
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <span class="badge badge-${catColor}">${w.category}</span>
+            <span class="badge badge-${catColor}">${esc(w.category)}</span>
             ${w.active ? '<span class="badge badge-success">เปิดใช้งาน</span>' : '<span class="badge badge-secondary">ปิดใช้งาน</span>'}
           </div>
 
@@ -196,8 +197,8 @@ export default async function WelfarePage(container) {
             <label class="input-label">หมวดหมู่</label>
             <select class="input" id="wf-cat">${CATEGORIES.map(c => `<option ${w?.category===c?'selected':''}>${c}</option>`).join('')}</select>
           </div>
-          <div class="input-group"><label class="input-label">ผู้ให้บริการ</label><input class="input" id="wf-provider" value="${w?.provider || ''}"></div>
-          <div class="input-group"><label class="input-label">ความคุ้มครอง / สิทธิ์</label><input class="input" id="wf-coverage" value="${w?.coverage || ''}"></div>
+          <div class="input-group"><label class="input-label">ผู้ให้บริการ</label><input class="input" id="wf-provider" value="${__escA(w?.provider || '')}"></div>
+          <div class="input-group"><label class="input-label">ความคุ้มครอง / สิทธิ์</label><input class="input" id="wf-coverage" value="${__escA(w?.coverage || '')}"></div>
           <div class="input-group">
             <label class="input-label">รอบชำระ</label>
             <select class="input" id="wf-period">${['รายปี','รายเดือน','รายไตรมาส','ครั้งเดียว'].map(p=>`<option ${w?.period===p?'selected':''}>${p}</option>`).join('')}</select>

@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listAllDocs, listDocs, createDoc } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -187,7 +188,7 @@ export default async function VinDecoderPage(container) {
           <div style="font-size:0.82rem;display:flex;flex-direction:column;gap:10px">
             <div style="font-size:0.74rem;color:var(--text-muted)">🚗 ${escHtml(result.model)} · 👤 ${escHtml(result.owner || '-')}</div>
             <div><label style="font-size:0.74rem;color:var(--text-muted)">วันที่นัด *</label>
-              <input id="bk-date" type="date" class="input" value="${today}" min="${today}"></div>
+              <input id="bk-date" type="date" class="input" value="${__escA(today)}" min="${today}"></div>
             <div><label style="font-size:0.74rem;color:var(--text-muted)">ประเภทงาน *</label>
               <select id="bk-type" class="input">
                 <option>ตรวจเช็คระยะ</option><option>ล้างรถ / แว็กซ์</option>

@@ -4,6 +4,7 @@ import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getCommissionData, listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -113,7 +114,7 @@ export default async function PerformancePage(container) {
           </select>
           <select class="input" id="dept-sel" style="max-width:160px">
             <option value="all">ทุกแผนก</option>
-            ${DEPARTMENTS_LIST.map(d => `<option value="${d}" ${deptFilter===d?'selected':''}>${d}</option>`).join('')}
+            ${DEPARTMENTS_LIST.map(d => `<option value="${__escA(d)}" ${deptFilter===d?'selected':''}>${d}</option>`).join('')}
           </select>
         </div>
 

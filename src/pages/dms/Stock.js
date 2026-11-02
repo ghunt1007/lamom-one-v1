@@ -10,6 +10,7 @@ import { pickVehicle } from '../../utils/vehiclePicker.js'
 import { navigate } from '../../core/router.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
 import { stockAgeDays, stockAgeTone } from '../../utils/stockAge.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -520,7 +521,7 @@ export default async function StockPage(container) {
           <div class="grid-2">
             <div class="input-group"><label class="input-label">ยี่ห้อ *</label>
               <select class="input" id="vf-brand">
-                ${BRANDS.map(b => `<option value="${b}" ${existing?.brand===b?'selected':''}>${b}</option>`).join('')}
+                ${BRANDS.map(b => `<option value="${__escA(b)}" ${existing?.brand===b?'selected':''}>${b}</option>`).join('')}
                 <option value="other" ${(existing && !BRANDS.includes(existing.brand))?'selected':''}>อื่นๆ</option>
               </select>
               <input class="input" id="vf-brand-other" value="${escHtml((existing && !BRANDS.includes(existing.brand)) ? existing.brand : '')}" placeholder="ระบุยี่ห้อ..." style="margin-top:6px;display:${(existing && !BRANDS.includes(existing.brand)) ? 'block' : 'none'}">
@@ -536,31 +537,31 @@ export default async function StockPage(container) {
             <div class="input-group"><label class="input-label">VIN</label><input class="input" id="vf-vin" value="${escHtml(existing?.vin||'')}" placeholder="17 หลัก"></div>
           </div>
           <div class="grid-2">
-            <div class="input-group"><label class="input-label">ราคาขาย (บาท)</label><input class="input" type="number" id="vf-price" value="${existing?.price||''}"></div>
-            <div class="input-group"><label class="input-label">ต้นทุน (บาท)</label><input class="input" type="number" id="vf-cost" value="${existing?.cost||''}"></div>
+            <div class="input-group"><label class="input-label">ราคาขาย (บาท)</label><input class="input" type="number" id="vf-price" value="${__escA(existing?.price||'')}"></div>
+            <div class="input-group"><label class="input-label">ต้นทุน (บาท)</label><input class="input" type="number" id="vf-cost" value="${__escA(existing?.cost||'')}"></div>
           </div>
           <div class="grid-2">
             <div class="input-group"><label class="input-label">สถานะ</label>
               <select class="input" id="vf-status">
-                ${Object.entries(STATUS).map(([k,v]) => `<option value="${k}" ${existing?.status===k?'selected':''}>${v.label}</option>`).join('')}
+                ${Object.entries(STATUS).map(([k,v]) => `<option value="${__escA(k)}" ${existing?.status===k?'selected':''}>${v.label}</option>`).join('')}
               </select>
             </div>
-            <div class="input-group"><label class="input-label">ที่ตั้ง</label><input class="input" id="vf-loc" list="vf-locs" value="${escHtml(existing?.location||getBranches()[0]||'โชว์รูมหลัก')}"><datalist id="vf-locs">${getBranches().map(b => `<option value="${b}">`).join('')}<option value="ห้อง PDI"><option value="-"></datalist></div>
+            <div class="input-group"><label class="input-label">ที่ตั้ง</label><input class="input" id="vf-loc" list="vf-locs" value="${escHtml(existing?.location||getBranches()[0]||'โชว์รูมหลัก')}"><datalist id="vf-locs">${getBranches().map(b => `<option value="${__escA(b)}">`).join('')}<option value="ห้อง PDI"><option value="-"></datalist></div>
           </div>
           <div class="grid-2">
             <!-- เดิม new Date().toISOString().slice(0,10) คืนวันที่ตาม UTC เสมอ ทำให้ "วันนี้" ผิดไป 1 วันทุกครั้งที่
             เวลาไทยยังไม่ถึง 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok() -->
             <div class="input-group"><label class="input-label">วันที่รับรถ</label><input class="input" type="date" id="vf-arrived" value="${existing?.arrivedAt||todayBangkok()}"></div>
-            <div class="input-group"><label class="input-label">เลขไมล์ (km)</label><input class="input" type="number" id="vf-mileage" value="${existing?.mileage||0}"></div>
+            <div class="input-group"><label class="input-label">เลขไมล์ (km)</label><input class="input" type="number" id="vf-mileage" value="${__escA(existing?.mileage||0)}"></div>
           </div>
           <div style="font-weight:700;font-size:0.78rem;color:var(--primary);margin:6px 0 2px;border-bottom:1px solid var(--border-subtle);padding-bottom:3px">📅 ไทม์ไลน์รถ (ไม่บังคับ)</div>
           <div class="grid-2">
-            <div class="input-group"><label class="input-label">วันที่สั่งซื้อ</label><input class="input" type="date" id="vf-order" value="${existing?.orderDate||''}"></div>
-            <div class="input-group"><label class="input-label">วันที่ตัดฟอร์แพลน</label><input class="input" type="date" id="vf-floorplan" value="${existing?.floorPlanCutDate||''}"></div>
+            <div class="input-group"><label class="input-label">วันที่สั่งซื้อ</label><input class="input" type="date" id="vf-order" value="${__escA(existing?.orderDate||'')}"></div>
+            <div class="input-group"><label class="input-label">วันที่ตัดฟอร์แพลน</label><input class="input" type="date" id="vf-floorplan" value="${__escA(existing?.floorPlanCutDate||'')}"></div>
           </div>
           <div class="grid-2">
-            <div class="input-group"><label class="input-label">วันที่คีย์ขาย</label><input class="input" type="date" id="vf-sale" value="${existing?.saleDate||''}"></div>
-            <div class="input-group"><label class="input-label">วันที่ส่งมอบ</label><input class="input" type="date" id="vf-delivery" value="${existing?.deliveryDate||''}"></div>
+            <div class="input-group"><label class="input-label">วันที่คีย์ขาย</label><input class="input" type="date" id="vf-sale" value="${__escA(existing?.saleDate||'')}"></div>
+            <div class="input-group"><label class="input-label">วันที่ส่งมอบ</label><input class="input" type="date" id="vf-delivery" value="${__escA(existing?.deliveryDate||'')}"></div>
           </div>
           <div class="input-group"><label class="input-label">หมายเหตุ</label><input class="input" id="vf-notes" value="${escHtml(existing?.notes||'')}"></div>
         </div>
@@ -679,7 +680,7 @@ export default async function StockPage(container) {
           </div>
           <select class="input" id="brand-filter" style="width:140px">
             <option value="all">ทุกยี่ห้อ</option>
-            ${BRANDS.map(b => `<option value="${b}">${b}</option>`).join('')}
+            ${BRANDS.map(b => `<option value="${__escA(b)}">${b}</option>`).join('')}
           </select>
         </div>
       </div>

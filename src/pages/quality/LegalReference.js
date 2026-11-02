@@ -6,6 +6,7 @@ import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -159,14 +160,14 @@ export default async function LegalReferencePage(container) {
           <div class="input-group"><label class="input-label">ชื่อกฎหมาย/พ.ร.บ. อ้างอิง</label><input class="input" id="lg-lawname" value="${esc(edit?.lawName||'')}" placeholder="เช่น พ.ร.บ.รถยนต์ พ.ศ. 2522"></div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div class="input-group"><label class="input-label">หมวดหมู่</label>
-              <select class="input" id="lg-cat">${Object.entries(CATEGORIES).map(([k,v]) => `<option value="${k}" ${edit?.category===k?'selected':''}>${v.icon} ${v.label} (${DOMAINS[v.domain].label})</option>`).join('')}</select>
+              <select class="input" id="lg-cat">${Object.entries(CATEGORIES).map(([k,v]) => `<option value="${__escA(k)}" ${edit?.category===k?'selected':''}>${v.icon} ${v.label} (${DOMAINS[v.domain].label})</option>`).join('')}</select>
             </div>
             <div class="input-group"><label class="input-label">หมวดใหญ่</label>
               <select class="input" id="lg-domain" disabled><option>อัตโนมัติตามหมวดหมู่</option></select>
             </div>
           </div>
           <div class="input-group"><label class="input-label">สรุปใจความสำคัญ *</label><textarea class="input" id="lg-summary" rows="3">${esc(edit?.summary||'')}</textarea></div>
-          <div class="input-group"><label class="input-label">ประเด็นสำคัญที่ต้องปฏิบัติ (แยกบรรทัด)</label><textarea class="input" id="lg-points" rows="3">${(edit?.keyPoints||[]).join('\n')}</textarea></div>
+          <div class="input-group"><label class="input-label">ประเด็นสำคัญที่ต้องปฏิบัติ (แยกบรรทัด)</label><textarea class="input" id="lg-points" rows="3">${esc((edit?.keyPoints||[]).join('\n'))}</textarea></div>
           <div class="input-group"><label class="input-label">บทลงโทษ/ผลกระทบหากไม่ปฏิบัติตาม</label><textarea class="input" id="lg-penalty" rows="2">${esc(edit?.penalty||'')}</textarea></div>
         </div>
       `,

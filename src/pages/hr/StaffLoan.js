@@ -7,6 +7,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData, incrementField, readDoc } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 // (v1.0.537) เดิม dropdown "พนักงาน" ตอนยื่นขอกู้/เบิกล่วงหน้า hardcode รายชื่อ+เงินเดือนปลอม 4 คนเสมอ
 // (ไม่ตรงกับพนักงานจริงคนไหนเลย) ทำให้วงเงินกู้สูงสุดที่คำนวณ (% ของเงินเดือน) อิงจากเงินเดือนปลอมเสมอ — เป็น
@@ -206,7 +207,7 @@ export default async function StaffLoanPage(container) {
             </select>
           </div>
           <div class="input-group"><label class="input-label">ประเภท</label>
-            <select class="input" id="ln-type">${Object.entries(LOAN_TYPES).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+            <select class="input" id="ln-type">${Object.entries(LOAN_TYPES).map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">จำนวนเงิน (บาท) *</label><input class="input" type="number" id="ln-amount"></div>
           <div class="input-group"><label class="input-label">เหตุผล</label><input class="input" id="ln-reason"></div>

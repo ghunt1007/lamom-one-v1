@@ -8,6 +8,7 @@ import { showToast, getState, setState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { db } from '../../core/firebase.js'
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 const HANDLER_ROLES = ['hr', 'manager', 'admin', 'owner']
 
@@ -184,7 +185,7 @@ export default async function AnnouncementsPage(container) {
         body: `<div style="display:grid;gap:10px">
           <div class="input-group"><label class="input-label">หัวข้อ *</label><input class="input" id="an-title"></div>
           <div class="input-group"><label class="input-label">ประเภท</label>
-            <select class="input" id="an-type">${Object.entries(ANN_TYPES).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+            <select class="input" id="an-type">${Object.entries(ANN_TYPES).map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">ประกาศถึง *</label>
             <select class="input" id="an-scope">
@@ -194,7 +195,7 @@ export default async function AnnouncementsPage(container) {
             </select>
           </div>
           <div class="input-group" id="an-company-wrap" style="display:none"><label class="input-label">เลือกบริษัท</label>
-            <select class="input" id="an-company">${companiesList.map(c=>`<option value="${c.id}">${escHtml(c.name)}</option>`).join('')}</select>
+            <select class="input" id="an-company">${companiesList.map(c=>`<option value="${__escA(c.id)}">${escHtml(c.name)}</option>`).join('')}</select>
           </div>
           <div class="input-group" id="an-dept-wrap" style="display:none"><label class="input-label">ระบุแผนก</label>
             <input class="input" id="an-department" list="an-dept-list" placeholder="เช่น ขาย, บัญชี, HR">

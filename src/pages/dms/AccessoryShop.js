@@ -6,6 +6,7 @@ import { formatCurrency } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -136,14 +137,14 @@ export default async function AccessoryShopPage(container) {
           <div class="grid-2">
             <div class="input-group"><label class="input-label">หมวดหมู่</label>
               <select class="input" id="af-cat">
-                ${Object.entries(ACC_CATS).map(([k,v]) => `<option value="${k}" ${existing?.cat===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}
+                ${Object.entries(ACC_CATS).map(([k,v]) => `<option value="${__escA(k)}" ${existing?.cat===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}
               </select>
             </div>
             <div class="input-group"><label class="input-label">สต็อก (99 = สั่งตามออเดอร์)</label><input class="input" type="number" id="af-stock" value="${existing?.stock ?? 0}"></div>
           </div>
           <div class="grid-2">
-            <div class="input-group"><label class="input-label">ราคาทุน (บาท)</label><input class="input" type="number" id="af-cost" value="${existing?.cost||''}"></div>
-            <div class="input-group"><label class="input-label">ราคาขาย (บาท) *</label><input class="input" type="number" id="af-price" value="${existing?.price||''}"><span class="input-error" id="af-price-e"></span></div>
+            <div class="input-group"><label class="input-label">ราคาทุน (บาท)</label><input class="input" type="number" id="af-cost" value="${__escA(existing?.cost||'')}"></div>
+            <div class="input-group"><label class="input-label">ราคาขาย (บาท) *</label><input class="input" type="number" id="af-price" value="${__escA(existing?.price||'')}"><span class="input-error" id="af-price-e"></span></div>
           </div>
           <div class="input-group"><label class="input-label"><input type="checkbox" id="af-popular" ${existing?.popular?'checked':''}> ติดป้าย "🔥 ขายดี"</label></div>
         </div>

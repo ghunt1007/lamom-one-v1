@@ -4,6 +4,7 @@ import { showToast } from '../../core/store.js'
 import { getSalesData, getCommissionData, listDocs } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { saleCost } from '../../utils/saleCost.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 const REPORT_CATEGORIES = {
   sales:    { label: '💰 ยอดขาย', icon: '💰', color: 'success' },
@@ -228,9 +229,9 @@ export default async function ReportCenterPage(container) {
           <!-- Date range — มีผลเฉพาะรายงานที่มีข้อมูลจริงตามวันที่ (R001) -->
           ${r.id === 'R001' ? `
           <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
-            <input type="date" class="input" id="date-from" value="${dateFrom}" style="width:140px">
+            <input type="date" class="input" id="date-from" value="${__escA(dateFrom)}" style="width:140px">
             <span style="font-size:0.82rem;color:var(--text-muted)">ถึง</span>
-            <input type="date" class="input" id="date-to" value="${dateTo}" style="width:140px">
+            <input type="date" class="input" id="date-to" value="${__escA(dateTo)}" style="width:140px">
           </div>` : ''}
         </div>
 

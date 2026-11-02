@@ -6,6 +6,7 @@ import { formatCurrency, formatDate, timeAgo, todayBangkok } from '../../utils/f
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -126,7 +127,7 @@ export default async function InsuranceClaimsPage(container) {
         openModal({
           title: '✅ อนุมัติเคลม ' + c.id,
           size: 'sm',
-          body: `<div class="input-group"><label class="input-label">วงเงินอนุมัติ (บาท)</label><input class="input" type="number" id="clm-approved" value="${c.estimate}"></div>`,
+          body: `<div class="input-group"><label class="input-label">วงเงินอนุมัติ (บาท)</label><input class="input" type="number" id="clm-approved" value="${__escA(c.estimate)}"></div>`,
           async onConfirm() {
             const approved = parseInt(document.getElementById('clm-approved')?.value) || c.estimate
             try {
@@ -159,7 +160,7 @@ export default async function InsuranceClaimsPage(container) {
         <div class="input-group"><label class="input-label">ทะเบียนรถ</label><input class="input" id="cl-plate" placeholder="1กข-1234"></div>
         <div class="input-group"><label class="input-label">รุ่นรถ</label><input class="input" id="cl-model"></div>
         <div class="input-group"><label class="input-label">ประเภทเหตุ</label>
-          <select class="input" id="cl-type">${Object.entries(CLAIM_TYPES).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+          <select class="input" id="cl-type">${Object.entries(CLAIM_TYPES).map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
         </div>
         <div class="input-group"><label class="input-label">บริษัทประกัน</label>
           <select class="input" id="cl-insurer"><option>วิริยะประกันภัย</option><option>กรุงเทพประกันภัย</option><option>ทิพยประกันภัย</option><option>เมืองไทยประกันภัย</option></select>

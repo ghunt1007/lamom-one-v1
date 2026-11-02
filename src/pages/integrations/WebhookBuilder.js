@@ -7,6 +7,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { testSendWebhook } from '../../utils/webhookTest.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 // ป้องกัน XSS — ชื่อ/URL/secret ของ Webhook เป็นข้อมูลที่ผู้ใช้พิมพ์เอง ต้อง escape ก่อนแสดงผลเสมอ
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
@@ -193,7 +194,7 @@ export default async function WebhookBuilderPage(container) {
             <input class="input" id="wh-url" placeholder="https://..." style="width:100%;margin-top:4px"></div>
           <div><label style="font-size:0.72rem;color:var(--text-muted)">Events (เลือกได้หลายรายการ)</label>
             <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px">
-              ${EVENTS.map(e=>`<label style="display:flex;align-items:center;gap:4px;font-size:0.72rem;cursor:pointer"><input type="checkbox" class="wh-ev" value="${e}"> ${e}</label>`).join('')}
+              ${EVENTS.map(e=>`<label style="display:flex;align-items:center;gap:4px;font-size:0.72rem;cursor:pointer"><input type="checkbox" class="wh-ev" value="${__escA(e)}"> ${e}</label>`).join('')}
             </div>
           </div>
           <div><label style="font-size:0.72rem;color:var(--text-muted)">Secret (optional)</label>
@@ -233,7 +234,7 @@ export default async function WebhookBuilderPage(container) {
             <input class="input" id="ed-url" value="${esc(w.url)}" style="width:100%;margin-top:4px" ${dis}></div>
           <div><label style="font-size:0.72rem;color:var(--text-muted)">Events</label>
             <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px">
-              ${EVENTS.map(e=>`<label style="display:flex;align-items:center;gap:4px;font-size:0.72rem;cursor:pointer"><input type="checkbox" class="ed-ev" value="${e}"${w.events.includes(e)?' checked':''} ${dis}> ${e}</label>`).join('')}
+              ${EVENTS.map(e=>`<label style="display:flex;align-items:center;gap:4px;font-size:0.72rem;cursor:pointer"><input type="checkbox" class="ed-ev" value="${__escA(e)}"${w.events.includes(e)?' checked':''} ${dis}> ${e}</label>`).join('')}
             </div>
           </div>
           <div><label style="font-size:0.72rem;color:var(--text-muted)">Secret</label>

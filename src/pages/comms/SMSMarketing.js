@@ -8,6 +8,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { TARGET_SEGMENTS, getSegmentMembers, getSegmentCount, reachableMembers } from '../../core/segments.js'
 import { sendSms } from '../../utils/comms.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -167,12 +168,12 @@ export default async function SMSMarketingPage(container) {
         <div class="input-group"><label class="input-label">Template</label>
           <select class="input" id="sms-tpl">
             <option value="">— เลือก Template —</option>
-            ${SMS_TEMPLATES.map((t,i) => `<option value="${t}">Template ${i+1}</option>`).join('')}
+            ${SMS_TEMPLATES.map((t,i) => `<option value="${__escA(t)}">Template ${i+1}</option>`).join('')}
           </select>
         </div>
         <div class="input-group"><label class="input-label">กลุ่มเป้าหมาย</label>
           <select class="input" id="sms-target">
-            ${Object.entries(TARGET_SEGMENTS).map(([k,v]) => `<option value="${k}">${v}</option>`).join('')}
+            ${Object.entries(TARGET_SEGMENTS).map(([k,v]) => `<option value="${__escA(k)}">${v}</option>`).join('')}
           </select>
           <div id="sms-reach-hint" style="font-size:0.7rem;color:var(--text-muted);margin-top:4px">กำลังคำนวณจำนวนผู้รับจริง...</div>
         </div>

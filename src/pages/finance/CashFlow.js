@@ -5,6 +5,7 @@ import { showToast, getState } from '../../core/store.js'
 import { getSalesData, listDocs, createDoc, softDelete, readDoc, setDocData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { saleCost } from '../../utils/saleCost.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -271,7 +272,7 @@ export default async function CashFlowPage(container) {
     const { el, close } = openModal({
       title: '✏️ แก้ไขยอดยกมา (Starting Balance)', size: 'sm',
       body: `<div class="input-group"><label class="input-label">ยอดยกมา (บาท)</label>
-        <input class="input" type="number" id="cf-start-balance" value="${startBalance}"></div>`,
+        <input class="input" type="number" id="cf-start-balance" value="${__escA(startBalance)}"></div>`,
       footer: `<button class="btn btn-secondary" id="cfb-c">ยกเลิก</button><button class="btn btn-primary" id="cfb-s">💾 บันทึก</button>`
     })
     el.querySelector('#cfb-c').addEventListener('click', close)
@@ -301,11 +302,11 @@ export default async function CashFlowPage(container) {
               <option value="expense">💸 รายจ่าย</option>
             </select>
           </div>
-          <div class="input-group"><label class="input-label">วันที่</label><input class="input" type="date" id="cf-date" value="${today}"></div>
+          <div class="input-group"><label class="input-label">วันที่</label><input class="input" type="date" id="cf-date" value="${__escA(today)}"></div>
         </div>
         <div class="input-group"><label class="input-label">หมวด</label>
           <select class="input" id="cf-cat-sel">
-            ${Object.entries(CATEGORIES.income).map(([k,v]) => `<option value="${k}">${v.label}</option>`).join('')}
+            ${Object.entries(CATEGORIES.income).map(([k,v]) => `<option value="${__escA(k)}">${v.label}</option>`).join('')}
           </select>
         </div>
         <div class="input-group"><label class="input-label">รายละเอียด *</label><input class="input" id="cf-desc" placeholder="ระบุรายละเอียด"></div>

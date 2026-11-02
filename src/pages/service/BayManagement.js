@@ -5,6 +5,7 @@
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { watchDocs, createDoc, setDocData, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -202,7 +203,7 @@ export default async function BayManagementPage(container) {
         <div class="input-group" style="margin-bottom:10px">
           <label class="input-label">สถานะ</label>
           <select class="input" id="bm-status">
-            ${Object.entries(STATUS).map(([k, v]) => `<option value="${k}" ${b.status===k?'selected':''}>${v.label}</option>`).join('')}
+            ${Object.entries(STATUS).map(([k, v]) => `<option value="${__escA(k)}" ${b.status===k?'selected':''}>${v.label}</option>`).join('')}
           </select>
         </div>
         ${b.job ? `<div style="background:var(--surface-2);padding:10px 12px;border-radius:var(--radius-sm);font-size:0.78rem">
@@ -242,7 +243,7 @@ export default async function BayManagementPage(container) {
       body: `
         <div class="input-group" style="margin-bottom:10px">
           <label class="input-label">งานในคิว</label>
-          <select class="input" id="bm-job">${QUEUE.map((q, i) => `<option value="${i}">${escHtml(q.job)} · ${escHtml(q.car)} (${escHtml(q.need)})</option>`).join('')}</select>
+          <select class="input" id="bm-job">${QUEUE.map((q, i) => `<option value="${__escA(i)}">${escHtml(q.job)} · ${escHtml(q.car)} (${escHtml(q.need)})</option>`).join('')}</select>
         </div>
         <div class="input-group" style="margin-bottom:10px">
           <label class="input-label">ช่องว่าง</label>
