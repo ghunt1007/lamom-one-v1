@@ -13,6 +13,7 @@ import { navigate } from '../../core/router.js'
 import { pickVehicle } from '../../utils/vehiclePicker.js'
 import { getSalesStaff, getColors, getFinanceCompanies, getFinanceStatus, getCampaigns, getBookingStatus, getLeadSources } from '../../data/masterData.js'
 import { printBooking, printCancellation } from '../../utils/bookingDocs.js'
+import { openBookingDocs } from '../../utils/bookingDocsMenu.js'
 import { scheduleAfterSales } from '../../utils/afterSales.js'
 import { closeAutoLeadFollowups } from '../../utils/leadFollowups.js'
 import { afterWithdraw } from '../../utils/bookingWithdraw.js'
@@ -1144,7 +1145,7 @@ export default async function BookingsPage(container) {
               (customerStatusMessage(b, b.status) ? '<button class="btn btn-secondary" id="bk-tell">💬 แจ้งลูกค้า</button>' : '') +
               (depositAmt(b) > 0 && !b.rightsOnly && b.status !== 'ถอนจอง' && b.paymentVerifyStatus !== 'ยืนยันแล้ว' && b.paymentVerifyStatus !== 'รอการเงินยืนยัน'
                 ? '<button class="btn btn-secondary" id="bk-verify-pay" style="color:var(--warning)">💸 แจ้งการเงินตรวจยอด</button>' : '') +
-              '<button class="btn btn-secondary" id="bk-print">🖨 พิมพ์ใบจอง</button>' +
+              '<button class="btn btn-secondary" id="bk-print">📄 เอกสาร / พิมพ์' + ((b.files || []).length ? ' · 📎' + b.files.length : '') + '</button>' +
               (!isCash ? '<button class="btn btn-secondary" id="bk-finance-btn">🏦 ยื่นไฟแนนซ์</button>' : '') +
               (b.finStatus === 'ไม่ผ่าน' && bookingTotal(b) > 0 ? '<button class="btn btn-secondary" id="bk-replan">💡 แผนผ่อนใหม่</button>' : '') +
               (b.status === 'ถอนจอง'
@@ -1180,7 +1181,7 @@ export default async function BookingsPage(container) {
         render()
       } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
-    document.getElementById('bk-print')?.addEventListener('click', () => printBooking(b))
+    document.getElementById('bk-print')?.addEventListener('click', () => openBookingDocs(b, { onWithdraw: openCancelPrintModal }))
     document.getElementById('bk-print-cancel')?.addEventListener('click', () => openCancelPrintModal(b))
     document.getElementById('bk-to-doc')?.addEventListener('click', () => { document.querySelector('.modal-overlay')?.remove(); navigate('/documents') })
     document.getElementById('bk-delete2')?.addEventListener('click', () => deleteBooking(b))

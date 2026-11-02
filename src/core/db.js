@@ -346,10 +346,13 @@ export async function seedDefaultRolePermissions() {
 
 // (2026-11-02) ใบจองที่ "แก้ในแอป" ประทับเวลา appEditedAt ไว้ — ตอนซิงก์ Sheet ใช้ตัดสินว่าฝั่งไหนแก้ล่าสุด
 // การเขียนที่มาจาก Sheet เอง (ซิงก์/นำเข้า Excel) ส่ง __fromSheet: true มา จะไม่ประทับ
-function stampAppEdit(colName, clean) {
+// (2026-11-02) ประทับเฉพาะเมื่อแก้ช่องที่มีใน Google Sheet — แนบไฟล์/โน้ต/แจ้งการเงิน ไม่นับว่า "แก้ในแอปล่าสุด"
+// (ไม่งั้นแค่แนบเอกสาร ซิงก์ Sheet ครั้งถัดไปจะไม่รับสถานะใหม่จาก Sheet)
+export const SHEET_BOOKING_FIELDS = ['bookingNo', 'bookingDate', 'status', 'custName', 'phone', 'source', 'brand', 'model', 'variant', 'colorOut', 'colorIn', 'price', 'financeCo', 'finStatus', 'deliveryDate', 'salesName']
+export function stampAppEdit(colName, clean) {
   if (colName !== 'bookings' || !clean) return clean
   const { __fromSheet, ...rest } = clean
-  if (!__fromSheet) rest.appEditedAt = new Date().toISOString()
+  if (!__fromSheet && SHEET_BOOKING_FIELDS.some(k => k in rest)) rest.appEditedAt = new Date().toISOString()
   return rest
 }
 
