@@ -68,6 +68,14 @@ export function businessFacts({ customers = [], bookings = [] }, today) {
     const k = carOf(b)
     byModel[k] = (byModel[k] || 0) + 1
   })
+  // ใบจอง 90 วันล่าสุดแยกช่องทางที่ลูกค้ามา (ช่อง "ที่มา" ในใบจอง) — ให้ตอบ "ช่องทางไหนได้ลูกค้าจริงมากสุด ควรลงงบที่ไหน"
+  const bySrc = {}
+  bk.filter(b => !CANCELLED.includes(b.status) && String(b.bookingDate || bangkokDate(b.createdAt)).slice(0, 10) >= since).forEach(b => {
+    const raw = String(b.source || '').trim(); if (!raw) return
+    const k = SOURCE_TH[raw.toLowerCase()] || raw
+    bySrc[k] = (bySrc[k] || 0) + 1
+  })
+  const bkSrcLine = Object.entries(bySrc).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, n]) => `${k} ${n}`).join(' · ')
   const modelLine = Object.entries(byModel).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, n]) => `${k} ${n}`).join(' · ')
   // กำหนดส่งมอบ: เลยกำหนดแล้วยังไม่ส่ง + ภายใน 7 วันข้างหน้า — ให้ตอบ "สัปดาห์นี้ต้องส่งรถกี่คัน มีคันไหนเลยกำหนด"
   const in7 = new Date(t0 + 7 * DAY).toISOString().slice(0, 10)
@@ -108,6 +116,7 @@ export function businessFacts({ customers = [], bookings = [] }, today) {
     'คาดการณ์ยอดจองสิ้นเดือน': paceLine,
     'แนวโน้ม 6 เดือน (จอง/ส่งมอบ)': trendLine,
     ...(srcLine ? { 'Lead 90 วันล่าสุดแยกตามที่มา': srcLine } : {}),
+    ...(bkSrcLine ? { 'ใบจอง 90 วันล่าสุดแยกช่องทางที่ลูกค้ามา': bkSrcLine } : {}),
     ...(quietN ? { [`Lead/Prospect ที่ไม่ได้ติดต่อ ${STALE_LEAD_DAYS} วันขึ้นไป ${quietN} ราย แยกตามเซลส์`]: quietLine } : {}),
     ...(lostLine ? { 'เหตุผลเสียดีล 90 วันล่าสุด': lostLine } : {}),
     'ลูกค้าในแต่ละขั้น': `Lead ${stage('lead')} · Prospect ${stage('pp')} · จองแล้ว ${stage('booking')} · เสียดีล ${cs.filter(c => c.isLost).length}`,
@@ -122,7 +131,7 @@ export function stockFacts(vehicles = [], today) {
   const transit = live.filter(v => v.status === 'transit').length
   const by = {}
   ready.forEach(v => {
-    const m = [v.brand && !String(v.model || '').toLowerCase().includes(String(v.brand).toLowerCase()) ? v.brand : '', v.model, v.variant].filter(Boolean).join(' ').trim() || 'ไม่ระบุรุ่น'
+    const m = carOf(v, true) || 'ไม่ระบุรุ่น'
     const c = String(v.color || '').trim() || 'ไม่ระบุสี'
     ;((by[m] ||= {})[c] = (by[m][c] || 0) + 1)
   })
