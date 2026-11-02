@@ -52,6 +52,27 @@ export const LINKED_VIEWS = [
   [{ path: '/crm/quotation', label: '🧾 ใบเสนอราคา' }, { path: '/crm/quote-compare', label: '⚖️ เทียบใบเสนอราคา' }, { path: '/crm/price-negotiation', label: '🤝 ต่อรองราคา' }],
   [{ path: '/crm/loyalty', label: '🎁 แต้มสะสม' }, { path: '/crm/loyalty-tiers', label: '🏅 ระดับสมาชิก' }, { path: '/crm/referral', label: '🤝 แนะนำลูกค้า' }, { path: '/crm/referral-qr', label: '🔳 QR แนะนำเพื่อน' }],
   [{ path: '/crm/feedback', label: '💬 ความเห็น' }, { path: '/crm/csat', label: '😊 CSAT' }, { path: '/crm/complaints', label: '📣 ร้องเรียน' }],
+  // (2026-11-02) หมวดบริการ 30 → 10 · HR 29 → 10 · ระบบ 30 → 14 เมนู
+  [{ path: '/service/jobs', label: '🔧 ใบสั่งซ่อม' }, { path: '/service/estimate', label: '🧮 ประเมินค่าซ่อม' }, { path: '/service/inspection', label: '🔍 ตรวจสภาพ' }, { path: '/service/history', label: '📜 ประวัติซ่อม' }, { path: '/service/quick-lane', label: '⚡ ช่องด่วน' }, { path: '/service/bp', label: '🎨 ซ่อมสี/ตัวถัง' }, { path: '/service/bay', label: '🅿️ ช่องซ่อม' }],
+  [{ path: '/service/parts', label: '⚙️ อะไหล่' }, { path: '/service/parts-order', label: '🛒 สั่งอะไหล่' }, { path: '/service/parts-rma', label: '↩️ คืนอะไหล่' }],
+  [{ path: '/service/appointment', label: '📅 นัดเข้าศูนย์' }, { path: '/service/reminders', label: '🔔 เตือนเข้าศูนย์' }, { path: '/service/maintenance-schedule', label: '🗓 ตารางเช็คระยะ' }, { path: '/service/reschedule-ai', label: '🤖 เลื่อนนัดอัตโนมัติ' }, { path: '/service/pickup', label: '🚐 รับ-ส่งรถ' }, { path: '/service/surveyor', label: '🧑‍💼 เซอร์เวเยอร์' }],
+  [{ path: '/service/technicians', label: '👷 ตารางช่าง' }, { path: '/service/tech-kpi', label: '🎯 KPI ช่าง' }],
+  [{ path: '/service/ev-diagnostic', label: '🔋 ตรวจระบบ EV' }, { path: '/service/ev-battery', label: '💚 สุขภาพแบต' }, { path: '/service/ev-range', label: '🗺 ระยะทาง EV' }, { path: '/service/charging', label: '🔌 จุดชาร์จ' }],
+  [{ path: '/service/loaner', label: '🚗 รถสำรอง' }, { path: '/service/lounge', label: '☕ ห้องรับรอง' }, { path: '/service/wash', label: '🧽 ล้าง/เคลือบ' }, { path: '/service/roadside', label: '🆘 ช่วยเหลือฉุกเฉิน' }],
+  [{ path: '/hr/attendance', label: '⏰ ลงเวลา' }, { path: '/hr/leave', label: '🌴 ลา' }, { path: '/hr/shift', label: '🗓 กะ/ตารางงาน' }, { path: '/hr/overtime', label: '⏱ โอที' }],
+  [{ path: '/hr/kpi', label: '🎯 KPI' }, { path: '/hr/targets', label: '🏁 เป้าทีม' }, { path: '/hr/employee-kpi', label: '📋 KPI รายคน' }, { path: '/hr/performance', label: '📈 ผลงาน' }, { path: '/hr/performance-review', label: '📝 ประเมินผล' }, { path: '/hr/skills', label: '🧠 ทักษะ' }],
+  [{ path: '/hr/recruitment', label: '📢 รับสมัคร' }, { path: '/hr/onboarding', label: '👋 พนักงานใหม่' }, { path: '/hr/offboarding', label: '🚪 ลาออก' }, { path: '/hr/succession', label: '🪜 สืบทอดตำแหน่ง' }],
+  [{ path: '/hr/expense', label: '🧾 เบิกค่าใช้จ่าย' }, { path: '/hr/expense-ocr', label: '📷 สแกนใบเสร็จ' }, { path: '/hr/loans', label: '💳 เงินกู้พนักงาน' }],
+  [{ path: '/hr/salary-scale', label: '💰 โครงสร้างเงินเดือน' }, { path: '/hr/bonus-pool', label: '🎁 กองโบนัส' }, { path: '/hr/welfare', label: '🏥 สวัสดิการ' }],
+  [{ path: '/hr/announcements', label: '📣 ประกาศ' }, { path: '/hr/memo', label: '📝 บันทึกข้อความ' }, { path: '/hr/meetings', label: '👥 ประชุม' }, { path: '/hr/mood-survey', label: '😊 สำรวจความรู้สึก' }],
+  [{ path: '/hr/disciplinary', label: '⚖️ วินัย' }, { path: '/hr/grievances', label: '📮 ร้องเรียนภายใน' }],
+  [{ path: '/settings/notifications', label: '🔔 แจ้งเตือน' }, { path: '/settings/daily-report', label: '📨 รายงานส่ง LINE' }],
+  [{ path: '/settings/org-companies', label: '🏢 บริษัทในเครือ' }, { path: '/settings/branches', label: '🏬 สาขา' }, { path: '/settings/master-data', label: '🗂 ข้อมูลหลัก' }, { path: '/settings/whitelabel', label: '🎨 แบรนด์/โลโก้' }, { path: '/settings/holidays', label: '📅 วันหยุด' }],
+  [{ path: '/settings/users-manage', label: '👥 ผู้ใช้' }, { path: '/settings/security', label: '🔒 ความปลอดภัย' }, { path: '/settings/sms-otp', label: '📱 ยืนยัน 2 ชั้น' }, { path: '/settings/api-keys', label: '🔑 คีย์ API' }],
+  [{ path: '/settings/backup', label: '💾 สำรอง/กู้คืน' }, { path: '/settings/data-retention', label: '🗃 ระยะเก็บข้อมูล' }, { path: '/settings/company-data-cleanup', label: '🧹 เติมข้อมูลย้อนหลัง' }],
+  [{ path: '/settings/health', label: '🩺 สถานะระบบ' }, { path: '/settings/errors', label: '⚠️ ข้อผิดพลาด' }, { path: '/settings/audit', label: '📜 ประวัติการใช้งาน' }],
+  [{ path: '/integrations', label: '🔗 เชื่อมต่อ' }, { path: '/integrations/settings', label: '⚙️ ตั้งค่า' }, { path: '/integrations/webhooks', label: '🪝 Webhook' }],
+  [{ path: '/migration', label: '📥 ย้ายข้อมูล' }, { path: '/migration/mapping', label: '🔀 จับคู่ข้อมูล' }, { path: '/migration/export', label: '📤 ส่งออก' }],
 ]
 
 const clean = p => String(p || '').split('?')[0].replace(/\/+$/, '') || '/'
