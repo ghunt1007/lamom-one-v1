@@ -68,7 +68,7 @@ export default async function CarbonFootprintPage(container) {
     const evTon = liveData.evFleet[selMonth]
     const iceTon = liveData.iceEqv[selMonth]
     const saved = iceTon - evTon
-    const pct = Math.round((saved / iceTon) * 100)
+    const pct = iceTon ? Math.round((saved / iceTon) * 100) : 0
     const ytdSaved = liveData.iceEqv.slice(0,selMonth+1).reduce((s,v,i)=>s+(v-liveData.evFleet[i]),0)
     const totalOffset = CERT_OFFSET.reduce((s,c)=>s+c.tons,0)
 
