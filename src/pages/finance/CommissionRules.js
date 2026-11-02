@@ -218,7 +218,7 @@ export default async function CommissionRulesPage(container) {
                   </div>
                   <div style="display:flex;gap:4px;flex-shrink:0;padding-top:2px">
                     <button class="btn btn-xs btn-secondary edit-btn" data-id="${escHtml(r.id)}" title="แก้ไขกติกา">✏️</button>
-                    <button class="btn btn-xs ${r.active ? 'btn-success' : 'btn-secondary'} toggle-btn" data-id="${escHtml(r.id)}">${r.active ? '✅' : '⏸'}</button>
+                    <button class="btn btn-xs ${r.active ? 'btn-success' : 'btn-secondary'} toggle-btn" data-id="${escHtml(r.id)}" title="${r.active ? 'ใช้งานอยู่ — กดเพื่อพักไว้' : 'พักไว้ — กดเพื่อเปิดใช้'}">${r.active ? '✅' : '⏸'}</button>
                     <button class="btn btn-xs btn-danger del-rule-btn" data-id="${escHtml(r.id)}" title="ลบกติกานี้">🗑</button>
                   </div>
                 </div>

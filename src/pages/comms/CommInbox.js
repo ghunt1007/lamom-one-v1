@@ -147,7 +147,7 @@ export default async function CommInboxPage(container) {
             <!-- Channel tabs -->
             <div style="padding:10px;border-bottom:1px solid var(--border);display:flex;gap:4px;flex-wrap:wrap">
               <button class="btn btn-xs ${activeChannel==='all'?'btn-primary':'btn-secondary'} ch-btn" data-ch="all">ทั้งหมด ${unread>0?`<span style="background:var(--primary);border-radius:10px;padding:0 5px;font-size:0.65rem">${unread}</span>`:''}</button>
-              ${Object.entries(CHANNELS).map(([k,v]) => `<button class="btn btn-xs ${activeChannel===k?'btn-primary':'btn-secondary'} ch-btn" data-ch="${k}">${v.icon}</button>`).join('')}
+              ${Object.entries(CHANNELS).map(([k,v]) => `<button class="btn btn-xs ${activeChannel===k?'btn-primary':'btn-secondary'} ch-btn" data-ch="${k}" title="${v.label || k}">${v.icon}</button>`).join('')}
             </div>
             <!-- Search -->
             <div style="padding:8px 10px;border-bottom:1px solid var(--border)">

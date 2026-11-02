@@ -94,7 +94,7 @@ export default async function CampaignBuilderPage(container) {
           </div>
           <div style="display:flex;gap:4px;margin-left:auto">
             <button class="btn btn-sm ${typeFilter==='all'?'btn-primary':'btn-secondary'} tf-btn" data-t="all">ทุกประเภท</button>
-            ${Object.entries(CAMPAIGN_TYPES).map(([k,v]) => `<button class="btn btn-sm ${typeFilter===k?'btn-primary':'btn-secondary'} tf-btn" data-t="${k}">${v.icon}</button>`).join('')}
+            ${Object.entries(CAMPAIGN_TYPES).map(([k,v]) => `<button class="btn btn-sm ${typeFilter===k?'btn-primary':'btn-secondary'} tf-btn" data-t="${k}" title="${v.label || k}">${v.icon}</button>`).join('')}
           </div>
         </div>
 
