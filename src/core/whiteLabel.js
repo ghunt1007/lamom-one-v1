@@ -26,6 +26,9 @@ export function applyBrand(cfg) {
     favicon: safeAssetUrl(cfg?.favicon),
     layoutId: cfg?.layoutId || '',
     defaultRoute: typeof cfg?.defaultRoute === 'string' && cfg.defaultRoute.startsWith('/') ? cfg.defaultRoute : '/',
+    // เมนูที่เจ้าของซ่อน (utils/hiddenMenus.js)
+    hiddenMenus: Array.isArray(cfg?.hiddenMenus) ? cfg.hiddenMenus.filter(p => typeof p === 'string' && p.startsWith('/')) : [],
+    __docId: cfg?.id || '',
   }
   setState('brand', brand)
   if (brand.brandName !== BRAND_DEFAULT.brandName) document.title = brand.brandName

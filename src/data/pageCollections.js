@@ -566,7 +566,9 @@ export const PAGE_COLLECTIONS = {
   "walk_ins"
  ],
  "/settings/backup": [],
- "/settings/page-usage": [],
+ "/settings/page-usage": [
+  "whitelabel_settings"
+ ],
  "/crm/lifecycle": [
   "action_plans",
   "complaints",
