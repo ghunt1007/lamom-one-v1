@@ -10,17 +10,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
-const PARTS_DATA = [
-  { name: 'ไส้กรองแอร์', sold90: 84, stock: 20, cost: 200, price: 380, daysInStock: 12 },
-  { name: 'ผ้าเบรกหน้า BYD', sold90: 36, stock: 12, cost: 850, price: 1500, daysInStock: 28 },
-  { name: 'ใบปัดน้ำฝน (คู่)', sold90: 52, stock: 30, cost: 320, price: 650, daysInStock: 18 },
-  { name: 'ยาง 215/55R17', sold90: 28, stock: 8, cost: 2800, price: 4500, daysInStock: 25 },
-  { name: 'น้ำยาหล่อเย็น', sold90: 22, stock: 15, cost: 900, price: 1800, daysInStock: 40 },
-  { name: '12V Battery', sold90: 14, stock: 6, cost: 2200, price: 3500, daysInStock: 38 },
-  { name: 'ไฟหน้า LED Assembly', sold90: 2, stock: 3, cost: 8500, price: 14000, daysInStock: 160 },
-  { name: 'สปอยเลอร์ Carbon', sold90: 1, stock: 3, cost: 9000, price: 15000, daysInStock: 220 },
-  { name: 'ล้อแม็กซ์ 19"', sold90: 1, stock: 2, cost: 32000, price: 48000, daysInStock: 190 },
-]
+const PARTS_DATA = [] // (2026-11-02) เอาข้อมูลสมมติออก
 
 export function turnover(p) { return p.stock > 0 ? Math.round(p.sold90 / 3 / p.stock * 10) / 10 : 0 } // ครั้ง/เดือน
 export function marginPct(p) { return Math.round((p.price - p.cost) / p.price * 100) }

@@ -11,26 +11,27 @@ import { companyScopeFilters } from '../../core/companyScope.js'
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
 const MODELS = [
-  { id: 'M01', name: 'BYD Dolphin', stock: 8, reserved: 3, sold30: 12, targetStock: 10, price: 899000, color: '#3b82f6' },
-  { id: 'M02', name: 'BYD Atto 3', stock: 5, reserved: 2, sold30: 8, targetStock: 8, price: 1099000, color: '#10b981' },
-  { id: 'M03', name: 'BYD Seal AWD', stock: 3, reserved: 1, sold30: 6, targetStock: 6, price: 1699000, color: '#f59e0b' },
-  { id: 'M04', name: 'MG ZS EV', stock: 11, reserved: 1, sold30: 5, targetStock: 8, price: 799000, color: '#ef4444' },
-  { id: 'M05', name: 'BYD Han', stock: 2, reserved: 1, sold30: 3, targetStock: 4, price: 2099000, color: '#8b5cf6' },
-  { id: 'M06', name: 'BYD Atto 3 Pro', stock: 4, reserved: 0, sold30: 4, targetStock: 5, price: 1299000, color: '#06b6d4' },
-  { id: 'M07', name: 'MG4 Electric', stock: 6, reserved: 2, sold30: 7, targetStock: 7, price: 949000, color: '#ec4899' },
+  { id: 'M01', name: 'BYD Dolphin', stock: 0, reserved: 0, sold30: 0, targetStock: 10, price: 899000, color: '#3b82f6' },
+  { id: 'M02', name: 'BYD Atto 3', stock: 0, reserved: 0, sold30: 0, targetStock: 8, price: 1099000, color: '#10b981' },
+  { id: 'M03', name: 'BYD Seal AWD', stock: 0, reserved: 0, sold30: 0, targetStock: 6, price: 1699000, color: '#f59e0b' },
+  { id: 'M04', name: 'MG ZS EV', stock: 0, reserved: 0, sold30: 0, targetStock: 8, price: 799000, color: '#ef4444' },
+  { id: 'M05', name: 'BYD Han', stock: 0, reserved: 0, sold30: 0, targetStock: 4, price: 2099000, color: '#8b5cf6' },
+  { id: 'M06', name: 'BYD Atto 3 Pro', stock: 0, reserved: 0, sold30: 0, targetStock: 5, price: 1299000, color: '#06b6d4' },
+  { id: 'M07', name: 'MG4 Electric', stock: 0, reserved: 0, sold30: 0, targetStock: 7, price: 949000, color: '#ec4899' },
 ]
 
 const AGING_DATA = [
-  { range: '0-30 วัน', count: 18, pct: 40 },
-  { range: '31-60 วัน', count: 12, pct: 27 },
-  { range: '61-90 วัน', count: 7, pct: 16 },
-  { range: '91-120 วัน', count: 5, pct: 11 },
-  { range: '120+ วัน', count: 3, pct: 7 },
+  { range: '0-30 วัน', count: 0, pct: 0 },
+  { range: '31-60 วัน', count: 0, pct: 0 },
+  { range: '61-90 วัน', count: 0, pct: 0 },
+  { range: '91-120 วัน', count: 0, pct: 0 },
+  { range: '120+ วัน', count: 0, pct: 0 },
 ]
 
 export default async function StockAnalysisPage(container) {
   const myGen = container.__routerGen
-  let liveModels = [...MODELS].map(m => ({ ...m }))
+  // (2026-11-02) ไม่โชว์รุ่นรถสมมติ (BYD/MG) แล้ว — ยังไม่มีรถในสต็อก = ว่าง
+  let liveModels = []
   let dataSource = 'demo'
   let sortBy = 'stock'
   let sortDir = 'desc'
@@ -53,7 +54,7 @@ export default async function StockAnalysisPage(container) {
       // "+ สั่งรถเพิ่ม" จริงด้วย (ดูปุ่ม order-btn ด้านล่าง) จึงเปลี่ยนเป็นค่ากลาง (เฉลี่ยจากรุ่น demo จริง)
       // แทนการยืมข้อมูลรุ่นอื่นแบบสุ่มซึ่งไม่เกี่ยวข้องกับรุ่นนี้เลย
       const avgTargetStock = Math.round(MODELS.reduce((a, m) => a + m.targetStock, 0) / MODELS.length)
-      const avgPrice = Math.round(MODELS.reduce((a, m) => a + m.price, 0) / MODELS.length)
+      const avgPrice = 0 // ไม่เดาราคาจากรุ่นสมมติ
       liveModels = Object.entries(grouped).map(([name, g], i) => {
         const demo = MODELS.find(m => m.name === name)
         return {

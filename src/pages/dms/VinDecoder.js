@@ -224,9 +224,6 @@ export default async function VinDecoderPage(container) {
 }
 
 // ใช้เฉพาะตอนยังไม่มีข้อมูลใบจองจริงเลยในระบบ (empty-state ตัวอย่าง ไม่ผสมกับของจริง)
-const DEMO_VEHICLES = [
-  { vin: 'LGXC74C44N0123456', plate: '1กข-1234', model: 'BYD Seal AWD', color: 'ดำ', owner: 'สมชาย ใจดี', phone: '085-111', purchaseDate: '2023-08-15', serviceCount: 0, lastService: '', insurer: '' },
-  { vin: 'LGXC74C44N0789012', plate: '2ขค-5678', model: 'BYD Dolphin', color: 'ขาว', owner: 'มาลี สุขใจ', phone: '086-222', purchaseDate: '2022-11-02', serviceCount: 0, lastService: '', insurer: '' },
-]
+const DEMO_VEHICLES = [] // (2026-11-02) เอาข้อมูลสมมติออก — ไม่มีข้อมูลจริงให้โชว์ว่าง ไม่ใช่ตัวเลขปลอม
 
 function spec(l, v) { return `<div style="background:var(--surface-2);padding:8px 10px;border-radius:var(--radius-sm)"><div style="font-size:0.63rem;color:var(--text-muted)">${l}</div><div style="font-weight:700;font-size:0.78rem">${escHtml(String(v ?? ''))}</div></div>` }

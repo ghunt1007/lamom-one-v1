@@ -7,11 +7,7 @@ import { showToast } from '../../core/store.js'
 import { getSalesData } from '../../core/db.js'
 import { exportToExcel } from '../../utils/importExport.js'
 
-const BRANCHES = [
-  { id: 'B01', name: 'สาขาบางนา', manager: 'ประพันธ์ ผู้จัดการ', sales: 22, revenue: 28578000, service: 412000, staff: 16, csat: 4.6, leads: 145, color: '#3b82f6' },
-  { id: 'B02', name: 'สาขารามอินทรา', manager: 'สมศรี บริหาร', sales: 18, revenue: 23382000, service: 358000, staff: 14, csat: 4.4, leads: 122, color: '#10b981' },
-  { id: 'B03', name: 'สาขารังสิต', manager: 'วิโรจน์ จัดการ', sales: 12, revenue: 15588000, service: 290000, staff: 10, csat: 4.7, leads: 98, color: '#f59e0b' },
-]
+const BRANCHES = [] // (2026-11-02) เอาสาขาสมมติ (บางนา/รามอินทรา/รังสิต) ออก — โชว์เฉพาะสาขาจากยอดขายจริง
 
 const METRICS = [
   { key: 'sales', label: '🚗 ยอดขาย (คัน)', fmt: v => v + ' คัน' },
@@ -41,8 +37,8 @@ export default async function BranchComparisonPage(container) {
       // (v1.0.xxx) เดิมสาขาจริงที่ไม่ตรงกับ BRANCHES demo ตัวไหนเลย fallback ไป BRANCHES[i % BRANCHES.length]
       // ซึ่งยืม manager/staff/csat/service/leads ของสาขาอื่นที่ไม่เกี่ยวข้องมาแปะ — เปลี่ยนเป็นค่ากลาง/เฉลี่ย
       // แทนการยืมข้อมูลสาขาอื่นแบบสุ่ม
-      const avgStaff = Math.round(BRANCHES.reduce((a, b) => a + b.staff, 0) / BRANCHES.length)
-      const avgCsat = +(BRANCHES.reduce((a, b) => a + b.csat, 0) / BRANCHES.length).toFixed(1)
+      const avgStaff = 0
+      const avgCsat = 0
       liveBranches = Object.entries(byBranch).map(([name, d], i) => {
         const demo = BRANCHES.find(b => b.name.includes(name) || name.includes(b.name.replace('สาขา', '')))
         return {
@@ -86,7 +82,7 @@ export default async function BranchComparisonPage(container) {
           ${kpi('🏢 สาขา', liveBranches.length, 'primary')}
           ${kpi('🚗 ขายรวม', totalSales + ' คัน', 'success')}
           ${kpi('💰 รายได้รวม', formatCurrency(totalRevenue), 'warning')}
-          ${kpi('👑 สาขาดีสุด', best?.name.replace('สาขา',''), 'secondary')}
+          ${kpi('👑 สาขาดีสุด', best?.name?.replace('สาขา','') || '-', 'secondary')}
         </div>
 
         <!-- Metric picker -->

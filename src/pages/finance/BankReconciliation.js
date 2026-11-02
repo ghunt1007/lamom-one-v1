@@ -14,14 +14,7 @@ function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,
 // เลยสักครั้ง — เปลี่ยนมาดึงจริงจาก 2 collection นี้แทน: invoices (type:'invoice', status ยังไม่ 'paid'/'cancelled'
 // → เงินเข้า/บวก) และ purchase_orders (status:'received', ยังไม่จ่าย → เงินออก/ลบ) ใช้เฉพาะตอนมีข้อมูลจริง
 // เท่านั้น ถ้าไม่มีทั้งสอง collection เลยค่อย fallback ไปใช้ตัวอย่างเดิมเพื่อไม่ให้หน้าว่างเปล่าตอนยังไม่มีข้อมูล
-const DEMO_BOOK_ENTRIES = [
-  { id: 'IV001', desc: 'Invoice — สมชาย ใจดี (BYD Dolphin)', amount: 1299000 },
-  { id: 'IV002', desc: 'Invoice — มาลี สุขใจ (ค่าซ่อม)', amount: 28500 },
-  { id: 'IV003', desc: 'Invoice — ธนพล เที่ยงตรง (ค่าซ่อม)', amount: 8900 },
-  { id: 'IV004', desc: 'Invoice — อรทัย ตั้งใจ (อะไหล่)', amount: 12400 },
-  { id: 'PO001', desc: 'PO — BYD Auto (รถ 8 คัน)', amount: -8990000 },
-  { id: 'PAY-06', desc: 'เงินเดือน มิ.ย.', amount: -680000 },
-]
+const DEMO_BOOK_ENTRIES = [] // (2026-11-02) เอาข้อมูลสมมติออก — ไม่มีข้อมูลจริงให้โชว์ว่าง ไม่ใช่ตัวเลขปลอม
 
 // แปลง invoices/purchase_orders จริงให้อยู่ในรูปแบบเดียวกับ DEMO_BOOK_ENTRIES (id, desc, amount)
 async function loadRealBookEntries() {

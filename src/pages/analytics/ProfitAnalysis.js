@@ -9,21 +9,15 @@ import { getSalesData } from '../../core/db.js'
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
 const MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.']
-const PRODUCTS = [
-  { id: 'P1', name: 'BYD Seal AWD', category: 'EV Sedan', units: 18, revenue: 28620000, cogs: 22896000, gross: 5724000 },
-  { id: 'P2', name: 'BYD Atto 3',   category: 'EV SUV',   units: 24, revenue: 30960000, cogs: 25082000, gross: 5878000 },
-  { id: 'P3', name: 'MG ZS EV',     category: 'EV SUV',   units: 15, revenue: 16050000, cogs: 13000000, gross: 3050000 },
-  { id: 'P4', name: 'Service',       category: 'บริการ',   units: 380, revenue: 3800000, cogs: 1900000, gross: 1900000 },
-  { id: 'P5', name: 'Accessories',  category: 'อุปกรณ์',  units: 145, revenue: 870000,  cogs: 520000,  gross: 350000 },
-]
+const PRODUCTS = [] // (2026-11-02) เอาข้อมูลสมมติออก
 
 const MONTHLY_DATA = [
-  { month: 'ม.ค.', revenue: 12500000, cogs: 9800000, opex: 1200000 },
-  { month: 'ก.พ.', revenue: 11200000, cogs: 8900000, opex: 1150000 },
-  { month: 'มี.ค.', revenue: 15800000, cogs: 12300000, opex: 1300000 },
-  { month: 'เม.ย.', revenue: 13600000, cogs: 10800000, opex: 1250000 },
-  { month: 'พ.ค.', revenue: 16200000, cogs: 12500000, opex: 1350000 },
-  { month: 'มิ.ย.', revenue: 18000000, cogs: 13900000, opex: 1400000 },
+  { month: 'ม.ค.', revenue: 0, cogs: 0, opex: 0 },
+  { month: 'ก.พ.', revenue: 0, cogs: 0, opex: 0 },
+  { month: 'มี.ค.', revenue: 0, cogs: 0, opex: 0 },
+  { month: 'เม.ย.', revenue: 0, cogs: 0, opex: 0 },
+  { month: 'พ.ค.', revenue: 0, cogs: 0, opex: 0 },
+  { month: 'มิ.ย.', revenue: 0, cogs: 0, opex: 0 },
 ]
 
 export default async function ProfitAnalysisPage(container) {
@@ -42,7 +36,7 @@ export default async function ProfitAnalysisPage(container) {
       sales.forEach(s => {
         const mo = parseInt((s.date || '').slice(5, 7)) - 1
         if (isNaN(mo) || mo < 0 || mo > 11) return
-        if (!byMonth[mo]) byMonth[mo] = { month: MONTHS_TH[mo], revenue: 0, cogs: 0, opex: 1250000 }
+        if (!byMonth[mo]) byMonth[mo] = { month: MONTHS_TH[mo], revenue: 0, cogs: 0, opex: 0 }
         byMonth[mo].revenue += s.salePrice || 0
         // ต้นทุนจริงต่อคัน (s.cost จากใบจอง) ถ้าไม่มีค่อย fallback ประมาณ 82% ของราคาขาย — pattern เดียวกับ
         // CashFlow.js/VatReport.js ไม่ใช่ประมาณ 80% ตายตัวทุกคันอีกต่อไป
@@ -86,7 +80,7 @@ export default async function ProfitAnalysisPage(container) {
           <div>
             <div class="page-title">📈 Profit Analysis</div>
             <div class="page-subtitle">วิเคราะห์กำไร-ขาดทุนเชิงลึก ครึ่งปีแรก 2568
-              ${liveMonthly ? '<span style="font-size:0.72rem;color:var(--success);margin-left:8px">● ข้อมูลจริงจากใบจอง</span>' : '<span style="font-size:0.72rem;color:var(--text-muted);margin-left:8px">Demo</span>'}
+              ${liveMonthly ? '<span style="font-size:0.72rem;color:var(--success);margin-left:8px">● ข้อมูลจริงจากใบจอง</span>' : '<span style="font-size:0.72rem;color:var(--text-muted);margin-left:8px">ยังไม่มีข้อมูล</span>'}
             </div>
           </div>
         </div>
@@ -119,7 +113,7 @@ export default async function ProfitAnalysisPage(container) {
           <div style="font-size:0.8rem;font-weight:700;margin-bottom:12px;color:var(--text-muted)">📊 รายได้รายเดือน (ล้านบาท)</div>
           <div style="display:flex;gap:4px;align-items:flex-end;height:140px">
             ${data.map(m => {
-              const grossPct = Math.round((m.revenue - m.cogs) / m.revenue * 100)
+              const grossPct = m.revenue ? Math.round((m.revenue - m.cogs) / m.revenue * 100) : 0
               const revenueH = Math.round(m.revenue / maxRevenue * 120)
               const grossH = Math.round((m.revenue - m.cogs) / maxRevenue * 120)
               return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">

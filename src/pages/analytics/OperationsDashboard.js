@@ -13,12 +13,7 @@ function escHtml(s) {
 const THAI_MONTH_SHORT = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 const FINAL_BOOKING_STATUS = ['ส่งมอบแล้ว', 'ถอนจอง']
 
-// ยังไม่มีแหล่งข้อมูลจริงในระบบให้เมตริกกลุ่มนี้ (ไม่มี field วันปิดงาน/คะแนน performance/ตำแหน่งงานว่าง
-// เก็บอยู่ที่ไหนเลย) — คงไว้เป็นตัวอย่างพร้อมป้ายกำกับชัดเจน ดีกว่าเดาตัวเลขที่ไม่มีทางตรวจสอบได้
-const SAMPLE_ONLY = {
-  service: { avgTurnaround: 2.3, techUtilization: 87 },
-  workforce: { avgPerformance: 87.5, openPositions: 2, trainingCompleted: 72 },
-}
+// (2026-11-02) เอาเมตริกตัวอย่าง (Turnaround, ช่างใช้งาน, Performance, ตำแหน่งว่าง, Training) ออก — ไม่มีข้อมูลจริงรองรับ
 
 function daysSince(dateStr) {
   if (!dateStr) return 0
@@ -42,9 +37,9 @@ export default async function OperationsDashboardPage(container) {
 
   const d = {
     inventory: { totalVehicles: 0, available: 0, reserved: 0, inTransit: 0, onHold: 0, avgDaysInStock: 0, stockHealth: 0 },
-    service: { totalJobs: 0, completed: 0, inProgress: 0, pending: 0, ...SAMPLE_ONLY.service },
+    service: { totalJobs: 0, completed: 0, inProgress: 0, pending: 0 },
     supply: { activeSuppliers: 0, openPOs: 0, overdueDeliveries: 0, partsStockValue: 0, avgLeadTime: 0 },
-    workforce: { totalStaff: 0, present: 0, ...SAMPLE_ONLY.workforce },
+    workforce: { totalStaff: 0, present: 0 },
   }
   let vehiclesSoldByMonth = last6MonthKeys().map(() => 0)
   let bottlenecks = []
@@ -238,11 +233,6 @@ export default async function OperationsDashboardPage(container) {
             ${healthBar('เสร็จแล้ว', d.service.completed, d.service.totalJobs, 'success')}
             ${healthBar('กำลังซ่อม', d.service.inProgress, d.service.totalJobs, 'warning')}
             ${healthBar('รอรับ', d.service.pending, d.service.totalJobs, 'secondary')}
-            <div style="margin-top:8px;font-size:0.75rem;color:var(--text-muted)">Turnaround ${d.service.avgTurnaround} วัน <span style="font-size:0.65rem">(ตัวอย่าง — ยังไม่มี field วันปิดงานให้คำนวณจริง)</span></div>
-            <div style="margin-top:4px;display:flex;justify-content:space-between;font-size:0.73rem">
-              <span>ช่างใช้งาน <span style="font-size:0.65rem;color:var(--text-muted)">(ตัวอย่าง)</span></span>
-              <strong style="color:var(--success)">${d.service.techUtilization}%</strong>
-            </div>
           </div>
 
           <!-- Supply -->
@@ -267,15 +257,6 @@ export default async function OperationsDashboardPage(container) {
           <div class="card" style="padding:14px">
             <div style="font-weight:700;font-size:0.82rem;margin-bottom:10px">👥 HR</div>
             ${healthBar('ลงเวลาวันนี้', d.workforce.present, d.workforce.totalStaff, 'success')}
-            <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:0.78rem">
-              <span style="color:var(--text-muted)">Performance avg <span style="font-size:0.65rem">(ตัวอย่าง)</span></span><strong style="color:var(--success)">${d.workforce.avgPerformance}</strong>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:0.78rem">
-              <span style="color:var(--text-muted)">ตำแหน่งว่าง <span style="font-size:0.65rem">(ตัวอย่าง)</span></span><strong style="color:${d.workforce.openPositions>0?'var(--warning)':'var(--success)'}">${d.workforce.openPositions}</strong>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:0.78rem">
-              <span style="color:var(--text-muted)">Training ผ่าน <span style="font-size:0.65rem">(ตัวอย่าง)</span></span><strong>${d.workforce.trainingCompleted}%</strong>
-            </div>
           </div>
         </div>
       </div>

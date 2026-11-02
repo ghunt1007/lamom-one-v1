@@ -23,13 +23,7 @@ const VIP_TIERS = {
   silver:   { label: 'Silver', color: 'secondary', icon: '🥈', minSpend: 800000, benefits: ['ส่วนลดบริการ 10%', 'ล้างรถฟรีทุกครั้งที่เข้าศูนย์'] },
 }
 
-const DEMO_VIPS = [
-  { id: 'V001', name: 'สมชาย ใจดี', tier: 'platinum', totalSpend: 5196000, cars: 3, referrals: 2, manager: 'ผจก.วิชัย', lastContact: addDays(-5), birthday: '15 ส.ค.', perks_used: 8 },
-  { id: 'V002', name: 'มาลี สุขใจ', tier: 'gold', totalSpend: 2598000, cars: 2, referrals: 1, manager: 'ผจก.วิชัย', lastContact: addDays(-12), birthday: '3 ม.ค.', perks_used: 5 },
-  { id: 'V003', name: 'บริษัท ABC จำกัด', tier: 'platinum', totalSpend: 8500000, cars: 6, referrals: 0, manager: 'ผจก.สมศรี', lastContact: addDays(-2), birthday: '—', perks_used: 14 },
-  { id: 'V004', name: 'วิรัช เก่งมาก', tier: 'gold', totalSpend: 2099000, cars: 1, referrals: 3, manager: 'ผจก.วิชัย', lastContact: addDays(-30), birthday: '22 พ.ย.', perks_used: 3 },
-  { id: 'V005', name: 'ประพันธ์ มั่งมี', tier: 'silver', totalSpend: 949000, cars: 1, referrals: 0, manager: '—', lastContact: addDays(-45), birthday: '8 มี.ค.', perks_used: 1 },
-]
+const DEMO_VIPS = [] // (2026-11-02) เอาข้อมูลสมมติออก — ไม่มีข้อมูลจริงให้โชว์ว่าง ไม่ใช่ตัวเลขปลอม
 
 export default async function VipClubPage(container) {
   const myGen = container.__routerGen

@@ -26,14 +26,7 @@ const SIGNALS = [
   'ให้คะแนน NPS < 6',
 ]
 
-const CUSTOMERS = [
-  { id: 'CH001', name: 'คุณสมชาย วงศ์ดี', model: 'BYD Atto 3 (2022)', lastVisit: '2025-10-12', lastBuy: '2022-06-01', score: 82, signals: [0,2,4], clv: 1850000, sales: 'นิภา' },
-  { id: 'CH002', name: 'คุณมาลี รักดี',   model: 'MG ZS EV (2023)',   lastVisit: '2026-01-05', lastBuy: '2023-03-15', score: 61, signals: [1,3],   clv: 920000,  sales: 'วิชัย' },
-  { id: 'CH003', name: 'คุณวีระ สมบัติ',  model: 'BYD Dolphin (2023)',lastVisit: '2026-03-20', lastBuy: '2023-09-01', score: 44, signals: [3],     clv: 650000,  sales: 'สมชาย' },
-  { id: 'CH004', name: 'คุณนิภา ดีเด่น',  model: 'BYD Seal (2024)',   lastVisit: '2026-05-30', lastBuy: '2024-01-10', score: 28, signals: [],       clv: 1550000, sales: 'มาลี' },
-  { id: 'CH005', name: 'คุณอนุชา ใจดี',   model: 'BYD Atto 3 (2021)', lastVisit: '2025-08-01', lastBuy: '2021-07-20', score: 91, signals: [0,1,2,5],clv: 780000,  sales: 'นิภา' },
-  { id: 'CH006', name: 'คุณสุดา เก่งดี',  model: 'MG4 Electric (2024)',lastVisit: '2026-06-01', lastBuy: '2024-05-01', score: 19, signals: [],       clv: 870000,  sales: 'วิชัย' },
-]
+const CUSTOMERS = [] // (2026-11-02) เอาข้อมูลสมมติออก
 
 function risk(score) {
   if (score >= 70) return 'high'

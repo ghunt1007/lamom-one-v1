@@ -12,7 +12,8 @@
  * (`customers`, `bookings` via getSalesData()).
  */
 import { formatCurrency } from '../../utils/format.js'
-import { getSalesData, watchDocs, seedDemoData } from '../../core/db.js'
+import { getSalesData, watchDocs, seedDemoData, listDocs } from '../../core/db.js'
+import { realFunnel, stepRate, repeatBuyers } from '../../utils/realFunnel.js'
 import { navigate } from '../../core/router.js'
 import { on } from '../../core/store.js'
 import { classifyLostReason } from '../../utils/lostReason.js'
@@ -37,25 +38,14 @@ const PIPE_STAGES = [
   { key: 'delivered', label: '✅ ส่งมอบแล้ว', color: 'success' },
 ]
 
-// ── Conversion Funnel (demo baseline, overridden by live data like ConversionFunnel.js) ──
-const FUNNEL_STAGES = [
-  { stage: 'Lead เข้ามา', count: 420, icon: '🧲', color: '#3b82f6' },
-  { stage: 'ติดต่อสำเร็จ', count: 312, icon: '📞', color: '#06b6d4' },
-  { stage: 'เข้าโชว์รูม', count: 186, icon: '🏪', color: '#10b981' },
-  { stage: 'Test Drive', count: 124, icon: '🚗', color: '#f59e0b' },
-  { stage: 'รับใบเสนอราคา', count: 95, icon: '📄', color: '#f97316' },
-  { stage: 'จอง', count: 52, icon: '📝', color: '#ef4444' },
-  { stage: 'ปิดการขาย', count: 41, icon: '🏁', color: '#8b5cf6' },
-]
-
 // ── Customer Journey (demo baseline, overridden by live data like CustomerJourney.js) ──
 const JOURNEY_STAGES = [
-  { id: 'awareness',     label: 'รู้จัก', icon: '👁', color: '#8b5cf6', count: 2840 },
-  { id: 'interest',      label: 'สนใจ', icon: '💡', color: '#3b82f6', count: 1080 },
-  { id: 'consideration', label: 'พิจารณา', icon: '🤔', color: '#06b6d4', count: 495 },
-  { id: 'intent',        label: 'ตัดสินใจ', icon: '🎯', color: '#10b981', count: 298 },
-  { id: 'purchase',      label: 'ซื้อ', icon: '🚗', color: '#f59e0b', count: 232 },
-  { id: 'loyalty',       label: 'ลูกค้าประจำ', icon: '👑', color: '#ef4444', count: 89 },
+  { id: 'awareness',     label: 'ลูกค้า/Lead', icon: '👁', color: '#8b5cf6', count: 0 },
+  { id: 'interest',      label: 'สนใจ/จอง', icon: '💡', color: '#3b82f6', count: 0 },
+  { id: 'consideration', label: 'ลองขับ', icon: '🚗', color: '#06b6d4', count: 0 },
+  { id: 'intent',        label: 'ใบเสนอราคา', icon: '📄', color: '#10b981', count: 0 },
+  { id: 'purchase',      label: 'ซื้อ', icon: '🚗', color: '#f59e0b', count: 0 },
+  { id: 'loyalty',       label: 'ซื้อซ้ำ', icon: '👑', color: '#ef4444', count: 0 },
 ]
 
 // ── Win/Loss reasons ─────────────────────────────────────────────────────────
@@ -72,15 +62,7 @@ const LOST_REASONS = {
   other:       { label: '📋 อื่นๆ', color: 'primary' },
 }
 
-const DEMO_LOST_DEALS = [
-  { id:'LD001', custName:'มานะ ลองดู', interestedIn:'BYD Seal AWD', budget:1200000, lostReason:'price', lostTo:'Tesla Model 3' },
-  { id:'LD002', custName:'สวรรค์ ฝันอยาก', interestedIn:'MG4 X', budget:1000000, lostReason:'finance', lostTo:null },
-  { id:'LD003', custName:'ธรรมนูญ เที่ยว', interestedIn:'BYD Atto3', budget:900000, lostReason:'timing', lostTo:null },
-  { id:'LD004', custName:'ปาณิสรา งดงาม', interestedIn:'DEEPAL S07', budget:1100000, lostReason:'competitor', lostTo:'BYD Seal' },
-  { id:'LD005', custName:'กฤษณะ หล่อมาก', interestedIn:'MG ZS EV', budget:800000, lostReason:'price', lostTo:'BYD Seagull' },
-  { id:'LD006', custName:'อรทัย ดีงาม', interestedIn:'BYD Seal AWD', budget:1300000, lostReason:'service', lostTo:'Toyota' },
-  { id:'LD007', custName:'บรรพต ฝากไว้', interestedIn:'MG4 X', budget:1100000, lostReason:'model', lostTo:null },
-]
+const DEMO_LOST_DEALS = [] // (2026-11-02) เอาข้อมูลสมมติออก — ไม่มีข้อมูลจริงให้โชว์ว่าง ไม่ใช่ตัวเลขปลอม
 
 export default async function WarRoomPage(container) {
   const myGen = container.__routerGen
@@ -90,7 +72,8 @@ export default async function WarRoomPage(container) {
   let customers = []
   let bookings = []
   let sales = []
-  let funnelStages = [...FUNNEL_STAGES].map(s => ({ ...s }))
+  let funnelStages = realFunnel()
+  let testDrives = [], quotations = []
   let journeyStages = JOURNEY_STAGES.map(s => ({ ...s }))
   let lostDeals = DEMO_LOST_DEALS.map(d => ({ ...d }))
   let lostDealsLive = false
@@ -107,45 +90,18 @@ export default async function WarRoomPage(container) {
   // ข้อมูลอัปเดต จึงรีเซ็ตกลับไปที่ baseline (FUNNEL_STAGES/JOURNEY_STAGES/DEMO_LOST_DEALS) ทุกครั้งก่อนคำนวณ
   // ใหม่ ไม่ให้ค่าที่คำนวณไว้ก่อนหน้าตกค้างสะสมผิดๆ (เช่นถ้ายอดขายจริงลดจาก >=1 กลับมาเป็น 0)
   function recomputeDerived() {
-    funnelStages = [...FUNNEL_STAGES].map(s => ({ ...s }))
     journeyStages = JOURNEY_STAGES.map(s => ({ ...s }))
     lostDeals = DEMO_LOST_DEALS.map(d => ({ ...d }))
     lostDealsLive = false
 
     const purchased = sales.length
     hasRealSales = purchased >= 1
-    const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi)
 
-    // Conversion funnel — same monotonic-clamp approach as ConversionFunnel.js
-    if (purchased >= 1) {
-      const allLeads = Math.max(customers.length, purchased) || Math.max(purchased * 8, 10)
-      const contacted = clamp(Math.round(allLeads * 0.74), purchased, allLeads)
-      const showroom = clamp(Math.round(allLeads * 0.44), purchased, contacted)
-      const testDriven = clamp(customers.filter(l => l.testDrive || l.testDriveDate).length || Math.round(allLeads * 0.30), purchased, showroom)
-      const quoted = clamp(customers.filter(l => l.quoteSent || l.quoteDate).length || Math.round(purchased * 2.3), purchased, testDriven)
-      const reserved = clamp(Math.round(purchased * 1.27), purchased, quoted)
-      funnelStages[0].count = allLeads
-      funnelStages[1].count = contacted
-      funnelStages[2].count = showroom
-      funnelStages[3].count = testDriven
-      funnelStages[4].count = quoted
-      funnelStages[5].count = reserved
-      funnelStages[6].count = purchased
-    }
-
-    // Customer journey — same approach as CustomerJourney.js
-    if (purchased >= 1) {
-      const allLeads = Math.max(customers.length, purchased) || Math.max(purchased * 4, 10)
-      const hotLeads = clamp(customers.filter(l => l.temperature === 'hot' || l.stage === 'pp').length || Math.round(allLeads * 0.46), purchased, allLeads)
-      const quotes = clamp(customers.filter(l => l.quoteSent || l.quoteDate).length || Math.round(purchased * 1.5), purchased, hotLeads)
-      const loyal = Math.min(Math.round(purchased * 0.38), purchased)
-      journeyStages[0].count = Math.max(allLeads * 3, purchased * 12)
-      journeyStages[1].count = allLeads
-      journeyStages[2].count = hotLeads
-      journeyStages[3].count = quotes
-      journeyStages[4].count = purchased
-      journeyStages[5].count = loyal
-    }
+    // (2026-11-02) กรวย + เส้นทางลูกค้า นับจากข้อมูลจริงเท่านั้น (utils/realFunnel.js) — เลิกเดาด้วยอัตราสมมติ
+    funnelStages = realFunnel({ customers, sales, testDrives, quotations })
+    const f = Object.fromEntries(funnelStages.map(x => [x.key, x.count]))
+    const hot = customers.filter(l => l.temperature === 'hot' || l.stage === 'pp' || l.stage === 'booking' || l.stage === 'delivered').length
+    ;[f.lead, hot, f.td, f.quote, f.booked, repeatBuyers(sales)].forEach((n, i) => { journeyStages[i].count = n })
 
     // Win/Loss — same source blending as LostDealAnalysis.js
     const fromBookings = bookings
@@ -209,6 +165,10 @@ export default async function WarRoomPage(container) {
   let visScope = null
   try { visScope = await getVisibilityScope() } catch { visScope = null }
   try { sales = (await getSalesData()).filter(s => scopeIncludesRecord(visScope, s.salesName, s)) } catch { sales = [] }
+  ;[testDrives, quotations] = await Promise.all([
+    listDocs('test_drives', companyScopeFilters(), 'createdAt', 'desc', 3000).catch(() => []),
+    listDocs('quotations', companyScopeFilters(), 'createdAt', 'desc', 3000).catch(() => []),
+  ])
   if (container.__routerGen !== myGen) return
 
   // ── Derived numbers for the top summary strip ──────────────────────────────
@@ -219,14 +179,14 @@ export default async function WarRoomPage(container) {
     // เดิมไม่กันตัวหารเป็น 0 (ไม่มี Lead เลย) ทำให้โชว์ NaN%/Infinity% ให้ผู้ใช้เห็น
     const overallConv = Math.round(funnelStages[funnelStages.length - 1].count / (funnelStages[0].count || 1) * 1000) / 10
 
-    let worstDrop = { idx: 1, rate: 100 }
+    let worstDrop = { idx: 0, rate: 100 }
     funnelStages.forEach((s, i) => {
-      if (i > 0) {
-        const rate = Math.round(s.count / (funnelStages[i - 1].count || 1) * 100)
+      if (i > 0 && s.count > 0 && funnelStages[i - 1].count > 0) {
+        const rate = stepRate(s.count, funnelStages[i - 1].count)
         if (rate < worstDrop.rate) worstDrop = { idx: i, rate }
       }
     })
-    const worstDropLabel = `${funnelStages[worstDrop.idx - 1].stage} → ${funnelStages[worstDrop.idx].stage}`
+    const worstDropLabel = worstDrop.idx ? `${funnelStages[worstDrop.idx - 1].stage} → ${funnelStages[worstDrop.idx].stage}` : '-'
 
     const byReason = {}
     lostDeals.forEach(d => { byReason[d.lostReason] = (byReason[d.lostReason] || 0) + 1 })
@@ -288,11 +248,11 @@ export default async function WarRoomPage(container) {
     const maxCount = funnelStages[0].count || 1
     const s = computeSummary()
     return `
-      <div style="margin-bottom:8px;padding:6px 12px;background:var(--surface-2);border-left:3px solid var(--${hasRealSales?'success':'text-muted'});border-radius:var(--radius-sm);font-size:0.78rem;color:var(--${hasRealSales?'success':'text-muted'})">${hasRealSales?'● Funnel อิงข้อมูลจริงจากใบจอง/Leads (บางขั้นเป็นค่าประมาณจากอัตราเปลี่ยนสถานะ)':'● ตัวอย่างข้อมูล — ยังไม่มียอดขายจริงในระบบ'}</div>
+      <div style="margin-bottom:8px;padding:6px 12px;background:var(--surface-2);border-left:3px solid var(--${hasRealSales?'success':'text-muted'});border-radius:var(--radius-sm);font-size:0.78rem;color:var(--${hasRealSales?'success':'text-muted'})">${hasRealSales?'● นับจากข้อมูลจริง (ลูกค้า, ลองขับ, ใบเสนอราคา, ใบจอง)':'● ยังไม่มีข้อมูล'}</div>
       <div class="card" style="padding:18px;margin-bottom:14px">
         ${funnelStages.map((st, i) => {
           const widthPct = Math.round(st.count / maxCount * 100)
-          const stepRate = i > 0 ? Math.round(st.count / (funnelStages[i - 1].count || 1) * 100) : 100
+          const stepPct = i > 0 ? stepRate(st.count, funnelStages[0].count) : 100 // % ของลูกค้าทั้งหมด
           const isWorst = i === s.worstDrop.idx
           return `<div style="margin-bottom:6px">
             <div style="display:flex;align-items:center;gap:10px">
@@ -303,7 +263,7 @@ export default async function WarRoomPage(container) {
                 </div>
               </div>
               <div style="width:90px;font-size:0.7rem;color:var(--${isWorst ? 'danger' : 'text-muted'});font-weight:${isWorst ? 700 : 400}">
-                ${i > 0 ? '↓ ' + stepRate + '%' + (isWorst ? ' ⚠️' : '') : ''}
+                ${i > 0 ? stepPct + '% ของลูกค้า' + (isWorst ? ' ⚠️' : '') : ''}
               </div>
             </div>
           </div>`
@@ -317,13 +277,13 @@ export default async function WarRoomPage(container) {
 
   function renderJourneyTab() {
     return `
-      <div style="margin-bottom:8px;padding:6px 12px;background:var(--surface-2);border-left:3px solid var(--${hasRealSales?'success':'text-muted'});border-radius:var(--radius-sm);font-size:0.78rem;color:var(--${hasRealSales?'success':'text-muted'})">${hasRealSales?'● Journey อิงข้อมูลจริงจากใบจอง/Leads (บางขั้นเป็นค่าประมาณจากอัตราเปลี่ยนสถานะ)':'● ตัวอย่างข้อมูล — ยังไม่มียอดขายจริงในระบบ'}</div>
+      <div style="margin-bottom:8px;padding:6px 12px;background:var(--surface-2);border-left:3px solid var(--${hasRealSales?'success':'text-muted'});border-radius:var(--radius-sm);font-size:0.78rem;color:var(--${hasRealSales?'success':'text-muted'})">${hasRealSales?'● นับจากข้อมูลจริง':'● ยังไม่มีข้อมูล'}</div>
       <div class="card" style="padding:20px;margin-bottom:14px">
         <div style="display:flex;flex-direction:column;gap:8px">
           ${journeyStages.map((stage, i) => {
-            const barWidth = Math.round(stage.count / journeyStages[0].count * 100)
+            const barWidth = journeyStages[0].count ? Math.round(stage.count / journeyStages[0].count * 100) : 0
             const nextStage = journeyStages[i + 1]
-            const convRate = nextStage ? Math.round(nextStage.count / stage.count * 100) : null
+            const convRate = i > 0 && journeyStages[0].count ? Math.min(100, Math.round(stage.count / journeyStages[0].count * 100)) : null // % ของลูกค้าทั้งหมด
             return `<div>
               <div style="display:flex;align-items:center;gap:12px">
                 <div style="width:100px;font-size:0.8rem;text-align:right;color:var(--text-muted)">${stage.icon} ${stage.label}</div>
@@ -333,7 +293,7 @@ export default async function WarRoomPage(container) {
                   </div>
                 </div>
                 <div style="width:80px;text-align:right;font-size:0.75rem">
-                  ${convRate !== null ? `<span style="color:${convRate >= 60 ? 'var(--success)' : convRate >= 40 ? 'var(--warning)' : 'var(--danger)'}">↓ ${convRate}%</span>` : ''}
+                  ${convRate !== null ? `<span style="color:${convRate >= 60 ? 'var(--success)' : convRate >= 40 ? 'var(--warning)' : 'var(--danger)'}">${convRate}% ของลูกค้า</span>` : ''}
                 </div>
               </div>
             </div>`
@@ -355,7 +315,7 @@ export default async function WarRoomPage(container) {
       if (d.lostTo) byCompetitor[d.lostTo] = (byCompetitor[d.lostTo] || 0) + 1
     })
     return `
-      <div style="font-size:0.72rem;color:${lostDealsLive?'var(--success)':'var(--text-muted)'};margin-bottom:8px">${lostDealsLive?'● ข้อมูลจริง':'● ตัวอย่างข้อมูล — ยังไม่มีดีลที่เสียจริงในระบบ'}</div>
+      <div style="font-size:0.72rem;color:${lostDealsLive?'var(--success)':'var(--text-muted)'};margin-bottom:8px">${lostDealsLive?'● ข้อมูลจริง':'● ยังไม่มีดีลที่เสียในระบบ'}</div>
       <div class="kpi-grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:16px">
         ${kpi('💸 มูลค่าดีลที่เสีย', formatCurrency(totalLost), 'danger')}
         ${kpi('📋 จำนวนดีลที่เสีย', lostDeals.length + ' ดีล', 'warning')}

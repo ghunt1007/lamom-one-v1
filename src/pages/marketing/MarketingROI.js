@@ -18,12 +18,12 @@ const BASE_CH = [
 ]
 
 const DEMO_CH = {
-  fb:       { leads: 128, customers: 6,  revenue: 7794000 },
-  gg:       { leads: 95,  customers: 5,  revenue: 6495000 },
-  tt:       { leads: 210, customers: 3,  revenue: 3897000 },
-  line:     { leads: 67,  customers: 4,  revenue: 5196000 },
-  event:    { leads: 320, customers: 12, revenue: 15588000 },
-  referral: { leads: 45,  customers: 9,  revenue: 11691000 },
+  fb:       { leads: 0, customers: 0,  revenue: 0 },
+  gg:       { leads: 0,  customers: 0,  revenue: 0 },
+  tt:       { leads: 0, customers: 0,  revenue: 0 },
+  line:     { leads: 0,  customers: 0,  revenue: 0 },
+  event:    { leads: 0, customers: 0, revenue: 0 },
+  referral: { leads: 0,  customers: 0,  revenue: 0 },
 }
 
 // เก็บใน Firestore collection เดียว doc เดียว ('marketing_budgets') → sync ข้ามอุปกรณ์จริง
@@ -113,15 +113,13 @@ export default async function MarketingROIPage(container) {
         if (myCampaigns.length) {
           leads = myCampaigns.reduce((a, c) => a + (c.leads || 0), 0)
         } else {
-          const demoRatio = DEMO_CH[ch.id].customers > 0 ? DEMO_CH[ch.id].leads / DEMO_CH[ch.id].customers : 10
-          leads = customers > 0 ? Math.round(customers * demoRatio) : 0
-          leadsEstimated = true
+          // (2026-11-02) ไม่เดาจำนวน Lead จากอัตราสมมติแล้ว — ยังไม่มีแคมเปญบันทึก Lead = ยังไม่รู้
+          leads = 0
+          leadsEstimated = customers > 0
         }
       } else {
-        leads = DEMO_CH[ch.id].leads
-        customers = DEMO_CH[ch.id].customers
-        revenue = DEMO_CH[ch.id].revenue
-        profit = Math.round(revenue * 0.08)
+        // (2026-11-02) ยังไม่มียอดขายจริง → โชว์ 0 ไม่ใช่ตัวเลขสมมติ
+        leads = 0; customers = 0; revenue = 0; profit = 0
       }
       const roiPct = spend > 0 ? Math.round((profit - spend) / spend * 100) : 0
       const cplV = leads > 0 ? Math.round(spend / leads) : 0

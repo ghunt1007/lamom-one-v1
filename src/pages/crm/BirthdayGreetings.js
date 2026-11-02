@@ -25,14 +25,7 @@ const EVENT_TYPES = {
 
 const t0 = dayInMonth(0), t1 = dayInMonth(1), t3 = dayInMonth(3), t7 = dayInMonth(7), t14 = dayInMonth(14)
 
-const DEMO_EVENTS = [
-  { id: 'E001', customer: 'สมชาย ใจดี', phone: '085-111', type: 'birthday', date: t0.iso, model: 'BYD Seal', sent: false, channel: 'LINE' },
-  { id: 'E002', customer: 'มาลี สุขใจ', phone: '086-222', type: 'anniversary', date: t0.iso, model: 'BYD Dolphin', sent: true, channel: 'SMS', note: 'ครบ 1 ปี' },
-  { id: 'E003', customer: 'ธนพล เที่ยงตรง', phone: '087-333', type: 'birthday', date: t1.iso, model: 'MG ZS EV', sent: false, channel: 'LINE' },
-  { id: 'E004', customer: 'อรทัย ตั้งใจ', phone: '088-444', type: 'anniversary', date: t3.iso, model: 'BYD Atto 3', sent: false, channel: 'SMS', note: 'ครบ 2 ปี' },
-  { id: 'E005', customer: 'วิรัช เก่งมาก', phone: '089-555', type: 'birthday', date: t7.iso, model: 'BYD Han', sent: false, channel: 'LINE' },
-  { id: 'E006', customer: 'ชาตรี เข้มแข็ง', phone: '084-666', type: 'birthday', date: t14.iso, model: 'MG4', sent: false, channel: 'SMS' },
-]
+const DEMO_EVENTS = [] // (2026-11-02) เอาข้อมูลสมมติออก — ไม่มีข้อมูลจริงให้โชว์ว่าง ไม่ใช่ตัวเลขปลอม
 
 const GREETING_TEMPLATES = {
   birthday: 'สุขสันต์วันเกิดค่ะคุณ[ชื่อ] 🎂 ขอให้มีความสุขมากๆ ตลอดปี — ทีมงาน LAMOM ขอมอบส่วนลดบริการ 10% เป็นของขวัญ ใช้ได้ภายใน 30 วัน',

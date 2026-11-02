@@ -18,20 +18,7 @@ const STATUS_MAP = {
 
 function daysAgo(n) { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10) }
 
-const DEMO_STOCK = [
-  { id: 'ST001', brand: 'BYD', model: 'Seal', variant: 'Standard Range', color: 'ขาว Glacier White', vin: 'LBWAB2EB7PD001001', cost: 1050000, listPrice: 1199000, status: 'available', stockDate: daysAgo(45), branch: 'สำนักงานใหญ่ BKK' },
-  { id: 'ST002', brand: 'BYD', model: 'Seal', variant: 'AWD', color: 'ดำ Cosmos Black', vin: 'LBWAB2EB7PD001002', cost: 1270000, listPrice: 1449000, status: 'reserved', stockDate: daysAgo(30), branch: 'สำนักงานใหญ่ BKK' },
-  { id: 'ST003', brand: 'BYD', model: 'Atto 3', variant: 'Standard', color: 'ฟ้า Sky Blue', vin: 'LBWAB2EB7PD001003', cost: 870000, listPrice: 999000, status: 'available', stockDate: daysAgo(60), branch: 'สาขาชลบุรี' },
-  { id: 'ST004', brand: 'BYD', model: 'Atto 3', variant: 'Extended', color: 'แดง Coral Red', vin: 'LBWAB2EB7PD001004', cost: 980000, listPrice: 1099000, status: 'available', stockDate: daysAgo(22), branch: 'สำนักงานใหญ่ BKK' },
-  { id: 'ST005', brand: 'BYD', model: 'Dolphin', variant: 'Standard', color: 'ขาว', vin: 'LBWAB2EB7PD001005', cost: 680000, listPrice: 799000, status: 'available', stockDate: daysAgo(15), branch: 'สำนักงานใหญ่ BKK' },
-  { id: 'ST006', brand: 'BYD', model: 'Dolphin', variant: 'Premium', color: 'เทา Graphite', vin: 'LBWAB2EB7PD001006', cost: 750000, listPrice: 869000, status: 'transit', stockDate: daysAgo(5), branch: 'สำนักงานใหญ่ BKK' },
-  { id: 'ST007', brand: 'MG', model: 'ZS EV', variant: 'Luxury', color: 'ขาว', vin: 'LSJWSRAR7NE001007', cost: 820000, listPrice: 949000, status: 'available', stockDate: daysAgo(90), branch: 'สาขาเชียงใหม่' },
-  { id: 'ST008', brand: 'MG', model: 'ZS EV', variant: 'Grand Luxury', color: 'น้ำเงิน', vin: 'LSJWSRAR7NE001008', cost: 920000, listPrice: 1059000, status: 'hold', stockDate: daysAgo(75), branch: 'สำนักงานใหญ่ BKK' },
-  { id: 'ST009', brand: 'Neta', model: 'V', variant: 'Standard', color: 'ส้ม', vin: 'LNBSDBEB9PA001009', cost: 520000, listPrice: 619000, status: 'available', stockDate: daysAgo(40), branch: 'สาขาชลบุรี' },
-  { id: 'ST010', brand: 'ORA', model: 'Good Cat', variant: 'Standard', color: 'เหลือง', vin: 'LGWEF4B31PB001010', cost: 650000, listPrice: 749000, status: 'available', stockDate: daysAgo(55), branch: 'สำนักงานใหญ่ BKK' },
-  { id: 'ST011', brand: 'BYD', model: 'Tang EV', variant: 'AWD', color: 'ดำ', vin: 'LBWAB2EB7PD001011', cost: 1750000, listPrice: 1999000, status: 'available', stockDate: daysAgo(20), branch: 'สำนักงานใหญ่ BKK' },
-  { id: 'ST012', brand: 'GWM', model: 'ORA 03', variant: 'Standard', color: 'ชมพู', vin: 'LGWEF4B31PB001012', cost: 590000, listPrice: 679000, status: 'reserved', stockDate: daysAgo(10), branch: 'สาขาเชียงใหม่' },
-]
+const DEMO_STOCK = [] // (2026-11-02) เอาข้อมูลสมมติออก — ไม่มีข้อมูลจริงให้โชว์ว่าง ไม่ใช่ตัวเลขปลอม
 
 export default async function StockValuationPage(container) {
   const myGen = container.__routerGen

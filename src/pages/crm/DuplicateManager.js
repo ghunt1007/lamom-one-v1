@@ -18,29 +18,7 @@ function addDays(n) {
 }
 
 // ตัวอย่างข้อมูล — ใช้แสดงก็ต่อเมื่อยังไม่มีลูกค้าจริงในระบบเลย (collection ว่างเปล่าจริงๆ)
-const DEMO_DUPLICATES = [
-  {
-    id: 'DUP01', confidence: 95, reason: 'เบอร์โทรตรงกัน',
-    records: [
-      { id: 'C1042', name: 'สมชาย ใจดี', phone: '085-111-2222', email: 'somchai@gmail.com', created: addDays(-300), deals: 2, source: 'Walk-in' },
-      { id: 'C2871', name: 'สมชาย ใจดี (LINE)', phone: '085-111-2222', email: '', created: addDays(-20), deals: 0, source: 'LINE OA' },
-    ]
-  },
-  {
-    id: 'DUP02', confidence: 88, reason: 'ชื่อ-นามสกุลตรงกัน + อีเมลคล้าย',
-    records: [
-      { id: 'C0561', name: 'มาลี สุขใจ', phone: '086-222-3333', email: 'malee.s@gmail.com', created: addDays(-500), deals: 2, source: 'Facebook' },
-      { id: 'C3012', name: 'มาลี สุขใจ', phone: '02-444-5555', email: 'malee.suk@gmail.com', created: addDays(-45), deals: 1, source: 'เว็บไซต์' },
-    ]
-  },
-  {
-    id: 'DUP03', confidence: 72, reason: 'ชื่อคล้าย + ที่อยู่เดียวกัน',
-    records: [
-      { id: 'C1899', name: 'ธนพล เที่ยงตรง', phone: '087-333-4444', email: 'thanapon@hotmail.com', created: addDays(-200), deals: 1, source: 'Walk-in' },
-      { id: 'C2455', name: 'ธนพน เที่ยงตรง', phone: '087-333-9999', email: '', created: addDays(-90), deals: 0, source: 'Motor Show' },
-    ]
-  },
-]
+const DEMO_DUPLICATES = [] // (2026-11-02) เอาข้อมูลสมมติออก — ไม่มีข้อมูลจริงให้โชว์ว่าง ไม่ใช่ตัวเลขปลอม
 
 function normPhone(p) { const d = String(p || '').replace(/\D/g, ''); return d.startsWith('66') && d.length === 11 ? '0' + d.slice(2) : d } // +66 = 0
 function normName(f, l) { return ((f || '') + (l || '')).trim().toLowerCase() }

@@ -6,37 +6,13 @@ import { companyScopeFilters } from '../../core/companyScope.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
-// ตัวอย่างข้อมูล — ใช้เป็น placeholder ก็ต่อเมื่อยังไม่มีข้อมูลขายจริงในปีปัจจุบันเลยเท่านั้น
-const DEMO_MONTHLY = [
-  { m:'ม.ค.', sales:4200000, units:3, leads:25, jobs:28, cust:8 },
-  { m:'ก.พ.', sales:3800000, units:2, leads:22, jobs:31, cust:6 },
-  { m:'มี.ค.', sales:5100000, units:4, leads:34, jobs:26, cust:11 },
-  { m:'เม.ย.', sales:4600000, units:3, leads:28, jobs:29, cust:9 },
-  { m:'พ.ค.', sales:5300000, units:4, leads:41, jobs:35, cust:14 },
-  { m:'มิ.ย.', sales:4900000, units:3, leads:36, jobs:32, cust:10 },
-  { m:'ก.ค.', sales:5800000, units:5, leads:45, jobs:38, cust:15 },
-  { m:'ส.ค.', sales:5200000, units:4, leads:39, jobs:33, cust:12 },
-  { m:'ก.ย.', sales:4700000, units:3, leads:31, jobs:30, cust:9 },
-  { m:'ต.ค.', sales:5600000, units:5, leads:43, jobs:36, cust:13 },
-  { m:'พ.ย.', sales:6100000, units:5, leads:50, jobs:40, cust:17 },
-  { m:'ธ.ค.', sales:6800000, units:6, leads:55, jobs:44, cust:19 },
-]
-const MONTH_LABELS = DEMO_MONTHLY.map(d => d.m)
+// (2026-11-02) เอาตัวเลขรายเดือนสมมติออก — ยังไม่มียอดขายจริงในปีนี้ = กราฟเป็น 0 ไม่ใช่ตัวเลขปลอม
+const MONTH_LABELS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
+const DEMO_MONTHLY = MONTH_LABELS.map(m => ({ m, sales: 0, units: 0, leads: 0, jobs: 0, cust: 0 }))
 
-const DEMO_BRAND = [
-  { brand:'BYD', units:18, revenue:22000000, color:'primary' },
-  { brand:'MG', units:11, revenue:12500000, color:'success' },
-  { brand:'DEEPAL', units:7, revenue:9800000, color:'accent' },
-  { brand:'NETA', units:5, revenue:5100000, color:'warning' },
-  { brand:'Others', units:3, revenue:3100000, color:'danger' },
-]
+const DEMO_BRAND = [] // (2026-11-02) เอาข้อมูลสมมติออก — ไม่มีข้อมูลจริงให้โชว์ว่าง ไม่ใช่ตัวเลขปลอม
 
-const DEMO_STAFF = [
-  { name:'อรนุช สายใจ', units:12, revenue:15800000, commission:185000 },
-  { name:'วิชาญ มีโชค', units:8, revenue:9200000, commission:108000 },
-  { name:'น.ส.ปวีณา', units:6, revenue:7100000, commission:83000 },
-  { name:'นาย สมศักดิ์', units:6, revenue:7500000, commission:88000 },
-]
+const DEMO_STAFF = [] // (2026-11-02) เอาข้อมูลสมมติออก — ไม่มีข้อมูลจริงให้โชว์ว่าง ไม่ใช่ตัวเลขปลอม
 
 const BRAND_COLORS = ['primary','success','accent','warning','danger']
 

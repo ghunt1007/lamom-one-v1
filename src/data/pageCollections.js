@@ -31,7 +31,9 @@ export const PAGE_COLLECTIONS = {
  ],
  "/crm/warroom": [
   "bookings",
-  "customers"
+  "customers",
+  "quotations",
+  "test_drives"
  ],
  "/crm/customers": [
   "bookings",
@@ -238,7 +240,6 @@ export const PAGE_COLLECTIONS = {
   "loaner_loans"
  ],
  "/finance/cashflow": [
-  "parts",
   "staff"
  ],
  "/finance/invoice": [
@@ -484,7 +485,9 @@ export const PAGE_COLLECTIONS = {
   "training_courses"
  ],
  "/analytics/journey": [
-  "customers"
+  "customers",
+  "quotations",
+  "test_drives"
  ],
  "/settings/notifications": [
   "user_settings"
@@ -725,7 +728,10 @@ export const PAGE_COLLECTIONS = {
   "team_meetings"
  ],
  "/analytics/funnel": [
-  "customers"
+  "bookings",
+  "customers",
+  "quotations",
+  "test_drives"
  ],
  "/service/pickup": [
   "courtesy_car_jobs",

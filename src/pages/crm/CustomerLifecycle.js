@@ -31,11 +31,7 @@ const LIFECYCLE_STAGES = {
 }
 
 // Fallback shown only when there is truly no real data yet (fresh/empty demo store)
-const DEMO_CUSTOMERS = [
-  { id: 'C001', name: 'สมชาย ใจดี', stage: 'champion', purchases: 3, totalValue: 5196000, lastContact: addDays(-15), nextAction: 'เสนอรุ่นใหม่', model: 'BYD Seal', referrals: 2 },
-  { id: 'C002', name: 'มาลี สุขใจ', stage: 'repeat', purchases: 2, totalValue: 2598000, lastContact: addDays(-30), nextAction: 'ต่ออายุประกัน', model: 'BYD Dolphin', referrals: 0 },
-  { id: 'C005', name: 'วิรัช เก่งมาก', stage: 'prospect', purchases: 0, totalValue: 0, lastContact: addDays(-3), nextAction: 'ส่งใบเสนอราคา', model: '—', referrals: 0 },
-]
+const DEMO_CUSTOMERS = [] // (2026-11-02) เอาข้อมูลสมมติออก — ไม่มีข้อมูลจริงให้โชว์ว่าง ไม่ใช่ตัวเลขปลอม
 
 function classifyPurchaseStage(purchases, lastDate) {
   const daysSince = lastDate ? Math.floor((Date.now() - new Date(lastDate).getTime()) / 86400000) : 999

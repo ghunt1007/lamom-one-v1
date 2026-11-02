@@ -31,13 +31,7 @@ function addDays(n) {
   return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
 }
 
-const DEMO_PROMOS = [
-  { id: 'P001', title: 'BYD Dolphin ลดพิเศษ 20,000 บาท', type: 'discount', value: 20000, brand: 'BYD', model: 'Dolphin', startDate: addDays(-30), endDate: addDays(20), status: 'active', used: 28, limit: 50, budget: 1000000, note: 'โปรโมชั่น H2 2025 ช่วงเปิดตัวรุ่นใหม่', _persisted: false },
-  { id: 'P002', title: 'MG ZS EV Cashback 30,000 บาท', type: 'cashback', value: 30000, brand: 'MG', model: 'ZS EV', startDate: addDays(-15), endDate: addDays(25), status: 'active', used: 12, limit: 30, budget: 900000, note: 'ร่วมกับ MG Thailand', _persisted: false },
-  { id: 'P003', title: 'BYD Atto 3 แถม Wallbox ฟรี', type: 'free_acc', value: 15000, brand: 'BYD', model: 'Atto 3', startDate: addDays(5), endDate: addDays(35), status: 'upcoming', used: 0, limit: 20, budget: 300000, note: 'Wallbox มูลค่า 15,000 บาท', _persisted: false },
-  { id: 'P004', title: 'ดอกเบี้ย 0% 60 เดือน ทุกรุ่น', type: 'finance', value: 0, brand: 'BYD', model: 'ทุกรุ่น', startDate: addDays(-90), endDate: addDays(-1), status: 'ended', used: 45, limit: 100, budget: 0, note: 'โปรฯ ร่วมกับธนาคาร Q1', _persisted: false },
-  { id: 'P005', title: 'BYD Seal ฟรีค่าบริการ 3 ปี', type: 'free_service', value: 45000, brand: 'BYD', model: 'Seal', startDate: addDays(-10), endDate: addDays(28), status: 'active', used: 5, limit: 15, budget: 675000, note: 'บริการฟรี 3 ปี หรือ 60,000 กม.', _persisted: false },
-]
+const DEMO_PROMOS = [] // (2026-11-02) เอาข้อมูลสมมติออก — ไม่มีข้อมูลจริงให้โชว์ว่าง ไม่ใช่ตัวเลขปลอม
 
 // หาว่าการขายไหนน่าจะมาจากโปรโมชั่นนี้ (ตรง brand+model + ช่วงวันที่)
 function matchSalesToPromo(sales, promo) {

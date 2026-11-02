@@ -64,7 +64,8 @@ const DEMO_BUDGET = {
 function buildCategoriesFromDefaults(zeroActuals) {
   const out = {}
   for (const cat of ['revenue', 'cogs', 'opex']) {
-    out[cat] = DEMO_BUDGET[cat].map(r => ({ name: r.name, budgets: [...r.budgets], actuals: zeroActuals ? Array(12).fill(0) : [...r.actuals] }))
+    // (2026-11-02) ไม่ใส่ตัวเลขงบสมมติแล้ว — เหลือแค่ชื่อแถว ให้เจ้าของกรอกงบจริงเอง
+    out[cat] = DEMO_BUDGET[cat].map(r => ({ name: r.name, budgets: Array(12).fill(0), actuals: zeroActuals ? Array(12).fill(0) : [...r.actuals] }))
   }
   return out
 }

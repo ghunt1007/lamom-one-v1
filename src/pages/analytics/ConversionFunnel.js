@@ -4,71 +4,46 @@
  */
 import { formatCurrency } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
-import { getSalesData, listDocs } from '../../core/db.js'
+import { getSalesData, listDocs, listAllDocs } from '../../core/db.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
-
-const FUNNEL_STAGES = [
-  { stage: 'Lead เข้ามา', count: 420, icon: '🧲', color: '#3b82f6' },
-  { stage: 'ติดต่อสำเร็จ', count: 312, icon: '📞', color: '#06b6d4' },
-  { stage: 'เข้าโชว์รูม', count: 186, icon: '🏪', color: '#10b981' },
-  { stage: 'Test Drive', count: 124, icon: '🚗', color: '#f59e0b' },
-  { stage: 'รับใบเสนอราคา', count: 95, icon: '📄', color: '#f97316' },
-  { stage: 'จอง', count: 52, icon: '📝', color: '#ef4444' },
-  { stage: 'ปิดการขาย', count: 41, icon: '🏁', color: '#8b5cf6' },
-]
-
-const BY_SOURCE = [
-  { source: 'Facebook', leads: 128, closed: 9 },
-  { source: 'Walk-in', leads: 95, closed: 14 },
-  { source: 'Referral', leads: 45, closed: 9 },
-  { source: 'Google', leads: 87, closed: 6 },
-  { source: 'Event', leads: 65, closed: 3 },
-]
-
-const DROP_REASONS = [
-  { from: 'ติดต่อสำเร็จ → เข้าโชว์รูม', reason: 'นัดแล้วไม่มา (no-show)', pct: 42 },
-  { from: 'Test Drive → ใบเสนอราคา', reason: 'เทียบราคาคู่แข่ง', pct: 35 },
-  { from: 'ใบเสนอราคา → จอง', reason: 'ไฟแนนซ์ไม่ผ่าน', pct: 38 },
-  { from: 'จอง → ปิดการขาย', reason: 'เปลี่ยนใจ/ขอคืนมัดจำ', pct: 21 },
-]
+import { realFunnel, stepRate } from '../../utils/realFunnel.js'
+import { isCancelled } from '../../utils/bookingStatus.js'
 
 export default async function ConversionFunnelPage(container) {
   const myGen = container.__routerGen
-  let stages = [...FUNNEL_STAGES].map(s => ({ ...s }))
+  let stages = realFunnel()
   let dataSource = 'demo'
 
+  let bySource = []
+  let dropReasons = []
   try {
-    const [sales, customers] = await Promise.all([
+    const [sales, customers, testDrives, quotations, bookings] = await Promise.all([
       getSalesData().catch(() => []),
-      listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
+      listAllDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
+      listDocs('test_drives', companyScopeFilters(), 'createdAt', 'desc', 3000).catch(() => []),
+      listDocs('quotations', companyScopeFilters(), 'createdAt', 'desc', 3000).catch(() => []),
+      listAllDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
     ])
-    const leads = customers
     if (container.__routerGen !== myGen) return
-    if (sales.length || leads.length) {
-      const purchased = sales.length
-      // Lead total must be at least as large as closed deals — the unified `customers`
-      // collection only holds currently-tracked records, so historical bookings can
-      // outnumber it. Clamp every stage into [purchased, previousStage] so the funnel
-      // is always monotonically non-increasing and conversion never exceeds 100%.
-      const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi)
-      const allLeads = Math.max(leads.length, purchased) || Math.max(purchased * 8, 10)
-      const contacted = clamp(Math.round(allLeads * 0.74), purchased, allLeads)
-      const showroom = clamp(Math.round(allLeads * 0.44), purchased, contacted)
-      const testDriven = clamp(leads.filter(l => l.testDrive || l.testDriveDate).length || Math.round(allLeads * 0.30), purchased, showroom)
-      const quoted = clamp(leads.filter(l => l.quoteSent || l.quoteDate).length || Math.round(purchased * 2.3), purchased, testDriven)
-      const reserved = clamp(Math.round(purchased * 1.27), purchased, quoted)
-      if (purchased >= 1) {
-        stages[0].count = allLeads
-        stages[1].count = contacted
-        stages[2].count = showroom
-        stages[3].count = testDriven
-        stages[4].count = quoted
-        stages[5].count = reserved
-        stages[6].count = purchased
-        dataSource = 'live'
-      }
-    }
+    // (2026-11-02) นับจากข้อมูลจริงเท่านั้น (utils/realFunnel.js) — เลิกเดาขั้นที่ไม่มีข้อมูลด้วยอัตราสมมติ
+    stages = realFunnel({ customers, sales, testDrives, quotations })
+    if (stages[0].count) dataSource = 'live'
+    // แยกตามที่มา: ลูกค้าแต่ละแหล่ง → จองกี่ราย
+    const src = {}
+    customers.filter(c => !c.deleted).forEach(c => {
+      const k = c.source || 'ไม่ระบุ'
+      src[k] = src[k] || { source: k, leads: 0, closed: 0 }
+      src[k].leads++
+      if (c.bookingId || c.stage === 'booking' || c.stage === 'delivered') src[k].closed++
+    })
+    bySource = Object.values(src).sort((x, y) => y.leads - x.leads).slice(0, 8)
+    // สาเหตุที่หลุด: เหตุผลจริงจากลูกค้าที่ปิดเป็นแพ้ + ใบจองที่ถอน
+    const why = {}
+    customers.filter(c => !c.deleted && c.isLost).forEach(c => { const k = c.lostReason || 'ไม่ระบุ'; why[k] = (why[k] || 0) + 1 })
+    bookings.filter(b => !b.deleted && isCancelled(b)).forEach(b => { const k = b.cancelReason || 'ถอนจอง (ไม่ระบุเหตุผล)'; why[k] = (why[k] || 0) + 1 })
+    const totalWhy = Object.values(why).reduce((x, y) => x + y, 0)
+    dropReasons = Object.entries(why).sort((x, y) => y[1] - x[1]).slice(0, 6).map(([reason, n]) => ({ from: n + ' ราย', reason, pct: Math.round(n / totalWhy * 100) }))
   } catch {}
 
   function renderPage() {
@@ -77,10 +52,11 @@ export default async function ConversionFunnelPage(container) {
     const overall = Math.round(stages[stages.length-1].count / maxCount * 1000) / 10
     // Find biggest drop (idx starts at 1 — stage 0 has no "previous" to compare against,
     // and stages[worstDrop.idx-1] below would be undefined if this stayed at 0)
-    let worstDrop = { idx: 1, rate: 100 }
+    // (2026-11-02) นับเฉพาะคู่ขั้นที่มีข้อมูลทั้งสองฝั่ง (ขั้นที่ยังไม่ได้บันทึก = 0 ไม่ใช่ "รั่ว")
+    let worstDrop = { idx: 0, rate: 100 }
     stages.forEach((s, i) => {
-      if (i > 0) {
-        const rate = Math.round(s.count / (stages[i-1].count || 1) * 100)
+      if (i > 0 && s.count > 0 && stages[i-1].count > 0) {
+        const rate = stepRate(s.count, stages[i-1].count)
         if (rate < worstDrop.rate) worstDrop = { idx: i, rate }
       }
     })
@@ -90,7 +66,7 @@ export default async function ConversionFunnelPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🔻 Conversion Funnel</div>
-            <div class="page-subtitle">กรวยการขาย — Lead ถึงปิดดีล (90 วันล่าสุด)${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● Funnel จากข้อมูลจริง</span>' : ''}</div>
+            <div class="page-subtitle">กรวยการขาย — ลูกค้าถึงส่งมอบ (ทั้งหมด)${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● Funnel จากข้อมูลจริง</span>' : ''}</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="export-btn">📤 ส่งออก</button>
@@ -103,15 +79,15 @@ export default async function ConversionFunnelPage(container) {
           ${kpi('📊 ปิดการขายรวม', overall + '%', overall >= 8 ? 'success' : 'warning')}
         </div>
 
-        <div style="padding:10px 14px;background:var(--surface-2);border-left:3px solid var(--warning);border-radius:var(--radius-sm);margin-bottom:14px;font-size:0.78rem">
+        ${worstDrop.idx ? `<div style="padding:10px 14px;background:var(--surface-2);border-left:3px solid var(--warning);border-radius:var(--radius-sm);margin-bottom:14px;font-size:0.78rem">
           🤖 <strong>จุดรั่วใหญ่สุด:</strong> "${stages[worstDrop.idx-1].stage} → ${stages[worstDrop.idx].stage}" เหลือแค่ ${worstDrop.rate}% — ดูสาเหตุด้านล่าง
-        </div>
+        </div>` : ''}
 
         <!-- Funnel -->
         <div class="card" style="padding:18px;margin-bottom:14px">
           ${stages.map((s, i) => {
             const widthPct = Math.round(s.count / maxCount * 100)
-            const stepRate = i > 0 ? Math.round(s.count / (stages[i-1].count || 1) * 100) : 100
+            const stepPct = i > 0 ? stepRate(s.count, stages[0].count) : 100 // % ของลูกค้าทั้งหมด
             const isWorst = i === worstDrop.idx
             return `<div style="margin-bottom:6px">
               <div style="display:flex;align-items:center;gap:10px">
@@ -122,7 +98,7 @@ export default async function ConversionFunnelPage(container) {
                   </div>
                 </div>
                 <div style="width:80px;font-size:0.7rem;color:var(--${isWorst?'danger':'text-muted'});font-weight:${isWorst?700:400}">
-                  ${i > 0 ? '↓ ' + stepRate + '%' + (isWorst ? ' ⚠️' : '') : ''}
+                  ${i > 0 ? stepPct + '% ของลูกค้า' + (isWorst ? ' ⚠️' : '') : ''}
                 </div>
               </div>
             </div>`
@@ -132,9 +108,10 @@ export default async function ConversionFunnelPage(container) {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
           <!-- By source -->
           <div class="card" style="padding:14px">
-            <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">📊 Conversion แยกตามแหล่ง Lead <span style="font-size:0.62rem;font-weight:400">(ตัวอย่าง)</span></div>
-            ${BY_SOURCE.map(s => {
-              const conv = Math.round(s.closed / s.leads * 1000) / 10
+            <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">📊 จองได้ แยกตามที่มาลูกค้า</div>
+            ${bySource.length ? '' : '<div style="font-size:0.78rem;color:var(--text-muted)">ยังไม่มีข้อมูลที่มาลูกค้า</div>'}
+            ${bySource.map(s => {
+              const conv = s.leads ? Math.round(s.closed / s.leads * 1000) / 10 : 0
               return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:0.78rem">
                 <span>${s.source}</span>
                 <div style="text-align:right">
@@ -147,8 +124,9 @@ export default async function ConversionFunnelPage(container) {
 
           <!-- Drop reasons -->
           <div class="card" style="padding:14px">
-            <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">💔 สาเหตุหลักที่หลุด <span style="font-size:0.62rem;font-weight:400">(ตัวอย่าง)</span></div>
-            ${DROP_REASONS.map(d => `
+            <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">💔 สาเหตุที่หลุด / ถอนจอง</div>
+            ${dropReasons.length ? '' : '<div style="font-size:0.78rem;color:var(--text-muted)">ยังไม่มีลูกค้าที่หลุด/ถอนจอง</div>'}
+            ${dropReasons.map(d => `
               <div style="padding:7px 0;border-bottom:1px solid var(--border)">
                 <div style="font-size:0.7rem;color:var(--text-muted)">${d.from}</div>
                 <div style="display:flex;justify-content:space-between;font-size:0.78rem">
@@ -167,8 +145,8 @@ export default async function ConversionFunnelPage(container) {
         stages.map((s, i) => ({
           'ขั้นตอน': s.stage,
           'จำนวน (ราย)': s.count,
-          'อัตรา %': i > 0 ? Math.round(s.count / stages[0].count * 100) : 100,
-          'Drop จากขั้นก่อน %': i > 0 ? Math.round((stages[i - 1].count - s.count) / stages[i - 1].count * 100) : 0,
+          'อัตรา %': i > 0 ? Math.round(s.count / (stages[0].count || 1) * 100) : 100,
+          'Drop จากขั้นก่อน %': i > 0 ? Math.round((stages[i - 1].count - s.count) / (stages[i - 1].count || 1) * 100) : 0,
         })),
         'Conversion_Funnel.xlsx',
         'Funnel'

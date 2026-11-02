@@ -8,12 +8,12 @@ const MONTHS_TH = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.',
 
 // Historical actuals ตัวอย่าง (ครึ่งปีแรก) — ใช้เป็น placeholder เท่านั้นก่อนมีข้อมูลจริงจากใบจอง
 const ACTUALS = [
-  { month: 0, units: 8,  revenue: 9200000,  leads: 65,  conversion: 12.3 },
-  { month: 1, units: 6,  revenue: 6800000,  leads: 52,  conversion: 11.5 },
-  { month: 2, units: 11, revenue: 13100000, leads: 88,  conversion: 12.5 },
-  { month: 3, units: 9,  revenue: 10200000, leads: 72,  conversion: 12.5 },
-  { month: 4, units: 13, revenue: 15400000, leads: 98,  conversion: 13.3 },
-  { month: 5, units: 7,  revenue: 8300000,  leads: 64,  conversion: 10.9 },
+  { month: 0, units: 0,  revenue: 0,  leads: 0,  conversion: 0 },
+  { month: 0, units: 0,  revenue: 0,  leads: 0,  conversion: 0 },
+  { month: 0, units: 0, revenue: 0, leads: 0,  conversion: 0 },
+  { month: 0, units: 0,  revenue: 0, leads: 0,  conversion: 0 },
+  { month: 0, units: 0, revenue: 0, leads: 0,  conversion: 0 },
+  { month: 0, units: 0,  revenue: 0,  leads: 0,  conversion: 0 },
 ]
 
 // Simple moving-average forecast for remaining months
@@ -212,7 +212,7 @@ export default async function SalesForecastPage(container) {
                 <td colspan="2" style="font-weight:800;padding:10px 12px">รวมทั้งปี ${YEAR}</td>
                 <td class="text-right" style="font-weight:800">${yearUnits} คัน</td>
                 <td class="text-right" style="font-weight:800;color:var(--success)">${formatCurrency(yearTotal)}</td>
-                <td class="text-right" style="font-size:0.83rem">${formatCurrency(Math.round(yearTotal / yearUnits))}</td>
+                <td class="text-right" style="font-size:0.83rem">${formatCurrency(yearUnits ? Math.round(yearTotal / yearUnits) : 0)}</td>
                 <td class="text-right">${allMonths.reduce((a,d)=>a+d.leads,0)}</td>
                 <td></td>
               </tr>

@@ -19,16 +19,7 @@ function getRank(pts) { return RANKS.find(r => pts >= r.min) || RANKS[4] }
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
-const DEMO_PLAYERS = [
-  { id: 'P01', name: 'วิชัย ยอดขาย', role: 'เซลส์', dept: 'ฝ่ายขาย', avatar: '👨', points: 4280, monthPoints: 580, yearPoints: 4280, streak: 12, badges: 18, salesUnits: 24, revenue: 7200000 },
-  { id: 'P02', name: 'สุดา มาดี',    role: 'เซลส์', dept: 'ฝ่ายขาย', avatar: '👩', points: 3520, monthPoints: 420, yearPoints: 3520, streak: 7,  badges: 14, salesUnits: 19, revenue: 5700000 },
-  { id: 'P03', name: 'ธนา เก่งกว่า', role: 'เซลส์', dept: 'ฝ่ายขาย', avatar: '👨', points: 2900, monthPoints: 350, yearPoints: 2900, streak: 5,  badges: 11, salesUnits: 16, revenue: 4800000 },
-  { id: 'P04', name: 'อรวรรณ ดีมาก', role: 'เซลส์', dept: 'ฝ่ายขาย', avatar: '👩', points: 2100, monthPoints: 280, yearPoints: 2100, streak: 8,  badges: 9,  salesUnits: 12, revenue: 3600000 },
-  { id: 'P05', name: 'วิทยา ช่างดี',  role: 'ช่าง',  dept: 'ศูนย์บริการ', avatar: '🧑', points: 1800, monthPoints: 220, yearPoints: 1800, streak: 15, badges: 12, salesUnits: 0, revenue: 0 },
-  { id: 'P06', name: 'สมศักดิ์ มั่นใจ', role: 'เซลส์', dept: 'ฝ่ายขาย', avatar: '👨', points: 1400, monthPoints: 180, yearPoints: 1400, streak: 3,  badges: 7,  salesUnits: 8,  revenue: 2400000 },
-  { id: 'P07', name: 'ปทิตา สวัสดี', role: 'ที่ปรึกษา', dept: 'ฝ่ายขาย', avatar: '👩', points: 1100, monthPoints: 160, yearPoints: 1100, streak: 6,  badges: 6,  salesUnits: 7,  revenue: 2100000 },
-  { id: 'P08', name: 'ชัยวัฒน์ พัฒนา', role: 'ช่าง', dept: 'ศูนย์บริการ', avatar: '🧑', points: 750, monthPoints: 120, yearPoints: 750, streak: 4,  badges: 5,  salesUnits: 0, revenue: 0 },
-]
+const DEMO_PLAYERS = [] // (2026-11-02) เอาข้อมูลสมมติออก — ไม่มีข้อมูลจริงให้โชว์ว่าง ไม่ใช่ตัวเลขปลอม
 
 export default async function LeaderboardPage(container) {
   const myGen = container.__routerGen
