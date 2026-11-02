@@ -58,6 +58,21 @@ export function sheetRowsForBookings(bookings) {
   }))
 }
 
+// (2026-11-02) ใบจองที่ข้อมูลใน Sheet ต่างจากในแอป: ฝั่งไหนแก้ล่าสุดชนะ
+// แอปชนะเมื่อ แก้ในแอปหลังซิงก์ครั้งล่าสุด และ (ไม่รู้เวลาบันทึกไฟล์ หรือ แก้ในแอปหลังเวลาบันทึกไฟล์)
+// updates = รายการจาก planBookingImport ({ existing, patch, changes, ... })
+export function splitUpdatesByRecency(updates, sheetModifiedAt) {
+  const t = v => { const n = v ? new Date(v).getTime() : NaN; return Number.isFinite(n) ? n : 0 }
+  const fileAt = t(sheetModifiedAt)
+  const sheetWins = [], appNewer = []
+  for (const u of updates) {
+    const app = t(u.existing?.appEditedAt)
+    const appIsNewer = app > t(u.existing?.sheetSyncedAt) && (!fileAt || app > fileAt)
+    ;(appIsNewer ? appNewer : sheetWins).push(u)
+  }
+  return { sheetWins, appNewer }
+}
+
 export function isTempBookingNo(no) {
   const s = String(no ?? '').trim()
   return !s || /-TEMP$/i.test(s)

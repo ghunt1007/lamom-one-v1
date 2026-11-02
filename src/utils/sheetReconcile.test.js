@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { planSheetReconcile, sheetRowsForBookings, normPhone, normPersonName, splitFullName, isTempBookingNo } from './sheetReconcile.js'
+import { planSheetReconcile, splitUpdatesByRecency, sheetRowsForBookings, normPhone, normPersonName, splitFullName, isTempBookingNo } from './sheetReconcile.js'
 
 const row = (no, name, phone, status = 'ส่งมอบแล้ว', r = 4) => ({ 'เลขใบจอง': no, 'ชื่อลูกค้า-นามสกุล': name, 'หมายเลขโทรศัพท์': phone, 'สถานะ': status, 'รุ่นรถ': 'S07', __row: r })
 
@@ -112,5 +112,20 @@ describe('planSheetReconcile', () => {
   it('sheetRowsForBookings uses the Sheet column names', () => {
     const [r] = sheetRowsForBookings([{ bookingNo: 'SK1', custName: 'ก ข', phone: '0811111111', status: 'ยอดจองคงค้าง', model: 'S07', salesName: 'เอ' }])
     expect(r).toMatchObject({ 'เลขใบจอง': 'SK1', 'ชื่อลูกค้า-นามสกุล': 'ก ข', 'หมายเลขโทรศัพท์': '0811111111', 'รุ่นรถ': 'S07', 'ชื่อเซลล์': 'เอ' })
+  })
+
+  it('splitUpdatesByRecency: the side edited last wins', () => {
+    const u = (id, existing) => ({ id, existing, patch: { status: 'รอรถ' }, changes: ['status'] })
+    const updates = [
+      u('old', {}), // ไม่เคยแก้ในแอป → Sheet
+      u('appNew', { appEditedAt: '2026-11-02T05:00:00Z' }), // แก้ในแอปหลังไฟล์ → แอป
+      u('sheetNew', { appEditedAt: '2026-11-01T05:00:00Z' }), // ไฟล์บันทึกหลัง → Sheet
+      u('synced', { appEditedAt: '2026-11-02T05:00:00Z', sheetSyncedAt: '2026-11-02T06:00:00Z' }), // ซิงก์หลังแก้ → Sheet
+    ]
+    const r = splitUpdatesByRecency(updates, new Date('2026-11-02T01:00:00Z'))
+    expect(r.appNewer.map(x => x.id)).toEqual(['appNew'])
+    expect(r.sheetWins.map(x => x.id)).toEqual(['old', 'sheetNew', 'synced'])
+    // ไม่รู้เวลาบันทึกไฟล์ → แก้ในแอปหลังซิงก์ครั้งล่าสุด = แอปชนะ
+    expect(splitUpdatesByRecency(updates, null).appNewer.map(x => x.id)).toEqual(['appNew', 'sheetNew'])
   })
 })

@@ -14,12 +14,18 @@ import { exportMultiSheet, exportToExcel } from './importExport.js'
 import { todayBangkok } from './format.js'
 import { readBookingSheet, planBookingImport, newBookingDoc, newCustomerDoc, companyForBrand, brandCompanyMap } from './bookingImport.js'
 import { maybeMarkCustomerDelivered, syncStockForBookings } from './bookingSync.js'
-import { planSheetReconcile, sheetRowsForBookings, customerFullName, normPhone, normPersonName } from './sheetReconcile.js'
+import { planSheetReconcile, splitUpdatesByRecency, sheetRowsForBookings, customerFullName, normPhone, normPersonName } from './sheetReconcile.js'
 
 export const SYNC_TAG = 'sheet-sync'
 
 function esc(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+function fmtWhen(v) {
+  const d = v ? new Date(v) : null
+  if (!d || isNaN(d)) return '-'
+  return d.toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
 
 const CHANGE_TH = { name: 'ชื่อ', phone: 'เบอร์โทร', stage: 'สถานะ → ส่งมอบแล้ว' }
@@ -62,6 +68,7 @@ export function openSheetReconcile({ onDone } = {}) {
     showToast('⏳ กำลังอ่านไฟล์และเทียบกับข้อมูลในโปรแกรม...', 'info')
     const role = getState('role') || getState('user')?.role || 'staff'
     const canNid = ['owner', 'admin', 'manager', 'sales', 'finance'].includes(role)
+    let sheetModifiedAt = null
     let sheet, plan, imp, allBookings, allCustomers, companies = [], vehicles = [], nidMap = {}
     try {
       const mod = await import('exceljs')
@@ -69,6 +76,7 @@ export function openSheetReconcile({ onDone } = {}) {
       const wb = new ExcelJS.Workbook()
       await wb.xlsx.load(await file.arrayBuffer())
       sheet = readBookingSheet(wb)
+      sheetModifiedAt = wb.modified || null
       ;[allBookings, allCustomers, companies, vehicles, nidMap] = await Promise.all([
         listAllDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 500),
         listAllDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 500),
@@ -92,8 +100,10 @@ export function openSheetReconcile({ onDone } = {}) {
       ...allCustomers.filter(c => c.deleted && c.deletedBy === SYNC_TAG).map(d => ({ col: 'customers', d })),
     ]
     const { extraBookings, renumberBookings, extraCustomers, leads, customerFixes, missingCustomers, linkOnly, appOnlyBookings, appOnlyCustomers, stampBookings, stampCustomers } = plan
-    const { creates, updates, unchanged } = imp
-    const nidTodo = canNid ? [...updates, ...unchanged].filter(x => x.nid && nidMap[x.id] !== x.nid) : []
+    const { creates, unchanged } = imp
+    // ข้อมูลไม่ตรงกัน: ฝั่งที่แก้ล่าสุดชนะ (แก้ในแอปหลังจาก Sheet → ใช้ค่าในแอป ไม่ทับ)
+    const { sheetWins: updates, appNewer } = splitUpdatesByRecency(imp.updates, sheetModifiedAt)
+    const nidTodo = canNid ? [...imp.updates, ...unchanged].filter(x => x.nid && nidMap[x.id] !== x.nid) : []
     const box = (n, label, color) => `<div style="background:var(--surface-2);border-radius:8px;padding:8px 10px;min-width:0"><div style="font-size:1.3rem;font-weight:800;color:${color}">${n}</div><div style="font-size:0.75rem">${label}</div></div>`
     const bkLine = x => `<b>${esc(x.booking.bookingNo || '(ไม่มีเลข)')}</b> · ${esc(x.booking.custName)} ${x.booking.phone ? '· ' + esc(x.booking.phone) : ''} · ${esc(x.booking.status || '')} <span style="color:var(--text-muted)">— ${esc(x.note)}</span>`
     const custLine = x => `<b>${esc(customerFullName(x.customer) || '(ไม่มีชื่อ)')}</b> ${x.customer.phone ? '· ' + esc(x.customer.phone) : ''} · ${esc(STAGE_TH[x.customer.stage] || x.customer.stage || '')} <span style="color:var(--text-muted)">— ${esc(x.note)}</span>`
@@ -108,6 +118,7 @@ export function openSheetReconcile({ onDone } = {}) {
       nb: creates, ub: updates, xb: extraBookings, rn: renumberBookings, xc: extraCustomers, fx: customerFixes, mc: missingCustomers,
       ld: leads.map(c => ({ customer: c })),
       ao: appOnlyBookings,
+      an: appNewer,
     }
     const delTotal = extraBookings.length + extraCustomers.length
     const fixTotal = updates.length + renumberBookings.length + customerFixes.length
@@ -134,6 +145,7 @@ export function openSheetReconcile({ onDone } = {}) {
           ${section('fx', '✏️ ลูกค้าที่ชื่อ/เบอร์/สถานะไม่ตรงไฟล์', customerFixes, fixLine)}
           ${section('mc', '➕ สร้างลูกค้าให้ใบจองที่ยังไม่มีลูกค้า', missingCustomers, missLine)}
           ${appOnlyBookings.length ? `<div style="margin-top:10px;padding:8px 10px;border:1px solid var(--info, var(--border));border-radius:8px;font-size:0.8rem">📝 ทีมคีย์ใบจองในแอป ยังไม่อยู่ใน Sheet <b>${appOnlyBookings.length}</b> ใบ (เก็บไว้ ไม่ลบ) <button type="button" class="btn btn-ghost btn-sm" id="srm-ao-xlsx">📥 ดาวน์โหลดไปวางใน Sheet</button></div>` : ''}
+          ${section('an', '📱 แก้ในแอปล่าสุด (ใช้ค่าในแอป ไม่ทับ)', appNewer, u => updLine(u) + ` <span style="color:var(--text-muted)">· แอปแก้ ${esc(fmtWhen(u.existing.appEditedAt))}</span>`, { checked: false, hint: `ทีมแก้ใบจองเหล่านี้ในแอปหลังจาก Sheet${sheetModifiedAt ? ` (ไฟล์บันทึกล่าสุด ${esc(fmtWhen(sheetModifiedAt))})` : ''} จึงเก็บค่าในแอปไว้ · ติ๊กใบที่อยากใช้ค่าจาก Sheet แทน · <a href="#" id="srm-an-xlsx">📥 ดาวน์โหลดค่าล่าสุดไปแก้ใน Sheet</a>` })}
           ${section('ao', '📝 ใบจองที่คีย์ในแอป รอลง Sheet', appOnlyBookings, bkLine, { checked: false, hint: `เก็บไว้ทั้งหมด${appOnlyCustomers.length ? ` (ลูกค้าที่ผูกอยู่ ${appOnlyCustomers.length} คนก็เก็บไว้)` : ''} · ติ๊กเฉพาะใบที่อยากลบจริง` })}
           ${section('ld', '🧲 Lead ที่ยังไม่จอง (เก็บไว้ ไม่ลบ)', lists.ld, x => leadLine(x.customer), { checked: false, hint: 'ไฟล์ DATA Booking มีแต่ลูกค้าที่จองแล้ว Lead จึงไม่อยู่ในไฟล์เป็นปกติ จะลบก็ต่อเมื่อติ๊กเอง' })}
           <div style="margin-top:10px;font-size:0.75rem;color:var(--text-muted)">💾 ระบบดาวน์โหลดไฟล์สำรองให้ก่อนแก้ทุกครั้ง · ลบผิดกดกู้คืนได้จากหน้าจอนี้</div>
@@ -144,7 +156,7 @@ export function openSheetReconcile({ onDone } = {}) {
         // ประทับ "เคยอยู่ใน Sheet" ให้ใบจอง/ลูกค้าที่ตรงกับไฟล์ (ครั้งหน้าถ้าหายจากไฟล์ จะรู้ว่าลบตามไฟล์ได้)
         const stampAll = async () => {
           const at = new Date().toISOString()
-          for (const b of stampBookings) await updateDocData('bookings', b.id, { sheetSeenAt: at }).catch(() => {})
+          for (const b of stampBookings) await updateDocData('bookings', b.id, { sheetSeenAt: at, __fromSheet: true }).catch(() => {})
           for (const c of stampCustomers) await updateDocData('customers', c.id, { sheetSeenAt: at }).catch(() => {})
         }
         if (!totalTodo) { stampAll(); return true }
@@ -167,13 +179,13 @@ export function openSheetReconcile({ onDone } = {}) {
         const learned = brandCompanyMap(allBookings)
         const deletedCustIds = new Set([...sel.xc, ...sel.ld].map(x => x.customer.id))
 
-        for (const r of sel.rn) await run(() => updateDocData('bookings', r.booking.id, r.patch))
-        for (const x of [...sel.xb, ...sel.ao]) await run(() => updateDocData('bookings', x.booking.id, del))
+        for (const r of sel.rn) await run(() => updateDocData('bookings', r.booking.id, { ...r.patch, __fromSheet: true }))
+        for (const x of [...sel.xb, ...sel.ao]) await run(() => updateDocData('bookings', x.booking.id, { ...del, __fromSheet: true }))
         for (const x of [...sel.xc, ...sel.ld]) await run(() => updateDocData('customers', x.customer.id, del))
         for (const f of sel.fx) await run(() => updateDocData('customers', f.customer.id, f.patch.stage ? { ...f.patch, stageChangedAt: now } : f.patch))
         for (const l of linkOnly) {
           await run(async () => {
-            await updateDocData('bookings', l.booking.id, { customerId: l.customer.id })
+            await updateDocData('bookings', l.booking.id, { customerId: l.customer.id, __fromSheet: true })
             if (!l.customer.bookingId) await updateDocData('customers', l.customer.id, { bookingId: l.booking.id })
           })
         }
@@ -181,7 +193,7 @@ export function openSheetReconcile({ onDone } = {}) {
           await run(async () => {
             const companyId = m.booking.companyId || companyForBrand(m.sheet.brand, companies, myEffectiveCompanyId(), learned)
             const id = await createDoc('customers', { ...newCustomerDoc(m.sheet, { companyId }), bookingId: m.booking.id })
-            await updateDocData('bookings', m.booking.id, { customerId: id })
+            await updateDocData('bookings', m.booking.id, { customerId: id, __fromSheet: true })
           })
         }
         // ใบจองใหม่: ผูกกับลูกค้าที่มีอยู่แล้วถ้าเบอร์หรือชื่อตรง (ไม่สร้างลูกค้าซ้ำ) ไม่งั้นสร้างลูกค้าใหม่
@@ -199,7 +211,7 @@ export function openSheetReconcile({ onDone } = {}) {
               if (normPhone(m.phone)) custByPhone.set(normPhone(m.phone), cust)
               custByName.set(normPersonName(m.custName), cust)
             }
-            const id = await createDoc('bookings', newBookingDoc(m, { companyId, customerId }))
+            const id = await createDoc('bookings', { ...newBookingDoc(m, { companyId, customerId }), __fromSheet: true, sheetSyncedAt: now })
             if (customerId) {
               // ลูกค้าเดิมที่ยังเป็น Lead/Prospect → ขยับเป็นจองแล้ว/ส่งมอบแล้วตามไฟล์
               const want = m.status === 'ส่งมอบแล้ว' ? 'delivered' : m.status === 'ถอนจอง' ? null : 'booking'
@@ -209,9 +221,9 @@ export function openSheetReconcile({ onDone } = {}) {
             if (canNid && m.nid) await setDocData('booking_national_ids', id, { nid: m.nid, companyId }).catch(() => {})
           })
         }
-        for (const u of sel.ub) {
+        for (const u of [...sel.ub, ...sel.an]) {
           await run(async () => {
-            await updateDocData('bookings', u.id, { ...u.patch, updatedAt: now })
+            await updateDocData('bookings', u.id, { ...u.patch, updatedAt: now, sheetSyncedAt: now, __fromSheet: true })
             if (u.patch.status === 'ส่งมอบแล้ว' && u.statusFrom !== 'ส่งมอบแล้ว') await maybeMarkCustomerDelivered(u.existing)
             if (u.patch.companyId && u.existing.customerId) {
               const cust = allCustomers.find(c => c.id === u.existing.customerId)
@@ -224,7 +236,7 @@ export function openSheetReconcile({ onDone } = {}) {
           await setDocData('booking_national_ids', x.id, { nid: x.nid, companyId: b?.companyId || myEffectiveCompanyId() }).catch(() => { errors++ })
         }
         // สต็อกรถให้ตรงกับสถานะใบจอง (ส่งมอบแล้ว → ขายแล้ว ฯลฯ)
-        const patched = new Map(sel.ub.map(u => [u.id, { ...u.existing, ...u.patch }]))
+        const patched = new Map([...sel.ub, ...sel.an].map(u => [u.id, { ...u.existing, ...u.patch }]))
         const dropped = new Set([...sel.xb, ...sel.ao].map(x => x.booking.id))
         const stock = await syncStockForBookings([...sel.nb, ...allBookings.filter(b => !b.deleted && !dropped.has(b.id)).map(b => patched.get(b.id) || b)], vehicles).catch(() => 0)
         await stampAll()
@@ -236,6 +248,11 @@ export function openSheetReconcile({ onDone } = {}) {
     el.querySelectorAll('input[data-all]').forEach(all => all.addEventListener('change', () => {
       el.querySelectorAll(`input[data-sec="${all.dataset.all}"]`).forEach(i => { i.checked = all.checked })
     }))
+    el.querySelector('#srm-an-xlsx')?.addEventListener('click', async e => {
+      e.preventDefault()
+      try { await exportToExcel(sheetRowsForBookings(appNewer.map(u => u.existing)), `แก้ใน-Sheet-${todayBangkok()}.xlsx`, 'Booking') }
+      catch { showToast('❌ สร้างไฟล์ไม่สำเร็จ', 'error') }
+    })
     el.querySelector('#srm-ao-xlsx')?.addEventListener('click', async e => {
       e.preventDefault()
       try { await exportToExcel(sheetRowsForBookings(appOnlyBookings.map(x => x.booking)), `รอลง-Sheet-${todayBangkok()}.xlsx`, 'Booking') }

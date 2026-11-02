@@ -202,7 +202,7 @@ export async function createDoc(colName, data, actorOverride) {
   // ใช้อ้างอิง record จริง — ถ้าปล่อยให้ทับ จะทำให้ document key กับ .id field ไม่ตรงกัน
   // (แก้ไข/ลบ record หลังจากนั้นจะพลาดเป้าแบบเงียบๆ)
   const { id: _ignoredId, ...rest } = data || {}
-  const clean = deepSanitize(rest)
+  const clean = stampAppEdit(colName, deepSanitize(rest))
   // (v1.0.542) ประทับผู้สร้างจริง (uid) ทุกเอกสาร — หัวหน้าเห็นข้อมูลที่ลูกทีมสร้างได้แม้ช่องชื่อผู้รับผิดชอบ
   // (assignedTo/salesName/techName) จะว่างหรือพิมพ์ไม่ตรงกับชื่อในข้อมูลพนักงาน (ดู scopeIncludesRecord ใน hierarchy.js)
   const me = getState('user')
@@ -344,8 +344,17 @@ export async function seedDefaultRolePermissions() {
   return { seeded, skipped }
 }
 
+// (2026-11-02) ใบจองที่ "แก้ในแอป" ประทับเวลา appEditedAt ไว้ — ตอนซิงก์ Sheet ใช้ตัดสินว่าฝั่งไหนแก้ล่าสุด
+// การเขียนที่มาจาก Sheet เอง (ซิงก์/นำเข้า Excel) ส่ง __fromSheet: true มา จะไม่ประทับ
+function stampAppEdit(colName, clean) {
+  if (colName !== 'bookings' || !clean) return clean
+  const { __fromSheet, ...rest } = clean
+  if (!__fromSheet) rest.appEditedAt = new Date().toISOString()
+  return rest
+}
+
 export async function updateDocData(colName, id, data, actorOverride) {
-  const clean = deepSanitize(data)
+  const clean = stampAppEdit(colName, deepSanitize(data))
   const isDelete = !!(data && data.deleted === true)
   const action = isDelete ? 'delete' : 'update'
   const detail = isDelete ? `ลบข้อมูลใน ${colName}` : `แก้ไขข้อมูลใน ${colName}`
