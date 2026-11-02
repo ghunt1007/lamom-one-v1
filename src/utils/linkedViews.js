@@ -24,6 +24,19 @@ export const LINKED_VIEWS = [
     { path: '/analytics/parts', label: '🔩 อะไหล่' }, { path: '/analytics/stock', label: '📦 สต็อก' }],
   [{ path: '/analytics/reports', label: '📊 ศูนย์รายงาน' }, { path: '/analytics/report-builder', label: '🔧 สร้างรายงานเอง' }],
   [{ path: '/analytics/ev-adoption', label: '🔋 การใช้รถ EV' }, { path: '/analytics/carbon', label: '🌿 คาร์บอน' }],
+  // (2026-11-02) หมวดการเงิน 41 เมนู → 12 เมนู
+  [{ path: '/finance/margin', label: '🚗 กำไรต่อคัน' }, { path: '/finance/gp-foc', label: '🎁 กำไรขั้นต้น & ของแถม' }, { path: '/finance/sales-budget', label: '💼 งบขาย & งบแถม' },
+    { path: '/finance/target-actual', label: '🎯 เป้า vs จริง' }, { path: '/finance/goals', label: '🏁 เป้าหมาย' }, { path: '/finance/breakeven', label: '⚖️ จุดคุ้มทุน' }],
+  [{ path: '/finance/pl', label: '📊 กำไรขาดทุน' }, { path: '/finance/cashflow', label: '💧 กระแสเงินสด' }, { path: '/finance/budget', label: '🗂 งบประมาณ' }, { path: '/finance/monthly-close', label: '📅 ปิดงบรายเดือน' }],
+  [{ path: '/finance/tax', label: '🧾 ภาษี' }, { path: '/finance/vat', label: '🧾 VAT' }, { path: '/finance/withholding-tax', label: '📄 หัก ณ ที่จ่าย' }, { path: '/finance/compliance-calendar', label: '📅 ปฏิทินยื่นภาษี' }],
+  [{ path: '/finance/invoice', label: '🧾 ใบแจ้งหนี้' }, { path: '/finance/billing-run', label: '📬 วางบิล' }, { path: '/finance/receipt-auto', label: '🧾 ใบเสร็จ' },
+    { path: '/finance/payment', label: '💳 รับชำระออนไลน์' }, { path: '/finance/installment', label: '📆 ผ่อนชำระ' }, { path: '/finance/debt', label: '📌 ติดตามหนี้' }, { path: '/finance/credit', label: '🛑 เครดิต' }],
+  [{ path: '/finance/deposit', label: '💵 มัดจำ' }, { path: '/finance/refund', label: '↩️ คืนเงิน' }, { path: '/finance/cashier', label: '🏧 แคชเชียร์' }],
+  [{ path: '/finance/expenses', label: '✅ อนุมัติค่าใช้จ่าย' }, { path: '/finance/po', label: '🛒 ใบสั่งซื้อ' }, { path: '/finance/vendor', label: '🏪 ผู้ขาย' },
+    { path: '/finance/petty-cash', label: '👛 เงินสดย่อย' }, { path: '/finance/energy', label: '⚡ ค่าไฟ' }, { path: '/finance/assets', label: '🏢 ทรัพย์สิน' }],
+  [{ path: '/finance/bank-partners', label: '🏦 ธนาคารคู่ค้า' }, { path: '/finance/rate-sheets', label: '📈 ดอกเบี้ย' }, { path: '/finance/loan-calc', label: '🧮 คำนวณค่างวด' },
+    { path: '/finance/bank-recon', label: '🔁 กระทบยอด' }, { path: '/finance/multi-currency', label: '💱 หลายสกุลเงิน' }],
+  [{ path: '/finance/charging-cost', label: '🔌 ต้นทุนค่าชาร์จ' }, { path: '/finance/charging-revenue', label: '💰 รายได้ค่าชาร์จ' }],
 ]
 
 const clean = p => String(p || '').split('?')[0].replace(/\/+$/, '') || '/'
