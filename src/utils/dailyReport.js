@@ -60,3 +60,29 @@ export async function downloadLatestCloudBackup() {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000)
   return date
 }
+
+// (2026-11-02) ไฟล์ DATA Booking จาก Google Drive (workers/sheet-pull.js) — เจ้าของโปรแกรมเท่านั้น
+// error ที่โยนออกไปมี .code ('not_shared' | 'drive_api_off') .shareWith .link ให้หน้าจอบอกวิธีแก้ได้ตรงจุด
+async function sheetCall(path) {
+  const h = await authHeader()
+  if (!h) throw new Error('ต้องล็อกอินด้วยบัญชีจริงก่อน')
+  const res = await fetch(`${DAILY_REPORT_URL}${path}`, { headers: h, cache: 'no-store' })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    const err = new Error(data.message || data.error || `Sheet Error ${res.status}`)
+    Object.assign(err, { code: data.error || '', shareWith: data.shareWith || '', link: data.link || '', fileId: data.fileId || '' })
+    throw err
+  }
+  return res
+}
+
+export async function getSheetStatus() {
+  return (await sheetCall('/sheet/status')).json()
+}
+
+export async function fetchSheetFile() {
+  const res = await sheetCall('/sheet/latest')
+  let name = 'DATA Booking.xlsx'
+  try { name = decodeURIComponent(res.headers.get('X-Sheet-Name') || '') || name } catch {}
+  return { buffer: await res.arrayBuffer(), name, modifiedTime: res.headers.get('X-Sheet-Modified') || '' }
+}

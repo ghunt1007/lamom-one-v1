@@ -14,9 +14,12 @@ import { exportMultiSheet, exportToExcel } from './importExport.js'
 import { todayBangkok } from './format.js'
 import { readBookingSheet, planBookingImport, newBookingDoc, newCustomerDoc, companyForBrand, brandCompanyMap } from './bookingImport.js'
 import { maybeMarkCustomerDelivered, syncStockForBookings } from './bookingSync.js'
+import { isProgramOwner } from '../core/hierarchy.js'
+import { fetchSheetFile } from './dailyReport.js'
 import { planSheetReconcile, splitUpdatesByRecency, sheetRowsForBookings, customerFullName, normPhone, normPersonName } from './sheetReconcile.js'
 
 export const SYNC_TAG = 'sheet-sync'
+const SHEET_FILE_ID = '194PmgsKGdGytByQBau8MUhDrFrM-LBl0'
 
 function esc(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -58,13 +61,80 @@ function section(key, title, items, renderItem, { checked = true, hint = '' } = 
     </details>`
 }
 
-export function openSheetReconcile({ onDone } = {}) {
+// (2026-11-02) เจ้าของโปรแกรม: ดึงไฟล์ล่าสุดจาก Google Drive ให้เอง (ไม่ต้องดาวน์โหลดแล้วเลือกไฟล์)
+// ดึงไม่ได้ → บอกวิธีแก้ (แชร์ไฟล์ให้ระบบ) หรือเลือกไฟล์เองเหมือนเดิม · คนอื่นเลือกไฟล์เองเหมือนเดิม
+export async function openSheetReconcile({ onDone } = {}) {
+  if (!isProgramOwner()) return pickSheetFile({ onDone })
+  showToast('⏳ กำลังดึง Sheet ล่าสุดจาก Google Drive...', 'info', 8000)
+  try {
+    const f = await fetchSheetFile()
+    return await reconcileFromBuffer(f.buffer, { name: `${f.name} · Google Drive แก้ล่าสุด ${fmtWhen(f.modifiedTime)}`, modifiedAt: f.modifiedTime || null, onDone })
+  } catch (e) {
+    if (e?.code === 'not_shared' || e?.code === 'drive_api_off') return openSheetSetupHelp(e, { onDone })
+    showToast('ดึงจาก Drive ไม่ได้ (' + (e?.message || e) + ') — เลือกไฟล์เองแทน', 'warning', 6000)
+    return pickSheetFile({ onDone })
+  }
+}
+
+export function pickSheetFile({ onDone } = {}) {
   const input = document.createElement('input')
   input.type = 'file'
   input.accept = '.xlsx'
   input.addEventListener('change', async () => {
     const file = input.files?.[0]
     if (!file) return
+    await reconcileFromBuffer(await file.arrayBuffer(), { name: file.name, onDone })
+  })
+  input.click()
+}
+
+// ตั้งค่าครั้งเดียว: แชร์ไฟล์ Sheet ให้อีเมลของระบบ (ผู้มีสิทธิ์อ่าน) แล้วกดลองอีกครั้ง
+function openSheetSetupHelp(err, { onDone } = {}) {
+  const apiOff = err.code === 'drive_api_off'
+  const fileUrl = `https://drive.google.com/file/d/${encodeURIComponent(err.fileId || SHEET_FILE_ID)}/view`
+  const { el, close } = openModal({
+    title: '🔗 ตั้งค่าครั้งเดียว: ให้แอปดึง Sheet เอง',
+    body: apiOff ? `
+      <div style="font-size:0.88rem;line-height:1.7">
+        <div>ต้องเปิด <b>Google Drive API</b> ให้โปรเจกต์ Firebase ก่อน (ครั้งเดียว)</div>
+        <ol style="margin:8px 0 0 18px;padding:0">
+          <li>กดปุ่ม "เปิดหน้า Google Cloud" แล้วกด <b>Enable</b></li>
+          <li>รอ 1–2 นาที แล้วกด "ลองอีกครั้ง"</li>
+        </ol>
+      </div>` : `
+      <div style="font-size:0.88rem;line-height:1.7">
+        <div>แชร์ไฟล์ <b>DATA Booking</b> ให้อีเมลนี้ เป็น <b>ผู้มีสิทธิ์อ่าน</b> (ครั้งเดียว)</div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0">
+          <code style="background:var(--surface-2);padding:6px 8px;border-radius:6px;overflow-wrap:anywhere;flex:1 1 220px;min-width:0">${esc(err.shareWith || '(ไม่พบอีเมลของระบบ)')}</code>
+          <button class="btn btn-secondary btn-sm" id="ssh-copy">📋 คัดลอก</button>
+        </div>
+        <ol style="margin:0 0 0 18px;padding:0">
+          <li>กด "เปิดไฟล์ใน Drive" → ปุ่ม <b>แชร์</b></li>
+          <li>วางอีเมล เลือก <b>ผู้มีสิทธิ์อ่าน</b> เอาติ๊ก "แจ้งเตือน" ออก แล้วกดส่ง</li>
+          <li>กลับมากด "ลองอีกครั้ง"</li>
+        </ol>
+        <div style="margin-top:8px;font-size:0.75rem;color:var(--text-muted)">อีเมลนี้เป็นของระบบ LAMOM One เอง อ่านได้อย่างเดียว แก้ไฟล์ไม่ได้</div>
+      </div>`,
+    footer: `<button class="btn btn-ghost" id="ssh-pick">📂 เลือกไฟล์เองแทน</button>
+      <a class="btn btn-secondary" id="ssh-open" href="${apiOff && err.link ? esc(err.link) : fileUrl}" target="_blank" rel="noopener">${apiOff ? 'เปิดหน้า Google Cloud' : 'เปิดไฟล์ใน Drive'}</a>
+      <button class="btn btn-primary" id="ssh-retry">🔄 ลองอีกครั้ง</button>`,
+  })
+  el.querySelector('#ssh-copy')?.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(err.shareWith); showToast('📋 คัดลอกอีเมลแล้ว', 'success') } catch { showToast('คัดลอกไม่ได้ กดค้างที่อีเมลเพื่อคัดลอกเอง', 'warning') }
+  })
+  el.querySelector('#ssh-pick').addEventListener('click', () => { close(); pickSheetFile({ onDone }) })
+  el.querySelector('#ssh-retry').addEventListener('click', () => { close(); openSheetReconcile({ onDone }) })
+}
+
+export const SHEET_SYNCED_KEY = 'lamom_sheet_synced_mod'
+function rememberSynced(modifiedAt) {
+  if (!modifiedAt) return
+  try { localStorage.setItem(SHEET_SYNCED_KEY, String(modifiedAt)) } catch {}
+}
+
+async function reconcileFromBuffer(buffer, { name = '', modifiedAt = null, onDone } = {}) {
+  {
+    const file = { name }
     showToast('⏳ กำลังอ่านไฟล์และเทียบกับข้อมูลในโปรแกรม...', 'info')
     const role = getState('role') || getState('user')?.role || 'staff'
     const canNid = ['owner', 'admin', 'manager', 'sales', 'finance'].includes(role)
@@ -74,9 +144,9 @@ export function openSheetReconcile({ onDone } = {}) {
       const mod = await import('exceljs')
       const ExcelJS = mod.default || mod
       const wb = new ExcelJS.Workbook()
-      await wb.xlsx.load(await file.arrayBuffer())
+      await wb.xlsx.load(buffer)
       sheet = readBookingSheet(wb)
-      sheetModifiedAt = wb.modified || null
+      sheetModifiedAt = modifiedAt || wb.modified || null
       ;[allBookings, allCustomers, companies, vehicles, nidMap] = await Promise.all([
         listAllDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 500),
         listAllDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 500),
@@ -162,7 +232,7 @@ export function openSheetReconcile({ onDone } = {}) {
           for (const x of dateFixBookings) await updateDocData('bookings', x.id, { createdAt: x.createdAt, __fromSheet: true }).catch(() => {})
           for (const x of dateFixCustomers) await updateDocData('customers', x.id, { createdAt: x.createdAt }).catch(() => {})
         }
-        if (!totalTodo) { stampAll(); return true }
+        if (!totalTodo) { stampAll(); rememberSynced(modifiedAt); return true }
         const pick = key => [...el.querySelectorAll(`input[data-sec="${key}"]:checked`)].map(i => lists[key][Number(i.dataset.i)])
         const sel = Object.fromEntries(Object.keys(lists).map(k => [k, pick(k)]))
         try {
@@ -243,6 +313,7 @@ export function openSheetReconcile({ onDone } = {}) {
         const dropped = new Set([...sel.xb, ...sel.ao].map(x => x.booking.id))
         const stock = await syncStockForBookings([...sel.nb, ...allBookings.filter(b => !b.deleted && !dropped.has(b.id)).map(b => patched.get(b.id) || b)], vehicles).catch(() => 0)
         await stampAll()
+        rememberSynced(modifiedAt)
         showToast(`✅ ซิงก์กับ Sheet เสร็จ ${done} รายการ${stock ? ` · สต็อก ${stock} คัน` : ''}${errors ? ` · พลาด ${errors}` : ''}`, errors ? 'warning' : 'success', 8000)
         onDone?.()
         return true
@@ -272,6 +343,5 @@ export function openSheetReconcile({ onDone } = {}) {
       close()
       onDone?.()
     })
-  })
-  input.click()
+  }
 }
