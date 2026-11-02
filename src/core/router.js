@@ -249,6 +249,7 @@ const routes = {
   '/analytics/daily': () => import('../pages/analytics/DailyReport.js'),
   // Settings extras
   '/settings/backup': () => import('../pages/settings/BackupRestore.js'),
+  '/settings/page-usage': () => import('../pages/settings/PageUsage.js'), // (2026-11-02) หน้าไหนมีข้อมูลจริง — เจ้าของโปรแกรม
   // CRM extras
   '/crm/lifecycle': () => import('../pages/crm/CustomerLifecycle.js'),
   // Analytics extras
