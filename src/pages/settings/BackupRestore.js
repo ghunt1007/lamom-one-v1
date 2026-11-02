@@ -11,12 +11,16 @@
  * native export ไป Google Cloud Storage ซึ่งต้องเปิด billing + สร้าง bucket ผ่าน Firebase Console/gcloud
  * เอง (นอกเหนือโค้ดนี้ทั้งหมด) เจ้าของทราบแล้วว่าไม่มีค่าใช้จ่ายเพิ่มถ้าไม่กดเปิดใช้งานส่วนนั้น
  *
+ * (2026-11-02) เพิ่มสำรองอัตโนมัติทุกคืนจริงแล้ว — workers/nightly-backup.js (cron 03:00) เก็บใน R2 30 คืน
+ *   หน้านี้มีปุ่มดาวน์โหลดชุดล่าสุด/สำรองขึ้นคลาวด์ตอนนี้ · การ์ดตั้งค่าความถี่แบบเดิม (บันทึกไว้เฉยๆ ไม่ได้รันจริง) เอาออก
+ *
  * เข้าถึงได้เฉพาะเจ้าของ/แอดมิน (ตรวจสอบทั้งฐานข้อมูลทุก collection ความเสี่ยงสูงกว่าฟีเจอร์อื่นในระบบ)
  */
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { formatDate, timeAgo } from '../../utils/format.js'
 import { listDocs, createDoc, setDocData, seedDemoData } from '../../core/db.js'
+import { runCloudBackup, downloadLatestCloudBackup } from '../../utils/dailyReport.js'
 import { ALL_COLLECTIONS, exportAllData, downloadBackupFile, summarizeBackupData, restoreFromBackupData } from '../../core/backup.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
 
@@ -103,21 +107,13 @@ export default async function BackupRestorePage(container) {
           ${kpi('📦 Collection ทั้งหมด', ALL_COLLECTIONS.length, 'secondary')}
         </div>
 
-        <div class="card" style="padding:14px;margin-bottom:14px;font-size:0.78rem;color:var(--text-muted)">
-          ℹ️ ไฟล์ backup จะถูก<strong>ดาวน์โหลดเก็บไว้ในเครื่องของคุณเท่านั้น</strong> (เก็บเพื่อดู/กู้คืนด้วยมือ ไม่ใช่ระบบ cloud backup อัตโนมัติ) — แนะนำให้เก็บไฟล์ไว้หลายที่ (เครื่อง+USB/คลาวด์ส่วนตัว) ถ้าต้องการระบบสำรองอัตโนมัติจริงไปเก็บบน Google Cloud Storage (Firebase native export) ต้องเปิด billing + ตั้งค่าผ่าน Firebase Console เอง แยกจากฟีเจอร์นี้
-        </div>
-
-        <div class="card" style="padding:14px;margin-bottom:14px">
-          <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">⚙️ ตั้งค่าความถี่ที่ต้องการ (บันทึกไว้เฉยๆ — ยังไม่มีการรันอัตโนมัติจริงจนกว่าจะตั้งค่า Cloud Scheduler แยกต่างหาก)</div>
-          <div class="grid-2">
-            <div class="input-group"><label class="input-label">ความถี่ที่ต้องการ</label>
-              <select class="input" id="schedule-select">
-                ${[['manual','Manual เท่านั้น (ตอนนี้)'],['daily','ทุกวัน (ต้องตั้ง Cloud Scheduler เพิ่ม)'],['weekly','ทุกสัปดาห์ (ต้องตั้ง Cloud Scheduler เพิ่ม)']].map(([v,l]) => `<option value="${v}" ${schedule===v?'selected':''}>${l}</option>`).join('')}
-              </select>
-            </div>
-            <div class="input-group"><label class="input-label">เก็บไว้ (วัน)</label><input class="input" id="retention-input" type="number" min="7" max="365" value="${retention}"></div>
+        <div class="card" style="padding:14px;margin-bottom:14px;border-left:3px solid var(--success)">
+          <div style="font-weight:700;margin-bottom:4px">☁️ สำรองอัตโนมัติทุกคืน 03:00 น.</div>
+          <div style="font-size:0.8rem;color:var(--text-muted);line-height:1.6">ระบบเก็บข้อมูลทั้งหมดไว้บนคลาวด์ให้เองทุกคืน เก็บ 30 คืนล่าสุด ไม่ต้องกดอะไร · ถ้าคืนไหนไม่สำเร็จจะแจ้งใน Telegram · ไฟล์ที่ดาวน์โหลดใช้ปุ่ม "กู้คืนจากไฟล์" ได้เลย</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+            <button class="btn btn-secondary btn-sm" id="cloud-latest-btn" ${isRunning?'disabled':''}>⬇️ ดาวน์โหลดชุดล่าสุด</button>
+            <button class="btn btn-ghost btn-sm" id="cloud-run-btn" ${isRunning?'disabled':''}>☁️ สำรองขึ้นคลาวด์ตอนนี้</button>
           </div>
-          <button class="btn btn-secondary" style="margin-top:10px" id="save-schedule-btn">💾 บันทึกค่าที่ต้องการ</button>
         </div>
 
         <div class="card" style="overflow:hidden">
@@ -153,13 +149,19 @@ export default async function BackupRestorePage(container) {
 
     document.getElementById('run-backup-btn')?.addEventListener('click', runBackupNow)
     document.getElementById('restore-btn')?.addEventListener('click', openRestoreModal)
-    document.getElementById('save-schedule-btn')?.addEventListener('click', async () => {
-      schedule = document.getElementById('schedule-select')?.value || schedule
-      retention = parseInt(document.getElementById('retention-input')?.value) || retention
+    document.getElementById('cloud-run-btn')?.addEventListener('click', async () => {
+      isRunning = true; progressText = 'กำลังสำรองข้อมูลขึ้นคลาวด์...'; renderPage()
       try {
-        await setDocData('system_backup_config', 'default', { schedule, retention })
-        showToast('✅ บันทึกค่าที่ต้องการแล้ว (ยังไม่มีการรันอัตโนมัติจริงจนกว่าจะตั้ง Cloud Scheduler)', 'success')
-      } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
+        const r = await runCloudBackup()
+        showToast(`✅ สำรองขึ้นคลาวด์แล้ว ${r.totalDocs} รายการ${r.skipped ? ` · ข้าม ${r.skipped} ชุด` : ''}`, r.skipped ? 'warning' : 'success', 6000)
+      } catch (e) { showToast('❌ ' + (e.message || 'สำรองไม่สำเร็จ'), 'error', 6000) }
+      isRunning = false; await loadData()
+    })
+    document.getElementById('cloud-latest-btn')?.addEventListener('click', async () => {
+      try {
+        const date = await downloadLatestCloudBackup()
+        showToast(`⬇️ ดาวน์โหลดไฟล์สำรองวันที่ ${date} แล้ว`, 'success')
+      } catch (e) { showToast('❌ ' + (e.message || 'ดาวน์โหลดไม่สำเร็จ'), 'error', 6000) }
     })
   }
 

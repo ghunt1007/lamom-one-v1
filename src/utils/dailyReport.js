@@ -30,3 +30,33 @@ export function sendDailyReportNow() {
 export function getDailyReportWebhookUrl() {
   return `${DAILY_REPORT_URL}/line/webhook`
 }
+
+// (2026-11-02) สำรองข้อมูลอัตโนมัติ (workers/nightly-backup.js) — เจ้าของโปรแกรมเท่านั้น
+export async function runCloudBackup() {
+  const h = await authHeader()
+  if (!h) throw new Error('ต้องล็อกอินด้วยบัญชีจริงก่อน')
+  const res = await fetch(`${DAILY_REPORT_URL}/backup/run`, { method: 'POST', headers: h })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok || !data.ok) throw new Error(data.error || `Backup Error ${res.status}`)
+  return data
+}
+
+export async function downloadLatestCloudBackup() {
+  const h = await authHeader()
+  if (!h) throw new Error('ต้องล็อกอินด้วยบัญชีจริงก่อน')
+  const res = await fetch(`${DAILY_REPORT_URL}/backup/latest`, { headers: h })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.error || `Backup Error ${res.status}`)
+  }
+  const date = res.headers.get('X-Backup-Date') || ''
+  const blob = await res.blob()
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = `lamom-backup-auto-${date || 'latest'}.json`
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000)
+  return date
+}

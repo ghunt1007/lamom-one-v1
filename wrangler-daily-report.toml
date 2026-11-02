@@ -17,5 +17,11 @@ MONTHLY_DELIVERY_TARGET = "20"
 
 # 11:00 UTC = 18:00 เวลาไทย (Bangkok ไม่มี DST เลยแปลงคงที่ได้ตรงตัว) ทุกวัน = รายงานสรุป
 # 02:00 UTC = 09:00 เวลาไทย = เตือนงานค้างรายเซลส์ (ต้องตรงกับ MORNING_CRON ใน workers/daily-report.js)
+# 20:00 UTC = 03:00 เวลาไทย = สำรองข้อมูลอัตโนมัติ (ต้องตรงกับ BACKUP_CRON ใน workers/nightly-backup.js)
 [triggers]
-crons = ["0 11 * * *", "0 2 * * *"]
+crons = ["0 11 * * *", "0 2 * * *", "0 20 * * *"]
+
+# ที่เก็บไฟล์สำรองอัตโนมัติ (ใช้ bucket เดียวกับไฟล์แนบของแอป ชื่อไฟล์สุ่มเดาไม่ได้)
+[[r2_buckets]]
+binding = "BACKUP_BUCKET"
+bucket_name = "lamom-files"

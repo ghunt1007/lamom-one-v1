@@ -31,6 +31,8 @@
  * ไปแบบรายงานสถานะ configured:false ตรงๆ (ไม่ throw จนพังทั้งงาน) ตาม pattern เดียวกับ comms-send.js
  */
 
+import { BACKUP_CRON, runNightlyBackup, handleLatestBackup, isProgramOwnerUser } from './nightly-backup.js'
+
 const FIRESTORE_SCOPE = 'https://www.googleapis.com/auth/datastore'
 const DELIVERED_STATUSES = ['ส่งมอบแล้ว', 'ตัดตัวเลขรอส่งมอบ']
 const PENDING_STATUSES = ['จัดไฟแนนซ์ก่อนจอง', 'ผ่านไฟแนนซ์รอจอง', 'รอผลไฟแนนซ์', 'ยอดจองคงค้าง', 'ผ่านไฟแนนซ์รอเบิก', 'ซื้อสดรอเบิกรถ', 'รอรถ', 'รอส่งมอบ', 'ตัดตัวเลขรอส่งมอบ']
@@ -61,6 +63,17 @@ export default {
       if (request.method === 'POST' && url.pathname === '/line/webhook') return await handleLineWebhook(request, env, cors)
       // ?kind=morning = ข้อความเตือนตอนเช้า (ไม่ใส่ = รายงานสรุป 18:00 เหมือนเดิม)
       const morning = url.searchParams.get('kind') === 'morning'
+      // สำรองข้อมูล: /backup/latest = ดาวน์โหลดชุดล่าสุด, /backup/run = สำรองขึ้นคลาวด์ตอนนี้ (เจ้าของโปรแกรมเท่านั้น)
+      if (url.pathname === '/backup/latest' || url.pathname === '/backup/run') {
+        const authHeader = request.headers.get('Authorization') || ''
+        const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
+        const verified = idToken ? await verifyFirebaseToken(idToken, env.FIREBASE_API_KEY) : null
+        if (!verified) return json({ error: 'Unauthorized' }, 401, cors)
+        if (url.pathname === '/backup/latest') return await handleLatestBackup(env, verified, cors)
+        if (!isProgramOwnerUser(verified)) return json({ error: 'เฉพาะเจ้าของโปรแกรม' }, 403, cors)
+        const result = await runNightlyBackup(env, backupDeps(env))
+        return json(result, result.ok ? 200 : 500, cors)
+      }
       if (url.pathname === '/test-send') return await handleTestSend(request, env, cors, morning)
       if (url.pathname === '/preview') return await handlePreview(request, env, cors, morning)
       return json({ error: 'Not found' }, 404, cors)
@@ -72,8 +85,21 @@ export default {
   // Cron Trigger เรียกจุดนี้ตามตารางเวลาใน wrangler-daily-report.toml (ไม่มี HTTP request ผูกมาด้วยเลย)
   // มี 2 รอบ: 09:00 เตือนงานค้างรายคน, 18:00 สรุปประจำวัน — แยกด้วย event.cron
   async scheduled(event, env, ctx) {
+    if (event.cron === BACKUP_CRON) {
+      ctx.waitUntil(runNightlyBackup(env, backupDeps(env)))
+      return
+    }
     ctx.waitUntil(event.cron === MORNING_CRON ? runDailyReport(env, true) : runDailyReport(env))
   },
+}
+
+function backupDeps(env) {
+  return {
+    getToken: () => getFirestoreAccessToken(env),
+    decode: decodeFsValue,
+    notify: text => sendTelegram(env, text),
+    today: todayBangkok(),
+  }
 }
 
 // ── รายงานหลัก — ใช้ร่วมกันทั้ง scheduled() และ /test-send ─────────────────────
