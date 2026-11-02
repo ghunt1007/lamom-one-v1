@@ -39,3 +39,14 @@ describe('recordFacts', () => {
     expect(thaiDate('')).toBe('')
   })
 })
+
+import { isFollowUpQuestion } from './recordFacts.js'
+describe('isFollowUpQuestion', () => {
+  it('treats pronoun / short questions as follow-ups, new topics as not', () => {
+    expect(isFollowUpQuestion('แล้วส่งมอบเมื่อไหร่')).toBe(true)
+    expect(isFollowUpQuestion('เขาจองรุ่นไหน')).toBe(true)
+    expect(isFollowUpQuestion('ไฟแนนซ์ล่ะ')).toBe(true)
+    expect(isFollowUpQuestion('วันนี้ต้องโทรหาใครบ้าง')).toBe(false)
+    expect(isFollowUpQuestion('ยอดขายเดือนนี้เทียบเดือนก่อนเป็นยังไง')).toBe(false)
+  })
+})

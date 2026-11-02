@@ -1,4 +1,4 @@
-import { recordFacts } from '../../utils/recordFacts.js'
+import { recordFacts, isFollowUpQuestion } from '../../utils/recordFacts.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, softDelete, seedDemoData, getSalesData } from '../../core/db.js'
 import { confirmDialog } from '../../utils/modal.js'
@@ -298,7 +298,13 @@ export default async function AiAssistantChatPage(container) {
         try { cat = catalogContext(recent, getVehicles()) } catch {}
         // ถามถึงลูกค้า/ใบจองรายคน (ชื่อ เลขใบจอง เบอร์) → แนบสถานะจริงของคนนั้น (ไม่ส่งเบอร์/เลขบัตรให้ AI)
         let rec = {}
-        try { rec = recordFacts(recent, { customers: chatCustomers, bookings: chatBookings, followups: chatFollowups }, todayBangkok()) } catch {}
+        // (v1.0.928) ใช้คำถามก่อนหน้าช่วยหาคน เฉพาะตอนถามต่อเรื่องเดิม ("แล้วส่งมอบเมื่อไหร่" "เขาจองรุ่นไหน")
+        // เดิมรวมคำถามเก่าเสมอ → ถามเรื่องใหม่ เช่น "วันนี้ต้องโทรหาใครบ้าง" ก็ยังแนบข้อมูลลูกค้าคนเก่าไปปน
+        try {
+          const facts = { customers: chatCustomers, bookings: chatBookings, followups: chatFollowups }
+          rec = recordFacts(text, facts, todayBangkok())
+          if (!Object.keys(rec).length && isFollowUpQuestion(text)) rec = recordFacts(recent, facts, todayBangkok())
+        } catch {}
         const raw = await askLami(text, history, { ...businessContext, ...rec, ...(cat ? { 'ข้อมูลรถ': cat } : {}), 'รูปแบบท้ายคำตอบ': NEXT_Q_HINT })
         const { text: answer, next } = splitFollowups(raw)
         try { await createDoc('chat_ai_assistant', { role:'ai', text: answer, next, time:now(), uid }) } catch (e) {}
