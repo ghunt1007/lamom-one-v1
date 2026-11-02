@@ -42,6 +42,7 @@ export default function AboutPage(container) {
   // ทั้งที่คนส่วนใหญ่แค่อยากรู้เวอร์ชันปัจจุบัน แสดงแค่ 8 รายการล่าสุดก่อนโดย default พร้อมปุ่มดูทั้งหมด
   let changelog = null
   let showAllChangelog = false
+  let archiveLoaded = false
 
   function renderChangelogSection() {
     if (!changelog) {
@@ -63,7 +64,7 @@ export default function AboutPage(container) {
           </div>
         `).join('')}
       </div>
-      ${!showAllChangelog && changelog.length > RECENT_CHANGELOG_COUNT ? `<button class="btn btn-secondary btn-sm" id="ab-showall" style="margin-top:12px;width:100%">🔽 แสดงประวัติทั้งหมด (${changelog.length} เวอร์ชัน)</button>` : ''}
+      ${!showAllChangelog && changelog.length > RECENT_CHANGELOG_COUNT ? `<button class="btn btn-secondary btn-sm" id="ab-showall" style="margin-top:12px;width:100%">🔽 แสดงประวัติทั้งหมด</button>` : ''}
     `
   }
 
@@ -159,7 +160,11 @@ export default function AboutPage(container) {
       </div>
     </div>
   `
-    document.getElementById('ab-showall')?.addEventListener('click', () => { showAllChangelog = true; render() })
+    document.getElementById('ab-showall')?.addEventListener('click', () => {
+      showAllChangelog = true; render()
+      // ประวัติเก่าอยู่อีกไฟล์ (changelogArchive.js) โหลดเมื่อกดดูทั้งหมดเท่านั้น
+      if (!archiveLoaded) import('./changelogArchive.js').then(mod => { archiveLoaded = true; changelog = [...(changelog || []), ...mod.CHANGELOG_ARCHIVE]; render() }).catch(() => {})
+    })
   }
 
   render()
