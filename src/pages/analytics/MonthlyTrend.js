@@ -2,7 +2,7 @@
  * Monthly Trend — แนวโน้มรายเดือน
  * Route: /analytics/monthly
  */
-import { formatCurrency } from '../../utils/format.js'
+import { formatCurrency, todayBangkok } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData } from '../../core/db.js'
 import { exportToExcel } from '../../utils/importExport.js'
@@ -10,20 +10,6 @@ import { saleCost } from '../../utils/saleCost.js'
 
 const MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
 
-const YEARLY_DATA = {
-  2024: {
-    sales: [18, 22, 19, 25, 28, 24, 30, 27, 32, 29, 35, 40],
-    revenue: [23382000, 28578000, 24681000, 32475000, 36372000, 31176000, 38970000, 35073000, 41556000, 37659000, 45465000, 51960000],
-    service: [420000, 510000, 480000, 560000, 590000, 540000, 620000, 600000, 680000, 650000, 720000, 810000],
-    gross: [2806000, 3429000, 2962000, 3897000, 4365000, 3741000, 4677000, 4209000, 4987000, 4519000, 5456000, 6235000],
-  },
-  2023: {
-    sales: [10, 14, 12, 16, 18, 15, 20, 18, 22, 19, 24, 28],
-    revenue: [12990000, 18186000, 15588000, 20784000, 23382000, 19485000, 25980000, 23382000, 28578000, 24681000, 31176000, 36372000],
-    service: [280000, 340000, 320000, 380000, 410000, 370000, 440000, 420000, 490000, 460000, 530000, 610000],
-    gross: [1558000, 2182000, 1871000, 2494000, 2806000, 2338000, 3118000, 2806000, 3429000, 2962000, 3741000, 4365000],
-  }
-}
 
 const METRICS = [
   { key: 'sales', label: 'ยอดขาย (คัน)', unit: '', color: 'primary', format: v => v + ' คัน' },
@@ -34,8 +20,10 @@ const METRICS = [
 
 export default async function MonthlyTrendPage(container) {
   const myGen = container.__routerGen
-  let liveData = JSON.parse(JSON.stringify(YEARLY_DATA))
-  let year = Math.max(...Object.keys(liveData).map(Number))
+  // ทุกปีคำนวณจากใบจองจริง (เดิมมีปี 2023/2024 เป็นตัวเลขตัวอย่าง และยอดจริงของปีอื่นนอกจากปีนี้ถูกทิ้ง)
+  const blankYear = () => ({ sales: Array(12).fill(0), revenue: Array(12).fill(0), service: Array(12).fill(0), gross: Array(12).fill(0) })
+  let liveData = {}
+  let year = Number(todayBangkok().slice(0, 4))
   let metric = 'sales'
   let compareYear = true
   let dataSource = 'demo'
@@ -45,14 +33,15 @@ export default async function MonthlyTrendPage(container) {
     const sales = await getSalesData().catch(() => [])
     if (container.__routerGen !== myGen) return
     if (sales.length >= 2) {
-      const currYear = new Date().getFullYear()
-      if (!liveData[currYear]) liveData[currYear] = { sales: Array(12).fill(0), revenue: Array(12).fill(0), service: Array(12).fill(0), gross: Array(12).fill(0) }
-      year = currYear
-      liveYear = currYear
+      liveYear = year
+      liveData[year] = blankYear()
       sales.forEach(s => {
-        const d = new Date(s.bookingDate || s.createdAt?.toDate?.() || new Date())
-        const y = d.getFullYear(), mo = d.getMonth()
-        if (liveData[y]) {
+        const ds = String(s.bookingDate || s.date || '').slice(0, 10)
+        if (!/^\d{4}-\d{2}/.test(ds)) return
+        const y = Number(ds.slice(0, 4)), mo = Number(ds.slice(5, 7)) - 1
+        if (mo < 0 || mo > 11) return
+        if (!liveData[y]) liveData[y] = blankYear()
+        {
           liveData[y].sales[mo] = (liveData[y].sales[mo] || 0) + 1
           const rev = s.salePrice || 0
           liveData[y].revenue[mo] = (liveData[y].revenue[mo] || 0) + rev
@@ -76,24 +65,25 @@ export default async function MonthlyTrendPage(container) {
     const total = values.reduce((a, v) => a + v, 0)
     const prevTotal = prevValues.reduce((a, v) => a + v, 0)
     const growth = prevTotal > 0 ? Math.round((total - prevTotal) / prevTotal * 100) : 0
-    // (v1.0.xxx) ปีก่อนหน้าที่ใช้เทียบ YoY อาจเป็น YEARLY_DATA ตัวอย่างตายตัว (ไม่ใช่ปีที่คำนวณจากยอดขายจริง
-    // — มีแค่ liveYear เดียวที่เป็นข้อมูลจริง) ต้องเตือนเมื่อฐานเทียบยังเป็นข้อมูลตัวอย่างอยู่
-    const prevIsFake = compareYear && !!prevData && (year - 1) !== liveYear
 
     // Best and worst months
     const maxIdx = values.indexOf(Math.max(...values))
-    const minIdx = values.indexOf(Math.min(...values))
+    // ต่ำสุด: นับเฉพาะเดือนที่ผ่านมาแล้ว (ปีนี้ไม่นับเดือนที่ยังไม่ถึง/เดือนที่ยังไม่จบ)
+    const nowY = Number(todayBangkok().slice(0, 4)), nowM = Number(todayBangkok().slice(5, 7)) - 1
+    const doneN = year < nowY ? 12 : year === nowY ? nowM : 0
+    const past = values.slice(0, doneN)
+    const minIdx = past.length ? past.indexOf(Math.min(...past)) : -1
 
     container.innerHTML = `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
-            <div class="page-title">📈 Monthly Trend</div>
+            <div class="page-title">📈 แนวโน้มรายเดือน</div>
             <div class="page-subtitle">แนวโน้มรายเดือน — เปรียบเทียบปีต่อปี${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-secondary btn-xs" id="prev-yr">◀ ${year-1}</button>
-            <button class="btn btn-secondary btn-xs" id="next-yr">${year+1} ▶</button>
+            <button class="btn btn-secondary btn-xs" id="prev-yr">◀ ${year-1+543}</button>
+            <button class="btn btn-secondary btn-xs" id="next-yr">${year+1+543} ▶</button>
             <button class="btn btn-primary" id="export-btn">📤 ส่งออก</button>
           </div>
         </div>
@@ -107,15 +97,15 @@ export default async function MonthlyTrendPage(container) {
         </div>
 
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
-          ${kpi('📊 รวม ' + year, m?.format(total) || total, m?.color || 'primary')}
+          ${kpi('📊 รวมปี ' + (year + 543), m?.format(total) || total, m?.color || 'primary')}
           ${kpi('📅 สูงสุด', MONTHS[maxIdx], 'success')}
-          ${kpi('📅 ต่ำสุด', MONTHS[minIdx], 'warning')}
-          ${kpi('📈 โตเทียบปีก่อน', (growth > 0 ? '+' : '') + growth + '%', growth >= 0 ? 'success' : 'danger', prevIsFake ? '(ปีเทียบเป็นข้อมูลตัวอย่าง)' : '')}
+          ${kpi('📅 ต่ำสุด', MONTHS[minIdx] || '—', 'warning')}
+          ${kpi('📈 โตเทียบปีก่อน', (growth > 0 ? '+' : '') + growth + '%', growth >= 0 ? 'success' : 'danger', prevTotal ? '' : '(ยังไม่มียอดปีก่อน)')}
         </div>
 
         <!-- Bar chart -->
         <div class="card" style="padding:16px;margin-bottom:14px">
-          <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:14px">📊 ${m?.label} — ${year}${compareYear && prevData ? ' vs ' + (year-1) : ''}</div>
+          <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:14px">📊 ${m?.label} — ${year + 543}${compareYear && prevData ? ' vs ' + (year - 1 + 543) : ''}</div>
           <div style="display:flex;gap:6px;align-items:flex-end;height:120px">
             ${MONTHS.map((mo, i) => {
               const v = values[i]
@@ -124,14 +114,14 @@ export default async function MonthlyTrendPage(container) {
               const prevH = pv ? Math.round(pv / maxV * 100) : 0
               return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
                 <div style="display:flex;gap:2px;align-items:flex-end;width:100%;height:110px">
-                  <div title="${year}: ${m?.format(v)}" style="flex:1;background:var(--${m?.color});border-radius:3px 3px 0 0;height:${barH/100*110}px;min-height:3px"></div>
-                  ${compareYear && pv !== undefined ? `<div title="${year-1}: ${m?.format(pv)}" style="flex:1;background:var(--${m?.color})44;border-radius:3px 3px 0 0;height:${prevH/100*110}px;min-height:2px;border:1px solid var(--${m?.color})"></div>` : ''}
+                  <div title="${year + 543}: ${m?.format(v)}" style="flex:1;background:var(--${m?.color});border-radius:3px 3px 0 0;height:${barH/100*110}px;min-height:3px"></div>
+                  ${compareYear && pv !== undefined ? `<div title="${year - 1 + 543}: ${m?.format(pv)}" style="flex:1;background:var(--${m?.color})44;border-radius:3px 3px 0 0;height:${prevH/100*110}px;min-height:2px;border:1px solid var(--${m?.color})"></div>` : ''}
                 </div>
                 <div style="font-size:0.58rem;color:var(--text-muted)">${mo}</div>
               </div>`
             }).join('')}
           </div>
-          ${compareYear && prevData ? `<div style="display:flex;gap:12px;margin-top:8px;font-size:0.72rem"><span>■ <span style="color:var(--${m?.color})">${year}</span></span><span>□ <span style="color:var(--text-muted)">${year-1}</span></span></div>` : ''}
+          ${compareYear && prevData ? `<div style="display:flex;gap:12px;margin-top:8px;font-size:0.72rem"><span>■ <span style="color:var(--${m?.color})">${year + 543}</span></span><span>□ <span style="color:var(--text-muted)">${year - 1 + 543}</span></span></div>` : ''}
         </div>
 
         <!-- Monthly data table -->
@@ -140,8 +130,8 @@ export default async function MonthlyTrendPage(container) {
             <thead>
               <tr style="border-bottom:1px solid var(--border);font-size:0.73rem;color:var(--text-muted)">
                 <th style="padding:8px 14px;text-align:left">เดือน</th>
-                <th style="padding:8px 10px;text-align:right">${year}</th>
-                ${compareYear && prevData ? `<th style="padding:8px 10px;text-align:right">${year-1}</th><th style="padding:8px 10px;text-align:right">±%</th>` : ''}
+                <th style="padding:8px 10px;text-align:right">${year + 543}</th>
+                ${compareYear && prevData ? `<th style="padding:8px 10px;text-align:right">${year - 1 + 543}</th><th style="padding:8px 10px;text-align:right">±%</th>` : ''}
               </tr>
             </thead>
             <tbody>
@@ -188,7 +178,7 @@ export default async function MonthlyTrendPage(container) {
         `Monthly_Trend_${year}.xlsx`,
         `Trend ${year}`
       )
-      showToast(`📥 Export Monthly Trend ${year} แล้ว`, 'success')
+      showToast(`📥 ส่งออกแนวโน้มรายเดือน ปี ${year + 543} แล้ว`, 'success')
     })
   }
 
