@@ -1,4 +1,4 @@
-import { listDocs, listAllDocs, watchDocs, createDoc, updateDocData, softDelete, seedDemoData, setDocData } from '../../core/db.js'
+import { listDocs, listAllDocs, watchDocs, createDoc, updateDocData, softDelete, seedDemoData, setDocData, readDoc } from '../../core/db.js'
 import { customerStatusMessage } from '../../utils/bookingNotify.js'
 import { openReplan, bookingTotal } from '../../utils/replanModal.js'
 import { reasonChipsHtml, bindReasonChips } from '../../utils/lostReason.js'
@@ -363,6 +363,18 @@ export default async function BookingsPage(container) {
         if (target) { window.history.replaceState({}, '', window.location.pathname); openDetail(target) }
         // ?new=1 (คำสั่ง "จองใหม่" จากช่องค้นหารวม) = เปิดฟอร์มจองทีละขั้นทันที
         else if (new URLSearchParams(window.location.search).get('new') === '1') { window.history.replaceState({}, '', window.location.pathname); openWizard() }
+        // ?fromQuote=<id> (ปุ่ม "📝 จองเลย" ในใบเสนอราคา) = เปิดฟอร์มจองพร้อมข้อมูลจากใบเสนอราคา
+        else if (new URLSearchParams(window.location.search).get('fromQuote')) {
+          const qid = new URLSearchParams(window.location.search).get('fromQuote')
+          window.history.replaceState({}, '', window.location.pathname)
+          Promise.all([readDoc('quotations', qid), import('../../utils/quoteToBooking.js'), import('../../data/vehicleDatabase.js')])
+            .then(([q, m, vdb]) => {
+              if (!q) { showToast('ไม่พบใบเสนอราคา', 'error'); return }
+              const dup = q.bookingId && bookings.find(b => b.id === q.bookingId)
+              if (dup) { showToast('ใบเสนอราคานี้จองไปแล้ว — เปิดใบจองเดิมให้', 'info'); openDetail(dup); return }
+              openWizard(m.quoteToWizard({ ...q, id: qid }, vdb.getVehicles()))
+            }).catch(() => showToast('เปิดใบเสนอราคาไม่สำเร็จ', 'error'))
+        }
       }
       else safeRender()
     })
@@ -940,9 +952,11 @@ export default async function BookingsPage(container) {
   }
 
   // ── Booking Wizard (4 ขั้นตอน) ────────────────────────────────────────────
-  function openWizard() {
+  // pre = ค่าที่เติมไว้ให้ (เช่นจากใบเสนอราคา utils/quoteToBooking.js) — sale/quotationId/colorOut บันทึกตามไปด้วย
+  function openWizard(pre = null) {
     let step = 1
-    const w = { custName: '', phone: '', salesName: (getSalesStaff().includes(myDisplayName) ? myDisplayName : getSalesStaff()[0]) || '', brand: '', model: '', variant: '', price: 0, discount: 0, accessories: 0, bookingDeposit: 0, down: 0, installments: 60, interestRate: 2.99, customerId: null }
+    const w = { custName: '', phone: '', salesName: (getSalesStaff().includes(myDisplayName) ? myDisplayName : getSalesStaff()[0]) || '', brand: '', model: '', variant: '', price: 0, discount: 0, accessories: 0, bookingDeposit: 0, down: 0, installments: 60, interestRate: 2.99, customerId: null, ...(pre || {}) }
+    if (pre && pre.salesName && !getSalesStaff().includes(pre.salesName)) w.salesName = (getSalesStaff().includes(myDisplayName) ? myDisplayName : getSalesStaff()[0]) || pre.salesName
     const bkNo = newBookingNo()
     const stepLabels = ['ข้อมูลลูกค้า', 'ราคา & รุ่น', 'ไฟแนนซ์', 'ยืนยัน']
 
@@ -1060,6 +1074,9 @@ export default async function BookingsPage(container) {
           createdAt: new Date().toISOString(),
           // Phase 2 หลายบริษัท — ติด companyId ของบริษัทหลักที่พนักงานคนสร้างสังกัดอยู่ (ถ้ามี)
           companyId: myEffectiveCompanyId(),
+          ...(w.colorOut ? { colorOut: w.colorOut } : {}),
+          ...(w.quotationId ? { quotationId: w.quotationId } : {}),
+          ...(w.sale ? { sale: w.sale } : {}),
         }
         const btn = m.el.querySelector('#wz-save')
         btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
@@ -1070,6 +1087,7 @@ export default async function BookingsPage(container) {
             await updateDocData('customers', data.customerId, { stage: 'booking', stageChangedAt: new Date().toISOString(), bookingId: id }).catch(() => {})
             closeAutoLeadFollowups(data.customerId, 'ปิดอัตโนมัติ: ลูกค้าจองแล้ว')
           }
+          if (data.quotationId) await updateDocData('quotations', data.quotationId, { status: 'accepted', bookingId: id }).catch(() => {})
           m.close()
           showToast(`✅ สร้างใบจอง ${bkNo} สำเร็จ!`, 'success')
           render()
