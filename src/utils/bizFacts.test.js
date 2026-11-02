@@ -131,3 +131,16 @@ describe('businessFacts upcoming deliveries', () => {
     expect(f['นัดส่งมอบ 7 วันข้างหน้า (รายคัน)']).toBe('วันนี้ · ปิติ · S07 · รอรถ\n2026-10-28 · มานี · AION V · รอส่งมอบ · เซลส์ เอ')
   })
 })
+
+describe('businessFacts booking sources', () => {
+  it('counts recent non-cancelled bookings by source', () => {
+    const f = businessFacts({ customers: [], bookings: [
+      { bookingDate: '2026-10-02', source: 'Facebook', status: 'รอรถ' },
+      { bookingDate: '2026-10-03', source: 'facebook', status: 'รอรถ' },
+      { bookingDate: '2026-10-04', source: 'บูธ', status: 'รอรถ' },
+      { bookingDate: '2026-10-05', source: 'บูธ', status: 'ถอนจอง' },
+      { bookingDate: '2026-01-05', source: 'LINE', status: 'รอรถ' },
+    ] }, '2026-10-26')
+    expect(f['ใบจอง 90 วันล่าสุดแยกช่องทางที่ลูกค้ามา']).toBe('Facebook 2 · บูธ 1')
+  })
+})
