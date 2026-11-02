@@ -1,3 +1,4 @@
+import { carOf } from '../../utils/carLabel.js'
 /**
  * Upsell / Cross-sell AI Advisor — แนะนำ Upsell สินค้าและบริการต่อลูกค้า
  * Route: /ai/upsell
@@ -62,7 +63,7 @@ export default async function UpsellAdvisorPage(container) {
     const twoYearsAgo = new Date(Date.UTC(tY, tM - 1, tD)); twoYearsAgo.setUTCFullYear(twoYearsAgo.getUTCFullYear() - 2)
 
     customers = Object.values(byCust).map(s => {
-      const cust = { name: s.custName, phone: s.phone || '', model: `${s.brand||''} ${s.model||''}`.trim(), buyDate: s.date }
+      const cust = { name: s.custName, phone: s.phone || '', model: carOf(s), buyDate: s.date }
       const myPolicies = matchByCustomer(policies, cust).sort((a,b) => (b.endDate||'').localeCompare(a.endDate||''))
       const latestPolicy = myPolicies[0]
       const myJobs = matchByCustomer(jobCards, cust).sort((a,b) => (toDate(b.createdAt)?.getTime() || 0) - (toDate(a.createdAt)?.getTime() || 0))

@@ -1,3 +1,4 @@
+import { carOf } from '../../utils/carLabel.js'
 /**
  * QR Code per Vehicle — สแกน QR ดูประวัติ สเปค ราคา ต่อคัน
  * Route: /dms/qr-vehicle
@@ -27,7 +28,7 @@ export default async function QrVehiclePage(container) {
       vehicles = docs.filter(d => !d.deleted).map((d, i) => ({
         id: d.id,
         vin: d.vin || `VIN-${i+1}`,
-        model: `${d.brand || ''} ${d.model || ''}`.trim(),
+        model: carOf(d),
         color: d.color || '',
         year: d.year || new Date().getFullYear(),
         plate: d.plate || '',

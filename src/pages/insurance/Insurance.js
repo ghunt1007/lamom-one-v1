@@ -1,3 +1,4 @@
+import { carOf } from '../../utils/carLabel.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { showToast } from '../../core/store.js'
 import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
@@ -336,7 +337,7 @@ export default async function InsurancePage(container) {
   document.getElementById('add-ins-btn').addEventListener('click', () => openForm())
   document.getElementById('ins-search').addEventListener('input', e => { search = e.target.value.toLowerCase(); applyFilter() })
   document.getElementById('ins-export').addEventListener('click', () => {
-    exportToExcel(policies.map(p => ({ เลขกรมธรรม์:p.policyNo, ลูกค้า:p.custName, ทะเบียน:p.plate, รถ:`${p.brand} ${p.model}`, บริษัทประกัน:p.insurer, ประเภท:p.type, เบี้ย:p.premium, ค่าคอม:p.commission, เริ่ม:p.startDate, สิ้นสุด:p.endDate, สถานะ:INS_STATUS[p.status]?.label||p.status })), `insurance-${todayBangkok()}.xlsx`, 'Insurance')
+    exportToExcel(policies.map(p => ({ เลขกรมธรรม์:p.policyNo, ลูกค้า:p.custName, ทะเบียน:p.plate, รถ:carOf(p), บริษัทประกัน:p.insurer, ประเภท:p.type, เบี้ย:p.premium, ค่าคอม:p.commission, เริ่ม:p.startDate, สิ้นสุด:p.endDate, สถานะ:INS_STATUS[p.status]?.label||p.status })), `insurance-${todayBangkok()}.xlsx`, 'Insurance')
     showToast('Export แล้ว', 'success')
   })
   document.querySelectorAll('.if-btn').forEach(btn => btn.addEventListener('click', () => {

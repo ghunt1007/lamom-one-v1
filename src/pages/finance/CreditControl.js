@@ -1,3 +1,4 @@
+import { carOf } from '../../utils/carLabel.js'
 /**
  * Credit Control — ควบคุมเครดิตลูกหนี้
  * Route: /finance/credit
@@ -54,7 +55,7 @@ export default async function CreditControlPage(container) {
             type: 'retail', invoices: 1, oldest: dueDate,
             creditLimit: b.price || 0, used: b.price || 0,
             status: daysPast > 30 ? 'overdue_30' : daysPast > 0 ? 'overdue_7' : 'current',
-            notes: `${b.brand || ''} ${b.model || ''}`.trim(), _source: 'booking',
+            notes: carOf(b), _source: 'booking',
           }
         })
       } catch (e) {}

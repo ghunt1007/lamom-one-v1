@@ -1,3 +1,4 @@
+import { carOf } from '../../utils/carLabel.js'
 /**
  * Vehicle Receiving — รับรถเข้าสต็อก (จากคำสั่งซื้อ)
  * Route: /dms/receiving
@@ -88,7 +89,7 @@ export default async function VehicleReceivingPage(container) {
     container.querySelectorAll('.sf-btn').forEach(b => b.addEventListener('click', () => { statusFilter = b.dataset.s; renderPage() }))
     document.getElementById('add-btn')?.addEventListener('click', openAddForm)
     document.getElementById('export-btn')?.addEventListener('click', () => {
-      exportToExcel(vehicles.map(v => ({ ID: v.id, รุ่น: `${v.brand} ${v.model}`, สี: v.color, VIN: v.vin, ต้นทุน: v.cost, สถานะ: RECV_STATUS[v.status]?.label, ETA: v.eta, รับเข้า: v.stockedDate||'-' })), 'vehicle_receiving')
+      exportToExcel(vehicles.map(v => ({ ID: v.id, รุ่น: carOf(v), สี: v.color, VIN: v.vin, ต้นทุน: v.cost, สถานะ: RECV_STATUS[v.status]?.label, ETA: v.eta, รับเข้า: v.stockedDate||'-' })), 'vehicle_receiving')
       showToast('📥 Export แล้ว!', 'success')
     })
     container.querySelectorAll('.open-rv-btn').forEach(b => b.addEventListener('click', () => {
@@ -102,7 +103,7 @@ export default async function VehicleReceivingPage(container) {
       if (!v) return
       try {
         await updateDocData('vehicle_receiving', v.id, { status: 'arrived', arrivedDate: today })
-        showToast(`✅ ${v.brand} ${v.model} ถึงโชว์รูมแล้ว!`, 'success')
+        showToast(`✅ ${carOf(v)} ถึงโชว์รูมแล้ว!`, 'success')
         await loadData()
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }))
@@ -186,7 +187,7 @@ export default async function VehicleReceivingPage(container) {
                 companyId: v.companyId || myEffectiveCompanyId(),
               })
             } catch (e) {}
-            showToast(`✅ PDI ผ่าน! รับ ${v.brand} ${v.model} เข้าสต็อกจริงแล้ว`, 'success')
+            showToast(`✅ PDI ผ่าน! รับ ${carOf(v)} เข้าสต็อกจริงแล้ว`, 'success')
           } else {
             await updateDocData('vehicle_receiving', v.id, { checklist, status: 'inspecting', pdiStatus: 'in_progress' })
             showToast('📋 บันทึก PDI บางส่วน', 'warning')

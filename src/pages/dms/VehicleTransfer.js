@@ -1,3 +1,4 @@
+import { carOf } from '../../utils/carLabel.js'
 /**
  * Vehicle Transfer — โอนรถระหว่างสาขา
  * Route: /dms/transfer
@@ -209,7 +210,7 @@ export default async function VehicleTransferPage(container) {
           await createDoc('vehicle_transfers', {
             vehicleId: vehicle.id,
             vehiclePlate: document.getElementById('tf-plate')?.value?.trim() || '',
-            vehicleModel: `${vehicle.brand||''} ${vehicle.model||''} ${vehicle.variant||''}`.replace(/\s+/g,' ').trim(),
+            vehicleModel: carOf(vehicle, true),
             color: vehicle.color || '', vin: vehicle.vin || '',
             fromBranch: from, toBranch: to, requestedBy: myName(),
             approvedBy: null, status: 'pending', requestDate: addDays(0),
