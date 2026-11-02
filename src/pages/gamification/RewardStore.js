@@ -6,6 +6,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { timeAgo } from '../../utils/format.js'
 import { listDocs, createDoc, softDelete, incrementField, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 const REWARD_CATS = {
   cash:    { label: 'เงิน/บัตรกำนัล', icon: '💰' },
@@ -135,7 +136,7 @@ export default async function RewardStorePage(container) {
         body: `<div style="display:grid;gap:10px">
           <div style="font-size:0.85rem">ใช้ <strong style="color:var(--warning)">⭐ ${r.points.toLocaleString()}</strong> แต้ม</div>
           <div class="input-group"><label class="input-label">พนักงานที่แลก</label>
-            <select class="input" id="rd-staff">${staffPoints.map(s=>`<option value="${s.id}" ${s.points<r.points?'disabled':''}>${esc(s.name)} (⭐ ${s.points.toLocaleString()})${s.points<r.points?' — แต้มไม่พอ':''}</option>`).join('')}</select>
+            <select class="input" id="rd-staff">${staffPoints.map(s=>`<option value="${__escA(s.id)}" ${s.points<r.points?'disabled':''}>${esc(s.name)} (⭐ ${s.points.toLocaleString()})${s.points<r.points?' — แต้มไม่พอ':''}</option>`).join('')}</select>
           </div>
         </div>`,
         confirmText: '🎁 ยืนยันแลก',
@@ -175,7 +176,7 @@ export default async function RewardStorePage(container) {
         <div class="input-group"><label class="input-label">ชื่อของรางวัล *</label><input class="input" id="rf-name"><span class="input-error" id="rf-name-e"></span></div>
         <div class="grid-2">
           <div class="input-group"><label class="input-label">หมวดหมู่</label>
-            <select class="input" id="rf-cat">${Object.entries(REWARD_CATS).map(([k,v]) => `<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+            <select class="input" id="rf-cat">${Object.entries(REWARD_CATS).map(([k,v]) => `<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">ใช้แต้ม *</label><input class="input" type="number" id="rf-points"><span class="input-error" id="rf-points-e"></span></div>
         </div>

@@ -4,6 +4,7 @@ import { showToast, getState, setState } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function myName() {
   const me = getState('user') || {}
@@ -234,10 +235,10 @@ export default async function ExpenseClaimsPage(container) {
         <div class="grid-2">
           <div class="input-group"><label class="input-label">หมวดหมู่</label>
             <select class="input" id="ex-cat">
-              ${Object.entries(CLAIM_CATS).map(([k,v]) => `<option value="${k}">${v.label}</option>`).join('')}
+              ${Object.entries(CLAIM_CATS).map(([k,v]) => `<option value="${__escA(k)}">${v.label}</option>`).join('')}
             </select>
           </div>
-          <div class="input-group"><label class="input-label">วันที่</label><input class="input" type="date" id="ex-date" value="${today}"></div>
+          <div class="input-group"><label class="input-label">วันที่</label><input class="input" type="date" id="ex-date" value="${__escA(today)}"></div>
         </div>
         <div class="input-group"><label class="input-label">รายละเอียด *</label><input class="input" id="ex-desc" placeholder="ระบุรายละเอียด"></div>
         <div class="grid-2">

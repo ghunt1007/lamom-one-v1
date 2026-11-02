@@ -14,6 +14,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, listAllDocs, createDoc, softDelete, hardDeleteDoc } from '../../core/db.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') }
 function toDate(v) { return v?.toDate ? v.toDate() : new Date(v) }
@@ -96,7 +97,7 @@ export default async function DataRetentionPage(container) {
         size: 'sm',
         body: `<div style="display:flex;flex-direction:column;gap:10px">
           <div class="input-group"><label class="input-label">ประเภทข้อมูล *</label>
-            <select class="input" id="rp-col">${Object.entries(RETAINABLE_COLLECTIONS).map(([k,v]) => `<option value="${k}">${v}</option>`).join('')}</select>
+            <select class="input" id="rp-col">${Object.entries(RETAINABLE_COLLECTIONS).map(([k,v]) => `<option value="${__escA(k)}">${v}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">เก็บไว้ (วัน) *</label><input type="number" class="input" id="rp-days" min="1" value="90"></div>
         </div>`,

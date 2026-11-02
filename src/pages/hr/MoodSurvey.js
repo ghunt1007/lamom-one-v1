@@ -6,6 +6,7 @@ import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 // ป้องกัน XSS — ข้อความเพิ่มเติม (note) เป็นข้อมูลที่ผู้ใช้พิมพ์เอง ต้อง escape ก่อนแสดงผลเสมอ
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
@@ -98,10 +99,10 @@ export default async function MoodSurveyPage(container) {
 
         <!-- Filters -->
         <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-          <input class="input" id="date-pick" type="date" value="${filterDate}" style="width:160px">
+          <input class="input" id="date-pick" type="date" value="${__escA(filterDate)}" style="width:160px">
           <select class="input" id="dept-sel" style="min-width:160px">
             <option value="all">ทุกแผนก</option>
-            ${DEPT.map(d=>`<option value="${d}" ${filterDept===d?'selected':''}>${d}</option>`).join('')}
+            ${DEPT.map(d=>`<option value="${__escA(d)}" ${filterDept===d?'selected':''}>${d}</option>`).join('')}
           </select>
           ${low.length>0?`<span style="background:var(--danger);color:#fff;padding:4px 12px;border-radius:10px;font-size:0.74rem;display:flex;align-items:center">⚠️ ${low.length} คนรู้สึกแย่ — ควรพูดคุย</span>`:''}
         </div>

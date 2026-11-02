@@ -8,6 +8,7 @@ import { showToast, getState, setState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete } from '../../core/db.js'
 import { uploadFile, deleteFile } from '../../utils/storage.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -184,7 +185,7 @@ export default async function StaffDocumentsPage(container) {
         </div>
         <div class="input-group"><label class="input-label">ชื่อเอกสาร *</label><input class="input" id="doc-name"></div>
         <div class="input-group"><label class="input-label">ประเภท</label>
-          <select class="input" id="doc-type">${Object.entries(DOC_TYPES).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+          <select class="input" id="doc-type">${Object.entries(DOC_TYPES).map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
         </div>
         <div class="input-group"><label class="input-label">วันหมดอายุ (ถ้ามี)</label><input class="input" type="date" id="doc-expiry"></div>
         <div class="input-group"><label class="input-label">ไฟล์เอกสาร</label>

@@ -6,6 +6,7 @@ import { formatCurrency } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, updateDocData, getSalesData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 const DEMAND_COLORS = { high: 'success', medium: 'warning', low: 'secondary' }
 const DEMAND_LABELS = { high: 'สูง', medium: 'ปานกลาง', low: 'ต่ำ' }
@@ -149,7 +150,7 @@ export default async function PricingAdvisorPage(container) {
       body: `<div style="display:grid;gap:12px">
         ${row('ราคาปกติ', formatCurrency(m.basePrice))}
         ${row('AI แนะนำ', formatCurrency(aiP))}
-        <div class="input-group"><label class="input-label">ราคาคู่แข่ง (บาท) — กรอกเองจากที่สำรวจ</label><input class="input" id="adj-comp" type="number" value="${m.competitorPrice || ''}"></div>
+        <div class="input-group"><label class="input-label">ราคาคู่แข่ง (บาท) — กรอกเองจากที่สำรวจ</label><input class="input" id="adj-comp" type="number" value="${__escA(m.competitorPrice || '')}"></div>
         <div class="input-group"><label class="input-label">ราคาที่ต้องการตั้ง (บาท, 0 = ใช้ราคาปกติ)</label><input class="input" id="adj-price" type="number" value="${aiP === m.basePrice ? 0 : aiP}"></div>
       </div>`,
       async onConfirm() {

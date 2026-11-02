@@ -4,6 +4,7 @@ import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getInsurers, getInsuranceTypes } from '../../data/masterData.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -185,12 +186,12 @@ export default async function InsurancePage(container) {
             <div class="input-group"><label class="input-label">วันสิ้นสุด</label><input class="input" type="date" id="rn-end" value="${newEnd.toISOString().slice(0,10)}"></div>
           </div>
           <div class="grid-2">
-            <div class="input-group"><label class="input-label">เบี้ยประกัน (บาท)</label><input class="input" type="number" id="rn-prem" value="${p.premium}"></div>
+            <div class="input-group"><label class="input-label">เบี้ยประกัน (บาท)</label><input class="input" type="number" id="rn-prem" value="${__escA(p.premium)}"></div>
             <div class="input-group"><label class="input-label">ค่าคอม (บาท)</label><input class="input" type="number" id="rn-comm" value="${Math.round(p.premium * 0.2)}"></div>
           </div>
           <div class="input-group"><label class="input-label">บริษัทประกัน</label>
             <select class="input" id="rn-insurer">
-              ${INSURERS.map(i => `<option value="${i}" ${i===p.insurer?'selected':''}>${i}</option>`).join('')}
+              ${INSURERS.map(i => `<option value="${__escA(i)}" ${i===p.insurer?'selected':''}>${i}</option>`).join('')}
             </select>
           </div>
         </div>
@@ -243,22 +244,22 @@ export default async function InsurancePage(container) {
           <div class="grid-2">
             <div class="input-group"><label class="input-label">บริษัทประกัน</label>
               <select class="input" id="if-insurer">
-                ${INSURERS.map(i => `<option value="${i}" ${existing?.insurer===i?'selected':''}>${i}</option>`).join('')}
+                ${INSURERS.map(i => `<option value="${__escA(i)}" ${existing?.insurer===i?'selected':''}>${i}</option>`).join('')}
               </select>
             </div>
             <div class="input-group"><label class="input-label">ประเภท</label>
               <select class="input" id="if-type">
-                ${INS_TYPES.map(t => `<option value="${t}" ${existing?.type===t?'selected':''}>${t}</option>`).join('')}
+                ${INS_TYPES.map(t => `<option value="${__escA(t)}" ${existing?.type===t?'selected':''}>${t}</option>`).join('')}
               </select>
             </div>
           </div>
           <div class="grid-2">
-            <div class="input-group"><label class="input-label">วันเริ่มต้น</label><input class="input" type="date" id="if-start" value="${existing?.startDate||today}"></div>
+            <div class="input-group"><label class="input-label">วันเริ่มต้น</label><input class="input" type="date" id="if-start" value="${__escA(existing?.startDate||today)}"></div>
             <div class="input-group"><label class="input-label">วันสิ้นสุด</label><input class="input" type="date" id="if-end" value="${existing?.endDate||nextYear.toISOString().slice(0,10)}"></div>
           </div>
           <div class="grid-2">
-            <div class="input-group"><label class="input-label">เบี้ยประกัน (บาท)</label><input class="input" type="number" id="if-prem" value="${existing?.premium||''}"></div>
-            <div class="input-group"><label class="input-label">ค่าคอม (บาท)</label><input class="input" type="number" id="if-comm" value="${existing?.commission||''}"></div>
+            <div class="input-group"><label class="input-label">เบี้ยประกัน (บาท)</label><input class="input" type="number" id="if-prem" value="${__escA(existing?.premium||'')}"></div>
+            <div class="input-group"><label class="input-label">ค่าคอม (บาท)</label><input class="input" type="number" id="if-comm" value="${__escA(existing?.commission||'')}"></div>
           </div>
           <div class="input-group"><label class="input-label">เซลส์ผู้รับผิดชอบ</label><input class="input" id="if-sales" value="${escHtml(existing?.salesName||'')}"></div>
         </div>

@@ -6,6 +6,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData } from '../../core/db.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -107,10 +108,10 @@ export default async function SmsOtpPage(container) {
               <div style="font-size:0.76rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">⚙️ ตั้งค่า OTP</div>
               <div style="display:flex;flex-direction:column;gap:10px;font-size:0.8rem">
                 ${cfgRow('ความยาว OTP', `<select class="input" id="otp-len" style="width:80px"><option ${OTP_SETTINGS.otpLength===4?'selected':''}>4</option><option ${OTP_SETTINGS.otpLength===6?'selected':''}>6</option></select> หลัก`)}
-                ${cfgRow('หมดอายุใน', `<input class="input" id="otp-exp" type="number" value="${OTP_SETTINGS.expireMin}" style="width:60px"> นาที`)}
-                ${cfgRow('พยายามสูงสุด', `<input class="input" id="otp-max" type="number" value="${OTP_SETTINGS.maxAttempts}" style="width:60px"> ครั้ง`)}
-                ${cfgRow('Cooldown', `<input class="input" id="otp-cool" type="number" value="${OTP_SETTINGS.cooldownMin}" style="width:60px"> นาที`)}
-                ${cfgRow('ชื่อผู้ส่ง (Sender ID)', `<input class="input" id="otp-sender" value="${OTP_SETTINGS.senderName}" style="width:120px">`)}
+                ${cfgRow('หมดอายุใน', `<input class="input" id="otp-exp" type="number" value="${__escA(OTP_SETTINGS.expireMin)}" style="width:60px"> นาที`)}
+                ${cfgRow('พยายามสูงสุด', `<input class="input" id="otp-max" type="number" value="${__escA(OTP_SETTINGS.maxAttempts)}" style="width:60px"> ครั้ง`)}
+                ${cfgRow('Cooldown', `<input class="input" id="otp-cool" type="number" value="${__escA(OTP_SETTINGS.cooldownMin)}" style="width:60px"> นาที`)}
+                ${cfgRow('ชื่อผู้ส่ง (Sender ID)', `<input class="input" id="otp-sender" value="${__escA(OTP_SETTINGS.senderName)}" style="width:120px">`)}
               </div>
             </div>
 

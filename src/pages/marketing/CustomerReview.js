@@ -6,6 +6,7 @@ import { timeAgo } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 // ป้องกัน XSS — ข้อความรีวิว (text) อาจมาจาก Platform ภายนอก (Google/Facebook) ซึ่งควบคุมเนื้อหาไม่ได้ ต้อง escape ก่อนแสดงผลเสมอ
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
@@ -221,10 +222,10 @@ export default async function CustomerReviewPage(container) {
       body: `<div style="display:grid;gap:10px">
         <div class="input-group"><label class="input-label">ชื่อลูกค้า *</label><input class="input" id="nr-author"></div>
         <div class="input-group"><label class="input-label">Platform</label>
-          <select class="input" id="nr-platform">${Object.entries(PLATFORMS).map(([k,v]) => `<option value="${k}" ${k==='internal'?'selected':''}>${v.icon} ${v.label}</option>`).join('')}</select>
+          <select class="input" id="nr-platform">${Object.entries(PLATFORMS).map(([k,v]) => `<option value="${__escA(k)}" ${k==='internal'?'selected':''}>${v.icon} ${v.label}</option>`).join('')}</select>
         </div>
         <div class="input-group"><label class="input-label">คะแนน (ดาว)</label>
-          <select class="input" id="nr-rating">${[5,4,3,2,1].map(n => `<option value="${n}" ${n===5?'selected':''}>${stars(n)} (${n})</option>`).join('')}</select>
+          <select class="input" id="nr-rating">${[5,4,3,2,1].map(n => `<option value="${__escA(n)}" ${n===5?'selected':''}>${stars(n)} (${n})</option>`).join('')}</select>
         </div>
         <div class="input-group"><label class="input-label">ข้อความรีวิว *</label><textarea class="input" id="nr-text" rows="3"></textarea></div>
       </div>`,

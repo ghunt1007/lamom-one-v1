@@ -6,6 +6,7 @@ import { timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
@@ -169,7 +170,7 @@ export default async function RoadsideAssistPage(container) {
           <div class="input-group"><label class="input-label">ทะเบียน/ลูกค้า *</label><input class="input" id="ra-plate" autofocus placeholder="1กข-1234"></div>
           <div class="input-group"><label class="input-label">เบอร์ติดต่อ</label><input class="input" id="ra-phone"></div>
           <div class="input-group"><label class="input-label">ประเภทเหตุ</label>
-            <select class="input" id="ra-type">${Object.entries(CASE_TYPES).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+            <select class="input" id="ra-type">${Object.entries(CASE_TYPES).map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">จุดเกิดเหตุ *</label><input class="input" id="ra-location" placeholder="ถนน/กม./จุดสังเกต"></div>
         </div>`,

@@ -17,11 +17,12 @@ import { openBookingDocs, printBookingForm } from '../../utils/bookingDocsMenu.j
 import { scheduleAfterSales } from '../../utils/afterSales.js'
 import { closeAutoLeadFollowups } from '../../utils/leadFollowups.js'
 import { afterWithdraw } from '../../utils/bookingWithdraw.js'
-import { maybeMarkCustomerDelivered, syncStockForBookings, stockStatusForBooking } from '../../utils/bookingSync.js'
+import { maybeMarkCustomerDelivered, syncStockForBookings, stockStatusForBooking, customerStageAfterSave } from '../../utils/bookingSync.js'
 import { askDeliveryIncome, needsIncome, statusDatePatch, DELIVERED_STATUSES } from '../../utils/deliveryIncome.js'
 import { openSheetReconcile } from '../../utils/sheetReconcileModal.js'
 import { readBookingSheet, planBookingImport, newBookingDoc, newCustomerDoc, companyForBrand, brandCompanyMap } from '../../utils/bookingImport.js'
 import { bookingNextStep, bookingNextAction } from '../../utils/bookingNext.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -548,9 +549,9 @@ export default async function BookingsPage(container) {
               <input class="input" id="bk-search" placeholder="ชื่อ รุ่น เบอร์ สถานะ เช่น s07 รอรถ" value="${escHtml(search)}" style="padding-left:30px;font-size:0.78rem">
             </div>
             <span class="bk-dates" style="display:flex;gap:6px;align-items:center">
-              <input type="date" class="input" id="bk-date-from" value="${dateFrom}" style="width:auto;font-size:0.76rem">
+              <input type="date" class="input" id="bk-date-from" value="${__escA(dateFrom)}" style="width:auto;font-size:0.76rem">
               <span style="font-size:0.7rem;color:var(--text-muted)">ถึง</span>
-              <input type="date" class="input" id="bk-date-to" value="${dateTo}" style="width:auto;font-size:0.76rem">
+              <input type="date" class="input" id="bk-date-to" value="${__escA(dateTo)}" style="width:auto;font-size:0.76rem">
             </span>
           </div>
         </div>
@@ -818,7 +819,7 @@ export default async function BookingsPage(container) {
         </div>
         ${hasMoney ? `
           <div class="input-group"><label class="input-label">ยอดเงินจองที่ต้องคืน (บาท)</label>
-            <input class="input" type="number" id="wd-refund" value="${downAmt}" min="0">
+            <input class="input" type="number" id="wd-refund" value="${__escA(downAmt)}" min="0">
           </div>
           <div style="font-size:0.74rem;color:var(--warning);background:var(--surface-2);padding:8px 10px;border-radius:8px">
             💸 ระบบจะเปิดเรื่อง "รอคืนเงิน" และแจ้งฝ่ายการเงินอัตโนมัติ — ติดตามสถานะได้จนการเงินโอนคืนลูกค้าแล้ว
@@ -994,21 +995,21 @@ export default async function BookingsPage(container) {
         return `<button type="button" class="btn btn-secondary btn-sm" id="wz-pick" style="margin-bottom:10px">🚘 เลือกรถจาก Catalog</button>
           <div style="font-size:0.8rem;margin-bottom:8px">${w.model ? `<b>${escHtml(w.brand)} ${escHtml(w.model)}</b> ${escHtml(w.variant || '')}` : '<span style="color:var(--text-muted)">ยังไม่ได้เลือกรถ</span>'}</div>
           <div class="grid-2">
-            <div class="input-group"><label class="input-label">ราคาขาย (บาท)</label><input class="input" type="number" id="wz-price" value="${w.price}"></div>
-            <div class="input-group"><label class="input-label">ส่วนลด (บาท)</label><input class="input" type="number" id="wz-disc" value="${w.discount}"></div>
+            <div class="input-group"><label class="input-label">ราคาขาย (บาท)</label><input class="input" type="number" id="wz-price" value="${__escA(w.price)}"></div>
+            <div class="input-group"><label class="input-label">ส่วนลด (บาท)</label><input class="input" type="number" id="wz-disc" value="${__escA(w.discount)}"></div>
           </div>
-          <div class="input-group"><label class="input-label">อุปกรณ์เสริม (บาท)</label><input class="input" type="number" id="wz-acc" value="${w.accessories}"></div>
+          <div class="input-group"><label class="input-label">อุปกรณ์เสริม (บาท)</label><input class="input" type="number" id="wz-acc" value="${__escA(w.accessories)}"></div>
           <div style="background:var(--surface-2);border-radius:8px;padding:10px;margin-top:6px;font-size:0.8rem">ยอดสุทธิ: <b style="color:var(--accent)">${formatCurrency(total())}</b> · ค่าคอมประมาณ (3%): <b style="color:var(--success)">${formatCurrency(commission())}</b></div>`
       }
       if (step === 3) {
         return `<div class="grid-2">
-            <div class="input-group"><label class="input-label">เงินจอง (บาท) *</label><input class="input" type="number" id="wz-deposit" value="${w.bookingDeposit || ''}"></div>
-            <div class="input-group"><label class="input-label">เงินดาวน์ (บาท)</label><input class="input" type="number" id="wz-down" value="${w.down || ''}"></div>
+            <div class="input-group"><label class="input-label">เงินจอง (บาท) *</label><input class="input" type="number" id="wz-deposit" value="${__escA(w.bookingDeposit || '')}"></div>
+            <div class="input-group"><label class="input-label">เงินดาวน์ (บาท)</label><input class="input" type="number" id="wz-down" value="${__escA(w.down || '')}"></div>
           </div>
-          <div class="input-group"><label class="input-label">ระยะผ่อน</label><select class="input" id="wz-install">${[24, 36, 48, 60, 72, 84].map(m => `<option value="${m}" ${m === w.installments ? 'selected' : ''}>${m} เดือน</option>`).join('')}</select></div>
+          <div class="input-group"><label class="input-label">ระยะผ่อน</label><select class="input" id="wz-install">${[24, 36, 48, 60, 72, 84].map(m => `<option value="${__escA(m)}" ${m === w.installments ? 'selected' : ''}>${m} เดือน</option>`).join('')}</select></div>
           <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;cursor:pointer;padding:2px 0"><input type="checkbox" id="wz-rights" ${w.rightsOnly ? 'checked' : ''} style="accent-color:var(--accent);width:15px;height:15px"> 🎫 จองสิทธิ์ — ยังไม่จ่ายเงินจอง (ไม่บังคับกรอกเงินจอง)</label>
           <span class="input-error" id="wz-deposit-e"></span>
-          <div class="input-group"><label class="input-label">ดอกเบี้ย (%/ปี)</label><input class="input" type="number" step="0.01" id="wz-rate" value="${w.interestRate}"></div>
+          <div class="input-group"><label class="input-label">ดอกเบี้ย (%/ปี)</label><input class="input" type="number" step="0.01" id="wz-rate" value="${__escA(w.interestRate)}"></div>
           <div style="background:var(--surface-2);border-radius:8px;padding:12px;margin-top:8px">
             <div style="font-size:0.7rem;color:var(--text-muted)">ยอดจัดไฟแนนซ์: ${formatCurrency(Math.max(total() - w.down, 0))}</div>
             <div style="font-size:1.1rem;font-weight:800;color:var(--accent);margin-top:4px">ผ่อนเดือนละ ${formatCurrency(monthly())}</div>
@@ -1249,7 +1250,7 @@ export default async function BookingsPage(container) {
     let linkedCustomerId = e.customerId || null
     const bkNo = e.bookingNo || newBookingNo()
     const inp = (id, label, val, type) => '<div class="input-group"><label class="input-label">' + label + '</label><input class="input" id="' + id + '" ' + (type ? 'type="' + type + '"' : '') + ' value="' + (val == null ? '' : String(val).replace(/"/g, '&quot;')) + '"></div>'
-    const selOf = (id, label, list, val) => '<div class="input-group"><label class="input-label">' + label + '</label><select class="input" id="' + id + '">' + list.map(o => '<option ' + (o === val ? 'selected' : '') + '>' + o + '</option>').join('') + '</select></div>'
+    const selOf = (id, label, list, val) => '<div class="input-group"><label class="input-label">' + label + '</label><select class="input" id="' + id + '">' + list.map(o => '<option ' + (o === val ? 'selected' : '') + '>' + escHtml(o) + '</option>').join('') + '</select></div>'
     const datalist = (id, label, list, val) => '<div class="input-group"><label class="input-label">' + label + '</label><input class="input" id="' + id + '" list="' + id + '-l" value="' + (val || '') + '"><datalist id="' + id + '-l">' + list.map(o => '<option value="' + o + '">').join('') + '</datalist></div>'
     const sec = (t) => '<div style="font-weight:700;font-size:0.78rem;color:var(--primary);margin:6px 0 2px;border-bottom:1px solid var(--border-subtle);padding-bottom:3px">' + t + '</div>'
 
@@ -1409,6 +1410,7 @@ export default async function BookingsPage(container) {
         btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
         let bookingId = existing?.id
         const wasDelivered = existing?.status === 'ส่งมอบแล้ว'
+        const wasStatus = existing?.status
         if (isEdit) { await updateDocData('bookings', existing.id, data); Object.assign(existing, data) }
         else { bookingId = await createDoc('bookings', data); bookings.unshift({ ...data, id: bookingId }) }
         if (newNid != null) {
@@ -1417,9 +1419,10 @@ export default async function BookingsPage(container) {
           if (existing) existing.nid = newNid
         }
         if (data.customerId) {
-          if (data.status === 'ส่งมอบแล้ว') await maybeMarkCustomerDelivered(data)
-          else await updateDocData('customers', data.customerId, { stage: 'booking', stageChangedAt: new Date().toISOString(), bookingId }).catch(() => {})
-          closeAutoLeadFollowups(data.customerId, 'ปิดอัตโนมัติ: ลูกค้าจองแล้ว')
+          const nextStage = customerStageAfterSave(data.status, isEdit ? wasStatus : undefined, !isEdit)
+          if (nextStage === 'delivered') await maybeMarkCustomerDelivered(data)
+          else if (nextStage === 'booking') await updateDocData('customers', data.customerId, { stage: 'booking', stageChangedAt: new Date().toISOString(), bookingId }).catch(() => {})
+          if (nextStage) closeAutoLeadFollowups(data.customerId, 'ปิดอัตโนมัติ: ลูกค้าจองแล้ว')
         }
         await syncStockForBookings([{ ...existing, ...data }])
         if (data.status === 'ส่งมอบแล้ว' && !wasDelivered) await scheduleAfterSales(existing || bookings.find(x => x.id === bookingId) || { ...data, id: bookingId })

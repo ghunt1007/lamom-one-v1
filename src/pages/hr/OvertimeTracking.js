@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -199,7 +200,7 @@ export default async function OvertimeTrackingPage(container) {
         size: 'sm',
         body: `<div style="display:grid;gap:10px">
           <div class="input-group"><label class="input-label">พนักงาน *</label>
-            <select class="input" id="ot-staff">${staffList.map(s=>`<option value="${s.id}">${escHtml(s.name)}</option>`).join('')}</select>
+            <select class="input" id="ot-staff">${staffList.map(s=>`<option value="${__escA(s.id)}">${escHtml(s.name)}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">วันที่</label><input class="input" type="date" id="ot-date" value="${addDays(0)}"></div>
           <div class="input-group"><label class="input-label">จำนวนชั่วโมง</label><input class="input" type="number" min="0.5" max="8" step="0.5" id="ot-hours" value="2"></div>

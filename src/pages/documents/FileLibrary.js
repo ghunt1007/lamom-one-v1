@@ -8,6 +8,7 @@ import { showToast, getState } from '../../core/store.js'
 import { formatDate } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { uploadFile, deleteFile, STORAGE_ENABLED } from '../../utils/storage.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -167,7 +168,7 @@ export default async function FileLibraryPage(container) {
           <span class="input-error" id="fu-file-e"></span>
         </div>
         <div class="input-group"><label class="input-label">หมวดหมู่</label>
-          <select class="input" id="fu-cat">${Object.entries(CATEGORIES).map(([k, v]) => `<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+          <select class="input" id="fu-cat">${Object.entries(CATEGORIES).map(([k, v]) => `<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
         </div>
         <div class="grid-2">
           <div class="input-group"><label class="input-label">ผูกกับลูกค้า (ถ้ามี)</label><input class="input" id="fu-cust" placeholder="ชื่อลูกค้า"></div>
@@ -220,7 +221,7 @@ export default async function FileLibraryPage(container) {
       body: `
         <div class="input-group"><label class="input-label">ชื่อไฟล์</label><input class="input" id="fe-name" value="${escHtml(f.name)}"></div>
         <div class="input-group"><label class="input-label">หมวดหมู่</label>
-          <select class="input" id="fe-cat">${Object.entries(CATEGORIES).map(([k, v]) => `<option value="${k}" ${k === f.category ? 'selected' : ''}>${v.icon} ${v.label}</option>`).join('')}</select>
+          <select class="input" id="fe-cat">${Object.entries(CATEGORIES).map(([k, v]) => `<option value="${__escA(k)}" ${k === f.category ? 'selected' : ''}>${v.icon} ${v.label}</option>`).join('')}</select>
         </div>
         <div class="grid-2">
           <div class="input-group"><label class="input-label">ผูกกับลูกค้า</label><input class="input" id="fe-cust" value="${escHtml(f.linkedCustomer || '')}"></div>

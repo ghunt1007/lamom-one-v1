@@ -25,6 +25,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs, getSalesData } from '../../core/db.js'
 import { exportToExcel, exportToCSV } from '../../utils/importExport.js'
 import { todayBangkok } from '../../utils/format.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 const EXPORT_MODULES = [
   { id: 'crm', label: 'CRM / ลูกค้า', icon: '👥', col: 'customers' },
@@ -117,7 +118,7 @@ export default async function DataExportPage(container) {
           <div style="display:flex;gap:8px;margin-bottom:14px">
             ${EXPORT_FORMATS.map(f => `
               <label style="display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--surface-2);border-radius:8px;cursor:pointer;font-size:0.82rem">
-                <input type="radio" name="fmt" class="fmt-radio" value="${f.id}" ${format===f.id?'checked':''}> ${f.icon} ${f.label}
+                <input type="radio" name="fmt" class="fmt-radio" value="${__escA(f.id)}" ${format===f.id?'checked':''}> ${f.icon} ${f.label}
               </label>
             `).join('')}
           </div>

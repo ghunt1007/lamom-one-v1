@@ -6,6 +6,7 @@ import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
@@ -166,7 +167,7 @@ export default async function AuditSchedulePage(container) {
       body: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div class="input-group" style="grid-column:1/-1"><label class="input-label">ชื่อ Audit *</label><input class="input" id="au-name"></div>
         <div class="input-group"><label class="input-label">ประเภท</label>
-          <select class="input" id="au-type">${Object.entries(AUDIT_TYPES).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+          <select class="input" id="au-type">${Object.entries(AUDIT_TYPES).map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
         </div>
         <div class="input-group"><label class="input-label">วันที่กำหนด</label><input class="input" type="date" id="au-date" value="${addDays(7)}"></div>
         <div class="input-group"><label class="input-label">ผู้ตรวจสอบ</label><input class="input" id="au-auditor"></div>

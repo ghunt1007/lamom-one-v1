@@ -6,6 +6,7 @@ import { showToast } from '../../core/store.js'
 import { openModal } from '../../utils/modal.js'
 import { getSalesData, listDocs, createDoc, seedDemoData } from '../../core/db.js'
 import { exportToExcel } from '../../utils/importExport.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 const MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.']
 
@@ -197,7 +198,7 @@ export default async function CarbonFootprintPage(container) {
           <div style="font-size:0.8rem;display:flex;flex-direction:column;gap:10px">
             <div><label style="font-size:0.72rem;color:var(--text-muted)">โปรแกรม Carbon Credit</label>
               <select class="input" id="cc-prog" style="width:100%;margin-top:4px">
-                ${PROGRAMS.map(p => `<option value="${p.id}" data-price="${p.price}" data-cert="${p.cert}">${p.name} — ฿${p.price}/ton</option>`).join('')}
+                ${PROGRAMS.map(p => `<option value="${__escA(p.id)}" data-price="${p.price}" data-cert="${p.cert}">${p.name} — ฿${p.price}/ton</option>`).join('')}
               </select></div>
             <div><label style="font-size:0.72rem;color:var(--text-muted)">จำนวน (ton CO₂)</label>
               <input class="input" id="cc-tons" type="number" min="1" value="10" style="width:100%;margin-top:4px"></div>

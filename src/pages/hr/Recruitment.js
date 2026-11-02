@@ -4,6 +4,7 @@ import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -124,7 +125,7 @@ export default async function RecruitmentPage(container) {
       <div style="display:flex;gap:8px;margin-bottom:12px">
         <select class="input" id="job-status-filter" style="width:160px">
           <option value="all">สถานะทั้งหมด</option>
-          ${Object.entries(JOB_STATUS).map(([k,v]) => `<option value="${k}" ${jobFilter===k?'selected':''}>${v.label}</option>`).join('')}
+          ${Object.entries(JOB_STATUS).map(([k,v]) => `<option value="${__escA(k)}" ${jobFilter===k?'selected':''}>${v.label}</option>`).join('')}
         </select>
       </div>
       <div style="display:flex;flex-direction:column;gap:10px">
@@ -299,7 +300,7 @@ export default async function RecruitmentPage(container) {
       title: '+ เพิ่มใบสมัคร',
       size: 'md',
       body: `<div style="display:flex;flex-direction:column;gap:12px">
-        ${!jobId ? `<div class="input-group"><label class="input-label">ตำแหน่งที่สมัคร</label><select class="input" id="af-job">${jobs.filter(j=>j.status==='open').map(j=>`<option value="${j.id}">${j.title}</option>`).join('')}</select></div>` : `<div style="font-size:0.85rem;padding:8px;background:var(--surface-2);border-radius:var(--radius-sm)">${jobs.find(j=>j.id===jobId)?.title||''}</div>`}
+        ${!jobId ? `<div class="input-group"><label class="input-label">ตำแหน่งที่สมัคร</label><select class="input" id="af-job">${jobs.filter(j=>j.status==='open').map(j=>`<option value="${__escA(j.id)}">${j.title}</option>`).join('')}</select></div>` : `<div style="font-size:0.85rem;padding:8px;background:var(--surface-2);border-radius:var(--radius-sm)">${jobs.find(j=>j.id===jobId)?.title||''}</div>`}
         <div class="input-group"><label class="input-label">ชื่อ-นามสกุล *</label><input class="input" id="af-name" placeholder="ชื่อ-นามสกุล"></div>
         <div class="input-group"><label class="input-label">โทรศัพท์</label><input class="input" id="af-phone" placeholder="08x-xxx-xxxx"></div>
         <div class="input-group"><label class="input-label">อีเมล</label><input class="input" id="af-email" placeholder="email@example.com"></div>
@@ -331,10 +332,10 @@ export default async function RecruitmentPage(container) {
         <div class="input-group" style="grid-column:1/-1"><label class="input-label">ชื่อตำแหน่ง *</label><input class="input" id="jf-title" value="${escHtml(j?.title||'')}"></div>
         <div class="input-group"><label class="input-label">แผนก</label><select class="input" id="jf-dept">${DEPARTMENTS.map(d=>`<option ${j?.dept===d?'selected':''}>${escHtml(d)}</option>`).join('')}</select></div>
         <div class="input-group"><label class="input-label">ที่ตั้ง</label><input class="input" id="jf-loc" value="${escHtml(j?.location||'กรุงเทพฯ')}"></div>
-        <div class="input-group"><label class="input-label">เงินเดือนต่ำสุด</label><input type="number" class="input" id="jf-min" value="${j?.salaryMin||20000}"></div>
-        <div class="input-group"><label class="input-label">เงินเดือนสูงสุด</label><input type="number" class="input" id="jf-max" value="${j?.salaryMax||40000}"></div>
-        <div class="input-group"><label class="input-label">ปิดรับสมัคร</label><input type="date" class="input" id="jf-dead" value="${j?.deadline||''}"></div>
-        <div class="input-group"><label class="input-label">สถานะ</label><select class="input" id="jf-status">${Object.entries(JOB_STATUS).map(([k,v])=>`<option value="${k}" ${j?.status===k?'selected':''}>${v.label}</option>`).join('')}</select></div>
+        <div class="input-group"><label class="input-label">เงินเดือนต่ำสุด</label><input type="number" class="input" id="jf-min" value="${__escA(j?.salaryMin||20000)}"></div>
+        <div class="input-group"><label class="input-label">เงินเดือนสูงสุด</label><input type="number" class="input" id="jf-max" value="${__escA(j?.salaryMax||40000)}"></div>
+        <div class="input-group"><label class="input-label">ปิดรับสมัคร</label><input type="date" class="input" id="jf-dead" value="${__escA(j?.deadline||'')}"></div>
+        <div class="input-group"><label class="input-label">สถานะ</label><select class="input" id="jf-status">${Object.entries(JOB_STATUS).map(([k,v])=>`<option value="${__escA(k)}" ${j?.status===k?'selected':''}>${v.label}</option>`).join('')}</select></div>
         <div class="input-group" style="grid-column:1/-1"><label class="input-label">รายละเอียดงาน</label><textarea class="input" id="jf-desc" rows="3">${escHtml(j?.description||'')}</textarea></div>
       </div>`,
       async onConfirm() {

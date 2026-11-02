@@ -7,6 +7,7 @@ import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '..
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { OCCUPATIONS, rankFinanceMatches } from '../../utils/financeMatch.js'
 import { recommendFinance, isAiEnabled } from '../../utils/ai.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -217,13 +218,13 @@ export default async function FinanceApplicationPage(container) {
         </div>
         <div class="grid-2">
           <div class="input-group"><label class="input-label">รุ่นรถ *</label><input class="input" id="fa-vehicle" placeholder="เช่น DEEPAL S07" value="${escHtml(prefill?.vehicle||'')}"></div>
-          <div class="input-group"><label class="input-label">ราคารถ (฿)</label><input class="input" type="number" id="fa-price" placeholder="0" value="${prefill?.vehiclePrice||''}"></div>
+          <div class="input-group"><label class="input-label">ราคารถ (฿)</label><input class="input" type="number" id="fa-price" placeholder="0" value="${__escA(prefill?.vehiclePrice||'')}"></div>
         </div>
         <div class="grid-2">
-          <div class="input-group"><label class="input-label">เงินดาวน์ (฿)</label><input class="input" type="number" id="fa-down" placeholder="0" value="${prefill?.downPayment||''}" oninput="document.getElementById('fa-loan-calc').textContent='วงเงิน: ฿'+(+document.getElementById('fa-price').value - +this.value).toLocaleString()"></div>
+          <div class="input-group"><label class="input-label">เงินดาวน์ (฿)</label><input class="input" type="number" id="fa-down" placeholder="0" value="${__escA(prefill?.downPayment||'')}" oninput="document.getElementById('fa-loan-calc').textContent='วงเงิน: ฿'+(+document.getElementById('fa-price').value - +this.value).toLocaleString()"></div>
           <div class="input-group"><label class="input-label">จำนวนงวด (เดือน)</label>
             <select class="input" id="fa-tenure">
-              ${[24,36,48,60,72,84].map(t => `<option value="${t}" ${t===60?'selected':''}>${t} เดือน</option>`).join('')}
+              ${[24,36,48,60,72,84].map(t => `<option value="${__escA(t)}" ${t===60?'selected':''}>${t} เดือน</option>`).join('')}
             </select>
           </div>
         </div>
@@ -333,10 +334,10 @@ export default async function FinanceApplicationPage(container) {
       body: `<div style="display:flex;flex-direction:column;gap:12px">
         ${matchedCustomer ? `<div style="font-size:0.76rem;color:var(--success)">🔗 พบข้อมูลลูกค้า "${escHtml(prefillName)}" ในระบบ — ดึงอาชีพ/รายได้มาให้แล้ว (แก้ไขได้)</div>` : `<div style="font-size:0.76rem;color:var(--text-muted)">ไม่พบข้อมูลลูกค้านี้ในระบบ — กรอกอาชีพ/รายได้เองเพื่อคำนวณ</div>`}
         <div class="grid-2">
-          <div class="input-group"><label class="input-label">อาชีพ</label><select class="input" id="fr-occ"><option value="">-</option>${OCCUPATIONS.map(o => `<option value="${o}" ${matchedCustomer?.occupation === o ? 'selected' : ''}>${o}</option>`).join('')}</select></div>
-          <div class="input-group"><label class="input-label">รายได้ต่อเดือน (บาท)</label><input class="input" type="number" id="fr-income" value="${matchedCustomer?.monthlyIncome || ''}"></div>
+          <div class="input-group"><label class="input-label">อาชีพ</label><select class="input" id="fr-occ"><option value="">-</option>${OCCUPATIONS.map(o => `<option value="${__escA(o)}" ${matchedCustomer?.occupation === o ? 'selected' : ''}>${o}</option>`).join('')}</select></div>
+          <div class="input-group"><label class="input-label">รายได้ต่อเดือน (บาท)</label><input class="input" type="number" id="fr-income" value="${__escA(matchedCustomer?.monthlyIncome || '')}"></div>
         </div>
-        <div class="input-group"><label class="input-label">เงินดาวน์ที่ตั้งใจจะลง (%)</label><input class="input" type="number" id="fr-down" value="${prefillDownPct || ''}"></div>
+        <div class="input-group"><label class="input-label">เงินดาวน์ที่ตั้งใจจะลง (%)</label><input class="input" type="number" id="fr-down" value="${__escA(prefillDownPct || '')}"></div>
         <label style="display:flex;align-items:center;gap:8px;font-size:0.82rem;cursor:pointer"><input type="checkbox" id="fr-blacklist"> มีประวัติค้างชำระ/ติด Blacklist</label>
         <button type="button" class="btn btn-primary btn-sm" id="fr-calc-btn" style="align-self:flex-start">📊 คำนวณคะแนนความเหมาะสม</button>
         <div id="fr-results"></div>

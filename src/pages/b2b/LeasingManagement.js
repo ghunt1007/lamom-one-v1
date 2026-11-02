@@ -6,6 +6,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { todayBangkok } from '../../utils/format.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -155,12 +156,12 @@ export default async function LeasingManagementPage(container) {
               <input id="ls-rate" type="number" class="input" placeholder="0"></div>
             <div><label style="font-size:0.74rem;color:var(--text-muted)">ระยะสัญญา (เดือน)</label>
               <select id="ls-term" class="input">
-                ${[12,24,36,48,60].map(t=>`<option value="${t}">${t} เดือน</option>`).join('')}
+                ${[12,24,36,48,60].map(t=>`<option value="${__escA(t)}">${t} เดือน</option>`).join('')}
               </select>
             </div>
           </div>
           <div><label style="font-size:0.74rem;color:var(--text-muted)">วันเริ่มสัญญา</label>
-            <input id="ls-start" type="date" class="input" value="${today}"></div>
+            <input id="ls-start" type="date" class="input" value="${__escA(today)}"></div>
           <div><label style="font-size:0.74rem;color:var(--text-muted)">ผู้ติดต่อ</label>
             <input id="ls-contact" class="input" placeholder="คุณ... 08x-xxx-xxxx"></div>
         </div>

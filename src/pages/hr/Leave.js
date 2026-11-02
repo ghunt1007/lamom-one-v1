@@ -4,6 +4,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 // (v1.0.339) เดิม DEMO_QUOTA ด้านบนหน้าเป็นตัวเลข hardcode ของพนักงานสมมติ ไม่เกี่ยวกับข้อมูลลาจริงเลย
 // (ต่างจากแท็บ "สิทธิ์ลา" ที่คำนวณจากข้อมูลจริงอยู่แล้ว) และ dropdown "พนักงาน" ในฟอร์มยื่นลาเป็นชื่อปลอม
@@ -281,12 +282,12 @@ export default async function LeavePage(container) {
         </div>
         <div class="input-group"><label class="input-label">ประเภทการลา</label>
           <select class="input" id="lf-type">
-            ${Object.entries(LEAVE_TYPES).map(([k,v]) => `<option value="${k}">${v.label}</option>`).join('')}
+            ${Object.entries(LEAVE_TYPES).map(([k,v]) => `<option value="${__escA(k)}">${v.label}</option>`).join('')}
           </select>
         </div>
         <div class="grid-2">
-          <div class="input-group"><label class="input-label">วันที่เริ่ม</label><input class="input" type="date" id="lf-from" value="${today}"></div>
-          <div class="input-group"><label class="input-label">วันที่สิ้นสุด</label><input class="input" type="date" id="lf-to" value="${today}"></div>
+          <div class="input-group"><label class="input-label">วันที่เริ่ม</label><input class="input" type="date" id="lf-from" value="${__escA(today)}"></div>
+          <div class="input-group"><label class="input-label">วันที่สิ้นสุด</label><input class="input" type="date" id="lf-to" value="${__escA(today)}"></div>
         </div>
         <div class="input-group"><label class="input-label">เหตุผล *</label><textarea class="input" id="lf-reason" rows="2"></textarea></div>
       </div>`,

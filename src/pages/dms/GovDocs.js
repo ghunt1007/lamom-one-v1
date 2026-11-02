@@ -7,6 +7,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { todayBangkok } from '../../utils/format.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -166,7 +167,7 @@ export default async function GovDocsPage(container) {
             <div><label style="font-size:0.74rem;color:var(--text-muted)">ผู้รับผิดชอบ</label>
               <input id="gd-off" class="input" placeholder="ฝ่ายทะเบียน / Admin..."></div>
             <div><label style="font-size:0.74rem;color:var(--text-muted)">กำหนดเสร็จ</label>
-              <input id="gd-due" type="date" class="input" value="${today}"></div>
+              <input id="gd-due" type="date" class="input" value="${__escA(today)}"></div>
           </div>
           <div><label style="font-size:0.74rem;color:var(--text-muted)">หมายเหตุ</label>
             <input id="gd-note" class="input" placeholder="รายละเอียดเพิ่มเติม..."></div>

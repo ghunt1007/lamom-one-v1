@@ -6,6 +6,7 @@ import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, updateDocData, createDoc, softDelete, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 const SALES_NOTIFY_ROLES = ['sales', 'manager', 'owner', 'admin']
 async function notifySalesTeam(title, body, link) {
@@ -145,7 +146,7 @@ export default async function ModelYearChangeoverPage(container) {
         <div class="input-group"><label class="input-label">สิ่งที่เปลี่ยน (1 บรรทัดต่อ 1 ข้อ)</label><textarea class="input" id="my-changes" rows="3" placeholder="เช่น เพิ่มสีใหม่&#10;ปรับสเปคแบต"></textarea></div>
         <div class="input-group"><label class="input-label">สถานะ</label>
           <select class="input" id="my-status">
-            ${Object.entries(ST).map(([k,v]) => `<option value="${k}">${v.label}</option>`).join('')}
+            ${Object.entries(ST).map(([k,v]) => `<option value="${__escA(k)}">${v.label}</option>`).join('')}
           </select>
         </div>
       </div>`,

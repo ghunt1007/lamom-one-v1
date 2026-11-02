@@ -4,6 +4,7 @@ import { listDocs, createDoc, updateDocData } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { getVisibilityScope, scopeIncludesStaff } from '../../core/hierarchy.js'
 import { todayBangkok, nowBangkokTime } from '../../utils/format.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -185,7 +186,7 @@ export default async function AttendancePage(container) {
     return `
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
         <span style="font-size:0.85rem;color:var(--text-muted)">วันที่:</span>
-        <input type="date" class="input" id="view-date" value="${viewDate}" style="width:160px">
+        <input type="date" class="input" id="view-date" value="${__escA(viewDate)}" style="width:160px">
       </div>
       <div style="display:flex;flex-direction:column;gap:8px">
         ${recs.map(r => {
@@ -222,7 +223,7 @@ export default async function AttendancePage(container) {
     return `
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
         <span style="font-size:0.85rem;color:var(--text-muted)">เดือน:</span>
-        <input type="month" class="input" id="view-month" value="${viewMonth}" style="width:160px">
+        <input type="month" class="input" id="view-month" value="${__escA(viewMonth)}" style="width:160px">
       </div>
       <div class="card" style="padding:0;overflow:hidden">
         <div class="table-wrap"><table class="table">

@@ -8,6 +8,7 @@ import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 import { printWithholdingTaxCert } from '../../utils/taxDocs.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 function today() { return todayBangkok() }
@@ -113,7 +114,7 @@ export default async function WithholdingTaxPage(container) {
           <div class="input-group"><label class="input-label">เลขประจำตัวผู้เสียภาษี/บัตร ปชช.</label><input class="input" id="wt-taxid"></div>
           <div class="input-group"><label class="input-label">ที่อยู่</label><input class="input" id="wt-addr"></div>
           <div class="input-group"><label class="input-label">ประเภทเงินได้</label>
-            <select class="input" id="wt-type">${Object.entries(INCOME_TYPES).map(([k,v]) => `<option value="${k}">${v.label}</option>`).join('')}</select>
+            <select class="input" id="wt-type">${Object.entries(INCOME_TYPES).map(([k,v]) => `<option value="${__escA(k)}">${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">วันที่จ่ายเงิน</label><input type="date" class="input" id="wt-date" value="${today()}"></div>
           <div class="input-group"><label class="input-label">จำนวนเงินที่จ่าย (บาท) *</label><input type="number" class="input" id="wt-amount"></div>

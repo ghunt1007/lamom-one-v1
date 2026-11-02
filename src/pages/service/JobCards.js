@@ -5,6 +5,7 @@ import { getVisibilityScope, scopeIncludesRecord, normName } from '../../core/hi
 import { formatDate, formatCurrency, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -272,27 +273,27 @@ export default async function JobCardsPage(container) {
             <div class="input-group"><label class="input-label">ทะเบียน</label><input class="input" id="jf-plate" value="${escHtml(existing?.plate||'')}"></div>
             <div class="input-group"><label class="input-label">VIN</label><input class="input" id="jf-vin" value="${escHtml(existing?.vin||prefill?.vin||'')}"></div>
           </div>
-          <div class="input-group"><label class="input-label">เลขไมล์</label><input class="input" type="number" id="jf-mileage" value="${existing?.mileage||0}"></div>
+          <div class="input-group"><label class="input-label">เลขไมล์</label><input class="input" type="number" id="jf-mileage" value="${__escA(existing?.mileage||0)}"></div>
           <div class="grid-2">
             <div class="input-group"><label class="input-label">ประเภทงาน</label>
               <select class="input" id="jf-type">
-                ${Object.entries(JOB_TYPE).map(([k,v]) => `<option value="${k}" ${existing?.type===k?'selected':''}>${v}</option>`).join('')}
+                ${Object.entries(JOB_TYPE).map(([k,v]) => `<option value="${__escA(k)}" ${existing?.type===k?'selected':''}>${v}</option>`).join('')}
               </select>
             </div>
             <div class="input-group"><label class="input-label">เบย์</label>
               <select class="input" id="jf-bay">
-                ${BAYS.map(b => `<option value="${b}" ${existing?.bay===b?'selected':''}>${b}</option>`).join('')}
+                ${BAYS.map(b => `<option value="${__escA(b)}" ${existing?.bay===b?'selected':''}>${b}</option>`).join('')}
               </select>
             </div>
           </div>
           <div class="grid-2">
             <div class="input-group"><label class="input-label">ช่างรับผิดชอบ</label><input class="input" id="jf-tech" value="${escHtml(existing?.techName||'')}"></div>
-            <div class="input-group"><label class="input-label">ค่าแรง (บาท)</label><input class="input" type="number" id="jf-labor" value="${existing?.labor||0}"></div>
+            <div class="input-group"><label class="input-label">ค่าแรง (บาท)</label><input class="input" type="number" id="jf-labor" value="${__escA(existing?.labor||0)}"></div>
           </div>
           <div class="input-group"><label class="input-label">รายละเอียดงาน *</label><textarea class="input" id="jf-desc" rows="3">${escHtml(existing?.desc||'')}</textarea><span class="input-error" id="jf-desc-e"></span></div>
           <div class="input-group"><label class="input-label">สถานะ</label>
             <select class="input" id="jf-status">
-              ${Object.entries(JOB_STATUS).map(([k,v]) => `<option value="${k}" ${existing?.status===k?'selected':''}>${v.label}</option>`).join('')}
+              ${Object.entries(JOB_STATUS).map(([k,v]) => `<option value="${__escA(k)}" ${existing?.status===k?'selected':''}>${v.label}</option>`).join('')}
             </select>
           </div>
         </div>

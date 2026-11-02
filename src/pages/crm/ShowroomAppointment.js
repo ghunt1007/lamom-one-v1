@@ -5,6 +5,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { getSalesStaff } from '../../data/masterData.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -108,15 +109,15 @@ export default async function ShowroomAppointmentPage(container) {
           <div style="display:flex;gap:4px">
             ${[['today','📅 วันนี้'],['upcoming','📆 กำลังมา'],['all','📋 ทั้งหมด']].map(([t,l]) => `<button class="btn btn-sm ${tab===t?'btn-primary':'btn-secondary'} tab-btn" data-t="${t}">${l}</button>`).join('')}
           </div>
-          ${tab === 'today' ? `<input type="date" class="input" id="view-date" value="${viewDate}" style="width:150px">` : ''}
+          ${tab === 'today' ? `<input type="date" class="input" id="view-date" value="${__escA(viewDate)}" style="width:150px">` : ''}
           <div style="display:flex;gap:4px;margin-left:auto;flex-wrap:wrap">
             <select class="input" id="sales-sel" style="width:150px">
               <option value="all">ทุกเซลส์</option>
-              ${salespersonOptions().map(s => `<option value="${s}" ${salesFilter===s?'selected':''}>${s}</option>`).join('')}
+              ${salespersonOptions().map(s => `<option value="${escHtml(s)}" ${salesFilter===s?'selected':''}>${escHtml(s)}</option>`).join('')}
             </select>
             <select class="input" id="status-sel" style="width:130px">
               <option value="all">ทุกสถานะ</option>
-              ${Object.entries(APPT_STATUS).map(([k,v]) => `<option value="${k}" ${statusFilter===k?'selected':''}>${v.label}</option>`).join('')}
+              ${Object.entries(APPT_STATUS).map(([k,v]) => `<option value="${__escA(k)}" ${statusFilter===k?'selected':''}>${v.label}</option>`).join('')}
             </select>
           </div>
         </div>
@@ -236,28 +237,28 @@ export default async function ShowroomAppointmentPage(container) {
         <div class="grid-2">
           <div class="input-group"><label class="input-label">วัตถุประสงค์</label>
             <select class="input" id="sa-purpose">
-              ${APPT_PURPOSE.map(p => `<option value="${p}" ${appt?.purpose===p?'selected':''}>${p}</option>`).join('')}
+              ${APPT_PURPOSE.map(p => `<option value="${__escA(p)}" ${appt?.purpose===p?'selected':''}>${p}</option>`).join('')}
             </select>
           </div>
           <div class="input-group"><label class="input-label">รุ่นรถที่สนใจ</label><input class="input" id="sa-interest" value="${escHtml(appt?.interestedIn||'')}" placeholder="เช่น DEEPAL S07"></div>
         </div>
         <div class="grid-2">
-          <div class="input-group"><label class="input-label">วันที่นัด *</label><input class="input" type="date" id="sa-date" value="${appt?.date||today}"></div>
-          <div class="input-group"><label class="input-label">เวลา *</label><input class="input" type="time" id="sa-time" value="${appt?.time||'10:00'}"></div>
+          <div class="input-group"><label class="input-label">วันที่นัด *</label><input class="input" type="date" id="sa-date" value="${__escA(appt?.date||today)}"></div>
+          <div class="input-group"><label class="input-label">เวลา *</label><input class="input" type="time" id="sa-time" value="${__escA(appt?.time||'10:00')}"></div>
         </div>
         <div class="grid-2">
           <div class="input-group"><label class="input-label">เซลส์ผู้ดูแล</label>
             <select class="input" id="sa-sales">
-              ${salespersonOptions().map(s => `<option value="${s}" ${appt?.salesperson===s?'selected':''}>${s}</option>`).join('')}
+              ${salespersonOptions().map(s => `<option value="${escHtml(s)}" ${appt?.salesperson===s?'selected':''}>${escHtml(s)}</option>`).join('')}
             </select>
           </div>
           <div class="input-group"><label class="input-label">ช่องทางที่มา</label>
             <select class="input" id="sa-source">
-              ${['LINE OA','Facebook','TikTok','Walk-in','Referral','Sale Team','อื่นๆ'].map(s => `<option value="${s}" ${appt?.source===s?'selected':''}>${s}</option>`).join('')}
+              ${['LINE OA','Facebook','TikTok','Walk-in','Referral','Sale Team','อื่นๆ'].map(s => `<option value="${__escA(s)}" ${appt?.source===s?'selected':''}>${s}</option>`).join('')}
             </select>
           </div>
         </div>
-        <div class="input-group"><label class="input-label">งบประมาณ (฿)</label><input class="input" type="number" id="sa-budget" value="${appt?.budget||''}" placeholder="0"></div>
+        <div class="input-group"><label class="input-label">งบประมาณ (฿)</label><input class="input" type="number" id="sa-budget" value="${__escA(appt?.budget||'')}" placeholder="0"></div>
         <div class="input-group"><label class="input-label">หมายเหตุ</label><textarea class="input" id="sa-note" rows="2">${escHtml(appt?.note||'')}</textarea></div>
       </div>`,
       footer: `<button class="btn btn-secondary" id="sa-c">ยกเลิก</button><button class="btn btn-primary" id="sa-s">💾 บันทึก</button>`

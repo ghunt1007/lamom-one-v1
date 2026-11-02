@@ -2,6 +2,7 @@ import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -189,14 +190,14 @@ export default async function LoanerCarPage(container) {
           <div class="input-group"><label class="input-label">รถสำรอง *</label>
             <select class="input" id="ll-car">
               <option value="">-- เลือกรถ --</option>
-              ${availCars.map(c => `<option value="${c.id}">${escHtml(c.model)} (${escHtml(c.plate)})</option>`).join('')}
+              ${availCars.map(c => `<option value="${__escA(c.id)}">${escHtml(c.model)} (${escHtml(c.plate)})</option>`).join('')}
             </select>
           </div>
           <div class="input-group"><label class="input-label">Job Card</label><input class="input" id="ll-job" placeholder="JOB-2025-xxx"></div>
         </div>
         <div class="grid-2">
-          <div class="input-group"><label class="input-label">วันที่ยืม *</label><input class="input" type="date" id="ll-loan" value="${today}"></div>
-          <div class="input-group"><label class="input-label">กำหนดคืน *</label><input class="input" type="date" id="ll-ret" value="${today}"></div>
+          <div class="input-group"><label class="input-label">วันที่ยืม *</label><input class="input" type="date" id="ll-loan" value="${__escA(today)}"></div>
+          <div class="input-group"><label class="input-label">กำหนดคืน *</label><input class="input" type="date" id="ll-ret" value="${__escA(today)}"></div>
         </div>
         <div class="grid-2">
           <div class="input-group"><label class="input-label">เชื้อเพลิงตอนออก (%)</label><input class="input" type="number" id="ll-fuel" min="0" max="100" value="100"></div>
@@ -236,10 +237,10 @@ export default async function LoanerCarPage(container) {
     const { el, close } = openModal({
       title: '🔄 รับรถคืน', size: 'sm',
       body: `<div style="display:flex;flex-direction:column;gap:12px">
-        <div class="input-group"><label class="input-label">วันที่คืนจริง</label><input class="input" type="date" id="ret-date" value="${today}"></div>
+        <div class="input-group"><label class="input-label">วันที่คืนจริง</label><input class="input" type="date" id="ret-date" value="${__escA(today)}"></div>
         <div class="grid-2">
-          <div class="input-group"><label class="input-label">เชื้อเพลิงตอนคืน (%)</label><input class="input" type="number" id="ret-fuel" min="0" max="100" value="${loan.fuelOut}"></div>
-          <div class="input-group"><label class="input-label">เลขไมล์ตอนคืน</label><input class="input" type="number" id="ret-km" value="${car?.km||loan.kmOut}"></div>
+          <div class="input-group"><label class="input-label">เชื้อเพลิงตอนคืน (%)</label><input class="input" type="number" id="ret-fuel" min="0" max="100" value="${escHtml(loan.fuelOut)}"></div>
+          <div class="input-group"><label class="input-label">เลขไมล์ตอนคืน</label><input class="input" type="number" id="ret-km" value="${escHtml(car?.km||loan.kmOut)}"></div>
         </div>
       </div>`,
       footer: `<button class="btn btn-secondary" id="ret-c">ยกเลิก</button><button class="btn btn-success" id="ret-s">✅ รับคืน</button>`

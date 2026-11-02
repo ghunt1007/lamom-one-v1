@@ -6,6 +6,7 @@ import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -153,10 +154,10 @@ export default async function IncidentReportPage(container) {
         body: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">เหตุการณ์ *</label><input class="input" id="inc-title"></div>
           <div class="input-group"><label class="input-label">หมวด</label>
-            <select class="input" id="inc-cat">${Object.entries(INC_CATS).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+            <select class="input" id="inc-cat">${Object.entries(INC_CATS).map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">ความรุนแรง</label>
-            <select class="input" id="inc-sev">${Object.entries(SEVERITY).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+            <select class="input" id="inc-sev">${Object.entries(SEVERITY).map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">ผู้รายงาน</label><input class="input" id="inc-reporter"></div>
         </div>`,

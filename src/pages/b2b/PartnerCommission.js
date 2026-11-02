@@ -7,6 +7,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -164,7 +165,7 @@ export default async function PartnerCommissionPage(container) {
         body: `<div style="display:grid;gap:10px">
           <div class="input-group"><label class="input-label">พาร์ทเนอร์ *</label><input class="input" id="pc-partner"></div>
           <div class="input-group"><label class="input-label">ประเภท</label>
-            <select class="input" id="pc-type">${Object.entries(PARTNER_TYPES).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label} (${v.rate})</option>`).join('')}</select>
+            <select class="input" id="pc-type">${Object.entries(PARTNER_TYPES).map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label} (${v.rate})</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">ดีลที่แนะนำ</label><input class="input" id="pc-deal"></div>
           <div class="input-group"><label class="input-label">มูลค่าดีล (บาท)</label><input class="input" type="number" id="pc-value"></div>

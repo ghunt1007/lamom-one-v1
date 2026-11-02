@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 // createDoc นำเข้าไว้แล้วสำหรับ pdpa_dsr_requests เดิม — ใช้เพิ่มเติมกับ pdpa_consents ด้านล่าง (ดูปุ่ม "➕ เพิ่มลูกค้าในทะเบียน")
 
 function escHtml(s) {
@@ -191,7 +192,7 @@ export default async function PdpaConsentPage(container) {
         <div class="input-group">
           <label class="input-label">ความยินยอมเริ่มต้น</label>
           <div style="display:flex;flex-direction:column;gap:6px;padding:8px;background:var(--surface-2);border-radius:var(--radius-sm)">
-            ${Object.entries(CONSENT_TYPES).map(([k, v]) => `<label style="display:flex;align-items:center;gap:8px;font-size:0.82rem;cursor:${k==='service'?'not-allowed':'pointer'}"><input type="checkbox" class="nc-consent" value="${k}" ${k==='service' ? 'checked disabled' : ''}> ${v.icon} ${v.label}</label>`).join('')}
+            ${Object.entries(CONSENT_TYPES).map(([k, v]) => `<label style="display:flex;align-items:center;gap:8px;font-size:0.82rem;cursor:${k==='service'?'not-allowed':'pointer'}"><input type="checkbox" class="nc-consent" value="${__escA(k)}" ${k==='service' ? 'checked disabled' : ''}> ${v.icon} ${v.label}</label>`).join('')}
           </div>
         </div>
       </div>`,

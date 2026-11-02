@@ -6,6 +6,7 @@ import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
@@ -201,12 +202,12 @@ export default async function EVBatteryPage(container) {
         <div class="input-group"><label class="input-label">เลือกรถ *</label>
           <select class="input" id="bat-vehicle">
             <option value="">— เลือกรถจากรายการ —</option>
-            ${vehicles.map(x => `<option value="${x.id}">${escHtml(x.plate)} — ${escHtml(x.model)} (${escHtml(x.owner)})</option>`).join('')}
+            ${vehicles.map(x => `<option value="${__escA(x.id)}">${escHtml(x.plate)} — ${escHtml(x.model)} (${escHtml(x.owner)})</option>`).join('')}
           </select>
         </div>`}
-        <div class="input-group"><label class="input-label">SOH (%)</label><input class="input" id="bat-soh" type="number" min="0" max="100" value="${v?.soh||90}"></div>
-        <div class="input-group"><label class="input-label">SOC (%)</label><input class="input" id="bat-soc" type="number" min="0" max="100" value="${v?.soc||80}"></div>
-        <div class="input-group"><label class="input-label">จำนวนรอบชาร์จ</label><input class="input" id="bat-cycles" type="number" value="${v?.cycles||0}"></div>
+        <div class="input-group"><label class="input-label">SOH (%)</label><input class="input" id="bat-soh" type="number" min="0" max="100" value="${__escA(v?.soh||90)}"></div>
+        <div class="input-group"><label class="input-label">SOC (%)</label><input class="input" id="bat-soc" type="number" min="0" max="100" value="${__escA(v?.soc||80)}"></div>
+        <div class="input-group"><label class="input-label">จำนวนรอบชาร์จ</label><input class="input" id="bat-cycles" type="number" value="${__escA(v?.cycles||0)}"></div>
         <div class="input-group"><label class="input-label">หมายเหตุ</label><input class="input" id="bat-note" placeholder="ผลการตรวจ..."></div>
       </div>`,
       async onConfirm() {

@@ -19,6 +19,7 @@ import { getAccessories, getSalesStaff } from '../../data/masterData.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { scheduleQuoteFollowup } from '../../utils/quoteFollowup.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -394,11 +395,11 @@ export default async function QuotationBuilderPage(container) {
           <div class="input-group" style="grid-column:1/-1">
             <label class="input-label">รถที่เสนอ *</label>
             <select class="input" id="qf-vehicle">
-              ${getVehicles().map(m => `<option value="${m.id}" ${matchedVehicle?.id === m.id ? 'selected' : ''}>${m.brand} ${m.model} ${m.variant} — ${formatCurrency(m.price)}</option>`).join('')}
+              ${getVehicles().map(m => `<option value="${__escA(m.id)}" ${matchedVehicle?.id === m.id ? 'selected' : ''}>${m.brand} ${m.model} ${m.variant} — ${formatCurrency(m.price)}</option>`).join('')}
             </select>
           </div>
           <div class="input-group"><label class="input-label">สี</label><input class="input" id="qf-color" placeholder="Cosmos Black"></div>
-          <div class="input-group"><label class="input-label">ค่าจดทะเบียน (บาท)</label><input type="number" class="input" id="qf-regfee" value="${DEFAULT_REG_FEE}"></div>
+          <div class="input-group"><label class="input-label">ค่าจดทะเบียน (บาท)</label><input type="number" class="input" id="qf-regfee" value="${__escA(DEFAULT_REG_FEE)}"></div>
           <div class="input-group"><label class="input-label">ส่วนลด (บาท)</label><input type="number" class="input" id="qf-discount" value="0"></div>
           <div class="input-group"><label class="input-label">มูลค่าเทิร์นอิน (บาท)</label><input type="number" class="input" id="qf-tradein" value="0"></div>
           <div class="input-group"><label class="input-label">เงินดาวน์ (บาท)</label><input type="number" class="input" id="qf-down" placeholder="200000"></div>
@@ -431,7 +432,7 @@ export default async function QuotationBuilderPage(container) {
             <div id="qf-custom-list" style="margin-top:6px;display:flex;flex-direction:column;gap:4px"></div>
           </div>
 
-          <div class="input-group"><label class="input-label">เซลส์</label><select class="input" id="qf-sales">${getSalesStaff().map(s => `<option ${s === (prefill?.salesperson || myDisplayName) ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
+          <div class="input-group"><label class="input-label">เซลส์</label><select class="input" id="qf-sales">${getSalesStaff().map(s => `<option ${s === (prefill?.salesperson || myDisplayName) ? 'selected' : ''}>${escHtml(s)}</option>`).join('')}</select></div>
           <div class="input-group"><label class="input-label">หมายเหตุ</label><input class="input" id="qf-notes" placeholder="บันทึก..."></div>
 
           <div class="input-group" style="grid-column:1/-1;background:var(--bg-2);border-radius:var(--radius-sm);padding:10px">

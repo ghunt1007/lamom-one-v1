@@ -8,6 +8,7 @@ import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { listDocs, createDoc, updateDocData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function myName() {
   const me = getState('user') || {}
@@ -120,7 +121,7 @@ export default async function StaffGrievancesPage(container) {
       title: '➕ ยื่นเรื่องร้องเรียน', size: 'md',
       body: `<div style="display:flex;flex-direction:column;gap:12px">
         <div class="input-group"><label class="input-label">หมวดหมู่ *</label>
-          <select class="input" id="gf-category">${Object.entries(CATEGORIES).map(([k,v]) => `<option value="${k}">${v.label}</option>`).join('')}</select>
+          <select class="input" id="gf-category">${Object.entries(CATEGORIES).map(([k,v]) => `<option value="${__escA(k)}">${v.label}</option>`).join('')}</select>
         </div>
         <div class="input-group"><label class="input-label">หัวข้อ *</label><input class="input" id="gf-subject" placeholder="สรุปสั้นๆ ว่าเรื่องอะไร"></div>
         <div class="input-group"><label class="input-label">เกี่ยวข้องกับใคร/แผนกไหน (ถ้ามี)</label><input class="input" id="gf-against" placeholder="ไม่ระบุก็ได้"></div>

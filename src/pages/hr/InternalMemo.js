@@ -13,6 +13,7 @@ import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.
 import { db } from '../../core/firebase.js'
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore'
 import { printDocument, docHeader, docFooter, esc as pesc } from '../../utils/print.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 const HANDLER_ROLES = ['hr', 'manager', 'admin', 'owner']
 
@@ -207,7 +208,7 @@ export default async function InternalMemoPage(container) {
             </select>
           </div>
           <div class="input-group" id="mm-company-wrap" style="display:none"><label class="input-label">เลือกบริษัท</label>
-            <select class="input" id="mm-company">${companiesList.map(c=>`<option value="${c.id}">${escHtml(c.name)}</option>`).join('')}</select>
+            <select class="input" id="mm-company">${companiesList.map(c=>`<option value="${__escA(c.id)}">${escHtml(c.name)}</option>`).join('')}</select>
           </div>
           <div class="input-group" id="mm-dept-wrap" style="display:none"><label class="input-label">ระบุแผนก</label>
             <input class="input" id="mm-department" list="mm-dept-list" placeholder="เช่น ขาย, บัญชี, HR">

@@ -8,6 +8,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
 import { genApiKey as genKey } from '../../utils/secureRandom.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
@@ -131,7 +132,7 @@ export default async function ApiKeysPage(container) {
       body: `<div style="display:grid;gap:10px">
         <div class="input-group"><label class="input-label">ชื่อ Key *</label><input class="input" id="key-name" placeholder="เช่น LINE Integration"></div>
         <div class="input-group"><label class="input-label">สิทธิ์</label>
-          <select class="input" id="key-scope">${Object.entries(KEY_SCOPES).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+          <select class="input" id="key-scope">${Object.entries(KEY_SCOPES).map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
         </div>
       </div>`,
       confirmText: '🔑 สร้าง',

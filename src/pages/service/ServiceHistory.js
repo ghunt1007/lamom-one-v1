@@ -3,6 +3,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -90,7 +91,7 @@ export default async function ServiceHistoryPage(container) {
           </div>
           <select class="input" id="type-filter" style="max-width:160px">
             <option value="all">ทุกประเภท</option>
-            ${Object.entries(SERVICE_TYPES).map(([k,v]) => `<option value="${k}" ${typeFilter===k?'selected':''}>${v}</option>`).join('')}
+            ${Object.entries(SERVICE_TYPES).map(([k,v]) => `<option value="${__escA(k)}" ${typeFilter===k?'selected':''}>${v}</option>`).join('')}
           </select>
         </div>
 
@@ -205,8 +206,8 @@ export default async function ServiceHistoryPage(container) {
       title: '✏️ แก้ไขค่าใช้จ่าย — ' + escHtml(r.id),
       size: 'sm',
       body: `<div style="display:grid;gap:10px">
-        <div class="input-group"><label class="input-label">ค่าแรง (บาท)</label><input class="input" id="ec-labor" type="number" min="0" value="${r.laborCost || 0}"></div>
-        <div class="input-group"><label class="input-label">ค่าอะไหล่ (บาท)</label><input class="input" id="ec-parts" type="number" min="0" value="${r.partsCost || 0}"></div>
+        <div class="input-group"><label class="input-label">ค่าแรง (บาท)</label><input class="input" id="ec-labor" type="number" min="0" value="${__escA(r.laborCost || 0)}"></div>
+        <div class="input-group"><label class="input-label">ค่าอะไหล่ (บาท)</label><input class="input" id="ec-parts" type="number" min="0" value="${__escA(r.partsCost || 0)}"></div>
       </div>`,
       async onConfirm() {
         const laborCost = Math.max(0, +document.getElementById('ec-labor')?.value || 0)
@@ -232,7 +233,7 @@ export default async function ServiceHistoryPage(container) {
           <div class="input-group"><label class="input-label">ทะเบียน</label><input class="input" id="shf-plate" placeholder="กก 1234"></div>
           <div class="input-group"><label class="input-label">ระยะทาง (กม.)</label><input type="number" class="input" id="shf-mileage" placeholder="12500"></div>
           <div class="input-group"><label class="input-label">ประเภทงาน</label>
-            <select class="input" id="shf-type">${Object.entries(SERVICE_TYPES).map(([k,v]) => `<option value="${k}">${v}</option>`).join('')}</select>
+            <select class="input" id="shf-type">${Object.entries(SERVICE_TYPES).map(([k,v]) => `<option value="${__escA(k)}">${v}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">ช่างผู้รับผิดชอบ</label><input class="input" id="shf-tech" placeholder="ชื่อช่าง"></div>
           <div class="input-group"><label class="input-label">วันที่นัด</label><input type="date" class="input" id="shf-date" value="${addDays(0)}"></div>

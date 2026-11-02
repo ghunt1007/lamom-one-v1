@@ -3,6 +3,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -165,26 +166,26 @@ export default async function CampaignBuilderPage(container) {
     const { el, close } = openModal({
       title: camp ? '✏️ แก้ไขแคมเปญ' : '📣 แคมเปญใหม่', size: 'md',
       body: `<div style="display:flex;flex-direction:column;gap:12px">
-        <div class="input-group"><label class="input-label">ชื่อแคมเปญ *</label><input class="input" id="cn-name" value="${camp?.name||''}" placeholder="ชื่อแคมเปญ"></div>
+        <div class="input-group"><label class="input-label">ชื่อแคมเปญ *</label><input class="input" id="cn-name" value="${__escA(camp?.name||'')}" placeholder="ชื่อแคมเปญ"></div>
         <div class="grid-2">
           <div class="input-group"><label class="input-label">ประเภท</label>
             <select class="input" id="cn-type">
-              ${Object.entries(CAMPAIGN_TYPES).map(([k,v]) => `<option value="${k}" ${camp?.type===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}
+              ${Object.entries(CAMPAIGN_TYPES).map(([k,v]) => `<option value="${__escA(k)}" ${camp?.type===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}
             </select>
           </div>
           <div class="input-group"><label class="input-label">สถานะ</label>
             <select class="input" id="cn-status">
-              ${Object.entries(CAMPAIGN_STATUS).map(([k,v]) => `<option value="${k}" ${(camp?.status||'draft')===k?'selected':''}>${v.label}</option>`).join('')}
+              ${Object.entries(CAMPAIGN_STATUS).map(([k,v]) => `<option value="${__escA(k)}" ${(camp?.status||'draft')===k?'selected':''}>${v.label}</option>`).join('')}
             </select>
           </div>
         </div>
         <div class="grid-2">
-          <div class="input-group"><label class="input-label">วันเริ่ม</label><input class="input" type="date" id="cn-start" value="${camp?.startDate||today}"></div>
-          <div class="input-group"><label class="input-label">วันสิ้นสุด</label><input class="input" type="date" id="cn-end" value="${camp?.endDate||today}"></div>
+          <div class="input-group"><label class="input-label">วันเริ่ม</label><input class="input" type="date" id="cn-start" value="${__escA(camp?.startDate||today)}"></div>
+          <div class="input-group"><label class="input-label">วันสิ้นสุด</label><input class="input" type="date" id="cn-end" value="${__escA(camp?.endDate||today)}"></div>
         </div>
         <div class="grid-2">
-          <div class="input-group"><label class="input-label">งบประมาณ (฿)</label><input class="input" type="number" id="cn-budget" value="${camp?.budget||0}"></div>
-          <div class="input-group"><label class="input-label">กลุ่มเป้าหมาย</label><input class="input" id="cn-target" value="${camp?.target||''}" placeholder="เช่น EV ใน กทม."></div>
+          <div class="input-group"><label class="input-label">งบประมาณ (฿)</label><input class="input" type="number" id="cn-budget" value="${__escA(camp?.budget||0)}"></div>
+          <div class="input-group"><label class="input-label">กลุ่มเป้าหมาย</label><input class="input" id="cn-target" value="${__escA(camp?.target||'')}" placeholder="เช่น EV ใน กทม."></div>
         </div>
         <div class="input-group"><label class="input-label">หมายเหตุ</label><textarea class="input" id="cn-note" rows="2">${escHtml(camp?.note||'')}</textarea></div>
       </div>`,

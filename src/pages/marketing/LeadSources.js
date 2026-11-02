@@ -14,6 +14,8 @@ import { navigate } from '../../core/router.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { todayBangkok } from '../../utils/format.js'
 import { summarizeSources, periodRange } from '../../utils/sourcePerformance.js'
+import { escHtml } from '../../utils/escape.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 const PERIODS = [['month', 'เดือนนี้'], ['last-month', 'เดือนที่แล้ว'], ['3m', '3 เดือนล่าสุด'], ['year', 'ปีนี้'], ['all', 'ทั้งหมด']]
 
@@ -50,13 +52,13 @@ export default async function LeadSourcesPage(container) {
     return `<div class="card" style="padding:14px;margin-bottom:16px">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
         <div style="font-weight:800">🎯 ช่องทางไหนขายได้จริง <span style="font-size:0.72rem;font-weight:400;color:var(--text-muted)">(นับจากลูกค้าจริงในระบบ ${total.leads} ราย)</span></div>
-        <select class="input" id="ls-period" style="width:auto;margin-left:auto">${PERIODS.map(([k, l]) => `<option value="${k}" ${k === period ? 'selected' : ''}>${l}</option>`).join('')}</select>
+        <select class="input" id="ls-period" style="width:auto;margin-left:auto">${PERIODS.map(([k, l]) => `<option value="${__escA(k)}" ${k === period ? 'selected' : ''}>${l}</option>`).join('')}</select>
       </div>
-      ${best ? `<div style="font-size:0.8rem;margin-bottom:10px;padding:8px 12px;border-radius:8px;background:var(--surface-2)">🏆 <b>${best.icon} ${best.label}</b> ปิดเป็นใบจองได้ ${best.bookRate}% ของลูกค้าที่เข้ามา (สูงสุดในช่วงนี้)</div>` : ''}
+      ${best ? `<div style="font-size:0.8rem;margin-bottom:10px;padding:8px 12px;border-radius:8px;background:var(--surface-2)">🏆 <b>${best.icon} ${escHtml(best.label)}</b> ปิดเป็นใบจองได้ ${best.bookRate}% ของลูกค้าที่เข้ามา (สูงสุดในช่วงนี้)</div>` : ''}
       ${rows.length ? `<div class="table-wrap"><table>
         <thead><tr><th>ช่องทาง</th><th style="text-align:right">ลูกค้าเข้า</th><th style="text-align:right">จอง</th><th style="text-align:right">% จอง</th><th style="text-align:right">ส่งมอบ</th><th style="text-align:right">ยังคุยอยู่</th><th style="text-align:right">เสียดีล</th><th style="text-align:right">วันถึงจอง (เฉลี่ย)</th><th style="text-align:right">รายได้</th><th style="text-align:right">งบที่ใช้</th><th style="text-align:right">ต้นทุน/คันที่ขาย</th></tr></thead>
         <tbody>${rows.map(r => `<tr>
-          <td><div style="font-weight:700">${r.icon} ${r.label}</div><div style="height:5px;background:var(--surface-2);border-radius:3px;margin-top:4px;width:120px"><div style="height:100%;width:${Math.round(r.leads / maxLeads * 100)}%;background:var(--primary);border-radius:3px"></div></div></td>
+          <td><div style="font-weight:700">${r.icon} ${escHtml(r.label)}</div><div style="height:5px;background:var(--surface-2);border-radius:3px;margin-top:4px;width:120px"><div style="height:100%;width:${Math.round(r.leads / maxLeads * 100)}%;background:var(--primary);border-radius:3px"></div></div></td>
           <td style="text-align:right">${r.leads}</td><td style="text-align:right">${r.booked}</td>
           <td style="text-align:right;font-weight:800;color:var(--${r.bookRate >= total.bookRate ? 'success' : 'warning'})">${r.bookRate}%</td>
           <td style="text-align:right">${r.delivered}</td><td style="text-align:right">${r.open}</td><td style="text-align:right">${r.lost}</td>
@@ -114,7 +116,7 @@ export default async function LeadSourcesPage(container) {
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:16px">
           ${sc('🧲 Leads รวม', totalLeads + ' คน', 'var(--primary)')}
           ${sc('🚗 ปิดได้', totalSales + ' ดีล', 'var(--success)')}
-          ${sc('🏆 แหล่งดีสุด', bestSrc ? bestSrc.info.icon + ' ' + bestSrc.info.label : '-', 'var(--primary)')}
+          ${sc('🏆 แหล่งดีสุด', bestSrc ? bestSrc.info.icon + ' ' + escHtml(bestSrc.info.label) : '-', 'var(--primary)')}
           ${sc('🎯 Conv. สูงสุด', topConv ? topConv.info.icon + ' ' + topConv.conv + '%' : '-', 'var(--success)')}
         </div>
 
@@ -131,7 +133,7 @@ export default async function LeadSourcesPage(container) {
             const pct = totalLeads ? Math.round(s.leads / totalLeads * 100) : 0
             return `<div style="margin-bottom:10px">
               <div style="display:flex;justify-content:space-between;font-size:0.74rem;margin-bottom:3px">
-                <span>${s.info.icon} ${s.info.label}</span>
+                <span>${s.info.icon} ${escHtml(s.info.label)}</span>
                 <span style="font-weight:700">${s.leads} leads (${pct}%)</span>
               </div>
               <div style="height:8px;background:var(--surface-2);border-radius:4px;overflow:hidden">

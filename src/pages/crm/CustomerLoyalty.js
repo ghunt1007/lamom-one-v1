@@ -3,6 +3,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getSalesData, listDocs, createDoc } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -171,7 +172,7 @@ export default async function CustomerLoyaltyPage(container) {
       <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
         <select class="input" id="tier-filter" style="width:140px">
           <option value="all">ทุก Tier</option>
-          ${Object.entries(TIERS).map(([k,v]) => `<option value="${k}" ${tierFilter===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}
+          ${Object.entries(TIERS).map(([k,v]) => `<option value="${__escA(k)}" ${tierFilter===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}
         </select>
         <span style="font-size:0.82rem;color:var(--text-muted);margin-left:auto">${list.length} สมาชิก</span>
       </div>

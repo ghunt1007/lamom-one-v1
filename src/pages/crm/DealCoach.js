@@ -7,6 +7,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { getSalesStaff } from '../../data/masterData.js'
 import { navigate } from '../../core/router.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -216,7 +217,7 @@ export default async function DealCoachPage(container) {
               </select>
             </div>
             <div><label style="font-size:0.74rem;color:var(--text-muted)">อัปเดต Win Rate (%)</label>
-              <input id="la-win" type="number" min="0" max="100" class="input" value="${deal.winPct}"></div>
+              <input id="la-win" type="number" min="0" max="100" class="input" value="${__escA(deal.winPct)}"></div>
           </div>
           <div><label style="font-size:0.74rem;color:var(--text-muted)">Action ต่อไป</label>
             <input id="la-next" class="input" placeholder="นัด Test Drive / ส่งสัญญา..."></div>

@@ -3,6 +3,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -106,7 +107,7 @@ export default async function ServiceAppointmentPage(container) {
           <div style="display:flex;gap:4px">
             ${['day','week','list'].map(m => `<button class="btn btn-sm ${viewMode===m?'btn-primary':'btn-secondary'} vm-btn" data-m="${m}">${{day:'วัน',week:'สัปดาห์',list:'รายการ'}[m]}</button>`).join('')}
           </div>
-          ${viewMode !== 'list' ? `<input type="date" class="input" id="view-date" value="${viewDate}" style="width:160px">` : ''}
+          ${viewMode !== 'list' ? `<input type="date" class="input" id="view-date" value="${__escA(viewDate)}" style="width:160px">` : ''}
           <div style="display:flex;gap:4px;margin-left:auto">
             <button class="btn btn-sm ${statusFilter==='all'?'btn-primary':'btn-secondary'} sf-btn" data-s="all">ทั้งหมด</button>
             ${Object.entries(APPT_STATUS).slice(0,4).map(([k,v]) => `<button class="btn btn-sm ${statusFilter===k?'btn-primary':'btn-secondary'} sf-btn" data-s="${k}">${v.label}</button>`).join('')}
@@ -203,18 +204,18 @@ export default async function ServiceAppointmentPage(container) {
         </div>
         <div class="input-group"><label class="input-label">ประเภทงาน *</label>
           <select class="input" id="ap-type">
-            ${SERVICE_TYPES.map(t => `<option value="${t}" ${appt?.type===t?'selected':''}>${t}</option>`).join('')}
+            ${SERVICE_TYPES.map(t => `<option value="${escHtml(t)}" ${appt?.type===t?'selected':''}>${escHtml(t)}</option>`).join('')}
           </select>
         </div>
         <div class="grid-2">
-          <div class="input-group"><label class="input-label">วันที่นัด *</label><input class="input" type="date" id="ap-date" value="${appt?.date||today}"></div>
-          <div class="input-group"><label class="input-label">เวลา *</label><input class="input" type="time" id="ap-time" value="${appt?.time||'09:00'}"></div>
+          <div class="input-group"><label class="input-label">วันที่นัด *</label><input class="input" type="date" id="ap-date" value="${escHtml(appt?.date||today)}"></div>
+          <div class="input-group"><label class="input-label">เวลา *</label><input class="input" type="time" id="ap-time" value="${escHtml(appt?.time||'09:00')}"></div>
         </div>
         <div class="grid-2">
           <div class="input-group"><label class="input-label">ช่างผู้รับผิดชอบ</label>
-            <select class="input" id="ap-tech"><option value="">-- ยังไม่ระบุ --</option>${TECHS.map(t=>`<option value="${t}" ${appt?.tech===t?'selected':''}>${t}</option>`).join('')}</select>
+            <select class="input" id="ap-tech"><option value="">-- ยังไม่ระบุ --</option>${TECHS.map(t=>`<option value="${escHtml(t)}" ${appt?.tech===t?'selected':''}>${escHtml(t)}</option>`).join('')}</select>
           </div>
-          <div class="input-group"><label class="input-label">เลขไมล์ (km)</label><input class="input" type="number" id="ap-km" value="${appt?.km||''}"></div>
+          <div class="input-group"><label class="input-label">เลขไมล์ (km)</label><input class="input" type="number" id="ap-km" value="${escHtml(appt?.km||'')}"></div>
         </div>
         <div class="input-group"><label class="input-label">หมายเหตุ</label><textarea class="input" id="ap-note" rows="2">${escHtml(appt?.note||'')}</textarea></div>
       </div>`,
@@ -258,13 +259,13 @@ export default async function ServiceAppointmentPage(container) {
         <div style="display:flex;flex-direction:column;gap:12px">
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <span class="badge badge-${st.color}">${st.label}</span>
-            <span class="badge badge-primary">${a.type}</span>
+            <span class="badge badge-primary">${escHtml(a.type)}</span>
           </div>
           <div class="grid-2" style="gap:8px;font-size:0.85rem">
             <div>📱 ${escHtml(a.phone)}</div>
             <div>🚗 ${escHtml(a.model)}</div>
             <div>🔖 ${escHtml(a.plate)}</div>
-            <div>📏 ${a.km?.toLocaleString()||'-'} km</div>
+            <div>📏 ${escHtml(a.km?.toLocaleString()||'-')} km</div>
             <div>🔧 ${escHtml(a.tech||'ยังไม่ระบุช่าง')}</div>
           </div>
           ${a.note ? `<div style="background:var(--surface-2);padding:10px;border-radius:var(--radius-sm);font-size:0.83rem">📝 ${escHtml(a.note)}</div>` : ''}

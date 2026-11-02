@@ -4,6 +4,7 @@ import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companySco
 import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { navigate } from '../../core/router.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -145,7 +146,7 @@ export default async function PdiPage(container) {
             <div class="input-group"><label class="input-label">ช่างตรวจ</label><input class="input" id="pdi-tech" value="${escHtml(p.techName||'')}" ${isReadOnly?'disabled':''}></div>
             <div class="input-group"><label class="input-label">สถานะ</label>
               <select class="input" id="pdi-status" ${isReadOnly?'disabled':''}>
-                ${Object.entries(PDI_STATUS).map(([k,v]) => `<option value="${k}" ${p.status===k?'selected':''}>${v.label}</option>`).join('')}
+                ${Object.entries(PDI_STATUS).map(([k,v]) => `<option value="${__escA(k)}" ${p.status===k?'selected':''}>${v.label}</option>`).join('')}
               </select>
             </div>
             <div class="input-group"><label class="input-label">ข้อบกพร่อง (กรอกแล้ว Enter)</label>

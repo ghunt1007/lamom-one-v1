@@ -4,6 +4,7 @@ import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getSalesData, listDocs, listAllDocs, createDoc, updateDocData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -350,7 +351,7 @@ export default async function TaxReportPage(container) {
           <div class="input-group" style="grid-column:1/-1">
             <label class="input-label">ประเภทภาษี *</label>
             <select class="input" id="ff-type">
-              ${Object.entries(TAX_TYPES).map(([k,v]) => `<option value="${k}">${v.label}</option>`).join('')}
+              ${Object.entries(TAX_TYPES).map(([k,v]) => `<option value="${__escA(k)}">${v.label}</option>`).join('')}
             </select>
           </div>
           <div class="input-group"><label class="input-label">งวด (เดือน-ปี)</label><input type="month" class="input" id="ff-period" value="${thisMonth()}"></div>

@@ -7,6 +7,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -48,13 +49,13 @@ export default async function VendorManagementPage(container) {
             <div>
               <label style="font-size:0.74rem;color:var(--text-muted)">หมวดหมู่</label>
               <select id="vm-cat" class="input">
-                ${CATEGORIES.map(c=>`<option value="${c}" ${v?.category===c?'selected':''}>${c}</option>`).join('')}
+                ${CATEGORIES.map(c=>`<option value="${__escA(c)}" ${v?.category===c?'selected':''}>${c}</option>`).join('')}
               </select>
             </div>
             <div>
               <label style="font-size:0.74rem;color:var(--text-muted)">เงื่อนไขชำระ</label>
               <select id="vm-terms" class="input">
-                ${PAY_TERMS.map(t=>`<option value="${t}" ${v?.payTerms===t?'selected':''}>${t}</option>`).join('')}
+                ${PAY_TERMS.map(t=>`<option value="${__escA(t)}" ${v?.payTerms===t?'selected':''}>${t}</option>`).join('')}
               </select>
             </div>
           </div>
@@ -150,11 +151,11 @@ export default async function VendorManagementPage(container) {
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div>
               <label style="font-size:0.74rem;color:var(--text-muted)">เลขที่ PO</label>
-              <input id="po-no" class="input" value="${poNo}" readonly style="background:var(--surface-2)">
+              <input id="po-no" class="input" value="${__escA(poNo)}" readonly style="background:var(--surface-2)">
             </div>
             <div>
               <label style="font-size:0.74rem;color:var(--text-muted)">วันที่ต้องการ</label>
-              <input id="po-date" type="date" class="input" value="${dueDate}">
+              <input id="po-date" type="date" class="input" value="${__escA(dueDate)}">
             </div>
           </div>
           <div>

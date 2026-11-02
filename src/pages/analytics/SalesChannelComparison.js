@@ -8,6 +8,7 @@ import { getSalesStaff, getSalesChannel } from '../../data/masterData.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { showToast } from '../../core/store.js'
 import { navigate } from '../../core/router.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -171,13 +172,13 @@ export default async function SalesChannelComparisonPage(container) {
         <button class="btn btn-ghost btn-xs sim-reset" data-ch="${channel}">↩️ รีเซ็ต</button>
       </div>
       <div class="input-group" style="margin-bottom:8px"><label class="input-label" style="font-size:0.7rem">➕ เพิ่ม/ลด จำนวนพนักงาน</label>
-        <input class="input sim-input" data-ch="${channel}" data-key="staffDelta" type="number" value="${p.staffDelta}" style="font-size:0.78rem">
+        <input class="input sim-input" data-ch="${channel}" data-key="staffDelta" type="number" value="${__escA(p.staffDelta)}" style="font-size:0.78rem">
       </div>
       <div class="input-group" style="margin-bottom:8px"><label class="input-label" style="font-size:0.7rem">📈 ปรับดีล/พนักงาน (%)</label>
-        <input class="input sim-input" data-ch="${channel}" data-key="dealsPerStaffPct" type="number" value="${p.dealsPerStaffPct}" style="font-size:0.78rem">
+        <input class="input sim-input" data-ch="${channel}" data-key="dealsPerStaffPct" type="number" value="${__escA(p.dealsPerStaffPct)}" style="font-size:0.78rem">
       </div>
       <div class="input-group" style="margin-bottom:10px"><label class="input-label" style="font-size:0.7rem">💵 ปรับมูลค่าดีลเฉลี่ย (%)</label>
-        <input class="input sim-input" data-ch="${channel}" data-key="avgDealSizePct" type="number" value="${p.avgDealSizePct}" style="font-size:0.78rem">
+        <input class="input sim-input" data-ch="${channel}" data-key="avgDealSizePct" type="number" value="${__escA(p.avgDealSizePct)}" style="font-size:0.78rem">
       </div>
       <div style="border-top:1px solid var(--border-subtle);padding-top:8px;font-size:0.78rem">
         <div style="display:flex;justify-content:space-between"><span>พนักงาน</span><b>${base.staffCount} → ${proj.staffCount}</b></div>

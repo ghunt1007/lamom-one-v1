@@ -15,7 +15,8 @@ export async function maybeMarkCustomerDelivered(booking) {
 // จองแล้ว (เฉพาะคันที่ยังพร้อมขาย), ถอนจอง → กลับเป็นพร้อมขาย (เฉพาะคันที่ค้างสถานะจองแล้ว)
 export function stockStatusForBooking(bookingStatus, vehicleStatus) {
   if (bookingStatus === 'ส่งมอบแล้ว') return vehicleStatus === 'sold' ? null : 'sold'
-  if (bookingStatus === 'ถอนจอง') return vehicleStatus === 'reserved' ? 'available' : null
+  // (v1.0.911) 'ยกเลิก' เดิมตกไปบรรทัดล่าง = จองรถคันว่างค้างไว้ ทั้งที่ใบจองยกเลิกแล้ว
+  if (bookingStatus === 'ถอนจอง' || bookingStatus === 'ยกเลิก') return vehicleStatus === 'reserved' ? 'available' : null
   return vehicleStatus === 'available' ? 'reserved' : null
 }
 export async function syncStockForBookings(list, vehiclesCache) {
@@ -32,4 +33,14 @@ export async function syncStockForBookings(list, vehiclesCache) {
     try { await updateDocData('vehicles', v.id, { status: next }); v.status = next; n++ } catch { /* ไม่กระทบการบันทึกใบจอง */ }
   }
   return n
+}
+
+// สถานะลูกค้าที่ควรเป็นหลังบันทึกใบจอง — null = ไม่ต้องแตะ
+// (v1.0.911) เดิมทุกครั้งที่กดบันทึกแก้ใบจอง (แม้ไม่ได้เปลี่ยนสถานะ หรือเป็นใบที่ถอนจองแล้ว) ลูกค้าจะถูกตั้งกลับเป็น
+// 'booking' และรีเซ็ตวันที่เปลี่ยนสถานะ ทำให้ลูกค้าที่ส่งมอบแล้ว/ถอนจองแล้วกลับไปโผล่เป็น "จองอยู่"
+export function customerStageAfterSave(newStatus, prevStatus, isNew) {
+  if (newStatus === 'ส่งมอบแล้ว') return (isNew || prevStatus !== 'ส่งมอบแล้ว') ? 'delivered' : null
+  if (newStatus === 'ถอนจอง' || newStatus === 'ยกเลิก') return null
+  if (isNew || prevStatus === 'ถอนจอง' || prevStatus === 'ยกเลิก') return 'booking'
+  return null
 }

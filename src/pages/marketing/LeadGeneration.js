@@ -6,6 +6,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 import { heuristicScore } from '../ai/LeadScoring.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
@@ -264,7 +265,7 @@ export default async function LeadGenerationPage(container) {
       body: `
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">ชื่อแคมเปญ *</label><input class="input" id="cf-name" placeholder="BYD Summer 2025..."></div>
-          <div class="input-group"><label class="input-label">ช่องทาง</label><select class="input" id="cf-channel">${Object.entries(CHANNEL_MAP).map(([k,v]) => `<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select></div>
+          <div class="input-group"><label class="input-label">ช่องทาง</label><select class="input" id="cf-channel">${Object.entries(CHANNEL_MAP).map(([k,v]) => `<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select></div>
           <div class="input-group"><label class="input-label">รุ่นรถเป้าหมาย</label><input class="input" id="cf-model" placeholder="BYD Seal / ทุกรุ่น" value="ทุกรุ่น"></div>
           <div class="input-group"><label class="input-label">งบประมาณ (บาท)</label><input type="number" class="input" id="cf-budget" placeholder="50000"></div>
           <div class="input-group"><label class="input-label">วันเริ่ม</label><input type="date" class="input" id="cf-start" value="${addDays(0)}"></div>

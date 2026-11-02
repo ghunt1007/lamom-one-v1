@@ -8,6 +8,7 @@ import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -114,11 +115,11 @@ export default async function RecallTrackerPage(container) {
             return `
               <div class="card" style="padding:14px;border-left:4px solid ${s.color}">
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
-                  <div style="font-size:0.72rem;font-weight:700;font-family:monospace">${r.campaign}</div>
+                  <div style="font-size:0.72rem;font-weight:700;font-family:monospace">${escHtml(r.campaign)}</div>
                   <span style="font-size:0.62rem;background:${s.color};color:#fff;padding:2px 7px;border-radius:8px">${s.label}</span>
                 </div>
-                <div style="font-size:0.78rem;font-weight:700;margin-bottom:4px">${r.model}</div>
-                <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:8px">${r.issue}</div>
+                <div style="font-size:0.78rem;font-weight:700;margin-bottom:4px">${escHtml(r.model)}</div>
+                <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:8px">${escHtml(r.issue)}</div>
                 <div style="height:6px;background:var(--surface-2);border-radius:3px;margin-bottom:4px">
                   <div style="height:100%;width:${total?Math.round(done/total*100):0}%;background:var(--success);border-radius:3px"></div>
                 </div>
@@ -139,11 +140,11 @@ export default async function RecallTrackerPage(container) {
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
           <select class="input" id="sel-recall" style="min-width:200px">
             <option value="all">ทุก Recall Campaign</option>
-            ${RECALLS.map(r=>`<option value="${r.id}" ${filterRecall===r.id?'selected':''}>${r.campaign}</option>`).join('')}
+            ${RECALLS.map(r=>`<option value="${escHtml(r.id)}" ${filterRecall===r.id?'selected':''}>${escHtml(r.campaign)}</option>`).join('')}
           </select>
           <select class="input" id="sel-wst" style="min-width:160px">
             <option value="all">ทุกสถานะ</option>
-            ${Object.entries(WST).map(([k,v])=>`<option value="${k}" ${filterWst===k?'selected':''}>${v.label}</option>`).join('')}
+            ${Object.entries(WST).map(([k,v])=>`<option value="${__escA(k)}" ${filterWst===k?'selected':''}>${v.label}</option>`).join('')}
           </select>
         </div>
 
@@ -162,21 +163,21 @@ export default async function RecallTrackerPage(container) {
                 const w = WST[wst]
                 return `<tr style="border-bottom:1px solid var(--border);font-size:0.78rem">
                   <td style="padding:9px 12px">
-                    <div style="font-weight:700;font-size:0.76rem;font-family:monospace">${v.vin.slice(-10)}</div>
-                    <div style="font-size:0.7rem;color:var(--text-muted)">${v.plate}</div>
+                    <div style="font-weight:700;font-size:0.76rem;font-family:monospace">${escHtml(String(v.vin || '').slice(-10))}</div>
+                    <div style="font-size:0.7rem;color:var(--text-muted)">${escHtml(v.plate)}</div>
                   </td>
-                  <td style="font-size:0.76rem">${v.model}</td>
+                  <td style="font-size:0.76rem">${escHtml(v.model)}</td>
                   <td>
-                    <div style="font-size:0.78rem;font-weight:600">${v.owner}</div>
-                    <div style="font-size:0.68rem;color:var(--text-muted)">${v.phone}</div>
+                    <div style="font-size:0.78rem;font-weight:600">${escHtml(v.owner)}</div>
+                    <div style="font-size:0.68rem;color:var(--text-muted)">${escHtml(v.phone)}</div>
                   </td>
                   <td style="font-size:0.7rem;font-family:monospace;color:var(--text-muted)">${rc?.campaign||'—'}</td>
                   <td style="text-align:center"><span style="font-size:0.64rem;background:${w?.color};color:#fff;padding:2px 8px;border-radius:10px">${w?.label||wst}</span></td>
                   <td>
                     <div style="display:flex;gap:5px">
-                      ${wst==='pending'?`<button class="btn btn-xs btn-primary notify-btn" data-vin="${v.vin}" style="font-size:0.68rem">📢 แจ้ง</button>`:''}
-                      ${wst==='notified'?`<button class="btn btn-xs btn-secondary done-btn" data-vin="${v.vin}" style="font-size:0.68rem">✅ บันทึกซ่อม</button>`:''}
-                      <button class="btn btn-xs btn-secondary hist-btn" data-vin="${v.vin}" style="font-size:0.68rem">ประวัติ</button>
+                      ${wst==='pending'?`<button class="btn btn-xs btn-primary notify-btn" data-vin="${escHtml(v.vin)}" style="font-size:0.68rem">📢 แจ้ง</button>`:''}
+                      ${wst==='notified'?`<button class="btn btn-xs btn-secondary done-btn" data-vin="${escHtml(v.vin)}" style="font-size:0.68rem">✅ บันทึกซ่อม</button>`:''}
+                      <button class="btn btn-xs btn-secondary hist-btn" data-vin="${escHtml(v.vin)}" style="font-size:0.68rem">ประวัติ</button>
                     </div>
                   </td>
                 </tr>`
@@ -202,7 +203,7 @@ export default async function RecallTrackerPage(container) {
         size: 'sm',
         body: `<div style="display:flex;flex-direction:column;gap:10px;font-size:0.8rem">
           <div><label style="font-size:0.72rem;color:var(--text-muted)">Recall Campaign *</label>
-            <select class="input" id="av-campaign" style="width:100%;margin-top:4px">${RECALLS.map(r => `<option value="${r.id}">${escHtml(r.campaign)} — ${escHtml(r.model)}</option>`).join('')}</select></div>
+            <select class="input" id="av-campaign" style="width:100%;margin-top:4px">${RECALLS.map(r => `<option value="${__escA(r.id)}">${escHtml(r.campaign)} — ${escHtml(r.model)}</option>`).join('')}</select></div>
           <div><label style="font-size:0.72rem;color:var(--text-muted)">ค้นหารถจากใบจอง (VIN / ทะเบียน / ชื่อลูกค้า)</label>
             <input class="input" id="av-search" placeholder="พิมพ์เพื่อค้นหา..." style="width:100%;margin-top:4px"></div>
           <div id="av-results" style="max-height:180px;overflow:auto;display:flex;flex-direction:column;gap:4px"></div>

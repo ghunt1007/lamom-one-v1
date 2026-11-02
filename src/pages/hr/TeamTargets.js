@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 const addMonths = n => monthBangkok(n)
@@ -143,9 +144,9 @@ export default async function TeamTargetsPage(container) {
           </div>
           <div class="input-group"><label class="input-label">ทีม (ถ้ามี — เว้นว่างได้ = เป้าระดับฝ่าย)</label><input class="input" id="tt-team" placeholder="เช่น ทีม A"></div>
           <div class="input-group"><label class="input-label">ตัวชี้วัด (Metric)</label>
-            <select class="input" id="tt-metric">${Object.entries(METRICS).map(([k,v]) => `<option value="${k}">${v.label}</option>`).join('')}</select>
+            <select class="input" id="tt-metric">${Object.entries(METRICS).map(([k,v]) => `<option value="${__escA(k)}">${v.label}</option>`).join('')}</select>
           </div>
-          <div class="input-group"><label class="input-label">เดือน</label><input type="month" class="input" id="tt-period" value="${currentMonth}"></div>
+          <div class="input-group"><label class="input-label">เดือน</label><input type="month" class="input" id="tt-period" value="${__escA(currentMonth)}"></div>
           <div class="input-group"><label class="input-label">เป้าหมาย *</label><input type="number" class="input" id="tt-target"></div>
           <div class="input-group"><label class="input-label">ผลจริง (เริ่มต้น)</label><input type="number" class="input" id="tt-actual" value="0"></div>
         </div>
@@ -176,7 +177,7 @@ export default async function TeamTargetsPage(container) {
       size: 'sm',
       body: `
         <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:10px">${m?.label} — เป้าหมาย ${m?.fmt(t.target)}</div>
-        <div class="input-group"><label class="input-label">ผลจริงล่าสุด</label><input type="number" class="input" id="ua-actual" value="${t.actual}"></div>
+        <div class="input-group"><label class="input-label">ผลจริงล่าสุด</label><input type="number" class="input" id="ua-actual" value="${__escA(t.actual)}"></div>
       `,
       confirmText: '💾 บันทึก',
       async onConfirm() {

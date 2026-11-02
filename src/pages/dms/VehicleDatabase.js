@@ -12,6 +12,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { askJsonPrompt, isAiEnabled } from '../../utils/ai.js'
 import { todayBangkok } from '../../utils/format.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 // เฉพาะ Owner/Admin เท่านั้นที่ทำ action ทำลาย/เขียนทับข้อมูลทั้งฐานได้ (ลบรุ่นรถ / batch-overwrite ด้วย AI)
 // ใช้ pattern เดียวกับ src/pages/settings/DataRetention.js (canManage = ROLES.includes(myRole))
@@ -313,7 +314,7 @@ export default async function VehicleDatabasePage(container) {
             <div class="page-subtitle">ข้อมูลรถทุกยี่ห้อที่ขายในประเทศไทย · ราคา สเปค ครบถ้วน</div>
           </div>
           <div class="page-actions">
-            <input type="text" id="search-input" placeholder="ค้นหา ยี่ห้อ รุ่น รุ่นย่อย..." value="${filter.query}"
+            <input type="text" id="search-input" placeholder="ค้นหา ยี่ห้อ รุ่น รุ่นย่อย..." value="${__escA(filter.query)}"
               style="padding:6px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);color:var(--text);font-size:0.78rem;width:220px">
             <button class="btn btn-primary" id="ai-lookup-btn">🤖 ค้นด้วย AI</button>
             ${canManageCatalog ? '<button class="btn btn-secondary" id="ai-batch-btn">✨ ตรวจทั้งหมดด้วย AI</button>' : ''}

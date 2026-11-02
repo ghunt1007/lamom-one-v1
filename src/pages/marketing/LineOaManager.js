@@ -7,6 +7,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { getLineOaInsight } from '../../utils/comms.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString() }
 function escHtml(s) {
@@ -162,7 +163,7 @@ export default async function LineOaManagerPage(container) {
         body: `<div style="display:grid;gap:10px">
           <div class="input-group"><label class="input-label">ชื่อ Campaign *</label><input class="input" id="bc-name"></div>
           <div class="input-group"><label class="input-label">ประเภท</label>
-            <select class="input" id="bc-type">${Object.entries(MSG_TYPES).filter(([k])=>k!=='auto').map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+            <select class="input" id="bc-type">${Object.entries(MSG_TYPES).filter(([k])=>k!=='auto').map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">กำหนดส่ง</label><input class="input" type="date" id="bc-date" value="${addDays(1).slice(0,10)}"></div>
           <div class="input-group"><label class="input-label">ข้อความที่จะส่ง *</label><textarea class="input" id="bc-msg" rows="4" placeholder="พิมพ์ข้อความ Broadcast..."></textarea></div>
@@ -188,7 +189,7 @@ export default async function LineOaManagerPage(container) {
       title: a ? '✏️ แก้ไขกฎ' : '+ กฎตอบอัตโนมัติ',
       size: 'sm',
       body: `<div style="display:grid;gap:10px">
-        <div class="input-group"><label class="input-label">Keywords (คั่นด้วย ,) *</label><input class="input" id="ar-kw" value="${a?.keyword||''}"></div>
+        <div class="input-group"><label class="input-label">Keywords (คั่นด้วย ,) *</label><input class="input" id="ar-kw" value="${__escA(a?.keyword||'')}"></div>
         <div class="input-group"><label class="input-label">ข้อความตอบ *</label><textarea class="input" id="ar-reply" rows="3">${escHtml(a?.reply||'')}</textarea></div>
       </div>`,
       async onConfirm() {

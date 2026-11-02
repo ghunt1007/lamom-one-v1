@@ -6,6 +6,7 @@ import { formatDate, formatCurrency, timeAgo, todayBangkok } from '../../utils/f
 import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { watchDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -159,7 +160,7 @@ export default async function VehicleReservationPage(container) {
           <select class="input" id="rs-model">${MODELS.map(m=>`<option ${existing?.model===m?'selected':''}>${m}</option>`).join('')}</select>
         </div>
         <div class="input-group"><label class="input-label">สี</label><input class="input" id="rs-color" placeholder="ขาว / น้ำเงิน / เทา" value="${escHtml(existing?.color||'')}"></div>
-        <div class="input-group"><label class="input-label">มัดจำ (บาท)</label><input class="input" type="number" id="rs-deposit" value="${existing?.deposit||0}"></div>
+        <div class="input-group"><label class="input-label">มัดจำ (บาท)</label><input class="input" type="number" id="rs-deposit" value="${__escA(existing?.deposit||0)}"></div>
         <div class="input-group"><label class="input-label">วันหมดอายุจอง</label><input class="input" type="date" id="rs-expiry" value="${existing?.expiry||addDays(14)}"></div>
       </div>`,
       async onConfirm() {

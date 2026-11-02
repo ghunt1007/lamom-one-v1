@@ -8,6 +8,7 @@ import { formatDate, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { sendSms, sendEmail } from '../../utils/comms.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -179,9 +180,9 @@ export default async function ReceiptAutoPage(container) {
         <div><label style="font-size:0.74rem;color:var(--text-muted)">ชื่อ Rule *</label>
           <input id="ar-name" class="input" placeholder="เช่น ส่งใบเสร็จหลังปิดงาน"></div>
         <div><label style="font-size:0.74rem;color:var(--text-muted)">Trigger (เหตุการณ์ที่จะเริ่มส่ง)</label>
-          <select id="ar-trig" class="input">${RULE_TRIGGERS.map(t=>`<option value="${t}">${t}</option>`).join('')}</select></div>
+          <select id="ar-trig" class="input">${RULE_TRIGGERS.map(t=>`<option value="${__escA(t)}">${t}</option>`).join('')}</select></div>
         <div><label style="font-size:0.74rem;color:var(--text-muted)">ช่องทางส่ง</label>
-          <select id="ar-ch" class="input">${Object.entries(RULE_CHANNELS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></div>
+          <select id="ar-ch" class="input">${Object.entries(RULE_CHANNELS).map(([k,v])=>`<option value="${__escA(k)}">${v}</option>`).join('')}</select></div>
         <span class="input-error" id="ar-err"></span>
       </div>`,
       footer: `<button class="btn btn-secondary" id="ar-c">ยกเลิก</button><button class="btn btn-primary" id="ar-s">💾 บันทึก</button>`,

@@ -7,6 +7,7 @@ import { todayBangkok } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -160,7 +161,7 @@ export default async function ComplianceCalendarPage(container) {
               </select>
             </div>
             <div><label style="font-size:0.74rem;color:var(--text-muted)">กำหนดวันครบ</label>
-              <input id="cc-due" type="date" class="input" value="${todayStr}"></div>
+              <input id="cc-due" type="date" class="input" value="${__escA(todayStr)}"></div>
           </div>
           <div><label style="font-size:0.74rem;color:var(--text-muted)">ผู้รับผิดชอบ</label>
             <input id="cc-resp" class="input" placeholder="ฝ่ายบัญชี / HR / ผู้จัดการ..."></div>

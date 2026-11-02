@@ -10,6 +10,7 @@ import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companySco
 import { askDeliveryIncome, needsIncome, statusDatePatch } from '../../utils/deliveryIncome.js'
 import { scheduleAfterSales } from '../../utils/afterSales.js'
 import { maybeMarkCustomerDelivered, syncStockForBookings } from '../../utils/bookingSync.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function myName() {
   const me = getState('user') || {}
@@ -204,7 +205,7 @@ export default async function DeliveryCalendarPage(container) {
         size: 'sm',
         body: `<div style="display:grid;gap:10px">
           <div class="input-group"><label class="input-label">วันใหม่</label><input class="input" type="date" id="pp-date" value="${addDays(3)}"></div>
-          <div class="input-group"><label class="input-label">เวลา</label><input class="input" type="time" id="pp-time" value="${d.time}"></div>
+          <div class="input-group"><label class="input-label">เวลา</label><input class="input" type="time" id="pp-time" value="${__escA(d.time)}"></div>
         </div>`,
         async onConfirm() {
           const deliveryDate = document.getElementById('pp-date')?.value || d.date

@@ -7,6 +7,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -168,7 +169,7 @@ export default async function ComplianceCheckPage(container) {
         <div class="input-group"><label class="input-label">ชื่อรายการ *</label><input class="input" id="ca-title"><span class="input-error" id="ca-title-e"></span></div>
         <div class="grid-2">
           <div class="input-group"><label class="input-label">หมวด</label>
-            <select class="input" id="ca-cat">${Object.entries(COMPLIANCE_CATS).map(([k,v]) => `<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+            <select class="input" id="ca-cat">${Object.entries(COMPLIANCE_CATS).map(([k,v]) => `<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">ความสำคัญ</label>
             <select class="input" id="ca-criticality"><option value="critical">critical</option><option value="high">high</option><option value="normal" selected>normal</option></select>
@@ -209,14 +210,14 @@ export default async function ComplianceCheckPage(container) {
         <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:12px">${cat?.icon} ${cat?.label}</div>
         <div class="input-group"><label class="input-label">สถานะ</label>
           <select class="input" id="cu-status">
-            ${Object.entries(CHECK_STATUS).filter(([k])=>k!=='na').map(([k,v])=>`<option value="${k}" ${c.status===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}
+            ${Object.entries(CHECK_STATUS).filter(([k])=>k!=='na').map(([k,v])=>`<option value="${__escA(k)}" ${c.status===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}
           </select>
         </div>
         <div class="input-group"><label class="input-label">หมายเหตุ</label>
           <textarea class="input" id="cu-notes" rows="3">${escHtml(c.notes || '')}</textarea>
         </div>
         <div class="input-group"><label class="input-label">ตรวจถัดไป</label>
-          <input type="date" class="input" id="cu-next" value="${c.nextCheck}">
+          <input type="date" class="input" id="cu-next" value="${__escA(c.nextCheck)}">
         </div>
       `,
       async onConfirm() {

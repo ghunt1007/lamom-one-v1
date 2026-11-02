@@ -11,6 +11,7 @@ import { formatDate, formatCurrency, todayBangkok, toDateStr } from '../../utils
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { navigate } from '../../core/router.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -240,7 +241,7 @@ export default async function VehicleOrdersPage(container) {
       title: isEdit ? '✏️ แก้ไขคำสั่งซื้อ' : '➕ สั่งรถใหม่', size: 'lg',
       body: `
         <div style="display:flex;flex-direction:column;gap:12px">
-          ${isEdit ? '' : `<div class="input-group"><label class="input-label">เลขที่คำสั่ง</label><input class="input" id="of-no" value="${newOrderNo}" readonly style="color:var(--text-muted)"></div>`}
+          ${isEdit ? '' : `<div class="input-group"><label class="input-label">เลขที่คำสั่ง</label><input class="input" id="of-no" value="${__escA(newOrderNo)}" readonly style="color:var(--text-muted)"></div>`}
           <div class="grid-2">
             <div class="input-group"><label class="input-label">ยี่ห้อ *</label><input class="input" id="of-brand" value="${escHtml(existing?.brand||'')}"></div>
             <div class="input-group"><label class="input-label">รุ่น *</label><input class="input" id="of-model" value="${escHtml(existing?.model||'')}"><span class="input-error" id="of-model-e"></span></div>
@@ -250,8 +251,8 @@ export default async function VehicleOrdersPage(container) {
             <div class="input-group"><label class="input-label">สี</label><input class="input" id="of-color" value="${escHtml(existing?.color||'')}"></div>
           </div>
           <div class="grid-2">
-            <div class="input-group"><label class="input-label">จำนวน (คัน)</label><input class="input" type="number" id="of-qty" value="${existing?.qty||1}" min="1"></div>
-            <div class="input-group"><label class="input-label">ต้นทุน/คัน (บาท)</label><input class="input" type="number" id="of-cost" value="${existing?.unitCost||''}"></div>
+            <div class="input-group"><label class="input-label">จำนวน (คัน)</label><input class="input" type="number" id="of-qty" value="${__escA(existing?.qty||1)}" min="1"></div>
+            <div class="input-group"><label class="input-label">ต้นทุน/คัน (บาท)</label><input class="input" type="number" id="of-cost" value="${__escA(existing?.unitCost||'')}"></div>
           </div>
           <div class="grid-2">
             <div class="input-group"><label class="input-label">Supplier</label><input class="input" id="of-sup" value="${escHtml(existing?.supplier||'')}"></div>
@@ -259,7 +260,7 @@ export default async function VehicleOrdersPage(container) {
           </div>
           <div class="input-group"><label class="input-label">สถานะ</label>
             <select class="input" id="of-status">
-              ${Object.entries(STATUS).map(([k,v]) => `<option value="${k}" ${existing?.status===k?'selected':''}>${v.label}</option>`).join('')}
+              ${Object.entries(STATUS).map(([k,v]) => `<option value="${__escA(k)}" ${existing?.status===k?'selected':''}>${v.label}</option>`).join('')}
             </select>
           </div>
           <div class="input-group"><label class="input-label">หมายเหตุ</label><input class="input" id="of-notes" value="${escHtml(existing?.notes||'')}"></div>

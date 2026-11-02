@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 import { getSalesStaff } from '../../data/masterData.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -152,10 +153,10 @@ export default async function WalkInPage(container) {
             <select class="input" id="wi-model">${MODELS.map(m=>`<option>${m}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">ความสนใจ</label>
-            <select class="input" id="wi-interest">${Object.entries(INTEREST_LEVEL).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+            <select class="input" id="wi-interest">${Object.entries(INTEREST_LEVEL).map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">ผลการเยี่ยม</label>
-            <select class="input" id="wi-outcome">${Object.entries(VISIT_OUTCOMES).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('')}</select>
+            <select class="input" id="wi-outcome">${Object.entries(VISIT_OUTCOMES).map(([k,v])=>`<option value="${__escA(k)}">${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">เซลส์ที่ดูแล</label>
             <select class="input" id="wi-staff">

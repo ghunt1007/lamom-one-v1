@@ -9,6 +9,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { realFunnel, stepRate } from '../../utils/realFunnel.js'
 import { isCancelled } from '../../utils/bookingStatus.js'
+import { escHtml } from '../../utils/escape.js'
 
 export default async function ConversionFunnelPage(container) {
   const myGen = container.__routerGen
@@ -105,7 +106,7 @@ export default async function ConversionFunnelPage(container) {
           }).join('')}
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:14px">
           <!-- By source -->
           <div class="card" style="padding:14px">
             <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">📊 จองได้ แยกตามที่มาลูกค้า</div>
@@ -113,7 +114,7 @@ export default async function ConversionFunnelPage(container) {
             ${bySource.map(s => {
               const conv = s.leads ? Math.round(s.closed / s.leads * 1000) / 10 : 0
               return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:0.78rem">
-                <span>${s.source}</span>
+                <span>${escHtml(s.source)}</span>
                 <div style="text-align:right">
                   <span style="color:var(--text-muted)">${s.closed}/${s.leads}</span>
                   <strong style="color:var(--${conv>=10?'success':conv>=5?'warning':'danger'});margin-left:8px">${conv}%</strong>
@@ -128,9 +129,9 @@ export default async function ConversionFunnelPage(container) {
             ${dropReasons.length ? '' : '<div style="font-size:0.78rem;color:var(--text-muted)">ยังไม่มีลูกค้าที่หลุด/ถอนจอง</div>'}
             ${dropReasons.map(d => `
               <div style="padding:7px 0;border-bottom:1px solid var(--border)">
-                <div style="font-size:0.7rem;color:var(--text-muted)">${d.from}</div>
+                <div style="font-size:0.7rem;color:var(--text-muted)">${escHtml(d.from)}</div>
                 <div style="display:flex;justify-content:space-between;font-size:0.78rem">
-                  <span>${d.reason}</span>
+                  <span>${escHtml(d.reason)}</span>
                   <strong style="color:var(--danger)">${d.pct}%</strong>
                 </div>
               </div>

@@ -10,6 +10,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, getSalesData } from '../../core/db.js'
 import { navigate } from '../../core/router.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -184,8 +185,8 @@ export default async function MonthlyCampaignGoalsPage(container) {
       body: `
         <div style="display:flex;flex-direction:column;gap:12px">
           <div class="grid-2" style="gap:10px">
-            <div class="input-group"><label class="input-label">เป้าหมายยอดขาย (คัน)</label><input class="input" type="number" id="mg-units" min="0" value="${goal?.salesTarget || ''}"></div>
-            <div class="input-group"><label class="input-label">เป้าหมายรายได้ (บาท)</label><input class="input" type="number" id="mg-revenue" min="0" value="${goal?.revenueTarget || ''}"></div>
+            <div class="input-group"><label class="input-label">เป้าหมายยอดขาย (คัน)</label><input class="input" type="number" id="mg-units" min="0" value="${__escA(goal?.salesTarget || '')}"></div>
+            <div class="input-group"><label class="input-label">เป้าหมายรายได้ (บาท)</label><input class="input" type="number" id="mg-revenue" min="0" value="${__escA(goal?.revenueTarget || '')}"></div>
           </div>
           <div class="input-group"><label class="input-label">เงื่อนไข/รายละเอียดเป้าหมายเดือนนี้</label>
             <textarea class="input" id="mg-conditions" rows="4" placeholder="เช่น เงื่อนไขรับโบนัสพิเศษ เกณฑ์การจัดสรรงบแถม ฯลฯ">${escHtml(goal?.conditions || '')}</textarea>

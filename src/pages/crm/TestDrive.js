@@ -8,6 +8,7 @@ import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companySco
 import { isProgramOwner } from '../../core/hierarchy.js'
 import { scheduleTestDriveFollowup } from '../../utils/testDriveFollowup.js'
 import { testDriveThanks } from '../../utils/bookingNotify.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 // (v1.0.523) เดิมหน้านี้เขียน collection แยก 'test_drive_records' ของตัวเอง ในขณะที่ TestDriveScheduler.js
 // (/dms/testdrive-schedule) เขียน collection 'test_drives' คนละตัวโดยสิ้นเชิง — ทำระบบเดียวกัน (นัด→ทดลองขับ→
@@ -245,12 +246,12 @@ export default async function TestDrivePage(container) {
         <div class="input-group"><label class="input-label">ผลลัพธ์</label>
           <select class="input" id="tr-result">
             <option value="">— ยังไม่ระบุ —</option>
-            ${Object.entries(TD_RESULT).map(([k,v]) => `<option value="${k}">${v.label}</option>`).join('')}
+            ${Object.entries(TD_RESULT).map(([k,v]) => `<option value="${__escA(k)}">${v.label}</option>`).join('')}
           </select>
         </div>
         <div class="grid-2">
-          <div class="input-group"><label class="input-label">ระยะทาง (กม.)</label><input class="input" type="number" id="tr-km" value="${t.km || 0}"></div>
-          <div class="input-group"><label class="input-label">ระยะเวลา (นาที)</label><input class="input" type="number" id="tr-dur" value="${t.duration || 30}"></div>
+          <div class="input-group"><label class="input-label">ระยะทาง (กม.)</label><input class="input" type="number" id="tr-km" value="${__escA(t.km || 0)}"></div>
+          <div class="input-group"><label class="input-label">ระยะเวลา (นาที)</label><input class="input" type="number" id="tr-dur" value="${__escA(t.duration || 30)}"></div>
         </div>
         <div class="input-group"><label class="input-label">หมายเหตุ/Feedback</label><textarea class="input" id="tr-note" rows="2">${escHtml(t.notes||'')}</textarea></div>
       </div>`,
@@ -301,11 +302,11 @@ export default async function TestDrivePage(container) {
           <select class="input" id="nf-vehicle">${tdVehicleOptions()}</select>
         </div>
         <div class="grid-2">
-          <div class="input-group"><label class="input-label">วันที่</label><input class="input" type="date" id="nf-date" value="${today}"></div>
+          <div class="input-group"><label class="input-label">วันที่</label><input class="input" type="date" id="nf-date" value="${__escA(today)}"></div>
           <div class="input-group"><label class="input-label">เวลา</label><input class="input" type="time" id="nf-time" value="10:00"></div>
         </div>
         <div class="input-group"><label class="input-label">Sales ที่รับผิดชอบ</label>
-          <select class="input" id="nf-staff">${getSalesStaff().map(s => `<option ${s === (getState("user")?.displayName || "") ? "selected" : ""}>${s}</option>`).join('')}</select>
+          <select class="input" id="nf-staff">${getSalesStaff().map(s => `<option ${s === (getState("user")?.displayName || "") ? "selected" : ""}>${escHtml(s)}</option>`).join('')}</select>
         </div>
       </div>`,
       footer: `<button class="btn btn-secondary" id="nfc">ยกเลิก</button><button class="btn btn-primary" id="nfs">📅 นัดหมาย</button>`

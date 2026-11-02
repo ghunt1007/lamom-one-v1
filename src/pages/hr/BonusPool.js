@@ -7,6 +7,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
@@ -216,9 +217,9 @@ export default async function BonusPoolPage(container) {
       title:`✏️ ปรับ Bonus — ${escHtml(s.name)}`, size:'xs',
       body:`<div style="font-size:0.8rem;display:flex;flex-direction:column;gap:8px">
         <div><label style="font-size:0.72rem;color:var(--text-muted)">KPI Score (%)</label>
-          <input class="input" id="kpi-val" type="number" value="${s.kpi}" min="0" max="100" style="width:100%;margin-top:4px"></div>
+          <input class="input" id="kpi-val" type="number" value="${__escA(s.kpi)}" min="0" max="100" style="width:100%;margin-top:4px"></div>
         <div><label style="font-size:0.72rem;color:var(--text-muted)">Multiplier</label>
-          <input class="input" id="mult-val" type="number" value="${s.multiplier}" min="0" max="5" step="0.5" style="width:100%;margin-top:4px"></div>
+          <input class="input" id="mult-val" type="number" value="${__escA(s.multiplier)}" min="0" max="5" step="0.5" style="width:100%;margin-top:4px"></div>
         <div style="font-size:0.72rem;color:var(--text-muted)">Bonus จะถูกคำนวณใหม่อัตโนมัติ</div>
       </div>`,
       confirmText:'💾 บันทึก',

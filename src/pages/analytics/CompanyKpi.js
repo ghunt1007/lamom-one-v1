@@ -3,6 +3,7 @@ import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getSalesData, listDocs } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 // เป้าหมายอ้างอิงมาตรฐานอุตสาหกรรม — หมวดที่ไม่มี ✅ ยังไม่มีข้อมูลจริงเชื่อมในระบบ (Service/HR/Finance/Marketing)
 // แสดงเป็น "เป้าหมายอ้างอิง" เท่านั้น ไม่นับรวมใน Overall Score เพื่อไม่ให้ปนกับหมวดที่มีข้อมูลจริง (Sales/CRM)
@@ -188,7 +189,7 @@ export default async function CompanyKpiPage(container) {
           </div>
           <div class="page-actions">
             <select class="input" id="period-sel" style="width:140px">
-              ${PERIODS.map(p => `<option value="${p}" ${period===p?'selected':''}>${p}</option>`).join('')}
+              ${PERIODS.map(p => `<option value="${__escA(p)}" ${period===p?'selected':''}>${p}</option>`).join('')}
             </select>
             <button class="btn btn-secondary" id="export-btn">📥 ส่งออก</button>
           </div>

@@ -6,6 +6,7 @@ import { formatDate, timeAgo } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
@@ -136,7 +137,7 @@ export default async function DocumentTemplatesPage(container) {
       body: `<div style="display:grid;gap:10px">
         <div class="input-group"><label class="input-label">ชื่อ Template *</label><input class="input" id="tp-name"></div>
         <div class="input-group"><label class="input-label">หมวด</label>
-          <select class="input" id="tp-cat">${Object.entries(TPL_CATS).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+          <select class="input" id="tp-cat">${Object.entries(TPL_CATS).map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
         </div>
         <div class="input-group"><label class="input-label">Fields (คั่นด้วย ,)</label><input class="input" id="tp-fields" placeholder="ชื่อลูกค้า, รุ่นรถ, ราคา"></div>
       </div>`,

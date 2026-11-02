@@ -13,6 +13,7 @@ import { getPositions } from '../../data/masterData.js'
 import { navigate } from '../../core/router.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
 import { genPassword } from '../../utils/secureRandom.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -261,13 +262,13 @@ export default async function UserManagementPage(container) {
         <div class="input-group"><label class="input-label">ชื่อ-นามสกุล *</label><input class="input" id="nu-name"></div>
         <div class="input-group"><label class="input-label">อีเมล (ใช้ login) *</label><input class="input" type="email" id="nu-email" placeholder="name@lamom.one"></div>
         <div class="input-group" style="grid-column:1/-1"><label class="input-label">ระดับสิทธิ์ * <span style="font-size:0.65rem;color:var(--text-muted)">(ต่ำกว่าคุณเท่านั้น)</span></label>
-          <select class="input" id="nu-role">${creatable.map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+          <select class="input" id="nu-role">${creatable.map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
         </div>
         <div class="input-group" style="grid-column:1/-1"><label class="input-label">ระยะเวลาสิทธิ์ <span style="font-size:0.65rem;color:var(--text-muted)">(เผื่อพนักงานชั่วคราว/ผู้รับเหมา — เลือก "ไม่จำกัดเวลา" สำหรับพนักงานประจำ)</span></label>
           <select class="input" id="nu-expiry">${EXPIRY_OPTIONS.map(o=>`<option value="${o.days??''}">${o.label}</option>`).join('')}</select>
         </div>
         <div class="input-group"><label class="input-label">บริษัท <span style="font-size:0.65rem;color:var(--text-muted)">(ถ้าดูแลหลายบริษัท เพิ่มทีหลังได้จากหน้า "กำหนดสิทธิ์")</span></label>
-          <select class="input" id="nu-company"><option value="">— ไม่ระบุ —</option>${companiesList.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select>
+          <select class="input" id="nu-company"><option value="">— ไม่ระบุ —</option>${companiesList.map(c=>`<option value="${__escA(c.id)}">${esc(c.name)}</option>`).join('')}</select>
         </div>
         <div class="input-group"><label class="input-label">แผนก</label>
           <input class="input" id="nu-department" placeholder="เช่น ขาย, บัญชี, HR"></div>
@@ -277,7 +278,7 @@ export default async function UserManagementPage(container) {
         </div>
         <div class="input-group" style="grid-column:1/-1"><label class="input-label">รหัสผ่านชั่วคราว *</label>
           <div style="display:flex;gap:6px">
-            <input class="input" id="nu-password" value="${suggested}" style="flex:1;font-family:monospace">
+            <input class="input" id="nu-password" value="${__escA(suggested)}" style="flex:1;font-family:monospace">
             <button type="button" class="btn btn-secondary" id="nu-gen">🎲 สุ่มใหม่</button>
           </div>
           <span style="font-size:0.65rem;color:var(--warning)">⚠️ ส่งรหัสนี้ให้ผู้ใช้ทางช่องทางปลอดภัย — แนะนำให้ผู้ใช้กด "ลืมรหัสผ่าน" เพื่อตั้งรหัสเองทันทีที่ login ครั้งแรก</span>
@@ -336,12 +337,12 @@ export default async function UserManagementPage(container) {
       </div>
       <div class="input-group" style="margin-top:10px">
         <label class="input-label">ระดับสิทธิ์ *</label>
-        <select class="input" id="ar-role">${creatable.map(([k,v])=>`<option value="${k}" ${u.role===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}</select>
+        <select class="input" id="ar-role">${creatable.map(([k,v])=>`<option value="${__escA(k)}" ${u.role===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}</select>
       </div>
       <div class="input-group" style="margin-top:10px">
         <label class="input-label">ระยะเวลาสิทธิ์ <span style="font-size:0.65rem;color:var(--text-muted)">(เผื่อพนักงานชั่วคราว/ผู้รับเหมา)</span></label>
         <select class="input" id="ar-expiry">
-          <option value="${KEEP_EXPIRY}" selected>— คงเดิมไม่เปลี่ยนแปลง —</option>
+          <option value="${__escA(KEEP_EXPIRY)}" selected>— คงเดิมไม่เปลี่ยนแปลง —</option>
           ${EXPIRY_OPTIONS.map(o=>`<option value="${o.days??''}">${o.label}</option>`).join('')}
         </select>
         <p style="font-size:0.68rem;color:var(--text-muted);margin-top:6px">${isPendingUser ? 'อนุมัติแล้วผู้ใช้จะเข้าใช้งานระบบได้ทันทีตามสิทธิ์ที่เลือก' : 'ค่าเริ่มต้น "คงเดิม" จะไม่แตะวันหมดอายุที่ตั้งไว้อยู่แล้ว — เลือกเปลี่ยนเฉพาะตอนต้องการแก้จริงๆ'}</p>
@@ -353,10 +354,10 @@ export default async function UserManagementPage(container) {
           ${companiesList.map(c => {
             const membership = currentMemberships.find(m => m.companyId === c.id)
             return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--border)">
-              <label style="display:flex;align-items:center;gap:6px;font-size:0.8rem;flex:1"><input type="checkbox" class="ar-company-cb" value="${c.id}" ${membership?'checked':''}> ${esc(c.name)}</label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:0.8rem;flex:1"><input type="checkbox" class="ar-company-cb" value="${__escA(c.id)}" ${membership?'checked':''}> ${esc(c.name)}</label>
               <select class="input ar-company-manager" data-company="${c.id}" style="width:150px;font-size:0.7rem">
                 <option value="">— ไม่มีหัวหน้า —</option>
-                ${users.filter(u => u.id !== uid).map(x => `<option value="${x.id}" ${membership?.managerId===x.id?'selected':''}>${esc(x.displayName||x.email)}</option>`).join('')}
+                ${users.filter(u => u.id !== uid).map(x => `<option value="${__escA(x.id)}" ${membership?.managerId===x.id?'selected':''}>${esc(x.displayName||x.email)}</option>`).join('')}
               </select>
             </div>`
           }).join('')}

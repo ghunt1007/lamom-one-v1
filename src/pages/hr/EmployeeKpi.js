@@ -7,6 +7,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function myName() {
   const me = getState('user') || {}
@@ -108,7 +109,7 @@ export default async function EmployeeKpiPage(container) {
         <div style="margin-bottom:12px">
           <select class="input" id="staff-filter" style="max-width:260px">
             <option value="all">พนักงานทั้งหมด</option>
-            ${staffList.map(s => `<option value="${s.id}" ${staffFilter===s.id?'selected':''}>${esc(s.firstName)} ${esc(s.lastName)} (${esc(s.dept)})</option>`).join('')}
+            ${staffList.map(s => `<option value="${__escA(s.id)}" ${staffFilter===s.id?'selected':''}>${esc(s.firstName)} ${esc(s.lastName)} (${esc(s.dept)})</option>`).join('')}
           </select>
         </div>
 
@@ -171,12 +172,12 @@ export default async function EmployeeKpiPage(container) {
       body: `
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">พนักงาน *</label>
-            <select class="input" id="ev-staff">${staffList.map(s => `<option value="${s.id}" ${existing?.staffId===s.id?'selected':''}>${esc(s.firstName)} ${esc(s.lastName)} (${esc(s.dept)})</option>`).join('')}</select>
+            <select class="input" id="ev-staff">${staffList.map(s => `<option value="${__escA(s.id)}" ${existing?.staffId===s.id?'selected':''}>${esc(s.firstName)} ${esc(s.lastName)} (${esc(s.dept)})</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">ช่วงเวลาประเมิน</label>
-            <select class="input" id="ev-ptype">${Object.entries(PERIOD_TYPES).map(([k,v]) => `<option value="${k}" ${evPtype===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}</select>
+            <select class="input" id="ev-ptype">${Object.entries(PERIOD_TYPES).map(([k,v]) => `<option value="${__escA(k)}" ${evPtype===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}</select>
           </div>
-          <div class="input-group"><label class="input-label">งวดที่ประเมิน</label><input class="input" id="ev-pvalue" type="${PERIOD_TYPES[evPtype].inputType}" value="${pv}"></div>
+          <div class="input-group"><label class="input-label">งวดที่ประเมิน</label><input class="input" id="ev-pvalue" type="${PERIOD_TYPES[evPtype].inputType}" value="${__escA(pv)}"></div>
         </div>
         <div style="font-size:0.8rem;font-weight:700;margin-bottom:8px">ให้คะแนนแต่ละด้าน (0-100)</div>
         <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:12px">
@@ -187,7 +188,7 @@ export default async function EmployeeKpiPage(container) {
               <div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:3px">
                 <span>${c.label}</span><span id="ev-${c.key}-val">${v}</span>
               </div>
-              <input type="range" class="ev-score" data-key="${c.key}" min="0" max="100" value="${v}" style="width:100%">
+              <input type="range" class="ev-score" data-key="${c.key}" min="0" max="100" value="${__escA(v)}" style="width:100%">
             </div>
           `}).join('')}
         </div>

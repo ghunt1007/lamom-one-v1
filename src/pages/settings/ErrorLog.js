@@ -7,6 +7,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, softDelete } from '../../core/db.js'
 import { confirmDialog } from '../../utils/modal.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function addDays(n) {
   const [y, m, d] = todayBangkok().split('-').map(Number)
@@ -63,7 +64,7 @@ export default async function ErrorLogPage(container) {
         </div>
 
         <div style="display:flex;gap:8px;margin-bottom:12px">
-          <input class="input" id="search-inp" placeholder="🔍 ค้นหาข้อความ error / หน้า / ผู้ใช้..." style="max-width:320px" value="${search}">
+          <input class="input" id="search-inp" placeholder="🔍 ค้นหาข้อความ error / หน้า / ผู้ใช้..." style="max-width:320px" value="${__escA(search)}">
         </div>
 
         ${!list.length ? `

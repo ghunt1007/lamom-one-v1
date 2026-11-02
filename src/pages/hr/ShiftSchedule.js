@@ -4,6 +4,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { todayBangkok } from '../../utils/format.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -200,7 +201,7 @@ export default async function ShiftSchedulePage(container) {
         <div style="display:flex;flex-direction:column;gap:8px">
           ${Object.entries(SHIFTS).map(([k, v]) => `
             <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid ${current===k?'var(--'+v.color+')':'var(--border)'};border-radius:var(--radius-md);cursor:pointer;background:${current===k?'var(--'+v.color+'-dim)':'transparent'}">
-              <input type="radio" name="shift-opt" value="${k}" ${current===k?'checked':''} style="width:16px;height:16px">
+              <input type="radio" name="shift-opt" value="${__escA(k)}" ${current===k?'checked':''} style="width:16px;height:16px">
               <span style="font-size:1.1rem">${v.icon}</span>
               <div>
                 <div style="font-size:0.85rem;font-weight:600">${v.label}</div>

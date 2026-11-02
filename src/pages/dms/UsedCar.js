@@ -6,6 +6,7 @@ import { formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -162,7 +163,7 @@ export default async function UsedCarPage(container) {
           <div><label style="font-size:0.74rem;color:var(--text-muted)">ชื่อผู้ซื้อ *</label>
             <input id="sl-buyer" class="input" value="${escHtml(c.buyer||'')}" placeholder="ชื่อ-นามสกุล"></div>
           <div><label style="font-size:0.74rem;color:var(--text-muted)">ราคาขายจริง (บาท) *</label>
-            <input id="sl-price" type="number" class="input" value="${c.asking}"></div>
+            <input id="sl-price" type="number" class="input" value="${__escA(c.asking)}"></div>
         </div>
       `,
       confirmText: '🏁 บันทึกขาย',
@@ -214,9 +215,9 @@ export default async function UsedCarPage(container) {
             &nbsp;·&nbsp;<span style="color:var(--text-muted)">เลขไมล์: </span><span style="font-weight:700">${c.km.toLocaleString()} กม.</span>
           </div>
           <div><label style="font-size:0.74rem;color:var(--text-muted)">ราคาประเมิน (บาท)</label>
-            <input id="ep-appr" type="number" class="input" value="${c.appraisal}"></div>
+            <input id="ep-appr" type="number" class="input" value="${__escA(c.appraisal)}"></div>
           <div><label style="font-size:0.74rem;color:var(--text-muted)">ราคาตั้งขาย (บาท)</label>
-            <input id="ep-ask" type="number" class="input" value="${c.asking}"></div>
+            <input id="ep-ask" type="number" class="input" value="${__escA(c.asking)}"></div>
         </div>
       `,
       footer: `

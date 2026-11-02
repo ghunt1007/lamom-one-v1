@@ -7,6 +7,7 @@ import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { FOLLOWUP_PURPOSES, followupWindowFilters } from '../../utils/customerFollowups.js'
 import { touchCustomerContact } from '../../utils/customerContact.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -290,12 +291,12 @@ export default async function FollowUpPage(container) {
         <div class="input-group"><label class="input-label">โทรศัพท์</label><input class="input" id="ff-phone" placeholder="08x-xxx-xxxx"></div>
         <div class="input-group"><label class="input-label">รุ่นรถ</label><input class="input" id="ff-car" placeholder="เช่น DEEPAL S07"></div>
         <div class="input-group"><label class="input-label">ประเภทการติดต่อ</label>
-          <select class="input" id="ff-type">${Object.entries(FOLLOWUP_TYPES).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+          <select class="input" id="ff-type">${Object.entries(FOLLOWUP_TYPES).map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
         </div>
         <div class="input-group"><label class="input-label">วัตถุประสงค์</label>
           <select class="input" id="ff-purpose">${PURPOSES.map(p=>`<option>${p}</option>`).join('')}</select>
         </div>
-        <div class="input-group"><label class="input-label">กำหนดวันที่</label><input type="date" class="input" id="ff-date" value="${today}"></div>
+        <div class="input-group"><label class="input-label">กำหนดวันที่</label><input type="date" class="input" id="ff-date" value="${__escA(today)}"></div>
         <div class="input-group"><label class="input-label">หมายเหตุ</label><textarea class="input" id="ff-note" rows="2"></textarea></div>
       </div>`,
       async onConfirm() {

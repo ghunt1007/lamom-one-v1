@@ -6,6 +6,7 @@ import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -92,7 +93,7 @@ export default async function ConsignmentVehiclePage(container) {
     openModal({
       title: '💰 ปิดการขาย ' + escHtml(i.id),
       size: 'sm',
-      body: `<div class="input-group" style="margin-bottom:10px"><label class="input-label">ราคาขายจริง</label><input class="input" type="number" id="cs-price" value="${i.ask}"></div>
+      body: `<div class="input-group" style="margin-bottom:10px"><label class="input-label">ราคาขายจริง</label><input class="input" type="number" id="cs-price" value="${__escA(i.ask)}"></div>
         <div style="background:var(--surface-2);padding:10px 12px;border-radius:var(--radius-sm);font-size:0.78rem">ค่าคอม ${i.commPct}% · ผู้ฝากได้รับ = ราคาขาย − ค่าคอม</div>`,
       confirmText: '✅ ปิดการขาย',
       async onConfirm() {

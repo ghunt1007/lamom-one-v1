@@ -6,6 +6,7 @@ import { formatCurrency, formatDate } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
@@ -139,7 +140,7 @@ export default async function ServicePackagePage(container) {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">ชื่อแพ็กเกจ *</label><input class="input" id="pg-name"></div>
           <div class="input-group"><label class="input-label">ประเภท</label>
-            <select class="input" id="pg-type">${Object.entries(PKG_TYPES).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+            <select class="input" id="pg-type">${Object.entries(PKG_TYPES).map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">ราคา (บาท) *</label><input type="number" class="input" id="pg-price"></div>
           <div class="input-group"><label class="input-label">ระยะเวลา (นาที)</label><input type="number" class="input" id="pg-duration" value="60"></div>

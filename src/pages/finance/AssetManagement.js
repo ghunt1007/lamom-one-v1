@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -177,12 +178,12 @@ export default async function AssetManagementPage(container) {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">ชื่อสินทรัพย์ *</label><input class="input" id="af-name"></div>
           <div class="input-group"><label class="input-label">ประเภท</label>
-            <select class="input" id="af-cat">${Object.entries(ASSET_CATS).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+            <select class="input" id="af-cat">${Object.entries(ASSET_CATS).map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">ราคาทุน (บาท)</label><input type="number" class="input" id="af-cost" placeholder="0"></div>
           <div class="input-group"><label class="input-label">อายุการใช้งาน (ปี)</label><input type="number" class="input" id="af-life" value="5"></div>
           <div class="input-group"><label class="input-label">วิธีคิดค่าเสื่อม</label>
-            <select class="input" id="af-depmethod">${Object.entries(DEPRECIATION_METHODS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select>
+            <select class="input" id="af-depmethod">${Object.entries(DEPRECIATION_METHODS).map(([k,v])=>`<option value="${__escA(k)}">${v}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">สถานที่</label><input class="input" id="af-loc" placeholder="สาขา..."></div>
           <div class="input-group"><label class="input-label">วันที่ซื้อ</label><input type="date" class="input" id="af-date" value="${addDays(0)}"></div>

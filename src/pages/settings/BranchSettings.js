@@ -3,6 +3,7 @@ import { showToast } from '../../core/store.js'
 import { navigate } from '../../core/router.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -176,15 +177,15 @@ export default async function BranchSettingsPage(container) {
       title: branch ? '✏️ แก้ไขสาขา' : '🏪 เพิ่มสาขาใหม่', size: 'md',
       body: `<div style="display:flex;flex-direction:column;gap:12px">
         <div class="grid-2">
-          <div class="input-group"><label class="input-label">ชื่อสาขา *</label><input class="input" id="br-name" value="${branch?.name||''}" placeholder="ชื่อสาขา"></div>
-          <div class="input-group"><label class="input-label">รหัสสาขา</label><input class="input" id="br-code" value="${branch?.code||''}" placeholder="BKK-001"></div>
+          <div class="input-group"><label class="input-label">ชื่อสาขา *</label><input class="input" id="br-name" value="${__escA(branch?.name||'')}" placeholder="ชื่อสาขา"></div>
+          <div class="input-group"><label class="input-label">รหัสสาขา</label><input class="input" id="br-code" value="${__escA(branch?.code||'')}" placeholder="BKK-001"></div>
         </div>
         <div class="input-group"><label class="input-label">ที่อยู่</label><textarea class="input" id="br-addr" rows="2">${escHtml(branch?.address||'')}</textarea></div>
         <div class="grid-2">
-          <div class="input-group"><label class="input-label">โทรศัพท์</label><input class="input" id="br-phone" value="${branch?.phone||''}" placeholder="0x-xxx-xxxx"></div>
-          <div class="input-group"><label class="input-label">อีเมล</label><input class="input" id="br-email" value="${branch?.email||''}" placeholder="branch@email.com"></div>
+          <div class="input-group"><label class="input-label">โทรศัพท์</label><input class="input" id="br-phone" value="${__escA(branch?.phone||'')}" placeholder="0x-xxx-xxxx"></div>
+          <div class="input-group"><label class="input-label">อีเมล</label><input class="input" id="br-email" value="${__escA(branch?.email||'')}" placeholder="branch@email.com"></div>
         </div>
-        <div class="input-group"><label class="input-label">ผู้จัดการสาขา</label><input class="input" id="br-mgr" value="${branch?.manager||''}" placeholder="ชื่อผู้จัดการ"></div>
+        <div class="input-group"><label class="input-label">ผู้จัดการสาขา</label><input class="input" id="br-mgr" value="${__escA(branch?.manager||'')}" placeholder="ชื่อผู้จัดการ"></div>
       </div>`,
       footer: `<button class="btn btn-secondary" id="br-c">ยกเลิก</button><button class="btn btn-primary" id="br-s">💾 บันทึก</button>`
     })
@@ -205,12 +206,12 @@ export default async function BranchSettingsPage(container) {
     const { el, close } = openModal({
       title: '🏢 แก้ไขข้อมูลบริษัท', size: 'md',
       body: `<div style="display:flex;flex-direction:column;gap:12px">
-        <div class="input-group"><label class="input-label">ชื่อบริษัท *</label><input class="input" id="co-name" value="${c?.name||''}"></div>
-        <div class="input-group"><label class="input-label">เลขที่ผู้เสียภาษี</label><input class="input" id="co-tax" value="${c?.taxId||''}"></div>
+        <div class="input-group"><label class="input-label">ชื่อบริษัท *</label><input class="input" id="co-name" value="${__escA(c?.name||'')}"></div>
+        <div class="input-group"><label class="input-label">เลขที่ผู้เสียภาษี</label><input class="input" id="co-tax" value="${__escA(c?.taxId||'')}"></div>
         <div class="input-group"><label class="input-label">ที่อยู่</label><textarea class="input" id="co-addr" rows="2">${escHtml(c?.address||'')}</textarea></div>
         <div class="grid-2">
-          <div class="input-group"><label class="input-label">โทรศัพท์</label><input class="input" id="co-phone" value="${c?.phone||''}"></div>
-          <div class="input-group"><label class="input-label">อีเมล</label><input class="input" id="co-email" value="${c?.email||''}"></div>
+          <div class="input-group"><label class="input-label">โทรศัพท์</label><input class="input" id="co-phone" value="${__escA(c?.phone||'')}"></div>
+          <div class="input-group"><label class="input-label">อีเมล</label><input class="input" id="co-email" value="${__escA(c?.email||'')}"></div>
         </div>
       </div>`,
       footer: `<button class="btn btn-secondary" id="co-c">ยกเลิก</button><button class="btn btn-primary" id="co-s">💾 บันทึก</button>`

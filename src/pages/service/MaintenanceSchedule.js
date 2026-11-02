@@ -7,6 +7,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -181,8 +182,8 @@ export default async function MaintenanceSchedulePage(container) {
           <div class="input-group"><label class="input-label">รุ่น *</label><input class="input" id="ms-model" value="${escHtml(existing?.model||'')}" placeholder="เช่น S07, Y Plus"></div>
         </div>
         <div class="grid-2">
-          <div class="input-group"><label class="input-label">ระยะทาง (กม.)</label><input class="input" type="number" id="ms-km" value="${existing?.intervalKm||''}" placeholder="10000"></div>
-          <div class="input-group"><label class="input-label">หรือ ระยะเวลา (เดือน)</label><input class="input" type="number" id="ms-months" value="${existing?.intervalMonths||''}" placeholder="6"></div>
+          <div class="input-group"><label class="input-label">ระยะทาง (กม.)</label><input class="input" type="number" id="ms-km" value="${__escA(existing?.intervalKm||'')}" placeholder="10000"></div>
+          <div class="input-group"><label class="input-label">หรือ ระยะเวลา (เดือน)</label><input class="input" type="number" id="ms-months" value="${__escA(existing?.intervalMonths||'')}" placeholder="6"></div>
         </div>
         <div>
           <label class="input-label">รายการเช็ค/เปลี่ยน — ราคาอะไหล่ + ค่าแรง ต่อรายการ *</label>
@@ -204,8 +205,8 @@ export default async function MaintenanceSchedulePage(container) {
       wrap.innerHTML = itemRows.map((it, i) => `
         <div style="display:flex;gap:6px;align-items:center" data-row="${i}">
           <input class="input ms-item-name" data-i="${i}" placeholder="เช่น น้ำมันเครื่อง" value="${escHtml(it.name)}" style="flex:2">
-          <input class="input ms-item-part" data-i="${i}" type="number" placeholder="ราคาอะไหล่" value="${it.partPrice || ''}" style="flex:1">
-          <input class="input ms-item-labor" data-i="${i}" type="number" placeholder="ค่าแรง" value="${it.laborPrice || ''}" style="flex:1">
+          <input class="input ms-item-part" data-i="${i}" type="number" placeholder="ราคาอะไหล่" value="${__escA(it.partPrice || '')}" style="flex:1">
+          <input class="input ms-item-labor" data-i="${i}" type="number" placeholder="ค่าแรง" value="${__escA(it.laborPrice || '')}" style="flex:1">
           <button type="button" class="btn btn-ghost btn-xs ms-item-del" data-i="${i}" title="ลบรายการนี้">🗑️</button>
         </div>
       `).join('')

@@ -10,6 +10,7 @@ import { showToast, getState } from '../../core/store.js'
 import { formatCurrency, timeAgo } from '../../utils/format.js'
 import { listDocs, createDoc, updateDocData, softDelete } from '../../core/db.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 // จุดชาร์จเริ่มต้น (seed ครั้งแรกเท่านั้นถ้ายังไม่มีข้อมูลใน Firestore) — ทีมงานแก้ไข/เพิ่ม/ลบได้เองภายหลัง
 const DEFAULT_CHARGING_POINTS = [
@@ -116,7 +117,7 @@ export default async function EvRangePlannerPage(container) {
             <div class="card" style="padding:14px">
               <div style="font-size:0.76rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">🚗 เลือกรุ่นรถ (จากแคตตาล็อกในระบบ)</div>
               <select class="input" id="veh-select" style="width:100%">
-                ${VEHICLES.map(v => `<option value="${v.id}" ${selVehicle.id===v.id?'selected':''}>${v.model} — ${v.range} km / ${v.battery} kWh</option>`).join('')}
+                ${VEHICLES.map(v => `<option value="${__escA(v.id)}" ${selVehicle.id===v.id?'selected':''}>${v.model} — ${v.range} km / ${v.battery} kWh</option>`).join('')}
               </select>
             </div>
 
@@ -126,12 +127,12 @@ export default async function EvRangePlannerPage(container) {
 
               <div style="margin-bottom:12px">
                 <div style="font-size:0.74rem;margin-bottom:6px">🔋 พลังงานแบตเตอรี่ปัจจุบัน: <b>${socPct}%</b></div>
-                <input type="range" id="soc-slider" min="5" max="100" value="${socPct}" style="width:100%">
+                <input type="range" id="soc-slider" min="5" max="100" value="${__escA(socPct)}" style="width:100%">
               </div>
 
               <div style="margin-bottom:12px">
                 <div style="font-size:0.74rem;margin-bottom:6px">📍 ระยะทางปลายทาง: <b>${tripDist} km</b></div>
-                <input type="range" id="dist-slider" min="10" max="500" value="${tripDist}" style="width:100%">
+                <input type="range" id="dist-slider" min="10" max="500" value="${__escA(tripDist)}" style="width:100%">
                 <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">
                   ${PRESETS.map(p=>`<button class="btn btn-xs btn-secondary preset-btn" data-dist="${p.dist}" title="${p.elev}">${p.label}</button>`).join('')}
                 </div>
@@ -148,7 +149,7 @@ export default async function EvRangePlannerPage(container) {
 
               <div>
                 <div style="font-size:0.74rem;margin-bottom:6px">👥 จำนวนผู้โดยสาร: <b>${passengers} คน</b></div>
-                <input type="range" id="pass-slider" min="1" max="5" value="${passengers}" style="width:100%">
+                <input type="range" id="pass-slider" min="1" max="5" value="${__escA(passengers)}" style="width:100%">
               </div>
             </div>
           </div>
@@ -240,7 +241,7 @@ export default async function EvRangePlannerPage(container) {
     const body = `
       <div style="display:flex;flex-direction:column;gap:10px;font-size:0.82rem">
         <div><label style="font-size:0.74rem;color:var(--text-muted)">ชื่อจุดชาร์จ *</label>
-          <input id="pt-name" class="input" value="${existing?.name || ''}" placeholder="เช่น PEA VOLTA สยามพารากอน"></div>
+          <input id="pt-name" class="input" value="${__escA(existing?.name || '')}" placeholder="เช่น PEA VOLTA สยามพารากอน"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
           <div><label style="font-size:0.74rem;color:var(--text-muted)">ระยะห่างโดยประมาณ (km)</label>
             <input id="pt-dist" type="number" class="input" value="${existing?.dist ?? 10}"></div>
@@ -251,7 +252,7 @@ export default async function EvRangePlannerPage(container) {
           <div><label style="font-size:0.74rem;color:var(--text-muted)">ราคา (฿/kWh)</label>
             <input id="pt-price" type="number" step="0.1" class="input" value="${existing?.price ?? 6.5}"></div>
           <div><label style="font-size:0.74rem;color:var(--text-muted)">หมายเหตุ</label>
-            <input id="pt-note" class="input" value="${existing?.note || ''}" placeholder="เช่น ในเมือง"></div>
+            <input id="pt-note" class="input" value="${__escA(existing?.note || '')}" placeholder="เช่น ในเมือง"></div>
         </div>
       </div>
     `

@@ -6,6 +6,7 @@ import { companyScopeFilters } from '../../core/companyScope.js'
 import { formatDate } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { navigate } from '../../core/router.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -271,12 +272,12 @@ export default async function CalendarPage(container) {
           <div class="input-group"><label class="input-label">รายละเอียด</label><textarea class="input" id="ef-desc" rows="2">${escHtml(existing?.description || '')}</textarea></div>
           <div class="grid-2">
             <div class="input-group"><label class="input-label">วันที่ *</label><input class="input" type="date" id="ef-date" value="${existing?.date || defaultDate || todayISO()}"></div>
-            <div class="input-group"><label class="input-label">เวลา</label><input class="input" type="time" id="ef-time" value="${existing?.time || ''}"></div>
+            <div class="input-group"><label class="input-label">เวลา</label><input class="input" type="time" id="ef-time" value="${__escA(existing?.time || '')}"></div>
           </div>
           <div class="grid-2">
             <div class="input-group"><label class="input-label">ประเภท</label>
               <select class="input" id="ef-type">
-                ${Object.entries(EVENT_TYPES).map(([k, v]) => `<option value="${k}" ${(existing?.type || 'other') === k ? 'selected' : ''}>${v.label}</option>`).join('')}
+                ${Object.entries(EVENT_TYPES).map(([k, v]) => `<option value="${__escA(k)}" ${(existing?.type || 'other') === k ? 'selected' : ''}>${v.label}</option>`).join('')}
               </select>
             </div>
             <div class="input-group"><label class="input-label">ผู้รับผิดชอบ</label><input class="input" id="ef-assignee" value="${escHtml(existing?.assignee || '')}"></div>

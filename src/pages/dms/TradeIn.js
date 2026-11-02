@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -167,13 +168,13 @@ export default async function TradeInPage(container) {
         <div class="input-group"><label class="input-label">ชื่อลูกค้า *</label><input class="input" id="ti-name" value="${escHtml(t?.customer||'')}"></div>
         <div class="input-group"><label class="input-label">รถเก่า (ยี่ห้อ รุ่น ปี)</label><input class="input" id="ti-car" value="${escHtml(t?.oldCar||'')}" placeholder="Toyota Camry 2018"></div>
         <div class="input-group"><label class="input-label">ทะเบียน</label><input class="input" id="ti-plate" value="${escHtml(t?.plate||'')}"></div>
-        <div class="input-group"><label class="input-label">เลขไมล์ (km)</label><input class="input" type="number" id="ti-mileage" value="${t?.mileage||0}"></div>
-        <div class="input-group"><label class="input-label">ราคาตลาด (บาท)</label><input class="input" type="number" id="ti-market" value="${t?.marketPrice||0}"></div>
+        <div class="input-group"><label class="input-label">เลขไมล์ (km)</label><input class="input" type="number" id="ti-mileage" value="${__escA(t?.mileage||0)}"></div>
+        <div class="input-group"><label class="input-label">ราคาตลาด (บาท)</label><input class="input" type="number" id="ti-market" value="${__escA(t?.marketPrice||0)}"></div>
         <div class="input-group"><label class="input-label">เกรดสภาพ</label>
-          <select class="input" id="ti-grade">${Object.entries(CONDITION_GRADES).map(([k,v])=>`<option value="${k}" ${t?.grade===k?'selected':''}>${v.label} (×${v.adj})</option>`).join('')}</select>
+          <select class="input" id="ti-grade">${Object.entries(CONDITION_GRADES).map(([k,v])=>`<option value="${__escA(k)}" ${t?.grade===k?'selected':''}>${v.label} (×${v.adj})</option>`).join('')}</select>
         </div>
         <div class="input-group" style="grid-column:1/-1"><label class="input-label">รถใหม่ที่สนใจ</label><input class="input" id="ti-newcar" value="${escHtml(t?.newCar||'')}"></div>
-        <div class="input-group"><label class="input-label">🏦 ยอดหนี้ค้างชำระ (บาท)</label><input class="input" type="number" id="ti-loan" value="${t?.outstandingLoan||0}" placeholder="0 ถ้าไม่มีภาระผ่อน"></div>
+        <div class="input-group"><label class="input-label">🏦 ยอดหนี้ค้างชำระ (บาท)</label><input class="input" type="number" id="ti-loan" value="${__escA(t?.outstandingLoan||0)}" placeholder="0 ถ้าไม่มีภาระผ่อน"></div>
         <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;cursor:pointer;align-self:end;padding-bottom:8px">
           <input type="checkbox" id="ti-accident" ${t?.accidentHistory?'checked':''} style="accent-color:var(--danger);width:15px;height:15px"> ⚠️ มีประวัติอุบัติเหตุ
         </label>

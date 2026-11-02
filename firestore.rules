@@ -57,7 +57,8 @@ service cloud.firestore {
     // ต้องเช็ค userRole() != 'expired' ด้วยเสมอ ไม่งั้นพนักงานที่หมดอายุการเข้าถึงแล้ว (accessExpiresAt) จะยัง
     // ใช้ extraGrants เข้าถึงข้อมูลต่อได้ทั้งที่ role หลักถูกล็อกไปแล้ว
     function myGrants() {
-      return (isSignedIn() && userRole() != 'expired') ? myProfile().get('extraGrants', []) : [];
+      // (v1.0.911) ต้องเป็นพนักงานที่อนุมัติแล้วเท่านั้น — กันบัญชี pending/viewer ที่ใส่ extraGrants มาเองตอนสมัคร
+      return (isSignedIn() && userRole() in ['owner', 'admin', 'manager', 'sales', 'service', 'finance', 'hr', 'staff']) ? myProfile().get('extraGrants', []) : [];
     }
 
     function isFinance() {
@@ -99,7 +100,9 @@ service cloud.firestore {
     // เห็นทุกบริษัทโดยไม่มีเงื่อนไข: ตั้ง flag เป็นรายบุคคล (HR/การตลาด/PDI/ตรวจสอบ/หัวหน้าบัญชี ฯลฯ
     // ตามผังองค์กรจริง) — owner/admin เห็นทุกบริษัทอยู่แล้วผ่าน isAdmin() ไม่ต้องพึ่ง flag นี้
     function isGroupWide() {
-      return isSignedIn() && myProfile().get('groupWide', false) == true;
+      // (v1.0.911) ต้องเป็นพนักงานที่อนุมัติแล้ว (ไม่ใช่ pending/expired/viewer) — flag นี้เปิดให้เห็นทุกบริษัท
+      return isSignedIn() && userRole() in ['owner', 'admin', 'manager', 'sales', 'service', 'finance', 'hr', 'staff']
+        && myProfile().get('groupWide', false) == true;
     }
 
     // เงื่อนไขกลางที่ collection ที่ต้อง company-scope ทุกตัวเรียกใช้ — เอกสารที่ไม่มี companyId เลย
@@ -208,14 +211,20 @@ service cloud.firestore {
       // ตั้ง role ใหม่เป็น owner/admin ได้เอง (ดูคอมเมนต์ที่ roleLevel() ด้านบน)
       allow create: if (isManager() && canAssignRole(request.resource.data.role))
         || (isSignedIn() && uid() == userId && isBootstrapping() && request.resource.data.role == 'owner')
-        || (isSignedIn() && uid() == userId && !isBootstrapping() && request.resource.data.role == 'pending');
+        || (isSignedIn() && uid() == userId && !isBootstrapping() && request.resource.data.role == 'pending'
+            // (v1.0.911) บัญชีที่สมัครเองต้องไม่มีสิทธิ์/บริษัทติดมา (permissions/companyMemberships ส่งมาเป็น [] ได้)
+            && request.resource.data.get('permissions', []).size() == 0
+            && request.resource.data.get('companyMemberships', []).size() == 0
+            && !request.resource.data.keys().hasAny(['extraGrants', 'groupWide', 'companyIds', 'accessExpiresAt']));
       // ผู้ใช้แก้ไข field ตัวเองได้ (เช่น displayName) แต่ห้ามแก้ role/permissions/active/accessExpiresAt เอง
       // เด็ดขาด ต้องให้ manager ขึ้นไปเป็นคนเปลี่ยนสิทธิ์เท่านั้น
       // (v1.0.305) ต้อง canAssignRole ทั้ง role เดิมและ role ใหม่ — กันไม่ให้ manager แก้ไข/ตั้ง role
       // ของคนที่ "เท่ากับหรือสูงกว่า" ตัวเอง (รวมถึงตัวเอง ผ่านสาขา isManager() นี้เอง) เป็น owner/admin
       allow update: if (isManager() && canAssignRole(request.resource.data.get('role', 'staff')) && canAssignRole(resource.data.get('role', 'staff')))
         || (isSignedIn() && uid() == userId
-            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'permissions', 'active', 'accessExpiresAt']));
+            // (v1.0.911) รวม extraGrants/groupWide/companyIds/companyMemberships ด้วย — field พวกนี้ใช้ตัดสินสิทธิ์
+            // ใน rules (myGrants/isGroupWide/myCompanyIds) เดิมพนักงานแก้ของตัวเองได้ = ให้สิทธิ์ตัวเองเพิ่มได้
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'permissions', 'active', 'accessExpiresAt', 'extraGrants', 'groupWide', 'companyIds', 'companyMemberships']));
       // (v1.0.466) ลบบัญชี login — เจ้าของโปรแกรมเท่านั้น (ตัวอย่างที่ยืนยันไว้ชัดเจนว่าต้องเป็นเจ้าของโปรแกรม
       // เท่านั้น ไม่ใช่ role owner ใครก็ได้ เพราะแอดมิน/เจ้าของบริษัทควรลบได้แค่บัญชีในบริษัทตัวเอง ยังไม่มี
       // company-scoping ระดับนี้ในเอกสาร users จึงจำกัดไว้ที่เจ้าของโปรแกรมก่อนเพื่อความปลอดภัย)

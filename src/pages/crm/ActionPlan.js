@@ -138,7 +138,7 @@ export default async function ActionPlanPage(container) {
     const e = existing || {}
     const isEdit = !!existing
     const inp = (id, label, val, type) => '<div class="input-group"><label class="input-label">' + label + '</label><input class="input" id="' + id + '" ' + (type ? 'type="' + type + '"' : '') + ' value="' + esc(val) + '"></div>'
-    const sel = (id, label, list, val) => '<div class="input-group"><label class="input-label">' + label + '</label><select class="input" id="' + id + '">' + list.map(o => '<option ' + (o === val ? 'selected' : '') + '>' + o + '</option>').join('') + '</select></div>'
+    const sel = (id, label, list, val) => '<div class="input-group"><label class="input-label">' + label + '</label><select class="input" id="' + id + '">' + list.map(o => '<option ' + (o === val ? 'selected' : '') + '>' + esc(o) + '</option>').join('') + '</select></div>'
     const selKV = (id, label, obj, val) => '<div class="input-group"><label class="input-label">' + label + '</label><select class="input" id="' + id + '">' + Object.entries(obj).map(([k, v]) => '<option value="' + k + '" ' + (k === val ? 'selected' : '') + '>' + v.label + '</option>').join('') + '</select></div>'
 
     const { el, close } = openModal({

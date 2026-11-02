@@ -6,6 +6,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 import { todayBangkok } from '../../utils/format.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -128,7 +129,7 @@ export default async function MeetingMinutesPage(container) {
           <div><label style="font-size:0.74rem;color:var(--text-muted)">ชื่อการประชุม *</label>
             <input id="mt-title" class="input" placeholder="ประชุมทีมขาย / บอร์ดบริหาร..."></div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div><label style="font-size:0.74rem;color:var(--text-muted)">วันที่</label><input id="mt-date" type="date" class="input" value="${today}"></div>
+            <div><label style="font-size:0.74rem;color:var(--text-muted)">วันที่</label><input id="mt-date" type="date" class="input" value="${__escA(today)}"></div>
             <div><label style="font-size:0.74rem;color:var(--text-muted)">เวลา</label><input id="mt-time" type="time" class="input" value="09:00"></div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">

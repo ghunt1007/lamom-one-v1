@@ -6,6 +6,7 @@ import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 // ป้องกัน XSS — หมายเหตุ (note) เป็นข้อความที่ผู้ใช้พิมพ์เอง ต้อง escape ก่อนแสดงผลเสมอ
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
@@ -137,9 +138,9 @@ export default async function FleetQuotePage(container) {
         <div class="input-group"><label class="input-label">รุ่นรถ</label>
           <select class="input" id="fq-model">${MODELS.map(m=>`<option ${q?.model===m?'selected':''}>${m}</option>`).join('')}</select>
         </div>
-        <div class="input-group"><label class="input-label">จำนวน (คัน)</label><input class="input" type="number" id="fq-units" value="${q?.units||1}"></div>
-        <div class="input-group"><label class="input-label">ราคาต่อคัน</label><input class="input" type="number" id="fq-price" value="${q?.unitPrice||1000000}"></div>
-        <div class="input-group"><label class="input-label">ส่วนลด (%)</label><input class="input" type="number" id="fq-discount" min="0" max="30" value="${q?.discount||0}"></div>
+        <div class="input-group"><label class="input-label">จำนวน (คัน)</label><input class="input" type="number" id="fq-units" value="${__escA(q?.units||1)}"></div>
+        <div class="input-group"><label class="input-label">ราคาต่อคัน</label><input class="input" type="number" id="fq-price" value="${__escA(q?.unitPrice||1000000)}"></div>
+        <div class="input-group"><label class="input-label">ส่วนลด (%)</label><input class="input" type="number" id="fq-discount" min="0" max="30" value="${__escA(q?.discount||0)}"></div>
         <div class="input-group"><label class="input-label">วันหมดอายุ</label><input class="input" type="date" id="fq-expiry" value="${q?.expiry||addDays(30)}"></div>
         <div class="input-group" style="grid-column:1/-1"><label class="input-label">หมายเหตุ</label><input class="input" id="fq-note" value="${esc(q?.note||'')}"></div>
       </div>`,

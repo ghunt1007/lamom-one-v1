@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { getSalesData, listDocs, createDoc, updateDocData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -251,11 +252,11 @@ export default async function CustomerLifecyclePage(container) {
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div><label style="font-size:0.74rem;color:var(--text-muted)">Stage ใหม่</label>
               <select id="ap-stage" class="input">
-                ${Object.entries(LIFECYCLE_STAGES).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}
+                ${Object.entries(LIFECYCLE_STAGES).map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}
               </select>
             </div>
             <div><label style="font-size:0.74rem;color:var(--text-muted)">วันที่ดำเนินการ</label>
-              <input id="ap-date" type="date" class="input" value="${today}"></div>
+              <input id="ap-date" type="date" class="input" value="${__escA(today)}"></div>
           </div>
           <div><label style="font-size:0.74rem;color:var(--text-muted)">หมายเหตุ</label>
             <textarea id="ap-note" class="input" rows="2" placeholder="รายละเอียดเพิ่มเติม..."></textarea>
@@ -315,7 +316,7 @@ export default async function CustomerLifecyclePage(container) {
         <div><strong>${escHtml(customer.name)}</strong></div>
         <div class="input-group"><label class="input-label">Stage ใหม่</label>
           <select class="input" id="new-stage">
-            ${Object.entries(LIFECYCLE_STAGES).map(([k,v]) => `<option value="${k}" ${customer.stage===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}
+            ${Object.entries(LIFECYCLE_STAGES).map(([k,v]) => `<option value="${__escA(k)}" ${customer.stage===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}
           </select>
         </div>
         <div class="input-group"><label class="input-label">Action ต่อไป</label><input class="input" id="new-action" value="${escHtml(customer.nextAction)}"></div>

@@ -3,6 +3,7 @@ import { showToast, getState, setState, on } from '../../core/store.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 const DEPARTMENTS = {
   sales:     { label: 'ฝ่ายขาย', icon: '🚗' },
@@ -221,7 +222,7 @@ export default async function TasksPage(container) {
       body: `
         <div style="font-size:0.82rem;margin-bottom:10px">"<b>${escHtml(t.title)}</b>" — ขณะนี้อยู่ที่ ${curDept.icon} <b>${curDept.label}</b></div>
         <div class="input-group"><label class="input-label">ส่งต่อไปยังแผนก *</label>
-          <select class="input" id="rt-dept">${Object.entries(DEPARTMENTS).filter(([k]) => k !== (t.department || 'general')).map(([k, v]) => `<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+          <select class="input" id="rt-dept">${Object.entries(DEPARTMENTS).filter(([k]) => k !== (t.department || 'general')).map(([k, v]) => `<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
         </div>
         <div class="input-group"><label class="input-label">มอบหมายให้ (ถ้าทราบ)</label><input class="input" id="rt-assign" placeholder="ชื่อผู้รับผิดชอบ"></div>
         <div class="input-group"><label class="input-label">หมายเหตุถึงแผนกรับ</label><textarea class="input" id="rt-note" rows="2"></textarea></div>
@@ -276,23 +277,23 @@ export default async function TasksPage(container) {
           <div class="input-group"><label class="input-label">รายละเอียด</label><textarea class="input" id="tf-desc" rows="2">${escHtml(existing?.desc||'')}</textarea></div>
           <div class="input-group"><label class="input-label">แผนกที่รับผิดชอบ</label>
             <select class="input" id="tf-dept">
-              ${Object.entries(DEPARTMENTS).map(([k,v]) => `<option value="${k}" ${(existing?.department||'general')===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}
+              ${Object.entries(DEPARTMENTS).map(([k,v]) => `<option value="${__escA(k)}" ${(existing?.department||'general')===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}
             </select>
           </div>
           <div class="grid-2">
             <div class="input-group"><label class="input-label">ความสำคัญ</label>
               <select class="input" id="tf-prio">
-                ${Object.entries(PRIORITY).map(([k,v]) => `<option value="${k}" ${existing?.priority===k?'selected':''}>${v.label}</option>`).join('')}
+                ${Object.entries(PRIORITY).map(([k,v]) => `<option value="${__escA(k)}" ${existing?.priority===k?'selected':''}>${v.label}</option>`).join('')}
               </select>
             </div>
             <div class="input-group"><label class="input-label">สถานะ</label>
               <select class="input" id="tf-status">
-                ${Object.entries(STATUS).map(([k,v]) => `<option value="${k}" ${existing?.status===k?'selected':''}>${v.label}</option>`).join('')}
+                ${Object.entries(STATUS).map(([k,v]) => `<option value="${__escA(k)}" ${existing?.status===k?'selected':''}>${v.label}</option>`).join('')}
               </select>
             </div>
           </div>
           <div class="grid-2">
-            <div class="input-group"><label class="input-label">กำหนดส่ง</label><input class="input" type="date" id="tf-due" value="${existing?.dueDate||tomorrow}"></div>
+            <div class="input-group"><label class="input-label">กำหนดส่ง</label><input class="input" type="date" id="tf-due" value="${__escA(existing?.dueDate||tomorrow)}"></div>
             <div class="input-group"><label class="input-label">มอบหมายให้</label><input class="input" id="tf-assign" value="${escHtml(existing?.assignedTo||'')}"></div>
           </div>
         </div>

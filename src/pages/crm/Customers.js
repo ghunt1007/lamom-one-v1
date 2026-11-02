@@ -37,6 +37,7 @@ import { touchCustomerContact } from '../../utils/customerContact.js'
 import { armCallLog } from '../../utils/callLogger.js'
 import { openTestDriveForm, loadUpcomingTestDrive, loadTestDrivesFor, mentionsTestDrive } from '../../utils/testDriveForm.js'
 import { moveFollowupsOnReassign } from '../../utils/leadAssign.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 const pendingFuCount = new WeakMap() // ลูกค้า → จำนวนนัดค้าง (ใช้ตัดสินว่าควรเสนอนัดครั้งถัดไปหลังโทรไหม)
 
@@ -56,11 +57,11 @@ function calcHtml(c) {
   // มีงบในใจ → เลือกรุ่นย่อยแพงสุดที่ไม่เกินงบให้ก่อน (ไม่มีรุ่นไหนอยู่ในงบ = รุ่นถูกสุด)
   const budget = Number(c.budget) || 0
   const fit = budget ? vs.reduce((best, v, i) => v.price <= budget && (best < 0 || v.price > vs[best].price) ? i : best, -1) : -1
-  const opt = (arr, sel, fmt) => arr.map(x => `<option value="${x}" ${x === sel ? 'selected' : ''}>${fmt(x)}</option>`).join('')
+  const opt = (arr, sel, fmt) => arr.map(x => `<option value="${__escA(x)}" ${x === sel ? 'selected' : ''}>${fmt(x)}</option>`).join('')
   return `<div id="wk-calc" style="margin-top:6px;padding:8px;border:1px dashed var(--border);border-radius:8px">
     <div style="font-weight:600;margin-bottom:6px">🧮 ผ่อนเดือนละเท่าไหร่ (คร่าวๆ)</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(120px,100%),1fr));gap:6px">
-      <select class="input" id="wk-calc-v" style="font-size:0.76rem">${vs.map((v, i) => `<option value="${i}" data-p="${v.price}" ${i === fit ? 'selected' : ''}>${escHtml(v.variant || v.model)} · ${Number(v.price).toLocaleString('en-US')}</option>`).join('')}</select>
+      <select class="input" id="wk-calc-v" style="font-size:0.76rem">${vs.map((v, i) => `<option value="${__escA(i)}" data-p="${v.price}" ${i === fit ? 'selected' : ''}>${escHtml(v.variant || v.model)} · ${Number(v.price).toLocaleString('en-US')}</option>`).join('')}</select>
       <select class="input" id="wk-calc-d" style="font-size:0.76rem">${opt([0, 10, 15, 20, 25, 30, 40], 20, x => `ดาวน์ ${x}%`)}</select>
       <select class="input" id="wk-calc-m" style="font-size:0.76rem">${opt([48, 60, 72, 84], 72, x => `${x} งวด`)}</select>
       <label style="display:flex;align-items:center;gap:4px;font-size:0.72rem;white-space:nowrap">ดอก <input class="input" id="wk-calc-r" type="number" step="0.01" value="2.79" style="width:72px;font-size:0.76rem" title="ดอกเบี้ยต่อปี (flat)"> %/ปี</label>
@@ -906,7 +907,7 @@ export default async function CustomersPage(container) {
           <div><label style="font-size:0.72rem;color:var(--text-muted)">รุ่นรถ</label>
             <input class="input" id="cb-model" value="${escHtml(c.interestedModel || '')}" placeholder="เช่น DEEPAL S07" style="width:100%;margin-top:4px"></div>
           <div><label style="font-size:0.72rem;color:var(--text-muted)">ราคาขาย (บาท)</label>
-            <input class="input" id="cb-price" type="number" value="${c.budget || ''}" placeholder="0" style="width:100%;margin-top:4px"></div>
+            <input class="input" id="cb-price" type="number" value="${__escA(c.budget || '')}" placeholder="0" style="width:100%;margin-top:4px"></div>
           <div><label style="font-size:0.72rem;color:var(--text-muted)">เงินจอง (บาท) *</label>
             <input class="input" id="cb-deposit" type="number" placeholder="5000" style="width:100%;margin-top:4px"></div>
           <div><label style="font-size:0.72rem;color:var(--text-muted)">พนักงานขาย</label>
@@ -959,7 +960,7 @@ export default async function CustomersPage(container) {
           <div class="input-group">
             <label class="input-label">ประเภท</label>
             <select class="input" id="log-type">
-              ${Object.entries(LOG_ICONS).map(([k, v]) => `<option value="${k}">${v} ${LOG_LABELS[k]}</option>`).join('')}
+              ${Object.entries(LOG_ICONS).map(([k, v]) => `<option value="${__escA(k)}">${v} ${LOG_LABELS[k]}</option>`).join('')}
             </select>
           </div>
           <div class="input-group">
@@ -1012,15 +1013,15 @@ export default async function CustomersPage(container) {
           <div class="input-group"><label class="input-label">Email</label><input class="input" id="fe" type="email" value="${escHtml(pre?.email || '')}" placeholder="email@example.com"></div>
           <div class="grid-2">
             <div class="input-group"><label class="input-label">รถที่สนใจ</label><input class="input" id="fm" list="fm-models" autocomplete="off" value="${escHtml(pre?.interestedModel || '')}" placeholder="เช่น DEEPAL S07"><datalist id="fm-models">${modelSuggestions().map(m => `<option value="${escHtml(m)}">`).join('')}</datalist></div>
-            <div class="input-group"><label class="input-label">งบประมาณ (บาท)</label><input class="input" type="number" id="fb" value="${pre?.budget || ''}" placeholder="1000000"></div>
+            <div class="input-group"><label class="input-label">งบประมาณ (บาท)</label><input class="input" type="number" id="fb" value="${__escA(pre?.budget || '')}" placeholder="1000000"></div>
           </div>
           <div class="grid-2">
-            <div class="input-group"><label class="input-label">อาชีพ</label><select class="input" id="fo"><option value="">-</option>${OCCUPATIONS.map(o => `<option value="${o}" ${pre?.occupation === o ? 'selected' : ''}>${o}</option>`).join('')}</select></div>
-            <div class="input-group"><label class="input-label">รายได้ต่อเดือน (บาท)</label><input class="input" type="number" id="fic" value="${pre?.monthlyIncome || ''}" placeholder="30000"></div>
+            <div class="input-group"><label class="input-label">อาชีพ</label><select class="input" id="fo"><option value="">-</option>${OCCUPATIONS.map(o => `<option value="${__escA(o)}" ${pre?.occupation === o ? 'selected' : ''}>${o}</option>`).join('')}</select></div>
+            <div class="input-group"><label class="input-label">รายได้ต่อเดือน (บาท)</label><input class="input" type="number" id="fic" value="${__escA(pre?.monthlyIncome || '')}" placeholder="30000"></div>
           </div>
           <div class="grid-2">
-            <div class="input-group"><label class="input-label">ที่มา</label><select class="input" id="fso">${Object.entries(SOURCE).map(([k, v]) => `<option value="${k}" ${pre?.source === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
-            <div class="input-group"><label class="input-label">อุณหภูมิ</label><select class="input" id="ft"><option value="">-</option>${Object.entries(TEMP).map(([k, v]) => `<option value="${k}" ${pre?.temperature === k ? 'selected' : ''}>${v.label}</option>`).join('')}</select></div>
+            <div class="input-group"><label class="input-label">ที่มา</label><select class="input" id="fso">${Object.entries(SOURCE).map(([k, v]) => `<option value="${__escA(k)}" ${pre?.source === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
+            <div class="input-group"><label class="input-label">อุณหภูมิ</label><select class="input" id="ft"><option value="">-</option>${Object.entries(TEMP).map(([k, v]) => `<option value="${__escA(k)}" ${pre?.temperature === k ? 'selected' : ''}>${v.label}</option>`).join('')}</select></div>
           </div>
           <div class="grid-2">
             <div class="input-group"><label class="input-label">ผู้ดูแล</label><select class="input" id="fa"><option value="">-</option>${getSalesStaff().map(s => `<option ${(existing ? existing.assignedTo : myDisplayName) === s ? 'selected' : ''}>${escHtml(s)}</option>`).join('')}</select></div>
@@ -1152,7 +1153,7 @@ export default async function CustomersPage(container) {
           </select>
           <select class="input" id="cust-source-filter" style="width:auto;min-width:120px" title="กรองตามที่มา">
             <option value="">📌 ที่มา</option>
-            ${Object.entries(SOURCE).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}
+            ${Object.entries(SOURCE).map(([k, v]) => `<option value="${__escA(k)}">${v}</option>`).join('')}
           </select>
           <select class="input" id="cust-sort" style="width:auto;min-width:120px" title="เรียงลำดับ">
             <option value="urgent">↕️ ด่วนก่อน</option>

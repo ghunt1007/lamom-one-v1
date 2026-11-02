@@ -8,6 +8,7 @@ import { showToast } from '../../core/store.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 import { sendEmail } from '../../utils/comms.js'
 import { printDocument, docHeader, docFooter, esc } from '../../utils/print.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -69,7 +70,7 @@ export default async function QuotationComparePage(container) {
             <select class="input" id="add-veh-select" style="max-width:360px">
               <option value="">${availableToAdd.length ? '-- เลือกรุ่นเพื่อเพิ่ม --' : 'ไม่มีรุ่นเหลือให้เพิ่ม'}</option>
               ${brands.map(b => `<optgroup label="${escHtml(b)}">
-                ${availableToAdd.filter(v => v.brand === b).map(v => `<option value="${v.id}">${escHtml(v.model)} ${escHtml(v.variant)} — ${formatCurrency(v.price)}</option>`).join('')}
+                ${availableToAdd.filter(v => v.brand === b).map(v => `<option value="${__escA(v.id)}">${escHtml(v.model)} ${escHtml(v.variant)} — ${formatCurrency(v.price)}</option>`).join('')}
               </optgroup>`).join('')}
             </select>
             <button class="btn btn-sm btn-secondary" id="add-veh-btn">➕ เพิ่ม</button>
@@ -80,7 +81,7 @@ export default async function QuotationComparePage(container) {
         <div class="card" style="padding:12px 14px;margin-bottom:14px;display:flex;gap:18px;align-items:center;flex-wrap:wrap">
           <div style="flex:1;min-width:160px">
             <label class="input-label">เงินดาวน์: <strong style="color:var(--primary)">${downPct}%</strong></label>
-            <input type="range" id="down-slider" min="0" max="50" step="5" value="${downPct}" style="width:100%;accent-color:var(--primary)">
+            <input type="range" id="down-slider" min="0" max="50" step="5" value="${__escA(downPct)}" style="width:100%;accent-color:var(--primary)">
           </div>
           <div style="display:flex;gap:4px">
             <span style="font-size:0.75rem;color:var(--text-muted);align-self:center">ผ่อน:</span>

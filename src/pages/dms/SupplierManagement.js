@@ -3,6 +3,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -136,11 +137,11 @@ export default async function SupplierManagementPage(container) {
         <input class="input" id="search-s" placeholder="🔍 ชื่อ/ผู้ติดต่อ..." value="${escHtml(searchQ)}" style="width:200px">
         <select class="input" id="cat-filter" style="width:160px">
           <option value="all">หมวดหมู่ทั้งหมด</option>
-          ${Object.entries(SUPPLIER_CATS).map(([k,v]) => `<option value="${k}" ${catFilter===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}
+          ${Object.entries(SUPPLIER_CATS).map(([k,v]) => `<option value="${__escA(k)}" ${catFilter===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}
         </select>
         <select class="input" id="status-filter" style="width:130px">
           <option value="all">สถานะทั้งหมด</option>
-          ${Object.entries(SUPPLIER_STATUS).map(([k,v]) => `<option value="${k}" ${statusFilter===k?'selected':''}>${v.label}</option>`).join('')}
+          ${Object.entries(SUPPLIER_STATUS).map(([k,v]) => `<option value="${__escA(k)}" ${statusFilter===k?'selected':''}>${v.label}</option>`).join('')}
         </select>
       </div>
 
@@ -289,13 +290,13 @@ export default async function SupplierManagementPage(container) {
       body: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div class="input-group" style="grid-column:1/-1"><label class="input-label">ชื่อบริษัท *</label><input class="input" id="sf-name" value="${escHtml(s?.name||'')}"></div>
         <div class="input-group"><label class="input-label">ชื่อย่อ</label><input class="input" id="sf-short" value="${escHtml(s?.shortName||'')}"></div>
-        <div class="input-group"><label class="input-label">หมวดหมู่</label><select class="input" id="sf-cat">${Object.entries(SUPPLIER_CATS).map(([k,v]) => `<option value="${k}" ${s?.category===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}</select></div>
+        <div class="input-group"><label class="input-label">หมวดหมู่</label><select class="input" id="sf-cat">${Object.entries(SUPPLIER_CATS).map(([k,v]) => `<option value="${__escA(k)}" ${s?.category===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}</select></div>
         <div class="input-group"><label class="input-label">ผู้ติดต่อ</label><input class="input" id="sf-contact" value="${escHtml(s?.contact||'')}"></div>
         <div class="input-group"><label class="input-label">โทรศัพท์</label><input class="input" id="sf-phone" value="${escHtml(s?.phone||'')}"></div>
         <div class="input-group"><label class="input-label">อีเมล</label><input class="input" id="sf-email" value="${escHtml(s?.email||'')}"></div>
         <div class="input-group"><label class="input-label">เลขภาษี</label><input class="input" id="sf-tax" value="${escHtml(s?.taxId||'')}"></div>
-        <div class="input-group"><label class="input-label">เทอมชำระ (วัน)</label><input type="number" class="input" id="sf-terms" value="${s?.paymentTerms||30}"></div>
-        <div class="input-group"><label class="input-label">วงเครดิต (บาท)</label><input type="number" class="input" id="sf-credit" value="${s?.creditLimit||100000}"></div>
+        <div class="input-group"><label class="input-label">เทอมชำระ (วัน)</label><input type="number" class="input" id="sf-terms" value="${__escA(s?.paymentTerms||30)}"></div>
+        <div class="input-group"><label class="input-label">วงเครดิต (บาท)</label><input type="number" class="input" id="sf-credit" value="${__escA(s?.creditLimit||100000)}"></div>
         <div class="input-group" style="grid-column:1/-1"><label class="input-label">ที่อยู่</label><input class="input" id="sf-addr" value="${escHtml(s?.address||'')}"></div>
         <div class="input-group" style="grid-column:1/-1"><label class="input-label">หมายเหตุ</label><input class="input" id="sf-notes" value="${escHtml(s?.notes||'')}"></div>
       </div>`,

@@ -15,6 +15,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { todayBangkok, nowBangkokTime } from '../../utils/format.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -156,10 +157,10 @@ export default async function FleetGpsPage(container) {
     document.getElementById('alert-btn')?.addEventListener('click', () => {
       openModal({ title:'🔔 ตั้ง Alert', size:'xs',
         body:`<div style="font-size:0.8rem;display:flex;flex-direction:column;gap:10px">
-          <label style="display:flex;justify-content:space-between;align-items:center"><span>🔋 SOC ต่ำกว่า</span><input class="input" id="al-soc" value="${alerts.soc}" style="width:80px;text-align:center"></label>
-          <label style="display:flex;justify-content:space-between;align-items:center"><span>🚀 ความเร็วเกิน</span><input class="input" id="al-speed" value="${alerts.speed}" style="width:80px;text-align:center"></label>
-          <label style="display:flex;justify-content:space-between;align-items:center"><span>📍 ออกนอกพื้นที่</span><input class="input" id="al-geo" value="${alerts.geofence}" style="width:80px;text-align:center"></label>
-          <label style="display:flex;justify-content:space-between;align-items:center"><span>⏰ จอดนานเกิน</span><input class="input" id="al-idle" value="${alerts.idle}" style="width:80px;text-align:center"></label>
+          <label style="display:flex;justify-content:space-between;align-items:center"><span>🔋 SOC ต่ำกว่า</span><input class="input" id="al-soc" value="${__escA(alerts.soc)}" style="width:80px;text-align:center"></label>
+          <label style="display:flex;justify-content:space-between;align-items:center"><span>🚀 ความเร็วเกิน</span><input class="input" id="al-speed" value="${__escA(alerts.speed)}" style="width:80px;text-align:center"></label>
+          <label style="display:flex;justify-content:space-between;align-items:center"><span>📍 ออกนอกพื้นที่</span><input class="input" id="al-geo" value="${__escA(alerts.geofence)}" style="width:80px;text-align:center"></label>
+          <label style="display:flex;justify-content:space-between;align-items:center"><span>⏰ จอดนานเกิน</span><input class="input" id="al-idle" value="${__escA(alerts.idle)}" style="width:80px;text-align:center"></label>
         </div>`,
         confirmText:'💾 บันทึก Alert',
         async onConfirm() {
@@ -197,7 +198,7 @@ export default async function FleetGpsPage(container) {
             <input class="input" id="nv-driver" style="width:100%;margin-top:4px"></div>
           <div><label style="font-size:0.72rem;color:var(--text-muted)">สถานะ</label>
             <select class="input" id="nv-status" style="width:100%;margin-top:4px">
-              ${Object.entries(STATUS_MAP).map(([k,v]) => `<option value="${k}">${v.icon} ${v.label}</option>`).join('')}
+              ${Object.entries(STATUS_MAP).map(([k,v]) => `<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}
             </select></div>
         </div>`,
         confirmText: '💾 เพิ่ม',
@@ -232,17 +233,17 @@ export default async function FleetGpsPage(container) {
             <input class="input" id="up-loc" value="${escHtml(sel.location || '')}" style="width:100%;margin-top:4px"></div>
           <div style="display:flex;gap:8px">
             <div style="flex:1"><label style="font-size:0.72rem;color:var(--text-muted)">ความเร็ว (km/h)</label>
-              <input class="input" type="number" id="up-speed" value="${sel.speed || 0}" style="width:100%;margin-top:4px"></div>
+              <input class="input" type="number" id="up-speed" value="${__escA(sel.speed || 0)}" style="width:100%;margin-top:4px"></div>
             <div style="flex:1"><label style="font-size:0.72rem;color:var(--text-muted)">SOC (%)</label>
-              <input class="input" type="number" id="up-soc" value="${sel.soc || 0}" style="width:100%;margin-top:4px"></div>
+              <input class="input" type="number" id="up-soc" value="${__escA(sel.soc || 0)}" style="width:100%;margin-top:4px"></div>
           </div>
           <div><label style="font-size:0.72rem;color:var(--text-muted)">ไมล์สะสม (km)</label>
-            <input class="input" type="number" id="up-odo" value="${sel.odometer || 0}" style="width:100%;margin-top:4px"></div>
+            <input class="input" type="number" id="up-odo" value="${__escA(sel.odometer || 0)}" style="width:100%;margin-top:4px"></div>
           <div><label style="font-size:0.72rem;color:var(--text-muted)">ภารกิจ</label>
             <input class="input" id="up-trip" value="${escHtml(sel.trip || '')}" style="width:100%;margin-top:4px"></div>
           <div><label style="font-size:0.72rem;color:var(--text-muted)">สถานะ</label>
             <select class="input" id="up-status" style="width:100%;margin-top:4px">
-              ${Object.entries(STATUS_MAP).map(([k,v]) => `<option value="${k}" ${sel.status===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}
+              ${Object.entries(STATUS_MAP).map(([k,v]) => `<option value="${__escA(k)}" ${sel.status===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}
             </select></div>
         </div>`,
         confirmText: '💾 บันทึก',

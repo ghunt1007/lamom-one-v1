@@ -6,6 +6,7 @@ import { showToast } from '../../core/store.js'
 import { getSalesData } from '../../core/db.js'
 import { openModal } from '../../utils/modal.js'
 import { exportToExcel } from '../../utils/importExport.js'
+import { escHtml } from '../../utils/escape.js'
 
 const MONTHLY = [
   { month:'ม.ค.', market:4200, lamom:10, evShare:38, topModel:'BYD Atto 3' },
@@ -74,12 +75,12 @@ export default async function EvAdoptionPage(container) {
   }
 
   function modelBar(m, total) {
-    const pct = Math.round(m.sold/total*100)
+    const pct = total ? Math.round(m.sold/total*100) : 0
     return '<div style="margin-bottom:8px">' +
       '<div style="display:flex;justify-content:space-between;font-size:0.72rem;margin-bottom:3px">' +
         '<span style="display:flex;align-items:center;gap:6px">' +
           '<div style="width:10px;height:10px;border-radius:50%;background:'+m.color+';flex-shrink:0"></div>' +
-          m.model +
+          escHtml(m.model) +
         '</span>' +
         '<span style="color:var(--text-muted)">' + m.sold + ' คัน (' + pct + '%)</span>' +
       '</div>' +
@@ -207,7 +208,7 @@ export default async function EvAdoptionPage(container) {
                   <td style="padding:6px 9px;text-align:right;color:var(--primary);font-weight:700">${m.lamom}</td>
                   <td style="padding:6px 9px;text-align:right">${share}%</td>
                   <td style="padding:6px 9px;text-align:right;color:var(--success)">${m.evShare}%</td>
-                  <td style="padding:6px 9px;color:var(--text-muted)">${m.topModel}</td>
+                  <td style="padding:6px 9px;color:var(--text-muted)">${escHtml(m.topModel)}</td>
                 </tr>`
               }).join('')}
             </tbody>
@@ -216,7 +217,7 @@ export default async function EvAdoptionPage(container) {
           ${liveModelShare.map(m => `<div style="display:flex;justify-content:space-between;font-size:0.74rem;padding:4px 0;border-bottom:1px solid var(--border-subtle)">
             <span style="display:flex;align-items:center;gap:5px">
               <span style="width:8px;height:8px;border-radius:50%;background:${m.color};display:inline-block;flex-shrink:0"></span>
-              ${m.model}
+              ${escHtml(m.model)}
             </span>
             <span style="font-weight:700">${m.sold} คัน</span>
           </div>`).join('')}

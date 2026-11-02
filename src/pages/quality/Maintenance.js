@@ -6,6 +6,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { formatDate, todayBangkok } from '../../utils/format.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 // ป้องกัน XSS — ชื่ออุปกรณ์/ช่างผู้รับผิดชอบเป็นข้อความพิมพ์เองในฟอร์มเพิ่มอุปกรณ์ ต้อง escape ก่อนแสดงผลเสมอ
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
@@ -139,13 +140,13 @@ export default async function MaintenancePage(container) {
             </div>
             <div><label style="font-size:0.74rem;color:var(--text-muted)">รอบบำรุง (วัน)</label>
               <select id="eq-cycle" class="input">
-                ${[30,60,90,180,365].map(c=>`<option value="${c}">${c} วัน</option>`).join('')}
+                ${[30,60,90,180,365].map(c=>`<option value="${__escA(c)}">${c} วัน</option>`).join('')}
               </select>
             </div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div><label style="font-size:0.74rem;color:var(--text-muted)">บำรุงล่าสุด</label>
-              <input id="eq-last" type="date" class="input" value="${today}"></div>
+              <input id="eq-last" type="date" class="input" value="${__escA(today)}"></div>
             <div><label style="font-size:0.74rem;color:var(--text-muted)">ช่างผู้รับผิดชอบ</label>
               <input id="eq-tech" class="input" placeholder="ช่าง วิชัย / บริษัทภายนอก..."></div>
           </div>

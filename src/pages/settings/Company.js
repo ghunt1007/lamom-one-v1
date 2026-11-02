@@ -3,6 +3,7 @@ import { navigate } from '../../core/router.js'
 import { listDocs, createDoc, updateDocData } from '../../core/db.js'
 import { validateTaxId } from '../../utils/thaiId.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -197,8 +198,8 @@ export default async function CompanyPage(container) {
             <div class="input-group">
               <label class="input-label">สีโลโก้</label>
               <div style="display:flex;gap:8px;align-items:center">
-                <input type="color" id="logo-color" value="${data.logoColor||'#2563eb'}" style="width:44px;height:36px;border:1px solid var(--border);border-radius:8px;padding:2px;background:var(--surface-2);cursor:pointer">
-                <input class="input" id="logo-color-hex" value="${data.logoColor||'#2563eb'}" style="flex:1;font-family:monospace">
+                <input type="color" id="logo-color" value="${__escA(data.logoColor||'#2563eb')}" style="width:44px;height:36px;border:1px solid var(--border);border-radius:8px;padding:2px;background:var(--surface-2);cursor:pointer">
+                <input class="input" id="logo-color-hex" value="${__escA(data.logoColor||'#2563eb')}" style="flex:1;font-family:monospace">
               </div>
             </div>
             <div class="input-group"><label class="input-label">ข้อความท้ายเอกสาร (Footer Note)</label><input class="input" id="doc-footer" value="${escHtml(data.footerNote||'')}"></div>

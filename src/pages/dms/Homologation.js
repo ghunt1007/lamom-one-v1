@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 import { exportToExcel } from '../../utils/importExport.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -193,9 +194,9 @@ export default async function HomologationPage(container) {
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div><label style="font-size:0.74rem;color:var(--text-muted)">วันออกใบรับรอง</label>
-              <input id="hm-issue" type="date" class="input" value="${today}"></div>
+              <input id="hm-issue" type="date" class="input" value="${__escA(today)}"></div>
             <div><label style="font-size:0.74rem;color:var(--text-muted)">วันหมดอายุ</label>
-              <input id="hm-exp" type="date" class="input" value="${in5y}"></div>
+              <input id="hm-exp" type="date" class="input" value="${__escA(in5y)}"></div>
           </div>
           <div><label style="font-size:0.74rem;color:var(--text-muted)">หมายเหตุ</label>
             <input id="hm-note" class="input" placeholder="รายละเอียดเพิ่มเติม..."></div>

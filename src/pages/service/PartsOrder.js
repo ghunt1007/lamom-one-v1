@@ -3,6 +3,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 // ป้องกัน XSS — หมายเหตุ (notes) เป็นข้อความที่ผู้ใช้พิมพ์เอง ต้อง escape ก่อนแสดงผลเสมอ
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
@@ -264,7 +265,7 @@ export default async function PartsOrderPage(container) {
         <div id="po-lines">
           <div style="display:grid;grid-template-columns:2fr 1fr 80px 100px;gap:6px;margin-bottom:6px">
             <input class="input po-name" placeholder="ชื่ออะไหล่ *">
-            <select class="input po-cat">${Object.entries(PARTS_CATEGORIES).map(([k,v]) => `<option value="${k}">${v}</option>`).join('')}</select>
+            <select class="input po-cat">${Object.entries(PARTS_CATEGORIES).map(([k,v]) => `<option value="${__escA(k)}">${v}</option>`).join('')}</select>
             <input type="number" class="input po-qty" placeholder="จำนวน" min="1" value="1">
             <input type="number" class="input po-price" placeholder="ราคา/หน่วย">
           </div>
@@ -297,7 +298,7 @@ export default async function PartsOrderPage(container) {
       document.getElementById('add-line-btn')?.addEventListener('click', () => {
         const line = document.createElement('div')
         line.style.cssText = 'display:grid;grid-template-columns:2fr 1fr 80px 100px;gap:6px;margin-bottom:6px'
-        line.innerHTML = `<input class="input po-name" placeholder="ชื่ออะไหล่ *"><select class="input po-cat">${Object.entries(PARTS_CATEGORIES).map(([k,v]) => `<option value="${k}">${v}</option>`).join('')}</select><input type="number" class="input po-qty" placeholder="จำนวน" min="1" value="1"><input type="number" class="input po-price" placeholder="ราคา/หน่วย">`
+        line.innerHTML = `<input class="input po-name" placeholder="ชื่ออะไหล่ *"><select class="input po-cat">${Object.entries(PARTS_CATEGORIES).map(([k,v]) => `<option value="${__escA(k)}">${v}</option>`).join('')}</select><input type="number" class="input po-qty" placeholder="จำนวน" min="1" value="1"><input type="number" class="input po-price" placeholder="ราคา/หน่วย">`
         document.getElementById('po-lines')?.appendChild(line)
       })
     }, 50)

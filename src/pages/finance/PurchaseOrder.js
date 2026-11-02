@@ -7,6 +7,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function myName() {
   const me = getState('user') || {}
@@ -207,7 +208,7 @@ export default async function PurchaseOrderPage(container) {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">รายการสินค้า/บริการ *</label><input class="input" id="po-title"></div>
           <div class="input-group"><label class="input-label">ประเภท</label>
-            <select class="input" id="po-cat">${Object.entries(PO_CATS).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+            <select class="input" id="po-cat">${Object.entries(PO_CATS).map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">ผู้จัดหา *</label><input class="input" id="po-supplier"></div>
           <div class="input-group"><label class="input-label">มูลค่า (บาท) *</label><input type="number" class="input" id="po-amount"></div>

@@ -7,6 +7,7 @@ import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -158,7 +159,7 @@ export default async function SuccessionPlanningPage(container) {
         <div style="display:flex;gap:8px">
           <div class="input-group" style="flex:1"><label class="input-label">แผนก</label><input class="input" id="sp-dept"></div>
           <div class="input-group" style="flex:1"><label class="input-label">ความพร้อม</label>
-            <select class="input" id="sp-ready">${Object.entries(READINESS).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('')}</select>
+            <select class="input" id="sp-ready">${Object.entries(READINESS).map(([k,v])=>`<option value="${__escA(k)}">${v.label}</option>`).join('')}</select>
           </div>
         </div>
         <div class="input-group"><label class="input-label">ช่องว่างที่ต้องพัฒนา</label><input class="input" id="sp-gaps" placeholder="เช่น ทักษะ X, ประสบการณ์ Y"></div>
@@ -238,7 +239,7 @@ export default async function SuccessionPlanningPage(container) {
         <div style="display:flex;gap:8px">
           <div class="input-group" style="flex:1"><label class="input-label">แผนก</label><input class="input" id="sp-dept" value="${escHtml(s.dept)}"></div>
           <div class="input-group" style="flex:1"><label class="input-label">ความพร้อม</label>
-            <select class="input" id="sp-ready">${Object.entries(READINESS).map(([k,v])=>`<option value="${k}" ${s.readiness===k?'selected':''}>${v.label}</option>`).join('')}</select>
+            <select class="input" id="sp-ready">${Object.entries(READINESS).map(([k,v])=>`<option value="${__escA(k)}" ${s.readiness===k?'selected':''}>${v.label}</option>`).join('')}</select>
           </div>
         </div>
         <div class="input-group"><label class="input-label">ช่องว่างที่ต้องพัฒนา</label><input class="input" id="sp-gaps" value="${escHtml(s.gaps || '')}"></div>

@@ -6,6 +6,7 @@ import { timeAgo } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function myName() {
   const me = getState('user') || {}
@@ -68,7 +69,7 @@ export default async function KnowledgeBasePage(container) {
 
         <!-- Search + filter -->
         <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
-          <input class="input" id="search-input" placeholder="🔍 ค้นหาความรู้..." value="${search}" style="width:240px;padding:8px 12px;font-size:0.85rem">
+          <input class="input" id="search-input" placeholder="🔍 ค้นหาความรู้..." value="${__escA(search)}" style="width:240px;padding:8px 12px;font-size:0.85rem">
           <div style="display:flex;gap:4px">
             <button class="btn btn-xs ${catFilter==='all'?'btn-primary':'btn-secondary'} cf-btn" data-c="all">ทั้งหมด</button>
             ${Object.entries(KB_CATS).map(([k,v]) => `<button class="btn btn-xs ${catFilter===k?'btn-'+v.color:'btn-secondary'} cf-btn" data-c="${k}">${v.icon} ${v.label}</button>`).join('')}
@@ -150,7 +151,7 @@ export default async function KnowledgeBasePage(container) {
         body: `<div style="display:grid;gap:10px">
           <div class="input-group"><label class="input-label">หัวข้อ *</label><input class="input" id="kb-title"></div>
           <div class="input-group"><label class="input-label">หมวด</label>
-            <select class="input" id="kb-cat">${Object.entries(KB_CATS).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+            <select class="input" id="kb-cat">${Object.entries(KB_CATS).map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">เนื้อหา *</label><textarea class="input" id="kb-content" rows="5"></textarea></div>
         </div>`,
@@ -175,7 +176,7 @@ export default async function KnowledgeBasePage(container) {
       body: `<div style="display:grid;gap:10px">
         <div class="input-group"><label class="input-label">หัวข้อ *</label><input class="input" id="kb-e-title" value="${escHtml(a.title)}"></div>
         <div class="input-group"><label class="input-label">หมวด</label>
-          <select class="input" id="kb-e-cat">${Object.entries(KB_CATS).map(([k,v])=>`<option value="${k}" ${a.cat===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}</select>
+          <select class="input" id="kb-e-cat">${Object.entries(KB_CATS).map(([k,v])=>`<option value="${__escA(k)}" ${a.cat===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}</select>
         </div>
         <div class="input-group"><label class="input-label">เนื้อหา *</label><textarea class="input" id="kb-e-content" rows="5">${escHtml(a.content || a.excerpt)}</textarea></div>
       </div>`,

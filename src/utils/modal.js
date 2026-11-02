@@ -14,7 +14,7 @@ export function openModal({ title, body, footer = '', size = 'md', onClose, onCo
   div.innerHTML = `
     <div class="modal modal-${size}">
       <div class="modal-header">
-        <span class="modal-title">${title}</span>
+        <span class="modal-title">${safeInlineHtml(title)}</span>
         <button class="modal-close" id="${id}-close">✕</button>
       </div>
       <div class="modal-body">${body}</div>
@@ -41,12 +41,18 @@ export function openModal({ title, body, footer = '', size = 'md', onClose, onCo
   return { id, el: div, close: () => div.remove() }
 }
 
+// กันข้อความลูกค้า/พนักงานที่มีแท็ก HTML แฝงมากลายเป็นโค้ดในกล่องยืนยัน: อนุญาตเฉพาะ <strong> <b> <em> <br>
+// แบบไม่มี attribute ที่เหลือแปลง "<" เป็น &lt; (ไม่แตะ & เพื่อให้ข้อความที่ escape มาแล้วยังแสดงถูก)
+export function safeInlineHtml(s) {
+  return String(s ?? '').replace(/<(?!\/?(?:strong|b|em|br)\s*\/?>)/gi, '&lt;')
+}
+
 export function confirmDialog({ title = 'ยืนยัน', message, confirmText = 'ยืนยัน', cancelText = 'ยกเลิก', danger = false } = {}) {
   return new Promise(resolve => {
     const { el, close } = openModal({
-      title,
+      title: safeInlineHtml(title),
       size: 'sm',
-      body: `<p style="color:var(--text-2)">${message}</p>`,
+      body: `<p style="color:var(--text-2)">${safeInlineHtml(message)}</p>`,
       footer: `
         <button class="btn btn-secondary" id="modal-cancel">${cancelText}</button>
         <button class="btn ${danger ? 'btn-danger' : 'btn-primary'}" id="modal-confirm">${confirmText}</button>

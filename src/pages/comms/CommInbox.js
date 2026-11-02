@@ -13,6 +13,7 @@ import { maskContacts } from '../../utils/leadText.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 import { sendSms, sendEmail } from '../../utils/comms.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 // (v1.0.349) เดิมโหลดข้อความด้วย listDocs() ครั้งเดียวตอนเปิดหน้า ไม่ใช่ real-time จริง (ต้องกดรีเฟรชเอง
 // ถึงจะเห็นข้อความใหม่) และปุ่ม "ตอบกลับ"/"เขียนข้อความ" ไม่เคยส่งออกจริงเลยไม่ว่าช่องทางไหน (แค่ตั้งค่า
@@ -287,7 +288,7 @@ export default async function CommInboxPage(container) {
       body: `
         <div style="display:grid;gap:12px">
           <div class="input-group"><label class="input-label">ช่องทาง</label>
-            <select class="input" id="comp-ch">${Object.entries(CHANNELS).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+            <select class="input" id="comp-ch">${Object.entries(CHANNELS).map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">ผู้รับ (ชื่อ)</label><input class="input" id="comp-to" placeholder="ชื่อผู้รับ"></div>
           <div class="input-group"><label class="input-label">เบอร์โทร (สำหรับ SMS)</label><input class="input" id="comp-phone" placeholder="08x-xxx-xxxx"></div>

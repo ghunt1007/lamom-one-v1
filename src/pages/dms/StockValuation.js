@@ -3,6 +3,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { showToast } from '../../core/store.js'
 import { listDocs } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -119,11 +120,11 @@ export default async function StockValuationPage(container) {
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
           <select class="input" id="brand-filter" style="width:120px">
             <option value="all">แบรนด์ทั้งหมด</option>
-            ${[...new Set(stock.map(s=>s.brand))].map(b => `<option value="${b}" ${brandFilter===b?'selected':''}>${b}</option>`).join('')}
+            ${[...new Set(stock.map(s=>s.brand))].map(b => `<option value="${__escA(b)}" ${brandFilter===b?'selected':''}>${b}</option>`).join('')}
           </select>
           <select class="input" id="status-filter" style="width:130px">
             <option value="all">สถานะทั้งหมด</option>
-            ${Object.entries(STATUS_MAP).map(([k,v]) => `<option value="${k}" ${statusFilter===k?'selected':''}>${v.label}</option>`).join('')}
+            ${Object.entries(STATUS_MAP).map(([k,v]) => `<option value="${__escA(k)}" ${statusFilter===k?'selected':''}>${v.label}</option>`).join('')}
           </select>
           <select class="input" id="branch-filter" style="width:180px">
             <option value="all">ทุกสาขา</option>

@@ -13,6 +13,7 @@ import { showToast } from '../../core/store.js'
 import { todayBangkok } from '../../utils/format.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -147,7 +148,7 @@ export default async function PaymentGatewayPage(container) {
         <div class="input-group"><label class="input-label">รายการ</label><input class="input" id="np-desc" placeholder="รายละเอียดรายการ"></div>
         <div class="input-group"><label class="input-label">จำนวนเงิน (฿) *</label><input class="input" type="number" id="np-amount" placeholder="0"></div>
         <div class="input-group"><label class="input-label">ช่องทาง</label>
-          <select class="input" id="np-method">${Object.keys(METHOD_ICONS).map(k => `<option value="${k}">${METHOD_ICONS[k]} ${k}</option>`).join('')}</select>
+          <select class="input" id="np-method">${Object.keys(METHOD_ICONS).map(k => `<option value="${__escA(k)}">${METHOD_ICONS[k]} ${k}</option>`).join('')}</select>
         </div>
       </div>`,
       footer: `<button class="btn btn-secondary" id="np-c">ยกเลิก</button><button class="btn btn-primary" id="np-s">สร้างรายการ</button>`

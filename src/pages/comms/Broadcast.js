@@ -8,6 +8,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { TARGET_SEGMENTS, getSegmentMembers, getSegmentCount, reachableMembers } from '../../core/segments.js'
 import { sendSms, sendEmail, sendLineBroadcast, sendPush } from '../../utils/comms.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -228,10 +229,10 @@ export default async function BroadcastPage(container) {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">ชื่อแคมเปญ *</label><input class="input" id="bc-title" placeholder="ชื่อ Broadcast..."></div>
           <div class="input-group"><label class="input-label">ช่องทาง</label>
-            <select class="input" id="bc-channel">${Object.entries(CHANNELS).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+            <select class="input" id="bc-channel">${Object.entries(CHANNELS).map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">กลุ่มเป้าหมาย</label>
-            <select class="input" id="bc-target">${Object.entries(TARGET_SEGS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select>
+            <select class="input" id="bc-target">${Object.entries(TARGET_SEGS).map(([k,v])=>`<option value="${__escA(k)}">${v}</option>`).join('')}</select>
           </div>
           <div class="input-group" id="bc-subject-group" style="grid-column:1/-1;display:none"><label class="input-label">หัวข้อ Email *</label><input class="input" id="bc-subject" placeholder="หัวข้ออีเมล..."></div>
           <div style="grid-column:1/-1;font-size:0.75rem;color:var(--text-muted)" id="bc-reach-hint">กำลังคำนวณจำนวนผู้รับจริง...</div>

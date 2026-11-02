@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -133,7 +134,7 @@ export default async function FinancialGoalsPage(container) {
           <div style="font-size:0.75rem;color:var(--text-muted)">ปัจจุบัน: ${fmt(g.current)} (${pct(g)}%)</div>
         </div>
         <div class="input-group"><label class="input-label">ค่าปัจจุบันใหม่ (${escHtml(g.unit)})</label>
-          <input type="number" class="input" id="update-val" value="${g.current}">
+          <input type="number" class="input" id="update-val" value="${__escA(g.current)}">
         </div>
       `,
       async onConfirm() {
@@ -155,7 +156,7 @@ export default async function FinancialGoalsPage(container) {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="input-group" style="grid-column:1/-1"><label class="input-label">ชื่อเป้าหมาย *</label><input class="input" id="ng-title"></div>
           <div class="input-group"><label class="input-label">ประเภท</label>
-            <select class="input" id="ng-cat">${Object.entries(GOAL_CATS).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+            <select class="input" id="ng-cat">${Object.entries(GOAL_CATS).map(([k,v])=>`<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
           </div>
           <div class="input-group"><label class="input-label">ช่วงเวลา</label>
             <select class="input" id="ng-period">${GOAL_PERIODS.map(p=>`<option>${p}</option>`).join('')}</select>

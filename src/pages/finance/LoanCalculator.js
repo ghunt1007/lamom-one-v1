@@ -6,6 +6,7 @@ import { formatCurrency } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { listDocs } from '../../core/db.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
+import { escHtml as __escA } from '../../utils/escape.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -107,11 +108,11 @@ export default async function LoanCalculatorPage(container) {
             </div>
             <div class="input-group" style="margin-bottom:10px">
               <label class="input-label">ราคารถ (แก้ได้)</label>
-              <input class="input" type="number" id="lc-price" value="${price}">
+              <input class="input" type="number" id="lc-price" value="${__escA(price)}">
             </div>
             <div class="input-group" style="margin-bottom:10px">
               <label class="input-label">เงินดาวน์: <strong style="color:var(--primary)">${downPct}%</strong> = ${formatCurrency(downAmt)}</label>
-              <input type="range" id="lc-down" min="0" max="50" step="5" value="${downPct}" style="width:100%;accent-color:var(--primary)">
+              <input type="range" id="lc-down" min="0" max="50" step="5" value="${__escA(downPct)}" style="width:100%;accent-color:var(--primary)">
             </div>
             <div class="input-group" style="margin-bottom:14px">
               <label class="input-label">ระยะผ่อน</label>
