@@ -73,6 +73,23 @@ export const LINKED_VIEWS = [
   [{ path: '/settings/health', label: '🩺 สถานะระบบ' }, { path: '/settings/errors', label: '⚠️ ข้อผิดพลาด' }, { path: '/settings/audit', label: '📜 ประวัติการใช้งาน' }],
   [{ path: '/integrations', label: '🔗 เชื่อมต่อ' }, { path: '/integrations/settings', label: '⚙️ ตั้งค่า' }, { path: '/integrations/webhooks', label: '🪝 Webhook' }],
   [{ path: '/migration', label: '📥 ย้ายข้อมูล' }, { path: '/migration/mapping', label: '🔀 จับคู่ข้อมูล' }, { path: '/migration/export', label: '📤 ส่งออก' }],
+  // (2026-11-02) การตลาด 18→6 · คุณภาพ 10→5 · อบรม 9→3 · B2B 9→4 · สื่อสาร 8→4 · ประกัน 6→2 · เกม 6→2 · เอกสาร 6→3
+  [{ path: '/marketing/campaigns', label: '📣 แคมเปญ' }, { path: '/marketing/monthly-goals', label: '🎯 เป้ารายเดือน' }, { path: '/marketing/promotions', label: '🏷 โปรโมชั่น' }, { path: '/marketing/roi', label: '💹 ผลตอบแทน' }, { path: '/marketing/landing-pages', label: '🌐 หน้าเว็บแคมเปญ' }, { path: '/marketing/utm-tracker', label: '🔗 ติดตามลิงก์' }],
+  [{ path: '/marketing/social', label: '📱 โซเชียล' }, { path: '/marketing/content', label: '🗓 ปฏิทินคอนเทนต์' }, { path: '/marketing/ai-content', label: '🤖 สร้างคอนเทนต์' }, { path: '/marketing/line-oa', label: '💬 LINE OA' }, { path: '/marketing/reviews', label: '⭐ รีวิว' }, { path: '/marketing/social-analytics', label: '📊 วิเคราะห์' }, { path: '/marketing/sentiment', label: '😊 อารมณ์ลูกค้า' }],
+  [{ path: '/marketing/events', label: '🎪 อีเวนต์' }, { path: '/marketing/event-checkin', label: '✅ เช็กอิน' }],
+  [{ path: '/quality/sop', label: '📘 SOP' }, { path: '/quality/compliance', label: '✅ การปฏิบัติตามกฎ' }, { path: '/quality/legal-reference', label: '⚖️ กฎหมาย' }, { path: '/quality/audit-schedule', label: '🗓 ตารางตรวจสอบ' }],
+  [{ path: '/quality/incidents', label: '🚨 เหตุการณ์' }, { path: '/quality/5s', label: '🧹 5ส' }, { path: '/quality/maintenance', label: '🛠 ซ่อมบำรุงอุปกรณ์' }],
+  [{ path: '/training/courses', label: '📚 หลักสูตร' }, { path: '/training/progress', label: '📈 ความคืบหน้า' }, { path: '/training/quiz', label: '📝 แบบทดสอบ' }, { path: '/training/certification', label: '🎓 ใบรับรอง' }],
+  [{ path: '/training/knowledge', label: '📖 คลังความรู้' }, { path: '/training/product-knowledge', label: '🚗 ความรู้สินค้า' }, { path: '/training/competitor', label: '🥊 คู่แข่ง' }, { path: '/training/bot', label: '🤖 ผู้ช่วยอบรม' }],
+  [{ path: '/b2b/fleet', label: '🚚 ฟลีต' }, { path: '/b2b/fleet-quote', label: '🧾 ใบเสนอราคาฟลีต' }, { path: '/b2b/fleet-gps', label: '📍 GPS' }, { path: '/b2b/leasing', label: '📄 ลีสซิ่ง' }],
+  [{ path: '/b2b/partners', label: '🤝 พันธมิตร' }, { path: '/b2b/partner-commission', label: '💰 ค่าคอมพันธมิตร' }],
+  [{ path: '/b2b/quotes', label: '🧾 ใบเสนอราคาองค์กร' }, { path: '/b2b/gov-bidding', label: '🏛 ประมูลราชการ' }],
+  [{ path: '/comms/broadcast', label: '📢 ส่งกลุ่ม' }, { path: '/comms/sms', label: '📱 SMS' }, { path: '/comms/templates', label: '📋 ข้อความสำเร็จรูป' }],
+  [{ path: '/comms/calls', label: '📞 การโทร' }, { path: '/comms/meetings', label: '👥 ประชุม' }, { path: '/comms/escalation', label: '⤴️ กฎส่งต่อเรื่อง' }],
+  [{ path: '/insurance/policy', label: '📄 กรมธรรม์' }, { path: '/insurance/renewal', label: '🔄 ต่ออายุ' }, { path: '/insurance/claims', label: '🛠 เคลม' }, { path: '/insurance/ncb', label: '⭐ NCB' }, { path: '/insurance/compare', label: '⚖️ เทียบประกัน' }],
+  [{ path: '/gamification/leaderboard', label: '🏆 อันดับ' }, { path: '/gamification/missions', label: '📅 ภารกิจประจำวัน' }, { path: '/gamification/challenges', label: '🎯 ภารกิจท้าทาย' }, { path: '/gamification/badges', label: '🏅 เหรียญ' }, { path: '/gamification/rewards', label: '🎁 แลกรางวัล' }],
+  [{ path: '/documents/library', label: '🗂 คลังเอกสาร' }, { path: '/documents/contracts', label: '📜 สัญญา' }, { path: '/documents/templates', label: '📑 แม่แบบ' }],
+  [{ path: '/documents/form-builder', label: '📝 สร้างแบบฟอร์ม' }, { path: '/documents/checklist', label: '✅ เช็กลิสต์' }],
 ]
 
 const clean = p => String(p || '').split('?')[0].replace(/\/+$/, '') || '/'
