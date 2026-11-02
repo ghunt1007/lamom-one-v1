@@ -47,13 +47,28 @@ const nOrBlank = v => (v === '' || v == null ? '' : (isNaN(Number(String(v).repl
 const car = b => [b.brand, b.model].filter(Boolean).join(' ')
 const today = () => new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10)
 
+// ข้อมูลโชว์รูมตามตัวอย่างเอกสารจริงที่คุณกอล์ฟส่งมา (ข้อมูลบริษัท ไม่ใช่ข้อมูลลูกค้า)
+// ใช้เมื่อใบจองยังไม่ได้ผูกบริษัท หรือบริษัทที่ผูกยังไม่ได้กรอกช่องนั้น — แก้ทับได้ที่ ระบบ › บริษัทในเครือ
+export const SHOWROOM_DEFAULT = {
+  name: 'บริษัท เอส.เค.ออโต้ กรุ๊ป จำกัด',
+  address: '63/8 หมู่ที่ 13 ต.บางบัวทอง อ.บางบัวทอง จ.นนทบุรี 11110',
+  phone: '02-147-4888', taxId: '0125566041271', branchLabel: 'สำนักงานใหญ่',
+  brand: 'DEEPAL', logoUrl: '/forms/deepal-logo.png', groupLogoUrl: '/forms/sk-logo.png', slogan: 'Bangbuathong',
+  bankName: 'ธนาคารไทยพาณิชย์', bankAccount: '284-248-163-4', bankAccountName: 'บริษัท เอส.เค. ออโต้ กรุ๊ป จำกัด',
+  signerName: 'คุณสมโชค โกฎมณี', signerTitle: 'กรรมการบริษัท',
+}
+
 export function companyOf(co = {}) {
+  // บริษัทอื่น (ชื่อไม่ตรงโชว์รูม) ใช้ข้อมูลของตัวเองล้วน ไม่เอาบัญชี/ผู้ลงนามของโชว์รูมไปปน
+  const own = co?.name && !/เอส\.?\s*เค\.?\s*ออโต้/.test(co.name)
+  const d = own ? {} : SHOWROOM_DEFAULT
+  const v = k => (co?.[k] || d[k] || '')
   return {
-    name: co.name || 'บริษัท ............................................ จำกัด',
-    address: co.address || '', phone: co.phone || '', taxId: co.taxId || '', branch: co.branchLabel || 'สำนักงานใหญ่',
-    logoUrl: co.logoUrl || '', brandText: co.brand || '', slogan: co.slogan || '',
-    bankName: co.bankName || '', bankAccount: co.bankAccount || '', bankAccountName: co.bankAccountName || co.name || '',
-    signerName: co.signerName || '', signerTitle: co.signerTitle || 'กรรมการบริษัท',
+    name: v('name') || 'บริษัท ............................................ จำกัด',
+    address: v('address'), phone: v('phone'), taxId: v('taxId'), branch: v('branchLabel') || 'สำนักงานใหญ่',
+    logoUrl: v('logoUrl'), groupLogoUrl: v('groupLogoUrl'), brandText: v('brand'), slogan: v('slogan'),
+    bankName: v('bankName'), bankAccount: v('bankAccount'), bankAccountName: v('bankAccountName') || v('name'),
+    signerName: v('signerName'), signerTitle: v('signerTitle') || 'กรรมการบริษัท',
   }
 }
 
@@ -75,7 +90,14 @@ const print = (html, title) => printDocument(html, { title, extraCss: CSS })
 export function jobOrderHtml(b, co) {
   const s = saleOf(b), t = saleTotals(b, s), c = companyOf(co), a = s.addr
   const rows = [...s.items, ...Array.from({ length: Math.max(0, JOB_ORDER_ROWS - s.items.length) }, () => ({}))]
-  return doc(`${header(c, carNoBox(s))}
+  // แบบจริง: โลโก้กลุ่ม (SK) ซ้าย · ชื่อบริษัทกลาง · โลโก้แบรนด์ขวา
+  const head = c.groupLogoUrl
+    ? `<div class="co" style="justify-content:space-between">
+        <img src="${esc(c.groupLogoUrl)}" alt="" style="max-height:15mm">
+        <div style="flex:1;text-align:center" class="co-meta">${esc(c.name)} เลขประจำตัวผู้เสียภาษีอากร ${esc(c.taxId)}<br>${esc(c.address)}${c.phone ? ` TEL. ${esc(c.phone)}` : ''}</div>
+        ${c.logoUrl ? `<img src="${esc(c.logoUrl)}" alt="" style="max-height:15mm">` : ''}</div>${carNoBox(s)}`
+    : header(c, carNoBox(s))
+  return doc(`${head}
     <div class="ttl" style="color:#1e3a8a">Job Order / Check List สำหรับการออกรถยนต์ใหม่</div>
     <div class="row"><span class="lb">พนักงานขาย</span>${f(b.salesName, 60)}<span class="lb">วันที่</span>${f(thaiDateParts(today()).long, 40)}</div>
     <div class="band">ข้อมูลลูกค้า</div>

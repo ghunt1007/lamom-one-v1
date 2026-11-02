@@ -67,3 +67,18 @@ describe('dealer forms', () => {
     expect(printed[2].html).toMatch(/✓<\/span>DEEPAL S07/)
   })
 })
+
+describe('showroom letterhead', () => {
+  it('uses the showroom details from the sample forms when no company is set', () => {
+    const c = F.companyOf({})
+    expect(c.name).toBe('บริษัท เอส.เค.ออโต้ กรุ๊ป จำกัด')
+    expect(c.bankAccount).toBe('284-248-163-4')
+    expect(c.logoUrl).toBe('/forms/deepal-logo.png')
+    expect(F.companyOf({ phone: '02-999-9999' }).phone).toBe('02-999-9999')
+  })
+  it('never mixes the showroom bank/signer into another company', () => {
+    const c = F.companyOf({ name: 'บริษัท อื่น จำกัด' })
+    expect(c.bankAccount).toBe('')
+    expect(c.signerName).toBe('')
+  })
+})
