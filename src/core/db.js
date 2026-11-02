@@ -1,6 +1,7 @@
 // Firestore helpers — thin wrapper with offline demo support
 import { db } from './firebase.js'
 import { trackPageWatcher } from './pageWatchers.js'
+import { sortRows, isMissingIndexError } from './sortRows.js'
 import {
   collection, doc, addDoc, setDoc, updateDoc, deleteDoc,
   getDoc, getDocs, query, where, orderBy, limit, startAfter,
@@ -410,8 +411,16 @@ export async function listDocs(colName, filters = [], sortBy = 'createdAt', sort
   let q = collection(db, colName)
   const constraints = [...filters.map(([f, op, v]) => where(f, op, v)), orderBy(sortBy, sortDir), limit(effectiveLimit(colName, maxDocs))]
   q = query(q, ...constraints)
-  const snap = await getDocs(q)
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+  try {
+    const snap = await getDocs(q)
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+  } catch (e) {
+    // ยังไม่มี index สำหรับ กรอง+เรียง แบบนี้ → ดึงแบบกรองอย่างเดียวแล้วเรียงในเครื่องแทน (ไม่โชว์ว่าง)
+    if (!filters.length || !isMissingIndexError(e)) throw e
+    console.warn('[listDocs] missing index, sorting locally:', colName, filters.map(f => f[0]).join('+') + ' → ' + sortBy)
+    const snap = await getDocs(query(collection(db, colName), ...filters.map(([f, op, v]) => where(f, op, v)), limit(Math.max(effectiveLimit(colName, maxDocs), 500))))
+    return sortRows(snap.docs.map(d => ({ id: d.id, ...d.data() })), sortBy, sortDir).slice(0, effectiveLimit(colName, maxDocs))
+  }
 }
 
 // ดึงเอกสาร "ทั้งหมด" จริงๆ ไม่ใช่แค่ N แถวล่าสุดแบบ listDocs — วนดึงเป็นก้อนด้วย cursor (startAfter) จนกว่า
@@ -440,13 +449,25 @@ export function watchDocs(colName, filters = [], sortBy = 'createdAt', sortDir =
   let q = collection(db, colName)
   const constraints = [...filters.map(([f, op, v]) => where(f, op, v)), orderBy(sortBy, sortDir), limit(effectiveLimit(colName, maxDocs))]
   q = query(q, ...constraints)
-  // ปิดอัตโนมัติเมื่อเปลี่ยนหน้า (router เรียก stopPageWatchers) — หน้าเรียก unsub เองซ้ำได้ ไม่เป็นไร
-  return trackPageWatcher(onSnapshot(q, snap => {
+  let inner = null
+  let stopped = false
+  inner = onSnapshot(q, snap => {
     callback(snap.docs.map(d => ({ id: d.id, ...d.data() })))
   }, err => {
+    // ยังไม่มี index สำหรับ กรอง+เรียง → ฟังแบบกรองอย่างเดียวแล้วเรียงในเครื่อง (แทนการโชว์ว่าง)
+    if (!stopped && filters.length && isMissingIndexError(err)) {
+      console.warn('[watchDocs] missing index, sorting locally:', colName, filters.map(f => f[0]).join('+') + ' → ' + sortBy)
+      const n = effectiveLimit(colName, maxDocs)
+      inner = onSnapshot(query(collection(db, colName), ...filters.map(([f, op, v]) => where(f, op, v)), limit(Math.max(n, 500))),
+        snap => callback(sortRows(snap.docs.map(d => ({ id: d.id, ...d.data() })), sortBy, sortDir).slice(0, n)),
+        e2 => { console.error('[watchDocs]', colName, e2); callback([]) })
+      return
+    }
     console.error('[watchDocs]', colName, err)
     callback([]) // แจ้ง [] แทนการปล่อยให้ผู้เรียกที่รอ snapshot แรกค้างตลอดไป (เช่น permission denied)
-  }))
+  })
+  // ปิดอัตโนมัติเมื่อเปลี่ยนหน้า (router เรียก stopPageWatchers) — หน้าเรียก unsub เองซ้ำได้ ไม่เป็นไร
+  return trackPageWatcher(() => { stopped = true; inner?.() })
 }
 
 // Demo mode ถูกลบออกจากระบบแล้ว (2026-07-23) — seedDemoData() คงไว้เป็น no-op เฉยๆ เพราะยังมี
