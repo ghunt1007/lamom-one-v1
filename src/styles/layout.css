@@ -537,6 +537,20 @@
   .cust-stats .stat-pill > div:first-child { font-size: 0.66rem !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cust-stats .stat-pill > div:last-child { font-size: 1.25rem !important; }
 }
+/* (v1.0.914) มือถือ: ตัวเลขสถานะ = แถวเดียวเลื่อนข้าง (เดิม 2 แถวสูง ~150px) · ตัวกรองซ่อนหลังปุ่ม ⚙️
+   → ช่องค้นหาและรายชื่อลูกค้าคนแรกขึ้นมาอยู่ในจอแรกโดยไม่ต้องเลื่อน */
+.cust-ftoggle { display: none; }
+@media (max-width: 640px) {
+  .cust-stats { display: flex !important; overflow-x: auto; scrollbar-width: none; margin-bottom: 10px !important; padding-bottom: 2px; }
+  .cust-stats::-webkit-scrollbar { display: none; }
+  .cust-stats .stat-pill { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; padding: 6px 12px !important; border-radius: 999px; }
+  .cust-stats .stat-pill > div:first-child { margin: 0 !important; font-size: 0.72rem !important; }
+  .cust-stats .stat-pill > div:last-child { font-size: 0.95rem !important; }
+  .cust-filters > select { display: none; }
+  .cust-filters.cf-open > select { display: block; }
+  .cust-filters > div:first-child { flex: 1 1 0 !important; flex-basis: 0 !important; min-width: 0 !important; }
+  .cust-ftoggle { display: inline-flex; flex: 0 0 auto; white-space: nowrap; }
+}
 
 /* แดชบอร์ด: วงแหวน 4 วงเรียง 2x2 บนแท็บเล็ต (ไม่เหลือวงเดียวโดดในแถวล่าง) */
 @media (min-width: 641px) and (max-width: 1100px) {
