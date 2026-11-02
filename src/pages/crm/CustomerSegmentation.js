@@ -8,6 +8,7 @@ import { showToast } from '../../core/store.js'
 import { getSalesData, listDocs, listAllDocs, createDoc, softDelete } from '../../core/db.js'
 import { OCCUPATIONS } from '../../utils/financeMatch.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
+import { rfmSegments, RFM_RULES } from '../../utils/rfm.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') }
 
@@ -24,12 +25,12 @@ const SEG_TYPES = {
 }
 
 const RFM_TIERS = [
-  { id: 'champions',    label: 'Champions', desc: 'ซื้อล่าสุด บ่อย และมูลค่าสูง', color: '#f59e0b', count: 42, avgValue: 1850000, icon: '👑' },
-  { id: 'loyal',        label: 'Loyal',     desc: 'ซื้อบ่อยและมีมูลค่าดี', color: '#10b981', count: 87, avgValue: 980000, icon: '⭐' },
-  { id: 'potential',    label: 'Potential', desc: 'ซื้อล่าสุดแต่ยังไม่บ่อย', color: '#3b82f6', count: 124, avgValue: 620000, icon: '🚀' },
-  { id: 'new',          label: 'New',       desc: 'ลูกค้าใหม่ที่เพิ่งซื้อ', color: '#8b5cf6', count: 98, avgValue: 480000, icon: '🆕' },
-  { id: 'at_risk',      label: 'At Risk',   desc: 'เคยดีแต่เงียบไปนาน', color: '#ef4444', count: 56, avgValue: 750000, icon: '⚠️' },
-  { id: 'lost',         label: 'Lost',      desc: 'ไม่ซื้อมานาน', color: '#94a3b8', count: 31, avgValue: 320000, icon: '😴' },
+  { id: 'champions',    label: 'Champions', desc: 'ซื้อล่าสุด บ่อย และมูลค่าสูง', color: '#f59e0b', count: 0, avgValue: 0, icon: '👑' },
+  { id: 'loyal',        label: 'Loyal',     desc: 'ซื้อบ่อยและมีมูลค่าดี', color: '#10b981', count: 0, avgValue: 0, icon: '⭐' },
+  { id: 'potential',    label: 'Potential', desc: 'ซื้อล่าสุดแต่ยังไม่บ่อย', color: '#3b82f6', count: 0, avgValue: 0, icon: '🚀' },
+  { id: 'new',          label: 'New',       desc: 'ลูกค้าใหม่ที่เพิ่งซื้อ', color: '#8b5cf6', count: 0, avgValue: 0, icon: '🆕' },
+  { id: 'at_risk',      label: 'At Risk',   desc: 'เคยดีแต่เงียบไปนาน', color: '#ef4444', count: 0, avgValue: 0, icon: '⚠️' },
+  { id: 'lost',         label: 'Lost',      desc: 'ไม่ซื้อมานาน', color: '#94a3b8', count: 0, avgValue: 0, icon: '😴' },
 ]
 
 export default async function CustomerSegmentationPage(container) {
@@ -70,33 +71,15 @@ export default async function CustomerSegmentationPage(container) {
   try {
     sales = await getSalesData().catch(() => [])
     if (container.__routerGen !== myGen) return
-    if (sales.length >= 5) {
-      const byCustomer = {}
-      sales.forEach(s => {
-        const name = s.custName || 'ไม่ระบุ'
-        if (!byCustomer[name]) byCustomer[name] = { count: 0, total: 0, lastDate: '' }
-        byCustomer[name].count++
-        byCustomer[name].total += s.salePrice || 0
-        const d = s.date || ''
-        if (d > byCustomer[name].lastDate) byCustomer[name].lastDate = d
+    if (sales.length) {
+      // แบ่งกลุ่มจากประวัติซื้อจริง ลูกค้า 1 คนอยู่ได้กลุ่มเดียว (utils/rfm.js) — เดิม Potential/At Risk
+      // เดาเป็น 40%/15% ของลูกค้าใหม่ และกลุ่มที่ว่างจะโชว์มูลค่าเฉลี่ยตัวอย่างแทน
+      const seg = rfmSegments(sales)
+      rfmTiers.forEach(t => {
+        t.count = seg[t.id].count
+        t.avgValue = seg[t.id].avgValue
+        t.desc = RFM_RULES[t.id]
       })
-      const customers = Object.values(byCustomer).filter(c => c.count > 0)
-      const twoYearsAgo = new Date(); twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2)
-      const isOld = c => c.lastDate && new Date(c.lastDate) < twoYearsAgo
-      const avgOf = list => list.length ? Math.round(list.reduce((a, c) => a + c.total, 0) / list.length) : 0
-
-      const championsList = customers.filter(c => c.count >= 2 && c.total >= 2000000 && !isOld(c))
-      const loyalList = customers.filter(c => c.count >= 2 && c.total < 2000000 && !isOld(c))
-      const newList = customers.filter(c => c.count === 1 && !isOld(c))
-      const lostList = customers.filter(isOld)
-      // "Potential"/"At Risk" ไม่มี field จริงแยกความแตกต่างจาก New ได้ตรงๆ (ต้องใช้ pipeline stage ที่
-      // ไม่มีในระบบ) ใช้สัดส่วนประมาณจาก New ที่เป็นจำนวนจริงต่อไป (วิธีเดิม ไม่ใช่ตัวเลขปลอมใหม่)
-      rfmTiers[0].count = championsList.length; rfmTiers[0].avgValue = avgOf(championsList) || rfmTiers[0].avgValue
-      rfmTiers[1].count = loyalList.length; rfmTiers[1].avgValue = avgOf(loyalList) || rfmTiers[1].avgValue
-      rfmTiers[2].count = Math.round(newList.length * 0.4); rfmTiers[2].avgValue = avgOf(newList) || rfmTiers[2].avgValue
-      rfmTiers[3].count = newList.length; rfmTiers[3].avgValue = avgOf(newList) || rfmTiers[3].avgValue
-      rfmTiers[4].count = Math.round(newList.length * 0.15); rfmTiers[4].avgValue = avgOf(newList) || rfmTiers[4].avgValue
-      rfmTiers[5].count = lostList.length; rfmTiers[5].avgValue = avgOf(lostList) || rfmTiers[5].avgValue
       dataSource = 'live'
 
       const byModel = {}
@@ -204,7 +187,7 @@ export default async function CustomerSegmentationPage(container) {
     return `
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(280px, 100%),1fr));gap:12px">
         ${rfmTiers.map(t => {
-          const pct = Math.round(t.count / total * 100)
+          const pct = total ? Math.round(t.count / total * 100) : 0
           return `<div class="card seg-card" data-id="${t.id}" style="padding:16px;cursor:pointer;border-left:4px solid ${t.color}">
             <div style="display:flex;justify-content:space-between;margin-bottom:10px">
               <div style="font-size:1.8rem">${t.icon}</div>

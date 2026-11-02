@@ -7,6 +7,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
+import { genApiKey as genKey } from '../../utils/secureRandom.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
@@ -19,12 +20,6 @@ const KEY_SCOPES = {
   admin: { label: 'Admin เต็มสิทธิ์', color: 'danger', icon: '🔑' },
 }
 
-function genKey() {
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
-  let s = 'lmm_live_'
-  for (let i = 0; i < 32; i++) s += chars[Math.floor(Math.random() * chars.length)]
-  return s
-}
 
 export default async function ApiKeysPage(container) {
   const myGen = container.__routerGen

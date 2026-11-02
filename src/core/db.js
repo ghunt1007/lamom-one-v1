@@ -471,6 +471,11 @@ export async function getSalesData() {
       // b.createdAt คือ Firestore serverTimestamp() object เสมอ (ไม่ใช่ string) — .slice() ตรงๆ จะพัง
       // ถ้าเคสไหนไปถึง fallback สุดท้ายนี้จริง (ปกติไม่ถึงเพราะ bookingDate มีเสมอ) ต้อง .toDate() ก่อน
       date: b.actualDeliveryDate || b.cutDate || b.bookingDate || (b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt || 0)).toISOString().slice(0, 10),
+      // บางหน้าเรียก s.bookingDate / s.deliveryDate / s.custPhone — เดิมไม่มีใน object นี้ ทำให้หน้าพวกนั้น
+      // (สรุปผู้บริหาร, ภาษี, ลูกค้าเสี่ยงหาย, วันครบรอบ ฯลฯ) ได้ค่าว่างตลอด ใส่ให้ครบที่นี่ที่เดียว
+      bookingDate: b.bookingDate || '',
+      deliveryDate: b.actualDeliveryDate || (b.status === 'ส่งมอบแล้ว' ? (b.deliveryDate || '') : ''),
+      customerId: b.customerId || '', custPhone: b.phone || '', custEmail: b.email || '',
       custName: b.custName, phone: b.phone || '', brand: b.brand, model: ((b.model || '') + ' ' + (b.variant || '')).trim(), plate: b.vin || '',
       salePrice: b.price || 0, cost: b.cost || 0, financeAmount: b.financeAmount || 0,
       finance: b.comFinance || 0, insurance: b.insuranceAmount || 0, accessory: b.accessoryAmount || 0, discount: 0,

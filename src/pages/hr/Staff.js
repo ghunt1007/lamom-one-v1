@@ -9,6 +9,7 @@ import { getPositions } from '../../data/masterData.js'
 import { navigate } from '../../core/router.js'
 import { validateThaiId } from '../../utils/thaiId.js'
 import { linkNewAccountForStaff, updateCompanyMemberships, sendStaffPasswordReset } from '../../core/auth.js'
+import { genPassword } from '../../utils/secureRandom.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -169,12 +170,6 @@ function canCreateAccountRole(myRole, targetRole) {
   const myLevel = LOGIN_ROLES[myRole]?.level || 0
   const targetLevel = LOGIN_ROLES[targetRole]?.level || 0
   return myLevel >= MIN_CREATE_LEVEL && myLevel > targetLevel
-}
-function genPassword() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
-  let p = ''
-  for (let i = 0; i < 8; i++) p += chars[Math.floor(Math.random() * chars.length)]
-  return p + '#' + Math.floor(Math.random() * 90 + 10)
 }
 
 export default async function StaffPage(container) {

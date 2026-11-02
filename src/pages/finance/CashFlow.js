@@ -4,6 +4,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { getSalesData, listDocs, createDoc, softDelete, readDoc, setDocData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
+import { saleCost } from '../../utils/saleCost.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -75,7 +76,7 @@ export default async function CashFlowPage(container) {
         // ใบจองอยู่แล้ว (ใช้จริงแล้วใน VatReport.js v1.0.320) ใช้ค่าประมาณเฉพาะใบจองที่ยังไม่มีต้นทุนจริง
         // กรอกไว้เท่านั้น (cost falsy/0)
         liveFlows.push({ id: 'CF-C-' + s.id, date: d, type: 'expense', cat: 'cogs',
-          desc: 'ต้นทุน ' + label, amount: s.cost || Math.round(s.salePrice * 0.82), _live: true })
+          desc: 'ต้นทุน ' + label, amount: saleCost(s), _live: true })
       })
     } catch {}
 

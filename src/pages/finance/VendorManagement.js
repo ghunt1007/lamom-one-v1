@@ -135,7 +135,7 @@ export default async function VendorManagementPage(container) {
   }
 
   function openPOModal(v) {
-    const poNo = `PO-${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(Math.floor(Math.random()*900)+100)}`
+    const poNo = `PO-${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}-${Date.now().toString(36).slice(-5).toUpperCase()}`
     const dueDate = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10)
     openModal({
       title: `📄 สร้าง Purchase Order`,

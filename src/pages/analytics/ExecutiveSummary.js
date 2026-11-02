@@ -8,6 +8,7 @@ import { openModal } from '../../utils/modal.js'
 import { getSalesData, getCommissionData, listDocs } from '../../core/db.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
+import { saleCost } from '../../utils/saleCost.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
 
@@ -46,7 +47,7 @@ async function computeRealSignals(currSales, growth) {
   const highlights = [], concerns = [], decisions = []
   const now = new Date()
 
-  if (growth > 0) highlights.push({ icon: '📈', text: `ยอดขายเดือนนี้โต ${growth}% จากเดือนก่อน` })
+  if (growth > 0) highlights.push({ icon: '📈', text: `ยอดขายเดือนนี้โต ${growth}% จากช่วงเดียวกันเดือนก่อน` })
   if (currSales.length) {
     const byModel = {}
     currSales.forEach(s => { const k = ((s.brand||'')+' '+(s.model||'')).trim() || '-'; byModel[k] = (byModel[k]||0) + 1 })
@@ -129,13 +130,15 @@ export default async function ExecutiveSummaryPage(container) {
       const now = new Date()
       const thisMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`
       const lastMonth = (() => { const d = new Date(now); d.setMonth(d.getMonth()-1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` })()
-      const currSales = sales.filter(s => (s.bookingDate||'').startsWith(thisMonth))
-      const prevSales = sales.filter(s => (s.bookingDate||'').startsWith(lastMonth))
+      const currSales = sales.filter(s => (s.date||'').startsWith(thisMonth))
+      // เทียบช่วงเดียวกันของเดือนก่อน (วันที่ 1 ถึงวันนี้) — ต้นเดือนจะได้ไม่ขึ้น -100% ทุกครั้ง
+      const dayNow = String(now.getDate()).padStart(2, '0')
+      const prevSales = sales.filter(s => (s.date||'').startsWith(lastMonth) && (s.date||'').slice(8, 10) <= dayNow)
       const totalRevenue = currSales.reduce((a, s) => a + (s.salePrice || 0), 0)
       // (v1.0.xxx) เดิมประมาณ Gross Profit ที่ 12% ของรายได้เสมอ ทั้งที่ getSalesData() มี field cost จริง
       // ต่อใบจอง (b.cost) — เปลี่ยนมาคำนวณจาก salePrice - cost จริงต่อคัน เหมือน pattern เดียวกับ
       // CashFlow.js/VatReport.js (ใช้ cost จริงถ้ามี ไม่มีค่อย fallback ประมาณ 82% ของราคาขาย)
-      const grossProfit = currSales.reduce((a, s) => a + ((s.salePrice || 0) - (s.cost || Math.round((s.salePrice || 0) * 0.82))), 0)
+      const grossProfit = currSales.reduce((a, s) => a + ((s.salePrice || 0) - saleCost(s)), 0)
       const topSales = coms.length ? [...coms].sort((a,b)=>b.carsSold-a.carsSold)[0] : null
       const thaiMonths = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
       summary.month = `${thaiMonths[now.getMonth()+1]} ${now.getFullYear()+543}`
@@ -184,8 +187,8 @@ export default async function ExecutiveSummaryPage(container) {
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('🚗 ยอดขาย', s.sales.actual + ' คัน (' + salesPct + '% เป้า)', 'success')}
           ${kpi('💰 รายได้รวม', formatCurrency(s.sales.revenue + s.service.revenue), 'primary')}
-          ${kpi('📊 กำไรสุทธิ', formatCurrency(s.finance.netProfit) + ' (' + s.finance.margin + '%)', 'success', demoNote)}
-          ${kpi('📈 โตเทียบเดือนก่อน', (growth>0?'+':'') + growth + '%', growth >= 0 ? 'success' : 'danger')}
+          ${kpi('📊 กำไรขั้นต้น', formatCurrency(s.finance.grossProfit) + (s.sales.revenue ? ' (' + Math.round(s.finance.grossProfit / s.sales.revenue * 100) + '%)' : ''), 'success')}
+          ${kpi('📈 เทียบเดือนก่อน', (growth>0?'+':'') + growth + '%', growth >= 0 ? 'success' : 'danger', '<span style="font-size:0.62rem;color:var(--text-muted)">วันที่ 1–' + new Date().getDate() + ' เท่ากัน</span>')}
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">

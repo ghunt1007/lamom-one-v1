@@ -12,6 +12,7 @@ import { createStaffAccount, sendStaffPasswordReset, updateCompanyMemberships } 
 import { getPositions } from '../../data/masterData.js'
 import { navigate } from '../../core/router.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
+import { genPassword } from '../../utils/secureRandom.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -57,12 +58,6 @@ function canCreate(myRole, targetRole) {
   return myLevel >= MIN_CREATE_LEVEL && myLevel > targetLevel
 }
 
-function genPassword() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
-  let p = ''
-  for (let i = 0; i < 8; i++) p += chars[Math.floor(Math.random() * chars.length)]
-  return p + '#' + Math.floor(Math.random() * 90 + 10)
-}
 
 export default async function UserManagementPage(container) {
   const myGen = container.__routerGen

@@ -54,7 +54,7 @@ function toRows(moduleId, docs, sales) {
     return docs.map(j => ({ 'เลขงาน': j.jobNo||'', 'ลูกค้า': j.custName||'', 'รถ': `${j.brand||''} ${j.model||''}`.trim(), 'ประเภทงาน': j.type||'', 'สถานะ': j.status||'' }))
   }
   if (moduleId === 'finance') {
-    return sales.map(s => ({ 'วันที่': s.bookingDate||'', 'รายการ': `ขายรถ ${s.model||''}`.trim(), 'ลูกค้า': s.custName||'', 'จำนวน (บาท)': s.salePrice||0 }))
+    return sales.map(s => ({ 'วันที่': s.date||'', 'รายการ': `ขายรถ ${s.model||''}`.trim(), 'ลูกค้า': s.custName||'', 'จำนวน (บาท)': s.salePrice||0 }))
   }
   if (moduleId === 'hr') {
     return docs.map(s => ({ 'ชื่อ': `${s.firstName||''} ${s.lastName||''}`.trim(), 'ตำแหน่ง': s.role||'', 'แผนก': s.dept||'' }))
