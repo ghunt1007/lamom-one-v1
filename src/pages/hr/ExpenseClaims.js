@@ -178,7 +178,7 @@ export default async function ExpenseClaimsPage(container) {
             ${filtered.map(c => {
               const cat = CLAIM_CATS[c.cat] || { color: 'secondary', label: escHtml(c.cat || '-') }; const st = CLAIM_STATUS[c.status] || { color: 'secondary', label: escHtml(c.status || '-') }
               return `<tr>
-                <td style="font-size:0.8rem;white-space:nowrap">${escHtml(c.date)}</td>
+                <td style="font-size:0.8rem;white-space:nowrap">${formatDate(c.date)}</td>
                 <td style="font-size:0.85rem;font-weight:600">${escHtml(c.staffName)}</td>
                 <td><span class="badge badge-${cat.color}" style="font-size:0.67rem">${cat.label}</span></td>
                 <td style="font-size:0.82rem">${escHtml(c.desc)}${c.rejectReason?`<br><span style="color:var(--danger);font-size:0.72rem">${escHtml(c.rejectReason)}</span>`:''}</td>

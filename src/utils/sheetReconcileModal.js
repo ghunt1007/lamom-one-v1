@@ -17,6 +17,7 @@ import { maybeMarkCustomerDelivered, syncStockForBookings } from './bookingSync.
 import { isProgramOwner } from '../core/hierarchy.js'
 import { fetchSheetFile } from './dailyReport.js'
 import { planSheetReconcile, splitUpdatesByRecency, sheetRowsForBookings, customerFullName, normPhone, normPersonName } from './sheetReconcile.js'
+import { copyText } from './copyText.js'
 
 export const SYNC_TAG = 'sheet-sync'
 const SHEET_FILE_ID = '194PmgsKGdGytByQBau8MUhDrFrM-LBl0'
@@ -120,7 +121,7 @@ function openSheetSetupHelp(err, { onDone } = {}) {
       <button class="btn btn-primary" id="ssh-retry">🔄 ลองอีกครั้ง</button>`,
   })
   el.querySelector('#ssh-copy')?.addEventListener('click', async () => {
-    try { await navigator.clipboard.writeText(err.shareWith); showToast('📋 คัดลอกอีเมลแล้ว', 'success') } catch { showToast('คัดลอกไม่ได้ กดค้างที่อีเมลเพื่อคัดลอกเอง', 'warning') }
+    await copyText(err.shareWith, '📋 คัดลอกอีเมลแล้ว', 'คัดลอกไม่ได้ กดค้างที่อีเมลเพื่อคัดลอกเอง')
   })
   el.querySelector('#ssh-pick').addEventListener('click', () => { close(); pickSheetFile({ onDone }) })
   el.querySelector('#ssh-retry').addEventListener('click', () => { close(); openSheetReconcile({ onDone }) })

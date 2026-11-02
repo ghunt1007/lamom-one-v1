@@ -2,6 +2,7 @@
 import { openModal } from './modal.js'
 import { showToast } from '../core/store.js'
 import { replanOptions, replanText } from './installment.js'
+import { copyText } from './copyText.js'
 
 const escHtml = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
@@ -23,6 +24,6 @@ export function openReplan(b) {
   })
   el.querySelector('#rp-close').addEventListener('click', close)
   el.querySelector('#rp-copy')?.addEventListener('click', async () => {
-    try { await navigator.clipboard.writeText(replanText(rows, rate)); showToast('📋 คัดลอกแล้ว', 'success'); close() } catch { showToast('คัดลอกไม่สำเร็จ', 'warning') }
+    if (await copyText(replanText(rows, rate), '📋 คัดลอกแล้ว', 'คัดลอกไม่สำเร็จ')) close()
   })
 }

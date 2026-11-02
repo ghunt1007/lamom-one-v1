@@ -1,4 +1,4 @@
-import { formatCurrency, toDateStr } from '../../utils/format.js'
+import { formatCurrency, formatDate, toDateStr } from '../../utils/format.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs } from '../../core/db.js'
 import { openModal } from '../../utils/modal.js'
@@ -220,7 +220,7 @@ export default async function LostDealAnalysisPage(container) {
                   <td style="font-size:0.8rem">${escHtml(d.salesperson)}</td>
                   <td><span class="badge badge-${r?.color||'secondary'}" style="font-size:0.67rem">${r?.label||escHtml(d.lostReason)}</span></td>
                   <td style="font-size:0.8rem">${escHtml(d.lostTo || '—')}</td>
-                  <td style="font-size:0.78rem;color:var(--text-muted)">${escHtml(d.lostDate)}</td>
+                  <td style="font-size:0.78rem;color:var(--text-muted)">${formatDate(d.lostDate)}</td>
                 </tr>`
               }).join('')}
               ${!filtered.length ? `<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)">ไม่มีข้อมูล</td></tr>` : ''}
@@ -267,7 +267,7 @@ export default async function LostDealAnalysisPage(container) {
         <div><span style="color:var(--text-muted)">เซลส์:</span> ${escHtml(d.salesperson || '-')}</div>
         <div><span style="color:var(--text-muted)">สาเหตุ:</span> <span class="badge badge-${r?.color||'secondary'}">${r?.label||escHtml(d.lostReason)}</span></div>
         <div><span style="color:var(--text-muted)">ไปซื้อที่:</span> ${escHtml(d.lostTo || '—')}</div>
-        <div><span style="color:var(--text-muted)">วันที่เสียดีล:</span> ${escHtml(d.lostDate || '-')}</div>
+        <div><span style="color:var(--text-muted)">วันที่เสียดีล:</span> ${formatDate(d.lostDate)}</div>
         ${d.note ? `<div style="margin-top:6px;padding:8px 10px;background:var(--surface-2);border-radius:var(--radius-sm);color:var(--text-muted)">💬 ${escHtml(d.note)}</div>` : ''}
       </div>`,
       footer: '<button class="btn btn-secondary" onclick="this.closest(\'.modal-overlay\').remove()">ปิด</button>'

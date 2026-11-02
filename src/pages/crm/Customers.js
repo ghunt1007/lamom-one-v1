@@ -38,6 +38,7 @@ import { armCallLog } from '../../utils/callLogger.js'
 import { openTestDriveForm, loadUpcomingTestDrive, loadTestDrivesFor, mentionsTestDrive } from '../../utils/testDriveForm.js'
 import { moveFollowupsOnReassign } from '../../utils/leadAssign.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { copyText } from '../../utils/copyText.js'
 
 const pendingFuCount = new WeakMap() // ลูกค้า → จำนวนนัดค้าง (ใช้ตัดสินว่าควรเสนอนัดครั้งถัดไปหลังโทรไหม)
 
@@ -80,7 +81,7 @@ function bindCalc(root) {
     const txt = `${sel?.textContent.split(' · ')[0] || ''} ราคา ${price.toLocaleString('en-US')} บาท\nดาวน์ ${$('wk-calc-d').value}% (${r.down.toLocaleString('en-US')} บาท) ผ่อน ${$('wk-calc-m').value} งวด\nประมาณเดือนละ ${r.monthly.toLocaleString('en-US')} บาท (ดอกเบี้ย ${$('wk-calc-r').value}% ต่อปี)\n*ตัวเลขเบื้องต้น อัตราจริงขึ้นกับการอนุมัติของไฟแนนซ์`
     $('wk-calc-out').innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><div>ยอดจัด ${r.loan.toLocaleString('en-US')} · <b style="font-size:1rem;color:var(--primary)">≈ ${r.monthly.toLocaleString('en-US')} บาท/เดือน</b></div><button type="button" class="btn btn-secondary btn-xs" id="wk-calc-copy">📋 คัดลอกส่งลูกค้า</button></div>`
     $('wk-calc-copy').addEventListener('click', async () => {
-      try { await navigator.clipboard.writeText(txt); showToast('📋 คัดลอกแล้ว วางใน LINE ได้เลย', 'success') } catch { showToast('คัดลอกไม่สำเร็จ', 'warning') }
+      await copyText(txt, '📋 คัดลอกแล้ว วางใน LINE ได้เลย', 'คัดลอกไม่สำเร็จ')
     })
   }
   ;['wk-calc-v', 'wk-calc-d', 'wk-calc-m', 'wk-calc-r'].forEach(id => $(id).addEventListener('input', run))
@@ -415,7 +416,7 @@ export default async function CustomersPage(container) {
     el.querySelector('#wk-facts-copy')?.addEventListener('click', async () => {
       const lines = modelFacts(c.interestedModel, getVehicles(), 4)
       const text = [`ข้อมูล ${c.interestedModel} ครับ`, ...lines.map(x => '• ' + x), '*ราคาตั้ง ยังไม่รวมโปรโมชั่น สอบถามโปรล่าสุดได้เลยครับ'].join('\n')
-      try { await navigator.clipboard.writeText(text); showToast('📋 คัดลอกแล้ว วางใน LINE ได้เลย', 'success') } catch { showToast('คัดลอกไม่สำเร็จ', 'warning') }
+      await copyText(text, '📋 คัดลอกแล้ว วางใน LINE ได้เลย', 'คัดลอกไม่สำเร็จ')
     })
     el.querySelector('#wk-td-btn')?.addEventListener('click', () => openTestDriveForm(c, { onSaved: showTd }))
     // ถ้ามีนัดลองขับอยู่แล้ว ให้เห็นทันทีว่านัดวันไหน (ไม่ต้องไปเปิดหน้า Test Drive)
@@ -659,7 +660,7 @@ export default async function CustomersPage(container) {
           <div style="display:flex;justify-content:flex-end;gap:6px;margin-top:8px"><button class="btn btn-secondary btn-xs" id="wk-ai-reply-copy">📋 คัดลอกไปวางใน LINE</button></div>
         </div>`
         document.getElementById('wk-ai-reply-copy')?.addEventListener('click', async () => {
-          try { await navigator.clipboard.writeText(draft); showToast('📋 คัดลอกแล้ว วางใน LINE ได้เลย', 'success') } catch { showToast('คัดลอกไม่สำเร็จ — กดค้างที่ข้อความแล้วคัดลอกเอง', 'warning') }
+          await copyText(draft, '📋 คัดลอกแล้ว วางใน LINE ได้เลย', 'คัดลอกไม่สำเร็จ — กดค้างที่ข้อความแล้วคัดลอกเอง')
         })
       } catch { if (out) out.innerHTML = `<div style="font-size:0.78rem;color:var(--danger);margin-top:6px">AI ร่างไม่สำเร็จ ลองใหม่อีกครั้ง</div>` }
       finally { if (document.getElementById('wk-ai-reply-btn')) { btn.disabled = false; btn.innerHTML = '✨ ร่างคำตอบ' } }
@@ -702,7 +703,7 @@ export default async function CustomersPage(container) {
         </div>`
         box.querySelector('#wk-ai-copy')?.addEventListener('click', async () => {
           const text = box.querySelector('#wk-ai-line')?.value || r.lineMessage
-          try { await navigator.clipboard.writeText(text); showToast('📋 คัดลอกแล้ว วางใน LINE ได้เลย', 'success') } catch { showToast('คัดลอกไม่สำเร็จ — กดค้างที่ข้อความแล้วคัดลอกเอง', 'warning') }
+          await copyText(text, '📋 คัดลอกแล้ว วางใน LINE ได้เลย', 'คัดลอกไม่สำเร็จ — กดค้างที่ข้อความแล้วคัดลอกเอง')
         })
         // AI แนะนำให้ชวนลองขับ → เปิดฟอร์มนัดที่เติมวันจากคำแนะนำ (เช่น "พรุ่งนี้" "เสาร์นี้") ให้เลย
         box.querySelector('#wk-ai-td')?.addEventListener('click', () => openTestDriveForm(c, { hint: `ลองขับ ${r.when || ''}` }))

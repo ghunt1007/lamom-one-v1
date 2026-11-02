@@ -24,6 +24,7 @@ import { readBookingSheet, planBookingImport, newBookingDoc, newCustomerDoc, com
 import { bookingNextStep, bookingNextAction } from '../../utils/bookingNext.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
+import { copyText } from '../../utils/copyText.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -723,8 +724,7 @@ export default async function BookingsPage(container) {
     })
     el.querySelector('#bk-notice-skip').addEventListener('click', close)
     el.querySelector('#bk-notice-copy').addEventListener('click', async () => {
-      try { await navigator.clipboard.writeText(el.querySelector('#bk-notice').value); showToast('📋 คัดลอกแล้ว วางในแชท LINE ของลูกค้าได้เลย', 'success'); close() }
-      catch { showToast('คัดลอกไม่สำเร็จ — กดค้างที่ข้อความแล้วคัดลอกเอง', 'warning') }
+      if (await copyText(el.querySelector('#bk-notice').value, '📋 คัดลอกแล้ว วางในแชท LINE ของลูกค้าได้เลย', 'คัดลอกไม่สำเร็จ — กดค้างที่ข้อความแล้วคัดลอกเอง')) close()
     })
   }
 

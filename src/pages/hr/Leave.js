@@ -164,7 +164,7 @@ export default async function LeavePage(container) {
               return `<tr>
                 <td style="font-weight:600">${escHtml(l.staff)}</td>
                 <td><span class="badge badge-${tp?.badge}">${tp?.label}</span></td>
-                <td style="font-size:0.82rem">${escHtml(l.from)} ${l.from !== l.to ? `→ ${escHtml(l.to)}` : ''}</td>
+                <td style="font-size:0.82rem">${formatDate(l.from)} ${l.from !== l.to ? `→ ${formatDate(l.to)}` : ''}</td>
                 <td class="text-center" style="font-weight:700">${l.days} วัน</td>
                 <td style="font-size:0.82rem;color:var(--text-muted);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(l.reason)}</td>
                 <td><span class="badge badge-${st?.badge}">${st?.label}</span></td>

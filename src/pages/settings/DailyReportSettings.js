@@ -8,6 +8,7 @@
 import { showToast } from '../../core/store.js'
 import { previewDailyReport, sendDailyReportNow, getDailyReportWebhookUrl } from '../../utils/dailyReport.js'
 import { openModal } from '../../utils/modal.js'
+import { copyText } from '../../utils/copyText.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') }
 
@@ -71,10 +72,7 @@ export default async function DailyReportSettingsPage(container) {
       </div>
     `
 
-    document.getElementById('copy-webhook-btn')?.addEventListener('click', () => {
-      navigator.clipboard.writeText(webhookUrl)
-      showToast('📋 คัดลอก Webhook URL แล้ว', 'success')
-    })
+    document.getElementById('copy-webhook-btn')?.addEventListener('click', () => copyText(webhookUrl, '📋 คัดลอก Webhook URL แล้ว'))
 
     document.getElementById('preview-btn')?.addEventListener('click', async () => {
       const btn = document.getElementById('preview-btn')
