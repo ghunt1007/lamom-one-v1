@@ -25,6 +25,7 @@ import { initKpiQuiet } from './utils/kpiQuiet.js'
 import { initViewTabs } from './utils/linkedViews.js'
 import { getModuleForPath, hasModuleAccess } from './core/permissions.js'
 import { initChipRows } from './utils/chipRows.js'
+import { initFocusGuard } from './utils/keepFocus.js'
 
 initStaleChunkReload()
 
@@ -165,6 +166,9 @@ on('user', (user) => {
     initRouter(app)
   }
 })
+
+// พิมพ์ต่อเนื่องได้เสมอ: ถ้าหน้าวาดช่องที่กำลังพิมพ์ใหม่ เคอร์เซอร์จะกลับไปที่ช่องเดิมเอง
+initFocusGuard()
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {

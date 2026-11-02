@@ -4,6 +4,7 @@ import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { renderKeepFocus } from '../../utils/keepFocus.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -80,7 +81,7 @@ export default async function SupplierManagementPage(container) {
     const pendingPO = pos.filter(p => p.status === 'pending').length
     const blacklisted = suppliers.filter(s => s.status === 'blacklist').length
 
-    container.innerHTML = `
+    renderKeepFocus(container, `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
@@ -108,7 +109,7 @@ export default async function SupplierManagementPage(container) {
 
         ${tab === 'suppliers' ? renderSuppliers(list) : tab === 'po' ? renderPOs() : renderPerformance()}
       </div>
-    `
+    `)
 
     document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => { tab = b.dataset.t; renderPage() }))
     document.getElementById('add-supplier-btn')?.addEventListener('click', () => openSupplierForm(null))

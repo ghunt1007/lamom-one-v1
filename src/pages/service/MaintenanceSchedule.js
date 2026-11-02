@@ -8,6 +8,7 @@ import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { renderKeepFocus } from '../../utils/keepFocus.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -71,7 +72,7 @@ export default async function MaintenanceSchedulePage(container) {
     const avgItems = schedules.length ? Math.round(allItems.length / schedules.length * 10) / 10 : 0
     const totalValue = schedules.reduce((a, s) => a + itemsTotal(s.items), 0)
 
-    container.innerHTML = `
+    renderKeepFocus(container, `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
@@ -104,7 +105,7 @@ export default async function MaintenanceSchedulePage(container) {
           ${!groups.length ? `<div class="empty-state"><div class="empty-icon">🗓️</div><div class="empty-title">ยังไม่มีตารางบำรุงรักษา</div><div class="empty-desc">กด "➕ เพิ่มระยะเช็ค" เพื่อเริ่มสร้างตารางสำหรับรุ่นรถ</div></div>` : ''}
         </div>
       </div>
-    `
+    `)
 
     document.getElementById('ms-search')?.addEventListener('input', e => { search = e.target.value; renderPage() })
     document.querySelectorAll('.bf-btn').forEach(b => b.addEventListener('click', () => { brandFilter = b.dataset.b; renderPage() }))

@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { renderKeepFocus } from '../../utils/keepFocus.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -59,7 +60,7 @@ export default async function LegalReferencePage(container) {
     )
     const catOptions = domainFilter === 'all' ? Object.entries(CATEGORIES) : Object.entries(CATEGORIES).filter(([,v]) => v.domain === domainFilter)
 
-    container.innerHTML = `
+    renderKeepFocus(container, `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
@@ -110,7 +111,7 @@ export default async function LegalReferencePage(container) {
           ${!list.length ? '<div style="text-align:center;color:var(--text-muted);padding:30px;font-size:0.85rem">🔍 ไม่พบรายการ — ลองคำค้นอื่น</div>' : ''}
         </div>
       </div>
-    `
+    `)
 
     document.getElementById('search-input')?.addEventListener('input', e => { search = e.target.value.toLowerCase(); render() })
     container.querySelectorAll('.df-btn').forEach(b => b.addEventListener('click', () => { domainFilter = b.dataset.d; catFilter = 'all'; render() }))

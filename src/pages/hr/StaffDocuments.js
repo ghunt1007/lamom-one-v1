@@ -9,6 +9,7 @@ import { listDocs, createDoc, updateDocData, softDelete } from '../../core/db.js
 import { uploadFile, deleteFile } from '../../utils/storage.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { renderKeepFocus } from '../../utils/keepFocus.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -61,7 +62,7 @@ export default async function StaffDocumentsPage(container) {
     const expiring = docs.filter(d => expiryState(d) === 'expiring').length
     const unverified = docs.filter(d => !d.verified).length
 
-    container.innerHTML = `
+    renderKeepFocus(container, `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
@@ -130,7 +131,7 @@ export default async function StaffDocumentsPage(container) {
           </table>
         </div>
       </div>
-    `
+    `)
 
     document.getElementById('search-input')?.addEventListener('input', e => { search = e.target.value.toLowerCase(); renderPage() })
     container.querySelectorAll('.tf-btn').forEach(b => b.addEventListener('click', () => { typeFilter = b.dataset.t; renderPage() }))

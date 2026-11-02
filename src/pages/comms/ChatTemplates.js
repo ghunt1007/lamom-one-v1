@@ -6,6 +6,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { renderKeepFocus } from '../../utils/keepFocus.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -45,7 +46,7 @@ export default async function ChatTemplatesPage(container) {
     )
     const totalUsage = templates.reduce((a, t) => a + t.usage, 0)
 
-    container.innerHTML = `
+    renderKeepFocus(container, `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
@@ -92,7 +93,7 @@ export default async function ChatTemplatesPage(container) {
           }).join('')}
         </div>
       </div>
-    `
+    `)
 
     document.getElementById('search-input')?.addEventListener('input', e => { search = e.target.value.toLowerCase(); renderPage() })
     container.querySelectorAll('.cf-btn').forEach(b => b.addEventListener('click', () => { catFilter = b.dataset.c; renderPage() }))

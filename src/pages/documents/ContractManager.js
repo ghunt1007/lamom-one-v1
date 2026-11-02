@@ -7,6 +7,7 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { renderKeepFocus } from '../../utils/keepFocus.js'
 
 function myName() {
   const me = getState('user') || {}
@@ -77,7 +78,7 @@ export default async function ContractManagerPage(container) {
     const pending = contracts.filter(c => c.status === 'review' || c.status === 'draft').length
     const totalValue = contracts.filter(c => c.value > 0).reduce((a, c) => a + c.value, 0)
 
-    container.innerHTML = `
+    renderKeepFocus(container, `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
@@ -151,7 +152,7 @@ export default async function ContractManagerPage(container) {
           ${!list.length ? '<div class="empty-state"><div class="empty-state-icon">📜</div><div>ไม่พบสัญญา</div></div>' : ''}
         </div>
       </div>
-    `
+    `)
 
     document.getElementById('search-inp')?.addEventListener('input', e => { search = e.target.value; renderPage() })
     container.querySelectorAll('.tf-btn').forEach(b => b.addEventListener('click', () => { typeFilter = b.dataset.t; renderPage() }))

@@ -13,6 +13,7 @@ import { showToast, getState } from '../../core/store.js'
 import { askJsonPrompt, isAiEnabled } from '../../utils/ai.js'
 import { todayBangkok } from '../../utils/format.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { renderKeepFocus } from '../../utils/keepFocus.js'
 
 // เฉพาะ Owner/Admin เท่านั้นที่ทำ action ทำลาย/เขียนทับข้อมูลทั้งฐานได้ (ลบรุ่นรถ / batch-overwrite ด้วย AI)
 // ใช้ pattern เดียวกับ src/pages/settings/DataRetention.js (canManage = ROLES.includes(myRole))
@@ -306,7 +307,7 @@ export default async function VehicleDatabasePage(container) {
           filtered.map(v => carCard(v)).join('') +
         '</div>'
 
-    container.innerHTML = `
+    renderKeepFocus(container, `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
@@ -339,7 +340,7 @@ export default async function VehicleDatabasePage(container) {
         </div>
 
         ${gridHtml}
-      </div>`
+      </div>`)
 
     container.querySelectorAll('.fuel-tab').forEach(b => b.addEventListener('click', () => {
       filter.fuel = b.dataset.fuel

@@ -9,6 +9,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { showToast } from '../../core/store.js'
 import { navigate } from '../../core/router.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { renderKeepFocus } from '../../utils/keepFocus.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -76,7 +77,7 @@ export default async function SalesChannelComparisonPage(container) {
     const onlineProj = projectedStats('online', onlineStats)
     const noChannelSet = staff.length > 0 && staff.every(s => staffChannel[s] === 'showroom') // ยังไม่มีใครถูกตั้งเป็นออนไลน์เลย
 
-    container.innerHTML = `
+    renderKeepFocus(container, `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
@@ -135,7 +136,7 @@ export default async function SalesChannelComparisonPage(container) {
           </div>
         </div>
       </div>
-    `
+    `)
 
     document.getElementById('scc-export').addEventListener('click', () => {
       exportToExcel([

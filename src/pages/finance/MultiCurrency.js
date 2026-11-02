@@ -10,6 +10,7 @@ import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData } from '../../core/db.js'
 import { openModal } from '../../utils/modal.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { renderKeepFocus } from '../../utils/keepFocus.js'
 
 // ค่าเริ่มต้นตอนยังไม่มีใครตั้งอัตราไว้ใน Firestore — seed ครั้งแรกเท่านั้น จากนั้นทีมงานแก้ไขเองได้
 const DEFAULT_RATES = [
@@ -87,7 +88,7 @@ export default async function MultiCurrencyPage(container) {
     const amtTHB = customAmt || selModel.baseTHB
     const latest = latestManualUpdate()
 
-    container.innerHTML = `
+    renderKeepFocus(container, `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
@@ -166,7 +167,7 @@ export default async function MultiCurrencyPage(container) {
             </div>
           </div>
         </div>
-      </div>`
+      </div>`)
 
     container.querySelectorAll('.model-sel').forEach(el => el.addEventListener('click', () => {
       selModel = MODELS.find(m => m.model === el.dataset.model) || selModel

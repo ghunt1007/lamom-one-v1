@@ -10,6 +10,7 @@ import { loadWarranties, persistWarranty } from './WarrantyManagement.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { escHtml } from '../../utils/escape.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { renderKeepFocus } from '../../utils/keepFocus.js'
 
 function daysLeft(endDate) {
   return Math.round((new Date(endDate) - new Date()) / 86400000)
@@ -91,7 +92,7 @@ export default async function WarrantyExpiryPage(container) {
     const expiring = VEHICLES.filter(v => getLiveStatus(v) === 'expiring').length
     const active   = VEHICLES.filter(v => getLiveStatus(v) === 'active').length
 
-    container.innerHTML = `
+    renderKeepFocus(container, `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
@@ -167,7 +168,7 @@ export default async function WarrantyExpiryPage(container) {
           </table>
           ${rows.length===0?'<div style="padding:30px;text-align:center;color:var(--text-muted)">ไม่พบรายการ</div>':''}
         </div>
-      </div>`
+      </div>`)
 
     container.querySelectorAll('.fil-btn').forEach(b => b.addEventListener('click', () => { filter = b.dataset.f; render() }))
     document.getElementById('search-box')?.addEventListener('input', e => { search = e.target.value; render() })

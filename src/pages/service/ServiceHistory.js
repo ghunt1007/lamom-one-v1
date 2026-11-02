@@ -4,6 +4,7 @@ import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { renderKeepFocus } from '../../utils/keepFocus.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -62,7 +63,7 @@ export default async function ServiceHistoryPage(container) {
     const inProgress = records.filter(r => r.status === 'in_progress').length
     const totalRevenue = records.filter(r => r.status === 'delivered').reduce((a, r) => a + r.totalCost, 0)
 
-    container.innerHTML = `
+    renderKeepFocus(container, `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
@@ -131,7 +132,7 @@ export default async function ServiceHistoryPage(container) {
           </table></div>
         </div>
       </div>
-    `
+    `)
 
     container.querySelectorAll('.sf-btn').forEach(b => b.addEventListener('click', () => { statusFilter = b.dataset.s; renderPage() }))
     document.getElementById('type-filter')?.addEventListener('change', e => { typeFilter = e.target.value; renderPage() })

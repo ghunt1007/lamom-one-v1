@@ -8,6 +8,7 @@ import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companySco
 import { OCCUPATIONS, rankFinanceMatches } from '../../utils/financeMatch.js'
 import { recommendFinance, isAiEnabled } from '../../utils/ai.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { renderKeepFocus } from '../../utils/keepFocus.js'
 
 function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
@@ -83,7 +84,7 @@ export default async function FinanceApplicationPage(container) {
     const s = getSummary()
     const filtered = getFiltered()
 
-    container.innerHTML = `
+    renderKeepFocus(container, `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
@@ -119,7 +120,7 @@ export default async function FinanceApplicationPage(container) {
           ${!filtered.length ? `<div class="empty-state"><div class="empty-icon">🏦</div><div class="empty-title">ไม่มีรายการ</div></div>` : ''}
         </div>
       </div>
-    `
+    `)
 
     document.getElementById('fa-search')?.addEventListener('input', e => { search = e.target.value; renderPage() })
     document.querySelectorAll('.sf-btn').forEach(b => b.addEventListener('click', () => { statusFilter = b.dataset.s; renderPage() }))

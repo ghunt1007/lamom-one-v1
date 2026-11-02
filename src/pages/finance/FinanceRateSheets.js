@@ -12,6 +12,7 @@ import { analyzeFinanceRateSheet } from '../../utils/ai.js'
 import { uploadFile } from '../../utils/storage.js'
 import { getFinanceCompanies, getCampaigns } from '../../data/masterData.js'
 import { getBrands } from '../../data/vehicleDatabase.js'
+import { renderKeepFocus } from '../../utils/keepFocus.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -66,7 +67,7 @@ export default async function FinanceRateSheetsPage(container) {
     const banks = [...new Set(sheets.map(s => s.bank).filter(Boolean))].sort()
     const brands = [...new Set(sheets.map(s => s.brand).filter(Boolean))].sort()
 
-    container.innerHTML = `
+    renderKeepFocus(container, `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
@@ -110,7 +111,7 @@ export default async function FinanceRateSheetsPage(container) {
         </div>
 
         <div id="rs-content"></div>
-      </div>`
+      </div>`)
 
     renderTable(filtered)
 

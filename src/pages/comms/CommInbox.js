@@ -14,6 +14,7 @@ import { getVehicles } from '../../data/vehicleDatabase.js'
 import { sendSms, sendEmail } from '../../utils/comms.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { renderKeepFocus } from '../../utils/keepFocus.js'
 
 // (v1.0.349) เดิมโหลดข้อความด้วย listDocs() ครั้งเดียวตอนเปิดหน้า ไม่ใช่ real-time จริง (ต้องกดรีเฟรชเอง
 // ถึงจะเห็นข้อความใหม่) และปุ่ม "ตอบกลับ"/"เขียนข้อความ" ไม่เคยส่งออกจริงเลยไม่ว่าช่องทางไหน (แค่ตั้งค่า
@@ -117,7 +118,7 @@ export default async function CommInboxPage(container) {
     const unread = messages.filter(m => m.status === 'unread').length
     const pending = messages.filter(m => m.status === 'pending').length
 
-    container.innerHTML = `
+    renderKeepFocus(container, `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
@@ -186,7 +187,7 @@ export default async function CommInboxPage(container) {
           </div>
         </div>
       </div>
-    `
+    `)
 
     document.getElementById('compose-btn')?.addEventListener('click', openCompose)
     document.getElementById('migrate-legacy-btn')?.addEventListener('click', runMigration)

@@ -7,6 +7,7 @@ import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { renderKeepFocus } from '../../utils/keepFocus.js'
 
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 
@@ -67,7 +68,7 @@ export default async function SopManagementPage(container) {
     const approved = sops.filter(s => s.status === 'approved').length
     const pending = sops.filter(s => s.status === 'review').length
 
-    container.innerHTML = `
+    renderKeepFocus(container, `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
@@ -126,7 +127,7 @@ export default async function SopManagementPage(container) {
           ${!list.length ? `<div class="empty-state" style="grid-column:1/-1"><div class="empty-state-icon">📋</div><div>ไม่พบ SOP</div></div>` : ''}
         </div>
       </div>
-    `
+    `)
 
     document.getElementById('search-inp')?.addEventListener('input', e => { search = e.target.value; renderPage() })
     container.querySelectorAll('.cf-btn').forEach(b => b.addEventListener('click', () => { catFilter = b.dataset.c; renderPage() }))

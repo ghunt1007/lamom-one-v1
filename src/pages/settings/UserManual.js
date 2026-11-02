@@ -129,7 +129,7 @@ export default async function UserManualPage(container) {
     const allSections = [{ ...GETTING_STARTED, id: 'getting-started' }, ...MODULES.map((m, i) => ({ ...m, id: 'mod-' + i }))]
     const totalItems = allSections.reduce((a, s) => a + s.items.length, 0)
 
-    container.innerHTML = `
+    renderKeepFocus(container, `
       <div class="page-content animate-slide">
         <div style="max-width:820px;margin:0 auto">
           <div class="page-header">
@@ -151,15 +151,11 @@ export default async function UserManualPage(container) {
           </div>
         </div>
       </div>
-    `
+    `)
 
     const searchInput = document.getElementById('manual-search')
-    searchInput?.addEventListener('input', e => { search = e.target.value; render(); document.getElementById('manual-search')?.focus() })
-    // keep cursor at end after re-render
-    if (searchInput && document.activeElement !== searchInput && search) {
-      searchInput.focus()
-      searchInput.setSelectionRange(search.length, search.length)
-    }
+    // วาดใหม่แบบเก็บช่องค้นหาตัวเดิมไว้ (renderKeepFocus) จึงพิมพ์ต่อได้เลย ไม่ต้องย้ายเคอร์เซอร์เอง
+    searchInput?.addEventListener('input', e => { search = e.target.value; render() })
     container.querySelectorAll('.manual-sec-toggle').forEach(t => t.addEventListener('click', () => {
       const id = t.dataset.id
       if (openSections.has(id)) openSections.delete(id); else openSections.add(id)
@@ -174,3 +170,5 @@ export default async function UserManualPage(container) {
 
   render()
 }
+
+import { renderKeepFocus } from '../../utils/keepFocus.js'

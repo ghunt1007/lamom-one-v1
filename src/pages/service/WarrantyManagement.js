@@ -5,6 +5,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
+import { renderKeepFocus } from '../../utils/keepFocus.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -158,7 +159,7 @@ export default async function WarrantyManagementPage(container) {
     const expiredCount = warranties.filter(w => getWarrantyStatus(w) === 'expired').length
     const pendingClaims = claims.filter(c => c.status === 'pending').length
 
-    container.innerHTML = `
+    renderKeepFocus(container, `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
@@ -186,7 +187,7 @@ export default async function WarrantyManagementPage(container) {
 
         ${tab === 'warranties' ? renderWarranties(list) : tab === 'claims' ? renderClaims() : renderExpiring()}
       </div>
-    `
+    `)
 
     document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => { tab = b.dataset.t; renderPage() }))
     document.getElementById('add-btn')?.addEventListener('click', () => openWarrantyForm(null))
