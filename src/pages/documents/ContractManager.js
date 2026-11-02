@@ -11,11 +11,8 @@ import { renderKeepFocus } from '../../utils/keepFocus.js'
 import { escHtml as esc } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { addDaysBangkok as addDays } from '../../utils/format.js'
+import { myName } from '../../utils/myName.js'
 
-function myName() {
-  const me = getState('user') || {}
-  return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
-}
 
 const CONTRACT_TYPES = {
   sale:       { label: 'สัญญาซื้อขาย', color: 'primary', icon: '🚗' },

@@ -10,11 +10,8 @@ import { listDocs, createDoc, updateDocData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { myName } from '../../utils/myName.js'
 
-function myName() {
-  const me = getState('user') || {}
-  return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
-}
 
 const CATEGORIES = {
   harassment: { label: '🚫 การล่วงละเมิด/คุกคาม', badge: 'danger' },

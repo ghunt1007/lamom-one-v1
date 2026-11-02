@@ -10,11 +10,8 @@ import { companyScopeFilters } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { myName } from '../../utils/myName.js'
 
-function myName() {
-  const me = getState('user') || {}
-  return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
-}
 
 const NOTE_TYPES = {
   call:    { label: 'โทรศัพท์', color: 'primary', icon: '📞' },

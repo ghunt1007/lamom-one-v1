@@ -10,11 +10,8 @@ import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companySco
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { myName } from '../../utils/myName.js'
 
-function myName() {
-  const me = getState('user') || {}
-  return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
-}
 
 // วันที่ (Asia/Bangkok) ของ timestamp ใดๆ — ใช้กรอง "วันนี้" ให้ตรงเวลาไทยจริง ไม่ผูกกับ timezone เครื่อง
 // (ตาม pattern เดียวกับ todayBangkok() ใน utils/format.js ที่แก้บั๊ก UTC-vs-เวลาไทยไว้แล้ว)

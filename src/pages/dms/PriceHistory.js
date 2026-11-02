@@ -7,13 +7,10 @@ import { openModal } from '../../utils/modal.js'
 import { showToast, getState } from '../../core/store.js'
 import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 
-function myName() {
-  const me = getState('user') || {}
-  return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
-}
 import { exportToExcel } from '../../utils/importExport.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { myName } from '../../utils/myName.js'
 
 const MODELS = ['BYD Atto 3','BYD Seal AWD','BYD Han','BYD Dolphin','MG ZS EV']
 

@@ -11,11 +11,8 @@ import { showToast, getState, setState } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml } from '../../utils/escape.js'
+import { myName } from '../../utils/myName.js'
 
-function myName() {
-  const me = getState('user') || {}
-  return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
-}
 
 // (v1.0.518) เงินจอง (bookingDeposit) แยกจากเงินดาวน์ (down) — ใบจองเก่ามีแค่ down ตัวเดียว ยอดที่เซลส์เก็บ
 // ไว้ตอนจอง/รอคืนตอนถอนจองคือเงินจองเสมอ ใช้ helper นี้แทน b.down ตรงๆ ทุกจุดในหน้านี้

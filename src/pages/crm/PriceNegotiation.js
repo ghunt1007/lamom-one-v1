@@ -9,11 +9,8 @@ import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.
 import { getVehicles } from '../../data/vehicleDatabase.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml } from '../../utils/escape.js'
+import { myName } from '../../utils/myName.js'
 
-function myName() {
-  const me = getState('user') || {}
-  return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
-}
 
 const STATUS_CFG = {
   approved: { label:'อนุมัติแล้ว', bg:'var(--success)',    icon:'✅' },

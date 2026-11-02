@@ -6,6 +6,7 @@ import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { myName } from '../../utils/myName.js'
 
 // (v1.0.339) เดิม DEMO_QUOTA ด้านบนหน้าเป็นตัวเลข hardcode ของพนักงานสมมติ ไม่เกี่ยวกับข้อมูลลาจริงเลย
 // (ต่างจากแท็บ "สิทธิ์ลา" ที่คำนวณจากข้อมูลจริงอยู่แล้ว) และ dropdown "พนักงาน" ในฟอร์มยื่นลาเป็นชื่อปลอม
@@ -13,10 +14,6 @@ import { escHtml } from '../../utils/escape.js'
 // dropdown ใช้พนักงานจริง และ Quota Summary รวมทั้งบริษัทคำนวณจากวันลาจริงที่อนุมัติแล้วปีนี้ เทียบกับสิทธิ์
 // จริง (จำนวนพนักงานจริง × maxDays ต่อคนตามประเภทการลา)
 
-function myName() {
-  const me = getState('user') || {}
-  return me.displayName || me.email || 'ผู้ใช้ปัจจุบัน'
-}
 
 const LEAVE_TYPES = {
   sick:     { label: '🤒 ลาป่วย', badge: 'warning', maxDays: 30, paid: true },
