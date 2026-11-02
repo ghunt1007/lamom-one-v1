@@ -9,6 +9,14 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete } from '../../core/db.js'
 import { isProgramOwner } from '../../core/hierarchy.js'
 
+// ข้อมูลที่แบบฟอร์มขายรถใช้ (utils/dealerForms.js companyOf)
+const PRINT_FIELDS = [
+  ['phone', 'โทรศัพท์', '02-xxx-xxxx'], ['branchLabel', 'สาขา', 'สำนักงานใหญ่'],
+  ['logoUrl', 'ลิงก์รูปโลโก้', 'https://...'], ['slogan', 'สโลแกน', ''],
+  ['bankName', 'ธนาคาร (รับโอน)', 'เช่น กสิกรไทย'], ['bankAccount', 'เลขบัญชี', ''], ['bankAccountName', 'ชื่อบัญชี', ''],
+  ['signerName', 'ผู้ลงนามแทนบริษัท', ''], ['signerTitle', 'ตำแหน่งผู้ลงนาม', 'กรรมการบริษัท'],
+]
+
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
@@ -99,6 +107,10 @@ export default async function OrgCompaniesPage(container) {
         <div class="input-group"><label class="input-label">แบรนด์/ธุรกิจ</label><input class="input" id="co-brand" value="${escHtml(c?.brand||'')}" placeholder="เช่น BYD, ศูนย์สี"></div>
         <div class="input-group"><label class="input-label">เลขที่ผู้เสียภาษี</label><input class="input" id="co-tax" value="${escHtml(c?.taxId||'')}"></div>
         <div class="input-group"><label class="input-label">ที่อยู่</label><textarea class="input" id="co-addr" rows="2">${escHtml(c?.address||'')}</textarea></div>
+        <div style="font-weight:700;font-size:0.85rem;margin-top:4px">🖨️ หัวกระดาษเอกสารขาย (สัญญา / Job Order / ใบส่งมอบ ฯลฯ)</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(200px,100%),1fr));gap:10px">
+          ${PRINT_FIELDS.map(([k, l, ph]) => `<div class="input-group" style="margin:0"><label class="input-label">${l}</label><input class="input" data-pf="${k}" value="${escHtml(c?.[k]||'')}" placeholder="${escHtml(ph)}"></div>`).join('')}
+        </div>
         <label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;cursor:pointer">
           <input type="checkbox" id="co-active" ${c?.active === false ? '' : 'checked'} style="accent-color:var(--primary)"> ใช้งานอยู่
         </label>
@@ -116,6 +128,7 @@ export default async function OrgCompaniesPage(container) {
         address: el.querySelector('#co-addr').value.trim(),
         active: el.querySelector('#co-active').checked,
       }
+      el.querySelectorAll('[data-pf]').forEach(i => { data[i.dataset.pf] = i.value.trim() })
       try {
         if (c) await updateDocData('org_companies', c.id, data)
         else await createDoc('org_companies', data)

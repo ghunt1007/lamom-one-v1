@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 
-vi.mock('../core/db.js', () => ({ updateDocData: vi.fn() }))
+vi.mock('../core/db.js', () => ({ updateDocData: vi.fn(), readDoc: vi.fn() }))
 vi.mock('./storage.js', () => ({ uploadFile: vi.fn() }))
 const printed = []
 vi.mock('./print.js', async (orig) => ({ ...(await orig()), printDocument: (html, o) => printed.push({ html, title: o.title }) }))
@@ -16,8 +16,9 @@ const full = {
 }
 
 describe('booking documents', () => {
-  it('offers the five forms Thaweesak asked for', () => {
-    expect(BOOKING_PRINTS.map(p => p.label)).toEqual(['ใบจอง', 'ใบสั่งแต่ง', 'สัญญาจะซื้อจะขาย', 'ใบถอนจอง', 'ใบขอจดทะเบียน'])
+  it('offers the showroom forms in sales order, incl. job order, contract, withdraw and registration', () => {
+    expect(BOOKING_PRINTS.map(p => p.key)).toEqual(['booking', 'joborder', 'contract', 'attachment', 'expense', 'registration', 'delivery', 'commission', 'withdraw'])
+    for (const p of BOOKING_PRINTS) expect(p.key === 'withdraw' ? p.print === null : typeof p.print === 'function').toBe(true)
   })
 
   it('fills each form from the booking and never prints undefined/NaN, even when empty', () => {
