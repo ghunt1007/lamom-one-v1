@@ -3315,10 +3315,19 @@ export async function importUserData(d) {
 function applyOverridesTo(list) { return list.map(v => _overridesCache[v.id] ? Object.assign({}, v, _overridesCache[v.id]) : v) }
 
 // รายการรถใช้งานจริง = (ฐาน + ที่เพิ่ม) − ที่ลบ + merge override
-export function getVehicles() {
-  return applyOverridesTo(VEHICLES.concat(_additionsCache).filter(v => !_deletionsCache.includes(v.id)))
+// (v1.0.918) ยี่ห้อที่โชว์รูมขายจริงขึ้นก่อนทุกรายการเลือกรถ (ใบจอง ลองขับ ใบเสนอราคา ต่อรองราคา ฯลฯ)
+// เดิมเรียงตามฐานข้อมูล ตัวเลือกแรกเป็น Toyota ต้องเลื่อนหา DEEPAL ทุกครั้ง · ยี่ห้ออื่นยังอยู่ครบ เรียงตามเดิม
+export const DEALER_BRANDS = ['deepal', 'aion', 'omoda', 'jaecoo', 'suzuki', 'nissan']
+export function dealerRank(brand) {
+  const b = String(brand || '').toLowerCase()
+  const i = DEALER_BRANDS.findIndex(d => b.includes(d))
+  return i < 0 ? DEALER_BRANDS.length : i
 }
-export function getBrands() { return [...new Set(getVehicles().map(v => v.brand))].sort() }
+export function getVehicles() {
+  const list = applyOverridesTo(VEHICLES.concat(_additionsCache).filter(v => !_deletionsCache.includes(v.id)))
+  return list.map((v, i) => ({ v, i, r: dealerRank(v.brand) })).sort((a, b) => a.r - b.r || a.i - b.i).map(x => x.v)
+}
+export function getBrands() { return [...new Set(getVehicles().map(v => v.brand))].sort((a, b) => dealerRank(a) - dealerRank(b) || a.localeCompare(b)) }
 export function getVehicleById(id) { return getVehicles().find(v => v.id === id) || null }
 
 export function searchVehicles({ brand = '', fuelType = '', bodyType = '', query = '', maxPrice = 0, minPrice = 0 } = {}) {
