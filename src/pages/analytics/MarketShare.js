@@ -1,133 +1,116 @@
 /**
- * Market Share Tracker — ส่วนแบ่งตลาดเทียบคู่แข่ง
- * Route: /analytics/market-share
+ * สัดส่วนยอดขายแยกยี่ห้อ — Route: /analytics/market-share
+ *
+ * (v1.0.942) เดิมเป็น "ส่วนแบ่งตลาดเทียบคู่แข่ง" ที่ยอดคู่แข่งทั้งหมด (MG/Neta/Tesla ฯลฯ) เป็นตัวเลขสมมติ
+ * แล้วเอายอดจริงของเราไปใส่แทนแถว "BYD (เรา)" ทั้งที่โชว์รูมไม่ได้ขาย BYD — ส่วนแบ่ง % และ "อันดับ #1" จึงไม่จริง
+ * ระบบไม่มีข้อมูลยอดจดทะเบียนของตลาด เลยเปลี่ยนเป็นสิ่งที่คำนวณจากใบจองจริงได้: แต่ละยี่ห้อที่เราขาย
+ * คิดเป็นกี่ % ของยอดจองเรา รายเดือน 6 เดือนล่าสุด (ไม่นับใบที่ถอน/ยกเลิก)
  */
-import { showToast } from '../../core/store.js'
-import { getSalesData } from '../../core/db.js'
+import { listDocs } from '../../core/db.js'
+import { companyScopeFilters } from '../../core/companyScope.js'
+import { monthBangkok } from '../../utils/format.js'
+import { escHtml } from '../../utils/escape.js'
+import { isCancelled } from '../../utils/bookingStatus.js'
 
-// ข้อมูลยอดจดทะเบียน EV รถใหม่ในจังหวัด (ตัวอย่าง)
-const MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.']
-const BRANDS_DATA = [
-  { brand: 'BYD (เรา)',  color: '#1E88E5', data: [28,32,35,30,38,42], target: [30,32,34,36,38,40] },
-  { brand: 'MG',         color: '#43A047', data: [22,20,25,28,24,22], target: null },
-  { brand: 'Neta',       color: '#FB8C00', data: [12,14,11,10,13,12], target: null },
-  { brand: 'GWM/ORA',   color: '#8E24AA', data: [8, 9, 10,8, 9, 10], target: null },
-  { brand: 'AION',       color: '#E53935', data: [6, 5, 7, 8, 7, 6],  target: null },
-  { brand: 'Tesla',      color: '#000000', data: [5, 4, 5, 4, 5, 4],  target: null },
-  { brand: 'อื่นๆ',      color: '#9E9E9E', data: [19,16,7, 12,4, 4],  target: null },
-]
+const TH_M = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+const COLORS = ['#1E88E5', '#43A047', '#FB8C00', '#8E24AA', '#E53935', '#00ACC1', '#9E9E9E']
 
-function pct(val, total) { return total > 0 ? (val / total * 100).toFixed(1) : 0 }
+function pct(val, total) { return total > 0 ? Math.round(val / total * 1000) / 10 : 0 }
+
+// ยี่ห้อของใบจอง: ช่องยี่ห้อ ถ้าว่างใช้คำแรกของรุ่น
+export function bookingBrand(b) {
+  const br = String(b?.brand || '').trim()
+  if (br) return br.toUpperCase()
+  const first = String(b?.model || '').trim().split(/\s+/)[0]
+  return first ? first.toUpperCase() : 'ไม่ระบุ'
+}
 
 export default async function MarketSharePage(container) {
   const myGen = container.__routerGen
-  let liveBrandsData = BRANDS_DATA.map(b => ({ ...b, data: [...b.data] }))
-  let dataSource = 'demo'
-  let selectedMonth = 5 // มิ.ย. (index)
+  const LAST6 = [5, 4, 3, 2, 1, 0].map(k => monthBangkok(-k))
+  const MONTHS = LAST6.map(m => TH_M[Number(m.slice(5, 7)) - 1])
+  let selectedMonth = 5
+  let bookings = []
 
   try {
-    const sales = await getSalesData().catch(() => [])
+    bookings = (await listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 2000).catch(() => []))
+      .filter(b => !b.deleted && !isCancelled(b))
     if (container.__routerGen !== myGen) return
-    if (sales.length >= 2) {
-      const byMonth = Array(6).fill(0)
-      const now = new Date()
-      for (const s of sales) {
-        const d = s.bookingDate || s.deliveryDate || ''
-        if (!d) continue
-        const yr = parseInt(d.slice(0, 4))
-        const mo = parseInt(d.slice(5, 7)) - 1
-        for (let i = 0; i < 6; i++) {
-          const tgt = new Date(now); tgt.setMonth(tgt.getMonth() - (5 - i))
-          if (yr === tgt.getFullYear() && mo === tgt.getMonth()) { byMonth[i]++; break }
-        }
-      }
-      if (byMonth.some(v => v > 0)) {
-        liveBrandsData = liveBrandsData.map((b, idx) => idx === 0 ? { ...b, data: byMonth } : b)
-        dataSource = 'live'
-      }
-    }
   } catch {}
 
-  function render() {
-    const monthData = liveBrandsData.map(b => ({ ...b, units: b.data[selectedMonth] }))
-    const total = monthData.reduce((s, b) => s + b.units, 0)
-    const ours = monthData[0]
-    const ourShare = parseFloat(pct(ours.units, total))
-    const ourTarget = ours.target ? ours.target[selectedMonth] : null
-    const prevShare = selectedMonth > 0 ? parseFloat(pct(liveBrandsData[0].data[selectedMonth-1], liveBrandsData.reduce((s,b)=>s+b.data[selectedMonth-1],0))) : ourShare
+  // ยี่ห้อ × เดือน
+  const per = {}
+  for (const b of bookings) {
+    const i = LAST6.indexOf(String(b.bookingDate || '').slice(0, 7))
+    if (i < 0) continue
+    const k = bookingBrand(b)
+    ;(per[k] ||= Array(6).fill(0))[i]++
+  }
+  const brands = Object.entries(per).map(([brand, data]) => ({ brand, data, sum: data.reduce((a, v) => a + v, 0) }))
+    .sort((a, b) => b.sum - a.sum)
+  brands.forEach((b, i) => { b.color = COLORS[Math.min(i, COLORS.length - 1)] })
+  const totals = LAST6.map((_, i) => brands.reduce((a, b) => a + b.data[i], 0))
+  // เริ่มที่เดือนล่าสุดที่มีใบจอง (ต้นเดือนยังไม่มี จะได้ไม่เห็นหน้าว่าง)
+  for (let i = 5; i >= 0; i--) if (totals[i]) { selectedMonth = i; break }
 
-    // cumulative YTD
-    const ytdTotal = liveBrandsData[0].data.slice(0, selectedMonth+1).reduce((s,v,i) => {
-      return s + liveBrandsData.reduce((ss,b) => ss+b.data[i],0)
-    }, 0) / (selectedMonth+1)
+  function render() {
+    const total = totals[selectedMonth]
+    const monthData = brands.map(b => ({ ...b, units: b.data[selectedMonth] })).filter(b => b.units).sort((a, b) => b.units - a.units)
+    const top = monthData[0]
+    const sum6 = totals.reduce((a, v) => a + v, 0)
 
     container.innerHTML = `
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
-            <div class="page-title">📊 Market Share Tracker</div>
-            <div class="page-subtitle">ส่วนแบ่งตลาด EV จังหวัดของเรา · เทียบคู่แข่งรายเดือน${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ยอดเราจากข้อมูลจริง</span>' : ''}</div>
-          </div>
-          <div class="page-actions">
-            <div style="display:flex;gap:6px">
-              ${MONTHS.map((m,i) => `<button class="btn btn-xs ${i===selectedMonth?'btn-primary':'btn-secondary'} mo-btn" data-i="${i}">${m}</button>`).join('')}
-            </div>
+            <div class="page-title">📊 สัดส่วนยอดขายแยกยี่ห้อ</div>
+            <div class="page-subtitle">จากใบจองจริงของเรา (ไม่นับที่ถอน/ยกเลิก) · 6 เดือนล่าสุด</div>
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
-          ${sc('📊 ส่วนแบ่งของเรา', ourShare + '%', ourShare > prevShare ? 'var(--success)' : 'var(--danger)',
-            ourShare > prevShare ? `▲ ${(ourShare-prevShare).toFixed(1)}% จากเดือนที่แล้ว` : `▼ ${(prevShare-ourShare).toFixed(1)}% จากเดือนที่แล้ว`)}
-          ${sc('🚗 ยอดจดทะเบียนเรา', ours.units + ' คัน', 'var(--primary)',
-            ourTarget ? (ours.units >= ourTarget ? `✅ เป้า ${ourTarget} คัน` : `❌ เป้า ${ourTarget} คัน (-${ourTarget-ours.units})`) : '')}
-          ${sc('🏙 ตลาดรวมเดือนนี้', total + ' คัน', 'var(--text)')}
-          ${sc('🏆 อันดับ', '#1 (' + ours.units + ' คัน)', 'var(--success)')}
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+          ${MONTHS.map((m, i) => `<button type="button" class="btn btn-xs ${i === selectedMonth ? 'btn-primary' : 'btn-secondary'} mo-btn" data-i="${i}">${m}</button>`).join('')}
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-          <!-- Pie-like bar chart -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px">
+          ${sc('📝 จองเดือน ' + MONTHS[selectedMonth], total + ' คัน', 'var(--primary)')}
+          ${sc('🏆 ขายมากสุด', top ? escHtml(top.brand) : '—', 'var(--success)', top ? `${top.units} คัน · ${pct(top.units, total)}%` : '')}
+          ${sc('🏷 จำนวนยี่ห้อที่ขาย', monthData.length + ' ยี่ห้อ', 'var(--text)')}
+          ${sc('📅 รวม 6 เดือน', sum6 + ' คัน', 'var(--text)')}
+        </div>
+
+        ${!sum6 ? '<div class="card" style="padding:28px;text-align:center;color:var(--text-muted);font-size:0.85rem">ยังไม่มีใบจองใน 6 เดือนล่าสุด</div>' : `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px">
           <div class="card" style="padding:14px">
-            <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">📊 Market Share เดือน ${MONTHS[selectedMonth]}</div>
-
-            <!-- Stacked bar -->
-            <div style="height:20px;border-radius:10px;overflow:hidden;display:flex;margin-bottom:14px">
-              ${monthData.map(b => `<div style="width:${pct(b.units,total)}%;background:${b.color};transition:width .3s" title="${b.brand}: ${pct(b.units,total)}%"></div>`).join('')}
+            <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">📊 สัดส่วนเดือน ${MONTHS[selectedMonth]}</div>
+            ${total ? `<div style="height:20px;border-radius:10px;overflow:hidden;display:flex;margin-bottom:14px">
+              ${monthData.map(b => `<div style="width:${pct(b.units, total)}%;background:${b.color}" title="${escHtml(b.brand)}: ${pct(b.units, total)}%"></div>`).join('')}
             </div>
-
             ${monthData.map(b => `
               <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">
                 <div style="width:10px;height:10px;border-radius:50%;background:${b.color};flex-shrink:0"></div>
-                <div style="flex:1;font-size:0.78rem;font-weight:${b===monthData[0]?'700':'400'}">${b.brand}</div>
-                <div style="font-size:0.8rem;font-weight:700;width:50px;text-align:right">${pct(b.units,total)}%</div>
-                <div style="font-size:0.7rem;color:var(--text-muted);width:40px;text-align:right">${b.units} คัน</div>
-              </div>`).join('')}
+                <div style="flex:1;min-width:0;font-size:0.78rem">${escHtml(b.brand)}</div>
+                <div style="font-size:0.8rem;font-weight:700;text-align:right">${pct(b.units, total)}%</div>
+                <div style="font-size:0.7rem;color:var(--text-muted);width:48px;text-align:right">${b.units} คัน</div>
+              </div>`).join('')}` : '<div style="padding:14px;text-align:center;font-size:0.78rem;color:var(--text-muted)">ยังไม่มีใบจองเดือนนี้</div>'}
           </div>
 
-          <!-- Trend chart (text-based) -->
           <div class="card" style="padding:14px">
-            <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">📈 แนวโน้มส่วนแบ่ง BYD (6 เดือน)</div>
-            <div style="display:flex;flex-direction:column;gap:8px">
-              ${liveBrandsData[0].data.map((v, i) => {
-                const tot = liveBrandsData.reduce((s,b) => s + b.data[i], 0)
-                const sh = parseFloat(pct(v, tot))
-                const tgt = liveBrandsData[0].target ? liveBrandsData[0].target[i] : null
-                const barW = Math.min(sh * 2, 100)
-                return `<div>
-                  <div style="display:flex;justify-content:space-between;font-size:0.72rem;margin-bottom:3px">
-                    <span style="color:${i===selectedMonth?'var(--primary)':'var(--text-muted)'};font-weight:${i===selectedMonth?'700':'400'}">${MONTHS[i]}</span>
-                    <span style="font-weight:700;color:var(--primary)">${sh}% · ${v} คัน${tgt?` (เป้า ${tgt})`:''}
-                      ${i>0?`<span style="color:${sh>=parseFloat(pct(liveBrandsData[0].data[i-1],liveBrandsData.reduce((s,b)=>s+b.data[i-1],0)))?'var(--success)':'var(--danger)'}">${sh>=parseFloat(pct(liveBrandsData[0].data[i-1],liveBrandsData.reduce((s,b)=>s+b.data[i-1],0)))?'▲':'▼'}</span>`:''}</span>
-                  </div>
-                  <div style="height:8px;background:var(--surface-2);border-radius:4px;overflow:hidden">
-                    <div style="height:100%;width:${barW}%;background:${i===selectedMonth?'var(--primary)':'var(--primary)88'};transition:width .3s"></div>
-                    ${tgt?`<div style="position:absolute;height:8px;width:1px;background:var(--danger);left:${Math.min(parseFloat(pct(tgt,liveBrandsData.reduce((s,b)=>s+b.data[i],0)))*2,100)}%;top:0" title="เป้า"></div>`:''}
-                  </div>
-                </div>`
-              }).join('')}
+            <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">📈 ยอดจองแต่ละเดือน แยกยี่ห้อ</div>
+            ${LAST6.map((_, i) => `<div style="margin-bottom:8px">
+                <div style="display:flex;justify-content:space-between;font-size:0.72rem;margin-bottom:3px">
+                  <span style="color:${i === selectedMonth ? 'var(--primary)' : 'var(--text-muted)'};font-weight:${i === selectedMonth ? 700 : 400}">${MONTHS[i]}</span>
+                  <span style="font-weight:700">${totals[i]} คัน</span>
+                </div>
+                <div style="height:10px;background:var(--surface-2);border-radius:5px;overflow:hidden;display:flex;width:${Math.round(totals[i] / Math.max(...totals, 1) * 100)}%">
+                  ${brands.filter(b => b.data[i]).map(b => `<div style="width:${pct(b.data[i], totals[i])}%;background:${b.color}" title="${escHtml(b.brand)} ${b.data[i]} คัน"></div>`).join('')}
+                </div>
+              </div>`).join('')}
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;font-size:0.68rem;color:var(--text-muted)">
+              ${brands.map(b => `<span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${b.color};margin-right:3px"></span>${escHtml(b.brand)}</span>`).join('')}
             </div>
-            <p style="font-size:0.66rem;color:var(--text-muted);margin-top:10px">💡 เส้นแดง = เป้า · YTD เฉลี่ย ~${parseFloat(pct(liveBrandsData[0].data.slice(0,selectedMonth+1).reduce((s,v)=>s+v,0), liveBrandsData.reduce((s,b)=>s+b.data.slice(0,selectedMonth+1).reduce((ss,v)=>ss+v,0),0))).toFixed(1)}%</p>
           </div>
-        </div>
+        </div>`}
       </div>
     `
 
@@ -135,9 +118,9 @@ export default async function MarketSharePage(container) {
   }
 
   function sc(l, v, c, sub) {
-    return `<div class="card" style="padding:14px 16px">
+    return `<div class="card" style="padding:14px 16px;min-width:0">
       <div style="font-size:0.72rem;color:var(--text-muted)">${l}</div>
-      <div style="font-size:1.4rem;font-weight:900;color:${c};margin-top:2px">${v}</div>
+      <div style="font-size:1.25rem;font-weight:900;color:${c};margin-top:2px;overflow-wrap:anywhere">${v}</div>
       ${sub ? `<div style="font-size:0.66rem;color:var(--text-muted)">${sub}</div>` : ''}
     </div>`
   }

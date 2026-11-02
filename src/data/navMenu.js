@@ -305,7 +305,7 @@ export const NAV = [
       { icon: '🔧', label: 'วิเคราะห์งานบริการ', labelEn: 'Service Analytics', path: '/analytics/service' },
       { icon: '📋', label: 'สรุปผู้บริหาร', labelEn: 'Executive Summary', path: '/analytics/executive' },
       { icon: '🔩', label: 'วิเคราะห์อะไหล่', labelEn: 'Parts Analytics', path: '/analytics/parts' },
-      { icon: '📊', label: 'ส่วนแบ่งตลาด', labelEn: 'Market Share', path: '/analytics/market-share' },
+      { icon: '📊', label: 'สัดส่วนยี่ห้อที่ขาย', labelEn: 'Brand Mix', path: '/analytics/market-share' },
       { icon: '🌿', label: 'คาร์บอนฟุตพริ้นท์', labelEn: 'Carbon Footprint', path: '/analytics/carbon' },
       { icon: '🔋', label: 'การใช้รถ EV', labelEn: 'EV Adoption', path: '/analytics/ev-adoption' },
       { icon: '📅', label: 'แนวโน้มตามฤดูกาล', labelEn: 'Seasonal Trends', path: '/analytics/seasonal' },
