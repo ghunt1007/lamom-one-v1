@@ -55,6 +55,13 @@ function askWithdraw(b, co, onChange) {
   })
 }
 
+// พิมพ์ฟอร์มเดียวตรงๆ (ใช้กับปุ่ม "ขั้นต่อไป")
+export async function printBookingForm(b, key) {
+  const p = BOOKING_PRINTS.find(x => x.key === key)
+  if (!p?.print) return openBookingDocs(b)
+  p.print(b, await companyFor(b))
+}
+
 export function openBookingDocs(b, { onChange } = {}) {
   if (!b) return
   const me = getState('user') || {}

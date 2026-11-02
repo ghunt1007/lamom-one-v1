@@ -13,7 +13,7 @@ import { navigate } from '../../core/router.js'
 import { pickVehicle } from '../../utils/vehiclePicker.js'
 import { getSalesStaff, getColors, getFinanceCompanies, getFinanceStatus, getCampaigns, getBookingStatus, getLeadSources } from '../../data/masterData.js'
 import { printBooking, printCancellation } from '../../utils/bookingDocs.js'
-import { openBookingDocs } from '../../utils/bookingDocsMenu.js'
+import { openBookingDocs, printBookingForm } from '../../utils/bookingDocsMenu.js'
 import { scheduleAfterSales } from '../../utils/afterSales.js'
 import { closeAutoLeadFollowups } from '../../utils/leadFollowups.js'
 import { afterWithdraw } from '../../utils/bookingWithdraw.js'
@@ -21,7 +21,7 @@ import { maybeMarkCustomerDelivered, syncStockForBookings, stockStatusForBooking
 import { askDeliveryIncome, needsIncome, statusDatePatch, DELIVERED_STATUSES } from '../../utils/deliveryIncome.js'
 import { openSheetReconcile } from '../../utils/sheetReconcileModal.js'
 import { readBookingSheet, planBookingImport, newBookingDoc, newCustomerDoc, companyForBrand, brandCompanyMap } from '../../utils/bookingImport.js'
-import { bookingNextStep } from '../../utils/bookingNext.js'
+import { bookingNextStep, bookingNextAction } from '../../utils/bookingNext.js'
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -1091,7 +1091,7 @@ export default async function BookingsPage(container) {
           statusBadge(b.status) +
           '<span style="font-size:1.25rem;font-weight:800;color:var(--accent)">' + formatCurrency(b.price) + '</span>' +
         '</div>' +
-        ((n) => n ? '<div style="margin:6px 0 4px;padding:8px 10px;border-radius:10px;font-size:0.8rem;line-height:1.5;background:color-mix(in srgb, var(--' + (n.tone === 'info' ? 'primary' : n.tone) + ') 12%, transparent);border-left:3px solid var(--' + (n.tone === 'info' ? 'primary' : n.tone) + ')">🧭 <b>ขั้นต่อไป:</b> ' + escHtml(n.text) + '</div>' : '')(bookingNextStep(b, todayBangkok())) +
+        ((n) => n ? '<div style="margin:6px 0 4px;padding:8px 10px;border-radius:10px;font-size:0.8rem;line-height:1.5;background:color-mix(in srgb, var(--' + (n.tone === 'info' ? 'primary' : n.tone) + ') 12%, transparent);border-left:3px solid var(--' + (n.tone === 'info' ? 'primary' : n.tone) + ')">🧭 <b>ขั้นต่อไป:</b> ' + escHtml(n.text) + ((a) => a && (a.key !== 'finance' || !isCash) ? '<div style="margin-top:6px"><button class="btn btn-primary btn-sm" id="bk-next-act" data-act="' + a.key + '">' + escHtml(a.label) + '</button></div>' : '')(bookingNextAction(b, todayBangkok())) + '</div>' : '')(bookingNextStep(b, todayBangkok())) +
         sec('👤 ลูกค้า') +
         dRow('ชื่อ', b.custName || '-') + (canViewNid ? dRow('เลขบัตร ปชช.', b.nid || '-') : '') + dRow('โทร', b.phone || '-') + dRow('ที่อยู่', (b.address || '-') + ' ' + (b.province || '')) + dRow('แหล่งที่มา', b.source || '-') +
         sec('🚗 รถ') +
@@ -1148,9 +1148,7 @@ export default async function BookingsPage(container) {
               '<button class="btn btn-secondary" id="bk-print">📄 เอกสาร / พิมพ์' + ((b.files || []).length ? ' · 📎' + b.files.length : '') + '</button>' +
               (!isCash ? '<button class="btn btn-secondary" id="bk-finance-btn">🏦 ยื่นไฟแนนซ์</button>' : '') +
               (b.finStatus === 'ไม่ผ่าน' && bookingTotal(b) > 0 ? '<button class="btn btn-secondary" id="bk-replan">💡 แผนผ่อนใหม่</button>' : '') +
-              (b.status === 'ถอนจอง'
-                ? '<button class="btn btn-danger" id="bk-print-cancel">🖨 พิมพ์ใบถอนจอง</button>'
-                : '<button class="btn btn-primary" id="bk-to-doc">📄 สร้างเอกสาร</button>') +
+              (b.status === 'ถอนจอง' ? '<button class="btn btn-danger" id="bk-print-cancel">🖨 พิมพ์ใบถอนจอง</button>' : '') +
               '<button class="btn btn-danger" id="bk-delete2">🗑️ ลบใบจอง</button>'
     })
     if (!isCash) refreshFinAppPanel(b)
@@ -1182,6 +1180,12 @@ export default async function BookingsPage(container) {
       } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
     })
     document.getElementById('bk-print')?.addEventListener('click', () => openBookingDocs(b))
+    document.getElementById('bk-next-act')?.addEventListener('click', e => {
+      const k = e.currentTarget.dataset.act
+      if (k.startsWith('print:')) return printBookingForm(b, k.slice(6))
+      if (k === 'finance') return document.getElementById('bk-finance-btn')?.click()
+      document.getElementById('bk-edit2')?.click()
+    })
     document.getElementById('bk-print-cancel')?.addEventListener('click', () => openCancelPrintModal(b))
     document.getElementById('bk-to-doc')?.addEventListener('click', () => { document.querySelector('.modal-overlay')?.remove(); navigate('/documents') })
     document.getElementById('bk-delete2')?.addEventListener('click', () => deleteBooking(b))

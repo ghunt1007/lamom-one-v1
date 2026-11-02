@@ -36,3 +36,30 @@ export function bookingNextStep(b, today) {
       return null
   }
 }
+
+// (2026-11-02) ปุ่มเดียวทำขั้นต่อไปได้เลย — คืน { key, label } หรือ null
+// key: 'print:<ฟอร์ม>' พิมพ์เอกสารจากใบจอง · 'finance' ยื่นไฟแนนซ์ · 'edit' เปิดแก้ใบจอง (ใส่วัน/เลือกรถ)
+export function bookingNextAction(b, today) {
+  const step = bookingNextStep(b, today)
+  if (!step) return null
+  const st = b.status || ''
+  const toDelivery = dayDiff(today, b.deliveryDate)
+  if (toDelivery != null && toDelivery < 0) return { key: 'edit', label: '📅 นัดวันส่งมอบใหม่' }
+  switch (st) {
+    case 'ตัดตัวเลขรอส่งมอบ':
+    case 'รอส่งมอบ':
+      if (!b.deliveryDate) return { key: 'edit', label: '📅 ใส่วันส่งมอบ' }
+      return toDelivery <= 3 ? { key: 'print:delivery', label: '🚗 พิมพ์ใบส่งมอบ' } : { key: 'print:expense', label: '💵 พิมพ์แจ้งค่าใช้จ่าย' }
+    case 'จัดไฟแนนซ์ก่อนจอง':
+      return { key: 'finance', label: '🏦 ยื่นไฟแนนซ์' }
+    case 'ผ่านไฟแนนซ์รอจอง':
+      return { key: 'print:contract', label: '📜 พิมพ์สัญญา' }
+    case 'ผ่านไฟแนนซ์รอเบิก':
+    case 'ซื้อสดรอเบิกรถ':
+      return b.vin ? { key: 'print:joborder', label: '🎨 พิมพ์ใบสั่งแต่ง' } : { key: 'edit', label: '🚗 ใส่เลขตัวถัง' }
+    case 'ยอดจองคงค้าง':
+      return { key: 'edit', label: '✏️ เลือกซื้อสด/ไฟแนนซ์' }
+    default:
+      return null
+  }
+}
