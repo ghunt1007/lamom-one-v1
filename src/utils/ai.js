@@ -358,7 +358,7 @@ export async function generateDailySummary(data) {
 // context: { todayCount, stuckBookings, overdueJobs, staleLeads, agingStock, revenueThisMonth, targetPct }
 // คืนค่าเป็นข้อความไทย 3-5 ประโยค + บรรทัดสุดท้าย "🎯 สิ่งที่ควรทำก่อน: ..."
 export async function generateMorningBriefing(context = {}) {
-  if (!isAiEnabled()) return generateFallbackBriefing(context)
+  if (!isAiEnabled()) return generateFallbackBriefing(context, 'nologin')
 
   const {
     todayCount = 0, stuckBookings = 0, overdueJobs = 0, staleLeads = 0,
@@ -392,9 +392,9 @@ ${factLines ? factLines + '\n' : ''}
       generationConfig: { maxOutputTokens: 1200, temperature: 0.7 },
     })
     const text = answerText(data)
-    return text || generateFallbackBriefing(context)
+    return text || generateFallbackBriefing(context, 'down')
   } catch {
-    return generateFallbackBriefing(context)
+    return generateFallbackBriefing(context, 'down')
   }
 }
 
@@ -402,7 +402,7 @@ ${factLines ? factLines + '\n' : ''}
 export function bangkokHour(now = Date.now()) { return new Date(now + 7 * 3600e3).getUTCHours() }
 export function thaiGreeting(h) { return h < 5 ? 'สวัสดี' : h < 12 ? 'อรุณสวัสดิ์' : h < 17 ? 'สวัสดีตอนบ่าย' : 'สวัสดีตอนเย็น' }
 
-function generateFallbackBriefing(context = {}) {
+function generateFallbackBriefing(context = {}, why = 'down') {
   const {
     todayCount = 0, stuckBookings = 0, overdueJobs = 0, staleLeads = 0,
     agingStock = 0, revenueThisMonth = 0, targetPct = null,
@@ -425,7 +425,9 @@ function generateFallbackBriefing(context = {}) {
   else if (staleLeads > 0) priority = `โทรติดตาม Lead ที่ยังไม่ติดต่อกลับ — มี ${staleLeads} รายที่รอเกิน 3 วัน`
   else if (agingStock > 0) priority = `พิจารณาโปรโมชั่นระบายสต็อกรถค้างนาน — มี ${agingStock} คันที่ค้างเกิน 90 วัน`
 
-  return `${opening}${targetLine}${statusLine} (demo mode — ล็อกอินด้วยบัญชีจริงเพื่อเปิดสรุปจาก AI จริง)\n\n🎯 สิ่งที่ควรทำก่อน: ${priority}`
+  // (v1.0.926) เดิมขึ้น "demo mode — ล็อกอินด้วยบัญชีจริง" แม้ผู้ใช้ล็อกอินจริงอยู่แล้ว (แค่ AI ไม่ว่างชั่วคราว) ทำให้งง
+  const note = why === 'nologin' ? ' (ล็อกอินเพื่อให้ LAMI สรุปด้วย AI)' : ' (สรุปจากตัวเลขในระบบ — AI ไม่ว่างชั่วคราว กด 🔄 สร้างใหม่ ภายหลังได้)'
+  return `${opening}${targetLine}${statusLine}${note}\n\n🎯 สิ่งที่ควรทำก่อน: ${priority}`
 }
 
 export async function suggestPrice(vehicleData, marketData = {}) {
@@ -647,10 +649,7 @@ function buildPrompt(msg, context) {
   return `${msg}\n\n[บริบทระบบ]\n${ctx}`
 }
 
-function generateFallbackReply(q) {
-  const lower = q.toLowerCase()
-  if (lower.includes('lead') || lower.includes('ลีด'))    return 'Lead ร้อนวันนี้ 3 ราย — วิชัย มีโชค score 87% แนะนำโทรก่อนครับ (demo mode — ล็อกอินด้วยบัญชีจริงเพื่อเปิด AI จริง)'
-  if (lower.includes('ยอดขาย') || lower.includes('sales')) return 'เดือนนี้ปิดได้ 12/20 คัน (60%) แนวโน้มดีขึ้นครับ (demo mode)'
-  if (lower.includes('สต็อก') || lower.includes('stock')) return 'BYD Seal AWD เหลือ 2 คัน แนะนำสั่งเพิ่มครับ (demo mode)'
-  return `ขอบคุณสำหรับคำถาม "${q}" — กรุณาล็อกอินด้วยบัญชีจริงเพื่อเปิดใช้งาน AI จริงครับ 🤖`
+// ยังไม่ล็อกอิน → ไม่มี AI · ห้ามตอบด้วยตัวเลขสมมติ (เดิมตอบ "Lead ร้อน 3 ราย", "ปิดได้ 12/20 คัน" ซึ่งไม่ใช่ของจริง)
+function generateFallbackReply() {
+  return 'LAMI ต้องล็อกอินก่อนถึงจะตอบจากข้อมูลจริงได้ครับ 🤖'
 }
