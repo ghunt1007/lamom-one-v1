@@ -809,4 +809,4 @@
 .view-tab { flex: 0 0 auto; border: 0; background: transparent; color: var(--text-2, inherit); font: inherit; font-size: .88rem; font-weight: 600; padding: 7px 14px; border-radius: 9px; cursor: pointer; white-space: nowrap; }
 .view-tab:hover { color: var(--text, inherit); }
 .view-tab.active { background: var(--primary); color: #fff; cursor: default; box-shadow: 0 1px 4px rgba(0,0,0,.18); }
-@media (max-width: 640px) { .view-tabs { width: 100%; } .view-tab { flex: 1 1 0; min-width: 0; white-space: normal; line-height: 1.25; font-size: .82rem; padding: 8px 6px; } }
+@media (max-width: 640px) { .view-tabs { width: 100%; } .view-tab { flex: 1 1 0; min-width: 0; white-space: normal; line-height: 1.25; font-size: .82rem; padding: 8px 6px; } .view-tabs.many .view-tab { flex: 0 0 auto; white-space: nowrap; padding: 8px 10px; } }
