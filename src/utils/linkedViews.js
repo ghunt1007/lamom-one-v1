@@ -37,6 +37,21 @@ export const LINKED_VIEWS = [
   [{ path: '/finance/bank-partners', label: '🏦 ธนาคารคู่ค้า' }, { path: '/finance/rate-sheets', label: '📈 ดอกเบี้ย' }, { path: '/finance/loan-calc', label: '🧮 คำนวณค่างวด' },
     { path: '/finance/bank-recon', label: '🔁 กระทบยอด' }, { path: '/finance/multi-currency', label: '💱 หลายสกุลเงิน' }],
   [{ path: '/finance/charging-cost', label: '🔌 ต้นทุนค่าชาร์จ' }, { path: '/finance/charging-revenue', label: '💰 รายได้ค่าชาร์จ' }],
+  // (2026-11-02) หมวดโชว์รูม 39 → 13 เมนู · หมวดการขาย 38 → 15 เมนู
+  [{ path: '/dms/stock', label: '🚙 สต็อก' }, { path: '/dms/aging', label: '⏳ ค้างสต็อก' }, { path: '/dms/stockvalue', label: '💰 มูลค่า' }, { path: '/dms/receiving', label: '📥 รับรถเข้า' }, { path: '/dms/transfer', label: '🔁 โอนรถ' }, { path: '/dms/reservation', label: '📌 จองตัวรถ' }, { path: '/dms/reserve-lock', label: '🔒 ล็อกรถจอง' }, { path: '/dms/stock-audit', label: '📋 ตรวจนับ' }, { path: '/dms/floorplan', label: '🏦 สินเชื่อสต็อก' }, { path: '/dms/consignment', label: '🤝 ฝากขาย' }],
+  [{ path: '/dms/orders', label: '📦 สั่งรถใหม่' }, { path: '/dms/suppliers', label: '🏭 ผู้จำหน่าย' }],
+  [{ path: '/dms/delivery', label: '🚗 ใบส่งมอบ' }, { path: '/dms/delivery-calendar', label: '📅 ปฏิทินส่งมอบ' }, { path: '/dms/plates', label: '🪪 ป้ายทะเบียน' }, { path: '/dms/gov-docs', label: '📄 เอกสารราชการ' }],
+  [{ path: '/dms/pricelist', label: '💲 ราคารถ' }, { path: '/dms/price-history', label: '📈 ประวัติราคา' }, { path: '/dms/compare', label: '⚖️ เปรียบเทียบ' }, { path: '/dms/color-matrix', label: '🎨 สีรถ' }, { path: '/dms/model-config', label: '⚙️ ตั้งค่ารุ่น' }, { path: '/dms/model-year', label: '📅 ปีรุ่น' }, { path: '/dms/special-edition', label: '⭐ รุ่นพิเศษ' }, { path: '/dms/vehicle-db', label: '🗄 ฐานข้อมูลรุ่น' }, { path: '/dms/homologation', label: '✅ รับรองแบบ' }],
+  [{ path: '/dms/vin-lookup', label: '🔎 ค้นหา VIN' }, { path: '/dms/photos', label: '📷 รูปรถ' }, { path: '/dms/qr-vehicle', label: '🔳 QR ประจำรถ' }, { path: '/dms/keys', label: '🔑 กุญแจ' }],
+  [{ path: '/dms/demo-fleet', label: '🚘 รถทดลองขับ/โชว์' }, { path: '/dms/td-cert', label: '📜 ใบรับรองทดลองขับ' }],
+  [{ path: '/dms/tradein', label: '🔄 รถเทิร์น' }, { path: '/dms/used-car', label: '🚙 รถมือสอง' }],
+  [{ path: '/dms/accessories', label: '🛍 ร้านของแต่ง' }, { path: '/dms/custom-orders', label: '🎨 สั่งแต่งรถ' }],
+  [{ path: '/crm/customers', label: '👤 ลูกค้า' }, { path: '/crm/segments', label: '🧩 แบ่งกลุ่ม' }, { path: '/crm/vip', label: '⭐ VIP' }, { path: '/crm/fleet', label: '🏢 องค์กร/ฟลีต' }, { path: '/crm/lifecycle', label: '🔄 วงจรชีวิต' }, { path: '/crm/clv', label: '💎 มูลค่าลูกค้า' }, { path: '/crm/churn', label: '⚠️ ทำนายลูกค้าหาย' }, { path: '/crm/notes', label: '📝 บันทึก' }, { path: '/crm/voice-crm', label: '🎙 พูดบันทึก' }, { path: '/crm/map', label: '🗺 แผนที่' }, { path: '/crm/duplicates', label: '👥 ลูกค้าซ้ำ' }],
+  [{ path: '/crm/pipeline', label: '📈 Pipeline' }, { path: '/crm/lostdeals', label: '💔 ดีลที่หลุด' }, { path: '/crm/deal-coach', label: '🤖 โค้ชปิดดีล' }],
+  [{ path: '/crm/followup', label: '📞 ติดตาม' }, { path: '/crm/showroom', label: '🏬 นัดเข้าโชว์รูม' }, { path: '/crm/walkin', label: '🚶 เดินเข้าโชว์รูม' }, { path: '/crm/birthdays', label: '🎂 วันเกิด' }, { path: '/crm/winback', label: '🔙 ดึงลูกค้ากลับ' }],
+  [{ path: '/crm/quotation', label: '🧾 ใบเสนอราคา' }, { path: '/crm/quote-compare', label: '⚖️ เทียบใบเสนอราคา' }, { path: '/crm/price-negotiation', label: '🤝 ต่อรองราคา' }],
+  [{ path: '/crm/loyalty', label: '🎁 แต้มสะสม' }, { path: '/crm/loyalty-tiers', label: '🏅 ระดับสมาชิก' }, { path: '/crm/referral', label: '🤝 แนะนำลูกค้า' }, { path: '/crm/referral-qr', label: '🔳 QR แนะนำเพื่อน' }],
+  [{ path: '/crm/feedback', label: '💬 ความเห็น' }, { path: '/crm/csat', label: '😊 CSAT' }, { path: '/crm/complaints', label: '📣 ร้องเรียน' }],
 ]
 
 const clean = p => String(p || '').split('?')[0].replace(/\/+$/, '') || '/'
