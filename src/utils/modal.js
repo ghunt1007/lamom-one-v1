@@ -1,4 +1,5 @@
 import { enhanceMics } from './micInput.js'
+import { validationToastCount } from '../core/store.js'
 // Modal & Dialog utilities
 
 export function openModal({ title, body, footer = '', size = 'md', onClose, onConfirm, confirmText = '✅ บันทึก', cancelText = 'ยกเลิก' } = {}) {
@@ -28,8 +29,10 @@ export function openModal({ title, body, footer = '', size = 'md', onClose, onCo
     const btn = div.querySelector(`#${id}-confirm`)
     if (btn) { btn.disabled = true; btn.textContent = '⏳ ...' }
     try {
+      const warned = validationToastCount()
       const result = await onConfirm?.()
-      if (result !== false) div.remove()
+      // กรอกไม่ครบแล้วระบบเตือน (เช่น "❗ กรุณากรอกชื่อ") แต่โค้ดหน้านั้นลืม return false → อย่าปิดหน้าต่าง ข้อมูลที่พิมพ์ไว้จะหายหมด
+      if (result !== false && !(result === undefined && validationToastCount() > warned)) div.remove()
     } catch (e) {
       // onConfirm threw — keep modal open so user can retry
     } finally {

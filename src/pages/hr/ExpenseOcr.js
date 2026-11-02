@@ -14,13 +14,8 @@ import { escHtml as esc } from '../../utils/escape.js'
 // ป้องกัน XSS — ข้อมูล vendor/note/staff ฯลฯ มาจากผู้ใช้พิมพ์เอง หรือ AI OCR อ่านจากรูปที่อัปโหลด
 // (ผู้ไม่หวังดีอาจปลอมใบเสร็จให้ AI อ่านค่าที่มี HTML/JS ปนมาได้) ต้อง escape ทุกครั้งก่อนแสดงผล
 
-let RECEIPTS = [
-  { id:'R001', staff:'นภา มีสุข', dept:'ฝ่ายขาย', date:'2026-06-12', vendor:'ร้านอาหาร MK Suki', amount:1240, cat:'เลี้ยงรับรองลูกค้า', status:'approved', note:'', confidence:97 },
-  { id:'R002', staff:'สมชาย วิเศษ', dept:'ฝ่ายบริการ', date:'2026-06-11', vendor:'บ.น้ำมัน PTT จำกัด', amount:850, cat:'ค่าน้ำมัน', status:'pending', note:'', confidence:94 },
-  { id:'R003', staff:'มาลี จันทร์ดี', dept:'ฝ่ายการตลาด', date:'2026-06-10', vendor:'FedEx Thailand', amount:320, cat:'ค่าขนส่ง', status:'rejected', note:'ไม่ได้รับอนุมัติล่วงหน้า', confidence:88 },
-  { id:'R004', staff:'วิชัย รุ่งเรือง', dept:'ฝ่ายขาย', date:'2026-06-13', vendor:'Grab For Business', amount:560, cat:'ค่าเดินทาง', status:'pending', note:'', confidence:99 },
-  { id:'R005', staff:'รัชนี สุขใจ', dept:'ฝ่าย HR', date:'2026-06-09', vendor:'Office Depot', amount:4800, cat:'เครื่องเขียน/อุปกรณ์สำนักงาน', status:'approved', note:'', confidence:91 },
-]
+// (v1.0.924) เดิมโชว์ใบเสร็จตัวอย่าง 5 ใบ (ชื่อพนักงานสมมติ) เมื่อยังไม่มีของจริง — ตอนนี้ว่างจนกว่าจะมีใบเสร็จจริง
+let RECEIPTS = []
 
 const CATS = ['เลี้ยงรับรองลูกค้า','ค่าน้ำมัน','ค่าเดินทาง','ค่าที่พัก','เครื่องเขียน/อุปกรณ์สำนักงาน','ค่าอาหารพนักงาน','ค่าขนส่ง','อื่นๆ']
 
@@ -45,21 +40,18 @@ export default async function ExpenseOcrPage(container) {
   // ปลอมออกได้เลย ทำให้ "ยอดอนุมัติ"/"ความแม่นยำ AI" รวมที่แสดงผิดจากความจริงถาวร แก้ให้แทนที่ด้วยของจริง
   // ทั้งหมดเมื่อมีข้อมูลจริงอย่างน้อย 1 รายการ (ไม่ผสม) และกรอง deleted ออก (เดิมไม่กรอง ใบเสร็จที่ลบไปแล้ว
   // จะโผล่กลับมาทุกครั้งที่รีเฟรช)
-  if (!RECEIPTS.some(r => r._persisted)) {
-    try {
-      const real = await listDocs('expense_receipts', companyScopeFilters(), 'date', 'desc', 200).catch(() => [])
-      if (container.__routerGen === myGen) {
-        const liveReceipts = real.filter(r => !r.deleted).map(r => ({ ...r, _persisted: true }))
-        if (liveReceipts.length) RECEIPTS = liveReceipts
-      }
-    } catch {}
-  }
+  // โหลดใหม่ทุกครั้งที่เปิดหน้า (เดิมโหลดครั้งเดียวแล้วค้าง ใบเสร็จที่คนอื่นส่งเข้ามาไม่ขึ้นจนกว่าจะรีเฟรชทั้งแอป)
+  try {
+    const real = await listDocs('expense_receipts', companyScopeFilters(), 'date', 'desc', 200).catch(() => null)
+    if (container.__routerGen !== myGen) return
+    if (real) RECEIPTS = real.filter(r => !r.deleted).map(r => ({ ...r, _persisted: true }))
+  } catch {}
 
   function render() {
     const dataSource = RECEIPTS.some(r => r._persisted) ? 'live' : 'demo'
     const rows = filterStatus === 'all' ? RECEIPTS : RECEIPTS.filter(r => r.status === filterStatus)
     const pending = RECEIPTS.filter(r => r.status === 'pending')
-    const totalAmt = RECEIPTS.filter(r=>r.status==='approved').reduce((s,r)=>s+r.amount,0)
+    const totalAmt = RECEIPTS.filter(r=>r.status==='approved').reduce((s,r)=>s+(+r.amount||0),0)
 
     container.innerHTML = `
       <div class="page-content animate-slide">
@@ -67,7 +59,7 @@ export default async function ExpenseOcrPage(container) {
           <div>
             <div class="page-title">🧾 Expense Receipt OCR</div>
             <div class="page-subtitle">AI อ่านใบเสร็จ แยกหมวด ส่งขออนุมัติ · ${RECEIPTS.length} ใบ · ${pending.length} รออนุมัติ
-              ${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.72rem">● ข้อมูลจริง</span>' : ' <span style="color:var(--text-muted);font-size:0.72rem">Demo (ยังไม่มีข้อมูลจริง)</span>'}
+              ${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.72rem">● ข้อมูลจริง</span>' : ' <span style="color:var(--text-muted);font-size:0.72rem">ยังไม่มีใบเสร็จ — กดสแกนใบเสร็จเพื่อเริ่ม</span>'}
             </div>
           </div>
           <div class="page-actions">
@@ -80,7 +72,7 @@ export default async function ExpenseOcrPage(container) {
           ${sc('📤 ส่งขออนุมัติ', pending.length+' ใบ', 'var(--warning)')}
           ${sc('✅ อนุมัติแล้ว', RECEIPTS.filter(r=>r.status==='approved').length+' ใบ', 'var(--success)')}
           ${sc('💰 ยอดอนุมัติ', formatCurrency(totalAmt), 'var(--primary)')}
-          ${sc('🤖 ความแม่นยำ AI', Math.round(RECEIPTS.reduce((s,r)=>s+r.confidence,0)/RECEIPTS.length)+'%', 'var(--text)')}
+          ${sc('🤖 ความแม่นยำ AI', (RECEIPTS.length ? Math.round(RECEIPTS.reduce((s,r)=>s+(+r.confidence||0),0)/RECEIPTS.length)+'%' : '—'), 'var(--text)')}
         </div>
 
         <div style="display:flex;gap:6px;margin-bottom:12px">

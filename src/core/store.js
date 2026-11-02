@@ -81,7 +81,12 @@ export function toggleSidebar() {
   try { localStorage.setItem('lamom_sidebar', next) } catch {}
 }
 
+// (v1.0.924) นับข้อความเตือน "กรอกไม่ครบ/ไม่ถูกต้อง" — หน้าต่างกรอกข้อมูลใช้ดูว่าเพิ่งเตือนไปไหม จะได้ไม่ปิดทิ้งข้อมูลที่พิมพ์ไว้
+let validationToasts = 0
+export const isValidationMessage = (message, type) => type === 'error' && /^\s*❗|กรุณา|กรอก|เลือก|ไม่ถูกต้อง|ต้องระบุ|ต้องมี|ไม่ครบ/.test(String(message || ''))
+export function validationToastCount() { return validationToasts }
 export function showToast(message, type = 'success', duration = 4000) {
+  if (isValidationMessage(message, type)) validationToasts++
   const id = Date.now()
   const toast = { id, message, type }
   setState('toast', toast)

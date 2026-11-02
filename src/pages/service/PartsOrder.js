@@ -276,7 +276,9 @@ export default async function PartsOrderPage(container) {
         const cats = [...document.querySelectorAll('.modal .po-cat')].map(i => i.value)
         const qtys = [...document.querySelectorAll('.modal .po-qty')].map(i => +i.value || 1)
         const prices = [...document.querySelectorAll('.modal .po-price')].map(i => +i.value || 0)
-        const items = names.map((n, idx) => ({ partNo: `NEW-${idx+1}`, name: n || `อะไหล่ ${idx+1}`, cat: cats[idx], qty: qtys[idx], unit: 'ชิ้น', unitCost: prices[idx], received: 0 })).filter(i => i.name)
+        // (v1.0.924) แถวที่ไม่ได้กรอกชื่ออะไหล่ไม่นับ (เดิมกลายเป็น "อะไหล่ 1" ทำให้สร้าง PO เปล่าได้)
+        const items = names.map((n, idx) => ({ partNo: `NEW-${idx+1}`, name: n, cat: cats[idx], qty: qtys[idx], unit: 'ชิ้น', unitCost: prices[idx], received: 0 })).filter(i => i.name)
+        if (!items.length) { showToast('❗ กรุณากรอกชื่ออะไหล่อย่างน้อย 1 รายการ', 'error'); return false }
         const total = items.reduce((a, i) => a + i.qty * i.unitCost, 0)
         try {
           await createDoc('parts_orders', {
