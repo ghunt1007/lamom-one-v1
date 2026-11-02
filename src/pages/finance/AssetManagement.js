@@ -91,7 +91,7 @@ export default async function AssetManagementPage(container) {
           ${Object.entries(ASSET_CATS).map(([k,v]) => `<button class="btn btn-xs ${catFilter===k?'btn-'+v.color:'btn-secondary'} cf-btn" data-c="${k}">${v.icon} ${v.label}</button>`).join('')}
         </div>
 
-        <div class="card" style="overflow:hidden">
+        <div class="card" style="overflow-x:auto">
           <table style="width:100%;border-collapse:collapse">
             <thead>
               <tr style="border-bottom:1px solid var(--border);font-size:0.75rem;color:var(--text-muted)">

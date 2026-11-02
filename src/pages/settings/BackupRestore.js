@@ -116,7 +116,7 @@ export default async function BackupRestorePage(container) {
           </div>
         </div>
 
-        <div class="card" style="overflow:hidden">
+        <div class="card" style="overflow-x:auto">
           <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:0.8rem;font-weight:700;color:var(--text-muted)">📋 ประวัติ Backup/Restore</div>
           <table style="width:100%;border-collapse:collapse">
             <thead>

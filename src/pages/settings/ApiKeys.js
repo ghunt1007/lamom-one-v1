@@ -69,7 +69,7 @@ export default async function ApiKeysPage(container) {
           🔒 <strong>ความปลอดภัย:</strong> Key เต็มจะแสดงครั้งเดียวตอนสร้างเท่านั้น — เก็บไว้ในที่ปลอดภัย ห้าม commit ลง git
         </div>
 
-        <div class="card" style="overflow:hidden">
+        <div class="card" style="overflow-x:auto">
           <table style="width:100%;border-collapse:collapse">
             <thead>
               <tr style="border-bottom:1px solid var(--border);font-size:0.73rem;color:var(--text-muted)">

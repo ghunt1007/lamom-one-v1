@@ -298,7 +298,7 @@ export default async function EvStationPage(container) {
 
         ${tab === 'stations'
           ? `<div>${STATIONS.map(st => stationCard(st)).join('')}</div>`
-          : `<div class="card" style="padding:0;overflow:hidden">
+          : `<div class="card" style="padding:0;overflow-x:auto">
               <table style="width:100%;border-collapse:collapse;font-size:0.78rem">
                 <thead><tr style="border-bottom:2px solid var(--border);background:var(--surface-2)">
                   <th style="text-align:left;padding:10px;font-weight:600;color:var(--text-muted)">รุ่น/VIN</th>

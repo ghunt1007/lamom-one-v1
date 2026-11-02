@@ -132,7 +132,7 @@ export default async function UserManagementPage(container) {
           </div>
         `}
 
-        <div class="card" style="overflow:hidden">
+        <div class="card" style="overflow-x:auto">
           <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:0.8rem;font-weight:700;color:var(--text-muted)">👥 ผู้ใช้ในระบบ</div>
           ${users.length === 0 ? `
             <div style="padding:30px;text-align:center;color:var(--text-muted);font-size:0.82rem">

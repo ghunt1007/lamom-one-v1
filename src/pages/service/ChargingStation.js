@@ -128,7 +128,7 @@ export default async function ChargingStationPage(container) {
         </div>
 
         <!-- Session History -->
-        <div class="card" style="overflow:hidden">
+        <div class="card" style="overflow-x:auto">
           <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:0.8rem;font-weight:700;color:var(--text-muted)">📋 ประวัติเซสชั่นล่าสุด</div>
           <table style="width:100%;border-collapse:collapse">
             <thead>

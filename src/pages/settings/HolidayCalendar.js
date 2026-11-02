@@ -70,7 +70,7 @@ export default async function HolidayCalendarPage(container) {
           ${Object.entries(HOLIDAY_TYPES).map(([k,v]) => `<button class="btn btn-xs ${typeFilter===k?'btn-'+v.color:'btn-secondary'} tf-btn" data-t="${k}">${v.icon} ${v.label}</button>`).join('')}
         </div>
 
-        <div class="card" style="overflow:hidden">
+        <div class="card" style="overflow-x:auto">
           <table style="width:100%;border-collapse:collapse">
             <thead>
               <tr style="border-bottom:1px solid var(--border);font-size:0.73rem;color:var(--text-muted)">

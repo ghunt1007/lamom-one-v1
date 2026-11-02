@@ -80,7 +80,7 @@ export default async function FloorPlanFinancePage(container) {
           </div>
         ` : ''}
 
-        <div class="card" style="overflow:hidden">
+        <div class="card" style="overflow-x:auto">
           <table style="width:100%;border-collapse:collapse">
             <thead>
               <tr style="border-bottom:1px solid var(--border);font-size:0.72rem;color:var(--text-muted)">

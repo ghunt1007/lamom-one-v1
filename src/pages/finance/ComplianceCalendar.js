@@ -103,7 +103,7 @@ export default async function ComplianceCalendarPage(container) {
 
         <div style="display:flex;gap:6px;margin-bottom:14px">${catBtns}</div>
 
-        <div class="card" style="padding:0;overflow:hidden">
+        <div class="card" style="padding:0;overflow-x:auto">
           <table style="width:100%;border-collapse:collapse;font-size:0.78rem">
             <thead>
               <tr style="border-bottom:2px solid var(--border);background:var(--surface-2)">
