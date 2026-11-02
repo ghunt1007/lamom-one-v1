@@ -260,7 +260,7 @@ export default async function BookingsPage(container) {
                   newCustomers++
                 }
               }
-              const id = await createDoc('bookings', newBookingDoc(m, { companyId, customerId }))
+              const id = await createDoc('bookings', { ...newBookingDoc(m, { companyId, customerId }), __fromSheet: true })
               if (customerId) await updateDocData('customers', customerId, { bookingId: id }).catch(() => {})
               if (canViewNid && m.nid) await setDocData('booking_national_ids', id, { nid: m.nid, companyId }).catch(() => {})
               created++
@@ -268,7 +268,7 @@ export default async function BookingsPage(container) {
           }
           for (const u of updates) {
             try {
-              await updateDocData('bookings', u.id, { ...u.patch, updatedAt: new Date().toISOString() })
+              await updateDocData('bookings', u.id, { ...u.patch, updatedAt: new Date().toISOString(), __fromSheet: true })
               if (u.patch.status === 'ส่งมอบแล้ว' && u.statusFrom !== 'ส่งมอบแล้ว') await maybeMarkCustomerDelivered(u.existing)
               // ลูกค้าที่ถูกสร้างจากการนำเข้าครั้งก่อนพร้อมใบจองใบนี้ ต้องย้ายไปบริษัทเดียวกันด้วย ไม่งั้นคนในบริษัทนั้นมองไม่เห็นลูกค้า
               if (u.patch.companyId && u.existing.customerId) {

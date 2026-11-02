@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { planSheetReconcile, normPhone, normPersonName, splitFullName, isTempBookingNo } from './sheetReconcile.js'
+import { planSheetReconcile, splitUpdatesByRecency, sheetRowsForBookings, normPhone, normPersonName, splitFullName, isTempBookingNo } from './sheetReconcile.js'
 
 const row = (no, name, phone, status = 'ส่งมอบแล้ว', r = 4) => ({ 'เลขใบจอง': no, 'ชื่อลูกค้า-นามสกุล': name, 'หมายเลขโทรศัพท์': phone, 'สถานะ': status, 'รุ่นรถ': 'S07', __row: r })
 
@@ -40,7 +40,7 @@ describe('planSheetReconcile', () => {
       { id: 'b4', bookingNo: 'SK260102-TEMP', custName: 'ลูกค้า สี่', phone: '0810000004' }, // ไฟล์ออกเลข BK4 แล้ว → เปลี่ยนเลข
       { id: 'b5t', bookingNo: 'SK260103-TEMP', custName: 'ลูกค้า ห้า', phone: '0810000005' }, // มี BK5 แล้ว → ซ้ำ
       { id: 'b5', bookingNo: 'BK5', custName: 'ลูกค้า ห้า', phone: '0810000005' },
-      { id: 'bx', bookingNo: 'BK9', custName: 'คนนอก ไฟล์', phone: '0899999999' },
+      { id: 'bx', bookingNo: 'BK9', custName: 'คนนอก ไฟล์', phone: '0899999999', importedFromExcel: true }, // เคยมาจากไฟล์ แล้วหายจากไฟล์ → ลบ
       { id: 'bdel', bookingNo: 'BK8', deleted: true },
     ]
     const p = planSheetReconcile(sheet, bookings, [])
@@ -67,7 +67,7 @@ describe('planSheetReconcile', () => {
       { id: 'c1b', firstName: 'ลูกค้า', lastName: 'หนึ่ง', phone: '081-000-0001', stage: 'pp', createdAt: '2025-12-01' },
       { id: 'c2', firstName: 'ชื่อ', lastName: 'ผิด', phone: '0820000000', stage: 'booking' },
       { id: 'c5', firstName: 'ลูกค้า', lastName: 'ห้า', phone: '0810000005', stage: 'delivered' },
-      { id: 'cx', firstName: 'จอง', lastName: 'นอกไฟล์', phone: '0877777777', stage: 'booking' },
+      { id: 'cx', firstName: 'จอง', lastName: 'นอกไฟล์', phone: '0877777777', stage: 'booking', sheetSeenAt: '2026-10-26' },
       { id: 'cl', firstName: 'ลีด', lastName: 'ใหม่', phone: '0866666666', stage: 'lead' },
       { id: 'cd', firstName: 'ลบ', lastName: 'แล้ว', stage: 'booking', deleted: true },
     ]
@@ -87,5 +87,45 @@ describe('planSheetReconcile', () => {
       [{ id: 'old', firstName: 'ลูกค้า', lastName: 'หนึ่ง', phone: '0810000001', createdAt: '2025-01-01' },
        { id: 'new', firstName: 'ลูกค้า', lastName: 'หนึ่ง', phone: '0810000001', createdAt: '2026-01-01' }])
     expect(p.extraCustomers.map(x => x.customer.id)).toEqual(['old'])
+  })
+
+  it('keeps bookings and customers the team keyed in the app but are not in the Sheet yet', () => {
+    const p = planSheetReconcile([row('BK1', 'ลูกค้า หนึ่ง', '0810000001')],
+      [
+        { id: 'b1', bookingNo: 'BK1', customerId: 'c1' },
+        { id: 'app', bookingNo: 'SK261102123', custName: 'ทีม คีย์', phone: '0855555555', customerId: 'capp' },
+        { id: 'appTemp', bookingNo: 'SK261102-TEMP', custName: 'ทีม สอง', phone: '0855555556' },
+        { id: 'gone', bookingNo: 'BK7', importedFromExcel: true },
+      ],
+      [
+        { id: 'c1', firstName: 'ลูกค้า', lastName: 'หนึ่ง', phone: '0810000001', stage: 'booking' },
+        { id: 'capp', firstName: 'ทีม', lastName: 'คีย์', phone: '0855555555', stage: 'booking', bookingId: 'app' },
+      ])
+    expect(p.appOnlyBookings.map(x => x.booking.id)).toEqual(['appTemp', 'app'])
+    expect(p.extraBookings.map(x => x.booking.id)).toEqual(['gone'])
+    expect(p.appOnlyCustomers.map(c => c.id)).toEqual(['capp'])
+    expect(p.extraCustomers).toEqual([])
+    expect(p.stampBookings.map(b => b.id)).toEqual(['b1'])
+    expect(p.stampCustomers.map(c => c.id)).toEqual(['c1'])
+  })
+
+  it('sheetRowsForBookings uses the Sheet column names', () => {
+    const [r] = sheetRowsForBookings([{ bookingNo: 'SK1', custName: 'ก ข', phone: '0811111111', status: 'ยอดจองคงค้าง', model: 'S07', salesName: 'เอ' }])
+    expect(r).toMatchObject({ 'เลขใบจอง': 'SK1', 'ชื่อลูกค้า-นามสกุล': 'ก ข', 'หมายเลขโทรศัพท์': '0811111111', 'รุ่นรถ': 'S07', 'ชื่อเซลล์': 'เอ' })
+  })
+
+  it('splitUpdatesByRecency: the side edited last wins', () => {
+    const u = (id, existing) => ({ id, existing, patch: { status: 'รอรถ' }, changes: ['status'] })
+    const updates = [
+      u('old', {}), // ไม่เคยแก้ในแอป → Sheet
+      u('appNew', { appEditedAt: '2026-11-02T05:00:00Z' }), // แก้ในแอปหลังไฟล์ → แอป
+      u('sheetNew', { appEditedAt: '2026-11-01T05:00:00Z' }), // ไฟล์บันทึกหลัง → Sheet
+      u('synced', { appEditedAt: '2026-11-02T05:00:00Z', sheetSyncedAt: '2026-11-02T06:00:00Z' }), // ซิงก์หลังแก้ → Sheet
+    ]
+    const r = splitUpdatesByRecency(updates, new Date('2026-11-02T01:00:00Z'))
+    expect(r.appNewer.map(x => x.id)).toEqual(['appNew'])
+    expect(r.sheetWins.map(x => x.id)).toEqual(['old', 'sheetNew', 'synced'])
+    // ไม่รู้เวลาบันทึกไฟล์ → แก้ในแอปหลังซิงก์ครั้งล่าสุด = แอปชนะ
+    expect(splitUpdatesByRecency(updates, null).appNewer.map(x => x.id)).toEqual(['appNew', 'sheetNew'])
   })
 })
