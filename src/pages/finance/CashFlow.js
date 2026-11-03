@@ -131,7 +131,7 @@ export default async function CashFlowPage(container) {
           <div>
             <div class="page-title">💸 Cash Flow</div>
             <div class="page-subtitle">กระแสเงินสดรายวัน
-              ${dataSource === 'live' ? '<span style="font-size:0.72rem;color:var(--success);margin-left:8px">● ข้อมูลจริง</span>' : '<span style="font-size:0.72rem;color:var(--text-muted);margin-left:8px">Demo (ยังไม่มีข้อมูลจริง)</span>'}
+              ${dataSource === 'live' ? '<span style="font-size:0.72rem;color:var(--success);margin-left:8px">● ข้อมูลจริง</span>' : '<span style="font-size:0.72rem;color:var(--text-muted);margin-left:8px">ยังไม่มีข้อมูล</span>'}
             </div>
           </div>
           <div class="page-actions">

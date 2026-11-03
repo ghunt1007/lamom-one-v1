@@ -263,7 +263,7 @@ export default async function TaxReportPage(container) {
     const outputVat = invoices.filter(i => i.type === 'sale').reduce((a, i) => a + i.vat, 0)
     const netVat = outputVat - inputVat
     return `
-      ${liveInvoices ? '' : `<div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:10px">Demo (ยังไม่มีข้อมูลจริง)</div>`}
+      ${liveInvoices ? '' : `<div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:10px">ยังไม่มีข้อมูล</div>`}
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px">
         ${kpi('📤 VAT ขาออก', formatCurrency(outputVat), 'success')}
         ${kpi('📥 VAT ขาเข้า', formatCurrency(inputVat), 'warning')}

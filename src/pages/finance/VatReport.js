@@ -100,7 +100,7 @@ export default async function VatReportPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🧾 VAT Report</div>
-            <div class="page-subtitle">รายงานภาษีมูลค่าเพิ่ม — ${viewMonth}${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ' <span style="color:var(--text-muted);font-size:0.75rem">Demo (ยังไม่มีข้อมูลจริง)</span>'}</div>
+            <div class="page-subtitle">รายงานภาษีมูลค่าเพิ่ม — ${viewMonth}${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ' <span style="color:var(--text-muted);font-size:0.75rem">ยังไม่มีข้อมูล</span>'}</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary btn-xs" id="prev-m-btn">◀</button>

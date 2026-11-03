@@ -5,14 +5,21 @@
 import { formatCurrency, formatDate, todayBangkok } from '../../utils/format.js'
 import { openModal } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, setDocData, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { addDaysBangkok as addDays } from '../../utils/format.js'
 
-const FP_RATE = 6.5 // % ต่อปี
-const CREDIT_LINE = 50000000
+// (v1.0.951) เดิมวงเงิน ฿50 ล้าน @ 6.5% เป็นตัวเลขตายตัวในโค้ด (ไม่ใช่วงเงินจริงของบริษัท) ตอนนี้ตั้งเองได้
+// เก็บใน floor_plan/settings-<companyId> (kind:'settings', drawDate '9999-12-31' ให้ติดอันดับแรกของ query เสมอ)
+// ยังไม่ตั้ง = วงเงิน 0 (ไม่จำกัดตอนเบิก) ดอกเบี้ยเริ่มต้น 6.5%
+let FP_RATE = 6.5 // % ต่อปี
+let CREDIT_LINE = 0
+export function splitFloorPlanDocs(docs) {
+  const cfg = docs.find(d => d.kind === 'settings') || null
+  return { cfg, units: docs.filter(d => d.kind !== 'settings') }
+}
 
 function daysHeld(u) { return Math.round((new Date() - new Date(u.drawDate)) / 86400000) }
 function interestAccrued(u) { return Math.round(u.principal * (FP_RATE / 100) * daysHeld(u) / 365) }
@@ -22,11 +29,18 @@ export default async function FloorPlanFinancePage(container) {
   seedDemoData()
 
   let units = []
+  let cfg = null
   let loading = true
 
   async function loadData() {
     loading = true
-    try { units = await listDocs('floor_plan', companyScopeFilters(), 'drawDate', 'desc', 200) } catch (e) { units = [] }
+    let docs = []
+    try { docs = await listDocs('floor_plan', companyScopeFilters(), 'drawDate', 'desc', 200) } catch (e) { docs = [] }
+    const split = splitFloorPlanDocs(docs)
+    units = split.units
+    cfg = split.cfg
+    CREDIT_LINE = Number(cfg?.creditLine) || 0
+    FP_RATE = cfg && Number(cfg.rate) >= 0 && cfg.rate !== '' ? Number(cfg.rate) : 6.5
     loading = false
     if (container.__routerGen === myGen) renderPage()
   }
@@ -39,8 +53,8 @@ export default async function FloorPlanFinancePage(container) {
     const active = units.filter(u => u.status === 'active')
     const outstanding = active.reduce((a, u) => a + u.principal, 0)
     const totalInterest = active.reduce((a, u) => a + interestAccrued(u), 0)
-    const available = CREDIT_LINE - outstanding
-    const utilization = Math.round(outstanding / CREDIT_LINE * 100)
+    const available = CREDIT_LINE ? CREDIT_LINE - outstanding : Infinity
+    const utilization = CREDIT_LINE ? Math.round(outstanding / CREDIT_LINE * 100) : 0
     const aging = active.filter(u => daysHeld(u) > 120)
     const dailyInterest = Math.round(active.reduce((a, u) => a + u.principal * (FP_RATE/100) / 365, 0))
 
@@ -49,30 +63,31 @@ export default async function FloorPlanFinancePage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🏦 Floor Plan Finance</div>
-            <div class="page-subtitle">สินเชื่อสต็อกรถ — วงเงิน ${formatCurrency(CREDIT_LINE)} @ ${FP_RATE}%/ปี</div>
+            <div class="page-subtitle">สินเชื่อสต็อกรถ — ${CREDIT_LINE ? `วงเงิน ${formatCurrency(CREDIT_LINE)}` : 'ยังไม่ได้ตั้งวงเงิน'} @ ${FP_RATE}%/ปี${cfg ? '' : ' (ค่าเริ่มต้น)'}</div>
           </div>
           <div class="page-actions">
+            <button class="btn btn-secondary" id="fp-cfg-btn">⚙️ ตั้งวงเงิน/ดอกเบี้ย</button>
             <button class="btn btn-primary" id="draw-btn">+ เบิกวงเงิน (รถเข้าใหม่)</button>
           </div>
         </div>
 
         <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
           ${kpi('💰 ยอดเบิกคงค้าง', formatCurrency(outstanding), 'warning')}
-          ${kpi('📊 ใช้วงเงิน', utilization + '%', utilization >= 80 ? 'danger' : utilization >= 60 ? 'warning' : 'success')}
+          ${kpi('📊 ใช้วงเงิน', CREDIT_LINE ? utilization + '%' : '—', utilization >= 80 ? 'danger' : utilization >= 60 ? 'warning' : 'success')}
           ${kpi('💸 ดอกเบี้ยสะสม', formatCurrency(totalInterest), 'danger')}
           ${kpi('🔥 ดอกเบี้ย/วัน', formatCurrency(dailyInterest), 'secondary')}
         </div>
 
         <!-- Credit line bar -->
-        <div style="margin-bottom:14px">
+        ${CREDIT_LINE ? `<div style="margin-bottom:14px">
           <div style="display:flex;justify-content:space-between;font-size:0.73rem;margin-bottom:4px">
             <span style="color:var(--text-muted)">วงเงินคงเหลือ ${formatCurrency(available)}</span>
             <span>${formatCurrency(outstanding)} / ${formatCurrency(CREDIT_LINE)}</span>
           </div>
           <div style="background:var(--surface-2);border-radius:4px;height:12px">
-            <div style="width:${utilization}%;background:var(--${utilization>=80?'danger':utilization>=60?'warning':'primary'});height:12px;border-radius:4px"></div>
+            <div style="width:${Math.min(utilization, 100)}%;background:var(--${utilization>=80?'danger':utilization>=60?'warning':'primary'});height:12px;border-radius:4px"></div>
           </div>
-        </div>
+        </div>` : ''}
 
         ${aging.length > 0 ? `
           <div style="padding:10px 14px;background:var(--danger)11;border:1px solid var(--danger)33;border-radius:var(--radius);margin-bottom:12px;font-size:0.78rem">
@@ -112,6 +127,7 @@ export default async function FloorPlanFinancePage(container) {
                   </td>
                 </tr>`
               }).join('')}
+              ${!units.length ? `<tr><td colspan="6" class="tbl-empty" style="text-align:center;padding:28px;color:var(--text-muted)">ยังไม่มีรถที่เบิกวงเงิน — กด "+ เบิกวงเงิน" ตอนรถเข้าสต็อก</td></tr>` : ''}
             </tbody>
           </table>
         </div>
@@ -140,6 +156,28 @@ export default async function FloorPlanFinancePage(container) {
         }
       })
     }))
+    document.getElementById('fp-cfg-btn')?.addEventListener('click', () => {
+      openModal({
+        title: '⚙️ วงเงินสินเชื่อสต็อก',
+        size: 'sm',
+        body: `<div style="display:grid;gap:10px">
+          <div class="input-group"><label class="input-label">วงเงินรวม (บาท)</label><input class="input" type="number" inputmode="numeric" id="fp-cfg-line" value="${CREDIT_LINE || ''}" placeholder="เช่น 50000000"></div>
+          <div class="input-group"><label class="input-label">ดอกเบี้ย (% ต่อปี)</label><input class="input" type="number" inputmode="decimal" step="0.01" id="fp-cfg-rate" value="${FP_RATE}"></div>
+        </div>`,
+        confirmText: '💾 บันทึก',
+        async onConfirm() {
+          const creditLine = parseInt(document.getElementById('fp-cfg-line')?.value) || 0
+          const rate = parseFloat(document.getElementById('fp-cfg-rate')?.value)
+          if (!(rate >= 0 && rate < 50)) { showToast('❗ ดอกเบี้ยไม่ถูกต้อง', 'error'); return false }
+          const companyId = myEffectiveCompanyId()
+          try {
+            await setDocData('floor_plan', cfg?.id || `settings-${companyId || 'none'}`, { kind: 'settings', status: 'settings', drawDate: '9999-12-31', creditLine, rate, companyId: cfg?.companyId ?? companyId })
+            showToast('✅ บันทึกวงเงินแล้ว', 'success')
+            await loadData()
+          } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
+        }
+      })
+    })
     document.getElementById('draw-btn')?.addEventListener('click', async () => {
       // (v1.0.519) เดิมฟอร์มนี้กรอกรุ่นรถเป็น free text เอง และ hardcode vin:'...ใหม่' เสมอ (ไม่เคยผูกกับรถจริง
       // ใน 'vehicles' เลยตั้งแต่แรก แม้ schema ของ floor_plan จะมี field vin อยู่แล้วก็ตาม) แก้ให้ต้องเลือกรถจริง
@@ -158,8 +196,8 @@ export default async function FloorPlanFinancePage(container) {
             </select>
             <span class="input-error" id="fp-vehicle-e"></span>
           </div>
-          <div class="input-group"><label class="input-label">ราคาทุน (บาท)</label><input class="input" type="number" id="fp-amount"></div>
-          <div style="font-size:0.72rem;color:var(--text-muted)">วงเงินคงเหลือ: <strong>${formatCurrency(available)}</strong></div>
+          <div class="input-group"><label class="input-label">ราคาทุน (บาท)</label><input class="input" type="number" inputmode="numeric" id="fp-amount"></div>
+          ${CREDIT_LINE ? `<div style="font-size:0.72rem;color:var(--text-muted)">วงเงินคงเหลือ: <strong>${formatCurrency(available)}</strong></div>` : ''}
         </div>`,
         async onConfirm() {
           const vehicleId = document.getElementById('fp-vehicle')?.value
@@ -179,6 +217,13 @@ export default async function FloorPlanFinancePage(container) {
             await loadData()
           } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
         }
+      })
+      // เลือกรถแล้วเติมราคาทุนให้เลย (ยังแก้เองได้)
+      document.getElementById('fp-vehicle')?.addEventListener('change', e => {
+        const v = stockVehicles.find(x => x.id === e.target.value)
+        const amt = document.getElementById('fp-amount')
+        const cost = Number(v?.cost || v?.purchasePrice) || 0
+        if (amt && cost && !amt.value) amt.value = cost
       })
     })
   }
