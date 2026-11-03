@@ -11,8 +11,6 @@ import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { addDaysBangkok as addDays } from '../../utils/format.js'
 
-// ตัวอย่างข้อมูล — ใช้แสดงก็ต่อเมื่อยังไม่มีลูกค้าจริงในระบบเลย (collection ว่างเปล่าจริงๆ)
-const DEMO_DUPLICATES = [] // (2026-11-02) เอาข้อมูลสมมติออก — ไม่มีข้อมูลจริงให้โชว์ว่าง ไม่ใช่ตัวเลขปลอม
 
 function normPhone(p) { const d = String(p || '').replace(/\D/g, ''); return d.startsWith('66') && d.length === 11 ? '0' + d.slice(2) : d } // +66 = 0
 function normName(f, l) { return ((f || '') + (l || '')).trim().toLowerCase() }
@@ -71,7 +69,7 @@ function findLiveDuplicates(customers) {
 
 export default async function DuplicateManagerPage(container) {
   const myGen = container.__routerGen
-  let groups = DEMO_DUPLICATES.map(g => ({ ...g, records: g.records.map(r => ({ ...r })) }))
+  let groups = []
   let resolved = 0
   let dataSource = 'demo'
   let totalCustomers = 0
@@ -80,7 +78,7 @@ export default async function DuplicateManagerPage(container) {
     const customers = (await listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 1000).catch(() => [])).filter(c => !c.deleted)
     if (container.__routerGen !== myGen) return
     totalCustomers = customers.length
-    // แสดงเฉพาะกลุ่มซ้ำที่สแกนเจอจริงเมื่อมีลูกค้าจริงในระบบ — ห้ามเอา DEMO_DUPLICATES มาปนกับผลสแกนจริง
+    // แสดงเฉพาะกลุ่มซ้ำที่สแกนเจอจริงเมื่อมีลูกค้าจริงในระบบ
     // ถ้าลูกค้าจริงมีอยู่แต่สแกนไม่เจอซ้ำเลย ให้ถือเป็น "ฐานข้อมูลสะอาด" (groups ว่าง) ไม่ใช่ปนตัวอย่าง
     if (customers.length > 0) {
       groups = findLiveDuplicates(customers)
@@ -93,8 +91,8 @@ export default async function DuplicateManagerPage(container) {
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
-            <div class="page-title">👥 Duplicate Manager</div>
-            <div class="page-subtitle">รวมข้อมูลลูกค้าซ้ำ — ฐานข้อมูลสะอาด CRM แม่นยำ${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ' <span style="color:var(--warning);font-size:0.75rem">● ตัวอย่างข้อมูล — ยังไม่มีลูกค้าจริงในระบบ</span>'}</div>
+            <div class="page-title">👥 รวมลูกค้าซ้ำ</div>
+            <div class="page-subtitle">รวมข้อมูลลูกค้าซ้ำ — ฐานข้อมูลสะอาด CRM แม่นยำ${dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ''}</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-primary" id="scan-btn">🔍 สแกนหาซ้ำ</button>
@@ -118,7 +116,7 @@ export default async function DuplicateManagerPage(container) {
               <div style="font-size:0.78rem">
                 <strong>ความมั่นใจ ${g.confidence}%</strong>
                 <span style="color:var(--text-muted)"> — ${g.reason}</span>
-                ${!g._live ? `<span class="badge badge-secondary" style="font-size:0.6rem;margin-left:6px">ตัวอย่าง</span>` : ''}
+                
               </div>
               <div style="display:flex;gap:6px">
                 <button class="btn btn-xs btn-success merge-btn" data-id="${g.id}">🔗 รวมข้อมูล</button>
@@ -168,7 +166,7 @@ export default async function DuplicateManagerPage(container) {
             </div>
             <div style="padding:10px;background:var(--surface-2);border-radius:8px;font-size:0.74rem;color:var(--text-muted)">
               ${groups.length === 0 ? '✅ ไม่พบกลุ่มซ้ำจากการสแกนครั้งนี้' : `⚠️ พบ ${groups.length} กลุ่มที่อาจซ้ำ — ดูรายละเอียดด้านล่าง`}<br>
-              ${dataSource === 'demo' ? '🧪 ยังไม่มีลูกค้าจริงในระบบ — แสดงตัวอย่างข้อมูลเท่านั้น' : ''}
+              ${dataSource === 'demo' ? 'ยังไม่มีลูกค้าในระบบ' : ''}
             </div>
           </div>
         `
@@ -180,23 +178,6 @@ export default async function DuplicateManagerPage(container) {
     const g = groups.find(x => x.id === groupId)
     if (!g) return
 
-    if (!g._live) {
-      // กลุ่มตัวอย่าง (demo) — ไม่มีเรคคอร์ดจริงใน Firestore ให้รวม จึงจำลองผลลัพธ์ในหน้าจอเท่านั้น ห้ามยิง Firestore
-      openModal({
-        title: '🔗 รวมข้อมูลลูกค้า (ตัวอย่าง)',
-        size: 'sm',
-        body: `<div style="font-size:0.82rem;line-height:1.7">
-          <p>จะรวม <strong>${g.records.length} เรคคอร์ด</strong> เป็น <strong>${escHtml(g.records[0].id)} — ${escHtml(g.records[0].name)}</strong></p>
-          <p style="color:var(--warning);font-size:0.75rem">🧪 นี่คือข้อมูลตัวอย่าง — จะไม่มีการเขียนข้อมูลจริง (แสดงผลบนหน้าจอเท่านั้น)</p>
-        </div>`,
-        confirmText: '🔗 ยืนยันรวม (ตัวอย่าง)',
-        onConfirm() {
-          groups = groups.filter(x => x.id !== g.id); resolved++
-          showToast(`🔗 รวมข้อมูล (ตัวอย่าง) เป็น ${g.records[0].id} แล้ว`, 'success'); renderPage()
-        }
-      })
-      return
-    }
 
     // กลุ่มจริง — เปิด modal อธิบายผลก่อน แล้วขอ confirmDialog ยืนยันอีกชั้น (การกระทำที่มีผลถาวรต่อข้อมูลจริง)
     const winner = g.records[0]
