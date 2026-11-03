@@ -29,8 +29,8 @@ const FILING_STATUS = {
 // 07:00 น. (เที่ยงคืน UTC ตรงกับเวลาไทย 07:00 น.) — แก้ให้ยึดวันที่ไทยจริงจาก todayBangkok() เป็นจุดตั้งต้นเสมอ
 // แล้วบวก/ลบเดือนด้วย UTC methods (ไม่ผูกกับ timezone ของเครื่อง/เบราว์เซอร์ผู้ใช้)
 function addMonths(n) {
-  const [y, m, d] = todayBangkok().split('-').map(Number)
-  const dt = new Date(Date.UTC(y, m - 1, d))
+  const [y, m] = todayBangkok().split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 1, 1)) // วันที่ 1 กันเดือนล้น (31 ม.ค. + 1 เดือน ≠ มี.ค.)
   dt.setUTCMonth(dt.getUTCMonth() + n)
   return dt.toISOString().slice(0, 7)
 }
@@ -45,7 +45,21 @@ function extractVat(fullPrice) {
   return { amount: (fullPrice || 0) - vat, vat }
 }
 
-const DEMO_FILINGS = [] // (2026-11-02) เอาข้อมูลสมมติออก — ไม่มีข้อมูลจริงให้โชว์ว่าง ไม่ใช่ตัวเลขปลอม
+// (v1.0.950) ตารางยื่นภาษีประจำเดือน: งวดเดือนก่อน (ต้องยื่นเดือนนี้) และงวดเดือนนี้ — ภพ.30 ครบ 15 ของเดือนถัดไป
+// ภงด.1/3/53 ครบ 7 ของเดือนถัดไป · เดิมรายการนี้เป็นตัวอย่าง (ยอดสมมติ/ชื่อพนักงานบัญชีสมมติ) แล้วถูกเอาออกจนหน้าว่าง
+// กดยื่นไม่ได้ — ตอนนี้สร้างตามปฏิทินจริง ยอด VAT จากใบจองจริง สถานะที่กดจะจำไว้ใน tax_filings (baseId = id ด้านล่าง)
+export function monthlyFilings(periods) {
+  const out = []
+  for (const period of periods) {
+    const [y, m] = period.split('-').map(Number)
+    const next = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`
+    for (const type of ['pp30', 'pnd1', 'pnd3', 'pnd53']) {
+      out.push({ id: `auto-${type}-${period}`, type, period, dueDate: `${next}-${type === 'pp30' ? '15' : '07'}`, filedDate: null, status: 'pending', taxBase: 0, vatAmount: 0, refundable: 0, notes: '' })
+    }
+  }
+  return out
+}
+const DEMO_FILINGS = monthlyFilings([addMonths(-1), thisMonth()])
 
 const DEMO_INVOICES = [] // (2026-11-02) เอาข้อมูลสมมติออก — ไม่มีข้อมูลจริงให้โชว์ว่าง ไม่ใช่ตัวเลขปลอม
 
@@ -64,16 +78,13 @@ export default async function TaxReportPage(container) {
   try {
     sales = await getSalesData().catch(() => [])
     if (container.__routerGen !== myGen) return
-    if (sales.length >= 2) {
-      const now = new Date()
-      const thisMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`
-      const currSales = sales.filter(s => (s.date || '').startsWith(thisMonth))
-      if (currSales.length) {
-        const totalRev = currSales.reduce((a, s) => a + (s.salePrice || 0), 0)
-        liveVatBase = { taxBase: Math.round(totalRev / 1.07), vatAmount: Math.round(totalRev / 1.07 * 0.07) }
-        const pp30 = filings.find(f => f.type === 'pp30' && f.period === thisMonth)
-        if (pp30) { pp30.taxBase = liveVatBase.taxBase; pp30.vatAmount = liveVatBase.vatAmount }
-      }
+    // ภพ.30 แต่ละงวด: ภาษีขายจากยอดขายจริงของเดือนนั้น (ราคารวม VAT ถอดออก 7/107)
+    for (const pp30 of filings.filter(f => f.type === 'pp30')) {
+      const rev = sales.filter(s => (s.date || '').startsWith(pp30.period)).reduce((a, s) => a + (s.salePrice || 0), 0)
+      if (!rev) continue
+      const { amount, vat } = extractVat(rev)
+      pp30.taxBase = amount; pp30.vatAmount = vat
+      if (pp30.period === thisMonth()) liveVatBase = { taxBase: amount, vatAmount: vat }
     }
   } catch {}
 
@@ -214,7 +225,7 @@ export default async function TaxReportPage(container) {
       </div>
       <div class="card" style="padding:0;overflow:hidden">
         <div class="table-wrap"><table class="table">
-          <thead><tr><th>รหัส</th><th>ประเภท</th><th>งวด</th><th>ครบกำหนด</th><th>ฐานภาษี</th><th>ภาษี</th><th>สถานะ</th><th></th></tr></thead>
+          <thead><tr><th>ประเภท</th><th>งวด</th><th>ครบกำหนด</th><th>ฐานภาษี</th><th>ภาษี</th><th>สถานะ</th><th></th></tr></thead>
           <tbody>
             ${filings.map(f => {
               const tt = TAX_TYPES[f.type]
@@ -222,7 +233,6 @@ export default async function TaxReportPage(container) {
               const overdue = isOverdue(f)
               const days = daysUntilDue(f)
               return `<tr>
-                <td style="font-family:monospace;font-size:0.8rem">${f.id}</td>
                 <td><span class="badge badge-${tt?.color}">${tt?.label}</span></td>
                 <td style="font-size:0.83rem">${f.period}</td>
                 <td>
@@ -240,7 +250,7 @@ export default async function TaxReportPage(container) {
                 </td>
               </tr>`
             }).join('')}
-            ${!filings.length ? `<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text-muted)">ไม่พบรายการ</td></tr>` : ''}
+            ${!filings.length ? `<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)">ไม่พบรายการ</td></tr>` : ''}
           </tbody>
         </table></div>
       </div>
@@ -308,7 +318,7 @@ export default async function TaxReportPage(container) {
     const tt = TAX_TYPES[f.type]
     const st = FILING_STATUS[f.status]
     openModal({
-      title: `🧾 ${f.id} — ${tt?.label}`,
+      title: `🧾 ${tt?.label} · งวด ${f.period}`,
       size: 'md',
       body: `
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
