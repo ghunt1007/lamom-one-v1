@@ -122,7 +122,7 @@ export default async function ChurnPredictionPage(container) {
       } else if (dataSource === 'live') {
         showToast(`⚠️ ${c.name} ไม่มีเบอร์โทรในระบบ — กรุณาติดต่อเอง · ${r.action}`, 'error')
       } else {
-        showToast(`📱 (ตัวอย่าง) จำลองส่ง Retention Campaign ให้ ${c.name} · ${r.action}`, 'success')
+        showToast('ยังไม่มีข้อมูลลูกค้าจริง — ส่งไม่ได้', 'warning')
       }
     }))
     document.getElementById('auto-btn')?.addEventListener('click', async () => {
@@ -135,7 +135,7 @@ export default async function ChurnPredictionPage(container) {
         }
         showToast(`🤖 ส่ง SMS Retention Campaign ให้ ${sent}/${high.length} ราย (เสี่ยงสูง) แล้ว${high.length > sent ? ` — ${high.length - sent} รายไม่มีเบอร์โทร/ส่งไม่สำเร็จ` : ''}`, sent ? 'success' : 'error')
       } else {
-        showToast(`🤖 (ตัวอย่าง) จำลองส่ง Auto Retention Campaign ให้ ${high.length} ราย (เสี่ยงสูง)`, 'success')
+        showToast('ยังไม่มีข้อมูลลูกค้าจริง — ส่งไม่ได้', 'warning')
       }
     })
   }

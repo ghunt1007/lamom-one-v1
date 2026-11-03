@@ -128,7 +128,7 @@ export default async function CustomerLoyaltyPage(container) {
           <div>
             <div class="page-title">👑 Customer Loyalty</div>
             <div class="page-subtitle">โปรแกรมสะสมคะแนนและสิทธิพิเศษลูกค้า
-              ${dataSource === 'live' ? '<span style="font-size:0.72rem;color:var(--success);margin-left:8px">● ข้อมูลจริง</span>' : '<span style="font-size:0.72rem;color:var(--text-muted);margin-left:8px">Demo</span>'}
+              ${dataSource === 'live' ? '<span style="font-size:0.72rem;color:var(--success);margin-left:8px">● ข้อมูลจริง</span>' : ''}
             </div>
           </div>
           <div class="page-actions">
