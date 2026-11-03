@@ -773,11 +773,14 @@
   .bk-table th:nth-child(9), .bk-table td:nth-child(9) { display: none; }
 }
 
-/* ตารางคอลัมน์เยอะ (10+) บนจอคอม: ลดช่องไฟให้พอดีจอ 1280 ไม่ต้องเลื่อนขวา (หน้าการเงิน: มาร์จิ้น, GP/FOC, เงินเดือน) */
+/* ตารางคอลัมน์เยอะ (10+) บนจอคอม: ลดช่องไฟให้พอดีจอ 1280 ไม่ต้องเลื่อนขวา (หน้าการเงิน: มาร์จิ้น, GP/FOC, เงินเดือน)
+   (v1.0.956) เดิมเขียนเป็น table:has(> thead > tr > th:nth-child(10)) td — ทุกช่องในตารางต้องย้อนไปนับหัวตารางใหม่
+   ทุกครั้งที่หน้าวาด ตารางใหญ่ (ใบจอง 300 แถว × 65 คอลัมน์) ทำให้เบราว์เซอร์ค้างเกือบ 1 นาที
+   ตอนนี้ utils/tableTools.js นับคอลัมน์ครั้งเดียวแล้วติดป้าย data-cols="10|12|13" ให้ตาราง CSS แค่อ่านป้าย */
 @media (min-width: 641px) {
-  table:has(> thead > tr > th:nth-child(10)) th, table:has(> thead > tr > th:nth-child(10)) td { padding-left: 8px; padding-right: 8px; }
-  table:has(> thead > tr > th:nth-child(12)) td { font-size: 0.8rem; }
-  table:has(> thead > tr > th:nth-child(13)) th, table:has(> thead > tr > th:nth-child(13)) td { padding-left: 6px; padding-right: 6px; }
+  table[data-cols] th, table[data-cols] td { padding-left: 8px; padding-right: 8px; }
+  table[data-cols="12"] td, table[data-cols="13"] td { font-size: 0.8rem; }
+  table[data-cols="13"] th, table[data-cols="13"] td { padding-left: 6px; padding-right: 6px; }
 }
 
 /* มือถือ: ช่องค้นหาที่กำหนดความกว้างตายตัว (180–240px) ยืดเต็มแถว พิมพ์และอ่านง่ายขึ้น */
