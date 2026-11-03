@@ -144,3 +144,18 @@ describe('v1.0.543 — company repair', () => {
     expect(p.unchanged.map(u => u.id)).toEqual(['2'])
   })
 })
+
+import { normHeader, sheetImportWarnings } from './bookingImport.js'
+describe('sheetImportWarnings', () => {
+  it('normalizes odd header whitespace', () => {
+    expect(normHeader(' ชื่อลูกค้า-\n นามสกุล​ ')).toBe('ชื่อลูกค้า- นามสกุล')
+    expect(normHeader('วันที่  จอง')).toBe('วันที่ จอง')
+  })
+  it('lists rows without number, duplicate numbers and missing columns', () => {
+    const w = sheetImportWarnings({ headers: ['เลขใบจอง', 'สถานะ'] },
+      { skippedNoNumber: [{ row: 5, custName: 'ก' }], duplicates: ['A1', 'A1'] }, ['เลขใบจอง', 'สถานะ', 'ส่งจอง'])
+    expect(w.noNumber).toHaveLength(1)
+    expect(w.dupes).toEqual(['A1'])
+    expect(w.missingHeaders).toEqual(['ส่งจอง'])
+  })
+})

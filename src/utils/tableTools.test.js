@@ -12,3 +12,15 @@ describe('isShortCellText', () => {
     expect(isShortCellText('   ')).toBe(false)
   })
 })
+
+describe('wide table tag (replaces slow table:has(th:nth-child(N)) CSS)', () => {
+  it('tags 10/12/13+ columns, nothing below 10', async () => {
+    const { wideColsTag } = await import('./tableTools.js')
+    expect(wideColsTag(9)).toBe('')
+    expect(wideColsTag(10)).toBe('10')
+    expect(wideColsTag(11)).toBe('10')
+    expect(wideColsTag(12)).toBe('12')
+    expect(wideColsTag(13)).toBe('13')
+    expect(wideColsTag(65)).toBe('13')
+  })
+})

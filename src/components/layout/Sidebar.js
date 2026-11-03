@@ -1,3 +1,4 @@
+import { isNarrowLayout } from '../../utils/phoneLayout.js'
 import { getState, on, toggleSidebar } from '../../core/store.js'
 import { menuMatches } from '../../utils/menuSearch.js'
 import { isMergedPath } from '../../utils/linkedViews.js'
@@ -48,7 +49,7 @@ export function Sidebar(container) {
     // ปุ่มย่อบนมือถือเองโดยไม่ตั้งใจ) ค่า collapsed=true จะติดค้างข้ามอุปกรณ์ ทำให้เมนูมือถือ (ที่กว้างพอแสดง
     // label อยู่แล้ว) render แค่ไอคอนล้วนไม่มีชื่อเมนูเลยสักตัว (ปุ่มขยายกลับก็เป็นไอคอนเล็กๆหาไม่เจอด้วย) —
     // บังคับ collapsed=false เสมอเมื่อจอแคบ ไม่ให้ state ของ desktop ไปกระทบการแสดงผลบนมือถือ
-    const isMobileViewport = window.innerWidth <= 768
+    const isMobileViewport = isNarrowLayout()
     const collapsed = getState('sidebarCollapsed') && !isMobileViewport
     const route = getState('currentRoute')
     const user = getState('user')

@@ -148,6 +148,20 @@ export function initFocusGuard(root = typeof document !== 'undefined' ? document
   }
   root.addEventListener('focusin', track, true)
   root.addEventListener('input', track, true)
+  // (v1.0.958) คีย์บอร์ดภาษาไทยบนมือถือ (Gboard/iOS) พิมพ์แบบ "กำลังประกอบคำ" (composition) — ระหว่างนั้นทุกตัวอักษร
+  // ยิง input ทำให้หน้าเพจกรอง/วาดใหม่กลางคำ คำที่กำลังพิมพ์หลุด เหลือตัวเดียวแล้วพิมพ์ต่อไม่ได้
+  // → ระหว่างประกอบคำ ไม่ส่ง input ให้หน้าเพจ พอพิมพ์คำเสร็จ (compositionend) ค่อยส่ง input ครั้งเดียว
+  const win = root.defaultView || (typeof window !== 'undefined' ? window : null)
+  if (win) {
+    win.addEventListener('input', e => {
+      if (e.isComposing && isTextField(e.target)) e.stopImmediatePropagation()
+    }, true)
+    root.addEventListener('compositionend', e => {
+      const el = e.target
+      if (!isTextField(el)) return
+      setTimeout(() => { if (el.isConnected) el.dispatchEvent(new Event('input', { bubbles: true })) }, 0)
+    }, true)
+  }
   root.addEventListener('keyup', track, true)
   root.addEventListener('compositionend', track, true)
   root.addEventListener('focusout', e => {

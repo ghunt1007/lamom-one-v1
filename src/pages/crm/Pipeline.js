@@ -270,11 +270,11 @@ export default async function PipelinePage(container) {
       .pipeline-board-wrap::-webkit-scrollbar { height:6px; }
       .pl-tabs { display:none; }
       /* แท็บเล็ต: 4 คอลัมน์ไม่พอจอ → จัด 2×2 เห็นครบทุกสถานะ ไม่ต้องปัดข้าง */
-      @media (min-width: 641px) and (max-width: 1100px) {
+      @media (min-width: 641px) and (max-width: 1100px) and (min-height: 501px), (min-width: 641px) and (max-width: 1100px) and (pointer: fine) {
         #pipeline-board { flex-wrap:wrap; overflow-y:auto; align-content:flex-start; }
         .pipeline-col { min-width:calc(50% - 6px) !important; max-width:none !important; max-height:none !important; }
       }
-      @media (max-width: 640px) {
+      @media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
         .pl-tabs { display:flex; gap:6px; overflow-x:auto; flex-shrink:0; margin-bottom:10px; padding-bottom:2px; }
         #pipeline-board { scroll-snap-type:x mandatory; }
         .pipeline-col { min-width:calc(100vw - 56px) !important; max-width:none !important; scroll-snap-align:start; }

@@ -36,7 +36,7 @@ function addStyle() {
   css.textContent = `
   .sg-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
   .sg-hint{font-size:0.7rem;color:var(--text-muted)}
-  @media (max-width:599px){.sg-hint{display:none}}
+  @media (max-width:599px), (max-height: 500px) and (pointer: coarse) {.sg-hint{display:none}}
   .sg-wrap{overflow:auto;max-height:calc(100vh - 210px);min-height:260px;border:1px solid var(--border);border-radius:10px;background:var(--surface);-webkit-overflow-scrolling:touch}
   .sg-table{border-collapse:separate;border-spacing:0;table-layout:fixed;font-size:0.78rem}
   .sg-table th,.sg-table td{border-right:1px solid var(--border-subtle,var(--border));border-bottom:1px solid var(--border-subtle,var(--border));padding:0 6px;height:32px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--surface);color:var(--text)}
@@ -62,7 +62,7 @@ function addStyle() {
   .sg-table .sg-fix-name{position:sticky;left:0;z-index:2;font-weight:600}
   .sg-table thead .sg-fix-name{z-index:4}
   .sg-table tfoot .sg-fix-name{z-index:4}
-  @media (min-width:600px){
+  @media (min-width:600px) and (min-height: 501px), (min-width:600px) and (pointer: fine) {
     .sg-table .sg-fix-rn{position:sticky;left:0;z-index:2}
     .sg-table .sg-fix-no{position:sticky;left:${ROWNUM_W}px;z-index:2}
     .sg-table .sg-fix-name{left:${ROWNUM_W + 110}px}

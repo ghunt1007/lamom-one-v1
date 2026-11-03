@@ -158,7 +158,7 @@ a:hover { text-decoration: underline; }
   .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
 }
 /* แท็บเล็ต (641–1024px): การ์ด KPI เรียงตามความกว้างจริง (ปกติ 4 ใบต่อแถว) แทน 2 ใบ — ไม่ต้องเลื่อนยาว */
-@media (min-width: 641px) and (max-width: 1024px) {
+@media (min-width: 641px) and (max-width: 1024px) and (min-height: 501px), (min-width: 641px) and (max-width: 1024px) and (pointer: fine) {
   /* 155px: แท็บเล็ต 768 วาง 4 ใบได้ครบแถว (เดิม 180px ได้ 3 ใบ ใบที่ 4 ตกไปอยู่แถวใหม่คนเดียว) */
   .kpi-grid { grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)) !important; gap: 12px; }
   .kpi-grid > .kpi-card { padding: 14px 16px; container-type: inline-size; }
@@ -166,7 +166,7 @@ a:hover { text-decoration: underline; }
   .kpi-grid > .kpi-card .kpi-value { font-size: clamp(0.95rem, 11cqi, 1.5rem) !important; overflow-wrap: break-word; }
 }
 /* แท็บเล็ตกว้าง (720px+) การ์ด 5 ใบพอดี 5 ช่อง ไม่เหลือใบที่ 5 อยู่แถวใหม่คนเดียว */
-@media (min-width: 720px) and (max-width: 1024px) {
+@media (min-width: 720px) and (max-width: 1024px) and (min-height: 501px), (min-width: 720px) and (max-width: 1024px) and (pointer: fine) {
   .kpi-grid:has(> :nth-child(5):last-child) { grid-template-columns: repeat(5, minmax(0, 1fr)) !important; }
 }
 
@@ -301,7 +301,7 @@ tbody tr:hover { background: var(--surface-2); box-shadow: inset 3px 0 0 var(--p
   .grid-4 { grid-template-columns: repeat(2, 1fr); }
   .grid-3 { grid-template-columns: repeat(2, 1fr); }
 }
-@media (max-width: 640px) {
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
   .grid-4, .grid-3, .grid-2 { grid-template-columns: 1fr; }
   /* แถวการ์ดตัวเลข (ไม่มีช่องกรอก/ตาราง/กราฟ) เรียง 2 ช่องต่อแถว — คอลัมน์เดียวต้องเลื่อนยาวเกินจำเป็น */
   .grid-4:not(:has(input, select, textarea, table, canvas, svg)), .grid-3:not(:has(input, select, textarea, table, canvas, svg)) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -396,7 +396,7 @@ button.tab-btn:not(.btn) { padding: 6px 12px; border-radius: 999px; border: 1px 
 button.tab-btn:not(.btn):hover { border-color: var(--primary); color: var(--text); }
 button.tab-btn:not(.btn).active { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; }
 /* ตัวเลข KPI บนมือถือ: เล็กลงพอให้ "฿1,200,000" อยู่บรรทัดเดียวในการ์ดครึ่งจอ */
-@media (max-width: 640px) { .kpi-value { font-size: 1.3rem; } }
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) { .kpi-value { font-size: 1.3rem; } }
 
 /* ── Loading Overlay ── */
 .loading-overlay {

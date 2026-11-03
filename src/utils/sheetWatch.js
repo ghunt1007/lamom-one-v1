@@ -35,8 +35,10 @@ function showBar(modifiedTime, open) {
   bar.querySelector('#sw-x').addEventListener('click', () => { bar.remove(); write(DISMISS_KEY, modifiedTime) })
 }
 
+let lastCheck = 0
 async function check() {
   if (!isProgramOwner() || document.hidden) return
+  lastCheck = Date.now()
   try {
     const { getSheetStatus } = await import('./dailyReport.js')
     const { modifiedTime } = await getSheetStatus()
@@ -53,4 +55,8 @@ export function initSheetWatch() {
   if (timer) return
   setTimeout(check, 15000)
   timer = setInterval(check, SHEET_WATCH_MS)
+  // (v1.0.958) กลับมาเปิดแอป/สลับแท็บกลับมา → เช็กเลย (ไม่เกินทุก 10 นาที) ไม่ต้องรอครบชั่วโมง
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && Date.now() - lastCheck > 10 * 60 * 1000) check()
+  })
 }

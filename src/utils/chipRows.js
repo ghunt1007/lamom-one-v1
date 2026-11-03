@@ -1,3 +1,4 @@
+import { isPhoneLayout } from './phoneLayout.js'
 // มือถือ: แถวปุ่มกรอง/แท็บ (ปุ่มเล็กล้วน 4 ปุ่มขึ้นไป) ที่ล้นลงหลายบรรทัด → เปลี่ยนเป็นแถวเดียวเลื่อนซ้าย-ขวา (.chip-scroll)
 // แบบเดียวกับที่ใส่มือให้ 13+ หน้าแล้ว แต่ทำอัตโนมัติทุกหน้า ไม่ต้องตามแก้ทีละหน้า
 export function isChipRow(el) {
@@ -12,7 +13,7 @@ function wraps(el) {
 }
 
 function scan() {
-  if (!window.matchMedia('(max-width: 640px)').matches) return
+  if (!isPhoneLayout()) return
   document.querySelectorAll('#main-content div').forEach(el => {
     if (isChipRow(el) && wraps(el)) { el.classList.add('chip-scroll'); el.style.overflowX = 'auto' }
   })

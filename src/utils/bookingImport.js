@@ -32,6 +32,9 @@ function str(v) {
   const x = cellValue(v)
   return x == null ? '' : String(x).trim()
 }
+export function normHeader(h) {
+  return String(h || '').replace(/[\u200b\u200c\u200d\ufeff]/g, '').replace(/[\s\u00a0]+/g, ' ').trim()
+}
 function num(v) {
   const x = cellValue(v)
   if (x == null || x === '') return 0
@@ -82,7 +85,8 @@ export function readBookingSheet(workbook) {
     let headerRow = 0
     let headers = []
     for (let r = 1; r <= Math.min(ws.rowCount || 0, 15); r++) {
-      const vals = (ws.getRow(r).values || []).map(str)
+      // หัวตารางที่มีเว้นวรรคซ้อน/ขึ้นบรรทัดใหม่/ช่องว่างล่องหน ให้ถือเป็นชื่อเดียวกัน (กันคอลัมน์หายเงียบๆ)
+      const vals = (ws.getRow(r).values || []).map(v => normHeader(str(v)))
       if (vals.includes(KEY_HEADER)) { headerRow = r; headers = vals; break }
     }
     if (!headerRow) continue
@@ -286,4 +290,15 @@ export function companyForBrand(brand, companies, fallback = null, learned = nul
   const key = brand.split(' ')[0].toLowerCase()
   const hit = (companies || []).find(c => `${c.brand || ''} ${c.name || ''}`.toLowerCase().includes(key))
   return hit ? hit.id : fallback
+}
+
+// (v1.0.958) แถว/คอลัมน์ใน Sheet ที่เข้าโปรแกรมไม่ได้ — บอกเจ้าของในหน้าซิงก์ แทนที่จะข้ามเงียบๆ
+// expectedHeaders = หัวคอลัมน์ที่โปรแกรมรู้จัก (SHEET_COLUMNS) → คืนรายชื่อที่ไม่เจอในไฟล์ (เช่น มีคนแก้ชื่อหัวตาราง)
+export function sheetImportWarnings(sheet, imp, expectedHeaders = []) {
+  const have = new Set((sheet?.headers || []).map(normHeader))
+  return {
+    noNumber: imp?.skippedNoNumber || [],
+    dupes: [...new Set(imp?.duplicates || [])],
+    missingHeaders: expectedHeaders.map(normHeader).filter(h => h && !have.has(h)),
+  }
 }
