@@ -28,7 +28,7 @@ import { escHtml as __escA } from '../../utils/escape.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
 import { copyText } from '../../utils/copyText.js'
 import { escHtml } from '../../utils/escape.js'
-import { SHEET_COLUMNS, patchForCell, sheetExportRows } from '../../utils/sheetColumns.js'
+import { SHEET_COLUMNS, patchForCell, sheetExportRows, sheetFieldList, sheetYesChips } from '../../utils/sheetColumns.js'
 import { renderSheetGrid } from './bookingSheetGrid.js'
 
 // ── แบรนด์หลักที่ตัวแทนขาย (ตาม LAMOM V8 — S.K. Bangbuathong) ──────────────
@@ -720,9 +720,24 @@ export default async function BookingsPage(container) {
         <div>👤 ${escHtml(b.salesName || '—')} · จอง ${formatDate(b.bookingDate)}${b.bookingNo ? ` · <span style="color:var(--primary);white-space:nowrap">${escHtml(b.bookingNo)}</span>` : ''}</div>
         <div style="text-align:right;white-space:nowrap">${b.deliveryDate ? `ส่งมอบ ${deliveryCell(b, true)}` : ''}</div>
       </div>
+      ${cardMoreLine(b)}
       ${(n => n && n.tone === 'warning' ? `<div style="margin-top:6px;font-size:0.7rem;line-height:1.45;color:var(--warning)">🧭 ${escHtml(n.text)}</div>` : '')(bookingNextStep(b, todayBangkok()))}
       ${needsIncome(b) ? `<button class="btn btn-warning btn-xs income-bk" data-id="${b.id}" style="margin-top:8px">💰 กรอกรายได้</button>` : ''}
     </div>`
+  }
+
+  // (v1.0.960) การ์ดเห็นข้อมูลสำคัญจาก Sheet เพิ่ม: โทร ราคา ไฟแนนซ์/สถานะ + ป้ายช่องที่ติ๊ก Y แล้ว (จองDMS/Allocate/ชุดขาย ฯลฯ)
+  // ที่เหลือครบทุกช่อง กดการ์ดดูในหน้ารายละเอียด (หัวข้อ "ครบทุกช่องเหมือน Sheet")
+  function cardMoreLine(b) {
+    const bits = [
+      b.phone ? `📞 ${escHtml(b.phone)}` : '',
+      Number(b.price) ? `💰 ${escHtml(Number(b.price).toLocaleString('en-US'))}` : '',
+      b.financeCo || b.finStatus ? `🏦 ${escHtml([b.financeCo, b.finStatus].filter(Boolean).join(' · '))}` : '',
+    ].filter(Boolean)
+    const chips = sheetYesChips(b)
+    if (!bits.length && !chips.length) return ''
+    return `<div style="margin-top:6px;font-size:0.72rem;color:var(--text-2);display:flex;flex-wrap:wrap;gap:4px 10px;min-width:0">${bits.map(x => `<span style="overflow-wrap:anywhere">${x}</span>`).join('')}</div>` +
+      (chips.length ? `<div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:4px">${chips.map(h => `<span style="font-size:0.62rem;padding:1px 6px;border-radius:999px;background:color-mix(in srgb, var(--success) 14%, transparent);color:var(--success);white-space:nowrap">✓ ${escHtml(h)}</span>`).join('')}</div>` : '')
   }
 
   function tableRow(b) {
@@ -1266,6 +1281,25 @@ export default async function BookingsPage(container) {
   }
 
   // ── รายละเอียดใบจอง (แบบเต็ม) ─────────────────────────────────────────────
+  // (v1.0.960) ครบทุกช่องเรียงเหมือน Sheet (65 ช่อง) — เดิมหน้ารายละเอียดไม่มีช่องใหม่ 30 ช่อง (จองDMS, Allocate, ชุดขาย ...)
+  // เปิด/ปิดหัวข้อนี้ จำไว้ในเครื่อง · ช่องว่างแสดงจางๆ ให้รู้ว่าใน Sheet ยังไม่ได้กรอก
+  if (!window.__bkSheetToggle) {
+    window.__bkSheetToggle = true
+    document.addEventListener('toggle', e => {
+      if (e.target?.classList?.contains('bk-sheet-all')) { try { localStorage.setItem('bk-detail-sheet', e.target.open ? '1' : '0') } catch {} }
+    }, true)
+  }
+  function sheetAllFields(b) {
+    let open = true
+    try { open = localStorage.getItem('bk-detail-sheet') !== '0' } catch {}
+    const list = sheetFieldList(b, { canViewNid })
+    const filled = list.filter(x => x.v).length
+    return `<details class="bk-sheet-all" ${open ? 'open' : ''} style="margin:8px 0 4px;border:1px solid var(--border);border-radius:10px;padding:6px 10px">
+      <summary style="cursor:pointer;font-weight:700;font-size:0.78rem;color:var(--primary)">📊 ครบทุกช่องเหมือน Sheet <span style="font-weight:400;color:var(--text-muted)">(มีข้อมูล ${filled}/${list.length} ช่อง)</span></summary>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,230px),1fr));gap:0 14px;margin-top:6px">${list.map(x => dRow(escHtml(x.h), x.v || '-')).join('')}</div>
+    </details>`
+  }
+
   function openDetail(b) {
     if (!b) return
     const isCash = b.finStatus === 'ซื้อสด'
@@ -1278,6 +1312,7 @@ export default async function BookingsPage(container) {
           '<span style="font-size:1.25rem;font-weight:800;color:var(--accent)">' + formatCurrency(b.price) + '</span>' +
         '</div>' +
         ((n) => n ? '<div style="margin:6px 0 4px;padding:8px 10px;border-radius:10px;font-size:0.8rem;line-height:1.5;background:color-mix(in srgb, var(--' + (n.tone === 'info' ? 'primary' : n.tone) + ') 12%, transparent);border-left:3px solid var(--' + (n.tone === 'info' ? 'primary' : n.tone) + ')">🧭 <b>ขั้นต่อไป:</b> ' + escHtml(n.text) + ((a) => a && (a.key !== 'finance' || !isCash) ? '<div style="margin-top:6px"><button class="btn btn-primary btn-sm" id="bk-next-act" data-act="' + a.key + '">' + escHtml(a.label) + '</button></div>' : '')(bookingNextAction(b, todayBangkok())) + '</div>' : '')(bookingNextStep(b, todayBangkok())) +
+        sheetAllFields(b) +
         sec('👤 ลูกค้า') +
         dRow('ชื่อ', b.custName || '-') + (canViewNid ? dRow('เลขบัตร ปชช.', b.nid || '-') : '') + dRow('โทร', b.phone || '-') + dRow('ที่อยู่', (b.address || '-') + ' ' + (b.province || '')) + dRow('แหล่งที่มา', b.source || '-') +
         sec('🚗 รถ') +

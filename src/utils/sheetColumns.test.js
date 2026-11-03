@@ -84,3 +84,18 @@ describe('วางจาก Sheet', () => {
     expect(out[0]['ราคารถ']).toBe(5)
   })
 })
+
+import { sheetFieldList, sheetYesChips } from './sheetColumns.js'
+describe('sheetFieldList / sheetYesChips', () => {
+  const b = { bookingNo: 'T1', price: 1000000, nid: '1101700203451', dmsBooked: 'Y', allocated: 'N', salesKit: 'y' }
+  it('lists every Sheet column in order, hiding national ID without permission', () => {
+    const all = sheetFieldList(b, { canViewNid: true })
+    expect(all.length).toBe(SHEET_COLUMNS.length)
+    expect(all[0]).toEqual({ h: 'เลขใบจอง', v: 'T1' })
+    expect(all.find(x => x.h === 'ราคารถ').v).toBe('1,000,000')
+    expect(sheetFieldList(b).some(x => x.h === 'เลขประจำตัวประชาชน')).toBe(false)
+  })
+  it('chips only Y columns', () => {
+    expect(sheetYesChips(b)).toEqual(['จองDMS', 'ชุดขาย'])
+  })
+})
