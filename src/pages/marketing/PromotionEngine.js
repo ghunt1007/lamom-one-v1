@@ -113,7 +113,7 @@ export default async function PromotionEnginePage(container) {
         '<div class="page-header"><div>' +
           '<div class="page-title">🎪 กิจกรรมส่งเสริมการขาย</div>' +
           '<div class="page-subtitle">จัดการโปรโมชั่น วิเคราะห์ ROI งบประมาณ และคาดการณ์แคมเปญ' +
-            (dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ' <span style="color:var(--text-muted);font-size:0.75rem">Demo (ยังไม่มีข้อมูลจริง)</span>') +
+            (dataSource === 'live' ? ' <span style="color:var(--success);font-size:0.75rem">● ข้อมูลจริง</span>' : ' <span style="color:var(--text-muted);font-size:0.75rem">ยังไม่มีข้อมูล</span>') +
           '</div>' +
         '</div><div class="page-actions">' +
           '<button class="btn btn-secondary" id="pe-export">📥 ส่งออก</button>' +
