@@ -9,6 +9,7 @@ import { companyScopeFilters } from '../../core/companyScope.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { loadSalesBudget } from '../../utils/salesBudget.js'
 
 const DEFAULT_TARGET = 0 // ยังไม่ตั้งเป้า = 0 (เดิม 10 ล้านสมมติ)
 
@@ -83,7 +84,7 @@ export default async function DailyReportPage(container) {
   try {
     const [sales, budgetDocs, jobs, walkins, testdrives, appts] = await Promise.all([
       getSalesData().catch(() => []),
-      listDocs('sales_budgets', [['year', '==', new Date().getFullYear()], ...companyScopeFilters()], 'createdAt', 'asc', 1).catch(() => []),
+      loadSalesBudget(new Date().getFullYear()),
       listDocs('job_cards', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
       listDocs('walk_ins', [], 'visitTime', 'desc', 500).catch(() => []),
       listDocs('test_drive_records', [], 'date', 'desc', 500).catch(() => []),
@@ -91,7 +92,7 @@ export default async function DailyReportPage(container) {
     ])
     if (container.__routerGen !== myGen) return
     allSales = sales; dataSource = 'live' // ไม่มียอดก็แสดง 0 (เดิมโชว์ตัวเลข/ชื่อเซลส์ตัวอย่าง)
-    if (budgetDocs.length > 0) _monthlyTargets = budgetDocs[0].targets || null
+    _monthlyTargets = budgetDocs.targets
     // softDelete() ไม่ลบเอกสารจริง แค่ตั้ง deleted:true — กรองออกกันงานซ่อมที่ลบไปแล้วปนในรายงาน
     allJobs = jobs.filter(x => !x.deleted)
     allWalkIns = walkins

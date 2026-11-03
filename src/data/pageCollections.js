@@ -342,8 +342,7 @@ export const PAGE_COLLECTIONS = {
   "customers"
  ],
  "/analytics/forecast": [
-  "customers",
-  "sales_budgets"
+  "customers"
  ],
  "/finance/tax": [
   "invoices",
