@@ -27,7 +27,7 @@ import { escHtml as __escA } from '../../utils/escape.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
 import { copyText } from '../../utils/copyText.js'
 import { escHtml } from '../../utils/escape.js'
-import { SHEET_COLUMNS, patchForCell } from '../../utils/sheetColumns.js'
+import { SHEET_COLUMNS, patchForCell, sheetExportRows } from '../../utils/sheetColumns.js'
 import { renderSheetGrid } from './bookingSheetGrid.js'
 
 // ── แบรนด์หลักที่ตัวแทนขาย (ตาม LAMOM V8 — S.K. Bangbuathong) ──────────────
@@ -597,13 +597,20 @@ export default async function BookingsPage(container) {
     document.getElementById('bk-date-to').addEventListener('change', ev => { dateTo = ev.target.value; render() })
     document.getElementById('bk-refresh').addEventListener('click', () => loadData())
     document.getElementById('bk-eod').addEventListener('click', () => openEodSummary())
-    document.getElementById('bk-export').addEventListener('click', () => exportRows(filtered, 'bookings'))
+    document.getElementById('bk-export').addEventListener('click', () => viewMode === 'sheet' ? exportSheet(filtered) : exportRows(filtered, 'bookings'))
     document.getElementById('bk-bulk-export')?.addEventListener('click', () => exportRows(bookings.filter(b => selectedIds.has(b.id)), 'bookings-selected'))
     document.getElementById('bk-bulk-clear')?.addEventListener('click', () => { selectedIds.clear(); render() })
     container.querySelectorAll('.bk-status-chip').forEach(chip => chip.addEventListener('click', () => { statusFilter = chip.dataset.s; actionOnly = false; render() }))
     container.querySelector('.bk-action-chip')?.addEventListener('click', () => { actionOnly = !actionOnly; statusFilter = ''; render() })
     document.getElementById('bk-noincome-chip')?.addEventListener('click', () => { noIncomeOnly = !noIncomeOnly; render() })
     container.querySelectorAll('.bk-brand-card').forEach(card => card.addEventListener('click', () => { brandFilter = card.dataset.br; render() }))
+  }
+
+  // (v1.0.955) มุมมองแบบ Sheet: ส่งออกครบทุกคอลัมน์ หัวคอลัมน์/ลำดับเหมือนไฟล์ DATA Booking
+  function exportSheet(rows) {
+    const cols = SHEET_COLUMNS.filter(c => c.t !== 'nid' || canViewNid)
+    exportToExcel(sheetExportRows(rows, cols), 'DATA-Booking-' + todayBangkok() + '.xlsx', 'Booking')
+    showToast(`📥 ส่งออก ${rows.length} แถว ครบ ${cols.length} คอลัมน์แล้ว`, 'success')
   }
 
   function exportRows(rows, fileTag) {
@@ -776,9 +783,19 @@ export default async function BookingsPage(container) {
   }
 
   // เปลี่ยนสถานะ 1 ใบ (ใช้ทั้งป็อปอัพสถานะและตารางแบบ Sheet) — เติมวันที่ อัปเดตลูกค้า/สต็อก/นัดหลังการขายให้ครบ
-  async function applyStatusChange(b, newStatus) {
+  async function applyStatusChange(b, newStatus, { quiet = false } = {}) {
     if (!b || newStatus === b.status) return
-    if (newStatus === 'ถอนจอง') { openWithdrawModal(b); return }
+    if (newStatus === 'ถอนจอง') { if (!quiet) openWithdrawModal(b); return }
+    if (quiet) {
+      // ใช้ตอนวางหลายช่อง: บันทึกครบเหมือนเดิม แต่ไม่เด้งถามรายได้/แจ้งลูกค้าทีละใบ (error ส่งต่อให้คนเรียกนับ)
+      const datePatch = statusDatePatch(b, newStatus, todayBangkok())
+      await updateDocData('bookings', b.id, { status: newStatus, ...datePatch, updatedAt: new Date().toISOString() })
+      b.status = newStatus
+      Object.assign(b, datePatch)
+      if (newStatus === 'ส่งมอบแล้ว') { await maybeMarkCustomerDelivered(b); await scheduleAfterSales(b) }
+      await syncStockForBookings([b])
+      return
+    }
     try {
       const datePatch = statusDatePatch(b, newStatus, todayBangkok())
       await updateDocData('bookings', b.id, { status: newStatus, ...datePatch, updatedAt: new Date().toISOString() })
@@ -823,6 +840,7 @@ export default async function BookingsPage(container) {
       onCancelDraft: () => { sheetDraft = null; render() },
       onStatus: (b, s) => applyStatusChange(b, s),
       onSave: saveSheetCell,
+      onPasteMany: pasteSheetCells,
       onCreate: createFromSheet,
     })
   }
@@ -838,6 +856,32 @@ export default async function BookingsPage(container) {
     Object.assign(b, patch)
     if (['vin', 'model', 'colorOut'].includes(col.f)) syncStockForBookings([b]).catch(() => {})
     return patch
+  }
+
+  // วางหลายช่องจาก Sheet: ถามยืนยันครั้งเดียว แล้วบันทึกทีละช่อง (สถานะใช้ขั้นตอนเดียวกับการเปลี่ยนสถานะปกติ)
+  async function pasteSheetCells(changes, badCount, lineCount) {
+    if (!changes.length) { showToast(badCount ? `ข้อมูลที่วาง ${badCount} ช่องไม่ใช่ตัวเลข/วันที่ — ไม่ได้บันทึก` : 'ข้อมูลที่วางตรงกับของเดิมอยู่แล้ว', 'info'); return }
+    const rowsTouched = new Set(changes.map(c => c.b.id)).size
+    const withdraw = changes.filter(c => c.col.f === 'status' && c.value === 'ถอนจอง')
+    const ok = await confirmDialog({
+      title: '📋 วางข้อมูลจาก Sheet',
+      message: `จะแก้ ${changes.length} ช่อง ใน ${rowsTouched} แถว (วางมา ${lineCount} บรรทัด)` +
+        (badCount ? `<br>ข้าม ${badCount} ช่องที่ไม่ใช่ตัวเลข/วันที่` : '') +
+        (withdraw.length ? `<br>สถานะ "ถอนจอง" ${withdraw.length} แถว ต้องทำทีละใบผ่านป็อปอัพถอนจอง — จะข้ามไว้ก่อน` : ''),
+      confirmText: 'วางเลย',
+    })
+    if (!ok) return
+    let saved = 0, failed = 0
+    for (const ch of changes) {
+      if (ch.col.f === 'status' && ch.value === 'ถอนจอง') continue
+      try {
+        if (ch.col.f === 'status') await applyStatusChange(ch.b, ch.value, { quiet: true })
+        else await saveSheetCell(ch.b, ch.col, ch.value)
+        saved++
+      } catch { failed++ }
+    }
+    showToast(`✅ วางแล้ว ${saved} ช่อง${failed ? ` · ไม่สำเร็จ ${failed}` : ''}`, failed ? 'warning' : 'success')
+    render()
   }
 
   async function createFromSheet(draft) {

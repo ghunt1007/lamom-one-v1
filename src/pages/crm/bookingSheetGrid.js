@@ -12,7 +12,7 @@
 //
 // หน้าเพจ (Bookings.js) เป็นคนบันทึกจริงผ่าน ctx.onSave / onStatus / onCreate — ไฟล์นี้ดูแลแค่หน้าตาและคีย์บอร์ด
 
-import { SHEET_COLUMNS, YN_OPTIONS, colWidth, parseCell, displayCell, columnTotals, sortRows } from '../../utils/sheetColumns.js'
+import { SHEET_COLUMNS, YN_OPTIONS, colWidth, parseCell, displayCell, columnTotals, sortRows, parseClipboardGrid, planPaste } from '../../utils/sheetColumns.js'
 import { escHtml } from '../../utils/escape.js'
 import { showToast } from '../../core/store.js'
 
@@ -98,7 +98,7 @@ export function renderSheetGrid(wrap, ctx) {
     <div class="sg-bar">
       <button class="btn btn-primary btn-sm" id="sg-add">➕ เพิ่มแถว</button>
       <button class="btn btn-ghost btn-sm" id="sg-empty" title="${emptyCols.length} คอลัมน์ไม่มีข้อมูลเลย">${ctx.hideEmpty ? '👁 โชว์ทุกคอลัมน์' : `🙈 ซ่อนคอลัมน์ว่าง (${emptyCols.length})`}</button>
-      <span class="sg-hint">แตะช่องเพื่อแก้ · Enter = ลงล่าง · Tab = ไปขวา · Esc = ยกเลิก · กด # เพื่อดูใบจองเต็ม</span>
+      <span class="sg-hint">แตะช่องเพื่อแก้ · Enter/↓ = ลงล่าง · Tab = ไปขวา · Esc = ยกเลิก · วางหลายช่องจาก Sheet ได้ (Ctrl+V) · กด # เพื่อดูใบจองเต็ม</span>
     </div>
     <div class="sg-wrap"><table class="sg-table" data-no-enhance="1" style="width:${tableW}px">
       <colgroup><col style="width:${ROWNUM_W}px">${cols.map(c => `<col style="width:${colWidth(c)}px">`).join('')}</colgroup>
@@ -216,6 +216,24 @@ export function renderSheetGrid(wrap, ctx) {
       if (e.key === 'Enter') { e.preventDefault(); finish(true, e.shiftKey ? [-1, 0] : [1, 0]) }
       else if (e.key === 'Tab') { e.preventDefault(); finish(true, e.shiftKey ? [0, -1] : [0, 1]) }
       else if (e.key === 'Escape') { e.preventDefault(); finish(false) }
+      // ลูกศรขึ้น/ลง = ย้ายแถวเหมือน Sheet (ช่องวันที่/ตัวเลือกใช้ลูกศรเปลี่ยนค่า จึงไม่ย้าย)
+      else if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && editor.tagName === 'INPUT' && editor.type === 'text' && c.t !== 'list') {
+        e.preventDefault(); finish(true, e.key === 'ArrowDown' ? [1, 0] : [-1, 0])
+      }
+    })
+    // วางข้อมูลที่คัดลอกจาก Google Sheet/Excel หลายช่อง → กระจายลงช่องข้างๆ/แถวถัดไปเหมือนวางใน Sheet
+    editor.addEventListener('paste', e => {
+      const text = e.clipboardData?.getData('text/plain') || ''
+      const grid = parseClipboardGrid(text)
+      if (grid.length <= 1 && (grid[0] || []).length <= 1) return // ช่องเดียว = วางปกติ
+      e.preventDefault()
+      if (r.__draft) { showToast('พิมพ์ชื่อลูกค้าในแถวใหม่ก่อน แล้วค่อยวางหลายช่อง', 'info'); return }
+      done = true
+      td.classList.remove('sg-ed')
+      td.innerHTML = cellInner(r, c, ctx)
+      const realRows = all.map(x => (x.__draft ? null : x))
+      const plan = planPaste(grid, realRows, cols, i, j)
+      ctx.onPasteMany(plan.changes.map(ch => ({ b: realRows[ch.row], col: ch.col, value: ch.value })), plan.bad.length, grid.length)
     })
     if (editor.tagName === 'SELECT') editor.addEventListener('change', () => finish(true))
     editor.addEventListener('blur', () => setTimeout(() => finish(true), 0))
