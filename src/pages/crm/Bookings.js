@@ -330,6 +330,7 @@ export default async function BookingsPage(container) {
   let sheetSort = { f: '', dir: 1 }
   let sheetHideEmpty = false
   let sheetDraft = null
+  const gridInstance = Math.random().toString(36).slice(2) // ตารางที่เก็บไว้ใช้ได้เฉพาะหน้านี้รอบนี้
   function setView(v) { viewMode = v; try { localStorage.setItem('bk-view', v) } catch {} ; render() }
 
   async function loadData() {
@@ -814,6 +815,7 @@ export default async function BookingsPage(container) {
   // ── ตารางแบบ Sheet ───────────────────────────────────────────────────────
   function renderSheet(wrap, filtered) {
     renderSheetGrid(wrap, {
+      instance: gridInstance,
       rows: filtered,
       draft: sheetDraft,
       get focusDraft() { return sheetDraft?.__focus },
