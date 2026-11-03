@@ -222,12 +222,26 @@ export function pageHasOwnSearch(table) {
   })
 }
 
+// (v1.0.956) ป้ายบอกว่าตารางนี้ "คอลัมน์เยอะ" ให้ CSS ลดช่องไฟ (layout.css → table[data-cols])
+// แทน selector table:has(> thead > tr > th:nth-child(N)) เดิม ที่ทำให้ตารางใหญ่ค้างเกือบ 1 นาที
+// นับช่องในแถวหัวตารางที่ยาวที่สุด (ตรงกับ selector เดิม) · 10–11 คอลัมน์ = "10" · 12 = "12" · 13 ขึ้นไป = "13"
+export function wideColsTag(n) {
+  return n >= 13 ? '13' : n >= 12 ? '12' : n >= 10 ? '10' : ''
+}
+export function markWideTable(table) {
+  const rows = table?.querySelectorAll?.(':scope > thead > tr') || []
+  const tag = wideColsTag(Math.max(0, ...[...rows].map(r => r.children.length)))
+  if (tag) { if (table.dataset.cols !== tag) table.dataset.cols = tag }
+  else if (table?.dataset?.cols) delete table.dataset.cols
+}
+
 // เสริมตารางที่มีอยู่แล้วทั้งหมดในโหนด
 function enhanceAllIn(root) {
   if (!root) return
   const tables = root.matches?.('table') ? [root] : [...(root.querySelectorAll?.('table') || [])]
   tables.forEach(t => {
     if (t.closest('#__lamom_print_frame')) return
+    try { markWideTable(t) } catch (e) {}
     if (t.closest('.ai-tbl')) return // ตารางในคำตอบ AI สั้นอยู่แล้ว ไม่ต้องมีปุ่มกรอง
     try { enhanceTable(t) } catch (e) {}
   })

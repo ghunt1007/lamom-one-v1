@@ -410,7 +410,7 @@
 }
 
 /* ── Responsive ── */
-@media (max-width: 768px) {
+@media (max-width: 768px), (max-height: 500px) and (pointer: coarse) {
   .sidebar {
     transform: translateX(-100%);
     transition: transform var(--transition), width var(--transition);
@@ -428,7 +428,7 @@
 /* ── Mobile bottom nav (BottomNav.js) ── */
 .bottom-nav { display: none; }
 .topbar-search-btn { display: none; }
-@media (max-width: 768px) {
+@media (max-width: 768px), (max-height: 500px) and (pointer: coarse) {
   :root { --bottom-nav-h: calc(64px + env(safe-area-inset-bottom, 0px)); }
   .bottom-nav {
     display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 97;
@@ -461,7 +461,7 @@
 }
 
 /* Dashboard: สรุปของ LAMI บนมือถือ — ปุ่มลงไปอยู่บรรทัดล่าง ข้อความได้เต็มความกว้าง */
-@media (max-width: 640px) {
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
   .dash-briefing { flex-wrap: wrap; }
   .dash-briefing-actions { flex-direction: row !important; width: 100%; justify-content: flex-end; }
 }
@@ -479,7 +479,7 @@
 }
 
 /* หน้าลูกค้าบนมือถือ: ตัวกรอง 4 ช่องเรียง 2 ช่องต่อแถว (เดิมช่องละบรรทัด กินครึ่งจอ) */
-@media (max-width: 640px) {
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
   .cust-filters { gap: 8px !important; }
   .card:has(> .cust-filters) { padding: 12px !important; }
   .cust-filters > div:first-child { flex-basis: 100% !important; }
@@ -488,18 +488,18 @@
 /* ตัวกรองใบจอง (มือถือ+แท็บเล็ต): เซลล์/แบรนด์ครึ่งๆ ช่องค้นหาเต็มแถว วันที่ "จาก ถึง" อยู่แถวเดียว (เดิมแท็บเล็ตวันที่ถึงหล่นไปแถวใหม่คนเดียว) */
 @media (max-width: 900px) {
   .bk-filters > select { flex: 1 1 calc(50% - 3px); min-width: 0; width: auto !important; }
-  .bk-filters > div { flex-basis: 100% !important; }
+  .bk-filters > div:not(.bk-view-toggle) { flex-basis: 100% !important; }
   .bk-filters > .bk-dates { flex-basis: 100%; min-width: 0; }
   .bk-dates > input[type="date"] { flex: 1 1 0; min-width: 0; width: auto !important; padding-left: 6px; padding-right: 4px; }
 }
 .bk-date-toggle { display: none; }
 /* มือถือ: ยังไม่ได้เลือกวัน → ซ่อนแถววันที่ เหลือปุ่ม 📅 ท้ายแถวเซลล์/แบรนด์ */
-@media (max-width: 640px) {
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
   .bk-nodate > .bk-dates { display: none !important; }
   .bk-nodate > select { flex: 1 1 0; }
   .bk-nodate > .bk-date-toggle { display: inline-flex; flex: 0 0 auto; min-width: 40px; min-height: 38px; align-items: center; justify-content: center; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius-sm, 8px); background: var(--surface); }
 }
-@media (max-width: 640px) {
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
   .cust-row-avatar { display: none !important; }
 }
 
@@ -529,14 +529,14 @@
   .cust-table .cc-act .btn { padding: 2px 6px; }
 }
 /* แท็บเล็ต (641–1180px รวม iPad แนวนอน): การ์ดลูกค้า/ใบจองเรียง 2 ใบต่อแถว ใช้พื้นที่จอคุ้มขึ้น */
-@media (min-width: 641px) and (max-width: 1180px) {
+@media (min-width: 641px) and (max-width: 1180px) and (min-height: 501px), (min-width: 641px) and (max-width: 1180px) and (pointer: fine) {
   .cust-table tbody { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .cust-table tr.cust-row { margin-bottom: 0; }
   .bk-cards { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 /* มือถือ: ตัวเลขสถานะลูกค้าเรียงตามความกว้างจอ (auto-fit) การ์ดเตี้ยลง ไม่กินจอ */
-@media (max-width: 640px) {
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
   .cust-stats { gap: 6px !important; }
   .cust-stats .stat-pill { padding: 8px 4px !important; }
   .cust-stats .stat-pill > div:first-child { font-size: 0.66rem !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -545,7 +545,7 @@
 /* (v1.0.914) มือถือ: ตัวเลขสถานะ = แถวเดียวเลื่อนข้าง (เดิม 2 แถวสูง ~150px) · ตัวกรองซ่อนหลังปุ่ม ⚙️
    → ช่องค้นหาและรายชื่อลูกค้าคนแรกขึ้นมาอยู่ในจอแรกโดยไม่ต้องเลื่อน */
 .cust-ftoggle { display: none; }
-@media (max-width: 640px) {
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
   .cust-stats { display: flex !important; overflow-x: auto; scrollbar-width: none; margin-bottom: 10px !important; padding-bottom: 2px; }
   .cust-stats::-webkit-scrollbar { display: none; }
   .cust-stats .stat-pill { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; padding: 6px 12px !important; border-radius: 999px; }
@@ -558,13 +558,13 @@
 }
 
 /* แดชบอร์ด: วงแหวน 4 วงเรียง 2x2 บนแท็บเล็ต (ไม่เหลือวงเดียวโดดในแถวล่าง) */
-@media (min-width: 641px) and (max-width: 1100px) {
+@media (min-width: 641px) and (max-width: 1100px) and (min-height: 501px), (min-width: 641px) and (max-width: 1100px) and (pointer: fine) {
   #ring-gauges { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
 }
 
 /* หน้าแบบ "รายการซ้าย + แชตขวา" (AI Officers, Communication Hub) บนมือถือ:
    ย้ายรายการขึ้นไปไว้ด้านบน ให้ช่องแชตได้ความกว้างเต็มจอ ตัวหนังสือไม่ถูกบีบเป็นแนวตั้ง */
-@media (max-width: 640px) {
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
   .split-pane { flex-direction: column; }
   .split-side { width: 100% !important; max-height: 32vh; border-right: 0 !important; border-bottom: 1px solid var(--border); overflow-y: auto; flex-shrink: 0; }
   .split-side > div:first-child { display: none; }
@@ -580,7 +580,7 @@
 
 /* มือถือ: ตารางที่ติด class tbl-cards แสดงเป็นการ์ดทีละแถว (ช่องแรก = หัวการ์ดเต็มบรรทัด ปุ่มช่องสุดท้ายชิดขวา)
    แทนตารางที่ต้องเลื่อนข้างและตัวหนังสือถูกบีบ */
-@media (max-width: 640px) {
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
   .tbl-cards-wrap { border: none !important; background: transparent !important; box-shadow: none !important; overflow: visible !important; }
   .tbl-cards-wrap > .table-wrap { overflow: visible; border: none; }
   table.tbl-cards, table.tbl-cards tbody { display: block; width: 100%; min-width: 0 !important; }
@@ -610,14 +610,14 @@
 
 /* ปุ่มรองบนหัวหน้า: คอมโชว์ครบ · มือถือซ่อนไว้ใต้ปุ่ม ⋯ อื่นๆ */
 .pa-more-btn { display: none; }
-@media (max-width: 640px) {
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
   .pa-more-btn { display: inline-flex; }
   .page-actions:not(.pa-open) .pa-more { display: none; }
 }
 
 /* มือถือ: หน้าต่างที่มีปุ่มด้านล่างเยอะ (≥5 ปุ่ม เช่น รายละเอียดใบจอง) ปุ่มกินพื้นที่จนเหลือที่อ่านนิดเดียว
    → ให้ทั้งหน้าต่างเลื่อนลงไปถึงปุ่มแทน หัวหน้าต่าง (ชื่อ + ✕) ค้างไว้ด้านบนเสมอ */
-@media (max-width: 640px) {
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
   .modal:has(> .modal-footer > :nth-child(5)) { overflow-y: auto; }
   .modal:has(> .modal-footer > :nth-child(5)) > .modal-body { overflow: visible; flex: none; }
   .modal:has(> .modal-footer > :nth-child(5)) > .modal-header { position: sticky; top: 0; z-index: 2; background: var(--surface); }
@@ -626,7 +626,7 @@
 
 /* รายละเอียดใบจอง: แถวที่ยังไม่มีข้อมูลจางลง ข้อมูลจริงเด่นขึ้น */
 .d-row.d-empty { opacity: 0.45; }
-@media (max-width: 640px) { .d-row.d-empty { font-size: 0.76rem !important; line-height: 1.5; } }
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) { .d-row.d-empty { font-size: 0.76rem !important; line-height: 1.5; } }
 
 /* ตารางในคำตอบ LAMI: เลื่อนข้างได้ในกรอบ ไม่ดันจอ */
 .ai-tbl { overflow-x: auto; margin: 6px 0; max-width: 100%; }
@@ -636,7 +636,7 @@
 
 /* ข้อความที่โชว์เฉพาะจอใหญ่/จอเล็ก */
 .show-sm { display: none; }
-@media (max-width: 640px) {
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
   .hide-sm { display: none !important; }
   .show-sm { display: inline; }
   .lami-head { flex-wrap: nowrap !important; align-items: center; }
@@ -644,16 +644,16 @@
 }
 
 /* มือถือ: การ์ด Follow-up — วันที่และปุ่มลงไปเป็นแถวล่างเต็มกว้าง ไม่เบียดชื่อลูกค้า */
-@media (max-width: 640px) {
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
   .fu-main { flex: 1 1 100% !important; }
   .fu-side { flex-direction: row !important; width: 100%; justify-content: space-between; align-items: center !important; }
 }
 
 /* หน้าแรกบนมือถือ: แถบ SYSTEM ONLINE + นาฬิกาเป็นของตกแต่ง กินพื้นที่ครึ่งจอแรก → ซ่อนบนจอเล็ก (ตัวเลขเดียวกันอยู่ในการ์ดด้านล่างแล้ว) */
 /* มือถือ: หน้าแรกเหลือเฉพาะที่ใช้ตัดสินใจ — เรดาร์ซ้ำกับ "เรื่องที่ต้องจัดการ", Quick Access ซ้ำกับเมนู/แถบล่าง */
-@media (max-width: 640px) { .dash-status-strip, .dash-radar, .dash-quick, .crm-quick { display: none !important; } }
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) { .dash-status-strip, .dash-radar, .dash-quick, .crm-quick { display: none !important; } }
 /* ลายน้ำของธีมมุมขวาล่าง บนมือถือโผล่เป็นวงกลมครึ่งๆ ข้างแถบเมนูล่าง ดูเหมือนปุ่มที่กดไม่ได้ → ซ่อนบนจอเล็ก */
-@media (max-width: 640px) { body::after { display: none; } }
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) { body::after { display: none; } }
 
 /* ── แผง LAMI ช่วยเรื่องหน้านี้ (utils/lamiPanel.js) — คอม: แผงขวา · มือถือ: แผ่นจากล่าง ── */
 .lami-panel-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 1090; opacity: 0; transition: opacity .2s; }
@@ -685,13 +685,13 @@
 .lp-foot { display: flex; gap: 8px; padding: 10px 16px 6px; border-top: 1px solid var(--border); }
 .lp-foot .input { flex: 1; min-width: 0; font-size: 16px; }
 .lp-full { margin: 0 16px 14px; padding: 8px; background: none; border: none; color: var(--primary); font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; text-align: center; }
-@media (max-width: 640px) {
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
   .lami-panel { top: auto; left: 0; width: 100vw; height: min(78vh, 620px); border-left: none; border-top: 1px solid var(--border); border-radius: 18px 18px 0 0; transform: translateY(105%); box-shadow: 0 -12px 40px rgba(0,0,0,0.35); padding-bottom: env(safe-area-inset-bottom); }
 }
 
 /* มือถือ: ข้อความ "ไม่พบข้อมูล" ในตารางกว้าง (td colspan) เดิมจัดกลางตามความกว้างตาราง → ตกขอบจอ อ่านไม่ครบ
    ให้ติดซ้ายและกว้างเท่าจอที่เห็น ข้อความอยู่กลางจอเสมอแม้ตารางจะเลื่อนข้างได้ */
-@media (max-width: 640px) {
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
   .table-wrap tbody td[colspan] { text-align: left !important; }
   .table-wrap tbody td[colspan] > * { position: sticky; left: 0; max-width: calc(100vw - 72px); margin-inline: 0; }
   .table-wrap tbody td[colspan]:not(:has(> *)) { padding-left: 16px !important; }
@@ -703,7 +703,7 @@
 /* ตารางกะ 7 วัน: มือถือเลื่อนซ้าย-ขวาได้ ช่องวันไม่บีบจนตัวหนังสือเรียงทีละตัว */
 .shift-grid { display: grid; grid-template-columns: 180px repeat(7, minmax(52px, 1fr)); }
 .shift-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-@media (max-width: 640px) {
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
   .shift-inner { min-width: 480px; }
   .shift-grid { grid-template-columns: 96px repeat(7, minmax(52px, 1fr)); }
 }
@@ -714,13 +714,13 @@
 /* งานของฉันวันนี้: แถบปุ่มกระโดดไปแต่ละหมวด (มือถือติดใต้แถบบนตอนเลื่อน) */
 .md-jump { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
 .md-sec { scroll-margin-top: calc(var(--topbar-height, 56px) + 56px); }
-@media (max-width: 640px) {
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
   .md-jump { position: sticky; top: var(--topbar-height, 56px); z-index: 5; margin: 0 -12px 12px; padding: 8px 12px; background: var(--bg, var(--surface)); border-bottom: 1px solid var(--border); overflow-x: auto; }
 }
 
 /* แถวปุ่มกรองบนมือถือ: เลื่อนซ้าย-ขวาแถวเดียว แทนการตัดลงบรรทัดละปุ่ม (หน้ายาวและดูรก)
    ใส่ overflow-x ใน style ด้วย ไม่งั้นกฎ "flex ทุกอันต้อง wrap บนมือถือ" ใน base.css จะชนะ */
-@media (max-width: 640px) {
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
   .chip-scroll { flex-wrap: nowrap !important; overflow-x: auto; max-width: 100%; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
   .chip-scroll::-webkit-scrollbar { display: none; }
   .chip-scroll > * { flex-shrink: 0; }
@@ -738,11 +738,11 @@
 .modal-body > .input-group + .input-group, .modal-body > .input-group + div:not([class]) > .input-group:first-child { margin-top: 12px; }
 
 /* มือถือ: ตารางที่ยังไม่มีข้อมูล (มีแถวเดียวเป็นข้อความ "ไม่พบ...") ไม่ต้องโชว์หัวตารางที่ล้นจอเลื่อนข้าง */
-@media (max-width: 640px) {
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
   table:has(> tbody > tr:only-child > td[colspan]:only-child) > thead { display: none; }
 }
 /* มือถือ: ตารางที่แสดงเป็นการ์ด (ซ่อนหัวตาราง) กดปุ่ม "ตัวกรองคอลัมน์" แล้วไม่มีอะไรขึ้น เพราะช่องกรองอยู่ในหัวตาราง → ซ่อนปุ่ม */
-@media (max-width: 640px) {
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
   .tt-toolbar:has(+ table.tbl-cards, + table.cust-table) .tt-btn { display: none; }
   .tt-toolbar:has(+ table.tbl-cards, + table.cust-table):not(:has(.tt-search)) { display: none; }
 }
@@ -751,16 +751,16 @@
   .tt-toolbar:has(+ table.cust-table) .tt-btn { display: none; }
 }
 /* ทีมวันนี้ (งานของฉันวันนี้): ตัวเลขด้านขวากว้างเท่ากันทุกแถว แถบงานค้างจึงยาวเทียบกันได้จริง */
-@media (min-width: 641px) { .md-who-stats { flex: 0 0 330px; text-align: right; overflow: hidden; text-overflow: ellipsis; } }
+@media (min-width: 641px) and (min-height: 501px), (min-width: 641px) and (pointer: fine) { .md-who-stats { flex: 0 0 330px; text-align: right; overflow: hidden; text-overflow: ellipsis; } }
 
 /* เดสก์ท็อป: ตัวกรองหน้าลูกค้ากว้างเท่ากันทุกช่อง อยู่แถวเดียวกับช่องค้นหา (เดิมช่อง "นัด" กว้างตามตัวเลือกยาวสุดจนตกไปอยู่แถวใหม่คนเดียว) */
-@media (min-width: 641px) {
+@media (min-width: 641px) and (min-height: 501px), (min-width: 641px) and (pointer: fine) {
   .cust-filters > select { flex: 1 1 130px; width: auto !important; min-width: 0 !important; max-width: 200px; }
   .cust-filters > div:first-child { flex: 3 1 240px !important; }
   .cust-table th, .cust-table td { padding-left: 10px; padding-right: 10px; }
   .cust-table .cc-model, .cust-table .cc-age { white-space: nowrap; }
 }
-@media (min-width: 641px) and (max-width: 1099px) {
+@media (min-width: 641px) and (max-width: 1099px) and (min-height: 501px), (min-width: 641px) and (max-width: 1099px) and (pointer: fine) {
   .cust-filters > div:first-child { flex-basis: 100% !important; }
   .cust-filters > select { max-width: none; }
 }
@@ -773,15 +773,18 @@
   .bk-table th:nth-child(9), .bk-table td:nth-child(9) { display: none; }
 }
 
-/* ตารางคอลัมน์เยอะ (10+) บนจอคอม: ลดช่องไฟให้พอดีจอ 1280 ไม่ต้องเลื่อนขวา (หน้าการเงิน: มาร์จิ้น, GP/FOC, เงินเดือน) */
-@media (min-width: 641px) {
-  table:has(> thead > tr > th:nth-child(10)) th, table:has(> thead > tr > th:nth-child(10)) td { padding-left: 8px; padding-right: 8px; }
-  table:has(> thead > tr > th:nth-child(12)) td { font-size: 0.8rem; }
-  table:has(> thead > tr > th:nth-child(13)) th, table:has(> thead > tr > th:nth-child(13)) td { padding-left: 6px; padding-right: 6px; }
+/* ตารางคอลัมน์เยอะ (10+) บนจอคอม: ลดช่องไฟให้พอดีจอ 1280 ไม่ต้องเลื่อนขวา (หน้าการเงิน: มาร์จิ้น, GP/FOC, เงินเดือน)
+   (v1.0.956) เดิมเขียนเป็น table:has(> thead > tr > th:nth-child(10)) td — ทุกช่องในตารางต้องย้อนไปนับหัวตารางใหม่
+   ทุกครั้งที่หน้าวาด ตารางใหญ่ (ใบจอง 300 แถว × 65 คอลัมน์) ทำให้เบราว์เซอร์ค้างเกือบ 1 นาที
+   ตอนนี้ utils/tableTools.js นับคอลัมน์ครั้งเดียวแล้วติดป้าย data-cols="10|12|13" ให้ตาราง CSS แค่อ่านป้าย */
+@media (min-width: 641px) and (min-height: 501px), (min-width: 641px) and (pointer: fine) {
+  table[data-cols] th, table[data-cols] td { padding-left: 8px; padding-right: 8px; }
+  table[data-cols="12"] td, table[data-cols="13"] td { font-size: 0.8rem; }
+  table[data-cols="13"] th, table[data-cols="13"] td { padding-left: 6px; padding-right: 6px; }
 }
 
 /* มือถือ: ช่องค้นหาที่กำหนดความกว้างตายตัว (180–240px) ยืดเต็มแถว พิมพ์และอ่านง่ายขึ้น */
-@media (max-width: 640px) {
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
   .tt-search { flex: 1 1 100%; }
   .tt-search input { width: 100% !important; max-width: none !important; }
   #main-content input[placeholder*="ค้นหา"]:is([style*="width:"], [style*="width: "]):not(table input, .tt-filter-row input, .modal-overlay input) { width: 100% !important; max-width: none !important; flex: 1 1 100%; }
@@ -816,7 +819,7 @@
 }
 
 /* Analytics 360 บนมือถือ: เมนู 16 การ์ดใหญ่กินเกือบ 2 จอก่อนถึงกราฟ → ไทล์เล็ก 3 คอลัมน์ ไอคอน+ชื่อ */
-@media (max-width: 640px) {
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
   #main-content .an-links { grid-template-columns: repeat(3, 1fr) !important; gap: 8px !important; }
   .an-links > .card { padding: 10px 6px !important; text-align: center; }
   .an-links .an-ic { font-size: 1.25rem !important; margin-bottom: 2px !important; }
@@ -830,4 +833,26 @@
 .view-tab { flex: 0 0 auto; border: 0; background: transparent; color: var(--text-2, inherit); font: inherit; font-size: .88rem; font-weight: 600; padding: 7px 14px; border-radius: 9px; cursor: pointer; white-space: nowrap; }
 .view-tab:hover { color: var(--text, inherit); }
 .view-tab.active { background: var(--primary); color: #fff; cursor: default; box-shadow: 0 1px 4px rgba(0,0,0,.18); }
-@media (max-width: 640px) { .view-tabs { width: 100%; } .view-tab { flex: 1 1 0; min-width: 0; white-space: normal; line-height: 1.25; font-size: .82rem; padding: 8px 6px; } .view-tabs.many .view-tab { flex: 0 0 auto; white-space: nowrap; padding: 8px 10px; } }
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) { .view-tabs { width: 100%; } .view-tab { flex: 1 1 0; min-width: 0; white-space: normal; line-height: 1.25; font-size: .82rem; padding: 8px 6px; } .view-tabs.many .view-tab { flex: 0 0 auto; white-space: nowrap; padding: 8px 10px; } }
+
+/* (v1.0.958) มือถือแนวนอน: จอเตี้ยแค่ ~390px — ย่อแถบบน/แถบล่าง/หัวหน้า ให้เหลือพื้นที่ดูข้อมูลมากที่สุด
+   (เดิมแถบบน 56 + หัวหน้า + ตัวกรอง + แถบล่าง 60 กินจอหมด ต้องเลื่อนกว่าจะเห็นรายการแรก) */
+@media (max-height: 500px) and (pointer: coarse) and (orientation: landscape) {
+  :root { --topbar-height: 44px; --bottom-nav-h: calc(46px + env(safe-area-inset-bottom, 0px)); }
+  .bottom-nav { height: calc(44px + env(safe-area-inset-bottom, 0px)); padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
+  .bottom-nav-item { flex-direction: row; gap: 6px; font-size: 0.72rem; }
+  .bottom-nav-plus { width: 34px; height: 34px; margin-top: 0; font-size: 1rem; }
+  .bottom-nav-main > span:last-child { display: none; }
+  .topbar { padding-left: max(8px, env(safe-area-inset-left, 0px)); padding-right: max(8px, env(safe-area-inset-right, 0px)); }
+  .page-content { padding: 8px max(12px, env(safe-area-inset-right, 0px)) 12px max(12px, env(safe-area-inset-left, 0px)) !important; }
+  .page-header { margin-bottom: 8px !important; gap: 6px !important; flex-wrap: nowrap !important; align-items: center !important; }
+  .page-title { font-size: 1.05rem !important; }
+  .page-subtitle { font-size: 0.7rem !important; }
+  .page-header .page-actions .btn { padding: 5px 10px; font-size: 0.74rem; }
+  .card.mb-4 { margin-bottom: 8px !important; }
+  .sg-wrap { max-height: calc(100vh - var(--topbar-height) - var(--bottom-nav-h) - 40px); }
+  .bk-filters > select { flex: 1 1 120px !important; }
+  .bk-brand-row { display: none !important; }
+  .bk-cards { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bk-filters > div:not(.bk-view-toggle) { flex: 2 1 200px !important; flex-basis: 200px !important; }
+}

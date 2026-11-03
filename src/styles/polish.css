@@ -58,7 +58,7 @@ body {
 /* ── หัวหน้า: ตัวใหญ่ขึ้น ชัดขึ้น ── */
 .page-title { font-size: 1.55rem; letter-spacing: -0.015em; line-height: 1.25; }
 .page-subtitle { margin-top: 2px; }
-@media (max-width: 640px) { .page-title { font-size: 1.3rem; } }
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) { .page-title { font-size: 1.3rem; } }
 
 /* ── ปุ่มหลัก: ไล่สีธีม (primary → accent) ── */
 .btn { border-radius: 11px; font-weight: 600; }
@@ -183,7 +183,7 @@ th { color: var(--text-muted); font-weight: 600; }
 .ts-row { display: flex; gap: 5px; align-items: center; }
 .ts-line { flex: 1; height: 5px; border-radius: 3px; background: var(--surface-3); }
 .ts-btn { width: 30%; height: 11px; border-radius: 6px; background: linear-gradient(135deg, var(--primary), var(--accent)); }
-@media (max-width: 640px) { .ts-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ts-prev { height: 64px; } }
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) { .ts-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ts-prev { height: 64px; } }
 
 /* ============================================================
    ภาพพื้นหลัง (ภาพวาด / 3D / รูปของฉัน) + การ์ดแบบ 3D — v1.0.889
@@ -234,7 +234,7 @@ th { color: var(--text-muted); font-weight: 600; }
 .ts-prev.has-wall { background-size: cover; background-position: center; }
 .ts-prev.has-wall .ts-side { background: color-mix(in srgb, var(--surface) 80%, transparent); }
 .ts-prev.has-wall .ts-kpis i { background: color-mix(in srgb, var(--surface) 85%, transparent); }
-@media (max-width: 640px) { .ts-walls { grid-template-columns: repeat(3, minmax(0, 1fr)); } .ts-wall { height: 60px; } }
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) { .ts-walls { grid-template-columns: repeat(3, minmax(0, 1fr)); } .ts-wall { height: 60px; } }
 
 /* ============================================================
    Polish v3 (v1.0.890) — ทั้งแอป: เมนูข้าง · ปุ่มหัวหน้า · ตาราง · การเปลี่ยนหน้า
@@ -276,7 +276,7 @@ th { color: var(--text-muted); font-weight: 600; }
 /* ตาราง: หัวตารางพื้นอ่อน · แถวสลับสีจางมาก · ปุ่มแก้ไข/ลบท้ายแถวจางไว้ ชี้แถวแล้วค่อยชัด (ลดความรก) */
 .table thead th { background: color-mix(in srgb, var(--text) 4%, var(--surface)); font-size: 0.74rem; letter-spacing: 0.02em; }
 .table tbody tr:nth-child(even) > td { background: color-mix(in srgb, var(--text) 1.5%, transparent); }
-@media (hover: hover) and (min-width: 641px) {
+@media (hover: hover) and (min-width: 641px) and (min-height: 501px), (hover: hover) and (min-width: 641px) and (pointer: fine) {
   #main-content table tbody tr > td:last-child :is(.btn-ghost, .btn-icon) { opacity: .4; transition: opacity .15s; }
   #main-content table tbody tr:hover > td:last-child :is(.btn-ghost, .btn-icon),
   #main-content table tbody tr > td:last-child :is(.btn-ghost, .btn-icon):focus-visible { opacity: 1; }
@@ -291,7 +291,7 @@ th { color: var(--text-muted); font-weight: 600; }
 .input:focus, .select:focus, select.input:focus, textarea.input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-dim); outline: none; }
 
 /* แถบเมนูล่างบนมือถือ: เมนูที่เปิดอยู่มีจุดไฟเล็กๆ ด้านบน */
-@media (max-width: 768px) {
+@media (max-width: 768px), (max-height: 500px) and (pointer: coarse) {
   .bottom-nav-item { position: relative; }
   .bottom-nav-item.active::before { content: ''; position: absolute; top: 2px; left: 50%; width: 18px; height: 3px; margin-left: -9px; border-radius: 3px; background: var(--grad-primary); box-shadow: 0 0 8px var(--primary-glow); }
 }

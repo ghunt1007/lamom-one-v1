@@ -156,7 +156,7 @@ export default async function DashboardPage(container) {
       <!-- Command HUD strip -->
       <style>
         .dash-jump { display:none; }
-        @media (max-width: 640px) {
+        @media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
           .dash-jump { display:flex; gap:6px; overflow-x:auto; position:sticky; top:var(--topbar-height, 56px); z-index:5; margin:0 -12px 12px; padding:8px 12px; background:var(--bg, var(--surface)); border-bottom:1px solid var(--border); }
           .page-content .card { scroll-margin-top:calc(var(--topbar-height, 56px) + 52px); }
         }
@@ -189,7 +189,7 @@ export default async function DashboardPage(container) {
         .dash-stage-v { font-size:0.7rem; color:var(--text-muted); font-variant-numeric:tabular-nums; }
         .dash-stage-a { font-size:0.66rem; font-weight:600; }
         .dash-stage-arrow { align-self:center; color:var(--text-muted); font-size:1.2rem; flex-shrink:0; }
-        @media (max-width: 640px) {
+        @media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
           .dash-flowline { flex-direction:column; overflow:visible; gap:6px; }
           .dash-stage { display:grid; grid-template-columns:auto 1fr auto; align-items:center; column-gap:12px; row-gap:0; padding:10px 12px; border-top-width:1px; border-left:3px solid var(--c); }
           .dash-stage-n { grid-row:span 2; min-width:34px; text-align:center; }
@@ -215,7 +215,7 @@ export default async function DashboardPage(container) {
         .dash-drill-sum b { color:var(--primary); }
         .dash-drill tr[data-id] { cursor:pointer; }
         .dash-drill td { font-size:0.8rem; }
-        @media (max-width: 640px) { .dash-hero-hint { display:none; } }
+        @media (max-width: 640px), (max-height: 500px) and (pointer: coarse) { .dash-hero-hint { display:none; } }
         .dash-hero-grid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:12px; }
         .dash-kpi { position:relative; display:flex; flex-direction:column; text-align:left; font:inherit; color:inherit; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:14px 14px 8px; cursor:pointer; overflow:hidden; transition:transform .15s, border-color .15s, box-shadow .15s; min-width:0; }
         .dash-kpi::before { content:''; position:absolute; left:0; right:0; top:0; height:3px; background:var(--c); }
@@ -231,7 +231,7 @@ export default async function DashboardPage(container) {
         .dash-delta.flat { color:var(--text-muted); background:var(--surface-2); }
         .dash-kpi svg { display:block; width:100%; height:26px; margin-top:6px; }
         @media (max-width: 1180px) { .dash-hero-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
-        @media (max-width: 640px) {
+        @media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
           .dash-hero-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
           .dash-kpi { padding:11px 11px 6px; }
           .dash-toolbar { gap:6px; padding:6px 8px; }

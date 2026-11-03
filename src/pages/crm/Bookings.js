@@ -1,3 +1,4 @@
+import { isPhoneLayout } from '../../utils/phoneLayout.js'
 import { carOf, carLabel } from '../../utils/carLabel.js'
 import { listDocs, listAllDocs, watchDocs, createDoc, updateDocData, softDelete, seedDemoData, setDocData, readDoc } from '../../core/db.js'
 import { customerStatusMessage } from '../../utils/bookingNotify.js'
@@ -321,12 +322,13 @@ export default async function BookingsPage(container) {
   let brandFilter = ''
   let sellerFilter = ''
   let search = ''
+  let searchTimer = null
   let dateFrom = ''
   let dateTo = ''
   let noIncomeOnly = false
   const selectedIds = new Set()
   // (v1.0.954) มุมมอง "แบบ Sheet" (ครบทุกคอลัมน์ แก้ในช่องได้เลย) — จอกว้างเปิดแบบนี้เป็นค่าเริ่มต้น จำค่าที่เลือกไว้
-  let viewMode = (() => { try { return localStorage.getItem('bk-view') || '' } catch { return '' } })() || (window.innerWidth >= 768 ? 'sheet' : 'cards')
+  let viewMode = (() => { try { return localStorage.getItem('bk-view') || '' } catch { return '' } })() || (isPhoneLayout() || window.innerWidth < 768 ? 'cards' : 'sheet')
   let sheetSort = { f: '', dir: 1 }
   let sheetHideEmpty = false
   let sheetDraft = null
@@ -552,7 +554,7 @@ export default async function BookingsPage(container) {
 
         <div class="card mb-4" style="padding:10px 14px">
           <div class="bk-filters${dateFrom || dateTo ? '' : ' bk-nodate'}" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-            <div class="bk-view-toggle" role="group" aria-label="มุมมอง" style="display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;flex-shrink:0">
+            <div class="bk-view-toggle" role="group" aria-label="มุมมอง" style="flex:0 0 auto;width:auto;display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;flex-shrink:0">
               <button type="button" class="btn btn-xs ${viewMode === 'sheet' ? 'btn-primary' : 'btn-ghost'}" data-view="sheet" style="border-radius:0" title="ตารางครบทุกคอลัมน์เหมือน Google Sheet แตะช่องเพื่อแก้">📊 แบบ Sheet</button>
               <button type="button" class="btn btn-xs ${viewMode !== 'sheet' ? 'btn-primary' : 'btn-ghost'}" data-view="cards" style="border-radius:0" title="การ์ด/ตารางย่อ">🗂 การ์ด</button>
             </div>
@@ -573,7 +575,7 @@ export default async function BookingsPage(container) {
 
         ${stChips}
         ${statsBar}
-        ${viewMode === 'sheet' ? '' : `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding:0 2px">${brandKpi}</div>`}
+        ${viewMode === 'sheet' ? '' : `<div class="bk-brand-row" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding:0 2px">${brandKpi}</div>`}
         ${bulkBar}
         <div id="bk-content"></div>
       </div>`)
@@ -586,7 +588,12 @@ export default async function BookingsPage(container) {
     document.getElementById('bk-import-excel-btn')?.addEventListener('click', () => openExcelImport())
     document.getElementById('bk-sheet-reconcile-btn')?.addEventListener('click', () => openSheetReconcile({ onDone: () => loadData() }))
     container.querySelector('.pa-more-btn')?.addEventListener('click', e => e.currentTarget.closest('.page-actions').classList.toggle('pa-open'))
-    document.getElementById('bk-search').addEventListener('input', ev => { search = ev.target.value.trim().toLowerCase(); render() })
+    // พิมพ์ต่อเนื่องได้ลื่น: รอให้หยุดพิมพ์ 0.2 วิ ค่อยกรอง (ตาราง 300 แถว × 65 ช่องวาดใหม่ทุกตัวอักษรจะหน่วง)
+    document.getElementById('bk-search').addEventListener('input', ev => {
+      const v = ev.target.value.trim().toLowerCase()
+      clearTimeout(searchTimer)
+      searchTimer = setTimeout(() => { if (v !== search) { search = v; render() } }, 200)
+    })
     document.getElementById('bk-f-seller').addEventListener('change', ev => { sellerFilter = ev.target.value; render() })
     document.getElementById('bk-f-brand').addEventListener('change', ev => { brandFilter = ev.target.value; render() })
     // มือถือ: ช่องวันที่ซ่อนไว้จนกว่าจะกด 📅 (ประหยัดหนึ่งแถวเต็ม) — ถ้าเลือกวันไว้แล้วจะโชว์ตลอด

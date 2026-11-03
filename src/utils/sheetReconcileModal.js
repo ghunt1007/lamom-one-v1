@@ -12,12 +12,13 @@ import { showToast, getState } from '../core/store.js'
 import { openModal, confirmDialog } from './modal.js'
 import { exportMultiSheet, exportToExcel } from './importExport.js'
 import { todayBangkok } from './format.js'
-import { readBookingSheet, planBookingImport, newBookingDoc, newCustomerDoc, companyForBrand, brandCompanyMap } from './bookingImport.js'
+import { readBookingSheet, planBookingImport, sheetImportWarnings, newBookingDoc, newCustomerDoc, companyForBrand, brandCompanyMap } from './bookingImport.js'
 import { maybeMarkCustomerDelivered, syncStockForBookings } from './bookingSync.js'
 import { isProgramOwner } from '../core/hierarchy.js'
 import { fetchSheetFile } from './dailyReport.js'
 import { planSheetReconcile, splitUpdatesByRecency, sheetRowsForBookings, customerFullName, normPhone, normPersonName } from './sheetReconcile.js'
 import { copyText } from './copyText.js'
+import { SHEET_COLUMNS } from './sheetColumns.js'
 import { escHtml as esc } from './escape.js'
 
 export const SYNC_TAG = 'sheet-sync'
@@ -169,6 +170,14 @@ async function reconcileFromBuffer(buffer, { name = '', modifiedAt = null, onDon
     ]
     const { extraBookings, renumberBookings, extraCustomers, leads, customerFixes, missingCustomers, linkOnly, appOnlyBookings, appOnlyCustomers, stampBookings, stampCustomers, dateFixBookings = [], dateFixCustomers = [] } = plan
     const { creates, unchanged } = imp
+    const warn = sheetImportWarnings(sheet, imp, SHEET_COLUMNS.map(c => c.h))
+    const warnHtml = (warn.noNumber.length || warn.dupes.length || warn.missingHeaders.length) ? `
+      <div style="margin-top:10px;padding:8px 10px;border:1px solid var(--warning);border-radius:8px;font-size:0.8rem;line-height:1.6">
+        <b>⚠️ ข้อมูลใน Sheet ที่ยังเข้าโปรแกรมไม่ได้</b> — แก้ใน Sheet แล้วกดซิงก์อีกครั้ง
+        ${warn.noNumber.length ? `<div>• ยังไม่มีเลขใบจอง ${warn.noNumber.length} แถว: ${warn.noNumber.slice(0, 20).map(x => `แถว ${x.row} ${esc(x.custName)}`).join(', ')}${warn.noNumber.length > 20 ? ' …' : ''}</div>` : ''}
+        ${warn.dupes.length ? `<div>• เลขใบจองซ้ำกันใน Sheet (ใช้แถวแรก แถวต่อไปถูกข้าม): ${warn.dupes.slice(0, 20).map(esc).join(', ')}${warn.dupes.length > 20 ? ' …' : ''}</div>` : ''}
+        ${warn.missingHeaders.length ? `<div>• ไม่เจอคอลัมน์ (ชื่อหัวตารางอาจถูกแก้): ${warn.missingHeaders.map(esc).join(', ')}</div>` : ''}
+      </div>` : ''
     // ข้อมูลไม่ตรงกัน: ฝั่งที่แก้ล่าสุดชนะ (แก้ในแอปหลังจาก Sheet → ใช้ค่าในแอป ไม่ทับ)
     const { sheetWins: updates, appNewer } = splitUpdatesByRecency(imp.updates, sheetModifiedAt)
     const nidTodo = canNid ? [...imp.updates, ...unchanged].filter(x => x.nid && nidMap[x.id] !== x.nid) : []
@@ -198,6 +207,7 @@ async function reconcileFromBuffer(buffer, { name = '', modifiedAt = null, onDon
       body: `
         <div style="font-size:0.85rem;line-height:1.6">
           <div>ไฟล์: <b>${esc(file.name)}</b> (${plan.sheetCount} รายการ) · ยึดไฟล์เป็นหลัก</div>
+          ${warnHtml}
           ${totalTodo ? `
           <div style="margin-top:10px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
             ${box(addTotal, 'จะเพิ่ม', 'var(--success)')}
