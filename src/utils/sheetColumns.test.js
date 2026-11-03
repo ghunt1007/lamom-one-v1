@@ -63,3 +63,24 @@ describe('sheetColumns', () => {
     expect(EXTRA_COLUMNS.length).toBe(30)
   })
 })
+
+import { parseClipboardGrid, planPaste, sheetExportRows } from './sheetColumns.js'
+describe('วางจาก Sheet', () => {
+  it('แยกแถว/คอลัมน์ รวมช่องที่มีขึ้นบรรทัดใหม่ในอัญประกาศ', () => {
+    expect(parseClipboardGrid('a\tb\nc\td\n')).toEqual([['a', 'b'], ['c', 'd']])
+    expect(parseClipboardGrid('"x\ny"\t"he said ""hi"""')).toEqual([['x\ny', 'he said "hi"']])
+    expect(parseClipboardGrid('one')).toEqual([['one']])
+  })
+  it('วางข้ามคอลัมน์อ่านอย่างเดียว ไม่เกินแถวที่มี และแยกค่าที่พิมพ์ผิด', () => {
+    const cols = [col('margin'), col('budgetUsed'), col('marginLeft'), col('accessoryAmount')]
+    const rows = [{ margin: 1 }, { margin: 0 }]
+    const { changes, bad } = planPaste([['10', '2', '9'], ['x', '1'], ['5']], rows, cols, 0, 0)
+    expect(changes.map(c => [c.row, c.col.f, c.value])).toEqual([[0, 'margin', 10], [0, 'budgetUsed', 2], [0, 'marginLeft', 9], [1, 'budgetUsed', 1]].filter(x => x[1] !== 'marginLeft'))
+    expect(bad.map(b => b.raw)).toEqual(['x'])
+  })
+  it('ส่งออกหัวคอลัมน์เหมือน Sheet', () => {
+    const out = sheetExportRows([{ bookingNo: 'SK1', price: 5 }])
+    expect(Object.keys(out[0])).toEqual(SHEET_COLUMNS.map(c => c.h))
+    expect(out[0]['ราคารถ']).toBe(5)
+  })
+})

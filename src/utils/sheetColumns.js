@@ -182,3 +182,52 @@ export function mapExtraColumns(r, { str, num, fmtDate }) {
   }
   return out
 }
+
+// (v1.0.955) ข้อความที่คัดลอกจาก Google Sheet/Excel → ตาราง [แถว][คอลัมน์]
+// Sheet คั่นช่องด้วย Tab คั่นแถวด้วยขึ้นบรรทัดใหม่ ช่องที่มีขึ้นบรรทัด/อัญประกาศจะถูกครอบด้วย "..."
+export function parseClipboardGrid(text) {
+  const s = String(text ?? '').replace(/\r\n?/g, '\n')
+  const rows = []
+  let row = [], cell = '', q = false
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i]
+    if (q) {
+      if (ch === '"') { if (s[i + 1] === '"') { cell += '"'; i++ } else q = false }
+      else cell += ch
+    } else if (ch === '"' && cell === '') q = true
+    else if (ch === '\t') { row.push(cell); cell = '' }
+    else if (ch === '\n') { row.push(cell); rows.push(row); row = []; cell = '' }
+    else cell += ch
+  }
+  if (cell !== '' || row.length) { row.push(cell); rows.push(row) }
+  return rows
+}
+
+// วางตาราง grid ลงที่แถว startRow คอลัมน์ startCol — ข้ามคอลัมน์ที่อ่านอย่างเดียว (เหมือนวางใน Sheet ที่ช่องตรงกัน)
+// คืน { changes:[{row, col, value}], bad:[{row, col, raw}] } — row = index ใน rows, col = object คอลัมน์
+export function planPaste(grid, rows, cols, startRow, startCol) {
+  const changes = [], bad = []
+  grid.forEach((line, di) => {
+    const r = rows[startRow + di]
+    if (!r) return
+    line.forEach((raw, dj) => {
+      const c = cols[startCol + dj]
+      if (!c || c.ro) return
+      const v = parseCell(c, raw)
+      if (v === null) { bad.push({ row: startRow + di, col: c, raw }); return }
+      const cur = r[c.f]
+      const same = c.t === 'num' ? (Number(v) || 0) === (Number(cur) || 0) : String(v ?? '').trim() === String(cur ?? '').trim()
+      if (!same) changes.push({ row: startRow + di, col: c, value: v })
+    })
+  })
+  return { changes, bad }
+}
+
+// ส่งออก Excel: หัวคอลัมน์และลำดับเหมือนไฟล์ DATA Booking
+export function sheetExportRows(rows, cols = SHEET_COLUMNS) {
+  return rows.map(r => Object.fromEntries(cols.map(c => {
+    const v = r[c.f]
+    if (c.t === 'num') return [c.h, Number(v) || '']
+    return [c.h, v == null ? '' : String(v)]
+  })))
+}
