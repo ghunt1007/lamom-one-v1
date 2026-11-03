@@ -1,33 +1,32 @@
 import { listDocs, seedDemoData, getSalesData } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { formatCurrency } from '../../utils/format.js'
+import { saleCost, costEstimateNote } from '../../utils/saleCost.js'
 import { exportToExcel } from '../../utils/importExport.js'
 
 const MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 
-// เลขตัวอย่าง (ยังไม่มีข้อมูลจริง) — เดิมผูก key เดือนไว้ตายตัวที่ปี 2025 ('2025-01'..'2025-12') ทำให้ overlay
-// ยอดขายจริงด้านล่าง (จับคู่ด้วย r.month) ไม่มีทางจับคู่กับปีปัจจุบันได้เลยเมื่อข้ามปี — P&L ปีปัจจุบันจะไม่มี
-// ข้อมูลจริงโชว์แม้แต่เดือนเดียว ตอนนี้ผูก key เดือนกับปีปัจจุบันจริงเสมอ (ตัวเลขตัวอย่างยังคงเดิม ใช้แค่ตอนยังไม่มีข้อมูลจริง)
-const DEMO_MONTH_VALUES = [] // (2026-11-02) เอาข้อมูลสมมติออก — ไม่มีข้อมูลจริงให้โชว์ว่าง ไม่ใช่ตัวเลขปลอม
-function buildDemoPL(year) {
-  return DEMO_MONTH_VALUES.map((v, i) => ({ month: `${year}-${String(i+1).padStart(2,'0')}`, ...v }))
+// (v1.0.950) เดิมหลังเอาตัวเลขตัวอย่างออก (v1.0.907) ตารางเดือนกลายเป็นว่าง → ยอดขายจริงไม่มีเดือนให้ "ทับ" เลย
+// หน้า P&L จึงเป็น 0 ตลอดแม้มีใบจองจริง ตอนนี้เริ่มจาก 12 เดือนของปีที่เลือก (ค่า 0) แล้วเติมยอดจริง
+function emptyYear(year) {
+  return MONTHS.map((label, i) => ({ month: `${year}-${String(i + 1).padStart(2, '0')}`, label, revenue: 0, cogs: 0, opex: 0 }))
 }
 
-const OPEX_BREAKDOWN = [
-  { label: 'เงินเดือนพนักงาน', pct: 38 },
-  { label: 'ค่าเช่าสถานที่', pct: 18 },
-  { label: 'ค่าการตลาด', pct: 14 },
-  { label: 'ค่าสาธารณูปโภค', pct: 8 },
-  { label: 'ค่าซ่อมบำรุง', pct: 7 },
-  { label: 'ค่าใช้จ่ายอื่น', pct: 15 },
-]
+// หมวดค่าใช้จ่ายจากใบเบิกพนักงาน (expense_claims.cat) และเงินสดย่อย (petty_cash.cat)
+const OPEX_LABELS = {
+  fuel: '⛽ น้ำมัน', meals: '🍽 ค่าอาหาร', transport: '🚌 ค่าเดินทาง', phone: '📱 ค่าโทรศัพท์', accom: '🏨 ที่พัก',
+  marketing: '📣 ค่าการตลาด', office: '🖊 เครื่องเขียน', supplies: '📎 ของใช้สำนักงาน', refresh: '☕ รับรองลูกค้า',
+  postage: '📮 ไปรษณีย์/เอกสาร', repair: '🔨 ซ่อมเล็กน้อย', other: '📋 อื่นๆ',
+}
 
 export default async function PLPage(container) {
   const myGen = container.__routerGen
   seedDemoData()
 
   let selectedYear = String(new Date().getFullYear())
-  let plData = buildDemoPL(selectedYear)
+  let plData = emptyYear(selectedYear)
+  let opexCats = []
+  let costNote = ''
   let viewMode = 'month' // month | quarter | year
 
   function getQuarterData() {
@@ -81,9 +80,10 @@ export default async function PLPage(container) {
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
-            <div class="page-title">📉 P&L Dashboard</div>
-            <div class="page-subtitle">กำไร-ขาดทุน ${selectedYear}
-              <span style="font-size:0.72rem;color:var(--warning);margin-left:6px" title="OPEX ทั้งหมดเป็นตัวเลขประมาณการ ยังไม่เชื่อมข้อมูลค่าใช้จ่ายจริง — ดูเครื่องหมาย ✓/(ประมาณ) ต่อแถวในตารางว่า Revenue/COGS เดือนไหนเป็นข้อมูลจริง">⚠️ OPEX เป็นตัวเลขประมาณการ</span>
+            <div class="page-title">📉 กำไร-ขาดทุน (P&L)</div>
+            <div class="page-subtitle">ปี ${Number(selectedYear) + 543}
+              <span style="font-size:0.72rem;color:var(--text-muted);margin-left:6px">· รายได้/ต้นทุนจากใบจองจริง · ค่าใช้จ่ายจากใบเบิก+เงินสดย่อย (ยังไม่รวมเงินเดือน)</span>
+              ${costNote}
             </div>
           </div>
           <div class="page-actions">
@@ -115,36 +115,36 @@ export default async function PLPage(container) {
                 const rh = maxRev > 0 ? Math.round(r.revenue / maxRev * 160) : 0
                 const gh = maxRev > 0 ? Math.round(c.gross / maxRev * 160) : 0
                 return `
-                  <div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex:1">
-                    <div style="display:flex;align-items:flex-end;gap:2px;height:160px">
-                      <div style="width:12px;height:${rh}px;background:var(--primary);border-radius:2px 2px 0 0" title="Revenue: ${formatCurrency(r.revenue)}"></div>
-                      <div style="width:12px;height:${Math.max(gh,1)}px;background:${c.gross>=0?'var(--success)':'var(--danger)'};border-radius:2px 2px 0 0" title="GP: ${formatCurrency(c.gross)}"></div>
+                  <div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:2px;flex:1;min-width:0">
+                    <div style="display:flex;align-items:flex-end;justify-content:center;gap:2px;height:160px;width:100%">
+                      <div style="width:40%;max-width:12px;flex-shrink:0;align-self:flex-end;height:${rh}px;background:var(--primary);border-radius:2px 2px 0 0" title="Revenue: ${formatCurrency(r.revenue)}"></div>
+                      <div style="width:40%;max-width:12px;flex-shrink:0;align-self:flex-end;height:${Math.max(gh,1)}px;background:${c.gross>=0?'var(--success)':'var(--danger)'};border-radius:2px 2px 0 0" title="GP: ${formatCurrency(c.gross)}"></div>
                     </div>
-                    <div style="font-size:0.65rem;color:var(--text-muted);white-space:nowrap">${r.label}</div>
+                    <div style="font-size:0.6rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;max-width:100%">${r.label}</div>
                   </div>`
               }).join('')}
             </div>
             <div style="display:flex;gap:16px;margin-top:10px;font-size:0.75rem">
-              <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:var(--primary);display:inline-block;border-radius:2px"></span>Revenue</span>
-              <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:var(--success);display:inline-block;border-radius:2px"></span>Gross Profit</span>
+              <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:var(--primary);display:inline-block;border-radius:2px"></span>รายได้</span>
+              <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:var(--success);display:inline-block;border-radius:2px"></span>กำไรขั้นต้น</span>
             </div>
           </div>
 
           <!-- OPEX Breakdown -->
           <div class="card" style="padding:20px">
             <div style="font-weight:700;margin-bottom:4px">💸 แยกค่าใช้จ่ายดำเนินงาน</div>
-            <div style="font-size:0.7rem;color:var(--warning);margin-bottom:10px">⚠️ สัดส่วน % ยังเป็นตัวอย่าง — ยอดรวม OPEX ต่อเดือนที่มีเครื่องหมาย ✓ ด้านล่างรวมค่าใช้จ่ายจริงที่เบิกผ่านระบบแล้ว (Petty Cash + เบิกพนักงานที่อนุมัติ) แต่ยังไม่รวมเงินเดือน</div>
+            <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:10px">จากใบเบิกพนักงานที่อนุมัติแล้ว + เงินสดย่อยที่จ่ายออก (ยังไม่รวมเงินเดือน/ค่าเช่า)</div>
             <div style="font-size:0.88rem;font-weight:700;color:var(--warning);margin-bottom:12px">${formatCurrency(totals.opex)} / ปี</div>
-            ${OPEX_BREAKDOWN.map(o => `
+            ${opexCats.length ? opexCats.map(o => `
               <div style="margin-bottom:10px">
-                <div style="display:flex;justify-content:space-between;font-size:0.78rem;margin-bottom:3px">
-                  <span>${o.label}</span><span style="color:var(--text-muted)">${o.pct}%</span>
+                <div style="display:flex;justify-content:space-between;gap:8px;font-size:0.78rem;margin-bottom:3px">
+                  <span>${o.label}</span><span style="color:var(--text-muted);white-space:nowrap">${formatCurrency(o.amt)} · ${o.pct}%</span>
                 </div>
                 <div style="background:var(--surface-3);border-radius:99px;height:6px;overflow:hidden">
                   <div style="height:100%;width:${o.pct}%;background:var(--warning);border-radius:99px"></div>
                 </div>
               </div>
-            `).join('')}
+            `).join('') : '<div style="padding:12px;text-align:center;font-size:0.76rem;color:var(--text-muted)">ยังไม่มีค่าใช้จ่ายที่เบิกผ่านระบบปีนี้</div>'}
           </div>
         </div>
 
@@ -167,7 +167,7 @@ export default async function PLPage(container) {
               ${data.map(r => {
                 const c = calc(r)
                 return `<tr>
-                  <td style="font-weight:600">${r.label}${r.actual ? ' <span title="Revenue/COGS จากข้อมูลจริง" style="color:var(--success);font-weight:400;font-size:0.7rem">✓ จริง</span>' : viewMode === 'month' ? ' <span title="ตัวเลขประมาณการ ยังไม่มีข้อมูลจริงเดือนนี้" style="color:var(--text-muted);font-weight:400;font-size:0.7rem">(ประมาณ)</span>' : ''}</td>
+                  <td style="font-weight:600">${r.label}${r.actual ? ' <span title="Revenue/COGS จากข้อมูลจริง" style="color:var(--success);font-weight:400;font-size:0.7rem">✓ จริง</span>' : ''}</td>
                   <td class="text-right">${formatCurrency(r.revenue)}</td>
                   <td class="text-right" style="color:var(--text-muted)">${formatCurrency(r.cogs)}</td>
                   <td class="text-right" style="color:var(--${c.gross>=0?'success':'danger'})">${formatCurrency(c.gross)}</td>
@@ -215,10 +215,12 @@ export default async function PLPage(container) {
     const sales = await getSalesData()
     if (container.__routerGen !== myGen) return
     const byMonth = {}
-    sales.forEach(s => {
+    const yearSales = sales.filter(s => String(s.date || '').startsWith(selectedYear + '-'))
+    costNote = costEstimateNote(yearSales)
+    yearSales.forEach(s => {
       const m = (s.date || '').slice(0, 7); if (!m) return
       if (!byMonth[m]) byMonth[m] = { revenue: 0, cogs: 0 }
-      byMonth[m].revenue += s.salePrice || 0; byMonth[m].cogs += s.cost || 0
+      byMonth[m].revenue += s.salePrice || 0; byMonth[m].cogs += saleCost(s)
     })
     let changed = false
     plData = plData.map(r => {
@@ -239,20 +241,23 @@ export default async function PLPage(container) {
     ])
     if (container.__routerGen !== myGen) return
     const opexByMonth = {}
-    claims.filter(c => c.status === 'approved' || c.status === 'paid').forEach(c => {
-      const m = (c.date || '').slice(0, 7); if (!m) return
-      opexByMonth[m] = (opexByMonth[m] || 0) + (c.amount || 0)
-    })
-    petty.filter(p => p.type === 'out' && p.status === 'approved').forEach(p => {
-      const m = (p.time || '').slice(0, 7); if (!m) return
-      opexByMonth[m] = (opexByMonth[m] || 0) + (p.amount || 0)
-    })
+    const byCat = {}
+    const add = (m, cat, amt) => {
+      if (!m || !m.startsWith(selectedYear + '-')) return
+      opexByMonth[m] = (opexByMonth[m] || 0) + amt
+      const k = OPEX_LABELS[cat] || OPEX_LABELS.other
+      byCat[k] = (byCat[k] || 0) + amt
+    }
+    claims.filter(c => !c.deleted && (c.status === 'approved' || c.status === 'paid')).forEach(c => add((c.date || '').slice(0, 7), c.cat, Number(c.amount) || 0))
+    petty.filter(p => !p.deleted && p.type === 'out' && p.status === 'approved').forEach(p => add((p.time || '').slice(0, 7), p.cat, Number(p.amount) || 0))
+    const catTotal = Object.values(byCat).reduce((a, v) => a + v, 0)
+    opexCats = Object.entries(byCat).sort((a, b) => b[1] - a[1]).map(([label, amt]) => ({ label, amt, pct: catTotal ? Math.round(amt / catTotal * 100) : 0 }))
     let opexChanged = false
     plData = plData.map(r => {
       if (opexByMonth[r.month] > 0) { opexChanged = true; return { ...r, opex: opexByMonth[r.month], opexActual: true } }
       return r
     })
-    if (opexChanged) renderPage()
+    if (opexChanged || opexCats.length) renderPage()
   } catch (e) {}
 }
 
