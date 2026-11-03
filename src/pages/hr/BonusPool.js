@@ -5,12 +5,14 @@
 import { formatCurrency } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { showToast } from '../../core/store.js'
-import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
+import { listDocs, createDoc, updateDocData, setDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 
-const POOL_BUDGET = 1200000
+// (v1.0.952) เดิมงบ Bonus ฿1.2 ล้านเขียนตายตัวในโค้ด ตอนนี้ตั้งเองได้ — เก็บใน bonus_pool_staff/settings-<companyId>
+// (kind:'settings', name:'' ให้เรียงขึ้นก่อนเสมอ) ยังไม่ตั้ง = 0 (ไม่แสดงแถบใช้งบ)
+let POOL_BUDGET = 0
 
 export function calcBonus(s) {
   const rate = s.kpi >= 90 ? 1.0 : s.kpi >= 80 ? 0.8 : s.kpi >= 70 ? 0.6 : 0.4
@@ -30,12 +32,17 @@ export default async function BonusPoolPage(container) {
   seedDemoData()
 
   let staff = []
+  let cfg = null
   let filter = 'all'
   let loading = true
 
   async function loadData() {
     loading = true
-    try { staff = (await listDocs('bonus_pool_staff', companyScopeFilters(), 'name', 'asc', 200)).filter(s => !s.deleted) } catch (e) { staff = [] }
+    let docs = []
+    try { docs = (await listDocs('bonus_pool_staff', companyScopeFilters(), 'name', 'asc', 200)).filter(s => !s.deleted) } catch (e) { docs = [] }
+    cfg = docs.find(d => d.kind === 'settings') || null
+    staff = docs.filter(d => d.kind !== 'settings')
+    POOL_BUDGET = Number(cfg?.budget) || 0
     staff.forEach(s => s.bonus = calcBonus(s))
     loading = false
     if (container.__routerGen === myGen) render()
@@ -57,24 +64,24 @@ export default async function BonusPoolPage(container) {
         <div class="page-header">
           <div>
             <div class="page-title">🎁 Staff Bonus Pool</div>
-            <div class="page-subtitle">คำนวณ Bonus ตาม KPI · งบประมาณ ${formatCurrency(POOL_BUDGET)} · ${staff.length} คน</div>
+            <div class="page-subtitle">คำนวณ Bonus ตาม KPI · ${POOL_BUDGET ? 'งบประมาณ ' + formatCurrency(POOL_BUDGET) : 'ยังไม่ได้ตั้งงบ'} · ${staff.length} คน</div>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" id="add-staff-btn">➕ เพิ่มพนักงาน</button>
-            <button class="btn btn-secondary" id="recalc-btn">🔄 คำนวณใหม่</button>
+            <button class="btn btn-secondary" id="budget-btn">⚙️ ตั้งงบ Bonus</button>
             <button class="btn btn-primary" id="approve-all-btn">✅ อนุมัติทั้งหมด</button>
           </div>
         </div>
 
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
-          ${sc('💰 งบ Bonus รวม', formatCurrency(POOL_BUDGET), 'var(--text)')}
+          ${sc('💰 งบ Bonus รวม', POOL_BUDGET ? formatCurrency(POOL_BUDGET) : '—', 'var(--text)')}
           ${sc('🎁 Bonus ทั้งหมด', formatCurrency(totalBonus), 'var(--primary)')}
-          ${sc('💵 งบคงเหลือ', formatCurrency(remaining), remaining>=0?'var(--success)':'var(--danger)')}
+          ${sc('💵 งบคงเหลือ', POOL_BUDGET ? formatCurrency(remaining) : '—', remaining>=0?'var(--success)':'var(--danger)')}
           ${sc('✅ จ่ายแล้ว', paidCount+'/'+staff.length+' คน', 'var(--success)')}
         </div>
 
         <!-- Budget bar -->
-        <div class="card" style="padding:12px 14px;margin-bottom:14px">
+        ${POOL_BUDGET ? `<div class="card" style="padding:12px 14px;margin-bottom:14px">
           <div style="display:flex;justify-content:space-between;font-size:0.72rem;margin-bottom:6px">
             <span style="color:var(--text-muted)">การใช้งบ Bonus</span>
             <span style="font-weight:700">${Math.round(totalBonus/POOL_BUDGET*100)}%</span>
@@ -82,7 +89,7 @@ export default async function BonusPoolPage(container) {
           <div style="height:10px;background:var(--surface-2);border-radius:5px;overflow:hidden">
             <div style="height:100%;width:${Math.min(Math.round(totalBonus/POOL_BUDGET*100),100)}%;background:${totalBonus<=POOL_BUDGET?'var(--success)':'var(--danger)'};border-radius:5px;transition:width .3s"></div>
           </div>
-        </div>
+        </div>` : ''}
 
         <!-- Dept filter -->
         <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
@@ -139,7 +146,21 @@ export default async function BonusPoolPage(container) {
       </div>`
 
     container.querySelectorAll('.dept-btn').forEach(b => b.addEventListener('click', () => { filter = b.dataset.d; render() }))
-    document.getElementById('recalc-btn')?.addEventListener('click', () => { staff.forEach(s => s.bonus = calcBonus(s)); render(); showToast('🔄 คำนวณ Bonus ใหม่แล้ว', 'success') })
+    document.getElementById('budget-btn')?.addEventListener('click', () => openModal({
+      title: '⚙️ งบ Bonus ทั้งปี',
+      size: 'sm',
+      body: `<div class="input-group"><label class="input-label">งบรวม (บาท)</label><input class="input" type="number" inputmode="numeric" id="bp-budget" value="${POOL_BUDGET || ''}" placeholder="เช่น 1200000"></div>`,
+      confirmText: '💾 บันทึก',
+      async onConfirm() {
+        const budget = parseInt(document.getElementById('bp-budget')?.value) || 0
+        const companyId = myEffectiveCompanyId()
+        try {
+          await setDocData('bonus_pool_staff', cfg?.id || `settings-${companyId || 'none'}`, { kind: 'settings', name: '', budget, companyId: cfg?.companyId ?? companyId })
+          showToast('✅ บันทึกงบแล้ว', 'success')
+          await loadData()
+        } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
+      }
+    }))
     document.getElementById('approve-all-btn')?.addEventListener('click', () => {
       openModal({ title:'✅ อนุมัติ Bonus ทั้งหมด', size:'xs',
         body:`<div style="font-size:0.8rem">อนุมัติ Bonus รวม <b>${formatCurrency(totalBonus)}</b> สำหรับพนักงาน ${staff.length} คน ใช่ไหม?</div>`,
