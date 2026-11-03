@@ -231,3 +231,14 @@ export function sheetExportRows(rows, cols = SHEET_COLUMNS) {
     return [c.h, v == null ? '' : String(v)]
   })))
 }
+
+// (v1.0.960) ทุกช่องของใบจองเรียงตาม Sheet — ใช้ในหน้ารายละเอียด (กดการ์ด) ให้เห็นครบเหมือนตาราง
+// คืน [{ h, v }] (v = ข้อความพร้อมแสดง, '' = ว่าง) · ไม่มีสิทธิ์ดูเลขบัตร → ไม่รวมช่องนั้น
+export function sheetFieldList(b, { canViewNid = false } = {}) {
+  return SHEET_COLUMNS.filter(c => c.t !== 'nid' || canViewNid).map(c => ({ h: c.h, v: displayCell(c, b?.[c.f]) }))
+}
+
+// ช่อง Y/N ใน Sheet ที่ติ๊ก Y แล้ว (ใช้เป็นป้ายเล็กๆ บนการ์ด)
+export function sheetYesChips(b) {
+  return SHEET_COLUMNS.filter(c => c.t === 'yn' && String(b?.[c.f] || '').toUpperCase() === 'Y').map(c => c.h)
+}
