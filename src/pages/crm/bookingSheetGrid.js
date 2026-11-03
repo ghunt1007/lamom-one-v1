@@ -12,7 +12,7 @@
 //
 // หน้าเพจ (Bookings.js) เป็นคนบันทึกจริงผ่าน ctx.onSave / onStatus / onCreate — ไฟล์นี้ดูแลแค่หน้าตาและคีย์บอร์ด
 
-import { SHEET_COLUMNS, YN_OPTIONS, colWidth, parseCell, displayCell, columnTotals, sortRows, parseClipboardGrid, planPaste } from '../../utils/sheetColumns.js'
+import { SHEET_COLUMNS, YN_OPTIONS, colWidth, parseCell, displayCell, columnTotals, sortRows, parseClipboardGrid, planPaste, patchForCell } from '../../utils/sheetColumns.js'
 import { escHtml } from '../../utils/escape.js'
 import { showToast } from '../../core/store.js'
 
@@ -229,9 +229,15 @@ export function renderSheetGrid(wrap, ctx) {
         } else {
           // บันทึกเบื้องหลัง แล้วไปช่องถัดไปทันที (ไม่ต้องรอเน็ต)
           td.classList.add('sg-saving')
+          // ใส่ค่าใหม่ในแถวก่อนเลย แล้วจำว่าตารางที่โชว์ตรงกับค่าใหม่แล้ว — ฐานข้อมูลแจ้งการเปลี่ยนแปลงกลับมา
+          // ทันทีที่เริ่มบันทึก (ก่อนบันทึกเสร็จ) หน้าเพจจะได้ใช้ตารางเดิม ไม่ต้องวาดใหม่ทั้งตาราง
+          const before = {}
+          const optimistic = patchForCell(r, c, v)
+          Object.keys(optimistic).forEach(k => { before[k] = r[k] })
+          Object.assign(r, optimistic)
+          if (cache === myCache) cache.sig = gridSig(ctx)
           Promise.resolve().then(() => ctx.onSave(r, c, v)).then(patch => {
             td.classList.remove('sg-saving')
-            // ตารางที่โชว์อยู่ตรงกับข้อมูลใหม่แล้ว — ตอนข้อมูลเดียวกันกลับมาจากเซิร์ฟเวอร์จะได้ไม่ต้องวาดใหม่ทั้งตาราง
             if (cache === myCache) cache.sig = gridSig(ctx)
             if (!td.classList.contains('sg-ed')) { td.innerHTML = cellInner(r, c, ctx); flash(td) }
             // ช่องที่คำนวณตาม (มาจิ้นเหลือ, เงินได้รวม) อัปเดตในแถวเดียวกันทันที
@@ -241,6 +247,8 @@ export function renderSheetGrid(wrap, ctx) {
               if (other && !other.classList.contains('sg-ed')) other.innerHTML = cellInner(r, cols[k], ctx)
             })
           }).catch(err => {
+            Object.assign(r, before)
+            if (cache === myCache) cache.sig = gridSig(ctx)
             td.classList.remove('sg-saving')
             if (!td.classList.contains('sg-ed')) td.innerHTML = cellInner(r, c, ctx)
             showToast('บันทึกไม่สำเร็จ — ' + (err?.message || 'ลองใหม่อีกครั้ง'), 'error')
