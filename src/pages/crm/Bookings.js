@@ -392,6 +392,18 @@ export default async function BookingsPage(container) {
     })
   }
   startWatchBookings()
+  // (v1.0.959) เลขบัตรประชาชนเก็บแยก collection — เดิมโหลดเฉพาะตอนกดรีเฟรช/ลบ/นำเข้า เปิดหน้าปกติจึงไม่เห็นเลขบัตรเลย
+  async function loadNidMap() {
+    if (!canViewNid) return
+    try {
+      const nidDocs = await listAllDocs('booking_national_ids', companyScopeFilters(), 'updatedAt', 'desc', 500)
+      nidMap = Object.fromEntries(nidDocs.map(d => [d.id, d.nid]))
+    } catch { return }
+    if (container.__routerGen !== myGen) return
+    applyNidMap(bookings)
+    if (!firstSnapshot) safeRender()
+  }
+  loadNidMap()
   const offCompanyFilter = on('activeCompanyFilter', startWatchBookings)
 
   function matchesFilters(b, { ignoreStatus = false } = {}) {
