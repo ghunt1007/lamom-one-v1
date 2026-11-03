@@ -19,6 +19,16 @@ import { showToast } from '../../core/store.js'
 const ROWNUM_W = 44
 let styleAdded = false
 let lastScroll = [0, 0]
+// (v1.0.957) หน้าเพจวาดใหม่ทั้งหน้าทุกครั้งที่ข้อมูลเปลี่ยน (รวมตอนที่เราเพิ่งบันทึกเอง) — ตาราง 300 แถว × 65 ช่อง
+// สร้างใหม่ทีละ ~1 วินาที เก็บตารางที่สร้างแล้วไว้ ถ้าข้อมูลที่โชว์ไม่เปลี่ยนก็หยิบอันเดิมมาใส่ (แทบไม่เสียเวลา)
+let cache = { sig: '', el: null }
+const FIRST_ROWS = 60, CHUNK_ROWS = 80
+
+function gridSig(ctx) {
+  return JSON.stringify([ctx.instance, ctx.canViewNid, ctx.sort, ctx.hideEmpty,
+    ctx.draft ? Object.entries(ctx.draft).filter(([k]) => k !== '__focus') : null,
+    ctx.rows.map(r => [r.id, ...SHEET_COLUMNS.map(c => r[c.f] ?? '')])])
+}
 function addStyle() {
   if (styleAdded) return
   styleAdded = true
@@ -68,6 +78,16 @@ function addStyle() {
 //        onStatus(b,status), onCreate(draft)→booking, onOpen(b) }
 export function renderSheetGrid(wrap, ctx) {
   addStyle()
+  const sig = gridSig(ctx)
+  if (cache.el && cache.sig === sig && !ctx.focusDraft) {
+    wrap.replaceChildren(cache.el)
+    const sw0 = cache.el.querySelector('.sg-wrap')
+    if (sw0) { sw0.scrollLeft = lastScroll[0]; sw0.scrollTop = lastScroll[1] }
+    return
+  }
+  const root = document.createElement('div')
+  cache = { sig, el: root }
+  const myCache = cache
 
   let cols = SHEET_COLUMNS.filter(c => c.t !== 'nid' || ctx.canViewNid)
   const sortCol = ctx.sort?.f ? cols.find(c => c.f === ctx.sort.f) : null
@@ -83,9 +103,11 @@ export function renderSheetGrid(wrap, ctx) {
     return `<th class="${c.extra ? 'sg-extra' : ''}${fixClass(c)}" data-f="${c.f}" title="${escHtml(c.h)}${c.ro ? ' (คำนวณอัตโนมัติ)' : ''} · กดเพื่อเรียง">${escHtml(c.h)}${arrow}</th>`
   }).join('')}</tr>`
 
-  const body = all.map((r, i) => `<tr data-i="${i}"${r.__draft ? ' class="sg-draft"' : ''}>
+  const rowHtml = (r, i) => `<tr data-i="${i}"${r.__draft ? ' class="sg-draft"' : ''}>
     <td class="sg-rn sg-fix-rn" title="${r.__draft ? 'แถวใหม่ (กดเพื่อยกเลิก)' : 'เปิดรายละเอียดใบจอง'}">${r.__draft ? '✕' : (i + (ctx.draft ? 0 : 1))}</td>
-    ${cols.map((c, j) => cellHtml(r, c, j, ctx)).join('')}</tr>`).join('')
+    ${cols.map((c, j) => cellHtml(r, c, j, ctx)).join('')}</tr>`
+  // วาด 60 แถวแรกทันที ที่เหลือทยอยเติมทีละ 80 แถว — หน้าจอขึ้นเร็ว ไม่ค้าง
+  const body = all.slice(0, FIRST_ROWS).map(rowHtml).join('')
 
   const foot = `<tr><td class="sg-fix-rn"></td>${cols.map(c => {
     if (c.f === 'custName' || (c.f === 'bookingNo' && !cols.some(x => x.f === 'custName'))) return `<td class="${fixClass(c).trim()}">รวม ${rows.length} แถว</td>`
@@ -94,7 +116,7 @@ export function renderSheetGrid(wrap, ctx) {
   }).join('')}</tr>`
 
   const tableW = ROWNUM_W + cols.reduce((s, c) => s + colWidth(c), 0)
-  wrap.innerHTML = `
+  root.innerHTML = `
     <div class="sg-bar">
       <button class="btn btn-primary btn-sm" id="sg-add">➕ เพิ่มแถว</button>
       <button class="btn btn-ghost btn-sm" id="sg-empty" title="${emptyCols.length} คอลัมน์ไม่มีข้อมูลเลย">${ctx.hideEmpty ? '👁 โชว์ทุกคอลัมน์' : `🙈 ซ่อนคอลัมน์ว่าง (${emptyCols.length})`}</button>
@@ -105,15 +127,28 @@ export function renderSheetGrid(wrap, ctx) {
       <thead>${head}</thead><tbody>${body}</tbody><tfoot>${foot}</tfoot>
     </table></div>`
 
-  const sw = wrap.querySelector('.sg-wrap')
+  wrap.replaceChildren(root)
+  const sw = root.querySelector('.sg-wrap')
   // หน้าเพจวาดใหม่ทั้งหน้าเมื่อข้อมูลเปลี่ยน — คืนตำแหน่งเลื่อนเดิมให้ ไม่เด้งกลับไปแถวแรก
   sw.scrollLeft = lastScroll[0]; sw.scrollTop = lastScroll[1]
   sw.addEventListener('scroll', () => { lastScroll = [sw.scrollLeft, sw.scrollTop] }, { passive: true })
 
-  wrap.querySelector('#sg-add').addEventListener('click', () => ctx.onAddRow())
-  wrap.querySelector('#sg-empty').addEventListener('click', () => ctx.onToggleEmpty())
-  wrap.querySelectorAll('thead th[data-f]').forEach(th => th.addEventListener('click', () => ctx.onSort(th.dataset.f)))
-  const tbody = wrap.querySelector('tbody')
+  root.querySelector('#sg-add').addEventListener('click', () => ctx.onAddRow())
+  root.querySelector('#sg-empty').addEventListener('click', () => ctx.onToggleEmpty())
+  root.querySelectorAll('thead th[data-f]').forEach(th => th.addEventListener('click', () => ctx.onSort(th.dataset.f)))
+  const tbody = root.querySelector('tbody')
+  const wantScroll = [...lastScroll]
+  sw.scrollLeft = wantScroll[0]; sw.scrollTop = wantScroll[1]
+  let drawn = Math.min(FIRST_ROWS, all.length)
+  const drawMore = () => {
+    if (cache !== myCache || drawn >= all.length) return
+    const end = Math.min(drawn + CHUNK_ROWS, all.length)
+    tbody.insertAdjacentHTML('beforeend', all.slice(drawn, end).map((r, k) => rowHtml(r, drawn + k)).join(''))
+    drawn = end
+    if (sw.scrollTop < wantScroll[1]) sw.scrollTop = wantScroll[1]
+    if (drawn < all.length) setTimeout(drawMore, 0)
+  }
+  if (drawn < all.length) setTimeout(drawMore, 0)
   tbody.addEventListener('click', e => {
     const td = e.target.closest('td')
     if (!td || td.classList.contains('sg-ed')) return
@@ -196,6 +231,8 @@ export function renderSheetGrid(wrap, ctx) {
           td.classList.add('sg-saving')
           Promise.resolve().then(() => ctx.onSave(r, c, v)).then(patch => {
             td.classList.remove('sg-saving')
+            // ตารางที่โชว์อยู่ตรงกับข้อมูลใหม่แล้ว — ตอนข้อมูลเดียวกันกลับมาจากเซิร์ฟเวอร์จะได้ไม่ต้องวาดใหม่ทั้งตาราง
+            if (cache === myCache) cache.sig = gridSig(ctx)
             if (!td.classList.contains('sg-ed')) { td.innerHTML = cellInner(r, c, ctx); flash(td) }
             // ช่องที่คำนวณตาม (มาจิ้นเหลือ, เงินได้รวม) อัปเดตในแถวเดียวกันทันที
             Object.keys(patch || {}).forEach(f => {
