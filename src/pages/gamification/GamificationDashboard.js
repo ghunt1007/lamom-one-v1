@@ -323,7 +323,7 @@ export default async function GamificationDashboard(container) {
         <div class="card" style="overflow:hidden;padding:0">
           <div style="padding:14px 16px;border-bottom:1px solid var(--border);font-weight:600;display:flex;justify-content:space-between;align-items:center">
             <span>🏆 Leaderboard (แต้มสะสมจริง)</span>
-            ${isLive ? '<span style="font-size:0.72rem;color:var(--success)">● ข้อมูลจริง</span>' : '<span style="font-size:0.72rem;color:var(--text-muted)">Demo</span>'}
+            ${isLive ? '<span style="font-size:0.72rem;color:var(--success)">● ข้อมูลจริง</span>' : ''}
           </div>
           ${board.map((p, i) => {
             const lv = getLevel(p.xp)

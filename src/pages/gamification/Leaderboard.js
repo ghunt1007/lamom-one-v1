@@ -67,7 +67,7 @@ export default async function LeaderboardPage(container) {
           <div>
             <div class="page-title">🏆 Leaderboard</div>
             <div class="page-subtitle">กระดานผู้นำ — อันดับพนักงานยอดเยี่ยม
-              ${dataSource === 'live' ? '<span style="font-size:0.72rem;color:var(--success);margin-left:8px">● ข้อมูลจริง</span>' : '<span style="font-size:0.72rem;color:var(--text-muted);margin-left:8px">Demo</span>'}
+              ${dataSource === 'live' ? '<span style="font-size:0.72rem;color:var(--success);margin-left:8px">● ข้อมูลจริง</span>' : ''}
             </div>
           </div>
           <div class="page-actions">

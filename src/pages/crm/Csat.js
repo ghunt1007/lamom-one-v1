@@ -2,7 +2,7 @@
  * CSAT / NPS Dashboard — คะแนนความพึงพอใจลูกค้า
  * Route: /crm/csat
  */
-import { formatDate, toDateStr } from '../../utils/format.js'
+import { formatDate, toDateStr, monthBangkok } from '../../utils/format.js'
 import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '../../core/db.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
@@ -12,27 +12,8 @@ import { escHtml } from '../../utils/escape.js'
 
 const MONTH_ABBR = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 
-// Fallback ตัวอย่างล้วน — ใช้แสดงเฉพาะตอนยังไม่มีข้อมูลจริงใน collection csat เลย (liveRecent ว่าง)
-const MONTHLY_CSAT_DEMO = [
-  { month:'ม.ค.', csat:0, nps:0, responses:48 },
-  { month:'ก.พ.', csat:0, nps:0, responses:55 },
-  { month:'มี.ค.', csat:0, nps:0, responses:62 },
-  { month:'เม.ย.', csat:0, nps:0, responses:58 },
-  { month:'พ.ค.', csat:0, nps:0, responses:71 },
-  { month:'มิ.ย.', csat:0, nps:0, responses:43 },
-]
-
-// (v1.0.xxx) csat collection ไม่มี field แยกคะแนนรายหมวด (มีแค่ csat/nps รวมเดียว) จึงไม่มีข้อมูลจริงพอจะ
-// คำนวณกราฟนี้ได้ — คงไว้เป็นตัวอย่างล้วน (ต่างจาก "CSAT รายเดือน" ด้านล่างที่คำนวณจากข้อมูลจริงได้แล้ว)
-// และติดป้าย "(ตัวอย่าง)" ให้ตรงกับความจริงที่ UI แทนการแสดงเหมือนเป็นข้อมูลจริง
-const CATEGORIES_DEMO = [
-  { cat:'ความสะอาด',       score:0 },
-  { cat:'ความรวดเร็ว',     score:0 },
-  { cat:'ความเป็นมืออาชีพ', score:0 },
-  { cat:'ราคาคุ้มค่า',     score:0 },
-  { cat:'การสื่อสาร',      score:0 },
-  { cat:'คุณภาพงาน',       score:0 },
-]
+// (v1.0.948) เอาตัวอย่างออก: เดือนตายตัว ม.ค.–มิ.ย. ที่มีจำนวนผู้ตอบสมมติ (48/55/62...) และการ์ด "คะแนนรายหมวด" ที่เป็น 0 ทุกหมวด
+// (ระบบไม่มีคะแนนแยกหมวดให้คำนวณ) — ตอนนี้กราฟรายเดือนใช้ 6 เดือนล่าสุดตามเวลาไทยเสมอ ไม่มีข้อมูล = 0
 
 export function npsType(score) {
   if (score >= 9) return { label:'Promoter', c:'var(--success)' }
@@ -76,13 +57,7 @@ export default async function CsatPage(container) {
   // csat ที่หน้านี้โหลดมาอยู่แล้ว (liveRecent) — คำนวณจริงจาก liveRecent เมื่อมีข้อมูลจริงอย่างน้อย 1 รายการ
   // (จัดกลุ่มตามเดือนจาก r.date, csat% = คะแนนเฉลี่ย/5*100) ถ้ายังไม่มีข้อมูลจริงเลยค่อย fallback เป็นตัวอย่าง
   function computeMonthlyTrend() {
-    if (!liveRecent.length) return { data: MONTHLY_CSAT_DEMO, isReal: false }
-    const now = new Date()
-    const months = []
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-      months.push({ key: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'), month: MONTH_ABBR[d.getMonth()] })
-    }
+    const months = [5, 4, 3, 2, 1, 0].map(k => monthBangkok(-k)).map(key => ({ key, month: MONTH_ABBR[Number(key.slice(5, 7)) - 1] }))
     const byMonth = {}
     liveRecent.forEach(r => {
       const key = (r.date || '').slice(0, 7)
@@ -96,7 +71,7 @@ export default async function CsatPage(container) {
       const b = byMonth[mo.key]
       return { month: mo.month, csat: b ? Math.round(b.csatSum / b.count / 5 * 100) : 0, nps: b ? Math.round(b.npsSum / b.count) : 0, responses: b ? b.count : 0 }
     })
-    return { data, isReal: true }
+    return { data, isReal: liveRecent.length > 0 }
   }
 
   function render() {
@@ -114,7 +89,7 @@ export default async function CsatPage(container) {
       <div class="page-content animate-slide">
         <div class="page-header">
           <div>
-            <div class="page-title">⭐ CSAT / NPS Dashboard</div>
+            <div class="page-title">⭐ ความพึงพอใจลูกค้า (CSAT / NPS)</div>
             <div class="page-subtitle">ความพึงพอใจลูกค้า · Net Promoter Score · ปรับปรุงบริการ</div>
           </div>
           <div class="page-actions">
@@ -139,7 +114,7 @@ export default async function CsatPage(container) {
           <div style="display:flex;flex-direction:column;gap:12px">
             <!-- CSAT trend -->
             <div class="card" style="padding:14px">
-              <div style="font-size:0.76rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">📈 CSAT รายเดือน (%)${monthlyIsReal ? '' : ' <span style="font-size:0.62rem;color:var(--text-muted);font-weight:400">(ตัวอย่าง — ยังไม่มีข้อมูลจริงใน CSAT)</span>'}</div>
+              <div style="font-size:0.76rem;font-weight:700;color:var(--text-muted);margin-bottom:12px">📈 CSAT รายเดือน (%)${monthlyIsReal ? '' : ' <span style="font-size:0.62rem;color:var(--text-muted);font-weight:400">(ยังไม่มีผลสำรวจ)</span>'}</div>
               <div style="display:flex;align-items:flex-end;gap:6px;height:90px">
                 ${MONTHLY_CSAT.map((mo,i) => {
                   const h = Math.max(4, Math.min(90, Math.round((mo.csat - 70) / 30 * 80 + 10)))
@@ -152,20 +127,6 @@ export default async function CsatPage(container) {
               </div>
             </div>
 
-            <!-- Category scores -->
-            <div class="card" style="padding:14px">
-              <div style="font-size:0.76rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">📊 คะแนนรายหมวด <span style="font-size:0.62rem;color:var(--text-muted);font-weight:400">(ตัวอย่าง — ยังไม่มี field คะแนนรายหมวดใน collection csat)</span></div>
-              ${CATEGORIES_DEMO.map(cat => `
-                <div style="margin-bottom:8px">
-                  <div style="display:flex;justify-content:space-between;font-size:0.74rem;margin-bottom:3px">
-                    <span>${cat.cat}</span>
-                    <span style="font-weight:700;color:${cat.score>=90?'var(--success)':cat.score>=75?'var(--warning)':'var(--danger)'}">${cat.score}%</span>
-                  </div>
-                  <div style="height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden">
-                    <div style="height:100%;width:${cat.score}%;background:${cat.score>=90?'var(--success)':cat.score>=75?'var(--warning)':'var(--danger)'};border-radius:3px"></div>
-                  </div>
-                </div>`).join('')}
-            </div>
           </div>
 
           <!-- Right: recent reviews -->
