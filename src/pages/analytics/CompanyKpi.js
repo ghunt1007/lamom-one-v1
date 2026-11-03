@@ -3,6 +3,7 @@ import { showToast } from '../../core/store.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { getSalesData, listDocs } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
+import { loadSalesBudget, sumMonths } from '../../utils/salesBudget.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 
 // เป้าหมายอ้างอิงมาตรฐานอุตสาหกรรม — หมวดที่ไม่มี ✅ ยังไม่มีข้อมูลจริงเชื่อมในระบบ (Service/HR/Finance/Marketing)
@@ -11,8 +12,8 @@ const COMPANY_KPIS = {
   sales: {
     label: '💰 ยอดขาย', color: 'success', icon: '💰', hasRealData: true,
     kpis: [
-      { key: 'revenue', name: 'ยอดขายรถยนต์', unit: 'บาท', target: 120000000, format: 'currency', lowerIsBetter: false },
-      { key: 'units', name: 'จำนวนคันที่ขาย', unit: 'คัน', target: 100, format: 'number', lowerIsBetter: false },
+      { key: 'revenue', name: 'ยอดขายรถยนต์', unit: 'บาท', target: null, fromBudget: 'targets', format: 'currency', lowerIsBetter: false },
+      { key: 'units', name: 'จำนวนคันที่ขาย', unit: 'คัน', target: null, fromBudget: 'units', format: 'number', lowerIsBetter: false },
       { key: 'margin', name: 'Gross Margin', unit: '%', target: 15, format: 'percent', lowerIsBetter: false },
       { key: 'convRate', name: 'อัตราส่งมอบ (ส่งมอบ/จอง)', unit: '%', target: 80, format: 'percent', lowerIsBetter: false },
       { key: 'avgDeal', name: 'Avg Deal Size', unit: 'บาท', target: 1100000, format: 'currency', lowerIsBetter: false },
@@ -65,7 +66,7 @@ const COMPANY_KPIS = {
 }
 
 function calcScore(kpi) {
-  if (kpi.actual == null) return null
+  if (kpi.actual == null || !kpi.target) return null
   if (kpi.lowerIsBetter) {
     if (kpi.actual <= kpi.target) return 100
     return Math.max(0, Math.round((kpi.target / kpi.actual) * 100))
@@ -104,10 +105,12 @@ export default async function CompanyKpiPage(container) {
   let catFilter = 'all'
   let sales = []
   let customers = []
+  let budget = { targets: null, units: null }
 
   try {
-    const [s, c] = await Promise.all([getSalesData().catch(() => []), listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 3000).catch(() => [])])
+    const [s, c, b] = await Promise.all([getSalesData().catch(() => []), listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 3000).catch(() => []), loadSalesBudget(YEAR)])
     if (container.__routerGen !== myGen) return
+    budget = b
     sales = s
     // softDelete() ไม่ลบเอกสารจริง แค่ตั้ง deleted:true — กรองออกกันลูกค้าที่ลบไปแล้วปนอยู่ใน KPI
     customers = c.filter(x => !x.deleted)
@@ -154,7 +157,10 @@ export default async function CompanyKpiPage(container) {
     const result = {}
     Object.entries(COMPANY_KPIS).forEach(([cat, info]) => {
       const actuals = cat === 'sales' ? salesActuals : cat === 'crm' ? crmActuals : {}
-      result[cat] = { ...info, kpis: info.kpis.map(k => ({ ...k, actual: info.hasRealData ? (actuals[k.key] ?? null) : null })) }
+      // (v1.0.953) เป้ายอดขาย/จำนวนคันมาจากหน้า Sales Budget ตามช่วงที่เลือก (ไตรมาส/ทั้งปี) — เดิมเป็นเลขสมมติ
+      // ฿120 ล้าน/100 คัน และใช้ตัวเลขเดียวกันทั้งไตรมาสและทั้งปี ทำให้ % บรรลุผิดทุกไตรมาส
+      const [from, to] = quarterRange(period)
+      result[cat] = { ...info, kpis: info.kpis.map(k => ({ ...k, target: k.fromBudget ? sumMonths(budget[k.fromBudget], from, to) : k.target, actual: info.hasRealData ? (actuals[k.key] ?? null) : null })) }
     })
     return result
   }
@@ -258,8 +264,8 @@ export default async function CompanyKpiPage(container) {
                 <tbody>
                   ${info.kpis.map(k => {
                     const kScore = calcScore(k)
-                    const kSl = scoreLabel(kScore)
-                    const diff = k.actual != null ? k.actual - k.target : null
+                    const kSl = k.fromBudget && !k.target && k.actual != null ? { label: "ยังไม่ตั้งเป้า", color: "secondary" } : scoreLabel(kScore)
+                    const diff = k.actual != null && k.target ? k.actual - k.target : null
                     const isGood = diff == null ? null : (k.lowerIsBetter ? diff <= 0 : diff >= 0)
                     const arrow = isGood == null ? '—' : (isGood ? '↑' : '↓')
                     const arrowColor = isGood == null ? 'var(--text-muted)' : (isGood ? 'var(--success)' : 'var(--danger)')
@@ -268,7 +274,7 @@ export default async function CompanyKpiPage(container) {
                         <div style="font-weight:600;font-size:0.85rem">${k.name}</div>
                         <div style="font-size:0.7rem;color:var(--text-muted)">${k.unit}</div>
                       </td>
-                      <td class="text-right" style="font-size:0.83rem">${fmtVal(k, k.target)}</td>
+                      <td class="text-right" style="font-size:0.83rem">${k.fromBudget && !k.target ? '<a href="/finance/sales-budget" onclick="navigate(\'/finance/sales-budget\');return false" style="font-size:0.75rem">ยังไม่ตั้งเป้า →</a>' : fmtVal(k, k.target)}</td>
                       <td class="text-right" style="font-size:0.88rem;font-weight:700;color:${isGood==null?'var(--text-muted)':isGood?'var(--success)':'var(--danger)'}">${fmtVal(k, k.actual)}</td>
                       <td class="text-right">
                         <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px">

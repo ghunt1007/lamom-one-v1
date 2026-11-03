@@ -9,6 +9,7 @@ import { formatCurrency, todayBangkok } from '../../utils/format.js'
 import { exportToExcel } from '../../utils/importExport.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { escHtml } from '../../utils/escape.js'
+import { loadSalesBudget } from '../../utils/salesBudget.js'
 
 const MONTH_LABELS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 
@@ -19,11 +20,8 @@ const ZERO12 = () => Array(12).fill(0)
 // อ่านจาก Firestore collection 'sales_budgets' เดียวกับหน้า Sales Budget — เดิมอ่านจาก localStorage
 // เครื่องเดียวกัน (key ผูกปีตายตัว 'lamom_sales_budget_2025') ทำให้เห็นเป้าคนละชุดกันข้ามเครื่อง/ข้ามปี
 async function loadBudget() {
-  try {
-    const docs = await listDocs('sales_budgets', [['year', '==', Number(todayBangkok().slice(0, 4))], ...companyScopeFilters()], 'createdAt', 'asc', 1)
-    if (docs.length > 0 && Array.isArray(docs[0].targets)) return { revenue: docs[0].targets, units: Array.isArray(docs[0].units) ? docs[0].units : ZERO12(), set: true }
-  } catch {}
-  return { revenue: ZERO12(), units: ZERO12(), set: false }
+  const b = await loadSalesBudget(todayBangkok().slice(0, 4))
+  return { revenue: b.targets || ZERO12(), units: b.units || ZERO12(), set: !!b.targets }
 }
 
 function pctColor(pct) {

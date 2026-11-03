@@ -4,6 +4,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { getSalesData, listDocs } from '../../core/db.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { loadSalesBudget, sumMonths } from '../../utils/salesBudget.js'
 
 const MONTHS_TH = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 
@@ -86,10 +87,7 @@ export default async function SalesForecastPage(container) {
 
   // ดึงเป้ายอดขายรายปีจริงจาก sales_budgets (ถ้ามี) แทนตัวเลขเป้าที่ hardcode ไว้ตายตัว
   try {
-    const budgetDocs = await listDocs('sales_budgets', [['year', '==', YEAR], ...companyScopeFilters()], 'createdAt', 'asc', 1).catch(() => [])
-    if (budgetDocs.length && Array.isArray(budgetDocs[0].targets)) {
-      annualTarget = budgetDocs[0].targets.reduce((a, v) => a + (v || 0), 0)
-    }
+    annualTarget = sumMonths((await loadSalesBudget(YEAR)).targets) || 0
   } catch {}
 
   function renderPage() {
