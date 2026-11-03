@@ -1,4 +1,5 @@
 import { todayBangkok } from './format.js'
+import { mapExtraColumns, EXTRA_COLUMNS } from './sheetColumns.js'
 // (v1.0.540) นำเข้า/อัปเดตใบจองจากไฟล์ Excel "DATA Booking" ของโชว์รูม (แท็บ Booking, หัวตารางอยู่แถว 3)
 // เดิมการนำเข้าทำผ่านสคริปต์ภายนอกครั้งเดียว (ส.ค. 2569) — ไฟล์นี้ทำให้เจ้าของ/ผู้จัดการอัปเดตเองได้ในโปรแกรม
 // โดยข้อมูลลูกค้าไม่ต้องออกจากเครื่องที่ login อยู่เลย
@@ -150,6 +151,8 @@ export function mapBookingRow(r) {
     actualDeliveryDate: fmtDate(r['วันที่รับจริง']),
     salesName: str(r['ชื่อเซลล์']),
     nid: fmtNid(r['เลขประจำตัวประชาชน']),
+    // (v1.0.954) ช่องที่เหลือของ Sheet (จองDMS, Allocate, ชุดขาย, แจ้งประกัน, สายชาร์จ, คืนจอง ฯลฯ) — ดู sheetColumns.js
+    ...mapExtraColumns(r, { str, num, fmtDate }),
   }
 }
 
@@ -157,7 +160,7 @@ export function mapBookingRow(r) {
 const UPDATABLE = ['status', 'custName', 'phone', 'address', 'source', 'brand', 'model', 'colorOut', 'colorIn', 'vin', 'motorNo',
   'engineNo', 'batNo', 'redPlate', 'whitePlate', 'price', 'down', 'financeCo', 'finStatus', 'campaign', 'margin', 'budgetUsed',
   'comFinance', 'accessoryAmount', 'bookingDate', 'submitDate', 'signDate', 'approveDate', 'deliveryDate', 'cutDate',
-  'actualDeliveryDate', 'salesName']
+  'actualDeliveryDate', 'salesName', ...EXTRA_COLUMNS.map(c => c.f)]
 
 function isEmpty(v) { return v == null || v === '' || v === 0 }
 function same(a, b) {

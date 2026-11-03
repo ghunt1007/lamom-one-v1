@@ -27,6 +27,8 @@ import { escHtml as __escA } from '../../utils/escape.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
 import { copyText } from '../../utils/copyText.js'
 import { escHtml } from '../../utils/escape.js'
+import { SHEET_COLUMNS, patchForCell } from '../../utils/sheetColumns.js'
+import { renderSheetGrid } from './bookingSheetGrid.js'
 
 // ── แบรนด์หลักที่ตัวแทนขาย (ตาม LAMOM V8 — S.K. Bangbuathong) ──────────────
 const BRANDS = ['DEEPAL', 'AION', 'OMODA & JAECOO', 'SUZUKI', 'NISSAN']
@@ -216,7 +218,7 @@ export default async function BookingsPage(container) {
       updates.forEach(u => u.changes.forEach(f => { changeCount[f] = (changeCount[f] || 0) + 1 }))
       const FIELD_TH = { status: 'สถานะ', finStatus: 'สถานะเช่าซื้อ', actualDeliveryDate: 'วันที่รับจริง', deliveryDate: 'กำหนดส่งมอบ', vin: 'VIN',
         approveDate: 'วันที่ผ่าน', cutDate: 'วันที่ตัดตัวเลข', margin: 'มาจิ้น', budgetUsed: 'งบที่ใช้', phone: 'เบอร์โทร', address: 'ที่อยู่', price: 'ราคารถ',
-        salesName: 'ชื่อเซลล์', companyId: 'บริษัท (ซ่อมให้ตรงแบรนด์)', financeCo: 'ไฟแนนซ์', down: 'ดาวน์', model: 'รุ่นรถ', custName: 'ชื่อลูกค้า' }
+        salesName: 'ชื่อเซลล์', companyId: 'บริษัท (ซ่อมให้ตรงแบรนด์)', financeCo: 'ไฟแนนซ์', down: 'ดาวน์', model: 'รุ่นรถ', custName: 'ชื่อลูกค้า', ...Object.fromEntries(SHEET_COLUMNS.map(c => [c.f, c.h])) }
       const topChanges = Object.entries(changeCount).sort((a, b) => b[1] - a[1]).slice(0, 8)
         .map(([f, n]) => `${escHtml(FIELD_TH[f] || f)} ${n} ใบ`).join(' · ')
       // รถในสต็อกที่สถานะยังไม่ตรงกับใบจอง (นับไว้แสดง + ให้กดยืนยันได้แม้ข้อมูลใบจองจะตรงหมดแล้ว)
@@ -323,6 +325,12 @@ export default async function BookingsPage(container) {
   let dateTo = ''
   let noIncomeOnly = false
   const selectedIds = new Set()
+  // (v1.0.954) มุมมอง "แบบ Sheet" (ครบทุกคอลัมน์ แก้ในช่องได้เลย) — จอกว้างเปิดแบบนี้เป็นค่าเริ่มต้น จำค่าที่เลือกไว้
+  let viewMode = (() => { try { return localStorage.getItem('bk-view') || '' } catch { return '' } })() || (window.innerWidth >= 768 ? 'sheet' : 'cards')
+  let sheetSort = { f: '', dir: 1 }
+  let sheetHideEmpty = false
+  let sheetDraft = null
+  function setView(v) { viewMode = v; try { localStorage.setItem('bk-view', v) } catch {} ; render() }
 
   async function loadData() {
     // softDelete() ไม่ได้ลบเอกสารจริง แค่ตั้ง deleted:true — ถ้าไม่กรองออก ใบจองที่ "ลบ" ไปแล้วจะยังโผล่กลับมา
@@ -543,6 +551,10 @@ export default async function BookingsPage(container) {
 
         <div class="card mb-4" style="padding:10px 14px">
           <div class="bk-filters${dateFrom || dateTo ? '' : ' bk-nodate'}" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <div class="bk-view-toggle" role="group" aria-label="มุมมอง" style="display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;flex-shrink:0">
+              <button type="button" class="btn btn-xs ${viewMode === 'sheet' ? 'btn-primary' : 'btn-ghost'}" data-view="sheet" style="border-radius:0" title="ตารางครบทุกคอลัมน์เหมือน Google Sheet แตะช่องเพื่อแก้">📊 แบบ Sheet</button>
+              <button type="button" class="btn btn-xs ${viewMode !== 'sheet' ? 'btn-primary' : 'btn-ghost'}" data-view="cards" style="border-radius:0" title="การ์ด/ตารางย่อ">🗂 การ์ด</button>
+            </div>
             <select class="input" id="bk-f-seller" style="width:auto;font-size:0.76rem">${sellerOpts}</select>
             <select class="input" id="bk-f-brand" style="width:auto;font-size:0.76rem">${brandOpts}</select>
             <button type="button" class="btn btn-ghost bk-date-toggle" id="bk-date-toggle" title="กรองตามช่วงวันที่จอง">📅</button>
@@ -560,13 +572,14 @@ export default async function BookingsPage(container) {
 
         ${stChips}
         ${statsBar}
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding:0 2px">${brandKpi}</div>
+        ${viewMode === 'sheet' ? '' : `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding:0 2px">${brandKpi}</div>`}
         ${bulkBar}
         <div id="bk-content"></div>
       </div>`)
 
     renderTable(filtered)
 
+    container.querySelectorAll('.bk-view-toggle [data-view]').forEach(b => b.addEventListener('click', () => setView(b.dataset.view)))
     document.getElementById('bk-wizard-btn').addEventListener('click', () => openWizard())
     document.getElementById('bk-fill-deepal-deposit-btn')?.addEventListener('click', () => fillDeepalDeposit())
     document.getElementById('bk-import-excel-btn')?.addEventListener('click', () => openExcelImport())
@@ -609,6 +622,7 @@ export default async function BookingsPage(container) {
   function renderTable(filtered) {
     const wrap = document.getElementById('bk-content')
     if (!wrap) return
+    if (viewMode === 'sheet') { renderSheet(wrap, filtered); return }
     if (!filtered.length) { wrap.innerHTML = '<div class="empty-state" style="padding:48px"><div class="empty-icon">📋</div><div class="empty-title">ไม่มีรายการจอง</div><div class="empty-desc">กด "➕ จองใหม่" เพื่อเพิ่มรายการใหม่</div></div>'; return }
     const allSelected = filtered.length > 0 && filtered.every(b => selectedIds.has(b.id))
     wrap.innerHTML = `<div class="bk-cards">${filtered.map(b => cardRow(b)).join('')}</div>
@@ -755,25 +769,97 @@ export default async function BookingsPage(container) {
     function closePop() { pop.remove(); document.removeEventListener('click', onDocClick) }
     function onDocClick(e) { if (!pop.contains(e.target)) closePop() }
     pop.querySelectorAll('.bk-qk-opt').forEach(opt => opt.addEventListener('click', async () => {
-      const newStatus = opt.dataset.s
       closePop()
-      if (newStatus === b.status) return
-      if (newStatus === 'ถอนจอง') { openWithdrawModal(b); return }
-      try {
-        const datePatch = statusDatePatch(b, newStatus, todayBangkok())
-        await updateDocData('bookings', b.id, { status: newStatus, ...datePatch, updatedAt: new Date().toISOString() })
-        b.status = newStatus
-        Object.assign(b, datePatch)
-        if (newStatus === 'ส่งมอบแล้ว') { await maybeMarkCustomerDelivered(b); await scheduleAfterSales(b) }
-        await syncStockForBookings([b])
-        showToast(`✅ อัปเดตเป็น "${newStatus}" แล้ว`, 'success')
-        render()
-        // ส่งมอบ/ตัดตัวเลขแล้วแต่ยังไม่มีรายได้ → ถามมาร์จิ้น/ค่าคอมเลยตอนนี้ (ข้ามได้)
-        if (needsIncome(b) && await askDeliveryIncome(b, { title: '🎉 ส่งมอบแล้ว — กรอกรายได้คันนี้' })) render()
-        offerCustomerNotice(b, newStatus)
-      } catch { showToast('อัปเดตไม่สำเร็จ', 'error') }
+      await applyStatusChange(b, opt.dataset.s)
     }))
     setTimeout(() => { document.addEventListener('click', onDocClick) }, 30)
+  }
+
+  // เปลี่ยนสถานะ 1 ใบ (ใช้ทั้งป็อปอัพสถานะและตารางแบบ Sheet) — เติมวันที่ อัปเดตลูกค้า/สต็อก/นัดหลังการขายให้ครบ
+  async function applyStatusChange(b, newStatus) {
+    if (!b || newStatus === b.status) return
+    if (newStatus === 'ถอนจอง') { openWithdrawModal(b); return }
+    try {
+      const datePatch = statusDatePatch(b, newStatus, todayBangkok())
+      await updateDocData('bookings', b.id, { status: newStatus, ...datePatch, updatedAt: new Date().toISOString() })
+      b.status = newStatus
+      Object.assign(b, datePatch)
+      if (newStatus === 'ส่งมอบแล้ว') { await maybeMarkCustomerDelivered(b); await scheduleAfterSales(b) }
+      await syncStockForBookings([b])
+      showToast(`✅ อัปเดตเป็น "${newStatus}" แล้ว`, 'success')
+      render()
+      // ส่งมอบ/ตัดตัวเลขแล้วแต่ยังไม่มีรายได้ → ถามมาร์จิ้น/ค่าคอมเลยตอนนี้ (ข้ามได้)
+      if (needsIncome(b) && await askDeliveryIncome(b, { title: '🎉 ส่งมอบแล้ว — กรอกรายได้คันนี้' })) render()
+      offerCustomerNotice(b, newStatus)
+    } catch { showToast('อัปเดตไม่สำเร็จ', 'error'); render() }
+  }
+
+  // ── ตารางแบบ Sheet ───────────────────────────────────────────────────────
+  function renderSheet(wrap, filtered) {
+    renderSheetGrid(wrap, {
+      rows: filtered,
+      draft: sheetDraft,
+      get focusDraft() { return sheetDraft?.__focus },
+      set focusDraft(v) { if (sheetDraft) sheetDraft.__focus = v },
+      canViewNid,
+      statusColors: STATUS_COLORS,
+      options: {
+        status: getBookingStatus(), colors: getColors(), sources: getLeadSources(), sales: getSalesStaff(),
+        finance: getFinanceCompanies(), campaigns: getCampaigns(), finStatus: getFinanceStatus(),
+      },
+      sort: sheetSort,
+      hideEmpty: sheetHideEmpty,
+      onSort: f => {
+        sheetSort = sheetSort.f !== f ? { f, dir: 1 } : sheetSort.dir > 0 ? { f, dir: -1 } : { f: '', dir: 1 }
+        render()
+      },
+      onToggleEmpty: () => { sheetHideEmpty = !sheetHideEmpty; render() },
+      onAddRow: () => {
+        if (!sheetDraft) sheetDraft = { __draft: true, bookingNo: newBookingNo(), status: 'ยอดจองคงค้าง', bookingDate: todayBangkok(), salesName: myDisplayName || '' }
+        sheetDraft.__focus = true
+        render()
+      },
+      onOpen: b => openDetail(b),
+      onCancelDraft: () => { sheetDraft = null; render() },
+      onStatus: (b, s) => applyStatusChange(b, s),
+      onSave: saveSheetCell,
+      onCreate: createFromSheet,
+    })
+  }
+
+  async function saveSheetCell(b, col, value) {
+    if (col.f === 'nid') {
+      await setDocData('booking_national_ids', b.id, { nid: value, companyId: b.companyId || myEffectiveCompanyId() })
+      b.nid = value; nidMap[b.id] = value
+      return {}
+    }
+    const patch = patchForCell(b, col, value)
+    await updateDocData('bookings', b.id, { ...patch, updatedAt: new Date().toISOString() })
+    Object.assign(b, patch)
+    if (['vin', 'model', 'colorOut'].includes(col.f)) syncStockForBookings([b]).catch(() => {})
+    return patch
+  }
+
+  async function createFromSheet(draft) {
+    const { __draft, __focus, nid, ...fields } = draft
+    const data = {
+      companyId: myEffectiveCompanyId(), customerId: null, rightsOnly: true, brand: '', variant: '', province: '',
+      price: 0, cost: 0, bookingDeposit: 0, down: 0, financeAmount: 0, installments: 0, interestRate: 0, monthly: 0,
+      margin: 0, budgetUsed: 0, com70: 0, comFinance: 0, marginLeft: 0, totalIncome: 0, notes: '',
+      ...fields,
+      createdAt: new Date().toISOString(),
+    }
+    try {
+      const id = await createDoc('bookings', data)
+      if (canViewNid && nid) await setDocData('booking_national_ids', id, { nid, companyId: data.companyId }).catch(() => {})
+      if (!bookings.some(x => x.id === id)) bookings.unshift({ ...data, id, nid: nid || '' })
+      sheetDraft = null
+      showToast(`✅ เพิ่มใบจอง ${data.bookingNo} แล้ว — กรอกช่องอื่นต่อในแถวเดียวกันได้เลย`, 'success')
+      render()
+    } catch (err) {
+      showToast('เพิ่มแถวไม่สำเร็จ — ' + (err?.message || 'ลองใหม่อีกครั้ง'), 'error')
+      throw err
+    }
   }
 
   function copySummary(b) {
