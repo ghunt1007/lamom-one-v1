@@ -587,7 +587,7 @@ export default async function BookingsPage(container) {
 
         ${stChips}
         ${statsBar}
-        ${viewMode === 'sheet' ? '' : `<div class="bk-brand-row" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding:0 2px">${brandKpi}</div>`}
+        ${viewMode === 'sheet' ? '' : `<div class="bk-brand-row" style="display:flex;gap:8px;flex-wrap:wrap;overflow-x:auto;margin-bottom:12px;padding:0 2px">${brandKpi}</div>`}
         ${bulkBar}
         <div id="bk-content"></div>
       </div>`)

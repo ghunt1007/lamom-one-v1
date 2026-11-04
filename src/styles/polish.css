@@ -295,3 +295,36 @@ th { color: var(--text-muted); font-weight: 600; }
   .bottom-nav-item { position: relative; }
   .bottom-nav-item.active::before { content: ''; position: absolute; top: 2px; left: 50%; width: 18px; height: 3px; margin-left: -9px; border-radius: 3px; background: var(--grad-primary); box-shadow: 0 0 8px var(--primary-glow); }
 }
+
+/* (v1.0.961) เมนู "⋯ เพิ่มเติม" บนหัวหน้า (utils/headerActions.js) — ปุ่มรองที่เยอะเกินรวมไว้ที่นี่ */
+.pa-menu { position: relative; display: inline-flex; }
+.page-actions > .pa-menu > .pa-menu-btn {
+  border: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 70%, transparent);
+  min-height: 34px; border-radius: 10px; white-space: nowrap;
+}
+.pa-menu.open > .pa-menu-btn { border-color: var(--primary); background: var(--primary-dim); color: var(--text); }
+.pa-menu-list {
+  display: none; position: absolute; top: calc(100% + 6px); right: 0; z-index: 960;
+  min-width: 210px; max-width: min(320px, calc(100vw - 24px)); max-height: min(70vh, 460px); overflow-y: auto;
+  flex-direction: column; gap: 2px; padding: 6px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .28);
+}
+.pa-menu.open > .pa-menu-list { display: flex; }
+.pa-menu-list > .btn {
+  display: flex !important; width: 100%; justify-content: flex-start; text-align: left; white-space: normal;
+  border: 0 !important; background: transparent !important; min-height: 38px; border-radius: 8px;
+  padding: 8px 10px; font-size: 0.84rem; color: var(--text);
+}
+.pa-menu-list > .btn:hover, .pa-menu-list > .btn:focus-visible { background: var(--primary-dim) !important; }
+.pa-menu-list > .btn[hidden], .pa-menu-list > .btn[style*="display: none"], .pa-menu-list > .btn[style*="display:none"] { display: none !important; }
+/* มือถือ: เมนูเป็นแผ่นเต็มกว้างเหนือแถบล่าง (ไม่หลุดขอบจอเมื่อปุ่มอยู่ซ้าย) */
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
+  .pa-menu { position: static; }
+  .pa-menu-list {
+    position: fixed; left: 12px; right: 12px; top: auto; max-width: none; min-width: 0;
+    bottom: calc(var(--bottom-nav-h, 64px) + 12px + env(safe-area-inset-bottom, 0px)); max-height: 60vh;
+    padding: 8px; border-radius: 16px; box-shadow: 0 -8px 40px rgba(0, 0, 0, .45);
+  }
+  .pa-menu-list > .btn { min-height: 44px; font-size: 0.9rem; }
+}
