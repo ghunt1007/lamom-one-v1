@@ -862,3 +862,10 @@
   .bk-cards { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .bk-filters > div:not(.bk-view-toggle) { flex: 2 1 200px !important; flex-basis: 200px !important; }
 }
+
+/* (v1.0.961) มือถือแนวตั้ง: ยอดตามแบรนด์ในหน้าใบจอง เป็นแถวเดียวเลื่อนข้าง (เดิม 2 แถว กินที่ ~170px ก่อนถึงรายการ) */
+@media (max-width: 640px) {
+  .bk-brand-row { flex-wrap: nowrap !important; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; margin-bottom: 10px !important; }
+  .bk-brand-row::-webkit-scrollbar { display: none; }
+  .bk-brand-row > .bk-brand-card { flex: 0 0 auto !important; min-width: 104px !important; max-width: none !important; padding: 6px 10px !important; }
+}

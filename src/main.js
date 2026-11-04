@@ -18,6 +18,7 @@ import { Topbar } from './components/layout/Topbar.js'
 import { BottomNav } from './components/layout/BottomNav.js'
 import { ToastContainer } from './components/layout/Toast.js'
 import { initAutoTableTools } from './utils/tableTools.js'
+import { initHeaderActions } from './utils/headerActions.js'
 import { initErrorMonitor } from './utils/errorMonitor.js'
 import { initAutoI18n } from './i18n/autoTranslate.js'
 import { initStaleChunkReload } from './utils/staleChunk.js'
@@ -116,6 +117,7 @@ async function bootstrapShell() {
   BottomNav(app)
   initRouter(main)
   initAutoTableTools()  // เสริม sort+filter แบบ Excel ให้ทุกตารางอัตโนมัติ
+  initHeaderActions()   // ปุ่มรองบนหัวหน้าที่เยอะเกิน รวมไว้ใต้ "⋯ เพิ่มเติม"
   initKpiQuiet()       // แถวการ์ดตัวเลขที่เป็น 0 ทั้งแถว ย่อให้เล็กลง
   initViewTabs({ navigate, canOpen: canOpenPath })  // หน้าที่รวมกันแล้ว: แท็บสลับมุมมองใต้หัวหน้า
   initIconTitles()     // ปุ่มไอคอนล้วน (✏️ 🗑 ◀ ▶) มีคำอธิบายไทยเวลาชี้

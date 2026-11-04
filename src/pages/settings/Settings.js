@@ -1,3 +1,4 @@
+import { version as APP_VERSION } from '../../../package.json'
 import { navigate } from '../../core/router.js'
 import { getState, setState } from '../../core/store.js'
 import { escHtml } from '../../utils/escape.js'
@@ -68,7 +69,7 @@ export default function SettingsPage(container) {
           <div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">Tech Stack</span><span>Vite + ES6 + Firebase</span></div>
           <div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">เจ้าของ</span><span style="color:var(--primary)">ทวีศักดิ์ สุขสมบัติเสถียร</span></div>
           <div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">พัฒนาโดย</span><span>LAMI AI + Claude</span></div>
-          <div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">Version</span><span style="color:var(--success)">1.0.0-alpha</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">Version</span><span style="color:var(--success)">v${APP_VERSION}</span></div>
         </div>
       </div>
     </div>
