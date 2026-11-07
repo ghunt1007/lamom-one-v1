@@ -30,6 +30,8 @@ export const SHEET_COLUMNS = [
   { h: 'ราคารถ', f: 'price', t: 'num' },
   { h: 'ส่วนลดตามแคมเปญ', f: 'campaignDiscount', t: 'num', extra: true },
   { h: 'ส่วนลดเพิ่มเติม', f: 'extraDiscount', t: 'num', extra: true },
+  // (v1.0.962) เงินจอง: ช่องของแอป (Sheet ไม่มี) แยกจาก "ดาวน์" — ไม่ส่งออก/ไม่วางทับจาก Sheet
+  { h: 'เงินจอง', f: 'bookingDeposit', t: 'num', app: true },
   { h: 'ดาวน์', f: 'down', t: 'num' },
   { h: 'ไฟแนนซ์', f: 'financeCo', t: 'list', opts: 'finance' },
   { h: 'แคมเปญดอกเบี้ย', f: 'campaign', t: 'list', opts: 'campaigns' },
@@ -132,6 +134,8 @@ export function displayCell(col, v) {
 
 // แก้ช่องเดียว → patch ที่ต้องบันทึก (รวมช่องที่คำนวณต่อจากช่องนี้ ให้ตรงกับฟอร์มเต็ม)
 export function patchForCell(b, col, value) {
+  // ดาวน์แบบ Sheet (0.25 = 25%) → คิดเป็นจำนวนเงินจากราคารถ เหมือนตอนซิงก์ Sheet
+  if (col.f === 'down' && Number(value) > 0 && Number(value) <= 1 && Number(b?.price) > 0) value = Math.round(Number(b.price) * Number(value))
   const patch = { [col.f]: value }
   const next = { ...b, ...patch }
   if (['margin', 'budgetUsed', 'com70', 'comFinance'].includes(col.f)) {
@@ -207,11 +211,14 @@ export function parseClipboardGrid(text) {
 // คืน { changes:[{row, col, value}], bad:[{row, col, raw}] } — row = index ใน rows, col = object คอลัมน์
 export function planPaste(grid, rows, cols, startRow, startCol) {
   const changes = [], bad = []
+  // วางหลายคอลัมน์จาก Sheet: ข้ามคอลัมน์ของแอปที่ Sheet ไม่มี (เช่น เงินจอง) ให้ช่องตรงกับ Sheet
+  const seq = (grid[0]?.length || 0) > 1 ? cols.filter((c, i) => i === startCol || !c.app) : cols
+  const start = seq.indexOf(cols[startCol])
   grid.forEach((line, di) => {
     const r = rows[startRow + di]
     if (!r) return
     line.forEach((raw, dj) => {
-      const c = cols[startCol + dj]
+      const c = seq[start + dj]
       if (!c || c.ro) return
       const v = parseCell(c, raw)
       if (v === null) { bad.push({ row: startRow + di, col: c, raw }); return }
@@ -224,7 +231,8 @@ export function planPaste(grid, rows, cols, startRow, startCol) {
 }
 
 // ส่งออก Excel: หัวคอลัมน์และลำดับเหมือนไฟล์ DATA Booking
-export function sheetExportRows(rows, cols = SHEET_COLUMNS) {
+export const SHEET_FILE_COLUMNS = SHEET_COLUMNS.filter(c => !c.app)
+export function sheetExportRows(rows, cols = SHEET_FILE_COLUMNS) {
   return rows.map(r => Object.fromEntries(cols.map(c => {
     const v = r[c.f]
     if (c.t === 'num') return [c.h, Number(v) || '']

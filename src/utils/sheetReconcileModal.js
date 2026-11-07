@@ -12,13 +12,13 @@ import { showToast, getState } from '../core/store.js'
 import { openModal, confirmDialog } from './modal.js'
 import { exportMultiSheet, exportToExcel } from './importExport.js'
 import { todayBangkok } from './format.js'
-import { readBookingSheet, planBookingImport, sheetImportWarnings, newBookingDoc, newCustomerDoc, companyForBrand, brandCompanyMap } from './bookingImport.js'
+import { readBookingSheet, planBookingImport, sheetImportWarnings, planDepositFix, newBookingDoc, newCustomerDoc, companyForBrand, brandCompanyMap } from './bookingImport.js'
 import { maybeMarkCustomerDelivered, syncStockForBookings } from './bookingSync.js'
 import { isProgramOwner } from '../core/hierarchy.js'
 import { fetchSheetFile } from './dailyReport.js'
 import { planSheetReconcile, splitUpdatesByRecency, sheetRowsForBookings, customerFullName, normPhone, normPersonName } from './sheetReconcile.js'
 import { copyText } from './copyText.js'
-import { SHEET_COLUMNS } from './sheetColumns.js'
+import { SHEET_FILE_COLUMNS } from './sheetColumns.js'
 import { escHtml as esc } from './escape.js'
 
 export const SYNC_TAG = 'sheet-sync'
@@ -170,7 +170,8 @@ async function reconcileFromBuffer(buffer, { name = '', modifiedAt = null, onDon
     ]
     const { extraBookings, renumberBookings, extraCustomers, leads, customerFixes, missingCustomers, linkOnly, appOnlyBookings, appOnlyCustomers, stampBookings, stampCustomers, dateFixBookings = [], dateFixCustomers = [] } = plan
     const { creates, unchanged } = imp
-    const warn = sheetImportWarnings(sheet, imp, SHEET_COLUMNS.map(c => c.h))
+    const depositFix = planDepositFix(allBookings)
+    const warn = sheetImportWarnings(sheet, imp, SHEET_FILE_COLUMNS.map(c => c.h))
     const warnHtml = (warn.noNumber.length || warn.dupes.length || warn.missingHeaders.length) ? `
       <div style="margin-top:10px;padding:8px 10px;border:1px solid var(--warning);border-radius:8px;font-size:0.8rem;line-height:1.6">
         <b>⚠️ ข้อมูลใน Sheet ที่ยังเข้าโปรแกรมไม่ได้</b> — แก้ใน Sheet แล้วกดซิงก์อีกครั้ง
@@ -196,9 +197,10 @@ async function reconcileFromBuffer(buffer, { name = '', modifiedAt = null, onDon
       ld: leads.map(c => ({ customer: c })),
       ao: appOnlyBookings,
       an: appNewer,
+      df: depositFix,
     }
     const delTotal = extraBookings.length + extraCustomers.length
-    const fixTotal = updates.length + renumberBookings.length + customerFixes.length
+    const fixTotal = updates.length + renumberBookings.length + customerFixes.length + depositFix.length
     const addTotal = creates.length + missingCustomers.length
     const totalTodo = delTotal + fixTotal + addTotal + linkOnly.length + nidTodo.length
     const { el, close } = openModal({
@@ -217,6 +219,7 @@ async function reconcileFromBuffer(buffer, { name = '', modifiedAt = null, onDon
           <div style="margin-top:8px;font-size:0.78rem;color:var(--text-muted)">ติ๊กไว้ให้ครบแล้ว กดปุ่มด้านล่างได้เลย · อยากดูหรือเอาบางรายการออก กดเปิดหัวข้อด้านล่าง</div>` : `<div style="margin-top:12px;font-weight:700;color:var(--success)">✅ ข้อมูลในโปรแกรมตรงกับไฟล์แล้ว</div>`}
           ${section('nb', '➕ ใบจองใหม่จากไฟล์', creates, newLine)}
           ${section('ub', '✏️ ใบจองที่ข้อมูลเปลี่ยนในไฟล์', updates, updLine)}
+          ${section('df', '💵 เงินจองที่อยู่ในช่องดาวน์ → ย้ายไปช่องเงินจอง', depositFix, x => `<b>${esc(x.booking.bookingNo || '')}</b> · ${esc(x.booking.custName || '')} <span style="color:var(--text-muted)">— เงินจอง ${esc(Number(x.from).toLocaleString('en-US'))} บาท (ช่องดาวน์จะใช้ค่าจาก Sheet)</span>`, { hint: 'ใบจองเก่าเก็บเงินจองไว้ในช่องดาวน์ ซึ่งใน Sheet เป็นคนละช่องกัน' })}
           ${section('rn', '🔢 ใบจองเลขชั่วคราว → เลขจริงจากไฟล์', renumberBookings, renumLine)}
           ${section('xb', '🗑️ ใบจองที่ไม่มีในไฟล์ / ซ้ำ', extraBookings, bkLine)}
           ${section('xc', '🗑️ ลูกค้าที่ไม่มีในไฟล์ / ซ้ำ', extraCustomers, custLine, { hint: 'ลูกค้าซ้ำ: เก็บคนที่ผูกกับใบจองไว้ ลบคนที่ซ้ำ' })}
@@ -260,6 +263,8 @@ async function reconcileFromBuffer(buffer, { name = '', modifiedAt = null, onDon
         const learned = brandCompanyMap(allBookings)
         const deletedCustIds = new Set([...sel.xc, ...sel.ld].map(x => x.customer.id))
 
+        // เงินจองผิดช่องต้องย้ายก่อนอัปเดตจาก Sheet (ถ้า Sheet มีดาวน์จริง ขั้นอัปเดตด้านล่างจะเติมทับให้)
+        for (const x of sel.df) await run(() => updateDocData('bookings', x.booking.id, { ...x.patch, __fromSheet: true }))
         for (const r of sel.rn) await run(() => updateDocData('bookings', r.booking.id, { ...r.patch, __fromSheet: true }))
         for (const x of [...sel.xb, ...sel.ao]) await run(() => updateDocData('bookings', x.booking.id, { ...del, __fromSheet: true }))
         for (const x of [...sel.xc, ...sel.ld]) await run(() => updateDocData('customers', x.customer.id, del))

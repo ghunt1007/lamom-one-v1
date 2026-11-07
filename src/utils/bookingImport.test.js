@@ -159,3 +159,18 @@ describe('sheetImportWarnings', () => {
     expect(w.missingHeaders).toEqual(['ส่งจอง'])
   })
 })
+
+import { planDepositFix } from './bookingImport.js'
+describe('planDepositFix', () => {
+  it('moves small amounts out of the down-payment field into the deposit field', () => {
+    const r = planDepositFix([
+      { id: 'a', down: 4000, price: 900000 },
+      { id: 'b', down: 250000, price: 1000000 },
+      { id: 'c', down: 4000, bookingDeposit: 5000 },
+      { id: 'd', down: 0 },
+      { id: 'e', down: 4000, deleted: true },
+    ])
+    expect(r.map(x => x.booking.id)).toEqual(['a'])
+    expect(r[0].patch).toEqual({ bookingDeposit: 4000, down: 0, financeAmount: 900000 })
+  })
+})

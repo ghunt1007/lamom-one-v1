@@ -86,7 +86,8 @@ function calcMonthly(financeAmount, installments, ratePerYear) {
 // (ตีความรวมเป็นทั้งเงินจอง/เงินดาวน์) ใช้ฟังก์ชันนี้ทุกจุดที่หมายถึง "เงินที่ลูกค้าชำระไว้ตอนจอง" (badge,
 // ถอนจอง/คืนเงิน, แจ้งการเงินตรวจยอด) — ไม่ใช่ทุกจุดที่หมายถึง "เงินดาวน์สำหรับคำนวณไฟแนนซ์" (ยังคงอ่าน
 // b.down ตรงๆ เหมือนเดิม เพราะคนละความหมายกัน)
-function depositAmt(b) { return Number(b?.bookingDeposit) || Number(b?.down) || 0 }
+// (v1.0.962) ไม่เอาเงินดาวน์มาแทนเงินจองอีกแล้ว — หลังซิงก์ Sheet ช่อง down คือเงินดาวน์จริง (คนละช่องกับเงินจอง)
+function depositAmt(b) { return Number(b?.bookingDeposit) || 0 }
 
 // (v1.0.524) สินค้า F&I มาตรฐาน 4 ประเภทที่ตัวแทนจำหน่ายรถ EV ในไทยขายจริง — รายการคงที่ (ไม่ใช่ dynamic list)
 // insurance/creditLife รวมเป็น insuranceAmount, warranty/accessory รวมเป็น accessoryAmount (backward-compat
@@ -161,7 +162,7 @@ export default async function BookingsPage(container) {
   async function fillDeepalDeposit() {
     let all = []
     try { all = await listAllDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 500) } catch { showToast('โหลดข้อมูลไม่สำเร็จ', 'error'); return }
-    const targets = all.filter(b => !b.deleted && detectBrand(b.brand, b.model) === 'DEEPAL' && (!b.down || Number(b.down) === 0))
+    const targets = all.filter(b => !b.deleted && detectBrand(b.brand, b.model) === 'DEEPAL' && !Number(b.bookingDeposit))
     if (!targets.length) { showToast('ไม่พบใบจอง DEEPAL ที่ยังไม่มีเงินจอง', 'warning'); return }
     const ok = await confirmDialog({
       title: '🔧 เติมเงินจอง DEEPAL',
@@ -171,7 +172,8 @@ export default async function BookingsPage(container) {
     if (!ok) return
     let done = 0, errors = 0
     for (const b of targets) {
-      try { await updateDocData('bookings', b.id, { down: 4000 }); done++ } catch { errors++ }
+      // (v1.0.962) เดิมเขียนลงช่อง down (เงินดาวน์) ผิดช่อง → เขียนลงช่องเงินจอง bookingDeposit
+      try { await updateDocData('bookings', b.id, { bookingDeposit: 4000 }); done++ } catch { errors++ }
     }
     showToast(`✅ เติมเงินจองแล้ว ${done} รายการ${errors ? ` (พลาด ${errors} รายการ)` : ''}`, errors ? 'warning' : 'success')
   }
@@ -628,7 +630,7 @@ export default async function BookingsPage(container) {
 
   // (v1.0.955) มุมมองแบบ Sheet: ส่งออกครบทุกคอลัมน์ หัวคอลัมน์/ลำดับเหมือนไฟล์ DATA Booking
   function exportSheet(rows) {
-    const cols = SHEET_COLUMNS.filter(c => c.t !== 'nid' || canViewNid)
+    const cols = SHEET_COLUMNS.filter(c => !c.app && (c.t !== 'nid' || canViewNid))
     exportToExcel(sheetExportRows(rows, cols), 'DATA-Booking-' + todayBangkok() + '.xlsx', 'Booking')
     showToast(`📥 ส่งออก ${rows.length} แถว ครบ ${cols.length} คอลัมน์แล้ว`, 'success')
   }

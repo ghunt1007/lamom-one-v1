@@ -17,21 +17,6 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* v1.0.367 — ลายน้ำตกแต่งประจำธีม (--bg-image ตั้งไว้ต่อธีมใน themes.css, ธีมที่ไม่ได้ตั้งไว้จะเป็น none)
-   วางบน pseudo-element แยกจาก body เพราะ body ต้องคง solid background (var(--bg)) ไว้เป็นพื้นเสมอ — ทุกข้อความ
-   จริงอยู่บนการ์ด/แผง --surface ทึบเหนือขึ้นไปอีกชั้น ไม่โดนภาพนี้บังหรือกระทบ contrast ที่ทำ WCAG ไว้เลย */
-body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background-image: var(--bg-image);
-  background-repeat: no-repeat;
-  background-position: bottom right;
-  background-size: min(560px, 55vw);
-  pointer-events: none;
-}
-
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--surface); }
@@ -91,6 +76,8 @@ a:hover { text-decoration: underline; }
 
 .btn-danger {
   background: var(--danger); color: #fff;
+  /* (v1.0.962) โหมดมืด: แดงอ่อนตัวขาวอ่านยาก — เข้มขึ้นเหมือน success/warning */
+  background: color-mix(in srgb, var(--danger) 72%, #000);
 }
 .btn-danger:hover { filter: brightness(1.1); box-shadow: 0 0 16px var(--danger-dim); }
 
@@ -113,6 +100,7 @@ a:hover { text-decoration: underline; }
 /* โหมดสว่าง: --success/--warning เข้มพอให้ตัวหนังสือขาวอ่านชัดอยู่แล้ว (≥4.5:1) ถ้าผสมดำอีก 30% จะกลายเป็นสีน้ำตาลหม่น */
 [data-mode="light"] .btn-success { background: var(--success); }
 [data-mode="light"] .btn-warning { background: var(--warning); }
+[data-mode="light"] .btn-danger { background: var(--danger); }
 
 /* (v1.0.490) btn-xs ใช้จริงใน 225 หน้าทั่วแอป (ปุ่มเล็กในตาราง/แถวการ์ด) มากกว่า btn-xs เองไม่เคยมี base rule
    เลยเช่นกัน (มีแค่ btn-sm/btn-lg) ทำให้ปุ่มที่ตั้งใจให้เล็กกะทัดรัดกลับมีขนาดเท่าปุ่มปกติเสมอมา คับแคบ/ล้น
@@ -426,7 +414,7 @@ button.tab-btn:not(.btn).active { background: var(--primary); border-color: var(
 
 /* ── Reduced Motion (v1.0.363) ──
    เดิมไม่มีจุดไหนตรวจ prefers-reduced-motion เลยทั้งแอป (มีอนิเมชั่นวนซ้ำไม่จบหลายจุด — pulse/bounce/
-   lamiBounce ของ LAMI widget ที่ Sidebar และเอฟเฟกต์ธีม Sci-Fi ใน scifi-fx.css เช่น scan/particles/
+   lamiBounce ของ LAMI widget ที่ Sidebar เช่น scan/particles/
    glitch/pulse/stream ที่วนตลอดเวลาหน้าเปิดอยู่) ผู้ใช้ที่ตั้งค่า OS ไว้ว่าไม่ต้องการอนิเมชั่น (มักเพราะ
    เวียนหัว/ปัญหาระบบการทรงตัว) ไม่มีทางปิดอนิเมชั่นเหล่านี้ได้เลยจากในแอป — เพิ่ม media query กลาง
    ปิด/ย่ออนิเมชั่นตกแต่งที่ไม่จำเป็นทั้งหมดเมื่อ OS ส่งสัญญาณนี้มา ยกเว้น .spinner/.skeleton ที่เป็น

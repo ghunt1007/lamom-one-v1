@@ -86,7 +86,7 @@ export function printBooking(b) {
 export function printCancellation(b, info = {}) {
   if (!b) return
   const car = [b.brand, b.model, b.variant].filter(Boolean).join(' ')
-  const refund = info.refund != null ? info.refund : (Number(b.bookingDeposit) || Number(b.down) || 0)
+  const refund = info.refund != null ? info.refund : (Number(b.bookingDeposit) || 0)
 
   const html =
     '<div class="doc">' +

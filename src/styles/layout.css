@@ -659,7 +659,6 @@
 /* มือถือ: หน้าแรกเหลือเฉพาะที่ใช้ตัดสินใจ — เรดาร์ซ้ำกับ "เรื่องที่ต้องจัดการ", Quick Access ซ้ำกับเมนู/แถบล่าง */
 @media (max-width: 640px), (max-height: 500px) and (pointer: coarse) { .dash-status-strip, .dash-radar, .dash-quick, .crm-quick { display: none !important; } }
 /* ลายน้ำของธีมมุมขวาล่าง บนมือถือโผล่เป็นวงกลมครึ่งๆ ข้างแถบเมนูล่าง ดูเหมือนปุ่มที่กดไม่ได้ → ซ่อนบนจอเล็ก */
-@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) { body::after { display: none; } }
 
 /* ── แผง LAMI ช่วยเรื่องหน้านี้ (utils/lamiPanel.js) — คอม: แผงขวา · มือถือ: แผ่นจากล่าง ── */
 .lami-panel-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 1090; opacity: 0; transition: opacity .2s; }
