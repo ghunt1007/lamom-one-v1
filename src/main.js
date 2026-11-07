@@ -1,13 +1,12 @@
 import './styles/themes.css'
 import './styles/base.css'
 import './styles/layout.css'
-import './styles/scifi-fx.css'
 import './styles/polish.css'
 
 import { initAuth, logout } from './core/auth.js'
 import { initRouter, navigate } from './core/router.js'
-import { getState, on, setTheme } from './core/store.js'
-import { applyMode, applyUi, loadUi } from './utils/appearance.js'
+import { getState, on } from './core/store.js'
+import { applyMode, applyUi, loadUi, clearOldTheme } from './utils/appearance.js'
 import { seedDemoData } from './core/db.js'
 import { loadVehicleOverrides } from './data/vehicleDatabase.js'
 import { loadMasterData } from './data/masterData.js'
@@ -43,12 +42,11 @@ initErrorMonitor()
 // (2) bootstrapShell ถูกเรียกซ้ำเมื่อ login ใหม่หลัง logout → container ซ้อน → toast เด้งซ้ำ
 ToastContainer(document.body)
 
-// Apply saved theme immediately
-const savedTheme = localStorage.getItem('lamom_theme') || 'midnight'
-document.documentElement.setAttribute('data-theme', savedTheme)
+// (v1.0.962) ธีมเดียว: ล้างค่าธีมเก่า (33 ธีม/รูปพื้นหลัง) ที่เคยเก็บไว้ในเครื่อง
+clearOldTheme()
 
 // Apply saved light/dark mode immediately (v1.0.532) — เหมือนธีม ต้องตั้งก่อน render แรกเพื่อกันการกระพริบ
-// (v1.0.887) 'auto' = ตามเครื่อง · พร้อมขนาดตัวอักษร/มุม/ระยะห่าง/เอฟเฟกต์ที่ตั้งไว้ในหน้าต่าง "ปรับหน้าตา"
+// (v1.0.887) 'auto' = ตามเครื่อง · พร้อมขนาดตัวอักษร/มุม/ระยะห่างที่ตั้งไว้ในหน้าต่าง "ปรับหน้าตา"
 applyMode(localStorage.getItem('lamom_mode') || 'dark')
 applyUi(loadUi())
 
@@ -143,20 +141,6 @@ async function bootstrapShell() {
 
   initSessionTimeout(logout)
 
-  // SYSTEM BOOT overlay — เฉพาะธีม Sci-Fi HUD ครั้งแรกของ session (แสดง ~1.2s)
-  try {
-    if (document.documentElement.getAttribute('data-theme') === 'scifi' && !sessionStorage.getItem('scifiBooted')) {
-      sessionStorage.setItem('scifiBooted', '1')
-      const boot = document.createElement('div')
-      boot.id = 'scifi-boot'
-      boot.innerHTML = `
-        <div class="boot-logo">LAMOM ONE</div>
-        <div class="boot-status">SYSTEM INITIALIZING · AUTHENTICATING · LOADING MODULES</div>
-        <div class="boot-bar"><div></div></div>`
-      document.body.appendChild(boot)
-      setTimeout(() => { boot.style.opacity = '0'; setTimeout(() => boot.remove(), 450) }, 1200)
-    }
-  } catch {}
 }
 
 on('user', (user) => {

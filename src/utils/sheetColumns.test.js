@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { SHEET_COLUMNS, EXTRA_COLUMNS, parseCell, displayCell, patchForCell, columnTotals, sortRows } from './sheetColumns.js'
+import { SHEET_COLUMNS, SHEET_FILE_COLUMNS, EXTRA_COLUMNS, parseCell, displayCell, patchForCell, columnTotals, sortRows } from './sheetColumns.js'
 import { mapBookingRow } from './bookingImport.js'
 
 const col = f => SHEET_COLUMNS.find(c => c.f === f)
@@ -16,7 +16,8 @@ const SHEET_HEADERS = ['เลขใบจอง', 'สถานะ', 'วัน
 
 describe('sheetColumns', () => {
   it('มีครบทุกคอลัมน์ของ Sheet เรียงเหมือนไฟล์ และชื่อฟิลด์ไม่ซ้ำ', () => {
-    expect(SHEET_COLUMNS.map(c => c.h)).toEqual(SHEET_HEADERS)
+    expect(SHEET_FILE_COLUMNS.map(c => c.h)).toEqual(SHEET_HEADERS)
+    expect(SHEET_COLUMNS.filter(c => c.app).map(c => c.h)).toEqual(['เงินจอง'])
     expect(new Set(SHEET_COLUMNS.map(c => c.f)).size).toBe(SHEET_COLUMNS.length)
   })
 
@@ -80,7 +81,7 @@ describe('วางจาก Sheet', () => {
   })
   it('ส่งออกหัวคอลัมน์เหมือน Sheet', () => {
     const out = sheetExportRows([{ bookingNo: 'SK1', price: 5 }])
-    expect(Object.keys(out[0])).toEqual(SHEET_COLUMNS.map(c => c.h))
+    expect(Object.keys(out[0])).toEqual(SHEET_HEADERS)
     expect(out[0]['ราคารถ']).toBe(5)
   })
 })
@@ -97,5 +98,26 @@ describe('sheetFieldList / sheetYesChips', () => {
   })
   it('chips only Y columns', () => {
     expect(sheetYesChips(b)).toEqual(['จองDMS', 'ชุดขาย'])
+  })
+})
+
+import { planPaste } from './sheetColumns.js'
+describe('planPaste with app-only columns', () => {
+  it('multi-column paste from the Sheet skips the app-only เงินจอง column', () => {
+    const cols = SHEET_COLUMNS
+    const start = cols.findIndex(c => c.h === 'ส่วนลดเพิ่มเติม')
+    const { changes } = planPaste([['100', '0.25']], [{ price: 1000000 }], cols, 0, start)
+    expect(changes.map(c => c.col.h)).toEqual(['ส่วนลดเพิ่มเติม', 'ดาวน์'])
+  })
+  it('single cell paste into เงินจอง still works', () => {
+    const cols = SHEET_COLUMNS
+    const { changes } = planPaste([['4000']], [{}], cols, 0, cols.findIndex(c => c.h === 'เงินจอง'))
+    expect(changes.map(c => [c.col.f, c.value])).toEqual([['bookingDeposit', 4000]])
+  })
+})
+describe('patchForCell down ratio', () => {
+  it('turns a Sheet-style 25% down into an amount', () => {
+    const col = SHEET_COLUMNS.find(c => c.f === 'down')
+    expect(patchForCell({ price: 1000000 }, col, 0.25)).toEqual({ down: 250000, financeAmount: 750000 })
   })
 })

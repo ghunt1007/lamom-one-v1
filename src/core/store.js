@@ -11,7 +11,6 @@ const state = {
   company: null,
   role: null,
   permissions: [],
-  theme: localStorage.getItem('lamom_theme') || 'midnight',
   // (v1.0.353) รองรับหลายภาษา — เมนูหลัก/ส่วนกลาง (Sidebar/Topbar/Login/Dashboard) ผ่าน src/i18n/index.js
   // ส่วนคำศัพท์ที่ใช้ซ้ำในเนื้อหาแต่ละหน้า (ปุ่ม/label/สถานะ) แปลอัตโนมัติผ่าน src/i18n/autoTranslate.js (v1.0.402)
   language: localStorage.getItem('lamom_lang') || 'th',
@@ -54,15 +53,7 @@ function emit(key, value) {
   listeners[key].forEach(fn => fn(value))
 }
 
-export function setTheme(theme) {
-  setState('theme', theme)
-  try { localStorage.setItem('lamom_theme', theme) } catch {}
-  document.documentElement.setAttribute('data-theme', theme)
-}
-
-// (v1.0.532) โหมดสว่าง/มืด — แยกอิสระจาก setTheme() (สีธีม) เพราะ mode คือความสว่างของพื้นหลัง/ตัวอักษร
-// ไม่ใช่โทนสี — (v1.0.535) ตอนนี้มี CSS override โหมดสว่างครบทั้ง 33 ธีมแล้วใน themes.css (เริ่มจาก Midnight
-// เดี่ยวๆ ใน v1.0.532 แล้วสร้างที่เหลือด้วย scripts/gen-light-themes.mjs)
+// โหมดสว่าง/มืดของธีมเดียว (src/styles/themes.css — v1.0.962)
 // (v1.0.887) รองรับ 'auto' = ตามการตั้งค่ามืด/สว่างของเครื่อง (utils/appearance.js)
 export function setMode(mode) {
   setState('mode', mode)

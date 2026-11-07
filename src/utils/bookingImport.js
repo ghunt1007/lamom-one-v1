@@ -302,3 +302,15 @@ export function sheetImportWarnings(sheet, imp, expectedHeaders = []) {
     missingHeaders: expectedHeaders.map(normHeader).filter(h => h && !have.has(h)),
   }
 }
+
+// (v1.0.962) เงินจองที่อยู่ผิดช่อง: เครื่องมือ "เติมเงินจอง DEEPAL" รุ่นเก่า (v1.0.485) และใบจองก่อน v1.0.518 เก็บเงินจองไว้
+// ในช่อง down (เงินดาวน์) — ช่องดาวน์ใน Sheet เป็นเงินดาวน์จริง (หลักหมื่น-แสน) เงินจองเป็นหลักพัน
+// ใบที่ยังไม่มีเงินจอง และ down ต่ำกว่า maxDeposit → ย้ายไปช่องเงินจอง แล้วล้างช่องดาวน์ (ซิงก์จะเติมดาวน์จริงจาก Sheet)
+export const DEPOSIT_MAX = 20000
+export function planDepositFix(bookings, { maxDeposit = DEPOSIT_MAX } = {}) {
+  return (bookings || []).filter(b => !b.deleted && !Number(b.bookingDeposit) && Number(b.down) > 0 && Number(b.down) < maxDeposit)
+    .map(b => {
+      const price = Number(b.price) || 0
+      return { booking: b, from: Number(b.down), patch: { bookingDeposit: Number(b.down), down: 0, ...(price ? { financeAmount: price } : {}) } }
+    })
+}
