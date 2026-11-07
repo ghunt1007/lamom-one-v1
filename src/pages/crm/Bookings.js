@@ -29,7 +29,7 @@ import { renderKeepFocus } from '../../utils/keepFocus.js'
 import { copyText } from '../../utils/copyText.js'
 import { escHtml } from '../../utils/escape.js'
 import { SHEET_COLUMNS, patchForCell, sheetExportRows, sheetFieldList, sheetYesChips } from '../../utils/sheetColumns.js'
-import { renderSheetGrid } from './bookingSheetGrid.js'
+import { renderSheetGrid, deferWhileEditing } from './bookingSheetGrid.js'
 
 // ── แบรนด์หลักที่ตัวแทนขาย (ตาม LAMOM V8 — S.K. Bangbuathong) ──────────────
 const BRANDS = ['DEEPAL', 'AION', 'OMODA & JAECOO', 'SUZUKI', 'NISSAN']
@@ -476,6 +476,8 @@ export default async function BookingsPage(container) {
 
   // ── Render ────────────────────────────────────────────────────────────────
   function render() {
+    // (v1.0.964) กำลังแก้ช่องในตารางแบบ Sheet อยู่ → วาดหน้าใหม่หลังแก้เสร็จ (ไม่ให้ช่องที่พิมพ์หายกลางคำ)
+    if (deferWhileEditing(render)) return
     const filtered = getFiltered()
     const statusCounts = getStatusCounts()
     const statusTotal = Object.values(statusCounts).reduce((s, n) => s + n, 0)
