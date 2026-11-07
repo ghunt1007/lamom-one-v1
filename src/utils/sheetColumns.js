@@ -101,6 +101,14 @@ export function parseCell(col, raw) {
     if (u === 'N' || u === 'NO' || s === 'ไม่') return 'N'
     return s ? u : ''
   }
+  if (col.t === 'sel') {
+    // ตัวเลือกตายตัว: รับทั้งค่าจริง (hot) และป้ายที่เห็น (🔴 Hot / Hot) — วางจาก Sheet ได้
+    if (!s) return ''
+    const low = s.toLowerCase()
+    const hit = (col.choices || []).find(([v, l]) => v.toLowerCase() === low || String(l).toLowerCase() === low ||
+      String(l).replace(/^[^\p{L}\p{N}]+/u, '').trim().toLowerCase() === low)
+    return hit ? hit[0] : null
+  }
   if (col.t === 'date') {
     if (!s) return ''
     if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
@@ -119,6 +127,7 @@ export function parseCell(col, raw) {
 // ค่าที่เก็บ → ข้อความในช่อง
 export function displayCell(col, v) {
   if (v == null || v === '') return ''
+  if (col.t === 'sel') return (col.choices || []).find(([k]) => k === String(v))?.[1] || String(v)
   if (col.t === 'num') {
     const n = Number(v)
     if (!n) return ''
