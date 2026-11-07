@@ -1,5 +1,6 @@
 // Firestore helpers — thin wrapper with offline demo support
 import { db } from './firebase.js'
+import { makeChangeFilter, deliverWhenIdle, cancelPending } from './snapshotGate.js'
 import { trackPageWatcher } from './pageWatchers.js'
 import { sortRows, isMissingIndexError } from './sortRows.js'
 import {
@@ -451,15 +452,20 @@ export function watchDocs(colName, filters = [], sortBy = 'createdAt', sortDir =
   q = query(q, ...constraints)
   let inner = null
   let stopped = false
+  // (v1.0.964) ไม่วาดหน้าใหม่รอบที่เปลี่ยนแค่เวลาประทับของเซิร์ฟเวอร์ และพักไว้ระหว่างผู้ใช้กำลังพิมพ์ (core/snapshotGate.js)
+  const gateKey = {}
+  const changed = makeChangeFilter()
+  const deliver = rows => deliverWhenIdle(gateKey, () => { if (!stopped) callback(rows) })
   inner = onSnapshot(q, snap => {
-    callback(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    if (!changed(snap)) return
+    deliver(snap.docs.map(d => ({ id: d.id, ...d.data() })))
   }, err => {
     // ยังไม่มี index สำหรับ กรอง+เรียง → ฟังแบบกรองอย่างเดียวแล้วเรียงในเครื่อง (แทนการโชว์ว่าง)
     if (!stopped && filters.length && isMissingIndexError(err)) {
       console.warn('[watchDocs] missing index, sorting locally:', colName, filters.map(f => f[0]).join('+') + ' → ' + sortBy)
       const n = effectiveLimit(colName, maxDocs)
       inner = onSnapshot(query(collection(db, colName), ...filters.map(([f, op, v]) => where(f, op, v)), limit(Math.max(n, 500))),
-        snap => callback(sortRows(snap.docs.map(d => ({ id: d.id, ...d.data() })), sortBy, sortDir).slice(0, n)),
+        snap => { if (changed(snap)) deliver(sortRows(snap.docs.map(d => ({ id: d.id, ...d.data() })), sortBy, sortDir).slice(0, n)) },
         e2 => { console.error('[watchDocs]', colName, e2); callback([]) })
       return
     }
@@ -467,7 +473,7 @@ export function watchDocs(colName, filters = [], sortBy = 'createdAt', sortDir =
     callback([]) // แจ้ง [] แทนการปล่อยให้ผู้เรียกที่รอ snapshot แรกค้างตลอดไป (เช่น permission denied)
   })
   // ปิดอัตโนมัติเมื่อเปลี่ยนหน้า (router เรียก stopPageWatchers) — หน้าเรียก unsub เองซ้ำได้ ไม่เป็นไร
-  return trackPageWatcher(() => { stopped = true; inner?.() })
+  return trackPageWatcher(() => { stopped = true; cancelPending(gateKey); inner?.() })
 }
 
 // Demo mode ถูกลบออกจากระบบแล้ว (2026-07-23) — seedDemoData() คงไว้เป็น no-op เฉยๆ เพราะยังมี

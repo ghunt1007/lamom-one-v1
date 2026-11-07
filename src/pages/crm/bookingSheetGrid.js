@@ -27,6 +27,24 @@ const scrolls = {}
 // สร้างใหม่ทีละ ~1 วินาที เก็บตารางที่สร้างแล้วไว้ ถ้าข้อมูลที่โชว์ไม่เปลี่ยนก็หยิบอันเดิมมาใส่ (แทบไม่เสียเวลา)
 let cache = { sig: '', el: null }
 const FIRST_ROWS = 60, CHUNK_ROWS = 80
+// (v1.0.964) ระหว่างแก้ช่องอยู่ ห้ามวาดตาราง/หน้าใหม่ (ข้อมูลอัปเดตสดจากเครื่องอื่น/จากการบันทึกช่องก่อนหน้า) ไม่งั้น
+// ช่องที่กำลังพิมพ์หายกลางคำ — พักไว้แล้ววาดครั้งเดียวตอนแก้เสร็จ
+let editingTd = null
+let afterEdit = null
+export function sheetEditing() { return !!(editingTd && editingTd.isConnected) }
+// หน้าเพจเรียกก่อนวาดใหม่: คืน true = กำลังแก้ช่องอยู่ พักไว้ก่อน (จะเรียก fn ให้เมื่อแก้เสร็จ)
+export function deferWhileEditing(fn) {
+  if (!sheetEditing()) return false
+  afterEdit = fn
+  return true
+}
+function editEnded() {
+  editingTd = null
+  if (!afterEdit) return
+  const fn = afterEdit
+  afterEdit = null
+  setTimeout(() => { if (!sheetEditing()) fn(); else afterEdit = fn }, 0)
+}
 
 function gridSig(ctx) {
   const cols = ctx.columns || SHEET_COLUMNS
@@ -91,8 +109,10 @@ export function renderSheetGrid(wrap, ctx) {
   const patchFor = ctx.patchFor || patchForCell
   if (!scrolls[key]) scrolls[key] = [0, 0]
   const lastScroll = scrolls[key]
+  if (editingTd && wrap.contains(editingTd) && deferWhileEditing(() => renderSheetGrid(wrap, ctx))) return
   const sig = gridSig(ctx)
   if (cache.el && cache.sig === sig && !ctx.focusDraft) {
+    if (cache.el.parentNode === wrap && wrap.childNodes.length === 1) return // อยู่ที่เดิมแล้ว ไม่ต้องย้าย (ย้าย = ช่องที่โฟกัสหลุด)
     wrap.replaceChildren(cache.el)
     const sw0 = cache.el.querySelector('.sg-wrap')
     if (sw0) { sw0.scrollLeft = lastScroll[0]; sw0.scrollTop = lastScroll[1] }
@@ -201,6 +221,7 @@ export function renderSheetGrid(wrap, ctx) {
     }
     const cur = r[c.f]
     td.classList.add('sg-ed')
+    editingTd = td
     let editor
     if (c.t === 'sel') {
       const curS = cur == null ? '' : String(cur)
@@ -226,9 +247,12 @@ export function renderSheetGrid(wrap, ctx) {
       if (done) return
       done = true
       const raw = editor.value
+      if (editingTd === td) editingTd = null
       td.classList.remove('sg-ed')
       td.innerHTML = cellInner(r, c, ctx)
       const target = move ? nextEditable(i, j, move[0], move[1]) : null
+      // ไม่ได้ไปช่องต่อ = แก้เสร็จแล้ว → วาดที่พักไว้ (ถ้ามี) · ไปช่องต่อ = ยังพักไว้จนกว่าจะหยุดแก้
+      if (!target) setTimeout(() => { if (!sheetEditing()) editEnded() }, 0)
       if (!save) { if (target) startEdit(target); return }
       const v = parseCell(c, raw)
       if (v === null) showToast(`"${raw}" ไม่ใช่${c.t === 'date' ? 'วันที่' : 'ตัวเลข'} — ไม่ได้บันทึก`, 'warning')
@@ -292,8 +316,10 @@ export function renderSheetGrid(wrap, ctx) {
       e.preventDefault()
       if (r.__draft) { showToast('พิมพ์ชื่อลูกค้าในแถวใหม่ก่อน แล้วค่อยวางหลายช่อง', 'info'); return }
       done = true
+      if (editingTd === td) editingTd = null
       td.classList.remove('sg-ed')
       td.innerHTML = cellInner(r, c, ctx)
+      editEnded()
       const realRows = all.map(x => (x.__draft ? null : x))
       const plan = planPaste(grid, realRows, cols, i, j)
       ctx.onPasteMany(plan.changes.map(ch => ({ b: realRows[ch.row], col: ch.col, value: ch.value })), plan.bad.length, grid.length)
