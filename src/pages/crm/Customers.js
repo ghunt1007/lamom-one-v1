@@ -11,7 +11,9 @@ import { formatDate, timeAgo, formatPhone, formatCurrency, initials, fullName, t
 import { newBookingNo } from '../../utils/bookingNo.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { exportToExcel, openImportModal } from '../../utils/importExport.js'
-import { SmartSheet } from '../../components/SmartSheet.js'
+import { renderSheetGrid } from './bookingSheetGrid.js'
+import { customerColumns, customerPatch, withGridFields } from '../../utils/customerGrid.js'
+import { isPhoneLayout } from '../../utils/phoneLayout.js'
 import { navigate } from '../../core/router.js'
 import { getSalesStaff } from '../../data/masterData.js'
 import {
@@ -137,6 +139,16 @@ export default async function CustomersPage(container) {
   let autoAiOnce = false // เปิดจากหน้า "งานของฉันวันนี้" ด้วย ?ai=1 → กด "AI ช่วยปิดการขาย" ให้อัตโนมัติครั้งเดียว
   let sortMode = 'urgent' // urgent = ด่วนก่อน (เดิม) · quiet = เงียบนานสุดก่อน · new = เพิ่มล่าสุดก่อน
   let fuStatus = null // โหลดนัดติดตามเฉพาะตอนเลือกตัวกรองนัดครั้งแรก (ไม่ให้ทุกคนเสียเวลาโหลด)
+  // (v1.0.963) มุมมอง: 'sheet' = ตารางแบบ Google Sheet แก้ในช่องได้เลย · 'list' = รายการ/การ์ดเดิม (จำไว้ในเครื่อง)
+  // ค่าเริ่มต้น: เจ้าของ/แอดมินบนจอคอม = Sheet (คนคีย์ข้อมูล) · เซลส์และมือถือ = รายการ (เรียงตามความด่วน)
+  let viewMode = (() => { try { return localStorage.getItem('cust-view') || '' } catch { return '' } })()
+  const defaultView = () => (!isPhoneLayout() && window.innerWidth >= 768 &&
+    (isProgramOwner() || ['owner', 'admin'].includes(getState('role') || getState('user')?.role)) ? 'sheet' : 'list')
+  let sheetDraft = null
+  let sheetSort = { f: '', dir: 1 }
+  let sheetHideEmpty = false
+  const gridInstance = Math.random().toString(36).slice(2)
+  const pendingCell = new Map() // ค่าก่อนแก้ (ตารางใส่ค่าใหม่ในแถวก่อนบันทึกเสร็จ) — ใช้ย้ายนัดเมื่อเปลี่ยนผู้ดูแล
 
   // (v1.0.467) เปลี่ยนจาก getMyTeamNames() (มี fallback ผ่อนปรนให้ manager ที่ไม่มีลูกทีมจริงเห็นทุกคนแทน)
   // มาใช้ getVisibilityScope() ตามนโยบายที่เจ้าของระบบยืนยันไว้เข้มงวด — "เห็นเฉพาะผู้ใต้บังคับบัญชาโดยตรง
@@ -230,6 +242,15 @@ export default async function CustomersPage(container) {
   }
 
   function renderTable() {
+    if (!viewMode) viewMode = defaultView()
+    const tableWrap = container.querySelector('.cust-table-wrap')
+    const sheetWrap = document.getElementById('sheet-view-wrap')
+    if (tableWrap && sheetWrap) {
+      tableWrap.style.display = viewMode === 'sheet' ? 'none' : ''
+      sheetWrap.style.display = viewMode === 'sheet' ? '' : 'none'
+      container.querySelectorAll('.cust-view-toggle [data-view]').forEach(b => { b.className = `btn btn-xs ${b.dataset.view === viewMode ? 'btn-primary' : 'btn-ghost'}` })
+      if (viewMode === 'sheet') { renderCustSheet(sheetWrap); return }
+    }
     const tbody = document.getElementById('cust-tbody')
     if (!tbody) return
     if (!filtered.length) {
@@ -300,6 +321,106 @@ export default async function CustomersPage(container) {
         } catch { showToast('เกิดข้อผิดพลาด', 'error') }
       })
     )
+  }
+
+  // ── ตารางแบบ Sheet (v1.0.963) ─────────────────────────────────────────
+  const CUST_COLS = customerColumns({ stage: STAGE, temp: TEMP, source: SOURCE })
+  function setView(v) {
+    viewMode = v
+    try { localStorage.setItem('cust-view', v) } catch { /* */ }
+    renderTable()
+  }
+  function renderCustSheet(wrap) {
+    renderSheetGrid(wrap, {
+      gridKey: 'customers', instance: gridInstance,
+      columns: CUST_COLS, keyField: 'firstName', fixNo: null, fixName: 'firstName',
+      keepCols: ['firstName', 'lastName', 'phone', 'stage'], totals: false,
+      hint: 'กด # เพื่อเปิดแฟ้มลูกค้า (โทร นัด AI ประวัติ)',
+      rows: withGridFields(filtered),
+      draft: sheetDraft,
+      get focusDraft() { return sheetDraft?.__focus },
+      set focusDraft(v) { if (sheetDraft) sheetDraft.__focus = v },
+      options: { models: modelSuggestions(), sales: getSalesStaff(), occupations: OCCUPATIONS },
+      sort: sheetSort,
+      hideEmpty: sheetHideEmpty,
+      onSort: f => {
+        sheetSort = sheetSort.f !== f ? { f, dir: 1 } : sheetSort.dir > 0 ? { f, dir: -1 } : { f: '', dir: 1 }
+        renderTable()
+      },
+      onToggleEmpty: () => { sheetHideEmpty = !sheetHideEmpty; renderTable() },
+      onAddRow: () => {
+        if (!sheetDraft) sheetDraft = { __draft: true, firstName: '', stage: 'lead', assignedTo: myDisplayName || '' }
+        sheetDraft.__focus = true
+        renderTable()
+      },
+      onOpen: c => openDetail(c),
+      onCancelDraft: () => { sheetDraft = null; renderTable() },
+      patchFor: (c, col, v) => {
+        const patch = customerPatch(c, col, v)
+        pendingCell.set(c.id + '|' + col.f, { patch, prevOwner: c.assignedTo || '' })
+        return patch
+      },
+      onSave: saveCustCell,
+      onPasteMany: pasteCustCells,
+      onCreate: createCustFromSheet,
+    })
+  }
+
+  async function saveCustCell(c, col, value) {
+    const key = c.id + '|' + col.f
+    const pend = pendingCell.get(key)
+    pendingCell.delete(key)
+    const patch = pend?.patch || customerPatch(c, col, value)
+    const prevOwner = pend ? pend.prevOwner : (c.assignedTo || '')
+    await updateDocData('customers', c.id, patch)
+    Object.assign(c, patch)
+    if (col.f === 'assignedTo' && value && normName(value) !== normName(prevOwner)) {
+      const moved = await moveFollowupsOnReassign(c.id, prevOwner, value).catch(() => 0)
+      if (moved) showToast(`ย้ายนัดติดตาม ${moved} นัดไปให้ ${value} แล้ว`, 'info')
+    }
+    if (col.f !== 'stage' && patch.stage === 'pp') showToast('🎉 อัปเกรดเป็น Prospect อัตโนมัติ (ได้เบอร์ติดต่อ/LINE แล้ว)', 'success')
+    if ('stage' in patch) renderStats()
+    return patch
+  }
+
+  // วางหลายช่องจาก Sheet/Excel: ถามยืนยันครั้งเดียว แล้วบันทึกทีละช่อง
+  async function pasteCustCells(changes, badCount, lineCount) {
+    if (!changes.length) { showToast(badCount ? `ข้อมูลที่วาง ${badCount} ช่องไม่ตรงกับตัวเลือก/ตัวเลข — ไม่ได้บันทึก` : 'ข้อมูลที่วางตรงกับของเดิมอยู่แล้ว', 'info'); return }
+    const rowsTouched = new Set(changes.map(c => c.b.id)).size
+    const ok = await confirmDialog({
+      title: '📋 วางข้อมูลจาก Sheet',
+      message: `จะแก้ ${changes.length} ช่อง ใน ${rowsTouched} แถว (วางมา ${lineCount} บรรทัด)` + (badCount ? `<br>ข้าม ${badCount} ช่องที่ไม่ตรงกับตัวเลือก/ตัวเลข` : ''),
+      confirmText: 'วางเลย',
+    })
+    if (!ok) return
+    let saved = 0, failed = 0
+    for (const ch of changes) {
+      try { await saveCustCell(ch.b, ch.col, ch.value); saved++ } catch { failed++ }
+    }
+    showToast(`✅ วางแล้ว ${saved} ช่อง${failed ? ` · ไม่สำเร็จ ${failed}` : ''}`, failed ? 'warning' : 'success')
+    applyFilter()
+  }
+
+  // แถวใหม่: พิมพ์ชื่อแล้วบันทึกเป็นลูกค้าทันที (ทำเหมือนฟอร์มเพิ่มลูกค้า: สถานะเริ่มต้น บริษัท นัดติดตามอัตโนมัติ)
+  async function createCustFromSheet(draft) {
+    const { __draft, __focus, ...fields } = draft
+    const base = {
+      firstName: '', lastName: '', phone: '', lineId: '', email: '', interestedModel: '', budget: 0, occupation: '',
+      monthlyIncome: 0, source: '', temperature: null, assignedTo: '', vip: false, notes: '', ...fields,
+    }
+    const stage = base.stage && base.stage !== 'lead' ? base.stage : deriveInitialStage(base)
+    const payload = { ...base, stage, stageChangedAt: new Date().toISOString(), isLost: false, lostReason: '', lostAt: null, bookingId: null, tags: [], companyId: myEffectiveCompanyId() }
+    try {
+      const id = await createDoc('customers', payload)
+      if (!customers.some(x => x.id === id)) customers.unshift({ ...payload, id })
+      sheetDraft = null
+      const fu = await scheduleLeadFollowups(payload, id).catch(() => 0)
+      showToast(`✅ เพิ่ม ${payload.firstName} แล้ว${fu ? ` · นัดติดตาม ${fu} ครั้ง` : ''} — กรอกช่องอื่นต่อในแถวเดียวกันได้เลย`, 'success')
+      applyFilter()
+    } catch (err) {
+      showToast('เพิ่มแถวไม่สำเร็จ — ' + (err?.message || 'ลองใหม่อีกครั้ง'), 'error')
+      throw err
+    }
   }
 
   // ── Detail Workspace — everything about this customer, one place, no page-hopping ──
@@ -1105,7 +1226,6 @@ export default async function CustomersPage(container) {
         <div><div class="page-title">👥 ลูกค้า</div><div class="page-subtitle" id="cust-count">กำลังโหลด...</div></div>
         <div class="page-actions">
           <button class="btn btn-ghost btn-sm pa-more" id="pipeline-link-btn">📋 ดูแบบไปป์ไลน์</button>
-          <button class="btn btn-ghost btn-sm pa-more" id="sheet-view-btn" title="Spreadsheet View">📊 แบบตาราง</button>
           <button class="btn btn-ghost btn-sm pa-more" id="import-cust-btn">📤 นำเข้า</button>
           <button class="btn btn-secondary btn-sm pa-more" id="export-cust-btn">📥 ส่งออก</button>
           <button class="btn btn-ghost btn-sm pa-more-btn" type="button" title="เมนูเพิ่มเติม">⋯ อื่นๆ</button>
@@ -1172,6 +1292,13 @@ export default async function CustomersPage(container) {
         </div>
       </div>
 
+      <div class="cust-viewbar" style="display:flex;align-items:center;gap:8px;margin:-4px 0 10px;overflow-x:auto">
+        <div class="cust-view-toggle" role="group" aria-label="มุมมอง" style="display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;flex-shrink:0">
+          <button type="button" class="btn btn-xs" data-view="sheet" style="border-radius:0" title="ตารางเหมือน Google Sheet แตะช่องเพื่อแก้ได้เลย">📊 แบบ Sheet</button>
+          <button type="button" class="btn btn-xs" data-view="list" style="border-radius:0" title="รายการ/การ์ด เรียงตามความด่วน">📋 รายการ</button>
+        </div>
+      </div>
+
       <div class="table-wrap cust-table-wrap">
         <table class="cust-table">
           <thead><tr>
@@ -1193,72 +1320,12 @@ export default async function CustomersPage(container) {
     document.head.appendChild(s)
   }
 
-  // Sheet / Table toggle
-  let sheetMode = false
-  let sheet = null
-  const SHEET_COLS = [
-    { key: 'firstName', label: 'ชื่อ', width: 100, required: true },
-    { key: 'lastName', label: 'นามสกุล', width: 110, required: true },
-    { key: 'phone', label: 'โทรศัพท์', width: 120 },
-    { key: 'lineId', label: 'LINE ID', width: 100 },
-    { key: 'email', label: 'Email', width: 150 },
-    { key: 'interestedModel', label: 'รถที่สนใจ', width: 130 },
-    { key: 'stage', label: 'สถานะ', width: 100, type: 'select', options: STAGE_ORDER.map(v => ({ value: v, label: STAGE[v].short })) },
-    { key: 'temperature', label: 'อุณหภูมิ', width: 90, type: 'select', options: [{ value: '', label: '-' }, ...Object.entries(TEMP).map(([v, s]) => ({ value: v, label: s.label.replace(/[🔴🟡🔵]\s*/, '') }))] },
-    { key: 'vip', label: 'VIP', width: 60, type: 'boolean' },
-    { key: 'isLost', label: 'เสียดีล', width: 70, type: 'boolean' },
-    { key: 'source', label: 'ที่มา', width: 100, type: 'select', options: Object.entries(SOURCE).map(([v, l]) => ({ value: v, label: l.replace(/[📘💚🎵🚶🤝🔍🌐📱📌]\s*/, '') })) },
-  ]
-
-  document.getElementById('sheet-view-btn').addEventListener('click', () => {
-    sheetMode = !sheetMode
-    const tableWrap = container.querySelector('.table-wrap')
-    const sheetWrap = document.getElementById('sheet-view-wrap')
-    const btn = document.getElementById('sheet-view-btn')
-    const addBtn = document.getElementById('add-cust-btn')
-    if (sheetMode) {
-      tableWrap.style.display = 'none'
-      sheetWrap.style.display = ''
-      btn.textContent = '📋 Table'; btn.className = 'btn btn-primary btn-sm'
-      addBtn.style.display = 'none'
-      sheet = new SmartSheet(sheetWrap, {
-        columns: SHEET_COLS,
-        rows: filtered, // เฉพาะที่เห็นบนหน้าจอ (ตัวกรอง + สิทธิ์การมองเห็น)
-        onSave: async (row) => {
-          try {
-            if (row.id) await updateDocData('customers', row.id, row)
-            else {
-              if (!row.stage) row.stage = deriveInitialStage(row)
-              row.stageChangedAt = new Date().toISOString()
-              // (v1.0.472) เพิ่มลูกค้าใหม่ผ่าน Sheet view เดิมไม่เคยติด companyId เลย — พนักงานที่ถูกจำกัด
-              // สิทธิ์ตามบริษัทจะมองไม่เห็นแถวที่ตัวเองเพิ่งเพิ่มเองทันที (แพทเทิร์นเดียวกับที่พบใน Bookings.js)
-              row.companyId = myEffectiveCompanyId()
-              const id = await createDoc('customers', row); row.id = id
-            }
-            showToast('บันทึกแล้ว', 'success')
-            await loadData(); sheet.setRows(filtered)
-          } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
-        },
-        onDelete: async (row) => {
-          if (row.id) await softDelete('customers', row.id).catch(() => {})
-        },
-      })
-    } else {
-      tableWrap.style.display = ''
-      sheetWrap.style.display = 'none'
-      btn.textContent = '📊 Sheet'; btn.className = 'btn btn-ghost btn-sm'
-      addBtn.style.display = ''
-      sheet = null
-      renderTable()
-    }
-  })
-
   // ปุ่มเดียว: เปิดฟอร์มสั้น (Lead ด่วน) ก่อน — เดิมมี 2 ปุ่ม "Lead ด่วน" กับ "เพิ่มลูกค้า" ทำงานซ้ำกัน ต้องเลือกเอง
   // อยากกรอกครบกด "📝 กรอกแบบละเอียด" ในฟอร์ม ค่าที่พิมพ์ไว้ตามไปด้วย
   document.getElementById('add-cust-btn').addEventListener('click', () => {
-    if (sheetMode) return
     openQuickLead({ onFull: prefill => openForm(null, { prefill }) })
   })
+  container.querySelectorAll('.cust-view-toggle [data-view]').forEach(b => b.addEventListener('click', () => setView(b.dataset.view)))
   // มือถือ: ปุ่มรอง (Pipeline/Sheet/Import/Export) ซ่อนไว้ใต้ ⋯ อื่นๆ หัวหน้าไม่รก
   container.querySelector('.pa-more-btn')?.addEventListener('click', e => e.currentTarget.closest('.page-actions').classList.toggle('pa-open'))
   document.getElementById('pipeline-link-btn').addEventListener('click', () => navigate('/crm/pipeline'))

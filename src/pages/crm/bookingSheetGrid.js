@@ -11,6 +11,10 @@
 // - กดหัวคอลัมน์ = เรียงข้อมูล
 //
 // หน้าเพจ (Bookings.js) เป็นคนบันทึกจริงผ่าน ctx.onSave / onStatus / onCreate — ไฟล์นี้ดูแลแค่หน้าตาและคีย์บอร์ด
+//
+// (v1.0.963) ใช้กับหน้าอื่นได้ด้วย (หน้าลูกค้า) — ส่ง ctx.columns (รายการคอลัมน์ของตัวเอง), ctx.keyField (ช่องที่แถวใหม่
+// ต้องกรอกก่อน = ชื่อ), ctx.fixNo / ctx.fixName (คอลัมน์ที่ค้างไว้ซ้าย), ctx.gridKey (จำตำแหน่งเลื่อนแยกหน้า),
+// ctx.hint, ctx.totals=false, ctx.patchFor · ชนิดคอลัมน์ 'sel' = ตัวเลือกตายตัว [ค่า, ป้าย] (c.choices)
 
 import { SHEET_COLUMNS, YN_OPTIONS, colWidth, parseCell, displayCell, columnTotals, sortRows, parseClipboardGrid, planPaste, patchForCell } from '../../utils/sheetColumns.js'
 import { escHtml } from '../../utils/escape.js'
@@ -18,16 +22,17 @@ import { showToast } from '../../core/store.js'
 
 const ROWNUM_W = 44
 let styleAdded = false
-let lastScroll = [0, 0]
+const scrolls = {}
 // (v1.0.957) หน้าเพจวาดใหม่ทั้งหน้าทุกครั้งที่ข้อมูลเปลี่ยน (รวมตอนที่เราเพิ่งบันทึกเอง) — ตาราง 300 แถว × 65 ช่อง
 // สร้างใหม่ทีละ ~1 วินาที เก็บตารางที่สร้างแล้วไว้ ถ้าข้อมูลที่โชว์ไม่เปลี่ยนก็หยิบอันเดิมมาใส่ (แทบไม่เสียเวลา)
 let cache = { sig: '', el: null }
 const FIRST_ROWS = 60, CHUNK_ROWS = 80
 
 function gridSig(ctx) {
-  return JSON.stringify([ctx.instance, ctx.canViewNid, ctx.sort, ctx.hideEmpty,
+  const cols = ctx.columns || SHEET_COLUMNS
+  return JSON.stringify([ctx.gridKey, ctx.instance, ctx.canViewNid, ctx.sort, ctx.hideEmpty,
     ctx.draft ? Object.entries(ctx.draft).filter(([k]) => k !== '__focus') : null,
-    ctx.rows.map(r => [r.id, ...SHEET_COLUMNS.map(c => r[c.f] ?? '')])])
+    ctx.rows.map(r => [r.id, ...cols.map(c => r[c.f] ?? '')])])
 }
 function addStyle() {
   if (styleAdded) return
@@ -66,6 +71,7 @@ function addStyle() {
     .sg-table .sg-fix-rn{position:sticky;left:0;z-index:2}
     .sg-table .sg-fix-no{position:sticky;left:${ROWNUM_W}px;z-index:2}
     .sg-table .sg-fix-name{left:${ROWNUM_W + 110}px}
+    .sg-table.sg-nono .sg-fix-name{left:${ROWNUM_W}px}
     .sg-table thead .sg-fix-rn,.sg-table thead .sg-fix-no,.sg-table tfoot .sg-fix-rn,.sg-table tfoot .sg-fix-no{z-index:4}
   }
   .sg-table .sg-fix-name{box-shadow:2px 0 0 var(--border)}
@@ -78,6 +84,13 @@ function addStyle() {
 //        onStatus(b,status), onCreate(draft)→booking, onOpen(b) }
 export function renderSheetGrid(wrap, ctx) {
   addStyle()
+  const key = ctx.gridKey || 'bookings'
+  const keyField = ctx.keyField || 'custName'
+  const fixNo = ctx.fixNo === undefined ? 'bookingNo' : ctx.fixNo
+  const fixName = ctx.fixName || 'custName'
+  const patchFor = ctx.patchFor || patchForCell
+  if (!scrolls[key]) scrolls[key] = [0, 0]
+  const lastScroll = scrolls[key]
   const sig = gridSig(ctx)
   if (cache.el && cache.sig === sig && !ctx.focusDraft) {
     wrap.replaceChildren(cache.el)
@@ -89,15 +102,15 @@ export function renderSheetGrid(wrap, ctx) {
   cache = { sig, el: root }
   const myCache = cache
 
-  let cols = SHEET_COLUMNS.filter(c => c.t !== 'nid' || ctx.canViewNid)
+  let cols = (ctx.columns || SHEET_COLUMNS).filter(c => c.t !== 'nid' || ctx.canViewNid)
   const sortCol = ctx.sort?.f ? cols.find(c => c.f === ctx.sort.f) : null
   const rows = sortRows(ctx.rows, sortCol, ctx.sort?.dir || 1)
   const emptyCols = cols.filter(c => !rows.some(r => !isBlank(c, r[c.f])))
-  if (ctx.hideEmpty) cols = cols.filter(c => !emptyCols.includes(c) || ['bookingNo', 'custName', 'status'].includes(c.f))
+  if (ctx.hideEmpty) cols = cols.filter(c => !emptyCols.includes(c) || (ctx.keepCols || ['bookingNo', 'custName', 'status']).includes(c.f))
   const all = ctx.draft ? [ctx.draft, ...rows] : rows
-  const totals = columnTotals(rows, cols)
+  const totals = ctx.totals === false ? {} : columnTotals(rows, cols)
 
-  const fixClass = c => c.f === 'bookingNo' ? ' sg-fix-no' : c.f === 'custName' ? ' sg-fix-name' : ''
+  const fixClass = c => c.f === fixNo ? ' sg-fix-no' : c.f === fixName ? ' sg-fix-name' : ''
   const head = `<tr><th class="sg-fix-rn" style="width:${ROWNUM_W}px;text-align:center">#</th>${cols.map(c => {
     const arrow = sortCol === c ? (ctx.sort.dir > 0 ? ' ▲' : ' ▼') : ''
     return `<th class="${c.extra ? 'sg-extra' : ''}${fixClass(c)}" data-f="${c.f}" title="${escHtml(c.h)}${c.ro ? ' (คำนวณอัตโนมัติ)' : ''} · กดเพื่อเรียง">${escHtml(c.h)}${arrow}</th>`
@@ -105,12 +118,12 @@ export function renderSheetGrid(wrap, ctx) {
 
   const rowHtml = (r, i) => `<tr data-i="${i}"${r.__draft ? ' class="sg-draft"' : ''}>
     <td class="sg-rn sg-fix-rn" title="${r.__draft ? 'แถวใหม่ (กดเพื่อยกเลิก)' : 'เปิดรายละเอียดใบจอง'}">${r.__draft ? '✕' : (i + (ctx.draft ? 0 : 1))}</td>
-    ${cols.map((c, j) => cellHtml(r, c, j, ctx)).join('')}</tr>`
+    ${cols.map((c, j) => cellHtml(r, c, j, ctx, fixClass(c))).join('')}</tr>`
   // วาด 60 แถวแรกทันที ที่เหลือทยอยเติมทีละ 80 แถว — หน้าจอขึ้นเร็ว ไม่ค้าง
   const body = all.slice(0, FIRST_ROWS).map(rowHtml).join('')
 
   const foot = `<tr><td class="sg-fix-rn"></td>${cols.map(c => {
-    if (c.f === 'custName' || (c.f === 'bookingNo' && !cols.some(x => x.f === 'custName'))) return `<td class="${fixClass(c).trim()}">รวม ${rows.length} แถว</td>`
+    if (c.f === fixName || (c.f === fixNo && !cols.some(x => x.f === fixName))) return `<td class="${fixClass(c).trim()}">รวม ${rows.length} แถว</td>`
     if (c.f in totals) return `<td class="sg-num${fixClass(c)}">${totals[c.f] ? displayCell(c, totals[c.f]) : ''}</td>`
     return `<td class="${fixClass(c).trim()}"></td>`
   }).join('')}</tr>`
@@ -120,9 +133,9 @@ export function renderSheetGrid(wrap, ctx) {
     <div class="sg-bar">
       <button class="btn btn-primary btn-sm" id="sg-add">➕ เพิ่มแถว</button>
       <button class="btn btn-ghost btn-sm" id="sg-empty" title="${emptyCols.length} คอลัมน์ไม่มีข้อมูลเลย">${ctx.hideEmpty ? '👁 โชว์ทุกคอลัมน์' : `🙈 ซ่อนคอลัมน์ว่าง (${emptyCols.length})`}</button>
-      <span class="sg-hint">แตะช่องเพื่อแก้ · Enter/↓ = ลงล่าง · Tab = ไปขวา · Esc = ยกเลิก · วางหลายช่องจาก Sheet ได้ (Ctrl+V) · กด # เพื่อดูใบจองเต็ม</span>
+      <span class="sg-hint">แตะช่องเพื่อแก้ · Enter/↓ = ลงล่าง · Tab = ไปขวา · Esc = ยกเลิก · วางหลายช่องจาก Sheet ได้ (Ctrl+V) · ${escHtml(ctx.hint || 'กด # เพื่อดูใบจองเต็ม')}</span>
     </div>
-    <div class="sg-wrap"><table class="sg-table" data-no-enhance="1" style="width:${tableW}px">
+    <div class="sg-wrap"><table class="sg-table${cols.some(c => c.f === fixNo) ? '' : ' sg-nono'}" data-no-enhance="1" style="width:${tableW}px">
       <colgroup><col style="width:${ROWNUM_W}px">${cols.map(c => `<col style="width:${colWidth(c)}px">`).join('')}</colgroup>
       <thead>${head}</thead><tbody>${body}</tbody><tfoot>${foot}</tfoot>
     </table></div>`
@@ -131,7 +144,7 @@ export function renderSheetGrid(wrap, ctx) {
   const sw = root.querySelector('.sg-wrap')
   // หน้าเพจวาดใหม่ทั้งหน้าเมื่อข้อมูลเปลี่ยน — คืนตำแหน่งเลื่อนเดิมให้ ไม่เด้งกลับไปแถวแรก
   sw.scrollLeft = lastScroll[0]; sw.scrollTop = lastScroll[1]
-  sw.addEventListener('scroll', () => { lastScroll = [sw.scrollLeft, sw.scrollTop] }, { passive: true })
+  sw.addEventListener('scroll', () => { lastScroll[0] = sw.scrollLeft; lastScroll[1] = sw.scrollTop }, { passive: true })
 
   root.querySelector('#sg-add').addEventListener('click', () => ctx.onAddRow())
   root.querySelector('#sg-empty').addEventListener('click', () => ctx.onToggleEmpty())
@@ -159,7 +172,7 @@ export function renderSheetGrid(wrap, ctx) {
   // ช่องว่างที่ draft ยังไม่มีชื่อ → เปิดช่องชื่อให้พิมพ์ทันที
   if (ctx.draft && ctx.focusDraft) {
     ctx.focusDraft = false
-    const td = tbody.querySelector('tr[data-i="0"] td[data-f="custName"]')
+    const td = tbody.querySelector(`tr[data-i="0"] td[data-f="${keyField}"]`)
     if (td) { sw.scrollLeft = 0; sw.scrollTop = 0; startEdit(td) }
   }
 
@@ -181,15 +194,20 @@ export function renderSheetGrid(wrap, ctx) {
     const i = Number(td.closest('tr').dataset.i), j = Number(td.dataset.j)
     const r = all[i], c = cols[j]
     if (!r || !c || c.ro) return
-    if (r.__draft && c.f !== 'custName' && !r.custName) {
+    if (r.__draft && c.f !== keyField && !r[keyField]) {
       // แถวใหม่ต้องมีชื่อลูกค้าก่อน — พาไปช่องชื่อ
-      const nameTd = tbody.querySelector(`tr[data-i="${i}"] td[data-f="custName"]`)
+      const nameTd = tbody.querySelector(`tr[data-i="${i}"] td[data-f="${keyField}"]`)
       if (nameTd && nameTd !== td) { showToast('พิมพ์ชื่อลูกค้าก่อน แล้วค่อยกรอกช่องอื่น', 'info'); startEdit(nameTd); return }
     }
     const cur = r[c.f]
     td.classList.add('sg-ed')
     let editor
-    if (c.t === 'status' || c.t === 'yn') {
+    if (c.t === 'sel') {
+      const curS = cur == null ? '' : String(cur)
+      const list = curS && !c.choices.some(([v]) => v === curS) ? [[curS, curS], ...c.choices] : c.choices
+      td.innerHTML = `<select>${list.map(([v, l]) => `<option value="${escHtml(v)}"${v === curS ? ' selected' : ''}>${escHtml(l || '—')}</option>`).join('')}</select>`
+      editor = td.querySelector('select')
+    } else if (c.t === 'status' || c.t === 'yn') {
       const opts = c.t === 'yn' ? YN_OPTIONS : ctx.options.status
       const list = cur && !opts.includes(cur) ? [cur, ...opts] : opts
       td.innerHTML = `<select>${list.map(o => `<option value="${escHtml(o)}"${o === (cur || '') ? ' selected' : ''}>${escHtml(o || '—')}</option>`).join('')}</select>`
@@ -218,7 +236,7 @@ export function renderSheetGrid(wrap, ctx) {
         if (r.__draft) {
           r[c.f] = v
           td.innerHTML = cellInner(r, c, ctx)
-          if (c.f === 'custName' && v) {
+          if (c.f === keyField && v) {
             td.classList.add('sg-saving')
             try { await ctx.onCreate(r) } catch { td.classList.remove('sg-saving') }
             return // หน้าเพจวาดตารางใหม่หลังสร้างใบจองแล้ว
@@ -232,7 +250,7 @@ export function renderSheetGrid(wrap, ctx) {
           // ใส่ค่าใหม่ในแถวก่อนเลย แล้วจำว่าตารางที่โชว์ตรงกับค่าใหม่แล้ว — ฐานข้อมูลแจ้งการเปลี่ยนแปลงกลับมา
           // ทันทีที่เริ่มบันทึก (ก่อนบันทึกเสร็จ) หน้าเพจจะได้ใช้ตารางเดิม ไม่ต้องวาดใหม่ทั้งตาราง
           const before = {}
-          const optimistic = patchForCell(r, c, v)
+          const optimistic = patchFor(r, c, v)
           Object.keys(optimistic).forEach(k => { before[k] = r[k] })
           Object.assign(r, optimistic)
           if (cache === myCache) cache.sig = gridSig(ctx)
@@ -303,12 +321,11 @@ function cellInner(r, c, ctx) {
   return escHtml(displayCell(c, v))
 }
 
-function cellHtml(r, c, j, ctx) {
+function cellHtml(r, c, j, ctx, fix = '') {
   const cls = ['sg-c']
   if (c.ro) { cls.length = 0; cls.push('sg-ro') }
   if (c.t === 'num') cls.push('sg-num')
-  if (c.f === 'bookingNo') cls.push('sg-fix-no')
-  if (c.f === 'custName') cls.push('sg-fix-name')
+  if (fix) cls.push(fix.trim())
   const v = r[c.f]
   const title = c.ro ? 'คำนวณอัตโนมัติ' : (v != null && String(v).length > 14 ? String(displayCell(c, v)) : '')
   return `<td class="${cls.join(' ')}" data-j="${j}" data-f="${c.f}"${title ? ` title="${escHtml(title)}"` : ''}>${cellInner(r, c, ctx)}</td>`
