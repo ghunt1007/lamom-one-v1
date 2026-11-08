@@ -155,3 +155,19 @@ describe('workCalendar delivery car detail', () => {
     expect(w.tag).toBe('')
   })
 })
+
+describe('workCalendar refs', () => {
+  it('groups items of the same booking/customer under one ref', () => {
+    const items = buildWorkItems({
+      bookings: [{ id: 'b', status: 'รอส่งมอบ', deliveryDate: '2026-11-10', finStatus: 'รอเซ็นสัญญา', signDate: '2026-11-09' }],
+      followups: [{ id: 'f', dueDate: '2026-11-09', status: 'pending', customerId: 'c' }],
+      testDrives: [{ id: 't', date: '2026-11-09', status: 'scheduled', customerId: 'c' }],
+      events: [{ id: 'e', date: '2026-11-09', title: 'นัดต่อ', refCol: 'bookings', refId: 'b', phone: '0812345678' }, { id: 'e2', date: '2026-11-09', title: 'ประชุม' }],
+    }, '2026-11-08')
+    const ref = k => items.find(i => i.key === k).ref
+    expect(['dlv:b', 'pdi:b', 'sign:b', 'ev:e'].map(ref)).toEqual(Array(4).fill('bookings:b'))
+    expect([ref('fu:f'), ref('td:t')]).toEqual(['customers:c', 'customers:c'])
+    expect(ref('ev:e2')).toBe('calendar_events:e2')
+    expect(items.find(i => i.key === 'ev:e')).toMatchObject({ nav: '/crm/bookings?id=b', phone: '0812345678' })
+  })
+})
