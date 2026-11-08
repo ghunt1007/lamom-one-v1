@@ -1,0 +1,95 @@
+/* แคมเปญ & เงื่อนไขขาย (/crm/programs) — v1.0.970 */
+.sp { --k: var(--primary); --sp-purple: #B49CFA; --sp-pink: #F38BC2; }
+[data-mode="light"] .sp, [data-mode="light"] .modal .sp-form, [data-mode="light"] .sp-ai { --sp-purple: #6D3FD8; --sp-pink: #B3155F; }
+.sp .t-finance, .sp-ai .t-finance  { --k: var(--sp-purple, #8B6CF0); }
+.sp .t-brand, .sp-ai .t-brand      { --k: var(--primary); }
+.sp .t-showroom, .sp-ai .t-showroom { --k: var(--accent); }
+.sp .t-team, .sp-ai .t-team        { --k: var(--info); }
+.sp .t-sales, .sp-ai .t-sales      { --k: var(--warning); }
+.sp .t-margin, .sp-ai .t-margin    { --k: var(--success); }
+.sp .t-mgmtfee, .sp-ai .t-mgmtfee  { --k: var(--sp-pink, #E05A9C); }
+.sp .t-bonus, .sp-ai .t-bonus      { --k: var(--danger); }
+
+/* ขายรุ่นไหน */
+.sp-finder { padding: 14px 16px; margin-bottom: 14px; }
+.sp-finder-h { font-weight: 700; font-size: 0.95rem; margin-bottom: 10px; }
+.sp-finder-h span { font-weight: 400; font-size: 0.78rem; color: var(--text-3); margin-left: 6px; }
+.sp-finder-row { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.2fr) minmax(0, 1.1fr) minmax(0, .8fr) minmax(0, .8fr); gap: 8px; }
+.sp-finder-row .input { min-width: 0; }
+.sp-f-hint { margin-top: 10px; font-size: 0.8rem; color: var(--text-3); }
+.sp-f-sum { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr)); gap: 8px; margin-top: 12px; }
+.sp-f-tile { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 9px 12px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.sp-f-tile span { font-size: 0.72rem; color: var(--text-3); }
+.sp-f-tile b { font-size: 1.2rem; line-height: 1.2; color: var(--text); overflow-wrap: anywhere; }
+.sp-f-tile b.sp-f-small { font-size: 0.9rem; }
+.sp-f-tile small { font-size: 0.72rem; color: var(--text-2); overflow-wrap: anywhere; }
+.sp-f-tile.is-internal { border-style: dashed; }
+.sp-f-list { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; }
+.sp-f-item { display: flex; gap: 10px; align-items: flex-start; padding: 6px 10px; border-left: 3px solid var(--k); background: color-mix(in srgb, var(--k) 6%, transparent); border-radius: 0 var(--radius-md) var(--radius-md) 0; min-width: 0; }
+.sp-f-item > div > b { display: block; font-size: 0.84rem; }
+.sp-f-item small b { color: var(--text-2); }
+.sp-f-item small { display: block; font-size: 0.74rem; color: var(--text-3); overflow-wrap: anywhere; }
+.sp-f-item > div { min-width: 0; }
+.sp-f-acts { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* เดือน */
+.sp-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.sp-nav { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.sp-nav .btn-secondary { min-width: 36px; font-size: 1.05rem; padding-inline: 10px; }
+.sp-month { font-weight: 700; font-size: 1rem; white-space: nowrap; padding: 0 4px; }
+
+/* ชิปประเภท */
+.sp-chips { display: flex; gap: 6px; margin-bottom: 14px; overflow-x: auto; flex-wrap: nowrap; padding-bottom: 2px; }
+.sp-chip { flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2);
+  border-radius: var(--radius-full); padding: 6px 12px; font: inherit; font-size: 0.8rem; cursor: pointer; white-space: nowrap; }
+.sp-chip b { font-size: 0.7rem; min-width: 18px; padding: 0 5px; border-radius: 9px; background: var(--surface-2); text-align: center; }
+.sp-chip.on { color: var(--text); border-color: color-mix(in srgb, var(--k) 60%, var(--border)); background: color-mix(in srgb, var(--k) 14%, var(--surface)); font-weight: 600; }
+
+/* กลุ่ม + การ์ด */
+.sp-group { margin-bottom: 18px; }
+.sp-group-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-weight: 700; font-size: 0.9rem; margin-bottom: 8px; color: var(--text); }
+.sp-group-h span { border-left: 3px solid var(--k); padding-left: 8px; }
+.sp-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 10px; }
+.sp-card { background: var(--surface); border: 1px solid var(--border); border-top: 3px solid var(--k); border-radius: var(--radius-md); padding: 12px 14px; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.sp-card.is-ended { opacity: .6; }
+.sp-card-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.sp-type { font-size: 0.72rem; font-weight: 700; color: var(--k); white-space: nowrap; }
+.sp-state { font-size: 0.68rem; font-weight: 700; padding: 1px 8px; border-radius: 9px; white-space: nowrap; background: var(--surface-2); color: var(--text-3); }
+.sp-state.s-live { background: var(--success-dim); color: var(--success); }
+.sp-state.s-ending { background: var(--warning-dim); color: var(--warning); }
+.sp-state.s-soon { background: var(--info-dim, var(--surface-2)); color: var(--info); }
+.sp-title { font-weight: 700; font-size: 0.95rem; line-height: 1.35; overflow-wrap: anywhere; }
+.sp-meta { font-size: 0.76rem; color: var(--text-3); overflow-wrap: anywhere; }
+.sp-val { font-size: 0.82rem; color: var(--text-2); overflow-wrap: anywhere; }
+.sp-val b { color: var(--text); }
+.sp-rates { display: flex; flex-wrap: wrap; gap: 4px; }
+.sp-rates span { font-size: 0.74rem; background: color-mix(in srgb, var(--k) 10%, var(--surface-2)); border-radius: 6px; padding: 2px 8px; white-space: nowrap; }
+.sp-rates b { color: var(--k); }
+.sp-cond { font-size: 0.76rem; color: var(--text-3); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; }
+.sp-acts { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; border-top: 1px solid var(--border-subtle, var(--border)); padding-top: 6px; }
+.sp-acts .sp-del { margin-left: auto; }
+.sp-empty .btn { margin-top: 10px; }
+
+/* ฟอร์ม */
+.sp-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; }
+.sp-form .sp-full, .sp-form .sp-x[data-for="finance"] { grid-column: 1 / -1; }
+.sp-form [hidden] { display: none !important; }
+.sp-form-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr)); gap: 8px; }
+.sp-rate-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) auto; gap: 6px; margin-bottom: 6px; }
+.sp-check { display: flex; align-items: center; gap: 8px; font-size: 0.84rem; color: var(--text-2); }
+.sp-ai { display: flex; flex-direction: column; gap: 10px; }
+.sp-ai-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.sp-ai-row .input { flex: 1; min-width: 0; }
+.sp-ai-list { display: flex; flex-direction: column; gap: 8px; }
+.sp-ai-item { display: flex; gap: 10px; align-items: flex-start; }
+.sp-ai-item > div { flex: 1; min-width: 0; }
+.sp-ai-item input { margin-top: 14px; }
+.sp-warn { font-size: 0.78rem; color: var(--warning); margin-top: 4px; }
+
+@media (max-width: 760px) {
+  .sp-finder-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sp-finder-row #sp-f-price { grid-column: 1 / -1; }
+}
+@media (max-width: 520px) {
+  .sp-form { grid-template-columns: minmax(0, 1fr); }
+}

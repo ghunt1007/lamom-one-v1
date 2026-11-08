@@ -65,7 +65,7 @@ export const ALL_COLLECTIONS = [
   'recall_campaign_vehicles', 'recall_campaigns', 'recall_tracker_vehicles', 'recruitment_applicants',
   'recruitment_jobs', 'referrals', 'referrers', 'refund_requests', 'repair_estimates',
   'reschedule_appointments', 'reservations', 'reward_redemptions', 'roadside_cases', 'roles',
-  'salary_scale_staff', 'sales_budgets', 'security_policies', 'service_appointments',
+  'salary_scale_staff', 'sales_budgets', 'sales_programs', 'security_policies', 'service_appointments',
   'service_bay_queue', 'service_bays', 'service_history_records', 'service_packages',
   'service_parts_inventory', 'service_reminders', 'shift_schedules', 'signage_screens',
   'signage_slides', 'skill_definitions', 'sms_campaigns', 'sms_otp_settings', 'social_posts',

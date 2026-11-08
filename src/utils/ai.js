@@ -318,6 +318,37 @@ export async function analyzeCampaignAnnouncement({ text = '', imageBase64 = nul
   return { demo: false, rows }
 }
 
+// ── (v1.0.970) อ่านประกาศแคมเปญ/ดอกเบี้ย/มาร์จิ้น/ค่าบริหาร/รางวัล → รายการสำหรับศูนย์แคมเปญ (/crm/programs) ──
+// รับข้อความที่ก๊อปจาก LINE/อีเมล หรือรูปประกาศ — คืน array ในรูปแบบของ utils/salesPrograms.js (ผู้ใช้ตรวจก่อนบันทึก)
+const SALES_PROGRAM_PROMPT = `คุณคือผู้ช่วยฝ่ายขายโชว์รูมรถยนต์ อ่านประกาศด้านบน (แคมเปญแบรนด์/โชว์รูม/ทีมขาย, ตารางดอกเบี้ยไฟแนนซ์, มาร์จิ้น, ค่าบริหาร, เงินรางวัลพิเศษ)
+แยกเป็นรายการ 1 รายการต่อ 1 แคมเปญ (ถ้าดอกเบี้ยหลายแบบของไฟแนนซ์เดียวกันในแคมเปญเดียวกัน ให้รวมเป็นรายการเดียวที่มีหลายแถวใน rates)
+ฟิลด์ (ไม่มีข้อมูลใส่ "" หรือ 0 ห้ามเดา):
+- type: "finance"(ดอกเบี้ย/แคมเปญไฟแนนซ์) "brand"(จากเจ้าของแบรนด์/มอเตอร์) "showroom"(จากโชว์รูม/ดีลเลอร์) "team"(จากทีมขาย) "sales"(เซลส์คิดเอง) "margin"(มาร์จิ้นโชว์รูม) "mgmtfee"(ค่าบริหารผู้จัดการ) "bonus"(เงินรางวัลพิเศษ/อินเซนทีฟ)
+- title: ชื่อแคมเปญสั้นๆ
+- brand: ยี่ห้อ เช่น "DEEPAL" "AION"
+- models: รุ่นคั่นด้วย , (ว่างถ้าทุกรุ่น)
+- dateFrom, dateTo: YYYY-MM-DD ค.ศ. (แปลง พ.ศ. ลบ 543)
+- amount: เงินบาทต่อคัน (ส่วนลด/มาร์จิ้น/ค่าบริหาร/เงินรางวัล)
+- gift: ของแถม (ข้อความ)
+- conditions: เงื่อนไขสรุปสั้นๆ
+- financeCo: ชื่อไฟแนนซ์ (type finance)
+- rates: [{"down":ดาวน์%,"months":จำนวนงวด,"rate":ดอกเบี้ย%ต่อปี}] (type finance)
+- financeCommission, subsidy: บาท (type finance)
+- percent: % มาร์จิ้น (type margin)
+- role: "teamManager" หรือ "salesManager" (type mgmtfee)
+- targetUnits: เป้าคันที่ต้องทำเพื่อได้รางวัล (type bonus)
+ตอบเป็น JSON array เท่านั้น ถ้าไม่ใช่ประกาศเหล่านี้ตอบ []`
+
+export async function analyzeSalesProgram({ text = '', imageBase64 = null, mimeType = 'image/jpeg' } = {}) {
+  if (!isAiEnabled()) { const e = new Error('ต้องล็อกอินด้วยบัญชีจริงเพื่อใช้ AI อ่านประกาศ'); e.code = 'NOT_ENABLED'; throw e }
+  const parts = []
+  if (imageBase64) parts.push({ inlineData: { mimeType, data: imageBase64 } })
+  parts.push({ text: (text ? `ประกาศ:\n${text}\n\n` : '') + SALES_PROGRAM_PROMPT })
+  const data = await callProxy('/generate', { contents: [{ role: 'user', parts }], generationConfig: { maxOutputTokens: 4000, temperature: 0.1 } })
+  const respText = answerText(data) || '[]'
+  try { const rows = JSON.parse(respText.match(/\[[\s\S]*\]/)?.[0] || '[]'); return Array.isArray(rows) ? rows : [] } catch { return [] }
+}
+
 // ── AI Content Factory — สร้าง caption/hashtags/alt text จริงจากข้อมูลที่พนักงานกรอก ─────
 // เดิม AiContentFactory.js ใช้ตัวอย่างข้อความสำเร็จรูป 6 ชุดตายตัว ไม่สนใจข้อมูลที่พิมพ์กรอกเลย
 const CONTENT_FACTORY_PROMPT = `คุณคือนักการตลาดโซเชียลมีเดียของโชว์รูมรถยนต์ไฟฟ้า LAMOM ONE

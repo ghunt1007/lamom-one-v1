@@ -34,7 +34,7 @@ export const LINKED_VIEWS = [
   [{ path: '/finance/deposit', label: '💵 มัดจำ' }, { path: '/finance/refund', label: '↩️ คืนเงิน' }, { path: '/finance/cashier', label: '🏧 แคชเชียร์' }],
   [{ path: '/finance/expenses', label: '✅ อนุมัติค่าใช้จ่าย' }, { path: '/finance/po', label: '🛒 ใบสั่งซื้อ' }, { path: '/finance/vendor', label: '🏪 ผู้ขาย' },
     { path: '/finance/petty-cash', label: '👛 เงินสดย่อย' }, { path: '/finance/energy', label: '⚡ ค่าไฟ' }, { path: '/finance/assets', label: '🏢 ทรัพย์สิน' }],
-  [{ path: '/finance/bank-partners', label: '🏦 ธนาคารคู่ค้า' }, { path: '/finance/rate-sheets', label: '📈 ดอกเบี้ย' }, { path: '/finance/loan-calc', label: '🧮 คำนวณค่างวด' },
+  [{ path: '/finance/bank-partners', label: '🏦 ธนาคารคู่ค้า' }, { path: '/crm/programs', label: '🎯 แคมเปญ & ดอกเบี้ย' }, { path: '/finance/rate-sheets', label: '📈 ดอกเบี้ย (เดิม)' }, { path: '/finance/loan-calc', label: '🧮 คำนวณค่างวด' },
     { path: '/finance/bank-recon', label: '🔁 กระทบยอด' }, { path: '/finance/multi-currency', label: '💱 หลายสกุลเงิน' }],
   [{ path: '/finance/charging-cost', label: '🔌 ต้นทุนค่าชาร์จ' }, { path: '/finance/charging-revenue', label: '💰 รายได้ค่าชาร์จ' }],
   // (2026-11-02) หมวดโชว์รูม 39 → 13 เมนู · หมวดการขาย 38 → 15 เมนู
