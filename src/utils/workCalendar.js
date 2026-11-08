@@ -37,6 +37,8 @@ export const carDetail = b => [car(b), b.colorOut || b.color || '', vin6(b) ? '�
 export const CUT_TAG = '✂️ ตัดตัวเลขแล้ว'
 // ตัดตัวเลขแล้ว = สถานะ "ตัดตัวเลขรอส่งมอบ" หรือมีวันที่ตัดตัวเลขใน Sheet แล้ว (บางคันกรอกวันที่แต่ยังไม่เปลี่ยนสถานะ)
 export const isCut = b => b.status === 'ตัดตัวเลขรอส่งมอบ' || !!ymdBangkok(b.cutDate)
+// ป้ายตัดตัวเลข (มีวันที่ก็ใส่ด้วย) — ขึ้นทั้งคันที่รอส่งมอบและคันที่ส่งมอบแล้ว
+export const cutTag = b => { if (!isCut(b)) return ''; const c = ymdBangkok(b.cutDate); return c ? `${CUT_TAG} ${+c.slice(8)}/${c.slice(5, 7)}` : CUT_TAG }
 const custOf = b => b.custName || [b.firstName, b.lastName].filter(Boolean).join(' ') || 'ลูกค้า'
 // '9:30' / '09.30' / '09:30:00' → '09:30' (เติม 0 ให้เรียงตามเวลาได้ถูก)
 const hhmm = t => { const m = typeof t === 'string' && t.match(/^(\d{1,2})[:.](\d{2})/); return m ? `${m[1].padStart(2, '0')}:${m[2]}` : '' }
@@ -81,15 +83,15 @@ export function buildWorkItems(src = {}, today) {
     // ส่งมอบ: "ตัดตัวเลขรอส่งมอบ" นับยอดขายแล้วแต่รถยังไม่ถึงมือลูกค้า → ยังเป็นงานที่ต้องทำ
     if (handed) {
       const ad = day(b.actualDeliveryDate) || dd
-      if (ad) add({ key: 'dlv:' + b.id, kind: 'delivery', date: ad, time: '', title: `ส่งมอบ ${who}`, sub: carDetail(b), owner, phone, done: true, nav, rec: b })
+      if (ad) add({ key: 'dlv:' + b.id, kind: 'delivery', date: ad, time: '', title: `ส่งมอบ ${who}`, tag: cutTag(b), sub: carDetail(b), owner, phone, done: true, nav, rec: b })
     } else if (dd) {
-      add({ key: 'dlv:' + b.id, kind: 'delivery', date: dd, time: hhmm(b.deliveryTime), title: `ส่งมอบ ${who}`, tag: isCut(b) ? CUT_TAG : '',
+      add({ key: 'dlv:' + b.id, kind: 'delivery', date: dd, time: hhmm(b.deliveryTime), title: `ส่งมอบ ${who}`, tag: cutTag(b),
         sub: [carDetail(b), b.deliveryPlace, b.pdReady ? '✅ ตรวจรถแล้ว' : ''].filter(Boolean).join(' · '),
         owner, phone, done: false, canOverdue: true, nav, rec: b })
       // ตรวจรถก่อนส่งมอบ 1 วัน (ถ้ายังไม่ได้ตรวจ) — นัดวันนี้ก็ต้องตรวจวันนี้
       if (!b.pdReady) {
         const pd = today && dd <= addDays(today, 1) && dd >= today ? today : addDays(dd, -1)
-        add({ key: 'pdi:' + b.id, kind: 'pdi', date: pd, time: '', title: `ตรวจรถ ${who}`, tag: isCut(b) ? CUT_TAG : '',
+        add({ key: 'pdi:' + b.id, kind: 'pdi', date: pd, time: '', title: `ตรวจรถ ${who}`, tag: cutTag(b),
           sub: [carDetail(b), 'ส่งมอบ ' + dd.slice(8) + '/' + dd.slice(5, 7)].filter(Boolean).join(' · '),
           owner, phone, done: false, canOverdue: true, nav: '/crm/predelivery', rec: b })
       }
