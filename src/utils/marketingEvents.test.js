@@ -40,3 +40,18 @@ describe('marketing events', () => {
     expect(eventCalendarItems([ev({ status: 'cancelled' })], '2026-11-11')).toEqual([])
   })
 })
+
+import { eventFacts } from './marketingEvents.js'
+describe('eventFacts', () => {
+  it('lists ongoing, upcoming and finished events with results', () => {
+    const evs = [
+      { id: 'a', title: 'บูธ เวสต์เกต', startDate: '2026-11-08', endDate: '2026-11-10', venue: 'เวสต์เกต' },
+      { id: 'b', title: 'Motor Expo', startDate: '2026-12-01', endDate: '2026-12-10', venue: 'อิมแพค' },
+      { id: 'c', title: 'บูธ ตลาด', startDate: '2026-10-01', endDate: '2026-10-02', spent: 10000, venue: 'ตลาด' },
+    ]
+    const f = eventFacts(evs, { customers: [{ id: 'x', eventId: 'c' }, { id: 'y', eventId: 'c' }] }, '2026-11-09')
+    expect(f.find(l => l.startsWith('กำลังจัด'))).toContain('เวสต์เกต')
+    expect(f.find(l => l.startsWith('กำลังจะจัด'))).toContain('Motor Expo')
+    expect(f.find(l => l.startsWith('จบแล้ว'))).toContain('Lead 2')
+  })
+})

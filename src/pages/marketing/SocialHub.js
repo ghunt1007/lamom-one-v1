@@ -3,6 +3,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, softDelete, seedDemoData } from '../../core/db.js'
 import { escHtml as esc } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { navigate } from '../../core/router.js'
 
 // ป้องกัน XSS — เนื้อหา Post เป็น textarea ที่ผู้ใช้พิมพ์ได้อิสระ ไม่จำกัด HTML ต้อง escape ก่อนแสดงผลเสมอ
 
@@ -31,6 +32,7 @@ const CONTENT_TEMPLATES = [
 ]
 
 export default async function SocialHubPage(container) {
+  container.addEventListener('click', e => { if (e.target.closest('[data-go-channels]')) navigate('/marketing/channels') })
   const myGen = container.__routerGen
   seedDemoData()
 
@@ -79,6 +81,11 @@ export default async function SocialHubPage(container) {
           <div class="page-actions">
             <button class="btn btn-primary" id="compose-btn">✍️ สร้าง Post</button>
           </div>
+        </div>
+
+        <div class="card" style="padding:10px 14px;margin-bottom:12px;border-left:3px solid var(--primary);font-size:0.8rem;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+          <span>💡 โพสต์ลงเพจ Facebook/IG จริงได้แล้วที่หน้า “ช่องทางโซเชียล” (หน้านี้ใช้วางแผนคอนเทนต์)</span>
+          <button class="btn btn-primary btn-sm" data-go-channels>🔗 เปิดช่องทางโซเชียล</button>
         </div>
 
         <!-- KPI -->

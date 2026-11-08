@@ -135,3 +135,20 @@ export function eventCalendarItems(list, today) {
 }
 
 export const dayOf = v => ymdBangkok(v)
+
+// (v1.0.975) ข้อความสั้นให้ LAMI รู้ว่ามีงานออกบูธอะไรบ้าง และงานที่จบแล้วได้ผลแค่ไหน
+export function eventFacts(events = [], data = {}, today) {
+  const live = events.filter(e => e && !e.deleted && e.startDate)
+  const fmt = n => Number(n || 0).toLocaleString('th-TH')
+  const lines = []
+  const upcoming = live.filter(e => ['planning', 'confirmed'].includes(autoStatus(e, today))).sort((a, b) => a.startDate.localeCompare(b.startDate)).slice(0, 4)
+  const ongoing = live.filter(e => autoStatus(e, today) === 'ongoing')
+  const done = live.filter(e => autoStatus(e, today) === 'done').sort((a, b) => (b.endDate || b.startDate).localeCompare(a.endDate || a.startDate)).slice(0, 4)
+  ongoing.forEach(e => lines.push(`กำลังจัด: ${e.title || typeOf(e.type).label} @${e.venue || '-'} ถึง ${e.endDate || e.startDate}`))
+  upcoming.forEach(e => lines.push(`กำลังจะจัด: ${e.title || typeOf(e.type).label} @${e.venue || '-'} ${e.startDate}${e.endDate && e.endDate !== e.startDate ? `–${e.endDate}` : ''}`))
+  done.forEach(e => {
+    const m = eventMetrics(e, data)
+    lines.push(`จบแล้ว: ${e.title || typeOf(e.type).label} (${e.startDate}) Lead ${m.leads} จอง ${m.bookings}${m.cost ? ` ใช้งบ ${fmt(m.cost)} บาท` : ''}${m.costPerLead ? ` ต่อ Lead ${fmt(m.costPerLead)}` : ''}${m.roi ? ` ROI ${m.roi} เท่า` : ''}`)
+  })
+  return lines
+}

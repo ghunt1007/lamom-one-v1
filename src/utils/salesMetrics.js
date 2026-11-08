@@ -214,3 +214,18 @@ export const METRIC_INFO = {
   churn: ['Churn Rate', 'อัตราลูกค้าหาย', 'ลูกค้าที่รับรถ 6–24 เดือนก่อน แต่ 12 เดือนล่าสุดไม่กลับมาเข้าศูนย์'],
   ltv: ['LTV', 'มูลค่าลูกค้าตลอดอายุ', 'รายได้เฉลี่ยต่อลูกค้าหนึ่งราย: ค่ารถ + งานศูนย์บริการทั้งหมด'],
 }
+
+// (v1.0.975) สรุปตัวชี้วัดเดือนนี้เป็นบรรทัดสั้นๆ ให้ LAMI ใช้ตอบ (ไม่มีข้อมูล = ไม่ใส่ ไม่เดา)
+export function metricsFacts(m) {
+  if (!m) return []
+  const baht = n => `${Math.round(n || 0).toLocaleString('th-TH')} บาท`
+  const out = [`จอง ${m.units.booked} คัน ส่งมอบ ${m.units.delivered} คัน ถอนจอง ${m.units.cancelled} · GMV ${baht(m.gmv)}`]
+  if (m.target?.revenue) out.push(`เป้า ${baht(m.target.revenue)} ทำได้ ${m.target.revenuePct}%${m.target.units ? ` · เป้า ${m.target.units} คัน ทำได้ ${m.target.unitsPct}%` : ''}`)
+  if (m.forecast) out.push(`คาดการณ์สิ้นเดือน ~${m.forecast.units} คัน ~${baht(m.forecast.revenue)}`)
+  if (m.aov) out.push(`AOV (เฉลี่ยต่อใบจอง) ${baht(m.aov)}`)
+  if (m.grossProfit?.pct != null && m.grossProfit?.units) out.push(`GP ${m.grossProfit.pct}% (${baht(m.grossProfit.value)} จาก ${m.grossProfit.units} คันที่ส่งมอบ)`)
+  if (m.conversion?.pct != null) out.push(`Conversion ลูกค้าใหม่→จอง ${m.conversion.pct}% (${m.conversion.won}/${m.conversion.leads})`)
+  if (m.salesCycle?.avg != null) out.push(`Sales cycle เฉลี่ย ${m.salesCycle.avg} วัน`)
+  if (m.churn?.pct != null) out.push(`Churn (ไม่กลับมาเข้าศูนย์) ${m.churn.pct}%`)
+  return out
+}

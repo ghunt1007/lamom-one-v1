@@ -1,4 +1,5 @@
 import { setState, getState, showToast } from './store.js'
+import { trackPageListeners, dropPageListeners } from './pageListeners.js'
 import { getModuleForPath, hasModuleAccess, loadRolePermissions } from './permissions.js'
 import { stopPageWatchers } from './pageWatchers.js'
 
@@ -585,6 +586,7 @@ export function navigate(path) {
 }
 
 let lastRenderedPath = null
+
 async function render(appEl) {
   const gen = ++renderGen
   const path = window.location.pathname
@@ -612,6 +614,8 @@ async function render(appEl) {
 
   if (currentCleanup) { currentCleanup(); currentCleanup = null }
   stopPageWatchers()
+  trackPageListeners(appEl)
+  dropPageListeners(appEl)
 
   const loader = routes[path] || routes['/']
   try {
