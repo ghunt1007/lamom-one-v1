@@ -49,6 +49,8 @@
 .wc-main { flex: 1; min-width: 0; }
 .wc-t { font-size: 0.86rem; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wc-time { display: inline-block; font-variant-numeric: tabular-nums; color: var(--k); margin-right: 6px; font-weight: 700; }
+.wc-tag { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 9px; font-size: 0.68rem; font-weight: 700; vertical-align: 1px;
+  background: var(--warning-dim); color: var(--warning); }
 .wc-s { font-size: 0.73rem; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
 .wc-s b { color: var(--text-2); }
 .wc-call { flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; text-decoration: none;
@@ -123,3 +125,6 @@
   .wc-cell { min-height: 48px; }
   .wc-item { padding: 9px 10px; gap: 8px; }
 }
+
+/* (v1.0.966) ส่งมอบ/ตรวจรถ: ขึ้นบรรทัดใหม่ได้ ให้เห็นรุ่น สี เลขตัวถังครบแม้จอแคบ */
+.wc-item.k-delivery .wc-t, .wc-item.k-pdi .wc-t, .wc-item.k-delivery .wc-s, .wc-item.k-pdi .wc-s { white-space: normal; }
