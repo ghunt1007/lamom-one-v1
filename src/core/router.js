@@ -568,7 +568,9 @@ let currentCleanup = null
 let renderGen = 0  // increments on every navigate — stale async renders abort
 
 export function initRouter(appEl) {
-  window.addEventListener('popstate', () => render(appEl))
+  // (v1.0.965) กดย้อนกลับ/ไปข้างหน้า = ออกจากหน้าเดิม → ปิดหน้าต่างที่ค้างจากหน้าเดิม (เช่น รายละเอียดใบจองที่เปิดจากปฏิทิน)
+  // ไม่งั้นกลับมาแล้วยังมีหน้าต่างเก่าบังอยู่ — ทำเฉพาะปุ่มย้อนกลับจริงของเบราว์เซอร์ (isTrusted) — popstate ที่โค้ดยิงเองเพื่อวาดหน้าใหม่ไม่แตะ
+  window.addEventListener('popstate', e => { if (e.isTrusted) document.querySelectorAll('.modal-overlay').forEach(m => m.remove()); render(appEl) })
   render(appEl)
 }
 
