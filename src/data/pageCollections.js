@@ -170,9 +170,13 @@ export const PAGE_COLLECTIONS = {
   "tasks"
  ],
  "/calendar": [
+  "appointments",
   "bookings",
   "calendar_events",
-  "tasks"
+  "followups",
+  "service_appointments",
+  "tasks",
+  "test_drives"
  ],
  "/notes": [
   "notes"
