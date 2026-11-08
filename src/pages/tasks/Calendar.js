@@ -143,7 +143,7 @@ export default async function CalendarPage(container) {
     return `<div class="wc-item k-${it.kind}${it.done ? ' is-done' : ''}${it.overdue ? ' is-late' : ''}" data-key="${escHtml(it.key)}" role="button" tabindex="0">
       <span class="wc-ico" aria-hidden="true">${it.done ? '✓' : k.icon}</span>
       <div class="wc-main">
-        <div class="wc-t">${it.time ? `<span class="wc-time">${escHtml(it.time)}</span>` : ''}${escHtml(it.title)}</div>
+        <div class="wc-t">${it.time ? `<span class="wc-time">${escHtml(it.time)}</span>` : ''}${escHtml(it.title)}${it.tag ? `<span class="wc-tag">${escHtml(it.tag)}</span>` : ''}</div>
         <div class="wc-s">${meta}</div>
       </div>
       ${tel.length >= 9 && !it.done ? `<a class="wc-call" href="tel:${escHtml(tel)}" aria-label="โทร" title="โทร ${escHtml(it.phone)}">📞</a>` : ''}
@@ -218,7 +218,7 @@ export default async function CalendarPage(container) {
       const cls = ['wc-cell', key === today ? 'is-today' : '', key === selected ? 'is-sel' : '', its.some(it => it.overdue) ? 'has-late' : '', its.length ? '' : 'is-empty'].filter(Boolean).join(' ')
       cells.push(`<button type="button" class="${cls}" data-date="${key}" aria-label="${d} ${MONTH_NAMES[viewMonth]} ${its.length} รายการ">
         <span class="wc-dn">${d}</span>
-        <span class="wc-pills">${its.slice(0, 3).map(it => `<span class="wc-pill k-${it.kind}${it.done ? ' is-done' : ''}">${KINDS[it.kind].icon} ${escHtml(it.title)}</span>`).join('')}${its.length > 3 ? `<span class="wc-pill-more">+${its.length - 3}</span>` : ''}</span>
+        <span class="wc-pills">${its.slice(0, 3).map(it => `<span class="wc-pill k-${it.kind}${it.done ? ' is-done' : ''}">${it.tag ? '✂️' : KINDS[it.kind].icon} ${escHtml(it.title)}</span>`).join('')}${its.length > 3 ? `<span class="wc-pill-more">+${its.length - 3}</span>` : ''}</span>
         <span class="wc-dots">${its.slice(0, 5).map(it => `<i class="k-${it.kind}${it.done ? ' is-done' : ''}"></i>`).join('')}</span>
         ${open.length ? `<span class="wc-n">${open.length}</span>` : ''}
       </button>`)

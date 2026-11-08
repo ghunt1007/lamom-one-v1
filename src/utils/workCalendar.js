@@ -31,6 +31,10 @@ function addDays(ymd, n) {
   return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
 }
 const car = b => [b.model, b.variant].filter(Boolean).join(' ')
+// (v1.0.966) รถคันไหน: รุ่น · สี · 6 ตัวท้ายเลขตัวถัง — ใช้ในงานส่งมอบ/ตรวจรถ ให้หยิบรถถูกคันโดยไม่ต้องเปิดใบจอง
+const vin6 = b => String(b.vin || '').replace(/\s/g, '').slice(-6)
+export const carDetail = b => [car(b), b.colorOut || b.color || '', vin6(b) ? 'ตัว\u2060ถัง\u00a0' + vin6(b) : ''].filter(Boolean).join(' · ')
+export const CUT_TAG = '✂️ ตัดตัวเลขแล้ว'
 const custOf = b => b.custName || [b.firstName, b.lastName].filter(Boolean).join(' ') || 'ลูกค้า'
 // '9:30' / '09.30' / '09:30:00' → '09:30' (เติม 0 ให้เรียงตามเวลาได้ถูก)
 const hhmm = t => { const m = typeof t === 'string' && t.match(/^(\d{1,2})[:.](\d{2})/); return m ? `${m[1].padStart(2, '0')}:${m[2]}` : '' }
@@ -75,16 +79,16 @@ export function buildWorkItems(src = {}, today) {
     // ส่งมอบ: "ตัดตัวเลขรอส่งมอบ" นับยอดขายแล้วแต่รถยังไม่ถึงมือลูกค้า → ยังเป็นงานที่ต้องทำ
     if (handed) {
       const ad = day(b.actualDeliveryDate) || dd
-      if (ad) add({ key: 'dlv:' + b.id, kind: 'delivery', date: ad, time: '', title: `ส่งมอบ ${who}`, sub: car(b), owner, phone, done: true, nav, rec: b })
+      if (ad) add({ key: 'dlv:' + b.id, kind: 'delivery', date: ad, time: '', title: `ส่งมอบ ${who}`, sub: carDetail(b), owner, phone, done: true, nav, rec: b })
     } else if (dd) {
-      add({ key: 'dlv:' + b.id, kind: 'delivery', date: dd, time: hhmm(b.deliveryTime), title: `ส่งมอบ ${who}`,
-        sub: [car(b), b.deliveryPlace, b.pdReady ? '✅ ตรวจรถแล้ว' : ''].filter(Boolean).join(' · '),
+      add({ key: 'dlv:' + b.id, kind: 'delivery', date: dd, time: hhmm(b.deliveryTime), title: `ส่งมอบ ${who}`, tag: b.status === 'ตัดตัวเลขรอส่งมอบ' ? CUT_TAG : '',
+        sub: [carDetail(b), b.deliveryPlace, b.pdReady ? '✅ ตรวจรถแล้ว' : ''].filter(Boolean).join(' · '),
         owner, phone, done: false, canOverdue: true, nav, rec: b })
       // ตรวจรถก่อนส่งมอบ 1 วัน (ถ้ายังไม่ได้ตรวจ) — นัดวันนี้ก็ต้องตรวจวันนี้
       if (!b.pdReady) {
         const pd = today && dd <= addDays(today, 1) && dd >= today ? today : addDays(dd, -1)
-        add({ key: 'pdi:' + b.id, kind: 'pdi', date: pd, time: '', title: `ตรวจรถ ${who}`,
-          sub: [car(b), b.vin ? 'VIN ' + String(b.vin).slice(-6) : '', 'ส่งมอบ ' + dd.slice(8) + '/' + dd.slice(5, 7)].filter(Boolean).join(' · '),
+        add({ key: 'pdi:' + b.id, kind: 'pdi', date: pd, time: '', title: `ตรวจรถ ${who}`, tag: b.status === 'ตัดตัวเลขรอส่งมอบ' ? CUT_TAG : '',
+          sub: [carDetail(b), 'ส่งมอบ ' + dd.slice(8) + '/' + dd.slice(5, 7)].filter(Boolean).join(' · '),
           owner, phone, done: false, canOverdue: true, nav: '/crm/predelivery', rec: b })
       }
     }

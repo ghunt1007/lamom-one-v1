@@ -132,3 +132,16 @@ describe('workCalendar time', () => {
     expect(items.map(i => [i.key, i.time])).toEqual([['appt:a', '09:30'], ['appt:b', '14:00']])
   })
 })
+
+describe('workCalendar delivery car detail', () => {
+  it('cut-number deliveries are tagged and show model, colour, last 6 of VIN', () => {
+    const items = buildWorkItems({ bookings: [
+      { id: 'c', custName: 'ก', model: 'DEEPAL S07', variant: 'EREV', colorOut: 'ขาว', vin: 'LVTDB24B5PD 123456', status: 'ตัดตัวเลขรอส่งมอบ', deliveryDate: '2026-11-08', pdReady: true },
+      { id: 'w', custName: 'ข', model: 'DEEPAL L07', status: 'รอส่งมอบ', deliveryDate: '2026-11-09', pdReady: true, finStatus: 'ผ่าน' },
+    ] }, '2026-11-08')
+    const c = items.find(i => i.key === 'dlv:c'), w = items.find(i => i.key === 'dlv:w')
+    expect(c.tag).toContain('ตัดตัวเลขแล้ว')
+    expect(c.sub).toContain('DEEPAL S07 EREV · ขาว · ตัว\u2060ถัง\u00a0123456')
+    expect(w.tag).toBe('')
+  })
+})
