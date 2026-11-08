@@ -29,6 +29,11 @@ export const PAGE_COLLECTIONS = {
  "/crm/pipeline": [
   "customers"
  ],
+ "/crm/programs": [
+  "finance_rate_sheets",
+  "promotions",
+  "sales_programs"
+ ],
  "/crm/warroom": [
   "bookings",
   "customers",
@@ -821,6 +826,7 @@ export const PAGE_COLLECTIONS = {
   "debts",
   "followups",
   "job_cards",
+  "sales_programs",
   "staff",
   "test_drives",
   "vehicles"

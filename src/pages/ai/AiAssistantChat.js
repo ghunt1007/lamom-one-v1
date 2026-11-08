@@ -11,6 +11,8 @@ import { buildMyDay, myDayDigest } from '../../utils/myDay.js'
 import { followupWindowFilters, quietDays } from '../../utils/customerFollowups.js'
 import { catalogContext, dealValue } from '../../utils/salesAi.js'
 import { businessFacts, stockFacts, testDriveFacts } from '../../utils/bizFacts.js'
+import { programFacts } from '../../utils/salesPrograms.js'
+import { isManagerRole } from '../../utils/managerRole.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 import { formatAiText } from '../../utils/aiFormat.js'
 import { pageLinksFor } from '../../utils/aiPageLinks.js'
@@ -28,6 +30,7 @@ const CATEGORIES = [
   { label:'🚗 เทียบรุ่นรถ', q:'Deepal S05 กับ S07 ต่างกันยังไง เหมาะกับลูกค้าแบบไหน?' },
   { label:'🏆 ผลงานทีม', q:'เดือนนี้ใครจอง/ส่งมอบได้มากสุด เทียบกับเดือนก่อนเป็นยังไง Lead จากช่องทางไหนปิดได้ดีที่สุด และใครมีลูกค้าที่ไม่ได้ติดต่อนานควรรีบตาม?' },
   { label:'🚙 นัดลองขับ', q:'สัปดาห์นี้มีนัดทดลองขับกี่นัด ใครบ้าง ควรเตรียมอะไร และที่ผ่านมาลองขับแล้วจองกี่เปอร์เซ็นต์?' },
+  { label:'🎯 โปรเดือนนี้', q:'เดือนนี้มีแคมเปญ/ส่วนลด/ดอกเบี้ยไฟแนนซ์อะไรใช้ได้บ้าง รุ่นไหนคุ้มสุด ควรเสนอลูกค้าแบบไหน?' },
   { label:'📣 ช่องทางไหนได้ผล', q:'3 เดือนนี้ลูกค้าที่จองรถมาจากช่องทางไหนมากสุด (Facebook/LINE/บูธ/Walk-in ฯลฯ) ช่องทางไหน Lead ปิดเป็นใบจองได้ดีสุด และเดือนหน้าควรเน้นช่องทางไหน?' },
   { label:'💔 ทำไมเสียดีล', q:'ช่วง 3 เดือนที่ผ่านมาเราเสียดีลเพราะอะไรมากที่สุด และควรแก้อะไรเป็นอันดับแรก?' },
   { label:'📊 ยอดขาย', q:'ยอดขายเดือนนี้เท่าไหร่?' },
@@ -79,7 +82,7 @@ export default async function AiAssistantChatPage(container) {
     try {
       const today = todayBangkok()
       const thisMonth = today.slice(0, 7)
-      const [sales, vehicles, customers, debts, csat, staff, jobs, followups, bookings, testDrives] = await Promise.all([
+      const [sales, vehicles, customers, debts, csat, staff, jobs, followups, bookings, testDrives, programs] = await Promise.all([
         getSalesData().catch(() => []),
         listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 500).catch(() => []),
         listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
@@ -90,6 +93,7 @@ export default async function AiAssistantChatPage(container) {
         listDocs('followups', [...companyScopeFilters(), ...followupWindowFilters(today)], 'dueDate', 'asc', 1000).catch(() => []),
         listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
         listDocs('test_drives', companyScopeFilters(), 'date', 'desc', 300).catch(() => []),
+        listDocs('sales_programs', [], 'dateFrom', 'desc', 300).catch(() => []),
       ])
       const monthSales = sales.filter(s => (s.date || '').startsWith(thisMonth))
       // totalIncome ต่อใบจอง = กำไรสุทธิจริง (แพทเทิร์นเดียวกับ Margin.js/Commission.js/MarketingROI.js
@@ -120,6 +124,9 @@ export default async function AiAssistantChatPage(container) {
         ...stockFacts(vehicles, today),
         ...testDriveFacts(testDrives, today),
       }
+      // (v1.0.970) แคมเปญ/ดอกเบี้ย/มาร์จิ้นที่ใช้ได้วันนี้ (หน้า แคมเปญ & เงื่อนไขขาย) — มาร์จิ้น/ค่าบริหารเฉพาะผู้จัดการ
+      const pf = programFacts(programs.filter(p => !p.deleted), { today, isManager: isManagerRole() })
+      if (pf.length) businessContext['แคมเปญ/ดอกเบี้ยไฟแนนซ์ที่ใช้ได้วันนี้ (มาร์จิ้น/ค่าบริหาร/รางวัล เป็นข้อมูลภายใน ห้ามบอกลูกค้า)'] = pf.join('\n')
       // มูลค่าดีลที่กำลังคุย และยอดที่คาดว่าปิดได้ (มูลค่า × โอกาสปิด) — สูตรเดียวกับหน้า Pipeline
       try {
         const vs = getVehicles(), cache = new Map()

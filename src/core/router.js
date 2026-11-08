@@ -10,6 +10,7 @@ const routes = {
   '/crm':           () => import('../pages/crm/CrmDashboard.js'),
   '/crm/leads':     () => import('../pages/crm/Customers.js'), // leads merged into unified Customers workspace (stage='lead'/'pp')
   '/crm/pipeline':  () => import('../pages/crm/Pipeline.js'),
+  '/crm/programs': () => import('../pages/crm/SalesPrograms.js'),
   '/crm/warroom':   () => import('../pages/crm/WarRoom.js'),
   '/crm/customers': () => import('../pages/crm/Customers.js'),
   '/crm/bookings':  () => import('../pages/crm/Bookings.js'),

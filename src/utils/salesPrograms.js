@@ -1,0 +1,267 @@
+// (v1.0.970) ศูนย์แคมเปญ & เงื่อนไขขายประจำเดือน — ฟังก์ชันล้วน (pure) ใช้ร่วมกันระหว่างหน้า /crm/programs,
+// LAMI (recordFacts) และหน้าอื่นที่อยากรู้ว่า "รุ่นนี้ วันนี้ ได้อะไรบ้าง"
+// เก็บทุกอย่างใน collection เดียว sales_programs แยกด้วย type — ดอกเบี้ย/แคมเปญไฟแนนซ์, แคมเปญแบรนด์ (มอเตอร์),
+// แคมเปญโชว์รูม, แคมเปญทีมขาย, แคมเปญที่เซลส์คิดเอง, มาร์จิ้นโชว์รูม, ค่าบริหารผู้จัดการ, เงินรางวัลพิเศษ
+// 1 เดือนมีได้หลายแคมเปญ: แต่ละรายการมีช่วงวันที่ของตัวเอง (dateFrom–dateTo) ไม่ผูกกับเดือนตายตัว
+
+export const PROGRAM_TYPES = {
+  finance:  { icon: '🏦', label: 'ดอกเบี้ย & แคมเปญไฟแนนซ์', short: 'ไฟแนนซ์', who: 'บริษัทไฟแนนซ์' },
+  brand:    { icon: '🏭', label: 'แคมเปญแบรนด์ (มอเตอร์)', short: 'แบรนด์', who: 'เจ้าของแบรนด์' },
+  showroom: { icon: '🏢', label: 'แคมเปญโชว์รูม', short: 'โชว์รูม', who: 'โชว์รูม' },
+  team:     { icon: '👥', label: 'แคมเปญทีมขาย', short: 'ทีมขาย', who: 'ทีมขาย' },
+  sales:    { icon: '🙋', label: 'แคมเปญเซลส์คิดเอง', short: 'เซลส์', who: 'เซลส์' },
+  margin:   { icon: '💹', label: 'มาร์จิ้นโชว์รูม', short: 'มาร์จิ้น', who: 'โชว์รูม', managerOnly: true },
+  mgmtfee:  { icon: '🧑‍💼', label: 'ค่าบริหารผู้จัดการ', short: 'ค่าบริหาร', who: 'โชว์รูม', managerOnly: true },
+  bonus:    { icon: '🏆', label: 'เงินรางวัลพิเศษ', short: 'รางวัล', who: 'ผู้ให้รางวัล' },
+}
+export const TYPE_ORDER = ['finance', 'brand', 'showroom', 'team', 'sales', 'margin', 'mgmtfee', 'bonus']
+// แคมเปญที่ "ลูกค้าได้" (เอาไปบอกลูกค้าได้) — มาร์จิ้น/ค่าบริหาร/รางวัล เป็นของภายใน ห้ามบอกลูกค้า
+export const CUSTOMER_TYPES = ['finance', 'brand', 'showroom', 'team', 'sales']
+
+export const MGMT_ROLES = {
+  teamManager:  'ผู้จัดการทีมขาย',
+  salesManager: 'ผู้จัดการฝ่ายขาย',
+}
+
+// ใครได้รางวัลพิเศษ
+export const BONUS_FOR = {
+  all: 'เซลส์ทุกคน',
+  person: 'เฉพาะคน',
+  team: 'ทั้งทีม',
+  manager: 'ผู้จัดการ',
+}
+
+const num = v => { const n = Number(String(v ?? '').replace(/[,\s฿%]/g, '')); return Number.isFinite(n) ? n : 0 }
+const str = v => String(v ?? '').trim()
+const ymdRe = /^\d{4}-\d{2}-\d{2}$/
+const pad2 = n => String(n).padStart(2, '0')
+
+// รุ่นรถ: รับได้ทั้ง array และข้อความคั่นด้วย , / | หรือขึ้นบรรทัด — ว่าง = ทุกรุ่นของยี่ห้อนั้น
+export function parseModels(v) {
+  const arr = Array.isArray(v) ? v : String(v ?? '').split(/[,|\n/]+/)
+  const out = []
+  arr.map(str).filter(Boolean).forEach(m => { if (!/^ทุกรุ่น$/.test(m) && !out.some(x => x.toLowerCase() === m.toLowerCase())) out.push(m) })
+  return out
+}
+
+// แถวดอกเบี้ย: ดาวน์ % · ผ่อนกี่งวด · ดอกเบี้ย % ต่อปี (flat rate แบบเช่าซื้อทั่วไป)
+export function parseRates(v) {
+  return (Array.isArray(v) ? v : []).map(r => ({ down: num(r?.down), months: Math.round(num(r?.months)), rate: num(r?.rate) }))
+    .filter(r => r.months > 0 || r.rate > 0)
+}
+
+// ทำความสะอาดข้อมูลก่อนบันทึก — ตัวเลขเป็นตัวเลข วันที่ YYYY-MM-DD วันสิ้นสุดไม่ก่อนวันเริ่ม
+export function normalizeProgram(raw = {}) {
+  const type = PROGRAM_TYPES[raw.type] ? raw.type : 'showroom'
+  let dateFrom = ymdRe.test(str(raw.dateFrom)) ? str(raw.dateFrom) : ''
+  let dateTo = ymdRe.test(str(raw.dateTo)) ? str(raw.dateTo) : ''
+  if (dateFrom && dateTo && dateTo < dateFrom) [dateFrom, dateTo] = [dateTo, dateFrom]
+  const p = {
+    type,
+    title: str(raw.title),
+    brand: str(raw.brand),
+    models: parseModels(raw.models),
+    dateFrom, dateTo,
+    conditions: str(raw.conditions),
+    amount: num(raw.amount),
+    gift: str(raw.gift),
+    note: str(raw.note),
+    status: raw.status === 'draft' ? 'draft' : 'active',
+  }
+  if (type === 'finance') {
+    p.financeCo = str(raw.financeCo)
+    p.rates = parseRates(raw.rates)
+    p.financeCommission = num(raw.financeCommission)
+    p.subsidy = num(raw.subsidy)
+  }
+  if (type === 'margin') p.percent = num(raw.percent)
+  if (type === 'mgmtfee') p.role = MGMT_ROLES[raw.role] ? raw.role : 'teamManager'
+  if (type === 'sales' || type === 'team') p.owner = str(raw.owner)
+  if (type === 'bonus') {
+    p.bonusFor = BONUS_FOR[raw.bonusFor] ? raw.bonusFor : 'all'
+    p.owner = str(raw.owner)
+    p.targetUnits = Math.round(num(raw.targetUnits))
+    p.sponsor = str(raw.sponsor)
+  }
+  return p
+}
+
+export function validateProgram(p) {
+  if (!p.title) return 'กรุณากรอกชื่อแคมเปญ'
+  if (!p.dateFrom) return 'กรุณาเลือกวันเริ่ม'
+  if (p.type === 'finance' && !p.financeCo) return 'กรุณาเลือกบริษัทไฟแนนซ์'
+  return ''
+}
+
+// ── เดือน / ช่วงวันที่ ──
+export function monthBounds(ym) {
+  const [y, m] = String(ym).split('-').map(Number)
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate()
+  return [`${y}-${pad2(m)}-01`, `${y}-${pad2(m)}-${pad2(last)}`]
+}
+export function shiftMonth(ym, n) {
+  const [y, m] = String(ym).split('-').map(Number)
+  const d = new Date(Date.UTC(y, m - 1 + n, 1))
+  return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}`
+}
+const MONTH_TH = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+export const MONTH_FULL_TH = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
+export function monthLabelTh(ym) {
+  const [y, m] = String(ym).split('-').map(Number)
+  return y && m ? `${MONTH_FULL_TH[m - 1]} ${y + 543}` : ''
+}
+export function shortDateTh(ymd) {
+  if (!ymdRe.test(str(ymd))) return ''
+  return `${+ymd.slice(8)} ${MONTH_TH[+ymd.slice(5, 7) - 1]}`
+}
+export function rangeLabel(p) {
+  if (!p.dateFrom) return 'ยังไม่ระบุวัน'
+  if (!p.dateTo) return `ตั้งแต่ ${shortDateTh(p.dateFrom)}`
+  if (p.dateFrom === p.dateTo) return shortDateTh(p.dateFrom)
+  return `${shortDateTh(p.dateFrom)} – ${shortDateTh(p.dateTo)}`
+}
+
+// ไม่มีวันสิ้นสุด = ใช้ไปเรื่อยๆจนกว่าจะแก้
+export function isActiveOn(p, ymd) {
+  if (!p || p.deleted || p.status === 'draft' || !p.dateFrom) return false
+  return p.dateFrom <= ymd && (!p.dateTo || p.dateTo >= ymd)
+}
+export function overlapsMonth(p, ym) {
+  if (!p || p.deleted || !p.dateFrom) return false
+  const [a, b] = monthBounds(ym)
+  return p.dateFrom <= b && (!p.dateTo || p.dateTo >= a)
+}
+export function daysLeft(p, today) {
+  if (!p.dateTo) return null
+  const d = (Date.UTC(+p.dateTo.slice(0, 4), +p.dateTo.slice(5, 7) - 1, +p.dateTo.slice(8, 10)) -
+    Date.UTC(+today.slice(0, 4), +today.slice(5, 7) - 1, +today.slice(8, 10))) / 864e5
+  return Math.round(d)
+}
+// สถานะสั้นๆ สำหรับป้าย: 'soon' ยังไม่เริ่ม · 'live' ใช้ได้ · 'ending' เหลือ ≤ 3 วัน · 'ended' หมดแล้ว · 'draft'
+export function liveState(p, today) {
+  if (p.status === 'draft') return 'draft'
+  if (!p.dateFrom || p.dateFrom > today) return 'soon'
+  const left = daysLeft(p, today)
+  if (left !== null && left < 0) return 'ended'
+  if (left !== null && left <= 3) return 'ending'
+  return 'live'
+}
+
+// ── ตรงกับรถคันไหน ──
+const norm = s => str(s).toLowerCase().replace(/[\s\-_.]+/g, '')
+export function matchesCar(p, brand, model) {
+  const pb = norm(p.brand)
+  const b = norm(brand)
+  const m = norm(model)
+  if (pb && b && !(b.includes(pb) || pb.includes(b))) return false
+  if (!p.models?.length) return true
+  if (!m) return true
+  return p.models.some(x => { const n = norm(x); return n && (m.includes(n) || n.includes(m)) })
+}
+
+export function canSeeType(type, isManager) {
+  return isManager || !PROGRAM_TYPES[type]?.managerOnly
+}
+
+// เรียง: ตามประเภท แล้ววันสิ้นสุดใกล้สุดก่อน
+export function sortPrograms(list) {
+  const ti = t => { const i = TYPE_ORDER.indexOf(t); return i < 0 ? 99 : i }
+  return [...list].sort((a, b) => ti(a.type) - ti(b.type) || String(a.dateTo || '9999').localeCompare(String(b.dateTo || '9999')) || String(a.title).localeCompare(String(b.title), 'th'))
+}
+
+// รายการที่ใช้ได้กับรถคันนี้วันนี้
+export function programsForCar(list, { brand = '', model = '', date, isManager = false } = {}) {
+  return sortPrograms((list || []).filter(p => canSeeType(p.type, isManager) && isActiveOn(p, date) && matchesCar(p, brand, model)))
+}
+
+// ดอกเบี้ยต่ำสุดตามดาวน์/งวด (ดาวน์ที่ลูกค้าวางต้อง ≥ ดาวน์ขั้นต่ำของแถว) — คืนเรียงจากถูกสุด
+export function bestRates(list, { down = null, months = null } = {}) {
+  const out = []
+  ;(list || []).filter(p => p.type === 'finance').forEach(p => (p.rates || []).forEach(r => {
+    if (months && r.months && r.months !== Number(months)) return
+    if (down != null && down !== '' && r.down > Number(down)) return
+    out.push({ financeCo: p.financeCo, title: p.title, down: r.down, months: r.months, rate: r.rate, programId: p.id })
+  }))
+  return out.sort((a, b) => a.rate - b.rate || b.months - a.months)
+}
+
+// ค่างวดต่อเดือน (flat rate แบบเช่าซื้อทั่วไป) ไม่รวม VAT
+export function monthlyInstallment(price, downPct, months, ratePct) {
+  const financed = Math.max(0, num(price) * (1 - num(downPct) / 100))
+  const n = Math.max(1, Math.round(num(months)))
+  return Math.round((financed + financed * (num(ratePct) / 100) * (n / 12)) / n)
+}
+
+// สรุปสิ่งที่ "รถคันนี้" ได้: ส่วนลดที่ลูกค้าได้รวม · ของแถม · ดอกเบี้ยดีสุด · รายได้ภายใน (มาร์จิ้น/ค่าบริหาร/รางวัล)
+export function carSummary(programs) {
+  const s = { customerCash: 0, gifts: [], bestRate: null, financeCommission: 0, subsidy: 0, margin: 0, marginPct: 0, mgmt: { teamManager: 0, salesManager: 0 }, bonus: 0, count: programs.length }
+  programs.forEach(p => {
+    if (CUSTOMER_TYPES.includes(p.type) && p.type !== 'finance') s.customerCash += p.amount || 0
+    if (p.gift) s.gifts.push(p.gift)
+    if (p.type === 'finance') {
+      s.financeCommission = Math.max(s.financeCommission, p.financeCommission || 0)
+      s.subsidy = Math.max(s.subsidy, p.subsidy || 0)
+    }
+    if (p.type === 'margin') { s.margin += p.amount || 0; s.marginPct += p.percent || 0 }
+    if (p.type === 'mgmtfee') s.mgmt[p.role || 'teamManager'] += p.amount || 0
+    if (p.type === 'bonus') s.bonus += p.amount || 0
+  })
+  s.bestRate = bestRates(programs)[0] || null
+  return s
+}
+
+// คัดลอกไปเดือนถัดไป: เลื่อนวันที่ไป 1 เดือน (วันที่ 31 → วันสุดท้ายของเดือนใหม่)
+export function copyToNextMonth(p) {
+  const shift = ymd => {
+    if (!ymd) return ''
+    const [y, m, d] = ymd.split('-').map(Number)
+    const last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate()
+    const isLast = d === new Date(Date.UTC(y, m, 0)).getUTCDate()
+    return `${new Date(Date.UTC(y, m, 1)).getUTCFullYear()}-${pad2(new Date(Date.UTC(y, m, 1)).getUTCMonth() + 1)}-${pad2(isLast ? last : Math.min(d, last))}`
+  }
+  const { id: _id, createdAt: _c, updatedAt: _u, createdByUid: _cu, createdByName: _cn, ...rest } = p
+  return normalizeProgram({ ...rest, dateFrom: shift(p.dateFrom), dateTo: shift(p.dateTo) })
+}
+
+// ── ข้อมูลจากหน้าเดิม (อ่านอย่างเดียว) ──
+// ตารางดอกเบี้ยเดิม (/finance/rate-sheets) ไม่มีช่องดอกเบี้ย มีแต่คอมไฟแนนซ์/ซับซิดี้ — แสดงรวมในแท็บไฟแนนซ์
+const THAI_MONTH_INDEX = Object.fromEntries(MONTH_FULL_TH.map((m, i) => [m, i + 1]))
+export function fromLegacyRateSheet(s) {
+  let dateFrom = ymdRe.test(str(s.dateFrom)) ? s.dateFrom : ''
+  let dateTo = ymdRe.test(str(s.dateTo)) ? s.dateTo : ''
+  const mi = THAI_MONTH_INDEX[str(s.month)]
+  if (!dateFrom && mi && s.year) { [dateFrom, dateTo] = monthBounds(`${s.year}-${pad2(mi)}`) }
+  return { ...normalizeProgram({ type: 'finance', title: s.campaign || 'แคมเปญไฟแนนซ์', brand: s.brand, models: s.model, dateFrom, dateTo, conditions: s.conditions, financeCo: s.bank, financeCommission: s.financeCommission, subsidy: s.subsidy, amount: 0, status: s.status === 'pending' ? 'draft' : 'active' }), id: 'rs:' + s.id, legacy: '/finance/rate-sheets' }
+}
+// โปรโมชั่นเดิม (/marketing/promotions) = แคมเปญแบรนด์
+export function fromLegacyPromotion(p) {
+  return { ...normalizeProgram({ type: p.type === 'finance' ? 'finance' : 'brand', title: p.title || p.name || 'โปรโมชั่น', brand: p.brand, models: p.model, dateFrom: p.startDate, dateTo: p.endDate, conditions: p.conditions || p.description, amount: p.value, financeCo: p.type === 'finance' ? (p.financeCo || 'ไม่ระบุ') : '', status: p.status === 'ended' ? 'active' : 'active' }), id: 'pr:' + p.id, legacy: '/marketing/promotions' }
+}
+
+// ── สรุปให้ LAMI (ข้อความสั้น) ──
+const baht = n => '฿' + Math.round(n).toLocaleString('en-US')
+export function programLine(p) {
+  const t = PROGRAM_TYPES[p.type]
+  const car = [p.brand, p.models?.length ? p.models.join('/') : 'ทุกรุ่น'].filter(Boolean).join(' ')
+  const bits = []
+  if (p.type === 'finance') {
+    if (p.financeCo) bits.push(p.financeCo)
+    const r = (p.rates || []).slice().sort((a, b) => a.rate - b.rate)[0]
+    if (r) bits.push(`ดอกเบี้ย ${r.rate}% ดาวน์ ${r.down}% ${r.months} งวด${p.rates.length > 1 ? ` (+อีก ${p.rates.length - 1} แบบ)` : ''}`)
+    if (p.subsidy) bits.push(`ซับซิดี้ ${baht(p.subsidy)}`)
+  } else if (p.type === 'margin') {
+    bits.push([p.amount ? baht(p.amount) + '/คัน' : '', p.percent ? p.percent + '%' : ''].filter(Boolean).join(' + '))
+  } else if (p.type === 'mgmtfee') {
+    bits.push(`${MGMT_ROLES[p.role] || ''} ${baht(p.amount)}/คัน`)
+  } else if (p.type === 'bonus') {
+    bits.push(`${baht(p.amount)}${p.targetUnits ? ` เมื่อถึง ${p.targetUnits} คัน` : ''} · ${p.bonusFor === 'person' && p.owner ? p.owner : BONUS_FOR[p.bonusFor] || ''}`)
+  } else if (p.amount) bits.push(`ลด ${baht(p.amount)}`)
+  if (p.gift) bits.push(`แถม ${p.gift}`)
+  if (p.owner && (p.type === 'sales' || p.type === 'team')) bits.push(`โดย ${p.owner}`)
+  return `${t?.short || p.type}: ${p.title} · ${car} · ${bits.filter(Boolean).join(' · ')} · ${rangeLabel(p)}${p.conditions ? ` · เงื่อนไข: ${p.conditions.slice(0, 120)}` : ''}`
+}
+
+export function programFacts(list, { today, isManager = false, max = 25 } = {}) {
+  const active = sortPrograms((list || []).filter(p => canSeeType(p.type, isManager) && isActiveOn(p, today)))
+  return active.slice(0, max).map(programLine)
+}
