@@ -5,6 +5,7 @@ import { ymdBangkok, daysFromToday } from './format.js'
 import { isCancelled, isDelivered } from './bookingStatus.js'
 import { isFinancePassed, isCashBooking } from './finance.js'
 import { FINANCE_WAIT_DAYS } from './myDay.js'
+import { eventCalendarItems } from './marketingEvents.js'
 
 export const KINDS = {
   appt:      { icon: '🤝', label: 'นัดลูกค้า' },
@@ -16,10 +17,11 @@ export const KINDS = {
   service:   { icon: '🔧', label: 'นัดเข้าศูนย์' },
   task:      { icon: '✅', label: 'งาน' },
   event:     { icon: '📌', label: 'นัดหมายอื่นๆ' },
+  booth:     { icon: '🎪', label: 'บูธ/อีเวนต์' },
 }
 // ประเภทที่กด ✓ "ทำแล้ว" จากปฏิทินได้เลย (ส่งมอบ/ตรวจรถ/ไฟแนนซ์ ต้องทำในหน้าของมัน เพราะมีขั้นตอน/เอกสาร)
 export const CHECKABLE = ['appt', 'testdrive', 'followup', 'service', 'task', 'event']
-export const KIND_ORDER = ['appt', 'testdrive', 'followup', 'delivery', 'pdi', 'finance', 'service', 'task', 'event']
+export const KIND_ORDER = ['appt', 'testdrive', 'followup', 'delivery', 'pdi', 'finance', 'service', 'task', 'event', 'booth']
 
 // งานที่ค้างนานกว่านี้ไม่นับเป็น "เลยกำหนด" (ข้อมูลเก่าจาก Excel ที่ไม่มีใครอัปเดต จะท่วมรายการค้างจนดูไม่ออก)
 export const OVERDUE_LOOKBACK_DAYS = 60
@@ -148,6 +150,9 @@ export function buildWorkItems(src = {}, today) {
       nav: e.refCol === 'bookings' && e.refId ? `/crm/bookings?id=${e.refId}` : e.refCol === 'customers' && e.refId ? `/crm/customers?id=${e.refId}` : null, rec: e })
   })
 
+  // (v1.0.972) ตารางออกบูธ/อีเวนต์ (/marketing/events) — 1 รายการต่อวันของงาน ทุกคนเห็น
+  eventCalendarItems(live(src.marketingEvents), today).forEach(add)
+
   out.forEach(it => { it.canCheck = CHECKABLE.includes(it.kind); it.ref = refOf(it) })
   out.forEach(it => {
     const d = today ? daysFromToday(it.date, today) : 0
@@ -164,6 +169,7 @@ export function refOf(it) {
   if (['delivery', 'pdi', 'finance'].includes(it.kind)) return 'bookings:' + r.id
   if ((it.kind === 'followup' || it.kind === 'testdrive') && r.customerId) return 'customers:' + r.customerId
   if (it.kind === 'event' && r.refCol && r.refId) return r.refCol + ':' + r.refId
+  if (it.kind === 'booth') return 'marketing_events:' + r.id
   const col = { appt: 'appointments', testdrive: 'test_drives', followup: 'followups', service: 'service_appointments', task: 'tasks', event: 'calendar_events' }[it.kind]
   return col + ':' + r.id
 }

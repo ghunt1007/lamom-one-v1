@@ -8,7 +8,7 @@ import { maskContacts } from './leadText.js'
 
 const STAGE_TH = { lead: 'Lead (ยังไม่ได้คุยจริงจัง)', pp: 'Prospect (คุยแล้ว มีช่องทางติดต่อ)', booking: 'จองแล้ว', delivered: 'ส่งมอบแล้ว' }
 const TEMP_TH = { hot: 'ร้อน (สนใจมาก)', warm: 'อุ่น', cold: 'เย็น' }
-const SOURCE_TH = { facebook: 'Facebook', line: 'LINE', tiktok: 'TikTok', 'walk-in': 'เดินเข้าโชว์รูม', referral: 'ลูกค้าแนะนำ', google: 'Google', website: 'เว็บไซต์', phone: 'โทรเข้า', other: 'อื่นๆ' }
+const SOURCE_TH = { facebook: 'Facebook', line: 'LINE', tiktok: 'TikTok', 'walk-in': 'เดินเข้าโชว์รูม', referral: 'ลูกค้าแนะนำ', google: 'Google', website: 'เว็บไซต์', phone: 'โทรเข้า', event: 'บูธ/อีเวนต์', other: 'อื่นๆ' }
 
 function daysBetween(a, b) {
   const t = d => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10))

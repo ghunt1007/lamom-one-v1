@@ -58,7 +58,7 @@ export default async function CalendarPage(container) {
   // มือถือ: ย่อกล่องงานค้างไว้เหลือแถบเดียว ไม่ให้ดันปฏิทินลงไปไกล — แตะเพื่อเปิด
   let lateOpen = window.innerWidth >= 760
 
-  const data = { appointments: [], testDrives: [], followups: [], bookings: [], serviceAppts: [], tasks: [], events: [] }
+  const data = { appointments: [], testDrives: [], followups: [], bookings: [], serviceAppts: [], tasks: [], events: [], marketingEvents: [] }
   // (v1.0.970) โน้ต/บันทึกการติดตาม ผูกกับ "เรื่อง" (it.ref เช่น bookings:<id>, customers:<id>) — ใหม่สุดก่อน
   let notes = []
   let notesByRef = new Map()
@@ -115,6 +115,7 @@ export default async function CalendarPage(container) {
     w('service_appointments', cs, 'date', 'desc', 1000, 'serviceAppts')
     w('tasks', cs, 'dueDate', 'desc', 1000, 'tasks')
     w('calendar_events', [], 'date', 'desc', 1000, 'events')
+    w('marketing_events', [], 'startDate', 'desc', 300, 'marketingEvents')
     unsubs.push(watchDocs('work_notes', cs, 'at', 'desc', 3000, rows => {
       if (!alive()) { stop(); return }
       notes = rows.filter(n => !n.deleted)
@@ -273,7 +274,7 @@ export default async function CalendarPage(container) {
   // ── แผ่นรายละเอียดรายการ: บันทึกการติดตาม/โน้ต · ✓ ทำแล้ว · โทร · นัดต่อ · เปิดหน้าเต็ม ──
   const NAV_LABEL = p => p.startsWith('/crm/bookings') ? '📄 เปิดใบจอง' : p.startsWith('/crm/customers') ? '👤 เปิดแฟ้มลูกค้า'
     : p === '/crm/predelivery' ? '🔍 ไปหน้าตรวจรถ' : p === '/crm/showroom' ? '🤝 ไปหน้านัดโชว์รูม' : p === '/crm/followup' ? '📞 ไปหน้าติดตาม'
-    : p === '/crm/testdrive' ? '🚙 ไปหน้าทดลองขับ' : p === '/service/appointment' ? '🔧 ไปหน้านัดเข้าศูนย์' : p === '/tasks' ? '✅ ไปหน้างาน' : '↗ เปิดหน้า'
+    : p === '/crm/testdrive' ? '🚙 ไปหน้าทดลองขับ' : p === '/service/appointment' ? '🔧 ไปหน้านัดเข้าศูนย์' : p === '/tasks' ? '✅ ไปหน้างาน' : p.startsWith('/marketing/events') ? '🎪 เปิดงานนี้ (ผลงาน/ทีม)' : '↗ เปิดหน้า'
   let sheet = null // { key, el, close }
   function refreshSheet() {
     if (!sheet || !sheet.el.isConnected) { sheet = null; return }

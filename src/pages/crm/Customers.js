@@ -110,7 +110,7 @@ const TEMP = {
 
 const SOURCE = {
   facebook: '📘 Facebook', line: '💚 LINE', tiktok: '🎵 TikTok', 'walk-in': '🚶 Walk-in',
-  referral: '🤝 Referral', google: '🔍 Google', website: '🌐 Website', phone: '📱 โทรเข้า', other: '📌 อื่นๆ',
+  referral: '🤝 Referral', google: '🔍 Google', website: '🌐 Website', phone: '📱 โทรเข้า', event: '🎪 บูธ/อีเวนต์', other: '📌 อื่นๆ',
 }
 
 const URGENCY = {
