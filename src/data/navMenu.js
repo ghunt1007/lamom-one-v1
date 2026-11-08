@@ -290,6 +290,7 @@ export const NAV = [
       { icon: '📈', label: 'ภาพรวมรายงาน', labelEn: 'Analytics', path: '/analytics' },
       { icon: '📊', label: 'ศูนย์รายงาน', labelEn: 'Report Center', path: '/analytics/reports' },
       { icon: '🎯', label: 'KPI บริษัท', labelEn: 'Company KPI', path: '/analytics/kpi' },
+      { icon: '📐', label: 'ตัวชี้วัดการขาย', labelEn: 'Sales Metrics', path: '/analytics/sales-metrics' },
       { icon: '🔮', label: 'พยากรณ์ยอดขาย', labelEn: 'Sales Forecast', path: '/analytics/forecast' },
       { icon: '🧠', label: 'วิเคราะห์ลูกค้า', labelEn: 'Customer Insights', path: '/analytics/customers' },
       { icon: '⚙️', label: 'การดำเนินงาน', labelEn: 'Operations', path: '/analytics/operations' },

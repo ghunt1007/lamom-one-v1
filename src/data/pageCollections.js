@@ -355,6 +355,13 @@ export const PAGE_COLLECTIONS = {
  "/analytics/kpi": [
   "customers"
  ],
+ "/analytics/sales-metrics": [
+  "bookings",
+  "customers",
+  "job_cards",
+  "quotations",
+  "test_drives"
+ ],
  "/analytics/forecast": [
   "customers"
  ],

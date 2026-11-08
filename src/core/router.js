@@ -123,6 +123,7 @@ const routes = {
   '/marketing/events': () => import('../pages/marketing/EventManagement.js'),
   // Analytics extras
   '/analytics/kpi':    () => import('../pages/analytics/CompanyKpi.js'),
+  '/analytics/sales-metrics': () => import('../pages/analytics/SalesMetrics.js'),
   // Analytics extras
   '/analytics/forecast':  () => import('../pages/analytics/SalesForecast.js'),
   // Finance extras
