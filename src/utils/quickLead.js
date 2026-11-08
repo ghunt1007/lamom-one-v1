@@ -12,6 +12,8 @@ import { parseLeadText, maskContacts, buildLeadNamePrompt, parseLeadNameReply } 
 import { firstReplyMessage } from './bookingNotify.js'
 import { copyText } from './copyText.js'
 import { escHtml } from './escape.js'
+import { eventsForLeadTag, typeOf } from './marketingEvents.js'
+import { todayBangkok } from './format.js'
 
 export const QUICK_SOURCES = [
   ['walk-in', '🚶 Walk-in'], ['phone', '📱 โทรเข้า'], ['facebook', '📘 Facebook'], ['line', '💚 LINE'],
@@ -107,6 +109,18 @@ export function openQuickLead({ onFull, pasteText = '', name = '' } = {}) {
   const me = getState('user') || {}
   let source = 'walk-in'
   let existing = null
+  // (v1.0.972) งานออกบูธ/อีเวนต์ที่กำลังจัด (หรือเพิ่งจบเมื่อวาน) → ขึ้นปุ่ม "มาจากงานนี้" และเลือกไว้ให้เลย
+  // ลูกค้าจะติดป้าย eventId ทำให้หน้าตารางออกบูธนับ Lead/ทดลองขับ/ใบจองของงานได้จริง
+  let eventTag = null
+  let eventsById = {}
+  listDocs('marketing_events', [], 'startDate', 'desc', 60).then(r => {
+    const evs = eventsForLeadTag(r, todayBangkok()).slice(0, 2)
+    const box = document.getElementById('ql-sources')
+    if (!evs.length || !box) return
+    box.insertAdjacentHTML('afterbegin', evs.map(e => `<button type="button" class="btn btn-sm ql-src btn-secondary" data-k="event" data-ev="${escHtml(e.id)}" title="${escHtml(e.venue || '')}">${typeOf(e.type).icon} ${escHtml(String(e.title || typeOf(e.type).label).slice(0, 28))}</button>`).join(''))
+    eventsById = Object.fromEntries(evs.map(e => [e.id, e]))
+    box.querySelector('[data-ev]')?.click()
+  }).catch(() => {})
   // โหลดลูกค้าล่าสุดไว้เช็คซ้ำ (ไม่บล็อกการเปิดฟอร์ม — ถ้าโหลดไม่ทันก็บันทึกได้ตามปกติ)
   const loaded = listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 1000).then(r => {
     existing = r
@@ -143,10 +157,12 @@ export function openQuickLead({ onFull, pasteText = '', name = '' } = {}) {
     close()
     onFull(lead)
   })
-  el.querySelectorAll('.ql-src').forEach(b => b.addEventListener('click', () => {
+  $('ql-sources').addEventListener('click', e => {
+    const b = e.target.closest('.ql-src'); if (!b) return
     source = b.dataset.k
-    el.querySelectorAll('.ql-src').forEach(x => { x.className = `btn btn-sm ql-src ${x.dataset.k === source ? 'btn-primary' : 'btn-secondary'}` })
-  }))
+    eventTag = b.dataset.ev ? (eventsById[b.dataset.ev] || { id: b.dataset.ev, title: b.textContent.trim() }) : null
+    el.querySelectorAll('.ql-src').forEach(x => { x.className = `btn btn-sm ql-src ${x === b ? 'btn-primary' : 'btn-secondary'}` })
+  })
   $('ql-contact').addEventListener('input', () => {
     const dup = existing && findDuplicate(splitContact($('ql-contact').value), existing)
     $('ql-dup').textContent = dup ? `⚠️ เบอร์/LINE นี้มีในระบบแล้ว: ${[dup.firstName, dup.lastName].filter(Boolean).join(' ')}${dup.assignedTo ? ` (ผู้ดูแล ${dup.assignedTo})` : ''}` : ''
@@ -214,7 +230,7 @@ export function openQuickLead({ onFull, pasteText = '', name = '' } = {}) {
     const btns = [$('ql-save'), $('ql-more')]
     btns.forEach(b => { b.disabled = true })
     try {
-      const doc = { ...lead, stageChangedAt: new Date().toISOString(), companyId: myEffectiveCompanyId() }
+      const doc = { ...lead, ...(eventTag && source === 'event' ? { eventId: eventTag.id, eventName: eventTag.title || '' } : {}), stageChangedAt: new Date().toISOString(), companyId: myEffectiveCompanyId() }
       const id = await createDoc('customers', doc)
       if (existing) existing.unshift({ ...doc, id })
       const fu = await scheduleLeadFollowups(doc, id)

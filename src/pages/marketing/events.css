@@ -1,0 +1,62 @@
+/* ตารางออกบูธ & อีเวนต์ (/marketing/events) — v1.0.972 */
+.ev-sum { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+.ev-tile { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px 14px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ev-tile span { font-size: 0.74rem; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ev-tile b { font-size: 1.3rem; line-height: 1.15; color: var(--text); overflow-wrap: anywhere; }
+.ev-tile small { font-size: 0.72rem; color: var(--text-2); }
+.ev-tabs { display: inline-flex; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-full); padding: 3px; margin-bottom: 10px; max-width: 100%; overflow-x: auto; }
+.ev-tabs button { border: 0; background: none; color: var(--text-3); font: inherit; font-size: 0.82rem; padding: 6px 14px; border-radius: var(--radius-full); cursor: pointer; white-space: nowrap; }
+.ev-tabs button b { font-size: 0.7rem; margin-left: 2px; }
+.ev-tabs button.on { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.18); }
+.ev-chips { display: flex; gap: 6px; margin-bottom: 14px; overflow-x: auto; flex-wrap: nowrap; padding-bottom: 2px; }
+.ev-chip { flex-shrink: 0; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); border-radius: var(--radius-full); padding: 5px 12px; font: inherit; font-size: 0.78rem; cursor: pointer; white-space: nowrap; }
+.ev-chip.on { background: color-mix(in srgb, #F5A524 16%, var(--surface)); border-color: color-mix(in srgb, #F5A524 60%, var(--border)); color: var(--text); font-weight: 600; }
+.ev-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(310px, 100%), 1fr)); gap: 12px; }
+.ev-card { background: var(--surface); border: 1px solid var(--border); border-top: 3px solid #F5A524; border-radius: var(--radius-md); padding: 12px 14px; display: flex; flex-direction: column; gap: 5px; cursor: pointer; min-width: 0; }
+.ev-card:hover, .ev-card:focus-visible { border-color: var(--border-light, var(--border)); outline: none; box-shadow: 0 2px 10px rgba(0,0,0,.15); }
+.ev-card.s-ongoing { border-top-color: var(--warning); box-shadow: 0 0 0 1px color-mix(in srgb, var(--warning) 40%, transparent); }
+.ev-card.s-done { border-top-color: var(--success); }
+.ev-card.s-cancelled { opacity: .55; border-top-color: var(--danger); }
+.ev-card-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.ev-type { font-size: 0.74rem; font-weight: 700; color: #F5A524; white-space: nowrap; }
+.ev-title { font-weight: 700; font-size: 0.98rem; line-height: 1.35; overflow-wrap: anywhere; }
+.ev-meta { font-size: 0.77rem; color: var(--text-3); overflow-wrap: anywhere; }
+.ev-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: 4px; }
+.ev-kpis > div { background: var(--surface-2); border-radius: 8px; padding: 6px 8px; min-width: 0; }
+.ev-kpis span { display: block; font-size: 0.66rem; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ev-kpis b { font-size: 1rem; color: var(--text); white-space: nowrap; }
+.ev-kpis b.ev-sm { font-size: 0.78rem; }
+.ev-kpis small { font-size: 0.7rem; color: var(--text-3); font-weight: 400; }
+.ev-bar { height: 4px; background: var(--border); border-radius: 2px; margin-top: 3px; overflow: hidden; }
+.ev-bar i { display: block; height: 100%; background: var(--danger); border-radius: 2px; }
+.ev-bar i.mid { background: var(--warning); }
+.ev-bar i.ok { background: var(--success); }
+.ev-acts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.ev-acts .btn-ghost { margin-left: auto; }
+/* รายละเอียด */
+.ev-detail { display: flex; flex-direction: column; gap: 8px; }
+.ev-note { font-size: 0.84rem; color: var(--text-2); white-space: pre-line; background: var(--surface-2); border-radius: 8px; padding: 8px 10px; }
+.ev-funnel { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 6px 0; }
+.ev-funnel > div { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; text-align: center; min-width: 74px; }
+.ev-funnel b { display: block; font-size: 1.25rem; color: var(--text); }
+.ev-funnel span { font-size: 0.7rem; color: var(--text-3); }
+.ev-funnel i { font-style: normal; color: var(--text-3); font-size: 0.8rem; }
+.ev-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.ev-grid > div { background: var(--surface-2); border-radius: 8px; padding: 7px 10px; min-width: 0; }
+.ev-grid span { display: block; font-size: 0.7rem; color: var(--text-3); }
+.ev-grid b { font-size: 0.92rem; overflow-wrap: anywhere; }
+.ev-grid small { font-weight: 400; color: var(--text-3); }
+.ev-h { font-weight: 700; font-size: 0.86rem; margin-top: 6px; }
+.ev-leads { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr)); gap: 6px; }
+.ev-lead { text-align: left; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; cursor: pointer; font: inherit; color: var(--text); min-width: 0; }
+.ev-lead b { display: block; font-size: 0.84rem; }
+.ev-lead span { display: block; font-size: 0.72rem; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ev-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; }
+.ev-form .ev-full { grid-column: 1 / -1; }
+.ev-pick { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.ev-pick .ev-chip { padding: 3px 9px; font-size: 0.74rem; }
+@media (max-width: 760px) {
+  .ev-sum { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ev-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) { .ev-form { grid-template-columns: minmax(0, 1fr); } }

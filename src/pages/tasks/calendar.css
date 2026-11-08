@@ -10,6 +10,7 @@
 .wc .k-service   { --k: var(--wc-pink); }
 .wc .k-task      { --k: var(--text-2); }
 .wc .k-event     { --k: var(--text-3); }
+.wc .k-booth     { --k: #F5A524; }
 
 /* สรุปบนสุด */
 .wc-sum { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }

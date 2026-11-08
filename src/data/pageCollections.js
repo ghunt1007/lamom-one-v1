@@ -180,6 +180,7 @@ export const PAGE_COLLECTIONS = {
   "calendar_events",
   "customers",
   "followups",
+  "marketing_events",
   "service_appointments",
   "tasks",
   "test_drives"
@@ -346,7 +347,10 @@ export const PAGE_COLLECTIONS = {
   "budget_planning"
  ],
  "/marketing/events": [
-  "marketing_events"
+  "bookings",
+  "customers",
+  "marketing_events",
+  "test_drives"
  ],
  "/analytics/kpi": [
   "customers"

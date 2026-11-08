@@ -204,7 +204,7 @@ export const NAV = [
       { icon: '🎯', label: 'เป้าแคมเปญรายเดือน', path: '/marketing/monthly-goals' },
       { icon: '🎯', label: 'แคมเปญ & โปรโมชั่น', labelEn: 'Campaigns & Promotions', path: '/marketing/campaigns' },
       { icon: '📱', label: 'โซเชียล & คอนเทนต์', labelEn: 'Social & Content', path: '/marketing/social' },
-      { icon: '🎪', label: 'อีเวนต์', labelEn: 'Events', path: '/marketing/events' },
+      { icon: '🎪', label: 'ตารางออกบูธ & อีเวนต์', labelEn: 'Booths & Events', path: '/marketing/events' },
       { icon: '🧲', label: 'หา Lead', labelEn: 'Lead Generation', path: '/marketing/leads' },
       { icon: '📅', label: 'ปฏิทินคอนเทนต์', labelEn: 'Content Calendar', path: '/marketing/content' },
       { icon: '🎪', label: 'โปรโมชั่น', labelEn: 'Promotions', path: '/marketing/promotions' },

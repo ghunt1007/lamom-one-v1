@@ -7,10 +7,10 @@ import { DELIVERED_STATUSES } from './deliveryIncome.js'
 
 export const SOURCE_INFO = {
   facebook: ['📘', 'Facebook'], line: ['💚', 'LINE'], tiktok: ['🎵', 'TikTok'], 'walk-in': ['🚶', 'Walk-in'],
-  referral: ['🤝', 'แนะนำ'], google: ['🔍', 'Google'], website: ['🌐', 'เว็บไซต์'], phone: ['📱', 'โทรเข้า'], other: ['📌', 'อื่นๆ'],
+  referral: ['🤝', 'แนะนำ'], google: ['🔍', 'Google'], website: ['🌐', 'เว็บไซต์'], phone: ['📱', 'โทรเข้า'], event: ['🎪', 'บูธ/อีเวนต์'], other: ['📌', 'อื่นๆ'],
 }
 // ช่องทางในหน้าแคมเปญ (LeadSources.js CHANNEL_MAP) → source ของลูกค้า
-const CAMPAIGN_CHANNEL = { facebook: 'facebook', google: 'google', line: 'line', referral: 'referral', walkin: 'walk-in', organic: 'website', event: 'other' }
+const CAMPAIGN_CHANNEL = { facebook: 'facebook', google: 'google', line: 'line', referral: 'referral', walkin: 'walk-in', organic: 'website', event: 'event' }
 
 export const normSource = s => {
   const k = String(s || '').trim().toLowerCase()
