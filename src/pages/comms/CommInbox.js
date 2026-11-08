@@ -17,6 +17,7 @@ import { escHtml as __escA } from '../../utils/escape.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { navigate } from '../../core/router.js'
 
 // (v1.0.349) เดิมโหลดข้อความด้วย listDocs() ครั้งเดียวตอนเปิดหน้า ไม่ใช่ real-time จริง (ต้องกดรีเฟรชเอง
 // ถึงจะเห็นข้อความใหม่) และปุ่ม "ตอบกลับ"/"เขียนข้อความ" ไม่เคยส่งออกจริงเลยไม่ว่าช่องทางไหน (แค่ตั้งค่า
@@ -42,6 +43,7 @@ const MSG_STATUS = {
 }
 
 export default async function CommInboxPage(container) {
+  container.addEventListener('click', e => { if (e.target.closest('[data-go-channels]')) navigate('/marketing/channels') })
   const myGen = container.__routerGen
   seedDemoData()
   let messages = []
@@ -126,6 +128,11 @@ export default async function CommInboxPage(container) {
           <div class="page-actions">
             <button class="btn btn-primary" id="compose-btn">✏️ เขียนข้อความ</button>
           </div>
+        </div>
+
+        <div class="card" style="padding:10px 14px;margin-bottom:12px;border-left:3px solid var(--primary);font-size:0.8rem;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+          <span>💡 แชตจริงจาก LINE OA / Facebook Messenger / Instagram อ่านและตอบได้ที่หน้า “ช่องทางโซเชียล” (หน้านี้ใช้จดบันทึกข้อความ/อีเมล/SMS)</span>
+          <button class="btn btn-primary btn-sm" data-go-channels>🔗 เปิดช่องทางโซเชียล</button>
         </div>
 
         ${canMigrate && legacyCount > 0 ? `<div class="card" style="padding:10px 14px;margin-bottom:12px;border-left:3px solid var(--warning);font-size:0.78rem;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">

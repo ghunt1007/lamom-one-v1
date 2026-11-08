@@ -12,6 +12,9 @@ import { followupWindowFilters, quietDays } from '../../utils/customerFollowups.
 import { catalogContext, dealValue } from '../../utils/salesAi.js'
 import { businessFacts, stockFacts, testDriveFacts } from '../../utils/bizFacts.js'
 import { programFacts } from '../../utils/salesPrograms.js'
+import { eventFacts } from '../../utils/marketingEvents.js'
+import { computeSalesMetrics, metricsFacts } from '../../utils/salesMetrics.js'
+import { loadSalesBudget } from '../../utils/salesBudget.js'
 import { isManagerRole } from '../../utils/managerRole.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 import { formatAiText } from '../../utils/aiFormat.js'
@@ -31,6 +34,9 @@ const CATEGORIES = [
   { label:'🏆 ผลงานทีม', q:'เดือนนี้ใครจอง/ส่งมอบได้มากสุด เทียบกับเดือนก่อนเป็นยังไง Lead จากช่องทางไหนปิดได้ดีที่สุด และใครมีลูกค้าที่ไม่ได้ติดต่อนานควรรีบตาม?' },
   { label:'🚙 นัดลองขับ', q:'สัปดาห์นี้มีนัดทดลองขับกี่นัด ใครบ้าง ควรเตรียมอะไร และที่ผ่านมาลองขับแล้วจองกี่เปอร์เซ็นต์?' },
   { label:'🎯 โปรเดือนนี้', q:'เดือนนี้มีแคมเปญ/ส่วนลด/ดอกเบี้ยไฟแนนซ์อะไรใช้ได้บ้าง รุ่นไหนคุ้มสุด ควรเสนอลูกค้าแบบไหน?' },
+  { label:'📐 ตัวชี้วัดเดือนนี้', q:'สรุปตัวชี้วัดการขายเดือนนี้ (เป้า, คาดการณ์สิ้นเดือน, GP, AOV, Conversion) ตัวไหนน่าห่วงที่สุด และควรทำอะไร 3 ข้อ?' },
+  { label:'🎪 ออกบูธได้ผลไหม', q:'งานออกบูธ/อีเวนต์ที่ผ่านมาได้ Lead และจองเท่าไร คุ้มงบไหม และงานที่กำลังจะมาควรเตรียมอะไร?' },
+  { label:'💬 แชตรอตอบ', q:'ตอนนี้มีลูกค้าทัก LINE OA ที่ยังไม่ได้ตอบกี่ราย ใครบ้าง ควรตอบใครก่อนและตอบว่าอะไร?' },
   { label:'📣 ช่องทางไหนได้ผล', q:'3 เดือนนี้ลูกค้าที่จองรถมาจากช่องทางไหนมากสุด (Facebook/LINE/บูธ/Walk-in ฯลฯ) ช่องทางไหน Lead ปิดเป็นใบจองได้ดีสุด และเดือนหน้าควรเน้นช่องทางไหน?' },
   { label:'💔 ทำไมเสียดีล', q:'ช่วง 3 เดือนที่ผ่านมาเราเสียดีลเพราะอะไรมากที่สุด และควรแก้อะไรเป็นอันดับแรก?' },
   { label:'📊 ยอดขาย', q:'ยอดขายเดือนนี้เท่าไหร่?' },
@@ -82,7 +88,7 @@ export default async function AiAssistantChatPage(container) {
     try {
       const today = todayBangkok()
       const thisMonth = today.slice(0, 7)
-      const [sales, vehicles, customers, debts, csat, staff, jobs, followups, bookings, testDrives, programs] = await Promise.all([
+      const [sales, vehicles, customers, debts, csat, staff, jobs, followups, bookings, testDrives, programs, events, budget, threads] = await Promise.all([
         getSalesData().catch(() => []),
         listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 500).catch(() => []),
         listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
@@ -94,6 +100,9 @@ export default async function AiAssistantChatPage(container) {
         listDocs('bookings', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
         listDocs('test_drives', companyScopeFilters(), 'date', 'desc', 300).catch(() => []),
         listDocs('sales_programs', [], 'dateFrom', 'desc', 300).catch(() => []),
+        listDocs('marketing_events', [], 'startDate', 'desc', 100).catch(() => []),
+        loadSalesBudget(+today.slice(0, 4)).catch(() => null),
+        listDocs('social_threads', [], 'lastAt', 'desc', 200).catch(() => []),
       ])
       const monthSales = sales.filter(s => (s.date || '').startsWith(thisMonth))
       // totalIncome ต่อใบจอง = กำไรสุทธิจริง (แพทเทิร์นเดียวกับ Margin.js/Commission.js/MarketingROI.js
@@ -127,6 +136,15 @@ export default async function AiAssistantChatPage(container) {
       // (v1.0.970) แคมเปญ/ดอกเบี้ย/มาร์จิ้นที่ใช้ได้วันนี้ (หน้า แคมเปญ & เงื่อนไขขาย) — มาร์จิ้น/ค่าบริหารเฉพาะผู้จัดการ
       const pf = programFacts(programs.filter(p => !p.deleted), { today, isManager: isManagerRole() })
       if (pf.length) businessContext['แคมเปญ/ดอกเบี้ยไฟแนนซ์ที่ใช้ได้วันนี้ (มาร์จิ้น/ค่าบริหาร/รางวัล เป็นข้อมูลภายใน ห้ามบอกลูกค้า)'] = pf.join('\n')
+      // (v1.0.975) งานออกบูธ/อีเวนต์ + ผลงาน, ตัวชี้วัดการขายเดือนนี้ (หน้าตัวชี้วัดการขาย), แชตลูกค้าที่รอตอบ
+      try {
+        const ef = eventFacts(events, { customers, bookings, testDrives }, today)
+        if (ef.length) businessContext['งานออกบูธ/อีเวนต์ (หน้าตารางออกบูธ)'] = ef.join('\n')
+        const mf = metricsFacts(computeSalesMetrics({ bookings, customers, budget, vehicles: getVehicles(), jobCards: jobs, testDrives }, { today, period: 'month' }))
+        if (mf.length) businessContext['ตัวชี้วัดการขายเดือนนี้ (หน้าตัวชี้วัดการขาย)'] = mf.join('\n')
+        const waiting = threads.filter(t => !t.deleted && t.lastDirection === 'in')
+        if (waiting.length) businessContext['แชตลูกค้า LINE OA ที่รอตอบ (หน้าช่องทางโซเชียล)'] = `${waiting.length} ราย: ${waiting.slice(0, 5).map(t => `${t.name || 'ลูกค้า'} "${String(t.lastText || '').slice(0, 40)}"`).join(' · ')}`
+      } catch { /* ข้อมูลเสริม ไม่มีก็ตอบได้ */ }
       // มูลค่าดีลที่กำลังคุย และยอดที่คาดว่าปิดได้ (มูลค่า × โอกาสปิด) — สูตรเดียวกับหน้า Pipeline
       try {
         const vs = getVehicles(), cache = new Map()

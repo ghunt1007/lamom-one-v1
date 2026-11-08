@@ -69,3 +69,13 @@ describe('sales metrics', () => {
     expect(buyerType({ custName: 'สมชาย ใจดี' })).toBe('B2C')
   })
 })
+
+import { metricsFacts } from './salesMetrics.js'
+describe('metricsFacts', () => {
+  it('summarises the month for LAMI and skips missing data', () => {
+    const f = metricsFacts(computeSalesMetrics(src, { today }))
+    expect(f[0]).toContain('จอง 2 คัน')
+    expect(f.some(x => x.includes('เป้า') && x.includes('110%'))).toBe(true)
+    expect(metricsFacts(null)).toEqual([])
+  })
+})
