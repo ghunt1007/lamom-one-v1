@@ -105,9 +105,9 @@ function offerFirstReply(c, me) {
   })
 }
 
-export function openQuickLead({ onFull, pasteText = '', name = '' } = {}) {
+export function openQuickLead({ onFull, pasteText = '', name = '', source: initialSource = '' } = {}) {
   const me = getState('user') || {}
-  let source = 'walk-in'
+  let source = QUICK_SOURCES.some(([k]) => k === initialSource) ? initialSource : 'walk-in'
   let existing = null
   // (v1.0.972) งานออกบูธ/อีเวนต์ที่กำลังจัด (หรือเพิ่งจบเมื่อวาน) → ขึ้นปุ่ม "มาจากงานนี้" และเลือกไว้ให้เลย
   // ลูกค้าจะติดป้าย eventId ทำให้หน้าตารางออกบูธนับ Lead/ทดลองขับ/ใบจองของงานได้จริง
@@ -119,7 +119,7 @@ export function openQuickLead({ onFull, pasteText = '', name = '' } = {}) {
     if (!evs.length || !box) return
     box.insertAdjacentHTML('afterbegin', evs.map(e => `<button type="button" class="btn btn-sm ql-src btn-secondary" data-k="event" data-ev="${escHtml(e.id)}" title="${escHtml(e.venue || '')}">${typeOf(e.type).icon} ${escHtml(String(e.title || typeOf(e.type).label).slice(0, 28))}</button>`).join(''))
     eventsById = Object.fromEntries(evs.map(e => [e.id, e]))
-    box.querySelector('[data-ev]')?.click()
+    if (!initialSource) box.querySelector('[data-ev]')?.click()
   }).catch(() => {})
   // โหลดลูกค้าล่าสุดไว้เช็คซ้ำ (ไม่บล็อกการเปิดฟอร์ม — ถ้าโหลดไม่ทันก็บันทึกได้ตามปกติ)
   const loaded = listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 1000).then(r => {
