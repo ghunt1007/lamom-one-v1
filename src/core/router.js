@@ -87,6 +87,7 @@ const routes = {
   // Marketing extras
   '/marketing/campaigns': () => import('../pages/marketing/CampaignBuilder.js'),
   '/marketing/social':    () => import('../pages/marketing/SocialHub.js'),
+  '/marketing/channels':  () => import('../pages/marketing/SocialChannels.js'),
   // HR extras
   '/hr/shift':            () => import('../pages/hr/ShiftSchedule.js'),
   // CRM extras

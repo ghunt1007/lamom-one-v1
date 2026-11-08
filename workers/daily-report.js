@@ -33,6 +33,7 @@
 
 import { BACKUP_CRON, runNightlyBackup, handleLatestBackup, isProgramOwnerUser } from './nightly-backup.js'
 import { DRIVE_SCOPE, handleSheetPull } from './sheet-pull.js'
+import { handleSocial, recordLineInbound } from './social.js'
 
 const FIRESTORE_SCOPE = 'https://www.googleapis.com/auth/datastore'
 const DELIVERED_STATUSES = ['ส่งมอบแล้ว', 'ตัดตัวเลขรอส่งมอบ']
@@ -83,6 +84,22 @@ export default {
         if (!verified) return json({ error: 'Unauthorized' }, 401, cors)
         if (!isProgramOwnerUser(verified)) return json({ error: 'เฉพาะเจ้าของโปรแกรม' }, 403, cors)
         return await handleSheetPull(env, { getToken: () => getGoogleAccessToken(env, DRIVE_SCOPE) }, cors, { metaOnly: url.pathname === '/sheet/status' })
+      }
+      // ช่องทางโซเชียล (เพจ FB/IG/โฆษณา Meta/กล่องแชต LINE OA) — พนักงานที่อนุมัติแล้วเท่านั้น ดู workers/social.js
+      if (request.method === 'POST' && url.pathname.startsWith('/social/')) {
+        const authHeader = request.headers.get('Authorization') || ''
+        const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
+        const verified = idToken ? await verifyFirebaseToken(idToken, env.FIREBASE_API_KEY) : null
+        if (!verified) return json({ error: 'Unauthorized' }, 401, cors)
+        const info = await staffInfo(idToken, verified.localId, env)
+        if (!info) return json({ error: 'Unauthorized — บัญชีนี้ยังไม่ได้รับอนุมัติให้เป็นพนักงาน' }, 403, cors)
+        let body
+        try { body = await request.json() } catch { body = {} }
+        try {
+          const out = await handleSocial(url.pathname, body || {}, env, { uid: verified.localId, role: info.role, name: info.name, getAccessToken: () => getFirestoreAccessToken(env) })
+          if (out === null) return json({ error: 'Not found' }, 404, cors)
+          return json(out, 200, cors)
+        } catch (e) { return json({ error: e.message || 'social error' }, e.status || 400, cors) }
       }
       if (url.pathname === '/test-send') return await handleTestSend(request, env, cors, morning)
       if (url.pathname === '/preview') return await handlePreview(request, env, cors, morning)
@@ -366,9 +383,11 @@ async function handleLineWebhook(request, env, cors) {
         // ปลายทางเจ้าของทุกครั้ง พอเซลส์เริ่มทัก OA รายงานเจ้าของจะไปเข้า LINE เซลส์แทน จึงเขียนครั้งแรกครั้งเดียว
         await writeLineTarget(env, accessToken, userId)
         reply = '✅ ลงทะเบียนรับรายงานประจำวัน LAMOM ONE เรียบร้อยแล้วครับ'
-      } else if (env.AUTO_LEAD_FROM_LINE === '1' && userId !== owner && ev.type === 'message') {
-        // (เปิดเองด้วย var AUTO_LEAD_FROM_LINE="1") คนที่ไม่ใช่เจ้าของ/เซลส์ทักเข้ามา = ลูกค้าใหม่ → สร้าง Lead ให้
-        await captureLineLead(env, accessToken, userId, ev.message?.type === 'text' ? ev.message.text : '').catch(() => {})
+      } else if (userId !== owner && ev.type === 'message' && !(await readSalesTarget(env, accessToken, userId))?.name) {
+        // ลูกค้าทักมา → เก็บลงกล่องแชต LINE OA ในแอป (หน้าเชื่อมช่องทาง) ให้ทีมตอบจากแอปได้ — ล้มเหลวไม่กระทบส่วนอื่น
+        await recordLineInbound(env, accessToken, ev)
+        // (เปิดเองด้วย var AUTO_LEAD_FROM_LINE="1") ลูกค้าใหม่ → สร้าง Lead ให้ด้วย
+        if (env.AUTO_LEAD_FROM_LINE === '1') await captureLineLead(env, accessToken, userId, ev.message?.type === 'text' ? ev.message.text : '').catch(() => {})
       }
     }
     // ข้อความอื่น (เช่น ลูกค้าทักมา) ไม่ตอบอะไร — OA นี้อาจเป็นช่องทางคุยกับลูกค้าด้วย
@@ -1564,6 +1583,20 @@ async function verifyFirebaseToken(idToken, apiKey) {
     if (!res.ok) return null
     const data = await res.json()
     return data.users?.[0] || null
+  } catch { return null }
+}
+// role + ชื่อพนักงาน (ใช้กับ /social/* — ต้องรู้ว่าเป็นผู้จัดการไหมและใครเป็นคนตอบแชต)
+async function staffInfo(idToken, uid, env) {
+  if (!env.FIREBASE_PROJECT_ID || !uid) return null
+  try {
+    const res = await fetch(`https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents/users/${uid}`, { headers: { Authorization: `Bearer ${idToken}` } })
+    if (!res.ok) return null
+    const f = (await res.json()).fields || {}
+    const role = f.role?.stringValue || 'viewer'
+    const expiresAt = f.accessExpiresAt?.timestampValue || null
+    if (expiresAt && new Date(expiresAt).getTime() < Date.now()) return null
+    if (!STAFF_ROLES.includes(role)) return null
+    return { role, name: f.displayName?.stringValue || f.email?.stringValue || '' }
   } catch { return null }
 }
 async function isAuthorizedStaff(idToken, uid, env) {

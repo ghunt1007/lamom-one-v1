@@ -203,6 +203,7 @@ export const NAV = [
       { icon: '📣', label: 'ภาพรวมการตลาด', labelEn: 'Marketing', path: '/marketing' },
       { icon: '🎯', label: 'เป้าแคมเปญรายเดือน', path: '/marketing/monthly-goals' },
       { icon: '🎯', label: 'แคมเปญ & โปรโมชั่น', labelEn: 'Campaigns & Promotions', path: '/marketing/campaigns' },
+      { icon: '🔗', label: 'ช่องทางโซเชียล (แชตรวม/โพสต์/โฆษณา)', labelEn: 'Social Channels', path: '/marketing/channels' },
       { icon: '📱', label: 'โซเชียล & คอนเทนต์', labelEn: 'Social & Content', path: '/marketing/social' },
       { icon: '🎪', label: 'ตารางออกบูธ & อีเวนต์', labelEn: 'Booths & Events', path: '/marketing/events' },
       { icon: '🧲', label: 'หา Lead', labelEn: 'Lead Generation', path: '/marketing/leads' },

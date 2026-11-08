@@ -281,6 +281,12 @@ export const PAGE_COLLECTIONS = {
  "/marketing/social": [
   "social_posts"
  ],
+ "/marketing/channels": [
+  "social_channels",
+  "social_messages",
+  "social_posts",
+  "social_threads"
+ ],
  "/hr/shift": [
   "shift_schedules",
   "staff"

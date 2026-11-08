@@ -1219,3 +1219,19 @@ describe('buildReport — ลูกค้า Hot', () => {
     expect(buildReport({ customers: [], bookings: [] }, { today: '2026-10-24' })).not.toContain('ลูกค้า Hot')
   })
 })
+
+describe('social channel routes', () => {
+  it('requires a staff token and answers status without secrets', async () => {
+    global.fetch = vi.fn()
+    const noAuth = await worker.fetch(new Request('https://w/social/status', { method: 'POST', body: '{}' }), BASE_ENV)
+    expect(noAuth.status).toBe(401)
+    stubFetch([])
+    const res = await worker.fetch(req('/social/status', { method: 'POST', body: {} }), { ...BASE_ENV, LINE_CHANNEL_ACCESS_TOKEN: 'tok' })
+    expect(res.status).toBe(200)
+    const d = await res.json()
+    expect(d.line.configured).toBe(true)
+    expect(d.meta.configured).toBe(false)
+    const nf = await worker.fetch(req('/social/unknown', { method: 'POST', body: {} }), BASE_ENV)
+    expect(nf.status).toBe(404)
+  })
+})
