@@ -138,7 +138,10 @@ describe('workCalendar delivery car detail', () => {
     const items = buildWorkItems({ bookings: [
       { id: 'c', custName: 'ก', model: 'DEEPAL S07', variant: 'EREV', colorOut: 'ขาว', vin: 'LVTDB24B5PD 123456', status: 'ตัดตัวเลขรอส่งมอบ', deliveryDate: '2026-11-08', pdReady: true },
       { id: 'w', custName: 'ข', model: 'DEEPAL L07', status: 'รอส่งมอบ', deliveryDate: '2026-11-09', pdReady: true, finStatus: 'ผ่าน' },
+      { id: 'd', custName: 'ค', status: 'รอส่งมอบ', cutDate: '2026-11-05', deliveryDate: '2026-11-10', finStatus: 'ผ่าน' },
     ] }, '2026-11-08')
+    expect(items.find(i => i.key === 'dlv:d').tag).toContain('ตัดตัวเลขแล้ว')
+    expect(items.find(i => i.key === 'pdi:d').tag).toContain('ตัดตัวเลขแล้ว')
     const c = items.find(i => i.key === 'dlv:c'), w = items.find(i => i.key === 'dlv:w')
     expect(c.tag).toContain('ตัดตัวเลขแล้ว')
     expect(c.sub).toContain('DEEPAL S07 EREV · ขาว · ตัว\u2060ถัง\u00a0123456')
