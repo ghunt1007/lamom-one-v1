@@ -72,7 +72,9 @@ describe('workCalendar.buildWorkItems', () => {
       { id: 'b1', status: 'ส่งมอบแล้ว', deliveryDate: '2026-11-01', actualDeliveryDate: '2026-11-03', finStatus: 'รอผล', submitDate: '2026-10-01' },
     ] }, T)
     expect(items).toHaveLength(1)
-    expect(items[0]).toMatchObject({ key: 'dlv:b1', date: '2026-11-03', done: true, overdue: false })
+    expect(items[0]).toMatchObject({ key: 'dlv:b1', date: '2026-11-03', done: true, overdue: false, tag: '' })
+    const [cut] = buildWorkItems({ bookings: [{ id: 'b2', status: 'ส่งมอบแล้ว', deliveryDate: '2026-11-02', cutDate: '2026-10-31' }] }, T)
+    expect(cut.tag).toBe('✂️ ตัดตัวเลขแล้ว 31/10')
   })
 
   it('missed delivery date is overdue', () => {
