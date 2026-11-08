@@ -144,16 +144,28 @@ export function buildWorkItems(src = {}, today) {
 
   live(src.events).forEach(e => {
     add({ key: 'ev:' + e.id, kind: 'event', date: day(e.date), time: hhmm(e.time), title: e.title || 'นัดหมาย',
-      sub: e.description || '', owner: e.assignee || '', phone: '', done: !!e.done, shared: true, nav: null, rec: e })
+      sub: [e.custName, e.description].filter(Boolean).join(' · '), owner: e.assignee || '', phone: e.phone || '', done: !!e.done, shared: true,
+      nav: e.refCol === 'bookings' && e.refId ? `/crm/bookings?id=${e.refId}` : e.refCol === 'customers' && e.refId ? `/crm/customers?id=${e.refId}` : null, rec: e })
   })
 
-  out.forEach(it => { it.canCheck = CHECKABLE.includes(it.kind) })
+  out.forEach(it => { it.canCheck = CHECKABLE.includes(it.kind); it.ref = refOf(it) })
   out.forEach(it => {
     const d = today ? daysFromToday(it.date, today) : 0
     it.overdue = !!(it.canOverdue && !it.done && today && d < 0 && d >= -OVERDUE_LOOKBACK_DAYS)
     delete it.canOverdue
   })
   return out.sort(compareItems)
+}
+
+// (v1.0.970) "เรื่อง" ที่รายการนี้เป็นของ — โน้ต/บันทึกการติดตามผูกกับเรื่องนี้ ทุกรายการของเรื่องเดียวกันเห็นประวัติร่วมกัน
+// (ใบจองเดียวกัน: ส่งมอบ ตรวจรถ ไฟแนนซ์ · ลูกค้าคนเดียวกัน: ตามลูกค้า ทดลองขับ · นัดที่สร้างจาก "นัดต่อ" ผูกกับเรื่องเดิม)
+export function refOf(it) {
+  const r = it.rec || {}
+  if (['delivery', 'pdi', 'finance'].includes(it.kind)) return 'bookings:' + r.id
+  if ((it.kind === 'followup' || it.kind === 'testdrive') && r.customerId) return 'customers:' + r.customerId
+  if (it.kind === 'event' && r.refCol && r.refId) return r.refCol + ':' + r.refId
+  const col = { appt: 'appointments', testdrive: 'test_drives', followup: 'followups', service: 'service_appointments', task: 'tasks', event: 'calendar_events' }[it.kind]
+  return col + ':' + r.id
 }
 
 // เรียงในวันเดียวกัน: มีเวลาก่อน (ตามเวลา) → ตามลำดับประเภท → ชื่อ

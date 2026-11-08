@@ -1,11 +1,11 @@
 // ปฏิทินงานรวม (v1.0.965) — Route: /calendar
 // รวมทุกอย่างที่มี "วันที่ต้องทำ" ในแอปไว้ในปฏิทินเดียว: นัดลูกค้า · ทดลองขับ · ตามลูกค้า · ส่งมอบรถ · ตรวจรถก่อนส่งมอบ ·
-// ไฟแนนซ์ (ส่งเคส/ตามผล/เซ็นสัญญา/หาใหม่) · นัดเข้าศูนย์ · งาน · นัดหมายอื่นๆ — กดรายการแล้วไปหน้าที่ทำงานนั้นต่อได้ทันที
+// ไฟแนนซ์ (ส่งเคส/ตามผล/เซ็นสัญญา/หาใหม่) · นัดเข้าศูนย์ · งาน · นัดหมายอื่นๆ — กดรายการเพื่อจดโน้ต/บันทึกการติดตาม/นัดต่อ
 // ข้อมูลอ่านสด (watchDocs) ไม่สร้างข้อมูลซ้ำ ยกเว้น "นัดหมายอื่นๆ" ที่เพิ่มเองในหน้านี้ (calendar_events)
 import './calendar.css'
 import { watchDocs, createDoc, updateDocData, softDelete, readDoc } from '../../core/db.js'
 import { showToast, getState, on } from '../../core/store.js'
-import { companyScopeFilters } from '../../core/companyScope.js'
+import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { getVisibilityScope, scopeIncludesRecord, normName } from '../../core/hierarchy.js'
 import { formatDate, todayBangkok, daysFromToday } from '../../utils/format.js'
 import { followupWindowFilters } from '../../utils/customerFollowups.js'
@@ -17,6 +17,8 @@ import { touchCustomerContact } from '../../utils/customerContact.js'
 import { KINDS, KIND_ORDER, buildWorkItems, groupByDate, summarize, addDaysYmd } from '../../utils/workCalendar.js'
 
 const EVENT_TYPES = {
+  customer: '🤝 นัดลูกค้า',
+  call:     '📞 นัดโทร/ติดตาม',
   meeting:  '👥 ประชุม',
   reminder: '⏰ แจ้งเตือน',
   deadline: '🎯 เดดไลน์',
@@ -57,6 +59,10 @@ export default async function CalendarPage(container) {
   let lateOpen = window.innerWidth >= 760
 
   const data = { appointments: [], testDrives: [], followups: [], bookings: [], serviceAppts: [], tasks: [], events: [] }
+  // (v1.0.970) โน้ต/บันทึกการติดตาม ผูกกับ "เรื่อง" (it.ref เช่น bookings:<id>, customers:<id>) — ใหม่สุดก่อน
+  let notes = []
+  let notesByRef = new Map()
+  const NOTE_TYPES = { note: '📝 โน้ต', call: '📞 โทรแล้ว', line: '💬 ส่ง LINE แล้ว', meet: '🤝 พบลูกค้าแล้ว', wait: '⏳ รอลูกค้าตอบ' }
   let scope = null
   let items = []
 
@@ -65,7 +71,7 @@ export default async function CalendarPage(container) {
       <div class="page-header">
         <div>
           <div class="page-title">📅 ปฏิทินงาน</div>
-          <div class="page-subtitle">นัดลูกค้า · ส่งมอบ · ตรวจรถ · ไฟแนนซ์ · ตามลูกค้า · งาน — รวมไว้ที่เดียว กดรายการเพื่อทำต่อ</div>
+          <div class="page-subtitle">นัดลูกค้า · ส่งมอบ · ตรวจรถ · ไฟแนนซ์ · ตามลูกค้า · งาน — รวมไว้ที่เดียว กดรายการเพื่อจดโน้ต บันทึกการติดตาม หรือนัดต่อ</div>
         </div>
         <div class="page-actions"><button class="btn btn-primary" id="wc-add">➕ เพิ่มนัดหมาย</button></div>
       </div>
@@ -109,6 +115,14 @@ export default async function CalendarPage(container) {
     w('service_appointments', cs, 'date', 'desc', 1000, 'serviceAppts')
     w('tasks', cs, 'dueDate', 'desc', 1000, 'tasks')
     w('calendar_events', [], 'date', 'desc', 1000, 'events')
+    unsubs.push(watchDocs('work_notes', cs, 'at', 'desc', 3000, rows => {
+      if (!alive()) { stop(); return }
+      notes = rows.filter(n => !n.deleted)
+      notesByRef = new Map()
+      notes.forEach(n => { if (!notesByRef.has(n.ref)) notesByRef.set(n.ref, []); notesByRef.get(n.ref).push(n) })
+      schedule()
+      refreshSheet()
+    }))
   }
   const offCompany = on('activeCompanyFilter', startWatch)
   function stop() { unsubs.forEach(u => u()); unsubs = []; offCompany() }
@@ -135,18 +149,29 @@ export default async function CalendarPage(container) {
     return [ymdOf(viewYear, viewMonth, 1), ymdOf(viewYear, viewMonth, new Date(Date.UTC(viewYear, viewMonth + 1, 0)).getUTCDate())]
   }
 
+  const shortDT = iso => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) }
+  function lastNoteLine(it) {
+    const ns = notesByRef.get(it.ref)
+    if (!ns?.length) return ''
+    const n = ns[0]
+    return `<div class="wc-note">${escHtml(NOTE_TYPES[n.type] || '📝')} ${escHtml(n.text || '')} <span>· ${escHtml(shortDT(n.at))}${ns.length > 1 ? ` · บันทึก ${ns.length}` : ''}</span></div>`
+  }
+
   // ── วาด ──
   function itemRow(it, { showDate = false } = {}) {
     const k = KINDS[it.kind]
+    const evType = it.kind === 'event' && EVENT_TYPES[it.rec?.type]
+    const kLabel = evType ? evType.replace(/^\S+\s/, '') : k.label
     const late = it.overdue ? -daysFromToday(it.date, today) : 0
-    const meta = [showDate ? `<b>${late ? `เลย ${late} วัน` : formatDate(it.date)}</b>` : '', k.label, it.sub ? escHtml(it.sub) : '', it.owner ? '👤 ' + escHtml(it.owner) : '']
+    const meta = [showDate ? `<b>${late ? `เลย ${late} วัน` : formatDate(it.date)}</b>` : '', kLabel, it.sub ? escHtml(it.sub) : '', it.owner ? '👤 ' + escHtml(it.owner) : '']
       .filter(Boolean).join(' · ')
     const tel = String(it.phone || '').replace(/[^\d+]/g, '')
     return `<div class="wc-item k-${it.kind}${it.done ? ' is-done' : ''}${it.overdue ? ' is-late' : ''}" data-key="${escHtml(it.key)}" role="button" tabindex="0">
-      <span class="wc-ico" aria-hidden="true">${it.done ? '✓' : k.icon}</span>
+      <span class="wc-ico" aria-hidden="true">${it.done ? '✓' : evType ? evType.split(' ')[0] : k.icon}</span>
       <div class="wc-main">
         <div class="wc-t">${it.time ? `<span class="wc-time">${escHtml(it.time)}</span>` : ''}${escHtml(it.title)}${it.tag ? `<span class="wc-tag">${escHtml(it.tag)}</span>` : ''}</div>
         <div class="wc-s">${meta}</div>
+        ${lastNoteLine(it)}
       </div>
       ${it.canCheck ? `<button type="button" class="wc-check${it.done ? ' on' : ''}" aria-label="${it.done ? 'ยกเลิกว่าทำแล้ว' : 'ทำแล้ว'}" title="${it.done ? 'กดอีกครั้งเพื่อยกเลิก' : 'กดเมื่อทำแล้ว'}">✓</button>` : ''}
       ${tel.length >= 9 && !it.done ? `<a class="wc-call" href="tel:${escHtml(tel)}" aria-label="โทร" title="โทร ${escHtml(it.phone)}">📞</a>` : ''}
@@ -242,9 +267,94 @@ export default async function CalendarPage(container) {
   // ── การกด ──
   function openItem(key) {
     const it = items.find(x => x.key === key)
-    if (!it) return
-    if (it.kind === 'event') { openEventForm(it.rec); return }
-    if (it.nav) navigate(it.nav)
+    if (it) openSheet(it)
+  }
+
+  // ── แผ่นรายละเอียดรายการ: บันทึกการติดตาม/โน้ต · ✓ ทำแล้ว · โทร · นัดต่อ · เปิดหน้าเต็ม ──
+  const NAV_LABEL = p => p.startsWith('/crm/bookings') ? '📄 เปิดใบจอง' : p.startsWith('/crm/customers') ? '👤 เปิดแฟ้มลูกค้า'
+    : p === '/crm/predelivery' ? '🔍 ไปหน้าตรวจรถ' : p === '/crm/showroom' ? '🤝 ไปหน้านัดโชว์รูม' : p === '/crm/followup' ? '📞 ไปหน้าติดตาม'
+    : p === '/crm/testdrive' ? '🚙 ไปหน้าทดลองขับ' : p === '/service/appointment' ? '🔧 ไปหน้านัดเข้าศูนย์' : p === '/tasks' ? '✅ ไปหน้างาน' : '↗ เปิดหน้า'
+  let sheet = null // { key, el, close }
+  function refreshSheet() {
+    if (!sheet || !sheet.el.isConnected) { sheet = null; return }
+    const it = items.find(x => x.key === sheet.key)
+    const box = sheet.el.querySelector('#ws-log')
+    if (it && box) box.innerHTML = logHtml(it)
+  }
+  function logHtml(it) {
+    const ns = notesByRef.get(it.ref) || []
+    const extra = it.kind === 'followup' && it.rec.result ? `<div class="ws-n"><b>✅ ผลการติดตาม</b> ${escHtml(it.rec.result)}</div>` : ''
+    if (!ns.length && !extra) return '<div class="ws-empty">ยังไม่มีบันทึก — พิมพ์ด้านบนแล้วกดบันทึก</div>'
+    return extra + ns.map(n => `<div class="ws-n"><b>${escHtml(NOTE_TYPES[n.type] || '📝 โน้ต')}</b> ${escHtml(n.text || '')}
+      <span>${escHtml(shortDT(n.at))}${n.by ? ' · ' + escHtml(n.by) : ''}${n.itemTitle && n.itemTitle !== it.title ? ' · ' + escHtml(n.itemTitle) : ''}</span></div>`).join('')
+  }
+  function openSheet(it) {
+    const k = KINDS[it.kind]
+    const tel = String(it.phone || '').replace(/[^\d+]/g, '')
+    const when = `${dayLabel(it.date, today)}${it.time ? ' · ' + it.time : ''}`
+    const { el, close } = openModal({
+      title: `${k.icon} ${escHtml(it.title)}`, size: 'md',
+      body: `
+        <div class="ws">
+          <div class="ws-meta">
+            <div><b>${escHtml(when)}</b>${it.overdue ? ' <span class="badge badge-danger">เลยกำหนด</span>' : ''}${it.done ? ' <span class="badge badge-success">ทำแล้ว</span>' : ''}${it.tag ? ` <span class="wc-tag">${escHtml(it.tag)}</span>` : ''}</div>
+            <div>${escHtml(k.label)}${it.sub ? ' · ' + escHtml(it.sub) : ''}</div>
+            ${it.owner ? `<div>👤 ${escHtml(it.owner)}</div>` : ''}
+          </div>
+          <div class="ws-acts">
+            ${it.canCheck ? `<button type="button" class="btn btn-sm ${it.done ? 'btn-secondary' : 'btn-success'}" id="ws-done">${it.done ? '↩️ ยกเลิกว่าทำแล้ว' : '✓ ทำแล้ว'}</button>` : ''}
+            ${tel.length >= 9 ? `<a class="btn btn-sm btn-secondary" href="tel:${escHtml(tel)}">📞 โทร ${escHtml(it.phone)}</a>` : ''}
+            <button type="button" class="btn btn-sm btn-secondary" id="ws-next">📅 นัดต่อ</button>
+            ${it.kind === 'event' ? '<button type="button" class="btn btn-sm btn-secondary" id="ws-edit">✏️ แก้ไขนัด</button>' : ''}
+            ${it.nav ? `<button type="button" class="btn btn-sm btn-secondary" id="ws-go">${NAV_LABEL(it.nav)} ›</button>` : ''}
+          </div>
+          <div class="ws-h">บันทึกการติดตาม / โน้ต</div>
+          <div class="wc-quick" id="ws-types">${Object.entries(NOTE_TYPES).map(([t, l], i) => `<button type="button" class="wc-q${i === 0 ? ' on' : ''}" data-t="${t}">${l}</button>`).join('')}</div>
+          <textarea class="input" id="ws-text" rows="2" placeholder="เช่น ลูกค้าขอเลื่อนส่งมอบเป็นเสาร์หน้า / รอเอกสารเงินเดือน"></textarea>
+          <div class="ws-save"><button type="button" class="btn btn-primary btn-sm" id="ws-save">💾 บันทึก</button></div>
+          <div class="ws-log" id="ws-log">${logHtml(it)}</div>
+        </div>`,
+      footer: '<button class="btn btn-secondary" id="ws-close">ปิด</button>',
+    })
+    sheet = { key: it.key, el, close }
+    let type = 'note'
+    el.querySelectorAll('#ws-types .wc-q').forEach(b => b.addEventListener('click', () => {
+      type = b.dataset.t
+      el.querySelectorAll('#ws-types .wc-q').forEach(x => x.classList.toggle('on', x === b))
+      el.querySelector('#ws-text').focus()
+    }))
+    el.querySelector('#ws-close').addEventListener('click', close)
+    el.querySelector('#ws-go')?.addEventListener('click', () => { close(); navigate(it.nav) })
+    el.querySelector('#ws-edit')?.addEventListener('click', () => { close(); openEventForm(it.rec) })
+    el.querySelector('#ws-done')?.addEventListener('click', () => { close(); checkItem(it.key) })
+    el.querySelector('#ws-next').addEventListener('click', () => { close(); openEventForm(null, addDaysYmd(today, 1), linkFor(it)) })
+    el.querySelector('#ws-save').addEventListener('click', async () => {
+      const ta = el.querySelector('#ws-text')
+      const text = ta.value.trim()
+      if (!text && type === 'note') { showToast('พิมพ์ข้อความก่อนบันทึก', 'warning'); ta.focus(); return }
+      const btn = el.querySelector('#ws-save'); btn.disabled = true
+      const user = getState('user')
+      const n = { ref: it.ref, itemKey: it.key, itemTitle: it.title, kind: it.kind, type, text, at: new Date().toISOString(),
+        by: user?.displayName || user?.email || '', companyId: myEffectiveCompanyId() || null }
+      try {
+        const id = await createDoc('work_notes', n)
+        // ขึ้นทันที ไม่ต้องรอข้อมูลสดรอบถัดไป
+        if (!notes.some(x => x.id === id)) { notes.unshift({ id, ...n }); (notesByRef.get(n.ref) || notesByRef.set(n.ref, []).get(n.ref)).unshift({ id, ...n }) }
+        ta.value = ''; refreshSheet(); render()
+        showToast('บันทึกแล้ว', 'success')
+        // โทร/LINE/พบลูกค้า = ติดต่อลูกค้าแล้ว (หลุดจากรายการ "ไม่ได้ติดตาม")
+        const cid = it.ref.startsWith('customers:') ? it.ref.slice(10) : it.rec.customerId
+        if (cid && ['call', 'line', 'meet'].includes(type)) touchCustomerContact(cid)
+      } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
+      btn.disabled = false
+    })
+  }
+  // ข้อมูลตั้งต้นของ "นัดต่อ" จากรายการเดิม (ชื่อลูกค้า เบอร์ และผูกกับใบจอง/ลูกค้าเดิม เพื่อเห็นประวัติร่วมกัน)
+  function linkFor(it) {
+    const [refCol, refId] = it.ref.split(':')
+    const r = it.rec || {}
+    const cust = r.custName || r.customerName || [r.firstName, r.lastName].filter(Boolean).join(' ') || ''
+    return { refCol, refId, custName: cust, phone: it.phone || '', title: cust ? `ตาม ${cust}` : `ต่อ: ${it.title}`, type: cust ? 'call' : 'other', assignee: it.owner || '' }
   }
 
   // ── กด ✓ ทำแล้ว ──
@@ -369,26 +479,31 @@ export default async function CalendarPage(container) {
   }
 
   // ── นัดหมายที่เพิ่มเอง (calendar_events) ──
-  function openEventForm(existing, defaultDate) {
+  function openEventForm(existing, defaultDate, link = null) {
     const isEdit = !!existing
     const user = getState('user')
+    const pre = existing || link || {}
     const { el, close } = openModal({
       title: isEdit ? '✏️ แก้ไขนัดหมาย' : '➕ นัดหมายใหม่', size: 'md',
       body: `
         <div style="display:flex;flex-direction:column;gap:12px">
-          <div class="input-group"><label class="input-label">หัวข้อ *</label><input class="input" id="ef-title" value="${escHtml(existing?.title || '')}" placeholder="เช่น ประชุมทีมขาย, นัดคุณสมชายดูรถ"><span class="input-error" id="ef-title-e"></span></div>
+          <div class="input-group"><label class="input-label">หัวข้อ *</label><input class="input" id="ef-title" value="${escHtml(pre.title || '')}" placeholder="เช่น นัดคุณสมชายดูรถ, ประชุมทีมขาย"><span class="input-error" id="ef-title-e"></span></div>
           <div class="input-group"><label class="input-label">รายละเอียด</label><textarea class="input" id="ef-desc" rows="2">${escHtml(existing?.description || '')}</textarea></div>
+          <div class="grid-2">
+            <div class="input-group"><label class="input-label">ชื่อลูกค้า</label><input class="input" id="ef-cust" value="${escHtml(pre.custName || '')}" placeholder="ไม่บังคับ"></div>
+            <div class="input-group"><label class="input-label">เบอร์โทร</label><input class="input" id="ef-phone" type="tel" inputmode="tel" value="${escHtml(pre.phone || '')}" placeholder="ไม่บังคับ"></div>
+          </div>
           <div class="grid-2">
             <div class="input-group"><label class="input-label">วันที่ *</label><input class="input" type="date" id="ef-date" value="${escHtml(existing?.date || defaultDate || today)}"></div>
             <div class="input-group"><label class="input-label">เวลา</label><input class="input" type="time" id="ef-time" value="${escHtml(existing?.time || '')}"></div>
           </div>
           <div class="grid-2">
             <div class="input-group"><label class="input-label">ประเภท</label>
-              <select class="input" id="ef-type">${Object.entries(EVENT_TYPES).map(([k, v]) => `<option value="${k}" ${(existing?.type || 'other') === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
+              <select class="input" id="ef-type">${Object.entries(EVENT_TYPES).map(([k, v]) => `<option value="${k}" ${(pre.type || 'customer') === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
             </div>
-            <div class="input-group"><label class="input-label">ผู้รับผิดชอบ</label><input class="input" id="ef-assignee" value="${escHtml(existing?.assignee || '')}"></div>
+            <div class="input-group"><label class="input-label">ผู้รับผิดชอบ</label><input class="input" id="ef-assignee" value="${escHtml(pre.assignee ?? (user?.displayName || ''))}"></div>
           </div>
-          <div style="font-size:0.74rem;color:var(--text-muted)">นัดลูกค้า/ทดลองขับ/ส่งมอบ/ตามลูกค้า ขึ้นปฏิทินเองจากหน้าของมันอยู่แล้ว — ช่องนี้สำหรับเรื่องอื่นๆ</div>
+          ${link && !isEdit ? `<div style="font-size:0.74rem;color:var(--text-muted)">🔗 ผูกกับรายการเดิม — โน้ตและบันทึกการติดตามจะเห็นร่วมกัน</div>` : ''}
         </div>`,
       footer: `${isEdit ? '<button class="btn btn-ghost" id="efd" style="color:var(--danger);margin-right:auto">🗑 ลบ</button>' : ''}<button class="btn btn-secondary" id="efc">ยกเลิก</button><button class="btn btn-primary" id="efs">💾 บันทึก</button>`,
     })
@@ -412,12 +527,15 @@ export default async function CalendarPage(container) {
         time: el.querySelector('#ef-time').value || '',
         type: el.querySelector('#ef-type').value,
         assignee: el.querySelector('#ef-assignee').value.trim(),
+        custName: el.querySelector('#ef-cust').value.trim(),
+        phone: el.querySelector('#ef-phone').value.trim(),
+        ...(existing ? {} : link ? { refCol: link.refCol, refId: link.refId } : {}),
         createdBy: existing?.createdBy || user?.displayName || user?.uid || 'unknown',
       }
       try {
         if (isEdit) await updateDocData('calendar_events', existing.id, rec)
         else await createDoc('calendar_events', rec)
-        showToast(isEdit ? 'แก้ไขแล้ว' : '✅ เพิ่มนัดหมายแล้ว', 'success')
+        showToast(isEdit ? 'แก้ไขแล้ว' : 'เพิ่มนัดหมายแล้ว', 'success')
         close()
         selected = rec.date
       } catch { showToast('บันทึกไม่สำเร็จ', 'error'); btn.disabled = false; btn.textContent = '💾 บันทึก' }
