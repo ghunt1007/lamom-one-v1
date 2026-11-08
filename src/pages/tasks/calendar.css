@@ -128,3 +128,14 @@
 
 /* (v1.0.966) ส่งมอบ/ตรวจรถ: ขึ้นบรรทัดใหม่ได้ ให้เห็นรุ่น สี เลขตัวถังครบแม้จอแคบ */
 .wc-item.k-delivery .wc-t, .wc-item.k-pdi .wc-t, .wc-item.k-delivery .wc-s, .wc-item.k-pdi .wc-s { white-space: normal; }
+
+/* (v1.0.969) ปุ่ม ✓ ทำแล้ว */
+.wc-check { flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--border-light); background: none;
+  color: transparent; font-weight: 800; font-size: 0.95rem; cursor: pointer; display: grid; place-items: center; }
+.wc-check:hover { border-color: var(--success); color: var(--success); }
+.wc-check.on { background: var(--success); border-color: var(--success); color: #fff; }
+.wc-item.is-done { opacity: 1; }
+.wc-item.is-done .wc-main, .wc-item.is-done .wc-ico { opacity: .55; }
+.wc-quick { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.wc-q { border: 1px solid var(--border); background: var(--surface-2); color: var(--text-2); border-radius: var(--radius-full); padding: 5px 10px; font: inherit; font-size: 0.78rem; cursor: pointer; }
+.wc-q:hover { border-color: var(--primary); color: var(--text); }

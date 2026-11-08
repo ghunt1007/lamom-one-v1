@@ -3,7 +3,7 @@
 // ไฟแนนซ์ (ส่งเคส/ตามผล/เซ็นสัญญา/หาใหม่) · นัดเข้าศูนย์ · งาน · นัดหมายอื่นๆ — กดรายการแล้วไปหน้าที่ทำงานนั้นต่อได้ทันที
 // ข้อมูลอ่านสด (watchDocs) ไม่สร้างข้อมูลซ้ำ ยกเว้น "นัดหมายอื่นๆ" ที่เพิ่มเองในหน้านี้ (calendar_events)
 import './calendar.css'
-import { watchDocs, createDoc, updateDocData, softDelete } from '../../core/db.js'
+import { watchDocs, createDoc, updateDocData, softDelete, readDoc } from '../../core/db.js'
 import { showToast, getState, on } from '../../core/store.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { getVisibilityScope, scopeIncludesRecord, normName } from '../../core/hierarchy.js'
@@ -12,6 +12,8 @@ import { followupWindowFilters } from '../../utils/customerFollowups.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { navigate } from '../../core/router.js'
 import { escHtml } from '../../utils/escape.js'
+import { offerNextFollowup } from '../../utils/addFollowupModal.js'
+import { touchCustomerContact } from '../../utils/customerContact.js'
 import { KINDS, KIND_ORDER, buildWorkItems, groupByDate, summarize, addDaysYmd } from '../../utils/workCalendar.js'
 
 const EVENT_TYPES = {
@@ -146,6 +148,7 @@ export default async function CalendarPage(container) {
         <div class="wc-t">${it.time ? `<span class="wc-time">${escHtml(it.time)}</span>` : ''}${escHtml(it.title)}${it.tag ? `<span class="wc-tag">${escHtml(it.tag)}</span>` : ''}</div>
         <div class="wc-s">${meta}</div>
       </div>
+      ${it.canCheck ? `<button type="button" class="wc-check${it.done ? ' on' : ''}" aria-label="${it.done ? 'ยกเลิกว่าทำแล้ว' : 'ทำแล้ว'}" title="${it.done ? 'กดอีกครั้งเพื่อยกเลิก' : 'กดเมื่อทำแล้ว'}">✓</button>` : ''}
       ${tel.length >= 9 && !it.done ? `<a class="wc-call" href="tel:${escHtml(tel)}" aria-label="โทร" title="โทร ${escHtml(it.phone)}">📞</a>` : ''}
       <span class="wc-go" aria-hidden="true">›</span>
     </div>`
@@ -244,8 +247,84 @@ export default async function CalendarPage(container) {
     if (it.nav) navigate(it.nav)
   }
 
+  // ── กด ✓ ทำแล้ว ──
+  // ตามลูกค้า: ถามผลการติดต่อ (เหมือนหน้างานของฉันวันนี้) แล้วเสนอนัดครั้งต่อไป · ติดต่อไม่ได้ → เลื่อนเป็นพรุ่งนี้
+  // นัด/ทดลองขับ/เข้าศูนย์/งาน/นัดหมาย: กดครั้งเดียวเป็น "ทำแล้ว" กดซ้ำเพื่อยกเลิก
+  const SIMPLE_DONE = {
+    appt:      ['appointments', 'status', 'done', 'scheduled'],
+    testdrive: ['test_drives', 'status', 'done', 'scheduled'],
+    service:   ['service_appointments', 'status', 'done', 'scheduled'],
+    task:      ['tasks', 'status', 'done', 'todo'],
+    event:     ['calendar_events', 'done', true, false],
+  }
+  async function checkItem(key) {
+    const it = items.find(x => x.key === key)
+    if (!it?.canCheck) return
+    if (it.kind === 'followup') { it.done ? reopenFollowup(it) : finishFollowup(it); return }
+    const [col, field, doneVal, undoVal] = SIMPLE_DONE[it.kind]
+    const val = it.done ? undoVal : doneVal
+    // ขึ้นผลทันที (ไม่ต้องรอเซิร์ฟเวอร์) แล้วค่อยบันทึก — ถ้าไม่สำเร็จคืนค่าเดิม
+    const before = it.rec[field]
+    it.rec[field] = val; rebuild()
+    try {
+      await updateDocData(col, it.rec.id, { [field]: val })
+      showToast(it.done ? 'ยกเลิกแล้ว' : 'บันทึกว่าทำแล้ว', 'success')
+    } catch { it.rec[field] = before; rebuild(); showToast('บันทึกไม่สำเร็จ', 'error') }
+  }
+
+  async function reopenFollowup(it) {
+    if (!await confirmDialog({ title: 'ยกเลิกว่าติดตามแล้ว?', message: `${it.title} จะกลับไปเป็นงานที่ต้องทำ`, confirmText: 'ยกเลิก ✓' })) return
+    try { await updateDocData('followups', it.rec.id, { status: 'pending' }); it.rec.status = 'pending'; rebuild() }
+    catch { showToast('บันทึกไม่สำเร็จ', 'error') }
+  }
+
+  function finishFollowup(it) {
+    const f = it.rec
+    const tomorrow = addDaysYmd(today, 1)
+    const quick = ['โทรแล้ว สนใจ', 'โทรแล้ว ยังไม่สะดวก', 'ส่ง LINE แล้ว', 'นัดเข้าโชว์รูม', 'ไม่สนใจแล้ว']
+    const { el, close } = openModal({
+      title: `✅ ${escHtml(it.title)}`, size: 'sm',
+      body: `
+        <div class="input-group"><label class="input-label">ผลการติดต่อ</label>
+          <div class="wc-quick">${quick.map(q => `<button type="button" class="wc-q" data-q="${escHtml(q)}">${escHtml(q)}</button>`).join('')}</div>
+          <textarea class="input" id="wc-fu-result" rows="2" placeholder="พิมพ์เพิ่มได้ เช่น นัดทดลองขับเสาร์นี้"></textarea>
+        </div>`,
+      footer: `<button class="btn btn-ghost" id="wc-fu-miss" style="margin-right:auto">📵 ติดต่อไม่ได้ · เลื่อนพรุ่งนี้</button><button class="btn btn-primary" id="wc-fu-ok">✅ ติดต่อแล้ว</button>`,
+    })
+    const ta = el.querySelector('#wc-fu-result')
+    el.querySelectorAll('.wc-q').forEach(b => b.addEventListener('click', () => { ta.value = b.dataset.q; ta.focus() }))
+    el.querySelector('#wc-fu-miss').addEventListener('click', async () => {
+      try {
+        const note = [f.note, `ติดต่อไม่ได้ ${today.slice(8)}/${today.slice(5, 7)}`].filter(Boolean).join(' · ')
+        await updateDocData('followups', f.id, { dueDate: tomorrow, note })
+        f.dueDate = tomorrow; f.note = note; close(); rebuild()
+        showToast('เลื่อนไปพรุ่งนี้แล้ว', 'success')
+      } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
+    })
+    el.querySelector('#wc-fu-ok').addEventListener('click', async () => {
+      const result = ta.value.trim()
+      if (!result) { showToast('❗ เลือกหรือพิมพ์ผลการติดต่อก่อน', 'warning'); ta.focus(); return }
+      try {
+        await updateDocData('followups', f.id, { status: 'done', result })
+        f.status = 'done'; f.result = result; close(); rebuild()
+        showToast('บันทึกผลแล้ว', 'success')
+        touchCustomerContact(f.customerId)
+        // เสนอนัดครั้งถัดไปจากผลที่พิมพ์ (ใช้ตัวเดียวกับหน้างานของฉันวันนี้)
+        const c = f.customerId ? await readDoc('customers', f.customerId).catch(() => null) : null
+        if (c) offerNextFollowup({ id: f.customerId, ...c }, result, {
+          me: getState('user')?.displayName || '',
+          hasPending: data.followups.some(x => x.customerId === f.customerId && x.status === 'pending' && !x.deleted && x.id !== f.id),
+          onSaved: () => {},
+        })
+      } catch { showToast('บันทึกไม่สำเร็จ', 'error') }
+    })
+    setTimeout(() => ta.focus(), 50)
+  }
+
   container.addEventListener('click', e => {
     if (e.target.closest('.wc-call')) return // โทรออกตรงๆ ไม่เปิดหน้า
+    const chk = e.target.closest('.wc-check')
+    if (chk) { checkItem(chk.closest('.wc-item')?.dataset.key); return }
     const row = e.target.closest('.wc-item')
     if (row) { openItem(row.dataset.key); return }
     const add = e.target.closest('[data-add]')

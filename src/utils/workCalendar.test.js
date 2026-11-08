@@ -30,15 +30,17 @@ describe('workCalendar.buildWorkItems', () => {
     expect(a.overdue).toBe(false)
   })
 
-  it('only pending follow-ups; overdue flagged within the lookback window', () => {
+  it('pending + done follow-ups; overdue flagged within the lookback window', () => {
     const items = buildWorkItems({ followups: [
       { id: 'f1', dueDate: '2026-11-05', status: 'pending', customerName: 'A', customerId: 'c1' },
-      { id: 'f2', dueDate: '2026-11-05', status: 'done' },
+      { id: 'f2', dueDate: '2026-11-05', status: 'done', result: 'โทรแล้ว' },
       { id: 'f3', dueDate: '2026-11-12', status: 'pending' },
       { id: 'f4', dueDate: '2026-01-01', status: 'pending' },
       { id: 'f5', dueDate: '2026-11-06', status: 'pending', deleted: true },
     ] }, T)
-    expect(keys(items)).toEqual(['fu:f4', 'fu:f1', 'fu:f3'])
+    expect(keys(items)).toEqual(['fu:f4', 'fu:f1', 'fu:f2', 'fu:f3'])
+    expect(items.find(i => i.key === 'fu:f2')).toMatchObject({ done: true, overdue: false, canCheck: true })
+    expect(items.find(i => i.key === 'fu:f2').sub).toContain('โทรแล้ว')
     expect(items.find(i => i.key === 'fu:f1').overdue).toBe(true)
     expect(items.find(i => i.key === 'fu:f4').overdue).toBe(false) // older than OVERDUE_LOOKBACK_DAYS
     expect(OVERDUE_LOOKBACK_DAYS).toBeGreaterThan(30)
@@ -75,6 +77,9 @@ describe('workCalendar.buildWorkItems', () => {
     expect(items[0]).toMatchObject({ key: 'dlv:b1', date: '2026-11-03', done: true, overdue: false, tag: '' })
     const [cut] = buildWorkItems({ bookings: [{ id: 'b2', status: 'ส่งมอบแล้ว', deliveryDate: '2026-11-02', cutDate: '2026-10-31' }] }, T)
     expect(cut.tag).toBe('✂️ ตัดตัวเลขแล้ว 31/10')
+    // ตัดตัวเลขวันเดียวกับรับรถ = ปกติ ไม่ขึ้นป้าย
+    const [same] = buildWorkItems({ bookings: [{ id: 'b3', status: 'ส่งมอบแล้ว', deliveryDate: '2026-11-02', cutDate: '2026-11-04', actualDeliveryDate: '2026-11-04' }] }, T)
+    expect(same.tag).toBe('')
   })
 
   it('missed delivery date is overdue', () => {

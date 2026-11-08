@@ -17,6 +17,8 @@ export const KINDS = {
   task:      { icon: '✅', label: 'งาน' },
   event:     { icon: '📌', label: 'นัดหมายอื่นๆ' },
 }
+// ประเภทที่กด ✓ "ทำแล้ว" จากปฏิทินได้เลย (ส่งมอบ/ตรวจรถ/ไฟแนนซ์ ต้องทำในหน้าของมัน เพราะมีขั้นตอน/เอกสาร)
+export const CHECKABLE = ['appt', 'testdrive', 'followup', 'service', 'task', 'event']
 export const KIND_ORDER = ['appt', 'testdrive', 'followup', 'delivery', 'pdi', 'finance', 'service', 'task', 'event']
 
 // งานที่ค้างนานกว่านี้ไม่นับเป็น "เลยกำหนด" (ข้อมูลเก่าจาก Excel ที่ไม่มีใครอัปเดต จะท่วมรายการค้างจนดูไม่ออก)
@@ -37,6 +39,8 @@ export const carDetail = b => [car(b), b.colorOut || b.color || '', vin6(b) ? '�
 export const CUT_TAG = '✂️ ตัดตัวเลขแล้ว'
 // ตัดตัวเลขแล้ว = สถานะ "ตัดตัวเลขรอส่งมอบ" หรือมีวันที่ตัดตัวเลขใน Sheet แล้ว (บางคันกรอกวันที่แต่ยังไม่เปลี่ยนสถานะ)
 export const isCut = b => b.status === 'ตัดตัวเลขรอส่งมอบ' || !!ymdBangkok(b.cutDate)
+// รถที่ส่งมอบแล้ว: ขึ้นป้ายเฉพาะคันที่ตัดตัวเลขก่อนวันรับรถ (ตัดวันเดียวกับรับรถ = ปกติ ไม่ต้องเตือน — เจ้าของแจ้ง 8 พ.ย. 69)
+export const cutBeforeHandover = (b, handedOn) => { const c = ymdBangkok(b.cutDate); return !!(c && handedOn && c < handedOn) }
 // ป้ายตัดตัวเลข (มีวันที่ก็ใส่ด้วย) — ขึ้นทั้งคันที่รอส่งมอบและคันที่ส่งมอบแล้ว
 export const cutTag = b => { if (!isCut(b)) return ''; const c = ymdBangkok(b.cutDate); return c ? `${CUT_TAG} ${+c.slice(8)}/${c.slice(5, 7)}` : CUT_TAG }
 const custOf = b => b.custName || [b.firstName, b.lastName].filter(Boolean).join(' ') || 'ลูกค้า'
@@ -65,10 +69,11 @@ export function buildWorkItems(src = {}, today) {
   })
 
   live(src.followups).forEach(f => {
-    if (f.status !== 'pending') return
+    if (f.status !== 'pending' && f.status !== 'done') return
+    const fdone = f.status === 'done'
     add({ key: 'fu:' + f.id, kind: 'followup', date: day(f.dueDate), time: '',
-      title: `ตาม ${f.customerName || 'ลูกค้า'}`, sub: [f.purpose, f.vehicleModel].filter(Boolean).join(' · '),
-      owner: f.salesperson || '', phone: f.phone || '', done: false, canOverdue: true,
+      title: `ตาม ${f.customerName || 'ลูกค้า'}`, sub: [fdone && f.result ? '✅ ' + f.result : '', f.purpose, f.vehicleModel].filter(Boolean).join(' · '),
+      owner: f.salesperson || '', phone: f.phone || '', done: fdone, canOverdue: true,
       nav: f.customerId ? `/crm/customers?id=${f.customerId}` : '/crm/followup', rec: f })
   })
 
@@ -83,7 +88,7 @@ export function buildWorkItems(src = {}, today) {
     // ส่งมอบ: "ตัดตัวเลขรอส่งมอบ" นับยอดขายแล้วแต่รถยังไม่ถึงมือลูกค้า → ยังเป็นงานที่ต้องทำ
     if (handed) {
       const ad = day(b.actualDeliveryDate) || dd
-      if (ad) add({ key: 'dlv:' + b.id, kind: 'delivery', date: ad, time: '', title: `ส่งมอบ ${who}`, tag: cutTag(b), sub: carDetail(b), owner, phone, done: true, nav, rec: b })
+      if (ad) add({ key: 'dlv:' + b.id, kind: 'delivery', date: ad, time: '', title: `ส่งมอบ ${who}`, tag: cutBeforeHandover(b, ad) ? cutTag(b) : '', sub: carDetail(b), owner, phone, done: true, nav, rec: b })
     } else if (dd) {
       add({ key: 'dlv:' + b.id, kind: 'delivery', date: dd, time: hhmm(b.deliveryTime), title: `ส่งมอบ ${who}`, tag: cutTag(b),
         sub: [carDetail(b), b.deliveryPlace, b.pdReady ? '✅ ตรวจรถแล้ว' : ''].filter(Boolean).join(' · '),
@@ -139,9 +144,10 @@ export function buildWorkItems(src = {}, today) {
 
   live(src.events).forEach(e => {
     add({ key: 'ev:' + e.id, kind: 'event', date: day(e.date), time: hhmm(e.time), title: e.title || 'นัดหมาย',
-      sub: e.description || '', owner: e.assignee || '', phone: '', done: false, shared: true, nav: null, rec: e })
+      sub: e.description || '', owner: e.assignee || '', phone: '', done: !!e.done, shared: true, nav: null, rec: e })
   })
 
+  out.forEach(it => { it.canCheck = CHECKABLE.includes(it.kind) })
   out.forEach(it => {
     const d = today ? daysFromToday(it.date, today) : 0
     it.overdue = !!(it.canOverdue && !it.done && today && d < 0 && d >= -OVERDUE_LOOKBACK_DAYS)
