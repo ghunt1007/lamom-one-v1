@@ -173,6 +173,7 @@ export const PAGE_COLLECTIONS = {
   "appointments",
   "bookings",
   "calendar_events",
+  "customers",
   "followups",
   "service_appointments",
   "tasks",
