@@ -7,7 +7,7 @@ export const ESSENTIALS = [
   { key: 'cars', group: 'รถและส่งมอบ', groupEn: 'Cars & delivery', groupZh: '车辆与交车',
     paths: ['/dms/stock', '/dms/delivery-calendar', '/crm/predelivery', '/finance/loan-calc'] },
   { key: 'results', group: 'ผลงานและรายงาน', groupEn: 'Results', groupZh: '业绩与报告',
-    paths: ['/', '/crm', '/crm/sales-income', '/finance/commission'] },
+    paths: ['/', '/crm', '/crm/sales-income', '/analytics/sales-metrics', '/finance/commission'] },
   { key: 'helper', group: 'ผู้ช่วย', groupEn: 'Assistant', groupZh: '助手',
     paths: ['/ai/ask', '/tasks', '/notifications'] },
   { key: 'setup', group: 'ตั้งค่า', groupEn: 'Settings', groupZh: '设置',
@@ -19,7 +19,7 @@ export const SIMPLE_LABELS = {
   '/': 'ภาพรวมบริษัท', '/crm': 'ภาพรวมการขาย', '/crm/customers': 'ลูกค้า / Lead', '/crm/followup': 'ติดตามลูกค้า',
   '/crm/testdrive': 'ทดลองขับ', '/crm/pipeline': 'Pipeline ดีล', '/dms/delivery-calendar': 'ปฏิทินส่งมอบ',
   '/finance/loan-calc': 'คำนวณค่างวด', '/finance/commission': 'ค่าคอมมิชชั่น', '/ai/ask': 'ถาม LAMI (AI)',
-  '/tasks': 'งานที่ต้องทำ', '/calendar': 'ปฏิทินงาน', '/crm/programs': 'แคมเปญ & ดอกเบี้ย', '/marketing/events': 'ออกบูธ & อีเวนต์', '/notifications': 'การแจ้งเตือน', '/settings/daily-report': 'รายงานส่ง LINE',
+  '/tasks': 'งานที่ต้องทำ', '/calendar': 'ปฏิทินงาน', '/crm/programs': 'แคมเปญ & ดอกเบี้ย', '/marketing/events': 'ออกบูธ & อีเวนต์', '/analytics/sales-metrics': 'ตัวชี้วัดการขาย', '/notifications': 'การแจ้งเตือน', '/settings/daily-report': 'รายงานส่ง LINE',
 }
 
 export const MODE_KEY = 'lamom_nav_mode'
