@@ -24,6 +24,8 @@ import { customerActionsFor } from '../../utils/aiActions.js'
 import { navigate } from '../../core/router.js'
 import { copyText } from '../../utils/copyText.js'
 import { escHtml as esc } from '../../utils/escape.js'
+import { isWhereQuestion, findPages, whereAnswer } from '../../utils/whereIs.js'
+import { NAV } from '../../data/navMenu.js'
 
 const CATEGORIES = [
   { label:'☀️ วันนี้ทำอะไรก่อน', q:'วันนี้ฉันควรทำอะไรก่อน? จัดลำดับให้หน่อย พร้อมเหตุผลสั้นๆ' },
@@ -234,7 +236,7 @@ export default async function AiAssistantChatPage(container) {
         ${!isUser && i === messages.length - 1 && !waiting && Array.isArray(m.next) && m.next.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">${m.next.map(q => `<button class="btn btn-secondary btn-xs cat-btn" data-q="${esc(q)}" style="border-radius:999px">💬 ${esc(q)}</button>`).join('')}</div>` : ''}
         ${!isUser && i === messages.length - 1 && !waiting && i > 0 && messages[i - 1]?.role === 'user' ? (() => {
           const acts = customerActionsFor(messages[i - 1].text, chatCustomers)
-          const l = pageLinksFor(messages[i - 1].text)
+          const l = Array.isArray(m.links) && m.links.length ? m.links : pageLinksFor(messages[i - 1].text)
           return acts.length || l.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">${acts.map(a => `<button class="btn btn-primary btn-xs chat-act" data-kind="${a.kind}" data-id="${esc(a.id)}" data-phone="${esc(a.phone || '')}" style="border-radius:999px">${esc(a.label)}</button>`).join('')}${l.map(x => `<button class="btn btn-secondary btn-xs chat-go" data-path="${esc(x.path)}" style="border-radius:999px">${esc(x.label)} →</button>`).join('')}</div>` : ''
         })() : ''}
         <div style="font-size:0.66rem;color:var(--text-muted);margin-top:3px;${isUser?'text-align:right':''}">${esc(m.time)}${!isUser && m.text !== GREETING && i >= 0 ? ` · <button class="chat-copy" data-i="${i}" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.66rem;padding:0">📋 คัดลอก</button> · <button class="chat-speak" data-i="${i}" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.66rem;padding:0">🔊 ฟัง</button>` : ''}</div>
@@ -338,6 +340,14 @@ export default async function AiAssistantChatPage(container) {
       // เรียก askLami() จริง (เหมือน pattern เดียวกับ LamiBrain.js) แทน CANNED keyword-match เดิม — ประวัติแชท
       // ต้องแปลง role 'ai' ในไฟล์นี้เป็น 'lami' ตามที่ askLami() คาดหวัง (ไม่กระทบ role ที่เก็บจริงใน Firestore)
       const history = messages.slice(0, -1).map(m => ({ role: m.role === 'ai' ? 'lami' : m.role, text: m.text }))
+      // (v1.0.981) "X อยู่ตรงไหน / หาไม่เจอ" → ตอบจากเมนูจริงทันที พร้อมปุ่มเปิดหน้า (ไม่ต้องรอ AI และไม่เดาชื่อหน้าผิด)
+      const where = isWhereQuestion(text) ? findPages(text, NAV) : []
+      if (where.length) {
+        try { await createDoc('chat_ai_assistant', { role:'ai', text: whereAnswer(where), links: where.map(({ label, path }) => ({ label, path })), time:now(), uid }) } catch (e) {}
+        waiting = false
+        await loadData()
+        return
+      }
       try {
         // ถามเรื่องรุ่น/ยี่ห้อรถ → แนบราคา/สเปคจริงจาก catalog (รวมคำถามก่อนหน้า 2 ข้อ เผื่อถามต่อ เช่น "แล้วรุ่น max ล่ะ")
         const recent = [text, ...messages.filter(m => m.role === 'user').slice(-3, -1).map(m => m.text)].join(' ')

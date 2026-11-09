@@ -20,6 +20,7 @@ const TH = [
   [/ai|lami|coach|insight/, 'เอไอ ผู้ช่วย'], [/complaint|feedback|csat|nps|satisfaction|review|sentiment/, 'ร้องเรียน ความพึงพอใจ รีวิว'],
   [/notification|announcement/, 'แจ้งเตือน ประกาศ'], [/document|contract|template|form/, 'เอกสาร สัญญา แบบฟอร์ม'],
   [/walk-in|showroom/, 'หน้าร้าน โชว์รูม'], [/lost deal|win-back/, 'ลูกค้าหลุด ดึงกลับ'], [/referral/, 'แนะนำ'],
+  [/โปร ดอกเบี้ย/, 'แคมเปญ รางวัล โบนัส มาร์จิ้น ค่าบริหาร ซับซิดี้ ของแถม ส่วนลด เรท promotion campaign bonus'], [/บูธ|อีเวนต์/, 'มอเตอร์โชว์ motor expo งานแสดงรถ'],
   [/photo/, 'รูป'], [/key/, 'กุญแจ'], [/plate/, 'ป้ายทะเบียน'], [/accessor/, 'ของแต่ง อุปกรณ์'],
 ]
 const norm = s => String(s || '').toLowerCase().replace(/\s+/g, '')

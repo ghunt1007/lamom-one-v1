@@ -1,6 +1,7 @@
 // ช่องค้นหา Ctrl+K เข้าใจ "คำสั่ง" ไม่ใช่แค่คำค้น — พิมพ์ชื่อ+เบอร์ลูกค้าใหม่ แล้วกด Enter = เพิ่ม Lead ให้เลย
 // (ตัดสินใจในเครื่องล้วน ไม่ส่งข้อมูลออก) · หน้าเมนูทั้งหมดค้นได้จากเมนูเดียวกับแถบซ้าย (data/navMenu.js)
 import { menuMatches } from './menuSearch.js'
+import { findPages } from './whereIs.js'
 
 const LEAD_WORDS = /^(เพิ่ม\s*(ลีด|lead|ลูกค้า)|ลีดใหม่|lead\s*ใหม่|ลูกค้าใหม่|new\s*lead|\+\s*lead)\s*/i
 const PHONE = /(?:\+?66|0)\d(?:[\s-]?\d){7,8}/
@@ -32,6 +33,12 @@ export function matchMenuPages(nav, q, limit = 8) {
     seen.add(i.path)
     out.push({ ...i, group: g.group })
     if (out.length >= limit) return out
+  }
+  // (v1.0.981) พิมพ์เป็นประโยค เช่น "ดอกเบี้ย โปร เงินพิเศษอยู่ไหน" ไม่ตรงทุกคำ → หาจากคำที่ทีมใช้จริงแทน
+  if (!out.length) {
+    const byPath = new Map()
+    for (const g of nav) for (const i of g.items) if (!byPath.has(i.path)) byPath.set(i.path, { ...i, group: g.group })
+    findPages(q, nav, limit).forEach(p => byPath.has(p.path) && out.push(byPath.get(p.path)))
   }
   return out
 }

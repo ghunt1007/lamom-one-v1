@@ -1,3 +1,4 @@
+import { movedBannerHtml, bindMovedBanner } from '../../utils/movedBanner.js'
 /**
  * Finance Rate Sheets — ตารางดอกเบี้ยไฟแนนซ์
  * อัปโหลดรูปตารางดอกเบี้ย/โปรโมชั่นไฟแนนซ์ → AI วิเคราะห์ดึงข้อมูล → ผู้ใช้ตรวจสอบ/แก้ไข/ยืนยันก่อนบันทึก
@@ -27,6 +28,7 @@ function blankRow() {
 }
 
 export default async function FinanceRateSheetsPage(container) {
+  bindMovedBanner(container)
   const myGen = container.__routerGen
   seedDemoData()
 
@@ -66,6 +68,7 @@ export default async function FinanceRateSheetsPage(container) {
 
     renderKeepFocus(container, `
       <div class="page-content animate-slide">
+        ${movedBannerHtml('/crm/programs', '🎯 โปร ดอกเบี้ย & เงินพิเศษ', 'ดอกเบี้ยไฟแนนซ์แบบตารางดาวน์/งวด ใส่ที่นั่นแล้วใช้คิดค่างวดในใบเสนอราคาและหน้าลูกค้าได้ทันที')}
         <div class="page-header">
           <div>
             <div class="page-title">📈 ตารางดอกเบี้ยไฟแนนซ์</div>
