@@ -1,4 +1,5 @@
 import { isPhoneLayout } from '../../utils/phoneLayout.js'
+import { scanIdCard, idCardSummary } from '../../utils/idCardScan.js'
 import { carOf, carLabel } from '../../utils/carLabel.js'
 import { listDocs, listAllDocs, watchDocs, createDoc, updateDocData, softDelete, seedDemoData, setDocData, readDoc } from '../../core/db.js'
 import { customerStatusMessage } from '../../utils/bookingNotify.js'
@@ -1165,7 +1166,8 @@ export default async function BookingsPage(container) {
 
     function bodyHtml() {
       if (step === 1) {
-        return `<div class="input-group"><label class="input-label">ชื่อลูกค้า *</label><input class="input" id="wz-cust" value="${escHtml(w.custName)}" placeholder="ชื่อ-นามสกุล"></div>
+        return `<div style="margin-bottom:8px"><button type="button" class="btn btn-secondary btn-sm" id="wz-idcard" title="ถ่ายรูปบัตรประชาชน AI กรอกชื่อ ที่อยู่ และเลขบัตรให้">📷 ถ่ายบัตรประชาชน ให้ AI กรอก</button>${idCardSummary(w.idc, canViewNid)}</div>
+          <div class="input-group"><label class="input-label">ชื่อลูกค้า *</label><input class="input" id="wz-cust" value="${escHtml(w.custName)}" placeholder="ชื่อ-นามสกุล"></div>
           <div class="input-group"><label class="input-label">เบอร์โทร</label><input class="input" id="wz-phone" value="${escHtml(w.phone)}" placeholder="0XX-XXX-XXXX"></div>
           <div class="input-group"><label class="input-label">พนักงานขาย</label><select class="input" id="wz-sales">${getSalesStaff().map(s => `<option ${s === w.salesName ? 'selected' : ''}>${escHtml(s)}</option>`).join('')}</select></div>
           <div class="input-group"><label class="input-label">ลูกค้าเดิม (ถ้ามี — ไม่บังคับ)</label>
@@ -1239,6 +1241,17 @@ export default async function BookingsPage(container) {
         rerender()
       }))
       m.el.querySelector('#wz-unpick-cust')?.addEventListener('click', () => { w.customerId = null; rerender() })
+      m.el.querySelector('#wz-idcard')?.addEventListener('click', async e => {
+        readStep()
+        const r = await scanIdCard(e.currentTarget, showToast)
+        if (!r) return
+        if (r.name) w.custName = r.name
+        if (r.address) w.address = r.address
+        if (r.province) w.province = r.province
+        if (canViewNid && r.nid) w.nid = r.nid
+        w.idc = r
+        rerender()
+      })
       m.el.querySelector('#wz-full')?.addEventListener('click', () => { m.close(); openForm() })
       m.el.querySelector('#wz-next')?.addEventListener('click', () => {
         readStep()
@@ -1261,6 +1274,8 @@ export default async function BookingsPage(container) {
           createdAt: new Date().toISOString(),
           // Phase 2 หลายบริษัท — ติด companyId ของบริษัทหลักที่พนักงานคนสร้างสังกัดอยู่ (ถ้ามี)
           companyId: myEffectiveCompanyId(),
+          ...(w.address ? { address: w.address } : {}),
+          ...(w.province ? { province: w.province } : {}),
           ...(w.colorOut ? { colorOut: w.colorOut } : {}),
           ...(w.quotationId ? { quotationId: w.quotationId } : {}),
           ...(w.sale ? { sale: w.sale } : {}),
@@ -1269,7 +1284,9 @@ export default async function BookingsPage(container) {
         btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-sm"></span>'
         try {
           const id = await createDoc('bookings', data)
-          bookings.unshift({ ...data, id })
+          // เลขบัตรจากการถ่ายบัตร เก็บแยกที่ booking_national_ids เหมือนฟอร์มเต็ม
+          if (canViewNid && w.nid) await setDocData('booking_national_ids', id, { nid: w.nid, companyId: data.companyId }).catch(() => {})
+          bookings.unshift({ ...data, id, ...(w.nid ? { nid: w.nid } : {}) })
           if (data.customerId) {
             await updateDocData('customers', data.customerId, { stage: 'booking', stageChangedAt: new Date().toISOString(), bookingId: id }).catch(() => {})
             closeAutoLeadFollowups(data.customerId, 'ปิดอัตโนมัติ: ลูกค้าจองแล้ว')
@@ -1465,6 +1482,7 @@ export default async function BookingsPage(container) {
       body: '<div style="display:flex;flex-direction:column;gap:8px;max-height:66vh;overflow:auto;padding-right:4px">' +
         inp('bf-bkno', '📋 เลขที่ใบจอง (แก้ไขได้)', bkNo) +
         sec('👤 ข้อมูลลูกค้า') +
+        '<div><button type="button" class="btn btn-secondary btn-sm" id="bf-idcard" title="ถ่ายรูปบัตรประชาชน AI กรอกชื่อ ที่อยู่ และเลขบัตรให้">📷 ถ่ายบัตรประชาชน ให้ AI กรอก</button><div id="bf-idc-sum"></div></div>' +
         '<div class="grid-2">' + inp('bf-cust', 'ชื่อลูกค้า *', e.custName) + (canViewNid ? inp('bf-nid', 'เลขบัตรประชาชน', e.nid) : '') + '</div>' +
         '<div class="grid-2">' + inp('bf-phone', 'โทรศัพท์', e.phone) + datalist('bf-source', 'แหล่งที่มา', getLeadSources(), e.source) + '</div>' +
         '<div class="grid-2">' + inp('bf-address', 'ที่อยู่', e.address) + inp('bf-province', 'จังหวัด', e.province) + '</div>' +
@@ -1532,6 +1550,14 @@ export default async function BookingsPage(container) {
       el.querySelector('#bf-variant').value = v.variant
       if (!el.querySelector('#bf-price').value) el.querySelector('#bf-price').value = v.price || ''
     }))
+    el.querySelector('#bf-idcard')?.addEventListener('click', async e => {
+      const r = await scanIdCard(e.currentTarget, showToast)
+      if (!r) return
+      const set = (id, v) => { const x = el.querySelector('#' + id); if (x && v) { x.value = v; x.dispatchEvent(new Event('input', { bubbles: true })) } }
+      set('bf-cust', r.name); set('bf-address', r.address); set('bf-province', r.province)
+      if (canViewNid) set('bf-nid', r.nid)
+      el.querySelector('#bf-idc-sum').innerHTML = idCardSummary(r, canViewNid)
+    })
     el.querySelector('#bf-pick-cust')?.addEventListener('click', () => openCustomerPicker(c => {
       linkedCustomerId = c.id
       const linkedEl = el.querySelector('#bf-cust-linked')

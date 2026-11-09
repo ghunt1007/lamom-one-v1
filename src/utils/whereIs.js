@@ -12,7 +12,7 @@ const ALIASES = [
   ['/crm/my-day', 'งานวันนี้ งานของฉัน วันนี้ทำอะไร งานค้าง'],
   ['/calendar', 'ปฏิทิน นัด ตารางงาน'],
   ['/crm/customers', 'ลูกค้า ลีด lead รายชื่อลูกค้า'],
-  ['/crm/bookings', 'ใบจอง จองรถ booking'],
+  ['/crm/bookings', 'ใบจอง จองรถ booking ถ่ายบัตร สแกนบัตร บัตรประชาชน'],
   ['/crm/quotation', 'ใบเสนอราคา เสนอราคา quotation'],
   ['/marketing/events', 'บูธ ออกบูธ อีเวนต์ มอเตอร์โชว์ motor expo งานแสดงรถ'],
   ['/marketing/channels', 'โซเชียล เฟซบุ๊ก facebook เพจ ไลน์ line oa ไอจี instagram tiktok ติ๊กต็อก แชต google maps รีวิว'],
