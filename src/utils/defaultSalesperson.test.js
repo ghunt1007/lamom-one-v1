@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { defaultSalesperson } from './defaultSalesperson.js'
+import { isMyName, defaultSalesperson } from './defaultSalesperson.js'
 
 describe('defaultSalesperson', () => {
   const opts = ['สมชาย ใจดี', 'บี', 'ยังไม่ระบุ']
@@ -27,5 +27,17 @@ describe('salesOptionsHtml', async () => {
   it('blank option and escaping', () => {
     const h = salesOptionsHtml(['a"b'], { blank: true })
     expect(h).toBe('<option value="">-</option><option value="a&quot;b">a&quot;b</option>')
+  })
+})
+
+describe('isMyName', () => {
+  it('matches full name ignoring prefix/space/case', () => {
+    expect(isMyName('คุณสมชาย  ใจดี', 'สมชาย ใจดี')).toBe(true)
+    expect(isMyName('Somchai', 'somchai jaidee')).toBe(true)
+  })
+  it('does not match different surnames or empty', () => {
+    expect(isMyName('สมชาย ก', 'สมชาย ข')).toBe(false)
+    expect(isMyName('', 'สมชาย')).toBe(false)
+    expect(isMyName('สมหญิง', 'สมชาย')).toBe(false)
   })
 })

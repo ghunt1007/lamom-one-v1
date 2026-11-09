@@ -6,6 +6,8 @@ import { openModal, confirmDialog } from '../../utils/modal.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { notifyTeam, deptRoles } from '../../utils/teamNotify.js'
+import { isMyName } from '../../utils/defaultSalesperson.js'
+import { getSalesStaff } from '../../data/masterData.js'
 
 const DEPARTMENTS = {
   sales:     { label: 'ฝ่ายขาย', icon: '🚗' },
@@ -58,11 +60,17 @@ export default async function TasksPage(container) {
   startWatchTasks()
   const offCompanyFilter = on('activeCompanyFilter', startWatchTasks)
 
+  // (v1.0.1022) ช่อง "มอบหมายให้" มีรายชื่อให้เลือก (ตัวเอง + รายชื่อเซลส์ + คนที่เคยได้รับมอบหมาย) — พิมพ์ชื่ออื่นได้เหมือนเดิม
+  function peopleList() {
+    const names = [...new Set([currentUser?.displayName, ...getSalesStaff(), ...tasks.map(t => t.assignedTo)].map(x => String(x || '').trim()).filter(Boolean))]
+    return `<datalist id="task-people">${names.map(n => `<option value="${escHtml(n)}"></option>`).join('')}</datalist>`
+  }
+
   function getFiltered() {
     // (v1.0.453) การกรองตามบริษัทย้ายเข้า query จริงแล้ว (companyScopeFilters() ใน startWatchTasks()) —
     // ไม่ต้องกรองซ้ำที่นี่อีก
     let t = tasks.filter(t => {
-      if (viewFilter === 'mine') return t.assignedTo && t.assignedTo === myName
+      if (viewFilter === 'mine') return isMyName(t.assignedTo, myName) || (currentUser?.email && t.assignedTo === currentUser.email)
       if (viewFilter === 'active') return t.status !== 'done' && t.status !== 'cancelled'
       if (viewFilter === 'done') return t.status === 'done' || t.status === 'cancelled'
       return true
@@ -222,7 +230,7 @@ export default async function TasksPage(container) {
         <div class="input-group"><label class="input-label">ส่งต่อไปยังแผนก *</label>
           <select class="input" id="rt-dept">${Object.entries(DEPARTMENTS).filter(([k]) => k !== (t.department || 'general')).map(([k, v]) => `<option value="${__escA(k)}">${v.icon} ${v.label}</option>`).join('')}</select>
         </div>
-        <div class="input-group"><label class="input-label">มอบหมายให้ (ถ้าทราบ)</label><input class="input" id="rt-assign" placeholder="ชื่อผู้รับผิดชอบ"></div>
+        <div class="input-group"><label class="input-label">มอบหมายให้ (ถ้าทราบ)</label><input class="input" id="rt-assign" placeholder="ชื่อผู้รับผิดชอบ" list="task-people">${peopleList()}</div>
         <div class="input-group"><label class="input-label">หมายเหตุถึงแผนกรับ</label><textarea class="input" id="rt-note" rows="2"></textarea></div>
       `,
       footer: `<button class="btn btn-secondary" id="rt-c">ยกเลิก</button><button class="btn btn-primary" id="rt-s">🔀 ส่งต่อ</button>`
@@ -286,7 +294,7 @@ export default async function TasksPage(container) {
           </div>
           <div class="grid-2">
             <div class="input-group"><label class="input-label">กำหนดส่ง</label><input class="input" type="date" id="tf-due" value="${__escA(existing?.dueDate||tomorrow)}"></div>
-            <div class="input-group"><label class="input-label">มอบหมายให้</label><input class="input" id="tf-assign" value="${escHtml(existing?.assignedTo||'')}"></div>
+            <div class="input-group"><label class="input-label">มอบหมายให้</label><input class="input" id="tf-assign" value="${escHtml(existing?.assignedTo||'')}" list="task-people" placeholder="พิมพ์หรือเลือกชื่อ">${peopleList()}</div>
           </div>
         </div>
       `,
