@@ -8,7 +8,6 @@ import { initRouter, navigate } from './core/router.js'
 import { getState, on } from './core/store.js'
 import { applyMode, applyUi, loadUi, clearOldTheme } from './utils/appearance.js'
 import { seedDemoData } from './core/db.js'
-import { loadVehicleOverrides } from './data/vehicleDatabase.js'
 import { loadMasterData } from './data/masterData.js'
 import { loadWhiteLabel, postLoginRoute, roleHomeRoute } from './core/whiteLabel.js'
 import { initSessionTimeout, destroySessionTimeout } from './utils/sessionTimeout.js'
@@ -87,8 +86,9 @@ function canOpenPath(path) {
 }
 
 async function bootstrapShell() {
+  // (v1.0.1005) ฐานข้อมูลรุ่นรถ (~245 KB) โหลดแบบ dynamic import หลังล็อกอิน — หน้า Login ไม่ต้องดาวน์โหลดก่อน
   // seed demo data (lazy chunk) + โหลด vehicle catalog overrides + master data ให้เสร็จก่อน initRouter — กัน race หน้าแรกอ่านข้อมูลว่าง
-  const [, , , brand] = await Promise.all([seedDemoData(), loadVehicleOverrides(), loadMasterData(), loadWhiteLabel()])
+  const [, , , brand] = await Promise.all([seedDemoData(), import('./data/vehicleDatabase.js').then(m => m.loadVehicleOverrides()), loadMasterData(), loadWhiteLabel()])
   const landing = postLoginRoute(brand, window.location.pathname) || roleHomeRoute(getState('user')?.role, window.location.pathname, canOpenPath)
   if (landing) window.history.replaceState({}, '', landing)
   app.innerHTML = ''
