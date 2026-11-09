@@ -6,7 +6,7 @@ import { bangkokDate } from './myDay.js'
 import { DELIVERED_STATUSES } from './deliveryIncome.js'
 
 export const SOURCE_INFO = {
-  facebook: ['📘', 'Facebook'], line: ['💚', 'LINE'], tiktok: ['🎵', 'TikTok'], 'walk-in': ['🚶', 'Walk-in'],
+  facebook: ['📘', 'Facebook'], line: ['💚', 'LINE'], tiktok: ['🎵', 'TikTok'], instagram: ['📸', 'Instagram'], 'walk-in': ['🚶', 'Walk-in'],
   referral: ['🤝', 'แนะนำ'], google: ['🔍', 'Google'], website: ['🌐', 'เว็บไซต์'], phone: ['📱', 'โทรเข้า'], event: ['🎪', 'บูธ/อีเวนต์'], other: ['📌', 'อื่นๆ'],
 }
 // ช่องทางในหน้าแคมเปญ (LeadSources.js CHANNEL_MAP) → source ของลูกค้า

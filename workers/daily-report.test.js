@@ -1235,3 +1235,18 @@ describe('social channel routes', () => {
     expect(nf.status).toBe(404)
   })
 })
+
+describe('เทียบช่วงเดียวกันเดือนก่อน (v1.0.989)', async () => {
+  const { lastMonthSpan, vsLast } = await import('./daily-report.js')
+  it('ช่วงวันที่ 1..วันนี้ของเดือนก่อน', () => {
+    expect(lastMonthSpan('2026-03-31')).toEqual({ from: '2026-02-01', to: '2026-02-28', days: 28 })
+    expect(lastMonthSpan('2026-01-09')).toEqual({ from: '2025-12-01', to: '2025-12-09', days: 9 })
+  })
+  it('ข้อความเทียบ', () => {
+    const lm = { days: 9 }
+    expect(vsLast(5, 3, lm)).toBe(' (1–9 เดือนก่อน 3 ▲2)')
+    expect(vsLast(2, 4, lm)).toBe(' (1–9 เดือนก่อน 4 ▼2)')
+    expect(vsLast(3, 3, lm)).toBe(' (1–9 เดือนก่อน 3 เท่ากัน)')
+    expect(vsLast(0, 0, lm)).toBe('')
+  })
+})

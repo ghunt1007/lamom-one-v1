@@ -65,3 +65,8 @@
   .sm-q-r .sm-prog { grid-column: 1 / -1; }
   .sm-q-m { grid-column: 1 / -1; text-align: left; }
 }
+/* (v1.0.989) ▲/▼ เทียบช่วงก่อนหน้า */
+.sm-d { display: inline-block; font-size: 0.72rem; font-weight: 700; padding: 1px 6px; border-radius: 999px; vertical-align: middle; white-space: nowrap; background: var(--bg-2, rgba(127,127,127,.12)); color: var(--text-3); }
+.sm-d.up { color: var(--success, #16a34a); background: color-mix(in srgb, var(--success, #16a34a) 12%, transparent); }
+.sm-d.down { color: var(--danger, #dc2626); background: color-mix(in srgb, var(--danger, #dc2626) 12%, transparent); }
+.sm-vs { font-size: 0.78rem; color: var(--text-3); margin: 0 0 8px; }

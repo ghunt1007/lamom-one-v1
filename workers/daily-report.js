@@ -486,6 +486,21 @@ export function lostReasonHead(reason) {
   return String(reason || '').split(/\s+[-–—:]\s+/)[0].replace(/\s*[-–—:]$/, '').trim().slice(0, 30) || '(ไม่ระบุเหตุผล)'
 }
 
+// (v1.0.989) วันที่ 1..วันนี้ ของเดือนก่อน (เดือนก่อนสั้นกว่า → ถึงวันสุดท้ายของเดือนนั้น)
+export function lastMonthSpan(today) {
+  const [y, m, d] = today.split('-').map(Number)
+  const py = m === 1 ? y - 1 : y, pm = m === 1 ? 12 : m - 1
+  const last = new Date(Date.UTC(py, pm, 0)).getUTCDate()
+  const p2 = n => String(n).padStart(2, '0')
+  return { from: `${py}-${p2(pm)}-01`, to: `${py}-${p2(pm)}-${p2(Math.min(d, last))}`, days: Math.min(d, last) }
+}
+// " (เดือนก่อนช่วงเดียวกัน 4 ▲2)" — ทั้งคู่เป็น 0 ไม่ต้องแสดง
+export function vsLast(cur, prev, lm) {
+  if (!cur && !prev) return ''
+  const diff = cur - prev
+  return ` (1–${lm.days} เดือนก่อน ${prev}${diff ? ` ${diff > 0 ? '▲' : '▼'}${Math.abs(diff)}` : ' เท่ากัน'})`
+}
+
 export function buildReport(data, { today, time, defaultTarget = 0 }) {
   const thisMonth = today.slice(0, 7)
   const thisYear = today.slice(0, 4)
@@ -536,6 +551,10 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
   // จอง
   const newBkToday = bookings.filter(b => bkDate(b) === today && !isCancelled(b)).length
   const newBkMonth = bookings.filter(b => bkDate(b).startsWith(thisMonth) && !isCancelled(b)).length
+  // (v1.0.989) เทียบช่วงเดียวกันของเดือนก่อน (วันที่ 1..วันนี้) — เห็นทันทีว่าเดือนนี้เร็วหรือช้ากว่า
+  const lm = lastMonthSpan(today)
+  const inLm = d => !!d && d >= lm.from && d <= lm.to
+  const newBkLm = bookings.filter(b => inLm(bkDate(b)) && !isCancelled(b)).length
   const cnt = s => bookings.filter(b => b.status === s).length
   const totalPending = bookings.filter(b => PENDING_STATUSES.includes(b.status)).length
 
@@ -548,6 +567,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
   const revMonth = dlvMonth.reduce((s, b) => s + income(b), 0)
   const revYear = dlvYear.reduce((s, b) => s + income(b), 0)
   const noIncomeMonth = dlvMonth.filter(b => !income(b)).length
+  const dlvLm = delivered.filter(b => inLm(cutDate(b))).length
   // นัดส่งมอบพรุ่งนี้ (ใบจองที่ยังไม่ส่งมอบ/ไม่ถอน ที่ตั้งวันส่งมอบไว้ในปฏิทินส่งมอบ)
   const [ty, tm, td] = today.split('-').map(Number)
   const tomorrow = new Date(Date.UTC(ty, tm - 1, td + 1)).toISOString().slice(0, 10)
@@ -597,7 +617,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
     '',
     '📋 การจอง',
     `  • จองใหม่วันนี้: ${newBkToday} คัน`,
-    `  • จองใหม่เดือนนี้: ${newBkMonth} คัน`,
+    `  • จองใหม่เดือนนี้: ${newBkMonth} คัน${vsLast(newBkMonth, newBkLm, lm)}`,
     '',
     '🚗 สถานะปัจจุบัน',
     ...PENDING_STATUSES.filter(s => cnt(s) > 0 || PENDING_ALWAYS_SHOWN.includes(s)).map(s => `  • ${s}: ${cnt(s)} คัน`),
@@ -605,7 +625,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
     '',
     '✅ ส่งมอบ',
     `  • ส่งมอบวันนี้: ${dlvToday.length} คัน${dlvToday.length ? ' 🎉' : ''}`,
-    `  • ส่งมอบเดือนนี้: ${dlvMonth.length} คัน`,
+    `  • ส่งมอบเดือนนี้: ${dlvMonth.length} คัน${vsLast(dlvMonth.length, dlvLm, lm)}`,
     `  • ส่งมอบปีนี้: ${dlvYear.length} คัน`,
   ]
   if (dlvTomorrow.length) {

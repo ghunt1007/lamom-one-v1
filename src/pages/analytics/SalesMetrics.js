@@ -12,7 +12,7 @@ import { escHtml as esc } from '../../utils/escape.js'
 import { navigate } from '../../core/router.js'
 import { loadSalesBudget } from '../../utils/salesBudget.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
-import { computeSalesMetrics, METRIC_INFO, normName, periodRange } from '../../utils/salesMetrics.js'
+import { computeSalesMetrics, METRIC_INFO, normName, periodRange, compareRange, pctChange } from '../../utils/salesMetrics.js'
 
 const PERIODS = { month: 'เดือนนี้', prev: 'เดือนก่อน', quarter: 'ไตรมาสนี้', year: 'ปีนี้' }
 const lsGet = (k, d) => { try { return localStorage.getItem(k) ?? d } catch { return d } }
@@ -110,11 +110,24 @@ export default async function SalesMetricsPage(container) {
   function render() {
     container.querySelectorAll('.sm-seg [data-p]').forEach(b => b.classList.toggle('on', b.dataset.p === period))
     const m = computeSalesMetrics(src, { today, period, who })
+    // (v1.0.989) เทียบช่วงเดียวกันก่อนหน้า — ▲/▼ เฉพาะตัวที่ฐานไม่เป็นศูนย์
+    const cr = compareRange(period, today)
+    const pm = cr ? computeSalesMetrics(src, { today, period, who, range: cr }) : null
+    const dl = (cur, prev, unit = '%') => {
+      if (!pm) return ''
+      const v = unit === 'pt' ? (cur == null || prev == null ? null : Math.round((cur - prev) * 10) / 10) : pctChange(cur, prev)
+      if (v == null) return ''
+      const cls = v > 0 ? 'up' : v < 0 ? 'down' : 'eq'
+      const txt = v === 0 ? 'เท่าเดิม' : `${v > 0 ? '▲' : '▼'} ${Math.abs(v)}${unit === 'pt' ? ' จุด' : '%'}`
+      return `<span class="sm-d ${cls}" title="เทียบ ${esc(cr.label)}">${txt}</span>`
+    }
+    const vsLine = pm ? `<div class="sm-vs">▲▼ เทียบกับ ${esc(cr.label)} (${esc(cr.from.slice(8))}/${esc(cr.from.slice(5, 7))}–${esc(cr.to.slice(8))}/${esc(cr.to.slice(5, 7))}/${+cr.to.slice(0, 4) + 543})</div>` : ''
     const p = m.pipeline
     const pTotal = p.lead + p.prospect + p.booking + p.delivered || 1
     const mixTotal = m.mix.B2B.n + m.mix.B2C.n + m.mix.B2G.n
     const empty = !src.bookings.length && !src.customers.length
     $('#sm-body').innerHTML = empty ? `<div class="empty-state"><div class="empty-icon">📐</div><div class="empty-title">ยังไม่มีใบจองหรือลูกค้าในระบบ</div><div class="empty-desc">พอมีข้อมูลจากหน้าลูกค้า/จองรถ ตัวชี้วัดจะขึ้นเองทั้งหมด</div></div>` : `
+      ${vsLine}
       <div class="sm-sec"><div class="sm-sh">🎯 เป้า & คาดการณ์</div><div class="sm-grid">
         <div class="sm-card">${head('target')}
           ${m.target.basis === 'delivered' ? `
@@ -135,11 +148,11 @@ export default async function SalesMetricsPage(container) {
       ${!who ? quotaHtml(m) : ''}</div>
 
       <div class="sm-sec"><div class="sm-sh">💰 ยอดขาย & กำไร</div><div class="sm-grid">
-        <div class="sm-card">${head('gmv')}<div class="sm-v">${short(m.gmv)}</div><div class="sm-s">${m.units.booked} ใบจอง${m.units.cancelled ? ` · ถอนจอง ${m.units.cancelled}` : ''}</div></div>
-        <div class="sm-card">${head('aov')}<div class="sm-v">${short(m.aov)}</div><div class="sm-s">ต่อใบจองในช่วงนี้</div></div>
-        <div class="sm-card">${head('gp')}<div class="sm-v">${pct(m.grossProfit.pct)}<small> ${short(m.grossProfit.value)}</small></div>
+        <div class="sm-card">${head('gmv')}<div class="sm-v">${short(m.gmv)} ${dl(m.gmv, pm?.gmv)}</div><div class="sm-s">${m.units.booked} ใบจอง ${dl(m.units.booked, pm?.units.booked)}${m.units.cancelled ? ` · ถอนจอง ${m.units.cancelled}` : ''}</div></div>
+        <div class="sm-card">${head('aov')}<div class="sm-v">${short(m.aov)} ${dl(m.aov, pm?.aov)}</div><div class="sm-s">ต่อใบจองในช่วงนี้</div></div>
+        <div class="sm-card">${head('gp')}<div class="sm-v">${pct(m.grossProfit.pct)}<small> ${short(m.grossProfit.value)}</small> ${dl(m.grossProfit.pct, pm?.grossProfit.pct, 'pt')}</div>
           <div class="sm-s">จากรถส่งมอบ/ตัดตัวเลข ${m.grossProfit.units} คัน${m.grossProfit.estimated ? ` · ${m.grossProfit.estimated} คันยังไม่กรอกต้นทุน ใช้ประมาณ 82%` : ''}</div>${link('/finance/margin')}</div>
-        <div class="sm-card">${head('revshare')}<div class="sm-v">${short(m.revShare.total)}</div><div class="sm-s">คอมไฟแนนซ์ ${short(m.revShare.finance)}${m.revShare.insurance ? ` · คอมประกัน ${short(m.revShare.insurance)}` : ''}${m.revShare.perUnit ? ` · เฉลี่ย ${short(m.revShare.perUnit)}/คัน` : ''}</div></div>
+        <div class="sm-card">${head('revshare')}<div class="sm-v">${short(m.revShare.total)} ${dl(m.revShare.total, pm?.revShare.total)}</div><div class="sm-s">คอมไฟแนนซ์ ${short(m.revShare.finance)}${m.revShare.insurance ? ` · คอมประกัน ${short(m.revShare.insurance)}` : ''}${m.revShare.perUnit ? ` · เฉลี่ย ${short(m.revShare.perUnit)}/คัน` : ''}</div></div>
       </div></div>
 
       <div class="sm-sec"><div class="sm-sh">📋 ไปป์ไลน์ & การปิดการขาย</div>
@@ -147,7 +160,7 @@ export default async function SalesMetricsPage(container) {
           <div class="sm-pipe">${[['Lead', p.lead, 'l'], ['Prospect', p.prospect, 'p'], ['จองแล้ว รอส่ง', p.booking, 'b'], ['ส่งมอบ (ช่วงนี้)', p.delivered, 'd']].map(([l, n, c]) => `<div class="sm-pipe-s s-${c}" style="flex:${Math.max(n / pTotal, 0.08)}"><b>${n}</b><span>${l}</span></div>`).join('')}</div>
           <div class="sm-s">เสียดีลสะสม ${p.lost} ราย</div>${link('/crm/pipeline')}</div>
         <div class="sm-grid">
-          <div class="sm-card">${head('conversion')}<div class="sm-v">${pct(m.conversion.pct)}</div><div class="sm-s">ลูกค้าใหม่ ${m.conversion.leads} ราย จองแล้ว ${m.conversion.won}${m.conversion.cancelPct ? ` · ถอนจอง ${m.conversion.cancelPct}%` : ''}</div></div>
+          <div class="sm-card">${head('conversion')}<div class="sm-v">${pct(m.conversion.pct)} ${dl(m.conversion.pct, pm?.conversion.pct, 'pt')}</div><div class="sm-s">ลูกค้าใหม่ ${m.conversion.leads} ราย จองแล้ว ${m.conversion.won}${m.conversion.cancelPct ? ` · ถอนจอง ${m.conversion.cancelPct}%` : ''}</div></div>
           <div class="sm-card">${head('cycle')}<div class="sm-v">${m.salesCycle.avg ?? '—'}<small> วัน</small></div><div class="sm-s">${m.salesCycle.n ? `ค่ากลาง ${m.salesCycle.median} วัน · จาก ${m.salesCycle.n} ใบจองที่ผูกลูกค้า` : 'ใบจองยังไม่ได้ผูกกับลูกค้าในระบบ'}</div></div>
           <div class="sm-card">${head('lead')}<div class="sm-v">${m.lead.total}</div><div class="sm-s">ใหม่ในช่วงนี้ ${m.lead.new} ราย</div>${link('/crm/customers', 'ไปหน้าลูกค้า')}</div>
           <div class="sm-card">${head('prospect')}<div class="sm-v">${m.prospect.total}</div><div class="sm-s">🔥 สนใจมาก ${m.prospect.hot} ราย</div></div>
@@ -196,7 +209,9 @@ export default async function SalesMetricsPage(container) {
   })
   $('#sm-ask').addEventListener('click', () => {
     const m = computeSalesMetrics(src, { today, period, who })
-    const q = `สรุปตัวชี้วัดการขาย${PERIODS[period]}${who ? ' ของ ' + (names.find(x => x[0] === who)?.[1] || '') : ''} ให้หน่อย: จอง ${m.units.booked} คัน เป้า ${m.target.units ?? '-'} คัน, GMV ${Math.round(m.gmv)}, AOV ${m.aov ?? '-'}, GP ${m.grossProfit.pct ?? '-'}%, อัตราปิด ${m.conversion.pct ?? '-'}%, วงจรขาย ${m.salesCycle.avg ?? '-'} วัน, Lead ${m.lead.total} Prospect ${m.prospect.total}, ขายพ่วง ${m.crossSell.pct ?? '-'}%, อัปเซล ${m.upSell.pct ?? '-'}%, ลูกค้าหาย ${m.churn.pct ?? '-'}% — จุดไหนดี จุดไหนต้องแก้ และควรทำอะไร 3 ข้อสัปดาห์นี้`
+    const cr = compareRange(period, today), pm = cr && computeSalesMetrics(src, { today, period, who, range: cr })
+    const vs = pm ? ` (เทียบ${cr.label}: จอง ${pm.units.booked} คัน GMV ${Math.round(pm.gmv)} อัตราปิด ${pm.conversion.pct ?? '-'}%)` : ''
+    const q = `สรุปตัวชี้วัดการขาย${PERIODS[period]}${who ? ' ของ ' + (names.find(x => x[0] === who)?.[1] || '') : ''} ให้หน่อย: จอง ${m.units.booked} คัน เป้า ${m.target.units ?? '-'} คัน, GMV ${Math.round(m.gmv)}, AOV ${m.aov ?? '-'}, GP ${m.grossProfit.pct ?? '-'}%, อัตราปิด ${m.conversion.pct ?? '-'}%, วงจรขาย ${m.salesCycle.avg ?? '-'} วัน, Lead ${m.lead.total} Prospect ${m.prospect.total}, ขายพ่วง ${m.crossSell.pct ?? '-'}%, อัปเซล ${m.upSell.pct ?? '-'}%, ลูกค้าหาย ${m.churn.pct ?? '-'}%${vs} — จุดไหนดี จุดไหนต้องแก้ และควรทำอะไร 3 ข้อสัปดาห์นี้`
     navigate('/ai/ask?q=' + encodeURIComponent(q))
   })
   await loadPersonTargets()

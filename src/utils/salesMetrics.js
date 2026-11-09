@@ -26,6 +26,25 @@ export function periodRange(kind, today) {
   return { from: `${y}-${pad(m)}-01`, to: `${y}-${pad(m)}-${pad(last(y, m))}`, months: [m], year: y, isCurrentMonth: true }
 }
 
+// (v1.0.989) ช่วงเทียบที่ยุติธรรม — เดือนนี้: วันที่ 1..วันนี้ของเดือนก่อน (ช่วงเท่ากัน) · เดือนก่อน: ทั้งเดือนก่อนหน้านั้น
+// ไตรมาส/ปี: ช่วงเดียวกันของปีก่อน · คืน null ถ้าไม่รู้จัก
+export function compareRange(kind, today) {
+  const pad = n => String(n).padStart(2, '0')
+  const last = (yy, mm) => new Date(Date.UTC(yy, mm, 0)).getUTCDate()
+  const y = +today.slice(0, 4), m = +today.slice(5, 7), d = +today.slice(8, 10)
+  const back = (yy, mm) => (mm === 1 ? [yy - 1, 12] : [yy, mm - 1])
+  if (kind === 'month') { const [py, pm] = back(y, m); return { from: `${py}-${pad(pm)}-01`, to: `${py}-${pad(pm)}-${pad(Math.min(d, last(py, pm)))}`, months: [pm], year: py, label: `1–${Math.min(d, last(py, pm))} เดือนก่อน` } }
+  if (kind === 'prev') { const [py, pm] = back(...back(y, m)); return { from: `${py}-${pad(pm)}-01`, to: `${py}-${pad(pm)}-${pad(last(py, pm))}`, months: [pm], year: py, label: 'เดือนก่อนหน้านั้น' } }
+  if (kind === 'quarter' || kind === 'year') { const r = periodRange(kind, today); const shift = s => `${+s.slice(0, 4) - 1}${s.slice(4)}`; const to = r.to.slice(5) === '02-29' ? `${y - 1}-02-28` : shift(r.to); return { from: shift(r.from), to, months: r.months, year: y - 1, label: 'ช่วงเดียวกันปีก่อน' } }
+  return null
+}
+
+// % เปลี่ยนแปลง · ฐานเป็น 0/ไม่มี → null (ไม่แสดง ไม่เดา)
+export function pctChange(cur, prev) {
+  if (cur == null || prev == null || !prev) return null
+  return Math.round((cur - prev) / Math.abs(prev) * 100)
+}
+
 export const bookingDay = b => ymdBangkok(b.bookingDate) || ymdBangkok(b.createdAt)
 export const deliveryDay = b => (DELIVERED.includes(b.status) ? ymdBangkok(b.actualDeliveryDate) || ymdBangkok(b.cutDate) || ymdBangkok(b.deliveryDate) : '')
 const inRange = (d, r) => !!d && d >= r.from && d <= r.to
@@ -57,8 +76,8 @@ export function basePriceIndex(vehicles = []) {
 // ── คำนวณทั้งหมด ──
 // src = { bookings, customers, testDrives, quotations, jobCards, budget:{targets,units}, vehicles }
 // opts = { today, period:'month'|'prev'|'quarter'|'year', who: ชื่อเซลส์ (normName) หรือ '' = ทุกคน }
-export function computeSalesMetrics(src = {}, { today, period = 'month', who = '' } = {}) {
-  const r = periodRange(period, today)
+export function computeSalesMetrics(src = {}, { today, period = 'month', who = '', range = null } = {}) {
+  const r = range || periodRange(period, today)
   const mine = (n) => !who || normName(n) === who
   const bookingsAll = live(src.bookings).filter(b => mine(b.salesName))
   const customersAll = live(src.customers).filter(c => mine(c.assignedTo))
