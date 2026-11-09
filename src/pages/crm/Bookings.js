@@ -29,6 +29,7 @@ import { escHtml as __escA } from '../../utils/escape.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
 import { copyText } from '../../utils/copyText.js'
 import { escHtml } from '../../utils/escape.js'
+import { salesOptionsHtml } from '../../utils/defaultSalesperson.js'
 import { SHEET_COLUMNS, patchForCell, sheetExportRows, sheetFieldList, sheetYesChips } from '../../utils/sheetColumns.js'
 import { renderSheetGrid, deferWhileEditing } from './bookingSheetGrid.js'
 import { notifyTeam } from '../../utils/teamNotify.js'
@@ -1131,8 +1132,7 @@ export default async function BookingsPage(container) {
   // pre = ค่าที่เติมไว้ให้ (เช่นจากใบเสนอราคา utils/quoteToBooking.js) — sale/quotationId/colorOut บันทึกตามไปด้วย
   function openWizard(pre = null) {
     let step = 1
-    const w = { custName: '', phone: '', salesName: (getSalesStaff().includes(myDisplayName) ? myDisplayName : getSalesStaff()[0]) || '', brand: '', model: '', variant: '', price: 0, discount: 0, accessories: 0, bookingDeposit: 0, down: 0, installments: 60, interestRate: 2.99, customerId: null, ...(pre || {}) }
-    if (pre && pre.salesName && !getSalesStaff().includes(pre.salesName)) w.salesName = (getSalesStaff().includes(myDisplayName) ? myDisplayName : getSalesStaff()[0]) || pre.salesName
+    const w = { custName: '', phone: '', salesName: '', brand: '', model: '', variant: '', price: 0, discount: 0, accessories: 0, bookingDeposit: 0, down: 0, installments: 60, interestRate: 2.99, customerId: null, ...(pre || {}) }
     const bkNo = newBookingNo()
     const stepLabels = ['ข้อมูลลูกค้า', 'ราคา & รุ่น', 'ไฟแนนซ์', 'ยืนยัน']
     // (v1.0.915) พิมพ์เบอร์ที่ตรงกับลูกค้าในระบบ → เชื่อมลูกค้าเดิมให้เอง (ไม่ต้องกด 🔍 ค้นหา และสถานะลูกค้าเปลี่ยนเป็น "จองแล้ว" อัตโนมัติ)
@@ -1172,7 +1172,7 @@ export default async function BookingsPage(container) {
         return `<div style="margin-bottom:8px"><button type="button" class="btn btn-secondary btn-sm" id="wz-idcard" title="ถ่ายรูปบัตรประชาชน AI กรอกชื่อ ที่อยู่ และเลขบัตรให้">📷 ถ่ายบัตรประชาชน ให้ AI กรอก</button>${idCardSummary(w.idc, canViewNid)}</div>
           <div class="input-group"><label class="input-label">ชื่อลูกค้า *</label><input class="input" id="wz-cust" value="${escHtml(w.custName)}" placeholder="ชื่อ-นามสกุล"></div>
           <div class="input-group"><label class="input-label">เบอร์โทร</label><input class="input" id="wz-phone" value="${escHtml(w.phone)}" placeholder="0XX-XXX-XXXX"></div>
-          <div class="input-group"><label class="input-label">พนักงานขาย</label><select class="input" id="wz-sales">${getSalesStaff().map(s => `<option ${s === w.salesName ? 'selected' : ''}>${escHtml(s)}</option>`).join('')}</select></div>
+          <div class="input-group"><label class="input-label">พนักงานขาย</label><select class="input" id="wz-sales">${salesOptionsHtml(getSalesStaff(), { current: w.salesName, me: myDisplayName, isSales: getState('user')?.role === 'sales' })}</select></div>
           <div class="input-group"><label class="input-label">ลูกค้าเดิม (ถ้ามี — ไม่บังคับ)</label>
             <div style="display:flex;gap:6px;align-items:center">
               <div style="flex:1;font-size:0.78rem;color:${w.customerId ? 'var(--success)' : 'var(--text-muted)'}">${w.customerId ? '🔗 เชื่อมกับลูกค้าในระบบแล้ว' : 'walk-in / ยังไม่เชื่อม'}</div>

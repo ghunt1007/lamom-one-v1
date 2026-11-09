@@ -45,6 +45,7 @@ import { moveFollowupsOnReassign } from '../../utils/leadAssign.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { copyText } from '../../utils/copyText.js'
 import { escHtml } from '../../utils/escape.js'
+import { salesOptionsHtml } from '../../utils/defaultSalesperson.js'
 
 const pendingFuCount = new WeakMap() // ลูกค้า → จำนวนนัดค้าง (ใช้ตัดสินว่าควรเสนอนัดครั้งถัดไปหลังโทรไหม)
 
@@ -1202,7 +1203,7 @@ export default async function CustomersPage(container) {
             <div class="input-group"><label class="input-label">อุณหภูมิ</label><select class="input" id="ft"><option value="">-</option>${Object.entries(TEMP).map(([k, v]) => `<option value="${__escA(k)}" ${pre?.temperature === k ? 'selected' : ''}>${v.label}</option>`).join('')}</select></div>
           </div>
           <div class="grid-2">
-            <div class="input-group"><label class="input-label">ผู้ดูแล</label><select class="input" id="fa"><option value="">-</option>${getSalesStaff().map(s => `<option ${(existing ? existing.assignedTo : myDisplayName) === s ? 'selected' : ''}>${escHtml(s)}</option>`).join('')}</select></div>
+            <div class="input-group"><label class="input-label">ผู้ดูแล</label><select class="input" id="fa">${salesOptionsHtml(getSalesStaff(), existing ? { current: existing.assignedTo || '', blank: true } : { me: myDisplayName, isSales: getState('user')?.role === 'sales', blank: true })}</select></div>
             <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;margin-top:22px;cursor:pointer"><input type="checkbox" id="fvip" ${pre?.vip ? 'checked' : ''}> ⭐ ลูกค้า VIP</label>
           </div>
           <div class="input-group"><label class="input-label">หมายเหตุ</label><textarea class="input" id="fn" rows="2" placeholder="บันทึกข้อมูลเพิ่มเติม...">${escHtml(pre?.notes || '')}</textarea></div>

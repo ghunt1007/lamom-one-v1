@@ -12,6 +12,7 @@ import { testDriveThanks } from '../../utils/bookingNotify.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { copyText } from '../../utils/copyText.js'
 import { escHtml } from '../../utils/escape.js'
+import { salesOptionsHtml } from '../../utils/defaultSalesperson.js'
 
 // (v1.0.523) เดิมหน้านี้เขียน collection แยก 'test_drive_records' ของตัวเอง ในขณะที่ TestDriveScheduler.js
 // (/dms/testdrive-schedule) เขียน collection 'test_drives' คนละตัวโดยสิ้นเชิง — ทำระบบเดียวกัน (นัด→ทดลองขับ→
@@ -305,7 +306,7 @@ export default async function TestDrivePage(container) {
           <div class="input-group"><label class="input-label">เวลา</label><input class="input" type="time" id="nf-time" value="10:00"></div>
         </div>
         <div class="input-group"><label class="input-label">Sales ที่รับผิดชอบ</label>
-          <select class="input" id="nf-staff">${getSalesStaff().map(s => `<option ${s === (getState("user")?.displayName || "") ? "selected" : ""}>${escHtml(s)}</option>`).join('')}</select>
+          <select class="input" id="nf-staff">${salesOptionsHtml(getSalesStaff(), { me: getState('user')?.displayName || '', isSales: getState('user')?.role === 'sales' })}</select>
         </div>
       </div>`,
       footer: `<button class="btn btn-secondary" id="nfc">ยกเลิก</button><button class="btn btn-primary" id="nfs">📅 นัดหมาย</button>`
