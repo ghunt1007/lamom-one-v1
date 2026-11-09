@@ -14,6 +14,7 @@ import { myName } from '../../utils/myName.js'
 import { isManagerRole } from '../../utils/managerRole.js'
 import { myEffectiveCompanyId, companyScopeFilters } from '../../core/companyScope.js'
 import { accountResults } from '../../utils/socialAccounts.js'
+import { navigate } from '../../core/router.js'
 import { getSalesStaff } from '../../data/masterData.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 import { suggestCustomerReply, generateSocialContent, aiErrorText } from '../../utils/ai.js'
@@ -433,7 +434,7 @@ export default async function SocialChannelsPage(container) {
             <div class="ch-acc">
               <div class="ch-acc-main"><b>${esc(ACCOUNT_PLATFORMS[a.platform] || a.platform)} · ${esc(a.name || '')}</b>
                 <small>${[a.owner ? `ผู้ดูแล ${esc(a.owner)}` : '', a.handle ? esc(a.handle) : ''].filter(Boolean).join(' · ')}</small></div>
-              ${(() => { const r = accRes?.[a.id]; return r ? `<span class="ch-acc-res" title="Lead ที่เข้ามาเดือนนี้ · ในนั้นจองแล้ว (รวมทั้งหมด ${r.allLeads} Lead / จอง ${r.allBooked})">🧲 ${r.leads} · 📝 ${r.booked}</span>` : '' })()}
+              ${(() => { const r = accRes?.[a.id]; return r ? (r.allLeads ? `<button type="button" class="ch-acc-res" data-acc-cust="${esc(a.id)}" data-acc-name="${esc(a.name || '')}" title="Lead ที่เข้ามาเดือนนี้ · ในนั้นจองแล้ว (รวมทั้งหมด ${r.allLeads} Lead / จอง ${r.allBooked}) — แตะเพื่อดูรายชื่อลูกค้า">🧲 ${r.leads} · 📝 ${r.booked} ›</button>` : `<span class="ch-acc-res" title="ยังไม่มี Lead จากบัญชีนี้">🧲 0 · 📝 0</span>`) : '' })()}
               <span class="ch-st ${c ? 'on' : ''}">${c ? '✅ เชื่อมแล้ว' : '⚪ บันทึกไว้'}</span>
               <span class="ch-acc-a">${a.url ? `<a class="btn btn-ghost btn-sm" href="${esc(a.url)}" target="_blank" rel="noopener">เปิด ↗</a>` : ''}<button class="btn btn-ghost btn-sm" data-acc-edit="${esc(a.id)}">แก้ไข</button></span>
             </div>` }).join('')}</div>` : '<div class="ch-muted">— ยังไม่มี —</div>'}</div>`
@@ -555,6 +556,8 @@ export default async function SocialChannelsPage(container) {
       if (tab === 'maps' && status?.google?.configured && !maps && !mapsLoading && mapsQ) searchMaps(mapsQ)
       return
     }
+    const ac = t.closest('[data-acc-cust]')
+    if (ac) { navigate(`/crm/customers?acc=${encodeURIComponent(ac.dataset.accCust)}&accName=${encodeURIComponent(ac.dataset.accName || '')}`); return }
     if (t.closest('#ch-refresh')) { metaLoaded = false; loadStatus(); return }
     const g = t.closest('[data-goto-guide]')
     if (g) { tab = 'guide'; lsSet('ch-tab', tab); render(); const d = container.querySelector(`#g-${g.dataset.gotoGuide}`); if (d) { d.open = true; d.scrollIntoView({ block: 'start' }) } return }
