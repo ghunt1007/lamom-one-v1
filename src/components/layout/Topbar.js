@@ -1,7 +1,6 @@
 import { getState, setState, setActiveCompanyFilter, setLanguage, on } from '../../core/store.js'
 import { navigate } from '../../core/router.js'
 import { openNotifPanel } from './NotifPanel.js'
-import { openGlobalSearch } from './GlobalSearch.js'
 import { listDocs, seedDemoData } from '../../core/db.js'
 import { notifFilters, mineOrGeneral } from '../../utils/notifScope.js'
 import { t, LANGUAGES } from '../../i18n/index.js'
@@ -113,8 +112,9 @@ export function Topbar(container) {
   }
 }
 
+// (v1.0.1008) ช่องค้นหารวมโหลดเมื่อกดครั้งแรก — ไม่ต้องอยู่ในโค้ดที่โหลดตอนเปิดแอป
 function openSearch() {
-  openGlobalSearch()
+  import('./GlobalSearch.js').then(m => m.openGlobalSearch())
 }
 
 // เดิมไม่มีทางเปิด sidebar บนมือถือได้เลย — CSS ที่ layout.css ซ่อน .sidebar ไว้นอกจอเสมอที่ ≤768px
