@@ -84,3 +84,16 @@ describe('leadWait', () => {
     expect(leadWait({ createdAt: '2026-10-26T02:00:00Z', lastContactAt: '2026-10-26T02:30:00Z' }, now)).toBeNull()
   })
 })
+
+describe('showroom appointments on My Day (v1.0.1012)', () => {
+  it('lists today\'s open showroom appointments, sorted by time', async () => {
+    const { buildMyDay } = await import('./myDay.js')
+    const d = buildMyDay({ appointments: [
+      { date: '2026-11-10', time: '15:00', status: 'scheduled', salesperson: 'บี', custName: 'x' },
+      { date: '2026-11-10', time: '09:30', status: 'confirmed', salesperson: 'บี', custName: 'y' },
+      { date: '2026-11-10', time: '10:00', status: 'arrived', salesperson: 'บี', custName: 'z' },
+      { date: '2026-11-09', status: 'scheduled', salesperson: 'บี', custName: 'old' },
+    ] }, { today: '2026-11-10' })
+    expect(d.appts.map(a => a.custName)).toEqual(['y', 'x'])
+  })
+})

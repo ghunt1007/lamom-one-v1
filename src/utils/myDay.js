@@ -30,9 +30,9 @@ export const daysBetween = (from, to) => dayNum(to) - dayNum(from)
 const custName = c => [c.firstName, c.lastName].filter(Boolean).join(' ') || 'ไม่มีชื่อ'
 
 // mine(ownerName, rec) → true ถ้าเป็นงานที่ผู้ใช้คนนี้ควรเห็น (หน้าเพจส่ง scopeIncludesRecord + ตัวกรองเซลส์มาให้)
-export function buildMyDay({ customers = [], followups = [], bookings = [], testDrives = [] }, { today, mine = () => true }) {
+export function buildMyDay({ customers = [], followups = [], bookings = [], testDrives = [], appointments = [] }, { today, mine = () => true }) {
   const alive = rows => (rows || []).filter(r => r && !r.deleted)
-  const out = { followups: [], stale: [], newLeads: [], income: [], stuck: [], deliveries: [], testDrives: [], finance: [], unscheduled: [] }
+  const out = { followups: [], stale: [], newLeads: [], income: [], stuck: [], deliveries: [], testDrives: [], appts: [], finance: [], unscheduled: [] }
 
   const custById = new Map((customers || []).map(c => [c.id, c]))
   alive(followups)
@@ -89,6 +89,12 @@ export function buildMyDay({ customers = [], followups = [], bookings = [], test
     .filter(t => (t.date || '').slice(0, 10) === today && ['scheduled', 'confirmed', 'in_progress'].includes(t.status || 'scheduled') && mine(t.staff, t))
     .forEach(t => out.testDrives.push(t))
   out.testDrives.sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')))
+
+  // (v1.0.1012) นัดลูกค้าเข้าโชว์รูมวันนี้ที่ลูกค้ายังไม่มา (หน้านัดหมายโชว์รูม · ผู้ดูแล = salesperson)
+  alive(appointments)
+    .filter(a => (a.date || '').slice(0, 10) === today && ['scheduled', 'confirmed'].includes(a.status || 'scheduled') && mine(a.salesperson, a))
+    .forEach(a => out.appts.push(a))
+  out.appts.sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')))
 
   // นัดพรุ่งนี้ (ไว้วางแผน ไม่นับเป็นงานค้าง)
   const tomorrow = new Date((dayNum(today) + 1) * 86400000).toISOString().slice(0, 10)

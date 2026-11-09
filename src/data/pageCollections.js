@@ -71,6 +71,7 @@ export const PAGE_COLLECTIONS = {
   "staff"
  ],
  "/crm/my-day": [
+  "appointments",
   "bookings",
   "customers",
   "followups",
