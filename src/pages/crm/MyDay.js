@@ -145,10 +145,31 @@ export default async function MyDayPage(container) {
       </div></div>`
   }
 
+  // (v1.0.993) ผู้จัดการ: มาร์จิ้นโชว์รูม · ค่าบริหาร ผจก.ทีม/ฝ่าย · รางวัลพิเศษรวม ของเดือนนี้ (ข้อมูลภายใน เห็นเฉพาะผู้จัดการ)
+  function mgrEarnCard(today) {
+    const list = programs.filter(p => ['margin', 'mgmtfee', 'bonus'].includes(p.type))
+    if (!list.length) return ''
+    const e = programEarnings(list, data.bookings.filter(b => !b.deleted), { month: today.slice(0, 7), staff: sellerNames(), isManager: true })
+    const baht = n => '฿' + Math.round(n || 0).toLocaleString('en-US')
+    const has = t => list.some(p => p.type === t)
+    const bonusTotal = e.bonuses.reduce((a, b) => a + b.total, 0)
+    const tiles = [
+      has('margin') ? ['💹 มาร์จิ้นโชว์รูม', e.margin.amount, `${e.margin.units} คัน`] : null,
+      list.some(p => p.type === 'mgmtfee' && p.role !== 'salesManager') ? ['🧑‍💼 ค่าบริหาร ผจก.ทีม', e.mgmt.teamManager.amount, `${e.mgmt.teamManager.units} คัน`] : null,
+      list.some(p => p.type === 'mgmtfee' && p.role === 'salesManager') ? ['🧑‍💼 ค่าบริหาร ผจก.ฝ่าย', e.mgmt.salesManager.amount, `${e.mgmt.salesManager.units} คัน`] : null,
+      has('bonus') ? ['🏆 รางวัลพิเศษที่ทีมได้', bonusTotal, `${e.bonuses.length} รางวัล`] : null,
+    ].filter(Boolean)
+    if (!tiles.length) return ''
+    return `<div class="card" style="padding:12px 16px;margin-bottom:14px;border-left:3px solid var(--primary)">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px"><div style="font-weight:800;flex:1 1 200px;min-width:0">💰 ผลตอบแทนจากแคมเปญเดือนนี้ <small style="font-weight:500;color:var(--text-muted)">นับจากใบจองจริง · เห็นเฉพาะผู้จัดการ</small></div><button class="btn btn-secondary btn-xs" id="md-bonus-more">ดูรายละเอียด</button></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:6px">${tiles.map(([l, v, sub]) => `<div style="padding:8px 10px;border-radius:10px;background:var(--surface-2);min-width:0"><div style="font-size:0.7rem;color:var(--text-muted);line-height:1.3">${l}</div><div style="font-weight:800;font-size:1rem;white-space:nowrap">${baht(v)}</div><div style="font-size:0.7rem;color:var(--text-muted)">${sub}</div></div>`).join('')}</div>
+    </div>`
+  }
+
   // (v1.0.990) เงินรางวัลพิเศษของฉันเดือนนี้ — เห็นทันทีว่าขาดอีกกี่คันจะได้เงิน (นับจากใบจองจริง แบบเดียวกับหน้าโปร & เงินพิเศษ)
   function bonusCard(today) {
-    // หัวหน้าที่ดู "ทุกคน" ไม่ต้องเห็นของตัวเอง (ดูรวมทั้งทีมที่หน้าโปร & เงินพิเศษ) — เลือกชื่อเซลส์แล้วเห็นของคนนั้น
-    if (seller === 'all' && canPick && isManagerRole()) return ''
+    // หัวหน้าที่ดู "ทุกคน" เห็นสรุปผลตอบแทนเดือนนี้ของโชว์รูม/ผู้จัดการแทน (มาร์จิ้น ค่าบริหาร รางวัลรวม) — เลือกชื่อเซลส์แล้วเห็นของคนนั้น
+    if (seller === 'all' && canPick && isManagerRole()) return mgrEarnCard(today)
     const who = seller !== 'all' && seller !== UNASSIGNED ? seller : me.displayName
     if (!who) return ''
     const month = today.slice(0, 7)
