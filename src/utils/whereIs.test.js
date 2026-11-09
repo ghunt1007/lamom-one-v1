@@ -42,3 +42,10 @@ describe('appointment aliases (v1.0.1016)', () => {
     expect(findPages('นัดเช็กระยะอยู่ไหน', NAV)[0]?.path).toBe('/service/appointment')
   })
 })
+
+describe('broadcast alias (v1.0.1026)', () => {
+  it('finds the messaging page for sending LINE to many customers', () => {
+    expect(findPages('ส่งไลน์หาลูกค้าหลายคนทำตรงไหน', NAV)[0]?.path).toBe('/comms/broadcast')
+    expect(findPages('บรอดแคสต์อยู่ไหน', NAV)[0]?.path).toBe('/comms/broadcast')
+  })
+})

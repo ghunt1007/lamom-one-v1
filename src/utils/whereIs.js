@@ -25,6 +25,7 @@ const ALIASES = [
   ['/finance/loan-calc', 'คำนวณค่างวด ค่างวด ผ่อน'],
   ['/dms/stock', 'สต็อก รถในสต็อก รถเหลือ'],
   ['/dms/delivery-calendar', 'ส่งมอบ ปฏิทินส่งมอบ'],
+  ['/comms/broadcast', 'ส่งไลน์หาลูกค้า ส่งไลน์ หลายคน ทั้งกลุ่ม บรอดแคสต์ broadcast ส่งข้อความหาลูกค้า ส่งโปรหาลูกค้า ส่งข้อความกลุ่ม'],
   ['/settings/daily-report', 'รายงาน 18:00 รายงานไลน์ รายงานประจำวัน'],
 ]
 const ESSENTIAL_PATHS = new Set(ESSENTIALS.flatMap(g => g.paths))
