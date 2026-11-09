@@ -22,6 +22,7 @@ import { catalogContext } from '../../utils/salesAi.js'
 import { openQuickLead } from '../../utils/quickLead.js'
 import { socialStatus, metaInbox, metaReply, metaPost, metaAds, metaAdsUpdate, lineReply, shareLinks, googlePlaces } from '../../utils/socialApi.js'
 import { PLATFORM_GUIDE, SECRET_STEPS, LEVELS, ACCOUNT_PLATFORMS } from '../../utils/socialGuide.js'
+const LEVEL_ORDER_UI = { team: 0, showroom: 1, sales: 2 }
 
 const TABS = { inbox: '💬 แชตรวม', post: '📝 โพสต์', ads: '📣 โฆษณา', maps: '📍 Google Maps', accounts: '👥 บัญชี', guide: '🧭 วิธีเชื่อม' }
 const KIND = { line: { icon: '💚', label: 'LINE' }, messenger: { icon: '📘', label: 'Messenger' }, instagram: { icon: '📸', label: 'IG' } }
@@ -423,6 +424,7 @@ export default async function SocialChannelsPage(container) {
     return `
       <div class="ch-row" style="margin-bottom:10px">
         <button class="btn btn-primary btn-sm" id="acc-add">➕ เพิ่มบัญชี</button>
+        ${accounts.length ? '<button class="btn btn-secondary btn-sm" id="acc-spend">💸 ใส่ค่าโฆษณาเดือนนี้</button>' : ''}
         ${missing.length ? `<button class="btn btn-secondary btn-sm" id="acc-import">⬇️ เพิ่มเพจที่เชื่อมแล้ว ${missing.length} เพจ</button>` : ''}
       </div>
       <small class="ch-muted" style="display:block;margin-bottom:4px">🧲 = Lead ที่เข้ามาเดือนนี้ · 📝 = ในนั้นจองแล้ว — นับจากลูกค้าที่กด “➕ Lead” แล้วเลือก “จากบัญชีไหน”</small>
@@ -476,6 +478,30 @@ export default async function SocialChannelsPage(container) {
         else await createDoc('social_channels', { ...doc, companyId: myEffectiveCompanyId(), createdBy: myName() })
         showToast('💾 บันทึกแล้ว', 'success'); close()
       } catch (e) { showToast(e.message, 'error') }
+    })
+  }
+  // (v1.0.1001) ใส่ค่าโฆษณาเดือนนี้ของทุกบัญชีในหน้าเดียว (เดิมต้องกดแก้ไขทีละบัญชี)
+  function spendForm() {
+    const rows = [...accounts].sort((a, b) => (LEVEL_ORDER_UI[a.level] ?? 3) - (LEVEL_ORDER_UI[b.level] ?? 3) || String(a.name).localeCompare(String(b.name), 'th'))
+    const { el, close } = openModal({
+      title: `💸 ค่าโฆษณา/บูสต์โพสต์ ${new Date(thisMonth + '-01T00:00:00').toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })}`, size: 'sm',
+      body: `<div class="ch-spend-form">${rows.map(a => `<label class="ch-spend-row"><span><b>${esc(ACCOUNT_PLATFORMS[a.platform] || a.platform)}</b> ${esc(a.name || '')}${a.owner ? `<small> · ${esc(a.owner)}</small>` : ''}</span>
+        <input class="input" type="number" min="0" step="100" inputmode="numeric" data-sp="${esc(a.id)}" value="${accountSpend(a, thisMonth) || ''}" placeholder="0"></label>`).join('')}</div>
+        <small class="ch-muted">ใส่ยอดที่จ่ายจริงเดือนนี้ (บาท) เว้นว่าง = ไม่ได้ยิงแอด — แอปคิดต้นทุนต่อ Lead/ต่อจอง และ CAC ให้เอง</small>`,
+      footer: '<button class="btn btn-secondary" id="sp-cancel">ยกเลิก</button><button class="btn btn-primary" id="sp-save">💾 บันทึก</button>',
+    })
+    el.querySelector('#sp-cancel').addEventListener('click', close)
+    el.querySelector('#sp-save').addEventListener('click', async () => {
+      const btn = el.querySelector('#sp-save'); btn.disabled = true
+      try {
+        const jobs = [...el.querySelectorAll('[data-sp]')].map(i => {
+          const a = accounts.find(x => x.id === i.dataset.sp)
+          if (!a || (Math.round(Number(i.value) || 0)) === accountSpend(a, thisMonth)) return null
+          return updateDocData('social_channels', a.id, { spend: withSpend(a, thisMonth, i.value) })
+        }).filter(Boolean)
+        await Promise.all(jobs)
+        showToast(jobs.length ? `💾 บันทึกค่าโฆษณา ${jobs.length} บัญชีแล้ว` : 'ไม่มีอะไรเปลี่ยน', 'success'); close()
+      } catch (e) { btn.disabled = false; showToast(e.message, 'error') }
     })
   }
   async function importPages() {
@@ -590,6 +616,7 @@ export default async function SocialChannelsPage(container) {
     const rv = t.closest('[data-rev]'); if (rv) { draftReview(rv.dataset.rev, rv); return }
     if (t.closest('#acc-add')) { accountForm(); return }
     if (t.closest('#acc-import')) { importPages(); return }
+    if (t.closest('#acc-spend')) { spendForm(); return }
     const ae = t.closest('[data-acc-edit]'); if (ae) { accountForm(accounts.find(a => a.id === ae.dataset.accEdit)); return }
   })
   container.addEventListener('change', e => {
