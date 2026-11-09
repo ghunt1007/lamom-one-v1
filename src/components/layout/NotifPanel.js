@@ -1,6 +1,7 @@
 import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 import { timeAgo } from '../../utils/format.js'
 import { setState } from '../../core/store.js'
+import { notifFilters } from '../../utils/notifScope.js'
 import { navigate } from '../../core/router.js'
 import { t } from '../../i18n/index.js'
 import { escHtml } from '../../utils/escape.js'
@@ -12,7 +13,8 @@ export async function openNotifPanel(anchorEl) {
   if (existing) { existing.remove(); return }
 
   seedDemoData()
-  const notifs = await listDocs('notifications', [], 'createdAt', 'desc', 20)
+  const nf = notifFilters()
+  const notifs = nf ? await listDocs('notifications', nf, 'createdAt', 'desc', 20).catch(() => []) : []
   const unread = notifs.filter(n => !n.read)
   setState('unreadCount', unread.length)
 
