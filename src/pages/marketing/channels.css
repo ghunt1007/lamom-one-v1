@@ -132,3 +132,9 @@ button.ch-acc-res { cursor: pointer; color: var(--primary); } button.ch-acc-res:
 /* (v1.0.996) ค่าโฆษณาต่อบัญชี */
 .ch-acc-spend { font-size: 0.72rem; color: var(--text-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .ch-spend-sum { margin: 6px 0 8px; padding: 8px 10px; border-radius: 10px; background: var(--surface-2); font-size: 0.82rem; line-height: 1.5; }
+
+/* (v1.0.1001) ใส่ค่าโฆษณาทุกบัญชีในหน้าเดียว */
+.ch-spend-form { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.ch-spend-row { display: flex; align-items: center; gap: 8px; font-size: 0.84rem; }
+.ch-spend-row > span { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.ch-spend-row .input { flex: 0 0 110px; width: 110px; text-align: right; }
