@@ -21,7 +21,7 @@ import { analyzeSalesProgram, aiErrorText } from '../../utils/ai.js'
 import {
   PROGRAM_TYPES, TYPE_ORDER, CUSTOMER_TYPES, MGMT_ROLES, BONUS_FOR,
   normalizeProgram, validateProgram, overlapsMonth, liveState, daysLeft, rangeLabel, monthBounds, shiftMonth, monthLabelTh,
-  sortPrograms, programsForCar, carSummary, copyToNextMonth, monthlyInstallment, canSeeType,
+  sortPrograms, programsForCar, carSummary, copyToNextMonth, supersededBy, dayBefore, shortDateTh, monthlyInstallment, canSeeType,
   fromLegacyRateSheet, fromLegacyPromotion, programEarnings, myBonusProgress, COUNT_BY,
 } from '../../utils/salesPrograms.js'
 
@@ -324,6 +324,22 @@ export default async function SalesProgramsPage(container) {
     if (ok < list.length) b.disabled = false
   })
 
+  // (v1.0.986) ออกแคมเปญรอบใหม่กลางเดือน → ถามปิดอันเดิมให้จบก่อนวันเริ่มอันใหม่ (กดครั้งเดียว ไม่ต้องไปแก้ทีละอัน)
+  async function offerCloseOld(nextList) {
+    const ends = new Map() // id → วันจบใหม่ (ก่อนวันเริ่มของแคมเปญใหม่อันแรกที่มาแทน)
+    for (const n of [].concat(nextList)) for (const p of supersededBy(n, programs)) {
+      const e = dayBefore(n.dateFrom)
+      if (!ends.has(p.id) || e < ends.get(p.id).end) ends.set(p.id, { p, end: e })
+    }
+    if (!ends.size) return
+    const list = [...ends.values()]
+    const names = list.map(({ p, end }) => `• ${escHtml(p.title)} (${rangeLabel(p)}) → จบ ${shortDateTh(end)}`).join('<br>')
+    if (!(await confirmDialog({ title: `แทนที่แคมเปญเดิม ${list.length} รายการ?`, message: `แคมเปญที่เพิ่งบันทึกเป็นรอบใหม่ของแคมเปญที่ยังใช้อยู่:<br>${names}<br><br>ให้ของเดิมจบก่อนวันเริ่มรอบใหม่เลยไหม (ลูกค้าและเซลส์จะเห็นเฉพาะเรทใหม่)`, confirmText: '✅ ปิดของเดิม', cancelText: 'ใช้คู่กัน' }))) return
+    let ok = 0
+    for (const { p, end } of list) { try { await updateDocData(COL, p.id, { dateTo: end }); ok++ } catch { /* ข้าม */ } }
+    showToast(ok ? `ปิดแคมเปญเดิม ${ok} รายการแล้ว` : 'ปิดแคมเปญเดิมไม่สำเร็จ', ok ? 'success' : 'error')
+  }
+
   // ── ฟอร์ม ──
   function openForm(p, presetType = '', titleOverride = '') {
     const isEdit = !!p?.id
@@ -412,6 +428,7 @@ export default async function SalesProgramsPage(container) {
         showToast('✅ บันทึกแล้ว', 'success')
         if (data.dateFrom && !overlapsMonth(data, month)) { month = data.dateFrom.slice(0, 7); render() }
         close()
+        if (!isEdit) offerCloseOld(data)
       } catch { btn.disabled = false; showToast('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง', 'error') }
     })
   }
@@ -452,12 +469,13 @@ export default async function SalesProgramsPage(container) {
       if (!pick.length) { showToast('❗ เลือกอย่างน้อย 1 รายการ', 'error'); return }
       const btn = q('#ai-save'); btn.disabled = true
       let ok = 0
+      const saved = []
       for (const r of pick) {
         const data = { ...r, title: r.title || 'แคมเปญ', dateFrom: r.dateFrom || today, financeCo: r.type === 'finance' ? (r.financeCo || 'ไม่ระบุ') : r.financeCo, status: validateProgram({ ...r, title: r.title || 'x', dateFrom: r.dateFrom || today, financeCo: r.financeCo || 'x' }) ? 'draft' : r.status }
-        try { await createDoc(COL, { ...normalizeProgram(data), companyId: myEffectiveCompanyId() || null }); ok++ } catch {}
+        try { const doc = normalizeProgram(data); await createDoc(COL, { ...doc, companyId: myEffectiveCompanyId() || null }); saved.push(doc); ok++ } catch {}
       }
       showToast(ok ? `✅ บันทึก ${ok} รายการ` : 'บันทึกไม่สำเร็จ', ok ? 'success' : 'error')
-      if (ok) { const f = pick.find(r => r.dateFrom); if (f) { month = f.dateFrom.slice(0, 7); render() } close() } else btn.disabled = false
+      if (ok) { const f = pick.find(r => r.dateFrom); if (f) { month = f.dateFrom.slice(0, 7); render() } close(); offerCloseOld(saved.filter(d => d.status !== 'draft')) } else btn.disabled = false
     })
   }
 
