@@ -21,3 +21,13 @@ export function salesOptionsHtml(staff, { current = '', me = '', isSales = false
   } else ({ options, selected } = defaultSalesperson(options, me, { addIfMissing: isSales }))
   return (blank ? `<option value="">-</option>` : '') + options.map(s => `<option value="${esc(s)}"${s === selected ? ' selected' : ''}>${esc(s)}</option>`).join('')
 }
+
+// (v1.0.1022) ชื่อนี้คือ "ฉัน" ไหม — ตรงทั้งชื่อ (ไม่สนคำนำหน้า/ช่องว่าง/ตัวพิมพ์) หรือชื่อแรกตรงกันเมื่อฝั่งใดฝั่งหนึ่งพิมพ์มาแค่ชื่อเดียว
+// ("สมชาย" = "สมชาย ใจดี" แต่ "สมชาย ก" ≠ "สมชาย ข") · ใช้กับช่องที่พิมพ์ชื่อเอง เช่น ผู้รับผิดชอบงาน
+export function isMyName(name, me) {
+  const n = normName(name), m = normName(me)
+  if (!n || !m) return false
+  if (n === m) return true
+  const [nf, ...nr] = n.split(' '), [mf, ...mr] = m.split(' ')
+  return nf === mf && (!nr.length || !mr.length)
+}
