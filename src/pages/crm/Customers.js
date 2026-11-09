@@ -175,6 +175,10 @@ export default async function CustomersPage(container) {
   let lostOnly = false
   let salesFilter = ''
   let sourceFilter = ''
+  // (v1.0.991) เปิดจากหน้าช่องทางโซเชียล > บัญชี → ดูเฉพาะลูกค้าที่มาจากบัญชีนั้น (?acc=id&accName=ชื่อ)
+  const accQ = new URLSearchParams(window.location.search)
+  let accFilter = accQ.get('acc') || ''
+  const accName = accQ.get('accName') || ''
   let fuFilter = ''
   let autoAiOnce = false // เปิดจากหน้า "งานของฉันวันนี้" ด้วย ?ai=1 → กด "AI ช่วยปิดการขาย" ให้อัตโนมัติครั้งเดียว
   let sortMode = 'urgent' // urgent = ด่วนก่อน (เดิม) · quiet = เงียบนานสุดก่อน · new = เพิ่มล่าสุดก่อน
@@ -248,7 +252,7 @@ export default async function CustomersPage(container) {
       // '__none' = ลูกค้าที่ยังไม่มีผู้ดูแล (เช่น ทัก LINE OA เข้ามาเอง) — มอบให้เซลส์ได้ที่หน้า "งานของฉันวันนี้"
       const matchSales = !salesFilter || (salesFilter === '__none' ? !String(c.assignedTo || '').trim() : c.assignedTo === salesFilter)
       const matchSource = !sourceFilter || (sourceFilter === 'other' ? !SOURCE[c.source] || c.source === 'other' : c.source === sourceFilter)
-      const matchOwn = !ownScopeActive || scopeIncludesRecord(visScope, c.assignedTo, c)
+      const matchOwn = (!ownScopeActive || scopeIncludesRecord(visScope, c.assignedTo, c)) && (!accFilter || c.sourceAccountId === accFilter)
       const matchFu = matchFollowupFilter(c, fuFilter, fuStatus, today)
       return matchSearch && matchStage && matchLost && matchSales && matchSource && matchOwn && matchFu
     })
@@ -1309,6 +1313,7 @@ export default async function CustomersPage(container) {
             ${hasSpeechInput() ? '<button type="button" class="btn btn-ghost btn-sm" id="cust-search-mic" title="พูดชื่อ/เบอร์ที่ต้องการหา" style="position:absolute;right:4px;top:50%;transform:translateY(-50%)">🎤</button>' : ''}
           </div>
           <div id="cust-smart" style="display:none;order:99;flex-basis:100%;font-size:0.76rem;color:var(--text-3);line-height:1.9"></div>
+          ${accFilter ? `<div id="cust-accf" style="order:98;flex-basis:100%;display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:0.82rem"><span class="badge badge-primary">📱 ลูกค้าจากบัญชี ${escHtml(accName || 'ที่เลือก')}</span><button type="button" class="btn btn-ghost btn-xs" id="cust-accf-x">✕ ดูทั้งหมด</button></div>` : ''}
           <button type="button" class="btn btn-ghost btn-sm cust-ftoggle" id="cust-ftoggle" title="ผู้ดูแล · ที่มา · เรียงลำดับ · นัด">⚙️ ตัวกรอง<span id="cust-fcount"></span></button>
           <select class="input" id="cust-sales-filter" style="width:auto;min-width:140px" title="กรองตามผู้ดูแล">
             <option value="">👤 ผู้ดูแล</option>
@@ -1435,6 +1440,7 @@ export default async function CustomersPage(container) {
   ;['cust-sales-filter', 'cust-source-filter', 'cust-sort', 'cust-fu-filter'].forEach(id => document.getElementById(id)?.addEventListener('change', fCount))
   document.getElementById('cust-sales-filter').addEventListener('change', e => { salesFilter = e.target.value; applyFilter() })
   document.getElementById('cust-source-filter').addEventListener('change', e => { sourceFilter = e.target.value; applyFilter() })
+  document.getElementById('cust-accf-x')?.addEventListener('click', () => { accFilter = ''; document.getElementById('cust-accf')?.remove(); history.replaceState(history.state, '', location.pathname); applyFilter() })
   document.getElementById('cust-sort').addEventListener('change', e => { sortMode = e.target.value; applyFilter() })
   document.getElementById('cust-fu-filter').addEventListener('change', async e => {
     fuFilter = e.target.value
