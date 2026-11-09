@@ -10,9 +10,19 @@ import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { findDuplicate } from '../../utils/quickLead.js'
 import { touchCustomerContact } from '../../utils/customerContact.js'
+import { scheduleNoShowFollowup } from '../../utils/showroomFollowup.js'
 
 // (v1.0.1013) ลูกค้ามาถึงโชว์รูม → ถ้ามีในรายชื่อลูกค้าแล้ว บันทึกว่าติดต่อวันนี้ (หลุดจาก "Lead เงียบ") ·
 // ถ้ายังไม่มี เปิดฟอร์ม + Lead ที่กรอกชื่อ/เบอร์/รุ่นให้แล้ว กดบันทึกทีเดียว
+// (v1.0.1017) ลูกค้าไม่มา → นัดโทรนัดใหม่วันนี้ให้เซลส์เจ้าของนัด (ครั้งเดียวต่อนัด)
+async function afterStatus(a, status) {
+  if (status === 'arrived') return afterArrived(a)
+  if (status !== 'noshow') return
+  let c = null
+  if (a.phone) { try { c = findDuplicate({ phone: a.phone }, await listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 3000)) } catch {} }
+  if (await scheduleNoShowFollowup(a, c?.id || '')) showToast(`📞 เพิ่ม "โทรนัดใหม่" ${a.custName || 'ลูกค้า'} ในงานวันนี้ของ ${a.salesperson || 'เซลส์'} แล้ว`, 'info')
+}
+
 async function afterArrived(a) {
   if (!a?.phone) return
   let customers = []
@@ -158,7 +168,7 @@ export default async function ShowroomAppointmentPage(container) {
           await updateDocData('appointments', a.id, { status: btn.dataset.s })
           showToast('✅ อัพเดตแล้ว', 'success')
           await loadData()
-          if (btn.dataset.s === 'arrived') afterArrived(a)
+          afterStatus(a, btn.dataset.s)
         } catch (err) { showToast('บันทึกไม่สำเร็จ', 'error') }
       })
     })
@@ -324,7 +334,7 @@ export default async function ShowroomAppointmentPage(container) {
         document.querySelector('.modal-overlay')?.remove()
         showToast('✅ อัพเดตแล้ว', 'success')
         await loadData()
-        if (btn.dataset.s === 'arrived') afterArrived(a)
+        afterStatus(a, btn.dataset.s)
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error') }
     }) })
     document.querySelector('.edit-det-btn')?.addEventListener('click', () => { document.querySelector('.modal-overlay')?.remove(); openForm(a) })
