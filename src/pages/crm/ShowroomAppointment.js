@@ -138,12 +138,12 @@ export default async function ShowroomAppointmentPage(container) {
             ${[['today','📅 วันนี้'],['upcoming','📆 กำลังมา'],['all','📋 ทั้งหมด']].map(([t,l]) => `<button class="btn btn-sm ${tab===t?'btn-primary':'btn-secondary'} tab-btn" data-t="${t}">${l}</button>`).join('')}
           </div>
           ${tab === 'today' ? `<input type="date" class="input" id="view-date" value="${__escA(viewDate)}" style="width:150px">` : ''}
-          <div style="display:flex;gap:4px;margin-left:auto;flex-wrap:wrap">
-            <select class="input" id="sales-sel" style="width:150px">
+          <div style="display:flex;gap:4px;margin-left:auto;flex:1 1 260px;max-width:340px;min-width:0">
+            <select class="input" id="sales-sel" style="flex:1 1 150px;min-width:0">
               <option value="all">ทุกเซลส์</option>
               ${salespersonOptions().map(s => `<option value="${escHtml(s)}" ${salesFilter===s?'selected':''}>${escHtml(s)}</option>`).join('')}
             </select>
-            <select class="input" id="status-sel" style="width:130px">
+            <select class="input" id="status-sel" style="flex:1 1 130px;min-width:0">
               <option value="all">ทุกสถานะ</option>
               ${Object.entries(APPT_STATUS).map(([k,v]) => `<option value="${__escA(k)}" ${statusFilter===k?'selected':''}>${v.label}</option>`).join('')}
             </select>
