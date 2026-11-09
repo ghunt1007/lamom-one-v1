@@ -705,7 +705,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
 // ── เตือนงานค้างตอนเช้า (09:00) — แยกรายเซลส์ ─────────────────────────────────
 async function buildMorningData(env, accessToken) {
   const [bookings, customers, followups, testDrives, programs, events] = await Promise.all([
-    runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'createdAt', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'cancelReason', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'brand', 'model', 'totalIncome', 'finStatus', 'submitDate', 'financeCo', 'deleted']),
+    runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'createdAt', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'cancelReason', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'brand', 'model', 'totalIncome', 'finStatus', 'submitDate', 'financeCo', 'deleted', 'paymentVerifyStatus', 'paymentVerifyRequestedAt', 'refundStatus', 'refundAmount', 'bookingDeposit', 'down', 'rightsOnly']),
     runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'temperature', 'isLost', 'lostAt', 'lostReason', 'createdAt', 'updatedAt', 'stageChangedAt', 'lastContactAt', 'source', 'bookingId', 'deleted']),
     // เฉพาะนัดที่ยังไม่ทำ — นัดอัตโนมัติ (Lead/หลังส่งมอบ) สะสมเร็ว ถ้าดึงทั้งหมดแบบจำกัดจำนวนจะตกหล่นนัดของวันนี้
     runQuery(env, accessToken, 'followups', null, null, 5000, ['dueDate', 'status', 'salesperson', 'customerName', 'customerId', 'autoLead', 'deleted'], ['status', 'pending']),
@@ -901,9 +901,25 @@ export function focusLines(p, limit = 3) {
   return out.sort((a, b) => b.score - a.score).filter(x => !seen.has(x.who) && seen.add(x.who)).map(x => x.text).slice(0, limit)
 }
 
+// (v1.0.1009) งานฝ่ายการเงินที่ค้าง — เซลส์แจ้งตรวจยอดโอนแล้วรออยู่ / ถอนจองแล้วยังไม่คืนเงินจอง (นิยามเดียวกับหน้า /finance/refund)
+export function financeQueueLine(bookings = [], today) {
+  const live = bookings.filter(b => b && !b.deleted)
+  const verify = live.filter(b => b.paymentVerifyStatus === 'รอการเงินยืนยัน')
+  const dep = b => Number(b.bookingDeposit) || Number(b.down) || 0
+  const refund = live.filter(b => b.status === 'ถอนจอง' && (b.refundStatus || (dep(b) > 0 && !b.rightsOnly ? 'รอคืนเงิน' : '')) === 'รอคืนเงิน')
+  if (!verify.length && !refund.length) return null
+  const oldest = verify.reduce((m, b) => { const d = b.paymentVerifyRequestedAt ? Math.floor((Date.parse(today + 'T00:00:00Z') - Date.parse(String(b.paymentVerifyRequestedAt).slice(0, 10) + 'T00:00:00Z')) / 86400000) : 0; return Math.max(m, d || 0) }, 0)
+  const amt = refund.reduce((s, b) => s + (Number(b.refundAmount) || dep(b)), 0)
+  const parts = []
+  if (verify.length) parts.push(`รอยืนยันยอดโอน ${verify.length} ใบ${oldest > 0 ? ` (นานสุด ${oldest} วัน)` : ''}`)
+  if (refund.length) parts.push(`รอคืนเงินจอง ${refund.length} ใบ${amt ? ` ${fmtBaht(amt)}` : ''}`)
+  return `💸 งานการเงินค้าง: ${parts.join(' · ')}`
+}
+
 export function buildMorningReminder(data, opts) {
   const { today } = opts
   const sections = buildMorningSections(data, opts).map(s => s.text)
+  const finLine = financeQueueLine(data.bookings, today)
 
   const text = [
     '☀️ LAMOM ONE เตือนงานเช้านี้',
@@ -911,6 +927,7 @@ export function buildMorningReminder(data, opts) {
     '─────────────────────',
     '',
     ...(sections.length ? sections.flatMap((s, i) => i ? ['', s] : [s]) : ['✅ ไม่มีงานค้าง ขอให้ขายดีทั้งวันครับ 🎉']),
+    ...(finLine ? ['', finLine] : []),
     '',
     '─────────────────────',
     '🤖 LAMOM ONE Auto Reminder',
