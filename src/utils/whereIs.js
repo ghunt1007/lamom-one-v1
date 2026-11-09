@@ -18,6 +18,8 @@ const ALIASES = [
   ['/marketing/channels', 'โซเชียล เฟซบุ๊ก facebook เพจ ไลน์ line oa ไอจี instagram tiktok ติ๊กต็อก แชต google maps รีวิว ค่าโฆษณา ยิงแอด บูสต์ บูสโพสต์ งบโฆษณา'],
   ['/analytics/sales-metrics', 'ตัวชี้วัด kpi เป้า quota forecast gp gmv conversion aov pipeline ltv churn cac ต้นทุนหาลูกค้า'],
   ['/crm/sales-income', 'รายได้เซลส์ ค่าคอม รายได้รายคน เป้าส่งมอบ'],
+  ['/finance/refund', 'ยืนยันยอดโอน ยอดโอน ตรวจยอด สลิป คืนเงินจอง คืนมัดจำ ถอนจอง'],
+  ['/finance/tracker', 'ติดตามไฟแนนซ์ ไฟแนนซ์อนุมัติ ผลไฟแนนซ์ ยื่นไฟแนนซ์'],
   ['/finance/loan-calc', 'คำนวณค่างวด ค่างวด ผ่อน'],
   ['/dms/stock', 'สต็อก รถในสต็อก รถเหลือ'],
   ['/dms/delivery-calendar', 'ส่งมอบ ปฏิทินส่งมอบ'],
