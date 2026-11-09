@@ -35,7 +35,7 @@ import { getVehicles } from '../../data/vehicleDatabase.js'
 const NUDGE_MAX = 8
 const SECTION_PREVIEW = 5
 // ชื่อสั้นบนแถบกระโดดไปหมวด (ตาม icon ของหมวด)
-const JUMP_LABEL = { '📞': 'นัดติดตาม', '🚙': 'ลองขับ', '🏬': 'นัดโชว์รูม', '🧲': 'Lead ใหม่', '🔴': 'Hot', '⏰': 'ไม่ได้ตาม', '🔄': 'ติดต่อใหม่', '📆': 'ยังไม่นัดส่ง', '🚗': 'ส่งมอบ', '🏦': 'ไฟแนนซ์', '💰': 'กรอกรายได้', '⏳': 'ใบจองค้าง', '🎁': 'โปรใกล้หมด' }
+const JUMP_LABEL = { '📞': 'นัดติดตาม', '🚙': 'ลองขับ', '🏬': 'นัดโชว์รูม', '🧲': 'Lead ใหม่', '🔴': 'Hot', '⏰': 'ไม่ได้ตาม', '🔄': 'ติดต่อใหม่', '📆': 'ยังไม่นัดส่ง', '🚗': 'ส่งมอบ', '🏦': 'ไฟแนนซ์', '💰': 'กรอกรายได้', '⏳': 'ใบจองค้าง', '🎁': 'โปรใกล้หมด', '💬': 'LINE รอตอบ' }
 
 const UNASSIGNED = '(ยังไม่มีผู้ดูแล)'
 
@@ -59,15 +59,16 @@ export default async function MyDayPage(container) {
 
   async function load() {
     const f = companyScopeFilters()
-    const [customers, followups, bookings, testDrives, appointments] = await Promise.all([
+    const [customers, followups, bookings, testDrives, appointments, lineThreads] = await Promise.all([
       listAllDocs('customers', f, 'createdAt', 'desc').catch(() => null),
       listDocs('followups', [...f, ...followupWindowFilters(todayBangkok())], 'dueDate', 'asc', 2000).catch(() => null),
       listAllDocs('bookings', f, 'createdAt', 'desc').catch(() => null),
       listDocs('test_drives', f, 'date', 'desc', 200).catch(() => []),
       listDocs('appointments', f, 'date', 'desc', 200).catch(() => []),
+      listDocs('social_threads', [], 'lastAt', 'desc', 200).catch(() => []),
     ])
     if (!customers || !followups || !bookings) showToast('โหลดข้อมูลบางส่วนไม่สำเร็จ', 'warning')
-    data = { customers: customers || [], followups: followups || [], bookings: bookings || [], testDrives: testDrives || [], appointments: appointments || [] }
+    data = { customers: customers || [], followups: followups || [], bookings: bookings || [], testDrives: testDrives || [], appointments: appointments || [], lineThreads: lineThreads || [] }
     try { targets = (await readDoc(SALES_TARGETS_COLLECTION, todayBangkok().slice(0, 7)))?.targets || {} } catch { targets = {} }
     // แคมเปญเดือนนี้ → หา Lead ที่ควรโทรบอกโปร (โหลดไม่ได้ = ไม่แสดงหมวดนี้)
     try { programs = (await listDocs('sales_programs', [], 'dateFrom', 'desc', 1000)).filter(r => !r.deleted).map(r => ({ ...normalizeProgram(r), id: r.id })) } catch { programs = [] }
@@ -335,6 +336,11 @@ export default async function MyDayPage(container) {
           `${escHtml(a.purpose || '')}${a.interestedIn ? ` · ${escHtml(a.interestedIn)}` : ''}${ownerTag(a.salesperson)}`,
           `${callBtn(a.phone)}<button class="btn btn-secondary btn-xs md-appt">📅 นัดหมาย</button>`), 'primary') : ''}
 
+        ${d.lineWaiting?.length ? section('💬', 'ลูกค้าทัก LINE รอตอบ', 'ตอบในแอปได้เลย (นับโควตา LINE OA)', d.lineWaiting, w => line(
+          escHtml(w.name),
+          `${escHtml(String(w.text).slice(0, 80))}${ownerTag(w.owner)}`,
+          `<button class="btn btn-primary btn-xs md-line" data-id="${escHtml(w.id)}">💬 ตอบ</button>`), 'success') : ''}
+
         ${promoRows.length ? section('🎁', 'บอกโปรลูกค้า (โปรใกล้หมด/โปรใหม่)', 'กด 💬 ได้ข้อความพร้อมส่ง', promoRows, r => line(
           `${escHtml(r.name)} <span class="badge badge-${r.reason === 'ending' ? 'danger' : 'success'}" style="font-size:0.62rem">${r.reason === 'ending' ? (r.left === 0 ? 'หมดวันนี้' : `หมดใน ${r.left} วัน`) : 'โปรใหม่'}</span>`,
           `${escHtml(r.model)} · ${escHtml(r.lines.join(' · '))}${ownerTag(r.c.assignedTo)}`,
@@ -430,6 +436,7 @@ export default async function MyDayPage(container) {
     $$('.md-cal').forEach(b => b.addEventListener('click', () => navigate('/dms/delivery-calendar')))
     $$('.md-td').forEach(b => b.addEventListener('click', () => navigate('/crm/testdrive')))
     $$('.md-appt').forEach(b => b.addEventListener('click', () => navigate('/crm/showroom')))
+    $$('.md-line').forEach(b => b.addEventListener('click', () => navigate(`/marketing/channels?tab=inbox&open=${encodeURIComponent(b.dataset.id)}`)))
     $$('.md-plan').forEach(b => b.addEventListener('click', () => {
       const c = data.customers.find(x => x.id === b.dataset.id)
       if (c) openAddFollowup(c, { me: me.displayName || '', onSaved: f => { data.followups.push(f); render() } })
