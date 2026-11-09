@@ -36,7 +36,7 @@ export default async function SalesProgramsPage(container) {
   const today = todayBangkok()
   const isManager = isManagerRole()
   const params = new URLSearchParams(location.search || '')
-  let month = today.slice(0, 7)
+  let month = /^\d{4}-\d{2}$/.test(params.get('month') || '') ? params.get('month') : today.slice(0, 7)
   let typeFilter = TYPE_ORDER.includes(params.get('tab')) ? params.get('tab') : 'all'
   let programs = []
   let legacy = []
@@ -92,8 +92,11 @@ export default async function SalesProgramsPage(container) {
   watchDocs(COL, [], 'dateFrom', 'desc', 2000, rows => {
     if (!alive()) return
     programs = rows.filter(r => !r.deleted)
+    const first = !loaded
     loaded = true
     render()
+    // มาจากปุ่ม "ตั้งโปรเดือนหน้า" → เลื่อนลงไปที่รายการของเดือนนั้นเลย (บนมือถืออยู่ใต้ช่องค้นหา)
+    if (first && params.get('month')) $('#sp-month')?.scrollIntoView({ block: 'start', behavior: 'smooth' })
   })
   // ข้อมูลจากหน้าเดิม (ตารางดอกเบี้ย / โปรโมชั่น) แสดงรวมแบบอ่านอย่างเดียว ไม่ต้องกรอกซ้ำ
   Promise.all([
@@ -125,10 +128,12 @@ export default async function SalesProgramsPage(container) {
     if (!loaded) return
     if (!shown.length) {
       const t = PROGRAM_TYPES[typeFilter]
+      const carry = prevToCarry()
       $('#sp-list').innerHTML = `<div class="empty-state sp-empty"><div class="empty-icon">${t ? t.icon : '🎯'}</div>
         <div class="empty-title">ยังไม่มี${t ? t.label : 'แคมเปญ'}ในเดือน${monthLabelTh(month)}</div>
-        <div class="empty-desc">กด “＋ เพิ่มแคมเปญ” หรือก๊อปข้อความประกาศจาก LINE แล้วกด “✨ ให้ AI อ่านประกาศ”${month > today.slice(0, 7) ? ' · หรือคัดลอกแคมเปญเดือนก่อนมาใช้ต่อ (ปุ่ม 📄 บนการ์ด)' : ''}</div>
-        <button class="btn btn-primary" data-add="${typeFilter === 'all' ? '' : typeFilter}">＋ เพิ่ม${t ? t.short : 'แคมเปญ'}</button></div>`
+        <div class="empty-desc">${carry.length ? `เดือน${monthLabelTh(shiftMonth(month, -1))}มี ${carry.length} รายการ กดปุ่มเดียวเพื่อใช้ต่อทั้งหมด (วันที่เลื่อนให้อัตโนมัติ แก้ทีหลังได้)` : 'กด “＋ เพิ่มแคมเปญ” หรือก๊อปข้อความประกาศจาก LINE แล้วกด “✨ ให้ AI อ่านประกาศ”'}</div>
+        <div class="sp-empty-acts">${carry.length ? `<button class="btn btn-primary" id="sp-carry">📄 ใช้ต่อจากเดือนก่อนทั้งหมด (${carry.length})</button>` : ''}
+        <button class="btn ${carry.length ? 'btn-secondary' : 'btn-primary'}" data-add="${typeFilter === 'all' ? '' : typeFilter}">＋ เพิ่ม${t ? t.short : 'แคมเปญ'}</button></div></div>`
       return
     }
     const groups = TYPE_ORDER.filter(t => shown.some(p => p.type === t))
@@ -297,6 +302,26 @@ export default async function SalesProgramsPage(container) {
       if (!(await confirmDialog({ title: 'ลบแคมเปญนี้?', message: `“${p.title}” จะหายจากรายการ`, confirmText: '🗑 ลบ', danger: true }))) return
       try { await softDelete(COL, p.id); showToast('ลบแล้ว', 'success') } catch { showToast('ลบไม่สำเร็จ', 'error') }
     }
+  })
+
+  // (v1.0.984) เดือนที่ยังว่าง: แคมเปญของเดือนก่อน (ที่จบในเดือนก่อน) ซึ่งกดใช้ต่อได้ทีเดียวทั้งหมด
+  function prevToCarry() {
+    if (month < today.slice(0, 7)) return []
+    const prev = shiftMonth(month, -1)
+    return programs.filter(p => !p.legacy && canSeeType(p.type, isManager) && (typeFilter === 'all' || p.type === typeFilter)
+      && overlapsMonth(p, prev) && !overlapsMonth(p, month))
+  }
+  $('#sp-list').addEventListener('click', async e => {
+    const b = e.target.closest('#sp-carry'); if (!b) return
+    const list = prevToCarry(); if (!list.length) return
+    if (!(await confirmDialog({ title: `ใช้ต่อ ${list.length} รายการ?`, message: `คัดลอกแคมเปญเดือน${monthLabelTh(shiftMonth(month, -1))}มาเป็นเดือน${monthLabelTh(month)} (วันที่เลื่อนให้ 1 เดือน) ถ้าเงื่อนไขเปลี่ยน กด ✏️ แก้ ทีหลังได้`, confirmText: '📄 ใช้ต่อทั้งหมด' }))) return
+    b.disabled = true
+    let ok = 0
+    for (const p of list) {
+      try { await createDoc(COL, { ...copyToNextMonth(p), companyId: p.companyId || myEffectiveCompanyId() || null }); ok++ } catch { /* ข้ามอันที่พลาด */ }
+    }
+    showToast(ok === list.length ? `✅ ใช้ต่อแล้ว ${ok} รายการ` : `ใช้ต่อได้ ${ok}/${list.length} รายการ ลองกดอีกครั้ง`, ok ? 'success' : 'error')
+    if (ok < list.length) b.disabled = false
   })
 
   // ── ฟอร์ม ──

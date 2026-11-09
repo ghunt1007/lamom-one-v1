@@ -69,6 +69,7 @@
 .sp-acts { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; border-top: 1px solid var(--border-subtle, var(--border)); padding-top: 6px; }
 .sp-acts .sp-del { margin-left: auto; }
 .sp-empty .btn { margin-top: 10px; }
+.sp-empty-acts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
 
 /* ฟอร์ม */
 .sp-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; }

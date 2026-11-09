@@ -352,3 +352,17 @@ export function myBonusProgress(earn, name) {
   if (!k) return []
   return earn.bonuses.map(({ p, rows }) => ({ p, row: rows.find(r => r.key === k) })).filter(x => x.row)
 }
+
+// (v1.0.984) ใกล้สิ้นเดือน (7 วันสุดท้าย) แต่เดือนหน้ายังไม่มีแคมเปญเลย → คืน { month, carry } ให้เตือนผู้จัดการ
+// carry = จำนวนแคมเปญเดือนนี้ที่จบในเดือนนี้ (กดใช้ต่อได้ทีเดียวที่หน้าโปร) · ไม่ต้องเตือน → null
+export function nextMonthGap(programs, today, days = 7) {
+  if (!ymdRe.test(str(today))) return null
+  const ym = today.slice(0, 7)
+  const last = Number(monthBounds(ym)[1].slice(8))
+  if (Number(today.slice(8)) <= last - days) return null
+  const next = shiftMonth(ym, 1)
+  const live = (programs || []).filter(p => p && !p.deleted)
+  if (live.some(p => overlapsMonth(p, next))) return null
+  const carry = live.filter(p => overlapsMonth(p, ym)).length
+  return carry ? { month: next, carry } : null
+}
