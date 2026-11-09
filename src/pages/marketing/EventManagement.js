@@ -17,6 +17,7 @@ import { copyText } from '../../utils/copyText.js'
 import {
   EVENT_TYPES, EVENT_TYPE_ORDER, EVENT_STATUS, typeOf, autoStatus, eventMetrics, normalizeEvent, eventDays,
   normalizeShifts, autoRoster, shiftCounts, defaultChecklist, normalizeChecklist, prepProgress, eventBreakdown, eventSummaryText,
+  eventQuietLeads,
 } from '../../utils/marketingEvents.js'
 
 const COL = 'marketing_events'
@@ -146,7 +147,10 @@ export default async function EventManagementPage(container) {
   function openDetail(e) {
     const t = typeOf(e.type)
     const m = metricsOf(e)
-    const leads = ref.customers.filter(c => c.eventId === e.id && !c.deleted)
+    // (v1.0.998) หลังงาน: Lead ที่ยังเป็น Lead/Prospect แต่เงียบเกิน 7 วัน ขึ้นก่อนพร้อมป้าย ให้ตามต่อทันก่อนหลุด
+    const qm = eventQuietLeads(e, ref.customers, today), quiet = c => qm.get(c.id), needs = c => qm.has(c.id)
+    const leads = ref.customers.filter(c => c.eventId === e.id && !c.deleted).sort((a, b) => needs(b) - needs(a))
+    const nNeed = leads.filter(needs).length
     const first = c => esc(String(c.firstName || c.name || 'ลูกค้า').split(/\s+/)[0])
     const STAGE = { lead: 'Lead', pp: 'Prospect', booking: 'จองแล้ว', delivered: 'ส่งมอบแล้ว' }
     const { el, close } = openModal({
@@ -182,8 +186,8 @@ export default async function EventManagementPage(container) {
             ${br.byDay.length > 1 ? `<div class="ev-days">${br.byDay.map(d => `<div><i style="height:${Math.max(6, d.leads / maxD * 65)}%"></i><b>${d.leads}</b><span>${esc(dayLabel(d.day))}</span></div>`).join('')}</div>` : ''}`
         })()}
         ${m.leads > m.leadsInSystem ? `<div class="ev-meta">* รวม Lead ที่กรอกเพิ่มเอง ${m.leads - m.leadsInSystem} ราย (ไม่ได้บันทึกเป็นลูกค้าในระบบ)</div>` : ''}
-        <div class="ev-h">ลูกค้าจากงานนี้ (${leads.length})</div>
-        ${leads.length ? `<div class="ev-leads">${leads.slice(0, 60).map(c => `<button type="button" class="ev-lead" data-cust="${esc(c.id)}"><b>${first(c)}</b><span>${esc(STAGE[c.stage] || c.stage || '')}${c.interestedModel ? ' · ' + esc(c.interestedModel) : ''}${c.assignedTo ? ' · ' + esc(c.assignedTo) : ''}</span></button>`).join('')}</div>`
+        <div class="ev-h">ลูกค้าจากงานนี้ (${leads.length})${nNeed ? ` <span class="ev-need">🔕 ต้องตามต่อ ${nNeed} ราย</span>` : ''}</div>
+        ${leads.length ? `<div class="ev-leads">${leads.slice(0, 60).map(c => `<button type="button" class="ev-lead" data-cust="${esc(c.id)}"><b>${first(c)}</b><span>${esc(STAGE[c.stage] || c.stage || '')}${c.interestedModel ? ' · ' + esc(c.interestedModel) : ''}${c.assignedTo ? ' · ' + esc(c.assignedTo) : ''}</span>${needs(c) ? `<em class="ev-quiet">🔕 เงียบ ${quiet(c)} วัน</em>` : ''}</button>`).join('')}</div>`
           : '<div class="ev-meta">ยังไม่มีลูกค้าที่ติดป้ายงานนี้ — ระหว่างงานกด “➕ Lead” ที่แถบบน (ปุ่มงานนี้จะถูกเลือกไว้ให้)</div>'}
         <div id="evd-roster"></div>
         <div id="evd-prep"></div>
@@ -193,7 +197,7 @@ export default async function EventManagementPage(container) {
     })
     bindPrep(el, e)
     el.querySelector('#evd-edit').addEventListener('click', () => { close(); openForm(e) })
-    el.querySelector('#evd-sum').addEventListener('click', () => copyText(eventSummaryText(e, m, eventBreakdown(e, ref), dayLabel), '📋 คัดลอกสรุปผลงานแล้ว วางในกลุ่ม LINE ได้เลย'))
+    el.querySelector('#evd-sum').addEventListener('click', () => copyText(eventSummaryText(e, m, eventBreakdown(e, ref), dayLabel, qm.size), '📋 คัดลอกสรุปผลงานแล้ว วางในกลุ่ม LINE ได้เลย'))
     el.querySelector('#evd-lead')?.addEventListener('click', () => { close(); openQuickLead() })
     el.querySelector('#evd-del').addEventListener('click', async () => {
       if (!(await confirmDialog({ title: 'ลบงานนี้?', message: `“${e.title}” จะหายจากตารางและปฏิทิน (ลูกค้าที่ติดป้ายงานยังอยู่ครบ)`, confirmText: '🗑 ลบ', danger: true }))) return

@@ -3,6 +3,7 @@
 // วัดผลจากข้อมูลจริง: ลูกค้าที่ติดป้าย eventId → ทดลองขับ → ใบจอง → ส่งมอบ (เดิมนับยอดขายทั้งโชว์รูมในช่วงวันงาน
 // ว่าเป็นยอดของงาน ทำให้ทุกงานดูเหมือนขายได้เยอะเกินจริง)
 import { ymdBangkok } from './format.js'
+import { quietDays, QUIET_DAYS } from './customerFollowups.js'
 
 export const EVENT_TYPES = {
   booth:     { label: 'ออกบูธ', icon: '⛺' },
@@ -136,6 +137,17 @@ export function eventCalendarItems(list, today) {
 
 export const dayOf = v => ymdBangkok(v)
 
+// (v1.0.998) Lead จากงานที่ยังเป็น Lead/Prospect แต่เงียบตั้งแต่ QUIET_DAYS วันขึ้นไป → ต้องตามต่อ (คืน Map id → วันที่เงียบ)
+export function eventQuietLeads(e, customers = [], today) {
+  const out = new Map()
+  for (const c of customers) {
+    if (!c || c.deleted || c.eventId !== e?.id || c.isLost || !['lead', 'pp'].includes(c.stage)) continue
+    const q = quietDays(c, today)
+    if (q != null && q >= QUIET_DAYS) out.set(c.id, q)
+  }
+  return out
+}
+
 // (v1.0.975) ข้อความสั้นให้ LAMI รู้ว่ามีงานออกบูธอะไรบ้าง และงานที่จบแล้วได้ผลแค่ไหน
 export function eventFacts(events = [], data = {}, today) {
   const live = events.filter(e => e && !e.deleted && e.startDate)
@@ -148,7 +160,8 @@ export function eventFacts(events = [], data = {}, today) {
   upcoming.forEach(e => lines.push(`กำลังจะจัด: ${e.title || typeOf(e.type).label} @${e.venue || '-'} ${e.startDate}${e.endDate && e.endDate !== e.startDate ? `–${e.endDate}` : ''}`))
   done.forEach(e => {
     const m = eventMetrics(e, data)
-    lines.push(`จบแล้ว: ${e.title || typeOf(e.type).label} (${e.startDate}) Lead ${m.leads} จอง ${m.bookings}${m.cost ? ` ใช้งบ ${fmt(m.cost)} บาท` : ''}${m.costPerLead ? ` ต่อ Lead ${fmt(m.costPerLead)}` : ''}${m.roi ? ` ROI ${m.roi} เท่า` : ''}`)
+    const q = eventQuietLeads(e, data.customers || [], today).size
+    lines.push(`จบแล้ว: ${e.title || typeOf(e.type).label} (${e.startDate}) Lead ${m.leads} จอง ${m.bookings}${m.cost ? ` ใช้งบ ${fmt(m.cost)} บาท` : ''}${m.costPerLead ? ` ต่อ Lead ${fmt(m.costPerLead)}` : ''}${m.roi ? ` ROI ${m.roi} เท่า` : ''}${q ? ` · Lead เงียบเกิน ${QUIET_DAYS} วัน ต้องตามต่อ ${q} ราย` : ''}`)
   })
   return lines
 }
@@ -237,7 +250,7 @@ export function eventBreakdown(e, { customers = [], bookings = [] } = {}) {
 }
 
 // ข้อความสรุปผลงานสั้นๆ ไว้วางในกลุ่ม LINE (ไม่มีเบอร์/ข้อมูลลูกค้า)
-export function eventSummaryText(e, m, br, dayLabel = d => d) {
+export function eventSummaryText(e, m, br, dayLabel = d => d, quiet = 0) {
   const baht = n => (n ? '฿' + Math.round(n).toLocaleString('en-US') : '—')
   return [
     `📊 สรุปงาน ${e.title || 'ออกบูธ'}`,
@@ -246,6 +259,7 @@ export function eventSummaryText(e, m, br, dayLabel = d => d) {
     m.cost ? `💰 ใช้ ${baht(m.cost)} · ต่อ Lead ${baht(m.costPerLead)} · ต่อใบจอง ${baht(m.costPerBooking)}` : null,
     br.byStaff.length ? `👥 รายคน: ${br.byStaff.slice(0, 10).map(r => `${r.name} ${r.leads}${r.booked ? ` (จอง ${r.booked})` : ''}`).join(' · ')}` : null,
     br.byDay.length > 1 ? `📅 รายวัน: ${br.byDay.map(d => `${dayLabel(d.day)} ${d.leads}`).join(' · ')}` : null,
+    quiet ? `🔕 Lead เงียบเกิน ${QUIET_DAYS} วัน ต้องตามต่อ ${quiet} ราย` : null,
   ].filter(Boolean).join('\n')
 }
 

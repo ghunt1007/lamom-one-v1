@@ -92,3 +92,6 @@
 .ev-days i { display: block; width: 70%; min-height: 4px; border-radius: 4px 4px 0 0; background: #F5A524; }
 .ev-days b { color: var(--text); font-size: 0.74rem; }
 .ev-days span { white-space: nowrap; }
+/* (v1.0.998) Lead จากงานที่เงียบ ต้องตามต่อ */
+.ev-need { font-size: 0.74rem; font-weight: 600; color: var(--warning, #d97706); margin-left: 6px; white-space: nowrap; }
+.ev-quiet { display: block; font-style: normal; font-size: 0.72rem; color: var(--warning, #d97706); margin-top: 2px; }

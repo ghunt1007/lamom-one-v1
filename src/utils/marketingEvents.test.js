@@ -119,3 +119,20 @@ describe('onBoothToday (v1.0.995)', async () => {
     expect(onBoothToday({}, 'ใครก็ได้', '2026-11-10')).toBe(true)
   })
 })
+
+import { eventQuietLeads } from './marketingEvents.js'
+describe('eventQuietLeads (v1.0.998)', () => {
+  it('เฉพาะ Lead/Prospect ของงานนี้ที่เงียบ ≥ 7 วัน', () => {
+    const e = { id: 'ex' }
+    const cs = [
+      { id: 'a', eventId: 'ex', stage: 'lead', createdAt: '2026-11-01' },
+      { id: 'b', eventId: 'ex', stage: 'pp', createdAt: '2026-11-01', lastContactAt: '2026-11-08' },
+      { id: 'c', eventId: 'ex', stage: 'booking', createdAt: '2026-10-01' },
+      { id: 'd', eventId: 'ex', stage: 'lead', createdAt: '2026-10-01', isLost: true },
+      { id: 'e', eventId: 'other', stage: 'lead', createdAt: '2026-10-01' },
+    ]
+    const m = eventQuietLeads(e, cs, '2026-11-10')
+    expect([...m.keys()]).toEqual(['a'])
+    expect(m.get('a')).toBe(9)
+  })
+})
