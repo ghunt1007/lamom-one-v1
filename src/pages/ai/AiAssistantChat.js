@@ -167,7 +167,7 @@ export default async function AiAssistantChatPage(container) {
       try {
         const ef = eventFacts(events, { customers, bookings, testDrives }, today)
         if (ef.length) businessContext['งานออกบูธ/อีเวนต์ (หน้าตารางออกบูธ)'] = ef.join('\n')
-        const msrc = { bookings, customers, budget, vehicles: getVehicles(), jobCards: jobs, testDrives }
+        const msrc = { bookings, customers, budget, vehicles: getVehicles(), jobCards: jobs, testDrives, socialAccounts: socialAccts, events }
         const cr = compareRange('month', today)
         const mf = metricsFacts(computeSalesMetrics(msrc, { today, period: 'month' }), computeSalesMetrics(msrc, { today, range: cr }), cr.label)
         if (mf.length) businessContext['ตัวชี้วัดการขายเดือนนี้ (หน้าตัวชี้วัดการขาย)'] = mf.join('\n')

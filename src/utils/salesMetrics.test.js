@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeSalesMetrics, periodRange, buyerType } from './salesMetrics.js'
+import { computeSalesMetrics, periodRange, buyerType, metricsFacts } from './salesMetrics.js'
 
 const today = '2026-11-15'
 const bookings = [
@@ -135,5 +135,28 @@ describe('metricsFacts เทียบช่วงก่อน (v1.0.990)', asyn
     expect(f.at(-1)).toContain('เทียบ1–9 เดือนก่อน: จอง 1 คัน')
     expect(f.at(-1)).toContain('+50%')
     expect(metricsFacts(m).some(l => l.startsWith('เทียบ'))).toBe(false)
+  })
+})
+
+describe('CAC (v1.0.999)', () => {
+  const bookings = [
+    { id: 'b1', customerId: 'c1', salesName: 'หนึ่ง', bookingDate: '2026-11-03', price: 900000 },
+    { id: 'b2', customerId: 'c2', salesName: 'สอง', bookingDate: '2026-11-05', price: 1100000 },
+    { id: 'b3', customerId: 'c3', salesName: 'สอง', bookingDate: '2026-10-05', price: 1000000 },
+  ]
+  const socialAccounts = [{ id: 'a', spend: { '2026-11': 30000, '2026-10': 99999 } }, { id: 'x', deleted: true, spend: { '2026-11': 50000 } }]
+  const events = [{ id: 'e1', startDate: '2026-11-07', budget: 200000, spent: 50000 }, { id: 'e2', startDate: '2026-10-01', budget: 10 }]
+  it('ค่าโฆษณาเดือนนั้น + ค่าบูธที่เริ่มในช่วง ÷ ใบจอง', () => {
+    const m = computeSalesMetrics({ bookings, socialAccounts, events }, { today: '2026-11-10', period: 'month' })
+    expect(m.cac).toMatchObject({ adSpend: 30000, eventSpend: 50000, spend: 80000, buyers: 2, value: 40000 })
+    expect(m.cac.ltvRatio).toBe(25)
+  })
+  it('ดูรายคน หรือไม่มีค่าใช้จ่าย = null', () => {
+    expect(computeSalesMetrics({ bookings, socialAccounts, events }, { today: '2026-11-10', period: 'month', who: 'หนึ่ง' }).cac).toBeNull()
+    expect(computeSalesMetrics({ bookings }, { today: '2026-11-10', period: 'month' }).cac).toBeNull()
+  })
+  it('metricsFacts บอก CAC', () => {
+    const m = computeSalesMetrics({ bookings, socialAccounts, events }, { today: '2026-11-10', period: 'month' })
+    expect(metricsFacts(m).join('\n')).toContain('CAC ต้นทุนหาลูกค้าใหม่ 40,000 บาท/ราย')
   })
 })
