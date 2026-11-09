@@ -180,7 +180,7 @@ export default async function MyDayPage(container) {
     const baht = n => '฿' + Math.round(n || 0).toLocaleString('en-US')
     const total = rows.reduce((a, x) => a + (x.row.earned || 0), 0)
     return `<div class="card" style="padding:12px 16px;margin-bottom:14px;border-left:3px solid #F5A524">
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px"><div style="font-weight:800;flex:1 1 200px;min-width:0">🏆 เงินรางวัลพิเศษ${who !== me.displayName ? ` · ${escHtml(who)}` : 'ของฉัน'} เดือนนี้${total ? ` <span style="color:var(--success)">ได้แล้ว ${baht(total)}</span>` : ''}</div><button class="btn btn-secondary btn-xs" id="md-bonus-more">ดูทั้งหมด</button></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px"><div style="font-weight:800;flex:1 1 200px;min-width:0">🏆 เงินรางวัลพิเศษ${who !== me.displayName ? ` · ${escHtml(who)}` : 'ของฉัน'} <span style="white-space:nowrap">เดือนนี้</span>${total ? ` <span style="color:var(--success)">ได้แล้ว ${baht(total)}</span>` : ''}</div><button class="btn btn-secondary btn-xs" id="md-bonus-more">ดูทั้งหมด</button></div>
       ${rows.slice(0, 4).map(({ p, row }) => `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:4px 0;border-top:1px solid var(--border)">
         <div style="flex:1 1 180px;min-width:0;font-size:0.85rem">${escHtml(p.title || 'รางวัลพิเศษ')}</div>
         <div style="font-size:0.82rem;white-space:nowrap"><b>${row.units}</b>${row.target ? `/${row.target}` : ''} คัน · ${row.earned ? `<span style="color:var(--success)">✅ ${baht(row.earned)}</span>` : row.target ? `อีก <b style="color:var(--warning)">${row.left}</b> คัน ได้ ${baht(p.amount)}` : `คันละ ${baht(p.amount)}`}</div>

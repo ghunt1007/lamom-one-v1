@@ -235,6 +235,12 @@ export default async function CustomersPage(container) {
     try { return getFollowUpRecommendation(c, []).urgency } catch { return 'low' }
   }
 
+  // (v1.0.1007) ชุดฐานที่ผู้ใช้คนนี้เห็นจริง (ขอบเขตทีม + ตัวกรองบัญชี/งานบูธจากลิงก์) — การ์ดตัวเลขต้องนับจากชุดนี้
+  // เดิมการ์ดนับลูกค้าทั้งหมดที่ query ได้ เซลส์เห็น "ทั้งหมด 18" แต่รายการว่าง (ไม่มีลูกค้าของตัวเองเลย)
+  function inBase(c) {
+    return (!ownScopeActive || scopeIncludesRecord(visScope, c.assignedTo, c)) && (!accFilter || c.sourceAccountId === accFilter) && (!evFilter || c.eventId === evFilter)
+  }
+
   function applyFilter() {
     // (v1.0.453) การกรองตามบริษัทย้ายเข้า query จริงแล้ว (companyScopeFilters() ใน loadData()/
     // startWatchCustomers()) — ไม่ต้องกรองซ้ำที่นี่อีก
@@ -255,7 +261,7 @@ export default async function CustomersPage(container) {
       // '__none' = ลูกค้าที่ยังไม่มีผู้ดูแล (เช่น ทัก LINE OA เข้ามาเอง) — มอบให้เซลส์ได้ที่หน้า "งานของฉันวันนี้"
       const matchSales = !salesFilter || (salesFilter === '__none' ? !String(c.assignedTo || '').trim() : c.assignedTo === salesFilter)
       const matchSource = !sourceFilter || (sourceFilter === 'other' ? !SOURCE[c.source] || c.source === 'other' : c.source === sourceFilter)
-      const matchOwn = (!ownScopeActive || scopeIncludesRecord(visScope, c.assignedTo, c)) && (!accFilter || c.sourceAccountId === accFilter) && (!evFilter || c.eventId === evFilter)
+      const matchOwn = inBase(c)
       const matchFu = matchFollowupFilter(c, fuFilter, fuStatus, today)
       return matchSearch && matchStage && matchLost && matchSales && matchSource && matchOwn && matchFu
     })
@@ -276,16 +282,17 @@ export default async function CustomersPage(container) {
   }
 
   function renderStats() {
+    const base = customers.filter(inBase)
     STAGE_ORDER.forEach(k => {
       const el = document.getElementById(`stat-${k}`)
-      if (el) el.textContent = customers.filter(c => c.stage === k && !c.isLost).length
+      if (el) el.textContent = base.filter(c => c.stage === k && !c.isLost).length
     })
     const lostEl = document.getElementById('stat-lost')
-    if (lostEl) lostEl.textContent = customers.filter(c => c.isLost).length
+    if (lostEl) lostEl.textContent = base.filter(c => c.isLost).length
     const allEl = document.getElementById('stat-all')
-    if (allEl) allEl.textContent = customers.length
+    if (allEl) allEl.textContent = base.length
     const countEl = document.getElementById('cust-count')
-    if (countEl) countEl.textContent = `${filtered.length} / ${customers.length} รายการ`
+    if (countEl) countEl.textContent = `${filtered.length} / ${base.length} รายการ`
   }
 
   function renderTable() {

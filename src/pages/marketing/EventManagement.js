@@ -33,6 +33,7 @@ export default async function EventManagementPage(container) {
   let events = []
   let ref = { customers: [], bookings: [], testDrives: [] }
   let tab = 'upcoming'
+  let tabPicked = false
   let typeFilter = 'all'
   let loaded = false
   const openId = new URLSearchParams(location.search).get('id')
@@ -60,6 +61,8 @@ export default async function EventManagementPage(container) {
   watchDocs(COL, [], 'startDate', 'desc', 500, rows => {
     if (!alive()) return
     events = rows.filter(r => !r.deleted)
+    // (v1.0.1007) มีงานที่กำลังจัดอยู่ → เปิดแท็บ "กำลังจัด" ให้เลย (เดิมเปิด "กำลังจะมา" ที่ว่าง ต้องกดหาเอง)
+    if (!tabPicked && !loaded && events.some(e => autoStatus(e, today) === 'ongoing')) tab = 'ongoing'
     loaded = true
     render()
     if (openId && !render.opened) { const e = events.find(x => x.id === openId); if (e) { render.opened = true; openDetail(e) } }
@@ -342,7 +345,7 @@ export default async function EventManagementPage(container) {
 
   // ── เหตุการณ์ ──
   $('#ev-add').addEventListener('click', () => openForm(null))
-  $('#ev-tabs').addEventListener('click', ev => { const b = ev.target.closest('[data-tab]'); if (b) { tab = b.dataset.tab; render() } })
+  $('#ev-tabs').addEventListener('click', ev => { const b = ev.target.closest('[data-tab]'); if (b) { tab = b.dataset.tab; tabPicked = true; render() } })
   $('#ev-chips').addEventListener('click', ev => { const b = ev.target.closest('[data-type]'); if (b) { typeFilter = b.dataset.type; render() } })
   $('#ev-list').addEventListener('click', ev => {
     if (ev.target.closest('[data-add]')) return openForm(null)
