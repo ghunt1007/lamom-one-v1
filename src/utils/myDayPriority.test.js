@@ -97,3 +97,14 @@ describe('showroom appointments on My Day (v1.0.1012)', () => {
     expect(d.appts.map(a => a.custName)).toEqual(['y', 'x'])
   })
 })
+
+describe('myDayDigest appointments line (v1.0.1013)', () => {
+  it('lists test drives and showroom visits by time', async () => {
+    const { buildMyDay, myDayDigest } = await import('./myDay.js')
+    const d = buildMyDay({
+      testDrives: [{ date: '2026-11-10', time: '11:00', status: 'scheduled', staff: 'บี', customerName: 'ก', model: 'S07' }],
+      appointments: [{ date: '2026-11-10', time: '09:00', status: 'scheduled', salesperson: 'บี', custName: 'ข' }],
+    }, { today: '2026-11-10' })
+    expect(myDayDigest(d)).toContain('นัดลูกค้าวันนี้ 2 ราย: 09:00 เข้าโชว์รูม ข · 11:00 ทดลองขับ ก (S07)')
+  })
+})

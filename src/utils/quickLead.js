@@ -106,7 +106,7 @@ function offerFirstReply(c, me) {
   })
 }
 
-export function openQuickLead({ onFull, pasteText = '', name = '', source: initialSource = '' } = {}) {
+export function openQuickLead({ onFull, pasteText = '', name = '', contact = '', model = '', source: initialSource = '' } = {}) {
   const me = getState('user') || {}
   let source = QUICK_SOURCES.some(([k]) => k === initialSource) ? initialSource : 'walk-in'
   let existing = null
@@ -207,6 +207,13 @@ export function openQuickLead({ onFull, pasteText = '', name = '', source: initi
   })
 
   let pastedNote = ''
+  // (v1.0.1013) เปิดพร้อมข้อมูลที่รู้แล้ว (เช่น ลูกค้านัดเข้าโชว์รูมมาถึง) — กรอกให้ แล้วเช็คเบอร์ซ้ำเมื่อรายชื่อโหลดเสร็จ
+  if (!pasteText && (name || contact || model)) {
+    if (name) $('ql-name').value = name
+    if (contact) $('ql-contact').value = contact
+    if (model) $('ql-model').value = model
+    loaded.then(() => el.isConnected && $('ql-contact').dispatchEvent(new Event('input')))
+  }
   // เปิดจากช่องค้นหา Ctrl+K พร้อมข้อความ ("สมชาย 081... สนใจ S07") → วางให้แล้วกด "กรอกให้" อัตโนมัติ
   // รอรายชื่อรุ่นรถโหลดก่อน (ไม่เกิน 1.5 วิ) จะได้จับรุ่นจากข้อความได้
   if (pasteText) Promise.race([loaded, new Promise(r => setTimeout(r, 1500))]).finally(() => {
