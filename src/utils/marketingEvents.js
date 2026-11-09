@@ -214,3 +214,37 @@ export function prepProgress(list) {
   const l = normalizeChecklist(list)
   return { done: l.filter(x => x.done).length, total: l.length }
 }
+
+// (v1.0.992) ผลงานแยกรายคน + รายวัน ของงานหนึ่ง — ใครเก็บ Lead ได้เยอะ วันไหนคนเยอะ (ไว้จัดเวรงานหน้า)
+// คนเก็บ = ผู้ดูแลลูกค้า (assignedTo) · วัน = วันที่สร้างลูกค้า (เวลาไทย) · จอง = มีใบจองจริงที่ไม่ถอน (นิยามเดียวกับ eventMetrics)
+export function eventBreakdown(e, { customers = [], bookings = [] } = {}) {
+  const leads = customers.filter(c => c && !c.deleted && c.eventId === e.id)
+  const ids = new Set(leads.map(c => c.id))
+  const booked = new Set(bookings.filter(b => b && !b.deleted && !CANCELLED.includes(b.status) && b.customerId && ids.has(b.customerId)).map(b => b.customerId))
+  const staff = new Map(), days = new Map()
+  leads.forEach(c => {
+    const n = String(c.assignedTo || '').trim() || 'ไม่ระบุ'
+    const r = staff.get(n) || { name: n, leads: 0, booked: 0 }
+    r.leads++; if (booked.has(c.id)) r.booked++
+    staff.set(n, r)
+    const d = ymdBangkok(c.createdAt)
+    if (d) days.set(d, (days.get(d) || 0) + 1)
+  })
+  return {
+    byStaff: [...staff.values()].sort((a, b) => b.leads - a.leads || b.booked - a.booked || a.name.localeCompare(b.name, 'th')),
+    byDay: [...days.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([day, n]) => ({ day, leads: n })),
+  }
+}
+
+// ข้อความสรุปผลงานสั้นๆ ไว้วางในกลุ่ม LINE (ไม่มีเบอร์/ข้อมูลลูกค้า)
+export function eventSummaryText(e, m, br, dayLabel = d => d) {
+  const baht = n => (n ? '฿' + Math.round(n).toLocaleString('en-US') : '—')
+  return [
+    `📊 สรุปงาน ${e.title || 'ออกบูธ'}`,
+    e.venue ? `📍 ${e.venue}` : null,
+    `🧲 Lead ${m.leads}${e.targetLeads ? `/${e.targetLeads}` : ''} · 🚗 ทดลองขับ ${m.testDrives} · 📝 จอง ${m.bookings}${e.targetBookings ? `/${e.targetBookings}` : ''} · ✅ ส่งมอบ ${m.delivered}`,
+    m.cost ? `💰 ใช้ ${baht(m.cost)} · ต่อ Lead ${baht(m.costPerLead)} · ต่อใบจอง ${baht(m.costPerBooking)}` : null,
+    br.byStaff.length ? `👥 รายคน: ${br.byStaff.slice(0, 10).map(r => `${r.name} ${r.leads}${r.booked ? ` (จอง ${r.booked})` : ''}`).join(' · ')}` : null,
+    br.byDay.length > 1 ? `📅 รายวัน: ${br.byDay.map(d => `${dayLabel(d.day)} ${d.leads}`).join(' · ')}` : null,
+  ].filter(Boolean).join('\n')
+}
