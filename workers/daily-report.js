@@ -708,9 +708,9 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
 
 // ── เตือนงานค้างตอนเช้า (09:00) — แยกรายเซลส์ ─────────────────────────────────
 async function buildMorningData(env, accessToken) {
-  const [bookings, customers, followups, testDrives, programs, events, appointments, serviceAppts] = await Promise.all([
+  const [bookings, customers, followups, testDrives, programs, events, appointments, serviceAppts, lineThreads] = await Promise.all([
     runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'createdAt', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'cancelReason', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'brand', 'model', 'totalIncome', 'finStatus', 'submitDate', 'financeCo', 'deleted', 'paymentVerifyStatus', 'paymentVerifyRequestedAt', 'refundStatus', 'refundAmount', 'bookingDeposit', 'down', 'rightsOnly']),
-    runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'temperature', 'isLost', 'lostAt', 'lostReason', 'createdAt', 'updatedAt', 'stageChangedAt', 'lastContactAt', 'source', 'bookingId', 'deleted']),
+    runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'temperature', 'isLost', 'lostAt', 'lostReason', 'createdAt', 'updatedAt', 'stageChangedAt', 'lastContactAt', 'source', 'bookingId', 'deleted', 'lineUserId']),
     // เฉพาะนัดที่ยังไม่ทำ — นัดอัตโนมัติ (Lead/หลังส่งมอบ) สะสมเร็ว ถ้าดึงทั้งหมดแบบจำกัดจำนวนจะตกหล่นนัดของวันนี้
     runQuery(env, accessToken, 'followups', null, null, 5000, ['dueDate', 'status', 'salesperson', 'customerName', 'customerId', 'autoLead', 'deleted'], ['status', 'pending']),
     runQuery(env, accessToken, 'test_drives', null, null, 3000, ['date', 'time', 'status', 'staff', 'customerName', 'model', 'deleted']).catch(() => []),
@@ -718,12 +718,13 @@ async function buildMorningData(env, accessToken) {
     runQuery(env, accessToken, 'marketing_events', null, null, 300).catch(() => []),
     runQuery(env, accessToken, 'appointments', 'date', 'DESCENDING', 500, ['date', 'time', 'status', 'salesperson', 'custName', 'interestedIn', 'purpose', 'deleted']).catch(() => []),
     runQuery(env, accessToken, 'service_appointments', 'date', 'DESCENDING', 500, ['date', 'time', 'status', 'custName', 'model', 'plate', 'type', 'tech', 'deleted']).catch(() => []),
+    runQuery(env, accessToken, 'social_threads', 'lastAt', 'DESCENDING', 300, ['platform', 'userId', 'unread', 'lastDirection', 'lastText', 'deleted']).catch(() => []),
   ])
   // แก้สถานะไฟแนนซ์ที่ค้าง "รอผล" ของใบจองที่ไปถึงรอรถ/รอส่งมอบ/ส่งมอบแล้ว ให้เป็น "ผ่าน" ในฐานข้อมูลจริงทุกเช้า
   const fixes = bookings.filter(b => b.id && finPassPatch(b))
   if (fixes.length && await commitFinancePassed(env, accessToken, fixes.map(b => b.id))) fixes.forEach(b => { b.finStatus = 'ผ่าน' })
   const today = todayBangkok()
-  const data = { bookings, customers, followups, testDrives, programs, events, appointments, serviceAppts }
+  const data = { bookings, customers, followups, testDrives, programs, events, appointments, serviceAppts, lineThreads }
   return { today, data, text: buildMorningReminder(data, { today }), sections: buildMorningSections(data, { today }) }
 }
 
@@ -772,7 +773,7 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
   const alive = rows => (rows || []).filter(r => r && !r.deleted)
   const dayNum = d => { const [y, m, dd] = d.split('-').map(Number); return Date.UTC(y, m - 1, dd) / 86400000 }
   const people = {}
-  const person = n => (people[(n || '').trim() || '(ยังไม่มีผู้ดูแล)'] ||= { deliver: [], unsched: [], td: [], appt: [], fin: [], stale: [], fu: [], income: [], stuck: [], promo: [], booth: [] })
+  const person = n => (people[(n || '').trim() || '(ยังไม่มีผู้ดูแล)'] ||= { deliver: [], unsched: [], td: [], appt: [], fin: [], stale: [], fu: [], income: [], stuck: [], promo: [], booth: [], line: [] })
 
   alive(data.customers)
     .filter(c => (c.stage === 'lead' || c.stage === 'pp') && !c.isLost)
@@ -851,18 +852,25 @@ export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS,
     .filter(a => (a.date || '').slice(0, 10) === today && APPT_OPEN.includes(a.status || 'scheduled'))
     .forEach(a => person(a.salesperson).appt.push({ name: a.custName || 'ลูกค้า', model: a.interestedIn, time: a.time }))
 
+  // (v1.0.1027) ลูกค้าทัก LINE OA มายังไม่มีใครตอบ → เตือนเซลส์ผู้ดูแล (จับจาก lineUserId)
+  const byLine = new Map(alive(data.customers).filter(c => c.lineUserId && !c.isLost).map(c => [c.lineUserId, c]))
+  alive(data.lineThreads)
+    .filter(t => t.platform === 'line' && t.unread && t.lastDirection === 'in' && byLine.has(t.userId))
+    .forEach(t => { const c = byLine.get(t.userId); person(c.assignedTo).line.push({ name: [c.firstName, c.lastName].filter(Boolean).join(' ') || 'ลูกค้า', text: String(t.lastText || '').slice(0, 40) }) })
+
   const list = items => {
     const shown = items.slice(0, maxNames).map(i => `      - ${i}`)
     if (items.length > maxNames) shown.push(`      - …และอีก ${items.length - maxNames} ราย`)
     return shown
   }
   return Object.entries(people)
-    .map(([n, p]) => ({ n, p, total: p.deliver.length + p.unsched.length + p.td.length + p.appt.length + p.fin.length + p.stale.length + p.fu.length + p.income.length + p.stuck.length + p.promo.length + p.booth.length }))
+    .map(([n, p]) => ({ n, p, total: p.deliver.length + p.unsched.length + p.td.length + p.appt.length + p.fin.length + p.stale.length + p.fu.length + p.income.length + p.stuck.length + p.promo.length + p.booth.length + p.line.length }))
     .filter(x => x.total)
     .sort((a, b) => b.total - a.total || a.n.localeCompare(b.n))
     .map(({ n, p }) => {
       const out = [`👤 ${n}`]
       if (p.booth.length) out.push(`  🗓 เวรออกบูธวันนี้: ${p.booth.map(x => `${x.title}${x.venue ? ` @ ${x.venue}` : ''}${x.time ? ` (${x.time})` : ''}`).join(' · ')}`)
+      if (p.line.length) out.push(`  💬 ลูกค้าทัก LINE รอตอบ: ${p.line.length} ราย`, ...list(p.line.map(x => `${x.name}${x.text ? ` · "${x.text}"` : ''}`)))
       if (p.deliver.length) {
         p.deliver.sort((a, b) => a.inDays - b.inDays || String(a.time || '').localeCompare(String(b.time || '')))
         out.push(`  🚗 นัดส่งมอบวันนี้/พรุ่งนี้: ${p.deliver.length} คัน`, ...list(p.deliver.map(d => `${d.inDays ? 'พรุ่งนี้' : 'วันนี้'}${d.time ? ' ' + d.time : ''} · ${d.name}${d.model ? ` (${d.model})` : ''}`)))
@@ -912,6 +920,7 @@ export function focusLines(p, limit = 3) {
   p.fin.forEach(f => push(f.rejected ? 76 : 60 + Math.min(10, f.days), f.rejected ? `หาไฟแนนซ์ใหม่ให้ ${f.name}` : `ตามผลไฟแนนซ์ ${f.name} (รอ ${f.days} วัน)`, f.name))
   p.unsched.forEach(d => push(d.missed ? 74 : 68, `โทรนัดวันส่งมอบ ${d.name}`, d.name))
   p.td.forEach(t => push(70, `ทดลองขับ ${t.name}${t.time ? ` เวลา ${t.time}` : ''}`, t.name))
+  ;(p.line || []).forEach(x => push(88, `ตอบ LINE ${x.name} (ทักมายังไม่มีใครตอบ)`, x.name))
   ;(p.appt || []).forEach(a => push(71, `รับลูกค้านัดเข้าโชว์รูม ${a.name}${a.time ? ` เวลา ${a.time}` : ''}`, a.name))
   p.stale.filter(s => !s.hot).forEach(s => push(40 + Math.min(10, s.days), `ทักลูกค้าที่เงียบไป ${s.name} (${s.days} วัน)`, s.name))
   ;(p.promo || []).forEach(x => push(x.left !== null && x.left <= 2 ? 72 : 48, `บอกโปร ${x.name}${x.left === null ? ' (โปรใหม่)' : x.left === 0 ? ' (โปรหมดวันนี้)' : ` (โปรหมดใน ${x.left} วัน)`}`, x.name))
