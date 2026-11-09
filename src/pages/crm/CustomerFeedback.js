@@ -9,6 +9,7 @@ import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { addDaysBangkok as addDays } from '../../utils/format.js'
+import { numVal } from '../../utils/numInput.js'
 
 const FEEDBACK_TYPES = {
   csat:   { label: 'CSAT', color: 'primary', icon: '⭐' },
@@ -352,7 +353,7 @@ export default async function CustomerFeedbackPage(container) {
           customerId: '', customerName: name,
           phone: document.getElementById('fbf-phone')?.value || '',
           department: document.getElementById('fbf-dept')?.value || 'general',
-          score: +document.getElementById('fbf-score')?.value || 5,
+          score: numVal('#fbf-score', 5),
           maxScore: 5, comment: document.getElementById('fbf-comment')?.value || '',
           date: addDays(0),
           salesperson: document.getElementById('fbf-sales')?.value || '',

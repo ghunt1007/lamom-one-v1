@@ -13,6 +13,7 @@ import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { addDaysBangkok as addDays } from '../../utils/format.js'
+import { numVal } from '../../utils/numInput.js'
 
 const APP_STATUS = {
   preparing:  { label: 'เตรียมเอกสาร', color: 'secondary', step: 1 },
@@ -315,7 +316,7 @@ export default async function FinanceTrackerPage(container) {
         const down = +document.getElementById('af-down')?.value || 0
         const loan = price - down
         const term = +document.getElementById('af-term')?.value || 60
-        const rate = +document.getElementById('af-rate')?.value || 2.99
+        const rate = numVal('#af-rate', 2.99)
         const monthly = Math.round(loan * (1 + rate / 100 * term / 12) / term)
         try {
           await createDoc('finance_applications', toSharedPatch({

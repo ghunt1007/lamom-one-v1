@@ -9,6 +9,7 @@ import { listDocs, createDoc, seedDemoData } from '../../core/db.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { addDaysBangkok as addDays } from '../../utils/format.js'
+import { numVal } from '../../utils/numInput.js'
 
 const DIAG_STATUS = {
   normal:   { label: 'ปกติ', color: 'success', icon: '✅' },
@@ -200,8 +201,8 @@ export default async function EVDiagnosticPage(container) {
       async onConfirm() {
         const plate = document.getElementById('ef-plate')?.value?.trim()
         if (!plate) { showToast('❗ กรุณากรอกทะเบียน', 'error'); return false }
-        const soc = +document.getElementById('ef-soc')?.value || 80
-        const soh = +document.getElementById('ef-soh')?.value || 98
+        const soc = numVal('#ef-soc', 80)
+        const soh = numVal('#ef-soh', 98)
         const faults = (document.getElementById('ef-faults')?.value || '').split(',').map(f => f.trim()).filter(f => f && FAULT_CODES[f])
         const status = faults.some(f => FAULT_CODES[f]?.severity === 'critical') ? 'critical' : faults.length > 0 ? 'warning' : 'normal'
         // ค่าจากเครื่องมือวัดจริง — ไม่มีค่า default ปลอมแล้ว ถ้าช่างไม่ได้กรอก ให้เก็บเป็น null (แสดง "ยังไม่วัด" ตอน render) แทนการยัดเลขคงที่ซ้ำทุกครั้ง

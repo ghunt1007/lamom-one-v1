@@ -10,6 +10,7 @@ import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml as esc } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { addDaysBangkok as addDays } from '../../utils/format.js'
+import { numVal } from '../../utils/numInput.js'
 
 const PARTNER_TYPES = {
   reseller:  { label: 'Reseller', color: 'primary', icon: '🤝' },
@@ -176,7 +177,7 @@ export default async function PartnerPortalPage(container) {
             name,
             type: document.getElementById('pf-type')?.value||'referral', status: 'pending',
             contact: document.getElementById('pf-contact')?.value||'', email: document.getElementById('pf-email')?.value||'', phone: '',
-            commissionRate: +document.getElementById('pf-comm')?.value||2.0,
+            commissionRate: numVal('#pf-comm', 2),
             totalLeads: 0, closedDeals: 0, revenue: 0, joinDate: addDays(0)
           })
           showToast('✅ เพิ่มพาร์ทเนอร์แล้ว!', 'success')

@@ -11,6 +11,7 @@ import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companySco
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { addDaysBangkok as addDays } from '../../utils/format.js'
+import { numVal } from '../../utils/numInput.js'
 
 const DEBT_STATUS = {
   current:    { label: 'ปกติ', color: 'success' },
@@ -218,7 +219,7 @@ export default async function CreditControlPage(container) {
         const name = document.getElementById('df-name')?.value?.trim()
         if (!name) { showToast('❗ กรุณากรอกชื่อ', 'error'); return false }
         const used = +document.getElementById('df-used')?.value || 0
-        const limit = +document.getElementById('df-limit')?.value || 500000
+        const limit = numVal('#df-limit', 500000)
         try {
           await createDoc('debt_settlements', {
             customer: name,

@@ -5,6 +5,7 @@ import { listDocs, createDoc, updateDocData, softDelete, seedDemoData } from '..
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { numVal } from '../../utils/numInput.js'
 
 const CAR_STATUS = {
   available: { label: 'พร้อมให้ยืม', color: 'success' },
@@ -286,7 +287,7 @@ export default async function LoanerCarPage(container) {
           color: el.querySelector('#nc-color').value.trim() || '-',
           fuel: el.querySelector('#nc-fuel').value.trim() || '-',
           km: +el.querySelector('#nc-km').value || 0,
-          fuelLevel: +el.querySelector('#nc-fuellvl').value || 100,
+          fuelLevel: numVal('#nc-fuellvl', 100, el),
           status: 'available', loanedTo: null
         })
         showToast('🚙 เพิ่มรถสำรองแล้ว', 'success'); close(); await loadData()

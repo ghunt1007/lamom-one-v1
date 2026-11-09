@@ -9,6 +9,7 @@ import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { numVal } from '../../utils/numInput.js'
 
 const APPROVER_ROLES = ['finance', 'manager', 'owner', 'admin']
 
@@ -218,7 +219,7 @@ export default async function ReferralProgramPage(container) {
             referrer, referrerPhone: document.getElementById('rf-ref-phone')?.value||'',
             referee, refereePhone: document.getElementById('rf-ree-phone')?.value||'',
             model: document.getElementById('rf-model')?.value.trim() || '',
-            status: 'pending', reward: +document.getElementById('rf-reward')?.value||3000,
+            status: 'pending', reward: numVal('#rf-reward', 3000),
             submitDate: new Date().toISOString(),
             companyId: myEffectiveCompanyId()
           })

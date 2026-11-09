@@ -23,6 +23,7 @@ import {
 import { aiSalesCloser, isAiEnabled, suggestCustomerReply } from '../../utils/ai.js'
 import { buildCustomerBrief, addDaysIso, catalogContext, modelFacts, modelMatches } from '../../utils/salesAi.js'
 import { flatMonthly } from '../../utils/installment.js'
+import { normalizeProgram, programsForCar, carSummary, PROGRAM_TYPES, CUSTOMER_TYPES } from '../../utils/salesPrograms.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 import { maskContacts } from '../../utils/leadText.js'
 import { enhanceMics, bindMic, hasSpeechInput } from '../../utils/micInput.js'
@@ -90,6 +91,51 @@ function bindCalc(root) {
   }
   ;['wk-calc-v', 'wk-calc-d', 'wk-calc-m', 'wk-calc-r'].forEach(id => $(id).addEventListener('input', run))
   run()
+}
+
+// 🎁 แคมเปญที่ลูกค้าได้วันนี้สำหรับรุ่นที่สนใจ (โหลดครั้งเดียวต่อ 10 นาที) — เซลส์ตอบลูกค้าได้ทันทีไม่ต้องเปิดหน้าแคมเปญ
+let __progCache = null
+let __progAt = 0
+function loadPrograms() {
+  if (__progCache && Date.now() - __progAt < 600000) return __progCache
+  __progAt = Date.now()
+  __progCache = listDocs('sales_programs', [], 'dateFrom', 'desc', 1000)
+    .then(rows => rows.filter(r => !r.deleted).map(r => ({ ...normalizeProgram(r), id: r.id })))
+    .catch(() => { __progAt = 0; return [] })
+  return __progCache
+}
+function customerPromos(c, programs) {
+  if (!c.interestedModel) return null
+  const brand = modelMatches(c.interestedModel, getVehicles(), 1)[0]?.brand || ''
+  const list = programsForCar(programs, { brand, model: c.interestedModel, date: todayBangkok(), isManager: false }).filter(p => CUSTOMER_TYPES.includes(p.type))
+  if (!list.length) return null
+  const s = carSummary(list)
+  const lines = []
+  if (s.customerCash) lines.push(`ส่วนลดรวม ${s.customerCash.toLocaleString('en-US')} บาท`)
+  if (s.bestRate) lines.push(`ดอกเบี้ยพิเศษ ${s.bestRate.rate}% ดาวน์ ${s.bestRate.down}% ${s.bestRate.months} งวด${s.bestRate.financeCo ? ` (${s.bestRate.financeCo})` : ''}`)
+  ;[...new Set(s.gifts)].forEach(g => lines.push(`แถม ${g}`))
+  return { list, s, lines }
+}
+async function fillPromos(root, c) {
+  const box = root.querySelector('#wk-promos')
+  if (!box) return
+  const r = customerPromos(c, await loadPrograms())
+  if (!box.isConnected) return
+  if (!r) { box.innerHTML = '<span style="font-size:0.7rem;color:var(--text-muted)">ไม่มีแคมเปญที่ใช้กับรุ่นนี้วันนี้</span>'; return }
+  box.innerHTML = `<div style="padding:8px;border-radius:8px;background:color-mix(in srgb,var(--success) 10%,transparent);border:1px solid color-mix(in srgb,var(--success) 30%,transparent)">
+    <div style="font-weight:600;margin-bottom:4px">🎁 แคมเปญวันนี้ (${r.list.length})</div>
+    ${r.lines.map(x => `<div>• ${escHtml(x)}</div>`).join('')}
+    <div style="margin-top:4px;font-size:0.68rem;color:var(--text-muted)">${r.list.map(p => escHtml(`${PROGRAM_TYPES[p.type]?.short || ''} ${p.title}`.trim())).join(' · ')}</div>
+  </div>`
+  box.dataset.lines = JSON.stringify(r.lines)
+  const rate = root.querySelector('#wk-calc-r')
+  if (r.s.bestRate && rate) {
+    rate.value = r.s.bestRate.rate
+    const m = root.querySelector('#wk-calc-m'), d = root.querySelector('#wk-calc-d')
+    if (m && [...m.options].some(o => +o.value === r.s.bestRate.months)) m.value = r.s.bestRate.months
+    if (d && [...d.options].some(o => +o.value === r.s.bestRate.down)) d.value = r.s.bestRate.down
+    rate.dispatchEvent(new Event('input'))
+  }
 }
 
 // หมวดเหตุผลเสียดีลยอดนิยม (ปุ่มลัดในหน้าต่างมาร์คเสียดีล) — รายงานสัปดาห์นับรวมตามคำแรกก่อนเครื่องหมาย "-"
@@ -451,7 +497,7 @@ export default async function CustomersPage(container) {
                 ${c.lineId ? detail('💚 LINE', escHtml(c.lineId)) : ''}
                 ${c.email ? detail('📧 Email', escHtml(c.email)) : ''}
                 ${detail('🚗 สนใจ', escHtml(c.interestedModel || '-') + (c.isLost ? '' : ' <button class="btn btn-ghost btn-xs" id="wk-td-btn" title="นัดลูกค้ามาทดลองขับ">🚙 นัดทดลองขับ</button>'))}
-                ${(() => { const f = c.interestedModel ? modelFacts(c.interestedModel, getVehicles(), 4) : []; return f.length ? `<details style="margin:-2px 0 2px;font-size:0.76rem"><summary style="cursor:pointer;color:var(--primary)">📋 ราคา/สเปครุ่นนี้ (ไว้ตอบลูกค้า)</summary><div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">${f.map(x => `<div style="padding:6px 8px;border-radius:8px;background:var(--surface-2);line-height:1.45">${escHtml(x)}</div>`).join('')}<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:0.66rem;color:var(--text-muted)">ราคาตั้งจากฐานข้อมูลรถ ยังไม่รวมโปรโมชั่น</span><button type="button" class="btn btn-secondary btn-xs" id="wk-facts-copy">📋 คัดลอกสเปคส่งลูกค้า</button></div>${calcHtml(c)}</div></details>` : '' })()}
+                ${(() => { const f = c.interestedModel ? modelFacts(c.interestedModel, getVehicles(), 4) : []; return f.length ? `<details style="margin:-2px 0 2px;font-size:0.76rem"><summary style="cursor:pointer;color:var(--primary)">📋 ราคา/สเปครุ่นนี้ (ไว้ตอบลูกค้า)</summary><div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">${f.map(x => `<div style="padding:6px 8px;border-radius:8px;background:var(--surface-2);line-height:1.45">${escHtml(x)}</div>`).join('')}<div id="wk-promos"></div><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:0.66rem;color:var(--text-muted)">ราคาตั้งจากฐานข้อมูลรถ</span><button type="button" class="btn btn-secondary btn-xs" id="wk-facts-copy">📋 คัดลอกสเปคส่งลูกค้า</button></div>${calcHtml(c)}</div></details>` : '' })()}
                 ${c.budget ? detail('💰 งบประมาณ', formatCurrency(c.budget)) : ''}
                 ${c.occupation ? detail('💼 อาชีพ', escHtml(c.occupation)) : ''}
                 ${c.monthlyIncome ? detail('💵 รายได้ต่อเดือน', formatCurrency(c.monthlyIncome)) : ''}
@@ -532,10 +578,13 @@ export default async function CustomersPage(container) {
     })
 
     bindCalc(el)
+    fillPromos(el, c)
     // ส่งราคา/สเปครุ่นที่สนใจให้ลูกค้าทาง LINE ในคลิกเดียว (ข้อมูลเดียวกับที่โชว์ ไม่มีข้อมูลลูกค้าปน)
     el.querySelector('#wk-facts-copy')?.addEventListener('click', async () => {
       const lines = modelFacts(c.interestedModel, getVehicles(), 4)
-      const text = [`ข้อมูล ${c.interestedModel} ครับ`, ...lines.map(x => '• ' + x), '*ราคาตั้ง ยังไม่รวมโปรโมชั่น สอบถามโปรล่าสุดได้เลยครับ'].join('\n')
+      let promo = []
+      try { promo = JSON.parse(el.querySelector('#wk-promos')?.dataset.lines || '[]') } catch { promo = [] }
+      const text = [`ข้อมูล ${c.interestedModel} ครับ`, ...lines.map(x => '• ' + x), ...(promo.length ? ['', '🎁 โปรเดือนนี้', ...promo.map(x => '• ' + x), '*เงื่อนไขเป็นไปตามที่บริษัทกำหนด'] : ['*ราคาตั้ง ยังไม่รวมโปรโมชั่น สอบถามโปรล่าสุดได้เลยครับ'])].join('\n')
       await copyText(text, '📋 คัดลอกแล้ว วางใน LINE ได้เลย', 'คัดลอกไม่สำเร็จ')
     })
     el.querySelector('#wk-td-btn')?.addEventListener('click', () => openTestDriveForm(c, { onSaved: showTd }))

@@ -9,6 +9,7 @@ import { getSalesStaff } from '../../data/masterData.js'
 import { navigate } from '../../core/router.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { numVal } from '../../utils/numInput.js'
 
 const DEAL_STAGES = ['เจรจา', 'เสนอราคา', 'รอตัดสินใจ', 'รอไฟแนนซ์', 'ปิดการขาย']
 
@@ -183,7 +184,7 @@ export default async function DealCoachPage(container) {
             price: +document.getElementById('ad-price')?.value || 0,
             salesperson: document.getElementById('ad-sales')?.value || '',
             stage: document.getElementById('ad-stage')?.value || DEAL_STAGES[0],
-            winPct: +document.getElementById('ad-win')?.value || 50,
+            winPct: numVal('#ad-win', 50),
             days: 0, advice: [], objections: [], competitors: [],
           })
           showToast('✅ เพิ่มดีล ' + customer + ' แล้ว', 'success')
