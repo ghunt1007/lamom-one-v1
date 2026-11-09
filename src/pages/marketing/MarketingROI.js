@@ -14,6 +14,7 @@ const BASE_CH = [
   { id: 'fb',       name: 'Facebook Ads',     icon: '📘', leadsTarget: 100, color: '#3b82f6', keys: ['facebook','fb','meta'] },
   { id: 'gg',       name: 'Google Ads',        icon: '🔵', leadsTarget: 80,  color: '#10b981', keys: ['google','google ads'] },
   { id: 'tt',       name: 'TikTok',            icon: '🎵', leadsTarget: 150, color: '#ec4899', keys: ['tiktok'] },
+  { id: 'ig',       name: 'Instagram',         icon: '📸', leadsTarget: 30,  color: '#d946ef', keys: ['instagram','ig'] },
   { id: 'line',     name: 'LINE OA',           icon: '💚', leadsTarget: 50,  color: '#22c55e', keys: ['line','line oa'] },
   { id: 'event',    name: 'Event/Motor Show',  icon: '🎪', leadsTarget: 250, color: '#f59e0b', keys: ['event','motor show','motorshow','งาน','บูธ','booth'] },
   { id: 'referral', name: 'Referral',          icon: '🤝', leadsTarget: 40,  color: '#8b5cf6', keys: ['referral','แนะนำ','refer'] },

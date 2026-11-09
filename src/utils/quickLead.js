@@ -14,10 +14,11 @@ import { copyText } from './copyText.js'
 import { escHtml } from './escape.js'
 import { eventsForLeadTag, typeOf } from './marketingEvents.js'
 import { todayBangkok } from './format.js'
+import { accountsForSource, defaultAccount } from './socialAccounts.js'
 
 export const QUICK_SOURCES = [
   ['walk-in', '🚶 Walk-in'], ['phone', '📱 โทรเข้า'], ['facebook', '📘 Facebook'], ['line', '💚 LINE'],
-  ['tiktok', '🎵 TikTok'], ['referral', '🤝 แนะนำ'], ['other', '📌 อื่นๆ'],
+  ['tiktok', '🎵 TikTok'], ['instagram', '📸 IG'], ['referral', '🤝 แนะนำ'], ['other', '📌 อื่นๆ'],
 ]
 
 export const digitsOnly = s => String(s ?? '').replace(/\D/g, '')
@@ -112,6 +113,17 @@ export function openQuickLead({ onFull, pasteText = '', name = '', source: initi
   // (v1.0.972) งานออกบูธ/อีเวนต์ที่กำลังจัด (หรือเพิ่งจบเมื่อวาน) → ขึ้นปุ่ม "มาจากงานนี้" และเลือกไว้ให้เลย
   // ลูกค้าจะติดป้าย eventId ทำให้หน้าตารางออกบูธนับ Lead/ทดลองขับ/ใบจองของงานได้จริง
   let eventTag = null
+  // (v1.0.988) มาจากบัญชีไหน (เพจทีม/โชว์รูม/เพจเซลส์) — โหลดทะเบียนบัญชีจากหน้าช่องทางโซเชียล
+  let accounts = []
+  let account = null
+  listDocs('social_channels', [], 'name', 'asc', 300).then(r => { accounts = r.filter(a => !a.deleted); renderAccts() }).catch(() => {})
+  function renderAccts() {
+    const box = document.getElementById('ql-accts'); if (!box) return
+    const list = accountsForSource(accounts, source, me.displayName || '')
+    if (!list.length) { box.innerHTML = ''; account = null; return }
+    if (!account || !list.some(a => a.id === account.id)) account = defaultAccount(list, me.displayName || '')
+    box.innerHTML = `<div style="font-size:0.72rem;color:var(--text-muted);margin:2px 0 4px">จากบัญชีไหน</div><div style="display:flex;flex-wrap:wrap;gap:6px">${list.slice(0, 8).map(a => `<button type="button" class="btn btn-xs ql-acc ${account?.id === a.id ? 'btn-primary' : 'btn-secondary'}" data-acc="${escHtml(a.id)}">${a.level === 'sales' ? '🧑‍💼' : a.level === 'showroom' ? '🏢' : '👥'} ${escHtml(a.name || a.handle || '')}</button>`).join('')}</div>`
+  }
   let eventsById = {}
   listDocs('marketing_events', [], 'startDate', 'desc', 60).then(r => {
     const evs = eventsForLeadTag(r, todayBangkok()).slice(0, 2)
@@ -145,6 +157,7 @@ export function openQuickLead({ onFull, pasteText = '', name = '', source: initi
         <div class="input-group"><label class="input-label">รถที่สนใจ</label><input class="input" id="ql-model" placeholder="เช่น DEEPAL S07" autocomplete="off" list="ql-models"><datalist id="ql-models"></datalist></div>
         <div class="input-group"><label class="input-label">มาจากไหน</label>
           <div id="ql-sources" style="display:flex;flex-wrap:wrap;gap:6px">${QUICK_SOURCES.map(([k, v]) => `<button type="button" class="btn btn-sm ql-src ${k === source ? 'btn-primary' : 'btn-secondary'}" data-k="${k}">${v}</button>`).join('')}</div>
+          <div id="ql-accts"></div>
         </div>
         <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;cursor:pointer"><input type="checkbox" id="ql-hot"> 🔴 สนใจมาก (Hot) — พร้อมซื้อเร็ว</label>
         <div style="font-size:0.7rem;color:var(--text-muted)">ผู้ดูแล: ${escHtml(me.displayName || me.email || '—')} · กรอกข้อมูลเพิ่มเติมทีหลังได้ในหน้าลูกค้า</div>
@@ -162,6 +175,13 @@ export function openQuickLead({ onFull, pasteText = '', name = '', source: initi
     source = b.dataset.k
     eventTag = b.dataset.ev ? (eventsById[b.dataset.ev] || { id: b.dataset.ev, title: b.textContent.trim() }) : null
     el.querySelectorAll('.ql-src').forEach(x => { x.className = `btn btn-sm ql-src ${x === b ? 'btn-primary' : 'btn-secondary'}` })
+    renderAccts()
+  })
+  $('ql-accts').addEventListener('click', e => {
+    const b = e.target.closest('[data-acc]'); if (!b) return
+    const a = accounts.find(x => x.id === b.dataset.acc)
+    account = account?.id === a?.id ? null : a
+    renderAccts()
   })
   $('ql-contact').addEventListener('input', () => {
     const dup = existing && findDuplicate(splitContact($('ql-contact').value), existing)
@@ -230,7 +250,8 @@ export function openQuickLead({ onFull, pasteText = '', name = '', source: initi
     const btns = [$('ql-save'), $('ql-more')]
     btns.forEach(b => { b.disabled = true })
     try {
-      const doc = { ...lead, ...(eventTag && source === 'event' ? { eventId: eventTag.id, eventName: eventTag.title || '' } : {}), stageChangedAt: new Date().toISOString(), companyId: myEffectiveCompanyId() }
+      const acc = account && accountsForSource(accounts, source).some(a => a.id === account.id) ? { sourceAccountId: account.id, sourceAccountName: account.name || account.handle || '', sourceAccountLevel: account.level || 'team' } : {}
+      const doc = { ...lead, ...acc, ...(eventTag && source === 'event' ? { eventId: eventTag.id, eventName: eventTag.title || '' } : {}), stageChangedAt: new Date().toISOString(), companyId: myEffectiveCompanyId() }
       const id = await createDoc('customers', doc)
       if (existing) existing.unshift({ ...doc, id })
       const fu = await scheduleLeadFollowups(doc, id)

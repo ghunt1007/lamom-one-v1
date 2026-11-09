@@ -29,6 +29,7 @@ export function parseLeadText(text, models = []) {
   if (hit2) out.model = hit2
   if (/facebook|เฟส|เฟซ|fb\b|เพจ/i.test(t)) out.source = 'facebook'
   else if (/tiktok|ติ๊กต็อก|ติ๊กตอก/i.test(t)) out.source = 'tiktok'
+  else if (/instagram|ไอจี|\big\b/i.test(t)) out.source = 'instagram'
   else if (/ไลน์|line/i.test(t)) out.source = 'line'
   else if (/แนะนำ|เพื่อนบอก|ญาติบอก/.test(t)) out.source = 'referral'
   out.hot = /อยากได้เลย|จองเลย|พร้อมซื้อ|ซื้อเลย|ด่วน|ภายในเดือนนี้|ดาวน์เท่าไ|ผ่อนเดือนละ|ขอใบเสนอราคา|ขอราคา/.test(t)

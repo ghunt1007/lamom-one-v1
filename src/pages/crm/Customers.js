@@ -149,7 +149,7 @@ const TEMP = {
 }
 
 const SOURCE = {
-  facebook: '📘 Facebook', line: '💚 LINE', tiktok: '🎵 TikTok', 'walk-in': '🚶 Walk-in',
+  facebook: '📘 Facebook', line: '💚 LINE', tiktok: '🎵 TikTok', instagram: '📸 Instagram', 'walk-in': '🚶 Walk-in',
   referral: '🤝 Referral', google: '🔍 Google', website: '🌐 Website', phone: '📱 โทรเข้า', event: '🎪 บูธ/อีเวนต์', other: '📌 อื่นๆ',
 }
 
@@ -495,7 +495,7 @@ export default async function CustomersPage(container) {
                 ${c.budget ? detail('💰 งบประมาณ', formatCurrency(c.budget)) : ''}
                 ${c.occupation ? detail('💼 อาชีพ', escHtml(c.occupation)) : ''}
                 ${c.monthlyIncome ? detail('💵 รายได้ต่อเดือน', formatCurrency(c.monthlyIncome)) : ''}
-                ${detail('📌 ที่มา', SOURCE[c.source] || escHtml(c.source) || '-')}
+                ${detail('📌 ที่มา', (SOURCE[c.source] || escHtml(c.source) || '-') + (c.sourceAccountName ? ` · ${escHtml(c.sourceAccountName)}` : '') + (c.eventName ? ` · ${escHtml(c.eventName)}` : ''))}
                 ${detail('👤 ผู้ดูแล', escHtml(c.assignedTo || '-'))}
                 ${detail('📅 เพิ่มเมื่อ', formatDate(c.createdAt))}
                 ${detail('📞 ติดต่อล่าสุด', `<span id="wk-last-contact">${c.lastContactAt ? timeAgo(c.lastContactAt) : 'ยังไม่มีบันทึก'}</span> <button class="btn btn-ghost btn-xs" id="wk-touch-btn" title="โทร/ทักลูกค้าแล้ว กดบันทึกไว้">✅ ติดต่อแล้ว</button>`)}

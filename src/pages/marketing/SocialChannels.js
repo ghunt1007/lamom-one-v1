@@ -4,15 +4,16 @@
  * token ทุกตัวอยู่ฝั่งเซิร์ฟเวอร์ (workers/social.js) — หน้านี้ไม่เห็นและไม่เก็บ token เลย
  */
 import './channels.css'
-import { watchDocs, createDoc, updateDocData, softDelete } from '../../core/db.js'
+import { watchDocs, createDoc, updateDocData, softDelete, listDocs } from '../../core/db.js'
 import { showToast } from '../../core/store.js'
 import { escHtml as esc } from '../../utils/escape.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
-import { timeAgo, formatCurrency } from '../../utils/format.js'
+import { timeAgo, formatCurrency, todayBangkok } from '../../utils/format.js'
 import { copyText } from '../../utils/copyText.js'
 import { myName } from '../../utils/myName.js'
 import { isManagerRole } from '../../utils/managerRole.js'
-import { myEffectiveCompanyId } from '../../core/companyScope.js'
+import { myEffectiveCompanyId, companyScopeFilters } from '../../core/companyScope.js'
+import { accountResults } from '../../utils/socialAccounts.js'
 import { getSalesStaff } from '../../data/masterData.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 import { suggestCustomerReply, generateSocialContent, aiErrorText } from '../../utils/ai.js'
@@ -40,6 +41,14 @@ export default async function SocialChannelsPage(container) {
   let filter = 'all', q = ''
   let openKey = '', lineMsgs = [], stopMsgs = null, replyDraft = ''
   let accounts = []
+  // (v1.0.988) ผล Lead/จอง ต่อบัญชี (ลูกค้าที่เพิ่มแบบเลือก "จากบัญชีไหน")
+  let accRes = null
+  const thisMonth = todayBangkok().slice(0, 7)
+  function loadAccRes() {
+    if (accRes) return
+    accRes = {}
+    listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 3000).then(r => { accRes = accountResults(r, thisMonth); if (alive() && tab === 'accounts') render() }).catch(() => {})
+  }
   let ads = null, adsErr = '', adsLoading = false
   const postDraft = { message: '', imageUrl: '', link: '', pages: new Set(), toIg: false }
 
@@ -96,7 +105,7 @@ export default async function SocialChannelsPage(container) {
   function renderStatus() {
     const el = $('#ch-status'); if (!el) return
     if (statusLoading && !status) { el.innerHTML = '<span class="ch-pill">⏳ กำลังตรวจการเชื่อมต่อ…</span>'; return }
-    if (statusErr) { el.innerHTML = `<span class="ch-pill bad">⚠️ ตรวจสถานะไม่ได้: ${esc(statusErr)}</span>`; return }
+    if (statusErr) { el.innerHTML = `<span class="ch-pill bad">⚠️ ตรวจสถานะไม่ได้: ${esc(/failed to fetch|network|load failed/i.test(statusErr) ? 'ต่อเซิร์ฟเวอร์ไม่ได้ (เน็ตหลุดหรือช้า) กด 🔄 ตรวจสถานะ อีกครั้ง' : statusErr)}</span>`; return }
     const s = status || {}
     const pages = s.meta?.pages || []
     const pill = (ok, label, extra = '') => `<span class="ch-pill ${ok ? 'ok' : ''}">${ok ? '✅' : '⚪'} ${label}${extra}</span>`
@@ -125,7 +134,7 @@ export default async function SocialChannelsPage(container) {
     if (tab === 'inbox') el.innerHTML = inboxHtml()
     else if (tab === 'post') el.innerHTML = postHtml()
     else if (tab === 'ads') el.innerHTML = adsHtml()
-    else if (tab === 'accounts') el.innerHTML = accountsHtml()
+    else if (tab === 'accounts') { loadAccRes(); el.innerHTML = accountsHtml() }
     else if (tab === 'maps') el.innerHTML = mapsHtml()
     else el.innerHTML = guideHtml()
     if (tab === 'inbox') { const t = el.querySelector('.ch-msgs'); if (t) t.scrollTop = t.scrollHeight }
@@ -415,6 +424,7 @@ export default async function SocialChannelsPage(container) {
         <button class="btn btn-primary btn-sm" id="acc-add">➕ เพิ่มบัญชี</button>
         ${missing.length ? `<button class="btn btn-secondary btn-sm" id="acc-import">⬇️ เพิ่มเพจที่เชื่อมแล้ว ${missing.length} เพจ</button>` : ''}
       </div>
+      <small class="ch-muted" style="display:block;margin-bottom:4px">🧲 = Lead ที่เข้ามาเดือนนี้ · 📝 = ในนั้นจองแล้ว — นับจากลูกค้าที่กด “➕ Lead” แล้วเลือก “จากบัญชีไหน”</small>
       <small class="ch-muted">รวมบัญชีโซเชียลของทีม โชว์รูม และเซลส์แต่ละคนไว้ที่เดียว (ไม่เก็บรหัสผ่าน/โทเค็น) — ✅ = เชื่อมกับแอปแล้ว แชต/โพสต์จากแอปได้</small>
       ${Object.entries(LEVELS).map(([lv, label]) => {
         const rows = accounts.filter(a => (a.level || 'team') === lv)
@@ -422,7 +432,8 @@ export default async function SocialChannelsPage(container) {
           ${rows.length ? `<div class="ch-accs">${rows.map(a => { const c = connectedPage(a); return `
             <div class="ch-acc">
               <div class="ch-acc-main"><b>${esc(ACCOUNT_PLATFORMS[a.platform] || a.platform)} · ${esc(a.name || '')}</b>
-                <small>${a.owner ? `ผู้ดูแล ${esc(a.owner)} · ` : ''}${a.handle ? esc(a.handle) : ''}</small></div>
+                <small>${[a.owner ? `ผู้ดูแล ${esc(a.owner)}` : '', a.handle ? esc(a.handle) : ''].filter(Boolean).join(' · ')}</small></div>
+              ${(() => { const r = accRes?.[a.id]; return r ? `<span class="ch-acc-res" title="Lead ที่เข้ามาเดือนนี้ · ในนั้นจองแล้ว (รวมทั้งหมด ${r.allLeads} Lead / จอง ${r.allBooked})">🧲 ${r.leads} · 📝 ${r.booked}</span>` : '' })()}
               <span class="ch-st ${c ? 'on' : ''}">${c ? '✅ เชื่อมแล้ว' : '⚪ บันทึกไว้'}</span>
               <span class="ch-acc-a">${a.url ? `<a class="btn btn-ghost btn-sm" href="${esc(a.url)}" target="_blank" rel="noopener">เปิด ↗</a>` : ''}<button class="btn btn-ghost btn-sm" data-acc-edit="${esc(a.id)}">แก้ไข</button></span>
             </div>` }).join('')}</div>` : '<div class="ch-muted">— ยังไม่มี —</div>'}</div>`
