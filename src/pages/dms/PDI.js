@@ -6,6 +6,7 @@ import { openModal } from '../../utils/modal.js'
 import { navigate } from '../../core/router.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { carOf } from '../../utils/carLabel.js'
 
 const PDI_STATUS = {
   pending:    { label: '⏳ รอตรวจ',       badge: 'primary' },
@@ -94,7 +95,7 @@ export default async function PdiPage(container) {
     return `
       <tr class="pdi-row" data-id="${p.id}" style="cursor:pointer">
         <td>
-          <div style="font-weight:600">${escHtml(p.brand)} ${escHtml(p.model)}</div>
+          <div style="font-weight:600">${escHtml(carOf(p))}</div>
         </td>
         <td style="font-size:0.75rem;color:var(--text-muted);font-family:monospace">${escHtml(p.vin || '-')}</td>
         <td>${escHtml(p.color || '-')}</td>
@@ -248,7 +249,7 @@ export default async function PdiPage(container) {
           <div class="input-group"><label class="input-label">เลือกรถจากสต็อกจริง *</label>
             <select class="input" id="np-vehicle">
               <option value="">— เลือกรถ —</option>
-              ${stockVehicles.map(v => `<option value="${escHtml(v.id)}">${escHtml(v.brand)} ${escHtml(v.model)} ${escHtml(v.variant||'')} · ${escHtml(v.color||'')} · VIN ${escHtml((v.vin||'').slice(-6)||'-')}</option>`).join('')}
+              ${stockVehicles.map(v => `<option value="${escHtml(v.id)}">${escHtml(carOf(v, true))} · ${escHtml(v.color||'')} · VIN ${escHtml((v.vin||'').slice(-6)||'-')}</option>`).join('')}
             </select>
             <span class="input-error" id="np-vehicle-e"></span>
           </div>

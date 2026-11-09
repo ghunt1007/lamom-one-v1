@@ -135,7 +135,7 @@ export default async function DeliveryNotePage(container) {
         ${todayList.length ? `<div class="card" style="padding:12px 14px;margin-bottom:14px;border-left:3px solid var(--warning)">
           <div style="font-size:0.8rem;font-weight:700;margin-bottom:6px">📅 ส่งมอบวันนี้ (${todayList.length} คัน)</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            ${todayList.map(n => `<span class="badge badge-warning" style="font-size:0.75rem">${escHtml(n.deliveryTime)} · ${escHtml(n.customerName)} · ${escHtml(n.brand)} ${escHtml(n.model)}</span>`).join('')}
+            ${todayList.map(n => `<span class="badge badge-warning" style="font-size:0.75rem">${escHtml(n.deliveryTime)} · ${escHtml(n.customerName)} · ${escHtml(carOf(n))}</span>`).join('')}
           </div>
         </div>` : ''}
 
@@ -166,7 +166,7 @@ export default async function DeliveryNotePage(container) {
                     <div style="font-size:0.73rem;color:var(--text-muted)">${escHtml(n.phone)}</div>
                   </td>
                   <td>
-                    <div style="font-size:0.85rem;font-weight:600">${escHtml(n.brand)} ${escHtml(n.model)}</div>
+                    <div style="font-size:0.85rem;font-weight:600">${escHtml(carOf(n))}</div>
                     <div style="font-size:0.73rem;color:var(--text-muted)">${escHtml([n.variant, n.color].filter(Boolean).join(' · '))}</div>
                   </td>
                   <td>
@@ -274,7 +274,7 @@ export default async function DeliveryNotePage(container) {
       size: 'md',
       body: `
         <div style="padding:10px;background:var(--surface-2);border-radius:var(--radius-sm);margin-bottom:14px;font-size:0.83rem">
-          <div style="font-weight:700">${escHtml(n.brand)} ${escHtml(n.model)} ${escHtml(n.variant)}</div>
+          <div style="font-weight:700">${escHtml(carOf(n, true))}</div>
           <div style="color:var(--text-muted)">${escHtml(n.color)} · ${escHtml(n.vin || 'รอ VIN')}</div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -319,7 +319,7 @@ export default async function DeliveryNotePage(container) {
       size: 'md',
       body: `
         <div style="padding:10px;background:var(--surface-2);border-radius:var(--radius-sm);margin-bottom:14px;font-size:0.83rem">
-          <div style="font-weight:700">${escHtml(n.brand)} ${escHtml(n.model)} ${escHtml(n.variant)}</div>
+          <div style="font-weight:700">${escHtml(carOf(n, true))}</div>
           <div style="color:var(--text-muted)">${escHtml(n.color)} · ${escHtml(n.vin || 'รอ VIN')}</div>
         </div>
         ${n._fbId && !n.pdReady ? `<div style="padding:8px 12px;background:var(--warning-bg,#fef3c7);color:var(--warning);border-radius:var(--radius-sm);margin-bottom:14px;font-size:0.78rem">⚠️ คันนี้ยังไม่ผ่านเช็คลิสต์ตรวจสภาพรถก่อนส่งมอบ (หน้า "ตรวจรับรถก่อนส่งมอบ") — ตรวจสอบให้แน่ใจก่อนเซ็นส่งมอบจริง</div>` : ''}

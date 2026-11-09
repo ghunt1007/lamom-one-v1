@@ -10,6 +10,7 @@ import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companySco
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { addDaysBangkok as addDays } from '../../utils/format.js'
+import { carOf } from '../../utils/carLabel.js'
 
 const RECALL_STATUS = {
   open:       { label: 'เปิดอยู่', color: 'danger' },
@@ -89,7 +90,7 @@ export default async function RecallManagementPage(container) {
                   <div style="display:flex;justify-content:space-between;margin-bottom:6px">
                     <div>
                       <div style="font-weight:700;font-size:0.88rem">${escHtml(r.title)}</div>
-                      <div style="font-size:0.72rem;color:var(--text-muted)">${escHtml(r.recallNo)} · ${escHtml(r.brand)} ${escHtml(r.model)}</div>
+                      <div style="font-size:0.72rem;color:var(--text-muted)">${escHtml(r.recallNo)} · ${escHtml(carOf(r))}</div>
                     </div>
                     <div style="text-align:right">
                       <span class="badge badge-${st?.color}" style="font-size:0.65rem">${st?.label}</span>

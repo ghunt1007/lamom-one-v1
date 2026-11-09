@@ -70,7 +70,7 @@ export default async function MarginPage(container) {
             <tr>
               <td style="font-size:0.78rem;color:var(--text-muted)">${formatDate(s.date)}</td>
               <td style="font-weight:600">${escHtml(s.custName)}</td>
-              <td style="font-size:0.82rem">${escHtml(s.brand)} ${escHtml(s.model)}</td>
+              <td style="font-size:0.82rem">${escHtml(carOf(s))}</td>
               <td style="font-weight:600;color:var(--accent)">${formatCurrency(s.salePrice)}</td>
               <td style="color:var(--text-2)">${formatCurrency(s.cost)}</td>
               <td style="color:${m.gross >= 0 ? 'var(--success)' : 'var(--danger)'};font-weight:600">${formatCurrency(m.gross)}</td>

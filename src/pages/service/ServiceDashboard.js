@@ -3,6 +3,7 @@ import { navigate } from '../../core/router.js'
 import { formatCurrency, todayBangkok } from '../../utils/format.js'
 import { companyScopeFilters } from '../../core/companyScope.js'
 import { escHtml } from '../../utils/escape.js'
+import { carOf } from '../../utils/carLabel.js'
 
 const QUICK_LINKS = [
   { icon:'🗂️', label:'Job Card', sub:'งานซ่อมทุกคัน', path:'/service/jobs', color:'primary' },
@@ -147,7 +148,7 @@ export default async function ServiceDashboard(container) {
         <div style="font-size:1rem">🔧</div>
         <div style="flex:1;min-width:0">
           <span style="font-weight:600;font-size:0.85rem">${escHtml(j.custName)}</span>
-          <span style="font-size:0.75rem;color:var(--text-muted);margin-left:6px">${escHtml(j.brand)} ${escHtml(j.model)}</span>
+          <span style="font-size:0.75rem;color:var(--text-muted);margin-left:6px">${escHtml(carOf(j))}</span>
         </div>
         <span class="badge badge-${STATUS_COLORS[j.status] || 'primary'}" style="font-size:0.68rem;white-space:nowrap">${JOB_STATUS_LABEL[j.status] || escHtml(j.status)}</span>
       </div>

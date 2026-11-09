@@ -10,6 +10,7 @@ import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companySco
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { addDaysBangkok as addDays } from '../../utils/format.js'
+import { carOf } from '../../utils/carLabel.js'
 
 // (v1.0.951) เดิมวงเงิน ฿50 ล้าน @ 6.5% เป็นตัวเลขตายตัวในโค้ด (ไม่ใช่วงเงินจริงของบริษัท) ตอนนี้ตั้งเองได้
 // เก็บใน floor_plan/settings-<companyId> (kind:'settings', drawDate '9999-12-31' ให้ติดอันดับแรกของ query เสมอ)
@@ -192,7 +193,7 @@ export default async function FloorPlanFinancePage(container) {
           <div class="input-group"><label class="input-label">เลือกรถจากสต็อกจริง *</label>
             <select class="input" id="fp-vehicle">
               <option value="">— เลือกรถ —</option>
-              ${stockVehicles.map(v => `<option value="${escHtml(v.id)}">${escHtml(v.brand)} ${escHtml(v.model)} ${escHtml(v.variant||'')} · VIN ${escHtml((v.vin||'').slice(-6)||'-')}</option>`).join('')}
+              ${stockVehicles.map(v => `<option value="${escHtml(v.id)}">${escHtml(carOf(v, true))} · VIN ${escHtml((v.vin||'').slice(-6)||'-')}</option>`).join('')}
             </select>
             <span class="input-error" id="fp-vehicle-e"></span>
           </div>

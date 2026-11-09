@@ -8,6 +8,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { carOf } from '../../utils/carLabel.js'
 
 const STATUS_CFG = {
   for_sale:   { label:'ขายอยู่',     bg:'var(--success)',     icon:'🏷️' },
@@ -50,7 +51,7 @@ export default async function UsedCarPage(container) {
         <div style="font-size:1.8rem">🚗</div>
         <div style="flex:1">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-            <span style="font-weight:700;font-size:0.9rem">${escHtml(c.brand)} ${escHtml(c.model)}</span>
+            <span style="font-weight:700;font-size:0.9rem">${escHtml(carOf(c))}</span>
             <span style="font-size:0.66rem;background:var(--surface-2);padding:1px 7px;border-radius:8px">${c.year}</span>
             <span style="font-size:0.62rem;background:${cfg.bg};color:#fff;padding:1px 8px;border-radius:8px">${cfg.icon} ${cfg.label}</span>
           </div>

@@ -111,7 +111,7 @@ export default async function InsurancePage(container) {
         <td><span style="font-weight:600;color:var(--primary);font-size:0.85rem">${escHtml(p.policyNo)}</span></td>
         <td style="font-weight:600">${escHtml(p.custName)}</td>
         <td>
-          <div style="font-size:0.85rem">${escHtml(p.brand)} ${escHtml(p.model)}</div>
+          <div style="font-size:0.85rem">${escHtml(carOf(p))}</div>
           <div style="font-size:0.72rem;color:var(--text-muted)">${escHtml(p.plate||'')}</div>
         </td>
         <td style="font-size:0.82rem;color:var(--text-2)">${escHtml(p.insurer)}</td>
@@ -176,7 +176,7 @@ export default async function InsurancePage(container) {
       body: `
         <div style="display:flex;flex-direction:column;gap:12px">
           <div style="background:var(--surface-2);padding:10px 14px;border-radius:var(--radius-md);font-size:0.85rem">
-            <div>🚗 ${escHtml(p.brand)} ${escHtml(p.model)} — ${escHtml(p.plate)}</div>
+            <div>🚗 ${escHtml(carOf(p))} — ${escHtml(p.plate)}</div>
             <div>🏢 ${escHtml(p.insurer)} — ${escHtml(p.type)}</div>
           </div>
           <div class="grid-2">

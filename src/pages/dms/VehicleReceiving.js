@@ -117,7 +117,7 @@ export default async function VehicleReceivingPage(container) {
     return `<div class="card" style="padding:14px;border-left:3px solid var(--${st?.color})">
       <div style="display:flex;justify-content:space-between;margin-bottom:8px">
         <div>
-          <div style="font-weight:700;font-size:0.9rem">${escHtml(v.brand)} ${escHtml(v.model)}</div>
+          <div style="font-weight:700;font-size:0.9rem">${escHtml(carOf(v))}</div>
           <div style="font-size:0.75rem;color:var(--text-muted)">${escHtml(v.variant)} · ${escHtml(v.color)} · ${v.year}</div>
         </div>
         <span class="badge badge-${st?.color}">${st?.label}</span>
@@ -152,7 +152,7 @@ export default async function VehicleReceivingPage(container) {
       size: 'md',
       body: `
         <div style="padding:10px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:0.82rem;margin-bottom:12px">
-          <strong>${escHtml(v.brand)} ${escHtml(v.model)} ${escHtml(v.variant)}</strong> · ${escHtml(v.color)} · ${escHtml(v.vin)}
+          <strong>${escHtml(carOf(v, true))}</strong> · ${escHtml(v.color)} · ${escHtml(v.vin)}
         </div>
         <div style="font-size:0.8rem;font-weight:700;margin-bottom:8px">ตรวจสอบรายการ</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">

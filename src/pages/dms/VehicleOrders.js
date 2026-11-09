@@ -13,6 +13,7 @@ import { exportToExcel } from '../../utils/importExport.js'
 import { navigate } from '../../core/router.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { carOf } from '../../utils/carLabel.js'
 
 const STATUS = {
   draft:      { label: '✏️ ร่าง',          badge: 'primary' },
@@ -107,7 +108,7 @@ export default async function VehicleOrdersPage(container) {
       <tr class="order-row" data-id="${o.id}" style="cursor:pointer">
         <td><span style="font-weight:600;color:var(--primary)">${escHtml(o.orderNo)}</span></td>
         <td>
-          <div style="font-weight:600">${escHtml(o.brand)} ${escHtml(o.model)}</div>
+          <div style="font-weight:600">${escHtml(carOf(o))}</div>
           <div style="font-size:0.75rem;color:var(--text-muted)">${escHtml(o.variant || '')}</div>
         </td>
         <td>${escHtml(o.color || '-')}</td>

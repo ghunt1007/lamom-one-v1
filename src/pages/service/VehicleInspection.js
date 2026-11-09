@@ -7,6 +7,7 @@ import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companySco
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { carOf } from '../../utils/carLabel.js'
 
 const INSPECTION_TYPES = {
   pdi:       { label: 'Pre-Delivery (PDI)', icon: '🚗', color: 'primary' },
@@ -171,7 +172,7 @@ export default async function VehicleInspectionPage(container) {
         <div style="flex:1">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
             <span>${tp.icon}</span>
-            <span style="font-weight:700;font-size:0.9rem">${escHtml(ins.brand)} ${escHtml(ins.model)}</span>
+            <span style="font-weight:700;font-size:0.9rem">${escHtml(carOf(ins))}</span>
             <span style="font-family:monospace;font-size:0.75rem;color:var(--text-muted)">${escHtml(ins.vehiclePlate)}</span>
             <span class="badge badge-${st.color}">${st.label}</span>
             ${ins.overallResult === 'pass' ? '<span class="badge badge-success">✅ ผ่าน</span>' : ins.overallResult === 'fail' ? '<span class="badge badge-danger">❌ ไม่ผ่าน</span>' : ''}
