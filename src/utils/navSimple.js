@@ -3,7 +3,7 @@
 // เมนูอื่นทั้งหมดยังอยู่ครบ กด "เมนูทั้งหมด" หรือพิมพ์ค้นในช่องหาเมนูได้เสมอ (ไม่มีหน้าไหนหายไป)
 export const ESSENTIALS = [
   { key: 'sales', group: 'งานขายทุกวัน', groupEn: 'Daily sales', groupZh: '日常销售',
-    paths: ['/crm/my-day', '/calendar', '/crm/customers', '/marketing/channels', '/crm/bookings', '/crm/followup', '/crm/testdrive', '/crm/quotation', '/crm/programs', '/marketing/events', '/crm/pipeline'] },
+    paths: ['/crm/my-day', '/crm/programs', '/calendar', '/crm/customers', '/marketing/channels', '/crm/bookings', '/crm/followup', '/crm/testdrive', '/crm/quotation', '/marketing/events', '/crm/pipeline'] },
   { key: 'cars', group: 'รถและส่งมอบ', groupEn: 'Cars & delivery', groupZh: '车辆与交车',
     paths: ['/dms/stock', '/dms/delivery-calendar', '/crm/predelivery', '/finance/loan-calc'] },
   { key: 'results', group: 'ผลงานและรายงาน', groupEn: 'Results', groupZh: '业绩与报告',
@@ -19,7 +19,7 @@ export const SIMPLE_LABELS = {
   '/': 'ภาพรวมบริษัท', '/crm': 'ภาพรวมการขาย', '/crm/customers': 'ลูกค้า / Lead', '/crm/followup': 'ติดตามลูกค้า',
   '/crm/testdrive': 'ทดลองขับ', '/crm/pipeline': 'Pipeline ดีล', '/dms/delivery-calendar': 'ปฏิทินส่งมอบ',
   '/finance/loan-calc': 'คำนวณค่างวด', '/finance/commission': 'ค่าคอมมิชชั่น', '/ai/ask': 'ถาม LAMI (AI)',
-  '/tasks': 'งานที่ต้องทำ', '/calendar': 'ปฏิทินงาน', '/crm/programs': 'แคมเปญ & ดอกเบี้ย', '/marketing/events': 'ออกบูธ & อีเวนต์', '/marketing/channels': 'แชต & โพสต์โซเชียล', '/analytics/sales-metrics': 'ตัวชี้วัดการขาย', '/notifications': 'การแจ้งเตือน', '/settings/daily-report': 'รายงานส่ง LINE',
+  '/tasks': 'งานที่ต้องทำ', '/calendar': 'ปฏิทินงาน', '/crm/programs': 'โปร ดอกเบี้ย & เงินพิเศษ', '/marketing/events': 'ออกบูธ & อีเวนต์', '/marketing/channels': 'แชต & โพสต์โซเชียล', '/analytics/sales-metrics': 'ตัวชี้วัดการขาย', '/notifications': 'การแจ้งเตือน', '/settings/daily-report': 'รายงานส่ง LINE',
 }
 
 export const MODE_KEY = 'lamom_nav_mode'

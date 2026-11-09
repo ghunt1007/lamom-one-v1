@@ -34,6 +34,7 @@ export default async function CrmDashboard(container) {
           <div class="page-subtitle">บริหารการขายครบวงจร</div>
         </div>
         <div class="page-actions">
+          <button class="btn btn-secondary btn-sm" data-nav="/crm/programs">🎯 โปร ดอกเบี้ย & เงินพิเศษ</button>
           <button class="btn btn-primary btn-sm" data-nav="/crm/customers">+ ลูกค้าใหม่</button>
         </div>
       </div>

@@ -50,7 +50,7 @@ export default async function SalesProgramsPage(container) {
     <div class="page-content animate-slide sp">
       <div class="page-header">
         <div>
-          <div class="page-title">🎯 แคมเปญ & เงื่อนไขขาย</div>
+          <div class="page-title">🎯 โปร ดอกเบี้ย & เงินพิเศษ</div>
           <div class="page-subtitle">ดอกเบี้ยไฟแนนซ์ · แคมเปญแบรนด์ / โชว์รูม / ทีม / เซลส์${isManager ? ' · มาร์จิ้น · ค่าบริหาร' : ''} · เงินรางวัล — 1 เดือนมีได้หลายแคมเปญ</div>
         </div>
         <div class="page-actions">

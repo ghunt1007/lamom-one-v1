@@ -247,6 +247,7 @@ export default async function MyDayPage(container) {
           <div><div class="page-title">☀️ งานของฉันวันนี้</div><div class="page-subtitle">${hello} · ${formatDate(today)} · ${d.total ? `มีงานค้าง ${d.total} รายการ` : 'ไม่มีงานค้าง 🎉'}${d.tomorrow ? ` · พรุ่งนี้มีนัด ${d.tomorrow} ราย` : ''}${d.contactedToday ? ` · วันนี้ติดต่อแล้ว ${d.contactedToday} ราย 💪` : ''}</div></div>
           <div class="page-actions">
             ${canPick ? `<select class="input" id="md-seller" style="width:auto"><option value="all">ทุกคน</option>${sellerNames().map(n => `<option value="${escHtml(n)}" ${n === seller ? 'selected' : ''}>${escHtml(n)}</option>`).join('')}</select>` : ''}
+            <button class="btn btn-secondary btn-sm" id="md-programs" title="แคมเปญ ดอกเบี้ย มาร์จิ้น ค่าบริหาร เงินรางวัล">🎯 โปร & เงินพิเศษ</button>
             <button class="btn btn-secondary btn-sm" id="md-speak" title="ให้ LAMI อ่านงานวันนี้ให้ฟัง (ฟังตอนขับรถได้)">🔊 ฟังงานวันนี้</button>
             <button class="btn btn-secondary btn-sm" id="md-reload">🔄 รีเฟรช</button>
           </div>
@@ -342,6 +343,7 @@ export default async function MyDayPage(container) {
     const $$ = sel => container.querySelectorAll(sel)
     container.querySelector('#md-seller')?.addEventListener('change', e => { seller = e.target.value; render() })
     $$('.md-more').forEach(b => b.addEventListener('click', () => { expanded.add(b.dataset.key); const y = window.scrollY; render(); window.scrollTo(0, y) }))
+    container.querySelector('#md-programs')?.addEventListener('click', () => navigate('/crm/programs'))
     container.querySelector('#md-reload').addEventListener('click', async () => { await load(); render() })
     container.querySelector('#md-speak')?.addEventListener('click', async e => {
       const btn = e.currentTarget
