@@ -229,13 +229,27 @@ export function computeSalesMetrics(src = {}, { today, period = 'month', who = '
   })
   const ltv = { avg: buyers.size ? Math.round([...buyers.values()].reduce((a, x) => a + x, 0) / buyers.size) : null, buyers: buyers.size, serviceRevenue: serviceRev, repeat: [...new Set(valid.map(keyOf))].length < valid.length ? valid.length - new Set(valid.map(keyOf)).size : 0 }
 
+  // (v1.0.999) CAC — ต้นทุนหาลูกค้าใหม่ 1 ราย = (ค่าโฆษณาที่ใส่ไว้ในบัญชีโซเชียล + ค่าออกบูธ/อีเวนต์ที่เริ่มในช่วงนี้) ÷ ใบจองในช่วงนี้
+  // ค่าใช้จ่ายเป็นของทั้งโชว์รูม จึงคิดเฉพาะตอนดูทุกคน · ไม่มีค่าใช้จ่ายที่ใส่ไว้ = null (ไม่เดา)
+  let cac = null
+  if (!who) {
+    const ym = new Set(); for (let y = +r.from.slice(0, 4), m = +r.from.slice(5, 7); `${y}-${String(m).padStart(2, '0')}` <= r.to.slice(0, 7); m === 12 ? (y++, m = 1) : m++) ym.add(`${y}-${String(m).padStart(2, '0')}`)
+    const adSpend = live(src.socialAccounts).reduce((a, x) => a + [...ym].reduce((b, k) => b + Math.max(0, num(x.spend?.[k])), 0), 0)
+    const eventSpend = live(src.events).filter(e => inRange(String(e.startDate || ''), r)).reduce((a, e) => a + (num(e.spent) || num(e.budget)), 0)
+    const spend = adSpend + eventSpend
+    if (spend > 0) {
+      const value = booked.length ? Math.round(spend / booked.length) : null
+      cac = { spend, adSpend, eventSpend, buyers: booked.length, value, ltvRatio: value && ltv.avg ? Math.round(ltv.avg / value * 10) / 10 : null }
+    }
+  }
+
   return {
     range: r,
     units: { booked: booked.length, delivered: delivered.length, cancelled: cancelled.length },
     target, forecast, gmv, grossProfit, revShare, pipeline, conversion, aov, salesCycle, mix, crossSell, upSell, kpi, crm, quota,
     lead: { total: pipeline.lead, new: newCust.filter(c => c.stage === 'lead').length },
     prospect: { total: pipeline.prospect, hot: openCust.filter(c => c.stage === 'pp' && heuristicScore(c).score >= 80).length },
-    churn, ltv,
+    churn, ltv, cac,
   }
 }
 
@@ -259,6 +273,7 @@ export const METRIC_INFO = {
   prospect: ['Prospect', 'ลูกค้าที่มีศักยภาพ', 'คุยแล้ว มีช่องทางติดต่อ มีความต้องการจริง'],
   churn: ['Churn Rate', 'อัตราลูกค้าหาย', 'ลูกค้าที่รับรถ 6–24 เดือนก่อน แต่ 12 เดือนล่าสุดไม่กลับมาเข้าศูนย์'],
   ltv: ['LTV', 'มูลค่าลูกค้าตลอดอายุ', 'รายได้เฉลี่ยต่อลูกค้าหนึ่งราย: ค่ารถ + งานศูนย์บริการทั้งหมด'],
+  cac: ['CAC', 'ต้นทุนหาลูกค้าใหม่', 'ค่าโฆษณาเพจ/บัญชีโซเชียล + ค่าออกบูธในช่วงนี้ ÷ จำนวนใบจอง · LTV:CAC ยิ่งสูงยิ่งคุ้ม (3 เท่าขึ้นไปถือว่าดี)'],
 }
 
 // (v1.0.975) สรุปตัวชี้วัดเดือนนี้เป็นบรรทัดสั้นๆ ให้ LAMI ใช้ตอบ (ไม่มีข้อมูล = ไม่ใส่ ไม่เดา)
@@ -272,6 +287,7 @@ export function metricsFacts(m, pm = null, label = '') {
   if (m.grossProfit?.pct != null && m.grossProfit?.units) out.push(`GP ${m.grossProfit.pct}% (${baht(m.grossProfit.value)} จาก ${m.grossProfit.units} คันที่ส่งมอบ)`)
   if (m.conversion?.pct != null) out.push(`Conversion ลูกค้าใหม่→จอง ${m.conversion.pct}% (${m.conversion.won}/${m.conversion.leads})`)
   if (m.salesCycle?.avg != null) out.push(`Sales cycle เฉลี่ย ${m.salesCycle.avg} วัน`)
+  if (m.cac?.value) out.push(`CAC ต้นทุนหาลูกค้าใหม่ ${baht(m.cac.value)}/ราย (ค่าโฆษณา+ออกบูธ ${baht(m.cac.spend)} ÷ ${m.cac.buyers} ใบจอง)${m.cac.ltvRatio ? ` · LTV:CAC ${m.cac.ltvRatio} เท่า` : ''}`)
   if (m.churn?.pct != null) out.push(`Churn (ไม่กลับมาเข้าศูนย์) ${m.churn.pct}%`)
   // (v1.0.990) เทียบช่วงเดียวกันก่อนหน้า ให้ LAMI ตอบได้ว่า "ดีขึ้นหรือแย่ลง"
   if (pm && (pm.units.booked || pm.gmv)) {

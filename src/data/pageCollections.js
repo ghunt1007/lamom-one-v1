@@ -371,7 +371,9 @@ export const PAGE_COLLECTIONS = {
   "bookings",
   "customers",
   "job_cards",
+  "marketing_events",
   "quotations",
+  "social_channels",
   "test_drives"
  ],
  "/analytics/forecast": [

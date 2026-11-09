@@ -52,7 +52,7 @@ export default async function SalesMetricsPage(container) {
   const alive = () => container.__routerGen === myGen && container.isConnected
 
   const cs = companyScopeFilters()
-  const [scope, bookings, customers, testDrives, quotations, jobCards, budget] = await Promise.all([
+  const [scope, bookings, customers, testDrives, quotations, jobCards, budget, socialAccounts, events] = await Promise.all([
     getVisibilityScope().catch(() => null),
     listDocs('bookings', cs, 'createdAt', 'desc', 3000).catch(() => []),
     listDocs('customers', cs, 'createdAt', 'desc', 3000).catch(() => []),
@@ -60,6 +60,8 @@ export default async function SalesMetricsPage(container) {
     listDocs('quotations', cs, 'createdAt', 'desc', 1500).catch(() => []),
     listDocs('job_cards', cs, 'createdAt', 'desc', 3000).catch(() => []),
     loadSalesBudget(+today.slice(0, 4)),
+    listDocs('social_channels', [], 'createdAt', 'desc', 300).catch(() => []),
+    listDocs('marketing_events', [], 'startDate', 'desc', 300).catch(() => []),
   ])
   if (!alive()) return
   const vis = (owner, rec) => scopeIncludesRecord(scope, owner, rec)
@@ -68,7 +70,7 @@ export default async function SalesMetricsPage(container) {
     customers: customers.filter(c => vis(c.assignedTo, c)),
     testDrives: testDrives.filter(x => vis(x.staff, x)),
     quotations: quotations.filter(q => vis(q.salesName || q.salesperson, q)),
-    jobCards, budget, vehicles: getVehicles(),
+    jobCards, budget, vehicles: getVehicles(), socialAccounts, events,
   }
   const nm = new Map()
   src.bookings.forEach(b => { const k = normName(b.salesName); if (k && !nm.has(k)) nm.set(k, String(b.salesName).trim()) })
@@ -179,6 +181,7 @@ export default async function SalesMetricsPage(container) {
         <div class="sm-card">${head('crm')}<div class="sm-v">${m.crm.total.toLocaleString('en-US')}</div><div class="sm-s">มีเบอร์/LINE ${m.crm.contactable} · คุยใน 30 วัน ${m.crm.touched30} (${pct(m.crm.touchedPct)})</div></div>
         <div class="sm-card">${head('churn')}<div class="sm-v">${m.churn.noServiceData ? '<span class="sm-muted">—</span>' : pct(m.churn.pct)}</div><div class="sm-s">${m.churn.noServiceData ? 'ยังไม่มีข้อมูลงานศูนย์บริการ' : `${m.churn.lost} จาก ${m.churn.cohort} คันที่รับรถ 6–24 เดือนก่อน ไม่กลับมาเข้าศูนย์ 12 เดือน`}</div>${link('/crm/churn')}</div>
         <div class="sm-card">${head('ltv')}<div class="sm-v">${short(m.ltv.avg)}</div><div class="sm-s">${m.ltv.buyers} ลูกค้าที่ซื้อแล้ว${m.ltv.repeat ? ` · ซื้อซ้ำ ${m.ltv.repeat} คัน` : ''}${m.ltv.serviceRevenue ? ` · งานศูนย์ ${short(m.ltv.serviceRevenue)}` : ''}</div>${link('/crm/clv')}</div>
+        ${who ? '' : `<div class="sm-card">${head('cac')}<div class="sm-v">${m.cac?.value ? short(m.cac.value) : '<span class="sm-muted">—</span>'}</div><div class="sm-s">${m.cac ? `ค่าโฆษณา ${short(m.cac.adSpend)} + ออกบูธ ${short(m.cac.eventSpend)} ÷ ${m.cac.buyers} ใบจอง${m.cac.ltvRatio ? ` · <b>LTV:CAC ${m.cac.ltvRatio} เท่า</b>` : ''}` : 'ยังไม่มีค่าใช้จ่าย — ใส่ค่าโฆษณาที่ ช่องทางโซเชียล › บัญชี หรือค่างานที่ ตารางออกบูธ'}</div>${link('/marketing/channels?tab=accounts', 'ใส่ค่าโฆษณา')}</div>`}
       </div></div>
 
       <div class="sm-sec"><div class="sm-sh">🏅 ${esc(METRIC_INFO.kpi[0])} รายเซลส์ — ${esc(PERIODS[period])} ${info('kpi')}</div>
