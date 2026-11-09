@@ -8,3 +8,10 @@ export function notifFilters(user = getState('user'), role = getState('role')) {
   if (['owner', 'admin'].includes(r)) return []
   return user?.uid ? [['userId', '==', user.uid]] : null
 }
+
+// (v1.0.1006) เจ้าของ/แอดมินดึงได้ทุกฉบับ — แต่ตอนนี้แจ้งเตือนถึงฝ่าย (การเงิน/เซลส์) มีสำเนาส่วนตัวของแต่ละคนด้วย
+// (utils/teamNotify.js) ให้แสดงเฉพาะฉบับรวม (ไม่มี userId) + ของตัวเอง ไม่งั้นกระดิ่งเจ้าของเห็นเรื่องเดียวซ้ำหลายฉบับ
+export function mineOrGeneral(rows = [], user = getState('user')) {
+  const uid = user?.uid
+  return rows.filter(n => !n.userId || n.userId === uid)
+}

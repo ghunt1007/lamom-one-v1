@@ -14,3 +14,11 @@ describe('notifFilters (v1.0.1003)', () => {
     expect(notifFilters(null, null)).toBeNull()
   })
 })
+
+import { mineOrGeneral } from './notifScope.js'
+describe('mineOrGeneral', () => {
+  it('keeps general notifications and my own copies only', () => {
+    const rows = [{ id: 1 }, { id: 2, userId: 'me' }, { id: 3, userId: 'fin1' }, { id: 4, userId: '' }]
+    expect(mineOrGeneral(rows, { uid: 'me' }).map(r => r.id)).toEqual([1, 2, 4])
+  })
+})

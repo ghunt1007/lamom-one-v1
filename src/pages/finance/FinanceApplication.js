@@ -11,6 +11,7 @@ import { escHtml as __escA } from '../../utils/escape.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { notifyTeam } from '../../utils/teamNotify.js'
 
 const APP_STATUS = {
   draft:     { label: 'Draft', color: 'primary' },
@@ -142,13 +143,8 @@ export default async function FinanceApplicationPage(container) {
         if (newStatus === 'approved') patch.approvedDate = todayBangkok()
         await updateDocData('finance_applications', a.id, patch)
         try {
-          await createDoc('notifications', {
-            type: 'finance',
-            title: newStatus === 'approved' ? 'ไฟแนนซ์อนุมัติแล้ว' : 'ไฟแนนซ์ไม่อนุมัติ',
-            body: `${a.custName} — ${a.vehicle} (${a.bank})`,
-            read: false, link: '/finance/application', createdAt: new Date().toISOString(),
-          })
-          setState('unreadCount', (getState('unreadCount') || 0) + 1)
+          // (v1.0.1006) ถึงเซลส์ที่ยื่นเรื่องนี้จริง
+          await notifyTeam({ type: 'finance', title: newStatus === 'approved' ? 'ไฟแนนซ์อนุมัติแล้ว' : 'ไฟแนนซ์ไม่อนุมัติ', body: `${a.custName} — ${a.vehicle} (${a.bank})`, link: '/finance/application', uids: [a.createdByUid], names: [a.salesperson] })
         } catch { /* แจ้งเตือนพลาดได้ ไม่กระทบสถานะที่บันทึกไปแล้ว */ }
         showToast('✅ อัพเดตสถานะแล้ว', 'success')
         await loadData()

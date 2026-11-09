@@ -14,6 +14,7 @@ import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { addDaysBangkok as addDays } from '../../utils/format.js'
 import { numVal } from '../../utils/numInput.js'
+import { notifyTeam } from '../../utils/teamNotify.js'
 
 const APP_STATUS = {
   preparing:  { label: 'เตรียมเอกสาร', color: 'secondary', step: 1 },
@@ -277,13 +278,8 @@ export default async function FinanceTrackerPage(container) {
           await updateDocData('finance_applications', a.id, toSharedPatch(patch))
         } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return false }
         try {
-          await createDoc('notifications', {
-            type: 'finance',
-            title: newStatus === 'approved' ? 'ไฟแนนซ์อนุมัติแล้ว' : `สถานะไฟแนนซ์: ${APP_STATUS[newStatus]?.label}`,
-            body: `${a.customerName} — ${a.vehicleModel} (${a.bank})`,
-            read: false, link: '/finance/tracker', createdAt: new Date().toISOString(),
-          })
-          setState('unreadCount', (getState('unreadCount') || 0) + 1)
+          // (v1.0.1006) ถึงเซลส์เจ้าของเคสจริง
+          await notifyTeam({ type: 'finance', title: newStatus === 'approved' ? 'ไฟแนนซ์อนุมัติแล้ว' : `สถานะไฟแนนซ์: ${APP_STATUS[newStatus]?.label}`, body: `${a.customerName} — ${a.vehicleModel} (${a.bank})`, link: '/finance/tracker', uids: [a.createdByUid], names: [a.salesperson] })
         } catch { /* แจ้งเตือนพลาดได้ ไม่กระทบสถานะที่บันทึกไปแล้ว */ }
         showToast(`✅ อัพเดทสถานะ ${a.id} เป็น "${APP_STATUS[newStatus]?.label}" แล้ว`, 'success')
         await loadData()

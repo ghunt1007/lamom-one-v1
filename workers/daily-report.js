@@ -34,6 +34,7 @@
 import { BACKUP_CRON, runNightlyBackup, handleLatestBackup, isProgramOwnerUser } from './nightly-backup.js'
 import { DRIVE_SCOPE, handleSheetPull } from './sheet-pull.js'
 import { handleSocial, recordLineInbound, handleExtraLineWebhook } from './social.js'
+import { handleNotify } from './notify.js'
 // (v1.0.982) ใช้ตรรกะเดียวกับหน้า "งานของฉันวันนี้" หา Lead ที่ควรบอกโปร (ไฟล์ล้วน ไม่แตะ DOM/Firebase SDK)
 import { normalizeProgram, programEarnings, myBonusProgress } from '../src/utils/salesPrograms.js'
 import { campaignLeads } from '../src/utils/campaignLeads.js'
@@ -108,6 +109,19 @@ export default {
           if (out === null) return json({ error: 'Not found' }, 404, cors)
           return json(out, 200, cors)
         } catch (e) { return json({ error: e.message || 'social error' }, e.status || 400, cors) }
+      }
+      // (v1.0.1006) แจ้งเตือนในแอปถึงฝ่าย/คนที่ระบุชื่อ — พนักงานที่อนุมัติแล้วเท่านั้น ดู workers/notify.js
+      if (request.method === 'POST' && url.pathname === '/notify') {
+        const auth_ = await requireStaff(request, env)
+        if (auth_.error) return json({ error: auth_.error }, auth_.status, cors)
+        let body
+        try { body = await request.json() } catch { body = {} }
+        const r = await handleNotify(body || {}, {
+          uid: auth_.uid, projectId: env.FIREBASE_PROJECT_ID, fetch: (...a) => fetch(...a),
+          getAccessToken: () => getFirestoreAccessToken(env),
+          runQuery: (tok, c, f) => runQuery(env, tok, c, null, null, 1000, f),
+        })
+        return json(r.body, r.status, cors)
       }
       if (url.pathname === '/test-send') return await handleTestSend(request, env, cors, morning)
       if (url.pathname === '/preview') return await handlePreview(request, env, cors, morning)

@@ -9,6 +9,7 @@ import { openModal } from '../../utils/modal.js'
 import { sendSms } from '../../utils/comms.js'
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml } from '../../utils/escape.js'
+import { notifyTeam } from '../../utils/teamNotify.js'
 
 // เดิม status ในระบบเขียนแค่ 'current'/'completed' เท่านั้น ไม่มีจุดไหนเขียน 'overdue' เลยแม้แต่ครั้งเดียว
 // (รวมถึงฟิลด์ overdue ที่นับจำนวนวันก็ไม่เคยถูกคำนวณใหม่เลย ค้างที่ 0 ตลอดตั้งแต่สร้างสัญญา) ทำให้แท็บ
@@ -43,8 +44,7 @@ function addMonths(dateStr, n) {
 // ── แจ้งเตือนฝ่ายที่เกี่ยวข้อง — ใช้ pattern เดียวกับ notifyDept() ใน Bookings.js ──
 async function notifyInstallment(title, body) {
   try {
-    await createDoc('notifications', { type: 'finance', title, body, read: false, link: '/finance/installment', createdAt: new Date().toISOString() })
-    setState('unreadCount', (getState('unreadCount') || 0) + 1)
+    await notifyTeam({ type: 'finance', title, body, link: '/finance/installment', roles: ['finance'] })
   } catch { /* แจ้งเตือนพลาดได้ ไม่กระทบข้อมูลหลักที่บันทึกไปแล้ว */ }
 }
 

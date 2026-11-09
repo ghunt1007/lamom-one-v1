@@ -1,6 +1,6 @@
 import { watchDocs, updateDocData, seedDemoData } from '../../core/db.js'
 import { showToast, setState } from '../../core/store.js'
-import { notifFilters } from '../../utils/notifScope.js'
+import { notifFilters, mineOrGeneral } from '../../utils/notifScope.js'
 import { timeAgo } from '../../utils/format.js'
 import { navigate } from '../../core/router.js'
 import { escHtml } from '../../utils/escape.js'
@@ -41,7 +41,7 @@ export default async function NotificationCenterPage(container) {
   // ตัดออก ให้ collection ว่างจริงแสดง empty state ตามจริง และ unreadCount = 0 จริงเมื่อไม่มีแจ้งเตือนจริง
   const unsubNotifs = watchDocs('notifications', notifFilters() || [], 'createdAt', 'desc', 100, rows => {
     if (container.__routerGen !== myGen) { unsubNotifs(); return }
-    notifs = rows.filter(n => !dismissedIds.has(n.id))
+    notifs = mineOrGeneral(rows).filter(n => !dismissedIds.has(n.id))
     setState('unreadCount', notifs.filter(n => !n.read).length)
     renderPage()
   })

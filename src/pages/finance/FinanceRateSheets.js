@@ -15,6 +15,7 @@ import { getFinanceCompanies, getCampaigns } from '../../data/masterData.js'
 import { getBrands } from '../../data/vehicleDatabase.js'
 import { renderKeepFocus } from '../../utils/keepFocus.js'
 import { escHtml } from '../../utils/escape.js'
+import { notifyTeam } from '../../utils/teamNotify.js'
 
 const MONTHS_TH = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
 const STATUS_MAP = { confirmed: { label: 'ยืนยันแล้ว', cls: 'success' }, pending: { label: 'รอตรวจสอบ', cls: 'warning' } }
@@ -350,13 +351,7 @@ export default async function FinanceRateSheetsPage(container) {
           sheets.unshift({ ...record, id })
         }
         try {
-          await createDoc('notifications', {
-            type: 'finance',
-            title: 'มีตารางดอกเบี้ยไฟแนนซ์รอตรวจสอบ',
-            body: `AI วิเคราะห์ได้ ${toSave.length} รายการ (${toSave.map(r => r.bank).filter(Boolean).join(', ')}) — กรุณายืนยันก่อนใช้งานจริง`,
-            read: false, link: '/finance/rate-sheets', createdAt: new Date().toISOString(),
-          })
-          setState('unreadCount', (getState('unreadCount') || 0) + 1)
+          await notifyTeam({ type: 'finance', title: 'มีตารางดอกเบี้ยไฟแนนซ์รอตรวจสอบ', body: `AI วิเคราะห์ได้ ${toSave.length} รายการ (${toSave.map(r => r.bank).filter(Boolean).join(', ')}) — กรุณายืนยันก่อนใช้งานจริง`, link: '/finance/rate-sheets', roles: ['finance', 'manager'] })
         } catch { /* แจ้งเตือนพลาดได้ ไม่กระทบข้อมูลตารางดอกเบี้ยที่บันทึกไปแล้ว */ }
         close()
         showToast(`✅ บันทึก ${toSave.length} รายการแล้ว (รอตรวจสอบ)`, 'success')
