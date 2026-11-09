@@ -33,3 +33,29 @@ export function accountResults(customers, month) {
   }
   return out
 }
+
+// (v1.0.996) ค่าโฆษณาที่จ่ายจริงต่อบัญชี (กรอกเองรายเดือน — ยังไม่มีโทเค็น Meta ให้ดึงเอง)
+// เก็บใน social_channels.spend = { 'YYYY-MM': บาท }
+export function accountSpend(a, month) {
+  const n = Number(a?.spend?.[month])
+  return Number.isFinite(n) && n > 0 ? n : 0
+}
+export function withSpend(a, month, amount) {
+  const spend = { ...(a?.spend || {}) }
+  const n = Math.round(Number(amount) || 0)
+  if (n > 0) spend[month] = n; else delete spend[month]
+  return spend
+}
+// รวมทั้งเดือน: ค่าโฆษณา · Lead · จอง · ต้นทุนต่อ Lead / ต่อจอง (นับเฉพาะบัญชีที่ใส่ค่าโฆษณา เพื่อไม่ให้ต้นทุนต่อ Lead ต่ำเกินจริง)
+export function spendSummary(accounts, results, month) {
+  let spend = 0, leads = 0, booked = 0, paid = 0
+  for (const a of accounts || []) {
+    if (!a || a.deleted) continue
+    const s = accountSpend(a, month)
+    if (!s) continue
+    paid++; spend += s
+    leads += results?.[a.id]?.leads || 0
+    booked += results?.[a.id]?.booked || 0
+  }
+  return { spend, leads, booked, paid, cpl: leads ? Math.round(spend / leads) : null, cpb: booked ? Math.round(spend / booked) : null }
+}

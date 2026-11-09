@@ -29,3 +29,23 @@ describe('socialAccounts', () => {
     expect(r).toEqual({ m: { leads: 2, booked: 1, allLeads: 3, allBooked: 2 } })
   })
 })
+
+import { accountSpend, withSpend, spendSummary } from './socialAccounts.js'
+describe('ค่าโฆษณาต่อบัญชี (v1.0.996)', () => {
+  it('accountSpend อ่านเฉพาะเดือนนั้น ค่าเสีย = 0', () => {
+    expect(accountSpend({ spend: { '2026-11': 3000 } }, '2026-11')).toBe(3000)
+    expect(accountSpend({ spend: { '2026-10': 3000 } }, '2026-11')).toBe(0)
+    expect(accountSpend({ spend: { '2026-11': 'x' } }, '2026-11')).toBe(0)
+    expect(accountSpend(null, '2026-11')).toBe(0)
+  })
+  it('withSpend ใส่/ลบเดือน โดยไม่ทับเดือนอื่น', () => {
+    expect(withSpend({ spend: { '2026-10': 500 } }, '2026-11', '1200.4')).toEqual({ '2026-10': 500, '2026-11': 1200 })
+    expect(withSpend({ spend: { '2026-11': 500 } }, '2026-11', '')).toEqual({})
+  })
+  it('spendSummary นับเฉพาะบัญชีที่ใส่ค่าโฆษณา', () => {
+    const acc = [{ id: 'a', spend: { '2026-11': 3000 } }, { id: 'b' }, { id: 'c', spend: { '2026-11': 1000 }, deleted: true }]
+    const res = { a: { leads: 6, booked: 2 }, b: { leads: 10, booked: 5 } }
+    expect(spendSummary(acc, res, '2026-11')).toEqual({ spend: 3000, leads: 6, booked: 2, paid: 1, cpl: 500, cpb: 1500 })
+    expect(spendSummary(acc, {}, '2026-11')).toMatchObject({ cpl: null, cpb: null })
+  })
+})
