@@ -33,7 +33,8 @@ export default async function SocialChannelsPage(container) {
   const alive = () => container.__routerGen === myGen && container.isConnected
   const manager = isManagerRole()
 
-  let tab = TABS[lsGet('ch-tab', '')] ? lsGet('ch-tab', 'inbox') : 'inbox'
+  const urlTab = new URLSearchParams(location.search || '').get('tab')
+  let tab = TABS[urlTab] ? urlTab : TABS[lsGet('ch-tab', '')] ? lsGet('ch-tab', 'inbox') : 'inbox'
   let status = null, statusErr = '', statusLoading = true
   let lineThreads = [], metaConvs = [], metaLoaded = false, metaLoading = false, metaErr = ''
   let filter = 'all', q = ''
