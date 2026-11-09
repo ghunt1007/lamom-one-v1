@@ -852,6 +852,7 @@ export const PAGE_COLLECTIONS = {
   "job_cards",
   "marketing_events",
   "sales_programs",
+  "social_channels",
   "social_threads",
   "staff",
   "test_drives",

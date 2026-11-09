@@ -59,3 +59,15 @@ export function spendSummary(accounts, results, month) {
   }
   return { spend, leads, booked, paid, cpl: leads ? Math.round(spend / leads) : null, cpb: booked ? Math.round(spend / booked) : null }
 }
+
+// (v1.0.997) ให้ LAMI ตอบ "เพจไหนคุ้มสุด / ยิงแอดเพจไหนดี" ได้ — บัญชีที่มี Lead หรือค่าโฆษณาเดือนนี้ เรียงตาม Lead
+const LV = { team: 'ทีม', showroom: 'โชว์รูม', sales: 'เซลส์' }
+export function accountFacts(accounts, results, month, limit = 8) {
+  const rows = (accounts || []).filter(a => a && !a.deleted).map(a => ({ a, r: results?.[a.id] || { leads: 0, booked: 0 }, s: accountSpend(a, month) }))
+    .filter(x => x.r.leads || x.s).sort((x, y) => y.r.leads - x.r.leads || y.s - x.s).slice(0, limit)
+  const fmt = n => '฿' + Math.round(n).toLocaleString('en-US')
+  const out = rows.map(({ a, r, s }) => `${a.name || a.platform} (${a.platform}${LV[a.level] ? ` · ของ${LV[a.level]}` : ''}${a.owner ? ` · ${a.owner}` : ''}): Lead ${r.leads} จอง ${r.booked}${s ? ` · ค่าโฆษณา ${fmt(s)}${r.leads ? ` = ${fmt(s / r.leads)}/Lead` : ' ยังไม่มี Lead'}${r.booked ? ` · ${fmt(s / r.booked)}/จอง` : ''}` : ''}`)
+  const t = spendSummary(accounts, results, month)
+  if (t.spend) out.push(`รวมบัญชีที่ยิงแอด ${t.paid} บัญชี ค่าโฆษณา ${fmt(t.spend)} · Lead ${t.leads}${t.cpl != null ? ` (${fmt(t.cpl)}/Lead)` : ''}${t.cpb != null ? ` · ${fmt(t.cpb)}/จอง` : ''}`)
+  return out
+}
