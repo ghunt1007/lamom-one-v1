@@ -485,12 +485,13 @@ async function buildReportText(env, accessToken) {
     runQuery(env, accessToken, 'test_drives', null, null, 3000, ['date', 'deleted']),
     runQuery(env, accessToken, 'team_targets', null, null, 500, ['period', 'metric', 'target']),
   ])
-  const [events, socialAccounts] = await Promise.all([
+  const [events, socialAccounts, appointments] = await Promise.all([
     runQuery(env, accessToken, 'marketing_events', null, null, 300, ['title', 'venue', 'startDate', 'endDate', 'status', 'targetLeads', 'budget', 'spent', 'deleted']).catch(() => []),
     runQuery(env, accessToken, 'social_channels', null, null, 300, ['spend', 'deleted']).catch(() => []),
+    runQuery(env, accessToken, 'appointments', 'date', 'DESCENDING', 500, ['date', 'status', 'deleted']).catch(() => []),
   ])
   const followups = [...fuPending, ...fuDone]
-  return buildReport({ bookings, customers, followups, testDrives, teamTargets, events, socialAccounts }, {
+  return buildReport({ bookings, customers, followups, testDrives, teamTargets, events, socialAccounts, appointments }, {
     today: todayBangkok(),
     time: new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' }).format(new Date()),
     defaultTarget: parseInt(env.MONTHLY_DELIVERY_TARGET) || 0,
@@ -661,6 +662,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
     `  • Follow-up วันนี้: ${followUpToday} ราย`,
     followUpOverdue ? `  • ⚠️ Follow-up เลยกำหนด: ${followUpOverdue} ราย` : null,
     `  • ทดลองขับวันนี้: ${testDriveToday} ราย`,
+    showroomVisitLine(data.appointments, today),
     ...(() => { const b = boothTodayLines(data.events, customers, today); return b.length ? ['', '🎪 ออกบูธวันนี้', ...b] : [] })(),
     '',
     '📋 การจอง',
@@ -760,6 +762,16 @@ async function commitFinancePassed(env, accessToken, ids) {
 // คืน [{ name, text }] เรียงคนที่งานค้างมากสุดก่อน
 // สถานะนัดเข้าโชว์รูมที่ยังต้องรอลูกค้า (ตรงกับ APPT_STATUS ใน src/pages/crm/ShowroomAppointment.js)
 export const APPT_OPEN = ['scheduled', 'confirmed']
+
+// (v1.0.1014) รายงาน 18:00: นัดเข้าโชว์รูมวันนี้ มาแล้วกี่ราย ไม่มากี่ราย — null ถ้าวันนี้ไม่มีนัด
+export function showroomVisitLine(appointments, today) {
+  const t = (appointments || []).filter(a => a && !a.deleted && (a.date || '').slice(0, 10) === today && a.status !== 'cancelled')
+  if (!t.length) return null
+  const came = t.filter(a => a.status === 'arrived' || a.status === 'done').length
+  const noshow = t.filter(a => a.status === 'noshow').length
+  const open = t.length - came - noshow
+  return `  • นัดเข้าโชว์รูมวันนี้: ${t.length} ราย · มาแล้ว ${came}${noshow ? ` · ไม่มา ${noshow}` : ''}${open ? ` · ยังไม่อัปเดต ${open}` : ''}`
+}
 
 export function buildMorningSections(data, { today, staleDays = STALE_LEAD_DAYS, maxNames = 5 }) {
   const thisMonth = today.slice(0, 7)

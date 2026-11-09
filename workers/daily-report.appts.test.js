@@ -28,3 +28,21 @@ describe('showroom appointments in the 09:00 reminder (v1.0.1012)', () => {
     expect(t).toContain('13:00 คุณซี')
   })
 })
+
+describe('18:00 showroom visit line (v1.0.1014)', async () => {
+  const { showroomVisitLine, buildReport } = await import('./daily-report.js')
+  it('counts arrived/no-show/not updated, skips cancelled', () => {
+    const a = [
+      { date: today, status: 'arrived' }, { date: today, status: 'done' }, { date: today, status: 'noshow' },
+      { date: today, status: 'scheduled' }, { date: today, status: 'cancelled' }, { date: '2026-11-09', status: 'arrived' },
+    ]
+    expect(showroomVisitLine(a, today)).toBe('  • นัดเข้าโชว์รูมวันนี้: 4 ราย · มาแล้ว 2 · ไม่มา 1 · ยังไม่อัปเดต 1')
+    expect(showroomVisitLine([], today)).toBeNull()
+  })
+  it('appears in the report only when there were appointments', () => {
+    const r0 = buildReport({ ...base, teamTargets: [] }, { today, time: '18:00' })
+    expect(r0).not.toContain('นัดเข้าโชว์รูม')
+    const r1 = buildReport({ ...base, teamTargets: [], appointments: [{ date: today, status: 'arrived' }] }, { today, time: '18:00' })
+    expect(r1).toContain('นัดเข้าโชว์รูมวันนี้: 1 ราย · มาแล้ว 1')
+  })
+})
