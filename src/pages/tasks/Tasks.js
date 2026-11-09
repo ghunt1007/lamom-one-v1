@@ -5,6 +5,7 @@ import { formatDate, timeAgo, todayBangkok } from '../../utils/format.js'
 import { openModal, confirmDialog } from '../../utils/modal.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
+import { notifyTeam, deptRoles } from '../../utils/teamNotify.js'
 
 const DEPARTMENTS = {
   sales:     { label: 'ฝ่ายขาย', icon: '🚗' },
@@ -242,13 +243,7 @@ export default async function TasksPage(container) {
         await updateDocData('tasks', t.id, data)
         Object.assign(t, data)
         try {
-          await createDoc('notifications', {
-            type: 'task',
-            title: 'มีงานถูกส่งต่อมาที่แผนกคุณ',
-            body: `"${t.title}" ถูกส่งต่อมาจาก ${curDept.label} → ${DEPARTMENTS[toDept]?.label}`,
-            read: false, link: '/tasks', createdAt: new Date().toISOString(),
-          })
-          setState('unreadCount', (getState('unreadCount') || 0) + 1)
+          await notifyTeam({ type: 'task', title: 'มีงานถูกส่งต่อมาที่แผนกคุณ', body: `"${t.title}" ถูกส่งต่อมาจาก ${curDept.label} → ${DEPARTMENTS[toDept]?.label}`, link: '/tasks', roles: deptRoles(toDept) })
         } catch {}
         showToast(`🔀 ส่งต่อไปยัง ${DEPARTMENTS[toDept]?.label} แล้ว`, 'success')
         close(); renderBoard()

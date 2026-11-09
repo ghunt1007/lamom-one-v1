@@ -1,7 +1,7 @@
 import { listDocs, updateDocData, seedDemoData } from '../../core/db.js'
 import { timeAgo } from '../../utils/format.js'
 import { setState } from '../../core/store.js'
-import { notifFilters } from '../../utils/notifScope.js'
+import { notifFilters, mineOrGeneral } from '../../utils/notifScope.js'
 import { navigate } from '../../core/router.js'
 import { t } from '../../i18n/index.js'
 import { escHtml } from '../../utils/escape.js'
@@ -14,7 +14,7 @@ export async function openNotifPanel(anchorEl) {
 
   seedDemoData()
   const nf = notifFilters()
-  const notifs = nf ? await listDocs('notifications', nf, 'createdAt', 'desc', 20).catch(() => []) : []
+  const notifs = nf ? mineOrGeneral(await listDocs('notifications', nf, 'createdAt', 'desc', nf.length ? 20 : 60).catch(() => [])).slice(0, 20) : []
   const unread = notifs.filter(n => !n.read)
   setState('unreadCount', unread.length)
 

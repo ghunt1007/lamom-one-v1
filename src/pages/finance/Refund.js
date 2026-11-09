@@ -12,6 +12,7 @@ import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.
 import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companyScope.js'
 import { escHtml } from '../../utils/escape.js'
 import { myName } from '../../utils/myName.js'
+import { notifyTeam } from '../../utils/teamNotify.js'
 
 
 // (v1.0.518) เงินจอง (bookingDeposit) แยกจากเงินดาวน์ (down) — ใบจองเก่ามีแค่ down ตัวเดียว ยอดที่เซลส์เก็บ
@@ -43,10 +44,10 @@ export default async function RefundPage(container) {
     if (container.__routerGen === myGen) render()
   }
 
-  async function notifySales(title, body) {
+  // (v1.0.1006) ถึงเซลส์เจ้าของใบจองจริง (ตามชื่อเซลส์ในใบจอง — ใบจองจาก Sheet ผู้สร้างคือเจ้าของ จึงไม่ใช้ createdByUid)
+  async function notifySales(title, body, b) {
     try {
-      await createDoc('notifications', { type: 'finance', title, body, read: false, link: '/crm/bookings', createdAt: new Date().toISOString() })
-      setState('unreadCount', (getState('unreadCount') || 0) + 1)
+      await notifyTeam({ type: 'finance', title, body, link: '/crm/bookings', names: [b?.salesName || b?.salesperson] })
     } catch { /* แจ้งเตือนพลาดได้ ไม่กระทบข้อมูลหลัก */ }
   }
 
@@ -157,7 +158,7 @@ export default async function RefundPage(container) {
       try {
         await updateDocData('bookings', b.id, { paymentVerifyStatus: 'ยืนยันแล้ว', paymentVerifiedAt: today })
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return }
-      try { await notifySales('✅ การเงินยืนยันยอดโอนแล้ว', `ใบจอง ${b.bookingNo} — ${b.custName || ''} ยอด ${formatCurrency(depositAmt(b))} มีเงินโอนเข้ามาจริง เซลส์ดำเนินการต่อได้`) } catch { /* แจ้งเตือนพลาดได้ ไม่กระทบสถานะที่บันทึกไปแล้ว */ }
+      try { await notifySales('✅ การเงินยืนยันยอดโอนแล้ว', `ใบจอง ${b.bookingNo} — ${b.custName || ''} ยอด ${formatCurrency(depositAmt(b))} มีเงินโอนเข้ามาจริง เซลส์ดำเนินการต่อได้`, b) } catch { /* แจ้งเตือนพลาดได้ ไม่กระทบสถานะที่บันทึกไปแล้ว */ }
       showToast('✅ ยืนยันยอดโอนแล้ว — แจ้งเซลส์เรียบร้อย', 'success')
       await loadData()
     }))
@@ -172,7 +173,7 @@ export default async function RefundPage(container) {
       try {
         await updateDocData('bookings', b.id, { refundStatus: 'คืนเงินแล้ว', refundAmount: amt, refundedAt: today })
       } catch (e) { showToast('บันทึกไม่สำเร็จ', 'error'); return }
-      try { await notifySales('💸 การเงินคืนเงินจองให้ลูกค้าแล้ว', `ใบจอง ${b.bookingNo} — คืนเงิน ${formatCurrency(amt)} ให้ ${b.custName || ''} เรียบร้อย (${formatDate(today)})`) } catch { /* แจ้งเตือนพลาดได้ ไม่กระทบสถานะที่บันทึกไปแล้ว */ }
+      try { await notifySales('💸 การเงินคืนเงินจองให้ลูกค้าแล้ว', `ใบจอง ${b.bookingNo} — คืนเงิน ${formatCurrency(amt)} ให้ ${b.custName || ''} เรียบร้อย (${formatDate(today)})`, b) } catch { /* แจ้งเตือนพลาดได้ ไม่กระทบสถานะที่บันทึกไปแล้ว */ }
       showToast('💸 บันทึกการคืนเงินแล้ว — ฝ่ายขายเห็นสถานะทันที', 'success')
       await loadData()
     }))

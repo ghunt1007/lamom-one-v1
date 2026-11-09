@@ -31,6 +31,7 @@ import { copyText } from '../../utils/copyText.js'
 import { escHtml } from '../../utils/escape.js'
 import { SHEET_COLUMNS, patchForCell, sheetExportRows, sheetFieldList, sheetYesChips } from '../../utils/sheetColumns.js'
 import { renderSheetGrid, deferWhileEditing } from './bookingSheetGrid.js'
+import { notifyTeam } from '../../utils/teamNotify.js'
 
 // ── แบรนด์หลักที่ตัวแทนขาย (ตาม LAMOM V8 — S.K. Bangbuathong) ──────────────
 const BRANDS = ['DEEPAL', 'AION', 'OMODA & JAECOO', 'SUZUKI', 'NISSAN']
@@ -966,8 +967,8 @@ export default async function BookingsPage(container) {
   // ── แจ้งเตือนข้ามฝ่าย (การเงิน/เซลส์) ────────────────────────────────────
   async function notifyDept(title, body, link) {
     try {
-      await createDoc('notifications', { type: 'finance', title, body, read: false, link, createdAt: new Date().toISOString() })
-      setState('unreadCount', (getState('unreadCount') || 0) + 1)
+      // (v1.0.1006) ถึงฝ่ายการเงินทุกคนจริงๆ (เดิมเห็นแค่เจ้าของ/แอดมิน)
+      await notifyTeam({ type: 'finance', title, body, link, roles: ['finance'] })
     } catch { /* แจ้งเตือนพลาดได้ ไม่กระทบข้อมูลหลักที่บันทึกไปแล้ว */ }
   }
 

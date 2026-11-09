@@ -59,7 +59,6 @@ export const PAGE_COLLECTIONS = {
   "bookings",
   "customers",
   "finance_applications",
-  "notifications",
   "org_companies",
   "quotations",
   "staff",
@@ -176,7 +175,6 @@ export const PAGE_COLLECTIONS = {
   "vehicles"
  ],
  "/tasks": [
-  "notifications",
   "tasks"
  ],
  "/calendar": [
@@ -245,8 +243,7 @@ export const PAGE_COLLECTIONS = {
   "staff"
  ],
  "/hr/expense": [
-  "expense_claims",
-  "notifications"
+  "expense_claims"
  ],
  "/service/appointment": [
   "service_appointments",
@@ -268,8 +265,7 @@ export const PAGE_COLLECTIONS = {
  "/finance/application": [
   "bank_partner_info",
   "customers",
-  "finance_applications",
-  "notifications"
+  "finance_applications"
  ],
  "/crm/portal": [
   "bookings",
@@ -415,8 +411,7 @@ export const PAGE_COLLECTIONS = {
  "/finance/tracker": [
   "finance_applications",
   "finance_tracker",
-  "notes",
-  "notifications"
+  "notes"
  ],
  "/dms/receiving": [
   "documents",
@@ -694,7 +689,6 @@ export const PAGE_COLLECTIONS = {
   "trade_ins"
  ],
  "/hr/documents": [
-  "notifications",
   "staff",
   "staff_documents"
  ],
@@ -1062,7 +1056,6 @@ export const PAGE_COLLECTIONS = {
  "/crm/loyalty-tiers": [],
  "/hr/expense-ocr": [
   "expense_receipts",
-  "notifications",
   "staff"
  ],
  "/b2b/fleet-gps": [
@@ -1088,8 +1081,7 @@ export const PAGE_COLLECTIONS = {
   "finance_applications"
  ],
  "/finance/rate-sheets": [
-  "finance_rate_sheets",
-  "notifications"
+  "finance_rate_sheets"
  ],
  "/crm/anniversary": [
   "greeting_sends"
@@ -1204,12 +1196,10 @@ export const PAGE_COLLECTIONS = {
  ],
  "/finance/refund": [
   "bookings",
-  "notifications",
   "refund_requests"
  ],
  "/finance/installment": [
-  "installment_plans",
-  "notifications"
+  "installment_plans"
  ],
  "/dms/color-matrix": [
   "stock",

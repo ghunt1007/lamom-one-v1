@@ -3,7 +3,7 @@ import { navigate } from '../../core/router.js'
 import { openNotifPanel } from './NotifPanel.js'
 import { openGlobalSearch } from './GlobalSearch.js'
 import { listDocs, seedDemoData } from '../../core/db.js'
-import { notifFilters } from '../../utils/notifScope.js'
+import { notifFilters, mineOrGeneral } from '../../utils/notifScope.js'
 import { t, LANGUAGES } from '../../i18n/index.js'
 import { NAV } from '../../data/navMenu.js'
 import { breadcrumbFor } from '../../utils/breadcrumb.js'
@@ -13,7 +13,7 @@ export async function refreshUnreadCount() {
   try {
     seedDemoData()
     const nf = notifFilters()
-    const notifs = nf ? await listDocs('notifications', nf, 'createdAt', 'desc', 50) : []
+    const notifs = nf ? mineOrGeneral(await listDocs('notifications', nf, 'createdAt', 'desc', nf.length ? 50 : 150)).slice(0, 50) : []
     setState('unreadCount', notifs.filter(n => !n.read).length)
   } catch { /* เงียบไว้ — จุดแจ้งเตือนแค่ไม่อัปเดต ไม่กระทบส่วนอื่น */ }
 }

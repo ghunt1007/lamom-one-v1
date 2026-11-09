@@ -13,6 +13,7 @@ import { renderKeepFocus } from '../../utils/keepFocus.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { addDaysBangkok as addDays } from '../../utils/format.js'
+import { notifyTeam } from '../../utils/teamNotify.js'
 
 // เดิมใช้ new Date().toISOString().slice(0,10) เป็นฐาน "วันนี้" ซึ่งคืนวันที่ตาม UTC เสมอ — ผิดไป 1 วันทุก
 // ครั้งที่ตรวจสอบก่อน 07:00 น. เวลาไทย ทำให้เอกสารที่หมดอายุไปแล้วจริงยังโชว์ "ใกล้หมดอายุ" อยู่ช่วงสั้นๆ
@@ -211,13 +212,7 @@ export default async function StaffDocumentsPage(container) {
         const id = await createDoc('staff_documents', data)
         docs.unshift({ id, ...data })
         try {
-          await createDoc('notifications', {
-            type: 'hr',
-            title: 'มีเอกสารพนักงานรอตรวจสอบ',
-            body: `${staff} อัปโหลด "${name}" (${DOC_TYPES[type]?.label || type}) — กรุณาตรวจสอบ`,
-            read: false, link: '/hr/documents', createdAt: new Date().toISOString(),
-          })
-          setState('unreadCount', (getState('unreadCount') || 0) + 1)
+          await notifyTeam({ type: 'hr', title: 'มีเอกสารพนักงานรอตรวจสอบ', body: `${staff} อัปโหลด "${name}" (${DOC_TYPES[type]?.label || type}) — กรุณาตรวจสอบ`, link: '/hr/documents', roles: ['hr'] })
         } catch { /* แจ้งเตือนพลาดได้ ไม่กระทบเอกสารที่บันทึกไปแล้ว */ }
         showToast('✅ อัปโหลดเอกสารแล้ว — รอตรวจสอบ', 'success'); close(); renderPage()
       } catch {

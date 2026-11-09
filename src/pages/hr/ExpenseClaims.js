@@ -8,6 +8,7 @@ import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
 import { myName } from '../../utils/myName.js'
+import { notifyTeam } from '../../utils/teamNotify.js'
 
 
 const CLAIM_CATS = {
@@ -147,11 +148,8 @@ export default async function ExpenseClaimsPage(container) {
 
   async function notify(c, title) {
     try {
-      await createDoc('notifications', {
-        type: 'finance', title, body: `${c.staffName} — ${c.desc} (${formatCurrency(c.amount)})`,
-        read: false, link: '/hr/expense', createdAt: new Date().toISOString(),
-      })
-      setState('unreadCount', (getState('unreadCount') || 0) + 1)
+      // (v1.0.1006) ผลอนุมัติ/ไม่อนุมัติ ถึงคนที่ขอเบิกจริง
+      await notifyTeam({ type: 'finance', title, body: `${c.staffName} — ${c.desc} (${formatCurrency(c.amount)})`, link: '/hr/expense', uids: [c.createdByUid], names: [c.staffName] })
     } catch { /* แจ้งเตือนพลาดได้ ไม่กระทบสถานะที่บันทึกไปแล้ว */ }
   }
 

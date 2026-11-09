@@ -10,6 +10,7 @@ import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companySco
 import { uploadFile, deleteFile } from '../../utils/storage.js'
 import { analyzeExpenseReceipt } from '../../utils/ai.js'
 import { escHtml as esc } from '../../utils/escape.js'
+import { notifyTeam } from '../../utils/teamNotify.js'
 
 // ป้องกัน XSS — ข้อมูล vendor/note/staff ฯลฯ มาจากผู้ใช้พิมพ์เอง หรือ AI OCR อ่านจากรูปที่อัปโหลด
 // (ผู้ไม่หวังดีอาจปลอมใบเสร็จให้ AI อ่านค่าที่มี HTML/JS ปนมาได้) ต้อง escape ทุกครั้งก่อนแสดงผล
@@ -259,13 +260,7 @@ export default async function ExpenseOcrPage(container) {
         if (!RECEIPTS.some(r => r._persisted)) RECEIPTS = []
         RECEIPTS.unshift({ id, ...data, _persisted: true })
         try {
-          await createDoc('notifications', {
-            type: 'expense',
-            title: 'มีใบเสร็จค่าใช้จ่ายรออนุมัติ',
-            body: `${data.staff} ส่งใบเสร็จ ${data.vendor} (${formatCurrency(data.amount)}) — กรุณาตรวจสอบ`,
-            read: false, link: '/hr/expense-ocr', createdAt: new Date().toISOString(),
-          })
-          setState('unreadCount', (getState('unreadCount') || 0) + 1)
+          await notifyTeam({ type: 'expense', title: 'มีใบเสร็จค่าใช้จ่ายรออนุมัติ', body: `${data.staff} ส่งใบเสร็จ ${data.vendor} (${formatCurrency(data.amount)}) — กรุณาตรวจสอบ`, link: '/hr/expense-ocr', roles: ['finance', 'manager'] })
         } catch { /* แจ้งเตือนพลาดได้ ไม่กระทบใบเสร็จที่บันทึกไปแล้ว */ }
         close(); render()
         showToast(ocr.demo ? '🤖 Demo mode — ล็อกอินด้วยบัญชีจริงเพื่ออ่านใบเสร็จจริง' : '🤖 AI อ่านใบเสร็จสำเร็จ · ส่งขออนุมัติแล้ว', ocr.demo ? 'info' : 'success')
