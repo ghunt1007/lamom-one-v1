@@ -26,7 +26,7 @@ import { classifyLostReason } from '../../utils/lostReason.js'
 import { openReplan, bookingTotal } from '../../utils/replanModal.js'
 import { copyText } from '../../utils/copyText.js'
 import { escHtml } from '../../utils/escape.js'
-import { normalizeProgram, nextMonthGap, monthLabelTh } from '../../utils/salesPrograms.js'
+import { normalizeProgram, nextMonthGap, monthLabelTh, programEarnings, myBonusProgress } from '../../utils/salesPrograms.js'
 import { isManagerRole } from '../../utils/managerRole.js'
 import { campaignLeads, campaignMessage } from '../../utils/campaignLeads.js'
 import { modelMatches } from '../../utils/salesAi.js'
@@ -143,6 +143,29 @@ export default async function MyDayPage(container) {
         <div style="height:8px;background:var(--surface-2);border-radius:4px;margin:6px 0"><div style="height:100%;width:${Math.min(100, g.pct)}%;background:var(--${g.color});border-radius:4px"></div></div>
         <div style="font-size:0.75rem;color:var(--text-muted)">${g.left ? `เหลืออีก ${g.left} คัน ใน ${daysLeft} วัน` : 'ถึงเป้าแล้ว เยี่ยมมาก! 🎉'}</div>
       </div></div>`
+  }
+
+  // (v1.0.990) เงินรางวัลพิเศษของฉันเดือนนี้ — เห็นทันทีว่าขาดอีกกี่คันจะได้เงิน (นับจากใบจองจริง แบบเดียวกับหน้าโปร & เงินพิเศษ)
+  function bonusCard(today) {
+    // หัวหน้าที่ดู "ทุกคน" ไม่ต้องเห็นของตัวเอง (ดูรวมทั้งทีมที่หน้าโปร & เงินพิเศษ) — เลือกชื่อเซลส์แล้วเห็นของคนนั้น
+    if (seller === 'all' && canPick && isManagerRole()) return ''
+    const who = seller !== 'all' && seller !== UNASSIGNED ? seller : me.displayName
+    if (!who) return ''
+    const month = today.slice(0, 7)
+    const bonus = programs.filter(p => p.type === 'bonus' && (p.bonusFor === 'all' || p.bonusFor === 'person' || !p.bonusFor))
+    if (!bonus.length) return ''
+    const rows = myBonusProgress(programEarnings(bonus, data.bookings.filter(b => !b.deleted), { month, staff: [who] }), who)
+    if (!rows.length) return ''
+    const baht = n => '฿' + Math.round(n || 0).toLocaleString('en-US')
+    const total = rows.reduce((a, x) => a + (x.row.earned || 0), 0)
+    return `<div class="card" style="padding:12px 16px;margin-bottom:14px;border-left:3px solid #F5A524">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px"><div style="font-weight:800;flex:1 1 200px;min-width:0">🏆 เงินรางวัลพิเศษ${who !== me.displayName ? ` · ${escHtml(who)}` : 'ของฉัน'} เดือนนี้${total ? ` <span style="color:var(--success)">ได้แล้ว ${baht(total)}</span>` : ''}</div><button class="btn btn-secondary btn-xs" id="md-bonus-more">ดูทั้งหมด</button></div>
+      ${rows.slice(0, 4).map(({ p, row }) => `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:4px 0;border-top:1px solid var(--border)">
+        <div style="flex:1 1 180px;min-width:0;font-size:0.85rem">${escHtml(p.title || 'รางวัลพิเศษ')}</div>
+        <div style="font-size:0.82rem;white-space:nowrap"><b>${row.units}</b>${row.target ? `/${row.target}` : ''} คัน · ${row.earned ? `<span style="color:var(--success)">✅ ${baht(row.earned)}</span>` : row.target ? `อีก <b style="color:var(--warning)">${row.left}</b> คัน ได้ ${baht(p.amount)}` : `คันละ ${baht(p.amount)}`}</div>
+        ${row.target ? `<div style="flex-basis:100%;height:6px;background:var(--surface-2);border-radius:3px"><div style="height:100%;width:${Math.max(3, row.pct || 0)}%;background:var(--${row.earned ? 'success' : 'warning'});border-radius:3px"></div></div>` : ''}
+      </div>`).join('')}
+    </div>`
   }
 
   // "ทำ 3 อย่างนี้ก่อน" — เปิดหน้ามาเห็นทันทีว่าควรเริ่มจากอะไร (จัดลำดับด้วย topPriorities ใน utils/myDay.js)
@@ -273,6 +296,7 @@ export default async function MyDayPage(container) {
         ${focusCard(d)}
         ${teamCard(today)}
         ${goalCard(today)}
+        ${bonusCard(today)}
         <div class="md-grid">
         ${section('📞', 'นัดติดตามวันนี้/เลยกำหนด', 'กด ✅ เมื่อติดต่อแล้ว', d.followups, f => line(
           `${escHtml(f.customerName || 'ลูกค้า')}${f.late > 0 ? ` <span class="badge badge-danger" style="font-size:0.62rem">เลย ${f.late} วัน</span>` : ''}${f.also?.length ? ` <span class="badge badge-secondary" style="font-size:0.62rem" title="ลูกค้าคนนี้มีนัดค้างอีก ${f.also.length} นัด — กดทำแล้วครั้งเดียวปิดทั้งหมด">+${f.also.length} นัด</span>` : ''}`,
@@ -350,6 +374,7 @@ export default async function MyDayPage(container) {
     container.querySelector('#md-seller')?.addEventListener('change', e => { seller = e.target.value; render() })
     $$('.md-more').forEach(b => b.addEventListener('click', () => { expanded.add(b.dataset.key); const y = window.scrollY; render(); window.scrollTo(0, y) }))
     container.querySelector('#md-programs')?.addEventListener('click', () => navigate('/crm/programs'))
+    container.querySelector('#md-bonus-more')?.addEventListener('click', () => navigate('/crm/programs'))
     container.querySelectorAll('[data-nav-ev]').forEach(b => b.addEventListener('click', () => navigate('/marketing/events')))
     container.querySelector('#md-nextmonth')?.addEventListener('click', e => navigate('/crm/programs?month=' + e.currentTarget.dataset.month))
     container.querySelector('#md-reload').addEventListener('click', async () => { await load(); render() })

@@ -262,7 +262,7 @@ export const METRIC_INFO = {
 }
 
 // (v1.0.975) สรุปตัวชี้วัดเดือนนี้เป็นบรรทัดสั้นๆ ให้ LAMI ใช้ตอบ (ไม่มีข้อมูล = ไม่ใส่ ไม่เดา)
-export function metricsFacts(m) {
+export function metricsFacts(m, pm = null, label = '') {
   if (!m) return []
   const baht = n => `${Math.round(n || 0).toLocaleString('th-TH')} บาท`
   const out = [`จอง ${m.units.booked} คัน ส่งมอบ ${m.units.delivered} คัน ถอนจอง ${m.units.cancelled} · GMV ${baht(m.gmv)}`]
@@ -273,5 +273,10 @@ export function metricsFacts(m) {
   if (m.conversion?.pct != null) out.push(`Conversion ลูกค้าใหม่→จอง ${m.conversion.pct}% (${m.conversion.won}/${m.conversion.leads})`)
   if (m.salesCycle?.avg != null) out.push(`Sales cycle เฉลี่ย ${m.salesCycle.avg} วัน`)
   if (m.churn?.pct != null) out.push(`Churn (ไม่กลับมาเข้าศูนย์) ${m.churn.pct}%`)
+  // (v1.0.990) เทียบช่วงเดียวกันก่อนหน้า ให้ LAMI ตอบได้ว่า "ดีขึ้นหรือแย่ลง"
+  if (pm && (pm.units.booked || pm.gmv)) {
+    const ch = pctChange(m.gmv, pm.gmv)
+    out.push(`เทียบ${label || 'ช่วงก่อน'}: จอง ${pm.units.booked} คัน ส่งมอบ ${pm.units.delivered} คัน GMV ${baht(pm.gmv)}${ch != null ? ` (GMV ตอนนี้ ${ch >= 0 ? '+' : ''}${ch}%)` : ''}${pm.conversion?.pct != null ? ` · Conversion ${pm.conversion.pct}%` : ''}`)
+  }
   return out
 }

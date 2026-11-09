@@ -35,7 +35,7 @@ import { BACKUP_CRON, runNightlyBackup, handleLatestBackup, isProgramOwnerUser }
 import { DRIVE_SCOPE, handleSheetPull } from './sheet-pull.js'
 import { handleSocial, recordLineInbound, handleExtraLineWebhook } from './social.js'
 // (v1.0.982) ใช้ตรรกะเดียวกับหน้า "งานของฉันวันนี้" หา Lead ที่ควรบอกโปร (ไฟล์ล้วน ไม่แตะ DOM/Firebase SDK)
-import { normalizeProgram } from '../src/utils/salesPrograms.js'
+import { normalizeProgram, programEarnings, myBonusProgress } from '../src/utils/salesPrograms.js'
 import { campaignLeads } from '../src/utils/campaignLeads.js'
 
 const FIRESTORE_SCOPE = 'https://www.googleapis.com/auth/datastore'
@@ -657,7 +657,7 @@ export function buildReport(data, { today, time, defaultTarget = 0 }) {
 // ── เตือนงานค้างตอนเช้า (09:00) — แยกรายเซลส์ ─────────────────────────────────
 async function buildMorningData(env, accessToken) {
   const [bookings, customers, followups, testDrives, programs, events] = await Promise.all([
-    runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'cancelReason', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'model', 'totalIncome', 'finStatus', 'submitDate', 'financeCo', 'deleted']),
+    runQuery(env, accessToken, 'bookings', null, null, 5000, ['status', 'bookingDate', 'createdAt', 'cutDate', 'actualDeliveryDate', 'cancelDate', 'cancelReason', 'deliveryDate', 'deliveryTime', 'salesName', 'custName', 'brand', 'model', 'totalIncome', 'finStatus', 'submitDate', 'financeCo', 'deleted']),
     runQuery(env, accessToken, 'customers', null, null, 5000, ['stage', 'firstName', 'lastName', 'assignedTo', 'interestedModel', 'temperature', 'isLost', 'lostAt', 'lostReason', 'createdAt', 'updatedAt', 'stageChangedAt', 'lastContactAt', 'source', 'bookingId', 'deleted']),
     // เฉพาะนัดที่ยังไม่ทำ — นัดอัตโนมัติ (Lead/หลังส่งมอบ) สะสมเร็ว ถ้าดึงทั้งหมดแบบจำกัดจำนวนจะตกหล่นนัดของวันนี้
     runQuery(env, accessToken, 'followups', null, null, 5000, ['dueDate', 'status', 'salesperson', 'customerName', 'customerId', 'autoLead', 'deleted'], ['status', 'pending']),
@@ -883,6 +883,7 @@ export function buildPersonalReminder(section, today, appUrl = '', goal = null) 
     '☀️ งานค้างของคุณเช้านี้',
     `🗓 ${formatThaiDate(today)}`,
     goal?.target ? `🎯 เป้าเดือนนี้: ส่งมอบแล้ว ${goal.done}/${goal.target} คัน${goal.done >= goal.target ? ' ถึงเป้าแล้ว! 🎉' : ` (เหลือ ${goal.target - goal.done} คัน)`}` : null,
+    goal?.bonus?.length ? goal.bonus.join('\n') : null,
     '',
     section.focus?.length ? ['⭐ เริ่มจาก ' + section.focus.length + ' อย่างนี้ก่อน:', ...section.focus.map((f, i) => `  ${i + 1}. ${f}`), ''].join('\n') : null,
     section.text,
@@ -901,15 +902,29 @@ async function readSalesGoals(env, accessToken, month) {
     return doc.fields?.targets ? decodeFsValue(doc.fields.targets) || {} : {}
   } catch { return {} }
 }
+// (v1.0.990) เงินรางวัลพิเศษเดือนนี้ของเซลส์คนนี้ (หน้าโปร & เงินพิเศษ → รางวัล "เซลส์ทุกคน"/"เฉพาะคน") → ข้อความสั้นๆ
+export function sellerBonus(data, name, today) {
+  try {
+    const progs = (data.programs || []).filter(r => r && !r.deleted).map(r => ({ ...normalizeProgram(r), id: r.id }))
+      .filter(p => p.type === 'bonus' && p.bonusFor !== 'team' && p.bonusFor !== 'manager')
+    if (!progs.length || !name) return []
+    const baht = n => '฿' + Math.round(n || 0).toLocaleString('en-US')
+    return myBonusProgress(programEarnings(progs, data.bookings || [], { month: today.slice(0, 7), staff: [name] }), name)
+      .slice(0, 3)
+      .map(({ p, row }) => `🏆 ${p.title || 'รางวัลพิเศษ'}: ${row.units}${row.target ? `/${row.target}` : ''} คัน · ${row.earned ? `ได้แล้ว ${baht(row.earned)} 🎉` : row.target ? `อีก ${row.left} คัน ได้ ${baht(p.amount)}` : `คันละ ${baht(p.amount)}`}`)
+  } catch { return [] }
+}
+
 export function sellerGoal(data, goals, name, today) {
   const key = normSalesName(name)
   const entry = Object.entries(goals || {}).find(([n]) => normSalesName(n) === key)
   const target = entry ? Number(entry[1]) || 0 : 0
-  if (!target) return null
+  const bonus = sellerBonus(data, name, today)
+  if (!target) return bonus.length ? { done: 0, target: 0, bonus } : null
   const month = today.slice(0, 7)
   const done = (data.bookings || []).filter(b => b && !b.deleted && DELIVERED_STATUSES.includes(b.status)
     && (b.cutDate || b.actualDeliveryDate || '').startsWith(month) && normSalesName(b.salesName) === key).length
-  return { done, target }
+  return bonus.length ? { done, target, bonus } : { done, target }
 }
 
 // เทียบชื่อแบบไม่สนช่องว่าง/ตัวพิมพ์ คำนำหน้า "คุณ" — ชื่อที่ลงทะเบียนต้องตรงกับชื่อเซลส์/ผู้ดูแลในแอป
@@ -1277,6 +1292,7 @@ export function myStatsText(data, name, today, goal = null) {
   return [
     `📊 ยอดของคุณ${TH[m - 1]} ${y + 543}`,
     goal?.target ? `🎯 เป้าส่งมอบ: ${goal.done}/${goal.target} คัน (${Math.round(goal.done / goal.target * 100)}%)${goal.done >= goal.target ? ' ถึงเป้าแล้ว! 🎉' : ''}` : null,
+    goal?.bonus?.length ? goal.bonus.join('\n') : null,
     `✅ ส่งมอบ: ${dlv.length} คัน · 💰 รายได้ ${fmtBaht(income)}${missing ? ` (ยังไม่กรอกรายได้ ${missing} คัน)` : ''}`,
     `📋 จองใหม่: ${booked} คัน${cancelled ? ` · ❌ ถอนจอง ${cancelled} คัน` : ''}`,
     `🚗 ใบจองที่ยังไม่ส่งมอบ: ${pending} คัน`,
