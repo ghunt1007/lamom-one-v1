@@ -51,6 +51,7 @@ export default async function MyDayPage(container) {
   let lineRegistered = true
   let staff = []
   let programs = []
+  let events = []
 
   container.innerHTML = `<div class="page-content"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">กำลังโหลด...</div></div></div>`
   const scope = await getVisibilityScope()
@@ -69,6 +70,8 @@ export default async function MyDayPage(container) {
     try { targets = (await readDoc(SALES_TARGETS_COLLECTION, todayBangkok().slice(0, 7)))?.targets || {} } catch { targets = {} }
     // แคมเปญเดือนนี้ → หา Lead ที่ควรโทรบอกโปร (โหลดไม่ได้ = ไม่แสดงหมวดนี้)
     try { programs = (await listDocs('sales_programs', [], 'dateFrom', 'desc', 1000)).filter(r => !r.deleted).map(r => ({ ...normalizeProgram(r), id: r.id })) } catch { programs = [] }
+    // (v1.0.987) งานออกบูธ/อีเวนต์ที่กำลังจัด → ใครมีเวรวันนี้ ขึ้นเตือนบนหน้านี้
+    try { events = (await listDocs('marketing_events', [], 'startDate', 'desc', 100)).filter(e => !e.deleted && e.status !== 'cancelled') } catch { events = [] }
     try { staff = staffChoices(await listDocs('staff', companyScopeFilters(), 'firstName', 'asc', 1000)) } catch { staff = [] }
     // ลงทะเบียนรับงานทาง LINE แล้วหรือยัง (ทัก LINE OA พิมพ์ "ลงทะเบียน ชื่อ") — โหลดไม่ได้ = ไม่แสดงคำแนะนำ
     try {
@@ -266,6 +269,7 @@ export default async function MyDayPage(container) {
         </div>
         <div id="md-jump"></div>
         ${(() => { const g = isManagerRole() && nextMonthGap(programs, today); return g ? `<div class="card" style="padding:10px 14px;margin-bottom:12px;border-left:3px solid var(--warning);display:flex;gap:8px;align-items:center;flex-wrap:wrap"><div style="flex:1 1 220px;min-width:0">🎯 <b>${monthLabelTh(g.month)}</b> ยังไม่มีโปร/ดอกเบี้ย · เดือนนี้มี ${g.carry} รายการ ใช้ต่อได้ในปุ่มเดียว</div><button class="btn btn-primary btn-sm" id="md-nextmonth" data-month="${g.month}">📄 ตั้งโปรเดือนหน้า</button></div>` : '' })()}
+        ${(() => { const mine_ = events.filter(e => (e.shifts?.[today] || []).some(n => normName(n) === normName(me.displayName || ''))); const all_ = events.filter(e => (e.shifts?.[today] || []).length); const show = mine_.length ? mine_ : (canPick ? all_ : []); return show.length ? `<div class="card" style="padding:10px 14px;margin-bottom:12px;border-left:3px solid #F5A524">${show.map(e => `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><div style="flex:1 1 220px;min-width:0">🗓 <b>${mine_.length ? 'วันนี้คุณมีเวร' : 'เวรวันนี้'}</b> ${escHtml(e.title || 'งานออกบูธ')}${e.venue ? ` · 📍 ${escHtml(e.venue)}` : ''}<div style="font-size:0.76rem;color:var(--text-muted)">${escHtml(e.shifts[today].join(', '))}</div></div><button class="btn btn-secondary btn-xs" data-nav-ev="${escHtml(e.id)}">ดูงาน</button></div>`).join('')}</div>` : '' })()}
         ${focusCard(d)}
         ${teamCard(today)}
         ${goalCard(today)}
@@ -346,6 +350,7 @@ export default async function MyDayPage(container) {
     container.querySelector('#md-seller')?.addEventListener('change', e => { seller = e.target.value; render() })
     $$('.md-more').forEach(b => b.addEventListener('click', () => { expanded.add(b.dataset.key); const y = window.scrollY; render(); window.scrollTo(0, y) }))
     container.querySelector('#md-programs')?.addEventListener('click', () => navigate('/crm/programs'))
+    container.querySelectorAll('[data-nav-ev]').forEach(b => b.addEventListener('click', () => navigate('/marketing/events')))
     container.querySelector('#md-nextmonth')?.addEventListener('click', e => navigate('/crm/programs?month=' + e.currentTarget.dataset.month))
     container.querySelector('#md-reload').addEventListener('click', async () => { await load(); render() })
     container.querySelector('#md-speak')?.addEventListener('click', async e => {

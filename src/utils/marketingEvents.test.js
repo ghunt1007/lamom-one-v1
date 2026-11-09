@@ -55,3 +55,31 @@ describe('eventFacts', () => {
     expect(f.find(l => l.startsWith('จบแล้ว'))).toContain('Lead 2')
   })
 })
+
+describe('เวรบูธ & เช็กลิสต์', () => {
+  const days = ['2026-11-27', '2026-11-28', '2026-11-29', '2026-11-30'] // ศ ส อา จ
+  it('จัดเวรอัตโนมัติแบ่งเท่ากัน เสาร์-อาทิตย์เพิ่มคน', async () => {
+    const { autoRoster, shiftCounts } = await import('./marketingEvents.js')
+    const r = autoRoster(days, ['A', 'B', 'C', 'D'], 2)
+    expect(r['2026-11-27']).toHaveLength(2)
+    expect(r['2026-11-28']).toHaveLength(3)
+    expect(r['2026-11-29']).toHaveLength(3)
+    const counts = shiftCounts(r).map(x => x[1])
+    expect(Math.max(...counts) - Math.min(...counts)).toBeLessThanOrEqual(1)
+    expect(r['2026-11-28']).not.toEqual(expect.arrayContaining(r['2026-11-27']))
+    expect(autoRoster(days, [], 2)).toEqual({})
+  })
+  it('ล้างข้อมูลเวรที่ไม่อยู่ในวันงาน และชื่อซ้ำ', async () => {
+    const { normalizeShifts, shiftsOn } = await import('./marketingEvents.js')
+    expect(normalizeShifts({ '2026-11-27': ['A', 'A', ' '], '2026-12-25': ['B'], '2026-11-28': [] }, days)).toEqual({ '2026-11-27': ['A'] })
+    expect(shiftsOn({ shifts: { '2026-11-27': ['A'] } }, '2026-11-27')).toEqual(['A'])
+    expect(shiftsOn({}, '2026-11-27')).toEqual([])
+  })
+  it('เช็กลิสต์เริ่มต้นตามประเภทงาน', async () => {
+    const { defaultChecklist, prepProgress } = await import('./marketingEvents.js')
+    const ex = defaultChecklist('expo')
+    expect(ex.some(x => /บัตรผ่าน/.test(x.t))).toBe(true)
+    expect(defaultChecklist('booth').some(x => /บัตรผ่าน/.test(x.t))).toBe(false)
+    expect(prepProgress([{ t: 'a', done: true }, { t: 'b' }, { t: '' }])).toEqual({ done: 1, total: 2 })
+  })
+})

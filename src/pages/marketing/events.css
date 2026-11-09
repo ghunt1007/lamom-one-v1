@@ -60,3 +60,23 @@
   .ev-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 520px) { .ev-form { grid-template-columns: minmax(0, 1fr); } }
+
+/* (v1.0.987) เวรบูธ + เช็กลิสต์ */
+.ev-h-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ev-h-acts { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-weight: 400; }
+.ev-per { width: auto; padding: 3px 8px; font-size: 0.76rem; min-height: 0; }
+.ev-roster { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(128px, 100%), 1fr)); gap: 6px; }
+.ev-shift { text-align: left; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 6px 9px; cursor: pointer; font: inherit; color: var(--text); min-width: 0; }
+.ev-shift.is-today { border-color: #F5A524; box-shadow: 0 0 0 1px #F5A524 inset; }
+.ev-shift b { display: block; font-size: 0.76rem; }
+.ev-shift span { display: block; font-size: 0.74rem; color: var(--text-2); overflow-wrap: anywhere; }
+.ev-shift i { color: var(--text-3); font-style: normal; }
+.ev-check, .ev-pickday { display: grid; gap: 4px; }
+.ev-ck { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 8px; background: var(--surface-2); font-size: 0.82rem; cursor: pointer; min-width: 0; }
+.ev-ck span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.ev-ck.on span { color: var(--text-3); text-decoration: line-through; }
+.ev-pickday .ev-ck.on span { text-decoration: none; color: var(--text); font-weight: 600; }
+.ev-ck input { width: 18px; height: 18px; flex-shrink: 0; }
+.ev-ck-rm { background: none; border: 0; color: var(--text-3); cursor: pointer; padding: 2px 6px; font-size: 0.8rem; }
+.ev-ck-add { display: flex; gap: 6px; margin-top: 6px; }
+.ev-ck-add .input { flex: 1; min-width: 0; }

@@ -75,6 +75,7 @@ export const PAGE_COLLECTIONS = {
   "bookings",
   "customers",
   "followups",
+  "marketing_events",
   "sales_programs",
   "staff",
   "test_drives"
