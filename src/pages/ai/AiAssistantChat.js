@@ -19,6 +19,7 @@ import { accountFacts, accountResults } from '../../utils/socialAccounts.js'
 import { loadSalesBudget } from '../../utils/salesBudget.js'
 import { isManagerRole } from '../../utils/managerRole.js'
 import { financeQueue } from '../../utils/financeQueue.js'
+import { serviceTodayLines, showroomVisitLine } from '../../utils/apptFacts.js'
 import { getVehicles } from '../../data/vehicleDatabase.js'
 import { formatAiText } from '../../utils/aiFormat.js'
 import { pageLinksFor } from '../../utils/aiPageLinks.js'
@@ -95,7 +96,7 @@ export default async function AiAssistantChatPage(container) {
     try {
       const today = todayBangkok()
       const thisMonth = today.slice(0, 7)
-      const [sales, vehicles, customers, debts, csat, staff, jobs, followups, bookings, testDrives, programs, events, budget, threads, socialAccts, showroomAppts] = await Promise.all([
+      const [sales, vehicles, customers, debts, csat, staff, jobs, followups, bookings, testDrives, programs, events, budget, threads, socialAccts, showroomAppts, serviceAppts] = await Promise.all([
         getSalesData().catch(() => []),
         listDocs('vehicles', companyScopeFilters(), 'arrivedAt', 'desc', 500).catch(() => []),
         listDocs('customers', companyScopeFilters(), 'createdAt', 'desc', 500).catch(() => []),
@@ -112,6 +113,7 @@ export default async function AiAssistantChatPage(container) {
         listDocs('social_threads', [], 'lastAt', 'desc', 200).catch(() => []),
         listDocs('social_channels', [], 'createdAt', 'desc', 300).catch(() => []),
         listDocs('appointments', companyScopeFilters(), 'date', 'desc', 200).catch(() => []),
+        listDocs('service_appointments', companyScopeFilters(), 'date', 'desc', 200).catch(() => []),
       ])
       const monthSales = sales.filter(s => (s.date || '').startsWith(thisMonth))
       // totalIncome ต่อใบจอง = กำไรสุทธิจริง (แพทเทิร์นเดียวกับ Margin.js/Commission.js/MarketingROI.js
@@ -175,6 +177,11 @@ export default async function AiAssistantChatPage(container) {
         if (mf.length) businessContext['ตัวชี้วัดการขายเดือนนี้ (หน้าตัวชี้วัดการขาย)'] = mf.join('\n')
         const af = accountFacts(socialAccts, accountResults(customers, today.slice(0, 7)), today.slice(0, 7))
         if (af.length) businessContext['Lead/ค่าโฆษณาต่อบัญชีโซเชียลเดือนนี้ (หน้าช่องทางโซเชียล › บัญชี)'] = af.join('\n')
+        // (v1.0.1016) นัดวันนี้ทั้งโชว์รูม (มา/ไม่มา) และศูนย์บริการ — ให้ตอบ "วันนี้ลูกค้าเข้าโชว์รูมกี่คน / ศูนย์มีรถเข้ากี่คัน"
+        const sv = showroomVisitLine(showroomAppts, today)
+        if (sv) businessContext['นัดเข้าโชว์รูมวันนี้ทั้งทีม (หน้านัดหมายโชว์รูม)'] = sv.replace(/^\s*•\s*/, '')
+        const svc = serviceTodayLines(serviceAppts, today, 10)
+        if (svc.length) businessContext['นัดเข้าศูนย์บริการวันนี้ (หน้านัดหมาย & เตือนเข้าศูนย์)'] = svc.join('\n')
         // (v1.0.1011) งานรอการเงิน (ยืนยันยอดโอน/คืนเงินจอง) — เฉพาะผู้บริหาร/การเงิน
         if (isManagerRole() || getState('user')?.role === 'finance') {
           const fq = financeQueue(bookings, today)

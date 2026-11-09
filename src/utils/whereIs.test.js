@@ -35,3 +35,10 @@ describe('finance aliases (v1.0.1011)', () => {
     expect(findPages('คืนเงินจองทำตรงไหน', NAV)[0]?.path).toBe('/finance/refund')
   })
 })
+
+describe('appointment aliases (v1.0.1016)', () => {
+  it('finds showroom/service appointment pages', () => {
+    expect(findPages('นัดเข้าโชว์รูมดูตรงไหน', NAV)[0]?.path).toBe('/crm/showroom')
+    expect(findPages('นัดเช็กระยะอยู่ไหน', NAV)[0]?.path).toBe('/service/appointment')
+  })
+})
