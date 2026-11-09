@@ -1297,3 +1297,20 @@ describe('ออกบูธวันนี้ในรายงาน 18:00 (v1
     expect(buildReport({ bookings: [], customers, followups: [], testDrives: [], teamTargets: [] }, { today: '2026-11-09', time: '18:00' })).not.toContain('🎪')
   })
 })
+
+import { marketingSpendLine } from './daily-report.js'
+describe('marketingSpendLine (v1.0.1000)', () => {
+  const acc = [{ spend: { '2026-11': 30000, '2026-10': 5 } }, { deleted: true, spend: { '2026-11': 999 } }]
+  const ev = [{ startDate: '2026-11-07', budget: 200000, spent: 50000 }, { startDate: '2026-10-30', budget: 1 }]
+  it('รวมโฆษณา + บูธเดือนนี้ ÷ ใบจอง', () => {
+    expect(marketingSpendLine(acc, ev, '2026-11-10', 4)).toBe('  • 💸 ค่าการตลาดเดือนนี้: ฿80,000 (โฆษณา ฿30,000 + ออกบูธ ฿50,000) · ต่อใบจอง ฿20,000')
+  })
+  it('ไม่มีค่าใช้จ่าย = ว่าง', () => {
+    expect(marketingSpendLine([], [], '2026-11-10', 4)).toBe('')
+    expect(marketingSpendLine(acc, [], '2026-11-10', 0)).toBe('  • 💸 ค่าการตลาดเดือนนี้: ฿30,000')
+  })
+  it('อยู่ในรายงาน 18:00', () => {
+    const txt = buildReport({ bookings: [], customers: [], followups: [], testDrives: [], teamTargets: [], events: ev, socialAccounts: acc }, { today: '2026-11-10', time: '18:00' })
+    expect(txt).toContain('💸 ค่าการตลาดเดือนนี้: ฿80,000')
+  })
+})
