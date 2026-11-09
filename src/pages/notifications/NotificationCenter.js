@@ -1,5 +1,6 @@
 import { watchDocs, updateDocData, seedDemoData } from '../../core/db.js'
 import { showToast, setState } from '../../core/store.js'
+import { notifFilters } from '../../utils/notifScope.js'
 import { timeAgo } from '../../utils/format.js'
 import { navigate } from '../../core/router.js'
 import { escHtml } from '../../utils/escape.js'
@@ -38,7 +39,7 @@ export default async function NotificationCenterPage(container) {
   // เดิม fallback ไปแสดงแจ้งเตือนสมมติ 10 รายการ (lead/booking/ลาปลอม) เมื่อ collection จริงว่างเปล่า โดย
   // unreadCount ของ Topbar ก็คำนวณจากข้อมูลปลอมนี้ด้วย — ตกค้างมาจากก่อนตัด demo mode ออกทั้งระบบ (2026-07-23)
   // ตัดออก ให้ collection ว่างจริงแสดง empty state ตามจริง และ unreadCount = 0 จริงเมื่อไม่มีแจ้งเตือนจริง
-  const unsubNotifs = watchDocs('notifications', [], 'createdAt', 'desc', 100, rows => {
+  const unsubNotifs = watchDocs('notifications', notifFilters() || [], 'createdAt', 'desc', 100, rows => {
     if (container.__routerGen !== myGen) { unsubNotifs(); return }
     notifs = rows.filter(n => !dismissedIds.has(n.id))
     setState('unreadCount', notifs.filter(n => !n.read).length)
