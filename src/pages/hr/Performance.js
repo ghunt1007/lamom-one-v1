@@ -7,6 +7,7 @@ import { companyScopeFilters, myEffectiveCompanyId } from '../../core/companySco
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
+import { numVal } from '../../utils/numInput.js'
 
 const PERF_RATING = {
   5: { label: 'ดีเยี่ยม', color: 'success', icon: '⭐⭐⭐⭐⭐' },
@@ -277,9 +278,9 @@ export default async function PerformancePage(container) {
       async onConfirm() {
         const name = document.getElementById('prf-name')?.value?.trim()
         if (!name) { showToast('❗ กรุณากรอกชื่อพนักงาน', 'error'); return false }
-        const kpi = +document.getElementById('prf-kpi')?.value || 80
-        const beh = +document.getElementById('prf-beh')?.value || 80
-        const att = +document.getElementById('prf-att')?.value || 80
+        const kpi = numVal('#prf-kpi', 80)
+        const beh = numVal('#prf-beh', 80)
+        const att = numVal('#prf-att', 80)
         const overall = (kpi * 0.5 + beh * 0.3 + att * 0.2)
         const rating = overall >= 90 ? 5 : overall >= 80 ? 4 : overall >= 70 ? 3 : overall >= 60 ? 2 : 1
         const fields = {

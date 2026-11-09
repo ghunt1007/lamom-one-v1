@@ -24,6 +24,7 @@ export const PAGE_COLLECTIONS = {
   "followups",
   "job_cards",
   "quotations",
+  "sales_programs",
   "vehicles"
  ],
  "/crm/pipeline": [
@@ -50,6 +51,7 @@ export const PAGE_COLLECTIONS = {
   "followups",
   "job_cards",
   "quotations",
+  "sales_programs",
   "vehicles"
  ],
  "/crm/bookings": [
