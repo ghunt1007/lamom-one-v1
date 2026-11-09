@@ -146,3 +146,25 @@ describe('extra LINE OAs + Google Maps (v1.0.977)', () => {
     await expect(googlePlaces({ GOOGLE_MAPS_API_KEY: 'k' }, { query: 'a' })).rejects.toThrow('2 ตัวอักษร')
   })
 })
+
+describe('LINE multicast to a customer segment (v1.0.1023)', () => {
+  it('only managers/marketing; dedupes, validates ids and splits into 500s', async () => {
+    const { lineMulticast } = await import('./social.js')
+    const env = { LINE_CHANNEL_ACCESS_TOKEN: 'l' }
+    await expect(lineMulticast(env, { userIds: ['U1234567890'], text: 'hi' }, 'sales')).rejects.toThrow('เฉพาะ')
+    expect(await lineMulticast({}, { userIds: ['U1234567890'], text: 'hi' }, 'owner')).toMatchObject({ configured: false })
+    await expect(lineMulticast(env, { userIds: ['bad'], text: 'hi' }, 'owner')).rejects.toThrow('ไม่มีลูกค้า')
+    global.fetch = vi.fn().mockResolvedValue(ok({}))
+    const ids = Array.from({ length: 600 }, (_, i) => 'U' + String(i).padStart(12, '0'))
+    const r = await lineMulticast(env, { userIds: [...ids, ids[0], 'x'], text: 'โปรเดือนนี้' }, 'marketing')
+    expect(r).toMatchObject({ configured: true, sent: 600, failed: 0 })
+    expect(global.fetch).toHaveBeenCalledTimes(2)
+    expect(JSON.parse(global.fetch.mock.calls[0][1].body).to).toHaveLength(500)
+  })
+  it('reports quota errors per chunk', async () => {
+    const { lineMulticast } = await import('./social.js')
+    global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 429, json: async () => ({ message: 'You have reached your monthly limit.' }) })
+    const r = await lineMulticast({ LINE_CHANNEL_ACCESS_TOKEN: 'l' }, { userIds: ['U1234567890'], text: 'x' }, 'manager')
+    expect(r).toMatchObject({ sent: 0, failed: 1, errors: ['โควตาข้อความ LINE OA เดือนนี้หมดแล้ว'] })
+  })
+})

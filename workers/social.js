@@ -374,6 +374,33 @@ export async function lineReply(env, accessToken, { threadId, text } = {}, staff
   return { configured: true, sent: true }
 }
 
+// (v1.0.1023) ส่ง LINE ถึงลูกค้าเฉพาะกลุ่ม (multicast) — เฉพาะลูกค้าที่เคยทัก LINE OA หลัก (ระบบเก็บ lineUserId ให้ตอนสร้างลีด)
+// ผู้จัดการ/เจ้าของ/การตลาดเท่านั้น · สูงสุด 2,000 คนต่อครั้ง (LINE รับ 500 คนต่อคำขอ → แบ่งส่ง)
+export const MULTICAST_ROLES = [...MANAGER_ROLES, 'marketing']
+const isLineUser = v => /^U[0-9a-f]{10,40}$/i.test(String(v || ''))
+export async function lineMulticast(env, { userIds = [], text } = {}, role = '') {
+  if (!MULTICAST_ROLES.includes(role)) throw new Error('เฉพาะผู้จัดการ/การตลาด/เจ้าของเท่านั้นที่ส่งข้อความหาลูกค้าหลายคนได้')
+  if (!env.LINE_CHANNEL_ACCESS_TOKEN) return { configured: false, error: 'LINE OA ยังไม่ได้ตั้งค่า' }
+  const msg = clip(text, MAX_TEXT).trim()
+  if (!msg) throw new Error('พิมพ์ข้อความก่อนส่ง')
+  const ids = [...new Set((Array.isArray(userIds) ? userIds : []).filter(isLineUser))].slice(0, 2000)
+  if (!ids.length) throw new Error('ไม่มีลูกค้าที่ส่ง LINE ได้ในกลุ่มนี้')
+  let sent = 0, failed = 0
+  const errors = []
+  for (let i = 0; i < ids.length; i += 500) {
+    const to = ids.slice(i, i + 500)
+    const res = await fetch('https://api.line.me/v2/bot/message/multicast', {
+      method: 'POST', headers: { Authorization: `Bearer ${env.LINE_CHANNEL_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to, messages: [{ type: 'text', text: msg }] }),
+    }).catch(() => null)
+    if (res?.ok) { sent += to.length; continue }
+    failed += to.length
+    const d = res ? await res.json().catch(() => ({})) : {}
+    errors.push(/limit|quota/i.test(d.message || '') ? 'โควตาข้อความ LINE OA เดือนนี้หมดแล้ว' : `LINE: ${d.message || res?.status || 'network error'}`)
+  }
+  return { configured: true, sent, failed, errors }
+}
+
 // ── router ──────────────────────────────────────────────────────
 const writeLog = new Map()
 export function __resetSocialRate() { writeLog.clear(); placesCache.clear() }
@@ -386,7 +413,7 @@ function allowWrite(uid) {
 
 export async function handleSocial(path, body, env, ctx) {
   const { uid = '', role = '', name = '', getAccessToken } = ctx || {}
-  const writes = ['/social/meta/reply', '/social/meta/post', '/social/meta/ads/update', '/social/line/reply']
+  const writes = ['/social/meta/reply', '/social/meta/post', '/social/meta/ads/update', '/social/line/reply', '/social/line/multicast']
   if (writes.includes(path) && !allowWrite(uid)) throw Object.assign(new Error('ส่งถี่เกินไป รอสักครู่แล้วลองใหม่'), { status: 429 })
   switch (path) {
     case '/social/status': return socialStatus(env)
@@ -395,6 +422,7 @@ export async function handleSocial(path, body, env, ctx) {
     case '/social/meta/post': return metaPost(env, body)
     case '/social/meta/ads': return metaAds(env)
     case '/social/meta/ads/update': return metaAdsUpdate(env, body, role)
+    case '/social/line/multicast': return lineMulticast(env, body, role)
     case '/social/line/reply': return lineReply(env, getAccessToken ? await getAccessToken() : null, body, name)
     case '/social/google/places': return googlePlaces(env, body)
     default: return null

@@ -46,7 +46,7 @@ export async function getSegmentMembers(target) {
   return customers.map(c => ({
     id: c.id,
     name: [c.firstName, c.lastName].filter(Boolean).join(' '),
-    phone: c.phone || '', lineId: c.lineId || '', email: c.email || '',
+    phone: c.phone || '', lineId: c.lineId || '', email: c.email || '', lineUserId: c.lineUserId || '',
   }))
 }
 

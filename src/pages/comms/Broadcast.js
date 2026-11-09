@@ -8,6 +8,7 @@ import { showToast } from '../../core/store.js'
 import { listDocs, createDoc, updateDocData, seedDemoData } from '../../core/db.js'
 import { TARGET_SEGMENTS, getSegmentMembers, getSegmentCount, reachableMembers } from '../../core/segments.js'
 import { sendSms, sendEmail, sendLineBroadcast, sendPush } from '../../utils/comms.js'
+import { lineMulticast } from '../../utils/socialApi.js'
 import { escHtml as __escA } from '../../utils/escape.js'
 import { escHtml } from '../../utils/escape.js'
 import { kpi } from '../../utils/kpiCard.js'
@@ -21,7 +22,7 @@ const BCAST_STATUS = {
 }
 
 const CHANNELS = {
-  line:     { label: 'LINE Broadcast', icon: '💬', color: 'success' },
+  line:     { label: 'LINE', icon: '💬', color: 'success' },
   sms:      { label: 'SMS', icon: '📱', color: 'warning' },
   email:    { label: 'Email', icon: '📧', color: 'primary' },
   push:     { label: 'Push Notification', icon: '🔔', color: 'secondary' },
@@ -125,10 +126,14 @@ export default async function BroadcastPage(container) {
       let confirmMsg
       if (bc.channel === 'line') {
         if (bc.target !== 'all') {
-          showToast('❗ LINE รองรับส่งแบบ "ลูกค้าทั้งหมด" เท่านั้นตอนนี้ — ระบบยังไม่ได้เก็บ LINE userId รายบุคคลของลูกค้า (เก็บแค่ LINE ID ที่กรอกเอง ใช้ยิงเฉพาะกลุ่มไม่ได้)', 'error')
-          return
-        }
-        confirmMsg = `จะส่ง LINE Broadcast ข้อความนี้ถึง "เพื่อน OA ทั้งหมด" จริงทันที (ระบบไม่ทราบจำนวนผู้รับที่แน่นอนล่วงหน้า) ยืนยันส่งหรือไม่?`
+          // (v1.0.1023) ส่งเฉพาะกลุ่ม = ลูกค้าในกลุ่มที่เคยทัก LINE OA (มี lineUserId) ผ่าน multicast
+          reachable = (await getSegmentMembers(bc.target)).filter(m => m.lineUserId)
+          if (!reachable.length) {
+            showToast('❗ ยังไม่มีลูกค้าในกลุ่มนี้ที่เคยทัก LINE OA (ส่ง LINE เฉพาะกลุ่มได้เฉพาะคนที่ทักมาแล้ว) — เลือก "ลูกค้าทั้งหมด" เพื่อส่งถึงเพื่อน OA ทุกคน', 'error')
+            return
+          }
+          confirmMsg = `จะส่ง LINE จริงทันทีถึง <strong>${reachable.length.toLocaleString()} ราย</strong> ในกลุ่ม "${TARGET_SEGS[bc.target] || bc.target}" (เฉพาะคนที่เคยทัก LINE OA) การส่งนี้ไม่สามารถยกเลิกได้ ยืนยันส่งหรือไม่?`
+        } else confirmMsg = `จะส่ง LINE Broadcast ข้อความนี้ถึง "เพื่อน OA ทั้งหมด" จริงทันที (ระบบไม่ทราบจำนวนผู้รับที่แน่นอนล่วงหน้า) ยืนยันส่งหรือไม่?`
       } else {
         const members = await getSegmentMembers(bc.target)
         reachable = reachableMembers(members, bc.channel)
@@ -147,7 +152,10 @@ export default async function BroadcastPage(container) {
       try {
         let result, recipients
 
-        if (bc.channel === 'line') {
+        if (bc.channel === 'line' && reachable) {
+          result = await lineMulticast(reachable.map(m => m.lineUserId), bc.message)
+          recipients = reachable.length
+        } else if (bc.channel === 'line') {
           result = await sendLineBroadcast(bc.message)
           recipients = null // Broadcast API ของ LINE ส่งถึงเพื่อน OA ทั้งหมด ฝั่งเราไม่ทราบจำนวนผู้รับจริง
         } else {
@@ -270,9 +278,10 @@ export default async function BroadcastPage(container) {
       const target = targetEl?.value || 'all'
       subjectGroup.style.display = channel === 'email' ? '' : 'none'
       if (channel === 'line') {
-        hintEl.textContent = target === 'all'
-          ? '💬 LINE Broadcast ส่งถึงเพื่อน OA ทั้งหมด (ไม่จำกัดตามกลุ่มเป้าหมายที่เลือก)'
-          : '⚠️ LINE ยังรองรับส่งแบบ "ลูกค้าทั้งหมด" เท่านั้น (ยังไม่มีการเก็บ LINE userId รายบุคคล)'
+        if (target === 'all') { hintEl.textContent = '💬 LINE Broadcast ส่งถึงเพื่อน OA ทั้งหมด'; return }
+        hintEl.textContent = 'กำลังคำนวณจำนวนผู้รับจริง...'
+        const n = (await getSegmentMembers(target)).filter(m => m.lineUserId).length
+        hintEl.textContent = `💬 LINE เฉพาะกลุ่ม: ส่งได้จริง ${n.toLocaleString()} ราย (ลูกค้าในกลุ่มที่เคยทัก LINE OA)`
         return
       }
       hintEl.textContent = 'กำลังคำนวณจำนวนผู้รับจริง...'
