@@ -68,6 +68,16 @@ export function openLamiPanel({ navigate } = {}) {
     body.scrollTop = body.scrollHeight
     const wait = body.querySelector('.lp-wait')
     try {
+      // (v1.0.981) "X อยู่ตรงไหน / หาไม่เจอ" → ตอบจากเมนูจริงทันที พร้อมปุ่มพาไปหน้านั้น
+      const [{ isWhereQuestion, findPages, whereAnswer }, { NAV }] = await Promise.all([import('./whereIs.js'), import('../data/navMenu.js')])
+      const where = isWhereQuestion(q) ? findPages(q, NAV) : []
+      if (where.length) {
+        const ans = whereAnswer(where)
+        history.push({ role: 'user', text: q }, { role: 'lami', text: ans })
+        wait.outerHTML = `<div class="lp-a">${formatAiText(ans)}</div><div class="lp-asks">${where.map(p => `<button class="lp-ask lp-go" type="button" data-path="${esc(p.path)}">${esc(p.label)} →</button>`).join('')}</div>`
+        body.querySelectorAll('.lp-go').forEach(b => b.addEventListener('click', () => { closeLamiPanel(); navigate ? navigate(b.dataset.path) : (location.href = b.dataset.path) }))
+        return
+      }
       const { askLami } = await import('./ai.js')
       const ans = await askLami(q, history, pageContextFor(screen))
       history.push({ role: 'user', text: q }, { role: 'lami', text: ans })

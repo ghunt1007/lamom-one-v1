@@ -1,3 +1,4 @@
+import { movedBannerHtml, bindMovedBanner } from '../../utils/movedBanner.js'
 /**
  * Promotion Engine — กิจกรรมส่งเสริมการขาย
  * Route: /marketing/promotions
@@ -52,6 +53,7 @@ function monthLabel(ym) {
 }
 
 export default async function PromotionEnginePage(container) {
+  bindMovedBanner(container)
   const myGen = container.__routerGen
   // (v1.0.322) เดิมถ้ามีโปรโมชั่นจริงใน Firestore ระบบจะเอาไปต่อหน้า DEMO_PROMOS 5 รายการปลอมเสมอ ไม่มีทาง
   // ตัดของปลอมออกเลย ทำให้ ROI/งบประมาณรวมที่แสดงผิดจากความจริงถาวร แก้ให้ใช้ของปลอมเฉพาะตอนยังไม่มี
@@ -110,6 +112,7 @@ export default async function PromotionEnginePage(container) {
 
     container.innerHTML =
       '<div class="page-content animate-slide">' +
+        movedBannerHtml('/crm/programs', '🎯 โปร ดอกเบี้ย & เงินพิเศษ', 'ส่วนลด ของแถม ดอกเบี้ย และเงินพิเศษเดือนนี้อยู่ที่นั่น (ใช้ในใบเสนอราคา หน้าลูกค้า และ LAMI ด้วย)') +
         '<div class="page-header"><div>' +
           '<div class="page-title">🎪 กิจกรรมส่งเสริมการขาย</div>' +
           '<div class="page-subtitle">จัดการโปรโมชั่น วิเคราะห์ ROI งบประมาณ และคาดการณ์แคมเปญ' +

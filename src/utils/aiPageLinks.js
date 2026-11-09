@@ -1,5 +1,10 @@
 // ปุ่ม "เปิดหน้า…" ใต้คำตอบ LAMI — ดูจากคำถาม แล้วพาไปหน้าที่ใช้ทำเรื่องนั้นต่อได้ทันที
 const LINKS = [
+  [/โปร|แคมเปญ|เงินพิเศษ|รางวัล|โบนัส|มาร์จิ้น|ค่าบริหาร|ซับซิดี้/i, '🎯 โปร ดอกเบี้ย & เงินพิเศษ', '/crm/programs'],
+  [/บูธ|อีเวนต์|มอเตอร์โชว์|motor\s*expo/i, '🎪 ออกบูธ & อีเวนต์', '/marketing/events'],
+  [/เฟซบุ๊ก|facebook|เพจ|line oa|ไลน์โอเอ|instagram|ไอจี|tiktok|รีวิว|google maps/i, '💬 แชต & โพสต์โซเชียล', '/marketing/channels'],
+  [/ใบเสนอราคา|quotation/i, '🧾 ใบเสนอราคา', '/crm/quotation'],
+  [/kpi|ตัวชี้วัด|forecast|conversion|quota|โควตา/i, '📐 ตัวชี้วัดการขาย', '/analytics/sales-metrics'],
   [/ทดลองขับ|ลองขับ|test\s*drive/i, '🚗 นัดทดลองขับ', '/crm/testdrive'],
   [/สต็อก|stock|รถเหลือ|รถว่าง/i, '📦 สต็อกรถ', '/dms/stock'],
   [/จอง|booking|ส่งมอบ/i, '📝 จองรถ', '/crm/bookings'],
